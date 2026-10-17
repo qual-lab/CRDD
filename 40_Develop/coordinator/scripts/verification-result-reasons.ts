@@ -47,6 +47,8 @@ export const SIGNED_GENERAL_TASK_PUBLIC_REASONS = Object.freeze([
   "signed_general_task_post_start_observation_unknown",
   "signed_general_task_process_restart_required",
   "signed_general_task_release_verification_failed",
+  "signed_general_task_source_observation_unknown",
+  "signed_general_task_source_changed",
   "signed_general_task_repository_revision_observation_failed",
   "signed_general_task_repository_root_invalid",
   "signed_general_task_result_contract_mismatch",

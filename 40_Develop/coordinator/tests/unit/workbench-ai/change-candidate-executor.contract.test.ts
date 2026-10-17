@@ -73,8 +73,6 @@ test("明示Pathだけで未信頼・未採用Candidateを返す", async () => {
       profileStore,
       Object.freeze({
         observeRevision: gitRepositoryRevisionAdapter,
-        issueRuntimeCapability: () => Object.freeze({}),
-        revokeRuntimeCapability: () => true,
         startTask: (request) => {
           taskRequest = request;
           return Object.freeze({
@@ -154,8 +152,6 @@ test("許可PathなしではTask Effectを発行しない", async () => {
       profileStore,
       Object.freeze({
         observeRevision: gitRepositoryRevisionAdapter,
-        issueRuntimeCapability: () => Object.freeze({}),
-        revokeRuntimeCapability: () => true,
         startTask: () => {
           startCount += 1;
           throw new Error("must_not_start");
@@ -186,25 +182,19 @@ test("許可PathなしではTask Effectを発行しない", async () => {
  * @trace ERB-UT-023
  * @precondition Repository RootとProfileは有効、Task完了値だけを固定注入する。
  * @stimulus 送信確認不可・Provider未選択の完了値を候補Executorへ返す。
- * @observation 上位結果の状態、理由、候補とCapability失効回数を観測する。
- * @oracle blockedと元理由を保持し、候補なし、失効1回である。
+ * @observation 上位結果の状態、理由、候補の有無を観測する。
+ * @oracle blockedと元理由を保持し、候補を生成しない。
  * @cleanup N/A: ProviderやDocker資源を生成せず局所依存だけを使う。
  * @boundary ERB-UT-023=Direct Boundary: Task完了値→Workbench候補Executor。
  */
 test("送信確認不可の未選択拒否をWorkbench結果へ保持する", async () => {
   const verified = verifiedRoot();
-  let revoked = 0;
   const executor =
     createIsolatedWorkbenchAiChangeCandidateExecutorForDevelopment(
       verified.capability,
       profileStore,
       Object.freeze({
         observeRevision: gitRepositoryRevisionAdapter,
-        issueRuntimeCapability: () => Object.freeze({}),
-        revokeRuntimeCapability: () => {
-          revoked += 1;
-          return true;
-        },
         startTask: () =>
           Object.freeze({
             status: "started",
@@ -247,5 +237,4 @@ test("送信確認不可の未選択拒否をWorkbench結果へ保持する", as
     "coordinator_task_external_send_confirmation_unavailable",
   );
   assert.equal(result.candidate, null);
-  assert.equal(revoked, 1);
 });

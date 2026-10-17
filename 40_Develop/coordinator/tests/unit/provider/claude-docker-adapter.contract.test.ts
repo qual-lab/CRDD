@@ -280,7 +280,13 @@ test("Workbench助言をRepository非共有のClaude Planへ固定する", () =>
  * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
 test("説明可能な低推論選定を固定Docker command planへ一度だけ結合する", () => {
-  const fixture = createFixture();
+  const randomCalls: number[] = [];
+  const fixture = createFixture({
+    randomBytes: (size: number) => {
+      randomCalls.push(size);
+      return Buffer.alloc(size, size === 8 ? 1 : 2);
+    },
+  });
   const prepared = fixture.adapter.prepare(
     fixture.managementCapability,
     fixture.mountCapability,
@@ -303,6 +309,120 @@ test("説明可能な低推論選定を固定Docker command planへ一度だけ�
     fixture.managementCapability,
   );
   assert.ok(plan);
+  assert.deepEqual(randomCalls, [8, 32]);
+  const expectedNames = {
+    internalNetworkName: `crdd-internal-${"01".repeat(8)}`,
+    egressNetworkName: `crdd-egress-${"01".repeat(8)}`,
+    proxyContainerName: `crdd-proxy-${"01".repeat(8)}`,
+    authContainerName: `crdd-auth-${"01".repeat(8)}`,
+    providerContainerName: `crdd-claude-${"a".repeat(16)}`,
+    ownershipLabel: `crdd.coordinator.runtime=${"01".repeat(8)}`,
+  };
+  /**
+   * 実計画の資源名と全操作の対象を同じ固定期待へ照合する。
+   * @responsibility 正常計画とコピー変異へ同じ位置依存Oracleを適用する。
+   * @trace PRL-UT-014
+   * @precondition 本番準備が返したplanまたはその一軸変異を使う。
+   * @stimulus 各fieldとname／label／操作対象を比較する。
+   * @observation 固定flag直後と対象位置の値。
+   * @oracle 五資源名・labelと九操作の相関が全て一致する。
+   * @cleanup N/A: 計画値だけを読み実資源を扱わない。
+   * @boundary PRL-UT-014=Direct Boundary: 準備結果→DI command。
+   */
+  const assertResourceBinding = (candidate: NonNullable<typeof plan>) => {
+    for (const [key, expected] of Object.entries(expectedNames))
+      assert.equal(candidate[key as keyof typeof expectedNames], expected);
+    for (const [purpose, name] of [
+      ["create_subscription_auth_probe", expectedNames.authContainerName],
+      ["create_internal_network", expectedNames.internalNetworkName],
+      ["create_egress_network", expectedNames.egressNetworkName],
+      ["create_proxy", expectedNames.proxyContainerName],
+      ["create_provider", expectedNames.providerContainerName],
+    ]) {
+      const command = candidate.commands.find(
+        (entry) => entry.purpose === purpose,
+      );
+      assert.ok(command && name);
+      const label = command.argv.indexOf("--label");
+      assert.ok(label >= 0);
+      assert.equal(
+        command.argv.filter((value) => value === "--label").length,
+        1,
+      );
+      assert.equal(command.argv[label + 1], expectedNames.ownershipLabel);
+      if (purpose?.includes("network")) assert.equal(command.argv.at(-1), name);
+      else {
+        const nameIndex = command.argv.indexOf("--name");
+        assert.ok(nameIndex >= 0);
+        assert.equal(
+          command.argv.filter((value) => value === "--name").length,
+          1,
+        );
+        assert.equal(command.argv[nameIndex + 1], name);
+      }
+    }
+    for (const [purpose, tail] of [
+      [
+        "start_subscription_auth_probe_attached",
+        [expectedNames.authContainerName],
+      ],
+      [
+        "connect_proxy_egress",
+        [expectedNames.egressNetworkName, expectedNames.proxyContainerName],
+      ],
+      ["start_proxy", [expectedNames.proxyContainerName]],
+      ["start_provider_attached", [expectedNames.providerContainerName]],
+    ] as const) {
+      const command = candidate.commands.find(
+        (entry) => entry.purpose === purpose,
+      );
+      assert.ok(command);
+      assert.deepEqual(command.argv.slice(-tail.length), tail);
+    }
+  };
+  assertResourceBinding(plan);
+  for (const changed of [
+    {
+      ...plan,
+      providerContainerName: expectedNames.providerContainerName.replace(
+        /codex|claude/u,
+        (value) => (value === "codex" ? "claude" : "codex"),
+      ),
+    },
+    {
+      ...plan,
+      providerContainerName: expectedNames.providerContainerName.replace(
+        /[ab]{16}$/u,
+        "c".repeat(16),
+      ),
+    },
+    { ...plan, internalNetworkName: `crdd-internal-${"03".repeat(8)}` },
+  ])
+    assert.throws(() => assertResourceBinding(changed));
+  for (const [purpose, flag] of [
+    ["create_provider", "--name"],
+    ["create_provider", "--label"],
+    ["create_internal_network", "target"],
+    ["connect_proxy_egress", "target"],
+    ["start_subscription_auth_probe_attached", "target"],
+    ["start_proxy", "target"],
+    ["start_provider_attached", "target"],
+  ]) {
+    const commands = plan.commands.map((command) => {
+      if (command.purpose !== purpose) return command;
+      const argv = [...command.argv];
+      const index =
+        flag === "target" ? argv.length - 1 : argv.indexOf(flag ?? "") + 1;
+      const original = argv[index];
+      argv[index] =
+        flag === "--label"
+          ? `crdd.coordinator.runtime=${"03".repeat(8)}`
+          : `crdd-proxy-${"03".repeat(8)}`;
+      if (flag !== "target" && original) argv.push(original);
+      return { ...command, argv };
+    });
+    assert.throws(() => assertResourceBinding({ ...plan, commands }));
+  }
   assert.equal(plan.providerContainerName, `crdd-claude-${"a".repeat(16)}`);
   assert.equal(plan.selectionRecordId, "MODELSEL-12345678");
   const purposes = plan.commands.map((candidate) => candidate.purpose);
@@ -367,6 +487,59 @@ test("説明可能な低推論選定を固定Docker command planへ一度だけ�
   );
 });
 
+/**
+ * 乱数の不正取得と例外が準備後の権限発行へ進まないことを確認する。
+ * @responsibility 取得順とMount返却を既存準備から観測する。
+ * @trace PRL-UT-014
+ * @precondition 固定選定と模擬Mountを持つ実準備Adapterを使う。
+ * @stimulus 各取得の短長違反と例外を与える。
+ * @observation 乱数呼出列、準備結果、Mount返却とAuthority件数。
+ * @oracle 不正Bufferでも二取得を維持し、例外以後は取得しない。Mount返却1、Authority0。
+ * @cleanup N/A: 値fixtureのみでDocker・外部AI・実Mountを取得しない。
+ * @boundary PRL-UT-014=Direct Boundary: 準備Owner→DI値生成。
+ */
+test("DI乱数検査の不成立は既存準備のMount返却と発行前停止を保つ", () => {
+  for (const mode of [
+    "short8",
+    "long8",
+    "short32",
+    "long32",
+    "throw8",
+    "throw32",
+  ]) {
+    const randomCalls: number[] = [];
+    let authorityCalls = 0;
+    const fixture = createFixture({
+      randomBytes: (size: number) => {
+        randomCalls.push(size);
+        if (mode === `throw${size}`) throw new Error("fixed_random_failure");
+        return Buffer.alloc(
+          mode === `short${size}`
+            ? size - 1
+            : mode === `long${size}`
+              ? size + 1
+              : size,
+          1,
+        );
+      },
+      issueProviderAuthority: () => {
+        authorityCalls += 1;
+        throw new Error("forbidden");
+      },
+    });
+    const prepared = fixture.adapter.prepare(
+      fixture.managementCapability,
+      fixture.mountCapability,
+      fixture.mountAuthorizationCapability,
+      fixture.selectionUseCapability,
+    );
+    assert.equal(prepared.status, "blocked");
+    assert.deepEqual(randomCalls, mode === "throw8" ? [8] : [8, 32]);
+    assert.equal(fixture.getCompletionCount(), 1);
+    assert.equal(authorityCalls, 0);
+    assert.equal(prepared.dockerEffectIssued, false);
+  }
+});
 /**
  * cancelはMount leaseを完了しprepared capabilityを再利用不能にするを検証する。
  *

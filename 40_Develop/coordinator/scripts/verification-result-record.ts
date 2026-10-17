@@ -18,7 +18,7 @@ import {
   resolveVerifiedRepositoryRootFromWorkingDirectory,
   verifyRepositoryRoot,
 } from "../../version-control/src/index.ts";
-import { isDockerIsolationRecoveryIdCandidate } from "../src/docker-execution/isolation-probe.ts";
+import { isDockerIsolationRecoveryIdCandidate } from "../src/host-execution/recovery-record.ts";
 import { snapshotPlainArray } from "../../domain-model/src/index.ts";
 import { coordinatorTaskPublicReasons } from "../src/task/result-reasons.ts";
 import { inspectRepositoryRevisionCandidate } from "../src/repository-operation/binding.ts";
@@ -30,7 +30,7 @@ import {
 } from "./verification-result-reasons.ts";
 
 const CONTRACT = "crdd-coordinator/local-verification-record";
-const CONTRACT_REVISION = 3;
+const CONTRACT_REVISION = 4;
 const MAX_RECORD_BYTES = 32 * 1024;
 const MAX_EXISTING_ENTRIES = 256;
 const reasons = new Set([
@@ -55,6 +55,7 @@ const VALIDATION_FAILURES = new Set([
   "arguments_invalid",
   "route_nonconforming",
   "release_identity_mismatch",
+  "source_identity_mismatch",
   "execution_identity_mismatch",
   "runner_exception",
   "process_restart_required",
@@ -79,6 +80,7 @@ const SCENARIOS = new Set([
   "parent_process_loss_then_fresh_recovery",
 ]);
 const booleanFields = [
+  "signatureRequired",
   "cleanupConfirmed",
   "manualRecoveryRequired",
   "processRestartRequired",
@@ -196,6 +198,14 @@ export function projectVerificationResult(
         ? observed
         : null;
   }
+  summary.sourceScope =
+    ownValue(value, "sourceScope") === "crdd-development-source-snapshot/v1"
+      ? "crdd-development-source-snapshot/v1"
+      : null;
+  summary.sourceObservationStatus = known(
+    ownValue(value, "sourceObservationStatus"),
+    new Set(["matched", "changed", "unavailable"]),
+  );
   const reviewerDecision = ownValue(value, "reviewerDecision");
   summary.reviewerDecision =
     reviewerDecision === "approved" || reviewerDecision === "changes_requested"
@@ -221,6 +231,7 @@ export function projectVerificationResult(
   );
   summary.scenario = known(ownValue(value, "scenario"), SCENARIOS);
   for (const field of [
+    "sourceSha256",
     "manifestHash",
     "packageContentRootSha256",
     "runtimeExecutionIdentitySha256",

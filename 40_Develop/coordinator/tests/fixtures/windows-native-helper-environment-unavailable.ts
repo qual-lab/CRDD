@@ -40,50 +40,26 @@ await mock.module("node:child_process", {
   },
 });
 await mock.module(
-  new URL(
-    "../../src/host-execution/windows-child-environment.ts",
-    import.meta.url,
-  ).href,
+  new URL("../../../platform-access/src/index.ts", import.meta.url).href,
   {
     namedExports: {
       createWindowsNativeHelperEnvironment: () => null,
       WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE:
         "fixed_test_environment_unavailable",
-    },
-  },
-);
-await mock.module(
-  new URL("../../src/platform-access/package-verification.ts", import.meta.url)
-    .href,
-  {
-    namedExports: {
-      inspectVerifiedNativeDistributionCandidate: () => ({ status: "blocked" }),
-      verifyBundledCoordinatorPackageFromFixedManifestCandidate: () => ({
-        status: "candidate",
-        runtimeOwnedReleaseTrustConfirmed: true,
-        releaseIdentityRuntimeOwned: false,
-        runtimeExecutionIdentityRuntimeOwned: true,
-        crddDistributionConfirmed: true,
-        platformAccessArtifact: artifact,
-      }),
-    },
-  },
-);
-await mock.module(
-  new URL("../../src/diagnostics/platform-access-release.ts", import.meta.url)
-    .href,
-  {
-    namedExports: {
       PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH: artifact.relativePath,
-      observePlatformAccessReleaseArtifactCandidate: () => ({
+      observePlatformAccessArtifactCandidate: () => ({
         status: "candidate",
         artifact,
       }),
-      beginPlatformAccessArtifactSigningObservation: () => ({
+      beginPlatformAccessArtifactObservation: () => ({
         artifact,
         token: Object.freeze({}),
       }),
-      verifyPlatformAccessArtifactSigningObservation: () => true,
+      beginPlatformAccessBootstrapObservation: () => ({
+        artifact,
+        token: Object.freeze({}),
+      }),
+      verifyPlatformAccessArtifactObservation: () => true,
     },
   },
 );
@@ -94,14 +70,13 @@ const providerAdapter = await import(
 const candidateAdapter = await import(
   "../../src/platform-access/protected-root-windows-adapter.ts"
 );
-const now = new Date().toISOString();
 const providerOutcome =
-  providerAdapter.inspectRuntimeOwnedWindowsProviderHomeCandidate("codex", now);
+  providerAdapter.inspectRuntimeOwnedWindowsProviderHomeCandidate("codex");
 const candidateOutcomes = [
-  candidateAdapter.inspectRuntimeOwnedWindowsCandidateStore(false, now),
-  candidateAdapter.inspectRuntimeOwnedWindowsCandidateStore(true, now),
-  candidateAdapter.inspectRuntimeOwnedWindowsRuntimeState(false, now),
-  candidateAdapter.inspectRuntimeOwnedWindowsRuntimeState(true, now),
+  candidateAdapter.inspectRuntimeOwnedWindowsCandidateStore(false),
+  candidateAdapter.inspectRuntimeOwnedWindowsCandidateStore(true),
+  candidateAdapter.inspectRuntimeOwnedWindowsRuntimeState(false),
+  candidateAdapter.inspectRuntimeOwnedWindowsRuntimeState(true),
 ];
 const outcomes = [providerOutcome, ...candidateOutcomes];
 

@@ -18,6 +18,24 @@ import { PassThrough, Writable } from "node:stream";
 import test from "node:test";
 import tty from "node:tty";
 import { pathToFileURL } from "node:url";
+import { API, type Project } from "typescript/unstable/sync";
+import {
+  isBinaryExpression,
+  isCallExpression,
+  isFunctionDeclaration,
+  isFunctionLikeDeclaration,
+  isIdentifier,
+  isImportDeclaration,
+  isNamedImports,
+  isNamespaceImport,
+  isNumericLiteral,
+  isPropertyAccessExpression,
+  isStringLiteral,
+  isVariableDeclaration,
+  type Node,
+  type SourceFile,
+  SyntaxKind,
+} from "typescript/unstable/ast";
 
 import {
   describeInteractiveConsoleContract,
@@ -45,8 +63,6 @@ import {
 import { isRuntimeProcessPoisoned } from "../../src/host-execution/process-safety-state.ts";
 import {
   createInteractiveConsoleReaderEnvironment,
-  createWindowsDockerCliEnvironment,
-  createWindowsDockerDesktopRepairHelperEnvironment,
   createWindowsHostOperationSupervisorEnvironment,
   createWindowsNativeHelperEnvironment,
   createWindowsNodeConsoleReaderEnvironment,
@@ -55,7 +71,11 @@ import {
   describeWindowsChildEnvironmentContract,
   WINDOWS_CHILD_ENVIRONMENT_CONTRACT,
   WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE,
-} from "../../src/host-execution/windows-child-environment.ts";
+} from "../../../platform-access/src/index.ts";
+import {
+  createDockerCliEnvironment,
+  createDockerDesktopRepairHelperEnvironment,
+} from "../../../docker-isolation/src/index.ts";
 import { acquireRuntimeOwnedInteractiveConsoleKernelLockOutcome } from "../../src/host-execution/kernel-lock.ts";
 import { readInteractiveConsoleLineOutcomeUsingAdapter } from "../support/interactive-console-child-harness.ts";
 
@@ -207,14 +227,284 @@ test("対話Consoleは一つのRuntime契約だけがOS deviceを所有する", 
     "utf8",
   );
   const cliSource = fs.readFileSync(
-    path.join(coordinatorRoot, "src", "cli", "coordinator-command.ts"),
+    path.join(coordinatorRoot, "src", "cli", "command.ts"),
     "utf8",
   );
   assert.equal(parentConsoleSource.includes("process.stdin"), false);
   assert.equal(readerSource.includes("process.stdin"), false);
   assert.equal(readerSource.includes('"\\\\\\\\.\\\\CONIN$"'), true);
-  assert.equal(cliSource.includes("fs.readSync(0"), true);
+  const requestInputSource = fs.readFileSync(
+    path.join(coordinatorRoot, "src", "cli", "request-input.ts"),
+    "utf8",
+  );
+  assert.equal(cliSource.includes('from "./request-input.ts"'), true);
+  assert.equal(
+    cliSource.includes("taskRequest = readBoundedTaskRequestFromStdin();"),
+    true,
+  );
+  assert.equal(requestInputSource.includes("fs.readSync(0"), true);
+  const commandPath = path
+    .join(coordinatorRoot, "src/cli/command.ts")
+    .replaceAll("\\", "/");
+  const inputPath = path
+    .join(coordinatorRoot, "src/cli/request-input.ts")
+    .replaceAll("\\", "/");
+  const config = path
+    .join(coordinatorRoot, ".crdd-stdin-oracle.json")
+    .replaceAll("\\", "/");
+  const virtualConfig = JSON.stringify({
+    extends: "./tsconfig.strict.json",
+    files: [
+      "command",
+      "request-input",
+      "interactive-console",
+      "interactive-console-reader",
+    ].map((name) => `src/cli/${name}.ts`),
+    include: [],
+  });
+  const alternatives = [
+    cliSource,
+    cliSource.replace('from "./request-input.ts"', 'from "./options.ts"'),
+    cliSource.replace(
+      "taskRequest = readBoundedTaskRequestFromStdin();",
+      "taskRequest = otherReader();",
+    ),
+    `${cliSource}\nimport fs from "node:fs"; fs.readSync(0, Buffer.alloc(1), 0, 1, null);`,
+    cliSource,
+    `${cliSource}\nimport { readSync as directRead } from "node:fs"; directRead(0, Buffer.alloc(1), 0, 1, null);`,
+    `${cliSource.replace("taskRequest = readBoundedTaskRequestFromStdin();", "taskRequest = otherReader();")}\nfunction unusedInputDecoy() { let taskRequest; taskRequest = readBoundedTaskRequestFromStdin(); }`,
+  ];
+  const expectedFailures = [
+    null,
+    "input_import_invalid",
+    "input_call_invalid",
+    "command_direct_stdin",
+    "input_owner_invalid",
+    "command_direct_stdin",
+    "input_call_invalid",
+  ];
+  for (const [index, source] of alternatives.entries()) {
+    if (index > 0 && index !== 4) assert.notEqual(source, cliSource);
+    const input =
+      index === 4
+        ? requestInputSource.replace(
+            "fs.readSync(0",
+            "({ readSync: () => 0 }).readSync(0",
+          )
+        : requestInputSource;
+    if (index === 4) assert.notEqual(input, requestInputSource);
+    const api = new API({
+      cwd: coordinatorRoot,
+      fs: {
+        readFile: (name) =>
+          name === commandPath
+            ? source
+            : name === inputPath
+              ? input
+              : name === config
+                ? virtualConfig
+                : undefined,
+        fileExists: (name) =>
+          name === commandPath || name === inputPath || name === config
+            ? true
+            : undefined,
+        realpath: (name) =>
+          name === commandPath || name === inputPath || name === config
+            ? name
+            : undefined,
+      },
+    });
+    try {
+      const snapshot = api.updateSnapshot({ openProjects: [config] });
+      try {
+        const project = snapshot.getProject(config);
+        assert.ok(project);
+        const failures = inspectTaskStdinWiring(project, coordinatorRoot);
+        const expected = expectedFailures[index];
+        if (expected === null) assert.deepEqual(failures, []);
+        else {
+          assert.ok(expected);
+          assert.ok(
+            failures.includes(expected),
+            `${index}: ${failures.join(",")}`,
+          );
+        }
+      } finally {
+        snapshot.dispose();
+      }
+    } finally {
+      api.close();
+    }
+  }
 });
+
+/**
+ * Task標準入力のimport・呼出し・直接読取りOwnerをASTで照合する。
+ * @responsibility 表示用ConsoleとTask入力の実配線を区別する。
+ * @trace EST-ST-003
+ * @precondition 実strict設定と仮想差替えの同一Projectがある。
+ * @stimulus 四つの入力関連Sourceを走査する。
+ * @observation import binding、代入先、読取り呼出しを取得する。
+ * @oracle commandの入力委譲一回とrequest-inputだけの直接読取り一回を要求する。
+ * @cleanup N/A: Projectの解放は呼出し元が所有する。
+ * @boundary 試験内ASTのみ。外部入力は読まない。
+ */
+function inspectTaskStdinWiring(project: Project, root: string) {
+  const failures: string[] = [];
+  const sources = [
+    "command",
+    "request-input",
+    "interactive-console",
+    "interactive-console-reader",
+  ].map((name) => {
+    const file = path.join(root, `src/cli/${name}.ts`).replaceAll("\\", "/");
+    const source = project.program.getSourceFile(file);
+    assert.ok(source);
+    assert.equal(project.program.getSyntacticDiagnostics(file).length, 0);
+    return source;
+  });
+  const command = sources[0];
+  assert.ok(command);
+  const imports = command.statements
+    .filter(isImportDeclaration)
+    .filter(
+      (item) =>
+        isStringLiteral(item.moduleSpecifier) &&
+        item.moduleSpecifier.text === "./request-input.ts",
+    )
+    .flatMap((item) => {
+      const bindings = item.importClause?.namedBindings;
+      return bindings && isNamedImports(bindings)
+        ? [...bindings.elements].filter(
+            (binding) =>
+              (binding.propertyName?.text ?? binding.name.text) ===
+              "readBoundedTaskRequestFromStdin",
+          )
+        : [];
+    });
+  if (imports.length !== 1) failures.push("input_import_invalid");
+  const binding = imports[0];
+  const symbol = binding
+    ? project.checker.getResolvedSymbol(binding.name)
+    : undefined;
+  const taskFunctions = command.statements
+    .filter(isFunctionDeclaration)
+    .filter((node) => node.name?.text === "runTaskCommand");
+  const taskBody = taskFunctions[0]?.body;
+  if (taskFunctions.length !== 1 || !taskBody) return ["task_function_invalid"];
+  const taskNodes = new Set<Node>();
+  const taskPending: Node[] = [taskBody];
+  while (taskPending.length) {
+    const node = taskPending.pop();
+    assert.ok(node);
+    if (isFunctionLikeDeclaration(node)) continue;
+    taskNodes.add(node);
+    node.forEachChild((child) => {
+      taskPending.push(child);
+    });
+  }
+  const taskDeclarations = [...taskNodes]
+    .filter(isVariableDeclaration)
+    .filter(
+      (node) => isIdentifier(node.name) && node.name.text === "taskRequest",
+    );
+  const requestDeclaration = taskDeclarations[0];
+  const requestSymbol =
+    requestDeclaration && isIdentifier(requestDeclaration.name)
+      ? project.checker.getResolvedSymbol(requestDeclaration.name)
+      : undefined;
+  if (taskDeclarations.length !== 1 || !requestSymbol)
+    failures.push("input_target_invalid");
+  let assignedCalls = 0;
+  for (const [index, source] of sources.entries()) {
+    const fsReceivers = new Set<number>();
+    const fsReaders = new Set<number>();
+    for (const item of source.statements.filter(isImportDeclaration)) {
+      if (
+        !isStringLiteral(item.moduleSpecifier) ||
+        item.moduleSpecifier.text !== "node:fs"
+      )
+        continue;
+      const clause = item.importClause;
+      const names = clause?.namedBindings;
+      for (const receiver of [
+        clause?.name,
+        names && isNamespaceImport(names) ? names.name : undefined,
+      ]) {
+        const resolved = receiver
+          ? project.checker.getResolvedSymbol(receiver)
+          : undefined;
+        if (resolved) fsReceivers.add(resolved.id);
+      }
+      if (names && isNamedImports(names))
+        for (const imported of names.elements) {
+          if (
+            (imported.propertyName?.text ?? imported.name.text) !== "readSync"
+          )
+            continue;
+          const resolved = project.checker.getResolvedSymbol(imported.name);
+          if (resolved) fsReaders.add(resolved.id);
+        }
+    }
+    const pending: Node[] = [source as SourceFile];
+    let directReads = 0;
+    while (pending.length) {
+      const node = pending.pop();
+      assert.ok(node);
+      node.forEachChild((child) => {
+        pending.push(child);
+      });
+      if (
+        isBinaryExpression(node) &&
+        taskNodes.has(node) &&
+        node.operatorToken.kind === SyntaxKind.EqualsToken &&
+        isIdentifier(node.left) &&
+        requestSymbol &&
+        project.checker.getResolvedSymbol(node.left)?.id === requestSymbol.id &&
+        isCallExpression(node.right) &&
+        isIdentifier(node.right.expression) &&
+        symbol &&
+        project.checker.getResolvedSymbol(node.right.expression)?.id ===
+          symbol.id
+      )
+        assignedCalls += 1;
+      if (
+        isPropertyAccessExpression(node) &&
+        isIdentifier(node.expression) &&
+        node.expression.text === "process" &&
+        node.name.text === "stdin"
+      )
+        directReads += 1;
+      if (
+        isCallExpression(node) &&
+        node.arguments[0] &&
+        isNumericLiteral(node.arguments[0]) &&
+        node.arguments[0].text === "0"
+      ) {
+        const expression = node.expression;
+        if (
+          isPropertyAccessExpression(expression) &&
+          expression.name.text === "readSync" &&
+          isIdentifier(expression.expression)
+        ) {
+          const receiver = project.checker.getResolvedSymbol(
+            expression.expression,
+          );
+          if (receiver && fsReceivers.has(receiver.id)) directReads += 1;
+        } else if (isIdentifier(expression)) {
+          const reader = project.checker.getResolvedSymbol(expression);
+          if (reader && fsReaders.has(reader.id)) directReads += 1;
+        }
+      }
+    }
+    if (index === 1 ? directReads !== 1 : directReads !== 0)
+      failures.push(
+        index === 0 ? "command_direct_stdin" : "input_owner_invalid",
+      );
+  }
+  if (assignedCalls !== 1) failures.push("input_call_invalid");
+  return failures;
+}
 
 /**
  * generic Console adapterはcleanup不明でもproduction stateを変更しないを検証する。
@@ -1194,11 +1484,25 @@ test("Windows内部子Processの実Environmentは用途別固定集合へ閉じ�
       true,
     );
   }
-  const dockerEnvironment = createWindowsDockerCliEnvironment({
+  const dockerEnvironment = createDockerCliEnvironment({
     dockerConfig: "C:\\runtime-owned\\docker-config",
     dockerHome: "C:\\runtime-owned\\docker-home",
   });
   assert.ok(dockerEnvironment);
+  assert.equal(Object.getPrototypeOf(dockerEnvironment), null);
+  for (const [dockerConfig, dockerHome] of [
+    [null, "C:\\owned-home"],
+    ["C:\\owned-config", null],
+    ["relative", "C:\\owned-home"],
+    ["C:\\owned-config", "relative"],
+    ["C:\\owned-config\0invalid", "C:\\owned-home"],
+    ["C:\\owned-config", "C:\\owned-home\0invalid"],
+  ] as const) {
+    assert.equal(
+      createDockerCliEnvironment({ dockerConfig, dockerHome }),
+      null,
+    );
+  }
   const dockerResult = spawnSync(
     process.execPath,
     [
@@ -1258,7 +1562,7 @@ test("Windows内部子Processの実Environmentは用途別固定集合へ閉じ�
     userProfileInitializationAuthority: false,
     actualChildObservationRequired: true,
   });
-  assert.deepEqual(createWindowsDockerDesktopRepairHelperEnvironment(), {
+  assert.deepEqual(createDockerDesktopRepairHelperEnvironment(), {
     ...createWindowsNativeHelperEnvironment(),
     SYSTEMDRIVE: deriveWindowsSystemDrive(
       createWindowsNativeHelperEnvironment()?.SystemRoot,
@@ -1363,12 +1667,7 @@ test("中立化した親ProcessからもAuthenticode検査用PowerShellを初期
     path.join(profile, "AppData", "Local", "Temp"),
   );
   const moduleUrl = pathToFileURL(
-    path.join(
-      coordinatorRoot,
-      "src",
-      "host-runtime",
-      "windows-child-environment.ts",
-    ),
+    path.join(coordinatorRoot, "../platform-access/src/index.ts"),
   ).href;
   const source = [
     'import { spawnSync } from "node:child_process";',
@@ -1453,7 +1752,7 @@ test("Docker修復の実子は親のSYSTEMDRIVEを継承せず他用途はneutra
   const before = process.env.SYSTEMDRIVE;
   try {
     process.env.SYSTEMDRIVE = "Z:";
-    const environment = createWindowsDockerDesktopRepairHelperEnvironment();
+    const environment = createDockerDesktopRepairHelperEnvironment();
     assert.ok(environment);
     assert.equal(
       environment.SYSTEMDRIVE,
@@ -2518,8 +2817,14 @@ test("Executable sourceとpackage commandへShell依存のJSON搬送を再導入
     /ConvertTo-Json/u,
     /shell\s*:\s*true/u,
   ];
-  for (const directory of ["bin", "scripts", "src"]) {
-    for (const file of sourceFiles(path.join(coordinatorRoot, directory))) {
+  for (const directory of [
+    ...["bin", "scripts", "src"].map((name) =>
+      path.join(coordinatorRoot, name),
+    ),
+    path.resolve(coordinatorRoot, "../platform-access/src"),
+    path.resolve(coordinatorRoot, "../docker-isolation/src"),
+  ]) {
+    for (const file of sourceFiles(directory)) {
       const source = fs.readFileSync(file, "utf8");
       for (const pattern of forbiddenPatterns) {
         assert.equal(pattern.test(source), false, `${file}: ${pattern.source}`);
@@ -2561,10 +2866,7 @@ test("Executable sourceとpackage commandへShell依存のJSON搬送を再導入
     false,
   );
 
-  for (const relative of [
-    "scripts/sign-release-manifest.ts",
-    "src/diagnostics/doctor.ts",
-  ]) {
+  for (const relative of ["src/diagnostics/doctor.ts"]) {
     const source = fs.readFileSync(
       path.join(coordinatorRoot, relative),
       "utf8",
@@ -2576,16 +2878,26 @@ test("Executable sourceとpackage commandへShell依存のJSON搬送を再導入
     );
   }
 
-  const productionChildProcessOwners = sourceFiles(
-    path.join(coordinatorRoot, "src"),
-  )
+  // 型専用importも含むSource棚卸しであり、実Process発行・Authorityの証明ではない。
+  const childProcessImportSources = [
+    ...sourceFiles(path.join(coordinatorRoot, "src")),
+    ...sourceFiles(path.resolve(coordinatorRoot, "../platform-access/src")),
+    ...sourceFiles(path.resolve(coordinatorRoot, "../docker-isolation/src")),
+  ]
     .filter((file) =>
       fs.readFileSync(file, "utf8").includes('from "node:child_process"'),
     )
-    .map((file) => path.relative(coordinatorRoot, file).replaceAll("\\", "/"))
+    .map((file) => {
+      const localPath = path
+        .relative(coordinatorRoot, file)
+        .replaceAll("\\", "/");
+      return localPath.startsWith("../")
+        ? `40_Develop/${path.relative(path.dirname(coordinatorRoot), file).replaceAll("\\", "/")}`
+        : localPath;
+    })
     .sort();
   assert.deepEqual(
-    productionChildProcessOwners,
+    childProcessImportSources,
     [
       "src/cli/interactive-console-reader-lifecycle.ts",
       "src/cli/interactive-console.ts",
@@ -2593,24 +2905,23 @@ test("Executable sourceとpackage commandへShell依存のJSON搬送を再導入
       "src/host-execution/kernel-lock-lifecycle.ts",
       "src/host-execution/kernel-lock.ts",
       "src/platform-access/protected-root-windows-adapter.ts",
-      // Human-only Claude authentication owns one exact interactive Docker child.
-      // Repository input and shell transport remain forbidden by its contract test.
-      "src/provider/claude-subscription-authentication.ts",
-      "src/docker-execution/cli-trust.ts",
-      "src/docker-desktop/repair-native-process-lifecycle.ts",
-      "src/docker-desktop/repair-native-process.ts",
-      "src/docker-desktop/repair.ts",
-      "src/docker-execution/isolation-probe.ts",
-      "src/docker-execution/owned-process.ts",
-      "src/docker-execution/recovery-lifecycle.ts",
-      // queryWsl: fixed OS enumeration only; no WSL termination spawn.
-      // queryDockerEngine/queryContainersAbsent: trusted fixed CLI observations only.
-      // Their argument/provenance closure is owned by the protected-path graph.
-      "src/docker-desktop/restart-machine.ts",
       "src/host-execution/recovery-namespace-windows-adapter.ts",
       "src/host-execution/terminal-windows-adapter.ts",
       "src/provider/home-windows-adapter.ts",
-      "src/host-execution/windows-directory-bootstrap.ts",
+      "40_Develop/platform-access/src/windows/system-directory.ts",
+      "40_Develop/platform-access/src/windows/child-tree-termination.ts",
+      "40_Develop/platform-access/src/windows/entry-observation.ts",
+      "40_Develop/platform-access/src/windows/local-app-data.ts",
+      "40_Develop/docker-isolation/src/cleanup/recovery-executor.ts",
+      "40_Develop/docker-isolation/src/execution/cli-trust.ts",
+      "40_Develop/docker-isolation/src/execution/owned-windows-process.ts",
+      "40_Develop/docker-isolation/src/execution/probe-command.ts",
+      "40_Develop/docker-isolation/src/execution/probe-result.ts",
+      "40_Develop/docker-isolation/src/desktop/backend-state.ts",
+      "40_Develop/docker-isolation/src/desktop/engine-state.ts",
+      "40_Develop/docker-isolation/src/desktop/native-process-lifecycle.ts",
+      "40_Develop/docker-isolation/src/desktop/native-process.ts",
+      "40_Develop/docker-isolation/src/desktop/restart-machine.ts",
     ].sort(),
   );
 
@@ -2658,8 +2969,6 @@ test("Executable sourceとpackage commandへShell依存のJSON搬送を再導入
  */
 test("非同期の対話・正式Runner entrypointはtop-levelでmain完了を所有する", () => {
   const asynchronousEntrypoints = [
-    "scripts/generate-release-key.ts",
-    "scripts/sign-release-manifest.ts",
     "scripts/verify-signed-general-task.ts",
     "scripts/verify-signed-recovery-matrix.ts",
     "scripts/verify-signed-route-matrix.ts",
@@ -2690,8 +2999,6 @@ test("保護操作は別名でも裸Runtimeのpackage aliasへ公開しない", 
   const protectedEntrypoints = [
     "bin/coordinator.ts",
     "src/cli/command.ts",
-    "scripts/generate-release-key.ts",
-    "scripts/sign-release-manifest.ts",
     "scripts/verify-signed-general-task.ts",
     "scripts/verify-signed-route-matrix.ts",
     "scripts/verify-signed-recovery-matrix.ts",
@@ -2733,7 +3040,7 @@ test("保護操作は別名でも裸Runtimeのpackage aliasへ公開しない", 
   };
   for (const command of [
     "node ./bin/coordinator.ts verify-recovery",
-    "node ./bin/coordinator.ts sign-release --distribution .crdd/release",
+    "node ./bin/coordinator.ts authenticate-claude",
   ]) {
     assert.equal(invokesProtectedEntrypoint(command), true, command);
   }
@@ -2772,8 +3079,6 @@ test("Node版GateはPATHをAuthorityにせずEffect前に停止する", () => {
 
   const guardedEntrypoints = [
     "src/cli/command.ts",
-    "scripts/generate-release-key.ts",
-    "scripts/sign-release-manifest.ts",
     "scripts/verify-signed-general-task.ts",
   ];
   for (const relative of guardedEntrypoints) {
@@ -2796,14 +3101,6 @@ test("Node版GateはPATHをAuthorityにせずEffect前に停止する", () => {
   );
   assert.match(
     readme,
-    /"<absolute-preverified-node-24\.12\+-executable>" "<absolute-crdd-source-root>\\40_Develop\\coordinator\\scripts\\generate-release-key\.ts"/u,
-  );
-  assert.match(
-    readme,
-    /"<absolute-preverified-node-24\.12\+-executable>" "<absolute-crdd-source-root>\\40_Develop\\coordinator\\scripts\\sign-release-manifest\.ts"/u,
-  );
-  assert.match(
-    readme,
     /"<absolute-preverified-node-24\.12\+-executable>" "<absolute-crdd-source-root>\\40_Develop\\coordinator\\bin\\coordinator\.ts" doctor/u,
   );
   assert.equal(readme.includes("$CRDD_NODE"), false);
@@ -2818,32 +3115,18 @@ test("Node版GateはPATHをAuthorityにせずEffect前に停止する", () => {
   assert.match(readme, /coordinator\.ts" capabilities --json/u);
   assert.match(
     readme,
-    /"<signed-distribution-root>\\40_Develop\\coordinator\\scripts\\verify-signed-general-task\.ts"/u,
-  );
-  assert.match(readme, /--distribution-root "<absolute-staging-root>"/u);
-  assert.match(
-    readme,
-    /CRDD_RELEASE_PRIVATE_KEY_PATH=C:\\absolute\\path\\to\\crdd-release-v1-private\.pem/u,
+    /"<selected-verified-checkout-root>\\40_Develop\\coordinator\\scripts\\verify-signed-general-task\.ts"/u,
   );
   assert.match(
     readme,
-    /CLIの`--private-key`と`\.env-crdd`のどちらを選んでも同じ鍵参照preflight/u,
+    /Coordinator固有のRelease鍵生成、Manifest準備・署名・昇格と配布Tree固定検査は撤去した/u,
   );
-  assert.equal(
-    /sign-release-manifest\.ts"[^\r\n]*--private-key/u.test(readme),
-    false,
+  assert.doesNotMatch(
+    readme,
+    /scripts\\\\(?:generate-release-key|sign-release-manifest)\.ts/u,
   );
   assert.equal(
     /```powershell\r?\n& <absolute-preverified-node/u.test(readme),
     false,
-  );
-
-  const keyGeneratorSource = fs.readFileSync(
-    path.join(coordinatorRoot, "scripts", "generate-release-key.ts"),
-    "utf8",
-  );
-  assert.match(
-    keyGeneratorSource,
-    /usage: & "<absolute-preverified-node-24\.12\+-executable>"/u,
   );
 });

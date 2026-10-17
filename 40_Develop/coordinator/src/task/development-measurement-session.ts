@@ -20,9 +20,10 @@ import {
   snapshotPlainRecord,
 } from "../../../domain-model/src/index.ts";
 import {
-  inspectFixedDevelopmentCoordinatorPackageCandidate,
-  inspectVerifiedNativeDistributionCandidate,
-} from "../platform-access/package-verification.ts";
+  beginPlatformAccessBootstrapObservation,
+  verifyPlatformAccessArtifactObservation,
+} from "../../../platform-access/src/index.ts";
+import { observeRuntimeOwnedDevelopmentSource } from "./development-source-observation.ts";
 import {
   borrowRuntimeOwnedRepositorySource,
   inspectRepositoryIdentityCandidate,
@@ -32,20 +33,9 @@ const CONFIG_KEYS = new Set([
   "repositoryRoot",
   "expectedCommit",
   "expectedTree",
-  "expectedPackageContentRootSha256",
-  "nativeDistributionRoot",
-  "expectedNativeRelease",
+  "expectedSourceSha256",
   "tasks",
   "expiresAtMs",
-]);
-const RELEASE_KEYS = new Set([
-  "manifestHash",
-  "releaseSequence",
-  "crddVersion",
-  "crddCommit",
-  "crddTree",
-  "packageContentRootSha256",
-  "runtimeExecutionIdentitySha256",
 ]);
 const SHA256 = /^[a-f0-9]{64}$/u;
 const COMMIT = /^[a-f0-9]{40}$/u;
@@ -138,9 +128,7 @@ type Configuration = Readonly<{
   repositoryRoot: string;
   expectedCommit: string;
   expectedTree: string;
-  expectedPackageContentRootSha256: string;
-  nativeDistributionRoot: string;
-  expectedNativeRelease: Readonly<Record<string, unknown>>;
+  expectedSourceSha256: string;
   tasks: readonly Task[];
   expiresAtMs: number;
 }>;
@@ -171,14 +159,28 @@ type Identity = Readonly<{
  * @security NativeVerificationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @compatibility NativeVerificationの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-type NativeVerification = Extract<
-  ReturnType<typeof inspectVerifiedNativeDistributionCandidate>,
-  { status: "candidate" }
->;
+type NativeVerification = Readonly<{
+  status: "candidate";
+  platformAccessArtifact: NonNullable<
+    ReturnType<typeof beginPlatformAccessBootstrapObservation>
+  >["artifact"];
+}>;
 // Only the production observer can bind a verified native result to an identity.
 // The exact immutable identity may be reused inside one already-verified native
 // lifecycle boundary; caller claims and isolated test identities remain invalid.
-const nativeVerifications = new WeakMap<Identity, NativeVerification>();
+const nativeVerifications = new WeakMap<
+  Identity,
+  Readonly<{
+    verification: NativeVerification;
+    token: object;
+    sourceObservation: Readonly<{
+      scope: NonNullable<
+        ReturnType<typeof observeRuntimeOwnedDevelopmentSource>
+      >["scope"];
+      expectedSourceSha256: string;
+    }>;
+  }>
+>();
 /**
  * development-measurement-sessionで使用するDependenciesの値契約を定義する。
  *
@@ -191,7 +193,10 @@ const nativeVerifications = new WeakMap<Identity, NativeVerification>();
  * @compatibility Dependenciesの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
 type Dependencies = Readonly<{
-  observe: (configuration: Configuration) => Identity | null;
+  observe: (
+    configuration: Configuration,
+    priorIdentity?: Identity,
+  ) => Identity | null;
   wallNow: () => number;
   monotonicNow: () => number;
   isEffectBlocked: () => boolean;
@@ -336,29 +341,19 @@ function snapshotTask(raw: unknown): Task | null {
 function snapshotConfiguration(raw: unknown): Configuration | null {
   const config = snapshotPlainRecord(raw, CONFIG_KEYS);
   if (!config) return null;
-  const release = snapshotPlainRecord(
-    config.expectedNativeRelease,
-    RELEASE_KEYS,
-  );
   const taskInputs = snapshotPlainArray(config.tasks, 2);
   if (
-    !release ||
     taskInputs.status !== "ok" ||
     taskInputs.value.length !== 2 ||
     typeof config.repositoryRoot !== "string" ||
     !path.isAbsolute(config.repositoryRoot) ||
     path.normalize(config.repositoryRoot) !== config.repositoryRoot ||
-    typeof config.nativeDistributionRoot !== "string" ||
-    !path.isAbsolute(config.nativeDistributionRoot) ||
-    path.normalize(config.nativeDistributionRoot) !==
-      config.nativeDistributionRoot ||
-    config.nativeDistributionRoot === sourceDistributionRoot ||
     typeof config.expectedCommit !== "string" ||
     !COMMIT.test(config.expectedCommit) ||
     typeof config.expectedTree !== "string" ||
     !COMMIT.test(config.expectedTree) ||
-    typeof config.expectedPackageContentRootSha256 !== "string" ||
-    !SHA256.test(config.expectedPackageContentRootSha256) ||
+    typeof config.expectedSourceSha256 !== "string" ||
+    !SHA256.test(config.expectedSourceSha256) ||
     typeof config.expiresAtMs !== "number" ||
     !Number.isSafeInteger(config.expiresAtMs)
   )
@@ -377,43 +372,43 @@ function snapshotConfiguration(raw: unknown): Configuration | null {
       return null;
     tasks.push(task);
   }
-  // The native verifier owns release-field semantics. Snapshot primitive values
-  // now so caller mutation/getters cannot change what was shown to the user.
-  if (
-    Object.values(release).some(
-      (value) => typeof value !== "string" && typeof value !== "number",
-    )
-  )
-    return null;
   return Object.freeze({
     repositoryRoot: config.repositoryRoot,
     expectedCommit: config.expectedCommit,
     expectedTree: config.expectedTree,
-    expectedPackageContentRootSha256: config.expectedPackageContentRootSha256,
-    nativeDistributionRoot: config.nativeDistributionRoot,
-    expectedNativeRelease: release,
+    expectedSourceSha256: config.expectedSourceSha256,
     tasks: Object.freeze(tasks),
     expiresAtMs: config.expiresAtMs,
   });
 }
 
 /**
- * Productionを観測する。
+ * 固定SourceとNative実体、Task Repositoryを同じ観測区間で確認する。
  *
- * @responsibility Productionの観測対象、取得根拠、観測不能結果の境界を所有する。
+ * @responsibility 署名配布へ依存せず、Source期待値と元Native実体の継続性を照合する。
  * @trace ARCH-000004
- * @input configuration: Configuration
+ * @input configuration: 固定入力。priorIdentity: 再観測時の元admission実体。
  * @returns Identity | nullを返す。
  * @precondition 「configuration: Configuration」がobserveProductionの入力契約を満たす。
  * @postcondition observeProductionの責務を完了した結果だけを返す。
- * @effect N/A: observeProductionは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: observeProductionは独自の失敗分岐を所有しない。
- * @invariant observeProductionは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: observeProductionはProcess内の同一Subsystemで完結する。
+ * @effect Source、Native、Repositoryを読み、既存私有Mapへ観測を結合する。
+ * @failure 欠測・期待差・元token失効・観測中差替えはnull。
+ * @invariant fresh Hashだけで元Native tokenの失効を上書きしない。
+ * @boundary 固定Source／NativeのFilesystem観測とRepository照合。
  * @security observeProductionはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: observeProductionは共有非同期状態を持たない同期処理である。
+ * @concurrency 旧token前後と新token最終確認を重ねる。変更不能や原子的ロードは保証しない。
  */
-function observeProduction(configuration: Configuration): Identity | null {
+function observeProduction(
+  configuration: Configuration,
+  priorIdentity?: Identity,
+): Identity | null {
+  const prior =
+    priorIdentity === undefined ? null : nativeVerifications.get(priorIdentity);
+  if (
+    priorIdentity !== undefined &&
+    (!prior || !verifyPlatformAccessArtifactObservation(prior.token))
+  )
+    return null;
   const repository = inspectRepositoryIdentityCandidate(
     configuration.repositoryRoot,
   );
@@ -423,33 +418,47 @@ function observeProduction(configuration: Configuration): Identity | null {
     repository.tree !== configuration.expectedTree
   )
     return null;
-  const source = inspectFixedDevelopmentCoordinatorPackageCandidate({
-    distributionRoot: sourceDistributionRoot,
-    expectedPackageContentRootSha256:
-      configuration.expectedPackageContentRootSha256,
-  });
-  if (source.status !== "candidate" || !("sourceIdentitySha256" in source))
+  const source = observeRuntimeOwnedDevelopmentSource();
+  if (!source || source.sourceSha256 !== configuration.expectedSourceSha256)
     return null;
-  const native = inspectVerifiedNativeDistributionCandidate({
-    distributionRoot: configuration.nativeDistributionRoot,
-    evaluationTime: new Date().toISOString(),
-    expectedRelease: configuration.expectedNativeRelease,
-  });
-  if (native.status !== "candidate") return null;
+  const native = beginPlatformAccessBootstrapObservation(
+    sourceDistributionRoot,
+  );
+  if (!native) return null;
   const reobserved = inspectRepositoryIdentityCandidate(
     configuration.repositoryRoot,
   );
   if (JSON.stringify(repository) !== JSON.stringify(reobserved)) return null;
+  if (prior && !verifyPlatformAccessArtifactObservation(prior.token))
+    return null;
+  if (!verifyPlatformAccessArtifactObservation(native.token)) return null;
   const identity: Identity = Object.freeze({
     sourceIdentitySha256: source.sourceIdentitySha256,
-    nativeIdentitySha256: native.nativeIdentitySha256,
+    nativeIdentitySha256: digest([
+      "crdd-development-bootstrap-native/v1",
+      sourceDistributionRoot,
+      native.artifact,
+    ]),
     repositoryIdentitySha256: digest([
       "crdd-development-repository/v1",
       configuration.repositoryRoot,
       repository,
     ]),
   });
-  nativeVerifications.set(identity, native);
+  nativeVerifications.set(
+    identity,
+    Object.freeze({
+      verification: Object.freeze({
+        status: "candidate",
+        platformAccessArtifact: native.artifact,
+      }),
+      token: native.token,
+      sourceObservation: Object.freeze({
+        scope: source.scope,
+        expectedSourceSha256: source.sourceSha256,
+      }),
+    }),
+  );
   return identity;
 }
 
@@ -531,7 +540,7 @@ function createSessionRuntime(dependencies: Dependencies) {
       )
         session.constraints.cancel();
       const identity = session.timing.measureIdentity(() =>
-        dependencies.observe(session.configuration),
+        dependencies.observe(session.configuration, session.identity),
       );
       const bindingSha256 =
         identity && digest(identity) === digest(session.identity)
@@ -954,7 +963,10 @@ function createSessionRuntime(dependencies: Dependencies) {
           if (dependencies.isEffectBlocked()) return null;
           if (!cleanup.cleanupBoundaryVerified) {
             identity = cleanup.session.timing.measureIdentity(() =>
-              dependencies.observe(cleanup.session.configuration),
+              dependencies.observe(
+                cleanup.session.configuration,
+                cleanup.session.identity,
+              ),
             );
             if (digest(identity) !== digest(cleanup.session.identity))
               return null;
@@ -967,8 +979,7 @@ function createSessionRuntime(dependencies: Dependencies) {
         if (!identity) return null;
         return Object.freeze({
           identity,
-          distributionRoot: activeSession.configuration.nativeDistributionRoot,
-          expectedRelease: activeSession.configuration.expectedNativeRelease,
+          distributionRoot: sourceDistributionRoot,
           executionSourceKind: "fixed_development_candidate" as const,
         });
       } catch {
@@ -1186,6 +1197,8 @@ function createSessionRuntime(dependencies: Dependencies) {
       checkBoundSession(session);
       return Object.freeze({
         ...session.constraints.inspect(),
+        sourceObservation:
+          nativeVerifications.get(session.identity)?.sourceObservation ?? null,
         identityObservation: session.timing.snapshot().identityObservation,
       });
     },
@@ -1340,15 +1353,20 @@ export function borrowRuntimeOwnedDevelopmentNativeObservation(
     context,
     shouldInitializeIfMissing,
   );
-  const verification =
+  const observedNative =
     observation && nativeVerifications.get(observation.identity);
-  if (!observation || !verification) return null;
-  // Consumed synchronously by the native adapter. The post-process borrow is
-  // a separate fresh observation; this object is never used as its substitute.
+  if (!observation || !observedNative) return null;
+  try {
+    if (!verifyPlatformAccessArtifactObservation(observedNative.token))
+      return null;
+  } catch {
+    return null;
+  }
+  // Each borrow verifies the original native token; the full Source snapshot
+  // remains shared inside the same already-checked lifecycle boundary.
   return Object.freeze({
     distributionRoot: observation.distributionRoot,
-    expectedRelease: observation.expectedRelease,
-    verification,
+    verification: observedNative.verification,
   });
 }
 

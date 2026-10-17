@@ -10,7 +10,6 @@
  */
 import { requestRuntimeOwnedExternalSendGrant } from "../../src/external-send/grant.ts";
 import { startRuntimeOwnedCoordinatorTask } from "../../src/task/execution.ts";
-import { issueRuntimeOwnedVerifiedCoordinatorPackageCapability } from "../../src/platform-access/package-verification.ts";
 import { isRuntimeProcessPoisoned } from "../../src/host-execution/process-safety-state.ts";
 import { runSignedRouteMatrixVerification } from "../../scripts/verify-signed-route-matrix.ts";
 import {
@@ -57,11 +56,10 @@ function completed(
     contractRevision: SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION,
     status: "completed",
     reason: "signed_general_task_verification_completed",
-    manifestHash: "a".repeat(64),
-    packageContentRootSha256: "b".repeat(64),
-    runtimeExecutionIdentitySha256: "1".repeat(64),
-    crddVersion: "v0.18.0",
-    releaseSequence: 18,
+    sourceScope: "crdd-development-source-snapshot/v1",
+    sourceSha256: "b".repeat(64),
+    sourceObservationStatus: "matched",
+    signatureRequired: false,
     crddCommit: "c".repeat(40),
     crddTree: "d".repeat(40),
     executionCommit: "e".repeat(40),
@@ -77,7 +75,7 @@ function completed(
     externalSendAuthorizationMode: authorizationMode,
     remediationPerformed: false,
     changedPaths: Object.freeze([
-      "40_Develop/coordinator/runtime/general-task-verification.txt",
+      "40_Develop/coordinator/tests/fixtures/general-task-verification.txt",
     ]),
     exactCandidateContentVerified: true,
     candidateDiscarded: true,
@@ -156,22 +154,24 @@ const result = await runSignedRouteMatrixVerification(process.cwd(), (async (
 }) as typeof import("../../scripts/verify-signed-general-task.ts").runSignedGeneralTaskVerification);
 const secondMatrix = await runSignedRouteMatrixVerification(process.cwd());
 
-let packageReads = 0;
-const poisonProbe = new Proxy(Object.create(null), {
+let taskReads = 0;
+const taskProbe = new Proxy(Object.create(null), {
   get: () => {
-    packageReads += 1;
+    taskReads += 1;
     throw new Error("poisoned_input_read");
   },
   ownKeys: () => {
-    packageReads += 1;
+    taskReads += 1;
     throw new Error("poisoned_input_enumerated");
   },
+  getOwnPropertyDescriptor: () => {
+    taskReads += 1;
+    throw new Error("poisoned_input_inspected");
+  },
 });
-const issued =
-  issueRuntimeOwnedVerifiedCoordinatorPackageCapability(poisonProbe);
 let taskReason = "task_not_blocked";
 try {
-  startRuntimeOwnedCoordinatorTask(null, null, null);
+  startRuntimeOwnedCoordinatorTask(taskProbe, null);
 } catch (error) {
   taskReason = error instanceof Error ? error.message : "unknown";
 }
@@ -201,8 +201,7 @@ process.stdout.write(
     secondMatrix,
     attempts,
     poisoned: isRuntimeProcessPoisoned(),
-    packageReason: issued.verification.reason,
-    packageReads,
+    taskReads,
     taskReason,
     grantReason:
       grant && "reason" in grant && typeof grant.reason === "string"

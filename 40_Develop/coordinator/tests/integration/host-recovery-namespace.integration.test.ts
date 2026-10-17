@@ -2,10 +2,11 @@
  * 共有境界の初期化搬送と停止時の部分結果を局所確認する。
  *
  * @packageDocumentation
- * @responsibility 署名拒否、mode相関、部分作成と不明を同じ本体で反証する。
+ * @responsibility Native出所拒否、mode相関、部分作成と不明を同じ本体で反証する。
  * @trace ERB-IT-003
+ * @trace AIT-IT-002
  * @level IT
- * @scope 固定frameと署名境界の局所搬送。実署名・実OS作成は別の未確認条件。
+ * @scope 固定frameとNative出所境界の局所搬送。実Native・実OS作成は別の未確認条件。
  * @boundary Native搬送Adapterを非Authorityのmemory依存で確認する。
  */
 import assert from "node:assert/strict";
@@ -18,7 +19,6 @@ import {
   decodeHostRecoveryNamespaceResponse,
   type initializeHostRecoveryNamespaceWindows,
 } from "../../src/host-execution/recovery-namespace-windows-adapter.ts";
-import { assertRuntimeSourceDeclaredGraphBoundaryForVerification } from "../../src/platform-access/package-verification.ts";
 
 /**
  * 独立offsetから正常・部分処置の試験応答を作る。
@@ -94,7 +94,7 @@ function responseFrame(
  *
  * @responsibility 観測成功を作成成功、部分処置を未発行へ畳まない。
  * @trace ERB-IT-003
- * @precondition 独立frame、署名・OS・Processなし。
+ * @precondition 独立frame、出所照合・OS・Processなし。
  * @stimulus nonce、revision、mode、余剰、close、属性、receipt、非ASCIIを破損する。
  * @observation decoderのnull、statusと部分receipt。
  * @oracle 全反例を拒否し、停止のcreated=nullを保持する。
@@ -181,18 +181,19 @@ test("共有初期化frameはmode・実体・個別終了を共同検証する",
 });
 
 /**
- * 実本体の署名停止、二要求と部分作成を局所依存で確認する。
+ * 実本体の出所停止、二要求と部分作成を局所依存で確認する。
  *
- * @responsibility 未署名fallbackと搬送不明のEffect 0誤認を検出する。
+ * @responsibility 出所未照合fallbackと搬送不明のEffect 0誤認を検出する。
  * @trace ERB-IT-003
+ * @trace AIT-IT-002
  * @precondition 現Source本体を読み、外部依存だけを非Authority memory実装へ置換する。
- * @stimulus 署名拒否、別親、正常作成・再利用、部分作成、transport不明、close不明を与える。
+ * @stimulus 出所・改訂・実体・tokenの各前後拒否、別親、正常・部分作成、transport不明を与える。
  * @observation 発行回数、mode、独立期待値、状態、元理由、Effect三値。
- * @oracle 署名拒否は0回、正常2回、停止で後続禁止。不明はnull、部分receiptは保持する。
+ * @oracle 初期拒否0回、正常2回、前後拒否は発生点まで。不明はnull、部分receiptは保持する。
  * @cleanup N/A: 実Process、Filesystem変更、Provider要求は発行しない。
- * @boundary 本番Adapter本体→局所署名・Process観測代替。署名E2Eではない。
+ * @boundary 本番Adapter本体→局所出所・Process観測代替。実Native E2Eではない。
  */
-test("共有初期化Adapterは署名拒否と部分処置を同じ本体で保持する", () => {
+test("共有初期化Adapterは出所拒否と部分処置を同じ本体で保持する", () => {
   const source = readFileSync(
     new URL(
       "../../src/host-execution/recovery-namespace-windows-adapter.ts",
@@ -203,22 +204,6 @@ test("共有初期化Adapterは署名拒否と部分処置を同じ本体で保�
   const start = source.indexOf(
     "export function initializeHostRecoveryNamespaceWindows(",
   );
-  assertRuntimeSourceDeclaredGraphBoundaryForVerification(
-    "src/host-execution/recovery-namespace-windows-adapter.ts",
-    source,
-  );
-  for (const changed of [
-    source.replace("shell: false", "shell: true"),
-    source.replace("--host-recovery-namespace-initialize", "--other-mode"),
-  ]) {
-    assert.notEqual(changed, source);
-    assert.throws(() =>
-      assertRuntimeSourceDeclaredGraphBoundaryForVerification(
-        "src/host-execution/recovery-namespace-windows-adapter.ts",
-        changed,
-      ),
-    );
-  }
   assert.ok(start > 0);
   const body = stripTypeScriptTypes(
     source.slice(start).replace(/^export /u, ""),
@@ -226,7 +211,8 @@ test("共有初期化Adapterは署名拒否と部分処置を同じ本体で保�
   const parent = "C:\\fixture\\temporary-parent";
   const artifact = Object.freeze({ sha256: "synthetic" });
   for (const scenario of [
-    "unsigned",
+    "bootstrap_null_1",
+    "bootstrap_throw_1",
     "different_parent",
     "capture_blocked",
     "created",
@@ -235,9 +221,22 @@ test("共有初期化Adapterは署名拒否と部分処置を同じ本体で保�
     "transport",
     "malformed",
     "false_success_reason",
+    ...[1, 2, 3, 4].flatMap((step) =>
+      ["false", "throw"].map((kind) => `token_${kind}_${step}`),
+    ),
+    ...[1, 2, 3].map((step) => `artifact_mismatch_${step}`),
+    "begin_missing",
   ]) {
     const launches: string[] = [];
-    const executeAdapter = runInNewContext(`(${body})`, {
+    const token = Object.freeze({});
+    const environment = Object.freeze({ TEMP: parent, TMP: parent });
+    let provenanceCalls = 0;
+    let artifactCalls = 0;
+    let beginCalls = 0;
+    let tokenCalls = 0;
+    const fault = /^(bootstrap|token|artifact)_([^_]+)_(\d+)$/u.exec(scenario);
+    const faultStep = Number(fault?.[3] ?? 0);
+    const dependencies = {
       Buffer,
       Date,
       JSON,
@@ -249,35 +248,65 @@ test("共有初期化Adapterは署名拒否と部分処置を同じ本体で保�
       PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH: "fixed/native.exe",
       randomBytes: () => Buffer.alloc(32, 7),
       decodeHostRecoveryNamespaceResponse,
-      createWindowsHostTerminalHelperEnvironment: () => ({
-        TEMP: parent,
-        TMP: parent,
-      }),
-      verifyBundledCoordinatorPackageFromFixedManifestCandidate: () =>
-        scenario === "unsigned"
-          ? { status: "blocked" }
-          : {
-              status: "candidate",
-              runtimeOwnedReleaseTrustConfirmed: true,
-              runtimeExecutionIdentityRuntimeOwned: true,
-              crddDistributionConfirmed: true,
-              platformAccessArtifact: artifact,
-            },
-      observePlatformAccessReleaseArtifactCandidate: () => ({
-        status: "candidate",
-        artifact,
-      }),
-      beginPlatformAccessArtifactSigningObservation: () => ({
-        token: {},
-        artifact,
-      }),
-      verifyPlatformAccessArtifactSigningObservation: () => true,
+      createWindowsHostTerminalHelperEnvironment: () => environment,
+      inspectPlatformAccessNativeGitProvenanceCandidate: () => {
+        provenanceCalls += 1;
+        throw new Error("normal_runtime_must_not_read_git_provenance");
+      },
+      observePlatformAccessArtifactCandidate: () => {
+        artifactCalls += 1;
+        return {
+          status: "candidate",
+          artifact:
+            scenario === `artifact_mismatch_${artifactCalls}`
+              ? { sha256: "different" }
+              : artifact,
+        };
+      },
+      beginPlatformAccessBootstrapObservation: () => {
+        beginCalls += 1;
+        if (scenario === "bootstrap_throw_1") throw new Error("bootstrap");
+        return ["begin_missing", "bootstrap_null_1"].includes(scenario)
+          ? null
+          : { token, artifact };
+      },
+      verifyPlatformAccessArtifactObservation: (value: object) => {
+        assert.equal(value, token);
+        tokenCalls += 1;
+        if (scenario === `token_throw_${tokenCalls}`)
+          throw new Error("fixture token");
+        return scenario !== `token_false_${tokenCalls}`;
+      },
       spawnSync: (
-        _file: string,
+        file: string,
         argv: readonly string[],
-        options: { input: Buffer },
+        options: {
+          input: Buffer;
+          env: object;
+          shell: boolean;
+          windowsHide: boolean;
+          timeout: number;
+          maxBuffer: number;
+          encoding: string;
+        },
       ) => {
+        assert.equal(
+          file,
+          path.join("C:\\fixture\\distribution", "fixed", "native.exe"),
+        );
+        assert.equal(options.env, environment);
+        assert.equal(options.shell, false);
+        assert.equal(options.windowsHide, true);
+        assert.equal(options.timeout, 5000);
+        assert.equal(options.maxBuffer, 1025);
+        assert.equal(options.encoding, "buffer");
         assert.equal(argv.length, 1);
+        assert.equal(
+          argv[0],
+          launches.length === 0
+            ? "--host-recovery-namespace-observe"
+            : "--host-recovery-namespace-initialize",
+        );
         launches.push(argv[0] ?? "");
         const shouldInitialize = launches.length === 2;
         assert.equal(options.input.length, shouldInitialize ? 98 : 42);
@@ -337,17 +366,31 @@ test("共有初期化Adapterは署名拒否と部分処置を同じ本体で保�
           stderr: Buffer.alloc(0),
         };
       },
-    }) as typeof initializeHostRecoveryNamespaceWindows;
+    };
+    const executeAdapter = runInNewContext(
+      `(${body})`,
+      dependencies,
+    ) as typeof initializeHostRecoveryNamespaceWindows;
     const result = executeAdapter(
       scenario === "different_parent" ? "C:\\other" : parent,
     );
+    const expectedFaultLaunches =
+      fault?.[1] === "bootstrap"
+        ? 0
+        : fault?.[1] === "token"
+          ? Math.floor(faultStep / 2)
+          : fault?.[1] === "artifact"
+            ? faultStep - 1
+            : null;
     assert.equal(
       launches.length,
-      ["unsigned", "different_parent"].includes(scenario)
-        ? 0
-        : scenario === "capture_blocked"
-          ? 1
-          : 2,
+      expectedFaultLaunches ??
+        (["begin_missing", "different_parent"].includes(scenario)
+          ? 0
+          : scenario === "capture_blocked"
+            ? 1
+            : 2),
+      scenario,
     );
     assert.equal(
       result.status,
@@ -355,13 +398,105 @@ test("共有初期化Adapterは署名拒否と部分処置を同じ本体で保�
     );
     assert.equal(
       result.filesystemEffectIssued,
-      ["transport", "malformed"].includes(scenario)
-        ? null
-        : ["created", "partial", "false_success_reason"].includes(scenario),
+      expectedFaultLaunches !== null
+        ? expectedFaultLaunches === 2
+          ? null
+          : false
+        : ["transport", "malformed"].includes(scenario)
+          ? null
+          : ["created", "partial", "false_success_reason"].includes(scenario),
+      scenario,
     );
+    assert.equal(result.processEffectIssued, launches.length > 0, scenario);
+    assert.equal(
+      result.helperExitConfirmed,
+      launches.length > 0 && scenario !== "transport",
+      scenario,
+    );
+    if (expectedFaultLaunches !== null) {
+      assert.equal(result.initialization, null, scenario);
+      const hasParent = fault?.[1] !== "bootstrap" && faultStep >= 3;
+      assert.equal(result.parentObservation !== null, hasParent, scenario);
+      assert.equal(
+        result.artifactVerifiedBeforeAndAfter,
+        hasParent && launches.length === 1,
+        scenario,
+      );
+    }
+    if (["created", "reused"].includes(scenario)) {
+      assert.deepEqual(
+        [
+          provenanceCalls,
+          artifactCalls,
+          beginCalls,
+          tokenCalls,
+          launches.length,
+        ],
+        [0, 3, 1, 4, 2],
+      );
+      assert.equal(result.artifactVerifiedBeforeAndAfter, true);
+    }
+    if (scenario === "different_parent")
+      assert.deepEqual(
+        [provenanceCalls, artifactCalls, beginCalls, tokenCalls],
+        [0, 0, 0, 0],
+      );
     if (scenario === "partial") {
       assert.equal(result.initialization?.children[0]?.createIssued, true);
       assert.equal(result.initialization?.children[0]?.created, null);
+    }
+    if (scenario === "created") {
+      for (const mutated of [
+        body.replace("shell: false", "shell: true"),
+        body.replace("--host-recovery-namespace-initialize", "--other-mode"),
+        body.replace(
+          "beginPlatformAccessBootstrapObservation(distributionRoot)",
+          "null",
+        ),
+      ]) {
+        assert.notEqual(mutated, body);
+        launches.length = 0;
+        artifactCalls = 0;
+        beginCalls = 0;
+        tokenCalls = 0;
+        const executeMutant = runInNewContext(
+          `(${mutated})`,
+          dependencies,
+        ) as typeof initializeHostRecoveryNamespaceWindows;
+        assert.throws(
+          () => assert.equal(executeMutant(parent).status, "initialized"),
+          { name: "AssertionError" },
+        );
+      }
+    }
+    assert.equal(provenanceCalls, 0, scenario);
+    const mutation = ["token_false_3", "token_false_4"].includes(scenario)
+      ? [
+          "!verifyPlatformAccessArtifactObservation(artifactObservation.token)",
+          "(verifyPlatformAccessArtifactObservation(artifactObservation.token), false)",
+        ]
+      : null;
+    if (mutation) {
+      const mutated = body.replaceAll(
+        mutation[0] as string,
+        mutation[1] as string,
+      );
+      assert.notEqual(mutated, body, scenario);
+      launches.length = 0;
+      provenanceCalls = 0;
+      artifactCalls = 0;
+      beginCalls = 0;
+      tokenCalls = 0;
+      const executeMutant = runInNewContext(
+        `(${mutated})`,
+        dependencies,
+      ) as typeof initializeHostRecoveryNamespaceWindows;
+      assert.equal(
+        executeMutant(parent).status,
+        "initialized",
+        `専用反例が検査欠落を検出する: ${scenario}`,
+      );
+      assert.equal(launches.length, 2, scenario);
     }
   }
 });
@@ -369,14 +504,14 @@ test("共有初期化Adapterは署名拒否と部分処置を同じ本体で保�
 /**
  * 本番作成入口の保護検証順序と失敗移送を同じ本体で確認する。
  *
- * @responsibility 署名拒否後のRoot作成と、下位負例の早期拒否への置換を防ぐ。
+ * @responsibility 出所拒否後のRoot作成と、下位負例の早期拒否への置換を防ぐ。
  * @trace ERB-IT-003
  * @precondition 現本体Sourceと非Authority依存のみ。実共有領域を使用しない。
  * @stimulus Windows正常・初期化停止・親不正・下位失敗と非Windowsを与える。
  * @observation 初期化→生成の順序、opaque失敗分類、渡した親。
  * @oracle Windows停止は生成0・清掃未確認・IDなし。非Windowsは既存primitiveだけ。
  * @cleanup N/A: 実OS Effectなし。
- * @boundary 通常作成Owner→署名初期化Adapter／下位primitiveの局所接続。
+ * @boundary 通常作成Owner→出所照合初期化Adapter／下位primitiveの局所接続。
  */
 test("通常producerはWindows保護検証をRoot・marker生成より先に行う", () => {
   const source = readFileSync(

@@ -27,7 +27,7 @@ import {
   describeProviderHomeWindowsAdapterContract,
   inspectRuntimeOwnedWindowsProviderHomeCandidate,
 } from "../../../src/provider/home-windows-adapter.ts";
-import { WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE } from "../../../src/host-execution/windows-child-environment.ts";
+import { WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE } from "../../../../platform-access/src/index.ts";
 
 /**
  * responseのTest準備責務を実行する。
@@ -300,7 +300,17 @@ test("Provider Home observation contractはcaller PathとCredential readを持�
   assert.equal(contract.runtimeAuthorityIssued, false);
   assert.equal(contract.mountGrantIssued, false);
   const adapter = describeProviderHomeWindowsAdapterContract();
-  assert.equal(adapter.contractRevision, 5);
+  assert.equal(adapter.contractRevision, 7);
+  assert.deepEqual(adapter.artifactVerification, {
+    normal: "fixed_bootstrap_hash_and_artifact_identity_before_and_after",
+    development:
+      "fixed_development_borrowed_native_observation_and_artifact_identity_before_and_after",
+  });
+  assert.equal(Object.isFrozen(adapter.artifactVerification), true);
+  assert.equal(
+    adapter.executablePath,
+    "fixed_distribution_relative_absolute_path",
+  );
   assert.equal(adapter.shellInvocation, false);
   assert.equal(adapter.pathLookup, false);
   assert.equal(adapter.callerSuppliedPathAccepted, false);
@@ -319,10 +329,7 @@ test("Provider Home observation contractはcaller PathとCredential readを持�
     adapter.processTreeTerminationConfirmation.includes("step_4"),
     true,
   );
-  const invalid = inspectRuntimeOwnedWindowsProviderHomeCandidate(
-    "other",
-    "2026-08-24T00:00:00.000Z",
-  );
+  const invalid = inspectRuntimeOwnedWindowsProviderHomeCandidate("other");
   assert.equal(invalid.status, "blocked");
   assert.equal(invalid.helperSpawnAttempts, 0);
   assert.equal(invalid.runtimeOwnedObservationCapabilityIssued, false);

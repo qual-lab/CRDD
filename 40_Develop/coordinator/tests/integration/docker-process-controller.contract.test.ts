@@ -9,10 +9,17 @@
  * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
  */
 import assert from "node:assert/strict";
+import path from "node:path";
 import { Writable } from "node:stream";
 import test from "node:test";
 import { bindTaskCliCancellationSignals } from "../../src/cli/task-cancellation.ts";
-import type { OwnedCommandHandle } from "../../src/docker-execution/owned-process.ts";
+import type { OwnedCommandHandle } from "../../../docker-isolation/src/index.ts";
+import { planDockerIsolationCommands } from "../../../docker-isolation/src/index.ts";
+import {
+  planCodexReadOnlyProbe,
+  planCodexIsolatedTask,
+  planWorkbenchAiAdviceProviderCommand,
+} from "../../../ai-adapter/src/index.ts";
 import {
   borrowRuntimeOwnedDockerTerminalObservations,
   cancelRuntimeOwnedDockerProcessController,
@@ -23,7 +30,7 @@ import {
   projectDockerProcessControllerStartResult,
   startRuntimeOwnedDockerProcessController,
   verifyRuntimeOwnedDockerUnissuedNotice,
-} from "../../src/docker-execution/process-controller.ts";
+} from "../../src/provider/execution-controller.ts";
 import {
   orchestratorOwnedDockerProcessCompletionForTask,
   orchestratorOwnedDockerProcessStartForTask,
@@ -101,6 +108,144 @@ function createPlan(
     ),
   });
 }
+
+/**
+ * 実計画の設定を下位投影から上位通知全文へ接続する。
+ * @responsibility Task・Probe・助言とClaudeの診断接続を検証する。
+ * @trace ERB-IT-002
+ * @precondition 本番plannerで生成した値を使い、Processは試験用代役とする。
+ * @stimulus 各Provider計画をControllerへ搬送して完了まで待つ。
+ * @observation 最初の構成通知全文とcleanup到達。
+ * @oracle 三Docker設定とProvider二分類が期待どおりで、相関・公開fieldを維持する。
+ * @cleanup N/A: 実Docker・Filesystem資源は作成しない。
+ * @boundary ERB-IT-002=Adjacent 1 Block: AI Adapter／DI planner→Controller通知。
+ */
+test("実plannerのProbe・Task・助言設定は通知全文へ接続しClaudeは適用外を維持する", async () => {
+  const codexProbe = planCodexReadOnlyProbe({
+    provider: "codex",
+    mode: "read_only_probe",
+    effort: "low",
+  });
+  const codexExecutor = planCodexIsolatedTask({
+    provider: "codex",
+    mode: "isolated_task",
+    effort: "low",
+    taskRole: "executor",
+  });
+  const codexReviewer = planCodexIsolatedTask({
+    provider: "codex",
+    mode: "isolated_task",
+    effort: "low",
+    taskRole: "reviewer",
+  });
+  assert.equal(codexProbe.status, "candidate");
+  assert.equal(codexExecutor.status, "candidate");
+  assert.equal(codexReviewer.status, "candidate");
+  const codexAdvice = planWorkbenchAiAdviceProviderCommand(
+    { provider: "codex", exactModelId: "gpt-5.5", reasoningEffort: "low" },
+    { type: "object" },
+  );
+  const claudeAdvice = planWorkbenchAiAdviceProviderCommand(
+    { provider: "claude", exactModelId: "opus", reasoningEffort: "low" },
+    { type: "object" },
+  );
+  for (const [provider, argv, role, approval, sandbox] of [
+    ["codex", codexProbe.argv, null, "other", "read_only"],
+    ["codex", codexExecutor.argv, "executor", "approve_for_me", "implicit"],
+    ["codex", codexReviewer.argv, "reviewer", "never", "read_only"],
+    ["codex", codexAdvice.argv, null, "never", "read_only"],
+    ["claude", claudeAdvice.argv, null, "not_applicable", "not_applicable"],
+  ] as const) {
+    const base = createPlan({}, {});
+    const commands = planDockerIsolationCommands({
+      authenticationContainerName: base.authContainerName,
+      executionContainerName: base.providerContainerName,
+      proxyContainerName: base.proxyContainerName,
+      internalNetworkName: base.internalNetworkName,
+      egressNetworkName: base.egressNetworkName,
+      ownershipLabel: base.ownershipLabel,
+      executionImageDigest: base.providerImageDigest,
+      proxyImageDigest: base.proxyImageDigest,
+      homeSourcePath: path.resolve("boundary-home"),
+      temporarySourcePath: path.resolve("boundary-tmp"),
+      workspace: role
+        ? {
+            sourcePath: path.resolve("boundary-work"),
+            readOnly: role === "reviewer",
+          }
+        : null,
+      authentication: { argv: ["auth", "status"], environment: {} },
+      execution: {
+        argv,
+        environment: {},
+        initRequired: false,
+        interactive: true,
+        seccompProfile: null,
+      },
+      proxy: {
+        profile: provider,
+        token: "7".repeat(64),
+        port: 8080,
+        extendedProxyEnvironment: provider === "codex",
+      },
+    });
+    assert.ok(commands);
+    const notices: unknown[] = [];
+    const fixture = createFixture(
+      {
+        reportProviderBoundaryDiagnostic: (notice: unknown) => {
+          notices.push(notice);
+        },
+        consumeProviderAuthority: () => ({
+          operationId: base.operationId,
+          provider,
+          profileId: base.profileId,
+          providerHomeMountGrantRef: base.grantRef,
+          runtimeAuthorityIssued: true,
+          providerEffectAllowed: true,
+        }),
+      },
+      {
+        ...(role ? providerStartObservationTaskPlan : {}),
+        provider,
+        commands,
+        taskRole: role,
+        workspaceMountMode:
+          role === "executor"
+            ? "read_write"
+            : role === "reviewer"
+              ? "read_only"
+              : null,
+        subscriptionOffering:
+          provider === "codex" ? "chatgpt_subscription_oauth" : "claude_max",
+      },
+    );
+    const started = fixture.controller.start(
+      fixture.preparedCapability,
+      fixture.managementCapability,
+    );
+    assert.equal(started.status, "started");
+    await started.completion;
+    assert.deepEqual(notices[0], {
+      event: "coordinator_provider_boundary_configured",
+      taskRole: role,
+      provider,
+      operationId: base.operationId,
+      approvalModeConfigured: approval,
+      sandboxModeConfigured: sandbox,
+      workspaceMountModeConfigured:
+        role === "executor"
+          ? "read_write"
+          : role === "reviewer"
+            ? "read_only"
+            : null,
+      rootFilesystemReadOnlyConfigured: true,
+      nonRootUserConfigured: true,
+      workdirConfigured: true,
+    });
+    assert.equal(fixture.getCleanupCount(), 1);
+  }
+});
 
 /**
  * 実Controller出力のstart・handoff・completion相関をproducer所有projectionで固定するを検証する。
@@ -677,6 +822,45 @@ test("Controllerは固定利用側を保持し未指定・未知用途をEffect�
     assert.equal(result.reason, "docker_process_controller_plan_invalid");
     assert.deepEqual(fixture.getRecoveryConsumers(), []);
     assert.equal(fixture.getCommandCount(), 0);
+  }
+});
+
+/**
+ * Controllerが共通資源文法の不成立を開始前に拒否する。
+ * @responsibility 八fieldの対応と重複名拒否を実Controller入口で確認する。
+ * @trace ERB-IT-002
+ * @precondition 正規Planと発行回数を記録する模擬依存を用意する。
+ * @stimulus 各資源fieldの不正と重複名を持つ計画を渡す。
+ * @observation blocked理由、回復開始、commandとMount完了の回数。
+ * @oracle 準備済み計画の不正は従来のplan_invalidでEffect前に停止する。
+ * @cleanup N/A: 外部資源を取得しない。
+ * @boundary Controllerの開始入口とDI文法。
+ */
+test("ControllerはDI資源文法の不成立を回復開始とEffect前に拒否する", () => {
+  const base = createPlan({}, {});
+  for (const changes of [
+    ...[
+      "authContainerName",
+      "providerContainerName",
+      "proxyContainerName",
+      "internalNetworkName",
+      "egressNetworkName",
+      "ownershipLabel",
+      "providerImageDigest",
+      "proxyImageDigest",
+    ].map((key) => ({ [key]: "invalid" })),
+    { proxyContainerName: base.authContainerName },
+  ]) {
+    const fixture = createFixture({}, changes);
+    const rejected = fixture.controller.start(
+      fixture.preparedCapability,
+      fixture.managementCapability,
+    );
+    assert.equal(rejected.status, "blocked");
+    assert.equal(rejected.reason, "docker_process_controller_plan_invalid");
+    assert.equal(fixture.getCommandCount(), 0);
+    assert.equal(fixture.getMountCompletionCount(), 0);
+    assert.deepEqual(fixture.getRecoveryConsumers(), []);
   }
 });
 
@@ -1428,7 +1612,7 @@ test("Provider境界診断は実行構成とProcess・cleanup観測を本文な�
                     "--user",
                     "65534:65534",
                     "--workdir=/work",
-                    "image",
+                    "sha256:9815772cdc09551d2635f8cf15d90077b2da07ee87f4fe83c7c29dd59cb48ec7",
                     "exec",
                     "--approve-for-me",
                   ]
@@ -4943,7 +5127,7 @@ test("呼出し単位の開始通知失敗は既存回収経路へ収束する",
  * @precondition Fakeの開始観測成功後に登録ハンドラーを保留できる。
  * @stimulus 通知を保留し、同じ制御参照へ取消を渡してから通知を解放する。
  * @observation 完了前の保留、最終status、取消とcleanupを取得する。
- * @oracle 通知保留中に完了せず、解放後は同じ実行がcancelledとcleanup確認へ収束する。
+ * @oracle 通知保留中もcleanupは一度完了し、公開完了は待機する。解放後は同じ実行がcancelledへ収束する。
  * @cleanup 保留通知を解放し、元の完了を待つ。実Dockerは操作しない。
  * @boundary ERB-IT-002=Direct Boundary: 登録通知待機とController取消。
  */
@@ -4979,8 +5163,215 @@ test("呼出し単位の開始通知待機中も元の取消と完了を維持�
     fixture.managementCapability,
   );
   assert.equal(isFinished, false);
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  assert.equal(fixture.getCleanupCount(), 1);
+  assert.equal(isFinished, false);
   release(true);
   const result = await completion;
   assert.equal(result?.status, "cancelled");
   assert.equal(result?.cleanupConfirmed, true);
+});
+
+/**
+ * 上位の開始確認が保留中でも技術実行と回収を完了する。
+ *
+ * @responsibility 回収の完了とConsumerの保存確認を分離し、遅い拒否を成功へ丸めない。
+ * @trace ERB-IT-002 ERB-IT-004
+ * @precondition Fakeの技術実行は完了し、上位確認だけを保留できる。
+ * @stimulus 開始確認を保留し、回収後に受理・拒否・例外へ解決する。
+ * @observation 実行数、回収数、公開完了、最終結果を観測する。
+ * @oracle 保留中に九目的と一回の回収が完了する。遅い拒否・例外はblockedとなり再実行しない。
+ * @cleanup 各保留を解放して元の公開完了を待つ。実Dockerは操作しない。
+ * @boundary ERB-IT-002=Direct Boundary: 開始確認と技術終了。ERB-IT-004=Direct Boundary: 遅い失敗と回収。
+ */
+test("開始確認の保留は技術完了と回収を阻害せず遅い拒否を保持する", async (t) => {
+  for (const mode of ["accept", "reject", "throw"] as const) {
+    let entered!: () => void;
+    let release!: (accepted: boolean) => void;
+    let reject!: (reason: Error) => void;
+    const notificationEntered = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    const notificationResult = new Promise<boolean>(
+      (resolve, rejectPromise) => {
+        release = resolve;
+        reject = rejectPromise;
+      },
+    );
+    t.after(() => release(false));
+    const fixture = createFixture();
+    const started = fixture.controller.start(
+      fixture.preparedCapability,
+      fixture.managementCapability,
+      () => true,
+      undefined,
+      () => {
+        entered();
+        return notificationResult;
+      },
+    );
+    let isFinished = false;
+    const completion = started.completion?.then((value) => {
+      isFinished = true;
+      return value;
+    });
+    await notificationEntered;
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    assert.equal(fixture.getCommandCount(), 9);
+    assert.equal(fixture.getCleanupCount(), 1);
+    assert.equal(isFinished, false);
+    if (mode === "throw") reject(new Error("fixed_late_observer_failure"));
+    else release(mode === "accept");
+    const result = await completion;
+    assert.equal(result?.cleanupConfirmed, true);
+    if (mode !== "accept") {
+      assert.equal(result?.status, "blocked");
+      assert.equal(
+        result?.reason,
+        "docker_process_controller_provider_start_observation_failed",
+      );
+    } else {
+      assert.equal(result?.status, "completed");
+    }
+    assert.equal(fixture.getCommandCount(), 9);
+    assert.equal(fixture.getCleanupCount(), 1);
+  }
+});
+
+/**
+ * 技術失敗と開始確認拒否の先着診断を保持する。
+ * @responsibility 後着失敗と清掃不明による公開理由から一次診断を分離する。
+ * @trace ERB-IT-002 ERB-IT-004
+ * @precondition Provider待機と開始確認を別々のPromiseで制御する。
+ * @stimulus EPIPEと開始確認false／throwを二順序で解放し、清掃成立・不明を組み合わせる。
+ * @observation 一次診断全文、公開理由、清掃回数、終端回数を取得する。
+ * @oracle 最初の失敗全文を保持し、清掃不明だけは公開理由を変更する。回収一回・終端一回。
+ * @cleanup 保留Promiseを解放し元completionを待つ。実Process・Dockerは使用しない。
+ * @boundary ERB-IT-002=Direct Boundary: 開始確認と技術待機。ERB-IT-004=Direct Boundary: 清掃と公開。
+ */
+test("技術失敗と開始確認拒否の二順序は一次診断を上書きしない", async (t) => {
+  for (const first of ["technical", "ack"] as const) {
+    for (const ack of ["false", "throw"] as const) {
+      for (const clean of [true, false]) {
+        let releaseAck!: (value: boolean) => void;
+        let rejectAck!: (error: Error) => void;
+        let rejectWait!: (error: Error) => void;
+        let entered!: () => void;
+        let cleanupEntered!: () => void;
+        let terminationEntered!: () => void;
+        const notification = new Promise<boolean>((resolve, reject) => {
+          releaseAck = resolve;
+          rejectAck = reject;
+        });
+        const wait = new Promise<never>((_resolve, reject) => {
+          rejectWait = reject;
+        });
+        const startedNotice = new Promise<void>((resolve) => {
+          entered = resolve;
+        });
+        const cleanupNotice = new Promise<void>((resolve) => {
+          cleanupEntered = resolve;
+        });
+        const terminationNotice = new Promise<void>((resolve) => {
+          terminationEntered = resolve;
+        });
+        t.after(() => {
+          releaseAck(false);
+          rejectWait(new Error("EPIPE"));
+        });
+        let cleanups = 0;
+        let terminations = 0;
+        const notices: Array<Record<string, unknown>> = [];
+        const fixture = createFixture({
+          reportProviderBoundaryDiagnostic: (
+            notice: Record<string, unknown>,
+          ) => {
+            notices.push(notice);
+          },
+          startCommand: (command: { purpose: string }) => ({
+            started: async () => true,
+            wait: async () =>
+              command.purpose === "start_provider_attached"
+                ? wait
+                : {
+                    status: 0,
+                    signal: null,
+                    stdout:
+                      command.purpose ===
+                      "start_subscription_auth_probe_attached"
+                        ? createSubscriptionAuthOutput()
+                        : "",
+                    stderr: "",
+                    outputExceeded: false,
+                  },
+            terminateAndWait: async () => {
+              terminations++;
+              terminationEntered();
+              return true;
+            },
+          }),
+          cleanupOwnedResources: async () => {
+            cleanups++;
+            cleanupEntered();
+            return {
+              confirmed: clean,
+              processTreeTerminated: clean,
+              containersAbsent: clean,
+              networksAbsent: clean,
+              resourceObservations: fixture.resourceObservations,
+            };
+          },
+        });
+        const started = fixture.controller.start(
+          fixture.preparedCapability,
+          fixture.managementCapability,
+          () => true,
+          undefined,
+          () => {
+            entered();
+            return notification;
+          },
+        );
+        await startedNotice;
+        if (first === "technical") {
+          rejectWait(new Error("EPIPE"));
+          await cleanupNotice;
+        }
+        if (ack === "false") releaseAck(false);
+        else rejectAck(new Error("fixed_ack_failure"));
+        if (first === "ack") {
+          await terminationNotice;
+          rejectWait(new Error("EPIPE"));
+        }
+        const result = await started.completion;
+        const reason =
+          first === "technical"
+            ? "docker_process_controller_execution_failed_closed"
+            : "docker_process_controller_provider_start_observation_failed";
+        assert.equal(result?.status, "blocked");
+        assert.equal(
+          result?.reason,
+          clean ? reason : "docker_process_controller_cleanup_unconfirmed",
+        );
+        const settled = notices.find(
+          (notice) => notice.event === "coordinator_provider_boundary_settled",
+        );
+        assert.ok(settled);
+        assert.deepEqual(settled.primaryFailure, {
+          purpose: "start_provider_attached",
+          stage:
+            first === "technical"
+              ? "command_wait"
+              : "provider_start_observation",
+          reason,
+          exceptionCode: first === "technical" ? "EPIPE" : null,
+          commandHandleObtained: true,
+          responseObserved: false,
+          receiptRecorded: false,
+        });
+        assert.equal(cleanups, 1);
+        assert.equal(terminations, 1);
+      }
+    }
+  }
 });

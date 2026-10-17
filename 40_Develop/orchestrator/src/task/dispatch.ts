@@ -21,7 +21,6 @@ import {
   settleProjectTaskBeforeEffect,
 } from "../state/transitions.ts";
 import type { OrchestratorClockIdentityPort } from "../identity/clock-and-hash.ts";
-import type { OrchestratorExecutionAuthorizationPort } from "./authorization.ts";
 import type {
   OrchestratorExecutionObservationPort,
   OrchestratorExecutionObservationPublication,
@@ -84,7 +83,6 @@ export type OrchestratorExecutionDependencies = Readonly<{
   persistence: OrchestratorPersistencePorts;
   clockIdentity: OrchestratorClockIdentityPort;
   processSafety: OrchestratorProcessSafetyPort;
-  authorization: OrchestratorExecutionAuthorizationPort;
   runSingleTaskAttempt: (
     input: OrchestratorSingleTaskAttemptInput,
   ) => Promise<OrchestratorSingleTaskResult>;
@@ -995,7 +993,7 @@ export async function runOrchestratorOperation(
                 authorityBindingId: attempt.execution.authorityBindingId,
                 repositoryRevision: state.repositoryRevision,
                 status: "cancelled" as const,
-                reason: "single_task_cancelled_before_authority",
+                reason: "single_task_cancelled_before_delegation",
                 effectState: "no_effect" as const,
                 cleanupConfirmed: true,
                 manualRecoveryRequired: false,
@@ -1004,110 +1002,12 @@ export async function runOrchestratorOperation(
                 recoveryIds: Object.freeze([]),
                 recoveryObligations: Object.freeze([]),
               });
-            const issuedAuthorization = dependencies.authorization.issue({
-              projectId: input.projectId,
-              milestoneId: input.milestoneId,
-              taskId: attempt.taskId,
-              attemptId: attempt.attemptId,
-              operationId: attempt.operationId,
-              authorityBindingId: attempt.execution.authorityBindingId,
-              repositoryRevision: state.repositoryRevision,
-            });
-            const runtimeExecutionCapability =
-              issuedAuthorization.status === "completed"
-                ? issuedAuthorization.value
-                : null;
-            if (
-              !runtimeExecutionCapability ||
-              typeof runtimeExecutionCapability !== "object"
-            )
-              return Object.freeze({
-                contract:
-                  "crdd-coordinator/orchestrator-single-task-adapter" as const,
-                attemptId: attempt.attemptId,
-                operationId: attempt.operationId,
-                authorityBindingId: attempt.execution.authorityBindingId,
-                repositoryRevision: state.repositoryRevision,
-                status: "blocked" as const,
-                reason: "single_task_runtime_execution_authorization_failed",
-                effectState: "no_effect" as const,
-                cleanupConfirmed: true,
-                manualRecoveryRequired: false,
-                processRestartRequired: false,
-                candidateId: null,
-                recoveryIds: Object.freeze([]),
-                recoveryObligations: Object.freeze([]),
-              });
-            if (input.cancellationSignal.aborted) {
-              const revocation = dependencies.authorization.revokeUnused(
-                runtimeExecutionCapability,
-              );
-              const isRevoked = revocation.status === "completed";
-              return isRevoked === true
-                ? Object.freeze({
-                    contract:
-                      "crdd-coordinator/orchestrator-single-task-adapter" as const,
-                    attemptId: attempt.attemptId,
-                    operationId: attempt.operationId,
-                    authorityBindingId: attempt.execution.authorityBindingId,
-                    repositoryRevision: state.repositoryRevision,
-                    status: "cancelled" as const,
-                    reason:
-                      "single_task_cancelled_after_execution_authorization_revoked",
-                    effectState: "no_effect" as const,
-                    cleanupConfirmed: true,
-                    manualRecoveryRequired: false,
-                    processRestartRequired: false,
-                    candidateId: null,
-                    recoveryIds: Object.freeze([]),
-                    recoveryObligations: Object.freeze([]),
-                  })
-                : (() => {
-                    dependencies.processSafety.poisonAfterCleanupUnknown();
-                    const runtimeProcessRecoveryId =
-                      dependencies.processSafety.createRecoveryIdentity(
-                        attempt.attemptId,
-                        attempt.operationId,
-                      );
-                    runtimeIssuedRecoveryIds.set(
-                      runtimeProcessRecoveryId,
-                      Object.freeze({
-                        attemptId: attempt.attemptId,
-                        operationId: attempt.operationId,
-                      }),
-                    );
-                    return Object.freeze({
-                      contract:
-                        "crdd-coordinator/orchestrator-single-task-adapter" as const,
-                      attemptId: attempt.attemptId,
-                      operationId: attempt.operationId,
-                      authorityBindingId: attempt.execution.authorityBindingId,
-                      repositoryRevision: state.repositoryRevision,
-                      status: "blocked" as const,
-                      reason:
-                        "single_task_execution_authorization_revocation_unknown",
-                      effectState: "unknown" as const,
-                      cleanupConfirmed: false,
-                      manualRecoveryRequired: true,
-                      processRestartRequired: true,
-                      candidateId: null,
-                      recoveryIds: Object.freeze([runtimeProcessRecoveryId]),
-                      recoveryObligations: Object.freeze([
-                        Object.freeze({
-                          kind: "runtime_process" as const,
-                          recoveryId: runtimeProcessRecoveryId,
-                        }),
-                      ]),
-                    });
-                  })();
-            }
             delegatedAttemptIds.add(attempt.attemptId);
             return await dependencies.runSingleTaskAttempt({
               attemptId: attempt.attemptId,
               operationId: attempt.operationId,
               authorityBindingId: attempt.execution.authorityBindingId,
               repositoryRevision: state.repositoryRevision,
-              runtimeExecutionCapability,
               taskRequest: attempt.execution.taskRequest,
               repositoryRoot: attempt.execution.repositoryRoot,
               cancellationSignal: input.cancellationSignal,

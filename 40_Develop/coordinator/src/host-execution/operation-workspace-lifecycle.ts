@@ -19,9 +19,89 @@ import {
   acquireRuntimeOwnedHostOperationSupervisorLock,
 } from "./kernel-lock.ts";
 import {
+  formatHostRecoveryToken,
   loadHostRecoveryRecordByToken,
   parseHostRecoveryToken,
 } from "./recovery-record.ts";
+
+/**
+ * Host 回復 状態を状態遷移させる。
+ *
+ * @responsibility Host 回復 状態の遷移前提、次状態、無効遷移の拒否境界を所有する。
+ * @trace ARCH-000008
+ * @input hostRecoveryId: string、expectedState: string、nextState: string、mountCapability: unknown
+ * @returns stringを返す。
+ * @precondition 「hostRecoveryId: string、expectedState: string、nextState: string、mountCapability: unknown」がtransitionHostRecoveryStateの入力契約を満たす。
+ * @postcondition transitionHostRecoveryStateの責務を完了した結果だけを返す。
+ * @effect transitionHostRecoveryStateはFilesystemの読取りまたは書込みを実行する。
+ * @failure transitionHostRecoveryStateは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant transitionHostRecoveryStateは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security transitionHostRecoveryStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: transitionHostRecoveryStateは共有非同期状態を持たない同期処理である。
+ */
+export function transitionHostRecoveryState(
+  hostRecoveryId: string,
+  expectedState: string,
+  nextState: string,
+  mountCapability: unknown,
+  expectedRoot: string | null = null,
+): string {
+  if (
+    expectedState === "host_only" &&
+    nextState === "docker_submission_started"
+  )
+    return transitionOwnedDockerSubmissionState(
+      mountCapability,
+      hostRecoveryId,
+      "begin",
+    );
+  if (
+    expectedState === "docker_submission_started" &&
+    nextState === "host_only"
+  )
+    return transitionOwnedDockerSubmissionState(
+      mountCapability,
+      hostRecoveryId,
+      "cancel",
+    );
+  if (
+    expectedState !== "docker_submission_started" ||
+    nextState !== "docker_absent_confirmed"
+  )
+    throw new Error("host_recovery_state_invalid");
+  const root =
+    mountCapability === null
+      ? expectedRoot
+      : path.dirname(verifyOwnedMountCapability(mountCapability).management);
+  if (!root || (expectedRoot !== null && expectedRoot !== root))
+    throw new Error("host_recovery_root_mismatch");
+  const loaded = loadHostRecoveryRecordByToken(hostRecoveryId, root);
+  if (loaded.record.state !== expectedState)
+    throw new Error("host_recovery_state_invalid");
+  const updated = { ...loaded.record, state: nextState };
+  const serialized = `${JSON.stringify(updated)}\n`;
+  const recordHash = createHash("sha256").update(serialized).digest("hex");
+  const temporary = `${loaded.marker}.${randomUUID()}.tmp`;
+  fs.writeFileSync(temporary, serialized, {
+    encoding: "utf8",
+    flag: "wx",
+    mode: 0o600,
+  });
+  fs.renameSync(temporary, loaded.marker);
+  const updatedToken = formatHostRecoveryToken(
+    loaded.parsed.rootName,
+    loaded.parsed.nonce,
+    recordHash,
+  );
+  if (mountCapability !== null)
+    adoptOwnedHostRecoveryRecordTransition(
+      mountCapability,
+      hostRecoveryId,
+      updatedToken,
+    );
+  return updatedToken;
+}
 
 export const CREDENTIAL_ENV_NAMES = Object.freeze([
   "ANTHROPIC_API_KEY",
@@ -833,20 +913,23 @@ const hostOperationRecoveryGenerations = new WeakMap<
  *
  * @responsibility Host Operation 回復 Generationの取得条件、所有権、失敗時の非取得境界を所有する。
  * @trace ARCH-000008
- * @input token: unknown
- * @returns acquireHostOperationRecoveryGenerationの計算結果を返す。
+ * @input token: exact参照、expectedRoot: 元Ownerまたは現在操作が固定したRoot。
+ * @returns 同Rootの既存世代排他、または確認不能のnull。
  * @precondition 「token: unknown」がacquireHostOperationRecoveryGenerationの入力契約を満たす。
  * @postcondition acquireHostOperationRecoveryGenerationの責務を完了した結果だけを返す。
- * @effect N/A: acquireHostOperationRecoveryGenerationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @effect 同Rootのmarker読取りと既存OS排他Workerの取得だけ。
  * @failure acquireHostOperationRecoveryGenerationは入力不正または下位処理の失敗を呼出し側へ返す。
  * @invariant acquireHostOperationRecoveryGenerationは入力から導いた結果以外の共有状態を変更しない。
  * @boundary N/A: acquireHostOperationRecoveryGenerationはProcess内の同一Subsystemで完結する。
  * @security acquireHostOperationRecoveryGenerationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: acquireHostOperationRecoveryGenerationは共有非同期状態を持たない同期処理である。
  */
-export function acquireHostOperationRecoveryGeneration(token: unknown) {
+export function acquireHostOperationRecoveryGeneration(
+  token: unknown,
+  expectedRoot: unknown,
+) {
   try {
-    const loaded = loadHostRecoveryRecordByToken(token);
+    const loaded = loadHostRecoveryRecordByToken(token, expectedRoot);
     const root = path.join(loaded.parent, loaded.parsed.rootName);
     return acquireHostOperationRecoveryGenerationByIdentity(
       root,
@@ -938,14 +1021,14 @@ export function releaseHostOperationRecoveryGeneration(capability: unknown) {
  * @returns N/A: verifyHostOperationRecoveryGenerationは戻り値を返さない。
  * @precondition 「capability: unknown、root: string、nonce: string」がverifyHostOperationRecoveryGenerationの入力契約を満たす。
  * @postcondition verifyHostOperationRecoveryGenerationの責務を完了して呼出し元へ制御を戻す。
- * @effect N/A: verifyHostOperationRecoveryGenerationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure verifyHostOperationRecoveryGenerationは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @effect 私有世代Mapと既存Lockの生存観測だけ。新しい排他や処置を発行しない。
+ * @failure Map／Root／nonce差、Lock失効・観測例外は処置前に例外で停止する。
  * @invariant verifyHostOperationRecoveryGenerationは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: verifyHostOperationRecoveryGenerationはProcess内の同一Subsystemで完結する。
+ * @boundary package内部のHost世代と保持中OS排他の観測。公開Root入口へ出さない。
  * @security verifyHostOperationRecoveryGenerationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: verifyHostOperationRecoveryGenerationは共有非同期状態を持たない同期処理である。
+ * @concurrency 取得時だけでなく各保存／処置直前に同じ世代の保持を確認する。
  */
-function verifyHostOperationRecoveryGeneration(
+export function verifyHostOperationRecoveryGeneration(
   capability: unknown,
   root: string,
   nonce: string,
@@ -953,8 +1036,82 @@ function verifyHostOperationRecoveryGeneration(
   const generation = isObject(capability)
     ? (hostOperationRecoveryGenerations.get(capability) ?? null)
     : null;
-  if (!generation || generation.root !== root || generation.nonce !== nonce)
+  if (
+    !generation ||
+    generation.root !== root ||
+    generation.nonce !== nonce ||
+    generation.lock.assertLive() !== true
+  )
     throw new Error("host_recovery_generation_active");
+}
+
+/**
+ * genuine回復世代が保持する管理領域だけを短命に借用する。
+ * @responsibility marker・Root・記録済み子実体を同世代へ結合し、生managementを復元しない。
+ * @trace ARCH-000008
+ * @input token: exact Host参照。capability: 取得済みHost回復世代。
+ * @returns 管理Directoryと同期再確認、またはnull。
+ * @precondition Docker要求を開始した元世代が失効し、回復排他を保持している。
+ * @postcondition Rootや子を作成・変更せず、借用値だけで処置Authorityを発行しない。
+ * @effect 同じmarker、Rootとmanagement実体の読取りだけ。
+ * @failure 別世代、state差、欠測、link、canonical差と実体差はnull／false。
+ * @invariant 任意Path・旧management Capability・別親探索を受理しない。
+ * @boundary Host世代の保持とDocker用短命設定の借用所在。
+ * @security 返却はPackage内部だけ。Root barrelへ公開しない。
+ * @concurrency 使用直前ごとに同じtoken・排他・Root／子実体を再確認する。
+ */
+export function borrowHostRecoveryManagementDirectory(
+  token: unknown,
+  capability: unknown,
+) {
+  const generation = isObject(capability)
+    ? hostOperationRecoveryGenerations.get(capability)
+    : null;
+  if (!generation) return null;
+  const root = generation.root;
+  const nonce = generation.nonce;
+  const directory = path.join(root, "management");
+  /**
+   * 借用中の同じHost管理領域を現在観測で照合する。
+   * @responsibility 保持排他・marker・Root・子Directoryの共同現在性を判定する。
+   * @trace ARCH-000008
+   * @input N/A: 元token、世代と固定子所在をclosureに保持する。
+   * @returns 全条件が現在成立する場合だけtrue。
+   * @precondition genuine世代から作った借用closureである。
+   * @postcondition 不明をPath存在や処置許可へ変換しない。
+   * @effect 固定所在とmarkerの読取りだけ。
+   * @failure 欠測、差替え、例外または失効はfalse。
+   * @invariant 更新済みtokenを黙って採用せず別子を探索しない。
+   * @boundary 同じHost世代から固定management実体の再観測。
+   * @security 記録のpathNameだけから任意所在を借用しない。
+   * @concurrency 各下位要求・設定作成直前に同期実行する。
+   */
+  function assertCurrent() {
+    try {
+      verifyHostOperationRecoveryGeneration(capability, root, nonce);
+      const loaded = loadHostRecoveryRecord(token, root);
+      const child = loaded.record.childIdentities.management;
+      if (
+        loaded.parsed.nonce !== nonce ||
+        loaded.record.state !== "docker_submission_started" ||
+        !loaded.record.rootIdentity ||
+        child?.pathName !== "management" ||
+        path.dirname(directory) !== root ||
+        fs.realpathSync(root) !== root ||
+        fs.realpathSync(directory) !== directory ||
+        fs.lstatSync(root).isSymbolicLink() ||
+        fs.lstatSync(directory).isSymbolicLink() ||
+        !identityMatchesRecord(root, loaded.record.rootIdentity) ||
+        !identityMatchesRecord(directory, child)
+      )
+        return false;
+      verifyHostOperationRecoveryGeneration(capability, root, nonce);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  return assertCurrent() ? Object.freeze({ directory, assertCurrent }) : null;
 }
 
 /**
@@ -3394,7 +3551,11 @@ export function confirmOwnedDockerAbsenceForRecovery(
   token: unknown,
   recoveryGenerationCapability: unknown = null,
 ) {
-  const loaded = loadHostRecoveryRecord(token);
+  const generation = isObject(recoveryGenerationCapability)
+    ? hostOperationRecoveryGenerations.get(recoveryGenerationCapability)
+    : null;
+  if (!generation) throw new Error("host_recovery_generation_invalid");
+  const loaded = loadHostRecoveryRecord(token, generation.root);
   if (loaded.record.state !== "docker_submission_started")
     throw new Error("host_recovery_state_invalid");
   const root = path.join(loaded.parent, loaded.parsed.rootName);
@@ -3442,16 +3603,18 @@ export function adoptOwnedHostRecoveryRecordTransition(
   nextToken: unknown,
 ): void {
   const previous = parseHostRecoveryToken(previousToken);
-  const loaded = loadHostRecoveryRecord(nextToken);
-  const root = path.join(loaded.parent, loaded.parsed.rootName);
-  const state = operationGenerationByRoot.get(root);
   const mount = isObject(mountCapability)
     ? (mountCapabilities.get(mountCapability) ?? null)
     : null;
+  const identity = mount ? ownedIdentities.get(mount.owned) : null;
+  if (!mount || !identity)
+    throw new Error("owned_operation_mount_capability_required");
+  validateOwnedOperationIdentity(mount.owned, identity);
+  const loaded = loadHostRecoveryRecord(nextToken, identity.root);
+  const root = path.join(loaded.parent, loaded.parsed.rootName);
+  const state = operationGenerationByRoot.get(root);
   if (!state || !mount || mount.owned !== state.owned || state.retired)
     throw new Error("owned_operation_mount_capability_required");
-  const identity = ownedIdentities.get(state.owned);
-  if (!identity) throw new Error("owned_operation_mount_capability_required");
   validateOwnedOperationIdentity(state.owned, identity);
   const expectedSerialized = `${JSON.stringify(
     hostRecordContent(identity, "docker_absent_confirmed"),
@@ -4441,14 +4604,17 @@ export function captureOwnedOperationCleanupVerification(
  * @security loadHostRecoveryRecordはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: loadHostRecoveryRecordは共有非同期状態を持たない同期処理である。
  */
-function loadHostRecoveryRecord(token: unknown): Readonly<{
+function loadHostRecoveryRecord(
+  token: unknown,
+  expectedRoot: unknown,
+): Readonly<{
   parsed: Readonly<{ rootName: string; nonce: string; recordHash: string }>;
   parent: string;
   recovery: Readonly<{ directory: string }>;
   marker: string;
   record: HostRecoveryRecord;
 }> {
-  const loaded = loadHostRecoveryRecordByToken(token);
+  const loaded = loadHostRecoveryRecordByToken(token, expectedRoot);
   return {
     parsed: loaded.parsed,
     parent: loaded.parent,
@@ -4463,7 +4629,7 @@ function loadHostRecoveryRecord(token: unknown): Readonly<{
  *
  * @responsibility recover 所有 Operation Directoriesの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000008
- * @input token: unknown、suppliedRecoveryGenerationCapability: unknown
+ * @input token: exact参照、suppliedRecoveryGenerationCapability: 既存世代Owner、expectedRoot: 世代Ownerを渡さない場合の固定Root。
  * @returns Readonly<{ status: "recovered" | "blocked"; reason: string; recoveryId: string | null; }>を返す。
  * @precondition 「token: unknown、suppliedRecoveryGenerationCapability: unknown」がrecoverOwnedOperationDirectoriesの入力契約を満たす。
  * @postcondition recoverOwnedOperationDirectoriesの責務を完了した結果だけを返す。
@@ -4477,6 +4643,7 @@ function loadHostRecoveryRecord(token: unknown): Readonly<{
 export function recoverOwnedOperationDirectories(
   token: unknown,
   suppliedRecoveryGenerationCapability: unknown = null,
+  expectedRoot: unknown = null,
 ): Readonly<{
   status: "recovered" | "blocked";
   reason: string;
@@ -4488,12 +4655,26 @@ export function recoverOwnedOperationDirectories(
   let markerPendingAfterRelease: string | null = null;
   const ownedRecoveryGenerationCapability = suppliedRecoveryGenerationCapability
     ? null
-    : acquireHostOperationRecoveryGeneration(token);
+    : acquireHostOperationRecoveryGeneration(token, expectedRoot);
   const recoveryGenerationCapability =
     suppliedRecoveryGenerationCapability ?? ownedRecoveryGenerationCapability;
   const result = (() => {
     try {
-      const { parsed, parent, marker, record } = loadHostRecoveryRecord(token);
+      const generation = isObject(recoveryGenerationCapability)
+        ? hostOperationRecoveryGenerations.get(recoveryGenerationCapability)
+        : null;
+      if (!generation) throw new Error("host_recovery_generation_invalid");
+      if (expectedRoot !== null && expectedRoot !== generation.root)
+        throw new Error("host_recovery_root_mismatch");
+      verifyHostOperationRecoveryGeneration(
+        recoveryGenerationCapability,
+        generation.root,
+        parseHostRecoveryToken(token).nonce,
+      );
+      const { parsed, parent, marker, record } = loadHostRecoveryRecord(
+        token,
+        generation.root,
+      );
       verifiedRecoveryId = typeof token === "string" ? token : null;
       if (record.state === "docker_submission_started")
         throw new Error("host_recovery_requires_docker_absence");
@@ -4622,7 +4803,7 @@ export function recoverOwnedOperationDirectories(
       if (markerObservation === "unknown")
         throw new Error("host_recovery_record_observation_unknown");
       if (markerObservation === "present") {
-        const loaded = loadHostRecoveryRecord(token);
+        const loaded = loadHostRecoveryRecord(token, recoveryGeneration?.root);
         if (loaded.marker !== markerPendingAfterRelease)
           throw new Error("host_recovery_record_replaced");
         fs.rmSync(markerPendingAfterRelease);

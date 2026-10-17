@@ -30,7 +30,6 @@ import {
   confirmRuntimeOwnedExternalSendUsingConsole,
   requestRuntimeOwnedExternalSendGrant,
 } from "../../src/external-send/grant.ts";
-import { issueRuntimeOwnedVerifiedCoordinatorPackageCapability } from "../../src/platform-access/package-verification.ts";
 
 const MODES = new Set([
   "descriptor_close",
@@ -226,25 +225,25 @@ try {
 
   const wasOriginPendingAtGate = !isOriginSettled;
   const wasPoisonedAtOriginBoundary = isRuntimeProcessPoisoned();
-  let packageInputReadCount = 0;
-  const packageInput = new Proxy(Object.create(null), {
+  let taskInputReadCount = 0;
+  const taskInput = new Proxy(Object.create(null), {
     get: () => {
-      packageInputReadCount += 1;
-      throw new Error("package_input_must_not_be_read_after_process_poison");
+      taskInputReadCount += 1;
+      throw new Error("task_input_must_not_be_read_after_process_poison");
     },
     ownKeys: () => {
-      packageInputReadCount += 1;
-      throw new Error(
-        "package_input_must_not_be_enumerated_after_process_poison",
-      );
+      taskInputReadCount += 1;
+      throw new Error("task_input_must_not_be_enumerated_after_process_poison");
+    },
+    getOwnPropertyDescriptor: () => {
+      taskInputReadCount += 1;
+      throw new Error("task_input_must_not_be_inspected_after_process_poison");
     },
   });
-  const issued =
-    issueRuntimeOwnedVerifiedCoordinatorPackageCapability(packageInput);
 
   let taskReason = "task_did_not_stop";
   try {
-    startRuntimeOwnedCoordinatorTask(null, null, null);
+    startRuntimeOwnedCoordinatorTask(taskInput, null);
   } catch (error) {
     taskReason = error instanceof Error ? error.message : "unknown_task_error";
   }
@@ -292,12 +291,7 @@ try {
       originPendingAtGate: wasOriginPendingAtGate,
       poisonedAtOriginBoundary: wasPoisonedAtOriginBoundary,
       finalPoisonState: isRuntimeProcessPoisoned(),
-      packageReason:
-        issued.verification && typeof issued.verification === "object"
-          ? (issued.verification as Readonly<Record<string, unknown>>).reason
-          : null,
-      packageCapabilityIsNull: issued.capability === null,
-      packageInputReadCount,
+      taskInputReadCount,
       taskReason,
       grantStatus: grant?.status ?? null,
       grantReason: grant && "reason" in grant ? grant.reason : null,

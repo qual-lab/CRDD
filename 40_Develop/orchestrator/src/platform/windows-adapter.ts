@@ -17,7 +17,6 @@ import {
   observeOrchestratorPlatformFamily,
   ORCHESTRATOR_WINDOWS_PLATFORM_FAMILY,
 } from "../../../coordinator/src/host-execution/windows-platform-observation.ts";
-import { inspectRuntimeOwnedDockerTaskRecoveryState } from "../../../coordinator/src/docker-execution/recovery-lifecycle.ts";
 import { inspectRuntimeOwnedWindowsProviderHomeCandidate } from "../../../coordinator/src/provider/home-windows-adapter.ts";
 import { compileWindowsRootObservationCandidate } from "../../../coordinator/src/repository-operation/root-observation.ts";
 
@@ -56,7 +55,6 @@ const SATISFIED_GUARANTEES = Object.freeze({
     "bounded_path_resolution",
   ]),
   process_cancellation: Object.freeze(["environment"]),
-  container_host: Object.freeze(["cleanup"]),
   runtime_root_recovery: Object.freeze([
     "managed_root",
     "protection",
@@ -153,14 +151,8 @@ export function createOrchestratorWindowsPlatformAdapter(): OrchestratorPlatform
       }),
     operations: Object.freeze({
       principal_provider_home: Object.freeze({
-        observeProviderHomeCandidate: (
-          provider: unknown,
-          evaluationTime: unknown,
-        ) =>
-          inspectRuntimeOwnedWindowsProviderHomeCandidate(
-            provider,
-            evaluationTime,
-          ),
+        observeProviderHomeCandidate: (provider: unknown) =>
+          inspectRuntimeOwnedWindowsProviderHomeCandidate(provider),
       }),
       lock_lease: Object.freeze({
         observeLeaseOwner,
@@ -170,10 +162,6 @@ export function createOrchestratorWindowsPlatformAdapter(): OrchestratorPlatform
       }),
       process_cancellation: Object.freeze({
         deriveChildEnvironment,
-      }),
-      container_host: Object.freeze({
-        observeContainerHostRecoveryState: () =>
-          inspectRuntimeOwnedDockerTaskRecoveryState(),
       }),
       runtime_root_recovery: Object.freeze({
         compileRootObservationCandidate: (rawObservation: unknown) =>

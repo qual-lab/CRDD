@@ -30,7 +30,7 @@ import { coordinatorTaskPublicReasons } from "../../src/task/result-reasons.ts";
 import {
   formatDockerIsolationRecoveryToken,
   isDockerIsolationRecoveryIdCandidate,
-} from "../../src/docker-execution/isolation-probe.ts";
+} from "../../src/host-execution/recovery-record.ts";
 import { formatHostRecoveryToken } from "../../src/host-execution/recovery-record.ts";
 
 const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
@@ -223,6 +223,71 @@ test("既知値だけ保存し、自由文・秘密風文字列・getter・proxy
       .resultsComplete,
     false,
   );
+});
+
+/**
+ * 新しいSource観測を安全な固定投影へ接続する。
+ * @responsibility 新版Source値と未移行Producerの旧配布値を混同せず保存する。
+ * @trace ERP-ST-004
+ * @precondition 正常Hash、Git値と固定Scopeを使用する。
+ * @stimulus 正常値、各不正値、getter、秘密風自由文と子結果を渡す。
+ * @observation 保存用結果の四fieldと状態、非公開fieldの不存在。
+ * @oracle 不正値はnullで、内部実体や自由文は保存せず、旧ProducerのHash投影を壊さない。
+ * @cleanup N/A: 局所投影のみでFilesystemを書き換えない。
+ * @boundary 検証Producer→共有記録用投影。
+ */
+test("Source観測は固定語彙とHashで投影し旧Producerの配布情報を保つ", () => {
+  const valid = {
+    sourceScope: "crdd-development-source-snapshot/v1",
+    sourceSha256: "a".repeat(64),
+    crddCommit: "b".repeat(40),
+    crddTree: "c".repeat(40),
+    sourceObservationStatus: "matched",
+    signatureRequired: false,
+  };
+  const normal = projectVerificationResult({
+    ...valid,
+    manifestHash: "d".repeat(64),
+    sourceIdentitySha256: "PRIVATE_IDENTITY",
+    root: "PRIVATE_ROOT",
+    results: [valid],
+  });
+  for (const [key, value] of Object.entries(valid))
+    assert.equal(normal[key], value, key);
+  assert.equal(normal.manifestHash, "d".repeat(64));
+  assert.doesNotMatch(JSON.stringify(normal), /PRIVATE/u);
+  const child = (normal.results as Array<Record<string, unknown>>)[0];
+  assert.ok(child);
+  assert.equal(child.sourceSha256, valid.sourceSha256);
+  for (const [key, value] of [
+    ["sourceScope", "unknown"],
+    ["sourceSha256", "secret_value"],
+    ["sourceObservationStatus", "PRIVATE_STATE"],
+  ] as const) {
+    assert.equal(
+      projectVerificationResult({ ...valid, [key]: value })[key],
+      key === "sourceObservationStatus" ? "unknown" : null,
+    );
+  }
+  let calls = 0;
+  for (const key of [
+    "sourceScope",
+    "sourceSha256",
+    "sourceObservationStatus",
+  ]) {
+    const value = Object.defineProperty({}, key, {
+      enumerable: true,
+      get() {
+        calls += 1;
+        throw new Error("must_not_read");
+      },
+    });
+    assert.equal(
+      projectVerificationResult(value)[key],
+      key === "sourceObservationStatus" ? "unknown" : null,
+    );
+  }
+  assert.equal(calls, 0);
 });
 
 /**
@@ -853,33 +918,90 @@ test("終了記録のflush失敗は保存成功にせず、byte上限も緩和�
 });
 
 /**
- * 公開Recovery入口は端末出力を変えず、未署名の停止も最終記録へ接続するを検証する。
+ * 公開Recovery入口から試験Producer拒否を実記録と端末出力へ接続する。
  *
- * @responsibility 公開Recovery入口は端末出力を変えず、未署名の停止も最終記録へ接続するの合否判定を所有する。
+ * @responsibility 署名拒否に依存せず、実Dockerを使用しない公開CLIと実Recorderの接続を確認する。
  * @trace ERP-ST-004
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 公開Recovery入口は端末出力を変えず、未署名の停止も最終記録へ接続するの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
+ * @stimulus 実子Processの最初のProducerだけを一回拒否し、外部Process要求を禁止する。
+ * @observation Producer到達数、外部Process要求数、公開JSON、stderr、開始・結果・完了記録。
+ * @oracle Producer一回・外部Process要求0、exit2、公開結果と保存summaryの一致を要求する。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary ERP-ST-004=Direct Boundary: coordinator Test Source→対象契約
  */
-test("公開Recovery入口は端末出力を変えず、未署名の停止も最終記録へ接続する", (t) => {
+test("公開Recovery入口はProducer拒否を実Dockerなしで最終記録へ接続する", (t) => {
   const root = fixture(t);
+  const preload = `
+    import cp from "node:child_process";
+    import { syncBuiltinESMExports } from "node:module";
+    import { mock } from "node:test";
+    let producerCalls = 0;
+    let processCalls = 0;
+    for (const name of ["spawn", "spawnSync", "exec", "execSync", "execFile", "execFileSync", "fork"])
+      mock.method(cp, name, () => { processCalls++; throw new Error("external_process_forbidden"); });
+    syncBuiltinESMExports();
+    mock.module(${JSON.stringify(pathToFileURL(path.join(packageRoot, "scripts/verify-dynamic-fake-provider-failures.ts")).href)}, {
+      namedExports: { verifyDynamicFakeProviderFailures: () => {
+        producerCalls++;
+        throw new Error("signed_recovery_matrix_failed_closed");
+      } },
+    });
+    process.on("exit", () => process.stderr.write("CRDD_RECORD_TEST " + JSON.stringify({ producerCalls, processCalls }) + "\\n"));
+  `;
   const child = spawnSync(
     process.execPath,
-    [path.join(packageRoot, "bin/coordinator.ts"), "verify-recovery"],
+    [
+      "--experimental-test-module-mocks",
+      "--import",
+      `data:text/javascript,${encodeURIComponent(preload)}`,
+      path.join(packageRoot, "bin/coordinator.ts"),
+      "verify-recovery",
+    ],
     { cwd: root, encoding: "utf8", windowsHide: true, timeout: 30_000 },
   );
   assert.equal(child.status, 2, child.stderr);
+  assert.equal(child.signal, null);
+  assert.equal(child.error, undefined);
   const result = JSON.parse(child.stdout);
   assert.equal(result.status, "blocked");
+  assert.equal(
+    result.contract,
+    "crdd-coordinator/signed-recovery-matrix-verification",
+  );
+  assert.equal(result.reason, "signed_recovery_matrix_failed_closed");
+  const observations = [...child.stderr.matchAll(/^CRDD_RECORD_TEST (.+)$/gmu)];
+  assert.equal(observations.length, 1);
+  assert.deepEqual(JSON.parse(observations[0]?.[1] ?? "null"), {
+    producerCalls: 1,
+    processCalls: 0,
+  });
   assert.match(child.stderr, /一時的に試験結果を保存しました/u);
+  assert.doesNotMatch(
+    child.stdout,
+    /CRDD_RECORD_TEST|一時的に試験結果を保存しました/u,
+  );
   const ids = fs.readdirSync(store(root));
   assert.equal(ids.length, 1);
+  const target = resultPath(root, ids[0] ?? null);
+  assert.deepEqual(fs.readdirSync(path.dirname(target)).sort(), [
+    "complete.json",
+    "result.json",
+    "started.json",
+  ]);
+  const record = JSON.parse(fs.readFileSync(target, "utf8"));
+  assert.deepEqual(record.summary, projectVerificationResult(result));
+  assert.equal(record.executionOutcome, "returned");
+  const started = JSON.parse(
+    fs.readFileSync(path.join(path.dirname(target), "started.json"), "utf8"),
+  );
+  const complete = JSON.parse(
+    fs.readFileSync(path.join(path.dirname(target), "complete.json"), "utf8"),
+  );
+  assert.equal(record.recordId, started.recordId);
+  assert.equal(complete.recordId, record.recordId);
+  assert.equal(complete.startedAt, started.startedAt);
   assert.equal(
-    JSON.parse(fs.readFileSync(resultPath(root, ids[0] ?? null), "utf8"))
-      .summary.status,
-    "blocked",
+    complete.resultSha256,
+    createHash("sha256").update(fs.readFileSync(target)).digest("hex"),
   );
 });

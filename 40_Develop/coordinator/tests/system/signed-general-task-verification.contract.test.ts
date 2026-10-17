@@ -19,7 +19,23 @@ import { EventEmitter } from "node:events";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import { createScanner, SyntaxKind } from "typescript/unstable/ast";
+import { stripTypeScriptTypes } from "node:module";
+import { runInNewContext } from "node:vm";
+import { fileURLToPath } from "node:url";
+import { observeRuntimeOwnedDevelopmentSource } from "../../src/task/development-source-observation.ts";
+import { inspectRepositoryRevisionCandidate } from "../../src/repository-operation/binding.ts";
+import {
+  isCallExpression,
+  isExportDeclaration,
+  isImportDeclaration,
+  isImportTypeNode,
+  isLiteralTypeNode,
+  isStringLiteral,
+  type Node,
+  SyntaxKind,
+} from "typescript/unstable/ast";
+import { createVirtualFileSystem } from "typescript/unstable/fs";
+import { API, Snapshot } from "typescript/unstable/sync";
 
 import {
   bindSignedGeneralTaskCancellation,
@@ -29,15 +45,15 @@ import {
 } from "../../scripts/verify-signed-general-task.ts";
 
 const TARGET_PATH =
-  "40_Develop/coordinator/runtime/general-task-verification.txt";
+  "40_Develop/coordinator/tests/fixtures/general-task-verification.txt";
 const BASE_CONTENT = "CRDD_COORDINATOR_GENERAL_TASK_BASE\n";
 const EXPECTED_CONTENT = "CRDD_COORDINATOR_GENERAL_TASK_OK\n";
 const coordinatorRoot = path.resolve(import.meta.dirname, "../..");
 const candidateId = `candidate.${"1".repeat(64)}.${"2".repeat(64)}`;
 const baseCommit = "a".repeat(40);
 const baseTree = "b".repeat(40);
-const signedSourceCommit = "1".repeat(40);
-const signedSourceTree = "2".repeat(40);
+const runnerSourceCommit = "1".repeat(40);
+const runnerSourceTree = "2".repeat(40);
 const baseManifestHash = "c".repeat(64);
 const contentManifestHash = "d".repeat(64);
 const allowedPathsHash = "e".repeat(64);
@@ -72,63 +88,76 @@ const NONLITERAL_DYNAMIC_IMPORT = "<nonliteral-dynamic-import>";
  * @responsibility importedModuleSpecifiersがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
  * @trace EST-ST-003
  * @precondition 呼出し元Test Caseが必要な入力を渡す。
- * @stimulus importedModuleSpecifiersを呼び出す。
- * @observation 返却値、生成fixtureまたは観測値を取得する。
- * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
- * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @stimulus 既存TypeScript APIの仮想Fileを構文解析してModule参照を列挙する。
+ * @observation 静的／型／動的importの文字列と非literal sentinel。
+ * @oracle 文字列・正規表現の偽importを拾わず、構文不正は拒否する。
+ * @cleanup finallyでSnapshotをdisposeしてからAPIをcloseする。実Fileは作成しない。
  * @boundary EST-ST-003=Direct Boundary: coordinator Test Source→対象契約
  */
 function importedModuleSpecifiers(source: string) {
-  const scanner = createScanner(true, undefined, source);
-  const tokens: Array<Readonly<{ kind: SyntaxKind; value: string }>> = [];
-  for (;;) {
-    const kind = scanner.scan();
-    if (kind === SyntaxKind.EndOfFile) break;
-    tokens.push(Object.freeze({ kind, value: scanner.getTokenValue() }));
-  }
   const specifiers: string[] = [];
-  for (let index = 0; index < tokens.length; index += 1) {
-    const token = tokens[index];
-    if (!token) continue;
-    if (token.kind === SyntaxKind.ImportKeyword) {
-      const next = tokens[index + 1];
-      if (next?.kind === SyntaxKind.OpenParenToken) {
-        const argument = tokens[index + 2];
-        specifiers.push(
-          argument?.kind === SyntaxKind.StringLiteral
-            ? argument.value
-            : NONLITERAL_DYNAMIC_IMPORT,
-        );
-        continue;
+  const virtual = path
+    .join(coordinatorRoot, ".crdd-module-oracle.ts")
+    .replaceAll("\\", "/");
+  const config = path
+    .join(coordinatorRoot, ".crdd-module-oracle.json")
+    .replaceAll("\\", "/");
+  const api = new API({
+    cwd: coordinatorRoot,
+    fs: createVirtualFileSystem({
+      [virtual]: source,
+      [config]: JSON.stringify({
+        files: [virtual],
+        compilerOptions: { noLib: true, noResolve: true, noEmit: true },
+      }),
+    }),
+  });
+  try {
+    const snapshot = api.updateSnapshot({ openProjects: [config] });
+    try {
+      const project = snapshot.getProject(config);
+      const file = project?.program.getSourceFile(virtual);
+      assert.ok(file);
+      assert.equal(project?.program.getSyntacticDiagnostics(virtual).length, 0);
+      const pending: Node[] = [file];
+      while (pending.length > 0) {
+        const node = pending.pop();
+        assert.ok(node);
+        if (isImportDeclaration(node) || isExportDeclaration(node)) {
+          if (node.moduleSpecifier && isStringLiteral(node.moduleSpecifier))
+            specifiers.push(node.moduleSpecifier.text);
+        } else if (
+          isCallExpression(node) &&
+          node.expression.kind === SyntaxKind.ImportKeyword
+        ) {
+          const argument = node.arguments[0];
+          specifiers.push(
+            argument && isStringLiteral(argument)
+              ? argument.text
+              : NONLITERAL_DYNAMIC_IMPORT,
+          );
+        } else if (isImportTypeNode(node)) {
+          specifiers.push(
+            isLiteralTypeNode(node.argument) &&
+              isStringLiteral(node.argument.literal)
+              ? node.argument.literal.text
+              : NONLITERAL_DYNAMIC_IMPORT,
+          );
+        }
+        const children: Node[] = [];
+        node.forEachChild((child) => {
+          children.push(child);
+        });
+        for (let index = children.length - 1; index >= 0; index -= 1) {
+          const child = children[index];
+          if (child) pending.push(child);
+        }
       }
-      if (next?.kind === SyntaxKind.StringLiteral) {
-        specifiers.push(next.value);
-        continue;
-      }
+    } finally {
+      snapshot.dispose();
     }
-    if (
-      token.kind !== SyntaxKind.ImportKeyword &&
-      token.kind !== SyntaxKind.ExportKeyword
-    ) {
-      continue;
-    }
-    for (let cursor = index + 1; cursor < tokens.length; cursor += 1) {
-      const candidate = tokens[cursor];
-      if (!candidate) break;
-      if (candidate.kind === SyntaxKind.SemicolonToken) break;
-      if (
-        cursor > index + 1 &&
-        (candidate.kind === SyntaxKind.ImportKeyword ||
-          candidate.kind === SyntaxKind.ExportKeyword)
-      ) {
-        break;
-      }
-      if (candidate.kind !== SyntaxKind.FromKeyword) continue;
-      const moduleSpecifier = tokens[cursor + 1];
-      if (moduleSpecifier?.kind === SyntaxKind.StringLiteral)
-        specifiers.push(moduleSpecifier.value);
-      break;
-    }
+  } finally {
+    api.close();
   }
   return specifiers;
 }
@@ -162,32 +191,22 @@ function resolvesToForbiddenWindowsAsciiModule(
 }
 
 /**
- * releaseのTest準備責務を実行する。
+ * sourceのTest準備責務を実行する。
  *
- * @responsibility releaseがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @responsibility sourceがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
  * @trace EST-ST-003
  * @precondition 呼出し元Test Caseが必要な入力を渡す。
- * @stimulus releaseを呼び出す。
+ * @stimulus sourceを呼び出す。
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
  * @boundary EST-ST-003=Direct Boundary: coordinator Test Source→対象契約
  */
-function release(overrides: Record<string, unknown> = {}) {
+function source(overrides: Record<string, unknown> = {}) {
   return Object.freeze({
-    status: "candidate",
-    stableFilesystemIdentityObserved: true,
-    runtimeOwnedPackageRoot: true,
-    manifestHash: "f".repeat(64),
-    packageContentRootSha256: "0".repeat(64),
-    qualLabManifestCryptographicMatch: true,
-    runtimeOwnedReleaseTrustConfirmed: true,
-    releaseIdentityRuntimeOwned: false,
-    runtimeExecutionIdentityRuntimeOwned: true,
-    runtimeExecutionIdentitySha256: "9".repeat(64),
-    crddDistributionConfirmed: true,
-    crddVersion: "v0.18.0",
-    releaseSequence: 1,
+    scope: "crdd-development-source-snapshot/v1",
+    sourceSha256: "0".repeat(64),
+    sourceIdentitySha256: "9".repeat(64),
     crddCommit: baseCommit,
     crddTree: baseTree,
     ...overrides,
@@ -297,7 +316,8 @@ function candidate(content = EXPECTED_CONTENT) {
  */
 function dependencies(
   options: {
-    release?: Readonly<Record<string, unknown>>;
+    source?: Readonly<Record<string, unknown>>;
+    sourceSequence?: readonly unknown[];
     result?: Readonly<Record<string, unknown>>;
     candidate?: Readonly<Record<string, unknown>> | null;
     discard?: Readonly<Record<string, unknown>>;
@@ -322,7 +342,7 @@ function dependencies(
 ) {
   const calls = {
     events: [] as string[],
-    verifies: 0,
+    sourceObservations: 0,
     starts: 0,
     reads: 0,
     discards: 0,
@@ -330,28 +350,29 @@ function dependencies(
     bound: 0,
     unbound: 0,
     cancels: 0,
-    issuedCapability: null as object | null,
-    passedCapability: null as unknown,
+    taskArgumentCount: 0,
     passedRequest: null as unknown,
   };
   return Object.freeze({
     calls,
     value: Object.freeze({
-      issuePackageCapability: () => {
-        calls.events.push("package");
-        calls.verifies += 1;
-        const capability = Object.freeze({});
-        calls.issuedCapability = capability;
-        return Object.freeze({
-          verification: options.release ?? release(),
-          capability,
-        });
+      observeSource: () => {
+        calls.events.push("source");
+        calls.sourceObservations += 1;
+        const observed =
+          options.sourceSequence &&
+          calls.sourceObservations <= options.sourceSequence.length
+            ? options.sourceSequence[calls.sourceObservations - 1]
+            : (options.source ?? source());
+        if (observed instanceof Error) throw observed;
+        return observed;
       },
-      startTask: (request: unknown, _root: string, capability: unknown) => {
+      startTask: (...args: [unknown, string]) => {
+        const [request] = args;
         calls.events.push("task");
         calls.starts += 1;
         calls.passedRequest = request;
-        calls.passedCapability = capability;
+        calls.taskArgumentCount = args.length;
         return Object.freeze({
           controlCapability: Object.freeze({}),
           completion: options.completionRejects
@@ -444,9 +465,79 @@ function dependencies(
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-ST-001=Direct Boundary: coordinator Test Source→対象契約
  */
-test("固定公開Taskをprocess内で構成しShell搬送を契約から除外する", () => {
+test("固定公開Taskをprocess内で構成しShell搬送を契約から除外する", (t) => {
+  const parserFixture = [
+    'import "./side.ts"; import type { T } from "./type.ts";',
+    'type X = import("./type-expression.ts").X;',
+    `const v = \`head \${import("./dynamic.ts")} \${\`nested \${({ v: 1 }).v}\`}\\n\`;`,
+    'if (x) /import\\("\\.\\/fake-control.ts"\\)/.test(y);',
+    '{ x(); } /import\\("\\.\\/fake-block.ts"\\)/.test(y);',
+    "const x1 = f() / 2; const x2 = ({ v: 8 }).v / 2;",
+    'const literal = `import("./fake-literal.ts")`;',
+    'void import(`./template.ts`); void import("./" + name);',
+    'export { x } from "./after.ts";',
+  ].join("\n");
+  assert.deepEqual(importedModuleSpecifiers(parserFixture), [
+    "./side.ts",
+    "./type.ts",
+    "./type-expression.ts",
+    "./dynamic.ts",
+    NONLITERAL_DYNAMIC_IMPORT,
+    NONLITERAL_DYNAMIC_IMPORT,
+    "./after.ts",
+  ]);
+  const cleanupEvents: string[] = [];
+  const originalClose = API.prototype.close;
+  const originalDispose = Snapshot.prototype.dispose;
+  const close = t.mock.method(API.prototype, "close", function (this: API) {
+    cleanupEvents.push("api_close");
+    return originalClose.call(this);
+  });
+  const dispose = t.mock.method(
+    Snapshot.prototype,
+    "dispose",
+    function (this: Snapshot) {
+      cleanupEvents.push("snapshot_dispose");
+      return originalDispose.call(this);
+    },
+  );
+  try {
+    assert.throws(
+      () => importedModuleSpecifiers("const = ;"),
+      /AssertionError/u,
+    );
+    assert.equal(dispose.mock.calls.length, 1);
+    assert.equal(close.mock.calls.length, 1);
+    assert.deepEqual(cleanupEvents, ["snapshot_dispose", "api_close"]);
+  } finally {
+    dispose.mock.restore();
+    close.mock.restore();
+  }
+  const update = t.mock.method(API.prototype, "updateSnapshot", () => {
+    throw new Error("parser_snapshot_failure");
+  });
+  cleanupEvents.length = 0;
+  const closeAfterFailure = t.mock.method(
+    API.prototype,
+    "close",
+    function (this: API) {
+      cleanupEvents.push("api_close");
+      return originalClose.call(this);
+    },
+  );
+  try {
+    assert.throws(
+      () => importedModuleSpecifiers(""),
+      /parser_snapshot_failure/u,
+    );
+    assert.equal(closeAfterFailure.mock.calls.length, 1);
+    assert.deepEqual(cleanupEvents, ["api_close"]);
+  } finally {
+    closeAfterFailure.mock.restore();
+    update.mock.restore();
+  }
   const verificationFixture = fs.readFileSync(
-    path.join(coordinatorRoot, "runtime/general-task-verification.txt"),
+    path.join(coordinatorRoot, "tests/fixtures/general-task-verification.txt"),
   );
   assert.deepEqual(verificationFixture, Buffer.from(BASE_CONTENT, "utf8"));
   assert.equal(verificationFixture.byteLength, 35);
@@ -455,7 +546,7 @@ test("固定公開Taskをprocess内で構成しShell搬送を契約から除外�
       path.resolve(coordinatorRoot, "../..", ".gitattributes"),
       "utf8",
     ),
-    /^40_Develop\/coordinator\/runtime\/general-task-verification\.txt text eol=lf$/m,
+    /^40_Develop\/coordinator\/tests\/fixtures\/general-task-verification\.txt text eol=lf$/m,
   );
 
   const request = createSignedGeneralTaskVerificationRequest();
@@ -485,7 +576,7 @@ test("固定公開Taskをprocess内で構成しShell搬送を契約から除外�
   });
 
   const contract = describeSignedGeneralTaskVerificationContract();
-  assert.equal(contract.contractRevision, 26);
+  assert.equal(contract.contractRevision, 27);
   assert.equal(
     contract.verificationFixture,
     "tracked_base_marker_exact_token_replacement_with_independent_final_byte_verification",
@@ -539,8 +630,8 @@ test("固定公開Taskをprocess内で構成しShell搬送を契約から除外�
     "runtime_owned_initial_consent_confirmation_only_reused_consent_requires_no_console",
   );
   assert.equal(
-    contract.packageCapabilityUse,
-    "runtime_local_nonserializable_nonexported_passed_once_to_task_runtime_after_release_verification",
+    contract.sourceObservation,
+    "fixed_module_root_source_and_git_before_task_and_after_settlement_not_execution_authority",
   );
   const runnerPath = path.join(
     coordinatorRoot,
@@ -676,18 +767,18 @@ test("CLIのRoute grammarは引数なしと三つのexact profileだけを許可
 });
 
 /**
- * Node GateとPackage GateはTask前に拒否しavailability-only Console Effectを持たないを検証する。
+ * Node GateとSource観測はTask前に拒否しavailability-only Console Effectを持たないを検証する。
  *
- * @responsibility Node GateとPackage GateはTask前に拒否しavailability-only Console Effectを持たないの合否判定を所有する。
+ * @responsibility Node GateとSource観測はTask前に拒否しavailability-only Console Effectを持たないの合否判定を所有する。
  * @trace EST-ST-003
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Node GateとPackage GateはTask前に拒否しavailability-only Console Effectを持たないの対象操作を実行する。
+ * @stimulus Node GateとSource観測はTask前に拒否しavailability-only Console Effectを持たないの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary EST-ST-003=Direct Boundary: coordinator Test Source→対象契約
  */
-test("Node GateとPackage GateはTask前に拒否しavailability-only Console Effectを持たない", async () => {
+test("Node GateとSource観測はTask前に拒否しavailability-only Console Effectを持たない", async () => {
   for (const fixture of [
     dependencies({ runtimeVersion: "24.11.9" }),
     dependencies({ runtimeVersion: "22.18.0" }),
@@ -697,7 +788,7 @@ test("Node GateとPackage GateはTask前に拒否しavailability-only Console Ef
       fixture.value,
     );
     assert.equal(result.status, "blocked");
-    assert.equal(fixture.calls.verifies, 0);
+    assert.equal(fixture.calls.sourceObservations, 0);
     assert.equal(fixture.calls.starts, 0);
     assert.deepEqual(fixture.calls.events, ["node"]);
   }
@@ -733,55 +824,308 @@ test("初回同意のConsole不成立はTask所有Gateの結果としてFail Clo
     "coordinator_task_external_send_confirmation_unavailable",
   );
   assert.equal(fixture.calls.starts, 1);
-  assert.deepEqual(fixture.calls.events, ["node", "package", "task"]);
+  assert.deepEqual(fixture.calls.events, ["node", "source", "task", "source"]);
 });
 
 /**
- * 署名Release不成立時はTaskを開始しないを検証する。
+ * Source観測不成立時はTaskを開始しないを検証する。
  *
- * @responsibility 署名Release不成立時はTaskを開始しないの合否判定を所有する。
+ * @responsibility Source観測不成立時はTaskを開始しないの合否判定を所有する。
  * @trace PRL-ST-001
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 署名Release不成立時はTaskを開始しないの対象操作を実行する。
+ * @stimulus Source観測不成立時はTaskを開始しないの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-ST-001=Direct Boundary: coordinator Test Source→対象契約
  */
-test("署名Release不成立時はTaskを開始しない", async () => {
+test("Source観測不成立時はTaskを開始しない", async () => {
   const fixture = dependencies({
-    release: release({ runtimeOwnedReleaseTrustConfirmed: false }),
+    source: source({ scope: "unknown" }),
   });
   const result = await runSignedGeneralTaskVerification(
     path.resolve("."),
     fixture.value,
   );
   assert.equal(result.status, "blocked");
-  assert.equal(
-    result.reason,
-    "signed_general_task_release_verification_failed",
-  );
+  assert.equal(result.reason, "signed_general_task_source_observation_unknown");
   assert.equal(fixture.calls.starts, 0);
   assert.equal(fixture.calls.reads, 0);
   assert.equal(fixture.calls.discards, 0);
-  assert.deepEqual(fixture.calls.events, ["node", "package"]);
+  assert.deepEqual(fixture.calls.events, ["node", "source"]);
 });
 
 /**
- * SHA-256 CRDD Release Identityはv1能力外としてTask Effect前に明示拒否するを検証する。
+ * 初回Source観測の不正値をTask開始前に拒否する。
+ * @responsibility Scope・内容・内部実体・Gitの欠測と例外を同じ開始境界で反証する。
+ * @trace PRL-ST-001
+ * @precondition 固定Source fixtureと既存Task模擬依存を使用する。
+ * @stimulus 各必須fieldの不正値、null、例外、getter、Proxyを渡す。
+ * @observation 開始・候補読取り・候補破棄とgetter呼出し数。
+ * @oracle 全て開始0で停止し、getterとProxyを実行しない。
+ * @cleanup N/A: 局所値だけで外部資源を作らない。
+ * @boundary Source観測→検証RunnerのTask開始。
+ */
+test("Source初回観測の欠測・例外・不正値はTask開始0で閉じる", async () => {
+  let getterCalls = 0;
+  const getter = {
+    get scope() {
+      getterCalls += 1;
+      return "crdd-development-source-snapshot/v1";
+    },
+  };
+  for (const observed of [
+    null,
+    new Error("fixed_observation_failure"),
+    source({ scope: "other" }),
+    source({ sourceSha256: "x" }),
+    source({ sourceIdentitySha256: undefined }),
+    source({ crddCommit: undefined }),
+    source({ crddTree: "invalid" }),
+    getter,
+    new Proxy(
+      {},
+      {
+        get() {
+          throw new Error("must_not_run");
+        },
+      },
+    ),
+  ]) {
+    const fixture = dependencies({ sourceSequence: [observed] });
+    const result = await runSignedGeneralTaskVerification(
+      path.resolve("."),
+      fixture.value,
+    );
+    assert.equal(
+      result.reason,
+      "signed_general_task_source_observation_unknown",
+    );
+    assert.equal(result.status, "blocked");
+    assert.equal(fixture.calls.starts, 0);
+    assert.equal(fixture.calls.reads, 0);
+    assert.equal(fixture.calls.discards, 0);
+    assert.equal(fixture.calls.sourceObservations, 1);
+  }
+  assert.equal(getterCalls, 0);
+});
+
+/**
+ * 本番Source観測の固定RootとGit前後照合を実本文で確認する。
+ * @responsibility 引数の対象RepositoryでなくRunner自身を観測し、Git変化を受理しない。
+ * @trace PRL-ST-001
+ * @precondition 現在RepositoryのSourceとGit改訂を読取り観測できる。
+ * @stimulus 実観測と固定欠測・前後改訂差、照合省略変異を与える。
+ * @observation 観測Root、呼出し順序、返された五値とnull。
+ * @oracle 固定Rootの二Git観測と既存Source観測だけを使い、差分と欠測を拒否する。
+ * @cleanup N/A: Repository内の読取りだけ。Docker・Provider・書込みはない。
+ * @boundary 本番依存のSource観測callback→既存Git／Source Reader。
+ */
+test("Source本番観測は固定module RootとGit前後照合を使用する", () => {
+  const scriptUrl = new URL(
+    "../../scripts/verify-signed-general-task.ts",
+    import.meta.url,
+  );
+  const text = fs.readFileSync(scriptUrl, "utf8");
+  const start = text.indexOf("  observeSource: () => {");
+  const end = text.indexOf("\n  startTask:", start);
+  assert.ok(start > 0 && end > start);
+  const body = text
+    .slice(start, end)
+    .trim()
+    .replace(/^observeSource: /u, "")
+    .replace(/,$/u, "")
+    .replace("import.meta.url", JSON.stringify(scriptUrl.href));
+  const root = path.resolve(coordinatorRoot, "../..");
+  const expectedSource = observeRuntimeOwnedDevelopmentSource();
+  const expectedGit = inspectRepositoryRevisionCandidate(root);
+  assert.ok(expectedSource && expectedGit?.status === "candidate");
+  const order: string[] = [];
+  const observe = runInNewContext(stripTypeScriptTypes(`(${body})`), {
+    URL,
+    fileURLToPath,
+    inspectRepositoryRevisionCandidate: (observed: string) => {
+      assert.equal(path.resolve(observed), root);
+      order.push("git");
+      return inspectRepositoryRevisionCandidate(observed);
+    },
+    observeRuntimeOwnedDevelopmentSource: () => {
+      order.push("source");
+      return observeRuntimeOwnedDevelopmentSource();
+    },
+  }) as () => Record<string, unknown> | null;
+  assert.deepEqual(JSON.parse(JSON.stringify(observe())), {
+    scope: expectedSource.scope,
+    sourceSha256: expectedSource.sourceSha256,
+    sourceIdentitySha256: expectedSource.sourceIdentitySha256,
+    crddCommit: expectedGit.commit,
+    crddTree: expectedGit.tree,
+  });
+  assert.deepEqual(order, ["git", "source", "git"]);
+  for (const [before, after, observed] of [
+    [null, expectedGit, expectedSource],
+    [expectedGit, null, expectedSource],
+    [expectedGit, { ...expectedGit, commit: "e".repeat(40) }, expectedSource],
+    [expectedGit, { ...expectedGit, tree: "e".repeat(40) }, expectedSource],
+    [expectedGit, expectedGit, null],
+  ] as const) {
+    let count = 0;
+    const fixture = runInNewContext(stripTypeScriptTypes(`(${body})`), {
+      URL,
+      fileURLToPath,
+      inspectRepositoryRevisionCandidate: () =>
+        count++ === 0 ? before : after,
+      observeRuntimeOwnedDevelopmentSource: () => observed,
+    }) as () => unknown;
+    assert.equal(fixture(), null);
+    assert.equal(count, 2);
+  }
+});
+
+/**
+ * 終了後Sourceの各差分と欠測を候補破棄後の検証不成立へ分ける。
+ * @responsibility 内容・同bytes実体交換・Git差と観測不能を独立期待で照合する。
+ * @trace PRL-ST-001
+ * @precondition Taskと候補の安全な終了fixtureを使用する。
+ * @stimulus 最終観測の差分・null・例外を渡す。
+ * @observation 破棄・解除の先行、固定理由、Source状態と公開field。
+ * @oracle 対象Repository変更やEffect不明を捏造せず、内部実体・旧署名情報を公開しない。
+ * @cleanup N/A: 模擬処理だけで実Providerを使わない。
+ * @boundary Task settlement→Source最終照合→公開結果。
+ */
+test("Source終了観測は破棄・解除後に五値を照合し内部値を公開しない", async () => {
+  for (const [observed, state] of [
+    [source({ sourceSha256: "e".repeat(64) }), "changed"],
+    [source({ sourceIdentitySha256: "e".repeat(64) }), "changed"],
+    [source({ crddCommit: "e".repeat(40) }), "changed"],
+    [source({ crddTree: "e".repeat(40) }), "changed"],
+    [null, "unavailable"],
+    [new Error("fixed_observation_failure"), "unavailable"],
+    [source({ scope: "other" }), "unavailable"],
+  ] as const) {
+    const fixture = dependencies();
+    let count = 0;
+    const result = await runSignedGeneralTaskVerification(path.resolve("."), {
+      ...fixture.value,
+      observeSource: () => {
+        count += 1;
+        if (count === 1) return source();
+        assert.equal(fixture.calls.discards, 1);
+        assert.equal(fixture.calls.unbound, 1);
+        if (observed instanceof Error) throw observed;
+        return observed;
+      },
+    });
+    assert.equal(count, 2);
+    assert.equal(result.status, "blocked");
+    assert.equal(
+      result.reason,
+      state === "changed"
+        ? "signed_general_task_source_changed"
+        : "signed_general_task_source_observation_unknown",
+    );
+    assert.equal(result.sourceObservationStatus, state);
+    assert.equal(result.candidateDiscarded, true);
+    assert.equal(result.cleanupConfirmed, true);
+    assert.equal(result.effectStateUnknown, false);
+    assert.equal(result.canonicalRepositoryChanged, false);
+    assert.equal(result.sourceScope, "crdd-development-source-snapshot/v1");
+    assert.equal(result.sourceSha256, "0".repeat(64));
+    assert.equal(result.signatureRequired, false);
+    for (const key of [
+      "sourceIdentitySha256",
+      "manifestHash",
+      "packageContentRootSha256",
+      "runtimeExecutionIdentitySha256",
+      "crddVersion",
+      "releaseSequence",
+    ])
+      assert.equal(Object.hasOwn(result, key), false, key);
+  }
+});
+
+/**
+ * Source不成立でもTask一次失敗と取消・清掃結果を維持する。
+ * @responsibility Source検証を既存のTask／候補／取消結果から分離する。
+ * @trace PRL-ST-001
+ * @precondition 既存の失敗・取消fixtureを使用する。
+ * @stimulus 同じSource差分を業務拒否・候補破棄失敗・取消へ重ねる。
+ * @observation 一次理由、回復分類、候補破棄・取消・解除数。
+ * @oracle 一次理由は変わらず、Source差分は独立fieldだけに残る。
+ * @cleanup N/A: 模擬処理だけ。
+ * @boundary Task／取消settlement→Source最終観測。
+ */
+test("Source差分は一次失敗や取消を上書きせず回収を省略しない", async () => {
+  for (const mode of ["refused", "discard", "cancel"] as const) {
+    const options = {
+      ...(mode === "refused"
+        ? {
+            result: taskResult({
+              status: "blocked",
+              reason: "coordinator_task_independent_review_not_approved",
+              candidateId: null,
+              candidateDisposition: "not_issued",
+            }),
+          }
+        : {}),
+      ...(mode === "discard" ? { discardThrows: true } : {}),
+      ...(mode === "cancel" ? { cancellationRequested: true } : {}),
+    };
+    const baseline = await runSignedGeneralTaskVerification(
+      path.resolve("."),
+      dependencies(options).value,
+    );
+    const fixture = dependencies({
+      ...options,
+      sourceSequence: [
+        source(),
+        source({ sourceIdentitySha256: "e".repeat(64) }),
+      ],
+    });
+    const result = await runSignedGeneralTaskVerification(
+      path.resolve("."),
+      fixture.value,
+    );
+    assert.equal(
+      result.reason,
+      mode === "refused"
+        ? "coordinator_task_independent_review_not_approved"
+        : mode === "discard"
+          ? "signed_general_task_candidate_discard_failed"
+          : "signed_general_task_cancelled",
+    );
+    assert.equal(result.sourceObservationStatus, "changed");
+    assert.equal(fixture.calls.sourceObservations, 2);
+    assert.equal(fixture.calls.unbound, 1);
+    assert.equal(fixture.calls.discards, mode === "refused" ? 0 : 1);
+    assert.equal(fixture.calls.cancels, mode === "cancel" ? 1 : 0);
+    for (const key of [
+      "cleanupConfirmed",
+      "manualRecoveryRequired",
+      "effectStateUnknown",
+      "canonicalRepositoryChanged",
+      "hostRecoveryId",
+      "dockerRecoveryId",
+    ])
+      assert.equal(result[key], baseline[key], `${mode}:${key}`);
+  }
+});
+
+/**
+ * SHA-256 CRDD Source Identityはv1能力外としてTask Effect前に明示拒否するを検証する。
  *
- * @responsibility SHA-256 CRDD Release Identityはv1能力外としてTask Effect前に明示拒否するの合否判定を所有する。
+ * @responsibility SHA-256 CRDD Source Identityはv1能力外としてTask Effect前に明示拒否するの合否判定を所有する。
  * @trace PRL-ST-001
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus SHA-256 CRDD Release Identityはv1能力外としてTask Effect前に明示拒否するの対象操作を実行する。
+ * @stimulus SHA-256 CRDD Source Identityはv1能力外としてTask Effect前に明示拒否するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-ST-001=Direct Boundary: coordinator Test Source→対象契約
  */
-test("SHA-256 CRDD Release Identityはv1能力外としてTask Effect前に明示拒否する", async () => {
+test("SHA-256 CRDD Source Identityはv1能力外としてTask Effect前に明示拒否する", async () => {
   const fixture = dependencies({
-    release: release({
+    source: source({
       crddCommit: "a".repeat(64),
       crddTree: "b".repeat(64),
     }),
@@ -795,12 +1139,12 @@ test("SHA-256 CRDD Release Identityはv1能力外としてTask Effect前に明�
     result.reason,
     "signed_general_task_git_object_format_unsupported",
   );
-  assert.equal(fixture.calls.verifies, 1);
+  assert.equal(fixture.calls.sourceObservations, 1);
   assert.equal(fixture.calls.starts, 0);
   assert.equal(fixture.calls.bound, 0);
   assert.equal(fixture.calls.reads, 0);
   assert.equal(fixture.calls.discards, 0);
-  assert.deepEqual(fixture.calls.events, ["node", "package"]);
+  assert.deepEqual(fixture.calls.events, ["node", "source"]);
 });
 
 /**
@@ -831,7 +1175,7 @@ test("固定基準byteのCRLF変換・欠落・読取失敗はProvider Effect前
     assert.equal(fixture.calls.starts, 0);
     assert.equal(fixture.calls.reads, 0);
     assert.equal(fixture.calls.discards, 0);
-    assert.deepEqual(fixture.calls.events, ["node", "package"]);
+    assert.deepEqual(fixture.calls.events, ["node", "source"]);
   }
   const unreadable = dependencies({ readBaseThrows: true });
   const unreadableResult = await runSignedGeneralTaskVerification(
@@ -871,7 +1215,7 @@ test("Claude実装、Codex独立Review、exact Candidate、discardを一つのPa
   assert.equal(result.candidateDisposition, "discarded");
   assert.equal(result.cleanupConfirmed, true);
   assert.equal(result.remediationPerformed, false);
-  assert.deepEqual(fixture.calls.events, ["node", "package", "task"]);
+  assert.deepEqual(fixture.calls.events, ["node", "source", "task", "source"]);
   assert.equal(result.manualRecoveryRequired, false);
   assert.equal(result.canonicalRepositoryChanged, false);
   assert.deepEqual(result.changedPaths, [TARGET_PATH]);
@@ -880,7 +1224,7 @@ test("Claude実装、Codex独立Review、exact Candidate、discardを一つのPa
   assert.equal(result.executionCommit, baseCommit);
   assert.equal(result.executionTree, baseTree);
   assert.equal(fixture.calls.starts, 1);
-  assert.equal(fixture.calls.passedCapability, fixture.calls.issuedCapability);
+  assert.equal(fixture.calls.taskArgumentCount, 2);
   assert.equal(fixture.calls.reads, 1);
   assert.equal(fixture.calls.discards, 1);
   assert.equal(fixture.calls.bound, 1);
@@ -889,22 +1233,22 @@ test("Claude実装、Codex独立Review、exact Candidate、discardを一つのPa
 });
 
 /**
- * 署名配布Sourceと作業対象Execution Revisionを分離し候補を後者へ結合するを検証する。
+ * 実行Sourceと作業対象Execution Revisionを分離し候補を後者へ結合するを検証する。
  *
- * @responsibility 署名配布Sourceと作業対象Execution Revisionを分離し候補を後者へ結合するの合否判定を所有する。
+ * @responsibility 実行Sourceと作業対象Execution Revisionを分離し候補を後者へ結合するの合否判定を所有する。
  * @trace PRL-ST-001
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 署名配布Sourceと作業対象Execution Revisionを分離し候補を後者へ結合するの対象操作を実行する。
+ * @stimulus 実行Sourceと作業対象Execution Revisionを分離し候補を後者へ結合するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-ST-001=Direct Boundary: coordinator Test Source→対象契約
  */
-test("署名配布Sourceと作業対象Execution Revisionを分離し候補を後者へ結合する", async () => {
+test("実行Sourceと作業対象Execution Revisionを分離し候補を後者へ結合する", async () => {
   const fixture = dependencies({
-    release: release({
-      crddCommit: signedSourceCommit,
-      crddTree: signedSourceTree,
+    source: source({
+      crddCommit: runnerSourceCommit,
+      crddTree: runnerSourceTree,
     }),
   });
   const result = await runSignedGeneralTaskVerification(
@@ -912,8 +1256,8 @@ test("署名配布Sourceと作業対象Execution Revisionを分離し候補を�
     fixture.value,
   );
   assert.equal(result.status, "completed");
-  assert.equal(result.crddCommit, signedSourceCommit);
-  assert.equal(result.crddTree, signedSourceTree);
+  assert.equal(result.crddCommit, runnerSourceCommit);
+  assert.equal(result.crddTree, runnerSourceTree);
   assert.equal(result.executionCommit, baseCommit);
   assert.equal(result.executionTree, baseTree);
   assert.equal(fixture.calls.repositoryRevisionObservations, 2);
@@ -921,27 +1265,27 @@ test("署名配布Sourceと作業対象Execution Revisionを分離し候補を�
 });
 
 /**
- * 候補が作業対象Revisionでなく署名配布Sourceをbaseにした場合は破棄して拒否するを検証する。
+ * 候補が作業対象Revisionでなく実行Sourceをbaseにした場合は破棄して拒否するを検証する。
  *
- * @responsibility 候補が作業対象Revisionでなく署名配布Sourceをbaseにした場合は破棄して拒否するの合否判定を所有する。
+ * @responsibility 候補が作業対象Revisionでなく実行Sourceをbaseにした場合は破棄して拒否するの合否判定を所有する。
  * @trace PRL-ST-001
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 候補が作業対象Revisionでなく署名配布Sourceをbaseにした場合は破棄して拒否するの対象操作を実行する。
+ * @stimulus 候補が作業対象Revisionでなく実行Sourceをbaseにした場合は破棄して拒否するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-ST-001=Direct Boundary: coordinator Test Source→対象契約
  */
-test("候補が作業対象Revisionでなく署名配布Sourceをbaseにした場合は破棄して拒否する", async () => {
+test("候補が作業対象Revisionでなく実行Sourceをbaseにした場合は破棄して拒否する", async () => {
   const fixture = dependencies({
-    release: release({
-      crddCommit: signedSourceCommit,
-      crddTree: signedSourceTree,
+    source: source({
+      crddCommit: runnerSourceCommit,
+      crddTree: runnerSourceTree,
     }),
     result: taskResult({
       candidateRevision: Object.freeze({
-        baseCommit: signedSourceCommit,
-        baseTree: signedSourceTree,
+        baseCommit: runnerSourceCommit,
+        baseTree: runnerSourceTree,
         patchHash,
         contentManifestHash,
         allowedPathsHash,
@@ -1319,18 +1663,18 @@ test("Reviewer投影の既知byte差をProvider本文なしで固定分類する
 });
 
 /**
- * Candidate整合性不成立はReviewer拒否へ畳まずSigned結果へ伝播するを検証する。
+ * Candidate整合性不成立はReviewer拒否へ畳まず検証結果へ伝播するを検証する。
  *
- * @responsibility Candidate整合性不成立はReviewer拒否へ畳まずSigned結果へ伝播するの合否判定を所有する。
+ * @responsibility Candidate整合性不成立はReviewer拒否へ畳まず検証結果へ伝播するの合否判定を所有する。
  * @trace PRL-ST-001
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Candidate整合性不成立はReviewer拒否へ畳まずSigned結果へ伝播するの対象操作を実行する。
+ * @stimulus Candidate整合性不成立はReviewer拒否へ畳まず検証結果へ伝播するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-ST-001=Direct Boundary: coordinator Test Source→対象契約
  */
-test("Candidate整合性不成立はReviewer拒否へ畳まずSigned結果へ伝播する", async () => {
+test("Candidate整合性不成立はReviewer拒否へ畳まず検証結果へ伝播する", async () => {
   const fixture = dependencies({
     result: taskResult({
       status: "blocked",
@@ -1572,18 +1916,18 @@ test("是正履歴の欠落または型差を成功へ昇格しない", async ()
 });
 
 /**
- * Claude Front、Codex実装、Claude独立Reviewを同じ署名Runner契約へ結合するを検証する。
+ * Claude Front、Codex実装、Claude独立Reviewを同じ一般Task検証Runner契約へ結合するを検証する。
  *
- * @responsibility Claude Front、Codex実装、Claude独立Reviewを同じ署名Runner契約へ結合するの合否判定を所有する。
+ * @responsibility Claude Front、Codex実装、Claude独立Reviewを同じ一般Task検証Runner契約へ結合するの合否判定を所有する。
  * @trace PRL-ST-001
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Claude Front、Codex実装、Claude独立Reviewを同じ署名Runner契約へ結合するの対象操作を実行する。
+ * @stimulus Claude Front、Codex実装、Claude独立Reviewを同じ一般Task検証Runner契約へ結合するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-ST-001=Direct Boundary: coordinator Test Source→対象契約
  */
-test("Claude Front、Codex実装、Claude独立Reviewを同じ署名Runner契約へ結合する", async () => {
+test("Claude Front、Codex実装、Claude独立Reviewを同じ一般Task検証Runner契約へ結合する", async () => {
   const fixture = dependencies({
     result: taskResult({
       executorProvider: "codex",
@@ -1723,7 +2067,7 @@ test("関数境界も未知Route ProfileをEffect前に拒否する", async () =
     result.reason,
     "signed_general_task_verification_arguments_invalid",
   );
-  assert.equal(fixture.calls.verifies, 0);
+  assert.equal(fixture.calls.sourceObservations, 0);
   assert.equal(fixture.calls.starts, 0);
 });
 
@@ -1781,24 +2125,24 @@ test("Route、cleanup、RecoveryまたはCandidate byte差をFail Closedにす�
 });
 
 /**
- * ReleaseとCandidate RevisionのIdentity欠落・差を拒否しCandidateをdiscardするを検証する。
+ * SourceとCandidate RevisionのIdentity欠落・差を拒否しCandidateをdiscardするを検証する。
  *
- * @responsibility ReleaseとCandidate RevisionのIdentity欠落・差を拒否しCandidateをdiscardするの合否判定を所有する。
+ * @responsibility SourceとCandidate RevisionのIdentity欠落・差を拒否しCandidateをdiscardするの合否判定を所有する。
  * @trace PRL-ST-001
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus ReleaseとCandidate RevisionのIdentity欠落・差を拒否しCandidateをdiscardするの対象操作を実行する。
+ * @stimulus SourceとCandidate RevisionのIdentity欠落・差を拒否しCandidateをdiscardするの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-ST-001=Direct Boundary: coordinator Test Source→対象契約
  */
-test("ReleaseとCandidate RevisionのIdentity欠落・差を拒否しCandidateをdiscardする", async () => {
+test("SourceとCandidate RevisionのIdentity欠落・差を拒否しCandidateをdiscardする", async () => {
   const exportedCandidate = candidate();
   const exportedBundle = exportedCandidate.bundle as Readonly<
     Record<string, unknown>
   >;
   const cases = [
-    dependencies({ release: release({ crddCommit: undefined }) }),
+    dependencies({ source: source({ crddCommit: undefined }) }),
     dependencies({
       result: taskResult({
         candidateRevision: Object.freeze({
@@ -1910,7 +2254,7 @@ test("Task開始後のrestart矛盾・結果不明は独立Processでpoisonし�
     assert.equal(result.status, "blocked", scenario);
     assert.equal(result.processRestartRequired, true, scenario);
     assert.equal(observed.poisoned, true, scenario);
-    assert.equal(observed.packageReads, 0, scenario);
+    assert.equal(observed.taskReads, 0, scenario);
     assert.equal(observed.grantReads, 0, scenario);
     if (scenario === "completion_subclass_hostile_species")
       assert.equal(observed.hostilePromiseAccesses, 0, scenario);
@@ -1964,11 +2308,6 @@ test("Task開始後のrestart矛盾・結果不明は独立Processでpoisonし�
       assert.equal(result.hostRecoveryId, hostRecoveryA, scenario);
       assert.equal(result.manualRecoveryRequired, true, scenario);
     }
-    assert.equal(
-      observed.packageReason,
-      "platform_provisioner_process_restart_required",
-      scenario,
-    );
     assert.equal(
       observed.taskReason,
       "coordinator_task_process_restart_required",

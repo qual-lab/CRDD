@@ -11,6 +11,7 @@
 import assert from "node:assert/strict";
 import path from "node:path";
 import test from "node:test";
+import { buildRegressionStagePlan } from "../../../src/regression/stages.ts";
 import { fileURLToPath } from "node:url";
 import {
   inspectTestCatalog,
@@ -46,6 +47,137 @@ const catalog = loadedCatalog as TestCatalog;
  */
 test("実在試験、登録試験、実行可能Ownerをexactに照合する", () => {
   assert.deepEqual(inspectTestCatalog(repositoryRoot, loadedCatalog), []);
+  const expected =
+    "40_Develop/coordinator/tests/integration/host-recovery-record.contract.test.ts";
+  assert.ok(discoverRepositoryTestFiles(repositoryRoot).includes(expected));
+  for (const changed of [
+    "40_Develop/coordinator/src/host-execution/recovery-record.ts",
+    "40_Develop/coordinator/src/host-execution/operation-workspace-lifecycle.ts",
+  ]) {
+    const selected = selectRegressionTests(catalog, [changed]);
+    assert.ok(
+      selected.some(
+        (entry) =>
+          entry.path === expected &&
+          entry.id === "coordinator:integration:host-recovery-record",
+      ),
+    );
+    const owners = selectRegressionStaticOwners(catalog, [changed], selected);
+    assert.ok(owners.includes("coordinator"));
+    const stages = buildRegressionStagePlan(selected, [changed], true, owners);
+    assert.ok(
+      stages
+        .find((stage) => stage.stage === "windows_process_control")
+        ?.selected.includes(expected),
+    );
+  }
+});
+
+/**
+ * 同じPlatform Access OwnerのNode／Rust収集と片系欠落を確認する。
+ * @responsibility 既存Rustだけまたは新Nodeだけの登録を全体成立へ丸めない。
+ * @trace CQS-UT-010
+ * @precondition 実Repositoryに両言語の試験が存在する。
+ * @stimulus Source変更から選択し、各言語の登録を欠落させる。
+ * @observation 選択Path、Owner、Catalogの拒否理由。
+ * @oracle 両言語が選択され、片系欠落は検査失敗、上位Consumerの静的検査も選択する。
+ * @cleanup N/A: 読取りとProcess内の値変換のみ。
+ * @boundary 実試験台帳・収集・選択の結合。
+ */
+test("Platform AccessはNodeとRust双方を収集し片系欠落を拒否する", () => {
+  const changed = [
+    "40_Develop/platform-access/src/artifact/identity-observation.ts",
+  ];
+  const selected = selectRegressionTests(catalog, changed);
+  for (const suffix of [".test.ts", ".rs"]) {
+    assert.ok(
+      selected.some(
+        (entry) =>
+          entry.owner === "platform-access" && entry.path.endsWith(suffix),
+      ),
+    );
+    const incomplete = {
+      ...catalog,
+      tests: catalog.tests.filter(
+        (entry) =>
+          entry.owner !== "platform-access" || !entry.path.endsWith(suffix),
+      ),
+    };
+    assert.ok(
+      inspectTestCatalog(repositoryRoot, incomplete).some((failure) =>
+        failure.startsWith("unregistered_test:"),
+      ),
+    );
+  }
+  assert.deepEqual(selectRegressionStaticOwners(catalog, changed, selected), [
+    "coordinator",
+    "docker-isolation",
+    "platform-access",
+  ]);
+});
+
+/**
+ * 新隔離Ownerの全試験と上位利用側を識別する。
+ *
+ * @responsibility Package境界による収集・Owner・静的Consumer選択を確認する。
+ * @trace CQS-UT-010
+ * @precondition 現行台帳に下位の実在全Fileと上位利用側Fileが登録済みである。
+ * @stimulus 下位Source変更と上位の同名試験変更から回帰対象を選ぶ。
+ * @observation 収集集合とOwnerを取得する。
+ * @oracle File名のdocker-isolationから上位試験を下位Ownerへ誤分類しない。
+ * @cleanup N/A: 現在Repositoryの読取りだけ。
+ * @boundary Package Rootと試験収集・利用側選択。
+ */
+test("Docker Isolation全試験を収集し上位の同名試験を混同しない", () => {
+  const expected = catalog.tests.filter(
+    (entry) => entry.owner === "docker-isolation",
+  );
+  assert.ok(expected.length > 0);
+  for (const id of [
+    "docker-isolation:integration:native-process",
+    "docker-isolation:integration:restart-machine",
+    "docker-isolation:integration:restart-runtime",
+  ]) {
+    assert.ok(
+      expected.some((entry) => entry.id === id),
+      id,
+    );
+  }
+  const found = discoverRepositoryTestFiles(repositoryRoot).filter((entry) =>
+    entry.startsWith("40_Develop/docker-isolation/"),
+  );
+  assert.deepEqual(
+    [...found].sort(),
+    expected.map((entry) => entry.path).sort(),
+  );
+  const changed = [
+    "40_Develop/docker-isolation/src/execution/command-runtime.ts",
+  ];
+  const selected = selectRegressionTests(catalog, changed);
+  for (const entry of expected)
+    assert.ok(
+      selected.some((item) => item.id === entry.id),
+      entry.id,
+    );
+  assert.deepEqual(selectRegressionStaticOwners(catalog, changed, selected), [
+    "coordinator",
+    "docker-isolation",
+  ]);
+  for (const file of [
+    "docker-isolation-host.integration.test.ts",
+    "runtime-assets.contract.test.ts",
+  ]) {
+    const target = `40_Develop/coordinator/tests/integration/${file}`;
+    const direct = selectRegressionTests(catalog, [target]);
+    assert.deepEqual(
+      direct.map((entry) => entry.path),
+      [target],
+    );
+    assert.equal(direct[0]?.owner, "coordinator");
+    assert.deepEqual(selectRegressionStaticOwners(catalog, [target], direct), [
+      "coordinator",
+    ]);
+  }
 });
 
 /**
@@ -165,6 +297,7 @@ test("全Toolの結合ブロックはArchitecture、Lifecycle、実在ITへ閉�
       "artifact-signing",
       "checker",
       "coordinator",
+      "docker-isolation",
       "domain-model",
       "execution-intelligence",
       "mcp-server",
@@ -448,6 +581,56 @@ test("利用側静的検査は試験levelの絞込みと独立して選ぶ", () 
     selectRegressionStaticOwners(catalog, changedPaths, selectedEntries),
     ["coordinator", "execution-intelligence"],
   );
+});
+
+/**
+ * Docker実行物Trustの変更から下位技術と上位利用側の回帰を選ぶ。
+ * @responsibility 下位単独変更による上位契約試験と静的検査の選択漏れを検出する。
+ * @trace CQS-UT-010
+ * @precondition 実Test Catalogと公開選択関数を使用する。
+ * @stimulus cli-trust、Native、Machine実装とPackage Rootをそれぞれ変更Pathに指定する。
+ * @observation 選択したTest IDと静的検査Ownerを取得する。
+ * @oracle 全Pathとも下位Native試験、上位本番組立て・実観測試験と両Ownerの静的検査を含む。選択は実起動の許可ではない。
+ * @cleanup N/A: 試験を実行せず、固定Catalogから集合を導く。
+ * @boundary CQS-UT-010=N/A: 選択はProcess内の純粋な集合導出である。
+ */
+test("Docker TrustとRoot変更は下位技術と上位利用側を選ぶ", () => {
+  for (const changedPath of [
+    "40_Develop/docker-isolation/src/execution/cli-trust.ts",
+    "40_Develop/docker-isolation/src/desktop/native-process.ts",
+    "40_Develop/docker-isolation/src/desktop/restart-machine.ts",
+    "40_Develop/docker-isolation/src/index.ts",
+  ]) {
+    const selected = selectRegressionTests(catalog, [changedPath]);
+    assert.ok(
+      selected.some(
+        (entry) => entry.id === "docker-isolation:integration:native-process",
+      ),
+    );
+    assert.ok(
+      selected.some(
+        (entry) =>
+          entry.id === "coordinator:integration:docker-restart-runtime",
+      ),
+    );
+    assert.ok(
+      selected.some(
+        (entry) =>
+          entry.id ===
+          "coordinator:integration:docker-restart-real-observation",
+      ),
+    );
+    assert.ok(
+      selectRegressionStaticOwners(catalog, [changedPath], selected).includes(
+        "docker-isolation",
+      ),
+    );
+    assert.ok(
+      selectRegressionStaticOwners(catalog, [changedPath], selected).includes(
+        "coordinator",
+      ),
+    );
+  }
 });
 
 /**
@@ -830,7 +1013,7 @@ test("Windows実Process Gateと実行Profileをexactに照合する", () => {
  */
 test("Host Windows接頭辞をWindows実Process Gateとして検出する", () => {
   const gateEntry = catalog.tests.find((entry) =>
-    entry.path.endsWith("docker-owned-process.integration.test.ts"),
+    entry.path.endsWith("owned-process.integration.test.ts"),
   );
   assert.ok(gateEntry);
   const invalid = {

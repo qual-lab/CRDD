@@ -80,18 +80,50 @@ function repositoryReader(repositoryRelativePath: string): string | null {
  * @boundary PPR-IT-018=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Coordinator Runtime TraceはArchitecture・実在試験・検証区分を閉じる", () => {
+  const trace = currentTrace() as {
+    transitions: { id: string; from: string[] }[];
+    verificationBindings: { cases?: { id: string }[] }[];
+  };
+  const recovery = trace.transitions.find(
+    (item) => item.id === "TRANS-ACTIVE-TO-RECOVERY",
+  );
+  const transfer = trace.transitions.find(
+    (item) => item.id === "TRANS-ACTIVE-TO-OPERATOR-TRANSFER",
+  );
+  assert.ok(recovery && transfer);
+  assert.equal(recovery.from.includes("STATE-ADMISSION"), false);
+  assert.equal(transfer.from.includes("STATE-ADMISSION"), true);
+  assert.ok(
+    trace.verificationBindings.some((binding) =>
+      binding.cases?.some(
+        (item) => item.id === "CASE-OPERATOR-TRANSFER-ADMISSION",
+      ),
+    ),
+  );
   assert.deepEqual(
-    inspectCoordinatorRuntimeTraceability(currentTrace(), repositoryReader),
+    inspectCoordinatorRuntimeTraceability(trace, repositoryReader),
     {
       status: "accepted",
-      resources: 10,
-      states: 32,
-      transitions: 31,
-      attemptClassifications: 5,
-      invariants: 12,
-      verificationBindings: 25,
+      resources: 9,
+      states: 18,
+      transitions: 19,
+      attemptClassifications: 0,
+      invariants: 10,
+      verificationBindings: 7,
     },
   );
+  recovery.from.unshift("STATE-ADMISSION");
+  const invalid = inspectCoordinatorRuntimeTraceability(
+    trace,
+    repositoryReader,
+  );
+  assert.equal(invalid.status, "blocked");
+  if (invalid.status === "blocked")
+    assert.ok(
+      invalid.issues.includes(
+        "TRANS-ACTIVE-TO-RECOVERY:verification_case_missing:STATE-ADMISSION:abnormal",
+      ),
+    );
 });
 
 /**
@@ -220,7 +252,7 @@ test("effect観測scopeとCanonical case完全一致assertionの無いTraceを�
     assert.ok(
       result.issues.some(
         (issue) =>
-          issue.startsWith("VER-RECOVERY-NORMAL:") &&
+          issue.startsWith("VER-HOST-CLEANUP-ACTIVE-BINDING-ABNORMAL:") &&
           issue.endsWith(":trace_assertion_registry_invalid"),
       ),
     );
@@ -415,7 +447,7 @@ test("bindingが宣言するだけでcaseが観測しない資源を拒否する
     unknown
   >[];
   const partial = bindings.find(
-    (binding) => binding.id === "VER-PARTIAL-PAIR-ABNORMAL",
+    (binding) => binding.id === "VER-HOST-CLEANUP-ACTIVE-BINDING-ABNORMAL",
   );
   assert.ok(partial);
   partial.observedResources = [
@@ -428,54 +460,7 @@ test("bindingが宣言するだけでcaseが観測しない資源を拒否する
   if (result.status === "blocked") {
     assert.ok(
       result.issues.includes(
-        "VER-PARTIAL-PAIR-ABNORMAL:RES-CANDIDATE-ENTRY:observed_resource_unused",
-      ),
-    );
-  }
-});
-
-/**
- * 拒否試行を実遷移または状態変更として記録するTraceを拒否するを検証する。
- *
- * @responsibility 拒否試行を実遷移または状態変更として記録するTraceを拒否するの合否判定を所有する。
- * @trace PPR-IT-018
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 拒否試行を実遷移または状態変更として記録するTraceを拒否するの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PPR-IT-018=Direct Boundary: coordinator Test Source→対象契約
- */
-test("拒否試行を実遷移または状態変更として記録するTraceを拒否する", () => {
-  const trace = currentTrace() as Record<string, unknown>;
-  const bindings = structuredClone(trace.verificationBindings) as Record<
-    string,
-    unknown
-  >[];
-  const binding = bindings.find(
-    (candidate) =>
-      candidate.id === "VER-REPAIR-HISTORY-PUBLICATION-FOREIGN-PREPARE",
-  );
-  assert.ok(binding);
-  const cases = structuredClone(binding.cases) as Record<string, unknown>[];
-  cases[0] = {
-    ...cases[0],
-    outcome: "taken",
-    expectedEndState: "STATE-REPAIR-HISTORY-PUBLISHED",
-  };
-  binding.cases = cases;
-  trace.verificationBindings = bindings;
-  const result = inspectCoordinatorRuntimeTraceability(trace, repositoryReader);
-  assert.equal(result.status, "blocked");
-  if (result.status === "blocked") {
-    assert.ok(
-      result.issues.includes(
-        "VER-REPAIR-HISTORY-PUBLICATION-FOREIGN-PREPARE:case_attempt_outcome_invalid:ATTEMPT-REPAIR-HISTORY-FOREIGN-PREPARE",
-      ),
-    );
-    assert.ok(
-      result.issues.includes(
-        "VER-REPAIR-HISTORY-PUBLICATION-FOREIGN-PREPARE:case_attempt_mutates_state:ATTEMPT-REPAIR-HISTORY-FOREIGN-PREPARE",
+        "VER-HOST-CLEANUP-ACTIVE-BINDING-ABNORMAL:RES-CANDIDATE-ENTRY:observed_resource_unused",
       ),
     );
   }

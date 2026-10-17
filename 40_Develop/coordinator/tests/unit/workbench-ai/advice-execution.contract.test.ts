@@ -2,7 +2,7 @@
  * Workbench助言Production RuntimeのLifecycle契約を検証する。
  *
  * @packageDocumentation
- * @responsibility 署名Capability、Identity伝播、Provider Effect、取消、Host／Docker cleanupおよび助言公開順序を検証する。
+ * @responsibility Identity伝播、Provider Effect、取消、Host／Docker cleanupおよび助言公開順序を検証する。
  * @trace ERB-UT-023
  * @level UT
  * @scope coordinator、contract、node_process
@@ -10,6 +10,11 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
+import {
+  beginRuntimeProcessEffectDrain,
+  endRuntimeProcessEffectDrain,
+  poisonRuntimeProcessAfterCleanupUnknown,
+} from "../../../src/host-execution/process-safety-state.ts";
 
 import {
   DEFAULT_AI_PROFILE_CATALOG,
@@ -18,6 +23,7 @@ import {
 import { prepareWorkbenchAiAdviceExecutionPlan } from "../../../src/workbench-ai/advice-execution-plan.ts";
 import {
   createIsolatedWorkbenchAiAdviceRuntimeCandidate,
+  createRuntimeOwnedWorkbenchAiAdviceProductionRuntime,
   createIsolatedWorkbenchAiOperationCandidate,
   classifyWorkbenchAiAdviceHostFailure,
   type WorkbenchAiAdviceRuntimeDependencies,
@@ -143,10 +149,6 @@ function fixture(
     nextOptions: [],
   });
   const dependencies = Object.freeze({
-    consumeVerifiedPackage: () => {
-      calls.push("consume-package");
-      return true;
-    },
     createOperation: async () => {
       calls.push("create-operation");
       return Object.freeze({
@@ -421,11 +423,7 @@ test("助言終了は元結果を搬送しProtocol失敗と分類不能を成功
         return true;
       },
     });
-    const result = await runtime.run(
-      plan,
-      new AbortController().signal,
-      Object.freeze({}),
-    );
+    const result = await runtime.run(plan, new AbortController().signal);
     assert.equal(
       result.status,
       classification === "completed" ? "completed" : "blocked",
@@ -443,27 +441,23 @@ test("助言終了は元結果を搬送しProtocol失敗と分類不能を成功
 });
 
 /**
- * 署名確認からHost／Docker cleanup完了後にだけ助言JSONを返すを検証する。
+ * 署名資格なしで実行しHost／Docker cleanup完了後にだけ助言JSONを返すを検証する。
  *
- * @responsibility 署名確認からHost／Docker cleanup完了後にだけ助言JSONを返すを検証するの検証責務を所有する。
+ * @responsibility 署名資格なしで実行しHost／Docker cleanup完了後にだけ助言JSONを返すを検証するの検証責務を所有する。
  * @trace ERB-UT-023
  * @precondition 対象契約を再現できる固定入力と依存を用意する。
- * @stimulus 署名確認からHost／Docker cleanup完了後にだけ助言JSONを返すの対象操作を実行する。
+ * @stimulus 署名資格なしで実行しHost／Docker cleanup完了後にだけ助言JSONを返すの対象操作を実行する。
  * @observation 返却値、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionがSummaryの期待条件を満たす。
  * @cleanup N/A: Process外資源を生成しない局所検証である。
  * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
  */
-test("署名確認からHost／Docker cleanup完了後にだけ助言JSONを返す", async () => {
+test("署名資格なしで実行しHost／Docker cleanup完了後にだけ助言JSONを返す", async () => {
   const current = fixture();
   const runtime = createIsolatedWorkbenchAiAdviceRuntimeCandidate(
     current.dependencies,
   );
-  const result = await runtime.run(
-    plan,
-    new AbortController().signal,
-    Object.freeze({}),
-  );
+  const result = await runtime.run(plan, new AbortController().signal);
   assert.deepEqual(result, {
     status: "completed",
     reason: null,
@@ -472,7 +466,6 @@ test("署名確認からHost／Docker cleanup完了後にだけ助言JSONを返�
     cleanupConfirmed: true,
   });
   assert.deepEqual(current.calls, [
-    "consume-package",
     "create-operation",
     "bind-repository",
     "issue-selection",
@@ -507,7 +500,7 @@ test("Production要求を実Selection Runtimeへ直接接続できる", async ()
   const current = fixture({}, { realSelectionRuntime: true });
   const result = await createIsolatedWorkbenchAiAdviceRuntimeCandidate(
     current.dependencies,
-  ).run(plan, new AbortController().signal, Object.freeze({}));
+  ).run(plan, new AbortController().signal);
   assert.deepEqual(result, {
     status: "completed",
     reason: null,
@@ -538,7 +531,7 @@ test("Mount Grant消費直前のfresh再観測が不成立ならProvider Effect�
   const current = fixture({}, { mountReobservationUnavailable: true });
   const result = await createIsolatedWorkbenchAiAdviceRuntimeCandidate(
     current.dependencies,
-  ).run(plan, new AbortController().signal, Object.freeze({}));
+  ).run(plan, new AbortController().signal);
   assert.equal(result.status, "blocked");
   assert.equal(
     result.reason,
@@ -587,7 +580,7 @@ test("Repository結合が不成立ならSelectionとProvider Effectを発行し�
   const current = fixture({ bindRepository: () => null });
   const result = await createIsolatedWorkbenchAiAdviceRuntimeCandidate(
     current.dependencies,
-  ).run(plan, new AbortController().signal, Object.freeze({}));
+  ).run(plan, new AbortController().signal);
   assert.equal(result.status, "blocked");
   assert.equal(
     result.reason,
@@ -621,7 +614,7 @@ test("初回Selectionを失効できなければ再発行とProvider Effectへ�
   const current = fixture({}, { selectionRefreshRevokeFailure: true });
   const result = await createIsolatedWorkbenchAiAdviceRuntimeCandidate(
     current.dependencies,
-  ).run(plan, new AbortController().signal, Object.freeze({}));
+  ).run(plan, new AbortController().signal);
   assert.equal(result.status, "blocked");
   assert.equal(
     result.reason,
@@ -659,7 +652,7 @@ test("不正な再Selectionは取得済みAuthorityを失効してProvider Effec
   const current = fixture({}, { selectionRefreshUnavailable: true });
   const result = await createIsolatedWorkbenchAiAdviceRuntimeCandidate(
     current.dependencies,
-  ).run(plan, new AbortController().signal, Object.freeze({}));
+  ).run(plan, new AbortController().signal);
   assert.equal(result.status, "blocked");
   assert.equal(
     result.reason,
@@ -696,7 +689,7 @@ test("Mount後の再Selectionが初回Selectionと異なる場合はProvider Eff
   const current = fixture({}, { selectionRefreshMismatch: true });
   const result = await createIsolatedWorkbenchAiAdviceRuntimeCandidate(
     current.dependencies,
-  ).run(plan, new AbortController().signal, Object.freeze({}));
+  ).run(plan, new AbortController().signal);
   assert.equal(result.status, "blocked");
   assert.equal(result.reason, "workbench_ai_advice_selection_refresh_mismatch");
   assert.equal(result.providerEffectIssued, false);
@@ -715,30 +708,35 @@ test("Mount後の再Selectionが初回Selectionと異なる場合はProvider Eff
 });
 
 /**
- * 署名Capability不成立はOperationとProvider Effectを発行しないを検証する。
+ * 片付け中はOperationとProvider Effectを発行しないを検証する。
  *
- * @responsibility 署名Capability不成立はOperationとProvider Effectを発行しないを検証するの検証責務を所有する。
+ * @responsibility 片付け中はOperationとProvider Effectを発行しないを検証するの検証責務を所有する。
  * @trace ERB-UT-023
  * @precondition 対象契約を再現できる固定入力と依存を用意する。
- * @stimulus 署名Capability不成立はOperationとProvider Effectを発行しないの対象操作を実行する。
+ * @stimulus 片付け中はOperationとProvider Effectを発行しないの対象操作を実行する。
  * @observation 返却値、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionがSummaryの期待条件を満たす。
  * @cleanup N/A: Process外資源を生成しない局所検証である。
  * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
  */
-test("署名Capability不成立はOperationとProvider Effectを発行しない", async () => {
-  const current = fixture({ consumeVerifiedPackage: () => false });
-  const result = await createIsolatedWorkbenchAiAdviceRuntimeCandidate(
-    current.dependencies,
-  ).run(plan, new AbortController().signal, Object.freeze({}));
-  assert.equal(result.status, "blocked");
-  assert.equal(
-    result.reason,
-    "workbench_ai_advice_release_verification_required",
-  );
-  assert.equal(result.providerEffectIssued, false);
-  assert.equal(result.cleanupConfirmed, true);
-  assert.deepEqual(current.calls, []);
+test("片付け中はOperationとProvider Effectを発行しない", async () => {
+  const current = fixture();
+  const token = beginRuntimeProcessEffectDrain();
+  try {
+    const result = await createIsolatedWorkbenchAiAdviceRuntimeCandidate(
+      current.dependencies,
+    ).run(plan, new AbortController().signal);
+    assert.equal(result.status, "blocked");
+    assert.equal(
+      result.reason,
+      "workbench_ai_advice_runtime_cleanup_in_progress",
+    );
+    assert.equal(result.providerEffectIssued, false);
+    assert.equal(result.cleanupConfirmed, true);
+    assert.deepEqual(current.calls, []);
+  } finally {
+    assert.equal(endRuntimeProcessEffectDrain(token), true);
+  }
 });
 
 /**
@@ -757,7 +755,7 @@ test("Host cleanup不成立後は助言を公開せず回復状態を保持す�
   const current = fixture({ prepareDockerHostCleanup: () => null });
   const result = await createIsolatedWorkbenchAiAdviceRuntimeCandidate(
     current.dependencies,
-  ).run(plan, new AbortController().signal, Object.freeze({}));
+  ).run(plan, new AbortController().signal);
   assert.equal(result.status, "blocked");
   assert.equal(
     result.reason,
@@ -874,7 +872,7 @@ test("初期化失敗の清掃分類と取得済み参照を初回結果まで�
     });
     const result = await createIsolatedWorkbenchAiAdviceRuntimeCandidate(
       current.dependencies,
-    ).run(plan, new AbortController().signal, Object.freeze({}));
+    ).run(plan, new AbortController().signal);
     assert.equal(result.status, "blocked");
     assert.equal(result.cleanupConfirmed, confirmed);
     assert.equal(result.providerEffectIssued, false);
@@ -913,7 +911,7 @@ test("未知の初期化失敗は不存在へ畳まない", async () => {
   });
   const result = await createIsolatedWorkbenchAiAdviceRuntimeCandidate(
     current.dependencies,
-  ).run(plan, new AbortController().signal, Object.freeze({}));
+  ).run(plan, new AbortController().signal);
   assert.equal(result.cleanupConfirmed, false);
   assert.deepEqual(classifyWorkbenchAiAdviceHostFailure(result), {
     cleanupConfirmed: false,
@@ -1090,7 +1088,7 @@ test("作成と世代Lock準備の失敗分類を本番と同じ処理で搬送�
       });
       const result = await createIsolatedWorkbenchAiAdviceRuntimeCandidate(
         current.dependencies,
-      ).run(plan, new AbortController().signal, Object.freeze({}));
+      ).run(plan, new AbortController().signal);
       assert.equal(result.status, "blocked");
       assert.equal(result.cleanupConfirmed, confirmed);
       assert.deepEqual(classifyWorkbenchAiAdviceHostFailure(result), {
@@ -1106,4 +1104,92 @@ test("作成と世代Lock準備の失敗分類を本番と同じ処理で搬送�
       );
     }
   }
+});
+
+/**
+ * 無効なRepository資格から本番助言Operationを作成しない。
+ * @responsibility Rootを補完せず固定拒否しPathやAuthorityを公開しない。
+ * @trace ERB-UT-023
+ * @precondition テスト専用の無効Objectであり本番Root資格ではない。
+ * @stimulus 同じ一引数の本番Factoryで未取消と開始前取消のSignalを使う。
+ * @observation Root結合拒否と取消優先、Provider Effect非発行、秘密を含まない固定結果。
+ * @oracle 署名資格の撤去後も無効RootではProduction依存の構築前に停止する。
+ * @cleanup N/A: Root解決失敗の早期返却なのでOperationを作らない。
+ * @boundary ERB-UT-023=Unit: 本番助言FactoryのRoot入口。
+ */
+test("署名資格を要求しない本番助言Factoryも無効Rootを補完しない", async () => {
+  const runtime = createRuntimeOwnedWorkbenchAiAdviceProductionRuntime(
+    Object.freeze({}) as Parameters<
+      typeof createRuntimeOwnedWorkbenchAiAdviceProductionRuntime
+    >[0],
+  );
+  const result = await runtime(plan, new AbortController().signal);
+  assert.deepEqual(result, {
+    status: "blocked",
+    reason: "workbench_ai_advice_repository_binding_unavailable",
+    adviceJson: null,
+    providerEffectIssued: false,
+    cleanupConfirmed: true,
+  });
+  const controller = new AbortController();
+  controller.abort();
+  assert.deepEqual(await runtime(plan, controller.signal), {
+    status: "blocked",
+    reason: "workbench_ai_advice_cancelled_before_runtime_effect",
+    adviceJson: null,
+    providerEffectIssued: false,
+    cleanupConfirmed: true,
+  });
+});
+
+/**
+ * 署名資格を受け取らず開始前取消を処理する。
+ * @responsibility Operation・Home・Providerを一つも開始しない。
+ * @trace ERB-UT-023
+ * @precondition 依存は局所fixtureで、Signalは開始前に取消済み。
+ * @stimulus 二引数の助言Runtimeへ取消Signalを渡す。
+ * @observation cancelled理由、Effect非発行、依存call空。
+ * @oracle 署名Gateの撤去が取消確認を省略しない。
+ * @cleanup N/A: 外部資源を作成しない。
+ * @boundary ERB-UT-023=Unit: 助言の開始境界。
+ */
+test("署名資格なしでも開始前取消は全依存を呼ばない", async () => {
+  const current = fixture();
+  const controller = new AbortController();
+  controller.abort();
+  const result = await createIsolatedWorkbenchAiAdviceRuntimeCandidate(
+    current.dependencies,
+  ).run(plan, controller.signal);
+  assert.equal(result.status, "blocked");
+  assert.equal(
+    result.reason,
+    "workbench_ai_advice_cancelled_before_runtime_effect",
+  );
+  assert.equal(result.providerEffectIssued, false);
+  assert.equal(result.cleanupConfirmed, true);
+  assert.deepEqual(current.calls, []);
+});
+
+/**
+ * 回収不明で停止したProcessから新しい助言を開始しない。
+ * @responsibility 旧署名拒否とProcess再起動要求を区別する。
+ * @trace ERB-UT-023
+ * @precondition このファイルの最終Caseで現在Processを停止状態にする。
+ * @stimulus 既存process safety Ownerをpoisonし二引数のRuntimeを呼ぶ。
+ * @observation 再起動要求理由、Effect非発行、依存call空。
+ * @oracle 署名資格なしでも既存の新Effect抑止を維持する。
+ * @cleanup 試験Runnerがこのファイル専用Processを終了する。Poison解除APIは作らない。
+ * @boundary ERB-UT-023=Unit: Process safety→助言開始。
+ */
+test("Process回収不明は署名拒否でなく再起動要求として停止する", async () => {
+  const current = fixture();
+  poisonRuntimeProcessAfterCleanupUnknown();
+  const result = await createIsolatedWorkbenchAiAdviceRuntimeCandidate(
+    current.dependencies,
+  ).run(plan, new AbortController().signal);
+  assert.equal(result.status, "blocked");
+  assert.equal(result.reason, "workbench_ai_advice_process_restart_required");
+  assert.equal(result.providerEffectIssued, false);
+  assert.equal(result.cleanupConfirmed, true);
+  assert.deepEqual(current.calls, []);
 });

@@ -10,14 +10,68 @@
  */
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import { createHash } from "node:crypto";
 import test from "node:test";
 
 import {
   describeCodexExecutionPlanContract,
+  projectCodexExecutionBoundary,
   planCodexIsolatedTask,
   planCodexReadOnlyProbe,
 } from "../../../ai-adapter/src/index.ts";
-import { resolveFixedCodexExecutorSeccompProfile } from "../../src/provider/codex-executor-seccomp.ts";
+
+/**
+ * Codex固有の診断分類と不正入力拒否を確認する。
+ * @responsibility 承認優先順と最初のsandbox値を固定する。
+ * @trace ERB-IT-001
+ * @precondition Docker包装を含まない非秘密の引数を使う。
+ * @stimulus 固定組合せと不正配列をAI Adapter公開入口へ渡す。
+ * @observation 非秘密の二分類とgetter呼出数。
+ * @oracle 承認優先順・欠測分類を維持し、不正値は空配列相当に閉じる。
+ * @cleanup N/A: 外部Effectなし。
+ * @boundary ERB-IT-001=Direct Boundary: Coordinator試験→AI Adapter公開API。
+ */
+test("Codex境界診断はpayloadの承認優先順と最初のsandbox値を保持する", () => {
+  for (const [argv, approvalModeConfigured, sandboxModeConfigured] of [
+    [[], "other", "implicit"],
+    [
+      ["--approve-for-me", 'approval_policy="never"', "--sandbox", "read-only"],
+      "approve_for_me",
+      "read_only",
+    ],
+    [['approval_policy="never"'], "never", "implicit"],
+    [["--sandbox"], "other", "implicit"],
+    [["--sandbox", "other", "--sandbox", "read-only"], "other", "other"],
+    [["--sandbox=read-only"], "other", "implicit"],
+  ] as const)
+    assert.deepEqual(projectCodexExecutionBoundary(argv), {
+      approvalModeConfigured,
+      sandboxModeConfigured,
+    });
+  let reads = 0;
+  const accessor = Object.defineProperty([], "0", {
+    enumerable: true,
+    get() {
+      reads += 1;
+      return "--approve-for-me";
+    },
+  });
+  for (const input of [null, [12], new Proxy([], {}), accessor])
+    assert.deepEqual(projectCodexExecutionBoundary(input), {
+      approvalModeConfigured: "other",
+      sandboxModeConfigured: "implicit",
+    });
+  assert.equal(reads, 0);
+  const maximum = ["--approve-for-me", ...Array(255).fill("value")];
+  assert.deepEqual(projectCodexExecutionBoundary(maximum), {
+    approvalModeConfigured: "approve_for_me",
+    sandboxModeConfigured: "implicit",
+  });
+  assert.deepEqual(projectCodexExecutionBoundary([...maximum, "extra"]), {
+    approvalModeConfigured: "other",
+    sandboxModeConfigured: "implicit",
+  });
+});
 
 /**
  * 公式Codex artifactとSubscription限定のread-only計画を固定するを検証する。
@@ -65,14 +119,19 @@ test("公式Codex artifactとSubscription限定のread-only計画を固定する
  */
 test("Executor計画が宣言するSeccomp identityは実配布資産と一致する", () => {
   const contract = describeCodexExecutionPlanContract();
+  const bytes = fs.readFileSync(
+    new URL(
+      "../../../docker-isolation/runtime/codex-executor-seccomp.json",
+      import.meta.url,
+    ),
+  );
   assert.equal(
-    resolveFixedCodexExecutorSeccompProfile(
-      contract.distributionIdentity.executorSeccompProfileSha256,
-      contract.distributionIdentity.executorSeccompProfileBytes,
-    ),
-    fs.realpathSync.native(
-      new URL("../../runtime/codex-executor-seccomp.json", import.meta.url),
-    ),
+    createHash("sha256").update(bytes).digest("hex"),
+    contract.distributionIdentity.executorSeccompProfileSha256,
+  );
+  assert.equal(
+    bytes.length,
+    contract.distributionIdentity.executorSeccompProfileBytes,
   );
 });
 
@@ -119,7 +178,10 @@ test("effort・Provider・shape差をEffect前に拒否する", () => {
 test("Codex Structured Output Schemaはboolean型を明示したexact形に固定する", () => {
   const schema = JSON.parse(
     fs.readFileSync(
-      new URL("../../runtime/codex-result-schema.json", import.meta.url),
+      new URL(
+        "../../../ai-adapter/runtime/codex-result-schema.json",
+        import.meta.url,
+      ),
       "utf8",
     ),
   );
@@ -236,7 +298,7 @@ test("一般Task SchemaはExecutorとReviewerのexact出力を分離する", () 
   const executor = JSON.parse(
     fs.readFileSync(
       new URL(
-        "../../runtime/codex-executor-result-schema.json",
+        "../../../ai-adapter/runtime/codex-executor-result-schema.json",
         import.meta.url,
       ),
       "utf8",
@@ -245,7 +307,7 @@ test("一般Task SchemaはExecutorとReviewerのexact出力を分離する", () 
   const reviewer = JSON.parse(
     fs.readFileSync(
       new URL(
-        "../../runtime/codex-reviewer-result-schema.json",
+        "../../../ai-adapter/runtime/codex-reviewer-result-schema.json",
         import.meta.url,
       ),
       "utf8",
@@ -284,9 +346,9 @@ test("一般Task SchemaはExecutorとReviewerのexact出力を分離する", () 
  */
 test("Codex Structured Output Schemaは公式対応部分集合だけを搬送する", () => {
   const schemaPaths = [
-    "../../runtime/codex-result-schema.json",
-    "../../runtime/codex-executor-result-schema.json",
-    "../../runtime/codex-reviewer-result-schema.json",
+    "../../../ai-adapter/runtime/codex-result-schema.json",
+    "../../../ai-adapter/runtime/codex-executor-result-schema.json",
+    "../../../ai-adapter/runtime/codex-reviewer-result-schema.json",
   ];
   const unsupportedKeywords = new Set([
     "allOf",
@@ -463,7 +525,10 @@ test("固定Codex imageはbwrapとExecutor用の限定seccomp境界を固定す�
     },
   );
   const dockerfile = fs.readFileSync(
-    new URL("../../runtime/codex-provider.Dockerfile", import.meta.url),
+    new URL(
+      "../../../docker-isolation/runtime/codex-provider.Dockerfile",
+      import.meta.url,
+    ),
     "utf8",
   );
   assert.equal(

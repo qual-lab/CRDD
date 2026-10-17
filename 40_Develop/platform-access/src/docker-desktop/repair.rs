@@ -30,7 +30,7 @@ use windows_sys::Win32::System::Threading::{
     PROCESS_INFORMATION, STARTUPINFOW, TerminateProcess, WaitForSingleObject,
 };
 
-const RESPONSE_MAGIC: &[u8; 8] = b"CRDDDR05";
+const RESPONSE_MAGIC: &[u8; 8] = b"CRDDDR06";
 const RESPONSE_BYTES: usize = 41;
 const PROCESS_WAIT_MS: u32 = 10_000;
 const PROCESS_TERMINATION_TOTAL_WAIT_MS: u32 = 45_000;
@@ -41,7 +41,7 @@ const RESTART_RESPONSE_MAGIC: &[u8; 8] = b"CRDDDS01";
 ///
 /// @responsibility Docker Desktop修復のmutex name責務を実行する責務を所有し、観測不能または不正な入力を成功へ畳まない。
 /// @trace ARCH-000008
-/// @input N/A: 呼出し引数を持たない。
+/// @input identity: 同じrunで捕捉した選択利用者の32byte Hash。
 /// @returns 成功、拒否または観測不能を呼出し側が区別できる戻り値を返す。
 /// @precondition 固定Build／Runtime構成が成立している。
 /// @postcondition 入力以外のAuthorityを新設せず、判定結果を安全側に確定する。
@@ -51,15 +51,14 @@ const RESTART_RESPONSE_MAGIC: &[u8; 8] = b"CRDDDS01";
 /// @boundary Coordinator→固定Policy Artifact→Docker Desktop Process。
 /// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
 /// @concurrency N/A: 共有可変状態を持たない同期処理である。
-fn mutex_name() -> Option<Vec<u16>> {
-    let identity = crate::process::principal::current_selected_user_identity_hash()?;
+fn mutex_name(identity: &[u8; 32]) -> Vec<u16> {
     let mut text = String::from(r"Global\CRDD.Coordinator.DockerDesktopRepair.");
     for byte in &identity[..16] {
         text.push_str(&format!("{byte:02x}"));
     }
     let mut wide: Vec<u16> = OsStr::new(&text).encode_wide().collect();
     wide.push(0);
-    Some(wide)
+    wide
 }
 
 /// Docker Desktop修復のacquire mutex責務を実行する。
@@ -76,8 +75,9 @@ fn mutex_name() -> Option<Vec<u16>> {
 /// @boundary Coordinator→固定Policy Artifact→Docker Desktop Process。
 /// @security 秘密値を出力せず、IdentityとAuthorityを別の観測として扱う。
 /// @concurrency N/A: 共有可変状態を持たない同期処理である。
-fn acquire_mutex() -> Option<OwnedHandle> {
-    let name = mutex_name()?;
+fn acquire_mutex() -> Option<(OwnedHandle, [u8; 32])> {
+    let identity = crate::process::principal::current_selected_user_identity_hash()?;
+    let name = mutex_name(&identity);
     // SAFETY: name is NUL-terminated and the returned handle is transferred to OwnedHandle.
     let handle = unsafe { CreateMutexW(null(), 1, name.as_ptr()) };
     if handle.is_null() {
@@ -87,7 +87,7 @@ fn acquire_mutex() -> Option<OwnedHandle> {
         unsafe { CloseHandle(handle) };
         return None;
     }
-    Some(OwnedHandle(handle))
+    Some((OwnedHandle(handle), identity))
 }
 
 /// terminate processesを終了し終了後状態を観測する。
@@ -498,7 +498,7 @@ pub(crate) fn run(reader: &mut impl Read, writer: &mut impl Write) -> i32 {
     let Some(policy_hash) = sha256_bytes(RESTART_POLICY) else {
         return 2;
     };
-    let Some(_mutex) = acquire_mutex() else {
+    let Some((_mutex, owner_binding)) = acquire_mutex() else {
         let _ = write_response(writer, b'L', &policy_hash);
         return 2;
     };
@@ -517,6 +517,16 @@ pub(crate) fn run(reader: &mut impl Read, writer: &mut impl Write) -> i32 {
             Err(_) => return 3,
         }
         let status = match command[0] {
+            b'H' => {
+                if !verify_locked_artifacts(&mut artifacts) {
+                    let _ = write_response(writer, b'U', &policy_hash);
+                    return 2;
+                }
+                if !write_response(writer, b'H', &owner_binding) {
+                    return 3;
+                }
+                continue;
+            }
             b'V' => {
                 if verify_locked_artifacts(&mut artifacts) {
                     b'V'
@@ -703,7 +713,7 @@ pub(crate) fn run_restart<R: Read, W: Write>(reader: &mut R, writer: &mut W) -> 
         frame[9..].copy_from_slice(&policy_hash);
         writer.write_all(&frame).is_ok() && writer.flush().is_ok()
     };
-    let Some(_mutex) = acquire_mutex() else {
+    let Some((_mutex, _owner_binding)) = acquire_mutex() else {
         let _ = respond(writer, b'L');
         return 2;
     };
@@ -930,6 +940,7 @@ mod tests {
     #[test]
     fn restart_protocol_rejects_force_termination_command() {
         assert!(!restart_command_is_allowed(b'K'));
+        assert!(!restart_command_is_allowed(b'H'));
         for command in [b'V', b'B', b'I', b'S', b'L', b'Q'] {
             assert!(restart_command_is_allowed(command));
         }
@@ -954,6 +965,86 @@ mod tests {
         assert_eq!(&bytes[..8], RESPONSE_MAGIC);
         assert_eq!(&bytes[9..], &hash);
         assert!(!bytes.windows(3).any(|window| window == b"C:\\"));
+    }
+
+    /// 同じ利用者HashをMutex名と固定H応答へ結合する。
+    /// @responsibility 相関値の全byteと出力失敗を純粋値として確認する。
+    /// @trace ERB-UT-037
+    /// @precondition 固定した32byte入力。実MutexやDockerは使わない。
+    /// @stimulus Mutex名を生成し、H frameをVecと容量ゼロのCursorへ書く。
+    /// @observation 固定magic、status、全payload、旧prefixと失敗戻り値。
+    /// @oracle 同じ捕捉値を使い、write失敗を成功へしない。
+    /// @cleanup N/A: メモリのみ。
+    /// @boundary N/A: OS観測・排他所有は別IT。
+    #[test]
+    fn repair_owner_binding_frame_uses_the_mutex_identity() {
+        /// flushだけを拒否するメモリwriter。
+        /// @responsibility 書込み成功とflush失敗を分離する。
+        /// @trace ERB-UT-037
+        /// @shape 出力byte列だけを持つ。
+        /// @invariant 外部資源を使わない。
+        /// @boundary N/A: メモリのみ。
+        /// @security 秘密値を使わない。
+        /// @compatibility N/A: 試験局所型。
+        struct FlushFailure(Vec<u8>);
+        impl Write for FlushFailure {
+            /// メモリへ全byteを書き込む。
+            /// @responsibility flush前の書込み成立を構築する。
+            /// @trace ERB-UT-037
+            /// @precondition 局所writer。
+            /// @stimulus byte列を渡す。
+            /// @observation 保持した全byte。
+            /// @oracle 全長を返す。
+            /// @cleanup N/A: メモリのみ。
+            /// @boundary N/A: 外部I/Oなし。
+            fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+                self.0.extend_from_slice(bytes);
+                Ok(bytes.len())
+            }
+            /// flushの失敗を注入する。
+            /// @responsibility 出力確定失敗の戻り値を観測する。
+            /// @trace ERB-UT-037
+            /// @precondition 書込み済みの局所writer。
+            /// @stimulus flushを呼ぶ。
+            /// @observation Errorを返す。
+            /// @oracle 成功と混同しない。
+            /// @cleanup N/A: メモリのみ。
+            /// @boundary N/A: 外部I/Oなし。
+            fn flush(&mut self) -> std::io::Result<()> {
+                Err(std::io::Error::other("synthetic flush failure"))
+            }
+        }
+        let identity: [u8; 32] = std::array::from_fn(|index| index as u8);
+        let name = mutex_name(&identity);
+        let text = String::from_utf16(&name[..name.len() - 1]).unwrap();
+        assert_eq!(
+            text,
+            r"Global\CRDD.Coordinator.DockerDesktopRepair.000102030405060708090a0b0c0d0e0f"
+        );
+        assert_eq!(name.last(), Some(&0));
+        let mut bytes = Vec::new();
+        assert!(write_response(&mut bytes, b'H', &identity));
+        assert_eq!(bytes.len(), 41);
+        assert_eq!(&bytes[..8], b"CRDDDR06");
+        assert_eq!(bytes[8], b'H');
+        let expected = [
+            0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
+            24, 25, 26, 27, 28, 29, 30, 31,
+        ];
+        assert_eq!(&bytes[9..], expected);
+        let repeated: Vec<u8> = identity[..16].iter().copied().cycle().take(32).collect();
+        assert_ne!(repeated, expected);
+        let reversed: Vec<u8> = identity.iter().copied().rev().collect();
+        assert_ne!(reversed, expected);
+        let mut empty = [];
+        assert!(!write_response(
+            &mut std::io::Cursor::new(&mut empty[..]),
+            b'H',
+            &identity
+        ));
+        let mut flush_failure = FlushFailure(Vec::new());
+        assert!(!write_response(&mut flush_failure, b'H', &identity));
+        assert_eq!(flush_failure.0, bytes);
     }
 
     /// launcher_environment_is_known_folder_derived_and_proxy_neutralを検証する。

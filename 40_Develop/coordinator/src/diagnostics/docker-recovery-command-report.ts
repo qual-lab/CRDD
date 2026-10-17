@@ -77,9 +77,258 @@ export function renderDockerRecoveryDoctorReport(
   shouldOutputJson: boolean,
 ) {
   const reportValue = plainRecord(report);
-  if (!reportValue || typeof reportValue.status !== "string")
+  const statusDescriptor =
+    reportValue && Object.getOwnPropertyDescriptor(reportValue, "status");
+  const contractDescriptor =
+    reportValue && Object.getOwnPropertyDescriptor(reportValue, "contract");
+  if (
+    !reportValue ||
+    !statusDescriptor ||
+    !("value" in statusDescriptor) ||
+    typeof statusDescriptor.value !== "string" ||
+    typeof reportValue.status !== "string" ||
+    (contractDescriptor && !("value" in contractDescriptor))
+  )
     throw new Error("diagnostic_failed");
-  if (reportValue.contract === "crdd-coordinator/docker-restart-for-recovery") {
+  const contract = contractDescriptor?.value;
+  if (contract === "crdd-coordinator/current-runtime-repair") {
+    const fields = [
+      "contract",
+      "status",
+      "reason",
+      "recoveryId",
+      "finalCheckpointConfirmed",
+      "outcomeConfirmed",
+      "retentionConfirmed",
+      "historyConfirmed",
+      "completionConfirmed",
+      "nativeCleanupConfirmed",
+      "cliCleanupConfirmed",
+      "cliCleanupReason",
+      "retentionReviewAfter",
+    ] as const;
+    if (
+      fields.some((key) => {
+        const descriptor = Object.getOwnPropertyDescriptor(reportValue, key);
+        return !descriptor || !("value" in descriptor);
+      })
+    )
+      throw new Error("diagnostic_failed");
+    const safe = Object.fromEntries(
+      fields.map((key) => [
+        key,
+        Object.getOwnPropertyDescriptor(reportValue, key)?.value,
+      ]),
+    );
+    const reasons = [
+      "runtime_repair_recovered",
+      "runtime_repair_failed_closed",
+      "runtime_repair_boundary_unavailable",
+      "runtime_repair_state_unavailable",
+      "runtime_repair_observation_unknown",
+      "runtime_repair_effect_unknown",
+      "runtime_repair_cancelled",
+      "runtime_repair_cleanup_unknown",
+      "runtime_repair_cancellation_binding_failed",
+    ];
+    if (
+      !["observed", "blocked"].includes(safe.status) ||
+      !reasons.includes(safe.reason) ||
+      (safe.recoveryId !== null &&
+        (typeof safe.recoveryId !== "string" ||
+          !/^docker-runtime-repair\.[a-f0-9]{64}\.[a-f0-9]{64}$/u.test(
+            safe.recoveryId,
+          ))) ||
+      fields.slice(4, 11).some((key) => typeof safe[key] !== "boolean") ||
+      (safe.retentionReviewAfter !== null &&
+        (typeof safe.retentionReviewAfter !== "string" ||
+          !Number.isFinite(Date.parse(safe.retentionReviewAfter)) ||
+          new Date(Date.parse(safe.retentionReviewAfter)).toISOString() !==
+            safe.retentionReviewAfter)) ||
+      safe.retentionConfirmed !== (safe.retentionReviewAfter !== null) ||
+      (safe.cliCleanupConfirmed
+        ? safe.cliCleanupReason !== null
+        : safe.cliCleanupReason !== "runtime_repair_cli_cleanup_unconfirmed") ||
+      (safe.completionConfirmed &&
+        (safe.status !== "observed" ||
+          safe.reason !== "runtime_repair_recovered" ||
+          !safe.historyConfirmed ||
+          safe.recoveryId === null)) ||
+      (safe.retentionConfirmed &&
+        !safe.completionConfirmed &&
+        safe.status === "observed" &&
+        (!safe.outcomeConfirmed ||
+          !safe.finalCheckpointConfirmed ||
+          !safe.nativeCleanupConfirmed)) ||
+      (safe.historyConfirmed && safe.recoveryId === null)
+    )
+      throw new Error("diagnostic_failed");
+    const recovered =
+      safe.status === "observed" &&
+      safe.reason === "runtime_repair_recovered" &&
+      safe.recoveryId !== null;
+    const completeState =
+      recovered && safe.completionConfirmed && safe.historyConfirmed;
+    const retained =
+      recovered &&
+      !safe.completionConfirmed &&
+      safe.retentionConfirmed &&
+      safe.historyConfirmed &&
+      safe.outcomeConfirmed &&
+      safe.finalCheckpointConfirmed &&
+      safe.nativeCleanupConfirmed;
+    const awaitingDisposition =
+      recovered &&
+      !safe.completionConfirmed &&
+      !safe.retentionConfirmed &&
+      !safe.historyConfirmed &&
+      safe.outcomeConfirmed &&
+      safe.finalCheckpointConfirmed &&
+      safe.nativeCleanupConfirmed;
+    const stopped =
+      safe.reason !== "runtime_repair_recovered" && !safe.completionConfirmed;
+    if (!(completeState || retained || awaitingDisposition || stopped))
+      throw new Error("diagnostic_failed");
+    const completed = completeState && safe.cliCleanupConfirmed;
+    return Object.freeze({
+      stdout: shouldOutputJson
+        ? `${JSON.stringify(safe, null, 2)}\n`
+        : [
+            `Coordinator Docker実行環境の修復: ${completed ? (safe.retentionConfirmed ? "保持引渡し完了" : "完了") : awaitingDisposition ? "技術修復済み・保持判断待ち" : retained ? "保持済み・終了整理待ち" : "停止・確認待ち"}`,
+            `- 理由: ${safe.reason}`,
+            ...(safe.recoveryId === null
+              ? []
+              : [`- 回復ID: ${safe.recoveryId}`]),
+            `- 履歴保存: ${safe.historyConfirmed ? "確認済み" : "未確認"}`,
+            `- 現在状態の終了整理: ${safe.completionConfirmed ? "確認済み" : "未確認"}`,
+            ...(safe.retentionReviewAfter === null
+              ? []
+              : [
+                  `- 保持の見直し期限: ${safe.retentionReviewAfter}`,
+                  "- 期限までに保持物の削除または保持延長を判断してください。期限だけで自動削除は行いません。",
+                ]),
+            `- CLI後片付け: ${safe.cliCleanupConfirmed ? "確認済み" : "未確認"}`,
+            ...(safe.cliCleanupReason === null
+              ? []
+              : [`- CLI後片付けの停止理由: ${safe.cliCleanupReason}`]),
+            "",
+          ].join("\n"),
+      exitCode: completed ? 0 : 2,
+    });
+  }
+  if (contract === "crdd-coordinator/current-task-recovery") {
+    const fields = [
+      "contract",
+      "status",
+      "reason",
+      "recoveryId",
+      "dockerCleanupConfirmed",
+      "hostCleanupConfirmed",
+      "locksReleased",
+      "historyConfirmed",
+      "deliveryPending",
+      "operationRetained",
+      "operationRemovalConfirmed",
+      "taskRecoveryCompleted",
+      "cleanupReason",
+      "cliCleanupConfirmed",
+      "cliCleanupReason",
+    ] as const;
+    if (
+      fields.some((key) => {
+        const descriptor = Object.getOwnPropertyDescriptor(reportValue, key);
+        return descriptor && !("value" in descriptor);
+      })
+    )
+      throw new Error("diagnostic_failed");
+    const safe = Object.fromEntries(
+      fields.map((key) => [
+        key,
+        Object.getOwnPropertyDescriptor(reportValue, key)?.value ?? null,
+      ]),
+    );
+    if (
+      !["blocked", "recovered", "awaiting_delivery"].includes(safe.status) ||
+      typeof safe.reason !== "string" ||
+      !/^[a-z0-9_]{1,160}$/u.test(safe.reason) ||
+      (safe.recoveryId !== null &&
+        (typeof safe.recoveryId !== "string" ||
+          !/^docker-task\.[a-f0-9]{64}\.[a-f0-9]{64}\.[a-f0-9]{64}$/u.test(
+            safe.recoveryId,
+          ))) ||
+      fields
+        .slice(4)
+        .some((key) =>
+          key === "cleanupReason" || key === "cliCleanupReason"
+            ? safe[key] !== null &&
+              (typeof safe[key] !== "string" ||
+                !/^[a-z0-9_]{1,160}$/u.test(safe[key]))
+            : key === "operationRetained" && safe[key] === null
+              ? false
+              : typeof safe[key] !== "boolean",
+        )
+    )
+      throw new Error("diagnostic_failed");
+    const technical =
+      safe.dockerCleanupConfirmed &&
+      safe.hostCleanupConfirmed &&
+      safe.locksReleased &&
+      safe.historyConfirmed &&
+      safe.cleanupReason === null;
+    const recovered =
+      technical &&
+      safe.status === "recovered" &&
+      safe.reason === "docker_task_recovery_completed" &&
+      !safe.deliveryPending &&
+      safe.operationRetained === false &&
+      safe.operationRemovalConfirmed &&
+      safe.taskRecoveryCompleted;
+    const pending =
+      technical &&
+      safe.status === "awaiting_delivery" &&
+      safe.reason === "docker_task_recovery_durable_acceptance_pending" &&
+      safe.deliveryPending &&
+      safe.operationRetained === true &&
+      !safe.operationRemovalConfirmed &&
+      !safe.taskRecoveryCompleted;
+    const blocked =
+      safe.status === "blocked" &&
+      !safe.operationRemovalConfirmed &&
+      !safe.taskRecoveryCompleted &&
+      safe.operationRetained !== false &&
+      ![
+        "docker_task_recovery_completed",
+        "docker_task_recovery_durable_acceptance_pending",
+      ].includes(safe.reason);
+    const valid =
+      (blocked || recovered || pending) &&
+      (safe.cliCleanupConfirmed
+        ? safe.cliCleanupReason === null
+        : safe.cliCleanupReason !== null);
+    if (!valid) throw new Error("diagnostic_failed");
+    return Object.freeze({
+      stdout: shouldOutputJson
+        ? `${JSON.stringify(safe, null, 2)}\n`
+        : [
+            `Coordinator Task回復: ${recovered ? "完了" : pending ? "技術回収済み・Orchestrator受領待ち" : "停止"}`,
+            `- 理由: ${safe.reason}`,
+            ...(safe.recoveryId === null
+              ? []
+              : [`- 回復ID: ${safe.recoveryId}`]),
+            `- Task回復完了: ${safe.taskRecoveryCompleted ? "はい" : "いいえ"}`,
+            `- CLI後片付け: ${safe.cliCleanupConfirmed ? "確認済み" : "未確認"}`,
+            ...(safe.cleanupReason === null
+              ? []
+              : [`- 資源解放の停止理由: ${safe.cleanupReason}`]),
+            ...(safe.cliCleanupReason === null
+              ? []
+              : [`- CLIの停止理由: ${safe.cliCleanupReason}`]),
+            "",
+          ].join("\n"),
+      exitCode: (recovered || pending) && safe.cliCleanupConfirmed ? 0 : 2,
+    });
+  }
+  if (contract === "crdd-coordinator/docker-restart-for-recovery") {
     const isCompleted =
       reportValue.status === "completed" &&
       reportValue.restartCompleted === true &&
@@ -92,7 +341,7 @@ export function renderDockerRecoveryDoctorReport(
             `Dockerの検証付き再起動: ${isCompleted ? "完了" : "停止"}`,
             "Taskの復旧・再実行は行っていません。",
             isCompleted
-              ? "次の操作: 同じ復旧IDを指定して --recover-isolation と --after-recorded-docker-restart を実行してください。"
+              ? "次の操作: 同じRepositoryで同じ復旧IDを指定して --recover-isolation を実行してください。作成結果不明は別途停止する場合があります。"
               : "次の操作: 保存された停止理由と残存記録を確認してください。再起動を繰り返さないでください。",
             `理由: ${typeof reportValue.reason === "string" && /^[a-z0-9_]{1,128}$/u.test(reportValue.reason) ? reportValue.reason : "unconfirmed"}`,
             `資源回収: ${reportValue.cleanupConfirmed === true ? "確認済み" : "未確認"}`,
@@ -102,7 +351,7 @@ export function renderDockerRecoveryDoctorReport(
   }
   if (shouldOutputJson) {
     const isRepairReport =
-      reportValue.contract === "crdd-coordinator/docker-desktop-runtime-repair";
+      contract === "crdd-coordinator/docker-desktop-runtime-repair";
     const isRepairSucceeded =
       isRepairReport &&
       [
@@ -124,9 +373,7 @@ export function renderDockerRecoveryDoctorReport(
         : 2,
     });
   }
-  if (
-    reportValue.contract === "crdd-coordinator/docker-desktop-runtime-repair"
-  ) {
+  if (contract === "crdd-coordinator/docker-desktop-runtime-repair") {
     const tri = (value: unknown) =>
       value === true ? "はい" : value === false ? "いいえ" : "未確認";
     const lines = [`Coordinator Docker Desktop復旧: ${reportValue.status}`];
@@ -208,10 +455,7 @@ export function renderDockerRecoveryDoctorReport(
       /^docker-desktop-repair\.[a-f0-9]{32}$/u.test(reportValue.repairId)
     ) {
       lines.push(
-        "- 次の操作: フォルダは削除していません。根拠を保持することを明示的に了承して、この復旧記録を終了してください。",
-      );
-      lines.push(
-        `- コマンド: coordinator doctor --close-docker-desktop-runtime-repair ${reportValue.repairId}`,
+        "- 次の操作: 旧形式の復旧記録です。根拠と対象を保持したまま、フロントAIの移行手順で確認してください。現在の修復IDへ自動変換しません。",
       );
     } else if (
       reportValue.manualRecoveryRequired === true ||

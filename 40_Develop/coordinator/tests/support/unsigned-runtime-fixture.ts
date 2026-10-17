@@ -49,6 +49,8 @@ export function withUnsignedRuntimeFixture<T>(verify: (root: string) => T): T {
       "ai-adapter",
       "artifact-signing",
       "coordinator",
+      "docker-isolation",
+      "platform-access",
       "domain-model",
       "access-management",
       "mcp-server",

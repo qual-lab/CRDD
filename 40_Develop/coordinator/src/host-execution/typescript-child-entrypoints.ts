@@ -165,36 +165,6 @@ function entrypointFor(
   return entrypoint;
 }
 
-// Internal read projection for the package observer. The observer rejects
-// imports of this function from every other runtime consumer.
-/**
- * runtime Local Type Script Child Registry Snapshot For Package Observerを決定する。
- *
- * @responsibility runtime Local Type Script Child Registry Snapshot For Package Observerの導出に必要な入力、判定規則、返却結果の境界を所有する。
- * @trace ARCH-000004
- * @input N/A: 実行時引数を受け取らない。
- * @returns runtimeLocalTypeScriptChildRegistrySnapshotForPackageObserverの計算結果を返す。
- * @precondition 「N/A: 実行時引数を受け取らない。」がruntimeLocalTypeScriptChildRegistrySnapshotForPackageObserverの入力契約を満たす。
- * @postcondition runtimeLocalTypeScriptChildRegistrySnapshotForPackageObserverの責務を完了した結果だけを返す。
- * @effect N/A: runtimeLocalTypeScriptChildRegistrySnapshotForPackageObserverは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: runtimeLocalTypeScriptChildRegistrySnapshotForPackageObserverは独自の失敗分岐を所有しない。
- * @invariant runtimeLocalTypeScriptChildRegistrySnapshotForPackageObserverは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: runtimeLocalTypeScriptChildRegistrySnapshotForPackageObserverはProcess内の同一Subsystemで完結する。
- * @security N/A: runtimeLocalTypeScriptChildRegistrySnapshotForPackageObserverはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: runtimeLocalTypeScriptChildRegistrySnapshotForPackageObserverは共有非同期状態を持たない同期処理である。
- */
-export function runtimeLocalTypeScriptChildRegistrySnapshotForPackageObserver() {
-  return Object.freeze(
-    runtimeLocalTypeScriptChildEntrypoints.map((entrypoint) =>
-      Object.freeze({
-        role: entrypoint.role,
-        kind: entrypoint.kind,
-        distributionRelativePath: entrypoint.distributionRelativePath,
-      }),
-    ),
-  );
-}
-
 /**
  * Runtime Local Type Script Workerを構築する。
  *

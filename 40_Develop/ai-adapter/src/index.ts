@@ -93,6 +93,7 @@ export {
   CODEX_EXECUTION_PLAN_CONTRACT,
   CODEX_EXECUTION_PLAN_CONTRACT_REVISION,
   planCodexReadOnlyProbe,
+  projectCodexExecutionBoundary,
   planCodexIsolatedTask,
   describeCodexExecutionPlanContract,
 } from "./codex/execution-plan.ts";

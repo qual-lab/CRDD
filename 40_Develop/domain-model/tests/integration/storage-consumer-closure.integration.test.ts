@@ -41,9 +41,7 @@ const rawResolverSymbols = [
 ];
 const PROTECTED_SIGNING_SYMBOL =
   "resolveBundledRepositoryRuntimeDataPathsForProtectedSigning";
-const expectedProtectedSigningConsumers = [
-  "40_Develop/coordinator/scripts/sign-release-manifest.ts",
-];
+const expectedProtectedSigningConsumers: readonly string[] = [];
 const expectedAreaConsumers = [
   "40_Develop/coordinator/scripts/check-platform-access-coverage.ts",
   "40_Develop/coordinator/scripts/measure-development-providers.ts",
@@ -75,7 +73,6 @@ const blockedMeaningFields = [
 const SEMANTIC_ROOT_LITERAL_OWNERS = new Set([
   RESOLVER_PATH,
   "40_Develop/coordinator/scripts/orchestrator-real-provider-contract.ts",
-  "40_Develop/coordinator/src/platform-access/release-identity.ts",
 ]);
 const ALLOWED_TOP_LEVEL_AREAS = new Set([
   "config",
@@ -184,9 +181,7 @@ function violations(sources: SourceSet): string[] {
   const findings: string[] = [];
   for (const [item, source] of sources) {
     if (!CONSUMER_SURFACE_PATTERN.test(item)) continue;
-    const hasRawRootOwnership =
-      RUNTIME_STORAGE_OWNERS.has(item) ||
-      item === "40_Develop/coordinator/scripts/sign-release-manifest.ts";
+    const hasRawRootOwnership = RUNTIME_STORAGE_OWNERS.has(item);
     const hasDirectRootConstruction =
       /path\.(?:join|resolve)\([^)]{0,240}?["']\.crdd["']/u.test(source) ||
       /["']\.["']\s*\+\s*["']crdd["']/u.test(source) ||

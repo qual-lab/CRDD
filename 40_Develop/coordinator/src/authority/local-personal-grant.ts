@@ -1,7 +1,7 @@
 /**
- * local-personal-authority-runtimeに属する責務をまとめる。
+ * 現在Operationへ結合したLocal Personalの許可元を生成する。
  *
- * @responsibility Bindingを中心とする実装、型および境界を同じModuleで所有する。
+ * @responsibility 実Operation確認、Profile結合と短命cacheを所有し、配布署名を実行資格にしない。
  * @trace ARCH-000014
  */
 import {
@@ -18,7 +18,6 @@ import {
 } from "./trust-loader.ts";
 import { inspectRuntimeOwnedDevelopmentOperationContext } from "../task/development-measurement-session.ts";
 import { verifyOwnedOperationManagementCapability } from "../host-execution/operation-workspace-lifecycle.ts";
-import { verifyBundledCoordinatorPackageFromFixedManifestCandidate } from "../platform-access/package-verification.ts";
 import {
   PROVIDER_ISOLATION_CONTRACT,
   validateProviderIsolationProfile,
@@ -26,7 +25,7 @@ import {
 
 export const LOCAL_PERSONAL_AUTHORITY_RUNTIME_CONTRACT =
   "crdd-coordinator/local-personal-authority-runtime";
-export const LOCAL_PERSONAL_AUTHORITY_RUNTIME_CONTRACT_REVISION = 1;
+export const LOCAL_PERSONAL_AUTHORITY_RUNTIME_CONTRACT_REVISION = 2;
 
 const SOURCE_LIFETIME_MS = 30_000;
 const GRANT_LIFETIME_MS = 300_000;
@@ -123,11 +122,7 @@ type SourceRecord = Readonly<{
  */
 type RuntimeDependencies = Readonly<{
   wallNow: () => number;
-  verifyRelease: (evaluationTime: string) => unknown;
-  verifyDevelopment?: (
-    binding: Binding,
-    managementCapability: unknown,
-  ) => "not_development" | "authorized" | "blocked";
+  verifyOperation: (binding: Binding, managementCapability: unknown) => boolean;
 }>;
 
 /**
@@ -159,33 +154,6 @@ function canonicalJson(value: unknown): string {
   if (serialized === undefined)
     throw new Error("local_personal_authority_json_invalid");
   return serialized;
-}
-
-/**
- * Confirmedを解放する。
- *
- * @responsibility Confirmedの所有権、解放条件、終了後不存在の確認境界を所有する。
- * @trace ARCH-000014
- * @input candidate: unknown
- * @returns releaseConfirmedの計算結果を返す。
- * @precondition 「candidate: unknown」がreleaseConfirmedの入力契約を満たす。
- * @postcondition releaseConfirmedの責務を完了した結果だけを返す。
- * @effect N/A: releaseConfirmedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: releaseConfirmedは独自の失敗分岐を所有しない。
- * @invariant releaseConfirmedは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: releaseConfirmedはProcess内の同一Subsystemで完結する。
- * @security releaseConfirmedはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: releaseConfirmedは共有非同期状態を持たない同期処理である。
- */
-function releaseConfirmed(candidate: unknown) {
-  if (!candidate || typeof candidate !== "object") return false;
-  const value = candidate as Record<string, unknown>;
-  return (
-    value.status === "candidate" &&
-    value.runtimeOwnedReleaseTrustConfirmed === true &&
-    value.runtimeExecutionIdentityRuntimeOwned === true &&
-    value.crddDistributionConfirmed === true
-  );
 }
 
 /**
@@ -334,18 +302,12 @@ function createRuntime(dependencies: RuntimeDependencies) {
      * @security loadはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
      * @concurrency N/A: loadは共有非同期状態を持たない同期処理である。
      */
-    load(binding: Binding, managementCapability?: unknown) {
+    load(binding: Binding, managementCapability: unknown) {
       try {
         const now = dependencies.wallNow();
         if (!Number.isFinite(now) || now < 0) return null;
-        const evaluationTime = new Date(now).toISOString();
-        const development =
-          dependencies.verifyDevelopment?.(binding, managementCapability) ??
-          "not_development";
         if (
-          development === "blocked" ||
-          (development === "not_development" &&
-            !releaseConfirmed(dependencies.verifyRelease(evaluationTime)))
+          dependencies.verifyOperation(binding, managementCapability) !== true
         )
           return null;
         const key = `${binding.operationId}\0${binding.provider}\0${binding.profileId}`;
@@ -368,20 +330,14 @@ function createRuntime(dependencies: RuntimeDependencies) {
 const productionRuntime = createRuntime(
   Object.freeze({
     wallNow: Date.now,
-    verifyDevelopment: (binding, managementCapability) => {
+    verifyOperation: (binding, managementCapability) => {
+      const operation =
+        verifyOwnedOperationManagementCapability(managementCapability);
+      if (operation.operationId !== binding.operationId) return false;
       const context =
         inspectRuntimeOwnedDevelopmentOperationContext(managementCapability);
-      if (!context) return "not_development";
-      return context.checkNewWork() &&
-        verifyOwnedOperationManagementCapability(managementCapability)
-          .operationId === binding.operationId
-        ? "authorized"
-        : "blocked";
+      return context === null || context.checkNewWork() === true;
     },
-    verifyRelease: (evaluationTime) =>
-      verifyBundledCoordinatorPackageFromFixedManifestCandidate({
-        evaluationTime,
-      }),
   }),
 );
 
@@ -392,18 +348,18 @@ const productionRuntime = createRuntime(
  * @trace ARCH-000014
  * @input binding: Binding、managementCapability: unknown
  * @returns loadRuntimeOwnedLocalPersonalAuthorityの計算結果を返す。
- * @precondition 「binding: Binding、managementCapability: unknown」がloadRuntimeOwnedLocalPersonalAuthorityの入力契約を満たす。
+ * @precondition 呼出し側は現在Operationの管理参照と同じOperation／Provider／ProfileのBindingを渡す。
  * @postcondition loadRuntimeOwnedLocalPersonalAuthorityの責務を完了した結果だけを返す。
- * @effect N/A: loadRuntimeOwnedLocalPersonalAuthorityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @effect 既存Ownerが管理参照の現在実体を読取り確認し、Process内cacheだけを更新し得る。
  * @failure N/A: loadRuntimeOwnedLocalPersonalAuthorityは独自の失敗分岐を所有しない。
  * @invariant loadRuntimeOwnedLocalPersonalAuthorityは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: loadRuntimeOwnedLocalPersonalAuthorityはProcess内の同一Subsystemで完結する。
+ * @boundary 現在Operationの管理OwnerとProvider許可元生成の境界。
  * @security loadRuntimeOwnedLocalPersonalAuthorityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: loadRuntimeOwnedLocalPersonalAuthorityは共有非同期状態を持たない同期処理である。
+ * @concurrency 同期確認をcache参照前に一回行い、各loadで失効を再確認する。
  */
 export function loadRuntimeOwnedLocalPersonalAuthority(
   binding: Binding,
-  managementCapability?: unknown,
+  managementCapability: unknown,
 ) {
   return productionRuntime.load(binding, managementCapability);
 }
@@ -457,7 +413,7 @@ export function describeLocalPersonalAuthorityRuntimeContract() {
     trustProfile: "local_personal_t1_t2",
     providers: Object.freeze(["codex", "claude"]),
     profiles: Object.freeze(Object.keys(PROFILE)),
-    releaseTrust: "official_signed_crdd_release_required_each_load",
+    releaseTrust: "not_required_for_runtime_authority",
     operationBinding: "runtime_owned_exact_operation_profile_provider",
     externalAuthorityRootRequired: false,
     managedAuthorityProfileSupported: false,

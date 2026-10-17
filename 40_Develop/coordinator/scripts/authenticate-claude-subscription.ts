@@ -20,10 +20,7 @@ if (process.stdin.isTTY !== true || process.stdout.isTTY !== true) {
   process.stderr.write("claude_authentication_interactive_terminal_required\n");
   process.exitCode = 64;
 } else {
-  const observed = inspectRuntimeOwnedWindowsProviderHomeCandidate(
-    "claude",
-    new Date().toISOString(),
-  );
+  const observed = inspectRuntimeOwnedWindowsProviderHomeCandidate("claude");
   if (observed.status !== "candidate") {
     process.stderr.write(`${observed.reason}\n`);
     process.exitCode = 2;

@@ -17,6 +17,11 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import {
+  loadTestCatalog,
+  selectRegressionTests,
+  type TestCatalog,
+} from "../../src/catalog/inspect.ts";
+import {
   aggregateRegressionStageResults,
   buildRegressionStagePlan,
   createRegressionStageExecutor,
@@ -30,6 +35,460 @@ const runner = path.join(
   "bin",
   "verification-runner.ts",
 );
+
+/**
+ * 通常段階の旧検査除外をWindows専用段階の有無と分離する。
+ * @responsibility Windows未選択時に旧全Tool固定検査を暗黙再実行しない。
+ * @trace CQS-IT-011 CQS-IT-012
+ * @precondition 実RunnerをProcess要求記録fixtureへ接続する。
+ * @stimulus Windows専用試験を含む選択と含まない選択を与える。
+ * @observation 実Node argvのskip指定と試験File集合。
+ * @oracle 通常試験は旧署名専用の除外を持たず、Windows専用段階だけを既存二接頭辞で分離する。
+ * @cleanup 同期fixture子をjoin。試験本体・Docker・Providerは起動しない。
+ * @boundary Runnerから模擬spawnへの実搬送。
+ */
+test("通常試験の除外はWindows専用段階だけに限定する", () => {
+  for (const mode of ["host", "portable_only", "platform"]) {
+    const child = spawnSync(
+      process.execPath,
+      [
+        "--experimental-test-module-mocks",
+        path.join(
+          verificationRunnerRoot,
+          "tests/fixtures/platform-access-dispatch.ts",
+        ),
+        "none",
+        mode,
+      ],
+      {
+        cwd: verificationRunnerRoot,
+        encoding: "utf8",
+        timeout: 15_000,
+        windowsHide: true,
+        maxBuffer: 512 * 1024,
+      },
+    );
+    assert.equal(child.error, undefined);
+    assert.equal(child.status, 0, child.stderr);
+    const observed = JSON.parse(child.stdout) as {
+      result: { exitCode: number };
+      requests: {
+        kind: string;
+        owner: string;
+        files: string[];
+        skip: string | null;
+      }[];
+    };
+    assert.equal(observed.result.exitCode, 0);
+    const normal = observed.requests.filter(
+      (request) => request.kind === "node_test",
+    );
+    assert.ok(normal.length > 0);
+    for (const request of normal) {
+      const pattern = request.skip
+        ? new RegExp(request.skip.replace("--test-skip-pattern=", ""))
+        : /(?!) /u;
+      assert.equal(pattern.test("Legacy Verification Tools: fixed"), false);
+      assert.equal(
+        pattern.test("Legacy Verification Tools: foreign case"),
+        false,
+      );
+      assert.equal(
+        pattern.test(
+          "Script公開Process入口は相対・Repository基準Pathで同じOwnerへ解決する",
+        ),
+        false,
+      );
+      assert.equal(pattern.test("通常Artifact出所検査"), false);
+    }
+    assert.equal(
+      observed.requests.some((request) => request.kind === "windows_test"),
+      mode !== "portable_only",
+    );
+    if (mode === "portable_only")
+      assert.ok(
+        normal.some((request) =>
+          request.files.includes(
+            "./tests/integration/runtime-retirement.contract.test.ts",
+          ),
+        ),
+      );
+  }
+});
+
+/**
+ * Host記録の変更で選択した試験Fileが実spawn argvへ全数搬送される。
+ * @responsibility 計画側の集合だけで実dispatch成功を推定しない。
+ * @trace CQS-IT-011 CQS-IT-012
+ * @precondition 実Catalog・本番Runnerと要求argvを保存する無Effect fixtureを使う。
+ * @stimulus Host Reader変更の計画だけを取得し、直接試験Path変更時の実搬送と欠落・余分・誤Owner・重複搬送の報告を照合する。
+ * @observation 通常NodeとWindows専用段階の実argv File集合。
+ * @oracle 各実集合が選択計画とexact一致し、新Host試験の省略を拒否する。
+ * @cleanup 同期子Process終了を確認。Docker・Provider・実試験本体は起動しない。
+ * @boundary Source変更は未許可Provider試験を含むため計画限定。直接試験Path変更の本番Runner→spawn argvを別確認し、実Host試験は専用実行で確認する。
+ */
+test("Host記録試験の実argv搬送は欠落と誤Ownerを拒否する", () => {
+  const fixture = path.join(
+    verificationRunnerRoot,
+    "tests/fixtures/platform-access-dispatch.ts",
+  );
+  const sourcePlan = spawnSync(
+    process.execPath,
+    ["--experimental-test-module-mocks", fixture, "none", "host_source"],
+    {
+      cwd: verificationRunnerRoot,
+      encoding: "utf8",
+      timeout: 10_000,
+      windowsHide: true,
+      maxBuffer: 512 * 1024,
+    },
+  );
+  assert.equal(sourcePlan.error, undefined);
+  assert.equal(sourcePlan.status, 0, sourcePlan.stderr);
+  const planned = JSON.parse(sourcePlan.stdout);
+  assert.equal(planned.result.exitCode, 0);
+  assert.deepEqual(planned.requests, []);
+  assert.ok(
+    planned.final.selected.includes(
+      "40_Develop/coordinator/tests/integration/host-recovery-record.contract.test.ts",
+    ),
+  );
+  const child = spawnSync(
+    process.execPath,
+    ["--experimental-test-module-mocks", fixture, "none", "host"],
+    {
+      cwd: verificationRunnerRoot,
+      encoding: "utf8",
+      timeout: 10_000,
+      windowsHide: true,
+      maxBuffer: 512 * 1024,
+    },
+  );
+  assert.equal(child.error, undefined);
+  assert.equal(child.status, 0, child.stderr);
+  const observed = JSON.parse(child.stdout) as {
+    result: { exitCode: number };
+    requests: { kind: string; owner: string; files: string[] }[];
+    final: { stages: { stage: string; selected: string[] }[] };
+  };
+  assert.equal(observed.result.exitCode, 0);
+  const hostPath =
+    "40_Develop/coordinator/tests/integration/host-recovery-record.contract.test.ts";
+  /**
+   * 実搬送報告を同じ固定計画の完全集合と照合する。
+   * @responsibility ファイル欠落・余分・誤Owner・重複を件数一致で見逃さない。
+   * @trace CQS-IT-011 CQS-IT-012
+   * @precondition 本番Runnerが返した段階計画を固定する。
+   * @stimulus spawnの実要求報告またはその反例を入力する。
+   * @observation Owner付き相対File集合。
+   * @oracle 通常NodeとWindowsの二集合が各計画と完全一致する。
+   * @cleanup N/A: メモリ内比較のみ。
+   * @boundary 実argv報告と選択計画の照合。
+   */
+  const assertDispatch = (requests: typeof observed.requests) => {
+    for (const [kind, levels] of [
+      ["node_test", ["unit", "integration"]],
+      ["windows_test", ["windows_process_control"]],
+    ] as const) {
+      const expected = observed.final.stages
+        .filter((stage) => (levels as readonly string[]).includes(stage.stage))
+        .flatMap((stage) => stage.selected)
+        .sort();
+      assert.ok(expected.includes(hostPath));
+      const actual = requests
+        .filter((request) => request.kind === kind)
+        .flatMap((request) =>
+          request.files.map(
+            (file) =>
+              `40_Develop/${request.owner}/${file.replace(/^\.\//u, "")}`,
+          ),
+        )
+        .sort();
+      assert.deepEqual(actual, expected);
+    }
+  };
+  assertDispatch(observed.requests);
+  const windows = observed.requests.find(
+    (request) =>
+      request.kind === "windows_test" && request.owner === "coordinator",
+  );
+  assert.ok(windows);
+  const relative = "./tests/integration/host-recovery-record.contract.test.ts";
+  assert.ok(windows.files.includes(relative));
+  for (const altered of [
+    { ...windows, files: windows.files.filter((file) => file !== relative) },
+    {
+      ...windows,
+      files: [
+        ...windows.files,
+        "./tests/integration/nonexistent.contract.test.ts",
+      ],
+    },
+    { ...windows, owner: "docker-isolation" },
+  ])
+    assert.throws(() =>
+      assertDispatch(
+        observed.requests.map((request) =>
+          request === windows ? altered : request,
+        ),
+      ),
+    );
+  assert.throws(() => assertDispatch([...observed.requests, windows]));
+});
+
+/**
+ * 同じOwnerのNodeとRustを本番Runnerが搬送し片系失敗で停止する。
+ * @responsibility 名前上の登録だけで実dispatchが抜ける反例を検出する。
+ * @trace CQS-IT-011 CQS-IT-012
+ * @precondition 実台帳と本番Runnerを使い、spawnだけを別Processで差し替える。
+ * @stimulus Node／Cargo static、Cargo UT、Node IT、Cargo IT、Windows専用段階の六失敗点と正常対照を実行する。
+ * @observation 固定要求順、Owner、終了結果と後段未要求。
+ * @oracle 正常はnpm＋Cargo staticと両言語testへ到達し、各失敗は後段を発行しない。
+ * @cleanup 同期fixture子Processの終了を確認。Compiler・Docker・Provider開始0。
+ * @boundary 本番Runnerの段階搬送。実Rust試験全体の成立ではない。
+ */
+test("Platform AccessのNode／Cargo両dispatchと片系失敗停止を確認する", () => {
+  const fixture = path.join(
+    verificationRunnerRoot,
+    "tests/fixtures/platform-access-dispatch.ts",
+  );
+  const expectedCalls = [
+    { kind: "node_static", owner: "coordinator" },
+    { kind: "node_static", owner: "docker-isolation" },
+    { kind: "node_static", owner: "platform-access" },
+    { kind: "rust_static", owner: "platform-access" },
+    { kind: "rust_unit", owner: "platform-access" },
+    { kind: "node_test", owner: "coordinator" },
+    { kind: "node_test", owner: "docker-isolation" },
+    { kind: "node_test", owner: "platform-access" },
+    { kind: "rust_integration", owner: "platform-access" },
+    { kind: "windows_test", owner: "coordinator" },
+    { kind: "windows_test", owner: "docker-isolation" },
+    { kind: "windows_test", owner: "platform-access" },
+  ];
+  for (const failure of [
+    "none",
+    "node_static",
+    "rust_static",
+    "rust_unit",
+    "node_test",
+    "rust_integration",
+    "windows_test",
+  ]) {
+    const child = spawnSync(
+      process.execPath,
+      ["--experimental-test-module-mocks", fixture, failure],
+      {
+        cwd: verificationRunnerRoot,
+        encoding: "utf8",
+        timeout: 10_000,
+        maxBuffer: 128 * 1024,
+        windowsHide: true,
+      },
+    );
+    assert.equal(child.error, undefined);
+    assert.equal(child.signal, null);
+    assert.equal(child.status, 0, child.stderr);
+    const observed = JSON.parse(child.stdout) as {
+      result: { exitCode: number };
+      calls: { kind: string; owner: string }[];
+      final: {
+        selectedCount: number;
+        stages: {
+          stage: string;
+          selected: string[];
+          status: string;
+          exitCode: number | null;
+        }[];
+      };
+    };
+    if (failure === "none") {
+      assert.equal(observed.result.exitCode, 0);
+      assert.deepEqual(observed.calls, expectedCalls);
+      const selected = selectRegressionTests(
+        loadTestCatalog(
+          path.resolve(
+            verificationRunnerRoot,
+            "../../07_Quality/Registry/test-catalog.json",
+          ),
+        ) as TestCatalog,
+        ["40_Develop/platform-access/src/artifact/identity-observation.ts"],
+      ).filter((entry) => ["unit", "integration"].includes(entry.level));
+      assert.equal(observed.final.selectedCount, selected.length);
+      for (const level of ["unit", "integration"]) {
+        assert.deepEqual(
+          observed.final.stages.find((stage) => stage.stage === level)
+            ?.selected,
+          selected
+            .filter((entry) => entry.level === level)
+            .map((entry) => entry.path),
+        );
+      }
+      assert.deepEqual(
+        observed.final.stages.map((stage) => [
+          stage.stage,
+          stage.selected.length,
+          stage.status,
+          stage.exitCode,
+        ]),
+        [
+          ["static", 0, "completed", 0],
+          [
+            "unit",
+            selected.filter((entry) => entry.level === "unit").length,
+            "completed",
+            0,
+          ],
+          [
+            "integration",
+            selected.filter((entry) => entry.level === "integration").length,
+            "completed",
+            0,
+          ],
+          ["windows_process_control", 5, "completed", 0],
+          ["system", 0, "completed", 0],
+          ["acceptance", 0, "completed", 0],
+        ],
+      );
+    } else {
+      assert.notEqual(observed.result.exitCode, 0);
+      const failureIndex = expectedCalls.findIndex(
+        (call) =>
+          (call.owner === "platform-access" || failure === "windows_test") &&
+          call.kind === failure,
+      );
+      assert.notEqual(failureIndex, -1);
+      assert.deepEqual(
+        observed.calls,
+        expectedCalls.slice(0, failureIndex + 1),
+      );
+    }
+  }
+  const multiOwnerCalls = [
+    { kind: "node_static", owner: "coordinator" },
+    { kind: "node_static", owner: "docker-isolation" },
+    { kind: "node_test", owner: "docker-isolation" },
+    { kind: "node_test", owner: "coordinator" },
+    { kind: "node_test", owner: "docker-isolation" },
+    { kind: "windows_test", owner: "coordinator" },
+    { kind: "windows_test", owner: "docker-isolation" },
+  ];
+  for (const failure of ["none", "windows_coordinator", "windows_docker"]) {
+    const child = spawnSync(
+      process.execPath,
+      ["--experimental-test-module-mocks", fixture, failure, "multi"],
+      {
+        cwd: verificationRunnerRoot,
+        encoding: "utf8",
+        timeout: 10_000,
+        maxBuffer: 128 * 1024,
+        windowsHide: true,
+      },
+    );
+    assert.equal(child.error, undefined);
+    assert.equal(child.signal, null);
+    assert.equal(child.status, 0, child.stderr);
+    const observed = JSON.parse(child.stdout) as {
+      result: { exitCode: number };
+      calls: { kind: string; owner: string }[];
+    };
+    const last = failure === "windows_coordinator" ? 6 : 7;
+    assert.deepEqual(observed.calls, multiOwnerCalls.slice(0, last));
+    assert.equal(observed.result.exitCode, failure === "none" ? 0 : 1);
+  }
+});
+
+/**
+ * 新隔離Packageの静的検査と段階実行を実CLIから確認する。
+ *
+ * @responsibility Ownerを登録しただけで実行dispatchが抜ける反例を検出する。
+ * @trace CQS-IT-011
+ * @trace CQS-IT-012
+ * @precondition 下位の局所UT／ITだけを選択し、DockerやProviderを開始しない。
+ * @stimulus 試験File指定でRunnerを二回実行する。
+ * @observation staticと各levelの終了結果を取得する。
+ * @oracle 下位Ownerで静的検査を先に完了し、同じFileを段階実行する。
+ * @cleanup N/A: 選択した試験は自己生成資源を既存hookで回収する。
+ * @boundary 公開Runner CLI→Package静的検査・試験Process。
+ */
+test("Docker IsolationのstaticとUT／ITを新Ownerへ実dispatchする", () => {
+  for (const [level, file] of [
+    ["unit", "command-plan"],
+    ["integration", "command-runtime"],
+  ] as const) {
+    const target = `40_Develop/docker-isolation/tests/${level}/${file}.contract.test.ts`;
+    const result = invokeRunner(["--changed", target, "--levels", level]);
+    assert.equal(result.error, undefined);
+    assert.equal(result.status, 0, result.stderr);
+    const finalStart = result.stdout.lastIndexOf("\n{\n") + 1;
+    const completed = JSON.parse(result.stdout.slice(finalStart)) as {
+      status: string;
+      selectedCount: number;
+      stages: {
+        stage: string;
+        owners: string[];
+        selected: string[];
+        status: string;
+        exitCode: number;
+      }[];
+    };
+    assert.equal(completed.status, "completed");
+    assert.equal(completed.selectedCount, 1);
+    assert.deepEqual(
+      completed.stages.find((entry) => entry.stage === "static")?.owners,
+      ["docker-isolation"],
+    );
+    const executed = completed.stages.find((entry) => entry.stage === level);
+    assert.equal(executed?.status, "completed");
+    assert.equal(executed?.exitCode, 0);
+    assert.deepEqual(executed?.owners, ["docker-isolation"]);
+    assert.deepEqual(executed?.selected, [target]);
+  }
+});
+
+/**
+ * 実Docker試験を通常計画と実環境実行許可に分離する。
+ *
+ * @responsibility 新隔離Ownerの変更でも未承認の実環境処置を発行しない。
+ * @trace CQS-IT-013
+ * @trace RCM-IT-007
+ * @precondition 現行台帳と実環境profileを使用する。
+ * @stimulus 下位変更を計画し、WindowsではHost試験を許可なしで要求する。
+ * @observation 実環境stageへの選択と実行前拒否を確認する。
+ * @oracle planはEffect 0、許可なしでは試験Processを開始しない。
+ * @cleanup N/A: planまたは実行前拒否だけ。
+ * @boundary Package変更選択→実Docker試験の許可境界。
+ */
+test("Docker Isolationの実Host試験は専用profileで計画し許可前に停止する", () => {
+  const target =
+    "40_Develop/coordinator/tests/integration/docker-isolation-host.integration.test.ts";
+  const planned = invokeRunner([
+    "--changed",
+    "40_Develop/docker-isolation/src/execution/command-runtime.ts",
+    "--plan",
+  ]);
+  assert.equal(planned.status, 0, planned.stderr);
+  const plan = JSON.parse(planned.stdout) as {
+    effectIssued: boolean;
+    stages: { stage: string; selected: string[] }[];
+  };
+  assert.equal(plan.effectIssued, false);
+  assert.ok(
+    plan.stages
+      .find((entry) => entry.stage === "windows_process_control")
+      ?.selected.includes(target),
+  );
+  if (process.platform === "win32") {
+    const blocked = invokeRunner(["--changed", target]);
+    assert.equal(blocked.status, 2);
+    assert.deepEqual(JSON.parse(blocked.stdout), {
+      status: "blocked",
+      reason: "windows_process_control_authority_required",
+      requiredExecutionProfile: "windows_process_control",
+      effectIssued: false,
+    });
+  }
+});
 
 /**
  * 検証済みRootの直下で試験領域を準備する。
@@ -342,7 +801,7 @@ test("外部Provider試験を含む変更でもEffect 0の計画表示は停止�
 test("Windows実Process試験は専用実行Profileを計画へ明示する", () => {
   const result = invokeRunner([
     "--changed",
-    "40_Develop/coordinator/tests/integration/docker-owned-process.integration.test.ts",
+    "40_Develop/docker-isolation/tests/integration/owned-process.integration.test.ts",
     "--plan",
   ]);
   assert.equal(result.error, undefined);
@@ -360,7 +819,7 @@ test("Windows実Process試験は専用実行Profileを計画へ明示する", ()
     (entry) => entry.stage === "windows_process_control",
   );
   assert.deepEqual(windowsStage?.selected, [
-    "40_Develop/coordinator/tests/integration/docker-owned-process.integration.test.ts",
+    "40_Develop/docker-isolation/tests/integration/owned-process.integration.test.ts",
   ]);
 });
 
@@ -381,7 +840,7 @@ test("Windows実Process試験は専用実行Authorityなしに試験Processを�
 }, () => {
   const result = invokeRunner([
     "--changed",
-    "40_Develop/coordinator/tests/integration/docker-owned-process.integration.test.ts",
+    "40_Develop/docker-isolation/tests/integration/owned-process.integration.test.ts",
   ]);
   assert.equal(result.error, undefined);
   assert.equal(result.status, 2);

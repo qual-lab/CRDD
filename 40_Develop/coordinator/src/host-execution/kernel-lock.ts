@@ -11,7 +11,7 @@ import {
   createRuntimeLocalTypeScriptWorker,
   spawnRuntimeLocalTypeScriptChild,
 } from "./typescript-child-entrypoints.ts";
-import { createWindowsHostOperationSupervisorEnvironment } from "./windows-child-environment.ts";
+import { createWindowsHostOperationSupervisorEnvironment } from "../../../platform-access/src/index.ts";
 import {
   prepareInteractiveConsoleKernelLockRequest,
   runHostOperationSupervisorLifecycle,

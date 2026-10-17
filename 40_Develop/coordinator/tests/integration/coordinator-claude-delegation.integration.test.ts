@@ -13,7 +13,7 @@ import test from "node:test";
 
 import { createIsolatedClaudeDockerRuntimeAdapterCandidate } from "../../src/provider/claude-docker-adapter.ts";
 import { createIsolatedDelegationSelectionGrantRuntimeCandidate } from "../../src/provider/delegation-selection-grant.ts";
-import { createIsolatedDockerProcessControllerCandidate } from "../../src/docker-execution/process-controller.ts";
+import { createIsolatedDockerProcessControllerCandidate } from "../../src/provider/execution-controller.ts";
 import { createIsolatedProviderAuthorityRuntimeCandidate } from "../../src/provider/authority-grant.ts";
 
 /**

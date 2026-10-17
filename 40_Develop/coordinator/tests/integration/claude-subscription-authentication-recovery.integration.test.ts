@@ -22,6 +22,8 @@ import {
   beginClaudeSubscriptionAuthenticationRecovery,
   createClaudeSubscriptionAuthenticationPlan,
   createClaudeSubscriptionAuthenticationRecoveryRecord,
+  readClaudeSubscriptionAuthenticationResources,
+  recordClaudeSubscriptionAuthenticationResource,
   setClaudeSubscriptionAuthenticationRecoveryCommandState,
   settleClaudeSubscriptionAuthenticationRecovery,
 } from "../../src/provider/claude-subscription-authentication.ts";
@@ -29,6 +31,135 @@ import {
 const hash = randomBytes(32).toString("hex");
 const suffix = hash.slice(0, 16);
 const token = "b".repeat(64);
+
+/**
+ * 作成Receiptを元Intentへ保存し、状態更新後も同じ実IDを保持する。
+ * @responsibility 保存・読戻しと不正なReceipt拒否を実Filesystemで検証する。
+ * @trace ERB-IT-017
+ * @precondition Repository-localの専用試験Rootだけを使用する。
+ * @stimulus 固定Planから記録を作り、作成Intent、Receipt、idle、settledを順に処置する。
+ * @observation 各結果と保存JSONの五資源実IDを読む。
+ * @oracle 別用途・別名・別IDを拒否し、元実IDはidleとsettled後も変わらない。
+ * @cleanup 試験専用Rootをfinallyで削除する。
+ * @boundary ERB-IT-017=Integration: 既存回復記録の保存・読戻し。
+ */
+test("Claude認証の作成Receiptは元Intentだけへ保存され状態遷移で失われない", () => {
+  const repository = fileURLToPath(new URL("../../../../", import.meta.url));
+  const root = path.join(
+    repository,
+    ".crdd",
+    "tests",
+    `claude-auth-receipt-${randomBytes(8).toString("hex")}`,
+  );
+  const home = path.join(root, "ProviderHomes", "claude");
+  const plan = createClaudeSubscriptionAuthenticationPlan(home, suffix, token);
+  assert.ok(plan);
+  const record = createClaudeSubscriptionAuthenticationRecoveryRecord(
+    home,
+    hash,
+    plan,
+  );
+  assert.ok(record);
+  const id = "c".repeat(64);
+  try {
+    assert.equal(
+      beginClaudeSubscriptionAuthenticationRecovery(record),
+      "created",
+    );
+    assert.equal(
+      recordClaudeSubscriptionAuthenticationResource(
+        record,
+        plan.probeContainerName,
+        id,
+      ),
+      false,
+    );
+    assert.equal(
+      setClaudeSubscriptionAuthenticationRecoveryCommandState(
+        record,
+        "in_flight",
+        "create_probe",
+      ),
+      true,
+    );
+    assert.equal(
+      recordClaudeSubscriptionAuthenticationResource(
+        record,
+        plan.loginContainerName,
+        id,
+      ),
+      false,
+    );
+    assert.equal(
+      recordClaudeSubscriptionAuthenticationResource(
+        record,
+        plan.probeContainerName,
+        "invalid",
+      ),
+      false,
+    );
+    assert.equal(
+      recordClaudeSubscriptionAuthenticationResource(
+        record,
+        plan.probeContainerName,
+        id,
+      ),
+      true,
+    );
+    assert.equal(
+      recordClaudeSubscriptionAuthenticationResource(
+        record,
+        plan.probeContainerName,
+        "d".repeat(64),
+      ),
+      false,
+    );
+    assert.equal(
+      setClaudeSubscriptionAuthenticationRecoveryCommandState(
+        record,
+        "idle",
+        null,
+      ),
+      true,
+    );
+    assert.equal(
+      readClaudeSubscriptionAuthenticationResources(record)?.[0]?.dockerId,
+      id,
+    );
+    assert.equal(settleClaudeSubscriptionAuthenticationRecovery(record), true);
+    assert.equal(
+      JSON.parse(fs.readFileSync(record.recordPath, "utf8")).resources[0]
+        .dockerId,
+      id,
+    );
+    assert.equal(readClaudeSubscriptionAuthenticationResources(record), null);
+    assert.equal(
+      beginClaudeSubscriptionAuthenticationRecovery(record),
+      "created",
+    );
+    assert.equal(
+      readClaudeSubscriptionAuthenticationResources(record)?.[0]?.dockerId,
+      null,
+    );
+    const previous = JSON.parse(fs.readFileSync(record.recordPath, "utf8"));
+    fs.writeFileSync(
+      record.recordPath,
+      JSON.stringify({ ...previous, contractRevision: 2 }),
+    );
+    assert.equal(readClaudeSubscriptionAuthenticationResources(record), null);
+    assert.equal(
+      beginClaudeSubscriptionAuthenticationRecovery(record),
+      "unknown",
+    );
+  } finally {
+    assert.ok(
+      path
+        .resolve(root)
+        .startsWith(path.resolve(repository, ".crdd", "tests") + path.sep),
+    );
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
 
 /**
  * Docker不存在を表す固定stderrを構築する。
@@ -176,6 +307,15 @@ test("Windows Process Gate: Claude再認証はProcess喪失後に耐久Intentか
       randomHex: () => token,
       acquireProviderHomeLock: acquireRuntimeOwnedLogicalProviderHomeKernelLock,
       beginRecovery: beginClaudeSubscriptionAuthenticationRecovery,
+      recordCreatedResource: () => true,
+      recoveryCommands: (_record, plan, index) => {
+        const ownershipCommand = plan.ownershipCommands[index];
+        const cleanupCommand = plan.cleanupCommands[index];
+        const absenceCommand = plan.absenceCommands[index];
+        return ownershipCommand && cleanupCommand && absenceCommand
+          ? { ownershipCommand, cleanupCommand, absenceCommand }
+          : null;
+      },
       setRecoveryCommandState: (record, state, purpose) => {
         const isUpdated =
           setClaudeSubscriptionAuthenticationRecoveryCommandState(
@@ -221,11 +361,25 @@ test("Windows Process Gate: Claude再認証はProcess喪失後に耐久Intentか
       token,
     );
     assert.ok(plan);
-    assert.equal(commandStateTransitions.length, plan.commands.length * 2);
-    for (const [index, command] of plan.commands.entries()) {
+    const recoveryPurposes = plan.ownershipCommands.flatMap(
+      (command, index) => {
+        const cleanup = plan.cleanupCommands[index];
+        const absence = plan.absenceCommands[index];
+        assert.ok(cleanup && absence);
+        return [command.purpose, cleanup.purpose, absence.purpose];
+      },
+    );
+    const expectedPurposes = [
+      ...recoveryPurposes,
+      ...plan.commands.map((command) => command.purpose),
+      ...recoveryPurposes,
+    ];
+    assert.deepEqual(purposes, expectedPurposes);
+    assert.equal(commandStateTransitions.length, expectedPurposes.length * 2);
+    for (const [index, purpose] of expectedPurposes.entries()) {
       assert.deepEqual(commandStateTransitions[index * 2], {
         state: "in_flight",
-        purpose: command.purpose,
+        purpose,
       });
       assert.deepEqual(commandStateTransitions[index * 2 + 1], {
         state: "idle",
@@ -317,6 +471,15 @@ test("Claude再認証は本番Command中のOwner喪失後にfresh Effectを発�
         acquireProviderHomeLock:
           acquireRuntimeOwnedLogicalProviderHomeKernelLock,
         beginRecovery: beginClaudeSubscriptionAuthenticationRecovery,
+        recordCreatedResource: () => true,
+        recoveryCommands: (_record, plan, index) => {
+          const ownershipCommand = plan.ownershipCommands[index];
+          const cleanupCommand = plan.cleanupCommands[index];
+          const absenceCommand = plan.absenceCommands[index];
+          return ownershipCommand && cleanupCommand && absenceCommand
+            ? { ownershipCommand, cleanupCommand, absenceCommand }
+            : null;
+        },
         setRecoveryCommandState:
           setClaudeSubscriptionAuthenticationRecoveryCommandState,
         completeRecovery: settleClaudeSubscriptionAuthenticationRecovery,
@@ -347,6 +510,8 @@ test("Claude再認証は本番Command中のOwner喪失後にfresh Effectを発�
       "claude_authentication_provider_home_lock_lost",
     );
     assert.equal(fixtureResult.cleanupConfirmed, false);
+    assert.equal(fixtureResult.receiptCallCount, 0);
+    assert.equal(fixtureResult.recoveryCallCount, 0);
     assert.equal(await waitForFixtureExit(child, () => childError), 0);
   } finally {
     if (child && child.exitCode === null) child.kill();

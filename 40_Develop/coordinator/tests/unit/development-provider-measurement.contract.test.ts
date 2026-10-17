@@ -69,6 +69,10 @@ test("Development Measurement入口はRuntime Data停止理由を保持する", 
  */
 function fixture(outcomes: readonly string[]) {
   const capability = Object.freeze({});
+  const sourceObservation = Object.freeze({
+    scope: "crdd-development-source-snapshot/v1",
+    expectedSourceSha256: "c".repeat(64),
+  });
   const starts: string[] = [];
   let cancellationCount = 0;
   let time = 0;
@@ -99,7 +103,7 @@ function fixture(outcomes: readonly string[]) {
       assert.equal(candidate, capability);
       return tasks;
     },
-    inspect: () => ({ invocationCount: starts.length * 2 }),
+    inspect: () => ({ invocationCount: starts.length * 2, sourceObservation }),
     cancel: (candidate: object) => {
       assert.equal(candidate, capability);
       cancellationCount += 1;
@@ -136,6 +140,7 @@ function fixture(outcomes: readonly string[]) {
       dependencies as unknown as Dependencies,
     ),
     starts,
+    sourceObservation,
     cancellationCount: () => cancellationCount,
   };
 }
@@ -160,7 +165,10 @@ test("比較は固定2Taskを一回ずつ実行し終了時にsessionを失効�
     new AbortController().signal,
   );
   assert.equal(result.status, "completed");
-  assert.equal(Reflect.get(result, "contractRevision"), 2);
+  assert.equal(Reflect.get(result, "contractRevision"), 3);
+  const accounting = Reflect.get(result, "invocationAccounting");
+  assert.ok(accounting);
+  assert.equal(accounting.sourceObservation, value.sourceObservation);
   assert.deepEqual(value.starts, ["codex", "claude"]);
   assert.equal(value.cancellationCount(), 1);
 });

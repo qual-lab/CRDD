@@ -6,7 +6,7 @@
 
 use std::ffi::{OsString, c_void};
 use std::io::Write;
-use std::os::windows::ffi::OsStringExt;
+use std::os::windows::ffi::{OsStrExt, OsStringExt};
 use std::path::PathBuf;
 use std::ptr::null_mut;
 use windows_sys::Win32::Foundation::HANDLE;
@@ -35,11 +35,54 @@ pub fn run(writer: &mut impl Write) -> i32 {
         return 2;
     }
     let units = &buffer[..length as usize];
-    if units.contains(&0) || String::from_utf16(units).is_err() {
+    write_directory_frame(b"CRDDWD01", units, writer)
+}
+
+/// 固定LocalAppDataをOS Known Folderから読取り専用frameへ変換する。
+/// @responsibility 既存Known Folder取得を使い、環境値や旧RuntimeStateへ依存しない。
+/// @trace ARCH-000008
+/// @input writer: 固定応答の出力先。利用者・GUID・Pathは指定不可。
+/// @returns 0はframe完了、2は観測不能、3は出力失敗。
+/// @precondition 現在Processの利用者をOSが識別する。
+/// @postcondition Path取得はRoot Authorityや意図した利用者との一致を保証しない。
+/// @effect SHGetKnownFolderPathの読取りと応答出力のみ。
+/// @failure 観測失敗・不正UTF-16・出力失敗は非0。
+/// @invariant Directory作成・ACL変更・環境fallbackを行わない。
+/// @boundary Nativeの固定modeとWindows Known Folder API。
+/// @security 任意GUIDや利用者tokenを受け取らない。
+/// @concurrency 同期読取りのみで共有Runtime状態を保持しない。
+pub fn run_local_app_data(writer: &mut impl Write) -> i32 {
+    let Some(directory) = local_app_data_path() else {
+        return 2;
+    };
+    let units: Vec<u16> = directory.as_os_str().encode_wide().collect();
+    write_directory_frame(b"CRDDLA01", &units, writer)
+}
+
+/// 二つの固定Directory観測の有界応答を出力する。
+/// @responsibility 用途magic・UTF-16単位数・全本文を一つのframeとして確定する。
+/// @trace ARCH-000008
+/// @input magic: 内部固定用途、units: OS観測、writer: 応答出力。
+/// @returns 0は出力完了、2は不正値、3はwrite／flush失敗。
+/// @precondition 外部からmagicや任意Pathを選択させない。
+/// @postcondition 不正値では出力0、成功では全本文とflushを完了する。
+/// @effect 有界frameの出力だけ。
+/// @failure 空・上限・NUL・不正UTF-16と部分出力を成功にしない。
+/// @invariant System Directoryの既存magicとframe文法を維持する。
+/// @boundary OS観測値と固定応答stream。
+/// @security 環境・秘密・Authorityを応答に追加しない。
+/// @concurrency N/A: 同期値変換と出力のみ。
+fn write_directory_frame(magic: &[u8; 8], units: &[u16], writer: &mut impl Write) -> i32 {
+    if units.is_empty()
+        || units.len() >= 32_768
+        || units.contains(&0)
+        || String::from_utf16(units).is_err()
+    {
         return 2;
     }
+    let length = units.len() as u32;
     let mut frame = Vec::with_capacity(12 + units.len() * 2);
-    frame.extend_from_slice(b"CRDDWD01");
+    frame.extend_from_slice(magic);
     frame.extend_from_slice(&length.to_le_bytes());
     for unit in units {
         frame.extend_from_slice(&unit.to_le_bytes());
@@ -253,5 +296,49 @@ mod tests {
         let length = u32::from_le_bytes(output[8..12].try_into().unwrap());
         assert!(length > 0 && length < 32_768);
         assert_eq!(output.len(), 12 + length as usize * 2);
+    }
+
+    /// 有界frameの不正値と出力失敗を反証する。
+    /// @responsibility writeとflushの失敗を出力完了に丸めない。
+    /// @trace ERB-UT-035
+    /// @precondition メモリ内writerだけを使う。
+    /// @stimulus 空・NUL・不正UTF-16・上限とwrite／flush拒否。
+    /// @observation 戻り値、出力byte数と用途magic。
+    /// @oracle 不正値は2／出力0、出力失敗は3、上限内は0。
+    /// @cleanup N/A: 外部資源を作らない。
+    /// @boundary N/A: 値境界とメモリwriterの確認。
+    #[test]
+    fn directory_frame_rejects_invalid_units_and_output_failure() {
+        for units in [vec![], vec![0], vec![0xd800], vec![b'a' as u16; 32_768]] {
+            let mut output = Vec::new();
+            assert_eq!(
+                super::write_directory_frame(b"CRDDLA01", &units, &mut output),
+                2
+            );
+            assert!(output.is_empty());
+        }
+        let mut output = Vec::new();
+        assert_eq!(
+            super::write_directory_frame(b"CRDDLA01", &vec![b'a' as u16; 32_767], &mut output),
+            0
+        );
+        assert_eq!(output.len(), 65_546);
+        assert_eq!(&output[..8], b"CRDDLA01");
+        assert_eq!(&output[8..12], &32_767_u32.to_le_bytes());
+        assert!(
+            output[12..]
+                .chunks_exact(2)
+                .all(|pair| pair == [0x61, 0x00])
+        );
+        let mut no_capacity: &mut [u8] = &mut [];
+        assert_eq!(
+            super::write_directory_frame(b"CRDDLA01", &[b'a' as u16], &mut no_capacity),
+            3
+        );
+        let mut flush_failure = std::io::BufWriter::with_capacity(1024, no_capacity);
+        assert_eq!(
+            super::write_directory_frame(b"CRDDLA01", &[b'a' as u16], &mut flush_failure),
+            3
+        );
     }
 }

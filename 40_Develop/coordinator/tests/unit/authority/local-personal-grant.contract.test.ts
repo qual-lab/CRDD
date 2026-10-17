@@ -1,20 +1,17 @@
 /**
- * coordinator:unit:local-personal-authority-runtimeの検証範囲を定義する。
+ * Local Personal許可元の現在Operation結合を検証する。
  *
  * @packageDocumentation
- * @responsibility coordinator:unit:local-personal-authority-runtimeが所有する検証責務を実行する。
+ * @responsibility 署名非依存、毎回のOperation確認、Profile結合と期限を固定する。
  * @trace PRL-UT-006
  * @level UT
- * @scope local、personal、authority、runtime
- * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。
+ * @scope local、personal、authority、operation
+ * @boundary PRL-UT-006=N/A: 許可判定は局所依存とProcess内の値に閉じる。
  */
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import test from "node:test";
-import { spawnSync } from "node:child_process";
-import path from "node:path";
-import { pathToFileURL } from "node:url";
-import { withUnsignedRuntimeFixture } from "../../support/unsigned-runtime-fixture.ts";
-
+import vm from "node:vm";
 import { reverifyAuthorityBeforeProviderLaunch } from "../../../src/authority/prelaunch-verifier.ts";
 import {
   createIsolatedLocalPersonalAuthorityRuntimeCandidate,
@@ -22,152 +19,154 @@ import {
 } from "../../../src/authority/local-personal-grant.ts";
 
 /**
- * confirmedReleaseのTest準備責務を実行する。
+ * 署名資格なしで全6 Profileを現在Operationへ結合する。
  *
- * @responsibility confirmedReleaseがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @responsibility 現在Operationと許可元生成の境界を検証する。
  * @trace PRL-UT-006
- * @precondition 呼出し元Test Caseが必要な入力を渡す。
- * @stimulus confirmedReleaseを呼び出す。
- * @observation 返却値、生成fixtureまたは観測値を取得する。
- * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
- * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-006=Direct Boundary: coordinator Test Source→対象契約
+ * @precondition 固定したBindingと局所依存を使用する。
+ * @stimulus 全Profileを生成し、既存の起動前検査へ渡してcacheを再読する。
+ * @observation 返却Source、Operation確認回数と値の相関を観測する。
+ * @oracle Profile／Provider／Home／Egressの結合を保ち各loadで一回確認する。
+ * @cleanup N/A: Process内の値だけを使用し外部資源を作成しない。
+ * @boundary PRL-UT-006=Direct Boundary: Operation確認→許可元生成。
  */
-function confirmedRelease() {
-  return Object.freeze({
-    status: "candidate",
-    runtimeOwnedReleaseTrustConfirmed: true,
-    releaseIdentityRuntimeOwned: false,
-    runtimeExecutionIdentityRuntimeOwned: true,
-    crddDistributionConfirmed: true,
-  });
-}
-
-/**
- * 開発版の許可は同じAuthority生成器へ接続し期限切れ時はcacheを再利用しないを検証する。
- *
- * @responsibility 開発版の許可は同じAuthority生成器へ接続し期限切れ時はcacheを再利用しないの合否判定を所有する。
- * @trace PRL-UT-006
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 開発版の許可は同じAuthority生成器へ接続し期限切れ時はcacheを再利用しないの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-006=Direct Boundary: coordinator Test Source→対象契約
- */
-test("開発版の許可は同じAuthority生成器へ接続し期限切れ時はcacheを再利用しない", () => {
-  let isAuthorized = true;
-  let releaseChecks = 0;
+test("署名資格なしで全6 Profileを現在Operationへ結合する", () => {
   const management = Object.freeze({});
-  const binding = {
-    operationId: "OP-123456",
-    provider: "claude",
-    profileId: "PROFILE-200001",
-  };
+  let calls = 0;
   const runtime = createIsolatedLocalPersonalAuthorityRuntimeCandidate({
-    wallNow: () => Date.now(),
-    verifyRelease: () => {
-      releaseChecks += 1;
-      return { status: "blocked" };
+    wallNow: Date.now,
+    verifyOperation: (binding, capability) => {
+      calls += 1;
+      return capability === management && binding.operationId === "OP-123456";
     },
-    verifyDevelopment: (candidate, capability) =>
-      capability === management && candidate.operationId === binding.operationId
-        ? isAuthorized
-          ? "authorized"
-          : "blocked"
-        : "not_development",
   });
-  assert.equal(runtime.load(binding, {}), null);
-  const source = runtime.load(binding, management);
-  assert.ok(source);
-  assert.equal(
-    (source.profile as Record<string, unknown>).authMethod,
-    "subscription_oauth",
-  );
-  assert.equal(runtime.load(binding, management), source);
-  isAuthorized = false;
-  assert.equal(runtime.load(binding, management), null);
-  assert.equal(releaseChecks, 1);
+  for (const profileId of describeLocalPersonalAuthorityRuntimeContract()
+    .profiles) {
+    const provider = profileId.startsWith("PROFILE-1") ? "codex" : "claude";
+    const binding = Object.freeze({
+      operationId: "OP-123456",
+      provider,
+      profileId,
+    });
+    const source = runtime.load(binding, management);
+    assert.ok(source);
+    const verified = reverifyAuthorityBeforeProviderLaunch(
+      source.profile,
+      source.bundle,
+      {
+        ...binding,
+        scopeId: `SCOPE-${profileId.slice("PROFILE-".length)}`,
+        providerHomeMountGrantRef: "PHMGRANT-123456",
+      },
+    );
+    assert.equal(verified.status, "candidate");
+    assert.equal(verified.verification.provider, provider);
+    assert.equal(verified.verification.profileId, profileId);
+    assert.equal(verified.verification.operationId, binding.operationId);
+    assert.equal(runtime.load(binding, management), source);
+  }
+  assert.equal(calls, 12);
 });
 
 /**
- * 署名Release確認済みLocal Personal AuthorityをOperationへ固定するを検証する。
+ * 期限内cacheでも偽管理参照・別Operation・失効を拒否する。
  *
- * @responsibility 署名Release確認済みLocal Personal AuthorityをOperationへ固定するの合否判定を所有する。
+ * @responsibility 現在Operationと許可元生成の境界を検証する。
  * @trace PRL-UT-006
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 署名Release確認済みLocal Personal AuthorityをOperationへ固定するの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-006=Direct Boundary: coordinator Test Source→対象契約
+ * @precondition 固定したBindingと局所依存を使用する。
+ * @stimulus 同じcache keyへ不正参照と失効を与える。
+ * @observation 返却Source、Operation確認回数と値の相関を観測する。
+ * @oracle 拒否時はSourceを返さず確認を省略しない。
+ * @cleanup N/A: Process内の値だけを使用し外部資源を作成しない。
+ * @boundary PRL-UT-006=Direct Boundary: Operation確認→許可元生成。
  */
-test("署名Release確認済みLocal Personal AuthorityをOperationへ固定する", () => {
-  let now = Date.now();
-  let releaseChecks = 0;
-  const runtime = createIsolatedLocalPersonalAuthorityRuntimeCandidate({
-    wallNow: () => now,
-    verifyRelease: () => {
-      releaseChecks += 1;
-      return confirmedRelease();
-    },
-  });
+test("期限内cacheでも偽管理参照・別Operation・失効を拒否する", () => {
+  const management = Object.freeze({});
   const binding = Object.freeze({
     operationId: "OP-123456",
     provider: "claude",
     profileId: "PROFILE-200001",
   });
-  const source = runtime.load(binding);
-  assert.ok(source);
-  const verified = reverifyAuthorityBeforeProviderLaunch(
-    source.profile,
-    source.bundle,
-    Object.freeze({
-      ...binding,
-      scopeId: "SCOPE-200001",
-      providerHomeMountGrantRef: "PHMGRANT-123456",
-    }),
+  let current = true;
+  let calls = 0;
+  const runtime = createIsolatedLocalPersonalAuthorityRuntimeCandidate({
+    wallNow: Date.now,
+    verifyOperation: (candidate, capability) => {
+      calls += 1;
+      return (
+        current &&
+        capability === management &&
+        candidate.operationId === binding.operationId
+      );
+    },
+  });
+  assert.ok(runtime.load(binding, management));
+  for (const invalid of [undefined, null, {}, new Proxy({}, {})])
+    assert.equal(runtime.load(binding, invalid), null);
+  assert.equal(
+    runtime.load({ ...binding, operationId: "OP-654321" }, management),
+    null,
   );
-  assert.equal(verified.status, "candidate");
-  assert.equal(verified.verification.provider, "claude");
-  assert.equal(verified.verification.profileId, "PROFILE-200001");
-  assert.equal(verified.verification.operationId, "OP-123456");
-  assert.equal(verified.verification.scopeId, "SCOPE-200001");
-
-  now += 1_000;
-  assert.equal(runtime.load(binding), source);
-  assert.equal(releaseChecks, 2);
+  current = false;
+  assert.equal(runtime.load(binding, management), null);
+  assert.equal(calls, 7);
 });
 
 /**
- * Release未確認、未知Profile、Provider差と不正時計はsourceを返さないを検証する。
+ * Operation確認はstrict trueだけを受理する。
  *
- * @responsibility Release未確認、未知Profile、Provider差と不正時計はsourceを返さないの合否判定を所有する。
+ * @responsibility 現在Operationと許可元生成の境界を検証する。
  * @trace PRL-UT-006
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Release未確認、未知Profile、Provider差と不正時計はsourceを返さないの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-006=Direct Boundary: coordinator Test Source→対象契約
+ * @precondition 固定したBindingと局所依存を使用する。
+ * @stimulus 非boolean・false・例外を返す依存へ正規Bindingを渡す。
+ * @observation 返却Source、Operation確認回数と値の相関を観測する。
+ * @oracle 各依存を一回呼び不正結果をcacheや許可へ昇格しない。
+ * @cleanup N/A: Process内の値だけを使用し外部資源を作成しない。
+ * @boundary PRL-UT-006=Direct Boundary: Operation確認→許可元生成。
  */
-test("Release未確認、未知Profile、Provider差と不正時計はsourceを返さない", () => {
-  const blockedRelease = createIsolatedLocalPersonalAuthorityRuntimeCandidate({
-    wallNow: () => Date.parse("2026-08-25T00:00:00.000Z"),
-    verifyRelease: () => Object.freeze({ status: "blocked" }),
-  });
-  assert.equal(
-    blockedRelease.load({
-      operationId: "OP-123456",
-      provider: "claude",
-      profileId: "PROFILE-200001",
-    }),
-    null,
-  );
-
+test("Operation確認はstrict trueだけを受理する", () => {
+  const binding = {
+    operationId: "OP-123456",
+    provider: "claude",
+    profileId: "PROFILE-200001",
+  };
+  for (const result of [false, undefined, null, 1, "true", Object.freeze({})]) {
+    let calls = 0;
+    const runtime = createIsolatedLocalPersonalAuthorityRuntimeCandidate({
+      wallNow: Date.now,
+      verifyOperation: () => {
+        calls += 1;
+        return result as unknown as boolean;
+      },
+    });
+    assert.equal(runtime.load(binding, {}), null);
+    assert.equal(calls, 1);
+  }
   const runtime = createIsolatedLocalPersonalAuthorityRuntimeCandidate({
-    wallNow: () => Date.parse("2026-08-25T00:00:00.000Z"),
-    verifyRelease: confirmedRelease,
+    wallNow: Date.now,
+    verifyOperation: () => {
+      throw new Error("operation_observation_unknown");
+    },
+  });
+  assert.equal(runtime.load(binding, {}), null);
+});
+
+/**
+ * 不正Bindingと時計は許可元を生成しない。
+ *
+ * @responsibility 現在Operationと許可元生成の境界を検証する。
+ * @trace PRL-UT-006
+ * @precondition 固定したBindingと局所依存を使用する。
+ * @stimulus Provider差・未知Profile・不正Operationと時計不正を与える。
+ * @observation 返却Source、Operation確認回数と値の相関を観測する。
+ * @oracle Sourceを返さず時計不正ではOperation確認も発行しない。
+ * @cleanup N/A: Process内の値だけを使用し外部資源を作成しない。
+ * @boundary PRL-UT-006=Direct Boundary: Operation確認→許可元生成。
+ */
+test("不正Bindingと時計は許可元を生成しない", () => {
+  const runtime = createIsolatedLocalPersonalAuthorityRuntimeCandidate({
+    wallNow: Date.now,
+    verifyOperation: () => true,
   });
   for (const binding of [
     {
@@ -180,135 +179,190 @@ test("Release未確認、未知Profile、Provider差と不正時計はsourceを�
       provider: "claude",
       profileId: "PROFILE-999999",
     },
-    {
-      operationId: "invalid",
-      provider: "claude",
-      profileId: "PROFILE-200001",
+    { operationId: "invalid", provider: "claude", profileId: "PROFILE-200001" },
+  ])
+    assert.equal(runtime.load(binding, {}), null);
+  for (const clock of [
+    () => Number.NaN,
+    () => -1,
+    () => Infinity,
+    () => {
+      throw new Error("clock_unknown");
     },
   ]) {
-    assert.equal(runtime.load(binding), null);
-  }
-  assert.equal(
-    createIsolatedLocalPersonalAuthorityRuntimeCandidate({
-      wallNow: () => Number.NaN,
-      verifyRelease: confirmedRelease,
-    }).load({
-      operationId: "OP-123456",
-      provider: "claude",
-      profileId: "PROFILE-200001",
-    }),
-    null,
-  );
-  assert.equal(
-    createIsolatedLocalPersonalAuthorityRuntimeCandidate({
-      wallNow: () => Date.parse("2026-08-25T00:00:00.000Z"),
-      verifyRelease: () => {
-        throw new Error("release_failure");
+    let calls = 0;
+    const invalidClock = createIsolatedLocalPersonalAuthorityRuntimeCandidate({
+      wallNow: clock,
+      verifyOperation: () => {
+        calls += 1;
+        return true;
       },
-    }).load({
-      operationId: "OP-123456",
-      provider: "claude",
-      profileId: "PROFILE-200001",
-    }),
-    null,
-  );
+    });
+    assert.equal(
+      invalidClock.load(
+        {
+          operationId: "OP-123456",
+          provider: "claude",
+          profileId: "PROFILE-200001",
+        },
+        {},
+      ),
+      null,
+    );
+    assert.equal(calls, 0);
+  }
 });
 
 /**
- * sourceは30秒後に再生成しRelease確認を省略しないを検証する。
+ * 許可元cacheは30秒境界で再生成する。
  *
- * @responsibility sourceは30秒後に再生成しRelease確認を省略しないの合否判定を所有する。
+ * @responsibility 現在Operationと許可元生成の境界を検証する。
  * @trace PRL-UT-006
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus sourceは30秒後に再生成しRelease確認を省略しないの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-006=Direct Boundary: coordinator Test Source→対象契約
+ * @precondition 固定したBindingと局所依存を使用する。
+ * @stimulus 同じBindingを期限直前と期限到達時に読む。
+ * @observation 返却Source、Operation確認回数と値の相関を観測する。
+ * @oracle 期限前だけ同じSourceを返し全読取りでOperationを再確認する。
+ * @cleanup N/A: Process内の値だけを使用し外部資源を作成しない。
+ * @boundary PRL-UT-006=Direct Boundary: Operation確認→許可元生成。
  */
-test("sourceは30秒後に再生成しRelease確認を省略しない", () => {
-  let now = Date.parse("2026-08-25T00:00:00.000Z");
+test("許可元cacheは30秒境界で再生成する", () => {
+  let now = Date.now();
+  let calls = 0;
   const runtime = createIsolatedLocalPersonalAuthorityRuntimeCandidate({
     wallNow: () => now,
-    verifyRelease: confirmedRelease,
+    verifyOperation: () => {
+      calls += 1;
+      return true;
+    },
   });
   const binding = {
     operationId: "OP-123456",
     provider: "codex",
     profileId: "PROFILE-100002",
   };
-  const first = runtime.load(binding);
+  const first = runtime.load(binding, {});
   assert.ok(first);
-  now += 30_000;
-  const second = runtime.load(binding);
+  now += 29_999;
+  assert.equal(runtime.load(binding, {}), first);
+  now += 1;
+  const second = runtime.load(binding, {});
   assert.ok(second);
   assert.notEqual(second, first);
+  assert.equal(calls, 3);
 });
 
 /**
- * 明示未署名配布のproduction loaderは停止するを検証する。
+ * 本番のOperation照合と開発Context追加条件の順序を固定する。
  *
- * @responsibility 明示未署名配布のproduction loaderは停止するの合否判定を所有する。
+ * @responsibility 本番組立ての同じ関数本文で開発条件の省略・誤受理を反証する。
  * @trace PRL-UT-006
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 明示未署名配布のproduction loaderは停止するの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-006=Direct Boundary: coordinator Test Source→対象契約
+ * @precondition 現在Sourceから一意に特定した本番の確認本文を局所依存へ接続する。
+ * @stimulus 正規Operation、別Operation、偽管理参照と開発Contextの各状態を与える。
+ * @observation 依存の呼出し順、Source返却とwarm cacheの拒否を確認する。
+ * @oracle 実Operation照合が先で、Context存在時だけstrict trueが必要となる。
+ * @cleanup N/A: 自己Sourceの読取りと局所値だけを使用し外部Effectを発行しない。
+ * @boundary PRL-UT-006=Direct Boundary: 本番確認本文→許可元の局所判断。
  */
-test("明示未署名配布のproduction loaderは停止する", () => {
-  withUnsignedRuntimeFixture((root) => {
-    const moduleUrl = pathToFileURL(
-      path.join(
-        root,
-        "40_Develop",
-        "coordinator",
-        "src",
-        "authority",
-        "local-personal-authority-runtime.ts",
-      ),
-    ).href;
-    const source = `import assert from "node:assert/strict";
-import { loadRuntimeOwnedLocalPersonalAuthority } from ${JSON.stringify(moduleUrl)};
-assert.equal(
-    loadRuntimeOwnedLocalPersonalAuthority({
-      operationId: "OP-123456",
-      provider: "claude",
-      profileId: "PROFILE-200001",
-    }),
-    null,
+test("本番確認はOperation一致の後だけ開発Contextを照合する", () => {
+  const source = fs.readFileSync(
+    new URL("../../../src/authority/local-personal-grant.ts", import.meta.url),
+    "utf8",
   );
-process.stdout.write("verified");`;
-    const result = spawnSync(
-      process.execPath,
-      ["--input-type=module", "-e", source],
-      { cwd: root, encoding: "utf8", windowsHide: true, timeout: 15_000 },
-    );
-    assert.equal(result.error, undefined);
-    assert.equal(result.status, 0, result.stderr);
-    assert.equal(result.stdout, "verified");
+  const matches = [
+    ...source.matchAll(
+      /verifyOperation: \(binding, managementCapability\) => \{([\s\S]*?)\n[ ]{4}\},/gu,
+    ),
+  ];
+  assert.equal(matches.length, 1);
+  const management = Object.freeze({});
+  const binding = {
+    operationId: "OP-123456",
+    provider: "claude",
+    profileId: "PROFILE-200001",
+  };
+  let currentOperationId = binding.operationId;
+  let mode:
+    | "normal"
+    | "active"
+    | "expired"
+    | "nonboolean"
+    | "throw"
+    | "unknown" = "normal";
+  const events: string[] = [];
+  const verifyOperation = vm.runInNewContext(
+    `(binding, managementCapability) => {${matches[0]?.[1]}}`,
+    {
+      verifyOwnedOperationManagementCapability: (capability: unknown) => {
+        events.push("operation");
+        assert.equal(capability, management);
+        return { operationId: currentOperationId };
+      },
+      inspectRuntimeOwnedDevelopmentOperationContext: (capability: unknown) => {
+        events.push("context");
+        assert.equal(capability, management);
+        if (mode === "unknown") throw new Error("context_unknown");
+        if (mode === "normal") return null;
+        return {
+          checkNewWork: () => {
+            events.push("new_work");
+            if (mode === "throw") throw new Error("development_check_unknown");
+            return mode === "active" ? true : mode === "nonboolean" ? 1 : false;
+          },
+        };
+      },
+    },
+  ) as (candidate: typeof binding, capability: unknown) => boolean;
+  const runtime = createIsolatedLocalPersonalAuthorityRuntimeCandidate({
+    wallNow: Date.now,
+    verifyOperation,
   });
+  assert.ok(runtime.load(binding, management));
+  assert.deepEqual(events.splice(0), ["operation", "context"]);
+  for (const next of [
+    "active",
+    "expired",
+    "nonboolean",
+    "throw",
+    "unknown",
+  ] as const) {
+    mode = next;
+    assert.equal(runtime.load(binding, management) !== null, next === "active");
+    assert.deepEqual(
+      events.splice(0),
+      next === "unknown"
+        ? ["operation", "context"]
+        : ["operation", "context", "new_work"],
+    );
+  }
+  mode = "normal";
+  currentOperationId = "OP-654321";
+  assert.equal(runtime.load(binding, management), null);
+  assert.deepEqual(events.splice(0), ["operation"]);
+  currentOperationId = binding.operationId;
+  assert.equal(runtime.load(binding, {}), null);
+  assert.deepEqual(events, ["operation"]);
 });
+
 /**
- * Local Personal Authority contractはT1-T2と外部Root非必須を固定するを検証する。
+ * 現在契約は署名非必須と既存許可範囲を固定する。
  *
- * @responsibility Local Personal Authority contractはT1-T2と外部Root非必須を固定するの合否判定を所有する。
+ * @responsibility 現在Operationと許可元生成の境界を検証する。
  * @trace PRL-UT-006
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Local Personal Authority contractはT1-T2と外部Root非必須を固定するの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-006=Direct Boundary: coordinator Test Source→対象契約
+ * @precondition 固定したBindingと局所依存を使用する。
+ * @stimulus 公開契約を取得する。
+ * @observation 返却Source、Operation確認回数と値の相関を観測する。
+ * @oracle 改訂2・署名非必須とProvider Effect非所有を明示する。
+ * @cleanup N/A: Process内の値だけを使用し外部資源を作成しない。
+ * @boundary PRL-UT-006=Direct Boundary: Operation確認→許可元生成。
  */
-test("Local Personal Authority contractはT1-T2と外部Root非必須を固定する", () => {
+test("現在契約は署名非必須と既存許可範囲を固定する", () => {
   const contract = describeLocalPersonalAuthorityRuntimeContract();
-  assert.equal(contract.contractRevision, 1);
+  assert.equal(contract.contractRevision, 2);
   assert.equal(contract.trustProfile, "local_personal_t1_t2");
+  assert.equal(contract.releaseTrust, "not_required_for_runtime_authority");
   assert.equal(
-    contract.releaseTrust,
-    "official_signed_crdd_release_required_each_load",
+    contract.operationBinding,
+    "runtime_owned_exact_operation_profile_provider",
   );
   assert.equal(contract.externalAuthorityRootRequired, false);
   assert.equal(contract.managedAuthorityProfileSupported, false);

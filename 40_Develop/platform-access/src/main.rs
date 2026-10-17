@@ -617,6 +617,8 @@ fn valid_appcontainer_pipe_name(value: &str) -> bool {
 /// @compatibility crate内の固定Protocol revisionとRust型境界で利用し、fieldまたはvariantを黙って再解釈しない。
 enum InvocationMode {
     WindowsDirectory,
+    LocalAppDataDirectory,
+    FilesystemEntry(std::ffi::OsString),
     Standard,
     AppContainer(String),
     DockerDesktopRepair,
@@ -650,9 +652,24 @@ fn invocation_mode() -> Result<InvocationMode, ()> {
     let Some(mode) = arguments.next() else {
         return Ok(InvocationMode::Standard);
     };
+    if mode == OsStr::new("--filesystem-entry") {
+        let path = arguments.next().ok_or(())?;
+        return if arguments.next().is_none() {
+            Ok(InvocationMode::FilesystemEntry(path))
+        } else {
+            Err(())
+        };
+    }
     if mode == OsStr::new("--system-windows-directory") {
         return if arguments.next().is_none() {
             Ok(InvocationMode::WindowsDirectory)
+        } else {
+            Err(())
+        };
+    }
+    if mode == OsStr::new("--local-app-data-directory") {
+        return if arguments.next().is_none() {
+            Ok(InvocationMode::LocalAppDataDirectory)
         } else {
             Err(())
         };
@@ -755,10 +772,31 @@ fn invocation_mode() -> Result<InvocationMode, ()> {
 /// @concurrency N/A: 共有可変状態を持たない同期処理である。
 fn main() {
     let exit_code = match invocation_mode() {
+        Ok(InvocationMode::FilesystemEntry(path)) => {
+            #[cfg(windows)]
+            {
+                filesystem::entry_observation::run(&path, &mut std::io::stdout())
+            }
+            #[cfg(not(windows))]
+            {
+                let _ = path;
+                2
+            }
+        }
         Ok(InvocationMode::WindowsDirectory) => {
             #[cfg(windows)]
             {
                 filesystem::windows_directory::run(&mut std::io::stdout())
+            }
+            #[cfg(not(windows))]
+            {
+                2
+            }
+        }
+        Ok(InvocationMode::LocalAppDataDirectory) => {
+            #[cfg(windows)]
+            {
+                filesystem::windows_directory::run_local_app_data(&mut std::io::stdout())
             }
             #[cfg(not(windows))]
             {

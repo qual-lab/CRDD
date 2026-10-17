@@ -20,7 +20,6 @@ import {
   authenticateClaudeSubscription,
   CLAUDE_SUBSCRIPTION_AUTHENTICATION_INPUT_NOTICE,
   createClaudeSubscriptionAuthenticationPlan,
-  runDockerCommandWithAuthority,
 } from "../../src/provider/claude-subscription-authentication.ts";
 
 const AUTHENTICATION_SUFFIX = "0123456789abcdef";
@@ -32,6 +31,182 @@ const lifecycleDependencies = Object.freeze({
   beginRecovery: () => "created" as const,
   setRecoveryCommandState: () => true,
   completeRecovery: () => true,
+  recordCreatedResource: () => true,
+  recoveryCommands: (
+    _record: unknown,
+    plan: NonNullable<
+      ReturnType<typeof createClaudeSubscriptionAuthenticationPlan>
+    >,
+    index: number,
+  ) => {
+    const ownershipCommand = plan.ownershipCommands[index];
+    const cleanupCommand = plan.cleanupCommands[index];
+    const absenceCommand = plan.absenceCommands[index];
+    return ownershipCommand && cleanupCommand && absenceCommand
+      ? { ownershipCommand, cleanupCommand, absenceCommand }
+      : null;
+  },
+});
+
+/**
+ * 回復投影の不一致を清掃成功や名前指定削除へ丸めない。
+ * @responsibility 保存ID不存在＋同名存在、構成差、null Receipt＋同名存在の拒否を反証する。
+ * @trace ERB-UT-016
+ * @precondition 保存投影とDocker結果を模擬する。実保存・実Dockerの成立は主張しない。
+ * @stimulus 元probeの予定実IDと現在観測の三不一致を与える。
+ * @observation 発行用途、回復参照と清掃結果。
+ * @oracle probe削除0・fresh create0・cleanup falseで同じ回復参照を保持する。
+ * @cleanup N/A: 局所値だけを生成する。
+ * @boundary ERB-UT-016=Unit: 上位のexact清掃拒否。
+ */
+test("再認証回復は保存ID差・構成差・null Receiptの同名存在を削除しない", async () => {
+  const id = "c".repeat(64);
+  for (const scenario of ["replacement", "configuration", "null"] as const) {
+    const purposes: string[] = [];
+    const result = await authenticateClaudeSubscription(
+      "C:\\fixture\\ProviderHomes\\claude",
+      STABLE_LOGICAL_HOME_BINDING_HASH,
+      {
+        ...lifecycleDependencies,
+        randomHex: () => token,
+        beginRecovery: () => "existing_idle",
+        recoveryCommands: (_record, plan, index) => {
+          const normal = lifecycleDependencies.recoveryCommands(
+            _record,
+            plan,
+            index,
+          );
+          if (!normal || index !== 0) return normal;
+          if (scenario === "null")
+            return {
+              ownershipCommand: normal.absenceCommand,
+              cleanupCommand: null,
+              absenceCommand: normal.absenceCommand,
+            };
+          return {
+            ownershipCommand: {
+              purpose: "observe_probe_owner",
+              argv: ["container", "inspect", id],
+              interactive: false,
+            },
+            cleanupCommand: {
+              purpose: "remove_probe",
+              argv: ["rm", "--force", id],
+              interactive: false,
+            },
+            identityAbsenceCommand: {
+              purpose: "confirm_probe_id_absent",
+              argv: ["container", "inspect", id],
+              interactive: false,
+            },
+            absenceCommand: normal.absenceCommand,
+          };
+        },
+        run: async (command) => {
+          purposes.push(command.purpose);
+          if (
+            command.purpose === "observe_probe_owner" ||
+            command.purpose === "confirm_probe_id_absent"
+          )
+            return scenario === "configuration"
+              ? {
+                  status: 0,
+                  signal: null,
+                  stdout: "",
+                  stderr: "",
+                  error: new Error(
+                    "docker_authentication_configuration_unconfirmed",
+                  ),
+                  processCompletionConfirmed: true,
+                }
+              : {
+                  status: 1,
+                  signal: null,
+                  stdout: "[]",
+                  stderr: `Error: No such container: ${id}`,
+                  processCompletionConfirmed: true,
+                };
+          if (command.purpose === "confirm_probe_absent")
+            return {
+              status: 0,
+              signal: null,
+              stdout: '[{"Id":"replacement"}]',
+              stderr: "",
+              processCompletionConfirmed: true,
+            };
+          return {
+            status: 1,
+            signal: null,
+            stdout: "[]",
+            stderr: absenceError(command.purpose),
+            processCompletionConfirmed: true,
+          };
+        },
+      },
+    );
+    assert.equal(result.status, "blocked");
+    assert.equal(result.cleanupConfirmed, false);
+    assert.ok("manualRecoveryRequired" in result && "recoveryId" in result);
+    assert.equal(result.manualRecoveryRequired, true);
+    assert.equal(
+      result.recoveryId,
+      `claude-auth.${STABLE_LOGICAL_HOME_BINDING_HASH}`,
+    );
+    assert.equal(purposes.includes("remove_probe"), false);
+    assert.equal(
+      purposes.some((purpose) => purpose.startsWith("create_")),
+      false,
+    );
+  }
+});
+
+/**
+ * 作成Receiptの保存未確認時に次の操作とidle遷移を止める。
+ * @responsibility Process closeと耐久Receipt確定を混同しない。
+ * @trace ERB-UT-016
+ * @precondition 元Intentを模擬し外部Processは開始しない。
+ * @stimulus create成功後のReceipt保存を拒否する。
+ * @observation Command列、Intentと公開結果を得る。
+ * @oracle create一回だけ、in_flight保持、cleanup未完了、同じ回復参照を返す。
+ * @cleanup N/A: 局所値だけの試験。
+ * @boundary ERB-UT-016=Unit: 認証結果と既存耐久記録の保存確定。
+ */
+test("再認証は作成Receipt保存未確認でidleと次Effectを拒否する", async () => {
+  const purposes: string[] = [];
+  let state = "idle";
+  const result = await authenticateClaudeSubscription(
+    "C:\\fixture\\ProviderHomes\\claude",
+    STABLE_LOGICAL_HOME_BINDING_HASH,
+    {
+      ...lifecycleDependencies,
+      randomHex: () => token,
+      setRecoveryCommandState: (_record, next) => {
+        if (next === "in_flight" && state !== "idle") return false;
+        state = next;
+        return true;
+      },
+      recordCreatedResource: () => false,
+      run: async (command) => {
+        purposes.push(command.purpose);
+        return {
+          status: 0,
+          signal: null,
+          stdout: "c".repeat(64),
+          stderr: "",
+          processCompletionConfirmed: true,
+        };
+      },
+    },
+  );
+  assert.equal(state, "in_flight");
+  assert.deepEqual(purposes, ["create_internal_network"]);
+  assert.equal(result.status, "blocked");
+  assert.equal(
+    result.reason,
+    "claude_authentication_resource_receipt_unconfirmed",
+  );
+  assert.equal(result.cleanupConfirmed, false);
+  assert.equal(result.manualRecoveryRequired, true);
 });
 
 /**
@@ -500,40 +675,172 @@ test("再認証はProvider Home Lock喪失後のEffectを停止する", async ()
 });
 
 /**
- * 実行中の非対話ProcessでLockを失った場合にProcess closeまで待つことを検証する。
- *
- * @responsibility Docker CLI共通実行境界の実行中Authority監視と終了確認を検証する。
+ * Process終了不明では後続Docker操作・Idle保存・Home解放をしない。
+ * @responsibility 下位終了観測を認証Lifecycleの停止条件へ接続する。
  * @trace ERB-UT-016
- * @precondition 長時間動作する固定Node子Processと、実行中にfalseへ遷移するLock観測を使う。
- * @stimulus 非対話Command開始後にLock生存値をfalseへ変える。
- * @observation 戻り理由、経過時間および子Process close後の結果を観測する。
- * @oracle Lock喪失を返し、監視周期前に成功せず、子Process close後だけ完了する。
- * @cleanup 実行境界が子Processへ終了要求を発行してcloseを待つ。
- * @boundary ERB-UT-016=Direct Boundary: coordinator Test Source→対象契約
+ * @precondition 実Processを使わない下位結果Fixture。
+ * @stimulus 最初の固定操作へ終了未確認を返す。
+ * @observation 発行用途、保存状態、解放回数と公開回復結果。
+ * @oracle 一回発行、in_flight保持、後続0、解放0、exact回復参照を保持。
+ * @cleanup N/A: 実資源・Lockを取得しない。
+ * @boundary 認証Lifecycleと下位Process結果。
  */
-test("再認証Docker Commandは実行中Lock喪失後に子Process closeを待つ", async () => {
-  let isLive = true;
-  const startedAt = Date.now();
-  const timer = setTimeout(() => {
-    isLive = false;
-  }, 50);
-  try {
-    const result = await runDockerCommandWithAuthority(
-      process.execPath,
-      {
-        purpose: "lock_loss_fixture",
-        argv: ["--eval", "setTimeout(() => {}, 5000)"],
-        interactive: false,
+test("再認証はProcess終了不明で後続とIdle保存とHome解放を拒否する", async () => {
+  const purposes: string[] = [];
+  const states: string[] = [];
+  let releases = 0;
+  const result = await authenticateClaudeSubscription(
+    "C:\\runtime-owned\\ProviderHomes\\claude",
+    STABLE_LOGICAL_HOME_BINDING_HASH,
+    {
+      ...lifecycleDependencies,
+      randomHex: () => token,
+      acquireProviderHomeLock: () => ({
+        assertLive: () => true,
+        release: () => {
+          releases += 1;
+          return true;
+        },
+      }),
+      setRecoveryCommandState: (_record, state) => {
+        states.push(state);
+        return true;
       },
-      {},
-      process.cwd(),
-      () => isLive,
-    );
-    assert.equal(result.error?.message, "provider_home_lock_lost");
-    assert.ok(Date.now() - startedAt >= 200);
-    assert.notEqual(result.status, 0);
-  } finally {
-    clearTimeout(timer);
+      run: async (command) => {
+        purposes.push(command.purpose);
+        return {
+          status: null,
+          signal: null,
+          stdout: "",
+          stderr: "",
+          processCompletionConfirmed: false,
+        };
+      },
+    },
+  );
+  assert.deepEqual(purposes, ["create_internal_network"]);
+  assert.deepEqual(states, ["in_flight"]);
+  assert.equal(releases, 0);
+  assert.equal(
+    result.reason,
+    "claude_authentication_process_completion_unconfirmed",
+  );
+  assert.equal(result.cleanupConfirmed, false);
+  assert.equal(result.providerEffectIssued, true);
+  assert.equal(result.manualRecoveryRequired, true);
+  assert.equal(
+    result.recoveryId,
+    `claude-auth.${STABLE_LOGICAL_HOME_BINDING_HASH}`,
+  );
+});
+
+/**
+ * 清掃の終了不明を同じ耐久Intentに保持する。
+ * @responsibility remove／不存在観測も終了確認後だけidleへ戻す。
+ * @trace ERB-UT-016
+ * @precondition 状態記録とDocker結果の局所Fixture。
+ * @stimulus 固定清掃用途へ未終了結果または例外を返す。
+ * @observation 最後のin_flight用途、後続回数、完了保存とHome解放。
+ * @oracle 後続0、in_flight保持、完了保存0、Home解放0、fresh再発行0。
+ * @cleanup N/A: 実資源なし。
+ * @boundary 清掃と既存回復記録。
+ */
+test("再認証は清掃removeと不存在観測の終了不明を耐久保持する", async () => {
+  for (const target of ["remove_login", "confirm_proxy_absent"]) {
+    for (const throws of [false, true]) {
+      const calls: string[] = [];
+      const states: Array<{ state: string; purpose: string | null }> = [];
+      let releases = 0;
+      let completed = 0;
+      let state: "idle" | "in_flight" = "idle";
+      const dependencies = {
+        ...lifecycleDependencies,
+        randomHex: () => token,
+        beginRecovery: () =>
+          state === "in_flight"
+            ? ("existing_in_flight" as const)
+            : ("created" as const),
+        acquireProviderHomeLock: () => ({
+          assertLive: () => true,
+          release: () => {
+            releases += 1;
+            return true;
+          },
+        }),
+        setRecoveryCommandState: (
+          _record: unknown,
+          next: "idle" | "in_flight",
+          purpose: string | null,
+        ) => {
+          state = next;
+          states.push({ state: next, purpose });
+          return true;
+        },
+        completeRecovery: () => {
+          completed += 1;
+          return true;
+        },
+        run: async (command: { purpose: string }) => {
+          calls.push(command.purpose);
+          if (command.purpose === target) {
+            if (throws) throw Error("unknown");
+            return {
+              status: null,
+              signal: null,
+              stdout: "",
+              stderr: "",
+              processCompletionConfirmed: false,
+            };
+          }
+          if (command.purpose.startsWith("observe_"))
+            return {
+              status: 0,
+              signal: null,
+              stdout: AUTHENTICATION_SUFFIX,
+              stderr: "",
+              processCompletionConfirmed: true,
+            };
+          if (command.purpose.startsWith("confirm_"))
+            return {
+              status: 1,
+              signal: null,
+              stdout: "",
+              stderr: absenceError(command.purpose),
+              processCompletionConfirmed: true,
+            };
+          return {
+            status: command.purpose === "create_internal_network" ? 1 : 0,
+            signal: null,
+            stdout: "",
+            stderr: "",
+            processCompletionConfirmed: true,
+          };
+        },
+      };
+      const result = await authenticateClaudeSubscription(
+        "C:\\runtime-owned\\ProviderHomes\\claude",
+        STABLE_LOGICAL_HOME_BINDING_HASH,
+        dependencies,
+      );
+      assert.equal(calls.at(-1), target);
+      assert.deepEqual(states.at(-1), { state: "in_flight", purpose: target });
+      assert.equal(releases, 0);
+      assert.equal(completed, 0);
+      assert.equal(result.cleanupConfirmed, false);
+      assert.ok("manualRecoveryRequired" in result);
+      assert.equal(result.manualRecoveryRequired, true);
+      const count = calls.length;
+      const fresh = await authenticateClaudeSubscription(
+        "C:\\runtime-owned\\ProviderHomes\\claude",
+        STABLE_LOGICAL_HOME_BINDING_HASH,
+        dependencies,
+      );
+      assert.equal(
+        fresh.reason,
+        "claude_authentication_prior_command_in_flight",
+      );
+      assert.equal(calls.length, count);
+    }
   }
 });
 

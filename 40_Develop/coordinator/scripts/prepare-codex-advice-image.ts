@@ -73,7 +73,7 @@ export function prepareCodexAdviceImage(codexPath: string, hostPath: string) {
   const dockerfile = fs.readFileSync(
     path.join(
       root,
-      "40_Develop/coordinator/runtime/codex-advice-provider.Dockerfile",
+      "40_Develop/docker-isolation/runtime/codex-advice-provider.Dockerfile",
     ),
   );
   const temporary = requireReadyRepositoryRuntimeDataArea(

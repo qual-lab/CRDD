@@ -1,12 +1,12 @@
 /**
- * Workbenchの変更候補依頼を署名済みOrchestratorへ接続する。
+ * Workbenchの変更候補依頼をCoordinatorの単一Taskへ接続する。
  *
  * @packageDocumentation
  * @responsibility 明示された書込みPathとexact Profileだけで一つの未信頼候補を生成し、自動採用せず結果へ返す。
  * @trace ARCH-000015
  * @trace ARCH-000004
  * @boundary Workbench AI依頼とOrchestrator Single Task境界。
- * @effect 署名済みCoordinator Runtimeを通じて隔離Workspaceと外部Providerを実行し、候補をCandidate Storeへ保持し得る。
+ * @effect Coordinator Runtimeを通じて隔離Workspaceと外部Providerを実行し、候補をCandidate Storeへ保持し得る。
  * @security Repository全体を暗黙の書込み範囲にせず、候補Identityから採用Authorityを生成しない。
  */
 import { randomUUID } from "node:crypto";
@@ -30,10 +30,6 @@ import {
   startRuntimeOwnedCoordinatorTask,
 } from "../task/execution.ts";
 import {
-  issueRuntimeOwnedVerifiedCoordinatorPackageCapability,
-  revokeRuntimeOwnedVerifiedCoordinatorPackageCapability,
-} from "../platform-access/package-verification.ts";
-import {
   type CoordinatorTaskDependencies,
   runCoordinatorTaskAttempt,
 } from "../task/attempt.ts";
@@ -41,7 +37,7 @@ import {
 /**
  * Repository単体Workbench用の変更候補Executorを生成する。
  *
- * @responsibility Root、Revision、Profile、Path Authorityおよび署名済みRuntime Capabilityを一依頼へ結合する。
+ * @responsibility Root、Revision、ProfileおよびPath Authorityを一依頼へ結合する。
  * @trace ARCH-000015
  * @trace ARCH-000004
  * @input repositoryRootCapability: 検証済みRoot、profileCatalogStore: 採用済みProfile Catalog。
@@ -49,7 +45,7 @@ import {
  * @precondition Root CapabilityとCatalog Storeは現在Repositoryに対応する。
  * @postcondition 成功時も未信頼・未採用のCandidate IDだけを返し、所有正本を変更しない。
  * @effect Coordinatorの単一Taskを最大一回開始する。
- * @failure 入力、Revision、Profile、署名またはcleanupを確認できなければ成功を返さない。
+ * @failure 入力、Revision、Profileまたはcleanupを確認できなければ成功を返さない。
  * @invariant 指定Path、Profile ID、ProviderおよびRepository Revisionを暗黙に変更しない。
  * @boundary Workbench Production CompositionとCoordinator共通Task実行の境界。
  * @security 外部送信確認がなく、または許可Pathが空ならEffect 0で停止する。
@@ -64,17 +60,10 @@ export function createRuntimeOwnedWorkbenchAiChangeCandidateExecutor(
     profileCatalogStore,
     Object.freeze({
       observeRevision: gitRepositoryRevisionAdapter,
-      issueRuntimeCapability: () =>
-        issueRuntimeOwnedVerifiedCoordinatorPackageCapability({
-          evaluationTime: new Date().toISOString(),
-        }).capability,
-      revokeRuntimeCapability:
-        revokeRuntimeOwnedVerifiedCoordinatorPackageCapability,
-      startTask: (request, root, capability, correlation, observer) =>
+      startTask: (request, root, correlation, observer) =>
         startRuntimeOwnedCoordinatorTask(
           request,
           root,
-          capability,
           correlation,
           observer,
           "workbench",
@@ -90,7 +79,7 @@ export function createRuntimeOwnedWorkbenchAiChangeCandidateExecutor(
  * @responsibility Productionと局所契約試験が同じ候補生成判断を利用できるようEffect Adapterを分離する。
  * @trace ARCH-000015
  * @trace ARCH-000004
- * @input repositoryRootCapability、profileCatalogStore、Revision・Capability・Task Runtime依存。
+ * @input repositoryRootCapability、profileCatalogStore、Revision・Task Runtime依存。
  * @returns 注入依存だけを利用する変更候補Executor。
  * @precondition 依存は同じRuntime世代とRepositoryを表す。
  * @postcondition Production関数と同じ入力検査、未採用結果および失敗分類を返す。
@@ -106,8 +95,6 @@ export function createIsolatedWorkbenchAiChangeCandidateExecutorForDevelopment(
   profileCatalogStore: AiProfileCatalogStore,
   dependencies: Readonly<{
     observeRevision: typeof gitRepositoryRevisionAdapter;
-    issueRuntimeCapability: () => object | null;
-    revokeRuntimeCapability: (capability: object) => boolean;
     startTask: CoordinatorTaskDependencies["startTask"];
     cancelTask: CoordinatorTaskDependencies["cancelTask"];
   }>,
@@ -144,51 +131,42 @@ export function createIsolatedWorkbenchAiChangeCandidateExecutorForDevelopment(
       );
     if (cancellationSignal.aborted)
       return empty("blocked", "coordinator_ai_request_cancelled");
-    const runtimeCapability = dependencies.issueRuntimeCapability();
-    if (runtimeCapability === null)
-      return empty("blocked", "coordinator_task_release_verification_required");
     const identity = randomUUID();
-    let result: Awaited<ReturnType<typeof runCoordinatorTaskAttempt>>;
-    try {
-      result = await runCoordinatorTaskAttempt(
-        {
-          startTask: dependencies.startTask,
-          cancelTask: dependencies.cancelTask,
-        },
-        {
-          operationId: `workbench-operation-${identity}`,
-          runtimeExecutionCapability: runtimeCapability,
-          repositoryRoot,
-          cancellationSignal,
-          taskRequest: Object.freeze({
-            frontProvider: profile.provider,
-            requestedExecutorProvider: profile.provider,
-            requestedProfileId: profile.profileId,
-            objective: request.prompt,
-            acceptanceCriteria: Object.freeze([
-              "Create an untrusted local change candidate only.",
-              "Do not adopt, commit, publish, push, or modify the source repository.",
-              "Modify only the explicitly allowed paths.",
-            ]),
-            allowedPaths: Object.freeze([...request.allowedPaths]),
-            readPaths: Object.freeze([
-              "PROJECT_CONTEXT.md",
-              ...request.allowedPaths,
-            ]),
-            workClass: "bounded_implementation",
-            planState: "complete",
-            risk: "low",
-            difficulty: "low",
-            decisionImpact: "limited",
-            isLocalCandidateOnly: true,
-            hasUnresolvedDirection: false,
-            requiresCrossContextAlignment: false,
-          }),
-        },
-      );
-    } finally {
-      dependencies.revokeRuntimeCapability(runtimeCapability);
-    }
+    const result = await runCoordinatorTaskAttempt(
+      {
+        startTask: dependencies.startTask,
+        cancelTask: dependencies.cancelTask,
+      },
+      {
+        operationId: `workbench-operation-${identity}`,
+        repositoryRoot,
+        cancellationSignal,
+        taskRequest: Object.freeze({
+          frontProvider: profile.provider,
+          requestedExecutorProvider: profile.provider,
+          requestedProfileId: profile.profileId,
+          objective: request.prompt,
+          acceptanceCriteria: Object.freeze([
+            "Create an untrusted local change candidate only.",
+            "Do not adopt, commit, publish, push, or modify the source repository.",
+            "Modify only the explicitly allowed paths.",
+          ]),
+          allowedPaths: Object.freeze([...request.allowedPaths]),
+          readPaths: Object.freeze([
+            "PROJECT_CONTEXT.md",
+            ...request.allowedPaths,
+          ]),
+          workClass: "bounded_implementation",
+          planState: "complete",
+          risk: "low",
+          difficulty: "low",
+          decisionImpact: "limited",
+          isLocalCandidateOnly: true,
+          hasUnresolvedDirection: false,
+          requiresCrossContextAlignment: false,
+        }),
+      },
+    );
     if (
       result.status === "completed" &&
       result.cleanupConfirmed === true &&

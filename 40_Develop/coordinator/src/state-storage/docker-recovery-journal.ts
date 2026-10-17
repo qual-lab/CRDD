@@ -1,18 +1,12 @@
 /**
  * docker-recovery-journalに属する責務をまとめる。
  *
- * @responsibility FileIdentityを中心とする実装、型および境界を同じModuleで所有する。
+ * @responsibility FileIdentityによる保存確定と、削除・移動・清掃の状態分類を所有する。
  * @trace ARCH-000008
  */
 import { createHash, randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-
-import {
-  classifyCleanupDirectoryState,
-  classifyCommittedPairDeleteState,
-  classifyCommittedPairMoveState,
-} from "../docker-execution/recovery-state-machine.ts";
 
 const MAX_RECORD_BYTES = 262_144;
 const COMMIT_SUFFIX = ".crdd-commit.json";
@@ -2307,4 +2301,111 @@ export function describeDockerRecoveryJournalContract() {
       "exact_recovery_id_and_creation_binding_non_target_unchanged",
     powerLossDurabilityClaimed: false,
   });
+}
+
+/**
+ * Committed Pair Delete 状態を分類する。
+ *
+ * @responsibility Committed Pair Delete 状態の分類条件、相互排他的な結果、判断不能境界を所有する。
+ * @trace ARCH-000008
+ * @input contentPresent: boolean、commitPresent: boolean
+ * @returns classifyCommittedPairDeleteStateの計算結果を返す。
+ * @precondition 「contentPresent: boolean、commitPresent: boolean」がclassifyCommittedPairDeleteStateの入力契約を満たす。
+ * @postcondition classifyCommittedPairDeleteStateの責務を完了した結果だけを返す。
+ * @effect N/A: classifyCommittedPairDeleteStateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: classifyCommittedPairDeleteStateは独自の失敗分岐を所有しない。
+ * @invariant classifyCommittedPairDeleteStateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: classifyCommittedPairDeleteStateはProcess内の同一Subsystemで完結する。
+ * @security classifyCommittedPairDeleteStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: classifyCommittedPairDeleteStateは共有非同期状態を持たない同期処理である。
+ */
+export function classifyCommittedPairDeleteState(
+  contentPresent: boolean,
+  commitPresent: boolean,
+) {
+  if (contentPresent && commitPresent) return "remove_content" as const;
+  if (!contentPresent && commitPresent) return "remove_commit" as const;
+  if (!contentPresent && !commitPresent) return "complete" as const;
+  return "third_state" as const;
+}
+
+/**
+ * Committed Pair Move 状態を分類する。
+ *
+ * @responsibility Committed Pair Move 状態の分類条件、相互排他的な結果、判断不能境界を所有する。
+ * @trace ARCH-000008
+ * @input sourceContentPresent: boolean、sourceCommitPresent: boolean、targetContentPresent: boolean、targetCommitPresent: boolean
+ * @returns classifyCommittedPairMoveStateの計算結果を返す。
+ * @precondition 「sourceContentPresent: boolean、sourceCommitPresent: boolean、targetContentPresent: boolean、targetCommitPresent: boolean」がclassifyCommittedPairMoveStateの入力契約を満たす。
+ * @postcondition classifyCommittedPairMoveStateの責務を完了した結果だけを返す。
+ * @effect N/A: classifyCommittedPairMoveStateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: classifyCommittedPairMoveStateは独自の失敗分岐を所有しない。
+ * @invariant classifyCommittedPairMoveStateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: classifyCommittedPairMoveStateはProcess内の同一Subsystemで完結する。
+ * @security classifyCommittedPairMoveStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: classifyCommittedPairMoveStateは共有非同期状態を持たない同期処理である。
+ */
+export function classifyCommittedPairMoveState(
+  sourceContentPresent: boolean,
+  sourceCommitPresent: boolean,
+  targetContentPresent: boolean,
+  targetCommitPresent: boolean,
+) {
+  if (
+    sourceContentPresent &&
+    sourceCommitPresent &&
+    !targetContentPresent &&
+    !targetCommitPresent
+  )
+    return "move_content" as const;
+  if (
+    !sourceContentPresent &&
+    sourceCommitPresent &&
+    targetContentPresent &&
+    !targetCommitPresent
+  )
+    return "move_commit" as const;
+  if (
+    !sourceContentPresent &&
+    !sourceCommitPresent &&
+    targetContentPresent &&
+    targetCommitPresent
+  )
+    return "complete" as const;
+  return "third_state" as const;
+}
+
+/**
+ * 清掃 Directory 状態を分類する。
+ *
+ * @responsibility 清掃 Directory 状態の分類条件、相互排他的な結果、判断不能境界を所有する。
+ * @trace ARCH-000008
+ * @input directoryPresent: boolean、unknownEntryPresent: boolean、hasIdentityOrContentMismatch: boolean、expectedEntryCount: number
+ * @returns classifyCleanupDirectoryStateの計算結果を返す。
+ * @precondition 「directoryPresent: boolean、unknownEntryPresent: boolean、hasIdentityOrContentMismatch: boolean、expectedEntryCount: number」がclassifyCleanupDirectoryStateの入力契約を満たす。
+ * @postcondition classifyCleanupDirectoryStateの責務を完了した結果だけを返す。
+ * @effect N/A: classifyCleanupDirectoryStateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: classifyCleanupDirectoryStateは独自の失敗分岐を所有しない。
+ * @invariant classifyCleanupDirectoryStateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: classifyCleanupDirectoryStateはProcess内の同一Subsystemで完結する。
+ * @security classifyCleanupDirectoryStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: classifyCleanupDirectoryStateは共有非同期状態を持たない同期処理である。
+ */
+export function classifyCleanupDirectoryState(
+  directoryPresent: boolean,
+  unknownEntryPresent: boolean,
+  hasIdentityOrContentMismatch: boolean,
+  expectedEntryCount: number,
+) {
+  if (
+    unknownEntryPresent ||
+    hasIdentityOrContentMismatch ||
+    !Number.isSafeInteger(expectedEntryCount) ||
+    expectedEntryCount < 0
+  )
+    return "third_state" as const;
+  if (!directoryPresent) return "complete" as const;
+  return expectedEntryCount === 0
+    ? ("remove_directory" as const)
+    : ("remove_expected_entries" as const);
 }

@@ -13,12 +13,13 @@
  */
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
 
 import path from "node:path";
 import test from "node:test";
 import { ensureRepositoryRuntimeDataArea } from "../../../domain-model/src/index.ts";
+import { recordOrchestratorExecutionEvent } from "../../../orchestrator/src/task/intelligence-adapter.ts";
 
 import {
   createExecutionIntelligenceRecorder,
@@ -893,6 +894,250 @@ test("an embedded TypeScript application can record and read through one public 
     throw new Error("events_not_observed");
   assert.equal(observedResult.events.length, 1);
   assert.equal(observedResult.events[0]?.eventId, source.eventId);
+});
+
+/**
+ * 二つの現在Producerを同じCanonical Event保存契約へ接続する。
+ *
+ * @responsibility Orchestratorと組込みアプリの保存・再送・読戻しで事実と欠測が変わらないことを判定する。
+ * @trace ERP-IT-001
+ * @precondition 空の自己生成Repositoryと代役の実行観測を用い、Providerは実行しない。
+ * @stimulus 実Orchestrator記録入口と公開Recorderから各一件を保存し、同じ入力を再送する。
+ * @observation 公開ReaderのEvent全文、実JSONL本文、保存結果と残存entryを読む。
+ * @oracle 独立した期待値に一致し、再送・読取りは本文を変更せずLock・一時物が残らない。
+ * @cleanup fixtureのhookで自己生成Repositoryを清掃する。
+ * @boundary ERP-IT-001=Related 2 Blocks: Orchestrator／組込みアプリ→公開Writer→実Store→公開Reader
+ */
+test("Orchestratorと組込みアプリは同じStoreで二つの実行事実と欠測を保つ", (t) => {
+  const root = fixture(t);
+  const created = createExecutionIntelligenceRecorder(root);
+  assert.equal(created.status, "completed");
+  if (created.status !== "completed") throw new Error("recorder_not_ready");
+  const occurredAt = new Date().toISOString();
+  const outcome = {
+    status: "completed" as const,
+    reason: "task_completed",
+    effectState: "settled" as const,
+    cleanupConfirmed: true,
+    manualRecoveryRequired: false,
+    processRestartRequired: false,
+  };
+  const expected = ["orchestrator", "embedded"].map((producer) => {
+    const identity = {
+      projectId: "project-a",
+      milestoneId: "milestone-a",
+      objectiveId: "objective-a",
+      taskId: `task-${producer}`,
+      attemptId: `attempt-${producer}`,
+      operationId: `operation-${producer}`,
+    };
+    return {
+      contract: "crdd/execution-intelligence-event/v2" as const,
+      eventId: `execution-${createHash("sha256")
+        .update(Object.values(identity).join("\0"))
+        .digest("hex")}`,
+      eventType: "task_attempt_settled" as const,
+      occurredAt,
+      identity,
+      execution: {
+        role: "executor",
+        provider: {
+          state: "observed" as const,
+          value: "codex",
+          source:
+            producer === "orchestrator"
+              ? "single_task_verified_completion"
+              : "embedded_observation",
+        },
+        model: {
+          state: "not_observed" as const,
+          reason:
+            producer === "orchestrator"
+              ? "model_selection_not_exposed_by_single_task_result"
+              : "model_not_reported",
+        },
+        inputStrategyRef: {
+          state: "observed" as const,
+          value:
+            producer === "orchestrator"
+              ? "orchestrator/single-task-request/v1"
+              : "embedded/input/v1",
+          source:
+            producer === "orchestrator"
+              ? "orchestrator_execution"
+              : "embedded_observation",
+        },
+        durationMs: {
+          state: "observed" as const,
+          value: 25,
+          source:
+            producer === "orchestrator"
+              ? "orchestrator_monotonic_clock"
+              : "embedded_clock",
+        },
+        usage: {
+          inputTokens: {
+            state: "not_observed" as const,
+            reason:
+              producer === "orchestrator"
+                ? "provider_usage_not_exposed_by_single_task_result"
+                : "usage_not_reported",
+          },
+          outputTokens: {
+            state: "not_observed" as const,
+            reason:
+              producer === "orchestrator"
+                ? "provider_usage_not_exposed_by_single_task_result"
+                : "usage_not_reported",
+          },
+          cacheReadTokens: {
+            state: "not_observed" as const,
+            reason:
+              producer === "orchestrator"
+                ? "provider_usage_not_exposed_by_single_task_result"
+                : "usage_not_reported",
+          },
+          cacheWriteTokens: {
+            state: "not_observed" as const,
+            reason:
+              producer === "orchestrator"
+                ? "provider_usage_not_exposed_by_single_task_result"
+                : "usage_not_reported",
+          },
+          costOrCredits: {
+            state: "not_observed" as const,
+            reason:
+              producer === "orchestrator"
+                ? "provider_usage_not_exposed_by_single_task_result"
+                : "usage_not_reported",
+          },
+        },
+        humanActiveMs: {
+          state: "not_observed" as const,
+          reason:
+            producer === "orchestrator"
+              ? "human_active_time_not_observed_for_task_attempt"
+              : "human_time_not_reported",
+        },
+        profileId: {
+          state: "not_observed" as const,
+          reason: "profile_not_reported",
+        },
+        profileRevision: {
+          state: "not_observed" as const,
+          reason: "profile_revision_not_reported",
+        },
+        reasoningEffort: {
+          state: "not_observed" as const,
+          reason: "reasoning_effort_not_reported",
+        },
+        overrideApplied: {
+          state: "not_observed" as const,
+          reason: "override_not_reported",
+        },
+        parentExecutionId: {
+          state: "not_observed" as const,
+          reason: "parent_execution_not_reported",
+        },
+        diagnostic: {
+          state: "not_observed" as const,
+          reason: "diagnostic_not_reported",
+        },
+      },
+      outcome,
+      quality: {
+        state: "not_applicable" as const,
+        reason:
+          producer === "orchestrator"
+            ? "task_attempt_settlement_is_not_acceptance"
+            : "attempt_settlement_is_not_acceptance",
+      },
+    };
+  });
+  const orchestrator = expected[0];
+  const embedded = expected[1];
+  assert.ok(orchestrator && embedded);
+  const observation = {
+    occurredAt,
+    startedAtMs: 100,
+    endedAtMs: 125,
+    identity: orchestrator.identity,
+    outcome,
+    provider: "codex" as const,
+  };
+  assert.equal(created.recorder.read().status, "completed");
+  assert.equal(
+    fs.existsSync(path.join(operationDirectory(root), "history.jsonl")),
+    false,
+  );
+  const embeddedInput = {
+    occurredAt,
+    identity: embedded.identity,
+    execution: embedded.execution,
+    outcome,
+    quality: embedded.quality,
+  };
+  const firstObservation = structuredClone(observation);
+  const firstEmbeddedInput = structuredClone(embeddedInput);
+  assert.notStrictEqual(firstObservation.identity, orchestrator.identity);
+  assert.notStrictEqual(firstObservation.outcome, orchestrator.outcome);
+  assert.notStrictEqual(firstEmbeddedInput.identity, embedded.identity);
+  assert.notStrictEqual(firstEmbeddedInput.execution, embedded.execution);
+  assert.notStrictEqual(firstEmbeddedInput.outcome, embedded.outcome);
+  assert.notStrictEqual(firstEmbeddedInput.quality, embedded.quality);
+  const first = recordOrchestratorExecutionEvent(root, firstObservation);
+  const second = created.recorder.recordTaskAttempt(firstEmbeddedInput);
+  assert.deepEqual(firstObservation, observation);
+  assert.deepEqual(firstEmbeddedInput, embeddedInput);
+  for (const result of [first, second]) {
+    assert.equal(result.status, "completed");
+    assert.equal(result.effectState, "settled");
+    assert.equal(result.cleanupConfirmed, true);
+  }
+  const historyPath = path.join(operationDirectory(root), "history.jsonl");
+  const before = fs.readFileSync(historyPath);
+  const repeatedObservation = structuredClone(observation);
+  const repeatedEmbeddedInput = structuredClone(embeddedInput);
+  assert.notStrictEqual(
+    repeatedObservation.identity,
+    firstObservation.identity,
+  );
+  assert.notStrictEqual(repeatedObservation.outcome, firstObservation.outcome);
+  assert.notStrictEqual(
+    repeatedEmbeddedInput.identity,
+    firstEmbeddedInput.identity,
+  );
+  assert.notStrictEqual(
+    repeatedEmbeddedInput.execution,
+    firstEmbeddedInput.execution,
+  );
+  assert.notStrictEqual(
+    repeatedEmbeddedInput.outcome,
+    firstEmbeddedInput.outcome,
+  );
+  assert.notStrictEqual(
+    repeatedEmbeddedInput.quality,
+    firstEmbeddedInput.quality,
+  );
+  assert.equal(
+    recordOrchestratorExecutionEvent(root, repeatedObservation).status,
+    "completed",
+  );
+  assert.equal(
+    created.recorder.recordTaskAttempt(repeatedEmbeddedInput).status,
+    "completed",
+  );
+  assert.deepEqual(repeatedObservation, observation);
+  assert.deepEqual(repeatedEmbeddedInput, embeddedInput);
+  const result = readExecutionIntelligence(verifiedRoot(root));
+  assert.equal(result.status, "completed");
+  if (result.status !== "completed") throw new Error("events_not_observed");
+  assert.deepEqual(
+    [...result.events].sort((a, b) => a.eventId.localeCompare(b.eventId)),
+    expected.sort((a, b) => a.eventId.localeCompare(b.eventId)),
+  );
+  assert.deepEqual(fs.readFileSync(historyPath), before);
+  assert.deepEqual(fs.readdirSync(operationDirectory(root)), ["history.jsonl"]);
 });
 
 /**

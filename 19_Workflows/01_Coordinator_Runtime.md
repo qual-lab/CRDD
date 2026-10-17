@@ -1,8 +1,28 @@
 # Coordinator Runtimeの利用・検証・発行手順
 
-Status: Stable (v0.21.0)
+Status: Candidate (Coordinator固有署名方式は物理撤去済み。撤去後の全体回帰・実境界検証は未完了)
 Owner: Qual-Lab
-Last Updated: 2026-10-06
+Last Updated: 2026-10-14
+
+## 通常実行と正式配布の分離
+
+現在の方針は[Coordinator詳細の三分離](../06_Architecture/Details/coordinator/01_Architecture.md#9-通常実行追跡正式配布の分離)に従う。CRDD独自署名、署名Manifest、署名Runtime Capabilityは通常Task・助言・候補生成・認証・回復の事前準備にしない。通常入口は選択Checkout／Package・現在の要求認可・必要Artifactの同一性を確認する。正式配布の真正性検査は必要時の別手順とし、通常実行許可を発行しない。
+
+通常Task・CLI・Workbench助言／候補・Orchestratorの旧署名資格引数・三API、専用静的検査・署名Tool・Manifest設定は撤去済みである。認証入口の実測、撤去後の全体回帰・実Provider／全体E2Eは未完了であり、以下の手順だけから現候補全体の実行可能を推定しない。過去Evidence・署名・Hashは変更しない。
+
+## 開発実測入力の新方式への移行
+
+フロントAIは旧実測packetをRuntimeへ互換読込みさせず、現在のSourceから入力を作り直す。`40_Develop/coordinator/scripts/measure-development-providers.ts --describe-source`は読取りだけを行い、Scopeと`expectedSourceSha256`を返す。署名・Native配布コピー・Task・Docker・Providerの準備は行わない。観測不能なら入力を補完せず停止する。
+
+- [ ] 同じ作業Treeで取得した期待Hashを、新入力の`expectedSourceSha256`へ設定する。Source変更後は再取得する。
+- [ ] 旧`expectedPackageContentRootSha256`、`nativeDistributionRoot`、`expectedNativeRelease`は削除し、各fieldを含む旧packetを再利用しない。
+- [ ] Repository Root、期待Commit／Tree、固定二Task、期限、現在の送信許可は別に確認する。Source照会の成功から実行許可を推定しない。
+- [ ] 実測結果の`sourceObservation`が、照会したScopeと期待Hashへ対応することを確認する。Root・実体Hash・tokenを入力やログへ複製しない。
+- [ ] 旧配布コピーや旧packetの清掃は、参照・非使用・所有実体を確認したフロントAIが行う。履歴Evidence・署名・Hashは変更しない。
+
+Source／Session／結果搬送の新接続は限定確認済みで、旧署名API・専用Toolは撤去済みである。撤去後の全体回帰・実Provider・全体E2Eは未成立である。Source照会だけから実Provider実測・全体E2E成功を主張しない。
+
+新しい実測結果契約は改訂3で、Source照合情報は`invocationAccounting.sourceObservation`に保持する。これはadmission時の固定候補の情報であり、結果閲覧時のSource再観測ではない。旧結果を新しい実測の根拠へ読み替えない。
 
 <a id="native-build-output"></a>
 
@@ -46,7 +66,7 @@ Last Updated: 2026-10-06
 この手順は、CRDD参照Runtimeを診断・実行・検証し、必要な場合に配布を発行する担当者向けである。一般利用者にRelease秘密鍵やpassphraseは不要である。機能の成立条件と未対応範囲は[振る舞い仕様](../05_SPEC/01_Behavior_Specification.md)、資源・権限・復旧方式は[アーキテクチャ](../06_Architecture/01_Architecture.md)、検証計画・現在品質は[品質確認](../07_Quality/01_Quality_Center.md)を正本とし、手順の実行だけで採用・Releaseを成立させない。
 
 1. 対象Repository、固定配布版、実行Node、選択ユーザー、許可された目的・送信先・情報範囲を確認する。
-2. 通常利用は公式Release tagへ固定したcloneまたはsubmoduleを使い、同梱manifestとNative Runtime成果物の真正性を確認する。未署名の開発branch、改変されたcheckoutまたは過去の署名候補を公式配布物とみなさない。
+2. 選択したclone／submodule／作業Checkoutと固定公開入口を確認し、基準Commit／Treeと実際の差分、必要Native・CLI・Image・設定の同一性を追跡する。CRDD署名の欠測だけを通常実行の拒否理由にしない。未確認Publisher・開発branch・変更済みCheckoutを公式真正性確認済みと表示しない。
 3. `capabilities --json`と診断結果を確認し、必要な準備が不成立なら止める。Helpに存在しないcommandを推測しない。
 4. 許可範囲内のTaskを実行し、結果と回収状態を確認する。候補は検証してからexport／discardし、正本への採用は人間の決定権限に従う。
 5. 不明な残存、Identity差、失効または手動回復要求では通常Taskを再試行せず、仕様が示すexact IDと専用回復手順へ戻す。
@@ -60,19 +80,17 @@ Last Updated: 2026-10-06
 通常操作は、検証済みNodeから同じ配布物の`template/tools/crdd-coordinator.ts`を起動する。MCP Clientの接続は別の公開入口`template/tools/crdd-mcp-server.ts`と[MCP Serverの利用手順](04_MCP_Server.md)を使う。AIが実行ごとにwrapper、JSON pipeline、出力転送または別の入力readerを作り直さない。一般TaskはCoordinatorの第一級の`task`入口を使う。利用可能なCoordinator入口は`capabilities --json`から取得し、MCPや準備commandをCoordinatorのsubcommandとして推測しない。以下は絶対Pathの置換だけを行い、Shell文字列へ組み立て直さない。
 
 ```powershell
-& "<absolute-preverified-node-24.12+-executable>" "<signed-distribution-root>\40_Develop\coordinator\bin\coordinator.ts" task --request-stdin --json
-& "<absolute-preverified-node-24.12+-executable>" "<signed-distribution-root>\40_Develop\coordinator\bin\coordinator.ts" interactive doctor --json
-& "<absolute-preverified-node-24.12+-executable>" "<signed-distribution-root>\40_Develop\coordinator\bin\coordinator.ts" verify-routes
-& "<absolute-preverified-node-24.12+-executable>" "<signed-distribution-root>\40_Develop\coordinator\bin\coordinator.ts" verify-recovery
+& "<absolute-preverified-node-24.12+-executable>" "<selected-verified-checkout-root>\40_Develop\coordinator\bin\coordinator.ts" task --request-stdin --json
+& "<absolute-preverified-node-24.12+-executable>" "<selected-verified-checkout-root>\40_Develop\coordinator\bin\coordinator.ts" interactive doctor --json
+& "<absolute-preverified-node-24.12+-executable>" "<selected-verified-checkout-root>\40_Develop\coordinator\bin\coordinator.ts" verify-routes
+& "<absolute-preverified-node-24.12+-executable>" "<selected-verified-checkout-root>\40_Develop\coordinator\bin\coordinator.ts" verify-recovery
 ```
 
-一般Taskでは構造化stdinをバイト列のまま渡し、stdoutを機械向けに受け取る。その他の自動化は`automation <CLI引数と--json>`を使う。対話同意を自動入力せず、不足時は停止結果を処置する。公式配布担当の署名は`sign-release`の後に既存の署名引数をそのまま渡す。秘密値を引数へ含めない。
+一般Taskでは構造化stdinをバイト列のまま渡し、stdoutを機械向けに受け取る。その他の自動化は`automation <CLI引数と--json>`を使う。対話同意を自動入力せず、不足時は停止結果を処置する。Coordinator専用の`sign-release`／`promote-release`は廃止した。通常Taskの準備として署名・Manifest昇格を行わない。正式配布の署名が必要なら、配布Ownerが独立した汎用Artifact署名の適用を判断する。
 
-対話・署名・4経路検証ではstdoutをfileやpipeへ転送しない。ログ採取を優先して端末を失わせない。出力採取が必要な自動処理と人間の対話を同じ一時wrapperで兼用しない。ウィンドウが必要な場合はホスト側が可視端末を用意し、終了後も読める状態を保持する。共通入口自体は追加ウィンドウや終了待ちEnterを作らない。
+対話・4経路検証ではstdoutをfileやpipeへ転送しない。ログ採取を優先して端末を失わせない。出力採取が必要な自動処理と人間の対話を同じ一時wrapperで兼用しない。ウィンドウが必要な場合はホスト側が可視端末を用意し、終了後も読める状態を保持する。共通入口自体は追加ウィンドウや終了待ちEnterを作らない。
 
-配布担当者の署名用画面保持は、固定入口`40_Develop/coordinator/scripts/sign-release-terminal.ts`が担当する。ホストは検証済みNodeの絶対Pathとこの固定Scriptを外部の可視端末で起動し、候補別の`.ps1`／`.cmd`を`tmp`直下へ作らない。入力は既存署名入口の非秘密引数に、`--valid-for-days <正整数>`または`--no-expiry`の排他指定を加える。配布Rootと明示する秘密鍵参照Pathは絶対Pathとする。発行時刻と期限は同一の現在UTCから算出し、秘密入力・配布物検査・署名・配置は既存Commandを同じProcessで呼び出す。秘密、鍵bytesまたはpassphraseを引数・File・Transcriptへ渡さない。
-
-画面保持入口は署名処理の終了後だけEnterを待ち、EOF／取消でも署名処理の終了結果を上書きしない。非TTY、未知／重複引数、期限不正は署名前に拒否する。新しい結果Storeや自動再試行は作らない。窓を強制的に閉じた場合は署名結果を推測せず、既存Manifestの検証から再開する。この入口は一般Taskの公開入口ではなく、配布作業用の補助である。
+Coordinator固有の署名用端末補助・準備・昇格Script、閉包検査・専用設定は物理撤去した。撤去後の全体回帰・実境界の検証は未完了である。過去の署名ManifestやEvidenceは当時の記録として保持し、新Runtimeの許可や成立へ読み替えない。
 
 起動入口の端末結合だけを再確認する場合は、検証済みNodeから`40_Develop/coordinator/tests/fixtures/coordinator-launch-terminal-probe.ts`を実端末で直接実行する。実CLIのhelpと用途不一致の拒否を確認するもので、秘密入力・Provider・Docker・Repository変更は行わない。通常の契約試験と併用し、この確認だけで正式E2Eを合格にしない。
 
@@ -113,11 +131,11 @@ Coordinator／Orchestrator／Dockerの短命な実行記録は、長期の互換
 |---|---|---|
 | 利用者・呼出し元が準備を調べる | `doctor`／`doctor --json` | Providerを起動しない事前診断。一時領域の生成・回収を伴う。表示された候補を認証・隔離・実行許可の成立へ読み替えない |
 | 呼出し元が利用可能な入口を調べる | `capabilities --json` | Local Personalで成立する公開commandだけを機械可読に返す |
-| 許可された一般Taskを実行する | `task --request-stdin` | 署名配布、Repository・同意・Authority・Providerの各検査が必要。候補と回収結果を確認する |
+| 許可された一般Taskを実行する | `task --request-stdin` | 選択したCheckout・Repository・同意・Authority・Providerの各検査が必要。CRDD署名は不要。候補と回収結果を確認する |
 | 候補を取り出す・破棄する | `candidate export`／`candidate discard` | exact ID、期限、対象を再検証。取り出しを正本採用としない |
 | 復旧担当が残存資源を処置する | `doctor --recover-isolation`／`candidate recover-store` | exact IDと所有・状態が一致する場合だけ。通常Taskの自動再試行にしない。作成結果不明のDocker Taskは、後発の検証済みDocker Desktop再起動を明示結合できる専用形だけを使う |
 | 保守担当が隔離を検証する | `doctor --isolation` | Docker／一時Filesystemの効果を伴う固定Fake診断。実Provider利用・実Provider取消の証明ではない |
-| 開発・配布担当が検証する | 下記の開発検証、正式署名Runner | 日常開発と公式署名を分ける。一般利用者にRelease鍵を要求しない |
+| 開発・配布担当が検証する | 下記の固定Task検証と任意配布検査 | 日常開発と公式署名を分ける。一般利用者にRelease鍵を要求しない |
 
 CRDDを`00_CRDD`へ配置した採用Repositoryでは、Project Rootを現在Directoryにして`00_CRDD\40_Develop\coordinator\bin\coordinator.ts task --request-stdin --json`を使用する。`40_Develop`を含まない文書だけのコピーではRuntimeは利用できないため、公式Release tagへ固定した完全なcloneまたはsubmoduleを用意する。
 
@@ -130,7 +148,6 @@ CRDDを`00_CRDD`へ配置した採用Repositoryでは、Project Rootを現在Dir
 & "<absolute-preverified-node-24.12+-executable>" "<absolute-crdd-source-root>\40_Develop\coordinator\bin\coordinator.ts" doctor --isolation --json
 & "<absolute-preverified-node-24.12+-executable>" "<absolute-crdd-source-root>\40_Develop\coordinator\bin\coordinator.ts" capabilities --json
 & "<absolute-preverified-node-24.12+-executable>" "<absolute-crdd-source-root>\40_Develop\coordinator\bin\coordinator.ts" doctor --recover-isolation <recovery-id> --json
-& "<absolute-preverified-node-24.12+-executable>" "<absolute-crdd-source-root>\40_Develop\coordinator\bin\coordinator.ts" doctor --recover-isolation <docker-task-recovery-id> --after-docker-desktop-repair <repair-id> --repair-release-root <signed-distribution-root-that-issued-the-repair-id> --json
 & "<absolute-preverified-node-24.12+-executable>" "<absolute-crdd-source-root>\40_Develop\coordinator\bin\coordinator.ts" task --request-stdin [--json]
 & "<absolute-preverified-node-24.12+-executable>" "<absolute-crdd-source-root>\40_Develop\coordinator\bin\coordinator.ts" candidate export --candidate-id <opaque-id> --json
 & "<absolute-preverified-node-24.12+-executable>" "<absolute-crdd-source-root>\40_Develop\coordinator\bin\coordinator.ts" candidate discard --candidate-id <opaque-id> [--json]
@@ -140,30 +157,32 @@ CRDDを`00_CRDD`へ配置した採用Repositoryでは、Project Rootを現在Dir
 実行Pathを表す各placeholderは同じ保守sessionで検証した絶対Pathへ置き換える。保護操作をsession変数、PATH上の裸の`node`、相対entrypoint、または内部で別Runtimeを再選択するpackage aliasへ置き換えない。`doctor`とRelease manifest署名は外部Git CLIを起動せず、Repository所有のbounded Git object readerでCommit／Treeを読む。
 
 
-### 正式署名一般Taskの固定検証
+### 選択したCheckoutによる一般Task・経路別検証
 
-入力元は凍結した配布候補と許可された検証対象Repositoryである。期待結果は対象契約の`completed`と終了コード0、候補処置・回収の成立。非0または結果不明なら、その固定版の結果を保持して原因・必要な回復を確認し、同じ操作を無条件に繰り返さない。
+一般Task・四経路Matrix・二経路Reviewer検証はCRDD署名を要求しない。Script名と公開識別子の` signed `はTool群移行中の暫定名であり、署名成立を示さない。Runnerの固定Source範囲とGit改訂を開始前／全settlement後に確認し、異なるSourceの経路結果を成功として集約しない。
 
-正式署名配布物のRelease Gateでは、上記の汎用stdin入口へShellからJSONを組み立てて渡さない。対象Repositoryを現在Directoryにした対話端末から、署名済み配布物内の固定Runnerを直接起動する。
+入力元は選択したCheckoutと許可された検証対象Repositoryである。期待結果は対象契約の`completed`と終了コード0、Source照合、候補処置・回収の成立。非0または結果不明なら、その固定版の結果を保持して原因・必要な回復を確認し、同じ操作を無条件に繰り返さない。Sourceの観測状態と作業対象Repositoryの変更・ProviderのEffect観測は別の情報として読む。
+
+この固定検証では、上記の汎用stdin入口へShellからJSONを組み立てて渡さない。対象Repositoryを現在Directoryにした対話端末から、選択したCheckout内の固定Runnerを直接起動する。実Providerへの依頼には、その対象・送信について別途許可が必要である。
 
 ```powershell
-& "<absolute-preverified-node-24.12+-executable>" "<signed-distribution-root>\40_Develop\coordinator\scripts\verify-signed-general-task.ts"
-& "<absolute-preverified-node-24.12+-executable>" "<signed-distribution-root>\40_Develop\coordinator\scripts\verify-signed-general-task.ts" --route reverse
-& "<absolute-preverified-node-24.12+-executable>" "<signed-distribution-root>\40_Develop\coordinator\scripts\verify-signed-general-task.ts" --route same-codex
-& "<absolute-preverified-node-24.12+-executable>" "<signed-distribution-root>\40_Develop\coordinator\scripts\verify-signed-general-task.ts" --route same-claude
-& "<absolute-preverified-node-24.12+-executable>" "<signed-distribution-root>\40_Develop\coordinator\scripts\verify-signed-route-matrix.ts"
-& "<absolute-preverified-node-24.12+-executable>" "<signed-distribution-root>\40_Develop\coordinator\scripts\revoke-external-send-consent.ts"
+& "<absolute-preverified-node-24.12+-executable>" "<selected-verified-checkout-root>\40_Develop\coordinator\scripts\verify-signed-general-task.ts"
+& "<absolute-preverified-node-24.12+-executable>" "<selected-verified-checkout-root>\40_Develop\coordinator\scripts\verify-signed-general-task.ts" --route reverse
+& "<absolute-preverified-node-24.12+-executable>" "<selected-verified-checkout-root>\40_Develop\coordinator\scripts\verify-signed-general-task.ts" --route same-codex
+& "<absolute-preverified-node-24.12+-executable>" "<selected-verified-checkout-root>\40_Develop\coordinator\scripts\verify-signed-general-task.ts" --route same-claude
+& "<absolute-preverified-node-24.12+-executable>" "<selected-verified-checkout-root>\40_Develop\coordinator\scripts\verify-signed-route-matrix.ts"
+& "<absolute-preverified-node-24.12+-executable>" "<selected-verified-checkout-root>\40_Develop\coordinator\scripts\revoke-external-send-consent.ts"
 ```
 
 `<absolute-preverified-node-24.12+-executable>`は、絶対Path、version 24.12.0以上および実体を直前に確認したNode実行ファイルで置き換える。PATH上の裸の`node`、version判定不能または未対応Nodeを使用しない。Runner自身はNode versionをPackage／Release検証とTask開始より前に再確認する。独立したconsole availability preflightは行わず、初回同意が必要な場合だけTask Runtimeが[設計に定める単一Console lifecycle](../06_Architecture/Details/coordinator/01_Architecture.md#14-consoletask内部搬送回収の実装契約)を実行する。有効な同意の再利用時はconsoleを要求しない。
 
 
-### 正式署名Recovery Matrixの固定検証
+### 固定Workerの回復Matrix検証
 
-固定Workerの復旧検証であり、実Providerの認証・通信を使う試験ではない。期待結果は全要求シナリオの成立と回収確認。未達・回収不明なら残るIDと影響を保持し、正式配布の合格へ進めない。
+固定Workerの復旧検証であり、実Providerの認証・通信を使う試験ではない。CRDD署名は不要で、選択したCheckoutの既存Node／隔離・Host境界を使う。期待結果は全要求シナリオの成立と回収確認。未達・回収不明なら残るIDと影響を保持し、回復成立と扱わない。結果改訂2は署名不要を明示する。Script名と公開識別子の` signed `は残るTool群と合わせて移行する暫定名であり、署名検証済みの意味ではない。
 
 ```powershell
-& "<absolute-preverified-node-24.12+-executable>" "<signed-distribution-root>\40_Develop\coordinator\scripts\verify-signed-recovery-matrix.ts"
+& "<absolute-preverified-node-24.12+-executable>" "<selected-verified-checkout-root>\40_Develop\coordinator\scripts\verify-signed-recovery-matrix.ts"
 ```
 
 
@@ -173,10 +192,10 @@ CRDDを`00_CRDD`へ配置した採用Repositoryでは、Project Rootを現在Dir
 
 ## Claude Max専用Provider Homeを再認証するとき
 
-通常Taskが`provider_subscription_auth_not_confirmed`またはClaude認証Probeの固定失敗理由で停止し、専用Provider HomeのOAuth失効を人が確認した場合だけ使用する。通常Taskから自動起動せず、署名済み配布Rootの共通Launcherをdirect TTYから実行する。
+通常Taskが`provider_subscription_auth_not_confirmed`またはClaude認証Probeの固定失敗理由で停止し、専用Provider HomeのOAuth失効を人が確認した場合だけ使用する。通常Taskから自動起動せず、選択して許可したCheckout／Packageの固定入口と必要Artifact同一性を確認してdirect TTYから実行する。CRDD署名Rootは必須にしない。旧署名API・専用Tool・Manifest設定は撤去済みである。本認証入口の実境界確認、撤去後の全体回帰・実Provider／全体E2Eは未完了であり、この手順の更新を実行可能の根拠にしない。
 
 ```powershell
-& "<absolute-preverified-node-24.12+-executable>" "<signed-distribution-root>\40_Develop\coordinator\bin\coordinator.ts" authenticate-claude
+& "<absolute-preverified-node-24.12+-executable>" "<selected-verified-checkout-root>\40_Develop\coordinator\bin\coordinator.ts" authenticate-claude
 ```
 
 1. 表示された公式Claude認証手順を外部system browserで完了する。
@@ -193,19 +212,28 @@ CRDDを`00_CRDD`へ配置した採用Repositoryでは、Project Rootを現在Dir
 
 ## 正常なDockerで作成結果不明のTaskを回復するとき
 
-この経路はv0.20.0で正式4経路E2EとRecovery Matrixを完了し、公式tagへ収載した。利用時は署名済み配布物、同じexact Recovery Identity、現在のDocker状態および下表の段階的完了を再確認する。全Docker Desktop版、全OSおよび任意の破損状態を一般保証せず、観測不能または契約外の状態ではEffect 0で停止する。状態と必要な観測は[取消と回復の設計](../06_Architecture/Details/coordinator/01_Architecture.md#7-cleanup依存順)を参照する。
+この経路のv0.20.0における正式4経路E2EとRecovery Matrixは当時の方式の履歴であり、新経路の成立根拠へ流用しない。現在の設計は選択Checkout／Packageの固定入口と必要Artifact同一性、現在の介入許可、同じexact Recovery Identity、現在のDocker状態および下表の段階的完了を再確認する。Source切替と新経路の実測は未完了である。全Docker Desktop版、全OSおよび任意の破損状態を一般保証せず、観測不能または契約外の状態ではEffect 0で停止する。状態と必要な観測は[取消と回復の設計](../06_Architecture/Details/coordinator/01_Architecture.md#7-cleanup依存順)を参照する。
 
 | 順序 | 操作 | 完了の意味 |
 |---|---|---|
 | 1 | `doctor --restart-docker-for-recovery <docker-task-recovery-id> --json` | 同じ対象のための停止・起動・記録確定。Task回復完了ではない |
-| 2 | `doctor --recover-isolation <same-docker-task-recovery-id> --after-recorded-docker-restart --json` | 検証済み再起動記録と現在の対象資源を再確認し、Task固有の回復を行う |
+| 2 | `doctor --recover-isolation <same-docker-task-recovery-id> --json` | 現在状態の同じ再起動checkpointと対象資源を再確認し、Task固有の回復を行う |
 
 - Docker全体への停止影響を含む許可範囲を確認してから順序1を実行する。他Task、残存CLI、排他不成立または観測不能では停止し、対象を勝手に終了・削除しない。
 - 順序1の`restartCompleted`と`cleanupConfirmed`がともに成立した場合だけ順序2へ進む。旧障害修復の引数と混在させない。
+- 記録後専用flagは廃止し、通常の回復入口へ統一する。旧flagは引数不正として処置前に拒否し、旧記録の互換入口として受理しない。
 - 正常なrun Directoryを退避・削除しない。署名鍵入力や元Taskの再実行は、この操作に含まない。
 - 途中失敗では同じ回復IDと記録を保持する。初回操作を繰り返すことで未知のEffectを再発行せず、停止理由に従って再入場条件を確認する。
-- 別署名の部分記録は、実行担当が生成元の署名Rootを確認して限定引継ぎへ渡す。旧記録の手動修正・削除で再開しない。旧単一`stop_intent`からの初回引継ぎは別の継続停止意図へ進むが、現在Runtimeの`stop_intent`再入場は観測だけであり、同じ停止を再発行しない。
+- 旧署名形式の部分記録は現在の回復へ採用せず、フロントAI移行表へ戻す。旧記録の手動修正・削除、旧Release chainの機械コピーで再開しない。移行未確認・観測不能ではEffect 0で停止し、元のunknownと未解決参照を保持する。
 - 正常停止は公式Desktop CLIを使い、強制停止・detach・旧障害修復へのfallbackはしない。子Processの取消・回収とDocker全体の停止確認は別々に判定する。
+
+## 現在の修復で退避領域を保持するとき
+
+採用済みの目標は、通常の不要な退避物を安全確認後に回収し、調査用の明示保持だけ既定7日で利用者管理へ引き渡す方式である。期限時は削除・延長を判断し、期限だけで自動削除しない。物理回収と期限付き引渡しは現在未実装であり、以下の現行CLIを引渡し完了の操作と解釈しない。Image・Volume・認証領域は対象外。実装上の条件は[修復退避物の後続処置](../06_Architecture/Details/coordinator/01_Architecture.md#repair-directory-disposition)を正本とする。
+
+現在の修復が保持判断待ちになり、その退避物を残すと人間が判断した場合は、同じRepositoryで`coordinator doctor --retain-docker-runtime-repair <exact-repair-id> --json`を実行する。修復が返した現在形式のIDをそのまま指定し、別IDや任意Pathを補完しない。他のdoctor操作と混在させない。
+
+この操作は修復技術Sessionを再取得せず、必要な既存metadataの出版とstate marker清掃を確定した上で、保持判断と既存履歴を保存する。Docker／Native技術処置を再取得せず、退避物を削除しない。保持確認と履歴確認が成立しても「保持済み・終了整理待ち」／exit 2であり、退避物の引渡し・状態除去・Task回復の完了ではない。開始前取消では判断を保存せず、保存成立後の取消で既存判断を巻き戻さない。保存や現在状態が不明なら同じIDを保持し、記録の手動編集や新しい修復で上書きしない。
 
 ## Docker Desktopの旧復旧記録を扱うとき
 
@@ -224,89 +252,30 @@ CRDDを`00_CRDD`へ配置した採用Repositoryでは、Project Rootを現在Dir
 
 フロントAIの移行完了は、実RuntimeのRecovery成功または過去unknownの解消を意味しない。過去に不明だった事実は終了要約に必要最小限で保持する。移行先が未実装の間はこの表を実処置へ使わず、段階5の固定候補と必要な独立確認後に適用する。
 
-### 切替前Runtimeの運用履歴
+### 切替前Runtimeの運用履歴（比較専用・現在実行禁止）
 
-Docker Desktop最終復旧の起動環境と旧記録の処置は、[専用のHome・作業Directoryと検証境界](../06_Architecture/Details/coordinator/01_Architecture.md#22-docker-desktop最終復旧時の起動環境)に従う。署名配布Rootを作業Directoryとして継承させない。旧版の復旧記録は、対象IDと、その修復IDを発行した署名済み配布Rootを明示する`doctor --adopt-docker-desktop-repair <repair-id> --repair-release-root <absolute-root>`で由来を検証し、既存ID・記録・退避物を保持して引き継ぐ。これはDocker Taskの生成元Rootを指定する引数でも、過去の停止・起動・移動を再実行するコマンドでもない。
+この小節のadopt／Release chain／継続closeは旧Runtimeの比較記録である。旧修復本体・Record Store・Continuation Store・hardlink出版は現行Sourceから撤去済みであり、記載commandを現在の運用手順として実行しない。現在の処置は直前のフロントAI移行表へ限定し、移行未確認または観測不能ならEffect 0で停止する。旧全域Inventory自体は撤去済みであり、旧領域を現在保存形式として読み込まない。現在修復はRepository内のstate／historyとDocker Isolationの技術処理を使い、旧履歴の自動変換は行わない。
 
-旧記録のsettledな起動Effectが新しい失敗世代を作っている場合は、現在の署名版が同じ修復IDへ追記専用の継続記録を作る。対象は`Docker/run`と`docker-secrets-engine`の既知2領域だけであり、各領域のIdentityとlockを別々に確認する。個別socketを削除せず、各Directoryを同一親へ段階退避し、両方の結果を耐久化した後にDesktopを一回だけ再起動する。
+当時のDocker Desktop最終復旧の起動環境と旧記録の処置は、[専用のHome・作業Directoryと検証境界](../06_Architecture/Details/coordinator/01_Architecture.md#22-docker-desktop最終復旧時の起動環境)に従った。署名配布Rootを作業Directoryとして継承させず、旧版の復旧記録は、対象IDと発行元の署名済み配布Rootを明示する旧adopt入口で由来を検証し、既存ID・記録・退避物を保持して引き継いだ。これはDocker Taskの生成元Root指定や過去のEffectの再実行ではなかった。現在binaryではこの入口と署名Root引数を廃止しており、実行しない。現在の移行は本節前のフロントAI移行手順に従う。
+
+旧Runtime当時は、旧記録のsettledな起動Effectが新しい失敗世代を作っていた場合、当時の署名版が同じ修復IDへ追記専用の継続記録を作った。現在binaryではこの記録作成を行わず、以下は当時の比較説明に限る。対象は`Docker/run`と`docker-secrets-engine`の既知2領域だけであり、各領域のIdentityとlockを別々に確認する。個別socketを削除せず、各Directoryを同一親へ段階退避し、両方の結果を耐久化した後にDesktopを一回だけ再起動する。
 
 各退避と再起動の直前には、Engine停止、Docker Desktop Process不在、対象Identity、lock、退避先不存在および先行Effectの結果をfreshに再確認する。意図記録後にDockerが再起動した場合もEffectを発行しない。途中で閉じた端末、intent後中断、部分退避または起動結果不明では、同じコマンドの反復でEffectを盲目的に再発行せず、同じ修復IDと停止理由を保持する。
 
-回復済み表示と明示closeでは、現在Releaseへ結合した継続記録、3 Effectのconfirmed settlement、両領域の退避済み旧世代と別Identityの新世代、Engine readyおよびProcess安全性を再確認する。一領域の新世代欠落、部分記録、改変または別Release結合ではcloseしない。すべて成立した後だけ既存の明示closeコマンドで履歴を保持したまま終了する。開発実装の試験と、実機の中断記録への適用・正式E2Eは別に確認する。
+当時の回復済み表示と明示closeは、実行Releaseへ結合した継続記録、3 Effectのconfirmed settlement、両領域の退避済み旧世代と別Identityの新世代、Engine readyおよびProcess安全性を再確認した。一領域の新世代欠落、部分記録、改変または別Release結合ではcloseせず、全条件が成立した場合だけ当時の明示close入口で履歴を保持して終了した。現在binaryではこの入口を廃止しており、実行しない。開発実装の試験と、実機の中断記録への適用・正式E2Eは別の根拠として扱う。
 
-Docker資源の作成要求を耐久化した後、結果を受け取る前にProcessを失ったTaskは、空のDocker一覧だけでは回復済みにしない。そのTaskより後に開始され、署名済みの元配布から由来を確認でき、Process世代を切る停止とEngine再起動を完了して明示終了したDocker Desktop復旧記録がある場合だけ、上記の専用形を使える。RuntimeはTaskと復旧の順序、同じ選択ユーザー・保護Root・Policy、終了済み復旧記録および対象名のexactな不存在を再確認し、不存在確認をTask自身の耐久記録へ残してから通常回復を続ける。これは元Taskの自動再実行、旧配布への実行Authority付与、任意のDocker再起動による義務消去または保護記録の手動削除を許可しない。
+以下も旧Runtime当時の専用処置であり、現在binaryでは実行できない。Docker資源の作成要求を耐久化した後、結果を受け取る前にProcessを失ったTaskは、空のDocker一覧だけでは回復済みにしない。そのTaskより後に開始され、署名済みの元配布から由来を確認でき、Process世代を切る停止とEngine再起動を完了して明示終了したDocker Desktop復旧記録がある場合だけ、上記の専用形を使える。RuntimeはTaskと復旧の順序、同じ選択ユーザー・保護Root・Policy、終了済み復旧記録および対象名のexactな不存在を再確認し、不存在確認をTask自身の耐久記録へ残してから通常回復を続ける。これは元Taskの自動再実行、旧配布への実行Authority付与、任意のDocker再起動による義務消去または保護記録の手動削除を許可しない。
 
 
-## Release署名鍵の初回生成
+## Coordinator固有署名方式の廃止
 
-OpenSSLは不要である。対話端末から次を実行し、Repository外にある未作成の絶対Pathへ鍵を生成する。20文字未満のpassphrase、既存directoryおよびRepository内Pathは拒否する。秘密鍵はAES-256-CBCで暗号化したPKCS#8 PEM、公開鍵はSPKI DERとして生成し、秘密鍵またはpassphraseを標準出力へ表示しない。
+Coordinator固有のRelease鍵生成、Manifest準備・署名・昇格と配布Tree固定検査は撤去した。`sign-release`／`promote-release`は現在の起動modeではなく、通常実行・認証・回復・E2Eの前提にしない。必要Artifactの固定出所・Hash、実行時の認可とDocker隔離は各Ownerの現在契約で確認する。
 
-```powershell
-& "<absolute-preverified-node-24.12+-executable>" "<absolute-crdd-source-root>\40_Develop\coordinator\scripts\generate-release-key.ts" --output "$env:USERPROFILE\CRDD-Release-Key-v1"
-```
+汎用の成果物署名Packageは維持するが、CoordinatorのManifest生成を代替する公開手順は設けない。正式配布の真正性が必要になった場合は、対象配布物とConsumerを確認して別の配布判断を行う。
 
-CRDDへ取り込むのは`crdd-release-v1-public.spki.der`だけである。`crdd-release-v1-private.pem`はRepository、Issue、Pull Request、チャットまたはCIへ渡さず、Qual-LabのRelease保管領域と暗号化backupで管理する。このコマンドは鍵生成だけを行い、Manifest署名、ReleaseまたはEffectを自動実行しない。現在の公開鍵はCRDD所有の不変source literalへ固定済みで、SPKI SHA-256は`6b250a21be0f8fd582907731a2cba6aae44b991cbff82234c4ee838548c5e95f`である。
+旧`.env-crdd`と署名作業領域は現行Runtimeが読み込まない。フロントAIが現在参照・非使用・所有実体を確認して移行・清掃し、秘密鍵や既存のLocal設定を機械的に削除しない。過去の正式Evidence・署名・Hashは当時の条件のまま保持する。
 
-## Release manifestの生成
-
-この節は公式配布担当者向けである。入力は凍結したCommit／Tree、その内容から作ったstaging、既存の暗号化秘密鍵と発行情報。期待結果は同じ配布内容へ結合した署名manifestの生成であり、Release公開そのものではない。配布Root・Treeの不一致ならstagingの作成元へ戻り、復号失敗なら秘密入力だけを確認する。失敗原因を区別せず秘密鍵を作り直したり、日常開発のたびに署名したりしない。
-
-### `.env`と`.env-crdd`の使い分け
-
-| File | 用途 | 署名処理での扱い |
-|---|---|---|
-| `.env` | 採用Repositoryの一般的なLocal開発設定。用途とOwnerは各Projectが決める | 公式Release署名は読まない。鍵参照、鍵内容、passphraseを置かない |
-| `.env.example` | 一般的なLocal開発設定のGit管理可能な記入例 | 実値や秘密を置かず、署名設定を定義しない |
-| `.env-crdd` | CRDD公式RepositoryのRelease担当者だけが使うLocal署名設定 | `CRDD_RELEASE_PRIVATE_KEY_PATH`という絶対Path参照を一件だけ置ける |
-| `.env-crdd.example` | 値を持たない記入例 | Git管理できる。実在Path、秘密またはpassphraseを置かない |
-
-`.env.example`は、一般的なLocal設定の名称、用途および安全な記入形式を示す文書用sampleである。CRDD標準Toolが暗黙に同fileを読込む契約ではない。利用するLauncherまたはWorkflowが要求する項目だけをGit管理外の`.env`へ写し、実際のtoken等をsampleへ戻さない。現在のsampleは、任意のCoordinator RootとLocal MCP HTTP起動時のBearer Tokenを例示する。
-
-`.env-crdd`の書式は次の一行を基本とする。引用符はPathに空白がある場合に使用できる。未知の項目はSignerへAuthorityを追加せず、`CRDD_RELEASE_PRIVATE_KEY_PATH`の重複、相対Path、改行またはNULを拒否する。
-
-```dotenv
-CRDD_RELEASE_PRIVATE_KEY_PATH=C:\absolute\path\to\crdd-release-v1-private.pem
-```
-
-`.env-crdd`はRepository Root直下にだけ置き、Git管理しない。これは鍵の所在を毎回入力しないための参照であって、署名許可または秘密Storeではない。鍵内容とpassphraseは保存せず、passphraseは正式署名ごとにdirect TTYから一度入力する。SignerはCLIの`--private-key`と`.env-crdd`のどちらを選んでも同じ鍵参照preflightを秘密入力前に行い、秘密入力後にFile Identityを再観測する。CLIが明示された場合は`.env-crdd`を読まない。
-
-鍵参照、秘密入力および暗号署名Primitiveの責務は[成果物署名](../06_Architecture/Details/artifact-signing/01_Architecture.md)、Runtime Manifestの構築、固定Publisher Policy、P／S順序および配置は[Coordinator](../06_Architecture/Details/coordinator/01_Architecture.md#9-署名済み配布物)が所有する。
-
-署名済みRelease manifestは自己参照を避けながらGitだけで配布できるよう、署名Source A、manifest carrier B、最終Release Commit Cを分けて生成する。Cは署名後に確定する検証結果だけを取り込む文書Commitであり、Runtime実行集合を変更しない。
-
-### 署名準備の縮小構成
-
-以下の旧全体展開手順は、2026-10-06の承認により置換中であり、現在は実行しない。新方式は固定Commit由来のRuntime実行閉包とNativeだけを`<repository>/.crdd/tmp/signature/work/`へ配置する。Repository全体のTree一致ではなく、選択FileのGit出所・内容・mode、Runtime集合、PolicyとNativeを確認する。準備、対話署名、署名済みstaging自身からの原子昇格、利用終了と清掃を同じOperation Ownerへ接続する。Process-local能力をJSONへ保存せず、正式Manifestを公開できなかった場合に唯一の署名結果を先に消さない。
-
-公開入口は既存の`prepare-release-candidate.ts`を置き換え、次の一回の呼出しで準備、対話署名、署名済みLauncherによる昇格、終了清掃を順に実行する。実装切替、局所試験と限定独立レビューは完了した。実署名の再開許可ではなく、対話端末・実署名・製品E2Eの実境界確認は未評価である。
-
-```powershell
-& "<absolute-preverified-node-24.12+-executable>" "<absolute-crdd-source-root>\40_Develop\coordinator\scripts\prepare-release-candidate.ts" --crdd-version <vX.Y.Z> --release-sequence <positive-safe-integer> --crdd-commit <commit-id> --crdd-tree <tree-id> --operation-id <caller-held-operation-id> --operation-identity <caller-held-identity> --no-expiry
-```
-
-適用後の中断で候補が残った場合は、秘密入力なしの同じ固定入口を `--recover-applied --operation-id <元のID> --operation-identity <現在のIdentity> --generation <現在世代>` で呼ぶ。新規準備、再署名、再昇格は行わない。候補と正式Manifestの全file Hashが一致するときだけ清掃し、未適用・不一致・観測不能では返された次世代参照を保持する。旧配置は探索しない。
-
-起動するフロントAIは、開始前に操作ごとの非秘密な`operationId`と`identity`を生成し、検証済みRepositoryと固定Commit／Treeに結合した作業入力として保持する。同じ値を上記引数へ渡し、初期回復参照の`owner`は`coordinator-release-runtime`、`generation`は`1`とする。識別子は人間に入力させる秘密値や操作権限ではない。端末内で生成して表示するだけでは、端末消失後の参照保持と扱わない。既存の一時操作記録を使い、新しいキュー・state・回復DBを追加しない。中断後は同じ参照を既存Runtime Dataの再入場へ渡し、Root・記録・旧Process・世代の検証を省略しない。
-
-期限付き検証では`--no-expiry`を`--valid-for-days <positive-integer>`へ置き換える。時刻は対話端末の実行時に一度生成し、古いwrapperに固定した時刻を再使用しない。秘密鍵参照は上記`.env-crdd`または明示的な`--private-key`を用い、passphraseは端末だけで入力する。Repository Rootと一時配置先は入口が検証して決定し、候補名や配布Rootを人間の引数で指定しない。
-
-| 終了状態 | 一時配置と結果の扱い |
-|---|---|
-| 昇格と終了処置を確認できた | 正式PathへManifestを公開し、一時作業領域を回収する。終了処置の後に端末のEnter待ちへ進む。 |
-| passphrase不正を署名配置前に確認できた | 署名結果が作られていない経路として一時作業領域を回収する。 |
-| その他の署名・昇格・終了が未確認 | 同じ回復参照と、唯一の署名結果が存在し得る作業領域を保持する。時間切れを清掃完了へ読み替えない。 |
-
-旧準備コマンドの引数、廃棄済み候補または一時wrapperを代替として再使用しない。現在の処置は[CHG-000082](../99_Roadmap/Changes/CHG-000082/change.md#2026-10-06の範囲見直し--署名対象と一時配置の縮小)を参照する。
-
-### 旧手順 — 移行記録、実行停止
-
-1. Release候補Commit Aへ、Source、文書、試験および`40_Develop/platform-access/artifacts/windows-x64/crdd-platform-access.exe`を含め、生成前の`template/tools/coordinator/coordinator-package-manifest.json`は含めない。Local Personal v1の通常buildはall-zeroのpublisher digestでAuthenticodeを明示的に非必須とし、固定publisher digestを指定したbuildだけ追加のAuthenticode検証を必須にする。manifestは実装、署名、昇格および検証が共有するこの固定Pathだけを使用し、別Pathへ複製しない。
-2. Commit Aのblob byteを変換せず、Repository-localの`<repository>/.crdd/release/<candidate-id>`へ展開する。`<candidate-id>`は小文字英数字とhyphenからなる単一Directory名に固定し、Repository直下、`.crdd`直下、別用途の`.crdd`領域、入れ子Path、別Repository、Repository外Root、linkまたはGit metadataを持つRootを受理しない。
-3. Commit A／Tree Aと`crdd-platform-access.exe`を照合し、stagingの固定Pathへmanifestを生成する。生成commandは既存manifest、固定公開鍵と一致しない秘密鍵、非canonical時刻または不正なIdentityを拒否する。秘密鍵のpassphraseは対話端末でだけ入力し、標準出力へ出さない。
-4. 生成したmanifestは編集可能なJSONとして扱わず、不透明なbyte列のまま、署名済みstaging内にある共通Launcher自身の`promote-release`でRepositoryの固定Pathへ昇格する。作業Checkout内の未署名Launcherへstaging Pathを引数で渡して代替してはならない。入口は、実行中のコードが現在のRepository直下`.crdd/release/<候補ID>`にある署名対象の配布物自身であること、署名、Source AのCommit／Tree、閉じたRuntime実行集合、Policy、Native成果物、現在HEAD、配置先の明示的な不存在、昇格前後のbyte数とSHA-256を一つの実行で再確認する。作業Checkoutに存在するGit管理外の依存物や一時物はSource AのCommit／Tree同一性へ混入させず、実行集合の完全性は署名済みstagingから確認する。手動コピー、Editor、整形、JSONの再serialize、Shellのtext pipelineまたは末尾改行追加で代替しない。最終Pathへ段階writeせず、同一Filesystem上の排他的hard linkで完成済みfileだけを公開する。開始時sourceと公開後の二名が同じfile objectであることを確認し、staging側の名前はこの公開Effectでは削除しない。中断後は同じcommandがsourceのみ、同一file objectの二名、明示破棄後のdestinationのみを識別して再開する。別Identity、内容変化または観測不能では削除や上書きを行わず、Commitせずに人間へ移送する。成功結果が`retained_for_explicit_staging_discard`を返した場合は、Commit Bと検証が完了した後、Repository-local stagingの所有範囲を再確認する明示破棄で後片付けする。成功後にmanifestだけをCommitしてBを作り、`git diff <Commit-A>..<Commit-B> --name-only`がmanifest 1件だけでなければReleaseへ進めない。
-5. Bの署名済みRuntimeに対する検証後、結果と現在状態を反映するCommit Cを作る。BからCに変更できるのは、Release候補固定時に宣言した文書の閉集合だけである。Releaseごとの閉集合はこの節でexact Pathとして列挙し、wildcard、Directory単位または「関連文書」等の開いた指定を使わない。manifest、Runtime実行集合、Policy、Native成果物または宣言外Pathが変わった場合はCとして受理せず、新しいSource Aへ戻る。
-6. Cで同梱manifestをbyte-for-byte再照合し、Package content rootとRuntime実行IdentityがBの検証時と一致することを確認する。AがBの親、BがCの祖先であり、AからBはmanifest一件だけ、BからCは上記閉集合だけであることも確認する。公式tagとReleaseはCommit Cへ付ける。CのCommit／Treeは署名対象文書へ自己参照させず、tagと結合した公式Release記録へ保存する。manifest内の`crddCommit`／`crddTree`はCommit A／Tree Aを示し、Bはそのmanifestを運ぶ祖先として保持する。RuntimeはCの内容からRuntime実行集合とmanifestを検証し、`crdd-platform-access.exe`を同じIdentityへ結合する。cloneまたはsubmoduleに存在するRoot直下のexact `.git` metadataは、non-linkのfileまたはdirectoryであることを確認して署名対象Treeから除外する。
-7. 一般Taskは配布A／B／Cとは別に、実行直前の作業対象RepositoryのExecution Commit／Treeを独立観測し、隔離Candidateのbase RevisionをそのExecution Revisionへ照合する。manifest内のA、manifest carrier Bまたは公式Release Cを、採用RepositoryのCandidate baseとして要求しない。Task終了後に同じExecution Revisionを再観測できない、またはCommit／Treeが変わった場合は、Candidateを回収して成功扱いにしない。CRDD自身を作業対象にする場合だけExecution Revisionが公式Release Cと一致し得る。
+以下の版別Commit C許可Pathは過去の判断記録であり、現在の署名方式・実行許可・変更許可へ流用しない。
 
 ### v0.19.0のCommit C許可Path
 
@@ -369,17 +338,6 @@ v0.20.0ではこの機械的遷移を実行しないまま公式tagを作成し�
 
 これにより、公式tagへ固定したcloneまたはsubmoduleは別archiveを取得せず通常Runtimeを利用できる。GitHub Releaseへ同じ内容の独自ZIPを追加しない。GitHubが自動生成するSource archiveもRuntime配布契約または検証対象にしない。
 
-```powershell
-& "<absolute-preverified-node-24.12+-executable>" "<absolute-crdd-source-root>\40_Develop\coordinator\scripts\sign-release-manifest.ts" --distribution-root "<absolute-staging-root>" --crdd-version <vX.Y.Z> --release-sequence <positive-safe-integer> --crdd-commit <commit-id> --crdd-tree <tree-id> --issued-at <canonical-utc> --expires-at <canonical-utc>
-Set-Location "<absolute-crdd-source-root>"
-& "<absolute-preverified-node-24.12+-executable>" "<absolute-staging-root>\40_Develop\coordinator\bin\coordinator.ts" promote-release
-```
-
-ここで`<absolute-staging-root>`は、上記Repository-local staging Rootのexact candidateでなければならない。
-
-上の例は期間限定の検証配布である。期限なしの正式配布では`--expires-at <canonical-utc>`を`--no-expiry`へ置き換える。どちらか一方だけが必須であり、未指定・両方指定・重複・不正日時は秘密入力前に停止する。新規署名はmanifest／envelope revision 5を使用し、期限なしは署名payload内の`expiresAt: null`に結合する。旧revision 2／3／4を編集、延長または現行候補へ流用しない。一般利用者は署名済み配布物を検証するだけで、公式鍵やpassphraseを入力しない。配布物の期限なし指定を、同意・Grant・準備記録の無期限化と混同しない。
-
-配布Identityと成果物の結合条件は[署名と内部成果物の設計](../06_Architecture/Details/coordinator/01_Architecture.md#release-artifact-binding)に従う。手順から固定Path・検査・停止条件を変更しない。
 
 
 ## 開発者確認
@@ -416,6 +374,18 @@ npm run typecheck --prefix 40_Develop/coordinator
 日常の開発反復ではRelease manifestを作り直さない。`npm run development-e2e:verify --prefix 40_Develop/coordinator`が、4経路、一般Task、Candidate、独立Review、一回是正およびRecovery Matrixのproduction契約を固定Fake／契約・結合試験で検査する。この入口はRelease鍵、passphrase、実Provider、Provider Credential、Network EffectまたはRelease Authorityを使わない。正式署名E2Eは、全機械確認を通過して凍結したRelease Candidateに対してだけ一度実施し、失敗ごとに署名を挟むデバッグ手順にしない。一般利用者は発行済み署名配布物を検証して利用するだけであり、Release秘密鍵またはpassphraseの入力・保有を要求されない。公式Release担当者だけが新しい公式配布物を発行するときに署名する。
 
 LintとFormatterの版、設定および依存境界は[内部ツール・コーディング規約](../06_Architecture/99_Coding_Standards.md#21-実装言語と実行境界)に従う。Coordinatorは`npm run lint --prefix 40_Develop/coordinator`、`npm run format:check --prefix 40_Develop/coordinator`および`npm run check --prefix 40_Develop/coordinator`で確認し、意図的な書換え時だけ`npm run format --prefix 40_Develop/coordinator`を使う。
+
+Coordinator固有の署名・配布Tree固定AST／body SHA検査と専用試験入口は撤去した。通常portableと回帰Runnerは旧署名試験名による除外を持たず、Windows専用の実Process段階だけを既存の二接頭辞で分離する。子Process入口の入力拒否、Package依存境界、保存Workerの構築、Native検証Toolの起動・Artifact選択・close待機は現在の責務Ownerの試験へ接続する。通常試験の成功を正式配布の真正性検証や実Docker／Provider E2Eの成功へ読み替えない。撤去後の全体検証と実境界の未完了範囲は変更計画で追跡する。
+
+### Orchestrator実Provider検証の実行Source
+
+`verify-orchestrator-real-providers.ts`は自身を含むCheckoutの公開MCP入口を使い、別の署名配布Root引数は受け取らない。送信範囲・認証・実行許可と検証対象Repositoryの準備を確認した後、そのRepositoryを作業Directoryとして次を実行する。
+
+```shell
+node <selected-verified-checkout-root>/40_Develop/coordinator/scripts/verify-orchestrator-real-providers.ts
+```
+
+対応範囲はWindowsでの固定実Provider試験であり、このコマンド自体が外部送信の許可を与えるものではない。結果改訂12では対象Repositoryの改訂を`executionIdentity`、実行Sourceの観測を`runtimeSource`に分ける。Source／入口の欠測は最初のMCP起動前に拒否し、終了時不一致は既知の回収事実を変更せず検証不成立とする。入口Hashは既存Readerが返したUTF8文字列のHashである。旧署名結果を新版のE2E根拠として扱わない。
 
 Checkerの実装配置と配布境界は[内部ツール・コーディング規約](../06_Architecture/99_Coding_Standards.md)に従う。Checker packageの開発確認は次を使用する。
 

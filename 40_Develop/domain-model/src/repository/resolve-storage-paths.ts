@@ -7,7 +7,6 @@
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import {
   resolveVerifiedRepositoryRoot,
   verifyRepositoryRootFromWorkingDirectory,
@@ -65,52 +64,6 @@ function resolveRepositoryRuntimeDataPathsFromValidatedRoot(
     temporary: path.join(root, "tmp"),
     allowedTopLevelAreas: REPOSITORY_AREAS,
   });
-}
-
-/**
- * Protected signing-only resolver. It derives the root from this package's
- *
- * @responsibility Bundled Repository Runtime Data Paths For Protected Signingの候補集合、解決規則、曖昧時の拒否境界を所有する。
- * @trace ARCH-000011
- * @input N/A: 実行時引数を受け取らない。
- * @returns resolveBundledRepositoryRuntimeDataPathsForProtectedSigningの計算結果を返す。
- * @precondition 「N/A: 実行時引数を受け取らない。」がresolveBundledRepositoryRuntimeDataPathsForProtectedSigningの入力契約を満たす。
- * @postcondition resolveBundledRepositoryRuntimeDataPathsForProtectedSigningの責務を完了した結果だけを返す。
- * @effect resolveBundledRepositoryRuntimeDataPathsForProtectedSigningはFilesystemの読取りまたは書込みを実行する。
- * @failure resolveBundledRepositoryRuntimeDataPathsForProtectedSigningは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant resolveBundledRepositoryRuntimeDataPathsForProtectedSigningは宣言した境界以外へEffectを拡張しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
- * @security N/A: resolveBundledRepositoryRuntimeDataPathsForProtectedSigningはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: resolveBundledRepositoryRuntimeDataPathsForProtectedSigningは共有非同期状態を持たない同期処理である。
- */
-export function resolveBundledRepositoryRuntimeDataPathsForProtectedSigning() {
-  try {
-    const repositoryRoot = path.resolve(
-      fileURLToPath(new URL("../../../..", import.meta.url)),
-    );
-    const relativeSegments = path
-      .relative(path.parse(repositoryRoot).root, repositoryRoot)
-      .split(path.sep)
-      .filter(Boolean);
-    let current = path.parse(repositoryRoot).root;
-    for (const segment of relativeSegments) {
-      current = path.join(current, segment);
-      if (fs.lstatSync(current).isSymbolicLink()) return null;
-    }
-    const metadata = fs.lstatSync(repositoryRoot);
-    const marker = fs.lstatSync(path.join(repositoryRoot, ".git"));
-    if (
-      !metadata.isDirectory() ||
-      metadata.isSymbolicLink() ||
-      fs.realpathSync.native(repositoryRoot) !== repositoryRoot ||
-      marker.isSymbolicLink() ||
-      (!marker.isDirectory() && !marker.isFile())
-    )
-      return null;
-    return resolveRepositoryRuntimeDataPathsFromValidatedRoot(repositoryRoot);
-  } catch {
-    return null;
-  }
 }
 
 /**

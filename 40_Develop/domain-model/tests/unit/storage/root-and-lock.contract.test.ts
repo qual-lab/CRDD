@@ -10,10 +10,13 @@
  */
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
+import { stripTypeScriptTypes } from "node:module";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { runInNewContext } from "node:vm";
 import { Worker } from "node:worker_threads";
 
 import {
@@ -23,6 +26,138 @@ import {
   resolveFilesystemStorePath,
   withFilesystemStoreLock,
 } from "../../../src/storage/root-and-lock.ts";
+
+/**
+ * 保存Workerの固定構築と取得結果を実本文で確認する。
+ *
+ * @responsibility 旧署名graphなしでURL・共有状態・固定endpoint導出を確認する。
+ * @trace RFD-UT-006
+ * @precondition 現private本文を読み、Worker生成だけをメモリ代役へ置換する。
+ * @stimulus 二OSのendpoint構築と取得値1／-1／-2を与える。
+ * @observation URL、options、workerData、unref、releaseとterminate要求数。
+ * @oracle 固定URLと同じ共有状態だけを使い、成功・競合・不明を区別する。
+ * @cleanup N/A: Worker・OS endpoint・Filesystem書込みは生成しない。
+ * @boundary 構築断面だけの部分根拠。実Worker終了とOS排他は既存実試験が所有する。
+ */
+test("保存Workerは固定URL・共有状態・endpointで構築され取得結果を分離する", () => {
+  const moduleUrl = new URL(
+    "../../../src/storage/root-and-lock.ts",
+    import.meta.url,
+  );
+  const source = fs.readFileSync(moduleUrl, "utf8").replaceAll("\r\n", "\n");
+  const start = source.indexOf("function acquireFilesystemStoreKernelLock(");
+  const end = source.indexOf("\n}\n", start) + 2;
+  assert.ok(start >= 0 && end > start);
+  const body = source
+    .slice(start, end)
+    .replaceAll("import.meta.url", "moduleUrl");
+  const root = "fixture-root";
+  const lockPath = "state.lock";
+  const digest = createHash("sha256")
+    .update("crdd-filesystem-store-kernel-lock-v1\0")
+    .update(root)
+    .update("\0")
+    .update(lockPath)
+    .digest("hex");
+  for (const platform of ["win32", "linux"]) {
+    for (const outcome of [1, -1, -2]) {
+      let created = 0;
+      let unref = 0;
+      let terminated = 0;
+      let sent = 0;
+      const run = runInNewContext(
+        stripTypeScriptTypes(
+          [body, "acquireFilesystemStoreKernelLock"].join(";\n"),
+        ),
+        {
+          process: { platform },
+          moduleUrl,
+          URL,
+          SharedArrayBuffer,
+          Int32Array,
+          Atomics,
+          createHash,
+          KERNEL_LOCK_ACQUIRE_TIMEOUT_MS: 5_000,
+          KERNEL_LOCK_RELEASE_TIMEOUT_MS: 5_000,
+          Worker: new Proxy(Worker, {
+            construct: (_target, args: unknown[]) => {
+              created += 1;
+              const [url, options] = args;
+              assert.ok(url instanceof URL);
+              assert.equal(
+                url.href,
+                new URL("./kernel-lock-worker.ts", moduleUrl).href,
+              );
+              assert.ok(options && typeof options === "object");
+              assert.deepEqual(Object.keys(options), ["workerData"]);
+              const data: unknown = Reflect.get(options, "workerData");
+              assert.ok(data && typeof data === "object");
+              assert.deepEqual(Object.keys(data).sort(), ["endpoint", "state"]);
+              assert.equal(Object.isFrozen(data), true);
+              assert.equal(
+                Reflect.get(data, "endpoint"),
+                platform === "win32"
+                  ? [
+                      "\\\\.\\pipe\\CRDD.FilesystemStore.",
+                      digest.slice(0, 32),
+                    ].join("")
+                  : ["\0crdd.filesystem-store.", digest].join(""),
+              );
+              const shared: unknown = Reflect.get(data, "state");
+              assert.ok(shared instanceof SharedArrayBuffer);
+              assert.equal(shared.byteLength, 4);
+              const state = new Int32Array(shared);
+              assert.equal(Atomics.load(state, 0), 0);
+              Atomics.store(state, 0, outcome);
+              return {
+                unref: () => {
+                  unref += 1;
+                },
+                terminate: () => {
+                  terminated += 1;
+                  return Promise.resolve(0);
+                },
+                postMessage: (message: unknown) => {
+                  assert.equal(message, "release");
+                  sent += 1;
+                  Atomics.store(state, 0, 2);
+                },
+              };
+            },
+          }),
+        },
+      ) as (
+        root: string,
+        lockPath: string,
+      ) => {
+        status: string;
+        lock?: { release(): boolean };
+      };
+      const result = run(root, lockPath);
+      assert.equal(created, 1);
+      assert.equal(unref, 1);
+      assert.equal(
+        result.status,
+        outcome === 1
+          ? "acquired"
+          : outcome === -1
+            ? "unavailable"
+            : "observation_unknown",
+      );
+      if (outcome === 1) {
+        assert.ok(result.lock);
+        assert.equal(result.lock.release(), true);
+        assert.equal(result.lock.release(), false);
+        assert.equal(sent, 1);
+        assert.equal(terminated, 0);
+      } else {
+        assert.equal(result.lock, undefined);
+        assert.equal(sent, 0);
+        assert.equal(terminated, 1);
+      }
+    }
+  }
+});
 
 /**
  * Root外とLink経由のPathを拒否する。

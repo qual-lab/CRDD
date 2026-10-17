@@ -159,7 +159,7 @@ function createTransactional(dependencies: Dependencies) {
 /**
  * 通常の作成OwnerでWindows共有管理境界を先に保護検証する。
  *
- * @responsibility Root・marker生成前に署名Native初期化を確認し、未確認の共有Effectを保持する。
+ * @responsibility Root・marker生成前に固定改訂Native初期化を確認し、未確認の共有Effectを保持する。
  * @trace ARCH-000004
  * @trace ARCH-000008
  * @trace ARCH-000011
@@ -167,11 +167,11 @@ function createTransactional(dependencies: Dependencies) {
  * @returns 既存の所有Operation Directory。
  * @precondition Task／doctor／Workbenchの通常作成Ownerから呼ぶ。
  * @postcondition Windowsは保護初期化確認後だけRoot／markerを生成する。
- * @effect Windowsの署名Native観測・固定共有child作成と、既存のOperation作成。
- * @failure 署名・親・初期化不明は清掃未確認・IDなし。下位のrollback分類は維持する。
+ * @effect Windowsの出所照合済みNative観測・固定共有child作成と、既存のOperation作成。
+ * @failure 出所・親・初期化不明は清掃未確認・IDなし。下位のrollback分類は維持する。
  * @invariant 共有DirectoryのACL修復・rollback・別親fallbackを行わない。
- * @boundary 通常作成Owner→署名Native→既存Node作成primitive。
- * @security 明示試験親や未署名試験依存を本番入力として受け付けない。
+ * @boundary 通常作成Owner→固定改訂Native→既存Node作成primitive。
+ * @security 明示試験親や未照合試験依存を本番入力として受け付けない。
  * @concurrency 同期作成前検査。初期化とRoot生成の間に連続Native handle保持を主張しない。
  */
 function createProtectedRuntimeOwnedOperationDirectories() {

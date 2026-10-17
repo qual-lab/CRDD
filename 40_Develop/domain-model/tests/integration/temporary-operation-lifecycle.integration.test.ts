@@ -52,291 +52,287 @@ function resumeWithNextIdentity(
 }
 
 /**
- * 署名準備の保存不明と種別不一致を削除許可へ変換しない。
- * @responsibility 更新前・公開後・最終清掃の失敗でも既知参照を保持する。
+ * 通常作業の再入場で保存結果が不明でも現在のexact参照を保持する。
+ *
+ * @responsibility 公開前・公開後・読戻し失敗を通常v3保存経路で反証する。
  * @trace RDL-IT-004
- * @precondition この試験だけが自己生成signature領域を使用する。
- * @stimulus 文書種別置換とFilesystem失敗を局所注入する。
- * @observation 返却参照、世代、work・文書・Rootの存在を読む。
- * @oracle 不明をcompletedにせず、別profileを削除しない。
- * @cleanup mockを復元し、所有能力またはexact参照で回収する。空Rootだけは非再帰削除する。
- * @boundary Runtime Dataと署名用制御文書。実Process喪失は主張しない。
+ * @precondition 検証済みRepositoryに試験専用の通常作業を作成する。
+ * @stimulus 再入場のrename前後または保存後の読戻しに一回の失敗を注入する。
+ * @observation 状態、Identity、世代、回復参照と正式再入場後の清掃結果を確認する。
+ * @oracle 公開前は旧参照、公開後・読戻し失敗は新参照を返し、不明を成功へ丸めない。
+ * @cleanup mockを必ず復元し、返却されたexact参照で再入場して試験物を回収する。
+ * @boundary 通常Temporary OperationとFilesystem保存。実Process喪失は主張しない。
  */
-test("署名準備の保存失敗とprofile置換でもexact参照を保持する", () => {
+test("通常作業の再入場公開前後と読戻し失敗でexact参照を保持する", () => {
   const root = verifyRepositoryRoot(repositoryRoot);
   assert.equal(root.status, "completed");
   if (root.status !== "completed") return;
   for (const fault of [
-    "profile",
-    "update",
-    "update-after",
-    "rmdir",
     "publish-before",
     "publish-after",
     "readback",
   ] as const) {
+    const operationId = randomUUID();
     const opened = createTemporaryOperation(root.capability, {
-      operationId: randomUUID(),
+      operationId,
       identity: randomUUID(),
-      owner: "coordinator-release-runtime",
-      storage: "signature",
-      purpose: "fixed-runtime-signing-preparation",
-      allowedContent: ["runtime-files", "signed-manifest"],
+      owner: "temporary-operation-verification",
+      purpose: "ordinary-operation-publication-failure",
+      allowedContent: ["fixture"],
       evidencePromotion: "not_required",
     });
     assert.equal(opened.status, "completed");
     if (opened.status !== "completed") return;
-    const directory = path.dirname(opened.workDirectory);
-    const document = path.join(directory, "preparation.json");
-    const originalBytes = fs.readFileSync(document);
-    if (fault === "profile") {
-      const replaced = JSON.parse(originalBytes.toString("utf8"));
-      replaced.schema = "crdd/runtime-data/temporary-operation/v3";
-      delete replaced.storage;
-      fs.writeFileSync(document, JSON.stringify(replaced));
-      const rejected = settleTemporaryOperation(
-        opened.capability,
-        "completed",
-        null,
-      );
-      assert.equal(rejected.status, "blocked");
-      assert.deepEqual(rejected.recoveryReference, opened.recoveryReference);
-      assert.equal(fs.existsSync(opened.workDirectory), true);
-      fs.writeFileSync(document, originalBytes);
-      assert.equal(
-        settleTemporaryOperation(opened.capability, "completed", null)
-          .cleanupConfirmed,
-        true,
-      );
-      continue;
-    }
-    if (
-      fault === "publish-before" ||
-      fault === "publish-after" ||
-      fault === "readback"
-    ) {
-      settleTemporaryOperation(opened.capability, "parent_lost", null);
-      const rename = fs.renameSync;
-      let readbackFailed = false;
-      const read = fs.readFileSync;
-      const injected =
-        fault === "readback"
-          ? mock.method(fs, "readFileSync", ((
-              ...args: Parameters<typeof fs.readFileSync>
-            ) => {
-              const value = Reflect.apply(read, fs, args) as Buffer | string;
-              if (
-                args[0] === document &&
-                !readbackFailed &&
-                String(value).includes('"generation":2')
-              ) {
-                readbackFailed = true;
-                throw new Error("injected_readback_failure");
-              }
-              return value;
-            }) as typeof fs.readFileSync)
-          : mock.method(
-              fs,
-              "renameSync",
-              (from: fs.PathLike, to: fs.PathLike) => {
-                if (to !== document) return rename(from, to);
-                if (fault === "publish-after") rename(from, to);
-                throw new Error("injected_publish_failure");
-              },
-            );
-      const nextIdentity = randomUUID();
-      let failed: ReturnType<typeof resumeTemporaryOperation>;
-      try {
-        failed = resumeTemporaryOperation(
-          root.capability,
-          opened.recoveryReference,
-          nextIdentity,
-        );
-      } finally {
-        injected.mock.restore();
-      }
-      assert.equal(failed.status, "blocked");
-      assert.deepEqual(
-        failed.recoveryReference,
-        fault === "publish-before"
-          ? opened.recoveryReference
-          : {
-              ...opened.recoveryReference,
-              identity: nextIdentity,
-              generation: 2,
-            },
-      );
-      assert.ok(failed.recoveryReference);
-      const retry = resumeTemporaryOperation(
-        root.capability,
-        failed.recoveryReference,
-        randomUUID(),
-      );
-      assert.equal(retry.status, "completed");
-      if (retry.status === "completed")
-        assert.equal(
-          settleTemporaryOperation(retry.capability, "completed", null)
-            .cleanupConfirmed,
-          true,
-        );
-      continue;
-    }
+    const document = path.join(
+      repositoryRoot,
+      ".crdd/tmp/.operations",
+      `${operationId}.json`,
+    );
+    assert.equal(
+      JSON.parse(fs.readFileSync(document, "utf8")).schema,
+      "crdd/runtime-data/temporary-operation/v3",
+    );
+    const interrupted = settleTemporaryOperation(
+      opened.capability,
+      "parent_lost",
+      null,
+    );
+    assert.equal(interrupted.recoveryRequired, true);
     const rename = fs.renameSync;
-    const rmdir = fs.rmdirSync;
+    const read = fs.readFileSync;
+    let readbackFailed = false;
+    let publicationFailureCount = 0;
     const injected =
-      fault === "update" || fault === "update-after"
-        ? mock.method(
+      fault === "readback"
+        ? mock.method(fs, "readFileSync", ((
+            ...args: Parameters<typeof fs.readFileSync>
+          ) => {
+            const value = Reflect.apply(read, fs, args) as Buffer | string;
+            if (
+              args[0] === document &&
+              !readbackFailed &&
+              String(value).includes('"generation":2')
+            ) {
+              readbackFailed = true;
+              throw new Error("injected_readback_failure");
+            }
+            return value;
+          }) as typeof fs.readFileSync)
+        : mock.method(
             fs,
             "renameSync",
             (from: fs.PathLike, to: fs.PathLike) => {
-              if (to === document) {
-                if (fault === "update-after") rename(from, to);
-                throw new Error("injected_update_failure");
-              }
-              return rename(from, to);
+              if (to !== document) return rename(from, to);
+              publicationFailureCount += 1;
+              if (fault === "publish-after") rename(from, to);
+              throw new Error("injected_publish_failure");
             },
-          )
-        : mock.method(fs, "rmdirSync", ((
-            target: fs.PathLike,
-            options?: fs.RmDirOptions,
-          ) => {
-            if (target === directory)
-              throw new Error("injected_root_removal_failure");
-            return rmdir(target, options);
-          }) as typeof fs.rmdirSync);
-    let failed: ReturnType<typeof settleTemporaryOperation>;
+          );
+    const nextIdentity = randomUUID();
+    let failed: ReturnType<typeof resumeTemporaryOperation>;
     try {
-      failed = settleTemporaryOperation(opened.capability, "completed", null);
+      failed = resumeTemporaryOperation(
+        root.capability,
+        opened.recoveryReference,
+        nextIdentity,
+      );
     } finally {
       injected.mock.restore();
     }
     assert.equal(failed.status, "blocked");
-    assert.deepEqual(failed.recoveryReference, opened.recoveryReference);
-    if (fault === "update-after") {
-      assert.equal(failed.recoveryRequired, true);
-      const retry = resumeTemporaryOperation(
-        root.capability,
-        opened.recoveryReference,
-        randomUUID(),
-      );
-      assert.equal(retry.status, "completed");
-      if (retry.status === "completed")
-        assert.equal(
-          settleTemporaryOperation(retry.capability, "completed", null)
-            .cleanupConfirmed,
-          true,
-        );
-    } else if (fault === "update") {
-      assert.equal(failed.recoveryRequired, false);
-      assert.equal(fs.existsSync(opened.workDirectory), true);
+    assert.deepEqual(
+      failed.recoveryReference,
+      fault === "publish-before"
+        ? opened.recoveryReference
+        : {
+            ...opened.recoveryReference,
+            identity: nextIdentity,
+            generation: 2,
+          },
+    );
+    if (fault === "readback") assert.equal(readbackFailed, true);
+    else assert.ok(publicationFailureCount >= 1);
+    assert.ok(failed.recoveryReference);
+    const retry = resumeTemporaryOperation(
+      root.capability,
+      failed.recoveryReference,
+      randomUUID(),
+    );
+    assert.equal(retry.status, "completed");
+    if (retry.status === "completed") {
       assert.equal(
-        settleTemporaryOperation(opened.capability, "completed", null)
+        settleTemporaryOperation(retry.capability, "completed", null)
           .cleanupConfirmed,
         true,
       );
-    } else {
-      assert.equal(failed.recoveryRequired, true);
-      assert.equal(fs.existsSync(document), false);
-      assert.equal(
-        resumeTemporaryOperation(
-          root.capability,
-          opened.recoveryReference,
-          randomUUID(),
-        ).status,
-        "blocked",
-      );
-      assert.deepEqual(fs.readdirSync(directory), []);
-      fs.rmdirSync(directory);
     }
-    assert.equal(fs.existsSync(directory), false);
+    assert.equal(fs.existsSync(document), false);
+    assert.equal(fs.existsSync(opened.workDirectory), false);
   }
 });
 
 /**
- * 署名準備は固定一時領域だけを所有し、終了時に全体を回収する。
- * @responsibility 配置、排他、再入場、未知内容の保存を確認する。
+ * 退役した署名入力と回復参照を通常作業へ読み替えない。
+ *
+ * @responsibility 旧storage指定をFilesystem操作前に拒否し、通常作業の内容を保持する。
  * @trace RDL-IT-004
- * @precondition 検証済みRepositoryでsignature領域が未使用である。
- * @stimulus 署名用操作の作成、中断、再入場、終了を実行する。
- * @observation 配置、制御記録、清掃結果を読み取る。
- * @oracle 異なる操作を拒否し、正常終了後はsignatureが不存在。
- * @cleanup 同じ能力またはexact回復参照で終了する。
- * @boundary Runtime DataとRepository-local署名一時領域。
+ * @precondition 検証済みRepositoryに試験専用の通常作業を作成する。
+ * @stimulus signatureとundefinedの旧storage fieldを作成入力と回復参照へ付与する。
+ * @observation 拒否理由、作業と制御文書の不存在または内容不変を観測する。
+ * @oracle 旧指定は通常経路へ流れず、処置前に固定の入力不正で拒否する。
+ * @cleanup 通常作業だけを元のCapabilityで正式回収する。
+ * @boundary JavaScript入力と通常Temporary Operation API。
  */
-test("署名準備は固定領域を排他所有し再入場後にフォルダ全体を回収する", () => {
+test("旧storage入力と回復参照を処置前に拒否する", () => {
   const root = verifyRepositoryRoot(repositoryRoot);
   assert.equal(root.status, "completed");
   if (root.status !== "completed") return;
-  const input = {
+  for (const storage of ["signature", undefined] as const) {
+    const input = {
+      operationId: randomUUID(),
+      identity: randomUUID(),
+      owner: "coordinator-release-runtime",
+      storage,
+      purpose: "retired-profile-rejection",
+      allowedContent: ["fixture"],
+      evidencePromotion: "not_required" as const,
+    };
+    const rejected = createTemporaryOperation(root.capability, input);
+    assert.equal(rejected.status, "blocked");
+    assert.equal(rejected.reason, "temporary_operation_input_invalid");
+    assert.equal(rejected.recoveryReference, null);
+    assert.equal(
+      fs.existsSync(path.join(repositoryRoot, ".crdd/tmp", input.operationId)),
+      false,
+    );
+    assert.equal(
+      fs.existsSync(
+        path.join(
+          repositoryRoot,
+          ".crdd/tmp/.operations",
+          `${input.operationId}.json`,
+        ),
+      ),
+      false,
+    );
+  }
+  const opened = createTemporaryOperation(root.capability, {
     operationId: randomUUID(),
     identity: randomUUID(),
-    owner: "coordinator-release-runtime",
-    storage: "signature" as const,
-    purpose: "fixed-runtime-signing-preparation",
-    allowedContent: ["runtime-files", "signed-manifest"],
-    evidencePromotion: "not_required" as const,
-  };
-  const opened = createTemporaryOperation(root.capability, input);
+    owner: "temporary-operation-verification",
+    purpose: "retired-reference-rejection",
+    allowedContent: ["fixture"],
+    evidencePromotion: "not_required",
+  });
   assert.equal(opened.status, "completed");
   if (opened.status !== "completed") return;
-  const directory = path.join(repositoryRoot, ".crdd/tmp/signature");
-  assert.equal(opened.workDirectory, path.join(directory, "work"));
-  assert.deepEqual(fs.readdirSync(directory).sort(), [
-    "preparation.json",
-    "work",
-  ]);
-  assert.equal(
-    JSON.parse(
-      fs.readFileSync(path.join(directory, "preparation.json"), "utf8"),
-    ).storage,
-    "signature",
+  const document = path.join(
+    repositoryRoot,
+    ".crdd/tmp/.operations",
+    `${opened.recoveryReference.operationId}.json`,
   );
-  const rejected = createTemporaryOperation(root.capability, {
-    ...input,
+  const before = fs.readFileSync(document);
+  try {
+    for (const storage of ["signature", undefined] as const) {
+      const legacyReference = { ...opened.recoveryReference, storage };
+      const rejected = resumeTemporaryOperation(
+        root.capability,
+        legacyReference,
+        randomUUID(),
+      );
+      assert.equal(rejected.status, "blocked");
+      assert.equal(
+        rejected.reason,
+        "temporary_operation_recovery_reference_invalid",
+      );
+      assert.deepEqual(fs.readFileSync(document), before);
+      assert.equal(fs.existsSync(opened.workDirectory), true);
+    }
+  } finally {
+    assert.equal(
+      settleTemporaryOperation(opened.capability, "completed", null)
+        .cleanupConfirmed,
+      true,
+    );
+  }
+});
+
+/**
+ * 旧文書を通常v3として解釈・回収しない。
+ *
+ * @responsibility v4またはstorage付き文書を通常再入場から拒否する。
+ * @trace RDL-IT-004
+ * @precondition 通常作業をparent_lostとして正式に中断した文書を保全する。
+ * @stimulus v4とstorageの組合せを専用試験文書へ注入し再入場する。
+ * @observation 拒否理由と文書byte・workの不変を観測する。
+ * @oracle 旧文書はdocument_invalidで停止し、通常v3へ推測変換しない。
+ * @cleanup 元の通常文書を復元し、exact参照による正式再入場後に回収する。
+ * @boundary 通常Temporary Operationの保存文書と再入場Reader。
+ */
+test("v4とstorage付き文書を通常v3へ読み替えない", () => {
+  const root = verifyRepositoryRoot(repositoryRoot);
+  assert.equal(root.status, "completed");
+  if (root.status !== "completed") return;
+  const opened = createTemporaryOperation(root.capability, {
     operationId: randomUUID(),
     identity: randomUUID(),
+    owner: "temporary-operation-verification",
+    purpose: "retired-document-rejection",
+    allowedContent: ["fixture"],
+    evidencePromotion: "not_required",
   });
-  assert.equal(rejected.status, "blocked");
-  assert.equal(fs.existsSync(opened.workDirectory), true);
-  const stopped = settleTemporaryOperation(
-    opened.capability,
-    "parent_lost",
-    null,
-  );
-  assert.equal(stopped.status, "blocked");
-  assert.deepEqual(stopped.recoveryReference, opened.recoveryReference);
-  const resumed = resumeTemporaryOperation(
-    root.capability,
-    opened.recoveryReference,
-    randomUUID(),
-  );
-  assert.equal(resumed.status, "completed");
-  if (resumed.status !== "completed") return;
-  const unknown = path.join(directory, "unknown.txt");
-  fs.writeFileSync(unknown, "do not remove");
-  const blocked = settleTemporaryOperation(
-    resumed.capability,
-    "completed",
-    null,
-  );
-  assert.equal(blocked.status, "blocked");
-  assert.equal(fs.readFileSync(unknown, "utf8"), "do not remove");
-  assert.equal(fs.existsSync(path.join(directory, "preparation.json")), true);
-  fs.unlinkSync(unknown);
-  assert.ok(blocked.recoveryReference);
-  const retry = resumeTemporaryOperation(
-    root.capability,
-    blocked.recoveryReference,
-    randomUUID(),
-  );
-  assert.equal(retry.status, "completed");
-  if (retry.status !== "completed") return;
+  assert.equal(opened.status, "completed");
+  if (opened.status !== "completed") return;
   assert.equal(
-    settleTemporaryOperation(retry.capability, "completed", null)
-      .cleanupConfirmed,
+    settleTemporaryOperation(opened.capability, "parent_lost", null)
+      .recoveryRequired,
     true,
   );
-  assert.equal(fs.existsSync(directory), false);
+  const document = path.join(
+    repositoryRoot,
+    ".crdd/tmp/.operations",
+    `${opened.recoveryReference.operationId}.json`,
+  );
+  const before = fs.readFileSync(document);
+  const current = JSON.parse(before.toString("utf8"));
+  try {
+    for (const replacement of [
+      {
+        ...current,
+        schema: "crdd/runtime-data/temporary-operation/v4",
+        storage: "signature",
+      },
+      { ...current, schema: "crdd/runtime-data/temporary-operation/v4" },
+      { ...current, storage: "signature" },
+      { ...current, storage: null },
+    ]) {
+      const bytes = JSON.stringify(replacement);
+      fs.writeFileSync(document, bytes);
+      const rejected = resumeTemporaryOperation(
+        root.capability,
+        opened.recoveryReference,
+        randomUUID(),
+      );
+      assert.equal(rejected.status, "blocked");
+      assert.equal(rejected.reason, "temporary_operation_document_invalid");
+      assert.equal(fs.readFileSync(document, "utf8"), bytes);
+      assert.equal(fs.existsSync(opened.workDirectory), true);
+    }
+  } finally {
+    fs.writeFileSync(document, before);
+    const resumed = resumeTemporaryOperation(
+      root.capability,
+      opened.recoveryReference,
+      randomUUID(),
+    );
+    assert.equal(resumed.status, "completed");
+    if (resumed.status === "completed")
+      assert.equal(
+        settleTemporaryOperation(resumed.capability, "completed", null)
+          .cleanupConfirmed,
+        true,
+      );
+  }
 });
 
 /**

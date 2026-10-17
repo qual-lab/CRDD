@@ -20,7 +20,7 @@ const coordinatorRoot = path.resolve(import.meta.dirname, "..");
 const repositoryRoot = path.resolve(coordinatorRoot, "../..");
 
 export const DYNAMIC_FAKE_PROVIDER_COVERAGE_SOURCES = Object.freeze([
-  "40_Develop/coordinator/src/docker-execution/isolation-probe.ts",
+  "40_Develop/coordinator/src/diagnostics/isolation-probe.ts",
   "40_Develop/coordinator/src/provider/lifecycle.ts",
   "40_Develop/coordinator/src/host-execution/operation-workspace-lifecycle.ts",
   "40_Develop/coordinator/src/host-execution/recovery-record.ts",
@@ -84,7 +84,7 @@ function obligation(
 }
 
 const coverageObligations = Object.freeze({
-  "40_Develop/coordinator/src/docker-execution/isolation-probe.ts": obligation(
+  "40_Develop/coordinator/src/diagnostics/isolation-probe.ts": obligation(
     "実Docker、敵対的置換、全recovery分岐および同期process errorの全短絡をunit runで到達していない",
     "稀なDocker failureでcontainer不存在またはHost cleanupを誤分類する可能性",
     "Docker normalizer、Identity、inspect、submission、3軸absence、cleanupおよびrecoveryの正負・境界試験と固定環境integration",
@@ -106,8 +106,8 @@ const coverageObligations = Object.freeze({
   "40_Develop/coordinator/src/host-execution/recovery-record.ts": obligation(
     "全Filesystem errorとrecord置換競合を同一runで到達していない",
     "回復状態またはrecord Identityの稀な差を誤分類する可能性",
-    "record canonicality、Hash、state transition、置換、失敗および再利用拒否試験",
-    "Host recovery schemaまたは遷移変更時",
+    "Host／Probe recordのcanonicality、Hash、二保存・旧token拒否、state transition、実体置換・部分欠測と再利用拒否試験",
+    "Host／Probe recovery schema、記録Reader／Writerまたは遷移変更時",
   ),
   "40_Develop/domain-model/src/plain-data/snapshot.ts": obligation(
     "未到達分岐がある場合はreflection failureの稀な順序である",

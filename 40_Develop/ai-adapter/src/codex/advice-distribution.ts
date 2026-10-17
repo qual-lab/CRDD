@@ -27,7 +27,7 @@ const CODEX_ADVICE_DISTRIBUTION_IDENTITY = Object.freeze({
   fixedImageDigest:
     "sha256:4f35a6542ee0b412714d558bc38e578bcea00490ec2a1f02f02b88c1226f924e",
   imageBuildDefinition:
-    "40_Develop/coordinator/runtime/codex-advice-provider.Dockerfile",
+    "40_Develop/docker-isolation/runtime/codex-advice-provider.Dockerfile",
   imageBuildDefinitionSha256:
     "92bc2fc6498fee09f745b1710fdb7ada7f868ef06b44d27499d6f6343407e29a",
 });

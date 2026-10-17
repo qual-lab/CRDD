@@ -147,7 +147,6 @@ test("development composition uses the explicitly supplied candidate integration
   let shouldBlockCandidateObservation = false;
   const publicationObservations: object[] = [];
   const runtime = createDevelopmentOrchestratorPublicObjectiveCandidate({
-    issueRuntimeExecutionAuthorization: () => Object.freeze({}),
     captureResultDelivery: () =>
       Object.freeze({
         readResults: () =>
@@ -156,7 +155,7 @@ test("development composition uses the explicitly supplied candidate integration
           throw new Error("fixture_has_no_docker_result");
         },
       }),
-    startTask: (_request, _root, _capability, _correlation, notifyStarted) => {
+    startTask: (_request, _root, _correlation, notifyStarted) => {
       taskStarts += 1;
       return Object.freeze({
         status: "started" as const,

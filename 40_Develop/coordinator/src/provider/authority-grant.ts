@@ -151,7 +151,7 @@ type RuntimeState = Readonly<{
       provider: string;
       profileId: string;
     }>,
-    managementCapability?: unknown,
+    managementCapability: unknown,
   ) => ActivatedAuthoritySource | null;
   reverify: typeof reverifyAuthorityBeforeProviderLaunch;
   wallNow: () => number;

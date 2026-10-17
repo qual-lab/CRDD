@@ -233,7 +233,6 @@ function storeDirectory(runtime: CandidateStoreRuntime) {
   if (runtime.securityBoundary === "production") {
     const observation = inspectRuntimeOwnedWindowsCandidateStore(
       runtime.shouldInitializeRoot !== false,
-      new Date().toISOString(),
       runtime.developmentContext,
     );
     const root = consumeRuntimeOwnedCandidateStoreRootCapability(
@@ -309,7 +308,6 @@ function verifyProductionStoreDirectory(
   if (runtime.securityBoundary !== "production") return true;
   const observation = inspectRuntimeOwnedWindowsCandidateStore(
     false,
-    new Date().toISOString(),
     runtime.developmentContext,
   );
   const root = consumeRuntimeOwnedCandidateStoreRootCapability(

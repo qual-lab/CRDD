@@ -48,7 +48,6 @@ export type TemporaryEvidencePromotionReceipt = Readonly<{
 export type TemporaryOperationRecoveryReference = Readonly<{
   operationId: string;
   owner: string;
-  storage?: "signature";
   identity: string;
   generation: number;
 }>;

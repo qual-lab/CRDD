@@ -11,10 +11,10 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import test, { type TestContext } from "node:test";
 import { deflateSync } from "node:zlib";
+import { createRepositoryTestDirectory } from "../support/repository-test-directory.ts";
 
 import { parseUnambiguousJsonDocument } from "../../../ai-adapter/src/index.ts";
 import {
@@ -106,7 +106,9 @@ function repository(
     policyMode?: "100644" | "160000";
   }> = {},
 ) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-policy-repo-"));
+  const { path: root, cleanup } =
+    createRepositoryTestDirectory("crdd-policy-repo-");
+  t.after(cleanup);
   const git = path.join(root, ".git");
   fs.mkdirSync(path.join(git, "refs", "heads"), { recursive: true });
   fs.writeFileSync(path.join(git, "HEAD"), "ref: refs/heads/main\n");
@@ -171,7 +173,6 @@ function repository(
     Buffer.from(`tree ${tree}\n\nfixture\n`),
   );
   fs.writeFileSync(path.join(git, "refs", "heads", "main"), `${commit}\n`);
-  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   return root;
 }
 
@@ -188,8 +189,31 @@ function repository(
  * @boundary EST-IT-004=Direct Boundary: coordinator Test Source→対象契約
  */
 function resolve(t: TestContext, root: string) {
-  const owned = createOwnedOperationDirectories();
-  t.after(() => cleanupOwnedOperationDirectories(owned));
+  const hostDirectory = createRepositoryTestDirectory("crdd-policy-host-");
+  let owned: ReturnType<typeof createOwnedOperationDirectories> | null = null;
+  t.after(() => {
+    assert.ok(owned, "Host生成未確定時は親Rootを保持する");
+    const currentOwned = owned;
+    cleanupOwnedOperationDirectories(currentOwned);
+    assert.throws(() => fs.lstatSync(currentOwned.directories.root), {
+      code: "ENOENT",
+    });
+    const entries = fs.readdirSync(hostDirectory.path);
+    assert.ok(entries.length <= 1);
+    for (const name of entries) {
+      assert.equal(name, "crdd-coordinator-recovery-v1");
+      const target = path.join(hostDirectory.path, name);
+      const metadata = fs.lstatSync(target);
+      assert.equal(metadata.isDirectory(), true);
+      assert.equal(metadata.isSymbolicLink(), false);
+      assert.equal(fs.realpathSync.native(target), target);
+      assert.deepEqual(fs.readdirSync(target), []);
+    }
+    hostDirectory.cleanup();
+  });
+  assert.equal(path.dirname(hostDirectory.path), path.dirname(root));
+  owned = createOwnedOperationDirectories(hostDirectory.path);
+  assert.equal(path.dirname(owned.directories.root), hostDirectory.path);
   const management = createOwnedOperationManagementCapability(
     createOwnedOperationContextCapability(owned),
     createOwnedMountCapability(owned),

@@ -1,29 +1,52 @@
 /**
- * coordinator:integration:docker-effect-runtimeの検証範囲を定義する。
- *
+ * 上位の計画投影・所属照合と下位API接続を検証する。
  * @packageDocumentation
- * @responsibility coordinator:integration:docker-effect-runtimeが所有する検証責務を実行する。
+ * @responsibility Provider意味を上位へ、技術実行Oracleを下位へ分離する。
  * @trace ERB-IT-004
+ * @trace ERB-IT-003
  * @level IT
- * @scope docker、effect、runtime
- * @boundary ERB-IT-004=Direct Boundary: Observer→Effect Gate
+ * @scope 実Adapter・本番binderと実Host Owner失効。Docker開始は記録代役とし実Dockerは別試験で確認する。
+ * @boundary Adapter→Coordinator投影→Docker Isolation Root API、および実Host世代・Kernel排他。
  */
-
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
-import { stripTypeScriptTypes } from "node:module";
 import path from "node:path";
-import test from "node:test";
-import { fileURLToPath } from "node:url";
-import { planWorkbenchAiAdviceProviderCommand } from "../../../ai-adapter/src/index.ts";
-import { dockerContainerInitObservationMatches } from "../../src/docker-execution/container-init-observation.ts";
+import test, { mock } from "node:test";
 import {
-  createIsolatedDockerEffectRuntimeCandidate,
+  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
+  requireReadyRepositoryRuntimeDataArea,
+} from "../../../domain-model/src/index.ts";
+import {
+  activateOwnedHostOperationGenerationLock,
+  acquireHostOperationRecoveryGenerationByIdentity,
+  borrowOwnedDockerExecutionPaths,
+  borrowOwnedHostRecoverySnapshot,
+  cleanupOwnedOperationDirectoriesAsync,
+  createOwnedMountCapability,
+  createOwnedOperationContextCapability,
+  createOwnedOperationDirectories,
+  createOwnedOperationManagementCapability,
+  releaseHostOperationRecoveryGeneration,
+  verifyOwnedOperationManagementMountBinding,
+  verifyOwnedOperationCleanupOutcome,
+} from "../../src/host-execution/operation-workspace-lifecycle.ts";
+import {
+  parseHostRecoveryToken,
+  loadHostRecoveryRecordByToken,
+} from "../../src/host-execution/recovery-record.ts";
+import { planWorkbenchAiAdviceProviderCommand } from "../../../ai-adapter/src/index.ts";
+import {
+  planDockerIsolationCommands,
+  startDockerCommandSessionCandidate,
+  type DockerExecutionHooks,
+  type DockerIsolationRuntimePlan,
+} from "../../../docker-isolation/src/index.ts";
+import {
+  bindDockerIsolationRuntime,
   describeDockerEffectRuntimeContract,
   verifyRuntimeOwnedDockerCleanupOutcome,
-} from "../../src/docker-execution/command-effects.ts";
-import type { OwnedCommandHandle } from "../../src/docker-execution/owned-process.ts";
+} from "../../src/provider/isolation-execution.ts";
 import { createIsolatedClaudeDockerRuntimeAdapterCandidate } from "../../src/provider/claude-docker-adapter.ts";
 import { createIsolatedCodexDockerRuntimeAdapterCandidate } from "../../src/provider/codex-docker-adapter.ts";
 import { describeWorkbenchAiAdviceResultSchema } from "../../src/workbench-ai/advice-result.ts";
@@ -45,6 +68,10 @@ function createPlanFixture(
   isAdvice = false,
   provider: "codex" | "claude" = "claude",
   isCompatibilityTask = false,
+  ownerBinding?: Readonly<{
+    managementCapability: object;
+    mountBinding: ReturnType<typeof verifyOwnedOperationManagementMountBinding>;
+  }>,
 ) {
   const profileId =
     provider === "codex"
@@ -58,7 +85,9 @@ function createPlanFixture(
         ? "gpt-5.5"
         : "gpt-6.1-sol"
       : "opus";
-  const managementCapability = Object.freeze({});
+  const managementCapability =
+    ownerBinding?.managementCapability ?? Object.freeze({});
+  const operationId = ownerBinding?.mountBinding.operationId ?? "OP-123456";
   const mountCapability = Object.freeze({});
   const mountAuthorizationCapability = Object.freeze({});
   const selectionUseCapability = Object.freeze({});
@@ -73,16 +102,18 @@ function createPlanFixture(
   const adapter = createAdapter({
     verifyOperationMount: () =>
       Object.freeze({
-        operationId: "OP-123456",
+        operationId,
         createdAt: "2026-08-25T00:00:00.000Z",
-        mounts: Object.freeze({
-          workspace: "C:\\operation\\workspace",
-          providerHome: "C:\\operation\\provider-home",
-          tmp: "C:\\operation\\tmp",
-          events: "C:\\operation\\events",
-          projection: "C:\\operation\\projection",
-          management: "C:\\operation\\management",
-        }),
+        mounts:
+          ownerBinding?.mountBinding.mounts ??
+          Object.freeze({
+            workspace: "C:\\operation\\workspace",
+            providerHome: "C:\\operation\\provider-home",
+            tmp: "C:\\operation\\tmp",
+            events: "C:\\operation\\events",
+            projection: "C:\\operation\\projection",
+            management: "C:\\operation\\management",
+          }),
       }),
     activateMount: () =>
       Object.freeze({
@@ -91,7 +122,7 @@ function createPlanFixture(
           grantRef: "PHMGRANT-123456",
           provider,
           profileId,
-          operationId: "OP-123456",
+          operationId,
           providerHomeIdentityHash: "d".repeat(64),
           providerHomeProtectionHash: "e".repeat(64),
           localUserBindingHash: "f".repeat(64),
@@ -110,7 +141,7 @@ function createPlanFixture(
     consumeModelSelection: () =>
       Object.freeze({
         selectionRecordId: "MODELSEL-12345678",
-        operationId: "OP-123456",
+        operationId,
         frontProvider: "codex" as const,
         executorProvider: provider,
         route: `front_codex__executor_${provider}`,
@@ -139,7 +170,7 @@ function createPlanFixture(
       }),
     consumeTaskPacket: () =>
       Object.freeze({
-        operationId: "OP-123456",
+        operationId,
         taskPacketRef: "TASKPKT-00112233445566778899AABBCCDDEEFF",
         taskRole: taskRole ?? "executor",
         taskWorkload: {
@@ -165,7 +196,7 @@ function createPlanFixture(
         contract: "crdd-coordinator/workbench-ai-advice-runtime-packet",
         contractRevision: 1,
         packetRef: "ADVICEPKT-00112233445566778899AABBCCDDEEFF",
-        operationId: "OP-123456",
+        operationId,
         profileId,
         provider,
         taskHash: "2".repeat(64),
@@ -187,7 +218,7 @@ function createPlanFixture(
         status: "issued",
         useCapability: authorityUseCapability,
         controlCapability: authorityControlCapability,
-        operationId: "OP-123456",
+        operationId,
         provider,
         profileId,
         providerHomeMountGrantRef: "PHMGRANT-123456",
@@ -228,258 +259,266 @@ function createPlanFixture(
 }
 
 /**
- * createEffectFixtureのTest準備責務を実行する。
- *
- * @responsibility createEffectFixtureがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * 上位の投影だけを記録する狭い下位Runtimeを接続する。
+ * @responsibility Docker実行・清掃判定を再実装せず引数と返却値を観測する。
  * @trace ERB-IT-004
- * @precondition 呼出し元Test Caseが必要な入力を渡す。
- * @stimulus createEffectFixtureを呼び出す。
- * @observation 返却値、生成fixtureまたは観測値を取得する。
- * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
- * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-004=Direct Boundary: coordinator Test Source→対象契約
+ * @precondition 実Adapterから生成したPlanを利用する。
+ * @stimulus 本番と同じbinderを呼び出す。
+ * @observation purpose、技術Plan、元Ownerと元Handle。
+ * @oracle 下位へ渡る値と返る値が縮約されない。
+ * @cleanup N/A: 実資源を取得しない。
+ * @boundary Coordinator投影と模擬下位Runtime。
  */
 function createEffectFixture(
   options: Readonly<{
     taskRole?: "executor" | "reviewer";
     isAdvice?: boolean;
-    provider?: "codex" | "claude";
-    configEntries?: readonly string[];
-    outputForInvocation?: (
-      argv: readonly string[],
-      invocationIndex: number,
-    ) => Readonly<{
-      status: number | null;
-      signal: string | null;
-      stdout: string;
-      stderr: string;
-      outputExceeded: boolean;
-    }>;
-    internalNetworkReceiptId?: string;
-    authReceiptId?: string;
-    proxyReceiptId?: string;
-    providerReceiptId?: string;
-    missingReceiptPurpose?: string;
-    withFullReceipts?: boolean;
-    unknownReceiptPurpose?: string;
-    handleForInvocation?: (
-      invocationIndex: number,
-    ) => OwnedCommandHandle | null;
   }> = {},
 ) {
   const { plan, managementCapability } = createPlanFixture(
     options.taskRole ?? null,
     options.isAdvice ?? false,
-    options.provider ?? "claude",
   );
-  const invocations: Array<{
-    executable: string;
-    argv: readonly string[];
-    environment: Readonly<Record<string, string>>;
-    stdin: string | null;
+  const projections: Array<{
+    purpose: string;
+    input: DockerIsolationRuntimePlan;
+    owner: unknown;
   }> = [];
-  let configCreated = 0;
-  let configRemoved = 0;
-  const runtime = createIsolatedDockerEffectRuntimeCandidate({
-    platform: "win32",
-    borrowPaths: () =>
+  const invocations: Array<{ argv: readonly string[]; stdin: string | null }> =
+    [];
+  let reject = false;
+  const runtime = bindDockerIsolationRuntime(
+    {
+      startExecution: () => {
+        throw new Error("fixture_session_unused");
+      },
+      startCommand: (purpose, input, owner) => {
+        projections.push({ purpose, input, owner });
+        if (reject) {
+          reject = false;
+          throw new Error("docker_effect_plan_replaced");
+        }
+        const commands = planDockerIsolationCommands(input.configuration);
+        assert.ok(commands);
+        const command = commands.find((value) => value.purpose === purpose);
+        assert.ok(command);
+        invocations.push({ argv: command.argv, stdin: input.stdin });
+        let closed = false;
+        return {
+          started: async () => true,
+          wait: async () => {
+            closed = true;
+            return {
+              status: 0,
+              signal: null,
+              stdout: "",
+              stderr: "",
+              outputExceeded: false,
+            };
+          },
+          terminateAndWait: async () => {
+            closed = true;
+            return true;
+          },
+          closed: () => closed,
+        };
+      },
+      cleanupOwnedResources: async () => {
+        throw new Error("fixture_cleanup_not_configured");
+      },
+      verifyCleanupOutcome: () => null,
+    },
+    () =>
       Object.freeze({
         tmp: "C:\\operation\\tmp",
         management: "C:\\operation\\management",
       }),
-    readCli: () =>
-      Object.freeze({
-        executablePath:
-          "C:\\Program Files\\Docker\\Docker\\resources\\bin\\docker.exe",
-        rootIdentity: "root",
-        executableIdentity: "executable",
-        bytes: 43_247_024,
-        sha256:
-          "60028870931EA6E91955BFEAEE358EC6C6920F6162C17A3D828C3C82AB3C3599",
-        publisherOrganization: "Docker Inc",
-        trustBasis: "windows_authenticode_valid_docker_inc_publisher",
-      }),
-    verifyCli: () => undefined,
-    createConfig: () => {
-      configCreated += 1;
-      return Object.freeze({
-        directory: "C:\\operation\\management\\docker-cli-config",
-        identity: "config",
-      });
-    },
-    verifyConfig: () => undefined,
-    configEntries: () => Object.freeze([...(options.configEntries ?? [])]),
-    removeConfig: () => {
-      configRemoved += 1;
-    },
-    startProcess: (executable, argv, environment, stdin) => {
-      invocations.push({ executable, argv, environment, stdin });
-      const injectedHandle = options.handleForInvocation?.(
-        invocations.length - 1,
-      );
-      if (injectedHandle) return injectedHandle;
-      let closed = false;
-      const completion = Object.freeze(
-        options.outputForInvocation?.(argv, invocations.length - 1) ?? {
-          status: 0,
-          signal: null,
-          stdout: "",
-          stderr: "",
-          outputExceeded: false,
-        },
-      );
-      return Object.freeze({
-        started: async () => true,
-        wait: async () => {
-          closed = true;
-          return completion;
-        },
-        terminateAndWait: async () => {
-          closed = true;
-          return true;
-        },
-        closed: () => closed,
-      });
-    },
-    ...(options.internalNetworkReceiptId ||
-    options.authReceiptId ||
-    options.proxyReceiptId ||
-    options.providerReceiptId ||
-    options.missingReceiptPurpose ||
-    options.withFullReceipts
-      ? {
-          inspectReceipts: () =>
-            // 欠落fieldの負例を維持し、型保証ではなくRuntime検査へ渡す。
-            Object.freeze(
-              Object.fromEntries(
-                Object.entries({
-                  create_subscription_auth_probe: Object.freeze({
-                    submitted: options.authReceiptId !== undefined,
-                    dockerId: options.authReceiptId ?? null,
-                  }),
-                  create_internal_network: Object.freeze({
-                    submitted: options.internalNetworkReceiptId !== undefined,
-                    dockerId: options.internalNetworkReceiptId ?? null,
-                  }),
-                  create_egress_network: Object.freeze({
-                    submitted: false,
-                    dockerId: null,
-                  }),
-                  create_proxy: Object.freeze({
-                    submitted: options.proxyReceiptId !== undefined,
-                    dockerId: options.proxyReceiptId ?? null,
-                  }),
-                  create_provider: Object.freeze({
-                    submitted: options.providerReceiptId !== undefined,
-                    dockerId: options.providerReceiptId ?? null,
-                  }),
-                })
-                  .filter(
-                    ([purpose]) => purpose !== options.missingReceiptPurpose,
-                  )
-                  .map(([purpose, receipt]) => [
-                    purpose,
-                    purpose === options.unknownReceiptPurpose
-                      ? Object.freeze({ submitted: true, dockerId: null })
-                      : receipt,
-                  ]),
-              ),
-            ) as unknown as ReturnType<
-              NonNullable<
-                Parameters<
-                  typeof createIsolatedDockerEffectRuntimeCandidate
-                >[0]["inspectReceipts"]
-              >
-            >,
-        }
-      : {}),
-  });
+  );
   return {
     runtime,
     plan,
     managementCapability,
-    recoveryCapability: Object.freeze({}),
     invocations,
-    counts: () => ({ configCreated, configRemoved }),
+    projections,
+    rejectNextStart: () => {
+      reject = true;
+    },
   };
 }
 
-type SanitizedAuthProbeInspectFixture = Readonly<{
-  source: string;
-  engineVersion: string;
-  createArgv: readonly string[];
-  inspect: Readonly<Record<string, unknown>>;
-}>;
-
 /**
- * loadSanitizedAuthProbeInspectFixtureのTest準備責務を実行する。
- *
- * @responsibility loadSanitizedAuthProbeInspectFixtureがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * 本番binderの実行単位を下位へ一度だけ搬送する。
+ * @responsibility 上位が技術手順を再実装せず元Owner・hooks・返却参照を維持することを確認する。
  * @trace ERB-IT-004
- * @precondition 呼出し元Test Caseが必要な入力を渡す。
- * @stimulus loadSanitizedAuthProbeInspectFixtureを呼び出す。
- * @observation 返却値、生成fixtureまたは観測値を取得する。
- * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
- * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-004=Direct Boundary: coordinator Test Source→対象契約
+ * @precondition 実Adapterの計画と実Sessionの非本番候補を使用する。
+ * @stimulus binderのstartExecutionから最初のGate拒否へ進める。
+ * @observation 投影、Owner、hooks、元Session、回収数。
+ * @oracle 下位へ一度接続し、元Sessionをそのまま返す。Docker要求0、模擬回収1。
+ * @cleanup 元Sessionの完了を待つ。実Docker・Filesystemは操作しない。
+ * @boundary Coordinator計画投影→Docker Isolation実行単位。
  */
-function loadSanitizedAuthProbeInspectFixture() {
-  return JSON.parse(
-    fs.readFileSync(
-      new URL(
-        "../fixtures/docker-auth-probe-inspect-none.json",
-        import.meta.url,
-      ),
-      "utf8",
-    ),
-  ) as SanitizedAuthProbeInspectFixture;
-}
-
-/**
- * authProbeInspectOutputのTest準備責務を実行する。
- *
- * @responsibility authProbeInspectOutputがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
- * @trace ERB-IT-004
- * @precondition 呼出し元Test Caseが必要な入力を渡す。
- * @stimulus authProbeInspectOutputを呼び出す。
- * @observation 返却値、生成fixtureまたは観測値を取得する。
- * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
- * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-004=Direct Boundary: coordinator Test Source→対象契約
- */
-function authProbeInspectOutput(
-  fixture: ReturnType<typeof createEffectFixture>,
-  dockerId: string,
-  networks: Readonly<Record<string, unknown>>,
-) {
-  const observed = loadSanitizedAuthProbeInspectFixture();
-  assert.equal(observed.source, "sanitized_real_docker_inspect_subset");
-  assert.equal(observed.engineVersion, "28.1.1");
-  const observedNetworkArguments = observed.createArgv.filter((value) =>
-    value.startsWith("--network"),
-  );
-  const authCommand = fixture.plan.commands.find(
-    (command) => command.purpose === "create_subscription_auth_probe",
-  );
-  assert.ok(authCommand);
-  const plannedNetworkArguments = authCommand.argv.filter((value) =>
-    value.startsWith("--network"),
-  );
-  assert.deepEqual(observedNetworkArguments, ["--network=none"]);
-  assert.deepEqual(plannedNetworkArguments, observedNetworkArguments);
-  const inspect = structuredClone(observed.inspect) as Record<string, unknown>;
-  inspect.Id = dockerId;
-  inspect.Name = `/${fixture.plan.authContainerName}`;
-  const config = inspect.Config as Record<string, unknown>;
-  config.Image = fixture.plan.providerImageDigest;
-  config.Labels = {
-    "crdd.coordinator.runtime": fixture.plan.ownershipLabel.slice(
-      fixture.plan.ownershipLabel.indexOf("=") + 1,
-    ),
+test("実行単位のbinderは元Ownerとhooksを下位へ直接接続する", async () => {
+  const { plan, managementCapability } = createPlanFixture();
+  const recovery = Object.freeze({});
+  const hooks: DockerExecutionHooks = {
+    allowCommand: () => false,
+    recordSubmission: () => true,
+    recordNotIssued: () => true,
+    recordExecutionSubmission: () => true,
+    recordReceipt: () => true,
+    acceptCommandResult: () => true,
+    acceptOutput: () => true,
+    onExecutionStarted: () => assert.fail("unexpected_provider_start"),
+    onFailure: () => {},
   };
-  (inspect.NetworkSettings as Record<string, unknown>).Networks = networks;
-  return JSON.stringify([inspect]);
-}
+  let connections = 0;
+  let cleanups = 0;
+  let original: ReturnType<typeof startDockerCommandSessionCandidate> | null =
+    null;
+  const runtime = bindDockerIsolationRuntime(
+    {
+      startExecution: (input, suppliedRecovery, owner, suppliedHooks) => {
+        connections++;
+        assert.equal(suppliedRecovery, recovery);
+        assert.equal(owner, managementCapability);
+        assert.equal(suppliedHooks, hooks);
+        const commands = planDockerIsolationCommands(input.configuration);
+        assert.ok(commands);
+        original = startDockerCommandSessionCandidate(
+          commands.map((command) => command.purpose),
+          {
+            startCommand: () => {
+              throw new Error("unexpected_docker_request");
+            },
+            cleanup: async () => {
+              cleanups++;
+              return {
+                confirmed: true,
+                processTreeTerminated: true,
+                containersAbsent: true,
+                networksAbsent: true,
+              };
+            },
+          },
+          suppliedHooks,
+        );
+        return original;
+      },
+      startCommand: () => {
+        throw new Error("unexpected_upper_command");
+      },
+      cleanupOwnedResources: async () => {
+        throw new Error("unexpected_upper_cleanup");
+      },
+      verifyCleanupOutcome: () => null,
+    },
+    () => ({
+      tmp: "C:\\operation\\tmp",
+      management: "C:\\operation\\management",
+    }),
+  );
+  const session = runtime.startExecution(
+    plan,
+    recovery,
+    managementCapability,
+    hooks,
+  );
+  assert.equal(Object.is(session, original), true);
+  assert.equal(connections, 1);
+  assert.equal(cleanups, 0);
+  const result = await session.completion;
+  assert.equal(result.failure?.gate, "allowCommand");
+  assert.equal(result.cleanup.confirmed, true);
+  assert.equal(cleanups, 1);
+});
+
+/**
+ * 元清掃結果と同じOwner・回復相関を縮約せず搬送する。
+ * @responsibility binderの投影と下位の真正結果検査を分離する。
+ * @trace ERB-IT-004
+ * @precondition 実Adapterの計画と狭い模擬下位結果を用意する。
+ * @stimulus 清掃・照合・下位例外を本番binderへ渡す。
+ * @observation 元object、技術identity、Capability引数と未確認返却。
+ * @oracle 元objectを保持し、本番Runtimeは模擬結果を拒否する。
+ * @cleanup N/A: 実資源を取得しない。
+ * @boundary 上位結果投影と下位元結果Owner。
+ */
+test("元清掃結果と回復Ownerを投影し下位例外を成功へ補完しない", async () => {
+  const { plan, managementCapability } = createPlanFixture();
+  const recovery = Object.freeze({});
+  const result = Object.freeze({
+    confirmed: false,
+    processTreeTerminated: true,
+    containersAbsent: false,
+    networksAbsent: false,
+    resourceObservations: null,
+  });
+  let cleanupInput: DockerIsolationRuntimePlan | null = null;
+  let verification: unknown[] = [];
+  let fail = false;
+  const runtime = bindDockerIsolationRuntime(
+    {
+      startExecution: () => {
+        throw new Error("fixture_session_unused");
+      },
+      startCommand: () => {
+        throw new Error("fixture_start_unused");
+      },
+      cleanupOwnedResources: async (input, recoveryOwner, owner) => {
+        assert.equal(recoveryOwner, recovery);
+        assert.equal(owner, managementCapability);
+        cleanupInput = input;
+        if (fail) throw new Error("fixture_cleanup_failure");
+        return result;
+      },
+      verifyCleanupOutcome: (...args) => {
+        verification = args;
+        return null;
+      },
+    },
+    () =>
+      Object.freeze({
+        tmp: "C:\\operation\\tmp",
+        management: "C:\\operation\\management",
+      }),
+  );
+  assert.equal(
+    await runtime.cleanupOwnedResources(plan, recovery, managementCapability),
+    result,
+  );
+  assert.ok(cleanupInput);
+  assert.equal(
+    runtime.verifyCleanupOutcome(result, plan, recovery, managementCapability),
+    null,
+  );
+  assert.equal(verification[0], result);
+  assert.equal(
+    verification[1],
+    (cleanupInput as DockerIsolationRuntimePlan).identity,
+  );
+  assert.equal(verification[2], recovery);
+  assert.equal(verification[3], managementCapability);
+  assert.equal(
+    verifyRuntimeOwnedDockerCleanupOutcome(
+      result,
+      plan,
+      recovery,
+      managementCapability,
+    ),
+    null,
+  );
+  fail = true;
+  assert.deepEqual(
+    await runtime.cleanupOwnedResources(plan, recovery, managementCapability),
+    {
+      confirmed: false,
+      processTreeTerminated: false,
+      containersAbsent: false,
+      networksAbsent: false,
+      resourceObservations: null,
+    },
+  );
+});
 
 /**
  * 固定planのcommandだけを固定CLI・Engine・最小環境へ渡すを検証する。
@@ -493,7 +532,7 @@ function authProbeInspectOutput(
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary ERB-IT-004=Direct Boundary: coordinator Test Source→対象契約
  */
-test("固定planのcommandだけを固定CLI・Engine・最小環境へ渡す", async () => {
+test("固定planの所属と借用所在を技術Runtimeへ投影する", async () => {
   const fixture = createEffectFixture();
   const firstCommand = fixture.plan.commands[0];
   assert.ok(firstCommand);
@@ -506,152 +545,374 @@ test("固定planのcommandだけを固定CLI・Engine・最小環境へ渡す", 
   assert.equal(fixture.invocations.length, 1);
   const invocation = fixture.invocations[0];
   assert.ok(invocation);
+  const projection = fixture.projections[0];
+  assert.ok(projection);
+  assert.equal(projection.purpose, firstCommand.purpose);
+  assert.equal(projection.owner, fixture.managementCapability);
   assert.equal(
-    invocation.executable,
-    "C:\\Program Files\\Docker\\Docker\\resources\\bin\\docker.exe",
+    projection.input.configuration.homeSourcePath,
+    fixture.plan.providerHomeSourcePath,
   );
-  assert.deepEqual(invocation.argv.slice(0, 4), [
-    "--host",
-    "npipe:////./pipe/dockerDesktopLinuxEngine",
-    "--config",
-    "C:\\operation\\management\\docker-cli-config",
-  ]);
-  assert.equal(invocation.environment.SystemRoot, "C:\\Windows");
-  assert.equal(invocation.environment.WINDIR, "C:\\Windows");
-  assert.equal(invocation.environment.DOCKER_CLI_HINTS, "false");
-  for (const name of [
-    "PATH",
-    "USERPROFILE",
-    "HOME",
-    "HTTPS_PROXY",
-    "NODE_OPTIONS",
-  ]) {
-    assert.equal(invocation.environment[name], "");
-  }
-  assert.equal(fixture.counts().configCreated, 1);
+  assert.equal(
+    projection.input.configuration.temporarySourcePath,
+    "C:\\operation\\tmp",
+  );
+  assert.equal(projection.input.stdin, fixture.plan.providerInput);
+  assert.deepEqual(invocation.argv, firstCommand.argv);
 });
 
 /**
- * Claude終了後に同じ管理領域でCodex用configを再作成できることを確認する。
- *
- * @responsibility 旧単発診断の実Filesystem境界と計画の終了前差替え拒否を正式試験へ保持する。
+ * 正常清掃後の旧Ownerから認証create／startを再生成できないことを確認する。
+ * @responsibility 実Host失効と本番binderの毎回借用を生成点まで接続する。
  * @trace ERB-IT-004
- * @precondition Repository-local tests内に自己生成した空領域を使用する。
- * @stimulus 固定Sourceのprivate config処理でClaudeとCodexの計画を順に開始・清掃する。
- * @observation configの実作成・Identity検証・削除回数と試験領域の空を読む。
- * @oracle 清掃前の計画変更は拒否され、清掃後のCodex開始と二回の回収が成立する。
- * @cleanup 自己生成した一意な試験領域だけをfinallyで回収する。
- * @boundary ERB-IT-004=Direct Boundary: 実Filesystem。CLI信頼とProcessは差替え、Docker/Provider要求は0。
+ * @trace ERB-IT-003
+ * @precondition 自己生成Repository-local領域と実Windows世代排他を使う。
+ * @stimulus 生存中の元二commandを開始し、正常清掃後に回復世代保持中と解放後で再試行する。
+ * @observation 元Owner拒否、下位開始・Handle・構成準備の増分0、Root不存在。
+ * @oracle 同じcommandの肯定到達を先に確認し、cached借用変異を同じゼロOracleが拒否する。
+ * @cleanup 真正清掃のcompleted後だけ自己生成親を削除し、回復世代をfinally解放する。
+ * @boundary 実Host／Kernelと本番投影。下位開始は記録代役でDocker・外部Processを作らない。
  */
-test("実config清掃後はClaudeからCodexへ同じ管理領域を再利用できる", async () => {
-  const claude = createPlanFixture("executor", false, "claude").plan;
-  const codex = createPlanFixture("reviewer", false, "codex", true).plan;
-  const claudeCommand = claude.commands[0];
-  const codexCommand = codex.commands[0];
-  assert.ok(claudeCommand && codexCommand);
-  const source = fs.readFileSync(
-    new URL("../../src/docker-execution/command-effects.ts", import.meta.url),
-    "utf8",
+test("Host Windows: 清掃後の旧Ownerは認証createとstartを再生成しない", async () => {
+  assert.equal(process.platform, "win32");
+  const area = requireReadyRepositoryRuntimeDataArea(
+    ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
+      import.meta.dirname,
+      "tests",
+    ),
+    "retired_owner_test",
   );
-  // Productionへ試験専用Exportを追加せず、固定Sourceの三private関数だけを使用する。
-  const bodies = [
-    "filesystemIdentity",
-    "createConfigDirectory",
-    "verifyConfigDirectory",
-  ].map((name) => {
-    const begin = source.indexOf(`function ${name}(`);
-    const end = source.indexOf("\n/**", begin);
-    assert.ok(begin >= 0 && end > begin);
-    return stripTypeScriptTypes(source.slice(begin, end));
-  });
-  const configFunctions = new Function(
-    "fs",
-    "path",
-    `${bodies.join("\n")}\nconst DOCKER_CONFIG_DIRECTORY = "docker-cli-config"; return { createConfigDirectory, verifyConfigDirectory };`,
-  )(fs, path) as {
-    createConfigDirectory(directory: string): {
-      directory: string;
-      identity: string;
-    };
-    verifyConfigDirectory(directory: string, identity: string): void;
-  };
-  const testsRoot = fileURLToPath(
-    new URL("../../../../.crdd/tests/", import.meta.url),
+  const parent = fs.mkdtempSync(path.join(area.directory, "retired-owner-"));
+  const owned = createOwnedOperationDirectories(parent);
+  const mount = createOwnedMountCapability(owned);
+  const management = createOwnedOperationManagementCapability(
+    createOwnedOperationContextCapability(owned),
+    mount,
   );
-  const directory = fs.mkdtempSync(
-    path.join(testsRoot, "docker-config-sequential-"),
-  );
-  let creationCount = 0;
-  let removalCount = 0;
-  const runtime = createIsolatedDockerEffectRuntimeCandidate({
-    platform: "win32",
-    borrowPaths: () => ({ tmp: "C:\\operation\\tmp", management: directory }),
-    readCli: () => ({
-      executablePath:
-        "C:\\Program Files\\Docker\\Docker\\resources\\bin\\docker.exe",
-      rootIdentity: "fixture",
-      executableIdentity: "fixture",
-      bytes: 1,
-      sha256: "a".repeat(64),
-      publisherOrganization: "Docker Inc",
-      trustBasis: "windows_authenticode_valid_docker_inc_publisher",
-    }),
-    verifyCli: () => undefined,
-    createConfig: (parent) => {
-      creationCount += 1;
-      return configFunctions.createConfigDirectory(parent);
-    },
-    verifyConfig: configFunctions.verifyConfigDirectory,
-    configEntries: (target) => fs.readdirSync(target),
-    removeConfig: (target) => {
-      fs.rmdirSync(target);
-      removalCount += 1;
-    },
-    startProcess: () => {
-      let isClosed = false;
-      return {
-        started: async () => true,
-        wait: async () => {
-          isClosed = true;
-          return {
+  let cleaned = false;
+  let generation: object | null = null;
+  try {
+    assert.equal(
+      await activateOwnedHostOperationGenerationLock(management),
+      "activated",
+    );
+    const mountBinding = verifyOwnedOperationManagementMountBinding(
+      management,
+      mount,
+    );
+    const { plan } = createPlanFixture(null, false, "claude", false, {
+      managementCapability: management,
+      mountBinding,
+    });
+    const commands = [
+      "create_subscription_auth_probe",
+      "start_subscription_auth_probe_attached",
+    ].map((purpose) => {
+      const command = plan.commands.find((value) => value.purpose === purpose);
+      assert.ok(command, purpose);
+      return command;
+    });
+    const nonce = parseHostRecoveryToken(
+      borrowOwnedHostRecoverySnapshot(management).snapshot.token,
+    ).nonce;
+    const cached = borrowOwnedDockerExecutionPaths(management);
+    // 下位代役の到達印であり、実構成・実Handle生成の観測ではない。
+    const calls = { starts: 0, configurations: 0, handles: 0 };
+    const arrivals: Array<{ purpose: string; owner: unknown }> = [];
+    const lower = {
+      startExecution: () => {
+        throw new Error("fixture_session_unused");
+      },
+      startCommand: (
+        purpose: string,
+        _input: DockerIsolationRuntimePlan,
+        owner: unknown,
+      ) => {
+        arrivals.push({ purpose, owner });
+        calls.starts++;
+        calls.configurations++;
+        calls.handles++;
+        return {
+          started: async () => true,
+          wait: async () => ({
             status: 0,
             signal: null,
             stdout: "",
             stderr: "",
             outputExceeded: false,
-          };
+          }),
+          terminateAndWait: async () => true,
+          closed: () => true,
+        };
+      },
+      cleanupOwnedResources: async () => {
+        throw new Error("unused_cleanup");
+      },
+      verifyCleanupOutcome: () => null,
+    };
+    const runtime = bindDockerIsolationRuntime(
+      lower,
+      borrowOwnedDockerExecutionPaths,
+    );
+    for (const command of commands) {
+      const before = { ...calls };
+      const count = arrivals.length;
+      await runtime.startCommand(command, plan, management).wait(1);
+      assert.deepEqual(calls, {
+        starts: before.starts + 1,
+        configurations: before.configurations + 1,
+        handles: before.handles + 1,
+      });
+      assert.equal(arrivals.length, count + 1);
+      assert.deepEqual(arrivals[count], {
+        purpose: command.purpose,
+        owner: management,
+      });
+      assert.equal(arrivals[count]?.owner, management);
+    }
+    assert.deepEqual(calls, { starts: 2, configurations: 2, handles: 2 });
+    const cleanup = await cleanupOwnedOperationDirectoriesAsync(owned);
+    assert.equal(
+      verifyOwnedOperationCleanupOutcome(cleanup, owned),
+      "completed",
+    );
+    cleaned = true;
+    assert.equal(fs.existsSync(owned.root), false);
+    assert.throws(() => borrowOwnedDockerExecutionPaths(management));
+    generation = acquireHostOperationRecoveryGenerationByIdentity(
+      owned.root,
+      nonce,
+    );
+    assert.ok(generation);
+    const baseline = { ...calls };
+    for (const command of commands) {
+      const before = { ...calls };
+      const count = arrivals.length;
+      assert.throws(() => runtime.startCommand(command, plan, management));
+      assert.deepEqual(calls, before);
+      assert.equal(arrivals.length, count);
+    }
+    assert.deepEqual(calls, baseline);
+    assert.equal(releaseHostOperationRecoveryGeneration(generation), true);
+    generation = null;
+    for (const command of commands) {
+      const before = { ...calls };
+      const count = arrivals.length;
+      assert.throws(() => runtime.startCommand(command, plan, management));
+      assert.deepEqual(calls, before);
+      assert.equal(arrivals.length, count);
+    }
+    assert.deepEqual(calls, baseline);
+    const mutant = bindDockerIsolationRuntime(lower, () => cached);
+    for (const command of commands) {
+      const before = { ...calls };
+      const count = arrivals.length;
+      await mutant.startCommand(command, plan, management).wait(1);
+      assert.deepEqual(calls, {
+        starts: before.starts + 1,
+        configurations: before.configurations + 1,
+        handles: before.handles + 1,
+      });
+      assert.equal(arrivals.length, count + 1);
+      assert.deepEqual(arrivals[count], {
+        purpose: command.purpose,
+        owner: management,
+      });
+      assert.equal(arrivals[count]?.owner, management);
+      assert.throws(() => assert.deepEqual(calls, before));
+    }
+    assert.equal(fs.existsSync(owned.root), false);
+  } finally {
+    if (generation)
+      assert.equal(releaseHostOperationRecoveryGeneration(generation), true);
+    if (!cleaned) {
+      const cleanup = await cleanupOwnedOperationDirectoriesAsync(owned);
+      assert.equal(
+        verifyOwnedOperationCleanupOutcome(cleanup, owned),
+        "completed",
+      );
+      cleaned = true;
+    }
+    if (cleaned) {
+      assert.equal(fs.realpathSync(parent), parent);
+      fs.rmSync(parent, { recursive: true });
+      assert.equal(fs.existsSync(parent), false);
+    }
+  }
+});
+
+/**
+ * Root存続中のSupervisor失効を本番世代状態と実binderへ接続する。
+ * @responsibility liveを戻しても元Ownerからの後発要求を復活させない。
+ * @trace ERB-IT-003
+ * @trace ERB-IT-004
+ * @precondition Kernel取得だけ代役とし、実Filesystemとfreshな本番moduleを使う。
+ * @stimulus 元auth create／startの肯定到達後、assertLiveをfalse・trueの順にする。
+ * @observation false観測到達、各commandの下位増分0、実体・marker本文不変、解放一回。
+ * @oracle 元Owner拒否は不可逆であり、cached借用変異だけが個別ゼロOracleを破る。
+ * @cleanup 同じmoduleの真正清掃とmock復元を別finallyで保証する。
+ * @boundary 論理Kernel故障・実Filesystem・本番private世代。実Kernel故障やDaemon終端は証明しない。
+ */
+test("Host Windows: Root存続中の世代失効は旧Ownerを復活させない", async () => {
+  const kernelUrl = new URL(
+    "../../src/host-execution/kernel-lock.ts",
+    import.meta.url,
+  );
+  const kernel = await import(kernelUrl.href);
+  let live = true,
+    falseObservations = 0,
+    releases = 0;
+  const kernelMock = mock.module(kernelUrl.href, {
+    namedExports: {
+      ...kernel,
+      acquireRuntimeOwnedHostOperationSupervisorLock: async () => ({
+        status: "acquired",
+        lock: {
+          assertLive: () => {
+            if (!live) falseObservations++;
+            return live;
+          },
+          release: async () => {
+            releases++;
+            return "released";
+          },
         },
-        closed: () => isClosed,
-        terminateAndWait: async () => {
-          isClosed = true;
-          return true;
-        },
-      };
+      }),
     },
   });
-  const sharedManagement = Object.freeze({});
   try {
-    await runtime.startCommand(claudeCommand, claude, sharedManagement).wait(1);
-    assert.throws(
-      () => runtime.startCommand(codexCommand, codex, sharedManagement),
-      /docker_effect_plan_replaced/u,
+    const host = (await import(
+      new URL(
+        "../../src/host-execution/operation-workspace-lifecycle.ts?generation-loss-test",
+        import.meta.url,
+      ).href
+    )) as typeof import("../../src/host-execution/operation-workspace-lifecycle.ts");
+    const area = requireReadyRepositoryRuntimeDataArea(
+      ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
+        import.meta.dirname,
+        "tests",
+      ),
+      "generation_loss_test",
     );
-    assert.equal(
-      (await runtime.cleanupOwnedResources(claude, {}, sharedManagement))
-        .confirmed,
-      true,
+    const parent = fs.mkdtempSync(
+      path.join(area.directory, "generation-loss-"),
     );
-    await runtime.startCommand(codexCommand, codex, sharedManagement).wait(1);
-    assert.equal(
-      (await runtime.cleanupOwnedResources(codex, {}, sharedManagement))
-        .confirmed,
-      true,
+    const owned = host.createOwnedOperationDirectories(parent);
+    const mount = host.createOwnedMountCapability(owned);
+    const management = host.createOwnedOperationManagementCapability(
+      host.createOwnedOperationContextCapability(owned),
+      mount,
     );
-    assert.equal(creationCount, 2);
-    assert.equal(removalCount, 2);
-    assert.deepEqual(fs.readdirSync(directory), []);
+    try {
+      assert.equal(
+        await host.activateOwnedHostOperationGenerationLock(management),
+        "activated",
+      );
+      const mountBinding = host.verifyOwnedOperationManagementMountBinding(
+        management,
+        mount,
+      );
+      const { plan } = createPlanFixture(null, false, "claude", false, {
+        managementCapability: management,
+        mountBinding,
+      });
+      assert.equal(plan.operationId, mountBinding.operationId);
+      const commands = [
+        "create_subscription_auth_probe",
+        "start_subscription_auth_probe_attached",
+      ].map((purpose) => {
+        const command = plan.commands.find((item) => item.purpose === purpose);
+        assert.ok(command);
+        return command;
+      });
+      const marker = loadHostRecoveryRecordByToken(
+        host.borrowOwnedHostRecoverySnapshot(management).snapshot.token,
+        owned.root,
+      ).marker;
+      const beforeRoot = fs.lstatSync(owned.root, { bigint: true });
+      const beforeMarker = fs.lstatSync(marker, { bigint: true });
+      const markerBytes = fs.readFileSync(marker);
+      const cached = host.borrowOwnedDockerExecutionPaths(management);
+      const arrivals: Array<{ purpose: string; owner: unknown }> = [];
+      const lower = {
+        startExecution: () => {
+          throw new Error("fixture_session_unused");
+        },
+        startCommand: (
+          purpose: string,
+          _input: DockerIsolationRuntimePlan,
+          owner: unknown,
+        ) => {
+          arrivals.push({ purpose, owner });
+          return {
+            started: async () => true,
+            wait: async () => ({
+              status: 0,
+              signal: null,
+              stdout: "",
+              stderr: "",
+              outputExceeded: false,
+            }),
+            terminateAndWait: async () => true,
+            closed: () => true,
+          };
+        },
+        cleanupOwnedResources: async () => {
+          throw new Error("unused_cleanup");
+        },
+        verifyCleanupOutcome: () => null,
+      };
+      const runtime = bindDockerIsolationRuntime(
+        lower,
+        host.borrowOwnedDockerExecutionPaths,
+      );
+      for (const command of commands) {
+        const count = arrivals.length;
+        await runtime.startCommand(command, plan, management).wait(1);
+        assert.equal(arrivals.length, count + 1);
+        assert.equal(arrivals[count]?.purpose, command.purpose);
+        assert.equal(arrivals[count]?.owner, management);
+      }
+      for (const active of [false, true]) {
+        live = active;
+        for (const command of commands) {
+          const count = arrivals.length;
+          assert.throws(() => runtime.startCommand(command, plan, management));
+          assert.equal(arrivals.length, count);
+        }
+        assert.throws(() => host.borrowOwnedDockerExecutionPaths(management));
+        assert.equal(falseObservations, 1);
+      }
+      const afterRoot = fs.lstatSync(owned.root, { bigint: true });
+      const afterMarker = fs.lstatSync(marker, { bigint: true });
+      for (const key of ["dev", "ino", "birthtimeNs"] as const) {
+        assert.equal(afterRoot[key], beforeRoot[key]);
+        assert.equal(afterMarker[key], beforeMarker[key]);
+      }
+      assert.deepEqual(fs.readFileSync(marker), markerBytes);
+      const mutant = bindDockerIsolationRuntime(lower, () => cached);
+      for (const command of commands) {
+        const count = arrivals.length;
+        await mutant.startCommand(command, plan, management).wait(1);
+        assert.equal(arrivals.length, count + 1);
+        assert.equal(arrivals[count]?.purpose, command.purpose);
+        assert.equal(arrivals[count]?.owner, management);
+        assert.throws(() => assert.equal(arrivals.length, count));
+      }
+    } finally {
+      const outcome = await host.cleanupOwnedOperationDirectoriesAsync(owned);
+      assert.equal(
+        host.verifyOwnedOperationCleanupOutcome(outcome, owned),
+        "completed",
+      );
+      assert.equal(releases, 1);
+      assert.equal(fs.existsSync(owned.root), false);
+      assert.equal(fs.realpathSync(parent), parent);
+      fs.rmSync(parent, { recursive: true });
+      assert.equal(fs.existsSync(parent), false);
+    }
   } finally {
-    fs.rmSync(directory, { recursive: true, force: true });
+    kernelMock.restore();
   }
 });
 
@@ -671,6 +932,29 @@ test("plain command copyと変更planはDocker processを開始しない", () =>
   const fixture = createEffectFixture();
   const firstCommand = fixture.plan.commands[0];
   assert.ok(firstCommand);
+  for (const changes of [
+    ...[
+      "authContainerName",
+      "providerContainerName",
+      "proxyContainerName",
+      "internalNetworkName",
+      "egressNetworkName",
+      "ownershipLabel",
+      "providerImageDigest",
+      "proxyImageDigest",
+    ].map((key) => ({ [key]: "invalid" })),
+    { proxyContainerName: fixture.plan.authContainerName },
+  ]) {
+    assert.throws(
+      () =>
+        fixture.runtime.startCommand(
+          firstCommand,
+          { ...fixture.plan, ...changes },
+          fixture.managementCapability,
+        ),
+      /plan_invalid/u,
+    );
+  }
   assert.throws(
     () =>
       fixture.runtime.startCommand(
@@ -687,6 +971,30 @@ test("plain command copyと変更planはDocker processを開始しない", () =>
     ...fixture.plan,
     selectedModel: "sonnet",
   });
+  const wrongProxyProfile = {
+    ...fixture.plan,
+    commands: fixture.plan.commands.map((command) =>
+      command.purpose === "create_proxy"
+        ? {
+            ...command,
+            argv: command.argv.map((value) =>
+              value.startsWith("CRDD_PROXY_PROFILE=")
+                ? `CRDD_PROXY_PROFILE=${fixture.plan.provider === "codex" ? "claude" : "codex"}`
+                : value,
+            ),
+          }
+        : command,
+    ),
+  };
+  assert.throws(
+    () =>
+      fixture.runtime.startCommand(
+        firstCommand,
+        wrongProxyProfile,
+        fixture.managementCapability,
+      ),
+    /plan_invalid/u,
+  );
   assert.throws(
     () =>
       fixture.runtime.startCommand(
@@ -847,6 +1155,7 @@ test("Taskの上限改変と同じ上限になる作業量の差替えを拒否�
       remediationFindingCount: 0,
     },
   };
+  fixture.rejectNextStart();
   assert.throws(
     () =>
       fixture.runtime.startCommand(
@@ -855,6 +1164,10 @@ test("Taskの上限改変と同じ上限になる作業量の差替えを拒否�
         fixture.managementCapability,
       ),
     /docker_effect_plan_replaced/u,
+  );
+  assert.notEqual(
+    fixture.projections[0]?.input.identity,
+    fixture.projections[1]?.input.identity,
   );
   const commands = fixture.plan.commands.map((command) =>
     command.purpose !== "create_provider"
@@ -876,846 +1189,6 @@ test("Taskの上限改変と同じ上限になる作業量の差替えを拒否�
     /plan_invalid/u,
   );
   assert.equal(fixture.invocations.length, before);
-});
-
-/**
- * 全purposeの未評価を未要求・不存在へ補完しないことを確認する。
- *
- * @responsibility Receipt欠測時の資源処置停止と診断領域保持を反証する。
- * @trace ERB-IT-004
- * @precondition 模擬Dockerと完全Receiptを生成する自己所有Fixtureを使う。
- * @stimulus 五purposeを一つずつ欠測させ、通常清掃を呼ぶ。
- * @observation 清掃結果、Docker要求数、config保持を確認する。
- * @oracle 欠測は回収未確認であり、削除要求とconfig除去を発行しない。
- * @cleanup N/A: FixtureはProcessとFilesystemを模擬し、実Docker資源を作らない。
- * @boundary ERB-IT-004=Direct Boundary: 清掃利用側と完全Receipt契約。
- */
-test("通常Effect cleanupは一purposeのReceipt欠測を未要求へ補完しない", async () => {
-  for (const missingReceiptPurpose of [
-    "create_provider",
-    "create_proxy",
-    "create_subscription_auth_probe",
-    "create_internal_network",
-    "create_egress_network",
-  ]) {
-    const fixture = createEffectFixture({ missingReceiptPurpose });
-    const cleanup = await fixture.runtime.cleanupOwnedResources(
-      fixture.plan,
-      fixture.recoveryCapability,
-      fixture.managementCapability,
-    );
-    assert.equal(cleanup.confirmed, false);
-    assert.equal(cleanup.containersAbsent, false);
-    assert.equal(cleanup.networksAbsent, false);
-    assert.equal(cleanup.resourceObservations, null);
-    assert.equal(fixture.invocations.length, 0);
-    assert.equal(fixture.counts().configRemoved, 0);
-    const command = fixture.plan.commands[0];
-    assert.ok(command);
-    assert.throws(
-      () =>
-        fixture.runtime.startCommand(
-          command,
-          fixture.plan,
-          fixture.managementCapability,
-        ),
-      /docker_effect_attempt_stopped/u,
-    );
-    assert.equal(fixture.invocations.length, 0);
-  }
-});
-
-/**
- * cleanupは全handle終了と所有resource不存在後だけconfigを除去するを検証する。
- *
- * @responsibility cleanupは全handle終了と所有resource不存在後だけconfigを除去するの合否判定を所有する。
- * @trace ERB-IT-004
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus cleanupは全handle終了と所有resource不存在後だけconfigを除去するの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-004=Direct Boundary: coordinator Test Source→対象契約
- */
-test("cleanupは全handle終了と所有resource不存在後だけconfigを除去する", async () => {
-  const fixture = createEffectFixture();
-  const firstCommand = fixture.plan.commands[0];
-  assert.ok(firstCommand);
-  const handle = fixture.runtime.startCommand(
-    firstCommand,
-    fixture.plan,
-    fixture.managementCapability,
-  );
-  await handle.wait(10_000);
-  const cleanup = await fixture.runtime.cleanupOwnedResources(
-    fixture.plan,
-    fixture.recoveryCapability,
-    fixture.managementCapability,
-  );
-  assert.deepEqual(cleanup, {
-    confirmed: true,
-    processTreeTerminated: true,
-    containersAbsent: true,
-    networksAbsent: true,
-    resourceObservations: null,
-  });
-  const invocationCount = fixture.invocations.length;
-  assert.throws(
-    () =>
-      fixture.runtime.startCommand(
-        firstCommand,
-        fixture.plan,
-        fixture.managementCapability,
-      ),
-    /docker_effect_attempt_stopped/u,
-  );
-  assert.equal(fixture.invocations.length, invocationCount);
-  assert.deepEqual(fixture.counts(), {
-    configCreated: 1,
-    configRemoved: 1,
-  });
-  assert.equal(fixture.invocations.length, 6);
-});
-
-/**
- * 実清掃返却と操作・計画の相関を確認する。
- *
- * @responsibility 清掃成功のコピーや別Ownerの返却を終端根拠から排除する。
- * @trace ERB-IT-004
- * @precondition 全五purposeを未要求として模擬する独立Runtimeを使う。
- * @stimulus 清掃後に同じ返却、コピー、別Capabilityと別計画を照合する。
- * @observation 五purpose観測またはnullとDocker要求数を確認する。
- * @oracle 同じRuntime・対象だけが観測を返し、本番Ownerは模擬結果を拒否する。
- * @cleanup N/A: Process・Filesystem・Dockerを模擬し実資源を作らない。
- * @boundary ERB-IT-004=Direct Boundary: 実清掃返却→終端相関。
- */
-test("清掃結果の真正相関はコピー・別操作・別計画・別Runtimeを拒否する", async () => {
-  const fixture = createEffectFixture({ withFullReceipts: true });
-  const result = await fixture.runtime.cleanupOwnedResources(
-    fixture.plan,
-    fixture.recoveryCapability,
-    fixture.managementCapability,
-  );
-  assert.equal(result.confirmed, true);
-  const verify = fixture.runtime.verifyCleanupOutcome;
-  assert.equal(
-    verify(
-      result,
-      fixture.plan,
-      fixture.recoveryCapability,
-      fixture.managementCapability,
-    ),
-    result.resourceObservations,
-  );
-  assert.equal(result.resourceObservations?.length, 5);
-  for (const [value, plan, recovery, management] of [
-    [
-      { ...result },
-      fixture.plan,
-      fixture.recoveryCapability,
-      fixture.managementCapability,
-    ],
-    [result, fixture.plan, {}, fixture.managementCapability],
-    [result, fixture.plan, fixture.recoveryCapability, {}],
-    [
-      result,
-      { ...fixture.plan, operationId: "OP-654321" },
-      fixture.recoveryCapability,
-      fixture.managementCapability,
-    ],
-  ] as const)
-    assert.equal(verify(value, plan, recovery, management), null);
-  assert.equal(
-    verifyRuntimeOwnedDockerCleanupOutcome(
-      result,
-      fixture.plan,
-      fixture.recoveryCapability,
-      fixture.managementCapability,
-    ),
-    null,
-  );
-  const other = createEffectFixture({ withFullReceipts: true });
-  assert.equal(
-    other.runtime.verifyCleanupOutcome(
-      result,
-      fixture.plan,
-      fixture.recoveryCapability,
-      fixture.managementCapability,
-    ),
-    null,
-  );
-  assert.equal(fixture.invocations.length, 0);
-});
-
-/**
- * Process終端後も結果不明のCreateを成功根拠にしない。
- *
- * @responsibility 五purposeのID不明を未要求や不存在へ丸めないことを確認する。
- * @trace ERB-IT-004
- * @precondition 一種類だけ発行済み・ID不明で、他の四種類は未要求である。
- * @stimulus 全Handle終了可能なFixtureで通常清掃と真正結果照合を行う。
- * @observation 清掃状態、対象観測、結果借用、同じ計画の再要求と発行数。
- * @oracle 全purposeで不明が維持され、成功根拠と再要求を拒否する。
- * @cleanup Fixtureは実Docker、Process、Filesystem資源を作成しない。
- * @boundary Effect OwnerのCreate結果不明から終端根拠への境界。
- */
-test("五purposeのCreate結果不明はProcess終端だけで清掃成功にならない", async () => {
-  for (const purpose of [
-    "create_egress_network",
-    "create_internal_network",
-    "create_provider",
-    "create_proxy",
-    "create_subscription_auth_probe",
-  ]) {
-    const fixture = createEffectFixture({
-      withFullReceipts: true,
-      unknownReceiptPurpose: purpose,
-    });
-    const result = await fixture.runtime.cleanupOwnedResources(
-      fixture.plan,
-      fixture.recoveryCapability,
-      fixture.managementCapability,
-    );
-    assert.equal(result.processTreeTerminated, true);
-    assert.equal(result.confirmed, false);
-    assert.equal(
-      result.resourceObservations?.find((value) => value.purpose === purpose)
-        ?.observation,
-      "unknown",
-    );
-    assert.equal(
-      fixture.runtime.verifyCleanupOutcome(
-        result,
-        fixture.plan,
-        fixture.recoveryCapability,
-        fixture.managementCapability,
-      ),
-      null,
-    );
-    assert.equal(fixture.counts().configRemoved, 0);
-    const command = fixture.plan.commands[0];
-    assert.ok(command);
-    assert.throws(
-      () =>
-        fixture.runtime.startCommand(
-          command,
-          fixture.plan,
-          fixture.managementCapability,
-        ),
-      /docker_effect_attempt_stopped/u,
-    );
-    assert.equal(fixture.invocations.length, 0);
-  }
-});
-
-/**
- * 実行errorの後もstartCommandの未close handleを回収まで保持するを検証する。
- *
- * @responsibility 実行errorの後もstartCommandの未close handleを回収まで保持するの合否判定を所有する。
- * @trace ERB-IT-004
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 実行errorの後もstartCommandの未close handleを回収まで保持するの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-004=Direct Boundary: coordinator Test Source→対象契約
- */
-test("実行errorの後もstartCommandの未close handleを回収まで保持する", async () => {
-  let closed = false;
-  let terminationCalls = 0;
-  const handle = Object.freeze({
-    started: async () => true,
-    wait: async () =>
-      Object.freeze({
-        status: null,
-        signal: null,
-        stdout: "",
-        stderr: "",
-        outputExceeded: false,
-      }),
-    terminateAndWait: async () => {
-      terminationCalls += 1;
-      return closed;
-    },
-    closed: () => closed,
-  });
-  const fixture = createEffectFixture({
-    handleForInvocation: (index) => (index === 0 ? handle : null),
-  });
-  const command = fixture.plan.commands[0];
-  assert.ok(command);
-  const owned = fixture.runtime.startCommand(
-    command,
-    fixture.plan,
-    fixture.managementCapability,
-  );
-  assert.equal((await owned.wait(10))?.status, null);
-  const first = await fixture.runtime.cleanupOwnedResources(
-    fixture.plan,
-    fixture.recoveryCapability,
-    fixture.managementCapability,
-  );
-  assert.equal(first.confirmed, false);
-  assert.equal(first.processTreeTerminated, false);
-  assert.equal(fixture.counts().configRemoved, 0);
-  closed = true;
-  const second = await fixture.runtime.cleanupOwnedResources(
-    fixture.plan,
-    fixture.recoveryCapability,
-    fixture.managementCapability,
-  );
-  assert.equal(second.confirmed, true);
-  assert.equal(terminationCalls, 2);
-  assert.deepEqual(fixture.counts(), { configCreated: 1, configRemoved: 1 });
-});
-
-/**
- * candidate/receipt cleanup中のrunShort errorもcloseまで所有し設定を保持するを検証する。
- *
- * @responsibility candidate/receipt cleanup中のrunShort errorもcloseまで所有し設定を保持するの合否判定を所有する。
- * @trace ERB-IT-004
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus candidate/receipt cleanup中のrunShort errorもcloseまで所有し設定を保持するの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-004=Direct Boundary: coordinator Test Source→対象契約
- */
-test("candidate/receipt cleanup中のrunShort errorもcloseまで所有し設定を保持する", async () => {
-  for (const shouldUseReceipts of [false, true]) {
-    let closed = false;
-    let terminationCalls = 0;
-    const authReceiptId = "a".repeat(64);
-    const handle = Object.freeze({
-      started: async () => true,
-      wait: async () =>
-        Object.freeze({
-          status: null,
-          signal: null,
-          stdout: "",
-          stderr: "",
-          outputExceeded: false,
-        }),
-      terminateAndWait: async () => {
-        terminationCalls += 1;
-        return closed;
-      },
-      closed: () => closed,
-    });
-    const fixture = createEffectFixture({
-      ...(shouldUseReceipts ? { authReceiptId } : {}),
-      handleForInvocation: (index) => (index === 0 ? handle : null),
-      outputForInvocation: (argv) =>
-        Object.freeze({
-          status: 0,
-          signal: null,
-          stdout: argv.includes("inspect")
-            ? authProbeInspectOutput(fixture, authReceiptId, { none: {} })
-            : "",
-          stderr: "",
-          outputExceeded: false,
-        }),
-    });
-    const first = await fixture.runtime.cleanupOwnedResources(
-      fixture.plan,
-      fixture.recoveryCapability,
-      fixture.managementCapability,
-    );
-    assert.equal(first.containersAbsent, false);
-    assert.equal(first.networksAbsent, true);
-    assert.equal(first.processTreeTerminated, false);
-    assert.equal(first.confirmed, false);
-    if (shouldUseReceipts) {
-      assert.equal(
-        first.resourceObservations?.find(
-          (resource) => resource.purpose === "create_subscription_auth_probe",
-        )?.observation,
-        "unknown",
-      );
-    } else {
-      assert.equal(first.resourceObservations, null);
-    }
-    assert.equal(fixture.counts().configRemoved, 0);
-    assert.equal(terminationCalls, 1);
-    const second = await fixture.runtime.cleanupOwnedResources(
-      fixture.plan,
-      fixture.recoveryCapability,
-      fixture.managementCapability,
-    );
-    assert.equal(second.confirmed, false);
-    assert.equal(second.processTreeTerminated, false);
-    assert.equal(second.containersAbsent, true);
-    assert.equal(second.networksAbsent, true);
-    assert.equal(terminationCalls, 2);
-    assert.equal(fixture.counts().configRemoved, 0);
-    closed = true;
-    const third = await fixture.runtime.cleanupOwnedResources(
-      fixture.plan,
-      fixture.recoveryCapability,
-      fixture.managementCapability,
-    );
-    assert.equal(third.confirmed, true);
-    assert.equal(terminationCalls, 3);
-    assert.deepEqual(fixture.counts(), { configCreated: 1, configRemoved: 1 });
-  }
-});
-
-/**
- * foreign labelまたはconfig残存はcleanupとRecovery完了を止めるを検証する。
- *
- * @responsibility foreign labelまたはconfig残存はcleanupとRecovery完了を止めるの合否判定を所有する。
- * @trace ERB-IT-004
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus foreign labelまたはconfig残存はcleanupとRecovery完了を止めるの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-004=Direct Boundary: coordinator Test Source→対象契約
- */
-test("foreign labelまたはconfig残存はcleanupとRecovery完了を止める", async () => {
-  const foreign = createEffectFixture({
-    outputForInvocation: (argv) =>
-      argv.includes("container") && argv.includes("ls")
-        ? Object.freeze({
-            status: 0,
-            signal: null,
-            stdout: `${argv[argv.indexOf("--filter") + 1]?.replace("name=^/", "").replace("$", "")}|foreign\n`,
-            stderr: "",
-            outputExceeded: false,
-          })
-        : Object.freeze({
-            status: 0,
-            signal: null,
-            stdout: "",
-            stderr: "",
-            outputExceeded: false,
-          }),
-  });
-  const foreignCleanup = await foreign.runtime.cleanupOwnedResources(
-    foreign.plan,
-    foreign.recoveryCapability,
-    foreign.managementCapability,
-  );
-  assert.equal(foreignCleanup.confirmed, false);
-  assert.equal(foreignCleanup.containersAbsent, false);
-  assert.equal(foreign.counts().configRemoved, 0);
-
-  const residue = createEffectFixture({ configEntries: ["unexpected.json"] });
-  const residueCleanup = await residue.runtime.cleanupOwnedResources(
-    residue.plan,
-    residue.recoveryCapability,
-    residue.managementCapability,
-  );
-  assert.equal(residueCleanup.confirmed, false);
-  assert.equal(residueCleanup.containersAbsent, true);
-  assert.equal(residueCleanup.networksAbsent, true);
-  assert.equal(residue.counts().configRemoved, 0);
-});
-
-/**
- * exact ID削除後に同名replacementが残ればcleanupを完了しないを検証する。
- *
- * @responsibility exact ID削除後に同名replacementが残ればcleanupを完了しないの合否判定を所有する。
- * @trace ERB-IT-004
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus exact ID削除後に同名replacementが残ればcleanupを完了しないの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-004=Direct Boundary: coordinator Test Source→対象契約
- */
-test("exact ID削除後に同名replacementが残ればcleanupを完了しない", async () => {
-  const dockerId = "a".repeat(64);
-  let expectedName = "";
-  const fixture = createEffectFixture({
-    internalNetworkReceiptId: dockerId,
-    outputForInvocation: (argv) => {
-      if (argv.includes("inspect")) {
-        expectedName = fixture.plan.internalNetworkName;
-        return Object.freeze({
-          status: 0,
-          signal: null,
-          stdout: JSON.stringify([
-            {
-              Id: dockerId,
-              Name: expectedName,
-              Labels: {
-                "crdd.coordinator.runtime": fixture.plan.ownershipLabel.slice(
-                  fixture.plan.ownershipLabel.indexOf("=") + 1,
-                ),
-              },
-              Driver: "bridge",
-              Scope: "local",
-              Internal: true,
-            },
-          ]),
-          stderr: "",
-          outputExceeded: false,
-        });
-      }
-      const isNameAbsenceCheck = argv.some(
-        (value) => value === `name=^${expectedName}$`,
-      );
-      return Object.freeze({
-        status: 0,
-        signal: null,
-        stdout: isNameAbsenceCheck ? `${"b".repeat(64)}\n` : "",
-        stderr: "",
-        outputExceeded: false,
-      });
-    },
-  });
-  const cleanup = await fixture.runtime.cleanupOwnedResources(
-    fixture.plan,
-    fixture.recoveryCapability,
-    fixture.managementCapability,
-  );
-  assert.equal(cleanup.confirmed, false);
-  assert.equal(cleanup.networksAbsent, false);
-  assert.equal(fixture.counts().configRemoved, 0);
-});
-
-/**
- * 通常Effect cleanupは実測同形の認証Probe none Networkだけを回収するを検証する。
- *
- * @responsibility 通常Effect cleanupは実測同形の認証Probe none Networkだけを回収するの合否判定を所有する。
- * @trace ERB-IT-004
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 通常Effect cleanupは実測同形の認証Probe none Networkだけを回収するの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-004=Direct Boundary: coordinator Test Source→対象契約
- */
-test("通常Effect cleanupは実測同形の認証Probe none Networkだけを回収する", async () => {
-  const dockerId = "c".repeat(64);
-  let fixture: ReturnType<typeof createEffectFixture>;
-  fixture = createEffectFixture({
-    authReceiptId: dockerId,
-    outputForInvocation: (argv) =>
-      Object.freeze({
-        status: 0,
-        signal: null,
-        stdout: argv.includes("inspect")
-          ? authProbeInspectOutput(fixture, dockerId, { none: {} })
-          : "",
-        stderr: "",
-        outputExceeded: false,
-      }),
-  });
-  const cleanup = await fixture.runtime.cleanupOwnedResources(
-    fixture.plan,
-    fixture.recoveryCapability,
-    fixture.managementCapability,
-  );
-  assert.deepEqual(cleanup, {
-    confirmed: true,
-    processTreeTerminated: true,
-    containersAbsent: true,
-    networksAbsent: true,
-    resourceObservations: [
-      {
-        purpose: "create_egress_network",
-        plannedResourceName: fixture.plan.egressNetworkName,
-        dockerId: null,
-        observation: "not_requested",
-      },
-      {
-        purpose: "create_internal_network",
-        plannedResourceName: fixture.plan.internalNetworkName,
-        dockerId: null,
-        observation: "not_requested",
-      },
-      {
-        purpose: "create_provider",
-        plannedResourceName: fixture.plan.providerContainerName,
-        dockerId: null,
-        observation: "not_requested",
-      },
-      {
-        purpose: "create_proxy",
-        plannedResourceName: fixture.plan.proxyContainerName,
-        dockerId: null,
-        observation: "not_requested",
-      },
-      {
-        purpose: "create_subscription_auth_probe",
-        plannedResourceName: fixture.plan.authContainerName,
-        dockerId,
-        observation: "absent",
-      },
-    ],
-  });
-  assert.equal(
-    fixture.invocations.some(
-      ({ argv }) =>
-        argv.includes("rm") &&
-        argv.includes("--force") &&
-        argv.includes(dockerId),
-    ),
-    true,
-  );
-  assert.equal(fixture.counts().configRemoved, 1);
-});
-
-/**
- * 通常Effect cleanupは認証Probeの空・別・追加Networkを削除しないを検証する。
- *
- * @responsibility 通常Effect cleanupは認証Probeの空・別・追加Networkを削除しないの合否判定を所有する。
- * @trace ERB-IT-004
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 通常Effect cleanupは認証Probeの空・別・追加Networkを削除しないの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary ERB-IT-004=Direct Boundary: coordinator Test Source→対象契約
- */
-test("通常Effect cleanupは認証Probeの空・別・追加Networkを削除しない", async () => {
-  const cases = [
-    Object.freeze({}),
-    Object.freeze({ foreign: Object.freeze({}) }),
-    Object.freeze({ none: Object.freeze({}), foreign: Object.freeze({}) }),
-  ];
-  for (const [index, networks] of cases.entries()) {
-    const dockerId = String(index + 1).repeat(64);
-    let fixture: ReturnType<typeof createEffectFixture>;
-    fixture = createEffectFixture({
-      authReceiptId: dockerId,
-      outputForInvocation: (argv) =>
-        Object.freeze({
-          status: 0,
-          signal: null,
-          stdout: argv.includes("inspect")
-            ? authProbeInspectOutput(fixture, dockerId, networks)
-            : "",
-          stderr: "",
-          outputExceeded: false,
-        }),
-    });
-    const cleanup = await fixture.runtime.cleanupOwnedResources(
-      fixture.plan,
-      fixture.recoveryCapability,
-      fixture.managementCapability,
-    );
-    assert.equal(cleanup.confirmed, false);
-    assert.equal(cleanup.containersAbsent, false);
-    assert.equal(
-      fixture.invocations.some(
-        ({ argv }) => argv.includes("rm") && argv.includes("--force"),
-      ),
-      false,
-    );
-    assert.equal(fixture.counts().configRemoved, 0);
-  }
-});
-
-/**
- * 通常清掃でもCodex助言専用initの欠測と対象外混入を拒否する。
- *
- * @responsibility 起動計画に結合したProvider receiptを清掃前に再検査する。
- * @trace ERB-IT-004
- * @precondition 実Adapter由来のCodex／Claude助言Planと合成inspect応答を使う。
- * @stimulus 通常清掃へexact Provider receiptを渡す。
- * @observation 構成判定、削除発行と清掃完了値を観測する。
- * @oracle Codex助言はtrueだけ、Claude助言は未記載／null／falseだけを受理し、不一致で削除0となる。
- * @cleanup N/A: 疑似Docker Processは各waitで終了し実Containerを作らない。
- * @boundary ERB-IT-004=Direct Boundary: Provider receipt→清掃前inspect
- */
-test("通常清掃でもCodex助言専用initの欠測と対象外混入を拒否する", async () => {
-  for (const provider of ["codex", "claude"] as const) {
-    for (const init of [true, null, false, undefined, "false", 1]) {
-      const isExpected =
-        provider === "codex"
-          ? init === true
-          : init === undefined || init === null || init === false;
-      const providerId = "c".repeat(64);
-      const fixture = createEffectFixture({
-        isAdvice: true,
-        provider,
-        providerReceiptId: providerId,
-        outputForInvocation: (argv) => {
-          const observed = structuredClone(
-            loadSanitizedAuthProbeInspectFixture().inspect,
-          ) as Record<string, unknown>;
-          observed.Id = providerId;
-          observed.Name = `/${fixture.plan.providerContainerName}`;
-          observed.Config = {
-            User: "65534:65534",
-            Image: fixture.plan.providerImageDigest,
-            Labels: {
-              "crdd.coordinator.runtime":
-                fixture.plan.ownershipLabel.split("=")[1],
-            },
-          };
-          observed.HostConfig = {
-            ...(observed.HostConfig as Record<string, unknown>),
-            PidsLimit: 64,
-            Init: init,
-          };
-          observed.Mounts = ["/provider-home", "/tmp"].map((destination) => ({
-            Type: "bind",
-            Destination: destination,
-            RW: true,
-            Propagation: "rprivate",
-          }));
-          observed.NetworkSettings = {
-            Networks: { [fixture.plan.internalNetworkName]: {} },
-          };
-          return Object.freeze({
-            status: 0,
-            signal: null,
-            stdout: argv.includes("inspect") ? JSON.stringify([observed]) : "",
-            stderr: "",
-            outputExceeded: false,
-          });
-        },
-      });
-      const result = await fixture.runtime.cleanupOwnedResources(
-        fixture.plan,
-        fixture.recoveryCapability,
-        fixture.managementCapability,
-      );
-      assert.equal(result.confirmed, isExpected);
-      assert.equal(
-        fixture.invocations.filter((call) => call.argv.includes("rm")).length,
-        isExpected ? 1 : 0,
-      );
-    }
-  }
-});
-
-/**
- * Initの省略と不正なHostConfigを混同しない。
- *
- * @responsibility 通常清掃と回復が共有するwire判定の拒否境界を確認する。
- * @trace ERB-IT-004
- * @precondition DockerのJSON形と、JSONでは到達しない不正構造を用意する。
- * @stimulus 必須／対象外の両方で判定を呼び出す。
- * @observation 判定値とaccessor呼出し回数を観測する。
- * @oracle 必須はown trueのみ、対象外は未記載／null／falseのみ、不正構造と型は拒否する。
- * @cleanup N/A: 局所値だけを使い外部資源を作らない。
- * @boundary ERB-IT-004=Direct Boundary: inspect JSON→共有構成判定
- */
-test("Initの省略と不正なHostConfigを混同しない", () => {
-  let getterCalls = 0;
-  const accessor = Object.defineProperty({}, "Init", {
-    get: () => {
-      getterCalls += 1;
-      return true;
-    },
-  });
-  for (const isInitRequired of [false, true]) {
-    for (const invalid of [
-      undefined,
-      null,
-      [],
-      "HostConfig",
-      { Init: undefined },
-      { Init: "false" },
-      { Init: 1 },
-      { Init: {} },
-      Object.create({ Init: true }),
-      accessor,
-    ])
-      assert.equal(
-        dockerContainerInitObservationMatches(invalid, isInitRequired),
-        false,
-      );
-    assert.equal(
-      dockerContainerInitObservationMatches({}, isInitRequired),
-      !isInitRequired,
-    );
-    assert.equal(
-      dockerContainerInitObservationMatches({ Init: null }, isInitRequired),
-      !isInitRequired,
-    );
-    assert.equal(
-      dockerContainerInitObservationMatches({ Init: false }, isInitRequired),
-      !isInitRequired,
-    );
-    assert.equal(
-      dockerContainerInitObservationMatches({ Init: true }, isInitRequired),
-      isInitRequired,
-    );
-  }
-  assert.equal(getterCalls, 0);
-});
-
-/**
- * 通常清掃でProxyと認証ProbeのInit未指定を解釈する。
- *
- * @responsibility 二用途のwire表現を通常終了でも同じ判定へ接続する。
- * @trace ERB-IT-004
- * @precondition 実AdapterのPlanと用途別の合成inspect応答を使う。
- * @stimulus Init未記載／null／false／true／不正型を通常清掃へ渡す。
- * @observation 回収完了とrm発行件数を読む。
- * @oracle 未記載／null／falseだけで回収し、trueと不正型では削除0となる。
- * @cleanup N/A: 模擬Docker実行であり実Containerを作らない。
- * @boundary ERB-IT-004=Direct Boundary: 通常清掃→Proxy／認証Probe inspect
- */
-test("通常清掃でProxyと認証ProbeのInit未指定を解釈する", async () => {
-  for (const purpose of ["proxy", "auth"] as const) {
-    for (const init of [undefined, null, false, true, "false", 1]) {
-      const dockerId = "e".repeat(64);
-      const fixture = createEffectFixture({
-        isAdvice: true,
-        provider: "codex",
-        ...(purpose === "proxy"
-          ? { proxyReceiptId: dockerId }
-          : { authReceiptId: dockerId }),
-        outputForInvocation: (argv) => {
-          const observed = structuredClone(
-            loadSanitizedAuthProbeInspectFixture().inspect,
-          ) as Record<string, unknown>;
-          observed.Id = dockerId;
-          observed.Name = `/${purpose === "proxy" ? fixture.plan.proxyContainerName : fixture.plan.authContainerName}`;
-          observed.Config = {
-            User: "65534:65534",
-            Image:
-              purpose === "proxy"
-                ? fixture.plan.proxyImageDigest
-                : fixture.plan.providerImageDigest,
-            Labels: {
-              "crdd.coordinator.runtime":
-                fixture.plan.ownershipLabel.split("=")[1],
-            },
-          };
-          const hostConfig = observed.HostConfig as Record<string, unknown>;
-          if (init === undefined) delete hostConfig.Init;
-          else hostConfig.Init = init;
-          hostConfig.PidsLimit = purpose === "proxy" ? 64 : 32;
-          if (purpose === "proxy") {
-            hostConfig.Tmpfs = { "/tmp": "rw,noexec,nosuid,size=16777216" };
-            observed.Mounts = [];
-            observed.NetworkSettings = {
-              Networks: {
-                [fixture.plan.internalNetworkName]: {},
-                [fixture.plan.egressNetworkName]: {},
-              },
-            };
-          } else observed.NetworkSettings = { Networks: { none: {} } };
-          return Object.freeze({
-            status: 0,
-            signal: null,
-            stdout: argv.includes("inspect") ? JSON.stringify([observed]) : "",
-            stderr: "",
-            outputExceeded: false,
-          });
-        },
-      });
-      const result = await fixture.runtime.cleanupOwnedResources(
-        fixture.plan,
-        fixture.recoveryCapability,
-        fixture.managementCapability,
-      );
-      const isExpected = init === undefined || init === null || init === false;
-      assert.equal(result.confirmed, isExpected, `${purpose}:${String(init)}`);
-      assert.equal(
-        fixture.invocations.filter((call) => call.argv.includes("rm")).length,
-        isExpected ? 1 : 0,
-      );
-    }
-  }
 });
 
 /**
@@ -1743,6 +1216,25 @@ test("Docker Effect contractは発行者Trustと任意command禁止を公開す�
   assert.equal(contract.dockerCli.pathLookupAllowed, false);
   assert.equal(contract.dockerCli.shellAllowed, false);
   assert.equal(contract.environment, "runtime_owned_minimal_replacement");
+  assert.equal(contract.engine, "npipe:////./pipe/dockerDesktopLinuxEngine");
+  assert.equal(
+    contract.processTreeTermination,
+    "taskkill_exact_pid_tree_then_close",
+  );
+  assert.deepEqual(contract.dockerCli, {
+    contract: "crdd-coordinator/docker-cli-trust",
+    contractRevision: 1,
+    absolutePath:
+      "C:\\Program Files\\Docker\\Docker\\resources\\bin\\docker.exe",
+    pathLookupAllowed: false,
+    publisherOrganization: "Docker Inc",
+    trustBasis: "windows_authenticode_valid_docker_inc_publisher",
+    exactVersionRequired: false,
+    exactHashRequiredAcrossOperations: false,
+    sameIdentityAndHashRequiredWithinOperation: true,
+    unknownOrInvalidSignatureEffect: "fail_closed_before_docker_effect",
+    shellAllowed: false,
+  });
   assert.equal(
     contract.commandPlan,
     "exact_nine_command_subscription_preflight_provider_probe_isolated_task_or_workbench_advice",

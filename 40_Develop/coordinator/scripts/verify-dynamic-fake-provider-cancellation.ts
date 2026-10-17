@@ -8,7 +8,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { runDynamicFakeProviderCancellationVerification } from "../src/docker-execution/isolation-probe.ts";
+import { runDynamicFakeProviderCancellationVerification } from "../src/diagnostics/isolation-probe.ts";
 import { createOwnedOperationDirectories } from "../src/host-execution/operation-workspace-lifecycle.ts";
 
 /**

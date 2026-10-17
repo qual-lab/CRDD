@@ -27,12 +27,10 @@ if (
       "task --request-stdin --json : 採用Repositoryで一般Taskを実行する推奨入口。有効化操作は不要",
       "interactive <CLI引数> : 人向け操作。出力は端末へ直接表示",
       "automation <CLI引数と--json> : 自動処理。既存同意が必要な操作で同意がなければ停止",
-      "verify-routes : 署名済み4経路E2E。出力は端末へ直接表示",
-      "verify-recovery : 署名済み復旧E2E。端末不要",
-      "sign-release <署名引数> : 配布担当用。端末で秘密入力",
-      "promote-release : この署名済みstaging自身のManifestをbyte-for-byteで作業Repositoryへ昇格",
+      "verify-routes : 固定Taskの4経路E2E。出力は端末へ直接表示",
+      "verify-recovery : 固定Workerの復旧検証。端末不要",
       "authenticate-claude : 人がClaude Maxの専用Provider Homeを再認証。Repositoryは接続しない",
-      "同じ配布物の既存入口へ接続します。起動用途の選択は実行許可や署名検証を代替しません。",
+      "同じCheckoutの既存入口へ接続します。起動用途の選択は実行許可を与えません。",
       "通常Taskは必要な実行条件をOperationごとに検証します。",
       "入出力・環境・作業Directoryは変更しません。秘密入力の記録や自動入力は行いません。",
       "",
@@ -73,12 +71,6 @@ if (
           break;
         case "verify-recovery":
           await import("../scripts/verify-signed-recovery-matrix.ts");
-          break;
-        case "sign-release":
-          await import("../scripts/sign-release-manifest.ts");
-          break;
-        case "promote-release":
-          await import("../scripts/promote-release-manifest.ts");
           break;
         case "authenticate-claude":
           await import("../scripts/authenticate-claude-subscription.ts");

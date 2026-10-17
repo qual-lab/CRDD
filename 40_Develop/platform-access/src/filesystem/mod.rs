@@ -5,6 +5,7 @@
 //! @trace ARCH-000011
 //! @boundary Native WorkerとWindows APIの間。
 
+pub(crate) mod entry_observation;
 pub(crate) mod host_namespace;
 // 旧windows Moduleに適用されていたfixture専用処理の許容を移管先へ保持する。
 #[allow(dead_code)]

@@ -9,10 +9,12 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { StringDecoder } from "node:string_decoder";
+import { snapshotPlainRecord } from "../../domain-model/src/index.ts";
+import { isSupportedCrddRuntimeGitObjectId } from "../src/diagnostics/release-identity-grammar.ts";
 import { inspectMcpOrchestratorObjectiveResult } from "../../mcp-server/src/index.ts";
 import { inspectOrchestratorStateQueryResult } from "../../orchestrator/src/state/query-contract.ts";
-import { startOwnedWindowsProcessTreeTermination } from "../src/docker-execution/owned-process.ts";
-import { dockerProcessControllerPublicCompletionReasons } from "../src/docker-execution/process-controller-result-reasons.ts";
+import { startWindowsChildTreeTermination } from "../../platform-access/src/index.ts";
+import { dockerProcessControllerPublicCompletionReasons } from "../src/provider/execution-result-reasons.ts";
 import { inspectRepositoryIdentityCandidate } from "../src/repository-operation/binding.ts";
 
 /**
@@ -772,15 +774,15 @@ function parseKnownDiagnosticLine(
  *
  * @responsibility Public Mcp Processの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000004
- * @input child: ChildProcessWithoutNullStreams、options: Readonly<{ maximumOutputBytes: number; timeoutMs: number; terminationGraceMs?: number; closeInputWhen?: (output: Readonly<{ stdout: string }>) => boolean; onVerifiedRuntimeEvent?: ( event: VerifiedRuntimeEvent, ) => "continue" | "close_input" | "terminate_process_tree"; startProcessTreeTermination?: typeof startOwnedWindowsProcessTreeTermination; }>
+ * @input child: ChildProcessWithoutNullStreams、options: Readonly<{ maximumOutputBytes: number; timeoutMs: number; terminationGraceMs?: number; closeInputWhen?: (output: Readonly<{ stdout: string }>) => boolean; onVerifiedRuntimeEvent?: ( event: VerifiedRuntimeEvent, ) => "continue" | "close_input" | "terminate_process_tree"; startProcessTreeTermination?: typeof startWindowsChildTreeTermination; }>
  * @returns Promise<PublicProcessObservation>を返す。
- * @precondition 「child: ChildProcessWithoutNullStreams、options: Readonly<{ maximumOutputBytes: number; timeoutMs: number; terminationGraceMs?: number; closeInputWhen?: (output: Readonly<{ stdout: string }>) => boolean; onVerifiedRuntimeEvent?: ( event: VerifiedRuntimeEvent, ) => "continue" | "close_input" | "terminate_process_tree"; startProcessTreeTermination?: typeof startOwnedWindowsProcessTreeTermination; }>」がobservePublicMcpProcessの入力契約を満たす。
+ * @precondition 「child: ChildProcessWithoutNullStreams、options: Readonly<{ maximumOutputBytes: number; timeoutMs: number; terminationGraceMs?: number; closeInputWhen?: (output: Readonly<{ stdout: string }>) => boolean; onVerifiedRuntimeEvent?: ( event: VerifiedRuntimeEvent, ) => "continue" | "close_input" | "terminate_process_tree"; startProcessTreeTermination?: typeof startWindowsChildTreeTermination; }>」がobservePublicMcpProcessの入力契約を満たす。
  * @postcondition observePublicMcpProcessの責務を完了した結果だけを返す。
- * @effect N/A: observePublicMcpProcessは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @effect 所有子のstdin終了、必要時のchild.killと固定taskkill補助の起動・清掃を行う。新しいProvider依頼やDocker資源操作は行わない。
  * @failure observePublicMcpProcessは入力不正または下位処理の失敗を呼出し側へ返す。
  * @invariant observePublicMcpProcessは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: observePublicMcpProcessはProcess内の同一Subsystemで完結する。
- * @security N/A: observePublicMcpProcessはAuthority、秘密値または信頼判断を扱わない。
+ * @boundary 所有MCP子のstream・ProcessとPlatform Accessの固定終了補助。要求発行、補助成功、元子closeを別に観測する。
+ * @security 呼出し元所有子だけを対象とし、補助成功をDocker清掃やProvider終了の証明にしない。全体判定は元子joinも要求する。
  * @concurrency observePublicMcpProcessは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
  */
 export async function observePublicMcpProcess(
@@ -793,7 +795,7 @@ export async function observePublicMcpProcess(
     onVerifiedRuntimeEvent?: (
       event: VerifiedRuntimeEvent,
     ) => "continue" | "close_input" | "terminate_process_tree";
-    startProcessTreeTermination?: typeof startOwnedWindowsProcessTreeTermination;
+    startProcessTreeTermination?: typeof startWindowsChildTreeTermination;
   }>,
 ): Promise<PublicProcessObservation> {
   let stdout = "";
@@ -855,8 +857,8 @@ export async function observePublicMcpProcess(
       try {
         const killer = (
           options.startProcessTreeTermination ??
-          startOwnedWindowsProcessTreeTermination
-        )(Number(child.pid));
+          startWindowsChildTreeTermination
+        )(child);
         if (!killer) return false;
         forcedTerminationIssued = await killer.started(
           Math.min(grace, remainingToFinalDeadline()),
@@ -1398,7 +1400,7 @@ function runtimeEventsExactlyMatch(
  *
  * @responsibility Provider境界の設定・終了診断とProcess開始通知の相関、重複および欠測判定を所有する。
  * @trace ARCH-000008
- * @input observation: PublicProcessObservation、settlementRequired: boolean
+ * @input observation: 公開Process観測、processCompletionRequired: 正常完了の必須判定、settlementRequired: 完全な終了診断の必須判定。
  * @returns 境界診断が期待する閉集合と一致する場合だけtrueを返す。
  * @precondition 観測値は同じPublic MCP Processから取得されている。
  * @postcondition 診断を開始通知へ結合できない場合はfalseへ閉じる。
@@ -1411,7 +1413,8 @@ function runtimeEventsExactlyMatch(
  */
 function providerBoundaryDiagnosticsMatch(
   observation: PublicProcessObservation,
-  settlementRequired: boolean,
+  processCompletionRequired: boolean,
+  settlementRequired = processCompletionRequired,
 ) {
   let eventIndex = 0;
   for (const started of observation.processStartEvents) {
@@ -1435,7 +1438,7 @@ function providerBoundaryDiagnosticsMatch(
       if (
         settled.providerContainerCreatedObserved !== true ||
         settled.providerProcessStartedObserved !== true ||
-        (settlementRequired
+        (processCompletionRequired
           ? settled.providerProcessCompletionObserved !== true
           : settled.providerProcessCompletionObserved !== true &&
             settled.processTreeTerminationObserved !== true) ||
@@ -1457,9 +1460,9 @@ function providerBoundaryDiagnosticsMatch(
  *
  * @responsibility Orchestrator Real Provider Reportの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000004
- * @input input: Readonly<{ runId: string; sourceIdentity: JsonRecord; distributionIdentity: JsonRecord; normalRuns: readonly NormalObjectiveRun[]; cancellation: PublicProcessObservation; cancellationRequestedAfterProcessStart: boolean; cancellationExpected: ExpectedObjective; cancellationSnapshotBefore: RepositorySnapshot; cancellationSnapshotAfter: RepositorySnapshot; recoverySettlement: RecoverySettlementRun; dockerRecovery: JsonRecord; }>
+ * @input 正常実行・取消・同exact操作の公開再入場、Process診断、Repository前後観測と出所Identity。
  * @returns buildOrchestratorRealProviderReportの計算結果を返す。
- * @precondition 「input: Readonly<{ runId: string; sourceIdentity: JsonRecord; distributionIdentity: JsonRecord; normalRuns: readonly NormalObjectiveRun[]; cancellation: PublicProcessObservation; cancellationRequestedAfterProcessStart: boolean; cancellationExpected: ExpectedObjective; cancellationSnapshotBefore: RepositorySnapshot; cancellationSnapshotAfter: RepositorySnapshot; recoverySettlement: RecoverySettlementRun; dockerRecovery: JsonRecord; }>」がbuildOrchestratorRealProviderReportの入力契約を満たす。
+ * @precondition 各観測は同じ公開実行へ相関し、旧global Inventoryの空値を終了根拠として渡さない。
  * @postcondition buildOrchestratorRealProviderReportの責務を完了した結果だけを返す。
  * @effect N/A: buildOrchestratorRealProviderReportは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: buildOrchestratorRealProviderReportは独自の失敗分岐を所有しない。
@@ -1471,8 +1474,8 @@ function providerBoundaryDiagnosticsMatch(
 export function buildOrchestratorRealProviderReport(
   input: Readonly<{
     runId: string;
-    sourceIdentity: JsonRecord;
-    distributionIdentity: JsonRecord;
+    executionIdentity: unknown;
+    runtimeSource: unknown;
     normalRuns: readonly NormalObjectiveRun[];
     cancellation: PublicProcessObservation;
     cancellationRequestedAfterProcessStart: boolean;
@@ -1480,10 +1483,57 @@ export function buildOrchestratorRealProviderReport(
     cancellationSnapshotBefore: RepositorySnapshot;
     cancellationSnapshotAfter: RepositorySnapshot;
     recoverySettlement: RecoverySettlementRun;
-    dockerRecovery: JsonRecord;
   }>,
 ) {
   const problems: string[] = [];
+  const execution = snapshotPlainRecord(
+    input.executionIdentity,
+    new Set(["commit", "tree"]),
+  );
+  const executionIdentity =
+    execution &&
+    isSupportedCrddRuntimeGitObjectId(execution.commit) &&
+    isSupportedCrddRuntimeGitObjectId(execution.tree)
+      ? Object.freeze({ commit: execution.commit, tree: execution.tree })
+      : null;
+  if (!executionIdentity) problems.push("execution_identity_invalid");
+  const source = snapshotPlainRecord(
+    input.runtimeSource,
+    new Set([
+      "scope",
+      "sourceSha256",
+      "crddCommit",
+      "crddTree",
+      "mcpEntrySourceSha256",
+      "observationStatus",
+      "signatureRequired",
+    ]),
+  );
+  const runtimeSource =
+    source &&
+    source.scope === "crdd-development-source-snapshot/v1" &&
+    typeof source.sourceSha256 === "string" &&
+    /^[a-f0-9]{64}$/u.test(source.sourceSha256) &&
+    typeof source.mcpEntrySourceSha256 === "string" &&
+    /^[a-f0-9]{64}$/u.test(source.mcpEntrySourceSha256) &&
+    isSupportedCrddRuntimeGitObjectId(source.crddCommit) &&
+    isSupportedCrddRuntimeGitObjectId(source.crddTree) &&
+    typeof source.observationStatus === "string" &&
+    ["matched", "changed", "unavailable"].includes(source.observationStatus) &&
+    source.signatureRequired === false
+      ? Object.freeze({
+          scope: source.scope,
+          sourceSha256: source.sourceSha256,
+          crddCommit: source.crddCommit,
+          crddTree: source.crddTree,
+          mcpEntrySourceSha256: source.mcpEntrySourceSha256,
+          observationStatus: source.observationStatus,
+          signatureRequired: false,
+        })
+      : null;
+  if (!runtimeSource) problems.push("runtime_source_invalid");
+  else if (runtimeSource.observationStatus !== "matched")
+    problems.push(`runtime_source_${runtimeSource.observationStatus}`);
   const processProblems = (prefix: string, value: PublicProcessObservation) => {
     if (!value.pidIssued) problems.push(`${prefix}_pid_not_issued`);
     if (!value.joined) problems.push(`${prefix}_child_not_joined`);
@@ -1503,10 +1553,10 @@ export function buildOrchestratorRealProviderReport(
       problems.push(`normal_${index + 1}_provider_boundary_mismatch`);
   });
   processProblems("cancellation", input.cancellation);
-  // stdin EOF is a parent-transport loss cancellation request. The provider
-  // boundary may remain unsettled until the exact recovery obligation is
-  // processed by a later runtime entry.
-  if (!providerBoundaryDiagnosticsMatch(input.cancellation, false))
+  // stdin EOFによる取消は完全なProvider終了診断を必須とする。
+  // 正常完了またはProcess Tree終了を確認するが、上位の回復義務は別に保持する。
+  // 親喪失試験では旧親の終了診断を仮定せず、後続の同一対象再入場で確認する。
+  if (!providerBoundaryDiagnosticsMatch(input.cancellation, false, true))
     problems.push("cancellation_provider_boundary_mismatch");
   processProblems("recovery_reentry", input.recoverySettlement.reentry);
   if (
@@ -1725,22 +1775,22 @@ export function buildOrchestratorRealProviderReport(
   );
   if (recovery.reentry.responses.length !== 1 || recoveryResult === null)
     problems.push("recovery_reentry_response_envelope");
-  if (
-    recoveryResult?.status !== "blocked" ||
-    recoveryResult.reason !== "orchestrator_acceptance_decision_required" ||
-    recoveryResult.requestId !== recovery.expected.requestId ||
-    recoveryResult.projectId !== recovery.expected.projectId ||
-    recoveryResult.milestoneId !== recovery.expected.milestoneId ||
-    !recoveryResult.projection ||
-    typeof recoveryResult.projection !== "object" ||
-    (recoveryResult.projection as JsonRecord).milestoneState !== "executing" ||
-    (recoveryResult.projection as JsonRecord).qualityState !==
-      "integration_pending" ||
-    recoveryResult.cleanupConfirmed !== true ||
-    recoveryResult.manualRecoveryRequired !== false ||
-    recoveryResult.processRestartRequired !== false ||
-    recoveryResult.effectState !== "settled"
-  )
+  const isRecoveryReentryResultMatched =
+    recoveryResult?.status === "blocked" &&
+    recoveryResult.reason === "orchestrator_acceptance_decision_required" &&
+    recoveryResult.requestId === recovery.expected.requestId &&
+    recoveryResult.projectId === recovery.expected.projectId &&
+    recoveryResult.milestoneId === recovery.expected.milestoneId &&
+    recoveryResult.projection !== null &&
+    typeof recoveryResult.projection === "object" &&
+    (recoveryResult.projection as JsonRecord).milestoneState === "executing" &&
+    (recoveryResult.projection as JsonRecord).qualityState ===
+      "integration_pending" &&
+    recoveryResult.cleanupConfirmed === true &&
+    recoveryResult.manualRecoveryRequired === false &&
+    recoveryResult.processRestartRequired === false &&
+    recoveryResult.effectState === "settled";
+  if (!isRecoveryReentryResultMatched)
     problems.push("recovery_reentry_semantic_result");
   if (
     !recovery.expected.reviewerProvider ||
@@ -1840,8 +1890,7 @@ export function buildOrchestratorRealProviderReport(
     recovery.parentLoss.processTreeTerminationConfirmed &&
     recovery.parentLoss.joined &&
     !recovery.parentLoss.inputEofIssued &&
-    recoveryResult?.status === "blocked" &&
-    recoveryResult.reason === "orchestrator_acceptance_decision_required" &&
+    isRecoveryReentryResultMatched &&
     recovery.reentry.joined;
   if (!isRecoverySettlementExercised)
     problems.push("recovery_settlement_lifecycle_mismatch");
@@ -1900,43 +1949,43 @@ export function buildOrchestratorRealProviderReport(
       input.cancellationSnapshotAfter.headTree;
   if (isCanonicalRepositoryChanged)
     problems.push("cancellation_canonical_repository_changed");
-  if (
-    input.dockerRecovery.status !== "completed" ||
-    input.dockerRecovery.reason !== "docker_task_runtime_state_clean" ||
-    input.dockerRecovery.manualRecoveryRequired !== false
-  )
-    problems.push("post_run_recovery_state_not_clean");
-
   const isCompleted = problems.length === 0;
+  const publicResults = [...normalResults, cancellationResult, recoveryResult];
   const cleanupConfirmed =
     input.normalRuns.every((operationRun) => operationRun.observation.joined) &&
     input.cancellation.joined &&
     input.recoverySettlement.parentLoss.joined &&
     input.recoverySettlement.reentry.joined &&
-    input.dockerRecovery.status === "completed" &&
-    input.dockerRecovery.reason === "docker_task_runtime_state_clean" &&
-    input.dockerRecovery.manualRecoveryRequired === false;
+    isRecoverySettlementExercised &&
+    publicResults.every((result) => result?.cleanupConfirmed === true);
   return Object.freeze({
     contract: "crdd-coordinator/orchestrator-real-provider-verification",
-    contractRevision: 10,
+    contractRevision: 12,
     status: isCompleted ? "completed" : "blocked",
     reason: isCompleted
       ? "orchestrator_public_mcp_real_providers_cancellation_and_recovery_verified"
       : "orchestrator_public_mcp_verification_incomplete",
     problems: Object.freeze(problems),
     cleanupConfirmed,
-    manualRecoveryRequired: !cleanupConfirmed,
+    manualRecoveryRequired:
+      !cleanupConfirmed ||
+      publicResults.some((result) => result?.manualRecoveryRequired !== false),
     processRestartRequired:
       input.normalRuns.some(
         (operationRun) => !operationRun.observation.joined,
       ) ||
       !input.cancellation.joined ||
       !input.recoverySettlement.parentLoss.joined ||
-      !input.recoverySettlement.reentry.joined,
-    effectState: isCompleted ? "settled" : "unknown",
+      !input.recoverySettlement.reentry.joined ||
+      publicResults.some((result) => result?.processRestartRequired !== false),
+    effectState:
+      isRecoverySettlementExercised &&
+      publicResults.every((result) => result?.effectState === "settled")
+        ? "settled"
+        : "unknown",
     runId: input.runId,
-    sourceIdentity: input.sourceIdentity,
-    distributionIdentity: input.distributionIdentity,
+    executionIdentity,
+    runtimeSource,
     providers: Object.freeze(
       input.normalRuns.map((operationRun) => {
         const event = operationRun.observation.processStartEvents.find(
@@ -2004,21 +2053,18 @@ export function buildOrchestratorRealProviderReport(
       recoveryObligations: cancellationResult?.recoveryObligations ?? null,
       exactRecoveryObligationObserved:
         isExactCancellationRecoveryObligationObserved,
-      recoveryInventoryCleanAfterRun:
-        input.dockerRecovery.status === "completed" &&
-        input.dockerRecovery.reason === "docker_task_runtime_state_clean" &&
-        input.dockerRecovery.manualRecoveryRequired === false,
       childJoined: input.cancellation.joined,
       canonicalRepositoryChanged: isCanonicalRepositoryChanged,
       snapshotBeforeSha256: input.cancellationSnapshotBefore.sha256,
       snapshotAfterSha256: input.cancellationSnapshotAfter.sha256,
     }),
-    dockerRecoveryAfterRun: Object.freeze({
-      status: input.dockerRecovery.status ?? null,
-      reason: input.dockerRecovery.reason ?? null,
-      manualRecoveryRequired:
-        input.dockerRecovery.manualRecoveryRequired ?? null,
-      recoverySettlementExercised: isRecoverySettlementExercised,
+    recoveryOperationAfterRun: Object.freeze({
+      verificationScope: "exact_operation",
+      currentOperationFinalized: isRecoverySettlementExercised,
+      cleanupConfirmed: recoveryResult?.cleanupConfirmed ?? null,
+      manualRecoveryRequired: recoveryResult?.manualRecoveryRequired ?? null,
+      processRestartRequired: recoveryResult?.processRestartRequired ?? null,
+      effectState: recoveryResult?.effectState ?? null,
       parentProcessTerminationObserved:
         recovery.parentLoss.forcedTerminationIssued &&
         recovery.parentLoss.joined,
@@ -2027,8 +2073,7 @@ export function buildOrchestratorRealProviderReport(
       lifecyclePhases: Object.freeze(
         recovery.reentry.recoveryEvents.map((event) => event.phase),
       ),
-      freshPublicMcpReentryCompleted:
-        recoveryResult?.status === "completed" && recovery.reentry.joined,
+      freshPublicMcpReentryVerified: isRecoverySettlementExercised,
       canonicalRepositoryChanged: recoveryChangedPaths.length !== 0,
     }),
     canonicalRepositoryObservation: Object.freeze({

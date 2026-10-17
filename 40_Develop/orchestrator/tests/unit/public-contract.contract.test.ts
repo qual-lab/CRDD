@@ -46,7 +46,7 @@ test("Execution Portは既存Single Task結果契約を意味変更せず所有�
     ORCHESTRATOR_SINGLE_TASK_ADAPTER_CONTRACT,
     "crdd-coordinator/orchestrator-single-task-adapter",
   );
-  assert.equal(ORCHESTRATOR_SINGLE_TASK_ADAPTER_CONTRACT_REVISION, 2);
+  assert.equal(ORCHESTRATOR_SINGLE_TASK_ADAPTER_CONTRACT_REVISION, 3);
 });
 
 /**

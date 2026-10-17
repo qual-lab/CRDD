@@ -10,16 +10,16 @@ import { fileURLToPath } from "node:url";
 import {
   createWindowsNativeHelperEnvironment,
   WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE,
-} from "../host-execution/windows-child-environment.ts";
+} from "../../../platform-access/src/index.ts";
 import { isSupportedWindowsAbsolutePathCandidate } from "../authority/root-path-lexical.ts";
 import { borrowRuntimeOwnedDevelopmentNativeObservation } from "../task/development-measurement-session.ts";
 import {
-  beginPlatformAccessArtifactSigningObservation,
-  observePlatformAccessReleaseArtifactCandidate,
+  beginPlatformAccessArtifactObservation,
+  beginPlatformAccessBootstrapObservation,
+  observePlatformAccessArtifactCandidate,
   PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH,
-  verifyPlatformAccessArtifactSigningObservation,
-} from "../diagnostics/platform-access-release.ts";
-import { verifyBundledCoordinatorPackageFromFixedManifestCandidate } from "./package-verification.ts";
+  verifyPlatformAccessArtifactObservation,
+} from "../../../platform-access/src/index.ts";
 import {
   createCandidateStoreObservationRequest,
   createRuntimeStateObservationRequest,
@@ -135,7 +135,7 @@ function blocked(
     selectedUserBindingVerified: false,
     protectionVerified: false,
     stableIdentityObserved: false,
-    releaseIdentityVerified: false,
+    nativeSourceRevision: null,
     artifactVerifiedBeforeAndAfter: false,
     helperSpawnAttempts: processEffectIssued ? 1 : 0,
     helperExitConfirmed: effects.helperExitConfirmed === true,
@@ -188,9 +188,9 @@ function rootPathCandidate(kind: "candidate_store" | "runtime_state") {
  *
  * @responsibility Runtime 所有 Windows Protected Rootの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000015
- * @input kind: "candidate_store" | "runtime_state"、initializeIfMissing: unknown、evaluationTime: unknown、developmentContext: unknown
+ * @input kind: "candidate_store" | "runtime_state"、initializeIfMissing: unknown、developmentContext: unknown
  * @returns inspectRuntimeOwnedWindowsProtectedRootの計算結果を返す。
- * @precondition 「kind: "candidate_store" | "runtime_state"、initializeIfMissing: unknown、evaluationTime: unknown、developmentContext: unknown」がinspectRuntimeOwnedWindowsProtectedRootの入力契約を満たす。
+ * @precondition 「kind: "candidate_store" | "runtime_state"、initializeIfMissing: unknown、developmentContext: unknown」がinspectRuntimeOwnedWindowsProtectedRootの入力契約を満たす。
  * @postcondition inspectRuntimeOwnedWindowsProtectedRootの責務を完了した結果だけを返す。
  * @effect inspectRuntimeOwnedWindowsProtectedRootは外部ProcessまたはRuntime境界の操作を呼び出す。
  * @failure N/A: inspectRuntimeOwnedWindowsProtectedRootは独自の失敗分岐を所有しない。
@@ -202,7 +202,6 @@ function rootPathCandidate(kind: "candidate_store" | "runtime_state") {
 function inspectRuntimeOwnedWindowsProtectedRoot(
   kind: "candidate_store" | "runtime_state",
   initializeIfMissing: unknown,
-  evaluationTime: unknown,
   developmentContext?: unknown,
 ) {
   if (process.platform !== "win32")
@@ -227,41 +226,36 @@ function inspectRuntimeOwnedWindowsProtectedRoot(
     );
   const distributionRoot =
     development?.distributionRoot ?? bundledDistributionRoot;
-  const packageVerification = development
-    ? development.verification
-    : verifyBundledCoordinatorPackageFromFixedManifestCandidate({
-        evaluationTime,
-      });
-  if (
-    packageVerification.status !== "candidate" ||
-    (!development &&
-      (!("runtimeOwnedReleaseTrustConfirmed" in packageVerification) ||
-        packageVerification.runtimeOwnedReleaseTrustConfirmed !== true ||
-        !("runtimeExecutionIdentityRuntimeOwned" in packageVerification) ||
-        packageVerification.runtimeExecutionIdentityRuntimeOwned !== true ||
-        !("crddDistributionConfirmed" in packageVerification) ||
-        packageVerification.crddDistributionConfirmed !== true))
-  ) {
-    return blocked("candidate_store_windows_adapter_release_not_verified");
-  }
+  const bootstrap = development
+    ? null
+    : beginPlatformAccessBootstrapObservation(distributionRoot);
+  const expectedArtifact = development
+    ? development.verification.status === "candidate"
+      ? development.verification.platformAccessArtifact
+      : null
+    : bootstrap?.artifact;
+  if (!expectedArtifact)
+    return blocked(
+      "candidate_store_windows_adapter_artifact_bootstrap_unavailable",
+    );
   const artifactBefore =
-    observePlatformAccessReleaseArtifactCandidate(distributionRoot);
-  const signingObservation =
-    beginPlatformAccessArtifactSigningObservation(distributionRoot);
+    observePlatformAccessArtifactCandidate(distributionRoot);
+  const artifactObservation = development
+    ? beginPlatformAccessArtifactObservation(distributionRoot)
+    : bootstrap;
   if (
     artifactBefore.status !== "candidate" ||
-    !signingObservation ||
-    !sameArtifact(
-      packageVerification.platformAccessArtifact,
-      artifactBefore.artifact,
-    ) ||
-    !sameArtifact(artifactBefore.artifact, signingObservation.artifact)
+    !artifactObservation ||
+    !sameArtifact(expectedArtifact, artifactBefore.artifact) ||
+    !sameArtifact(artifactBefore.artifact, artifactObservation.artifact)
   ) {
     return blocked("candidate_store_windows_adapter_artifact_not_verified");
   }
   const environment = createWindowsNativeHelperEnvironment();
   if (!environment)
     return blocked("candidate_store_windows_adapter_environment_unavailable");
+  if (!verifyPlatformAccessArtifactObservation(artifactObservation.token))
+    return blocked("candidate_store_windows_adapter_artifact_changed");
   const selectedExecutable = development
     ? path.join(
         distributionRoot,
@@ -296,7 +290,7 @@ function inspectRuntimeOwnedWindowsProtectedRoot(
       }),
     );
   }
-  if (!verifyPlatformAccessArtifactSigningObservation(signingObservation.token))
+  if (!verifyPlatformAccessArtifactObservation(artifactObservation.token))
     return blocked(
       "candidate_store_windows_adapter_artifact_changed",
       Object.freeze({
@@ -306,7 +300,7 @@ function inspectRuntimeOwnedWindowsProtectedRoot(
       }),
     );
   const artifactAfter =
-    observePlatformAccessReleaseArtifactCandidate(distributionRoot);
+    observePlatformAccessArtifactCandidate(distributionRoot);
   if (
     artifactAfter.status !== "candidate" ||
     !sameArtifact(artifactBefore.artifact, artifactAfter.artifact) ||
@@ -368,11 +362,10 @@ function inspectRuntimeOwnedWindowsProtectedRoot(
     ...observation,
     reason: "runtime_owned_windows_candidate_store_observed",
     rootCapability,
-    releaseIdentityVerified: development === null,
-    nativeReleaseIdentityVerified: true,
+    nativeSourceRevision: null,
     executionSourceKind: development
       ? "fixed_development_candidate"
-      : "signed_release",
+      : "fixed_bootstrap_native_artifact",
     artifactVerifiedBeforeAndAfter: true,
     helperSpawnAttempts: 1,
     helperExitConfirmed: true,
@@ -387,9 +380,9 @@ function inspectRuntimeOwnedWindowsProtectedRoot(
  *
  * @responsibility Runtime 所有 Windows 候補 Storeの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000015
- * @input initializeIfMissing: unknown、evaluationTime: unknown、developmentContext: unknown
+ * @input initializeIfMissing: unknown、developmentContext: unknown
  * @returns inspectRuntimeOwnedWindowsCandidateStoreの計算結果を返す。
- * @precondition 「initializeIfMissing: unknown、evaluationTime: unknown、developmentContext: unknown」がinspectRuntimeOwnedWindowsCandidateStoreの入力契約を満たす。
+ * @precondition 「initializeIfMissing: unknown、developmentContext: unknown」がinspectRuntimeOwnedWindowsCandidateStoreの入力契約を満たす。
  * @postcondition inspectRuntimeOwnedWindowsCandidateStoreの責務を完了した結果だけを返す。
  * @effect N/A: inspectRuntimeOwnedWindowsCandidateStoreは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: inspectRuntimeOwnedWindowsCandidateStoreは独自の失敗分岐を所有しない。
@@ -400,13 +393,11 @@ function inspectRuntimeOwnedWindowsProtectedRoot(
  */
 export function inspectRuntimeOwnedWindowsCandidateStore(
   initializeIfMissing: unknown,
-  evaluationTime: unknown,
   developmentContext?: unknown,
 ) {
   return inspectRuntimeOwnedWindowsProtectedRoot(
     "candidate_store",
     initializeIfMissing,
-    evaluationTime,
     developmentContext,
   );
 }
@@ -416,9 +407,9 @@ export function inspectRuntimeOwnedWindowsCandidateStore(
  *
  * @responsibility Runtime 所有 Windows Runtime 状態の観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000015
- * @input initializeIfMissing: unknown、evaluationTime: unknown、developmentContext: unknown
+ * @input initializeIfMissing: unknown、developmentContext: unknown
  * @returns inspectRuntimeOwnedWindowsRuntimeStateの計算結果を返す。
- * @precondition 「initializeIfMissing: unknown、evaluationTime: unknown、developmentContext: unknown」がinspectRuntimeOwnedWindowsRuntimeStateの入力契約を満たす。
+ * @precondition 「initializeIfMissing: unknown、developmentContext: unknown」がinspectRuntimeOwnedWindowsRuntimeStateの入力契約を満たす。
  * @postcondition inspectRuntimeOwnedWindowsRuntimeStateの責務を完了した結果だけを返す。
  * @effect N/A: inspectRuntimeOwnedWindowsRuntimeStateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: inspectRuntimeOwnedWindowsRuntimeStateは独自の失敗分岐を所有しない。
@@ -429,13 +420,11 @@ export function inspectRuntimeOwnedWindowsCandidateStore(
  */
 export function inspectRuntimeOwnedWindowsRuntimeState(
   initializeIfMissing: unknown,
-  evaluationTime: unknown,
   developmentContext?: unknown,
 ) {
   return inspectRuntimeOwnedWindowsProtectedRoot(
     "runtime_state",
     initializeIfMissing,
-    evaluationTime,
     developmentContext,
   );
 }
@@ -536,8 +525,11 @@ export function describeCandidateStoreWindowsAdapterContract() {
       "create_missing_exact_selected_user_and_system_protected_dacl_without_repair",
     observation:
       "stable_fixed_volume_non_reparse_owner_selected_user_exact_protected_dacl",
-    releaseVerification:
-      "fixed_signed_manifest_release_identity_and_artifact_hash_before_and_after",
+    artifactVerification: Object.freeze({
+      normal: "fixed_bootstrap_hash_and_artifact_identity_before_and_after",
+      development:
+        "fixed_development_borrowed_native_observation_and_artifact_identity_before_and_after",
+    }),
     callerSuppliedPathAccepted: false,
     inheritedEnvironmentTrustedDirectly: false,
     environment: WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE,

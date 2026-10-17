@@ -46,7 +46,6 @@ import {
   type OrchestratorReplanInput,
 } from "../../../orchestrator/src/index.ts";
 import { runOrchestratorObjective } from "../../../orchestrator/src/objective/intake-dependencies.ts";
-import { createOrchestratorExecutionAuthorizationAdapter } from "../../../orchestrator/src/index.ts";
 import { createOrchestratorDecisionCapabilityAdapter } from "../../../orchestrator/src/index.ts";
 
 const revision = "a".repeat(40);
@@ -237,10 +236,6 @@ function fixture(t: test.TestContext) {
         })),
     observeLeaseOwner: () => ({ status: "absent" }),
     execution: {
-      authorization: createOrchestratorExecutionAuthorizationAdapter({
-        issueRuntimeCapability: () => Object.freeze({}),
-        revokeRuntimeCapability: () => true,
-      }),
       runSingleTaskAttempt: async (input: {
         attemptId: string;
         operationId: string;
@@ -490,10 +485,6 @@ test("bounded parallel attempts are evaluated by one integrated accepted result"
       })),
     observeLeaseOwner: () => ({ status: "absent" }),
     execution: {
-      authorization: createOrchestratorExecutionAuthorizationAdapter({
-        issueRuntimeCapability: () => Object.freeze({}),
-        revokeRuntimeCapability: () => true,
-      }),
       executionObservation: {
         recordTaskAttempt: (
           event: Parameters<typeof recordOrchestratorExecutionEvent>[1],

@@ -4,6 +4,20 @@
 詳細設計領域: orchestrator
 状態: Candidate
 
+Windows adapterの未使用な`observeContainerHostRecoveryState`と、それだけに依存したcleanup部分保証を撤去する。旧AppDataの全域在庫をOrchestratorへ公開せず、現在Task／回復の本番接続はCoordinatorの固定Repository APIを用いる。正本の`container_host`境界とfixed_image／network／mount／process／cleanupの必要保証は維持する。候補operationの撤去を、必要保証の免除や境界全体の完成へ読み替えない。
+
+## 現在RepositoryのDocker回復接続候補
+
+本番組立ては固定Repositoryを検証したRootをCoordinatorの用途限定公開APIへ渡す。回復と相関解決に旧AppDataの全域探索を使わない。相関解決は現在stateの`recoveryCorrelationId`とexact回復IDを使用し、内部Operation IDへfallbackしない。現在状態全数を正常に読めた場合だけmatched／明示不存在を返し、重複・別consumer・保存途中・読取／排他解放不明は停止する。不存在は元Task成功・Provider未発行の証明ではない。
+
+Docker回復は同じ必須AbortSignalを下位へ渡して完了を待つ。固定診断が`awaiting_delivery`で、exact ID・Docker／Host／排他／履歴確認・配送待ち・操作保持の全条件を満たす場合だけ、上位の技術回収済みへ進む。操作除去・Task回復完了をこの時点でtrueにしない。runtime_processの既存判定とは別に扱う。
+
+待機前にProcess相関ID、Queueの固定値、状態世代と対象義務を捕捉し、待機後に取消・fresh読戻しの差を検査する。差または観測不能では上位settled保存・ACKを発行しない。Process ID一致を生存・非poison保証へ拡張せず、最終競合拒否は既存の期待世代付き保存を使う。既存の上位settled保存→ACK耐久保存→下位終了整理の順を維持し、ACK各段でも取消・現在値を再確認する。耐久済み段階は巻き戻さない。新Owner、Lock、ACK Schemaまたは回復Frameworkは追加しない。
+
+この接続はSource実装済みの候補であり、固定Repositoryの本番組立て・現在相関解決・上位の非同期待機へ接続している。局所試験だけでは完成を主張せず、待機中の取消・状態／Queue変更・拒否とACK各段階の回帰および独立レビューを完了条件に含める。限定unknown終了Class、実Dockerおよび全体E2Eは別の未成立条件として保持する。
+
+2026-10-14の人間判断により、通常実行は[Coordinatorの実行・追跡・配布の三分離](../coordinator/01_Architecture.md#9-通常実行追跡正式配布の分離)へ接続する。CRDD署名済みRuntimeを一回起動するCapabilityの発行・消費・失効は不要とし、現在の要求認可、Repository／用途、元Task／Attemptと取消・結果・回復の相関を保持する。Commit／Hashを新しい実行Capabilityにしない。`operation-composition.ts`の旧issuer／revokerと署名専用Port／Adapterは撤去済みであり、以下に残る署名閉包・署名実境界の旧記述は現在の通常実行Gateへ使用しない。未署名固定入口・必要Artifact・現在許可と必要な実Provider境界の本番接続・検証は、現在の未完了条件として維持する。
+
 本候補はOrchestratorの意味・公開操作をOrchestratorへ移す詳細設計である。物理的な詳細設計領域は`orchestrator`へ統一する。既存Semantic Keyと通信契約のIdentityは、物理配置とは分けて保持する。旧版のCoveredや保存切替の検証結果を、新配置の実装接続・実境界の成立証明には用いない。
 
 段階5Cでは上位Attemptの記録変換を本領域の`src/task/execution-intelligence-adapter.ts`へ移し、公開入口から利用する。認証済みPrincipalと受入判断の一致検査も`src/decision/acceptance-authority-adapter.ts`で所有し、本領域の本番組立ては同じ公開入口を利用する。物理親Directoryは`40_Develop/orchestrator`、Package名は`@qual-lab/crdd-orchestrator`へ切替済みである。共通実行・通知と全利用側の接続確認は未完了である。下位Coordinatorの共通Operation記録と上位Attempt記録を重複発行しない責務は維持する。
@@ -18,7 +32,7 @@
 
 現在状態・Queue・Leaseは`src/storage/current-state-store.ts`、終了要約と保持処置は`src/storage/history-store.ts`が所有する。本番利用側は`src/storage/index.ts`から現在の保存操作だけを呼ぶ。OSの実効排他はCoordinatorの`src/host-runtime/index.ts`を利用し、業務保存を下位へ再exportしない。上位Taskの回復終了確定は`src/task/docker-recovery-settlement.ts`が所有し、exact保存世代・Task・Attempt・Operation・回復義務と耐久応答を照合して既存のCoordinator内部資源処置へ委譲する。安定Symbol IDと既存QAへのRelationは配置変更だけで改名しない。物理移管と、Repositoryの保存Root・設定名の切替は区別し、後者の未完了を前者の成立から推定しない。
 
-上位のProject／Task／Attempt／Revision相関は`src/task/execution-authorization-adapter.ts`が所有する。実行Capabilityの発行と未使用失効はCoordinatorの既存操作へ委譲し、上位Adapterに下位Authorityの生成・保存を移さない。固定Source閉包は新Ownerでの相関検査と不透明Capability搬送を引き続き検査する。上位本番組立ては本領域へ移管済みである。共通実行・通知の最終接続は未完了である。
+上位のProject／Task／Attempt／Revision相関は`src/task/dispatch.ts`と`src/task/execute-attempt.ts`が所有し、本番組立ては`src/operation-composition.ts`が接続する。通常実行の旧署名資格引数・発行・消費と専用Port／Adapterは撤去済みである。現在のTask・用途別許可と相関入力をCoordinatorへ渡し、上位Adapterに下位Authorityの生成・保存を移さない。Git／Artifact追跡は同一性と相関だけに用いる。上位本番組立ての物理移管は確認済みだが、旧資格3 API・専用静的検査・任意署名Toolの再接続と、共通実行・通知の最終検証は未完了である。
 
 人間判断の一回利用秘密値と照合Hashは`src/decision/decision-capability-adapter.ts`が生成する。上位判断の発行・置換・失効契約が利用し、Provider認証やCoordinatorの実行Capabilityへ転用しない。秘密値の保存・公開範囲は既存判断契約を維持する。
 
@@ -174,7 +188,7 @@ CLI / MCP Server / Workbench Server
 | Port | 必要能力 | 主な実装所有者 |
 |---|---|---|
 | Execution Port | narrowed Task Authorityで一つのTask Attemptを実行し、exact Identity付き結果を返す | Coordinator公開実行API |
-| Execution Authorization Port | 署名済みRuntime packageを一回起動する不透明Capabilityの発行と未使用時の失効を要求する。Task Authorityとは区別する | Coordinator Adapter |
+| Task相関と現在許可の確認 | 耐久的な開始準備の後、取消・現在のTask／用途の許可を確認してExecutionへ渡す。別の署名資格を発行せず、署名成功・Commit／Hash一致だけから許可を作らない | OrchestratorのTask Dispatch／Coordinator公開実行API |
 | State Port | expected generation付きProject State／Queueの読取り・更新 | Orchestrator状態保存、Domain Model共通保存部品 |
 | Objective／Milestone Acceptance Decision Port | 対象Identity、根拠Revision、Project運営者の明示Authorityを検証し、受入・差戻し・判断待ちだけを一度記録する。読取りProjection、Task作成およびProvider Effectとは分離する | Orchestrator判断操作・状態保存 |
 | Lease Port | Project Operation、State、Adoptionの取得・settlementを観測する | Platform／Persistence Adapter |
@@ -214,7 +228,7 @@ Coordinator ─×→ Orchestrator
 
 Task、Objective、Milestone、QueueおよびDecisionの状態と遷移は本書が上位の意味を、[詳細設計](02_Detailed_Design.md)がexactなID、不変条件、Lock、Authority、Effectおよび失敗注入点を所有する。[機械可読な設計対応](../../../07_Quality/Registry/orchestrator-design-traceability.json)は設計正本ではなく、設計とCoordinator実装・試験の対応切れを検出する検証用投影である。物理配置の変更を理由に状態名、成功条件、IdentityまたはRecovery義務を簡略化しない。Project Stateを所有するProcess世代はCoreが乱数や時刻から生成せず、Hostが有効な`ownerGeneration`として明示入力する。Coreは欠落または不正な世代を状態生成前に拒否する。
 
-OrchestratorはAuthorityを生成しない。人間または上位Runtimeから受け取ったProject／Milestone AuthorityをTask単位へ縮小し、Task要求と`authorityBindingId`へ結合してCoordinatorへ渡す。Runtime packageの実行許可CapabilityはCoordinatorの公開APIから外部Effect直前に取得し、Task Authority、Task内容または許可Pathの根拠として扱わない。Transport metadata、Provider出力、Project State、実行知EventまたはAdapterの存在からAuthorityを導出しない。
+OrchestratorはAuthorityを生成しない。人間または上位Runtimeから受け取ったProject／Milestone AuthorityをTask単位へ縮小し、Task要求と`authorityBindingId`へ結合してCoordinatorへ渡す。別のRuntime package実行資格は発行しない。耐久Handoff後に取消と現在許可を確認して委譲し、Task Authority、Task内容および許可Pathは既存の縮小Bindingへ結合する。Transport metadata、Provider出力、Project State、実行知EventまたはAdapterの存在からAuthorityを導出しない。
 
 統合結果の基本形は従来のcleanupと手動回復の相関を維持する。外部境界のEffect情報を持つ拡張形では、Effect不明とcleanup未確認を別軸で扱う。Effect不明なら手動回復を必要とし再試行を許可せず、Recovery参照はEffect不明またはcleanup未確認のときだけ許可する。Transportはこの相関を再定義せず、基本形または拡張形をCanonical Inspectorで検査してそのまま搬送する。
 
@@ -227,7 +241,7 @@ OrchestratorはAuthorityを生成しない。人間または上位Runtimeから�
 | ブロック状態 | 契機／事前条件 | Portとの結合 | 次状態 | 終了後条件 |
 |---|---|---|---|---|
 | Objective受付 | Project／Milestone Authorityと現行世代 | State／Clock／Identity | Task準備／判断待ち／拒否 | 不正入力ではTask Effect 0 |
-| Task準備 | dependencyと縮小Authority成立 | Execution Authorization／Execution | 実行中／停止 | 外部Effect直前に世代・取消を再確認 |
+| Task準備 | dependencyと縮小Authority成立 | 耐久Handoff／現在許可確認／Execution | 実行中／停止 | 委譲直前に世代・取消を再確認し、取消時はTaskを呼ばない |
 | 実行中 | Attempt結果または取消 | Candidate／Observation／Process Safety | 統合準備／Recovery | cleanup不明を通常失敗へ畳まない |
 | 判断待ち | 一回限り判断要求 | Decision／Lease | 再計画／取消／Recovery | 待機中に短時間Lockを保持しない |
 | 統合準備 | 必要Task結果と候補が相関 | Candidate／State | Accepted Result／停止 | 個別Task成功を統合受入へしない |
@@ -240,7 +254,19 @@ OrchestratorはAuthorityを生成しない。人間または上位Runtimeから�
 
 ### Platform境界
 
-Orchestrator CoreはOS固有のPath、principal、Filesystem保護、Lock、Process、Console、ContainerまたはRecovery機構を所有せず、Portとして必要な保証を要求する。Platform AdapterはAuthorityを生成せず、Coreが与えた閉じた要求だけを観測または限定操作へ変換する。純粋な業務契約の検査母集団は`application`、`boundary`、`core`、`ports`、`public-contract`であり、保存・具象Task接続・判断Adapterを持つSubsystem全体と同一視しない。現在のWindows保証選択は`src/task/windows-platform-adapter.ts`が所有し、OS生存観測と子Process環境導出はCoordinatorの`src/host-runtime/windows-platform-observation.ts`へ委譲する。未分類の領域を検査から無言で除外せず、部分保証を全Platform対応へ昇格しない。
+Orchestratorの純粋判定はOS固有のPath、principal、Filesystem保護、Lock、Process、Console、ContainerまたはRecovery機構を所有しない。業務操作は必要な下位公開APIを呼ぶ。Platform AdapterはAuthorityを生成せず、業務操作が与えた閉じた要求だけを観測または限定操作へ変換する。検査母集団はFolder名ではなく次のFile責務で固定する。`src/`相対Pathを示し、波括弧は同じFolder内のFile列挙である。
+
+| 主責務 | File集合 | 境界 |
+|---|---|---|
+| 純粋判定・値契約（32） | `activity/{cursor,types,validate}.ts`; `candidate/{integration-result,operations,record-writer}.ts`; `decision/{acceptance-authority,acceptance-record,authority-adapter,capability,records,recovery-record,request}.ts`; `identity/{clock-and-hash,repository-binding}.ts`; `input/{plain-data-snapshot,repository-relative-path}.ts`; `lease/controller.ts`; `objective/request.ts`; `operation-result-contract.ts`; `operation-result.ts`; `platform/contract.ts`; `process/safety-contract.ts`; `queue/types.ts`; `state/{persistence,query-contract,transitions}.ts`; `storage/{types,validate-result-record}.ts`; `task/{executor,observer,recovery}.ts` | 実行時の依存閉包はこの集合内と、決定論的Hashの`node:crypto.createHash`・Proxy検査等の`node:util.types`に限定する。入力日時の`Date.parse`は許可し、現在時刻・乱数・外部待機は取得しない |
+| 業務操作（11） | `activity/read.ts`; `candidate/{adopt,integrate}.ts`; `decision/{lifecycle,record-acceptance}.ts`; `objective/{execute,plan,replan}.ts`; `state/query.ts`; `task/{dispatch,settle-docker-recovery}.ts` | 読取り、実行、保存、受理等を調停する。`objective/plan.ts`はClock Identity操作を呼ぶため、File全体を純粋とは分類しない |
+| 接続・組立て・Transport（11） | `candidate/integration-adapter.ts`; `cli/command.ts`; `decision/capability-adapter.ts`; `identity/observe-principal.ts`; `objective/intake-dependencies.ts`; `operation-composition.ts`; `platform/windows-adapter.ts`; `task/{execute-attempt,host-adapter,intelligence-adapter,recovery-adapter}.ts` | 下位・Host・公開入口を接続する。名前にAdapterがあることだけを分類根拠にしない |
+| 保存（3） | `storage/{current-state,history,protected-decision}.ts` | 現在状態、履歴、判断記録の保存と排他を所有する |
+| 公開入口（1） | `index.ts` | Package公開APIの明示export |
+
+全58 Fileを重複なく照合し、新File・欠測・純粋集合の空集合を拒否する。宣言全体の型専用import／exportは実行時閉包へ数えない。通常宣言のinline type要素は型辺へ分けるが、値要素がなくても型除去後に空import／exportが残るため実行時ロード辺を維持する。型の所有境界は純粋集合内、または他Packageの実在する公開`src/index.ts`に限定し、自Packageの公開entry・業務操作・保存・Adapterへの型依存も純粋集合へ混入させない。Node組込みは型専用でも上表のexact module／symbolだけを許可する。`task/executor.ts`の結果配送型はOrchestratorが受領する三状態と結果参照・終了観測の最小構造を所有し、Coordinator実装の戻り型から逆算しない。Adapterはcastで押し込まず構造適合を型検査する。
+
+状態判定のSnapshot検査は既存`input/plain-data-snapshot.ts`を利用し、保存APIも再exportする外部Package Rootを純粋閉包へ追加しない。現在のWindows保証選択は`src/platform/windows-adapter.ts`が所有し、OS生存観測と子Process環境導出はCoordinatorの`src/host-execution/windows-platform-observation.ts`へ委譲する。これは移管途中の現接続であり、Coordinator／Orchestratorを環境非依存へ閉じる最終状態とは区別する。未分類の領域を検査から無言で除外せず、部分保証を全Platform対応へ昇格しない。
 
 | 境界 | Coreが要求する保証 | Adapterの責務 |
 |---|---|---|
@@ -352,7 +378,7 @@ Orchestratorが自分の業務操作に必要な下位公開APIを構成する�
 
 ## 10. 完成境界
 
-Package作成、純粋な判定の試験合格または安全な拒否だけでは再編完了としない。公開APIの実装接続、全利用側、CLI／MCP stdio・HTTP回帰、状態・Authority・Recoveryの意味保持、下位からの逆依存0、内部Path参照0および独立レビューが揃った場合だけ完成とする。詳細設計固定、Source移管、全回帰、署名実境界の通過を別Gateで判定する。
+Package作成、純粋な判定の試験合格または安全な拒否だけでは再編完了としない。公開APIの実装接続、全利用側、CLI／MCP stdio・HTTP回帰、状態・Authority・Recoveryの意味保持、下位からの逆依存0、内部Path参照0および独立レビューが揃った場合だけ完成とする。詳細設計固定、Source移管、全回帰、未署名固定入口・必要Artifact・現在許可・実Provider境界の通過を別Gateで判定する。
 
 ## 11. Implementation Structure
 
@@ -380,7 +406,7 @@ CLIとMCPの具象入口は共通の要求・結果検査と業務操作へ収�
 
 ## 保存方式の切替確認
 
-保存方式刷新②は本番接続・Repository実切替・限定独立レビューを完了した。[変更記録](../../../99_Roadmap/Changes/CHG-000082/Evidence/261005_project-runtime-phase2.md)で追跡する。その結果は既存保存保証の基準として保持するが、今回のOrchestrator移管、全回帰、署名実境界や現版全体の完成を証明しない。
+保存方式刷新②は本番接続・Repository実切替・限定独立レビューを完了した。[変更記録](../../../99_Roadmap/Changes/CHG-000082/Evidence/261005_project-runtime-phase2.md)で追跡する。その結果は既存保存保証の基準として保持するが、今回のOrchestrator移管、全回帰、未署名固定入口・必要Artifact・現在許可・実Provider境界や現版全体の完成を証明しない。
 
 ## Checklist
 

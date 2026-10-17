@@ -11,10 +11,6 @@
 export { createOrchestratorAcceptanceAuthorityAdapter } from "./decision/authority-adapter.ts";
 export { createOrchestratorDecisionCapabilityAdapter } from "./decision/capability-adapter.ts";
 export {
-  createOrchestratorExecutionAuthorizationAdapter,
-  type OrchestratorExecutionAuthorizationAdapterDependencies,
-} from "./task/authorization-adapter.ts";
-export {
   ORCHESTRATOR_ACCEPTANCE_DECISION_CONTRACT,
   recordOrchestratorAcceptanceDecision,
   type OrchestratorAcceptanceDecisionDependencies,
@@ -148,10 +144,6 @@ export type {
   OrchestratorAcceptanceDecisionRecord,
   OrchestratorAcceptanceDecisionStore,
 } from "./decision/acceptance-authority.ts";
-export type {
-  OrchestratorExecutionAuthorizationPort,
-  OrchestratorExecutionAuthorizationRequest,
-} from "./task/authorization.ts";
 export type {
   OrchestratorExecutionObservationPort,
   OrchestratorExecutionObservationPublication,

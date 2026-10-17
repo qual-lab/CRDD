@@ -19,8 +19,11 @@ import path from "node:path";
 import test from "node:test";
 import { pathToFileURL } from "node:url";
 import { compileFunction, runInNewContext } from "node:vm";
-import { ensureRepositoryRuntimeDataArea } from "../../../domain-model/src/index.ts";
-import { resolveRepositoryRuntimeDataPaths } from "../../../domain-model/src/index.ts";
+import {
+  ensureRepositoryRuntimeDataArea,
+  resolveRepositoryRuntimeDataPaths,
+  snapshotPlainRecord,
+} from "../../../domain-model/src/index.ts";
 import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
 import {
   type HostTerminalCheckpointPreparation,
@@ -46,7 +49,6 @@ import {
   createHostTerminalReadRequest,
   createHostTerminalSaveRequest,
 } from "../../src/host-execution/terminal-windows-adapter.ts";
-import { snapshotPlainRecord } from "../../../domain-model/src/index.ts";
 
 const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
 
@@ -182,7 +184,6 @@ test("Host Windows: caller接続は前後のreader終了未確認理由を保持
           encoded.intent.reference,
           encoded.intent.bindings,
           mode,
-          "synthetic-evaluation",
           new AbortController().signal,
         );
         assert.equal(result.reference, encoded.intent.reference);
@@ -653,7 +654,6 @@ test("Host Windows: 既知file callerは十二実体を保持し旧形式と混�
         markerName: target.marker.name,
         bindings: encoded.intent.bindings,
       },
-      0,
       signal,
       {},
       () => ({ nonceHex: "01".repeat(32) }),
@@ -745,7 +745,6 @@ test("Host Windows: 既知file callerは十二実体を保持し旧形式と混�
       fixture.capability,
       encoded.intent.reference,
       encoded.intent.bindings,
-      new Date().toISOString(),
       signal,
       {},
     );
@@ -816,7 +815,6 @@ test("Host Windows: Native保存接続は同参照callerのfresh完全bytesを�
       fixture.capability,
       encoded.intent.reference,
       encoded.intent.bindings,
-      new Date().toISOString(),
       signal,
       {},
     );
@@ -849,7 +847,6 @@ test("Host Windows: Native保存接続は同参照callerのfresh完全bytesを�
     fixture.capability,
     encoded.intent.reference,
     encoded.intent.bindings,
-    new Date().toISOString(),
     signal,
     {},
   );
@@ -867,7 +864,6 @@ test("Host Windows: Native保存接続は同参照callerのfresh完全bytesを�
     fixture.capability,
     encoded.intent.reference,
     { ...encoded.intent.bindings, runtimeSha256: "e".repeat(64) },
-    new Date().toISOString(),
     signal,
     {},
   );
@@ -879,7 +875,6 @@ test("Host Windows: Native保存接続は同参照callerのfresh完全bytesを�
     fixture.capability,
     encoded.intent.reference,
     encoded.intent.bindings,
-    new Date().toISOString(),
     aborted.signal,
     {},
   );
@@ -911,7 +906,6 @@ test("Host Windows: Native保存接続は同参照callerのfresh完全bytesを�
     fixture.capability,
     encoded.intent.reference,
     encoded.intent.bindings,
-    new Date().toISOString(),
     signal,
     {},
   );
@@ -1027,7 +1021,7 @@ test("Host Windows: 回復記録の準備は不正な前提で保存を開始し
       prepareHostTerminalRecoveryCheckpoint,
       prepareKnownFileHostTerminalRecoveryCheckpoint,
     ]) {
-      const result = await prepare(repository, value, 0, signal, {});
+      const result = await prepare(repository, value, signal, {});
       assert.equal(result.status, "blocked");
       assert.equal(result.reason, reason);
       assert.equal(result.reference, expectedReference);

@@ -11,22 +11,24 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import {
+  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
+  requireReadyRepositoryRuntimeDataArea,
+} from "../../../domain-model/src/index.ts";
 import {
   markProjectTaskRecoveryObligationRecovering,
   type OrchestratorSingleTaskResult,
   settleProjectTaskRecoveryObligation,
 } from "../../../orchestrator/src/index.ts";
+import { runOrchestratorObjective as runOrchestratorObjectiveWithPorts } from "../../../orchestrator/src/objective/intake-dependencies.ts";
+import { initializeOrchestratorSnapshot } from "../../../orchestrator/src/storage/current-state.ts";
 import { consumeDockerRecoveryReceiptAfterProjectSettlement } from "../../../orchestrator/src/task/settle-docker-recovery.ts";
 import {
   readOrchestratorState,
   writeOrchestratorState,
 } from "../fixtures/orchestrator-persistence-fixture.ts";
-import { initializeOrchestratorSnapshot } from "../../../orchestrator/src/storage/current-state.ts";
-import { createOrchestratorExecutionAuthorizationAdapter } from "../../../orchestrator/src/index.ts";
-import { runOrchestratorObjective as runOrchestratorObjectiveWithPorts } from "../../../orchestrator/src/objective/intake-dependencies.ts";
 
 const revision = "a".repeat(40);
 let fixtureIntakeEpoch = "fixture-epoch";
@@ -60,10 +62,6 @@ function runOrchestratorObjective(
       ...dependencies,
       execution: {
         ...dependencies.execution,
-        authorization: createOrchestratorExecutionAuthorizationAdapter({
-          issueRuntimeCapability: () => Object.freeze({}),
-          revokeRuntimeCapability: () => true,
-        }),
       },
     },
     rawRequest,
@@ -84,11 +82,20 @@ function runOrchestratorObjective(
  * @boundary PRL-ST-004=Direct Boundary: coordinator Test Source→対象契約
  */
 function root(t: test.TestContext) {
-  const value = fs.mkdtempSync(
-    path.join(os.tmpdir(), "crdd-runtime-recovery-"),
-  );
+  const parent = requireReadyRepositoryRuntimeDataArea(
+    ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
+      path.resolve(import.meta.dirname, "../../../.."),
+      "tests",
+    ),
+    "recovery_fixture",
+  ).directory;
+  const value = fs.mkdtempSync(path.join(parent, "crdd-runtime-recovery-"));
   execFileSync("git", ["init", "--quiet", value], { windowsHide: true });
-  t.after(() => fs.rmSync(value, { recursive: true, force: true }));
+  t.after(() => {
+    assert.equal(path.dirname(fs.realpathSync.native(value)), parent);
+    fs.rmSync(value, { recursive: true, force: true });
+    assert.throws(() => fs.lstatSync(value), { code: "ENOENT" });
+  });
   const initialized = initializeOrchestratorSnapshot(value, "binding-a");
   assert.equal(initialized.status, "completed");
   if (initialized.status !== "completed")
@@ -286,7 +293,21 @@ test("外部Effect不明後もexact Recovery Identityで再入場してretryす�
     recoverTaskRecovery: (exact: string) => {
       recoveries += 1;
       assert.equal(exact, recoveryId);
-      return { status: "recovered" as const, recoveryId: null };
+      return {
+        contract: "crdd-coordinator/current-task-recovery",
+        status: "awaiting_delivery",
+        reason: "docker_task_recovery_durable_acceptance_pending",
+        recoveryId: exact,
+        dockerCleanupConfirmed: true,
+        hostCleanupConfirmed: true,
+        locksReleased: true,
+        historyConfirmed: true,
+        deliveryPending: true,
+        operationRetained: true,
+        operationRemovalConfirmed: false,
+        taskRecoveryCompleted: false,
+        cleanupReason: null,
+      };
     },
     acknowledgeTaskRecovery: (settlement: {
       workingDirectory: string;

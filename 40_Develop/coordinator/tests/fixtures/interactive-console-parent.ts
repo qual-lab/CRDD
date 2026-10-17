@@ -13,7 +13,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { runInteractiveConsoleReaderLifecycle } from "../../src/cli/interactive-console-reader-lifecycle.ts";
 import { spawnRuntimeLocalTypeScriptChild } from "../../src/host-execution/typescript-child-entrypoints.ts";
-import { createInteractiveConsoleReaderEnvironment } from "../../src/host-execution/windows-child-environment.ts";
+import { createInteractiveConsoleReaderEnvironment } from "../../../platform-access/src/index.ts";
 import { acquireRuntimeOwnedInteractiveConsoleKernelLockOutcome } from "../../src/host-execution/kernel-lock.ts";
 
 const lockOutcome =

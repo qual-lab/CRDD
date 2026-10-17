@@ -5,19 +5,15 @@
  * @trace ARCH-000004
  */
 import {
-  createWindowsDockerCliEnvironment,
-  createWindowsDockerDesktopRepairHelperEnvironment,
   createWindowsHostOperationSupervisorEnvironment,
   createWindowsNativeHelperEnvironment,
-} from "./windows-child-environment.ts";
+} from "../../../platform-access/src/index.ts";
 
 export const ORCHESTRATOR_WINDOWS_PLATFORM_FAMILY = "windows" as const;
 
 const CHILD_ENVIRONMENT_PROFILES = new Set([
   "native_helper",
-  "docker_desktop_repair_helper",
   "host_operation_supervisor",
-  "docker_cli",
 ]);
 
 /**
@@ -188,28 +184,10 @@ export function deriveChildEnvironment(
     if (Object.keys(request).length !== 1)
       return blocked("windows_child_environment_request_invalid");
     environment = createWindowsNativeHelperEnvironment();
-  } else if (profile === "docker_desktop_repair_helper") {
-    if (Object.keys(request).length !== 1)
-      return blocked("windows_child_environment_request_invalid");
-    environment = createWindowsDockerDesktopRepairHelperEnvironment();
   } else if (profile === "host_operation_supervisor") {
     if (Object.keys(request).length !== 1)
       return blocked("windows_child_environment_request_invalid");
     environment = createWindowsHostOperationSupervisorEnvironment();
-  } else {
-    const dockerConfig = request.dockerConfig;
-    const dockerHome = request.dockerHome;
-    if (
-      Object.keys(request).length !== 3 ||
-      (dockerConfig !== null && typeof dockerConfig !== "string") ||
-      (dockerHome !== null && typeof dockerHome !== "string") ||
-      (dockerConfig === null) !== (dockerHome === null)
-    )
-      return blocked("windows_child_environment_request_invalid");
-    environment = createWindowsDockerCliEnvironment({
-      dockerConfig,
-      dockerHome,
-    });
   }
   if (environment === null)
     return blocked("windows_child_environment_unavailable");

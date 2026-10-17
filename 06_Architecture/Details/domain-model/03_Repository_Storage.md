@@ -68,7 +68,7 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 担当責任者: Qual-Lab
 最終更新日: 2026-09-12
 Related:
-- [現行Path棚卸し](../runtime-data/04_Storage_Path_Reality_Audit.md)
+- [現行Path棚卸し](04_Storage_Path_Reality_Audit.md)
 - [文書化](../../../03_Documentation.md#repository-local-working-storage)
 - [Coding Standards](../../99_Coding_Standards.md)
 
@@ -187,7 +187,7 @@ Orchestratorは、このRepositoryで旧試験記録の清掃と新形式への�
 └ tmp/<operation-id>/work/    再生成可能な一時作業
 ```
 
-`state.pending.json`は保存更新中だけ必要な短命ファイル、`tmp/.../work/`は処理の中間物であり、用途と再入場Ownerを混同しない。新しい保存用子フォルダは作らない。署名準備は最新の`tmp/signature/`へ切り替え済みであり、その保存・回収はCoordinatorの署名準備節が所有する。旧`tmp/.operations/.staging/`を維持しない。Docker現在状態の切替は別に処置する。
+`state.pending.json`は保存更新中だけ必要な短命ファイル、`tmp/.../work/`は処理の中間物であり、用途と再入場Ownerを混同しない。新しい保存用子フォルダは作らない。Coordinator固有署名方式の撤去に伴い、署名専用の`tmp/signature/`プロファイルをSourceから除去した。通常の一時操作v3は維持する。旧入力拒否・通常保存・再入場を含むDomain全122件と限定独立確認を通過した。初回の競合試験1件Timeoutは原因未確定として変更計画に保持し、再実行成功で初回記録を置換しない。Docker現在状態の切替は別に処置する。
 
 状態のSchema、保存確定、履歴搬送と移行は[Orchestrator詳細設計](../orchestrator/02_Detailed_Design.md#compact-runtime-storage)および[Coordinator縮小設計](../coordinator/01_Architecture.md#現在状態と履歴を分ける縮小設計)が所有する。秘密、保護Decision、署名鍵、専用Provider Homeは保護境界を維持し、普通のRepository-local JSONへまとめない。既存のRepository外Candidate Storeも、Identity・保護・全利用側の移行確認前に移動・回収しない。
 
@@ -259,7 +259,7 @@ OPEN: 自動処置、保持延長の上限、保護参照の全利用側照合�
 | 一時変換、展開、比較、組立て途中のfile | 可 | 所有Operationの`work/` |
 | 正式な検証結果または監査根拠 | 不可 | 対象CHG／Releaseの`Evidence/`。試験中の一時結果は`tests/<run-id>/` |
 | 診断log | 条件付きで可 | 非試験の一時診断なら`tmp/`、試験診断なら`tests/<run-id>/`、実行横断の観測なら`execution-intelligence/`。正式な根拠は対象CHG／Releaseの`Evidence/`へ接続する |
-| 署名用の再生成可能な実行ファイル一時配置 | 可 | `tmp/signature/work/`。固定Git改訂版の実行閉包とNativeだけを配置する。Repository全体を展開しない。署名・昇格まで同じOperationが所有し、失敗・取消を含む終端後に不存在を確認する |
+| Coordinator固有署名用の一時配置 | 不可（専用方式退役） | 新規作成しない。旧`tmp/signature/`はフロントAIが参照・非使用・所有実体・必要な成果物を確認して清掃し、Runtimeの互換Readerへ戻さない |
 | 昇格済み署名Manifest、正式なRelease判断・根拠 | 不可 | Manifestは配布先の正規位置、判断と必要な根拠は対象Release／CHGの正本へ置く。短期作業領域を履歴書庫として保持しない |
 | Provider出力または未採用Candidate | 不可 | `candidates/`。外部送信Policyと保持条件に従う |
 | Cache | 不可 | `tmp/`をCacheとして流用しない。必要性を確認して別契約を設計する |
@@ -299,9 +299,9 @@ OPEN: 自動処置、保持延長の上限、保護参照の全利用側照合�
 
 制御文書とLockは、caller-known Identityから決定できる`.operations/.staging/`内のexact fileへ書込み、fileのflush、排他的linkまたはatomic renameおよびread-backを順に確認する。初回文書とLockのCanonical公開は既存対象を置換しない排他的linkで行い、Lock Directory作成後にOwnerが未公開になる窓を作らない。Canonical公開後に残った初回stagingは、Canonicalと同じfile objectかつ同じbyteであることを確認した場合だけ削除し、Operation settlementはWorkspace、Canonical文書およびそのexact stagingの不存在を共同で確認する。WindowsでDirectory自身を`fsync`できないことを成功へ読み替えず、公開前、公開直後およびread-back後のProcess消失を反証する。一度利用した旧Recovery参照、旧Capability、Identity不一致および並行する再入場はEffect 0で拒否する。
 
-署名準備だけは、同じ一時操作契約の閉じた保存プロファイル`storage=signature`を使用する。Ownerは`coordinator-release-runtime`に限定し、制御文書v4を`tmp/signature/preparation.json`、Lockを`preparation.lock`、作業本体を`work/`へ置く。保存確定前の短命Fileも同じRoot直下へ置き、子staging Directoryは作らない。旧署名配置へのFallbackは持たない。既定プロファイルは他の現行利用側の契約であり、署名の旧形式として探索しない。
+署名専用の`storage=signature`、固定Owner、制御文書v4と`preparation.*`配置は退役する。通常v3・公開四API・既存`.operations`配置と保存・再入場・清掃順序は変更しない。旧storageを持つ入力と回復参照は作成・処置前に拒否し、v4やstorage付き文書を通常v3として受理しない。型からfieldを消すだけで、旧JavaScript入力を通常経路へ流してはならない。
 
-清掃前にプロファイル・Operation・Owner・Identity・世代を照合する。作業本体を回収し、既知の短命File・Lock・制御文書を処置した後、未知FileがないRootだけを非再帰で削除する。保存前失敗では現Sessionから再試行し、保存成立後または観測不能では既知のexact参照を保持する。参照の保持を削除Authorityや清掃成功と同一視しない。正式Manifest適用後の再入場は[Coordinator設計](../coordinator/01_Architecture.md)が所有する。
+旧署名領域の再入場・清掃を共通APIへ残さず、フロントAIがexact Root・現在参照・使用状況・所有実体を確認して移行する。秘密鍵・Local秘密設定・歴史Evidenceを機械的な削除対象へ含めない。共通の再入場公開前・公開後・読戻し失敗三反例は通常経路で保全し、署名専用のRoot削除や保存失敗時の特例を共通保証へ一般化しない。新しい互換経路・State・Lock・回復Frameworkは追加しない。
 
 ### 4.3. Owner Process観測の既知制約
 
@@ -445,9 +445,8 @@ Repository-local Pathは、検証済みRepository Root Capabilityから共通Res
 |---|---|---|
 | 公開Resolver | 通常のRuntime Data Consumer | 検証済みRoot Capabilityを必須とし、raw文字列Rootを受理しない |
 | Working Directory入口 | Repository内から開始する既存Runtime Consumer | Git境界、symlink／junction、最寄りRootを検証してから公開Resolverへ接続する |
-| 保護署名Resolver | 署名入口だけ | package内の固定module位置からRootを導出し、外部Git Processを秘密入力前検査へ追加しない。公開indexからExportしない |
 
-Consumer集合は手書き一覧だけを正本としない。実Sourceからraw Resolver、保護署名Resolverおよび未登録Top-level領域の利用箇所を導出し、宣言した閉集合との差をCheckerで拒否する。既知Consumerごとの契約試験に加え、署名・Releaseを含む最終公開入口までの縦断反証を持つ。
+Consumer集合は手書き一覧だけを正本としない。実Sourceからraw Resolverおよび未登録Top-level領域の利用箇所を導出し、宣言した閉集合との差をCheckerで拒否する。既知Consumerごとの契約試験に加え、現行の本番利用側と公開入口までの縦断反証を持つ。Coordinator専用署名の保護Resolverと署名・昇格入口は退役しており、現在Consumerの保証へ含めない。汎用成果物署名と過去の検証記録は、この退役を理由に変更しない。
 
 ## 9. 完成条件
 

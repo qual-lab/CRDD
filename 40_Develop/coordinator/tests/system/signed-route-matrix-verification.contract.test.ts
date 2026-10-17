@@ -80,11 +80,10 @@ function completed(
     contractRevision: SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION,
     status: "completed" as const,
     reason: "signed_general_task_verification_completed",
-    manifestHash: "a".repeat(64),
-    packageContentRootSha256: "b".repeat(64),
-    runtimeExecutionIdentitySha256: "1".repeat(64),
-    crddVersion: "v0.18.0",
-    releaseSequence: 18,
+    sourceScope: "crdd-development-source-snapshot/v1",
+    sourceSha256: "b".repeat(64),
+    sourceObservationStatus: "matched",
+    signatureRequired: false,
     crddCommit: "c".repeat(40),
     crddTree: "d".repeat(40),
     executionCommit: "e".repeat(40),
@@ -100,7 +99,7 @@ function completed(
     externalSendAuthorizationMode: authorizationMode,
     remediationPerformed,
     changedPaths: Object.freeze([
-      "40_Develop/coordinator/runtime/general-task-verification.txt",
+      "40_Develop/coordinator/tests/fixtures/general-task-verification.txt",
     ]),
     exactCandidateContentVerified: true,
     candidateDiscarded: true,
@@ -148,11 +147,10 @@ function safelyRetryable(
   return Object.freeze({
     status: "blocked" as const,
     reason,
-    manifestHash: "a".repeat(64),
-    packageContentRootSha256: "b".repeat(64),
-    runtimeExecutionIdentitySha256: "1".repeat(64),
-    crddVersion: "v0.18.0",
-    releaseSequence: 18,
+    sourceScope: "crdd-development-source-snapshot/v1",
+    sourceSha256: "b".repeat(64),
+    sourceObservationStatus: "matched",
+    signatureRequired: false,
     crddCommit: "c".repeat(40),
     crddTree: "d".repeat(40),
     executionCommit: "e".repeat(40),
@@ -287,7 +285,12 @@ test("全成功fieldの一つでも危険側・経路不一致なら完了判定
   const base = completed("forward", "interactive_initial_consent");
   const mutations: Array<readonly [string, unknown]> = [
     ["contractRevision", 4],
-    ["manifestHash", undefined],
+    ["sourceScope", undefined],
+    ["sourceScope", "unknown"],
+    ["sourceSha256", undefined],
+    ["sourceSha256", "invalid"],
+    ["sourceObservationStatus", "changed"],
+    ["signatureRequired", true],
     ["crddCommit", "e".repeat(64)],
     ["executionCommit", "e".repeat(64)],
     ["changedPaths", []],
@@ -580,23 +583,20 @@ test("Recovery曖昧・候補未破棄・汎用失敗は再試行せず初回で
 });
 
 /**
- * 4経路は同一Release Identityへ固定し別Releaseを集約しないを検証する。
+ * 4経路は同一Source Identityへ固定し別Sourceを集約しないを検証する。
  *
- * @responsibility 4経路は同一Release Identityへ固定し別Releaseを集約しないの合否判定を所有する。
+ * @responsibility 4経路は同一Source Identityへ固定し別Sourceを集約しないの合否判定を所有する。
  * @trace AIT-ST-004
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 4経路は同一Release Identityへ固定し別Releaseを集約しないの対象操作を実行する。
+ * @stimulus 4経路は同一Source Identityへ固定し別Sourceを集約しないの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary AIT-ST-004=Direct Boundary: coordinator Test Source→対象契約
  */
-test("4経路は同一Release Identityへ固定し別Releaseを集約しない", async () => {
+test("4経路は同一Source Identityへ固定し別Sourceを集約しない", async () => {
   const mutations: Array<readonly [string, unknown]> = [
-    ["manifestHash", "f".repeat(64)],
-    ["packageContentRootSha256", "f".repeat(64)],
-    ["crddVersion", "v0.18.1"],
-    ["releaseSequence", 19],
+    ["sourceSha256", "f".repeat(64)],
     ["crddCommit", "e".repeat(40)],
     ["crddTree", "e".repeat(40)],
   ];
@@ -621,7 +621,7 @@ test("4経路は同一Release Identityへ固定し別Releaseを集約しない",
     assert.equal(result.attemptedRouteCount, 2, field);
     assert.equal(result.completedRouteCount, 1, field);
     assert.equal(result.failedRouteProfile, "reverse", field);
-    assert.equal(result.validationFailure, "release_identity_mismatch", field);
+    assert.equal(result.validationFailure, "source_identity_mismatch", field);
   }
 });
 
@@ -703,12 +703,8 @@ test("route runner例外は実Processをpoisonし全guarded入口をEffect前に
     (observed.secondMatrix as Record<string, unknown>).validationFailure,
     "process_restart_required",
   );
-  assert.equal(observed.packageReads, 0);
+  assert.equal(observed.taskReads, 0);
   assert.equal(observed.grantReads, 0);
-  assert.equal(
-    observed.packageReason,
-    "platform_provisioner_process_restart_required",
-  );
   assert.equal(
     observed.taskReason,
     "coordinator_task_process_restart_required",
@@ -795,7 +791,7 @@ test("route結果のgetter／Proxy観測不能は実Process poisonへ閉じる",
     assert.equal(result.processRestartRequired, true, scenario);
     assert.equal(result.manualRecoveryRequired, true, scenario);
     assert.equal(observed.poisoned, true, scenario);
-    assert.equal(observed.packageReads, 0, scenario);
+    assert.equal(observed.taskReads, 0, scenario);
     assert.equal(observed.grantReads, 0, scenario);
   }
 });
@@ -934,14 +930,14 @@ test("CLI最外周は引数不正と実行中未知を別分類し観測事実�
  */
 test("公開契約は4経路、初期同意再利用、Candidate破棄と課金禁止を固定する", () => {
   const contract = describeSignedRouteMatrixVerificationContract();
-  assert.equal(contract.contractRevision, 14);
+  assert.equal(contract.contractRevision, 15);
   assert.equal(
     contract.safeRetry,
     "maximum_three_attempts_per_route_only_for_exact_candidate_content_mismatch_after_exact_candidate_discard_and_exact_zero_residual_effect_reviewer_rejection_and_candidate_verification_failure_are_not_retried",
   );
   assert.equal(
     contract.verificationFixture,
-    "same_signed_tracked_base_marker_exact_token_replacement_for_every_route",
+    "same_tracked_base_marker_exact_token_replacement_for_every_route",
   );
   assert.equal(
     contract.boundedRemediation,

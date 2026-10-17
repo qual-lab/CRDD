@@ -28,7 +28,6 @@ import {
 import { createOrchestratorDecisionCapabilityAdapter } from "../../../orchestrator/src/index.ts";
 import { runOrchestratorOperation as runOrchestratorOperationWithPorts } from "../../../orchestrator/src/index.ts";
 import { createOrchestratorExecutionHostPorts } from "../../../orchestrator/src/index.ts";
-import { createOrchestratorExecutionAuthorizationAdapter } from "../../../orchestrator/src/index.ts";
 import {
   applyOrchestratorHumanDecision,
   invalidateOrchestratorHumanDecision,
@@ -109,10 +108,6 @@ function runOrchestratorOperation(
     {
       ...dependencies,
       ...createOrchestratorExecutionHostPorts(),
-      authorization: createOrchestratorExecutionAuthorizationAdapter({
-        issueRuntimeCapability: () => Object.freeze({}),
-        revokeRuntimeCapability: () => true,
-      }),
       persistence: createOrchestratorPersistencePorts(
         workingDirectory,
         repositoryBindingId,

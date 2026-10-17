@@ -20,28 +20,28 @@ import {
   createDevelopmentExecutionTiming,
   writeDevelopmentMeasurementProgress,
 } from "../diagnostics/development-execution-timing.ts";
-import { evaluateManagedDockerCleanupEligibility } from "../docker-execution/cleanup-eligibility.ts";
+import { evaluateManagedDockerCleanupEligibility } from "./cleanup-eligibility.ts";
 import {
   cancelRuntimeOwnedDockerProcessController,
   type ProviderProcessStartedNotice,
   projectDockerProcessControllerCompletionResult,
   projectDockerProcessControllerStartResult,
   startRuntimeOwnedDockerProcessController,
-} from "../docker-execution/process-controller.ts";
+} from "../provider/execution-controller.ts";
 import {
-  projectDockerRecoveryAdmission,
+  projectCurrentDockerAdmission,
   publicVerifiedDockerRecoveryId,
-} from "../docker-execution/recovery-public-projection.ts";
+} from "./recovery-projection.ts";
 import {
   abandonRuntimeOwnedDockerRecovery,
   completeRuntimeOwnedDockerProjectResultDelivery,
   finalizeRuntimeOwnedDockerRecovery,
-  inspectRuntimeOwnedDockerTaskRecoveryState,
+  inspectRuntimeOwnedDockerTaskAdmission,
   prepareRuntimeOwnedDockerHostCleanup,
   readRuntimeOwnedDockerProjectResult,
   recordRuntimeOwnedDockerHostCleanupReceipt,
-} from "../docker-execution/recovery-lifecycle.ts";
-import { getRuntimeOwnedProviderDockerAdapter } from "../docker-execution/provider-adapter.ts";
+} from "../task/recovery.ts";
+import { getRuntimeOwnedProviderDockerAdapter } from "../provider/execution-adapter.ts";
 import { requestRuntimeOwnedExternalSendGrant } from "../external-send/grant.ts";
 import { resolveRuntimeOwnedExternalSendPolicy } from "../external-send/policy.ts";
 import {
@@ -58,7 +58,6 @@ import {
   isRuntimeProcessPoisoned,
   poisonRuntimeProcessAfterCleanupUnknown,
 } from "../host-execution/process-safety-state.ts";
-import { consumeRuntimeOwnedVerifiedCoordinatorPackageCapability } from "../platform-access/package-verification.ts";
 import {
   issueRuntimeOwnedDelegationSelectionGrant,
   preflightRuntimeOwnedDelegationExecutionSlate,
@@ -155,7 +154,7 @@ export function orchestratorOwnedDockerProcessCompletionForTask(
 
 export const COORDINATOR_TASK_RUNTIME_CONTRACT =
   "crdd-coordinator/task-runtime";
-export const COORDINATOR_TASK_RUNTIME_CONTRACT_REVISION = 35;
+export const COORDINATOR_TASK_RUNTIME_CONTRACT_REVISION = 36;
 const PRODUCTION_CANCELLATION_ACK_TIMEOUT_MS = 10_000;
 
 const EXTERNAL_SEND_CONFIRMATION_REASONS = new Set([
@@ -594,10 +593,7 @@ type RuntimeDependencies = Readonly<{
     controlCapability: object,
     managementCapability: object,
   ) => RuntimeRecord;
-  observeProviderHome: (
-    provider: Provider,
-    evaluationTime: unknown,
-  ) => RuntimeRecord;
+  observeProviderHome: (provider: Provider) => RuntimeRecord;
   issueMountGrant: (
     managementCapability: object,
     observationCapability: object,
@@ -625,7 +621,7 @@ type RuntimeDependencies = Readonly<{
     repositoryBindingCapability: object,
   ) => RuntimeRecord | null;
   prepareCandidateStore: () => RuntimeRecord;
-  prepareDockerRecoveryState: () => unknown;
+  prepareDockerRecoveryState: (repositoryRoot: string) => unknown;
   reportSelectionNotice: (notice: RuntimeRecord) => boolean;
   reportExternalSendNotice: (notice: RuntimeRecord) => boolean;
   issueTaskPacket: (
@@ -1909,10 +1905,10 @@ function samePaths(left: unknown, right: unknown) {
  */
 async function executeStage(...args: Parameters<typeof executeStageBody>) {
   const dependencies = args[0].dependencies;
-  const invocation = dependencies.beginInvocation?.(args[9], args[6]);
+  const invocation = dependencies.beginInvocation?.(args[8], args[5]);
   if (dependencies.beginInvocation && !invocation)
     return blocked("coordinator_task_development_invocation_not_authorized");
-  args[12] = invocation?.commandRestriction;
+  args[11] = invocation?.commandRestriction;
   let result: Awaited<ReturnType<typeof executeStageBody>>;
   let settlement: unknown;
   try {
@@ -1930,9 +1926,9 @@ async function executeStage(...args: Parameters<typeof executeStageBody>) {
  *
  * @responsibility Stage Bodyの実行条件、Effect範囲、終了結果の境界を所有する。
  * @trace ARCH-000004
- * @input state: RuntimeState、operation: Operation、request: RuntimeRecord、repositoryBindingCapability: object、externalSendGrantCapability: object、evaluationTime: unknown、role: TaskRole、taskAttempt: 0 | 1、subjectProvider: Provider | null、expectedProvider: Provider、remediationCapability: object | null、control: ControlRecord、commandRestriction: unknown、reviewerReadProjection: RuntimeRecord | null
+ * @input state: RuntimeState、operation: Operation、request: RuntimeRecord、repositoryBindingCapability: object、externalSendGrantCapability: object、role: TaskRole、taskAttempt: 0 | 1、subjectProvider: Provider | null、expectedProvider: Provider、remediationCapability: object | null、control: ControlRecord、commandRestriction: unknown、reviewerReadProjection: RuntimeRecord | null
  * @returns executeStageBodyの計算結果を返す。
- * @precondition 「state: RuntimeState、operation: Operation、request: RuntimeRecord、repositoryBindingCapability: object、externalSendGrantCapability: object、evaluationTime: unknown、role: TaskRole、taskAttempt: 0 | 1、subjectProvider: Provider | null、expectedProvider: Provider、remediationCapability: object | null、control: ControlRecord、commandRestriction: unknown、reviewerReadProjection: RuntimeRecord | null」がexecuteStageBodyの入力契約を満たす。
+ * @precondition 「state: RuntimeState、operation: Operation、request: RuntimeRecord、repositoryBindingCapability: object、externalSendGrantCapability: object、role: TaskRole、taskAttempt: 0 | 1、subjectProvider: Provider | null、expectedProvider: Provider、remediationCapability: object | null、control: ControlRecord、commandRestriction: unknown、reviewerReadProjection: RuntimeRecord | null」がexecuteStageBodyの入力契約を満たす。
  * @postcondition executeStageBodyの責務を完了した結果だけを返す。
  * @effect executeStageBodyは外部ProcessまたはRuntime境界の操作を呼び出す。
  * @failure executeStageBodyは入力不正または下位処理の失敗を呼出し側へ返す。
@@ -1947,7 +1943,6 @@ async function executeStageBody(
   request: RuntimeRecord,
   repositoryBindingCapability: object,
   externalSendGrantCapability: object,
-  evaluationTime: unknown,
   role: TaskRole,
   taskAttempt: 0 | 1,
   subjectProvider: Provider | null,
@@ -2023,10 +2018,7 @@ async function executeStageBody(
       revokeUnconsumed();
       return blocked("coordinator_task_selection_slate_mismatch");
     }
-    const first = state.dependencies.observeProviderHome(
-      provider,
-      evaluationTime,
-    );
+    const first = state.dependencies.observeProviderHome(provider);
     const firstObservation = objectCapability(first.observationCapability);
     if (first.status !== "candidate" || !firstObservation) {
       revokeUnconsumed();
@@ -2043,10 +2035,7 @@ async function executeStageBody(
       revokeUnconsumed();
       return blocked("coordinator_task_mount_grant_issue_failed");
     }
-    const second = state.dependencies.observeProviderHome(
-      provider,
-      evaluationTime,
-    );
+    const second = state.dependencies.observeProviderHome(provider);
     const secondObservation = objectCapability(second.observationCapability);
     if (second.status !== "candidate" || !secondObservation) {
       revokeUnconsumed();
@@ -2392,9 +2381,9 @@ async function executeStageBody(
  *
  * @responsibility Coordinator Task Coreの実行条件、Effect範囲、終了結果の境界を所有する。
  * @trace ARCH-000004
- * @input state: RuntimeState、rawRequest: unknown、repositoryRoot: unknown、evaluationTime: unknown、control: ControlRecord
+ * @input state: RuntimeState、rawRequest: unknown、repositoryRoot: unknown、control: ControlRecord
  * @returns runCoordinatorTaskCoreの計算結果を返す。
- * @precondition 「state: RuntimeState、rawRequest: unknown、repositoryRoot: unknown、evaluationTime: unknown、control: ControlRecord」がrunCoordinatorTaskCoreの入力契約を満たす。
+ * @precondition 「state: RuntimeState、rawRequest: unknown、repositoryRoot: unknown、control: ControlRecord」がrunCoordinatorTaskCoreの入力契約を満たす。
  * @postcondition runCoordinatorTaskCoreの責務を完了した結果だけを返す。
  * @effect N/A: runCoordinatorTaskCoreは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure runCoordinatorTaskCoreは入力不正または下位処理の失敗を呼出し側へ返す。
@@ -2407,7 +2396,6 @@ async function runCoordinatorTaskCore(
   state: RuntimeState,
   rawRequest: unknown,
   repositoryRoot: unknown,
-  evaluationTime: unknown,
   control: ControlRecord,
 ) {
   const blocked = (...args: Parameters<typeof createBlocked>) => {
@@ -2456,11 +2444,12 @@ async function runCoordinatorTaskCore(
   }
   let dockerRecoveryState: unknown;
   try {
-    dockerRecoveryState = state.dependencies.prepareDockerRecoveryState();
+    dockerRecoveryState =
+      state.dependencies.prepareDockerRecoveryState(repositoryRoot);
   } catch {
     dockerRecoveryState = null;
   }
-  const admission = projectDockerRecoveryAdmission(dockerRecoveryState);
+  const admission = projectCurrentDockerAdmission(dockerRecoveryState);
   if (admission.status !== "completed") {
     return blocked(
       projectCoordinatorTaskPublicReason(
@@ -2469,11 +2458,11 @@ async function runCoordinatorTaskCore(
       ),
       true,
       null,
-      admission.dockerRecoveryId,
+      null,
       null,
       false,
       null,
-      admission.dockerRecoveryIds,
+      Object.freeze([]),
     );
   }
   advanceLifecycleState(state, control, "STATE-OPERATION-ACQUIRING");
@@ -2720,7 +2709,6 @@ async function runCoordinatorTaskCore(
       request,
       repositoryBinding,
       externalSendGrantCapability,
-      evaluationTime,
       "executor",
       0,
       null,
@@ -2806,7 +2794,6 @@ async function runCoordinatorTaskCore(
       request,
       repositoryBinding,
       externalSendGrantCapability,
-      evaluationTime,
       "reviewer",
       0,
       executor.provider as Provider,
@@ -2841,7 +2828,6 @@ async function runCoordinatorTaskCore(
         request,
         repositoryBinding,
         externalSendGrantCapability,
-        evaluationTime,
         "executor",
         1,
         null,
@@ -2910,7 +2896,6 @@ async function runCoordinatorTaskCore(
         request,
         repositoryBinding,
         externalSendGrantCapability,
-        evaluationTime,
         "reviewer",
         1,
         executor.provider as Provider,
@@ -3076,9 +3061,9 @@ async function runCoordinatorTaskCore(
  *
  * @responsibility Coordinator Taskの実行条件、Effect範囲、終了結果の境界を所有する。
  * @trace ARCH-000004
- * @input state: RuntimeState、rawRequest: unknown、repositoryRoot: unknown、evaluationTime: unknown、control: ControlRecord
+ * @input state: RuntimeState、rawRequest: unknown、repositoryRoot: unknown、control: ControlRecord
  * @returns Promise<InternalTaskOutcome>を返す。
- * @precondition 「state: RuntimeState、rawRequest: unknown、repositoryRoot: unknown、evaluationTime: unknown、control: ControlRecord」がrunCoordinatorTaskの入力契約を満たす。
+ * @precondition 「state: RuntimeState、rawRequest: unknown、repositoryRoot: unknown、control: ControlRecord」がrunCoordinatorTaskの入力契約を満たす。
  * @postcondition runCoordinatorTaskの責務を完了した結果だけを返す。
  * @effect N/A: runCoordinatorTaskは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: runCoordinatorTaskは独自の失敗分岐を所有しない。
@@ -3091,14 +3076,12 @@ async function runCoordinatorTask(
   state: RuntimeState,
   rawRequest: unknown,
   repositoryRoot: unknown,
-  evaluationTime: unknown,
   control: ControlRecord,
 ): Promise<InternalTaskOutcome> {
   const rawResult = await runCoordinatorTaskCore(
     state,
     rawRequest,
     repositoryRoot,
-    evaluationTime,
     control,
   );
   const snapshot = snapshotRuntimeRecord(rawResult);
@@ -3299,7 +3282,7 @@ const productionDependencies: RuntimeDependencies = Object.freeze({
   authorizeExternalSend: requestRuntimeOwnedExternalSendGrant,
   resolveExternalSendPolicy: resolveRuntimeOwnedExternalSendPolicy,
   prepareCandidateStore: runRuntimeOwnedCandidateStoreStartupGc,
-  prepareDockerRecoveryState: inspectRuntimeOwnedDockerTaskRecoveryState,
+  prepareDockerRecoveryState: inspectRuntimeOwnedDockerTaskAdmission,
   reportSelectionNotice: (notice) => {
     try {
       process.stderr.write(
@@ -3413,7 +3396,6 @@ function createRuntime(dependencies: RuntimeDependencies) {
     start: (
       rawRequest: unknown,
       repositoryRoot: unknown,
-      evaluationTime: unknown,
       recoveryCorrelationId: unknown = null,
       observeProviderStarted?: (
         notice: ProviderProcessStartedNotice,
@@ -3477,7 +3459,6 @@ function createRuntime(dependencies: RuntimeDependencies) {
         state,
         rawRequest,
         repositoryRoot,
-        evaluationTime,
         control,
       )
         .then(async (outcome) => {
@@ -4111,21 +4092,20 @@ export function captureRuntimeOwnedCoordinatorTaskResultDelivery(
  *
  * @responsibility Runtime 所有 Coordinator Taskの開始条件、Effect発行、開始失敗時の終了境界を所有する。
  * @trace ARCH-000004
- * @input Task要求、Repository Root、検証済み実行Capability、回復相関ID、任意のProvider接続用Host Process開始確認と本番組立ての固定利用側。JSON要求から利用側を取得しない。
+ * @input Task要求、Repository Root、回復相関ID、任意のProvider接続用Host Process開始確認と本番組立ての固定利用側。JSON要求から利用側を取得しない。
  * @returns startRuntimeOwnedCoordinatorTaskの計算結果を返す。
- * @precondition 「rawRequest: unknown、repositoryRoot: unknown、verifiedPackageCapability: unknown、recoveryCorrelationId: unknown」がstartRuntimeOwnedCoordinatorTaskの入力契約を満たす。
+ * @precondition 実行Processの片付けが確定しており、要求・Root・回復相関IDが下位Runtimeの入力契約を満たす。
  * @postcondition startRuntimeOwnedCoordinatorTaskの責務を完了した結果だけを返す。
- * @effect N/A: startRuntimeOwnedCoordinatorTaskは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @effect Taskを開始し、下位Runtimeの検査と外部送信許可が成立した場合だけ隔離実行を委譲する。
  * @failure startRuntimeOwnedCoordinatorTaskは入力不正または下位処理の失敗を呼出し側へ返す。
  * @invariant startRuntimeOwnedCoordinatorTaskは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: startRuntimeOwnedCoordinatorTaskはProcess内の同一Subsystemで完結する。
+ * @boundary 通常Task入口からRepository検査、外部送信許可、隔離実行への境界。
  * @security startRuntimeOwnedCoordinatorTaskはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: startRuntimeOwnedCoordinatorTaskは共有非同期状態を持たない同期処理である。
+ * @concurrency Process停止条件を開始前に確認し、返したControlと完了Promiseで同じTaskを追跡する。
  */
 export function startRuntimeOwnedCoordinatorTask(
   rawRequest: unknown,
   repositoryRoot: unknown,
-  verifiedPackageCapability: unknown,
   recoveryCorrelationId: unknown = null,
   observeProviderStarted?: (
     notice: ProviderProcessStartedNotice,
@@ -4153,17 +4133,9 @@ export function startRuntimeOwnedCoordinatorTask(
         : "coordinator_task_runtime_cleanup_in_progress",
     );
   }
-  if (
-    !consumeRuntimeOwnedVerifiedCoordinatorPackageCapability(
-      verifiedPackageCapability,
-    )
-  ) {
-    throw new Error("coordinator_task_release_verification_required");
-  }
   return productionRuntime.start(
     rawRequest,
     repositoryRoot,
-    new Date().toISOString(),
     recoveryCorrelationId,
     observeProviderStarted,
     consumer,
@@ -4190,7 +4162,7 @@ export function cancelRuntimeOwnedCoordinatorTask(controlCapability: unknown) {
   return productionRuntime.cancel(controlCapability);
 }
 
-/** Bounded development admission is separate from the signed public Task path. */
+/** 開発用の限定受付は通常Taskの公開入口と分離する。 */
 const developmentOrchestratorCancellations = new WeakMap<
   object,
   () => Promise<unknown>
@@ -4322,16 +4294,21 @@ function startRuntimeOwnedDevelopmentTask(
       managementCapability = management;
       return result;
     }),
-    prepareDockerRecoveryState: guard(() =>
-      inspectRuntimeOwnedDockerTaskRecoveryState(boundary.context),
+    prepareDockerRecoveryState: guard((root) =>
+      root === boundary.repositoryRoot
+        ? inspectRuntimeOwnedDockerTaskAdmission(root)
+        : Object.freeze({
+            status: "blocked",
+            reason: "coordinator_current_admission_unconfirmed",
+            lockReleased: true,
+          }),
     ),
     prepareCandidateStore: guard(() =>
       inspectRuntimeOwnedDevelopmentCandidateStore(boundary.context),
     ),
-    observeProviderHome: (provider, time) =>
+    observeProviderHome: (provider) =>
       inspectRuntimeOwnedWindowsProviderHomeCandidate(
         provider,
-        time,
         boundary.context,
       ),
     materializeWorkspace: guard(productionDependencies.materializeWorkspace),
@@ -4352,7 +4329,6 @@ function startRuntimeOwnedDevelopmentTask(
   const started = runtime.start(
     boundary.request,
     boundary.repositoryRoot,
-    new Date().toISOString(),
     recoveryCorrelationId,
     observeProviderStarted,
     consumer,
@@ -4592,10 +4568,9 @@ export function describeCoordinatorTaskRuntimeContract() {
     recognizedSecretBoundary:
       "task_scope_and_read_projection_before_executor_candidate_capture_before_each_reviewer_and_remediation_path_before_next_executor",
     completeSecretAbsenceVerified: false,
-    productionPackageGate:
-      "single_use_runtime_private_verified_distribution_capability_before_all_effects",
+    productionPackageGate: "not_required_for_runtime_execution",
     processPoisonGate:
-      "before_package_consume_operation_console_store_workspace_provider_and_network",
+      "before_operation_console_store_workspace_provider_and_network",
     processRestartProjection:
       "runtime_owned_final_irreversible_process_poison_boolean_independent_from_recovery_identifiers_manual_recovery_reason_and_temporary_drain",
     cancellation: Object.freeze({

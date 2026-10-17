@@ -3,6 +3,7 @@
  * @packageDocumentation
  * @responsibility 固定Repository、保存済みACK、閉じた公開結果と拒否条件を検証する。
  * @trace ERB-IT-003
+ * @trace PRL-IT-013
  * @level IT
  * @scope Orchestratorの回復結果受領・終了接続。Filesystemと下位Writerは別試験で検証する。
  * @boundary ERB-IT-003=Orchestrator現在状態Reader→Coordinator終了限定Writer。
@@ -15,6 +16,7 @@ import test from "node:test";
  * 最新形式だけを下位へ接続し、固定境界・保存・排他の不足を拒否する。
  * @responsibility 上位接続の正常・境界・異常と結果fieldの相関を検証する。
  * @trace ERB-IT-003
+ * @trace PRL-IT-013
  * @precondition 下位実Filesystemの試験とは分離した接続試験である。
  * @stimulus 正規受理、旧ACK、別Root、世代・Attempt不一致、getter・Proxy、読取り途中変更を与える。
  * @observation Root・上位・下位の呼出し数、Writer条件と公開結果fieldを取得する。
@@ -202,6 +204,90 @@ test("回復結果の受領・終了は固定Repositoryと保存済みACKだけ�
   assert.equal(rootReads, 0);
   assert.equal(upperReads, 0);
   assert.equal(lowerReads, 0);
+  // 旧Coordinator SuiteにあったACK入力の拒否保証を実Ownerへ集約する。
+  {
+    const input = { ...settlement, acknowledgement };
+    const before = structuredClone(input);
+    const accessor = Object.defineProperty(
+      { ...settlement },
+      "acknowledgement",
+      {
+        enumerable: true,
+        get() {
+          getterCalls += 1;
+          throw new Error("acknowledgement getter must not run");
+        },
+      },
+    );
+    let proxyTrapCalls = 0;
+    const proxy = new Proxy(
+      {},
+      {
+        ownKeys() {
+          proxyTrapCalls += 1;
+          throw new Error("acknowledgement proxy must not run");
+        },
+      },
+    );
+    for (const invalid of [accessor, { ...input, acknowledgement: proxy }]) {
+      assert.deepEqual(collect(invalid as never, fixed), {
+        status: "blocked",
+        reason: "docker_task_recovery_acknowledgement_gc_authority_invalid",
+      });
+    }
+    const legacy = {
+      repositoryBindingId: acknowledgement.repositoryBindingId,
+      projectId: acknowledgement.projectId,
+      milestoneId: acknowledgement.milestoneId,
+      taskId: acknowledgement.taskId,
+      attemptId: acknowledgement.attemptId,
+      operationId: acknowledgement.operationId,
+      recoveryId: acknowledgement.recoveryId,
+      settlementGeneration: acknowledgement.settlementGeneration,
+      runtimeStateBinding: {
+        runtimeStateIdentityHash: "d".repeat(64),
+        runtimeStateProtectionHash: "e".repeat(64),
+        localUserBindingHash: "f".repeat(64),
+        runtimeStateBindingHash: "0".repeat(64),
+      },
+      receiptContentHash: "1".repeat(64),
+      receiptContentIdentity: "1:2:3",
+    };
+    const { decodeProjectResultAcceptance } = await import(
+      "../../src/state/transitions.ts"
+    );
+    assert.equal(decodeProjectResultAcceptance(legacy), null);
+    assert.deepEqual(
+      { ...decodeProjectResultAcceptance(acknowledgement) },
+      acknowledgement,
+    );
+    for (const invalidAcknowledgement of [
+      legacy,
+      { ...acknowledgement, attemptId: "different-attempt" },
+    ]) {
+      const invalidInput = {
+        ...input,
+        acknowledgement: invalidAcknowledgement,
+      };
+      const invalidBefore = structuredClone(invalidInput);
+      assert.deepEqual(collect(invalidInput, fixed), {
+        status: "blocked",
+        reason: "docker_task_recovery_acknowledgement_gc_authority_invalid",
+      });
+      assert.deepEqual(invalidInput, invalidBefore);
+    }
+    assert.deepEqual(collect(input), {
+      status: "blocked",
+      reason: "docker_task_recovery_repository_not_verified",
+    });
+    assert.deepEqual(input, before);
+    assert.equal(getterCalls, 0);
+    assert.equal(proxyTrapCalls, 0);
+    assert.equal(rootReads, 0);
+    assert.equal(upperReads, 0);
+    assert.equal(lowerReads, 0);
+    assert.equal(writes, 0);
+  }
   assert.equal(consume(settlement).status, "blocked");
   assert.equal(upperReads, 0);
   assert.equal(

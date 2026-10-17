@@ -19,21 +19,21 @@ import {
   describeCandidateStoreWindowsAdapterContract,
   inspectRuntimeOwnedWindowsCandidateStore,
 } from "../../../src/platform-access/protected-root-windows-adapter.ts";
-import { WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE } from "../../../src/host-execution/windows-child-environment.ts";
+import { WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE } from "../../../../platform-access/src/index.ts";
 
 /**
- * 明示未署名配布はCandidate Store Effectを開始しないを検証する。
+ * 固定Bootstrapを確認できない配布はCandidate Store Effectを開始しないを検証する。
  *
- * @responsibility 明示未署名配布はCandidate Store Effectを開始しないの合否判定を所有する。
+ * @responsibility 固定Bootstrapを確認できない配布はCandidate Store Effectを開始しないの合否判定を所有する。
  * @trace PPR-UT-014
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 明示未署名配布はCandidate Store Effectを開始しないの対象操作を実行する。
+ * @stimulus 固定Bootstrapを確認できない配布はCandidate Store Effectを開始しないの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PPR-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
-test("明示未署名配布はCandidate Store Effectを開始しない", () => {
+test("固定Bootstrapを確認できない配布はCandidate Store Effectを開始しない", () => {
   withUnsignedRuntimeFixture((root) => {
     const moduleUrl = pathToFileURL(
       path.join(
@@ -49,9 +49,9 @@ test("明示未署名配布はCandidate Store Effectを開始しない", () => {
 import { inspectRuntimeOwnedWindowsCandidateStore, consumeRuntimeOwnedCandidateStoreRootCapability } from ${JSON.stringify(moduleUrl)};
 const result = inspectRuntimeOwnedWindowsCandidateStore(
     true,
-    new Date().toISOString(),
   );
   assert.equal(result.status, "blocked");
+  assert.equal(result.reason, "candidate_store_windows_adapter_artifact_bootstrap_unavailable");
   assert.equal(result.filesystemEffectIssued, false);
   assert.equal(result.processEffectIssued, false);
   assert.equal(result.pathReported, false);
@@ -88,10 +88,7 @@ test("Candidate Store adapterは環境由来の相対Rootをnative照合前に�
   const original = process.env.LOCALAPPDATA;
   try {
     process.env.LOCALAPPDATA = "relative-root";
-    const result = inspectRuntimeOwnedWindowsCandidateStore(
-      false,
-      new Date().toISOString(),
-    );
+    const result = inspectRuntimeOwnedWindowsCandidateStore(false);
     assert.equal(result.status, "blocked");
     assert.equal(result.reason, "candidate_store_windows_adapter_root_invalid");
     assert.equal(result.processEffectIssued, false);
@@ -116,6 +113,12 @@ test("Candidate Store adapterは環境由来の相対Rootをnative照合前に�
  */
 test("Candidate Store adapterは固定Known Folderとexact保護観測だけをAuthority候補にする", () => {
   const contract = describeCandidateStoreWindowsAdapterContract();
+  assert.deepEqual(contract.artifactVerification, {
+    normal: "fixed_bootstrap_hash_and_artifact_identity_before_and_after",
+    development:
+      "fixed_development_borrowed_native_observation_and_artifact_identity_before_and_after",
+  });
+  assert.equal(Object.isFrozen(contract.artifactVerification), true);
   assert.deepEqual(contract.fixedSegments, [
     "Qual-Lab",
     "CRDD",

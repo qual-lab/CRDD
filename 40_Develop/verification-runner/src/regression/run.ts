@@ -310,9 +310,9 @@ function runNpmScript(
  *
  * @responsibility Node Testsの実行条件、Effect範囲、終了結果の境界を所有する。
  * @trace ARCH-000003
- * @input owner: Exclude<TestCatalogEntry["owner"], "platform-access">、entries: readonly TestCatalogEntry[]、options: Readonly<{ testNamePattern?: string; testSkipPattern?: string; }>
+ * @input owner: TestCatalogEntry["owner"]、entries: readonly TestCatalogEntry[]、options: Readonly<{ testNamePattern?: string; testSkipPattern?: string; }>
  * @returns numberを返す。
- * @precondition 「owner: Exclude<TestCatalogEntry["owner"], "platform-access">、entries: readonly TestCatalogEntry[]、options: Readonly<{ testNamePattern?: string; testSkipPattern?: string; }>」がrunNodeTestsの入力契約を満たす。
+ * @precondition Node実行対象が同じOwnerの.test.tsだけである。
  * @postcondition runNodeTestsの責務を完了した結果だけを返す。
  * @effect runNodeTestsは外部ProcessまたはRuntime境界の操作を呼び出す。
  * @failure N/A: runNodeTestsは独自の失敗分岐を所有しない。
@@ -322,7 +322,7 @@ function runNpmScript(
  * @concurrency N/A: runNodeTestsは共有非同期状態を持たない同期処理である。
  */
 function runNodeTests(
-  owner: Exclude<TestCatalogEntry["owner"], "platform-access">,
+  owner: TestCatalogEntry["owner"],
   entries: readonly TestCatalogEntry[],
   options: Readonly<{
     testNamePattern?: string;
@@ -330,6 +330,12 @@ function runNodeTests(
   }> = {},
 ): number {
   if (entries.length === 0) return 0;
+  if (
+    entries.some(
+      (entry) => entry.owner !== owner || !entry.path.endsWith(".test.ts"),
+    )
+  )
+    return 1;
   const root = path.join(repositoryRoot, "40_Develop", owner);
   const testPaths = entries.map(
     (entry) =>
@@ -441,10 +447,12 @@ function runStaticStage(
     "access-management",
     "ai-adapter",
     "artifact-signing",
+    "docker-isolation",
     "domain-model",
     "mcp-server",
     "official-asset-governance",
     "orchestrator",
+    "platform-access",
     "semantic-coverage",
     "version-control",
     "visual-preview",
@@ -482,11 +490,11 @@ function runStaticStage(
  * @returns numberを返す。
  * @precondition 「level: TestLevel、entries: readonly TestCatalogEntry[]、shouldSkipWindowsProcessTests: boolean」がrunLevelStageの入力契約を満たす。
  * @postcondition runLevelStageの責務を完了した結果だけを返す。
- * @effect N/A: runLevelStageは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @effect 選択Ownerの試験Processを直列起動する。Windows専用Caseは通常ITで除外し、別の承認済み段階だけで実行する。
  * @failure N/A: runLevelStageは独自の失敗分岐を所有しない。
  * @invariant runLevelStageは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: runLevelStageはProcess内の同一Subsystemで完結する。
- * @security N/A: runLevelStageはAuthority、秘密値または信頼判断を扱わない。
+ * @boundary 検証済み試験台帳と各PackageのNode／Cargo試験Process。
+ * @security 呼出し元が許可条件を確認した計画だけを実行し、失敗後の段階を開始しない。
  * @concurrency N/A: runLevelStageは共有非同期状態を持たない同期処理である。
  */
 function runLevelStage(
@@ -501,30 +509,39 @@ function runLevelStage(
     "artifact-signing",
     "checker",
     "coordinator",
+    "docker-isolation",
     "domain-model",
     "execution-intelligence",
     "mcp-server",
     "official-asset-governance",
     "orchestrator",
+    "platform-access",
     "semantic-coverage",
     "version-control",
     "verification-runner",
     "visual-preview",
     "workbench-server",
   ] as const) {
-    const ownerEntries = levelEntries.filter((entry) => entry.owner === owner);
+    const ownerEntries = levelEntries.filter(
+      (entry) => entry.owner === owner && entry.path.endsWith(".test.ts"),
+    );
     const status = runNodeTests(
       owner,
       ownerEntries,
-      owner === "coordinator" &&
-        level === "integration" &&
-        shouldSkipWindowsProcessTests
-        ? { testSkipPattern: "^Windows Process Gate:" }
+      level === "integration" && shouldSkipWindowsProcessTests
+        ? {
+            testSkipPattern: "^(Windows Process Gate:|Host Windows:)",
+          }
         : {},
     );
     if (status !== 0) return status;
   }
-  if (levelEntries.some((entry) => entry.owner === "platform-access"))
+  if (
+    levelEntries.some(
+      (entry) =>
+        entry.owner === "platform-access" && entry.path.endsWith(".rs"),
+    )
+  )
     return runPlatformTests(level);
   return 0;
 }
@@ -538,11 +555,11 @@ function runLevelStage(
  * @returns numberを返す。
  * @precondition 「entries: readonly TestCatalogEntry[]」がrunWindowsProcessStageの入力契約を満たす。
  * @postcondition runWindowsProcessStageの責務を完了した結果だけを返す。
- * @effect N/A: runWindowsProcessStageは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @effect 選択OwnerごとにWindows実Process試験だけを直列起動する。
  * @failure N/A: runWindowsProcessStageは独自の失敗分岐を所有しない。
  * @invariant runWindowsProcessStageは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: runWindowsProcessStageはProcess内の同一Subsystemで完結する。
- * @security N/A: runWindowsProcessStageはAuthority、秘密値または信頼判断を扱わない。
+ * @boundary Windows実Process専用Profileと各PackageのNode試験入口。
+ * @security 呼出し元の明示許可を前提とし、既存二prefixだけを実行、失敗後のOwnerを開始しない。
  * @concurrency N/A: runWindowsProcessStageは共有非同期状態を持たない同期処理である。
  */
 function runWindowsProcessStage(entries: readonly TestCatalogEntry[]): number {
@@ -551,9 +568,17 @@ function runWindowsProcessStage(entries: readonly TestCatalogEntry[]): number {
       entry.level === "integration" &&
       entry.executionProfiles?.includes("windows_process_control"),
   );
-  return runNodeTests("coordinator", windowsEntries, {
-    testNamePattern: "^Windows Process Gate:",
-  });
+  for (const owner of [
+    ...new Set(windowsEntries.map((entry) => entry.owner)),
+  ].sort()) {
+    const status = runNodeTests(
+      owner,
+      windowsEntries.filter((entry) => entry.owner === owner),
+      { testNamePattern: "^(Windows Process Gate:|Host Windows:)" },
+    );
+    if (status !== 0) return status;
+  }
+  return 0;
 }
 
 /**
@@ -611,6 +636,7 @@ export function runRegression(
     const changedPaths = argumentValues.includes("--all")
       ? [
           "40_Develop/coordinator/package.json",
+          "40_Develop/docker-isolation/package.json",
           "40_Develop/checker/package.json",
           "40_Develop/verification-runner/package.json",
           "40_Develop/execution-intelligence/package.json",

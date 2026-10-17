@@ -8,13 +8,9 @@ import { createHash } from "node:crypto";
 import { deriveOrchestratorRepositoryBindingId } from "./identity/repository-binding.ts";
 import type { Writable } from "node:stream";
 import {
-  recoverRuntimeOwnedDockerTask,
-  resolveRuntimeOwnedDockerTaskRecoveryCorrelations,
-} from "../../coordinator/src/docker-execution/recovery-lifecycle.ts";
-import {
-  issueRuntimeOwnedVerifiedCoordinatorPackageCapability,
-  revokeRuntimeOwnedVerifiedCoordinatorPackageCapability,
-} from "../../coordinator/src/platform-access/package-verification.ts";
+  recoverRuntimeOwnedDockerTaskForCurrentConsumer,
+  resolveRuntimeOwnedDockerTaskCurrentCorrelations,
+} from "../../coordinator/src/index.ts";
 import { inspectRepositoryIdentityCandidate } from "../../coordinator/src/repository-operation/binding.ts";
 import {
   cancelRuntimeOwnedCoordinatorTask,
@@ -22,11 +18,13 @@ import {
   startRuntimeOwnedCoordinatorTask,
 } from "../../coordinator/src/task/execution.ts";
 import { RepositoryRuntimeDataAreaBlockedError } from "../../domain-model/src/index.ts";
-import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../version-control/src/index.ts";
+import {
+  resolveVerifiedRepositoryRootFromWorkingDirectory,
+  verifyRepositoryRoot,
+} from "../../version-control/src/index.ts";
 import type { OrchestratorExecutionPublicationObservation } from "./task/dispatch.ts";
 import { createOrchestratorAcceptanceAuthorityAdapter } from "./decision/authority-adapter.ts";
 import { createOrchestratorDecisionCapabilityAdapter } from "./decision/capability-adapter.ts";
-import { createOrchestratorExecutionAuthorizationAdapter } from "./task/authorization-adapter.ts";
 import { createOrchestratorObjectiveResult } from "./objective/plan.ts";
 import { inspectOrchestratorDecisionRequest } from "./decision/request.ts";
 import {
@@ -351,8 +349,6 @@ function writeOrchestratorExecutionIntelligenceDiagnostic(
  * @compatibility PublicExecutionDependenciesの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
 type PublicExecutionDependencies = Readonly<{
-  issueRuntimeExecutionAuthorization: () => object | null;
-  revokeRuntimeExecutionAuthorization?: (capability: object) => boolean;
   startTask: typeof startRuntimeOwnedCoordinatorTask;
   cancelTask: typeof cancelRuntimeOwnedCoordinatorTask;
   captureResultDelivery: typeof captureRuntimeOwnedCoordinatorTaskResultDelivery;
@@ -363,7 +359,9 @@ type PublicExecutionDependencies = Readonly<{
   createIntegrationAdapter: (
     repositoryRoot: string,
   ) => OrchestratorCandidatePort;
-  resolveTaskRecoveryCorrelations?: typeof resolveRuntimeOwnedDockerTaskRecoveryCorrelations;
+  resolveTaskRecoveryCorrelations?: (
+    correlationIds: readonly string[],
+  ) => unknown;
   recordExecutionEvent: typeof recordOrchestratorExecutionEvent;
   observeExecutionEventPublication: (
     observation: OrchestratorExecutionPublicationObservation,
@@ -394,12 +392,6 @@ export type OrchestratorPublicDevelopmentDependencies = Omit<
 
 const productionExecutionDependencies: PublicExecutionDependencies =
   Object.freeze({
-    issueRuntimeExecutionAuthorization: () =>
-      issueRuntimeOwnedVerifiedCoordinatorPackageCapability({
-        evaluationTime: new Date().toISOString(),
-      }).capability,
-    revokeRuntimeExecutionAuthorization:
-      revokeRuntimeOwnedVerifiedCoordinatorPackageCapability,
     startTask: startRuntimeOwnedCoordinatorTask,
     cancelTask: cancelRuntimeOwnedCoordinatorTask,
     captureResultDelivery: captureRuntimeOwnedCoordinatorTaskResultDelivery,
@@ -407,8 +399,6 @@ const productionExecutionDependencies: PublicExecutionDependencies =
     openDecisionStore: openRuntimeOwnedWindowsProjectDecisionStore,
     createIntegrationAdapter:
       createRuntimeOwnedProjectCandidateIntegrationAdapter,
-    resolveTaskRecoveryCorrelations:
-      resolveRuntimeOwnedDockerTaskRecoveryCorrelations,
     recordExecutionEvent: recordOrchestratorExecutionEvent,
     observeExecutionEventPublication:
       writeOrchestratorExecutionIntelligenceDiagnostic,
@@ -691,7 +681,14 @@ async function executeOrchestratorPublicObjective(
           });
       },
       observeLeaseOwner,
-      recoverTaskRecovery: recoverRuntimeOwnedDockerTask,
+      recoverTaskRecovery: (recoveryId, signal) => {
+        const root = verifyRepositoryRoot(repositoryRoot);
+        return recoverRuntimeOwnedDockerTaskForCurrentConsumer(
+          recoveryId,
+          root.status === "completed" ? root.capability : null,
+          signal,
+        );
+      },
       acknowledgeTaskRecovery: (settlement) =>
         consumeDockerRecoveryReceiptAfterProjectSettlement(settlement, {
           workingDirectory,
@@ -706,12 +703,15 @@ async function executeOrchestratorPublicObjective(
           repositoryBindingId:
             deriveOrchestratorRepositoryBindingId(repositoryRoot),
         }),
-      ...(runtimeDependencies.resolveTaskRecoveryCorrelations
-        ? {
-            resolveTaskRecoveryCorrelations:
-              runtimeDependencies.resolveTaskRecoveryCorrelations,
-          }
-        : {}),
+      resolveTaskRecoveryCorrelations:
+        runtimeDependencies.resolveTaskRecoveryCorrelations ??
+        ((ids) => {
+          const root = verifyRepositoryRoot(repositoryRoot);
+          return resolveRuntimeOwnedDockerTaskCurrentCorrelations(
+            ids,
+            root.status === "completed" ? root.capability : null,
+          );
+        }),
       observeRecoveryTransition: writeOrchestratorRecoveryDiagnostic,
       execution: {
         resultDelivery: {
@@ -729,30 +729,13 @@ async function executeOrchestratorPublicObjective(
               recoveryId: acceptance.recoveryId,
             }),
         },
-        authorization: createOrchestratorExecutionAuthorizationAdapter({
-          issueRuntimeCapability:
-            runtimeDependencies.issueRuntimeExecutionAuthorization,
-          ...(runtimeDependencies.revokeRuntimeExecutionAuthorization
-            ? {
-                revokeRuntimeCapability:
-                  runtimeDependencies.revokeRuntimeExecutionAuthorization,
-              }
-            : {}),
-        }),
         runSingleTaskAttempt: (input) =>
           runOrchestratorSingleTaskAttempt(
             {
-              startTask: (
-                taskRequest,
-                root,
-                capability,
-                correlation,
-                observer,
-              ) =>
+              startTask: (taskRequest, root, correlation, observer) =>
                 runtimeDependencies.startTask(
                   taskRequest,
                   root,
-                  capability,
                   correlation,
                   observer,
                   "orchestrator",

@@ -1,5 +1,7 @@
 # QA-000007 リポジトリ境界とFederationの検証定義
 
+`RFD-UT-006`の保存排他構築は既存root-and-lock UTで実private本文へ接続する。固定Worker URL、optionsの単一workerData、freezeされたendpoint／共有状態、Rootと相対Lock Pathの順序付きSHA-256導出、取得値1／-1／-2とrelease一回を局所代役で確認する。terminate要求を実Worker終了と同一視せず、実Worker・OS排他・解放不明後の再入場は既存の実試験が所有する。旧署名ASTの任意Source改変拒否は再実装しない。
+
 成果物種別: Quality定義
 Quality ID: `QA-000007`
 検証目標: Repository Root、Repository ID、Project ID、Binding、ユーザー・現在Role認可、WorkspaceおよびRepository Exposureを別々の識別と利用範囲で解決すること

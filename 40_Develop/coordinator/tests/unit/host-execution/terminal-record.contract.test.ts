@@ -15,6 +15,7 @@ import { stripTypeScriptTypes } from "node:module";
 import path from "node:path";
 import test from "node:test";
 import { compileFunction, runInNewContext } from "node:vm";
+import { snapshotPlainRecord } from "../../../../domain-model/src/index.ts";
 import { hostOperationGenerationBindingHash } from "../../../src/host-execution/kernel-lock.ts";
 import type { HostTerminalCheckpointPreparation } from "../../../src/host-execution/terminal-caller-checkpoint.ts";
 import {
@@ -53,7 +54,6 @@ import {
   saveHostTerminalWindowsRecord,
   saveKnownFileHostTerminalWindowsRecord,
 } from "../../../src/host-execution/terminal-windows-adapter.ts";
-import { snapshotPlainRecord } from "../../../../domain-model/src/index.ts";
 
 /**
  * 限定保守と既存の世代排他が同じ結合値を使うことを確認する。
@@ -133,7 +133,7 @@ function identity(index: number): HostTerminalWindowsIdentity {
 test("Host専用環境はcanonical親を両一時fieldへ結び不明を補完しない", () => {
   const source = readFileSync(
     new URL(
-      "../../../src/host-execution/windows-child-environment.ts",
+      "../../../../platform-access/src/windows/child-environment.ts",
       import.meta.url,
     ),
     "utf8",
@@ -258,7 +258,6 @@ test("Host候補の二回確認は私有Current要求と検証済み実行Contex
   cancelled.abort();
   const cancelledResult = observeHostTerminalWindowsCandidate(
     current,
-    0,
     {},
     cancelled.signal,
   );
@@ -269,7 +268,7 @@ test("Host候補の二回確認は私有Current要求と検証済み実行Contex
   assert.equal(cancelledResult.processEffectIssued, false);
   assert.equal(cancelledResult.helperExitConfirmed, true);
   for (const request of [known, Object.freeze({ ...current })]) {
-    const result = observeHostTerminalWindowsCandidate(request, 0);
+    const result = observeHostTerminalWindowsCandidate(request);
     assert.equal(result.status, "blocked");
     assert.equal(result.reason, "host_terminal_current_request_required");
     assert.equal(result.currentObservation, null);
@@ -278,7 +277,7 @@ test("Host候補の二回確認は私有Current要求と検証済み実行Contex
     assert.equal(result.filesystemEffectIssued, false);
     assert.equal(result.cleanupAuthorized, false);
   }
-  const result = observeHostTerminalWindowsCandidate(current, 0, {});
+  const result = observeHostTerminalWindowsCandidate(current, {});
   assert.equal(result.status, "blocked");
   assert.equal(
     result.reason,
@@ -406,6 +405,18 @@ function knownFixture() {
  * @boundary 実bodyの合成返却試験。実Native正常搬送・非使用は対象外。
  */
 test("Host候補の共同照合は全十二fieldと部分失敗を保持する", () => {
+  const packageManifest = JSON.parse(
+    readFileSync(new URL("../../../package.json", import.meta.url), "utf8"),
+  );
+  assert.deepEqual(Object.keys(packageManifest.exports).sort(), [".", "./cli"]);
+  const packageIndex = readFileSync(
+    new URL("../../../src/index.ts", import.meta.url),
+    "utf8",
+  );
+  assert.doesNotMatch(
+    packageIndex,
+    /terminal-windows-adapter|observe(?:KnownFile)?HostTerminalWindows(?:Target|Candidate)/u,
+  );
   const source = readFileSync(
     new URL(
       "../../../src/host-execution/terminal-windows-adapter.ts",
@@ -430,151 +441,257 @@ test("Host候補の共同照合は全十二fieldと部分失敗を保持する",
     ...args: unknown[]
   ) => ReturnType<typeof observeKnownFileHostTerminalWindowsCandidate>;
   for (const hasKnownFile of [false, true]) {
-    const candidate = knownFixture();
-    const snapshot = {
-      identities: Array.from(
-        { length: hasKnownFile ? 12 : 11 },
-        (_entry, index) => ({
-          ...identity(index + 1),
-          ...(index === 11 ? { attributes: 0x80 } : {}),
-        }),
-      ),
-      selectedUserSha256: candidate.bindings.selectedUserSha256,
-      markerSha256: candidate.target.marker.sha256,
-      ...(hasKnownFile
-        ? {
-            knownFile: {
-              byteLength: 7,
-              linkCount: 1,
-              sha256: candidate.target.knownFile.sha256,
-            },
-          }
-        : {}),
-    };
-    const changedSnapshots = [];
-    for (let i = 0; i < snapshot.identities.length; i += 1) {
-      for (const key of keys) {
+    for (const developmentContext of [undefined, Object.freeze({})]) {
+      const candidate = knownFixture();
+      const snapshot = {
+        identities: Array.from(
+          { length: hasKnownFile ? 12 : 11 },
+          (_entry, index) => ({
+            ...identity(index + 1),
+            ...(index === 11 ? { attributes: 0x80 } : {}),
+          }),
+        ),
+        selectedUserSha256: candidate.bindings.selectedUserSha256,
+        markerSha256: candidate.target.marker.sha256,
+        ...(hasKnownFile
+          ? {
+              knownFile: {
+                byteLength: 7,
+                linkCount: 1,
+                sha256: candidate.target.knownFile.sha256,
+              },
+            }
+          : {}),
+      };
+      const changedSnapshots = [];
+      for (let i = 0; i < snapshot.identities.length; i += 1) {
+        for (const key of keys) {
+          const copy = structuredClone(snapshot);
+          const changedIdentity = copy.identities[i];
+          assert.ok(changedIdentity);
+          changedIdentity[key] += 1;
+          changedSnapshots.push(copy);
+        }
+      }
+      for (const key of ["selectedUserSha256", "markerSha256"] as const) {
         const copy = structuredClone(snapshot);
-        const changedIdentity = copy.identities[i];
-        assert.ok(changedIdentity);
-        changedIdentity[key] += 1;
+        copy[key] = "0".repeat(64);
         changedSnapshots.push(copy);
       }
-    }
-    for (const key of ["selectedUserSha256", "markerSha256"] as const) {
-      const copy = structuredClone(snapshot);
-      copy[key] = "0".repeat(64);
-      changedSnapshots.push(copy);
-    }
-    if (hasKnownFile) {
-      for (const key of ["byteLength", "linkCount", "sha256"] as const) {
-        const copy = structuredClone(snapshot);
-        assert.ok(copy.knownFile);
-        if (key === "sha256") copy.knownFile.sha256 = "0".repeat(64);
-        else copy.knownFile[key] += 1;
-        changedSnapshots.push(copy);
+      if (hasKnownFile) {
+        for (const key of ["byteLength", "linkCount", "sha256"] as const) {
+          const copy = structuredClone(snapshot);
+          assert.ok(copy.knownFile);
+          if (key === "sha256") copy.knownFile.sha256 = "0".repeat(64);
+          else copy.knownFile[key] += 1;
+          changedSnapshots.push(copy);
+        }
       }
-    }
-    for (const [scenario, nextSnapshot] of [
-      ["normal", snapshot],
-      ...changedSnapshots.map((value) => ["changedSnapshots", value] as const),
-      ...[
-        "current_failed",
-        "known_failed",
-        "current_unclosed",
-        "known_unclosed",
-        "current_cancelled",
-        "known_cancelled",
-        "factory_cancelled",
-        "factory_null",
-        "current_throw",
-        "known_throw",
-        "forged",
-      ].map((value) => [value, snapshot] as const),
-    ] as const) {
-      const signal = new AbortController();
-      const request = Object.freeze({ nonceHex: "01".repeat(32) });
-      const nextRequest = Object.freeze({ nonceHex: "02".repeat(32) });
-      const contexts = new WeakMap();
-      if (scenario !== "forged")
-        contexts.set(request, {
-          namespace: null,
-          selectedUser: null,
-          rootName: candidate.target.root.name,
-          markerName: candidate.target.marker.name,
-        });
-      let calls = 0;
-      let firstReceipt: unknown = null;
-      const result = evaluate(
-        request,
-        0,
-        {},
-        signal.signal,
-        contexts,
-        (actual: unknown) => {
-          calls += 1;
-          assert.equal(actual, calls === 1 ? request : nextRequest);
-          if (scenario === (calls === 1 ? "current_throw" : "known_throw"))
-            throw new Error("private_error");
-          if (
-            scenario === (calls === 1 ? "current_cancelled" : "known_cancelled")
-          )
-            signal.abort();
-          const receipt = { snapshot: calls === 1 ? snapshot : nextSnapshot };
-          if (calls === 1) firstReceipt = receipt;
-          const isFailed =
-            scenario === (calls === 1 ? "current_failed" : "known_failed");
-          return {
-            status: isFailed ? "blocked" : "observed",
-            reason: "fixture_observation",
-            observation: receipt,
-            processEffectIssued: true,
-            helperExitConfirmed:
-              scenario !==
-              (calls === 1 ? "current_unclosed" : "known_unclosed"),
-            filesystemEffectIssued: false,
-            runtimeAuthorityIssued: false,
-            cleanupAuthorized: false,
-          };
-        },
-        (value: Record<string, unknown>) => {
-          assert.equal(value.rootName, candidate.target.root.name);
-          assert.equal(value.markerName, candidate.target.marker.name);
-          assert.equal(value.selectedUserSha256, snapshot.selectedUserSha256);
-          assert.equal(
-            JSON.stringify(value.namespace),
-            JSON.stringify(snapshot.identities.slice(0, 3)),
-          );
-          if (scenario === "factory_cancelled") signal.abort();
-          return scenario === "factory_null" ? null : nextRequest;
-        },
-        hasKnownFile,
-      );
-      assert.equal(
-        result.status,
-        scenario === "normal" ? "observed" : "blocked",
-        scenario,
-      );
-      if (scenario === "forged") assert.equal(calls, 0);
-      else if (
-        [
+      for (const [scenario, nextSnapshot] of [
+        ["normal", snapshot],
+        ...changedSnapshots.map(
+          (value) => ["changedSnapshots", value] as const,
+        ),
+        ...[
           "current_failed",
+          "known_failed",
           "current_unclosed",
+          "known_unclosed",
           "current_cancelled",
-          "current_throw",
-          "factory_null",
+          "known_cancelled",
           "factory_cancelled",
-        ].includes(scenario)
-      )
-        assert.equal(calls, 1, scenario);
-      else assert.equal(calls, 2, scenario);
-      assert.equal(result.currentObservation, firstReceipt);
-      assert.equal(result.filesystemEffectIssued, false);
-      assert.equal(result.runtimeAuthorityIssued, false);
-      assert.equal(result.cleanupAuthorized, false);
-      if (scenario.endsWith("throw")) {
-        assert.equal(result.processEffectIssued, null);
-        assert.equal(result.helperExitConfirmed, false);
+          "factory_null",
+          "current_throw",
+          "known_throw",
+          "forged",
+          "source_revision",
+          "source_artifact",
+          ...[
+            "relativePath",
+            "target",
+            "protocolRevision",
+            "rustToolchain",
+            "byteLength",
+          ].map((field) => `source_artifact_${field}`),
+          "source_kind",
+          "source_missing",
+        ].map((value) => [value, snapshot] as const),
+      ] as const) {
+        let signal = new AbortController();
+        const request = Object.freeze({ nonceHex: "01".repeat(32) });
+        const nextRequest = Object.freeze({ nonceHex: "02".repeat(32) });
+        const contexts = new WeakMap();
+        if (scenario !== "forged")
+          contexts.set(request, {
+            namespace: null,
+            selectedUser: null,
+            rootName: candidate.target.root.name,
+            markerName: candidate.target.marker.name,
+          });
+        let calls = 0;
+        let firstReceipt: unknown = null;
+        const invocation = [
+          request,
+          developmentContext,
+          signal.signal,
+          contexts,
+          (actual: unknown) => {
+            calls += 1;
+            assert.equal(actual, calls === 1 ? request : nextRequest);
+            if (scenario === (calls === 1 ? "current_throw" : "known_throw"))
+              throw new Error("private_error");
+            if (
+              scenario ===
+              (calls === 1 ? "current_cancelled" : "known_cancelled")
+            )
+              signal.abort();
+            const receipt = { snapshot: calls === 1 ? snapshot : nextSnapshot };
+            if (calls === 1) firstReceipt = receipt;
+            const isFailed =
+              scenario === (calls === 1 ? "current_failed" : "known_failed");
+            return {
+              status: isFailed ? "blocked" : "observed",
+              reason: "fixture_observation",
+              observation: receipt,
+              executionSourceKind:
+                scenario === "source_kind" && calls === 2
+                  ? "different"
+                  : developmentContext === undefined
+                    ? "fixed_bootstrap_native_artifact"
+                    : "fixed_development_candidate",
+              nativeProvenance:
+                scenario === "source_missing" && calls === 2
+                  ? undefined
+                  : {
+                      repositoryRevision:
+                        scenario === "source_revision" && calls === 2
+                          ? { revisionIdentity: "unconfirmed" }
+                          : null,
+                      artifact: {
+                        relativePath:
+                          scenario === "source_artifact_relativePath" &&
+                          calls === 2
+                            ? "other.exe"
+                            : "native.exe",
+                        target:
+                          scenario === "source_artifact_target" && calls === 2
+                            ? "other"
+                            : "windows",
+                        protocolRevision:
+                          scenario === "source_artifact_protocolRevision" &&
+                          calls === 2
+                            ? 4
+                            : 3,
+                        rustToolchain:
+                          scenario === "source_artifact_rustToolchain" &&
+                          calls === 2
+                            ? "other"
+                            : "fixed",
+                        byteLength:
+                          scenario === "source_artifact_byteLength" &&
+                          calls === 2
+                            ? 2
+                            : 1,
+                        sha256:
+                          scenario === "source_artifact" && calls === 2
+                            ? "different"
+                            : "fixed",
+                      },
+                    },
+              processEffectIssued: true,
+              helperExitConfirmed:
+                scenario !==
+                (calls === 1 ? "current_unclosed" : "known_unclosed"),
+              filesystemEffectIssued: false,
+              runtimeAuthorityIssued: false,
+              cleanupAuthorized: false,
+            };
+          },
+          (value: Record<string, unknown>) => {
+            assert.equal(value.rootName, candidate.target.root.name);
+            assert.equal(value.markerName, candidate.target.marker.name);
+            assert.equal(value.selectedUserSha256, snapshot.selectedUserSha256);
+            assert.equal(
+              JSON.stringify(value.namespace),
+              JSON.stringify(snapshot.identities.slice(0, 3)),
+            );
+            if (scenario === "factory_cancelled") signal.abort();
+            return scenario === "factory_null" ? null : nextRequest;
+          },
+          hasKnownFile,
+        ];
+        const result = evaluate(...invocation);
+        for (const key of [
+          "nativeProvenance",
+          "executionSourceKind",
+          "artifactVerifiedBeforeAndAfter",
+        ]) {
+          assert.equal(key in result, false, `${scenario}: ${key}`);
+        }
+        assert.equal(
+          result.status,
+          scenario === "normal" ? "observed" : "blocked",
+          scenario,
+        );
+        if (scenario === "forged") assert.equal(calls, 0);
+        else if (
+          [
+            "current_failed",
+            "current_unclosed",
+            "current_cancelled",
+            "current_throw",
+            "factory_null",
+            "factory_cancelled",
+          ].includes(scenario)
+        )
+          assert.equal(calls, 1, scenario);
+        else assert.equal(calls, 2, scenario);
+        assert.equal(result.currentObservation, firstReceipt);
+        if (
+          [
+            "current_failed",
+            "current_cancelled",
+            "factory_null",
+            "factory_cancelled",
+          ].includes(scenario)
+        ) {
+          const leaked = body.replaceAll(
+            "currentObservation: current.observation,",
+            "...current, currentObservation: current.observation,",
+          );
+          assert.notEqual(leaked, body);
+          calls = 0;
+          signal = new AbortController();
+          invocation[2] = signal.signal;
+          const evaluateLeak = runInNewContext(`(${leaked})`, {
+            identityKeys: keys,
+          }) as typeof evaluate;
+          assert.equal(
+            "nativeProvenance" in evaluateLeak(...invocation),
+            true,
+            scenario,
+          );
+        }
+        assert.equal(result.filesystemEffectIssued, false);
+        assert.equal(result.runtimeAuthorityIssued, false);
+        assert.equal(result.cleanupAuthorized, false);
+        if (scenario.endsWith("throw")) {
+          assert.equal(result.processEffectIssued, null);
+          assert.equal(result.helperExitConfirmed, false);
+        }
+        if (scenario.startsWith("source_") && result.status === "blocked") {
+          const mutated = body.replace("sourceMatches &&", "true &&");
+          assert.notEqual(mutated, body);
+          calls = 0;
+          const evaluateMutant = runInNewContext(`(${mutated})`, {
+            identityKeys: keys,
+          }) as typeof evaluate;
+          assert.equal(
+            evaluateMutant(...invocation).status,
+            "observed",
+            scenario,
+          );
+        }
       }
     }
   }
@@ -614,7 +731,7 @@ test("Host既知file候補は専用Currentだけを要求する", () => {
   });
   assert.ok(current && old && known);
   for (const request of [old, known, { ...current }]) {
-    const result = observeKnownFileHostTerminalWindowsCandidate(request, 0, {});
+    const result = observeKnownFileHostTerminalWindowsCandidate(request, {});
     assert.equal(result.reason, "host_terminal_current_request_required");
     assert.equal(result.processEffectIssued, false);
   }
@@ -622,13 +739,12 @@ test("Host既知file候補は専用Currentだけを要求する", () => {
   cancelled.abort();
   const stopped = observeKnownFileHostTerminalWindowsCandidate(
     current,
-    0,
     {},
     cancelled.signal,
   );
   assert.equal(stopped.reason, "host_terminal_candidate_cancelled");
   assert.equal(stopped.helperExitConfirmed, true);
-  const result = observeKnownFileHostTerminalWindowsCandidate(current, 0, {});
+  const result = observeKnownFileHostTerminalWindowsCandidate(current, {});
   assert.equal(result.status, "blocked");
   assert.equal(result.processEffectIssued, false);
   assert.equal(result.knownObservation, null);
@@ -804,7 +920,6 @@ test("Host記録準備は旧新選択Hashと保存後の同参照を保持する
       const result = await prepare(
         {},
         variant.input,
-        0,
         signal.signal,
         {},
         () => ({ nonceHex: "01".repeat(32) }),
@@ -1270,7 +1385,7 @@ test("Host既知file専用搬送は十二実体を保持し旧要求と混用し
       evaluateKnownFileHostTerminalObservationResponse(foreign, old),
       null,
     );
-    const rejected = observeKnownFileHostTerminalWindowsTarget(old, 0, {});
+    const rejected = observeKnownFileHostTerminalWindowsTarget(old, {});
     assert.equal(rejected.status, "blocked");
     assert.equal(rejected.processEffectIssued, false);
   }
@@ -1601,38 +1716,24 @@ test("Host記録読戻しは対象未試行と現在記録を区別する", () =
     false,
   );
   assert.equal(
-    readHostTerminalWindowsRecord(
-      { ...request },
-      new Date().toISOString(),
-      new AbortController().signal,
-    ).processEffectIssued,
+    readHostTerminalWindowsRecord({ ...request }, new AbortController().signal)
+      .processEffectIssued,
     false,
   );
   const aborted = new AbortController();
   aborted.abort();
   assert.equal(
-    readHostTerminalWindowsRecord(
-      request,
-      new Date().toISOString(),
-      aborted.signal,
-    ).processEffectIssued,
+    readHostTerminalWindowsRecord(request, aborted.signal).processEffectIssued,
     false,
   );
   assert.equal(
-    saveHostTerminalWindowsRecord(
-      request,
-      new Date().toISOString(),
-      new AbortController().signal,
-    ).processEffectIssued,
+    saveHostTerminalWindowsRecord(request, new AbortController().signal)
+      .processEffectIssued,
     false,
   );
   assert.equal(
-    readHostTerminalWindowsRecord(
-      request,
-      new Date().toISOString(),
-      new AbortController().signal,
-      {},
-    ).recordEffectIssued,
+    readHostTerminalWindowsRecord(request, new AbortController().signal, {})
+      .recordEffectIssued,
     false,
   );
 });
@@ -1784,22 +1885,9 @@ test("Host保存Adapterは偽参照・取消・未検証ContextでEffect 0を保
   const cancelled = new AbortController();
   cancelled.abort();
   for (const result of [
-    saveHostTerminalWindowsRecord(
-      { ...request },
-      new Date().toISOString(),
-      new AbortController().signal,
-    ),
-    saveHostTerminalWindowsRecord(
-      request,
-      new Date().toISOString(),
-      cancelled.signal,
-    ),
-    saveHostTerminalWindowsRecord(
-      request,
-      new Date().toISOString(),
-      new AbortController().signal,
-      {},
-    ),
+    saveHostTerminalWindowsRecord({ ...request }, new AbortController().signal),
+    saveHostTerminalWindowsRecord(request, cancelled.signal),
+    saveHostTerminalWindowsRecord(request, new AbortController().signal, {}),
   ]) {
     assert.equal(result.status, "blocked");
     assert.equal(result.nativeSave, null);
@@ -1914,22 +2002,23 @@ test("Host記録Adapterはexit不一致の部分receiptを保持して停止す�
           bundledDistributionRoot: "synthetic-fixed-distribution",
           PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH: "synthetic.exe",
           MAX_SAVE_RESPONSE_BYTES: 2048,
-          verifyBundledCoordinatorPackageFromFixedManifestCandidate: () => ({
-            status: "candidate",
-            runtimeOwnedReleaseTrustConfirmed: true,
-            runtimeExecutionIdentityRuntimeOwned: true,
-            crddDistributionConfirmed: true,
-            platformAccessArtifact: artifact,
+          inspectPlatformAccessNativeGitProvenanceCandidate: () => ({
+            artifact,
+            repositoryRevision: Object.freeze({ revisionIdentity: "fixture" }),
           }),
-          observePlatformAccessReleaseArtifactCandidate: () => ({
+          observePlatformAccessArtifactCandidate: () => ({
             status: "candidate",
             artifact,
           }),
-          beginPlatformAccessArtifactSigningObservation: () => ({
+          beginPlatformAccessArtifactObservation: () => ({
             token: "fixture",
             artifact,
           }),
-          verifyPlatformAccessArtifactSigningObservation: () => true,
+          beginPlatformAccessBootstrapObservation: () => ({
+            token: "fixture",
+            artifact,
+          }),
+          verifyPlatformAccessArtifactObservation: () => true,
           createWindowsHostTerminalHelperEnvironment: () => ({}),
           evaluateHostTerminalSaveResponse,
           evaluateHostTerminalReadResponse,
@@ -1961,7 +2050,6 @@ test("Host記録Adapterはexit不一致の部分receiptを保持して停止す�
         const result = executeRecordRequest(
           request,
           mode,
-          "synthetic-evaluation",
           new AbortController().signal,
           undefined,
           context,
@@ -2258,19 +2346,17 @@ test("Host既知file保存応答は十二Knownと部分receiptを保持する", 
   controller.abort();
   const stopped = saveKnownFileHostTerminalWindowsRecord(
     request,
-    null,
     controller.signal,
   );
   assert.equal(stopped.reference, request.reference);
   assert.equal(stopped.processEffectIssued, false);
   assert.equal(stopped.recordEffectIssued, false);
   assert.equal(
-    saveHostTerminalWindowsRecord(request, null, controller.signal).reference,
+    saveHostTerminalWindowsRecord(request, controller.signal).reference,
     null,
   );
   assert.equal(
-    saveKnownFileHostTerminalWindowsRecord(old, null, controller.signal)
-      .reference,
+    saveKnownFileHostTerminalWindowsRecord(old, controller.signal).reference,
     null,
   );
 });
@@ -2357,24 +2443,21 @@ test("Host既知file読戻しは対象未試行と同参照を保持する", () 
   controller.abort();
   const stopped = readKnownFileHostTerminalWindowsRecord(
     request,
-    null,
     controller.signal,
   );
   assert.equal(stopped.reference, request.reference);
   assert.equal(stopped.processEffectIssued, false);
   assert.equal(stopped.recordEffectIssued, false);
   assert.equal(
-    readHostTerminalWindowsRecord(request, null, controller.signal).reference,
+    readHostTerminalWindowsRecord(request, controller.signal).reference,
     null,
   );
   assert.equal(
-    readKnownFileHostTerminalWindowsRecord(old, null, controller.signal)
-      .reference,
+    readKnownFileHostTerminalWindowsRecord(old, controller.signal).reference,
     null,
   );
   assert.equal(
-    readKnownFileHostTerminalWindowsRecord(save, null, controller.signal)
-      .reference,
+    readKnownFileHostTerminalWindowsRecord(save, controller.signal).reference,
     null,
   );
 });
@@ -2675,10 +2758,7 @@ test("Host対象Native応答は外側close不明と部分取得を成功に畳�
  */
 test("Host対象Native Adapterは不正intentでEffect 0を保持する", () => {
   assert.equal(createHostTerminalObservationRequest(null), null);
-  const result = observeHostTerminalWindowsTarget(
-    null,
-    new Date().toISOString(),
-  );
+  const result = observeHostTerminalWindowsTarget(null);
   assert.equal(result.status, "blocked");
   assert.equal(result.processEffectIssued, false);
   assert.equal(result.filesystemEffectIssued, false);

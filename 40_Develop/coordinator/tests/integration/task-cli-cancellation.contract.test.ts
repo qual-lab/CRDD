@@ -12,7 +12,6 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { EventEmitter } from "node:events";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { API } from "typescript/unstable/sync";
@@ -572,17 +571,17 @@ function inspectTaskCliCancellationWiring(
   const helperImports = namedImportIdentifier(
     sourceFile,
     "bindTaskCliCancellationSignals",
-    "./task-cli-cancellation.ts",
+    "./task-cancellation.ts",
   );
   const cancelImports = namedImportIdentifier(
     sourceFile,
     "cancelRuntimeOwnedCoordinatorTask",
-    "../task/coordinator-task-runtime.ts",
+    "../task/execution.ts",
   );
   const projectorImports = namedImportIdentifier(
     sourceFile,
     "projectTaskCliCancellationFailure",
-    "./task-cli-cancellation.ts",
+    "./task-cancellation.ts",
   );
   if (helperImports.length !== 1) failures.push("helper_import_not_exact");
   if (cancelImports.length !== 1) failures.push("cancel_import_not_exact");
@@ -792,7 +791,7 @@ test("公開CLIはproduction helperの単一bindingとfinally解除をAST・symb
       assert.ok(project);
       const sourceFile = projectSourceFile(
         project,
-        path.join(coordinatorRoot, "src", "cli", "coordinator-command.ts"),
+        path.join(coordinatorRoot, "src", "cli", "command.ts"),
       );
       assert.deepEqual(
         inspectTaskCliCancellationWiring(project, sourceFile),
@@ -820,14 +819,7 @@ test("公開CLIはproduction helperの単一bindingとfinally解除をAST・symb
  */
 test("CLI AST契約はshadow・二重binding・直接signal・finally外解除・guard前returnを拒否する", () => {
   const original = fs.readFileSync(
-    path.join(
-      import.meta.dirname,
-      "..",
-      "..",
-      "src",
-      "cli",
-      "coordinator-command.ts",
-    ),
+    path.join(import.meta.dirname, "..", "..", "src", "cli", "command.ts"),
     "utf8",
   );
   const mutations = [
@@ -856,42 +848,78 @@ test("CLI AST契約はshadow・二重binding・直接signal・finally外解除�
       "projectTaskCliCancellationFailure(\n      { status: 'blocked', reason: 'discarded_runtime_result' },",
     ),
   ];
-  const temporaryRoot = fs.mkdtempSync(
-    path.join(os.tmpdir(), "crdd-task-cli-ast-"),
-  );
+  const coordinatorRoot = path.resolve(import.meta.dirname, "../..");
+  for (const mutation of mutations) assert.notEqual(mutation, original);
+  const virtualFiles: Record<string, string> = {};
+  const fileNames = [original, ...mutations].map((source, index) => {
+    const fileName = path
+      .join(coordinatorRoot, "src/cli", `.crdd-cli-mutation-${index}.ts`)
+      .replaceAll("\\", "/");
+    virtualFiles[fileName] = source;
+    return fileName;
+  });
+  const configFile = path
+    .join(coordinatorRoot, ".crdd-cli-mutation.json")
+    .replaceAll("\\", "/");
+  virtualFiles[configFile] = JSON.stringify({
+    extends: "./tsconfig.strict.json",
+    files: fileNames,
+    include: [],
+  });
+  const api = new API({
+    cwd: coordinatorRoot,
+    fs: {
+      readFile: (name) => virtualFiles[name],
+      fileExists: (name) => (name in virtualFiles ? true : undefined),
+      realpath: (name) => (name in virtualFiles ? name : undefined),
+    },
+  });
   try {
-    const fileNames = mutations.map((source, index) => {
-      const fileName = path.join(temporaryRoot, `mutated-${index}.ts`);
-      fs.writeFileSync(fileName, source, "utf8");
-      return fileName;
-    });
-    const configFile = path.join(temporaryRoot, "tsconfig.json");
-    fs.writeFileSync(
-      configFile,
-      `${JSON.stringify({ compilerOptions: { noEmit: true }, files: fileNames })}\n`,
-      "utf8",
-    );
-    const api = new API({ cwd: temporaryRoot });
+    const snapshot = api.updateSnapshot({ openProjects: [configFile] });
     try {
-      const snapshot = api.updateSnapshot({ openProjects: [configFile] });
-      try {
-        const project =
-          snapshot.getProject(configFile) ?? snapshot.getProjects()[0];
-        assert.ok(project);
-        for (const fileName of fileNames) {
-          const failures = inspectTaskCliCancellationWiring(
-            project,
-            projectSourceFile(project, fileName),
+      const project =
+        snapshot.getProject(configFile) ?? snapshot.getProjects()[0];
+      assert.ok(project);
+      const expectedFailures = [
+        null,
+        "binding_shadowed_or_unresolved",
+        "helper_call_not_exact",
+        "direct_signal_call_present",
+        "unbind_not_in_finally",
+        "helper_not_immediately_guarded_by_finally",
+        "projector_result_binding_mismatch",
+      ];
+      for (const [index, fileName] of fileNames.entries()) {
+        assert.equal(
+          project.program.getSyntacticDiagnostics(fileName).length,
+          0,
+        );
+        const failures = inspectTaskCliCancellationWiring(
+          project,
+          projectSourceFile(project, fileName),
+        );
+        const expected = expectedFailures[index];
+        if (expected === null) assert.deepEqual(failures, [], "baseline");
+        else {
+          assert.ok(expected);
+          assert.ok(
+            failures.includes(expected),
+            `${index}: ${failures.join(",")}`,
           );
-          assert.notDeepEqual(failures, [], fileName);
+          assert.equal(
+            failures.some(
+              (failure) =>
+                failure.includes("import_") ||
+                failure.endsWith("symbol_missing"),
+            ),
+            false,
+          );
         }
-      } finally {
-        snapshot.dispose();
       }
     } finally {
-      api.close();
+      snapshot.dispose();
     }
   } finally {
-    fs.rmSync(temporaryRoot, { recursive: true, force: true });
+    api.close();
   }
 });

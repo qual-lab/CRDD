@@ -334,8 +334,7 @@ export function describeRuntimeProcessSafetyStateContract() {
       "signed_route_matrix_started_or_outer_execution_unknown",
     ]),
     guardedEntrypoints: Object.freeze([
-      "verified_package_issue_before_manifest_or_filesystem_observation",
-      "coordinator_task_before_capability_consume_and_all_effects",
+      "coordinator_task_before_all_effects",
       "external_send_grant_before_authority_verification_or_console_effect",
     ]),
     transientDrainTransition:

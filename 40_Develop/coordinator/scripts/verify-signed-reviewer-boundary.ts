@@ -16,6 +16,7 @@ import {
   runRecordedVerification,
 } from "./verification-result-record.ts";
 import { snapshotPlainArray } from "../../domain-model/src/index.ts";
+import { isSupportedCrddRuntimeGitObjectId } from "../src/diagnostics/release-identity-grammar.ts";
 import {
   runSignedGeneralTaskVerification,
   SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT,
@@ -25,7 +26,7 @@ import {
 
 export const SIGNED_REVIEWER_BOUNDARY_VERIFICATION_CONTRACT =
   "crdd-coordinator/signed-reviewer-boundary-verification";
-export const SIGNED_REVIEWER_BOUNDARY_VERIFICATION_CONTRACT_REVISION = 1;
+export const SIGNED_REVIEWER_BOUNDARY_VERIFICATION_CONTRACT_REVISION = 2;
 
 const ROUTES: readonly SignedGeneralTaskRouteProfile[] = Object.freeze([
   "forward",
@@ -87,6 +88,13 @@ function exactCompletedRoute(result: RuntimeRecord, route: string) {
     result.contractRevision ===
       SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION &&
     result.status === "completed" &&
+    result.sourceScope === "crdd-development-source-snapshot/v1" &&
+    typeof result.sourceSha256 === "string" &&
+    /^[a-f0-9]{64}$/u.test(result.sourceSha256) &&
+    result.sourceObservationStatus === "matched" &&
+    result.signatureRequired === false &&
+    isSupportedCrddRuntimeGitObjectId(result.crddCommit) &&
+    isSupportedCrddRuntimeGitObjectId(result.crddTree) &&
     result.reason === "signed_general_task_verification_completed" &&
     result.requestedRouteProfile === route &&
     result.exactCandidateContentVerified === true &&
@@ -211,6 +219,7 @@ export async function runSignedReviewerBoundaryVerification(
 ) {
   if (isRuntimeProcessPoisoned()) return blockedResult([], null, true);
   const results: RuntimeRecord[] = [];
+  let sourceIdentity: string | null = null;
   for (const route of ROUTES) {
     try {
       const result = (await routeRun(
@@ -221,6 +230,15 @@ export async function runSignedReviewerBoundaryVerification(
       results.push(result);
       if (!exactCompletedRoute(result, route))
         return blockedResult(results, route);
+      const observed = JSON.stringify([
+        result.sourceScope,
+        result.sourceSha256,
+        result.crddCommit,
+        result.crddTree,
+      ]);
+      if (sourceIdentity !== null && observed !== sourceIdentity)
+        return blockedResult(results, route);
+      sourceIdentity = observed;
     } catch {
       poisonRuntimeProcessAfterCleanupUnknown();
       return blockedResult(results, route, true);

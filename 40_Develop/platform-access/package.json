@@ -1,0 +1,23 @@
+{
+  "name": "@qual-lab/crdd-platform-access",
+  "version": "0.0.0-development",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": {
+    "check": "npm run format:check && npm run typecheck && npm run lint",
+    "format:check": "biome format ./src ./tests ./package.json ./tsconfig.json",
+    "format": "biome format --write ./src ./tests ./package.json ./tsconfig.json",
+    "typecheck": "tsc -p ./tsconfig.json",
+    "lint": "biome lint ./src ./tests --error-on-warnings",
+    "test": "npm run check && npm run test:run",
+    "test:run": "node --test --test-concurrency=1 \"--test-skip-pattern=^Host Windows:\" ./tests/**/*.test.ts",
+    "test:host-windows": "npm run check && node --test --test-concurrency=1 \"--test-name-pattern=^Host Windows:\" ./tests/integration/entry-observation.contract.test.ts"
+  },
+  "engines": { "node": ">=24.12.0" },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.6",
+    "@types/node": "22.18.0",
+    "typescript": "7.0.2"
+  }
+}

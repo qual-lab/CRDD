@@ -8,11 +8,12 @@
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { ensureRepositoryRuntimeDataArea } from "../../../domain-model/src/index.ts";
 import {
+  ensureRepositoryRuntimeDataArea,
   RepositoryRuntimeDataAreaBlockedError,
   requireReadyRepositoryRuntimeDataArea,
   resolveRepositoryRuntimeDataPaths,
+  snapshotPlainRecord,
 } from "../../../domain-model/src/index.ts";
 import type { VerifiedRepositoryRoot } from "../../../version-control/src/index.ts";
 import { acquireHostTerminalCallerLease } from "./terminal-caller-lease.ts";
@@ -40,7 +41,6 @@ import {
   saveHostTerminalWindowsRecord,
   saveKnownFileHostTerminalWindowsRecord,
 } from "./terminal-windows-adapter.ts";
-import { snapshotPlainRecord } from "../../../domain-model/src/index.ts";
 
 const MAX_ENTRIES = 1_024;
 const MAX_BYTES = 8 * 1_024 * 1_024;
@@ -55,7 +55,7 @@ const REFERENCE =
  * @responsibility 読んだ記録自身を期待値へ循環させない。
  * @trace ARCH-000008
  * @shape Runtime、Repository、選択利用者の三Hash。
- * @invariant 期待値の実由来は上位の署名・Root・OS観測が所有する。
+ * @invariant 期待値の実由来は上位のRoot・改訂版・OS観測が所有する。
  * @boundary 内部callerと記録codecの境界。
  * @security HashはAuthorityではなく、値の一致は現在権限を証明しない。
  * @compatibility Host終端intent revision 2のbindingsと同じ閉集合。旧文書の属性は補完しない。
@@ -133,7 +133,7 @@ export type HostTerminalCheckpointPreparation<
  * @responsibility 観測から記録への搬送を一つのOwnerで閉じ、失敗・取消でも取得済み参照を失わない。
  * @trace ARCH-000008
  * @trace ARCH-000011
- * @input 検証済みRepository、reference／rootName／markerName／bindingsの閉じた入力、評価時点、取消Signalと開発観測Context。
+ * @input 検証済みRepository、reference／rootName／markerName／bindingsの閉じた入力、取消Signalと開発観測Context。
  * @returns 観測・intent・保存を分けた準備結果。未知の保存Effectをfalseへ畳まない。
  * @precondition 上位がRuntime／Repository／選択利用者Hashの実由来を照合済み。参照は一回確定し再試行で再発行しない。
  * @postcondition 二時点の十一実体、marker Hashと利用者が一致した完全intentだけをcaller記録へ渡す。
@@ -147,14 +147,12 @@ export type HostTerminalCheckpointPreparation<
 export async function prepareHostTerminalRecoveryCheckpoint(
   repository: VerifiedRepositoryRoot,
   value: unknown,
-  evaluationTime: unknown,
   signal: AbortSignal,
   developmentContext?: unknown,
 ): Promise<HostTerminalCheckpointPreparation> {
   return prepareTerminalRecoveryCheckpoint(
     repository,
     value,
-    evaluationTime,
     signal,
     developmentContext,
     createHostTerminalCurrentObservationRequest,
@@ -171,7 +169,7 @@ export async function prepareHostTerminalRecoveryCheckpoint(
  * @responsibility 十二実体とfile条件を選択Hash・revision 3へ保持し、空クラスへ縮約しない。
  * @trace ARCH-000008
  * @trace ARCH-000011
- * @input 検証済みRepository、閉じた固定名・同参照・独立bindings、評価時点、Signalと固定Context。
+ * @input 検証済みRepository、閉じた固定名・同参照・独立bindings、Signalと固定Context。
  * @returns 専用観測・完全intent・caller保存を区別した準備結果。
  * @precondition 上位が三bindingsの由来と対象選択を照合済み。同参照を再発行しない。
  * @postcondition 十二実体とfile三値を二時点確認した完全bytesだけを専用caller保存へ渡す。
@@ -185,7 +183,6 @@ export async function prepareHostTerminalRecoveryCheckpoint(
 export function prepareKnownFileHostTerminalRecoveryCheckpoint(
   repository: VerifiedRepositoryRoot,
   value: unknown,
-  evaluationTime: unknown,
   signal: AbortSignal,
   developmentContext?: unknown,
 ): Promise<
@@ -197,7 +194,6 @@ export function prepareKnownFileHostTerminalRecoveryCheckpoint(
   return prepareTerminalRecoveryCheckpoint(
     repository,
     value,
-    evaluationTime,
     signal,
     developmentContext,
     createKnownFileHostTerminalCurrentObservationRequest,
@@ -235,7 +231,6 @@ async function prepareTerminalRecoveryCheckpoint<
 >(
   repository: VerifiedRepositoryRoot,
   value: unknown,
-  evaluationTime: unknown,
   signal: AbortSignal,
   developmentContext: unknown,
   createCurrentRequest: typeof createHostTerminalCurrentObservationRequest,
@@ -243,7 +238,6 @@ async function prepareTerminalRecoveryCheckpoint<
     request: NonNullable<
       ReturnType<typeof createHostTerminalCurrentObservationRequest>
     >,
-    time: unknown,
     context?: unknown,
     signal?: AbortSignal,
   ) => Observation,
@@ -339,12 +333,7 @@ async function prepareTerminalRecoveryCheckpoint<
     if (!request) return stopped("host_terminal_preparation_target_invalid");
     if (signal.aborted) return stopped("host_terminal_preparation_cancelled");
     isObservationStarted = true;
-    observation = observeCandidate(
-      request,
-      evaluationTime,
-      developmentContext,
-      signal,
-    );
+    observation = observeCandidate(request, developmentContext, signal);
     const snapshot = observation.knownObservation?.snapshot;
     if (observation.status !== "observed" || !snapshot)
       return stopped(observation.reason);
@@ -734,7 +723,7 @@ export function readKnownFileHostTerminalCallerCheckpoint(
  * @responsibility 自己申告のsaved Objectではなく、完全bytesと独立bindingsを保存前後に確認する。
  * @trace ARCH-000008
  * @trace ARCH-000011
- * @input 検証済みRepository、既知参照、独立bindings、署名評価時点、取消Signalと固定開発Context。
+ * @input 検証済みRepository、既知参照、独立bindings、取消Signalと固定開発Context。
  * @returns 同参照、caller再確認、Native部分結果と共同成立。
  * @precondition caller canonicalは同じ参照で保存済み。対象由来・非使用・清掃許可は別契約。
  * @postcondition readerまたはNative不明でも同参照と保存Effectを保持し、新規保存へ戻らない。
@@ -750,7 +739,6 @@ function connectHostTerminalRecoveryCheckpoint(
   reference: string,
   bindings: HostTerminalCallerBindings,
   mode: "save" | "read",
-  evaluationTime: unknown,
   signal: AbortSignal,
   developmentContext?: unknown,
   recordClass: "eleven" | "known_file" = "eleven",
@@ -863,13 +851,13 @@ function connectHostTerminalRecoveryCheckpoint(
         recordClass === "eleven"
           ? saveHostTerminalWindowsRecord
           : saveKnownFileHostTerminalWindowsRecord
-      )(request, evaluationTime, signal, developmentContext);
+      )(request, signal, developmentContext);
     else
       nativeRead = (
         recordClass === "eleven"
           ? readHostTerminalWindowsRecord
           : readKnownFileHostTerminalWindowsRecord
-      )(request, evaluationTime, signal, developmentContext);
+      )(request, signal, developmentContext);
     const after = reader(repository, reference, fixedBindings);
     isCallerVerifiedBeforeAndAfter =
       before.serialized === after.serialized && before.sha256 === after.sha256;
@@ -915,7 +903,7 @@ function connectHostTerminalRecoveryCheckpoint(
  * @responsibility 保存前後の独立完全bytesを確認する。
  * @trace ARCH-000008
  * @trace ARCH-000011
- * @input 検証済みRepository、既知参照、独立bindings、評価時点、取消と開発Context。
+ * @input 検証済みRepository、既知参照、独立bindings、取消と開発Context。
  * @returns savedまたは同参照・部分結果付き停止。
  * @precondition caller canonicalは保存済み。非使用と処置権限は別確認。
  * @postcondition 保存receiptとcaller前後照合の共同成立後だけsaved。
@@ -930,7 +918,6 @@ export function publishHostTerminalRecoveryCheckpoint(
   repository: VerifiedRepositoryRoot,
   reference: string,
   bindings: HostTerminalCallerBindings,
-  evaluationTime: unknown,
   signal: AbortSignal,
   developmentContext?: unknown,
 ) {
@@ -939,7 +926,6 @@ export function publishHostTerminalRecoveryCheckpoint(
     reference,
     bindings,
     "save",
-    evaluationTime,
     signal,
     developmentContext,
   );
@@ -956,7 +942,7 @@ export function publishHostTerminalRecoveryCheckpoint(
  * @responsibility 応答喪失後も同じ完全bytesへ結合し、現在事実を履歴と分離する。
  * @trace ARCH-000008
  * @trace ARCH-000011
- * @input 検証済みRepository、既知参照、独立bindings、評価時点、取消と開発Context。
+ * @input 検証済みRepository、既知参照、独立bindings、取消と開発Context。
  * @returns observedまたは同参照・現在記録receipt付き停止。
  * @precondition caller canonicalは独立保持済み。Root等の現存を前提にしない。
  * @postcondition caller前後同一、Native読取り/終了共同成立後だけobserved。
@@ -971,7 +957,6 @@ export function readHostTerminalRecoveryCheckpoint(
   repository: VerifiedRepositoryRoot,
   reference: string,
   bindings: HostTerminalCallerBindings,
-  evaluationTime: unknown,
   signal: AbortSignal,
   developmentContext?: unknown,
 ) {
@@ -980,7 +965,6 @@ export function readHostTerminalRecoveryCheckpoint(
     reference,
     bindings,
     "read",
-    evaluationTime,
     signal,
     developmentContext,
   );
@@ -1031,7 +1015,7 @@ export async function saveHostTerminalCallerCheckpoint(
  * @responsibility 保存前後の完全bytesとfile条件を保持し部分保存を失わない。
  * @trace ARCH-000008
  * @trace ARCH-000011
- * @input Repository capability、参照、独立bindings、評価時点、Signalと開発Context。
+ * @input Repository capability、参照、独立bindings、Signalと開発Context。
  * @returns saved、または同参照の部分結果付き停止。
  * @precondition 専用caller canonicalを保存済み。由来・非使用・処置権限は別確認。
  * @postcondition caller前後一致とNative共同成立を要求する。
@@ -1046,7 +1030,6 @@ export function publishKnownFileHostTerminalRecoveryCheckpoint(
   repository: VerifiedRepositoryRoot,
   reference: string,
   bindings: HostTerminalCallerBindings,
-  evaluationTime: unknown,
   signal: AbortSignal,
   developmentContext?: unknown,
 ) {
@@ -1055,7 +1038,6 @@ export function publishKnownFileHostTerminalRecoveryCheckpoint(
     reference,
     bindings,
     "save",
-    evaluationTime,
     signal,
     developmentContext,
     "known_file",
@@ -1073,7 +1055,7 @@ export function publishKnownFileHostTerminalRecoveryCheckpoint(
  * @responsibility 同参照と現在記録を保持し元対象消失後も再照合する。
  * @trace ARCH-000008
  * @trace ARCH-000011
- * @input Repository capability、参照、独立bindings、評価時点、Signalと開発Context。
+ * @input Repository capability、参照、独立bindings、Signalと開発Context。
  * @returns observed、または同参照の部分結果付き停止。
  * @precondition 専用caller記録が独立保持されている。
  * @postcondition caller前後一致、Native現在状態と全終了共同成立を要求する。
@@ -1088,7 +1070,6 @@ export function readKnownFileHostTerminalRecoveryCheckpoint(
   repository: VerifiedRepositoryRoot,
   reference: string,
   bindings: HostTerminalCallerBindings,
-  evaluationTime: unknown,
   signal: AbortSignal,
   developmentContext?: unknown,
 ) {
@@ -1097,7 +1078,6 @@ export function readKnownFileHostTerminalRecoveryCheckpoint(
     reference,
     bindings,
     "read",
-    evaluationTime,
     signal,
     developmentContext,
     "known_file",

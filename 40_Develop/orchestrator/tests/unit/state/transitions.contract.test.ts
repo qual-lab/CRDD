@@ -10,6 +10,10 @@
  * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。 / PRL-UT-007=N/A: Objective／Milestone Acceptance Decision状態遷移は外部実行境界を持たない。
  */
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import { stripTypeScriptTypes } from "node:module";
+import { types as utilTypes } from "node:util";
+import vm from "node:vm";
 import { describe, it } from "node:test";
 import {
   decodeProjectResultAcceptance,
@@ -42,7 +46,7 @@ const revision = "a".repeat(40);
  * @responsibility 十一項目、初回世代、識別子、Hashと旧形式拒否を確認する。
  * @trace PRL-UT-006
  * @precondition 実行資源を持たない固定本文を使用する。
- * @stimulus 正常本文と各項目の欠落・不正値・追加項目を検査する。
+ * @stimulus 正常本文と各項目の欠落・不正値・追加項目、隔離realm内のDescriptor継承値と旧判定変異を検査する。
  * @observation decoderの返却値と入力の保持を観測する。
  * @oracle 正常値だけ固定値を返し、未評価や旧形式を補完しない。
  * @cleanup N/A: 外部資源を作成しない。
@@ -134,6 +138,63 @@ it("結果受理本文は十一項目を固定し旧領収書を受け付けな�
   assert.equal(isGetterCalled, false);
   assert.equal(decodeProjectResultAcceptance(new Proxy(acceptance, {})), null);
   assert.equal(acceptance.settlementGeneration, 7);
+  const hostValue = Object.getOwnPropertyDescriptor(Object.prototype, "value");
+  const helperSource = fs.readFileSync(
+    new URL("../../../src/input/plain-data-snapshot.ts", import.meta.url),
+    "utf8",
+  );
+  const helperImport = 'import { types as utilTypes } from "node:util";';
+  assert.equal(helperSource.split(helperImport).length, 2);
+  const executable = stripTypeScriptTypes(
+    helperSource.replace(helperImport, ""),
+  ).replace(/\bexport (?=function\b)/gu, "");
+  const stimulus = `
+    const accessor = Object.defineProperty({}, "resultId", { get: undefined, set: undefined, enumerable: true });
+    let getterCalls = 0;
+    const getterInput = Object.defineProperty({}, "resultId", { get() { getterCalls++; return "valid"; }, enumerable: true });
+    const originalValue = Object.getOwnPropertyDescriptor(Object.prototype, "value");
+    try {
+      Object.defineProperty(Object.prototype, "value", { value: "inherited", configurable: true });
+      const keys = new Set(["resultId"]);
+      JSON.stringify({
+        accessorRejected: snapshotPlainRecord(accessor, keys) === null,
+        getterRejected: snapshotPlainRecord(getterInput, keys) === null,
+        dataAccepted: snapshotPlainRecord({ resultId: "valid" }, keys)?.resultId === "valid",
+        getterCalls,
+      });
+    } finally {
+      delete Object.prototype.value;
+      if (originalValue) Object.defineProperty(Object.prototype, "value", originalValue);
+    }
+  `;
+  const observed = JSON.parse(
+    vm.runInNewContext(
+      `${executable}\n${stimulus}`,
+      { utilTypes },
+      { timeout: 1000 },
+    ),
+  );
+  assert.deepEqual(observed, {
+    accessorRejected: true,
+    getterRejected: true,
+    dataAccepted: true,
+    getterCalls: 0,
+  });
+  const predicate = 'Object.hasOwn(descriptor, "value")';
+  assert.equal(executable.split(predicate).length, 2);
+  const mutant = executable.replace(predicate, '"value" in descriptor');
+  const mutantObserved = JSON.parse(
+    vm.runInNewContext(
+      `${mutant}\n${stimulus}`,
+      { utilTypes },
+      { timeout: 1000 },
+    ),
+  );
+  assert.equal(mutantObserved.accessorRejected, false);
+  assert.deepEqual(
+    Object.getOwnPropertyDescriptor(Object.prototype, "value"),
+    hostValue,
+  );
 });
 
 /**

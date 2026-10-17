@@ -5,7 +5,7 @@
  * @trace ARCH-000004
  */
 
-import { snapshotPlainRecord } from "../../../domain-model/src/index.ts";
+import { snapshotPlainRecord } from "../input/plain-data-snapshot.ts";
 import { normalizeRepositoryRelativePath } from "../input/repository-relative-path.ts";
 
 export const ORCHESTRATOR_STATE_CONTRACT =

@@ -17,13 +17,13 @@ export const EGRESS_PROXY_CONTRACT = "crdd-coordinator/provider-egress-proxy";
 export const EGRESS_PROXY_CONTRACT_REVISION = 1;
 
 const PROVIDER_VERIFICATION_ADAPTER = Object.freeze({
-  sourcePath: "40_Develop/coordinator/runtime/provider-egress-proxy.py",
+  sourcePath: "40_Develop/docker-isolation/runtime/provider-egress-proxy.py",
   sourceSha256:
     "c6d0b35550682c54c491096d4cfeb6e01c6cebc67900248bfa10a2c9ec375018",
   imageDigest:
     "sha256:8a44e363453c0d0bed66e337007070c072ad1dc75a23ec584c95d361c5a5dcfc",
   imageBuildDefinition:
-    "40_Develop/coordinator/runtime/provider-egress-proxy.Dockerfile",
+    "40_Develop/docker-isolation/runtime/provider-egress-proxy.Dockerfile",
   verifiedAt: "2026-08-25",
   externalProbe: Object.freeze({
     providerImageDigest:

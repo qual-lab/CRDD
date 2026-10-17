@@ -180,7 +180,6 @@ function entryName(recordId: string, generation: number) {
 function inspectRoot(shouldInitialize: boolean, developmentContext?: object) {
   const observation = inspectRuntimeOwnedWindowsRuntimeState(
     shouldInitialize,
-    new Date().toISOString(),
     developmentContext,
   );
   const root = consumeRuntimeOwnedRuntimeStateRootCapability(

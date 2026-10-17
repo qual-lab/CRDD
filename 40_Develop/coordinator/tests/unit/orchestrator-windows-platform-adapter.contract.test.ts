@@ -12,11 +12,7 @@ import assert from "node:assert/strict";
 import path from "node:path";
 import test from "node:test";
 
-import {
-  createWindowsDockerCliEnvironment,
-  createWindowsNativeHelperEnvironment,
-} from "../../src/host-execution/windows-child-environment.ts";
-import { inspectRuntimeOwnedDockerTaskRecoveryState } from "../../src/docker-execution/recovery-lifecycle.ts";
+import { createWindowsNativeHelperEnvironment } from "../../../platform-access/src/index.ts";
 import { resolveOrchestratorPlatformAdapter } from "../../../orchestrator/src/index.ts";
 import {
   createOrchestratorWindowsPlatformAdapter,
@@ -120,7 +116,6 @@ test("Windows AdapterはPlatform契約の宣言と実操作を一致させる", 
         "bounded_path_resolution",
       ],
       process_cancellation: ["environment"],
-      container_host: ["cleanup"],
       runtime_root_recovery: [
         "managed_root",
         "protection",
@@ -131,7 +126,6 @@ test("Windows AdapterはPlatform契約の宣言と実操作を一致させる", 
     unsupportedPlatformFallback: "none",
   });
   assert.deepEqual(Object.keys(adapter.operations).sort(), [
-    "container_host",
     "filesystem_repository",
     "lock_lease",
     "principal_provider_home",
@@ -299,26 +293,17 @@ test("子Process環境の導出は既存Profileと同一の値を閉結果で返
       profile: "native_helper",
       environment: nativeDirect,
     });
-  const dockerDirect = createWindowsDockerCliEnvironment({
-    dockerConfig: "C:\\docker-config",
-    dockerHome: "C:\\docker-home",
-  });
-  assert.deepEqual(
-    deriveChildEnvironment({
-      profile: "docker_cli",
-      dockerConfig: "C:\\docker-config",
-      dockerHome: "C:\\docker-home",
-    }),
-    {
-      status: "derived",
-      profile: "docker_cli",
-      environment: dockerDirect,
-    },
-  );
   for (const invalid of [
     null,
     {},
     { profile: "unknown_profile" },
+    { profile: "docker_desktop_repair_helper" },
+    { profile: "docker_cli", dockerConfig: null, dockerHome: null },
+    {
+      profile: "docker_cli",
+      dockerConfig: "C:\\docker-config",
+      dockerHome: "C:\\docker-home",
+    },
     { profile: "native_helper", extra: true },
     { profile: "docker_cli", dockerConfig: "C:\\only-config" },
     {
@@ -379,38 +364,39 @@ test("Provider Home観測は既存実装と同一の閉じた拒否を返す", (
   const group = operations("principal_provider_home");
   const observeProviderHomeCandidate = group.observeProviderHomeCandidate as (
     provider: unknown,
-    evaluationTime: unknown,
   ) => Readonly<Record<string, unknown>>;
-  for (const [provider, evaluationTime] of [
-    [42, "2026-09-02T00:00:00.000Z"],
-    ["unknown-provider", "2026-09-02T00:00:00.000Z"],
-    ["codex", "not-a-time"],
-  ] as const)
+  for (const provider of [42, "unknown-provider", null])
     assert.deepEqual(
-      observeProviderHomeCandidate(provider, evaluationTime),
-      inspectRuntimeOwnedWindowsProviderHomeCandidate(provider, evaluationTime),
+      observeProviderHomeCandidate(provider),
+      inspectRuntimeOwnedWindowsProviderHomeCandidate(provider),
     );
 });
 
 /**
- * Container Host回復状態の観測は既存実装と同じ分類を返すを検証する。
+ * Orchestratorの未使用な旧Container観測候補を撤去する。
  *
- * @responsibility Container Host回復状態の観測は既存実装と同じ分類を返すの合否判定を所有する。
+ * @responsibility 旧観測だけからContainer保証の部分成立を主張しない。
  * @trace PRL-UT-014
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Container Host回復状態の観測は既存実装と同じ分類を返すの対象操作を実行する。
+ * @stimulus 現在のAdapter公開集合と保証を観測する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
-test("Container Host回復状態の観測は既存実装と同じ分類を返す", () => {
-  const group = operations("container_host");
-  const observeContainerHostRecoveryState =
-    group.observeContainerHostRecoveryState as () => Readonly<
-      Record<string, unknown>
-    >;
-  const routed = observeContainerHostRecoveryState();
-  const direct = inspectRuntimeOwnedDockerTaskRecoveryState();
-  assert.deepEqual(routed, direct);
+test("Container Hostの旧全域観測を公開せず未対応境界を成立扱いしない", () => {
+  const adapter = createOrchestratorWindowsPlatformAdapter();
+  assert.equal("container_host" in adapter.operations, false);
+  assert.equal(
+    "container_host" in adapter.describe().satisfiedGuarantees,
+    false,
+  );
+  assert.equal(
+    adapter
+      .describe()
+      .supportedBoundaries.some(
+        (boundary: string) => boundary === "container_host",
+      ),
+    false,
+  );
 });

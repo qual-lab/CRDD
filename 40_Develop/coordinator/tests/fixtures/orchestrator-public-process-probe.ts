@@ -242,6 +242,10 @@ process.stdin.on("data", (chunk) => {
   }
 });
 process.stdin.on("end", () => {
+  if (mode === "cancelled")
+    process.stderr.write(
+      `[Coordinator lifecycle] ${JSON.stringify({ event: "coordinator_provider_boundary_settled", taskRole: "executor", provider: "claude", operationId: "OP-300001", providerContainerCreatedObserved: true, providerProcessStartedObserved: true, providerProcessCompletionObserved: false, providerProcessExitStatusClass: "not_observed", processTreeTerminationObserved: true, containersAbsentObserved: true, networksAbsentObserved: true, cleanupConfirmed: true })}\n`,
+    );
   if (mode === "nonzero") process.exitCode = 7;
 });
 if (mode === "ignore-eof")

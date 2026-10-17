@@ -7,20 +7,21 @@
  * @trace ERB-IT-006
  * @trace ERB-IT-008
  * @trace PRL-IT-012
+ * @trace PRL-IT-005
  * @level IT
  * @scope coordinator、task、runtime
  * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store / PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Orchestrator Application Port→Core
  */
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import type { TestContext } from "node:test";
 import test from "node:test";
 import { types as utilTypes } from "node:util";
 import { createDevelopmentExecutionTiming } from "../../src/diagnostics/development-execution-timing.ts";
-import { dockerProcessControllerPublicCompletionReasons } from "../../src/docker-execution/process-controller-result-reasons.ts";
+import { dockerProcessControllerPublicCompletionReasons } from "../../src/provider/execution-result-reasons.ts";
 import {
   cleanupOwnedOperationDirectories,
   createIsolatedOwnedOperationDirectoryCreationFailureCandidate,
@@ -32,6 +33,7 @@ import {
   verifyOwnedOperationManagementCapability,
 } from "../../src/host-execution/operation-workspace-lifecycle.ts";
 import { createIsolatedRuntimeProcessSafetyStateCandidate } from "../../src/host-execution/process-safety-state.ts";
+import { loadRuntimeOwnedLocalPersonalAuthority } from "../../src/authority/local-personal-grant.ts";
 import { selectDelegationRouteCandidate } from "../../src/provider/delegation-route-selection.ts";
 import { inspectRepositoryObjectFormatCandidate } from "../../src/repository-operation/binding.ts";
 import { coordinatorTaskPublicReasons } from "../../src/task/result-reasons.ts";
@@ -59,7 +61,6 @@ type TraceSnapshot = Readonly<{
 }>;
 
 const admissionRecoveryOne = `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`;
-const admissionRecoveryTwo = `docker-task.${"d".repeat(64)}.${"e".repeat(64)}.${"f".repeat(64)}`;
 
 /**
  * fixtureDockerRecoveryIdのTest準備責務を実行する。
@@ -299,7 +300,6 @@ const taskTraceAssertions: Readonly<
   "CASE-BLOCKED-REMEDIATION-CANDIDATE-CAPTURED": assertRuntimeTraceCase,
   "CASE-BLOCKED-REMEDIATION-REVIEWER-CLEAN": assertRuntimeTraceCase,
   "CASE-BLOCKED-HOST-CLEAN": assertRuntimeTraceCase,
-  "CASE-RECOVERY-ADMISSION": assertRuntimeTraceCase,
   "CASE-OPERATOR-TRANSFER-ADMISSION": assertRuntimeTraceCase,
   "CASE-RECOVERY-OPERATION-ACQUIRING": assertRuntimeTraceCase,
   "CASE-OPERATOR-TRANSFER-OPERATION-ACQUIRING": assertRuntimeTraceCase,
@@ -682,9 +682,8 @@ function fixture(
         | "insufficient_permission"
         | "unknown";
     }>;
-    admissionRecovery?: boolean;
-    admissionRecoveryReason?: string;
-    admissionRecoveryIds?: readonly string[];
+    admissionBlocked?: boolean;
+    admissionRootObserver?: (root: string) => void;
     admissionRecoveryObservation?: unknown;
     admissionRecoveryMissing?: boolean;
     admissionRecoveryThrows?: boolean;
@@ -821,11 +820,9 @@ function fixture(
       "RES-DOCKER-OWNED": isOutstandingDockerRecovery
         ? "preserved"
         : processStartCount === 0
-          ? options.admissionRecovery
-            ? "preserved"
-            : isRecoveryTerminal
-              ? "unacquired"
-              : "absent"
+          ? isRecoveryTerminal
+            ? "unacquired"
+            : "absent"
           : "absent",
       "RES-OPERATION-WORKSPACE": workspacePresent
         ? isRecoveryTerminal
@@ -866,39 +863,22 @@ function fixture(
       if (options.lifecycleObserverThrows)
         throw new Error("fixture_lifecycle_observer_failure");
     },
-    prepareDockerRecoveryState: () => {
+    prepareDockerRecoveryState: (root: string) => {
+      options.admissionRootObserver?.(root);
       if (options.admissionRecoveryThrows)
         throw new Error("fixture_recovery_observation_failed");
       if (options.admissionRecoveryObservation !== undefined)
         return options.admissionRecoveryObservation;
-      if (!options.admissionRecovery)
+      if (!options.admissionBlocked)
         return Object.freeze({
-          status: "completed",
-          reason: "docker_task_runtime_state_clean",
-          dockerRecoveryId: null,
-          dockerRecoveryIds: Object.freeze([]),
-          activeStableLogicalHomeBindingHashes: Object.freeze([]),
-          manualRecoveryRequired: false,
+          status: "available",
+          reason: "coordinator_current_admission_available",
+          lockReleased: true,
         });
-      const ids = options.admissionRecoveryIds
-        ? [...options.admissionRecoveryIds]
-        : [admissionRecoveryOne];
-      const reason =
-        options.admissionRecoveryReason ??
-        (ids.length === 1
-          ? "docker_task_recovery_inventory_available"
-          : "docker_task_multiple_recovery_inventory_available");
       return Object.freeze({
-        status: reason.includes("recovery_inventory_available")
-          ? "completed"
-          : "blocked",
-        reason,
-        dockerRecoveryId: ids.length === 1 ? ids[0] : null,
-        dockerRecoveryIds: Object.freeze(ids),
-        activeStableLogicalHomeBindingHashes: Object.freeze([
-          ...new Set(ids.map((id) => id.split(".")[1] as string)),
-        ]),
-        manualRecoveryRequired: true,
+        status: "blocked",
+        reason: "coordinator_current_admission_unconfirmed",
+        lockReleased: true,
       });
     },
     isolatedCancellationAckTimeoutMs: 50,
@@ -1831,11 +1811,8 @@ test("開発版の呼出し枠はExecutor・Reviewer・一回是正へ同じ入�
       });
     },
   });
-  const result = await harness.runtime.start(
-    request(),
-    "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
-  ).completion;
+  const result = await harness.runtime.start(request(), "C:\\repository")
+    .completion;
   assert.equal(result.status, "completed");
   assert.deepEqual(reservations, [
     "claude:executor",
@@ -1870,7 +1847,6 @@ test("固定利用側を全Task役割へ伝播し不正用途はEffect前に拒�
     const result = await harness.runtime.start(
       request(),
       "C:\\repository",
-      "2026-08-25T00:00:00.000Z",
       "correlation-present",
       undefined,
       consumer,
@@ -1884,7 +1860,6 @@ test("固定利用側を全Task役割へ伝播し不正用途はEffect前に拒�
       harness.runtime.start(
         request(),
         "C:\\repository",
-        "2026-08-25T00:00:00.000Z",
         null,
         undefined,
         "unknown" as never,
@@ -1931,7 +1906,6 @@ test("Task開始観測登録はControllerへ搬送され受付では通知され
   const started = harness.runtime.start(
     request(),
     "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
     "caller-attempt",
     observer,
   );
@@ -1946,13 +1920,8 @@ test("Task開始観測登録はControllerへ搬送され受付では通知され
     observeStartRegistration: (value) => startRegistrations.push(value),
   });
   assert.equal(
-    (
-      await standalone.runtime.start(
-        request(),
-        "C:\\repository",
-        "2026-08-25T00:00:00.000Z",
-      ).completion
-    ).status,
+    (await standalone.runtime.start(request(), "C:\\repository").completion)
+      .status,
     "completed",
   );
   assert.deepEqual(startRegistrations, [undefined, undefined]);
@@ -1967,7 +1936,6 @@ test("Task開始観測登録はControllerへ搬送され受付では通知され
       await rejected.runtime.start(
         request(),
         "C:\\repository",
-        "2026-08-25T00:00:00.000Z",
         "caller-attempt",
         observer,
       ).completion
@@ -1978,31 +1946,24 @@ test("Task開始観測登録はControllerへ搬送され受付では通知され
 });
 
 /**
- * 不正な通知登録はTask受付と署名Capability消費前に拒否する。
+ * 不正な通知登録はTask受付と実Effectの発行前に拒否する。
  *
  * @responsibility 通知の不正を開始後の観測不能へ変換せず、入力境界で止める。
  * @trace PRL-IT-012
  * @precondition 不正な関数値と実Effectを持たないfixtureを使用する。
  * @stimulus 試験用入口と本番入口へ不正な通知登録を渡す。
  * @observation 例外理由とfixtureの開始回数を取得する。
- * @oracle 通知入力の拒否理由が署名拒否より先に返り、開始は0回。
+ * @oracle 通知入力の拒否理由が準備処理より先に返り、開始は0回。
  * @cleanup N/A: Task、Docker、Filesystemを作成しない。
  * @boundary Coordinator Taskの入力検証境界。
  */
 test("Task開始観測の不正登録はEffect前に拒否する", () => {
   const harness = fixture();
   const invalid = false as unknown as NonNullable<
-    Parameters<typeof harness.runtime.start>[4]
+    Parameters<typeof harness.runtime.start>[3]
   >;
   assert.throws(
-    () =>
-      harness.runtime.start(
-        request(),
-        "C:\\repository",
-        "2026-08-25T00:00:00.000Z",
-        null,
-        invalid,
-      ),
+    () => harness.runtime.start(request(), "C:\\repository", null, invalid),
     /coordinator_task_start_observer_invalid/u,
   );
   assert.equal(harness.processStartCount(), 0);
@@ -2011,7 +1972,6 @@ test("Task開始観測の不正登録はEffect前に拒否する", () => {
       startRuntimeOwnedCoordinatorTask(
         request(),
         "C:\\repository",
-        Object.freeze({}),
         null,
         invalid,
       ),
@@ -2033,11 +1993,8 @@ test("Task開始観測の不正登録はEffect前に拒否する", () => {
  */
 test("呼出し予約拒否は準備・Provider開始前に停止し既存Operationを回収する", async () => {
   const harness = fixture({ beginInvocation: () => null });
-  const result = await harness.runtime.start(
-    request(),
-    "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
-  ).completion;
+  const result = await harness.runtime.start(request(), "C:\\repository")
+    .completion;
   assert.equal(
     result.reason,
     "coordinator_task_development_invocation_not_authorized",
@@ -2068,11 +2025,8 @@ test("Provider終了後の開発Identity再検証が失敗した場合は成功�
       settle: () => false,
     }),
   });
-  const result = await harness.runtime.start(
-    request(),
-    "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
-  ).completion;
+  const result = await harness.runtime.start(request(), "C:\\repository")
+    .completion;
   assert.equal(result.status, "blocked");
   assert.equal(
     result.reason,
@@ -2106,11 +2060,8 @@ test("呼出し予約後の準備失敗でも終了記録を一回だけ残す",
       },
     }),
   });
-  const result = await harness.runtime.start(
-    request(),
-    "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
-  ).completion;
+  const result = await harness.runtime.start(request(), "C:\\repository")
+    .completion;
   assert.equal(result.status, "blocked");
   assert.equal(harness.processStartCount(), 0);
   assert.equal(settlementCount, 1);
@@ -2131,11 +2082,8 @@ test("呼出し予約後の準備失敗でも終了記録を一回だけ残す",
  */
 test("作業量超過は一般的な起動失敗へ潰さず分割理由を返し再試行しない", async () => {
   const harness = fixture({ prepareWorkloadSplit: true });
-  const result = await harness.runtime.start(
-    request(),
-    "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
-  ).completion;
+  const result = await harness.runtime.start(request(), "C:\\repository")
+    .completion;
   assert.equal(result.status, "blocked");
   assert.equal(result.reason, "coordinator_task_workload_split_required");
   assert.equal(harness.processStartCount(), 0);
@@ -2183,17 +2131,51 @@ for (const [providerReason, publicReason] of [
    */
   test(`Provider準備の固定理由を一般失敗へ潰さない: ${publicReason}`, async () => {
     const harness = fixture({ prepareFailureReason: providerReason });
-    const result = await harness.runtime.start(
-      request(),
-      "C:\\repository",
-      "2026-08-25T00:00:00.000Z",
-    ).completion;
+    const result = await harness.runtime.start(request(), "C:\\repository")
+      .completion;
     assert.equal(result.status, "blocked");
     assert.equal(result.reason, publicReason);
     assert.equal(harness.processStartCount(), 0);
     assert.equal(harness.cleanupCount(), 1);
     assert.equal(result.cleanupConfirmed, true);
   });
+}
+
+/**
+ * 検証済みRepositoryの試験領域へ一意なDirectoryを生成する。
+ *
+ * @responsibility 試験物を現在Repositoryに限定し、作成直後から清掃責務を登録する。
+ * @trace CPR-IT-001
+ * @precondition Test Sourceは現在Repository内にある。
+ * @stimulus 固定Source位置とGit Rootを照合して一意な試験Directoryを作成する。
+ * @observation Root実体、非link親、作成Identityを確認する。
+ * @oracle Repository外・link親を拒否し、返したDirectoryだけを清掃する。
+ * @cleanup 登録したhookが同じ自己生成Directoryを削除し不存在を確認する。
+ * @boundary CPR-IT-001=Direct Boundary: Test Source→Repository-local Filesystem。
+ */
+function createTaskRuntimeTestDirectory(t: TestContext, prefix: string) {
+  const selectedRoot = path.resolve(import.meta.dirname, "../../../..");
+  const repositoryRoot = fs.realpathSync.native(selectedRoot);
+  const gitRoot = execFileSync("git", ["rev-parse", "--show-toplevel"], {
+    cwd: repositoryRoot,
+    encoding: "utf8",
+    windowsHide: true,
+  }).trim();
+  assert.equal(fs.realpathSync.native(gitRoot), repositoryRoot);
+  let parent = repositoryRoot;
+  for (const component of [".crdd", "tests"]) {
+    parent = path.join(parent, component);
+    if (!fs.existsSync(parent)) fs.mkdirSync(parent);
+    const observed = fs.lstatSync(parent);
+    assert.equal(observed.isDirectory() && !observed.isSymbolicLink(), true);
+    assert.equal(fs.realpathSync.native(parent), parent);
+  }
+  const directory = fs.mkdtempSync(path.join(parent, prefix));
+  t.after(() => {
+    fs.rmSync(directory, { recursive: true, force: true });
+    assert.equal(fs.existsSync(directory), false);
+  });
+  return directory;
 }
 
 /**
@@ -2209,7 +2191,7 @@ for (const [providerReason, publicReason] of [
  * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 function sha256Repository(t: TestContext) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-sha256-task-"));
+  const root = createTaskRuntimeTestDirectory(t, "crdd-sha256-task-");
   const git = path.join(root, ".git");
   fs.mkdirSync(git, { recursive: true });
   fs.writeFileSync(path.join(git, "HEAD"), `${"a".repeat(64)}\n`, "utf8");
@@ -2218,7 +2200,6 @@ function sha256Repository(t: TestContext) {
     "[core]\n\trepositoryformatversion = 1\n\tbare = false\n[extensions]\n\tobjectformat = sha256\n",
     "utf8",
   );
-  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   return root;
 }
 
@@ -2235,7 +2216,7 @@ function sha256Repository(t: TestContext) {
  * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 function mismatchedRepository(t: TestContext) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-mismatched-task-"));
+  const root = createTaskRuntimeTestDirectory(t, "crdd-mismatched-task-");
   const git = path.join(root, ".git");
   fs.mkdirSync(git, { recursive: true });
   fs.writeFileSync(path.join(git, "HEAD"), `${"a".repeat(64)}\n`, "utf8");
@@ -2244,7 +2225,6 @@ function mismatchedRepository(t: TestContext) {
     "[core]\n\trepositoryformatversion = 0\n\tbare = false\n",
     "utf8",
   );
-  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   return root;
 }
 
@@ -2261,11 +2241,10 @@ function mismatchedRepository(t: TestContext) {
  * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 function junctionRefRepository(t: TestContext) {
-  const root = fs.mkdtempSync(
-    path.join(os.tmpdir(), "crdd-junction-ref-task-"),
-  );
-  const external = fs.mkdtempSync(
-    path.join(os.tmpdir(), "crdd-junction-ref-external-"),
+  const root = createTaskRuntimeTestDirectory(t, "crdd-junction-ref-task-");
+  const external = createTaskRuntimeTestDirectory(
+    t,
+    "crdd-junction-ref-external-",
   );
   const git = path.join(root, ".git");
   fs.mkdirSync(git, { recursive: true });
@@ -2283,10 +2262,46 @@ function junctionRefRepository(t: TestContext) {
     path.join(git, "refs", "heads"),
     process.platform === "win32" ? "junction" : "dir",
   );
-  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
-  t.after(() => fs.rmSync(external, { recursive: true, force: true }));
   return root;
 }
+
+/**
+ * junction作成失敗でも自己生成Directoryを残さない。
+ *
+ * @responsibility fixture準備失敗時にも既存の清掃hookが対象全体を回収することを確認する。
+ * @trace CPR-IT-001
+ * @precondition Repository-local試験親だけを観測する。
+ * @stimulus junction作成を意図的に失敗させ、子Testの清掃まで待つ。
+ * @observation 作成した2Directoryの実Pathと子Test終了後の不存在を確認する。
+ * @oracle 元の例外を保持し、自己生成した両Directoryが存在しない。
+ * @cleanup 子Testへ生成直後に登録したhookが同じDirectoryを回収する。
+ * @boundary CPR-IT-001=Direct Boundary: fixture構築→失敗後清掃。
+ */
+test("junction fixture準備失敗でも生成済みDirectoryを清掃する", async (t) => {
+  const created: string[] = [];
+  await t.test("junction creation failure", (subtest) => {
+    const original = fs.mkdtempSync;
+    subtest.mock.method(
+      fs,
+      "mkdtempSync",
+      (...args: Parameters<typeof fs.mkdtempSync>) => {
+        const result = original(...args);
+        created.push(String(result));
+        return result;
+      },
+    );
+    subtest.mock.method(fs, "symlinkSync", () => {
+      throw new Error("fixture_junction_creation_failed");
+    });
+    assert.throws(
+      () => junctionRefRepository(subtest),
+      /fixture_junction_creation_failed/u,
+    );
+  });
+  assert.equal(created.length, 2);
+  for (const directory of created)
+    assert.equal(fs.existsSync(directory), false);
+});
 
 /**
  * 対象SHA-256 RepositoryはOperation／Grant／Store／Workspace／Processより前に専用停止するを検証する。
@@ -2304,11 +2319,7 @@ test("対象SHA-256 RepositoryはOperation／Grant／Store／Workspace／Process
   const harness = fixture({
     inspectRepository: inspectRepositoryObjectFormatCandidate,
   });
-  const started = harness.runtime.start(
-    request(),
-    sha256Repository(t),
-    "2026-08-25T00:00:00.000Z",
-  );
+  const started = harness.runtime.start(request(), sha256Repository(t));
   const result = await started.completion;
   assert.equal(result.status, "blocked");
   assert.equal(result.reason, "coordinator_task_git_object_format_unsupported");
@@ -2336,11 +2347,8 @@ test("宣言FormatとRevision幅の不一致は全Effect前にpreflight failure�
   const harness = fixture({
     inspectRepository: inspectRepositoryObjectFormatCandidate,
   });
-  const result = await harness.runtime.start(
-    request(),
-    mismatchedRepository(t),
-    "2026-08-25T00:00:00.000Z",
-  ).completion;
+  const result = await harness.runtime.start(request(), mismatchedRepository(t))
+    .completion;
   assert.equal(result.status, "blocked");
   assert.equal(result.reason, "coordinator_task_repository_preflight_failed");
   assert.equal(harness.operationCreateCount(), 0);
@@ -2370,7 +2378,6 @@ test("loose refの中間junctionは全Effect前にpreflight failureへ閉じる"
   const result = await harness.runtime.start(
     request(),
     junctionRefRepository(t),
-    "2026-08-25T00:00:00.000Z",
   ).completion;
   assert.equal(result.status, "blocked");
   assert.equal(result.reason, "coordinator_task_repository_preflight_failed");
@@ -2399,7 +2406,6 @@ test("認証秘密を示すTask PathはOperationと外部送信前に安全な�
   const result = await harness.runtime.start(
     request({ allowedPaths: [".env"], readPaths: [".env"] }),
     "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
   ).completion;
   assert.equal(result.status, "blocked");
   assert.equal(
@@ -2427,11 +2433,8 @@ test("認証秘密を示すTask PathはOperationと外部送信前に安全な�
  */
 test("読取投影の認証秘密はProvider Effect前に安全な理由で停止する", async () => {
   const harness = fixture({ workspaceSecretBlocked: true });
-  const result = await harness.runtime.start(
-    request(),
-    "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
-  ).completion;
+  const result = await harness.runtime.start(request(), "C:\\repository")
+    .completion;
   assert.equal(result.status, "blocked");
   assert.equal(
     result.reason,
@@ -2456,11 +2459,8 @@ test("読取投影の認証秘密はProvider Effect前に安全な理由で停�
  */
 test("Executorが生成した認証秘密はReviewerへ渡さず安全な理由で停止する", async () => {
   const harness = fixture({ candidateSecretAtCapture: 1 });
-  const result = await harness.runtime.start(
-    request(),
-    "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
-  ).completion;
+  const result = await harness.runtime.start(request(), "C:\\repository")
+    .completion;
   assert.equal(result.status, "blocked");
   assert.equal(
     result.reason,
@@ -2488,11 +2488,8 @@ test("是正Executorが生成した認証秘密も再Reviewerへ渡さず停止�
     reviewerDecision: "changes_requested",
     candidateSecretAtCapture: 2,
   });
-  const result = await harness.runtime.start(
-    request(),
-    "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
-  ).completion;
+  const result = await harness.runtime.start(request(), "C:\\repository")
+    .completion;
   assert.equal(result.status, "blocked");
   assert.equal(
     result.reason,
@@ -2540,11 +2537,7 @@ test("Codex frontからClaude Executorと独立Codex Reviewerを隔離Candidate�
       reviewerProjection = projection;
     },
   });
-  const started = harness.runtime.start(
-    request(),
-    "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
-  );
+  const started = harness.runtime.start(request(), "C:\\repository");
   assert.equal(started.status, "started");
   const result = await started.completion;
   assert.equal(result.status, "completed");
@@ -2585,11 +2578,8 @@ test("Codex frontからClaude Executorと独立Codex Reviewerを隔離Candidate�
  */
 test("検証済みProvider turn観測をcleanup後のTask結果へ伝播する", async () => {
   const harness = fixture({ providerTurnObservation: true });
-  const result = await harness.runtime.start(
-    request(),
-    "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
-  ).completion;
+  const result = await harness.runtime.start(request(), "C:\\repository")
+    .completion;
   assert.equal(result.status, "completed");
   assert.deepEqual(result.providerTurnObservations, [
     {
@@ -2605,23 +2595,20 @@ test("検証済みProvider turn観測をcleanup後のTask結果へ伝播する",
 
   const invalid = await fixture({
     providerTurnObservation: "invalid",
-  }).runtime.start(request(), "C:\\repository", "2026-08-25T00:00:00.000Z")
-    .completion;
+  }).runtime.start(request(), "C:\\repository").completion;
   assert.equal(invalid.status, "completed");
   assert.deepEqual(invalid.providerTurnObservations, []);
 
   const invalidMaximum = await fixture({
     providerTurnObservation: "invalid_maximum",
-  }).runtime.start(request(), "C:\\repository", "2026-08-25T00:00:00.000Z")
-    .completion;
+  }).runtime.start(request(), "C:\\repository").completion;
   assert.equal(invalidMaximum.status, "completed");
   assert.deepEqual(invalidMaximum.providerTurnObservations, []);
 
   const cleanupUnknown = await fixture({
     providerTurnObservation: true,
     processCleanupFailureRole: "executor",
-  }).runtime.start(request(), "C:\\repository", "2026-08-25T00:00:00.000Z")
-    .completion;
+  }).runtime.start(request(), "C:\\repository").completion;
   assert.equal(cleanupUnknown.status, "blocked");
   assert.equal(
     Object.hasOwn(cleanupUnknown, "providerTurnObservations"),
@@ -2643,11 +2630,8 @@ test("検証済みProvider turn観測をcleanup後のTask結果へ伝播する",
  */
 test("Candidate結合済みReviewer投影を作れなければReviewer Effect前に停止する", async () => {
   const harness = fixture({ reviewerReadProjectionFails: true });
-  const result = await harness.runtime.start(
-    request(),
-    "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
-  ).completion;
+  const result = await harness.runtime.start(request(), "C:\\repository")
+    .completion;
   assert.equal(result.status, "blocked");
   assert.equal(
     result.reason,
@@ -2706,16 +2690,8 @@ test("lifecycle observer例外はRuntime状態・Authority・Effect・結果を�
   const baseline = fixture();
   const throwing = fixture({ lifecycleObserverThrows: true });
   const [baselineResult, throwingResult] = await Promise.all([
-    baseline.runtime.start(
-      request(),
-      "C:\\repository",
-      "2026-08-25T00:00:00.000Z",
-    ).completion,
-    throwing.runtime.start(
-      request(),
-      "C:\\repository",
-      "2026-08-25T00:00:00.000Z",
-    ).completion,
+    baseline.runtime.start(request(), "C:\\repository").completion,
+    throwing.runtime.start(request(), "C:\\repository").completion,
   ]);
   assert.deepEqual(throwingResult, baselineResult);
   assert.deepEqual(throwing.effectCounts(), baseline.effectCounts());
@@ -2770,11 +2746,7 @@ for (const scenario of [
     });
     const results = [];
     for (const harness of [baseline, measured]) {
-      const started = harness.runtime.start(
-        request(),
-        "C:\\repository",
-        "2026-08-25T00:00:00.000Z",
-      );
+      const started = harness.runtime.start(request(), "C:\\repository");
       if (scenario === "cancel") {
         await new Promise<void>((resolve) => setImmediate(resolve));
         const cancellation = harness.runtime.cancel(started.controlCapability);
@@ -2815,11 +2787,8 @@ test("初期確認と既存許可再利用を入力要求ではない一回の�
     "reused_initial_consent",
   ]) {
     const harness = fixture({ externalSendAuthorizationMode: mode });
-    const result = await harness.runtime.start(
-      request(),
-      "C:\\repository",
-      "2026-08-25T00:00:00.000Z",
-    ).completion;
+    const result = await harness.runtime.start(request(), "C:\\repository")
+      .completion;
     assert.equal(result.status, "completed");
     assert.equal(result.externalSendAuthorizationMode, mode);
     assert.equal(harness.externalAuthorizationCount(), 1);
@@ -2859,11 +2828,8 @@ test("不明な許可方式または表示失敗を再利用と推定せずWorks
     { externalSendDenied: true },
   ]) {
     const harness = fixture(options);
-    const result = await harness.runtime.start(
-      request(),
-      "C:\\repository",
-      "2026-08-25T00:00:00.000Z",
-    ).completion;
+    const result = await harness.runtime.start(request(), "C:\\repository")
+      .completion;
     assert.equal(result.status, "blocked");
     assert.equal(
       result.reason,
@@ -2904,11 +2870,8 @@ test("許可状況の表示中に取消された場合もWorkspaceとProvider起
       harness.observeLastControlInvalid();
     },
   });
-  const result = await harness.runtime.start(
-    request(),
-    "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
-  ).completion;
+  const result = await harness.runtime.start(request(), "C:\\repository")
+    .completion;
   assert.equal(result.status, "blocked");
   assert.equal(
     result.reason,
@@ -2947,7 +2910,6 @@ test("両Front×両Executorの4経路をEffect前Slateと独立Reviewerへ接続
     const started = harness.runtime.start(
       request({ frontProvider }),
       "C:\\repository",
-      "2026-08-25T00:00:00.000Z",
     );
     const result = await started.completion;
     assert.equal(result.status, "completed");
@@ -3007,7 +2969,6 @@ test("実選定器へautoと明示制約の由来を保持し是正・Reviewer�
     const result = await harness.runtime.start(
       request({ frontProvider, requestedExecutorProvider, workClass }),
       "C:\\repository",
-      "2026-08-25T00:00:00.000Z",
     ).completion;
     assert.equal(result.status, "completed");
     assert.equal(harness.selectionNotices.length, 4);
@@ -3049,11 +3010,8 @@ test("再選定が事前Slateと異なる場合は当該Stageの起動前にSele
       reviewerDecision: "changes_requested",
       finalReviewerDecision: "approved",
     });
-    const result = await harness.runtime.start(
-      request(),
-      "C:\\repository",
-      "2026-08-25T00:00:00.000Z",
-    ).completion;
+    const result = await harness.runtime.start(request(), "C:\\repository")
+      .completion;
     assert.equal(result.status, "blocked");
     assert.equal(result.reason, "coordinator_task_selection_slate_mismatch");
     assert.equal(harness.processStartCount(), selectionMismatchAt - 1);
@@ -3084,11 +3042,8 @@ test("再選定が事前Slateと異なる場合は当該Stageの起動前にSele
  */
 test("時間を要するProvider Home観測後に同一Selectionを更新してからEffectへ進む", async () => {
   const harness = fixture();
-  const result = await harness.runtime.start(
-    request(),
-    "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
-  ).completion;
+  const result = await harness.runtime.start(request(), "C:\\repository")
+    .completion;
   assert.equal(result.status, "completed");
   assert.deepEqual(harness.selectionLifecycleEvents.slice(0, 5), [
     "selection:1:initial",
@@ -3128,11 +3083,8 @@ test("Provider Homeの不正・不明分類は初回観測と再観測のどち�
       const harness = fixture({
         providerHomeObservationFailure: { at, classification },
       });
-      const result = await harness.runtime.start(
-        request(),
-        "C:\\repository",
-        "2026-08-25T00:00:00.000Z",
-      ).completion;
+      const result = await harness.runtime.start(request(), "C:\\repository")
+        .completion;
 
       assert.equal(result.status, "blocked", `${classification}:${at}`);
       assert.equal(
@@ -3179,11 +3131,8 @@ test("Selection更新の失敗・意味変更・旧Grant失効失敗はProvider 
     ],
   ] as const) {
     const harness = fixture(options);
-    const result = await harness.runtime.start(
-      request(),
-      "C:\\repository",
-      "2026-08-25T00:00:00.000Z",
-    ).completion;
+    const result = await harness.runtime.start(request(), "C:\\repository")
+      .completion;
     assert.equal(result.status, "blocked");
     assert.equal(result.reason, reason);
     assert.equal(harness.processStartCount(), 0);
@@ -3218,7 +3167,6 @@ test("任意Executor制約はauto既定と分離して同じSlate・Selection Ga
         requestedExecutorProvider: provider,
       }),
       "C:\\repository",
-      "2026-08-25T00:00:00.000Z",
     ).completion;
     assert.equal(result.status, "completed");
     assert.equal(harness.slateRequests[0]?.requestedExecutorProvider, provider);
@@ -3232,7 +3180,6 @@ test("任意Executor制約はauto既定と分離して同じSlate・Selection Ga
   const automaticResult = await automatic.runtime.start(
     request(),
     "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
   ).completion;
   assert.equal(automaticResult.status, "completed");
   assert.equal(automatic.slateRequests[0]?.requestedExecutorProvider, "auto");
@@ -3241,7 +3188,6 @@ test("任意Executor制約はauto既定と分離して同じSlate・Selection Ga
   const invalidResult = await invalid.runtime.start(
     request({ requestedExecutorProvider: "future" }),
     "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
   ).completion;
   assert.equal(invalidResult.status, "blocked");
   assert.equal(invalidResult.reason, "coordinator_task_request_invalid");
@@ -3258,7 +3204,6 @@ test("任意Executor制約はauto既定と分離して同じSlate・Selection Ga
   const mismatchedResult = await mismatched.runtime.start(
     request({ requestedExecutorProvider: "claude" }),
     "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
   ).completion;
   assert.equal(mismatchedResult.status, "blocked");
   assert.equal(
@@ -3298,7 +3243,6 @@ test("明示Profile IDをExecutor Selectionだけへ搬送する", async () => {
           requestedProfileId: profileId,
         }),
         "C:\\repository",
-        "2026-08-25T00:00:00.000Z",
       ).completion;
       assert.equal(result.status, "completed");
       assert.equal(harness.selectionRequests.length, 2);
@@ -3327,7 +3271,6 @@ test("明示Profile IDをExecutor Selectionだけへ搬送する", async () => {
   const invalidResult = await invalid.runtime.start(
     request({ requestedProfileId: "latest" }),
     "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
   ).completion;
   assert.equal(invalidResult.status, "blocked");
   assert.equal(invalidResult.reason, "coordinator_task_request_invalid");
@@ -3358,7 +3301,6 @@ test("同一Provider Reviewerは低リスクSlateが指定した別実行Context
     const started = harness.runtime.start(
       request({ frontProvider: provider }),
       "C:\\repository",
-      "2026-08-25T00:00:00.000Z",
     );
     const result = await started.completion;
     assert.equal(result.status, "completed");
@@ -3393,11 +3335,7 @@ test("同一Provider Reviewerは低リスクSlateが指定した別実行Context
  */
 test("完遂可能なExecution SlateがなければExternal SendとExecutor Effect前に停止する", async () => {
   const harness = fixture({ slateUnavailable: true });
-  const started = harness.runtime.start(
-    request(),
-    "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
-  );
+  const started = harness.runtime.start(request(), "C:\\repository");
   const result = await started.completion;
   assert.equal(result.status, "blocked");
   assert.equal(result.reason, "coordinator_task_execution_slate_unavailable");
@@ -3422,11 +3360,8 @@ test("完遂可能なExecution SlateがなければExternal SendとExecutor Effe
  */
 test("Docker回復記録はHost cleanup intentと不存在receiptの後だけfinalizeする", async () => {
   const harness = fixture({ hostCleanupWal: true });
-  const result = await harness.runtime.start(
-    request(),
-    "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
-  ).completion;
+  const result = await harness.runtime.start(request(), "C:\\repository")
+    .completion;
   assert.equal(result.status, "completed");
   assert.deepEqual(harness.events.slice(-7), [
     "docker-host-cleanup-intent",
@@ -3456,11 +3391,8 @@ test("清掃済みProvider失敗もHost cleanup後にDocker回復記録をfinali
     hostCleanupWal: true,
     processCleanFailureRole: "executor",
   });
-  const result = await harness.runtime.start(
-    request(),
-    "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
-  ).completion;
+  const result = await harness.runtime.start(request(), "C:\\repository")
+    .completion;
   assert.equal(result.status, "blocked");
   assert.equal(result.reason, "coordinator_task_provider_failed");
   assert.equal(result.cleanupConfirmed, true);
@@ -3495,7 +3427,6 @@ test("耐久結果配送は捕捉済み元Controlから終端後にだけ進む"
   const started = harness.runtime.start(
     request(),
     "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
     "upper-operation",
     undefined,
     "orchestrator",
@@ -3569,7 +3500,6 @@ test("耐久結果配送は捕捉済み元Controlから終端後にだけ進む"
     const attempt = partial.runtime.start(
       request(),
       "C:\\repository",
-      "2026-08-25T00:00:00.000Z",
       "upper-operation",
       undefined,
       "orchestrator",
@@ -3589,7 +3519,6 @@ test("耐久結果配送は捕捉済み元Controlから終端後にだけ進む"
     const attempt = transient.runtime.start(
       request(),
       "C:\\repository",
-      "2026-08-25T00:00:00.000Z",
       null,
       undefined,
       consumer,
@@ -3604,7 +3533,6 @@ test("耐久結果配送は捕捉済み元Controlから終端後にだけ進む"
   const denied = empty.runtime.start(
     request(),
     "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
     "upper-operation",
     undefined,
     "orchestrator",
@@ -3634,20 +3562,14 @@ test("耐久結果配送は捕捉済み元Controlから終端後にだけ進む"
  */
 test("finalizable Docker handoffは0／1／2件で同じcleanup DAGへ進む", async () => {
   const zero = fixture({ externalSendDenied: true, hostCleanupWal: true });
-  const zeroResult = await zero.runtime.start(
-    request(),
-    "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
-  ).completion;
+  const zeroResult = await zero.runtime.start(request(), "C:\\repository")
+    .completion;
   assert.equal(zeroResult.processRestartRequired, false);
   assert.equal(zero.cleanupCount(), 1);
 
   const one = fixture({ hostCleanupWal: true, candidateSecretAtCapture: 1 });
-  const oneResult = await one.runtime.start(
-    request(),
-    "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
-  ).completion;
+  const oneResult = await one.runtime.start(request(), "C:\\repository")
+    .completion;
   assert.equal(oneResult.status, "blocked");
   assert.equal(oneResult.manualRecoveryRequired, false);
   assert.deepEqual(oneResult.dockerRecoveryIds, []);
@@ -3660,11 +3582,8 @@ test("finalizable Docker handoffは0／1／2件で同じcleanup DAGへ進む", a
   ]);
 
   const two = fixture({ hostCleanupWal: true });
-  const twoResult = await two.runtime.start(
-    request(),
-    "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
-  ).completion;
+  const twoResult = await two.runtime.start(request(), "C:\\repository")
+    .completion;
   assert.equal(twoResult.status, "completed");
   assert.deepEqual(twoResult.dockerRecoveryIds, []);
   assert.equal(two.cleanupCount(), 1);
@@ -3691,11 +3610,8 @@ test("managed handoffとraw Docker IDの混在はHost cleanup前に全件保持�
     hostCleanupWal: true,
     processStartFailureRole: "reviewer",
   });
-  const result = await harness.runtime.start(
-    request(),
-    "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
-  ).completion;
+  const result = await harness.runtime.start(request(), "C:\\repository")
+    .completion;
   assert.equal(result.manualRecoveryRequired, true);
   assert.equal(result.hostRecoveryId, "host.fixture.recovery.record");
   assert.deepEqual(result.dockerRecoveryIds, [
@@ -3757,11 +3673,8 @@ test("各Stageのraw Docker欠落・empty・foreignは表示補完前にcleanup 
     },
   ];
   for (const { harness, expected: expectedItems } of cases) {
-    const result = await harness.runtime.start(
-      request(),
-      "C:\\repository",
-      "2026-08-25T00:00:00.000Z",
-    ).completion;
+    const result = await harness.runtime.start(request(), "C:\\repository")
+      .completion;
     assert.equal(result.status, "blocked");
     assert.equal(result.manualRecoveryRequired, true);
     assert.deepEqual(result.dockerRecoveryIds, expectedItems);
@@ -3787,11 +3700,8 @@ test("各Stageのraw Docker欠落・empty・foreignは表示補完前にcleanup 
  */
 test("複数Docker intentの途中失敗はHost cleanupへ進まず未解決集合を保持する", async () => {
   const harness = fixture({ hostCleanupWal: true, dockerIntentFailsAt: 2 });
-  const result = await harness.runtime.start(
-    request(),
-    "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
-  ).completion;
+  const result = await harness.runtime.start(request(), "C:\\repository")
+    .completion;
   assert.equal(
     result.reason,
     "coordinator_task_host_cleanup_intent_unconfirmed",
@@ -3826,11 +3736,8 @@ test("複数Docker intentの途中失敗はHost cleanupへ進まず未解決集�
  */
 test("先にfinalize済みのDocker IDを後続finalize失敗の未解決集合へ再混入しない", async () => {
   const harness = fixture({ hostCleanupWal: true, dockerFinalizeFailsAt: 2 });
-  const result = await harness.runtime.start(
-    request(),
-    "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
-  ).completion;
+  const result = await harness.runtime.start(request(), "C:\\repository")
+    .completion;
   assert.equal(result.status, "blocked");
   assert.equal(
     result.reason,
@@ -3861,11 +3768,8 @@ test("先にfinalize済みのDocker IDを後続finalize失敗の未解決集合�
  */
 test("Host cleanup後のDocker receipt失敗は無効なHost IDを再公開しない", async () => {
   const harness = fixture({ hostCleanupWal: true, dockerReceiptFailsAt: 1 });
-  const result = await harness.runtime.start(
-    request(),
-    "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
-  ).completion;
+  const result = await harness.runtime.start(request(), "C:\\repository")
+    .completion;
   assert.equal(result.status, "blocked");
   assert.equal(
     result.reason,
@@ -3896,11 +3800,8 @@ test("全Docker handoff finalize後のCandidate永続化失敗はDocker IDを返
     hostCleanupWal: true,
     candidatePersistenceFails: true,
   });
-  const result = await harness.runtime.start(
-    request(),
-    "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
-  ).completion;
+  const result = await harness.runtime.start(request(), "C:\\repository")
+    .completion;
   assert.equal(result.status, "blocked");
   assert.equal(result.reason, "coordinator_task_candidate_persistence_failed");
   assert.deepEqual(result.dockerRecoveryIds, []);
@@ -3924,11 +3825,8 @@ test("Reviewerがchanges_requestedならCandidateを承認済みResultへ昇格�
     reviewerDecision: "changes_requested",
     providerExecutionObservation: true,
   });
-  const result = await harness.runtime.start(
-    request(),
-    "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
-  ).completion;
+  const result = await harness.runtime.start(request(), "C:\\repository")
+    .completion;
   assert.equal(result.status, "blocked");
   assert.equal(
     result.reason,
@@ -4040,11 +3938,8 @@ test("Reviewer指摘を一回だけ同一Executorへ戻し、同一独立Reviewe
     reviewerDecision: "changes_requested",
     finalReviewerDecision: "approved",
   });
-  const result = await harness.runtime.start(
-    request(),
-    "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
-  ).completion;
+  const result = await harness.runtime.start(request(), "C:\\repository")
+    .completion;
   assert.equal(result.status, "completed");
   assert.equal(result.remediationPerformed, true);
   assert.equal(harness.selectionRequests.length, 4);
@@ -4072,11 +3967,8 @@ test("是正ExecutorのchangedPathsはBaseから見た最終Candidate全体と�
     finalReviewerDecision: "approved",
     remediationExecutorChangedPaths: [],
   });
-  const result = await harness.runtime.start(
-    request(),
-    "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
-  ).completion;
+  const result = await harness.runtime.start(request(), "C:\\repository")
+    .completion;
   assert.equal(result.status, "blocked");
   assert.equal(result.reason, "coordinator_task_remediated_candidate_invalid");
   assert.equal(result.candidateDisposition, "not_issued");
@@ -4104,11 +3996,8 @@ test("Reviewer由来Secret Pathは是正Executor Process前に安全な理由で
     reviewerDecision: "changes_requested",
     remediationPacketSecretBlocked: true,
   });
-  const result = await harness.runtime.start(
-    request(),
-    "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
-  ).completion;
+  const result = await harness.runtime.start(request(), "C:\\repository")
+    .completion;
   assert.equal(result.status, "blocked");
   assert.equal(
     result.reason,
@@ -4139,11 +4028,8 @@ test("Reviewer由来Secret Pathは是正Executor Process前に安全な理由で
  */
 test("選定理由は各Provider Effectより前に安全なCoordinator eventへ出す", async () => {
   const harness = fixture();
-  const result = await harness.runtime.start(
-    request(),
-    "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
-  ).completion;
+  const result = await harness.runtime.start(request(), "C:\\repository")
+    .completion;
   assert.equal(result.status, "completed");
   assert.deepEqual(harness.events, [
     "notice:executor",
@@ -4171,11 +4057,8 @@ test("選定理由は各Provider Effectより前に安全なCoordinator eventへ
  */
 test("Candidate保存禁止Policyは外部送信とProvider Effect前に停止する", async () => {
   const harness = fixture({ candidatePersistenceAllowed: false });
-  const result = await harness.runtime.start(
-    request(),
-    "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
-  ).completion;
+  const result = await harness.runtime.start(request(), "C:\\repository")
+    .completion;
   assert.equal(result.status, "blocked");
   assert.equal(
     result.reason,
@@ -4198,11 +4081,8 @@ test("Candidate保存禁止Policyは外部送信とProvider Effect前に停止�
  */
 test("Candidate Storeを安全に準備できなければ外部送信Authority前に停止する", async () => {
   const harness = fixture({ candidateStoreUnavailable: true });
-  const result = await harness.runtime.start(
-    request(),
-    "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
-  ).completion;
+  const result = await harness.runtime.start(request(), "C:\\repository")
+    .completion;
   assert.equal(result.status, "blocked");
   assert.equal(result.reason, "coordinator_task_candidate_store_unavailable");
   assert.equal(result.manualRecoveryRequired, true);
@@ -4228,11 +4108,8 @@ test("Candidate Storeを安全に準備できなければ外部送信Authority�
  */
 test("対話的External Send Grantが無ければWorkspaceとProvider Effect前に停止する", async () => {
   const harness = fixture({ externalSendDenied: true });
-  const result = await harness.runtime.start(
-    request(),
-    "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
-  ).completion;
+  const result = await harness.runtime.start(request(), "C:\\repository")
+    .completion;
   assert.equal(result.status, "blocked");
   assert.equal(result.reason, "coordinator_task_external_send_not_authorized");
   assert.equal(harness.selectionRequests.length, 0);
@@ -4255,11 +4132,8 @@ test("対話cleanup不明はProcess再起動を要求しOperation cleanupを独�
   const reason =
     "external_send_confirmation_cleanup_unknown_process_restart_required";
   const harness = fixture({ externalSendReason: reason });
-  const result = await harness.runtime.start(
-    request(),
-    "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
-  ).completion;
+  const result = await harness.runtime.start(request(), "C:\\repository")
+    .completion;
   assert.equal(
     result.reason,
     "coordinator_task_external_send_confirmation_cleanup_unknown_process_restart_required",
@@ -4280,7 +4154,6 @@ test("対話cleanup不明はProcess再起動を要求しOperation cleanupを独�
   const combined = await cleanupFailure.runtime.start(
     request(),
     "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
   ).completion;
   assert.equal(
     combined.reason,
@@ -4318,11 +4191,8 @@ test("External Send拒否状態はTaskの理由・回復・Effect 0へ完全投�
   ] as const) {
     const externalReason = `external_send_confirmation_${status}`;
     const harness = fixture({ externalSendReason: externalReason });
-    const result = await harness.runtime.start(
-      request(),
-      "C:\\repository",
-      "2026-08-25T00:00:00.000Z",
-    ).completion;
+    const result = await harness.runtime.start(request(), "C:\\repository")
+      .completion;
     assert.equal(result.reason, `coordinator_task_${externalReason}`);
     assert.equal(
       result.manualRecoveryRequired,
@@ -4354,7 +4224,6 @@ test("Executor自己申告と実Candidate差またはOperation cleanup不明を�
   const mismatchResult = await mismatch.runtime.start(
     request(),
     "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
   ).completion;
   assert.equal(mismatchResult.status, "blocked");
   assert.equal(
@@ -4366,7 +4235,6 @@ test("Executor自己申告と実Candidate差またはOperation cleanup不明を�
   const cleanupResult = await cleanupFailure.runtime.start(
     request(),
     "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
   ).completion;
   assert.equal(cleanupResult.status, "blocked");
   assert.equal(
@@ -4403,11 +4271,8 @@ test("Host cleanup返却前の喪失通知は確認済み失敗と回収不明�
       cleanupProtocolFailure: !isUnknown,
       cleanupThrows: isUnknown,
     });
-    const result = await harness.runtime.start(
-      request(),
-      "C:\\repository",
-      "2026-08-25T00:00:00.000Z",
-    ).completion;
+    const result = await harness.runtime.start(request(), "C:\\repository")
+      .completion;
     assert.equal(result.status, "blocked");
     assert.equal(
       result.reason,
@@ -4458,11 +4323,8 @@ test("回復保持処理も例外になったcleanup失敗は制御を失効しp
     cleanupThrows: true,
     shouldAbandonOperationThrow: true,
   });
-  const result = await harness.runtime.start(
-    request(),
-    "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
-  ).completion;
+  const result = await harness.runtime.start(request(), "C:\\repository")
+    .completion;
   assert.equal(result.status, "blocked");
   assert.equal(result.reason, "coordinator_task_operation_cleanup_unconfirmed");
   assert.equal(result.cleanupConfirmed, false);
@@ -4495,11 +4357,8 @@ test("回復保持処理も例外になったcleanup失敗は制御を失効しp
  */
 test("Host Supervisor protocol失敗後の確認済みcleanupは成功公開も手動Recoveryも行わない", async () => {
   const harness = fixture({ cleanupProtocolFailure: true });
-  const result = await harness.runtime.start(
-    request(),
-    "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
-  ).completion;
+  const result = await harness.runtime.start(request(), "C:\\repository")
+    .completion;
   assert.equal(result.status, "blocked");
   assert.equal(
     result.reason,
@@ -4528,11 +4387,8 @@ test("Host Supervisor protocol失敗後の確認済みcleanupは成功公開も�
  */
 test("Operation cleanupとCandidate discardが共に失敗してもdiscard専用Recovery IDを失わない", async () => {
   const harness = fixture({ cleanupThrows: true, discardFails: true });
-  const result = await harness.runtime.start(
-    request(),
-    "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
-  ).completion;
+  const result = await harness.runtime.start(request(), "C:\\repository")
+    .completion;
   assert.equal(result.status, "blocked");
   assert.equal(result.hostRecoveryId, "host.fixture.recovery.record");
   assert.match(
@@ -4556,11 +4412,8 @@ test("Operation cleanupとCandidate discardが共に失敗してもdiscard専用
  */
 test("Candidate publish失敗はexport不能なRecovery IDだけを返す", async () => {
   const harness = fixture({ publishFails: true });
-  const result = await harness.runtime.start(
-    request(),
-    "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
-  ).completion;
+  const result = await harness.runtime.start(request(), "C:\\repository")
+    .completion;
   assert.equal(result.status, "blocked");
   assert.equal(result.cleanupConfirmed, true);
   assert.equal(result.hostRecoveryId, null);
@@ -4584,11 +4437,8 @@ test("Candidate publish失敗はexport不能なRecovery IDだけを返す", asyn
  */
 test("Candidate publishとStore障害を同時に観測しても二つのRecovery IDを保持する", async () => {
   const harness = fixture({ publishNeedsStoreRecovery: true });
-  const result = await harness.runtime.start(
-    request(),
-    "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
-  ).completion;
+  const result = await harness.runtime.start(request(), "C:\\repository")
+    .completion;
   assert.equal(result.status, "blocked");
   assert.equal(result.manualRecoveryRequired, true);
   assert.equal(result.processRestartRequired, false);
@@ -4616,11 +4466,8 @@ test("Candidate publishとStore障害を同時に観測しても二つのRecover
  */
 test("承認済みCandidateを永続化できない場合はIDを公開せずFail Closedする", async () => {
   const harness = fixture({ candidatePersistenceFails: true });
-  const result = await harness.runtime.start(
-    request(),
-    "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
-  ).completion;
+  const result = await harness.runtime.start(request(), "C:\\repository")
+    .completion;
   assert.equal(result.status, "blocked");
   assert.equal(result.reason, "coordinator_task_candidate_persistence_failed");
   assert.equal(result.candidateId, null);
@@ -4641,11 +4488,8 @@ test("承認済みCandidateを永続化できない場合はIDを公開せずFai
  */
 test("Candidate Store障害はCandidate IDと分離したStore Recovery IDを返す", async () => {
   const harness = fixture({ candidatePersistenceNeedsStoreRecovery: true });
-  const result = await harness.runtime.start(
-    request(),
-    "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
-  ).completion;
+  const result = await harness.runtime.start(request(), "C:\\repository")
+    .completion;
   assert.equal(result.status, "blocked");
   assert.equal(result.candidateRecoveryId, null);
   assert.equal(result.manualRecoveryRequired, true);
@@ -4672,11 +4516,8 @@ test("Candidate Storeだけのmanual recoveryはHostとDocker cleanupを保留�
     hostCleanupWal: true,
     candidatePersistenceNeedsStoreRecovery: true,
   });
-  const result = await harness.runtime.start(
-    request(),
-    "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
-  ).completion;
+  const result = await harness.runtime.start(request(), "C:\\repository")
+    .completion;
   assert.equal(result.manualRecoveryRequired, true);
   assert.equal(result.processRestartRequired, false);
   assert.equal(result.hostRecoveryId, null);
@@ -4706,11 +4547,8 @@ test("Candidate Storeだけのmanual recoveryはHostとDocker cleanupを保留�
  */
 test("Candidate永続化の中間障害はcleanup後にRecovery IDで自動破棄する", async () => {
   const harness = fixture({ candidatePersistenceNeedsRecovery: true });
-  const result = await harness.runtime.start(
-    request(),
-    "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
-  ).completion;
+  const result = await harness.runtime.start(request(), "C:\\repository")
+    .completion;
   assert.equal(result.status, "blocked");
   assert.equal(result.reason, "coordinator_task_candidate_persistence_failed");
   assert.equal(result.manualRecoveryRequired, false);
@@ -4733,11 +4571,8 @@ test("Candidate永続化の中間障害はcleanup後にRecovery IDで自動破�
  */
 test("全Docker finalize後のCandidate publish例外へ削除済みDocker IDを再投影しない", async () => {
   const harness = fixture({ hostCleanupWal: true, publishThrows: true });
-  const result = await harness.runtime.start(
-    request(),
-    "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
-  ).completion;
+  const result = await harness.runtime.start(request(), "C:\\repository")
+    .completion;
   assert.equal(result.status, "blocked");
   assert.equal(result.dockerRecoveryId, null);
   assert.deepEqual(result.dockerRecoveryIds, []);
@@ -4762,11 +4597,8 @@ test("先行finalize済みIDはCandidate discard例外後のcatchへ残さない
     candidatePersistenceNeedsRecovery: true,
     discardThrows: true,
   });
-  const result = await harness.runtime.start(
-    request(),
-    "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
-  ).completion;
+  const result = await harness.runtime.start(request(), "C:\\repository")
+    .completion;
   assert.equal(result.status, "blocked");
   assert.equal(result.dockerRecoveryId, null);
   assert.deepEqual(result.dockerRecoveryIds, []);
@@ -4787,11 +4619,8 @@ test("先行finalize済みIDはCandidate discard例外後のcatchへ残さない
  */
 test("Provider completion rejectは取消を試みOperation RootをRecovery用に保持する", async () => {
   const harness = fixture({ completionRejectRole: "executor" });
-  const result = await harness.runtime.start(
-    request(),
-    "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
-  ).completion;
+  const result = await harness.runtime.start(request(), "C:\\repository")
+    .completion;
   assert.equal(result.status, "blocked");
   assert.equal(
     result.reason,
@@ -4834,11 +4663,8 @@ test("Provider start／completion cleanup不明はHostとDockerのRecovery IDを
     ],
   ] as const) {
     const harness = fixture(options);
-    const result = await harness.runtime.start(
-      request(),
-      "C:\\repository",
-      "2026-08-25T00:00:00.000Z",
-    ).completion;
+    const result = await harness.runtime.start(request(), "C:\\repository")
+      .completion;
     assert.equal(result.status, "blocked");
     assert.equal(result.manualRecoveryRequired, true);
     assert.equal(result.hostRecoveryId, "host.fixture.recovery.record");
@@ -4869,11 +4695,8 @@ test("Provider startがlower cleanup済みでも手動Recoveryとexact Docker ID
     processStartFailureCleanupConfirmed: true,
     processStartFailureManualRecoveryRequired: true,
   });
-  const result = await harness.runtime.start(
-    request(),
-    "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
-  ).completion;
+  const result = await harness.runtime.start(request(), "C:\\repository")
+    .completion;
   assert.equal(result.status, "blocked");
   assert.equal(result.reason, "coordinator_task_process_start_failed");
   assert.equal(result.cleanupConfirmed, false);
@@ -4904,11 +4727,8 @@ test("Provider startがlower cleanup済みでも手動Recoveryとexact Docker ID
  */
 test("独立Reviewer実行中のCandidate差替えを承認済みResultへ昇格しない", async () => {
   const harness = fixture({ candidateVerificationFails: true });
-  const result = await harness.runtime.start(
-    request(),
-    "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
-  ).completion;
+  const result = await harness.runtime.start(request(), "C:\\repository")
+    .completion;
   assert.equal(result.status, "blocked");
   assert.equal(result.reason, "coordinator_task_candidate_verification_failed");
   assert.equal(result.candidateDisposition, "not_issued");
@@ -4931,11 +4751,7 @@ test("独立Reviewer実行中のCandidate差替えを承認済みResultへ昇格
  */
 test("実行中取消はProvider完了後もCandidateを公開せずexactly onceに閉じる", async () => {
   const harness = fixture({ pauseRole: "executor", hostCleanupWal: true });
-  const started = harness.runtime.start(
-    request(),
-    "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
-  );
+  const started = harness.runtime.start(request(), "C:\\repository");
   await new Promise((resolve) => setImmediate(resolve));
   const firstCancellation = harness.runtime.cancel(started.controlCapability);
   const duplicateCancellation = harness.runtime.cancel(
@@ -4988,11 +4804,7 @@ test("不正なlower取消receiptも同じlive Operationでは同じcached rejec
     pauseRole: "executor",
     cancellationReceiptInvalid: true,
   });
-  const started = harness.runtime.start(
-    request(),
-    "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
-  );
+  const started = harness.runtime.start(request(), "C:\\repository");
   await new Promise((resolve) => setImmediate(resolve));
   const firstCancellation = harness.runtime.cancel(started.controlCapability);
   const duplicateCancellation = harness.runtime.cancel(
@@ -5031,11 +4843,7 @@ test("never取消receiptはack上限後にcleanupを続けて不可逆poisonへ�
     pauseRole: "executor",
     cancellationReceiptNever: true,
   });
-  const started = harness.runtime.start(
-    request(),
-    "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
-  );
+  const started = harness.runtime.start(request(), "C:\\repository");
   await new Promise((resolve) => setImmediate(resolve));
   void harness.runtime.cancel(started.controlCapability);
   harness.releasePausedProcess();
@@ -5076,11 +4884,7 @@ test("取消protocol failureと資源cleanup unknownは依存順を守り全acti
     cleanupThrows: true,
     hostCleanupWal: true,
   });
-  const started = harness.runtime.start(
-    request(),
-    "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
-  );
+  const started = harness.runtime.start(request(), "C:\\repository");
   while (harness.processStartCount() < 2)
     await new Promise((resolve) => setImmediate(resolve));
   void harness.runtime.cancel(started.controlCapability);
@@ -5133,11 +4937,7 @@ test("ready後のHost Supervisor喪失は実行中Providerを取消して成功�
     pauseRole: "executor",
     hostGenerationLoss: "cleanup_confirmed_failure",
   });
-  const started = harness.runtime.start(
-    request(),
-    "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
-  );
+  const started = harness.runtime.start(request(), "C:\\repository");
   while (harness.processStartCount() === 0)
     await new Promise((resolve) => setImmediate(resolve));
   harness.triggerHostGenerationLoss();
@@ -5176,11 +4976,7 @@ test("ready後喪失のcleanup不明は取消より優先してexact Host Recove
     pauseRole: "executor",
     hostGenerationLoss: "cleanup_unknown",
   });
-  const started = harness.runtime.start(
-    request(),
-    "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
-  );
+  const started = harness.runtime.start(request(), "C:\\repository");
   while (harness.processStartCount() === 0)
     await new Promise((resolve) => setImmediate(resolve));
   harness.triggerHostGenerationLoss();
@@ -5220,11 +5016,7 @@ test("Host confirmedとProvider cleanup unknownの合成は全actionable Recover
     processCleanupFailureRole: "executor",
     hostGenerationLoss: "cleanup_confirmed_failure",
   });
-  const started = harness.runtime.start(
-    request(),
-    "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
-  );
+  const started = harness.runtime.start(request(), "C:\\repository");
   while (harness.processStartCount() === 0)
     await new Promise((resolve) => setImmediate(resolve));
   harness.triggerHostGenerationLoss();
@@ -5258,11 +5050,7 @@ test("Candidate staged後のHost confirmed lossはpublishせずdiscardしてclea
     pauseOperationCleanup: true,
     hostGenerationLoss: "cleanup_confirmed_failure",
   });
-  const started = harness.runtime.start(
-    request(),
-    "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
-  );
+  const started = harness.runtime.start(request(), "C:\\repository");
   while (harness.cleanupCount() === 0)
     await new Promise((resolve) => setImmediate(resolve));
   harness.triggerHostGenerationLoss();
@@ -5295,11 +5083,7 @@ test("Host confirmedでもProvider取消終了不明ならunknownへ昇格して
     hostGenerationLoss: "cleanup_confirmed_failure",
     cancellationTerminationObserved: false,
   });
-  const started = harness.runtime.start(
-    request(),
-    "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
-  );
+  const started = harness.runtime.start(request(), "C:\\repository");
   while (harness.processStartCount() === 0)
     await new Promise((resolve) => setImmediate(resolve));
   harness.triggerHostGenerationLoss();
@@ -5331,11 +5115,8 @@ test("分類不能なopaque cleanup outcomeはcleanup unknownへ閉じる", asyn
       hostCleanupWal: isHostCleanupWal,
       dockerHostCleanupId: cleanupIntentId,
     });
-    const result = await harness.runtime.start(
-      request(),
-      "C:\\repository",
-      "2026-08-25T00:00:00.000Z",
-    ).completion;
+    const result = await harness.runtime.start(request(), "C:\\repository")
+      .completion;
     assert.equal(result.status, "blocked");
     assert.equal(result.manualRecoveryRequired, true);
     assert.equal(result.cleanupConfirmed, false);
@@ -5362,11 +5143,7 @@ test("分類不能なopaque cleanup outcomeはcleanup unknownへ閉じる", asyn
  */
 test("Operation作成待機中の取消は最初の後続Effect前にcleanupへ閉じる", async () => {
   const harness = fixture({ pauseOperationCreation: true });
-  const started = harness.runtime.start(
-    request(),
-    "C:\\repo",
-    "2026-08-27T00:00:00Z",
-  );
+  const started = harness.runtime.start(request(), "C:\\repo");
   assert.equal(started.status, "started");
   while (harness.operationCreateCount() === 0)
     await new Promise((resolve) => setImmediate(resolve));
@@ -5407,11 +5184,7 @@ test("Operation作成待機中の取消は最初の後続Effect前にcleanupへ�
  */
 test("外部送信承認中の取消は同じSignalへ伝播しWorkspace前に停止する", async () => {
   const harness = fixture({ pauseExternalAuthorization: true });
-  const started = harness.runtime.start(
-    request(),
-    "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
-  );
+  const started = harness.runtime.start(request(), "C:\\repository");
   await new Promise<void>((resolve) => setImmediate(resolve));
   assert.equal(harness.externalCancellationSignal()?.aborted, false);
   assert.deepEqual(await harness.runtime.cancel(started.controlCapability), {
@@ -5434,27 +5207,98 @@ test("外部送信承認中の取消は同じSignalへ伝播しWorkspace前に�
 });
 
 /**
- * Production入口はPackage Capability欠落を全Effect前に拒否するを検証する。
+ * Production入口は署名資格なしでRepository事前検査へ到達し不正Rootを拒否する。
  *
- * @responsibility Production入口はPackage Capability欠落を全Effect前に拒否するの合否判定を所有する。
+ * @responsibility 通常TaskのRepository事前検査を署名資格から独立させる。
  * @trace PRL-IT-012
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Production入口はPackage Capability欠落を全Effect前に拒否するの対象操作を実行する。
+ * @stimulus 署名資格を渡さず相対RootでProduction入口を呼び出す。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
-test("Production入口はPackage Capability欠落を全Effect前に拒否する", () => {
-  assert.throws(
-    () =>
-      startRuntimeOwnedCoordinatorTask(
-        request(),
-        "not-an-absolute-repository",
-        Object.freeze({}),
-      ),
-    /coordinator_task_release_verification_required/u,
+test("Production入口は署名資格なしで不正Repositoryを拒否する", async () => {
+  const started = startRuntimeOwnedCoordinatorTask(
+    request(),
+    "not-an-absolute-repository",
   );
+  const result = await started.completion;
+  assert.equal(result.status, "blocked");
+  assert.equal(result.reason, "coordinator_task_repository_preflight_failed");
+  assert.equal(result.cleanupConfirmed, true);
+  assert.equal(result.manualRecoveryRequired, false);
+});
+
+/**
+ * 実Operationの管理参照だけを許可元へ結合する。
+ *
+ * @responsibility 署名資格ではなく現在の実Operation所有と失効を本番loaderで確認する。
+ * @trace PRL-IT-005
+ * @precondition 検証済みRepository内に自己生成Operationを作成する。
+ * @stimulus 正規・偽造・別Operation・清掃後の管理参照で許可元を要求する。
+ * @observation Source、Operation ID、清掃後の不存在とcache再利用拒否を確認する。
+ * @oracle 同じ実Operationだけ受理し、署名資格を要求せず失効後はcacheを返さない。
+ * @cleanup 各Operationを既存Ownerで清掃し、登録hookで自己生成親を回収する。
+ * @boundary PRL-IT-005=Related 2 Blocks: Operation管理参照→許可元生成。
+ */
+test("本番許可元は実Operationに結合し清掃後のcacheを拒否する", (t) => {
+  const parent = createTaskRuntimeTestDirectory(t, "crdd-local-authority-");
+  const owned = createOwnedOperationDirectories(parent);
+  let foreign: ReturnType<typeof createOwnedOperationDirectories> | null = null;
+  try {
+    const context = createOwnedOperationContextCapability(owned);
+    const management = createOwnedOperationManagementCapability(
+      context,
+      createOwnedMountCapability(owned),
+    );
+    const operation = verifyOwnedOperationManagementCapability(management);
+    const binding = {
+      operationId: operation.operationId,
+      provider: "claude",
+      profileId: "PROFILE-200001",
+    };
+    const source = loadRuntimeOwnedLocalPersonalAuthority(binding, management);
+    assert.ok(source);
+    assert.equal(
+      loadRuntimeOwnedLocalPersonalAuthority(binding, management),
+      source,
+    );
+    assert.equal(
+      loadRuntimeOwnedLocalPersonalAuthority(binding, undefined),
+      null,
+    );
+    assert.equal(loadRuntimeOwnedLocalPersonalAuthority(binding, {}), null);
+    assert.equal(
+      loadRuntimeOwnedLocalPersonalAuthority(
+        { ...binding, operationId: "OP-123456" },
+        management,
+      ),
+      null,
+    );
+    foreign = createOwnedOperationDirectories(parent);
+    const foreignManagement = createOwnedOperationManagementCapability(
+      createOwnedOperationContextCapability(foreign),
+      createOwnedMountCapability(foreign),
+    );
+    assert.equal(
+      loadRuntimeOwnedLocalPersonalAuthority(binding, foreignManagement),
+      null,
+    );
+    cleanupOwnedOperationDirectories(owned);
+    assert.equal(fs.existsSync(owned.root), false);
+    assert.equal(
+      loadRuntimeOwnedLocalPersonalAuthority(binding, management),
+      null,
+    );
+  } finally {
+    if (foreign) {
+      cleanupOwnedOperationDirectories(foreign);
+      assert.equal(fs.existsSync(foreign.root), false);
+    }
+    if (fs.existsSync(owned.root)) cleanupOwnedOperationDirectories(owned);
+    assert.equal(fs.existsSync(owned.root), false);
+  }
 });
 
 /**
@@ -5493,11 +5337,7 @@ test("不正controlの取消はexact blockedかつEffect 0へ閉じる", async (
  */
 test("Task producerはRunnerが安全に観測できるexact native completionを返す", async () => {
   const harness = fixture();
-  const started = harness.runtime.start(
-    request(),
-    "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
-  );
+  const started = harness.runtime.start(request(), "C:\\repository");
   assert.equal(utilTypes.isProxy(started.completion), false);
   assert.equal(utilTypes.isPromise(started.completion), true);
   assert.strictEqual(
@@ -5526,11 +5366,7 @@ test("Task producerはRunnerが安全に観測できるexact native completion�
 test("別Runtimeのlive controlは両RuntimeのEffect 0でforeignへ閉じる", async () => {
   const source = fixture({ pauseRole: "executor" });
   const target = fixture();
-  const started = source.runtime.start(
-    request(),
-    "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
-  );
+  const started = source.runtime.start(request(), "C:\\repository");
   await new Promise((resolve) => setImmediate(resolve));
   const sourceBefore = Object.freeze({
     cancels: source.cancelProcessCount(),
@@ -5582,11 +5418,7 @@ test("別Runtimeのlive controlは両RuntimeのEffect 0でforeignへ閉じる", 
  */
 test("正常completion後の失効controlは追加Effect 0へ閉じる", async () => {
   const harness = fixture();
-  const started = harness.runtime.start(
-    request(),
-    "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
-  );
+  const started = harness.runtime.start(request(), "C:\\repository");
   await started.completion;
   const before = Object.freeze({
     cancels: harness.cancelProcessCount(),
@@ -5639,11 +5471,7 @@ test("final poison観測例外でもControlを先に失効して保守的なResu
       cancellationAtTerminal = harness.runtime.cancel(controlCapability);
     },
   });
-  const started = harness.runtime.start(
-    request(),
-    "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
-  );
+  const started = harness.runtime.start(request(), "C:\\repository");
   controlCapability = started.controlCapability;
   const result = await started.completion;
   assert.equal(result.status, "blocked");
@@ -5682,11 +5510,7 @@ test("Host drain解放例外でもControlとterminal observerをexactly onceへ�
       terminalCount += 1;
     },
   });
-  const started = harness.runtime.start(
-    request(),
-    "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
-  );
+  const started = harness.runtime.start(request(), "C:\\repository");
   while (harness.processStartCount() === 0)
     await new Promise((resolve) => setImmediate(resolve));
   harness.triggerHostGenerationLoss();
@@ -5717,11 +5541,7 @@ test("Host drain解放例外でもControlとterminal observerをexactly onceへ�
  */
 test("外周cleanup中の重複取消はliveな同じPromiseへ収束しcleanupを妨げない", async () => {
   const harness = fixture({ pauseOperationCleanup: true });
-  const started = harness.runtime.start(
-    request(),
-    "C:\\repository",
-    "2026-08-25T00:00:00.000Z",
-  );
+  const started = harness.runtime.start(request(), "C:\\repository");
   while (harness.cleanupCount() === 0)
     await new Promise((resolve) => setImmediate(resolve));
   const first = harness.runtime.cancel(started.controlCapability);
@@ -5747,7 +5567,11 @@ test("外周cleanup中の重複取消はliveな同じPromiseへ収束しcleanup�
  */
 test("公開契約は4経路、独立Reviewer、stdin、非canonical Effectを固定する", () => {
   const contract = describeCoordinatorTaskRuntimeContract();
-  assert.equal(contract.contractRevision, 35);
+  assert.equal(contract.contractRevision, 36);
+  assert.equal(
+    contract.productionPackageGate,
+    "not_required_for_runtime_execution",
+  );
   assert.equal(
     contract.providerTurnObservations,
     "validated_non_authority_requested_reported_absolute_limit_and_target_exceeded_after_cleanup_for_each_accepted_claude_stage",
@@ -5776,7 +5600,7 @@ test("公開契約は4経路、独立Reviewer、stdin、非canonical Effectを�
   assert.equal(contract.apiKeyFallbackAllowed, false);
   assert.equal(
     contract.processPoisonGate,
-    "before_package_consume_operation_console_store_workspace_provider_and_network",
+    "before_operation_console_store_workspace_provider_and_network",
   );
   assert.equal(
     contract.processRestartProjection,
@@ -5945,11 +5769,8 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
     const harness = fixture({
       inspectRepository: inspectRepositoryObjectFormatCandidate,
     });
-    const result = await harness.runtime.start(
-      request(),
-      sha256Repository(t),
-      "2026-08-25T00:00:00.000Z",
-    ).completion;
+    const result = await harness.runtime.start(request(), sha256Repository(t))
+      .completion;
     assert.equal(result.status, "blocked");
     assert.equal(result.cleanupConfirmed, true);
     assert.equal(result.manualRecoveryRequired, false);
@@ -5970,11 +5791,8 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
       inspectRepository: inspectRepositoryObjectFormatCandidate,
       isProcessPoisoned: () => true,
     });
-    const result = await harness.runtime.start(
-      request(),
-      sha256Repository(t),
-      "2026-08-25T00:00:00.000Z",
-    ).completion;
+    const result = await harness.runtime.start(request(), sha256Repository(t))
+      .completion;
     assert.equal(result.status, "blocked");
     assert.equal(result.cleanupConfirmed, true);
     assert.equal(result.manualRecoveryRequired, false);
@@ -5991,34 +5809,10 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
     );
   });
 
-  await t.test("CASE-RECOVERY-ADMISSION", async () => {
-    const harness = fixture({ admissionRecovery: true });
-    const result = await harness.runtime.start(
-      request(),
-      "C:\\repository",
-      "2026-08-25T00:00:00.000Z",
-    ).completion;
-    assert.equal(result.status, "blocked");
-    assert.equal(result.manualRecoveryRequired, true);
-    assert.equal(result.dockerRecoveryId, admissionRecoveryOne);
-    assert.equal(harness.operationCreateCount(), 0);
-    assert.equal(harness.processStartCount(), 0);
-    assert.equal(harness.lifecycleStates.at(-2), "STATE-ADMISSION");
-    assert.equal(harness.lifecycleStates.at(-1), "STATE-RECOVERY-REQUIRED");
-    await assertTerminalRuntimeTraceCase(
-      "CASE-RECOVERY-ADMISSION",
-      harness,
-      result,
-    );
-  });
-
   await t.test("CASE-OPERATOR-TRANSFER-ADMISSION", async () => {
     const harness = fixture({ admissionRecoveryMissing: true });
-    const result = await harness.runtime.start(
-      request(),
-      "C:\\repository",
-      "2026-08-25T00:00:00.000Z",
-    ).completion;
+    const result = await harness.runtime.start(request(), "C:\\repository")
+      .completion;
     assert.equal(result.cleanupConfirmed, false);
     assert.equal(result.manualRecoveryRequired, true);
     assert.equal(result.hostRecoveryId, null);
@@ -6037,23 +5831,34 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
   });
 
   await t.test(
-    "production複数Recovery在庫を全ID保持してEffect 0へ閉じる",
+    "現在状態の観測不能は内部IDを推測せずEffect 0へ閉じる",
     async () => {
-      const ids = [admissionRecoveryOne, admissionRecoveryTwo];
       const harness = fixture({
-        admissionRecovery: true,
-        admissionRecoveryIds: ids,
+        admissionBlocked: true,
       });
-      const result = await harness.runtime.start(
-        request(),
-        "C:\\repository",
-        "2026-08-25T00:00:00.000Z",
-      ).completion;
+      const result = await harness.runtime.start(request(), "C:\\repository")
+        .completion;
       assert.equal(result.status, "blocked");
+      assert.equal(result.cleanupConfirmed, false);
+      assert.equal(result.manualRecoveryRequired, true);
+      assert.equal(result.hostRecoveryId, null);
       assert.equal(result.dockerRecoveryId, null);
-      assert.deepEqual(result.dockerRecoveryIds, ids);
+      assert.deepEqual(result.dockerRecoveryIds, []);
+      assert.equal(result.candidateRecoveryId, null);
+      assert.equal(result.candidateStoreRecoveryId, null);
       assert.equal(harness.operationCreateCount(), 0);
       assert.equal(harness.processStartCount(), 0);
+      assert.equal(harness.cleanupCount(), 0);
+      assert.equal(harness.lifecycleStates.at(-2), "STATE-ADMISSION");
+      assert.equal(
+        harness.lifecycleStates.at(-1),
+        "STATE-OPERATOR-TRANSFER-REQUIRED",
+      );
+      await assertTerminalRuntimeTraceCase(
+        "CASE-OPERATOR-TRANSFER-ADMISSION",
+        harness,
+        result,
+      );
     },
   );
 
@@ -6070,11 +5875,8 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
           },
         ),
       });
-      const result = await harness.runtime.start(
-        request(),
-        "C:\\repository",
-        "2026-08-25T00:00:00.000Z",
-      ).completion;
+      const result = await harness.runtime.start(request(), "C:\\repository")
+        .completion;
       assert.equal(
         result.reason,
         "docker_process_controller_recovery_unavailable",
@@ -6086,7 +5888,7 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
   );
 
   await t.test(
-    "Recovery producerのmissing／null／throw／invalid ID／重複をEffect 0へ閉じる",
+    "現在入場producerのmissing／null／throwと旧在庫DTO互換入力をEffect 0で拒否する",
     async () => {
       const invalidObservations = [
         null,
@@ -6118,11 +5920,8 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
         ),
       ];
       for (const harness of harnesses) {
-        const result = await harness.runtime.start(
-          request(),
-          "C:\\repository",
-          "2026-08-25T00:00:00.000Z",
-        ).completion;
+        const result = await harness.runtime.start(request(), "C:\\repository")
+          .completion;
         assert.equal(
           result.reason,
           "docker_process_controller_recovery_unavailable",
@@ -6137,11 +5936,8 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
 
   await t.test("CASE-BLOCKED-OPERATION-ACQUIRING", async () => {
     const harness = fixture({ operationCreationFailure: "cleanup_confirmed" });
-    const result = await harness.runtime.start(
-      request(),
-      "C:\\repository",
-      "2026-08-25T00:00:00.000Z",
-    ).completion;
+    const result = await harness.runtime.start(request(), "C:\\repository")
+      .completion;
     assert.equal(result.cleanupConfirmed, true);
     assert.equal(result.manualRecoveryRequired, false);
     assert.equal(result.hostRecoveryId, null);
@@ -6158,11 +5954,8 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
       operationCreationFailure: "cleanup_confirmed",
       isProcessPoisoned: () => true,
     });
-    const result = await harness.runtime.start(
-      request(),
-      "C:\\repository",
-      "2026-08-25T00:00:00.000Z",
-    ).completion;
+    const result = await harness.runtime.start(request(), "C:\\repository")
+      .completion;
     assert.equal(result.status, "blocked");
     assert.equal(result.cleanupConfirmed, true);
     assert.equal(result.manualRecoveryRequired, false);
@@ -6181,11 +5974,8 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
 
   await t.test("CASE-RECOVERY-OPERATION-ACQUIRING", async () => {
     const harness = fixture({ operationCreationFailure: "cleanup_unknown" });
-    const result = await harness.runtime.start(
-      request(),
-      "C:\\repository",
-      "2026-08-25T00:00:00.000Z",
-    ).completion;
+    const result = await harness.runtime.start(request(), "C:\\repository")
+      .completion;
     assert.equal(result.cleanupConfirmed, false);
     assert.equal(result.manualRecoveryRequired, true);
     assert.equal(
@@ -6227,11 +6017,8 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
         classifyOperationCreationFailureOverride: productionWrapper.classify,
         isProcessPoisoned: productionWrapper.isProcessPoisoned,
       });
-      const result = await harness.runtime.start(
-        request(),
-        "C:\\repository",
-        "2026-08-25T00:00:00.000Z",
-      ).completion;
+      const result = await harness.runtime.start(request(), "C:\\repository")
+        .completion;
       assert.equal(result.status, "blocked");
       assert.equal(
         result.reason,
@@ -6250,11 +6037,8 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
     const harness = fixture({
       operationCreationFailure: "cleanup_unknown_without_id",
     });
-    const result = await harness.runtime.start(
-      request(),
-      "C:\\repository",
-      "2026-08-25T00:00:00.000Z",
-    ).completion;
+    const result = await harness.runtime.start(request(), "C:\\repository")
+      .completion;
     assert.equal(result.cleanupConfirmed, false);
     assert.equal(result.manualRecoveryRequired, true);
     assert.equal(result.hostRecoveryId, null);
@@ -6275,11 +6059,7 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
 
   await t.test("CASE-BLOCKED-TASK-AUTHORIZED", async () => {
     const harness = fixture({ pauseRole: "executor" });
-    const started = harness.runtime.start(
-      request(),
-      "C:\\repository",
-      "2026-08-25T00:00:00.000Z",
-    );
+    const started = harness.runtime.start(request(), "C:\\repository");
     while (harness.processStartCount() === 0)
       await new Promise((resolve) => setImmediate(resolve));
     void harness.runtime.cancel(started.controlCapability);
@@ -6306,11 +6086,7 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
       pauseRole: "executor",
       isProcessPoisonedThrows: true,
     });
-    const started = harness.runtime.start(
-      request(),
-      "C:\\repository",
-      "2026-08-25T00:00:00.000Z",
-    );
+    const started = harness.runtime.start(request(), "C:\\repository");
     while (harness.processStartCount() === 0)
       await new Promise((resolve) => setImmediate(resolve));
     void harness.runtime.cancel(started.controlCapability);
@@ -6570,11 +6346,8 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
   for (const scenario of [...cases, ...operatorProjectionCases]) {
     await t.test(scenario.id, async () => {
       const harness = fixture(scenario.options);
-      const result = await harness.runtime.start(
-        request(),
-        "C:\\repository",
-        "2026-08-25T00:00:00.000Z",
-      ).completion;
+      const result = await harness.runtime.start(request(), "C:\\repository")
+        .completion;
       assert.equal(result.status, "blocked");
       assert.equal(harness.operationCreateCount(), 1);
       assert.equal(harness.processStartCount(), scenario.process);
@@ -6615,11 +6388,8 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
   for (const scenario of processRestartProjectionCases) {
     await t.test(scenario.id, async () => {
       const harness = fixture(scenario.options);
-      const result = await harness.runtime.start(
-        request(),
-        "C:\\repository",
-        "2026-08-25T00:00:00.000Z",
-      ).completion;
+      const result = await harness.runtime.start(request(), "C:\\repository")
+        .completion;
       assert.equal(result.status, "blocked");
       assert.equal(result.cleanupConfirmed, true);
       assert.equal(result.manualRecoveryRequired, false);
@@ -6683,11 +6453,7 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
   ] as const) {
     await t.test(scenario.id, async () => {
       const harness = fixture(scenario.options);
-      const started = harness.runtime.start(
-        request(),
-        "C:\\repository",
-        "2026-08-25T00:00:00.000Z",
-      );
+      const started = harness.runtime.start(request(), "C:\\repository");
       while (harness.processStartCount() < scenario.process)
         await new Promise((resolve) => setImmediate(resolve));
       void harness.runtime.cancel(started.controlCapability);
@@ -6717,11 +6483,7 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
       pauseRoleOccurrence: 1,
       isProcessPoisoned: processSafetyState.isPoisoned,
     });
-    const started = harness.runtime.start(
-      request(),
-      "C:\\repository",
-      "2026-08-25T00:00:00.000Z",
-    );
+    const started = harness.runtime.start(request(), "C:\\repository");
     while (harness.processStartCount() < 2)
       await new Promise((resolve) => setImmediate(resolve));
     processSafetyState.poisonCleanupUnknown();
@@ -6766,8 +6528,9 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
-test("Task Runtime契約は実Host active binding残存時にcleanupを拒否してexact Recoveryを返す", async () => {
-  const owned = createOwnedOperationDirectories();
+test("Task Runtime契約は実Host active binding残存時にcleanupを拒否してexact Recoveryを返す", async (t) => {
+  const parent = createTaskRuntimeTestDirectory(t, "crdd-task-active-binding-");
+  const owned = createOwnedOperationDirectories(parent);
   const contextCapability = createOwnedOperationContextCapability(owned);
   const mountCapability = createOwnedMountCapability(owned);
   const managementCapability = createOwnedOperationManagementCapability(
@@ -6797,11 +6560,8 @@ test("Task Runtime契約は実Host active binding残存時にcleanupを拒否し
       cleanupOwnedOperationDirectories(candidate),
   });
   try {
-    const result = await harness.runtime.start(
-      request(),
-      "C:\\repository",
-      "2026-08-25T00:00:00.000Z",
-    ).completion;
+    const result = await harness.runtime.start(request(), "C:\\repository")
+      .completion;
     assert.equal(result.status, "blocked");
     assert.equal(
       result.reason,
@@ -6879,64 +6639,85 @@ test("Docker Process Controllerの公開失敗理由をTask公開Registryへ全�
 });
 
 /**
- * Docker Recoveryの内部理由を共有allowlistでTask公開理由へ投影するを検証する。
+ * 現在入場DTOの固定理由と排他結果をTaskへ投影する。
  *
- * @responsibility Docker Recoveryの内部理由を共有allowlistでTask公開理由へ投影するの合否判定を所有する。
+ * @responsibility Root搬送と入場不能時の処置前停止を検証する。
  * @trace PRL-IT-012
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Docker Recoveryの内部理由を共有allowlistでTask公開理由へ投影するの対象操作を実行する。
+ * @stimulus 正常可否と理由・排他結果の不正相関を渡す。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
-test("Docker Recoveryの内部理由を共有allowlistでTask公開理由へ投影する", async () => {
-  for (const [internalReason, publicReason, doesPreserveId] of [
+test("現在入場DTOの拒否理由と排他結果だけをTaskへ投影する", async () => {
+  for (const [observation, publicReason] of [
     [
-      "docker_task_recovery_inventory_available",
-      "docker_process_controller_recovery_conflict",
-      true,
-    ],
-    [
-      "docker_task_runtime_state_pending_incomplete",
+      {
+        status: "blocked",
+        reason: "coordinator_current_admission_unconfirmed",
+        lockReleased: true,
+      },
       "docker_process_controller_recovery_unavailable",
-      false,
     ],
     [
-      "docker_task_runtime_state_binding_changed",
-      "docker_process_controller_recovery_unavailable",
-      false,
-    ],
-    [
-      "docker_task_runtime_state_lock_release_unconfirmed",
+      {
+        status: "blocked",
+        reason: "coordinator_current_admission_unconfirmed",
+        lockReleased: false,
+      },
       "docker_process_controller_recovery_observation_unknown",
-      true,
     ],
     [
-      "caller-controlled-secret",
+      {
+        status: "available",
+        reason: "coordinator_current_admission_available",
+        lockReleased: false,
+      },
       "docker_process_controller_recovery_unavailable",
-      false,
+    ],
+    [
+      {
+        status: "available",
+        reason: "coordinator_current_admission_unconfirmed",
+        lockReleased: true,
+      },
+      "docker_process_controller_recovery_unavailable",
+    ],
+    [
+      {
+        status: "blocked",
+        reason: "caller-controlled-secret",
+        lockReleased: true,
+      },
+      "docker_process_controller_recovery_unavailable",
     ],
   ] as const) {
+    const roots: string[] = [];
     const harness = fixture({
-      admissionRecovery: true,
-      admissionRecoveryReason: internalReason,
+      admissionRecoveryObservation: observation,
+      admissionRootObserver: (root) => roots.push(root),
     });
-    const result = await harness.runtime.start(
-      request(),
-      "C:\\repository",
-      "2026-08-25T00:00:00.000Z",
-    ).completion;
+    const result = await harness.runtime.start(request(), "C:\\repository")
+      .completion;
+    assert.deepEqual(roots, ["C:\\repository"]);
     assert.equal(result.status, "blocked");
     assert.equal(result.reason, publicReason);
     assert.equal(result.manualRecoveryRequired, true);
-    assert.equal(
-      result.dockerRecoveryId,
-      doesPreserveId ? admissionRecoveryOne : null,
-    );
+    assert.equal(result.dockerRecoveryId, null);
+    assert.deepEqual(result.dockerRecoveryIds, []);
     assert.equal(harness.operationCreateCount(), 0);
     assert.equal(harness.processStartCount(), 0);
   }
+  const roots: string[] = [];
+  const harness = fixture({
+    admissionRootObserver: (root) => roots.push(root),
+    operationCreationFailure: "cleanup_confirmed",
+  });
+  await harness.runtime.start(request(), "C:\\repository").completion;
+  assert.deepEqual(roots, ["C:\\repository"]);
+  assert.equal(harness.operationCreateCount(), 1);
+  assert.equal(harness.processStartCount(), 0);
 });
 
 /**

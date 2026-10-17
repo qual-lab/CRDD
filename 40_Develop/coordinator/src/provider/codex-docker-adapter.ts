@@ -7,9 +7,9 @@
 import {
   createProviderDockerRuntimeAdapterCandidate,
   getRuntimeOwnedProviderDockerAdapter,
-} from "../docker-execution/provider-adapter.ts";
-import { PROVIDER_PREPARATION_LIFETIME_MS } from "../docker-execution/provider-preparation-lifecycle.ts";
-import type { ProviderDockerRuntimeDependencies } from "../docker-execution/types.ts";
+} from "./execution-adapter.ts";
+import { PROVIDER_PREPARATION_LIFETIME_MS } from "./preparation-lifecycle.ts";
+import type { ProviderDockerRuntimeDependencies } from "./execution-types.ts";
 
 export const CODEX_DOCKER_RUNTIME_ADAPTER_CONTRACT =
   "crdd-coordinator/codex-docker-runtime-adapter";

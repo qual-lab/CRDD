@@ -16,7 +16,7 @@ import {
 import { runInteractiveConsoleReaderLifecycle } from "./interactive-console-reader-lifecycle.ts";
 import { spawnRuntimeLocalTypeScriptChild } from "../host-execution/typescript-child-entrypoints.ts";
 import { poisonRuntimeProcessAfterInteractiveCleanupUnknown } from "../host-execution/process-safety-state.ts";
-import { createInteractiveConsoleReaderEnvironment } from "../host-execution/windows-child-environment.ts";
+import { createInteractiveConsoleReaderEnvironment } from "../../../platform-access/src/index.ts";
 
 export { readInteractiveConsoleLineFromStream as readTerminalLineUsingStream };
 

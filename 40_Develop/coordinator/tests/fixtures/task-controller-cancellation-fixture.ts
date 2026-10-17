@@ -15,8 +15,8 @@ import {
   orchestratorOwnedDockerProcessCompletionForTask,
   orchestratorOwnedDockerProcessStartForTask,
 } from "../../src/task/execution.ts";
-import { createIsolatedDockerProcessControllerCandidate } from "../../src/docker-execution/process-controller.ts";
-import type { OwnedCommandHandle } from "../../src/docker-execution/owned-process.ts";
+import { createIsolatedDockerProcessControllerCandidate } from "../../src/provider/execution-controller.ts";
+import type { OwnedCommandHandle } from "../../../docker-isolation/src/index.ts";
 import { createOwnedProcessTreeFixture } from "./docker-owned-process-test-support.ts";
 
 // Only Node descendants are real. Docker, authentication and durable recovery

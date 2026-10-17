@@ -11,7 +11,6 @@ const launcher = fileURLToPath(
 for (const [args, expected] of [
   [["interactive", "--help"], 0],
   [["automation", "--help", "--json"], 64],
-  [["sign-release"], 64],
 ] as const) {
   const result = spawnSync(process.execPath, [launcher, ...args], {
     stdio: ["pipe", "inherit", "inherit"],
@@ -22,5 +21,18 @@ for (const [args, expected] of [
   assert.equal(result.error, undefined);
   assert.equal(result.signal, null);
   assert.equal(result.status, expected);
+}
+for (const mode of ["sign-release", "promote-release"]) {
+  const result = spawnSync(process.execPath, [launcher, mode], {
+    stdio: ["pipe", "inherit", "pipe"],
+    encoding: "utf8",
+    timeout: 30_000,
+    windowsHide: false,
+    shell: false,
+  });
+  assert.equal(result.error, undefined);
+  assert.equal(result.signal, null);
+  assert.equal(result.status, 64);
+  assert.match(result.stderr, /coordinator_launch_mode_invalid/u);
 }
 console.log("起動入口の端末結合確認: 合格（秘密入力・外部送信なし）");

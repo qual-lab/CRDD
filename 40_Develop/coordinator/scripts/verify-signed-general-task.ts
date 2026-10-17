@@ -35,10 +35,9 @@ import {
   type CoordinatorTaskPublicReason,
 } from "../src/task/result-reasons.ts";
 import { snapshotPlainArray } from "../../domain-model/src/index.ts";
-import { issueRuntimeOwnedVerifiedCoordinatorPackageCapability } from "../src/platform-access/package-verification.ts";
+import { observeRuntimeOwnedDevelopmentSource } from "../src/task/development-source-observation.ts";
 import {
   isCanonicalCrddGitObjectId,
-  isCanonicalCrddVersion,
   isSupportedCrddRuntimeGitObjectId,
 } from "../src/diagnostics/release-identity-grammar.ts";
 import { inspectRepositoryRevisionCandidate } from "../src/repository-operation/binding.ts";
@@ -50,10 +49,10 @@ import {
 
 export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT =
   "crdd-coordinator/signed-general-task-verification";
-export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION = 26;
+export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION = 27;
 
 const TARGET_PATH =
-  "40_Develop/coordinator/runtime/general-task-verification.txt";
+  "40_Develop/coordinator/tests/fixtures/general-task-verification.txt";
 const BASE_CONTENT = "CRDD_COORDINATOR_GENERAL_TASK_BASE\n";
 const EXPECTED_CONTENT = "CRDD_COORDINATOR_GENERAL_TASK_OK\n";
 const PRODUCTION_CANCEL_ACK_TIMEOUT_MS = 10_000;
@@ -127,9 +126,9 @@ const signedGeneralTaskResultReasonSet = new Set<string>([
   ...coordinatorTaskPublicReasons,
 ]);
 /**
- * verify-signed-general-taskで使用するSigned General Task Verification 結果の値契約を定義する。
+ * verify-signed-general-taskで使用する一般Task検証 結果の値契約を定義する。
  *
- * @responsibility Signed General Task Verification 結果のProperty、Identity、状態制約を型境界として所有する。
+ * @responsibility 一般Task検証 結果のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape SignedGeneralTaskVerificationResultが表すProperty、識別子およびRelationを型として固定する。
  * @invariant SignedGeneralTaskVerificationResultで宣言した値と責務の対応を維持する。
@@ -222,23 +221,21 @@ type RouteExpectation = Readonly<{
   route: string;
 }>;
 /**
- * verify-signed-general-taskで使用するRelease Identityの値契約を定義する。
+ * verify-signed-general-taskで使用するSource Identityの値契約を定義する。
  *
- * @responsibility Release IdentityのProperty、Identity、状態制約を型境界として所有する。
+ * @responsibility Source IdentityのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
- * @shape ReleaseIdentityが表すProperty、識別子およびRelationを型として固定する。
- * @invariant ReleaseIdentityで宣言した値と責務の対応を維持する。
- * @boundary N/A: ReleaseIdentityの宣言は外部境界を開かない。
- * @security N/A: ReleaseIdentityはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility ReleaseIdentityの利用側は宣言済みPropertyと型制約だけへ依存する。
+ * @shape SourceIdentityが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant SourceIdentityで宣言した値と責務の対応を維持する。
+ * @boundary N/A: SourceIdentityの宣言は外部境界を開かない。
+ * @security N/A: SourceIdentityはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility SourceIdentityの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-type ReleaseIdentity = RuntimeRecord &
+type SourceIdentity = RuntimeRecord &
   Readonly<{
-    manifestHash: string;
-    packageContentRootSha256: string;
-    runtimeExecutionIdentitySha256: string;
-    crddVersion: string;
-    releaseSequence: number;
+    scope: "crdd-development-source-snapshot/v1";
+    sourceSha256: string;
+    sourceIdentitySha256: string;
     crddCommit: string;
     crddTree: string;
   }>;
@@ -303,14 +300,8 @@ type CancellationSignalSource = Readonly<{
  * @compatibility VerificationDependenciesの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
 type VerificationDependencies = Readonly<{
-  issuePackageCapability: (
-    input: Readonly<{ evaluationTime: string }>,
-  ) => Readonly<{ verification: unknown; capability: unknown }>;
-  startTask: (
-    request: RuntimeRecord,
-    repositoryRoot: string,
-    verifiedPackageCapability: unknown,
-  ) => unknown;
+  observeSource: () => unknown;
+  startTask: (request: RuntimeRecord, repositoryRoot: string) => unknown;
   cancelTask: (controlCapability: object) => unknown;
   readCandidate: (candidateId: string) => RuntimeRecord | null;
   discardCandidate: (candidateId: string) => RuntimeRecord;
@@ -330,9 +321,9 @@ type VerificationDependencies = Readonly<{
 }>;
 
 /**
- * Signed General Task CancellationをIdentityへ結合する。
+ * 一般Taskの取消をIdentityへ結合する。
  *
- * @responsibility Signed General Task Cancellationの結合条件、相関Identity、不一致の拒否境界を所有する。
+ * @responsibility 一般Taskの取消の結合条件、相関Identity、不一致の拒否境界を所有する。
  * @trace ARCH-000004
  * @input signalSource: CancellationSignalSource、_controlCapability: object、_cancel: (controlCapability: object) => unknown
  * @returns CancellationBindingを返す。
@@ -403,7 +394,27 @@ export function bindSignedGeneralTaskCancellation(
 }
 
 const productionDependencies: VerificationDependencies = Object.freeze({
-  issuePackageCapability: issueRuntimeOwnedVerifiedCoordinatorPackageCapability,
+  observeSource: () => {
+    const root = fileURLToPath(new URL("../../../", import.meta.url));
+    const before = inspectRepositoryRevisionCandidate(root);
+    const source = observeRuntimeOwnedDevelopmentSource();
+    const after = inspectRepositoryRevisionCandidate(root);
+    if (
+      !source ||
+      before?.status !== "candidate" ||
+      after?.status !== "candidate" ||
+      before.commit !== after.commit ||
+      before.tree !== after.tree
+    )
+      return null;
+    return Object.freeze({
+      scope: source.scope,
+      sourceSha256: source.sourceSha256,
+      sourceIdentitySha256: source.sourceIdentitySha256,
+      crddCommit: before.commit,
+      crddTree: before.tree,
+    });
+  },
   startTask: startRuntimeOwnedCoordinatorTask,
   cancelTask: cancelRuntimeOwnedCoordinatorTask,
   readCandidate: readRuntimeOwnedCandidateBundle,
@@ -1244,9 +1255,9 @@ const ROUTE_EXPECTATIONS: Readonly<
 });
 
 /**
- * Signed General Task Verification Requestを構築する。
+ * 一般Task検証 Requestを構築する。
  *
- * @responsibility Signed General Task Verification Requestの構築入力、生成結果、不正入力の拒否境界を所有する。
+ * @responsibility 一般Task検証 Requestの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000004
  * @input routeProfile: SignedGeneralTaskRouteProfile
  * @returns createSignedGeneralTaskVerificationRequestの計算結果を返す。
@@ -1293,41 +1304,88 @@ export function createSignedGeneralTaskVerificationRequest(
 }
 
 /**
- * verified Packageを決定する。
+ * 実行Sourceの観測値が固定契約に一致するかを判定する。
  *
- * @responsibility verified Packageの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @responsibility SourceのScope・Hash・Git識別子の文法を確認し、実行許可とは分離する。
  * @trace ARCH-000004
- * @input release: RuntimeRecord | null
- * @returns release is ReleaseIdentityを返す。
- * @precondition 「release: RuntimeRecord | null」がverifiedPackageの入力契約を満たす。
- * @postcondition verifiedPackageの責務を完了した結果だけを返す。
- * @effect N/A: verifiedPackageは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: verifiedPackageは独自の失敗分岐を所有しない。
- * @invariant verifiedPackageは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: verifiedPackageはProcess内の同一Subsystemで完結する。
- * @security N/A: verifiedPackageはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: verifiedPackageは共有非同期状態を持たない同期処理である。
+ * @input source: RuntimeRecord | null
+ * @returns source is SourceIdentityを返す。
+ * @precondition 「source: RuntimeRecord | null」がvalidSourceIdentityの入力契約を満たす。
+ * @postcondition validSourceIdentityの責務を完了した結果だけを返す。
+ * @effect N/A: validSourceIdentityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validSourceIdentityは独自の失敗分岐を所有しない。
+ * @invariant validSourceIdentityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validSourceIdentityはProcess内の同一Subsystemで完結する。
+ * @security N/A: validSourceIdentityはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: validSourceIdentityは共有非同期状態を持たない同期処理である。
  */
-function verifiedPackage(
-  release: RuntimeRecord | null,
-): release is ReleaseIdentity {
+function validSourceIdentity(
+  source: RuntimeRecord | null,
+): source is SourceIdentity {
   return (
-    release?.status === "candidate" &&
-    release.stableFilesystemIdentityObserved === true &&
-    release.runtimeOwnedPackageRoot === true &&
-    sha256(release.manifestHash) &&
-    sha256(release.packageContentRootSha256) &&
-    sha256(release.runtimeExecutionIdentitySha256) &&
-    isCanonicalCrddVersion(release.crddVersion) &&
-    Number.isSafeInteger(release.releaseSequence) &&
-    Number(release.releaseSequence) >= 1 &&
-    isCanonicalCrddGitObjectId(release.crddCommit) &&
-    isCanonicalCrddGitObjectId(release.crddTree) &&
-    release.qualLabManifestCryptographicMatch === true &&
-    release.runtimeOwnedReleaseTrustConfirmed === true &&
-    release.runtimeExecutionIdentityRuntimeOwned === true &&
-    release.crddDistributionConfirmed === true
+    source?.scope === "crdd-development-source-snapshot/v1" &&
+    sha256(source.sourceSha256) &&
+    sha256(source.sourceIdentitySha256) &&
+    isCanonicalCrddGitObjectId(source.crddCommit) &&
+    isCanonicalCrddGitObjectId(source.crddTree)
   );
+}
+
+/**
+ * 終了済み検証へ実行Sourceの最終照合を付加する。
+ * @responsibility Taskの一次結果とSource検証状態を分離し、内部実体値を公開しない。
+ * @trace ARCH-000004
+ * @input initial: 開始前観測。outcome: settlement後の結果。dependencies: 既存の読取り依存。
+ * @returns 既存結果と固定Source四field、検証状態。
+ * @precondition 候補処置・取消・終了監視を当該経路で先に完了または不明分類済み。
+ * @postcondition 一次失敗は保持し、成功だけをSource検証不成立時に停止する。
+ * @effect 固定module RootのSourceとGit改訂を読取り観測する。
+ * @failure 欠測・例外・不正値はunavailable、初回五値との差はchanged。
+ * @invariant Source検証不成立から対象Repository変更やProvider Effect不明を推定しない。
+ * @boundary 検証RunnerのSourceとTaskが操作したRepositoryの区別。
+ * @security 内部実体Hash・Root・旧署名情報を結果へ複製しない。
+ * @concurrency N/A: settlement後の同期観測。
+ */
+function completeSourceVerification(
+  initial: SourceIdentity,
+  outcome: SignedGeneralTaskVerificationResult,
+  dependencies: VerificationDependencies,
+): SignedGeneralTaskVerificationResult {
+  let final: RuntimeRecord | null = null;
+  try {
+    final = plainRecord(dependencies.observeSource());
+  } catch {
+    /* Missing provenance remains unavailable. */
+  }
+  const status = !validSourceIdentity(final)
+    ? "unavailable"
+    : [
+          "scope",
+          "sourceSha256",
+          "sourceIdentitySha256",
+          "crddCommit",
+          "crddTree",
+        ].every((key) => final[key] === initial[key])
+      ? "matched"
+      : "changed";
+  return Object.freeze({
+    ...outcome,
+    sourceScope: initial.scope,
+    sourceSha256: initial.sourceSha256,
+    crddCommit: initial.crddCommit,
+    crddTree: initial.crddTree,
+    sourceObservationStatus: status,
+    signatureRequired: false,
+    ...(outcome.status === "completed" && status !== "matched"
+      ? {
+          status: "blocked" as const,
+          reason:
+            status === "changed"
+              ? ("signed_general_task_source_changed" as const)
+              : ("signed_general_task_source_observation_unknown" as const),
+        }
+      : {}),
+  });
 }
 
 /**
@@ -1499,9 +1557,9 @@ function candidateContractMismatch(
 }
 
 /**
- * Signed General Task Verificationを実行する。
+ * 一般Task検証を実行する。
  *
- * @responsibility Signed General Task Verificationの実行条件、Effect範囲、終了結果の境界を所有する。
+ * @responsibility 一般Task検証の実行条件、Effect範囲、終了結果の境界を所有する。
  * @trace ARCH-000004
  * @input repositoryRoot: string、dependencies: VerificationDependencies、routeProfile: SignedGeneralTaskRouteProfile
  * @returns Promise<SignedGeneralTaskVerificationResult>を返す。
@@ -1554,21 +1612,16 @@ export async function runSignedGeneralTaskVerification(
       Object.freeze({ canonicalRepositoryChanged: false }),
     );
   }
-  let release: RuntimeRecord | null = null;
-  let verifiedPackageCapability: unknown = null;
+  let sourceIdentity: RuntimeRecord | null = null;
   try {
-    const issued = dependencies.issuePackageCapability({
-      evaluationTime: dependencies.now(),
-    });
-    release = plainRecord(issued.verification);
-    verifiedPackageCapability = issued.capability;
+    sourceIdentity = plainRecord(dependencies.observeSource());
   } catch {
-    // The package verifier result remains unavailable and cannot open the gate.
+    // Source provenance remains unobserved; no Task has started.
   }
   if (isRuntimeProcessPoisoned()) {
     return blocked(
       "signed_general_task_process_restart_required",
-      release,
+      null,
       Object.freeze({
         canonicalRepositoryChanged: false,
         manualRecoveryRequired: true,
@@ -1576,24 +1629,20 @@ export async function runSignedGeneralTaskVerification(
       }),
     );
   }
-  if (
-    !verifiedPackage(release) ||
-    !verifiedPackageCapability ||
-    typeof verifiedPackageCapability !== "object"
-  ) {
+  if (!validSourceIdentity(sourceIdentity)) {
     return blocked(
-      "signed_general_task_release_verification_failed",
-      release,
+      "signed_general_task_source_observation_unknown",
+      null,
       Object.freeze({ canonicalRepositoryChanged: false }),
     );
   }
   if (
-    !isSupportedCrddRuntimeGitObjectId(release.crddCommit) ||
-    !isSupportedCrddRuntimeGitObjectId(release.crddTree)
+    !isSupportedCrddRuntimeGitObjectId(sourceIdentity.crddCommit) ||
+    !isSupportedCrddRuntimeGitObjectId(sourceIdentity.crddTree)
   ) {
     return blocked(
       "signed_general_task_git_object_format_unsupported",
-      release,
+      null,
       Object.freeze({ canonicalRepositoryChanged: false }),
     );
   }
@@ -1620,7 +1669,7 @@ export async function runSignedGeneralTaskVerification(
   if (!executionRevision) {
     return blocked(
       "signed_general_task_repository_revision_observation_failed",
-      release,
+      null,
       Object.freeze({ canonicalRepositoryChanged: false }),
     );
   }
@@ -1636,7 +1685,7 @@ export async function runSignedGeneralTaskVerification(
   if (!baseContentMatches) {
     return blocked(
       "signed_general_task_base_content_mismatch",
-      release,
+      null,
       Object.freeze({ canonicalRepositoryChanged: false }),
     );
   }
@@ -1645,14 +1694,17 @@ export async function runSignedGeneralTaskVerification(
     rawStarted = dependencies.startTask(
       createSignedGeneralTaskVerificationRequest(routeProfile),
       repositoryRoot,
-      verifiedPackageCapability,
     );
   } catch {
     ensureRuntimeProcessPoisoned();
-    return blocked(
-      "signed_general_task_start_failed_closed",
-      null,
-      Object.freeze({ canonicalRepositoryChanged: false }),
+    return completeSourceVerification(
+      sourceIdentity,
+      blocked(
+        "signed_general_task_start_failed_closed",
+        null,
+        Object.freeze({ canonicalRepositoryChanged: false }),
+      ),
+      dependencies,
     );
   }
   const started = snapshotStartedTask(rawStarted);
@@ -1769,13 +1821,6 @@ export async function runSignedGeneralTaskVerification(
         // Unknown observation fails closed after candidate cleanup.
       }
       executionStateProjection = Object.freeze({
-        manifestHash: release.manifestHash,
-        packageContentRootSha256: release.packageContentRootSha256,
-        runtimeExecutionIdentitySha256: release.runtimeExecutionIdentitySha256,
-        crddVersion: release.crddVersion,
-        releaseSequence: release.releaseSequence,
-        crddCommit: release.crddCommit,
-        crddTree: release.crddTree,
         executionCommit: executionRevision.commit,
         executionTree: executionRevision.tree,
         canonicalRepositoryChanged:
@@ -1909,14 +1954,6 @@ export async function runSignedGeneralTaskVerification(
           contractRevision: SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION,
           status: "completed" as const,
           reason: "signed_general_task_verification_completed",
-          manifestHash: release.manifestHash,
-          packageContentRootSha256: release.packageContentRootSha256,
-          runtimeExecutionIdentitySha256:
-            release.runtimeExecutionIdentitySha256,
-          crddVersion: release.crddVersion,
-          releaseSequence: release.releaseSequence,
-          crddCommit: release.crddCommit,
-          crddTree: release.crddTree,
           executionCommit: executionRevision.commit,
           executionTree: executionRevision.tree,
           requestedRouteProfile: routeProfile,
@@ -2055,48 +2092,64 @@ export async function runSignedGeneralTaskVerification(
     }
   }
   if (isPostStartUnknown)
-    return postStartUnknownBlocked(
-      postStartUnknownReason,
-      taskResult,
-      discarded,
-      isCandidateDiscarded,
-      executionStateProjection,
+    return completeSourceVerification(
+      sourceIdentity,
+      postStartUnknownBlocked(
+        postStartUnknownReason,
+        taskResult,
+        discarded,
+        isCandidateDiscarded,
+        executionStateProjection,
+      ),
+      dependencies,
     );
   if (cancellationRequested)
-    return blocked(
-      "signed_general_task_cancelled",
-      taskResult,
-      Object.freeze({
-        candidateDiscarded: isCandidateDiscarded,
-        ...(executionStateProjection ?? {}),
-      }),
-      Object.freeze([discarded]),
+    return completeSourceVerification(
+      sourceIdentity,
+      blocked(
+        "signed_general_task_cancelled",
+        taskResult,
+        Object.freeze({
+          candidateDiscarded: isCandidateDiscarded,
+          ...(executionStateProjection ?? {}),
+        }),
+        Object.freeze([discarded]),
+      ),
+      dependencies,
     );
   if (isRuntimeProcessPoisoned())
-    return blocked(
-      "signed_general_task_process_restart_required",
-      taskResult,
-      Object.freeze({
-        candidateDiscarded: isCandidateDiscarded,
-        ...(executionStateProjection ?? {}),
-      }),
-      Object.freeze([discarded]),
+    return completeSourceVerification(
+      sourceIdentity,
+      blocked(
+        "signed_general_task_process_restart_required",
+        taskResult,
+        Object.freeze({
+          candidateDiscarded: isCandidateDiscarded,
+          ...(executionStateProjection ?? {}),
+        }),
+        Object.freeze([discarded]),
+      ),
+      dependencies,
     );
   if (!knownOutcome)
-    return postStartUnknownBlocked(
-      "signed_general_task_final_outcome_unknown",
-      taskResult,
-      discarded,
-      isCandidateDiscarded,
-      executionStateProjection,
+    return completeSourceVerification(
+      sourceIdentity,
+      postStartUnknownBlocked(
+        "signed_general_task_final_outcome_unknown",
+        taskResult,
+        discarded,
+        isCandidateDiscarded,
+        executionStateProjection,
+      ),
+      dependencies,
     );
-  return knownOutcome;
+  return completeSourceVerification(sourceIdentity, knownOutcome, dependencies);
 }
 
 /**
- * Signed General Task Verification 契約の公開契約を記述する。
+ * 一般Task検証 契約の公開契約を記述する。
  *
- * @responsibility Signed General Task Verification 契約の公開field、非公開境界、互換性を所有する。
+ * @responsibility 一般Task検証 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000004
  * @input N/A: 実行時引数を受け取らない。
  * @returns describeSignedGeneralTaskVerificationContractの計算結果を返す。
@@ -2119,8 +2172,9 @@ export function describeSignedGeneralTaskVerificationContract() {
     availabilityOnlyConsolePreflightAllowed: false,
     interactiveConsoleGate:
       "runtime_owned_initial_consent_confirmation_only_reused_consent_requires_no_console",
-    packageCapabilityUse:
-      "runtime_local_nonserializable_nonexported_passed_once_to_task_runtime_after_release_verification",
+    signatureRequired: false,
+    sourceObservation:
+      "fixed_module_root_source_and_git_before_task_and_after_settlement_not_execution_authority",
     requestConstruction: "fixed_public_request_constructed_in_process",
     requestShellTransportAllowed: false,
     powershellTextPipelineAllowed: false,

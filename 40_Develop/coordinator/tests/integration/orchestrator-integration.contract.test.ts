@@ -27,7 +27,6 @@ import { readProjectOperationQueueState } from "../fixtures/orchestrator-persist
 import { integrateOrchestratorOperation } from "../../../orchestrator/src/index.ts";
 import { inspectMcpOrchestratorObjectiveResult } from "../../../mcp-server/src/index.ts";
 import { runOrchestratorObjective } from "../../../orchestrator/src/objective/intake-dependencies.ts";
-import { createOrchestratorExecutionAuthorizationAdapter } from "../../../orchestrator/src/index.ts";
 
 const revision = "a".repeat(40);
 /**
@@ -87,10 +86,6 @@ async function prepared(t: test.TestContext) {
       ],
       observeLeaseOwner: () => ({ status: "absent" }),
       execution: {
-        authorization: createOrchestratorExecutionAuthorizationAdapter({
-          issueRuntimeCapability: () => Object.freeze({}),
-          revokeRuntimeCapability: () => true,
-        }),
         runSingleTaskAttempt: async (input) => {
           assert.equal(await input.observeStarted?.(), true);
           return {

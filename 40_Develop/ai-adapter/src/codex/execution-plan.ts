@@ -4,8 +4,49 @@
  * @responsibility blockedを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000010
  */
-import { snapshotPlainRecord } from "../../../domain-model/src/index.ts";
+import {
+  snapshotPlainArray,
+  snapshotPlainRecord,
+} from "../../../domain-model/src/index.ts";
 import { describeProviderBillingPolicyContract } from "../profile/billing-policy.ts";
+
+/**
+ * Codexの起動引数から非秘密の構成分類だけを投影する。
+ * @responsibility Codex固有の承認・sandbox optionの意味を所有する。
+ * @trace ARCH-000010
+ * @input candidate: Docker包装を除いたCodex引数。
+ * @returns 承認方式とsandbox方式の固定分類。
+ * @precondition 呼出し元が包装とpayloadを分離している。
+ * @postcondition 生引数を返さず、既存の承認優先順と最初のsandbox値を維持する。
+ * @effect N/A: 局所値の投影だけ。
+ * @failure 不正配列は空引数相当のother／implicitへ閉じる。
+ * @invariant 構成分類を実行許可・隔離成立へ昇格しない。
+ * @boundary Codex CLI構成と非秘密の診断分類。
+ * @security 引数本文・秘密値・Docker設定を公開しない。
+ * @concurrency N/A: 同期で入力不変。
+ */
+export function projectCodexExecutionBoundary(candidate: unknown) {
+  const snapshot = snapshotPlainArray(candidate, 256);
+  const argv =
+    snapshot.status === "ok" &&
+    snapshot.value.every((value) => typeof value === "string")
+      ? (snapshot.value as readonly string[])
+      : [];
+  const approvalModeConfigured = argv.includes("--approve-for-me")
+    ? ("approve_for_me" as const)
+    : argv.includes('approval_policy="never"')
+      ? ("never" as const)
+      : ("other" as const);
+  const index = argv.indexOf("--sandbox");
+  const sandbox = index < 0 ? undefined : argv[index + 1];
+  const sandboxModeConfigured =
+    sandbox === "read-only"
+      ? ("read_only" as const)
+      : sandbox === undefined
+        ? ("implicit" as const)
+        : ("other" as const);
+  return Object.freeze({ approvalModeConfigured, sandboxModeConfigured });
+}
 
 export const CODEX_EXECUTION_PLAN_CONTRACT =
   "crdd-coordinator/codex-execution-plan";
@@ -62,7 +103,7 @@ const DISTRIBUTION_IDENTITY = Object.freeze({
     "https://github.com/openai/codex/.github/workflows/rust-release.yml@refs/tags/rust-v0.149.1",
   bwrapSigstoreIssuer: "https://token.actions.githubusercontent.com",
   executorSeccompProfilePath:
-    "40_Develop/coordinator/runtime/codex-executor-seccomp.json",
+    "40_Develop/docker-isolation/runtime/codex-executor-seccomp.json",
   executorSeccompProfileSha256:
     "01e577dd6fc81e04987af29b05389e9432dc0623a66aa435fd2f31f2b1070b95",
   executorSeccompProfileBytes: 16_703,
@@ -77,7 +118,7 @@ const DISTRIBUTION_IDENTITY = Object.freeze({
   reviewerSchemaSha256:
     "09e8592838b1642f738eee07fb2c1b366dc25d6a3e842dbb0649930c94a25df8",
   imageBuildDefinition:
-    "40_Develop/coordinator/runtime/codex-provider.Dockerfile",
+    "40_Develop/docker-isolation/runtime/codex-provider.Dockerfile",
   releaseUrl: "https://github.com/openai/codex/releases/tag/rust-v0.149.1",
 });
 const distributionBinding = Object.freeze({

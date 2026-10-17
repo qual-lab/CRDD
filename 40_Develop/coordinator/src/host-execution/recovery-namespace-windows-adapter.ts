@@ -1,5 +1,5 @@
 /**
- * 署名付きNativeで共有管理境界を保護付き初期化する。
+ * 採用済み固定Nativeで共有管理境界を保護付き初期化する。
  *
  * @responsibility Task作成前の親観測・独立期待値・部分処置・実行物再確認を所有する。
  * @trace ARCH-000008
@@ -9,14 +9,13 @@ import { spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { createWindowsHostTerminalHelperEnvironment } from "./windows-child-environment.ts";
 import {
-  beginPlatformAccessArtifactSigningObservation,
-  observePlatformAccessReleaseArtifactCandidate,
+  beginPlatformAccessBootstrapObservation,
+  createWindowsHostTerminalHelperEnvironment,
+  observePlatformAccessArtifactCandidate,
   PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH,
-  verifyPlatformAccessArtifactSigningObservation,
-} from "../diagnostics/platform-access-release.ts";
-import { verifyBundledCoordinatorPackageFromFixedManifestCandidate } from "../platform-access/package-verification.ts";
+  verifyPlatformAccessArtifactObservation,
+} from "../../../platform-access/src/index.ts";
 
 const distributionRoot = fileURLToPath(new URL("../../../..", import.meta.url));
 const RESPONSE_LIMIT = 1024;
@@ -76,9 +75,9 @@ type NamespaceObservation = Readonly<{
  * @trace ARCH-000011
  * @shape 状態、理由、二観測、Process発行、終了、実行物再確認、Filesystem Effect三値。
  * @invariant Native開始後の初期化搬送失敗はEffect不明である。
- * @boundary 署名Native初期化→通常producer。
+ * @boundary 出所・実体照合済みNative初期化→通常producer。
  * @security Authority、削除、Provider要求を発行しない。
- * @compatibility 同期の作成前接続。開発Contextと未署名fallbackは受付けない。
+ * @compatibility 同期の作成前接続。開発Contextと出所未照合fallbackは受付けない。
  */
 type NamespaceInitialization = Readonly<{
   status: "blocked" | "initialized";
@@ -98,11 +97,11 @@ type NamespaceInitialization = Readonly<{
  * @trace ARCH-000011
  * @input 最大1024bytes、独立nonceと呼出しmode。
  * @returns 不変の現在結果、またはnull。
- * @precondition 呼出し側がProcess終了と署名実行物を別に確認する。
+ * @precondition 呼出し側がProcess終了とNative出所・実体を別に確認する。
  * @postcondition 部分応答やclose不明を完了へ畳まない。
  * @effect N/A: bytes解析だけ。
  * @failure revision、相関、値、共同条件、欠落・余剰不正はnull。
- * @invariant parser成功を署名・非使用・処置許可へ昇格しない。
+ * @invariant parser成功を出所確認・非使用・処置許可へ昇格しない。
  * @boundary 専用Native stdout→初期化Owner。
  * @security 生出力は結果・logへ含めない。
  * @concurrency 入力をcopyして読み、戻り値を凍結する。
@@ -316,19 +315,19 @@ export function decodeHostRecoveryNamespaceResponse(
 }
 
 /**
- * Task作成前に固定共有管理境界を署名付きNativeで初期化する。
+ * Task作成前に固定共有管理境界を出所照合済みNativeで初期化する。
  *
- * @responsibility 署名・親の独立期待値・作成後再確認を一元入口で接続する。
+ * @responsibility Native出所・親の独立期待値・作成後再確認を一元入口で接続する。
  * @trace ARCH-000008
  * @trace ARCH-000011
  * @input Nodeが読取り解決した現在の一時親。
  * @returns 共同成立した初期化、または部分結果を保持した停止。
  * @precondition 呼出し元はこの固定親の管理先作成を許可された通常producerである。
- * @postcondition 成功は三Native実体・利用者・二保護・全終了・署名再確認が成立する。
+ * @postcondition 成功は三Native実体・利用者・二保護・全終了・同一改訂と実行物の前後照合が成立する。
  * @effect 最大二回の固定Native Process。二回目だけ固定二childを作成し得る。
- * @failure 未署名、別親、期待差、作成・搬送・終了・実行物変更で停止する。
- * @invariant Node mkdir、未署名実行、別Temp、ACL修復へのfallbackを持たない。
- * @boundary 作成前Owner→固定署名Native→共有管理境界。
+ * @failure 出所不明、別親、期待差、作成・搬送・終了・実行物変更で停止する。
+ * @invariant Node mkdir、出所未照合の実行、別Temp、ACL修復へのfallbackを持たない。
+ * @boundary 作成前Owner→固定Bootstrap Native→共有管理境界。
  * @security 任意Executable、自由Path、ACL、開発Context、元Task Tokenを受け付けない。
  * @concurrency 各同期Workerは5秒上限。共有物rollbackや自動再試行は行わない。
  */
@@ -352,7 +351,7 @@ export function initializeHostRecoveryNamespaceWindows(
    * @postcondition 停止でも取得済みreceiptと不明を保持する。
    * @effect N/A: memory構築だけ。
    * @failure N/A: 新たなOS処置を持たない。
-   * @invariant 理由・署名確認だけから初期化完了を推定しない。
+   * @invariant 理由・出所確認だけから初期化完了を推定しない。
    * @boundary 搬送の現在結果→通常作成Owner。
    * @security Path・SID・元Tokenを返さない。
    * @concurrency 同期呼出し内の現在値だけをcopyする。
@@ -381,27 +380,15 @@ export function initializeHostRecoveryNamespaceWindows(
       environment.TMP !== parent
     )
       return result("terminal_namespace_parent_mismatch");
-    const verification =
-      verifyBundledCoordinatorPackageFromFixedManifestCandidate({
-        evaluationTime: new Date().toISOString(),
-      });
-    if (
-      verification.status !== "candidate" ||
-      verification.runtimeOwnedReleaseTrustConfirmed !== true ||
-      verification.runtimeExecutionIdentityRuntimeOwned !== true ||
-      verification.crddDistributionConfirmed !== true
-    )
-      return result("terminal_namespace_release_not_verified");
-    const before =
-      observePlatformAccessReleaseArtifactCandidate(distributionRoot);
-    const signing =
-      beginPlatformAccessArtifactSigningObservation(distributionRoot);
+    const before = observePlatformAccessArtifactCandidate(distributionRoot);
+    const artifactObservation =
+      beginPlatformAccessBootstrapObservation(distributionRoot);
+    if (!artifactObservation)
+      return result("terminal_namespace_artifact_bootstrap_unavailable");
     if (
       before.status !== "candidate" ||
-      !signing ||
       JSON.stringify(before.artifact) !==
-        JSON.stringify(verification.platformAccessArtifact) ||
-      JSON.stringify(before.artifact) !== JSON.stringify(signing.artifact)
+        JSON.stringify(artifactObservation.artifact)
     )
       return result("terminal_namespace_artifact_not_verified");
     for (const shouldInitialize of [false, true]) {
@@ -420,6 +407,8 @@ export function initializeHostRecoveryNamespaceWindows(
         });
         Buffer.from(user, "hex").copy(request, 66);
       }
+      if (!verifyPlatformAccessArtifactObservation(artifactObservation.token))
+        return result("terminal_namespace_artifact_changed");
       // Record issuance before calling the Process API; exceptions are not proof of Effect 0.
       processEffectIssued = true;
       helperExitConfirmed = false;
@@ -455,10 +444,9 @@ export function initializeHostRecoveryNamespaceWindows(
         execution.stderr.length !== 0
       )
         return result("terminal_namespace_worker_transport_unconfirmed");
-      if (!verifyPlatformAccessArtifactSigningObservation(signing.token))
+      if (!verifyPlatformAccessArtifactObservation(artifactObservation.token))
         return result("terminal_namespace_artifact_changed");
-      const after =
-        observePlatformAccessReleaseArtifactCandidate(distributionRoot);
+      const after = observePlatformAccessArtifactCandidate(distributionRoot);
       if (
         after.status !== "candidate" ||
         JSON.stringify(before.artifact) !== JSON.stringify(after.artifact)

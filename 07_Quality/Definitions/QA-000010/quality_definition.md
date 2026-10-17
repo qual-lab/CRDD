@@ -7,6 +7,17 @@ Quality ID: `QA-000010`
 状態: Canonical
 維持責任者: Qual-Lab
 
+## v0.22通常実行と配布評価の分離
+
+2026-10-14の人間判断で、CRDD独自署名を通常Runtimeの資格にしない。[Coordinatorの三分離](../../../06_Architecture/Details/coordinator/01_Architecture.md#9-通常実行追跡正式配布の分離)に従い、完全性／Publisher／準拠／公式表示の独立評価を維持する。Commit／Hashの同一性を真正性や実行Authorityへ昇格しない。
+
+| 既存Local Itemの母集団 | 現在の処置 |
+|---|---|
+| `AIT-IT-001`〜`AIT-IT-003`、`AIT-ST-004`、`AIT-UT-005`、`AIT-UAT-006` | 独立読取り評価の義務を維持し、結果から通常実行Capabilityを発行しない。利用者Trust Policyの将来範囲を今回新設しない |
+| `AIT-IT-007`〜`AIT-IT-009`、`AIT-ST-010`、`AIT-UT-011`〜`AIT-UT-012`、`AIT-IT-013`、`AIT-IT-015` | Coordinator固有の旧署名・鍵Capability・promotion方式と専用試験／設定を退役した。既存結果は当時の方式に限定し、削除をPassへ数えない。維持するNative出所観測・通常Artifact・Process境界は現在のOwnerと個別試験へ接続する。汎用成果物署名は維持するが、将来の正式配布の必要性は具体的Consumerから別途判断する |
+
+未署名通常実行と必要Artifact同一性はQA-000006へ、任意の正式配布真正性は本定義へ分ける。署名を実施しないことを署名試験Passにせず、適用範囲の訂正・旧方式との対応と未検証範囲を保持する。上流REQ／SPEC／ARCH、Domainと汎用成果物署名の前提はCHG-000082の直接伝播表で追跡し、QAだけで要求を再定義しない。旧runtime-trustは退役済みの実装Ownerであり、現行Packageの不足とは扱わない。
+
 ## 1. 情報源と網羅条件
 
 | Source ID | Obligation Key | 導出元 | 保持する固有条件 | 試験段階 | 対応Local Item |
@@ -26,7 +37,7 @@ Quality ID: `QA-000010`
 |---|---|
 | [artifact-signing](../../../06_Architecture/Details/artifact-signing/01_Architecture.md) | 署名前検査、署名対象、鍵境界、配置後の検証 |
 | [coordinator](../../../06_Architecture/Details/coordinator/01_Architecture.md) | 実行編成、Authority、外部Effect、候補、回収・回復 |
-| [crdd-domain-library](../../../06_Architecture/Details/domain-model/02_Activity_Context.md) | launcher、署名済みRelease Manifest、実装正本およびNative Runtime Artifactを同じ配布全体Identityへ結合する境界 |
+| [Domain Model](../../../06_Architecture/Details/domain-model/02_Activity_Context.md) | 任意の正式配布でlauncher、Release Manifest、実装正本およびNative Artifactを配布Identityへ結合する境界。通常Runtimeの許可発行を所有せず、旧署名閉包は比較基準として扱う |
 | [runtime-trust](../../../06_Architecture/Details/runtime-trust/01_Architecture.md) | 準拠、Integrity、Publisher、利用者所有Trust Policy |
 
 ## 2. 評価軸
@@ -47,8 +58,8 @@ Quality ID: `QA-000010`
 | 試験段階 | 適用 | 確認する範囲 | 外部境界の到達範囲 | 判断理由 |
 | --- | --- | --- | --- | --- |
 | UT | Required | Trust各軸の判定と相関不変条件 | N/A | 各Sourceが要求する独立判定を結合前に反証するため |
-| IT | Required | Manifest、実行集合、Policy、署名検証器の直接・隣接結合 | Related 2 Blocks | 異なる所有者の値を結合してAuthority発行可否を決めるため |
-| ST | Required | 配布物取得からRuntime Authority非発行／発行まで | System/E2E | 署名検証だけの成功をRuntime成立へ誤認しないため |
+| IT | Required | 配布物Identity、各評価軸、観測値の直接・隣接結合。署名検証器は任意正式配布の適用時だけ | Related 2 Blocks | 各評価軸と観測値を結合して独立評価結果を返すため |
+| ST | Required | 配布物取得から独立評価結果の返却まで | System/E2E | 評価と実行許可の非同一、通常Runtime Authority非発行を確認するため |
 | UAT | Required | 利用者所有Policyによる公式・Fork・Local開発物の判断 | User Acceptance | 公式表示と利用許可を分けて判断できる利用者成果を確認するため |
 
 ### 条件区分の適用
@@ -85,7 +96,17 @@ Quality ID: `QA-000010`
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
 | `AIT-IT-015` | 境界 | IT | Terminal／Signing Entry | 固定端末入口→既存署名Command→画面保持 | Direct Boundary | 正常／未知／重複引数、期限／期限なし、TTY／非TTY、正常／失敗Command、EOF／取消 | 非秘密の固定入力でCommandと終了待ちを実行する | 搬送引数、単一UTC、Command呼出し回数、Reader接続順序、終了Code、Listener回収を観測する | 非TTY・不正入力はCommand呼出し0。秘密入力中は補助Readerなし。終了後だけ画面保持し、待機失敗が署名結果を上書きしない | 固定改訂版、非秘密入力、順序、Code、回収判定。秘密・実署名は試験に使用しない | Reader／Listener残存0、自動再試行0 | Automated |
 
-直接の導出元は[Coordinator詳細設計§9](../../../06_Architecture/Details/coordinator/01_Architecture.md#9-署名済み配布物)の配布用端末境界である。[ARCH-000004](../../../06_Architecture/Definitions/ARCH-000004/architecture_definition.md)はCoordinator領域への追跡参照であり、Orchestratorの状態・Authorityを端末補助へ移すものではない。既存`AIT-IT-008`の秘密Bufferおよび`AIT-IT-009`のSigner結果責務を再定義しない。実Windows端末の表示確認と正式署名は、この非秘密ITの合格から推定しない。
+直接の導出元は[Coordinator詳細§9の移管前署名方式（比較基準）](../../../06_Architecture/Details/coordinator/01_Architecture.md#release-artifact-binding)の任意配布用端末境界である。[ARCH-000004](../../../06_Architecture/Definitions/ARCH-000004/architecture_definition.md)はCoordinator領域への追跡参照であり、Orchestratorの状態・Authorityを端末補助へ移すものではない。既存`AIT-IT-008`の秘密Bufferおよび`AIT-IT-009`のSigner結果責務を再定義しない。実Windows端末の表示確認と正式署名は、この非秘密ITの合格から推定しない。
+
+### 単一Native出所照合の検証義務
+
+Host終端記録のsave／read／対象観測も`AIT-IT-002`の実Source本文断面に含める。旧新二クラスで初回出所欠測・例外・実体差・token開始欠測、終了後の出所欠測・例外・改訂差・Artifact差・token失敗・直接実体差を個別に注入し、発行とdecoder回数、終了、同参照および保存Effectのfalse／true／nullを確認する。開発Context拒否とfresh再借用拒否、開始前・直前・終了後取消をそれぞれの実契約に適用する。終了後の改訂／出所Artifact／直接実体／token確認を一つずつ外した変異が専用反例で誤成功することを検出する。二回観測の実装側UTでは改訂差・Artifact差・通常／開発区分差・出所欠測を拒否し、cross-call比較を外した変異を検出する。模擬decoderを用いる本文試験は、独立frame検査と既存Windows caller保存・読戻し試験を代替せず、実Native起動・実ACL・Docker／Provider E2Eへ昇格しない。
+
+共有回復領域初期化の追加断面は`AIT-IT-002`と既存`ERB-IT-003`へ接続する。初回出所欠測・実体不一致、各要求前後の出所欠測・例外・改訂完全tuple差・Artifact差・token失効を発生点別に反証する。2回目直前の拒否は1回目の親観測・終了確認を保持してProcess 1／Filesystem Effectなし、2回目終了後の拒否はProcess 2／初期化応答未採用／Filesystem Effect不明とする。正常時の照合回数は出所5・直接実体3・token開始1／確認4・補助要求2。pre／postの改訂比較とtoken確認を個別に外した局所変異が専用反例で検出されることを確認する。これは模擬Processを使った実Source本文の検証であり、実Native・実ACL・実共有Directory・実競合・Docker／Provider E2Eを証明しない。
+
+既存`AIT-IT-002`のNative同一性断面では、署名なしの実Git BlobとNativeを用い、Repository直下と採用先`01_CRDD/`配下の両方を確認する。文書だけの作業差分は受理し、Native bytes・mode・欠落Blob・欠落実行物・不正HEAD・不正Root・入れ子の不正Git境界・読取り例外・観測途中のNative差替えとHEAD移動は拒否する。Windowsの実junctionはHost試験で拒否し、試験後に自己生成Rootとjunctionの不存在を確認する。
+
+結果は同じRepository改訂版と単一Nativeの相関に限定する。署名、Publisher真正性、全Source一致、実行許可、Native補助Processの起動成功、Docker／Provider E2Eの成立へ拡張しない。保護Root／Provider HomeのSource接続は同じ`AIT-IT-002`の追加断面で確認し、通常の出所欠測・Artifact差・補助Process後のRevision変更／出所欠測／Artifactだけの不一致を拒否する。正常終了後の拒否でも補助子終了の事実を保持し、Capability非発行と回復必要状態を維持する。開発Contextの再借用と実行前後の実体確認は既存`ERB-IT-004`へ維持する。Sourceの結合試験は実Native・Docker・Provider E2Eとは区別し、未実測を完了へ昇格しない。
 
 ## Semantic Coverage Pilot
 
@@ -112,6 +133,8 @@ Quality ID: `QA-000010`
 | `AIT-ST-010` | 同じ操作Ownerで準備、対話署名、署名済み入口からの昇格、利用終了と清掃までを確認する。昇格未完了の唯一の署名結果を先に消さない。 | 非秘密の模擬Commandから実署名・本番昇格・正式Evidenceを推定しない。 |
 
 最小準備の試験は`AIT-IT-013`の配置前部分境界である。Signer結果の責務を所有する`AIT-IT-009`や、候補採否を所有する他のQuality項目へ流用しない。旧V5 Manifestを現在V6の正常入力に使う試験は前提の移行が必要であり、判定を緩めて正常化しない。
+
+Runtime資産移管の固定集合確認も`AIT-IT-013`の配布前部分境界として扱う。Docker Isolationの6資産とAI Adapterの5資産を本番収集本体・実安定読取り・metadata検査で観測し、11Path・canonical byte数／Hash・両Owner metadataと試験fixture除外を確認する。資産欠測・Owner metadata欠測・pending集合除去は狙った理由で拒否し、宣言だけの検査や無関係なVM例外を成功根拠にしない。現行Provider版・実行Path・設定HashとレシピCOPY／ENTRYPOINTの相関、助言contextの三入力搬送の3Caseは、QA-000006の前提資産相関試験へ分離する。この3Caseは旧署名収集・昇格の成立根拠に使わず、接続範囲と限界は同定義を正本とする。通常Runtimeに署名を再要求せず、この部分確認をLocal Item全体または全配布graphの合格へ昇格しない。
 
 ### 責務再編後の閉包に対する反例と観測
 

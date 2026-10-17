@@ -17,15 +17,15 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import test from "node:test";
-import { acquireRuntimeOwnedDockerDesktopRestartNativeHelper } from "../../src/docker-desktop/repair-native-process.ts";
-import { createDockerRestartMachine } from "../../src/docker-desktop/restart-machine.ts";
-import { observePlatformAccessReleaseArtifactCandidate } from "../../src/diagnostics/platform-access-release.ts";
+import { acquireRuntimeOwnedDockerDesktopRestartNativeHelper } from "../../../docker-isolation/src/desktop/native-process.ts";
+import { createDockerRestartMachine } from "../../../docker-isolation/src/desktop/restart-machine.ts";
+import { observePlatformAccessArtifactCandidate } from "../../../platform-access/src/index.ts";
 import { acquireRuntimeOwnedDockerRuntimeStateKernelLock } from "../../src/host-execution/kernel-lock.ts";
-import { observeSystemWindowsDirectory } from "../../src/host-execution/windows-directory-bootstrap.ts";
+import { observeSystemWindowsDirectory } from "../../../platform-access/src/index.ts";
 import {
   createInteractiveConsoleReaderEnvironment,
   createWindowsNativeHelperEnvironment,
-} from "../../src/host-execution/windows-child-environment.ts";
+} from "../../../platform-access/src/index.ts";
 
 /**
  * 中立化したRuntime子Processから実Docker CLIのPublisher Trustを確認できるを検証する。
@@ -52,7 +52,9 @@ test("中立化したRuntime子Processから実Docker CLIのPublisher Trustを�
     path.join(profile, "AppData", "Local", "Temp"),
   );
   const moduleUrl = pathToFileURL(
-    path.resolve("src", "docker-runtime", "docker-cli-trust.ts"),
+    fileURLToPath(
+      new URL("../../../docker-isolation/src/index.ts", import.meta.url),
+    ),
   ).href;
   const source = [
     `import { observeTrustedDockerCli } from ${JSON.stringify(moduleUrl)};`,
@@ -191,7 +193,7 @@ for (const hasRuntimeLock of [false, true]) {
   }, async (context) => {
     assert.equal(process.platform, "win32");
     const root = fileURLToPath(new URL("../../../../", import.meta.url));
-    const artifact = observePlatformAccessReleaseArtifactCandidate(root);
+    const artifact = observePlatformAccessArtifactCandidate(root);
     assert.equal(artifact.status, "candidate");
     const acquired = await acquireRuntimeOwnedDockerDesktopRestartNativeHelper(
       artifact.artifact,
@@ -226,7 +228,7 @@ for (const hasRuntimeLock of [false, true]) {
         new AbortController().signal,
       );
       context.diagnostic("entering composed Native/Engine/WSL observation");
-      const wslState = machine.observeWslState();
+      const wslState = machine.observeBackendState();
       assert.notEqual(wslState, "unknown");
       context.diagnostic(`observed WSL backend state: ${wslState}`);
       if (process.env.CRDD_EXPECT_NON_WSL_DOCKER_BACKEND === "1")

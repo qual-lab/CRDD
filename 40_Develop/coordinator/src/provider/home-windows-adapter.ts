@@ -11,16 +11,16 @@ import { fileURLToPath } from "node:url";
 import {
   createWindowsNativeHelperEnvironment,
   WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE,
-} from "../host-execution/windows-child-environment.ts";
+} from "../../../platform-access/src/index.ts";
 import { isSupportedWindowsAbsolutePathCandidate } from "../authority/root-path-lexical.ts";
 import { borrowRuntimeOwnedDevelopmentNativeObservation } from "../task/development-measurement-session.ts";
 import {
-  beginPlatformAccessArtifactSigningObservation,
-  observePlatformAccessReleaseArtifactCandidate,
+  beginPlatformAccessArtifactObservation,
+  beginPlatformAccessBootstrapObservation,
+  observePlatformAccessArtifactCandidate,
   PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH,
-  verifyPlatformAccessArtifactSigningObservation,
-} from "../diagnostics/platform-access-release.ts";
-import { verifyBundledCoordinatorPackageFromFixedManifestCandidate } from "../platform-access/package-verification.ts";
+  verifyPlatformAccessArtifactObservation,
+} from "../../../platform-access/src/index.ts";
 import {
   createProviderHomeObservationRequest,
   evaluateProviderHomeObservationResponseCandidate,
@@ -30,7 +30,7 @@ import {
 
 export const PROVIDER_HOME_WINDOWS_ADAPTER_CONTRACT =
   "crdd-coordinator/provider-home-windows-adapter";
-export const PROVIDER_HOME_WINDOWS_ADAPTER_CONTRACT_REVISION = 5;
+export const PROVIDER_HOME_WINDOWS_ADAPTER_CONTRACT_REVISION = 7;
 
 const bundledDistributionRoot = fileURLToPath(
   new URL("../../../..", import.meta.url),
@@ -105,9 +105,9 @@ function runtimeOwnedProviderHomeMountSourceCandidate(provider: unknown) {
  *
  * @responsibility provider-home-windows-adapterの停止理由、未発行Effect、公開結果境界を所有する。
  * @trace ARCH-000010
- * @input reason: string、processEffectIssued、helperSpawned
+ * @input reason: 停止理由。effects: Process発行・補助子起動・正常終了の観測。
  * @returns blockedの計算結果を返す。
- * @precondition 「reason: string、processEffectIssued、helperSpawned」がblockedの入力契約を満たす。
+ * @precondition effectsは呼出し側が観測した事実だけを含む。
  * @postcondition blockedの責務を完了した結果だけを返す。
  * @effect N/A: blockedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: blockedは独自の失敗分岐を所有しない。
@@ -118,9 +118,14 @@ function runtimeOwnedProviderHomeMountSourceCandidate(provider: unknown) {
  */
 function blocked(
   reason: string,
-  processEffectIssued = false,
-  helperSpawned = false,
+  effects: Readonly<{
+    processEffectIssued?: boolean;
+    helperSpawned?: boolean;
+    helperExitConfirmed?: boolean;
+  }> = Object.freeze({}),
 ) {
+  const processEffectIssued = effects.processEffectIssued === true;
+  const helperSpawned = effects.helperSpawned === true;
   return Object.freeze({
     status: "blocked" as const,
     reason,
@@ -132,11 +137,11 @@ function blocked(
     selectedUserBindingVerified: false,
     protectionVerified: false,
     stableIdentityObserved: false,
-    releaseIdentityVerified: false,
+    nativeSourceRevision: null,
     artifactVerifiedBeforeAndAfter: false,
     helperSpawnAttempts: helperSpawned ? 1 : 0,
     helperSpawned,
-    helperExitConfirmed: false,
+    helperExitConfirmed: helperSpawned && effects.helperExitConfirmed === true,
     processTreeTerminationConfirmed: false,
     pathReported: false,
     principalReported: false,
@@ -216,9 +221,9 @@ function sameArtifact(left: unknown, right: unknown): boolean {
  *
  * @responsibility Runtime 所有 Windows Provider Home 候補の観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000010
- * @input provider: unknown、evaluationTime: unknown、developmentContext: unknown
+ * @input provider: unknown、developmentContext: unknown
  * @returns inspectRuntimeOwnedWindowsProviderHomeCandidateの計算結果を返す。
- * @precondition 「provider: unknown、evaluationTime: unknown、developmentContext: unknown」がinspectRuntimeOwnedWindowsProviderHomeCandidateの入力契約を満たす。
+ * @precondition 「provider: unknown、developmentContext: unknown」がinspectRuntimeOwnedWindowsProviderHomeCandidateの入力契約を満たす。
  * @postcondition inspectRuntimeOwnedWindowsProviderHomeCandidateの責務を完了した結果だけを返す。
  * @effect inspectRuntimeOwnedWindowsProviderHomeCandidateは外部ProcessまたはRuntime境界の操作を呼び出す。
  * @failure N/A: inspectRuntimeOwnedWindowsProviderHomeCandidateは独自の失敗分岐を所有しない。
@@ -229,7 +234,6 @@ function sameArtifact(left: unknown, right: unknown): boolean {
  */
 export function inspectRuntimeOwnedWindowsProviderHomeCandidate(
   provider: unknown,
-  evaluationTime: unknown,
   developmentContext?: unknown,
 ) {
   if (process.platform !== "win32") {
@@ -255,35 +259,28 @@ export function inspectRuntimeOwnedWindowsProviderHomeCandidate(
     return blocked("provider_home_windows_adapter_development_context_invalid");
   const distributionRoot =
     development?.distributionRoot ?? bundledDistributionRoot;
-  const packageVerification = development
-    ? development.verification
-    : verifyBundledCoordinatorPackageFromFixedManifestCandidate({
-        evaluationTime,
-      });
-  if (
-    packageVerification.status !== "candidate" ||
-    (!development &&
-      (!("runtimeOwnedReleaseTrustConfirmed" in packageVerification) ||
-        packageVerification.runtimeOwnedReleaseTrustConfirmed !== true ||
-        !("runtimeExecutionIdentityRuntimeOwned" in packageVerification) ||
-        packageVerification.runtimeExecutionIdentityRuntimeOwned !== true ||
-        !("crddDistributionConfirmed" in packageVerification) ||
-        packageVerification.crddDistributionConfirmed !== true))
-  ) {
-    return blocked("provider_home_windows_adapter_release_not_verified");
-  }
+  const bootstrap = development
+    ? null
+    : beginPlatformAccessBootstrapObservation(distributionRoot);
+  const expectedArtifact = development
+    ? development.verification.status === "candidate"
+      ? development.verification.platformAccessArtifact
+      : null
+    : bootstrap?.artifact;
+  if (!expectedArtifact)
+    return blocked(
+      "provider_home_windows_adapter_artifact_bootstrap_unavailable",
+    );
   const artifactBefore =
-    observePlatformAccessReleaseArtifactCandidate(distributionRoot);
-  const signingObservation =
-    beginPlatformAccessArtifactSigningObservation(distributionRoot);
+    observePlatformAccessArtifactCandidate(distributionRoot);
+  const artifactObservation = development
+    ? beginPlatformAccessArtifactObservation(distributionRoot)
+    : bootstrap;
   if (
     artifactBefore.status !== "candidate" ||
-    !signingObservation ||
-    !sameArtifact(
-      packageVerification.platformAccessArtifact,
-      artifactBefore.artifact,
-    ) ||
-    !sameArtifact(artifactBefore.artifact, signingObservation.artifact)
+    !artifactObservation ||
+    !sameArtifact(expectedArtifact, artifactBefore.artifact) ||
+    !sameArtifact(artifactBefore.artifact, artifactObservation.artifact)
   ) {
     return blocked("provider_home_windows_adapter_artifact_not_verified");
   }
@@ -291,6 +288,8 @@ export function inspectRuntimeOwnedWindowsProviderHomeCandidate(
   const environment = createWindowsNativeHelperEnvironment();
   if (!environment)
     return blocked("provider_home_windows_adapter_environment_unavailable");
+  if (!verifyPlatformAccessArtifactObservation(artifactObservation.token))
+    return blocked("provider_home_windows_adapter_artifact_changed");
   const selectedExecutable = development
     ? path.join(
         distributionRoot,
@@ -316,23 +315,20 @@ export function inspectRuntimeOwnedWindowsProviderHomeCandidate(
     !Buffer.isBuffer(execution.stderr) ||
     execution.stderr.byteLength !== 0
   ) {
-    return blocked(
-      "provider_home_windows_adapter_helper_failed",
+    return blocked("provider_home_windows_adapter_helper_failed", {
       processEffectIssued,
-      processEffectIssued,
-    );
+      helperSpawned: processEffectIssued,
+    });
   }
-  if (
-    !verifyPlatformAccessArtifactSigningObservation(signingObservation.token)
-  ) {
-    return blocked(
-      "provider_home_windows_adapter_artifact_changed",
-      true,
-      true,
-    );
+  if (!verifyPlatformAccessArtifactObservation(artifactObservation.token)) {
+    return blocked("provider_home_windows_adapter_artifact_changed", {
+      processEffectIssued: true,
+      helperSpawned: true,
+      helperExitConfirmed: true,
+    });
   }
   const artifactAfter =
-    observePlatformAccessReleaseArtifactCandidate(distributionRoot);
+    observePlatformAccessArtifactCandidate(distributionRoot);
   if (
     artifactAfter.status !== "candidate" ||
     !sameArtifact(artifactBefore.artifact, artifactAfter.artifact) ||
@@ -342,11 +338,11 @@ export function inspectRuntimeOwnedWindowsProviderHomeCandidate(
         false,
       ))
   ) {
-    return blocked(
-      "provider_home_windows_adapter_artifact_changed",
-      true,
-      true,
-    );
+    return blocked("provider_home_windows_adapter_artifact_changed", {
+      processEffectIssued: true,
+      helperSpawned: true,
+      helperExitConfirmed: true,
+    });
   }
   const observation = evaluateProviderHomeObservationResponseCandidate(
     execution.stdout,
@@ -354,11 +350,11 @@ export function inspectRuntimeOwnedWindowsProviderHomeCandidate(
     request.provider,
   );
   if (observation.status !== "candidate") {
-    return blocked(
-      "provider_home_windows_adapter_response_invalid",
-      true,
-      true,
-    );
+    return blocked("provider_home_windows_adapter_response_invalid", {
+      processEffectIssued: true,
+      helperSpawned: true,
+      helperExitConfirmed: true,
+    });
   }
   const observedWallClockMs = Date.now();
   const observedMonotonicMs = performance.now();
@@ -388,11 +384,10 @@ export function inspectRuntimeOwnedWindowsProviderHomeCandidate(
     ...observation,
     reason: "runtime_owned_windows_provider_home_observed_candidate",
     provider: request.provider as ProviderHomeObservationProvider,
-    releaseIdentityVerified: development === null,
-    nativeReleaseIdentityVerified: true,
+    nativeSourceRevision: null,
     executionSourceKind: development
       ? "fixed_development_candidate"
-      : "signed_release",
+      : "fixed_bootstrap_native_artifact",
     artifactVerifiedBeforeAndAfter: true,
     helperSpawnAttempts: 1,
     helperSpawned: true,
@@ -522,9 +517,12 @@ export function describeProviderHomeWindowsAdapterContract() {
     contractRevision: PROVIDER_HOME_WINDOWS_ADAPTER_CONTRACT_REVISION,
     platform: "windows",
     distributionRoot: "module_relative_fixed_distribution_root",
-    releaseVerification:
-      "fixed_signed_manifest_release_identity_and_artifact_hash_before_and_after",
-    executablePath: "fixed_release_relative_absolute_path",
+    artifactVerification: Object.freeze({
+      normal: "fixed_bootstrap_hash_and_artifact_identity_before_and_after",
+      development:
+        "fixed_development_borrowed_native_observation_and_artifact_identity_before_and_after",
+    }),
+    executablePath: "fixed_distribution_relative_absolute_path",
     providers: Object.freeze(["codex", "claude"]),
     shellInvocation: false,
     pathLookup: false,

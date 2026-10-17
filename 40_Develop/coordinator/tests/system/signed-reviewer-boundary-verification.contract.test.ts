@@ -35,6 +35,12 @@ function completed(route: "forward" | "reverse") {
     contractRevision: SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION,
     status: "completed",
     reason: "signed_general_task_verification_completed",
+    sourceScope: "crdd-development-source-snapshot/v1",
+    sourceSha256: "b".repeat(64),
+    crddCommit: "c".repeat(40),
+    crddTree: "d".repeat(40),
+    sourceObservationStatus: "matched",
+    signatureRequired: false,
     requestedRouteProfile: route,
     exactCandidateContentVerified: true,
     candidateDiscarded: true,
@@ -56,6 +62,60 @@ function completed(route: "forward" | "reverse") {
     candidateStoreRecoveryIds: Object.freeze([]),
   });
 }
+
+/**
+ * 二経路の集約は同じ新版Source tupleだけを受理する。
+ * @responsibility Sourceの欠落・不正・差と旧改訂を成功へ集約しない。
+ * @trace AIT-ST-004
+ * @precondition 新版の安全な成功fixtureを使用する。
+ * @stimulus 二経路目の各Source fieldと改訂、検証状態を変更する。
+ * @observation 集約status、停止経路、完了数と呼出し数。
+ * @oracle 不正形も別Sourceの成功形も二経路完了にならない。
+ * @cleanup N/A: 固定値の模擬Runnerだけで実Providerを起動しない。
+ * @boundary 一般Taskの新版結果→二経路集約。
+ */
+test("二経路はSource tupleの欠測・不正・差と旧改訂を拒否する", async () => {
+  for (const [field, value] of [
+    ["sourceScope", undefined],
+    ["sourceScope", "unknown"],
+    ["sourceSha256", undefined],
+    ["sourceSha256", "invalid"],
+    ["sourceSha256", "e".repeat(64)],
+    ["crddCommit", undefined],
+    ["crddCommit", "invalid"],
+    ["crddCommit", "e".repeat(40)],
+    ["crddTree", undefined],
+    ["crddTree", "invalid"],
+    ["crddTree", "e".repeat(40)],
+    ["sourceObservationStatus", "changed"],
+    ["signatureRequired", true],
+    [
+      "contractRevision",
+      SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION - 1,
+    ],
+  ] as const) {
+    let calls = 0;
+    const result = await runSignedReviewerBoundaryVerification(
+      process.cwd(),
+      (async (
+        _root: string,
+        _dependencies: unknown,
+        route: "forward" | "reverse",
+      ) => {
+        calls += 1;
+        return {
+          ...completed(route),
+          ...(calls === 2 ? { [field]: value } : {}),
+        };
+      }) as never,
+    );
+    assert.equal(result.status, "blocked", field);
+    assert.equal(result.failedRouteProfile, "reverse", field);
+    assert.equal(result.completedRouteCount, 1, field);
+    assert.equal(calls, 2, field);
+    assert.equal(result.cleanupConfirmed, true, field);
+  }
+});
 
 /**
  * 実Codex／Claude Reviewer境界を4経路E2E前の二経路結合として固定するを検証する。

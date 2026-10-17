@@ -6,20 +6,24 @@
  */
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
-import { resolveRepositoryRuntimeDataPaths } from "../../domain-model/src/index.ts";
+import { fileURLToPath } from "node:url";
 import {
+  createFilesystemRepositoryObservationPort,
+  resolveRepositoryRuntimeDataPaths,
+} from "../../domain-model/src/index.ts";
+import {
+  resolveVerifiedRepositoryRoot,
   resolveVerifiedRepositoryRootFromWorkingDirectory,
   verifyRepositoryRoot,
 } from "../../version-control/src/index.ts";
+import { observeRuntimeOwnedDevelopmentSource } from "../src/task/development-source-observation.ts";
 import {
-  inspectBundledCoordinatorPackageFilesystemCandidate,
-  inspectVerifiedNativeDistributionCandidate,
-} from "../src/platform-access/package-verification.ts";
-import { inspectRepositoryIdentityCandidate } from "../src/repository-operation/binding.ts";
+  inspectRepositoryIdentityCandidate,
+  inspectRepositoryRevisionCandidate,
+} from "../src/repository-operation/binding.ts";
 import {
   buildOrchestratorRealProviderReport,
   captureCanonicalRepositorySnapshot,
@@ -37,6 +41,108 @@ const FINAL = "CRDD_ORCHESTRATOR_REAL_PROVIDER_OK\n";
 const MAXIMUM_OUTPUT_BYTES = 4 * 1024 * 1024;
 const PROCESS_TIMEOUT_MS = 45 * 60_000;
 let verifiedRepositoryRootForFixtureCleanup: string | null = null;
+let isMcpStartRequested = false;
+
+/**
+ * 固定Checkoutの実行Sourceと公開MCP入口を読取り観測する。
+ * @responsibility Source、Git改訂と固定入口の内容・実体を同じ観測へ結合する。
+ * @trace ARCH-000004
+ * @input N/A: module自身のCheckoutだけを使用する。
+ * @returns 非公開実体情報を含む観測値、または観測不能のnull。
+ * @precondition Git Rootと固定入口を確認できる。
+ * @postcondition 外部へ公開する際は実体情報を除く。
+ * @effect 固定SourceとGitを読取り、Processや保存を発行しない。
+ * @failure 欠落・Link・複数Link・容量超過・途中差・例外はnull。
+ * @invariant 内容HashとGit改訂を実行許可・署名として使用しない。
+ * @boundary 選択Checkoutと検証Runner。
+ * @security 絶対Root・本文・実体情報を公開しない。
+ * @concurrency 前後観測を照合するが、ロード済みModuleの原子的固定を保証しない。
+ */
+function observeRuntimeSource() {
+  try {
+    const sourceRoot = fileURLToPath(new URL("../../../", import.meta.url));
+    const verified = verifyRepositoryRoot(sourceRoot);
+    if (
+      verified.status !== "completed" ||
+      resolveVerifiedRepositoryRoot(verified.capability) !==
+        path.resolve(sourceRoot)
+    )
+      return null;
+    const before = inspectRepositoryRevisionCandidate(sourceRoot);
+    const source = observeRuntimeOwnedDevelopmentSource();
+    const entryPath = path.join(
+      sourceRoot,
+      "template",
+      "tools",
+      "crdd-mcp-server.ts",
+    );
+    const entryBefore = fs.lstatSync(entryPath, { bigint: true });
+    if (
+      !entryBefore.isFile() ||
+      entryBefore.isSymbolicLink() ||
+      entryBefore.nlink !== 1n
+    )
+      return null;
+    const entry = createFilesystemRepositoryObservationPort(
+      verified.capability,
+      64 * 1024,
+    ).observeFile("template/tools/crdd-mcp-server.ts");
+    const entryAfter = fs.lstatSync(entryPath, { bigint: true });
+    if (
+      !entryAfter.isFile() ||
+      entryAfter.isSymbolicLink() ||
+      entryAfter.nlink !== 1n
+    )
+      return null;
+    const entryIdentityBefore = JSON.stringify(
+      [
+        entryBefore.dev,
+        entryBefore.ino,
+        entryBefore.birthtimeNs,
+        entryBefore.mtimeNs,
+        entryBefore.ctimeNs,
+        entryBefore.size,
+        entryBefore.nlink,
+      ].map(String),
+    );
+    const entryIdentityAfter = JSON.stringify(
+      [
+        entryAfter.dev,
+        entryAfter.ino,
+        entryAfter.birthtimeNs,
+        entryAfter.mtimeNs,
+        entryAfter.ctimeNs,
+        entryAfter.size,
+        entryAfter.nlink,
+      ].map(String),
+    );
+    const after = inspectRepositoryRevisionCandidate(sourceRoot);
+    if (
+      !source ||
+      entry.status !== "resolved" ||
+      entryIdentityBefore !== entryIdentityAfter ||
+      before?.status !== "candidate" ||
+      after?.status !== "candidate" ||
+      before.commit !== after.commit ||
+      before.tree !== after.tree
+    )
+      return null;
+    return Object.freeze({
+      scope: source.scope,
+      sourceSha256: source.sourceSha256,
+      sourceIdentitySha256: source.sourceIdentitySha256,
+      crddCommit: before.commit,
+      crddTree: before.tree,
+      // Domain Readerが返したUTF8文字列のHash。生byteの完全性証明ではない。
+      mcpEntrySourceSha256: createHash("sha256")
+        .update(entry.source, "utf8")
+        .digest("hex"),
+      mcpEntryIdentity: entryIdentityAfter,
+    });
+  } catch {
+    return null;
+  }
+}
 
 /**
  * 実Provider E2Eが所有する採用確認fixtureだけを開始前内容へ戻す。
@@ -155,9 +261,9 @@ function mcpEnvelope(
  *
  * @responsibility Public Mcp Processの開始条件、Effect発行、開始失敗時の終了境界を所有する。
  * @trace ARCH-000004
- * @input distributionRoot: string、repositoryRoot: string
+ * @input sourceRoot: string、repositoryRoot: string
  * @returns startPublicMcpProcessの計算結果を返す。
- * @precondition 「distributionRoot: string、repositoryRoot: string」がstartPublicMcpProcessの入力契約を満たす。
+ * @precondition 固定Source Rootと検証対象Rootが確認済み。
  * @postcondition startPublicMcpProcessの責務を完了した結果だけを返す。
  * @effect startPublicMcpProcessは外部ProcessまたはRuntime境界の操作を呼び出す。
  * @failure N/A: startPublicMcpProcessは独自の失敗分岐を所有しない。
@@ -166,22 +272,19 @@ function mcpEnvelope(
  * @security N/A: startPublicMcpProcessはAuthority、秘密値または信頼判断を扱わない。
  * @concurrency N/A: startPublicMcpProcessは共有非同期状態を持たない同期処理である。
  */
-function startPublicMcpProcess(
-  distributionRoot: string,
-  repositoryRoot: string,
-) {
-  return spawn(
-    process.execPath,
-    [
-      path.join(distributionRoot, "template", "tools", "crdd-mcp-server.ts"),
-      "--stdio",
-    ],
-    {
-      cwd: repositoryRoot,
-      windowsHide: true,
-      stdio: ["pipe", "pipe", "pipe"],
-    },
+function startPublicMcpProcess(sourceRoot: string, repositoryRoot: string) {
+  const entryPath = path.join(
+    sourceRoot,
+    "template",
+    "tools",
+    "crdd-mcp-server.ts",
   );
+  isMcpStartRequested = true;
+  return spawn(process.execPath, [entryPath, "--stdio"], {
+    cwd: repositoryRoot,
+    windowsHide: true,
+    stdio: ["pipe", "pipe", "pipe"],
+  });
 }
 
 /**
@@ -189,7 +292,7 @@ function startPublicMcpProcess(
  *
  * @responsibility 認証済みQueryと子Processの終端を確認し、発行時世代を固定する。
  * @trace ARCH-000004
- * @input 署名配布Root、Repository Root、ProjectとRevisionのQuery結合。
+ * @input 固定Source Root、Repository Root、ProjectとRevisionのQuery結合。
  * @returns 検査済みの受付世代。
  * @precondition 新版保存を明示初期化済みで、送信範囲は固定検証Task内である。
  * @postcondition 同Requestの再入場では呼び直して世代を付け替えない。
@@ -201,11 +304,11 @@ function startPublicMcpProcess(
  * @concurrency 入力EOFと子Process終了を確認してから値を返す。
  */
 async function readPublishedIntakeEpoch(
-  distributionRoot: string,
+  sourceRoot: string,
   repositoryRoot: string,
   request: { projectId: string; repositoryRevision: string },
 ): Promise<string> {
-  const child = startPublicMcpProcess(distributionRoot, repositoryRoot);
+  const child = startPublicMcpProcess(sourceRoot, repositoryRoot);
   const observed = observePublicMcpProcess(child, {
     maximumOutputBytes: MAXIMUM_OUTPUT_BYTES,
     timeoutMs: PROCESS_TIMEOUT_MS,
@@ -280,17 +383,17 @@ function objective(
  * @concurrency mainは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
  */
 async function main() {
-  if (process.argv.length !== 3)
-    throw new Error(
-      "usage: verify-orchestrator-real-providers <signed-distribution-root>",
-    );
+  if (process.argv.length !== 2)
+    throw new Error("usage: verify-orchestrator-real-providers");
   if (process.platform !== "win32")
     throw new Error("orchestrator_real_recovery_e2e_windows_only");
   const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
     process.cwd(),
   );
-  const distributionRoot = path.resolve(process.argv[2] ?? "");
-  stableDirectory(distributionRoot);
+  const sourceRoot = fileURLToPath(new URL("../../../", import.meta.url));
+  const runtimeSourceBefore = observeRuntimeSource();
+  if (!runtimeSourceBefore)
+    throw new Error("orchestrator_verification_source_unavailable");
   const repository = inspectRepositoryIdentityCandidate(repositoryRoot);
   assert.equal(repository?.status, "candidate");
   if (repository?.status !== "candidate")
@@ -309,66 +412,6 @@ async function main() {
       : null;
   if (!runtimePaths) throw new Error("orchestrator_verification_path_invalid");
   const verificationRoot = runtimePaths.tests;
-  fs.mkdirSync(verificationRoot, { recursive: true, mode: 0o700 });
-  stableDirectory(verificationRoot);
-
-  const nativeModule = (await import(
-    pathToFileURL(
-      path.join(
-        distributionRoot,
-        "40_Develop/coordinator/src/platform-access/package-verification.ts",
-      ),
-    ).href
-  )) as {
-    verifyBundledCoordinatorPackageFromFixedManifestCandidate: (input: {
-      evaluationTime: string;
-    }) => JsonRecord;
-  };
-  const native =
-    nativeModule.verifyBundledCoordinatorPackageFromFixedManifestCandidate({
-      evaluationTime: new Date().toISOString(),
-    });
-  assert.equal(native.status, "candidate", String(native.reason));
-  const signedReleaseIdentity = Object.freeze(
-    Object.fromEntries(
-      [
-        "manifestHash",
-        "releaseSequence",
-        "crddVersion",
-        "crddCommit",
-        "crddTree",
-        "packageContentRootSha256",
-        "runtimeExecutionIdentitySha256",
-      ].map((key) => [key, native[key]]),
-    ),
-  );
-  const sourcePackage = inspectBundledCoordinatorPackageFilesystemCandidate();
-  assert.equal(sourcePackage.status, "candidate");
-  assert.equal(
-    inspectVerifiedNativeDistributionCandidate({
-      distributionRoot,
-      evaluationTime: new Date().toISOString(),
-      expectedRelease: signedReleaseIdentity,
-    }).status,
-    "candidate",
-  );
-  const distributionIdentity = Object.freeze({
-    ...signedReleaseIdentity,
-    sourcePackageStatus: sourcePackage.status,
-    sourcePackageReason: sourcePackage.reason,
-    verifiedDistributionStatus: "candidate",
-    distributionRootReported: false,
-  });
-  const recoveryModule = (await import(
-    pathToFileURL(
-      path.join(
-        distributionRoot,
-        "40_Develop/coordinator/src/docker-execution/recovery-lifecycle.ts",
-      ),
-    ).href
-  )) as {
-    inspectRuntimeOwnedDockerTaskRecoveryState: () => JsonRecord;
-  };
 
   const runId = randomUUID().replaceAll("-", "").slice(0, 16);
   const commonFields = Object.freeze({
@@ -396,17 +439,13 @@ async function main() {
   for (const [index, candidate] of objectives.entries()) {
     const request = Object.freeze({
       ...candidate,
-      intakeEpoch: await readPublishedIntakeEpoch(
-        distributionRoot,
-        repositoryRoot,
-        {
-          projectId: candidate.projectId,
-          repositoryRevision: repository.commit,
-        },
-      ),
+      intakeEpoch: await readPublishedIntakeEpoch(sourceRoot, repositoryRoot, {
+        projectId: candidate.projectId,
+        repositoryRevision: repository.commit,
+      }),
     });
     const snapshotBefore = captureCanonicalRepositorySnapshot(repositoryRoot);
-    const child = startPublicMcpProcess(distributionRoot, repositoryRoot);
+    const child = startPublicMcpProcess(sourceRoot, repositoryRoot);
     let isInputClosed = false;
     const observationPromise = observePublicMcpProcess(child, {
       maximumOutputBytes: MAXIMUM_OUTPUT_BYTES,
@@ -450,14 +489,10 @@ async function main() {
 
   const cancellationRequest = Object.freeze({
     ...commonFields,
-    intakeEpoch: await readPublishedIntakeEpoch(
-      distributionRoot,
-      repositoryRoot,
-      {
-        projectId: `crdd-orchestrator-public-cancel-${runId}`,
-        repositoryRevision: repository.commit,
-      },
-    ),
+    intakeEpoch: await readPublishedIntakeEpoch(sourceRoot, repositoryRoot, {
+      projectId: `crdd-orchestrator-public-cancel-${runId}`,
+      repositoryRevision: repository.commit,
+    }),
     requestId: `orchestrator-public-cancel-${runId}`,
     projectId: `crdd-orchestrator-public-cancel-${runId}`,
     milestoneId: "public-provider-cancellation",
@@ -474,10 +509,7 @@ async function main() {
     ]),
     adoptResult: false,
   });
-  const cancellationChild = startPublicMcpProcess(
-    distributionRoot,
-    repositoryRoot,
-  );
+  const cancellationChild = startPublicMcpProcess(sourceRoot, repositoryRoot);
   let isCancellationRequestedAfterProcessStart = false;
   const cancellationSnapshotBefore =
     captureCanonicalRepositorySnapshot(repositoryRoot);
@@ -504,14 +536,10 @@ async function main() {
 
   const recoveryRequest = Object.freeze({
     ...commonFields,
-    intakeEpoch: await readPublishedIntakeEpoch(
-      distributionRoot,
-      repositoryRoot,
-      {
-        projectId: `crdd-orchestrator-public-recovery-${runId}`,
-        repositoryRevision: repository.commit,
-      },
-    ),
+    intakeEpoch: await readPublishedIntakeEpoch(sourceRoot, repositoryRoot, {
+      projectId: `crdd-orchestrator-public-recovery-${runId}`,
+      repositoryRevision: repository.commit,
+    }),
     requestId: `orchestrator-public-recovery-${runId}`,
     projectId: `crdd-orchestrator-public-recovery-${runId}`,
     milestoneId: "public-provider-parent-loss-recovery",
@@ -530,10 +558,7 @@ async function main() {
   });
   const recoverySnapshotBefore =
     captureCanonicalRepositorySnapshot(repositoryRoot);
-  const parentLossChild = startPublicMcpProcess(
-    distributionRoot,
-    repositoryRoot,
-  );
+  const parentLossChild = startPublicMcpProcess(sourceRoot, repositoryRoot);
   let isParentTerminationRequestedAfterProcessStart = false;
   const parentLossObservationPromise = observePublicMcpProcess(
     parentLossChild,
@@ -558,7 +583,7 @@ async function main() {
   );
   const parentLossObservation = await parentLossObservationPromise;
 
-  const reentryChild = startPublicMcpProcess(distributionRoot, repositoryRoot);
+  const reentryChild = startPublicMcpProcess(sourceRoot, repositoryRoot);
   let isReentryInputClosed = false;
   const reentryObservationPromise = observePublicMcpProcess(reentryChild, {
     maximumOutputBytes: MAXIMUM_OUTPUT_BYTES,
@@ -578,15 +603,28 @@ async function main() {
   const recoverySnapshotAfter =
     captureCanonicalRepositorySnapshot(repositoryRoot);
 
-  const dockerRecovery =
-    recoveryModule.inspectRuntimeOwnedDockerTaskRecoveryState();
   const report = buildOrchestratorRealProviderReport({
     runId,
-    sourceIdentity: Object.freeze({
+    executionIdentity: Object.freeze({
       commit: repository.commit,
       tree: repository.tree,
     }),
-    distributionIdentity,
+    runtimeSource: Object.freeze({
+      scope: runtimeSourceBefore.scope,
+      sourceSha256: runtimeSourceBefore.sourceSha256,
+      crddCommit: runtimeSourceBefore.crddCommit,
+      crddTree: runtimeSourceBefore.crddTree,
+      mcpEntrySourceSha256: runtimeSourceBefore.mcpEntrySourceSha256,
+      observationStatus: (() => {
+        const after = observeRuntimeSource();
+        return after === null
+          ? "unavailable"
+          : JSON.stringify(after) === JSON.stringify(runtimeSourceBefore)
+            ? "matched"
+            : "changed";
+      })(),
+      signatureRequired: false,
+    }),
     normalRuns: Object.freeze(normalRuns),
     cancellation: cancelled,
     cancellationRequestedAfterProcessStart:
@@ -621,8 +659,9 @@ async function main() {
           "utf8",
         ) === BASE,
     }),
-    dockerRecovery,
   });
+  fs.mkdirSync(verificationRoot, { recursive: true, mode: 0o700 });
+  stableDirectory(verificationRoot);
   const reportDirectory = path.join(
     verificationRoot,
     `orchestrator-public-real-providers-${Date.now()}`,
@@ -640,51 +679,80 @@ async function main() {
 try {
   await main();
 } catch {
-  const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
-    process.cwd(),
-  );
-  const repository = inspectRepositoryIdentityCandidate(repositoryRoot);
-  const verifiedRuntimeRoot = verifyRepositoryRoot(repositoryRoot);
-  const runtimePaths =
-    verifiedRuntimeRoot.status === "completed"
-      ? resolveRepositoryRuntimeDataPaths(verifiedRuntimeRoot.capability)
-      : null;
-  if (!runtimePaths) throw new Error("orchestrator_verification_path_invalid");
-  const verificationRoot = runtimePaths.tests;
-  fs.mkdirSync(verificationRoot, { recursive: true, mode: 0o700 });
-  const report = Object.freeze({
-    contract: "crdd-coordinator/orchestrator-real-provider-verification",
-    contractRevision: 10,
-    status: "blocked",
-    reason: "orchestrator_public_mcp_verification_incomplete",
-    problems: Object.freeze(["verification_exception"]),
-    phase: "verification_unknown",
-    childProcessStarted: null,
-    childProcessJoined: null,
-    cleanupConfirmed: false,
-    manualRecoveryRequired: true,
-    processRestartRequired: true,
-    effectState: "unknown",
-    sourceIdentity:
-      repository?.status === "candidate"
-        ? Object.freeze({ commit: repository.commit, tree: repository.tree })
-        : null,
-    distributionIdentity: null,
-    releaseAuthorityConferred: false,
-    rawProviderOutputReported: false,
-  });
-  const reportDirectory = path.join(
-    verificationRoot,
-    `orchestrator-public-real-providers-${Date.now()}`,
-  );
-  fs.mkdirSync(reportDirectory, { mode: 0o700 });
-  fs.writeFileSync(
-    path.join(reportDirectory, "result.json"),
-    `${JSON.stringify(report, null, 2)}\n`,
-    { flag: "wx", encoding: "utf8", mode: 0o600 },
-  );
-  process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
-  process.exitCode = 2;
+  if (!isMcpStartRequested) {
+    process.stdout.write(
+      `${JSON.stringify(
+        {
+          contract: "crdd-coordinator/orchestrator-real-provider-verification",
+          contractRevision: 12,
+          status: "blocked",
+          reason: "orchestrator_public_mcp_verification_incomplete",
+          problems: ["verification_exception"],
+          phase: "verification_not_started",
+          childProcessStarted: false,
+          childProcessJoined: true,
+          cleanupConfirmed: true,
+          manualRecoveryRequired: false,
+          processRestartRequired: false,
+          effectState: "no_effect",
+          executionIdentity: null,
+          runtimeSource: null,
+          releaseAuthorityConferred: false,
+          rawProviderOutputReported: false,
+        },
+        null,
+        2,
+      )}\n`,
+    );
+    process.exitCode = 2;
+  } else {
+    const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
+      process.cwd(),
+    );
+    const repository = inspectRepositoryIdentityCandidate(repositoryRoot);
+    const verifiedRuntimeRoot = verifyRepositoryRoot(repositoryRoot);
+    const runtimePaths =
+      verifiedRuntimeRoot.status === "completed"
+        ? resolveRepositoryRuntimeDataPaths(verifiedRuntimeRoot.capability)
+        : null;
+    if (!runtimePaths)
+      throw new Error("orchestrator_verification_path_invalid");
+    const verificationRoot = runtimePaths.tests;
+    fs.mkdirSync(verificationRoot, { recursive: true, mode: 0o700 });
+    const report = Object.freeze({
+      contract: "crdd-coordinator/orchestrator-real-provider-verification",
+      contractRevision: 12,
+      status: "blocked",
+      reason: "orchestrator_public_mcp_verification_incomplete",
+      problems: Object.freeze(["verification_exception"]),
+      phase: "verification_unknown",
+      childProcessStarted: null,
+      childProcessJoined: null,
+      cleanupConfirmed: false,
+      manualRecoveryRequired: true,
+      processRestartRequired: true,
+      effectState: "unknown",
+      executionIdentity:
+        repository?.status === "candidate"
+          ? Object.freeze({ commit: repository.commit, tree: repository.tree })
+          : null,
+      runtimeSource: null,
+      releaseAuthorityConferred: false,
+      rawProviderOutputReported: false,
+    });
+    const reportDirectory = path.join(
+      verificationRoot,
+      `orchestrator-public-real-providers-${Date.now()}`,
+    );
+    fs.mkdirSync(reportDirectory, { mode: 0o700 });
+    fs.writeFileSync(
+      path.join(reportDirectory, "result.json"),
+      `${JSON.stringify(report, null, 2)}\n`,
+      { flag: "wx", encoding: "utf8", mode: 0o600 },
+    );
+    process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+    process.exitCode = 2;
+  }
 } finally {
-  restoreOwnedAdoptionFixture();
+  if (isMcpStartRequested) restoreOwnedAdoptionFixture();
 }

@@ -25,7 +25,6 @@ import {
 } from "../../src/host-execution/process-safety-state.ts";
 import { startRuntimeOwnedCoordinatorTask } from "../../src/task/execution.ts";
 import { requestRuntimeOwnedExternalSendGrant } from "../../src/external-send/grant.ts";
-import { issueRuntimeOwnedVerifiedCoordinatorPackageCapability } from "../../src/platform-access/package-verification.ts";
 
 /**
  * 対話cleanup不明は同一Process stateを不可逆にpoisonするを検証する。
@@ -89,8 +88,8 @@ test("runtime_process回復Identityはattemptとoperationへ結合されfresh Pr
       "..",
       "..",
       "src",
-      "host-runtime",
-      "runtime-process-safety-state.ts",
+      "host-execution",
+      "process-safety-state.ts",
     ),
   ).href;
   const fresh = execFileSync(
@@ -167,8 +166,7 @@ test("Process poison契約は同期不可逆Gateとfresh Process境界を固定�
       "signed_route_matrix_started_or_outer_execution_unknown",
     ],
     guardedEntrypoints: [
-      "verified_package_issue_before_manifest_or_filesystem_observation",
-      "coordinator_task_before_capability_consume_and_all_effects",
+      "coordinator_task_before_all_effects",
       "external_send_grant_before_authority_verification_or_console_effect",
     ],
     transientDrainTransition:
@@ -180,35 +178,42 @@ test("Process poison契約は同期不可逆Gateとfresh Process境界を固定�
 });
 
 /**
- * Host failure drain中はTask／Package／External SendをEffect前に一時拒否し解除後はrestart要求しないを検証する。
+ * Host failure drain中はTask／External SendをEffect前に一時拒否し解除後はrestart要求しないを検証する。
  *
- * @responsibility Host failure drain中はTask／Package／External SendをEffect前に一時拒否し解除後はrestart要求しないの合否判定を所有する。
+ * @responsibility Task／External Sendの一時拒否と解除後の通常入口復帰を確認する。
  * @trace PRL-IT-005
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Host failure drain中はTask／Package／External SendをEffect前に一時拒否し解除後はrestart要求しないの対象操作を実行する。
+ * @stimulus drain中と解除後にTask／External Sendの現在入口を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-IT-005=Direct Boundary: coordinator Test Source→対象契約
  */
-test("Host failure drain中はTask／Package／External SendをEffect前に一時拒否し解除後はrestart要求しない", async () => {
+test("Host failure drain中はTask／External SendをEffect前に一時拒否し解除後はrestart要求しない", async () => {
   const drain = beginRuntimeProcessEffectDrain();
-  const packageOutcome = issueRuntimeOwnedVerifiedCoordinatorPackageCapability(
-    Object.freeze({}),
-  );
-  assert.equal(
-    packageOutcome.verification.reason,
-    "platform_provisioner_runtime_cleanup_in_progress",
+  let taskReads = 0;
+  const taskInput = new Proxy(
+    {},
+    {
+      get() {
+        taskReads += 1;
+        throw new Error("must_not_read");
+      },
+      ownKeys() {
+        taskReads += 1;
+        throw new Error("must_not_enumerate");
+      },
+      getOwnPropertyDescriptor() {
+        taskReads += 1;
+        throw new Error("must_not_inspect");
+      },
+    },
   );
   assert.throws(
-    () =>
-      startRuntimeOwnedCoordinatorTask(
-        Object.freeze({}),
-        "C:\\repository",
-        Object.freeze({}),
-      ),
+    () => startRuntimeOwnedCoordinatorTask(taskInput, "C:\\repository"),
     /coordinator_task_runtime_cleanup_in_progress/u,
   );
+  assert.equal(taskReads, 0);
   const grant = await requestRuntimeOwnedExternalSendGrant(
     Object.freeze({}),
     Object.freeze({}),
@@ -224,15 +229,15 @@ test("Host failure drain中はTask／Package／External SendをEffect前に一�
   );
   assert.equal(grant.manualRecoveryRequired, false);
   assert.equal(endRuntimeProcessEffectDrain(drain), true);
-  assert.throws(
-    () =>
-      startRuntimeOwnedCoordinatorTask(
-        Object.freeze({}),
-        "C:\\repository",
-        Object.freeze({}),
-      ),
-    /coordinator_task_release_verification_required/u,
+  const started = startRuntimeOwnedCoordinatorTask(
+    Object.freeze({}),
+    "C:\\repository",
   );
+  const result = await started.completion;
+  assert.equal(result.status, "blocked");
+  assert.equal(result.reason, "coordinator_task_request_invalid");
+  assert.equal(result.cleanupConfirmed, true);
+  assert.equal(result.manualRecoveryRequired, false);
 });
 
 /**
@@ -288,9 +293,7 @@ test("全cleanup起点のproduction process poisonは保留cleanup中から全�
         mode === "writer_cleanup" || mode === "reader_cleanup",
       poisonedAtOriginBoundary: true,
       finalPoisonState: true,
-      packageReason: "platform_provisioner_process_restart_required",
-      packageCapabilityIsNull: true,
-      packageInputReadCount: 0,
+      taskInputReadCount: 0,
       taskReason: "coordinator_task_process_restart_required",
       grantStatus: "blocked",
       grantReason:

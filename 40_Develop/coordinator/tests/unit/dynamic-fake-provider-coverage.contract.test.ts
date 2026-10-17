@@ -31,7 +31,7 @@ import {
  */
 test("動的Fake coverageは生成器と共有LCOV parserを含むexact母集団を所有する", () => {
   assert.deepEqual(DYNAMIC_FAKE_PROVIDER_COVERAGE_SOURCES, [
-    "40_Develop/coordinator/src/docker-execution/isolation-probe.ts",
+    "40_Develop/coordinator/src/diagnostics/isolation-probe.ts",
     "40_Develop/coordinator/src/provider/lifecycle.ts",
     "40_Develop/coordinator/src/host-execution/operation-workspace-lifecycle.ts",
     "40_Develop/coordinator/src/host-execution/recovery-record.ts",

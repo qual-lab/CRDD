@@ -75,7 +75,7 @@ function isDataDescriptor(
 ): descriptor is PropertyDescriptor & { value: unknown } {
   return Boolean(
     descriptor !== undefined &&
-      "value" in descriptor &&
+      Object.hasOwn(descriptor, "value") &&
       descriptor.get === undefined &&
       descriptor.set === undefined &&
       (!shouldBeEnumerable || descriptor.enumerable === true),

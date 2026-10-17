@@ -18,7 +18,7 @@ import {
 import {
   DOCKER_ISOLATION_PROFILE,
   runDockerIsolationProbe,
-} from "../docker-execution/isolation-probe.ts";
+} from "./isolation-probe.ts";
 import { describeEgressProxyTopology } from "../external-send/egress-proxy-policy.ts";
 import {
   cleanupOwnedOperationDirectories,

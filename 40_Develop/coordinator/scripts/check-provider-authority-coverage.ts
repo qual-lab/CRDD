@@ -107,10 +107,10 @@ const coverageObligations = Object.freeze({
     "Runtime Authority lifetime、Authority source loader、Mount inspectionまたはProvider Effect結合変更時",
   ),
   "40_Develop/coordinator/src/authority/local-personal-grant.ts": obligation(
-    "署名済み配布物の実production成功分岐と暗号乱数失敗をcomponent coverageで到達していない",
-    "公式署名Releaseへの結合または短命Local Personal Bundle生成の稀なfailureを誤分類する可能性",
-    "隔離dependencyによるRelease確認、固定Profile、source期限、Grant期限、Provider差、時計差およびproduction source checkout停止試験",
-    "Release manifest verifier、固定Profile、Authority source lifetimeまたはLocal Personal Trust境界変更時",
+    "正規化JSONのundefined防御と、固定6 Profileから生成するProfile／Registry／Policy／Bundleの不成立分岐が未到達。production照合は別ITと同じ確認本文の反証へ接続する",
+    "現在Operationの失効または短命Local Personal Bundle生成の稀なfailureを誤分類する可能性",
+    "現在Operationのstrict確認、固定6 Profile、source期限、Grant期限、Provider差、時計差と本番確認本文の開発Context反証。実管理参照の結合・清掃後失効は別のTask Runtime ITで確認する",
+    "Operation管理参照、固定Profile、Authority source lifetimeまたはLocal Personal許可境界変更時",
   ),
   "40_Develop/domain-model/src/plain-data/snapshot.ts": obligation(
     "未到達分岐なし",

@@ -10,21 +10,18 @@
  */
 import { describeWorkbenchAiAdviceResultSchema } from "../../../src/workbench-ai/advice-result.ts";
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { mock } from "node:test";
+import fs from "node:fs";
 import {
   createProviderDockerRuntimeDependencies,
   createProviderDockerRuntimeState,
-} from "../../../src/docker-execution/provider-composition.ts";
-import { createProviderDockerBlockedResult } from "../../../src/docker-execution/provider-preparation.ts";
-import { getRuntimeOwnedProviderDockerAdapter } from "../../../src/docker-execution/provider-adapter.ts";
-import {
-  createProviderDockerRandomHex,
-  createProviderDockerResourceNames,
-} from "../../../src/docker-execution/provider-resource-plan.ts";
+} from "../../../src/provider/execution-composition.ts";
+import { createProviderDockerBlockedResult } from "../../../src/provider/preparation.ts";
+import { getRuntimeOwnedProviderDockerAdapter } from "../../../src/provider/execution-adapter.ts";
 import {
   cancelProviderDockerPreparation,
   consumeProviderDockerPreparation,
-} from "../../../src/docker-execution/provider-preparation-lifecycle.ts";
+} from "../../../src/provider/preparation-lifecycle.ts";
 import { fileURLToPath } from "node:url";
 
 import {
@@ -34,7 +31,7 @@ import {
   prepareRuntimeOwnedCodexDockerCandidate,
 } from "../../../src/provider/codex-docker-adapter.ts";
 import { createIsolatedDelegationSelectionGrantRuntimeCandidate } from "../../../src/provider/delegation-selection-grant.ts";
-import { createIsolatedDockerEffectRuntimeCandidate } from "../../../src/docker-execution/command-effects.ts";
+import { bindDockerIsolationRuntime } from "../../../src/provider/isolation-execution.ts";
 import { planWorkbenchAiAdviceProviderCommand } from "../../../../ai-adapter/src/index.ts";
 import { describeCodexSubscriptionAuthenticationCli } from "../../../../ai-adapter/src/index.ts";
 
@@ -436,50 +433,41 @@ test("Codex Executorの正規seccomp commandをDocker Effect利用側も同じ�
   assert.ok(firstCommand.argv.includes("CODEX_HOME=/provider-home"));
 
   let closed = false;
-  const effect = createIsolatedDockerEffectRuntimeCandidate({
-    platform: "win32",
-    borrowPaths: () =>
+  const effect = bindDockerIsolationRuntime(
+    {
+      startExecution: () => {
+        throw new Error("fixture_session_unused");
+      },
+      startCommand: () =>
+        Object.freeze({
+          started: async () => true,
+          wait: async () => {
+            closed = true;
+            return Object.freeze({
+              status: 0,
+              signal: null,
+              stdout: "",
+              stderr: "",
+              outputExceeded: false,
+            });
+          },
+          terminateAndWait: async () => {
+            closed = true;
+            return true;
+          },
+          closed: () => closed,
+        }),
+      cleanupOwnedResources: async () => {
+        throw new Error("fixture_cleanup_not_configured");
+      },
+      verifyCleanupOutcome: () => null,
+    },
+    () =>
       Object.freeze({
         tmp: "C:\\crdd\\operation\\tmp",
         management: "C:\\crdd\\operation\\management",
       }),
-    readCli: () =>
-      Object.freeze({
-        executablePath:
-          "C:\\Program Files\\Docker\\Docker\\resources\\bin\\docker.exe",
-        rootIdentity: "root",
-        executableIdentity: "executable",
-        bytes: 1,
-        sha256: "A".repeat(64),
-        publisherOrganization: "Docker Inc",
-        trustBasis: "windows_authenticode_valid_docker_inc_publisher" as const,
-      }),
-    verifyCli: () => undefined,
-    createConfig: () =>
-      Object.freeze({ directory: "config", identity: "config" }),
-    verifyConfig: () => undefined,
-    configEntries: () => Object.freeze([]),
-    removeConfig: () => undefined,
-    startProcess: () =>
-      Object.freeze({
-        started: async () => true,
-        wait: async () => {
-          closed = true;
-          return Object.freeze({
-            status: 0,
-            signal: null,
-            stdout: "",
-            stderr: "",
-            outputExceeded: false,
-          });
-        },
-        terminateAndWait: async () => {
-          closed = true;
-          return true;
-        },
-        closed: () => closed,
-      }),
-  });
+  );
   assert.doesNotThrow(() =>
     effect.startCommand(firstCommand, plan, fixture.managementCapability),
   );
@@ -498,7 +486,13 @@ test("Codex Executorの正規seccomp commandをDocker Effect利用側も同じ�
  * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
 test("説明可能な低推論選定を固定Docker command planへ一度だけ結合する", () => {
-  const fixture = createFixture();
+  const randomCalls: number[] = [];
+  const fixture = createFixture({
+    randomBytes: (size: number) => {
+      randomCalls.push(size);
+      return Buffer.alloc(size, size === 8 ? 1 : 2);
+    },
+  });
   const prepared = fixture.adapter.prepare(
     fixture.managementCapability,
     fixture.mountCapability,
@@ -521,6 +515,120 @@ test("説明可能な低推論選定を固定Docker command planへ一度だけ�
     fixture.managementCapability,
   );
   assert.ok(plan);
+  assert.deepEqual(randomCalls, [8, 32]);
+  const expectedNames = {
+    internalNetworkName: `crdd-internal-${"01".repeat(8)}`,
+    egressNetworkName: `crdd-egress-${"01".repeat(8)}`,
+    proxyContainerName: `crdd-proxy-${"01".repeat(8)}`,
+    authContainerName: `crdd-auth-${"01".repeat(8)}`,
+    providerContainerName: `crdd-codex-${"b".repeat(16)}`,
+    ownershipLabel: `crdd.coordinator.runtime=${"01".repeat(8)}`,
+  };
+  /**
+   * 実計画の資源名と全操作の対象を同じ固定期待へ照合する。
+   * @responsibility 正常計画とコピー変異へ同じ位置依存Oracleを適用する。
+   * @trace PRL-UT-014
+   * @precondition 本番準備が返したplanまたはその一軸変異を使う。
+   * @stimulus 各fieldとname／label／操作対象を比較する。
+   * @observation 固定flag直後と対象位置の値。
+   * @oracle 五資源名・labelと九操作の相関が全て一致する。
+   * @cleanup N/A: 計画値だけを読み実資源を扱わない。
+   * @boundary PRL-UT-014=Direct Boundary: 準備結果→DI command。
+   */
+  const assertResourceBinding = (candidate: NonNullable<typeof plan>) => {
+    for (const [key, expected] of Object.entries(expectedNames))
+      assert.equal(candidate[key as keyof typeof expectedNames], expected);
+    for (const [purpose, name] of [
+      ["create_subscription_auth_probe", expectedNames.authContainerName],
+      ["create_internal_network", expectedNames.internalNetworkName],
+      ["create_egress_network", expectedNames.egressNetworkName],
+      ["create_proxy", expectedNames.proxyContainerName],
+      ["create_provider", expectedNames.providerContainerName],
+    ]) {
+      const command = candidate.commands.find(
+        (entry) => entry.purpose === purpose,
+      );
+      assert.ok(command && name);
+      const label = command.argv.indexOf("--label");
+      assert.ok(label >= 0);
+      assert.equal(
+        command.argv.filter((value) => value === "--label").length,
+        1,
+      );
+      assert.equal(command.argv[label + 1], expectedNames.ownershipLabel);
+      if (purpose?.includes("network")) assert.equal(command.argv.at(-1), name);
+      else {
+        const nameIndex = command.argv.indexOf("--name");
+        assert.ok(nameIndex >= 0);
+        assert.equal(
+          command.argv.filter((value) => value === "--name").length,
+          1,
+        );
+        assert.equal(command.argv[nameIndex + 1], name);
+      }
+    }
+    for (const [purpose, tail] of [
+      [
+        "start_subscription_auth_probe_attached",
+        [expectedNames.authContainerName],
+      ],
+      [
+        "connect_proxy_egress",
+        [expectedNames.egressNetworkName, expectedNames.proxyContainerName],
+      ],
+      ["start_proxy", [expectedNames.proxyContainerName]],
+      ["start_provider_attached", [expectedNames.providerContainerName]],
+    ] as const) {
+      const command = candidate.commands.find(
+        (entry) => entry.purpose === purpose,
+      );
+      assert.ok(command);
+      assert.deepEqual(command.argv.slice(-tail.length), tail);
+    }
+  };
+  assertResourceBinding(plan);
+  for (const changed of [
+    {
+      ...plan,
+      providerContainerName: expectedNames.providerContainerName.replace(
+        /codex|claude/u,
+        (value) => (value === "codex" ? "claude" : "codex"),
+      ),
+    },
+    {
+      ...plan,
+      providerContainerName: expectedNames.providerContainerName.replace(
+        /[ab]{16}$/u,
+        "c".repeat(16),
+      ),
+    },
+    { ...plan, internalNetworkName: `crdd-internal-${"03".repeat(8)}` },
+  ])
+    assert.throws(() => assertResourceBinding(changed));
+  for (const [purpose, flag] of [
+    ["create_provider", "--name"],
+    ["create_provider", "--label"],
+    ["create_internal_network", "target"],
+    ["connect_proxy_egress", "target"],
+    ["start_subscription_auth_probe_attached", "target"],
+    ["start_proxy", "target"],
+    ["start_provider_attached", "target"],
+  ]) {
+    const commands = plan.commands.map((command) => {
+      if (command.purpose !== purpose) return command;
+      const argv = [...command.argv];
+      const index =
+        flag === "target" ? argv.length - 1 : argv.indexOf(flag ?? "") + 1;
+      const original = argv[index];
+      argv[index] =
+        flag === "--label"
+          ? `crdd.coordinator.runtime=${"03".repeat(8)}`
+          : `crdd-proxy-${"03".repeat(8)}`;
+      if (flag !== "target" && original) argv.push(original);
+      return { ...command, argv };
+    });
+    assert.throws(() => assertResourceBinding({ ...plan, commands }));
+  }
   assert.equal(plan.providerContainerName, `crdd-codex-${"b".repeat(16)}`);
   assert.equal(plan.selectionRecordId, "MODELSEL-12345678");
   const purposes = plan.commands.map((candidate) => candidate.purpose);
@@ -578,6 +686,59 @@ test("説明可能な低推論選定を固定Docker command planへ一度だけ�
   );
 });
 
+/**
+ * 乱数の不正取得と例外が準備後の権限発行へ進まないことを確認する。
+ * @responsibility 取得順とMount返却を既存準備から観測する。
+ * @trace PRL-UT-014
+ * @precondition 固定選定と模擬Mountを持つ実準備Adapterを使う。
+ * @stimulus 各取得の短長違反と例外を与える。
+ * @observation 乱数呼出列、準備結果、Mount返却とAuthority件数。
+ * @oracle 不正Bufferでも二取得を維持し、例外以後は取得しない。Mount返却1、Authority0。
+ * @cleanup N/A: 値fixtureのみでDocker・外部AI・実Mountを取得しない。
+ * @boundary PRL-UT-014=Direct Boundary: 準備Owner→DI値生成。
+ */
+test("DI乱数検査の不成立は既存準備のMount返却と発行前停止を保つ", () => {
+  for (const mode of [
+    "short8",
+    "long8",
+    "short32",
+    "long32",
+    "throw8",
+    "throw32",
+  ]) {
+    const randomCalls: number[] = [];
+    let authorityCalls = 0;
+    const fixture = createFixture({
+      randomBytes: (size: number) => {
+        randomCalls.push(size);
+        if (mode === `throw${size}`) throw new Error("fixed_random_failure");
+        return Buffer.alloc(
+          mode === `short${size}`
+            ? size - 1
+            : mode === `long${size}`
+              ? size + 1
+              : size,
+          1,
+        );
+      },
+      issueProviderAuthority: () => {
+        authorityCalls += 1;
+        throw new Error("forbidden");
+      },
+    });
+    const prepared = fixture.adapter.prepare(
+      fixture.managementCapability,
+      fixture.mountCapability,
+      fixture.mountAuthorizationCapability,
+      fixture.selectionUseCapability,
+    );
+    assert.equal(prepared.status, "blocked");
+    assert.deepEqual(randomCalls, mode === "throw8" ? [8] : [8, 32]);
+    assert.equal(fixture.getCompletionCount(), 1);
+    assert.equal(authorityCalls, 0);
+    assert.equal(prepared.dockerEffectIssued, false);
+  }
+});
 /**
  * cancelはMount leaseを完了しprepared capabilityを再利用不能にするを検証する。
  *
@@ -657,7 +818,7 @@ test("Task Packetをstdin専用入力と隔離workspace RW mountへ結合する"
       "--security-opt=seccomp=" +
         fileURLToPath(
           new URL(
-            "../../../runtime/codex-executor-seccomp.json",
+            "../../../../docker-isolation/runtime/codex-executor-seccomp.json",
             import.meta.url,
           ),
         ),
@@ -774,19 +935,31 @@ test("期限切れprepared planはProvider EffectなしでMount leaseを回収�
  * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Executor seccomp profileを検証できなければProvider planを発行しない", () => {
-  const fixture = createFixture(
-    {
-      verifyExecutorSeccompProfile: () => null,
-    },
-    true,
-  );
-  const prepared = fixture.adapter.prepareTask(
-    fixture.managementCapability,
-    fixture.mountCapability,
-    fixture.mountAuthorizationCapability,
-    fixture.selectionUseCapability,
-    Object.freeze({}),
-  );
+  const fixture = createFixture({}, true);
+  const lstat = fs.lstatSync;
+  let rejected = 0;
+  const injected = mock.method(fs, "lstatSync", ((
+    ...args: Parameters<typeof fs.lstatSync>
+  ) => {
+    if (String(args[0]).endsWith("codex-executor-seccomp.json")) {
+      rejected += 1;
+      throw new Error("injected_seccomp_observation_failure");
+    }
+    return Reflect.apply(lstat, fs, args);
+  }) as typeof fs.lstatSync);
+  let prepared: ReturnType<typeof fixture.adapter.prepareTask>;
+  try {
+    prepared = fixture.adapter.prepareTask(
+      fixture.managementCapability,
+      fixture.mountCapability,
+      fixture.mountAuthorizationCapability,
+      fixture.selectionUseCapability,
+      Object.freeze({}),
+    );
+  } finally {
+    injected.mock.restore();
+  }
+  assert.ok(rejected >= 1);
   assert.equal(prepared.status, "blocked");
   assert.equal(prepared.reason, "codex_docker_runtime_plan_invalid");
   assert.equal(prepared.providerRequestIssued, false);
@@ -1247,97 +1420,6 @@ test("共通準備Lifecycleは管理一致・二時計境界・回収未確認�
       }
     }
   }
-});
-
-/**
- * 共通資源名と乱数検査が既存境界を両Providerで維持することを確認する。
- *
- * @responsibility Provider prefix、Home形式、63文字上限とBuffer取得長を反証する。
- * @trace PRL-UT-014
- * @precondition 実Docker・外部AIを使わず固定値を共通準備処理へ渡す。
- * @stimulus 両Providerの正常値、不正Home、名前長境界と乱数型・長さ違反を与える。
- * @observation 返却資源名、null、例外および乱数取得回数。
- * @oracle 既存prefixと上限を維持し、不正取得を補完しない。
- * @cleanup N/A: 局所値だけで実資源やStoreを作成しない。
- * @boundary N/A: Process内の値生成だけを確認する。
- */
-test("共通Docker資源名はHome形式・63文字境界と乱数長を維持する", () => {
-  for (const provider of ["codex", "claude"] as const) {
-    const names = createProviderDockerResourceNames(
-      provider,
-      "a".repeat(64),
-      "b".repeat(16),
-    );
-    assert.deepEqual(names, {
-      internalNetworkName: `crdd-internal-${"b".repeat(16)}`,
-      egressNetworkName: `crdd-egress-${"b".repeat(16)}`,
-      proxyContainerName: `crdd-proxy-${"b".repeat(16)}`,
-      authContainerName: `crdd-auth-${"b".repeat(16)}`,
-      providerContainerName: `crdd-${provider}-${"a".repeat(16)}`,
-      ownershipLabel: `crdd.coordinator.runtime=${"b".repeat(16)}`,
-    });
-    for (const home of [
-      "",
-      "a".repeat(63),
-      "a".repeat(65),
-      "A".repeat(64),
-      "g".repeat(64),
-    ])
-      assert.equal(
-        createProviderDockerResourceNames(provider, home, "b".repeat(16)),
-        null,
-      );
-    const maximumSuffix = 63 - "crdd-internal-".length;
-    assert.equal(
-      createProviderDockerResourceNames(
-        provider,
-        "a".repeat(64),
-        "b".repeat(maximumSuffix),
-      )?.internalNetworkName.length,
-      63,
-    );
-    assert.equal(
-      createProviderDockerResourceNames(
-        provider,
-        "a".repeat(64),
-        "b".repeat(maximumSuffix + 1),
-      ),
-      null,
-    );
-  }
-  let calls = 0;
-  const state = {
-    randomBytes: (size: number) => {
-      calls += 1;
-      return Buffer.alloc(size, 0xab);
-    },
-  };
-  assert.equal(createProviderDockerRandomHex(state, 8), "ab".repeat(8));
-  assert.equal(createProviderDockerRandomHex(state, 32), "ab".repeat(32));
-  assert.equal(calls, 2);
-  assert.equal(
-    createProviderDockerRandomHex({ randomBytes: () => Buffer.alloc(7) }, 8),
-    null,
-  );
-  assert.equal(
-    createProviderDockerRandomHex(
-      { randomBytes: () => new Uint8Array(8) as unknown as Buffer },
-      8,
-    ),
-    null,
-  );
-  assert.throws(
-    () =>
-      createProviderDockerRandomHex(
-        {
-          randomBytes: () => {
-            throw new Error("fixed_random_failure");
-          },
-        },
-        8,
-      ),
-    /fixed_random_failure/u,
-  );
 });
 
 /**

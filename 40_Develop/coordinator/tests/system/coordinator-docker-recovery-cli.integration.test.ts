@@ -9,116 +9,1079 @@
  * @boundary PRL-ST-001=System/E2E: 公開入口→Orchestrator→Execution→受入
  */
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { pathToFileURL } from "node:url";
+import { stripTypeScriptTypes } from "node:module";
+import { runInNewContext } from "node:vm";
 import { withUnsignedRuntimeFixture } from "../support/unsigned-runtime-fixture.ts";
-import { dispatchDockerDesktopRepairDoctorCommand } from "../../src/diagnostics/docker-desktop-repair-doctor-dispatch.ts";
 import { renderDockerRecoveryDoctorReport } from "../../src/diagnostics/docker-recovery-command-report.ts";
-import { inspectDockerRecoveryRootSnapshotWithLock } from "../../src/docker-execution/recovery-lifecycle.ts";
+import { parseDoctorArguments } from "../../src/cli/options.ts";
 
 const recoveryId = `docker-task.${"1".repeat(64)}.${"2".repeat(64)}.${"3".repeat(64)}`;
 const hostRecoveryId = `host.crdd-coordinator-doctor-fixture.12345678-1234-4234-8234-123456789abc.${"a".repeat(64)}`;
+
+/**
+ * 新しい実行環境修復CLIを固定公開診断まで接続する。
+ * @responsibility 旧Desktop handler・内部Path・表示再試行へ戻さない。
+ * @trace PRL-ST-001
+ * @precondition 実CLI関数と実renderer、下位Effectは模擬。
+ * @stimulus 初回／exact、binding／Root拒否、取消、解除・表示失敗。
+ * @observation 下位呼出し数、signal、解除順、公開JSONと終了コード。
+ * @oracle Effect前拒否は0、解除不明は一次理由保持・exit2、内部値漏洩0。
+ * @cleanup N/A: VM内のみ、Docker／Process／Filesystem書込み0。
+ * @boundary PRL-ST-001=Related 2 Blocks: CLI→修復composition→固定公開診断。
+ */
+test("現在修復CLIはRootと取消を結合し内部状態を公開しない", async () => {
+  const source = fs.readFileSync(
+    new URL("../../src/cli/command.ts", import.meta.url),
+    "utf8",
+  );
+  const start = source.indexOf("async function runRuntimeRepairDoctorCommand(");
+  const end = source.indexOf("const [, , command, ...args]", start);
+  assert.ok(start > 0 && end > start);
+  assert.equal(
+    source.includes("repairRuntimeOwnedWindowsDockerDesktopRuntime"),
+    false,
+  );
+  assert.doesNotMatch(
+    source,
+    /dispatchDockerDesktopRepairDoctorCommand|AfterVerifiedDockerDesktopRestart/u,
+  );
+  const body = stripTypeScriptTypes(source.slice(start, end));
+  const id = `docker-runtime-repair.${"a".repeat(64)}.${"b".repeat(64)}`;
+  for (const scenario of [
+    "normal",
+    "exact",
+    "binding",
+    "root",
+    "resolve_throw",
+    "producer_throw",
+    "cancel",
+    "exact_cancel",
+    "unbind",
+    "unbind_throw",
+    "render_throw",
+    "write_throw",
+    "retain",
+    "retain_cancel",
+    "retain_unbind",
+    "retain_unbind_throw",
+    "retain_render_throw",
+    "retain_write_throw",
+    "retain_wrong_id",
+  ] as const) {
+    const retention = scenario.startsWith("retain");
+    const cancelled =
+      scenario === "cancel" ||
+      scenario === "exact_cancel" ||
+      scenario === "retain_cancel";
+    let calls = 0,
+      roots = 0,
+      output = "",
+      exitCode = -1,
+      secretReads = 0;
+    const events: string[] = [];
+    const root = Object.freeze({});
+    const context = {
+      AbortController,
+      Object,
+      plainRecord: (value: unknown) => value,
+      bindTaskCliCancellationSignals: (cancel: () => unknown) => {
+        events.push("bind");
+        if (cancelled) cancel();
+        return {
+          status: scenario === "binding" ? "blocked" : "bound",
+          unbind: () => {
+            events.push("unbind");
+            if (scenario.endsWith("unbind_throw")) throw new Error("fixture");
+            return {
+              status: scenario.endsWith("unbind") ? "unknown" : "released",
+            };
+          },
+        };
+      },
+      resolveVerifiedRepositoryRootFromWorkingDirectory: () => {
+        roots++;
+        if (scenario === "resolve_throw") throw new Error("private-root");
+        return "root";
+      },
+      verifyRepositoryRoot: () => ({
+        status: scenario === "root" ? "blocked" : "completed",
+        capability: root,
+      }),
+      repairRuntimeOwnedDockerRuntime: async (
+        received: unknown,
+        signal: AbortSignal,
+        requested: unknown,
+        purpose: unknown,
+      ) => {
+        calls++;
+        events.push("repair");
+        assert.equal(received, root);
+        assert.equal(
+          requested,
+          retention || scenario === "exact" || scenario === "exact_cancel"
+            ? id
+            : null,
+        );
+        assert.equal(purpose, retention ? "retain" : "repair");
+        assert.equal(signal.aborted, cancelled);
+        if (scenario === "producer_throw")
+          throw new Error("private-provider-output");
+        if (scenario === "cancel")
+          return {
+            status: "blocked",
+            reason: "runtime_repair_boundary_unavailable",
+            recoveryId: null,
+            finalCheckpointConfirmed: false,
+            outcomeConfirmed: false,
+            retentionConfirmed: false,
+            retentionReviewAfter: null,
+            historyConfirmed: false,
+            completionConfirmed: false,
+            nativeCleanupConfirmed: false,
+          };
+        return Object.defineProperty(
+          {
+            status: "observed",
+            reason: "runtime_repair_recovered",
+            recoveryId:
+              scenario === "retain_wrong_id"
+                ? `docker-runtime-repair.${"c".repeat(64)}.${"d".repeat(64)}`
+                : id,
+            finalCheckpointConfirmed: true,
+            outcomeConfirmed: true,
+            retentionConfirmed: retention,
+            retentionReviewAfter: retention ? "2026-10-24T00:00:00.000Z" : null,
+            historyConfirmed: true,
+            completionConfirmed: true,
+            nativeCleanupConfirmed: true,
+          },
+          "checkpoint",
+          {
+            get: () => {
+              secretReads++;
+              throw new Error("private-checkpoint");
+            },
+          },
+        );
+      },
+      renderDockerRecoveryDoctorReport: (value: unknown, json: boolean) => {
+        events.push("render");
+        assert.ok(events.indexOf("unbind") < events.indexOf("render"));
+        if (scenario.endsWith("render_throw"))
+          throw new Error("fixture-render");
+        return renderDockerRecoveryDoctorReport(
+          JSON.parse(JSON.stringify(value)),
+          json,
+        );
+      },
+      process: {
+        cwd: () => "current",
+        stdout: {
+          write: (value: string) => {
+            if (scenario.endsWith("write_throw"))
+              throw new Error("fixture-write");
+            output = value;
+          },
+        },
+        set exitCode(value: number) {
+          exitCode = value;
+        },
+      },
+    };
+    const execute = runInNewContext(
+      `${body}; runRuntimeRepairDoctorCommand`,
+      context,
+    ) as (
+      json: boolean,
+      recoveryId: string | null,
+      purpose: "repair" | "retain",
+    ) => Promise<void>;
+    if (scenario.endsWith("render_throw") || scenario.endsWith("write_throw"))
+      await assert.rejects(
+        execute(true, retention ? id : null, retention ? "retain" : "repair"),
+      );
+    else {
+      await execute(
+        true,
+        retention || scenario === "exact" || scenario === "exact_cancel"
+          ? id
+          : null,
+        retention ? "retain" : "repair",
+      );
+      const value = JSON.parse(output);
+      const denied = [
+        "binding",
+        "root",
+        "resolve_throw",
+        "producer_throw",
+        "cancel",
+        "retain_cancel",
+        "retain_wrong_id",
+      ].includes(scenario);
+      assert.equal(value.status, denied ? "blocked" : "observed", scenario);
+      assert.equal(value.completionConfirmed, !denied);
+      assert.equal(value.retentionConfirmed, retention && !denied);
+      if (retention) {
+        const expected = {
+          contract: "crdd-coordinator/current-runtime-repair",
+          status: denied ? "blocked" : "observed",
+          reason: denied
+            ? scenario === "retain_wrong_id"
+              ? "runtime_repair_boundary_unavailable"
+              : "runtime_repair_cancelled"
+            : "runtime_repair_recovered",
+          recoveryId: id,
+          finalCheckpointConfirmed: !denied,
+          outcomeConfirmed: !denied,
+          retentionConfirmed: !denied,
+          retentionReviewAfter: denied ? null : "2026-10-24T00:00:00.000Z",
+          historyConfirmed: !denied,
+          completionConfirmed: !denied,
+          nativeCleanupConfirmed: !denied,
+          cliCleanupConfirmed: !scenario.includes("unbind"),
+          cliCleanupReason: scenario.includes("unbind")
+            ? "runtime_repair_cli_cleanup_unconfirmed"
+            : null,
+        };
+        assert.deepEqual(value, expected);
+        assert.throws(() =>
+          assert.deepEqual(
+            {
+              ...value,
+              recoveryId: `docker-runtime-repair.${"c".repeat(64)}.${"d".repeat(64)}`,
+            },
+            expected,
+          ),
+        );
+        if (scenario.includes("unbind"))
+          assert.throws(() =>
+            assert.deepEqual(
+              { ...value, cliCleanupConfirmed: true, cliCleanupReason: null },
+              expected,
+            ),
+          );
+      }
+      assert.equal(
+        exitCode,
+        denied || scenario.includes("unbind") ? 2 : 0,
+        scenario,
+      );
+      if (scenario.includes("unbind"))
+        assert.equal(value.reason, "runtime_repair_recovered");
+      assert.equal(output.includes("private"), false);
+      assert.equal(output.includes("checkpoint"), false);
+    }
+    assert.equal(
+      calls,
+      ["binding", "root", "resolve_throw", "retain_cancel"].includes(scenario)
+        ? 0
+        : 1,
+      scenario,
+    );
+    assert.equal(
+      roots,
+      scenario === "binding" || scenario === "retain_cancel" ? 0 : 1,
+      scenario,
+    );
+    assert.equal(secretReads, 0);
+    if (scenario === "retain") {
+      for (const mutant of [
+        body.replace(/(controller\.signal,\s*recoveryId,)\s*purpose,/u, "$1"),
+        body.replace(
+          /(controller\.signal,\s*recoveryId,)\s*purpose,/u,
+          '$1 "repair",',
+        ),
+        body.replace(
+          /(controller\.signal,)\s*recoveryId,\s*purpose,/u,
+          '$1 "different-id", purpose,',
+        ),
+      ]) {
+        assert.notEqual(mutant, body);
+        calls = 0;
+        roots = 0;
+        output = "";
+        events.length = 0;
+        const altered = runInNewContext(
+          `${mutant}; runRuntimeRepairDoctorCommand`,
+          context,
+        ) as typeof execute;
+        await altered(true, id, "retain");
+        assert.equal(calls, 1);
+        assert.equal(JSON.parse(output).status, "blocked");
+        assert.throws(() =>
+          assert.equal(JSON.parse(output).retentionConfirmed, true),
+        );
+      }
+    }
+  }
+});
+
+/**
+ * 修復診断の共同fieldとgetter／Proxy拒否を固定する。
+ * @responsibility 内部余剰fieldを外部結果へ転送しない。
+ * @trace PRL-ST-001
+ * @precondition 正規の固定公開結果。
+ * @stimulus 各確認field・ID・reasonの破損と悪意のgetter。
+ * @observation exitCode、JSON field集合、getter実行数。
+ * @oracle 完了は履歴・正規ID・解除の共同成立だけ、getterを実行せず拒否。
+ * @cleanup N/A: 純粋値のみ。
+ * @boundary 公開renderer契約。
+ */
+test("現在修復診断は固定fieldと相関だけを表示する", () => {
+  const value = {
+    contract: "crdd-coordinator/current-runtime-repair",
+    status: "observed",
+    reason: "runtime_repair_recovered",
+    recoveryId: `docker-runtime-repair.${"a".repeat(64)}.${"b".repeat(64)}`,
+    finalCheckpointConfirmed: true,
+    outcomeConfirmed: true,
+    retentionConfirmed: false,
+    retentionReviewAfter: null,
+    historyConfirmed: true,
+    completionConfirmed: true,
+    nativeCleanupConfirmed: true,
+    cliCleanupConfirmed: true,
+    cliCleanupReason: null,
+  };
+  assert.equal(renderDockerRecoveryDoctorReport(value, true).exitCode, 0);
+  assert.equal(
+    renderDockerRecoveryDoctorReport(
+      {
+        ...value,
+        cliCleanupConfirmed: false,
+        cliCleanupReason: "runtime_repair_cli_cleanup_unconfirmed",
+      },
+      true,
+    ).exitCode,
+    2,
+  );
+  for (const change of [
+    { historyConfirmed: false },
+    { retentionConfirmed: true },
+    { recoveryId: null },
+    { reason: "secret_value" },
+    { status: "blocked" },
+    { cliCleanupReason: "private/path" },
+  ])
+    assert.throws(() =>
+      renderDockerRecoveryDoctorReport({ ...value, ...change }, true),
+    );
+  const waiting = {
+    ...value,
+    completionConfirmed: false,
+    historyConfirmed: false,
+  };
+  assert.equal(renderDockerRecoveryDoctorReport(waiting, false).exitCode, 2);
+  assert.match(
+    renderDockerRecoveryDoctorReport(waiting, false).stdout,
+    /保持判断待ち/u,
+  );
+  const retained = {
+    ...value,
+    completionConfirmed: false,
+    retentionConfirmed: true,
+    retentionReviewAfter: "2026-10-24T00:00:00.000Z",
+  };
+  assert.equal(renderDockerRecoveryDoctorReport(retained, false).exitCode, 2);
+  const retainedComplete = {
+    ...retained,
+    completionConfirmed: true,
+    outcomeConfirmed: false,
+    finalCheckpointConfirmed: false,
+    nativeCleanupConfirmed: false,
+  };
+  assert.equal(
+    renderDockerRecoveryDoctorReport(retainedComplete, false).exitCode,
+    0,
+  );
+  assert.match(
+    renderDockerRecoveryDoctorReport(retainedComplete, false).stdout,
+    /保持引渡し完了/u,
+  );
+  for (const deadline of [
+    null,
+    "2026-10-24",
+    "2026-10-24T00:00:00Z",
+    "invalid",
+    1,
+  ])
+    assert.throws(() =>
+      renderDockerRecoveryDoctorReport(
+        { ...retainedComplete, retentionReviewAfter: deadline },
+        true,
+      ),
+    );
+  assert.throws(() =>
+    renderDockerRecoveryDoctorReport(
+      { ...value, retentionReviewAfter: "2026-10-24T00:00:00.000Z" },
+      true,
+    ),
+  );
+  for (const key of [
+    "historyConfirmed",
+    "outcomeConfirmed",
+    "finalCheckpointConfirmed",
+    "nativeCleanupConfirmed",
+  ])
+    assert.throws(() =>
+      renderDockerRecoveryDoctorReport({ ...retained, [key]: false }, true),
+    );
+  for (const key of [
+    "outcomeConfirmed",
+    "finalCheckpointConfirmed",
+    "nativeCleanupConfirmed",
+  ])
+    assert.throws(() =>
+      renderDockerRecoveryDoctorReport({ ...waiting, [key]: false }, true),
+    );
+  assert.throws(() =>
+    renderDockerRecoveryDoctorReport(
+      { ...value, status: "blocked", completionConfirmed: false },
+      true,
+    ),
+  );
+  assert.throws(() =>
+    renderDockerRecoveryDoctorReport(
+      {
+        ...waiting,
+        outcomeConfirmed: false,
+        finalCheckpointConfirmed: false,
+        nativeCleanupConfirmed: false,
+      },
+      true,
+    ),
+  );
+  assert.equal(
+    renderDockerRecoveryDoctorReport(
+      {
+        ...waiting,
+        status: "blocked",
+        reason: "runtime_repair_state_unavailable",
+        historyConfirmed: true,
+      },
+      true,
+    ).exitCode,
+    2,
+  );
+  assert.equal(
+    renderDockerRecoveryDoctorReport(
+      {
+        ...value,
+        outcomeConfirmed: false,
+        finalCheckpointConfirmed: false,
+        nativeCleanupConfirmed: false,
+      },
+      true,
+    ).exitCode,
+    0,
+  );
+  let getters = 0;
+  assert.throws(() =>
+    renderDockerRecoveryDoctorReport(
+      Object.defineProperty({ ...value }, "reason", {
+        get: () => {
+          getters++;
+          return "secret";
+        },
+      }),
+      true,
+    ),
+  );
+  assert.throws(() =>
+    renderDockerRecoveryDoctorReport(
+      new Proxy(value, {
+        get: () => {
+          getters++;
+          throw new Error("fixture");
+        },
+      }),
+      true,
+    ),
+  );
+  assert.equal(getters, 0);
+  const extra = Object.defineProperty({ ...value }, "internalRoot", {
+    get: () => {
+      getters++;
+      return "private-root";
+    },
+  });
+  assert.equal(
+    renderDockerRecoveryDoctorReport(extra, true).stdout.includes(
+      "internalRoot",
+    ),
+    false,
+  );
+  assert.equal(getters, 0);
+});
+
+/**
+ * 実引数解析からdoctorの修復分岐へ到達することを確認する。
+ * @responsibility 補助関数だけの成功をCLI配線の根拠にしない。
+ * @trace PRL-ST-001
+ * @precondition 実parserと本番doctor分岐本文、外部処理はspy。
+ * @stimulus 明示修復、exact修復ID、通常doctor、Task、旧close／adoptと分類無効化変異。
+ * @observation 新旧経路の呼出し列とexact ID。
+ * @oracle 新修復だけ一回発火し、分類無効化を同Oracleが拒否する。
+ * @cleanup N/A: 実Docker・Process・Filesystem操作0。
+ * @boundary PRL-ST-001=Related 2 Blocks: 引数→doctor分類→用途別入口。
+ */
+test("doctorの実parserと分岐は新修復だけを現在compositionへ渡す", async () => {
+  const source = fs.readFileSync(
+    new URL("../../src/cli/command.ts", import.meta.url),
+    "utf8",
+  );
+  const branch = source.indexOf('} else if (command === "doctor") {');
+  const start = source.indexOf("  try {", branch);
+  const end = source.indexOf("\n} else {", start);
+  assert.ok(branch > 0 && start > branch && end > start);
+  const body = stripTypeScriptTypes(source.slice(start, end));
+  const id = `docker-runtime-repair.${"a".repeat(64)}.${"b".repeat(64)}`;
+  /**
+   * 本番分岐を外部処理spyと実parserで一度実行する。
+   * @responsibility RootやDockerを起動せず分類の実接続を観測する。
+   * @trace PRL-ST-001
+   * @precondition 型除去済みの同じ分岐本文。
+   * @stimulus Sourceまたは一条件変異とargv。
+   * @observation 呼出し列。
+   * @oracle 未定義依存を成功へ補完せず例外を上位へ返す。
+   * @cleanup N/A: VMのみ。
+   * @boundary 実parserと用途別CLI入口。
+   */
+  const route = async (text: string, args: string[]) => {
+    const events: string[] = [];
+    const run = runInNewContext(`(async function(){${text}})`, {
+      args,
+      Object,
+      AbortController,
+      UsageError: Error,
+      parseDoctorArguments,
+      plainRecord: (value: unknown) => value,
+      process: {
+        env: {},
+        cwd: () => "root",
+        stdout: { write: () => undefined },
+        stderr: { write: () => undefined },
+        exitCode: 0,
+      },
+      runRuntimeRepairDoctorCommand: async (
+        _json: boolean,
+        exact: string | null,
+        purpose: "repair" | "retain",
+      ) => {
+        events.push(
+          `${purpose === "retain" ? "retain" : "new"}:${exact ?? "fresh"}`,
+        );
+        assert.ok(purpose === "repair" || purpose === "retain");
+      },
+      bindTaskCliCancellationSignals: () => ({
+        status: "bound",
+        unbind: () => ({ status: "released" }),
+      }),
+      resolveVerifiedRepositoryRootFromWorkingDirectory: () => {
+        events.push("root");
+        return "root";
+      },
+      verifyRepositoryRoot: () => {
+        events.push("verify");
+        return { status: "completed", capability: {} };
+      },
+      recoverRuntimeOwnedDockerTaskForCurrentConsumer: async (
+        exact: string,
+      ) => {
+        events.push(`task:${exact}`);
+        return { contract: "fixture", status: "blocked", recoveryId: exact };
+      },
+      restartRuntimeOwnedDockerForRecovery: async (exact: string) => {
+        events.push(`restart:${exact}`);
+        return { status: "blocked", cleanupConfirmed: true };
+      },
+      renderDockerRecoveryDoctorReport: () => ({ stdout: "safe", exitCode: 2 }),
+      runDoctor: () => {
+        events.push("doctor");
+        return { status: "ready" };
+      },
+      inspectRuntimeOwnedDockerTaskAdmission: (root: string) => {
+        assert.equal(root, "root");
+        return {};
+      },
+      currentRecoveryOperationRoot: () => null,
+      renderDoctorCommandFailure: (error: unknown) => {
+        if (
+          error instanceof Error &&
+          error.message === "doctor_arguments_invalid"
+        )
+          assert.deepEqual(events, []);
+        throw error;
+      },
+    }) as () => Promise<void>;
+    await run();
+    return events;
+  };
+  const cases: Array<[string[], string[]]> = [
+    [["--repair-docker-desktop-runtime", "--json"], ["new:fresh"]],
+    [["--recover-isolation", id, "--json"], [`new:${id}`]],
+    [["--retain-docker-runtime-repair", id, "--json"], [`retain:${id}`]],
+    [
+      ["--recover-isolation", recoveryId, "--json"],
+      ["root", "verify", `task:${recoveryId}`],
+    ],
+    [["--json"], ["root", "doctor"]],
+    [
+      ["--restart-docker-for-recovery", recoveryId, "--json"],
+      ["root", "verify", `restart:${recoveryId}`],
+    ],
+  ];
+  for (const [args, expected] of cases)
+    assert.deepEqual(await route(body, args), expected);
+  const old = `docker-desktop-repair.${"c".repeat(32)}`;
+  const releaseRoot = path.resolve("historical-release-not-used");
+  for (const args of [
+    [
+      "--adopt-docker-desktop-repair",
+      old,
+      "--repair-release-root",
+      releaseRoot,
+    ],
+    [
+      "--repair-release-root",
+      releaseRoot,
+      "--adopt-docker-desktop-repair",
+      old,
+    ],
+    [
+      "--recover-isolation",
+      recoveryId,
+      "--after-docker-desktop-repair",
+      old,
+      "--repair-release-root",
+      releaseRoot,
+    ],
+    [
+      "--repair-release-root",
+      releaseRoot,
+      "--after-docker-desktop-repair",
+      old,
+      "--recover-isolation",
+      recoveryId,
+    ],
+  ])
+    await assert.rejects(() => route(body, args), /doctor_arguments_invalid/u);
+  for (const retired of [
+    "--close-docker-desktop-runtime-repair",
+    "--adopt-docker-desktop-repair",
+    "--after-docker-desktop-repair",
+    "--repair-release-root",
+  ]) {
+    for (const args of [
+      [retired],
+      [retired, "old"],
+      [retired, "old", "--recover-isolation", recoveryId],
+      ["--recover-isolation", recoveryId, retired, "old"],
+    ])
+      await assert.rejects(
+        () => route(body, args),
+        /doctor_arguments_invalid/u,
+      );
+  }
+  const pattern = /const isCurrentRuntimeRepair =[\s\S]*?;/u;
+  assert.equal(body.match(new RegExp(pattern.source, "gu"))?.length, 1);
+  const mutant = body.replace(pattern, "const isCurrentRuntimeRepair = false;");
+  for (const [args, expected] of cases.slice(0, 3)) {
+    const changed = await route(mutant, args);
+    assert.throws(() => assert.deepEqual(changed, expected));
+  }
+  for (const changed of [
+    body.replace(/\? "retain"\s*: "repair"/u, '? "repair" : "repair"'),
+    body.replace(
+      /\? options\.retainDockerRuntimeRepairId\s*: recoveryId/u,
+      "? recoveryId : recoveryId",
+    ),
+  ]) {
+    assert.notEqual(changed, body);
+    const events = await route(changed, [
+      "--retain-docker-runtime-repair",
+      id,
+      "--json",
+    ]);
+    assert.throws(() => assert.deepEqual(events, [`retain:${id}`]));
+  }
+});
+
+/**
+ * 現在回復CLIの取消・Root・表示を本番分岐本文で接続する。
+ * @responsibility bindingと表示失敗が技術回復の再実行・状態復元を生まないことを確認する。
+ * @trace PRL-ST-001
+ * @precondition 本番CLI分岐と固定公開診断を使用する。
+ * @stimulus binding／Root拒否、unbind不明、表示例外を渡す。
+ * @observation 呼出し順序、回数、終了コード、公開表示を観測する。
+ * @oracle 正常は一回だけ組立て、unbind不明でも既完了状態を維持しexit2。
+ * @cleanup N/A: 実Process・Filesystem・Dockerを生成しない。
+ * @boundary PRL-ST-001=Related 2 Blocks: CLI→現在回復組立て→renderer。
+ */
+test("現在回復CLIは取消排他を解放してから固定診断を表示する", async () => {
+  const source = fs.readFileSync(
+    new URL("../../src/cli/command.ts", import.meta.url),
+    "utf8",
+  );
+  const branch = source.indexOf('recoveryId?.startsWith("docker-task.")');
+  const start = source.indexOf("      const controller", branch);
+  const end = source.indexOf("    } else {", start);
+  assert.ok(branch > 0 && start > branch && end > start);
+  const body = stripTypeScriptTypes(source.slice(start, end));
+  for (const scenario of [
+    "normal",
+    "binding",
+    "root",
+    "cancel_before",
+    "cancel_after",
+    "unbind",
+    "unbind_throw",
+    "render_throw",
+    "write_throw",
+  ]) {
+    const events: string[] = [];
+    let calls = 0,
+      exitCode: number | undefined,
+      output = "";
+    let cancel: (() => Promise<unknown>) | null = null;
+    const fixed = {
+      contract: "crdd-coordinator/current-task-recovery",
+      status: "recovered",
+      reason: "docker_task_recovery_completed",
+      recoveryId,
+      dockerCleanupConfirmed: true,
+      hostCleanupConfirmed: true,
+      locksReleased: true,
+      historyConfirmed: true,
+      deliveryPending: false,
+      operationRetained: false,
+      operationRemovalConfirmed: true,
+      taskRecoveryCompleted: true,
+      cleanupReason: null,
+      secret: "not_public",
+      preparation: {},
+    };
+    const processMock = {
+      cwd: () => "repository",
+      stdout: {
+        write(text: string) {
+          events.push("write");
+          if (scenario === "write_throw") throw new Error("fixture");
+          output = text;
+        },
+      },
+      get exitCode() {
+        return exitCode;
+      },
+      set exitCode(value: number | undefined) {
+        exitCode = value;
+      },
+    };
+    const run = runInNewContext(`(async () => { ${body} })`, {
+      AbortController,
+      Object,
+      recoveryId,
+      options: { json: true },
+      process: processMock,
+      bindTaskCliCancellationSignals: (callback: () => Promise<unknown>) => {
+        events.push("bind");
+        cancel = callback;
+        if (scenario === "cancel_before") void callback();
+        return {
+          status: scenario === "binding" ? "blocked" : "bound",
+          unbind() {
+            events.push("unbind");
+            if (scenario === "unbind_throw") throw new Error("fixture");
+            return { status: scenario === "unbind" ? "blocked" : "released" };
+          },
+        };
+      },
+      resolveVerifiedRepositoryRootFromWorkingDirectory: () => "root",
+      verifyRepositoryRoot: () => {
+        events.push("root");
+        return {
+          status: scenario === "root" ? "blocked" : "completed",
+          capability: {},
+        };
+      },
+      recoverRuntimeOwnedDockerTaskForCurrentConsumer: async () => {
+        events.push("recover");
+        calls++;
+        if (scenario === "cancel_after" && cancel) await cancel();
+        return fixed;
+      },
+      renderDockerRecoveryDoctorReport(value: unknown, json: boolean) {
+        events.push("render");
+        if (scenario === "render_throw") throw new Error("fixture");
+        return renderDockerRecoveryDoctorReport(
+          JSON.parse(JSON.stringify(value)),
+          json,
+        );
+      },
+    }) as () => Promise<void>;
+    if (scenario === "render_throw" || scenario === "write_throw")
+      await assert.rejects(run);
+    else await run();
+    assert.equal(
+      calls,
+      ["binding", "root", "cancel_before"].includes(scenario) ? 0 : 1,
+      scenario,
+    );
+    assert.equal(events.filter((x) => x === "unbind").length, 1, scenario);
+    assert.ok(events.indexOf("unbind") < events.indexOf("render"), scenario);
+    if (output) {
+      assert.doesNotMatch(output, /secret|preparation|not_public/);
+      const report = JSON.parse(output);
+      assert.equal(
+        report.taskRecoveryCompleted,
+        !["binding", "root", "cancel_before"].includes(scenario),
+      );
+      assert.equal(
+        exitCode,
+        ["normal", "cancel_after"].includes(scenario) ? 0 : 2,
+        scenario,
+      );
+      if (scenario.startsWith("unbind"))
+        assert.equal(report.reason, fixed.reason);
+    }
+  }
+});
+
+/**
+ * 現在回復の診断を利用形態と共同条件で表示する。
+ * @responsibility 部分成立・CLI清掃不明・未知fieldを正常完了表示へ混入させない。
+ * @trace PRL-ST-001
+ * @precondition 固定公開fieldだけを持つ診断を構成する。
+ * @stimulus 正常transient、durable待ち、相関欠落と余剰fieldを渡す。
+ * @observation 人間表示・JSON・終了コードを比較する。
+ * @oracle 正常と受領待ちを区別し、余剰fieldは出力しない。
+ * @cleanup N/A: 値変換だけ。
+ * @boundary PRL-ST-001=Direct Boundary: 固定診断→renderer。
+ */
+test("現在回復rendererは完了と耐久受領待ちを区別する", () => {
+  const base = {
+    contract: "crdd-coordinator/current-task-recovery",
+    status: "recovered",
+    reason: "docker_task_recovery_completed",
+    recoveryId,
+    dockerCleanupConfirmed: true,
+    hostCleanupConfirmed: true,
+    locksReleased: true,
+    historyConfirmed: true,
+    deliveryPending: false,
+    operationRetained: false,
+    operationRemovalConfirmed: true,
+    taskRecoveryCompleted: true,
+    cleanupReason: null,
+    cliCleanupConfirmed: true,
+    cliCleanupReason: null,
+    secret: "not_public",
+  };
+  assert.equal(renderDockerRecoveryDoctorReport(base, true).exitCode, 0);
+  assert.doesNotMatch(
+    renderDockerRecoveryDoctorReport(base, true).stdout,
+    /secret|not_public/,
+  );
+  assert.match(
+    renderDockerRecoveryDoctorReport(base, false).stdout,
+    /回復: 完了/,
+  );
+  const pending = {
+    ...base,
+    status: "awaiting_delivery",
+    reason: "docker_task_recovery_durable_acceptance_pending",
+    deliveryPending: true,
+    operationRetained: true,
+    operationRemovalConfirmed: false,
+    taskRecoveryCompleted: false,
+  };
+  assert.equal(renderDockerRecoveryDoctorReport(pending, true).exitCode, 0);
+  assert.match(
+    renderDockerRecoveryDoctorReport(pending, false).stdout,
+    /Orchestrator受領待ち/,
+  );
+  for (const field of [
+    "dockerCleanupConfirmed",
+    "hostCleanupConfirmed",
+    "locksReleased",
+    "historyConfirmed",
+    "operationRemovalConfirmed",
+    "taskRecoveryCompleted",
+  ])
+    assert.throws(
+      () => renderDockerRecoveryDoctorReport({ ...base, [field]: false }, true),
+      /diagnostic_failed/,
+    );
+  const release = {
+    ...base,
+    cliCleanupConfirmed: false,
+    cliCleanupReason: "cli_release_unconfirmed",
+  };
+  assert.equal(renderDockerRecoveryDoctorReport(release, true).exitCode, 2);
+  assert.equal(
+    JSON.parse(renderDockerRecoveryDoctorReport(release, true).stdout)
+      .taskRecoveryCompleted,
+    true,
+  );
+  let getters = 0;
+  for (const key of [
+    "contract",
+    "status",
+    "cleanupReason",
+    "dockerCleanupConfirmed",
+  ]) {
+    const input = { ...base };
+    Object.defineProperty(input, key, {
+      enumerable: true,
+      get() {
+        getters++;
+        throw new Error("secret");
+      },
+    });
+    assert.throws(
+      () => renderDockerRecoveryDoctorReport(input, true),
+      /diagnostic_failed/,
+    );
+  }
+  assert.equal(getters, 0);
+  const inherited = Object.getOwnPropertyDescriptor(
+    Object.prototype,
+    "contract",
+  );
+  try {
+    Object.defineProperty(Object.prototype, "contract", {
+      configurable: true,
+      get() {
+        getters++;
+        throw new Error("secret");
+      },
+    });
+    assert.equal(
+      renderDockerRecoveryDoctorReport({ status: "blocked" }, true).exitCode,
+      2,
+    );
+  } finally {
+    if (inherited)
+      Object.defineProperty(Object.prototype, "contract", inherited);
+    else Reflect.deleteProperty(Object.prototype, "contract");
+  }
+  assert.equal(getters, 0);
+  const blocked = {
+    ...base,
+    status: "blocked",
+    reason: "recovery_stopped",
+    operationRetained: true,
+    operationRemovalConfirmed: false,
+    taskRecoveryCompleted: false,
+  };
+  assert.equal(renderDockerRecoveryDoctorReport(blocked, true).exitCode, 2);
+  for (const value of [
+    { ...base, status: "blocked" },
+    { ...pending, status: "blocked" },
+    { ...blocked, operationRemovalConfirmed: true },
+    { ...blocked, taskRecoveryCompleted: true },
+    { ...blocked, operationRetained: false },
+    { ...base, reason: "wrong_reason" },
+    { ...pending, reason: "wrong_reason" },
+  ])
+    assert.throws(
+      () => renderDockerRecoveryDoctorReport(value, true),
+      /diagnostic_failed/,
+    );
+});
 
 /**
  * invokeCliのTest準備責務を実行する。
  *
  * @responsibility invokeCliがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
  * @trace PRL-ST-001
- * @precondition 呼出し元Test Caseが必要な入力を渡す。
- * @stimulus invokeCliを呼び出す。
- * @observation 返却値、生成fixtureまたは観測値を取得する。
- * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
- * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @precondition 呼出し元Test CaseがJSONまたは人間表示を指定する。
+ * @stimulus 自己生成Git Rootで元操作のない回復CLIを呼ぶ。
+ * @observation exact Git Root、公開結果、本体stateの前後Hashと存在を取得する。
+ * @oracle 親Repositoryを参照せず正規拒否し、本体stateの本文・存在は不変。
+ * @cleanup 共通fixtureが作成した専用Rootをfinallyで清掃する。
  * @boundary PRL-ST-001=Direct Boundary: coordinator Test Source→対象契約
  */
 function invokeCli(isJson: boolean) {
-  return withUnsignedRuntimeFixture((root) =>
-    spawnSync(
-      process.execPath,
-      [
-        "--experimental-strip-types",
-        path.join(root, "40_Develop", "coordinator", "bin", "coordinator.ts"),
-        "doctor",
-        "--recover-isolation",
-        recoveryId,
-        ...(isJson ? ["--json"] : []),
-      ],
-      { cwd: root, windowsHide: true, encoding: "utf8", timeout: 10_000 },
-    ),
+  const stateFile = path.resolve(
+    import.meta.dirname,
+    "../../../../.crdd/coordinator/state.json",
   );
-}
-
-/**
- * addCleanupRecoveryのTest準備責務を実行する。
- *
- * @responsibility addCleanupRecoveryがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
- * @trace PRL-ST-001
- * @precondition 呼出し元Test Caseが必要な入力を渡す。
- * @stimulus addCleanupRecoveryを呼び出す。
- * @observation 返却値、生成fixtureまたは観測値を取得する。
- * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
- * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary PRL-ST-001=Direct Boundary: coordinator Test Source→対象契約
- */
-function addCleanupRecovery(root: string, discriminator: string) {
-  const token = `docker-task.${discriminator.repeat(64)}.${discriminator.repeat(64)}.${discriminator.repeat(64)}`;
-  const cleanup = path.join(
-    root,
-    `cleanup-docker-task-${discriminator.repeat(64)}-${discriminator.repeat(64)}-${discriminator.repeat(64)}`,
-  );
-  const journalUrl = pathToFileURL(
-    path.resolve("src/state-storage/docker-recovery-journal.ts"),
-  ).href;
-  const source = `
-    import fs from "node:fs";
-    const journal = await import(${JSON.stringify(journalUrl)});
-    fs.mkdirSync(process.argv[2]);
-    fs.writeFileSync(process.argv[2] + "/payload.json", "{}\\n", "utf8");
-    const original = fs.rmSync;
-    fs.rmSync = (...args) => { original(...args); process.kill(process.pid, "SIGKILL"); };
-    journal.removeDockerRecoveryCleanupDirectory(process.argv[1], process.argv[2], process.argv[3], {
-      runtimeStateIdentityHash: "4".repeat(64),
-      runtimeStateProtectionHash: "5".repeat(64),
-      localUserBindingHash: "6".repeat(64),
-      runtimeStateBindingHash: "7".repeat(64),
+  const before = fs.existsSync(stateFile)
+    ? createHash("sha256").update(fs.readFileSync(stateFile)).digest("hex")
+    : null;
+  try {
+    return withUnsignedRuntimeFixture((root) => {
+      execFileSync("git", ["init", "--quiet"], {
+        cwd: root,
+        windowsHide: true,
+      });
+      fs.writeFileSync(
+        path.join(root, "fixture-marker.txt"),
+        "public recovery fixture\n",
+      );
+      execFileSync("git", ["add", "--", "fixture-marker.txt"], {
+        cwd: root,
+        windowsHide: true,
+      });
+      execFileSync(
+        "git",
+        [
+          "-c",
+          "user.name=CRDD Test",
+          "-c",
+          "user.email=crdd-test@example.invalid",
+          "-c",
+          "core.hooksPath=NUL",
+          "commit",
+          "--no-gpg-sign",
+          "--quiet",
+          "-m",
+          "Recovery CLI fixture",
+        ],
+        { cwd: root, windowsHide: true },
+      );
+      const resolved = execFileSync("git", ["rev-parse", "--show-toplevel"], {
+        cwd: root,
+        windowsHide: true,
+        encoding: "utf8",
+      }).trim();
+      assert.equal(
+        fs.realpathSync.native(resolved),
+        fs.realpathSync.native(root),
+      );
+      assert.equal(
+        execFileSync("git", ["ls-files"], {
+          cwd: root,
+          windowsHide: true,
+          encoding: "utf8",
+        }),
+        "fixture-marker.txt\n",
+      );
+      return spawnSync(
+        process.execPath,
+        [
+          "--experimental-strip-types",
+          path.join(root, "40_Develop", "coordinator", "bin", "coordinator.ts"),
+          "doctor",
+          "--recover-isolation",
+          recoveryId,
+          ...(isJson ? ["--json"] : []),
+        ],
+        { cwd: root, windowsHide: true, encoding: "utf8", timeout: 10_000 },
+      );
     });
-  `;
-  const result = spawnSync(
-    process.execPath,
-    ["--experimental-strip-types", "-e", source, root, cleanup, token],
-    { windowsHide: true, encoding: "utf8", timeout: 10_000 },
-  );
-  assert.notEqual(result.status, 0);
-  return token;
-}
-
-/**
- * inventoryのTest準備責務を実行する。
- *
- * @responsibility inventoryがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
- * @trace PRL-ST-001
- * @precondition 呼出し元Test Caseが必要な入力を渡す。
- * @stimulus inventoryを呼び出す。
- * @observation 返却値、生成fixtureまたは観測値を取得する。
- * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
- * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary PRL-ST-001=Direct Boundary: coordinator Test Source→対象契約
- */
-function inventory(rootPath: string) {
-  return inspectDockerRecoveryRootSnapshotWithLock(
-    Object.freeze({
-      rootPath,
-      runtimeStateIdentityHash: "4".repeat(64),
-      runtimeStateProtectionHash: "5".repeat(64),
-      localUserBindingHash: "6".repeat(64),
-      stableLogicalHomeBindingHash: "7".repeat(64),
-    }),
-    () => Object.freeze({ release: () => true }),
-  );
+  } finally {
+    const after = fs.existsSync(stateFile)
+      ? createHash("sha256").update(fs.readFileSync(stateFile)).digest("hex")
+      : null;
+    assert.equal(after, before);
+  }
 }
 
 /**
@@ -137,280 +1100,23 @@ test("実CLIのdocker-task dispatchはJSONでexact IDと安全なblocked理由�
   const result = invokeCli(true);
   assert.equal(result.status, 2, result.stderr);
   assert.deepEqual(JSON.parse(result.stdout), {
+    contract: "crdd-coordinator/current-task-recovery",
     status: "blocked",
-    reason: "docker_task_runtime_state_unavailable",
+    reason: "docker_task_recovery_preparation_unconfirmed",
     recoveryId: recoveryId,
-    manualRecoveryRequired: true,
-    evidenceState: "unknown",
+    dockerCleanupConfirmed: false,
+    hostCleanupConfirmed: false,
+    locksReleased: true,
+    historyConfirmed: false,
+    deliveryPending: false,
+    operationRetained: null,
+    operationRemovalConfirmed: false,
+    taskRecoveryCompleted: false,
+    cleanupReason: null,
+    cliCleanupConfirmed: true,
+    cliCleanupReason: null,
   });
   assert.equal(result.stderr, "");
-});
-
-/**
- * 実CLIの再起動Fence付きdocker-task dispatchは修復記録の生成元配布RootをRecoveryへ渡すを検証する。
- *
- * @responsibility 実CLIの再起動Fence付きdocker-task dispatchは修復記録の生成元配布RootをRecoveryへ渡すの合否判定を所有する。
- * @trace PRL-ST-001
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 実CLIの再起動Fence付きdocker-task dispatchは修復記録の生成元配布RootをRecoveryへ渡すの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-ST-001=Direct Boundary: coordinator Test Source→対象契約
- */
-test("実CLIの再起動Fence付きdocker-task dispatchは修復記録の生成元配布RootをRecoveryへ渡す", () =>
-  withUnsignedRuntimeFixture((root) => {
-    const repairId = `docker-desktop-repair.${"4".repeat(32)}`;
-    const result = spawnSync(
-      process.execPath,
-      [
-        "--experimental-strip-types",
-        path.join(root, "40_Develop", "coordinator", "bin", "coordinator.ts"),
-        "doctor",
-        "--recover-isolation",
-        recoveryId,
-        "--after-docker-desktop-repair",
-        repairId,
-        "--repair-release-root",
-        path.resolve("fixture-historical-release"),
-        "--json",
-      ],
-      { cwd: root, windowsHide: true, encoding: "utf8", timeout: 10_000 },
-    );
-    assert.equal(result.status, 2, result.stderr);
-    const report = JSON.parse(result.stdout);
-    assert.equal(report.status, "blocked");
-    assert.match(report.reason, /^docker_task_recovery_restart_fence_/u);
-    assert.equal(report.restartFenceVerified, false);
-    assert.equal(report.recoveryId, recoveryId);
-    assert.equal(result.stderr, "");
-  }));
-
-/**
- * 実CLIのDocker Desktop最終砦はinvalid IDをusage 64、未成立境界をblocked 2へ投影するを検証する。
- *
- * @responsibility 実CLIのDocker Desktop最終砦はinvalid IDをusage 64、未成立境界をblocked 2へ投影するの合否判定を所有する。
- * @trace PRL-ST-001
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 実CLIのDocker Desktop最終砦はinvalid IDをusage 64、未成立境界をblocked 2へ投影するの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-ST-001=Direct Boundary: coordinator Test Source→対象契約
- */
-test("実CLIのDocker Desktop最終砦はinvalid IDをusage 64、未成立境界をblocked 2へ投影する", () =>
-  withUnsignedRuntimeFixture((root) => {
-    const executable = path.join(
-      root,
-      "40_Develop",
-      "coordinator",
-      "bin",
-      "coordinator.ts",
-    );
-    const invalid = spawnSync(
-      process.execPath,
-      [
-        "--experimental-strip-types",
-        executable,
-        "doctor",
-        "--close-docker-desktop-runtime-repair",
-        "invalid",
-        "--json",
-      ],
-      { cwd: root, windowsHide: true, encoding: "utf8", timeout: 10_000 },
-    );
-    assert.equal(invalid.status, 64, invalid.stderr);
-    assert.equal(JSON.parse(invalid.stdout).status, "blocked");
-
-    const syntacticallyValid = `docker-desktop-repair.${"a".repeat(32)}`;
-    const blocked = spawnSync(
-      process.execPath,
-      [
-        "--experimental-strip-types",
-        executable,
-        "doctor",
-        "--close-docker-desktop-runtime-repair",
-        syntacticallyValid,
-        "--json",
-      ],
-      { cwd: root, windowsHide: true, encoding: "utf8", timeout: 10_000 },
-    );
-    assert.equal(blocked.status, 2, blocked.stderr);
-    const report = JSON.parse(blocked.stdout);
-    assert.equal(report.status, "blocked");
-    assert.equal(report.pathReported, false);
-    assert.equal(report.credentialReported, false);
-
-    const repair = spawnSync(
-      process.execPath,
-      [
-        "--experimental-strip-types",
-        executable,
-        "doctor",
-        "--repair-docker-desktop-runtime",
-        "--json",
-      ],
-      { cwd: root, windowsHide: true, encoding: "utf8", timeout: 10_000 },
-    );
-    assert.equal(repair.status, 2, repair.stderr);
-    assert.equal(JSON.parse(repair.stdout).status, "blocked");
-
-    const human = spawnSync(
-      process.execPath,
-      [
-        "--experimental-strip-types",
-        executable,
-        "doctor",
-        "--close-docker-desktop-runtime-repair",
-        syntacticallyValid,
-      ],
-      { cwd: root, windowsHide: true, encoding: "utf8", timeout: 10_000 },
-    );
-    assert.equal(human.status, 2, human.stderr);
-    assert.doesNotMatch(human.stdout, /C:\\|credential|password|token/iu);
-  }));
-
-/**
- * Docker Desktop専用dispatcherはrepair／closeの2・0・throwを同じrendererへ投影するを検証する。
- *
- * @responsibility Docker Desktop専用dispatcherはrepair／closeの2・0・throwを同じrendererへ投影するの合否判定を所有する。
- * @trace PRL-ST-001
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Docker Desktop専用dispatcherはrepair／closeの2・0・throwを同じrendererへ投影するの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-ST-001=Direct Boundary: coordinator Test Source→対象契約
- */
-test("Docker Desktop専用dispatcherはrepair／closeの2・0・throwを同じrendererへ投影する", async () => {
-  const repairId = `docker-desktop-repair.${"b".repeat(32)}`;
-  const terminal = Object.freeze({
-    contract: "crdd-coordinator/docker-desktop-runtime-repair",
-    contractRevision: 7,
-    status: "closed_retained",
-    reason: "docker_desktop_repair_evidence_retention_closed",
-    repairId,
-    operationState: "closed_retained",
-    manualRecoveryRequired: false,
-    processEffectIssued: true,
-    processEffectConfirmation: "confirmed",
-    filesystemEffectIssued: true,
-    filesystemEffectConfirmation: "confirmed",
-    engineReady: true,
-    engineStartupDurationMs: null,
-    staleRuntimeDirectory: "retained",
-    evidenceState: "preserved",
-    disposition: "retained_by_human_decision",
-    nativeHelperCleanupConfirmed: true,
-    effectStateUnknown: false,
-    operatorActionRequired: false,
-    newRepairPermitted: true,
-    deletionPerformed: false,
-    pathReported: false,
-    credentialReported: false,
-    providerEffectIssued: false,
-  });
-  for (const isJson of [true, false]) {
-    const adoption = await dispatchDockerDesktopRepairDoctorCommand(
-      {
-        json: isJson,
-        repairDockerDesktopRuntime: false,
-        closeDockerDesktopRepairId: null,
-        adoptDockerDesktopRepairId: repairId,
-        repairReleaseRoot: "C:\\old-release",
-      },
-      {
-        repair: async () => assert.fail("adoption must not repair"),
-        close: async () => assert.fail("adoption must not close"),
-        adopt: async (id, root) => {
-          assert.equal(id, repairId);
-          assert.equal(root, "C:\\old-release");
-          return {
-            ...terminal,
-            status: "historical_recovered_pending_close",
-            newRepairPermitted: false,
-            effectStateUnknown: true,
-          };
-        },
-      },
-    );
-    assert.equal(adoption?.exitCode, 2);
-    assert.doesNotMatch(adoption?.stdout ?? "", /C:\\/u);
-    const repair = await dispatchDockerDesktopRepairDoctorCommand(
-      {
-        json: isJson,
-        repairDockerDesktopRuntime: true,
-        closeDockerDesktopRepairId: null,
-      },
-      {
-        repair: async () => ({
-          ...terminal,
-          status: "recovered_pending_close",
-          newRepairPermitted: false,
-        }),
-        close: async () => terminal,
-      },
-    );
-    assert.equal(repair?.exitCode, 2);
-    const close = await dispatchDockerDesktopRepairDoctorCommand(
-      {
-        json: isJson,
-        repairDockerDesktopRuntime: false,
-        closeDockerDesktopRepairId: repairId,
-      },
-      { repair: async () => terminal, close: async () => terminal },
-    );
-    assert.equal(close?.exitCode, 0);
-    assert.doesNotMatch(close?.stdout ?? "", /C:\\/u);
-    const failed = await dispatchDockerDesktopRepairDoctorCommand(
-      {
-        json: isJson,
-        repairDockerDesktopRuntime: true,
-        closeDockerDesktopRepairId: null,
-      },
-      {
-        repair: async () => {
-          throw new Error("C:\\secret\\token");
-        },
-        close: async () => terminal,
-      },
-    );
-    assert.equal(failed?.exitCode, 2);
-    assert.doesNotMatch(failed?.stdout ?? "", /secret|token|C:\\/u);
-    const closeFailed = await dispatchDockerDesktopRepairDoctorCommand(
-      {
-        json: isJson,
-        repairDockerDesktopRuntime: false,
-        closeDockerDesktopRepairId: repairId,
-      },
-      {
-        repair: async () => terminal,
-        close: async () => {
-          throw new Error("C:\\secret\\close-token");
-        },
-      },
-    );
-    assert.equal(closeFailed?.exitCode, 2);
-    assert.doesNotMatch(closeFailed?.stdout ?? "", /secret|token|C:\\/u);
-    if (isJson) {
-      const fallback = JSON.parse(failed?.stdout ?? "{}") as Record<
-        string,
-        unknown
-      >;
-      assert.equal(fallback.manualRecoveryRequired, true);
-      assert.equal(fallback.effectStateUnknown, true);
-      assert.equal(fallback.operatorActionRequired, true);
-      assert.equal(fallback.newRepairPermitted, false);
-      assert.equal(fallback.processEffectIssued, null);
-      assert.equal(fallback.filesystemEffectIssued, null);
-      assert.equal(fallback.disposition, "unknown");
-      const closeFallback = JSON.parse(closeFailed?.stdout ?? "{}") as Record<
-        string,
-        unknown
-      >;
-      assert.equal(closeFallback.repairId, null);
-    }
-  }
 });
 
 /**
@@ -425,13 +1131,16 @@ test("Docker Desktop専用dispatcherはrepair／closeの2・0・throwを同じre
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-ST-001=Direct Boundary: coordinator Test Source→対象契約
  */
-test("実CLIの人間表示はmanual recoveryとEvidence不明を示し反復実行を誘導しない", () => {
+test("実CLIの人間表示は現在回復の停止を示し反復実行を誘導しない", () => {
   const result = invokeCli(false);
   assert.equal(result.status, 2, result.stderr);
-  assert.match(result.stdout, /Coordinator環境診断: blocked/u);
+  assert.match(result.stdout, /Coordinator Task回復: 停止/u);
   assert.match(result.stdout, new RegExp(`回復ID: ${recoveryId}`, "u"));
-  assert.match(result.stdout, /自動回復は停止しました/u);
-  assert.match(result.stdout, /回復根拠: 保持状況は未確認/u);
+  assert.match(result.stdout, /Task回復完了: いいえ/u);
+  assert.match(
+    result.stdout,
+    /理由: docker_task_recovery_preparation_unconfirmed/u,
+  );
   assert.doesNotMatch(result.stdout, /次の操作: coordinator doctor/u);
   assert.doesNotMatch(result.stdout, /C:\\/u);
   assert.equal(result.stderr, "");
@@ -671,50 +1380,6 @@ test("CLI共通projectorはHost release不明時もexact IDと再実行command�
 });
 
 /**
- * CLI共通projectorはvalid単一／複数inventoryをJSON／人間表示へexact投影するを検証する。
- *
- * @responsibility CLI共通projectorはvalid単一／複数inventoryをJSON／人間表示へexact投影するの合否判定を所有する。
- * @trace PRL-ST-001
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus CLI共通projectorはvalid単一／複数inventoryをJSON／人間表示へexact投影するの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-ST-001=Direct Boundary: coordinator Test Source→対象契約
- */
-test("CLI共通projectorはvalid単一／複数inventoryをJSON／人間表示へexact投影する", () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-cli-inventory-"));
-  try {
-    const first = addCleanupRecovery(root, "a");
-    const single = inventory(root);
-    assert.equal(single.status, "completed");
-    const singleJson = renderDockerRecoveryDoctorReport(
-      { status: "blocked", dockerTaskRecovery: single, blockers: [] },
-      true,
-    );
-    assert.equal(singleJson.exitCode, 2);
-    assert.deepEqual(JSON.parse(singleJson.stdout).dockerTaskRecovery, single);
-    const second = addCleanupRecovery(root, "b");
-    const multiple = inventory(root);
-    assert.equal(
-      multiple.reason,
-      "docker_task_multiple_recovery_inventory_available",
-    );
-    assert.deepEqual(multiple.dockerRecoveryIds, [first, second]);
-    const human = renderDockerRecoveryDoctorReport(
-      { status: "blocked", dockerTaskRecovery: multiple, blockers: [] },
-      false,
-    );
-    assert.match(human.stdout, /Dockerタスクの回復対象数: 2/u);
-    assert.match(human.stdout, new RegExp(first, "u"));
-    assert.match(human.stdout, new RegExp(second, "u"));
-    assert.doesNotMatch(human.stdout, /C:\\/u);
-  } finally {
-    fs.rmSync(root, { recursive: true, force: true });
-  }
-});
-
-/**
  * CLI共通projectorはthird stateをblocked、回復成功をexit 0へ分離するを検証する。
  *
  * @responsibility CLI共通projectorはthird stateをblocked、回復成功をexit 0へ分離するの合否判定を所有する。
@@ -727,26 +1392,22 @@ test("CLI共通projectorはvalid単一／複数inventoryをJSON／人間表示�
  * @boundary PRL-ST-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("CLI共通projectorはthird stateをblocked、回復成功をexit 0へ分離する", () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-cli-third-state-"));
-  try {
-    addCleanupRecovery(root, "c");
-    fs.writeFileSync(path.join(root, "unknown"), "unknown", "utf8");
-    const third = inventory(root);
-    assert.equal(third.status, "blocked");
-    const blocked = renderDockerRecoveryDoctorReport(third, false);
-    assert.equal(blocked.exitCode, 2);
-    assert.match(blocked.stdout, /docker_task_runtime_state_unknown_entry/u);
-    const recovered = renderDockerRecoveryDoctorReport(
-      {
-        status: "recovered",
-        reason: "docker_task_recovery_completed",
-        recoveryId: null,
-      },
-      true,
-    );
-    assert.equal(recovered.exitCode, 0);
-    assert.equal(JSON.parse(recovered.stdout).status, "recovered");
-  } finally {
-    fs.rmSync(root, { recursive: true, force: true });
-  }
+  const third = {
+    status: "blocked",
+    reason: "docker_task_recovery_root_unverified",
+  };
+  assert.equal(third.status, "blocked");
+  const blocked = renderDockerRecoveryDoctorReport(third, false);
+  assert.equal(blocked.exitCode, 2);
+  assert.match(blocked.stdout, /docker_task_recovery_root_unverified/u);
+  const recovered = renderDockerRecoveryDoctorReport(
+    {
+      status: "recovered",
+      reason: "docker_task_recovery_completed",
+      recoveryId: null,
+    },
+    true,
+  );
+  assert.equal(recovered.exitCode, 0);
+  assert.equal(JSON.parse(recovered.stdout).status, "recovered");
 });

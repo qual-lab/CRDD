@@ -107,22 +107,61 @@ function recoveryApplicationId(
 }
 
 /**
- * 回復 Completedが完全一致するか判定する。
+ * 回復の技術終端を種類別の固定条件へ照合する。
  *
- * @responsibility 回復 Completedの比較対象、完全一致条件、判定結果境界を所有する。
- * @trace ARCH-000004
- * @input value: unknown
- * @returns exactRecoveryCompletedの計算結果を返す。
- * @precondition 「value: unknown」がexactRecoveryCompletedの入力契約を満たす。
- * @postcondition exactRecoveryCompletedの責務を完了した結果だけを返す。
+ * @responsibility Dockerの耐久受領待ちとProcess回復の既存終端を区別する。
+ * @trace ARCH-000008
+ * @input value: 下位結果、kind: 保存済み義務種別、recoveryId: exact回復参照。
+ * @returns 同じ義務の技術終端条件を満たす場合だけtrue。
+ * @precondition 義務種別と回復参照は上位の検証済み状態から取得する。
+ * @postcondition DockerのtrueをTask成功・操作除去へ強めない。
  * @effect N/A: exactRecoveryCompletedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: exactRecoveryCompletedは独自の失敗分岐を所有しない。
- * @invariant exactRecoveryCompletedは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: exactRecoveryCompletedはProcess内の同一Subsystemで完結する。
- * @security N/A: exactRecoveryCompletedはAuthority、秘密値または信頼判断を扱わない。
+ * @failure Docker結果の欠落・別ID・旧形式・不明・getter／Proxyはfalse。
+ * @invariant 過去失敗や回復参照を成功・空値へ変更しない。
+ * @boundary 下位の固定診断と上位settled遷移。
+ * @security Dockerの全共同fieldを閉じた値として検証し、受領Authorityを発行しない。
  * @concurrency N/A: exactRecoveryCompletedは共有非同期状態を持たない同期処理である。
  */
-function exactRecoveryCompleted(value: unknown) {
+function exactRecoveryCompleted(
+  value: unknown,
+  kind: string,
+  recoveryId: string,
+) {
+  if (kind === "docker") {
+    const record = snapshotPlainRecord(
+      value,
+      new Set([
+        "contract",
+        "status",
+        "reason",
+        "recoveryId",
+        "dockerCleanupConfirmed",
+        "hostCleanupConfirmed",
+        "locksReleased",
+        "historyConfirmed",
+        "deliveryPending",
+        "operationRetained",
+        "operationRemovalConfirmed",
+        "taskRecoveryCompleted",
+        "cleanupReason",
+      ]),
+    );
+    return (
+      record?.contract === "crdd-coordinator/current-task-recovery" &&
+      record.status === "awaiting_delivery" &&
+      record.reason === "docker_task_recovery_durable_acceptance_pending" &&
+      record.recoveryId === recoveryId &&
+      record.dockerCleanupConfirmed === true &&
+      record.hostCleanupConfirmed === true &&
+      record.locksReleased === true &&
+      record.historyConfirmed === true &&
+      record.deliveryPending === true &&
+      record.operationRetained === true &&
+      record.operationRemovalConfirmed === false &&
+      record.taskRecoveryCompleted === false &&
+      record.cleanupReason === null
+    );
+  }
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const record = value as Readonly<Record<string, unknown>>;
   return (
@@ -603,6 +642,46 @@ export async function executeOrchestratorObjective(
     const publicRecoveryObligations = recoveries.map(({ kind, recoveryId }) =>
       Object.freeze({ kind, recoveryId }),
     );
+    const recoveryProcess =
+      dependencies.processSafety.getProcessInstanceIdentity();
+    const recoveryQueue = JSON.stringify(queue);
+    /**
+     * 待機・診断後の同じ上位状態と取消を読戻す。
+     * @responsibility 旧値からsettled保存・ACKへ無条件に進めない。
+     * @trace ARCH-000008
+     * @input N/A: 同じQueue・現在状態・取消とProcess相関を閉包で使う。
+     * @returns fresh値と捕捉値が一致する場合だけtrue。
+     * @precondition Queueは回復対象であり新しいLease Ownerを発行しない。
+     * @postcondition 同一Process相関を生存・非poison保証へ強めない。
+     * @effect 既存状態・Queueの読取りだけ。
+     * @failure 取消・差・観測不能はfalse。
+     * @invariant 新しいLock・Owner・回復状態を生成しない。
+     * @boundary 回復の非同期待機と上位保存。
+     * @security 書込み競合の最終判定は既存期待世代付き保存が所有する。
+     * @concurrency 各後段処置前にfresh読取りし、耐久済み段階を巻き戻さない。
+     */
+    const recoveryBoundaryCurrent = () => {
+      try {
+        if (
+          cancellationSignal.aborted ||
+          dependencies.processSafety.getProcessInstanceIdentity() !==
+            recoveryProcess
+        )
+          return false;
+        const currentState = persistence.state.readState(request.projectId);
+        const currentQueue = persistence.state.readQueue(queueId);
+        return (
+          currentState.status === "completed" &&
+          currentState.value !== null &&
+          currentQueue.status === "completed" &&
+          JSON.stringify(currentState.value) ===
+            JSON.stringify(recoveryState) &&
+          JSON.stringify(currentQueue.value) === recoveryQueue
+        );
+      } catch {
+        return false;
+      }
+    };
     if (unresolvedTasks.length > 0)
       return blocked(request, "orchestrator_recovery_result_unresolved", {
         cleanupConfirmed: false,
@@ -703,12 +782,15 @@ export async function executeOrchestratorObjective(
               : null;
         } else {
           try {
-            recovery = taskRecovery.recover(item.recoveryId);
+            recovery = recoveryBoundaryCurrent()
+              ? await taskRecovery.recover(item.recoveryId, cancellationSignal)
+              : null;
+            if (!recoveryBoundaryCurrent()) recovery = null;
           } catch {
             recovery = null;
           }
         }
-        if (!exactRecoveryCompleted(recovery))
+        if (!exactRecoveryCompleted(recovery, item.kind, item.recoveryId))
           return blocked(request, "orchestrator_task_recovery_not_settled", {
             cleanupConfirmed: false,
             manualRecoveryRequired: true,
@@ -804,6 +886,8 @@ export async function executeOrchestratorObjective(
       if (currentObligation?.phase === "settled") {
         let acknowledgementResult: unknown;
         try {
+          if (!recoveryBoundaryCurrent())
+            throw new Error("orchestrator_recovery_boundary_changed");
           acknowledgementResult = taskRecovery.acknowledgeDocker(
             Object.freeze({
               projectId: request.projectId,
@@ -933,6 +1017,8 @@ export async function executeOrchestratorObjective(
         );
       let finalized: unknown;
       try {
+        if (!recoveryBoundaryCurrent())
+          throw new Error("orchestrator_recovery_boundary_changed");
         finalized = taskRecovery.finalizeDockerAcknowledgement(
           Object.freeze({
             projectId: request.projectId,

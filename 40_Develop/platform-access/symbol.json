@@ -4,6 +4,102 @@
   "subsystem": "platform-access",
   "symbols": [
     {
+      "symbolId": "platform-access.test.unit.entry-observation",
+      "kind": "test-suite",
+      "path": "src/filesystem/entry_observation.rs",
+      "qaIds": ["QA-000006"],
+      "localTestIds": ["ERB-UT-039"],
+      "verifies": ["platform-access.source.native-entry-observation"]
+    },
+    {
+      "symbolId": "platform-access.source.entry-observation",
+      "kind": "module",
+      "path": "src/windows/entry-observation.ts",
+      "archIds": ["ARCH-000008"]
+    },
+    {
+      "symbolId": "platform-access.source.native-entry-observation",
+      "kind": "module",
+      "path": "src/filesystem/entry_observation.rs",
+      "archIds": ["ARCH-000008"]
+    },
+    {
+      "symbolId": "platform-access.test.integration.entry-observation",
+      "kind": "test-suite",
+      "path": "tests/integration/entry-observation.contract.test.ts",
+      "qaIds": ["QA-000006"],
+      "localTestIds": ["ERB-IT-001", "ERB-IT-002"],
+      "verifies": ["platform-access.source.entry-observation", "platform-access.source.public-api"]
+    },
+    {
+      "symbolId": "platform-access.source.local-app-data",
+      "kind": "module",
+      "path": "src/windows/local-app-data.ts",
+      "archIds": ["ARCH-000008"]
+    },
+    {
+      "symbolId": "platform-access.test.integration.local-app-data",
+      "kind": "test-suite",
+      "path": "tests/integration/local-app-data.contract.test.ts",
+      "qaIds": ["QA-000006"],
+      "localTestIds": ["ERB-IT-001", "ERB-IT-002"],
+      "verifies": ["platform-access.source.local-app-data", "platform-access.source.windows-directory", "platform-access.source.public-api"]
+    },
+    {
+      "symbolId": "platform-access.source.windows-child-environment",
+      "kind": "module",
+      "path": "src/windows/child-environment.ts",
+      "archIds": ["ARCH-000008", "ARCH-000011"]
+    },
+    {
+      "symbolId": "platform-access.source.public-api",
+      "kind": "module",
+      "path": "src/index.ts",
+      "archIds": ["ARCH-000004", "ARCH-000008", "ARCH-000011", "ARCH-000014"]
+    },
+    {
+      "symbolId": "platform-access.test.integration.system-directory",
+      "kind": "test-suite",
+      "path": "tests/integration/system-directory.contract.test.ts",
+      "qaIds": ["QA-000006"],
+      "localTestIds": ["ERB-IT-001", "ERB-IT-002"],
+      "verifies": ["platform-access.source.system-directory"]
+    },
+    {
+      "symbolId": "platform-access.test.integration.child-tree-termination",
+      "kind": "test-suite",
+      "path": "tests/integration/child-tree-termination.contract.test.ts",
+      "qaIds": ["QA-000006"],
+      "localTestIds": ["ERB-IT-002"],
+      "verifies": ["platform-access.source.child-tree-termination"]
+    },
+    {
+      "symbolId": "platform-access.source.artifact-identity-observation",
+      "kind": "module",
+      "path": "src/artifact/identity-observation.ts",
+      "archIds": ["ARCH-000014"]
+    },
+    {
+      "symbolId": "platform-access.source.system-directory",
+      "kind": "module",
+      "path": "src/windows/system-directory.ts",
+      "archIds": ["ARCH-000004"]
+    },
+    {
+      "symbolId": "platform-access.source.child-tree-termination",
+      "kind": "module",
+      "path": "src/windows/child-tree-termination.ts",
+      "archIds": ["ARCH-000008"]
+    },
+    {
+      "symbolId": "platform-access.test.integration.artifact-identity-observation",
+      "kind": "test-suite",
+      "path": "tests/integration/artifact-identity-observation.contract.test.ts",
+      "qaIds": ["QA-000006"],
+      "localTestIds": ["ERB-IT-001", "ERB-IT-002"],
+      "verifies": ["platform-access.source.artifact-identity-observation", "platform-access.source.public-api"]
+    },
+    {
       "symbolId": "platform-access.source.terminal-target",
       "kind": "module",
       "path": "src/filesystem/terminal_target.rs",
@@ -174,10 +270,10 @@
       "kind": "test-suite",
       "path": "src/docker-desktop/repair.rs",
       "qaIds": [
-        "QA-000003"
+        "QA-000003", "QA-000006"
       ],
       "localTestIds": [
-        "PRL-UT-006"
+        "PRL-UT-006", "ERB-UT-037"
       ],
       "verifies": [
         "platform-access.native-entry",
@@ -228,7 +324,8 @@
         "ERB-IT-003"
       ],
       "verifies": [
-        "platform-access.native-entry"
+        "platform-access.native-entry",
+        "platform-access.source.native-entry-observation"
       ]
     },
     {
@@ -250,10 +347,12 @@
       "kind": "test-suite",
       "path": "src/filesystem/windows_directory.rs",
       "qaIds": [
-        "QA-000008"
+        "QA-000008",
+        "QA-000006"
       ],
       "localTestIds": [
-        "RDL-UT-005"
+        "RDL-UT-005",
+        "ERB-UT-035"
       ],
       "verifies": [
         "platform-access.native-entry",

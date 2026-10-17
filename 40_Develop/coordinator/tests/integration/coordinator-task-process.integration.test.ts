@@ -15,6 +15,10 @@ import { type ChildProcess, spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
+import {
+  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
+  requireReadyRepositoryRuntimeDataArea,
+} from "../../../domain-model/src/index.ts";
 import { renderSafeHumanCommandReport } from "../../src/cli/command-report.ts";
 import { bindTaskCliCancellationSignals } from "../../src/cli/task-cancellation.ts";
 import { createIsolatedCoordinatorTaskRuntimeCandidate } from "../../src/task/execution.ts";
@@ -98,7 +102,14 @@ function createProcessHarness(
   scenario: Scenario,
   controllerCleanupConfirmed?: boolean,
 ) {
-  const owned = createOwnedOperationDirectories();
+  const tests = requireReadyRepositoryRuntimeDataArea(
+    ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
+      import.meta.dirname,
+      "tests",
+    ),
+    "task_process_test",
+  );
+  const owned = createOwnedOperationDirectories(tests.directory);
   const contextCapability = createOwnedOperationContextCapability(owned);
   const mountCapability = createOwnedMountCapability(owned);
   const managementCapability = createOwnedOperationManagementCapability(
@@ -300,12 +311,9 @@ function createProcessHarness(
     }),
     prepareCandidateStore: () => ({ status: "completed" }),
     prepareDockerRecoveryState: () => ({
-      status: "completed",
-      reason: "docker_task_runtime_state_clean",
-      manualRecoveryRequired: false,
-      dockerRecoveryId: null,
-      dockerRecoveryIds: [],
-      activeStableLogicalHomeBindingHashes: [],
+      status: "available",
+      reason: "coordinator_current_admission_available",
+      lockReleased: true,
     }),
     reportSelectionNotice: () => true,
     reportExternalSendNotice: () => true,
@@ -518,8 +526,15 @@ function createProcessHarness(
  * @boundary ERB-IT-003=Direct Boundary: Host清掃Owner→真正結果と実Filesystem。
  */
 test("Host清掃結果はOwner失効後も元操作だけへ結合する", async (t) => {
-  const first = createOwnedOperationDirectories();
-  const second = createOwnedOperationDirectories();
+  const tests = requireReadyRepositoryRuntimeDataArea(
+    ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
+      import.meta.dirname,
+      "tests",
+    ),
+    "task_process_test",
+  );
+  const first = createOwnedOperationDirectories(tests.directory);
+  const second = createOwnedOperationDirectories(tests.directory);
   t.after(async () => {
     for (const owned of [first, second])
       if (fs.existsSync(owned.root))
@@ -602,7 +617,6 @@ for (const cleanupConfirmed of [true, false]) {
         requiresCrossContextAlignment: false,
       },
       harness.owned.directories.workspace,
-      new Date().toISOString(),
     );
     const binding = bindTaskCliCancellationSignals(() =>
       harness.runtime.cancel(started.controlCapability),
@@ -723,7 +737,6 @@ for (const scenario of [
         requiresCrossContextAlignment: false,
       },
       harness.owned.directories.workspace,
-      new Date().toISOString(),
     );
     const binding = bindTaskCliCancellationSignals(() =>
       harness.runtime.cancel(started.controlCapability),

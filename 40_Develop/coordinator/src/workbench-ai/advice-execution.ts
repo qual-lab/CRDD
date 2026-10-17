@@ -1,17 +1,18 @@
 /**
- * Workbench読取り助言を署名済みCoordinator Runtimeへ接続する。
+ * Workbench読取り助言をCoordinator Runtimeへ接続する。
  *
  * @packageDocumentation
- * @responsibility 署名配布物の確認、Operation、Provider Home、Selection、Docker回復、取消およびcleanupを一つの助言Lifecycleへ閉じる。
+ * @responsibility 検証済みRepository、Operation、Provider Home、Selection、Docker回復、取消およびcleanupを一つの助言Lifecycleへ閉じる。
  * @trace ARCH-000008
  * @trace ARCH-000010
  * @trace ARCH-000015
- * @boundary Workbench助言Executorと署名済みDocker Provider Runtimeの実境界。
+ * @boundary Workbench助言ExecutorとDocker Provider Runtimeの実境界。
  * @effect 明示確認済み依頼ごとに選択Providerを最大一回実行し、所有する一時資源を清掃する。
  * @security Repository／WorkspaceをProviderへ共有せず、抽出済み助言JSONだけを返す。
  */
 import {
   isRuntimeProcessEffectBlocked,
+  isRuntimeProcessPoisoned,
   poisonRuntimeProcessAfterCleanupUnknown,
 } from "../host-execution/process-safety-state.ts";
 import { prepareRuntimeOwnedClaudeDockerAdviceCandidate } from "../provider/claude-docker-adapter.ts";
@@ -28,13 +29,13 @@ import { bindRuntimeOwnedRepositoryOperation } from "../repository-operation/bin
 import {
   cancelRuntimeOwnedDockerProcessController,
   startRuntimeOwnedDockerProcessController,
-} from "../docker-execution/process-controller.ts";
+} from "../provider/execution-controller.ts";
 import {
   abandonRuntimeOwnedDockerRecovery,
   finalizeRuntimeOwnedDockerRecovery,
   prepareRuntimeOwnedDockerHostCleanup,
   recordRuntimeOwnedDockerHostCleanupReceipt,
-} from "../docker-execution/recovery-lifecycle.ts";
+} from "../task/recovery.ts";
 import {
   abandonOwnedHostOperationGenerationLock,
   activateOwnedHostOperationGenerationLock,
@@ -44,7 +45,6 @@ import {
   observeOwnedHostOperationGenerationLoss,
   verifyOwnedOperationCleanupOutcome,
 } from "../host-execution/operation-workspace-lifecycle.ts";
-import { consumeRuntimeOwnedVerifiedCoordinatorPackageCapability } from "../platform-access/package-verification.ts";
 import {
   consumeRuntimeOwnedProviderHomeMountGrant,
   issueRuntimeOwnedProviderHomeMountGrant,
@@ -112,9 +112,9 @@ export function classifyWorkbenchAiAdviceHostFailure(result: unknown) {
 }
 
 /**
- * 署名済みWorkbench助言Production Runtime境界で使用するRuntimeRecordの構造を固定する。
+ * Workbench助言Runtime境界で使用するRuntimeRecordの構造を固定する。
  *
- * @responsibility 署名済みWorkbench助言Production Runtime境界が受け渡す値、状態および制約を一つの型契約として保持する。
+ * @responsibility Workbench助言Runtime境界が受け渡す値、状態および制約を一つの型契約として保持する。
  * @trace ARCH-000008
  * @shape 宣言されたPropertyだけを持つ閉じた型として扱う。
  * @invariant Identity、状態およびAuthorityを暗黙に読み替えない。
@@ -125,9 +125,9 @@ export function classifyWorkbenchAiAdviceHostFailure(result: unknown) {
 
 type RuntimeRecord = Readonly<Record<string, unknown>>;
 /**
- * 署名済みWorkbench助言Production Runtime境界で使用するOperationの構造を固定する。
+ * Workbench助言Runtime境界で使用するOperationの構造を固定する。
  *
- * @responsibility 署名済みWorkbench助言Production Runtime境界が受け渡す値、状態および制約を一つの型契約として保持する。
+ * @responsibility Workbench助言Runtime境界が受け渡す値、状態および制約を一つの型契約として保持する。
  * @trace ARCH-000008
  * @shape 宣言されたPropertyだけを持つ閉じた型として扱う。
  * @invariant Identity、状態およびAuthorityを暗黙に読み替えない。
@@ -147,9 +147,9 @@ type Operation = Readonly<{
 }>;
 
 /**
- * 署名済みWorkbench助言Production Runtime境界で使用するWorkbenchAiAdviceRuntimeDependenciesの構造を固定する。
+ * Workbench助言Runtime境界で使用するWorkbenchAiAdviceRuntimeDependenciesの構造を固定する。
  *
- * @responsibility 署名済みWorkbench助言Production Runtime境界が受け渡す値、状態および制約を一つの型契約として保持する。
+ * @responsibility Workbench助言Runtime境界が受け渡す値、状態および制約を一つの型契約として保持する。
  * @trace ARCH-000008
  * @shape 宣言されたPropertyだけを持つ閉じた型として扱う。
  * @invariant Identity、状態およびAuthorityを暗黙に読み替えない。
@@ -159,7 +159,6 @@ type Operation = Readonly<{
  */
 
 export type WorkbenchAiAdviceRuntimeDependencies = Readonly<{
-  consumeVerifiedPackage: (capability: unknown) => boolean;
   createOperation: () => Promise<Operation>;
   bindRepository: (
     managementCapability: unknown,
@@ -193,54 +192,58 @@ export type WorkbenchAiAdviceRuntimeDependencies = Readonly<{
 }>;
 
 /**
- * 署名配布物Capabilityを依頼ごとに発行するProduction助言Runtimeを生成する。
+ * 検証済みRepositoryへ閉じたProduction助言Runtimeを生成する。
  *
- * @responsibility 一回用の署名配布物CapabilityをRuntimeへ渡し、助言Lifecycleの外へ再利用可能なAuthorityを公開しない。
+ * @responsibility 元Rootと現在の用途別許可を使い、署名資格とは独立して助言Lifecycleへ接続する。
  * @trace ARCH-000010
  * @trace ARCH-000015
- * @input issueVerifiedPackageCapability: 現在配布物を検証して一回用Capabilityを返す関数、repositoryRootCapability: 元Repositoryの検証済みRoot Capability。
+ * @input repositoryRootCapability: 元Repositoryの検証済みRoot Capability。
  * @returns Workbench Provider Executorへ注入できるRuntime Port。
- * @precondition 発行関数は秘密値を返さず、失敗時はnullを返す。
+ * @precondition 検証済みRootは現在Repositoryに対応する。不正・失効したRootは別Rootへ補完しない。
  * @postcondition 各呼出しは独立Operationを所有し、completedはHost／Docker cleanup後だけ返る。
  * @effect 選択ProviderのDocker ProcessとRepository-local Runtime状態を操作する。
- * @failure 署名、Identity、取消、Process、回復またはcleanupの不成立をblockedへ閉じる。
+ * @failure Identity、取消、Process、回復またはcleanupの不成立をblockedへ閉じる。
  * @invariant 自動再送、Provider fallback、Repository Mountおよび生出力公開を行わず、Selection前に元Repository Identityへ結合する。
- * @boundary Workbench Production Compositionと署名済みCoordinator Runtimeの間。
+ * @boundary Workbench Production CompositionとCoordinator Runtimeの間。
  * @security Capability、Host Path、Credentialおよび生Provider出力を公開結果へ含めない。
  * @concurrency 呼出しごとに独立Operationを生成し、共有Authorityを使い回さない。
  */
 export function createRuntimeOwnedWorkbenchAiAdviceProductionRuntime(
-  issueVerifiedPackageCapability: () => unknown,
   repositoryRootCapability: VerifiedRepositoryRoot,
 ): WorkbenchAiAdviceRuntimePort {
   const repositoryRoot = resolveVerifiedRepositoryRoot(
     repositoryRootCapability,
   );
+  if (repositoryRoot === null)
+    return async (_executionPlan, cancellationSignal) =>
+      blocked(
+        cancellationSignal.aborted
+          ? "workbench_ai_advice_cancelled_before_runtime_effect"
+          : "workbench_ai_advice_repository_binding_unavailable",
+        false,
+        true,
+      );
   const runtime = createWorkbenchAiAdviceRuntime(
     createProductionDependencies(repositoryRoot),
   );
   return (executionPlan, cancellationSignal) =>
-    runtime(
-      executionPlan,
-      cancellationSignal,
-      issueVerifiedPackageCapability(),
-    );
+    runtime(executionPlan, cancellationSignal);
 }
 
 /**
  * 試験専用の依存注入候補を生成する。
  *
- * @responsibility 注入済み依存を使うRuntimeと固定の非Authority package candidateを試験へ提供する。
+ * @responsibility 注入済み依存を使うRuntimeと非Authorityの試験候補を提供する。
  * @trace ARCH-000008
  * @trace ARCH-000010
  * @trace ARCH-000015
  * @input dependencies: 全外部境界を明示注入したRuntime依存。
- * @returns runtime関数と試験専用package candidate。
+ * @returns runtime関数と非Authorityの試験候補。
  * @precondition dependenciesは試験が所有し、Production Capabilityを含めない。
  * @postcondition Candidate自体はProduction Authorityを持たない。
  * @effect N/A: 候補生成時には外部Effectを発行しない。
  * @failure N/A: 実行時失敗は返却Runtimeの閉じた結果へ収束する。
- * @invariant Production署名Capabilityを偽装しない。
+ * @invariant 試験依存を本番構成へ混入させない。
  * @boundary Contract TestとWorkbench助言Runtime Coreの試験境界。
  * @security 実Credential、Host PathまたはProvider Homeを組み込まない。
  * @concurrency Runtime呼出しごとの依存Lifecycleは注入先が所有する。
@@ -255,9 +258,9 @@ export function createIsolatedWorkbenchAiAdviceRuntimeCandidate(
 }
 
 /**
- * 署名済みWorkbench助言Production Runtime境界におけるcreateWorkbenchAiAdviceRuntimeの処理境界を固定する。
+ * Workbench助言Runtime境界におけるcreateWorkbenchAiAdviceRuntimeの処理境界を固定する。
  *
- * @responsibility 署名済みWorkbench助言Production Runtime境界に必要な入力処理、失敗分類および結果生成を所有する。
+ * @responsibility Workbench助言Runtime境界に必要な入力処理、失敗分類および結果生成を所有する。
  * @trace ARCH-000008
  * @input 宣言された引数だけを受け取る。
  * @returns 宣言された結果型を返す。
@@ -277,7 +280,6 @@ function createWorkbenchAiAdviceRuntime(
   return async (
     plan: WorkbenchAiAdviceExecutionPlan,
     cancellationSignal: AbortSignal,
-    verifiedPackageCapability: unknown,
   ): Promise<WorkbenchAiAdviceRuntimeResult> => {
     if (cancellationSignal.aborted)
       return blocked(
@@ -285,12 +287,11 @@ function createWorkbenchAiAdviceRuntime(
         false,
         true,
       );
-    if (
-      isRuntimeProcessEffectBlocked() ||
-      !dependencies.consumeVerifiedPackage(verifiedPackageCapability)
-    )
+    if (isRuntimeProcessEffectBlocked())
       return blocked(
-        "workbench_ai_advice_release_verification_required",
+        isRuntimeProcessPoisoned()
+          ? "workbench_ai_advice_process_restart_required"
+          : "workbench_ai_advice_runtime_cleanup_in_progress",
         false,
         true,
       );
@@ -340,7 +341,6 @@ function createWorkbenchAiAdviceRuntime(
 
       const observation = dependencies.observeProviderHome(
         plan.provider,
-        new Date().toISOString(),
       ) as RuntimeRecord;
       const observationCapability = objectValue(
         observation.observationCapability,
@@ -367,7 +367,6 @@ function createWorkbenchAiAdviceRuntime(
         );
       const mountObservation = dependencies.observeProviderHome(
         plan.provider,
-        new Date().toISOString(),
       ) as RuntimeRecord;
       const mountObservationCapability = objectValue(
         mountObservation.observationCapability,
@@ -675,9 +674,9 @@ function createWorkbenchAiAdviceRuntime(
 }
 
 /**
- * 署名済みWorkbench助言Production Runtime境界で使用するAdviceRuntimeErrorのlifecycleを固定する。
+ * Workbench助言Runtime境界で使用するAdviceRuntimeErrorのlifecycleを固定する。
  *
- * @responsibility 署名済みWorkbench助言Production Runtime境界に必要な入力処理、失敗分類および結果生成を所有する。
+ * @responsibility Workbench助言Runtime境界に必要な入力処理、失敗分類および結果生成を所有する。
  * @trace ARCH-000008
  * @construction 明示された入力からだけ生成する。
  * @lifecycle 生成元の処理範囲を越えてAuthorityまたは資源を保持しない。
@@ -716,9 +715,9 @@ class AdviceRuntimeError extends Error {
 }
 
 /**
- * 署名済みWorkbench助言Production Runtime境界におけるselectionRequestの処理境界を固定する。
+ * Workbench助言Runtime境界におけるselectionRequestの処理境界を固定する。
  *
- * @responsibility 署名済みWorkbench助言Production Runtime境界に必要な入力処理、失敗分類および結果生成を所有する。
+ * @responsibility Workbench助言Runtime境界に必要な入力処理、失敗分類および結果生成を所有する。
  * @trace ARCH-000008
  * @input 宣言された引数だけを受け取る。
  * @returns 宣言された結果型を返す。
@@ -767,7 +766,7 @@ function selectionRequest(
  * @trace ARCH-000010
  * @input selection: Selection結果、controlCapability: 制御Capability、useCapability: 利用Capability、plan: 固定実行計画
  * @returns 固定実行計画と完全一致する発行済みSelectionだけtrueを返す。
- * @precondition Selection結果は署名CoordinatorのSelection境界から返されている。
+ * @precondition Selection結果はCoordinatorのSelection境界から返されている。
  * @postcondition trueでもProvider Effect Authorityを発行しない。
  * @effect N/A: 入力値の比較だけを行う。
  * @failure 不足、不一致または不正状態をfalseへ閉じる。
@@ -825,7 +824,7 @@ function sameSelection(initial: RuntimeRecord, refreshed: RuntimeRecord) {
 /**
  * Operation作成と世代Lock準備を同じ初期化失敗境界へ閉じる。
  *
- * @responsibility 署名済みWorkbench助言Production Runtime境界に必要な入力処理、失敗分類および結果生成を所有する。
+ * @responsibility Workbench助言Runtime境界に必要な入力処理、失敗分類および結果生成を所有する。
  * @trace ARCH-000008
  * @input dependencies: 固定本番依存、または非Authorityの局所試験依存。
  * @returns 準備済みOperationと同じ世代の喪失観測。
@@ -972,34 +971,27 @@ export function createIsolatedWorkbenchAiOperationCandidate(
 /**
  * 検証済みRepositoryへ閉じたWorkbench助言Production依存を構築する。
  *
- * @responsibility Workbench助言OperationのRepository結合と署名Coordinator実境界を同じ依存集合へ固定する。
+ * @responsibility Workbench助言OperationのRepository結合とCoordinator実境界を同じ依存集合へ固定する。
  * @trace ARCH-000008
  * @trace ARCH-000010
- * @input repositoryRoot: 検証済みCapabilityから解決したRepository Root。解決不能時はnull。
+ * @input repositoryRoot: 検証済みCapabilityから解決したRepository Root。
  * @returns Repository Scopeへ閉じたProduction Runtime依存を返す。
- * @precondition Repository RootはVersion Control境界で検証済み、または解決不能としてnullである。
- * @postcondition nullの場合も別Repositoryへfallbackせず、Repository結合時にFail Closedとなる。
+ * @precondition Root不成立はFactoryが依存構築前に拒否し、この関数へ渡さない。
+ * @postcondition 検証したRootだけをOperationのRepository結合へ使用する。
  * @effect N/A: 依存関数を構成するだけで、OperationまたはFilesystem Effectをまだ発行しない。
  * @failure Repository結合不能は実行時に`workbench_ai_advice_repository_binding_unavailable`へ閉じる。
  * @invariant Repository／WorkspaceのProvider Mountを有効化しない。
- * @boundary Workbench CLIの検証済みRepository Capabilityと署名Coordinator Runtimeの境界。
+ * @boundary Workbench CLIの検証済みRepository CapabilityとCoordinator Runtimeの境界。
  * @security Repository Pathを公開結果、Task PacketまたはProvider入力へ追加しない。
  * @concurrency 返却依存はOperationごとに独立したCapabilityへ結合される。
  */
 function createProductionDependencies(
-  repositoryRoot: string | null,
+  repositoryRoot: string,
 ): WorkbenchAiAdviceRuntimeDependencies {
   return Object.freeze({
-    consumeVerifiedPackage:
-      consumeRuntimeOwnedVerifiedCoordinatorPackageCapability,
     createOperation: createProductionOperation,
     bindRepository: (managementCapability) =>
-      repositoryRoot === null
-        ? null
-        : bindRuntimeOwnedRepositoryOperation(
-            managementCapability,
-            repositoryRoot,
-          ),
+      bindRuntimeOwnedRepositoryOperation(managementCapability, repositoryRoot),
     observeProviderHome: inspectRuntimeOwnedWindowsProviderHomeCandidate,
     issueMountGrant: issueRuntimeOwnedProviderHomeMountGrant,
     consumeMountGrant: consumeRuntimeOwnedProviderHomeMountGrant,
@@ -1024,9 +1016,9 @@ function createProductionDependencies(
 }
 
 /**
- * 署名済みWorkbench助言Production Runtime境界におけるobjectValueの処理境界を固定する。
+ * Workbench助言Runtime境界におけるobjectValueの処理境界を固定する。
  *
- * @responsibility 署名済みWorkbench助言Production Runtime境界に必要な入力処理、失敗分類および結果生成を所有する。
+ * @responsibility Workbench助言Runtime境界に必要な入力処理、失敗分類および結果生成を所有する。
  * @trace ARCH-000008
  * @input 宣言された引数だけを受け取る。
  * @returns 宣言された結果型を返す。
@@ -1045,9 +1037,9 @@ function objectValue(value: unknown): object | null {
 }
 
 /**
- * 署名済みWorkbench助言Production Runtime境界におけるrecordValueの処理境界を固定する。
+ * Workbench助言Runtime境界におけるrecordValueの処理境界を固定する。
  *
- * @responsibility 署名済みWorkbench助言Production Runtime境界に必要な入力処理、失敗分類および結果生成を所有する。
+ * @responsibility Workbench助言Runtime境界に必要な入力処理、失敗分類および結果生成を所有する。
  * @trace ARCH-000008
  * @input 宣言された引数だけを受け取る。
  * @returns 宣言された結果型を返す。
@@ -1068,9 +1060,9 @@ function recordValue(value: unknown): RuntimeRecord | null {
 }
 
 /**
- * 署名済みWorkbench助言Production Runtime境界におけるstringValueの処理境界を固定する。
+ * Workbench助言Runtime境界におけるstringValueの処理境界を固定する。
  *
- * @responsibility 署名済みWorkbench助言Production Runtime境界に必要な入力処理、失敗分類および結果生成を所有する。
+ * @responsibility Workbench助言Runtime境界に必要な入力処理、失敗分類および結果生成を所有する。
  * @trace ARCH-000008
  * @input 宣言された引数だけを受け取る。
  * @returns 宣言された結果型を返す。
@@ -1089,9 +1081,9 @@ function stringValue(value: unknown): string | null {
 }
 
 /**
- * 署名済みWorkbench助言Production Runtime境界におけるblockedの処理境界を固定する。
+ * Workbench助言Runtime境界におけるblockedの処理境界を固定する。
  *
- * @responsibility 署名済みWorkbench助言Production Runtime境界に必要な入力処理、失敗分類および結果生成を所有する。
+ * @responsibility Workbench助言Runtime境界に必要な入力処理、失敗分類および結果生成を所有する。
  * @trace ARCH-000008
  * @input 宣言された引数だけを受け取る。
  * @returns 宣言された結果型を返す。

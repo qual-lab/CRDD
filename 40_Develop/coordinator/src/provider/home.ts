@@ -185,9 +185,9 @@ export function evaluateWindowsProviderHomeLayoutCandidate(raw: unknown) {
  *
  * @responsibility Runtime 所有 Windows Provider Home 候補の観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000010
- * @input provider: unknown、evaluationTime: unknown
+ * @input provider: unknown
  * @returns observeRuntimeOwnedWindowsProviderHomeCandidateの計算結果を返す。
- * @precondition 「provider: unknown、evaluationTime: unknown」がobserveRuntimeOwnedWindowsProviderHomeCandidateの入力契約を満たす。
+ * @precondition 「provider: unknown」がobserveRuntimeOwnedWindowsProviderHomeCandidateの入力契約を満たす。
  * @postcondition observeRuntimeOwnedWindowsProviderHomeCandidateの責務を完了した結果だけを返す。
  * @effect N/A: observeRuntimeOwnedWindowsProviderHomeCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: observeRuntimeOwnedWindowsProviderHomeCandidateは独自の失敗分岐を所有しない。
@@ -198,12 +198,8 @@ export function evaluateWindowsProviderHomeLayoutCandidate(raw: unknown) {
  */
 export function observeRuntimeOwnedWindowsProviderHomeCandidate(
   provider: unknown,
-  evaluationTime: unknown,
 ) {
-  return inspectRuntimeOwnedWindowsProviderHomeCandidate(
-    provider,
-    evaluationTime,
-  );
+  return inspectRuntimeOwnedWindowsProviderHomeCandidate(provider);
 }
 
 /**

@@ -4,7 +4,7 @@
  * @responsibility responseを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000004
  */
-import { parseDockerTaskRecoveryId } from "../docker-execution/recovery-identity.ts";
+import { parseDockerTaskRecoveryId } from "../state-storage/recovery-identity.ts";
 import { snapshotPlainArray } from "../../../domain-model/src/index.ts";
 
 const MAXIMUM_ARGUMENTS = 16;
@@ -277,223 +277,77 @@ export function parseDoctorArguments(
   if (
     snapshot.status !== "ok" ||
     snapshot.value.some((value) => !validToken(value))
-  ) {
+  )
     return response("blocked", "doctor_arguments_invalid");
-  }
-  const argumentValues = snapshot.value;
-  const isJsonRequested = argumentValues.includes("--json");
-  const seen = new Set();
-  let shouldOutputJson = false;
-  let isActiveIsolation = false;
+  const argumentsSnapshot = snapshot.value;
+  const json = argumentsSnapshot.includes("--json");
+  const seen = new Set<string>();
+  let activeIsolation = false;
+  let repairDockerDesktopRuntime = false;
   let recoveryId: string | null = null;
-  let shouldRepairDockerDesktopRuntime = false;
-  let closeDockerDesktopRepairId: string | null = null;
-  let adoptDockerDesktopRepairId: string | null = null;
-  let afterDockerDesktopRepairId: string | null = null;
-  let repairReleaseRoot: string | null = null;
   let restartDockerForRecoveryId: string | null = null;
-  let restartOriginReleaseRoot: string | null = null;
-  let isAfterRecordedDockerRestart = false;
-
-  for (let index = 0; index < argumentValues.length; index += 1) {
-    const token = argumentValues[index];
+  let retainDockerRuntimeRepairId: string | null = null;
+  for (let index = 0; index < argumentsSnapshot.length; index++) {
+    const token = argumentsSnapshot[index];
     if (
-      token === undefined ||
+      !token ||
       ![
         "--json",
         "--isolation",
         "--recover-isolation",
         "--repair-docker-desktop-runtime",
-        "--close-docker-desktop-runtime-repair",
-        "--adopt-docker-desktop-repair",
-        "--after-docker-desktop-repair",
-        "--repair-release-root",
         "--restart-docker-for-recovery",
-        "--restart-origin-release-root",
-        "--after-recorded-docker-restart",
+        "--retain-docker-runtime-repair",
       ].includes(token) ||
       seen.has(token)
-    ) {
-      return response(
-        "blocked",
-        "doctor_arguments_invalid",
-        null,
-        isJsonRequested,
-      );
-    }
+    )
+      return response("blocked", "doctor_arguments_invalid", null, json);
     seen.add(token);
-    if (token === "--json") shouldOutputJson = true;
-    else if (token === "--isolation") isActiveIsolation = true;
+    if (token === "--json") continue;
+    if (token === "--isolation") activeIsolation = true;
     else if (token === "--repair-docker-desktop-runtime")
-      shouldRepairDockerDesktopRuntime = true;
-    else if (token === "--after-recorded-docker-restart")
-      isAfterRecordedDockerRestart = true;
+      repairDockerDesktopRuntime = true;
     else {
-      const value = argumentValues[index + 1];
-      if (!validToken(value) || value.startsWith("--")) {
-        return response(
-          "blocked",
-          "doctor_arguments_invalid",
-          null,
-          isJsonRequested,
-        );
-      }
-      index += 1;
+      const value = argumentsSnapshot[++index];
+      if (!validToken(value) || value.startsWith("--"))
+        return response("blocked", "doctor_arguments_invalid", null, json);
       if (token === "--recover-isolation") recoveryId = value;
       else if (token === "--restart-docker-for-recovery") {
         if (!parseDockerTaskRecoveryId(value))
-          return response(
-            "blocked",
-            "doctor_arguments_invalid",
-            null,
-            isJsonRequested,
-          );
+          return response("blocked", "doctor_arguments_invalid", null, json);
         restartDockerForRecoveryId = value;
-      } else if (token === "--close-docker-desktop-runtime-repair") {
-        if (!/^docker-desktop-repair\.[a-f0-9]{32}$/u.test(value)) {
-          return response(
-            "blocked",
-            "doctor_arguments_invalid",
-            null,
-            isJsonRequested,
-          );
-        }
-        closeDockerDesktopRepairId = value;
-      } else if (token === "--adopt-docker-desktop-repair") {
-        if (!/^docker-desktop-repair\.[a-f0-9]{32}$/u.test(value))
-          return response(
-            "blocked",
-            "doctor_arguments_invalid",
-            null,
-            isJsonRequested,
-          );
-        adoptDockerDesktopRepairId = value;
-      } else if (token === "--after-docker-desktop-repair") {
-        if (!/^docker-desktop-repair\.[a-f0-9]{32}$/u.test(value))
-          return response(
-            "blocked",
-            "doctor_arguments_invalid",
-            null,
-            isJsonRequested,
-          );
-        afterDockerDesktopRepairId = value;
-      } else if (token === "--repair-release-root") repairReleaseRoot = value;
-      else if (token === "--restart-origin-release-root")
-        restartOriginReleaseRoot = value;
+      } else {
+        if (!/^docker-runtime-repair\.[a-f0-9]{64}\.[a-f0-9]{64}$/u.test(value))
+          return response("blocked", "doctor_arguments_invalid", null, json);
+        retainDockerRuntimeRepairId = value;
+      }
     }
   }
-
   if (
-    (restartOriginReleaseRoot !== null &&
-      restartDockerForRecoveryId === null) ||
-    (restartDockerForRecoveryId !== null &&
-      (isActiveIsolation ||
-        recoveryId !== null ||
-        shouldRepairDockerDesktopRuntime ||
-        closeDockerDesktopRepairId !== null ||
-        adoptDockerDesktopRepairId !== null ||
-        afterDockerDesktopRepairId !== null ||
-        repairReleaseRoot !== null ||
-        isAfterRecordedDockerRestart)) ||
-    (isAfterRecordedDockerRestart &&
-      (!parseDockerTaskRecoveryId(recoveryId) ||
-        afterDockerDesktopRepairId !== null ||
-        repairReleaseRoot !== null))
+    [
+      activeIsolation,
+      repairDockerDesktopRuntime,
+      recoveryId !== null,
+      restartDockerForRecoveryId !== null,
+      retainDockerRuntimeRepairId !== null,
+    ].filter(Boolean).length > 1
   )
-    return response(
-      "blocked",
-      "doctor_arguments_incompatible",
-      null,
-      isJsonRequested,
-    );
-  if (
-    (adoptDockerDesktopRepairId === null &&
-      afterDockerDesktopRepairId === null) !==
-      (repairReleaseRoot === null) ||
-    (adoptDockerDesktopRepairId !== null &&
-      afterDockerDesktopRepairId !== null) ||
-    (adoptDockerDesktopRepairId !== null &&
-      (isActiveIsolation ||
-        recoveryId !== null ||
-        shouldRepairDockerDesktopRuntime ||
-        closeDockerDesktopRepairId !== null))
-  )
-    return response(
-      "blocked",
-      "doctor_arguments_incompatible",
-      null,
-      isJsonRequested,
-    );
-  if (
-    recoveryId !== null &&
-    (isActiveIsolation ||
-      shouldRepairDockerDesktopRuntime ||
-      closeDockerDesktopRepairId !== null ||
-      adoptDockerDesktopRepairId !== null)
-  ) {
-    return response(
-      "blocked",
-      "doctor_arguments_incompatible",
-      null,
-      isJsonRequested,
-    );
-  }
-  if (
-    afterDockerDesktopRepairId !== null &&
-    (recoveryId === null ||
-      typeof recoveryId !== "string" ||
-      !recoveryId.startsWith("docker-task."))
-  )
-    return response(
-      "blocked",
-      "doctor_arguments_incompatible",
-      null,
-      isJsonRequested,
-    );
-  if (
-    shouldRepairDockerDesktopRuntime &&
-    (isActiveIsolation || closeDockerDesktopRepairId !== null)
-  ) {
-    return response(
-      "blocked",
-      "doctor_arguments_incompatible",
-      null,
-      isJsonRequested,
-    );
-  }
-  if (closeDockerDesktopRepairId !== null && isActiveIsolation) {
-    return response(
-      "blocked",
-      "doctor_arguments_incompatible",
-      null,
-      isJsonRequested,
-    );
-  }
+    return response("blocked", "doctor_arguments_incompatible", null, json);
   return response(
     "ok",
     null,
     Object.freeze({
-      json: shouldOutputJson,
-      activeIsolation: isActiveIsolation,
+      json,
+      activeIsolation,
       recoveryId,
-      repairDockerDesktopRuntime: shouldRepairDockerDesktopRuntime,
-      closeDockerDesktopRepairId,
+      repairDockerDesktopRuntime,
       ...(restartDockerForRecoveryId !== null
         ? { restartDockerForRecoveryId }
         : {}),
-      ...(restartOriginReleaseRoot !== null
-        ? { restartOriginReleaseRoot }
-        : {}),
-      ...(isAfterRecordedDockerRestart
-        ? { afterRecordedDockerRestart: true }
-        : {}),
-      ...(afterDockerDesktopRepairId !== null
-        ? { afterDockerDesktopRepairId, repairReleaseRoot }
-        : {}),
-      ...(adoptDockerDesktopRepairId !== null
-        ? { adoptDockerDesktopRepairId, repairReleaseRoot }
+      ...(retainDockerRuntimeRepairId !== null
+        ? { retainDockerRuntimeRepairId }
         : {}),
     }),
-    isJsonRequested,
+    json,
   );
 }

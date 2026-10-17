@@ -150,6 +150,14 @@
 
 Domain Model詳細設計§9.1の通常保存完了は、同じLock内で一度取得したbytesと同一snapshotのID・改訂・Project IDの照合へ具体化する。`CPR-IT-010`の成功と`CPR-IT-011`の欠落・読取り／解析故障・値差・cleanup併発を分け、保存後内部故障から未保存やEffect 0を推定しない。不正UTF-8と正規置換文字の反例を含め、電源断耐久性は人間判断により対象外とする。親差替え・実Process競合は別の未完了保証として保持する。
 
+## Docker backend一覧の純粋分類からの追加導出
+
+Docker環境観測の追加導出: `ARCH-000008`とDocker Isolation詳細設計の`docker-isolation.backend-state`から、`QA-000006`／`ERB-UT-034`へ一覧Process結果の純粋分類を渡す。旧WSL四CaseはTask状態の`PRL-UT-006`へ誤接続されていたため、既存Itemの意味を変更せず正しいOwnerへ移す。実CLIと再起動・回復の成立は関連IT／STへ保持する。
+
+固定Native所在応答の追加導出: `ARCH-000008`とPlatform Access詳細の所在観測契約から、`QA-000006`／`ERB-UT-035`へUTF-16長・不正値・write／flush結果の純粋分類を渡す。Path分類の`RDL-UT-005`は流用しない。OS所在の実観測はCLI／Nodeの`ERB-IT-001`、Process・frame拒否は`ERB-IT-002`で別に確認し、値検査の成功を実利用者・修復許可・全Machine成立へ昇格しない。
+
+実行環境修復の現在値の追加導出: `ARCH-000008`とDocker Isolation詳細の修復・現在状態契約から、`QA-000006`／`ERB-UT-036`へ固定九処置・三用途実体・回収と上位の保持判断、Task／Repair unionの純粋相関を渡す。Task専用`PRL-UT-006`を別意味へ流用しない。実Writerの元版・読戻し・排他喪失・fresh再入場は`ERB-IT-003`／`ERB-IT-014`、実修復は`ERB-ST-009`へ保持し、値検査の局所成功を本番接続へ一般化しない。
+
 ## AI Adapterの純粋結果変換・課金方針からの追加導出
 
 容量についてはCodexの16KiBの契約値照合と実入力の逸脱拒否を区別する。移管14 Caseは前者までであり、追加の容量境界試験でUTF-8の16,383／16,384 bytesの受理と16,385 bytesの拒否、正規化値と生出力非公開を観測する。この試験からClaudeの容量、実Processの出力制限や取消・cleanup成立を主張しない。
@@ -219,6 +227,12 @@ Domain Model詳細設計§9.1の通常保存完了は、同じLock内で一度�
 | PRT-000008.spec-000012 | RFD-IT-025、RFD-ST-026、RFD-UAT-027／EST-ST-015 | 正の成立とMCP負境界を別Ownerへ接続、Not Run |
 
 3はDetail処置行数であり、独立義務・Local Item数ではない。5項目への定義接続で旧未接続差分だけ解消する。RFD-UT-023のSource／Test Symbolと候補局所実行だけ接続済みで、正式Local Item／Evidence評価はNot Run。他初回項目のSource／Test／実行・新Evidence・物理保存・受領観測は未完了。今回13文書の定義接続は契約・品質の限定独立レビュー済み・残指摘0。
+
+## 修復Native相関の純粋検査接続 — 2026-10-16
+
+診断Probeの作成IDと三軸不存在の純粋分類は、`ARCH-000008`とDocker隔離詳細設計から`QA-000006`／`ERB-UT-038`へ導出する。固定ID、欠測、error、非0、UTF-8容量と各軸残存を値で反証する。Host遷移・保存、実Process・Docker回収は既存IT／STの責務のままであり、このUT成功へ統合しない。
+
+修復の同利用者相関に関する追加導出（2026-10-16）：ARCH-000008の技術Owner結合から、QA-000006／ERB-UT-037へ同じ捕捉HashによるMutex名と固定H frameの純粋値検査を導く。Native実Processの取得・Artifact確認・Hの応答・異種／欠測／競合・joinは既存ERB-IT-001、保存Ownerとの結合はERB-IT-014とする。Hashやframe成功を認可、現在Mutex所有、実修復またはWriter成立へ読み替えない。
 
 ## AM状態Schemaの純粋検査接続 — 2026-10-12
 

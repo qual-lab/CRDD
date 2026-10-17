@@ -50,7 +50,6 @@ type OperationRecord = Readonly<{
   identity: string;
   operationId: string;
   owner: string;
-  storage?: "signature";
 }>;
 /**
  * temporary-operation-storeで使用するPromotion 記録の値契約を定義する。
@@ -87,7 +86,6 @@ type PromotionRecord = Readonly<{
 type TemporaryOperationInput = Readonly<{
   operationId: string;
   owner: string;
-  storage?: "signature";
   identity: string;
   purpose: string;
   allowedContent: readonly string[];
@@ -105,13 +103,10 @@ type TemporaryOperationInput = Readonly<{
  * @compatibility TemporaryOperationDocumentの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
 type TemporaryOperationDocument = Readonly<{
-  schema:
-    | "crdd/runtime-data/temporary-operation/v3"
-    | "crdd/runtime-data/temporary-operation/v4";
+  schema: "crdd/runtime-data/temporary-operation/v3";
   operationId: string;
   identity: string;
   owner: string;
-  storage?: "signature";
   generation: number;
   ownerProcessId: number;
   previousGeneration: number | null;
@@ -223,9 +218,7 @@ function validInput(input: TemporaryOperationInput): boolean {
   return (
     ID.test(input.operationId) &&
     !/^signature\.*$/iu.test(input.operationId) &&
-    (input.storage === undefined ||
-      (input.storage === "signature" &&
-        input.owner === "coordinator-release-runtime")) &&
+    !("storage" in input) &&
     ID.test(input.owner) &&
     ID.test(input.identity) &&
     typeof input.purpose === "string" &&
@@ -263,9 +256,6 @@ function recoveryReference(
   return Object.freeze({
     operationId: record.operationId,
     owner: record.owner,
-    ...(record.storage === "signature"
-      ? { storage: "signature" as const }
-      : {}),
     identity: record.identity,
     generation: record.generation,
   });
@@ -304,17 +294,12 @@ function inspectDocument(value: unknown): TemporaryOperationDocument | null {
     "state",
     "terminalPaths",
   ];
-  if (r.storage !== undefined) expectedKeys.push("storage");
   expectedKeys.sort();
   const keys = Object.keys(r).sort();
   if (
     keys.length !== expectedKeys.length ||
     !keys.every((key, index) => key === expectedKeys[index]) ||
-    (r.storage === undefined
-      ? r.schema !== "crdd/runtime-data/temporary-operation/v3"
-      : r.storage !== "signature" ||
-        r.schema !== "crdd/runtime-data/temporary-operation/v4" ||
-        r.owner !== "coordinator-release-runtime") ||
+    r.schema !== "crdd/runtime-data/temporary-operation/v3" ||
     typeof r.operationId !== "string" ||
     !ID.test(r.operationId) ||
     typeof r.owner !== "string" ||
@@ -395,14 +380,11 @@ function writeDocument(
   document: TemporaryOperationDocument,
 ): void {
   const directory = path.dirname(documentPath);
-  const stagingDirectory =
-    document.storage === "signature"
-      ? directory
-      : path.join(directory, ".staging");
+  const stagingDirectory = path.join(directory, ".staging");
   ensureDirectory(stagingDirectory);
   const temporary = path.join(
     stagingDirectory,
-    `${document.operationId}.${document.identity}.${document.generation}.${document.state}${document.storage === "signature" ? ".pending" : ""}.json`,
+    `${document.operationId}.${document.identity}.${document.generation}.${document.state}.json`,
   );
   if (fs.existsSync(temporary)) fs.rmSync(temporary, { force: true });
   const descriptor = fs.openSync(temporary, "wx", 0o600);
@@ -454,14 +436,11 @@ function createDocument(
   afterCanonicalDocumentLinked: () => void,
 ): void {
   const directory = path.dirname(documentPath);
-  const stagingDirectory =
-    document.storage === "signature"
-      ? directory
-      : path.join(directory, ".staging");
+  const stagingDirectory = path.join(directory, ".staging");
   ensureDirectory(stagingDirectory);
   const temporary = path.join(
     stagingDirectory,
-    `${document.operationId}.${document.identity}.${document.generation}.preparing${document.storage === "signature" ? ".pending" : ""}.json`,
+    `${document.operationId}.${document.identity}.${document.generation}.preparing.json`,
   );
   if (fs.existsSync(temporary))
     throw new Error("temporary_operation_creation_in_progress");
@@ -511,8 +490,8 @@ function initialDocumentStagingPath(
 ): string {
   return path.join(
     path.dirname(documentPath),
-    reference.storage === "signature" ? "." : ".staging",
-    `${reference.operationId}.${reference.identity}.${reference.generation}.preparing${reference.storage === "signature" ? ".pending" : ""}.json`,
+    ".staging",
+    `${reference.operationId}.${reference.identity}.${reference.generation}.preparing.json`,
   );
 }
 
@@ -557,7 +536,6 @@ function removeConfirmedInitialDocumentStagingAlias(
     throw new Error("temporary_operation_staging_alias_unconfirmed");
   const stagedDocument = readDocument(stagingDocumentPath);
   if (
-    stagedDocument.storage !== reference.storage ||
     stagedDocument.operationId !== reference.operationId ||
     stagedDocument.owner !== reference.owner ||
     stagedDocument.identity !== reference.identity ||
@@ -658,15 +636,9 @@ function publishLockDocument(
   afterStagingLockWritten: () => void,
   afterCanonicalLockLinked: () => void,
 ): string {
-  const isSignatureStorage = path.basename(controlRoot) === "signature";
-  const stagingDirectory = isSignatureStorage
-    ? controlRoot
-    : path.join(controlRoot, ".staging");
+  const stagingDirectory = path.join(controlRoot, ".staging");
   ensureDirectory(stagingDirectory);
-  const target = path.join(
-    controlRoot,
-    isSignatureStorage ? "preparation.lock" : `${operationId}.lock`,
-  );
+  const target = path.join(controlRoot, `${operationId}.lock`);
   const temporary = path.join(
     stagingDirectory,
     `${operationId}.${document.identity}.lock.json`,
@@ -744,10 +716,7 @@ function updateLockDocument(
   document: LifecycleLockDocument,
 ): void {
   const directory = path.dirname(target);
-  const stagingDirectory =
-    path.basename(directory) === "signature"
-      ? directory
-      : path.join(directory, ".staging");
+  const stagingDirectory = path.join(directory, ".staging");
   ensureDirectory(stagingDirectory);
   const temporary = path.join(
     stagingDirectory,
@@ -798,12 +767,7 @@ function acquireLock(
   afterStagingLockWritten: () => void = () => {},
   afterCanonicalLockLinked: () => void = () => {},
 ): LifecycleLock {
-  const lockPath = path.join(
-    controlRoot,
-    path.basename(controlRoot) === "signature"
-      ? "preparation.lock"
-      : `${operationId}.lock`,
-  );
+  const lockPath = path.join(controlRoot, `${operationId}.lock`);
   for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
       publishLockDocument(
@@ -917,9 +881,6 @@ function issueCapability(
     identity: document.identity,
     operationId: document.operationId,
     owner: document.owner,
-    ...(document.storage === "signature"
-      ? { storage: "signature" as const }
-      : {}),
   });
   operations.set(capability, record);
   return { capability, record };
@@ -962,30 +923,14 @@ function createTemporaryOperationInternal(
     if (!paths) throw new Error("temporary_operation_root_invalid");
     ensureDirectory(paths.root);
     ensureDirectory(paths.temporary);
-    const isSignatureStorage = input.storage === "signature";
-    const controlRoot = path.join(
-      paths.temporary,
-      isSignatureStorage ? "signature" : ".operations",
-    );
-    if (isSignatureStorage) {
-      fs.mkdirSync(controlRoot, { mode: 0o700 });
-      createdDirectory = controlRoot;
-      workspaceOwnershipConfirmed = true;
-    } else ensureDirectory(controlRoot);
-    const directory = isSignatureStorage
-      ? controlRoot
-      : path.join(paths.temporary, input.operationId);
-    documentPath = path.join(
-      controlRoot,
-      isSignatureStorage ? "preparation.json" : `${input.operationId}.json`,
-    );
-    if (!isSignatureStorage && fs.existsSync(directory))
+    const controlRoot = path.join(paths.temporary, ".operations");
+    ensureDirectory(controlRoot);
+    const directory = path.join(paths.temporary, input.operationId);
+    documentPath = path.join(controlRoot, `${input.operationId}.json`);
+    if (fs.existsSync(directory))
       throw new Error("temporary_operation_creation_failed");
     const preparing: TemporaryOperationDocument = Object.freeze({
-      schema: isSignatureStorage
-        ? "crdd/runtime-data/temporary-operation/v4"
-        : "crdd/runtime-data/temporary-operation/v3",
-      ...(isSignatureStorage ? { storage: "signature" as const } : {}),
+      schema: "crdd/runtime-data/temporary-operation/v3",
       operationId: input.operationId,
       identity: input.identity,
       owner: input.owner,
@@ -1007,7 +952,6 @@ function createTemporaryOperationInternal(
     pendingReference = Object.freeze({
       operationId: input.operationId,
       owner: input.owner,
-      ...(isSignatureStorage ? { storage: "signature" as const } : {}),
       identity: input.identity,
       generation: 1,
     });
@@ -1025,7 +969,7 @@ function createTemporaryOperationInternal(
       throw error;
     }
     afterControlDocumentPublished();
-    if (!isSignatureStorage) fs.mkdirSync(directory, { mode: 0o700 });
+    fs.mkdirSync(directory, { mode: 0o700 });
     createdDirectory = directory;
     workspaceOwnershipConfirmed = true;
     if (
@@ -1208,9 +1152,7 @@ function resumeTemporaryOperationInternal(
       reference === null ||
       !ID.test(reference.operationId) ||
       /^signature\.*$/iu.test(reference.operationId) ||
-      (reference.storage !== undefined &&
-        (reference.storage !== "signature" ||
-          reference.owner !== "coordinator-release-runtime")) ||
+      "storage" in reference ||
       !ID.test(reference.owner) ||
       !ID.test(reference.identity) ||
       !ID.test(nextIdentity) ||
@@ -1222,20 +1164,11 @@ function resumeTemporaryOperationInternal(
     const paths =
       resolveRepositoryRuntimeDataPathsForInternalUse(rootCapability);
     if (!paths) throw new Error("temporary_operation_root_invalid");
-    const isSignatureStorage = reference.storage === "signature";
-    const controlRoot = path.join(
-      paths.temporary,
-      isSignatureStorage ? "signature" : ".operations",
-    );
+    const controlRoot = path.join(paths.temporary, ".operations");
     if (!isSafeDirectory(controlRoot))
       throw new Error("temporary_operation_boundary_invalid");
-    directory = isSignatureStorage
-      ? controlRoot
-      : path.join(paths.temporary, reference.operationId);
-    documentPath = path.join(
-      controlRoot,
-      isSignatureStorage ? "preparation.json" : `${reference.operationId}.json`,
-    );
+    directory = path.join(paths.temporary, reference.operationId);
+    documentPath = path.join(controlRoot, `${reference.operationId}.json`);
     if (path.dirname(directory) !== paths.temporary)
       throw new Error("temporary_operation_boundary_invalid");
     if (!fs.existsSync(documentPath)) {
@@ -1256,7 +1189,6 @@ function resumeTemporaryOperationInternal(
         throw new Error("temporary_operation_prepublication_cleanup_confirmed");
       }
       if (
-        stagedDocument.storage !== reference.storage ||
         stagedDocument.operationId !== reference.operationId ||
         stagedDocument.owner !== reference.owner ||
         stagedDocument.identity !== reference.identity ||
@@ -1279,7 +1211,6 @@ function resumeTemporaryOperationInternal(
     );
     let document = readDocument(documentPath);
     if (
-      document.storage !== reference.storage ||
       document.operationId !== reference.operationId ||
       document.owner !== reference.owner ||
       document.identity !== reference.identity
@@ -1370,8 +1301,7 @@ function resumeTemporaryOperationInternal(
         const observed = readDocument(documentPath);
         if (
           observed.operationId === reference.operationId &&
-          observed.owner === reference.owner &&
-          observed.storage === reference.storage
+          observed.owner === reference.owner
         ) {
           if (
             observed.identity === reference.identity &&
@@ -1392,9 +1322,6 @@ function resumeTemporaryOperationInternal(
       recoveryReferenceValue = Object.freeze({
         operationId: known.operationId,
         owner: known.owner,
-        ...(known.storage === "signature"
-          ? { storage: "signature" as const }
-          : {}),
         identity: known.identity,
         generation: known.generation,
       });
@@ -1740,12 +1667,10 @@ function settleTemporaryOperationWithRemoval(
     });
   let lock: LifecycleLock | null = null;
   let durableRecoveryConfirmed = false;
-  let hasAttemptedRecoveryStateUpdate = false;
   try {
     lock = acquireLock(record.controlRoot, record.operationId, record.identity);
     const document = readDocument(record.documentPath);
     if (
-      document.storage !== record.storage ||
       document.operationId !== record.operationId ||
       document.owner !== record.owner ||
       document.state !== "active" ||
@@ -1754,7 +1679,6 @@ function settleTemporaryOperationWithRemoval(
     )
       throw new Error("temporary_operation_capability_stale");
     if (outcome === "parent_lost") {
-      hasAttemptedRecoveryStateUpdate = true;
       writeDocument(
         record.documentPath,
         Object.freeze({ ...document, state: "recovery_required" }),
@@ -1806,49 +1730,24 @@ function settleTemporaryOperationWithRemoval(
       )
         throw new Error("temporary_operation_evidence_not_promoted");
     }
-    hasAttemptedRecoveryStateUpdate = true;
     writeDocument(
       record.documentPath,
       Object.freeze({ ...document, state: "recovery_required" }),
     );
     durableRecoveryConfirmed = true;
     operations.delete(capability);
-    if (record.storage === "signature") {
-      const work = path.join(record.directory, "work");
-      removeDirectory(work);
-      if (fs.existsSync(work))
-        throw new Error("temporary_operation_cleanup_unconfirmed");
-      removeConfirmedInitialDocumentStagingAlias(
-        record.documentPath,
-        recoveryReference(record),
-      );
-      const remainingEntries = fs.readdirSync(record.directory);
-      if (
-        remainingEntries.some(
-          (name) => name !== "preparation.json" && name !== "preparation.lock",
-        )
-      )
-        throw new Error("temporary_operation_cleanup_unconfirmed");
-      const released = releaseLock(lock, removeLifecycleLock);
-      lock = null;
-      if (!released)
-        throw new Error("temporary_operation_lock_cleanup_unconfirmed");
-      fs.unlinkSync(record.documentPath);
-      fs.rmdirSync(record.directory);
-    } else {
-      const released = releaseLock(lock, removeLifecycleLock);
-      lock = null;
-      if (!released)
-        throw new Error("temporary_operation_lock_cleanup_unconfirmed");
-      removeDirectory(record.directory);
-      if (fs.existsSync(record.directory))
-        throw new Error("temporary_operation_cleanup_unconfirmed");
-      removeConfirmedInitialDocumentStagingAlias(
-        record.documentPath,
-        recoveryReference(record),
-      );
-      fs.unlinkSync(record.documentPath);
-    }
+    const released = releaseLock(lock, removeLifecycleLock);
+    lock = null;
+    if (!released)
+      throw new Error("temporary_operation_lock_cleanup_unconfirmed");
+    removeDirectory(record.directory);
+    if (fs.existsSync(record.directory))
+      throw new Error("temporary_operation_cleanup_unconfirmed");
+    removeConfirmedInitialDocumentStagingAlias(
+      record.documentPath,
+      recoveryReference(record),
+    );
+    fs.unlinkSync(record.documentPath);
     const stagingDocumentPath = initialDocumentStagingPath(
       record.documentPath,
       recoveryReference(record),
@@ -1870,26 +1769,7 @@ function settleTemporaryOperationWithRemoval(
       recoveryReference: cleanupConfirmed ? null : recoveryReference(record),
     });
   } catch (error) {
-    let recoveryRequired = durableRecoveryConfirmed;
-    if (
-      record.storage === "signature" &&
-      hasAttemptedRecoveryStateUpdate &&
-      !durableRecoveryConfirmed
-    ) {
-      try {
-        const observed = readDocument(record.documentPath);
-        recoveryRequired = !(
-          observed.storage === record.storage &&
-          observed.operationId === record.operationId &&
-          observed.owner === record.owner &&
-          observed.identity === record.identity &&
-          observed.generation === record.generation &&
-          observed.state === "active"
-        );
-      } catch {
-        recoveryRequired = true;
-      }
-    }
+    const recoveryRequired = durableRecoveryConfirmed;
     if (lock !== null) releaseLock(lock);
     const reason =
       error instanceof Error &&
@@ -1901,10 +1781,7 @@ function settleTemporaryOperationWithRemoval(
       reason,
       cleanupConfirmed: false,
       recoveryRequired,
-      recoveryReference:
-        recoveryRequired || record.storage === "signature"
-          ? recoveryReference(record)
-          : null,
+      recoveryReference: recoveryRequired ? recoveryReference(record) : null,
     });
   }
 }

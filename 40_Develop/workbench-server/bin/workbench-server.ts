@@ -32,7 +32,6 @@ import { createWorkbenchAiAdviceProviderExecutor } from "../../coordinator/src/w
 import { createRuntimeOwnedWorkbenchAiAdviceProductionRuntime } from "../../coordinator/src/workbench-ai/advice-execution.ts";
 import { createRuntimeOwnedWorkbenchAiChangeCandidateExecutor } from "../../coordinator/src/workbench-ai/change-candidate-executor.ts";
 import { createWorkbenchAiProviderAdapter } from "../../coordinator/src/workbench-ai/provider-adapter.ts";
-import { issueRuntimeOwnedVerifiedCoordinatorPackageCapability } from "../../coordinator/src/platform-access/package-verification.ts";
 import {
   resolveVerifiedRepositoryRootFromWorkingDirectory,
   verifyRepositoryRoot,
@@ -50,7 +49,7 @@ import {
  * @failure Root／Catalog不成立は固定例外で停止する。
  * @invariant 設定の存在からCROSへ自動切替しない。
  * @boundary CLI構成と単体の専門Package。
- * @security 署名検証Capabilityは実行時Ownerが要求し、CLIがAuthorityを省略しない。
+ * @security 現在の送信許可と検証済みRootを実行時Ownerへ渡し、署名からAuthorityを発行しない。
  * @concurrency 起動構成は一回だけ、要求は既存Ownerへ委譲する。
  */
 async function startRepositoryWorkbench(
@@ -64,10 +63,6 @@ async function startRepositoryWorkbench(
   if (profiles.status !== "ready")
     throw new Error("ai_profile_catalog_store_required");
   const adviceRuntime = createRuntimeOwnedWorkbenchAiAdviceProductionRuntime(
-    () =>
-      issueRuntimeOwnedVerifiedCoordinatorPackageCapability({
-        evaluationTime: new Date().toISOString(),
-      }).capability,
     verified.capability,
   );
   const executor = createWorkbenchAiAdviceProviderExecutor(adviceRuntime);

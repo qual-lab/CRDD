@@ -18,10 +18,7 @@ import {
 } from "./verification-result-record.ts";
 import { SIGNED_ROUTE_MATRIX_REASONS } from "./verification-result-reasons.ts";
 import { snapshotPlainArray } from "../../domain-model/src/index.ts";
-import {
-  isCanonicalCrddVersion,
-  isSupportedCrddRuntimeGitObjectId,
-} from "../src/diagnostics/release-identity-grammar.ts";
+import { isSupportedCrddRuntimeGitObjectId } from "../src/diagnostics/release-identity-grammar.ts";
 import {
   evaluateSignedRunnerSafetyObservation,
   salvageSignedRunnerRecoveryPair,
@@ -35,7 +32,7 @@ import {
 
 export const SIGNED_ROUTE_MATRIX_VERIFICATION_CONTRACT =
   "crdd-coordinator/signed-route-matrix-verification";
-export const SIGNED_ROUTE_MATRIX_VERIFICATION_CONTRACT_REVISION = 14;
+export const SIGNED_ROUTE_MATRIX_VERIFICATION_CONTRACT_REVISION = 15;
 
 const MAX_SAFE_ROUTE_ATTEMPTS = 3;
 const SAFE_RETRYABLE_ROUTE_REASONS = new Set([
@@ -49,7 +46,7 @@ const ROUTES: readonly SignedGeneralTaskRouteProfile[] = Object.freeze([
   "same-claude",
 ]);
 const TARGET_PATH =
-  "40_Develop/coordinator/runtime/general-task-verification.txt";
+  "40_Develop/coordinator/tests/fixtures/general-task-verification.txt";
 const SHA256 = /^[a-f0-9]{64}$/u;
 const ROUTE_SAFETY_SCHEMA = Object.freeze({
   booleanFields: Object.freeze([
@@ -210,60 +207,53 @@ function snapshotRouteRecord(value: unknown) {
 }
 
 /**
- * Release Identityが有効か判定する。
+ * Source Identityが有効か判定する。
  *
- * @responsibility Release Identityの有効条件、拒否条件、判定結果境界を所有する。
+ * @responsibility Source Identityの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000004
  * @input result: Readonly<Record<string, unknown>>
- * @returns validReleaseIdentityの計算結果を返す。
- * @precondition 「result: Readonly<Record<string, unknown>>」がvalidReleaseIdentityの入力契約を満たす。
- * @postcondition validReleaseIdentityの責務を完了した結果だけを返す。
- * @effect N/A: validReleaseIdentityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: validReleaseIdentityは独自の失敗分岐を所有しない。
- * @invariant validReleaseIdentityは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: validReleaseIdentityはProcess内の同一Subsystemで完結する。
- * @security N/A: validReleaseIdentityはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: validReleaseIdentityは共有非同期状態を持たない同期処理である。
+ * @returns validSourceIdentityの計算結果を返す。
+ * @precondition 「result: Readonly<Record<string, unknown>>」がvalidSourceIdentityの入力契約を満たす。
+ * @postcondition validSourceIdentityの責務を完了した結果だけを返す。
+ * @effect N/A: validSourceIdentityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validSourceIdentityは独自の失敗分岐を所有しない。
+ * @invariant validSourceIdentityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validSourceIdentityはProcess内の同一Subsystemで完結する。
+ * @security N/A: validSourceIdentityはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: validSourceIdentityは共有非同期状態を持たない同期処理である。
  */
-function validReleaseIdentity(result: Readonly<Record<string, unknown>>) {
+function validSourceIdentity(result: Readonly<Record<string, unknown>>) {
   return (
-    typeof result.manifestHash === "string" &&
-    SHA256.test(result.manifestHash) &&
-    typeof result.packageContentRootSha256 === "string" &&
-    SHA256.test(result.packageContentRootSha256) &&
-    typeof result.runtimeExecutionIdentitySha256 === "string" &&
-    SHA256.test(result.runtimeExecutionIdentitySha256) &&
-    isCanonicalCrddVersion(result.crddVersion) &&
-    Number.isSafeInteger(result.releaseSequence) &&
-    Number(result.releaseSequence) >= 1 &&
+    result.sourceScope === "crdd-development-source-snapshot/v1" &&
+    typeof result.sourceSha256 === "string" &&
+    SHA256.test(result.sourceSha256) &&
+    result.sourceObservationStatus === "matched" &&
+    result.signatureRequired === false &&
     isSupportedCrddRuntimeGitObjectId(result.crddCommit) &&
     isSupportedCrddRuntimeGitObjectId(result.crddTree)
   );
 }
 
 /**
- * Identityを解放する。
+ * 経路間で比較するSourceの識別情報を構築する。
  *
- * @responsibility Identityの所有権、解放条件、終了後不存在の確認境界を所有する。
+ * @responsibility Source範囲・内容Hash・Git改訂を同じ順序の比較値へ結合する。
  * @trace ARCH-000004
  * @input result: Readonly<Record<string, unknown>>
- * @returns releaseIdentityの計算結果を返す。
- * @precondition 「result: Readonly<Record<string, unknown>>」がreleaseIdentityの入力契約を満たす。
- * @postcondition releaseIdentityの責務を完了した結果だけを返す。
- * @effect N/A: releaseIdentityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: releaseIdentityは独自の失敗分岐を所有しない。
- * @invariant releaseIdentityは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: releaseIdentityはProcess内の同一Subsystemで完結する。
- * @security N/A: releaseIdentityはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: releaseIdentityは共有非同期状態を持たない同期処理である。
+ * @returns sourceIdentityの計算結果を返す。
+ * @precondition 「result: Readonly<Record<string, unknown>>」がsourceIdentityの入力契約を満たす。
+ * @postcondition sourceIdentityの責務を完了した結果だけを返す。
+ * @effect N/A: sourceIdentityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: sourceIdentityは独自の失敗分岐を所有しない。
+ * @invariant sourceIdentityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: sourceIdentityはProcess内の同一Subsystemで完結する。
+ * @security N/A: sourceIdentityはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: sourceIdentityは共有非同期状態を持たない同期処理である。
  */
-function releaseIdentity(result: Readonly<Record<string, unknown>>) {
+function sourceIdentity(result: Readonly<Record<string, unknown>>) {
   return JSON.stringify([
-    result.manifestHash,
-    result.packageContentRootSha256,
-    result.runtimeExecutionIdentitySha256,
-    result.crddVersion,
-    result.releaseSequence,
+    result.sourceScope,
+    result.sourceSha256,
     result.crddCommit,
     result.crddTree,
   ]);
@@ -586,7 +576,7 @@ export function isExactSignedRouteResult(
     result.reviewerProvider === expected.reviewer &&
     result.reviewerIndependence === "provider_independent" &&
     result.externalSendAuthorizationMode === expectedAuthorizationMode &&
-    validReleaseIdentity(result) &&
+    validSourceIdentity(result) &&
     validExecutionIdentity(result) &&
     exactChangedPath(result.changedPaths) &&
     typeof result.remediationPerformed === "boolean" &&
@@ -681,7 +671,7 @@ export async function runSignedRouteMatrixVerification(
   const results: Array<Readonly<Record<string, unknown>>> = [];
   let verifiedRouteCount = 0;
   let retryableRouteAttemptCount = 0;
-  let baselineReleaseIdentity: string | null = null;
+  let baselineSourceIdentity: string | null = null;
   let baselineExecutionIdentity: string | null = null;
   let initialConsentAuthorizationMode:
     | "interactive_initial_consent"
@@ -690,7 +680,7 @@ export async function runSignedRouteMatrixVerification(
   let failedRouteProfile: SignedGeneralTaskRouteProfile | null = null;
   let validationFailure:
     | "route_nonconforming"
-    | "release_identity_mismatch"
+    | "source_identity_mismatch"
     | "execution_identity_mismatch"
     | "runner_exception"
     | null = null;
@@ -726,17 +716,17 @@ export async function runSignedRouteMatrixVerification(
           index === 0 && attempt === 1 && initialConsentAuthorizationMode
             ? initialConsentAuthorizationMode
             : "reused_initial_consent";
-        if (!validReleaseIdentity(result) || !validExecutionIdentity(result)) {
+        if (!validSourceIdentity(result) || !validExecutionIdentity(result)) {
           failedRouteProfile = route;
           validationFailure = "route_nonconforming";
           break routeLoop;
         }
-        const currentReleaseIdentity = releaseIdentity(result);
-        if (baselineReleaseIdentity === null)
-          baselineReleaseIdentity = currentReleaseIdentity;
-        else if (currentReleaseIdentity !== baselineReleaseIdentity) {
+        const currentSourceIdentity = sourceIdentity(result);
+        if (baselineSourceIdentity === null)
+          baselineSourceIdentity = currentSourceIdentity;
+        else if (currentSourceIdentity !== baselineSourceIdentity) {
           failedRouteProfile = route;
-          validationFailure = "release_identity_mismatch";
+          validationFailure = "source_identity_mismatch";
           break routeLoop;
         }
         const currentExecutionIdentity = executionIdentity(result);
@@ -850,17 +840,17 @@ export function describeSignedRouteMatrixVerificationContract() {
       "requested_profile_only_observed_front_identity_not_attested",
     candidateDisposition: "each_route_exact_verify_then_discard",
     verificationFixture:
-      "same_signed_tracked_base_marker_exact_token_replacement_for_every_route",
+      "same_tracked_base_marker_exact_token_replacement_for_every_route",
     boundedRemediation:
       "each_route_accepts_zero_or_one_runtime_owned_remediation_only_after_final_independent_approval",
-    releaseIdentity:
-      "all_attempts_same_manifest_package_version_sequence_commit_and_tree",
+    sourceIdentity:
+      "all_attempts_same_source_scope_content_hash_commit_and_tree",
     executionIdentity:
       "all_attempts_same_work_repository_execution_commit_and_tree",
     failureClassification: Object.freeze([
       "arguments_invalid",
       "route_nonconforming",
-      "release_identity_mismatch",
+      "source_identity_mismatch",
       "execution_identity_mismatch",
       "runner_exception",
       "process_restart_required",

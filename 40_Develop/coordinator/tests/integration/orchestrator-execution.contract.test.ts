@@ -15,7 +15,6 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import {
-  createOrchestratorExecutionAuthorizationAdapter,
   createOrchestratorExecutionHostPorts,
   createOrchestratorState,
   describeOrchestratorExecutionContract,
@@ -73,10 +72,6 @@ test("通常結果配送は上位実保存後だけ整理しTask結果を保持�
     const outcome = await runOrchestratorOperationWithPorts(
       {
         ...createOrchestratorExecutionHostPorts({}),
-        authorization: createOrchestratorExecutionAuthorizationAdapter({
-          issueRuntimeCapability: () => Object.freeze({}),
-          revokeRuntimeCapability: () => true,
-        }),
         persistence: {
           ...persistence,
           state: {
@@ -244,13 +239,11 @@ test("通常結果配送は上位実保存後だけ整理しTask結果を保持�
 
 type BoundExecutionDependencies = Omit<
   Parameters<typeof runOrchestratorOperationWithPorts>[0],
-  "persistence" | "clockIdentity" | "processSafety" | "authorization"
+  "persistence" | "clockIdentity" | "processSafety"
 > &
   Readonly<{
     now?: () => Readonly<{ monotonicMs: number; iso: string }>;
-    poisonProcessAfterExecutionAuthorizationRevocationUnknown?: () => void;
-    issueRuntimeExecutionAuthorization?: () => object | null;
-    revokeRuntimeExecutionAuthorization?: (capability: object) => boolean;
+    poisonAfterCleanupUnknown?: () => void;
   }>;
 type BoundExecutionInput = Parameters<
   typeof runOrchestratorOperationWithPorts
@@ -274,30 +267,14 @@ function runOrchestratorOperation(
   input: BoundExecutionInput,
 ) {
   const { workingDirectory, repositoryBindingId, ...applicationInput } = input;
-  const {
-    now,
-    poisonProcessAfterExecutionAuthorizationRevocationUnknown,
-    issueRuntimeExecutionAuthorization,
-    revokeRuntimeExecutionAuthorization,
-    ...applicationDependencies
-  } = dependencies;
+  const { now, poisonAfterCleanupUnknown, ...applicationDependencies } =
+    dependencies;
   return runOrchestratorOperationWithPorts(
     {
       ...applicationDependencies,
       ...createOrchestratorExecutionHostPorts({
         ...(now ? { now } : {}),
-        ...(poisonProcessAfterExecutionAuthorizationRevocationUnknown
-          ? {
-              poisonAfterCleanupUnknown:
-                poisonProcessAfterExecutionAuthorizationRevocationUnknown,
-            }
-          : {}),
-      }),
-      authorization: createOrchestratorExecutionAuthorizationAdapter({
-        issueRuntimeCapability:
-          issueRuntimeExecutionAuthorization ?? (() => Object.freeze({})),
-        revokeRuntimeCapability:
-          revokeRuntimeExecutionAuthorization ?? (() => true),
+        ...(poisonAfterCleanupUnknown ? { poisonAfterCleanupUnknown } : {}),
       }),
       persistence: createOrchestratorPersistencePorts(
         workingDirectory,
@@ -629,13 +606,7 @@ test("PR-N-01 uses the existing Single Task adapter without widening its authori
       runSingleTaskAttempt: (attempt) =>
         runOrchestratorSingleTaskAttempt(
           {
-            startTask: (
-              _request,
-              _root,
-              _capability,
-              _correlation,
-              notifyStarted,
-            ) => {
+            startTask: (_request, _root, _correlation, notifyStarted) => {
               starts += 1;
               return {
                 status: "started",
@@ -697,16 +668,11 @@ test("PR-N-02 runs at most five independent tasks and then drains the remainder"
   let active = 0;
   let maximumActive = 0;
   let preparedAtFirstEffect: number | null = null;
-  let authorizationsIssued = 0;
-  const observedAuthorizations = new Set<object>();
+  const observedOperationIds = new Set<string>();
   const outcome = await runOrchestratorOperation(
     {
-      issueRuntimeExecutionAuthorization: () => {
-        authorizationsIssued += 1;
-        return Object.freeze({ sequence: authorizationsIssued });
-      },
       runSingleTaskAttempt: async (attempt) => {
-        observedAuthorizations.add(attempt.runtimeExecutionCapability);
+        observedOperationIds.add(attempt.operationId);
         if (preparedAtFirstEffect === null) {
           const observed = readOrchestratorState(
             root,
@@ -736,8 +702,7 @@ test("PR-N-02 runs at most five independent tasks and then drains the remainder"
   assert.equal(preparedAtFirstEffect, 5);
   assert.equal(maximumActive, 5);
   assert.equal(outcome.completedTaskIds.length, 7);
-  assert.equal(authorizationsIssued, 7);
-  assert.equal(observedAuthorizations.size, 7);
+  assert.equal(observedOperationIds.size, 7);
 });
 
 /**
@@ -1145,8 +1110,7 @@ test("runtime_process義務は同じTask attemptとoperationにだけ結合す�
   let firstRecoveryId = "";
   const outcome = await runOrchestratorOperation(
     {
-      poisonProcessAfterExecutionAuthorizationRevocationUnknown: () =>
-        undefined,
+      poisonAfterCleanupUnknown: () => undefined,
       runSingleTaskAttempt: async (attempt) => {
         await attempt.observeStarted?.();
         if ((attempt.taskRequest as { taskId: string }).taskId === "task-a") {
@@ -1214,7 +1178,7 @@ test("下位実行へ委譲後のthrowは開始観測の有無にかかわらず
     let poisoned = 0;
     const outcome = await runOrchestratorOperation(
       {
-        poisonProcessAfterExecutionAuthorizationRevocationUnknown: () => {
+        poisonAfterCleanupUnknown: () => {
           poisoned += 1;
         },
         runSingleTaskAttempt: async (attempt) => {
@@ -1237,7 +1201,7 @@ test("下位実行へ委譲後のthrowは開始観測の有無にかかわらず
     let poisoned = 0;
     const outcome = await runOrchestratorOperation(
       {
-        poisonProcessAfterExecutionAuthorizationRevocationUnknown: () => {
+        poisonAfterCleanupUnknown: () => {
           poisoned += 1;
         },
         runSingleTaskAttempt: async () => {
@@ -1439,13 +1403,8 @@ test("PR-Q-04 cancels before Task effect and releases durable ownership", async 
   const controller = new AbortController();
   controller.abort();
   let effects = 0;
-  let authorizationsIssued = 0;
   const outcome = await runOrchestratorOperation(
     {
-      issueRuntimeExecutionAuthorization: () => {
-        authorizationsIssued += 1;
-        return {};
-      },
       runSingleTaskAttempt: async (attempt) => {
         effects += 1;
         return completed(attempt);
@@ -1455,7 +1414,6 @@ test("PR-Q-04 cancels before Task effect and releases durable ownership", async 
   );
   assert.equal(outcome.status, "cancelled", JSON.stringify(outcome));
   assert.equal(effects, 0);
-  assert.equal(authorizationsIssued, 0);
   const queue = readProjectOperationQueueState(root, "binding-a", "queue-a");
   assert.equal(queue.status, "completed");
   assert.equal(queue.status === "completed" && queue.value.state, "cancelled");
@@ -1466,132 +1424,72 @@ test("PR-Q-04 cancels before Task effect and releases durable ownership", async 
 });
 
 /**
- * PR-Q-04は実行許可発行直後の取消で未使用Capabilityを失効するを検証する。
+ * 開始準備の保存後、委譲直前の取消はTask Effectを発行しない。
  *
- * @responsibility PR-Q-04は実行許可発行直後の取消で未使用Capabilityを失効するの合否判定を所有する。
+ * @responsibility 耐久的な開始準備とTask委譲の間の取消を閉じる。
  * @trace PRL-IT-012
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus PR-Q-04は実行許可発行直後の取消で未使用Capabilityを失効するの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
+ * @precondition 単一Taskを持つ自己生成Repositoryを使用する。
+ * @stimulus 開始準備が保存された後の時刻取得で取消を通知する。
+ * @observation 保存状態、Task呼出し回数、終了結果、回復義務を観測する。
+ * @oracle 委譲0回、取消完了、片付け確認済み、合成回復義務なしとなる。
+ * @cleanup 登録済みhookが自己生成Repositoryを清掃する。
+ * @boundary PRL-IT-012=Related 2 Blocks: 開始準備の保存→Task委譲。
  */
-test("PR-Q-04は実行許可発行直後の取消で未使用Capabilityを失効する", async (t) => {
+test("開始準備保存後の取消はTaskを委譲せず終了する", async (t) => {
   const { root, input } = fixture(t, [task("task-a")], 1);
   const controller = new AbortController();
-  const runtimeCapability = {};
   let effects = 0;
-  let revocations = 0;
+  let preparedObserved = false;
+  let tick = 0;
+  const events: unknown[] = [];
   const outcome = await runOrchestratorOperation(
     {
-      issueRuntimeExecutionAuthorization: () => {
-        controller.abort();
-        return runtimeCapability;
-      },
-      revokeRuntimeExecutionAuthorization: (candidate) => {
-        assert.equal(candidate, runtimeCapability);
-        revocations += 1;
-        return true;
+      now: () => {
+        const current = readOrchestratorState(root, "binding-a", "project-a");
+        if (
+          current.value?.tasks.some(
+            (entry) =>
+              entry.state === "starting" &&
+              entry.startPhase === "handoff_prepared",
+          )
+        ) {
+          preparedObserved = true;
+          controller.abort();
+        }
+        return { monotonicMs: tick++, iso: "2026-10-15T00:00:00.000Z" };
       },
       runSingleTaskAttempt: async (attempt) => {
         effects += 1;
         return completed(attempt);
       },
+      executionObservation: {
+        recordTaskAttempt: (event) => {
+          events.push(event);
+          return recorded("cancel-before-delegation");
+        },
+      },
     },
     { ...input, cancellationSignal: controller.signal },
   );
+  assert.equal(preparedObserved, true);
   assert.equal(outcome.status, "cancelled", JSON.stringify(outcome));
   assert.equal(outcome.cleanupConfirmed, true);
   assert.equal(outcome.manualRecoveryRequired, false);
-  assert.equal(effects, 0);
-  assert.equal(revocations, 1);
-  const queue = readProjectOperationQueueState(root, "binding-a", "queue-a");
-  assert.equal(queue.status, "completed");
-  assert.equal(queue.status === "completed" && queue.value.state, "cancelled");
-});
-
-/**
- * Runtime実行許可の発行失敗はEffect 0でreplanへ閉じるを検証する。
- *
- * @responsibility Runtime実行許可の発行失敗はEffect 0でreplanへ閉じるの合否判定を所有する。
- * @trace PRL-IT-012
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Runtime実行許可の発行失敗はEffect 0でreplanへ閉じるの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
- */
-test("Runtime実行許可の発行失敗はEffect 0でreplanへ閉じる", async (t) => {
-  const { root, input } = fixture(t, [task("task-a")], 1);
-  let effects = 0;
-  const outcome = await runOrchestratorOperation(
-    {
-      issueRuntimeExecutionAuthorization: () => null,
-      runSingleTaskAttempt: async (attempt) => {
-        effects += 1;
-        return completed(attempt);
-      },
-    },
-    input,
-  );
-  assert.equal(outcome.status, "blocked");
-  assert.equal(outcome.reason, "orchestrator_replan_required");
-  assert.equal(outcome.effectState, "no_effect");
   assert.equal(outcome.processRestartRequired, false);
   assert.equal(effects, 0);
   const state = readOrchestratorState(root, "binding-a", "project-a");
-  assert.equal(state.value?.tasks[0]?.state, "failed");
-});
-
-/**
- * 未使用の実行許可を失効できたか不明なら同一Processの再利用を禁止するを検証する。
- *
- * @responsibility 未使用の実行許可を失効できたか不明なら同一Processの再利用を禁止するの合否判定を所有する。
- * @trace PRL-IT-012
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 未使用の実行許可を失効できたか不明なら同一Processの再利用を禁止するの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
- */
-test("未使用の実行許可を失効できたか不明なら同一Processの再利用を禁止する", async (t) => {
-  const { root, input } = fixture(t, [task("task-a")], 1);
-  const controller = new AbortController();
-  let poisoned = 0;
-  let effects = 0;
-  const outcome = await runOrchestratorOperation(
-    {
-      issueRuntimeExecutionAuthorization: () => {
-        controller.abort();
-        return {};
-      },
-      revokeRuntimeExecutionAuthorization: () => false,
-      poisonProcessAfterExecutionAuthorizationRevocationUnknown: () => {
-        poisoned += 1;
-      },
-      runSingleTaskAttempt: async (attempt) => {
-        effects += 1;
-        return completed(attempt);
-      },
-    },
-    { ...input, cancellationSignal: controller.signal },
-  );
-  assert.equal(outcome.status, "blocked");
-  assert.equal(outcome.reason, "orchestrator_task_recovery_required");
-  assert.equal(outcome.cleanupConfirmed, false);
-  assert.equal(outcome.effectState, "unknown");
-  assert.equal(outcome.processRestartRequired, true);
-  assert.equal(poisoned, 1);
-  assert.equal(effects, 0);
-  const state = readOrchestratorState(root, "binding-a", "project-a");
-  assert.equal(state.value?.tasks[0]?.recoveryUnresolved, false);
-  assert.equal(
-    state.value?.tasks[0]?.recoveryObligations[0]?.kind,
-    "runtime_process",
-  );
+  assert.equal(state.value?.tasks[0]?.state, "cancelled");
+  assert.deepEqual(state.value?.tasks[0]?.recoveryObligations, []);
+  assert.equal(outcome.effectState, "no_effect");
+  assert.equal(events.length, 1);
+  const event = events[0] as {
+    outcome: { reason: string; effectState: string };
+  };
+  assert.equal(event.outcome.reason, "single_task_cancelled_before_delegation");
+  assert.equal(event.outcome.effectState, "no_effect");
+  const queue = readProjectOperationQueueState(root, "binding-a", "queue-a");
+  assert.equal(queue.status, "completed");
+  assert.equal(queue.status === "completed" && queue.value.state, "cancelled");
 });
 
 /**

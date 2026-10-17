@@ -14,7 +14,7 @@
  * @security exactな固定値だけを公開し、prefixまたは正規表現による許可へ拡張しない。
  * @concurrency N/A: 不変の固定値だけを公開する。
  */
-import { dockerProcessControllerPublicCompletionReasons } from "../docker-execution/process-controller-result-reasons.ts";
+import { dockerProcessControllerPublicCompletionReasons } from "../provider/execution-result-reasons.ts";
 
 export const COORDINATOR_TASK_PROVIDER_PREPARATION_REASONS = Object.freeze({
   prepareFailed: "coordinator_task_provider_prepare_failed",
@@ -108,7 +108,6 @@ export const coordinatorTaskPublicReasons = Object.freeze([
   "coordinator_task_provider_selection_refresh_revoke_failed",
   "coordinator_task_read_projection_recognized_secret_rejected",
   "coordinator_task_recovery_correlation_invalid",
-  "coordinator_task_release_verification_required",
   "coordinator_task_remediated_candidate_invalid",
   "coordinator_task_remediation_recognized_secret_rejected",
   "coordinator_task_repository_binding_failed",

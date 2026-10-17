@@ -9,7 +9,7 @@
       "stability": "pilot",
       "subsystem": "coordinator",
       "sourceDocument": "06_Architecture/Details/coordinator/01_Architecture.md",
-      "sourceSha256": "52ad799f35399758685da5c81b6af862b1f998885ac24c2d1fca980062e89736",
+      "sourceSha256": "ce9aab6457874c851c0191803a7a3a665817f683646601556807063e843831e8",
       "meanings": [
         {
           "semanticKey": "coordinator.candidate-review-boundary",
@@ -100,7 +100,7 @@
       "stability": "pilot",
       "subsystem": "orchestrator",
       "sourceDocument": "06_Architecture/Details/orchestrator/02_Detailed_Design.md",
-      "sourceSha256": "0a4513b277b97fb6f44575fcceb251b884a8c3f927e8485854b47a77b909f8ef",
+      "sourceSha256": "1b39f8376982d388c55f42ba44f9e8cb70f654439213ced1b54e7e01e83d2b1f",
       "meanings": [
         {
           "semanticKey": "orchestrator.acceptance-decision-authority",
@@ -343,7 +343,6 @@
           "ARCH-000015"
         ],
         "implementationSymbolIds": [
-          "coordinator.docker-desktop-runtime-repair",
           "coordinator.source.src.security.claude.subscription.authentication",
           "coordinator.source.src.security.docker.container.init.observation",
           "coordinator.task-runtime"
@@ -378,6 +377,7 @@
         "verificationMode": "automated",
         "testSymbolIds": [
           "coordinator.test.integration.orchestrator-composition-root",
+          "coordinator.test.integration.orchestrator-full-flow",
           "coordinator.test.system.orchestrator-acceptance-decision",
           "orchestrator.test.integration.acceptance-decision-application",
           "orchestrator.test.unit.state"

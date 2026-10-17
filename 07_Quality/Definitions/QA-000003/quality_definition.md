@@ -7,7 +7,15 @@ Quality ID: `QA-000003`
 状態: Canonical
 維持責任者: Qual-Lab
 
+現在入場の検証は`PRL-IT-013`で所有する。通常Readerの不在拒否を維持し、専用Readerでは同じ短期排他内の二度の明示不存在とRoot／排他生存・解放確認だけを初回入場可へ変換する。既存空領域、途中出現、不正本文、pending、未知物、Root失効と解放不明を拒否する。安定本文に別Task・未解決・配送・修復があっても入場観測では全域拒否せず、後続beginの同Home・未終端修復拒否と対にする。Task通常／開発・CLIは検査対象と同じRootを運び、結果は可否・有限理由・排他解放だけとする。旧全域在庫に由来する`CASE-RECOVERY-ADMISSION`は廃止し、現在観測不能の`CASE-OPERATOR-TRANSFER-ADMISSION`を保持する。限定試験は実Filesystemと模擬Kernel排他を区別し、実Docker・回復全体成立を主張しない。
+
 ## 1. 情報源と網羅条件
+
+`PRL-IT-012`と`PRL-ST-001`は、旧adopt／close／after-repairと署名Root引数を未知引数として拒否し、Root解決・Writer・Process処置より先にUsage拒否へ到達することを確認する。単独・値付き・現行回復との混在両順序、Help非掲載と現行repair／retain／restart／recoverの肯定搬送を対にする。旧形式の表示はフロントAIの移行へ案内し、廃止CLIを再案内しない。旧署名chainの互換再生、実Docker再起動、認証以外のunknown終了はこの入口検証の保証に含めず、歴史Evidenceを保持する。旧Desktop記録・旧回復APIは撤去済みであり、未証明の実境界は現在Ownerの残件として区別する。
+
+Snapshot検査の既存ヘルパーへ接続する際は、Descriptor自身の`value`を要求し、prototypeの継承値をdata propertyと誤認しないことも`PRL-UT-006`で反証する。隔離realm内で汚染を構築し、通常dataの受理・get/set未定義accessorの拒否・getter呼出し0を同時確認する。旧継承判定へ戻す変異が同じOracleを破ることを確認し、Hostのprototypeを変更しない。共有ヘルパーを使うRecordとArrayの利用側へ単体回帰を適用する。
+
+`PRL-IT-012`の責務境界確認では、Orchestrator詳細設計のFile分類と実Source全数を照合し、未知File・重複・空の純粋集合を拒否する。純粋判定の実行時閉包、型だけの所有境界、決定論的組込みsymbolを分け、型importから値importへの変更、保存／接続処理・外部Rootへの辺、内部型Path、乱数・現在時刻・待機の追加を反証する。正常現物を同じOracleで受理したうえで各反例の固有拒否理由を確認する。結果配送型の内部実装参照を撤去しても、三状態・五項目参照・終了観測を保持し、Adapterをcastなしで型接続する。状態受理のgetter未実行・Proxy拒否・閉集合・不変Snapshotは`PRL-UT-006`の既存Oracleを維持する。この検査を実Host・Docker・公開Transport全体の成立へ昇格しない。
 
 | Source ID | Obligation Key | 導出元 | 保持する固有条件 | 試験段階 | 対応Local Item |
 |---|---|---|---|---|
@@ -97,7 +105,11 @@ Quality ID: `QA-000003`
 | `PRL-IT-013` | 回復 | IT | Recovery State／Re-entry | Task／Recovery Store→再入場Application | Related 2 Blocks | 同じTask Identityの取消済み、Effect不明、cleanup未確認、回復可能状態、同じRuntime Stateに複数Recoveryが残る状態 | Recovery recordを読み同じTaskへ再入場し、複数件では選択したexact Recoveryだけを順次処置する | Task／Recovery Identity、全Inventory、対象Scope、状態、再発行Effect、終了後義務を記録する | 別Taskや新Authorityを作らず同じRecovery義務を継続し、未選択Recoveryを削除または完了化しない | Identity、Inventory差、状態遷移、Effect件数、判定 | 重複Effect 0、別Task 0、未選択Recovery変更0 | Automated |
 | `PRL-UT-014` | 正常 | UT | Application Semantics | Orchestrator Application Port／Profile Resolver | N/A | 同じ意味を持つTransport別入力、明示／自動Profile選択、未知ID、Provider／Role不一致および内部Pathを含む反例 | 入力をCore Operationへ正規化し、明示IDまたは一意な自動選択を解決する | 正規化入力、Profile ID、Route Candidate、Selection Grantおよび公開結果を記録する | Transport差でProfile Identity、Authority、成功条件、Recovery意味が変わらない | Transport別入力、Profile解決、正規化結果、判定 | 外部Effect 0 | Automated |
 
+Local Personal許可元の`PRL-UT-006`では、cache確認より前のOperation照合を各load一回、strict trueだけの受理、false／非boolean／例外、未知Profile・Provider差・不正Operation、時計不正、30秒境界と期限内失効を確認する。全6 ProfileのGrant／Home／Egress結合を再検査する。署名不在だけを拒否理由にしない。`PRL-IT-005`では実管理参照の同じOperation、偽造・別Operation・清掃後失効を通常Taskと同じOwnerで確認し、Source生成を外部送信許可やProvider Effectへ昇格しない。旧署名用の静的検査、他Native入口および実Provider／全体E2Eは別の未完了範囲として保持する。
+
 ## Semantic Coverage Pilot
+
+`PRL-ST-001`／`PRL-ST-003`／`PRL-ST-004`の実Provider検証Reportは、同exact回復操作の公開7相・Identity／世代と、同じ公開再入場結果・耐久ACK・現在終了確定を共同根拠とする。旧global Inventory空を要求・主張せず、取消や別操作の不存在へ転用しない。取消は正常完了またはProcess Tree終了を持つ同Identityの完全なProvider清掃通知を必須とし、通知欠測・Container／Network不存在未確認は検証blockedとする。公開取消結果に残るruntime_process義務とunknownは別事実であり、Provider清掃肯定やReportの検証completedから解消済みへ変更しない。Report上位のcleanup／manual／Process再起動／Effectも各公開実値を保守合成する。固定子Process・合成入力による本試験の成功を実Provider E2Eや項目全体Passへ換算しない。
 
 この表はQuality Local Itemが検証する設計上の意味だけを正方向で宣言する。逆方向の一覧は生成し、本文の類似表現から推測しない。
 
@@ -153,7 +165,17 @@ Source Definition由来の検証義務を維持し、Detailは具体的な観測
 
 ## Host残存の保守候補判定
 
-`PRL-UT-006`で本番と同じ同期排他controller coreの失敗保持を確認する。解放false・例外・非boolean、再取得null・例外、作業例外との共同失敗を与え、世代別解放一回、最初の失敗保持、失敗後の作業・再取得0、反復closeのfalseを確認する。正常な再取得は別世代で各一回解放し、正常close反復はtrueとする。同期解放集約では全attemptを処置し、true以外を成功へ変換せず、Promise／thenableのthenを実行しない。局所fixtureはOS操作を持たず、実CloseHandle失敗やNative全終端を証明しない。既存`PRL-IT-013`の自己生成Process・排他による正常再取得／Owner喪失確認と、QA-000006の未成立な実Recovery義務を維持する。
+`docker-recovery-owner-reentry`では、`PRL-IT-013`の未登録Capability／Ownerと不正completionを公開Owner入口へ渡し、拒否時のHost復帰・Lease解放・lifecycle保存・清掃Capability発行の増分0、operations全文とHost観測不変を確認する。Host完了依存の拒否では正常解放の証明を返さず、清掃準備も未発行とし、同じCapability／Owner／元completionの再入場だけを既存の肯定経路へ戻す。再入場Caseの下位は模擬である。実Host／Writerの完了意図・pending・応答喪失・元版／token保持は`coordinator-state-runtime`の実Host試験を共同根拠とし、旧AppData pointerの欠測・partial・replacement形式を再現しない。正常1回の別Caseは、実Root／Home排他／Host／現在Writerと真正Host清掃を接続する。Home観測・Docker証明だけを厳密tupleで模擬し、実Leaseの競合拒否と再取得、清掃前finalizeの本文／履歴不変、清掃結果コピーの拒否、対象だけの履歴化／除去、非対象全文保持とHost／marker／短命物不存在を確認する。清掃例外・世代解放falseでは、同じ清掃本文の反証で後続全回収・模擬復元、最初の失敗保持とRoot削除0を確認する。新正常1回の限定成立から、同一Host／Home直列2回、abandon物理回復、実Dockerや通常完了Capability全体の成立を推定しない。旧3Caseは撤去済みであり、現行正常1／2回・別Process放棄回復を検証先とする。
+
+同一Host／Home直列の`PRL-IT-013`では、同じ管理Owner・Host領域で2回の技術終端を保持し、実保存nonce／回復IDの一意性、各版の先行記録・非対象全文不変、実Home排他の解放と再取得、Host token復帰、交差した証明の拒否、最後の真正Host清掃一回と逆順終了保存・履歴相関を確認する。`PRL-UT-006`は同Host lineage、旧操作全文不変、Lease解放・旧Owner disabled、五資源終端・実行評価既知・清掃未要求・結果未固定・再起動なし・未解決資源義務なしの共同条件を確認する。条件単独のdecode成功反例、同じ開始版での旧操作正常化、別Host／別Root・token・directory identityと、同Host条件省略／disabled保存省略のメモリ反例を拒否する。保存・読戻し・解放不明で正常completeや清掃Capabilityを発行しない。物理marker identityは各正常遷移で変わり得るため一致条件にせず、既存のfresh実体照合とHost lineageを区別する。正常1／2回と別Process放棄回復を個別に評価し、旧3Caseは保証対応後の撤去済み固定候補として独立確認する。正常解放はcomplete前の元tuple false、complete後の真正別Owner・別operation ID・別回復ID各一軸falseと元tuple true継続、finalize後の元tuple trueを確認する。実Docker・unknown要求終端・全体完成は未成立のまま分離する。
+
+同じ`PRL-IT-013`のOwner喪失後の相関解決は、`current-host-transition`の`cli_entry_orchestrator`へ移す。初回Identity保存前の上位相関と内部Operation IDを別値に固定し、別Processの実Resolverが真正Repositoryの現在stateからexact回復IDと明示不存在を返すこと、偽造Capabilityでは両集合が空の拒否となること、読取り前後の本文不変と排他解放を確認する。検査したResolver返却IDを実CLIへ渡し、Host回収後も同じ相関・exact配送ID・未受領が保持されることを確認する。全資源未要求の正例であり、要求済み資源の回収結合は次のidentified条件が担当する。ACK待ちをTask完了へ読み替えない。
+
+`cli_entry_orchestrator_identified`は、既知Provider資源IDを保存した状態からの相関解決と回収を担当する。親の実Writerで意図・発行・ID確定を三版に保存し、各改訂／元版Hashと非対象操作不変を確認する。旧Owner解放後、子Processの実Resolver返却IDを公開回復compositionへ渡し、本番DIの構成照合・config生成／同実体確認／回収・Host回収・履歴／未受領配送保持までを結合する。Docker／Authenticodeの応答だけは固定模擬し、実Nativeはexact配布物・既知操作を元Process APIへ委譲する。ID照会→inspect→exact ID回収一回→ID不存在→exact名不存在の全数消費、未知要求sticky拒否、元結果・他操作・同相関・未受領保持を確認する。構成差／rm失敗／残存はDIの`resource-recovery`、環境・CLI・config・close不明は`recovery-executor`、inspect後Owner失効と保存不明の処置前停止は`current-recovery-resources`の既存反例を共同根拠とする。模擬応答から実Docker daemon・実Publisher観測・実Provider E2E・当該条件のCLI起動成立を主張しない。旧identified相関Caseはこの対応を確認して撤去し、反例・QA項目・既存Suite IDは維持する。
+
+`PRL-IT-013`の現行保存方式への移行では、旧AppData pointerの専用刺激と、維持するfresh再入場義務を分ける。`current-host-transition.integration.test.ts`のA／B／Cは現在stateと実Hostの途中保存・別Process再入場、`current-state-marker-cleanup.contract.test.ts`は保存markerの実体確認・清掃を担当する。引渡し前失敗は同じHost試験の`handoff_failure`で、親が既に知るexact ID、全五Docker資源未要求、準備Owner解放、別PIDの本番CLI、元例外の非0終了／stdout空、元結果・一次失敗の履歴保持、非対象操作不変、Host／marker／短命物の不存在を確認する。throw省略変異は同じ捕捉Oracleの反証に限り、物理回収の根拠にしない。この対応は実Docker資源の回復、未伝達IDの自動発見、実Provider E2Eまたは旧Suite全体の移行完了を意味しない。
+
+`PRL-UT-006`の旧同期排他controllerと未使用解放集約の局所試験は退役した。現在はJournalの削除4組・移動16組・清掃分類と、Snapshot再入場の元版／次版Hash・Repository結合・初回Root・unknown・不正版を責務別UTで確認する。現行の全解放・一次失敗保持・解放不明停止はKernel／現在Writerの試験へ接続し、純粋分類の成功を実OS回収の証明にしない。
 
 `PRL-UT-006`には[Coordinator詳細設計§11](../../../06_Architecture/Details/coordinator/01_Architecture.md#元の回復参照を確定できないhost残存の保守候補)の内部候補判定を含める。十一の必須条件を一件ずつ不成立、unknown、欠落へ変え、対象外資源クラス、不正Hash、未知field、AccessorおよびProxyを拒否する。全条件の局所fixtureが成立してもAuthority非発行、清掃未確認、本番未接続を返すことをOracleとする。
 
@@ -171,7 +193,9 @@ Source Definition由来の検証義務を維持し、Detailは具体的な観測
 
 同じ`PRL-UT-006`でDocker診断回復のHost排他接続順を確認する。現在の本番関数bodyを変更せず局所依存へ接続し、正常、Token／Host世代／親の不正、取得null／例外、取得後の記録不明、Docker依存失敗、解放不明、Host Root名差およびHost nonce差の十一経路を与える。Probe nonceとHost nonceは異なる値にする。未取得では対象Rootの記録読取り0・Docker利用0、取得後の対象差・記録不明ではDocker利用0を確認する。同じ排他ObjectをHost清掃へ渡し、取得後の失敗でも一回解放する。解放不明では成功・清掃確認を返さず、現在のexact回復参照、手動回復の必要性と清掃未確認を保持する。これは本番bodyの呼出順・結果相関のUTであり、実排他、Docker回収、実フォルダ不存在、旧三Rootの非使用または全Recoveryの成立を証明しない。
 
-同じ`PRL-UT-006`でDocker Task回復の排他省略を確認する。Journalなし、move、deleteおよび別Taskの終端記録ではHost排他が拒否された後にHome取得・Host観測・Docker処置へ進まない。exactな終端清掃記録または清掃Directory候補だけ省略を許すが、その後に非終端処理へ到達した場合はHost Path解決より前に拒否し、Home／State排他を各一回解放して同じ回復参照を保持する。JournalのIdentity・Schema検証は既存の実Journalが所有し、VM fixtureの投影値からその検証成立を推定しない。`PRL-IT-013`では既存の実Journal、終端清掃途中のProcess喪失からの再入場、Task Aだけの処置によるTask B不変、および外側観測中の一時解放・同世代再取得を併せて確認する。
+旧AppData回復一覧に依存したHost排他省略と、旧controllerによる外側観測中の一時解放・再取得の試験は退役する。現在の`PRL-IT-013`は、Host／Home／Runtimeの三長期排他と短期State排他、観測後の元版全文・exact回復ID・現在Ownerの再確認、部分取得失敗時の全解放と解放不明時の後続処置拒否を確認する。実Kernelの競合・待機中の所有・解放後失効とProcess終了後の再取得は既存Kernel Lock試験、現在の資源／Owner・再起動準備の故障処理は各現行Suiteへ対応付ける。Journal本体のIdentity・Schemaと移管した分類の検証は維持する。Host記録の遷移相関は既存recovery-recordへ統合し、旧専用UT2件を同Ownerへ移す。Journal＋Host記録全体と既存Host ITを含むcoverageの閾値90/70/80を維持し、Snapshot分類は別のUT3件と実Writer回帰で確認する。旧coverageと同一母集団とは表示しない。値保存・Lock取得・局所fixtureの成功を、実資源不存在、旧Owner終端または全Recovery成立の証明にしない。
+
+同じ`PRL-UT-006`と`PRL-IT-013`で、再起動最終観測の要求状態・Effect不明を既存finalizeから保存する契約を確認する。上位unknown・回収confirmed・結果blocked・最終not_issued・Effect不明falseだけを新しい終了許容形とし、上位の未発行化や再起動成功へ変換しない。上位issued／confirmedとの矛盾、最終unknown／issued、Effect不明true、回収不明、欠測・余分field・Proxy／getter、旧result、確定後の全field変更と二要求目を拒否する。completed側の最終confirmed・Effect不明falseも共同要求する。実finalize→Writer読戻し→終端／履歴へ接続し、両利用側が同じ純粋判定を使うこと、Task資源終了・Owner退役・Host不存在・Lease・排他・履歴の各条件を壊した反例とEffect条件省略変異を確認する。通知／保存／解放不明は未発行確定へ補完しない。現在保持する旧形式の実証結果を推測移行せず、本契約の実装・検証は未完了として追跡する。
 
 `PRL-UT-006`では、Host対象確認の専用frameについてnonce、revision、型・相異、独立namespace期待値、選択利用者、取得数と初回closeの相関を確認する。観測成功＋外側close不明でSnapshotを出さず元観測失敗を捏造しないこと、部分取得・不正boolean・余剰bytes・入力getter／Proxy／共有memory・偽要求参照を拒否することを、現在のcodec／Adapterへ接続する。初回要求は完全intentを必要とせず、Current結果と独立期待値のKnown照合を分け、Current成功でも保護・全終了を必須とする。純値成功を実OS観測、署名配布物、非使用・実処置または全Recoveryの成立へ昇格しない。
 
@@ -193,6 +217,17 @@ Coordinator Adapterでも、専用保存／読戻しの私有登録と旧形式�
 
 Host終端専用環境の`PRL-UT-006`では、同じ本番関数bodyに対する十五の入力区分で、正規親を`TMP`／`TEMP`へ同値搬送し、他fieldと一般Native環境を変更しないことを確認する。前提環境欠落、相対・UNC・NUL・drive root、file・symlink、metadata／正規化例外と正規化後不正を拒否し、fallbackを行わない。合成Filesystemによる関数bodyの確認であり、実OS所在・保護・正常保存の根拠にはしない。
 
+`PRL-UT-006`の現在状態モデルでは、再起動記録と資源要求の保存順序を次の組合せで確認する。
+
+| 条件 | 必要な判定 |
+|---|---|
+| 再起動checkpoint初期化と資源変更を同じ更新へ混在する | requestだけでなく、資源配列全体の差を拒否する。 |
+| 初期化後に要求を新たに`intent_saved`・`issued`・`unknown`へ進める | 全五用途で拒否する。同じ遷移が初期化前に成立する正対照も確認する。 |
+| 初期化前のunknown正規化、同値保持、実ID発見、既知IDの通常回収 | 既存の許容遷移を維持し、再起動を認証専用の能力へ狭めない。 |
+| 保存順序だけが成立し、実観測や専用終了Writerが未接続 | 遅延要求排除・旧Owner終了・実再起動・認証unknown終了・全利用側完成を主張しない。 |
+
+現在回収Ownerの退役接続は`ERB-IT-014`で確認する。真正な準備・同Root／Host世代・全三排他・元版全文一致を前提に、active／unknownからphaseとownerEffectだけを変更し、他の実行評価・資源・一次失敗・結果・履歴・他操作を保持する。既退役の書込み0、後期状態拒否、各lock・Reader・Writer・読戻し不明後の後段処置0、保存後取消と全解放を反証する。メモリWriterによる境界試験と、実Kernel排他・実Writer・実読戻しを通す保存試験を区別する。退役成功を孤立CLI終端・遅延create無害化・資源不存在や限定unknown終了の根拠にしない。
+
 ## Checklist
 
 - [x] Quality ID、検証目標およびSource固有条件を自己完結して示した
@@ -206,3 +241,11 @@ Host終端専用環境の`PRL-UT-006`では、同じ本番関数bodyに対する
 - [x] RT／PT／LTの適用または理由付きN/Aを記録し、PT／LTは人間の明示指定なしに実行しない
 - [x] 自動化、手動確認および人間判断の境界を示した
 - [x] 現行Source、TestおよびEvidenceとの照合をReality Auditへ分離した
+
+`PRL-IT-013`の開始拒否は、現行beginから実Home排他・Reader／Writer・Hostへ接続して検証する。invalid current、正規currentに対する不正pending、未知entry、Reader後の実Writerによる有効な同Home未終端状態の追加、abandonで物理Homeが解放された後の耐久同Home残存、Home取得後のRoot失効を独立に刺激する。各到達を一回確認し、Host開始0、Coordinator直下の全名前集合・種別・実体・本文とHost marker不変、実行binding・資源記録・清掃資格の非発行、失敗後のHome再取得を確認する。注入自身または競合Writer完了直後を比較基準にし、拒否直後と資格に対する負例の実行後、fixture復元前に全領域を比較する。短命物追加、本文変更、同本文の別実体への置換を同じ観測で拒否できることも確認する。Root失効は全既存操作と異なる専用Homeを用い、同Home競合による代替拒否を除く。実Home取得後の失効到達、実ReaderのRoot拒否・値なし、Writer／Host開始0を確認し、HEAD復元後に旧CapabilityでRepository操作を再開しない。生成済みIDと使用可能な実行Authorityを同一視せず、新品RootのReader値なしを不正状態と一括しない。旧五Callerの開始側をこの現行反例へ対応し、混合三Caseの旧Recovery側・kill fixture・実Dockerと全体完成は別範囲として残す。
+
+`PRL-IT-013`の放棄・再入場は、実begin／abandon／Host世代解放を行う旧Processの終了確認後、別Processが真正Rootと同じexact回復IDから本番consumer回復へ進む条件を検証する。放棄前後のstate全文・改訂・Host marker不変、実Home排他再取得と正常解放証明の非発行を確認し、排他解放を清掃へ読み替えない。回復子は同期・非同期Process発行を観測し、許可した固定Native／Host supervisorと読取りGit以外をsticky拒否する。五資源未要求からDocker／Provider要求0、両子Processの終了、非対象操作全文保全、対象exact履歴、対象state除去、Host／marker／短命物不存在を独立に確認する。未確認時は試験Rootを保持する。この限定結合の成功から実Docker・作成結果不明・遅延要求の終端を推定せず、旧3Caseは対応確認後に撤去済みであり、現行の別Process放棄回復を検証先とする。
+
+認証作成の通常例外は、同じ`PRL-IT-013`と`ERB-IT-003`の限定範囲として、実Owner／Writer／Home排他・Host世代とDocker代役を結合する。image確認・create後inspect・unknown保存前・実Writer返却後かつ結果検査前のfixture例外・packet直前の五刺激を分け、前半三形はintent_saved、後半二形はunknownの実model全文を要求する。指定故障到達一回、真正abandon一回、一次例外の保持、実Home再取得・解放、Host／marker実体・本文と非対象操作保全を確認する。Writer内部の応答喪失を実測したとは主張しない。正常完了・Container回収・実Dockerや親統括の成立には流用しない。fakeは通常自己生成試験Rootだけに限定し、実証専用Rootと実Docker発行を拒否する。
+
+認証作成の手動親では、実本文の一意抽出と閉じた境界代役で、正常時の全spy接続、入口・各baseline時点・通知・再起動・削除前保存・実rm省略・不存在の各軸・最終清掃の単独故障を確認する。故障到達一回と後続処置0を共同条件とし、最初のReader不明では参照を推測せず、確定後だけ同exact IDを保持する。named bindingとimport接続の省略、identified確認省略は同じOracleの変異で反証する。毎回新品の評価閉包・登録表・Process代役を用い、実Node module mockや実Dockerへ接続しない。合成Reader／Writer／Runtimeの成功値は実codec・保存・Kernel・Nativeの成立根拠にせず、既存実境界と後続限定実証を別に評価する。

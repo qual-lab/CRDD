@@ -19,19 +19,18 @@ import {
   displayVerificationRecording,
   runRecordedVerification,
 } from "./verification-result-record.ts";
-import { createInteractiveConsoleReaderEnvironment } from "../src/host-execution/windows-child-environment.ts";
+import { createInteractiveConsoleReaderEnvironment } from "../../platform-access/src/index.ts";
 import {
   createDynamicFakeProviderRecoverableResidue,
   recoverDockerIsolationProbe,
-} from "../src/docker-execution/isolation-probe.ts";
+} from "../src/diagnostics/isolation-probe.ts";
 import { createOwnedOperationDirectories } from "../src/host-execution/operation-workspace-lifecycle.ts";
-import { issueRuntimeOwnedVerifiedCoordinatorPackageCapability } from "../src/platform-access/package-verification.ts";
 import { verifyDynamicFakeProviderCancellation } from "./verify-dynamic-fake-provider-cancellation.ts";
 import { verifyDynamicFakeProviderFailures } from "./verify-dynamic-fake-provider-failures.ts";
 
 export const SIGNED_RECOVERY_MATRIX_CONTRACT =
   "crdd-coordinator/signed-recovery-matrix-verification";
-export const SIGNED_RECOVERY_MATRIX_CONTRACT_REVISION = 1;
+export const SIGNED_RECOVERY_MATRIX_CONTRACT_REVISION = 2;
 
 const INTERNAL_CHILD_ARGUMENT = "--internal-parent-loss-child";
 const INTERNAL_CLEANUP_UNKNOWN_CHILD_ARGUMENT =
@@ -112,62 +111,6 @@ function blocked(reason: string, extra: RuntimeRecord = Object.freeze({})) {
     credentialReported: false,
     ...extra,
   });
-}
-
-/**
- * Signed Package Prerequisiteを検証する。
- *
- * @responsibility Signed Package Prerequisiteの検証根拠、成立条件、観測不能時の拒否境界を所有する。
- * @trace ARCH-000008
- * @input N/A: 実行時引数を受け取らない。
- * @returns verifySignedPackagePrerequisiteの計算結果を返す。
- * @precondition 「N/A: 実行時引数を受け取らない。」がverifySignedPackagePrerequisiteの入力契約を満たす。
- * @postcondition verifySignedPackagePrerequisiteの責務を完了した結果だけを返す。
- * @effect verifySignedPackagePrerequisiteは外部ProcessまたはRuntime境界の操作を呼び出す。
- * @failure verifySignedPackagePrerequisiteは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant verifySignedPackagePrerequisiteは宣言した境界以外へEffectを拡張しない。
- * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
- * @security N/A: verifySignedPackagePrerequisiteはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: verifySignedPackagePrerequisiteは共有非同期状態を持たない同期処理である。
- */
-function verifySignedPackagePrerequisite() {
-  if (!isSupportedCoordinatorNodeRuntime(process.versions.node))
-    return Object.freeze({
-      status: "blocked" as const,
-      reason: "signed_recovery_matrix_node_version_unsupported",
-      release: null,
-    });
-  try {
-    const issued = issueRuntimeOwnedVerifiedCoordinatorPackageCapability({
-      evaluationTime: new Date().toISOString(),
-    });
-    const release = issued.verification as RuntimeRecord;
-    if (
-      release?.status !== "candidate" ||
-      release.qualLabManifestCryptographicMatch !== true ||
-      release.runtimeOwnedReleaseTrustConfirmed !== true ||
-      release.runtimeExecutionIdentityRuntimeOwned !== true ||
-      release.crddDistributionConfirmed !== true ||
-      !issued.capability ||
-      typeof issued.capability !== "object"
-    )
-      return Object.freeze({
-        status: "blocked" as const,
-        reason: "signed_recovery_matrix_release_verification_failed",
-        release,
-      });
-    return Object.freeze({
-      status: "verified" as const,
-      reason: "signed_recovery_matrix_release_verified",
-      release,
-    });
-  } catch {
-    return Object.freeze({
-      status: "blocked" as const,
-      reason: "signed_recovery_matrix_release_verification_failed",
-      release: null,
-    });
-  }
 }
 
 /**
@@ -392,6 +335,7 @@ async function verifyParentLossThenRecover() {
       );
     const recovered = recoverDockerIsolationProbe(
       recoveryId,
+      ready.operationRoot,
     ) as RuntimeRecord | null;
     if (!recoveryCompleted(recovered))
       throw new RecoveryMatrixFailure(
@@ -463,6 +407,7 @@ async function verifyCleanupUnknownThenRecover() {
     );
   const recovered = recoverDockerIsolationProbe(
     recoveryId,
+    ready.operationRoot,
   ) as RuntimeRecord | null;
   if (!recoveryCompleted(recovered))
     throw new RecoveryMatrixFailure(
@@ -498,10 +443,9 @@ async function verifyCleanupUnknownThenRecover() {
  * @concurrency runInternalResidueChildは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
  */
 async function runInternalResidueChild(shouldWaitForTermination: boolean) {
-  const prerequisite = verifySignedPackagePrerequisite();
-  if (prerequisite.status !== "verified") {
+  if (!isSupportedCoordinatorNodeRuntime(process.versions.node)) {
     process.stdout.write(
-      `${JSON.stringify({ contract: CHILD_READY_CONTRACT, status: "blocked", reason: prerequisite.reason })}\n`,
+      `${JSON.stringify({ contract: CHILD_READY_CONTRACT, status: "blocked", reason: "signed_recovery_matrix_node_version_unsupported" })}\n`,
     );
     process.exitCode = 2;
     return;
@@ -514,6 +458,7 @@ async function runInternalResidueChild(shouldWaitForTermination: boolean) {
       status: residue.status,
       reason: residue.reason,
       recoveryId: residue.recoveryId,
+      operationRoot: owned.root,
       manualRecoveryRequired: residue.manualRecoveryRequired,
     })}\n`,
   );
@@ -528,9 +473,9 @@ async function runInternalResidueChild(shouldWaitForTermination: boolean) {
 }
 
 /**
- * Signed 回復 Matrix Verificationを実行する。
+ * 固定Worker回復Matrixを実行する。
  *
- * @responsibility Signed 回復 Matrix Verificationの実行条件、Effect範囲、終了結果の境界を所有する。
+ * @responsibility 固定Worker回復Matrixの実行条件、Effect範囲、終了結果の境界を所有する。
  * @trace ARCH-000008
  * @input N/A: 実行時引数を受け取らない。
  * @returns runSignedRecoveryMatrixVerificationの計算結果を返す。
@@ -544,8 +489,8 @@ async function runInternalResidueChild(shouldWaitForTermination: boolean) {
  * @concurrency runSignedRecoveryMatrixVerificationは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
  */
 export async function runSignedRecoveryMatrixVerification() {
-  const prerequisite = verifySignedPackagePrerequisite();
-  if (prerequisite.status !== "verified") return blocked(prerequisite.reason);
+  if (!isSupportedCoordinatorNodeRuntime(process.versions.node))
+    return blocked("signed_recovery_matrix_node_version_unsupported");
   try {
     const failures = verifyDynamicFakeProviderFailures();
     const failureScenarios = failures.scenarios.map((scenario) => ({
@@ -564,7 +509,8 @@ export async function runSignedRecoveryMatrixVerification() {
       status: "completed" as const,
       reason: "signed_recovery_matrix_verified",
       minimumNodeVersion: MINIMUM_COORDINATOR_NODE_VERSION,
-      packageVerification: "signed_release_and_exact_distribution",
+      packageVerification: "not_required",
+      signatureRequired: false,
       scenarios: Object.freeze([
         ...failureScenarios,
         Object.freeze({
@@ -607,9 +553,9 @@ export async function runSignedRecoveryMatrixVerification() {
 }
 
 /**
- * Signed 回復 Matrix 契約の公開契約を記述する。
+ * 固定Worker回復Matrixの公開契約を記述する。
  *
- * @responsibility Signed 回復 Matrix 契約の公開field、非公開境界、互換性を所有する。
+ * @responsibility 固定Worker回復Matrixの公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000008
  * @input N/A: 実行時引数を受け取らない。
  * @returns describeSignedRecoveryMatrixContractの計算結果を返す。
@@ -627,6 +573,8 @@ export function describeSignedRecoveryMatrixContract() {
     contract: SIGNED_RECOVERY_MATRIX_CONTRACT,
     contractRevision: SIGNED_RECOVERY_MATRIX_CONTRACT_REVISION,
     normalTaskSchemaChanged: false,
+    signatureRequired: false,
+    packageVerification: "not_required",
     publicScenarioArgumentsAllowed: false,
     fixedScenarios: Object.freeze([
       "nonzero_exit",

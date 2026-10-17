@@ -70,9 +70,6 @@ export async function runOrchestratorSingleTaskAttempt(
     ) &&
     typeof input.repositoryRevision === "string" &&
     /^[0-9a-f]{40,64}$/u.test(input.repositoryRevision) &&
-    typeof input.runtimeExecutionCapability === "object" &&
-    input.runtimeExecutionCapability !== null &&
-    !utilTypes.isProxy(input.runtimeExecutionCapability) &&
     input.cancellationSignal instanceof AbortSignal &&
     (input.observeStarted === undefined ||
       typeof input.observeStarted === "function") &&

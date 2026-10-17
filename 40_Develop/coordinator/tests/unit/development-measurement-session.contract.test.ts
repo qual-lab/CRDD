@@ -76,21 +76,7 @@ function configuration() {
     repositoryRoot,
     expectedCommit: COMMIT,
     expectedTree: TREE,
-    expectedPackageContentRootSha256: "c".repeat(64),
-    nativeDistributionRoot: path.join(
-      repositoryRoot,
-      ".crdd",
-      "signed-native-fixture",
-    ),
-    expectedNativeRelease: {
-      manifestHash: "d".repeat(64),
-      releaseSequence: 1,
-      crddVersion: "0.18.0",
-      crddCommit: "e".repeat(40),
-      crddTree: "f".repeat(40),
-      packageContentRootSha256: "1".repeat(64),
-      runtimeExecutionIdentitySha256: "5".repeat(64),
-    },
+    expectedSourceSha256: "c".repeat(64),
     tasks: [task("codex"), task("claude")],
     expiresAtMs: 1_100,
   };
@@ -337,6 +323,11 @@ for (const failure of [
 test("不正設定・Task・追加keyはIdentity観測前に拒否する", async () => {
   for (const invalid of [
     { ...configuration(), confirmed: true },
+    { ...configuration(), expectedPackageContentRootSha256: "c".repeat(64) },
+    { ...configuration(), nativeDistributionRoot: repositoryRoot },
+    { ...configuration(), expectedNativeRelease: {} },
+    { ...configuration(), expectedSourceSha256: undefined },
+    { ...configuration(), expectedSourceSha256: "not-a-sha256" },
     { ...configuration(), expiresAtMs: 3_600_101 },
     { ...configuration(), tasks: [task("codex"), task("codex")] },
     {
@@ -766,15 +757,10 @@ test("試験sessionのtokenは本番Task・native Home・Store・Runtime State�
     task("codex"),
   );
   assertPresent(taskCapability);
-  const now = new Date().toISOString();
   for (const outcome of [
-    inspectRuntimeOwnedWindowsProviderHomeCandidate(
-      "codex",
-      now,
-      taskCapability,
-    ),
-    inspectRuntimeOwnedWindowsCandidateStore(true, now, taskCapability),
-    inspectRuntimeOwnedWindowsRuntimeState(true, now, taskCapability),
+    inspectRuntimeOwnedWindowsProviderHomeCandidate("codex", taskCapability),
+    inspectRuntimeOwnedWindowsCandidateStore(true, taskCapability),
+    inspectRuntimeOwnedWindowsRuntimeState(true, taskCapability),
   ]) {
     assert.equal(outcome.status, "blocked");
     assert.match(outcome.reason, /development_context_invalid$/u);

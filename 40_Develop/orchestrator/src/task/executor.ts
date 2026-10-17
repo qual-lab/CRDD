@@ -4,7 +4,6 @@
  * @responsibility OrchestratorSingleTaskAttemptInputを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000004
  */
-import type { captureRuntimeOwnedCoordinatorTaskResultDelivery } from "../../../coordinator/src/task/execution.ts";
 
 /**
  * 同Processで捕捉した元Taskの結果配送だけを表す。
@@ -16,13 +15,34 @@ import type { captureRuntimeOwnedCoordinatorTaskResultDelivery } from "../../../
  * @security JSON要求・公開結果・永続Stateに格納しない。
  * @compatibility 現行の同Process配送契約だけを利用する。
  */
-export type OrchestratorTaskResultDelivery = NonNullable<
-  ReturnType<typeof captureRuntimeOwnedCoordinatorTaskResultDelivery>
->;
+export type OrchestratorTaskResultDelivery = Readonly<{
+  readResults: () =>
+    | Readonly<{ status: "blocked" | "not_required"; results: null }>
+    | Readonly<{
+        status: "completed";
+        results: readonly Readonly<{
+          repositoryBinding: string;
+          operationId: string;
+          recoveryId: string;
+          resultId: string;
+          consumer: "orchestrator";
+        }>[];
+      }>;
+  complete: (
+    recoveryId: unknown,
+    readProjectAcceptance: unknown,
+  ) => Readonly<{
+    status: "completed" | "blocked";
+    reason: string | null;
+    filesystemEffectIssued: boolean;
+    snapshotConfirmed: boolean;
+    lockReleased: boolean;
+  }>;
+}>;
 
 export const ORCHESTRATOR_SINGLE_TASK_ADAPTER_CONTRACT =
   "crdd-coordinator/orchestrator-single-task-adapter" as const;
-export const ORCHESTRATOR_SINGLE_TASK_ADAPTER_CONTRACT_REVISION = 2;
+export const ORCHESTRATOR_SINGLE_TASK_ADAPTER_CONTRACT_REVISION = 3;
 
 /**
  * execution-portで使用するOrchestrator Single Task Attempt 入力の値契約を定義する。
@@ -40,7 +60,6 @@ export type OrchestratorSingleTaskAttemptInput = Readonly<{
   operationId: string;
   authorityBindingId: string;
   repositoryRevision: string;
-  runtimeExecutionCapability: object;
   taskRequest: unknown;
   repositoryRoot: unknown;
   cancellationSignal: AbortSignal;

@@ -12,10 +12,12 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
-import os from "node:os";
+import { stripTypeScriptTypes } from "node:module";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import test from "node:test";
+import vm from "node:vm";
+import { createRepositoryTestDirectory } from "../support/repository-test-directory.ts";
 
 import {
   dockerRecoveryCommitName,
@@ -41,6 +43,230 @@ const scopedRuntimeStateBinding = Object.freeze({
 });
 
 /**
+ * 試験Rootの作成・清掃が現在Repositoryへ閉じることを確認する。
+ *
+ * @responsibility CWD・一時領域環境値に依存しない作成と兄弟保全を反証する。
+ * @trace PRL-IT-013
+ * @precondition 現在Repositoryの実Rootを読み取れる。
+ * @stimulus CWDとTEMP系環境を変えて二つの試験Rootを作り一方を清掃する。
+ * @observation 生成先、兄弟本文、対象の不存在、二重清掃の拒否。
+ * @oracle 二Rootは同じ.crdd/tests直下で、対象だけが消え兄弟本文は不変。
+ * @cleanup 作成handleで両Rootを回収し、CWD・環境を元値へ復元する。
+ * @boundary Repository-localの実Filesystem。Docker・外部AIは使わない。
+ */
+test("recovery test directories ignore ambient roots and preserve siblings", () => {
+  const repositoryRoot = fs.realpathSync.native(
+    path.resolve(import.meta.dirname, "../../../.."),
+  );
+  const previousCwd = process.cwd();
+  const previousEnvironment = ["TEMP", "TMP", "TMPDIR"].map(
+    (name) => [name, process.env[name]] as const,
+  );
+  let first: ReturnType<typeof createRepositoryTestDirectory> | null = null;
+  let sibling: ReturnType<typeof createRepositoryTestDirectory> | null = null;
+  try {
+    const packageDirectory = path.join(
+      repositoryRoot,
+      "40_Develop",
+      "coordinator",
+    );
+    assert.equal(fs.lstatSync(packageDirectory).isSymbolicLink(), false);
+    process.chdir(packageDirectory);
+    assert.notEqual(process.cwd(), repositoryRoot);
+    for (const [name] of previousEnvironment)
+      process.env[name] = path.join(repositoryRoot, "not-created-ambient-temp");
+    first = createRepositoryTestDirectory("crdd-journal-root-oracle-");
+    sibling = createRepositoryTestDirectory("crdd-journal-sibling-oracle-");
+    assert.equal(
+      path.dirname(first.path),
+      path.join(repositoryRoot, ".crdd", "tests"),
+    );
+    assert.equal(path.dirname(sibling.path), path.dirname(first.path));
+    const marker = path.join(sibling.path, "marker.txt");
+    fs.writeFileSync(marker, "sibling remains");
+    first.cleanup();
+    assert.throws(() => fs.lstatSync(first?.path as string), {
+      code: "ENOENT",
+    });
+    assert.throws(() => first?.cleanup(), { code: "ENOENT" });
+    first = null;
+    assert.equal(fs.readFileSync(marker, "utf8"), "sibling remains");
+  } finally {
+    process.chdir(previousCwd);
+    for (const [name, value] of previousEnvironment) {
+      if (value === undefined) delete process.env[name];
+      else process.env[name] = value;
+    }
+    first?.cleanup();
+    sibling?.cleanup();
+  }
+});
+
+/**
+ * 試験Directory helperの実本文を故障Filesystemへ接続する。
+ *
+ * @responsibility 作成前拒否と清掃前拒否を要求回数で分離する。
+ * @trace PRL-IT-013
+ * @precondition 本番と独立した閉じたFilesystem模型を使う。
+ * @stimulus prefix、Repository確認、祖先、実体または観測を一軸変更する。
+ * @observation mkdtemp／rm回数と保持されたDirectory集合。
+ * @oracle 不正な作成前提はmkdtemp0、清掃実体差はrm0、正常だけ一回削除。
+ * @cleanup N/A: VM内の局所模型だけで実Filesystemへ書き込まない。
+ * @boundary 実helper本文→注入Filesystem。実Docker・Processは発行しない。
+ */
+test("recovery test directory rejects uncertain roots before creation or deletion", () => {
+  const sourceDirectory = path.resolve(import.meta.dirname, "../support");
+  const repositoryRoot = path.resolve(sourceDirectory, "../../../..");
+  const source = fs.readFileSync(
+    path.join(sourceDirectory, "repository-test-directory.ts"),
+    "utf8",
+  );
+  const functionText = source
+    .slice(source.indexOf("export function createRepositoryTestDirectory"))
+    .replace("export function", "function")
+    .replaceAll("import.meta.dirname", JSON.stringify(sourceDirectory));
+  const javascript = stripTypeScriptTypes(functionText);
+  for (const scenario of [
+    "normal",
+    "invalid-prefix",
+    "invalid-repository",
+    "ancestor-file",
+    "ancestor-link",
+    "ancestor-alias",
+    "ancestor-unreadable",
+    "missing-ancestors",
+    "root-replaced",
+    "parent-replaced",
+    "root-link",
+    "cleanup-unreadable",
+  ]) {
+    const parent = path.join(repositoryRoot, ".crdd", "tests");
+    const root = path.join(parent, "crdd-oracle-ABCDEF");
+    const directories = new Map([
+      [repositoryRoot, 1n],
+      [path.dirname(parent), 2n],
+      [parent, 3n],
+    ]);
+    if (scenario === "missing-ancestors") {
+      directories.delete(parent);
+      directories.delete(path.dirname(parent));
+    }
+    let creates = 0;
+    let removals = 0;
+    let cleaning = false;
+    /**
+     * 模型のDirectory実体と観測故障を返す。
+     * @responsibility 実Filesystemに触れず対象別の状態を供給する。
+     * @trace PRL-IT-013
+     * @precondition シナリオ固有のDirectory集合を保持している。
+     * @stimulus 実helperからPathを照会する。
+     * @observation 実体属性または明示的なENOENT／EACCES。
+     * @oracle 存在しないPathと観測不能を別の例外にする。
+     * @cleanup N/A: 局所Mapだけを参照する。
+     * @boundary 試験模型内の同期読取り。
+     */
+    const lstatSync = (directory: string) => {
+      if (directory === parent && scenario === "ancestor-unreadable")
+        throw Object.assign(new Error("unreadable"), { code: "EACCES" });
+      if (cleaning && directory === root && scenario === "cleanup-unreadable")
+        throw Object.assign(new Error("unreadable"), { code: "EACCES" });
+      const ino = directories.get(directory);
+      if (ino === undefined)
+        throw Object.assign(new Error("absent"), { code: "ENOENT" });
+      return {
+        dev: 1n,
+        ino,
+        birthtimeNs: ino,
+        isDirectory: () =>
+          !(directory === parent && scenario === "ancestor-file"),
+        isSymbolicLink: () =>
+          (directory === parent && scenario === "ancestor-link") ||
+          (cleaning && directory === root && scenario === "root-link"),
+      };
+    };
+    const context = vm.createContext({
+      Error,
+      Object,
+      path,
+      verifyRepositoryRoot: () =>
+        scenario === "invalid-repository"
+          ? { status: "blocked" }
+          : { status: "completed", capability: {} },
+      resolveVerifiedRepositoryRoot: () => repositoryRoot,
+      fs: {
+        lstatSync,
+        realpathSync: {
+          native: (directory: string) =>
+            directory === parent && scenario === "ancestor-alias"
+              ? `${directory}-alias`
+              : directory,
+        },
+        mkdirSync: (directory: string) => {
+          directories.set(directory, 20n);
+        },
+        mkdtempSync: (prefix: string) => {
+          assert.equal(prefix, path.join(parent, "crdd-oracle-"));
+          creates += 1;
+          directories.set(root, 4n);
+          return root;
+        },
+        rmSync: (directory: string) => {
+          assert.equal(directory, root);
+          removals += 1;
+          directories.delete(directory);
+        },
+      },
+    });
+    const create = vm.runInContext(
+      `${javascript}\ncreateRepositoryTestDirectory`,
+      context,
+    ) as (prefix: string) => ReturnType<typeof createRepositoryTestDirectory>;
+    const beforeCreationFailure = [
+      "invalid-prefix",
+      "invalid-repository",
+      "ancestor-file",
+      "ancestor-link",
+      "ancestor-alias",
+      "ancestor-unreadable",
+    ].includes(scenario);
+    if (beforeCreationFailure) {
+      for (const prefix of scenario === "invalid-prefix"
+        ? [
+            "",
+            "../escape-",
+            "..",
+            "/absolute-",
+            "C:\\escape-",
+            "nested/name-",
+            "nested\\name-",
+          ]
+        : ["crdd-oracle-"])
+        assert.throws(() => create(prefix));
+      assert.equal(creates, 0, scenario);
+      assert.equal(removals, 0, scenario);
+      continue;
+    }
+    const fixture = create("crdd-oracle-");
+    cleaning = true;
+    if (scenario === "root-replaced") directories.set(root, 9n);
+    if (scenario === "parent-replaced") directories.set(parent, 9n);
+    if (scenario === "normal" || scenario === "missing-ancestors") {
+      fixture.cleanup();
+      assert.equal(removals, 1, scenario);
+      assert.equal(directories.has(root), false, scenario);
+      assert.equal(directories.has(parent), true, scenario);
+      assert.throws(() => fixture.cleanup());
+      assert.equal(removals, 1, scenario);
+    } else {
+      assert.throws(() => fixture.cleanup());
+      assert.equal(removals, 0, scenario);
+      assert.equal(directories.has(root), true, scenario);
+    }
+    assert.equal(creates, 1, scenario);
+  }
+});
+
+/**
  * temporaryDirectoryのTest準備責務を実行する。
  *
  * @responsibility temporaryDirectoryがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
@@ -53,7 +279,7 @@ const scopedRuntimeStateBinding = Object.freeze({
  * @boundary PRL-IT-013=Direct Boundary: coordinator Test Source→対象契約
  */
 function temporaryDirectory() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), "crdd-docker-journal-test-"));
+  return createRepositoryTestDirectory("crdd-docker-journal-test-");
 }
 
 /**
@@ -482,7 +708,7 @@ function crashRecoveryIdentityIntent(
  * @boundary PRL-IT-013=Direct Boundary: coordinator Test Source→対象契約
  */
 test("fsync済みtargetとcommit sidecarの完全な組だけをAuthorityとして読む", () => {
-  const directory = temporaryDirectory();
+  const { path: directory, cleanup: cleanupdirectory } = temporaryDirectory();
   try {
     const written = writeCommittedDockerRecoveryJson(
       directory,
@@ -502,7 +728,7 @@ test("fsync済みtargetとcommit sidecarの完全な組だけをAuthorityとし�
     assert.equal(removeCommittedDockerRecoveryJson(written.target), true);
     assert.deepEqual(fs.readdirSync(directory), []);
   } finally {
-    fs.rmSync(directory, { recursive: true, force: true });
+    cleanupdirectory();
   }
 });
 
@@ -519,7 +745,7 @@ test("fsync済みtargetとcommit sidecarの完全な組だけをAuthorityとし�
  * @boundary PRL-IT-013=Direct Boundary: coordinator Test Source→対象契約
  */
 test("delete後の存在観測不能は不存在へ縮退せずanchorを保持して再開可能にする", () => {
-  const directory = temporaryDirectory();
+  const { path: directory, cleanup: cleanupdirectory } = temporaryDirectory();
   try {
     const child = deletionObservationFailure(directory);
     assert.equal(child.status, 0);
@@ -534,7 +760,7 @@ test("delete後の存在観測不能は不存在へ縮退せずanchorを保持�
     resumeDockerRecoveryJournalDirectory(directory);
     assert.deepEqual(fs.readdirSync(directory), []);
   } finally {
-    fs.rmSync(directory, { recursive: true, force: true });
+    cleanupdirectory();
   }
 });
 
@@ -551,7 +777,7 @@ test("delete後の存在観測不能は不存在へ縮退せずanchorを保持�
  * @boundary PRL-IT-013=Direct Boundary: coordinator Test Source→対象契約
  */
 test("target temp fsync直後のprocess killはorphan tempを保持して採用しない", () => {
-  const directory = temporaryDirectory();
+  const { path: directory, cleanup: cleanupdirectory } = temporaryDirectory();
   try {
     const child = crashWriter(directory, "fsync");
     assert.notEqual(child.status, 0);
@@ -560,7 +786,7 @@ test("target temp fsync直後のprocess killはorphan tempを保持して採用�
     assert.equal(isDockerRecoveryJournalTemporaryName(entries[0] ?? ""), true);
     assert.equal(fs.existsSync(path.join(directory, "record.json")), false);
   } finally {
-    fs.rmSync(directory, { recursive: true, force: true });
+    cleanupdirectory();
   }
 });
 
@@ -577,7 +803,7 @@ test("target temp fsync直後のprocess killはorphan tempを保持して採用�
  * @boundary PRL-IT-013=Direct Boundary: coordinator Test Source→対象契約
  */
 test("target rename直後のprocess killは未commit finalを保持してFail Closedにする", () => {
-  const directory = temporaryDirectory();
+  const { path: directory, cleanup: cleanupdirectory } = temporaryDirectory();
   try {
     const child = crashWriter(directory, "rename-1");
     assert.notEqual(child.status, 0);
@@ -595,7 +821,7 @@ test("target rename直後のprocess killは未commit finalを保持してFail Cl
     );
     assert.equal(fs.existsSync(target), true);
   } finally {
-    fs.rmSync(directory, { recursive: true, force: true });
+    cleanupdirectory();
   }
 });
 
@@ -612,7 +838,7 @@ test("target rename直後のprocess killは未commit finalを保持してFail Cl
  * @boundary PRL-IT-013=Direct Boundary: coordinator Test Source→対象契約
  */
 test("exactなcreate側はcontent rename後のprocess killから同じpairを完成できる", () => {
-  const directory = temporaryDirectory();
+  const { path: directory, cleanup: cleanupdirectory } = temporaryDirectory();
   try {
     const child = crashWriter(directory, "rename-1");
     assert.notEqual(child.status, 0);
@@ -638,7 +864,7 @@ test("exactなcreate側はcontent rename後のprocess killから同じpairを完
       /docker_recovery_record_create_mismatch/u,
     );
   } finally {
-    fs.rmSync(directory, { recursive: true, force: true });
+    cleanupdirectory();
   }
 });
 
@@ -655,7 +881,7 @@ test("exactなcreate側はcontent rename後のprocess killから同じpairを完
  * @boundary PRL-IT-013=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Effect前のexact未commit finalだけを決定論的rollbackできる", () => {
-  const directory = temporaryDirectory();
+  const { path: directory, cleanup: cleanupdirectory } = temporaryDirectory();
   try {
     const child = crashWriter(directory, "rename-1");
     assert.notEqual(child.status, 0);
@@ -669,7 +895,7 @@ test("Effect前のexact未commit finalだけを決定論的rollbackできる", (
     );
     assert.deepEqual(fs.readdirSync(directory), []);
   } finally {
-    fs.rmSync(directory, { recursive: true, force: true });
+    cleanupdirectory();
   }
 });
 
@@ -686,8 +912,9 @@ test("Effect前のexact未commit finalだけを決定論的rollbackできる", (
  * @boundary PRL-IT-013=Direct Boundary: coordinator Test Source→対象契約
  */
 test("未commit finalの内容不一致と完全commit pairはrollbackしない", () => {
-  const directory = temporaryDirectory();
-  const committedDirectory = temporaryDirectory();
+  const { path: directory, cleanup: cleanupdirectory } = temporaryDirectory();
+  const { path: committedDirectory, cleanup: cleanupcommittedDirectory } =
+    temporaryDirectory();
   try {
     const child = crashWriter(directory, "rename-1");
     assert.notEqual(child.status, 0);
@@ -724,8 +951,8 @@ test("未commit finalの内容不一致と完全commit pairはrollbackしない"
       true,
     );
   } finally {
-    fs.rmSync(directory, { recursive: true, force: true });
-    fs.rmSync(committedDirectory, { recursive: true, force: true });
+    cleanupdirectory();
+    cleanupcommittedDirectory();
   }
 });
 
@@ -742,7 +969,7 @@ test("未commit finalの内容不一致と完全commit pairはrollbackしない"
  * @boundary PRL-IT-013=Direct Boundary: coordinator Test Source→対象契約
  */
 test("commit rename直後のprocess killでも親processが完全な組を再検証できる", () => {
-  const directory = temporaryDirectory();
+  const { path: directory, cleanup: cleanupdirectory } = temporaryDirectory();
   try {
     const child = crashWriter(directory, "rename-2");
     assert.notEqual(child.status, 0);
@@ -751,7 +978,7 @@ test("commit rename直後のprocess killでも親processが完全な組を再検
     assert.deepEqual(read.value, { schema: "fixture/v1", value: true });
     assert.equal(read.logicalKey, "record.json");
   } finally {
-    fs.rmSync(directory, { recursive: true, force: true });
+    cleanupdirectory();
   }
 });
 
@@ -769,7 +996,7 @@ test("commit rename直後のprocess killでも親processが完全な組を再検
  */
 test("delete intentは全process-kill境界からexact pair削除を再開する", () => {
   for (const boundary of ["fsync", "rename-1", "rm-1", "rm-2"] as const) {
-    const root = temporaryDirectory();
+    const { path: root, cleanup: cleanuproot } = temporaryDirectory();
     try {
       const child = crashMutation(root, "delete", boundary);
       assert.notEqual(child.status, 0, boundary);
@@ -777,7 +1004,7 @@ test("delete intentは全process-kill境界からexact pair削除を再開する
       resumeDockerRecoveryJournalDirectory(sourceDirectory);
       assert.deepEqual(fs.readdirSync(sourceDirectory), [], boundary);
     } finally {
-      fs.rmSync(root, { recursive: true, force: true });
+      cleanuproot();
     }
   }
 });
@@ -802,7 +1029,7 @@ test("move intentはsource／targetの全既知中間状態からexact targetへ
     "rename-3",
     "rm-1",
   ] as const) {
-    const root = temporaryDirectory();
+    const { path: root, cleanup: cleanuproot } = temporaryDirectory();
     try {
       const child = crashMutation(root, "move", boundary);
       assert.notEqual(child.status, 0, boundary);
@@ -815,7 +1042,7 @@ test("move intentはsource／targetの全既知中間状態からexact targetへ
       assert.deepEqual(moved.value, { schema: "fixture/v1", value: true });
       assert.deepEqual(fs.readdirSync(sourceDirectory), [], boundary);
     } finally {
-      fs.rmSync(root, { recursive: true, force: true });
+      cleanuproot();
     }
   }
 });
@@ -834,14 +1061,14 @@ test("move intentはsource／targetの全既知中間状態からexact targetへ
  */
 test("cleanup root anchorはpayload部分削除からdirectory residue 0へ再開する", () => {
   for (const boundary of ["fsync", "rename-1", "rm-1", "rm-2"] as const) {
-    const root = temporaryDirectory();
+    const { path: root, cleanup: cleanuproot } = temporaryDirectory();
     try {
       const child = crashMutation(root, "cleanup", boundary);
       assert.notEqual(child.status, 0, boundary);
       resumeDockerRecoveryJournalDirectory(root);
       assert.deepEqual(fs.readdirSync(root), [], boundary);
     } finally {
-      fs.rmSync(root, { recursive: true, force: true });
+      cleanuproot();
     }
   }
 });
@@ -859,7 +1086,7 @@ test("cleanup root anchorはpayload部分削除からdirectory residue 0へ再�
  * @boundary PRL-IT-013=Direct Boundary: coordinator Test Source→対象契約
  */
 test("対象限定resumeは別Recovery IDのanchorをbyte／Identityとも変更しない", () => {
-  const root = temporaryDirectory();
+  const { path: root, cleanup: cleanuproot } = temporaryDirectory();
   try {
     assert.notEqual(crashScopedCleanup(root, "a").status, 0);
     assert.notEqual(crashScopedCleanup(root, "b").status, 0);
@@ -896,7 +1123,7 @@ test("対象限定resumeは別Recovery IDのanchorをbyte／Identityとも変更
       [`docker-task.${"b".repeat(64)}.${"b".repeat(64)}.${"b".repeat(64)}`],
     );
   } finally {
-    fs.rmSync(root, { recursive: true, force: true });
+    cleanuproot();
   }
 });
 
@@ -913,7 +1140,7 @@ test("対象限定resumeは別Recovery IDのanchorをbyte／Identityとも変更
  * @boundary PRL-IT-013=Direct Boundary: coordinator Test Source→対象契約
  */
 test("対象限定resumeは同一Recovery IDの作成時binding不一致をmutation前に拒否する", () => {
-  const root = temporaryDirectory();
+  const { path: root, cleanup: cleanuproot } = temporaryDirectory();
   try {
     assert.notEqual(crashScopedCleanup(root, "a").status, 0);
     const aIntent = inspectDockerRecoveryJournalDirectory(root)[0];
@@ -941,7 +1168,7 @@ test("対象限定resumeは同一Recovery IDの作成時binding不一致をmutat
       [beforeIdentity.dev, beforeIdentity.ino, beforeIdentity.birthtimeNs],
     );
   } finally {
-    fs.rmSync(root, { recursive: true, force: true });
+    cleanuproot();
   }
 });
 
@@ -962,7 +1189,7 @@ test("delete／moveの第三状態は上書きせずintentと観測物を保持�
     ["delete", "rm-1", path.join("source", "record.json.crdd-commit.json")],
     ["move", "rename-2", path.join("target", "record.json")],
   ] as const) {
-    const root = temporaryDirectory();
+    const { path: root, cleanup: cleanuproot } = temporaryDirectory();
     try {
       const child = crashMutation(root, operation, boundary);
       assert.notEqual(child.status, 0);
@@ -986,7 +1213,7 @@ test("delete／moveの第三状態は上書きせずintentと観測物を保持�
         true,
       );
     } finally {
-      fs.rmSync(root, { recursive: true, force: true });
+      cleanuproot();
     }
   }
 });
@@ -1004,7 +1231,7 @@ test("delete／moveの第三状態は上書きせずintentと観測物を保持�
  * @boundary PRL-IT-013=Direct Boundary: coordinator Test Source→対象契約
  */
 test("cleanup第三状態はrecursive deleteせずanchorとunknownを保持する", () => {
-  const root = temporaryDirectory();
+  const { path: root, cleanup: cleanuproot } = temporaryDirectory();
   try {
     const child = crashMutation(root, "cleanup", "rm-1");
     assert.notEqual(child.status, 0);
@@ -1023,7 +1250,7 @@ test("cleanup第三状態はrecursive deleteせずanchorとunknownを保持す�
       true,
     );
   } finally {
-    fs.rmSync(root, { recursive: true, force: true });
+    cleanuproot();
   }
 });
 
@@ -1045,7 +1272,7 @@ test("read-only intent inventoryはdelete／move／cleanupのAuthorityを厳密�
     ["move", "rename-2"],
     ["cleanup", "rm-1"],
   ] as const) {
-    const root = temporaryDirectory();
+    const { path: root, cleanup: cleanuproot } = temporaryDirectory();
     try {
       const child = crashMutation(root, operation, boundary);
       assert.notEqual(child.status, 0);
@@ -1082,7 +1309,7 @@ test("read-only intent inventoryはdelete／move／cleanupのAuthorityを厳密�
         );
       else assert.equal(intents[0]?.recoveryId, null);
     } finally {
-      fs.rmSync(root, { recursive: true, force: true });
+      cleanuproot();
     }
   }
 });
@@ -1100,7 +1327,7 @@ test("read-only intent inventoryはdelete／move／cleanupのAuthorityを厳密�
  * @boundary PRL-IT-013=Direct Boundary: coordinator Test Source→対象契約
  */
 test("同じ論理KeyとRecovery IDの複数intentは発見だけでも第三状態として保持する", (context) => {
-  const root = temporaryDirectory();
+  const { path: root, cleanup: cleanuproot } = temporaryDirectory();
   const originalRemove = fs.rmSync;
   try {
     const content = {
@@ -1174,7 +1401,7 @@ test("同じ論理KeyとRecovery IDの複数intentは発見だけでも第三状
     }
   } finally {
     context.mock.restoreAll();
-    fs.rmSync(root, { recursive: true, force: true });
+    cleanuproot();
   }
 });
 
@@ -1219,7 +1446,7 @@ test("journal contractはprocess-crash回復とpower-loss非保証を分離す�
  */
 test("pending intent再入、cleanup rmdir後、競合anchorを決定的に分類する", () => {
   {
-    const root = temporaryDirectory();
+    const { path: root, cleanup: cleanuproot } = temporaryDirectory();
     try {
       assert.notEqual(crashMutation(root, "delete", "fsync").status, 0);
       const source = path.join(root, "source");
@@ -1229,22 +1456,22 @@ test("pending intent再入、cleanup rmdir後、競合anchorを決定的に分�
       assert.equal(removeCommittedDockerRecoveryJson(record.target), true);
       assert.deepEqual(fs.readdirSync(source), []);
     } finally {
-      fs.rmSync(root, { recursive: true, force: true });
+      cleanuproot();
     }
   }
   {
-    const root = temporaryDirectory();
+    const { path: root, cleanup: cleanuproot } = temporaryDirectory();
     try {
       assert.notEqual(crashMutation(root, "cleanup", "rmdir").status, 0);
       assert.equal(fs.existsSync(path.join(root, "source")), false);
       resumeDockerRecoveryJournalDirectory(root);
       assert.deepEqual(fs.readdirSync(root), []);
     } finally {
-      fs.rmSync(root, { recursive: true, force: true });
+      cleanuproot();
     }
   }
   {
-    const root = temporaryDirectory();
+    const { path: root, cleanup: cleanuproot } = temporaryDirectory();
     try {
       assert.notEqual(crashMutation(root, "delete", "rename-1").status, 0);
       const source = path.join(root, "source");
@@ -1261,7 +1488,7 @@ test("pending intent再入、cleanup rmdir後、競合anchorを決定的に分�
         /docker_recovery_intent_third_state/u,
       );
     } finally {
-      fs.rmSync(root, { recursive: true, force: true });
+      cleanuproot();
     }
   }
 });
@@ -1280,7 +1507,7 @@ test("pending intent再入、cleanup rmdir後、競合anchorを決定的に分�
  */
 test("不正intent schemaと変更されたempty directoryをEvidenceとして保持する", () => {
   {
-    const root = temporaryDirectory();
+    const { path: root, cleanup: cleanuproot } = temporaryDirectory();
     try {
       fs.writeFileSync(
         path.join(root, `.crdd-delete-${"a".repeat(64)}.json`),
@@ -1291,11 +1518,11 @@ test("不正intent schemaと変更されたempty directoryをEvidenceとして�
         /docker_recovery_intent_invalid/u,
       );
     } finally {
-      fs.rmSync(root, { recursive: true, force: true });
+      cleanuproot();
     }
   }
   {
-    const root = temporaryDirectory();
+    const { path: root, cleanup: cleanuproot } = temporaryDirectory();
     try {
       assert.notEqual(crashMutation(root, "cleanup", "fsync").status, 0);
       fs.writeFileSync(path.join(root, "source", "empty", "changed"), "x");
@@ -1304,7 +1531,7 @@ test("不正intent schemaと変更されたempty directoryをEvidenceとして�
         /docker_recovery_cleanup_intent_third_state/u,
       );
     } finally {
-      fs.rmSync(root, { recursive: true, force: true });
+      cleanuproot();
     }
   }
 });
@@ -1323,7 +1550,7 @@ test("不正intent schemaと変更されたempty directoryをEvidenceとして�
  */
 test("intent anchorの改名、複製、commit semantic差を保持して拒否する", () => {
   for (const mutation of ["rename", "duplicate", "commit"] as const) {
-    const root = temporaryDirectory();
+    const { path: root, cleanup: cleanuproot } = temporaryDirectory();
     try {
       assert.notEqual(crashMutation(root, "delete", "rename-1").status, 0);
       const source = path.join(root, "source");
@@ -1361,7 +1588,7 @@ test("intent anchorの改名、複製、commit semantic差を保持して拒否�
         /docker_recovery_(?:delete_)?intent_invalid/u,
       );
     } finally {
-      fs.rmSync(root, { recursive: true, force: true });
+      cleanuproot();
     }
   }
 });
@@ -1384,7 +1611,7 @@ test("root base／base-commit moveとpointer deleteのkill後もexact Recovery I
     "base_commit_move",
     "pointer_delete",
   ] as const) {
-    const root = temporaryDirectory();
+    const { path: root, cleanup: cleanuproot } = temporaryDirectory();
     try {
       assert.notEqual(crashRecoveryIdentityIntent(root, operation).status, 0);
       const intents = inspectDockerRecoveryJournalDirectory(root);
@@ -1394,7 +1621,7 @@ test("root base／base-commit moveとpointer deleteのkill後もexact Recovery I
         /^docker-task\.[a-f0-9]{64}\.[a-f0-9]{64}\.[a-f0-9]{64}$/u,
       );
     } finally {
-      fs.rmSync(root, { recursive: true, force: true });
+      cleanuproot();
     }
   }
 });
@@ -1417,7 +1644,7 @@ test("Root-level intent探索とresumeは全schemaでRecovery ID別にAだけを
     "base_commit_move",
     "pointer_delete",
   ] as const) {
-    const root = temporaryDirectory();
+    const { path: root, cleanup: cleanuproot } = temporaryDirectory();
     try {
       assert.notEqual(
         crashRecoveryIdentityIntent(root, operation, "a").status,
@@ -1478,7 +1705,7 @@ test("Root-level intent探索とresumeは全schemaでRecovery ID別にAだけを
       );
       assert.equal(inspectDockerRecoveryJournalDirectory(root).length, 0);
     } finally {
-      fs.rmSync(root, { recursive: true, force: true });
+      cleanuproot();
     }
   }
 });
@@ -1501,7 +1728,7 @@ test("Root-level base／base-commit／pointer intentはbinding不一致時に全
     "base_commit_move",
     "pointer_delete",
   ] as const) {
-    const root = temporaryDirectory();
+    const { path: root, cleanup: cleanuproot } = temporaryDirectory();
     try {
       assert.notEqual(
         crashRecoveryIdentityIntent(root, operation, "a").status,
@@ -1531,7 +1758,7 @@ test("Root-level base／base-commit／pointer intentはbinding不一致時に全
         [identity.dev, identity.ino, identity.birthtimeNs],
       );
     } finally {
-      fs.rmSync(root, { recursive: true, force: true });
+      cleanuproot();
     }
   }
 });

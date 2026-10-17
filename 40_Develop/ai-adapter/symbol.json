@@ -4,6 +4,12 @@
   "subsystem": "ai-adapter",
   "symbols": [
     {
+      "symbolId": "ai-adapter.codex.advice-distribution",
+      "kind": "file",
+      "path": "src/codex/advice-distribution.ts",
+      "archIds": ["ARCH-000010"]
+    },
+    {
       "symbolId": "ai-adapter.profile.subscription-status",
       "kind": "file",
       "path": "src/profile/subscription-status.ts",

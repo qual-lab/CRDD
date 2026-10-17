@@ -199,6 +199,7 @@ test("同梱JSONの全値を保持して深い不変Catalogを公開する", () 
     "planCodexReadOnlyProbe",
     "planWorkbenchAiAdviceProviderCommand",
     "prepareProviderFixedEnvironment",
+    "projectCodexExecutionBoundary",
     "providerProfileMatchesExecutionIdentity",
     "providerProfileSupportsExecution",
     "resolveAiProfile",

@@ -21,6 +21,10 @@ import {
 } from "../../../orchestrator/src/index.ts";
 import { startRuntimeOwnedCoordinatorTask } from "../../src/task/execution.ts";
 import { observeCoordinatorTaskCompletion } from "../../src/task/completion-observation.ts";
+import {
+  beginRuntimeProcessEffectDrain,
+  endRuntimeProcessEffectDrain,
+} from "../../src/host-execution/process-safety-state.ts";
 
 const CONTRACT = "crdd-coordinator/orchestrator-single-task-adapter";
 const ATTEMPT_ID = "attempt-0001";
@@ -125,8 +129,8 @@ test("開始通知は初回Executorだけを保存し受付・重複・終端後
     }),
   );
   assert.equal(saves, 0);
-  const notify = startCalls[0]?.[4] as NonNullable<
-    Parameters<OrchestratorSingleTaskDependencies["startTask"]>[4]
+  const notify = startCalls[0]?.[3] as NonNullable<
+    Parameters<OrchestratorSingleTaskDependencies["startTask"]>[3]
   >;
   assert.equal(typeof notify, "function");
   const notice = Object.freeze({
@@ -181,7 +185,7 @@ test("必須開始通知の欠落・保存拒否・例外を成功へ補正し�
   assert.equal(missing.candidateId, null);
   for (const isThrows of [false, true]) {
     const dependencies: OrchestratorSingleTaskDependencies = {
-      startTask: (_request, _root, _capability, _correlation, notify) => ({
+      startTask: (_request, _root, _correlation, notify) => ({
         status: "started",
         controlCapability: Object.freeze({}),
         completion: Promise.resolve().then(async () => {
@@ -239,14 +243,14 @@ test("開始通知の保存待機中も取消を一回搬送して元の完了�
     releaseSave = resolve;
   });
   let notify!: NonNullable<
-    Parameters<OrchestratorSingleTaskDependencies["startTask"]>[4]
+    Parameters<OrchestratorSingleTaskDependencies["startTask"]>[3]
   >;
   let settle!: (value: unknown) => void;
   const completion = new Promise<unknown>((resolve) => {
     settle = resolve;
   });
   const dependencies: OrchestratorSingleTaskDependencies = {
-    startTask: (_request, _root, _capability, _correlation, observer) => {
+    startTask: (_request, _root, _correlation, observer) => {
       assert.ok(observer);
       notify = observer;
       return { status: "started", controlCapability, completion };
@@ -466,7 +470,6 @@ function validInput(
     operationId: OPERATION_ID,
     authorityBindingId: AUTHORITY_BINDING_ID,
     repositoryRevision: repositoryRevisionValue,
-    runtimeExecutionCapability: Object.freeze({}),
     taskRequest: Object.freeze({ objective: "bounded" }),
     repositoryRoot: "C:\\repository",
     cancellationSignal: new AbortController().signal,
@@ -561,7 +564,6 @@ test("入力不正はTask Effect 0の入力拒否として閉じる", async () =
     validInput({ operationId: ".leading-dot" }),
     validInput({ authorityBindingId: ".leading-dot" }),
     validInput({ repositoryRevision: "not-hex" }),
-    validInput({ runtimeExecutionCapability: null }),
     validInput({ cancellationSignal: {} }),
   ];
   for (const input of invalidInputs) {
@@ -628,7 +630,6 @@ test("既知のEffect前拒否はEffect 0のblockedへ写像する", async () =>
   for (const [message, processRestartRequired] of [
     ["coordinator_task_process_restart_required", true],
     ["coordinator_task_runtime_cleanup_in_progress", false],
-    ["coordinator_task_release_verification_required", false],
   ] as const) {
     const { dependencies } = harness({
       startTask: () => {
@@ -1284,7 +1285,7 @@ test("開始観測はaccessorやProxyの開始Recordをfail closedで拒否す�
 test("契約表示はProject状態・後続Task・受入の非所有を宣言する", () => {
   assert.deepEqual(describeOrchestratorSingleTaskAdapterContract(), {
     contract: CONTRACT,
-    contractRevision: 2,
+    contractRevision: 3,
     taskRequestSchemaOwnership: "single_task_runtime",
     projectStateOwnership: "none",
     followUpTaskCreation: "none",
@@ -1296,22 +1297,21 @@ test("契約表示はProject状態・後続Task・受入の非所有を宣言す
 });
 
 /**
- * Effect前拒否母集団はv0.18 Runtimeの実throw経路と一致するを検証する。
+ * Effect前拒否母集団は現在Runtimeの実throw経路と一致する。
  *
- * @responsibility Effect前拒否母集団はv0.18 Runtimeの実throw経路と一致するの合否判定を所有する。
+ * @responsibility 片付け中とProcess再利用禁止の拒否母集団を照合する。
  * @trace PRL-IT-005
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Effect前拒否母集団はv0.18 Runtimeの実throw経路と一致するの対象操作を実行する。
+ * @stimulus 拒否理由集合をSourceへ照合し、実際の片付け待機中にTask入口を呼ぶ。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-IT-005=Direct Boundary: coordinator Test Source→対象契約
  */
-test("Effect前拒否母集団はv0.18 Runtimeの実throw経路と一致する", () => {
+test("Effect前拒否母集団は現在Runtimeの実throw経路と一致する", () => {
   assert.deepEqual(ORCHESTRATOR_SINGLE_TASK_PRE_EFFECT_REJECTIONS, [
     "coordinator_task_process_restart_required",
     "coordinator_task_runtime_cleanup_in_progress",
-    "coordinator_task_release_verification_required",
   ]);
   const runtimeSource = fs.readFileSync(
     path.resolve(import.meta.dirname, "../../src/task/execution.ts"),
@@ -1319,17 +1319,15 @@ test("Effect前拒否母集団はv0.18 Runtimeの実throw経路と一致する",
   );
   for (const rejection of ORCHESTRATOR_SINGLE_TASK_PRE_EFFECT_REJECTIONS)
     assert.equal(runtimeSource.includes(`"${rejection}"`), true, rejection);
-  // Real pre-effect trigger: an unverified package capability is rejected
-  // before any task, provider or repository effect (verified side-effect-free
-  // read path). The process-state rejections are not induced here because
-  // poisoning the shared runtime state would leak into other assertions; that
-  // induction is deferred to the single-task wiring stage.
-  assert.throws(
-    () => startRuntimeOwnedCoordinatorTask({}, "C:\\repository", {}),
-    (error: unknown) =>
-      error instanceof Error &&
-      error.message === "coordinator_task_release_verification_required",
-  );
+  const drain = beginRuntimeProcessEffectDrain();
+  try {
+    assert.throws(
+      () => startRuntimeOwnedCoordinatorTask({}, "C:\\repository"),
+      /coordinator_task_runtime_cleanup_in_progress/u,
+    );
+  } finally {
+    assert.equal(endRuntimeProcessEffectDrain(drain), true);
+  }
 });
 
 /**

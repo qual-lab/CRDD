@@ -37,7 +37,6 @@ export type TaskCompletionObservation =
  */
 export type CoordinatorTaskAttemptInput = Readonly<{
   operationId: string;
-  runtimeExecutionCapability: object;
   taskRequest: unknown;
   repositoryRoot: unknown;
   cancellationSignal: AbortSignal;

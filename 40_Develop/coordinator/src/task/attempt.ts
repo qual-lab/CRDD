@@ -5,7 +5,7 @@
  * @trace ARCH-000004
  */
 import { types as utilTypes } from "node:util";
-import type { ProviderProcessStartedNotice } from "../docker-execution/process-controller.ts";
+import type { ProviderProcessStartedNotice } from "../provider/execution-controller.ts";
 
 import type {
   CoordinatorTaskAttemptInput,
@@ -17,7 +17,7 @@ import { observeCoordinatorTaskCompletion } from "./completion-observation.ts";
 const STABLE_IDENTITY = /^[A-Za-z0-9][A-Za-z0-9._-]*$/u;
 
 /**
- * Pre-effect rejections thrown by the v0.18 Single Task Runtime before any
+ * Pre-effect rejections thrown by the current Single Task Runtime before any
  * provider, container or repository effect starts. Exported so a binding test
  * can reconcile this population against the actual throw sites of
  * coordinator-task-runtime.ts. Any other synchronous throw is treated as
@@ -26,7 +26,6 @@ const STABLE_IDENTITY = /^[A-Za-z0-9][A-Za-z0-9._-]*$/u;
 export const COORDINATOR_TASK_PRE_EFFECT_REJECTIONS = Object.freeze([
   "coordinator_task_process_restart_required",
   "coordinator_task_runtime_cleanup_in_progress",
-  "coordinator_task_release_verification_required",
 ] as const);
 
 const preEffectRejectionSet: ReadonlySet<string> = new Set(
@@ -48,7 +47,6 @@ export type CoordinatorTaskDependencies = Readonly<{
   startTask: (
     taskRequest: unknown,
     repositoryRoot: unknown,
-    runtimeExecutionCapability: object,
     recoveryCorrelationId?: string,
     observeProviderStarted?: (
       notice: ProviderProcessStartedNotice,
@@ -384,7 +382,7 @@ function inspectCompletionRecord(value: unknown): Readonly<{
     )
       return null;
     const executorProvider = ownDataProperty(value, "executorProvider");
-    // The v0.18 completion record never carries status "cancelled": effect-era
+    // The current completion record never carries status "cancelled": effect-era
     // cancellation settles as "blocked" with a runtime-owned cancellation
     // reason, and accepting values the producer cannot emit would widen the
     // observation surface beyond the real contract.
@@ -472,7 +470,7 @@ const SETTLED_RUNTIME_CANCELLATION_REASONS = new Set([
 ]);
 
 /**
- * IF-SINGLE-TASK adapter: run exactly one task attempt on the existing v0.18
+ * 一つのTask試行を開始し、完了と取消を同じ制御参照へ接続する。
  *
  * @responsibility Orchestrator Single Task Attemptの実行条件、Effect範囲、終了結果の境界を所有する。
  * @trace ARCH-000004
@@ -480,7 +478,7 @@ const SETTLED_RUNTIME_CANCELLATION_REASONS = new Set([
  * @returns Promise<CoordinatorTaskAttemptResult>を返す。
  * @precondition 「dependencies: CoordinatorTaskDependencies、input: CoordinatorTaskAttemptInput」がrunCoordinatorTaskAttemptの入力契約を満たす。
  * @postcondition runCoordinatorTaskAttemptの責務を完了した結果だけを返す。
- * @effect 検証済みCapabilityで単一Taskを開始し、同じ制御参照へ取消要求を渡し得る。
+ * @effect 注入されたTask入口で単一Taskを開始し、同じ制御参照へ取消要求を渡し得る。
  * @failure runCoordinatorTaskAttemptは入力不正または下位処理の失敗を呼出し側へ返す。
  * @invariant runCoordinatorTaskAttemptは入力から導いた結果以外の共有状態を変更しない。
  * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
@@ -496,7 +494,6 @@ export async function runCoordinatorTaskAttempt(
     typeof input !== "object" ||
     !validText(input.operationId, 128) ||
     !STABLE_IDENTITY.test(input.operationId) ||
-    !isOpaqueCapability(input.runtimeExecutionCapability) ||
     !(input.cancellationSignal instanceof AbortSignal) ||
     (input.observeStarted !== undefined &&
       typeof input.observeStarted !== "function")
@@ -569,7 +566,6 @@ export async function runCoordinatorTaskAttempt(
     rawStarted = dependencies.startTask(
       input.taskRequest,
       input.repositoryRoot,
-      input.runtimeExecutionCapability,
       input.operationId,
       observeStarted === undefined ? undefined : forwardStarted,
     );

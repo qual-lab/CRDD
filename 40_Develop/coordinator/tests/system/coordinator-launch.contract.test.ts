@@ -43,16 +43,73 @@ const terminal = {
  */
 test("共通Launcherの実行入口を一つの正本から解決する", () => {
   assert.deepEqual(COORDINATOR_LAUNCH_ENTRIES, {
-    task: "../src/cli/coordinator-command.ts",
-    interactive: "../src/cli/coordinator-command.ts",
-    automation: "../src/cli/coordinator-command.ts",
+    task: "../src/cli/command.ts",
+    interactive: "../src/cli/command.ts",
+    automation: "../src/cli/command.ts",
     "verify-routes": "../scripts/verify-signed-route-matrix.ts",
     "verify-recovery": "../scripts/verify-signed-recovery-matrix.ts",
-    "sign-release": "../scripts/sign-release-manifest.ts",
-    "promote-release": "../scripts/promote-release-manifest.ts",
     "authenticate-claude": "../scripts/authenticate-claude-subscription.ts",
   });
   assert.equal(Object.isFrozen(COORDINATOR_LAUNCH_ENTRIES), true);
+});
+
+/**
+ * 廃止したCoordinator専用署名入口を端末条件にかかわらず拒否する。
+ * @responsibility 旧modeから秘密入力・署名・昇格処理へ到達させない。
+ * @trace PRL-ST-001
+ * @precondition 現行のmode解決と実bin入口を使用する。
+ * @stimulus 旧二modeへ引数なし・引数あり・NULを与える。
+ * @observation 解決結果、実Process終了値、出力と固定Sourceを確認する。
+ * @oracle mode_invalid・64で停止し、旧Tool importもhelp案内も存在しない。
+ * @cleanup N/A: 旧modeの拒否とhelpだけを実行する。
+ * @boundary PRL-ST-001=Direct Boundary: 公開Launcherの廃止入口。
+ */
+test("旧署名とManifest昇格modeは対象Tool読込み前に拒否する", () => {
+  for (const mode of ["sign-release", "promote-release"]) {
+    for (const args of [
+      [],
+      ["--private-key", "DO_NOT_REPORT_KEY_PATH"],
+      ["a\0b"],
+    ]) {
+      for (const isTty of [true, false]) {
+        assert.deepEqual(
+          resolveCoordinatorLaunch([mode, ...args], {
+            ...terminal,
+            stdinIsTty: isTty,
+            stdoutIsTty: isTty,
+          }),
+          { status: "blocked", reason: "coordinator_launch_mode_invalid" },
+        );
+      }
+      if (args.some((value) => value.includes("\0"))) continue;
+      const result = spawnSync(process.execPath, [launcher, mode, ...args], {
+        encoding: "utf8",
+        timeout: 30_000,
+        windowsHide: true,
+      });
+      assert.equal(result.status, 64, result.stderr);
+      assert.equal(result.stdout, "");
+      assert.match(result.stderr, /coordinator_launch_mode_invalid/u);
+      assert.doesNotMatch(
+        result.stderr,
+        /DO_NOT_REPORT_KEY_PATH|passphrase|entry_failed/u,
+      );
+    }
+  }
+  const source = fs.readFileSync(launcher, "utf8");
+  assert.doesNotMatch(
+    source,
+    /sign-release-manifest|promote-release-manifest|case "sign-release"|case "promote-release"/u,
+  );
+  const help = spawnSync(process.execPath, [launcher, "--help"], {
+    encoding: "utf8",
+    timeout: 30_000,
+    windowsHide: true,
+  });
+  assert.equal(help.status, 0);
+  assert.doesNotMatch(help.stdout, /sign-release|promote-release|署名済み/u);
+  assert.match(help.stdout, /固定Taskの4経路E2E/u);
+  assert.match(help.stdout, /固定Workerの復旧検証/u);
 });
 
 /**
@@ -92,12 +149,7 @@ test("入口統合後も引数なしと従来helpは成功する", () => {
  * @boundary PRL-ST-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("用途ごとの入力と端末条件を区別し、内部Recovery引数を公開しない", () => {
-  for (const mode of [
-    "interactive",
-    "verify-routes",
-    "sign-release",
-    "authenticate-claude",
-  ]) {
+  for (const mode of ["interactive", "verify-routes", "authenticate-claude"]) {
     assert.equal(resolveCoordinatorLaunch([mode], terminal).status, "ready");
     assert.equal(
       resolveCoordinatorLaunch([mode], { ...terminal, stdoutIsTty: false })
@@ -139,13 +191,6 @@ test("用途ごとの入力と端末条件を区別し、内部Recovery引数を
     "ready",
   );
   assert.equal(
-    resolveCoordinatorLaunch(["sign-release"], {
-      ...terminal,
-      stdinIsTty: false,
-    }).status,
-    "blocked",
-  );
-  assert.equal(
     resolveCoordinatorLaunch(["authenticate-claude"], {
       ...terminal,
       stdinIsTty: false,
@@ -155,21 +200,6 @@ test("用途ごとの入力と端末条件を区別し、内部Recovery引数を
   assert.equal(
     resolveCoordinatorLaunch(
       ["authenticate-claude", "--provider", "codex"],
-      terminal,
-    ).status,
-    "blocked",
-  );
-  assert.equal(
-    resolveCoordinatorLaunch(["promote-release"], {
-      ...terminal,
-      stdinIsTty: false,
-      stdoutIsTty: false,
-    }).status,
-    "ready",
-  );
-  assert.equal(
-    resolveCoordinatorLaunch(
-      ["promote-release", "--distribution-root", "C:\\fixed-staging"],
       terminal,
     ).status,
     "blocked",
@@ -306,7 +336,7 @@ test("実CLIのhelpは起動Directoryに依存せず、自動処理から到達�
  * @boundary PRL-ST-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("実Processのredirectでは対話入口を対象import前に拒否し、秘密候補を出さない", () => {
-  for (const mode of ["interactive", "verify-routes", "sign-release"]) {
+  for (const mode of ["interactive", "verify-routes"]) {
     const result = spawnSync(process.execPath, [launcher, mode], {
       cwd: repositoryRoot,
       encoding: "utf8",

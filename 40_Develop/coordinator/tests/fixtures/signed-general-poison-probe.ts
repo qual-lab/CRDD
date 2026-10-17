@@ -18,11 +18,10 @@ import { runSignedGeneralTaskVerification } from "../../scripts/verify-signed-ge
 import { isRuntimeProcessPoisoned } from "../../src/host-execution/process-safety-state.ts";
 import { requestRuntimeOwnedExternalSendGrant } from "../../src/external-send/grant.ts";
 import { startRuntimeOwnedCoordinatorTask } from "../../src/task/execution.ts";
-import { issueRuntimeOwnedVerifiedCoordinatorPackageCapability } from "../../src/platform-access/package-verification.ts";
 
 const scenario = process.argv[2] ?? "completed_true";
 const TARGET_PATH =
-  "40_Develop/coordinator/runtime/general-task-verification.txt";
+  "40_Develop/coordinator/tests/fixtures/general-task-verification.txt";
 const BASE_CONTENT = "CRDD_COORDINATOR_GENERAL_TASK_BASE\n";
 const EXPECTED_CONTENT = "CRDD_COORDINATOR_GENERAL_TASK_OK\n";
 const candidateId = `candidate.${"1".repeat(64)}.${"2".repeat(64)}`;
@@ -49,20 +48,10 @@ const patchHash = createHash("sha256")
   .update(TARGET_PATH)
   .digest("hex");
 
-const release = Object.freeze({
-  status: "candidate",
-  stableFilesystemIdentityObserved: true,
-  runtimeOwnedPackageRoot: true,
-  manifestHash: "f".repeat(64),
-  packageContentRootSha256: "0".repeat(64),
-  qualLabManifestCryptographicMatch: true,
-  runtimeOwnedReleaseTrustConfirmed: true,
-  releaseIdentityRuntimeOwned: false,
-  runtimeExecutionIdentityRuntimeOwned: true,
-  runtimeExecutionIdentitySha256: "9".repeat(64),
-  crddDistributionConfirmed: true,
-  crddVersion: "v0.18.0",
-  releaseSequence: 1,
+const source = Object.freeze({
+  scope: "crdd-development-source-snapshot/v1",
+  sourceSha256: "0".repeat(64),
+  sourceIdentitySha256: "9".repeat(64),
   crddCommit: baseCommit,
   crddTree: baseTree,
 });
@@ -163,8 +152,7 @@ let lateRequested = false;
 let hostilePromiseAccesses = 0;
 let repositoryRevisionObservations = 0;
 const runnerResult = await runSignedGeneralTaskVerification(process.cwd(), {
-  issuePackageCapability: () =>
-    Object.freeze({ verification: release, capability: Object.freeze({}) }),
+  observeSource: () => source,
   startTask: () => {
     if (scenario === "start_throw") throw new Error("fixed_start_throw");
     const getterResult = Object.create(null);
@@ -380,22 +368,24 @@ const runnerResult = await runSignedGeneralTaskVerification(process.cwd(), {
   }),
 });
 
-let packageReads = 0;
-const packageProbe = new Proxy(Object.create(null), {
+let taskReads = 0;
+const taskProbe = new Proxy(Object.create(null), {
   get: () => {
-    packageReads += 1;
-    throw new Error("package_input_read");
+    taskReads += 1;
+    throw new Error("task_input_read");
   },
   ownKeys: () => {
-    packageReads += 1;
-    throw new Error("package_input_enumerated");
+    taskReads += 1;
+    throw new Error("task_input_enumerated");
+  },
+  getOwnPropertyDescriptor: () => {
+    taskReads += 1;
+    throw new Error("task_input_inspected");
   },
 });
-const issued =
-  issueRuntimeOwnedVerifiedCoordinatorPackageCapability(packageProbe);
 let taskReason = "task_not_blocked";
 try {
-  startRuntimeOwnedCoordinatorTask(null, null, null);
+  startRuntimeOwnedCoordinatorTask(taskProbe, null);
 } catch (error) {
   taskReason = error instanceof Error ? error.message : "unknown";
 }
@@ -425,8 +415,7 @@ process.stdout.write(
   `${JSON.stringify({
     runnerResult,
     poisoned: isRuntimeProcessPoisoned(),
-    packageReason: issued.verification.reason,
-    packageReads,
+    taskReads,
     taskReason,
     grantReason:
       grant && "reason" in grant && typeof grant.reason === "string"

@@ -1,20 +1,26 @@
 # 現行実装との照合
 
+2026-10-17の追加実測では、公開CLIの実Ctrl+Cと、executor完了後のreviewer準備中のCLI親喪失を別に確認した。親喪失で検出したReceipt保存中断と既回収Hostの先行記録終端を限定是正し、両元回復IDの正式終了、履歴、全排他解放、正式Reader revision72・操作0／未解決0／配送0を確認した。実Docker試験資源と合成Repository追跡差分は0。executor実行中の親喪失・公開JSONの成功を補完しない。009のWindows自動disposal失敗は承認済みWSL保守と同ID正式終了へ接続したが、自動回収・Continuation全枝の実証にはしない。
+
+同完成監査で再認証の技術構築と旧Docker環境profileの上位残存2件を検出し、既存DI Factoryへの移管・旧profile撤去を実装した。DI337/337、実Host Process7/7、認証隣接30/30、先行する状態回収の実Windows42/42が成功し、Source限定再レビューは両観点残指摘0。最新Coordinator通常全回帰は1,926件中1,912成功・9失敗・対象外5。全失敗が同じ試験VM結合漏れであることを確認し、そのFileだけを是正して全24件成功・静的検査成功・両レビュー指摘0。未変更母集団との対応評価は1,921成功・対象外5・未解消失敗0で、元全回帰Failを保持し単一run全緑とはしない。現在文書・台帳と設計完成条件を照合し、DI Packageの実装・検証は完了。全197項目Passや実Provider全E2Eの完成ではない。通常RuntimeのCRDD署名は撤去され、旧署名候補の不足を現在の起動条件として再要求しない。以下の旧署名・191項目・172項目等の記録は当時の履歴であり、現在の集合・完成根拠と区別する。
+
+2026-10-17の現在集合は13定義・197 Local Item、17 Symbol Manifest・774 Symbolである。031の実Host Suite接続後に正方向Relationあり146／なし51、重複Symbol ID・未定義Local参照0を再計数した。件数は実行・Passの全数評価ではない。Docker Isolationでは認証create結果不明の限定終了と、公式Imageの通常版表示・三実行物Hash・実Image・隔離構成・終了後不存在が実測で成立した。前者はunknown保存を意図的に残す故障注入、後者は現在配置物の確認であり、自然発生した通信障害・汎用回復・再Build・Host機能やProvider E2Eの成功へ拡張しない。実測、失敗履歴と未実証境界は[現在計画](../99_Roadmap/Changes/CHG-000082/second-stage-plan.md)を正本とする。全197項目の正式再照合は未完了。以下の日付付き結果は各時点の集合・改訂版の履歴として区別する。
+
 2026-10-14の現在集合は、13 Quality Definitionの正式Local Item 191件である。各定義の項目IDを重複除去して再計数し、16／17／14／20／12／27／28／7／15／14／8／7／6件を確認した。Access Management再編の対象17義務はPortfolio是正後の反証・対象回帰・独立照合により確認済み13・部分確認2・人間UAT未実施2。部分確認と人間UATは後続E2Eへ回した実Host・利用者理解範囲である。最終候補の対象回帰480件成功・失敗0、人間UAT1件Skip、Source／契約と結果同期の最終限定独立確認は残指摘0で、今回の区切りが成立した。全191項目の再照合は未完了。[現在の検証・義務対応](../99_Roadmap/Changes/CHG-000082/Evidence/261014_access-management-verification.md)を参照し、下段の先行版の件数・Gateway・旧Package観測を新構成の完成根拠へ流用しない。
 
 2026-10-13の旧Shared Host撤去候補では、下段のGateway観測は当時の実装・条件・Evidenceとして保持する。旧REST同一Origin・health・HTTP入口stdin EOFを新構成へ再実装しない。MCPは新AM Resolver、Workbenchは専門Owner直接接続へ切り替え、旧Gateway専用試験を撤去する。既存の4 Adapter Caseは責務別試験へ分離保持する。過去RFD-ST-004のSystem観測を新ST Passへ流用せず、現Treeの全数再照合は⑥に残す。
 
 成果物種別: Quality現実照合
 状態: In Progress
-進捗: 現行191項目の再照合中。先行全Subsystem照合は是正経路へ接続済み
-現在範囲: 現行191 Local Item。全18 Architecture詳細設計領域の先行照合は下段で区別する
+進捗: 現行197項目の再照合中。先行全Subsystem照合は是正経路へ接続済み
+現在範囲: 現行197 Local Item。全18 Architecture詳細設計領域の先行照合は下段で区別する
 維持責任者: Qual-Lab
 
 ## 設計集合
 
 | 項目 | 件数 |
 |---|---:|
-| Local Item数 | 191 |
+| Local Item数 | 197 |
 | 内訳 | 現行13 Quality Definitionの正式項目を再計数。167工程入力・172項目は先行版の集合であり、現在の母集合へ流用しない。Source／Test／Evidenceの現在適用は段階6／7で再照合する |
 
 ## 1. 目的

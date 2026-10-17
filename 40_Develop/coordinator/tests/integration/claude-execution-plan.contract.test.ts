@@ -475,7 +475,10 @@ test("読取専用probe候補は固定argv、環境置換要求、未検証制�
  */
 test("Managed Settingsの固定byte列を検証済みimage identityへ結合する", () => {
   const settings = readFileSync(
-    new URL("../../runtime/claude-managed-settings.json", import.meta.url),
+    new URL(
+      "../../../ai-adapter/runtime/claude-managed-settings.json",
+      import.meta.url,
+    ),
   );
   assert.equal(
     createHash("sha256").update(settings).digest("hex"),
@@ -625,7 +628,10 @@ test("一般TaskはRole別built-in tools、stdin、Provider Home denyへ固定�
 test("Claude Task SettingsはProvider Homeと外部Toolをdenyする", () => {
   const settings = JSON.parse(
     readFileSync(
-      new URL("../../runtime/claude-task-settings.json", import.meta.url),
+      new URL(
+        "../../../ai-adapter/runtime/claude-task-settings.json",
+        import.meta.url,
+      ),
       "utf8",
     ),
   );

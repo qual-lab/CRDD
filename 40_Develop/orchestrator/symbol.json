@@ -51,8 +51,8 @@
       "symbolId": "orchestrator.test.docker-recovery-settlement",
       "kind": "test-suite",
       "path": "tests/integration/docker-recovery-settlement.contract.test.ts",
-      "qaIds": ["QA-000006"],
-      "localTestIds": ["ERB-IT-003"],
+      "qaIds": ["QA-000006", "QA-000003"],
+      "localTestIds": ["ERB-IT-003", "PRL-IT-013"],
       "verifies": ["coordinator.source.src.security.docker.project.recovery.settlement"]
     },
     {
@@ -209,14 +209,6 @@
       "path": "src/decision/capability-adapter.ts",
       "archIds": [
         "ARCH-000005"
-      ]
-    },
-    {
-      "symbolId": "coordinator.source.src.security.orchestrator.execution.authorization.adapter",
-      "kind": "file",
-      "path": "src/task/authorization-adapter.ts",
-      "archIds": [
-        "ARCH-000004"
       ]
     },
     {

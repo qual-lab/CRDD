@@ -12,7 +12,7 @@ import {
   DYNAMIC_FAKE_PROVIDER_FAILURE_SCENARIOS,
   expectedDynamicFakeProviderFailureReason,
   runDynamicFakeProviderFailureScenario,
-} from "../src/docker-execution/isolation-probe.ts";
+} from "../src/diagnostics/isolation-probe.ts";
 import { createOwnedOperationDirectories } from "../src/host-execution/operation-workspace-lifecycle.ts";
 
 /**

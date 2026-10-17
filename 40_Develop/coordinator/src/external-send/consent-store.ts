@@ -137,7 +137,6 @@ function productionObserveRoot(
 ) {
   const observation = inspectRuntimeOwnedWindowsRuntimeState(
     shouldInitializeIfMissing,
-    new Date().toISOString(),
     developmentContext,
   );
   const root = consumeRuntimeOwnedRuntimeStateRootCapability(

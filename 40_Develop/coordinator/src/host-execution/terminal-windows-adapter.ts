@@ -1,7 +1,7 @@
 /**
  * 固定Host対象の確認要求とWindows応答を搬送する。
  *
- * @responsibility 専用Protocolの相関、資源終了と固定Native実体の確認を所有する。清掃は所有しない。
+ * @responsibility 専用Protocolの相関、資源終了と固定Bootstrap Nativeの出所・実体確認を所有する。清掃は所有しない。
  * @trace ARCH-000008
  * @trace ARCH-000011
  */
@@ -10,24 +10,24 @@ import { randomBytes } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { types as utilTypes } from "node:util";
-import { createWindowsHostTerminalHelperEnvironment } from "./windows-child-environment.ts";
+import {
+  snapshotPlainArray,
+  snapshotPlainRecord,
+} from "../../../domain-model/src/index.ts";
+import {
+  beginPlatformAccessArtifactObservation,
+  beginPlatformAccessBootstrapObservation,
+  createWindowsHostTerminalHelperEnvironment,
+  observePlatformAccessArtifactCandidate,
+  PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH,
+  verifyPlatformAccessArtifactObservation,
+} from "../../../platform-access/src/index.ts";
 import { borrowRuntimeOwnedDevelopmentNativeObservation } from "../task/development-measurement-session.ts";
 import {
   encodeHostTerminalIntent,
   encodeKnownFixtureHostTerminalIntent,
   type HostTerminalWindowsIdentity,
 } from "./terminal-record.ts";
-import {
-  snapshotPlainArray,
-  snapshotPlainRecord,
-} from "../../../domain-model/src/index.ts";
-import {
-  beginPlatformAccessArtifactSigningObservation,
-  observePlatformAccessReleaseArtifactCandidate,
-  PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH,
-  verifyPlatformAccessArtifactSigningObservation,
-} from "../diagnostics/platform-access-release.ts";
-import { verifyBundledCoordinatorPackageFromFixedManifestCandidate } from "../platform-access/package-verification.ts";
 
 const identityKeys = [
   "volumeSerial",
@@ -888,7 +888,7 @@ function evaluateTerminalRecordReadResponse<
  * @responsibility 配布実体・私有要求・実child終了・応答相関を共同確認し、搬送不明を保持する。
  * @trace ARCH-000008
  * @trace ARCH-000011
- * @input modeに結合した私有要求、署名評価時点、取消Signalと固定開発観測Context。
+ * @input modeに結合した私有要求、取消Signalと固定開発観測Context。
  * @returns 同参照、Native部分結果、Process・記録Effectと終了確認。
  * @precondition 本番callerが同参照のcanonicalをfresh読取りして完全bytesを結合済み。
  * @postcondition 未確認時は別参照発行・再保存・stage清掃を行わない。
@@ -906,7 +906,6 @@ function executeHostTerminalRecordRequest<
 >(
   request: HostTerminalSaveRequest | HostTerminalReadRequest,
   mode: "save" | "read",
-  evaluationTime: unknown,
   signal: AbortSignal,
   developmentContext: unknown,
   contexts: typeof saveRequestContexts,
@@ -993,32 +992,26 @@ function executeHostTerminalRecordRequest<
       return stopped("host_terminal_development_context_invalid");
     const distributionRoot =
       development?.distributionRoot ?? bundledDistributionRoot;
-    const verification =
-      development?.verification ??
-      verifyBundledCoordinatorPackageFromFixedManifestCandidate({
-        evaluationTime,
-      });
-    if (
-      verification.status !== "candidate" ||
-      (!development &&
-        (!("runtimeOwnedReleaseTrustConfirmed" in verification) ||
-          verification.runtimeOwnedReleaseTrustConfirmed !== true ||
-          !("runtimeExecutionIdentityRuntimeOwned" in verification) ||
-          verification.runtimeExecutionIdentityRuntimeOwned !== true ||
-          !("crddDistributionConfirmed" in verification) ||
-          verification.crddDistributionConfirmed !== true))
-    )
-      return stopped("host_terminal_release_not_verified");
-    const before =
-      observePlatformAccessReleaseArtifactCandidate(distributionRoot);
-    const signing =
-      beginPlatformAccessArtifactSigningObservation(distributionRoot);
+    const bootstrap = development
+      ? null
+      : beginPlatformAccessBootstrapObservation(distributionRoot);
+    const expectedArtifact = development
+      ? development.verification.status === "candidate"
+        ? development.verification.platformAccessArtifact
+        : null
+      : bootstrap?.artifact;
+    if (!expectedArtifact)
+      return stopped("host_terminal_artifact_bootstrap_unavailable");
+    const before = observePlatformAccessArtifactCandidate(distributionRoot);
+    const artifactObservation = development
+      ? beginPlatformAccessArtifactObservation(distributionRoot)
+      : bootstrap;
     if (
       before.status !== "candidate" ||
-      !signing ||
+      !artifactObservation ||
+      JSON.stringify(before.artifact) !== JSON.stringify(expectedArtifact) ||
       JSON.stringify(before.artifact) !==
-        JSON.stringify(verification.platformAccessArtifact) ||
-      JSON.stringify(before.artifact) !== JSON.stringify(signing.artifact)
+        JSON.stringify(artifactObservation.artifact)
     )
       return stopped("host_terminal_artifact_not_verified");
     const environment = createWindowsHostTerminalHelperEnvironment();
@@ -1029,6 +1022,8 @@ function executeHostTerminalRecordRequest<
           ? "host_terminal_save_cancelled"
           : "host_terminal_read_cancelled",
       );
+    if (!verifyPlatformAccessArtifactObservation(artifactObservation.token))
+      return stopped("host_terminal_artifact_changed");
     isLaunchRequested = true;
     processEffectIssued = null;
     const execution = spawnSync(
@@ -1058,10 +1053,9 @@ function executeHostTerminalRecordRequest<
       execution.stderr.length !== 0
     )
       return stopped("host_terminal_worker_transport_unconfirmed");
-    if (!verifyPlatformAccessArtifactSigningObservation(signing.token))
+    if (!verifyPlatformAccessArtifactObservation(artifactObservation.token))
       return stopped("host_terminal_artifact_changed");
-    const after =
-      observePlatformAccessReleaseArtifactCandidate(distributionRoot);
+    const after = observePlatformAccessArtifactCandidate(distributionRoot);
     if (
       after.status !== "candidate" ||
       JSON.stringify(before.artifact) !== JSON.stringify(after.artifact) ||
@@ -1115,7 +1109,7 @@ function executeHostTerminalRecordRequest<
       artifactVerifiedBeforeAndAfter: true,
       executionSourceKind: development
         ? "fixed_development_candidate"
-        : "signed_release",
+        : "fixed_bootstrap_native_artifact",
     });
   } catch {
     return stopped(
@@ -1132,7 +1126,7 @@ function executeHostTerminalRecordRequest<
  * @responsibility 保存以外のmodeへ要求を流用しない。
  * @trace ARCH-000008
  * @trace ARCH-000011
- * @input 私有保存要求、評価時点、取消と固定開発Context。
+ * @input 私有保存要求、取消と固定開発Context。
  * @returns savedまたは部分receipt付き停止。
  * @precondition caller canonicalをfresh検証済み。
  * @postcondition 子終端・成果物・保存receiptの共同確認後だけsaved。
@@ -1145,14 +1139,12 @@ function executeHostTerminalRecordRequest<
  */
 export function saveHostTerminalWindowsRecord(
   request: HostTerminalSaveRequest,
-  evaluationTime: unknown,
   signal: AbortSignal,
   developmentContext?: unknown,
 ) {
   const result = executeHostTerminalRecordRequest(
     request,
     "save",
-    evaluationTime,
     signal,
     developmentContext,
     saveRequestContexts,
@@ -1173,7 +1165,7 @@ export function saveHostTerminalWindowsRecord(
  * @responsibility Root消失後も記録結果を同参照で保持する。
  * @trace ARCH-000008
  * @trace ARCH-000011
- * @input 私有読戻し要求、評価時点、取消と固定開発Context。
+ * @input 私有読戻し要求、取消と固定開発Context。
  * @returns observedまたは部分receipt付き停止。
  * @precondition caller canonicalをfresh検証済み。
  * @postcondition 全終了と相関確認後だけ現在記録観測を成立させる。
@@ -1186,14 +1178,12 @@ export function saveHostTerminalWindowsRecord(
  */
 export function readHostTerminalWindowsRecord(
   request: HostTerminalReadRequest,
-  evaluationTime: unknown,
   signal: AbortSignal,
   developmentContext?: unknown,
 ) {
   const result = executeHostTerminalRecordRequest(
     request,
     "read",
-    evaluationTime,
     signal,
     developmentContext,
     readRequestContexts,
@@ -1216,7 +1206,7 @@ export function readHostTerminalWindowsRecord(
  * @responsibility fileを含む完全要求と部分保存を同参照で保持する。
  * @trace ARCH-000008
  * @trace ARCH-000011
- * @input 専用私有要求、評価時点、取消Signalと固定開発Context。
+ * @input 専用私有要求、取消Signalと固定開発Context。
  * @returns saved、または部分結果付き停止。
  * @precondition caller canonicalをfresh確認済み。
  * @postcondition 実行物前後一致、子終端と全receipt共同成立だけsaved。
@@ -1229,14 +1219,12 @@ export function readHostTerminalWindowsRecord(
  */
 export function saveKnownFileHostTerminalWindowsRecord(
   request: HostTerminalSaveRequest,
-  evaluationTime: unknown,
   signal: AbortSignal,
   developmentContext?: unknown,
 ) {
   const result = executeHostTerminalRecordRequest(
     request,
     "save",
-    evaluationTime,
     signal,
     developmentContext,
     knownFileSaveRequestContexts,
@@ -1257,7 +1245,7 @@ export function saveKnownFileHostTerminalWindowsRecord(
  * @responsibility Root消失後も独立完全bytesと現在記録を同参照で確認する。
  * @trace ARCH-000008
  * @trace ARCH-000011
- * @input 専用私有要求、評価時点、取消Signalと固定開発Context。
+ * @input 専用私有要求、取消Signalと固定開発Context。
  * @returns observed、または部分結果付き停止。
  * @precondition caller canonicalをfresh確認済み。
  * @postcondition 実行物、現在Reader、子終端と全close共同成立を要求する。
@@ -1270,14 +1258,12 @@ export function saveKnownFileHostTerminalWindowsRecord(
  */
 export function readKnownFileHostTerminalWindowsRecord(
   request: HostTerminalReadRequest,
-  evaluationTime: unknown,
   signal: AbortSignal,
   developmentContext?: unknown,
 ) {
   const result = executeHostTerminalRecordRequest(
     request,
     "read",
-    evaluationTime,
     signal,
     developmentContext,
     knownFileReadRequestContexts,
@@ -2018,13 +2004,13 @@ function evaluateTerminalObservationResponse(
 /**
  * 検証した固定Nativeへ確認要求を一回だけ搬送する。
  *
- * @responsibility 署名／開発候補、実child終了、応答相関と前後実体を共同確認する。
+ * @responsibility 固定Bootstrap／開発候補、実child終了、応答相関と前後実体を共同確認する。
  * @trace ARCH-000011
- * @input 私有の対象確認要求または完全intent、署名評価時点、任意の既存開発観測Context。
+ * @input 私有の対象確認要求または完全intent、任意の既存開発観測Context。
  * @returns 観測結果、または原因とProcess開始・終了観測を持つ停止結果。
  * @precondition 期待値の独立取得と由来の確認は回復Ownerが所有する。
  * @postcondition 確認だけを行い、保護変更・記録保存・清掃・Runtime Authorityは発行しない。
- * @effect 固定Workerを一回起動し、既存署名検証とread-only OS観測を実行する。
+ * @effect 固定Workerを一回起動し、実行物の出所照合とread-only OS観測を実行する。
  * @failure 配布／環境／搬送／終了／実体の不明は停止し、timeoutを正常終了にしない。
  * @invariant Generic Platform Adapterのblockedを置換せず、用途限定consumerだけが使う。
  * @boundary Coordinator→固定Native child→Windows確認→内部回復Owner。
@@ -2033,7 +2019,6 @@ function evaluateTerminalObservationResponse(
  */
 export function observeHostTerminalWindowsTarget(
   intent: unknown,
-  evaluationTime: unknown,
   developmentContext?: unknown,
 ) {
   const request =
@@ -2042,7 +2027,6 @@ export function observeHostTerminalWindowsTarget(
       : createHostTerminalObservationRequest(intent);
   return executeTerminalObservationRequest(
     request,
-    evaluationTime,
     developmentContext,
     "eleven",
     requestContexts,
@@ -2055,7 +2039,7 @@ export function observeHostTerminalWindowsTarget(
  *
  * @responsibility 十二実体frame・実終了・前後成果物一致を共同確認する。
  * @trace ARCH-000011
- * @input 専用私有要求、署名評価時点、既存固定開発観測Context。
+ * @input 専用私有要求、既存固定開発観測Context。
  * @returns 十二実体の現在観測、または元理由と実行観測を持つ停止。
  * @precondition 期待値の由来と非使用は回復Ownerが別に評価する。
  * @postcondition 旧入口・要求・応答へfileを落として搬送しない。
@@ -2068,12 +2052,10 @@ export function observeHostTerminalWindowsTarget(
  */
 export function observeKnownFileHostTerminalWindowsTarget(
   request: KnownFileHostTerminalObservationRequest,
-  evaluationTime: unknown,
   developmentContext?: unknown,
 ) {
   return executeTerminalObservationRequest(
     request,
-    evaluationTime,
     developmentContext,
     "known_file",
     knownFileRequestContexts,
@@ -2086,10 +2068,10 @@ export function observeKnownFileHostTerminalWindowsTarget(
  *
  * @responsibility 私有要求、成果物、実終了、専用decoderを共同確認する。
  * @trace ARCH-000011
- * @input 要求、評価時点、固定Context、内部クラス・登録・decoder。
- * @returns 型ごとの観測または停止。
+ * @input 要求、固定Context、内部クラス・登録・decoder。
+ * @returns 型ごとの観測または停止。成功時の出所情報はPackage内部の非Authority観測だけに用いる。
  * @precondition 内部の旧／新専用入口だけが対応する組を指定する。
- * @postcondition 署名／開発候補と前後実体一致を両クラスで省略しない。
+ * @postcondition 固定Bootstrap／開発候補と前後実体一致を両クラスで省略しない。
  * @effect 固定Native child一回の同期read-only実行。
  * @failure 実行／終了／相関不明は停止し、自動retryしない。
  * @invariant 観測結果を清掃可能性・Authorityへ変換しない。
@@ -2103,7 +2085,6 @@ function executeTerminalObservationRequest<
     | KnownFileHostTerminalNativeObservation,
 >(
   request: HostTerminalObservationRequest | null,
-  evaluationTime: unknown,
   developmentContext: unknown,
   observationClass: "eleven" | "known_file",
   contexts: typeof requestContexts,
@@ -2157,36 +2138,32 @@ function executeTerminalObservationRequest<
       return stopped("host_terminal_development_context_invalid");
     const distributionRoot =
       development?.distributionRoot ?? bundledDistributionRoot;
-    const verification =
-      development?.verification ??
-      verifyBundledCoordinatorPackageFromFixedManifestCandidate({
-        evaluationTime,
-      });
-    if (
-      verification.status !== "candidate" ||
-      (!development &&
-        (!("runtimeOwnedReleaseTrustConfirmed" in verification) ||
-          verification.runtimeOwnedReleaseTrustConfirmed !== true ||
-          !("runtimeExecutionIdentityRuntimeOwned" in verification) ||
-          verification.runtimeExecutionIdentityRuntimeOwned !== true ||
-          !("crddDistributionConfirmed" in verification) ||
-          verification.crddDistributionConfirmed !== true))
-    )
-      return stopped("host_terminal_release_not_verified");
-    const before =
-      observePlatformAccessReleaseArtifactCandidate(distributionRoot);
-    const signing =
-      beginPlatformAccessArtifactSigningObservation(distributionRoot);
+    const bootstrap = development
+      ? null
+      : beginPlatformAccessBootstrapObservation(distributionRoot);
+    const expectedArtifact = development
+      ? development.verification.status === "candidate"
+        ? development.verification.platformAccessArtifact
+        : null
+      : bootstrap?.artifact;
+    if (!expectedArtifact)
+      return stopped("host_terminal_artifact_bootstrap_unavailable");
+    const before = observePlatformAccessArtifactCandidate(distributionRoot);
+    const artifactObservation = development
+      ? beginPlatformAccessArtifactObservation(distributionRoot)
+      : bootstrap;
     if (
       before.status !== "candidate" ||
-      !signing ||
+      !artifactObservation ||
+      JSON.stringify(before.artifact) !== JSON.stringify(expectedArtifact) ||
       JSON.stringify(before.artifact) !==
-        JSON.stringify(verification.platformAccessArtifact) ||
-      JSON.stringify(before.artifact) !== JSON.stringify(signing.artifact)
+        JSON.stringify(artifactObservation.artifact)
     )
       return stopped("host_terminal_artifact_not_verified");
     const environment = createWindowsHostTerminalHelperEnvironment();
     if (!environment) return stopped("host_terminal_environment_unavailable");
+    if (!verifyPlatformAccessArtifactObservation(artifactObservation.token))
+      return stopped("host_terminal_artifact_changed");
     const execution = spawnSync(
       path.join(
         distributionRoot,
@@ -2218,10 +2195,9 @@ function executeTerminalObservationRequest<
       execution.stderr.length !== 0
     )
       return stopped("host_terminal_worker_transport_unconfirmed");
-    if (!verifyPlatformAccessArtifactSigningObservation(signing.token))
+    if (!verifyPlatformAccessArtifactObservation(artifactObservation.token))
       return stopped("host_terminal_artifact_changed");
-    const after =
-      observePlatformAccessReleaseArtifactCandidate(distributionRoot);
+    const after = observePlatformAccessArtifactCandidate(distributionRoot);
     if (
       after.status !== "candidate" ||
       JSON.stringify(before.artifact) !== JSON.stringify(after.artifact) ||
@@ -2244,12 +2220,16 @@ function executeTerminalObservationRequest<
       status: "observed" as const,
       reason: "host_terminal_target_observed",
       observation,
+      nativeProvenance: Object.freeze({
+        repositoryRevision: null,
+        artifact: Object.freeze({ ...before.artifact }),
+      }),
       processEffectIssued: processStarted,
       helperExitConfirmed,
       artifactVerifiedBeforeAndAfter: true,
       executionSourceKind: development
         ? "fixed_development_candidate"
-        : "signed_release",
+        : "fixed_bootstrap_native_artifact",
       filesystemEffectIssued: false,
       runtimeAuthorityIssued: false,
       cleanupAuthorized: false,
@@ -2264,10 +2244,10 @@ function executeTerminalObservationRequest<
  *
  * @responsibility CurrentとKnownの搬送を接続し、保存前に対象差・終了不明を拒否する。
  * @trace ARCH-000011
- * @input 私有Current要求、評価時点、既存の開発観測Contextと取消Signal。
+ * @input 私有Current要求、既存の開発観測Contextと取消Signal。
  * @returns 両観測と共同結果。清掃や非使用の保証は含まない。
  * @precondition 要求はこのModuleが発行したCurrent参照。呼出し側は別に対象の非使用を確認する。
- * @postcondition 二回とも成果物検証と終了確認を満たし、十一実体・利用者・marker Hashが一致した場合だけobserved。
+ * @postcondition 二回とも同じ出所・実行物と終了確認を満たし、十一実体・利用者・marker Hashが一致した場合だけobserved。
  * @effect 最大二回の固定Native読取り観測。Filesystem変更・記録保存・Authority発行は行わない。
  * @failure 初回拒否で二回目を発行せず、再照合拒否・対象差・終了不明を停止結果として保持する。
  * @invariant 二時点一致を連続保持、過去の所有、空状態、非使用または処置許可へ昇格しない。
@@ -2277,13 +2257,11 @@ function executeTerminalObservationRequest<
  */
 export function observeHostTerminalWindowsCandidate(
   request: HostTerminalObservationRequest,
-  evaluationTime: unknown,
   developmentContext?: unknown,
   signal?: AbortSignal,
 ) {
   return observeTerminalWindowsCandidate(
     request,
-    evaluationTime,
     developmentContext,
     signal,
     requestContexts,
@@ -2298,10 +2276,10 @@ export function observeHostTerminalWindowsCandidate(
  *
  * @responsibility 旧観測へfileを落とさず、全実体と固定file条件の変化を拒否する。
  * @trace ARCH-000011
- * @input 専用Current要求、評価時点、固定開発Contextと取消Signal。
+ * @input 専用Current要求、固定開発Contextと取消Signal。
  * @returns 両観測、共同結果とProcess終了確認。
  * @precondition 専用WeakMapのCurrent要求だけ。非使用の根拠は別Ownerが保持する。
- * @postcondition 十二Identity、利用者、marker Hashとfile三値が一致した場合だけobserved。
+ * @postcondition 同じ出所・実行物、十二Identity、利用者、marker Hashとfile三値が一致した場合だけobserved。
  * @effect 固定Native読取り最大二回。保存・削除・Authority発行0。
  * @failure 偽要求、旧クラス、取消、対象差、下位拒否で停止し両観測を保持する。
  * @invariant 二時点一致を連続保持、非使用、人間承認や処置許可へ昇格しない。
@@ -2311,13 +2289,11 @@ export function observeHostTerminalWindowsCandidate(
  */
 export function observeKnownFileHostTerminalWindowsCandidate(
   request: KnownFileHostTerminalObservationRequest,
-  evaluationTime: unknown,
   developmentContext?: unknown,
   signal?: AbortSignal,
 ) {
   return observeTerminalWindowsCandidate(
     request,
-    evaluationTime,
     developmentContext,
     signal,
     knownFileRequestContexts,
@@ -2332,7 +2308,7 @@ export function observeKnownFileHostTerminalWindowsCandidate(
  *
  * @responsibility クラス別登録と観測を固定し、全field比較・取消・部分結果を共通処置する。
  * @trace ARCH-000011
- * @input 私有要求、評価時点、Context、Signal、固定登録・観測・再要求factory・fileクラス。
+ * @input 私有要求、Context、Signal、固定登録・観測・再要求factory・fileクラス。
  * @returns 型ごとの二観測と共同結果。
  * @precondition 旧新wrapperだけが対応する依存を指定する。
  * @postcondition 初回拒否と初回後取消では再観測せず、差異を保存可能へ変換しない。
@@ -2349,18 +2325,25 @@ function observeTerminalWindowsCandidate<
     | KnownFileHostTerminalNativeObservation,
 >(
   request: HostTerminalObservationRequest,
-  evaluationTime: unknown,
   developmentContext: unknown,
   signal: AbortSignal | undefined,
   contexts: typeof requestContexts,
   observe: (
     request: HostTerminalObservationRequest,
-    time: unknown,
     context?: unknown,
   ) => Readonly<{
     status: "observed" | "blocked";
     reason: string;
     observation: O | null;
+    nativeProvenance?: Readonly<{
+      repositoryRevision: null;
+      artifact: NonNullable<
+        ReturnType<typeof beginPlatformAccessBootstrapObservation>
+      >["artifact"];
+    }>;
+    executionSourceKind?:
+      | "fixed_development_candidate"
+      | "fixed_bootstrap_native_artifact";
     processEffectIssued: boolean;
     helperExitConfirmed: boolean;
     filesystemEffectIssued: false;
@@ -2397,7 +2380,7 @@ function observeTerminalWindowsCandidate<
     });
   let current: ReturnType<typeof observe>;
   try {
-    current = observe(request, evaluationTime, developmentContext);
+    current = observe(request, developmentContext);
   } catch {
     return Object.freeze({
       status: "blocked" as const,
@@ -2418,7 +2401,6 @@ function observeTerminalWindowsCandidate<
     !current.helperExitConfirmed
   )
     return Object.freeze({
-      ...current,
       status: "blocked" as const,
       reason:
         current.status === "observed" && !current.helperExitConfirmed
@@ -2426,14 +2408,23 @@ function observeTerminalWindowsCandidate<
           : current.reason,
       currentObservation: current.observation,
       knownObservation: null,
+      processEffectIssued: current.processEffectIssued,
+      helperExitConfirmed: current.helperExitConfirmed,
+      filesystemEffectIssued: false,
+      runtimeAuthorityIssued: false,
+      cleanupAuthorized: false,
     });
   if (signal?.aborted)
     return Object.freeze({
-      ...current,
       status: "blocked" as const,
       reason: "host_terminal_candidate_cancelled",
       currentObservation: current.observation,
       knownObservation: null,
+      processEffectIssued: current.processEffectIssued,
+      helperExitConfirmed: current.helperExitConfirmed,
+      filesystemEffectIssued: false,
+      runtimeAuthorityIssued: false,
+      cleanupAuthorized: false,
     });
   const knownRequest = createKnownRequest({
     rootName: context.rootName,
@@ -2443,17 +2434,21 @@ function observeTerminalWindowsCandidate<
   });
   if (!knownRequest || signal?.aborted)
     return Object.freeze({
-      ...current,
       status: "blocked" as const,
       reason: signal?.aborted
         ? "host_terminal_candidate_cancelled"
         : "host_terminal_reobservation_request_invalid",
       currentObservation: current.observation,
       knownObservation: null,
+      processEffectIssued: current.processEffectIssued,
+      helperExitConfirmed: current.helperExitConfirmed,
+      filesystemEffectIssued: false,
+      runtimeAuthorityIssued: false,
+      cleanupAuthorized: false,
     });
   let known: ReturnType<typeof observe>;
   try {
-    known = observe(knownRequest, evaluationTime, developmentContext);
+    known = observe(knownRequest, developmentContext);
   } catch {
     return Object.freeze({
       status: "blocked" as const,
@@ -2468,7 +2463,32 @@ function observeTerminalWindowsCandidate<
     });
   }
   const reobserved = known.observation?.snapshot;
+  const currentSource = current.nativeProvenance;
+  const knownSource = known.nativeProvenance;
+  const currentRevision = currentSource?.repositoryRevision;
+  const knownRevision = knownSource?.repositoryRevision;
+  const sourceMatches =
+    currentSource !== undefined &&
+    knownSource !== undefined &&
+    current.executionSourceKind === known.executionSourceKind &&
+    current.executionSourceKind ===
+      (developmentContext === undefined
+        ? "fixed_bootstrap_native_artifact"
+        : "fixed_development_candidate") &&
+    currentRevision === null &&
+    knownRevision === null &&
+    (
+      [
+        "relativePath",
+        "target",
+        "protocolRevision",
+        "rustToolchain",
+        "byteLength",
+        "sha256",
+      ] as const
+    ).every((key) => currentSource.artifact[key] === knownSource.artifact[key]);
   const isMatched =
+    sourceMatches &&
     !signal?.aborted &&
     current.helperExitConfirmed &&
     known.helperExitConfirmed &&

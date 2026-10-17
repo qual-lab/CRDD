@@ -1,10 +1,12 @@
 # Coordinator Runtimeの脅威モデル
 
-状態: Stable（v0.21.0）
+状態: Candidate（通常利用側の旧署名Gateは撤去済み。旧API・実境界検証は未完了）
 担当責任者: Qual-Lab
-最終更新日: 2026-09-06
+最終更新日: 2026-10-14
 
 ## 1. 目的と境界
+
+現在の設計判断は[実行・追跡・正式配布の三分離](01_Architecture.md#9-通常実行追跡正式配布の分離)とする。CRDD独自署名と署名Capabilityを通常Taskの資格にしない。以下の旧署名Manifest・配布Treeによる制御は移管前比較基準として扱い、現在の実行許可へ再利用しない。通常Task・CLI・Workbench助言／候補・Orchestratorの旧資格引数・発行・消費は撤去済みである。旧資格3 API・専用静的検査・任意署名Toolの再接続と実Provider／全体E2Eは未完了である。
 
 本書は、Local Personal ProfileのCoordinator Runtimeが一般Taskを外部AIへ委譲するときに保護する対象、信頼境界、主要脅威、制御および残存Riskを定義する。上位のAuthority原則は[Agent Organization](../../../04_Agent_Organization.md)、実行構造は[Coordinator Runtimeの実行アーキテクチャ](01_Architecture.md)、Windows固有境界は[Platform Access](../platform-access/01_Architecture.md)が所有する。
 
@@ -18,7 +20,7 @@
 - Task Packet、読取り投影、候補Workspaceおよび構造化結果
 - 外部送信、Provider起動、候補操作、Docker復旧のAuthority
 - Container、network、Mount Grant、Process、Lock、一時領域およびRecovery record
-- 署名manifest、Platform Access成果物および配布TreeのIdentity
+- 任意正式配布の署名manifest、Platform Access成果物および配布TreeのIdentity
 - 人間の入力、取消、Risk受容、統合およびReleaseの決定権限
 - Project／Milestone／Objective／Taskの状態、Operation Queue、世代、Lease、Conflict予約、Integration候補および受入Evidence
 
@@ -28,7 +30,7 @@
 Human / Local OS User
         ↓ authenticated decision
 Coordinator Host Runtime
-  ├ Signed distribution verifier
+  ├ Selected checkout / required artifact identity inspection
   ├ Repository / Authority controller
   ├ Provider Home / Candidate / Recovery controller
   └ Platform Access
@@ -46,7 +48,8 @@ Provider出力、Repository内文書、Docker出力および外部入力は、�
 
 | 脅威 | 失敗影響 | 主な制御 | 終了時の確認 |
 |---|---|---|---|
-| 改変・不一致配布物の実行 | 任意コード、契約すり替え | Ed25519 manifest revision 5、閉じたRuntime依存集合、Security Policy、Runtime実行Identity、単一Platform Access SHA-256のexact照合 | Provider Effect前に拒否 |
+| 選択入口・必要Artifactの不一致 | 別実行物、構成取り違え | 選択Checkout／Packageの固定入口、必要Native・CLI・Image・設定のIdentity／Hashと用途限定条件。CRDD署名や巨大な実行閉包を必須にしない | 不一致・観測不能は対象Effect前に拒否 |
+| Hash・Commitを真正性やAuthorityと誤認 | 未承認送信、偽Publisher表示 | 同一性、Publisher真正性、現在の用途別実行許可を独立評価。任意配布署名から通常実行Capabilityを発行しない | 署名・HashだけでTaskを許可しない |
 | SecretのPrompt・log・環境流出 | Account侵害、外部漏えい | Secret値をTask Packetへ含めない、専用Provider Home、最小環境、出力抑制 | `credentialReported=false`、既知Secret検査 |
 | Repository外Pathへの逸脱 | 別Project破壊、情報漏えい | 検証済みworktree root、相対Path閉集合、Mount Grant、reparse／Identity確認 | Canonical Repository未変更、Grant失効 |
 | RoleとAuthorityの混同 | 未承認Effect | Authorityを操作別Capabilityに分離し、一回消費・期限・対象を固定 | 未消費Capability失効 |
@@ -58,7 +61,7 @@ Provider出力、Repository内文書、Docker出力および外部入力は、�
 | owner loss／観測不能 | orphan、未知Effect | Effect前Recovery record、exact Recovery ID、新ProcessでのIdentity再結合 | read-back後だけ完了化 |
 | stale／別Operation Recoveryの誤処置 | 他Task破壊 | Repository・User・package・Operation Identityを結合し、曖昧時は上書きしない | `manualRecoveryRequired`を維持 |
 | Docker Desktop破損復旧の過剰処置 | Host状態破壊 | 通常Taskから分離、固定Process／Directory／mutex、最終手段のrenameは事前状態と回復契約を要求 | Engine再観測と残存記録確認 |
-| Docker再起動後にcreate応答喪失を未作成と誤認 | 既存資源の見逃し、二重Effect、永久停止 | Taskより後の検証済みProcess世代切替、署名済み復旧履歴、exact名・所有labelの不存在を結合して耐久化 | 空一覧だけ、任意の再起動、旧署名だけでは収束させない |
+| Docker再起動後にcreate応答喪失を未作成と誤認 | 既存資源の見逃し、二重Effect、永久停止 | 現在の回復記録と同じexact Identity、必要なProcess世代切替の実観測、exact名・所有labelの不存在を相関する。旧署名履歴を現在の許可へ流用せず、旧形式はフロントAIの移行確認またはEffect 0で停止 | 空一覧だけ、任意の再起動、署名／Hashだけでは収束させない。過去unknownは保持 |
 | Console入力競合・文字化け | 誤承認、停止不能 | runtime-owned reader、入力種別の明示、一回入力、UTF-8機械結果と人間表示の分離 | reader／pipe／child終了 |
 | Cost目的の不適格model選択 | 品質低下、利用枠浪費 | 適格性を先に判定し、難易度・Risk・判断影響・Costから説明可能に選択 | Provider Effect前の選定記録 |
 
@@ -84,13 +87,15 @@ Provider出力、Repository内文書、Docker出力および外部入力は、�
 
 保護更新ごとの回復母集団には、初回作成、prepare、finalize、失効および期限更新のCAS未成立、成立後の応答喪失、readback不明を含める。fresh確認で、exactな`absent`＋raw未返却＋Project未適用はEffect 0で回復意図だけを終端し、`issued`は失効、`prepared`は回復待ち、matching newはfinalized、verified old/unappliedはinvalidated、`expired`＋Project未適用はexpiredのまま安全に終端する。不明・競合では観測できた継続状態を変えず、独立Recovery Intentをrequiredに保持する。
 
-## 5. 署名済み配布物
+## 5. 任意の正式配布署名と移管前V6方式の比較基準
+
+以下は旧V6方式を比較するための脅威と検査であり、現在の通常Runtimeの必須Gateではない。任意の正式配布を実施する場合にだけ配布単位で適用を評価する。AST依存閉包、署名Manifest、実行Capabilityの発行・消費と上位Portによる利用側閉包は旧実装の撤去対象であり、新しい通常実行へ移植しない。現在の実行許可・固定入口・必要Artifact同一性・隔離・取消と資源回収は第4節とCoordinator詳細§9の契約に従う。
 
 鍵参照、秘密入力および暗号署名Primitiveの脅威は[成果物署名Component](../artifact-signing/01_Architecture.md)が所有する。Coordinator固有の脅威は、誤ったRuntime依存集合またはManifest payloadの署名、固定Publisher Policyの迂回、P検査／S検査の順序破壊、署名結果の再解釈および不正なstaging配置である。両Componentのどちらか一方の成功だけからRelease署名全体の成立を推定しない。
 
 Runtimeの信頼単位は、Coordinator本体、共通Launcherから到達する署名・4経路・Recovery実行コード、到達した兄弟ComponentのNode module解釈を決めるpackage metadata、Security Policyおよび`crdd-platform-access.exe`から機械的に算出するRuntime実行Identityである。CRDD Git TreeはRelease Identityと出所を示すが、文書だけの変更でRuntime Authorityを失効させない。Launcherの入口表をIdentity算出のseedとして共用し、選択されたscriptの推移的な静的依存を含める。字句解析はコメントや文字列中の見せかけを依存として扱わず、構文として認識したimportだけを閉包へ加える。実在する`node:`組込みmoduleと閉包内relative target以外のmodule、非literalの動的import、入口表とliteral importの不一致、解析不能なsourceをProvider Effect前に拒否する。到達した兄弟Componentの`package.json`はexactなpackage名、版、`private: true`および`type: module`を満たし、そのbyteを閉包へ含める。選択scriptの子Process／Worker起動APIはnamed importの閉集合と全binding利用を照合し、同じsourceまたは同じ閉包へ結合されたliteral targetと既知の固定終了経路だけを許可する。namespace／default／dynamic import、binding再代入、間接呼出し、可変argvまたは未説明の利用は依存閉包の迂回として拒否する。削除済みSupervisor field、旧revision、別名Path、欠落artifactまたは互換fallbackを受理しない。
 
-Release秘密鍵はRelease署名時だけHuman-only入力として使用し、環境、File、logまたはRuntimeへ保存しない。通常利用者と開発E2Eは秘密鍵を必要とせず、固定済みの署名配布物を検証して使う。Authenticodeは追加Defenseであり、Ed25519 Release Identityを置換しない。
+Release秘密鍵は任意の正式配布署名時だけHuman-only入力として使用し、環境、File、logまたはRuntimeへ保存しない。通常利用者と開発E2Eは秘密鍵もCRDD署名済み配布物も必須としない。旧V6のEd25519方式とDocker CLI等のVendor Authenticode検査は別の出所検査であり、後者を署名縮小だけを理由に撤去しない。
 
 署名処理では、秘密入力前のP検査が一回限りの不透明な能力を発行し、その能力を消費したS検査だけが秘密鍵読取りと署名へ到達できる。P検査の省略、別入力への差替え、能力の偽造・再利用、P観測値の署名への流用、S検査後の値再解釈、および署名・配置後の結果field差替えを脅威として扱う。保護経路の反証は単に最終結果が拒否されたことではなく、期待した検査段階と理由が最初の拒否であり、Capability未発行かつEffect 0であることを確認する。
 

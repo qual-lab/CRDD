@@ -657,18 +657,7 @@ test("Domain Libraryの利用側は宣言済み公開indexだけを利用する"
         /from\s+["']([^"']*domain-model\/src\/[^"']+)["']/gu,
       )) {
         const imported = match[1] ?? "";
-        const relativeFile = path
-          .relative(repositoryRoot, file)
-          .replaceAll("\\", "/");
-        const isProtectedSigningResolver =
-          relativeFile ===
-            "40_Develop/coordinator/scripts/sign-release-manifest.ts" &&
-          imported ===
-            "../../domain-model/src/repository/resolve-storage-paths.ts" &&
-          /import\s*\{\s*resolveBundledRepositoryRuntimeDataPathsForProtectedSigning\s*\}\s*from/u.test(
-            source,
-          );
-        if (!imported.endsWith("/index.ts") && !isProtectedSigningResolver)
+        if (!imported.endsWith("/index.ts"))
           violations.push(
             `${path.relative(repositoryRoot, file).replaceAll("\\", "/")}: ${imported}`,
           );

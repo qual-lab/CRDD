@@ -11,9 +11,11 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
-import os from "node:os";
+import { stripTypeScriptTypes } from "node:module";
 import path from "node:path";
 import test from "node:test";
+import vm from "node:vm";
+import { createRepositoryTestDirectory } from "../support/repository-test-directory.ts";
 
 import {
   compileExternalSendConsentBoundaryHash,
@@ -149,8 +151,8 @@ test("公開契約は選択User・保護Runtime State・Subscription境界と再
  * @boundary EST-IT-004=Direct Boundary: coordinator Test Source→対象契約
  */
 function isolated() {
-  const rootPath = fs.mkdtempSync(
-    path.join(os.tmpdir(), "crdd-external-send-consent-"),
+  const { path: rootPath, cleanup } = createRepositoryTestDirectory(
+    "crdd-external-send-consent-",
   );
   let now = 1_000_000;
   let isReleaseWorks = true;
@@ -210,6 +212,7 @@ function isolated() {
   >[0]);
   return Object.freeze({
     rootPath,
+    cleanup,
     runtime,
     advance: (value: number) => {
       now += value;
@@ -289,7 +292,7 @@ test("単一Active境界はabsentから保存・再利用しA→B→Aで古い�
       0,
     );
   } finally {
-    fs.rmSync(fixture.rootPath, { recursive: true, force: true });
+    fixture.cleanup();
   }
 });
 
@@ -318,7 +321,7 @@ test("期限切れ・選択User・Runtime identity/protection変更は再承認�
       fixture.restoreRoot();
       assert.notEqual(fixture.runtime.resolve(policy()).status, "confirmed");
     } finally {
-      fs.rmSync(fixture.rootPath, { recursive: true, force: true });
+      fixture.cleanup();
     }
   }
   const fixture = isolated();
@@ -336,7 +339,7 @@ test("期限切れ・選択User・Runtime identity/protection変更は再承認�
     fixture.setNow(1_000_000);
     assert.notEqual(fixture.runtime.resolve(policy()).status, "confirmed");
   } finally {
-    fs.rmSync(fixture.rootPath, { recursive: true, force: true });
+    fixture.cleanup();
   }
 });
 
@@ -358,7 +361,7 @@ test("観測不能Rootとdangling reparse residueを取消成功へ流用しな�
     unavailable.makeRootUnavailable();
     assert.equal(unavailable.runtime.revoke().status, "recovery_required");
   } finally {
-    fs.rmSync(unavailable.rootPath, { recursive: true, force: true });
+    unavailable.cleanup();
   }
 
   const fixture = isolated();
@@ -366,18 +369,115 @@ test("観測不能Rootとdangling reparse residueを取消成功へ流用しな�
   assert.ok(boundary);
   const name = `${EXTERNAL_SEND_ACTIVE_CONSENT_PREFIX}${boundary}-eeeeeeeeeeeeeeee.json`;
   const link = path.join(fixture.rootPath, name);
-  const target = fs.mkdtempSync(
-    path.join(os.tmpdir(), "crdd-consent-link-target-"),
-  );
+  const { path: target, cleanup: cleanupTarget } =
+    createRepositoryTestDirectory("crdd-consent-link-target-");
+  let targetCleanupAttempted = false;
+  let hasFailure = false;
+  let firstFailure: unknown;
   try {
     fs.symlinkSync(target, link, "junction");
-    fs.rmSync(target, { recursive: true, force: true });
+    targetCleanupAttempted = true;
+    cleanupTarget();
     assert.equal(fixture.runtime.revoke().status, "recovery_required");
     assert.equal(fs.lstatSync(link).isSymbolicLink(), true);
-  } finally {
-    fs.rmSync(link, { recursive: true, force: true });
-    fs.rmSync(target, { recursive: true, force: true });
-    fs.rmSync(fixture.rootPath, { recursive: true, force: true });
+  } catch (error) {
+    hasFailure = true;
+    firstFailure = error;
+  }
+  const cleanupSteps = [
+    () => fs.rmSync(link, { recursive: true, force: true }),
+    () => {
+      if (!targetCleanupAttempted) {
+        targetCleanupAttempted = true;
+        cleanupTarget();
+      }
+    },
+    () => fixture.cleanup(),
+  ];
+  for (const cleanup of cleanupSteps) {
+    try {
+      cleanup();
+    } catch (error) {
+      if (!hasFailure) {
+        hasFailure = true;
+        firstFailure = error;
+      }
+    }
+  }
+  if (hasFailure) throw firstFailure;
+});
+
+/**
+ * Junction試験の清掃が一回性と最初の失敗を維持することを確認する。
+ * @responsibility 一つの清掃失敗から他の清掃を省略しない。
+ * @trace EST-IT-004
+ * @precondition 実Caseの清掃本文をVMの局所操作へ接続する。
+ * @stimulus 三段の故障組合せ、既存一次失敗、target清掃試行済みを全組合せで与える。
+ * @observation 各清掃の順序・回数と最後に返される失敗Identity。
+ * @oracle 未試行targetだけ一回試行し、全清掃到達と最初の失敗を維持する。
+ * @cleanup N/A: VMだけを使用し実FilesystemへEffectを出さない。
+ * @boundary 同意試験の清掃制御。製品の同意・回復成立は主張しない。
+ */
+test("同意Junction試験の清掃は後続を飛ばさず失敗したtargetを再試行しない", () => {
+  const source = fs.readFileSync(import.meta.filename, "utf8");
+  const start = source.indexOf("  const cleanupSteps = [");
+  const terminator = "  if (hasFailure) throw firstFailure;";
+  const end = source.indexOf(terminator, start);
+  assert.ok(start >= 0 && end > start);
+  const script = stripTypeScriptTypes(
+    source.slice(start, end + terminator.length),
+  );
+  for (const targetCleanupAttempted of [false, true]) {
+    for (const hasPrimaryFailure of [false, true]) {
+      for (let failures = 0; failures < 8; failures += 1) {
+        const calls: string[] = [];
+        const primaryFailure = new Error("primary");
+        const errors = [
+          new Error("link"),
+          new Error("target"),
+          new Error("fixture"),
+        ];
+        const operations = errors.map((error, index) => () => {
+          calls.push(error.message);
+          if ((failures & (1 << index)) !== 0) throw error;
+        });
+        const context = vm.createContext({
+          targetCleanupAttempted,
+          hasFailure: hasPrimaryFailure,
+          firstFailure: hasPrimaryFailure ? primaryFailure : undefined,
+          fs: { rmSync: operations[0] },
+          link: "fixture-link",
+          cleanupTarget: operations[1],
+          fixture: { cleanup: operations[2] },
+        });
+        let thrown = false;
+        let result: unknown;
+        try {
+          vm.runInContext(script, context);
+        } catch (error) {
+          thrown = true;
+          result = error;
+        }
+        const activeIndices = targetCleanupAttempted ? [0, 2] : [0, 1, 2];
+        const firstCleanupFailure = activeIndices.find(
+          (index) => (failures & (1 << index)) !== 0,
+        );
+        const expected = hasPrimaryFailure
+          ? primaryFailure
+          : firstCleanupFailure === undefined
+            ? undefined
+            : errors[firstCleanupFailure];
+        assert.deepEqual(
+          calls,
+          targetCleanupAttempted
+            ? ["link", "fixture"]
+            : ["link", "target", "fixture"],
+        );
+        assert.equal(thrown, expected !== undefined);
+        assert.equal(result, expected);
+        assert.equal(context.targetCleanupAttempted, true);
+      }
+    }
   }
 });
 
@@ -426,7 +526,7 @@ test("部分pairと破損pairは固定Authorityを安全に失効し、明示rev
       false,
     );
   } finally {
-    fs.rmSync(fixture.rootPath, { recursive: true, force: true });
+    fixture.cleanup();
   }
 });
 
@@ -448,14 +548,14 @@ test("lock競合とrelease失敗はAuthorityを発行せずrecovery requiredに�
     locked.blockLock();
     assert.equal(locked.runtime.persist(policy()).status, "recovery_required");
   } finally {
-    fs.rmSync(locked.rootPath, { recursive: true, force: true });
+    locked.cleanup();
   }
   const release = isolated();
   try {
     release.failRelease();
     assert.equal(release.runtime.persist(policy()).status, "recovery_required");
   } finally {
-    fs.rmSync(release.rootPath, { recursive: true, force: true });
+    release.cleanup();
   }
 });
 
@@ -503,7 +603,7 @@ for (const operation of ["resolve", "persist", "revoke"] as const) {
           contents,
         );
       } finally {
-        fs.rmSync(fixture.rootPath, { recursive: true, force: true });
+        fixture.cleanup();
       }
     });
   }
@@ -539,7 +639,7 @@ for (const operation of ["resolve", "persist", "revoke"] as const) {
         operation === "revoke" ? 0 : 2,
       );
     } finally {
-      fs.rmSync(fixture.rootPath, { recursive: true, force: true });
+      fixture.cleanup();
     }
   });
 }

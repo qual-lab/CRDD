@@ -482,7 +482,7 @@ test("固定4経路の実TaskからReviewer指示と未変更の上限・読取�
       assert.ok(consumed);
       assert.match(
         consumed.prompt,
-        /visible candidate marker is located at 40_Develop\/coordinator\/runtime\/general-task-verification\.txt/u,
+        /visible candidate marker is located at 40_Develop\/coordinator\/tests\/fixtures\/general-task-verification\.txt/u,
       );
       assert.match(
         consumed.prompt,

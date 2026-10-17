@@ -66,6 +66,7 @@ export type TestCatalogEntry = Readonly<{
     | "artifact-signing"
     | "checker"
     | "coordinator"
+    | "docker-isolation"
     | "domain-model"
     | "execution-intelligence"
     | "mcp-server"
@@ -112,6 +113,7 @@ export type TestCatalog = Readonly<{
     "artifact-signing": "node_test";
     checker: "node_test";
     coordinator: "node_test";
+    "docker-isolation": "node_test";
     "domain-model": "node_test";
     "execution-intelligence": "node_test";
     "mcp-server": "node_test";
@@ -119,7 +121,7 @@ export type TestCatalog = Readonly<{
     orchestrator: "node_test";
     "semantic-coverage": "node_test";
     "version-control": "node_test";
-    "platform-access": "cargo_test";
+    "platform-access": "node_and_cargo_test";
     "verification-runner": "node_test";
     "visual-preview": "node_test";
     "workbench-server": "node_test";
@@ -161,6 +163,7 @@ const RUNNER_SUPPORTED_OWNERS = new Set([
   "artifact-signing",
   "checker",
   "coordinator",
+  "docker-isolation",
   "domain-model",
   "execution-intelligence",
   "mcp-server",
@@ -179,6 +182,7 @@ const RUNNER_PROFILES = Object.freeze({
   "artifact-signing": "node_test",
   checker: "node_test",
   coordinator: "node_test",
+  "docker-isolation": "node_test",
   "domain-model": "node_test",
   "execution-intelligence": "node_test",
   "mcp-server": "node_test",
@@ -186,7 +190,7 @@ const RUNNER_PROFILES = Object.freeze({
   orchestrator: "node_test",
   "semantic-coverage": "node_test",
   "version-control": "node_test",
-  "platform-access": "cargo_test",
+  "platform-access": "node_and_cargo_test",
   "verification-runner": "node_test",
   "visual-preview": "node_test",
   "workbench-server": "node_test",
@@ -341,11 +345,13 @@ function walkFiles(root: string, directory: string): string[] {
  */
 export function discoverRepositoryTestFiles(repositoryRoot: string): string[] {
   const nodeTests = [
+    "platform-access",
     "access-management",
     "ai-adapter",
     "artifact-signing",
     "checker",
     "coordinator",
+    "docker-isolation",
     "domain-model",
     "execution-intelligence",
     "mcp-server",
@@ -424,8 +430,9 @@ function isTestLevel(value: unknown): value is TestLevel {
  * @concurrency N/A: expectedNodeLevelは共有非同期状態を持たない同期処理である。
  */
 function expectedNodeLevel(entryPath: string): string | null {
+  if (!entryPath.endsWith(".test.ts")) return null;
   return (
-    /^40_Develop\/(?:access-management|ai-adapter|artifact-signing|checker|coordinator|domain-model|execution-intelligence|mcp-server|official-asset-governance|orchestrator|semantic-coverage|verification-runner|version-control|visual-preview|workbench-server)\/tests\/([^/]+)\//u.exec(
+    /^40_Develop\/(?:access-management|ai-adapter|artifact-signing|checker|coordinator|docker-isolation|domain-model|execution-intelligence|mcp-server|official-asset-governance|orchestrator|platform-access|semantic-coverage|verification-runner|version-control|visual-preview|workbench-server)\/tests\/([^/]+)\//u.exec(
       entryPath,
     )?.[1] ?? null
   );
@@ -1057,6 +1064,8 @@ function ownerForPath(changedPath: string): TestCatalogEntry["owner"] | null {
   if (changedPath.startsWith("40_Develop/artifact-signing/"))
     return "artifact-signing";
   if (changedPath.startsWith("40_Develop/coordinator/")) return "coordinator";
+  if (changedPath.startsWith("40_Develop/docker-isolation/"))
+    return "docker-isolation";
   if (changedPath.startsWith("40_Develop/checker/")) return "checker";
   if (changedPath.startsWith("40_Develop/verification-runner/"))
     return "verification-runner";

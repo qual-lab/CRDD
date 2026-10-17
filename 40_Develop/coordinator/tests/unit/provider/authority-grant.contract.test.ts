@@ -69,7 +69,8 @@ function createFixture() {
         providerHomeMounted: mountIsActive,
       });
     },
-    loadActivatedAuthority: (binding) => {
+    loadActivatedAuthority: (binding, management) => {
+      assert.equal(management, managementCapability);
       assert.deepEqual(binding, {
         operationId: "OP-123456",
         provider: "claude",

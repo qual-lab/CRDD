@@ -55,8 +55,6 @@ const REASON_EXPLANATIONS: Readonly<Record<string, string>> = Object.freeze({
   task_arguments_invalid: "依頼の起動引数を確認してください。",
   task_request_invalid_json: "依頼のJSON形式を確認してください。",
   candidate_arguments_invalid: "候補操作の引数を確認してください。",
-  coordinator_task_release_verification_required:
-    "検証済みの配布物が必要です。通常利用者がRelease秘密鍵を入力する必要はありません。",
   coordinator_task_workload_split_required:
     "依頼が一回の作業量上限を超えています。範囲を分割してください。",
   provider_turn_limit_exceeded:

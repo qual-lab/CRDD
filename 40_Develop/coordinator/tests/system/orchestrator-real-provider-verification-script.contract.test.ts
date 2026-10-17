@@ -13,15 +13,17 @@
 import assert from "node:assert/strict";
 import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
 import { EventEmitter } from "node:events";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
+import { stripTypeScriptTypes } from "node:module";
 import { PassThrough } from "node:stream";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import { runInNewContext } from "node:vm";
 
 import {
   buildOrchestratorRealProviderReport,
   inspectPublishedOrchestratorIntakeEpoch,
-  type JsonRecord,
   observePublicMcpProcess,
   type PublicProcessObservation,
 } from "../../scripts/orchestrator-real-provider-contract.ts";
@@ -40,6 +42,133 @@ const verificationScriptSource = fs.readFileSync(
 );
 
 /**
+ * 起動要求前の拒否と発行後の不明を、実入口の例外処理で区別する。
+ * @responsibility 未発行を回復要求へ変換せず、発行済みの不明は維持することを確認する。
+ * @trace PRL-ST-004
+ * @precondition 現行Sourceを型除去し、外部境界をメモリ上の代役へ固定する。
+ * @stimulus 引数・環境・事前観測・起動・出力の各境界を失敗させる。
+ * @observation 起動要求、保存、fixture処置と公開結果を取得する。
+ * @oracle 未発行は保存と回復要求なし、発行後は従来の不明結果を維持する。
+ * @cleanup N/A: 実Process・Filesystem・Dockerは使用しない。
+ * @boundary PRL-ST-004=Direct Boundary: 実Tool入口と例外処理。
+ */
+test("実Provider Toolは起動未発行を回復不明として記録しない", async () => {
+  const program = stripTypeScriptTypes(
+    verificationScriptSource
+      .replaceAll("import.meta.url", '"file:///source/tool.ts"')
+      .slice(verificationScriptSource.indexOf("const MARKER =")),
+  );
+  assert.equal(verificationScriptSource.match(/return spawn\(/gu)?.length, 1);
+  for (const scenario of [
+    "invalid_arguments",
+    "unsupported_platform",
+    "initial_observation_failed",
+    "argument_construction_failed",
+    "spawn_failed",
+    "after_spawn_failed",
+    "stdout_failed",
+  ]) {
+    const calls: string[] = [];
+    const output: string[] = [];
+    const processStub = {
+      argv:
+        scenario === "invalid_arguments"
+          ? ["node", "tool", "source"]
+          : ["node", "tool"],
+      platform: scenario === "unsupported_platform" ? "linux" : "win32",
+      execPath: "node",
+      cwd: () => "target",
+      exitCode: 0,
+      stdout: {
+        write: (value: string) => {
+          calls.push("stdout");
+          if (scenario === "stdout_failed") throw new Error("output_failed");
+          output.push(value);
+        },
+      },
+    };
+    const entersSpawn =
+      scenario === "spawn_failed" || scenario === "after_spawn_failed";
+    const source =
+      scenario === "argument_construction_failed" || entersSpawn
+        ? program.replace(
+            "await main();",
+            'startPublicMcpProcess("source", "target"); throw new Error("after_start");',
+          )
+        : program;
+    const result = runInNewContext(`(async () => { ${source} })()`, {
+      process: processStub,
+      path: {
+        join: (...parts: string[]) => {
+          if (scenario === "argument_construction_failed")
+            throw new Error("invalid_path");
+          return parts.join("/");
+        },
+      },
+      fs: {
+        mkdirSync: () => {
+          calls.push("mkdir");
+        },
+        writeFileSync: () => {
+          calls.push("save");
+        },
+      },
+      spawn: () => {
+        calls.push("spawn");
+        if (scenario === "spawn_failed") throw new Error("spawn_failed");
+        return {};
+      },
+      resolveVerifiedRepositoryRootFromWorkingDirectory: () => {
+        calls.push("root");
+        if (!entersSpawn) throw new Error("observation_failed");
+        return "target";
+      },
+      inspectRepositoryIdentityCandidate: () => ({
+        status: "candidate",
+        commit: "a",
+        tree: "b",
+      }),
+      verifyRepositoryRoot: () => ({ status: "completed", capability: {} }),
+      resolveRepositoryRuntimeDataPaths: () => ({
+        tests: "target/.crdd/tests",
+      }),
+    }) as Promise<void>;
+    if (scenario === "stdout_failed") {
+      await assert.rejects(result, /output_failed/u);
+      assert.deepEqual(calls, ["root", "stdout"]);
+      continue;
+    }
+    await result;
+    assert.equal(processStub.exitCode, 2);
+    assert.equal(output.length, 1);
+    const report = JSON.parse(output[0] ?? "{}");
+    assert.equal(report.status, "blocked");
+    assert.equal(report.rawProviderOutputReported, false);
+    if (entersSpawn) {
+      assert.equal(calls.filter((call) => call === "spawn").length, 1);
+      assert.equal(calls.filter((call) => call === "save").length, 1);
+      assert.equal(report.phase, "verification_unknown");
+      assert.equal(report.childProcessStarted, null);
+      assert.equal(report.cleanupConfirmed, false);
+      assert.equal(report.processRestartRequired, true);
+      assert.equal(report.effectState, "unknown");
+    } else {
+      assert.equal(
+        calls.some((call) => ["spawn", "mkdir", "save"].includes(call)),
+        false,
+      );
+      assert.equal(report.phase, "verification_not_started");
+      assert.equal(report.childProcessStarted, false);
+      assert.equal(report.childProcessJoined, true);
+      assert.equal(report.cleanupConfirmed, true);
+      assert.equal(report.manualRecoveryRequired, false);
+      assert.equal(report.processRestartRequired, false);
+      assert.equal(report.effectState, "no_effect");
+    }
+  }
+});
+
+/**
  * 実Provider E2Eは分離後の公開MCP入口だけを起動するを検証する。
  *
  * @responsibility 実Provider E2Eは分離後の公開MCP入口だけを起動するの合否判定を所有する。
@@ -56,17 +185,17 @@ test("実Provider E2Eは分離後の公開MCP入口だけを起動する", () =>
     verificationScriptSource,
     /import\s*\{\s*inspectRuntimeOwnedDockerTaskRecoveryState\s*\}\s*from/u,
   );
-  assert.match(
+  assert.doesNotMatch(
     verificationScriptSource,
-    /path\.join\(\s*distributionRoot,\s*"40_Develop\/coordinator\/src\/security\/docker-recovery-runtime\.ts"/u,
+    /path\.join\(\s*distributionRoot,\s*"40_Develop\/coordinator\/src\/docker-execution\/recovery-lifecycle\.ts"/u,
   );
-  assert.match(
+  assert.doesNotMatch(
     verificationScriptSource,
     /const dockerRecovery\s*=\s*recoveryModule\.inspectRuntimeOwnedDockerTaskRecoveryState\(\)/u,
   );
   assert.match(
     verificationScriptSource,
-    /"template",\s*"tools",\s*"crdd-mcp\.ts"/u,
+    /"template",\s*"tools",\s*"crdd-mcp-server\.ts"/u,
   );
   assert.doesNotMatch(
     verificationScriptSource,
@@ -579,12 +708,15 @@ const recoverySettlementFixture = () => ({
 const buildInput = (overrides: Record<string, unknown> = {}) =>
   ({
     runId: "run",
-    sourceIdentity: { commit: "a", tree: "b" },
-    distributionIdentity: {
-      crddCommit: "c",
-      crddTree: "d",
-      packageContentRootSha256: "e",
-      runtimeExecutionIdentitySha256: "f",
+    executionIdentity: { commit: "a".repeat(40), tree: "b".repeat(40) },
+    runtimeSource: {
+      scope: "crdd-development-source-snapshot/v1",
+      sourceSha256: "c".repeat(64),
+      crddCommit: "d".repeat(40),
+      crddTree: "e".repeat(40),
+      mcpEntrySourceSha256: "f".repeat(64),
+      observationStatus: "matched",
+      signatureRequired: false,
     },
     normalRuns: [
       normalRun("objective-1", "codex", "claude", false),
@@ -620,6 +752,20 @@ const buildInput = (overrides: Record<string, unknown> = {}) =>
             nonRootUserConfigured: true,
             workdirConfigured: true,
           },
+          {
+            event: "coordinator_provider_boundary_settled",
+            taskRole: "executor",
+            provider: "claude",
+            operationId: "OP-300001",
+            providerContainerCreatedObserved: true,
+            providerProcessStartedObserved: true,
+            providerProcessCompletionObserved: false,
+            providerProcessExitStatusClass: "not_observed",
+            processTreeTerminationObserved: true,
+            containersAbsentObserved: true,
+            networksAbsentObserved: true,
+            cleanupConfirmed: true,
+          },
         ],
       },
     ),
@@ -644,11 +790,6 @@ const buildInput = (overrides: Record<string, unknown> = {}) =>
       fileHashes: [{ relativePath: "result.txt", sha256: "after" }],
     },
     recoverySettlement: recoverySettlementFixture(),
-    dockerRecovery: {
-      status: "completed",
-      reason: "docker_task_runtime_state_clean",
-      manualRecoveryRequired: false,
-    },
     ...overrides,
   }) as Parameters<typeof buildOrchestratorRealProviderReport>[0];
 /**
@@ -667,6 +808,259 @@ const build = (overrides: Record<string, unknown> = {}) =>
   buildOrchestratorRealProviderReport(buildInput(overrides));
 
 /**
+ * 固定Source観測の欠測・途中差を起動前拒否へ結合する。
+ * @responsibility 実観測関数が固定Root・有界Reader・前後実体と改訂を要求することを確認する。
+ * @trace PRL-ST-004
+ * @precondition 現行実本文をメモリ上の読取り境界へ接続する。
+ * @stimulus 入口種別・Link数・読取り状態・実体・Git・Sourceを変更する。
+ * @observation 返却値と固定Path／上限を取得する。
+ * @oracle 安定観測だけが成立し、例外と差分はnullである。
+ * @cleanup N/A: 実Filesystem・Git・Providerは使用しない。
+ * @boundary PRL-ST-004=Direct Boundary: 実Source観測関数→既存Reader。
+ */
+test("Orchestrator検証の固定Source観測は入口欠測と途中差を拒否する", () => {
+  const body = stripTypeScriptTypes(
+    verificationScriptSource
+      .slice(
+        verificationScriptSource.indexOf("function observeRuntimeSource()"),
+        verificationScriptSource.indexOf(
+          "function restoreOwnedAdoptionFixture()",
+        ),
+      )
+      .replaceAll("import.meta.url", '"file:///source/tool.ts"'),
+  );
+  for (const scenario of [
+    "stable",
+    "root_changed",
+    "source_missing",
+    "git_changed",
+    "entry_link",
+    "entry_hardlink",
+    "entry_not_file",
+    "entry_unavailable",
+    "entry_replaced",
+    "entry_throw",
+  ]) {
+    let stats = 0;
+    let revisions = 0;
+    const root = "source";
+    const calls: string[] = [];
+    const observe = runInNewContext(`${body}; observeRuntimeSource`, {
+      URL,
+      fileURLToPath: () => root,
+      path: {
+        resolve: (value: string) => value,
+        join: (...parts: string[]) => parts.join("/"),
+      },
+      verifyRepositoryRoot: (value: string) => {
+        assert.equal(value, root);
+        return { status: "completed", capability: "root-capability" };
+      },
+      resolveVerifiedRepositoryRoot: () =>
+        scenario === "root_changed" ? "other" : root,
+      inspectRepositoryRevisionCandidate: () => ({
+        status: "candidate",
+        commit: (scenario === "git_changed" && revisions++ > 0
+          ? "b"
+          : "a"
+        ).repeat(40),
+        tree: "b".repeat(40),
+      }),
+      observeRuntimeOwnedDevelopmentSource: () =>
+        scenario === "source_missing"
+          ? null
+          : {
+              scope: "crdd-development-source-snapshot/v1",
+              sourceSha256: "c".repeat(64),
+              sourceIdentitySha256: "d".repeat(64),
+            },
+      fs: {
+        lstatSync: (entry: string, options: { bigint: boolean }) => {
+          calls.push(entry);
+          assert.equal(entry, "source/template/tools/crdd-mcp-server.ts");
+          assert.equal(options.bigint, true);
+          if (scenario === "entry_throw") throw new Error("unavailable");
+          return {
+            isFile: () => scenario !== "entry_not_file",
+            isSymbolicLink: () => scenario === "entry_link",
+            dev: 1n,
+            ino: scenario === "entry_replaced" && stats++ > 0 ? 2n : 1n,
+            birthtimeNs: 1n,
+            mtimeNs: 1n,
+            ctimeNs: 1n,
+            size: 8n,
+            nlink: scenario === "entry_hardlink" ? 2n : 1n,
+          };
+        },
+      },
+      createFilesystemRepositoryObservationPort: (
+        capability: string,
+        maximum: number,
+      ) => {
+        assert.equal(capability, "root-capability");
+        assert.equal(maximum, 64 * 1024);
+        return {
+          observeFile: (relative: string) => {
+            assert.equal(relative, "template/tools/crdd-mcp-server.ts");
+            return scenario === "entry_unavailable"
+              ? { status: "unobservable" }
+              : { status: "resolved", source: "MCP入口" };
+          },
+        };
+      },
+      createHash,
+    }) as () => Record<string, unknown> | null;
+    const result = observe();
+    if (scenario === "stable") {
+      assert.ok(result);
+      assert.equal(
+        result.mcpEntrySourceSha256,
+        createHash("sha256").update("MCP入口", "utf8").digest("hex"),
+      );
+      assert.equal(calls.length, 2);
+    } else assert.equal(result, null, scenario);
+  }
+  assert.doesNotMatch(
+    verificationScriptSource,
+    /inspectBundledCoordinatorPackageFilesystemCandidate|inspectVerifiedNativeDistributionCandidate|pathToFileURL|signed-distribution-root/u,
+  );
+  assert.match(verificationScriptSource, /process\.argv\.length !== 2/u);
+  assert.match(
+    verificationScriptSource,
+    /const runtimeSourceBefore = observeRuntimeSource\(\);[\s\S]*if \(!runtimeSourceBefore\)\s*throw/u,
+  );
+});
+
+/**
+ * 実行対象と実行Sourceの公開投影を混同せず固定fieldだけに制限する。
+ * @responsibility Source不成立を合格へ畳まず既知の回収・一次問題を保持する。
+ * @trace PRL-ST-004
+ * @precondition 他の全観測が揃う固定入力を使用する。
+ * @stimulus Source状態・field・改訂・不正objectを変更する。
+ * @observation 公開結果と回復fieldおよびgetter発火を読む。
+ * @oracle Source不成立はblockedで、非秘密閉集合だけを返し既存終了事実を変更しない。
+ * @cleanup N/A: メモリ値だけ。
+ * @boundary PRL-ST-004=Direct Boundary: Report公開投影。
+ */
+test("Orchestrator検証のSource不成立は終了事実を変えず公開値を閉じる", () => {
+  const base = buildInput();
+  const source = base.runtimeSource as Record<string, unknown>;
+  const privateObservation = {
+    scope: source.scope,
+    sourceSha256: source.sourceSha256,
+    sourceIdentitySha256: "1".repeat(64),
+    crddCommit: source.crddCommit,
+    crddTree: source.crddTree,
+    mcpEntrySourceSha256: source.mcpEntrySourceSha256,
+    mcpEntryIdentity: "private-identity",
+  };
+  const comparison = verificationScriptSource.match(
+    /observationStatus:\s*(\(\(\) => \{[\s\S]*?\}\)\(\))/u,
+  )?.[1];
+  assert.ok(comparison);
+  for (const field of Object.keys(privateObservation)) {
+    assert.equal(
+      runInNewContext(comparison, {
+        runtimeSourceBefore: privateObservation,
+        observeRuntimeSource: () => ({
+          ...privateObservation,
+          [field]: "changed",
+        }),
+      }),
+      "changed",
+      field,
+    );
+  }
+  assert.equal(
+    runInNewContext(comparison, {
+      runtimeSourceBefore: privateObservation,
+      observeRuntimeSource: () => privateObservation,
+    }),
+    "matched",
+  );
+  assert.equal(
+    runInNewContext(comparison, {
+      runtimeSourceBefore: privateObservation,
+      observeRuntimeSource: () => null,
+    }),
+    "unavailable",
+  );
+  const expected = build();
+  for (const value of [
+    null,
+    { ...source, scope: "other" },
+    { ...source, sourceSha256: "bad" },
+    { ...source, mcpEntrySourceSha256: "bad" },
+    { ...source, crddCommit: "bad" },
+    { ...source, crddTree: "bad" },
+    { ...source, signatureRequired: true },
+    { ...source, observationStatus: "changed" },
+    { ...source, observationStatus: "unavailable" },
+    {
+      ...source,
+      observationStatus: {
+        toString() {
+          throw new Error("must_not_invoke");
+        },
+      },
+    },
+    { ...source, absoluteRoot: "not-public" },
+    new Proxy(source, {
+      get() {
+        throw new Error("must_not_invoke");
+      },
+    }),
+    Object.defineProperty({ ...source }, "scope", {
+      get() {
+        throw new Error("must_not_invoke");
+      },
+    }),
+  ]) {
+    const result = build({ runtimeSource: value });
+    assert.equal(result.status, "blocked");
+    assert.equal(result.cleanupConfirmed, expected.cleanupConfirmed);
+    assert.equal(
+      result.manualRecoveryRequired,
+      expected.manualRecoveryRequired,
+    );
+    assert.equal(
+      result.processRestartRequired,
+      expected.processRestartRequired,
+    );
+    assert.equal(result.effectState, expected.effectState);
+    assert.equal(JSON.stringify(result).includes("not-public"), false);
+    assert.equal(Object.hasOwn(result, "distributionIdentity"), false);
+  }
+  assert.equal(
+    build({ executionIdentity: { commit: "bad", tree: "b".repeat(40) } })
+      .executionIdentity,
+    null,
+  );
+  assert.equal(
+    build({
+      executionIdentity: {
+        commit: "a".repeat(40),
+        tree: "b".repeat(40),
+        extra: "not-public",
+      },
+    }).executionIdentity,
+    null,
+  );
+  const firstFailure = buildInput();
+  const original = firstFailure.normalRuns[0];
+  assert.ok(original);
+  const result = build({
+    runtimeSource: { ...source, observationStatus: "changed" },
+    normalRuns: [
+      { ...original, observation: { ...original.observation, joined: false } },
+      ...firstFailure.normalRuns.slice(1),
+    ],
+  });
+  assert.ok(result.problems.includes("runtime_source_changed"));
+  assert.ok(result.problems.includes("normal_1_child_not_joined"));
+});
+
+/**
  * 全観測が相関した場合だけ公開Process E2Eをcompletedにするを検証する。
  *
  * @responsibility 全観測が相関した場合だけ公開Process E2Eをcompletedにするの合否判定を所有する。
@@ -683,8 +1077,208 @@ test("全観測が相関した場合だけ公開Process E2Eをcompletedにする
   assert.equal(result.status, "completed", JSON.stringify(result));
   assert.deepEqual(result.problems, []);
   assert.equal(result.publicMcpProcess.actualChildProcess, true);
-  assert.equal(result.dockerRecoveryAfterRun.recoverySettlementExercised, true);
-  assert.notDeepEqual(result.sourceIdentity, result.distributionIdentity);
+  assert.equal(result.contractRevision, 12);
+  assert.equal(
+    result.recoveryOperationAfterRun.currentOperationFinalized,
+    true,
+  );
+  assert.equal(
+    result.recoveryOperationAfterRun.verificationScope,
+    "exact_operation",
+  );
+  assert.equal(
+    result.recoveryOperationAfterRun.freshPublicMcpReentryVerified,
+    true,
+  );
+  assert.equal(result.cleanupConfirmed, false);
+  assert.equal(result.manualRecoveryRequired, true);
+  assert.equal(result.processRestartRequired, true);
+  assert.equal(result.effectState, "unknown");
+  assert.equal(Object.hasOwn(result, "dockerRecoveryAfterRun"), false);
+  assert.equal(
+    Object.hasOwn(result.cancellation, "recoveryInventoryCleanAfterRun"),
+    false,
+  );
+  assert.notDeepEqual(result.executionIdentity, result.runtimeSource);
+});
+
+/**
+ * 同じ操作の終了根拠を旧global空や別操作へ代用しない。
+ * @responsibility 各phase欠測・重複・世代逆行と公開結果差を終了の肯定へ畳まない。
+ * @trace PRL-ST-004
+ * @precondition 固定された公開再入場fixtureだけを使用する。
+ * @stimulus 7相、公開結果または正常側cleanupを一軸だけ変更する。
+ * @observation Reportの検証状態、対象終了と集約した回復状態を読む。
+ * @oracle 旧global値に依存せず、不成立の対象終了はfalse、別取消の義務は維持する。
+ * @cleanup N/A: メモリ内の観測値だけ。
+ * @boundary PRL-ST-004=Direct Boundary: 公開結果と回復通知→Report
+ */
+test("現在操作の終了と別操作の未解決状態を独立して保持する", () => {
+  const base = recoverySettlementFixture();
+  const eventVariants = base.reentry.recoveryEvents.flatMap(
+    (event, index, events) => [
+      events.filter((_, position) => position !== index),
+      [...events.slice(0, index), event, ...events.slice(index)],
+    ],
+  );
+  eventVariants.push(
+    base.reentry.recoveryEvents.map((event, index) =>
+      index === 3 ? { ...event, stateGeneration: 1 } : event,
+    ),
+  );
+  for (const recoveryEvents of eventVariants) {
+    const result = build({
+      recoverySettlement: {
+        ...base,
+        reentry: { ...base.reentry, recoveryEvents },
+      },
+      dockerRecovery: {
+        status: "completed",
+        reason: "docker_task_runtime_state_clean",
+        manualRecoveryRequired: false,
+      },
+    });
+    assert.equal(result.status, "blocked");
+    assert.equal(
+      result.recoveryOperationAfterRun.currentOperationFinalized,
+      false,
+    );
+    assert.equal(result.cleanupConfirmed, false);
+  }
+  for (const difference of [
+    { cleanupConfirmed: false },
+    { manualRecoveryRequired: true },
+    { processRestartRequired: true },
+    { effectState: "unknown" },
+    { requestId: "request-other" },
+    { projectId: "project-other" },
+    { milestoneId: "milestone-other" },
+  ]) {
+    const result = build({
+      recoverySettlement: {
+        ...base,
+        reentry: {
+          ...base.reentry,
+          responses: [
+            semantic("completed", "objective-recovery-reentry", difference),
+          ],
+        },
+      },
+    });
+    assert.equal(result.status, "blocked");
+    assert.equal(
+      result.recoveryOperationAfterRun.currentOperationFinalized,
+      false,
+    );
+  }
+  const input = buildInput();
+  const run = input.normalRuns[0];
+  assert.ok(run);
+  const normalCleanupUnknown = build({
+    normalRuns: [
+      {
+        ...run,
+        observation: {
+          ...run.observation,
+          responses: [
+            semantic("completed", run.expected.responseId, {
+              cleanupConfirmed: false,
+            }),
+          ],
+        },
+      },
+      ...input.normalRuns.slice(1),
+    ],
+  });
+  assert.equal(
+    normalCleanupUnknown.recoveryOperationAfterRun.currentOperationFinalized,
+    true,
+  );
+  assert.equal(normalCleanupUnknown.cleanupConfirmed, false);
+  const result = build({
+    dockerRecovery: { status: "blocked", manualRecoveryRequired: true },
+  });
+  assert.equal(result.status, "completed");
+  assert.equal(
+    result.recoveryOperationAfterRun.currentOperationFinalized,
+    true,
+  );
+  assert.equal(result.cancellation.manualRecoveryRequired, true);
+  assert.equal(result.cleanupConfirmed, false);
+  assert.equal(result.manualRecoveryRequired, true);
+  assert.equal(result.processRestartRequired, true);
+  assert.equal(result.effectState, "unknown");
+});
+
+/**
+ * 終了判定を省略した変異を外側の公開Report期待で検出する。
+ * @responsibility イベント相関の省略と終了共同判定の無条件化を外側Oracleで拒否する。
+ * @trace PRL-ST-004
+ * @precondition 現在のReport Sourceをメモリだけで変異する。
+ * @stimulus 相関条件の省略または終了判定全体の無条件化へ不成立入力を与える。
+ * @observation currentOperationFinalizedと外側assertionの失敗を読む。
+ * @oracle 本番関数はfalse、条件省略版の誤ったtrueは外側Oracleが拒否する。
+ * @cleanup N/A: メモリmoduleのみ。実Process／Docker／保存を発行しない。
+ * @boundary PRL-ST-004=Direct Boundary: 現在Report条件→独立期待
+ */
+test("対象終了の相関省略と共同判定の無条件化を反証する", async () => {
+  const sourceUrl = new URL(
+    "../../scripts/orchestrator-real-provider-contract.ts",
+    import.meta.url,
+  );
+  const source = stripTypeScriptTypes(
+    fs.readFileSync(sourceUrl, "utf8"),
+  ).replace(
+    /from\s*(["'])(\.[^"']+)\1/gu,
+    (_, quote: string, relative: string) =>
+      `from ${quote}${new URL(relative, sourceUrl).href}${quote}`,
+  );
+  for (const condition of [
+    "isRecoveryEventsCorrelated &&",
+    "recoveryResult.cleanupConfirmed === true &&",
+  ]) {
+    const base = recoverySettlementFixture();
+    const reentry = condition.startsWith("isRecovery")
+      ? {
+          ...base.reentry,
+          recoveryEvents: base.reentry.recoveryEvents.filter(
+            (event) => event.phase !== "verification_resources_finalized",
+          ),
+        }
+      : {
+          ...base.reentry,
+          responses: [
+            semantic("completed", "objective-recovery-reentry", {
+              cleanupConfirmed: false,
+            }),
+          ],
+        };
+    const input = buildInput({ recoverySettlement: { ...base, reentry } });
+    assert.equal(
+      buildOrchestratorRealProviderReport(input).recoveryOperationAfterRun
+        .currentOperationFinalized,
+      false,
+    );
+    const altered = condition.startsWith("isRecovery")
+      ? source.replace(condition, "true &&")
+      : source.replace(
+          /const isRecoverySettlementExercised =[\s\S]*?;/u,
+          "const isRecoverySettlementExercised = true;",
+        );
+    assert.notEqual(altered, source);
+    const module = (await import(
+      `data:text/javascript;base64,${Buffer.from(altered).toString("base64")}`
+    )) as {
+      buildOrchestratorRealProviderReport: typeof buildOrchestratorRealProviderReport;
+    };
+    assert.throws(() =>
+      assert.equal(
+        module.buildOrchestratorRealProviderReport(input)
+          .recoveryOperationAfterRun.currentOperationFinalized,
+        false,
+      ),
+    );
+  }
 });
 
 /**
@@ -708,7 +1302,7 @@ test("取消後に完了したProvider境界清掃を受理する", () => {
       cancellation: {
         ...base.cancellation,
         providerBoundaryEvents: [
-          ...base.cancellation.providerBoundaryEvents,
+          ...base.cancellation.providerBoundaryEvents.slice(0, 1),
           {
             event: "coordinator_provider_boundary_settled",
             taskRole: started.taskRole,
@@ -745,7 +1339,7 @@ test("取消後に完了したProvider境界清掃を受理する", () => {
 /**
  * 取消時の不完全または閉集合外Provider境界診断を拒否することを検証する。
  *
- * @responsibility 任意Settlementを、存在時は完全・Identity一致・一意な一件に限定する。
+ * @responsibility 取消の終了診断を必須とし、完全・Identity一致・一意な一件に限定する。
  * @trace PRL-ST-003
  * @precondition 取消観測は完全なconfiguredとsettled診断を基準に、完全性、Identity、一意性または閉集合を破る。
  * @stimulus buildOrchestratorRealProviderReportへ各反証観測を渡す。
@@ -775,8 +1369,13 @@ test("取消時の不完全または閉集合外Provider境界診断を拒否す
   const configured = base.cancellation.providerBoundaryEvents[0];
   assert.ok(configured);
   const cases = [
+    [configured],
     [configured, { ...settled, providerProcessCompletionObserved: false }],
     [configured, { ...settled, cleanupConfirmed: false }],
+    [configured, { ...settled, providerContainerCreatedObserved: false }],
+    [configured, { ...settled, providerProcessStartedObserved: false }],
+    [configured, { ...settled, containersAbsentObserved: false }],
+    [configured, { ...settled, networksAbsentObserved: false }],
     [configured, { ...settled, operationId: "operation-mismatch" }],
     [configured, settled, settled],
     [configured, settled, configured],
@@ -1133,7 +1732,7 @@ test("clean観測だけ、欠落・順序違反・Identity不一致を回復実�
     const result = build(item);
     assert.equal(result.status, "blocked");
     assert.equal(
-      result.dockerRecoveryAfterRun.recoverySettlementExercised,
+      result.recoveryOperationAfterRun.currentOperationFinalized,
       false,
     );
   }
@@ -1368,13 +1967,6 @@ test("正常・準正常・異常の不一致をblocked結果へ閉じる", () =
         headTree: "b",
         fileHashes: [{ relativePath: "result.txt", sha256: "changed" }],
       },
-    },
-    {
-      dockerRecovery: {
-        status: "blocked",
-        reason: "unknown",
-        manualRecoveryRequired: true,
-      } as JsonRecord,
     },
   ];
   for (const item of cases) {
@@ -1717,18 +2309,18 @@ test("helper永続pendingとchild close欠落が同時でも共通期限で未jo
 });
 
 /**
- * 実子Process treeを開始通知後に強制終了して親喪失を観測するを検証する。
+ * 実子Processの終了を模擬tree補助へ接続して親喪失を観測するを検証する。
  *
- * @responsibility 実子Process treeを開始通知後に強制終了して親喪失を観測するの合否判定を所有する。
+ * @responsibility 実子Processの終了を模擬tree補助へ接続して親喪失を観測するの合否判定を所有する。
  * @trace PRL-ST-001
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 実子Process treeを開始通知後に強制終了して親喪失を観測するの対象操作を実行する。
+ * @stimulus 実子Processの終了を模擬tree補助へ接続して親喪失を観測するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-ST-001=Direct Boundary: coordinator Test Source→対象契約
  */
-test("実子Process treeを開始通知後に強制終了して親喪失を観測する", async () => {
+test("実子Processの終了を模擬tree補助へ接続して親喪失を観測する", async () => {
   const child = spawn(process.execPath, [fixture, "parent-loss"], {
     windowsHide: true,
     stdio: ["pipe", "pipe", "pipe"],

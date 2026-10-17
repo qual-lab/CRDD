@@ -5,6 +5,8 @@
 状態: Candidate
 維持責任者: Qual-Lab
 
+2026-10-14の人間判断で、CRDD独自署名は通常Runtimeの必須条件から外す。[Coordinatorの三分離](../coordinator/01_Architecture.md#9-通常実行追跡正式配布の分離)に従い、AI Adapterは公式CLI・Image・設定の必要な出所／同一性確認、Provider認証、入出力差を所有するが、CRDD署名Manifestや署名由来Runtime Capabilityを要求・発行しない。Hash・版一致を送信許可やPublisher真正性へ昇格しない。通常Task・CLI・Workbench助言／候補・Orchestratorの旧署名資格引数・発行・消費は撤去済みだが、旧資格3 API・専用静的検査・任意署名Toolの再接続と実Provider／全体E2Eは未完了であり、過去の署名結果を新しい通常実行経路の成立へ流用しない。
+
 ## 基本設計との関係
 
 CROS用Profile Storeは固定config候補と既存親chainの通常Directory・非Link・realpath一致を構成時と各snapshot／adoptで再確認する。構成と読取りでは作成せず、採用時の不足suffixだけ一段ずつ非再帰mkdirして親Identityを再確認する。Link・観測不能・作成中置換を空Catalogや保存成功へ畳まない。Windowsのconfigとstateは同一Root、Linuxは別Rootであり、AM stateの検証をCatalog自身の検証へ流用しない。新Store／Lock／Root Framework、Catalog Schema・Revision、Repository単体Storeは変更しない。操作間の恒久的な置換耐性やOS全体の排他を保証しない。
@@ -13,7 +15,7 @@ CROS用Profile Storeは固定config候補と既存親chainの通常Directory・�
 
 AI Adapterは、Adapter、Model、Profileの構成契約とProvider固有の起動・認証方式・結果変換を所有する。実装は旧`ai-runtime`とCoordinator内のProvider固有差を`ai-adapter`へ統合する。任意実行Path・任意CLI引数・秘密値をCatalogへ持たず、実行Authorityの発行、Docker／Processの所有、外部送信許可と共通の回収判定はCoordinatorに残す。
 
-Profile管理、Provider計画・CLI固有引数・認証方式・構造化結果のSourceは`ai-adapter`へ接続済みである。Coordinatorには、AI Adapter記述とMount・Egress・選定Identity・実行Capabilityを結ぶ共通実行組立てが残り、段階5Cで統合する。Source移管の局所成立と、再編後の署名・実Provider境界の未評価を区別する。再編の進捗と検証結果は[CHG-000082の移管計画](../../../99_Roadmap/Changes/CHG-000082/Evidence/261007_develop-responsibility-mapping.md)で追跡する。
+Profile管理、Provider計画・CLI固有引数・認証方式・構造化結果のSourceは`ai-adapter`へ接続済みである。Coordinatorには、AI Adapter記述とMount・Egress・選定Identity・実行Capabilityを結ぶ共通実行組立てが残り、段階5Cで統合する。Source移管の局所成立と、再編後の未署名固定入口・必要Artifact・現在認可を含む本番再接続と実Provider境界の未評価を区別する。再編の進捗と検証結果は[CHG-000082の移管計画](../../../99_Roadmap/Changes/CHG-000082/Evidence/261007_develop-responsibility-mapping.md)で追跡する。
 
 | Architecture定義 | この領域が具体化する責務 | Relation状態 |
 |---|---|---|
@@ -122,9 +124,11 @@ CROS設定 ────────────┼─→ 設定Adapter ─→ AI
 
 永続Snapshotが一件もない正常なOwner Storeは、Schema検証済みの既定Catalogを`revision 0`として返す。これは採用済みFileの代替ではなく、最初の採用で`expectedRevision: 0`を照合し、成功時にだけ`revision 1`を公開するための初期Snapshotである。Coordinatorは同じSnapshotからProfileを解決し、Profile ID、Adapter、Model、ReasoningおよびCatalog RevisionをExecution Planまで変更せず搬送する。DirectoryまたはSnapshotを観測できない場合、Revision列が不連続な場合、Envelope／Schemaが破損している場合は例外で停止し、`revision 0`へ縮退しない。
 
-既定Catalogの設定本文は統合後の`40_Develop/ai-adapter/src/catalog/default-ai-profile-catalog.json`へ置く。同梱JSONはOwner別の採用済みSnapshotではなく、初期値を定める配布設定である。Catalog Coreは静的JSON importで読み込み、通常のCatalog Validatorで検証した深い不変Snapshotだけを公開する。欠落、JSON構文破損またはSchema不正では初期化を停止し、埋込み旧値や空Catalogへ戻らない。署名RuntimeがCatalog Coreを消費する場合は、このexact JSONも静的依存として内容Identityと配布閉包へ含める。利用者が採用したOwner Snapshotは同梱初期値の変更だけでは上書きしない。
+既定Catalogの設定本文は統合後の`40_Develop/ai-adapter/src/catalog/default-ai-profile-catalog.json`へ置く。同梱JSONはOwner別の採用済みSnapshotではなく、初期値を定める配布設定である。Catalog Coreは静的JSON importで読み込み、通常のCatalog Validatorで検証した深い不変Snapshotだけを公開する。欠落、JSON構文破損またはSchema不正では初期化を停止し、埋込み旧値や空Catalogへ戻らない。現在Runtimeが消費するexact JSONを必要入力として追跡し、内容同一性とCatalog検証を確認する。旧Sourceの署名閉包への追加は撤去対象の比較事実であり、現在の実行許可にしない。利用者が採用したOwner Snapshotは同梱初期値の変更だけでは上書きしない。
 
-成立済みのProfile内容／Store実装は既定Catalog、閉じた検証、一意解決、利用可能性評価、Owner別の耐久Snapshot採用、Repository／CROS WorkbenchのProfile限定管理、Coordinator互換解決、Workbench表示およびWorkbench AI依頼Portまで成立している。Workbenchが選んだProfile IDは、同じCatalog SnapshotのAdapter、Model、ReasoningとCatalog Revisionへ解決され、読取り助言のTask HashおよびProviderとともに一回送信境界までexactに保持される。旧CROS比較実装では`systemAdmin`を持たないCredentialへCatalogの内容・件数を開示しない。この局所成立を、新Targetのmanager／administrator現在認可や本番Consumerの成立へ流用しない。Production Compositionは専用Dispatch、Provider別の固定Adapter選択、Repository非共有の読取り助言専用Execution Plan、固定配布物へ接続するProvider Command Plan、Provider出力抽出およびLifecycle判定を行うExecutor Coreまで接続した。Executor Coreから署名Runtimeへ渡す入力は、Operation、Profile、Task／Projection Hash、PromptおよびCommand Hashを結合した一回消費Packetへ固定し、再利用、別Owner消費、取消後利用および共有境界の拡張を拒否する。Codex／Claude Adapter、Docker Effect、Process ControllerおよびRecoveryは`workbench_advice`を独立Modeとして受理し、Provider HomeとOperation一時領域だけを共有し、助言Promptをstdinだけへ渡し、Provider Envelopeを助言JSONへ縮約してcleanup後に返す。Coordinatorの署名済みRuntimeは実行時に到達する`catalog.ts`／`types.ts`だけをCatalog Coreとして消費し、Store／管理Surfaceを暗黙に署名閉包へ含めない。Production CompositionはOperation生成、Model Selection、Mount Grant、Packet発行およびProcess Controllerまで成立済みである。未確認は今回の是正を含む署名済み配布物の再固定・直接起動と実Provider E2Eであり、局所Mode成立を実Provider利用可能とは表示しない。
+Profile内容／Storeの既存局所成立は、既定Catalog、閉じた検証、一意解決、利用可能性評価、Owner別の耐久Snapshot採用、Profile限定管理、Coordinator解決、Workbench表示と依頼接続である。選択Profile IDを同じCatalog SnapshotのAdapter、Model、Reasoning、Catalog Revisionへ解決し、Task HashとProviderを一回送信境界へexactに搬送する。旧CROSの`systemAdmin`制御や旧署名閉包の結果を新Targetの現在認可・本番Consumerの成立へ流用しない。
+
+Production Compositionの専用Dispatch、固定Adapter選択、Repository非共有の読取り助言計画、Provider Command Plan、出力抽出とLifecycle判定は既存の局所接続として保持する。Executor Coreから現在Runtimeへ渡すOperation、Profile、Task／Projection Hash、PromptとCommand Hashは一回消費Packetへ固定し、再利用・別Owner消費・取消後利用・共有拡張を拒否する。Packetから実行Authorityを生成しない。`workbench_advice`は専用ModeでProvider HomeとOperation一時領域だけを共有し、Promptをstdinへ渡し、Envelopeを助言JSONへ縮約してcleanup後に返す。現在の必要Artifact同一性確認は利用するCatalog入力へ限定し、Store／管理Surfaceを暗黙に取り込まない。Workbench助言と通常Task・候補・Orchestratorの旧署名資格の引数・発行・消費は撤去済みである。旧資格3 API・専用静的検査・任意署名Toolは未移行として分離する。未確認は未署名固定入口・必要Artifact確認・現在認可を含む実Provider境界と全体E2Eであり、局所接続成功を新経路の利用可能性へ拡張しない。
 
 ## 6. Failureと回復
 
@@ -142,6 +146,10 @@ CROS設定 ────────────┼─→ 設定Adapter ─→ AI
 ## 7. Provider差の公開契約と実行境界
 
 ### 7.1. 責務別配置と公開操作
+
+構成診断のCodex argvは既存producer上限256件を全descriptor取得前に確認する。超過入力は不正配列と同じ固定fallbackへ閉じ、実行・選定・保存へ影響させない。
+
+Codexの構成診断は既存`codex/execution-plan.ts`の`projectCodexExecutionBoundary`が所有する。入力はDocker包装を除いたpayload argvだけであり、承認の`approve_for_me`優先、完全一致の`approval_policy="never"`、最初の分離形`--sandbox`の値を固定分類へ投影する。不正配列は空引数相当のother／implicitへ閉じる。Providerの選択、Claudeのnot_applicable、操作相関と通知の組立はCoordinatorが所有する。生引数は結果へ含めず、診断分類を実行許可や隔離成立へ昇格しない。
 
 ```text
 40_Develop/ai-adapter/src/
@@ -203,8 +211,8 @@ Provider構造化結果の純粋解析・拒否は`ERB-UT-032`、Subscription限
 
 | 分割する操作・型 | 実利用側と再編後の接続 | 既存の検証義務と担当断面 |
 |---|---|---|
-| Codex／Claudeのread-only probe・isolated task計画 | Coordinatorの`docker-execution/provider-execution-plan.ts`と`command-effects.ts`がAI Adapterの各Provider公開入口を利用する。二Provider Docker Adapterの`buildPlan`を含め、Container名・Network・Mount・PreparedPlanの所有はCoordinatorに残す。 | `ERB-IT-001/006`で実CLI契約と固定入力・Profile・計画拒否、`ERB-ST-005/030`で公開結果・取消・回収を確認する。Codex公式配布だけの追加確認は`ERB-IT-031`とし、Claude起動の根拠へ流用しない。 |
-| `planClaudeTaskTurnBudget`、Provider別構造化出力変換 | Claude Docker Adapter、Coordinatorの`provider/task-structured-result.ts`、`docker-execution/process-controller.ts`から各Provider公開入口を利用する。共通Executor／Reviewer Schemaと是正判断はCoordinatorに残す。 | `ERB-IT-001/002`で曖昧・不足・不正Envelopeと失敗分類、`ERB-ST-005/030`で実Processの終了・取消・回収を確認する。助言の通知分類は別に`ERB-UT-023`へ対応する。Turn終了だけをProcess終了にしない。 |
+| Codex／Claudeのread-only probe・isolated task計画 | Coordinatorの`provider/execution-plan.ts`と`provider/isolation-execution.ts`がAI Adapterの各Provider公開入口を利用する。操作・Mount・PreparedPlanの相関とAuthorityはCoordinator、Container／Networkの命名・技術構成はDocker Isolationが所有する。 | `ERB-IT-001/006`で実CLI契約と固定入力・Profile・計画拒否、`ERB-ST-005/030`で公開結果・取消・回収を確認する。Codex公式配布だけの追加確認は`ERB-IT-031`とし、Claude起動の根拠へ流用しない。 |
+| `planClaudeTaskTurnBudget`、Provider別構造化出力変換 | Claude Docker Adapter、Coordinatorの`provider/task-structured-result.ts`、`provider/execution-controller.ts`から各Provider公開入口を利用する。共通Executor／Reviewer Schemaと是正判断はCoordinatorに残す。 | `ERB-IT-001/002`で曖昧・不足・不正Envelopeと失敗分類、`ERB-ST-005/030`で実Processの終了・取消・回収を確認する。助言の通知分類は別に`ERB-UT-023`へ対応する。Turn終了だけをProcess終了にしない。 |
 | `planWorkbenchAiAdviceProviderCommand`、`extractWorkbenchAiAdviceProviderOutput` | Workbench助言実行計画、Docker Effect Runtime、Docker Process Controllerから共通計画・変換入口を利用する。Workbench ServerからProvider内部Fileをimportしない。 | `ERB-UT-023`の助言入力・結果拒否、`ERB-IT-031`の実CLI、`ERB-ST-030`の実終了条件へ分ける。Providerエラーをtool操作へ誤分類しないが、不正結果を部分公開しない。 |
 | `createClaudeSubscriptionAuthenticationPlan`のlogin／status argvと`probeConfirmed` | AI Adapterは純粋なCLI・方式・結果分類を返す。`authenticate-claude-subscription.ts`はCoordinatorの認証実行を呼び、Home・Docker・Lock・cleanup・回復記録を保持する。 | `ERB-UT-016`で再認証計画と結果分類、`ERB-IT-008/017`でHome・fresh Process再入場・回収を確認する。秘密コードと認証出力は固定Task、Catalog、診断へ複製しない。 |
 | Catalog検証・Profile解決・Availabilityおよび全公開Profile型 | Profile型は`catalog/types.ts`と`profile/types.ts`が所有し、AI AdapterのRootから明示公開する。Coordinator、CROS、Workbench Server、MCP Serverは公開型と入口へ依存する。 | `ai-runtime.catalog-validation`→`RCM-UT-001/002`、`profile-resolution`→`RCM-UT-001/RCM-IT-005`、`availability`→`RCM-UT-001/RCM-IT-010`を保持する。 |

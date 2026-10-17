@@ -18,6 +18,47 @@ const packageRoot = path.resolve(import.meta.dirname, "../..");
 const repositoryRoot = path.resolve(packageRoot, "../..");
 
 /**
+ * Workbench助言の本番入口を署名資格発行から分離する。
+ * @responsibility 単体Repositoryの検証済みRootだけを助言Factoryへ渡すことを確認する。
+ * @trace ERB-IT-021
+ * @precondition 現在のLauncherと助言Sourceを直接読む。
+ * @stimulus 発行import、Factory引数、旧消費依存の残存を検査する。
+ * @observation 一引数の本番接続と旧署名Gate名の不存在。
+ * @oracle 互換用の資格引数や常時成功Gateを残さない。
+ * @cleanup N/A: Source読取りだけでServer・Providerを起動しない。
+ * @boundary ERB-IT-021=Direct Boundary: Workbench Launcher→助言Factory。
+ */
+test("Workbench助言の本番入口は署名発行を注入しない", () => {
+  const launcher = readFileSync(
+    path.join(packageRoot, "bin/workbench-server.ts"),
+    "utf8",
+  );
+  const runtime = readFileSync(
+    path.join(
+      repositoryRoot,
+      "40_Develop/coordinator/src/workbench-ai/advice-execution.ts",
+    ),
+    "utf8",
+  );
+  assert.doesNotMatch(
+    launcher,
+    /issueRuntimeOwnedVerifiedCoordinatorPackageCapability/,
+  );
+  assert.match(
+    launcher,
+    /createRuntimeOwnedWorkbenchAiAdviceProductionRuntime\(\s*verified\.capability,?\s*\)/,
+  );
+  assert.doesNotMatch(
+    runtime,
+    /consumeVerifiedPackage|verifiedPackageCapability|issueVerifiedPackageCapability|workbench_ai_advice_release_verification_required/,
+  );
+  assert.match(
+    runtime,
+    /function createRuntimeOwnedWorkbenchAiAdviceProductionRuntime\(\s*repositoryRootCapability: VerifiedRepositoryRoot,?\s*\)/,
+  );
+});
+
+/**
  * Import／Export宣言がRuntime valueを搬送するか判定する。
  *
  * @responsibility type-only宣言を実行時依存へ数えず、default・namespace・value named importを識別する。

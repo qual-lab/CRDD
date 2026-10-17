@@ -23,7 +23,7 @@ import type {
  * @compatibility OrchestratorTaskRecoveryHostDependenciesの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
 export type OrchestratorTaskRecoveryHostDependencies = Readonly<{
-  recoverTaskRecovery?: (recoveryId: string) => unknown;
+  recoverTaskRecovery?: (recoveryId: string, signal: AbortSignal) => unknown;
   acknowledgeTaskRecovery?: (
     settlement: Readonly<
       OrchestratorDockerRecoveryIdentity & {
@@ -73,8 +73,8 @@ export function createOrchestratorTaskRecoveryAdapter(
   return Object.freeze({
     resolveCorrelations: (correlationIds: readonly string[]) =>
       dependencies.resolveTaskRecoveryCorrelations?.(correlationIds) ?? null,
-    recover: (recoveryId: string) =>
-      dependencies.recoverTaskRecovery?.(recoveryId) ?? null,
+    recover: (recoveryId: string, signal: AbortSignal) =>
+      dependencies.recoverTaskRecovery?.(recoveryId, signal) ?? null,
     acknowledgeDocker: (identity: OrchestratorDockerRecoveryIdentity) =>
       dependencies.acknowledgeTaskRecovery?.(
         Object.freeze({

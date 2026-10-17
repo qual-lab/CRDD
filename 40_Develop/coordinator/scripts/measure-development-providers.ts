@@ -19,6 +19,7 @@ import {
 } from "../../version-control/src/index.ts";
 import { assertSupportedCoordinatorNodeRuntime } from "../src/host-execution/node-runtime-version.ts";
 import { startRuntimeOwnedDevelopmentCoordinatorTask } from "../src/task/execution.ts";
+import { observeRuntimeOwnedDevelopmentSource } from "../src/task/development-source-observation.ts";
 import {
   cancelRuntimeOwnedDevelopmentMeasurementSession,
   inspectRuntimeOwnedDevelopmentMeasurementSession,
@@ -139,7 +140,7 @@ async function executeMeasurement(
   }
   return Object.freeze({
     contract: "crdd-coordinator/development-provider-measurement",
-    contractRevision: 2,
+    contractRevision: 3,
     status: completedCount === 2 && cleanupConfirmed ? "completed" : "blocked",
     reason:
       failureReason ??
@@ -267,9 +268,9 @@ export function projectDevelopmentMeasurementEntryFailure(error: unknown) {
  *
  * @responsibility measure-development-providersの引数受付、終了Code、診断出力境界を所有する。
  * @trace ARCH-000004
- * @input N/A: 実行時引数を受け取らない。
+ * @input 引数なしは既存実測、--describe-sourceは固定Sourceの読取りだけを行う。
  * @returns N/A: mainは戻り値を返さない。
- * @precondition 「N/A: 実行時引数を受け取らない。」がmainの入力契約を満たす。
+ * @precondition 実測は既存の明示入力を使用し、Source照会は追加引数を許さない。
  * @postcondition mainの責務を完了して呼出し元へ制御を戻す。
  * @effect mainはFilesystemの読取りまたは書込みを実行する。
  * @failure mainは入力不正または下位処理の失敗を呼出し側へ返す。
@@ -280,6 +281,31 @@ export function projectDevelopmentMeasurementEntryFailure(error: unknown) {
  */
 async function main() {
   assertSupportedCoordinatorNodeRuntime(process.versions.node);
+  if (process.argv.length === 3 && process.argv[2] === "--describe-source") {
+    const observation = observeRuntimeOwnedDevelopmentSource();
+    process.stdout.write(
+      `${JSON.stringify(
+        observation
+          ? {
+              status: "observed",
+              scope: observation.scope,
+              expectedSourceSha256: observation.sourceSha256,
+              fileCount: observation.fileCount,
+              totalBytes: observation.totalBytes,
+              releaseAuthorityConferred: false,
+              providerEffectIssued: false,
+            }
+          : {
+              status: "blocked",
+              reason: "measurement_source_observation_unavailable",
+              releaseAuthorityConferred: false,
+              providerEffectIssued: false,
+            },
+      )}\n`,
+    );
+    process.exitCode = observation ? 0 : 2;
+    return;
+  }
   if (process.argv.length !== 2)
     throw new Error("measurement_arguments_invalid");
   const root = resolveVerifiedRepositoryRootFromWorkingDirectory(process.cwd());

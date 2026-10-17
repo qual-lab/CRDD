@@ -70,7 +70,7 @@ export type OrchestratorRecoveryTransition = Readonly<{
  */
 export type OrchestratorTaskRecoveryPort = Readonly<{
   resolveCorrelations: (correlationIds: readonly string[]) => unknown;
-  recover: (recoveryId: string) => unknown;
+  recover: (recoveryId: string, signal: AbortSignal) => unknown;
   acknowledgeDocker: (identity: OrchestratorDockerRecoveryIdentity) => unknown;
   finalizeDockerAcknowledgement: (
     identity: OrchestratorDockerRecoveryIdentity,

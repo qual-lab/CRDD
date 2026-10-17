@@ -64,7 +64,6 @@ test("業務公開操作はOrchestratorが所有しCoordinatorから再公開し
     "createCurrentOrchestratorPersistencePorts",
     "createOrchestratorAcceptanceAuthorityAdapter",
     "createOrchestratorDecisionCapabilityAdapter",
-    "createOrchestratorExecutionAuthorizationAdapter",
     "createOrchestratorExecutionHostPorts",
     "createOrchestratorObjectiveResult",
     "createOrchestratorSnapshotAcceptanceDecisionStore",
@@ -161,6 +160,8 @@ test("業務公開操作はOrchestratorが所有しCoordinatorから再公開し
     "inspectRuntimeProcessRecoveryIdentity",
     "isSupportedCoordinatorNodeRuntime",
     "poisonRuntimeProcessAfterCleanupUnknown",
+    "recoverRuntimeOwnedDockerTaskForCurrentConsumer",
+    "resolveRuntimeOwnedDockerTaskCurrentCorrelations",
     "runCoordinatorTaskAttempt",
   ]);
   const metadata = JSON.parse(
