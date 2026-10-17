@@ -575,9 +575,11 @@ test("Repository LocationとRepository-local Ignoreの既知Consumer集合が宣
       "40_Develop/orchestrator/src/cli/command.ts",
       "40_Develop/orchestrator/src/storage/current-state.ts",
       "40_Develop/orchestrator/src/storage/history.ts",
+      "40_Develop/orchestrator/src/workspace/operations.ts",
       "40_Develop/orchestrator/src/task/settle-docker-recovery.ts",
       "40_Develop/orchestrator/src/platform/windows-adapter.ts",
       "40_Develop/coordinator/src/repository-operation/binding.ts",
+      "40_Develop/coordinator/src/repository-operation/borrowed-workspace.ts",
       "40_Develop/coordinator/src/repository-operation/workspace.ts",
       "40_Develop/coordinator/src/state-storage/settlement-store.ts",
       "40_Develop/coordinator/src/task/recovery.ts",
@@ -833,6 +835,7 @@ test("Local Change Setと用途別Named SymbolのConsumer集合が宣言と一�
       "40_Develop/coordinator/src/host-execution/terminal-caller-checkpoint.ts",
       "40_Develop/coordinator/src/host-execution/terminal-caller-lease.ts",
       "40_Develop/coordinator/src/repository-operation/binding.ts",
+      "40_Develop/coordinator/src/repository-operation/borrowed-workspace.ts",
       "40_Develop/coordinator/src/repository-operation/workspace.ts",
       "40_Develop/coordinator/src/state-storage/settlement-store.ts",
       "40_Develop/coordinator/src/task/recovery.ts",
@@ -847,6 +850,7 @@ test("Local Change Setと用途別Named SymbolのConsumer集合が宣言と一�
       "40_Develop/orchestrator/src/platform/windows-adapter.ts",
       "40_Develop/orchestrator/src/storage/current-state.ts",
       "40_Develop/orchestrator/src/storage/history.ts",
+      "40_Develop/orchestrator/src/workspace/operations.ts",
       "40_Develop/orchestrator/src/task/settle-docker-recovery.ts",
       "40_Develop/visual-preview/src/server.ts",
       "40_Develop/workbench-server/bin/workbench-server.ts",
@@ -873,6 +877,27 @@ test("Local Change Setと用途別Named SymbolのConsumer集合が宣言と一�
       "40_Develop/workbench-server/src/project/surface.ts",
     ].sort(),
   );
+  const candidateConsumers = sources
+    .filter(({ source }) =>
+      importedVersionControlNames(source).some((name) =>
+        [
+          "WorkspaceCandidateSelection",
+          "WorkspaceCandidateRequest",
+          "WorkspaceCandidateResult",
+          "validWorkspaceDisplayName",
+          "validWorkspaceCandidateRequest",
+          "freezeWorkspaceCandidate",
+          "mergeWorkspaceCandidate",
+          "removeWorkspaceCandidate",
+        ].includes(name),
+      ),
+    )
+    .map(({ relativePath }) => relativePath)
+    .sort();
+  assert.deepEqual(candidateConsumers, [
+    "40_Develop/orchestrator/src/workspace/operations.ts",
+    "40_Develop/orchestrator/src/workspace/record.ts",
+  ]);
 });
 
 /**

@@ -4,7 +4,38 @@
  * @trace ARCH-000004
  * @boundary Orchestratorの保存値。Task一覧やGit技術操作は所有しない。
  */
-import type { RepositoryWorktreeResult } from "../../../version-control/src/index.ts";
+
+import type {
+  RepositoryWorktreeResult,
+  WorkspaceCandidateRequest,
+  WorkspaceCandidateResult,
+} from "../../../version-control/src/index.ts";
+import {
+  validWorkspaceDisplayName,
+  validWorkspaceCandidateRequest,
+} from "../../../version-control/src/index.ts";
+
+/**
+ * 一つの固定候補の意図と結果を既存Workspace記録へ結合する。
+ * @responsibility 固定・採用・Ref回収の同操作再入場。
+ * @trace ARCH-000004
+ * @shape 固定要求、段階、候補OID、取込先、結果と採否。
+ * @invariant 候補固定と採用を別操作とし名前は固定時の値を保持。
+ * @boundary 既存state.jsonのみ。
+ * @security 現在認可への再結合なしでEffectを許可しない。
+ * @compatibility 新形式のみ、旧記録を補完しない。
+ */
+export type OrchestratorWorkspaceCandidate = Readonly<{
+  request: WorkspaceCandidateRequest;
+  phase: "freezing" | "fixed" | "merging" | "merged" | "removing";
+  candidateCommit: string | null;
+  target: Readonly<{ targetBranch: string; expectedTargetHead: string }> | null;
+  mergeCommit: string | null;
+  disposition: "adopted" | "rejected" | null;
+  lastResult: WorkspaceCandidateResult | null;
+  primaryFailure: string | null;
+  cleanupFailure: string | null;
+}>;
 
 /**
  * Isolated Workspaceの現在値を表す。
@@ -18,6 +49,8 @@ import type { RepositoryWorktreeResult } from "../../../version-control/src/inde
  */
 export type OrchestratorWorkspace = Readonly<{
   workspaceId: string;
+  name: string | null;
+  candidate: OrchestratorWorkspaceCandidate | null;
   generation: number;
   baseCommit: string;
   head: string;
@@ -55,7 +88,13 @@ export function validOrchestratorWorkspace(
   const record = value as Record<string, unknown>;
   if (
     Object.keys(record).sort().join(",") !==
-    "baseCommit,generation,head,holdUntil,lastResult,pending,phase,primaryFailure,workspaceId"
+    "baseCommit,candidate,generation,head,holdUntil,lastResult,name,pending,phase,primaryFailure,workspaceId"
+  )
+    return false;
+  if (!validWorkspaceDisplayName(record.name)) return false;
+  if (
+    record.candidate !== null &&
+    !validCandidateRecord(record.candidate, record.workspaceId)
   )
     return false;
   if (
@@ -165,6 +204,179 @@ export function validOrchestratorWorkspace(
       )
         return false;
     }
+  }
+  return true;
+}
+
+/**
+ * 固定候補の閉じた保存形式と段階相関を検査する。
+ * @responsibility 欠落・余剰・別Workspace・不正結果の拒否。
+ * @trace ARCH-000004
+ * @input value: JSON値、workspaceId: 所属ID。
+ * @returns 有効な現在記録か。
+ * @precondition JSON decode後。
+ * @postcondition 形式検査を認可・実Git観測と同一視しない。
+ * @effect N/A: 値検査。
+ * @failure 不正はfalse。
+ * @invariant 不明を固定済みに補完しない。
+ * @boundary 保存codec。
+ * @security 同じWorkspaceへ閉じる。
+ * @concurrency N/A: 局所処理。
+ */
+function validCandidateRecord(value: unknown, workspaceId: unknown): boolean {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const c = value as Record<string, unknown>;
+  if (
+    Object.keys(c).sort().join(",") !==
+      "candidateCommit,cleanupFailure,disposition,lastResult,mergeCommit,phase,primaryFailure,request,target" ||
+    !["freezing", "fixed", "merging", "merged", "removing"].includes(
+      String(c.phase),
+    )
+  )
+    return false;
+  const hash = (v: unknown) =>
+    typeof v === "string" && /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/u.test(v);
+  if (
+    !(c.candidateCommit === null || hash(c.candidateCommit)) ||
+    !(c.mergeCommit === null || hash(c.mergeCommit)) ||
+    ![null, "adopted", "rejected"].includes(c.disposition as null) ||
+    (!["freezing", "removing"].includes(String(c.phase)) &&
+      c.candidateCommit === null)
+  )
+    return false;
+  const r = c.request;
+  if (!validWorkspaceCandidateRequest(r) || r.workspaceId !== workspaceId)
+    return false;
+  if (
+    (typeof c.candidateCommit === "string" &&
+      c.candidateCommit.length !== r.baseCommit.length) ||
+    (typeof c.mergeCommit === "string" &&
+      c.mergeCommit.length !== r.baseCommit.length)
+  )
+    return false;
+  if (
+    !(
+      c.primaryFailure === null ||
+      (typeof c.primaryFailure === "string" &&
+        /^(candidate|worktree)_[a-z_]+$/u.test(c.primaryFailure))
+    )
+  )
+    return false;
+  if (
+    !(
+      c.cleanupFailure === null ||
+      (typeof c.cleanupFailure === "string" &&
+        /^(candidate|worktree)_[a-z_]+$/u.test(c.cleanupFailure))
+    )
+  )
+    return false;
+  if (
+    ["freezing", "fixed"].includes(String(c.phase)) &&
+    (c.target !== null || c.disposition !== null || c.mergeCommit !== null)
+  )
+    return false;
+  if (c.phase === "merged" && c.disposition !== "adopted") return false;
+  if (c.phase === "merging" && c.disposition === "rejected") return false;
+  if (
+    c.phase === "removing" &&
+    c.candidateCommit === null &&
+    c.disposition !== "rejected"
+  )
+    return false;
+  if (c.target !== null) {
+    const target = c.target as Record<string, unknown>;
+    if (
+      !target ||
+      typeof target !== "object" ||
+      Object.keys(target).sort().join(",") !==
+        "expectedTargetHead,targetBranch" ||
+      typeof target.targetBranch !== "string" ||
+      !/^[A-Za-z0-9][A-Za-z0-9._/-]*$/u.test(target.targetBranch) ||
+      !hash(target.expectedTargetHead)
+    )
+      return false;
+  }
+  if (["fixed", "merged"].includes(String(c.phase)) && c.lastResult === null)
+    return false;
+  if (["merging", "merged"].includes(String(c.phase)) && c.target === null)
+    return false;
+  if (c.phase === "removing" && c.disposition === null) return false;
+  if (c.lastResult !== null) {
+    const result = c.lastResult as Record<string, unknown>;
+    if (
+      !result ||
+      typeof result !== "object" ||
+      Object.keys(result).sort().join(",") !==
+        "candidateCommit,candidateRef,changedPaths,cleanupConfirmed,effectIssued,mergeCommit,reason,status,temporary" ||
+      !["completed", "blocked"].includes(String(result.status)) ||
+      typeof result.reason !== "string" ||
+      !/^(candidate|worktree)_[a-z_]+$/u.test(result.reason) ||
+      !(result.candidateCommit === null || hash(result.candidateCommit)) ||
+      !(result.mergeCommit === null || hash(result.mergeCommit)) ||
+      !(
+        result.candidateRef === null ||
+        result.candidateRef ===
+          `refs/heads/crdd/candidate/${workspaceId}/${r.operationId}`
+      ) ||
+      typeof result.cleanupConfirmed !== "boolean" ||
+      typeof result.effectIssued !== "boolean" ||
+      !Array.isArray(result.changedPaths) ||
+      result.changedPaths.length > 1000 ||
+      result.changedPaths.some((p) => typeof p !== "string")
+    )
+      return false;
+    if (result.temporary !== null) {
+      const temporary = result.temporary as Record<string, unknown>;
+      const prefix = `.crdd/workspaces/${workspaceId}/candidate-index-`;
+      if (
+        !temporary ||
+        typeof temporary !== "object" ||
+        Object.keys(temporary).sort().join(",") !== "identity,relativePath" ||
+        typeof temporary.relativePath !== "string" ||
+        !temporary.relativePath.startsWith(prefix) ||
+        !/^[A-Za-z0-9]{6}$/u.test(
+          temporary.relativePath.slice(prefix.length),
+        ) ||
+        !(
+          temporary.identity === null ||
+          (typeof temporary.identity === "string" &&
+            /^[a-f0-9]{64}$/u.test(temporary.identity))
+        ) ||
+        result.cleanupConfirmed !== false
+      )
+        return false;
+    } else if (result.cleanupConfirmed !== true) return false;
+    if (
+      result.candidateCommit !== null &&
+      result.candidateCommit !== c.candidateCommit
+    )
+      return false;
+    if (result.mergeCommit !== null && result.mergeCommit !== c.mergeCommit)
+      return false;
+    if (
+      c.phase === "fixed" &&
+      (result.status !== "completed" ||
+        result.cleanupConfirmed !== true ||
+        !["candidate_fixed", "candidate_fixed_existing"].includes(
+          String(result.reason),
+        ) ||
+        result.candidateCommit !== c.candidateCommit)
+    )
+      return false;
+    if (
+      c.phase === "merged" &&
+      (result.status !== "completed" ||
+        result.cleanupConfirmed !== true ||
+        ![
+          "candidate_merged",
+          "candidate_merge_existing",
+          "candidate_already_integrated",
+        ].includes(String(result.reason)) ||
+        result.candidateCommit !== c.candidateCommit ||
+        (result.mergeCommit === null &&
+          result.reason !== "candidate_already_integrated"))
+    )
+      return false;
   }
   return true;
 }

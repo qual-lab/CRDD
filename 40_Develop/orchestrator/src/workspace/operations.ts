@@ -5,21 +5,33 @@
  * @boundary 所属Repositoryの保存Rootと独立した実行Tree。
  */
 import { randomUUID } from "node:crypto";
+import { existsSync, lstatSync } from "node:fs";
 import path from "node:path";
+import type {
+  RepositoryWorktreeResult,
+  WorkspaceCandidateResult,
+  WorkspaceCandidateSelection,
+} from "../../../version-control/src/index.ts";
 import {
   createRepositoryWorktree,
   disposeRepositoryWorktree,
-  observeRepositoryWorktree,
+  freezeWorkspaceCandidate,
   inspectGitRepositoryLayoutCandidate,
+  mergeWorkspaceCandidate,
+  observeRepositoryWorktree,
+  removeWorkspaceCandidate,
+  validWorkspaceDisplayName,
+  validWorkspaceCandidateRequest,
   verifyRepositoryRoot,
 } from "../../../version-control/src/index.ts";
-import type { RepositoryWorktreeResult } from "../../../version-control/src/index.ts";
 import {
   acquireOrchestratorSnapshotLease,
   readOrchestratorSnapshot,
   writeOrchestratorWorkspaceRecord,
+  createOrchestratorSnapshotIntegrationRecordPort,
 } from "../storage/current-state.ts";
 import type { OrchestratorWorkspace } from "./record.ts";
+import type { OrchestratorLease } from "../lease/controller.ts";
 
 /**
  * 既存Queueに結合したWorkspace操作入力。
@@ -39,7 +51,32 @@ export type OrchestratorWorkspaceRequest = Readonly<{
   workspaceId: string;
 }> &
   (
-    | { operation: "create"; baseCommit: string }
+    | { operation: "create"; baseCommit: string; name?: string }
+    | { operation: "rename"; name: string | null }
+    | {
+        operation: "freeze";
+        operationId: string;
+        baseCommit: string;
+        expectedHead: string;
+        selection: readonly WorkspaceCandidateSelection[];
+        candidateName: string | null;
+        relatedChangeIds: readonly string[];
+        authorize: () => boolean;
+      }
+    | {
+        operation: "adopt";
+        candidateCommit: string;
+        targetBranch: string;
+        expectedTargetHead: string;
+        authorize: () => boolean;
+      }
+    | {
+        operation: "close-candidate";
+        expectedCommit: string | null;
+        disposition: "adopted" | "rejected";
+        referencesReleased: boolean;
+        authorize: () => boolean;
+      }
     | { operation: "observe" }
     | { operation: "discard"; expectedHead: string; discardChanges?: boolean }
     | { operation: "hold"; until: string | null }
@@ -70,12 +107,16 @@ export function manageOrchestratorWorkspace(
     workspaceId: request.workspaceId,
     workspace: null as OrchestratorWorkspace | null,
     gitResult: null as RepositoryWorktreeResult | null,
+    candidateResult: null as WorkspaceCandidateResult | null,
     leaseReleased: null as boolean | null,
     manualRecoveryRequired: false,
     recoveryId: null as string | null,
     releaseFailure: null as string | null,
     releaseRecoveryId: null as string | null,
+    adoptionReleaseFailure: null as string | null,
+    adoptionReleaseRecoveryId: null as string | null,
   };
+  let adoptionLease: OrchestratorLease | null = null;
   if (request.operation === "adopted")
     return {
       ...result,
@@ -152,10 +193,132 @@ export function manageOrchestratorWorkspace(
       record = saved.value;
       result.workspace = record;
     };
+    const operationQueue = observed.value.queueEntries.find(
+      (entry) => entry.queueId === request.queueId,
+    );
+    const operationResults = observed.value.results;
+    /**
+     * Candidateの採否と固定Identityを既存の不変結果Portへ保存する。
+     * @responsibility Ref回収より先に判断結果を確定する。
+     * @trace ARCH-000004
+     * @input candidate: 同じWorkspaceの確定した採否。
+     * @returns N/A: 保存確定だけ正常終了。
+     * @precondition 既存操作Leaseを保持。
+     * @postcondition 同Identity・同内容だけ再送可能。
+     * @effect 既存Snapshotの結果保存。
+     * @failure 保存不明はRef回収前に停止。
+     * @invariant Git成功を品質成立へ変換しない。
+     * @boundary 既存結果Port。
+     * @security 名前・結果をAuthorityにしない。
+     * @concurrency 新しい排他を追加しない。
+     */
+    const recordDisposition = (
+      candidate: NonNullable<OrchestratorWorkspace["candidate"]>,
+    ) => {
+      const queue = operationQueue;
+      if (!queue || candidate.disposition === null)
+        throw new Error("orchestrator_candidate_disposition_invalid");
+      const recorded = createOrchestratorSnapshotIntegrationRecordPort({
+        workingDirectory: request.ownerRepositoryRoot,
+        repositoryBindingId: request.repositoryBindingId,
+        projectId: request.projectId,
+        queueId: request.queueId,
+        milestoneId: queue.milestoneId,
+      }).write({
+        kind: "adoption",
+        identity: `workspace-candidate-${candidate.request.operationId}`,
+        value: {
+          recordKind: "workspace-candidate",
+          request: candidate.request,
+          candidateCommit: candidate.candidateCommit,
+          target: candidate.target,
+          mergeCommit: candidate.mergeCommit,
+          disposition: candidate.disposition,
+          primaryFailure: candidate.primaryFailure,
+        },
+      });
+      if (recorded.status !== "completed")
+        throw new Error("orchestrator_candidate_record_unconfirmed");
+    };
+    /**
+     * 採否と分離したRef回収終端を既存結果Portへ確定する。
+     * @responsibility 元採否の不変性と回収失敗の保持を両立する。
+     * @trace ARCH-000004
+     * @input candidate: 回収中の同候補。
+     * @returns 保存確認時だけ正常終了。
+     * @precondition 技術結果でRef・一時物の不存在を確認済み。
+     * @postcondition 確定前にcandidateを消さない。
+     * @effect 既存結果保存のみ。
+     * @failure 保存不明は既存現在値を保持。
+     * @invariant 同Identity・同本文だけ再送する。
+     * @boundary 既存Snapshot。
+     * @security 採用Authorityを新設しない。
+     * @concurrency 既存操作Lease下。
+     */
+    const recordCandidateClosure = (
+      candidate: NonNullable<OrchestratorWorkspace["candidate"]>,
+    ) => {
+      if (!operationQueue)
+        throw new Error("orchestrator_candidate_disposition_invalid");
+      const identity = `workspace-candidate-close-${candidate.request.operationId}`;
+      const existing = operationResults.find(
+        (entry) => entry.kind === "adoption" && entry.identity === identity,
+      );
+      let value: unknown = {
+        recordKind: "workspace-candidate-close",
+        workspaceId: candidate.request.workspaceId,
+        operationId: candidate.request.operationId,
+        candidateCommit: candidate.candidateCommit,
+        disposition: candidate.disposition,
+        cleanupFailure: candidate.cleanupFailure,
+        refAbsent: true,
+      };
+      if (existing) {
+        const prior = existing.value as Record<string, unknown>;
+        if (
+          existing.repositoryBindingId !== request.repositoryBindingId ||
+          existing.projectId !== request.projectId ||
+          existing.queueId !== request.queueId ||
+          existing.milestoneId !== operationQueue.milestoneId ||
+          !prior ||
+          typeof prior !== "object" ||
+          Object.keys(prior).sort().join(",") !==
+            "candidateCommit,cleanupFailure,disposition,operationId,recordKind,refAbsent,workspaceId" ||
+          prior.recordKind !== "workspace-candidate-close" ||
+          prior.workspaceId !== candidate.request.workspaceId ||
+          prior.operationId !== candidate.request.operationId ||
+          prior.candidateCommit !== candidate.candidateCommit ||
+          prior.disposition !== candidate.disposition ||
+          prior.refAbsent !== true ||
+          !(
+            prior.cleanupFailure === null ||
+            (typeof prior.cleanupFailure === "string" &&
+              /^(candidate|worktree)_[a-z_]+$/u.test(prior.cleanupFailure))
+          )
+        )
+          throw new Error("orchestrator_candidate_closure_mismatch");
+        value = existing.value;
+      }
+      const saved = createOrchestratorSnapshotIntegrationRecordPort({
+        workingDirectory: request.ownerRepositoryRoot,
+        repositoryBindingId: request.repositoryBindingId,
+        projectId: request.projectId,
+        queueId: request.queueId,
+        milestoneId: operationQueue.milestoneId,
+      }).write({
+        kind: "adoption",
+        identity,
+        value,
+      });
+      if (saved.status !== "completed")
+        throw new Error("orchestrator_candidate_closure_unconfirmed");
+    };
     if (request.operation === "create") {
       if (record) throw new Error("orchestrator_workspace_already_recorded");
       save({
         workspaceId: request.workspaceId,
+        name: request.name ?? null,
+        candidate: null,
         generation: 1,
         baseCommit: request.baseCommit,
         head: request.baseCommit,
@@ -176,7 +339,213 @@ export function manageOrchestratorWorkspace(
       });
     } else {
       if (!record) throw new Error("orchestrator_workspace_not_found");
-      if (request.operation === "hold") {
+      if (request.operation === "rename") {
+        if (
+          record.phase !== "ready" ||
+          !validWorkspaceDisplayName(request.name)
+        )
+          throw new Error("orchestrator_workspace_name_invalid");
+        save({
+          ...record,
+          generation: record.generation + 1,
+          name: request.name,
+        });
+      } else if (
+        ["freeze", "adopt", "close-candidate"].includes(request.operation)
+      ) {
+        if (record.phase !== "ready" || record.holdUntil !== null)
+          throw new Error("orchestrator_workspace_not_ready");
+        if (request.operation === "freeze") {
+          const intent = {
+            workspaceId: record.workspaceId,
+            operationId: request.operationId,
+            baseCommit: request.baseCommit,
+            expectedWorkspaceHead: request.expectedHead,
+            selection: request.selection,
+            workspaceName: record.candidate
+              ? record.candidate.request.workspaceName
+              : record.name,
+            candidateName: request.candidateName,
+            relatedChangeIds: request.relatedChangeIds,
+          };
+          if (
+            record.candidate &&
+            (!["freezing", "fixed"].includes(record.candidate.phase) ||
+              JSON.stringify(record.candidate.request) !==
+                JSON.stringify(intent))
+          )
+            throw new Error("orchestrator_candidate_pending");
+          if (!validWorkspaceCandidateRequest(intent))
+            throw new Error("orchestrator_candidate_input_invalid");
+          if (record.head !== request.expectedHead || !request.authorize())
+            throw new Error("orchestrator_candidate_not_authorized");
+          for (const id of request.relatedChangeIds) {
+            if (!/^CHG-\d{6}$/u.test(id))
+              throw new Error("orchestrator_candidate_change_invalid");
+            const file = path.join(
+              request.ownerRepositoryRoot,
+              "99_Roadmap",
+              "Changes",
+              id,
+              "change.md",
+            );
+            // 登録されたCHG参照だけを表示へ載せる。内容・採否は読み替えない。
+            if (!existsSync(file) || lstatSync(file).isSymbolicLink())
+              throw new Error("orchestrator_candidate_change_not_found");
+          }
+          const previousCommit = record.candidate?.candidateCommit ?? null;
+          const primaryFailure = record.candidate?.primaryFailure ?? null;
+          const previousResult = record.candidate?.lastResult ?? null;
+          save({
+            ...record,
+            generation: record.generation + 1,
+            candidate: {
+              request: intent,
+              phase: "freezing",
+              candidateCommit: previousCommit,
+              target: null,
+              mergeCommit: null,
+              disposition: null,
+              lastResult: previousResult,
+              primaryFailure,
+              cleanupFailure: null,
+            },
+          });
+          if (!request.authorize())
+            throw new Error("orchestrator_candidate_not_authorized");
+          result.candidateResult = freezeWorkspaceCandidate(
+            verified.capability,
+            intent,
+            previousCommit,
+            previousResult?.temporary ?? null,
+          );
+        } else if (request.operation === "adopt") {
+          const c = record.candidate;
+          if (
+            !c ||
+            !["fixed", "merging", "merged"].includes(c.phase) ||
+            c.candidateCommit !== request.candidateCommit
+          )
+            throw new Error("orchestrator_candidate_mismatch");
+          const target = {
+            targetBranch: request.targetBranch,
+            expectedTargetHead: request.expectedTargetHead,
+          };
+          if (c.target && JSON.stringify(c.target) !== JSON.stringify(target))
+            throw new Error("orchestrator_candidate_target_mismatch");
+          if (!request.authorize())
+            throw new Error("orchestrator_candidate_not_authorized");
+          const acquired = acquireOrchestratorSnapshotLease(
+            request.ownerRepositoryRoot,
+            request.repositoryBindingId,
+            request.projectId,
+            "canonical",
+            "canonical-adoption",
+          );
+          if (acquired.status !== "completed") {
+            result.manualRecoveryRequired = acquired.manualRecoveryRequired;
+            result.recoveryId = acquired.recoveryId;
+            throw new Error(acquired.reason);
+          }
+          adoptionLease = acquired.value;
+          save({
+            ...record,
+            generation: record.generation + 1,
+            candidate: { ...c, phase: "merging", target },
+          });
+          if (!request.authorize())
+            throw new Error("orchestrator_candidate_not_authorized");
+          result.candidateResult = mergeWorkspaceCandidate(
+            verified.capability,
+            c.request,
+            { ...target, candidateCommit: request.candidateCommit },
+          );
+        } else if (request.operation === "close-candidate") {
+          const c = record.candidate;
+          if (
+            !c ||
+            c.candidateCommit !== request.expectedCommit ||
+            !request.referencesReleased ||
+            !request.authorize() ||
+            (c.phase === "removing" && c.disposition !== request.disposition) ||
+            (request.disposition === "adopted" &&
+              c.disposition !== "adopted") ||
+            (request.disposition === "rejected" &&
+              !["freezing", "fixed", "removing"].includes(c.phase))
+          )
+            throw new Error("orchestrator_candidate_removal_not_authorized");
+          save({
+            ...record,
+            generation: record.generation + 1,
+            candidate: {
+              ...c,
+              phase: "removing",
+              disposition: request.disposition,
+            },
+          });
+          recordDisposition({ ...c, disposition: request.disposition });
+          if (!request.authorize())
+            throw new Error("orchestrator_candidate_not_authorized");
+          result.candidateResult = removeWorkspaceCandidate(
+            verified.capability,
+            c.request,
+            request.expectedCommit,
+            c.lastResult?.temporary ?? null,
+          );
+        }
+        if (result.candidateResult && record?.candidate) {
+          const technical = result.candidateResult;
+          const c = record.candidate;
+          const completed =
+            technical.status === "completed" && technical.cleanupConfirmed;
+          if (completed && request.operation === "adopt")
+            recordDisposition({
+              ...c,
+              mergeCommit: technical.mergeCommit ?? c.mergeCommit,
+              disposition: "adopted",
+            });
+          if (completed && request.operation === "close-candidate")
+            recordCandidateClosure(c);
+          save({
+            ...record,
+            generation: record.generation + 1,
+            candidate:
+              completed && request.operation === "close-candidate"
+                ? null
+                : {
+                    ...c,
+                    phase: completed
+                      ? request.operation === "freeze"
+                        ? "fixed"
+                        : request.operation === "adopt"
+                          ? "merged"
+                          : c.phase
+                      : c.phase,
+                    candidateCommit:
+                      technical.candidateCommit ?? c.candidateCommit,
+                    mergeCommit: technical.mergeCommit ?? c.mergeCommit,
+                    disposition:
+                      completed && request.operation === "adopt"
+                        ? "adopted"
+                        : c.disposition,
+                    lastResult: technical,
+                    primaryFailure:
+                      c.primaryFailure ??
+                      (technical.status === "blocked" &&
+                      request.operation !== "close-candidate"
+                        ? technical.reason
+                        : null),
+                    cleanupFailure:
+                      c.cleanupFailure ??
+                      (technical.status === "blocked" &&
+                      request.operation === "close-candidate"
+                        ? technical.reason
+                        : null),
+                  },
+          });
+          if (!completed) throw new Error(technical.reason);
+        }
+      } else if (request.operation === "hold") {
         if (
           record.phase !== "ready" ||
           (request.until !== null &&
@@ -189,6 +558,8 @@ export function manageOrchestratorWorkspace(
           holdUntil: request.until,
         });
       } else if (request.operation === "discard") {
+        if (record.candidate)
+          throw new Error("orchestrator_candidate_still_referenced");
         if (record.holdUntil !== null)
           throw new Error("orchestrator_workspace_held");
         if (
@@ -269,6 +640,26 @@ export function manageOrchestratorWorkspace(
         : "orchestrator_workspace_operation_unconfirmed";
     // 返却値が未確定でも、保存された同UUIDの意図は消さない。
   } finally {
+    if (adoptionLease) {
+      try {
+        const released = adoptionLease.release();
+        if (released.status !== "completed") {
+          if (result.status === "completed") result.reason = released.reason;
+          result.adoptionReleaseFailure = released.reason;
+          result.adoptionReleaseRecoveryId = released.recoveryId;
+          result.manualRecoveryRequired ||= released.manualRecoveryRequired;
+          result.recoveryId ??= released.recoveryId;
+          result.status = "blocked";
+        }
+      } catch {
+        if (result.status === "completed")
+          result.reason = "orchestrator_adoption_lease_release_unconfirmed";
+        result.adoptionReleaseFailure =
+          "orchestrator_adoption_lease_release_unconfirmed";
+        result.manualRecoveryRequired = true;
+        result.status = "blocked";
+      }
+    }
     try {
       const released = lease.value.release();
       result.leaseReleased = released.status === "completed";
@@ -344,7 +735,11 @@ export function resolveOrchestratorWorkspaceTaskTarget(
   const record = snapshot.value.workspaces.find(
     (entry) => entry.workspaceId === queue.workspaceId,
   );
-  if (record?.phase !== "ready" || record.holdUntil !== null)
+  if (
+    record?.phase !== "ready" ||
+    record.holdUntil !== null ||
+    (record.candidate && !["fixed", "merged"].includes(record.candidate.phase))
+  )
     return failed("orchestrator_workspace_not_ready");
   const verified = verifyRepositoryRoot(ownerRepositoryRoot);
   if (verified.status !== "completed")

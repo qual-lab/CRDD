@@ -4,6 +4,12 @@
   "subsystem": "version-control",
   "symbols": [
     {
+      "symbolId": "version-control.workspace-candidate",
+      "kind": "file",
+      "path": "src/git/workspace-candidate.ts",
+      "archIds": ["ARCH-000009"]
+    },
+    {
       "symbolId": "version-control.git-worktree-management",
       "kind": "file",
       "path": "src/git/worktree-management.ts",
@@ -15,7 +21,7 @@
       "path": "tests/integration/worktree-management.integration.test.ts",
       "qaIds": ["QA-000007"],
       "localTestIds": ["RFD-IT-029"],
-      "verifies": ["version-control.git-worktree-management"]
+      "verifies": ["version-control.git-worktree-management", "version-control.workspace-candidate"]
     },
     {
       "symbolId": "version-control.git-read-command",

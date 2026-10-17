@@ -132,7 +132,7 @@ Tool Runtimeのインストール先、Clone先、CWDを製品データの暗黙
 | 未決事項 | 止める作業・必要な根拠 |
 |---|---|
 | 両方式の共通隔離の技術構成 | 一般方針は人間採用済み。実Mount・書込みSource実装前にRepository外書込み、`.git`／実管理領域書込み、`.crdd`内部書込みと認証領域の保護を最小構成で確認。開発用`.env`の読取り可能性は許容し、本番Secretを通常開発環境へ持ち込まない。成立しなければ追加機構の前に不足と代替案を報告。allowedPaths別ACL・動的Mount承認は追加しない |
-| 候補固定・取込Commitを誰がいつ発行するか、dirtyの扱い | Git書込みAPIとPromotion実装前に明示操作・保存・中断条件を固定。基本方針からCommit許可を推定しない |
+| 候補固定・取込Commitを誰がいつ発行するか、dirtyの扱い | 2026-10-18に下記の明示固定・別採用・二親Merge方針を人間が採用。内部PackageのGit書込み・保存・中断再入場は実装した。公開Surface・実データ移行は未完了。Task終了をCommit許可へ転用しない |
 | Workspace識別・内容領域改名・公開要求／保存Schema | Consumer全数対応と移行前に固定。旧ID自動転用・互換fallbackを作らない |
 | 既存Store／旧一時Root・状態の保全と破棄 | 実移行前にフロントAIがexact Root・現在参照・使用・成果を確認し、必要許可を得る。今は削除0 |
 | Multi-host | 今回実装の前提にしない。要求発生時に別途評価 |
@@ -140,6 +140,44 @@ Tool Runtimeのインストール先、Clone先、CWDを製品データの暗黙
 以前の最小固定Mount案は、[合成実証](../../../99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#承認済み一回の実証結果と終了2026-10-17)でhardlink別名から元dummy内容を読める反例を確認した。これは当時の隠蔽仮説の反証であり、新しい開発情報の許容方針の不合格根拠へ流用しない。Git読取りの一律禁止は要求せず、この反例だけでGit書込み成功とも扱わない。書込み禁止と認証領域等の必要な保護は未証明のまま維持し、Secret管理・個別file ACL・動的Mount許可Frameworkは追加しない。
 
 採用済み目的に対し、独自Bundleを残す案はGitとの二重正本とCoordinator永続責務を残すため目標にしない。一方、全操作をWorktree化する案はDirect標準を失い、すべてをGitへ吸収する案は認可・Task判断・提案の意味を失うため採用しない。既存Git・状態保存・専門Ownerの再利用を有力案とするが、上表の重要不確実性が残るため詳細設計は未収束である。
+
+### 採用・Git統合の採用方針（2026-10-18、実装未完了）
+
+借用実行接続は`1fd3129a`で実装・限定結合確認まで固定した。次はIsolatedの候補固定、取込前評価、明示採用・Git取込、既存採用記録への確定、不要な専用Worktree／Branchの回収を接続する。人間は、確認した変更だけの候補固定と、固定Commit・取込先Branch・期待HEADへ結合した別操作での採用を承認した。Task完了だけではCommitせず、Directの現在TreeへIsolatedのMergeを適用しない。詳細、旧能力との対応、検証と停止条件は[次段階の着手整理](../../../99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#採用git統合への着手整理)を参照する。
+
+| 操作・情報 | 採用した条件 |
+|---|---|
+| Workspace | 複数Taskの継続作業領域。UUIDは対象Identityであり、人が読む任意表示名と分ける。名前をPath・Branch名・認可条件へ転用しない |
+| Candidate | Workspaceから採用判断のため固定した成果。Base Commit、対象Commit、確認した変更と出所を相関させる。現在HEADを無条件に採用対象へしない |
+| 固定操作 | 人間が明示選択した変更内容だけをCandidate BranchへCommitする。既存index全体・未選択変更・採用対象外の過去Commitを混入させない。固定後のBase／対象Commitと差分を表示する |
+| 取込操作 | 新しい統合にはGit標準の`merge --no-ff`を使う。第1親は確認した取込先HEAD、第2親は固定Candidate Commitとし、結果を読戻す。固定Candidate Commitが取込先履歴の祖先であると実Gitで確認した既取込は、新Mergeを発行しない別結果とする。Tree／Message一致だけでは代用せず、観測不能では停止する |
+| 実行直前 | 取込先HEAD、dirty／staged／未追跡、固定Candidate、選択範囲、現在認可を再確認。不一致・衝突・観測不能では停止。非衝突dirtyも一律clean必須へ変更しない |
+| 失敗 | Conflictを自動解決しない。Rebase／Cherry-pick／Stash／Reset／Clean・自動Rollbackを行わない。Merge途中の状態と保存失敗を区別し、同じ操作へ再入場する |
+| Promotion・品質 | MergeはGit統合の事実であり、採用理由・品質成立ではない。理由・判断・Evidenceは既存CRDD成果物、取込後Build／Testは別Quality Gateが所有する |
+
+Workspace表示名とCandidate表示名を既存Workspace／採用記録へ追加した。新しい名前Registryは作らない。表示名は省略可能、非一意であり、省略時はID／Commitで表示できる。Candidateを固定するときに、その時点のWorkspace名とCandidate名を保存し、後のWorkspace改名で過去の固定成果・Merge説明を変更しない。
+
+Workspace BranchとCandidate Branchは別のGit資源とし、固定したCandidate Refと期待Commitを既存候補／採用記録へ結合する。Workspaceを継続しながら終了したCandidateだけを処置できるようにする。採用時の取込済み確認又は不採用時の明示破棄に加え、必要参照・保持判断・非使用を確認した後、VCがRefと期待Commitを再照合して不要なCandidate Refを標準Git操作で削除する。参照中・保持中・使用中・Ref変更・観測不能では削除しない。途中失敗は同じRef・期待Commitへ再入場し、別Candidate／Workspace Refを巻き込まない。Branch削除をGit Objectの即時消去や採用Evidenceの削除として扱わず、新しい回収台帳を作らない。
+
+Merge MessageはCandidate名を件名に使い、本文へ固定時のWorkspace名・Workspace ID・Base Commit・Candidate Commit・存在と開示範囲を確認した関連CHGを最小限で記録する。名前は一行・制御文字なし・上限ありとし、Shell文字列やGit引数へ連結しない。Messageだけから採用Authority・品質成立・過去操作の完了を推定しない。名前なしの場合も同じ機械Identityを維持する。
+
+Git標準操作の代わりになる独自Merge Engine、Conflict Resolver、新台帳、新Lock、一般Recoveryは追加しない。選択外Commitを含めずに固定・統合できない、又は既存変更を保全できない場合は、追加機構の前に不成立条件と代替案を人間へ提示する。
+
+#### Sourceへ渡す固定・採用の具体契約
+
+| 対象 | 現在の実装契約 |
+|---|---|
+| 公開Package入口 | `manageOrchestratorWorkspace`の`create`／`rename`／`freeze`／`adopt`／`close-candidate`。本段階では内部Package APIを接続し、Workbench／MCPの新操作表示・公開E2Eは別に確認する |
+| 名前・状態 | 既存Workspace現在記録へ`name`と単一の現在`candidate`を追加する。候補は固定要求、`freezing`／`fixed`／`merging`／`merged`／`removing`、候補OID、取込先、Merge OID、採否、一次失敗、最終技術結果を持つ。履歴台帳を増やさず、採否は既存の不変結果Portへ記録する |
+| 選択 | 一Pathは一file全体。Path・mode・確認したraw bytesのGit Blob IDを渡す。削除はmode／Blob IDが両方nullかつ実fileの真正不存在を確認する。Directory・glob・部分行・管理領域・重複を拒否。filter・改行変換を適用せず、確認したbytesを固定する |
+| Ref・一時物 | VCは`refs/heads/crdd/candidate/<workspace-id>/<operation-id>`へ固定する。Workspace Branch／HEAD／通常indexを変更せず、既存Workspace Directory内の自己生成短命indexでBaseから選択だけを作る。成功・拒否・例外の全経路で一時index回収を試みる。回収失敗時は既存候補結果に限定相対Path・実体照合値を保持し、同じ対象・親・限定内容を再照合後にだけ回収する。作成直後に実体取得が失敗した場合はPathと`identity:null`・清掃未確認を保持し、自動削除しない。不在と観測不能を分け、兄弟探索・新台帳は作らない |
+| 固定の再入場 | 同操作の保存済み表示名と固定要求を使う。既存Ref又は保存済み未公開Commitの親・選択Treeを再検証し、元Commitを再利用する。未固定の拒否は同Refの真正不存在確認後だけ、明示不採用として意図を終了できる。Ref存在／観測不能を未発行へ補完しない |
+| 採用排他・直前確認 | 既存操作Leaseに加え、既存の正本採用Leaseを再利用する。保存前・Git呼出し前の認可callbackを再評価する。選択したBaseが取込先履歴へ含まれなければ、その過去変更の混入を避けるため停止する |
+| 新Mergeと途中再入場 | `merge --no-ff --no-commit`後、index TreeがGit標準の期待3-way Treeと一致する場合だけ通常Commitする。中断後は元HEAD、単一MERGE_HEAD＝候補、競合なし、期待index Treeの全成立時に未完了Commitだけ継続する。MERGE_HEADは検証済みGit管理領域の有界な通常単linkfileを読み、初回とCommit直前に候補一行だけであることを確認する。完成後の再入場でも二親と期待Treeを再確認する |
+| 採否・Ref終了 | 採用又は不採用の固定Identity・一次失敗を既存結果Portへ保存してから、必要参照の解放確認と現在認可に基づき候補Refを回収する。後発の回収失敗は`cleanupFailure`へ分離し、元採否本文を変更しない。削除後は同Portの固定`workspace-candidate-close-<operation-id>`へ不存在と元回収失敗を保存し、その確定後だけ現在候補を解除する。削除済み・保存不明でも、同Refの不存在を再確認して同本文で再入場する |
+| 移行 | 保存型の追加を暗黙補完しない。旧Workspace記録がある実Repositoryの切替は、フロントAIが旧参照・非使用・成果を確認して新形式へ移行する。本実装・合成試験を実データ移行済みと扱わない |
+
+Source・実Gitの成立範囲と残件は[変更計画の実装結果](../../../99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#採用git統合のsource接続と実git確認)へ集約し、設計へ実行別ログを蓄積しない。
 
 ## 7. Qualityへの引渡し
 

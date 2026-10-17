@@ -3,6 +3,9 @@
  * @responsibility 複数Task継続、Root分離、明示破棄と再入場。
  * @trace PRL-IT-011
  * @trace PRL-IT-013
+ * @trace CPR-IT-001
+ * @trace CPR-IT-004
+ * @trace CPR-IT-006
  * @level IT
  * @scope OrchestratorとVersion Control。AIは合成作業のみ。
  * @boundary 実Filesystem／Git／既存操作Lease。Provider・Dockerなし。
@@ -188,6 +191,656 @@ function fixture(t: TestContext) {
     tree: path.join(root, ".crdd", "workspaces", workspaceId, "worktree"),
   };
 }
+
+/**
+ * 未固定の拒否意図を正式終了又は同操作再入場で閉じる。
+ * @responsibility 誤入力でWorkspaceを永久停止させない。
+ * @trace CPR-IT-001
+ * @trace CPR-IT-006
+ * @precondition 新品Workspaceと確認済みfile内容。
+ * @stimulus 不正Path／重複、内容変更、改名、明示不採用。
+ * @observation Ref不存在、固定時名、一次失敗と新固定。
+ * @oracle 誤入力は意図0、未固定はRef不存在確認後だけ解除。
+ * @cleanup fixtureのafter。
+ * @boundary 実Git／本番Writer。
+ */
+test("未固定の拒否は正式不採用で閉じ、改名後も同操作の元表示名を保つ", (t) => {
+  for (const retry of [false, true]) {
+    const f = fixture(t);
+    f.operate({ operation: "create", baseCommit: f.base });
+    fs.writeFileSync(path.join(f.tree, "source.txt"), "desired\n");
+    const item = {
+      path: "source.txt",
+      mode: "100644",
+      blobId: git(f.tree, ["hash-object", "--no-filters", "source.txt"]),
+    };
+    const input = {
+      operation: "freeze" as const,
+      operationId: randomUUID(),
+      baseCommit: f.base,
+      expectedHead: f.base,
+      selection: [item],
+      candidateName: null,
+      relatedChangeIds: [],
+      authorize: () => true,
+    };
+    for (const selection of [
+      [{ path: ".git/config", mode: null, blobId: null }],
+      [item, item],
+    ]) {
+      assert.equal(
+        f.operate({ ...input, selection }).reason,
+        "orchestrator_candidate_input_invalid",
+      );
+      assert.equal(f.snapshot().workspaces[0]?.candidate, null);
+    }
+    fs.writeFileSync(
+      path.join(f.tree, "source.txt"),
+      "changed after confirmation\n",
+    );
+    const failed = f.operate(input);
+    assert.equal(failed.reason, "candidate_content_changed");
+    assert.equal(f.snapshot().workspaces[0]?.candidate?.candidateCommit, null);
+    assert.equal(
+      f.operate({ operation: "rename", name: "後の表示名" }).status,
+      "completed",
+    );
+    if (retry) {
+      fs.writeFileSync(path.join(f.tree, "source.txt"), "desired\n");
+      const fixed = f.operate(input);
+      assert.equal(fixed.status, "completed", JSON.stringify(fixed));
+      assert.equal(fixed.workspace?.candidate?.request.workspaceName, null);
+      assert.equal(
+        fixed.workspace?.candidate?.primaryFailure,
+        "candidate_content_changed",
+      );
+      const commit = fixed.candidateResult?.candidateCommit;
+      assert.ok(commit);
+      assert.equal(
+        f.operate({
+          operation: "close-candidate",
+          expectedCommit: commit,
+          disposition: "rejected",
+          referencesReleased: true,
+          authorize: () => true,
+        }).status,
+        "completed",
+      );
+    } else {
+      const closed = f.operate({
+        operation: "close-candidate",
+        expectedCommit: null,
+        disposition: "rejected",
+        referencesReleased: true,
+        authorize: () => true,
+      });
+      assert.equal(closed.status, "completed", JSON.stringify(closed));
+      assert.equal(f.snapshot().workspaces[0]?.candidate, null);
+      assert.equal(f.snapshot().results.length, 2);
+      const next = f.operate({
+        ...input,
+        operationId: randomUUID(),
+        selection: [
+          {
+            ...item,
+            blobId: git(f.tree, ["hash-object", "--no-filters", "source.txt"]),
+          },
+        ],
+      });
+      assert.equal(next.status, "completed", JSON.stringify(next));
+    }
+  }
+});
+
+/**
+ * 未完了MergeのCommitだけを別Processで継続する。
+ * @responsibility 応答喪失・Commit拒否後も二重Mergeを発行しない。
+ * @trace CPR-IT-006
+ * @precondition 明示固定済みCandidate。
+ * @stimulus no-commit後のCommit応答を拒否又は不明にし再入場。
+ * @observation MERGE_HEAD、index、親順序、一次失敗。
+ * @oracle 同Candidateの未完了Commitだけを確定する。
+ * @cleanup spawn差替え復元とfixture回収。
+ * @boundary 実Git／実Store、故障通知だけ代役。
+ */
+test("未完了Mergeは拒否・応答喪失後も同操作でCommitだけを継続する", (t) => {
+  for (const unknown of [false, true]) {
+    const f = fixture(t);
+    f.operate({ operation: "create", baseCommit: f.base });
+    fs.writeFileSync(path.join(f.tree, "source.txt"), "candidate\n");
+    const fixed = f.operate({
+      operation: "freeze",
+      operationId: randomUUID(),
+      baseCommit: f.base,
+      expectedHead: f.base,
+      selection: [
+        {
+          path: "source.txt",
+          mode: "100644",
+          blobId: git(f.tree, ["hash-object", "--no-filters", "source.txt"]),
+        },
+      ],
+      candidateName: null,
+      relatedChangeIds: [],
+      authorize: () => true,
+    });
+    const candidateCommit = fixed.candidateResult?.candidateCommit;
+    assert.ok(candidateCommit, JSON.stringify(fixed));
+    const spawn = childProcess.spawnSync;
+    childProcess.spawnSync = ((
+      ...args: Parameters<typeof childProcess.spawnSync>
+    ) => {
+      if (Array.isArray(args[1]) && args[1].includes("commit"))
+        return {
+          pid: 0,
+          output: [null, "", ""],
+          stdout: "",
+          stderr: "synthetic",
+          status: unknown ? null : 1,
+          signal: null,
+          ...(unknown
+            ? {
+                error: Object.assign(new Error("synthetic timeout"), {
+                  code: "ETIMEDOUT",
+                }),
+              }
+            : {}),
+        };
+      return Reflect.apply(spawn, childProcess, args);
+    }) as typeof childProcess.spawnSync;
+    syncBuiltinESMExports();
+    const request = {
+      operation: "adopt" as const,
+      candidateCommit,
+      targetBranch: "main",
+      expectedTargetHead: f.base,
+      authorize: () => true,
+    };
+    let failed: ReturnType<typeof f.operate>;
+    try {
+      failed = f.operate(request);
+    } finally {
+      childProcess.spawnSync = spawn;
+      syncBuiltinESMExports();
+    }
+    assert.equal(failed.status, "blocked");
+    assert.equal(git(f.root, ["rev-parse", "HEAD"]), f.base);
+    assert.equal(git(f.root, ["rev-parse", "MERGE_HEAD"]), candidateCommit);
+    const primary = failed.candidateResult?.reason;
+    assert.ok(primary);
+    const module = pathToFileURL(
+      path.resolve(import.meta.dirname, "../../src/index.ts"),
+    ).href;
+    const script = `import(${JSON.stringify(module)}).then(({manageOrchestratorWorkspace})=>process.stdout.write(JSON.stringify(manageOrchestratorWorkspace({...JSON.parse(process.argv[1]),authorize:()=>true}))));`;
+    const resumed = JSON.parse(
+      execFileSync(
+        process.execPath,
+        ["-e", script, JSON.stringify({ ...f.common, ...request })],
+        { encoding: "utf8", timeout: 60_000, windowsHide: true },
+      ),
+    );
+    assert.equal(resumed.status, "completed", JSON.stringify(resumed));
+    assert.equal(resumed.workspace.candidate.primaryFailure, primary);
+    assert.equal(
+      git(f.root, ["rev-list", "--parents", "-n", "1", "HEAD"]),
+      `${resumed.candidateResult.mergeCommit} ${f.base} ${candidateCommit}`,
+    );
+  }
+});
+
+/**
+ * 採否確定後の回収失敗を元記録を変えずに再入場する。
+ * @responsibility 採用と不採用の両方で後発清掃失敗を分離する。
+ * @trace CPR-IT-004
+ * @precondition 実Storeと固定済みCandidate。
+ * @stimulus update-ref -dだけ一度拒否し別Processで再開。
+ * @observation 元採否本文、回収失敗、Ref不存在と現在候補解除。
+ * @oracle 採否不変、同候補終端確定、他Ref保全。
+ * @cleanup 差替え復元後に自己生成fixtureを回収。
+ * @boundary 実Git／実Snapshot、削除拒否だけ有限代役。
+ */
+test("採否後のRef回収失敗は不変記録を保ち別Processで同候補を閉じる", (t) => {
+  for (const disposition of ["adopted", "rejected"] as const) {
+    const f = fixture(t);
+    f.operate({ operation: "create", baseCommit: f.base });
+    fs.writeFileSync(path.join(f.tree, "source.txt"), "candidate\n");
+    const fixed = f.operate({
+      operation: "freeze",
+      operationId: randomUUID(),
+      baseCommit: f.base,
+      expectedHead: f.base,
+      selection: [
+        {
+          path: "source.txt",
+          mode: "100644",
+          blobId: git(f.tree, ["hash-object", "--no-filters", "source.txt"]),
+        },
+      ],
+      candidateName: null,
+      relatedChangeIds: [],
+      authorize: () => true,
+    });
+    const candidateCommit = fixed.candidateResult?.candidateCommit;
+    assert.ok(candidateCommit, JSON.stringify(fixed));
+    if (disposition === "adopted")
+      assert.equal(
+        f.operate({
+          operation: "adopt",
+          candidateCommit,
+          targetBranch: "main",
+          expectedTargetHead: f.base,
+          authorize: () => true,
+        }).status,
+        "completed",
+      );
+    git(f.root, ["update-ref", "refs/heads/untouched", f.base]);
+    const request = {
+      operation: "close-candidate" as const,
+      expectedCommit: candidateCommit,
+      disposition,
+      referencesReleased: true,
+      authorize: () => true,
+    };
+    const spawn = childProcess.spawnSync;
+    childProcess.spawnSync = ((
+      ...args: Parameters<typeof childProcess.spawnSync>
+    ) => {
+      if (
+        Array.isArray(args[1]) &&
+        args[1].includes("update-ref") &&
+        args[1].includes("-d")
+      )
+        return {
+          pid: 0,
+          output: [null, "", ""],
+          stdout: "",
+          stderr: "synthetic",
+          status: 1,
+          signal: null,
+        };
+      return Reflect.apply(spawn, childProcess, args);
+    }) as typeof childProcess.spawnSync;
+    syncBuiltinESMExports();
+    let failed: ReturnType<typeof f.operate>;
+    try {
+      failed = f.operate(request);
+    } finally {
+      childProcess.spawnSync = spawn;
+      syncBuiltinESMExports();
+    }
+    assert.equal(failed.reason, "candidate_ref_removal_unconfirmed");
+    const before = f.snapshot();
+    assert.equal(before.workspaces[0]?.candidate?.primaryFailure, null);
+    assert.equal(
+      before.workspaces[0]?.candidate?.cleanupFailure,
+      failed.reason,
+    );
+    const original = JSON.stringify(before.results);
+    const module = pathToFileURL(
+      path.resolve(import.meta.dirname, "../../src/index.ts"),
+    ).href;
+    const script = `import(${JSON.stringify(module)}).then(({manageOrchestratorWorkspace})=>process.stdout.write(JSON.stringify(manageOrchestratorWorkspace({...JSON.parse(process.argv[1]),authorize:()=>true}))));`;
+    const resumed = JSON.parse(
+      execFileSync(
+        process.execPath,
+        ["-e", script, JSON.stringify({ ...f.common, ...request })],
+        { encoding: "utf8", timeout: 60_000, windowsHide: true },
+      ),
+    );
+    assert.equal(resumed.status, "completed", JSON.stringify(resumed));
+    const after = f.snapshot();
+    assert.equal(after.workspaces[0]?.candidate, null);
+    assert.equal(after.results.length, 2);
+    assert.equal(JSON.stringify(after.results.slice(0, 1)), original);
+    assert.ok(JSON.stringify(after.results[1]).includes(failed.reason));
+    assert.equal(git(f.root, ["rev-parse", "refs/heads/untouched"]), f.base);
+    assert.throws(() =>
+      git(f.root, [
+        "rev-parse",
+        "--verify",
+        fixed.candidateResult?.candidateRef as string,
+      ]),
+    );
+  }
+});
+
+/**
+ * 回収終端保存後の現在解除失敗と後発欠測を分離する。
+ * @responsibility 確定済み終端本文を後発失敗で変更しない。
+ * @trace CPR-IT-006
+ * @precondition 実Storeと固定Candidate。
+ * @stimulus close結果保存後だけ現在解除保存を拒否し再入場でRef照会拒否。
+ * @observation 採否・終端Hash、後発失敗、最後の候補解除。
+ * @oracle 終端本文不変、欠測時候補保持、fresh観測後だけ終了。
+ * @cleanup 差替え復元と自己生成fixture回収。
+ * @boundary 実Git／実Snapshotと別Process。
+ */
+test("回収終端保存後の解除失敗と後発欠測でも固定本文を再利用する", (t) => {
+  const f = fixture(t);
+  f.operate({ operation: "create", baseCommit: f.base });
+  fs.writeFileSync(path.join(f.tree, "source.txt"), "candidate\n");
+  const fixed = f.operate({
+    operation: "freeze",
+    operationId: randomUUID(),
+    baseCommit: f.base,
+    expectedHead: f.base,
+    selection: [
+      {
+        path: "source.txt",
+        mode: "100644",
+        blobId: git(f.tree, ["hash-object", "--no-filters", "source.txt"]),
+      },
+    ],
+    candidateName: null,
+    relatedChangeIds: [],
+    authorize: () => true,
+  });
+  const commit = fixed.candidateResult?.candidateCommit;
+  const ref = fixed.candidateResult?.candidateRef;
+  assert.ok(commit && ref);
+  const request = {
+    operation: "close-candidate" as const,
+    expectedCommit: commit,
+    disposition: "rejected" as const,
+    referencesReleased: true,
+    authorize: () => true,
+  };
+  const spawn = childProcess.spawnSync;
+  const open = fs.openSync;
+  let deleted = false;
+  let writes = 0;
+  childProcess.spawnSync = ((
+    ...args: Parameters<typeof childProcess.spawnSync>
+  ) => {
+    const response = Reflect.apply(spawn, childProcess, args);
+    if (
+      Array.isArray(args[1]) &&
+      args[1].includes("update-ref") &&
+      args[1].includes("-d") &&
+      response.status === 0
+    )
+      deleted = true;
+    return response;
+  }) as typeof childProcess.spawnSync;
+  fs.openSync = ((...args: Parameters<typeof fs.openSync>) => {
+    if (
+      deleted &&
+      String(args[0]).endsWith("state.pending.json") &&
+      String(args[1]).includes("w") &&
+      ++writes === 2
+    )
+      throw Object.assign(new Error("synthetic current save failure"), {
+        code: "EACCES",
+      });
+    return Reflect.apply(open, fs, args);
+  }) as typeof fs.openSync;
+  syncBuiltinESMExports();
+  let failed: ReturnType<typeof f.operate>;
+  try {
+    failed = f.operate(request);
+  } finally {
+    childProcess.spawnSync = spawn;
+    fs.openSync = open;
+    syncBuiltinESMExports();
+  }
+  assert.equal(failed.status, "blocked", JSON.stringify(failed));
+  assert.equal(writes >= 2, true);
+  const saved = f.snapshot();
+  assert.equal(saved.results.length, 2);
+  assert.equal(saved.workspaces[0]?.candidate?.phase, "removing");
+  const original = JSON.stringify(saved.results);
+  const module = pathToFileURL(
+    path.resolve(import.meta.dirname, "../../src/index.ts"),
+  ).href;
+  const diagnostic = `Promise.all([import(${JSON.stringify(module)}),import('node:child_process'),import('node:module')]).then(([m,cp,modules])=>{const original=cp.default.spawnSync;cp.default.spawnSync=(...args)=>Array.isArray(args[1])&&args[1].includes('rev-parse')&&args[1].includes(${JSON.stringify(ref)})?{pid:0,status:1,signal:null,stdout:'synthetic',stderr:'',output:[null,'synthetic','']}:Reflect.apply(original,cp.default,args);modules.syncBuiltinESMExports();process.stdout.write(JSON.stringify(m.manageOrchestratorWorkspace({...JSON.parse(process.argv[1]),authorize:()=>true})));});`;
+  const run = (script: string) =>
+    JSON.parse(
+      execFileSync(
+        process.execPath,
+        ["-e", script, JSON.stringify({ ...f.common, ...request })],
+        { encoding: "utf8", windowsHide: true, timeout: 60_000 },
+      ),
+    );
+  const missed = run(diagnostic);
+  assert.equal(missed.status, "blocked");
+  assert.equal(
+    f.snapshot().workspaces[0]?.candidate?.cleanupFailure,
+    "candidate_ref_mismatch",
+  );
+  assert.equal(JSON.stringify(f.snapshot().results), original);
+  const script = `import(${JSON.stringify(module)}).then(({manageOrchestratorWorkspace})=>process.stdout.write(JSON.stringify(manageOrchestratorWorkspace({...JSON.parse(process.argv[1]),authorize:()=>true}))));`;
+  const resumed = run(script);
+  assert.equal(resumed.status, "completed", JSON.stringify(resumed));
+  assert.equal(f.snapshot().workspaces[0]?.candidate, null);
+  assert.equal(JSON.stringify(f.snapshot().results), original);
+});
+
+/**
+ * 名前付き固定・別採用・既存結果保存・Ref回収を実入口で確認する。
+ * @responsibility Workspace継続とCandidate寿命を分離する。
+ * @trace CPR-IT-001
+ * @trace CPR-IT-004
+ * @trace CPR-IT-006
+ * @precondition 新品Snapshot、実Git、未実行Queue。
+ * @stimulus 固定、Workspace改名、採用、Ref終了、Workspace破棄。
+ * @observation 親関係、Message、結果記録と元Tree。
+ * @oracle 固定名が履歴へ残り、別承認なしMerge0、対象Refだけ回収。
+ * @cleanup fixtureのafter。
+ * @boundary 本番Orchestrator／VC／保存。Providerなし。
+ */
+test("名前付きCandidateを明示固定・採用し結果を保存してRefだけ回収する", (t) => {
+  const f = fixture(t);
+  assert.equal(
+    f.operate({ operation: "create", baseCommit: f.base, name: "元の作業名" })
+      .status,
+    "completed",
+  );
+  fs.writeFileSync(path.join(f.tree, "source.txt"), "selected candidate\n");
+  const fixed = f.operate({
+    operation: "freeze",
+    operationId: randomUUID(),
+    baseCommit: f.base,
+    expectedHead: f.base,
+    selection: [
+      {
+        path: "source.txt",
+        mode: "100644",
+        blobId: git(f.tree, ["hash-object", "--no-filters", "source.txt"]),
+      },
+    ],
+    candidateName: "固定成果",
+    relatedChangeIds: [],
+    authorize: () => true,
+  });
+  assert.equal(fixed.status, "completed", JSON.stringify(fixed));
+  const commit = fixed.candidateResult?.candidateCommit;
+  assert.ok(commit);
+  assert.equal(git(f.root, ["rev-parse", "HEAD"]), f.base);
+  assert.equal(
+    f.operate({ operation: "rename", name: "次の作業名" }).status,
+    "completed",
+  );
+  const adoption = {
+    operation: "adopt" as const,
+    candidateCommit: commit,
+    targetBranch: "main",
+    expectedTargetHead: f.base,
+    authorize: () => true,
+  };
+  assert.equal(
+    f.operate({ ...adoption, authorize: () => false }).reason,
+    "orchestrator_candidate_not_authorized",
+  );
+  assert.equal(git(f.root, ["rev-parse", "HEAD"]), f.base);
+  const merged = f.operate(adoption);
+  assert.equal(merged.status, "completed", JSON.stringify(merged));
+  const head = git(f.root, ["rev-parse", "HEAD"]);
+  assert.equal(
+    git(f.root, ["rev-list", "--parents", "-n", "1", "HEAD"]),
+    `${head} ${f.base} ${commit}`,
+  );
+  assert.ok(
+    git(f.root, ["log", "-1", "--format=%B"]).includes("Workspace: 元の作業名"),
+  );
+  assert.equal(f.snapshot().workspaces[0]?.name, "次の作業名");
+  assert.equal(
+    f.operate(adoption).candidateResult?.reason,
+    "candidate_merge_existing",
+  );
+  assert.equal(
+    f
+      .snapshot()
+      .results.filter(
+        (r) =>
+          r.identity ===
+          `workspace-candidate-${fixed.workspace?.candidate?.request.operationId}`,
+      ).length,
+    1,
+  );
+  const close = {
+    operation: "close-candidate" as const,
+    expectedCommit: commit,
+    disposition: "adopted" as const,
+    referencesReleased: true,
+    authorize: () => true,
+  };
+  assert.equal(
+    f.operate({ ...close, referencesReleased: false }).status,
+    "blocked",
+  );
+  assert.equal(
+    f.operate({
+      operation: "discard",
+      expectedHead: f.base,
+      discardChanges: true,
+    }).reason,
+    "orchestrator_candidate_still_referenced",
+  );
+  assert.equal(f.operate(close).status, "completed");
+  assert.equal(f.snapshot().workspaces[0]?.candidate, null);
+  assert.equal(f.snapshot().results.length, 2);
+  assert.equal(fs.existsSync(f.tree), true);
+  assert.equal(
+    f.operate({
+      operation: "discard",
+      expectedHead: f.base,
+      discardChanges: true,
+    }).status,
+    "completed",
+  );
+  assert.equal(git(f.root, ["rev-parse", "HEAD"]), head);
+});
+
+/**
+ * Merge成立後の保存拒否を別Processから同じ操作へ戻す。
+ * @responsibility 再Mergeせず元親関係と採用記録を確定する。
+ * @trace CPR-IT-006
+ * @precondition 固定Candidateと実保存。
+ * @stimulus Merge後の最初の保存を一回拒否し子Processで再入場。
+ * @observation Git HEAD、記録段階、Merge件数、Ref回収。
+ * @oracle 取込済みを未実施に戻さず結果保存だけを閉じる。
+ * @cleanup 差替えを戻しfixtureだけ回収。
+ * @boundary 実Git／実Store、拒否発火点だけ代役。
+ */
+test("Merge成功後の保存失敗は別Process再入場で二重Mergeせず閉じる", (t) => {
+  const f = fixture(t);
+  f.operate({ operation: "create", baseCommit: f.base });
+  fs.writeFileSync(path.join(f.tree, "source.txt"), "candidate\n");
+  const fixed = f.operate({
+    operation: "freeze",
+    operationId: randomUUID(),
+    baseCommit: f.base,
+    expectedHead: f.base,
+    selection: [
+      {
+        path: "source.txt",
+        mode: "100644",
+        blobId: git(f.tree, ["hash-object", "--no-filters", "source.txt"]),
+      },
+    ],
+    candidateName: null,
+    relatedChangeIds: [],
+    authorize: () => true,
+  });
+  const commit = fixed.candidateResult?.candidateCommit;
+  assert.ok(commit, JSON.stringify(fixed));
+  const spawn = childProcess.spawnSync;
+  const open = fs.openSync;
+  let completed = false;
+  let injected = false;
+  childProcess.spawnSync = ((
+    ...args: Parameters<typeof childProcess.spawnSync>
+  ) => {
+    const outcome = Reflect.apply(spawn, childProcess, args);
+    if (
+      Array.isArray(args[1]) &&
+      args[1].includes("merge") &&
+      outcome.status === 0
+    )
+      completed = true;
+    return outcome;
+  }) as typeof childProcess.spawnSync;
+  fs.openSync = ((...args: Parameters<typeof fs.openSync>) => {
+    if (
+      completed &&
+      !injected &&
+      String(args[0]).endsWith("state.pending.json") &&
+      String(args[1]).includes("w")
+    ) {
+      injected = true;
+      throw Object.assign(new Error("synthetic storage failure"), {
+        code: "EACCES",
+      });
+    }
+    return Reflect.apply(open, fs, args);
+  }) as typeof fs.openSync;
+  syncBuiltinESMExports();
+  const request = {
+    operation: "adopt" as const,
+    candidateCommit: commit,
+    targetBranch: "main",
+    expectedTargetHead: f.base,
+    authorize: () => true,
+  };
+  let failed: ReturnType<typeof f.operate>;
+  try {
+    failed = f.operate(request);
+  } finally {
+    childProcess.spawnSync = spawn;
+    fs.openSync = open;
+    syncBuiltinESMExports();
+  }
+  assert.equal(injected, true);
+  assert.equal(failed.status, "blocked");
+  assert.equal(failed.candidateResult?.reason, "candidate_merged");
+  const head = git(f.root, ["rev-parse", "HEAD"]);
+  assert.equal(f.snapshot().workspaces[0]?.candidate?.phase, "merging");
+  const module = pathToFileURL(
+    path.resolve(import.meta.dirname, "../../src/index.ts"),
+  ).href;
+  const script = `import(${JSON.stringify(module)}).then(({manageOrchestratorWorkspace})=>process.stdout.write(JSON.stringify(manageOrchestratorWorkspace({...JSON.parse(process.argv[1]),authorize:()=>true}))));`;
+  const resumed = JSON.parse(
+    execFileSync(
+      process.execPath,
+      ["-e", script, JSON.stringify({ ...f.common, ...request })],
+      { encoding: "utf8", timeout: 60_000, windowsHide: true },
+    ),
+  );
+  assert.equal(resumed.status, "completed", JSON.stringify(resumed));
+  assert.equal(resumed.candidateResult.reason, "candidate_merge_existing");
+  assert.equal(git(f.root, ["rev-parse", "HEAD"]), head);
+  assert.equal(f.snapshot().results.length, 1);
+  assert.equal(
+    f.operate({
+      operation: "close-candidate",
+      expectedCommit: commit,
+      disposition: "adopted",
+      referencesReleased: true,
+      authorize: () => true,
+    }).status,
+    "completed",
+  );
+});
 
 /**
  * 別Processで同じ保存・操作入口へ再入場する。
@@ -481,6 +1134,88 @@ test("旧SnapshotとWorkspace集合欠落を補完しない", (t) => {
     "blocked",
   );
   assert.deepEqual(f.snapshot(), before);
+});
+
+/**
+ * Candidateの成功相関と正当な途中意図を実Writerで区別する。
+ * @responsibility 形式だけのfixed／merged昇格を防ぐ。
+ * @trace CPR-IT-006
+ * @precondition 実固定済みCandidateのSnapshot。
+ * @stimulus 不正target・採否・Commit・結果相関と正常merging保存。
+ * @observation Writerの受理／拒否と旧値。
+ * @oracle 不正は不変、前段lastResultを持つ途中意図は保存できる。
+ * @cleanup fixtureのafter。
+ * @boundary 実保存とcodec、Git Effectなし。
+ */
+test("Candidate codecは矛盾した成功を拒否し正当な途中意図を受理する", (t) => {
+  const f = fixture(t);
+  f.operate({ operation: "create", baseCommit: f.base });
+  fs.writeFileSync(path.join(f.tree, "source.txt"), "candidate\n");
+  const fixed = f.operate({
+    operation: "freeze",
+    operationId: randomUUID(),
+    baseCommit: f.base,
+    expectedHead: f.base,
+    selection: [
+      {
+        path: "source.txt",
+        mode: "100644",
+        blobId: git(f.tree, ["hash-object", "--no-filters", "source.txt"]),
+      },
+    ],
+    candidateName: null,
+    relatedChangeIds: [],
+    authorize: () => true,
+  });
+  assert.equal(fixed.status, "completed", JSON.stringify(fixed));
+  const before = f.snapshot();
+  const workspace = before.workspaces[0];
+  const candidate = workspace?.candidate;
+  assert.ok(workspace && candidate);
+  const target = { targetBranch: "main", expectedTargetHead: f.base };
+  for (const invalid of [
+    { ...candidate, target },
+    { ...candidate, disposition: "adopted" },
+    { ...candidate, candidateCommit: null },
+    { ...candidate, lastResult: null },
+    { ...candidate, phase: "merged", disposition: "adopted", target },
+    {
+      ...candidate,
+      lastResult: { ...candidate.lastResult, candidateCommit: f.base },
+    },
+  ]) {
+    const attempted: unknown = {
+      ...before,
+      snapshotRevision: before.snapshotRevision + 1,
+      workspaces: [{ ...workspace, candidate: invalid }],
+    };
+    assert.equal(
+      writeOrchestratorSnapshot(
+        f.root,
+        f.binding,
+        JSON.stringify(attempted),
+        before.snapshotRevision,
+      ).status,
+      "blocked",
+    );
+    assert.deepEqual(f.snapshot(), before);
+  }
+  const pending: unknown = {
+    ...before,
+    snapshotRevision: before.snapshotRevision + 1,
+    workspaces: [
+      { ...workspace, candidate: { ...candidate, phase: "merging", target } },
+    ],
+  };
+  assert.equal(
+    writeOrchestratorSnapshot(
+      f.root,
+      f.binding,
+      JSON.stringify(pending),
+      before.snapshotRevision,
+    ).status,
+    "completed",
+  );
 });
 
 /**
@@ -943,6 +1678,7 @@ test("Workspaceの保存失敗と解放失敗は元理由と両回復参照を�
         return {
           status: "completed",
           value: {
+            queueEntries: [],
             workspaces: [
               { workspaceId: "same-id", generation: 1, phase: "ready" },
             ],

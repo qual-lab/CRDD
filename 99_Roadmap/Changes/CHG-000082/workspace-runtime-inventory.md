@@ -409,3 +409,79 @@ W3の二必須独立再レビューはともに指摘0。確認した最終Sourc
 | 清掃 | 今回の`borrowed-workspace-*`／`orchestrator-workspace-*`自己生成Root残存なし |
 
 今回依頼されたCoordinator借用実行への実装・結合確認は上記限定範囲で完了。新永続Registry・State・Lock・回復Framework、実AI依頼、追加Docker再起動は行っていない。実Providerの新方式E2E、公開Surface・利用者確認、採用／Git統合、実データ移行、旧方式の全面撤去およびv0.22全体の完成は未完了のまま区別する。コミット・プッシュは本作業では実施していない。
+
+## 採用・Git統合への着手整理
+
+借用実行接続までの37ファイルを`1fd3129a`へコミットし、cleanを確認した。プッシュは未実施。人間の次段階指示は、Workspace方式の採用・Git統合への接続である。2026-10-18に明示選択による候補固定と別操作の採用を承認し、Fast-forward優先案を変更して新規統合は原則`--no-ff`の二親Mergeとした。承認は製品実装に対するもので、本RepositoryのBranch取込み・main統合を行う指示ではない。
+
+### 保持する能力と移管先
+
+| 現在の能力・不足 | 次段階の処置 |
+|---|---|
+| 旧`candidate/adopt.ts`の明示採用・現在Revision／Scope再照合・Lease・Receipt・解放 | Orchestratorに維持。固定Git成果と取込先へ結合する。候補生成・送信同意から採用権限を推定しない |
+| 旧`candidate/integrate.ts`／`integration-adapter.ts`のBundle適用 | Git Mergeの成功証拠として流用しない。新経路の同等能力成立まで旧ConsumerとSourceは残す |
+| VCのWorktree作成・観測・除去 | 登録・実体・専用Branch・期待HEADの再照合を維持し、採用確認後の既存disposeへ接続する |
+| VCの`change-publication`の選択準備・Commit | 存在するが通常index全体のCommitであり、確認したWorkspace差分の固定へそのまま流用しない。Commit生成の技術OwnerはVCのまま |
+| `git/commit-tree.ts` | Git Object／Treeの読取りでありCommit生成APIではない。名前から既存生成能力を推定しない |
+| Orchestratorの`adopted`入口 | 現在は未接続拒否。採用申告だけでTreeを消すように解除せず、取込済み成果・記録・非使用・残差処置の成立後に接続する |
+
+### 採用した操作・実装順
+
+1. **候補固定**: 人間が確認したPathと内容だけを明示指定。Orchestratorは既存操作Leaseと現在Workspace記録で利用を調停し、VCがCandidate BranchへCommitを発行する。Base Commitと対象Commit、選択内容の一致と親関係を検証し、Workspace HEADに含まれる未選択の過去Commitを暗黙採用しない。未追跡は選択されたものだけ。ignored・開発`.env`の自動追加、無関係な既存staged内容の混入、Task終端だけの自動Commitは行わない。固定後の差分を人間が確認できるようにする。
+2. **取込前評価**: 固定候補Commit、取込先Branch・期待HEAD、変更範囲、未レビュー差分を示す。VCがGit標準の3-way計算でclean／conflict／unknownを返し、評価だけでWorktree・Branchを更新しない。Git Object生成の可能性は評価の副作用として扱う。
+3. **明示採用・取込**: 人間が固定Commitと取込先を確認した後、Orchestratorが現在認可・非使用・期待Revisionとdirty、候補の範囲を再照合し、VCがGit標準の`merge --no-ff`を実行する。Fast-forward可能時も新規統合はMerge Commitを作り、第1親＝確認した取込先HEAD、第2親＝Candidate Commitの完全一致を読戻す。既取込では新しいMergeを発行しない。Conflictは停止し、Squash／Rebase／Cherry-pick・独自Merge Engineは追加しない。
+4. **結果確定・再入場**: 元操作・候補Commit・取込先・取込後HEADを既存Workspace現在値／採用記録へ結合する。Git成功後の保存失敗を未実施へ戻さず、同じ対象を再観測して二重Commit／Mergeを防ぐ。一次失敗・記録失敗・Lease解放失敗を分ける。新Store・Lock・一般Recoveryは作らない。
+5. **採用後の終了**: 取込先の成果と採用記録、非使用、未取込残差の処置を確認してから、既存disposeで不要な専用Worktree／Branchを回収する。Merge後の影響分析は通常Taskへ接続し、分析失敗でも自動Rollbackしない。
+
+取込先dirtyの既存判断は維持する。衝突する未Commit・staged・未追跡変更、Gitが安全に保持できない構成、観測不能では停止する。非衝突dirtyまで一律に拒否する変更は今回採用していない。自動Stash／Reset／Clean／Rollback、利用者変更のCommit混入は行わない。Directは既に現在Treeを編集しているためIsolatedの採用Mergeを適用せず、既存の明示Git公開操作を別責務として維持する。
+
+### 変更経路・検証・停止条件
+
+| 観点 | 着手時の処置 |
+|---|---|
+| 分類・正本 | 採用済みWorkspace目標の実装追加と旧方式からの責務移管。Orchestrator／VC詳細・QA000005／007・既存利用側を照合する |
+| 着手前照合 | 親の現物確認と契約／Qualityの二読取り専用確認を実施。Commit生成とGit Mergeは未実装、通常index Commit・旧Bundle Receiptは代用不能と確認 |
+| 正常・非発火 | 固定済みIsolatedを明示採用して取込む。Task終了・Direct編集・非採用ではMerge／自動Commitを発行しない |
+| 境界・不足 | HEAD差・確認後の変更・既存stage混入・dirty衝突・Git応答喪失・記録失敗では、未実施／実施済み／不明を分けて同対象へ戻す |
+| 検証 | 実Gitの固定・取込・衝突拒否・元index／dirty保全、Git成功→保存失敗→別Process再入場、採用後のWorktree／Branch回収。外部AI・Remote Pushは使わない |
+| 必須レビュー | 契約・技術とQualityの独立レビュー、関連文書／リンク確認、Workspace→VC→採用記録→利用側の限定Gap／Impact確認 |
+| 実施しない主な監査 | CRDD準拠基準・安定ID・リリース判断は変えないため準拠監査／リリース監査は発火させない。工程横断の全面再設計はしない |
+| 人間判断・停止 | 明示選択による独立固定と別採用、二親Mergeは2026-10-18採用済み。今回許可されたGit／Filesystem意味で保証できなければ追加機構の前に不足・代替を提示する。現在追加の採否質問はない |
+
+### 表示名と履歴の追加条件（2026-10-18）
+
+以下のSource不足・未実施は設計着手前の観測である。実装後の現在結果は次節へ集約する。
+
+Workspace名は継続作業、Candidate名は固定成果を説明する任意の表示値とする。現SourceのWorkspace記録はUUIDのみで、表示名・固定Candidate・Merge段階の保存型はまだない。既存記録・codec・Reader・利用側・試験を同じ切替単位で更新し、新Registryは作らない。候補固定時の両表示名を保持し、後の改名を過去の固定情報へ遡及させない。省略時はUUID／Commitを表示する。Merge Messageの内容と名前の入力制約は[Workspace詳細の採用方針](../../../06_Architecture/Details/orchestrator/03_Workspace.md#採用git統合の採用方針2026-10-18実装未完了)を正本とする。
+
+着手前の読取り専用技術確認では、Git標準機能で成立する方向だが、`--no-ff`だけでは過去Commit混入を防げないこと、既取込では二親Commitを新規生成しないこと、通常index全体のCommitは代用できないことを確認した。候補固定・Git統合・命名搬送の実装／実Git試験は未実施。今回の文書更新を能力完成やQuality Passとしない。
+
+設計の二必須独立確認では、Candidate Branchの寿命がWorkspace Branchと未分離という指摘一件を得た。全結果を統合し、両確認者と是正案の整合を確認してから、Ref＋期待Commitを既存記録へ結合し、必要参照・保持・非使用を確認後に独立回収する条件と実Gitの反証を追加した。既取込判定は固定Candidateの祖先関係に限定し、同Tree／Messageや観測不能を代用しない。新しい管理機構は追加しない。
+
+### 採用・Git統合のSource接続と実Git確認
+
+2026-10-18の指示に従い、VCの固定・取込・Ref回収と、Orchestratorの既存Snapshot／操作Lease／正本採用Lease／不変結果Portを接続した。表示名はUUIDと分離し、同候補の固定時名を維持する。実行別Evidence書庫・新Registry・新Lock・一般Recoveryは追加しない。既存Stage・未選択変更をCandidateへ含めず、Directの通常TreeをMerge対象へ自動変換しない。
+
+独立確認W1では、再入場のTree未照合、未固定拒否候補の終了不能、途中改名による再入場不一致、Object書込みEffectの未計数、未完了MergeのCommit継続不足を検出した。両確認者へ統合是正案を提示し、合意後に共用入力検査・未固定Ref不存在確認・保存済み名／Commitの再利用・期待Tree再計算・未完了Commitだけの継続・stickyな要求発行記録を実装した。一次失敗は候補記録と既存採否結果へ保持する。保存codecは正当な前段結果を持つ途中意図と、矛盾した成功を区別する。
+
+通常制限下の先行試験ではGit補助Shellとlink作成がOSに拒否され、11件中2件が環境制限で失敗した。通常環境の同fixture再試験は11件成功。別Process試験の`--input-type=module`が既存Workerへ継承される起動拒否は、通常入口と同じ`-e`へ修正した。製品の排他・Recoveryは緩和していない。これらは当時の失敗として保持し、最終Sourceの結果と混同しない。
+
+W2／W3の独立確認では、一時index回収失敗の参照欠落、複数MERGE_HEADを先頭OIDで誤認する可能性、採否又は回収終端保存後に本文が変わって再入場できない問題を検出した。両確認者と統合案を照合し、既存候補結果に限定Path・実体照合値又は実体不明を保持、Git管理fileの単一親確認、採否・回収失敗・不変終端本文の分離を行った。終端保存済みでもfreshなRef・一時物不存在を確認する。新Store・Lock・探索削除・一般Recoveryは追加していない。
+
+追加反証の一回は試験側の別Processへの故障代役がESMのnamed importへ反映されず失敗した。`syncBuiltinESMExports`で実際の要求へ故障が入ることを接続し、終端保存→現在解除保存拒否→別ProcessのRef観測拒否→別Process成功を再確認した。製品側の安全条件を緩和せず、試験器失敗と製品是正を分ける。
+
+W4の技術・Qualityの独立再レビューは両者とも残指摘0。最終Source／試験入力は基準Commit `1fd3129a06d843362f2437941a526348647d92a6`に対する作業差分とし、次の8ファイルの昇順`Path=SHA-256`をLF結合したSHA-256は`71e33d79035420c705412f232efe077fdd6d136a682791989bc8db38fbd88c3d`である。VCの`src/index.ts`・`src/git/worktree-management.ts`・`src/git/workspace-candidate.ts`、Orchestratorの`src/workspace/record.ts`・`src/workspace/operations.ts`、VCの`tests/integration/consumer-closure.integration.test.ts`・`worktree-management.integration.test.ts`、Orchestratorの`tests/integration/workspace-lifecycle.integration.test.ts`を対象とする。環境はWindows、Node.js v24.19.0、Git 2.54.0.windows.1。試験用の実Git・Native排他は通常環境で実行し、生成先はRepository-local `.crdd/tests/`のみとした。
+
+最終全回帰・文書照合・生成物回収の結果を下表へ確定する。公開Workbench／MCP操作、実Provider E2E、実データ移行、旧Bundle全面撤去、v0.22全体完成・最終統合・リリースはこの作業の完成主張に含めない。今回のSource／通信契約の追加を、実Repositoryの旧状態移行済みとは扱わない。
+
+| 2026-10-18の最終確認範囲 | 結果 |
+|---|---|
+| 静的確認 | VC／OrchestratorともFormatter・型・Lint成功。Orchestrator試験の既存style info 2件は残り、warning／errorではない |
+| Version Control全回帰 | 64件成功、失敗・取消・skip 0。合成Repositoryの実Gitで選択固定、二親Merge、競合停止、元index／dirty保全、一時物回収、既取込、複数MERGE_HEAD拒否を確認 |
+| Orchestrator全回帰 | UT 73件、IT 33件成功、失敗・取消・skip 0。実Git・実Snapshot・既存Native排他・別Processで、名前固定、現在認可、保存失敗後の二重Merge防止、採否と回収終端の不変再利用を確認 |
+| 設計トレース | Runtime／Orchestratorの両Checkerが`accepted` |
+| 独立確認 | 技術・QualityのW4再レビューは残指摘0。限定Gap／Impactも追加0。文書監査の旧時制2箇所を内部実装済み／公開全体未完了へ同期し、現在投影・最終結果記録を含む再照合も指摘0 |
+| 文書Checker | 変更した6 Markdown Pathの個別指摘0。指定scopeと関連標準検査を含むrun全体はerror 1,070／warning 0のためFailであり、Repository全体の文書合格は主張しない。既存の全体是正を今回の部分成功で代替しない |
+| 未実施 | 実Provider依頼、Docker操作、Workbench／MCPの新操作公開、人間UAT、実データ移行、旧Bundle全面撤去。本Repository本体の候補採用・Merge・Push・Releaseは行っていない |
+
+最終run終了後、自己生成した`worktree-management-*`／`orchestrator-workspace-*`の試験Rootは0件で、全fixtureの回収を確認した。差分の空白検査も成功。今回の変更は未コミットであり、人間が操作したステージ状態を維持する。

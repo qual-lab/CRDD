@@ -83,7 +83,10 @@ type RecordEntry = {
  * @security hook・親Git環境・lazy fetchを無効にする。
  * @concurrency 非協調Host変更の原子性は保証しない。
  */
-function context(capability: VerifiedRepositoryRoot, workspaceId: string) {
+export function createWorktreeGitContext(
+  capability: VerifiedRepositoryRoot,
+  workspaceId: string,
+) {
   if (
     !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u.test(
       workspaceId,
@@ -105,7 +108,11 @@ function context(capability: VerifiedRepositoryRoot, workspaceId: string) {
   };
   const deadline = performance.now() + 30_000;
   let commandRoot = root;
-  const run = (at: string, args: readonly string[]) => {
+  const run = (
+    at: string,
+    args: readonly string[],
+    options: { indexFile?: string; input?: string | Buffer } = {},
+  ) => {
     const timeout = Math.ceil(deadline - performance.now());
     if (timeout <= 0) throw new Error("worktree_deadline_exceeded");
     const atLayout = resolveRepositoryGitLayout(at);
@@ -124,11 +131,19 @@ function context(capability: VerifiedRepositoryRoot, workspaceId: string) {
         "core.fsmonitor=false",
         "-c",
         `core.hooksPath=${empty}`,
+        "-c",
+        "commit.gpgSign=false",
+        "-c",
+        "merge.autoStash=false",
         ...args,
       ],
       {
         cwd: at,
-        env,
+        env: {
+          ...env,
+          ...(options.indexFile ? { GIT_INDEX_FILE: options.indexFile } : {}),
+        },
+        input: options.input,
         encoding: "utf8",
         windowsHide: true,
         shell: false,
@@ -354,7 +369,9 @@ function safeDirectoryPath(root: string, target: string) {
  * @security linkは追従しない。
  * @concurrency 上位の利用調停が必要。
  */
-function rejectNestedRepositories(ctx: ReturnType<typeof context>) {
+function rejectNestedRepositories(
+  ctx: ReturnType<typeof createWorktreeGitContext>,
+) {
   const tracked = ctx.run(ctx.target, ["ls-files", "--stage", "-z"]);
   if (
     tracked.status !== 0 ||
@@ -399,7 +416,7 @@ function operate(
   workspaceId: string,
   expectedCommit: string | null,
   action: (
-    ctx: ReturnType<typeof context>,
+    ctx: ReturnType<typeof createWorktreeGitContext>,
     result: {
       effectIssued: boolean;
       worktreeRemoved: boolean | null;
@@ -408,7 +425,7 @@ function operate(
     },
   ) => RepositoryWorktreeObservation,
 ): RepositoryWorktreeResult {
-  let ctx: ReturnType<typeof context> | null = null;
+  let ctx: ReturnType<typeof createWorktreeGitContext> | null = null;
   const progress = {
     effectIssued: false,
     worktreeRemoved: null as boolean | null,
@@ -421,7 +438,7 @@ function operate(
       !/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/u.test(expectedCommit)
     )
       throw new Error("worktree_commit_invalid");
-    ctx = context(capability, workspaceId);
+    ctx = createWorktreeGitContext(capability, workspaceId);
     const observation = action(ctx, progress);
     return {
       status: "completed",

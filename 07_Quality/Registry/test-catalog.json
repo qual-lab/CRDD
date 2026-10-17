@@ -3576,7 +3576,7 @@
       "environment": "node_process",
       "externalProviderEffect": false,
       "humanInput": false,
-      "postconditions": ["worktree_and_branch_disposed", "other_workspaces_preserved", "partial_failure_reentry"],
+      "postconditions": ["worktree_and_branch_disposed", "other_workspaces_preserved", "partial_failure_reentry", "selected_base_only", "candidate_ref_lifecycle", "two_parent_merge", "no_duplicate_commit_merge"],
       "mandatoryByDefault": true
     },
     {
@@ -6127,7 +6127,7 @@
       "environment": "local_component_boundary",
       "externalProviderEffect": false,
       "humanInput": false,
-      "postconditions": ["owner_root_and_execution_tree_separate", "workspace_survives_task_completion", "explicit_discard_converges", "no_provider_request"],
+      "postconditions": ["owner_root_and_execution_tree_separate", "workspace_survives_task_completion", "explicit_discard_converges", "no_provider_request", "selected_candidate_only", "two_parent_merge", "saved_adoption_before_ref_removal", "same_operation_reentry_no_duplicate_merge"],
       "mandatoryByDefault": true
     },
     {

@@ -1,6 +1,23 @@
 # Version Control境界
 
-Workspace再編で追加するGit操作は[Workspace詳細](../orchestrator/03_Workspace.md)を入力に設計する。明示要求のWorktree／Branch作成・除去、固定Commit、3-way競合計算、Merge取込と共有Git整合を本領域が技術的に担当し、寿命・採否・操作許可はOrchestratorへ残す。以下の既存worktree-viewはTree／Diff読取りであり新操作の実装根拠ではない。最初の作成・観測・除去の契約を次節で具体化し、Merge・Commit発行と上位接続は未完了として区別する。
+Workspace再編で追加するGit操作は[Workspace詳細](../orchestrator/03_Workspace.md)を入力に設計する。明示要求のWorktree／Branch作成・除去、固定Commit、3-way競合計算、Merge取込と共有Git整合を本領域が技術的に担当し、寿命・採否・操作許可はOrchestratorへ残す。以下の既存worktree-viewはTree／Diff読取りであり新操作の実装根拠ではない。作成・観測・除去に加え、候補固定・MergeとOrchestratorの内部Package接続を実装した。公開Surface・実Provider E2E・実データ移行を含む全体完成とは区別する。
+
+### 固定Candidate・二親Mergeの追加契約（2026-10-18、実装未完了）
+
+[Workspace詳細](../orchestrator/03_Workspace.md#採用git統合の採用方針2026-10-18実装未完了)が採用判断と表示名を所有し、Version Controlは選択された内容のCommit固定、取込前評価、明示Mergeと親・Tree・Refの読戻しを所有する。
+
+| 技術境界 | 必要な保証 |
+|---|---|
+| 候補固定 | 明示Baseと確認した選択内容だけからCandidate Commitを確定する。通常index全体のCommitを使わず、利用者のindexと未選択dirtyを保持する。未選択の既存Commitを親履歴に含める方式は拒否する。固定後にBase／対象Commit／差分を返す |
+| 標準Gitの利用 | 一時index、Tree／Commit Object、Refの期待値付き更新等の既存Git機能を評価する。候補固定だけで共有Branchを更新しない。新しい永続台帳・独自LockやMerge Engineを作らない |
+| 取込前評価 | Git標準の3-way計算で競合と観測不能を区別する。判定だけでWorking Tree／Branchを変更しない。新規Git Objectの生成はあり得る |
+| Merge | 新規取込はFast-forward可能時も`merge --no-ff`を基本にする。Commitの親一覧が順序を含め`[expectedTargetHead, candidateCommit]`と一致することを読戻す。固定Candidateが取込先履歴の祖先である実Git観測を既取込判定とし、新規Merge成功にせず再発行しない。Tree／Message一致は代用不能で、祖先観測不能では停止する |
+| Candidate Ref回収 | Workspace Branchと別資源としてRef・期待Commitを既存上位記録へ返す。上位が採用時の取込済み又は不採用の明示破棄、必要参照・保持・非使用を確認した後、標準Gitの期待値付きRef削除を行う。Workspace継続中も独立処置でき、他Refを変更しない。不一致・使用中・観測不能では削除0、途中失敗は同対象へ再入場し、Objectの即時消去は要求しない |
+| 既存作業 | HEAD／dirty／staged／未追跡を直前に再観測し、上書き又は選択外混入のおそれがあれば発行しない。非衝突dirtyも一律cleanへ制限しない。Gitが保全できない入力は理由を返して停止する |
+| 結果・中断 | 発行前拒否、Conflict、Git成功、応答喪失、結果読戻し不能を分ける。途中状態を自動abort／reset／stash／cleanで解消しない。既存上位記録へ元操作と期待／観測HEADを返し、Message一致だけから再入場の成立を推定しない |
+| Message | 上位が渡した一行表示名とUUID／Base／Candidate／関連CHGを検査し、shellを使わず渡す。内容を認可や品質証明と解釈せず、Credential等を含めない。表示名をRefやPathへ転用しない |
+
+反証には、Fast-forward可能時の二親生成、分岐時の正常Merge、既取込の非発行、未選択過去Commitとstageの非混入、共有側の非衝突dirty保全、衝突／未追跡上書き拒否、確認後のHEAD変更、制御文字を含む名前、Git成功後の上位保存失敗を含める。実Git境界はQA-000007の`RFD-IT-029`、上位の選択・認可・保存・名前搬送はQA-000005へ接続する。[現在のSource・実Git結果](../../../99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#採用git統合のsource接続と実git確認)を参照し、既存Worktree作成・観測・除去の成功で代替しない。
 
 ### Git Worktree管理の実装契約
 
@@ -184,6 +201,7 @@ Git Adapterが本番RuntimeでGit CLIを起動する場合、その子Process境
 | Local Change Set Git Adapter | `gitLocalChangeSetAdapter` |
 | Repository Worktree View Git Adapter | `gitRepositoryWorktreeViewAdapter` |
 | Repository Worktree Management | `RepositoryWorktreeObservation`、`RepositoryWorktreeResult`、`createRepositoryWorktree`、`observeRepositoryWorktree`、`disposeRepositoryWorktree` |
+| Workspace Candidate | `WorkspaceCandidateSelection`、`WorkspaceCandidateRequest`、`WorkspaceCandidateResult`、`WorkspaceCandidateTemporary`、`validWorkspaceDisplayName`、`validWorkspaceCandidateRequest`、`freezeWorkspaceCandidate`、`mergeWorkspaceCandidate`、`removeWorkspaceCandidate` |
 | Change Publication Git Adapter | `ChangePublicationCommandRunner`、`createGitChangePublicationAdapter`、`gitChangePublicationAdapter`、`createGitChangePublicationTargetObservationAdapter`、`gitChangePublicationTargetObservationAdapter` |
 | Migration System Closure | `MigrationConsumerObservation`、`inspectMigrationSystemClosure` |
 | Checker Repository Observation | `RepositoryEntryObservation`、`observeDeclaredNestedRepositoryPaths`、`observeNestedRepository`、`observeRepositoryEntries`、`readFixedSnapshotText`、`resolveRevisionIdentity` |

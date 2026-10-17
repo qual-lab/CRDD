@@ -1,10 +1,24 @@
 # QA-000005 候補と正本への引き渡しの検証定義
 
+## 候補固定・採用・名前の追加検証条件（2026-10-18）
+
+[Workspace詳細](../../../06_Architecture/Details/orchestrator/03_Workspace.md#採用git統合の採用方針2026-10-18実装未完了)の採用済み方針に対し、既存Local Itemへ次を追加する。設計条件であり実行結果ではない。
+
+| Local Item | 追加するOracle・観測 |
+|---|---|
+| `CPR-UT-009` | UUIDと表示名を区別する。名前なし・同名・改名でも対象照合を変えず、固定時のWorkspace名／Candidate名を後から書き換えない。改行・制御文字・上限超過の名前をMessageへ流さない |
+| `CPR-IT-001` | 明示Baseと確認済み選択内容、Candidate Commit、Task／判断参照を結合する。既存staged・未選択dirty・採用対象外の過去Commitの混入0、固定後差分の取得、固定と採用の別操作を実Gitと実保存で観測する |
+| `CPR-IT-004` | Task終了・Workspace終了・固定成功だけではMerge／Promotion0。採用直前の現在認可・取込先HEAD・候補同一性・選択範囲・dirtyを再確認し、不一致では発行0。Git成功を品質成立と表示しない |
+| `CPR-IT-006` | Git成功後の結果保存失敗とLease解放失敗を別に保持する。同操作の別Process再入場で二重Commit／Merge0、対象Commitと実親関係の読戻し、既存変更保全、採用後の残差確認と資源回収を観測する。Candidate RefをWorkspace寿命と分離し、採用後／不採用後の参照・保持・非使用確認、参照中の削除0、Ref変更の削除0、削除途中失敗の同Ref・期待Commit再入場、Workspace継続と他Ref不変を確認する |
+| `CPR-UAT-002`／`CPR-UAT-003`／`CPR-UAT-007` | 名前付きWorkspaceと固定Candidate、Merge、Promotion、Quality Gateを人間が区別できる。Merge Messageから出所を辿れ、理由／Evidenceは既存所有成果物へ接続する。名前なしでも対象を誤認しない |
+
+上記追加断面はPackage API・実Git／保存の部分確認と、未確認の公開入口・UATを区別する。[現在の部分実測と残件](../../../99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#採用git統合のsource接続と実git確認)を参照し、古いBundle方式の成功や文書検査を新方式のPassへ流用しない。Local Item全体の成立は本段階だけでは判定しない。
+
 ## Workspace方式の追加検証条件（2026-10-17）
 
 [Workspace詳細](../../../06_Architecture/Details/orchestrator/03_Workspace.md)の`orchestrator.workspace-code-candidate`（ARCH-000015）をコード変更候補に限って追加する。`CPR-UT-009`はRepository・Workspace・固定Commit・レビュー・正本Revisionの相関、`CPR-IT-001`はGit成果と必要なTask／判断参照の保持、`CPR-IT-004`／006は権限・採用排他・変更後差分・適用後記録失敗・再入場時二重適用拒否を確認する。`CPR-UAT-002`／003／007はDirect編集、候補固定、Merge、Promotionの違いと明示判断を評価する。旧項目の候補生成時の正本Effect 0と採用時Commit／Push 0は旧Bundle／Context採用の対象へ維持する。Directの許可された編集、別Branchへの候補固定Commit、明示Merge／Promotionは別Effectとして新しいfixture・Oracleを確定するまで実行しない。Git方式へ旧Oracleを無条件適用せず、逆に通常CRUD・Topic／Meetingの提案をGit候補へ強制変換しない。旧Store撤去前に内容・許可Path・情報分類・期限・未解決参照の保全を確認する。
 
-本節の新方式はすべてNot Run。既存Local Itemの元結果・旧方式のEvidenceは維持し、新方式の実装／接続／実測へ継承しない。詳細Schema・操作許可・dirty／Commit処理の未決は該当実装前の停止条件とする。条件区分は正常・境界・準正常・異常・回復を扱い、UTの値判定、ITの実保存／実Git／実Mount、公開ST、利用者UATを相互代替しない。
+本節の初回定義時点はすべてNot Runであり、既存Local Itemの元結果・旧方式のEvidenceを新方式へ継承しない。以後のPackage接続・実Gitの部分結果は冒頭の現在結果参照で区別し、未確認の公開ST・利用者UATやLocal Item全体をPassへ更新しない。詳細Schema・操作許可・dirty／Commit処理に未決がある対象は該当実装前に停止する。条件区分は正常・境界・準正常・異常・回復を扱い、UTの値判定、ITの実保存／実Git／実Mount、公開ST、利用者UATを相互代替しない。
 
 成果物種別: Quality定義
 Quality ID: `QA-000005`

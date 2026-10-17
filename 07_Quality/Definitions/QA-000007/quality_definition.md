@@ -1,5 +1,20 @@
 # QA-000007 リポジトリ境界とFederationの検証定義
 
+## 固定Candidate・二親Mergeの追加検証条件（2026-10-18）
+
+`RFD-IT-029`の実Git断面に、[Version Controlの追加契約](../../../06_Architecture/Details/version-control/01_Architecture.md#固定candidate二親mergeの追加契約2026-10-18実装未完了)を追加する。
+
+- 明示Base＋選択内容だけの固定Commitを確認し、利用者indexの前後同一性、未選択dirty／未追跡の保全、未選択過去Commit非混入を観測する。
+- Fast-forward可能時も新Mergeが二親を持つことと、分岐時の通常Mergeの両方を実Gitで確認する。親一覧は順序を含め取込前HEAD・固定Candidateと完全一致させる。
+- MERGE_HEADの先頭が候補OIDでも、複数行・別親・通常file以外・観測不能ではCommitしない。一時index回収失敗は同じ限定Pathと実体照合値を保持し、既存Refを再利用する場合も元一時物の不存在確認を省略しない。
+- 固定Candidate Commitが取込先履歴の祖先である既取込では、新Commit／Mergeを発行しない。同Tree／Message一致だけの判定を拒否し、祖先観測不能では停止する。Merge前競合は発行0とし、実発行後の競合／応答喪失／読戻し不能を別結果として保持する。
+- 非衝突dirtyを保全し、既存staged混入・dirty衝突・未追跡上書き・確認後HEAD変更・候補範囲不一致では停止する。自動Rebase／Cherry-pick／Stash／Reset／Cleanは0。
+- Messageの名前・ID・Commit・許可済みCHGが一致し、名前なしでも正確な対象を追跡できる。Messageだけを認可・品質・操作終了の証拠にしない。
+- Git成功後の保存失敗・別Process再入場・不要Branch／Worktree回収はQA-000005の上位断面とも接続する。新Registry・Lock・一般Recoveryは追加しない。
+- Candidate RefとWorkspace Branchを別資源として、採用後／不採用後の必要参照・保持・非使用確認後だけ対象Refを回収する。参照中・Ref変更で削除0、途中失敗の同期待Commit再入場、Workspace継続中のCandidate Refのみの回収、他Candidate／Workspace Ref不変を確認する。Ref削除をObject即時消去へ換算しない。
+
+この追加断面の実Git・部分実装結果は[変更計画](../../../99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#採用git統合のsource接続と実git確認)へ接続する。既存の作成・観測・除去の部分実測を引き継いでPassにせず、未確認の公開入口・利用者判断・実データ移行を残す。Local Item全体の成立は別に判定する。
+
 ## Workspace方式の追加検証条件（2026-10-17）
 
 前提となる二AdapterのGit読取りは、既存`RFD-IT-005`／008の局所断面として`git-read-command.integration.test.ts`で確認する。外部Diff・textconv・fsmonitorの発火対照→新経路での非発火、元差分とindex bytes、親Git環境／core.worktree差替え、literal Path、linked worktreeを実Gitで観測する。起動失敗・期限・上限と既存理由の保持はProcess差替えで別確認する。新公開API・管理State・実Dockerは使わず、この局所改善をGit Worktree管理や新方式Local Item全体のPassへ昇格しない。

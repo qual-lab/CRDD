@@ -20,6 +20,11 @@ import {
   disposeRepositoryWorktree,
   observeRepositoryWorktree,
   verifyRepositoryRoot,
+  freezeWorkspaceCandidate,
+  mergeWorkspaceCandidate,
+  removeWorkspaceCandidate,
+  validWorkspaceDisplayName,
+  type WorkspaceCandidateRequest,
 } from "../../src/index.ts";
 
 const repository = path.resolve(
@@ -103,6 +108,549 @@ function fixture(t: TestContext) {
     path.join(root, ".crdd", "workspaces", id, "worktree");
   return { root, base, capability: verified.capability, target };
 }
+
+/**
+ * 確認したraw bytesをGit Blob IDと明示選択へ結合する。
+ * @responsibility Stageではなく現在file全体を確認する。
+ * @trace RFD-IT-029
+ * @precondition 作成済み自己生成Worktree。
+ * @stimulus hash-objectの読取り。
+ * @observation Base、Workspace HEAD、選択Blob。
+ * @oracle 呼出し前の内容だけを固定入力にする。
+ * @cleanup fixtureのafter。
+ * @boundary 実Git、外部通信なし。
+ */
+function candidateInput(
+  f: ReturnType<typeof fixture>,
+  id: string,
+): WorkspaceCandidateRequest {
+  return {
+    workspaceId: id,
+    operationId: randomUUID(),
+    baseCommit: f.base,
+    expectedWorkspaceHead: git(f.target(id), ["rev-parse", "HEAD"]),
+    selection: [
+      {
+        path: "source.txt",
+        mode: "100644",
+        blobId: git(f.target(id), [
+          "hash-object",
+          "--no-filters",
+          "source.txt",
+        ]),
+      },
+    ],
+    workspaceName: "継続作業",
+    candidateName: "選択した改善",
+    relatedChangeIds: ["CHG-000082"],
+  };
+}
+
+/**
+ * Object発行後の故障と未完了Mergeの正規再入場を反証する。
+ * @responsibility 要求Effect計数と元Commit再利用、Tree未一致拒否。
+ * @trace RFD-IT-029
+ * @precondition 新品Workspaceと削除又は通常候補。
+ * @stimulus Ref作成拒否、Commit拒否、偽二親Tree。
+ * @observation 元OID、MERGE_HEAD、親／Tree、通常index。
+ * @oracle 再Merge・別候補生成0、不一致は停止。
+ * @cleanup spawn差替えを戻しfixtureを回収。
+ * @boundary 実Git、故障通知だけ有限代役。
+ */
+test("CandidateのObject後故障・未完了Merge・偽二親Treeを同対象で判別する", (t) => {
+  const f = fixture(t);
+  const id = randomUUID();
+  createRepositoryWorktree(f.capability, {
+    workspaceId: id,
+    baseCommit: f.base,
+  });
+  const source = candidateInput(f, id);
+  fs.unlinkSync(path.join(f.target(id), "source.txt"));
+  const input = {
+    ...source,
+    selection: [{ path: "source.txt", mode: null, blobId: null }],
+  };
+  const spawn = childProcess.spawnSync;
+  let failRef = true;
+  let commitRequests = 0;
+  childProcess.spawnSync = ((
+    ...args: Parameters<typeof childProcess.spawnSync>
+  ) => {
+    const command = args[1];
+    if (Array.isArray(command) && command.includes("commit-tree"))
+      commitRequests++;
+    if (failRef && Array.isArray(command) && command.includes("update-ref"))
+      return {
+        pid: 0,
+        output: [null, "", ""],
+        stdout: "",
+        stderr: "synthetic",
+        status: 1,
+        signal: null,
+      };
+    return Reflect.apply(spawn, childProcess, args);
+  }) as typeof childProcess.spawnSync;
+  syncBuiltinESMExports();
+  let failed: ReturnType<typeof freezeWorkspaceCandidate>;
+  try {
+    failed = freezeWorkspaceCandidate(f.capability, input);
+  } finally {
+    childProcess.spawnSync = spawn;
+    syncBuiltinESMExports();
+  }
+  assert.equal(failed.status, "blocked");
+  assert.equal(failed.effectIssued, true);
+  assert.ok(failed.candidateCommit);
+  assert.equal(commitRequests, 1);
+  failRef = false;
+  const fixed = freezeWorkspaceCandidate(
+    f.capability,
+    input,
+    failed.candidateCommit,
+  );
+  assert.equal(fixed.status, "completed", JSON.stringify(fixed));
+  assert.equal(fixed.candidateCommit, failed.candidateCommit);
+  const candidateCommit = fixed.candidateCommit;
+  assert.ok(candidateCommit);
+  const target = {
+    candidateCommit,
+    targetBranch: "main",
+    expectedTargetHead: f.base,
+  };
+  childProcess.spawnSync = ((
+    ...args: Parameters<typeof childProcess.spawnSync>
+  ) => {
+    if (Array.isArray(args[1]) && args[1].includes("commit"))
+      return {
+        pid: 0,
+        output: [null, "", ""],
+        stdout: "",
+        stderr: "synthetic",
+        status: 1,
+        signal: null,
+      };
+    return Reflect.apply(spawn, childProcess, args);
+  }) as typeof childProcess.spawnSync;
+  syncBuiltinESMExports();
+  let interrupted: ReturnType<typeof mergeWorkspaceCandidate>;
+  try {
+    interrupted = mergeWorkspaceCandidate(f.capability, input, target);
+  } finally {
+    childProcess.spawnSync = spawn;
+    syncBuiltinESMExports();
+  }
+  assert.equal(interrupted.reason, "candidate_merge_commit_failed");
+  assert.equal(interrupted.effectIssued, true);
+  assert.equal(git(f.root, ["rev-parse", "MERGE_HEAD"]), candidateCommit);
+  const mergeHeadFile = path.join(f.root, ".git", "MERGE_HEAD");
+  fs.writeFileSync(mergeHeadFile, `${candidateCommit}\n${f.base}\n`);
+  assert.equal(
+    mergeWorkspaceCandidate(f.capability, input, target).reason,
+    "candidate_merge_in_progress",
+  );
+  assert.equal(git(f.root, ["rev-parse", "HEAD"]), f.base);
+  fs.writeFileSync(mergeHeadFile, `${candidateCommit}\n`);
+  const resumed = mergeWorkspaceCandidate(f.capability, input, target);
+  assert.equal(resumed.status, "completed", JSON.stringify(resumed));
+  assert.ok(resumed.mergeCommit);
+  const fake = git(f.root, [
+    "commit-tree",
+    `${f.base}^{tree}`,
+    "-p",
+    f.base,
+    "-p",
+    candidateCommit,
+    "-m",
+    "wrong content",
+  ]);
+  git(f.root, ["update-ref", "refs/heads/main", fake, resumed.mergeCommit]);
+  const denied = mergeWorkspaceCandidate(f.capability, input, target);
+  assert.equal(denied.reason, "candidate_merge_tree_mismatch");
+  assert.equal(git(f.root, ["rev-parse", "HEAD"]), fake);
+});
+
+/**
+ * 一時index回収の失敗を同じ参照で再入場する。
+ * @responsibility Ref既存を一時物清掃成功へ代用しない。
+ * @trace RFD-IT-029
+ * @precondition 新品Workspaceと選択済みfile。
+ * @stimulus 自己生成indexの削除だけを拒否する。
+ * @observation 元Commit・一時実体・兄弟fileと清掃後不存在。
+ * @oracle 失敗中は同参照を保持し回復時に同OIDで完了。
+ * @cleanup 差替え復元後にfixtureだけを回収。
+ * @boundary 実Git、清掃失敗だけ有限代役。
+ */
+test("Candidate一時indexの回収失敗は同参照を保持し既存Refでも再確認する", (t) => {
+  const f = fixture(t);
+  const id = randomUUID();
+  createRepositoryWorktree(f.capability, {
+    workspaceId: id,
+    baseCommit: f.base,
+  });
+  fs.writeFileSync(path.join(f.target(id), "source.txt"), "selected\n");
+  const input = candidateInput(f, id);
+  const sibling = path.join(path.dirname(f.target(id)), "unrelated.txt");
+  fs.writeFileSync(sibling, "untouched");
+  const remove = fs.rmSync;
+  fs.rmSync = ((target, options) => {
+    if (String(target).includes("candidate-index-"))
+      throw new Error("synthetic");
+    return remove(target, options);
+  }) as typeof fs.rmSync;
+  let first: ReturnType<typeof freezeWorkspaceCandidate>;
+  try {
+    first = freezeWorkspaceCandidate(f.capability, input);
+    assert.equal(first.status, "blocked");
+    assert.equal(first.cleanupConfirmed, false);
+    assert.ok(first.temporary);
+    const retry = freezeWorkspaceCandidate(
+      f.capability,
+      input,
+      first.candidateCommit,
+      first.temporary,
+    );
+    assert.equal(retry.status, "blocked");
+    assert.equal(retry.cleanupConfirmed, false);
+    assert.deepEqual(retry.temporary, first.temporary);
+  } finally {
+    fs.rmSync = remove;
+  }
+  const recovered = freezeWorkspaceCandidate(
+    f.capability,
+    input,
+    first.candidateCommit,
+    first.temporary,
+  );
+  assert.equal(recovered.status, "completed", JSON.stringify(recovered));
+  assert.equal(recovered.candidateCommit, first.candidateCommit);
+  assert.equal(recovered.temporary, null);
+  assert.equal(
+    fs.existsSync(path.join(f.root, first.temporary.relativePath)),
+    false,
+  );
+  assert.equal(fs.readFileSync(sibling, "utf8"), "untouched");
+});
+
+/**
+ * 一時領域作成直後の実体欠測も清掃済みにしない。
+ * @responsibility 作成成功と観測成功を区別する。
+ * @trace RFD-IT-029
+ * @precondition 新品Workspaceと確認済み選択。
+ * @stimulus mkdtemp実成功後のlstatだけ拒否。
+ * @observation 元Path・identity不明・通常indexと兄弟内容。
+ * @oracle 未確認参照を保持し再入場も自動削除しない。
+ * @cleanup 差替えを戻し自己生成fixtureだけを回収。
+ * @boundary 実GitとFilesystem、観測故障だけ有限代役。
+ */
+test("Candidate一時領域の作成直後欠測はPathと清掃未確認を保持する", (t) => {
+  const f = fixture(t);
+  const id = randomUUID();
+  createRepositoryWorktree(f.capability, {
+    workspaceId: id,
+    baseCommit: f.base,
+  });
+  fs.writeFileSync(path.join(f.target(id), "source.txt"), "candidate\n");
+  const input = candidateInput(f, id);
+  const index = fs.readFileSync(path.join(f.root, ".git", "index"));
+  const inspect = fs.lstatSync;
+  Object.defineProperty(fs, "lstatSync", {
+    value: ((...args: Parameters<typeof fs.lstatSync>) => {
+      if (path.basename(String(args[0])).startsWith("candidate-index-"))
+        throw Object.assign(new Error("synthetic"), { code: "EACCES" });
+      return Reflect.apply(inspect, fs, args);
+    }) as typeof fs.lstatSync,
+  });
+  let failed: ReturnType<typeof freezeWorkspaceCandidate>;
+  try {
+    failed = freezeWorkspaceCandidate(f.capability, input);
+  } finally {
+    Object.defineProperty(fs, "lstatSync", { value: inspect });
+  }
+  assert.equal(failed.status, "blocked");
+  assert.equal(failed.cleanupConfirmed, false);
+  assert.ok(failed.temporary);
+  assert.equal(failed.temporary.identity, null);
+  assert.equal(
+    fs.existsSync(path.join(f.root, failed.temporary.relativePath)),
+    true,
+  );
+  const retry = freezeWorkspaceCandidate(
+    f.capability,
+    input,
+    null,
+    failed.temporary,
+  );
+  assert.equal(retry.status, "blocked");
+  assert.equal(retry.cleanupConfirmed, false);
+  assert.deepEqual(retry.temporary, failed.temporary);
+  assert.deepEqual(fs.readFileSync(path.join(f.root, ".git", "index")), index);
+});
+
+/**
+ * 候補固定が過去Commit・通常index・未選択変更を混入させない。
+ * @responsibility Base単一親・選択Tree・同操作再入場を反証する。
+ * @trace RFD-IT-029
+ * @precondition 未選択の過去CommitとStageを持つWorkspace。
+ * @stimulus 一fileだけの明示固定と同要求再送。
+ * @observation 両HEAD、index bytes、固定TreeとRef。
+ * @oracle 選択内容だけで固定し元OIDを再利用する。
+ * @cleanup fixtureのafter。
+ * @boundary 実Git、合成データのみ。
+ */
+test("Candidateは明示Baseから選択だけを固定し通常indexと過去Commitを混入しない", (t) => {
+  const f = fixture(t);
+  const id = randomUUID();
+  assert.equal(
+    createRepositoryWorktree(f.capability, {
+      workspaceId: id,
+      baseCommit: f.base,
+    }).status,
+    "completed",
+  );
+  fs.writeFileSync(path.join(f.target(id), "past.txt"), "unselected history\n");
+  git(f.target(id), ["add", "past.txt"]);
+  git(f.target(id), ["commit", "-m", "not selected"]);
+  fs.writeFileSync(path.join(f.target(id), "stage.txt"), "unselected staged\n");
+  git(f.target(id), ["add", "stage.txt"]);
+  fs.writeFileSync(
+    path.join(f.target(id), "source.txt"),
+    Buffer.from([0, 255, 13, 10, 1]),
+  );
+  const request = candidateInput(f, id);
+  const index = git(f.target(id), [
+    "rev-parse",
+    "--path-format=absolute",
+    "--git-path",
+    "index",
+  ]);
+  const bytes = fs.readFileSync(index);
+  const fixed = freezeWorkspaceCandidate(f.capability, request);
+  assert.equal(fixed.status, "completed", JSON.stringify(fixed));
+  assert.ok(fixed.candidateCommit);
+  assert.equal(
+    git(f.root, ["rev-list", "--parents", "-n", "1", fixed.candidateCommit]),
+    `${fixed.candidateCommit} ${f.base}`,
+  );
+  assert.deepEqual(fixed.changedPaths, ["source.txt"]);
+  assert.equal(
+    git(f.root, ["ls-tree", "--name-only", fixed.candidateCommit]).includes(
+      "past.txt",
+    ),
+    false,
+  );
+  assert.deepEqual(fs.readFileSync(index), bytes);
+  assert.equal(
+    git(f.target(id), ["rev-parse", "HEAD"]),
+    request.expectedWorkspaceHead,
+  );
+  fs.writeFileSync(path.join(f.target(id), "source.txt"), "later task\n");
+  assert.equal(
+    freezeWorkspaceCandidate(f.capability, request).candidateCommit,
+    fixed.candidateCommit,
+  );
+  assert.equal(
+    removeWorkspaceCandidate(f.capability, request, fixed.candidateCommit)
+      .status,
+    "completed",
+  );
+  assert.equal(
+    removeWorkspaceCandidate(f.capability, request, fixed.candidateCommit)
+      .reason,
+    "candidate_ref_absent",
+  );
+  assert.equal(observeRepositoryWorktree(f.capability, id).status, "completed");
+});
+
+/**
+ * 固定前の内容変更・不正選択・明示削除を確認する。
+ * @responsibility 誤った候補Refを作らない。
+ * @trace RFD-IT-029
+ * @precondition 同BaseのWorkspace。
+ * @stimulus 不一致内容、管理Path、改行名、明示不存在。
+ * @observation 理由、Ref集合、固定Tree。
+ * @oracle 不正は拒否、明示削除だけがTreeへ入る。
+ * @cleanup fixtureのafter。
+ * @boundary 実Git。
+ */
+test("固定は内容変更・管理Path・不正名を拒否し削除は明示入力に限定する", (t) => {
+  const f = fixture(t);
+  const id = randomUUID();
+  createRepositoryWorktree(f.capability, {
+    workspaceId: id,
+    baseCommit: f.base,
+  });
+  const input = candidateInput(f, id);
+  fs.writeFileSync(
+    path.join(f.target(id), "source.txt"),
+    "changed after confirmation\n",
+  );
+  assert.equal(
+    freezeWorkspaceCandidate(f.capability, input).reason,
+    "candidate_content_changed",
+  );
+  assert.equal(
+    freezeWorkspaceCandidate(f.capability, {
+      ...input,
+      candidateName: "line\nbreak",
+    }).reason,
+    "candidate_input_invalid",
+  );
+  assert.equal(
+    freezeWorkspaceCandidate(f.capability, {
+      ...input,
+      selection: [{ path: ".git/config", blobId: null, mode: null }],
+    }).reason,
+    "candidate_input_invalid",
+  );
+  assert.equal(validWorkspaceDisplayName(null), true);
+  assert.equal(validWorkspaceDisplayName("改善"), true);
+  for (const invalid of ["", " a", "\u2028", "x".repeat(121)])
+    assert.equal(validWorkspaceDisplayName(invalid), false);
+  fs.unlinkSync(path.join(f.target(id), "source.txt"));
+  const deleted = freezeWorkspaceCandidate(f.capability, {
+    ...input,
+    selection: [{ path: "source.txt", blobId: null, mode: null }],
+  });
+  assert.equal(deleted.status, "completed", JSON.stringify(deleted));
+  assert.ok(deleted.candidateCommit);
+  assert.equal(
+    git(f.root, ["ls-tree", "--name-only", deleted.candidateCommit]).includes(
+      "source.txt",
+    ),
+    false,
+  );
+  assert.deepEqual(fs.readdirSync(path.dirname(f.target(id))), ["worktree"]);
+});
+
+/**
+ * FF可能時も二親Mergeを残し、再入場と独立Ref回収を確認する。
+ * @responsibility 名前snapshot・非衝突dirty保全・二重Merge拒否。
+ * @trace RFD-IT-029
+ * @precondition Base先端と固定候補、別fileの人間dirty。
+ * @stimulus 明示Merge、同操作再入場、候補Ref回収。
+ * @observation 親順序、Message、元dirty、他Branch。
+ * @oracle 二親完全一致、名前保持、新Merge追加0。
+ * @cleanup fixtureのafter。
+ * @boundary 実Git、採否は試験側で明示。
+ */
+test("FF可能でも二親Mergeし名前を記録、dirty保全して二重取込しない", (t) => {
+  const f = fixture(t);
+  const id = randomUUID();
+  createRepositoryWorktree(f.capability, {
+    workspaceId: id,
+    baseCommit: f.base,
+  });
+  fs.writeFileSync(path.join(f.target(id), "source.txt"), "selected\n");
+  const input = candidateInput(f, id);
+  const fixed = freezeWorkspaceCandidate(f.capability, input);
+  assert.equal(fixed.status, "completed", JSON.stringify(fixed));
+  assert.ok(fixed.candidateCommit);
+  fs.appendFileSync(path.join(f.root, ".gitignore"), "human-dirty\n");
+  const index = fs.readFileSync(path.join(f.root, ".git", "index"));
+  const target = {
+    candidateCommit: fixed.candidateCommit,
+    targetBranch: "main",
+    expectedTargetHead: f.base,
+  };
+  const merged = mergeWorkspaceCandidate(f.capability, input, target);
+  assert.equal(merged.status, "completed", JSON.stringify(merged));
+  assert.ok(merged.mergeCommit);
+  assert.equal(
+    git(f.root, ["rev-list", "--parents", "-n", "1", "HEAD"]),
+    `${merged.mergeCommit} ${f.base} ${fixed.candidateCommit}`,
+  );
+  const message = git(f.root, ["log", "-1", "--format=%B"]);
+  assert.ok(message.includes("Merge Candidate: 選択した改善"));
+  assert.ok(message.includes("Workspace: 継続作業"));
+  assert.ok(message.includes(`Workspace-ID: ${id}`));
+  assert.ok(
+    fs
+      .readFileSync(path.join(f.root, ".gitignore"), "utf8")
+      .endsWith("human-dirty\n"),
+  );
+  assert.equal(
+    mergeWorkspaceCandidate(f.capability, input, target).reason,
+    "candidate_merge_existing",
+  );
+  assert.equal(
+    mergeWorkspaceCandidate(f.capability, input, {
+      ...target,
+      expectedTargetHead: merged.mergeCommit,
+    }).reason,
+    "candidate_already_integrated",
+  );
+  assert.notDeepEqual(
+    fs.readFileSync(path.join(f.root, ".git", "index")),
+    index,
+  );
+  assert.equal(
+    removeWorkspaceCandidate(f.capability, input, fixed.candidateCommit).status,
+    "completed",
+  );
+  assert.equal(fs.existsSync(f.target(id)), true);
+  assert.equal(git(f.root, ["rev-parse", "HEAD"]), merged.mergeCommit);
+});
+
+/**
+ * 分岐Mergeと競合拒否、Ref改変時の削除0を確認する。
+ * @responsibility 非正常条件を通常成功へ畳まない。
+ * @trace RFD-IT-029
+ * @precondition それぞれ新品の分岐fixture。
+ * @stimulus 独立変更又は同file衝突、Ref差替え。
+ * @observation Merge結果、元HEAD／index、候補Ref。
+ * @oracle 分岐正常は二親、衝突は共有Tree不変、Ref差は削除0。
+ * @cleanup fixtureのafter。
+ * @boundary 実Gitのみ。
+ */
+test("分岐の通常MergeとConflict停止、Ref変更拒否を確認する", (t) => {
+  for (const conflict of [false, true]) {
+    const f = fixture(t);
+    const id = randomUUID();
+    createRepositoryWorktree(f.capability, {
+      workspaceId: id,
+      baseCommit: f.base,
+    });
+    fs.writeFileSync(path.join(f.target(id), "source.txt"), "candidate\n");
+    const input = candidateInput(f, id);
+    const fixed = freezeWorkspaceCandidate(f.capability, input);
+    assert.ok(fixed.candidateCommit, JSON.stringify(fixed));
+    assert.ok(fixed.candidateRef);
+    fs.writeFileSync(
+      path.join(f.root, conflict ? "source.txt" : "human.txt"),
+      "target\n",
+    );
+    git(f.root, ["add", conflict ? "source.txt" : "human.txt"]);
+    git(f.root, ["commit", "-m", "target branch"]);
+    const head = git(f.root, ["rev-parse", "HEAD"]);
+    const beforeIndex = fs.readFileSync(path.join(f.root, ".git", "index"));
+    const merged = mergeWorkspaceCandidate(f.capability, input, {
+      candidateCommit: fixed.candidateCommit,
+      targetBranch: "main",
+      expectedTargetHead: head,
+    });
+    if (conflict) {
+      assert.equal(merged.reason, "candidate_conflict");
+      assert.equal(git(f.root, ["rev-parse", "HEAD"]), head);
+      assert.deepEqual(
+        fs.readFileSync(path.join(f.root, ".git", "index")),
+        beforeIndex,
+      );
+    } else {
+      assert.equal(merged.status, "completed", JSON.stringify(merged));
+      assert.equal(
+        git(f.root, ["rev-list", "--parents", "-n", "1", "HEAD"]),
+        `${merged.mergeCommit} ${head} ${fixed.candidateCommit}`,
+      );
+    }
+    git(f.root, ["update-ref", fixed.candidateRef, head]);
+    assert.equal(
+      removeWorkspaceCandidate(f.capability, input, fixed.candidateCommit)
+        .reason,
+      "candidate_ref_mismatch",
+    );
+    assert.equal(git(f.root, ["rev-parse", fixed.candidateRef]), head);
+  }
+});
 
 /**
  * 共有dirty非継承、linked起動、明示破棄と全不存在への再入場を確認する。

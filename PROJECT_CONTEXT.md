@@ -14,11 +14,11 @@ Repository Role: `crdd-standard`
 
 v0.22のCHG-000082は進行中。Docker Isolationは`a04ecb70`でコミット・プッシュ済み。Direct／Candidateは共通のDocker方針を採用し、開発用`.env`がCoding AIから読まれ得るリスクを受容した。本番SecretはGit・通常開発環境へ置かず既存管理を使い、開発資格は本番権限なし・限定権限・期限ありとする。独自Secret Manager・file別ACL・動的Mount許可Frameworkは追加しない。固定Pathの最小Mount試験は二構成で成功し、通常Source書込みとGit／内部状態への書込み拒否を確認した。全link経路・任意Repository・製品実装全体の保証ではない。Coordinatorの借用実行は実装・結合試験と独立再レビューまで完了（限定範囲）。実Provider E2E・実データ移行は未実施。統合・タグ・リリースは含めない。条件と限界は[接続結果](99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#借用実行接続の実装結合確認の区切り)を参照する。
 
-既存実装との差分を整理し、Version Controlの共通Git読取りに続いて、固定BaseからのWorktree作成・観測・明示終了時のWorktree／専用Branch削除を実装した。採用・取込済み又は不採用・破棄確定後に不要資源を回収し、新しい管理台帳・State・Lockは追加しない。上位Task・採否・非使用の調停、本番Direct／Candidate切替・旧Bundle撤去は未完了。filter設定・gitlinkを含む作成は未対応として拒否し、部分試験を新Workspace全体の完成へ換算しない。現在の検証結果と限界は[実装・実Git試験](99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#git-worktree管理の部分実装と実git試験)を参照する。
+Version ControlのWorktree管理に続き、名前付きCandidateの明示固定・別採用・二親MergeとOrchestratorの既存保存・排他への内部接続を実装した。選択外のCommit／Stage混入を避け、失敗後も同じ候補で再入場し、採否確定後の不要Refを回収する。新しい管理台帳・Lock・一般Recoveryは追加しない。公開Surface・本番Direct／Candidate切替の全体確認、実データ移行・旧Bundle全面撤去は未完了。filter設定・gitlinkを含む作成は未対応として拒否し、部分試験を新Workspace全体の完成へ換算しない。現在の結果と限界は[採用・Git統合の実装結果](99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#採用git統合のsource接続と実git確認)を参照する。
 
 | 対象 | 現在の状態 | Owner Relation |
 |---|---|---|
-| Workspace／Orchestrator | Snapshot v3と既存Leaseを使い、実Worktree管理・Task搬送の限定結合まで実装。UT73・IT24成功、独立再レビュー指摘0。実Provider・採用Git統合・公開Surface・実データ移行は未接続／未実施で、全体完成ではない | [限定実装と検証](99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#orchestratorの実装限定結合結果2026-10-17) |
+| Workspace／Orchestrator | 実Worktree管理・Task搬送に加え、候補固定・採用Git統合・Ref回収の内部接続を実装。VC全64件、Orchestrator UT73・IT33成功、技術・Qualityの独立再レビュー残0。公開Surface・実Provider E2E・人間UAT・実データ移行は未完了であり、全体完成ではない | [実装と検証の範囲](99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#採用git統合のsource接続と実git確認) |
 | Access Management／公開入口 | 専門Packageへの接続と旧CROS Package・REST／Gateway撤去の区切りは完了。初回設定・鍵操作の実入口と人間確認は後続E2Eへ保持する | [変更の現在地](99_Roadmap/Changes/CHG-000082/change.md)、[接続と後続E2E](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#今回の区切りと後続e2e--2026-10-14) |
 | Docker Isolation | 実装・検証完了。技術的な実行・観測・取消・回収を分離し、旧Docker両Folderとruntimeを撤去。状態保存・操作前後のOwner確認・結果受領は上位に保持。実境界の成立と未実証の限界は隔離設計の現在表を参照 | [現在の計画・検証結果](99_Roadmap/Changes/CHG-000082/second-stage-plan.md)、[隔離設計](06_Architecture/Details/docker-isolation/01_Architecture.md) |
 | 通常実行の署名依存 | Coordinator専用の署名入口・Manifest設定・固定AST graphと、Domainの旧署名専用profileを撤去。通常保存の失敗反証と旧入力拒否を確認し、限定独立レビューの残指摘0。汎用成果物署名・必要Artifact同一性・現在認可・隔離は維持する | [Coordinator設計](06_Architecture/Details/coordinator/01_Architecture.md#9-通常実行追跡正式配布の分離)、[保存設計](06_Architecture/Details/domain-model/03_Repository_Storage.md) |
@@ -70,8 +70,8 @@ v0.22のCHG-000082は進行中。Docker Isolationは`a04ecb70`でコミット・
 | 順序 | 承認済みの次の作業 | 完了条件・停止点 |
 |---|---|---|
 | 1 | Workspace方式の現行棚卸し・対応表は整理済み | 保存先の宣言と本番接続、既存workspace表記の別概念、能力・利用側・排他を区別した |
-| 2 | Architecture／Qualityの反映・独立確認は完了 | [Workspace詳細](06_Architecture/Details/orchestrator/03_Workspace.md)と新RFD-IT-029へ接続、残指摘0。Direct書込み・Git許可・Commit／dirty・具体Schemaは実装前に固定する |
-| 3 | Version Control→Orchestrator→Coordinator→公開入口の順に切替 | 旧能力の置換・本番利用側接続を確認してから旧Ownerを撤去する。今回の棚卸しでは実装しない |
+| 2 | Architecture／Qualityと内部Package実装・実Gitの確認 | Direct書込み・Git許可・Commit／dirty・名前の判断を反映。公開全体の未完了を維持する |
+| 3 | 公開入口・旧方式利用側の切替と移行を具体化 | 内部Package接続だけで旧Bundleを撤去しない。人間の明示操作・現在認可・利用者理解・成果保全を確認してから置換する |
 | 4 | 新構成の回帰・独立レビュー・実境界と後続E2E | 旧DIの成功や単なるGit Worktree生成を新構成全体の成立根拠にしない |
 
 詳細な対象・順序・反証・担当は[第二段階計画](99_Roadmap/Changes/CHG-000082/second-stage-plan.md)と[Workspace棚卸し](99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md)に従う。v0.22全体の後続候補は[Roadmap](99_Roadmap/01_Roadmap.md)で確認する。
