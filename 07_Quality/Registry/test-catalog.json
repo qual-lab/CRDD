@@ -3528,6 +3528,32 @@
       "mandatoryByDefault": true
     },
     {
+      "id": "docker-isolation:integration:direct-mount-boundary",
+      "owner": "docker-isolation",
+      "path": "40_Develop/docker-isolation/tests/integration/direct-mount-boundary.integration.test.ts",
+      "level": "integration",
+      "kind": "integration",
+      "semanticTags": ["docker-isolation", "direct-mount", "synthetic-probe"],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["unapproved_docker_execution_absent", "primary_cleanup_failures_distinct"],
+      "mandatoryByDefault": false
+    },
+    {
+      "id": "version-control:integration:git-read-command",
+      "owner": "version-control",
+      "path": "40_Develop/version-control/tests/integration/git-read-command.integration.test.ts",
+      "level": "integration",
+      "kind": "integration",
+      "semanticTags": ["version-control", "diff", "git-process-boundary"],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["external_helpers_not_started", "index_unchanged", "literal_path_preserved", "external_filter_rejected"],
+      "mandatoryByDefault": true
+    },
+    {
       "id": "version-control:integration:repository-worktree-view",
       "owner": "version-control",
       "path": "40_Develop/version-control/tests/integration/repository-worktree-view.integration.test.ts",

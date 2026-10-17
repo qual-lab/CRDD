@@ -1,8 +1,12 @@
 # Coordinator Runtimeの実行アーキテクチャ
 
+[Workspace再編の目標責務](../orchestrator/03_Workspace.md#3-packageの責務と依存方向)により、本領域は単発AIの調整・取消・通知・結果返却へ縮小する。通常実行はOrchestrator経由とし、業務永続状態・Workspace／Candidate寿命・採用・Promotionを所有しない。以下の現行state・Bundle Store・workbench-ai・Host相関は移行元であり、対応能力の接続前に撤去しない。DI完成を新Workspace借用の検証済み根拠にしない。具体切替・API・Schemaは未完了。
+
 成果物種別: Architecture詳細設計
 詳細設計領域: coordinator
 状態: Candidate
+
+Workspace新方式の情報区分・隔離は[DI共通方針](../docker-isolation/01_Architecture.md#workspace-isolation-policy)に従う。開発用`.env`がCoding AIから読まれ得るリスクの受容を、全秘密の公開・CRDDによるPrompt／logへの明示複製・本番資格の注入許可へ拡張しない。Direct／Candidateで同じ隔離方針を使い、Coordinator固有Secret管理やfile別ACLを追加しない。以下の現行秘密拒否・投影・Provider認証保護は移行元として用途別に照合し、Source切替前に一律撤去しない。
 
 Provider計画の投影では、Proxy包装の解釈とContainer内Homeの定数生成をDIへ委譲し、元Providerと返却profileの相関だけを判定する。Seccompの適用要否と期待Hash／bytesはProvider metadataからDI計画へ渡し、固定Host Pathの解決・実体照合・option構築はDI内に閉じる。旧Coordinator側のFilesystem Resolverを再実装しない。上位の計画投影と元Runtime相関は`provider/isolation-execution.ts`、実行許可・取消・通知・結果調整は`provider/execution-controller.ts`、公開固定理由は`provider/execution-result-reasons.ts`、Taskの現在状態・排他・受領・終了は`task/recovery.ts`が所有する。旧`docker-desktop/`と`docker-execution/`は撤去し、互換中継を残さない。この配置だけから全体の技術依存除去・実境界成立を主張しない。
 

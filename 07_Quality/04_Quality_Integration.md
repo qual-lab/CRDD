@@ -1,5 +1,15 @@
 # Quality Integration
 
+## Workspace方式の追加統合（2026-10-17）
+
+秘密区分の変更は隔離義務QA-000006の既存Local Itemへ条件追加し、[DI共通方針](../06_Architecture/Details/docker-isolation/01_Architecture.md#workspace-isolation-policy)をDirect／Candidateへ同じ基準で適用する。開発用`.env`の許容と、本番資格・Provider認証・AM鍵の保護を分離する。旧隠蔽試験は当時の反例として保持し、新方針の不合格や正式Passへ流用しない。件数・正式Not Runは変更しない。
+
+Merge後分析と資料更新はTask義務`PRL-ST-001`／`PRL-IT-013`、保存義務`RDL-IT-001`／003へ接続する。分析失敗・取消・再入場、元Merge結果／Ref保持、自動Rollback／修正／Merge再発行0、対象Commitと資料保存の相関を分ける。RFD-IT-029のGit処置だけで後続分析・資料更新の成立を代替しない。
+
+[ARCH追加分析](Analysis/ARCH/quality_analysis.md#workspace方式からの追加導出2026-10-17)の六導出を、Task＝QA-000003、コード候補／人間採用＝QA-000005、隔離＝QA-000006、Repository／内容認可／Git境界＝QA-000007、配置・保持＝QA-000008へ統合する。単純なArtifact増加でQA-IDを追加しない。実Git Worktree／Branch／MergeのLifecycleは既存読取りOracleに収まらないため`RFD-IT-029`をNewとし、他は既存Local Itemの方式別追加条件とする。Direct CRUD・Topic／Meeting提案の意味をコードCandidateへ吸収しない。
+
+現設計集合は13定義・198 Local Item。追加は1件、試験実行・正式Pass増分は0。新方式はすべてNot Runであり、旧Bundle／DI／共有入口のEvidenceは旧対象へ維持する。変更した義務へ適用できない元結果を、新方式の現在Passへ集約しない。詳細なOracle・観測は各QA定義、対象別実行計画は[検証設計](03_Verification_Design.md)が所有する。以下の旧局所経過は当時の結果として保持する。
+
 2026-10-13の旧Shared Host撤去候補：旧GatewayのREST／MCP同一Origin、health、HTTP入口stdin EOFは廃止対象で、新しい二Surfaceの義務へ移植しない。TLS／Origin／Signal／Socket終了は現streamable-http、現在認証・非開示・Profile／活動／内容／Relationはaccess-capabilities、残す4 Adapter Caseはai-profile-adapter／runtime-activity-adapterへ接続する。旧GatewayのRFD-ST-004観測は過去Evidenceとして保持し、新STのPassへ流用しない。正式191項目・QA ID・Not Runを維持する。以下の旧局所結果と未接続表示は当時の範囲である。
 
 成果物種別: Quality統合分析

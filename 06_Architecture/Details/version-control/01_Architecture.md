@@ -1,8 +1,16 @@
 # Version Control境界
 
+Workspace再編で追加するGit操作は[Workspace詳細](../orchestrator/03_Workspace.md)を入力に設計する。明示要求のWorktree／Branch作成・除去、固定Commit、3-way競合計算、Merge取込と共有Git整合を本領域が技術的に担当し、寿命・採否・操作許可はOrchestratorへ残す。以下の既存worktree-viewはTree／Diff読取りであり新操作の実装根拠ではない。新操作の公開API・dirty／中断契約は未確定。
+
 成果物種別: Architecture詳細設計
 詳細設計領域: version-control
 状態: Canonical
+
+### Workspace切替前の共通読取り
+
+Tree／Diffの既存二Adapterは、Package内部の`git/read-command.ts`でdiff／ls-filesの既定起動だけを共用する。親Git環境とglobal／system設定からの対象差替えを防ぎ、Git管理情報と作業Treeを指定Rootへ固定する。外部Diff・textconv・fsmonitor・pager・lazy fetchとoptional lockによる任意更新を抑止し、literal Pathを扱う。2MiB／16MiBの既存上限・30秒・利用側の失敗分類・注入Runnerは維持する。新しい公開API・State・Lock・Git実装Frameworkは作らない。これは二Adapterの有限操作だけで、Status／Log・全Git操作・Direct全体の安全やWorktree管理API完成を意味しない。実装と試験の現在結果は[差分と実装順序](../../../99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#10-新方針と既存実装の差分実装順序2026-10-17)へ接続する。
+
+diff前には同じRoot・固定環境で標準Gitの設定名だけを有界観測し、clean／process filterがある場合は観測を拒否する。変換処理の独自実装・設定の強制上書き・属性や改行変換全体の削除は行わない。Git LFS等のfilter利用Repositoryの差分は現経路では未対応となり、空差分や成功へ補完しない。設定なしは正規のexit1・stdout空・起動errorなしだけで確認する。二要求の合計待機枠は従来の30秒以内に収める。設定観測とdiffの間に非協調のHost操作者が設定を変更する場合の原子性は保証せず、新しいLockや監視を追加しない。
 
 ## 基本設計との関係
 
@@ -304,7 +312,7 @@ v0.21 Phase 4では、`template/tools/crdd-check.ts`が同じCRDD基準版Root�
 - Git以外のAdapter実装はv0.21の必須範囲にしない。ただしPortはGit固有語彙を公開しない。
 - Git操作全般を提供する汎用Libraryや、任意Command実行入口は作らない。
 - Git履歴が不要なRuntime DataをVersion Control Componentへ移さない。
-- Remote Repository Hosting、認証情報管理、Pull、Force Push、Branch作成、Merge、RebaseおよびServer側Git管理は対象外とする。通常Pushは確認済みUpstreamへの限定Effectとして扱う。
+- Remote Repository Hosting、認証情報管理、Pull、Force Push、RebaseおよびServer側Git管理は対象外とする。Branch／Worktree作成・MergeはWorkspace再編の明示要求に限定して設計対象へ戻すが、一般Git管理機能へ拡張しない。通常Pushは確認済みUpstreamへの限定Effectとして扱う。
 - Object Format差、submoduleおよびlinked worktreeで保持すべき既存Capabilityは、段階移行の実測で再確認する。
 
 ## Implementation Structure

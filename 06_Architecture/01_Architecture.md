@@ -1,5 +1,7 @@
 # CRDD参照Toolのアーキテクチャ
 
+2026-10-17のWorkspace再編は[作業領域と実行基盤の責務設計](Details/orchestrator/03_Workspace.md)を横断契約とする。Direct／Isolated、Repository所有、通常AI実行のOrchestrator経由、Coordinatorの単発実行への縮小を目標へ反映した。基準実装と未決事項を分け、Source・公開Schema・移行・新方式検証は未完了。以下の基準版Readyは本変更へ継承しない。
+
 Status: Candidate (v0.22.0, 責務再編の基本設計を更新中)
 Owner: Qual-Lab
 Last Updated: 2026-10-11

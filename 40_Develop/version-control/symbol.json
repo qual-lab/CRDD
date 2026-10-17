@@ -4,6 +4,24 @@
   "subsystem": "version-control",
   "symbols": [
     {
+      "symbolId": "version-control.git-read-command",
+      "kind": "file",
+      "path": "src/git/read-command.ts",
+      "archIds": ["ARCH-000002", "ARCH-000009"]
+    },
+    {
+      "symbolId": "version-control.test.integration.git-read-command",
+      "kind": "test-suite",
+      "path": "tests/integration/git-read-command.integration.test.ts",
+      "qaIds": ["QA-000007"],
+      "localTestIds": ["RFD-IT-005", "RFD-IT-008"],
+      "verifies": [
+        "version-control.git-read-command",
+        "version-control.git-repository-worktree-view-adapter",
+        "version-control.source.src.git.local.change.set.adapter"
+      ]
+    },
+    {
       "symbolId": "version-control.public-api",
       "kind": "module",
       "path": "src/index.ts",

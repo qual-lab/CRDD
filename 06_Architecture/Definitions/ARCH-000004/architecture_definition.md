@@ -11,12 +11,12 @@ Architecture ID: `ARCH-000004`
 
 | 区分 | 内容 |
 |---|---|
-| 状態Owner | 上位Project／Task状態: Orchestrator。単一実行・資源状態: Coordinator |
+| 状態Owner | 上位Project／Task／Workspace状態: Orchestrator。単発AI実行の調整: Coordinator。Docker技術資源: Docker Isolation |
 | 所有する責務 | Objective／Task受付、Project-level状態、判断待ち、取消、Recovery義務、再入場、結果 |
 | 所有しない責務 | Provider選定、OS操作、Transport、人間の採用判断 |
 | 主な外部境界 | Coordinator公開API、状態Store、人間判断 |
 
-実装Ownerは、上位の編成（Orchestrator）、単一実行（Coordinator）、AI固有接続（AI Adapter）へ分ける。OrchestratorはObjective／Taskの進行、判断点、再入場と結果を所有し、Coordinator公開APIを直接呼ぶ。Coordinatorは単体利用でき、実行・Review・取消・Docker資源の終了を所有する。Provider別CLI・認証・入力／出力・ProfileはAI Adapterへ閉じるが、実行Authorityと資源回収を移管しない。
+目標Ownerは上位編成・WorkspaceのOrchestrator、単発AI実行調整のCoordinator、AI固有接続のAI Adapter、Docker技術資源のDocker Isolationへ分ける。Orchestratorは通常AI実行を受け付け、Coordinator公開APIを直接呼ぶ。Coordinatorは実行・Review・取消・通知・結果相関を調整し、Docker資源の技術的終了はDIが所有する。直接入口は開発／試験・単発診断に限定し、認可・隔離を迂回しない。Provider別CLI・認証・入出力・ProfileはAI Adapterへ閉じる。Direct／Isolatedの意味と永続責務の移管は[Workspace詳細](../../Details/orchestrator/03_Workspace.md)へ接続し、目標の伝播をSource切替済みと表示しない。
 
 通知はCoordinatorが定義する関数をOrchestratorが登録する。CoordinatorからOrchestratorへのimport、上位型の注入Frameworkや汎用Event Busを追加しない。取消の受付、Process終了、資源回収、上位Taskの確定は別の結果であり、通知一件だけで全体完了としない。以下の入力表に残るOrchestratorは上流の論理状態責務を表し、旧Packageの存続を要求する名称ではない。
 

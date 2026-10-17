@@ -1,5 +1,7 @@
 # ユーザー・資格・認可の詳細設計
 
+[Workspace対象と内容領域の分離](../orchestrator/03_Workspace.md#2-方式識別所有境界)を適用する。既存development／managementのworkspaceId(s)はcontentAreaId(s)へ改名する設計対象で、意味・権限を新Workspaceへ自動転用しない。共有接続の操作ごとに現在のRepository／内容範囲と要求操作を評価し、対象IDだけで許可しない。具体的Workspace操作の認可要求・Schema・Consumer切替は未決であり、一般IAMや新しい権限Frameworkは追加しない。
+
 成果物種別: Architecture詳細設計
 詳細設計領域: access-management
 状態: Candidate（保存・Host CLI・Workbench／MCP公開入口のSource接続と局所確認済み。固定候補の最終回帰・独立確認は進行中。実Host ST／人間UAT・正式191項目の全体評価は未完了）

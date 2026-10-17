@@ -1,5 +1,7 @@
 # Orchestratorの状態・資源詳細設計
 
+Workspace方式の目標は[作業領域の横断契約](03_Workspace.md)に従う。現行のTask／Attempt／Queue／保存・判断を再利用し、RepositoryとWorkspaceの対象結合、Workspace単位の競合変更と共有Git／正本／Provider資源の排他を分ける。下記の現Schema、Bundle参照、binding-wide Lease、同Process配送閉包は移行元の能力であり、新方式の確定API・保存形式ではない。旧状態を機械コピーせず、元Effect・未解決・結果参照を失わない切替契約を設計する。実装・移行・新方式検証は未完了。
+
 状態: 設計候補
 担当責任者: Qual-Lab
 最終更新日: 2026-10-08

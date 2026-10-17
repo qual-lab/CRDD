@@ -1,5 +1,7 @@
 # 現行実装との照合
 
+Workspace方式のArchitecture／Quality反映後は13定義・198 Local Item。新RFD-IT-029のSource／Test Symbol接続は0・Not Run、既存Local Itemへ追加した新方式条件もNot Run。現Sourceは基準`a04ecb70`のままであり、旧Host Candidate Store、Workspace未識別Queue、Workbench専用AI経路は[棚卸し](../99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md)の移行元として残る。新契約の実装済み・関係全件成立・実Git／Mount成立は主張しない。以下の197件・DI局所完成は基準対象の根拠である。
+
 2026-10-17の追加実測では、公開CLIの実Ctrl+Cと、executor完了後のreviewer準備中のCLI親喪失を別に確認した。親喪失で検出したReceipt保存中断と既回収Hostの先行記録終端を限定是正し、両元回復IDの正式終了、履歴、全排他解放、正式Reader revision72・操作0／未解決0／配送0を確認した。実Docker試験資源と合成Repository追跡差分は0。executor実行中の親喪失・公開JSONの成功を補完しない。009のWindows自動disposal失敗は承認済みWSL保守と同ID正式終了へ接続したが、自動回収・Continuation全枝の実証にはしない。
 
 同完成監査で再認証の技術構築と旧Docker環境profileの上位残存2件を検出し、既存DI Factoryへの移管・旧profile撤去を実装した。DI337/337、実Host Process7/7、認証隣接30/30、先行する状態回収の実Windows42/42が成功し、Source限定再レビューは両観点残指摘0。最新Coordinator通常全回帰は1,926件中1,912成功・9失敗・対象外5。全失敗が同じ試験VM結合漏れであることを確認し、そのFileだけを是正して全24件成功・静的検査成功・両レビュー指摘0。未変更母集団との対応評価は1,921成功・対象外5・未解消失敗0で、元全回帰Failを保持し単一run全緑とはしない。現在文書・台帳と設計完成条件を照合し、DI Packageの実装・検証は完了。全197項目Passや実Provider全E2Eの完成ではない。通常RuntimeのCRDD署名は撤去され、旧署名候補の不足を現在の起動条件として再要求しない。以下の旧署名・191項目・172項目等の記録は当時の履歴であり、現在の集合・完成根拠と区別する。

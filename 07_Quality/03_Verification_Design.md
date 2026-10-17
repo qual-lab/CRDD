@@ -6,6 +6,24 @@
 
 ## 1. 本書の責務
 
+### Workspace方式の段階別検証計画（2026-10-17）
+
+Direct／Candidate共通隔離と開発情報の許容は[QA-000006の新条件](Definitions/QA-000006/quality_definition.md#workspace方式の追加検証条件2026-10-17)で評価する。dummy開発用`.env`の読取りを新たなFailにせず、必要な書込み・認証境界と用途別RWを実測する。本番Secretの通常開発環境への非配置・開発資格の権限／期限は既存管理の構成・運用レビューで確認し、模擬資格やContainer成功を実Cloud権限の証明へ変換しない。新方針の実装・実境界はNot Run。
+
+Merge後分析・資料保存は、`PRL-IT-013`と`RDL-IT-001`／003の実保存・再入場から、`PRL-ST-001`の通常Task公開経路へ接続する。正常・失敗・取消・保存不明・対象更新を反証し、先行Mergeの結果／Refと対象Commitを保持する。分析段階の自動Rollback／追加修正／Merge再発行0をOracleとし、古い／未保存資料から現在の分析完了を推定しない。
+
+新方式は設計伝播段階で全件Not Run。定義と導出は[ARCH追加分析](Analysis/ARCH/quality_analysis.md#workspace方式からの追加導出2026-10-17)、統合は[Quality Integration](04_Quality_Integration.md#workspace方式の追加統合2026-10-17)を参照する。基準DI完成と旧Candidate試験を新版へ流用しない。
+
+| 段階 | 対象・実観測 | 先へ進む条件 |
+|---|---|---|
+| 静的・契約 | ARCH／QAの導出・Owner・全Consumer・新旧Oracle・Schema／用語・探索除外 | 未決の書込み許可・Git共有境界・dirty・Commit時点を閉じる。新Source／通信の実装前に固定 |
+| UT | 対象結合、方式・状態・認可・保持、入力・競合分類 | 値の判定だけを実Git／実Mount成功へ変換しない |
+| IT | RFD-IT-029の実Git lifecycle、実保存／複数Process、現在認可、実Mount・Process取消と成果保全 | 主要経路と同じ単位の失敗・cleanup・再入場、実ID／元Revision・終了後条件が揃う |
+| ST | 通常AIのOrchestrator経路、Workbench／MCP／CLI、実取消・親喪失・結果と採用待ち、Repository間非開示 | 必要なITを先に通す。未接続の専用助言／候補経路を残して共通化完成としない |
+| UAT | Direct／Isolated・内容領域・対象Commit、Merge／分析／Promotion／破棄の意味と人間判断 | 利用者が対象・未完了・残存・採用影響を説明できること。未実施を自動Passにしない |
+
+実Gitは合成Repositoryで作成・登録・Ref・取込・除去・中断を観測する。実Docker／外部AI・破壊操作は対象・影響・上限・清掃を明示した許可後に実行し、今回の設計更新では行わない。PT／LTは現在固定された性能閾値がないため今回追加実行しないが、並行性の機能保証はIT／STで必須とする。Multi-host保証は今回の対象外。実行結果の記録は既存Owner成果物に要点・適用範囲を残し、実行ごとの巨大Evidence書庫を作らない。
+
 本書は、Quality工程全体で検証対象をどの段階へ割り当て、どの条件で実行・記録・評価するかを示す横断計画である。個別の検証条件や試験項目は[Quality Definition](Definitions/)が、上流からの導出は[Quality Integration](04_Quality_Integration.md)が、現行Source・Test・Evidenceとの対応は[現行実装との照合](05_Current_Implementation_Reality_Audit.md)が所有する。
 
 ```text

@@ -9,7 +9,7 @@
  * @effect Git MetadataとWorktreeを読取るだけである。
  * @security Shellを使わず固定Commandと`--`区切りだけを実行する。
  */
-import { spawnSync } from "node:child_process";
+import { runGitReadCommand } from "./read-command.ts";
 
 import type { RepositoryWorktreeViewAdapter } from "../repository/worktree-view.ts";
 
@@ -33,14 +33,11 @@ const MAX_PATCH_BYTES = 256 * 1_024;
  * @concurrency 呼出しごとに同期Processを所有し、Handleを保持しない。
  */
 function executeGit(repositoryRoot: string, gitArguments: readonly string[]) {
-  const result = spawnSync("git", gitArguments, {
-    cwd: repositoryRoot,
-    encoding: "buffer",
-    windowsHide: true,
-    shell: false,
-    timeout: 30_000,
-    maxBuffer: 2 * 1_024 * 1_024,
-  });
+  const result = runGitReadCommand(
+    repositoryRoot,
+    gitArguments,
+    2 * 1_024 * 1_024,
+  );
   if (result.error !== undefined || result.status !== 0)
     throw new Error("repository_worktree_observation_failed");
   return result.stdout;
@@ -117,6 +114,7 @@ export const gitRepositoryWorktreeViewAdapter: RepositoryWorktreeViewAdapter = (
           "diff",
           "--cached",
           "--no-ext-diff",
+          "--no-textconv",
           "--no-renames",
           "--unified=3",
           "--",
@@ -127,6 +125,7 @@ export const gitRepositoryWorktreeViewAdapter: RepositoryWorktreeViewAdapter = (
         executeGit(repositoryRoot, [
           "diff",
           "--no-ext-diff",
+          "--no-textconv",
           "--no-renames",
           "--unified=3",
           "--",

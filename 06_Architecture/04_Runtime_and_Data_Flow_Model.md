@@ -1,5 +1,7 @@
 # Runtime／Data Flowモデル
 
+新方式の流れは[Workspace契約§3〜5](Details/orchestrator/03_Workspace.md#3-packageの責務と依存方向)を正本とする。明示対象→現在認可→OrchestratorのTask→Coordinator→AI Adapter／DI→結果・必要なGit成果→人間判断であり、CRUDはDomainへ直接接続できる。コード成果の固定と提案一般の保存を分ける。旧Bundle Storeを通る以下の経路は基準実装の移行元で、新方式の接続済み根拠にしない。
+
 Status: Candidate (v0.22 responsibility reorganization)
 Owner: Qual-Lab
 Last Updated: 2026-10-11

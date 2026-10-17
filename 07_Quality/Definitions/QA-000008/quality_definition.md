@@ -1,5 +1,13 @@
 # QA-000008 Runtime Dataと資源Lifecycleの検証定義
 
+## Workspace方式の追加検証条件（2026-10-17）
+
+Merge分析資料は既存`RDL-IT-001`／003へ追加する。最初のMergeでの`merge-result.md`生成と後続Mergeでの更新、対象Workspace・取込Commit・分析Taskとの相関、要点・未解決事項・Decision参照の保存と読戻しを確認する。保存拒否・読戻し不明・中断・対象更新時は資料の未確定／古さを表示し、分析完了と誤認しない。保存失敗を先行Mergeの未実施・自動Rollback・成果削除へ変換せず、同じ対象の未完了保存へ戻る。Task／Decision本文や全ログを重複した正本として蓄積しない。
+
+[Workspace詳細](../../../06_Architecture/Details/orchestrator/03_Workspace.md)の`domain-model.workspace-placement`（ARCH-000011／000009）を導出する。`RDL-UT-005`はDirect／Isolated・一時資源／継続成果・参照中／清掃可能の分類、`RDL-IT-001`／004はTool Runtimeと対象Repository、linked worktreeから所属Rootへの解決、一般再帰／AI収集／Build入力の除外と明示読取りを確認する。`RDL-IT-003`／`RDL-ST-002`は実行失敗・取消・途中破棄で既存成果と参照を保全し、許可された実行資源だけを回収する。`RDL-UAT-006`は継続Workspaceの保持・破棄と未解決資料を利用者が区別できるか評価する。旧Candidateの168時間や通常履歴の30日をWorkspace一律削除へ転用しない。共通Tool Runtimeのログ／Cache／一時物へ他Repositoryの本文・秘密値を混在させず、確認不能を不存在にしない。
+
+本節の新方式はすべてNot Run。既存Local Itemの元結果・旧方式のEvidenceは維持し、新方式の実装／接続／実測へ継承しない。詳細Schema・操作許可・dirty／Commit処理の未決は該当実装前の停止条件とする。条件区分は正常・境界・準正常・異常・回復を扱い、UTの値判定、ITの実保存／実Git／実Mount、公開ST、利用者UATを相互代替しない。
+
 成果物種別: Quality定義
 Quality ID: `QA-000008`
 検証目標: Repository-local `.crdd`とOS管理Runtime Rootにおける用途、Owner、耐久性、保持、清掃および回復を全Lifecycleで確認する

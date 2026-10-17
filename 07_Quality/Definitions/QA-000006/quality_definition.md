@@ -1,5 +1,15 @@
 # QA-000006 外部実行境界の検証定義
 
+## Workspace方式の追加検証条件（2026-10-17）
+
+現在のSecret区分は[DI共通方針](../../../06_Architecture/Details/docker-isolation/01_Architecture.md#workspace-isolation-policy)を正本とする。Direct／Candidateに同じ技術方針を適用し、開発用`.env`のdummy内容が読めること自体をFailにしない。`ERB-IT-001`〜004の追加条件は、Repository外・Git実管理領域・`.crdd`の書込み境界、Provider認証等の保護、用途別RW、取消／回収とする。本番SecretをGit・通常開発環境へ置かないこと、開発資格の本番権限なし・限定権限・期限は既存管理の構成・運用確認で評価し、模擬値やDIの成功を実Cloud権限検証へ流用しない。未確認は未評価として残し、自動Cloud検査や新しいRuntime Gateを捏造しない。旧隠蔽試験のFailは歴史として保持するが、新方針の不合格へ流用しない。Source共通化・新条件の実境界はNot Run。
+
+[Workspace詳細](../../../06_Architecture/Details/orchestrator/03_Workspace.md)の`docker-isolation.workspace-borrowing`（ARCH-000008）を追加する。`ERB-UT-023`は読取り助言／許可された変更依頼の分類と最小投影、`ERB-IT-001`〜004は新対象からの実Mount・Process開始／終了・取消・一次失敗とcleanup・観測不能を確認する。`ERB-ST-005`／030は通常公開Taskの結果と、実取消・親喪失後の同対象再入場を相関する。Git Worktreeの分離をSandboxとみなさず、未許可Repositoryへのアクセスと、共有Git管理情報への書込みを拒否する。Direct AI書込み／共有Gitの許可が未決なら新Effect前に停止し、継続Workspace・元変更・他Task成果の保全と実行資源の回収を別に観測する。基準DI完成は新方式の実Mount・全Provider経路の成功証拠にしない。
+
+本節の新方式はすべてNot Run。既存Local Itemの元結果・旧方式のEvidenceは維持し、新方式の実装／接続／実測へ継承しない。詳細Schema・操作許可・dirty／Commit処理の未決は該当実装前の停止条件とする。条件区分は正常・境界・準正常・異常・回復を扱い、UTの値判定、ITの実保存／実Git／実Mount、公開ST、利用者UATを相互代替しない。
+
+2026-10-17のDirect最小構成の合成実証は、`direct-mount-boundary.integration.test.ts`で`ERB-IT-001`／002の設計調査用の限定断面として実行した。通常編集・固定Pathの11観測後、hardlink別名による元dummy内容の読取りでFail停止し、二構成目・後続刺激はNot Run。Git書込み・秘密file別名読取り・全Directの失敗を実測したとは扱わない。Host不変と試験物回収を確認し、結果・限界は[変更の調査記録](../../../99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#承認済み一回の実証結果と終了2026-10-17)へ接続する。この限定反証は新方式Local Item全体の正式結果ではなく、上記Not Runや既存Evidenceを上書きしない。
+
 公式配置Imageの`ERB-IT-031`は、既存Host専用試験の独立Caseで通常entrypointの版表示と三実行物Hash取得を分離し、実Image IDで結合する。AI Adapterの固定配布Identityを期待正本とし、Image既定entrypoint／User／Workdirと各Containerのnone・非root・read-only・cap-drop・no-new-privileges・Host mountなしを実inspectで確認する。Warningは有界の元stderrを用途別に保持し、消去や空への正規化をしない。元ID・名前・Label・構成の再確認後だけ自己資源を回収し、ID／名前／Labelの不存在とRoot清掃後だけ完了を表示する。作成結果不明では名前だけで削除しない。通常Profileの純粋Oracleは誤版・各Hash差／欠測／余剰・別Image・出力／終了不明と一次／清掃失敗の三組合せを反証する。この配置物確認を再Build、取得元再検証、Code Mode Host機能、認証、助言・取消やProvider E2Eの成立に拡張しない。
 
 Native検証Toolの通常構築は`native-tool-process.contract.test.ts`で、`ERB-IT-001`／`ERB-IT-002`の局所断面として確認する。三Toolの四Cargo helperの実本文から固定argv／optionsを照合し、三Toolのartifact選択は正常一件・0件・2件・nonfile・link・nlink差・realpath差を区別する。実spawn〜close断面は仮子・仮timerで構成を照合し、error／exitだけで未完了、close後の完了・timer解除・Signal listener解除を確認する。実Cargo／Native／OS資源を生成せず、実Build、Tool全体、実Native終了・回収、Docker・Provider・E2Eの成立は主張しない。旧Source graphの任意改変拒否を再実装しない。

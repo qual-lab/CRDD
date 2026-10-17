@@ -1,5 +1,7 @@
 # Orchestratorの詳細アーキテクチャ
 
+Workspace再編の現在目標は[作業領域・責務契約](03_Workspace.md)。通常AI入口、Workspace寿命、Task／Queue、コード候補の固定要求・採否、Promotion統制を本領域が所有する。Git・認可・隔離・Domain技術を所有しない。以下のBundle依存・Workspace未識別Queue等は基準実装の移行元であり、新方式の本番接続済みとは扱わない。
+
 成果物種別: Architecture詳細設計
 詳細設計領域: orchestrator
 状態: Candidate

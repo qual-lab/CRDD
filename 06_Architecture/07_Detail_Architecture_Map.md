@@ -1,5 +1,7 @@
 # Architecture詳細設計の対応表
 
+[Workspace横断契約](Details/orchestrator/03_Workspace.md)をOrchestrator詳細へ追加する。既存ARCH-000004／008／009／011／012／013／015の担当断面を接続し、独立Subsystemや新ARCH-IDは作らない。Git技術・Domain・認可・隔離の意味は各Ownerへ維持する。新方式のRelationは設計接続でありSource／検証完了を示さない。
+
 成果物種別: Architecture詳細設計の統合投影
 状態: Candidate（ARCH-000013初回Host設定の伝播断面）
 維持責任者: Qual-Lab

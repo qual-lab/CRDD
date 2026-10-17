@@ -7,6 +7,8 @@ Architecture ID: `ARCH-000011`
 
 ## 1. 責務と境界
 
+Workspace方式のRepository所有・Direct／Isolated配置・保持と一時資源の分離は[Workspace詳細§4〜5](../../Details/orchestrator/03_Workspace.md#4-配置とroot解決)で具体化する。継続WorkspaceをtemporaryとしてTask終了時に清掃せず、旧Candidate期限を一律削除期限へ流用しない。Tool RuntimeのCWDへ製品固有情報を集約しない。新配置への移行・参照中成果の保全は未実施。
+
 temporary／durable／recovery_required／cleanup／unknownを用途別に分ける。Repository-local情報を自Repoに集約し、横断CROS状態はOS管理Rootへ分離する。
 
 | 区分 | 内容 |

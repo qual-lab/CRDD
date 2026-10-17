@@ -1,5 +1,7 @@
 # CRDD内部ツールの品質の現在状態
 
+Workspace方式の現設計集合は13定義・198 Local Item（RFD-IT-029を1件追加）。[追加統合](04_Quality_Integration.md#workspace方式の追加統合2026-10-17)と[新方式の検証計画](03_Verification_Design.md#workspace方式の段階別検証計画2026-10-17)へ接続した。新方式の検証結果は全件Not Run、既存197件時点の試験／Evidence・DI完成は基準対象に限定する。設計反映を実装・移行・全体Readyへ換算しない。以下の197等の件数はWorkspace追加前の対象として区別する。
+
 状態: Quality Design In Progress — Latest Contract Propagation
 担当責任者: Qual-Lab
 最終更新日: 2026-10-17
@@ -102,9 +104,9 @@ Access Management再編の17義務は、承認済みPortfolio是正・局所反�
 |---|---|---|
 | 全体状態 | ⑥の品質整合・正式評価を進行中 | 全体Quality Ready・リリース可能とはしない |
 | 現在対象 | v0.22.0 | CHG-000082の実行系再編を作業中。AM・Domain・Workbench・MCPの限定結果は保持する。CROSは全体概念であり旧Packageではない |
-| 設計集合 | 13定義・197 Local Item | ERB-UT-039追加後の現物集合（2026-10-17）。設計件数であって実行／Pass件数ではない。旧修復専用4 Suiteは撤去し、ERP-IT-001は既存Execution Intelligence ITの二Producer接続へ補強した。歴史的非適用IDと旧191件の履歴は変更しない |
+| 設計集合 | 13定義・198 Local Item | Workspaceの実Git LifecycleをRFD-IT-029として1件追加。新方式は全件Not Runで、Source／Test Symbolの接続・実行／Pass件数は増えない。旧197件時点の結果・歴史的非適用ID・旧191件の履歴は変更しない |
 | 観測済み | 現Coordinator全回帰は1,926件中1,912成功・9失敗・対象外5。試験VM結合漏れだけを是正し全24件再検証成功 | 未変更母集団との対応評価は1,921成功・対象外5・未解消失敗0。元全回帰Failと適用限界を保持し、単一run全緑とはしない。DI337件・実Host Process7件・認証隣接30件・状態回収実Windows42件と独立レビューを完成条件へ照合。正式Local Itemの全体Passや実Provider全E2Eへ換算しない |
-| 未観測 | 正式197項目の全体評価、後続E2E・UATの未確認範囲を保持 | 初回実Host・鍵実入口・利用者理解等は後続E2Eで確認する。ERB-UT-039の局所成功を実Win32故障やDI回収成立へ換算しない |
+| 未観測 | 正式198項目の全体評価、後続E2E・UATの未確認範囲を保持 | 新Workspace方式はNot Run。旧197件時点の結果は基準対象へ維持する。初回実Host・鍵実入口・利用者理解等は後続E2Eで確認し、局所成功を実Win32故障や新Workspace回収成立へ換算しない |
 | 既知Gap | 全体Checker未合格、正式Evidence対応を再照合中 | 局所成功や関係の存在から全体完成を推定しない |
 | 局所根拠 | AM152 Case、MCP86 Case、Workbench78 Case成功 | 異なる局所実行と対象範囲を合算して正式義務の成立数にしない。実行方法・限界は変更計画を参照 |
 | 検査 | 全体Checkerの直前3341 errors・0 warningsは未解消 | 2026-10-17の直前CheckerはChanges内リンク等3321件とIA／UI／SPEC工程契約20件。031接続後のManifest再計数は197項目・Relationあり146／なし51、17 Manifest・774 Symbol、重複ID・未定義Local参照0。欠損Path・不明verifies参照0は先行全数照合の結果。Relation有無を実行／Passへ換算せず、Header全数・正式Evidenceの全体評価は未完了 |

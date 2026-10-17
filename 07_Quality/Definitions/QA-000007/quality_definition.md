@@ -1,5 +1,15 @@
 # QA-000007 リポジトリ境界とFederationの検証定義
 
+## Workspace方式の追加検証条件（2026-10-17）
+
+前提となる二AdapterのGit読取りは、既存`RFD-IT-005`／008の局所断面として`git-read-command.integration.test.ts`で確認する。外部Diff・textconv・fsmonitorの発火対照→新経路での非発火、元差分とindex bytes、親Git環境／core.worktree差替え、literal Path、linked worktreeを実Gitで観測する。起動失敗・期限・上限と既存理由の保持はProcess差替えで別確認する。新公開API・管理State・実Dockerは使わず、この局所改善をGit Worktree管理や新方式Local Item全体のPassへ昇格しない。
+
+clean／process filterは実Gitの発火対照を置き、新経路では設定存在時にdiffを発行しない拒否を確認する。標準設定観測の正規の不存在と異常・不正出力を区別し、拒否・不明で後続diff0をProcess差替えでも確認する。filter無効化による意味の違う差分は返さず、LFS等の未対応と設定観測の非原子性を限界として保持する。
+
+[Workspace詳細](../../../06_Architecture/Details/orchestrator/03_Workspace.md)のRepository／Workspace識別と内容領域分離（ARCH-000009／000013）を導出する。`RFD-UT-006`はID所属・操作・認可の純粋条件、`RFD-IT-001`／002／008は通常Root・linked worktree・submodule・入れ子・差替え・観測不能、`RFD-IT-009`は単体と共有入口の対象一致、`RFD-IT-013`は要求ごとの現在認可を確認する。`RFD-ST-003`／004は両Surfaceから許可外Repository・Workspace・内容の存在／Pathを開示しないこと、`RFD-UAT-007`は内容領域と作業対象の違いを評価する。既存workspaceId(s)の改名は通信・保存・Role／Exposure・全Consumerを同一切替対象とし、旧閲覧許可から新操作許可を自動発行しない。`RFD-IT-005`のAdapter読取り等だけではGit Worktreeの生成・取込を証明できないため、新規`RFD-IT-029`で実Gitの全Lifecycleを別に確認する。
+
+本節の新方式はすべてNot Run。既存Local Itemの元結果・旧方式のEvidenceは維持し、新方式の実装／接続／実測へ継承しない。詳細Schema・操作許可・dirty／Commit処理の未決は該当実装前の停止条件とする。条件区分は正常・境界・準正常・異常・回復を扱い、UTの値判定、ITの実保存／実Git／実Mount、公開ST、利用者UATを相互代替しない。
+
 `RFD-UT-006`の保存排他構築は既存root-and-lock UTで実private本文へ接続する。固定Worker URL、optionsの単一workerData、freezeされたendpoint／共有状態、Rootと相対Lock Pathの順序付きSHA-256導出、取得値1／-1／-2とrelease一回を局所代役で確認する。terminate要求を実Worker終了と同一視せず、実Worker・OS排他・解放不明後の再入場は既存の実試験が所有する。旧署名ASTの任意Source改変拒否は再実装しない。
 
 成果物種別: Quality定義
@@ -160,6 +170,16 @@ TTY／HTTP／Browserの提示観測、保存・資源終了、ユーザー理解
 6工程の情報源表と7品質分析から初回5項目とv2 SchemaのUT028へ統合する。完全なCanonical／Meaningの母集団は情報源表のREQ-000041、UX-000035、IA-000009、UI-000008、SPEC-000012、ARCH-000013と各既存qa-000007導出キーであり、上表は主たる観測Ownerを示す。工程固有の情報・体験・表示条件も情報源表から非UTの4項目へ接続する。複数Sourceの同じ意味を重複項目化しない。MCPの初回設定・状態照会非公開は[QA-000009／EST-ST-015](../QA-000009/quality_definition.md)へSame統合し、鍵の正のEffectと公開面の負の確認を分離する。初回5項目・UT028と更新EST-ST-015はNot Run。RFD-UT-023のSource／Test候補接続を除き、具体保存・サービス側提示／初回限定接続観測・Source／Test・実環境・Evidence接続はOPEN。正式評価はNot Runで、定義接続は実行・保証成立を意味しない。
 
 ## 二Surface再編の現在認可・鍵境界
+
+以下は既存二Surface契約である。新Workspace対象の認可・実Git操作については冒頭の追加条件と次の新規項目を適用し、既存Roleや閲覧範囲から新操作の許可を補完しない。
+
+### Workspaceの実Git Lifecycle
+
+導出元: Canonical ID `ARCH-000009`、Meaning／Obligation Key `version-control.git-workspace-lifecycle`、Source Model [Workspace詳細§5・§7](../../../06_Architecture/Details/orchestrator/03_Workspace.md#5-状態競合終了条件)、Model Item「Git作成・Merge・終了」。既存のTree／Diff読取りとは別のEffect境界のためNewとする。定義追加のみ、Source／Test Symbol未接続、実行結果Not Run。
+
+| Local ID | 条件区分 | 試験段階 | 試験種別 | 対象／境界 | 外部境界の段階 | 事前状態／入力 | 操作／刺激 | 観測 | Oracle | Evidence | 終了後条件 | 実行形態 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| `RFD-IT-029` | 境界 | IT | Git Lifecycle／Concurrency／Fault | Orchestrator明示要求→Version Control→実GitのWorktree／Branch／Ref | Direct Boundary | 同RepositoryのDirectと二Isolated、clean／dirty、固定対象Commit、参照中Commit、競合、別Processの共有Ref更新、作成／登録／取込／除去の各途中失敗 | 許可された作成・読取り・固定・Merge前計算・取込・除去を段階別に実行し、各故障点で同対象へ再入場する | 要求／受理／実Git結果、HEAD／Ref／Worktree登録／実体、元dirty・他Task成果、Lock解放、Task相関・記録と未解決参照を前後比較 | Direct選択だけではWorktree生成0。Merge前計算はTree／Branch更新0、Object生成を記録。明示取込前にRevision・認可・dirty方針を再確認。途中失敗を未発行へ巻戻さず二重取込0。参照中Commit・未保全成果の破棄0。不明は停止し別対象を処置しない | 固定Source／Git版・環境・合成Repository、段階と対象の相関、前後観測・失敗と再入場・Oracle判定。秘密値・製品本文・許可外Pathは保存しない | 短期Git処理・試験Process／Lockを終了。明示破棄した試験物の不存在と、保持対象・共有Git・他Workspaceの非破壊を確認。不明は同対象残件として保持 | Automated |
 
 最新の[Access Management詳細](../../../06_Architecture/Details/access-management/01_Architecture.md)、[Workbench詳細](../../../06_Architecture/Details/workbench-server/01_Architecture.md)、[MCP詳細](../../../06_Architecture/Details/mcp-server/01_Architecture.md)、[Domain詳細](../../../06_Architecture/Details/domain-model/01_Architecture.md)から導出する。旧CROS詳細は比較用であり、最新契約の正本にしない。
 

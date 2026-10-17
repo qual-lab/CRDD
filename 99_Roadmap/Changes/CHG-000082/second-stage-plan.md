@@ -1,13 +1,29 @@
 # 第二段階：責務・状態所有・実行境界の再編計画
 
 成果物種別: 変更計画
-状態: In Progress（Access Managementと公開入口の限定区切りを完了。後続E2Eを保持し、実行系の責務分離は設計照合から再開）
+状態: In Progress（Docker Isolation完成後、Workspace方式とCoordinator再編の棚卸し・詳細設計へ）
 対象変更: [CHG-000082](change.md)
 基準改訂版: `98cab6e3278a61684c557a6499cfb602e2d19111`
 維持責任者・採用決定権限: Qual-Lab
 最終更新日: 2026-10-17
 
 ## 1. 結論と実行境界
+
+新方針の現物差分と最初の実装（2026-10-17）: [差分・実装順序](workspace-runtime-inventory.md#10-新方針と既存実装の差分実装順序2026-10-17)を整理した。既存DIに`.env`別maskはなく追加不要、明示コピー防止のsecret検出は一括撤去しない。まずVCのTree／差分二Adapterを共通の有限Git読取りへ接続し、外部変換・親Git環境・対象差替えを抑止した。clean／process filter利用時は差分を未対応として拒否し、変換を独自再実装しない。新しい公開API・State・Lockなし。是正後の静的三軸と全50件成功、実Git局所とProcess差替えの根拠を分離する。Workspace管理・Direct接続・旧Bundle撤去は後続で、今回を全体完成としない。
+
+開発情報・共通隔離方針の採用（2026-10-17）: 人間はローカル開発用`.env`がCoding AIから読まれ得るリスク、本番SecretのGit／通常開発環境外での既存管理、開発資格の本番権限なし・限定権限・有効期限、Direct／Candidate共通DI方針を採用した。[DI正本](../../../06_Architecture/Details/docker-isolation/01_Architecture.md#workspace-isolation-policy)と[判断差分](workspace-runtime-inventory.md#9-開発情報と共通隔離方針の変更2026-10-17)へ反映する。独自Secret Manager・file別ACL・動的Mount許可Frameworkは作らない。以前の隠蔽試験は当時の反例として保持し、新方針の不合格へ流用しない。Git／内部状態書込み・認証領域等の境界は維持する。Source共通化・Cloud権限の実確認は未実施で、今回は文書伝播だけ。
+
+Direct限定実証の結果（2026-10-17）: 人間承認後、[棚卸し§8の結果](workspace-runtime-inventory.md#承認済み一回の実証結果と終了2026-10-17)の固定Image・合成Directory型一件を実行した。通常編集と固定Path保護の11項目後、hardlink別名から元dummy内容を読めたためFailで停止。これはGit書込み成功の実測ではなく、別名経由の書込み・秘密保護は未実証。二件目と後続刺激はNot Run、追加試験なし。Host保護対象不変・Container0・専用Root不存在を確認し、清掃で元Failを成功化しない。製品Sourceは不変更、Direct本実装は未着手。次は既存link／実体検査の再利用可能性を読取り評価し、新しい機構や試験を自動追加しない。
+
+Direct最小構成の実証計画（2026-10-17）: [棚卸し§8](workspace-runtime-inventory.md#8-directの最小mount案と限定実証計画未実装未実行)へ、現在TreeのRW共有と保護対象だけの空readonly Mount、合成物による正常対照・別経路・親差替え・Host不変・終了後確認を整理した。固定maskは未知秘密・実行中の新規秘密を包括せず、Direct全体の保護成立は未主張。既存Imageとexact試験Rootを固定し、別途実行許可を得るまで試験器作成・実Docker・Source本実装を行わない。
+
+Direct／Candidate方針訂正の現物照合（2026-10-17）: 人間は現在Treeと同一ファイルdirtyをDirectのInputにし、allowedPathsを指示・事後検証だけへ限定した。共有Gitの更新はVC、Candidateは固定Baseのclean Worktree、自動Commit／Promotion／Stash／Reset／Clean／Rollbackなしを採用した。[照合・変更／撤去候補・保証不足・代替案](workspace-runtime-inventory.md#7-directcandidateの簡素化方針と現物の再照合2026-10-17)を整理した。既存DIは単一作業Root bindで保護Pathの除外がなく、新Directの基本保護は未成立。Git読取りのtextconv等も未接続。複雑な機構を先に足さず、最小構成の成立確認計画を提示してから判断する。今回はSource・実データ・実Mount・Git書込みを変更／実行しない。下段のDirect／dirty一般方針の人間確認待ちはこの判断で解消し、技術構成・具体API等の未決と区別する。
+
+Workspace設計伝播の確認結果（2026-10-17）: 文書／ArchitectureとGap影響／Qualityの固定候補確認を一つの監査集合として実施し、全結果後に3指摘を統合した。ARCH-000015の旧Owner説明と目標の衝突、現在品質集合197／198の不一致、Merge後分析・資料保存のQA導出欠落を、両確認者との事前照合後に是正した。対象再レビューは両者残指摘0。構造Checkerは既知3341 errors／0 warningsから増分0、既存Runtime／Orchestrator Trace検査はaccepted、Semantic Registry二文書Hash一致、Local Item全数再計数198。新方式の試験結果ではなく設計伝播と参照整合の確認であり、実装／移行／新方式の実測は未実施。Direct AI書込み・共有Git許可・Commit時点／dirty・API／Schemaの未決が該当実装前の停止条件であることを維持する。
+
+Workspace契約のArchitecture／Quality反映（2026-10-17）: 人間指示により[OrchestratorのWorkspace横断契約](../../../06_Architecture/Details/orchestrator/03_Workspace.md)を新設し、中央モデル・責務定義・担当Package詳細へ伝播する。QualityはARCH分析→統合→既存QA-000003／005／006／007／008の方式別追加条件と新実Git項目RFD-IT-029へ接続する。新設はQA-IDでなくLocal Item一件で、設計集合13定義・198項目、新方式結果は全件Not Run。旧Candidateの正本Effect 0・採用時Commit／Push 0を新Git操作へ機械的に流用せず、コード候補・Direct編集・固定・取込とContext提案を分ける。今回の変更分類は複数正本・Package・Qualityへ及ぶ設計伝播で、着手前の契約・品質確認により意味の衝突を整理した。完成時は文書／不足影響の独立確認と差分・リンク・構造Checkerを実施する。準拠基準や公開Release判断を変えないため準拠監査は実施しない。Source・実データ・Ref・Docker・外部AIは変更／実行しない。Direct AI書込み・共有Git許可・Commit時点・dirty・API／Schema・実移行は該当実装前の停止条件として保持する。旧形式はフロントAIの確認・保全・清掃で切り替え、新Runtimeへ互換Readerを追加しない。
+
+次の再編範囲（2026-10-17）: 人間はCandidateをWorkspace方式へ変更する方針を提示し、まず現行保存先・能力・利用側・Queue／排他の棚卸しと対応表作成を指示した。[Workspace方式の棚卸しと移管対応](workspace-runtime-inventory.md)へ現物根拠、移管先候補、撤去条件、既存試験、必要な新検証、未決事項を整理する。新設WorkspaceはDirect／Isolatedの継続作業領域であり、既存の閲覧範囲や短命実行領域のworkspace表記は意味別の改名対象とする。今回は計画更新だけで、Source・Schema・実保存データ・Dockerは変更しない。次はArchitecture／Qualityの契約具体化であり、旧Candidate Storeを先に撤去しない。
 
 Docker Isolation完成照合（2026-10-17）: §5の静的検査、移管先回帰、本番Consumer結合、実Docker局所確認、固定候補の契約・品質独立レビューを確認し、本Packageの実装・検証を完了した。Docker技術処理は下位Root APIへ接続し、上位は既存の実行許可・正本保存・Task判断・通知伝播を所有する。旧CoordinatorのDocker両Folderとruntime、通常実行のCRDD署名前提は撤去済み。新State・Registry・Lock・Recovery Frameworkは追加していない。実Provider全E2E、後続Coordinator／Orchestrator再編、全197義務の正式再評価、全体Checkerの既知不合格は別の残件であり、本完了をv0.22全体完成・Release判断にしない。
 

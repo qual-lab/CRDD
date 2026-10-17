@@ -1,5 +1,7 @@
 # Component／責務モデル
 
+Workspace再編の状態Owner・所有禁止・依存方向は[横断契約§3](Details/orchestrator/03_Workspace.md#3-packageの責務と依存方向)を現在の目標とする。Workspace利用・Task・採用判断はOrchestrator、Git操作はVersion Control、単発AI実行はCoordinator、隔離資源はDocker Isolation。以下の旧構成のCandidate Store・Workbench専用AI処理は移行元であり、存続要件ではない。新方式は未実装。
+
 Status: Candidate (v0.22 responsibility reorganization)
 Owner: Qual-Lab
 Last Updated: 2026-10-11

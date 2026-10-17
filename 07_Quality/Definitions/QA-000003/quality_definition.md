@@ -1,5 +1,13 @@
 # QA-000003 Project実行と回復の検証定義
 
+## Workspace方式の追加検証条件（2026-10-17）
+
+Merge後分析は既存`PRL-ST-001`／`PRL-IT-013`へ追加する。Merge成功後の分析成功・失敗・取消・保存中断後再入場を分け、対象Workspace・取込Commit・Task・分析資料の相関、元Merge結果とRefの保持、分析段階からの自動Rollback／追加修正／Merge再発行0を観測する。先行する明示MergeのEffectを0とは主張しない。資料保存が失敗してもMerge未実施へ巻戻さず、分析未完了と必要な再分析・人間判断を返す。古いCommitへの分析を現在の完了へ昇格しない。
+
+[Workspace詳細](../../../06_Architecture/Details/orchestrator/03_Workspace.md)の`orchestrator.workspace-task-target`（ARCH-000004／000012）を追加条件として導出する。`PRL-UT-006`は対象結合・方式・状態判定、`PRL-IT-011`は同Workspace競合／別Workspace並行と共有資源制限・複数Process取得、`PRL-IT-012`はWorkbench／MCP／CLIの共通Task搬送、`PRL-IT-013`は元Attemptの再入場を確認する。`PRL-ST-001`／003／004は通常実行・取消・親喪失の公開経路で、Repository／Workspaceと開始・結果・保存・終了後資源を相関する。`PRL-UAT-002`は対象・判断待ち・再開を利用者が区別できるか評価する。取消時のContainer／Process回収を継続Workspaceの削除・resetへ変換せず、既存dirty・他Task成果の前後不変を観測する。旧Queue／Lease試験から新方式の並行・再入場成功を推定しない。
+
+本節の新方式はすべてNot Run。既存Local Itemの元結果・旧方式のEvidenceは維持し、新方式の実装／接続／実測へ継承しない。詳細Schema・操作許可・dirty／Commit処理の未決は該当実装前の停止条件とする。条件区分は正常・境界・準正常・異常・回復を扱い、UTの値判定、ITの実保存／実Git／実Mount、公開ST、利用者UATを相互代替しない。
+
 成果物種別: Quality定義
 Quality ID: `QA-000003`
 検証目標: Objectiveの受付からTask実行、判断、取消、回復、結果および終了後資源までを一つのLifecycleとして確認する

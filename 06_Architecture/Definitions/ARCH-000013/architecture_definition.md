@@ -18,7 +18,7 @@ Credentialから既存ユーザーを識別し、管理要求は現行Roleの固
 | 所有しない責務 | 一般IAM、メール・Password・本人確認・自己登録／自己編集・SSO、複数Role、個別追加権限、個人行動監査、Repository内部ACL、Transport／Server Lifecycle、Task取消、認可破損修復 |
 | 外部境界 | Remote Client、Host管理入口、既存Credential保存領域、Repository群。秘密値と許可外Identityを公開しない |
 
-同一ProcessのWorkbenchは認可を維持した内部能力呼出し、別Processは同じHostでもMCPを利用する。Local呼出しでも現在Role・操作権限・Exposure・失効・取得可能性を評価する。Domain Modelは認可済みRepository集合を入力にContextを集約し、CredentialやGrantを解釈して権限を決めない。公開操作の呼出し元はAccess Managementの認可を迂回させない。
+WorkbenchとMCPは、同一Hostの専門Package APIへ認可を維持して直接接続する対等な入口である。別Processであることを理由にWorkbenchをMCPへ依存させない。各要求で現在Role・操作権限・Exposure・失効・取得可能性を評価し、Domain Modelは認可済みRepository集合を入力にContextを集約する。CredentialやGrantの解釈をDomainへ持ち込まず、認可を迂回させない。既存の内容領域workspaceId(s)と新設Workspaceは[別の契約](../../Details/orchestrator/03_Workspace.md#2-方式識別所有境界)とし、内容閲覧権限から作業操作の許可を推定しない。
 
 共有HostはWorkbench／MCP／内部能力／Repository群の配置形態で、第三のCROS REST・Gateway・Shared Server専用Lifecycleは撤去対象を維持する。ただし認可・非開示・Origin／TLS・終了保証を撤去しない。Browser↔Workbench RESTは維持する。
 

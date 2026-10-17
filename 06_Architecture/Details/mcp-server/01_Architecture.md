@@ -1,5 +1,7 @@
 # MCP Transportアーキテクチャ
 
+Workspace再編のMachine入口は[横断契約](../orchestrator/03_Workspace.md)へ接続する。通常AI依頼は認可済みRepository／WorkspaceをOrchestratorへ搬送し、Topic／Meeting等のCRUDは既存専門APIへ維持する。内容領域の旧workspaceIdを新Task対象IDに流用しない。公開API／Schemaの切替は未実施で、鍵操作非公開・Repository登録Workbench限定の既存境界を変更しない。
+
 Topic／Meetingの横断Relationでは、構成が認可済み同Project集合を選び、Domainの`federateTopicMeetingRelations`へRepository ID・Project ID・既存操作だけを渡す。MCPは所有者の0／1／複数判定を再実装せず、認可とProtocolを所有する。AM本番Resolver・公開Launcherは接続済み、旧CROS／REST／Shared Hostは撤去済みである。正式品質評価と後続E2Eの完成は別に確認する。
 
 成果物種別: Architecture詳細設計

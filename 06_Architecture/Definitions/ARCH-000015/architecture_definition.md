@@ -7,6 +7,8 @@ Architecture ID: `ARCH-000015`
 
 ## 1. 責務と境界
 
+[Workspace方式](../../Details/orchestrator/03_Workspace.md)では、コード変更のCandidateは対象Workspaceの固定Git成果とし、採否・Decision・許可はOrchestratorに保持する。Topic／Meetingの提案や判断候補一般までCommitへ変換しない。Direct編集・候補固定・Isolatedからの取込は異なるEffectであり、送信同意をいずれの書込み許可へも流用しない。旧Bundle保持・公開・破棄・採用・回復の本番利用側が置換されるまで旧Storeを撤去しない。
+
 not_authorized→authorized→sent→returned→candidate→adoptedを別AuthorityとEffectにし、送信、受領、採用を相互流用しない。
 
 | 区分 | 内容 |
@@ -14,9 +16,9 @@ not_authorized→authorized→sent→returned→candidate→adoptedを別Authori
 | 状態Owner | External Information Boundary |
 | 所有する責務 | 目的限定の送信同意、読取り助言／変更候補の分離、最小化送信、同じ依頼への結果帰還、候補隔離、採否 |
 | 所有しない責務 | 送信同意からの結果採用、外部AIへの決定権限移譲、所有正本の無断更新 |
-| 主な外部境界 | 外部AI／API／MCP、Candidate Store、所有正本、人間判断 |
+| 主な外部境界 | 外部AI／API／MCP、候補保持先、所有正本、人間判断。コード変更候補の目標保持先はGit固定成果であり、旧Candidate Storeは移行元 |
 
-候補本体の隔離・読取り・破棄と下位実行はCoordinator、Projectの採否記録・Repositoryへの反映はOrchestratorが所有する。AI AdapterはProvider固有の搬送・抽出を行うが、送信同意、候補採用、Repository更新Authorityを発行しない。人間の採用判断はOrchestratorによる自動選択で代替しない。Topic／Meetingの候補処置は各Domain APIの業務契約を維持し、同じ候補という語だけで全用途を汎用採用機構へ統合しない。
+基準実装では候補本体の隔離・読取り・破棄と下位実行がCoordinatorに残る。Workspace目標ではコード候補の寿命・採否記録・正本反映の調整はOrchestrator、Git保持・読取り・除去の技術操作はVersion Control、単発実行調整はCoordinator、隔離資源はDocker Isolationへ分ける。AI AdapterはProvider固有の搬送・抽出を行うが、送信同意、候補採用、Repository更新Authorityを発行しない。人間の採用判断はOrchestratorによる自動選択で代替しない。Topic／Meetingの候補処置は各Domain APIの業務契約を維持し、同じ候補という語だけで全用途を汎用採用機構へ統合しない。
 
 読取り助言は所有正本Effect 0の結果として帰還させる。変更候補は未信頼候補として隔離し、人間判断による採用と所有正本更新を別Authorityにする。入口、TransportまたはProfile変更を理由に依頼種別を暗黙変更しない。
 

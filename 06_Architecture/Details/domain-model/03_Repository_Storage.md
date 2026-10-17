@@ -1,5 +1,7 @@
 # `.crdd` Runtime Dataの目標Architecture
 
+[Workspace配置契約](../orchestrator/03_Workspace.md#4-配置とroot解決)を新方式の目標として適用する。Repository Identity／Manifestと共通の配置解決は本領域、Workspace利用・寿命はOrchestrator。新`.crdd/workspaces/`と所属Repositoryを検証し、Tool RuntimeやWorktree内へRuntime正本を重複生成しない。以下の一般候補の配置は維持するが、コード変更候補の独自Bundle Storeは置換対象であり新しい常設Storeを作る指示ではない。Sourceの名前付き領域追加・探索除外・移行は未実施。
+
 成果物種別: Architecture詳細設計
 詳細設計領域: domain-model（Repository保存）
 状態: Canonical

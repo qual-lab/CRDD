@@ -7,13 +7,15 @@ Architecture ID: `ARCH-000009`
 
 ## 1. 責務と境界
 
+Workspace追加分のOwner・停止条件は[詳細設計](../../Details/orchestrator/03_Workspace.md)を参照する。従来対象外だったBranch／Mergeを限定的な明示操作として設計対象へ戻すが、具体API・書込み許可・実Git接続は未完成である。既存worktree読取りを新しい生成／取込の成立根拠にしない。
+
 verified／unverified／ambiguous／unavailableを分け、local／cross-sourceの対象範囲を明示する。GitはAdapterの一実装であり、未Commitを理由に通常利用を拒否しない。
 
 | 区分 | 内容 |
 |---|---|
 | 状態Owner | Version Control PortとRepository Binding Resolver |
-| 所有する責務 | 開始PathからのRepository Root検証、Repository／Project Identity、実行対象Binding、選択差分のStage／Unstage、Commit、確認済み通常Push |
-| 所有しない責務 | 通常作業全体へCommitを要求すること、Force Push、Branch作成、Merge、Rebase、Remote設定管理、Tool選択、Runtime Data清掃 |
+| 所有する責務 | 開始PathからのRepository Root検証、Repository／Project Identity、実行対象Binding、選択差分のStage／Unstage、Commit、確認済み通常Push。Workspace目標では明示要求のGit Worktree／Branch作成・除去、Merge計算・取込の技術処理を追加する |
+| 所有しない責務 | 通常作業全体へCommitを要求すること、Force Push、Rebase、Remote設定管理、Tool選択、業務Workspace寿命・採用判断、一般Runtime Data清掃 |
 | 主な外部境界 | Version Control、Filesystem、Repository Manifest |
 
 Version Controlは検証済みRoot／Revision型と明示Git操作のOwnerを維持する。Domain ModelはRoot観測・Repository CRUD・保存に必要な公開契約を利用できるが、Commit／Pushを自動発行しない。Workbench Serverが利用者の明示Git操作、Orchestratorが候補採用の整合を扱い、Coordinatorの読取りSnapshotを業務CRUDのOwnerへ拡張しない。Root型をDomain側へ移してVersion Controlから逆依存させる配置にしない。

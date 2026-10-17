@@ -4,7 +4,8 @@
  * @responsibility GitLocalChangeSetProcessResultを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000002
  */
-import { type SpawnSyncReturns, spawnSync } from "node:child_process";
+import type { SpawnSyncReturns } from "node:child_process";
+import { runGitReadCommand } from "./read-command.ts";
 
 import type {
   LocalChangeSetAdapter,
@@ -95,18 +96,17 @@ export function createGitLocalChangeSetAdapter(
     const runCommand =
       commandRunner ??
       ((commandArguments: readonly string[]) =>
-        spawnSync("git", commandArguments, {
-          cwd: repositoryRoot,
-          encoding: "buffer",
-          windowsHide: true,
-          shell: false,
-          timeout: 30_000,
-          maxBuffer: 16 * 1_024 * 1_024,
-        }));
+        runGitReadCommand(
+          repositoryRoot,
+          commandArguments,
+          16 * 1_024 * 1_024,
+        ));
     return Object.freeze({
       revisionChanges: parsePaths(
         runCommand([
           "diff",
+          "--no-ext-diff",
+          "--no-textconv",
           "--name-only",
           "--no-renames",
           "-z",
@@ -117,6 +117,8 @@ export function createGitLocalChangeSetAdapter(
       preparedChanges: parsePaths(
         runCommand([
           "diff",
+          "--no-ext-diff",
+          "--no-textconv",
           "--cached",
           "--name-only",
           "--no-renames",
@@ -126,7 +128,14 @@ export function createGitLocalChangeSetAdapter(
         "prepared_changes",
       ),
       workingChanges: parsePaths(
-        runCommand(["diff", "--name-only", "--no-renames", "-z"]),
+        runCommand([
+          "diff",
+          "--no-ext-diff",
+          "--no-textconv",
+          "--name-only",
+          "--no-renames",
+          "-z",
+        ]),
         "working_changes",
       ),
       unregisteredPaths: parsePaths(

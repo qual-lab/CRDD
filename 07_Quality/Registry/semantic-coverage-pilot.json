@@ -9,7 +9,7 @@
       "stability": "pilot",
       "subsystem": "coordinator",
       "sourceDocument": "06_Architecture/Details/coordinator/01_Architecture.md",
-      "sourceSha256": "ce9aab6457874c851c0191803a7a3a665817f683646601556807063e843831e8",
+      "sourceSha256": "492fc5e4118c7524a1b0180215e1fa260fc893af0052f4b919c58be2c26dfa6f",
       "meanings": [
         {
           "semanticKey": "coordinator.candidate-review-boundary",
@@ -100,7 +100,7 @@
       "stability": "pilot",
       "subsystem": "orchestrator",
       "sourceDocument": "06_Architecture/Details/orchestrator/02_Detailed_Design.md",
-      "sourceSha256": "1b39f8376982d388c55f42ba44f9e8cb70f654439213ced1b54e7e01e83d2b1f",
+      "sourceSha256": "a16f7b04a528a08842756f5d5e5d28a449c5b38ba14ef777b20e603ebadbc687",
       "meanings": [
         {
           "semanticKey": "orchestrator.acceptance-decision-authority",

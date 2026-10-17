@@ -1,5 +1,11 @@
 # QA-000005 候補と正本への引き渡しの検証定義
 
+## Workspace方式の追加検証条件（2026-10-17）
+
+[Workspace詳細](../../../06_Architecture/Details/orchestrator/03_Workspace.md)の`orchestrator.workspace-code-candidate`（ARCH-000015）をコード変更候補に限って追加する。`CPR-UT-009`はRepository・Workspace・固定Commit・レビュー・正本Revisionの相関、`CPR-IT-001`はGit成果と必要なTask／判断参照の保持、`CPR-IT-004`／006は権限・採用排他・変更後差分・適用後記録失敗・再入場時二重適用拒否を確認する。`CPR-UAT-002`／003／007はDirect編集、候補固定、Merge、Promotionの違いと明示判断を評価する。旧項目の候補生成時の正本Effect 0と採用時Commit／Push 0は旧Bundle／Context採用の対象へ維持する。Directの許可された編集、別Branchへの候補固定Commit、明示Merge／Promotionは別Effectとして新しいfixture・Oracleを確定するまで実行しない。Git方式へ旧Oracleを無条件適用せず、逆に通常CRUD・Topic／Meetingの提案をGit候補へ強制変換しない。旧Store撤去前に内容・許可Path・情報分類・期限・未解決参照の保全を確認する。
+
+本節の新方式はすべてNot Run。既存Local Itemの元結果・旧方式のEvidenceは維持し、新方式の実装／接続／実測へ継承しない。詳細Schema・操作許可・dirty／Commit処理の未決は該当実装前の停止条件とする。条件区分は正常・境界・準正常・異常・回復を扱い、UTの値判定、ITの実保存／実Git／実Mount、公開ST、利用者UATを相互代替しない。
+
 成果物種別: Quality定義
 Quality ID: `QA-000005`
 検証目標: 観測した情報を候補として隔離し、人間の採否後だけ所有正本へ引き渡すこと

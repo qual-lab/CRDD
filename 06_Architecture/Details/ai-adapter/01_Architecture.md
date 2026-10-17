@@ -1,9 +1,13 @@
 # AI Adapter詳細設計
 
+Workspace再編後も[Package責務](../orchestrator/03_Workspace.md#3-packageの責務と依存方向)に従いProvider CLI・Profile・認証手順・入出力差を所有する。Workspace寿命・Queue・Git採用は引き取らない。既存の短命作業Directory表記を新設Workspaceと区別して命名し、外部CLIの予約語・認証保存先は無断変更しない。Source切替は未実施。
+
 成果物種別: Architecture詳細設計
 詳細設計領域: ai-adapter
 状態: Candidate
 維持責任者: Qual-Lab
+
+新Workspaceの秘密区分と共通隔離は[Docker Isolation方針](../docker-isolation/01_Architecture.md#workspace-isolation-policy)を使う。開発用`.env`の読取り可能性は人間が受容するが、Provider認証Home・Access Managementの鍵・本番資格を同じ扱いにしない。外部送信同意は維持し、読まれた開発情報がProviderへ送られないとは保証しない。AI AdapterへCloud Secret管理・本番資格取得／自動注入を追加せず、既存認証手順・保護のSource切替は別途確認する。
 
 2026-10-14の人間判断で、CRDD独自署名は通常Runtimeの必須条件から外す。[Coordinatorの三分離](../coordinator/01_Architecture.md#9-通常実行追跡正式配布の分離)に従い、AI Adapterは公式CLI・Image・設定の必要な出所／同一性確認、Provider認証、入出力差を所有するが、CRDD署名Manifestや署名由来Runtime Capabilityを要求・発行しない。Hash・版一致を送信許可やPublisher真正性へ昇格しない。通常Task・CLI・Workbench助言／候補・Orchestratorの旧署名資格引数・発行・消費は撤去済みだが、旧資格3 API・専用静的検査・任意署名Toolの再接続と実Provider／全体E2Eは未完了であり、過去の署名結果を新しい通常実行経路の成立へ流用しない。
 

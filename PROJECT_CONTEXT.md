@@ -12,7 +12,9 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
-v0.22のCHG-000082は進行中。Docker Isolationの実装・検証は本Package範囲で完了し、コミット・プッシュの最終確認へ進む。実Provider全E2Eと後続Coordinator／Orchestrator再編は別の残件。統合・タグ・リリースは今回の操作に含めない。
+v0.22のCHG-000082は進行中。Docker Isolationは`a04ecb70`でコミット・プッシュ済み。Direct／Candidateは共通のDocker方針を採用し、開発用`.env`がCoding AIから読まれ得るリスクを受容した。本番SecretはGit・通常開発環境へ置かず既存管理を使い、開発資格は本番権限なし・限定権限・期限ありとする。独自Secret Manager・file別ACL・動的Mount許可Frameworkは追加しない。以前の隠蔽試験と回収は完了したが、新方針の実装・Git／内部状態書込み等の実境界は未確認。Direct本実装・実データ移行は未着手。統合・タグ・リリースは含めない。
+
+既存実装との差分を整理し、最初にVersion ControlのTree／差分二Adapterの共通読取りを改善した。新しい公開API・State・Lockはなく、是正後の静的検査とPackage全50件成功。clean／process filter利用Repositoryの差分は現経路では未対応として拒否する。Workspace管理API・Direct／Candidateの本番切替・旧Bundle撤去は未完了で、読取り改善を全体完成へ換算しない。詳細は[現在の実装順序](99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#10-新方針と既存実装の差分実装順序2026-10-17)を参照する。
 
 | 対象 | 現在の状態 | Owner Relation |
 |---|---|---|
@@ -66,12 +68,12 @@ v0.22のCHG-000082は進行中。Docker Isolationの実装・検証は本Package
 
 | 順序 | 承認済みの次の作業 | 完了条件・停止点 |
 |---|---|---|
-| 1 | 保持物・fresh Taskと実境界の接続を確認 | 元の発行・保存・取消・回収・配送の対応を実測し、必要な操作許可を確認する |
-| 2 | 回復fixtureと最終候補の回帰を同期 | 現行契約だけを使用し、未観測や初回Timeoutを成功へ書き換えない |
-| 3 | 実境界・必要E2E・全体評価を実施 | 必要な操作許可を確認し、未観測を残したまま全体完成にしない |
-| 4 | 完了監査後にコミット・プッシュ | CHG-000082のDocker Isolation完成条件を全数確認。PR統合・タグ・リリースは別判断 |
+| 1 | Workspace方式の現行棚卸し・対応表は整理済み | 保存先の宣言と本番接続、既存workspace表記の別概念、能力・利用側・排他を区別した |
+| 2 | Architecture／Qualityの反映・独立確認は完了 | [Workspace詳細](06_Architecture/Details/orchestrator/03_Workspace.md)と新RFD-IT-029へ接続、残指摘0。Direct書込み・Git許可・Commit／dirty・具体Schemaは実装前に固定する |
+| 3 | Version Control→Orchestrator→Coordinator→公開入口の順に切替 | 旧能力の置換・本番利用側接続を確認してから旧Ownerを撤去する。今回の棚卸しでは実装しない |
+| 4 | 新構成の回帰・独立レビュー・実境界と後続E2E | 旧DIの成功や単なるGit Worktree生成を新構成全体の成立根拠にしない |
 
-詳細な対象・順序・反証・担当は[第二段階計画](99_Roadmap/Changes/CHG-000082/second-stage-plan.md)に従う。v0.22全体の後続候補は[Roadmap](99_Roadmap/01_Roadmap.md)で確認する。
+詳細な対象・順序・反証・担当は[第二段階計画](99_Roadmap/Changes/CHG-000082/second-stage-plan.md)と[Workspace棚卸し](99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md)に従う。v0.22全体の後続候補は[Roadmap](99_Roadmap/01_Roadmap.md)で確認する。
 
 ## Checklist
 

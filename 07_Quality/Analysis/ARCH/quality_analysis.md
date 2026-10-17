@@ -5,6 +5,23 @@
 状態: Canonical
 維持責任者: Qual-Lab
 
+## Workspace方式からの追加導出（2026-10-17）
+
+秘密区分の人間判断は[DI共通方針](../../../06_Architecture/Details/docker-isolation/01_Architecture.md#workspace-isolation-policy)へ反映する。`docker-isolation.workspace-borrowing`からQA-000006へ導くのはDirect／Candidate共通のHost／Git／内部状態／認証境界と用途別RW・終了後確認であり、開発用`.env`の全隠蔽ではない。本番資格の外部既存管理と開発資格の権限・期限は運用確認とし、値の試験で実権限を証明しない。既存Local Item集合を増やさず追加条件を更新し、実装・実境界未実施をPassへ変更しない。
+
+入力は[Workspace横断契約](../../../06_Architecture/Details/orchestrator/03_Workspace.md#7-qualityへの引渡し)。旧Sourceから要求を逆生成せず、人間の採用方針を具体化したARCH責務・状態・外部境界から導出する。以下は新方式の義務であり、既存試験の再利用可否や実行Passは未確定。
+
+| Source／導出キー | 成功の意味と反証する失敗 | 統合先・処置 | 必要段階 |
+|---|---|---|---|
+| ARCH-000004／000012、`orchestrator.workspace-task-target` | 同じTaskモデルで対象結合・並行・取消・再入場。Merge後分析と対象Commit・分析資料を相関し、分析失敗時の元Merge巻戻し・自動修正・Merge再発行を拒否。別Workspace混同、二重取得、終了時の成果消失を拒否 | QA-000003既存Local Itemへ追加条件。分析資料の保存はQA-000008へ | UT／IT／ST／UAT |
+| ARCH-000015、`orchestrator.workspace-code-candidate` | コード成果だけを固定Gitへ、採否は人間。Direct編集・固定Commit・取込と旧Context採用を混同しない | QA-000005既存Local Itemへ方式別条件。旧Oracleの無条件継承を禁止 | UT／IT／UAT |
+| ARCH-000009、`version-control.git-workspace-lifecycle` | 実Git作成・取込・除去と部分成立の再入場。読取りだけの合格、共有Ref競合、参照中成果消失を拒否 | QA-000007／RFD-IT-029をNew。他Root・Snapshot・読取りは既存項目へ | IT（実Git）。公開経路はPRL-ST-001等 |
+| ARCH-000011／000009、`domain-model.workspace-placement` | 所属Repositoryと継続／短命を区別。Tool Runtimeへの集約、nested `.crdd`、探索混入、期限による無断削除を拒否 | QA-000008既存項目へ追加条件 | UT／IT／ST／UAT |
+| ARCH-000013、`access-management.workspace-content-separation` | 内容領域の改名と現在認可を維持。閲覧許可をWorkspace操作Authorityへ転用しない | QA-000007既存項目へ追加条件 | UT／IT／ST／UAT |
+| ARCH-000008、`docker-isolation.workspace-borrowing` | 最小Mountと実資源回収。Worktreeを隔離と誤認せず、取消時も継続成果を保持 | QA-000006既存項目へ追加条件 | UT／IT／ST |
+
+判定は全件Not Run。Source／Schema／許可／UI具体化の未決はOwner契約へ戻す。新項目1件により集合は13定義・198 Local Itemとなるが、関係・実装・実行・Evidenceの成立数は増やさない。以下の従来集合は基準時点の分析である。
+
 ## 1. 目的
 
 Architecture工程が定義した成立条件を全件処置し、成功の意味、失敗またはRisk、検証義務および統合候補を、後から推測せずQuality Integrationへ渡す。

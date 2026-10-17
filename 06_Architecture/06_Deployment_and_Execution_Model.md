@@ -1,5 +1,7 @@
 # 配置／実行モデル
 
+[Workspaceの配置契約](Details/orchestrator/03_Workspace.md#4-配置とroot解決)によりTool Runtimeと製品Repositoryを分離する。単体起動は共有資格初期化を必須にせず、共有配置では各操作を現在認可する。WorkbenchとMCPは独立Processで同じPackage APIを使い、共通Memory QueueやMCP常時起動を仮定しない。製品固有状態は対象Repositoryへ保持。linked worktreeからも所属Repositoryを検証し、Tool Runtimeやnested worktree配下へ暗黙保存しない。Multi-host共有排他は対象外。
+
 Status: Candidate (v0.22 responsibility reorganization)
 Owner: Qual-Lab
 Last Updated: 2026-10-11

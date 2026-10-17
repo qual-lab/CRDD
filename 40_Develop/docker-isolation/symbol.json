@@ -4,6 +4,14 @@
   "subsystem": "docker-isolation",
   "symbols": [
     {
+      "symbolId": "docker-isolation.test.integration.direct-mount-boundary",
+      "kind": "test-suite",
+      "path": "tests/integration/direct-mount-boundary.integration.test.ts",
+      "qaIds": ["QA-000006"],
+      "localTestIds": ["ERB-IT-001", "ERB-IT-002"],
+      "verifies": []
+    },
+    {
       "symbolId": "docker-isolation.test.integration.package-boundary",
       "kind": "test-suite",
       "path": "tests/integration/package-boundary.contract.test.ts",
