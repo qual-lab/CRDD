@@ -639,3 +639,9 @@ Workbenchに残る既知2件は、既存の巨大な`second-stage-plan.md`がOwn
 | 残る範囲 | 今回の2失敗は解消。実Provider E2E、人間UAT、実データ移行、全体品質再評価、新しいBrowser実測は未実施。全Packageの単一run成功・Release可能とはしない |
 
 実行別Evidence書庫は追加せず、本要約と試験Sourceを保持する。今回コミット・プッシュは行っていない。
+
+#### コミット後のOrchestrator全回帰（2026-10-18）
+
+人間の指示で上記までを`9e4b4d08`へコミットした。プッシュは未実施。Sourceを変更せずOrchestratorの公開`npm test`を再実行し、静的検査成功、UT全75件成功（1,615ms）、IT全37件成功（276,098ms）、失敗・取消・skip 0を確認した。Lintの既知style情報2件はerror／warningではない。先行runの36成功・1失敗を消さず、期待値同期後の今回一括成功と区別する。実Git・自己生成Writer／排他の試験であり、Docker・外部AIは使用していない。
+
+後続E2Eの入口照合では、既存`verify-orchestrator-real-providers.ts`はProject計画と採用を含み、今回のWorkbench単発依頼そのものではないと確認した。そのまま新経路全体の成立証明へ流用しない。新しい単発経路の実Provider確認は送信対象・範囲を明示し、追加承認前に開始しない。
