@@ -867,6 +867,9 @@ function RuntimeActivity({ model }: { model: WorkbenchMainViewModel }): ReactEle
       title="現在の実行状況"
       status={observation?.state ?? "Not connected"}
     >
+      {(observation?.singleTasks ?? []).length ? <section><h3>単発のAI依頼</h3><ul>{observation?.singleTasks?.map((task) => <li key={`${task.repositoryId}:${task.requestId}`}>
+        {task.mode === "read_only_advice" ? "助言" : "Workspace編集"}: {task.phase} / {task.status} — {task.cleanupConfirmed ? "回収確認済み" : "回収未確認"}{task.recoveryRequired ? "（回復待ち）" : ""}
+      </li>)}</ul></section> : null}
       {observation === null ? (
         <EmptyState>Orchestrator観測は未接続です。</EmptyState>
       ) : observation.state !== "observed" || observation.projection === null ? (
@@ -1010,6 +1013,8 @@ function AiProfiles({ model }: { model: WorkbenchMainViewModel }): ReactElement 
  */
 function MainWorkbench({ model: initialModel }: { model: WorkbenchMainViewModel }): ReactElement {
   const [model, setModel] = useState(initialModel);
+  const [aiActionNotice, setAiActionNotice] = useState("");
+  const aiActionPending = useRef(false);
   /**
    * 管理更新後に画面全体の現在Read Modelを取り直す。
    * @responsibility 鍵管理を含む過去の投影を新しい管理改訂へ更新する。
@@ -1046,6 +1051,17 @@ function MainWorkbench({ model: initialModel }: { model: WorkbenchMainViewModel 
     return () => window.removeEventListener("hashchange", synchronizeActiveSection);
   }, []);
   const context = model.surface.context;
+  useEffect(() => {
+    if (!["accepted", "running"].includes(model.aiRequest.snapshot?.status ?? "")) return;
+    const controller = new AbortController();
+    let reading = false;
+    const timer = window.setInterval(() => {
+      if (reading) return;
+      reading = true;
+      void refreshReadModel(controller.signal).catch(() => {}).finally(() => { reading = false; });
+    }, 1500);
+    return () => { window.clearInterval(timer); controller.abort(); };
+  }, [model.aiRequest.snapshot?.requestId, model.aiRequest.snapshot?.status, model.selectedRepositoryId]);
   const capabilityLabel = (state: "available" | "not_configured" | "unknown", count: number): string =>
     state === "available" ? `${count} items` : state === "not_configured" ? "Not configured" : "Unknown";
   const refresh = <button type="button" disabled>Refresh projection</button>;
@@ -1095,16 +1111,34 @@ function MainWorkbench({ model: initialModel }: { model: WorkbenchMainViewModel 
           <Credentials model={model} />
           <AiProfiles model={model} />
           <ProfileManagementPanel actionToken={model.actionToken} owner={model.aiProfileAdministration.owner} initialSnapshot={model.aiProfileAdministration.snapshot} initialResult={model.aiProfileAdministration.result} refreshReadModel={refreshReadModel} />
+          <div onSubmit={model.connection.state === "cros_available" ? (event: FormEvent<HTMLDivElement>) => {
+            event.preventDefault();
+            if (aiActionPending.current || !(event.target instanceof HTMLFormElement)) return;
+            const form = new URLSearchParams();
+            for (const [key, value] of new FormData(event.target)) if (typeof value === "string") form.append(key, value);
+            form.set("repositoryId", model.selectedRepositoryId ?? model.surface.context.repositoryId);
+            const selectedUrl = window.location.href;
+            aiActionPending.current = true;
+            void (async () => {
+              try {
+                const response = await requestWorkbench("/ai-request/action", { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: form });
+                if (!response.ok) throw new Error("ai_action_unconfirmed");
+                if (window.location.href !== selectedUrl) return;
+                setAiActionNotice("操作結果を取得しました。現在状態を確認します。");
+                await refreshReadModel(new AbortController().signal);
+              } catch { setAiActionNotice("操作結果を確認できません。自動再送せず、現在状態を確認してください。"); }
+              finally { aiActionPending.current = false; }
+            })();
+          } : undefined}>
+          {aiActionNotice ? <p role="status">{aiActionNotice}</p> : null}
           {renderWorkbenchAiRequest(
             model.actionToken,
             model.aiProfiles,
             model.aiRequest.configured,
             model.aiRequest.snapshot,
-            model.aiRequest.candidateConfigured,
-            model.aiRequest.candidateReview,
-            model.aiRequest.candidateAction,
             model.aiRequest.notice,
           )}
+          </div>
         </Fragment>
       }
     />

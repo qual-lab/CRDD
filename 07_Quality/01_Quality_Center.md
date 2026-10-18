@@ -4,11 +4,13 @@ Workspace方式の現設計集合は13定義・198 Local Item（RFD-IT-029を1�
 
 状態: Quality Design In Progress — Latest Contract Propagation
 担当責任者: Qual-Lab
-最終更新日: 2026-10-17
+最終更新日: 2026-10-18
 
 現在の判定は[現在の品質投影](#current-quality-projection)を参照する。以下の先行候補の経過にある「現在」「最新」「未完了」は記録当時の対象版に限り、現行Sourceの成立状態へ流用しない。
 
 Access Management再編の17義務は、承認済みPortfolio是正・局所反証・対象回帰・独立照合後に確認済み13・部分確認2・人間UAT未実施2。部分確認と人間UATは後続E2Eの実Host・利用者理解範囲である。対象回帰480件成功・失敗0、人間UAT1件Skip。Source／契約と結果同期の最終限定独立確認は残指摘0で、今回の区切りが成立した。当時の正式192項目の全体評価・全体Checker合格を代替しない。[現在の検証結果](../99_Roadmap/Changes/CHG-000082/Evidence/261014_access-management-verification.md)を参照する。
+
+Workbenchの参照文書一覧・表示試験の既知2失敗は是正し、固定Sourceの公開`npm test`全60件が成功（失敗・取消・skip 0）。静的検査・Browser Build成功、技術／品質の限定独立レビューは指摘0。本文512KiB上限・認可を維持し、一覧だけ先頭8KiBから見出しを取得する。これは正式198項目の全体再評価、実Provider E2E・人間UAT・移行・新しいBrowser実測の代替ではない。[是正と検証結果](../99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#計画表示2失敗の是正2026-10-18)を参照する。
 
 ## 先行候補の経過（履歴）
 

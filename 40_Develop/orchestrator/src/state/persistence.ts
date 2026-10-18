@@ -30,7 +30,10 @@ export type OrchestratorQueueEnqueueInput = Omit<
   | "ownerGeneration"
   | "resumeCondition"
   | "resultReference"
->;
+  | "singleTask"
+  | "milestoneId"
+> &
+  Readonly<{ milestoneId: string }>;
 
 /**
  * state-portで使用するOrchestrator Queue Updateの値契約を定義する。

@@ -72,7 +72,6 @@ import {
   startWorkbench,
   type WorkbenchAiRequests,
   type WorkbenchAiRequestCommand,
-  type WorkbenchCandidateActions,
   type WorkbenchActivityReader,
 } from "../../src/index.ts";
 
@@ -476,8 +475,14 @@ test("Direction A Shellと公式ロゴをloopback限定で配信する", async (
       "2026-10-03",
     );
     assert.match(serializedModel, /Group B/u);
-    assert.match(serializedModel, /日程リスク/u);
     const ownerSurface = await readWorkbenchProjectSurface(repositoryRoot);
+    assert.equal(model.surface.plan.state, "available");
+    assert.equal(ownerSurface.plan.state, "available");
+    assert.ok(model.surface.plan.projection?.scheduleRisk);
+    assert.equal(
+      model.surface.plan.projection?.scheduleRisk,
+      ownerSurface.plan.projection?.scheduleRisk,
+    );
     assert.notEqual(ownerSurface.quality.projection, null);
     assert.equal(
       model.surface.quality.projection?.unobserved,
@@ -2499,6 +2504,7 @@ test("実Provider検証HTTPの受付後故障は再送せず不明結果と同�
             contextReferences: ["PROJECT_CONTEXT.md"],
             allowedPaths: [],
             externalSendConfirmed: true,
+            workspaceId: null,
           });
           assert.fail("受付故障を成功へ畳んだ");
         } catch (error) {
@@ -2702,204 +2708,91 @@ test("WorkbenchからMeeting Outcomeを処置してCloseする", async () => {
  * @cleanup Workbench Handleを閉じる。
  * @boundary ERB-IT-021=Direct Boundary: workbench Test Source→対象契約
  */
-test("WorkbenchのAI依頼を現在Sessionだけで開始し意味区分を表示する", async () => {
+test("Workbenchの単発依頼は助言四分類とWorkspace編集を分け旧Bundleを公開しない", async () => {
   let received: WorkbenchAiRequestCommand | null = null;
-  const candidateId = `candidate.${"6".repeat(64)}.${"7".repeat(64)}`;
-  const observedCandidateActions: Array<
-    Readonly<{ operation: string; confirmed: boolean }>
-  > = [];
-  const application: WorkbenchAiRequests = Object.freeze({
-    start: async (request) => {
-      received = request;
-      return Object.freeze({
-        status: "accepted" as const,
-        requestId: "AIREQ-000001",
-        reason: null,
-      });
+  let calls = 0;
+  let closed = false;
+  const application: WorkbenchAiRequests = {
+    start: async (command) => {
+      received = command;
+      calls++;
+      return { status: "accepted", requestId: "request-test", reason: null };
     },
-    observe: async (requestId) =>
-      Object.freeze({
-        requestId,
-        mode: received?.mode ?? ("read_only_advice" as const),
-        profileId: received?.profileId ?? "PROFILE-100001",
-        status: "completed" as const,
-        reason: null,
-        facts: Object.freeze([
-          Object.freeze({
-            text: "<fact>",
-            references: Object.freeze(["PROJECT_CONTEXT.md#1"]),
-          }),
-        ]),
-        sharedAnalysis: Object.freeze([
-          Object.freeze({
-            text: "共有済み",
-            references: Object.freeze(["PROJECT_CONTEXT.md#2"]),
-          }),
-        ]),
-        additionalInferences: Object.freeze([
-          Object.freeze({
-            text: "追加推論",
-            references: Object.freeze(["PROJECT_CONTEXT.md#3"]),
-          }),
-        ]),
-        nextOptions: Object.freeze([
-          Object.freeze({
-            text: "次の一手",
-            references: Object.freeze(["PROJECT_CONTEXT.md#4"]),
-          }),
-        ]),
-        candidate:
-          received?.mode === "change_candidate"
-            ? Object.freeze({
-                candidateId,
-                disposition: "untrusted_not_adopted" as const,
-              })
-            : null,
-      }),
-    cancel: async (requestId) =>
-      Object.freeze({
-        requestId,
-        mode: "read_only_advice" as const,
-        profileId: "PROFILE-100001",
-        status: "cancelled" as const,
-        reason: "cancelled_by_user",
-        facts: Object.freeze([]),
-        sharedAnalysis: Object.freeze([]),
-        additionalInferences: Object.freeze([]),
-        nextOptions: Object.freeze([]),
-        candidate: null,
-      }),
-  });
-  const candidateActions: WorkbenchCandidateActions = Object.freeze({
-    review: async (requestedCandidateId) =>
-      Object.freeze({
-        status: requestedCandidateId === candidateId ? "available" : "blocked",
-        reason:
-          requestedCandidateId === candidateId
-            ? "workbench_candidate_review_available"
-            : "workbench_candidate_review_unavailable",
-        candidate:
-          requestedCandidateId === candidateId
-            ? Object.freeze({
-                candidateId,
-                informationClassification: "internal" as const,
-                expiresAtMs: Date.now() + 60_000,
-                baseRevision: "a".repeat(40),
-                candidateHash: "b".repeat(64),
-                patchHash: "c".repeat(64),
-                changedPaths: Object.freeze([
-                  "40_Develop/workbench-server/src/ai-request/types.ts",
-                ]),
-              })
-            : null,
-      }),
-    adopt: async (requestedCandidateId, confirmed) => {
-      observedCandidateActions.push(
-        Object.freeze({ operation: "adopt", confirmed }),
-      );
-      return Object.freeze({
-        operation: "adopt" as const,
-        status: confirmed ? ("completed" as const) : ("blocked" as const),
-        reason: confirmed
-          ? "workbench_candidate_adopted"
-          : "workbench_candidate_adoption_confirmation_required",
-        candidateId: requestedCandidateId,
-        receiptId: confirmed ? "receipt-000001" : null,
-        effectIssued: confirmed,
-        effectStateUnknown: false,
-        cleanupConfirmed: true,
-        manualRecoveryRequired: false,
-        recoveryIds: Object.freeze([]),
-      });
+    observe: async (requestId) => ({
+      requestId,
+      mode: received?.mode ?? "read_only_advice",
+      profileId: received?.profileId ?? "PROFILE-100001",
+      status: "completed",
+      reason: null,
+      facts: [{ text: "<fact>", references: ["PROJECT_CONTEXT.md#1"] }],
+      sharedAnalysis: [
+        { text: "共有済み", references: ["PROJECT_CONTEXT.md#2"] },
+      ],
+      additionalInferences: [
+        { text: "追加推論", references: ["PROJECT_CONTEXT.md#3"] },
+      ],
+      nextOptions: [{ text: "次の一手", references: ["PROJECT_CONTEXT.md#4"] }],
+      candidate: null,
+    }),
+    cancel: async (requestId) => ({
+      requestId,
+      mode: "read_only_advice",
+      profileId: "PROFILE-100001",
+      status: "cancelled",
+      reason: "cancelled",
+      facts: [],
+      sharedAnalysis: [],
+      additionalInferences: [],
+      nextOptions: [],
+      candidate: null,
+    }),
+    close: async () => {
+      closed = true;
     },
-    discard: async (requestedCandidateId, confirmed) => {
-      observedCandidateActions.push(
-        Object.freeze({ operation: "discard", confirmed }),
-      );
-      return Object.freeze({
-        operation: "discard" as const,
-        status: confirmed ? ("completed" as const) : ("blocked" as const),
-        reason: confirmed
-          ? "workbench_candidate_discarded"
-          : "workbench_candidate_discard_confirmation_required",
-        candidateId: requestedCandidateId,
-        receiptId: null,
-        effectIssued: confirmed,
-        effectStateUnknown: false,
-        cleanupConfirmed: true,
-        manualRecoveryRequired: false,
-        recoveryIds: Object.freeze([]),
-      });
-    },
-  });
+  };
   const handle = await startWorkbench({
     workingDirectory: repositoryRoot,
     aiRequests: application,
-    candidateActions,
   });
   try {
-    const initial = await requestMainModel(handle.baseUrl);
-    const token = initial.actionToken;
-    assert.equal(initial.aiRequest.snapshot, null);
-
-    const rejectedWithoutConfirmation = await requestRaw(
+    const model = await requestMainModel(handle.baseUrl);
+    const token = model.actionToken;
+    for (const mode of ["read_only_advice", "workspace_edit"]) {
+      const started = await requestRaw(
+        handle.baseUrl,
+        "/ai-request/action",
+        "POST",
+        new URLSearchParams({
+          actionToken: token,
+          operation: "start",
+          mode,
+          profileId: "PROFILE-100001",
+          prompt: "合成依頼",
+          allowedPaths:
+            mode === "workspace_edit" ? "40_Develop/workbench-server/src" : "",
+          externalSendConfirmed: "yes",
+        }).toString(),
+      );
+      assert.equal(started.status, 303);
+      const result = await requestMainModel(handle.baseUrl);
+      assert.equal(result.aiRequest.snapshot?.mode, mode);
+      assert.equal(result.aiRequest.snapshot?.candidate, null);
+      assert.equal(result.aiRequest.snapshot?.facts[0]?.text, "<fact>");
+    }
+    assert.equal(calls, 2);
+    const legacy = await requestRaw(
       handle.baseUrl,
-      "/ai-request/action",
+      "/candidate/action",
       "POST",
       new URLSearchParams({
         actionToken: token,
-        operation: "start",
-        mode: "read_only_advice",
-        profileId: "PROFILE-100001",
-        prompt: "確認なしでは送信しない",
+        operation: "adopt",
+        candidateId: "candidate-old",
+        confirmed: "true",
       }).toString(),
     );
-    assert.equal(rejectedWithoutConfirmation.status, 400);
-    assert.equal(received, null);
-
-    const started = await requestRaw(
-      handle.baseUrl,
-      "/ai-request/action",
-      "POST",
-      new URLSearchParams({
-        actionToken: token,
-        operation: "start",
-        mode: "read_only_advice",
-        profileId: "PROFILE-100001",
-        prompt: "今の状況と次の一手を整理して",
-        externalSendConfirmed: "yes",
-      }).toString(),
-    );
-    assert.equal(started.status, 303);
-    assert.deepEqual(received, {
-      mode: "read_only_advice",
-      profileId: "PROFILE-100001",
-      prompt: "今の状況と次の一手を整理して",
-      contextReferences: ["PROJECT_CONTEXT.md"],
-      allowedPaths: [],
-      externalSendConfirmed: true,
-    });
-
-    const completed = await requestMainModel(handle.baseUrl);
-    assert.equal(completed.aiRequest.snapshot?.status, "completed");
-    assert.equal(completed.aiRequest.snapshot?.facts[0]?.text, "<fact>");
-    assert.deepEqual(completed.aiRequest.snapshot?.facts[0]?.references, [
-      "PROJECT_CONTEXT.md#1",
-    ]);
-    assert.equal(
-      completed.aiRequest.snapshot?.sharedAnalysis[0]?.text,
-      "共有済み",
-    );
-    assert.equal(
-      completed.aiRequest.snapshot?.additionalInferences[0]?.text,
-      "追加推論",
-    );
-    assert.equal(
-      completed.aiRequest.snapshot?.nextOptions[0]?.text,
-      "次の一手",
-    );
-
-    const candidateStarted = await requestRaw(
+    assert.equal(legacy.status, 410);
+    const oldMode = await requestRaw(
       handle.baseUrl,
       "/ai-request/action",
       "POST",
@@ -2907,111 +2800,18 @@ test("WorkbenchのAI依頼を現在Sessionだけで開始し意味区分を表�
         actionToken: token,
         operation: "start",
         mode: "change_candidate",
-        profileId: "PROFILE-100003",
-        prompt: "Workbenchの表示を改善する",
-        allowedPaths: "40_Develop/workbench-server/src\n04_UI/Details",
+        profileId: "PROFILE-100001",
+        prompt: "旧方式は拒否",
+        allowedPaths: "source.txt",
         externalSendConfirmed: "yes",
       }).toString(),
     );
-    assert.equal(candidateStarted.status, 303);
-    assert.deepEqual(received, {
-      mode: "change_candidate",
-      profileId: "PROFILE-100003",
-      prompt: "Workbenchの表示を改善する",
-      contextReferences: ["PROJECT_CONTEXT.md"],
-      allowedPaths: ["40_Develop/workbench-server/src", "04_UI/Details"],
-      externalSendConfirmed: true,
-    });
-    const candidateCompleted = await requestMainModel(handle.baseUrl);
-    assert.equal(
-      candidateCompleted.aiRequest.snapshot?.candidate?.disposition,
-      "untrusted_not_adopted",
-    );
-    assert.equal(
-      candidateCompleted.aiRequest.snapshot?.candidate?.candidateId,
-      candidateId,
-    );
-    assert.ok(
-      candidateCompleted.aiRequest.candidateReview?.candidate?.changedPaths.includes(
-        "40_Develop/workbench-server/src/ai-request/types.ts",
-      ),
-    );
-
-    const adoptWithoutConfirmation = await requestRaw(
-      handle.baseUrl,
-      "/candidate/action",
-      "POST",
-      new URLSearchParams({
-        actionToken: token,
-        operation: "adopt",
-        candidateId,
-      }).toString(),
-    );
-    assert.equal(adoptWithoutConfirmation.status, 303);
-    assert.deepEqual(observedCandidateActions.at(-1), {
-      operation: "adopt",
-      confirmed: false,
-    });
-
-    const adoptDifferentCandidate = await requestRaw(
-      handle.baseUrl,
-      "/candidate/action",
-      "POST",
-      new URLSearchParams({
-        actionToken: token,
-        operation: "adopt",
-        candidateId: `candidate.${"8".repeat(64)}.${"9".repeat(64)}`,
-        confirmed: "true",
-      }).toString(),
-    );
-    assert.equal(adoptDifferentCandidate.status, 400);
-    assert.equal(observedCandidateActions.length, 1);
-
-    const adopted = await requestRaw(
-      handle.baseUrl,
-      "/candidate/action",
-      "POST",
-      new URLSearchParams({
-        actionToken: token,
-        operation: "adopt",
-        candidateId,
-        confirmed: "true",
-      }).toString(),
-    );
-    assert.equal(adopted.status, 303);
-    assert.deepEqual(observedCandidateActions.at(-1), {
-      operation: "adopt",
-      confirmed: true,
-    });
-    const adoptedModel = await requestMainModel(handle.baseUrl);
-    assert.equal(
-      adoptedModel.aiRequest.candidateAction?.reason,
-      "workbench_candidate_adopted",
-    );
-    assert.equal(
-      adoptedModel.aiRequest.candidateAction?.receiptId,
-      "receipt-000001",
-    );
-
-    const discarded = await requestRaw(
-      handle.baseUrl,
-      "/candidate/action",
-      "POST",
-      new URLSearchParams({
-        actionToken: token,
-        operation: "discard",
-        candidateId,
-        confirmed: "true",
-      }).toString(),
-    );
-    assert.equal(discarded.status, 303);
-    assert.deepEqual(observedCandidateActions.at(-1), {
-      operation: "discard",
-      confirmed: true,
-    });
+    assert.equal(oldMode.status, 400);
+    assert.equal(calls, 2);
   } finally {
     await handle.close();
   }
+  assert.equal(closed, true);
 });
 
 /**
@@ -3540,11 +3340,17 @@ test("実Provider検証のHTTP接続部は同意と同じ依頼Identityを公開
     },
     observe: async (requestId) => ({
       requestId,
-      mode: "read_only_advice",
-      profileId: "PROFILE-100001",
-      status,
-      reason: null,
-      facts: [{ text: "公開結果", references: ["PROJECT_CONTEXT.md"] }],
+      mode: requestId === "AIREQ-HTTP-001" ? "read_only_advice" : null,
+      profileId: requestId === "AIREQ-HTTP-001" ? "PROFILE-100001" : null,
+      status: requestId === "AIREQ-HTTP-001" ? status : "unknown",
+      reason:
+        requestId === "AIREQ-HTTP-001"
+          ? null
+          : "orchestrator_task_not_available",
+      facts:
+        requestId === "AIREQ-HTTP-001"
+          ? [{ text: "公開結果", references: ["PROJECT_CONTEXT.md"] }]
+          : [],
       sharedAnalysis: [],
       additionalInferences: [],
       nextOptions: [],
@@ -3571,6 +3377,7 @@ test("実Provider検証のHTTP接続部は同意と同じ依頼Identityを公開
       contextReferences: ["PROJECT_CONTEXT.md"],
       allowedPaths: [],
       externalSendConfirmed: false,
+      workspaceId: null,
     };
     assert.equal((await transport.start(command)).status, "blocked");
     assert.equal(starts, 0);
@@ -3593,6 +3400,7 @@ test("実Provider検証のHTTP接続部は同意と同じ依頼Identityを公開
     const accepted = await transport.start({
       ...command,
       externalSendConfirmed: true,
+      workspaceId: null,
     });
     assert.equal(accepted.status, "accepted");
     assert.equal(accepted.requestId, "AIREQ-HTTP-001");
@@ -3628,230 +3436,4 @@ test("実Provider検証のHTTP接続部は同意と同じ依頼Identityを公開
   await assert.rejects(
     requestRaw(handle.baseUrl, "/.well-known/crdd-workbench-health"),
   );
-});
-
-/**
- * 候補の検証操作が公開受付だけを通ることを確認する。
- *
- * @responsibility 確認なし破棄、別Identityと観測不能を成功へ畳まない。
- * @trace ERB-IT-021
- * @precondition 実Workbenchへ偽候補Applicationを注入する。
- * @stimulus 候補依頼、別ID確認、未確認破棄と確認済み破棄を要求する。
- * @observation 公開結果、破棄Effect件数と採用呼出し件数。
- * @oracle 同じ候補だけを操作し、確認なしEffect 0、確認済みEffect 1、採用0。
- * @cleanup finallyで所有Listenerを閉じる。
- * @boundary ERB-IT-021=HTTP受付と候補Applicationの結合。
- */
-test("実Provider検証HTTPの候補操作は確認とIdentityを保持して採用を公開しない", async () => {
-  let discards = 0;
-  let adopts = 0;
-  const candidateId = "candidate-http-001";
-  let reviewId: string | null = null;
-  const application: WorkbenchAiRequests = {
-    start: async () => ({
-      status: "accepted",
-      requestId: "AIREQ-CANDIDATE-001",
-      reason: null,
-    }),
-    observe: async (requestId) => ({
-      requestId,
-      mode: "change_candidate",
-      profileId: "PROFILE-100003",
-      status: "completed",
-      reason: null,
-      facts: [],
-      sharedAnalysis: [],
-      additionalInferences: [],
-      nextOptions: [],
-      candidate: { candidateId, disposition: "untrusted_not_adopted" },
-    }),
-    cancel: async (requestId) => application.observe(requestId),
-  };
-  const candidateActions: WorkbenchCandidateActions = {
-    review: async () =>
-      reviewId === null
-        ? {
-            status: "blocked",
-            reason: "verification_review_unavailable",
-            candidate: null,
-          }
-        : {
-            status: "available",
-            reason: "verification_review_available",
-            candidate: {
-              candidateId: reviewId,
-              informationClassification: "internal",
-              expiresAtMs: Date.now() + 60000,
-              baseRevision: "a".repeat(40),
-              candidateHash: "b".repeat(64),
-              patchHash: "c".repeat(64),
-              changedPaths: [
-                "40_Develop/workbench-server/src/ai-request/types.ts",
-              ],
-            },
-          },
-    adopt: async () => {
-      adopts += 1;
-      throw new Error("adoption_forbidden");
-    },
-    discard: async (id, confirmed) => {
-      if (confirmed) discards += 1;
-      return {
-        operation: "discard",
-        status: confirmed ? "completed" : "blocked",
-        reason: confirmed ? "discarded" : "confirmation_required",
-        candidateId: id,
-        receiptId: null,
-        effectIssued: confirmed,
-        effectStateUnknown: false,
-        cleanupConfirmed: confirmed,
-        manualRecoveryRequired: false,
-        recoveryIds: [],
-      };
-    },
-  };
-  const handle = await startWorkbench({
-    workingDirectory: repositoryRoot,
-    aiRequests: application,
-    candidateActions,
-  });
-  try {
-    const transport = await createWorkbenchAiVerificationHttpClient(
-      handle.baseUrl,
-    );
-    assert.equal("adopt" in transport, false);
-    await transport.start({
-      mode: "change_candidate",
-      profileId: "PROFILE-100003",
-      prompt: "固定候補検証",
-      contextReferences: ["PROJECT_CONTEXT.md"],
-      allowedPaths: ["40_Develop/workbench-server/src/ai-request/types.ts"],
-      externalSendConfirmed: true,
-    });
-    assert.equal((await transport.review(candidateId)).status, "blocked");
-    reviewId = candidateId;
-    assert.equal((await transport.review(candidateId)).status, "available");
-    reviewId = "candidate-other";
-    await assert.rejects(transport.review(candidateId));
-    reviewId = null;
-    await assert.rejects(transport.review("candidate-other"));
-    await assert.rejects(transport.discard("candidate-other", true));
-    assert.equal(discards, 0);
-    const unconfirmed = await transport.discard(candidateId, false);
-    assert.equal(unconfirmed.status, "blocked");
-    assert.equal(unconfirmed.effectIssued, false);
-    assert.equal(discards, 0);
-    const confirmed = await transport.discard(candidateId, true);
-    assert.equal(confirmed.status, "completed");
-    assert.equal(confirmed.cleanupConfirmed, true);
-    assert.equal(discards, 1);
-    assert.equal(adopts, 0);
-    const publicModel = await requestMainModel(handle.baseUrl);
-    let faultPosts = 0;
-    const faultServer = createServer((request, response) => {
-      if (request.method === "POST") {
-        faultPosts += 1;
-        request.resume();
-        response.destroy();
-        return;
-      }
-      response.writeHead(200, { "content-type": "application/json" });
-      response.end(JSON.stringify(publicModel));
-    });
-    try {
-      await new Promise<void>((resolve) =>
-        faultServer.listen(0, "127.0.0.1", resolve),
-      );
-      const address = faultServer.address();
-      assert.ok(address !== null && typeof address !== "string");
-      const faultTransport = await createWorkbenchAiVerificationHttpClient(
-        `http://127.0.0.1:${address.port}/`,
-      );
-      await assert.rejects(
-        faultTransport.discard(candidateId, true),
-        (error: unknown) => {
-          assert.ok(error instanceof Error);
-          assert.equal(
-            error.message,
-            "workbench_candidate_http_discard_outcome_unknown",
-          );
-          assert.deepEqual(error.cause, { candidateId });
-          return true;
-        },
-      );
-      assert.equal(faultPosts, 1);
-      assert.equal(adopts, 0);
-      for (const fault of [
-        "candidate-id",
-        "operation",
-        "previous-action",
-      ] as const) {
-        let posts = 0;
-        const staleServer = createServer((request, response) => {
-          if (request.method === "POST") {
-            posts += 1;
-            request.resume();
-            response.writeHead(303, { location: "/#ai-request" });
-            response.end();
-            return;
-          }
-          const model = {
-            ...publicModel,
-            aiRequest: {
-              ...publicModel.aiRequest,
-              candidateAction:
-                posts > 0 && publicModel.aiRequest.candidateAction !== null
-                  ? {
-                      ...publicModel.aiRequest.candidateAction,
-                      ...(fault === "candidate-id"
-                        ? { candidateId: "candidate-other" }
-                        : {}),
-                      ...(fault === "operation"
-                        ? { operation: "adopt" as const }
-                        : {}),
-                    }
-                  : publicModel.aiRequest.candidateAction,
-            },
-          };
-          response.writeHead(200, { "content-type": "application/json" });
-          response.end(JSON.stringify(model));
-        });
-        try {
-          await new Promise<void>((resolve) =>
-            staleServer.listen(0, "127.0.0.1", resolve),
-          );
-          const bound = staleServer.address();
-          assert.ok(bound !== null && typeof bound !== "string");
-          const staleTransport = await createWorkbenchAiVerificationHttpClient(
-            `http://127.0.0.1:${bound.port}/`,
-          );
-          await assert.rejects(
-            staleTransport.discard(candidateId, true),
-            (error: unknown) => {
-              assert.ok(error instanceof Error);
-              assert.equal(
-                error.message,
-                "workbench_candidate_http_discard_outcome_unknown",
-              );
-              assert.deepEqual(error.cause, { candidateId });
-              return true;
-            },
-          );
-          assert.equal(posts, 1);
-        } finally {
-          staleServer.closeAllConnections();
-          await new Promise<void>((resolve, reject) =>
-            staleServer.close((error) => (error ? reject(error) : resolve())),
-          );
-        }
-      }
-    } finally {
-      faultServer.closeAllConnections();
-      await new Promise<void>((resolve, reject) =>
-        faultServer.close((error) => (error ? reject(error) : resolve())),
-      );
-    }
-  } finally {
-    await handle.close();
-  }
 });

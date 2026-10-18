@@ -13,7 +13,7 @@ import type {
   WorkbenchAiAdviceDispatch,
   WorkbenchAiAdviceDispatchInput,
 } from "./repository-composition.ts";
-import type { CoordinatorAiRequestResult } from "./request-lifecycle.ts";
+import type { CoordinatorAiRequestResult } from "./advice-contract.ts";
 import { normalizeWorkbenchAiAdviceResult } from "./advice-result.ts";
 import type { WorkbenchAiAdviceTaskPacket } from "./advice-task.ts";
 

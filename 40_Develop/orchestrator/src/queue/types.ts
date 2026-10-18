@@ -38,10 +38,12 @@ export type ProjectQueueState =
  * @security N/A: ProjectQueueEntryはAuthority、秘密値または信頼判断を扱わない。
  * @compatibility ProjectQueueEntryの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
+import type { SingleTaskRecord } from "../task/single-task-record.ts";
+
 export type ProjectQueueEntry = Readonly<{
   queueId: string;
   projectId: string;
-  milestoneId: string;
+  milestoneId: string | null;
   requestHash: string;
   originLane: "interactive" | "scheduled";
   repositoryRevision: string;
@@ -52,4 +54,5 @@ export type ProjectQueueEntry = Readonly<{
   resumeCondition: string | null;
   resultReference: string | null;
   workspaceId?: string | null;
+  singleTask?: SingleTaskRecord;
 }>;

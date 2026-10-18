@@ -25,13 +25,7 @@ import {
   readExistingHostRoot,
   readHostInitializationState,
 } from "../../access-management/src/index.ts";
-import { createRepositoryWorkbenchCandidateActions } from "../../coordinator/src/workbench-ai/candidate-actions.ts";
-import { createRepositoryWorkbenchAiRequests } from "../../coordinator/src/workbench-ai/repository-composition.ts";
-import { createWorkbenchAiAdviceDispatchRuntime } from "../../coordinator/src/workbench-ai/advice-dispatch.ts";
-import { createWorkbenchAiAdviceProviderExecutor } from "../../coordinator/src/workbench-ai/advice-provider-executor.ts";
-import { createRuntimeOwnedWorkbenchAiAdviceProductionRuntime } from "../../coordinator/src/workbench-ai/advice-execution.ts";
-import { createRuntimeOwnedWorkbenchAiChangeCandidateExecutor } from "../../coordinator/src/workbench-ai/change-candidate-executor.ts";
-import { createWorkbenchAiProviderAdapter } from "../../coordinator/src/workbench-ai/provider-adapter.ts";
+import { createRepositoryTaskRequests } from "../../orchestrator/src/index.ts";
 import {
   resolveVerifiedRepositoryRootFromWorkingDirectory,
   verifyRepositoryRoot,
@@ -62,32 +56,20 @@ async function startRepositoryWorkbench(
   const profiles = createRepositoryAiProfileCatalogStore(repositoryRoot);
   if (profiles.status !== "ready")
     throw new Error("ai_profile_catalog_store_required");
-  const adviceRuntime = createRuntimeOwnedWorkbenchAiAdviceProductionRuntime(
-    verified.capability,
-  );
-  const executor = createWorkbenchAiAdviceProviderExecutor(adviceRuntime);
-  const adapter = createWorkbenchAiProviderAdapter({
-    codex: executor,
-    claude: executor,
-  });
-  const aiRequests = createRepositoryWorkbenchAiRequests(
+  const surface = await readWorkbenchProjectSurface(repositoryRoot);
+  const aiRequests = createRepositoryTaskRequests(
     verified.capability,
     profiles.store,
-    createWorkbenchAiAdviceDispatchRuntime(adapter),
-    createRuntimeOwnedWorkbenchAiChangeCandidateExecutor(
-      verified.capability,
-      profiles.store,
-    ),
+    surface.context.projectId,
+    "local-workbench-user",
+    () =>
+      resolveVerifiedRepositoryRootFromWorkingDirectory(repositoryRoot) ===
+      repositoryRoot,
   );
-  const surface = await readWorkbenchProjectSurface(repositoryRoot);
   return startWorkbench({
     workingDirectory: repositoryRoot,
     port,
     aiRequests,
-    candidateActions: createRepositoryWorkbenchCandidateActions(
-      verified.capability,
-      surface.context.projectId,
-    ),
   });
 }
 
@@ -152,6 +134,14 @@ async function startFromCommandLine(): Promise<WorkbenchHandle | null> {
     crosProfileAdministration: createAiProfileCatalogAdministration(
       profiles.store,
     ),
+    sharedAiRequestsFactory: (root, projectId, principalId, authorize) =>
+      createRepositoryTaskRequests(
+        root,
+        profiles.store,
+        projectId,
+        principalId,
+        authorize,
+      ),
   });
 }
 

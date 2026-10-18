@@ -50,12 +50,18 @@ export function validOrchestratorResultRecord(
     (record.kind === "integration" || record.kind === "adoption") &&
     typeof record.identity === "string" &&
     RECORD_IDENTITY.test(record.identity) &&
-    [
-      record.repositoryBindingId,
-      record.projectId,
-      record.milestoneId,
-      record.queueId,
-    ].every((id) => typeof id === "string" && BINDING_IDENTITY.test(id)) &&
+    [record.repositoryBindingId, record.projectId, record.queueId].every(
+      (id) => typeof id === "string" && BINDING_IDENTITY.test(id),
+    ) &&
+    ((typeof record.milestoneId === "string" &&
+      BINDING_IDENTITY.test(record.milestoneId)) ||
+      (record.milestoneId === null &&
+        record.kind === "adoption" &&
+        record.value !== null &&
+        typeof record.value === "object" &&
+        ["workspace-candidate", "workspace-candidate-close"].includes(
+          String((record.value as Record<string, unknown>).recordKind),
+        ))) &&
     record.contentHash ===
       createHash("sha256").update(JSON.stringify(record.value)).digest("hex")
   );

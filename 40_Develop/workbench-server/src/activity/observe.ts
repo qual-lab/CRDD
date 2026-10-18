@@ -102,6 +102,7 @@ export type WorkbenchRuntimeActivityPageRequest = Readonly<{
  * @compatibility 状態追加時は未接続を含む全表示分岐を再評価する。
  */
 export type WorkbenchRuntimeActivityObservation = Readonly<{
+  singleTasks?: RuntimeActivityObservation["singleTasks"];
   state: "observed" | "absent" | "unknown";
   reason: string;
   projection: WorkbenchRuntimeActivityProjection | null;
@@ -177,6 +178,7 @@ export function projectRuntimeActivityForWorkbench(
       ),
     ),
     eventContinuation: observation.eventContinuation,
+    singleTasks: observation.singleTasks ?? [],
   });
 }
 

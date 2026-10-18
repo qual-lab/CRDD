@@ -27,6 +27,11 @@ import {
 import { normalizeRepositoryRelativePath } from "../input/repository-relative-path.ts";
 import { decodeProjectResultAcceptance } from "../state/transitions.ts";
 import type { ProjectQueueEntry, ProjectQueueState } from "../queue/types.ts";
+import {
+  inspectSingleTaskRecord,
+  singleTaskQueueIsConsistent,
+  type SingleTaskRecord,
+} from "../task/single-task-record.ts";
 import type { OrchestratorAcceptanceDecisionStore } from "../decision/acceptance-authority.ts";
 import type {
   OrchestratorDecisionRecoveryIntent,
@@ -1052,10 +1057,18 @@ function validQueueEntry(value: unknown): value is ProjectQueueEntry {
       "resumeCondition",
       "resultReference",
       "workspaceId",
+      ...(Object.hasOwn(value, "singleTask") ? ["singleTask"] : []),
     ]) &&
     validId(value.queueId) &&
     validId(value.projectId) &&
-    validId(value.milestoneId) &&
+    (Object.hasOwn(value, "singleTask")
+      ? value.milestoneId === null &&
+        inspectSingleTaskRecord(value.singleTask) !== null &&
+        singleTaskQueueIsConsistent(
+          value as unknown as ProjectQueueEntry,
+          value.singleTask as SingleTaskRecord,
+        )
+      : validId(value.milestoneId)) &&
     typeof value.requestHash === "string" &&
     HASH.test(value.requestHash) &&
     (value.originLane === "interactive" || value.originLane === "scheduled") &&
@@ -1911,7 +1924,9 @@ function validOrchestratorSnapshot(
     if (
       projects.size !== snapshot.projects.length ||
       queues.size !== snapshot.queueEntries.length ||
-      snapshot.queueEntries.some((item) => !projects.has(item.projectId))
+      snapshot.queueEntries.some(
+        (item) => !item.singleTask && !projects.has(item.projectId),
+      )
     )
       return false;
     const intake = new Set<string>();
@@ -3220,6 +3235,73 @@ function assertOrchestratorSnapshotTransition(
         (item) => item.queueId === old.queueId,
       );
       if (
+        old.singleTask &&
+        (!next?.singleTask ||
+          [
+            "principalId",
+            "mode",
+            "profileId",
+            "catalogRevision",
+            "taskId",
+            "attemptId",
+            "operationId",
+          ].some(
+            (key) =>
+              old.singleTask?.[key as keyof SingleTaskRecord] !==
+              next.singleTask?.[key as keyof SingleTaskRecord],
+          ) ||
+          (old.singleTask.adviceOperation !== undefined &&
+            JSON.stringify(old.singleTask.adviceOperation) !==
+              JSON.stringify(next.singleTask.adviceOperation)) ||
+          (old.singleTask.phase === "settled" &&
+            (old.singleTask.status !== next.singleTask.status ||
+              old.singleTask.reason !== next.singleTask.reason ||
+              next.singleTask.phase !== "settled" ||
+              (old.singleTask.cleanupConfirmed &&
+                !next.singleTask.cleanupConfirmed) ||
+              next.singleTask.recoveryIds.some(
+                (id) => !old.singleTask?.recoveryIds.includes(id),
+              ))))
+      )
+        throw new Error("snapshot_single_task_identity_invalid");
+      if (
+        old.singleTask &&
+        next?.singleTask &&
+        JSON.stringify(old.singleTask) !== JSON.stringify(next.singleTask)
+      ) {
+        const unstartedRejection =
+          old.singleTask.phase === "accepted" &&
+          next.singleTask.phase === "settled" &&
+          next.singleTask.status === "blocked" &&
+          next.singleTask.cleanupConfirmed &&
+          next.singleTask.recoveryIds.length === 0 &&
+          old.ownerGeneration === null &&
+          next.ownerGeneration === null &&
+          !current.leaseIntents.some(
+            (intent) => intent.queueId === old.queueId,
+          );
+        const phases: Record<SingleTaskRecord["phase"], readonly string[]> = {
+          accepted: ["starting"],
+          starting: ["starting", "running", "settled"],
+          running: ["settled"],
+          settled: ["settled"],
+        };
+        if (
+          !unstartedRejection &&
+          (!phases[old.singleTask.phase].includes(next.singleTask.phase) ||
+            !current.leaseIntents.some(
+              (intent) =>
+                intent.queueId === old.queueId &&
+                intent.projectId === old.projectId &&
+                intent.kind === "project-operation" &&
+                intent.phase === "lock_owned" &&
+                intent.ownerProcessId === process.pid &&
+                intent.ownerGeneration === next.ownerGeneration,
+            ))
+        )
+          throw new Error("snapshot_single_task_transition_invalid");
+      }
+      if (
         !next ||
         [
           "projectId",
@@ -3251,7 +3333,9 @@ function assertOrchestratorSnapshotTransition(
         next.milestoneId !== old.milestoneId &&
         current.queueEntries.some(
           (queue) =>
-            queue.projectId === old.projectId && !retired.has(queue.queueId),
+            !queue.singleTask &&
+            queue.projectId === old.projectId &&
+            !retired.has(queue.queueId),
         )
       )
         throw new Error("snapshot_project_milestone_still_referenced");
@@ -3360,6 +3444,24 @@ function orchestratorQueueIsClosed(
       queue.ownerGeneration !== null
     )
       return false;
+    if (queue.singleTask) {
+      return (
+        queue.singleTask.phase === "settled" &&
+        queue.workspaceId == null &&
+        queue.singleTask.cleanupConfirmed &&
+        queue.singleTask.recoveryIds.length === 0 &&
+        !current.leaseIntents.some((item) => item.queueId === queueId) &&
+        orchestratorSnapshotLeaseResourcesAbsent(
+          owner.repositoryRoot,
+          leaseIdentity(
+            current.repositoryBindingId,
+            queue.projectId,
+            queueId,
+            "project-operation",
+          ),
+        )
+      );
+    }
     const project = current.projects.find(
       (item) => item.projectId === queue.projectId,
     );
@@ -4317,7 +4419,8 @@ export function createOrchestratorSnapshotIntegrationRecordPort(
             (item) => item.queueId === binding.queueId,
           );
           if (
-            (value.kind === "integration" && !queue) ||
+            (value.kind === "integration" && (!queue || queue.singleTask)) ||
+            (value.milestoneId === null && !queue?.singleTask) ||
             (queue &&
               (queue.projectId !== binding.projectId ||
                 queue.milestoneId !== binding.milestoneId))
@@ -4472,8 +4575,7 @@ export function acquireOrchestratorSnapshotLease(
         current.schema !== SNAPSHOT_SCHEMA_V3 ||
         !validId(projectId) ||
         (kind === "project-operation"
-          ? !current.projects.some((item) => item.projectId === projectId) ||
-            !current.queueEntries.some(
+          ? !current.queueEntries.some(
               (item) =>
                 item.queueId === queueId && item.projectId === projectId,
             )
@@ -4865,8 +4967,7 @@ export function reconcileOrchestratorSnapshotLeaseOwnerLoss(
       if (
         !validId(projectId) ||
         (kind === "project-operation"
-          ? !current.projects.some((item) => item.projectId === projectId) ||
-            queue?.projectId !== projectId
+          ? queue?.projectId !== projectId
           : queueId !== "canonical")
       )
         return blocked("orchestrator_lease_binding_invalid");
@@ -5516,6 +5617,7 @@ export function createOrchestratorSnapshotStatePort(
           };
           if (
             !validQueueEntry(value) ||
+            value.singleTask !== undefined ||
             !current.projects.some((item) => item.projectId === value.projectId)
           )
             return blocked("orchestrator_queue_input_invalid");
@@ -5657,6 +5759,8 @@ export function createOrchestratorSnapshotStatePort(
           const previous = current.queueEntries.find(
             (item) => item.queueId === queueId,
           );
+          if (previous?.singleTask)
+            return blocked("orchestrator_single_task_owner_required");
           if (
             !validId(queueId) ||
             !Number.isSafeInteger(expectedGeneration) ||
@@ -5924,6 +6028,331 @@ export function createOrchestratorSnapshotStatePort(
 }
 
 /**
+ * 計画を生成せず単発Taskを同じ受付世代へ保存する。
+ * @responsibility 入力同一性と実Workspace所属を既存Snapshotで確定する。
+ * @trace ARCH-000004
+ * @input 現在Root、binding、受付世代、単発Queue。
+ * @returns 同一受付又は確定した新品Queue。
+ * @precondition 上位で実Projectと主体を認可する。
+ * @postcondition 保存確認より前に下位実行を開始しない。
+ * @effect 既存state.jsonの更新のみ。
+ * @failure 旧世代、別入力、無効Workspaceは停止。
+ * @invariant Project計画・架空Milestoneを作らない。
+ * @boundary 単発受付と既存Writer。
+ * @security 本文・資格を保存しない。
+ * @concurrency 既存Snapshot排他だけを使用する。
+ */
+export function enqueueOrchestratorSingleTask(
+  workingDirectory: string,
+  binding: string,
+  intakeEpoch: string,
+  input: ProjectQueueEntry,
+): StoreResult<ProjectQueueEntry> {
+  return withOrchestratorSnapshotOperation(
+    workingDirectory,
+    binding,
+    (current) => {
+      if (
+        !validQueueEntry(input) ||
+        !input.singleTask ||
+        input.milestoneId !== null ||
+        input.singleTask.phase !== "accepted" ||
+        input.state !== "queued" ||
+        input.generation !== 1 ||
+        input.ownerGeneration !== null ||
+        input.resultReference !== null ||
+        input.resumeCondition !== null
+      )
+        return blocked("orchestrator_single_task_input_invalid");
+      const existing = current.queueEntries.find(
+        (entry) => entry.queueId === input.queueId,
+      );
+      if (existing) {
+        const epoch = current.intakeBindings.find(
+          (entry) => entry.queueId === input.queueId,
+        )?.epoch;
+        const keys = [
+          "projectId",
+          "milestoneId",
+          "requestHash",
+          "repositoryRevision",
+          "scopeHash",
+          "workspaceId",
+        ] as const;
+        const identityKeys = [
+          "principalId",
+          "mode",
+          "profileId",
+          "catalogRevision",
+          "taskId",
+          "attemptId",
+          "operationId",
+        ] as const;
+        return epoch === intakeEpoch &&
+          existing.singleTask &&
+          keys.every((key) => existing[key] === input[key]) &&
+          identityKeys.every(
+            (key) => existing.singleTask?.[key] === input.singleTask?.[key],
+          )
+          ? completed("orchestrator_single_task_reused", {
+              next: null,
+              value: existing,
+            })
+          : blocked("orchestrator_queue_identity_conflict");
+      }
+      if (current.intakeEpoch !== intakeEpoch)
+        return blocked("orchestrator_intake_epoch_retired");
+      if (
+        input.workspaceId != null &&
+        (!current.queueEntries.some(
+          (entry) =>
+            entry.projectId === input.projectId &&
+            entry.workspaceId === input.workspaceId,
+        ) ||
+          !current.workspaces.some(
+            (entry) =>
+              entry.workspaceId === input.workspaceId &&
+              entry.phase === "ready" &&
+              entry.holdUntil === null,
+          ))
+      )
+        return blocked("orchestrator_workspace_not_ready");
+      return completed("orchestrator_single_task_durable", {
+        next: {
+          ...current,
+          queueEntries: [...current.queueEntries, input],
+          intakeBindings: [
+            ...current.intakeBindings,
+            { queueId: input.queueId, epoch: intakeEpoch },
+          ],
+        },
+        value: input,
+      });
+    },
+  );
+}
+
+/**
+ * 単発Taskの開始・終端を同じ実行Leaseと世代で保存する。
+ * @responsibility 元ID、失敗・回復参照を保持して終端だけを更新する。
+ * @trace ARCH-000004
+ * @input Root、binding、Queue、期待世代、実Lease、次記録。
+ * @returns 更新したQueue又は停止。
+ * @precondition 呼出し元は同じTaskをjoinするOwner。
+ * @postcondition 未解決cleanupを完了Queueへ変えない。
+ * @effect 既存Snapshot更新。履歴は既存搬送へ渡す。
+ * @failure 世代・Lease・識別子・遷移不一致で停止。
+ * @invariant 本文・回答を保存せず採用を行わない。
+ * @boundary 単発実行と既存Writer。
+ * @security 保存値から実Leaseを復元しない。
+ * @concurrency 既存operation LeaseとSnapshot短期排他。
+ */
+export function updateOrchestratorSingleTask(
+  workingDirectory: string,
+  binding: string,
+  queueId: string,
+  expectedGeneration: number,
+  lease: OrchestratorLease,
+  raw: unknown,
+): StoreResult<ProjectQueueEntry> {
+  const record = inspectSingleTaskRecord(raw);
+  if (!record) return blocked("orchestrator_single_task_record_invalid");
+  return withOrchestratorSnapshotOperation(
+    workingDirectory,
+    binding,
+    (current, owner) => {
+      const previous = current.queueEntries.find(
+        (entry) => entry.queueId === queueId,
+      );
+      const active = activeLeases.get(lease);
+      if (
+        !previous?.singleTask ||
+        previous.generation !== expectedGeneration ||
+        active?.kind !== "project-operation" ||
+        active.repositoryRoot !== owner.repositoryRoot ||
+        active.repositoryBindingId !== binding ||
+        active.projectId !== previous.projectId ||
+        active.queueId !== queueId ||
+        !activeLeaseIsObserved(active) ||
+        (previous.ownerGeneration !== null &&
+          previous.ownerGeneration !== active.ownerGeneration)
+      )
+        return blocked("orchestrator_single_task_owner_mismatch");
+      const identityKeys = [
+        "principalId",
+        "mode",
+        "profileId",
+        "catalogRevision",
+        "taskId",
+        "attemptId",
+        "operationId",
+      ] as const;
+      if (
+        identityKeys.some((key) => previous.singleTask?.[key] !== record[key])
+      )
+        return blocked("orchestrator_single_task_identity_conflict");
+      if (previous.singleTask.phase === "settled") {
+        if (
+          previous.singleTask.status !== record.status ||
+          previous.singleTask.reason !== record.reason ||
+          (previous.singleTask.cleanupConfirmed && !record.cleanupConfirmed) ||
+          record.recoveryIds.some(
+            (id) => !previous.singleTask?.recoveryIds.includes(id),
+          )
+        )
+          return blocked("orchestrator_single_task_terminal_identity_conflict");
+        if (JSON.stringify(previous.singleTask) === JSON.stringify(record))
+          return completed("orchestrator_single_task_already_saved", {
+            next: null,
+            value: previous,
+          });
+      }
+      const phases: Record<SingleTaskRecord["phase"], readonly string[]> = {
+        accepted: ["starting"],
+        starting: ["starting", "running", "settled"],
+        running: ["settled"],
+        settled: ["settled"],
+      };
+      if (!phases[previous.singleTask.phase].includes(record.phase))
+        return blocked("orchestrator_single_task_transition_invalid");
+      const terminal = record.phase === "settled";
+      const clean =
+        terminal && record.cleanupConfirmed && record.recoveryIds.length === 0;
+      const value: ProjectQueueEntry = {
+        ...previous,
+        singleTask: record,
+        generation: previous.generation + 1,
+        ownerGeneration: active.ownerGeneration,
+        state: !terminal
+          ? "running"
+          : !clean
+            ? "recovery_required"
+            : record.status === "cancelled"
+              ? "cancelled"
+              : "completed",
+        resumeCondition: !terminal || clean ? null : "exact_recovery",
+        resultReference: clean ? null : previous.resultReference,
+      };
+      const row = clean
+        ? historyRow(
+            {
+              id: queueId,
+              occurredAt: new Date().toISOString(),
+              outcome:
+                record.status === "completed"
+                  ? "completed"
+                  : record.status === "cancelled"
+                    ? "cancelled"
+                    : "failed",
+              primaryFailure:
+                record.status === "completed"
+                  ? null
+                  : record.status === "cancelled"
+                    ? "cancel"
+                    : "execution",
+              cleanup: "confirmed",
+            },
+            Date.now(),
+          )
+        : null;
+      return completed("orchestrator_single_task_saved", {
+        next: {
+          ...current,
+          queueEntries: current.queueEntries.map((entry) =>
+            entry.queueId === queueId ? value : entry,
+          ),
+          historyPending: row
+            ? [
+                ...current.historyPending.filter((item) => item.id !== queueId),
+                row,
+              ]
+            : current.historyPending,
+        },
+        value,
+      });
+    },
+  );
+}
+
+/**
+ * 取得意図すらない単発受付だけを未開始の拒否として閉じる。
+ * @responsibility Lease競合拒否と取得結果不明を区別する。
+ * @trace ARCH-000004
+ * @input Repository、binding、受付ID、期待世代と固定理由。
+ * @returns 同じ受付の終端、又は処置しない停止。
+ * @precondition Providerと実Leaseの取得を開始していない。
+ * @postcondition 取得意図があればcleanupを確定しない。
+ * @effect 既存Writerと履歴搬送待ちだけ。
+ * @failure 取得意図・段階・世代が異なれば停止する。
+ * @invariant 新しいLeaseや回復参照を捏造しない。
+ * @boundary 受付Ownerと既存保存。
+ * @security 本文を保存しない。
+ * @concurrency 既存Snapshotの短期排他で照合する。
+ */
+export function closeUnstartedOrchestratorSingleTask(
+  workingDirectory: string,
+  binding: string,
+  queueId: string,
+  expectedGeneration: number,
+  reason: string,
+): StoreResult<ProjectQueueEntry> {
+  return withOrchestratorSnapshotOperation(
+    workingDirectory,
+    binding,
+    (current) => {
+      const previous = current.queueEntries.find(
+        (entry) => entry.queueId === queueId,
+      );
+      if (
+        !previous?.singleTask ||
+        previous.generation !== expectedGeneration ||
+        previous.singleTask.phase !== "accepted" ||
+        previous.ownerGeneration !== null ||
+        current.leaseIntents.some((intent) => intent.queueId === queueId)
+      )
+        return blocked("orchestrator_single_task_unstarted_unconfirmed");
+      const record = inspectSingleTaskRecord({
+        ...previous.singleTask,
+        phase: "settled",
+        status: "blocked",
+        reason,
+        cleanupConfirmed: true,
+      });
+      if (!record) return blocked("orchestrator_single_task_record_invalid");
+      const value: ProjectQueueEntry = {
+        ...previous,
+        singleTask: record,
+        generation: previous.generation + 1,
+        state: "completed",
+        resumeCondition: null,
+      };
+      const row = historyRow(
+        {
+          id: queueId,
+          occurredAt: new Date().toISOString(),
+          outcome: "failed",
+          primaryFailure: "execution",
+          cleanup: "confirmed",
+        },
+        Date.now(),
+      );
+      return completed("orchestrator_single_task_not_started", {
+        next: {
+          ...current,
+          queueEntries: current.queueEntries.map((entry) =>
+            entry.queueId === queueId ? value : entry,
+          ),
+          historyPending: row
+            ? [...current.historyPending, row]
+            : current.historyPending,
+        },
+        value,
+      });
+    },
+  );
+}
+
+/**
  * 受付以外の既存操作を現在の保存世代へ接続する。
  * @responsibility 読取り・採用・判断・回復の本番利用側を新版へ結合する。
  * @trace ARCH-000004
@@ -6138,24 +6567,34 @@ export function writeOrchestratorWorkspaceRecord(
           .map((entry) => entry.projectId),
       );
       affectedProjects.add(projectId);
-      const busy = current.projects
-        .filter((entry) => affectedProjects.has(entry.projectId))
-        .some((entry) =>
-          entry.tasks.some(
-            (task) =>
-              [
-                "starting",
-                "running",
-                "cleanup_pending",
-                "recovery_required",
-              ].includes(task.state) ||
-              task.recoveryUnresolved ||
-              task.recoveryObligations.some(
-                (obligation) =>
-                  !["settled", "acknowledged"].includes(obligation.phase),
-              ),
-          ),
-        );
+      const singleTaskBusy = current.queueEntries.some(
+        (entry) =>
+          affectedProjects.has(entry.projectId) &&
+          entry.singleTask &&
+          (entry.singleTask.phase !== "settled" ||
+            !entry.singleTask.cleanupConfirmed ||
+            entry.singleTask.recoveryIds.length > 0),
+      );
+      const busy =
+        singleTaskBusy ||
+        current.projects
+          .filter((entry) => affectedProjects.has(entry.projectId))
+          .some((entry) =>
+            entry.tasks.some(
+              (task) =>
+                [
+                  "starting",
+                  "running",
+                  "cleanup_pending",
+                  "recovery_required",
+                ].includes(task.state) ||
+                task.recoveryUnresolved ||
+                task.recoveryObligations.some(
+                  (obligation) =>
+                    !["settled", "acknowledged"].includes(obligation.phase),
+                ),
+            ),
+          );
       if (busy) return blocked("orchestrator_workspace_in_use_or_unresolved");
       if (
         (nextRecord?.phase === "discarding" || nextRecord === null) &&

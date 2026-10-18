@@ -189,6 +189,73 @@ Source・実Gitの成立範囲と残件は[変更計画の実装結果](../../..
 
 送信前取消はOwner処置0。Ownerへ開始後は同期Git／Writerの終端まで待ち、取消・応答喪失をRollback・未処置へ丸めない。明示再観測・同操作再入場を利用し、自動再送しない。公開時にも現在許可とSignalを再確認する。旧BundleのcandidateActionsと新Workspace候補を区別し、Source切替・実公開結合・人間UATの成立範囲を別に記録する。
 
+### 旧Workbench AI経路の置換契約（2026-10-18、移行中）
+
+単発依頼は既存のProject計画実行とは区別する。同じProjectへの次の依頼が、以前の完了Taskを再利用して未実行になることを防ぐ。架空のObjective／Milestoneは生成しない。
+
+| 対象 | 単発依頼の扱い |
+|---|---|
+| 保存 | 既存SnapshotのQueueへ単発種別とTask／Attempt／Operationを保存する。新Store・Registry・Lockは作らない |
+| 所属 | 実Repository／Project／主体を固定し、単発の`milestoneId`は`null`とする |
+| 同一性 | 入力Hash、mode、exact ProfileとCatalog改訂、対象Workspaceを受付時に固定する。同ID別入力は拒否する |
+| 本文 | Prompt・Context本文・回答四分類はProcess内だけ。再起動で失った本文を再送・空文字化しない |
+| 実行 | 変更は既存Single Task Attempt、助言は既存の固定Context専用Runtimeへ接続する |
+| 終了 | 下位join・cleanup・未解決回復を照合する。Task完了はCandidate固定・採用・Workspace削除を意味しない |
+| 利用側 | 活動Reader、Workspace非使用判定、履歴移管、取消・Owner喪失はQueue内の単発Taskも対象にする |
+
+単発Ownerは`task/requests.ts`、本番組立ては`task/request-composition.ts`が所有する。助言の実Operation作成通知で非Authorityの実ID・Host回復参照を同じQueueへ保存し、保存確認前はProviderへ進めない。Provider Processの開始通知は作成保存と区別する。助言のCatalog改訂0は既定Catalogの既知改訂であり、不明を0へ補完しない。
+
+受付Leaseの真正な未取得は、当該Queueの取得意図・Ownerが存在しないことを既存Writerで確認して未開始拒否として閉じる。取得不明は同じexact参照を保持する。本文を失った依頼は再送せず、次の明示開始前又は同ID取消時に、既存のLease Owner喪失照合とCoordinatorの用途別正式回収へ接続する。回復後も元status／reasonを変更せず、cleanupと回復参照だけを確定する。同じ確定の再入場で履歴を重複追加しない。
+
+Task資源の回収済みとQueue Leaseの終了済みは別条件とする。TaskがcleanでもOwner／取得意図が残れば既存Leaseの再入場へ進み、両方を確定するまで新規受付を許可しない。回復待機後はclosing・同Ownerの実行中依頼・現在認可を再確認して受付する。同Process内でも元IDの取消を正式回収へ接続し、結果を同じ表示Snapshotへ反映する。保存・取得・解放の副次失敗は元の実行理由と分け、取得済みexact参照を落とさない。
+
+Workbenchの再構成後は、既存の依頼操作で元requestIdを明示し、Task Ownerが現在主体・Project／Repository所属を照合して観測・取消へ接続する。空Prompt、新requestId又は新Session台帳を再入場のために作らない。本文欠測は表示理由であり、元成功のprimaryFailure=nullを失敗へ変更しない。
+
+Workspace編集の本番構成は既存Hostの初回外部送信同意を維持する。Browserの送信確認は当該依頼の明示意思であり、Host側の既存同意・Runtime許可を自動発行しない。同意がないHostや非対話起動では既存境界で停止し得る。有限代役によるHTTP／Writer試験は、Browserだけで新規Hostの実Provider開始まで成立した証明ではない。実Provider E2Eでは既存同意の有無と起動端末条件を別途確認する。
+
+公開結果は本文欠測、元の実行状態・一次失敗、cleanup、回復参照、保存／解放の副次失敗を区別する。取消は下位終了をjoinした後に再認可し、失効時は本文・対象詳細を返さない。Workbenchの一件表示では実行中の次受付を拒否し、元の取消対象を失わない。共有利用は資格・RepositoryごとにProcess内のOwnerを分離する。活動投影の単発項目はProject計画のMilestone／Task件数とは別に表示する。
+
+今回撤去するのはWorkbench専用の旧Request台帳、変更Bundle Executor、Bundle確認・採用・破棄のConsumerである。Project計画のObjective／Milestone進行と既存Bundle統合の本番能力はこの置換だけを理由に削除しない。旧Project計画経路を新Workspaceの実行・採用成立の根拠には使わず、その全面再編は別の対応範囲として保持する。
+
+この表は目標契約であり、Source・Reader・公開入口の全接続と検証が完了するまでは置換完了としない。
+
+公開Workspace管理の基準は`174bef00`とする。次の置換は入口名の変更ではなく、Workbench専用の依頼状態と旧Bundle生成・採用を、既存Orchestratorの受付・Task・Workspaceへ移す変更である。下表は設計契約であり、Source接続済み又は新方式の検証成功を表さない。
+
+| 対象 | 維持する能力と移管先 |
+|---|---|
+| 状況確認・助言 | 共通Taskの明示的な読取り専用種別として扱う。現行と同じ固定`PROJECT_CONTEXT.md`一件の投影・秘密検査・exact Profileを維持する。Repository／WorkspaceをProviderへ共有しない既存技術構成を再利用し、空の`allowedPaths`やPrompt指示を読取り専用隔離の証明にしない |
+| 変更作業 | 既存Workspace対象解決からDirect又はIsolatedの借用Treeへ接続する。所属Rootは保存・認可、実行TreeはAI編集の対象である。選択不能・不一致で起動Repositoryへfallbackしない |
+| 送信 | 現在Catalogの指定Profile、依頼種別、対象と送信するContextを一要求へ結合し、明示送信同意後にだけ既存Coordinatorへ渡す。Profileの希望をAuthorityとせず、助言同意を変更作業へ転用しない |
+| 状態・取消 | 既存Queue／Task／AttemptとWriterを使う。Workbenchの単一Process全体に共有された現在依頼変数をCROSの全主体・Repositoryへ流用しない。取消要求、元Taskの完了待ち、資源回収確認、結果公開を分ける |
+| 助言結果 | 根拠参照付きの事実・共有分析・追加推論・次候補の閉じた結果を維持する。自由文、Task成功又はGit差分を四分類へ推測変換しない。生Provider出力をそのまま公開しない |
+| 変更結果 | TaskとWorkspaceの変更観測を返す。旧Bundleの生成・`integrateOrchestratorOperation`・旧`candidate/action`へ流さない。人間の変更確認→選択固定→固定差分→別採用へ接続し、Task完了・結果受領でCommit／Merge／Promotionしない |
+| 認可 | 単体は検証済み固定Repository、共有はAMの現在development許可へ接続する。受付、外部Effect前、待機後の公開で主体・Repository・Workspaceの所属と現在許可を再確認する。既存通常ObjectiveのOS判断StoreのPrincipalをAMのPrincipalと同一視せず、Workbenchから同APIを呼ぶだけの置換をしない |
+
+#### 非永続本文と再入場
+
+永続化するのは、既存契約が許可するTask識別・状態・対象参照・Hash・取得済み回復参照等に限定する。Prompt、読取り投影本文、回答本文をTask要求、計画、採用基準、Event、診断又は履歴へコピーして永続化しない。既存Writerへ渡す値とログの組立箇所を照合する。これは新しい本文Storeを設ける契約ではない。
+
+Process再起動後は本文の再表示を保証しない。本文欠測を正常な空回答へ変換せず、空Promptの再実行・別入力への置換・自動再送をしない。既存の同Task／回復参照による資源回収と失敗確認は、Promptや回答の欠測から独立して行えるようにする。表示・任意保存の失敗をDocker cleanupの未完了へ読み替えず、Orchestratorが必要とする既存の耐久受領は技術資源回収と区別する。
+
+#### 接続順と旧処理の削除条件
+
+1. 共通Taskの読取り専用種別、変更作業、閉じた結果と本文非永続の引渡しを具体化する。
+2. 既存受付・Writer・Queue・DispatcherからCoordinatorへ接続し、Workspace結果の旧Bundle統合を分離する。
+3. Workbenchを薄い開始・観測・取消の利用側へ変更し、単体Launcherと同Host共有接続へ接続する。MCPとは対等な入口を維持する。
+4. 既存能力の移管先・本番利用側・試験を照合した後に旧Workbench専用構成・Bundle用入口を撤去する。残存する実データはフロントAIの確認・移行対象とし、製品Sourceへ旧形式fallbackを追加しない。
+
+新しいSession Registry、永続状態、Lock、監視Process、一般Recovery、第三Gateway又は承認Frameworkは追加しない。旧署名方式・過去Evidenceを新方式の実証へ流用しない。実Provider依頼・Docker操作・実データ削除は、設計・有限代役の結合試験から暗黙実行しない。
+
+#### 共通Taskの変更観測の公開搬送（限定接続済み）
+
+Dispatcherが取得した`workspaceResults`をObjective結果とMCPへ搬送する。項目はTask／Attempt／OperationとCoordinatorの閉じたWorkspace変更観測だけで、本文・絶対Path・Authorityを追加しない。配列と内包値を複製・凍結し、重複試行・重複操作・別Workspace・混在対象・Accessor／Proxy・余分fieldを拒否する。Directの`workspaceId:null`とIsolatedのUUIDを区別する。
+
+field省略は今回応答に観測がないことを表し、再入場で初回観測を再現したことにしない。存在するが不正な失敗付随観測は`null`として、元の失敗理由・cleanup・回復参照を保持する。正常完了結果の不正観測は公開拒否とし、不正又は欠測を「変更なし」の空配列へ変換しない。
+
+内部のTask進行結果と公開Objectiveの完成は異なる。MCPは構造検証済みの投影が未採用の場合、内部`completed`を公開`blocked`へ写す。元の完了結果が必要とするcleanup・回復・Effectの条件は従来どおり検査し、理由と変更観測を保持する。これは採用待ちの表示であり、処置未発行又はGit採用の失敗ではない。既存の`completed＝Objective採用済み`の相関条件は緩めず、内部結果と旧Bundle Consumerは変更しない。
+
+この接続は結果搬送だけである。旧Bundle統合の停止、助言種別、Workbench切替は未完了。特に初回応答の観測fieldの有無だけで旧統合への進入を決めない。Directと再入場も同じ新経路へ閉じる切替時に扱う。
+
 ## 7. Qualityへの引渡し
 
 | 導出キー | ARCH | 必要な保証 | 試験段階・実境界 | 主なQA |

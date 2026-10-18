@@ -28,6 +28,7 @@ export {
   createOrchestratorObjectiveResult,
   createOrchestratorTaskExecutionSet,
   inspectOrchestratorObjectivePlan,
+  inspectOrchestratorWorkspaceResults,
   type OrchestratorObjectivePlan,
 } from "./objective/plan.ts";
 export {
@@ -286,6 +287,7 @@ export {
   parseRuntimeActivityObservation,
   inspectRuntimeActivityObservation,
 } from "./activity/validate.ts";
+export { createRepositoryTaskRequests } from "./task/request-composition.ts";
 export type {
   ActivityRepository,
   ActivitySource,

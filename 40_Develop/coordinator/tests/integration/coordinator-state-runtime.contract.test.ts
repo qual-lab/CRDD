@@ -70,6 +70,7 @@ import {
   type CoordinatorStateTaskOperation,
   coordinatorStateContentHash,
   decodeCoordinatorStateSnapshot,
+  decodeCoordinatorHistoryRows,
   encodeCoordinatorStateValue,
   prepareCoordinatorStateCompletionSnapshot,
   prepareCoordinatorAuthenticationUnknownClosureSnapshot,
@@ -84,6 +85,7 @@ import {
   prepareCoordinatorStateRepairSnapshot,
   prepareCoordinatorStateResourceSnapshot,
 } from "../../src/state-storage/model.ts";
+import { observeRuntimeOwnedWorkbenchTaskCompletion } from "../../src/state-storage/settlement-store.ts";
 import {
   createDockerRestartRequestId,
   type DockerRestartCheckpoint,
@@ -6709,6 +6711,77 @@ test("Host Windows: 認証unknownの専用Writerを実保存へ接続する", as
   const historyRow = JSON.parse(historyRows[0] ?? "null");
   assert.equal(historyRow.summary.recoveryId, recoveryId);
   assert.equal(historyRow.summary.outcome.status, "blocked");
+  assert.equal(
+    historyRow.summary.schema,
+    "crdd-coordinator/operation-summary/v4",
+  );
+  assert.equal(
+    observeRuntimeOwnedWorkbenchTaskCompletion(
+      verified.capability,
+      recoveryId,
+      "task-operation-a",
+    ).completionConfirmed,
+    true,
+  );
+  assert.equal(
+    observeRuntimeOwnedWorkbenchTaskCompletion(
+      verified.capability,
+      recoveryId,
+      "another-operation",
+    ).completionConfirmed,
+    false,
+  );
+  const historyFile = path.join(directory, "history.jsonl");
+  const originalHistory = fs.readFileSync(historyFile);
+  for (const mutation of [
+    "consumer",
+    "correlation",
+    "legacy",
+    "duplicate",
+    "missing",
+    "restart_null",
+    "restart_pending",
+    "restart_unknown_shape",
+  ] as const) {
+    const row = structuredClone(historyRow);
+    if (mutation === "consumer") row.summary.consumer = "coordinator_cli";
+    if (mutation === "correlation") row.summary.recoveryCorrelationId = "other";
+    if (mutation === "legacy") {
+      row.summary.schema = "crdd-coordinator/operation-summary/v2";
+      delete row.summary.consumer;
+      delete row.summary.recoveryCorrelationId;
+    }
+    if (mutation === "restart_null") row.summary.dockerRestart = null;
+    if (mutation === "restart_pending")
+      row.summary.dockerRestart = {
+        request: "issued",
+        cleanup: "unknown",
+        result: null,
+      };
+    if (mutation === "restart_unknown_shape")
+      row.summary.dockerRestart = { unexpected: true };
+    const line = `${encodeCoordinatorStateValue(row)}\n`;
+    if (mutation.startsWith("restart_"))
+      assert.equal(decodeCoordinatorHistoryRows(Buffer.from(line)), null);
+    fs.writeFileSync(
+      historyFile,
+      mutation === "missing"
+        ? ""
+        : mutation === "duplicate"
+          ? line + line
+          : line,
+    );
+    assert.equal(
+      observeRuntimeOwnedWorkbenchTaskCompletion(
+        verified.capability,
+        recoveryId,
+        "task-operation-a",
+      ).completionConfirmed,
+      false,
+      mutation,
+    );
+  }
+  fs.writeFileSync(historyFile, originalHistory);
   assert.equal(
     historyRow.summary.outcome.reason,
     "docker_setup_create_subscription_auth_probe_failed",

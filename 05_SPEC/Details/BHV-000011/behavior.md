@@ -19,11 +19,11 @@ Behavior ID: `BHV-000011`
 | Trigger | Applicable | stdio MCPまたはlocalhost HTTPから同じ仕事を依頼する時 |
 | Precondition | Applicable | 公開Application契約へ適合する入力と利用可能なTransportがある |
 | Authority | Applicable | 呼出し元の既存Authorityだけを搬送する。TransportはAuthorityを追加しない |
-| Input | Applicable | 対象Identity、入力値、出所および依頼種別（読取り助言／変更候補） |
+| Input | Applicable | 対象Identity、入力値、出所および依頼種別（読取り助言／Workspace編集） |
 | Validation | Applicable | 前提条件、Authority、対象Identity、入力完全性および現在性をEffect前に確認する |
 | State／Transition | Applicable | 通信方式を公開Application契約へ変換し、依頼種別を維持した同じ入力・状態・結果・失敗分類を返す。 |
 | Sequence | Applicable | Trigger→Precondition／Authority／Validation→State／Effect→Resultの順を保つ |
-| Effect | Applicable | Transport自体は意味を変更しない。読取り助言は所有正本Effect 0、変更候補は候補返却までとし、採用Effectは別Authorityで制御する。 |
+| Effect | Applicable | Transport自体は意味を変更しない。読取り助言は所有正本Effect 0とする。Workspace編集はDirectなら現在のWorking Tree、Isolatedなら選択した独立作業領域へ実際に書き込む。Task完了だけではCandidate固定・Commit・Merge・Promotionを行わず、固定と採用は別の明示操作とする。 |
 | Output | Applicable | 入口の違いでAuthorityや結果の意味が変わらず、各結果項目の本文と根拠参照の対応を保つ。 |
 | Failure | Applicable | Transport固有値を意味契約へ混入せず、依頼種別を欠落・読み替えず、根拠参照のない結果を部分表示せず、未対応入口を成立済みと表示しない。 |
 | Recovery | Applicable | 失敗理由と安全な戻り先を返す。 |

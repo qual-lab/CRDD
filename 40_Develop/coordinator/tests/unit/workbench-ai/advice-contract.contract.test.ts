@@ -1,5 +1,5 @@
 /**
- * Coordinator Workbench AI依頼Applicationの契約試験。
+ * Coordinator読取り助言の入力・結果・投影契約試験。
  *
  * @packageDocumentation
  * @responsibility 依頼種別の分離、結果観測、取消、不正入力および未知Identityを検証する。
@@ -15,12 +15,7 @@ import {
   DEFAULT_AI_PROFILE_CATALOG,
   type AiProfileCatalogStore,
 } from "../../../../ai-adapter/src/index.ts";
-import {
-  createCoordinatorAiRequests,
-  type CoordinatorAiRequestInput,
-  type CoordinatorAiRequestResult,
-} from "../../../src/workbench-ai/request-lifecycle.ts";
-import { createRepositoryWorkbenchAiRequests } from "../../../src/workbench-ai/repository-composition.ts";
+import { createRepositoryReadOnlyAdviceExecutor } from "../../../src/workbench-ai/repository-composition.ts";
 import {
   resolveVerifiedRepositoryRootFromWorkingDirectory,
   verifyRepositoryRoot,
@@ -48,15 +43,13 @@ import {
  * @cleanup N/A: Process外資源を生成しない局所検証である。
  * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
  */
-const request = (mode: "read_only_advice" | "change_candidate") =>
+const request = (mode: "read_only_advice") =>
   Object.freeze({
     mode,
     profileId: "PROFILE-000001",
     prompt: "現在状態を確認する",
     contextReferences: Object.freeze(["PROJECT_CONTEXT.md"]),
-    allowedPaths: Object.freeze(
-      mode === "change_candidate" ? ["40_Develop/workbench-server/src"] : [],
-    ),
+    allowedPaths: Object.freeze([]),
     externalSendConfirmed: true,
   });
 
@@ -88,201 +81,6 @@ const COMPLETED = Object.freeze({
     }),
   ]),
   candidate: null,
-});
-
-/**
- * 読取り助言と変更候補を対応Executorへ分離するを検証する。
- *
- * @responsibility 読取り助言と変更候補を対応Executorへ分離するを検証するの検証責務を所有する。
- * @trace ERB-UT-023
- * @precondition 対象契約を再現できる固定入力と依存を用意する。
- * @stimulus 読取り助言と変更候補を対応Executorへ分離するの対象操作を実行する。
- * @observation 返却値、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionがSummaryの期待条件を満たす。
- * @cleanup N/A: Process外資源を生成しない局所検証である。
- * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
- */
-test("読取り助言と変更候補を対応Executorへ分離する", async () => {
-  const observedSnapshots: CoordinatorAiRequestInput[] = [];
-  const application = createCoordinatorAiRequests({
-    async startReadOnlyAdvice(input) {
-      observedSnapshots.push(input);
-      return COMPLETED;
-    },
-    async startChangeCandidate(input) {
-      observedSnapshots.push(input);
-      return Object.freeze({
-        ...COMPLETED,
-        facts: Object.freeze([
-          Object.freeze({
-            text: "candidate",
-            references: Object.freeze(["PROJECT_CONTEXT.md#5"]),
-          }),
-        ]),
-      });
-    },
-  });
-
-  const adviceStart = await application.start(request("read_only_advice"));
-  const changeStart = await application.start(request("change_candidate"));
-  assert.equal(adviceStart.status, "accepted");
-  assert.equal(changeStart.status, "accepted");
-  await new Promise((resolve) => setImmediate(resolve));
-
-  assert.deepEqual(
-    observedSnapshots.map((item) => item.mode),
-    ["read_only_advice", "change_candidate"],
-  );
-  const advice = await application.observe(adviceStart.requestId as string);
-  const change = await application.observe(changeStart.requestId as string);
-  assert.equal(advice.mode, "read_only_advice");
-  assert.deepEqual(advice.facts, [
-    { text: "fact", references: ["PROJECT_CONTEXT.md#1"] },
-  ]);
-  assert.equal(change.mode, "change_candidate");
-  assert.deepEqual(change.facts, [
-    { text: "candidate", references: ["PROJECT_CONTEXT.md#5"] },
-  ]);
-});
-
-/**
- * 不正な依頼種別と余分なKeyをEffect前に拒否するを検証する。
- *
- * @responsibility 不正な依頼種別と余分なKeyをEffect前に拒否するを検証するの検証責務を所有する。
- * @trace ERB-UT-023
- * @precondition 対象契約を再現できる固定入力と依存を用意する。
- * @stimulus 不正な依頼種別と余分なKeyをEffect前に拒否するの対象操作を実行する。
- * @observation 返却値、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionがSummaryの期待条件を満たす。
- * @cleanup N/A: Process外資源を生成しない局所検証である。
- * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
- */
-test("不正な依頼種別と余分なKeyをEffect前に拒否する", async () => {
-  let executionCount = 0;
-  const application = createCoordinatorAiRequests({
-    async startReadOnlyAdvice() {
-      executionCount += 1;
-      return COMPLETED;
-    },
-    async startChangeCandidate() {
-      executionCount += 1;
-      return COMPLETED;
-    },
-  });
-
-  const invalidMode = await application.start({
-    ...request("read_only_advice"),
-    mode: "auto",
-  });
-  const extraKey = await application.start({
-    ...request("read_only_advice"),
-    authority: "admin",
-  });
-  assert.equal(invalidMode.status, "blocked");
-  assert.equal(extraKey.status, "blocked");
-  assert.equal(executionCount, 0);
-});
-
-/**
- * 取消後の遅延完了でcancelledを上書きしないを検証する。
- *
- * @responsibility 取消後の遅延完了でcancelledを上書きしないを検証するの検証責務を所有する。
- * @trace ERB-UT-023
- * @precondition 対象契約を再現できる固定入力と依存を用意する。
- * @stimulus 取消後の遅延完了でcancelledを上書きしないの対象操作を実行する。
- * @observation 返却値、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionがSummaryの期待条件を満たす。
- * @cleanup N/A: Process外資源を生成しない局所検証である。
- * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
- */
-test("取消後の遅延完了でcancelledを上書きしない", async () => {
-  let complete: ((value: typeof COMPLETED) => void) | undefined;
-  const application = createCoordinatorAiRequests({
-    startReadOnlyAdvice: (_input, signal) =>
-      new Promise((resolve) => {
-        assert.equal(signal.aborted, false);
-        complete = resolve;
-      }),
-    async startChangeCandidate() {
-      return COMPLETED;
-    },
-  });
-
-  const started = await application.start(request("read_only_advice"));
-  const requestId = started.requestId as string;
-  const cancelled = await application.cancel(requestId);
-  assert.equal(cancelled.status, "cancelled");
-  complete?.(COMPLETED);
-  await new Promise((resolve) => setImmediate(resolve));
-  assert.equal((await application.observe(requestId)).status, "cancelled");
-});
-
-/**
- * 未知Identityは他依頼のProfileとModeを開示しないを検証する。
- *
- * @responsibility 未知Identityは他依頼のProfileとModeを開示しないを検証するの検証責務を所有する。
- * @trace ERB-UT-023
- * @precondition 対象契約を再現できる固定入力と依存を用意する。
- * @stimulus 未知Identityは他依頼のProfileとModeを開示しないの対象操作を実行する。
- * @observation 返却値、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionがSummaryの期待条件を満たす。
- * @cleanup N/A: Process外資源を生成しない局所検証である。
- * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
- */
-test("未知Identityは他依頼のProfileとModeを開示しない", async () => {
-  const application = createCoordinatorAiRequests({
-    async startReadOnlyAdvice() {
-      return COMPLETED;
-    },
-    async startChangeCandidate() {
-      return COMPLETED;
-    },
-  });
-
-  const unknown = await application.observe("ai-request.unknown");
-  assert.equal(unknown.status, "unknown");
-  assert.equal(unknown.reason, "coordinator_ai_request_not_found");
-  assert.equal(unknown.profileId, null);
-  assert.equal(unknown.mode, null);
-});
-
-/**
- * 根拠参照を持たないExecutor結果を公開前に拒否するを検証する。
- *
- * @responsibility 根拠参照を持たないExecutor結果を公開前に拒否するを検証するの検証責務を所有する。
- * @trace ERB-UT-023
- * @precondition 対象契約を再現できる固定入力と依存を用意する。
- * @stimulus 根拠参照を持たないExecutor結果を公開前に拒否するの対象操作を実行する。
- * @observation 返却値、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionがSummaryの期待条件を満たす。
- * @cleanup N/A: Process外資源を生成しない局所検証である。
- * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
- */
-test("根拠参照を持たないExecutor結果を公開前に拒否する", async () => {
-  const invalidResult = Object.freeze({
-    ...COMPLETED,
-    facts: Object.freeze([
-      Object.freeze({ text: "根拠のない事実", references: Object.freeze([]) }),
-    ]),
-  }) as unknown as CoordinatorAiRequestResult;
-  const application = createCoordinatorAiRequests({
-    async startReadOnlyAdvice() {
-      return invalidResult;
-    },
-    async startChangeCandidate() {
-      return COMPLETED;
-    },
-  });
-
-  const started = await application.start(request("read_only_advice"));
-  await new Promise((resolve) => setImmediate(resolve));
-  const result = await application.observe(started.requestId as string);
-  assert.equal(result.status, "blocked");
-  assert.equal(result.reason, "coordinator_ai_request_result_invalid");
-  assert.deepEqual(result.facts, []);
-  assert.deepEqual(result.sharedAnalysis, []);
-  assert.deepEqual(result.additionalInferences, []);
-  assert.deepEqual(result.nextOptions, []);
 });
 
 /**
@@ -551,7 +349,7 @@ test("Repository Project Contextを専用Task Packetへ固定してDispatchす�
         taskHash: string;
       }>
     | undefined;
-  const application = createRepositoryWorkbenchAiRequests(
+  const application = createRepositoryReadOnlyAdviceExecutor(
     verified.capability,
     Object.freeze({
       snapshot: () =>
@@ -574,31 +372,15 @@ test("Repository Project Contextを専用Task Packetへ固定してDispatchす�
       });
       return COMPLETED;
     },
-    async () =>
-      Object.freeze({
-        ...COMPLETED,
-        facts: Object.freeze([
-          Object.freeze({
-            text: "change",
-            references: Object.freeze(["PROJECT_CONTEXT.md"]),
-          }),
-        ]),
-      }),
   );
 
-  const started = await application.start({
-    ...request("read_only_advice"),
-    profileId: "PROFILE-100001",
-  });
-  let snapshot = await application.observe(started.requestId as string);
-  for (
-    let attempt = 0;
-    attempt < 100 && snapshot.status === "running";
-    attempt += 1
-  ) {
-    await new Promise((resolve) => setTimeout(resolve, 5));
-    snapshot = await application.observe(started.requestId as string);
-  }
+  const snapshot = await application(
+    {
+      ...request("read_only_advice"),
+      profileId: "PROFILE-100001",
+    },
+    new AbortController().signal,
+  );
   assert.equal(snapshot.status, "completed", JSON.stringify(snapshot));
   assert.equal(observedTask?.profileId, "PROFILE-100001");
   assert.equal(observedTask?.catalogRevision, 7);
@@ -635,30 +417,23 @@ test("未登録または非Coordinator ProfileはDispatch前に拒否する", as
       throw new Error("not_used");
     },
   }) satisfies AiProfileCatalogStore;
-  const application = createRepositoryWorkbenchAiRequests(
+  const application = createRepositoryReadOnlyAdviceExecutor(
     verified.capability,
     store,
     async () => {
       dispatchCount += 1;
       return COMPLETED;
     },
-    async () => COMPLETED,
   );
 
   for (const profileId of ["PROFILE-999999", "PROFILE-100003"]) {
-    const started = await application.start({
-      ...request("read_only_advice"),
-      profileId,
-    });
-    let snapshot = await application.observe(started.requestId as string);
-    for (
-      let attempt = 0;
-      attempt < 100 && snapshot.status === "running";
-      attempt += 1
-    ) {
-      await new Promise((resolve) => setTimeout(resolve, 5));
-      snapshot = await application.observe(started.requestId as string);
-    }
+    const snapshot = await application(
+      {
+        ...request("read_only_advice"),
+        profileId,
+      },
+      new AbortController().signal,
+    );
     assert.equal(
       snapshot.reason,
       "coordinator_ai_profile_not_available_for_advice",

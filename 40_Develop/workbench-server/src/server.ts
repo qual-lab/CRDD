@@ -59,6 +59,7 @@ import {
   resolveVerifiedRepositoryRootFromWorkingDirectory,
   resolveVerifiedRepositoryRoot,
   verifyRepositoryRoot,
+  type VerifiedRepositoryRoot,
 } from "../../version-control/src/index.ts";
 import {
   readWorkbenchProjectSurface,
@@ -116,9 +117,6 @@ import {
 import type {
   WorkbenchAiRequests,
   WorkbenchAiRequestSnapshot,
-  WorkbenchCandidateActionResult,
-  WorkbenchCandidateActions,
-  WorkbenchCandidateReviewResult,
 } from "./ai-request/types.ts";
 import {
   createRepositoryWorkbenchActivityReader,
@@ -215,7 +213,12 @@ export type WorkbenchStartRequest = Readonly<{
   crosProfileAdministration?: AiProfileCatalogAdministration;
   aiProfiles?: WorkbenchAiProfileSurface;
   aiRequests?: WorkbenchAiRequests;
-  candidateActions?: WorkbenchCandidateActions;
+  sharedAiRequestsFactory?: (
+    root: VerifiedRepositoryRoot,
+    projectId: string,
+    principalId: string,
+    authorize: () => boolean,
+  ) => WorkbenchAiRequests;
   activityReader?: WorkbenchActivityReader;
 }>;
 
@@ -511,9 +514,6 @@ function createWorkbenchMainViewModel(
   aiProfileAdministrationResult: AiProfileCatalogMutationResult | null,
   aiRequests: WorkbenchAiRequests | undefined,
   aiRequestSnapshot: WorkbenchAiRequestSnapshot | null,
-  candidateActions: WorkbenchCandidateActions | undefined,
-  candidateReview: WorkbenchCandidateReviewResult | null,
-  candidateAction: WorkbenchCandidateActionResult | null,
   aiRequestNotice: string | null,
   runtimeActivity: WorkbenchRuntimeActivityObservation | undefined,
   documentQuery: string,
@@ -572,10 +572,7 @@ function createWorkbenchMainViewModel(
     }),
     aiRequest: Object.freeze({
       configured: aiRequests !== undefined,
-      candidateConfigured: candidateActions !== undefined,
       snapshot: aiRequestSnapshot,
-      candidateReview,
-      candidateAction,
       notice: aiRequestNotice,
     }),
     runtimeActivity: runtimeActivity ?? null,
@@ -859,7 +856,7 @@ export async function startWorkbench(
     "crosProfileAdministration",
     "aiProfiles",
     "aiRequests",
-    "candidateActions",
+    "sharedAiRequestsFactory",
     "activityReader",
   ]);
   if (Object.keys(request).some((field) => !configurationFields.has(field)))
@@ -881,7 +878,6 @@ export async function startWorkbench(
       request.portfolio !== undefined ||
       request.aiProfiles !== undefined ||
       request.aiRequests !== undefined ||
-      request.candidateActions !== undefined ||
       request.activityReader !== undefined)
   )
     throw new Error("workbench_local_cros_sources_conflicting");
@@ -930,7 +926,82 @@ export async function startWorkbench(
       ? createWorkbenchAiProfileSurface(aiProfileStore.store.snapshot().catalog)
       : createDefaultWorkbenchAiProfileSurface());
   const aiRequests = request.aiRequests;
-  const candidateActions = request.candidateActions;
+  const sharedAiSessions = new Map<
+    string,
+    { owner: WorkbenchAiRequests; currentId: string | null }
+  >();
+  /**
+   * 現在認可した接続主体とRepositoryへ単発Ownerを結合する。
+   * @responsibility 共有の表示IDをProcess全体の一変数へ混在させない。
+   * @trace ARCH-000015
+   * @input 現在の管理接続、Repository IDと新規構成の有無。
+   * @returns 当該接続の既存Owner、又は未開示のnull。
+   * @precondition TokenはHTTP要求から得た非永続値。
+   * @postcondition 待機後もOwnerが現在認可を照合する。
+   * @effect 初回明示開始だけ既存Task Ownerを構成する。
+   * @failure 認可・Root・容量不明は拒否する。
+   * @invariant 新保存先・Registry・MCP依存を追加しない。
+   * @boundary AMと共有Workbenchの現在Session。
+   * @security 資格・Root・Map Keyを応答へ返さない。
+   * @concurrency 異なる資格とRepositoryの要求を分離する。
+   */
+  const sharedAiSession = (
+    connection: CredentialAdministration | undefined,
+    repositoryId: string,
+    create: boolean,
+  ) => {
+    if (!connection || !request.sharedAiRequestsFactory) return null;
+    const auth = resolveConnectionAuthentication(
+      connection.root,
+      connection.token,
+    );
+    const selected = resolveRepositoryAccess(
+      connection.root,
+      connection.token,
+      repositoryId,
+      "development",
+    );
+    if (auth.status !== "normal" || selected.status !== "completed")
+      return null;
+    const key = `${auth.snapshot.credentialId}:${repositoryId}`;
+    const current = sharedAiSessions.get(key);
+    if (current) return current;
+    if (!create || sharedAiSessions.size >= 100) return null;
+    const original = selected.access;
+    const root = resolveVerifiedRepositoryRoot(original.root);
+    const authorize = () => {
+      const now = resolveConnectionAuthentication(
+        connection.root,
+        connection.token,
+      );
+      const access = resolveRepositoryAccess(
+        connection.root,
+        connection.token,
+        repositoryId,
+        "development",
+      );
+      return (
+        now.status === "normal" &&
+        now.snapshot.userId === auth.snapshot.userId &&
+        now.snapshot.credentialId === auth.snapshot.credentialId &&
+        access.status === "completed" &&
+        access.access.bindingId === original.bindingId &&
+        access.access.manifest.projectId === original.manifest.projectId &&
+        resolveVerifiedRepositoryRoot(access.access.root) === root
+      );
+    };
+    const session = {
+      owner: request.sharedAiRequestsFactory(
+        original.root,
+        original.manifest.projectId,
+        auth.snapshot.userId,
+        authorize,
+      ),
+      currentId: null as string | null,
+    };
+    sharedAiSessions.set(key, session);
+    return session;
+  };
   const activityReader =
     request.activityReader ??
     (request.localAccessRoot === undefined && projectSurface !== undefined
@@ -954,8 +1025,6 @@ export async function startWorkbench(
   let currentAiRequestId: string | null = null;
   let aiRequestSnapshot: WorkbenchAiRequestSnapshot | null = null;
   let aiRequestNotice: string | null = null;
-  let candidateReview: WorkbenchCandidateReviewResult | null = null;
-  let candidateAction: WorkbenchCandidateActionResult | null = null;
   let runtimeActivityObservation:
     | WorkbenchRuntimeActivityObservation
     | undefined;
@@ -1148,6 +1217,96 @@ export async function startWorkbench(
           credentialAdministration = undefined;
           localConnectionNotice =
             "現在の接続を確認できません。接続用の鍵を確認してください。";
+        }
+        if (method === "POST" && requestPath === "/ai-request/action") {
+          let dispatched = false;
+          try {
+            const address = server.address();
+            const origin =
+              publicOrigin?.origin ??
+              (address && typeof address !== "string"
+                ? `http://${HOST}:${address.port}`
+                : null);
+            if (
+              !origin ||
+              incoming.headers.origin !== origin ||
+              incoming.headers.host !== new URL(origin).host ||
+              requestUrl.search !== ""
+            )
+              throw new Error("workbench_ai_request_input_invalid");
+            const form = await readActionForm(incoming);
+            if (
+              form.get("actionToken") !== actionToken ||
+              !credentialAdministration
+            )
+              throw new Error("workbench_ai_request_access_unavailable");
+            const operation = form.get("operation");
+            const repositoryId = form.get("repositoryId") ?? "";
+            const session = sharedAiSession(
+              credentialAdministration,
+              repositoryId,
+              operation === "start" ||
+                operation === "observe" ||
+                operation === "cancel",
+            );
+            if (!session)
+              throw new Error("workbench_ai_request_access_unavailable");
+            let result:
+              | Awaited<ReturnType<WorkbenchAiRequests["start"]>>
+              | WorkbenchAiRequestSnapshot;
+            if (operation === "start") {
+              const mode = form.get("mode");
+              if (mode !== "read_only_advice" && mode !== "workspace_edit")
+                throw new Error("workbench_ai_request_mode_invalid");
+              dispatched = true;
+              result = await session.owner.start({
+                mode,
+                profileId: form.get("profileId") ?? "",
+                prompt: form.get("prompt") ?? "",
+                contextReferences: ["PROJECT_CONTEXT.md"],
+                allowedPaths: (form.get("allowedPaths") ?? "")
+                  .split(/\r?\n/u)
+                  .map((p) => p.trim())
+                  .filter(Boolean),
+                externalSendConfirmed:
+                  form.get("externalSendConfirmed") === "yes",
+                workspaceId: form.get("workspaceId")?.trim() || null,
+              });
+              if (result.status === "accepted")
+                session.currentId = result.requestId;
+            } else if (operation === "cancel" || operation === "observe") {
+              const requestId = form.get("requestId") ?? "";
+              const previous = await session.owner.observe(requestId);
+              if (
+                previous.mode === null ||
+                previous.reason === "orchestrator_task_not_available"
+              )
+                throw new Error("workbench_ai_request_identity_invalid");
+              dispatched = true;
+              result =
+                operation === "cancel"
+                  ? await session.owner.cancel(requestId)
+                  : previous;
+              if (session.currentId === null) session.currentId = requestId;
+            } else throw new Error("workbench_ai_request_operation_invalid");
+            if (!sharedAiSession(credentialAdministration, repositoryId, false))
+              throw new Error("workbench_ai_request_access_unavailable");
+            setCommonHeaders(response);
+            response.setHeader(
+              "Content-Type",
+              "application/json; charset=utf-8",
+            );
+            response.end(JSON.stringify(result));
+          } catch {
+            setCommonHeaders(response);
+            response.statusCode = dispatched ? 503 : 400;
+            response.end(
+              dispatched
+                ? "ai_request_outcome_unconfirmed\n"
+                : "ai_request_rejected\n",
+            );
+          }
+          return;
         }
         if (method === "GET" || method === "HEAD") {
           // 共有CatalogはRepository選択と独立し、現在管理認可でだけ読む。
@@ -1394,6 +1553,21 @@ export async function startWorkbench(
                 await yieldToTransport(0);
                 if (requestController.signal.aborted || response.destroyed)
                   return;
+                const selectedAi = sharedAiSession(
+                  credentialAdministration,
+                  selectedId,
+                  false,
+                );
+                const selectedAiSnapshot = selectedAi?.currentId
+                  ? await selectedAi.owner.observe(selectedAi.currentId)
+                  : null;
+                const sharedProfiles =
+                  request.sharedAiRequestsFactory &&
+                  request.crosProfileAdministration
+                    ? createWorkbenchAiProfileSurface(
+                        request.crosProfileAdministration.snapshot().catalog,
+                      )
+                    : null;
                 model = createWorkbenchMainViewModel(
                   surface,
                   currentPortfolio,
@@ -1415,10 +1589,7 @@ export async function startWorkbench(
                   null,
                   undefined,
                   null,
-                  undefined,
                   null,
-                  null,
-                  "共有接続のAI実行は未接続です。",
                   activity,
                   requestUrl.searchParams.get("documentQuery") ?? "",
                   {
@@ -1432,6 +1603,17 @@ export async function startWorkbench(
                   true,
                   true,
                 );
+                model = {
+                  ...model,
+                  aiProfiles: sharedProfiles,
+                  aiRequest: {
+                    configured:
+                      request.sharedAiRequestsFactory !== undefined &&
+                      selected.workspaceIds.includes("development"),
+                    snapshot: selectedAiSnapshot,
+                    notice: null,
+                  },
+                };
                 const route = requestUrl.searchParams.get("route") ?? "/";
                 if (route === "/project") {
                   const project = currentPortfolio.projects.find(
@@ -2377,8 +2559,6 @@ export async function startWorkbench(
             throw new Error("workbench_action_token_invalid");
           const operation = form.get("operation");
           if (operation === "start") {
-            candidateReview = null;
-            candidateAction = null;
             const mode = form.get("mode");
             const profileId = form.get("profileId") ?? "";
             const prompt = (form.get("prompt") ?? "").trim();
@@ -2388,7 +2568,7 @@ export async function startWorkbench(
               .filter((value) => value.length > 0);
             const externalSendConfirmed =
               form.get("externalSendConfirmed") === "yes";
-            if (mode !== "read_only_advice" && mode !== "change_candidate")
+            if (mode !== "read_only_advice" && mode !== "workspace_edit")
               throw new Error("workbench_ai_request_mode_invalid");
             if (
               !aiProfiles.catalog.profiles.some(
@@ -2409,7 +2589,7 @@ export async function startWorkbench(
                   value.split("/").includes(".."),
               ) ||
               (mode === "read_only_advice" && allowedPaths.length !== 0) ||
-              (mode === "change_candidate" && allowedPaths.length === 0)
+              (mode === "workspace_edit" && allowedPaths.length === 0)
             )
               throw new Error("workbench_ai_request_allowed_paths_invalid");
             if (!externalSendConfirmed)
@@ -2424,6 +2604,7 @@ export async function startWorkbench(
                 contextReferences: Object.freeze(["PROJECT_CONTEXT.md"]),
                 allowedPaths: Object.freeze(allowedPaths),
                 externalSendConfirmed,
+                workspaceId: form.get("workspaceId")?.trim() || null,
               }),
             );
             if (result.status === "accepted" && result.requestId !== null) {
@@ -2442,16 +2623,25 @@ export async function startWorkbench(
               });
               aiRequestNotice = "AI依頼を受け付けました。";
             } else {
-              currentAiRequestId = null;
-              aiRequestSnapshot = null;
               aiRequestNotice = `AI依頼を開始できませんでした: ${result.reason ?? "blocked"}`;
             }
-          } else if (operation === "cancel") {
+          } else if (operation === "cancel" || operation === "observe") {
             const requestId = form.get("requestId") ?? "";
-            if (currentAiRequestId === null || requestId !== currentAiRequestId)
+            const previous = await aiRequests.observe(requestId);
+            if (
+              previous.mode === null ||
+              previous.reason === "orchestrator_task_not_available"
+            )
               throw new Error("workbench_ai_request_identity_invalid");
-            aiRequestSnapshot = await aiRequests.cancel(requestId);
-            aiRequestNotice = "取消結果を取得しました。";
+            aiRequestSnapshot =
+              operation === "cancel"
+                ? await aiRequests.cancel(requestId)
+                : previous;
+            if (currentAiRequestId === null) currentAiRequestId = requestId;
+            aiRequestNotice =
+              operation === "cancel"
+                ? "取消結果を取得しました。"
+                : "保存済み依頼を確認しました。";
           } else {
             throw new Error("workbench_ai_request_operation_invalid");
           }
@@ -2467,43 +2657,9 @@ export async function startWorkbench(
         return;
       }
       if (method === "POST" && requestPath === "/candidate/action") {
-        try {
-          const form = await readActionForm(incoming);
-          if (form.get("actionToken") !== actionToken)
-            throw new Error("workbench_action_token_invalid");
-          const operation = form.get("operation");
-          const candidateId = form.get("candidateId") ?? "";
-          if (
-            aiRequestSnapshot?.candidate?.candidateId !== candidateId ||
-            (operation !== "adopt" &&
-              operation !== "discard" &&
-              operation !== "defer")
-          )
-            throw new Error("workbench_candidate_identity_invalid");
-          if (operation === "defer") {
-            candidateAction = null;
-            aiRequestNotice =
-              "変更候補を保留しました。RepositoryへのEffectは発行していません。";
-          } else {
-            if (candidateActions === undefined)
-              throw new Error("workbench_candidate_application_unavailable");
-            const confirmed = form.get("confirmed") === "true";
-            candidateAction =
-              operation === "adopt"
-                ? await candidateActions.adopt(candidateId, confirmed)
-                : await candidateActions.discard(candidateId, confirmed);
-            candidateReview = await candidateActions.review(candidateId);
-            aiRequestNotice = `${operation === "adopt" ? "採用" : "破棄"}結果を取得しました。`;
-          }
-          setCommonHeaders(response);
-          response.statusCode = 303;
-          response.setHeader("Location", "/#ai-request");
-          response.end();
-        } catch {
-          setCommonHeaders(response);
-          response.statusCode = 400;
-          response.end("candidate_action_rejected\n");
-        }
+        setCommonHeaders(response);
+        response.statusCode = 410;
+        response.end("legacy_bundle_candidate_route_removed\n");
         return;
       }
       if (method !== "GET" && method !== "HEAD") {
@@ -2539,23 +2695,6 @@ export async function startWorkbench(
               candidate: null,
             });
           }
-        }
-        const currentCandidateId = aiRequestSnapshot?.candidate?.candidateId;
-        if (
-          candidateActions !== undefined &&
-          currentCandidateId !== undefined
-        ) {
-          try {
-            candidateReview = await candidateActions.review(currentCandidateId);
-          } catch {
-            candidateReview = Object.freeze({
-              status: "blocked",
-              reason: "workbench_candidate_review_failed",
-              candidate: null,
-            });
-          }
-        } else {
-          candidateReview = null;
         }
         if (activityReader !== undefined) {
           try {
@@ -2666,9 +2805,6 @@ export async function startWorkbench(
           aiProfileAdministrationResult,
           aiRequests,
           aiRequestSnapshot,
-          candidateActions,
-          candidateReview,
-          candidateAction,
           aiRequestNotice,
           runtimeActivityObservation,
           requestUrl.searchParams.get("documentQuery") ?? "",
@@ -2876,6 +3012,7 @@ export async function startWorkbench(
     close: () => {
       if (closeOperation) return closeOperation;
       closeOperation = (async () => {
+        let primaryFailure: unknown = null;
         try {
           await new Promise<void>((resolve, reject) => {
             server.close((error) =>
@@ -2883,9 +3020,20 @@ export async function startWorkbench(
             );
             for (const connection of connections) connection.destroy();
           });
-        } finally {
-          await Promise.allSettled([...pendingRequests]);
+        } catch (error) {
+          primaryFailure = error;
         }
+        await Promise.allSettled([...pendingRequests]);
+        const ownersClosed = await Promise.allSettled([
+          aiRequests?.close?.(),
+          ...[...sharedAiSessions.values()].map((session) =>
+            session.owner.close?.(),
+          ),
+        ]);
+        sharedAiSessions.clear();
+        if (primaryFailure !== null) throw primaryFailure;
+        if (ownersClosed.some((result) => result.status === "rejected"))
+          throw new Error("workbench_ai_close_unconfirmed");
       })();
       return closeOperation;
     },

@@ -13,9 +13,19 @@ import assert from "node:assert/strict";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
+import fs from "node:fs";
+import { syncBuiltinESMExports } from "node:module";
 
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
-import { readWorkbenchProjectSurface } from "../../src/index.ts";
+import {
+  parseRepositoryQualityProjectionMarkdown,
+  parseRepositoryReleaseProjectionMarkdown,
+} from "../../../domain-model/src/index.ts";
+import {
+  readWorkbenchProjectSurface,
+  readWorkbenchOwnerArtifactCatalog,
+  readWorkbenchOwnerArtifact,
+} from "../../src/index.ts";
 
 const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
   import.meta.dirname,
@@ -46,15 +56,24 @@ test("共通Project Contextを読み未構成Capabilityを明示する", async (
   assert.equal(surface.meetings.state, "not_configured");
   assert.equal(surface.ownerArtifacts.state, "available");
   assert.equal(surface.plan.state, "available");
-  assert.equal(surface.plan.projection?.targetVersion, "v0.22.0");
-  assert.equal(surface.plan.projection?.targetReleaseDate, "2026-10-03");
+  const release = parseRepositoryReleaseProjectionMarkdown(
+    await readFile(
+      path.join(repositoryRoot, "99_Roadmap", "03_Releases.md"),
+      "utf8",
+    ),
+  );
+  assert.equal(release.targetVersion, "v0.22.0");
+  assert.deepEqual(surface.plan.projection, release);
   assert.equal(surface.quality.state, "available");
   assert.equal(surface.quality.projection?.target, "v0.22.0");
-  // 旧移管母集団の33 / 46は履歴。現行の未確認範囲をそのまま投影する。
-  assert.equal(
-    surface.quality.projection?.unobserved,
-    "正式191項目の全体評価、後続E2E・UATの未確認範囲を保持",
+  const quality = parseRepositoryQualityProjectionMarkdown(
+    await readFile(
+      path.join(repositoryRoot, "07_Quality", "01_Quality_Center.md"),
+      "utf8",
+    ),
   );
+  assert.ok(quality.unobserved.length > 0);
+  assert.deepEqual(surface.quality.projection, quality);
   assert.ok(
     surface.ownerArtifacts.artifacts.some(
       (artifact) => artifact.relativePath === "99_Roadmap/01_Roadmap.md",
@@ -81,6 +100,124 @@ test("共通Project Contextを読み未構成Capabilityを明示する", async (
   assert.equal(surface.repository.state, "available");
   assert.equal(surface.repository.changeSet?.observationComplete, true);
   assert.equal(surface.repository.changeSet?.repositoryPathReported, false);
+});
+
+/**
+ * 一覧の bounded 見出しと本文上限を別々に検証する。
+ * @responsibility 巨大文書で一覧全体を失わず、本文拒否・読取り量・終了条件を維持する。
+ * @trace PPR-IT-019
+ * @precondition Repository内の自己生成通常Fileだけを使う。
+ * @stimulus 容量境界、完全行／途中行、UTF-8途中、欠落、read／close失敗と実体差。
+ * @observation Catalog状態、表示名、本文可否、実読取り量とclose回数。
+ * @oracle 一覧は8KiB以下、本文は512KiB以下、観測不能はunknown。
+ * @cleanup handleを終了し、代役を復元して自己生成Rootを回収する。
+ * @boundary 実FilesystemからOwner Catalog／本文API。
+ */
+test("Owner一覧の見出し取得は巨大本文と独立し8KiBと終了条件を守る", async (t) => {
+  const parent = path.join(repositoryRoot, ".crdd", "tests");
+  await mkdir(parent, { recursive: true });
+  const root = await mkdtemp(path.join(parent, "owner-header-"));
+  const relative = "case.md";
+  const file = path.join(root, relative);
+  const originalOpen = fs.promises.open;
+  let fault = "",
+    reads = 0,
+    closes = 0;
+  const mocked = t.mock.method(
+    fs.promises,
+    "open",
+    async (...args: Parameters<typeof originalOpen>) => {
+      const handle = await originalOpen(...args);
+      if (String(args[0]) !== file) return handle;
+      const read = handle.read.bind(handle),
+        close = handle.close.bind(handle);
+      handle.read = (async (...parameters: unknown[]) => {
+        if (fault === "read") throw new Error("synthetic_read");
+        const result = await Reflect.apply(read, handle, parameters);
+        reads += result.bytesRead;
+        if (fault === "replace") {
+          await fs.promises.rename(file, `${file}.old`);
+          await writeFile(file, "# replacement\n");
+        }
+        return result;
+      }) as typeof handle.read;
+      handle.close = async () => {
+        await close();
+        closes++;
+        if (fault === "close") throw new Error("synthetic_close");
+      };
+      return handle;
+    },
+  );
+  syncBuiltinESMExports();
+  try {
+    for (const fixed of [
+      "99_Roadmap/01_Roadmap.md",
+      "99_Roadmap/03_Releases.md",
+      "07_Quality/01_Quality_Center.md",
+    ]) {
+      await mkdir(path.dirname(path.join(root, fixed)), { recursive: true });
+      await writeFile(path.join(root, fixed), "# fixed\n");
+    }
+    for (const [body, title, bodyAllowed] of [
+      ["# small\n", "small", true],
+      [`# exact\n${"x".repeat(524288 - 8)}`, "exact", true],
+      [`# large\n${"x".repeat(524289)}`, "large", false],
+      [`${"x".repeat(8192)}\n# late\n`, relative, true],
+      [`${"\n".repeat(8190)}# long heading\n`, relative, true],
+      [`${"\n".repeat(8188)}# あいう\n`, relative, true],
+      [`${"\n".repeat(8188)}# a\nmore`, "a", true],
+      ["no heading", relative, true],
+    ] as const) {
+      await writeFile(file, body);
+      reads = closes = 0;
+      const catalog = await readWorkbenchOwnerArtifactCatalog(
+        root,
+        `[case](${relative})`,
+      );
+      assert.equal(catalog.state, "available");
+      assert.equal(
+        catalog.artifacts.find((entry) => entry.relativePath === relative)
+          ?.title,
+        title,
+      );
+      assert.ok(reads <= 8192);
+      assert.equal(closes, 1);
+      assert.equal(
+        (await readWorkbenchOwnerArtifact(root, catalog, relative)) !== null,
+        bodyAllowed,
+      );
+    }
+    for (fault of ["read", "close", "replace"]) {
+      await writeFile(file, "# original\n");
+      closes = 0;
+      assert.equal(
+        (await readWorkbenchOwnerArtifactCatalog(root, `[case](${relative})`))
+          .state,
+        "unknown",
+        fault,
+      );
+      assert.equal(closes, 1, fault);
+      if (fault === "replace") assert.equal(fs.existsSync(`${file}.old`), true);
+    }
+    fault = "";
+    await rm(file);
+    assert.equal(
+      (await readWorkbenchOwnerArtifactCatalog(root, `[case](${relative})`))
+        .state,
+      "unknown",
+    );
+    await mkdir(file);
+    assert.equal(
+      (await readWorkbenchOwnerArtifactCatalog(root, `[case](${relative})`))
+        .state,
+      "unknown",
+    );
+  } finally {
+    mocked.mock.restore();
+    syncBuiltinESMExports();
+    await rm(root, { recursive: true, force: true });
+  }
 });
 
 /**

@@ -2,6 +2,10 @@
 
 ## Workspace方式の追加検証条件（2026-10-17）
 
+2026-10-18の公開結果搬送では、`PRL-UT-006`／`PRL-IT-012`とMCPの`PRL-UT-014`へ、同Task／Attempt／Operationの変更観測をObjective結果まで保持する検証を接続する。DirectのnullとIsolatedのUUID、対象相違・混在・重複・Accessor／Proxy、入力後のnested値変更を確認する。観測がない応答と観測不正のnullを空の変更一覧へ丸めず、既存失敗の一次理由・回復・cleanupを保持する。
+
+実受付・実Writer・DispatcherからMCPの最終公開まで、内部Task完了／公開採用待ちを区別して観測する。raw完了の安全条件を緩めず、内部結果の意味・旧Bundle Consumerをこの表示是正で変更しない。有限Provider代役の結果搬送成功から、旧Bundle統合停止・読取り助言・Workbench切替・実Providerの成立を推定しない。
+
 Orchestratorへの接続では[保存・搬送・終了の実装順序](../../../06_Architecture/Details/orchestrator/02_Detailed_Design.md#workspace接続の実装順序と移管先)を対象に、実Git・実state Writer・既存利用調停を組み合わせる。AI実行は有限の代役にできるが、Git・保存・利用調停を一括mockで代替しない。
 
 | 既存項目 | 追加する反証と観測 |

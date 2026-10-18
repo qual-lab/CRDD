@@ -105,6 +105,7 @@ export function prepareRuntimeOwnedCodexDockerAdviceCandidate(
   selectionUseCapability: unknown,
   advicePacketUseCapability: unknown,
   advicePacketOwnerCapability: unknown,
+  recoveryCorrelationId: unknown = null,
 ) {
   return productionAdapter.prepareAdvice(
     managementCapability,
@@ -113,6 +114,7 @@ export function prepareRuntimeOwnedCodexDockerAdviceCandidate(
     selectionUseCapability,
     advicePacketUseCapability,
     advicePacketOwnerCapability,
+    recoveryCorrelationId,
   );
 }
 

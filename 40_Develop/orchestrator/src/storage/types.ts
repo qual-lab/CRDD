@@ -21,7 +21,7 @@ export type IntegrationRecordBinding = Readonly<{
   workingDirectory: string;
   repositoryBindingId: string;
   projectId: string;
-  milestoneId: string;
+  milestoneId: string | null;
   queueId: string;
 }>;
 
@@ -41,7 +41,7 @@ export type OrchestratorResultRecord = Readonly<{
   kind: "integration" | "adoption";
   repositoryBindingId: string;
   projectId: string;
-  milestoneId: string;
+  milestoneId: string | null;
   queueId: string;
   identity: string;
   contentHash: string;

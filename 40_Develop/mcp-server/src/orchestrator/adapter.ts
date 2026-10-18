@@ -12,6 +12,7 @@ import {
   inspectOrchestratorIntegrationResult,
   inspectOrchestratorDecisionRequest,
   inspectOrchestratorObjectiveRequest,
+  inspectOrchestratorWorkspaceResults,
   inspectOrchestratorStateQuery,
   inspectOrchestratorStateQueryResult,
   isOrchestratorObjectiveProjectionCorrelationValid,
@@ -641,14 +642,26 @@ function decisionSnapshot(
  */
 function objectiveSnapshot(
   raw: unknown,
+  expectedWorkspaceId?: string | null,
 ): Readonly<Record<string, unknown>> | null {
   const simple = publicBlockedSnapshot(
     raw,
     new Set([ORCHESTRATOR_PUBLIC_RUNTIME_CONTRACT]),
   );
   if (simple) return simple;
-  const objective = snapshotPlainRecord(raw, OBJECTIVE_RESULT_KEYS);
+  const objective =
+    snapshotPlainRecord(raw, OBJECTIVE_RESULT_KEYS) ??
+    snapshotPlainRecord(
+      raw,
+      new Set([...OBJECTIVE_RESULT_KEYS, "workspaceResults"]),
+    );
   if (objective) {
+    const workspaceResults = Object.hasOwn(objective, "workspaceResults")
+      ? inspectOrchestratorWorkspaceResults(
+          objective.workspaceResults,
+          expectedWorkspaceId,
+        )
+      : undefined;
     const recoveries = recoverySnapshot(
       objective.recoveryIds,
       objective.recoveryObligations,
@@ -657,6 +670,14 @@ function objectiveSnapshot(
       objective.projection === null
         ? null
         : projectionSnapshot(objective.projection);
+    // Task処理の完了と、Objective全体の採用完了は異なる。
+    // 内部進行値は変更せず、公開値だけを既存の採用相関へ合わせる。
+    const status =
+      objective.status === "completed" &&
+      projection !== null &&
+      projection.milestoneState !== "accepted"
+        ? "blocked"
+        : objective.status;
     const hasRecovery = Boolean(recoveries?.recoveryIds.length);
     const hasRuntimeProcessRecovery = Boolean(
       recoveries?.recoveryObligations.some(
@@ -667,7 +688,7 @@ function objectiveSnapshot(
       projection === null ||
       isOrchestratorObjectiveProjectionCorrelationValid(
         {
-          status: objective.status as "completed" | "blocked" | "cancelled",
+          status: status as "completed" | "blocked" | "cancelled",
           cleanupConfirmed: Boolean(objective.cleanupConfirmed),
           manualRecoveryRequired: Boolean(objective.manualRecoveryRequired),
           processRestartRequired: Boolean(objective.processRestartRequired),
@@ -681,6 +702,7 @@ function objectiveSnapshot(
       );
     if (
       objective.contract !== ORCHESTRATOR_OBJECTIVE_INTAKE_CONTRACT ||
+      (workspaceResults === null && objective.status === "completed") ||
       !["completed", "blocked", "cancelled"].includes(
         String(objective.status),
       ) ||
@@ -734,8 +756,10 @@ function objectiveSnapshot(
       return null;
     return Object.freeze({
       ...objective,
+      status,
       projection,
       ...recoveries,
+      ...(workspaceResults === undefined ? {} : { workspaceResults }),
     });
   }
   const directIntegration = inspectOrchestratorIntegrationResult(raw);
@@ -894,7 +918,12 @@ export async function handleMcpOrchestratorRequest(
   try {
     snapshot =
       params.name === MCP_ORCHESTRATOR_OBJECTIVE_TOOL
-        ? objectiveSnapshot(raw)
+        ? objectiveSnapshot(
+            raw,
+            "workspaceId" in args && typeof args.workspaceId === "string"
+              ? args.workspaceId
+              : null,
+          )
         : params.name === MCP_ORCHESTRATOR_DECISION_TOOL
           ? decisionSnapshot(raw)
           : inspectOrchestratorStateQueryResult(raw);

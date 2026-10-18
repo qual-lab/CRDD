@@ -2818,12 +2818,40 @@ function coordinatorOperationSummaryBytes(
   operation: CoordinatorStateTaskOperation,
 ): Buffer {
   const identity = JSON.parse(operation.identityJson);
+  const legacy = (schema: string) => ({
+    schema,
+    ...(operation.dockerRestart === null
+      ? {}
+      : { dockerRestart: operation.dockerRestart }),
+    operationId: identity.operationId,
+    operationNonce: identity.operationNonce,
+    recoveryId: operation.recoveryId,
+    identitySha256: operation.identitySha256,
+    primaryFailure: operation.primaryFailure,
+    execution: operation.execution,
+    outcome: operation.outcome,
+    hostCleanup: operation.host.cleanup,
+    lease: operation.lease,
+  });
+  const oldBytes = Buffer.from(
+    `${encodeCoordinatorStateValue(legacy(operation.dockerRestart === null ? "crdd-coordinator/operation-summary/v2" : "crdd-coordinator/operation-summary/v3"))}\n`,
+  );
+  if (
+    identity.consumer !== "workbench" ||
+    typeof identity.recoveryCorrelationId !== "string"
+  )
+    return oldBytes;
+  if (
+    operation.summarySha256 !== null &&
+    createHash("sha256").update(oldBytes).digest("hex") ===
+      operation.summarySha256
+  )
+    return oldBytes;
   return Buffer.from(
     `${encodeCoordinatorStateValue({
-      schema:
-        operation.dockerRestart === null
-          ? "crdd-coordinator/operation-summary/v2"
-          : "crdd-coordinator/operation-summary/v3",
+      schema: "crdd-coordinator/operation-summary/v4",
+      consumer: identity.consumer,
+      recoveryCorrelationId: identity.recoveryCorrelationId ?? null,
       ...(operation.dockerRestart === null
         ? {}
         : { dockerRestart: operation.dockerRestart }),
@@ -3767,7 +3795,12 @@ export function decodeCoordinatorHistoryRows(bytes: unknown) {
           `${encodeCoordinatorStateValue(row)}\n` !== `${line}\n` ||
           !exactRecordKeys(summary, [
             "schema",
-            ...(summary?.schema === "crdd-coordinator/operation-summary/v3"
+            ...(summary?.schema === "crdd-coordinator/operation-summary/v4"
+              ? ["consumer", "recoveryCorrelationId"]
+              : []),
+            ...(summary?.schema === "crdd-coordinator/operation-summary/v3" ||
+            (summary?.schema === "crdd-coordinator/operation-summary/v4" &&
+              Object.hasOwn(summary, "dockerRestart"))
               ? ["dockerRestart"]
               : []),
             "operationId",
@@ -3783,8 +3816,20 @@ export function decodeCoordinatorHistoryRows(bytes: unknown) {
           ![
             "crdd-coordinator/operation-summary/v2",
             "crdd-coordinator/operation-summary/v3",
+            "crdd-coordinator/operation-summary/v4",
           ].includes(summary.schema) ||
-          (summary.schema === "crdd-coordinator/operation-summary/v3" &&
+          (summary.schema === "crdd-coordinator/operation-summary/v4" &&
+            (coordinatorConsumerCompletionPolicy(summary.consumer) === null ||
+              !(
+                summary.recoveryCorrelationId === null ||
+                (typeof summary.recoveryCorrelationId === "string" &&
+                  /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(
+                    summary.recoveryCorrelationId,
+                  ))
+              ))) ||
+          ((summary.schema === "crdd-coordinator/operation-summary/v3" ||
+            (summary.schema === "crdd-coordinator/operation-summary/v4" &&
+              Object.hasOwn(summary, "dockerRestart"))) &&
             (summary.dockerRestart === null ||
               !isDockerRestartCheckpointSettled(summary.dockerRestart))) ||
           typeof summary.operationId !== "string" ||

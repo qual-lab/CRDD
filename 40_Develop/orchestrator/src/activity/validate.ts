@@ -66,21 +66,36 @@ export function inspectRuntimeActivityObservation(
 export function parseRuntimeActivityObservation(
   value: unknown,
 ): RuntimeActivityObservation | null {
-  const record = snapshotPlainRecord(
-    value,
-    new Set([
-      "projectId",
-      "state",
-      "reason",
-      "projection",
-      "eventState",
-      "eventReason",
-      "events",
-      "eventContinuation",
-      "sources",
-      "currentSourceRepositoryId",
-    ]),
-  );
+  const keys = new Set([
+    "projectId",
+    "state",
+    "reason",
+    "projection",
+    "eventState",
+    "eventReason",
+    "events",
+    "eventContinuation",
+    "sources",
+    "currentSourceRepositoryId",
+  ]);
+  const record =
+    snapshotPlainRecord(value, keys) ??
+    snapshotPlainRecord(
+      value,
+      new Set([
+        "projectId",
+        "state",
+        "reason",
+        "projection",
+        "eventState",
+        "eventReason",
+        "events",
+        "eventContinuation",
+        "sources",
+        "currentSourceRepositoryId",
+        "singleTasks",
+      ]),
+    );
   if (!record) return null;
   if (
     typeof record.projectId !== "string" ||
@@ -124,6 +139,55 @@ export function parseRuntimeActivityObservation(
   const sources = parseActivitySources(record.sources);
   if (sources === null) return null;
   const sourceIds = new Set(sources.map((source) => source.repositoryId));
+  const singleTasks: NonNullable<
+    RuntimeActivityObservation["singleTasks"]
+  >[number][] = [];
+  if (Object.hasOwn(record, "singleTasks")) {
+    const items = snapshotPlainArray(record.singleTasks, 10000);
+    if (items.status !== "ok") return null;
+    for (const item of items.value) {
+      const task = snapshotPlainRecord(
+        item,
+        new Set([
+          "repositoryId",
+          "requestId",
+          "mode",
+          "phase",
+          "status",
+          "cleanupConfirmed",
+          "recoveryRequired",
+        ]),
+      );
+      if (
+        !task ||
+        typeof task.repositoryId !== "string" ||
+        !sourceIds.has(task.repositoryId) ||
+        typeof task.requestId !== "string" ||
+        !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(task.requestId) ||
+        typeof task.mode !== "string" ||
+        !["read_only_advice", "workspace_edit"].includes(task.mode) ||
+        typeof task.phase !== "string" ||
+        !["accepted", "starting", "running", "settled"].includes(task.phase) ||
+        typeof task.status !== "string" ||
+        !["pending", "completed", "blocked", "cancelled", "unknown"].includes(
+          task.status,
+        ) ||
+        typeof task.cleanupConfirmed !== "boolean" ||
+        typeof task.recoveryRequired !== "boolean" ||
+        singleTasks.some(
+          (previous) =>
+            previous.repositoryId === task.repositoryId &&
+            previous.requestId === task.requestId,
+        )
+      )
+        return null;
+      singleTasks.push(
+        Object.freeze(task) as NonNullable<
+          RuntimeActivityObservation["singleTasks"]
+        >[number],
+      );
+    }
+  }
   if (
     record.currentSourceRepositoryId !== null &&
     (typeof record.currentSourceRepositoryId !== "string" ||
@@ -194,6 +258,7 @@ export function parseRuntimeActivityObservation(
   }
   return Object.freeze({
     projectId: record.projectId,
+    singleTasks: Object.freeze(singleTasks),
     state: record.state as RuntimeActivityObservation["state"],
     reason: record.reason,
     projection,

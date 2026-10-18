@@ -2977,6 +2977,60 @@ export function observeRuntimeOwnedCoordinatorCompletedDelivery(
 }
 
 /**
+ * 保存済み単発依頼のexact参照を終了履歴へ再結合する。
+ * @responsibility 現在操作除去と新要約の利用元・上位相関を同じ既存Readerで照合する。
+ * @trace ARCH-000008
+ * @input 現在Repository、元回復ID、元上位操作ID。
+ * @returns 終了確認または未確定。本文・Path・Authorityは返さない。
+ * @precondition 上位Ownerが元依頼の主体とRepositoryを認可済み。
+ * @postcondition 過去のTask成功や回答再送を主張しない。
+ * @effect 既存state/history読取りと短期排他だけ。
+ * @failure 旧要約、欠測、別相関、pending、操作残存は拒否する。
+ * @invariant 履歴不存在から終了を推定しない。
+ * @boundary 単発依頼とCoordinatorの終了履歴。
+ * @security 任意Pathやconsumerを受け取らない。
+ * @concurrency 同じKernel排他で元版・履歴実体を再確認する。
+ */
+export function observeRuntimeOwnedWorkbenchTaskCompletion(
+  rootCapability: unknown,
+  recoveryId: unknown,
+  correlationId: unknown,
+) {
+  if (
+    typeof recoveryId !== "string" ||
+    !parseDockerTaskRecoveryId(recoveryId) ||
+    typeof correlationId !== "string" ||
+    !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(correlationId)
+  )
+    return Object.freeze({
+      completionConfirmed: false,
+      reason: "coordinator_completion_input_invalid",
+    });
+  const observed = readCoordinatorStateSnapshot(
+    borrowRuntimeOwnedCoordinatorRecoveryRepository(rootCapability),
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    "docker_task",
+    "docker_task",
+    false,
+    null,
+    { recoveryId, correlationId },
+  );
+  return Object.freeze({
+    completionConfirmed:
+      observed.status === "completed" &&
+      observed.lockReleased &&
+      observed.deliveryAbsent,
+    reason: observed.reason,
+  });
+}
+
+/**
  * 読戻し確認済みSnapshotから登録済み結果参照だけを投影する。
  * @responsibility 同Processと新Processの終端要約・必要搬送集合の検査を共通化する。
  * @trace ARCH-000008
@@ -3094,6 +3148,10 @@ function readCoordinatorStateSnapshot(
   currentCompletionKind: "docker_task" | "runtime_repair" = "docker_task",
   allowUninitialized = false,
   resourcePublicationRecoveryId: string | null = null,
+  completedWorkbenchTask: Readonly<{
+    recoveryId: string;
+    correlationId: string;
+  }> | null = null,
 ) {
   /**
    * 未確認の読取り結果を値なしで返す。
@@ -3259,6 +3317,48 @@ function readCoordinatorStateSnapshot(
       typeof readStableBoundedFileSnapshot
     > | null = null;
     const completedHistoryFile = path.join(initial.directory, "history.jsonl");
+    if (completedWorkbenchTask) {
+      const target = completedWorkbenchTask.recoveryId;
+      const parsed = parseDockerTaskRecoveryId(target);
+      if (
+        !parsed ||
+        [
+          decoded.snapshot.operations,
+          decoded.snapshot.unresolvedRecoveries,
+          decoded.snapshot.pendingDeliveries,
+        ].some((entries) =>
+          entries.some(
+            (entry) =>
+              entry.recoveryId === target ||
+              parseDockerTaskRecoveryId(entry.recoveryId)?.operationNonce ===
+                parsed.operationNonce,
+          ),
+        )
+      )
+        throw new Error("completion_target_present");
+      const metadata = fs.lstatSync(completedHistoryFile);
+      if (
+        !metadata.isFile() ||
+        metadata.isSymbolicLink() ||
+        metadata.nlink !== 1
+      )
+        throw new Error("completion_history_file");
+      completedHistory = readStableBoundedFileSnapshot(
+        completedHistoryFile,
+        MAX_COORDINATOR_STATE_BYTES,
+      );
+      const rows = decodeCoordinatorHistoryRows(completedHistory.bytes);
+      const row = rows?.find((entry) => entry.recoveryId === target);
+      const summary = row ? JSON.parse(row.line).summary : null;
+      if (
+        !row ||
+        summary.schema !== "crdd-coordinator/operation-summary/v4" ||
+        summary.consumer !== "workbench" ||
+        summary.recoveryCorrelationId !== completedWorkbenchTask.correlationId
+      )
+        throw new Error("completion_history_unconfirmed");
+      deliveryAbsent = true;
+    }
     if (completedDelivery) {
       const acknowledgement = decodeCoordinatorProjectAcceptance(
         completedDelivery.readProjectAcceptance(),

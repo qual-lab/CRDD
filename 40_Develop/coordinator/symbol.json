@@ -7,7 +7,10 @@
       "symbolId": "coordinator.source.repository-operation.borrowed-workspace",
       "kind": "file",
       "path": "src/repository-operation/borrowed-workspace.ts",
-      "archIds": ["ARCH-000004", "ARCH-000008"]
+      "archIds": [
+        "ARCH-000004",
+        "ARCH-000008"
+      ]
     },
     {
       "symbolId": "coordinator.test.integration.runtime-retirement",
@@ -1358,8 +1361,8 @@
       "verifies": [
         "coordinator.source.src.security.execution.environment",
         "coordinator.source.src.security.repository.operation.runtime",
-          "coordinator.source.src.security.repository.workspace.runtime",
-          "coordinator.source.repository-operation.borrowed-workspace"
+        "coordinator.source.src.security.repository.workspace.runtime",
+        "coordinator.source.repository-operation.borrowed-workspace"
       ]
     },
     {
@@ -2373,7 +2376,7 @@
     {
       "symbolId": "coordinator.test.unit.workbench-ai-request-application",
       "kind": "test-suite",
-      "path": "tests/unit/workbench-ai/request-lifecycle.contract.test.ts",
+      "path": "tests/unit/workbench-ai/advice-contract.contract.test.ts",
       "qaIds": [
         "QA-000006"
       ],
@@ -2474,21 +2477,6 @@
       ],
       "verifies": [
         "coordinator.source.src.security.workbench.ai.advice.runtime.packet"
-      ]
-    },
-    {
-      "symbolId": "coordinator.test.unit.workbench-ai-change-candidate-runtime",
-      "kind": "test-suite",
-      "path": "tests/unit/workbench-ai/change-candidate-executor.contract.test.ts",
-      "qaIds": [
-        "QA-000006"
-      ],
-      "localTestIds": [
-        "ERB-UT-023"
-      ],
-      "verifies": [
-        "coordinator.source.src.security.workbench.ai.change.candidate.runtime",
-        "coordinator.task.task-attempt-runtime"
       ]
     },
     {
@@ -3051,7 +3039,7 @@
     {
       "symbolId": "coordinator.source.src.composition.workbench.ai.request.application",
       "kind": "file",
-      "path": "src/workbench-ai/request-lifecycle.ts",
+      "path": "src/workbench-ai/advice-contract.ts",
       "archIds": [
         "ARCH-000010",
         "ARCH-000015"
@@ -3064,18 +3052,6 @@
       "archIds": [
         "ARCH-000009",
         "ARCH-000015"
-      ]
-    },
-    {
-      "symbolId": "coordinator.source.src.composition.workbench.candidate.application",
-      "kind": "file",
-      "path": "src/workbench-ai/candidate-actions.ts",
-      "archIds": [
-        "ARCH-000004",
-        "ARCH-000015"
-      ],
-      "implements": [
-        "orchestrator.candidate-adoption"
       ]
     },
     {
@@ -3119,16 +3095,6 @@
       "kind": "file",
       "path": "src/workbench-ai/advice-packet.ts",
       "archIds": [
-        "ARCH-000010",
-        "ARCH-000015"
-      ]
-    },
-    {
-      "symbolId": "coordinator.source.src.security.workbench.ai.change.candidate.runtime",
-      "kind": "file",
-      "path": "src/workbench-ai/change-candidate-executor.ts",
-      "archIds": [
-        "ARCH-000004",
         "ARCH-000010",
         "ARCH-000015"
       ]

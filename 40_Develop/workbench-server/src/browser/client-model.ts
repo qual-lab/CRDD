@@ -63,11 +63,7 @@ import type {
   AiProfileCatalog,
 } from "../../../ai-adapter/src/index.ts";
 import type { WorkbenchAiProfileSurface } from "../ai-profile/projection.ts";
-import type {
-  WorkbenchAiRequestSnapshot,
-  WorkbenchCandidateActionResult,
-  WorkbenchCandidateReviewResult,
-} from "../ai-request/types.ts";
+import type { WorkbenchAiRequestSnapshot } from "../ai-request/types.ts";
 import type { CredentialAdministrationSnapshot } from "../../../access-management/src/index.ts";
 import type { WorkbenchProjectSurface } from "../project/surface.ts";
 import type { WorkbenchRuntimeActivityObservation } from "../activity/observe.ts";
@@ -207,10 +203,7 @@ export type WorkbenchMainViewModel = Readonly<{
   }>;
   aiRequest: Readonly<{
     configured: boolean;
-    candidateConfigured: boolean;
     snapshot: WorkbenchAiRequestSnapshot | null;
-    candidateReview: WorkbenchCandidateReviewResult | null;
-    candidateAction: WorkbenchCandidateActionResult | null;
     notice: string | null;
   }>;
   runtimeActivity: WorkbenchRuntimeActivityObservation | null;
@@ -733,7 +726,7 @@ function isWorkbenchMainViewModel(value: Record<string, unknown>): boolean {
     (isRecord(candidate) &&
       typeof candidate.requestId === "string" &&
       (candidate.mode === null ||
-        ["read_only_advice", "change_candidate"].includes(
+        ["read_only_advice", "workspace_edit"].includes(
           String(candidate.mode),
         )) &&
       isNullableString(candidate.profileId) &&
@@ -750,39 +743,26 @@ function isWorkbenchMainViewModel(value: Record<string, unknown>): boolean {
       aiResultItemsAreValid(candidate.sharedAnalysis) &&
       aiResultItemsAreValid(candidate.additionalInferences) &&
       aiResultItemsAreValid(candidate.nextOptions) &&
-      (candidate.candidate === null ||
-        (isRecord(candidate.candidate) &&
-          typeof candidate.candidate.candidateId === "string" &&
-          candidate.candidate.disposition === "untrusted_not_adopted")));
-  const candidateReviewIsValid = (candidate: unknown): boolean =>
-    candidate === null ||
-    (isRecord(candidate) &&
-      ["available", "blocked"].includes(String(candidate.status)) &&
-      typeof candidate.reason === "string" &&
-      (candidate.candidate === null ||
-        (isRecord(candidate.candidate) &&
-          typeof candidate.candidate.candidateId === "string" &&
-          ["public", "internal", "confidential"].includes(
-            String(candidate.candidate.informationClassification),
-          ) &&
-          typeof candidate.candidate.expiresAtMs === "number" &&
-          typeof candidate.candidate.baseRevision === "string" &&
-          typeof candidate.candidate.candidateHash === "string" &&
-          typeof candidate.candidate.patchHash === "string" &&
-          isStringArray(candidate.candidate.changedPaths))));
-  const candidateActionIsValid = (candidate: unknown): boolean =>
-    candidate === null ||
-    (isRecord(candidate) &&
-      ["adopt", "discard"].includes(String(candidate.operation)) &&
-      ["completed", "blocked"].includes(String(candidate.status)) &&
-      typeof candidate.reason === "string" &&
-      isNullableString(candidate.candidateId) &&
-      isNullableString(candidate.receiptId) &&
-      typeof candidate.effectIssued === "boolean" &&
-      typeof candidate.effectStateUnknown === "boolean" &&
-      typeof candidate.cleanupConfirmed === "boolean" &&
-      typeof candidate.manualRecoveryRequired === "boolean" &&
-      isStringArray(candidate.recoveryIds));
+      candidate.candidate === null &&
+      (candidate.workspaceResult === undefined ||
+        candidate.workspaceResult === null ||
+        (isRecord(candidate.workspaceResult) &&
+          Object.keys(candidate.workspaceResult).sort().join(",") ===
+            "canonicalRepositoryChanged,changeAttribution,changedPaths,workspaceDeletionIssued,workspaceId" &&
+          isNullableString(candidate.workspaceResult.workspaceId) &&
+          (candidate.workspaceResult.changedPaths === null ||
+            isStringArray(candidate.workspaceResult.changedPaths)) &&
+          (candidate.workspaceResult.canonicalRepositoryChanged === null ||
+            typeof candidate.workspaceResult.canonicalRepositoryChanged ===
+              "boolean") &&
+          candidate.workspaceResult.changeAttribution === "unattributed" &&
+          candidate.workspaceResult.workspaceDeletionIssued === false)) &&
+      (candidate.cleanupConfirmed === undefined ||
+        typeof candidate.cleanupConfirmed === "boolean") &&
+      (candidate.recoveryIds === undefined ||
+        isStringArray(candidate.recoveryIds)) &&
+      (candidate.secondaryFailures === undefined ||
+        isStringArray(candidate.secondaryFailures)));
   return (
     isRecord(surface) &&
     isProjectContext(surface.context) &&
@@ -995,10 +975,7 @@ function isWorkbenchMainViewModel(value: Record<string, unknown>): boolean {
         isWorkbenchCatalog(aiAdministration.result.snapshot.catalog))) &&
     isRecord(value.aiRequest) &&
     typeof value.aiRequest.configured === "boolean" &&
-    typeof value.aiRequest.candidateConfigured === "boolean" &&
     aiSnapshotIsValid(value.aiRequest.snapshot) &&
-    candidateReviewIsValid(value.aiRequest.candidateReview) &&
-    candidateActionIsValid(value.aiRequest.candidateAction) &&
     isNullableString(value.aiRequest.notice) &&
     isRecord(value.portfolioQuery) &&
     typeof value.documentQuery === "string" &&

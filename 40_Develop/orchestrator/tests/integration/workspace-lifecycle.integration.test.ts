@@ -30,6 +30,7 @@ import {
   settleProjectTask,
   runOrchestratorOperation,
   createOrchestratorExecutionHostPorts,
+  executeOrchestratorObjective,
   runOrchestratorSingleTaskAttempt,
   executeWorkspaceCommand,
   inspectWorkspaceCommand,
@@ -44,6 +45,7 @@ import {
 } from "../../src/storage/current-state.ts";
 import { deriveOrchestratorRepositoryBindingId } from "../../src/identity/repository-binding.ts";
 import type { OrchestratorWorkspaceRequest } from "../../src/index.ts";
+import { inspectMcpOrchestratorObjectiveResult } from "../../../mcp-server/src/index.ts";
 
 const testsRoot = path.resolve(import.meta.dirname, "../../../../.crdd/tests");
 const empty = process.platform === "win32" ? "NUL" : devNull;
@@ -1896,4 +1898,150 @@ test("Workspaceの保存失敗と解放失敗は元理由と両回復参照を�
     assert.equal(result.manualRecoveryRequired, true);
     assert.equal(result.leaseReleased, false);
   }
+});
+
+/**
+ * 実受付・Dispatcherの変更観測をObjectiveとMCPへ引き渡す。
+ * @responsibility 中間Envelopeが観測を落とす回帰を検出する。
+ * @trace PRL-IT-012
+ * @precondition 自己生成Gitと実Writer、Providerのみ有限代役。
+ * @stimulus 新規受付からDirectの二Taskを実行する。
+ * @observation Task／Attempt／Operation、変更Path、現在Queue、MCP投影。
+ * @oracle 変更観測二件を保持し、Git採用・旧Bundle生成は行わない。
+ * @cleanup fixtureのafterがRootを回収し不存在を確認する。
+ * @boundary 実Git・受付・Writer・Dispatcher・公開結果。
+ */
+test("実Objective受付はWorkspace観測をMCPまで欠落なく渡す", async (t) => {
+  const owner = fixture(t);
+  const root = path.join(owner.root, "objective");
+  fs.mkdirSync(root);
+  git(root, ["init", "--initial-branch=main", "--template="]);
+  fs.mkdirSync(path.join(root, ".git", "info"));
+  fs.writeFileSync(path.join(root, ".git", "info", "exclude"), "");
+  git(root, ["config", "user.name", "Workspace Test"]);
+  git(root, ["config", "user.email", "test@example.invalid"]);
+  fs.writeFileSync(path.join(root, ".gitignore"), ".crdd/\n");
+  fs.writeFileSync(path.join(root, "source.txt"), "base\n");
+  git(root, ["add", "."]);
+  git(root, ["commit", "-m", "base"]);
+  const base = git(root, ["rev-parse", "HEAD"]);
+  const binding = deriveOrchestratorRepositoryBindingId(root);
+  const initialized = initializeOrchestratorSnapshot(root, binding);
+  assert.equal(initialized.status, "completed", JSON.stringify(initialized));
+  if (initialized.status !== "completed")
+    throw new Error("fixture_init_failed");
+  const f = {
+    root,
+    binding,
+    base,
+    ports: createOrchestratorSnapshotPersistencePorts(
+      root,
+      binding,
+      initialized.value,
+    ),
+    snapshot: () => {
+      const read = readOrchestratorSnapshot(root, binding);
+      if (read.status !== "completed" || !read.value)
+        throw new Error("fixture_read_failed");
+      return read.value;
+    },
+  };
+  const initial = f.snapshot();
+  const state = owner.snapshot().projects[0];
+  assert.ok(state);
+  let calls = 0;
+  const result = await executeOrchestratorObjective(
+    {
+      authenticatedPrincipalId: "principal-a",
+      repositoryBindingId: f.binding,
+      repositoryRoot: f.root,
+      plan: {
+        milestoneAcceptanceCriteria: state.milestone.acceptanceCriteria,
+        objectives: state.objectives.map((entry) => entry.definition),
+        tasks: state.tasks.map((entry) => entry.definition),
+      },
+      persistence: f.ports,
+      ...createOrchestratorExecutionHostPorts(),
+      taskRecovery: {
+        resolveCorrelations: () => null,
+        recover: () => {
+          throw new Error("unexpected_recovery");
+        },
+        acknowledgeDocker: () => {
+          throw new Error("unexpected_docker");
+        },
+        finalizeDockerAcknowledgement: () => {
+          throw new Error("unexpected_docker");
+        },
+        observeTransition: () => {},
+      },
+      createTaskExecutions: () =>
+        state.tasks.map((entry) => ({
+          taskId: entry.definition.id,
+          taskRequest: { synthetic: true },
+          repositoryRoot: f.root,
+        })),
+      observeLeaseOwner: () => ({ status: "unknown" }),
+      execution: {
+        runSingleTaskAttempt: async (input) => {
+          calls++;
+          assert.equal(input.executionTree, f.root);
+          assert.equal(await input.observeStarted?.(), true);
+          fs.writeFileSync(
+            path.join(f.root, "source.txt"),
+            `observed-${calls}\n`,
+          );
+          return {
+            contract: "crdd-coordinator/orchestrator-single-task-adapter",
+            attemptId: input.attemptId,
+            operationId: input.operationId,
+            authorityBindingId: input.authorityBindingId,
+            repositoryRevision: input.repositoryRevision,
+            status: "completed",
+            reason: "synthetic_complete",
+            effectState: "settled",
+            cleanupConfirmed: true,
+            manualRecoveryRequired: false,
+            processRestartRequired: false,
+            candidateId: null,
+            recoveryIds: [],
+            workspaceResult: {
+              workspaceId: null,
+              changedPaths: ["source.txt"],
+              canonicalRepositoryChanged: true,
+              changeAttribution: "unattributed",
+              workspaceDeletionIssued: false,
+            },
+          };
+        },
+      },
+    },
+    {
+      intakeEpoch: initial.intakeEpoch,
+      requestId: "request-observation",
+      projectId: "project-a",
+      milestoneId: "milestone-a",
+      repositoryRevision: f.base,
+      objective: "synthetic direct edit",
+      acceptanceCriteria: ["done"],
+      allowedPaths: ["source.txt"],
+      readPaths: ["source.txt"],
+      maximumConcurrency: 1,
+      maximumReplans: 0,
+      originLane: "interactive",
+      adoptResult: false,
+    },
+    new AbortController().signal,
+  );
+  assert.equal(result.status, "completed", JSON.stringify(result));
+  assert.equal(calls, 2);
+  assert.equal(result.workspaceResults?.length, 2);
+  const projected = inspectMcpOrchestratorObjectiveResult(result);
+  assert.ok(projected, JSON.stringify(result));
+  assert.equal(projected.status, "blocked");
+  assert.equal(projected.reason, result.reason);
+  assert.equal(projected.cleanupConfirmed, true);
+  assert.deepEqual(projected.workspaceResults, result.workspaceResults);
+  assert.equal(git(f.root, ["rev-parse", "HEAD"]), f.base);
+  assert.equal(f.snapshot().queueEntries[0]?.state, "integration_pending");
 });

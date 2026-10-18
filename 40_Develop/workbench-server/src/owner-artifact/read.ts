@@ -10,10 +10,11 @@
  * @effect 検証済みRepository内の宣言済みMarkdownだけを読取る。
  * @security 任意Path、外部URL、親参照、Symlink／Junction越境およびCatalog外Documentを拒否する。
  */
-import { lstat, readFile, realpath, stat } from "node:fs/promises";
+import { lstat, open, readFile, realpath, stat } from "node:fs/promises";
 import path from "node:path";
 
 const MAX_ARTIFACT_BYTES = 512 * 1_024;
+const MAX_ARTIFACT_TITLE_BYTES = 8 * 1_024;
 const FIXED_OWNER_ARTIFACTS = Object.freeze([
   "99_Roadmap/03_Releases.md",
   "99_Roadmap/01_Roadmap.md",
@@ -70,10 +71,10 @@ export type WorkbenchOwnerArtifactCatalog = Readonly<{
  * @precondition repositoryRootは検証済みVersion Control Rootである。
  * @postcondition availableでは全PathがRepository内の通常Fileであり、titleを取得済みである。
  * @effect 固定FileとProject Contextが宣言したMarkdown FileのMetadataおよび内容を読取る。
- * @failure 一件でも越境、Link、過大File、欠落または読取り失敗なら部分Catalogを公開しない。
+ * @failure 一件でも越境、Link、欠落、読取り・close失敗なら部分Catalogを公開しない。
  * @invariant Project Contextにない一般Repository探索やDirectory列挙を行わない。
  * @boundary Repository FilesystemとWorkbench Documentation Catalogの境界。
- * @security 外部URL、絶対Path、親参照、Symlink／Junctionおよび512KiB超過を拒否する。
+ * @security 外部URL、絶対Path、親参照、Symlink／Junction越境を拒否し、見出し読取りは8KiBまで。
  * @concurrency 独立Artifactを並行読取りし、全件成功時だけSnapshotを公開する。
  */
 export async function readWorkbenchOwnerArtifactCatalog(
@@ -102,6 +103,7 @@ export async function readWorkbenchOwnerArtifactCatalog(
         const markdown = await readVerifiedOwnerArtifact(
           repositoryRoot,
           relativePath,
+          true,
         );
         return Object.freeze({
           relativePath,
@@ -233,23 +235,24 @@ function extractMarkdownRelations(markdown: string): readonly Readonly<{
 /**
  * Repository内の通常Markdown Fileを上限付きで読取る。
  *
- * @responsibility 相対Path、通常File、実Path境界およびSizeを再検証して本文を取得する。
+ * @responsibility 相対Path、通常File、実Path境界を再検証し、一覧見出しと本文の読取り上限を区別する。
  * @trace ARCH-000012
  * @trace ARCH-000016
- * @input repositoryRootとCatalog候補の相対Pathを受け取る。
+ * @input repositoryRoot、相対Path、一覧用見出しだけを取得するかを受け取る。
  * @returns 検証済みMarkdown本文を返す。
  * @precondition repositoryRootは検証済みVersion Control Rootである。
- * @postcondition 戻り値は同じRepository実Path配下の512KiB以下の通常File本文である。
+ * @postcondition 本文は512KiB以下。一覧は先頭8KiB内の完全行だけで、掲載を本文表示可能の保証にしない。
  * @effect File Metadata、実Pathおよび内容を読取る。
  * @failure 不正Path、Link、越境、過大、欠落または読取り失敗を例外で拒否する。
  * @invariant Directory列挙、外部Path探索またはFile変更を行わない。
  * @boundary Repository FilesystemとWorkbench Read Modelの境界。
- * @security lexical／realpath検査と、metadata・取得本文の両方で512KiB上限を要求する。
+ * @security 本文はmetadata・取得本文の両方で512KiB上限。一覧は開いた実体と読取り前後を照合する。
  * @concurrency 一Fileの独立した読取りだけを所有する。
  */
 async function readVerifiedOwnerArtifact(
   repositoryRoot: string,
   relativePath: string,
+  titleOnly = false,
 ): Promise<string> {
   if (
     relativePath.length === 0 ||
@@ -277,8 +280,61 @@ async function readVerifiedOwnerArtifact(
   )
     throw new Error("workbench_owner_artifact_boundary_invalid");
   const metadata = await stat(fileReal);
-  if (!metadata.isFile() || metadata.size > MAX_ARTIFACT_BYTES)
+  if (!metadata.isFile() || (!titleOnly && metadata.size > MAX_ARTIFACT_BYTES))
     throw new Error("workbench_owner_artifact_size_invalid");
+  if (titleOnly) {
+    const handle = await open(fileReal, "r");
+    try {
+      const before = await handle.stat();
+      if (
+        !before.isFile() ||
+        before.dev !== metadata.dev ||
+        before.ino !== metadata.ino ||
+        before.size !== metadata.size
+      )
+        throw new Error("workbench_owner_artifact_changed");
+      const bytes = Buffer.alloc(
+        Math.min(before.size, MAX_ARTIFACT_TITLE_BYTES),
+      );
+      let offset = 0;
+      while (offset < bytes.length) {
+        const read = await handle.read(
+          bytes,
+          offset,
+          bytes.length - offset,
+          offset,
+        );
+        if (read.bytesRead === 0)
+          throw new Error("workbench_owner_artifact_read_incomplete");
+        offset += read.bytesRead;
+      }
+      const after = await handle.stat();
+      const current = await lstat(fileReal);
+      if (
+        !after.isFile() ||
+        !current.isFile() ||
+        current.isSymbolicLink() ||
+        [after, current].some(
+          (value) =>
+            value.dev !== before.dev ||
+            value.ino !== before.ino ||
+            value.size !== before.size ||
+            value.mtimeMs !== before.mtimeMs ||
+            value.ctimeMs !== before.ctimeMs,
+        ) ||
+        (await realpath(absolutePath)) !== fileReal
+      )
+        throw new Error("workbench_owner_artifact_changed");
+      // 上限で切れた末尾行を捨て、途中の見出しやUTF-8を表示名へ昇格しない。
+      const complete =
+        before.size > bytes.length
+          ? bytes.subarray(0, bytes.lastIndexOf(10) + 1)
+          : bytes;
+      return new TextDecoder("utf-8", { fatal: true }).decode(complete);
+    } finally {
+      await handle.close();
+    }
+  }
   const markdown = await readFile(fileReal, "utf8");
   if (Buffer.byteLength(markdown, "utf8") > MAX_ARTIFACT_BYTES)
     throw new Error("workbench_owner_artifact_size_invalid");
@@ -286,9 +342,9 @@ async function readVerifiedOwnerArtifact(
 }
 
 /**
- * Markdownの第一H1を表示名へ変換する。
+ * 観測したMarkdown範囲内の第一H1を表示名へ変換する。
  *
- * @responsibility 原文の第一H1をtitleとし、欠落時だけ相対Pathへ戻す。
+ * @responsibility 先頭8KiBの完全行内で得た第一H1をtitleとし、未観測なら相対Pathへ戻す。
  * @trace ARCH-000016
  * @input markdown本文と検証済みrelativePathを受け取る。
  * @returns 空でない表示名を返す。

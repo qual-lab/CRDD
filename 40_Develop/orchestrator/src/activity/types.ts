@@ -82,6 +82,15 @@ export type RuntimeActivityObservation = Readonly<{
   eventReason: string;
   events: readonly RuntimeActivityEvent[];
   eventContinuation: string | null;
+  singleTasks?: readonly Readonly<{
+    repositoryId: string;
+    requestId: string;
+    mode: "read_only_advice" | "workspace_edit";
+    phase: "accepted" | "starting" | "running" | "settled";
+    status: "pending" | "completed" | "blocked" | "cancelled" | "unknown";
+    cleanupConfirmed: boolean;
+    recoveryRequired: boolean;
+  }>[];
 }>;
 
 /**

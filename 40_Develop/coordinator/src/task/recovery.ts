@@ -1391,6 +1391,7 @@ export function registerRuntimeOwnedDockerTaskRecoveryDelivery(
 export function resolveRuntimeOwnedDockerTaskCurrentCorrelations(
   correlationIds: readonly string[],
   rootCapability: unknown,
+  consumer: "orchestrator" | "workbench" = "orchestrator",
 ) {
   let lockReleased = true;
   /**
@@ -1451,15 +1452,13 @@ export function resolveRuntimeOwnedDockerTaskCurrentCorrelations(
     for (const operation of observed.value.snapshot.operations) {
       const identity = JSON.parse(operation.identityJson);
       const correlation = identity.recoveryCorrelationId;
-      if (correlation === undefined && identity.consumer !== "orchestrator")
-        continue;
+      if (correlation === undefined && identity.consumer !== consumer) continue;
       if (
         typeof correlation !== "string" ||
         !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(correlation) ||
         matches.has(correlation) ||
         recoveries.has(operation.recoveryId) ||
-        (requested.includes(correlation) &&
-          identity.consumer !== "orchestrator")
+        (requested.includes(correlation) && identity.consumer !== consumer)
       )
         return refused("docker_task_recovery_correlation_ambiguous");
       matches.set(correlation, operation.recoveryId);

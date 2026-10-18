@@ -12,7 +12,12 @@ import type {
   projectOrchestratorState,
 } from "../state/transitions.ts";
 import type { OrchestratorClockIdentityPort } from "../identity/clock-and-hash.ts";
-import type { OrchestratorTaskExecution } from "../task/dispatch.ts";
+import type {
+  OrchestratorTaskExecution,
+  OrchestratorExecutionResult,
+} from "../task/dispatch.ts";
+import { ORCHESTRATOR_MAXIMUM_TASKS } from "../state/transitions.ts";
+import { snapshotCoordinatorWorkspaceResult } from "../../../coordinator/src/index.ts";
 import {
   inspectOrchestratorObjectiveRequest,
   type OrchestratorObjectiveRequest,
@@ -347,8 +352,16 @@ export function createOrchestratorObjectiveResult(
       recoveryId: string;
     }>[];
     effectState?: "no_effect" | "settled" | "unknown";
+    workspaceResults?: OrchestratorExecutionResult["workspaceResults"] | null;
   }>,
 ) {
+  const workspaceResults =
+    options.workspaceResults === undefined
+      ? undefined
+      : inspectOrchestratorWorkspaceResults(
+          options.workspaceResults,
+          request.workspaceId ?? null,
+        );
   return Object.freeze({
     contract: ORCHESTRATOR_OBJECTIVE_INTAKE_CONTRACT,
     status: options.status,
@@ -366,5 +379,68 @@ export function createOrchestratorObjectiveResult(
       ...(options.recoveryObligations ?? []),
     ]),
     effectState: options.effectState ?? ("no_effect" as const),
+    ...(workspaceResults === undefined ? {} : { workspaceResults }),
   });
+}
+
+/**
+ * Taskに結合したWorkspace観測を公開用の閉じた値へ写す。
+ * @responsibility 試行相関・対象一致・欠測と観測不能を維持する。
+ * @trace ARCH-000004
+ * @input raw: 観測配列、expectedWorkspaceId: 要求対象（省略時も配列内の対象一致を検査）。
+ * @returns 凍結した観測配列。不正又は重複はnull。
+ * @precondition N/A: 外部由来のunknownを受ける。
+ * @postcondition 元値の後続変更を公開結果へ搬送しない。
+ * @effect N/A: 値検査と複製だけ。
+ * @failure getter・Proxy・別対象・不明を空配列へ変換しない。
+ * @invariant 変更観測は採用・Commit・Mergeの完了ではない。
+ * @boundary Orchestrator結果とWorkbench／MCPの公開投影。
+ * @security 本文・絶対Path・Authorityを追加しない。
+ * @concurrency 同期処理で共有状態を持たない。
+ */
+export function inspectOrchestratorWorkspaceResults(
+  raw: unknown,
+  expectedWorkspaceId?: string | null,
+): NonNullable<OrchestratorExecutionResult["workspaceResults"]> | null {
+  const array = snapshotPlainArray(raw, ORCHESTRATOR_MAXIMUM_TASKS);
+  if (array.status !== "ok" || array.value.length === 0) return null;
+  const entries: NonNullable<
+    OrchestratorExecutionResult["workspaceResults"]
+  >[number][] = [];
+  const attempts = new Set<string>();
+  const operations = new Set<string>();
+  let workspaceId = expectedWorkspaceId;
+  for (const value of array.value) {
+    const entry = snapshotPlainRecord(
+      value,
+      new Set(["taskId", "attemptId", "operationId", "result"] as const),
+    );
+    if (
+      !entry ||
+      !validId(entry.taskId) ||
+      !validId(entry.attemptId) ||
+      !validId(entry.operationId) ||
+      attempts.has(entry.attemptId) ||
+      operations.has(entry.operationId)
+    )
+      return null;
+    const result = snapshotCoordinatorWorkspaceResult(entry.result);
+    if (
+      !result ||
+      (workspaceId !== undefined && result.workspaceId !== workspaceId)
+    )
+      return null;
+    workspaceId = result.workspaceId;
+    attempts.add(entry.attemptId);
+    operations.add(entry.operationId);
+    entries.push(
+      Object.freeze({
+        taskId: entry.taskId,
+        attemptId: entry.attemptId,
+        operationId: entry.operationId,
+        result,
+      }),
+    );
+  }
+  return Object.freeze(entries);
 }

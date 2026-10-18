@@ -15,6 +15,11 @@ import {
   isRuntimeProcessPoisoned,
   poisonRuntimeProcessAfterCleanupUnknown,
 } from "../host-execution/process-safety-state.ts";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { recoverOwnedOperationDirectories } from "../host-execution/operation-workspace-lifecycle.ts";
+import { observeHostRecoveryCleanup } from "../host-execution/recovery-record.ts";
 import { prepareRuntimeOwnedClaudeDockerAdviceCandidate } from "../provider/claude-docker-adapter.ts";
 import { prepareRuntimeOwnedCodexDockerAdviceCandidate } from "../provider/codex-docker-adapter.ts";
 import {
@@ -90,6 +95,55 @@ const hostFailures = new WeakMap<object, HostFailure>();
 const initializationFailures = new WeakMap<Error, HostFailure>();
 
 /**
+ * 保存済みの助言Host参照を既存の正式回収へ戻す。
+ * @responsibility 現在のOS一時親とexact参照だけを照合し、回収後の不存在を確認する。
+ * @trace ARCH-000008
+ * @input 作成時に所有者へ通知した非AuthorityのHost参照。
+ * @returns 回収確認と固定理由。Pathは返さない。
+ * @precondition 呼出側で旧Ownerの喪失とDocker側終了を照合済み。
+ * @postcondition 不明を回収済みにしない。
+ * @effect 同じHost領域への既存回収のみ。
+ * @failure 参照、親、状態又は不存在が不明なら停止。
+ * @invariant 別親探索、Provider要求、Docker再起動を行わない。
+ * @boundary 単発Ownerと既存Host回収。
+ * @security 参照だけで新Authorityを発行しない。
+ * @concurrency 既存Host回復世代で非使用を再確認する。
+ */
+export function recoverWorkbenchAdviceHostOperation(hostId: string) {
+  try {
+    const match = /^host\.(crdd-coordinator-doctor-[A-Za-z0-9_-]+)\./u.exec(
+      hostId,
+    );
+    if (!match?.[1])
+      return {
+        cleanupConfirmed: false,
+        reason: "workbench_ai_advice_host_reference_invalid",
+      };
+    const hostRoot = path.join(fs.realpathSync.native(os.tmpdir()), match[1]);
+    const before = observeHostRecoveryCleanup(hostId, hostRoot);
+    if (before.root !== "absent" || before.marker !== "absent") {
+      const recovered = recoverOwnedOperationDirectories(
+        hostId,
+        null,
+        hostRoot,
+      );
+      if (recovered.status !== "recovered")
+        return { cleanupConfirmed: false, reason: recovered.reason };
+    }
+    const after = observeHostRecoveryCleanup(hostId, hostRoot);
+    return {
+      cleanupConfirmed: after.root === "absent" && after.marker === "absent",
+      reason: "workbench_ai_advice_host_cleanup_observed",
+    };
+  } catch {
+    return {
+      cleanupConfirmed: false,
+      reason: "workbench_ai_advice_host_cleanup_unconfirmed",
+    };
+  }
+}
+
+/**
  * 同じ初回Runtime結果に保持されたHost失敗分類を内部で照会する。
  *
  * @responsibility 元の結果Objectに結合した分類だけを返す。
@@ -159,6 +213,11 @@ type Operation = Readonly<{
  */
 
 export type WorkbenchAiAdviceRuntimeDependencies = Readonly<{
+  recoveryCorrelationId?: string;
+  observeOperation?: (
+    operation: Readonly<{ operationId: string; hostRecoveryId: string }>,
+  ) => Promise<boolean>;
+  observeStarted?: () => Promise<boolean>;
   createOperation: () => Promise<Operation>;
   bindRepository: (
     managementCapability: unknown,
@@ -210,6 +269,10 @@ export type WorkbenchAiAdviceRuntimeDependencies = Readonly<{
  */
 export function createRuntimeOwnedWorkbenchAiAdviceProductionRuntime(
   repositoryRootCapability: VerifiedRepositoryRoot,
+  observation?: Pick<
+    WorkbenchAiAdviceRuntimeDependencies,
+    "recoveryCorrelationId" | "observeOperation" | "observeStarted"
+  >,
 ): WorkbenchAiAdviceRuntimePort {
   const repositoryRoot = resolveVerifiedRepositoryRoot(
     repositoryRootCapability,
@@ -223,9 +286,10 @@ export function createRuntimeOwnedWorkbenchAiAdviceProductionRuntime(
         false,
         true,
       );
-  const runtime = createWorkbenchAiAdviceRuntime(
-    createProductionDependencies(repositoryRoot),
-  );
+  const runtime = createWorkbenchAiAdviceRuntime({
+    ...createProductionDependencies(repositoryRoot),
+    ...observation,
+  });
   return (executionPlan, cancellationSignal) =>
     runtime(executionPlan, cancellationSignal);
 }
@@ -328,6 +392,16 @@ function createWorkbenchAiAdviceRuntime(
         );
 
       const selectionInput = selectionRequest(plan, operation.operationId);
+      if (
+        dependencies.observeOperation &&
+        !(await dependencies.observeOperation({
+          operationId: operation.operationId,
+          hostRecoveryId: operation.hostRecoveryId,
+        }))
+      )
+        throw new AdviceRuntimeError(
+          "workbench_ai_advice_operation_save_unconfirmed",
+        );
       const selection = dependencies.issueSelection(
         operation.managementCapability,
         selectionInput,
@@ -455,6 +529,7 @@ function createWorkbenchAiAdviceRuntime(
         selectionUse,
         packetUse,
         packetOwner,
+        dependencies.recoveryCorrelationId,
       ) as RuntimeRecord;
       const preparedCapability = objectValue(prepared.preparedCapability);
       if (prepared.status !== "prepared" || !preparedCapability)
@@ -472,6 +547,8 @@ function createWorkbenchAiAdviceRuntime(
           recoveryCapability = objectValue(capability);
           return recoveryCapability !== null;
         },
+        undefined,
+        dependencies.observeStarted,
       ) as RuntimeRecord;
       processControl = objectValue(process.controlCapability);
       const completion = process.completion;

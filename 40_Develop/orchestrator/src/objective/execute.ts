@@ -1345,6 +1345,9 @@ export async function executeOrchestratorObjective(
     recoveryIds: execution.recoveryIds,
     recoveryObligations: execution.recoveryObligations,
     effectState: execution.effectState,
+    ...(execution.workspaceResults === undefined
+      ? {}
+      : { workspaceResults: execution.workspaceResults }),
   });
 }
 

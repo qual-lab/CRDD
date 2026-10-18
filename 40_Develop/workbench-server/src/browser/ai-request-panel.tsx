@@ -9,14 +9,12 @@
  * @effect Form送信以外の外部Effectを発行しない。
  * @security ReactのText escapingを使用し、秘密値・Host Path・Credentialを表示しない。
  */
-import { createElement, type ReactElement, type ReactNode } from "react";
+import { createElement, type ReactElement } from "react";
 
 import type { WorkbenchAiProfileSurface } from "../ai-profile/projection.ts";
 import type {
   WorkbenchAiRequestSnapshot,
   WorkbenchAiResultItem,
-  WorkbenchCandidateActionResult,
-  WorkbenchCandidateReviewResult,
 } from "../ai-request/types.ts";
 import {
   ActionTokenInput,
@@ -46,9 +44,6 @@ export function renderWorkbenchAiRequest(
   profiles: WorkbenchAiProfileSurface | null,
   applicationConfigured: boolean,
   snapshot: WorkbenchAiRequestSnapshot | null,
-  candidateActionsConfigured: boolean,
-  candidateReview: WorkbenchCandidateReviewResult | null,
-  candidateAction: WorkbenchCandidateActionResult | null,
   notice: string | null = null,
 ): ReactElement {
   const disabled = !applicationConfigured || profiles === null;
@@ -58,9 +53,6 @@ export function renderWorkbenchAiRequest(
       : renderSnapshot(
           snapshot,
           actionToken,
-          candidateActionsConfigured,
-          candidateReview,
-          candidateAction,
         );
   return createElement(
     WorkbenchPanel,
@@ -102,8 +94,8 @@ export function renderWorkbenchAiRequest(
           ),
           createElement(
             "option",
-            { value: "change_candidate" },
-            "変更候補（自動採用なし）",
+            { value: "workspace_edit" },
+            "Workspace編集（自動Commit・採用なし）",
           ),
         ),
       ),
@@ -123,6 +115,8 @@ export function renderWorkbenchAiRequest(
           ),
         ),
       ),
+      createElement("label", null, "編集先Workspace ID（空欄はDirect。助言は空欄）", createElement("input", { name: "workspaceId", disabled })),
+      createElement("p", null, "Directは現在のWorking Treeを編集します。同じFileの同時編集に注意してください。失敗・取消でも自動で巻き戻しません。Candidate固定・採用はWorkspace管理の別操作です。"),
       createElement(
         "label",
         null,
@@ -138,7 +132,7 @@ export function renderWorkbenchAiRequest(
       createElement(
         "label",
         null,
-        "変更を許可するPath（変更候補時のみ必須、1行1Path）",
+        "変更対象Path（Workspace編集時のみ必須、1行1Path）",
         createElement("textarea", {
           name: "allowedPaths",
           rows: 3,
@@ -165,6 +159,14 @@ export function renderWorkbenchAiRequest(
       ),
       createElement("button", { type: "submit", disabled }, "依頼を開始"),
     ),
+    createElement("form", { className: "ai-request-form", method: "post", action: "/ai-request/action" },
+      createElement(ActionTokenInput, { value: actionToken }),
+      createElement("p", null, "再起動前の依頼は元の依頼IDで確認できます。本文は復元・再送しません。"),
+      createElement("label", null, "元の依頼ID", createElement("input", { name: "requestId", required: true, disabled })),
+      createElement("label", null, "操作", createElement("select", { name: "operation", disabled },
+        createElement("option", { value: "observe" }, "状態を確認"),
+        createElement("option", { value: "cancel" }, "取消・残存資源の回収を確認"))),
+      createElement("button", { type: "submit", disabled }, "元の依頼を確認")),
     notice === null
       ? null
       : createElement("p", { className: "operation-result" }, notice),
@@ -198,9 +200,6 @@ export function renderWorkbenchAiRequest(
 function renderSnapshot(
   snapshot: WorkbenchAiRequestSnapshot,
   actionToken: string,
-  candidateActionsConfigured: boolean,
-  candidateReview: WorkbenchCandidateReviewResult | null,
-  candidateAction: WorkbenchCandidateActionResult | null,
 ): ReactElement {
   const section = (
     title: string,
@@ -234,19 +233,9 @@ function renderSnapshot(
   const modeLabel =
     snapshot.mode === "read_only_advice"
       ? "状況確認・助言（読取りのみ）"
-      : snapshot.mode === "change_candidate"
-        ? "変更候補（自動採用なし）"
+      : snapshot.mode === "workspace_edit"
+        ? "Workspace編集（自動Commit・採用なし）"
         : "依頼種別は判定不能";
-  const candidate =
-    snapshot.candidate === null
-      ? null
-      : renderCandidate(
-          snapshot.candidate.candidateId,
-          actionToken,
-          candidateActionsConfigured,
-          candidateReview,
-          candidateAction,
-        );
   return createElement(
     "div",
     { className: "ai-request-result" },
@@ -256,11 +245,16 @@ function renderSnapshot(
       createElement("strong", null, snapshot.status),
       ` — ${modeLabel}${snapshot.reason === null ? "" : ` — ${snapshot.reason}`}`,
     ),
-    candidate,
-    section("確認できた事実", snapshot.facts),
-    section("共有済み分析", snapshot.sharedAnalysis),
-    section("追加推論", snapshot.additionalInferences),
-    section("次の選択肢", snapshot.nextOptions),
+    ...(snapshot.mode === "read_only_advice" ? [
+      section("確認できた事実", snapshot.facts),
+      section("共有済み分析", snapshot.sharedAnalysis),
+      section("追加推論", snapshot.additionalInferences),
+      section("次の選択肢", snapshot.nextOptions),
+    ] : [createElement("p", { key: "workspace-observation" }, snapshot.workspaceResult
+      ? `${snapshot.workspaceResult.workspaceId === null ? "Direct" : "Isolated Workspace"}: ${snapshot.workspaceResult.changedPaths === null ? "変更範囲は未観測" : snapshot.workspaceResult.changedPaths.length === 0 ? "変更なし" : `変更あり — ${snapshot.workspaceResult.changedPaths.join(" / ")}`}。変更の帰属は未判定、自動Commit・採用なし。`
+      : "作業領域の変更結果は未観測です。")]),
+    snapshot.cleanupConfirmed === undefined ? null : createElement("p", null, snapshot.cleanupConfirmed ? "実行資源の回収確認済み" : "実行資源の回収は未確認"),
+    ...(snapshot.secondaryFailures ?? []).map((reason) => createElement("p", { key: reason }, `終了処理の問題: ${reason}`)),
     cancellable
       ? createElement(
           "form",
@@ -279,171 +273,5 @@ function renderSnapshot(
           createElement("button", { type: "submit" }, "取消"),
         )
       : null,
-  );
-}
-
-/**
- * 未採用Candidateの確認情報と独立した採用・破棄操作を描画する。
- *
- * @responsibility 候補Identity、変更Path、基準Revision、期限、操作確認および直近結果を一つのPanelへ表示する。
- * @trace ARCH-000015
- * @trace ARCH-000004
- * @input candidateId、actionToken、Application有無、確認結果、直近操作結果。
- * @returns React要素を返す。
- * @precondition 表示値はApplicationの閉じた結果である。
- * @postcondition 採用と破棄を別Formにし、それぞれ明示Checkboxを要求する。
- * @effect N/A: React要素の構築だけを行う。
- * @failure 候補未観測またはApplication未接続を完了表示へ畳まない。
- * @invariant 外部送信確認を候補操作確認として再利用しない。
- * @boundary Candidate Application結果とBrowser React表示の境界。
- * @security ReactのText escapingを使用し、Candidate IDだけで操作を自動発行しない。
- * @concurrency 現在Snapshotの一Candidateだけを表示する。
- */
-function renderCandidate(
-  candidateId: string,
-  actionToken: string,
-  candidateActionsConfigured: boolean,
-  review: WorkbenchCandidateReviewResult | null,
-  action: WorkbenchCandidateActionResult | null,
-): ReactElement {
-  const current =
-    review?.status === "available" &&
-    review.candidate?.candidateId === candidateId
-      ? review.candidate
-      : null;
-  const details: ReactNode =
-    current === null
-      ? createElement(
-          EmptyState,
-          null,
-          !candidateActionsConfigured
-            ? "候補確認Applicationが未接続です。"
-            : `候補を確認できません: ${review?.reason ?? "not_observed"}`,
-        )
-      : createElement(
-          "div",
-          null,
-          createElement(
-            "dl",
-            { className: "candidate-metadata" },
-            ...[
-              ["Classification", current.informationClassification],
-              ["Base revision", current.baseRevision],
-              ["Candidate hash", current.candidateHash],
-              ["Patch hash", current.patchHash],
-              ["Expires", new Date(current.expiresAtMs).toISOString()],
-            ].map(([label, value]) =>
-              createElement(
-                "div",
-                { key: label },
-                createElement("dt", null, label),
-                createElement(
-                  "dd",
-                  null,
-                  label === "Classification" || label === "Expires"
-                    ? value
-                    : createElement("code", null, value),
-                ),
-              ),
-            ),
-          ),
-          createElement("h4", null, "変更対象"),
-          createElement(
-            "ul",
-            null,
-            ...current.changedPaths.map((value) =>
-              createElement(
-                "li",
-                { key: value },
-                createElement("code", null, value),
-              ),
-            ),
-          ),
-        );
-  const operationResult =
-    action === null || action.candidateId !== candidateId
-      ? null
-      : createElement(
-          "p",
-          { className: "operation-result" },
-          createElement(
-            "strong",
-            null,
-            `${action.operation}: ${action.status}`,
-          ),
-          ` — ${action.reason}${action.receiptId === null ? "" : ` — Receipt: ${action.receiptId}`}${action.effectStateUnknown ? " — Effect状態は未確認" : ""}${action.manualRecoveryRequired ? " — 手動回復が必要" : ""}`,
-        );
-  const operations =
-    current === null
-      ? null
-      : createElement(
-          "div",
-          { className: "candidate-actions" },
-          ...[
-            [
-              "adopt",
-              "表示した候補ID・基準Revision・変更Pathを確認し、Canonical Repositoryへ採用する",
-              "候補を採用",
-            ],
-            ["discard", "この未採用候補を破棄する", "候補を破棄"],
-          ].map(([operation, confirmation, label]) =>
-            createElement(
-              "form",
-              { key: operation, method: "post", action: "/candidate/action" },
-              createElement(ActionTokenInput, { value: actionToken }),
-              createElement("input", {
-                type: "hidden",
-                name: "operation",
-                value: operation,
-              }),
-              createElement("input", {
-                type: "hidden",
-                name: "candidateId",
-                value: candidateId,
-              }),
-              createElement(
-                "label",
-                { className: "confirm" },
-                createElement("input", {
-                  type: "checkbox",
-                  name: "confirmed",
-                  value: "true",
-                  required: true,
-                }),
-                createElement("span", null, confirmation),
-              ),
-              createElement("button", { type: "submit" }, label),
-            ),
-          ),
-          createElement(
-            "form",
-            { method: "post", action: "/candidate/action" },
-            createElement(ActionTokenInput, { value: actionToken }),
-            createElement("input", {
-              type: "hidden",
-              name: "operation",
-              value: "defer",
-            }),
-            createElement("input", {
-              type: "hidden",
-              name: "candidateId",
-              value: candidateId,
-            }),
-            createElement("button", { type: "submit" }, "今回は保留"),
-          ),
-        );
-  return createElement(
-    "section",
-    null,
-    createElement("h3", null, "変更候補"),
-    createElement("p", null, createElement("code", null, candidateId)),
-    createElement(
-      "p",
-      null,
-      "未信頼・未採用です。確認、採用、破棄は候補生成とは別操作です。採用してもCommitやPushは行いません。",
-    ),
-    details,
-    operationResult,
-    operations,
   );
 }

@@ -2,6 +2,12 @@
 
 [Workspace再編の目標責務](../orchestrator/03_Workspace.md#3-packageの責務と依存方向)により、本領域は単発AIの調整・取消・通知・結果返却へ縮小する。通常実行はOrchestrator経由とし、業務永続状態・Workspace／Candidate寿命・採用・Promotionを所有しない。以下の現行state・Bundle Store・workbench-ai・Host相関は移行元であり、対応能力の接続前に撤去しない。DI完成を新Workspace借用の検証済み根拠にしない。具体切替・API・Schemaは未完了。
 
+## 単発Workbench依頼の終了相関（2026-10-18、実装・検証中）
+
+Workbench用途で上位の回復相関を持つ新しい終了要約に限り、`operation-summary/v4`へ`consumer`と`recoveryCorrelationId`を検証済み操作Identityから追加する。既存の要約要素と必要時の`dockerRestart`は維持し、要約Hash・履歴行Hash・結果IDは同じ符号化から導出する。新しい保存先は作らない。既に固定・出版したv2/v3要約は元Hashと本文を維持し、Schema更新のために上書きしない。
+
+`observeRuntimeOwnedWorkbenchTaskCompletion`は既存の状態・履歴ReaderとKernel排他を使い、exact回復ID、workbench利用元、元上位相関、全行の正常な終了・回収条件、現在操作・未解決参照・配送の不存在とpending不存在を共同照合する。履歴欠測・重複・旧要約・相関差・Reader拒否は未解決のままであり、単なる現在一覧の欠落を終了根拠にしない。この限定観測はTask成功・採用・再実行許可ではなく、回収後の上位保存失敗から同じ依頼へ戻るための確認である。
+
 ## Workspace実行接続の切替契約（2026-10-17）
 
 基準`135e032c`のOrchestrator現在保存・VC・Task搬送に対し、Coordinatorの借用実行を接続する。保存先Rootの単純置換、旧固定複製への借用Tree混入、旧Bundleの成功を新Git成果へ転用する変更は行わない。

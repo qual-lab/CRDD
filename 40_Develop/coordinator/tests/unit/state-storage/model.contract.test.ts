@@ -2619,6 +2619,29 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
   );
   const restartHistoryRows = decodeCoordinatorHistoryRows(restartHistoryLine);
   assert.ok(restartHistoryRows);
+  const v4Restart = structuredClone(restartHistoryRow);
+  v4Restart.summary.schema = "crdd-coordinator/operation-summary/v4";
+  v4Restart.summary.consumer = "workbench";
+  v4Restart.summary.recoveryCorrelationId = "operation-a";
+  assert.ok(
+    decodeCoordinatorHistoryRows(
+      Buffer.from(`${encodeCoordinatorStateValue(v4Restart)}\n`),
+    ),
+  );
+  for (const checkpoint of [
+    null,
+    { ...restartHistoryCheckpoint, cleanup: "unknown" },
+    { unexpected: true },
+  ]) {
+    const invalid = structuredClone(v4Restart);
+    invalid.summary.dockerRestart = checkpoint;
+    assert.equal(
+      decodeCoordinatorHistoryRows(
+        Buffer.from(`${encodeCoordinatorStateValue(invalid)}\n`),
+      ),
+      null,
+    );
+  }
   assert.notEqual(restartHistoryRows[0]?.summarySha256, rows[0]?.summarySha256);
   assert.equal(
     prepareCoordinatorRecoveredHistoryPublication(

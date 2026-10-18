@@ -23,7 +23,7 @@
   "files": [
     "src/index.ts",
     "src/diagnostics/native-git-provenance.ts",
-    "src/workbench-ai/candidate-actions.ts",
+    "src/workbench-ai/repository-composition.ts",
     "src/cli/command.ts",
     "scripts/verification-result-record.ts",
     "scripts/measure-development-providers.ts",

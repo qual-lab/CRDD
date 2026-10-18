@@ -212,6 +212,9 @@ export async function readAuthorizedRuntimeActivity(
     projection: NonNullable<RuntimeActivityObservation["projection"]>;
   }[] = [];
   const events: RuntimeActivityEvent[] = [];
+  const singleTasks: NonNullable<
+    RuntimeActivityObservation["singleTasks"]
+  >[number][] = [];
   for (const { repository, root, revision } of targets) {
     if (root === null) {
       stateUnknown = true;
@@ -227,6 +230,19 @@ export async function readAuthorizedRuntimeActivity(
       if (snapshot.status !== "completed") stateUnknown = true;
       else if (snapshot.value !== null) {
         const value = snapshot.value;
+        for (const queue of value.queueEntries) {
+          const record = queue.singleTask;
+          if (queue.projectId === request.projectId && record)
+            singleTasks.push({
+              repositoryId: repository.repositoryId,
+              requestId: queue.queueId,
+              mode: record.mode,
+              phase: record.phase,
+              status: record.status,
+              cleanupConfirmed: record.cleanupConfirmed,
+              recoveryRequired: queue.state === "recovery_required",
+            });
+        }
         const result = queryOrchestratorState(
           {
             readState: (projectId) =>
@@ -294,6 +310,7 @@ export async function readAuthorizedRuntimeActivity(
         : "absent";
   const result = parseRuntimeActivityObservation({
     projectId: request.projectId,
+    singleTasks: stateUnknown ? [] : singleTasks,
     state,
     reason:
       state === "unknown"

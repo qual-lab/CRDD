@@ -542,3 +542,100 @@ W4の技術・Qualityの独立再レビューは両者とも残指摘0。最終S
 今回完成の対象は公開Workspace管理の限定接続である。Workbench旧AI専用経路の共通Taskへの置換、実Provider E2E、別Baseの実Git→実Browser縦断、人間UAT、実データ移行・旧Bundle全面撤去は未完了であり、今回の成功へ含めない。通常Objectiveの任意Workspace IDは受付へ搬送するが、共有WorkbenchのAI実行機能全体を提供済みとしない。新しい実Provider依頼、Docker操作、統合、タグ、Releaseは実行していない。
 
 限定文書監査・Gap／Impact監査も二件の集合で実施した。実行時点の表現と既存Browser Suiteから新Panelへの`verifies`関係を同期し、新QA IDや実行別Evidence書庫を増やしていない。全試験終了後、今回のWorkspace・MCP・Browser・Visualの自己生成試験Root残存は0件。人間のステージ状態は維持し、今回分は未コミット・未プッシュである。
+
+### 旧AI経路置換への着手（2026-10-18）
+
+人間の依頼により、公開接続43ファイルを`174bef00`（`feat(workspace): expose management through Workbench and MCP`）へコミットした。直後の作業Treeはclean。Push・main統合・Releaseは行っていない。前節の未コミット表示はコミット前の実行結果である。
+
+変更分類は採用済みWorkspace方式への既存AI能力の責務移管・本番利用側切替。Architecture／Quality／実装／公開利用側へ影響するため、技術と品質の着手前整合確認を二件の集合で実施・統合した。独立完成レビューではない。必要な完成レビューは技術・品質、文書監査と限定Gap／Impact。準拠基準・安定ID・Release判断は変えないため、準拠監査／Release監査は追加しない。
+
+| 現行経路・不足 | 処置・順序 |
+|---|---|
+| `workbench-server/bin/workbench-server.ts`がCoordinatorの`workbench-ai`を直接構成 | 共通Taskの実装後、Orchestrator公開APIを使う薄い構成へ変更する。MCP依存を導入しない |
+| `repository-composition.ts`は固定Context一件、exact Profile、専用助言Packetを所有 | 読取り専用の保証と四分類・参照を維持して共通Taskへ接続。通常Objectiveは常に変更実行前提のため単純転用しない |
+| `operation-composition.ts`は旧OS判断StoreのPrincipal照合とTask後のBundle統合を持つ | AM Principalと同一視しない。既存受付・Writer・Dispatcherを再利用し、Workspace実行結果と明示Git採用を旧Bundleから分離する |
+| `objective/execute.ts`はDispatcherの`workspaceResults`を公開Objective結果へ搬送していない | 同Task／Attemptの閉じた変更観測を結果契約と利用側へ接続する。内部結果の存在だけで公開表示済みとしない |
+| Workbenchの現在依頼ID・Snapshotは単一Processの共有変数 | 共有利用では主体／Repository／Workspaceの対象照合と既存Queue／Task参照へ接続する。新Session台帳や全利用者共有の現在依頼を作らない |
+| `/candidate/action`は旧Bundle用 | 新Workspace管理へ同名で読み替えない。変更確認・固定・別採用の代替能力と利用側を検証してから旧入口を撤去する |
+
+置換の正本は[Workspace詳細の置換契約](../../../06_Architecture/Details/orchestrator/03_Workspace.md#旧workbench-ai経路の置換契約2026-10-18移行中)。共通Taskの明示種別と結果→既存実行・保存→Workbenchの開始・照会・取消→旧利用側撤去の順とする。Prompt・投影・回答本文の非永続を維持し、別名の要求・計画・採用基準・Eventへの本文コピーも確認する。再起動後の本文は欠測であり、自動再送せず、資源回収は既存参照から独立して行う。新Frameworkと保存先は増やさない。追加の人間判断は現在不要である。
+
+発火例は現在development許可・対象所属一致・exact Profile・種別別の送信同意、非発火例は同意なし／管理内容だけ／別Repository、境界例は待機後失効・Workspace変更・結果と取消の競合、情報不足例は対象・本文・回収・配送の観測不能。後三者を完了・空結果・処置なしへ丸めず、元Taskと取得済み参照を保持する。局所試験、実Writer／実Git／HTTPの有限代役結合、実Browser、固定候補の独立レビューを予定する。実Provider／Docker／実データ移行は別の実境界として扱う。
+
+着手時の基準確認は`node --test --test-concurrency=1 tests/unit/workbench-ai/request-lifecycle.contract.test.ts tests/unit/workbench-ai/advice-dispatch.contract.test.ts tests/unit/workbench-ai/advice-packet.contract.test.ts`をCoordinator packageから実行し、26件成功・失敗／skip 0（833ms）。旧能力の入力・Packet・結果拒否の基準であり、新共通Taskへの接続や資源回収・実Provider成功の証明ではない。生成物や生出力の書庫を追加せず、試験Sourceと再実行方法を保持する。
+
+上記のArchitecture・QA・着手記録の三文書を固定し、技術／利用側と品質の二つの限定文書・影響確認を実施した。両者とも指摘0。Source完成レビューではなく、その計画確認時点では置換Sourceは未変更であった。差分の空白検査は成功。この計画更新は未コミットであり、基準コミットへ遡及して含めない。
+
+### 共通Task結果搬送の限定是正（2026-10-18）
+
+全置換の最初の小単位として、Dispatcherが既に生成する`workspaceResults`がObjective結果で落ちる接続漏れを是正した。Orchestratorの既存結果Factoryと閉snapshot、MCPの公開検査を更新し、新State・Store・Lockは追加していない。失敗結果にも取得済み観測を保持し、不正付随観測で元の失敗理由・cleanup・回復参照を上書きしない。
+
+実Git・実Writerの結合を追加した際、内部Task完了＋未採用投影をMCPが既存の完成相関で拒否することも再現した。Factoryを一律blockedへ変更すると旧Bundle Consumerの内部進行まで止めるため、その案は採用せず、二つの着手前確認の結果を統合した。最終公開のMCPだけで未採用をblockedへ写し、元raw completedの安全条件・既存相関定義・内部結果は維持した。新しい状態・一般回復・metadata存在だけの旧統合回避guardは作らない。
+
+初回結合試験の準備は既存Queueを直接除く案がWriterに拒否された。製品の保存条件を緩めず、同じ自己生成試験Root内に新品Git／Snapshotを作る準備へ修正した。次の失敗は上記公開完成相関を再現したものであり、MCP検査を緩めず是正した。公開API集合試験の期待値の並び違いも修正した。これらを当初から成功だったとは扱わない。
+
+固定Sourceへの技術／品質の二独立レビューはともに指摘0。今回完成主張は変更観測の搬送と公開未採用表示に限定する。旧Bundle統合停止、助言種別・本文非永続の共通実行接続、Workbench切替、実Provider・実データ移行は未完了である。実行結果は後続の確定表へ集約する。
+
+| 今回の確認 | 確定結果と限界 |
+|---|---|
+| 基準と実行条件 | `174bef00`に対するSource／試験差分。Windows、Node.js v24.19.0、Git 2.54.0.windows.1。合成Repositoryは`.crdd/tests/orchestrator-workspace-*`内だけ。Git／Native排他の試験は通常環境で実行し、外部AI・Docker・認証情報は使わない |
+| 静的確認 | Orchestrator／MCPの`npm run check`成功。既存Orchestrator試験のstyle情報2件はwarning／errorではない |
+| Orchestrator単体 | `npm run test:run`全74件成功、失敗／skip 0（1,565ms）。今回の分岐coverage測定・全IT一括再実行は未実施 |
+| 新しい結果搬送の実結合 | `node --test --test-name-pattern="実Objective受付" tests/integration/workspace-lifecycle.integration.test.ts`の1件成功（8,789ms）。実受付・Writer・二Task・Objective結果とMCP検査を通し、変更観測二件、内部completed／公開blocked、HEAD不変、Queueのintegration_pendingを確認。通常Launcherから実AIを起動する全経路ではない |
+| 公開API・依存境界 | `node --test tests/integration/public-owner-boundary.contract.test.ts`全3件成功（2,398ms） |
+| MCP全回帰 | `npm run test:run`全89件成功、失敗・取消・skip 0（149,243ms）。実HTTP／stdio／通常Launcher等の既存母集団を含む。実Providerの成功ではない |
+| 独立確認 | 固定Sourceの技術・品質はともに指摘0。限定文書／Gap照合もともに指摘0。Repository全体の文書・準拠合格やRelease可能の判定ではない |
+
+通常の実行stdoutはこの結果要約と試験Sourceから再生成する。実行別Evidence書庫・Runtimeログ・本文複製をGitへ追加しない。今回の結果搬送だけで旧AI経路の置換完了とはしない。Source変更と計画更新は未コミット・未プッシュで、人間のステージ操作は変更していない。
+
+### 旧AI経路置換の一括対応（2026-10-18、検証中）
+
+人間の一括対応指示により、①助言／Workspace編集の共通単発Owner、②Workbench単体／共有の開始・観測・取消、③旧Workbench専用要求台帳・Bundle候補実行・採用操作の撤去を実装した。既存Project計画・Objective・Milestone・Bundle能力は対象を分けて保持する。Prompt・Context・回答本文はProcess内だけとし、既存Queueへ識別・進行・回復参照を保存する。自動Commit・Merge・Promotion、新しいStore／Lock／Session Registryは追加していない。
+
+次表は先行固定候補時点の経過である。現在の判定と残件は、後段「一括対応の最終確認」に従う。
+
+| 確認対象 | 現在の結果・限界 |
+|---|---|
+| 固定候補のOrchestrator全結合 | 差分Hash `8883aa8dcf18d00a3bc9c17155d6e069c5b800e6`で全37件成功、失敗・skip 0（307,262ms）。実Git・既存Writer／Native排他と有限実行代役を使用。実Docker／Providerは使用しない |
+| Source変更と並走した先行試験 | 保存未確認・Root不正による失敗を観測。固定前の失敗を成功へ書き換えず、上記固定候補結果と区別する。変更並走が原因だったとの断定はしない |
+| Workbench全結合 | 58件中56件成功、2件失敗。巨大な既存計画文書の読取り上限に関する既知のProject表示失敗が残る。全体Passではない |
+| 独立レビュー | 初回是正後も、Task cleanとLease終端の分離、回収後の保存失敗、同Owner回復、待機中の同時開始、Server再構成後の再入場、副次失敗参照、本文欠測とprimaryの区別を追加指摘。両確認者へ統合是正方針を戻して整合済み。是正後の再レビューは未完了 |
+| 再入場の限定確認 | 同Owner回復・元ID再観測を含むOrchestrator実保存2件、共有HTTPのServer再構成1件、Coordinator既存履歴によるexact終了再照合1件が成功。最後の試験の初回起動は必要なmodule mock実行オプション不足で停止し、packageのオプションを付けた実行で成功した。これをDocker実境界の成功とは扱わない |
+
+正式回収後に上位保存が失敗した場合の再入場には、既存Coordinator履歴の限定契約改訂を使用する。新しいworkbench相関付き要約だけv4とし、元の利用元と上位操作相関を保存する。旧固定要約は本文・Hash不変で、新保証の根拠に補完しない。処置は[Coordinatorの終了相関](../../../06_Architecture/Details/coordinator/01_Architecture.md#単発workbench依頼の終了相関2026-10-18実装検証中)と[Workspaceの置換契約](../../../06_Architecture/Details/orchestrator/03_Workspace.md#旧workbench-ai経路の置換契約2026-10-18移行中)を正本とする。
+
+全置換完成・Release可能はまだ主張しない。残る再検証、固定候補再レビュー、既知Workbench失敗、実Provider E2E・人間UAT・実データ移行を区別する。実行別Evidence書庫は作らず、上記要約と試験Sourceを保持する。現在の差分は未コミット・未プッシュである。
+
+#### 一括対応の最終確認
+
+共通単発Ownerへの接続、Workbench単体／共有の開始・観測・取消、Workbench専用旧経路の撤去という①〜③のSource・結合範囲を確認した。既存Project／Bundle能力は保持する。技術・品質の限定独立再レビューは両方とも残指摘0件（固定差分`c5a92601afe5146866f2e3bedabd70cfa5e2e49a`）。その後の変更は以下の試験用代役の所属照合、書式整形、生成物のステージ同期と結果記録であり、本番処理を変更していない。
+
+| 最終確認 | 結果と適用限界 |
+|---|---|
+| Orchestrator | UT75件成功（2,192ms）。最終全ITは37件中36成功・1失敗（302,615ms）で、失敗は新しい読取り専用Exportの期待値差だけ。期待値同期後の公開境界全3件成功（3,272ms）。単一run全37成功とは表示しない。単発ITは同Owner回復・未終了Lease・交差startの追加反例も成功 |
+| MCP | 全89件成功、失敗・skip 0（141,755ms）。実Git・実HTTP／stdio・有限実行代役であり、実Provider成功ではない |
+| Coordinator履歴 | 純粋モデル5件成功（657ms）。checkpoint正常／不正のv4負例を含む既存Host Writerの1件成功（26,297ms）。旧固定bytes／Hash・consumer／上位相関・現在不存在条件を維持 |
+| Workbench | 全59件中55成功・4失敗（168,485ms）。既知の計画表示2件に加え、試験用Ownerが別IDも所有済みと返す不備と、最新Browser BuildのIndex未同期が各1件。代役を本番Ownerの所属拒否へ合わせ、今回生成物だけをステージ同期後、この2件の限定再実行は両方成功（2,401ms）。単体／共有のServer再構成後の元ID再入場も全体run内で成功。最終全59件を全成功とはしない |
+| 静的確認・生成物 | Orchestrator／Coordinator／MCP／Workbenchのcheck成功、Browser Build成功。Coordinatorの実行・設計Trace検査もaccepted。既存の情報レベルstyle提案はerror／warningへ読み替えない |
+
+Workbenchに残る既知2件は、既存の巨大な`second-stage-plan.md`がOwner Artifact読取り上限を超え、計画がunknownとなる表示試験である。今回の単発実行・再入場とは別に是正対象として保持し、上限を無条件に拡大して隠さない。Browserだけの新規Host初回同意、実Provider E2E、UATと実データ移行は未実施のまま。編集のHost送信同意の運用前提はWorkspace正本へ明記した。
+
+コミット・プッシュは実施していない。Browser再生成物一件だけをステージ同期し、それ以外の人間によるステージ内容は変更していない。
+
+### 計画表示2失敗の是正（2026-10-18）
+
+人間の追加依頼により、参照文書一覧が約1MiBの変更計画を本文上限512KiBで拒否し、一覧全体をunknownにする結合を是正する。計画投影のReader自体の故障ではなく、先行説明の「計画がunknown」は一覧の未取得と区別して訂正する。
+
+変更はWorkbench Reader、既存試験、直接のArchitecture／QAと現在投影に限定する。既存の本文上限・認可・Repository境界・公開DTO・保存は不変更。全文上限増加と巨大計画の全面分割は今回目的に対して影響が大きいため採用せず、一覧用の先頭8KiBの見出し取得を本文読取りから分離する。親の着手前照合と技術・品質の読取り専用確認は編集前に整合し、人間の追加判断はない。正常、容量境界、途中行／UTF-8、非対象Path、欠測・read／close・実体差を既存ITへ接続する。独立レビューと限定文書・影響確認、Workbench静的検査と全回帰を実施する。工程契約・準拠・Release判断を変えないため全体準拠監査は追加しない。Docker・外部AIは使わず、自己生成物はRepository-local `.crdd/tests`から回収する。
+
+一覧の是正後、初回の限定4件は3成功・1失敗（13,924ms）だった。残るDirection A試験は、CSR側の「日程リスク」という表示文言をJSONにも要求する旧期待値だった。表示は変更せず、計画の取得成功・日程リスクの非空・共通Readerとの値一致を確認する試験へ修正した。Project表示の固定品質件数も、取得成功・非空を確認したうえで正本Readerとの一致へ置き換えた。不明同士の一致を成功とはしない。
+
+| 最終確認 | 結果と適用限界 |
+|---|---|
+| 固定対象 | 基準`174bef00d692501f428951ae2f95405668d99292`、`git diff --binary HEAD`のGit blob Hash `43be74de18781303cf070474e95851605bed1de0`。全回帰中にSourceを変更せず、終了後も同Hashを確認。以下の結果追記・現在投影更新は回帰後の文書変更として区別する |
+| 公開回帰入口 | Workbench Serverの`npm test`全60件成功、失敗・取消・skip 0（175,916ms）。pretestのBrowser Build、書式・型・Lintも成功。元の2失敗を含み、実Git・loopback HTTP・自己生成合成データを使用する。実Docker・外部AI・実資格は使用しない |
+| 読取り境界 | 512KiB直前後、8KiB見出し境界、途中行／UTF-8、read／close失敗、実体差・欠測等を確認。一覧は巨大文書の見出しを表示できるが、同文書の本文取得は従来どおり拒否する実HTTP結合も成功。既存の認可・リンク拒否試験を維持する |
+| 独立確認 | 最終固定候補の技術・品質と限定文書／影響確認はともに指摘0。初回限定試験の失敗を保持し、最終全60成功と混同しない |
+| 残る範囲 | 今回の2失敗は解消。実Provider E2E、人間UAT、実データ移行、全体品質再評価、新しいBrowser実測は未実施。全Packageの単一run成功・Release可能とはしない |
+
+実行別Evidence書庫は追加せず、本要約と試験Sourceを保持する。今回コミット・プッシュは行っていない。

@@ -105,6 +105,7 @@ export function prepareRuntimeOwnedClaudeDockerAdviceCandidate(
   selectionUseCapability: unknown,
   advicePacketUseCapability: unknown,
   advicePacketOwnerCapability: unknown,
+  recoveryCorrelationId: unknown = null,
 ) {
   return productionAdapter.prepareAdvice(
     managementCapability,
@@ -113,6 +114,7 @@ export function prepareRuntimeOwnedClaudeDockerAdviceCandidate(
     selectionUseCapability,
     advicePacketUseCapability,
     advicePacketOwnerCapability,
+    recoveryCorrelationId,
   );
 }
 

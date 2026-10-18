@@ -46,7 +46,7 @@ test("Workbench助言の本番入口は署名発行を注入しない", () => {
   );
   assert.match(
     launcher,
-    /createRuntimeOwnedWorkbenchAiAdviceProductionRuntime\(\s*verified\.capability,?\s*\)/,
+    /createRepositoryTaskRequests\(\s*verified\.capability,/,
   );
   assert.doesNotMatch(
     runtime,
@@ -54,7 +54,7 @@ test("Workbench助言の本番入口は署名発行を注入しない", () => {
   );
   assert.match(
     runtime,
-    /function createRuntimeOwnedWorkbenchAiAdviceProductionRuntime\(\s*repositoryRootCapability: VerifiedRepositoryRoot,?\s*\)/,
+    /function createRuntimeOwnedWorkbenchAiAdviceProductionRuntime\(\s*repositoryRootCapability: VerifiedRepositoryRoot,/,
   );
 });
 

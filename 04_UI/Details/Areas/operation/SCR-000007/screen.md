@@ -25,13 +25,13 @@ Screen ID: `SCR-000007`
 
 | PRT | 意味／責務 | 情報 | 操作 | State／Variant |
 |---|---|---|---|---|
-| `PRT-000007` | CLI、MCP、Workbenchの入口を変えても同じ依頼種別と結果を扱える。 | 対象、読取り助言／変更候補、変更候補時の許可Path、状態、結果区分ごとの本文と根拠参照、未採用Candidate ID、不足、次行動 | 依頼種別を選ぶ／変更候補の許可Pathを指定する／依頼する／根拠参照付き結果または未採用候補を受け取る／別入口で続ける。 | ready／pending／blocked／unknown／restricted |
+| `PRT-000007` | CLI、MCP、Workbenchの入口を変えても同じ依頼種別と結果を扱える。 | 対象、読取り助言／Workspace編集、編集時の作業指示Path、状態、結果区分ごとの本文と根拠参照、対象Workspace・変更観測、不足、次行動 | 依頼種別を選ぶ／編集先と作業指示Pathを指定する／依頼する／根拠参照付き結果または編集観測を受け取る／別入口で続ける。 | ready／pending／blocked／unknown／restricted |
 
 ## 3. InteractionとBHV対応
 
 | Interaction Key | PRT | 利用者の意図 | Feedback | BHV | Coverage |
 |---|---|---|---|---|---|
-| `PRT-000007.spec-000011` | PRT-000007 | 読取り助言または変更候補を明示して依頼し、結果を受け取り、別入口でも同じ種別で続ける。 | 依頼種別、受付、結果、失敗、判断不能および安全な次行動を区別し、変更候補を自動採用しない | [BHV-000011](../../../../../05_SPEC/Details/BHV-000011/behavior.md) | Covered |
+| `PRT-000007.spec-000011` | PRT-000007 | 読取り助言またはWorkspace編集を明示して依頼し、結果を受け取り、別入口でも同じ種別で続ける。 | 依頼種別、受付、結果、失敗、判断不能および安全な次行動を区別し、Task完了だけでCandidateを固定・採用しない | [BHV-000011](../../../../../05_SPEC/Details/BHV-000011/behavior.md) | Covered |
 
 ## 4. State／Variant
 
@@ -43,7 +43,7 @@ Screen ID: `SCR-000007`
 | unknown／stale | 現在状態を断定できない | 正常・不存在と区別する | 再観測 | 根拠取得後に再判定 |
 | restricted | 開示または操作不可 | 許可範囲だけを示す | Authority確認 | Grant更新後に再評価 |
 
-読取り助言は所有正本を書き換えない。変更候補は明示されたRepository相対Pathだけを変更可能範囲とし、未信頼・未採用のCandidate IDとして返す。許可PathをRepository全体へ暗黙拡張せず、人間の確認・採用判断・所有正本への反映を別操作にする。入口を変更しても、この依頼種別を暗黙に変更しない。
+読取り助言は所有正本を書き換えない。Workspace編集はDirectなら現在のWorking Tree、Isolatedなら選択した独立作業領域を直接編集する。作業指示Pathは指示と事後検証であり、実Fileへの変更を防止するACLではない。既存Dirtyを自動退避・巻戻しせず、同一Fileの同時編集リスクを表示する。Candidate固定・採用・Git統合はWorkspace管理の別操作とする。入口を変更しても、この依頼種別を暗黙に変更しない。
 
 確認済み事実、共有済み分析、追加推論および次の選択肢は、各項目を本文と一件以上の正本参照の組として表示する。根拠参照を欠く項目は事実等として部分表示せず、結果契約違反として停止する。参照表示そのものから任意Pathの読取りAuthorityは生成しない。
 

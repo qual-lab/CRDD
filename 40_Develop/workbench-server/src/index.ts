@@ -26,10 +26,6 @@ export type {
   WorkbenchAiResultItem,
   WorkbenchAiRequestSnapshot,
   WorkbenchAiRequestStartResult,
-  WorkbenchCandidateActionResult,
-  WorkbenchCandidateActions,
-  WorkbenchCandidateReview,
-  WorkbenchCandidateReviewResult,
 } from "./ai-request/types.ts";
 // 活動Readerは起動時のDomain ContextのProject／Repository IDを第二引数に要求する。
 export {

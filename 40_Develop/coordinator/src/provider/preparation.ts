@@ -148,6 +148,7 @@ export function createIsolatedProviderDockerPreparationAdapter<R, B, C, P>(
       selection: unknown,
       packet: unknown,
       owner: unknown,
+      recovery: unknown = null,
     ) =>
       safely(
         `${provider}_docker_runtime_advice_preparation_failed_closed`,
@@ -158,7 +159,7 @@ export function createIsolatedProviderDockerPreparationAdapter<R, B, C, P>(
             authorization,
             selection,
             null,
-            null,
+            recovery,
             packet,
             owner,
             "workbench",

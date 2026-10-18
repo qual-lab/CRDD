@@ -23,12 +23,11 @@ import {
   resolveVerifiedRepositoryRoot,
   type VerifiedRepositoryRoot,
 } from "../../../version-control/src/index.ts";
-import {
-  createCoordinatorAiRequests,
-  type CoordinatorAiRequestExecutor,
-  type CoordinatorAiRequestInput,
-  type CoordinatorAiRequestResult,
-} from "./request-lifecycle.ts";
+import type {
+  CoordinatorAiRequestExecutor,
+  CoordinatorAiRequestInput,
+  CoordinatorAiRequestResult,
+} from "./advice-contract.ts";
 import {
   prepareWorkbenchAiAdviceTask,
   type WorkbenchAiAdviceTaskPacket,
@@ -72,28 +71,25 @@ export type WorkbenchAiAdviceDispatch = (
 ) => Promise<CoordinatorAiRequestResult>;
 
 /**
- * Repository単体Workbench向けCoordinator AI Applicationを生成する。
- *
- * @responsibility 読取り助言の固定Projection生成とMode Router接続を所有し、変更候補は独立Executorへ保つ。
+ * 固定Contextの読取り助言だけを単発実行Ownerへ提供する。
+ * @responsibility 既存の投影・Profile・送信契約を再利用しRequest台帳を作らない。
  * @trace ARCH-000015
- * @trace ARCH-000009
- * @input repositoryRootCapability: 検証済みRoot、profileCatalogStore: 採用済みCatalog Store、dispatchReadOnlyAdvice: 読取り助言送信境界、startChangeCandidate: 変更候補Executor。
- * @returns Workbench互換の開始、観測、取消Applicationを返す。
- * @precondition Root CapabilityはVersion Control境界が発行し、各Dispatchは自身のAuthorityとcleanupを所有する。
- * @postcondition 読取り助言は固定Project ContextだけをTask Packet化し、同じCatalog Snapshotからexact Profileを解決して変更候補Executorへ配送しない。
- * @effect 読取り助言時に固定Fileを一回読取り、検証後だけ注入Dispatchを最大一回呼ぶ。
- * @failure Root、File、参照、Hash、Task、Catalog SnapshotまたはProfile解決が不正なら外部Effect 0でblockedを返す。
- * @invariant Repository Root、依頼種別、Profile IDおよび投影参照を暗黙に変更しない。
- * @boundary Workbench、Repository FilesystemおよびCoordinator外部送信Adapterの境界。
- * @security 任意Path、Symbolic LinkおよびProject Context以外の暗黙読取りを拒否する。
- * @concurrency 依頼ごとの取消Signalを読取り後とDispatch前に再確認する。
+ * @input 検証済みRoot、Profile Store、助言配送。
+ * @returns 終了・cleanupまで待つ一回のExecutor。
+ * @precondition 上位が受付と取消を所有する。
+ * @postcondition 固定Contextとexact Profile以外へ送信しない。
+ * @effect 固定Context読取りと注入した配送。
+ * @failure 観測・取消・Profile不成立は停止。
+ * @invariant 変更実行・Candidate生成を行わない。
+ * @boundary 単発Ownerと助言Runtime。
+ * @security 本文を保存しない。
+ * @concurrency 呼出しごとのSignalだけを利用する。
  */
-export function createRepositoryWorkbenchAiRequests(
+export function createRepositoryReadOnlyAdviceExecutor(
   repositoryRootCapability: VerifiedRepositoryRoot,
   profileCatalogStore: AiProfileCatalogStore,
   dispatchReadOnlyAdvice: WorkbenchAiAdviceDispatch,
-  startChangeCandidate: CoordinatorAiRequestExecutor,
-) {
+): CoordinatorAiRequestExecutor {
   const startReadOnlyAdvice: CoordinatorAiRequestExecutor = async (
     request,
     cancellationSignal,
@@ -131,10 +127,7 @@ export function createRepositoryWorkbenchAiRequests(
       cancellationSignal,
     );
   };
-  return createCoordinatorAiRequests({
-    startReadOnlyAdvice,
-    startChangeCandidate,
-  });
+  return startReadOnlyAdvice;
 }
 
 /**

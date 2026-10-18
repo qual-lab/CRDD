@@ -31,3 +31,4 @@ export {
   recoverRuntimeOwnedDockerTaskForCurrentConsumer,
   resolveRuntimeOwnedDockerTaskCurrentCorrelations,
 } from "./task/recovery.ts";
+export { observeRuntimeOwnedWorkbenchTaskCompletion } from "./state-storage/settlement-store.ts";

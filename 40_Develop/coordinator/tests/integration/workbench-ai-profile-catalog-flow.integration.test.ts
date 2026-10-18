@@ -19,7 +19,7 @@ import {
   createRepositoryAiProfileCatalogStore,
 } from "../../../ai-adapter/src/index.ts";
 import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
-import { createRepositoryWorkbenchAiRequests } from "../../src/workbench-ai/repository-composition.ts";
+import { createRepositoryReadOnlyAdviceExecutor } from "../../src/workbench-ai/repository-composition.ts";
 import { createWorkbenchAiAdviceDispatchRuntime } from "../../src/workbench-ai/advice-dispatch.ts";
 import type { WorkbenchAiAdviceExecutionPlan } from "../../src/workbench-ai/advice-execution-plan.ts";
 import { createWorkbenchAiProviderAdapter } from "../../src/workbench-ai/provider-adapter.ts";
@@ -69,36 +69,7 @@ test("空のRepository Catalogをrevision 0から助言Dispatchと初回採用�
     assert.ok(adapter.store);
     assert.equal(adapter.store.snapshot().revision, 0);
     const observedPlans: WorkbenchAiAdviceExecutionPlan[] = [];
-    const completed = Object.freeze({
-      status: "completed" as const,
-      reason: null,
-      facts: Object.freeze([
-        Object.freeze({
-          text: "現在状態",
-          references: Object.freeze(["PROJECT_CONTEXT.md#project-context"]),
-        }),
-      ]),
-      sharedAnalysis: Object.freeze([
-        Object.freeze({
-          text: "共有済み分析",
-          references: Object.freeze(["PROJECT_CONTEXT.md#project-context"]),
-        }),
-      ]),
-      additionalInferences: Object.freeze([
-        Object.freeze({
-          text: "追加推論",
-          references: Object.freeze(["PROJECT_CONTEXT.md#project-context"]),
-        }),
-      ]),
-      nextOptions: Object.freeze([
-        Object.freeze({
-          text: "次の選択肢",
-          references: Object.freeze(["PROJECT_CONTEXT.md#project-context"]),
-        }),
-      ]),
-      candidate: null,
-    });
-    const application = createRepositoryWorkbenchAiRequests(
+    const application = createRepositoryReadOnlyAdviceExecutor(
       verified.capability,
       adapter.store,
       createWorkbenchAiAdviceDispatchRuntime(
@@ -131,28 +102,19 @@ test("空のRepository Catalogをrevision 0から助言Dispatchと初回採用�
           },
         }),
       ),
-      async () => completed,
     );
 
-    const started = await application.start({
-      mode: "read_only_advice",
-      profileId: "PROFILE-100001",
-      prompt: "現在状態を確認する",
-      contextReferences: Object.freeze(["PROJECT_CONTEXT.md"]),
-      allowedPaths: Object.freeze([]),
-      externalSendConfirmed: true,
-    });
-    assert.equal(started.status, "accepted");
-    assert.ok(started.requestId);
-    let snapshot = await application.observe(started.requestId as string);
-    for (
-      let attempt = 0;
-      attempt < 100 && snapshot.status === "running";
-      attempt += 1
-    ) {
-      await new Promise((resolve) => setTimeout(resolve, 5));
-      snapshot = await application.observe(started.requestId as string);
-    }
+    const snapshot = await application(
+      {
+        mode: "read_only_advice",
+        profileId: "PROFILE-100001",
+        prompt: "現在状態を確認する",
+        contextReferences: Object.freeze(["PROJECT_CONTEXT.md"]),
+        allowedPaths: Object.freeze([]),
+        externalSendConfirmed: true,
+      },
+      new AbortController().signal,
+    );
     assert.equal(snapshot.status, "completed", JSON.stringify(snapshot));
     assert.equal(observedPlans.length, 1);
     const observedPlan = observedPlans[0];
@@ -243,33 +205,22 @@ test("不連続なRepository Catalogをrevision 0へ補正せずEffect前に拒�
         },
       }),
     );
-    const application = createRepositoryWorkbenchAiRequests(
+    const application = createRepositoryReadOnlyAdviceExecutor(
       verified.capability,
       adapter.store,
       dispatch,
-      async () => {
-        throw new Error("unexpected_change_candidate");
-      },
     );
-    const started = await application.start({
-      mode: "read_only_advice",
-      profileId: "PROFILE-100001",
-      prompt: "現在状態を確認する",
-      contextReferences: Object.freeze(["PROJECT_CONTEXT.md"]),
-      allowedPaths: Object.freeze([]),
-      externalSendConfirmed: true,
-    });
-    assert.equal(started.status, "accepted");
-    assert.ok(started.requestId);
-    let snapshot = await application.observe(started.requestId as string);
-    for (
-      let attempt = 0;
-      attempt < 100 && snapshot.status === "running";
-      attempt += 1
-    ) {
-      await new Promise((resolve) => setTimeout(resolve, 5));
-      snapshot = await application.observe(started.requestId as string);
-    }
+    const snapshot = await application(
+      {
+        mode: "read_only_advice",
+        profileId: "PROFILE-100001",
+        prompt: "現在状態を確認する",
+        contextReferences: Object.freeze(["PROJECT_CONTEXT.md"]),
+        allowedPaths: Object.freeze([]),
+        externalSendConfirmed: true,
+      },
+      new AbortController().signal,
+    );
     assert.equal(snapshot.status, "blocked", JSON.stringify(snapshot));
     assert.equal(
       snapshot.reason,
@@ -341,33 +292,22 @@ test("連続Revisionの破損Repository Catalogをrevision 0へ補正せずEffec
         },
       }),
     );
-    const application = createRepositoryWorkbenchAiRequests(
+    const application = createRepositoryReadOnlyAdviceExecutor(
       verified.capability,
       adapter.store,
       dispatch,
-      async () => {
-        throw new Error("unexpected_change_candidate");
-      },
     );
-    const started = await application.start({
-      mode: "read_only_advice",
-      profileId: "PROFILE-100001",
-      prompt: "現在状態を確認する",
-      contextReferences: Object.freeze(["PROJECT_CONTEXT.md"]),
-      allowedPaths: Object.freeze([]),
-      externalSendConfirmed: true,
-    });
-    assert.equal(started.status, "accepted");
-    assert.ok(started.requestId);
-    let snapshot = await application.observe(started.requestId as string);
-    for (
-      let attempt = 0;
-      attempt < 100 && snapshot.status === "running";
-      attempt += 1
-    ) {
-      await new Promise((resolve) => setTimeout(resolve, 5));
-      snapshot = await application.observe(started.requestId as string);
-    }
+    const snapshot = await application(
+      {
+        mode: "read_only_advice",
+        profileId: "PROFILE-100001",
+        prompt: "現在状態を確認する",
+        contextReferences: Object.freeze(["PROJECT_CONTEXT.md"]),
+        allowedPaths: Object.freeze([]),
+        externalSendConfirmed: true,
+      },
+      new AbortController().signal,
+    );
     assert.equal(snapshot.status, "blocked", JSON.stringify(snapshot));
     assert.equal(
       snapshot.reason,

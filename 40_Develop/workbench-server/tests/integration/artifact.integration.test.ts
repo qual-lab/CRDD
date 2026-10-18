@@ -184,6 +184,44 @@ test("成果物本文は選択Rootと現在認可に拘束される", async (t) 
           );
         }
       }
+    const largeRelative = "99_Roadmap/large.md";
+    fs.writeFileSync(
+      path.join(fixture, "a", largeRelative),
+      `# 大きい変更計画\n${"x".repeat(524289)}`,
+    );
+    fs.appendFileSync(
+      path.join(fixture, "a", "PROJECT_CONTEXT.md"),
+      `\n[変更計画](${largeRelative})\n`,
+    );
+    fs.copyFileSync(
+      path.join(repositoryRoot, "99_Roadmap", "03_Releases.md"),
+      path.join(fixture, "a", "99_Roadmap", "03_Releases.md"),
+    );
+    const main = await (
+      await fetch(`${handle.baseUrl}/api/workbench-view?repositoryId=repo.a`, {
+        headers,
+      })
+    ).json();
+    assert.equal(main.view, "main");
+    assert.equal(main.surface.ownerArtifacts.state, "available");
+    assert.equal(main.surface.plan.state, "available");
+    assert.equal(main.surface.plan.projection.targetVersion, "v0.22.0");
+    assert.equal(
+      main.surface.ownerArtifacts.artifacts.find(
+        (entry: { relativePath: string }) =>
+          entry.relativePath === largeRelative,
+      )?.title,
+      "大きい変更計画",
+    );
+    assert.equal(
+      (
+        await fetch(
+          handle.baseUrl + query("repo.a", "/owner-artifact", largeRelative),
+          { headers },
+        )
+      ).status,
+      403,
+    );
     const anonymous = await fetch(
       handle.baseUrl + query("repo.a", "/change", "CHG-000301"),
     );

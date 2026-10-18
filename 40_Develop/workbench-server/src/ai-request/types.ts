@@ -8,8 +8,9 @@
  * @effect 型定義はEffect 0。開始・取消は注入されたApplicationへだけ委譲する。
  * @security Promptや結果をRepository、URL、logへ保存せず、秘密値を入力契約へ含めない。
  */
+import type { CoordinatorWorkspaceResult } from "../../../coordinator/src/index.ts";
 
-export type WorkbenchAiRequestMode = "read_only_advice" | "change_candidate";
+export type WorkbenchAiRequestMode = "read_only_advice" | "workspace_edit";
 
 export type WorkbenchAiRequestCommand = Readonly<{
   mode: WorkbenchAiRequestMode;
@@ -18,6 +19,7 @@ export type WorkbenchAiRequestCommand = Readonly<{
   contextReferences: readonly string[];
   allowedPaths: readonly string[];
   externalSendConfirmed: boolean;
+  workspaceId: string | null;
 }>;
 
 export type WorkbenchAiRequestStartResult = Readonly<{
@@ -58,10 +60,16 @@ export type WorkbenchAiRequestSnapshot = Readonly<{
   sharedAnalysis: readonly WorkbenchAiResultItem[];
   additionalInferences: readonly WorkbenchAiResultItem[];
   nextOptions: readonly WorkbenchAiResultItem[];
-  candidate: Readonly<{
-    candidateId: string;
-    disposition: "untrusted_not_adopted";
-  }> | null;
+  candidate: null;
+  workspaceResult?: CoordinatorWorkspaceResult | null;
+  taskId?: string | null;
+  attemptId?: string | null;
+  operationId?: string | null;
+  executionStatus?: string | null;
+  primaryFailure?: string | null;
+  cleanupConfirmed?: boolean;
+  recoveryIds?: readonly string[];
+  secondaryFailures?: readonly string[];
 }>;
 
 export type WorkbenchAiRequests = Readonly<{
@@ -70,91 +78,5 @@ export type WorkbenchAiRequests = Readonly<{
   ) => Promise<WorkbenchAiRequestStartResult>;
   observe: (requestId: string) => Promise<WorkbenchAiRequestSnapshot>;
   cancel: (requestId: string) => Promise<WorkbenchAiRequestSnapshot>;
-}>;
-
-/**
- * Workbenchへ表示する変更候補の安全な確認投影。
- *
- * @responsibility 候補内容を複製せず、採用判断に必要なIdentity、分類、期限、基準Revision、Hashおよび変更Pathを保持する。
- * @trace ARCH-000015
- * @shape Coordinatorの候補確認Applicationと同じ閉じたPropertyを持つ。
- * @invariant 候補本文、Host Path、秘密値および採用Authorityを含めない。
- * @boundary Coordinator ApplicationとWorkbench View Modelの境界。
- * @security changedPathsは表示情報でありFilesystem Authorityではない。
- * @compatibility Coordinator側の構造型Applicationと一致する。
- */
-export type WorkbenchCandidateReview = Readonly<{
-  candidateId: string;
-  informationClassification: "public" | "internal" | "confidential";
-  expiresAtMs: number;
-  baseRevision: string;
-  candidateHash: string;
-  patchHash: string;
-  changedPaths: readonly string[];
-}>;
-
-/**
- * Workbench変更候補の確認結果。
- *
- * @responsibility 利用可能候補と観測不能を別状態として保持する。
- * @trace ARCH-000015
- * @shape 状態、理由および任意の候補確認投影を持つ。
- * @invariant availableだけがcandidateを持つ。
- * @boundary Coordinator ApplicationとWorkbenchの境界。
- * @security 下位Storeの内部情報を含めない。
- * @compatibility Coordinator側の構造型結果と一致する。
- */
-export type WorkbenchCandidateReviewResult = Readonly<{
-  status: "available" | "blocked";
-  reason: string;
-  candidate: WorkbenchCandidateReview | null;
-}>;
-
-/**
- * Workbench変更候補の操作結果。
- *
- * @responsibility 採用・破棄の完了、Effect状態、cleanupおよび回復要否を保持する。
- * @trace ARCH-000015
- * @trace ARCH-000004
- * @shape 操作、状態、理由、候補・Receipt Identity、Effect・Recovery情報を持つ。
- * @invariant blockedを成功へ畳まず、Effect不明を明示する。
- * @boundary Coordinator ApplicationとWorkbenchの境界。
- * @security Capability、Host Path、候補内容または秘密値を含めない。
- * @compatibility Coordinator側の構造型結果と一致する。
- */
-export type WorkbenchCandidateActionResult = Readonly<{
-  operation: "adopt" | "discard";
-  status: "completed" | "blocked";
-  reason: string;
-  candidateId: string | null;
-  receiptId: string | null;
-  effectIssued: boolean;
-  effectStateUnknown: boolean;
-  cleanupConfirmed: boolean;
-  manualRecoveryRequired: boolean;
-  recoveryIds: readonly string[];
-}>;
-
-/**
- * Workbench変更候補Application Port。
- *
- * @responsibility Effect 0の確認、明示採用および確認付き破棄を別操作として公開する。
- * @trace ARCH-000015
- * @trace ARCH-000004
- * @shape review、adopt、discardの非同期操作を持つ。
- * @invariant confirmedなしで採用または破棄Effectを発行しない。
- * @boundary WorkbenchとCoordinator Applicationの境界。
- * @security Candidate IDをAuthorityとして扱わない。
- * @compatibility Coordinator側の構造型Applicationと一致する。
- */
-export type WorkbenchCandidateActions = Readonly<{
-  review: (candidateId: string) => Promise<WorkbenchCandidateReviewResult>;
-  adopt: (
-    candidateId: string,
-    confirmed: boolean,
-  ) => Promise<WorkbenchCandidateActionResult>;
-  discard: (
-    candidateId: string,
-    confirmed: boolean,
-  ) => Promise<WorkbenchCandidateActionResult>;
+  close?: () => Promise<void>;
 }>;

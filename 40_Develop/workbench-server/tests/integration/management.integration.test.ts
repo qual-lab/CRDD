@@ -1957,7 +1957,7 @@ for (const mode of ["local", "cros"] as const) {
           assert.equal(selectedModel.aiProfiles, null);
           assert.equal(selectedModel.runtimeActivity?.state, "unknown");
           assert.equal(selectedModel.aiRequest.configured, false);
-          assert.equal(selectedModel.aiRequest.candidateConfigured, false);
+          assert.equal("candidateConfigured" in selectedModel.aiRequest, false);
           assert.equal(selectedModel.repositoryResult, null);
           assert.equal(selectedModel.topicMeetingResult, null);
           assert.equal(selectedModel.aiProfileAdministration.snapshot, null);

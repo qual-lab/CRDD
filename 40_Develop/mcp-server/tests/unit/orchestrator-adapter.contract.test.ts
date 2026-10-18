@@ -17,6 +17,7 @@ import { fileURLToPath } from "node:url";
 
 import {
   describeMcpOrchestratorAdapterContract,
+  inspectMcpOrchestratorObjectiveResult,
   handleMcpOrchestratorRequest,
   MCP_ORCHESTRATOR_DECISION_TOOL,
   MCP_ORCHESTRATOR_OBJECTIVE_TOOL,
@@ -1581,4 +1582,100 @@ test("JSON-RPC error envelopeはProtocolだけが所有しTransportは再定義�
     assert.doesNotMatch(source, /jsonrpc\s*:/u, relative);
     assert.match(source, /protocolError\(/u, relative);
   }
+});
+
+/**
+ * Objectiveの変更観測を閉じた公開結果へ搬送する。
+ * @responsibility 新旧shape、要求対象相関と失敗field保持を確認する。
+ * @trace PRL-UT-014
+ * @precondition Providerを呼ばない有限依存。
+ * @stimulus 正常観測、別対象、余分fieldと不正な失敗付随観測。
+ * @observation MCP応答、公開metadataと一次理由。
+ * @oracle 別対象の成功は拒否し失敗の不正観測はnullとする。
+ * @cleanup N/A: 値処理だけ。
+ * @boundary MCP AdapterとOrchestrator結果契約。
+ */
+test("MCPはWorkspace観測を要求対象へ結合し失敗理由を維持する", async () => {
+  const workspaceId = "00000000-0000-4000-8000-000000000001";
+  const base = (await dependencies().runObjective(
+    objective(),
+    new AbortController().signal,
+    { principalId: "principal-a" },
+  )) as Record<string, unknown>;
+  const observation = {
+    taskId: "task-a",
+    attemptId: "attempt-a",
+    operationId: "operation-a",
+    result: {
+      workspaceId,
+      changedPaths: ["source.txt"],
+      canonicalRepositoryChanged: false,
+      changeAttribution: "unattributed",
+      workspaceDeletionIssued: false,
+    },
+  };
+  const raw = { ...base, workspaceResults: [observation] };
+  const observed = inspectMcpOrchestratorObjectiveResult(raw);
+  assert.ok(observed);
+  observation.result.changedPaths.push("later.txt");
+  assert.deepEqual(
+    (observed.workspaceResults as typeof raw.workspaceResults)[0]?.result
+      .changedPaths,
+    ["source.txt"],
+  );
+  const response = await handleMcpOrchestratorRequest(
+    request("tools/call", {
+      _meta: META,
+      name: MCP_ORCHESTRATOR_OBJECTIVE_TOOL,
+      arguments: { ...objective(), workspaceId },
+    }),
+    dependencies({ runObjective: async () => raw }),
+  );
+  assert.equal((response.result as Record<string, unknown>).isError, false);
+  const mismatch = await handleMcpOrchestratorRequest(
+    request("tools/call", {
+      _meta: META,
+      name: MCP_ORCHESTRATOR_OBJECTIVE_TOOL,
+      arguments: objective(),
+    }),
+    dependencies({ runObjective: async () => raw }),
+  );
+  assert.equal((mismatch.result as Record<string, unknown>).isError, true);
+  assert.equal(
+    (
+      (mismatch.result as Record<string, unknown>).structuredContent as Record<
+        string,
+        unknown
+      >
+    ).reason,
+    "orchestrator_adapter_result_invalid",
+  );
+  assert.equal(
+    inspectMcpOrchestratorObjectiveResult({
+      ...raw,
+      workspaceResults: [{ ...observation, extra: true }],
+    }),
+    null,
+  );
+  const failure = inspectMcpOrchestratorObjectiveResult({
+    ...base,
+    status: "blocked",
+    reason: "original_failure",
+    effectState: "unknown",
+    cleanupConfirmed: false,
+    manualRecoveryRequired: true,
+    recoveryIds: ["host-task.a"],
+    recoveryObligations: [{ kind: "host", recoveryId: "host-task.a" }],
+    workspaceResults: [{ ...observation, extra: true }],
+  });
+  assert.equal(failure?.reason, "original_failure");
+  assert.equal(failure?.workspaceResults, null);
+  assert.deepEqual(failure?.recoveryIds, ["host-task.a"]);
+  assert.equal(
+    Object.hasOwn(
+      inspectMcpOrchestratorObjectiveResult(base) ?? {},
+      "workspaceResults",
+    ),
+    false,
+  );
 });

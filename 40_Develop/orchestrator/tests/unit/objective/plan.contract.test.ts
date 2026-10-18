@@ -17,6 +17,7 @@ import {
   createOrchestratorObjectiveResult,
   createOrchestratorTaskExecutionSet,
   inspectOrchestratorObjectivePlan,
+  inspectOrchestratorWorkspaceResults,
   ORCHESTRATOR_OBJECTIVE_INTAKE_CONTRACT,
 } from "../../../src/objective/plan.ts";
 import { inspectOrchestratorObjectiveRequest } from "../../../src/objective/request.ts";
@@ -205,4 +206,106 @@ test("Objective結果は入力Identityと終了条件を同じ公開契約へ固
       effectState: "unknown",
     },
   );
+});
+
+/**
+ * 作業領域の変更観測を同じ試行へ結合し、元値から分離する。
+ * @responsibility 対象一致、閉入力、重複拒否と一次失敗の保持を確認する。
+ * @trace PRL-UT-006
+ * @precondition 合成Task結果のみ。
+ * @stimulus Direct／Isolated、欠測、不正値と入力後の変更。
+ * @observation 結果の同一性、null、不変性、元の失敗field。
+ * @oracle 不正値でgetterを実行せず、未知を空観測へ変換しない。
+ * @cleanup N/A: 外部資源を取得しない。
+ * @boundary 同一Processの値契約。
+ */
+test("ObjectiveはWorkspace観測をsnapshotし一次失敗を上書きしない", () => {
+  const id = "00000000-0000-4000-8000-000000000001";
+  const entry = {
+    taskId: "task-a",
+    attemptId: "attempt-a",
+    operationId: "operation-a",
+    result: {
+      workspaceId: id,
+      changedPaths: ["source.txt"],
+      canonicalRepositoryChanged: false,
+      changeAttribution: "unattributed" as const,
+      workspaceDeletionIssued: false as const,
+    },
+  };
+  const request = { ...objectiveRequest, workspaceId: id };
+  const result = createOrchestratorObjectiveResult(request, {
+    status: "blocked",
+    reason: "primary_failure",
+    cleanupConfirmed: false,
+    manualRecoveryRequired: true,
+    recoveryIds: ["host-task.a"],
+    effectState: "unknown",
+    workspaceResults: [entry],
+  });
+  entry.result.changedPaths.push("later.txt");
+  assert.deepEqual(result.workspaceResults?.[0]?.result.changedPaths, [
+    "source.txt",
+  ]);
+  assert.equal(result.reason, "primary_failure");
+  assert.deepEqual(result.recoveryIds, ["host-task.a"]);
+  assert.equal(
+    Object.isFrozen(result.workspaceResults?.[0]?.result.changedPaths),
+    true,
+  );
+  assert.equal(inspectOrchestratorWorkspaceResults([entry], null), null);
+  const direct = {
+    ...entry,
+    result: {
+      ...entry.result,
+      workspaceId: null,
+      canonicalRepositoryChanged: true,
+    },
+  };
+  assert.ok(inspectOrchestratorWorkspaceResults([direct], null));
+  assert.equal(inspectOrchestratorWorkspaceResults([direct], id), null);
+  assert.equal(
+    inspectOrchestratorWorkspaceResults([
+      entry,
+      { ...direct, attemptId: "attempt-b", operationId: "operation-b" },
+    ]),
+    null,
+  );
+  for (const invalid of [
+    [],
+    null,
+    [entry, entry],
+    [{ ...entry, extra: true }],
+    [{ ...entry, result: { ...entry.result, extra: true } }],
+    [
+      new Proxy(entry, {
+        get() {
+          throw new Error("proxy_touched");
+        },
+      }),
+    ],
+  ])
+    assert.equal(inspectOrchestratorWorkspaceResults(invalid), null);
+  let getters = 0;
+  const accessor = Object.defineProperty({ ...entry }, "result", {
+    enumerable: true,
+    get() {
+      getters++;
+      return entry.result;
+    },
+  });
+  assert.equal(inspectOrchestratorWorkspaceResults([accessor]), null);
+  assert.equal(getters, 0);
+  const unknown = createOrchestratorObjectiveResult(objectiveRequest, {
+    status: "blocked",
+    reason: "original_cleanup_failure",
+    cleanupConfirmed: false,
+    manualRecoveryRequired: true,
+    recoveryIds: ["host-task.a"],
+    effectState: "unknown",
+    workspaceResults: [entry],
+  });
+  assert.equal(unknown.workspaceResults, null);
+  assert.equal(unknown.reason, "original_cleanup_failure");
+  assert.equal(unknown.cleanupConfirmed, false);
 });

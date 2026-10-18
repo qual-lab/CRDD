@@ -84,7 +84,8 @@ test("共通Provider本番組立てはStoreを共有せず固定依存とEffect�
   );
   for (const key of Object.keys(first) as (keyof typeof first)[]) {
     assert.equal(typeof first[key], "function");
-    if (key !== "monotonicNow") assert.equal(first[key], second[key]);
+    if (key !== "monotonicNow" && key !== "verifyOperationMount")
+      assert.equal(first[key], second[key]);
   }
   assert.equal(Number.isFinite(first.wallNow()), true);
   assert.equal(Number.isFinite(first.monotonicNow()), true);

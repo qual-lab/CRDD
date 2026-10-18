@@ -478,8 +478,8 @@ test("Fixed SnapshotとFixed Revisionの既知Consumer集合が宣言と一致�
     [
       "40_Develop/coordinator/src/diagnostics/native-git-provenance.ts",
       "40_Develop/coordinator/src/repository-operation/binding.ts",
-      "40_Develop/coordinator/src/workbench-ai/change-candidate-executor.ts",
       "40_Develop/orchestrator/src/activity/read.ts",
+      "40_Develop/orchestrator/src/task/request-composition.ts",
     ],
   );
 });
@@ -842,8 +842,6 @@ test("Local Change Setと用途別Named SymbolのConsumer集合が宣言と一�
       "40_Develop/coordinator/src/state-storage/settlement-store.ts",
       "40_Develop/coordinator/src/task/recovery.ts",
       "40_Develop/coordinator/src/workbench-ai/advice-execution.ts",
-      "40_Develop/coordinator/src/workbench-ai/candidate-actions.ts",
-      "40_Develop/coordinator/src/workbench-ai/change-candidate-executor.ts",
       "40_Develop/coordinator/src/workbench-ai/repository-composition.ts",
       "40_Develop/execution-intelligence/src/store/events.ts",
       "40_Develop/orchestrator/src/candidate/integration-adapter.ts",
@@ -854,6 +852,7 @@ test("Local Change Setと用途別Named SymbolのConsumer集合が宣言と一�
       "40_Develop/orchestrator/src/storage/history.ts",
       "40_Develop/orchestrator/src/workspace/operations.ts",
       "40_Develop/orchestrator/src/task/settle-docker-recovery.ts",
+      "40_Develop/orchestrator/src/task/request-composition.ts",
       "40_Develop/visual-preview/src/server.ts",
       "40_Develop/orchestrator/src/workspace/commands.ts",
       "40_Develop/workbench-server/bin/workbench-server.ts",

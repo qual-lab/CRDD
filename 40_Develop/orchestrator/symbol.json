@@ -3,81 +3,183 @@
   "contractRevision": 1,
   "subsystem": "orchestrator",
   "symbols": [
-    { "symbolId": "orchestrator.workspace.commands", "kind": "file", "path": "src/workspace/commands.ts", "archIds": ["ARCH-000004", "ARCH-000012"] },
-    { "symbolId": "orchestrator.workspace.record", "kind": "file", "path": "src/workspace/record.ts", "archIds": ["ARCH-000004"] },
-    { "symbolId": "orchestrator.workspace.operations", "kind": "file", "path": "src/workspace/operations.ts", "archIds": ["ARCH-000004", "ARCH-000009"] },
-    { "symbolId": "orchestrator.test.integration.workspace-lifecycle", "kind": "test-suite", "path": "tests/integration/workspace-lifecycle.integration.test.ts", "qaIds": ["QA-000003", "QA-000005", "QA-000007"], "localTestIds": ["PRL-IT-011", "PRL-IT-012", "PRL-IT-013", "RFD-IT-029", "CPR-IT-001", "CPR-IT-004", "CPR-IT-006"], "verifies": ["orchestrator.workspace.record", "orchestrator.workspace.operations", "orchestrator.workspace.commands"] },
+    {
+      "symbolId": "orchestrator.test.task-requests",
+      "kind": "test-suite",
+      "path": "tests/unit/task/requests.contract.test.ts",
+      "qaIds": ["QA-000005"],
+      "localTestIds": ["CPR-UT-001"],
+      "verifies": ["orchestrator.task.requests"]
+    },
+    {
+      "symbolId": "orchestrator.workspace.commands",
+      "kind": "file",
+      "path": "src/workspace/commands.ts",
+      "archIds": [
+        "ARCH-000004",
+        "ARCH-000012"
+      ]
+    },
+    {
+      "symbolId": "orchestrator.workspace.record",
+      "kind": "file",
+      "path": "src/workspace/record.ts",
+      "archIds": [
+        "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "orchestrator.workspace.operations",
+      "kind": "file",
+      "path": "src/workspace/operations.ts",
+      "archIds": [
+        "ARCH-000004",
+        "ARCH-000009"
+      ]
+    },
+    {
+      "symbolId": "orchestrator.test.integration.workspace-lifecycle",
+      "kind": "test-suite",
+      "path": "tests/integration/workspace-lifecycle.integration.test.ts",
+      "qaIds": [
+        "QA-000003",
+        "QA-000005",
+        "QA-000007"
+      ],
+      "localTestIds": [
+        "PRL-IT-011",
+        "PRL-IT-012",
+        "PRL-IT-013",
+        "RFD-IT-029",
+        "CPR-IT-001",
+        "CPR-IT-004",
+        "CPR-IT-006"
+      ],
+      "verifies": [
+        "orchestrator.workspace.record",
+        "orchestrator.workspace.operations",
+        "orchestrator.workspace.commands",
+        "orchestrator.objective-intake"
+      ]
+    },
     {
       "symbolId": "orchestrator.activity.types",
       "kind": "file",
       "path": "src/activity/types.ts",
-      "archIds": ["ARCH-000004", "ARCH-000007"]
+      "archIds": [
+        "ARCH-000004",
+        "ARCH-000007"
+      ]
     },
     {
       "symbolId": "orchestrator.activity.cursor",
       "kind": "file",
       "path": "src/activity/cursor.ts",
-      "archIds": ["ARCH-000004", "ARCH-000007"]
+      "archIds": [
+        "ARCH-000004",
+        "ARCH-000007"
+      ]
     },
     {
       "symbolId": "orchestrator.activity.validate",
       "kind": "file",
       "path": "src/activity/validate.ts",
-      "archIds": ["ARCH-000004", "ARCH-000007"]
+      "archIds": [
+        "ARCH-000004",
+        "ARCH-000007"
+      ]
     },
     {
       "symbolId": "orchestrator.activity.read",
       "kind": "file",
       "path": "src/activity/read.ts",
-      "archIds": ["ARCH-000004", "ARCH-000007"]
+      "archIds": [
+        "ARCH-000004",
+        "ARCH-000007"
+      ]
     },
     {
       "symbolId": "orchestrator.identity.repository-binding",
       "kind": "file",
       "path": "src/identity/repository-binding.ts",
-      "archIds": ["ARCH-000004"]
+      "archIds": [
+        "ARCH-000004"
+      ]
     },
     {
       "symbolId": "orchestrator.test.integration.runtime-activity",
       "kind": "test-suite",
       "path": "tests/integration/runtime-activity.contract.test.ts",
-      "qaIds": ["QA-000004"],
-      "localTestIds": ["PPR-IT-012"],
-      "verifies": ["orchestrator.activity.types", "orchestrator.activity.validate", "orchestrator.activity.read", "orchestrator.activity.cursor", "orchestrator.identity.repository-binding"]
+      "qaIds": [
+        "QA-000004"
+      ],
+      "localTestIds": [
+        "PPR-IT-012"
+      ],
+      "verifies": [
+        "orchestrator.activity.types",
+        "orchestrator.activity.validate",
+        "orchestrator.activity.read",
+        "orchestrator.activity.cursor",
+        "orchestrator.identity.repository-binding"
+      ]
     },
     {
       "symbolId": "orchestrator.identity.principal-observation",
       "kind": "file",
       "path": "src/identity/observe-principal.ts",
-      "archIds": ["ARCH-000004"]
+      "archIds": [
+        "ARCH-000004"
+      ]
     },
     {
       "symbolId": "orchestrator.test.docker-recovery-settlement",
       "kind": "test-suite",
       "path": "tests/integration/docker-recovery-settlement.contract.test.ts",
-      "qaIds": ["QA-000006", "QA-000003"],
-      "localTestIds": ["ERB-IT-003", "PRL-IT-013"],
-      "verifies": ["coordinator.source.src.security.docker.project.recovery.settlement"]
+      "qaIds": [
+        "QA-000006",
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "ERB-IT-003",
+        "PRL-IT-013"
+      ],
+      "verifies": [
+        "coordinator.source.src.security.docker.project.recovery.settlement"
+      ]
     },
     {
       "symbolId": "orchestrator.cli.project-command",
       "kind": "file",
       "path": "src/cli/command.ts",
-      "archIds": ["ARCH-000004"]
+      "archIds": [
+        "ARCH-000004"
+      ]
     },
     {
       "symbolId": "orchestrator.test.public-owner-boundary",
       "kind": "test-suite",
       "path": "tests/integration/public-owner-boundary.contract.test.ts",
-      "qaIds": ["QA-000003"],
-      "localTestIds": ["PRL-IT-012"],
-      "verifies": ["orchestrator.cli.project-command", "coordinator.cli.request-input", "orchestrator.application.public", "coordinator.public-api"]
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-IT-012"
+      ],
+      "verifies": [
+        "orchestrator.cli.project-command",
+        "coordinator.cli.request-input",
+        "orchestrator.application.public",
+        "coordinator.public-api"
+      ]
     },
     {
       "symbolId": "orchestrator.application.public",
       "kind": "module",
       "path": "src/index.ts",
-      "archIds": ["ARCH-000004"]
+      "archIds": [
+        "ARCH-000004"
+      ]
     },
     {
       "symbolId": "coordinator.source.src.security.orchestrator.candidate.integration.adapter",
@@ -165,13 +267,17 @@
       "symbolId": "orchestrator.storage.result-record",
       "kind": "file",
       "path": "src/storage/validate-result-record.ts",
-      "archIds": ["ARCH-000005"]
+      "archIds": [
+        "ARCH-000005"
+      ]
     },
     {
       "symbolId": "orchestrator.storage.types",
       "kind": "file",
       "path": "src/storage/types.ts",
-      "archIds": ["ARCH-000005"]
+      "archIds": [
+        "ARCH-000005"
+      ]
     },
     {
       "symbolId": "orchestrator.decision.acceptance-decision-record",
@@ -193,19 +299,25 @@
       "symbolId": "coordinator.source.src.security.orchestrator.task.recovery.adapter",
       "kind": "file",
       "path": "src/task/recovery-adapter.ts",
-      "archIds": ["ARCH-000008"]
+      "archIds": [
+        "ARCH-000008"
+      ]
     },
     {
       "symbolId": "coordinator.source.src.security.orchestrator.execution.host.adapter",
       "kind": "file",
       "path": "src/task/host-adapter.ts",
-      "archIds": ["ARCH-000004"]
+      "archIds": [
+        "ARCH-000004"
+      ]
     },
     {
       "symbolId": "coordinator.source.src.security.orchestrator.single.task.adapter",
       "kind": "file",
       "path": "src/task/execute-attempt.ts",
-      "archIds": ["ARCH-000004"]
+      "archIds": [
+        "ARCH-000004"
+      ]
     },
     {
       "symbolId": "coordinator.source.src.security.orchestrator.decision.capability.adapter",
@@ -632,6 +744,49 @@
       "path": "src/state/persistence.ts",
       "archIds": [
         "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "orchestrator.task.single-task-record",
+      "kind": "file",
+      "path": "src/task/single-task-record.ts",
+      "archIds": [
+        "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "orchestrator.task.requests",
+      "kind": "file",
+      "path": "src/task/requests.ts",
+      "archIds": [
+        "ARCH-000004",
+        "ARCH-000015"
+      ]
+    },
+    {
+      "symbolId": "orchestrator.task.request-composition",
+      "kind": "file",
+      "path": "src/task/request-composition.ts",
+      "archIds": [
+        "ARCH-000004",
+        "ARCH-000015"
+      ]
+    },
+    {
+      "symbolId": "orchestrator.test.single-task-state",
+      "kind": "test-suite",
+      "path": "tests/integration/single-task-state.integration.test.ts",
+      "qaIds": [
+        "QA-000003",
+        "QA-000005"
+      ],
+      "localTestIds": [
+        "PRL-IT-013",
+        "CPR-IT-004"
+      ],
+      "verifies": [
+        "orchestrator.task.single-task-record",
+        "orchestrator.task.requests"
       ]
     }
   ]

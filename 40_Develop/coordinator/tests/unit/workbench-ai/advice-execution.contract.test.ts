@@ -599,6 +599,53 @@ test("Repository結合が不成立ならSelectionとProvider Effectを発行し�
 });
 
 /**
+ * 作成済みOperationの保存拒否をProvider前で止める。
+ * @responsibility 作成・保存・実開始の三境界を混同しない。
+ * @trace ERB-UT-023
+ * @precondition 外部資源を持たない固定依存を用いる。
+ * @stimulus 保存callbackの拒否とHost清掃の成立・不明を組み合わせる。
+ * @observation callbackの実ID、Provider開始0、清掃回数と元Host参照。
+ * @oracle 保存前Provider0、清掃不明でも同exact参照を保持する。
+ * @cleanup 偽依存だけでProcess外資源0。
+ * @boundary Operation作成通知と上位Writer。
+ */
+test("RO Operation参照の保存拒否はProvider前で停止しHost回収結果を残す", async () => {
+  for (const cleanup of [true, false]) {
+    let notified = 0;
+    const current = fixture({
+      observeOperation: async (operation) => {
+        notified++;
+        assert.deepEqual(operation, {
+          operationId: "OP-123456",
+          hostRecoveryId: "HOST-RECOVERY",
+        });
+        return false;
+      },
+      classifyOperationCleanup: () => (cleanup ? "completed" : null),
+    });
+    const result = await createIsolatedWorkbenchAiAdviceRuntimeCandidate(
+      current.dependencies,
+    ).run(plan, new AbortController().signal);
+    assert.equal(notified, 1);
+    assert.equal(
+      result.reason,
+      "workbench_ai_advice_operation_save_unconfirmed",
+    );
+    assert.equal(result.providerEffectIssued, false);
+    assert.equal(current.calls.includes("start-process"), false);
+    assert.equal(
+      current.calls.filter((call) => call === "cleanup-operation").length,
+      1,
+    );
+    assert.equal(result.cleanupConfirmed, cleanup);
+    assert.equal(
+      classifyWorkbenchAiAdviceHostFailure(result)?.hostRecoveryId,
+      cleanup ? null : "HOST-RECOVERY",
+    );
+  }
+});
+
+/**
  * 初回Selectionを失効できなければ再発行とProvider Effectへ進まないことを検証する。
  *
  * @responsibility Mount後のSelection更新前に旧Authorityの失効を必須とし、失効不能時に後続Authorityを発行しない。
