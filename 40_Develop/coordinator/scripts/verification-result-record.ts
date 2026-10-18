@@ -30,7 +30,7 @@ import {
 } from "./verification-result-reasons.ts";
 
 const CONTRACT = "crdd-coordinator/local-verification-record";
-const CONTRACT_REVISION = 4;
+const CONTRACT_REVISION = 5;
 const MAX_RECORD_BYTES = 32 * 1024;
 const MAX_EXISTING_ENTRIES = 256;
 const reasons = new Set([
@@ -88,6 +88,7 @@ const booleanFields = [
   "recoveryIdentityAmbiguous",
   "canonicalRepositoryChanged",
   "candidateDiscarded",
+  "workspaceCleanupConfirmed",
   "exactCandidateContentVerified",
   "remediationPerformed",
   "reviewerProjectedTargetExact",
@@ -198,6 +199,19 @@ export function projectVerificationResult(
         ? observed
         : null;
   }
+  const workspaceId = ownValue(value, "workspaceId");
+  summary.workspaceId =
+    typeof workspaceId === "string" &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u.test(
+      workspaceId,
+    )
+      ? workspaceId
+      : null;
+  summary.workspaceCleanupReason =
+    ownValue(value, "workspaceCleanupReason") ===
+    "verification_workspace_retained"
+      ? "verification_workspace_retained"
+      : null;
   summary.sourceScope =
     ownValue(value, "sourceScope") === "crdd-development-source-snapshot/v1"
       ? "crdd-development-source-snapshot/v1"

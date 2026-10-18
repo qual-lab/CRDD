@@ -238,7 +238,7 @@
         "platform-access.source.terminal-target",
         "platform-access.source.protected-file",
         "platform-access.source.host-namespace",
-        "coordinator.source.src.security.candidate.store.kernel.lock"
+        "coordinator.host-execution.kernel-lock"
       ]
     },
     {

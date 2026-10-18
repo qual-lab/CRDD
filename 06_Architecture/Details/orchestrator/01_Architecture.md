@@ -28,7 +28,7 @@ Docker回復は同じ必須AbortSignalを下位へ渡して完了を待つ。固
 
 旧State／Queue／Leaseの移行入力Readerは本番Sourceへ残さない。旧形式の抽出・移行はフロントAIの手順が所有する。現行Snapshot Readerは真正不存在と観測不能を区別し、読取り途中のRepository内領域置換では停止する。未解決Leaseの保存結合は新版Portが取得した意図・証拠を単一状態内で保持し、旧形式からの抽出値を正常状態の根拠にしない。未使用の試行部分形式codecと旧個別Writerは撤去済みで、保存基盤の物理移管は済んでおり、保存Root参照と設定名はOrchestratorへ切替済みで、旧実Runtime Rootの処置と残る実行接続は継続中である。Queueの許可遷移は現行保存でも同じ定義を使い、保存方式変更だけで進行・判断・終了条件を変更しない。
 
-本番の上位組立ては`src/operation-composition.ts`、公開業務操作は`src/index.ts`、受付と現在保存の接続は`src/objective/intake-dependencies.ts`が所有する。Principal観測は`src/identity/observe-principal.ts`、候補統合は`src/candidate/integration-adapter.ts`、保護された判断世代の保存は`src/storage/protected-decision.ts`へ接続する。Coordinatorには同じ業務Sourceを残さず、個別実行・保護Root・候補保存等の下位能力を呼ぶ。Coordinator Rootによる上位操作の再公開は撤去済みで、MCP配布入口・Workbench状態観測を本領域へ直接接続した。CLI内部の上位呼出しは撤去済みで、全公開利用側と旧実Runtime Rootの処置は後続確認の対象であり、File移管だけを依存方向の最終完成としない。
+本番の上位組立ては`src/operation-composition.ts`、公開業務操作は`src/index.ts`、受付と現在保存の接続は`src/objective/intake-dependencies.ts`が所有する。Principal観測は`src/identity/observe-principal.ts`、Workspace利用・固定・採否は`src/workspace/operations.ts`、保護された判断世代の保存は`src/storage/protected-decision.ts`へ接続する。Coordinatorには同じ業務Sourceを残さず、個別実行・保護Root等の下位能力を呼ぶ。Coordinator Rootによる上位操作の再公開は撤去済みで、MCP配布入口・Workbench状態観測を本領域へ直接接続した。CLI内部の上位呼出しは撤去済みで、全公開利用側と旧実Runtime Rootの処置は後続確認の対象であり、File移管だけを依存方向の最終完成としない。
 
 ## 基本設計との関係
 
@@ -99,7 +99,7 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 | 導出キー | 設計項目種別 | 対象 | 正常条件 | 反証する失敗 | 主な試験段階 | 外部境界の段階 | 観測 | 終了後条件 | 未確認 |
 |---|---|---|---|---|---|---|---|---|---|
 | `orchestrator.task-lifecycle` | State Transition／Failure-Recovery | ObjectiveとTask identity | 許可された状態遷移 | 競合、親喪失、取消、Effect不明 | UT／IT | UT: Direct Boundary<br>IT: Adjacent 1 Block | state、owner、recovery ID | lease／resource 0または義務 | なし |
-| `orchestrator.candidate-adoption` | Interface／State Transition／Failure-Recovery | 公開済み候補のIdentity、Repository Revision、許可Pathおよび明示採用Authority | Candidate Storeから同じ候補を再読取りし、正規Candidate IdentityをIntegration Recordまで欠落・短縮せず保持する。Adoption Lease取得後に現在Revision、dirty PathおよびScopeを再観測して、一致する内容だけを正本へ一度反映する。採用Receiptを耐久記録へ保存し、Leaseを解放する | 表示時Metadataの流用、別候補へのすり替え、Consumer独自の長さ制限による正規Identity拒否、確認なし採用、Revision競合、dirty Scope競合、許可外Path、部分反映、Lease残存、採用に伴うCommit／Push | UT／IT | UT: Direct Boundary<br>IT: Related 2 Blocks | Candidate ID、Integration Record ID、Authority、Lease、Revision、dirty Path、Scope、Receipt、反映結果 | 成功時は完全なCandidate Identityを持つIntegration Record一件・Receipt一件・Lease 0・Commit 0・Push 0。拒否時は正本Effect 0。settlement不明時は同じRecovery義務を保持 | 実Provider E2Eで生成した候補からの採用はPhase 5で確認する |
+| `orchestrator.candidate-adoption` | Interface／State Transition／Failure-Recovery | Workspace・固定Commit・取込先HEAD・明示認可 | 現在のGit状態と選択内容を再確認し、VC標準の二親Mergeと既存結果Writerへ接続する。固定・採用・品質受入は別操作とする | 未選択変更の混入、別Commit、Dirty衝突、無認可、保存失敗、Lease残存 | UT／IT | Related 2 Blocks | Workspace ID、Base／Candidate／Merge Commit、現在認可、Git結果、保存結果 | 不明は同じ参照を保持する。Task完了だけでCommit・Merge・Pushしない | 実Provider編集E2E②は未完了・保持中。旧Evidenceを新版の成立根拠へ流用しない |
 | `orchestrator.acceptance-decision` | Interface／State Transition | 対象Identity、根拠Revision、Project運営者の明示判断 | 受入・差戻し・判断待ちを別状態で一度記録し、Objective受入済みだけがMilestone判断へ進む | ProjectionからのAuthority生成、SPEC-000006／000007からの到達、Task作成、Provider Effect、下位完了からの上位受入推定、Objective差戻し／判断待ちからのMilestone判断開始 | UT／IT | Direct Boundary | decision type、owner、source revision、effect count | 対象Decision Record一件またはEffect 0。Objective差戻し／判断待ちではMilestone判断Effect 0 | 物理StoreはDevelopmentで選択 |
 | `orchestrator.public-application` | Interface／Data Flow | 公開DTOとPort | Transport間で同じ意味 | Schemaずれ、内部Path依存 | UT／IT | Adjacent 1 Block | exact result contract | 内部Effectは所有Portだけ | なし |
 
@@ -196,7 +196,7 @@ CLI / MCP Server / Workbench Server
 | State Port | expected generation付きProject State／Queueの読取り・更新 | Orchestrator状態保存、Domain Model共通保存部品 |
 | Objective／Milestone Acceptance Decision Port | 対象Identity、根拠Revision、Project運営者の明示Authorityを検証し、受入・差戻し・判断待ちだけを一度記録する。読取りProjection、Task作成およびProvider Effectとは分離する | Orchestrator判断操作・状態保存 |
 | Lease Port | Project Operation、State、Adoptionの取得・settlementを観測する | Platform／Persistence Adapter |
-| Candidate Port | Task候補の読取り、統合候補の構成、公開済み既存候補のIdentity固定、明示採用とrollback | 本体・Metadata読取りはCoordinator、統合・採用判断・Revision検査はOrchestrator |
+| Workspace操作 | 上位が作業領域を解決し、VCへ明示固定・二親Merge・不要Ref回収を依頼する | 管理と判断はOrchestrator、Git操作はVersion Control。Coordinatorは解決済み実行対象だけを受け取る |
 | Decision Port | 一回限りCapabilityの発行、prepare、finalize、失効およびRecovery | Orchestrator判断意味、Platform Access保護保存 |
 | Platform Observation Port | Repository Root、principal、owner、Process、cleanup、Recoveryの必要観測 | Platform Adapter |
 | Execution Intelligence Query Port | 許可された実行記録を読取り、observed／not_observed／unknown、時間的出所、事実と非Authority評価候補を分けて返す | 実行知Reader Adapter |
@@ -206,7 +206,7 @@ CLI / MCP Server / Workbench Server
 
 下位APIは要求、受理、Effect、完了、観測および耐久的確定を区別した結果を返す。未知fieldまたは不明状態を成功・不存在・空集合へ畳まない。Clock／Identityは既存Node Runtimeの時刻・暗号関数を必要箇所で使い、純粋な遷移判定へ値を入力する。時刻だけのためのHost抽象Frameworkを追加しない。
 
-Candidate Portが発行した正規Candidate Identityは、Integration Record、公開結果、採用要求およびReceiptの全利用側で同じ値を保持する。利用側Adapterが文字数、prefixまたは局所的な識別子規則を狭めて正規Identityを拒否・短縮・再採番してはならない。
+Workspace ID、固定Candidate Commit、取込先HEADは既存SnapshotとGit結果へexactに結合する。旧Bundle／Storeの公開採用APIは撤去し、Workspaceの固定・採用操作だけを利用する。保存済みの結果契約Identityは改名せず維持する。
 
 ## 5. 許可する依存
 
@@ -262,9 +262,9 @@ Orchestratorの純粋判定はOS固有のPath、principal、Filesystem保護、L
 
 | 主責務 | File集合 | 境界 |
 |---|---|---|
-| 純粋判定・値契約（32） | `activity/{cursor,types,validate}.ts`; `candidate/{integration-result,operations,record-writer}.ts`; `decision/{acceptance-authority,acceptance-record,authority-adapter,capability,records,recovery-record,request}.ts`; `identity/{clock-and-hash,repository-binding}.ts`; `input/{plain-data-snapshot,repository-relative-path}.ts`; `lease/controller.ts`; `objective/request.ts`; `operation-result-contract.ts`; `operation-result.ts`; `platform/contract.ts`; `process/safety-contract.ts`; `queue/types.ts`; `state/{persistence,query-contract,transitions}.ts`; `storage/{types,validate-result-record}.ts`; `task/{executor,observer,recovery}.ts` | 実行時の依存閉包はこの集合内と、決定論的Hashの`node:crypto.createHash`・Proxy検査等の`node:util.types`に限定する。入力日時の`Date.parse`は許可し、現在時刻・乱数・外部待機は取得しない |
-| 業務操作（11） | `activity/read.ts`; `candidate/{adopt,integrate}.ts`; `decision/{lifecycle,record-acceptance}.ts`; `objective/{execute,plan,replan}.ts`; `state/query.ts`; `task/{dispatch,settle-docker-recovery}.ts` | 読取り、実行、保存、受理等を調停する。`objective/plan.ts`はClock Identity操作を呼ぶため、File全体を純粋とは分類しない |
-| 接続・組立て・Transport（11） | `candidate/integration-adapter.ts`; `cli/command.ts`; `decision/capability-adapter.ts`; `identity/observe-principal.ts`; `objective/intake-dependencies.ts`; `operation-composition.ts`; `platform/windows-adapter.ts`; `task/{execute-attempt,host-adapter,intelligence-adapter,recovery-adapter}.ts` | 下位・Host・公開入口を接続する。名前にAdapterがあることだけを分類根拠にしない |
+| 純粋判定・値契約（30） | `activity/{cursor,types,validate}.ts`; `decision/{acceptance-authority,acceptance-record,authority-adapter,capability,records,recovery-record,request}.ts`; `identity/{clock-and-hash,repository-binding}.ts`; `input/{plain-data-snapshot,repository-relative-path}.ts`; `lease/controller.ts`; `objective/request.ts`; `operation-result-contract.ts`; `operation-result.ts`; `platform/contract.ts`; `process/safety-contract.ts`; `queue/types.ts`; `state/{persistence,query-contract,transitions}.ts`; `storage/{types,validate-result-record}.ts`; `task/{executor,observer,recovery,single-task-record}.ts` | 実行時の依存閉包はこの集合内と、決定論的Hashの`node:crypto.createHash`・Proxy検査等の`node:util.types`に限定する。入力日時の`Date.parse`は許可し、現在時刻・乱数・外部待機は取得しない |
+| 業務操作（10） | `activity/read.ts`; `decision/{lifecycle,record-acceptance}.ts`; `objective/{execute,plan,replan}.ts`; `state/query.ts`; `task/{dispatch,settle-docker-recovery}.ts`; `workspace/record.ts` | 読取り、実行、保存、受理等を調停する。`objective/plan.ts`はClock Identity操作を呼ぶため、File全体を純粋とは分類しない |
+| 接続・組立て・Transport（14） | `cli/command.ts`; `decision/capability-adapter.ts`; `identity/observe-principal.ts`; `objective/intake-dependencies.ts`; `operation-composition.ts`; `platform/windows-adapter.ts`; `task/{execute-attempt,host-adapter,intelligence-adapter,recovery-adapter,request-composition,requests}.ts`; `workspace/{commands,operations}.ts` | 下位・Host・公開入口を接続する。名前にAdapterがあることだけを分類根拠にしない |
 | 保存（3） | `storage/{current-state,history,protected-decision}.ts` | 現在状態、履歴、判断記録の保存と排他を所有する |
 | 公開入口（1） | `index.ts` | Package公開APIの明示export |
 
@@ -316,8 +316,7 @@ unknown   Store、Identityまたは改訂版を現在値として確認不能
 |---|---|---|---|
 | `runOrchestratorPublicObjective`／`executeOrchestratorObjective` | 固定Objective、Repository・Revision、縮小Authority、選択Profile、取消 → 相関検査済み結果 | CLI、MCP Server | 許可済み範囲のTaskをCoordinatorへ依頼し、Project Stateを保存する。Task完了から受入を生成しない。 |
 | `runOrchestratorOperation` | Queue・Task・Attempt・Operationの結合 → 各Task結果と未解決義務 | Objective操作 | 待機前のIntent保存、待機後の再検査、下位実行だけ。Provider差を実装しない。 |
-| `integrateOrchestratorOperation` | 固定Task結果と候補Identity → Integration Record | Objective操作 | 候補本体はCoordinatorから読む。上位統合結果の確定はOrchestratorが所有する。 |
-| `inspectOrchestratorExistingCandidate`／`adoptOrchestratorExistingCandidate` | 同じ候補Identity、現在Revision・Scope、明示採用Authority → Receiptまたは拒否／未解決 | Workbench Server、許可済み公開操作 | 再読取り・Lease・競合検査後の限定正本反映。Commit 0、Push 0。 |
+| `manageOrchestratorWorkspace`／`executeWorkspaceCommand` | Workspace、Base、選択差分、固定Commit、取込先HEADと現在認可 → Git結果と保存結果 | Workbench Server、許可済みMCP操作 | 固定と採用を別操作にし、採用時は原則二親Merge。自動Commit／採用なし。 |
 | `recordOrchestratorAcceptanceDecision` | 対象Objective／Milestone、根拠Revision、人間判断 → 一回の判断記録 | CLI、MCP Server | 受入・差戻し・判断待ちのみ。Task作成0、Provider Effect 0。 |
 | `issueOrchestratorHumanDecision`／`submitOrchestratorHumanDecision` | exact判断要求・許可選択肢・一回Capability → 継続状態と適用結果 | 判断操作 | 保護保存とProject Stateの別境界を再照合し、跨る一括確定を主張しない。 |
 | `replaceOrchestratorHumanDecision`／`invalidateOrchestratorHumanDecision`／`recoverOrchestratorHumanDecision` | 現在判断・適用世代・exact回復参照 → 置換／失効／回復結果 | 判断操作 | 旧Capabilityと現在適用を検査する。応答喪失から自動再発行しない。 |

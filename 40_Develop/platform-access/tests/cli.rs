@@ -833,6 +833,17 @@ fn binary_reports_candidate_blocked_and_invalid_requests() {
     assert_eq!(provider_home.stdout[10], 2);
     assert_eq!(&provider_home.stdout[12..44], &nonce);
 
+    // 廃止したStore種別3は初期化・Known Folder観測へ到達せず拒否する。
+    let retired_store = invoke(&provider_home_request(3, nonce));
+    assert_eq!(retired_store.status.code(), Some(2));
+    assert!(retired_store.stderr.is_empty());
+    assert_eq!(retired_store.stdout.len(), 182);
+    assert_eq!(&retired_store.stdout[..8], b"CRDDHO02");
+    assert_eq!(
+        u16::from_le_bytes(retired_store.stdout[44..46].try_into().unwrap()),
+        2
+    );
+
     let mut invalid_provider_home = provider_home_request(5, nonce);
     invalid_provider_home[11] = 1;
     let invalid_provider_home = invoke(&invalid_provider_home);

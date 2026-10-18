@@ -456,9 +456,9 @@ export function createOrchestratorTaskRequests(
     return result;
   };
   return Object.freeze({
-    async start(raw: unknown) {
+    async start(raw: unknown, signal?: AbortSignal) {
       const command = inspectSingleTaskCommand(raw);
-      if (!command || closing || !authorized())
+      if (!command || closing || signal?.aborted || !authorized())
         return {
           status: "blocked" as const,
           requestId: null,
@@ -606,6 +606,9 @@ export function createOrchestratorTaskRequests(
           reason: saved.reason,
         };
       const controller = new AbortController();
+      const abort = () => controller.abort();
+      signal?.addEventListener("abort", abort, { once: true });
+      if (signal?.aborted) controller.abort();
       const item = {
         controller,
         pending: Promise.resolve(),
@@ -832,7 +835,7 @@ export function createOrchestratorTaskRequests(
             ],
           };
         }
-      })();
+      })().finally(() => signal?.removeEventListener("abort", abort));
       return { status: "accepted" as const, requestId, reason: null };
     },
     async observe(requestId: string) {
@@ -885,6 +888,20 @@ export function createOrchestratorTaskRequests(
           item.snapshot.secondaryFailures.length)
       )
         return recoverSaved(requestId);
+      return authorized()
+        ? item.snapshot
+        : view(requestId, null, "unknown", "orchestrator_task_not_available");
+    },
+    async wait(requestId: string) {
+      const item = requests.get(requestId);
+      if (!item || !authorized())
+        return view(
+          requestId,
+          null,
+          "unknown",
+          "orchestrator_task_not_available",
+        );
+      await item.pending;
       return authorized()
         ? item.snapshot
         : view(requestId, null, "unknown", "orchestrator_task_not_available");

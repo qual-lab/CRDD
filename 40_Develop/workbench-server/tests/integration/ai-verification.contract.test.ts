@@ -13,6 +13,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { runInNewContext } from "node:vm";
 import { createHash } from "node:crypto";
+import { verifyWorkspaceOutputBytes } from "../../scripts/workspace-output-verification.ts";
 import path, { join } from "node:path";
 import {
   gitRepositoryRevisionAdapter,
@@ -83,6 +84,8 @@ test("Workspace試験は通信失敗後に同じTaskの取消結果を保存し�
     };
     const result = await runInNewContext(body, {
       Error,
+      Buffer,
+      verifyWorkspaceOutputBytes,
       assert,
       path,
       mode: "direct",
@@ -97,13 +100,16 @@ test("Workspace試験は通信失敗後に同じTaskの取消結果を保存し�
       git: (_root: string, args: string[]) =>
         args[0] === "rev-parse" ? "base" : "staged.txt",
       fs: {
-        readFileSync: (file: string) =>
-          ({
-            "source.txt": "DIRECT_OK\n",
-            "dirty.txt": "EXISTING_DIRTY\n",
-            "staged.txt": "EXISTING_STAGE\n",
-            "unselected.txt": "EXISTING_UNTRACKED\n",
-          })[path.basename(file)] ?? "index",
+        readFileSync: (file: string, encoding?: string) => {
+          const content =
+            {
+              "source.txt": "DIRECT_OK\n",
+              "dirty.txt": "EXISTING_DIRTY\n",
+              "staged.txt": "EXISTING_STAGE\n",
+              "unselected.txt": "EXISTING_UNTRACKED\n",
+            }[path.basename(file)] ?? "index";
+          return encoding ? content : Buffer.from(content);
+        },
       },
       requestBounded: () => {
         throw new Error("unexpected_workspace_operation");
@@ -124,6 +130,10 @@ test("Workspace試験は通信失敗後に同じTaskの取消結果を保存し�
             ...snapshot,
             status: "completed",
             executionStatus: "completed",
+            workspaceResult: {
+              workspaceId: null,
+              changedPaths: ["source.txt"],
+            },
           };
         },
         cancel: async () => {
@@ -391,8 +401,11 @@ test("Workspace試験mainは作成前のRoot検査と元結果を失わない清
     "cleanup-fails",
     "task-failed-clean",
     "linked-parent",
+    "source-changed",
+    "source-unknown",
   ]) {
     let writes = 0;
+    let sourceReads = 0;
     const saved: string[] = [];
     const processState = {
       argv: ["node", "probe", "--preflight"],
@@ -405,9 +418,28 @@ test("Workspace試験mainは作成前のRoot検査と元結果を失わない清
       {
         assert,
         path,
+        observeRuntimeOwnedDevelopmentSource: () => {
+          sourceReads++;
+          if (sourceReads > 1 && scenario === "source-unknown")
+            throw new Error("synthetic_observation_unknown");
+          return {
+            scope: "crdd-development-source-snapshot/v1",
+            sourceSha256:
+              sourceReads > 1 && scenario === "source-changed"
+                ? "different"
+                : "same",
+            sourceIdentitySha256: "identity",
+          };
+        },
         process: processState,
         verifyRepositoryRoot: () => ({ status: "completed", capability: {} }),
         resolveVerifiedRepositoryRoot: () => processState.cwd(),
+        resolveRepositoryRuntimeDataPaths: () => ({
+          tests: path.join(processState.cwd(), ".crdd", "tests"),
+        }),
+        observeRepositoryRuntimeDataArea: () => ({
+          status: scenario === "linked-parent" ? "blocked" : "ready",
+        }),
         observeVerificationDockerInventory: () => ({
           containers: [],
           networks: [],
@@ -454,10 +486,9 @@ test("Workspace試験mainは作成前のRoot検査と元結果を失わない清
         scenario === "task-failed-clean" ? 1 : 2,
       );
       assert.equal(report.results[0].task.primaryFailure, null);
-      assert.equal(
-        report.fixtureRootsRemoved,
-        scenario === "success" || scenario === "task-failed-clean",
-      );
+      assert.equal(report.fixtureRootsRemoved, scenario !== "cleanup-fails");
+      assert.equal(sourceReads, 2);
+      assert.equal(report.sourceUnchanged, !scenario.startsWith("source-"));
       assert.equal(processState.exitCode, scenario === "success" ? 0 : 2);
       if (scenario === "cleanup-fails")
         assert.deepEqual(report.fixtureCleanupFailures, [
@@ -1002,4 +1033,86 @@ test("正式試験mainは公開HTTPで一回だけ依頼し失敗と終了観測
       assert.equal(result.closeFailure, "synthetic_close");
     }
   }
+});
+
+/**
+ * 正常な実Byteだけを受理する。
+ * @responsibility UTF-8の長さとHashを本文なしで返すことを確認する。
+ * @trace ERB-IT-021
+ * @precondition 合成の日本語一行と末尾LF。
+ * @stimulus 同じ実Byteを検査する。
+ * @observation 長さ、Hash、返却fieldを確認する。
+ * @oracle 固定Byteから導いた二値だけを返す。
+ * @cleanup N/A: 値のみ。
+ */
+test("成果の実Byte・長さ・SHA-256を一致確認する", () => {
+  const bytes = Buffer.from("合成成果\n");
+  assert.deepEqual(
+    verifyWorkspaceOutputBytes(
+      bytes,
+      "合成成果\n",
+      ["source.txt"],
+      "source.txt",
+    ),
+    {
+      byteLength: bytes.byteLength,
+      sha256: createHash("sha256").update(bytes).digest("hex"),
+    },
+  );
+});
+
+/**
+ * 改行・文字コード・本文の差を正規化せず拒否する。
+ * @responsibility Reviewer approvedだけでは実Byte一致にならないことを反証する。
+ * @trace ERB-IT-021
+ * @precondition 合成の固定一行。
+ * @stimulus CRLF、改行不足・過剰、別本文、不正UTF-8、BOMを渡す。
+ * @observation 固定拒否理由。
+ * @oracle 全てByte不一致。
+ * @cleanup N/A: 値のみ。
+ */
+test("改行とUTF-8の差を成功へ丸めない", () => {
+  for (const bytes of [
+    Buffer.from("OK\r\n"),
+    Buffer.from("OK"),
+    Buffer.from("OK\n\n"),
+    Buffer.from("BASE\n"),
+    Buffer.from([0xff, 0x0a]),
+    Buffer.from("\ufeffOK\n"),
+  ])
+    assert.throws(
+      () =>
+        verifyWorkspaceOutputBytes(bytes, "OK\n", ["source.txt"], "source.txt"),
+      /workspace_output_bytes_mismatch/u,
+    );
+});
+
+/**
+ * 未観測・余計な変更・別Pathを拒否する。
+ * @responsibility 本文だけ一致する不完全な成果を成功にしない。
+ * @trace ERB-IT-021
+ * @precondition 正常本文。
+ * @stimulus 未観測、空、追加Path、重複Pathを渡す。
+ * @observation 固定拒否理由。
+ * @oracle 全て変更範囲不一致。
+ * @cleanup N/A: 値のみ。
+ */
+test("本文一致でも変更Pathが不明又は過剰なら拒否する", () => {
+  for (const paths of [
+    null,
+    [],
+    ["other.txt"],
+    ["source.txt", "other.txt"],
+    ["source.txt", "source.txt"],
+  ])
+    assert.throws(
+      () =>
+        verifyWorkspaceOutputBytes(
+          Buffer.from("OK\n"),
+          "OK\n",
+          paths,
+          "source.txt",
+        ),
+      /workspace_output_changed_paths_mismatch/u,
+    );
 });

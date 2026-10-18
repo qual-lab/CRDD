@@ -1,5 +1,5 @@
 /**
- * candidate-store-kernel-lockに属する責務をまとめる。
+ * kernel-lockに属する責務をまとめる。
  *
  * @responsibility HostOperationSupervisorCleanupを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000015
@@ -26,7 +26,7 @@ import {
  * @input repositoryRootHash: 検証済みRootから上位が導出した64桁Hash。
  * @returns 保持確認・解放handle、または取得不能のnull。
  * @precondition Root実体の確認は上位境界が行う。
- * @postcondition 既存Candidate／Provider／Docker排他のIdentityを変更しない。
+ * @postcondition 既存State／Provider／Docker排他のIdentityを変更しない。
  * @effect Workerを生成しWindows Named Pipeを排他的に保持する。
  * @failure 非Windows、不正Hash、競合と取得確認不能は取得handleを返さない。
  * @invariant 取得は保存、移行または既存Writer停止の証明ではない。
@@ -93,7 +93,7 @@ const LOCK_RELEASE_TIMEOUT_MS = 5_000;
 const INTERACTIVE_LOCK_CLEANUP_TIMEOUT_MS = 1_000;
 const HOST_SUPERVISOR_RELEASE_TIMEOUT_MS = 1_000;
 /**
- * candidate-store-kernel-lockで使用するHost Operation Supervisor 清掃の値契約を定義する。
+ * kernel-lockで使用するHost Operation Supervisor 清掃の値契約を定義する。
  *
  * @responsibility Host Operation Supervisor 清掃のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000015
@@ -108,7 +108,7 @@ type HostOperationSupervisorCleanup =
   | "cleanup_confirmed_failure"
   | "cleanup_unknown";
 /**
- * candidate-store-kernel-lockで使用するHost Operation Lock Supervisorの値契約を定義する。
+ * kernel-lockで使用するHost Operation Lock Supervisorの値契約を定義する。
  *
  * @responsibility Host Operation Lock SupervisorのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000015
@@ -129,7 +129,7 @@ export type HostOperationLockSupervisor = Readonly<{
   release: () => Promise<HostOperationSupervisorCleanup>;
 }>;
 /**
- * candidate-store-kernel-lockで使用するHost Operation Supervisor Lock Outcomeの値契約を定義する。
+ * kernel-lockで使用するHost Operation Supervisor Lock Outcomeの値契約を定義する。
  *
  * @responsibility Host Operation Supervisor Lock OutcomeのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000015
@@ -149,7 +149,7 @@ export type HostOperationSupervisorLockOutcome = Readonly<{
 }>;
 
 /**
- * candidate-store-kernel-lockで使用するInteractive Console Lock Workerの値契約を定義する。
+ * kernel-lockで使用するInteractive Console Lock Workerの値契約を定義する。
  *
  * @responsibility Interactive Console Lock WorkerのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000015
@@ -170,7 +170,7 @@ type InteractiveConsoleLockWorker = Readonly<{
 }>;
 
 /**
- * candidate-store-kernel-lockで使用するInteractive Console Kernel Lock Outcomeの値契約を定義する。
+ * kernel-lockで使用するInteractive Console Kernel Lock Outcomeの値契約を定義する。
  *
  * @responsibility Interactive Console Kernel Lock OutcomeのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000015
@@ -232,13 +232,10 @@ function waitForState(state: Int32Array, expected: number, timeoutMs: number) {
 function acquireNamedPipeKernelLock(pipeName: string) {
   const sharedState = new SharedArrayBuffer(4);
   const state = new Int32Array(sharedState);
-  const worker = createRuntimeLocalTypeScriptWorker(
-    "candidate_store_lock_worker",
-    {
-      env: {},
-      workerData: Object.freeze({ pipeName, state: sharedState }),
-    },
-  );
+  const worker = createRuntimeLocalTypeScriptWorker("kernel_lock_worker", {
+    env: {},
+    workerData: Object.freeze({ pipeName, state: sharedState }),
+  });
   worker.unref();
   let isWorkerLost = false;
   worker.once("error", () => {
@@ -273,41 +270,6 @@ function acquireNamedPipeKernelLock(pipeName: string) {
       return Atomics.load(state, 0) === 2;
     },
   });
-}
-
-/**
- * Runtime 所有 候補 Store Kernel Lockを取得する。
- *
- * @responsibility Runtime 所有 候補 Store Kernel Lockの取得条件、所有権、失敗時の非取得境界を所有する。
- * @trace ARCH-000015
- * @input candidateStoreProtectionHash: unknown
- * @returns acquireRuntimeOwnedCandidateStoreKernelLockの計算結果を返す。
- * @precondition 「candidateStoreProtectionHash: unknown」がacquireRuntimeOwnedCandidateStoreKernelLockの入力契約を満たす。
- * @postcondition acquireRuntimeOwnedCandidateStoreKernelLockの責務を完了した結果だけを返す。
- * @effect acquireRuntimeOwnedCandidateStoreKernelLockは外部ProcessまたはRuntime境界の操作を呼び出す。
- * @failure N/A: acquireRuntimeOwnedCandidateStoreKernelLockは独自の失敗分岐を所有しない。
- * @invariant acquireRuntimeOwnedCandidateStoreKernelLockは宣言した境界以外へEffectを拡張しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
- * @security acquireRuntimeOwnedCandidateStoreKernelLockはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: acquireRuntimeOwnedCandidateStoreKernelLockは共有非同期状態を持たない同期処理である。
- */
-export function acquireRuntimeOwnedCandidateStoreKernelLock(
-  candidateStoreProtectionHash: unknown,
-) {
-  if (
-    process.platform !== "win32" ||
-    typeof candidateStoreProtectionHash !== "string" ||
-    !/^[0-9a-f]{64}$/u.test(candidateStoreProtectionHash)
-  ) {
-    return null;
-  }
-  const lockIdentity = createHash("sha256")
-    .update("crdd-candidate-store-kernel-lock-v1\0")
-    .update(candidateStoreProtectionHash)
-    .digest("hex")
-    .slice(0, 32);
-  const pipeName = `\\\\.\\pipe\\CRDD.Coordinator.CandidateStore.${lockIdentity}`;
-  return acquireNamedPipeKernelLock(pipeName);
 }
 
 /**
@@ -406,7 +368,7 @@ export function acquireRuntimeOwnedInteractiveConsoleKernelLockOutcome() {
     );
   let worker: InteractiveConsoleLockWorker;
   try {
-    worker = createRuntimeLocalTypeScriptWorker("candidate_store_lock_worker", {
+    worker = createRuntimeLocalTypeScriptWorker("kernel_lock_worker", {
       env: {},
       workerData: Object.freeze({
         pipeName: request.pipeName,
@@ -587,26 +549,25 @@ export function acquireRuntimeOwnedHostOperationSupervisorLock(
 }
 
 /**
- * 候補 Store Kernel Lock 契約の公開契約を記述する。
+ * 共通Kernel Lock 契約の公開契約を記述する。
  *
- * @responsibility 候補 Store Kernel Lock 契約の公開field、非公開境界、互換性を所有する。
+ * @responsibility 共通Kernel Lock 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000015
  * @input N/A: 実行時引数を受け取らない。
- * @returns describeCandidateStoreKernelLockContractの計算結果を返す。
- * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeCandidateStoreKernelLockContractの入力契約を満たす。
- * @postcondition describeCandidateStoreKernelLockContractの責務を完了した結果だけを返す。
- * @effect describeCandidateStoreKernelLockContractは外部ProcessまたはRuntime境界の操作を呼び出す。
- * @failure N/A: describeCandidateStoreKernelLockContractは独自の失敗分岐を所有しない。
- * @invariant describeCandidateStoreKernelLockContractは宣言した境界以外へEffectを拡張しない。
+ * @returns describeKernelLockContractの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeKernelLockContractの入力契約を満たす。
+ * @postcondition describeKernelLockContractの責務を完了した結果だけを返す。
+ * @effect describeKernelLockContractは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure N/A: describeKernelLockContractは独自の失敗分岐を所有しない。
+ * @invariant describeKernelLockContractは宣言した境界以外へEffectを拡張しない。
  * @boundary FilesystemとProcess内Domain処理の境界。
- * @security describeCandidateStoreKernelLockContractはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: describeCandidateStoreKernelLockContractは共有非同期状態を持たない同期処理である。
+ * @security describeKernelLockContractはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: describeKernelLockContractは共有非同期状態を持たない同期処理である。
  */
-export function describeCandidateStoreKernelLockContract() {
+export function describeKernelLockContract() {
   return Object.freeze({
     implementation: "windows_named_pipe_kernel_object",
-    identity:
-      "selected_user_sid_store_identity_and_exact_protection_hash_domain_separated",
+    identity: "owner_identity_and_exact_binding_hash_domain_separated",
     abandonedOwnerHandling: "kernel_release_on_process_termination",
     staleFileDeletion: false,
     dockerRuntimeStateInventorySerialized: true,

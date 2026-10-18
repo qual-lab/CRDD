@@ -264,11 +264,23 @@
       "id": "version-control:worktree-management",
       "owner": "version-control",
       "architectureAnchor": "06_Architecture/Details/version-control/01_Architecture.md#git-worktree管理の実装契約",
-      "responsibilities": ["fixed_base_worktree_creation", "explicit_worktree_and_branch_disposal"],
-      "externalBoundaries": ["repository_filesystem", "shared_git_refs"],
+      "responsibilities": [
+        "fixed_base_worktree_creation",
+        "explicit_worktree_and_branch_disposal"
+      ],
+      "externalBoundaries": [
+        "repository_filesystem",
+        "shared_git_refs"
+      ],
       "lifecycleProfile": "durable_operation",
-      "testIds": ["version-control:integration:worktree-management"],
-      "postconditions": ["worktree_and_branch_disposed", "other_workspaces_preserved", "partial_failure_reentry"]
+      "testIds": [
+        "version-control:integration:worktree-management"
+      ],
+      "postconditions": [
+        "worktree_and_branch_disposed",
+        "other_workspaces_preserved",
+        "partial_failure_reentry"
+      ]
     },
     {
       "id": "version-control:repository-observation",
@@ -611,12 +623,7 @@
         "public_application_contract"
       ],
       "lifecycleProfile": "durable_operation",
-      "testIds": [
-        "orchestrator:unit:integration-application",
-        "orchestrator:unit:candidate-adoption-application",
-        "coordinator:integration:orchestrator-integration",
-        "coordinator:integration:orchestrator-candidate-integration-adapter"
-      ],
+      "testIds": [],
       "postconditions": [
         "candidate_and_result_correlated",
         "adoption_authority_explicit",
@@ -683,29 +690,28 @@
       ]
     },
     {
-      "id": "coordinator:candidate-publication",
+      "id": "coordinator:workspace-execution",
       "owner": "coordinator",
       "architectureAnchor": "06_Architecture/Details/coordinator/01_Architecture.md#10-provider実行と候補",
       "responsibilities": [
-        "candidate_snapshot",
-        "candidate_store",
-        "integration_publication"
+        "borrowed_workspace_execution",
+        "candidate_revision_review",
+        "upper_owned_git_lifecycle"
       ],
       "externalBoundaries": [
         "repository_filesystem",
-        "candidate_store",
-        "orchestrator_candidate_port"
+        "borrowed_working_tree"
       ],
-      "lifecycleProfile": "durable_operation",
+      "lifecycleProfile": "transient_operation",
       "testIds": [
-        "coordinator:integration:candidate-bundle-store",
-        "coordinator:integration:candidate-store-kernel-lock",
-        "coordinator:integration:orchestrator-candidate-integration-adapter"
+        "coordinator:integration:repository-workspace-runtime",
+        "coordinator:integration:coordinator-task-runtime"
       ],
       "postconditions": [
-        "canonical_repository_unchanged_before_acceptance",
-        "candidate_identity_exact",
-        "failed_candidate_disposition_known"
+        "borrowed_tree_not_deleted",
+        "protected_git_and_runtime_state_not_written",
+        "unexpected_changes_reported",
+        "no_implicit_candidate_commit_or_merge"
       ]
     },
     {
@@ -938,16 +944,37 @@
     {
       "id": "orchestrator:workspace-to-git",
       "architectureAnchor": "06_Architecture/Details/orchestrator/02_Detailed_Design.md#workspace接続の実装順序と移管先",
-      "blockPath": ["orchestrator:objective-task-lifecycle", "version-control:worktree-management"],
-      "testIds": ["orchestrator:integration:workspace-lifecycle"],
-      "postconditions": ["owner_root_and_execution_tree_separate", "workspace_survives_task_completion", "explicit_discard_converges", "no_provider_request"]
+      "blockPath": [
+        "orchestrator:objective-task-lifecycle",
+        "version-control:worktree-management"
+      ],
+      "testIds": [
+        "orchestrator:integration:workspace-lifecycle"
+      ],
+      "postconditions": [
+        "owner_root_and_execution_tree_separate",
+        "workspace_survives_task_completion",
+        "explicit_discard_converges",
+        "no_provider_request"
+      ]
     },
     {
       "id": "version-control:root-to-worktree-management",
       "architectureAnchor": "06_Architecture/Details/version-control/01_Architecture.md#git-worktree管理の実装契約",
-      "blockPath": ["version-control:repository-observation", "version-control:worktree-management"],
-      "testIds": ["version-control:integration:repository-location", "version-control:integration:worktree-management"],
-      "postconditions": ["repository_boundary_exact", "worktree_and_branch_disposed", "other_workspaces_preserved", "partial_failure_reentry"]
+      "blockPath": [
+        "version-control:repository-observation",
+        "version-control:worktree-management"
+      ],
+      "testIds": [
+        "version-control:integration:repository-location",
+        "version-control:integration:worktree-management"
+      ],
+      "postconditions": [
+        "repository_boundary_exact",
+        "worktree_and_branch_disposed",
+        "other_workspaces_preserved",
+        "partial_failure_reentry"
+      ]
     },
     {
       "id": "docker-isolation:technical-owner-to-coordinator",
@@ -1079,11 +1106,10 @@
       "id": "project-operation:candidate-to-project-view",
       "architectureAnchor": "06_Architecture/Details/domain-model/02_Activity_Context.md#12-identityprojectioncandidate契約",
       "blockPath": [
-        "coordinator:candidate-publication",
+        "coordinator:workspace-execution",
         "project-operation:projection-and-candidate"
       ],
       "testIds": [
-        "coordinator:integration:orchestrator-candidate-integration-adapter",
         "project-operation:integration:candidate-adoption",
         "project-operation:integration:project-projection"
       ],
@@ -1221,12 +1247,11 @@
       "blockPath": [
         "orchestrator:objective-task-lifecycle",
         "coordinator:provider-task-lifecycle",
-        "coordinator:candidate-publication"
+        "coordinator:workspace-execution"
       ],
       "testIds": [
         "coordinator:integration:orchestrator-full-flow",
-        "coordinator:integration:orchestrator-execution",
-        "coordinator:integration:orchestrator-candidate-integration-adapter"
+        "coordinator:integration:orchestrator-execution"
       ],
       "postconditions": [
         "authority_narrowing_preserved",
@@ -1240,7 +1265,7 @@
       "blockPath": [
         "coordinator:provider-task-lifecycle",
         "coordinator:reviewer-decision-lifecycle",
-        "coordinator:candidate-publication"
+        "coordinator:workspace-execution"
       ],
       "testIds": [
         "coordinator:integration:coordinator-task-runtime",
@@ -1258,13 +1283,11 @@
       "id": "runtime:candidate-to-mcp-result",
       "architectureAnchor": "06_Architecture/Details/mcp-server/01_Architecture.md#3-依存と所有権",
       "blockPath": [
-        "coordinator:candidate-publication",
+        "coordinator:workspace-execution",
         "orchestrator:integration-projection",
         "mcp:public-contract-adapter"
       ],
       "testIds": [
-        "coordinator:integration:orchestrator-candidate-integration-adapter",
-        "coordinator:integration:orchestrator-integration",
         "mcp:integration:transport-lifecycle"
       ],
       "postconditions": [
@@ -1458,11 +1481,9 @@
       "consumerOwner": "coordinator",
       "consumerStatic": true,
       "testIds": [
-        "coordinator:integration:orchestrator-candidate-integration-adapter",
         "coordinator:integration:orchestrator-durable-foundation",
         "coordinator:integration:orchestrator-execution",
         "coordinator:integration:orchestrator-full-flow",
-        "coordinator:integration:orchestrator-integration",
         "coordinator:integration:orchestrator-objective-intake",
         "coordinator:integration:orchestrator-composition-root",
         "coordinator:integration:orchestrator-replanning-and-decision",
@@ -3559,11 +3580,18 @@
       "path": "40_Develop/docker-isolation/tests/integration/direct-mount-boundary.integration.test.ts",
       "level": "integration",
       "kind": "integration",
-      "semanticTags": ["docker-isolation", "direct-mount", "synthetic-probe"],
+      "semanticTags": [
+        "docker-isolation",
+        "direct-mount",
+        "synthetic-probe"
+      ],
       "environment": "node_process",
       "externalProviderEffect": false,
       "humanInput": false,
-      "postconditions": ["unapproved_docker_execution_absent", "primary_cleanup_failures_distinct"],
+      "postconditions": [
+        "unapproved_docker_execution_absent",
+        "primary_cleanup_failures_distinct"
+      ],
       "mandatoryByDefault": false
     },
     {
@@ -3572,11 +3600,23 @@
       "path": "40_Develop/version-control/tests/integration/worktree-management.integration.test.ts",
       "level": "integration",
       "kind": "integration",
-      "semanticTags": ["version-control", "worktree", "git-process-boundary"],
+      "semanticTags": [
+        "version-control",
+        "worktree",
+        "git-process-boundary"
+      ],
       "environment": "node_process",
       "externalProviderEffect": false,
       "humanInput": false,
-      "postconditions": ["worktree_and_branch_disposed", "other_workspaces_preserved", "partial_failure_reentry", "selected_base_only", "candidate_ref_lifecycle", "two_parent_merge", "no_duplicate_commit_merge"],
+      "postconditions": [
+        "worktree_and_branch_disposed",
+        "other_workspaces_preserved",
+        "partial_failure_reentry",
+        "selected_base_only",
+        "candidate_ref_lifecycle",
+        "two_parent_merge",
+        "no_duplicate_commit_merge"
+      ],
       "mandatoryByDefault": true
     },
     {
@@ -3585,11 +3625,20 @@
       "path": "40_Develop/version-control/tests/integration/git-read-command.integration.test.ts",
       "level": "integration",
       "kind": "integration",
-      "semanticTags": ["version-control", "diff", "git-process-boundary"],
+      "semanticTags": [
+        "version-control",
+        "diff",
+        "git-process-boundary"
+      ],
       "environment": "node_process",
       "externalProviderEffect": false,
       "humanInput": false,
-      "postconditions": ["external_helpers_not_started", "index_unchanged", "literal_path_preserved", "external_filter_rejected"],
+      "postconditions": [
+        "external_helpers_not_started",
+        "index_unchanged",
+        "literal_path_preserved",
+        "external_filter_rejected"
+      ],
       "mandatoryByDefault": true
     },
     {
@@ -3940,34 +3989,14 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "coordinator:integration:candidate-bundle-store",
+      "id": "coordinator:integration:kernel-lock",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/candidate-bundle-store.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/integration/kernel-lock.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
-        "candidate",
-        "bundle",
-        "store"
-      ],
-      "environment": "local_component_boundary",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "boundary_result_observed",
-        "owned_resources_settled_or_reported"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
-      "id": "coordinator:integration:candidate-store-kernel-lock",
-      "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/candidate-store-kernel-lock.contract.test.ts",
-      "level": "integration",
-      "kind": "contract",
-      "semanticTags": [
-        "candidate",
-        "store",
+        "state",
+        "host",
         "kernel",
         "lock"
       ],
@@ -3982,7 +4011,10 @@
         "boundary_result_observed",
         "owned_resources_settled_or_reported"
       ],
-      "mandatoryByDefault": true
+      "mandatoryByDefault": true,
+      "qaIds": [
+        "QA-000006"
+      ]
     },
     {
       "id": "coordinator:integration:claude-execution-plan",
@@ -4680,27 +4712,6 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "coordinator:integration:orchestrator-candidate-integration-adapter",
-      "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/orchestrator-candidate-integration-adapter.integration.test.ts",
-      "level": "integration",
-      "kind": "integration",
-      "semanticTags": [
-        "project",
-        "runtime",
-        "candidate",
-        "adapter"
-      ],
-      "environment": "local_component_boundary",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "boundary_result_observed",
-        "owned_resources_settled_or_reported"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
       "id": "coordinator:integration:orchestrator-decision-recovery-store",
       "owner": "coordinator",
       "path": "40_Develop/coordinator/tests/integration/orchestrator-decision-recovery-store.contract.test.ts",
@@ -4826,25 +4837,6 @@
         "bounded",
         "integration",
         "execution-intelligence"
-      ],
-      "environment": "local_component_boundary",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "boundary_result_observed",
-        "owned_resources_settled_or_reported"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
-      "id": "coordinator:integration:orchestrator-integration",
-      "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/orchestrator-integration.contract.test.ts",
-      "level": "integration",
-      "kind": "contract",
-      "semanticTags": [
-        "project",
-        "runtime"
       ],
       "environment": "local_component_boundary",
       "externalProviderEffect": false,
@@ -6052,49 +6044,6 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "orchestrator:unit:integration-application",
-      "owner": "orchestrator",
-      "path": "40_Develop/orchestrator/tests/unit/candidate/integrate.contract.test.ts",
-      "level": "unit",
-      "kind": "contract",
-      "semanticTags": [
-        "orchestrator",
-        "integration",
-        "application"
-      ],
-      "environment": "node_process",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "result_observed"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
-      "id": "orchestrator:unit:candidate-adoption-application",
-      "owner": "orchestrator",
-      "path": "40_Develop/orchestrator/tests/unit/candidate/adopt.contract.test.ts",
-      "level": "unit",
-      "kind": "contract",
-      "semanticTags": [
-        "orchestrator",
-        "candidate-adoption",
-        "authority",
-        "lease",
-        "recovery"
-      ],
-      "environment": "node_process",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "unconfirmed_adoption_effect_zero",
-        "candidate_revision_and_scope_reverified",
-        "adoption_receipt_recorded",
-        "lease_released_or_recovery_reported"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
       "id": "orchestrator:integration:docker-recovery-settlement",
       "owner": "orchestrator",
       "path": "40_Develop/orchestrator/tests/integration/docker-recovery-settlement.contract.test.ts",
@@ -6123,11 +6072,26 @@
       "path": "40_Develop/orchestrator/tests/integration/workspace-lifecycle.integration.test.ts",
       "level": "integration",
       "kind": "integration",
-      "semanticTags": ["orchestrator", "workspace", "state", "lease", "git"],
+      "semanticTags": [
+        "orchestrator",
+        "workspace",
+        "state",
+        "lease",
+        "git"
+      ],
       "environment": "local_component_boundary",
       "externalProviderEffect": false,
       "humanInput": false,
-      "postconditions": ["owner_root_and_execution_tree_separate", "workspace_survives_task_completion", "explicit_discard_converges", "no_provider_request", "selected_candidate_only", "two_parent_merge", "saved_adoption_before_ref_removal", "same_operation_reentry_no_duplicate_merge"],
+      "postconditions": [
+        "owner_root_and_execution_tree_separate",
+        "workspace_survives_task_completion",
+        "explicit_discard_converges",
+        "no_provider_request",
+        "selected_candidate_only",
+        "two_parent_merge",
+        "saved_adoption_before_ref_removal",
+        "same_operation_reentry_no_duplicate_merge"
+      ],
       "mandatoryByDefault": true
     },
     {

@@ -15,6 +15,10 @@ import {
   verifyRepositoryRoot,
   resolveVerifiedRepositoryRoot,
 } from "../../version-control/src/index.ts";
+import {
+  resolveRepositoryRuntimeDataPaths,
+  observeRepositoryRuntimeDataArea,
+} from "../../domain-model/src/index.ts";
 import { createRepositoryAiProfileCatalogStore } from "../../ai-adapter/src/index.ts";
 import {
   createRepositoryTaskRequests,
@@ -31,6 +35,8 @@ import {
   projectVerificationTransportFailure,
 } from "./ai-verification-http.ts";
 import type { WorkbenchAiRequestSnapshot } from "../src/ai-request/types.ts";
+import { verifyWorkspaceOutputBytes } from "./workspace-output-verification.ts";
+import { observeRuntimeOwnedDevelopmentSource } from "../../coordinator/src/task/development-source-observation.ts";
 
 const projectId = "project.workspace-verification";
 const empty = process.platform === "win32" ? "NUL" : devNull;
@@ -86,7 +92,13 @@ function fixture(parent: string, mode: "direct" | "isolated") {
   git(root, ["config", "user.email", "test@example.invalid"]);
   fs.mkdirSync(path.join(root, ".git", "info"), { recursive: true });
   fs.writeFileSync(path.join(root, ".git", "info", "exclude"), "");
-  fs.mkdirSync(path.join(root, ".crdd", "config"), { recursive: true });
+  const verifiedFixture = verifyRepositoryRoot(root);
+  assert.equal(verifiedFixture.status, "completed");
+  if (verifiedFixture.status !== "completed")
+    throw new Error("fixture_root_unverified");
+  const paths = resolveRepositoryRuntimeDataPaths(verifiedFixture.capability);
+  assert.ok(paths);
+  fs.mkdirSync(paths.config, { recursive: true });
   const logo = path.join(
     "04_UI",
     "assets",
@@ -114,7 +126,7 @@ function fixture(parent: string, mode: "direct" | "isolated") {
   for (const file of ["source.txt", "dirty.txt", "staged.txt"])
     fs.writeFileSync(path.join(root, file), "BASE\n");
   fs.writeFileSync(
-    path.join(root, ".crdd", "config", "repository-manifest.json"),
+    path.join(paths.config, "repository-manifest.json"),
     JSON.stringify({
       schema: "crdd/repository-manifest/v2",
       projectId,
@@ -127,11 +139,17 @@ function fixture(parent: string, mode: "direct" | "isolated") {
     }),
   );
   // 人間が許可した既存の非秘密送信契約。実Contextや資格は複製しない。
+  const policyOwner = verifyRepositoryRoot(process.cwd());
+  assert.equal(policyOwner.status, "completed");
+  if (policyOwner.status !== "completed")
+    throw new Error("policy_owner_unverified");
+  const ownerPaths = resolveRepositoryRuntimeDataPaths(policyOwner.capability);
+  assert.ok(ownerPaths);
   const policy = fs.readFileSync(
-    path.join(process.cwd(), ".crdd", "config", "external-send-policy.json"),
+    path.join(ownerPaths.config, "external-send-policy.json"),
   );
   fs.writeFileSync(
-    path.join(root, ".crdd", "config", "external-send-policy.json"),
+    path.join(paths.config, "external-send-policy.json"),
     policy,
   );
   git(root, ["add", "."]);
@@ -150,7 +168,7 @@ function fixture(parent: string, mode: "direct" | "isolated") {
     git(root, ["add", "staged.txt"]);
     fs.writeFileSync(path.join(root, "unselected.txt"), "EXISTING_UNTRACKED\n");
   }
-  return { root, base, contextHash: hash(context) };
+  return { root, base, contextHash: hash(context), paths };
 }
 
 /**
@@ -164,7 +182,7 @@ async function verify(
   mode: "direct" | "isolated",
   preflight: boolean,
 ) {
-  const { root, base, contextHash } = fixture(parent, mode);
+  const { root, base, contextHash, paths } = fixture(parent, mode);
   const verified = verifyRepositoryRoot(root);
   assert.equal(verified.status, "completed", "fixture_root_invalid");
   if (verified.status !== "completed") throw new Error("fixture_root_invalid");
@@ -286,7 +304,7 @@ async function verify(
     const tree =
       mode === "direct"
         ? root
-        : path.join(root, ".crdd", "workspaces", workspaceId, "worktree");
+        : path.join(paths.workspaces, workspaceId, "worktree");
     if (preflight) {
       fs.writeFileSync(path.join(tree, "source.txt"), expected);
       runtimeClean = true;
@@ -339,6 +357,16 @@ async function verify(
         "edit_secondary_failure",
       );
       assert.equal(evidence.timedOut, undefined, "edit_timed_out");
+      assert.equal(
+        JSON.stringify(result.workspaceResult?.changedPaths),
+        JSON.stringify(["source.txt"]),
+        "workspace_change_observation_mismatch",
+      );
+      assert.equal(
+        result.workspaceResult?.workspaceId,
+        mode === "direct" ? null : workspaceId,
+        "workspace_result_identity_mismatch",
+      );
     }
     assert.equal(
       git(root, ["rev-parse", "HEAD"]),
@@ -350,10 +378,11 @@ async function verify(
       initialIndex,
       "task_changed_shared_index",
     );
-    assert.equal(
-      fs.readFileSync(path.join(tree, "source.txt"), "utf8"),
+    evidence.outputVerification = verifyWorkspaceOutputBytes(
+      fs.readFileSync(path.join(tree, "source.txt")),
       expected,
-      "ai_edit_mismatch",
+      ["source.txt"],
+      "source.txt",
     );
     if (mode === "direct") {
       for (const [file, content] of [
@@ -547,19 +576,16 @@ async function main() {
     resolveVerifiedRepositoryRoot(verified.capability) !== repository
   )
     throw new Error("repository_canonical_root_required");
-  for (const directory of [
-    path.join(repository, ".crdd"),
-    path.join(repository, ".crdd", "tests"),
-  ]) {
-    const metadata = fs.lstatSync(directory);
-    if (
-      !metadata.isDirectory() ||
-      metadata.isSymbolicLink() ||
-      fs.realpathSync.native(directory) !== directory
-    )
-      throw new Error("verification_parent_invalid");
-  }
-  const parent = path.join(repository, ".crdd", "tests", "workspace-real-ai");
+  const runtimePaths = resolveRepositoryRuntimeDataPaths(verified.capability);
+  assert.ok(runtimePaths, "runtime_paths_unverified");
+  assert.equal(
+    observeRepositoryRuntimeDataArea(verified.capability, "tests").status,
+    "ready",
+    "verification_parent_invalid",
+  );
+  const sourceBefore = observeRuntimeOwnedDevelopmentSource();
+  assert.ok(sourceBefore, "verification_source_unobserved");
+  const parent = path.join(runtimePaths.tests, "workspace-real-ai");
   assert.equal(
     fs.existsSync(parent),
     false,
@@ -617,10 +643,7 @@ async function main() {
   if (cleanup && resources.status === "verified") {
     try {
       assert.equal(fs.realpathSync.native(parent), parent);
-      assert.equal(
-        path.dirname(parent),
-        path.join(repository, ".crdd", "tests"),
-      );
+      assert.equal(path.dirname(parent), runtimePaths.tests);
       const failures: string[] = [];
       for (const mode of ["direct", "isolated"]) {
         try {
@@ -639,6 +662,18 @@ async function main() {
       report.fixtureCleanupFailures = ["fixture_root_or_removal_unconfirmed"];
     }
   }
+  // Taskの待機・取消・Owner終了・試験物処置が終わった後に実行Sourceを再観測する。
+  report.sourceUnchanged = false;
+  try {
+    const after = observeRuntimeOwnedDevelopmentSource();
+    report.sourceUnchanged =
+      after !== null &&
+      after.scope === sourceBefore.scope &&
+      after.sourceSha256 === sourceBefore.sourceSha256 &&
+      after.sourceIdentitySha256 === sourceBefore.sourceIdentitySha256;
+  } catch {
+    report.sourceUnchanged = false;
+  }
   // 外部対話端末からの短命な結果引渡し。読取り・CHG要約後にFront AIが親ごと回収する。
   // 不明なRuntimeやWorktreeを再帰削除せず、同じ試験物の処置へ戻れるようにする。
   try {
@@ -656,7 +691,8 @@ async function main() {
     cleanup &&
     resources.status === "verified" &&
     report.fixtureRootsRemoved === true &&
-    report.resultWriteFailure === undefined
+    report.resultWriteFailure === undefined &&
+    report.sourceUnchanged === true
       ? 0
       : 2;
 }

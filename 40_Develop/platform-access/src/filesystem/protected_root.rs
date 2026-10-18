@@ -42,7 +42,6 @@ use windows_sys::Win32::Storage::FileSystem::{
 };
 
 const PROVIDER_HOME_SEGMENTS: [&str; 3] = ["Qual-Lab", "CRDD", "ProviderHomes"];
-const CANDIDATE_STORE_SEGMENTS: [&str; 3] = ["Qual-Lab", "CRDD", "CandidateStore"];
 const RUNTIME_STATE_SEGMENTS: [&str; 3] = ["Qual-Lab", "CRDD", "RuntimeState"];
 pub(crate) const DRIVE_FIXED: u32 = 3;
 const MAXIMUM_SECURITY_DESCRIPTOR_BYTES: usize = 65_536;
@@ -141,12 +140,12 @@ fn initialize_runtime_owned_directory_if_missing(
     primary_token: HANDLE,
     segments: &[&str; 3],
 ) -> bool {
-    let mut candidate_store = match local_app_data_path() {
+    let mut runtime_directory = match local_app_data_path() {
         Some(value) => value,
         None => return false,
     };
     for segment in segments {
-        candidate_store.push(segment);
+        runtime_directory.push(segment);
     }
     let user_sid = match token_user_sid_bytes(primary_token) {
         Some(value) => value,
@@ -217,7 +216,7 @@ fn initialize_runtime_owned_directory_if_missing(
     {
         return false;
     }
-    let mut wide: Vec<u16> = candidate_store.as_os_str().encode_wide().collect();
+    let mut wide: Vec<u16> = runtime_directory.as_os_str().encode_wide().collect();
     if wide.is_empty() || wide.len() >= MAXIMUM_KNOWN_FOLDER_CODE_UNITS {
         return false;
     }
@@ -259,14 +258,9 @@ fn open_provider_home_chain(
     paths.push(current.clone());
     if matches!(
         request.provider,
-        crate::protocol::access::Provider::CandidateStore
-            | crate::protocol::access::Provider::RuntimeState
+        crate::protocol::access::Provider::RuntimeState
     ) {
-        let segments = if request.provider == crate::protocol::access::Provider::CandidateStore {
-            &CANDIDATE_STORE_SEGMENTS
-        } else {
-            &RUNTIME_STATE_SEGMENTS
-        };
+        let segments = &RUNTIME_STATE_SEGMENTS;
         for segment in segments {
             current.push(segment);
             paths.push(current.clone());
@@ -653,7 +647,6 @@ pub fn observe_provider_home(request: &ProviderHomeRequest) -> ProviderHomeRespo
     };
     if request.initialize_if_missing {
         let segments = match request.provider {
-            crate::protocol::access::Provider::CandidateStore => &CANDIDATE_STORE_SEGMENTS,
             crate::protocol::access::Provider::RuntimeState => &RUNTIME_STATE_SEGMENTS,
             _ => return blocked_provider_home(request, ProviderHomeReason::InvalidRequest),
         };

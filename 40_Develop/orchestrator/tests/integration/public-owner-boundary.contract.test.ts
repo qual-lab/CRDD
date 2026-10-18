@@ -20,6 +20,78 @@ import * as orchestrator from "../../src/index.ts";
 const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
 
 /**
+ * 受付後の例外でも元の再観測参照と終了失敗を保持する。
+ * @responsibility CLI実関数のwait／close拒否を有限Ownerで反証する。
+ * @trace PRL-IT-012
+ * @precondition 子Process内の既存Module境界だけを代役化する。
+ * @stimulus 受付成功後にwaitとcloseが例外化する。
+ * @observation stdout一件、元requestId、開始／待機／終了回数。
+ * @oracle 非成功、参照維持、close一回、再送なし。
+ * @cleanup 子Processの終了を待ち、Filesystem生成・AI起動を行わない。
+ * @boundary 実CLIと有限Owner。Docker／Provider実証ではない。
+ */
+test("単発CLIは受付後の待機・終了例外でも元依頼IDを保持する", () => {
+  const url = (relative: string) =>
+    pathToFileURL(path.join(repositoryRoot, relative)).href;
+  const script = `
+    import { mock } from "node:test";
+    const replace = async (url, exports) => {
+      const actual = await import(url);
+      mock.module(url, { exports: { ...actual, ...exports } });
+    };
+    let starts = 0, waits = 0, closes = 0;
+    await replace(${JSON.stringify(url("40_Develop/coordinator/src/cli/request-input.ts"))}, {
+      readBoundedTaskRequestFromStdin: () => ({ mode: "workspace_edit", profileId: "PROFILE-100001", prompt: "synthetic", contextReferences: ["PROJECT_CONTEXT.md"], allowedPaths: ["source.txt"], externalSendConfirmed: true, workspaceId: null })
+    });
+    await replace(${JSON.stringify(url("40_Develop/version-control/src/index.ts"))}, {
+      resolveVerifiedRepositoryRootFromWorkingDirectory: () => ${JSON.stringify(repositoryRoot)},
+      verifyRepositoryRoot: () => ({ status: "completed", capability: {} })
+    });
+    await replace(${JSON.stringify(url("40_Develop/ai-adapter/src/index.ts"))}, {
+      createRepositoryAiProfileCatalogStore: () => ({ status: "ready", store: {} })
+    });
+    await replace(${JSON.stringify(url("40_Develop/domain-model/src/index.ts"))}, {
+      readStableBoundedFileSnapshot: () => ({ bytes: Buffer.from("synthetic") }),
+      parseRepositoryProjectContextMarkdown: () => ({ projectId: "PRJ-test" })
+    });
+    await replace(${JSON.stringify(url("40_Develop/orchestrator/src/task/request-composition.ts"))}, {
+      createRepositoryTaskRequests: () => ({
+        start: async () => { starts++; return { status: "accepted", requestId: "request-fixture", reason: null }; },
+        wait: async () => { waits++; throw new Error("synthetic_wait_failure"); },
+        close: async () => { closes++; throw new Error("synthetic_close_failure"); }
+      })
+    });
+    const { runSingleTaskCommand } = await import(${JSON.stringify(url("40_Develop/orchestrator/src/cli/command.ts"))});
+    await runSingleTaskCommand(["--request-stdin", "--json"]);
+    process.stderr.write(JSON.stringify({ starts, waits, closes }));
+  `;
+  const result = spawnSync(
+    process.execPath,
+    [
+      "--experimental-test-module-mocks",
+      "--disable-warning=ExperimentalWarning",
+      "--input-type=module",
+      "-e",
+      script,
+    ],
+    { encoding: "utf8", windowsHide: true, timeout: 15000 },
+  );
+  assert.equal(result.error, undefined);
+  assert.equal(result.status, 2, result.stderr);
+  const report = JSON.parse(result.stdout);
+  assert.equal(report.requestId, "request-fixture");
+  assert.equal(report.status, "unknown");
+  assert.equal(report.cleanupConfirmed, false);
+  assert.deepEqual(report.secondaryFailures, ["task_owner_join_unconfirmed"]);
+  assert.deepEqual(JSON.parse(result.stderr), {
+    starts: 1,
+    waits: 1,
+    closes: 1,
+  });
+  assert.equal(result.stdout.trim().split("\n").length, 1);
+});
+
+/**
  * 業務操作をOrchestratorへ移し、Coordinatorが上位操作を再公開しないことを確認する。
  *
  * @responsibility 公開値の完全集合とPackageの業務入口を照合する。
@@ -35,10 +107,8 @@ test("業務公開操作はOrchestratorが所有しCoordinatorから再公開し
   assert.deepEqual(Object.keys(orchestrator).sort(), [
     "ORCHESTRATOR_ACCEPTANCE_DECISION_CONTRACT",
     "ORCHESTRATOR_ACCEPTANCE_DECISION_STORE_CONTRACT",
-    "ORCHESTRATOR_CANDIDATE_ADOPTION_CONTRACT",
     "ORCHESTRATOR_EXECUTION_CONTRACT",
     "ORCHESTRATOR_HUMAN_DECISION_CONTRACT",
-    "ORCHESTRATOR_INTEGRATION_BASE_RESULT_FIELDS",
     "ORCHESTRATOR_INTEGRATION_CONTRACT",
     "ORCHESTRATOR_MAXIMUM_CONCURRENCY",
     "ORCHESTRATOR_MAXIMUM_OBJECTIVES",
@@ -57,7 +127,6 @@ test("業務公開操作はOrchestratorが所有しCoordinatorから再公開し
     "ORCHESTRATOR_STATE_CONTRACT",
     "ORCHESTRATOR_STATE_QUERY_CONTRACT",
     "acknowledgeProjectDockerRecoveryObligation",
-    "adoptOrchestratorExistingCandidate",
     "applyOrchestratorAcceptanceDecision",
     "applyOrchestratorHumanDecision",
     "applyOrchestratorPartialReplan",
@@ -76,7 +145,6 @@ test("業務公開操作はOrchestratorが所有しCoordinatorから再公開し
     "createOrchestratorTaskRecoveryAdapter",
     "createRepositoryTaskRequests",
     "describeOrchestratorExecutionContract",
-    "describeOrchestratorIntegrationContract",
     "describeOrchestratorObjectiveIntakeContract",
     "describeOrchestratorPlatformContract",
     "describeOrchestratorSingleTaskAdapterContract",
@@ -87,8 +155,6 @@ test("業務公開操作はOrchestratorが所有しCoordinatorから再公開し
     "executeWorkspaceCommand",
     "initializeOrchestratorSnapshot",
     "inspectOrchestratorDecisionRequest",
-    "inspectOrchestratorExistingCandidate",
-    "inspectOrchestratorIntegrationResult",
     "inspectOrchestratorObjectivePlan",
     "inspectOrchestratorObjectiveRequest",
     "inspectOrchestratorProjection",
@@ -98,7 +164,6 @@ test("業務公開操作はOrchestratorが所有しCoordinatorから再公開し
     "inspectOrchestratorWorkspaceResults",
     "inspectRuntimeActivityObservation",
     "inspectWorkspaceCommand",
-    "integrateOrchestratorOperation",
     "invalidateOrchestratorHumanDecision",
     "isOrchestratorDecisionRecord",
     "isOrchestratorObjectiveProjectionCorrelationValid",
@@ -111,7 +176,6 @@ test("業務公開操作はOrchestratorが所有しCoordinatorから再公開し
     "observeProjectTaskStarted",
     "observeRuntimeOwnedProjectClientPrincipal",
     "orchestratorDecisionRecordId",
-    "orchestratorIntegrationResultFields",
     "parseRuntimeActivityObservation",
     "prepareProjectTaskHandoff",
     "projectOrchestratorState",
@@ -165,7 +229,7 @@ test("業務公開操作はOrchestratorが所有しCoordinatorから再公開し
     "getRuntimeProcessInstanceIdentity",
     "inspectRuntimeProcessRecoveryIdentity",
     "isSupportedCoordinatorNodeRuntime",
-    "observeRuntimeOwnedWorkbenchTaskCompletion",
+    "observeRuntimeOwnedTransientTaskCompletion",
     "poisonRuntimeProcessAfterCleanupUnknown",
     "recoverRuntimeOwnedDockerTaskForCurrentConsumer",
     "resolveRuntimeOwnedDockerTaskCurrentCorrelations",
@@ -274,6 +338,36 @@ test("配布CLIの上位配送は入力拒否契約を保持する", () => {
     commandSource,
     /orchestrator\/src|runProjectCommand|initializeOrchestrator/,
   );
+  for (const args of [
+    ["task", "--request-stdin", "--json"],
+    ["automation", "task", "--request-stdin", "--json"],
+  ]) {
+    for (const input of [
+      { objective: "legacy Bundle request" },
+      {
+        mode: "workspace_edit",
+        profileId: "PROFILE-100001",
+        prompt: "synthetic",
+        contextReferences: ["PROJECT_CONTEXT.md"],
+        allowedPaths: ["source.txt"],
+        externalSendConfirmed: true,
+      },
+    ]) {
+      const refused = spawnSync(process.execPath, [launcher, ...args], {
+        input: JSON.stringify(input),
+        encoding: "utf8",
+        windowsHide: true,
+        timeout: 15000,
+      });
+      assert.equal(refused.error, undefined);
+      assert.equal(refused.status, 2, refused.stderr);
+      assert.equal(
+        JSON.parse(refused.stdout).reason,
+        "task_workspace_request_required",
+      );
+      assert.equal(refused.stdout.trim().split("\n").length, 1);
+    }
+  }
   // Node拒否を模擬するだけで、Project処理や外部Effectへ進めない。
   for (const example of [
     { args: ["project", "--invalid"], status: 2, json: false },

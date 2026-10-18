@@ -7,15 +7,24 @@
       "symbolId": "workbench.verification.readonly-cli",
       "kind": "file",
       "path": "scripts/verify-readonly-ai.ts",
-      "archIds": ["ARCH-000015"]
+      "archIds": [
+        "ARCH-000015"
+      ]
     },
     {
       "symbolId": "workbench.test.integration.ai-verification",
       "kind": "test-suite",
       "path": "tests/integration/ai-verification.contract.test.ts",
-      "qaIds": ["QA-000006"],
-      "localTestIds": ["ERB-IT-021"],
-      "verifies": ["workbench.verification.readonly-cli"]
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-021"
+      ],
+      "verifies": [
+        "workbench.verification.readonly-cli",
+        "workbench.verification.workspace-output"
+      ]
     },
     {
       "symbolId": "workbench.presentation.workspace-panel",
@@ -650,6 +659,14 @@
       ],
       "verifies": [
         "workbench.server"
+      ]
+    },
+    {
+      "symbolId": "workbench.verification.workspace-output",
+      "kind": "file",
+      "path": "scripts/workspace-output-verification.ts",
+      "archIds": [
+        "ARCH-000015"
       ]
     }
   ]

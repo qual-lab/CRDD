@@ -1,13 +1,12 @@
 /**
- * coordinator:integration:candidate-store-kernel-lockの検証範囲を定義する。
+ * coordinator:integration:kernel-lockの検証範囲を定義する。
  *
  * @packageDocumentation
- * @responsibility coordinator:integration:candidate-store-kernel-lockが所有する検証責務を実行する。
- * @trace CPR-IT-001
+ * @responsibility coordinator:integration:kernel-lockが所有する検証責務を実行する。
  * @trace ERB-IT-003
  * @level IT
- * @scope candidate、store、kernel、lock
- * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store
+ * @scope state、host、kernel、lock
+ * @boundary ERB-IT-003=Direct Boundary: State／Host Owner→Kernel Lock
  */
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
@@ -18,7 +17,6 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 import {
-  acquireRuntimeOwnedCandidateStoreKernelLock,
   acquireRuntimeOwnedCoordinatorStateKernelLock,
   acquireRuntimeOwnedDockerRuntimeStateKernelLock,
   acquireRuntimeOwnedHostOperationKernelLock,
@@ -26,12 +24,12 @@ import {
   acquireRuntimeOwnedInteractiveConsoleKernelLockOutcome,
   acquireRuntimeOwnedLogicalProviderHomeKernelLock,
   acquireRuntimeOwnedOrchestratorStateKernelLock,
-  describeCandidateStoreKernelLockContract,
+  describeKernelLockContract,
 } from "../../src/host-execution/kernel-lock.ts";
 import {
   acquireHostOperationSupervisorLockUsingChildFactory,
   acquireInteractiveConsoleKernelLockOutcomeUsingFactory,
-} from "../support/candidate-store-kernel-lock-harness.ts";
+} from "../support/kernel-lock-harness.ts";
 
 const FAST_SUPERVISOR_TIMING = Object.freeze({
   acquireTimeoutMs: 10,
@@ -84,13 +82,13 @@ test("Host Windows: Coordinator Snapshot排他はRootとOwnerを分離し解放�
  * restart kernel domains retain live ownership across await and invalidate on releaseを検証する。
  *
  * @responsibility restart kernel domains retain live ownership across await and invalidate on releaseの合否判定を所有する。
- * @trace CPR-IT-001
+ * @trace ERB-IT-003
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus restart kernel domains retain live ownership across await and invalidate on releaseの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary ERB-IT-003=Direct Boundary: coordinator Test Source→対象契約
  */
 test("restart kernel domains retain live ownership across await and invalidate on release", {
   skip: process.platform !== "win32",
@@ -122,13 +120,13 @@ test("restart kernel domains retain live ownership across await and invalidate o
  * acquireInteractiveConsoleLockForConcurrentTestRunのTest準備責務を実行する。
  *
  * @responsibility acquireInteractiveConsoleLockForConcurrentTestRunがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
- * @trace CPR-IT-001
+ * @trace ERB-IT-003
  * @precondition 呼出し元Test Caseが必要な入力を渡す。
  * @stimulus acquireInteractiveConsoleLockForConcurrentTestRunを呼び出す。
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary ERB-IT-003=Direct Boundary: coordinator Test Source→対象契約
  */
 async function acquireInteractiveConsoleLockForConcurrentTestRun() {
   for (let attempt = 0; attempt < 100; attempt += 1) {
@@ -144,13 +142,13 @@ async function acquireInteractiveConsoleLockForConcurrentTestRun() {
  * supervisorChildScenarioのTest準備責務を実行する。
  *
  * @responsibility supervisorChildScenarioがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
- * @trace CPR-IT-001
+ * @trace ERB-IT-003
  * @precondition 呼出し元Test Caseが必要な入力を渡す。
  * @stimulus supervisorChildScenarioを呼び出す。
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary ERB-IT-003=Direct Boundary: coordinator Test Source→対象契約
  */
 function supervisorChildScenario(
   scenario:
@@ -176,13 +174,13 @@ function supervisorChildScenario(
    * factoryのTest準備責務を実行する。
    *
    * @responsibility factoryがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
-   * @trace CPR-IT-001
+   * @trace ERB-IT-003
    * @precondition 呼出し元Test Caseが必要な入力を渡す。
    * @stimulus factoryを呼び出す。
    * @observation 返却値、生成fixtureまたは観測値を取得する。
    * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
    * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
-   * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
+   * @boundary ERB-IT-003=Direct Boundary: coordinator Test Source→対象契約
    */
   const factory = (pipeName: string, environment: NodeJS.ProcessEnv) => {
     captured = Object.freeze({ pipeName, environment });
@@ -204,13 +202,13 @@ function supervisorChildScenario(
      * exitのTest準備責務を実行する。
      *
      * @responsibility exitがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
-     * @trace CPR-IT-001
+     * @trace ERB-IT-003
      * @precondition 呼出し元Test Caseが必要な入力を渡す。
      * @stimulus exitを呼び出す。
      * @observation 返却値、生成fixtureまたは観測値を取得する。
      * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
      * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
-     * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
+     * @boundary ERB-IT-003=Direct Boundary: coordinator Test Source→対象契約
      */
     const exit = (code: number) => {
       if (child.exitCode !== null) return;
@@ -290,13 +288,13 @@ function supervisorChildScenario(
  * interactiveLockWorkerScenarioのTest準備責務を実行する。
  *
  * @responsibility interactiveLockWorkerScenarioがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
- * @trace CPR-IT-001
+ * @trace ERB-IT-003
  * @precondition 呼出し元Test Caseが必要な入力を渡す。
  * @stimulus interactiveLockWorkerScenarioを呼び出す。
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary ERB-IT-003=Direct Boundary: coordinator Test Source→対象契約
  */
 function interactiveLockWorkerScenario(initialState: 1 | -1) {
   const listeners = new Map<string, (value: unknown) => void>();
@@ -328,13 +326,13 @@ function interactiveLockWorkerScenario(initialState: 1 | -1) {
  * 固定Supervisor: 不正root・nonce・待機値はfactoryを呼ばず拒否するを検証する。
  *
  * @responsibility 固定Supervisor: 不正root・nonce・待機値はfactoryを呼ばず拒否するの合否判定を所有する。
- * @trace CPR-IT-001
+ * @trace ERB-IT-003
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus 固定Supervisor: 不正root・nonce・待機値はfactoryを呼ばず拒否するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary ERB-IT-003=Direct Boundary: coordinator Test Source→対象契約
  */
 test("固定Supervisor: 不正root・nonce・待機値はfactoryを呼ばず拒否する", {
   skip: process.platform !== "win32",
@@ -422,13 +420,13 @@ test("固定Supervisor: 不正root・nonce・待機値はfactoryを呼ばず拒�
  * 固定Supervisor: 三段階のsend同期例外は終了失敗と失効へ収束するを検証する。
  *
  * @responsibility 固定Supervisor: 三段階のsend同期例外は終了失敗と失効へ収束するの合否判定を所有する。
- * @trace CPR-IT-001
+ * @trace ERB-IT-003
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus 固定Supervisor: 三段階のsend同期例外は終了失敗と失効へ収束するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary ERB-IT-003=Direct Boundary: coordinator Test Source→対象契約
  */
 test("固定Supervisor: 三段階のsend同期例外は終了失敗と失効へ収束する", {
   skip: process.platform !== "win32",
@@ -491,13 +489,13 @@ test("固定Supervisor: 三段階のsend同期例外は終了失敗と失効へ�
  * 固定Supervisor: 失敗listenerの例外は他の通知・終了・失効を妨げないを検証する。
  *
  * @responsibility 固定Supervisor: 失敗listenerの例外は他の通知・終了・失効を妨げないの合否判定を所有する。
- * @trace CPR-IT-001
+ * @trace ERB-IT-003
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus 固定Supervisor: 失敗listenerの例外は他の通知・終了・失効を妨げないの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary ERB-IT-003=Direct Boundary: coordinator Test Source→対象契約
  */
 test("固定Supervisor: 失敗listenerの例外は他の通知・終了・失効を妨げない", {
   skip: process.platform !== "win32",
@@ -550,13 +548,13 @@ test("固定Supervisor: 失敗listenerの例外は他の通知・終了・失効
  * 追加境界: 公開lock入口は不正bindingを非取得にするを検証する。
  *
  * @responsibility 追加境界: 公開lock入口は不正bindingを非取得にするの合否判定を所有する。
- * @trace CPR-IT-001
+ * @trace ERB-IT-003
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus 追加境界: 公開lock入口は不正bindingを非取得にするの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary ERB-IT-003=Direct Boundary: coordinator Test Source→対象契約
  */
 test("追加境界: 公開lock入口は不正bindingを非取得にする", () => {
   for (const invalid of [null, 42, "", "a".repeat(63), "A".repeat(64)]) {
@@ -579,13 +577,13 @@ test("追加境界: 公開lock入口は不正bindingを非取得にする", () =
  * 追加境界: 対話Workerの失敗と遅延終了を解放成功へ変換しないを検証する。
  *
  * @responsibility 追加境界: 対話Workerの失敗と遅延終了を解放成功へ変換しないの合否判定を所有する。
- * @trace CPR-IT-001
+ * @trace ERB-IT-003
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus 追加境界: 対話Workerの失敗と遅延終了を解放成功へ変換しないの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary ERB-IT-003=Direct Boundary: coordinator Test Source→対象契約
  */
 test("追加境界: 対話Workerの失敗と遅延終了を解放成功へ変換しない", {
   skip: process.platform !== "win32",
@@ -682,13 +680,13 @@ test("追加境界: 対話Workerの失敗と遅延終了を解放成功へ変換
  * 追加境界: Supervisorのspawnと終了要求失敗を資源取得前後で分けるを検証する。
  *
  * @responsibility 追加境界: Supervisorのspawnと終了要求失敗を資源取得前後で分けるの合否判定を所有する。
- * @trace CPR-IT-001
+ * @trace ERB-IT-003
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus 追加境界: Supervisorのspawnと終了要求失敗を資源取得前後で分けるの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary ERB-IT-003=Direct Boundary: coordinator Test Source→対象契約
  */
 test("追加境界: Supervisorのspawnと終了要求失敗を資源取得前後で分ける", {
   skip: process.platform !== "win32",
@@ -749,13 +747,13 @@ test("追加境界: Supervisorのspawnと終了要求失敗を資源取得前後
  * 追加境界: SupervisorはIPC形状違反と終了中競合を単一の失敗へ収束するを検証する。
  *
  * @responsibility 追加境界: SupervisorはIPC形状違反と終了中競合を単一の失敗へ収束するの合否判定を所有する。
- * @trace CPR-IT-001
+ * @trace ERB-IT-003
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus 追加境界: SupervisorはIPC形状違反と終了中競合を単一の失敗へ収束するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary ERB-IT-003=Direct Boundary: coordinator Test Source→対象契約
  */
 test("追加境界: SupervisorはIPC形状違反と終了中競合を単一の失敗へ収束する", {
   skip: process.platform !== "win32",
@@ -859,13 +857,13 @@ test("追加境界: SupervisorはIPC形状違反と終了中競合を単一の�
  * verifyDelayedLockWorkerInChildのTest準備責務を実行する。
  *
  * @responsibility verifyDelayedLockWorkerInChildがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
- * @trace CPR-IT-001
+ * @trace ERB-IT-003
  * @precondition 呼出し元Test Caseが必要な入力を渡す。
  * @stimulus verifyDelayedLockWorkerInChildを呼び出す。
  * @observation 返却値、生成fixtureまたは観測値を取得する。
  * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary ERB-IT-003=Direct Boundary: coordinator Test Source→対象契約
  */
 async function verifyDelayedLockWorkerInChild(
   moduleUrl: string,
@@ -947,7 +945,7 @@ async function verifyDelayedLockWorkerInChild(
     const runtime = await import(moduleUrl);
     const startedAt = Date.now();
     const lock =
-      runtime.acquireRuntimeOwnedCandidateStoreKernelLock(protectionHash);
+      runtime.acquireRuntimeOwnedCoordinatorStateKernelLock(protectionHash);
     events.push("acquire-returned");
     assert.equal(lock, null);
     assert.equal(constructionCount, 1);
@@ -973,7 +971,7 @@ async function verifyDelayedLockWorkerInChild(
     assert.equal(Atomics.load(gate, 0), 1);
     assert.equal(Atomics.load(observedState, 0), 0);
     const reacquired =
-      runtime.acquireRuntimeOwnedCandidateStoreKernelLock(protectionHash);
+      runtime.acquireRuntimeOwnedCoordinatorStateKernelLock(protectionHash);
     assert.ok(reacquired);
     assert.equal(reacquired.release(), true);
     assert.equal(constructionCount, 1);
@@ -994,13 +992,13 @@ async function verifyDelayedLockWorkerInChild(
  * 同期Lock取得timeoutは本番Worker終了後に遅延取得を残さず再取得できるを検証する。
  *
  * @responsibility 同期Lock取得timeoutは本番Worker終了後に遅延取得を残さず再取得できるの合否判定を所有する。
- * @trace CPR-IT-001
+ * @trace ERB-IT-003
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus 同期Lock取得timeoutは本番Worker終了後に遅延取得を残さず再取得できるの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary ERB-IT-003=Direct Boundary: coordinator Test Source→対象契約
  */
 test("同期Lock取得timeoutは本番Worker終了後に遅延取得を残さず再取得できる", {
   skip: process.platform !== "win32",
@@ -1019,10 +1017,7 @@ test("同期Lock取得timeoutは本番Worker終了後に遅延取得を残さず
     .digest("hex");
   const invocation = `(${verifyDelayedLockWorkerInChild.toString()})(${JSON.stringify(moduleUrl)}, ${JSON.stringify(workerUrl)}, ${JSON.stringify(protectionHash)}).catch(error => { console.error(error); process.exitCode = 1; });`;
   const scratchRoot = fileURLToPath(
-    new URL(
-      "../../../../.crdd/tests/candidate-store-kernel-lock/",
-      import.meta.url,
-    ),
+    new URL("../../../../.crdd/tests/kernel-lock/", import.meta.url),
   );
   const child = spawn(process.execPath, ["--eval", invocation], {
     env: { TEMP: scratchRoot, TMP: scratchRoot },
@@ -1063,29 +1058,29 @@ test("同期Lock取得timeoutは本番Worker終了後に遅延取得を残さず
  * Windows kernel lockは不正Identity、同時取得と二重releaseを拒否するを検証する。
  *
  * @responsibility Windows kernel lockは不正Identity、同時取得と二重releaseを拒否するの合否判定を所有する。
- * @trace CPR-IT-001
+ * @trace ERB-IT-003
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus Windows kernel lockは不正Identity、同時取得と二重releaseを拒否するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary ERB-IT-003=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Windows kernel lockは不正Identity、同時取得と二重releaseを拒否する", () => {
-  assert.equal(acquireRuntimeOwnedCandidateStoreKernelLock("invalid"), null);
+  assert.equal(acquireRuntimeOwnedCoordinatorStateKernelLock("invalid"), null);
   if (process.platform !== "win32") return;
   const protectionHash = createHash("sha256")
     .update(randomBytes(32))
     .digest("hex");
-  const first = acquireRuntimeOwnedCandidateStoreKernelLock(protectionHash);
+  const first = acquireRuntimeOwnedCoordinatorStateKernelLock(protectionHash);
   assert.ok(first);
   assert.equal(
-    acquireRuntimeOwnedCandidateStoreKernelLock(protectionHash),
+    acquireRuntimeOwnedCoordinatorStateKernelLock(protectionHash),
     null,
   );
   assert.equal(first.release(), true);
   assert.equal(first.release(), false);
-  const next = acquireRuntimeOwnedCandidateStoreKernelLock(protectionHash);
+  const next = acquireRuntimeOwnedCoordinatorStateKernelLock(protectionHash);
   assert.ok(next);
   assert.equal(next.release(), true);
 });
@@ -1094,13 +1089,13 @@ test("Windows kernel lockは不正Identity、同時取得と二重releaseを拒�
  * Host Operation lock Supervisorは往復、競合とexit確認済みreleaseを固定するを検証する。
  *
  * @responsibility Host Operation lock Supervisorは往復、競合とexit確認済みreleaseを固定するの合否判定を所有する。
- * @trace CPR-IT-001
+ * @trace ERB-IT-003
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus Host Operation lock Supervisorは往復、競合とexit確認済みreleaseを固定するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary ERB-IT-003=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Host Operation lock Supervisorは往復、競合とexit確認済みreleaseを固定する", async (context) => {
   if (process.platform !== "win32") {
@@ -1136,13 +1131,13 @@ test("Host Operation lock Supervisorは往復、競合とexit確認済みrelease
  * Host Operation Supervisorは固定入力と異常状態を構造化するを検証する。
  *
  * @responsibility Host Operation Supervisorは固定入力と異常状態を構造化するの合否判定を所有する。
- * @trace CPR-IT-001
+ * @trace ERB-IT-003
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus Host Operation Supervisorは固定入力と異常状態を構造化するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary ERB-IT-003=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Host Operation Supervisorは固定入力と異常状態を構造化する", async (context) => {
   if (process.platform !== "win32") {
@@ -1219,13 +1214,13 @@ test("Host Operation Supervisorは固定入力と異常状態を構造化する"
  * Host Operation Supervisorはterminate未確認だけをcleanup不明にするを検証する。
  *
  * @responsibility Host Operation Supervisorはterminate未確認だけをcleanup不明にするの合否判定を所有する。
- * @trace CPR-IT-001
+ * @trace ERB-IT-003
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus Host Operation Supervisorはterminate未確認だけをcleanup不明にするの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary ERB-IT-003=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Host Operation Supervisorはterminate未確認だけをcleanup不明にする", async (context) => {
   if (process.platform !== "win32") {
@@ -1262,13 +1257,13 @@ test("Host Operation Supervisorはterminate未確認だけをcleanup不明にす
  * Host Operation Supervisorの非同期喪失と複合通知は単一finalizerへ収束するを検証する。
  *
  * @responsibility Host Operation Supervisorの非同期喪失と複合通知は単一finalizerへ収束するの合否判定を所有する。
- * @trace CPR-IT-001
+ * @trace ERB-IT-003
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus Host Operation Supervisorの非同期喪失と複合通知は単一finalizerへ収束するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary ERB-IT-003=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Host Operation Supervisorの非同期喪失と複合通知は単一finalizerへ収束する", async (context) => {
   if (process.platform !== "win32") {
@@ -1308,13 +1303,13 @@ test("Host Operation Supervisorの非同期喪失と複合通知は単一finaliz
  * Host Operation Supervisorのcleanup不明は遅延通知で降格せずexactly onceを保つを検証する。
  *
  * @responsibility Host Operation Supervisorのcleanup不明は遅延通知で降格せずexactly onceを保つの合否判定を所有する。
- * @trace CPR-IT-001
+ * @trace ERB-IT-003
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus Host Operation Supervisorのcleanup不明は遅延通知で降格せずexactly onceを保つの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary ERB-IT-003=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Host Operation Supervisorのcleanup不明は遅延通知で降格せずexactly onceを保つ", async (context) => {
   if (process.platform !== "win32") {
@@ -1341,13 +1336,13 @@ test("Host Operation Supervisorのcleanup不明は遅延通知で降格せずexa
  * Host Operation Supervisor entrypointはexact argvとIPCなしでlistenしないを検証する。
  *
  * @responsibility Host Operation Supervisor entrypointはexact argvとIPCなしでlistenしないの合否判定を所有する。
- * @trace CPR-IT-001
+ * @trace ERB-IT-003
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus Host Operation Supervisor entrypointはexact argvとIPCなしでlistenしないの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary ERB-IT-003=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Host Operation Supervisor entrypointはexact argvとIPCなしでlistenしない", () => {
   const entrypoint = fileURLToPath(
@@ -1378,13 +1373,13 @@ test("Host Operation Supervisor entrypointはexact argvとIPCなしでlistenし�
  * Host Operation Supervisor entrypointはclosing中の親command違反をnonzeroへ単調化するを検証する。
  *
  * @responsibility Host Operation Supervisor entrypointはclosing中の親command違反をnonzeroへ単調化するの合否判定を所有する。
- * @trace CPR-IT-001
+ * @trace ERB-IT-003
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus Host Operation Supervisor entrypointはclosing中の親command違反をnonzeroへ単調化するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary ERB-IT-003=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Host Operation Supervisor entrypointはclosing中の親command違反をnonzeroへ単調化する", async () => {
   const entrypoint = fileURLToPath(
@@ -1424,13 +1419,13 @@ test("Host Operation Supervisor entrypointはclosing中の親command違反をnon
  * Host Operation Supervisor entrypointはconfirm-release後の違反を成功へ戻さないを検証する。
  *
  * @responsibility Host Operation Supervisor entrypointはconfirm-release後の違反を成功へ戻さないの合否判定を所有する。
- * @trace CPR-IT-001
+ * @trace ERB-IT-003
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus Host Operation Supervisor entrypointはconfirm-release後の違反を成功へ戻さないの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary ERB-IT-003=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Host Operation Supervisor entrypointはconfirm-release後の違反を成功へ戻さない", async () => {
   const entrypoint = fileURLToPath(
@@ -1486,13 +1481,13 @@ test("Host Operation Supervisor entrypointはconfirm-release後の違反を成�
  * Host Operation Supervisor entrypointはconfirm-release直後の親disconnectを成功にしないを検証する。
  *
  * @responsibility Host Operation Supervisor entrypointはconfirm-release直後の親disconnectを成功にしないの合否判定を所有する。
- * @trace CPR-IT-001
+ * @trace ERB-IT-003
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus Host Operation Supervisor entrypointはconfirm-release直後の親disconnectを成功にしないの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary ERB-IT-003=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Host Operation Supervisor entrypointはconfirm-release直後の親disconnectを成功にしない", async () => {
   const entrypoint = fileURLToPath(
@@ -1532,13 +1527,13 @@ test("Host Operation Supervisor entrypointはconfirm-release直後の親disconne
  * Windows対話Console lockは同時承認readerを一つへ限定するを検証する。
  *
  * @responsibility Windows対話Console lockは同時承認readerを一つへ限定するの合否判定を所有する。
- * @trace CPR-IT-001
+ * @trace ERB-IT-003
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus Windows対話Console lockは同時承認readerを一つへ限定するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary ERB-IT-003=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Windows対話Console lockは同時承認readerを一つへ限定する", async () => {
   if (process.platform !== "win32") return;
@@ -1559,13 +1554,13 @@ test("Windows対話Console lockは同時承認readerを一つへ限定する", a
  * Windows対話Console lockは独立Processをrelease完了まで存続させるを検証する。
  *
  * @responsibility Windows対話Console lockは独立Processをrelease完了まで存続させるの合否判定を所有する。
- * @trace CPR-IT-001
+ * @trace ERB-IT-003
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus Windows対話Console lockは独立Processをrelease完了まで存続させるの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary ERB-IT-003=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Windows対話Console lockは独立Processをrelease完了まで存続させる", async (context) => {
   if (process.platform !== "win32") {
@@ -1604,13 +1599,13 @@ test("Windows対話Console lockは独立Processをrelease完了まで存続さ�
  * 対話Console専用lockは終了確認済み非取得とcleanup不明を分離するを検証する。
  *
  * @responsibility 対話Console専用lockは終了確認済み非取得とcleanup不明を分離するの合否判定を所有する。
- * @trace CPR-IT-001
+ * @trace ERB-IT-003
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus 対話Console専用lockは終了確認済み非取得とcleanup不明を分離するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary ERB-IT-003=Direct Boundary: coordinator Test Source→対象契約
  */
 test("対話Console専用lockは終了確認済み非取得とcleanup不明を分離する", async () => {
   if (process.platform !== "win32") return;
@@ -1643,16 +1638,16 @@ test("対話Console専用lockは終了確認済み非取得とcleanup不明を�
  * 対話Console専用lockの非同期cleanup契約は共通同期lockの意味を変更しないを検証する。
  *
  * @responsibility 対話Console専用lockの非同期cleanup契約は共通同期lockの意味を変更しないの合否判定を所有する。
- * @trace CPR-IT-001
+ * @trace ERB-IT-003
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus 対話Console専用lockの非同期cleanup契約は共通同期lockの意味を変更しないの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary ERB-IT-003=Direct Boundary: coordinator Test Source→対象契約
  */
 test("対話Console専用lockの非同期cleanup契約は共通同期lockの意味を変更しない", () => {
-  const contract = describeCandidateStoreKernelLockContract();
+  const contract = describeKernelLockContract();
   assert.equal(contract.acquireTimeoutMs, 5_000);
   assert.equal(contract.hostSupervisorAcquireTimeoutMs, 1_000);
   assert.equal(contract.releaseTimeoutMs, 5_000);
@@ -1688,13 +1683,13 @@ test("対話Console専用lockの非同期cleanup契約は共通同期lockの意�
  * Host Operation owner lockはprocess世代をまたぐ同時取得を拒否し強制終了後に回復するを検証する。
  *
  * @responsibility Host Operation owner lockはprocess世代をまたぐ同時取得を拒否し強制終了後に回復するの合否判定を所有する。
- * @trace CPR-IT-001
+ * @trace ERB-IT-003
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus Host Operation owner lockはprocess世代をまたぐ同時取得を拒否し強制終了後に回復するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary ERB-IT-003=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Host Operation owner lockはprocess世代をまたぐ同時取得を拒否し強制終了後に回復する", async (context) => {
   if (process.platform !== "win32") {
@@ -1735,13 +1730,13 @@ test("Host Operation owner lockはprocess世代をまたぐ同時取得を拒否
  * Host Operation Supervisorは親process強制終了後にlockをkernelに残さないを検証する。
  *
  * @responsibility Host Operation Supervisorは親process強制終了後にlockをkernelに残さないの合否判定を所有する。
- * @trace CPR-IT-001
+ * @trace ERB-IT-003
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus Host Operation Supervisorは親process強制終了後にlockをkernelに残さないの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary ERB-IT-003=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Host Operation Supervisorは親process強制終了後にlockをkernelに残さない", async (context) => {
   if (process.platform !== "win32") {
@@ -1784,7 +1779,7 @@ test("Host Operation Supervisorは親process強制終了後にlockをkernelに�
 });
 
 const ownerFixture = new URL(
-  "../fixtures/candidate-store-lock-owner.ts",
+  "../fixtures/kernel-lock-owner.ts",
   import.meta.url,
 );
 
@@ -1792,13 +1787,13 @@ const ownerFixture = new URL(
  * Windows kernel lockはowner process強制終了後にstale residueなしで再取得できるを検証する。
  *
  * @responsibility Windows kernel lockはowner process強制終了後にstale residueなしで再取得できるの合否判定を所有する。
- * @trace CPR-IT-001
+ * @trace ERB-IT-003
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus Windows kernel lockはowner process強制終了後にstale residueなしで再取得できるの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary ERB-IT-003=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Windows kernel lockはowner process強制終了後にstale residueなしで再取得できる", async (context) => {
   if (process.platform !== "win32") {
@@ -1826,12 +1821,13 @@ test("Windows kernel lockはowner process強制終了後にstale residueなし�
     stdout += chunk.toString("utf8");
   }
   assert.equal(
-    acquireRuntimeOwnedCandidateStoreKernelLock(protectionHash),
+    acquireRuntimeOwnedCoordinatorStateKernelLock(protectionHash),
     null,
   );
   assert.equal(child.kill(), true);
   await once(child, "exit");
-  const recovered = acquireRuntimeOwnedCandidateStoreKernelLock(protectionHash);
+  const recovered =
+    acquireRuntimeOwnedCoordinatorStateKernelLock(protectionHash);
   assert.ok(recovered);
   assert.equal(recovered.release(), true);
 });

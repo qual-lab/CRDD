@@ -25,7 +25,7 @@ const DISTRIBUTION_MODULE_PATH =
  */
 export type RuntimeLocalTypeScriptChildRole =
   | "interactive_console_reader"
-  | "candidate_store_lock_worker"
+  | "kernel_lock_worker"
   | "host_operation_lock_supervisor"
   | "signed_recovery_matrix_child";
 
@@ -104,7 +104,7 @@ const runtimeLocalTypeScriptChildEntrypoints = Object.freeze([
     import.meta.url,
   ),
   declareLocalTypeScriptChildEntrypoint(
-    "candidate_store_lock_worker",
+    "kernel_lock_worker",
     "worker",
     "./kernel-lock-worker.ts",
     import.meta.url,

@@ -8,19 +8,12 @@
 
 import { types as utilTypes } from "node:util";
 import path from "node:path";
-import {
-  UsageError,
-  readBoundedTaskRequestFromStdin,
-} from "./request-input.ts";
+import { UsageError } from "./request-input.ts";
 import {
   resolveVerifiedRepositoryRootFromWorkingDirectory,
   verifyRepositoryRoot,
 } from "../../../version-control/src/index.ts";
-import {
-  parseCandidateArguments,
-  parseDoctorArguments,
-  parseTaskArguments,
-} from "./options.ts";
+import { parseDoctorArguments } from "./options.ts";
 import { printCommandReport } from "./command-report.ts";
 import { renderDockerRecoveryDoctorReport } from "../diagnostics/docker-recovery-command-report.ts";
 import {
@@ -28,20 +21,7 @@ import {
   runDoctor,
 } from "../diagnostics/doctor.ts";
 import { isSupportedCoordinatorNodeRuntime } from "../host-execution/node-runtime-version.ts";
-import {
-  bindTaskCliCancellationSignals,
-  projectTaskCliCancellationFailure,
-} from "./task-cancellation.ts";
-import {
-  discardRuntimeOwnedCandidateBundle,
-  readRuntimeOwnedCandidateBundle,
-  recoverRuntimeOwnedCandidateStore,
-  runRuntimeOwnedCandidateStoreStartupGc,
-} from "../candidate/bundle-store.ts";
-import {
-  cancelRuntimeOwnedCoordinatorTask,
-  startRuntimeOwnedCoordinatorTask,
-} from "../task/execution.ts";
+import { bindTaskCliCancellationSignals } from "./task-cancellation.ts";
 import { repairRuntimeOwnedDockerRuntime } from "../diagnostics/runtime-repair.ts";
 import { recoverDockerIsolationProbe } from "../diagnostics/isolation-probe.ts";
 import {
@@ -169,7 +149,7 @@ function printHelp() {
   process.stdout.write(`Coordinator Runtime 1.0\n\n`);
   process.stdout.write(`Usage:\n`);
   process.stdout.write(
-    `  coordinator task --request-stdin [--json]  # verifies prerequisites per operation\n`,
+    `  node template/tools/crdd-coordinator.ts task --request-stdin --json  # Orchestratorが明示Workspaceを解決\n`,
   );
   process.stdout.write(`  coordinator capabilities --json\n`);
   process.stdout.write(`  coordinator doctor [--json] [--isolation]\n`);
@@ -190,15 +170,6 @@ function printHelp() {
   );
   process.stdout.write(
     `    明示修復だけを現在Repositoryへ結合します。新しい修復IDは --recover-isolation で再確認できます。保持物は自動削除しません。\n`,
-  );
-  process.stdout.write(
-    `  coordinator candidate export --candidate-id <opaque-id> --json\n`,
-  );
-  process.stdout.write(
-    `  coordinator candidate discard --candidate-id <candidate-or-recovery-id> [--json]\n`,
-  );
-  process.stdout.write(
-    `  coordinator candidate recover-store --recovery-id <store-recovery-id> --confirm [--json]\n`,
   );
   process.stdout.write(`\nNormal Task use starts with task.\n`);
 }
@@ -237,232 +208,10 @@ function runCapabilitiesCommand(args: readonly string[]) {
           invocation: "task --request-stdin --json",
         }),
         Object.freeze({ command: "doctor", availability: "available" }),
-        Object.freeze({ command: "candidate", availability: "available" }),
       ]),
     })}\n`,
   );
   process.exitCode = 0;
-}
-
-/**
- * Task Commandを実行する。
- *
- * @responsibility Task Commandの実行条件、Effect範囲、終了結果の境界を所有する。
- * @trace ARCH-000004
- * @input args: readonly string[]
- * @returns runTaskCommandの計算結果を返す。
- * @precondition 「args: readonly string[]」がrunTaskCommandの入力契約を満たす。
- * @postcondition runTaskCommandの責務を完了した結果だけを返す。
- * @effect runTaskCommandは外部ProcessまたはRuntime境界の操作を呼び出す。
- * @failure runTaskCommandは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant runTaskCommandは宣言した境界以外へEffectを拡張しない。
- * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
- * @security N/A: runTaskCommandはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency runTaskCommandは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
- */
-async function runTaskCommand(args: readonly string[]) {
-  const parsed = parseTaskArguments(args);
-  const options = plainRecord(parsed.value);
-  if (
-    parsed.status !== "ok" ||
-    !options ||
-    options.requestFromStdin !== true ||
-    typeof options.json !== "boolean"
-  ) {
-    const report = Object.freeze({
-      command: "task",
-      status: "blocked",
-      reason: parsed.reason ?? "task_arguments_invalid",
-    });
-    printCommandReport(report, parsed.jsonRequested);
-    process.exitCode = parsed.usageError ? 64 : 2;
-    return;
-  }
-  let taskRequest: unknown;
-  try {
-    taskRequest = readBoundedTaskRequestFromStdin();
-  } catch (rawError) {
-    const reason =
-      rawError instanceof UsageError
-        ? rawError.message
-        : "coordinator_task_start_failed_closed";
-    printCommandReport(
-      Object.freeze({ command: "task", status: "blocked", reason }),
-      options.json,
-    );
-    process.exitCode = rawError instanceof UsageError ? 64 : 2;
-    return;
-  }
-  let started: ReturnType<typeof startRuntimeOwnedCoordinatorTask>;
-  try {
-    started = startRuntimeOwnedCoordinatorTask(
-      taskRequest,
-      resolveVerifiedRepositoryRootFromWorkingDirectory(process.cwd()),
-    );
-  } catch (rawError) {
-    const reason =
-      rawError instanceof UsageError
-        ? rawError.message
-        : "coordinator_task_start_failed_closed";
-    printCommandReport(
-      Object.freeze({ command: "task", status: "blocked", reason }),
-      options.json,
-    );
-    process.exitCode = rawError instanceof UsageError ? 64 : 2;
-    return;
-  }
-  let result: Awaited<typeof started.completion>;
-  let releaseStatus:
-    | Readonly<{
-        status: "released" | "failed";
-        failedSignals: readonly ("SIGINT" | "SIGTERM")[];
-      }>
-    | undefined;
-  const cancellationBinding = bindTaskCliCancellationSignals(() =>
-    cancelRuntimeOwnedCoordinatorTask(started.controlCapability),
-  );
-  try {
-    result = await started.completion;
-  } finally {
-    releaseStatus = cancellationBinding.unbind();
-  }
-  if (
-    cancellationBinding.status !== "bound" ||
-    releaseStatus?.status !== "released"
-  ) {
-    const failureReport = projectTaskCliCancellationFailure(
-      result,
-      cancellationBinding.status !== "bound"
-        ? "task_cli_cancellation_signal_binding_failed"
-        : "task_cli_cancellation_signal_release_failed",
-    );
-    printCommandReport(failureReport, options.json);
-    process.exitCode = 2;
-    return;
-  }
-  if (options.json) {
-    process.stdout.write(`${JSON.stringify({ command: "task", ...result })}\n`);
-  } else {
-    printCommandReport(
-      Object.freeze({
-        command: "task",
-        ...result,
-      }),
-      false,
-    );
-  }
-  process.exitCode = result.status === "completed" ? 0 : 2;
-}
-
-/**
- * 候補 Commandを実行する。
- *
- * @responsibility 候補 Commandの実行条件、Effect範囲、終了結果の境界を所有する。
- * @trace ARCH-000004
- * @input args: readonly string[]
- * @returns runCandidateCommandの計算結果を返す。
- * @precondition 「args: readonly string[]」がrunCandidateCommandの入力契約を満たす。
- * @postcondition runCandidateCommandの責務を完了した結果だけを返す。
- * @effect runCandidateCommandは外部ProcessまたはRuntime境界の操作を呼び出す。
- * @failure N/A: runCandidateCommandは独自の失敗分岐を所有しない。
- * @invariant runCandidateCommandは宣言した境界以外へEffectを拡張しない。
- * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
- * @security N/A: runCandidateCommandはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: runCandidateCommandは共有非同期状態を持たない同期処理である。
- */
-function runCandidateCommand(args: readonly string[]) {
-  const parsed = parseCandidateArguments(args);
-  const options = plainRecord(parsed.value);
-  if (
-    parsed.status !== "ok" ||
-    !options ||
-    (options.action !== "export" &&
-      options.action !== "discard" &&
-      options.action !== "recover-store") ||
-    (options.action === "recover-store"
-      ? typeof options.recoveryId !== "string"
-      : typeof options.candidateId !== "string") ||
-    typeof options.json !== "boolean"
-  ) {
-    printCommandReport(
-      Object.freeze({
-        command: "candidate",
-        status: "blocked",
-        reason: parsed.reason ?? "candidate_arguments_invalid",
-      }),
-      parsed.jsonRequested,
-    );
-    process.exitCode = parsed.usageError ? 64 : 2;
-    return;
-  }
-  const startupGc =
-    options.action === "export"
-      ? runRuntimeOwnedCandidateStoreStartupGc()
-      : Object.freeze({ status: "completed" as const });
-  if (startupGc.status !== "completed") {
-    printCommandReport(
-      Object.freeze({
-        command: `candidate ${options.action}`,
-        ...startupGc,
-      }),
-      options.json,
-    );
-    process.exitCode = 2;
-    return;
-  }
-  const result =
-    options.action === "export"
-      ? readRuntimeOwnedCandidateBundle(options.candidateId)
-      : options.action === "discard"
-        ? discardRuntimeOwnedCandidateBundle(options.candidateId)
-        : recoverRuntimeOwnedCandidateStore(options.recoveryId);
-  if (!result) {
-    printCommandReport(
-      Object.freeze({
-        command: `candidate ${options.action}`,
-        status: "blocked",
-        reason: "candidate_not_available_or_integrity_unconfirmed",
-      }),
-      options.json,
-    );
-    process.exitCode = 2;
-    return;
-  }
-  const resultRecord = plainRecord(result);
-  const status =
-    typeof resultRecord?.status === "string" ? resultRecord.status : "blocked";
-  if (options.json) {
-    process.stdout.write(
-      `${JSON.stringify({
-        command: `candidate ${options.action}`,
-        ...result,
-        candidateContentUntrusted: options.action === "export",
-        credentialAbsenceVerified: false,
-      })}\n`,
-    );
-  } else {
-    printCommandReport(
-      Object.freeze({
-        ...result,
-        command: `candidate ${options.action}`,
-        status,
-        reason:
-          status === "exported"
-            ? "candidate_exported"
-            : status === "discarded"
-              ? "candidate_discarded"
-              : status === "recovered"
-                ? "candidate_store_recovered"
-                : typeof resultRecord?.reason === "string"
-                  ? resultRecord.reason
-                  : "candidate_not_available_or_integrity_unconfirmed",
-      }),
-      false,
-    );
-  }
-  process.exitCode = ["exported", "discarded", "recovered"].includes(status)
-    ? 0
-    : 2;
 }
 
 /**
@@ -641,11 +390,17 @@ if (!isSupportedCoordinatorNodeRuntime(process.versions.node)) {
   printHelp();
   process.exitCode = 0;
 } else if (command === "task") {
-  await runTaskCommand(args);
+  printCommandReport(
+    Object.freeze({
+      command: "task",
+      status: "blocked",
+      reason: "task_use_orchestrator_entry",
+    }),
+    args.includes("--json"),
+  );
+  process.exitCode = 64;
 } else if (command === "capabilities") {
   runCapabilitiesCommand(args);
-} else if (command === "candidate") {
-  runCandidateCommand(args);
 } else if (command === "doctor") {
   try {
     const parsed = parseDoctorArguments(

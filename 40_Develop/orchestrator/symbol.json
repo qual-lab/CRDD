@@ -7,9 +7,15 @@
       "symbolId": "orchestrator.test.task-requests",
       "kind": "test-suite",
       "path": "tests/unit/task/requests.contract.test.ts",
-      "qaIds": ["QA-000005"],
-      "localTestIds": ["CPR-UT-001"],
-      "verifies": ["orchestrator.task.requests"]
+      "qaIds": [
+        "QA-000005"
+      ],
+      "localTestIds": [
+        "CPR-UT-001"
+      ],
+      "verifies": [
+        "orchestrator.task.requests"
+      ]
     },
     {
       "symbolId": "orchestrator.workspace.commands",
@@ -179,14 +185,6 @@
       "path": "src/index.ts",
       "archIds": [
         "ARCH-000004"
-      ]
-    },
-    {
-      "symbolId": "coordinator.source.src.security.orchestrator.candidate.integration.adapter",
-      "kind": "file",
-      "path": "src/candidate/integration-adapter.ts",
-      "archIds": [
-        "ARCH-000015"
       ]
     },
     {
@@ -397,30 +395,6 @@
       "implements": []
     },
     {
-      "symbolId": "orchestrator.integration-application",
-      "kind": "file",
-      "path": "src/candidate/integrate.ts",
-      "archIds": [
-        "ARCH-000004"
-      ],
-      "implements": [
-        "orchestrator.objective-task-lifecycle",
-        "orchestrator.recovery-obligation"
-      ]
-    },
-    {
-      "symbolId": "orchestrator.candidate-adoption-application",
-      "kind": "file",
-      "path": "src/candidate/adopt.ts",
-      "archIds": [
-        "ARCH-000004",
-        "ARCH-000015"
-      ],
-      "implements": [
-        "orchestrator.candidate-adoption"
-      ]
-    },
-    {
       "symbolId": "orchestrator.replanning-application",
       "kind": "file",
       "path": "src/objective/replan.ts",
@@ -532,36 +506,6 @@
       ]
     },
     {
-      "symbolId": "orchestrator.test.unit.integration-application",
-      "kind": "test-suite",
-      "path": "tests/unit/candidate/integrate.contract.test.ts",
-      "qaIds": [
-        "QA-000003"
-      ],
-      "localTestIds": [
-        "PRL-UT-006"
-      ],
-      "verifies": [
-        "orchestrator.integration-application"
-      ]
-    },
-    {
-      "symbolId": "orchestrator.test.unit.candidate-adoption-application",
-      "kind": "test-suite",
-      "path": "tests/unit/candidate/adopt.contract.test.ts",
-      "qaIds": [
-        "QA-000003",
-        "QA-000005"
-      ],
-      "localTestIds": [
-        "CPR-UT-009",
-        "PRL-UT-006"
-      ],
-      "verifies": [
-        "orchestrator.candidate-adoption-application"
-      ]
-    },
-    {
       "symbolId": "orchestrator.test.unit.execution-observation-port",
       "kind": "test-suite",
       "path": "tests/unit/task/intelligence-adapter.contract.test.ts",
@@ -607,7 +551,6 @@
         "orchestrator.source.src.ports.decision.port",
         "orchestrator.source.src.ports.execution.port",
         "orchestrator.source.src.public.contract.decision.request",
-        "orchestrator.source.src.public.contract.integration.result",
         "orchestrator.source.src.public.contract.objective.request",
         "orchestrator.source.src.public.contract.runtime.result"
       ]
@@ -710,14 +653,6 @@
       "symbolId": "orchestrator.source.src.public.contract.decision.request",
       "kind": "file",
       "path": "src/decision/request.ts",
-      "archIds": [
-        "ARCH-000004"
-      ]
-    },
-    {
-      "symbolId": "orchestrator.source.src.public.contract.integration.result",
-      "kind": "file",
-      "path": "src/candidate/integration-result.ts",
       "archIds": [
         "ARCH-000004"
       ]

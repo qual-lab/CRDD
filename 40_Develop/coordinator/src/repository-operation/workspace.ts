@@ -10,14 +10,8 @@ import path from "node:path";
 import type { CoordinatorWorkspaceResult } from "../task/types.ts";
 import type { BorrowedWorkspaceTarget } from "./borrowed-workspace.ts";
 
-import {
-  materializeFixedSnapshotCandidate,
-  verifyCandidateOutputDirectory,
-} from "../../../version-control/src/index.ts";
-import { gitFixedSnapshotAdapter } from "../../../version-control/src/index.ts";
 import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
 
-import { persistRuntimeOwnedCandidateBundle } from "../candidate/bundle-store.ts";
 import { verifyOwnedOperationManagementMountBinding } from "../host-execution/operation-workspace-lifecycle.ts";
 import {
   borrowRuntimeOwnedRepositorySource,
@@ -31,13 +25,12 @@ import {
 
 export const REPOSITORY_WORKSPACE_RUNTIME_CONTRACT =
   "crdd-coordinator/repository-workspace-runtime";
-export const REPOSITORY_WORKSPACE_RUNTIME_CONTRACT_REVISION = 6;
+export const REPOSITORY_WORKSPACE_RUNTIME_CONTRACT_REVISION = 7;
 
 const MAXIMUM_FILE_BYTES = 64 * 1024 * 1024;
 const MAXIMUM_WORKSPACE_BYTES = 256 * 1024 * 1024;
 const MAXIMUM_WORKSPACE_FILES = 20_000;
 const MAXIMUM_CHANGED_PATHS = 1_000;
-const MAXIMUM_CANDIDATE_CONTENT_BYTES = 16 * 1024 * 1024;
 const MAXIMUM_ALLOWED_PATHS = 64;
 const MAXIMUM_ALLOWED_PATH_BYTES = 1_024;
 const MAXIMUM_REVIEW_PROJECTION_BYTES = 1024 * 1024;
@@ -73,7 +66,7 @@ export function projectBorrowedWorkspaceResult(
     workspaceId: target.workspaceId,
     changedPaths,
     canonicalRepositoryChanged:
-      target.workspaceId === null
+      target.executionTree === target.ownerRepositoryRoot
         ? changedPaths === null
           ? null
           : changedPaths.length > 0
@@ -730,83 +723,7 @@ export function materializeRuntimeOwnedRepositoryWorkspace(
         pathReported: false,
       });
     }
-    const output = verifyCandidateOutputDirectory(
-      binding.mounts.workspace,
-      mountCapability,
-      binding.mounts.workspace,
-    );
-    if (output.status !== "completed")
-      return Object.freeze({
-        status: "blocked" as const,
-        reason: "repository_workspace_candidate_output_invalid" as const,
-        effectIssued: false,
-        effectStateUnknown: false,
-        cleanupConfirmed: true,
-        recoveryReference: null,
-        pathReported: false,
-      });
-    const materialized = materializeFixedSnapshotCandidate(
-      verified.capability,
-      source.revision,
-      mountCapability,
-      output.capability,
-      readPaths,
-      containsRecognizedSecretMaterial,
-      gitFixedSnapshotAdapter,
-    );
-    if (!materialized) return null;
-    if (materialized.status === "blocked") {
-      return Object.freeze({
-        status: "blocked" as const,
-        reason:
-          materialized.reason === "fixed_snapshot_content_policy_rejected"
-            ? ("repository_read_projection_recognized_secret_rejected" as const)
-            : materialized.reason,
-        effectIssued: materialized.effectIssued,
-        effectStateUnknown: materialized.effectStateUnknown,
-        cleanupConfirmed: materialized.cleanupConfirmed,
-        recoveryReference:
-          materialized.effectStateUnknown || !materialized.cleanupConfirmed
-            ? `repository-workspace.${binding.operationId}`
-            : null,
-        pathReported: false,
-      });
-    }
-    const verifiedRepository = verifyRuntimeOwnedRepositoryBindingCapability(
-      repositoryBindingCapability,
-      managementCapability,
-    );
-    if (!verifiedRepository) return null;
-    const baseInventory = inventory(binding.mounts.workspace);
-    const baseManifestHash = manifestHash(baseInventory);
-    const workspaceCapability = Object.freeze({});
-    const workspaceRecord = Object.freeze({
-      managementCapability,
-      mountCapability,
-      repositoryBindingCapability,
-      operationId: binding.operationId,
-      baseCommit: materialized.baseRevisionIdentity,
-      baseTree: materialized.baseSnapshotIdentity,
-      baseManifestHash,
-      baseEntries: entryMap(baseInventory),
-    });
-    workspaces.set(workspaceCapability, workspaceRecord);
-    return Object.freeze({
-      status: "materialized" as const,
-      operationId: binding.operationId,
-      baseCommit: workspaceRecord.baseCommit,
-      baseTree: workspaceRecord.baseTree,
-      baseManifestHash,
-      fileCount: baseInventory.length,
-      readProjectionHash: readPaths
-        ? createHash("sha256")
-            .update("crdd-read-projection-v1\0")
-            .update(readPaths.join("\0"))
-            .digest("hex")
-        : null,
-      workspaceCapability,
-      pathReported: false,
-    });
+    return null;
   } catch {
     return null;
   }
@@ -1222,125 +1139,6 @@ export function verifyRuntimeOwnedCandidateRevision(
 }
 
 /**
- * Runtime 所有 候補 Revisionを耐久保存する。
- *
- * @responsibility Runtime 所有 候補 Revisionの保存Identity、確定条件、部分書込みの失敗境界を所有する。
- * @trace ARCH-000013
- * @input candidateCapability: unknown、repositoryBindingCapability: unknown、managementCapability: unknown、mountCapability: unknown、persistencePolicy: unknown
- * @returns persistRuntimeOwnedCandidateRevisionの計算結果を返す。
- * @precondition 「candidateCapability: unknown、repositoryBindingCapability: unknown、managementCapability: unknown、mountCapability: unknown、persistencePolicy: unknown」がpersistRuntimeOwnedCandidateRevisionの入力契約を満たす。
- * @postcondition persistRuntimeOwnedCandidateRevisionの責務を完了した結果だけを返す。
- * @effect N/A: persistRuntimeOwnedCandidateRevisionは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure persistRuntimeOwnedCandidateRevisionは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant persistRuntimeOwnedCandidateRevisionは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: persistRuntimeOwnedCandidateRevisionはProcess内の同一Subsystemで完結する。
- * @security persistRuntimeOwnedCandidateRevisionはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: persistRuntimeOwnedCandidateRevisionは共有非同期状態を持たない同期処理である。
- */
-export function persistRuntimeOwnedCandidateRevision(
-  candidateCapability: unknown,
-  repositoryBindingCapability: unknown,
-  managementCapability: unknown,
-  mountCapability: unknown,
-  persistencePolicy: unknown,
-) {
-  try {
-    if (!candidateCapability || typeof candidateCapability !== "object")
-      return null;
-    const record = candidates.get(candidateCapability);
-    if (
-      !record ||
-      record.workspaceRecord.sourceTree !== undefined ||
-      record.workspaceRecord.repositoryBindingCapability !==
-        repositoryBindingCapability ||
-      record.workspaceRecord.managementCapability !== managementCapability ||
-      record.workspaceRecord.mountCapability !== mountCapability ||
-      !verifyRuntimeOwnedRepositoryBindingCapability(
-        repositoryBindingCapability,
-        managementCapability,
-      )
-    ) {
-      return null;
-    }
-    const binding = verifyOwnedOperationManagementMountBinding(
-      managementCapability,
-      mountCapability,
-    );
-    const currentInventory = inventory(binding.mounts.workspace);
-    const currentEntries = entryMap(currentInventory);
-    if (manifestHash(currentInventory) !== record.contentManifestHash)
-      return null;
-    let totalBytes = 0;
-    const entries = [];
-    for (const relativePath of record.changedPaths) {
-      const inventoryEntry = currentEntries.get(relativePath);
-      if (!inventoryEntry) {
-        entries.push(
-          Object.freeze({
-            relativePath,
-            operation: "delete" as const,
-            byteLength: 0,
-            sha256: null,
-            contentBase64: null,
-          }),
-        );
-        continue;
-      }
-      const remainingBytes = MAXIMUM_CANDIDATE_CONTENT_BYTES - totalBytes;
-      if (remainingBytes < 0) return null;
-      const observed = stableFileContent(
-        path.join(binding.mounts.workspace, ...relativePath.split("/")),
-        Math.min(MAXIMUM_FILE_BYTES, remainingBytes),
-      );
-      if (
-        observed.byteLength !== inventoryEntry.byteLength ||
-        observed.sha256 !== inventoryEntry.sha256
-      ) {
-        return null;
-      }
-      totalBytes += observed.byteLength;
-      entries.push(
-        Object.freeze({
-          relativePath,
-          operation: "upsert" as const,
-          byteLength: observed.byteLength,
-          sha256: observed.sha256,
-          contentBase64: observed.content.toString("base64"),
-        }),
-      );
-    }
-    const persisted = persistRuntimeOwnedCandidateBundle(
-      Object.freeze({
-        schema: "crdd-coordinator-candidate-bundle/v1",
-        baseCommit: record.workspaceRecord.baseCommit,
-        baseTree: record.workspaceRecord.baseTree,
-        baseManifestHash: record.workspaceRecord.baseManifestHash,
-        patchHash: record.patchHash,
-        contentManifestHash: record.contentManifestHash,
-        allowedPathsHash: record.allowedPathsHash,
-        changedPaths: record.changedPaths,
-        entries: Object.freeze(entries),
-      }),
-      persistencePolicy,
-      managementCapability,
-    );
-    if (!persisted) return null;
-    if (persisted.status !== "staged") return persisted;
-    return Object.freeze({
-      status: "staged" as const,
-      candidateRecoveryId: persisted.candidateRecoveryId,
-      bundleHash: persisted.bundleHash,
-      byteLength: persisted.byteLength,
-      expiresAtMs: persisted.expiresAtMs,
-      hostPathReported: false,
-      canonicalRepositoryChanged: false,
-    });
-  } catch {
-    return null;
-  }
-}
-
-/**
  * Repository Workspace Runtime 契約の公開契約を記述する。
  *
  * @responsibility Repository Workspace Runtime 契約の公開field、非公開境界、互換性を所有する。
@@ -1360,7 +1158,7 @@ export function describeRepositoryWorkspaceRuntimeContract() {
   return Object.freeze({
     contract: REPOSITORY_WORKSPACE_RUNTIME_CONTRACT,
     contractRevision: REPOSITORY_WORKSPACE_RUNTIME_CONTRACT_REVISION,
-    source: "exact_head_commit_tree_without_external_git_cli",
+    source: "caller_resolved_execution_tree_including_existing_dirty_changes",
     providerReadProjection:
       "explicit_file_or_directory_prefix_plus_write_scope",
     reviewerReadProjection:
@@ -1368,11 +1166,11 @@ export function describeRepositoryWorkspaceRuntimeContract() {
     reviewerContentProjection:
       "candidate_identity_bound_utf8_content_for_explicit_read_paths_with_secret_and_size_guards",
     recognizedSecretMaterial:
-      "rejected_before_provider_visible_workspace_materialization",
+      "rejected_before_reviewer_content_delivery_development_env_may_be_visible_to_executor",
     completeSecretAbsenceVerified: false,
     providerGitMetadataVisible: false,
-    workspaceWrite: "isolated_runtime_owned_only",
-    allowedPathGuard: "exact_file_or_directory_prefix_fail_closed",
+    workspaceWrite: "caller_resolved_execution_tree",
+    allowedPathGuard: "post_execution_scope_observation_not_write_acl",
     candidateRevision: Object.freeze([
       "base_commit",
       "base_tree",
@@ -1381,8 +1179,8 @@ export function describeRepositoryWorkspaceRuntimeContract() {
       "allowed_paths_hash",
     ]),
     approvedCandidateTransfer:
-      "policy_bounded_staged_bundle_published_only_after_operation_cleanup",
-    canonicalRepositoryWriteAllowed: false,
+      "caller_owned_execution_tree_without_bundle_store",
+    canonicalRepositoryWriteAllowed: true,
     pathReported: false,
   });
 }

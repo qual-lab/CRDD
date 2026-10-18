@@ -2980,7 +2980,7 @@ export function observeRuntimeOwnedCoordinatorCompletedDelivery(
  * 保存済み単発依頼のexact参照を終了履歴へ再結合する。
  * @responsibility 現在操作除去と新要約の利用元・上位相関を同じ既存Readerで照合する。
  * @trace ARCH-000008
- * @input 現在Repository、元回復ID、元上位操作ID。
+ * @input 現在Repository、元回復ID、元上位操作ID、二種に限定した利用側。
  * @returns 終了確認または未確定。本文・Path・Authorityは返さない。
  * @precondition 上位Ownerが元依頼の主体とRepositoryを認可済み。
  * @postcondition 過去のTask成功や回答再送を主張しない。
@@ -2988,15 +2988,17 @@ export function observeRuntimeOwnedCoordinatorCompletedDelivery(
  * @failure 旧要約、欠測、別相関、pending、操作残存は拒否する。
  * @invariant 履歴不存在から終了を推定しない。
  * @boundary 単発依頼とCoordinatorの終了履歴。
- * @security 任意Pathやconsumerを受け取らない。
+ * @security 任意Pathや未知のconsumerは受け取らず、保存側と利用側を一致させる。
  * @concurrency 同じKernel排他で元版・履歴実体を再確認する。
  */
-export function observeRuntimeOwnedWorkbenchTaskCompletion(
+export function observeRuntimeOwnedTransientTaskCompletion(
   rootCapability: unknown,
   recoveryId: unknown,
   correlationId: unknown,
+  consumer: "workbench" | "coordinator_cli" = "workbench",
 ) {
   if (
+    (consumer !== "workbench" && consumer !== "coordinator_cli") ||
     typeof recoveryId !== "string" ||
     !parseDockerTaskRecoveryId(recoveryId) ||
     typeof correlationId !== "string" ||
@@ -3019,7 +3021,7 @@ export function observeRuntimeOwnedWorkbenchTaskCompletion(
     "docker_task",
     false,
     null,
-    { recoveryId, correlationId },
+    { recoveryId, correlationId, consumer },
   );
   return Object.freeze({
     completionConfirmed:
@@ -3148,9 +3150,10 @@ function readCoordinatorStateSnapshot(
   currentCompletionKind: "docker_task" | "runtime_repair" = "docker_task",
   allowUninitialized = false,
   resourcePublicationRecoveryId: string | null = null,
-  completedWorkbenchTask: Readonly<{
+  completedTransientTask: Readonly<{
     recoveryId: string;
     correlationId: string;
+    consumer: "workbench" | "coordinator_cli";
   }> | null = null,
 ) {
   /**
@@ -3317,8 +3320,8 @@ function readCoordinatorStateSnapshot(
       typeof readStableBoundedFileSnapshot
     > | null = null;
     const completedHistoryFile = path.join(initial.directory, "history.jsonl");
-    if (completedWorkbenchTask) {
-      const target = completedWorkbenchTask.recoveryId;
+    if (completedTransientTask) {
+      const target = completedTransientTask.recoveryId;
       const parsed = parseDockerTaskRecoveryId(target);
       if (
         !parsed ||
@@ -3353,8 +3356,8 @@ function readCoordinatorStateSnapshot(
       if (
         !row ||
         summary.schema !== "crdd-coordinator/operation-summary/v4" ||
-        summary.consumer !== "workbench" ||
-        summary.recoveryCorrelationId !== completedWorkbenchTask.correlationId
+        summary.consumer !== completedTransientTask.consumer ||
+        summary.recoveryCorrelationId !== completedTransientTask.correlationId
       )
         throw new Error("completion_history_unconfirmed");
       deliveryAbsent = true;

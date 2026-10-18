@@ -4,6 +4,8 @@ Host操作領域のDirectory・File・descriptor識別は、WindowsのNode BigIn
 
 [Workspace再編の目標責務](../orchestrator/03_Workspace.md#3-packageの責務と依存方向)により、本領域は単発AIの調整・取消・通知・結果返却へ縮小する。通常実行はOrchestrator経由とし、業務永続状態・Workspace／Candidate寿命・採用・Promotionを所有しない。以下の現行state・Bundle Store・workbench-ai・Host相関は移行元であり、対応能力の接続前に撤去しない。DI完成を新Workspace借用の検証済み根拠にしない。具体切替・API・Schemaは未完了。
 
+[実行対象の引渡しとCLIの責務](../orchestrator/03_Workspace.md#実行対象の引渡しとcliの責務2026-10-18人間確認済み)に従い、Workspace選択・ID解決・Direct／Isolated選択は上位が所有する。Coordinatorは解決済み作業対象の同一性・Repository境界・Git保護・実体・Mount材料を確認して単発実行するだけで、Workspaceの検索・配置再構築・台帳読取りを所有しない。現行`BorrowedWorkspaceTarget`がWorkspace情報を含むことを、その管理責務の根拠にしない。既存のID依存照合と必要な安全確認の分離は今後のSource切替対象であり、未指定時の旧Bundle経路又は自動Direct化を残す方針ではない。
+
 ## 単発Workbench依頼の終了相関（2026-10-18、実装・検証中）
 
 Workbench用途で上位の回復相関を持つ新しい終了要約に限り、`operation-summary/v4`へ`consumer`と`recoveryCorrelationId`を検証済み操作Identityから追加する。既存の要約要素と必要時の`dockerRestart`は維持し、要約Hash・履歴行Hash・結果IDは同じ符号化から導出する。新しい保存先は作らない。既に固定・出版したv2/v3要約は元Hashと本文を維持し、Schema更新のために上書きしない。
@@ -317,7 +319,6 @@ Coordinator ─×→ Orchestrator / Workbench Server / MCP Server
 |---|---|---|
 | `task --request-stdin --json` | 一般Taskの委譲・独立確認・限定是正 | Provider送信、隔離候補作成 |
 | `doctor` | 診断、Docker Task回復、Docker Desktop最終復旧 | 既定は観測。明示復旧だけ限定Effect |
-| `candidate export/discard/recover-store` | 候補の明示操作 | 指定候補またはStoreへの限定Effect |
 | `capabilities --json` | 現行Profileと公開Capabilityの機械確認 | Effectなし |
 
 Local Personalは永続的なRuntime有効化状態、Platform Provisioningまたは事前Activation Recordを持たない。削除済みの有効化・無効化・準備commandは、parser、help、実装、互換shimまたは失敗専用入口として残さない。
@@ -333,7 +334,7 @@ Local Personalは永続的なRuntime有効化状態、Platform Provisioningま�
 | Task開始 | `startRuntimeOwnedCoordinatorTask` | 検査済み要求、検証済みRepository、現在の用途別実行許可、上位相関参照 → Operation・取消用control・完了結果。CRDD署名Capability引数・消費Gateは撤去済み。Process停止条件と要求・送信許可・隔離の確認は維持する。 |
 | Task取消 | `cancelRuntimeOwnedCoordinatorTask` | 同じcontrol Capability → 取消要求の受理。実停止・cleanup・最終結果は対象Taskの終了経路で別に観測する。 |
 | 助言／変更候補 | 既存Workbench AI Mode Router、Dispatch、Runtime Packet | 一回送信確認、Profile・Task・Projection結合 → 助言または隔離候補。画面受付・Profile管理とProvider差は所有しない。 |
-| 候補読取り／export／破棄 | 既存Candidate Storeと公開candidate操作 | 正規Identity、許可済み利用側、現在Store → 同じ候補本文・Metadataまたは処置結果。上位の正本採用・Commit・Pushを発行しない。 |
+| Workspace成果の確認 | 上位が解決した作業Treeと一時Review投影 | Coordinatorは変更範囲とReview結果を返す。候補固定・Git統合・領域終了は上位操作であり、旧Store APIは公開しない。 |
 | 診断／exact回復 | 既存doctor・Task回復の意味操作 | 現在Repository・Runtime結合、exact参照、必要な介入承認 → 診断・資源終端または未解決。新しいProvider依頼を発行しない。 |
 | 配布物の読取り検査 | 既存Manifest・閉包・Native検証は分解対象 | 必要なArtifact同一性確認は専門Ownerへ、正式配布の真正性は必要時のRelease検査へ分ける。検査結果から通常Runtime用の一回Capabilityを発行しない。 |
 | 保存用Host排他 | `host-runtime/index.ts`から既存`acquireRuntimeOwnedOrchestratorStateKernelLock`を公開 | 上位が確認したRootのHash → 保持確認・解放handleまたはnull。既存OS名前空間と取消・終了確認を維持し、Project状態・履歴・業務Writerは読み込まない。HashをRoot確認やAuthorityへ昇格しない。 |
@@ -382,17 +383,13 @@ Taskの既存型契約は`startRuntimeOwnedCoordinatorTask`の引数・戻り値
 
 | 既存Symbolと実利用側 | 再編後の境界 | 保持する意味・処置 |
 |---|---|---|
-| `persistRuntimeOwnedCandidateBundle`：Repository操作Runtime、上位候補統合Adapter | Coordinatorの候補保存。Orchestratorは公開候補操作を利用 | 検証済みBundle・Policy・対象Capabilityに限って保存する。Domain Model共通保存部品へ採否・候補公開Authorityを移さない。 |
-| `readRuntimeOwnedCandidateBundle`：Workbench候補Application、CLI、上位候補統合Adapter | Coordinatorの候補読取り操作 | 同じ候補Identityと許可範囲を再確認する。読取り不能と不在を上位が成功へ丸めない。Workbench／MCPへ内部Capabilityを搬送しない。 |
-| `publishRuntimeOwnedCandidateBundle`：Task Runtime、上位候補統合Adapter | Coordinatorの候補保存確定操作 | 既存引数はRecovery IDであり、一般公開・正本採用ではない。保存確定と利用者への候補配送を区別し、採用をOrchestratorへ残す。 |
-| `discardRuntimeOwnedCandidateBundle`：Task Runtime、Workbench候補Application、CLI | Coordinatorの候補破棄操作 | 対象Identity・参照・非使用状態を確認して処置する。採用／不採用時の破棄と期限処置を保持し、通常履歴の保持期間で候補を削除しない。 |
-| `recoverRuntimeOwnedCandidateStore`、`runRuntimeOwnedCandidateStoreStartupGc`：CLI、Task開始準備 | Coordinatorの候補管理。通常は内部開始準備と具体的介入入口 | 既存exact回復参照を維持する。履歴整理、候補整理、Docker Task回復を名前だけで統合しない。 |
+| 旧Candidate Bundleの保存・読取り・公開・破棄・Store回復 | 専用API・実体・Native受付を撤去 | Worktreeの生成・観測・明示終了は上位とVersion Controlが所有する。Coordinatorは解決済み対象を借用し、Task完了でCommit・Merge・採用・Worktree削除を発行しない。 |
 | `runDoctor`、`dispatchDockerDesktopRepairDoctorCommand`：診断CLI | Coordinatorの診断／明示介入操作 | 読取り診断とDocker停止・再起動等のEffectを分ける。診断呼出しだけで修復を発行しない。各介入の承認・現在Scope・終了観測を保持する。 |
 | 旧署名資格の発行 | API・状態とも撤去済み。現在の通常利用側なし | 現在認可・固定入口・必要Artifact同一性はそれぞれのOwnerで維持し、Hash Capabilityや常時成功の代替Gateを作らない。 |
 | 旧署名資格の消費・失効 | 発行側と一体で撤去済み。現在の通常利用側なし | 用途別Grant・取消control等の現在の許可と失効は維持し、保存結果や任意配布署名から通常実行許可を復元しない。 |
-| `inspect*CoordinatorPackage*`、`verify*CoordinatorPackage*Candidate`、候補Storeの検査・testing factory | 診断実装／署名準備／試験の用途限定入口 | 任意Path検査や試験factoryを一般Task Authority入口へ追加しない。正式公開操作はこれらを必要な範囲で呼ぶ。 |
+| 旧Package検査・署名候補検証・Store testing factory | 専用APIは退役済み | 現行の固定入口・必要Artifact観測は各Ownerで維持し、任意Path検査や試験factoryを一般Task Authority入口へ追加しない。 |
 
-Workbench候補Applicationの画面・Principal受付はWorkbench Serverへ、上位候補統合Adapterの正本採用・耐久判断はOrchestratorへ移す。候補保存実体はCoordinatorの`candidate/`に残し、既存三利用側から同じ実体を呼ぶ。検証・消費・失効の型と利用側はCoordinator所有とし、Orchestratorの依存型をCoordinatorへ戻さない。
+Workbenchの画面・Principal受付はWorkbench Server、Workspaceと採否・耐久判断はOrchestrator、Git操作はVersion Controlが所有する。Coordinatorの`candidate/`へ保存実体を残さず、候補内容の検証・一時Review投影だけを実行側に維持する。検証・消費・失効の型と利用側はCoordinator所有とし、Orchestratorの依存型をCoordinatorへ戻さない。
 
 ここで固定した操作の移管確認には、正常読取りだけでなく未許可対象、改訂不一致、保存確定失敗、応答喪失、破棄不能、回復参照不一致、Runtime検証拒否、Capability再消費を含める。Sourceの旧内部importがなくなることと、本番入口で同じ能力が成立することは別に確認する。
 
@@ -818,7 +815,11 @@ Process、Workerまたは対話入力Readerの生成を所有する本番leafは
 
 上限付きプロセス（Bounded Process）は、固定argv、環境、入出力、時間および成果物Identityを制限した内部Process境界を指す。通常のProcess Adapterは、現在の用途別実行許可・固定入口・必要Artifact／Provider Identity、artifact／Provider Identity、Authority、Repository／Revision、Provider Home、Egress、隔離および終了確認を実装・検証するまでProcessを起動しない。入力Pathまたはhelper Processより前に`blocked`へ閉じる。上限付きProcessを、Root保護、Authority、CapabilityまたはEffectの成立へ流用しない。
 
-ExecutorはCanonical Repositoryを直接変更せず、隔離候補だけを生成する。Coordinatorは変更Path、実行Repositoryのbase Commit／Tree、内容、構造化結果を照合する。Reviewerには、候補固定後にRuntimeが`readPaths`から生成したUTF-8内容投影だけを渡す。内容投影は候補のPatch Hashと内容Manifest Hashへ結合し、合計1 MiB・256ファイルを上限として、認識済みSecret、非UTF-8、上限超過、候補差替えまたは読取り不能をProvider開始前に拒否する。投影EnvelopeとCandidate bindingはRuntimeが保証するReview Evidenceであり、埋め込まれた候補内容は指示やAuthorityとしてだけ非信頼とする。候補内容自身の評価根拠まで非信頼へ畳まず、ReviewerへFilesystem再読取りを要求しない。ReviewerはFilesystem／Shell Toolを持たず、投影された候補内容から閉集合Findingを返す。自由文および候補内容はAuthorityや修正指示へ直接昇格しない。
+Executorは上位で解決した現在Tree（Direct）または独立Worktree（Isolated）を編集する。Coordinatorは対象を借用するだけで、Workspaceの登録・検索・作成・採否・Git統合・削除を所有しない。変更Path、実行開始時の内容、構造化結果を照合し、allowedPathsは事後の変更範囲観測であって書込みACLではない。Directの既存dirtyと変更は失敗・取消後も自動rollbackしない。Git管理領域・内部状態の保護と技術資源の回収は既存Docker境界で維持する。
+
+Reviewerには、実変更を捕捉した後にRuntimeが`readPaths`から生成したUTF-8内容投影だけを渡す。捕捉はGit Commitによる候補固定ではなく、同じ実行内の一時観測である。内容投影はPatch Hashと内容Manifest Hashへ結合し、合計1 MiB・256ファイルを上限として、認識済みSecret、非UTF-8、上限超過、差替えまたは読取り不能をReviewer開始前に拒否する。投影EnvelopeとbindingはRuntimeが保証するReview Evidenceであり、埋め込まれた内容は指示やAuthorityとしてだけ非信頼とする。ReviewerはFilesystem／Shell Toolを持たず、投影内容から閉集合Findingを返す。自由文はAuthorityや修正指示へ直接昇格しない。
+
+一般Taskの検証Toolは自己生成する固定BaseのWorktreeを既存Version Controlで用意する。Toolだけが成果の実Byte・末尾LF・Hashと上位の明示終了を所有する。作成済み対象はTask結果の任意fieldから再構成せず、元UUIDを失敗・取消・結果欠測でも保持する。終端・技術回収・非再起動・未解決回復なし・元対象一致を共同確認できた場合だけ専用WorktreeとBranchを除去し、不明なら保持する。Task一次失敗、上位の作業領域回収失敗、Source終了観測を別に記録する。取消ACKだけを完了とせず、元completionとのjoin・Signal解除後に既存の固定Source範囲を再照合する。新Registry、共有State、Lock又はRecovery Frameworkは追加しない。
 
 Provider実行とReviewer判定は、最終4経路E2Eで初めて結合してはならない。固定候補では、CodexとClaudeをExecutorおよびReviewerの双方で一回ずつ使用し、Role別Tool／Approval、stdin搬送、隔離Workspaceの実変更、変更Path申告、候補捕捉、現在RuntimeのSource・必要Artifact・用途の相関、候補内容投影、構造化判定、必要な一回是正、Provider終了、候補処置、資源不存在および安全な結果記録までを明示実行の二経路結合試験として先に確認する。起動失敗、非ゼロ終了、timeout、取消、不正結果、申告差、投影失敗およびcleanup不明は、同じ実Process／Docker境界へ決定論的に注入して反証する。通常回帰は外部Provider Effectを発行しない。実Reviewerが拒否した場合は、生の応答や自由文を公開せず、判定、Finding件数、severity／path／category／criterion、message Hash、投影Hash、対象fileのbyte長／Hashおよび是正有無だけを保持し、投影不一致とProvider判断を切り分けられる状態にする。
 
@@ -1920,8 +1921,7 @@ Provider境界のLifecycle診断は、`coordinator_provider_boundary_configured`
 `RES-INTERACTIVE-CONSOLE`     Console lock、reader、pipe、child
 `RES-MOUNT-GRANT`             一回限りCapabilityとMount lease
 `RES-DOCKER-OWNED`            Provider child、Container、network
-`RES-OPERATION-WORKSPACE`     隔離Workspace
-`RES-CANDIDATE-ENTRY`         耐久Candidate Store entry
+`RES-OPERATION-WORKSPACE`     Host内の一時投影・保護Mount。上位から借用する作業Treeは含めない
 `RES-TASK-CONTROL`            Process-local取消・終端Capability
 ```
 
@@ -1935,7 +1935,6 @@ Provider境界のLifecycle診断は、`coordinator_provider_boundary_configured`
 → `STATE-EXECUTOR-CLEAN`
 → `STATE-CANDIDATE-CAPTURED`
 → `STATE-REVIEWER-CLEAN`
-→ `STATE-CANDIDATE-STAGED`
 → `STATE-HOST-CLEAN`
 → `STATE-RESULT-PUBLISHED`
 
@@ -1963,9 +1962,8 @@ Provider境界のLifecycle診断は、`coordinator_provider_boundary_configured`
 `TRANS-REMEDIATION-AUTHORIZED-TO-EXECUTOR-CLEAN`
 `TRANS-REMEDIATION-EXECUTOR-TO-CANDIDATE`
 `TRANS-REMEDIATION-CANDIDATE-TO-REVIEWER-CLEAN`
-`TRANS-REVIEWER-TO-STAGED`
-`TRANS-REMEDIATION-REVIEWER-TO-STAGED`
-`TRANS-STAGED-TO-HOST-CLEAN`
+`TRANS-REVIEWER-TO-HOST-CLEAN`
+`TRANS-REMEDIATION-REVIEWER-TO-HOST-CLEAN`
 `TRANS-HOST-CLEAN-TO-RESULT`
 `TRANS-ACTIVE-TO-BLOCKED-CLEAN`
 `TRANS-ACTIVE-TO-RECOVERY`

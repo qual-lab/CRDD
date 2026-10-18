@@ -1391,7 +1391,7 @@ export function registerRuntimeOwnedDockerTaskRecoveryDelivery(
 export function resolveRuntimeOwnedDockerTaskCurrentCorrelations(
   correlationIds: readonly string[],
   rootCapability: unknown,
-  consumer: "orchestrator" | "workbench" = "orchestrator",
+  consumer: "orchestrator" | "workbench" | "coordinator_cli" = "orchestrator",
 ) {
   let lockReleased = true;
   /**

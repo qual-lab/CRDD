@@ -409,8 +409,6 @@ export function describeWindowsChildEnvironmentContract() {
     nativeHelperUserProfile: "os_user_info_validated_profile_path",
     nativeHelperConsumers: Object.freeze([
       "provider_home_observation",
-      "candidate_store_observation",
-      "candidate_store_initialization",
       "runtime_state_observation",
       "runtime_state_initialization",
       "docker_desktop_runtime_repair_native_helper",

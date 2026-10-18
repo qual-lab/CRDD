@@ -49,7 +49,7 @@ const TARGET_PATH =
 const BASE_CONTENT = "CRDD_COORDINATOR_GENERAL_TASK_BASE\n";
 const EXPECTED_CONTENT = "CRDD_COORDINATOR_GENERAL_TASK_OK\n";
 const coordinatorRoot = path.resolve(import.meta.dirname, "../..");
-const candidateId = `candidate.${"1".repeat(64)}.${"2".repeat(64)}`;
+const candidateId = "11111111-1111-4111-8111-111111111111";
 const baseCommit = "a".repeat(40);
 const baseTree = "b".repeat(40);
 const runnerSourceCommit = "1".repeat(40);
@@ -228,7 +228,13 @@ function source(overrides: Record<string, unknown> = {}) {
 function taskResult(overrides: Record<string, unknown> = {}) {
   return Object.freeze({
     status: "completed",
-    reason: "coordinator_task_candidate_approved",
+    reason: "coordinator_task_workspace_review_completed",
+    workspaceResult: Object.freeze({
+      workspaceId: candidateId,
+      changedPaths: Object.freeze([TARGET_PATH]),
+      canonicalRepositoryChanged: false,
+      workspaceDeletionIssued: false,
+    }),
     cleanupConfirmed: true,
     manualRecoveryRequired: false,
     processRestartRequired: false,
@@ -278,27 +284,14 @@ function taskResult(overrides: Record<string, unknown> = {}) {
 function candidate(content = EXPECTED_CONTENT) {
   const bytes = Buffer.from(content, "utf8");
   return Object.freeze({
-    status: "exported",
-    candidateId,
-    bundle: Object.freeze({
-      schema: "crdd-coordinator-candidate-bundle/v1",
-      baseCommit,
-      baseTree,
-      baseManifestHash,
-      patchHash,
-      contentManifestHash,
-      allowedPathsHash,
-      changedPaths: Object.freeze([TARGET_PATH]),
-      entries: Object.freeze([
-        Object.freeze({
-          relativePath: TARGET_PATH,
-          operation: "upsert",
-          byteLength: bytes.byteLength,
-          sha256: createHash("sha256").update(bytes).digest("hex"),
-          contentBase64: bytes.toString("base64"),
-        }),
-      ]),
-    }),
+    status: "observed",
+    workspaceId: candidateId,
+    baseCommit,
+    head: baseCommit,
+    changedPaths: Object.freeze([TARGET_PATH]),
+    byteLength: bytes.length,
+    sha256: createHash("sha256").update(bytes).digest("hex"),
+    contentBase64: bytes.toString("base64"),
   });
 }
 
@@ -367,7 +360,24 @@ function dependencies(
         if (observed instanceof Error) throw observed;
         return observed;
       },
-      startTask: (...args: [unknown, string]) => {
+      prepareWorkspace: (root: string, commit: string) => ({
+        prepared: true,
+        cleanupConfirmed: false,
+        target: {
+          workspaceId: candidateId,
+          ownerRepositoryRoot: root,
+          executionTree: path.join(
+            root,
+            ".crdd",
+            "workspaces",
+            candidateId,
+            "worktree",
+          ),
+          baseCommit: commit,
+          head: commit,
+        },
+      }),
+      startTask: (...args: [unknown, string, unknown]) => {
         const [request] = args;
         calls.events.push("task");
         calls.starts += 1;
@@ -396,14 +406,14 @@ function dependencies(
           })
         );
       },
-      readCandidate: () => {
+      readWorkspaceOutput: () => {
         calls.reads += 1;
         if (options.readThrows) throw new Error("fixture_read_failed");
         return options.candidate === undefined
           ? candidate()
           : options.candidate;
       },
-      discardCandidate: () => {
+      closeWorkspace: () => {
         calls.discards += 1;
         if (options.discardThrows) throw new Error("fixture_discard_failed");
         return options.discard ?? Object.freeze({ status: "discarded" });
@@ -452,6 +462,48 @@ function dependencies(
     }),
   });
 }
+
+/**
+ * 作成済み領域を結果欠測で未作成扱いせず、一次失敗と回収失敗を分離する。
+ * @responsibility 上位所有対象の参照・回収状態とTask理由の返却を確認する。
+ * @trace EST-ST-003
+ * @precondition 固定Worktree対象と外部Effectのない代役。
+ * @stimulus Workspace結果欠測、回収失敗、Taskとの複合失敗を返す。
+ * @observation 最終理由、元UUID、回収状態、処置回数。
+ * @oracle 作成済みUUIDは常に保持し、回収失敗を完了へ畳まず元Task理由を失わない。
+ * @cleanup Process-localの代役のみで物理資源を作らない。
+ * @boundary 検証Runner→既存Task結果とTool所有の作業領域終了。
+ */
+test("作成済みWorktreeの結果欠測と複合失敗は元対象と一次理由を保持する", async () => {
+  for (const result of [
+    taskResult({ workspaceResult: null }),
+    taskResult({
+      status: "blocked",
+      reason: "coordinator_task_independent_review_not_approved",
+    }),
+  ]) {
+    const fixture = dependencies({
+      result,
+      discard: { status: "retained", cleanupConfirmed: false },
+    });
+    const observed = await runSignedGeneralTaskVerification(
+      path.resolve("."),
+      fixture.value,
+    );
+    assert.equal(observed.status, "blocked");
+    assert.equal(observed.workspaceId, candidateId);
+    assert.equal(observed.cleanupConfirmed, false);
+    assert.equal(observed.workspaceCleanupConfirmed, false);
+    assert.equal(observed.candidateIdForManualDiscard, candidateId);
+    assert.equal(
+      observed.workspaceCleanupReason,
+      "verification_workspace_retained",
+    );
+    assert.equal(fixture.calls.discards, 1);
+    if ((result as Record<string, unknown>).status === "blocked")
+      assert.equal(observed.reason, result.reason);
+  }
+});
 
 /**
  * 固定公開Taskをprocess内で構成しShell搬送を契約から除外するを検証する。
@@ -576,7 +628,7 @@ test("固定公開Taskをprocess内で構成しShell搬送を契約から除外�
   });
 
   const contract = describeSignedGeneralTaskVerificationContract();
-  assert.equal(contract.contractRevision, 27);
+  assert.equal(contract.contractRevision, 28);
   assert.equal(
     contract.verificationFixture,
     "tracked_base_marker_exact_token_replacement_with_independent_final_byte_verification",
@@ -928,7 +980,7 @@ test("Source本番観測は固定module RootとGit前後照合を使用する", 
   );
   const text = fs.readFileSync(scriptUrl, "utf8");
   const start = text.indexOf("  observeSource: () => {");
-  const end = text.indexOf("\n  startTask:", start);
+  const end = text.indexOf("\n  prepareWorkspace:", start);
   assert.ok(start > 0 && end > start);
   const body = text
     .slice(start, end)
@@ -1097,7 +1149,7 @@ test("Source差分は一次失敗や取消を上書きせず回収を省略し�
     assert.equal(result.sourceObservationStatus, "changed");
     assert.equal(fixture.calls.sourceObservations, 2);
     assert.equal(fixture.calls.unbound, 1);
-    assert.equal(fixture.calls.discards, mode === "refused" ? 0 : 1);
+    assert.equal(fixture.calls.discards, 1);
     assert.equal(fixture.calls.cancels, mode === "cancel" ? 1 : 0);
     for (const key of [
       "cleanupConfirmed",
@@ -1224,7 +1276,7 @@ test("Claude実装、Codex独立Review、exact Candidate、discardを一つのPa
   assert.equal(result.executionCommit, baseCommit);
   assert.equal(result.executionTree, baseTree);
   assert.equal(fixture.calls.starts, 1);
-  assert.equal(fixture.calls.taskArgumentCount, 2);
+  assert.equal(fixture.calls.taskArgumentCount, 3);
   assert.equal(fixture.calls.reads, 1);
   assert.equal(fixture.calls.discards, 1);
   assert.equal(fixture.calls.bound, 1);
@@ -1282,23 +1334,14 @@ test("候補が作業対象Revisionでなく実行Sourceをbaseにした場合�
       crddCommit: runnerSourceCommit,
       crddTree: runnerSourceTree,
     }),
-    result: taskResult({
-      candidateRevision: Object.freeze({
-        baseCommit: runnerSourceCommit,
-        baseTree: runnerSourceTree,
-        patchHash,
-        contentManifestHash,
-        allowedPathsHash,
-        changedPaths: Object.freeze([TARGET_PATH]),
-      }),
-    }),
+    candidate: { ...candidate(), baseCommit: runnerSourceCommit },
   });
   const result = await runSignedGeneralTaskVerification(
     path.resolve("."),
     fixture.value,
   );
   assert.equal(result.status, "blocked");
-  assert.equal(result.resultContractMismatch, "candidate_base_commit");
+  assert.equal(result.candidateContractMismatch, "workspace_base_commit");
   assert.equal(result.candidateDiscarded, true);
   assert.equal(result.cleanupConfirmed, true);
 });
@@ -1439,7 +1482,7 @@ test("安全なTask拒否より作業対象Revision変化を優先して再試�
     result.resultContractMismatch,
     "execution_repository_commit_changed",
   );
-  assert.equal(result.candidateDisposition, "not_issued");
+  assert.equal(result.candidateDisposition, "discarded");
   assert.equal(result.canonicalRepositoryChanged, true);
   assert.equal(result.effectStateUnknown, false);
 });
@@ -1591,8 +1634,8 @@ test("安全な業務拒否は空Recoveryを曖昧化せず再実行可否を判
     "coordinator_task_independent_review_not_approved",
   );
   assert.equal(result.cleanupConfirmed, true);
-  assert.equal(result.candidateDiscarded, false);
-  assert.equal(result.candidateDisposition, "not_issued");
+  assert.equal(result.candidateDiscarded, true);
+  assert.equal(result.candidateDisposition, "discarded");
   assert.equal(
     result.externalSendAuthorizationMode,
     "interactive_initial_consent",
@@ -1611,7 +1654,7 @@ test("安全な業務拒否は空Recoveryを曖昧化せず再実行可否を判
   assert.equal(result.reviewerProjectedTargetClassification, "exact");
   assert.equal(result.remediationPerformed, true);
   assert.equal(fixture.calls.reads, 0);
-  assert.equal(fixture.calls.discards, 0);
+  assert.equal(fixture.calls.discards, 1);
 });
 
 /**
@@ -1689,7 +1732,7 @@ test("Candidate整合性不成立はReviewer拒否へ畳まず検証結果へ伝
   );
   assert.equal(result.status, "blocked");
   assert.equal(result.reason, "coordinator_task_candidate_verification_failed");
-  assert.equal(result.candidateDisposition, "not_issued");
+  assert.equal(result.candidateDisposition, "discarded");
   assert.equal(result.cleanupConfirmed, true);
   assert.equal(result.manualRecoveryRequired, false);
   assert.equal(result.effectStateUnknown, false);
@@ -1793,10 +1836,7 @@ test("Reviewer承認済みでもRunnerがbyte長・digestの不一致を独立�
     const fixture = dependencies({
       candidate: {
         ...valid,
-        bundle: {
-          ...valid.bundle,
-          entries: [{ ...valid.bundle.entries[0], [field]: value }],
-        },
+        [field]: value,
       },
     });
     const result = await runSignedGeneralTaskVerification(
@@ -1865,14 +1905,11 @@ test("変更Pathの最終Authorityは複製Resultでなくexact Candidate Bundle
 test("正常候補の契約差はProvider本文を出さず固定field名だけで診断する", async () => {
   const fixture = dependencies({
     result: taskResult({
-      candidateRevision: Object.freeze({
-        baseCommit,
-        baseTree: "9".repeat(40),
-        patchHash,
-        contentManifestHash,
-        allowedPathsHash,
-        changedPaths: Object.freeze([TARGET_PATH]),
-      }),
+      workspaceResult: {
+        workspaceId: candidateId,
+        canonicalRepositoryChanged: false,
+        workspaceDeletionIssued: true,
+      },
     }),
   });
   const result = await runSignedGeneralTaskVerification(
@@ -1881,7 +1918,7 @@ test("正常候補の契約差はProvider本文を出さず固定field名だけ�
   );
   assert.equal(result.status, "blocked");
   assert.equal(result.reason, "signed_general_task_result_contract_mismatch");
-  assert.equal(result.resultContractMismatch, "candidate_base_tree");
+  assert.equal(result.resultContractMismatch, "workspace_observation");
   assert.equal(result.candidateDiscarded, true);
   assert.equal(result.rawProviderOutputReported, false);
   assert.equal(result.hostPathReported, false);
@@ -2138,32 +2175,12 @@ test("Route、cleanup、RecoveryまたはCandidate byte差をFail Closedにす�
  */
 test("SourceとCandidate RevisionのIdentity欠落・差を拒否しCandidateをdiscardする", async () => {
   const exportedCandidate = candidate();
-  const exportedBundle = exportedCandidate.bundle as Readonly<
-    Record<string, unknown>
-  >;
   const cases = [
     dependencies({ source: source({ crddCommit: undefined }) }),
     dependencies({
-      result: taskResult({
-        candidateRevision: Object.freeze({
-          baseCommit: "9".repeat(40),
-          baseTree,
-          patchHash,
-          contentManifestHash,
-          allowedPathsHash,
-          changedPaths: Object.freeze([TARGET_PATH]),
-        }),
-      }),
+      candidate: { ...exportedCandidate, baseCommit: "9".repeat(40) },
     }),
-    dependencies({
-      candidate: Object.freeze({
-        ...exportedCandidate,
-        bundle: Object.freeze({
-          ...exportedBundle,
-          patchHash: "8".repeat(64),
-        }),
-      }),
-    }),
+    dependencies({ candidate: { ...exportedCandidate, head: "8".repeat(40) } }),
   ];
   for (const [index, fixture] of cases.entries()) {
     const result = await runSignedGeneralTaskVerification(

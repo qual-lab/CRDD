@@ -5,6 +5,15 @@
  * @trace ARCH-000004
  */
 import { createHash } from "node:crypto";
+import path from "node:path";
+import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
+import {
+  parseRepositoryProjectContextMarkdown,
+  readStableBoundedFileSnapshot,
+} from "../../../domain-model/src/index.ts";
+import { createRepositoryAiProfileCatalogStore } from "../../../ai-adapter/src/index.ts";
+import { createRepositoryTaskRequests } from "../task/request-composition.ts";
+import { inspectSingleTaskCommand } from "../task/requests.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
 import { runOrchestratorPublicObjective } from "../index.ts";
 import { initializeOrchestratorSnapshot } from "../storage/current-state.ts";
@@ -114,4 +123,115 @@ export async function runProjectCommand(args: readonly string[]) {
     `${JSON.stringify({ command: "project", ...result })}\n`,
   );
   process.exitCode = result.status === "completed" ? 0 : 2;
+}
+
+/**
+ * 通常Task CLIを共通の単発Ownerと上位の対象解決へ接続する。
+ * @responsibility 明示Workspace、既存Profile、取消joinと結果公開。
+ * @trace ARCH-000004 ARCH-000012
+ * @input --request-stdin --jsonと共通SingleTaskCommand。
+ * @returns 終端を一回出力する。
+ * @effect 既存Ownerの受付・保存・AI実行。入力拒否では開始しない。
+ * @failure 対象省略、旧Task形式、Root／Context不明は開始前停止。
+ * @invariant Workspace選択をCoordinatorへ委譲せず、未指定をDirect化しない。
+ * @boundary 配布CLIからOrchestrator。新しい台帳・Lock・Recoveryなし。
+ */
+export async function runSingleTaskCommand(args: readonly string[]) {
+  if (
+    args.length !== 2 ||
+    args[0] !== "--request-stdin" ||
+    args[1] !== "--json"
+  ) {
+    printCommandReport(
+      { command: "task", status: "blocked", reason: "task_arguments_invalid" },
+      true,
+    );
+    process.exitCode = 64;
+    return;
+  }
+  let owner: ReturnType<typeof createRepositoryTaskRequests> | null = null;
+  let cancellation: ReturnType<typeof bindTaskCliCancellationSignals> | null =
+    null;
+  const controller = new AbortController();
+  let report: Record<string, unknown> = {
+    command: "task",
+    status: "blocked",
+    reason: "task_entry_unconfirmed",
+  };
+  try {
+    const command = inspectSingleTaskCommand(readBoundedTaskRequestFromStdin());
+    if (command?.mode !== "workspace_edit")
+      throw new UsageError("task_workspace_request_required");
+    const root = resolveVerifiedRepositoryRootFromWorkingDirectory(
+      process.cwd(),
+    );
+    const verified = verifyRepositoryRoot(root);
+    const profiles = createRepositoryAiProfileCatalogStore(root);
+    if (verified.status !== "completed" || profiles.status !== "ready")
+      throw new UsageError("task_repository_configuration_unavailable");
+    const context = parseRepositoryProjectContextMarkdown(
+      readStableBoundedFileSnapshot(
+        path.join(root, "PROJECT_CONTEXT.md"),
+        1048576,
+      ).bytes.toString("utf8"),
+    );
+    owner = createRepositoryTaskRequests(
+      verified.capability,
+      profiles.store,
+      context.projectId,
+      "local-cli-user",
+      () => resolveVerifiedRepositoryRootFromWorkingDirectory(root) === root,
+      "coordinator_cli",
+    );
+    cancellation = bindTaskCliCancellationSignals(async () =>
+      controller.abort(),
+    );
+    if (cancellation.status !== "bound")
+      throw new UsageError("task_cancellation_binding_failed");
+    const started = await owner.start(command, controller.signal);
+    report = { command: "task", ...started };
+    if (started.status === "accepted" && started.requestId) {
+      report = { command: "task", ...(await owner.wait(started.requestId)) };
+    }
+  } catch (error) {
+    report = {
+      ...report,
+      command: "task",
+      status: typeof report.requestId === "string" ? "unknown" : "blocked",
+      cleanupConfirmed: false,
+      reason:
+        error instanceof UsageError ? error.message : "task_entry_unconfirmed",
+    };
+  } finally {
+    try {
+      await owner?.close();
+    } catch {
+      report = {
+        ...report,
+        status: "unknown",
+        cleanupConfirmed: false,
+        secondaryFailures: [
+          ...(Array.isArray(report.secondaryFailures)
+            ? report.secondaryFailures
+            : []),
+          "task_owner_join_unconfirmed",
+        ],
+      };
+    }
+    if (cancellation && cancellation.unbind().status !== "released") {
+      report = {
+        ...report,
+        status: "unknown",
+        secondaryFailures: [
+          ...(Array.isArray(report.secondaryFailures)
+            ? report.secondaryFailures
+            : []),
+          "task_cancellation_release_unconfirmed",
+        ],
+      };
+    }
+  }
+  process.stdout.write(`${JSON.stringify(report)}\n`);
+  process.exitCode =
+    report.status === "completed" && report.cleanupConfirmed === true ? 0 : 2;
 }

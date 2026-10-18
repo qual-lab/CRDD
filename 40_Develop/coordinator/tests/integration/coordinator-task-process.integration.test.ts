@@ -309,7 +309,6 @@ function createProcessHarness(
       candidatePhysicalDeletion:
         "next_safe_runtime_entry_after_expiry_or_explicit_discard",
     }),
-    prepareCandidateStore: () => ({ status: "completed" }),
     prepareDockerRecoveryState: () => ({
       status: "available",
       reason: "coordinator_current_admission_available",
@@ -456,22 +455,6 @@ function createProcessHarness(
         contentManifestHash: "4".repeat(64),
         allowedPathsHash: "5".repeat(64),
         changedPaths: ["fixture.txt"],
-      };
-    },
-    persistCandidate: () => {
-      candidateEffectCount += 1;
-      return {
-        status: "staged",
-        candidateRecoveryId: `candidate-recovery.${"6".repeat(64)}.${"7".repeat(64)}`,
-      };
-    },
-    discardCandidate: () => ({ status: "discarded" }),
-    publishCandidate: () => {
-      candidateEffectCount += 1;
-      return {
-        status: "published",
-        candidateId: `candidate.${"6".repeat(64)}.${"7".repeat(64)}`,
-        expiresAtMs: 1_800_000_000_000,
       };
     },
     ...(controllerFixture

@@ -882,3 +882,121 @@ Isolatedの品質判断と状態取得は、元計画Revision、Project／Milest
 | 文書Checker | 全体3,342件、対象を絞った展開範囲63件で非Pass。今回変更した3文書自体への指摘は0件。全体の未整合を今回の限定接続で解消したとは扱わない |
 
 新しいStore・Registry・Lock・回復機構、外部AI送信、Docker操作は追加・実行していない。②の保持結果と両Runtime状態のHashは着手前と一致し、unknown・exact回復参照・物理保持を変更していない。旧Bundle／Store専用Source・公開参照・設定の全面撤去、移行処置及び実AI編集の成立は残る。今回の成功を②の失敗の解消、③全体完成又はRelease許可へ昇格しない。
+
+#### 旧Bundle／Storeの撤去着手（基準`4e3719e8`）
+
+利用者は上記の接続をCommit・Pushし、旧Bundle／Store全面撤去へ進むことを指示した。変更分類は既存の破壊的なWorkspace移行内の旧実装退役とする。Source・試験・配布入口・Architecture／Quality・移行案内を対象とし、②のAI再試行・保持物削除、外部AI、Docker操作、一般回復拡張は対象外である。
+
+技術・品質の読取り専用着手前確認から、次の順に閉包を切り替える。固定候補の独立技術／品質レビューと限定文書／不足影響確認を行う。準拠表明・Releaseは変更せず、それらの全件監査は追加しない。
+
+| 対象 | 撤去又は維持の処置 |
+|---|---|
+| Orchestrator旧統合 | 本番接続済みWorkspaceへ置換。旧Integration Adapterと未使用factory依存、旧Bundle用の公開統合・採用を退役させる |
+| 既存結果保存 | Workspaceも使用する結果Record／Writerは保存Ownerへ移す。保存bytes・Hash・既存採用結果の意味を変えず、再export専用層は残さない |
+| Coordinator | Bundle準備・複製・永続化・公開／破棄・専用GC／回復を撤去する。借用Treeの差分／Reviewer読取り、Host／Docker／Process回復、結果配送・取消を維持する |
+| 公開入口 | 利用者はWorkspace指定必須を採用した。その意味は上位のCLI受付・Orchestratorによる選択／解決であり、CoordinatorへID検索・管理を追加することではない。未指定では開始せず、自動Direct化・旧Bundle fallbackをしない |
+| Windows共通処理 | Candidate Store専用の観測・保護・排他だけを退役する。共通Worker、Console／Host／Provider／State排他は削除しない |
+| 移行・根拠 | 実ユーザーの`AppData/Local/Qual-Lab/CRDD/CandidateStore`は読取りで現存・中身0件。Repositoryの現在状態と②保持状態に旧候補／Storeの非null参照・Bundle記録は0件。その他の保存物まで不存在とは主張せず、旧データはFront AIの確認・移行対象とする |
+
+初回・取消・失敗・保存不明・同操作再入場・現在対象不一致・公開結果を検証し、旧入口の拒否と撤去したSymbol／Sourceの非到達も確認する。旧試験削除を成功件数へ加算せず、別用途のDomain候補、Workspace採否・品質Decision、歴史Evidenceと②保持物を変更しない。
+
+#### 撤去前の責務再確認（2026-10-18）
+
+利用者は「上位が作業対象を決め、Coordinatorは受け取って実行するだけ」を確認した。先の「CoordinatorのCLIでWorkspace指定必須」という説明は受付と実行の責務を混同していたため、[横断Architectureの引渡し契約](../../../06_Architecture/Details/orchestrator/03_Workspace.md#実行対象の引渡しとcliの責務2026-10-18人間確認済み)へ整理し直した。Workspaceの選択・ID解決・利用調停は上位、受領対象の安全検証・一回のExecutor／Reviewer調整はCoordinator、隔離・技術資源回収はDocker Isolationとする。
+
+| 撤去の順序 | 対応する場所・守る条件 |
+|---|---|
+| 1. 入力と利用側の照合 | 通常CLI・Workbench・MCP→Orchestrator→Coordinatorを対象に、上位での対象解決と下位の安全確認を対応付ける。CoordinatorのWorkspace ID照会・配置再構築は上位へ移す対象とする |
+| 2. 上位受付の接続 | 既存配布入口とOrchestratorの共通Task経路へ接続し、解決済み作業対象だけをCoordinatorへ渡す。新しいCLI専用Queue・Store・Resolver Frameworkを作らない |
+| 3. 旧生成・保存の撤去 | 全入口の対象搬送を確認した後に、旧Bundle複製・生成・公開・破棄・Store・専用回復を撤去する。Review用差分読取りと現在のHost／Docker／Process回復は維持する |
+| 4. 公開契約・移行・反証 | 不正／未指定拒否、対象差、取消と回収不明、元対象との相関、借用Tree保全、旧公開Symbol非到達を確認する。保存型の配置移管と保存データの意味変更を分ける |
+
+この設計整理の時点では、中断時に一部適用された未使用factory依存の撤去22行を戻し、SourceはCommit`4e3719e8`と同じ状態としていた。以降の実装状況は次項で区別する。追加の人間判断は現在ない。
+
+#### 対象搬送・実行接続の切替（2026-10-18、全面撤去は継続中）
+
+| 境界 | 実施した変更と限定確認 |
+|---|---|
+| 通常CLI | 既存配布入口からOrchestratorの単発Ownerへ接続。閉じた共通要求と明示`workspaceId`を必須にし、省略・旧Bundle要求をAI開始前に拒否する。`null`は明示Directだけに用いる。下位CLIから上位を呼び戻さない |
+| Coordinator | IDによるWorktree検索を撤去。上位が渡す実Path・Git共通実体・期待HEAD・保護Mountを照合する。通常実行からStore準備、Bundle永続化・公開・破棄を除去し、旧固定コピーへのfallbackを除去した |
+| Orchestrator | 旧Integration Adapterとその未使用factory依存を撤去。Workspaceでも必要な結果Record／Portと契約定数は既存保存Ownerへ移し、保存bytes・Hashを変更しない |
+| 取消・結果 | 単発Ownerの既存pendingを待つ入口と外部取消Signalを接続。最終出力はOwner終了・Signal解除後の一回だけ。受付後の待機・終了例外でも元requestIdを保持し、終了失敗を副次情報にする |
+| 再入場 | 既存v4終了要約とReaderをWorkbench／CLIの固定二種へ接続。元consumer・上位操作ID・回復参照が一致し、現在操作・回復・配送が残らない場合だけ終了を確認する。旧相関欠測を補完しない |
+| 試験 | 旧複製fixtureを、上位役が作成する自己生成Git Worktreeへ移行。変更範囲の事後観測とReviewer内容検査を分け、容量・リンク・改訂差・差替え・借用Tree保全を13件で確認。旧Store内容上限専用試験と旧Integration Adapter専用試験は退役し、成功件数へ加算しない |
+
+限定接続の技術・品質レビュー指摘は是正後0件。CoordinatorのSource／試験型、Orchestrator型、変更Sourceの書式・Warningを失敗とするLint、実子Process／本番Composition結合18件、元IDを保持する実CLI例外試験と入力拒否2件、CLIの相関付き履歴確認が成功した。CLI取消・例外の追加を含むOrchestrator最新全回帰115件が成功した。MCP公開契約20件、Version Control利用側閉包12件、Domain保存利用側閉包4件、Platform非依存4件も成功。旧試験Catalog／Symbolの撤去参照は現行台帳から除き、歴史Evidenceは変更していない。全RepositoryのChecker又は新版実AI E2Eの成功へ昇格しない。
+
+残る撤去対象は、旧Store本体と専用検証Tool／Native処理、旧Orchestratorの公開統合・採用API及びMCPの旧結果分岐、旧候補field／設定／移行案内の利用側閉包である。現時点で全面撤去済みとはしない。新しいRegistry・Store・Lock・回復Frameworkは追加していない。②のAI再試行・Docker操作・保持物削除は実施せず、保持結果と両Runtime状態の3 Hashは着手前と一致する。
+
+#### 旧検証責務の置換と専用機構撤去の着手条件
+
+変更分類は採用済みWorkspace移行内の破壊的な旧方式退役とし、基準は`4e3719e8`と前項の未Commit接続差分である。利用側・Architecture・Quality・Source・現行台帳を同じ切替単位で扱う。技術・品質の読取り専用着手前確認を統合し、次を維持条件とする。②の実AI再試行、Docker操作、保持物の移行・削除及び歴史Evidence変更は対象外である。
+
+| 従来の確認責務 | 新方式の確認先・処置 | 未実測として残す境界 |
+|---|---|---|
+| Bundle exportの内容一致 | 上位が解決した実行Treeの固定Fileをbytes・末尾LF・Hash・変更Pathで確認する | 新版の実AI編集成立は②が未完了のまま |
+| 実Executor／Reviewer・再修正 | 一般Task検証の実結果とWorkspace観測を結合し、Provider／最終Reviewと内容を別々に確認する | 模擬結果から実Provider成功を主張しない |
+| Source・Base相関と四経路 | Source前後観測を維持し、各経路の自己生成Treeを分離する。Sourceと作業TreeのIdentityを混同しない | 実四経路は今回実行しない |
+| 取消・親喪失・技術回収 | 既存の取消join・待機期限・元回復参照・後発通知と実Process試験を維持する。Workspace正常試験で代用しない | 実Container／親喪失E2Eの再実測は別途許可が必要 |
+| Workspace／Ref回収 | 上位とVersion Controlの既存明示操作で確認し、Coordinatorの技術回収と分離する | 借用TreeをTask終了時に自動削除しない |
+| 保存・排他 | 新Workspaceが使うResult Record／Port、bytes・Hash・Binding、冪等再入場、保存／解放失敗を維持する | 現行Schemaを名称だけで再符号化しない |
+| Store固有方式 | staged／publish／export／discard、容量・TTL・GC、Store専用Native受付・回復を退役する | 他のOwnerへ同じStoreを再実装しない |
+| 公開結果 | 旧Bundle Integration Envelopeは拒否し、Objective／Workspace結果と既存品質判断を維持する | 旧保存物の存在を空Storeだけで否定しない |
+
+初回編集前に正常な新Workspace結果、旧Bundle shape、受領対象差、取消と完了の交差、結果・保存の観測不能を照合する。旧方式専用試験の退役は成功件数へ加算しない。共有試験はCase単位で維持し、固定候補には技術・品質の独立レビュー及び限定文書／不足影響確認を行う。今回、準拠表明・公開・Releaseを変更しないため、それらの全件監査は追加しない。
+
+#### 旧公開API撤去と検証責務移管の途中結果（2026-10-18）
+
+| 対象 | 現在の処置と確認 |
+|---|---|
+| 旧公開操作 | `candidate/adopt.ts`・`integrate.ts`・`operations.ts`・`integration-result.ts`を撤去し、Root公開一覧、MCPの旧Integration結果受理、現行Symbol／Catalog／設計Pathを追従した。既存保存の契約Identity・結果WriterはWorkspace用に維持する |
+| 成果確認 | 新Workspace試験器へ実変更PathとWorkspace ID、実Byte・UTF-8・末尾LF・長さ・SHA-256の確認を接続。Byte反証は既存`ai-verification`試験へ統合し、改行差・別本文・未観測／過剰Pathを拒否する。模擬試験12件成功であり、②の実AI成功ではない |
+| Source照合 | 既存Source observerの固定範囲を試験Root作成前と、Task待機・取消・Owner終了・試験物処置後に比較する。範囲・内容Hash・実体Hashの差又は再観測不能では成功終了しない。全Repository不変やGit履歴不変を意味しない |
+| 共通結合 | 旧Bundle統合代役を外し、同一Workspaceの逐次実行、上位の明示品質受入、保存と段階的履歴整理、別Projectの解放証拠保全を既存実Portで確認した。変更対象の局所結合3件成功。旧拒否API専用Caseは退役し、架空のWorkspace拒否Recordを保存側へ追加しない |
+| 回帰境界 | CoordinatorのSource／試験型、WorkbenchとMCPの型、変更SourceのWarningを失敗とするLint、設計トレース検査が成功。Repository横断命名試験ではDocker Isolationの既存設定名・公開一覧、Native試験Header等の不整合とsandboxのjunction拒否を観測し、全体Passとはしない |
+
+全面撤去は未完了である。次の順序を維持し、未接続の検証責務を削除だけで閉じない。
+
+1. `verify-signed-general-task.ts`のSource前後照合・四経路・取消join・終了不明・元回復参照を新Workspace成果の確認へ移す。現在のStore読取り／破棄参照はこの移管まで残っている。
+2. 最後の利用側を移した後に、`src/candidate/bundle-store.ts`、専用試験・設定・候補fieldの利用側を撤去する。
+3. Store専用の保護Root・Kernel Lock・Native受付を撤去する。共通WorkerとHost／Provider／Console／State排他は残す。
+
+新Registry・Store・Lock・Recoveryは追加していない。外部AI、Docker操作、②の保持物処置は実施していない。旧Evidenceを変更せず、今回の局所確認を新版の実Provider E2E成立へ昇格しない。現在、人間による追加判断は必要ない。
+
+是正後の限定技術・品質レビューは指摘0件。Orchestratorの現行全回帰105件、実Git Worktree・既存結果保存・本番組立ての結合回帰28件、MCP／公開値契約／Platform非依存33件が成功した。旧方式専用試験の退役を成功件数へ含めない。②の保持結果と両状態の3 Hashは着手前と一致する。Store本体・旧General Task検証・Native専用処理を残しているため、これらの確認から全面撤去又はRelease可能とは表示しない。
+
+<a id="workspace-store-retirement"></a>
+
+#### General Task検証移管・Store本体／専用Nativeの撤去（2026-10-18）
+
+前項の撤去残件のうち、今回依頼された検証移管・Store本体・専用Native処理を完了した。基準は同じ`4e3719e8`とその後の未Commit差分であり、②の実AI編集成立や全体Release完成とは分ける。
+
+| 対象 | 現在の処置 |
+|---|---|
+| General Task検証 | 上位Toolが既存Version Controlで独立Worktreeを生成し、解決済み対象だけをCoordinatorへ渡す。Source前後照合、四経路、取消ACK／元completionのjoin、遅延・重複通知、終了不明と元回復参照を維持。実Byte・LF・HashはStore exportでなく実Treeから確認する |
+| 上位の領域終了 | 元UUIDはTask結果の任意fieldから復元しない。終端・技術回収・回復参照なし・元Workspace一致が確認できる場合だけ、自己生成WorktreeとBranchを既存Git操作で終了する。不明では元UUIDを保持してcleanup falseを返す。Task一次理由と領域終了失敗を別fieldへ分離する |
+| Store本体 | `candidate/bundle-store.ts`と専用試験を削除。保存・公開・期限・GC・Store専用回復・専用排他の稼働経路は残さない。歴史保存fieldのnull検査や不正入力拒否を残すことは、Store稼働能力の維持ではない |
+| Native・共通排他 | Store専用種別3と保護Root受付を削除し、実CLIで旧値3を拒否。Home種別1/2とRuntime State種別4、共通Worker・State／Host／Provider／Console排他を維持。共通試験・Fixtureは実責務名の`kernel-lock`へ移管した |
+| Task状態と台帳 | StoreのSTAGED状態と専用資源を撤去し、正常Review後からHost回収へ直接接続。失敗時は元段階と技術回復参照を保持。Architecture、現行Symbol、Catalogと機械Traceを同期する |
+| 入力・診断保存 | 入力所有のAST検査を実Orchestrator受付へ移し、専用ReaderのSymbol・単一呼出し・直接stdin禁止を維持。既存検証記録rev5に元Workspace UUID・回収確認・固定保持理由だけを加え、処置Authorityや新Stateを作らない |
+
+技術・品質の独立レビューは、回収前の終了条件、結果欠測時の元対象保持、一次失敗分離の是正後に残指摘0件。実Git試験では元dirty／HEADの保全、内容一致、終了不明・別ID・回復参照等での処置拒否、正式終了後の登録・専用Branch・Directory不存在を確認した。
+
+限定確認は、Task状態・取消・技術回収153件、General／Route／Reviewer／Recovery／結果記録／対話境界119件、共通Lock実Process27件、Native単体47件・CLI結合8件、Artifact／本番Native Adapter135件が成功した。記録投影と入力検査の最終再確認45件も成功。旧Store専用試験の削除を成功件数へ加算していない。機械Traceは8資源・17状態・18遷移の対応を受理した。Coordinator Source／試験型、Orchestrator・MCP・Workbench型と変更Sourceの書式・Warningを失敗とするLintを確認する。
+
+再生成入口はCoordinator packageの`tests/integration/coordinator-task-runtime.contract.test.ts`、`repository-workspace-runtime.contract.test.ts`、`kernel-lock.contract.test.ts`、`development-native-observation.integration.test.ts`、上記`tests/system/*verification.contract.test.ts`と`verification-result-record.contract.test.ts`、`interaction-boundary-regression.contract.test.ts`。Nativeは固定toolchain・明示`x86_64-pc-windows-msvc` targetのCargo test／clippy／release buildを用いる。生出力は一時生成物として恒久書庫へ複製せず、再実行可能なSource・試験とこの限定結論を残す。対象は未Commit差分を含み、HEADだけを実測対象とは表示しない。
+
+Nativeの現行配布実体は再ビルド後SHA-256 `ce265feabf5ef08aa0ab103078746fc40941db4fdf2d100eb7316711a4f6fddc`で、template実物とBootstrapの固定期待値を一致させた。署名Gateは追加していない。
+
+外部AI・Docker操作、②の再試行・保持物削除は実施していない。保持結果・Coordinator state・Orchestrator stateの3 Hashは既存記録と一致した。旧AppData領域の物理清掃も今回行わない。新版の実AI編集E2Eと保持中unknownの処置は、元回復参照を維持して別途人間判断へ残す。全RepositoryのCheckerやReleaseをPassとは表示しない。現在、この撤去作業に追加の人間判断は必要ない。
+
+#### ②・③の現在残件と再開順序
+
+| 区分 | 現在の残件 | 再開条件・順序 |
+|---|---|---|
+| ③のSource切替・撤去 | 本番Workspace接続、旧Bundle／Store・専用Native・未使用CLI解析の撤去は完了。旧全null保存fieldの防御や歴史Evidenceは稼働旧経路と区別して維持 | 本区切りをCommit固定する。旧方式の管理機構を復元しない |
+| ③の最終成立確認 | 新構成全体の回帰・必要な実境界と実データ移行の最終評価。局所結果を全体Passへ換算しない | 固定Commitで外部AIなしの全体回帰を先行し、現行Source／設定／案内の残存参照を分類。旧データの物理処置は承認を得た範囲だけ |
+| ②の実AI編集 | Directの実編集・dirty／stage保全、Isolatedの実編集・明示固定・二親Merge・領域回収の成功は未成立 | ③の固定候補と送信範囲・回数・停止条件を確定し、別途人間承認を得て再試行する。今回のCommit／Push許可を送信許可へ読み替えない |
+| 失敗試験の保持物 | 同じ回復参照でunknownと回収未完了を保持 | ②／③と独立した処置。今回削除せず、再評価・回収の許可があったときだけ既存経路で扱う |
+
+推奨順序は、Commit／Pushによる区切り→固定候補の外部AIなし全体回帰と残存参照確認→②の限定実AI再試行の承認確認→実境界結果を③の最終評価へ接続、である。保持物の強制清掃や新しいRecovery機構を、次の作業の前提にしない。

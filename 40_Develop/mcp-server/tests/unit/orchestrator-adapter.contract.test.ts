@@ -1254,18 +1254,18 @@ test("MCP Integration結果はblocked時のcleanupとmanual recoveryを相関検
 });
 
 /**
- * MCP Integration結果はCanonical recoveryIdsを保持し不正な集合を拒否するを検証する。
+ * MCPは旧Integration契約を成功や回復参照の有無にかかわらず拒否するを検証する。
  *
- * @responsibility MCP Integration結果はCanonical recoveryIdsを保持し不正な集合を拒否するの合否判定を所有する。
+ * @responsibility MCPは旧Integration契約を成功や回復参照の有無にかかわらず拒否するの合否判定を所有する。
  * @trace PRL-UT-014
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus MCP Integration結果はCanonical recoveryIdsを保持し不正な集合を拒否するの対象操作を実行する。
+ * @stimulus MCPは旧Integration契約を成功や回復参照の有無にかかわらず拒否するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-UT-014=Direct Boundary: mcp Test Source→対象契約
  */
-test("MCP Integration結果はCanonical recoveryIdsを保持し不正な集合を拒否する", async () => {
+test("MCPは旧Integration契約を成功や回復参照の有無にかかわらず拒否する", async () => {
   const recoveryId = `lease-acquisition-${"1".repeat(40)}`;
   const base = {
     contract: "crdd-coordinator/orchestrator-integration/v1",
@@ -1383,39 +1383,29 @@ test("MCP Integration結果はCanonical recoveryIdsを保持し不正な集合�
       };
       isError: boolean;
     };
-    if (isExpectedAdapterInvalid)
-      assert.equal(
-        result.structuredContent.reason,
-        "orchestrator_adapter_result_invalid",
-      );
-    else {
-      assert.deepEqual(result.structuredContent.recoveryIds, raw.recoveryIds);
-      if ("effectIssued" in raw) {
-        assert.equal(result.structuredContent.effectIssued, raw.effectIssued);
-        assert.equal(
-          result.structuredContent.effectStateUnknown,
-          raw.effectStateUnknown,
-        );
-        assert.equal(result.structuredContent.retryAllowed, raw.retryAllowed);
-      }
-      assert.equal(result.isError, isExpectedError);
-    }
+    assert.equal(
+      result.structuredContent.reason,
+      "orchestrator_adapter_result_invalid",
+    );
+    assert.equal(result.isError, true);
+    void isExpectedError;
+    void isExpectedAdapterInvalid;
   }
 });
 
 /**
- * MCPはdecision付きIntegration結果の基本形と境界拡張形をそのまま保持するを検証する。
+ * MCPは旧Integration契約をDecision付きでも拒否するを検証する。
  *
- * @responsibility MCPはdecision付きIntegration結果の基本形と境界拡張形をそのまま保持するの合否判定を所有する。
+ * @responsibility MCPは旧Integration契約をDecision付きでも拒否するの合否判定を所有する。
  * @trace PRL-UT-014
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus MCPはdecision付きIntegration結果の基本形と境界拡張形をそのまま保持するの対象操作を実行する。
+ * @stimulus MCPは旧Integration契約をDecision付きでも拒否するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-UT-014=Direct Boundary: mcp Test Source→対象契約
  */
-test("MCPはdecision付きIntegration結果の基本形と境界拡張形をそのまま保持する", async () => {
+test("MCPは旧Integration契約をDecision付きでも拒否する", async () => {
   const decisionResult = {
     contract: "crdd-coordinator/orchestrator-human-decision/v1",
     status: "completed",
@@ -1478,12 +1468,11 @@ test("MCPはdecision付きIntegration結果の基本形と境界拡張形をそ�
     const result = response.result as {
       structuredContent: Readonly<Record<string, unknown>>;
     };
-    assert.equal(result.structuredContent.reason, raw.reason);
-    assert.deepEqual(result.structuredContent.decision, decisionResult);
     assert.equal(
-      Object.hasOwn(result.structuredContent, "effectIssued"),
-      Object.hasOwn(raw, "effectIssued"),
+      result.structuredContent.reason,
+      "orchestrator_adapter_result_invalid",
     );
+    assert.equal(Object.hasOwn(result.structuredContent, "decision"), false);
   }
 });
 

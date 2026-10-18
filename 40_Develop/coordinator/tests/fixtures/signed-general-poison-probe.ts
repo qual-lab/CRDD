@@ -24,7 +24,7 @@ const TARGET_PATH =
   "40_Develop/coordinator/tests/fixtures/general-task-verification.txt";
 const BASE_CONTENT = "CRDD_COORDINATOR_GENERAL_TASK_BASE\n";
 const EXPECTED_CONTENT = "CRDD_COORDINATOR_GENERAL_TASK_OK\n";
-const candidateId = `candidate.${"1".repeat(64)}.${"2".repeat(64)}`;
+const candidateId = "11111111-1111-4111-8111-111111111111";
 const baseCommit = "a".repeat(40);
 const baseTree = "b".repeat(40);
 const baseManifestHash = "c".repeat(64);
@@ -58,7 +58,13 @@ const source = Object.freeze({
 
 const result: Record<string, unknown> = {
   status: "completed",
-  reason: "coordinator_task_candidate_approved",
+  reason: "coordinator_task_workspace_review_completed",
+  workspaceResult: {
+    workspaceId: candidateId,
+    changedPaths: [TARGET_PATH],
+    canonicalRepositoryChanged: false,
+    workspaceDeletionIssued: false,
+  },
   cleanupConfirmed: true,
   manualRecoveryRequired: false,
   processRestartRequired: false,
@@ -124,27 +130,14 @@ if (scenario === "signal_cleanup_unknown_cancel_unobserved") {
 
 const bytes = Buffer.from(EXPECTED_CONTENT, "utf8");
 const candidate = Object.freeze({
-  status: "exported",
-  candidateId,
-  bundle: Object.freeze({
-    schema: "crdd-coordinator-candidate-bundle/v1",
-    baseCommit,
-    baseTree,
-    baseManifestHash,
-    patchHash,
-    contentManifestHash,
-    allowedPathsHash,
-    changedPaths: Object.freeze([TARGET_PATH]),
-    entries: Object.freeze([
-      Object.freeze({
-        relativePath: TARGET_PATH,
-        operation: "upsert",
-        byteLength: bytes.byteLength,
-        sha256: createHash("sha256").update(bytes).digest("hex"),
-        contentBase64: bytes.toString("base64"),
-      }),
-    ]),
-  }),
+  status: "observed",
+  workspaceId: candidateId,
+  baseCommit,
+  head: baseCommit,
+  changedPaths: Object.freeze([TARGET_PATH]),
+  byteLength: bytes.length,
+  sha256: createHash("sha256").update(bytes).digest("hex"),
+  contentBase64: bytes.toString("base64"),
 });
 
 let cancelAttempts = 0;
@@ -153,6 +146,17 @@ let hostilePromiseAccesses = 0;
 let repositoryRevisionObservations = 0;
 const runnerResult = await runSignedGeneralTaskVerification(process.cwd(), {
   observeSource: () => source,
+  prepareWorkspace: (root: string, commit: string) => ({
+    prepared: true,
+    cleanupConfirmed: false,
+    target: {
+      workspaceId: candidateId,
+      ownerRepositoryRoot: root,
+      executionTree: root,
+      baseCommit: commit,
+      head: commit,
+    },
+  }),
   startTask: () => {
     if (scenario === "start_throw") throw new Error("fixed_start_throw");
     const getterResult = Object.create(null);
@@ -299,8 +303,8 @@ const runnerResult = await runSignedGeneralTaskVerification(process.cwd(), {
       processTerminationObserved: true,
     });
   },
-  readCandidate: () => candidate,
-  discardCandidate: () =>
+  readWorkspaceOutput: () => candidate,
+  closeWorkspace: () =>
     scenario === "discard_true"
       ? Object.freeze({
           status: "blocked",

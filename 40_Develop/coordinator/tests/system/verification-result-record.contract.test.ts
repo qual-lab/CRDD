@@ -141,6 +141,50 @@ const SUCCESS = Object.freeze({
   cleanupConfirmed: true,
   manualRecoveryRequired: false,
 });
+
+/**
+ * 保持Workspaceの元UUIDを非Authorityの診断として保存する。
+ * @responsibility 新しい保存台帳なしで終了未確認の対象を追跡する。
+ * @trace ERP-ST-004
+ * @precondition 元UUIDと固定の保持理由。
+ * @stimulus 正常値、不正値、getterと子結果を既存投影へ渡す。
+ * @observation 記録用fieldと自由文非混入。
+ * @oracle UUIDだけをそのまま保持し、欠測を完了へ変換しない。
+ * @cleanup 純粋投影のみ。
+ * @boundary 検証結果→既存記録。処置Authorityは発行しない。
+ */
+test("Workspace保持情報は元UUIDと固定理由だけを記録し削除Authorityにしない", () => {
+  const id = "11111111-1111-4111-8111-111111111111";
+  const valid = {
+    workspaceId: id,
+    workspaceCleanupConfirmed: false,
+    workspaceCleanupReason: "verification_workspace_retained",
+  };
+  const summary = projectVerificationResult({ ...valid, results: [valid] });
+  assert.equal(summary.workspaceId, id);
+  assert.equal(summary.workspaceCleanupConfirmed, false);
+  assert.equal(summary.workspaceCleanupReason, valid.workspaceCleanupReason);
+  assert.equal(
+    (summary.results as Record<string, unknown>[])[0]?.workspaceId,
+    id,
+  );
+  let called = false;
+  const missing = projectVerificationResult({
+    get workspaceId() {
+      called = true;
+      return id;
+    },
+    workspaceCleanupReason: "PRIVATE_PATH",
+  });
+  assert.equal(called, false);
+  assert.equal(missing.workspaceId, null);
+  assert.equal(missing.workspaceCleanupConfirmed, null);
+  assert.equal(missing.workspaceCleanupReason, null);
+  assert.equal(
+    projectVerificationResult({ workspaceId: "C:/PRIVATE" }).workspaceId,
+    null,
+  );
+});
 /**
  * failureのTest準備責務を実行する。
  *

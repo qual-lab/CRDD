@@ -73,8 +73,6 @@ const candidateAdapter = await import(
 const providerOutcome =
   providerAdapter.inspectRuntimeOwnedWindowsProviderHomeCandidate("codex");
 const candidateOutcomes = [
-  candidateAdapter.inspectRuntimeOwnedWindowsCandidateStore(false),
-  candidateAdapter.inspectRuntimeOwnedWindowsCandidateStore(true),
   candidateAdapter.inspectRuntimeOwnedWindowsRuntimeState(false),
   candidateAdapter.inspectRuntimeOwnedWindowsRuntimeState(true),
 ];

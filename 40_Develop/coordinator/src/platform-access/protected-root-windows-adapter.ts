@@ -1,7 +1,7 @@
 /**
  * Windows Native Helperへ保護Rootの観測を接続する。
  *
- * @responsibility Candidate StoreとRuntime Stateの固定Root・主体・保護Bindingを検証する。
+ * @responsibility Runtime Stateの固定Root・主体・保護Bindingを検証する。
  * @trace ARCH-000015
  */
 import { spawnSync } from "node:child_process";
@@ -21,9 +21,7 @@ import {
   verifyPlatformAccessArtifactObservation,
 } from "../../../platform-access/src/index.ts";
 import {
-  createCandidateStoreObservationRequest,
   createRuntimeStateObservationRequest,
-  evaluateCandidateStoreObservationResponseCandidate,
   evaluateRuntimeStateObservationResponseCandidate,
   PROVIDER_HOME_OBSERVATION_RESPONSE_BYTES,
 } from "./protected-root-protocol.ts";
@@ -40,7 +38,7 @@ const rootCapabilities = new WeakMap<
   object,
   Readonly<{
     rootPath: string;
-    kind: "candidate_store" | "runtime_state";
+    kind: "runtime_state";
     identityHash: string;
     protectionHash: string;
     localUserBindingHash: string;
@@ -49,7 +47,7 @@ const rootCapabilities = new WeakMap<
 >();
 
 /**
- * candidate-store-windows-adapterで使用するArtifactの値契約を定義する。
+ * runtime-state-windows-adapterで使用するArtifactの値契約を定義する。
  *
  * @responsibility ArtifactのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000015
@@ -100,9 +98,9 @@ function sameArtifact(left: unknown, right: unknown) {
 }
 
 /**
- * candidate-store-windows-adapterを停止結果として構築する。
+ * runtime-state-windows-adapterを停止結果として構築する。
  *
- * @responsibility candidate-store-windows-adapterの停止理由、未発行Effect、公開結果境界を所有する。
+ * @responsibility runtime-state-windows-adapterの停止理由、未発行Effect、公開結果境界を所有する。
  * @trace ARCH-000015
  * @input reason: string、effects: Readonly<{ processEffectIssued?: boolean; helperExitConfirmed?: boolean; filesystemEffectIssued?: boolean; }>
  * @returns blockedの計算結果を返す。
@@ -129,8 +127,8 @@ function blocked(
     status: "blocked" as const,
     reason,
     rootCapability: null,
-    candidateStoreIdentityHash: null,
-    candidateStoreProtectionHash: null,
+    runtimeStateIdentityHash: null,
+    runtimeStateProtectionHash: null,
     localUserBindingHash: null,
     selectedUserBindingVerified: false,
     protectionVerified: false,
@@ -155,9 +153,9 @@ function blocked(
  *
  * @responsibility root Path 候補の導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000015
- * @input kind: "candidate_store" | "runtime_state"
+ * @input 既存Host環境だけを使用する。
  * @returns rootPathCandidateの計算結果を返す。
- * @precondition 「kind: "candidate_store" | "runtime_state"」がrootPathCandidateの入力契約を満たす。
+ * @precondition 「kind: "runtime_state"」がrootPathCandidateの入力契約を満たす。
  * @postcondition rootPathCandidateの責務を完了した結果だけを返す。
  * @effect rootPathCandidateは外部ProcessまたはRuntime境界の操作を呼び出す。
  * @failure N/A: rootPathCandidateは独自の失敗分岐を所有しない。
@@ -166,7 +164,7 @@ function blocked(
  * @security rootPathCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: rootPathCandidateは共有非同期状態を持たない同期処理である。
  */
-function rootPathCandidate(kind: "candidate_store" | "runtime_state") {
+function rootPathCandidate() {
   const localAppData = process.env.LOCALAPPDATA;
   if (
     !isSupportedWindowsAbsolutePathCandidate(localAppData) ||
@@ -178,7 +176,7 @@ function rootPathCandidate(kind: "candidate_store" | "runtime_state") {
     localAppData,
     "Qual-Lab",
     "CRDD",
-    kind === "candidate_store" ? "CandidateStore" : "RuntimeState",
+    "RuntimeState",
   );
   return isSupportedWindowsAbsolutePathCandidate(rootPath) ? rootPath : null;
 }
@@ -188,9 +186,9 @@ function rootPathCandidate(kind: "candidate_store" | "runtime_state") {
  *
  * @responsibility Runtime 所有 Windows Protected Rootの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000015
- * @input kind: "candidate_store" | "runtime_state"、initializeIfMissing: unknown、developmentContext: unknown
+ * @input kind: "runtime_state"、initializeIfMissing: unknown、developmentContext: unknown
  * @returns inspectRuntimeOwnedWindowsProtectedRootの計算結果を返す。
- * @precondition 「kind: "candidate_store" | "runtime_state"、initializeIfMissing: unknown、developmentContext: unknown」がinspectRuntimeOwnedWindowsProtectedRootの入力契約を満たす。
+ * @precondition 「kind: "runtime_state"、initializeIfMissing: unknown、developmentContext: unknown」がinspectRuntimeOwnedWindowsProtectedRootの入力契約を満たす。
  * @postcondition inspectRuntimeOwnedWindowsProtectedRootの責務を完了した結果だけを返す。
  * @effect inspectRuntimeOwnedWindowsProtectedRootは外部ProcessまたはRuntime境界の操作を呼び出す。
  * @failure N/A: inspectRuntimeOwnedWindowsProtectedRootは独自の失敗分岐を所有しない。
@@ -200,19 +198,19 @@ function rootPathCandidate(kind: "candidate_store" | "runtime_state") {
  * @concurrency N/A: inspectRuntimeOwnedWindowsProtectedRootは共有非同期状態を持たない同期処理である。
  */
 function inspectRuntimeOwnedWindowsProtectedRoot(
-  kind: "candidate_store" | "runtime_state",
+  kind: "runtime_state",
   initializeIfMissing: unknown,
   developmentContext?: unknown,
 ) {
   if (process.platform !== "win32")
-    return blocked("candidate_store_windows_adapter_platform_unsupported");
-  const rootPath = rootPathCandidate(kind);
-  const request =
-    kind === "candidate_store"
-      ? createCandidateStoreObservationRequest(rootPath, initializeIfMissing)
-      : createRuntimeStateObservationRequest(rootPath, initializeIfMissing);
+    return blocked("runtime_state_windows_adapter_platform_unsupported");
+  const rootPath = rootPathCandidate();
+  const request = createRuntimeStateObservationRequest(
+    rootPath,
+    initializeIfMissing,
+  );
   if (!rootPath || !request)
-    return blocked("candidate_store_windows_adapter_root_invalid");
+    return blocked("runtime_state_windows_adapter_root_invalid");
   const development =
     developmentContext === undefined
       ? null
@@ -221,9 +219,7 @@ function inspectRuntimeOwnedWindowsProtectedRoot(
           initializeIfMissing === true,
         );
   if (developmentContext !== undefined && !development)
-    return blocked(
-      "candidate_store_windows_adapter_development_context_invalid",
-    );
+    return blocked("runtime_state_windows_adapter_development_context_invalid");
   const distributionRoot =
     development?.distributionRoot ?? bundledDistributionRoot;
   const bootstrap = development
@@ -236,7 +232,7 @@ function inspectRuntimeOwnedWindowsProtectedRoot(
     : bootstrap?.artifact;
   if (!expectedArtifact)
     return blocked(
-      "candidate_store_windows_adapter_artifact_bootstrap_unavailable",
+      "runtime_state_windows_adapter_artifact_bootstrap_unavailable",
     );
   const artifactBefore =
     observePlatformAccessArtifactCandidate(distributionRoot);
@@ -249,13 +245,13 @@ function inspectRuntimeOwnedWindowsProtectedRoot(
     !sameArtifact(expectedArtifact, artifactBefore.artifact) ||
     !sameArtifact(artifactBefore.artifact, artifactObservation.artifact)
   ) {
-    return blocked("candidate_store_windows_adapter_artifact_not_verified");
+    return blocked("runtime_state_windows_adapter_artifact_not_verified");
   }
   const environment = createWindowsNativeHelperEnvironment();
   if (!environment)
-    return blocked("candidate_store_windows_adapter_environment_unavailable");
+    return blocked("runtime_state_windows_adapter_environment_unavailable");
   if (!verifyPlatformAccessArtifactObservation(artifactObservation.token))
-    return blocked("candidate_store_windows_adapter_artifact_changed");
+    return blocked("runtime_state_windows_adapter_artifact_changed");
   const selectedExecutable = development
     ? path.join(
         distributionRoot,
@@ -282,7 +278,7 @@ function inspectRuntimeOwnedWindowsProtectedRoot(
     execution.stderr.byteLength !== 0
   ) {
     return blocked(
-      "candidate_store_windows_adapter_helper_failed",
+      "runtime_state_windows_adapter_helper_failed",
       Object.freeze({
         processEffectIssued,
         filesystemEffectIssued:
@@ -292,7 +288,7 @@ function inspectRuntimeOwnedWindowsProtectedRoot(
   }
   if (!verifyPlatformAccessArtifactObservation(artifactObservation.token))
     return blocked(
-      "candidate_store_windows_adapter_artifact_changed",
+      "runtime_state_windows_adapter_artifact_changed",
       Object.freeze({
         processEffectIssued: true,
         helperExitConfirmed: true,
@@ -311,7 +307,7 @@ function inspectRuntimeOwnedWindowsProtectedRoot(
       ))
   ) {
     return blocked(
-      "candidate_store_windows_adapter_artifact_changed",
+      "runtime_state_windows_adapter_artifact_changed",
       Object.freeze({
         processEffectIssued: true,
         helperExitConfirmed: true,
@@ -319,19 +315,13 @@ function inspectRuntimeOwnedWindowsProtectedRoot(
       }),
     );
   }
-  const observation =
-    kind === "candidate_store"
-      ? evaluateCandidateStoreObservationResponseCandidate(
-          execution.stdout,
-          request.nonce,
-        )
-      : evaluateRuntimeStateObservationResponseCandidate(
-          execution.stdout,
-          request.nonce,
-        );
+  const observation = evaluateRuntimeStateObservationResponseCandidate(
+    execution.stdout,
+    request.nonce,
+  );
   if (observation.status !== "candidate")
     return blocked(
-      "candidate_store_windows_adapter_response_invalid",
+      "runtime_state_windows_adapter_response_invalid",
       Object.freeze({
         processEffectIssued: true,
         helperExitConfirmed: true,
@@ -339,14 +329,8 @@ function inspectRuntimeOwnedWindowsProtectedRoot(
       }),
     );
   const rootCapability = Object.freeze({});
-  const identityHash =
-    "candidateStoreIdentityHash" in observation
-      ? observation.candidateStoreIdentityHash
-      : observation.runtimeStateIdentityHash;
-  const protectionHash =
-    "candidateStoreProtectionHash" in observation
-      ? observation.candidateStoreProtectionHash
-      : observation.runtimeStateProtectionHash;
+  const identityHash = observation.runtimeStateIdentityHash;
+  const protectionHash = observation.runtimeStateProtectionHash;
   rootCapabilities.set(
     rootCapability,
     Object.freeze({
@@ -360,7 +344,7 @@ function inspectRuntimeOwnedWindowsProtectedRoot(
   );
   return Object.freeze({
     ...observation,
-    reason: "runtime_owned_windows_candidate_store_observed",
+    reason: "runtime_owned_windows_runtime_state_observed",
     rootCapability,
     nativeSourceRevision: null,
     executionSourceKind: development
@@ -373,33 +357,6 @@ function inspectRuntimeOwnedWindowsProtectedRoot(
     processEffectIssued: true,
     manualRecoveryRequired: false,
   });
-}
-
-/**
- * Runtime 所有 Windows 候補 Storeを観測する。
- *
- * @responsibility Runtime 所有 Windows 候補 Storeの観測対象、取得根拠、観測不能結果の境界を所有する。
- * @trace ARCH-000015
- * @input initializeIfMissing: unknown、developmentContext: unknown
- * @returns inspectRuntimeOwnedWindowsCandidateStoreの計算結果を返す。
- * @precondition 「initializeIfMissing: unknown、developmentContext: unknown」がinspectRuntimeOwnedWindowsCandidateStoreの入力契約を満たす。
- * @postcondition inspectRuntimeOwnedWindowsCandidateStoreの責務を完了した結果だけを返す。
- * @effect N/A: inspectRuntimeOwnedWindowsCandidateStoreは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: inspectRuntimeOwnedWindowsCandidateStoreは独自の失敗分岐を所有しない。
- * @invariant inspectRuntimeOwnedWindowsCandidateStoreは入力から導いた結果以外の共有状態を変更しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
- * @security inspectRuntimeOwnedWindowsCandidateStoreはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: inspectRuntimeOwnedWindowsCandidateStoreは共有非同期状態を持たない同期処理である。
- */
-export function inspectRuntimeOwnedWindowsCandidateStore(
-  initializeIfMissing: unknown,
-  developmentContext?: unknown,
-) {
-  return inspectRuntimeOwnedWindowsProtectedRoot(
-    "candidate_store",
-    initializeIfMissing,
-    developmentContext,
-  );
 }
 
 /**
@@ -427,39 +384,6 @@ export function inspectRuntimeOwnedWindowsRuntimeState(
     initializeIfMissing,
     developmentContext,
   );
-}
-
-/**
- * Runtime 所有 候補 Store Root Capabilityを一回限りで消費する。
- *
- * @responsibility Runtime 所有 候補 Store Root Capabilityの消費条件、再利用防止、無効Capabilityの拒否境界を所有する。
- * @trace ARCH-000015
- * @input capability: unknown
- * @returns consumeRuntimeOwnedCandidateStoreRootCapabilityの計算結果を返す。
- * @precondition 「capability: unknown」がconsumeRuntimeOwnedCandidateStoreRootCapabilityの入力契約を満たす。
- * @postcondition consumeRuntimeOwnedCandidateStoreRootCapabilityの責務を完了した結果だけを返す。
- * @effect N/A: consumeRuntimeOwnedCandidateStoreRootCapabilityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: consumeRuntimeOwnedCandidateStoreRootCapabilityは独自の失敗分岐を所有しない。
- * @invariant consumeRuntimeOwnedCandidateStoreRootCapabilityは入力から導いた結果以外の共有状態を変更しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
- * @security consumeRuntimeOwnedCandidateStoreRootCapabilityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: consumeRuntimeOwnedCandidateStoreRootCapabilityは共有非同期状態を持たない同期処理である。
- */
-export function consumeRuntimeOwnedCandidateStoreRootCapability(
-  capability: unknown,
-) {
-  if (!capability || typeof capability !== "object") return null;
-  const value = rootCapabilities.get(capability);
-  rootCapabilities.delete(capability);
-  return value?.kind === "candidate_store"
-    ? Object.freeze({
-        rootPath: value.rootPath,
-        candidateStoreIdentityHash: value.identityHash,
-        candidateStoreProtectionHash: value.protectionHash,
-        localUserBindingHash: value.localUserBindingHash,
-        stableLogicalHomeBindingHash: value.stableLogicalHomeBindingHash,
-      })
-    : null;
 }
 
 /**
@@ -496,25 +420,25 @@ export function consumeRuntimeOwnedRuntimeStateRootCapability(
 }
 
 /**
- * 候補 Store Windows Adapter 契約の公開契約を記述する。
+ * Runtime State Windows Adapter 契約の公開契約を記述する。
  *
- * @responsibility 候補 Store Windows Adapter 契約の公開field、非公開境界、互換性を所有する。
+ * @responsibility Runtime State Windows Adapter 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000015
  * @input N/A: 実行時引数を受け取らない。
- * @returns describeCandidateStoreWindowsAdapterContractの計算結果を返す。
- * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeCandidateStoreWindowsAdapterContractの入力契約を満たす。
- * @postcondition describeCandidateStoreWindowsAdapterContractの責務を完了した結果だけを返す。
- * @effect N/A: describeCandidateStoreWindowsAdapterContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: describeCandidateStoreWindowsAdapterContractは独自の失敗分岐を所有しない。
- * @invariant describeCandidateStoreWindowsAdapterContractは入力から導いた結果以外の共有状態を変更しない。
+ * @returns describeRuntimeStateWindowsAdapterContractの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeRuntimeStateWindowsAdapterContractの入力契約を満たす。
+ * @postcondition describeRuntimeStateWindowsAdapterContractの責務を完了した結果だけを返す。
+ * @effect N/A: describeRuntimeStateWindowsAdapterContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describeRuntimeStateWindowsAdapterContractは独自の失敗分岐を所有しない。
+ * @invariant describeRuntimeStateWindowsAdapterContractは入力から導いた結果以外の共有状態を変更しない。
  * @boundary FilesystemとProcess内Domain処理の境界。
- * @security describeCandidateStoreWindowsAdapterContractはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: describeCandidateStoreWindowsAdapterContractは共有非同期状態を持たない同期処理である。
+ * @security describeRuntimeStateWindowsAdapterContractはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: describeRuntimeStateWindowsAdapterContractは共有非同期状態を持たない同期処理である。
  */
-export function describeCandidateStoreWindowsAdapterContract() {
+export function describeRuntimeStateWindowsAdapterContract() {
   return Object.freeze({
     platform: "windows",
-    fixedSegments: Object.freeze(["Qual-Lab", "CRDD", "CandidateStore"]),
+    fixedSegments: Object.freeze(["Qual-Lab", "CRDD", "RuntimeState"]),
     runtimeStateFixedSegments: Object.freeze([
       "Qual-Lab",
       "CRDD",

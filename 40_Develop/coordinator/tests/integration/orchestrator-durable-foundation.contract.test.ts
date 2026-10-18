@@ -28,7 +28,6 @@ import {
   settleProjectTask,
 } from "../../../orchestrator/src/state/transitions.ts";
 import {
-  adoptOrchestratorExistingCandidate,
   createOrchestratorState,
   type OrchestratorAcceptanceDecisionRecord,
   type OrchestratorDecisionRecoveryIntent,
@@ -238,99 +237,6 @@ for (const fault of ["unobservable", "alias"] as const) {
 }
 
 /**
- * 採用前の既知拒否を実保存と履歴へ接続することを検証する。
- * @responsibility Receiptなしの終了証拠をexact Ownerだけ整理する。
- * @trace PRL-IT-012
- * @precondition 新版保存と別Projectの終了証拠がある。
- * @stimulus dirty観測で採用を拒否し、履歴へ終了を搬送する。
- * @observation 採用回数、結果、証拠と履歴を読む。
- * @oracle Effect 0、失敗要約一件、別Projectの証拠不変。
- * @cleanup fixtureの終了hookで所有Rootを回収する。
- * @boundary 採用Applicationから本番保存Portと実Lease。
- */
-test("snapshot production: rejected adoption retires exact evidence without receipt", async (t) => {
-  const { root } = fixture(t);
-  assert.equal(
-    initializeOrchestratorSnapshot(root, "binding-a").status,
-    "completed",
-  );
-  const ports = createCurrentOrchestratorPersistencePorts(root, "binding-a");
-  const other = ports.lease.acquire(
-    "project-b",
-    "canonical",
-    "canonical-adoption",
-  );
-  assert.equal(other.status, "completed");
-  if (other.status !== "completed") throw new Error("fixture_lease_failed");
-  assert.equal(other.value.release().status, "completed");
-  const otherEvidence = readOrchestratorSnapshot(root, "binding-a").value
-    ?.leaseEvidence;
-  let effects = 0;
-  const result = await adoptOrchestratorExistingCandidate(
-    {
-      lease: ports.lease,
-      records: createOrchestratorSnapshotIntegrationRecordPort({
-        workingDirectory: root,
-        repositoryBindingId: "binding-a",
-        projectId: "project-a",
-        milestoneId: "candidate",
-        queueId: "adoption-a",
-      }),
-      candidate: {
-        observeLeaseOwner: () => ({ status: "not_running" }),
-        observeCanonicalRepository: () => ({
-          status: "observed",
-          repositoryRevision: "a".repeat(40),
-          dirty: true,
-          observedPaths: ["result.txt"],
-        }),
-        adoptCandidate: async () => {
-          effects += 1;
-          throw new Error("must_not_adopt");
-        },
-      },
-    },
-    {
-      projectId: "project-a",
-      adoptionAuthorized: true,
-      allowedPaths: ["result.txt"],
-      candidate: {
-        candidateId: "candidate-a",
-        candidateHash: "b".repeat(64),
-        baseRevision: "a".repeat(40),
-        changedPaths: ["result.txt"],
-      },
-    },
-  );
-  assert.equal(
-    result.reason,
-    "orchestrator_adoption_revision_or_scope_mismatch",
-  );
-  assert.equal(result.effectIssued, false);
-  assert.equal(result.cleanupConfirmed, true);
-  assert.equal(result.receiptId, null);
-  assert.equal(effects, 0);
-  const recorded = readOrchestratorSnapshot(root, "binding-a").value;
-  assert.ok(recorded?.results[0]);
-  assert.equal(
-    (recorded.results[0].value as { status: string }).status,
-    "rejected",
-  );
-  assert.equal(maintainOrchestratorSnapshot(root, "binding-a").value, 1);
-  const closed = readOrchestratorSnapshot(root, "binding-a").value;
-  assert.equal(closed?.results.length, 0);
-  assert.deepEqual(closed?.leaseEvidence, otherEvidence);
-  const lines = fs
-    .readFileSync(
-      path.join(root, ".crdd", "orchestrator", "history.jsonl"),
-      "utf8",
-    )
-    .trim()
-    .split("\n");
-  assert.equal(JSON.parse(lines[1] ?? "{}").outcome, "failed");
-});
-
-/**
  * 同Projectの採用結果を段階的に整理しても参照中の終了証拠を失わないことを検証する。
  * @responsibility 採用結果と共用Lease証拠の参照終了を一緒に処置する。
  * @trace PRL-IT-012
@@ -348,6 +254,16 @@ test("snapshot production: shared adoption evidence survives staged retirement",
     "completed",
   );
   const ports = createCurrentOrchestratorPersistencePorts(root, "binding-a");
+  const other = ports.lease.acquire(
+    "project-b",
+    "canonical",
+    "canonical-adoption",
+  );
+  assert.equal(other.status, "completed");
+  if (other.status !== "completed") throw new Error("fixture_lease_failed");
+  assert.equal(other.value.release().status, "completed");
+  const otherEvidence = readOrchestratorSnapshot(root, "binding-a").value
+    ?.leaseEvidence;
   const lease = ports.lease.acquire(
     "project-a",
     "canonical",
@@ -405,7 +321,7 @@ test("snapshot production: shared adoption evidence survives staged retirement",
   assert.equal(maintainOrchestratorSnapshot(root, "binding-a").value, 1);
   const closed = readOrchestratorSnapshot(root, "binding-a").value;
   assert.equal(closed?.results.length, 0);
-  assert.equal(closed?.leaseEvidence.length, 0);
+  assert.deepEqual(closed?.leaseEvidence, otherEvidence);
   assert.equal(closed?.projects.length, 1);
 });
 

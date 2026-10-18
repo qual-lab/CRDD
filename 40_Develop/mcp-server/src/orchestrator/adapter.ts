@@ -9,7 +9,6 @@ import {
   snapshotPlainRecord,
 } from "../request/snapshot.ts";
 import {
-  inspectOrchestratorIntegrationResult,
   inspectOrchestratorDecisionRequest,
   inspectOrchestratorObjectiveRequest,
   inspectOrchestratorWorkspaceResults,
@@ -18,8 +17,6 @@ import {
   isOrchestratorObjectiveProjectionCorrelationValid,
   isOrchestratorProjectionSemanticallyValid,
   ORCHESTRATOR_HUMAN_DECISION_CONTRACT,
-  ORCHESTRATOR_INTEGRATION_BASE_RESULT_FIELDS,
-  orchestratorIntegrationResultFields,
   ORCHESTRATOR_MAXIMUM_OBJECTIVES,
   ORCHESTRATOR_MAXIMUM_TASKS,
   ORCHESTRATOR_OBJECTIVE_INTAKE_CONTRACT,
@@ -95,14 +92,6 @@ const OBJECTIVE_RESULT_KEYS = new Set([
   "recoveryIds",
   "recoveryObligations",
   "effectState",
-]);
-const integrationBaseResultWithDecisionKeys = new Set([
-  ...ORCHESTRATOR_INTEGRATION_BASE_RESULT_FIELDS,
-  "decision",
-]);
-const integrationExtendedResultWithDecisionKeys = new Set([
-  ...orchestratorIntegrationResultFields,
-  "decision",
 ]);
 const PUBLIC_BLOCKED_RESULT_KEYS = new Set([
   "contract",
@@ -762,25 +751,7 @@ function objectiveSnapshot(
       ...(workspaceResults === undefined ? {} : { workspaceResults }),
     });
   }
-  const directIntegration = inspectOrchestratorIntegrationResult(raw);
-  if (directIntegration) return directIntegration;
-  const integratedWithDecision =
-    snapshotPlainRecord(raw, integrationBaseResultWithDecisionKeys) ??
-    snapshotPlainRecord(raw, integrationExtendedResultWithDecisionKeys);
-  if (!integratedWithDecision) return null;
-  const decision = decisionSnapshot(integratedWithDecision.decision);
-  if (!decision) return null;
-  const integrationInput = Object.fromEntries(
-    orchestratorIntegrationResultFields
-      .filter((field) => Object.hasOwn(integratedWithDecision, field))
-      .map((field) => [field, integratedWithDecision[field]]),
-  );
-  const integration = inspectOrchestratorIntegrationResult(integrationInput);
-  if (!integration) return null;
-  return Object.freeze({
-    ...integration,
-    decision,
-  });
+  return null;
 }
 
 /**

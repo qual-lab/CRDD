@@ -63,8 +63,8 @@ import {
   validOrchestratorAcceptanceDecisionEnvelope,
   validOrchestratorAcceptanceDecisionRecord,
 } from "../decision/acceptance-record.ts";
-import { ORCHESTRATOR_INTEGRATION_CONTRACT } from "../candidate/integration-result.ts";
-import type { OrchestratorIntegrationRecordPort } from "../candidate/record-writer.ts";
+import { ORCHESTRATOR_INTEGRATION_CONTRACT } from "./types.ts";
+import type { OrchestratorIntegrationRecordPort } from "./types.ts";
 import { validOrchestratorDecisionRecoveryIntent } from "../decision/recovery-record.ts";
 import { validOrchestratorResultRecord } from "./validate-result-record.ts";
 import {

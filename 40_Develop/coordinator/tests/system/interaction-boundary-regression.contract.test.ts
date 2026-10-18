@@ -20,7 +20,6 @@ import tty from "node:tty";
 import { pathToFileURL } from "node:url";
 import { API, type Project } from "typescript/unstable/sync";
 import {
-  isBinaryExpression,
   isCallExpression,
   isFunctionDeclaration,
   isFunctionLikeDeclaration,
@@ -34,7 +33,6 @@ import {
   isVariableDeclaration,
   type Node,
   type SourceFile,
-  SyntaxKind,
 } from "typescript/unstable/ast";
 
 import {
@@ -227,7 +225,7 @@ test("対話Consoleは一つのRuntime契約だけがOS deviceを所有する", 
     "utf8",
   );
   const cliSource = fs.readFileSync(
-    path.join(coordinatorRoot, "src", "cli", "command.ts"),
+    path.join(coordinatorRoot, "../orchestrator/src/cli/command.ts"),
     "utf8",
   );
   assert.equal(parentConsoleSource.includes("process.stdin"), false);
@@ -237,14 +235,19 @@ test("対話Consoleは一つのRuntime契約だけがOS deviceを所有する", 
     path.join(coordinatorRoot, "src", "cli", "request-input.ts"),
     "utf8",
   );
-  assert.equal(cliSource.includes('from "./request-input.ts"'), true);
   assert.equal(
-    cliSource.includes("taskRequest = readBoundedTaskRequestFromStdin();"),
+    cliSource.includes('from "../../../coordinator/src/cli/request-input.ts"'),
+    true,
+  );
+  assert.equal(
+    cliSource.includes(
+      "inspectSingleTaskCommand(readBoundedTaskRequestFromStdin())",
+    ),
     true,
   );
   assert.equal(requestInputSource.includes("fs.readSync(0"), true);
   const commandPath = path
-    .join(coordinatorRoot, "src/cli/command.ts")
+    .join(coordinatorRoot, "../orchestrator/src/cli/command.ts")
     .replaceAll("\\", "/");
   const inputPath = path
     .join(coordinatorRoot, "src/cli/request-input.ts")
@@ -255,24 +258,29 @@ test("対話Consoleは一つのRuntime契約だけがOS deviceを所有する", 
   const virtualConfig = JSON.stringify({
     extends: "./tsconfig.strict.json",
     files: [
-      "command",
-      "request-input",
-      "interactive-console",
-      "interactive-console-reader",
-    ].map((name) => `src/cli/${name}.ts`),
+      commandPath,
+      ...[
+        "request-input",
+        "interactive-console",
+        "interactive-console-reader",
+      ].map((name) => `src/cli/${name}.ts`),
+    ],
     include: [],
   });
   const alternatives = [
     cliSource,
-    cliSource.replace('from "./request-input.ts"', 'from "./options.ts"'),
     cliSource.replace(
-      "taskRequest = readBoundedTaskRequestFromStdin();",
-      "taskRequest = otherReader();",
+      'from "../../../coordinator/src/cli/request-input.ts"',
+      'from "../../../coordinator/src/cli/options.ts"',
+    ),
+    cliSource.replace(
+      "inspectSingleTaskCommand(readBoundedTaskRequestFromStdin())",
+      "inspectSingleTaskCommand(otherReader())",
     ),
     `${cliSource}\nimport fs from "node:fs"; fs.readSync(0, Buffer.alloc(1), 0, 1, null);`,
     cliSource,
     `${cliSource}\nimport { readSync as directRead } from "node:fs"; directRead(0, Buffer.alloc(1), 0, 1, null);`,
-    `${cliSource.replace("taskRequest = readBoundedTaskRequestFromStdin();", "taskRequest = otherReader();")}\nfunction unusedInputDecoy() { let taskRequest; taskRequest = readBoundedTaskRequestFromStdin(); }`,
+    `${cliSource.replace("inspectSingleTaskCommand(readBoundedTaskRequestFromStdin())", "inspectSingleTaskCommand(otherReader())")}\nfunction unusedInputDecoy() { let taskRequest; inspectSingleTaskCommand(readBoundedTaskRequestFromStdin()) }`,
   ];
   const expectedFailures = [
     null,
@@ -357,7 +365,14 @@ function inspectTaskStdinWiring(project: Project, root: string) {
     "interactive-console",
     "interactive-console-reader",
   ].map((name) => {
-    const file = path.join(root, `src/cli/${name}.ts`).replaceAll("\\", "/");
+    const file = path
+      .join(
+        root,
+        name === "command"
+          ? "../orchestrator/src/cli/command.ts"
+          : `src/cli/${name}.ts`,
+      )
+      .replaceAll("\\", "/");
     const source = project.program.getSourceFile(file);
     assert.ok(source);
     assert.equal(project.program.getSyntacticDiagnostics(file).length, 0);
@@ -370,7 +385,8 @@ function inspectTaskStdinWiring(project: Project, root: string) {
     .filter(
       (item) =>
         isStringLiteral(item.moduleSpecifier) &&
-        item.moduleSpecifier.text === "./request-input.ts",
+        item.moduleSpecifier.text ===
+          "../../../coordinator/src/cli/request-input.ts",
     )
     .flatMap((item) => {
       const bindings = item.importClause?.namedBindings;
@@ -389,7 +405,7 @@ function inspectTaskStdinWiring(project: Project, root: string) {
     : undefined;
   const taskFunctions = command.statements
     .filter(isFunctionDeclaration)
-    .filter((node) => node.name?.text === "runTaskCommand");
+    .filter((node) => node.name?.text === "runSingleTaskCommand");
   const taskBody = taskFunctions[0]?.body;
   if (taskFunctions.length !== 1 || !taskBody) return ["task_function_invalid"];
   const taskNodes = new Set<Node>();
@@ -405,9 +421,7 @@ function inspectTaskStdinWiring(project: Project, root: string) {
   }
   const taskDeclarations = [...taskNodes]
     .filter(isVariableDeclaration)
-    .filter(
-      (node) => isIdentifier(node.name) && node.name.text === "taskRequest",
-    );
+    .filter((node) => isIdentifier(node.name) && node.name.text === "command");
   const requestDeclaration = taskDeclarations[0];
   const requestSymbol =
     requestDeclaration && isIdentifier(requestDeclaration.name)
@@ -455,19 +469,28 @@ function inspectTaskStdinWiring(project: Project, root: string) {
         pending.push(child);
       });
       if (
-        isBinaryExpression(node) &&
+        isVariableDeclaration(node) &&
         taskNodes.has(node) &&
-        node.operatorToken.kind === SyntaxKind.EqualsToken &&
-        isIdentifier(node.left) &&
+        isIdentifier(node.name) &&
         requestSymbol &&
-        project.checker.getResolvedSymbol(node.left)?.id === requestSymbol.id &&
-        isCallExpression(node.right) &&
-        isIdentifier(node.right.expression) &&
-        symbol &&
-        project.checker.getResolvedSymbol(node.right.expression)?.id ===
-          symbol.id
-      )
-        assignedCalls += 1;
+        project.checker.getResolvedSymbol(node.name)?.id === requestSymbol.id &&
+        node.initializer &&
+        isCallExpression(node.initializer) &&
+        isIdentifier(node.initializer.expression) &&
+        node.initializer.expression.text === "inspectSingleTaskCommand" &&
+        node.initializer.arguments.length === 1
+      ) {
+        const input = node.initializer.arguments[0];
+        if (
+          input &&
+          isCallExpression(input) &&
+          isIdentifier(input.expression) &&
+          input.arguments.length === 0 &&
+          symbol &&
+          project.checker.getResolvedSymbol(input.expression)?.id === symbol.id
+        )
+          assignedCalls += 1;
+      }
       if (
         isPropertyAccessExpression(node) &&
         isIdentifier(node.expression) &&
@@ -1535,8 +1558,6 @@ test("Windows内部子Processの実Environmentは用途別固定集合へ閉じ�
     nativeHelperUserProfile: "os_user_info_validated_profile_path",
     nativeHelperConsumers: [
       "provider_home_observation",
-      "candidate_store_observation",
-      "candidate_store_initialization",
       "runtime_state_observation",
       "runtime_state_initialization",
       "docker_desktop_runtime_repair_native_helper",
@@ -1952,7 +1973,7 @@ test("Native Helper環境不成立は全利用側をspawn・Effect・Authority 0
   assert.equal(result.status, 0, result.stderr);
   assert.equal(result.stderr, "");
   assert.deepEqual(JSON.parse(result.stdout), {
-    outcomes: 5,
+    outcomes: 3,
     spawnCalls: 0,
     filesystemEffectIssued: false,
     networkEffectIssued: false,

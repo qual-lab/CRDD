@@ -335,6 +335,13 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
     externalSendConfirmed: true,
     workspaceId: null,
   };
+  const beforeCancellation = new AbortController();
+  beforeCancellation.abort();
+  assert.equal(
+    (await owner.start(command, beforeCancellation.signal)).status,
+    "blocked",
+  );
+  assert.equal(calls, 0);
   for (const mode of [
     "read_only_advice",
     "read_only_advice",
@@ -347,7 +354,7 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
       mode,
       allowedPaths: mode === "workspace_edit" ? ["source.txt"] : [],
     };
-    const pair =
+    const pair: Awaited<ReturnType<typeof owner.start>>[] =
       calls === 0
         ? await Promise.all([owner.start(input), owner.start(input)])
         : [await owner.start(input)];
@@ -397,6 +404,26 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
   assert.equal(JSON.stringify(after.value).includes("synthetic advice"), false);
   permitted = true;
   revokeDuringJoin = false;
+  cancelProbe = false;
+  const alreadyCompleted = await owner.start(command);
+  assert.ok(alreadyCompleted.requestId);
+  assert.equal(
+    (await owner.wait(alreadyCompleted.requestId)).status,
+    "completed",
+  );
+  cancelProbe = true;
+  joined = false;
+  const externalCancellation = new AbortController();
+  const externalStarted = await owner.start(
+    command,
+    externalCancellation.signal,
+  );
+  assert.ok(externalStarted.requestId);
+  externalCancellation.abort();
+  const externalResult = await owner.wait(externalStarted.requestId);
+  assert.equal(externalResult.status, "cancelled");
+  assert.equal(externalResult.cleanupConfirmed, true);
+  assert.equal(joined, true);
   cancelProbe = false;
   failedExecution = true;
   const unknown = await owner.start(command);

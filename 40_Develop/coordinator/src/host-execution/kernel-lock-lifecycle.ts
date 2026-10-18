@@ -1,5 +1,5 @@
 /**
- * candidate-store-kernel-lock-lifecycle-internalに属する責務をまとめる。
+ * kernel-lock-lifecycleに属する責務をまとめる。
  *
  * @responsibility HostOperationSupervisorCleanupを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000015
@@ -11,7 +11,7 @@ const HOST_SUPERVISOR_ACQUIRE_TIMEOUT_MS = 1_000;
 const INTERACTIVE_LOCK_CLEANUP_TIMEOUT_MS = 1_000;
 
 /**
- * candidate-store-kernel-lock-lifecycle-internalで使用するHost Operation Supervisor 清掃の値契約を定義する。
+ * kernel-lock-lifecycleで使用するHost Operation Supervisor 清掃の値契約を定義する。
  *
  * @responsibility Host Operation Supervisor 清掃のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000015
@@ -26,7 +26,7 @@ type HostOperationSupervisorCleanup =
   | "cleanup_confirmed_failure"
   | "cleanup_unknown";
 /**
- * candidate-store-kernel-lock-lifecycle-internalで使用するHost Operation Lock Supervisorの値契約を定義する。
+ * kernel-lock-lifecycleで使用するHost Operation Lock Supervisorの値契約を定義する。
  *
  * @responsibility Host Operation Lock SupervisorのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000015
@@ -47,7 +47,7 @@ export type HostOperationLockSupervisor = Readonly<{
   release: () => Promise<HostOperationSupervisorCleanup>;
 }>;
 /**
- * candidate-store-kernel-lock-lifecycle-internalで使用するHost Operation Supervisor Lock Outcomeの値契約を定義する。
+ * kernel-lock-lifecycleで使用するHost Operation Supervisor Lock Outcomeの値契約を定義する。
  *
  * @responsibility Host Operation Supervisor Lock OutcomeのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000015
@@ -67,7 +67,7 @@ export type HostOperationSupervisorLockOutcome = Readonly<{
 }>;
 
 /**
- * candidate-store-kernel-lock-lifecycle-internalで使用するInteractive Console Lock Workerの値契約を定義する。
+ * kernel-lock-lifecycleで使用するInteractive Console Lock Workerの値契約を定義する。
  *
  * @responsibility Interactive Console Lock WorkerのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000015
@@ -88,7 +88,7 @@ type InteractiveConsoleLockWorker = Readonly<{
 }>;
 
 /**
- * candidate-store-kernel-lock-lifecycle-internalで使用するInteractive Console Kernel Lock Outcomeの値契約を定義する。
+ * kernel-lock-lifecycleで使用するInteractive Console Kernel Lock Outcomeの値契約を定義する。
  *
  * @responsibility Interactive Console Kernel Lock OutcomeのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000015
@@ -337,7 +337,7 @@ export async function runInteractiveConsoleKernelLockLifecycle(
 }
 
 /**
- * candidate-store-kernel-lock-lifecycle-internalで使用するSupervisor Childの値契約を定義する。
+ * kernel-lock-lifecycleで使用するSupervisor Childの値契約を定義する。
  *
  * @responsibility Supervisor ChildのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000015
@@ -349,7 +349,7 @@ export async function runInteractiveConsoleKernelLockLifecycle(
  */
 type SupervisorChild = ChildProcess;
 /**
- * candidate-store-kernel-lock-lifecycle-internalで使用するSupervisor Observationの値契約を定義する。
+ * kernel-lock-lifecycleで使用するSupervisor Observationの値契約を定義する。
  *
  * @responsibility Supervisor ObservationのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000015

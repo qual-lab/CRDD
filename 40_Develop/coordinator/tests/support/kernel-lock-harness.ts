@@ -1,12 +1,11 @@
 /**
- * Candidate StoreのKernel Lock操作を試験用Processへ接続する。
+ * Runtime共通のKernel Lock操作を試験用Processへ接続する。
  *
  * @packageDocumentation
  * @responsibility Host・Supervisor・対話Lockの所有結果とReader操作を試験へ搬送する。
- * @trace CPR-IT-001
  * @trace ERB-IT-003
  * @level IT
- * @scope Candidate Store／Hostの排他
+ * @scope Runtime共通／Hostの排他
  * @boundary 試験用子Process→Native Kernel Lock。実Storeの採用・変更は行わない。
  */
 import type { ChildProcess } from "node:child_process";

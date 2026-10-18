@@ -25,6 +25,7 @@ export const SIGNED_ROUTE_MATRIX_REASONS = Object.freeze({
 
 export const SIGNED_GENERAL_TASK_PUBLIC_REASONS = Object.freeze([
   "signed_general_task_base_content_mismatch",
+  "signed_general_task_workspace_preparation_failed",
   "signed_general_task_cancellation_binding_cleanup_unknown",
   "signed_general_task_cancellation_binding_failed",
   "signed_general_task_cancellation_cleanup_unknown",

@@ -63,9 +63,27 @@ MCP Client → MCP Server ────┼→ Orchestrator → Coordinator → AI
 
 通知は下位の契約に上位がcallbackを登録し、Coordinatorが元Operationへ結び、必要な事実だけをOrchestratorへ伝播する。下位は上位Packageをimportしない。一次失敗、技術cleanup、結果配送、耐久受領は別の事実として保持する。Consumerの任意保存や表示をDocker cleanupの条件にしない。
 
+### 実行対象の引渡しとCLIの責務（2026-10-18、人間確認済み）
+
+Workspaceを選択・管理するのは上位であり、Coordinatorは上位が解決した作業対象を受け取り、一回のAI実行を調整する。CoordinatorへWorkspace管理API、Workspace ID検索又はDirect／Isolatedの選択責務を追加しない。
+
+| 処理 | 所有する場所 | 下位へ渡すもの／禁止すること |
+|---|---|---|
+| 利用者のWorkspace指定・Direct／Isolated選択 | Workbench／MCP／通常Task CLIの受付からOrchestratorへ接続 | 上位が所属・現在許可・利用状態を照合する。指定IDやCWDだけを実行先に変換しない |
+| 実行先の解決 | Orchestrator。必要なGit観測はVersion Controlを利用 | 解決済みの作業フォルダ、所属Repository、必要なRevision・保護境界の確認材料を渡す |
+| 単発AI実行 | Coordinator | 受領した対象の一致・安全性を実行前に確認し、その対象でExecutor／Reviewerを調整する。Workspace IDから検索・配置再構築・別Tree選択をしない |
+| 隔離と技術資源回収 | Docker Isolation。上位への結果調整はCoordinator | 既存の隔離・Mount検証を維持する。実行先がDirectかIsolatedかを理由にWorkspace寿命を所有しない |
+| 結果と継続・終了 | CoordinatorはOperationに結んだ結果・通知を返し、OrchestratorがWorkspace／Taskへ対応付ける | Task完了・取消・回収不明をWorkspace削除、Branch除去又は候補採用へ変換しない |
+
+Workspace IDは上位の選択・管理・結果対応に用いる。Coordinatorの実行契約にWorkspace台帳の読取りやID解決を要求しない。下位で必要な相関は既存のTask／Attempt／Operationとの引渡しで維持し、新しいRegistryや相関専用Storeを作らない。具体的な入力型の改訂は既存利用側と照合して確定し、ここで新しいSchemaを先行実装しない。
+
+通常Task CLIも上位の受付接続部で作業対象を解決する。既存配布入口からOrchestratorへ接続する方針とし、Coordinator本体からOrchestratorを呼び出さない。コマンド名に`coordinator`が含まれることを、Workspace管理のOwnerとする根拠にしない。Coordinator直接の開発／診断入口には解決済み対象を渡す。対象が未指定・不正・観測不能ならAI開始前に停止し、現在Treeへの自動Direct化・旧複製／Bundle生成へfallbackしない。
+
+`repository-operation/borrowed-workspace.ts`のWorkspace ID検索は撤去し、受領した実行TreeのGit共通実体、所属、link／実体、期待Revision及びMount材料の再確認へ切り替える。IDは上位の相関値であり、Coordinatorは配置を再構築しない。Coordinatorが回収するのは実行資源と自己所有の一時投影だけで、借用Tree・Workspace Branch・候補Refは上位とVersion Controlの所有である。配布CLIは既存の単発Ownerへ接続し、解決済み対象だけを下位へ渡す。直接の下位CLIは上位入口へ案内して開始しない。旧Bundle／Storeの公開契約・専用Toolの全面撤去と新版全体の成立は、この対象搬送の接続とは別に追跡する。
+
 ## 4. 配置とRoot解決
 
-Git Worktreeの物理配置はVersion Controlが所有し、OrchestratorとCoordinatorは既存`observeRepositoryWorktree`が返すWorkspace ID・相対配置と必要なGit観測の相関を確認して利用する。欠測時に独自の固定Pathへ戻らない。Domain Modelの名前付き`workspaces`は採用済み領域の宣言でありGit操作を所有しない。借用Treeの内部状態保護先だけはDomainの用途限定観測／準備へ委譲し、raw Rootを上位へ公開しない。
+Git Worktreeの物理配置はVersion Controlが所有する。Orchestratorが既存`observeRepositoryWorktree`のWorkspace ID・相対配置と必要なGit観測の相関から対象を解決し、Coordinatorは上位から受領した解決済み対象と安全確認材料を再検証する。欠測時に独自の固定Pathへ戻らない。Domain Modelの名前付き`workspaces`は採用済み領域の宣言でありGit操作を所有しない。借用Treeの内部状態保護先だけはDomainの用途限定観測／準備へ委譲し、raw Rootを上位へ公開しない。
 
 ```text
 対象Repository/

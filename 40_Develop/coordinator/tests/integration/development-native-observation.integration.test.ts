@@ -691,14 +691,7 @@ if (process.argv[2] !== "--probe") {
   });
 }
 
-const targets = [
-  "codex",
-  "claude",
-  "store",
-  "store-init",
-  "state",
-  "state-init",
-];
+const targets = ["codex", "claude", "state", "state-init"];
 const scenarios = [
   "normal",
   "pre-artifact",
@@ -1114,15 +1107,10 @@ async function runProbe(target: string, scenario: string) {
           target,
           context,
         )
-      : target.startsWith("store")
-        ? store.inspectRuntimeOwnedWindowsCandidateStore(
-            target.endsWith("-init"),
-            context,
-          )
-        : store.inspectRuntimeOwnedWindowsRuntimeState(
-            target.endsWith("-init"),
-            context,
-          );
+      : store.inspectRuntimeOwnedWindowsRuntimeState(
+          target.endsWith("-init"),
+          context,
+        );
   const shouldReturnCandidate =
     scenario === "checkout-normal" ||
     scenario === "normal" ||
@@ -1664,7 +1652,7 @@ if (process.argv[2] === "--probe") {
             runtimeOwnedProviderHomeMountSourceCandidate: () => "C:\\home",
             rootPathCandidate: () => "C:\\root",
             createProviderHomeObservationRequest: () => request,
-            createCandidateStoreObservationRequest: () => request,
+
             createRuntimeStateObservationRequest: () => request,
             beginPlatformAccessBootstrapObservation: (root: string) => {
               events.push("begin");
@@ -1729,7 +1717,7 @@ if (process.argv[2] === "--probe") {
               };
             },
             evaluateProviderHomeObservationResponseCandidate: candidate,
-            evaluateCandidateStoreObservationResponseCandidate: candidate,
+
             evaluateRuntimeStateObservationResponseCandidate: candidate,
             rootCapabilities: new WeakMap(),
             mountSourceCapabilities: new WeakMap(),
@@ -1744,7 +1732,7 @@ if (process.argv[2] === "--probe") {
           const result = provider
             ? execute("codex", fault === "development" ? {} : undefined)
             : execute(
-                "candidate_store",
+                "runtime_state",
                 false,
                 fault === "development" ? {} : undefined,
               );

@@ -83,18 +83,18 @@ test("Runtime Data失敗を公開Orchestrator結果まで意味変更せず投�
 });
 
 /**
- * development composition uses the explicitly supplied candidate integration boundaryを検証する。
+ * 開発用構成はTask終了後に明示品質受入を要求し再入場で再送しないを検証する。
  *
- * @responsibility development composition uses the explicitly supplied candidate integration boundaryの合否判定を所有する。
+ * @responsibility 開発用構成はTask終了後に明示品質受入を要求し再入場で再送しないの合否判定を所有する。
  * @trace PPR-IT-001
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus development composition uses the explicitly supplied candidate integration boundaryの対象操作を実行する。
+ * @stimulus 開発用構成はTask終了後に明示品質受入を要求し再入場で再送しないの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
-test("development composition uses the explicitly supplied candidate integration boundary", async (t) => {
+test("開発用構成はTask終了後に明示品質受入を要求し再入場で再送しない", async (t) => {
   const root = fs.mkdtempSync(
     path.join(
       requireReadyRepositoryRuntimeDataArea(
@@ -140,11 +140,9 @@ test("development composition uses the explicitly supplied candidate integration
   fs.mkdirSync(decisionRoot);
   const decisionStore =
     createOrchestratorWindowsDecisionStoreTestingAdapter(decisionRoot);
-  let integrationAdapterCalls = 0;
   let taskStarts = 0;
   let shouldBlockExecutionPublication = false;
   let shouldThrowFromPublicationObserver = false;
-  let shouldBlockCandidateObservation = false;
   const publicationObservations: object[] = [];
   const runtime = createDevelopmentOrchestratorPublicObjectiveCandidate({
     captureResultDelivery: () =>
@@ -249,55 +247,6 @@ test("development composition uses the explicitly supplied candidate integration
         principalId: "local-user-test-user",
         store: decisionStore,
       }),
-    createIntegrationAdapter: () => {
-      integrationAdapterCalls += 1;
-      return Object.freeze({
-        createCandidate: async ({
-          state,
-        }: {
-          state: {
-            repositoryRevision: string;
-            objectives: readonly { definition: { id: string } }[];
-            milestoneId: string;
-          };
-        }) =>
-          Object.freeze({
-            status: "candidate" as const,
-            candidateId: "candidate-integrated",
-            candidateHash: "b".repeat(64),
-            baseRevision: state.repositoryRevision,
-            changedPaths: Object.freeze(["result.txt"]),
-            objectiveEvidence: Object.freeze({
-              [state.objectives[0]?.definition.id ?? "missing"]: Object.freeze([
-                "evidence-objective",
-              ]),
-            }),
-            milestoneEvidence: Object.freeze(["evidence-milestone"]),
-            conflicts: Object.freeze([]),
-            cleanupConfirmed: true,
-          }),
-        observeCanonicalRepository: () =>
-          shouldBlockCandidateObservation
-            ? Object.freeze({
-                status: "blocked" as const,
-                reason: "orchestrator_explicit_workspace_adoption_required",
-                effectIssued: false,
-                effectStateUnknown: false,
-                cleanupConfirmed: false,
-                retryAllowed: false,
-                recoveryReference: null,
-              })
-            : Object.freeze({
-                status: "observed" as const,
-                repositoryRevision: revision,
-                dirty: false,
-                observedPaths: Object.freeze([]),
-              }),
-        adoptCandidate: async () => {
-          throw new Error("adoption_must_not_be_used");
-        },
-      });
-    },
   });
   const before = runtime.runStateQuery(
     {
@@ -361,7 +310,6 @@ test("development composition uses the explicitly supplied candidate integration
   assert.equal(resumedPending.queueId, result.queueId);
   assert.equal(resumedPending.workspaceResults, undefined);
   assert.equal(taskStarts, 1);
-  assert.equal(integrationAdapterCalls, 0);
   let pending = runtime.runStateQuery(
     {
       requestId: "query-acceptance-pending",
@@ -484,9 +432,7 @@ test("development composition uses the explicitly supplied candidate integration
   assert.equal(result.milestoneId, "milestone-public-runtime");
   assert.equal(result.projection?.milestoneState, "executing");
   assert.equal(result.effectState, "settled");
-  assert.equal(integrationAdapterCalls, 0);
   assert.equal(taskStarts, 1);
-  shouldBlockCandidateObservation = true;
   const cleanupBlocked = await runtime.run(
     {
       requestId: "request-candidate-cleanup-blocked",
@@ -517,7 +463,6 @@ test("development composition uses the explicitly supplied candidate integration
   assert.equal(cleanupBlocked.effectState, "no_effect");
   assert.deepEqual(cleanupBlocked.recoveryIds, []);
   assert.equal(taskStarts, 1);
-  assert.equal(integrationAdapterCalls, 0);
   const verifiedRoot = verifyExecutionIntelligenceRepositoryRoot(root);
   assert.equal(verifiedRoot.status, "completed");
   if (verifiedRoot.status !== "completed")
@@ -676,7 +621,6 @@ test("development composition uses the explicitly supplied candidate integration
   assert.equal(replay.status, "completed", JSON.stringify(replay));
   assert.equal(replay.reason, "orchestrator_objective_already_accepted");
   assert.equal(taskStarts, 1);
-  assert.equal(integrationAdapterCalls, 0);
 
   shouldBlockExecutionPublication = true;
   const publicationBlocked = await runtime.run(

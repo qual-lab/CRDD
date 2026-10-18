@@ -29,14 +29,12 @@ import {
   createCurrentOrchestratorPersistencePorts as createOrchestratorPersistencePorts,
   readCurrentOrchestratorState as readOrchestratorState,
   initializeOrchestratorSnapshot,
-  createOrchestratorSnapshotIntegrationRecordPort as createOrchestratorIntegrationRecordAdapter,
   createOrchestratorSnapshotAcceptanceDecisionStore as createOrchestratorAcceptanceDecisionStore,
 } from "../../../orchestrator/src/storage/current-state.ts";
 import { recordOrchestratorExecutionEvent } from "../../../orchestrator/src/index.ts";
 import {
   resolveOrchestratorReplan as resolveOrchestratorReplanWithPort,
   createOrchestratorAcceptanceAuthorityAdapter,
-  integrateOrchestratorOperation,
   issueOrchestratorHumanDecision,
   ORCHESTRATOR_ACCEPTANCE_DECISION_CONTRACT,
   recordOrchestratorAcceptanceDecision,
@@ -259,7 +257,7 @@ function fixture(t: test.TestContext) {
           cleanupConfirmed: true,
           manualRecoveryRequired: false,
           processRestartRequired: false,
-          candidateId: isSuccessful ? "candidate-full" : null,
+          candidateId: null,
           recoveryIds: Object.freeze([]),
         };
       },
@@ -318,51 +316,6 @@ test("public intake, bounded retry, progress and integration form one accepted f
     "orchestrator_tasks_completed_integration_pending",
   );
   assert.equal(context.attempts, 2);
-  const integrated = await integrateOrchestratorOperation(
-    {
-      candidate: {
-        createCandidate: async () => ({
-          status: "candidate",
-          candidateId: "integrated-full",
-          candidateHash: "b".repeat(64),
-          baseRevision: revision,
-          changedPaths: ["result.txt"],
-          objectiveEvidence: { "objective-full": ["evidence-objective"] },
-          milestoneEvidence: ["evidence-milestone"],
-          conflicts: [],
-          cleanupConfirmed: true,
-        }),
-        observeCanonicalRepository: () => ({
-          status: "observed",
-          repositoryRevision: revision,
-          dirty: false,
-          observedPaths: ["result.txt"],
-        }),
-        adoptCandidate: async () => {
-          throw new Error("adoption_not_authorized");
-        },
-      },
-      records: createOrchestratorIntegrationRecordAdapter({
-        workingDirectory: context.root,
-        repositoryBindingId: "binding-full",
-        projectId: context.request.projectId,
-        milestoneId: context.request.milestoneId,
-        queueId: first.queueId ?? "invalid",
-      }),
-      persistence: createOrchestratorPersistencePorts(
-        context.root,
-        "binding-full",
-      ),
-    },
-    {
-      projectId: context.request.projectId,
-      milestoneId: context.request.milestoneId,
-      queueId: first.queueId ?? "invalid",
-      allowedPaths: context.request.allowedPaths,
-      adoptionAuthorized: false,
-    },
-  );
-  assert.equal(integrated.reason, "orchestrator_acceptance_decision_required");
   acceptIntegratedResult({
     root: context.root,
     repositoryBindingId: "binding-full",
@@ -382,18 +335,18 @@ test("public intake, bounded retry, progress and integration form one accepted f
 });
 
 /**
- * bounded parallel attempts are evaluated by one integrated accepted resultを検証する。
+ * 同じWorkspaceの二Taskを順番に実行し明示品質受入へ接続するを検証する。
  *
- * @responsibility bounded parallel attempts are evaluated by one integrated accepted resultの合否判定を所有する。
+ * @responsibility 同じWorkspaceの二Taskを順番に実行し明示品質受入へ接続するの合否判定を所有する。
  * @trace PPR-IT-001
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus bounded parallel attempts are evaluated by one integrated accepted resultの対象操作を実行する。
+ * @stimulus 同じWorkspaceの二Taskを順番に実行し明示品質受入へ接続するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
-test("bounded parallel attempts are evaluated by one integrated accepted result", async (t) => {
+test("同じWorkspaceの二Taskを順番に実行し明示品質受入へ接続する", async (t) => {
   const root = fs.mkdtempSync(
     path.join(
       requireReadyRepositoryRuntimeDataArea(
@@ -432,10 +385,7 @@ test("bounded parallel attempts are evaluated by one integrated accepted result"
   });
   let active = 0;
   let maximumActive = 0;
-  let releaseBoth: (() => void) | undefined;
-  const bothStarted = new Promise<void>((resolve) => {
-    releaseBoth = resolve;
-  });
+  const lifecycle: string[] = [];
   const dependencies = {
     authenticatedPrincipalId: "principal-bounded-evaluation",
     verifyProjectBinding: () => ({
@@ -500,8 +450,9 @@ test("bounded parallel attempts are evaluated by one integrated accepted result"
         assert.equal(await input.observeStarted?.(), true);
         active += 1;
         maximumActive = Math.max(maximumActive, active);
-        if (active === 2) releaseBoth?.();
-        await bothStarted;
+        lifecycle.push(`started:${input.attemptId}`);
+        await Promise.resolve();
+        lifecycle.push(`completed:${input.attemptId}`);
         active -= 1;
         return {
           contract:
@@ -516,7 +467,7 @@ test("bounded parallel attempts are evaluated by one integrated accepted result"
           cleanupConfirmed: true,
           manualRecoveryRequired: false,
           processRestartRequired: false,
-          candidateId: `candidate-${input.attemptId}`,
+          candidateId: null,
           recoveryIds: Object.freeze([]),
           executorProvider: input.attemptId.includes("task-a")
             ? ("codex" as const)
@@ -534,54 +485,13 @@ test("bounded parallel attempts are evaluated by one integrated accepted result"
     execution.reason,
     "orchestrator_tasks_completed_integration_pending",
   );
-  assert.equal(maximumActive, 2);
-  const integrated = await integrateOrchestratorOperation(
-    {
-      candidate: {
-        createCandidate: async () => ({
-          status: "candidate",
-          candidateId: "integrated-bounded-evaluation",
-          candidateHash: "b".repeat(64),
-          baseRevision: revision,
-          changedPaths: ["result-a.txt", "result-b.txt"],
-          objectiveEvidence: {
-            "objective-bounded-evaluation": ["evidence-objective"],
-          },
-          milestoneEvidence: ["evidence-milestone"],
-          conflicts: [],
-          cleanupConfirmed: true,
-        }),
-        observeCanonicalRepository: () => ({
-          status: "observed",
-          repositoryRevision: revision,
-          dirty: false,
-          observedPaths: ["result-a.txt", "result-b.txt"],
-        }),
-        adoptCandidate: async () => {
-          throw new Error("adoption_not_authorized");
-        },
-      },
-      records: createOrchestratorIntegrationRecordAdapter({
-        workingDirectory: root,
-        repositoryBindingId: "binding-bounded-evaluation",
-        projectId: request.projectId,
-        milestoneId: request.milestoneId,
-        queueId: execution.queueId ?? "invalid",
-      }),
-      persistence: createOrchestratorPersistencePorts(
-        root,
-        "binding-bounded-evaluation",
-      ),
-    },
-    {
-      projectId: request.projectId,
-      milestoneId: request.milestoneId,
-      queueId: execution.queueId ?? "invalid",
-      allowedPaths: request.allowedPaths,
-      adoptionAuthorized: false,
-    },
-  );
-  assert.equal(integrated.reason, "orchestrator_acceptance_decision_required");
+  assert.equal(maximumActive, 1);
+  assert.equal(lifecycle.length, 4);
+  assert.ok(lifecycle[0]?.startsWith("started:"));
+  assert.equal(lifecycle[1], lifecycle[0]?.replace("started:", "completed:"));
+  assert.ok(lifecycle[2]?.startsWith("started:"));
+  assert.equal(lifecycle[3], lifecycle[2]?.replace("started:", "completed:"));
+  assert.notEqual(lifecycle[0], lifecycle[2]);
   acceptIntegratedResult({
     root,
     repositoryBindingId: "binding-bounded-evaluation",

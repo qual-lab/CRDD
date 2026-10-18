@@ -53,19 +53,6 @@ export {
   type OrchestratorTaskExecution,
 } from "./task/dispatch.ts";
 export {
-  describeOrchestratorIntegrationContract,
-  integrateOrchestratorOperation,
-} from "./candidate/integrate.ts";
-export {
-  ORCHESTRATOR_CANDIDATE_ADOPTION_CONTRACT,
-  adoptOrchestratorExistingCandidate,
-  inspectOrchestratorExistingCandidate,
-  type OrchestratorCandidateAdoptionDependencies,
-  type OrchestratorCandidateAdoptionInput,
-  type OrchestratorCandidateAdoptionResult,
-  type OrchestratorExistingCandidate,
-} from "./candidate/adopt.ts";
-export {
   invalidateOrchestratorHumanDecision,
   issueOrchestratorHumanDecision,
   orchestratorDecisionRecordId,
@@ -163,12 +150,7 @@ export {
 export type {
   OrchestratorIntegrationRecord,
   OrchestratorIntegrationRecordPort,
-} from "./candidate/record-writer.ts";
-export type {
-  OrchestratorCandidateAdoptionReceipt,
-  OrchestratorCandidatePort,
-  OrchestratorIntegrationCandidate,
-} from "./candidate/operations.ts";
+} from "./storage/types.ts";
 export type {
   OrchestratorClockIdentityPort,
   OrchestratorClockReading,
@@ -205,12 +187,7 @@ export type {
   OrchestratorRecoveryTransition,
   OrchestratorTaskRecoveryPort,
 } from "./task/recovery.ts";
-export {
-  ORCHESTRATOR_INTEGRATION_BASE_RESULT_FIELDS,
-  ORCHESTRATOR_INTEGRATION_CONTRACT,
-  inspectOrchestratorIntegrationResult,
-  orchestratorIntegrationResultFields,
-} from "./candidate/integration-result.ts";
+export { ORCHESTRATOR_INTEGRATION_CONTRACT } from "./storage/types.ts";
 export {
   inspectOrchestratorObjectiveRequest,
   type OrchestratorObjectiveRequest,

@@ -120,12 +120,11 @@ const transitionByEdge = new Map<string, string>([
     "STATE-REMEDIATION-CANDIDATE-CAPTURED>STATE-REMEDIATION-REVIEWER-CLEAN",
     "TRANS-REMEDIATION-CANDIDATE-TO-REVIEWER-CLEAN",
   ],
-  ["STATE-REVIEWER-CLEAN>STATE-CANDIDATE-STAGED", "TRANS-REVIEWER-TO-STAGED"],
+  ["STATE-REVIEWER-CLEAN>STATE-HOST-CLEAN", "TRANS-REVIEWER-TO-HOST-CLEAN"],
   [
-    "STATE-REMEDIATION-REVIEWER-CLEAN>STATE-CANDIDATE-STAGED",
-    "TRANS-REMEDIATION-REVIEWER-TO-STAGED",
+    "STATE-REMEDIATION-REVIEWER-CLEAN>STATE-HOST-CLEAN",
+    "TRANS-REMEDIATION-REVIEWER-TO-HOST-CLEAN",
   ],
-  ["STATE-CANDIDATE-STAGED>STATE-HOST-CLEAN", "TRANS-STAGED-TO-HOST-CLEAN"],
   ["STATE-HOST-CLEAN>STATE-RESULT-PUBLISHED", "TRANS-HOST-CLEAN-TO-RESULT"],
 ]);
 
@@ -155,12 +154,8 @@ const edgeByLifecycleCase = new Map<string, string>([
     "STATE-CANDIDATE-CAPTURED>STATE-REVIEWER-CLEAN",
   ],
   [
-    "CASE-NORMAL-REVIEWER-TO-STAGED",
-    "STATE-REVIEWER-CLEAN>STATE-CANDIDATE-STAGED",
-  ],
-  [
-    "CASE-NORMAL-STAGED-TO-HOST-CLEAN",
-    "STATE-CANDIDATE-STAGED>STATE-HOST-CLEAN",
+    "CASE-NORMAL-REVIEWER-TO-HOST-CLEAN",
+    "STATE-REVIEWER-CLEAN>STATE-HOST-CLEAN",
   ],
   [
     "CASE-NORMAL-HOST-CLEAN-TO-RESULT",
@@ -195,8 +190,8 @@ const edgeByLifecycleCase = new Map<string, string>([
     "STATE-REMEDIATION-CANDIDATE-CAPTURED>STATE-REMEDIATION-REVIEWER-CLEAN",
   ],
   [
-    "CASE-REMEDIATION-SECOND-REVIEWER-TO-STAGED",
-    "STATE-REMEDIATION-REVIEWER-CLEAN>STATE-CANDIDATE-STAGED",
+    "CASE-REMEDIATION-SECOND-REVIEWER-TO-HOST-CLEAN",
+    "STATE-REMEDIATION-REVIEWER-CLEAN>STATE-HOST-CLEAN",
   ],
 ]);
 
@@ -246,13 +241,15 @@ const resourcesByTransition = new Map<string, readonly string[]>([
       "RES-DOCKER-OWNED",
     ],
   ],
-  ["TRANS-REVIEWER-TO-STAGED", ["RES-CANDIDATE-ENTRY"]],
-  ["TRANS-REMEDIATION-REVIEWER-TO-STAGED", ["RES-CANDIDATE-ENTRY"]],
   [
-    "TRANS-STAGED-TO-HOST-CLEAN",
+    "TRANS-REVIEWER-TO-HOST-CLEAN",
     ["RES-HOST-GENERATION", "RES-OPERATION-WORKSPACE"],
   ],
-  ["TRANS-HOST-CLEAN-TO-RESULT", ["RES-CANDIDATE-ENTRY", "RES-TASK-CONTROL"]],
+  [
+    "TRANS-REMEDIATION-REVIEWER-TO-HOST-CLEAN",
+    ["RES-HOST-GENERATION", "RES-OPERATION-WORKSPACE"],
+  ],
+  ["TRANS-HOST-CLEAN-TO-RESULT", ["RES-TASK-CONTROL"]],
 ]);
 
 const TERMINAL_RESOURCES = Object.freeze([
@@ -263,7 +260,6 @@ const TERMINAL_RESOURCES = Object.freeze([
   "RES-MOUNT-GRANT",
   "RES-DOCKER-OWNED",
   "RES-OPERATION-WORKSPACE",
-  "RES-CANDIDATE-ENTRY",
   "RES-TASK-CONTROL",
 ]);
 
@@ -276,8 +272,7 @@ const taskTraceAssertions: Readonly<
   "CASE-NORMAL-AUTHORIZED-TO-EXECUTOR-CLEAN": assertRuntimeTraceCase,
   "CASE-NORMAL-EXECUTOR-TO-CANDIDATE": assertRuntimeTraceCase,
   "CASE-NORMAL-CANDIDATE-TO-REVIEWER-CLEAN": assertRuntimeTraceCase,
-  "CASE-NORMAL-REVIEWER-TO-STAGED": assertRuntimeTraceCase,
-  "CASE-NORMAL-STAGED-TO-HOST-CLEAN": assertRuntimeTraceCase,
+  "CASE-NORMAL-REVIEWER-TO-HOST-CLEAN": assertRuntimeTraceCase,
   "CASE-NORMAL-HOST-CLEAN-TO-RESULT": assertRuntimeTraceCase,
   "CASE-REMEDIATION-AUTHORIZED-TO-EXECUTOR-CLEAN": assertRuntimeTraceCase,
   "CASE-REMEDIATION-EXECUTOR-TO-CANDIDATE": assertRuntimeTraceCase,
@@ -287,7 +282,7 @@ const taskTraceAssertions: Readonly<
     assertRuntimeTraceCase,
   "CASE-REMEDIATION-SECOND-EXECUTOR-TO-CANDIDATE": assertRuntimeTraceCase,
   "CASE-REMEDIATION-SECOND-CANDIDATE-TO-REVIEWER-CLEAN": assertRuntimeTraceCase,
-  "CASE-REMEDIATION-SECOND-REVIEWER-TO-STAGED": assertRuntimeTraceCase,
+  "CASE-REMEDIATION-SECOND-REVIEWER-TO-HOST-CLEAN": assertRuntimeTraceCase,
   "CASE-BLOCKED-ADMISSION": assertRuntimeTraceCase,
   "CASE-BLOCKED-OPERATION-ACQUIRING": assertRuntimeTraceCase,
   "CASE-BLOCKED-OPERATION-READY": assertRuntimeTraceCase,
@@ -335,7 +330,7 @@ const taskTraceAssertions: Readonly<
   "CASE-RECOVERY-REMEDIATION-EXECUTOR-CLEAN": assertRuntimeTraceCase,
   "CASE-RECOVERY-REMEDIATION-CANDIDATE-CAPTURED": assertRuntimeTraceCase,
   "CASE-RECOVERY-REMEDIATION-REVIEWER-CLEAN": assertRuntimeTraceCase,
-  "CASE-RECOVERY-CANDIDATE-STAGED": assertRuntimeTraceCase,
+  "CASE-RECOVERY-HOST-INTENT": assertRuntimeTraceCase,
   "CASE-RECOVERY-HOST-CLEAN": assertRuntimeTraceCase,
   "CASE-HOST-CLEANUP-ACTIVE-BINDING-REFUSED": assertRuntimeTraceCase,
 });
@@ -514,9 +509,7 @@ async function assertLifecycleRuntimeTraceCases(
       to.state === "STATE-TASK-AUTHORIZED" ||
       to.state === "STATE-REMEDIATION-AUTHORIZED"
         ? "authorized"
-        : to.state === "STATE-CANDIDATE-STAGED"
-          ? "staged"
-          : "completed";
+        : "completed";
     const assertion = taskTraceAssertions[caseId];
     assert.ok(assertion, `unregistered trace assertion: ${caseId}`);
     assertion(caseId, {
@@ -603,11 +596,6 @@ function fixture(
     cleanupProtocolFailure?: boolean;
     completionRejectRole?: "executor" | "reviewer";
     candidateVerificationFails?: boolean;
-    candidatePersistenceFails?: boolean;
-    candidatePersistenceNeedsRecovery?: boolean;
-    candidatePersistenceNeedsStoreRecovery?: boolean;
-    candidatePersistenceAllowed?: boolean;
-    candidateStoreUnavailable?: boolean;
     borrowedWorkspace?: boolean;
     unexpectedCapture?: number;
     candidateSecretAtCapture?: 1 | 2;
@@ -749,23 +737,15 @@ function fixture(
   let selectionRevokeCount = 0;
   let providerHomeObservationCount = 0;
   let mountGrantIssueCount = 0;
-  let discardCount = 0;
   let externalAuthorizationCount = 0;
   let dockerFinalizeCount = 0;
   let dockerReceiptCount = 0;
   let dockerIntentCount = 0;
   let abandonOperationCount = 0;
   let operationCreateCount = 0;
-  let candidateStorePrepareCount = 0;
   let workspaceMaterializeCount = 0;
   let processStartCount = 0;
   let candidateCaptureCount = 0;
-  let candidateEntryState:
-    | "unacquired"
-    | "present"
-    | "preserved"
-    | "transferred"
-    | "absent" = "unacquired";
   let releasePausedProcess: (() => void) | null = null;
   let releaseExternalAuthorization: (() => void) | null = null;
   let releaseOperationCreation: (() => void) | null = null;
@@ -835,12 +815,6 @@ function fixture(
           : isRecoveryTerminal
             ? "unacquired"
             : "absent",
-      "RES-CANDIDATE-ENTRY":
-        isRecoveryTerminal && candidateEntryState === "present"
-          ? "preserved"
-          : candidateEntryState === "unacquired" && !isRecoveryTerminal
-            ? "absent"
-            : candidateEntryState,
       "RES-TASK-CONTROL": "present",
     });
   };
@@ -1009,24 +983,11 @@ function fixture(
       Object.freeze({
         status: "resolved",
         capability: externalSendPolicyCapability,
-        candidatePersistenceAllowed:
-          options.candidatePersistenceAllowed !== false,
         candidateRetentionHours: 24,
         informationClassification: "public",
         candidatePhysicalDeletion:
           "next_safe_runtime_entry_after_expiry_or_explicit_discard",
       }),
-    prepareCandidateStore: () => {
-      candidateStorePrepareCount += 1;
-      return options.candidateStoreUnavailable
-        ? Object.freeze({
-            status: "blocked",
-            reason: "candidate_store_damaged_entry",
-            candidateStoreRecoveryId: `candidate-store-recovery.${"8".repeat(64)}`,
-            manualRecoveryRequired: true,
-          })
-        : Object.freeze({ status: "completed" });
-    },
     reportSelectionNotice: (notice: Record<string, unknown>) => {
       selectionNotices.push(notice);
       events.push(`notice:${String(notice.taskRole)}`);
@@ -1071,7 +1032,7 @@ function fixture(
         : Object.freeze({
             status: "materialized",
             workspaceCapability,
-            ...(options.borrowedWorkspace ? { borrowed: true } : {}),
+            ...(options.borrowedWorkspace !== false ? { borrowed: true } : {}),
           });
     },
     projectReviewerReadContent: () =>
@@ -1540,7 +1501,7 @@ function fixture(
             status: "candidate",
             candidateCapability,
             changedPaths: Object.freeze(["fixture.txt"]),
-            ...(options.borrowedWorkspace
+            ...(options.borrowedWorkspace !== false
               ? {
                   unexpectedPaths:
                     options.unexpectedCapture === candidateCaptureCount
@@ -1560,63 +1521,6 @@ function fixture(
         allowedPathsHash: "5".repeat(64),
         changedPaths: Object.freeze(["fixture.txt"]),
       }),
-    persistCandidate: () => {
-      const outcome = options.candidatePersistenceFails
-        ? null
-        : options.candidatePersistenceNeedsStoreRecovery
-          ? Object.freeze({
-              status: "blocked",
-              reason: "candidate_store_damaged_entry",
-              candidateRecoveryId: null,
-              candidateStoreRecoveryId: `candidate-store-recovery.${"8".repeat(64)}`,
-              manualRecoveryRequired: true,
-            })
-          : options.candidatePersistenceNeedsRecovery
-            ? Object.freeze({
-                status: "blocked",
-                reason: "candidate_store_persist_recovery_required",
-                candidateRecoveryId: `candidate-recovery.${"6".repeat(64)}.${"7".repeat(64)}`,
-                manualRecoveryRequired: true,
-              })
-            : Object.freeze({
-                status: "staged",
-                candidateRecoveryId: `candidate-recovery.${"6".repeat(64)}.${"7".repeat(64)}`,
-              });
-      if (outcome?.status === "staged") candidateEntryState = "present";
-      else if (outcome?.manualRecoveryRequired === true)
-        candidateEntryState = "preserved";
-      return outcome;
-    },
-    discardCandidate: () => {
-      discardCount += 1;
-      if (options.discardThrows) throw new Error("fixture_discard_failure");
-      const outcome = Object.freeze({
-        status: options.discardFails ? "blocked" : "discarded",
-      });
-      if (outcome.status === "discarded") candidateEntryState = "absent";
-      return outcome;
-    },
-    publishCandidate: () => {
-      if (options.publishThrows) throw new Error("fixture_publish_failure");
-      const outcome = options.publishFails
-        ? null
-        : options.publishNeedsStoreRecovery
-          ? Object.freeze({
-              status: "blocked",
-              candidateRecoveryId: `candidate-recovery.${"6".repeat(64)}.${"7".repeat(64)}`,
-              candidateStoreRecoveryId: `candidate-store-recovery.${"8".repeat(64)}`,
-              manualRecoveryRequired: true,
-            })
-          : Object.freeze({
-              status: "published",
-              candidateId: `candidate.${"6".repeat(64)}.${"7".repeat(64)}`,
-              expiresAtMs: 1_800_000_000_000,
-            });
-      if (outcome?.status === "published") candidateEntryState = "transferred";
-      else if (outcome?.manualRecoveryRequired === true)
-        candidateEntryState = "preserved";
-      return outcome;
-    },
     ...(options.hostCleanupWal
       ? {
           prepareDockerHostCleanup: () => {
@@ -1749,10 +1653,8 @@ function fixture(
       cleanup: providerCleanupConfirmedCount + hostCleanupConfirmedCount,
     }),
     cleanupCount: () => cleanupCount,
-    discardCount: () => discardCount,
     externalAuthorizationCount: () => externalAuthorizationCount,
     operationCreateCount: () => operationCreateCount,
-    candidateStorePrepareCount: () => candidateStorePrepareCount,
     workspaceMaterializeCount: () => workspaceMaterializeCount,
     processStartCount: () => processStartCount,
     candidateCaptureCount: () => candidateCaptureCount,
@@ -1856,8 +1758,6 @@ test("Workspace実行は旧Bundleを準備せず既存の正常・是正・取�
     ).completion;
     assert.equal(result.status, scenario.status);
     assert.equal(result.reason, scenario.reason);
-    assert.equal(harness.candidateStorePrepareCount(), 0);
-    assert.equal(harness.discardCount(), 0);
     assert.equal(harness.processStartCount(), scenario.processes);
     assert.equal(result.candidateId, null);
     assert.equal(result.candidateRecoveryId, null);
@@ -1886,7 +1786,6 @@ test("Workspace実行は旧Bundleを準備せず既存の正常・是正・取�
   const result = await started.completion;
   assert.equal(result.status, "blocked");
   assert.equal(result.cleanupConfirmed, true);
-  assert.equal(harness.candidateStorePrepareCount(), 0);
   assert.deepEqual(result.workspaceResult, {
     workspaceId: null,
     changedPaths: null,
@@ -2475,7 +2374,6 @@ test("対象SHA-256 RepositoryはOperation／Grant／Store／Workspace／Process
   assert.equal(result.reason, "coordinator_task_git_object_format_unsupported");
   assert.equal(harness.operationCreateCount(), 0);
   assert.equal(harness.externalAuthorizationCount(), 0);
-  assert.equal(harness.candidateStorePrepareCount(), 0);
   assert.equal(harness.workspaceMaterializeCount(), 0);
   assert.equal(harness.processStartCount(), 0);
   assert.equal(harness.cleanupCount(), 0);
@@ -2503,7 +2401,6 @@ test("宣言FormatとRevision幅の不一致は全Effect前にpreflight failure�
   assert.equal(result.reason, "coordinator_task_repository_preflight_failed");
   assert.equal(harness.operationCreateCount(), 0);
   assert.equal(harness.externalAuthorizationCount(), 0);
-  assert.equal(harness.candidateStorePrepareCount(), 0);
   assert.equal(harness.workspaceMaterializeCount(), 0);
   assert.equal(harness.processStartCount(), 0);
   assert.equal(harness.cleanupCount(), 0);
@@ -2533,7 +2430,6 @@ test("loose refの中間junctionは全Effect前にpreflight failureへ閉じる"
   assert.equal(result.reason, "coordinator_task_repository_preflight_failed");
   assert.equal(harness.operationCreateCount(), 0);
   assert.equal(harness.externalAuthorizationCount(), 0);
-  assert.equal(harness.candidateStorePrepareCount(), 0);
   assert.equal(harness.workspaceMaterializeCount(), 0);
   assert.equal(harness.processStartCount(), 0);
   assert.equal(harness.cleanupCount(), 0);
@@ -2677,8 +2573,7 @@ test("Codex frontからClaude Executorと独立Codex Reviewerを隔離Candidate�
     "CASE-NORMAL-AUTHORIZED-TO-EXECUTOR-CLEAN",
     "CASE-NORMAL-EXECUTOR-TO-CANDIDATE",
     "CASE-NORMAL-CANDIDATE-TO-REVIEWER-CLEAN",
-    "CASE-NORMAL-REVIEWER-TO-STAGED",
-    "CASE-NORMAL-STAGED-TO-HOST-CLEAN",
+    "CASE-NORMAL-REVIEWER-TO-HOST-CLEAN",
     "CASE-NORMAL-HOST-CLEAN-TO-RESULT",
   ] as const;
   let reviewerProjection: unknown = null;
@@ -2696,12 +2591,9 @@ test("Codex frontからClaude Executorと独立Codex Reviewerを隔離Candidate�
   assert.equal(Object.hasOwn(result, "hostRecoveryId"), true);
   assert.equal(result.hostRecoveryId, null);
   assert.equal(result.canonicalRepositoryChanged, false);
-  assert.deepEqual(result.candidateRevision?.changedPaths, ["fixture.txt"]);
-  assert.equal(
-    result.candidateId,
-    `candidate.${"6".repeat(64)}.${"7".repeat(64)}`,
-  );
-  assert.equal(result.expiresAtMs, 1_800_000_000_000);
+  assert.equal(harness.candidateCaptureCount(), 1);
+  assert.equal(result.candidateId, null);
+  assert.equal(result.expiresAtMs, undefined);
   assert.equal(harness.cleanupCount(), 1);
   assert.equal(harness.selectionRequests.length, 2);
   assert.equal(harness.selectionRequests[1]?.role, "independent_reviewer");
@@ -3490,7 +3382,6 @@ test("完遂可能なExecution SlateがなければExternal SendとExecutor Effe
   assert.equal(result.status, "blocked");
   assert.equal(result.reason, "coordinator_task_execution_slate_unavailable");
   assert.equal(harness.externalAuthorizationCount(), 0);
-  assert.equal(harness.candidateStorePrepareCount(), 0);
   assert.equal(harness.workspaceMaterializeCount(), 0);
   assert.equal(harness.processStartCount(), 0);
   assert.equal(harness.cleanupCount(), 1);
@@ -3934,31 +3825,6 @@ test("Host cleanup後のDocker receipt失敗は無効なHost IDを再公開し�
 });
 
 /**
- * 全Docker handoff finalize後のCandidate永続化失敗はDocker IDを返さないを検証する。
- *
- * @responsibility 全Docker handoff finalize後のCandidate永続化失敗はDocker IDを返さないの合否判定を所有する。
- * @trace CPR-IT-001
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 全Docker handoff finalize後のCandidate永続化失敗はDocker IDを返さないの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
- */
-test("全Docker handoff finalize後のCandidate永続化失敗はDocker IDを返さない", async () => {
-  const harness = fixture({
-    hostCleanupWal: true,
-    candidatePersistenceFails: true,
-  });
-  const result = await harness.runtime.start(request(), "C:\\repository")
-    .completion;
-  assert.equal(result.status, "blocked");
-  assert.equal(result.reason, "coordinator_task_candidate_persistence_failed");
-  assert.deepEqual(result.dockerRecoveryIds, []);
-  assert.equal(result.dockerRecoveryId, null);
-});
-
-/**
  * Reviewerがchanges_requestedならCandidateを承認済みResultへ昇格せずExecutor診断を安全に返すを検証する。
  *
  * @responsibility Reviewerがchanges_requestedならCandidateを承認済みResultへ昇格せずExecutor診断を安全に返すの合否判定を所有する。
@@ -4082,7 +3948,7 @@ test("Reviewer指摘を一回だけ同一Executorへ戻し、同一独立Reviewe
     "CASE-REMEDIATION-AUTHORIZED-TO-SECOND-EXECUTOR-CLEAN",
     "CASE-REMEDIATION-SECOND-EXECUTOR-TO-CANDIDATE",
     "CASE-REMEDIATION-SECOND-CANDIDATE-TO-REVIEWER-CLEAN",
-    "CASE-REMEDIATION-SECOND-REVIEWER-TO-STAGED",
+    "CASE-REMEDIATION-SECOND-REVIEWER-TO-HOST-CLEAN",
   ] as const;
   const harness = fixture({
     reviewerDecision: "changes_requested",
@@ -4191,57 +4057,6 @@ test("選定理由は各Provider Effectより前に安全なCoordinator eventへ
     harness.selectionNotices[0]?.inputBasis,
     "caller_declared_task_attributes_plus_runtime_owned_preselection_candidate_with_deferred_provider_preflight",
   );
-});
-
-/**
- * Candidate保存禁止Policyは外部送信とProvider Effect前に停止するを検証する。
- *
- * @responsibility Candidate保存禁止Policyは外部送信とProvider Effect前に停止するの合否判定を所有する。
- * @trace CPR-IT-001
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Candidate保存禁止Policyは外部送信とProvider Effect前に停止するの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
- */
-test("Candidate保存禁止Policyは外部送信とProvider Effect前に停止する", async () => {
-  const harness = fixture({ candidatePersistenceAllowed: false });
-  const result = await harness.runtime.start(request(), "C:\\repository")
-    .completion;
-  assert.equal(result.status, "blocked");
-  assert.equal(
-    result.reason,
-    "coordinator_task_candidate_persistence_not_authorized",
-  );
-  assert.deepEqual(harness.events, []);
-});
-
-/**
- * Candidate Storeを安全に準備できなければ外部送信Authority前に停止するを検証する。
- *
- * @responsibility Candidate Storeを安全に準備できなければ外部送信Authority前に停止するの合否判定を所有する。
- * @trace PRL-IT-012
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Candidate Storeを安全に準備できなければ外部送信Authority前に停止するの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
- */
-test("Candidate Storeを安全に準備できなければ外部送信Authority前に停止する", async () => {
-  const harness = fixture({ candidateStoreUnavailable: true });
-  const result = await harness.runtime.start(request(), "C:\\repository")
-    .completion;
-  assert.equal(result.status, "blocked");
-  assert.equal(result.reason, "coordinator_task_candidate_store_unavailable");
-  assert.equal(result.manualRecoveryRequired, true);
-  assert.match(
-    result.candidateStoreRecoveryId ?? "",
-    /^candidate-store-recovery\.[0-9a-f]{64}$/u,
-  );
-  assert.equal(harness.externalAuthorizationCount(), 0);
-  assert.equal(harness.selectionRequests.length, 0);
 });
 
 /**
@@ -4393,7 +4208,6 @@ test("Executor自己申告と実Candidate差またはOperation cleanup不明を�
   );
   assert.equal(cleanupResult.manualRecoveryRequired, true);
   assert.equal(cleanupResult.hostRecoveryId, "host.fixture.recovery.record");
-  assert.equal(cleanupFailure.discardCount(), 1);
 });
 
 /**
@@ -4437,7 +4251,6 @@ test("Host cleanup返却前の喪失通知は確認済み失敗と回収不明�
       harness.lifecycleStates.includes("STATE-RESULT-PUBLISHED"),
       false,
     );
-    assert.equal(harness.discardCount(), 1);
     if (isUnknown) {
       assert.equal(harness.dockerFinalizeCount(), 0);
       assert.equal(result.hostRecoveryId, "host.fixture.cleanup.intent");
@@ -4520,239 +4333,6 @@ test("Host Supervisor protocol失敗後の確認済みcleanupは成功公開も�
   assert.equal(result.hostRecoveryId, null);
   assert.equal(result.candidateRecoveryId, null);
   assert.equal(harness.cleanupCount(), 1);
-  assert.equal(harness.discardCount(), 1);
-});
-
-/**
- * Operation cleanupとCandidate discardが共に失敗してもdiscard専用Recovery IDを失わないを検証する。
- *
- * @responsibility Operation cleanupとCandidate discardが共に失敗してもdiscard専用Recovery IDを失わないの合否判定を所有する。
- * @trace PRL-IT-012
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Operation cleanupとCandidate discardが共に失敗してもdiscard専用Recovery IDを失わないの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
- */
-test("Operation cleanupとCandidate discardが共に失敗してもdiscard専用Recovery IDを失わない", async () => {
-  const harness = fixture({ cleanupThrows: true, discardFails: true });
-  const result = await harness.runtime.start(request(), "C:\\repository")
-    .completion;
-  assert.equal(result.status, "blocked");
-  assert.equal(result.hostRecoveryId, "host.fixture.recovery.record");
-  assert.match(
-    result.candidateRecoveryId ?? "",
-    /^candidate-recovery\.[0-9a-f]{64}\.[0-9a-f]{64}$/u,
-  );
-  assert.equal(result.candidateId, null);
-});
-
-/**
- * Candidate publish失敗はexport不能なRecovery IDだけを返すを検証する。
- *
- * @responsibility Candidate publish失敗はexport不能なRecovery IDだけを返すの合否判定を所有する。
- * @trace CPR-IT-001
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Candidate publish失敗はexport不能なRecovery IDだけを返すの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
- */
-test("Candidate publish失敗はexport不能なRecovery IDだけを返す", async () => {
-  const harness = fixture({ publishFails: true });
-  const result = await harness.runtime.start(request(), "C:\\repository")
-    .completion;
-  assert.equal(result.status, "blocked");
-  assert.equal(result.cleanupConfirmed, true);
-  assert.equal(result.hostRecoveryId, null);
-  assert.match(
-    result.candidateRecoveryId ?? "",
-    /^candidate-recovery\.[0-9a-f]{64}\.[0-9a-f]{64}$/u,
-  );
-});
-
-/**
- * Candidate publishとStore障害を同時に観測しても二つのRecovery IDを保持するを検証する。
- *
- * @responsibility Candidate publishとStore障害を同時に観測しても二つのRecovery IDを保持するの合否判定を所有する。
- * @trace CPR-IT-001
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Candidate publishとStore障害を同時に観測しても二つのRecovery IDを保持するの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
- */
-test("Candidate publishとStore障害を同時に観測しても二つのRecovery IDを保持する", async () => {
-  const harness = fixture({ publishNeedsStoreRecovery: true });
-  const result = await harness.runtime.start(request(), "C:\\repository")
-    .completion;
-  assert.equal(result.status, "blocked");
-  assert.equal(result.manualRecoveryRequired, true);
-  assert.equal(result.processRestartRequired, false);
-  assert.match(
-    result.candidateRecoveryId ?? "",
-    /^candidate-recovery\.[0-9a-f]{64}\.[0-9a-f]{64}$/u,
-  );
-  assert.match(
-    result.candidateStoreRecoveryId ?? "",
-    /^candidate-store-recovery\.[0-9a-f]{64}$/u,
-  );
-});
-
-/**
- * 承認済みCandidateを永続化できない場合はIDを公開せずFail Closedするを検証する。
- *
- * @responsibility 承認済みCandidateを永続化できない場合はIDを公開せずFail Closedするの合否判定を所有する。
- * @trace CPR-IT-001
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 承認済みCandidateを永続化できない場合はIDを公開せずFail Closedするの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
- */
-test("承認済みCandidateを永続化できない場合はIDを公開せずFail Closedする", async () => {
-  const harness = fixture({ candidatePersistenceFails: true });
-  const result = await harness.runtime.start(request(), "C:\\repository")
-    .completion;
-  assert.equal(result.status, "blocked");
-  assert.equal(result.reason, "coordinator_task_candidate_persistence_failed");
-  assert.equal(result.candidateId, null);
-  assert.equal(harness.cleanupCount(), 1);
-});
-
-/**
- * Candidate Store障害はCandidate IDと分離したStore Recovery IDを返すを検証する。
- *
- * @responsibility Candidate Store障害はCandidate IDと分離したStore Recovery IDを返すの合否判定を所有する。
- * @trace CPR-IT-001
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Candidate Store障害はCandidate IDと分離したStore Recovery IDを返すの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
- */
-test("Candidate Store障害はCandidate IDと分離したStore Recovery IDを返す", async () => {
-  const harness = fixture({ candidatePersistenceNeedsStoreRecovery: true });
-  const result = await harness.runtime.start(request(), "C:\\repository")
-    .completion;
-  assert.equal(result.status, "blocked");
-  assert.equal(result.candidateRecoveryId, null);
-  assert.equal(result.manualRecoveryRequired, true);
-  assert.match(
-    result.candidateStoreRecoveryId ?? "",
-    /^candidate-store-recovery\.[0-9a-f]{64}$/u,
-  );
-});
-
-/**
- * Candidate Storeだけのmanual recoveryはHostとDocker cleanupを保留しないを検証する。
- *
- * @responsibility Candidate Storeだけのmanual recoveryはHostとDocker cleanupを保留しないの合否判定を所有する。
- * @trace CPR-IT-001
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Candidate Storeだけのmanual recoveryはHostとDocker cleanupを保留しないの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
- */
-test("Candidate Storeだけのmanual recoveryはHostとDocker cleanupを保留しない", async () => {
-  const harness = fixture({
-    hostCleanupWal: true,
-    candidatePersistenceNeedsStoreRecovery: true,
-  });
-  const result = await harness.runtime.start(request(), "C:\\repository")
-    .completion;
-  assert.equal(result.manualRecoveryRequired, true);
-  assert.equal(result.processRestartRequired, false);
-  assert.equal(result.hostRecoveryId, null);
-  assert.deepEqual(result.dockerRecoveryIds, []);
-  assert.match(
-    result.candidateStoreRecoveryId ?? "",
-    /^candidate-store-recovery\.[0-9a-f]{64}$/u,
-  );
-  assert.equal(harness.cleanupCount(), 1);
-  assert.equal(
-    harness.events.filter((event) => event === "docker-finalize").length,
-    2,
-  );
-});
-
-/**
- * Candidate永続化の中間障害はcleanup後にRecovery IDで自動破棄するを検証する。
- *
- * @responsibility Candidate永続化の中間障害はcleanup後にRecovery IDで自動破棄するの合否判定を所有する。
- * @trace CPR-IT-001
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Candidate永続化の中間障害はcleanup後にRecovery IDで自動破棄するの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
- */
-test("Candidate永続化の中間障害はcleanup後にRecovery IDで自動破棄する", async () => {
-  const harness = fixture({ candidatePersistenceNeedsRecovery: true });
-  const result = await harness.runtime.start(request(), "C:\\repository")
-    .completion;
-  assert.equal(result.status, "blocked");
-  assert.equal(result.reason, "coordinator_task_candidate_persistence_failed");
-  assert.equal(result.manualRecoveryRequired, false);
-  assert.equal(result.candidateRecoveryId, null);
-  assert.equal(harness.discardCount(), 1);
-  assert.equal(harness.cleanupCount(), 1);
-});
-
-/**
- * 全Docker finalize後のCandidate publish例外へ削除済みDocker IDを再投影しないを検証する。
- *
- * @responsibility 全Docker finalize後のCandidate publish例外へ削除済みDocker IDを再投影しないの合否判定を所有する。
- * @trace CPR-IT-001
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 全Docker finalize後のCandidate publish例外へ削除済みDocker IDを再投影しないの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
- */
-test("全Docker finalize後のCandidate publish例外へ削除済みDocker IDを再投影しない", async () => {
-  const harness = fixture({ hostCleanupWal: true, publishThrows: true });
-  const result = await harness.runtime.start(request(), "C:\\repository")
-    .completion;
-  assert.equal(result.status, "blocked");
-  assert.equal(result.dockerRecoveryId, null);
-  assert.deepEqual(result.dockerRecoveryIds, []);
-  assert.equal(result.hostRecoveryId, null);
-});
-
-/**
- * 先行finalize済みIDはCandidate discard例外後のcatchへ残さないを検証する。
- *
- * @responsibility 先行finalize済みIDはCandidate discard例外後のcatchへ残さないの合否判定を所有する。
- * @trace CPR-IT-001
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 先行finalize済みIDはCandidate discard例外後のcatchへ残さないの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
- */
-test("先行finalize済みIDはCandidate discard例外後のcatchへ残さない", async () => {
-  const harness = fixture({
-    hostCleanupWal: true,
-    candidatePersistenceNeedsRecovery: true,
-    discardThrows: true,
-  });
-  const result = await harness.runtime.start(request(), "C:\\repository")
-    .completion;
-  assert.equal(result.status, "blocked");
-  assert.equal(result.dockerRecoveryId, null);
-  assert.deepEqual(result.dockerRecoveryIds, []);
-  assert.equal(result.hostRecoveryId, null);
 });
 
 /**
@@ -5057,7 +4637,6 @@ test("取消protocol failureと資源cleanup unknownは依存順を守り全acti
   assert.equal(result.candidateStoreRecoveryId, null);
   assert.equal(harness.cancelProcessCount(), 1);
   assert.equal(harness.cleanupCount(), 0);
-  assert.equal(harness.discardCount(), 0);
   assert.equal(harness.dockerReceiptCount(), 0);
   assert.equal(harness.dockerFinalizeCount(), 0);
   assert.equal(harness.candidateCaptureCount(), 1);
@@ -5184,18 +4763,18 @@ test("Host confirmedとProvider cleanup unknownの合成は全actionable Recover
 });
 
 /**
- * Candidate staged後のHost confirmed lossはpublishせずdiscardしてcleanup confirmedへ閉じるを検証する。
+ * Reviewer終了後のHost confirmed lossは成功を返さず技術回収確認へ閉じるを検証する。
  *
- * @responsibility Candidate staged後のHost confirmed lossはpublishせずdiscardしてcleanup confirmedへ閉じるの合否判定を所有する。
+ * @responsibility Reviewer終了後のHost confirmed lossは成功を返さず技術回収確認へ閉じるの合否判定を所有する。
  * @trace CPR-IT-001
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Candidate staged後のHost confirmed lossはpublishせずdiscardしてcleanup confirmedへ閉じるの対象操作を実行する。
+ * @stimulus Reviewer終了後のHost confirmed lossは成功を返さず技術回収確認へ閉じるの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
-test("Candidate staged後のHost confirmed lossはpublishせずdiscardしてcleanup confirmedへ閉じる", async () => {
+test("Reviewer終了後のHost confirmed lossは成功を返さず技術回収確認へ閉じる", async () => {
   const harness = fixture({
     pauseOperationCleanup: true,
     hostGenerationLoss: "cleanup_confirmed_failure",
@@ -5211,7 +4790,6 @@ test("Candidate staged後のHost confirmed lossはpublishせずdiscardしてclea
   assert.equal(result.manualRecoveryRequired, false);
   assert.equal(result.processRestartRequired, false);
   assert.equal(result.candidateRecoveryId, null);
-  assert.equal(harness.discardCount(), 1);
   assert.equal(harness.poisonProcessCount(), 0);
 });
 
@@ -5314,7 +4892,6 @@ test("Operation作成待機中の取消は最初の後続Effect前にcleanupへ�
   assert.equal(result.manualRecoveryRequired, false);
   assert.equal(harness.cleanupCount(), 1);
   assert.equal(harness.selectionRequests.length, 0);
-  assert.equal(harness.candidateStorePrepareCount(), 0);
   assert.equal(harness.externalAuthorizationCount(), 0);
   assert.equal(harness.workspaceMaterializeCount(), 0);
   assert.equal(harness.processStartCount(), 0);
@@ -5368,16 +4945,12 @@ test("外部送信承認中の取消は同じSignalへ伝播しWorkspace前に�
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
-test("Production入口は署名資格なしで不正Repositoryを拒否する", async () => {
-  const started = startRuntimeOwnedCoordinatorTask(
-    request(),
-    "not-an-absolute-repository",
+test("Production入口は署名資格なしで未解決の実行対象を拒否する", () => {
+  assert.throws(
+    () =>
+      startRuntimeOwnedCoordinatorTask(request(), "not-an-absolute-repository"),
+    /coordinator_task_workspace_target_invalid/u,
   );
-  const result = await started.completion;
-  assert.equal(result.status, "blocked");
-  assert.equal(result.reason, "coordinator_task_repository_preflight_failed");
-  assert.equal(result.cleanupConfirmed, true);
-  assert.equal(result.manualRecoveryRequired, false);
 });
 
 /**
@@ -5745,12 +5318,13 @@ test("公開契約は4経路、独立Reviewer、stdin、非canonical Effectを�
     "candidate_integrity_verification_failure_is_distinct_from_independent_reviewer_semantic_rejection",
   );
   assert.equal(contract.taskTransport, "opaque_single_use_provider_stdin_only");
-  assert.equal(contract.canonicalRepositoryEffectAllowed, false);
+  assert.equal(contract.directWorkingTreeEffectAllowed, true);
+  assert.equal(contract.implicitGitMutationAllowed, false);
   assert.equal(contract.directProviderToProviderSpawnAllowed, false);
   assert.equal(contract.apiKeyFallbackAllowed, false);
   assert.equal(
     contract.processPoisonGate,
-    "before_operation_console_store_workspace_provider_and_network",
+    "before_operation_console_workspace_provider_and_network",
   );
   assert.equal(
     contract.processRestartProjection,
@@ -5786,16 +5360,13 @@ test("公開契約は4経路、独立Reviewer、stdin、非canonical Effectを�
   );
   assert.equal(
     contract.operationCreationCancellation,
-    "rechecked_after_async_creation_before_repository_policy_slate_store_console_or_provider_effect",
+    "rechecked_after_async_creation_before_repository_policy_slate_console_or_provider_effect",
   );
   assert.equal(
     contract.interactiveCleanupRecovery,
     "restart_only_without_operation_recovery_id_unless_operation_cleanup_also_fails",
   );
-  assert.equal(
-    contract.approvedCandidateTransfer,
-    "policy_bounded_staged_bundle_published_only_after_operation_cleanup",
-  );
+  assert.equal(contract.candidatePersistence, "not_issued_by_task_completion");
   assert.equal(
     contract.boundedRemediation,
     "maximum_one_same_executor_then_same_independent_reviewer",
@@ -6326,7 +5897,7 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
       options: {
         reviewerDecision: "changes_requested" as const,
         finalReviewerDecision: "approved" as const,
-        candidatePersistenceFails: true,
+        candidateVerificationFails: true,
       },
       terminal: "clean",
       source: "STATE-REMEDIATION-REVIEWER-CLEAN",
@@ -6439,7 +6010,8 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
       options: {
         reviewerDecision: "changes_requested" as const,
         finalReviewerDecision: "approved" as const,
-        candidatePersistenceNeedsStoreRecovery: true,
+        candidateVerificationFails: true,
+        cleanupThrows: true,
       },
       terminal: "recovery",
       source: "STATE-REMEDIATION-REVIEWER-CLEAN",
@@ -6447,16 +6019,16 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
       candidate: 2,
     },
     {
-      id: "CASE-RECOVERY-CANDIDATE-STAGED",
+      id: "CASE-RECOVERY-HOST-INTENT",
       options: { hostCleanupWal: true, dockerIntentFailsAt: 1 },
       terminal: "recovery",
-      source: "STATE-CANDIDATE-STAGED",
+      source: "STATE-REVIEWER-CLEAN",
       process: 2,
       candidate: 1,
     },
     {
       id: "CASE-RECOVERY-HOST-CLEAN",
-      options: { publishFails: true },
+      options: { hostCleanupWal: true, dockerReceiptFailsAt: 1 },
       terminal: "recovery",
       source: "STATE-HOST-CLEAN",
       process: 2,
@@ -6515,7 +6087,7 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
         "CASE-RECOVERY-TASK-AUTHORIZED",
         "CASE-RECOVERY-CANDIDATE-CAPTURED",
         "CASE-RECOVERY-REMEDIATION-CANDIDATE-CAPTURED",
-        "CASE-RECOVERY-CANDIDATE-STAGED",
+        "CASE-RECOVERY-HOST-INTENT",
       ]).has(scenario.id);
       assert.equal(harness.cleanupCount(), isCleanupUnknown ? 0 : 1);
       if (scenario.terminal === "clean") {
@@ -6643,7 +6215,7 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
     assert.equal(result.cleanupConfirmed, true);
     assert.equal(result.manualRecoveryRequired, false);
     assert.equal(result.processRestartRequired, true);
-    assert.ok(result.candidateId);
+    assert.equal(result.candidateId, null);
     assert.equal(result.hostRecoveryId, null);
     assert.deepEqual(result.dockerRecoveryIds, []);
     assert.equal(result.candidateRecoveryId, null);
@@ -6739,13 +6311,13 @@ test("Task Runtime契約は実Host active binding残存時にcleanupを拒否し
     const source = harness.lifecycleSnapshots.at(-2);
     const terminal = harness.lifecycleSnapshots.at(-1);
     assert.ok(source && terminal);
-    assert.equal(source.state, "STATE-CANDIDATE-STAGED");
+    assert.equal(source.state, "STATE-REVIEWER-CLEAN");
     assert.equal(terminal.state, "STATE-RECOVERY-REQUIRED");
     taskTraceAssertions["CASE-HOST-CLEANUP-ACTIVE-BINDING-REFUSED"]?.(
       "CASE-HOST-CLEANUP-ACTIVE-BINDING-REFUSED",
       {
         id: "CASE-HOST-CLEANUP-ACTIVE-BINDING-REFUSED",
-        transitionId: "TRANS-STAGED-TO-HOST-CLEAN",
+        transitionId: "TRANS-REVIEWER-TO-HOST-CLEAN",
         fromState: source.state,
         outcome: "rejected",
         expectedEndState: terminal.state,

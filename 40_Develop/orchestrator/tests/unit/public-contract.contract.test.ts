@@ -15,10 +15,6 @@ import {
   inspectOrchestratorDecisionRequest,
   ORCHESTRATOR_HUMAN_DECISION_CONTRACT,
 } from "../../src/decision/request.ts";
-import {
-  inspectOrchestratorIntegrationResult,
-  ORCHESTRATOR_INTEGRATION_CONTRACT,
-} from "../../src/candidate/integration-result.ts";
 import { inspectOrchestratorObjectiveRequest } from "../../src/objective/request.ts";
 import { isOrchestratorDecisionRecord } from "../../src/decision/records.ts";
 import { ORCHESTRATOR_PUBLIC_RUNTIME_CONTRACT } from "../../src/operation-result-contract.ts";
@@ -76,35 +72,6 @@ function objectiveRequest() {
     originLane: "interactive",
     adoptResult: false,
     intakeEpoch: "fixture-epoch",
-  } as const;
-}
-
-/**
- * integrationResultのTest準備責務を実行する。
- *
- * @responsibility integrationResultがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
- * @trace PRL-UT-014
- * @precondition 呼出し元Test Caseが必要な入力を渡す。
- * @stimulus integrationResultを呼び出す。
- * @observation 返却値、生成fixtureまたは観測値を取得する。
- * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
- * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=Direct Boundary: orchestrator Test Source→対象契約
- */
-function integrationResult() {
-  return {
-    contract: ORCHESTRATOR_INTEGRATION_CONTRACT,
-    status: "completed",
-    reason: "integration_completed",
-    projectId: "project-1",
-    milestoneId: "milestone-1",
-    queueId: "queue-1",
-    stateGeneration: 2,
-    candidateId: "candidate-1",
-    receiptId: "receipt-1",
-    cleanupConfirmed: true,
-    manualRecoveryRequired: false,
-    recoveryIds: [],
   } as const;
 }
 
@@ -487,141 +454,6 @@ test("判断要求は未知field・改行comment・不正世代をEffect前に�
     inspectOrchestratorDecisionRequest({
       ...decisionRequest(),
       generation: 0,
-    }),
-    null,
-  );
-});
-
-/**
- * 統合結果は正常完了とRecovery付き停止を区別するを検証する。
- *
- * @responsibility 統合結果は正常完了とRecovery付き停止を区別するの合否判定を所有する。
- * @trace PRL-UT-014
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 統合結果は正常完了とRecovery付き停止を区別するの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=Direct Boundary: orchestrator Test Source→対象契約
- */
-test("統合結果は正常完了とRecovery付き停止を区別する", () => {
-  const completed = inspectOrchestratorIntegrationResult(integrationResult());
-  assert.ok(completed);
-  assert.equal(completed.status, "completed");
-  const recoveryId = "runtime-process.recovery-1";
-  const blocked = inspectOrchestratorIntegrationResult({
-    ...integrationResult(),
-    status: "blocked",
-    reason: "integration_recovery_required",
-    candidateId: null,
-    receiptId: null,
-    cleanupConfirmed: false,
-    manualRecoveryRequired: true,
-    recoveryIds: [recoveryId],
-  });
-  assert.ok(blocked);
-  assert.deepEqual(blocked.recoveryIds, [recoveryId]);
-  const cleanupBlocked = inspectOrchestratorIntegrationResult({
-    ...integrationResult(),
-    status: "blocked",
-    reason: "orchestrator_candidate_base_cleanup_unconfirmed",
-    cleanupConfirmed: false,
-    manualRecoveryRequired: true,
-    recoveryIds: [],
-    effectIssued: false,
-    effectStateUnknown: false,
-    retryAllowed: false,
-  });
-  assert.ok(cleanupBlocked);
-  assert.equal(cleanupBlocked.recoveryIds.length, 0);
-  assert.equal(cleanupBlocked.effectIssued, false);
-  const effectUnknown = inspectOrchestratorIntegrationResult({
-    ...integrationResult(),
-    status: "blocked",
-    reason: "repository_runtime_data_ignore_registration_blocked",
-    cleanupConfirmed: true,
-    manualRecoveryRequired: true,
-    recoveryIds: [recoveryId],
-    effectIssued: true,
-    effectStateUnknown: true,
-    retryAllowed: false,
-  });
-  assert.ok(effectUnknown);
-  assert.deepEqual(effectUnknown.recoveryIds, [recoveryId]);
-  assert.equal(effectUnknown.cleanupConfirmed, true);
-  assert.equal(effectUnknown.effectStateUnknown, true);
-});
-
-/**
- * 統合結果は成功とRecoveryの矛盾・重複・未知fieldを拒否するを検証する。
- *
- * @responsibility 統合結果は成功とRecoveryの矛盾・重複・未知fieldを拒否するの合否判定を所有する。
- * @trace PRL-UT-014
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 統合結果は成功とRecoveryの矛盾・重複・未知fieldを拒否するの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-UT-014=Direct Boundary: orchestrator Test Source→対象契約
- */
-test("統合結果は成功とRecoveryの矛盾・重複・未知fieldを拒否する", () => {
-  const recoveryId = "runtime-process.recovery-1";
-  assert.equal(
-    inspectOrchestratorIntegrationResult({
-      ...integrationResult(),
-      recoveryIds: [recoveryId],
-    }),
-    null,
-  );
-  for (const invalidBoundary of [
-    {
-      effectIssued: false,
-      effectStateUnknown: true,
-      retryAllowed: false,
-      cleanupConfirmed: true,
-      manualRecoveryRequired: true,
-      recoveryIds: [recoveryId],
-    },
-    {
-      effectIssued: true,
-      effectStateUnknown: true,
-      retryAllowed: true,
-      cleanupConfirmed: true,
-      manualRecoveryRequired: true,
-      recoveryIds: [recoveryId],
-    },
-    {
-      effectIssued: true,
-      effectStateUnknown: true,
-      retryAllowed: false,
-      cleanupConfirmed: true,
-      manualRecoveryRequired: false,
-      recoveryIds: [recoveryId],
-    },
-  ])
-    assert.equal(
-      inspectOrchestratorIntegrationResult({
-        ...integrationResult(),
-        status: "blocked",
-        reason: "integration_boundary_invalid",
-        ...invalidBoundary,
-      }),
-      null,
-    );
-  assert.equal(
-    inspectOrchestratorIntegrationResult({
-      ...integrationResult(),
-      status: "blocked",
-      cleanupConfirmed: false,
-      manualRecoveryRequired: true,
-      recoveryIds: [recoveryId, recoveryId],
-    }),
-    null,
-  );
-  assert.equal(
-    inspectOrchestratorIntegrationResult({
-      ...integrationResult(),
-      transportMetadata: "must-not-enter-public-contract",
     }),
     null,
   );

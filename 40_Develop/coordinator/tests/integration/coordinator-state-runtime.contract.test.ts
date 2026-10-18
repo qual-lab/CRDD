@@ -85,7 +85,7 @@ import {
   prepareCoordinatorStateRepairSnapshot,
   prepareCoordinatorStateResourceSnapshot,
 } from "../../src/state-storage/model.ts";
-import { observeRuntimeOwnedWorkbenchTaskCompletion } from "../../src/state-storage/settlement-store.ts";
+import { observeRuntimeOwnedTransientTaskCompletion } from "../../src/state-storage/settlement-store.ts";
 import {
   createDockerRestartRequestId,
   type DockerRestartCheckpoint,
@@ -5858,944 +5858,973 @@ for (const issuedFailure of [false, true]) {
  * @cleanup 自作Rootだけを回収し不存在を確認する。
  * @boundary 実Root／Kernel／Filesystemと本番Driver本文・履歴／終了出版。Owner生存・Host終了値・Docker観測・再起動結果・Driver Readerは代役で実Daemon／公開Consumerの証明ではない。
  */
-test("Host Windows: 認証unknownの専用Writerを実保存へ接続する", async (t) => {
-  assert.equal(process.platform, "win32");
-  const area = requireReadyRepositoryRuntimeDataArea(
-    ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
-      import.meta.dirname,
-      "tests",
-    ),
-    "authentication_closure_store",
-  );
-  const root = fs.mkdtempSync(path.join(area.directory, "auth-closure-store-"));
-  let genericOwned: ReturnType<typeof createOwnedOperationDirectories> | null =
-    null;
-  t.after(() => {
-    if (genericOwned && fs.existsSync(genericOwned.root)) {
-      cleanupOwnedOperationDirectories(genericOwned);
-      assert.equal(fs.existsSync(genericOwned.root), false);
-    }
-    assert.equal(fs.realpathSync(root), root);
-    assert.equal(path.dirname(root), area.directory);
-    fs.rmSync(root, { recursive: true, force: true });
-    assert.equal(fs.existsSync(root), false);
-  });
-  execFileSync("git", ["init", "--quiet", root], { windowsHide: true });
-  execFileSync(
-    "git",
-    [
-      "-C",
-      root,
-      "-c",
-      "user.name=CRDD Test",
-      "-c",
-      "user.email=test@example.invalid",
-      "-c",
-      "commit.gpgsign=false",
-      "commit",
-      "--allow-empty",
-      "--quiet",
-      "-m",
-      "fixture",
-    ],
-    { windowsHide: true },
-  );
-  const verified = verifyRepositoryRoot(root);
-  assert.equal(verified.status, "completed");
-  assert.ok(verified.capability);
-  const borrowed = borrowRuntimeOwnedCoordinatorRecoveryRepository(
-    verified.capability,
-  );
-  assert.ok(borrowed);
-  const ownArea = requireReadyRepositoryRuntimeDataArea(
-    ensureRepositoryRuntimeDataAreaFromWorkingDirectory(root, "tests"),
-    "authentication_generic_writer",
-  );
-  genericOwned = createOwnedOperationDirectories(ownArea.directory);
-  const genericManagement = createOwnedOperationManagementCapability(
-    createOwnedOperationContextCapability(genericOwned),
-    createOwnedMountCapability(genericOwned),
-  );
-  assert.ok(bindRuntimeOwnedRepositoryOperation(genericManagement, root));
-  const genericRepository =
-    borrowRuntimeOwnedCoordinatorStateRepository(genericManagement);
-  assert.ok(genericRepository);
-  assert.equal(genericRepository.repositoryBinding, borrowed.repositoryBinding);
-  const repository = {
-    ...borrowed,
-    operationId: genericRepository.operationId,
-  };
-  const hostRecord = {
-    schema: "crdd-coordinator-host-recovery/v1",
-    state: "host_only",
-    rootName: "crdd-coordinator-doctor-fixture",
-    rootIdentity: { dev: "1", ino: "2", birthtimeNs: "3" },
-    childIdentities: {
-      management: {
-        pathName: "management",
-        dev: "1",
-        ino: "3",
-        birthtimeNs: "4",
+for (const consumer of ["workbench", "coordinator_cli"] as const) {
+  test(`Host Windows: 認証unknownの専用Writerを実保存へ接続する ${consumer}`, async (t) => {
+    assert.equal(process.platform, "win32");
+    const area = requireReadyRepositoryRuntimeDataArea(
+      ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
+        import.meta.dirname,
+        "tests",
+      ),
+      "authentication_closure_store",
+    );
+    const root = fs.mkdtempSync(
+      path.join(area.directory, "auth-closure-store-"),
+    );
+    let genericOwned: ReturnType<
+      typeof createOwnedOperationDirectories
+    > | null = null;
+    t.after(() => {
+      if (genericOwned && fs.existsSync(genericOwned.root)) {
+        cleanupOwnedOperationDirectories(genericOwned);
+        assert.equal(fs.existsSync(genericOwned.root), false);
+      }
+      assert.equal(fs.realpathSync(root), root);
+      assert.equal(path.dirname(root), area.directory);
+      fs.rmSync(root, { recursive: true, force: true });
+      assert.equal(fs.existsSync(root), false);
+    });
+    execFileSync("git", ["init", "--quiet", root], { windowsHide: true });
+    execFileSync(
+      "git",
+      [
+        "-C",
+        root,
+        "-c",
+        "user.name=CRDD Test",
+        "-c",
+        "user.email=test@example.invalid",
+        "-c",
+        "commit.gpgsign=false",
+        "commit",
+        "--allow-empty",
+        "--quiet",
+        "-m",
+        "fixture",
+      ],
+      { windowsHide: true },
+    );
+    const verified = verifyRepositoryRoot(root);
+    assert.equal(verified.status, "completed");
+    assert.ok(verified.capability);
+    const borrowed = borrowRuntimeOwnedCoordinatorRecoveryRepository(
+      verified.capability,
+    );
+    assert.ok(borrowed);
+    const ownArea = requireReadyRepositoryRuntimeDataArea(
+      ensureRepositoryRuntimeDataAreaFromWorkingDirectory(root, "tests"),
+      "authentication_generic_writer",
+    );
+    genericOwned = createOwnedOperationDirectories(ownArea.directory);
+    const genericManagement = createOwnedOperationManagementCapability(
+      createOwnedOperationContextCapability(genericOwned),
+      createOwnedMountCapability(genericOwned),
+    );
+    assert.ok(bindRuntimeOwnedRepositoryOperation(genericManagement, root));
+    const genericRepository =
+      borrowRuntimeOwnedCoordinatorStateRepository(genericManagement);
+    assert.ok(genericRepository);
+    assert.equal(
+      genericRepository.repositoryBinding,
+      borrowed.repositoryBinding,
+    );
+    const repository = {
+      ...borrowed,
+      operationId: genericRepository.operationId,
+    };
+    const hostRecord = {
+      schema: "crdd-coordinator-host-recovery/v1",
+      state: "host_only",
+      rootName: "crdd-coordinator-doctor-fixture",
+      rootIdentity: { dev: "1", ino: "2", birthtimeNs: "3" },
+      childIdentities: {
+        management: {
+          pathName: "management",
+          dev: "1",
+          ino: "3",
+          birthtimeNs: "4",
+        },
       },
-    },
-    createdAt: "2026-08-25T00:00:00.000Z",
-  };
-  const hostHash = createHash("sha256")
-    .update(`${JSON.stringify(hostRecord)}\n`)
-    .digest("hex");
-  const token = `host.${hostRecord.rootName}.12345678-1234-4234-8234-123456789abc.${hostHash}`;
-  const identityJson = `${JSON.stringify({
-    schema: "crdd-coordinator/operation-identity/v1",
-    operationNonce: "b".repeat(64),
-    provider: "claude",
-    consumer: "workbench",
-    operationId: repository.operationId,
-    recoveryCorrelationId: "task-operation-a",
-    grantRef: "PHMGRANT-FIXTURE",
-    profileId: "PROFILE-123456",
-    stableLogicalHomeBindingHash: "c".repeat(64),
-    providerHomeIdentityHash: "8".repeat(64),
-    providerHomeProtectionHash: "9".repeat(64),
-    localUserBindingHash: "6".repeat(64),
-    repositoryBinding: repository.repositoryBinding,
-    ownershipLabel: "crdd.coordinator.runtime=0123456789abcdef",
-    resources: {
-      auth: "crdd-auth-0123456789abcdef",
-      provider: "crdd-claude-0123456789abcdef",
-      proxy: "crdd-proxy-0123456789abcdef",
-      internal: "crdd-internal-0123456789abcdef",
-      egress: "crdd-egress-0123456789abcdef",
-    },
-    images: {
-      provider: `sha256:${"a".repeat(64)}`,
-      proxy: `sha256:${"b".repeat(64)}`,
-    },
-    operationMode: "workbench_advice",
-    workspaceMountMode: null,
-    initialHostRecoveryId: token,
-    initialHostRecovery: {
-      token,
-      recordHash: hostHash,
-      directoryIdentity: "1:2:3",
-      markerIdentity: "1:2:4",
-      record: hostRecord,
-    },
-    hostPaths: { root: "host-root", marker: "host-marker" },
-  })}\n`;
-  const identitySha256 = createHash("sha256")
-    .update(identityJson)
-    .digest("hex");
-  const recoveryId = `docker-task.${"c".repeat(64)}.${"b".repeat(64)}.${identitySha256}`;
-  const requestId = createDockerRestartRequestId(
-    repository.repositoryBinding,
-    identitySha256,
-    recoveryId,
-    "f".repeat(64),
-  );
-  assert.ok(requestId);
-  const snapshot = {
-    schema: COORDINATOR_STATE_SCHEMA,
-    revision: 1,
-    previous: null,
-    repositoryBinding: repository.repositoryBinding,
-    operations: [
-      {
-        kind: "docker_task",
-        identityJson,
-        identitySha256,
-        recoveryId,
-        phase: "settling",
-        resources: [
-          "create_egress_network",
-          "create_internal_network",
-          "create_provider",
-          "create_proxy",
-          "create_subscription_auth_probe",
-        ].map((purpose) => ({
-          purpose,
-          request:
-            purpose === "create_subscription_auth_probe"
-              ? "unknown"
-              : "not_requested",
-          dockerId: null,
-          receiptSource: null,
-          observation: "unobserved",
-          absence: null,
-        })),
-        host: {
-          currentToken: token,
-          pendingTransitionJson: null,
-          cleanup: "not_requested",
-        },
-        lease: "held",
-        execution: {
-          providerStart: "not_started",
-          externalSend: "not_issued",
-          sharedWrite: "not_issued",
-          ownerEffect: "disabled",
-          workspaceReusable: false,
-        },
-        dockerRestart: {
-          requestId,
-          scopeSha256: "f".repeat(64),
-          request: "confirmed",
-          cleanup: "confirmed",
-          result: {
-            status: "completed",
-            reason: "docker_restart_settled",
+      createdAt: "2026-08-25T00:00:00.000Z",
+    };
+    const hostHash = createHash("sha256")
+      .update(`${JSON.stringify(hostRecord)}\n`)
+      .digest("hex");
+    const token = `host.${hostRecord.rootName}.12345678-1234-4234-8234-123456789abc.${hostHash}`;
+    const identityJson = `${JSON.stringify({
+      schema: "crdd-coordinator/operation-identity/v1",
+      operationNonce: "b".repeat(64),
+      provider: "claude",
+      consumer,
+      operationId: repository.operationId,
+      recoveryCorrelationId: "task-operation-a",
+      grantRef: "PHMGRANT-FIXTURE",
+      profileId: "PROFILE-123456",
+      stableLogicalHomeBindingHash: "c".repeat(64),
+      providerHomeIdentityHash: "8".repeat(64),
+      providerHomeProtectionHash: "9".repeat(64),
+      localUserBindingHash: "6".repeat(64),
+      repositoryBinding: repository.repositoryBinding,
+      ownershipLabel: "crdd.coordinator.runtime=0123456789abcdef",
+      resources: {
+        auth: "crdd-auth-0123456789abcdef",
+        provider: "crdd-claude-0123456789abcdef",
+        proxy: "crdd-proxy-0123456789abcdef",
+        internal: "crdd-internal-0123456789abcdef",
+        egress: "crdd-egress-0123456789abcdef",
+      },
+      images: {
+        provider: `sha256:${"a".repeat(64)}`,
+        proxy: `sha256:${"b".repeat(64)}`,
+      },
+      operationMode: "workbench_advice",
+      workspaceMountMode: null,
+      initialHostRecoveryId: token,
+      initialHostRecovery: {
+        token,
+        recordHash: hostHash,
+        directoryIdentity: "1:2:3",
+        markerIdentity: "1:2:4",
+        record: hostRecord,
+      },
+      hostPaths: { root: "host-root", marker: "host-marker" },
+    })}\n`;
+    const identitySha256 = createHash("sha256")
+      .update(identityJson)
+      .digest("hex");
+    const recoveryId = `docker-task.${"c".repeat(64)}.${"b".repeat(64)}.${identitySha256}`;
+    const requestId = createDockerRestartRequestId(
+      repository.repositoryBinding,
+      identitySha256,
+      recoveryId,
+      "f".repeat(64),
+    );
+    assert.ok(requestId);
+    const snapshot = {
+      schema: COORDINATOR_STATE_SCHEMA,
+      revision: 1,
+      previous: null,
+      repositoryBinding: repository.repositoryBinding,
+      operations: [
+        {
+          kind: "docker_task",
+          identityJson,
+          identitySha256,
+          recoveryId,
+          phase: "settling",
+          resources: [
+            "create_egress_network",
+            "create_internal_network",
+            "create_provider",
+            "create_proxy",
+            "create_subscription_auth_probe",
+          ].map((purpose) => ({
+            purpose,
+            request:
+              purpose === "create_subscription_auth_probe"
+                ? "unknown"
+                : "not_requested",
+            dockerId: null,
+            receiptSource: null,
+            observation: "unobserved",
+            absence: null,
+          })),
+          host: {
+            currentToken: token,
+            pendingTransitionJson: null,
+            cleanup: "not_requested",
+          },
+          lease: "held",
+          execution: {
+            providerStart: "not_started",
+            externalSend: "not_issued",
+            sharedWrite: "not_issued",
+            ownerEffect: "disabled",
+            workspaceReusable: false,
+          },
+          dockerRestart: {
+            requestId,
+            scopeSha256: "f".repeat(64),
             request: "confirmed",
-            effectOutcomeUnknown: false,
+            cleanup: "confirmed",
+            result: {
+              status: "completed",
+              reason: "docker_restart_settled",
+              request: "confirmed",
+              effectOutcomeUnknown: false,
+            },
+          },
+          primaryFailure: null,
+          outcome: null,
+          summarySha256: null,
+          history: null,
+        },
+      ],
+      unresolvedRecoveries: [],
+      pendingDeliveries: [],
+    };
+    const before = Buffer.from(`${encodeCoordinatorStateValue(snapshot)}\n`);
+    const decodedBefore = decodeCoordinatorStateSnapshot(
+      before,
+      repository.repositoryBinding,
+    );
+    assert.ok(decodedBefore);
+    const directory = path.join(root, ".crdd", "coordinator");
+    fs.mkdirSync(directory, { recursive: true });
+    const file = path.join(directory, "state.json");
+    fs.writeFileSync(file, before);
+    const observations = [
+      { round: 1, name: "absent", name_label: "absent" },
+      { round: 2, name: "absent", name_label: "absent" },
+    ];
+    const candidate = prepareCoordinatorAuthenticationUnknownClosureSnapshot(
+      before,
+      recoveryId,
+      observations,
+      repository.repositoryBinding,
+    );
+    assert.ok(candidate);
+    const bypass = writeRuntimeOwnedCoordinatorStateSnapshot(
+      genericManagement,
+      candidate,
+    );
+    assert.equal(bypass.status, "blocked");
+    assert.equal(
+      bypass.reason,
+      "coordinator_state_authentication_closure_owner_required",
+    );
+    assert.equal(bypass.filesystemEffectIssued, false);
+    assert.equal(bypass.lockReleased, true);
+    assert.ok(fs.readFileSync(file).equals(before));
+    assert.deepEqual(fs.readdirSync(directory), ["state.json"]);
+    let ownerLive = true,
+      kernelAcquisitions = 0;
+    const kernelLoss = t.mock.module(
+      "../../src/host-execution/kernel-lock.ts",
+      {
+        namedExports: {
+          ...stateKernelLocks,
+          acquireRuntimeOwnedCoordinatorStateKernelLock: (
+            ...args: Parameters<
+              typeof stateKernelLocks.acquireRuntimeOwnedCoordinatorStateKernelLock
+            >
+          ) => {
+            const acquired =
+              stateKernelLocks.acquireRuntimeOwnedCoordinatorStateKernelLock(
+                ...args,
+              );
+            assert.ok(acquired);
+            kernelAcquisitions++;
+            ownerLive = false;
+            return acquired;
           },
         },
-        primaryFailure: null,
-        outcome: null,
-        summarySha256: null,
-        history: null,
       },
-    ],
-    unresolvedRecoveries: [],
-    pendingDeliveries: [],
-  };
-  const before = Buffer.from(`${encodeCoordinatorStateValue(snapshot)}\n`);
-  const decodedBefore = decodeCoordinatorStateSnapshot(
-    before,
-    repository.repositoryBinding,
-  );
-  assert.ok(decodedBefore);
-  const directory = path.join(root, ".crdd", "coordinator");
-  fs.mkdirSync(directory, { recursive: true });
-  const file = path.join(directory, "state.json");
-  fs.writeFileSync(file, before);
-  const observations = [
-    { round: 1, name: "absent", name_label: "absent" },
-    { round: 2, name: "absent", name_label: "absent" },
-  ];
-  const candidate = prepareCoordinatorAuthenticationUnknownClosureSnapshot(
-    before,
-    recoveryId,
-    observations,
-    repository.repositoryBinding,
-  );
-  assert.ok(candidate);
-  const bypass = writeRuntimeOwnedCoordinatorStateSnapshot(
-    genericManagement,
-    candidate,
-  );
-  assert.equal(bypass.status, "blocked");
-  assert.equal(
-    bypass.reason,
-    "coordinator_state_authentication_closure_owner_required",
-  );
-  assert.equal(bypass.filesystemEffectIssued, false);
-  assert.equal(bypass.lockReleased, true);
-  assert.ok(fs.readFileSync(file).equals(before));
-  assert.deepEqual(fs.readdirSync(directory), ["state.json"]);
-  let ownerLive = true,
-    kernelAcquisitions = 0;
-  const kernelLoss = t.mock.module("../../src/host-execution/kernel-lock.ts", {
-    namedExports: {
-      ...stateKernelLocks,
-      acquireRuntimeOwnedCoordinatorStateKernelLock: (
-        ...args: Parameters<
-          typeof stateKernelLocks.acquireRuntimeOwnedCoordinatorStateKernelLock
-        >
-      ) => {
-        const acquired =
-          stateKernelLocks.acquireRuntimeOwnedCoordinatorStateKernelLock(
-            ...args,
-          );
-        assert.ok(acquired);
-        kernelAcquisitions++;
-        ownerLive = false;
-        return acquired;
-      },
-    },
-  });
-  try {
-    const lostOwnerRuntime: typeof import("../../src/state-storage/settlement-store.ts") =
-      await import(
-        new URL(
-          "../../src/state-storage/settlement-store.ts?authentication-owner-lost-after-lock",
-          import.meta.url,
-        ).href
+    );
+    try {
+      const lostOwnerRuntime: typeof import("../../src/state-storage/settlement-store.ts") =
+        await import(
+          new URL(
+            `../../src/state-storage/settlement-store.ts?authentication-owner-lost-after-lock-${consumer}`,
+            import.meta.url,
+          ).href
+        );
+      const lostOwner =
+        lostOwnerRuntime.writeRuntimeOwnedCoordinatorAuthenticationUnknownClosure(
+          repository,
+          recoveryId,
+          before,
+          observations,
+          () => ownerLive,
+        );
+      assert.equal(kernelAcquisitions, 1);
+      assert.equal(lostOwner.status, "blocked");
+      assert.equal(lostOwner.snapshotConfirmed, false);
+      assert.equal(lostOwner.filesystemEffectIssued, false);
+      assert.equal(lostOwner.lockReleased, true);
+      assert.ok(fs.readFileSync(file).equals(before));
+      assert.deepEqual(fs.readdirSync(directory), ["state.json"]);
+    } finally {
+      kernelLoss.restore();
+    }
+    for (const refusal of [
+      "other_owner",
+      "owner_lost",
+      "stale_before",
+    ] as const) {
+      const result = writeRuntimeOwnedCoordinatorAuthenticationUnknownClosure(
+        refusal === "other_owner"
+          ? { ...repository, operationId: "OP-654321" }
+          : repository,
+        recoveryId,
+        refusal === "stale_before" ? candidate : before,
+        observations,
+        () => refusal !== "owner_lost",
       );
-    const lostOwner =
-      lostOwnerRuntime.writeRuntimeOwnedCoordinatorAuthenticationUnknownClosure(
+      assert.equal(result.status, "blocked", refusal);
+      assert.equal(result.snapshotConfirmed, false, refusal);
+      assert.equal(result.filesystemEffectIssued, false, refusal);
+      assert.equal(result.lockReleased, true, refusal);
+      assert.ok(fs.readFileSync(file).equals(before), refusal);
+      assert.deepEqual(fs.readdirSync(directory), ["state.json"], refusal);
+    }
+    const originalRename = fs.renameSync;
+    let interrupted = 0;
+    const renameFailure = t.mock.method(
+      fs,
+      "renameSync",
+      (from: fs.PathLike, to: fs.PathLike) => {
+        if (
+          String(from) === path.join(directory, "state.pending.json") &&
+          String(to) === file
+        ) {
+          interrupted++;
+          throw new Error(
+            "synthetic_authentication_closure_publication_failure",
+          );
+        }
+        return originalRename(from, to);
+      },
+    );
+    try {
+      const failed = writeRuntimeOwnedCoordinatorAuthenticationUnknownClosure(
         repository,
         recoveryId,
         before,
         observations,
-        () => ownerLive,
+        () => true,
       );
-    assert.equal(kernelAcquisitions, 1);
-    assert.equal(lostOwner.status, "blocked");
-    assert.equal(lostOwner.snapshotConfirmed, false);
-    assert.equal(lostOwner.filesystemEffectIssued, false);
-    assert.equal(lostOwner.lockReleased, true);
-    assert.ok(fs.readFileSync(file).equals(before));
-    assert.deepEqual(fs.readdirSync(directory), ["state.json"]);
-  } finally {
-    kernelLoss.restore();
-  }
-  for (const refusal of [
-    "other_owner",
-    "owner_lost",
-    "stale_before",
-  ] as const) {
-    const result = writeRuntimeOwnedCoordinatorAuthenticationUnknownClosure(
-      refusal === "other_owner"
-        ? { ...repository, operationId: "OP-654321" }
-        : repository,
-      recoveryId,
-      refusal === "stale_before" ? candidate : before,
-      observations,
-      () => refusal !== "owner_lost",
-    );
-    assert.equal(result.status, "blocked", refusal);
-    assert.equal(result.snapshotConfirmed, false, refusal);
-    assert.equal(result.filesystemEffectIssued, false, refusal);
-    assert.equal(result.lockReleased, true, refusal);
-    assert.ok(fs.readFileSync(file).equals(before), refusal);
-    assert.deepEqual(fs.readdirSync(directory), ["state.json"], refusal);
-  }
-  const originalRename = fs.renameSync;
-  let interrupted = 0;
-  const renameFailure = t.mock.method(
-    fs,
-    "renameSync",
-    (from: fs.PathLike, to: fs.PathLike) => {
-      if (
-        String(from) === path.join(directory, "state.pending.json") &&
-        String(to) === file
-      ) {
-        interrupted++;
-        throw new Error("synthetic_authentication_closure_publication_failure");
-      }
-      return originalRename(from, to);
-    },
-  );
-  try {
-    const failed = writeRuntimeOwnedCoordinatorAuthenticationUnknownClosure(
+      assert.equal(interrupted, 1);
+      assert.equal(failed.status, "blocked");
+      assert.equal(failed.snapshotConfirmed, false);
+      assert.equal(failed.filesystemEffectIssued, true);
+      assert.equal(failed.lockReleased, true);
+      assert.ok(fs.readFileSync(file).equals(before));
+      assert.ok(
+        fs
+          .readFileSync(path.join(directory, "state.pending.json"))
+          .equals(candidate),
+      );
+    } finally {
+      renameFailure.mock.restore();
+    }
+    const saved = writeRuntimeOwnedCoordinatorAuthenticationUnknownClosure(
       repository,
       recoveryId,
       before,
       observations,
       () => true,
     );
-    assert.equal(interrupted, 1);
-    assert.equal(failed.status, "blocked");
-    assert.equal(failed.snapshotConfirmed, false);
-    assert.equal(failed.filesystemEffectIssued, true);
-    assert.equal(failed.lockReleased, true);
-    assert.ok(fs.readFileSync(file).equals(before));
-    assert.ok(
-      fs
-        .readFileSync(path.join(directory, "state.pending.json"))
-        .equals(candidate),
+    assert.equal(saved.status, "completed", saved.reason);
+    assert.equal(saved.snapshotConfirmed, true);
+    assert.equal(saved.filesystemEffectIssued, true);
+    assert.equal(saved.lockReleased, true);
+    assert.ok(fs.readFileSync(file).equals(candidate));
+    const read = readRuntimeOwnedCoordinatorRecoverySnapshot(
+      verified.capability,
     );
-  } finally {
-    renameFailure.mock.restore();
-  }
-  const saved = writeRuntimeOwnedCoordinatorAuthenticationUnknownClosure(
-    repository,
-    recoveryId,
-    before,
-    observations,
-    () => true,
-  );
-  assert.equal(saved.status, "completed", saved.reason);
-  assert.equal(saved.snapshotConfirmed, true);
-  assert.equal(saved.filesystemEffectIssued, true);
-  assert.equal(saved.lockReleased, true);
-  assert.ok(fs.readFileSync(file).equals(candidate));
-  const read = readRuntimeOwnedCoordinatorRecoverySnapshot(verified.capability);
-  assert.equal(read.status, "completed");
-  assert.equal(read.lockReleased, true);
-  assert.ok(read.value);
-  assert.equal(read.value.snapshot.revision, 2);
-  assert.deepEqual(read.value.snapshot.previous, {
-    revision: 1,
-    payloadSha256: decodedBefore.payloadSha256,
-  });
-  const operation = read.value.snapshot.operations[0];
-  assert.ok(operation?.kind === "docker_task");
-  assert.equal(coordinatorTaskResourcesAreSettled(operation), true);
-  assert.deepEqual(
-    { ...operation, resources: snapshot.operations[0]?.resources },
-    snapshot.operations[0],
-  );
-  /**
-   * 保存後資源の許可差分だけを独立比較する。
-   * @responsibility authの観測差分で他資源の変更を隠さない。
-   * @trace ERB-IT-003 ERB-IT-014
-   * @precondition 正常fixtureの元五資源を閉包から使う。
-   * @stimulus 実読戻し資源またはその単独変更コピーを受ける。
-   * @observation purpose順序・全文とauthのunknown／null／null。
-   * @oracle auth observation／absence以外の差はassertion失敗になる。
-   * @cleanup N/A: メモリ比較だけ。
-   * @boundary 物理読戻しの資源別保全Oracle。
-   */
-  const assertPreservedResources = (
-    resources: CoordinatorStateTaskOperation["resources"],
-  ) => {
-    const originals = snapshot.operations[0]?.resources;
-    assert.ok(originals);
-    assert.deepEqual(
-      resources.map((resource) => resource.purpose),
-      originals.map((resource) => resource.purpose),
-    );
-    for (const resource of resources) {
-      const original: (typeof originals)[number] | undefined = originals.find(
-        (item) => item.purpose === resource.purpose,
-      );
-      assert.ok(original);
-      if (resource.purpose === "create_subscription_auth_probe") {
-        assert.equal(resource.request, "unknown");
-        assert.equal(resource.dockerId, null);
-        assert.equal(resource.receiptSource, null);
-        assert.deepEqual(
-          {
-            ...resource,
-            observation: original.observation,
-            absence: original.absence,
-          },
-          original,
-        );
-      } else assert.deepEqual(resource, original);
-    }
-  };
-  assertPreservedResources(operation.resources);
-  for (const purpose of [
-    "create_internal_network",
-    "create_subscription_auth_probe",
-  ] as const) {
-    const changed = operation.resources.map((resource) =>
-      resource.purpose !== purpose
-        ? resource
-        : { ...resource, dockerId: "0".repeat(64) },
-    );
-    assert.throws(() => assertPreservedResources(changed));
-  }
-  assert.equal(
-    operation.resources.find(
-      (resource) => resource.purpose === "create_subscription_auth_probe",
-    )?.request,
-    "unknown",
-  );
-  assert.deepEqual(fs.readdirSync(directory), ["state.json"]);
-  const recoverySource = fs.readFileSync(
-    new URL("../../src/task/recovery.ts", import.meta.url),
-    "utf8",
-  );
-  const driverBody = [
-    "currentDockerRecoveryResourceExpectations",
-    "persistRuntimeOwnedDockerTaskRecoveryCheckpoint",
-    "recoverRuntimeOwnedDockerTaskResources",
-  ]
-    .map((name) => {
-      const start = recoverySource.indexOf(`export function ${name}(`);
-      const end = recoverySource.indexOf("\n/**", start);
-      assert.ok(start > 0 && end > start, name);
-      return stripTypeScriptTypes(recoverySource.slice(start, end)).replace(
-        "export function",
-        "function",
-      );
-    })
-    .join("\n");
-  const idMutationPattern =
-    /request: "identified",\s+dockerId,\s+receiptSource: "runtime_reconciliation"/g;
-  const idMutationMatches = [...driverBody.matchAll(idMutationPattern)];
-  assert.equal(idMutationMatches.length, 1);
-  const idMutationMatch = idMutationMatches[0]?.[0];
-  assert.ok(idMutationMatch);
-  const wrongIdDriverBody = driverBody.replace(
-    idMutationMatch,
-    idMutationMatch.replace("dockerId,", 'dockerId: "e".repeat(64),'),
-  );
-  assert.notEqual(wrongIdDriverBody, driverBody);
-  assert.equal([...wrongIdDriverBody.matchAll(idMutationPattern)].length, 0);
-  for (const scenario of [
-    "normal",
-    "known_id",
-    "known_id_mutant",
-    "first_absence_unknown",
-    "second_absence_unknown",
-    "first_owner_lost",
-    "second_owner_lost",
-    "writer_refused",
-    "writer_throw",
-    "readback_mismatch",
-    "release_unknown",
-    "saved_reentry",
-  ] as const) {
-    const seed = scenario === "saved_reentry" ? candidate : before;
-    fs.writeFileSync(file, seed);
-    const owner = Object.freeze({});
-    const events: string[] = [];
-    let live = true,
-      rounds = 0,
-      closureWrites = 0,
-      removals = 0,
-      removalOracleHits = 0,
-      idMismatchDetected = 0;
-    const record: {
-      kind: string;
-      rootCapability: unknown;
-      repository: object;
-      recoveryId: string;
-      before: Buffer;
-      closed: boolean;
-      persistenceFailed: boolean;
-      cleanupUnknown: boolean;
-      hostCleanup: string;
-      hostCleanupPublication: null;
-    } = {
-      kind: "recovery",
-      rootCapability: verified.capability,
-      repository,
-      recoveryId,
-      before: Buffer.from(seed),
-      closed: false,
-      persistenceFailed: false,
-      cleanupUnknown: false,
-      hostCleanup: "present",
-      hostCleanupPublication: null,
-    };
-    const map = new WeakMap([[owner, record]]);
-    const driver = runInNewContext(
-      `${scenario === "known_id_mutant" ? wrongIdDriverBody : driverBody}; recoverRuntimeOwnedDockerTaskResources`,
-      {
-        Buffer,
-        Object,
-        Error,
-        Map,
-        dockerRecoveryPreparations: map,
-        coordinatorTaskResourcesAreSettled,
-        coordinatorAuthenticationUnknownCanClose,
-        isDockerResourcePurpose,
-        planDockerRecoveryResourceExpectations,
-        codexAdviceProviderInitRequired: () => false,
-        encodeCoordinatorStateValue,
-        decodeCoordinatorStateSnapshot,
-        assertCurrentRecoveryOwner: () => {
-          events.push("owner");
-          return live;
-        },
-        readRuntimeOwnedCoordinatorRecoverySnapshot: () => {
-          events.push("read");
-          const value = decodeCoordinatorStateSnapshot(
-            fs.readFileSync(file),
-            repository.repositoryBinding,
-          );
-          assert.ok(value);
-          return {
-            status: "completed",
-            lockReleased: true,
-            value:
-              scenario === "readback_mismatch" && closureWrites > 0
-                ? {
-                    ...value,
-                    snapshot: {
-                      ...value.snapshot,
-                      revision: value.snapshot.revision + 1,
-                    },
-                  }
-                : value,
-          };
-        },
-        writeRuntimeOwnedCoordinatorRecoveryCheckpoint: (
-          ...args: Parameters<
-            typeof writeRuntimeOwnedCoordinatorRecoveryCheckpoint
-          >
-        ) => {
-          events.push(`write:${args[3]}`);
-          const saved = writeRuntimeOwnedCoordinatorRecoveryCheckpoint(
-            args[0],
-            args[1],
-            args[2],
-            args[3],
-            JSON.parse(JSON.stringify(args[4])),
-            args[5],
-          );
-          events.push(`checkpoint:${saved.status}:${saved.reason}`);
-          return saved;
-        },
-        writeRuntimeOwnedCoordinatorAuthenticationUnknownClosure: (
-          ...args: Parameters<
-            typeof writeRuntimeOwnedCoordinatorAuthenticationUnknownClosure
-          >
-        ) => {
-          closureWrites++;
-          events.push("write:closure");
-          if (scenario === "writer_throw")
-            throw new Error("synthetic_closure_writer_failure");
-          if (scenario === "writer_refused")
-            return {
-              status: "blocked",
-              snapshotConfirmed: false,
-              lockReleased: true,
-            };
-          const result =
-            writeRuntimeOwnedCoordinatorAuthenticationUnknownClosure(
-              args[0],
-              args[1],
-              args[2],
-              JSON.parse(JSON.stringify(args[3])),
-              args[4],
-            );
-          return scenario === "release_unknown"
-            ? { ...result, lockReleased: false }
-            : result;
-        },
-      },
-    ) as (
-      capability: object,
-      operations: object,
-    ) => {
-      status: string;
-      reason: string;
-      dockerCleanupConfirmed: boolean;
-      recoveryId: string;
-    };
-    const observedId = "d".repeat(64);
-    const result = driver(owner, {
-      discoverSubmitted: () => {
-        events.push("discover");
-        return ["known_id", "known_id_mutant"].includes(scenario)
-          ? observedId
-          : null;
-      },
-      recoverObserved: (
-        expectation: { dockerId: string },
-        guard: { assertBeforeRemoval: () => boolean },
-      ) => {
-        events.push("remove");
-        assert.equal(expectation.dockerId, observedId);
-        assert.equal(guard.assertBeforeRemoval(), true);
-        const current = decodeCoordinatorStateSnapshot(
-          fs.readFileSync(file),
-          repository.repositoryBinding,
-        )?.snapshot.operations[0];
-        assert.ok(current?.kind === "docker_task");
-        const auth = current.resources.find(
-          (resource) => resource.purpose === "create_subscription_auth_probe",
-        );
-        assert.ok(auth);
-        removalOracleHits++;
-        if (auth.dockerId !== observedId) idMismatchDetected++;
-        assert.deepEqual(auth, {
-          purpose: "create_subscription_auth_probe",
-          request: "identified",
-          dockerId: observedId,
-          receiptSource: "runtime_reconciliation",
-          observation: "present",
-          absence: null,
-        });
-        removals++;
-        return true;
-      },
-      observeAbsent: (kind: string, name: string, label: string) => {
-        assert.equal(kind, "container");
-        assert.equal(name, "crdd-auth-0123456789abcdef");
-        assert.equal(label, "crdd.coordinator.runtime=0123456789abcdef");
-        rounds++;
-        events.push(`round:${rounds}`);
-        if (
-          (scenario === "first_owner_lost" && rounds === 1) ||
-          (scenario === "second_owner_lost" && rounds === 2)
-        )
-          live = false;
-        return !(
-          (scenario === "first_absence_unknown" && rounds === 1) ||
-          (scenario === "second_absence_unknown" && rounds === 2)
-        );
-      },
+    assert.equal(read.status, "completed");
+    assert.equal(read.lockReleased, true);
+    assert.ok(read.value);
+    assert.equal(read.value.snapshot.revision, 2);
+    assert.deepEqual(read.value.snapshot.previous, {
+      revision: 1,
+      payloadSha256: decodedBefore.payloadSha256,
     });
-    assert.equal(result.recoveryId, recoveryId, scenario);
-    const completed = ["normal", "known_id", "saved_reentry"].includes(
-      scenario,
+    const operation = read.value.snapshot.operations[0];
+    assert.ok(operation?.kind === "docker_task");
+    assert.equal(coordinatorTaskResourcesAreSettled(operation), true);
+    assert.deepEqual(
+      { ...operation, resources: snapshot.operations[0]?.resources },
+      snapshot.operations[0],
     );
+    /**
+     * 保存後資源の許可差分だけを独立比較する。
+     * @responsibility authの観測差分で他資源の変更を隠さない。
+     * @trace ERB-IT-003 ERB-IT-014
+     * @precondition 正常fixtureの元五資源を閉包から使う。
+     * @stimulus 実読戻し資源またはその単独変更コピーを受ける。
+     * @observation purpose順序・全文とauthのunknown／null／null。
+     * @oracle auth observation／absence以外の差はassertion失敗になる。
+     * @cleanup N/A: メモリ比較だけ。
+     * @boundary 物理読戻しの資源別保全Oracle。
+     */
+    const assertPreservedResources = (
+      resources: CoordinatorStateTaskOperation["resources"],
+    ) => {
+      const originals = snapshot.operations[0]?.resources;
+      assert.ok(originals);
+      assert.deepEqual(
+        resources.map((resource) => resource.purpose),
+        originals.map((resource) => resource.purpose),
+      );
+      for (const resource of resources) {
+        const original: (typeof originals)[number] | undefined = originals.find(
+          (item) => item.purpose === resource.purpose,
+        );
+        assert.ok(original);
+        if (resource.purpose === "create_subscription_auth_probe") {
+          assert.equal(resource.request, "unknown");
+          assert.equal(resource.dockerId, null);
+          assert.equal(resource.receiptSource, null);
+          assert.deepEqual(
+            {
+              ...resource,
+              observation: original.observation,
+              absence: original.absence,
+            },
+            original,
+          );
+        } else assert.deepEqual(resource, original);
+      }
+    };
+    assertPreservedResources(operation.resources);
+    for (const purpose of [
+      "create_internal_network",
+      "create_subscription_auth_probe",
+    ] as const) {
+      const changed = operation.resources.map((resource) =>
+        resource.purpose !== purpose
+          ? resource
+          : { ...resource, dockerId: "0".repeat(64) },
+      );
+      assert.throws(() => assertPreservedResources(changed));
+    }
     assert.equal(
-      result.status,
-      completed ? "completed" : "blocked",
-      `${scenario}: ${result.reason}: ${events.join(",")}`,
+      operation.resources.find(
+        (resource) => resource.purpose === "create_subscription_auth_probe",
+      )?.request,
+      "unknown",
     );
-    assert.equal(result.dockerCleanupConfirmed, completed, scenario);
-    assert.equal(removals, scenario === "known_id" ? 1 : 0, scenario);
-    assert.equal(
-      removalOracleHits,
-      ["known_id", "known_id_mutant"].includes(scenario) ? 1 : 0,
-      scenario,
+    assert.deepEqual(fs.readdirSync(directory), ["state.json"]);
+    const recoverySource = fs.readFileSync(
+      new URL("../../src/task/recovery.ts", import.meta.url),
+      "utf8",
     );
-    assert.equal(
-      idMismatchDetected,
-      scenario === "known_id_mutant" ? 1 : 0,
-      scenario,
+    const driverBody = [
+      "currentDockerRecoveryResourceExpectations",
+      "persistRuntimeOwnedDockerTaskRecoveryCheckpoint",
+      "recoverRuntimeOwnedDockerTaskResources",
+    ]
+      .map((name) => {
+        const start = recoverySource.indexOf(`export function ${name}(`);
+        const end = recoverySource.indexOf("\n/**", start);
+        assert.ok(start > 0 && end > start, name);
+        return stripTypeScriptTypes(recoverySource.slice(start, end)).replace(
+          "export function",
+          "function",
+        );
+      })
+      .join("\n");
+    const idMutationPattern =
+      /request: "identified",\s+dockerId,\s+receiptSource: "runtime_reconciliation"/g;
+    const idMutationMatches = [...driverBody.matchAll(idMutationPattern)];
+    assert.equal(idMutationMatches.length, 1);
+    const idMutationMatch = idMutationMatches[0]?.[0];
+    assert.ok(idMutationMatch);
+    const wrongIdDriverBody = driverBody.replace(
+      idMutationMatch,
+      idMutationMatch.replace("dockerId,", 'dockerId: "e".repeat(64),'),
     );
-    const shouldSave = [
+    assert.notEqual(wrongIdDriverBody, driverBody);
+    assert.equal([...wrongIdDriverBody.matchAll(idMutationPattern)].length, 0);
+    for (const scenario of [
       "normal",
+      "known_id",
+      "known_id_mutant",
+      "first_absence_unknown",
+      "second_absence_unknown",
+      "first_owner_lost",
+      "second_owner_lost",
       "writer_refused",
       "writer_throw",
       "readback_mismatch",
       "release_unknown",
       "saved_reentry",
-    ].includes(scenario);
-    assert.equal(closureWrites, shouldSave ? 1 : 0, scenario);
-    assert.equal(
-      rounds,
-      ["known_id", "known_id_mutant"].includes(scenario)
-        ? 0
-        : ["first_absence_unknown", "first_owner_lost"].includes(scenario)
-          ? 1
-          : 2,
-      scenario,
-    );
-    if (shouldSave) {
-      const first = events.indexOf("round:1"),
-        second = events.indexOf("round:2"),
-        write = events.indexOf("write:closure");
-      assert.ok(first >= 0 && second > first && write > second, scenario);
-      assert.ok(events.slice(first + 1, second).includes("owner"), scenario);
-      assert.ok(events.slice(second + 1, write).includes("read"), scenario);
-    }
-    if (scenario === "saved_reentry")
-      assert.equal(events.includes("write:cleanup"), false);
-    assert.equal(record.hostCleanup, "present", scenario);
-    const persisted = decodeCoordinatorStateSnapshot(
-      fs.readFileSync(file),
-      repository.repositoryBinding,
-    )?.snapshot.operations[0];
-    assert.ok(persisted?.kind === "docker_task");
-    assert.deepEqual(
-      { ...persisted, resources: snapshot.operations[0]?.resources },
-      snapshot.operations[0],
-      scenario,
-    );
-    if (!["known_id", "known_id_mutant"].includes(scenario)) {
-      assertPreservedResources(persisted.resources);
-      const auth = persisted.resources.find(
-        (resource) => resource.purpose === "create_subscription_auth_probe",
-      );
-      assert.ok(auth);
-      assert.equal(
-        auth.observation === "absent",
-        [
-          "normal",
-          "readback_mismatch",
-          "release_unknown",
-          "saved_reentry",
-        ].includes(scenario),
+    ] as const) {
+      const seed = scenario === "saved_reentry" ? candidate : before;
+      fs.writeFileSync(file, seed);
+      const owner = Object.freeze({});
+      const events: string[] = [];
+      let live = true,
+        rounds = 0,
+        closureWrites = 0,
+        removals = 0,
+        removalOracleHits = 0,
+        idMismatchDetected = 0;
+      const record: {
+        kind: string;
+        rootCapability: unknown;
+        repository: object;
+        recoveryId: string;
+        before: Buffer;
+        closed: boolean;
+        persistenceFailed: boolean;
+        cleanupUnknown: boolean;
+        hostCleanup: string;
+        hostCleanupPublication: null;
+      } = {
+        kind: "recovery",
+        rootCapability: verified.capability,
+        repository,
+        recoveryId,
+        before: Buffer.from(seed),
+        closed: false,
+        persistenceFailed: false,
+        cleanupUnknown: false,
+        hostCleanup: "present",
+        hostCleanupPublication: null,
+      };
+      const map = new WeakMap([[owner, record]]);
+      const driver = runInNewContext(
+        `${scenario === "known_id_mutant" ? wrongIdDriverBody : driverBody}; recoverRuntimeOwnedDockerTaskResources`,
+        {
+          Buffer,
+          Object,
+          Error,
+          Map,
+          dockerRecoveryPreparations: map,
+          coordinatorTaskResourcesAreSettled,
+          coordinatorAuthenticationUnknownCanClose,
+          isDockerResourcePurpose,
+          planDockerRecoveryResourceExpectations,
+          codexAdviceProviderInitRequired: () => false,
+          encodeCoordinatorStateValue,
+          decodeCoordinatorStateSnapshot,
+          assertCurrentRecoveryOwner: () => {
+            events.push("owner");
+            return live;
+          },
+          readRuntimeOwnedCoordinatorRecoverySnapshot: () => {
+            events.push("read");
+            const value = decodeCoordinatorStateSnapshot(
+              fs.readFileSync(file),
+              repository.repositoryBinding,
+            );
+            assert.ok(value);
+            return {
+              status: "completed",
+              lockReleased: true,
+              value:
+                scenario === "readback_mismatch" && closureWrites > 0
+                  ? {
+                      ...value,
+                      snapshot: {
+                        ...value.snapshot,
+                        revision: value.snapshot.revision + 1,
+                      },
+                    }
+                  : value,
+            };
+          },
+          writeRuntimeOwnedCoordinatorRecoveryCheckpoint: (
+            ...args: Parameters<
+              typeof writeRuntimeOwnedCoordinatorRecoveryCheckpoint
+            >
+          ) => {
+            events.push(`write:${args[3]}`);
+            const saved = writeRuntimeOwnedCoordinatorRecoveryCheckpoint(
+              args[0],
+              args[1],
+              args[2],
+              args[3],
+              JSON.parse(JSON.stringify(args[4])),
+              args[5],
+            );
+            events.push(`checkpoint:${saved.status}:${saved.reason}`);
+            return saved;
+          },
+          writeRuntimeOwnedCoordinatorAuthenticationUnknownClosure: (
+            ...args: Parameters<
+              typeof writeRuntimeOwnedCoordinatorAuthenticationUnknownClosure
+            >
+          ) => {
+            closureWrites++;
+            events.push("write:closure");
+            if (scenario === "writer_throw")
+              throw new Error("synthetic_closure_writer_failure");
+            if (scenario === "writer_refused")
+              return {
+                status: "blocked",
+                snapshotConfirmed: false,
+                lockReleased: true,
+              };
+            const result =
+              writeRuntimeOwnedCoordinatorAuthenticationUnknownClosure(
+                args[0],
+                args[1],
+                args[2],
+                JSON.parse(JSON.stringify(args[3])),
+                args[4],
+              );
+            return scenario === "release_unknown"
+              ? { ...result, lockReleased: false }
+              : result;
+          },
+        },
+      ) as (
+        capability: object,
+        operations: object,
+      ) => {
+        status: string;
+        reason: string;
+        dockerCleanupConfirmed: boolean;
+        recoveryId: string;
+      };
+      const observedId = "d".repeat(64);
+      const result = driver(owner, {
+        discoverSubmitted: () => {
+          events.push("discover");
+          return ["known_id", "known_id_mutant"].includes(scenario)
+            ? observedId
+            : null;
+        },
+        recoverObserved: (
+          expectation: { dockerId: string },
+          guard: { assertBeforeRemoval: () => boolean },
+        ) => {
+          events.push("remove");
+          assert.equal(expectation.dockerId, observedId);
+          assert.equal(guard.assertBeforeRemoval(), true);
+          const current = decodeCoordinatorStateSnapshot(
+            fs.readFileSync(file),
+            repository.repositoryBinding,
+          )?.snapshot.operations[0];
+          assert.ok(current?.kind === "docker_task");
+          const auth = current.resources.find(
+            (resource) => resource.purpose === "create_subscription_auth_probe",
+          );
+          assert.ok(auth);
+          removalOracleHits++;
+          if (auth.dockerId !== observedId) idMismatchDetected++;
+          assert.deepEqual(auth, {
+            purpose: "create_subscription_auth_probe",
+            request: "identified",
+            dockerId: observedId,
+            receiptSource: "runtime_reconciliation",
+            observation: "present",
+            absence: null,
+          });
+          removals++;
+          return true;
+        },
+        observeAbsent: (kind: string, name: string, label: string) => {
+          assert.equal(kind, "container");
+          assert.equal(name, "crdd-auth-0123456789abcdef");
+          assert.equal(label, "crdd.coordinator.runtime=0123456789abcdef");
+          rounds++;
+          events.push(`round:${rounds}`);
+          if (
+            (scenario === "first_owner_lost" && rounds === 1) ||
+            (scenario === "second_owner_lost" && rounds === 2)
+          )
+            live = false;
+          return !(
+            (scenario === "first_absence_unknown" && rounds === 1) ||
+            (scenario === "second_absence_unknown" && rounds === 2)
+          );
+        },
+      });
+      assert.equal(result.recoveryId, recoveryId, scenario);
+      const completed = ["normal", "known_id", "saved_reentry"].includes(
         scenario,
       );
-    } else {
-      for (const resource of persisted.resources) {
-        if (resource.purpose === "create_subscription_auth_probe") {
-          assert.equal(resource.request, "identified");
-          assert.equal(
-            resource.dockerId,
-            scenario === "known_id" ? observedId : "e".repeat(64),
-          );
-          assert.equal(resource.receiptSource, "runtime_reconciliation");
-          assert.equal(
-            resource.observation,
-            scenario === "known_id" ? "absent" : "present",
-          );
-        } else {
-          assert.deepEqual(
-            resource,
-            snapshot.operations[0]?.resources.find(
-              (original) => original.purpose === resource.purpose,
-            ),
-          );
+      assert.equal(
+        result.status,
+        completed ? "completed" : "blocked",
+        `${scenario}: ${result.reason}: ${events.join(",")}`,
+      );
+      assert.equal(result.dockerCleanupConfirmed, completed, scenario);
+      assert.equal(removals, scenario === "known_id" ? 1 : 0, scenario);
+      assert.equal(
+        removalOracleHits,
+        ["known_id", "known_id_mutant"].includes(scenario) ? 1 : 0,
+        scenario,
+      );
+      assert.equal(
+        idMismatchDetected,
+        scenario === "known_id_mutant" ? 1 : 0,
+        scenario,
+      );
+      const shouldSave = [
+        "normal",
+        "writer_refused",
+        "writer_throw",
+        "readback_mismatch",
+        "release_unknown",
+        "saved_reentry",
+      ].includes(scenario);
+      assert.equal(closureWrites, shouldSave ? 1 : 0, scenario);
+      assert.equal(
+        rounds,
+        ["known_id", "known_id_mutant"].includes(scenario)
+          ? 0
+          : ["first_absence_unknown", "first_owner_lost"].includes(scenario)
+            ? 1
+            : 2,
+        scenario,
+      );
+      if (shouldSave) {
+        const first = events.indexOf("round:1"),
+          second = events.indexOf("round:2"),
+          write = events.indexOf("write:closure");
+        assert.ok(first >= 0 && second > first && write > second, scenario);
+        assert.ok(events.slice(first + 1, second).includes("owner"), scenario);
+        assert.ok(events.slice(second + 1, write).includes("read"), scenario);
+      }
+      if (scenario === "saved_reentry")
+        assert.equal(events.includes("write:cleanup"), false);
+      assert.equal(record.hostCleanup, "present", scenario);
+      const persisted = decodeCoordinatorStateSnapshot(
+        fs.readFileSync(file),
+        repository.repositoryBinding,
+      )?.snapshot.operations[0];
+      assert.ok(persisted?.kind === "docker_task");
+      assert.deepEqual(
+        { ...persisted, resources: snapshot.operations[0]?.resources },
+        snapshot.operations[0],
+        scenario,
+      );
+      if (!["known_id", "known_id_mutant"].includes(scenario)) {
+        assertPreservedResources(persisted.resources);
+        const auth = persisted.resources.find(
+          (resource) => resource.purpose === "create_subscription_auth_probe",
+        );
+        assert.ok(auth);
+        assert.equal(
+          auth.observation === "absent",
+          [
+            "normal",
+            "readback_mismatch",
+            "release_unknown",
+            "saved_reentry",
+          ].includes(scenario),
+          scenario,
+        );
+      } else {
+        for (const resource of persisted.resources) {
+          if (resource.purpose === "create_subscription_auth_probe") {
+            assert.equal(resource.request, "identified");
+            assert.equal(
+              resource.dockerId,
+              scenario === "known_id" ? observedId : "e".repeat(64),
+            );
+            assert.equal(resource.receiptSource, "runtime_reconciliation");
+            assert.equal(
+              resource.observation,
+              scenario === "known_id" ? "absent" : "present",
+            );
+          } else {
+            assert.deepEqual(
+              resource,
+              snapshot.operations[0]?.resources.find(
+                (original) => original.purpose === resource.purpose,
+              ),
+            );
+          }
         }
       }
+      assert.deepEqual(fs.readdirSync(directory), ["state.json"], scenario);
     }
-    assert.deepEqual(fs.readdirSync(directory), ["state.json"], scenario);
-  }
-  const last = decodeCoordinatorStateSnapshot(
-    fs.readFileSync(file),
-    repository.repositoryBinding,
-  );
-  const lastOperation = last?.snapshot.operations[0];
-  assert.ok(last && lastOperation?.kind === "docker_task");
-  const terminalTask: CoordinatorStateTaskOperation = {
-    ...lastOperation,
-    host: {
-      ...lastOperation.host,
-      pendingTransitionJson: null,
-      cleanup: "confirmed",
-    },
-    lease: "released",
-    outcome: {
-      status: "blocked",
-      reason: "docker_setup_create_subscription_auth_probe_failed",
-      cleanupConfirmed: true,
-    },
-  };
-  const terminalBytes = Buffer.from(
-    `${encodeCoordinatorStateValue({ ...last.snapshot, operations: [terminalTask] })}\n`,
-  );
-  assert.ok(
-    decodeCoordinatorStateSnapshot(terminalBytes, repository.repositoryBinding),
-  );
-  const corruptTask: CoordinatorStateTaskOperation = {
-    ...terminalTask,
-    resources: terminalTask.resources.map((resource) =>
-      resource.purpose !== "create_subscription_auth_probe" || !resource.absence
-        ? resource
-        : {
-            ...resource,
-            absence: { ...resource.absence, evidenceSha256: "0".repeat(64) },
-          },
-    ),
-  };
-  const corruptBytes = Buffer.from(
-    `${encodeCoordinatorStateValue({ ...last.snapshot, operations: [corruptTask] })}\n`,
-  );
-  assert.ok(
-    decodeCoordinatorStateSnapshot(corruptBytes, repository.repositoryBinding),
-  );
-  fs.writeFileSync(file, corruptBytes);
-  const refusedHistory = readRuntimeOwnedCoordinatorCurrentHistorySnapshot(
-    verified.capability,
-    recoveryId,
-  );
-  assert.equal(refusedHistory.status, "blocked");
-  assert.equal(refusedHistory.lockReleased, true);
-  assert.ok(fs.readFileSync(file).equals(corruptBytes));
-  assert.deepEqual(fs.readdirSync(directory), ["state.json"]);
-  fs.writeFileSync(file, terminalBytes);
-  const historyStart = readRuntimeOwnedCoordinatorCurrentHistorySnapshot(
-    verified.capability,
-    recoveryId,
-  );
-  assert.equal(historyStart.status, "completed", historyStart.reason);
-  assert.equal(historyStart.lockReleased, true);
-  assert.ok(historyStart.currentHistoryPublication);
-  let historyConfirmed = false;
-  for (let stage = 0; stage < 5 && !historyConfirmed; stage++) {
-    const advanced = advanceRuntimeOwnedCoordinatorRecoveryHistory(
-      repository,
+    const last = decodeCoordinatorStateSnapshot(
+      fs.readFileSync(file),
+      repository.repositoryBinding,
+    );
+    const lastOperation = last?.snapshot.operations[0];
+    assert.ok(last && lastOperation?.kind === "docker_task");
+    const terminalTask: CoordinatorStateTaskOperation = {
+      ...lastOperation,
+      host: {
+        ...lastOperation.host,
+        pendingTransitionJson: null,
+        cleanup: "confirmed",
+      },
+      lease: "released",
+      outcome: {
+        status: "blocked",
+        reason: "docker_setup_create_subscription_auth_probe_failed",
+        cleanupConfirmed: true,
+      },
+    };
+    const terminalBytes = Buffer.from(
+      `${encodeCoordinatorStateValue({ ...last.snapshot, operations: [terminalTask] })}\n`,
+    );
+    assert.ok(
+      decodeCoordinatorStateSnapshot(
+        terminalBytes,
+        repository.repositoryBinding,
+      ),
+    );
+    const corruptTask: CoordinatorStateTaskOperation = {
+      ...terminalTask,
+      resources: terminalTask.resources.map((resource) =>
+        resource.purpose !== "create_subscription_auth_probe" ||
+        !resource.absence
+          ? resource
+          : {
+              ...resource,
+              absence: { ...resource.absence, evidenceSha256: "0".repeat(64) },
+            },
+      ),
+    };
+    const corruptBytes = Buffer.from(
+      `${encodeCoordinatorStateValue({ ...last.snapshot, operations: [corruptTask] })}\n`,
+    );
+    assert.ok(
+      decodeCoordinatorStateSnapshot(
+        corruptBytes,
+        repository.repositoryBinding,
+      ),
+    );
+    fs.writeFileSync(file, corruptBytes);
+    const refusedHistory = readRuntimeOwnedCoordinatorCurrentHistorySnapshot(
+      verified.capability,
+      recoveryId,
+    );
+    assert.equal(refusedHistory.status, "blocked");
+    assert.equal(refusedHistory.lockReleased, true);
+    assert.ok(fs.readFileSync(file).equals(corruptBytes));
+    assert.deepEqual(fs.readdirSync(directory), ["state.json"]);
+    fs.writeFileSync(file, terminalBytes);
+    const historyStart = readRuntimeOwnedCoordinatorCurrentHistorySnapshot(
+      verified.capability,
+      recoveryId,
+    );
+    assert.equal(historyStart.status, "completed", historyStart.reason);
+    assert.equal(historyStart.lockReleased, true);
+    assert.ok(historyStart.currentHistoryPublication);
+    let historyConfirmed = false;
+    for (let stage = 0; stage < 5 && !historyConfirmed; stage++) {
+      const advanced = advanceRuntimeOwnedCoordinatorRecoveryHistory(
+        repository,
+        recoveryId,
+        () => true,
+      );
+      assert.equal(advanced.status, "completed", advanced.reason);
+      assert.equal(advanced.snapshotConfirmed, true);
+      assert.equal(advanced.lockReleased, true);
+      historyConfirmed = advanced.historyConfirmed;
+    }
+    assert.equal(historyConfirmed, true);
+    const completionReady =
+      readRuntimeOwnedCoordinatorCurrentCompletionSnapshot(
+        verified.capability,
+        recoveryId,
+      );
+    assert.equal(completionReady.status, "completed", completionReady.reason);
+    assert.equal(completionReady.lockReleased, true);
+    const finished = completeRuntimeOwnedCoordinatorCurrentRecovery(
+      verified.capability,
       recoveryId,
       () => true,
     );
-    assert.equal(advanced.status, "completed", advanced.reason);
-    assert.equal(advanced.snapshotConfirmed, true);
-    assert.equal(advanced.lockReleased, true);
-    historyConfirmed = advanced.historyConfirmed;
-  }
-  assert.equal(historyConfirmed, true);
-  const completionReady = readRuntimeOwnedCoordinatorCurrentCompletionSnapshot(
-    verified.capability,
-    recoveryId,
-  );
-  assert.equal(completionReady.status, "completed", completionReady.reason);
-  assert.equal(completionReady.lockReleased, true);
-  const finished = completeRuntimeOwnedCoordinatorCurrentRecovery(
-    verified.capability,
-    recoveryId,
-    () => true,
-  );
-  assert.equal(finished.status, "completed", finished.reason);
-  assert.equal(finished.snapshotConfirmed, true);
-  assert.equal(finished.lockReleased, true);
-  const finishedSnapshot = readRuntimeOwnedCoordinatorRecoverySnapshot(
-    verified.capability,
-  );
-  assert.equal(finishedSnapshot.status, "completed");
-  assert.equal(finishedSnapshot.lockReleased, true);
-  assert.ok(finishedSnapshot.value);
-  assert.deepEqual(finishedSnapshot.value.snapshot.operations, []);
-  assert.deepEqual(finishedSnapshot.value.snapshot.pendingDeliveries, []);
-  assert.deepEqual(finishedSnapshot.value.snapshot.unresolvedRecoveries, []);
-  const historyRows = fs
-    .readFileSync(path.join(directory, "history.jsonl"), "utf8")
-    .trim()
-    .split("\n");
-  assert.equal(historyRows.length, 1);
-  const historyRow = JSON.parse(historyRows[0] ?? "null");
-  assert.equal(historyRow.summary.recoveryId, recoveryId);
-  assert.equal(historyRow.summary.outcome.status, "blocked");
-  assert.equal(
-    historyRow.summary.schema,
-    "crdd-coordinator/operation-summary/v4",
-  );
-  assert.equal(
-    observeRuntimeOwnedWorkbenchTaskCompletion(
+    assert.equal(finished.status, "completed", finished.reason);
+    assert.equal(finished.snapshotConfirmed, true);
+    assert.equal(finished.lockReleased, true);
+    const finishedSnapshot = readRuntimeOwnedCoordinatorRecoverySnapshot(
       verified.capability,
-      recoveryId,
-      "task-operation-a",
-    ).completionConfirmed,
-    true,
-  );
-  assert.equal(
-    observeRuntimeOwnedWorkbenchTaskCompletion(
-      verified.capability,
-      recoveryId,
-      "another-operation",
-    ).completionConfirmed,
-    false,
-  );
-  const historyFile = path.join(directory, "history.jsonl");
-  const originalHistory = fs.readFileSync(historyFile);
-  for (const mutation of [
-    "consumer",
-    "correlation",
-    "legacy",
-    "duplicate",
-    "missing",
-    "restart_null",
-    "restart_pending",
-    "restart_unknown_shape",
-  ] as const) {
-    const row = structuredClone(historyRow);
-    if (mutation === "consumer") row.summary.consumer = "coordinator_cli";
-    if (mutation === "correlation") row.summary.recoveryCorrelationId = "other";
-    if (mutation === "legacy") {
-      row.summary.schema = "crdd-coordinator/operation-summary/v2";
-      delete row.summary.consumer;
-      delete row.summary.recoveryCorrelationId;
-    }
-    if (mutation === "restart_null") row.summary.dockerRestart = null;
-    if (mutation === "restart_pending")
-      row.summary.dockerRestart = {
-        request: "issued",
-        cleanup: "unknown",
-        result: null,
-      };
-    if (mutation === "restart_unknown_shape")
-      row.summary.dockerRestart = { unexpected: true };
-    const line = `${encodeCoordinatorStateValue(row)}\n`;
-    if (mutation.startsWith("restart_"))
-      assert.equal(decodeCoordinatorHistoryRows(Buffer.from(line)), null);
-    fs.writeFileSync(
-      historyFile,
-      mutation === "missing"
-        ? ""
-        : mutation === "duplicate"
-          ? line + line
-          : line,
+    );
+    assert.equal(finishedSnapshot.status, "completed");
+    assert.equal(finishedSnapshot.lockReleased, true);
+    assert.ok(finishedSnapshot.value);
+    assert.deepEqual(finishedSnapshot.value.snapshot.operations, []);
+    assert.deepEqual(finishedSnapshot.value.snapshot.pendingDeliveries, []);
+    assert.deepEqual(finishedSnapshot.value.snapshot.unresolvedRecoveries, []);
+    const historyRows = fs
+      .readFileSync(path.join(directory, "history.jsonl"), "utf8")
+      .trim()
+      .split("\n");
+    assert.equal(historyRows.length, 1);
+    const historyRow = JSON.parse(historyRows[0] ?? "null");
+    assert.equal(historyRow.summary.recoveryId, recoveryId);
+    assert.equal(historyRow.summary.outcome.status, "blocked");
+    assert.equal(
+      historyRow.summary.schema,
+      "crdd-coordinator/operation-summary/v4",
     );
     assert.equal(
-      observeRuntimeOwnedWorkbenchTaskCompletion(
+      observeRuntimeOwnedTransientTaskCompletion(
         verified.capability,
         recoveryId,
         "task-operation-a",
+        consumer,
+      ).completionConfirmed,
+      true,
+    );
+    assert.equal(
+      observeRuntimeOwnedTransientTaskCompletion(
+        verified.capability,
+        recoveryId,
+        "another-operation",
+        consumer,
       ).completionConfirmed,
       false,
-      mutation,
     );
-  }
-  fs.writeFileSync(historyFile, originalHistory);
-  assert.equal(
-    historyRow.summary.outcome.reason,
-    "docker_setup_create_subscription_auth_probe_failed",
-  );
-  assert.deepEqual(fs.readdirSync(directory).sort(), [
-    "history.jsonl",
-    "state.json",
-  ]);
-});
+    const historyFile = path.join(directory, "history.jsonl");
+    const originalHistory = fs.readFileSync(historyFile);
+    for (const mutation of [
+      "consumer",
+      "correlation",
+      "legacy",
+      "duplicate",
+      "missing",
+      "restart_null",
+      "restart_pending",
+      "restart_unknown_shape",
+    ] as const) {
+      const row = structuredClone(historyRow);
+      if (mutation === "consumer")
+        row.summary.consumer =
+          consumer === "workbench" ? "coordinator_cli" : "workbench";
+      if (mutation === "correlation")
+        row.summary.recoveryCorrelationId = "other";
+      if (mutation === "legacy") {
+        row.summary.schema = "crdd-coordinator/operation-summary/v2";
+        delete row.summary.consumer;
+        delete row.summary.recoveryCorrelationId;
+      }
+      if (mutation === "restart_null") row.summary.dockerRestart = null;
+      if (mutation === "restart_pending")
+        row.summary.dockerRestart = {
+          request: "issued",
+          cleanup: "unknown",
+          result: null,
+        };
+      if (mutation === "restart_unknown_shape")
+        row.summary.dockerRestart = { unexpected: true };
+      const line = `${encodeCoordinatorStateValue(row)}\n`;
+      if (mutation.startsWith("restart_"))
+        assert.equal(decodeCoordinatorHistoryRows(Buffer.from(line)), null);
+      fs.writeFileSync(
+        historyFile,
+        mutation === "missing"
+          ? ""
+          : mutation === "duplicate"
+            ? line + line
+            : line,
+      );
+      assert.equal(
+        observeRuntimeOwnedTransientTaskCompletion(
+          verified.capability,
+          recoveryId,
+          "task-operation-a",
+          consumer,
+        ).completionConfirmed,
+        false,
+        mutation,
+      );
+    }
+    fs.writeFileSync(historyFile, originalHistory);
+    assert.equal(
+      historyRow.summary.outcome.reason,
+      "docker_setup_create_subscription_auth_probe_failed",
+    );
+    assert.deepEqual(fs.readdirSync(directory).sort(), [
+      "history.jsonl",
+      "state.json",
+    ]);
+  });
+}
 
 /**
  * 一次診断の追加観測を保存契約の実本文で反証する。

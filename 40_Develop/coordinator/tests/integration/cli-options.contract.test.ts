@@ -20,7 +20,6 @@ import { fileURLToPath } from "node:url";
 import { runInNewContext } from "node:vm";
 
 import {
-  parseCandidateArguments,
   parseDoctorArguments,
   parseTaskArguments,
 } from "../../src/cli/options.ts";
@@ -573,46 +572,6 @@ test("taskは明示stdin入力だけを受理しrequestをargvへ置かない", 
 });
 
 /**
- * candidateはopaque IDの明示Export、DiscardまたはStore Recoveryだけを受理するを検証する。
- *
- * @responsibility candidateはopaque IDの明示Export、DiscardまたはStore Recoveryだけを受理するの合否判定を所有する。
- * @trace PRL-IT-012
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus candidateはopaque IDの明示Export、DiscardまたはStore Recoveryだけを受理するの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
- */
-test("candidateはopaque IDの明示Export、DiscardまたはStore Recoveryだけを受理する", () => {
-  const candidateId = `candidate.${"1".repeat(64)}.${"2".repeat(64)}`;
-  assert.equal(
-    parseCandidateArguments(["export", "--candidate-id", candidateId, "--json"])
-      .status,
-    "ok",
-  );
-  assert.equal(
-    parseCandidateArguments(["discard", "--candidate-id", candidateId]).status,
-    "ok",
-  );
-  assert.equal(
-    parseCandidateArguments(["export", "--candidate-id", candidateId]).status,
-    "blocked",
-  );
-  const recoveryId = `candidate-store-recovery.${"3".repeat(64)}`;
-  assert.equal(
-    parseCandidateArguments([
-      "recover-store",
-      "--recovery-id",
-      recoveryId,
-      "--confirm",
-      "--json",
-    ]).status,
-    "ok",
-  );
-});
-
-/**
  * 公開Capability表示はLocal Personalの成立済み入口だけを返すを検証する。
  *
  * @responsibility 公開Capability表示はLocal Personalの成立済み入口だけを返すの合否判定を所有する。
@@ -642,7 +601,6 @@ test("公開Capability表示はLocal Personalの成立済み入口だけを返�
         invocation: "task --request-stdin --json",
       },
       { command: "doctor", availability: "available" },
-      { command: "candidate", availability: "available" },
     ],
   });
 });
@@ -736,7 +694,7 @@ test("helpは通常Taskと現在利用可能なcommandだけを案内する", ()
   assert.equal(result.stdout.includes("明示的な保持判断"), true);
   assert.equal(result.status, 0);
   assert.equal(
-    result.stdout.includes("coordinator task --request-stdin"),
+    result.stdout.includes("crdd-coordinator.ts task --request-stdin --json"),
     true,
   );
   assert.equal(result.stdout.includes("coordinator capabilities --json"), true);
@@ -753,7 +711,7 @@ test("helpは通常Taskと現在利用可能なcommandだけを案内する", ()
 });
 
 /**
- * 実Task CLIは署名に依存せず曖昧JSONと不正要求を拒否する。
+ * 通常Taskは上位で入力を拒否し下位入口は対象を推測しない。
  *
  * @responsibility 通常Taskの入力検査を配布署名から独立して確認する。
  * @trace PRL-IT-012
@@ -764,17 +722,17 @@ test("helpは通常Taskと現在利用可能なcommandだけを案内する", ()
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
-test("実Task CLIは署名に依存せず曖昧JSONと不正要求を拒否する", () => {
+test("通常Taskは上位で入力を拒否し下位入口は対象を推測しない", () => {
   const ambiguous = spawnSync(
     process.execPath,
-    [coordinatorExecutable, "task", "--request-stdin", "--json"],
+    [publicCoordinatorLauncher, "task", "--request-stdin", "--json"],
     {
       input: '{"frontProvider":"codex","frontProvider":"claude"}',
       encoding: "utf8",
       windowsHide: true,
     },
   );
-  assert.equal(ambiguous.status, 64);
+  assert.equal(ambiguous.status, 2);
   assert.equal(
     JSON.parse(ambiguous.stdout).reason,
     "task_request_invalid_json",
@@ -798,10 +756,10 @@ test("実Task CLIは署名に依存せず曖昧JSONと不正要求を拒否す�
     ),
   );
   assert.equal(invalidRepository.error, undefined);
-  assert.equal(invalidRepository.status, 2);
+  assert.equal(invalidRepository.status, 64);
   assert.equal(JSON.parse(invalidRepository.stdout).status, "blocked");
   assert.equal(
     JSON.parse(invalidRepository.stdout).reason,
-    "coordinator_task_request_invalid",
+    "task_use_orchestrator_entry",
   );
 });

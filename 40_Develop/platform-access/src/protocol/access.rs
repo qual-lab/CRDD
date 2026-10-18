@@ -67,7 +67,6 @@ pub enum RootRole {
 pub enum Provider {
     Codex = 1,
     Claude = 2,
-    CandidateStore = 3,
     RuntimeState = 4,
 }
 
@@ -90,7 +89,6 @@ impl Provider {
         match value {
             1 => Some(Self::Codex),
             2 => Some(Self::Claude),
-            3 => Some(Self::CandidateStore),
             4 => Some(Self::RuntimeState),
             _ => None,
         }
@@ -114,7 +112,6 @@ impl Provider {
         match self {
             Self::Codex => "codex",
             Self::Claude => "claude",
-            Self::CandidateStore => "CandidateStore",
             Self::RuntimeState => "RuntimeState",
         }
     }
@@ -570,11 +567,7 @@ pub fn parse_provider_home_request(bytes: &[u8]) -> Option<ProviderHomeRequest> 
         mount_source_hash: bytes.get(44..76)?.try_into().ok()?,
     };
     (request.mount_source_hash != [0_u8; 32]
-        && (!request.initialize_if_missing
-            || matches!(
-                request.provider,
-                Provider::CandidateStore | Provider::RuntimeState
-            )))
+        && (!request.initialize_if_missing || matches!(request.provider, Provider::RuntimeState)))
     .then_some(request)
 }
 
@@ -942,17 +935,14 @@ mod tests {
         assert!(!request.initialize_if_missing);
         assert_eq!(request.nonce, [6_u8; 32]);
         assert_eq!(request.mount_source_hash, [7_u8; 32]);
-        let mut candidate_store = provider_home_request_bytes(3);
-        candidate_store[11] = 1;
-        let candidate_store = parse_provider_home_request(&candidate_store).unwrap();
-        assert_eq!(candidate_store.provider, Provider::CandidateStore);
-        assert!(candidate_store.initialize_if_missing);
+        // 旧Store値3はRuntime Stateの4へ詰め替えず、Effect前に拒否する。
+        assert!(parse_provider_home_request(&provider_home_request_bytes(3)).is_none());
         let mut runtime_state = provider_home_request_bytes(4);
         runtime_state[11] = 1;
         let runtime_state = parse_provider_home_request(&runtime_state).unwrap();
         assert_eq!(runtime_state.provider, Provider::RuntimeState);
         assert!(runtime_state.initialize_if_missing);
-        for provider in [0, 5, u8::MAX] {
+        for provider in [0, 3, 5, u8::MAX] {
             assert!(parse_provider_home_request(&provider_home_request_bytes(provider)).is_none());
         }
         let mut trailing = provider_home_request_bytes(1).to_vec();

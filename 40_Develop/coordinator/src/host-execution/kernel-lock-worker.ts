@@ -1,5 +1,5 @@
 /**
- * candidate-store-lock-workerに属する責務をまとめる。
+ * kernel-lock-workerに属する責務をまとめる。
  *
  * @responsibility LockWorkerInputを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000015
@@ -8,7 +8,7 @@ import net from "node:net";
 import { parentPort, workerData } from "node:worker_threads";
 
 /**
- * candidate-store-lock-workerで使用するLock Worker 入力の値契約を定義する。
+ * kernel-lock-workerで使用するLock Worker 入力の値契約を定義する。
  *
  * @responsibility Lock Worker 入力のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000015
@@ -28,9 +28,9 @@ const state = new Int32Array(input.state);
 const server = net.createServer((socket) => socket.destroy());
 
 /**
- * candidate-store-lock-workerを終了状態へ収束させる。
+ * kernel-lock-workerを終了状態へ収束させる。
  *
- * @responsibility candidate-store-lock-workerの終了条件、最終状態、残存義務の境界を所有する。
+ * @responsibility kernel-lock-workerの終了条件、最終状態、残存義務の境界を所有する。
  * @trace ARCH-000015
  * @input value: number
  * @returns N/A: finishは戻り値を返さない。

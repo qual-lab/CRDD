@@ -42,7 +42,6 @@ import {
   submitOrchestratorHumanDecision,
 } from "./decision/lifecycle.ts";
 import { ORCHESTRATOR_PUBLIC_RUNTIME_CONTRACT } from "./operation-result-contract.ts";
-import type { OrchestratorCandidatePort } from "./candidate/operations.ts";
 import { queryOrchestratorState } from "./state/query.ts";
 import { recordOrchestratorAcceptanceDecision } from "./decision/record-acceptance.ts";
 import { recordOrchestratorExecutionEvent } from "./task/intelligence-adapter.ts";
@@ -55,7 +54,6 @@ import {
   readOrchestratorSnapshot,
 } from "./storage/current-state.ts";
 import { openRuntimeOwnedWindowsProjectDecisionStore } from "./storage/protected-decision.ts";
-import { createRuntimeOwnedProjectCandidateIntegrationAdapter } from "./candidate/integration-adapter.ts";
 import {
   collectDockerRecoveryAcknowledgementAfterProjectRecord,
   consumeDockerRecoveryReceiptAfterProjectSettlement,
@@ -351,9 +349,6 @@ type PublicExecutionDependencies = Readonly<{
     requestedExecutorProvider: "auto" | "codex" | "claude",
   ) => "codex" | "claude";
   openDecisionStore: typeof openRuntimeOwnedWindowsProjectDecisionStore;
-  createIntegrationAdapter: (
-    repositoryRoot: string,
-  ) => OrchestratorCandidatePort;
   resolveTaskRecoveryCorrelations?: (
     correlationIds: readonly string[],
   ) => unknown;
@@ -392,8 +387,6 @@ const productionExecutionDependencies: PublicExecutionDependencies =
     captureResultDelivery: captureRuntimeOwnedCoordinatorTaskResultDelivery,
     frontProviderForTask: () => "codex",
     openDecisionStore: openRuntimeOwnedWindowsProjectDecisionStore,
-    createIntegrationAdapter:
-      createRuntimeOwnedProjectCandidateIntegrationAdapter,
     recordExecutionEvent: recordOrchestratorExecutionEvent,
     observeExecutionEventPublication:
       writeOrchestratorExecutionIntelligenceDiagnostic,
@@ -883,9 +876,9 @@ export function runOrchestratorPublicObjective(
  *
  * @responsibility Development Orchestrator Public Objective 候補の構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000004
- * @input dependencies: Omit< OrchestratorPublicDevelopmentDependencies, "createIntegrationAdapter" > & Readonly<{ createIntegrationAdapter?: PublicExecutionDependencies["createIntegrationAdapter"]; }>
+ * @input dependencies: OrchestratorPublicDevelopmentDependencies
  * @returns createDevelopmentOrchestratorPublicObjectiveCandidateの計算結果を返す。
- * @precondition 「dependencies: Omit< OrchestratorPublicDevelopmentDependencies, "createIntegrationAdapter" > & Readonly<{ createIntegrationAdapter?: PublicExecutionDependencies["createIntegrationAdapter"]; }>」がcreateDevelopmentOrchestratorPublicObjectiveCandidateの入力契約を満たす。
+ * @precondition 「dependencies: OrchestratorPublicDevelopmentDependencies」がcreateDevelopmentOrchestratorPublicObjectiveCandidateの入力契約を満たす。
  * @postcondition createDevelopmentOrchestratorPublicObjectiveCandidateの責務を完了した結果だけを返す。
  * @effect N/A: createDevelopmentOrchestratorPublicObjectiveCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: createDevelopmentOrchestratorPublicObjectiveCandidateは独自の失敗分岐を所有しない。
@@ -895,19 +888,10 @@ export function runOrchestratorPublicObjective(
  * @concurrency N/A: createDevelopmentOrchestratorPublicObjectiveCandidateは共有非同期状態を持たない同期処理である。
  */
 export function createDevelopmentOrchestratorPublicObjectiveCandidate(
-  dependencies: Omit<
-    OrchestratorPublicDevelopmentDependencies,
-    "createIntegrationAdapter"
-  > &
-    Readonly<{
-      createIntegrationAdapter?: PublicExecutionDependencies["createIntegrationAdapter"];
-    }>,
+  dependencies: OrchestratorPublicDevelopmentDependencies,
 ) {
   const fixed = Object.freeze({
     ...dependencies,
-    createIntegrationAdapter:
-      dependencies.createIntegrationAdapter ??
-      createRuntimeOwnedProjectCandidateIntegrationAdapter,
     recordExecutionEvent:
       dependencies.recordExecutionEvent ?? recordOrchestratorExecutionEvent,
     observeExecutionEventPublication:

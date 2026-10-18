@@ -2842,7 +2842,8 @@ function coordinatorOperationSummaryBytes(
     `${encodeCoordinatorStateValue(legacy(operation.dockerRestart === null ? "crdd-coordinator/operation-summary/v2" : "crdd-coordinator/operation-summary/v3"))}\n`,
   );
   if (
-    identity.consumer !== "workbench" ||
+    (identity.consumer !== "workbench" &&
+      identity.consumer !== "coordinator_cli") ||
     typeof identity.recoveryCorrelationId !== "string"
   )
     return oldBytes;

@@ -129,7 +129,7 @@ Detailは第2・3節のDefinition入力を置き換えず、その意味を実�
 
 | 基準版Capability | 旧Owner／現行照合先 | 新Owner | 保持状態 | Evidence | Gap／移行 |
 |---|---|---|---|---|---|
-| v0.20.1の外部送信同意・結果隔離 | Coordinator external-send／candidate store | External Information Boundary | 保持・一般化 | [coordinator:integration:external-send-consent-runtime](../../../07_Quality/Registry/test-catalog.json)、[coordinator:integration:candidate-bundle-store](../../../07_Quality/Registry/test-catalog.json) | CROS経由外部Agentは未実装 |
+| v0.20.1の外部送信同意・結果隔離 | 基準版のCoordinator external-send／candidate store。現行は借用Workspace | External Information Boundary | 送信境界を保持し、保存本体は上位Worktreeへ置換 | [coordinator:integration:external-send-consent-runtime](../../../07_Quality/Registry/test-catalog.json)、[coordinator:integration:repository-workspace-runtime](../../../07_Quality/Registry/test-catalog.json) | CROS経由外部Agentは未実装 |
 
 現行設計はこの比較だけに使い、UI／SPECにない望ましい意味を補わない。新規責務は基準版能力や実装Evidenceが存在するように表示しない。
 

@@ -118,9 +118,6 @@ const SOURCE_ROLES = {
     "activity/cursor.ts",
     "activity/types.ts",
     "activity/validate.ts",
-    "candidate/integration-result.ts",
-    "candidate/operations.ts",
-    "candidate/record-writer.ts",
     "decision/acceptance-authority.ts",
     "decision/acceptance-record.ts",
     "decision/authority-adapter.ts",
@@ -151,8 +148,6 @@ const SOURCE_ROLES = {
   ],
   workflow: [
     "activity/read.ts",
-    "candidate/adopt.ts",
-    "candidate/integrate.ts",
     "decision/lifecycle.ts",
     "decision/record-acceptance.ts",
     "objective/execute.ts",
@@ -164,7 +159,6 @@ const SOURCE_ROLES = {
     "workspace/record.ts",
   ],
   adapter: [
-    "candidate/integration-adapter.ts",
     "cli/command.ts",
     "decision/capability-adapter.ts",
     "identity/observe-principal.ts",

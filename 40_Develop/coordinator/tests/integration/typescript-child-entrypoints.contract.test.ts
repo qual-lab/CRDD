@@ -29,17 +29,14 @@ import {
 test("Lock Workerは親Consoleへpipeせず実errorとexitを通知する", async () => {
   const errors = process.stderr.listenerCount("error");
   const closes = process.stderr.listenerCount("close");
-  const worker = createRuntimeLocalTypeScriptWorker(
-    "candidate_store_lock_worker",
-    {
-      stdout: false,
-      stderr: false,
-      workerData: {
-        pipeName: `\\\\.\\pipe\\CRDD.Test.${randomUUID()}`,
-        state: null,
-      },
+  const worker = createRuntimeLocalTypeScriptWorker("kernel_lock_worker", {
+    stdout: false,
+    stderr: false,
+    workerData: {
+      pipeName: `\\\\.\\pipe\\CRDD.Test.${randomUUID()}`,
+      state: null,
     },
-  );
+  });
   assert.equal(process.stderr.listenerCount("error"), errors);
   assert.equal(process.stderr.listenerCount("close"), closes);
   let errorObserved = false;
@@ -73,8 +70,7 @@ test("TypeScript子Wrapperは不正role・kind・shell・evalを生成前に拒�
     /runtime_local_typescript_child_entrypoint_unknown/u,
   );
   assert.throws(
-    () =>
-      spawnRuntimeLocalTypeScriptChild("candidate_store_lock_worker", [], {}),
+    () => spawnRuntimeLocalTypeScriptChild("kernel_lock_worker", [], {}),
     /runtime_local_typescript_child_entrypoint_kind_mismatch/u,
   );
   assert.throws(
@@ -95,7 +91,7 @@ test("TypeScript子Wrapperは不正role・kind・shell・evalを生成前に拒�
   );
   assert.throws(
     () =>
-      createRuntimeLocalTypeScriptWorker("candidate_store_lock_worker", {
+      createRuntimeLocalTypeScriptWorker("kernel_lock_worker", {
         eval: true,
       }),
     /runtime_local_typescript_child_worker_eval_forbidden/u,

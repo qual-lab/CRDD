@@ -16,10 +16,10 @@ import {
 import { isSupportedCoordinatorNodeRuntime } from "../../40_Develop/coordinator/src/host-execution/node-runtime-version.ts";
 
 const args = process.argv.slice(2);
-const isDirectProject = args[0] === "project";
+const isDirectProject = args[0] === "project" || args[0] === "task";
 const isRoutedProject =
   (args[0] === "interactive" || args[0] === "automation") &&
-  args[1] === "project";
+  (args[1] === "project" || args[1] === "task");
 if (isDirectProject || isRoutedProject) {
   if (
     isDirectProject &&
@@ -53,10 +53,14 @@ if (isDirectProject || isRoutedProject) {
       const forwardedArgs =
         plan?.status === "ready" ? plan.forwardedArgs : args;
       try {
-        const { runProjectCommand } = await import(
+        const { runProjectCommand, runSingleTaskCommand } = await import(
           "../../40_Develop/orchestrator/src/cli/command.ts"
         );
-        await runProjectCommand(forwardedArgs.slice(1));
+        if (forwardedArgs[0] === "task") {
+          await runSingleTaskCommand(forwardedArgs.slice(1));
+        } else {
+          await runProjectCommand(forwardedArgs.slice(1));
+        }
       } catch {
         process.stderr.write(
           `${coordinatorLaunchFailureMessage("entry_failed")}\ncoordinator_launch_entry_failed\n`,

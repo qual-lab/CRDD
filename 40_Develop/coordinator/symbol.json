@@ -288,7 +288,7 @@
         "docker-isolation.cleanup.resource-configuration",
         "coordinator.docker-runtime.provider-docker-command-plan",
         "coordinator.source.src.security.claude.subscription.authentication",
-        "coordinator.source.src.security.candidate.store.kernel.lock",
+        "coordinator.host-execution.kernel-lock",
         "ai-adapter.claude.authentication",
         "ai-adapter.codex.advice-distribution",
         "docker-isolation.execution.authentication-command-plan",
@@ -626,31 +626,17 @@
       ]
     },
     {
-      "symbolId": "coordinator.test.integration.candidate-bundle-store",
+      "symbolId": "coordinator.test.integration.kernel-lock",
       "kind": "test-suite",
-      "path": "tests/integration/candidate-bundle-store.contract.test.ts",
+      "path": "tests/integration/kernel-lock.contract.test.ts",
       "qaIds": [
-        "QA-000005"
+        "QA-000006"
       ],
       "localTestIds": [
-        "CPR-IT-001"
+        "ERB-IT-003"
       ],
       "verifies": [
-        "coordinator.source.src.security.candidate.bundle.store"
-      ]
-    },
-    {
-      "symbolId": "coordinator.test.integration.candidate-store-kernel-lock",
-      "kind": "test-suite",
-      "path": "tests/integration/candidate-store-kernel-lock.contract.test.ts",
-      "qaIds": [
-        "QA-000005"
-      ],
-      "localTestIds": [
-        "CPR-IT-001"
-      ],
-      "verifies": [
-        "coordinator.source.src.security.candidate.store.kernel.lock"
+        "coordinator.host-execution.kernel-lock"
       ]
     },
     {
@@ -792,7 +778,7 @@
         "AIT-IT-002"
       ],
       "verifies": [
-        "coordinator.source.src.security.candidate.store.windows.adapter",
+        "coordinator.platform-access.protected-root-windows-adapter",
         "coordinator.source.src.security.development.measurement.session",
         "coordinator.source.task.development-source-observation",
         "coordinator.source.src.security.provider.home.windows.adapter",
@@ -877,7 +863,7 @@
       ],
       "verifies": [
         "coordinator.source.src.core.docker.recovery.command.report",
-        "coordinator.source.src.security.candidate.store.kernel.lock",
+        "coordinator.host-execution.kernel-lock",
         "coordinator.source.src.security.docker.recovery.journal",
         "coordinator.source.src.security.docker.recovery.runtime",
         "coordinator.source.src.security.docker.recovery.runtime.internal",
@@ -1028,24 +1014,6 @@
       ]
     },
     {
-      "symbolId": "coordinator.test.integration.orchestrator-candidate-integration-adapter",
-      "kind": "test-suite",
-      "path": "tests/integration/orchestrator-candidate-integration-adapter.integration.test.ts",
-      "qaIds": [
-        "QA-000003"
-      ],
-      "localTestIds": [
-        "PRL-IT-005",
-        "PRL-IT-012"
-      ],
-      "verifies": [
-        "coordinator.source.src.security.candidate.bundle.store",
-        "coordinator.source.src.security.orchestrator.candidate.integration.adapter",
-        "orchestrator.state-core",
-        "version-control.source.src.git.fixed.snapshot.adapter"
-      ]
-    },
-    {
       "symbolId": "coordinator.test.integration.orchestrator-decision-recovery-store",
       "kind": "test-suite",
       "path": "tests/integration/orchestrator-decision-recovery-store.contract.test.ts",
@@ -1138,23 +1106,6 @@
         "orchestrator.source.src.ports.decision.port",
         "orchestrator.decision.acceptance-decision-record",
         "orchestrator.decision.decision-recovery-record"
-      ]
-    },
-    {
-      "symbolId": "coordinator.test.integration.orchestrator-integration",
-      "kind": "test-suite",
-      "path": "tests/integration/orchestrator-integration.contract.test.ts",
-      "qaIds": [
-        "QA-000003"
-      ],
-      "localTestIds": [
-        "PRL-IT-012"
-      ],
-      "verifies": [
-        "coordinator.source.src.security.orchestrator.durable.foundation",
-        "coordinator.source.src.security.orchestrator.objective.intake",
-        "mcp.source.src.adapters.orchestrator.adapter",
-        "orchestrator.integration-application"
       ]
     },
     {
@@ -1503,7 +1454,7 @@
         "coordinator.source.src.core.runtime.process.safety.state",
         "platform-access.source.windows-child-environment",
         "docker-isolation.execution.cli-environment",
-        "coordinator.source.src.security.candidate.store.kernel.lock"
+        "coordinator.host-execution.kernel-lock"
       ]
     },
     {
@@ -1764,7 +1715,7 @@
       ],
       "verifies": [
         "platform-access.source.windows-child-environment",
-        "coordinator.source.src.security.candidate.store.windows.adapter"
+        "coordinator.platform-access.protected-root-windows-adapter"
       ]
     },
     {
@@ -1801,7 +1752,7 @@
       ],
       "verifies": [
         "coordinator.source.src.security.claude.subscription.authentication",
-        "coordinator.source.src.security.candidate.store.kernel.lock"
+        "coordinator.host-execution.kernel-lock"
       ]
     },
     {
@@ -1941,7 +1892,7 @@
         "PPR-UT-006"
       ],
       "verifies": [
-        "coordinator.source.src.security.candidate.store.windows.adapter",
+        "coordinator.platform-access.protected-root-windows-adapter",
         "coordinator.source.src.security.development.measurement.session",
         "coordinator.source.src.security.provider.home.windows.adapter",
         "coordinator.task-runtime"
@@ -2640,7 +2591,7 @@
       ],
       "verifies": [
         "platform-access.source.windows-child-environment",
-        "coordinator.source.src.security.candidate.store.kernel.lock",
+        "coordinator.host-execution.kernel-lock",
         "docker-isolation.desktop.native-process",
         "docker-isolation.desktop.restart-machine",
         "platform-access.source.artifact-identity-observation",
@@ -2720,15 +2671,7 @@
       ]
     },
     {
-      "symbolId": "coordinator.source.src.security.candidate.bundle.store",
-      "kind": "file",
-      "path": "src/candidate/bundle-store.ts",
-      "archIds": [
-        "ARCH-000015"
-      ]
-    },
-    {
-      "symbolId": "coordinator.source.src.security.candidate.store.kernel.lock",
+      "symbolId": "coordinator.host-execution.kernel-lock",
       "kind": "file",
       "path": "src/host-execution/kernel-lock.ts",
       "archIds": [
@@ -2881,7 +2824,7 @@
       ]
     },
     {
-      "symbolId": "coordinator.source.src.security.candidate.store.windows.adapter",
+      "symbolId": "coordinator.platform-access.protected-root-windows-adapter",
       "kind": "file",
       "path": "src/platform-access/protected-root-windows-adapter.ts",
       "archIds": [
@@ -3707,6 +3650,15 @@
       "verifies": [
         "coordinator.source.src.security.orchestrator.history",
         "coordinator.source.src.security.orchestrator.durable.foundation"
+      ]
+    },
+    {
+      "symbolId": "coordinator.tool.workspace-task-fixture",
+      "kind": "file",
+      "path": "scripts/workspace-task-fixture.ts",
+      "archIds": [
+        "ARCH-000004",
+        "ARCH-000009"
       ]
     }
   ]

@@ -44,7 +44,7 @@ await mock.module(
       PLATFORM_ACCESS_RUST_TOOLCHAIN: "1.94.1",
       PLATFORM_ACCESS_PROTOCOL_REVISION: 3,
       PLATFORM_ACCESS_BOOTSTRAP_ARTIFACT_SHA256:
-        "a85d46241ba5cb4d771d2b6c493254262492935e3a5e9d20fea2bd486acc9cc9",
+        "ce265feabf5ef08aa0ab103078746fc40941db4fdf2d100eb7316711a4f6fddc",
       PLATFORM_ACCESS_EXECUTABLE_MAXIMUM_BYTES: 16 * 1024 * 1024,
       PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH: artifactPath,
       observePlatformAccessArtifactCandidate: () => null,
@@ -58,7 +58,7 @@ await mock.module(
                 sha256:
                   scenario === "hash_mismatch"
                     ? "0".repeat(64)
-                    : "a85d46241ba5cb4d771d2b6c493254262492935e3a5e9d20fea2bd486acc9cc9",
+                    : "ce265feabf5ef08aa0ab103078746fc40941db4fdf2d100eb7316711a4f6fddc",
               },
             };
       },

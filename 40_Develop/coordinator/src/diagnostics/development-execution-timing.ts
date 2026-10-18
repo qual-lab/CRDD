@@ -19,7 +19,6 @@ const STATE_LABELS = Object.freeze({
   "STATE-REMEDIATION-EXECUTOR-CLEAN": "是正候補の取得・検証",
   "STATE-REMEDIATION-CANDIDATE-CAPTURED": "再レビューの準備・実行・回収",
   "STATE-REMEDIATION-REVIEWER-CLEAN": "再レビュー結果の確認・候補保存",
-  "STATE-CANDIDATE-STAGED": "作業領域の後片付け",
   "STATE-HOST-CLEAN": "結果の公開条件確認",
   "STATE-RESULT-PUBLISHED": "比較用候補の破棄・終了記録",
   "STATE-BLOCKED-CLEAN": "停止結果の記録（回収確認済み）",

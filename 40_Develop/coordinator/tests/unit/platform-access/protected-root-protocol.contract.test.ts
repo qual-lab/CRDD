@@ -12,11 +12,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  createCandidateStoreObservationRequest,
   createProviderHomeObservationRequest,
   createRuntimeStateObservationRequest,
   describeProviderHomeObservationContract,
-  evaluateCandidateStoreObservationResponseCandidate,
   evaluateProviderHomeObservationResponseCandidate,
   evaluateRuntimeStateObservationResponseCandidate,
   PROVIDER_HOME_OBSERVATION_REQUEST_BYTES,
@@ -59,50 +57,6 @@ function response(provider: 1 | 2 | 3 | 4, nonce: Buffer) {
 }
 
 /**
- * Candidate Store requestは固定種別と初期化bitだけをnative Known Folder照合へ渡すを検証する。
- *
- * @responsibility Candidate Store requestは固定種別と初期化bitだけをnative Known Folder照合へ渡すの合否判定を所有する。
- * @trace AIT-UT-005
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Candidate Store requestは固定種別と初期化bitだけをnative Known Folder照合へ渡すの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary AIT-UT-005=Direct Boundary: coordinator Test Source→対象契約
- */
-test("Candidate Store requestは固定種別と初期化bitだけをnative Known Folder照合へ渡す", () => {
-  const nonce = Buffer.alloc(32, 8);
-  const source =
-    "C:\\Users\\selected\\AppData\\Local\\Qual-Lab\\CRDD\\CandidateStore";
-  const created = createCandidateStoreObservationRequest(
-    source,
-    true,
-    () => nonce,
-  );
-  assert.ok(created);
-  assert.equal(created.request[10], 3);
-  assert.equal(created.request[11], 1);
-  assert.deepEqual(created.request.subarray(12, 44), nonce);
-  assert.equal(created.request.includes(Buffer.from("C:\\", "ascii")), false);
-  const observed = evaluateCandidateStoreObservationResponseCandidate(
-    response(3, nonce),
-    nonce,
-  );
-  assert.equal(observed.status, "candidate");
-  assert.equal(observed.selectedUserBindingVerified, true);
-  assert.equal(observed.protectionVerified, true);
-  assert.equal(observed.pathReported, false);
-  assert.equal(
-    evaluateCandidateStoreObservationResponseCandidate(
-      response(3, nonce),
-      Buffer.alloc(32, 9),
-    ).status,
-    "blocked",
-  );
-  assert.equal(createCandidateStoreObservationRequest(source, "yes"), null);
-});
-
-/**
  * RuntimeState requestは固定Known Folder種別4と初期化bitへ閉じるを検証する。
  *
  * @responsibility RuntimeState requestは固定Known Folder種別4と初期化bitへ閉じるの合否判定を所有する。
@@ -133,6 +87,11 @@ test("RuntimeState requestは固定Known Folder種別4と初期化bitへ閉じ�
   );
   assert.equal(observed.status, "candidate");
   assert.match(observed.stableLogicalHomeBindingHash ?? "", /^[a-f0-9]{64}$/u);
+  assert.equal(
+    evaluateRuntimeStateObservationResponseCandidate(response(3, nonce), nonce)
+      .status,
+    "blocked",
+  );
 });
 
 /**
@@ -290,11 +249,7 @@ test("Provider Home observation contractはcaller PathとCredential readを持�
   assert.equal(contract.requestPathField, false);
   assert.equal(contract.requestMountSourceHashField, true);
   assert.equal(contract.requestMountSourceHashAuthority, false);
-  assert.deepEqual(contract.candidateStoreFixedSegments, [
-    "Qual-Lab",
-    "CRDD",
-    "CandidateStore",
-  ]);
+  assert.equal(Object.hasOwn(contract, "candidateStoreFixedSegments"), false);
   assert.equal(contract.credentialContentRead, false);
   assert.equal(contract.rawPathReported, false);
   assert.equal(contract.runtimeAuthorityIssued, false);

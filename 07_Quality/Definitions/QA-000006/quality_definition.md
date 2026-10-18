@@ -385,6 +385,10 @@ Evidenceには各段階のCommit／Tree、固定Path、Asset Hash、Git追跡判
 
 固定Fakeによる状態遷移、実CLI／Processとの直接境界、関連1〜2 block、必要な公開入口STの順で確認する。低い層のPassを実AI Provider、実Network、課金、公開Capabilityの成立に流用しない。
 
+旧General Task検証の取消・終了義務はWorkspace方式へ移す。既存`EST-ST-003`と`PRL-ST-001/003`における取消ACKとcompletionの分離、遅延・重複Signal、join不明、Source前後照合、元回復参照は維持する。上位Toolの作成済みUUIDは、開始throw・結果欠測・Workspace結果欠測でも未作成扱いにしない。Task終端・cleanup・未解決回復なし・元対象一致を確認できない場合、Worktreeを保持して回収未完了を返す。Task一次失敗とWorktree終了失敗は別に観測する。
+
+共有Native／Kernel Lockの`ERB-IT-003/004`は保持する。Store専用の保護Root種別3・受付・専用排他だけを撤去し、Provider Homeの種別1/2とRuntime Stateの種別4、共通Worker、Host／Console／Provider／Stateの取得・解放・親Process喪失を確認する。旧値3は実CLIでも初期化前に拒否する。旧Store専用試験の退役を成功件数へ加算せず、実Docker・実AI E2Eは今回の局所確認と分ける。
+
 PT／LTは人間が明示した上限と停止／cleanup条件をrunnerが強制できる場合だけ実行する。
 
 ## 追加試験種別の適用

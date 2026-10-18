@@ -10,6 +10,8 @@
 - Isolatedの明示Merge後、別Process再入場でも、元計画Revisionと既存採用記録・現在HEADを照合して品質受入へ進める。採用前、別HEAD、記録欠測は公開判断Ownerで拒否し、候補Ref終了だけを採用根拠にしない。DirectへこのGit条件を適用しない。
 - 取消、共有Treeとの競合、結果保存失敗、Lease解放失敗では元失敗・同じ回復参照を維持する。旧`adoptResult`による自動採用要求はEffect前に拒否し、必要な明示操作を示す。
 - 本番利用側と旧保存領域・未解決参照を確認し、内容保全と置換接続を終えたものだけを除去する。旧候補の成功Evidence、Context候補判断、品質受入Decisionを一括削除しない。
+- 通常CLIを含む上位の受付でWorkspace指定を解決し、Coordinatorへ選択済みの実行対象を搬送する。Coordinator側にWorkspace ID照会・台帳読取り・Direct／Isolated選択・上位Package依存を追加しない。未指定・別対象・観測不能はAI開始前に停止し、別Tree又は旧Bundleへfallbackしない。
+- 上位の解決後でも、Repository境界・Git管理領域・link／実体・Revision・Mount材料の必要な再確認を維持する。成功・取消・開始前拒否・回収不明で元対象との相関を落とさず、Coordinatorの清掃は自己所有の実行資源・一時投影だけとし、借用Tree・Branch・候補Refを削除しない。
 
 過去のMerge失敗から同操作で再入場した場合も、一次失敗を消さず、採用確定・Ref終了後に元計画へ品質受入できることを確認する。Commit IDは40又は64桁とし、中間長、別Queue・Project、記録欠測と別HEADを有限Snapshotでも拒否する。別Process試験は通常のNode起動で既存Workerを利用し、標準入力専用の実行形式を子Workerへ継承させない。
 

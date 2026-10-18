@@ -10,6 +10,13 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { types as utilTypes } from "node:util";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../version-control/src/index.ts";
+import type { BorrowedWorkspaceTarget } from "../src/repository-operation/borrowed-workspace.ts";
+import {
+  prepareVerificationWorkspace,
+  readVerificationWorkspaceOutput,
+  closeVerificationWorkspace,
+  type VerificationWorkspacePreparation,
+} from "./workspace-task-fixture.ts";
 import {
   isSupportedCoordinatorNodeRuntime,
   MINIMUM_COORDINATOR_NODE_VERSION,
@@ -22,10 +29,6 @@ import {
   isRuntimeProcessPoisoned,
   poisonRuntimeProcessAfterCleanupUnknown,
 } from "../src/host-execution/process-safety-state.ts";
-import {
-  discardRuntimeOwnedCandidateBundle,
-  readRuntimeOwnedCandidateBundle,
-} from "../src/candidate/bundle-store.ts";
 import {
   cancelRuntimeOwnedCoordinatorTask,
   startRuntimeOwnedCoordinatorTask,
@@ -49,7 +52,7 @@ import {
 
 export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT =
   "crdd-coordinator/signed-general-task-verification";
-export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION = 27;
+export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION = 28;
 
 const TARGET_PATH =
   "40_Develop/coordinator/tests/fixtures/general-task-verification.txt";
@@ -301,10 +304,24 @@ type CancellationSignalSource = Readonly<{
  */
 type VerificationDependencies = Readonly<{
   observeSource: () => unknown;
-  startTask: (request: RuntimeRecord, repositoryRoot: string) => unknown;
+  prepareWorkspace: (
+    root: string,
+    baseCommit: string,
+  ) => VerificationWorkspacePreparation;
+  startTask: (
+    request: RuntimeRecord,
+    repositoryRoot: string,
+    target: BorrowedWorkspaceTarget,
+  ) => unknown;
   cancelTask: (controlCapability: object) => unknown;
-  readCandidate: (candidateId: string) => RuntimeRecord | null;
-  discardCandidate: (candidateId: string) => RuntimeRecord;
+  readWorkspaceOutput: (
+    target: BorrowedWorkspaceTarget,
+    result: RuntimeRecord,
+  ) => RuntimeRecord | null;
+  closeWorkspace: (
+    target: BorrowedWorkspaceTarget,
+    result: RuntimeRecord,
+  ) => RuntimeRecord;
   inspectRepositoryRevision: (repositoryRoot: string) => unknown;
   readBaseContent: (repositoryRoot: string) => Buffer;
   now: () => string;
@@ -415,10 +432,20 @@ const productionDependencies: VerificationDependencies = Object.freeze({
       crddTree: before.tree,
     });
   },
-  startTask: startRuntimeOwnedCoordinatorTask,
+  prepareWorkspace: prepareVerificationWorkspace,
+  startTask: (request, root, target) =>
+    startRuntimeOwnedCoordinatorTask(
+      request,
+      root,
+      null,
+      undefined,
+      "coordinator_cli",
+      target,
+    ),
   cancelTask: cancelRuntimeOwnedCoordinatorTask,
-  readCandidate: readRuntimeOwnedCandidateBundle,
-  discardCandidate: discardRuntimeOwnedCandidateBundle,
+  readWorkspaceOutput: (target, result) =>
+    readVerificationWorkspaceOutput(target, TARGET_PATH, result),
+  closeWorkspace: closeVerificationWorkspace,
   inspectRepositoryRevision: inspectRepositoryRevisionCandidate,
   readBaseContent: (repositoryRoot) =>
     readFileSync(path.join(repositoryRoot, ...TARGET_PATH.split("/"))),
@@ -1406,15 +1433,15 @@ function completeSourceVerification(
  */
 function taskResultContractMismatch(
   result: RuntimeRecord | null,
-  executionRevision: ExecutionRevision,
+  _executionRevision: ExecutionRevision,
   executionRevisionMismatch: string | null,
   route: RouteExpectation,
 ) {
-  const candidateRevision = plainRecord(result?.candidateRevision);
   const reviewerResult = plainRecord(result?.reviewerResult);
   if (executionRevisionMismatch !== null) return executionRevisionMismatch;
   if (result?.status !== "completed") return "status";
-  if (result.reason !== "coordinator_task_candidate_approved") return "reason";
+  if (result.reason !== "coordinator_task_workspace_review_completed")
+    return "reason";
   if (result.cleanupConfirmed !== true) return "cleanup_confirmed";
   if (result.manualRecoveryRequired !== false)
     return "manual_recovery_required";
@@ -1433,16 +1460,6 @@ function taskResultContractMismatch(
     return "external_send_authorization_mode";
   if (typeof result.remediationPerformed !== "boolean")
     return "remediation_performed";
-  if (!candidateRevision) return "candidate_revision";
-  if (candidateRevision.baseCommit !== executionRevision.commit)
-    return "candidate_base_commit";
-  if (candidateRevision.baseTree !== executionRevision.tree)
-    return "candidate_base_tree";
-  if (!sha256(candidateRevision.patchHash)) return "candidate_patch_hash";
-  if (!sha256(candidateRevision.contentManifestHash))
-    return "candidate_content_manifest_hash";
-  if (!sha256(candidateRevision.allowedPathsHash))
-    return "candidate_allowed_paths_hash";
   if (reviewerResult?.decision !== "approved") return "reviewer_decision";
   if (reviewerResult.findingCount !== 0) return "reviewer_finding_count";
   if (result.canonicalRepositoryChanged !== false)
@@ -1458,7 +1475,13 @@ function taskResultContractMismatch(
   if (result.candidateRecoveryId !== null) return "candidate_recovery_id";
   if (result.candidateStoreRecoveryId !== null)
     return "candidate_store_recovery_id";
-  if (typeof result.candidateId !== "string") return "candidate_id";
+  const workspace = plainRecord(result.workspaceResult);
+  if (typeof workspace?.workspaceId !== "string") return "workspace_id";
+  if (
+    workspace.canonicalRepositoryChanged !== false ||
+    workspace.workspaceDeletionIssued !== false
+  )
+    return "workspace_observation";
   return null;
 }
 
@@ -1479,63 +1502,24 @@ function taskResultContractMismatch(
  * @concurrency N/A: candidateContractMismatchは共有非同期状態を持たない同期処理である。
  */
 function candidateContractMismatch(
-  candidate: RuntimeRecord | null,
-  candidateId: string,
-  taskResult: RuntimeRecord | null,
+  output: RuntimeRecord | null,
+  workspaceId: string,
+  executionRevision: ExecutionRevision,
 ) {
-  const bundle = plainRecord(candidate?.bundle);
-  const candidateRevision = plainRecord(taskResult?.candidateRevision);
-  const entries = snapshotPlainArray<unknown>(bundle?.entries, 1);
-  const entry =
-    entries.status === "ok" && entries.value.length === 1
-      ? plainRecord(entries.value[0])
-      : null;
-  const contentBase64 = entry?.contentBase64;
-  if (candidate?.status !== "exported") return "candidate_status";
-  if (candidate.candidateId !== candidateId) return "candidate_id";
-  if (bundle?.schema !== "crdd-coordinator-candidate-bundle/v1")
-    return "bundle_schema";
-  if (!isCanonicalCrddGitObjectId(bundle.baseCommit)) return "base_commit";
-  if (!isCanonicalCrddGitObjectId(bundle.baseTree)) return "base_tree";
-  if (!sha256(bundle.baseManifestHash)) return "base_manifest_hash";
-  if (!sha256(bundle.patchHash)) return "patch_hash_shape";
-  if (!sha256(bundle.contentManifestHash)) return "content_manifest_hash_shape";
-  if (!sha256(bundle.allowedPathsHash)) return "allowed_paths_hash_shape";
-  if (bundle.baseCommit !== candidateRevision?.baseCommit)
-    return "candidate_base_commit";
-  if (bundle.baseTree !== candidateRevision?.baseTree)
-    return "candidate_base_tree";
-  if (bundle.patchHash !== candidateRevision?.patchHash)
-    return "candidate_patch_hash";
-  if (bundle.contentManifestHash !== candidateRevision?.contentManifestHash)
-    return "candidate_content_manifest_hash";
-  if (bundle.allowedPathsHash !== candidateRevision?.allowedPathsHash)
-    return "candidate_allowed_paths_hash";
-  if (!exactStringArray(bundle.changedPaths, [TARGET_PATH]))
+  if (output?.status !== "observed") return "workspace_status";
+  if (output.workspaceId !== workspaceId) return "workspace_id";
+  if (output.baseCommit !== executionRevision.commit)
+    return "workspace_base_commit";
+  if (output.head !== executionRevision.commit) return "workspace_head";
+  if (!exactStringArray(output.changedPaths, [TARGET_PATH]))
     return "candidate_changed_paths";
-  if (!entry) return "candidate_entry";
-  if (entry.relativePath !== TARGET_PATH) return "candidate_entry_path";
-  if (entry.operation !== "upsert") return "candidate_entry_operation";
-  if (typeof contentBase64 !== "string") return "candidate_content_base64_type";
-  if (typeof entry.byteLength !== "number") return "candidate_byte_length_type";
-  if (typeof entry.sha256 !== "string") return "candidate_sha256_type";
-  const expectedPatchHash = createHash("sha256")
-    .update("crdd-candidate-revision-v1\0")
-    .update(bundle.baseCommit)
-    .update("\0")
-    .update(bundle.baseTree)
-    .update("\0")
-    .update(bundle.baseManifestHash)
-    .update("\0")
-    .update(bundle.contentManifestHash)
-    .update("\0")
-    .update(bundle.allowedPathsHash)
-    .update("\0")
-    .update(TARGET_PATH)
-    .digest("hex");
-  const content = Buffer.from(contentBase64, "base64");
-  if (bundle.patchHash !== expectedPatchHash) return "derived_patch_hash";
-  if (content.toString("base64") !== contentBase64)
+  if (typeof output.contentBase64 !== "string")
+    return "candidate_content_base64_type";
+  if (typeof output.byteLength !== "number")
+    return "candidate_byte_length_type";
+  if (typeof output.sha256 !== "string") return "candidate_sha256_type";
+  const content = Buffer.from(output.contentBase64, "base64");
+  if (content.toString("base64") !== output.contentBase64)
     return "candidate_content_base64";
   if (!content.equals(Buffer.from(EXPECTED_CONTENT, "utf8"))) {
     if (
@@ -1550,8 +1534,8 @@ function candidateContractMismatch(
       return "candidate_content_base_unchanged";
     return "candidate_content_bytes";
   }
-  if (entry.byteLength !== content.byteLength) return "candidate_byte_length";
-  if (entry.sha256 !== createHash("sha256").update(content).digest("hex"))
+  if (output.byteLength !== content.byteLength) return "candidate_byte_length";
+  if (output.sha256 !== createHash("sha256").update(content).digest("hex"))
     return "candidate_sha256";
   return null;
 }
@@ -1689,11 +1673,48 @@ export async function runSignedGeneralTaskVerification(
       Object.freeze({ canonicalRepositoryChanged: false }),
     );
   }
+  let preparation: VerificationWorkspacePreparation;
+  try {
+    preparation = dependencies.prepareWorkspace(
+      repositoryRoot,
+      executionRevision.commit,
+    );
+  } catch {
+    return completeSourceVerification(
+      sourceIdentity,
+      blocked(
+        "signed_general_task_workspace_preparation_failed",
+        null,
+        Object.freeze({
+          cleanupConfirmed: false,
+          manualRecoveryRequired: true,
+        }),
+      ),
+      dependencies,
+    );
+  }
+  const executionTarget = preparation.target;
+  if (!preparation.prepared) {
+    return completeSourceVerification(
+      sourceIdentity,
+      blocked(
+        "signed_general_task_workspace_preparation_failed",
+        null,
+        Object.freeze({
+          workspaceId: executionTarget.workspaceId,
+          cleanupConfirmed: preparation.cleanupConfirmed,
+          manualRecoveryRequired: !preparation.cleanupConfirmed,
+        }),
+      ),
+      dependencies,
+    );
+  }
   let rawStarted: unknown;
   try {
     rawStarted = dependencies.startTask(
       createSignedGeneralTaskVerificationRequest(routeProfile),
       repositoryRoot,
+      executionTarget,
     );
   } catch {
     ensureRuntimeProcessPoisoned();
@@ -1702,7 +1723,13 @@ export async function runSignedGeneralTaskVerification(
       blocked(
         "signed_general_task_start_failed_closed",
         null,
-        Object.freeze({ canonicalRepositoryChanged: false }),
+        Object.freeze({
+          canonicalRepositoryChanged: false,
+          workspaceId: executionTarget.workspaceId,
+          cleanupConfirmed: false,
+          manualRecoveryRequired: true,
+          workspaceCleanupConfirmed: false,
+        }),
       ),
       dependencies,
     );
@@ -1734,6 +1761,7 @@ export async function runSignedGeneralTaskVerification(
   let taskResult: RuntimeRecord | null = null;
   let discarded: RuntimeRecord | null = null;
   let isCandidateDiscarded = false;
+  let workspaceCloseAttempted = false;
   let cancellationRequested = false;
   let executionStateProjection: RuntimeRecord | null = null;
   let isPostStartUnknown = false;
@@ -1744,6 +1772,29 @@ export async function runSignedGeneralTaskVerification(
     processTerminationObserved: boolean;
   }> | null = null;
   const signalCancellation = Symbol("signedGeneralTaskSignalCancellation");
+  const completeWithWorkspace = (
+    source: SourceIdentity,
+    outcome: SignedGeneralTaskVerificationResult,
+    deps: VerificationDependencies,
+  ) =>
+    completeSourceVerification(
+      source,
+      Object.freeze({
+        ...outcome,
+        workspaceId: executionTarget.workspaceId,
+        workspaceCleanupConfirmed: isCandidateDiscarded,
+        ...(!isCandidateDiscarded
+          ? {
+              cleanupConfirmed: false,
+              manualRecoveryRequired: true,
+              candidateDisposition: "recovery_required" as const,
+              candidateIdForManualDiscard: executionTarget.workspaceId,
+              workspaceCleanupReason: "verification_workspace_retained",
+            }
+          : {}),
+      }),
+      deps,
+    );
   try {
     if (!controlCapability || !completionObservation) {
       isPostStartUnknown = true;
@@ -1837,30 +1888,39 @@ export async function runSignedGeneralTaskVerification(
           "execution_repository_revision_observation_unknown",
       });
 
-      const candidateId = taskResult.candidateId;
-      let candidateMismatch: string | null = "candidate_not_read";
+      const candidateId = executionTarget.workspaceId;
+      let candidateMismatch: string | null = null;
       if (typeof candidateId === "string") {
+        if (taskResult.status === "completed")
+          try {
+            const candidate = plainRecord(
+              dependencies.readWorkspaceOutput(executionTarget, taskResult),
+            );
+            candidateMismatch = candidateContractMismatch(
+              candidate,
+              candidateId,
+              executionRevision,
+            );
+          } catch {
+            candidateMismatch = "candidate_read_failed";
+          }
         try {
-          const candidate = plainRecord(
-            dependencies.readCandidate(candidateId),
+          workspaceCloseAttempted = true;
+          discarded = plainRecord(
+            dependencies.closeWorkspace(executionTarget, taskResult),
           );
-          candidateMismatch = candidateContractMismatch(
-            candidate,
-            candidateId,
-            taskResult,
-          );
-        } catch {
-          candidateMismatch = "candidate_read_failed";
-        }
-        try {
-          discarded = plainRecord(dependencies.discardCandidate(candidateId));
         } catch {
           discarded = null;
         }
         isCandidateDiscarded = discarded?.status === "discarded";
         if (discarded?.status !== "discarded") {
           knownOutcome = blocked(
-            "signed_general_task_candidate_discard_failed",
+            taskResult.status === "blocked"
+              ? safeReason(
+                  taskResult.reason,
+                  "signed_general_task_result_contract_mismatch",
+                )
+              : "signed_general_task_candidate_discard_failed",
             taskResult,
             Object.freeze({
               cleanupConfirmed: false,
@@ -1868,6 +1928,7 @@ export async function runSignedGeneralTaskVerification(
               candidateDiscarded: false,
               candidateDisposition: "recovery_required",
               candidateIdForManualDiscard: candidateId,
+              workspaceCleanupReason: "verification_workspace_retained",
               ...executionStateProjection,
             }),
             Object.freeze([discarded]),
@@ -1876,7 +1937,7 @@ export async function runSignedGeneralTaskVerification(
       }
 
       if (knownOutcome) {
-        // Candidate cleanup result is already the authoritative outcome.
+        // 一次Task失敗と上位の作業領域回収失敗を分離して保持する。
       } else if (
         taskResultContractMismatch(
           taskResult,
@@ -2080,10 +2141,12 @@ export async function runSignedGeneralTaskVerification(
       }
     }
     if ((isPostStartUnknown || cancellationRequested) && taskResult) {
-      const candidateId = taskResult.candidateId;
-      if (typeof candidateId === "string" && !isCandidateDiscarded) {
+      const candidateId = plainRecord(taskResult.workspaceResult)?.workspaceId;
+      if (typeof candidateId === "string" && !workspaceCloseAttempted) {
         try {
-          discarded = plainRecord(dependencies.discardCandidate(candidateId));
+          discarded = plainRecord(
+            dependencies.closeWorkspace(executionTarget, taskResult),
+          );
           isCandidateDiscarded = discarded?.status === "discarded";
         } catch {
           discarded = null;
@@ -2092,7 +2155,7 @@ export async function runSignedGeneralTaskVerification(
     }
   }
   if (isPostStartUnknown)
-    return completeSourceVerification(
+    return completeWithWorkspace(
       sourceIdentity,
       postStartUnknownBlocked(
         postStartUnknownReason,
@@ -2104,7 +2167,7 @@ export async function runSignedGeneralTaskVerification(
       dependencies,
     );
   if (cancellationRequested)
-    return completeSourceVerification(
+    return completeWithWorkspace(
       sourceIdentity,
       blocked(
         "signed_general_task_cancelled",
@@ -2118,7 +2181,7 @@ export async function runSignedGeneralTaskVerification(
       dependencies,
     );
   if (isRuntimeProcessPoisoned())
-    return completeSourceVerification(
+    return completeWithWorkspace(
       sourceIdentity,
       blocked(
         "signed_general_task_process_restart_required",
@@ -2132,7 +2195,7 @@ export async function runSignedGeneralTaskVerification(
       dependencies,
     );
   if (!knownOutcome)
-    return completeSourceVerification(
+    return completeWithWorkspace(
       sourceIdentity,
       postStartUnknownBlocked(
         "signed_general_task_final_outcome_unknown",
@@ -2143,7 +2206,7 @@ export async function runSignedGeneralTaskVerification(
       ),
       dependencies,
     );
-  return completeSourceVerification(sourceIdentity, knownOutcome, dependencies);
+  return completeWithWorkspace(sourceIdentity, knownOutcome, dependencies);
 }
 
 /**
@@ -2195,13 +2258,13 @@ export function describeSignedGeneralTaskVerificationContract() {
     frontIdentityBinding:
       "not_claimed_by_runner_result_requires_separate_fixed_run_evidence",
     candidateDisposition:
-      "completed_or_exactly_discarded_candidate_is_discarded_reviewer_rejection_before_persistence_is_not_issued_unknown_cleanup_is_recovery_required",
+      "self_generated_worktree_closed_by_upper_tool_only_after_task_technical_cleanup_unknown_is_retained",
     verificationFixture:
       "tracked_base_marker_exact_token_replacement_with_independent_final_byte_verification",
     baseContentPreflight:
       "exact_tracked_lf_bytes_verified_before_task_or_provider_effect",
     identityBinding:
-      "signed_distribution_source_and_manifest_only_distribution_commit_are_separate_from_work_repository_execution_revision_candidate_base_uses_execution_revision_observed_before_and_after_task",
+      "fixed_source_identity_is_separate_from_upper_owned_worktree_base_observed_before_and_after_task",
     boundedRemediation:
       "zero_or_one_runtime_owned_remediation_then_same_independent_reviewer_approval_required",
     taskFailureReasonProjection:

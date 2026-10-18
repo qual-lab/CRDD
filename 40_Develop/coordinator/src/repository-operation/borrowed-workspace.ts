@@ -10,16 +10,16 @@ import { types } from "node:util";
 import { checkRepositoryRuntimeDataProtectionDirectory } from "../../../domain-model/src/index.ts";
 import {
   verifyRepositoryRoot,
-  observeRepositoryWorktree,
   inspectGitRepositoryLayoutCandidate,
 } from "../../../version-control/src/index.ts";
+import { inspectRepositoryIdentityCandidate } from "./binding.ts";
 import { verifyOwnedOperationManagementMountBinding } from "../host-execution/operation-workspace-lifecycle.ts";
 
 /**
  * 借用先の内部入力を表す。
- * @responsibility 所属Rootと実行先、Isolatedの固定相関を分離する。
+ * @responsibility 上位が解決した所属Root、実行先、期待改訂を受け取る。
  * @trace ARCH-000004
- * @shape DirectはworkspaceId/baseCommit/headがnull、IsolatedはUUIDとCommit。
+ * @shape workspaceIdは上位の非Authority相関値。実行先は実PathとGit同一性で検査する。
  * @invariant PathやIDだけでは実行許可にならない。
  * @boundary Orchestratorから単発実行への内部入力。
  * @security 外部SurfaceへHost Pathを返さない。
@@ -113,45 +113,41 @@ export function inspectBorrowedWorkspaceTarget(
       layout.layout?.kind === "linked_worktree"
     )
       return null;
-    if (target.workspaceId === null) {
-      if (
-        target.executionTree !== ownerRoot ||
-        target.baseCommit !== null ||
-        target.head !== null
+    // Workspace IDは上位の相関値だけ。配置検索・方式選択には使わない。
+    if (
+      !(
+        target.workspaceId === null || typeof target.workspaceId === "string"
+      ) ||
+      !(
+        target.baseCommit === null ||
+        (typeof target.baseCommit === "string" &&
+          commit.test(target.baseCommit))
+      ) ||
+      !(
+        target.head === null ||
+        (typeof target.head === "string" && commit.test(target.head))
       )
-        return null;
-    } else {
-      if (
-        typeof target.workspaceId !== "string" ||
-        !/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/u.test(
-          target.workspaceId,
-        ) ||
-        typeof target.baseCommit !== "string" ||
-        !commit.test(target.baseCommit) ||
-        typeof target.head !== "string" ||
-        !commit.test(target.head)
-      )
-        return null;
-      const observation = observeRepositoryWorktree(
-        root.capability,
-        target.workspaceId,
-      );
-      const git = observation.observation;
-      if (
-        observation.status !== "completed" ||
-        observation.workspaceId !== target.workspaceId ||
-        observation.relativePath === null ||
-        target.executionTree !==
-          path.join(ownerRoot, observation.relativePath) ||
-        !git?.registered ||
-        !git.directoryPresent ||
-        git.locked ||
-        git.prunable ||
-        git.head !== target.head ||
-        git.branchHead !== target.head
-      )
-        return null;
-    }
+    )
+      return null;
+    const executionLayout = inspectGitRepositoryLayoutCandidate({
+      repositoryRoot: target.executionTree,
+    });
+    const identity = inspectRepositoryIdentityCandidate(target.executionTree);
+    const ownerIdentity = inspectRepositoryIdentityCandidate(ownerRoot);
+    if (
+      executionLayout.status !== "candidate" ||
+      !executionLayout.layout ||
+      !layout.layout ||
+      !ownerIdentity ||
+      identity?.logicalRepositoryIdentity !==
+        ownerIdentity.logicalRepositoryIdentity ||
+      !identity ||
+      (target.head !== null && identity.commit !== target.head) ||
+      (target.executionTree !== ownerRoot && target.head === null) ||
+      (target.executionTree !== ownerRoot &&
+        !target.executionTree.startsWith(ownerRoot + path.sep))
+    )
+      return null;
     const tree = fs.lstatSync(target.executionTree);
     const git = fs.lstatSync(path.join(target.executionTree, ".git"));
     if (

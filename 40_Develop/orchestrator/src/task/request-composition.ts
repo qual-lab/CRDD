@@ -40,7 +40,7 @@ import { observeLeaseOwner } from "../../../coordinator/src/host-execution/windo
 import {
   recoverRuntimeOwnedDockerTaskForCurrentConsumer,
   resolveRuntimeOwnedDockerTaskCurrentCorrelations,
-  observeRuntimeOwnedWorkbenchTaskCompletion,
+  observeRuntimeOwnedTransientTaskCompletion,
 } from "../../../coordinator/src/index.ts";
 
 /**
@@ -64,6 +64,7 @@ export function createRepositoryTaskRequests(
   projectId: string,
   principalId: string,
   authorize: () => boolean,
+  consumer: "workbench" | "coordinator_cli" = "workbench",
 ) {
   const root = resolveVerifiedRepositoryRoot(rootCapability);
   if (root === null) throw new Error("orchestrator_task_root_invalid");
@@ -84,7 +85,7 @@ export function createRepositoryTaskRequests(
       const observed = resolveRuntimeOwnedDockerTaskCurrentCorrelations(
         [record.operationId],
         rootCapability,
-        "workbench",
+        consumer,
       );
       if (observed.status !== "completed")
         return {
@@ -111,10 +112,11 @@ export function createRepositoryTaskRequests(
       for (const recoveryId of unresolved) {
         if (
           recoveryId.startsWith("docker-task.") &&
-          observeRuntimeOwnedWorkbenchTaskCompletion(
+          observeRuntimeOwnedTransientTaskCompletion(
             rootCapability,
             recoveryId,
             record.operationId,
+            consumer,
           ).completionConfirmed
         )
           unresolved.delete(recoveryId);
@@ -253,7 +255,7 @@ export function createRepositoryTaskRequests(
               capability,
               correlation,
               observer,
-              "workbench",
+              consumer,
               target,
             ),
           cancelTask: cancelRuntimeOwnedCoordinatorTask,
