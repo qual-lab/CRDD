@@ -13,8 +13,12 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { readStableBoundedFileSnapshot } from "../../src/storage/bounded-file-snapshot.ts";
 
-import { ensureRepositoryRuntimeDataArea } from "../../src/storage/ensure-area.ts";
+import {
+  ensureRepositoryRuntimeDataArea,
+  checkRepositoryRuntimeDataProtectionDirectory,
+} from "../../src/storage/ensure-area.ts";
 import {
   observeRepositoryRuntimeDataArea,
   resolveRepositoryRuntimeDataPaths,
@@ -31,6 +35,61 @@ import {
 } from "../../../version-control/src/index.ts";
 
 const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
+
+/**
+ * WindowsのFile ID表現を上限付き保存Readerへ接続する。
+ * @responsibility 上位bit・欠測・不正範囲・読取り中の別実体を区別する。
+ * @trace RDL-IT-001
+ * @precondition Repository内の自己生成Fileだけを使用する。
+ * @stimulus lstatとfstatに同じ符号付き64bit表現または不正値を返す。
+ * @observation 読取り結果、正規化したIDと拒否例外を観測する。
+ * @oracle 同じFile IDだけを受理し欠測・範囲外・別実体を拒否する。
+ * @cleanup mockを復元し専用Rootを回収する。
+ * @boundary Domain保存Reader→Filesystem。
+ */
+test("Windowsの上位bit付きFile IDで保存Readerの同一性確認を維持する", {
+  skip: process.platform !== "win32",
+}, (t) => {
+  const parent = path.join(repositoryRoot, ".crdd/tests");
+  fs.mkdirSync(parent, { recursive: true });
+  const root = fs.mkdtempSync(path.join(parent, "bounded-id-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const file = path.join(root, "state.json");
+  fs.writeFileSync(file, '{"state":"ready"}');
+  const expected = BigInt.asUintN(
+    64,
+    fs.lstatSync(file, { bigint: true }).ino | (1n << 63n),
+  );
+  let invalid: bigint | null = null;
+  let changed = false;
+  for (const name of ["lstatSync", "fstatSync"] as const) {
+    const original = fs[name];
+    t.mock.method(fs, name, (...args: unknown[]) => {
+      const metadata = Reflect.apply(original, fs, args) as fs.BigIntStats;
+      if (typeof metadata.ino === "bigint") {
+        metadata.ino = invalid ?? BigInt.asIntN(64, metadata.ino | (1n << 63n));
+        if (changed && name === "fstatSync") metadata.ino ^= 1n;
+      }
+      return metadata;
+    });
+  }
+  const observed = readStableBoundedFileSnapshot(file, 128);
+  assert.equal(observed.identity.ino, expected);
+  assert.equal(observed.bytes.toString(), '{"state":"ready"}');
+  changed = true;
+  assert.throws(
+    () => readStableBoundedFileSnapshot(file, 128),
+    /bounded_file_snapshot_changed/,
+  );
+  changed = false;
+  for (const value of [0n, -(1n << 63n) - 1n]) {
+    invalid = value;
+    assert.throws(
+      () => readStableBoundedFileSnapshot(file, 128),
+      /bounded_file_snapshot_invalid/,
+    );
+  }
+});
 
 /**
  * Owner観測はRootを公開せず不存在と置換・観測障害を区別する。
@@ -68,6 +127,80 @@ test("Owner読取り観測は不存在・境界置換・観測不能をEffect0�
   const verified = verifyRepositoryRoot(root);
   if (verified.status !== "completed") throw new Error("fixture_invalid");
   const initialEntries = fs.readdirSync(root);
+  assert.equal(
+    checkRepositoryRuntimeDataProtectionDirectory({} as never, "prepare"),
+    "blocked",
+  );
+  assert.equal(
+    checkRepositoryRuntimeDataProtectionDirectory(
+      verified.capability,
+      "observe",
+    ),
+    "absent",
+  );
+  assert.deepEqual(fs.readdirSync(root), initialEntries);
+  assert.equal(
+    checkRepositoryRuntimeDataProtectionDirectory(
+      verified.capability,
+      "prepare",
+    ),
+    "ready",
+  );
+  const internal = path.join(root, ".crdd");
+  assert.deepEqual(fs.readdirSync(internal), []);
+  const sentinel = path.join(internal, "existing-state.json");
+  fs.writeFileSync(sentinel, "preserved");
+  assert.equal(
+    checkRepositoryRuntimeDataProtectionDirectory(
+      verified.capability,
+      "prepare",
+    ),
+    "ready",
+  );
+  assert.equal(fs.readFileSync(sentinel, "utf8"), "preserved");
+  fs.unlinkSync(sentinel);
+  fs.rmdirSync(internal);
+  fs.writeFileSync(internal, "not-a-directory");
+  assert.equal(
+    checkRepositoryRuntimeDataProtectionDirectory(
+      verified.capability,
+      "observe",
+    ),
+    "blocked",
+  );
+  assert.equal(
+    checkRepositoryRuntimeDataProtectionDirectory(
+      verified.capability,
+      "prepare",
+    ),
+    "blocked",
+  );
+  assert.equal(fs.readFileSync(internal, "utf8"), "not-a-directory");
+  fs.unlinkSync(internal);
+  const linkTarget = path.join(root, "protection-link-target");
+  fs.mkdirSync(linkTarget);
+  fs.symlinkSync(
+    linkTarget,
+    internal,
+    process.platform === "win32" ? "junction" : "dir",
+  );
+  assert.equal(
+    checkRepositoryRuntimeDataProtectionDirectory(
+      verified.capability,
+      "observe",
+    ),
+    "blocked",
+  );
+  assert.equal(
+    checkRepositoryRuntimeDataProtectionDirectory(
+      verified.capability,
+      "prepare",
+    ),
+    "blocked",
+  );
+  assert.deepEqual(fs.readdirSync(linkTarget), []);
+  fs.unlinkSync(internal);
+  fs.rmdirSync(linkTarget);
   assert.deepEqual(
     observeRepositoryRuntimeDataArea(
       verified.capability,
@@ -140,12 +273,36 @@ test("Owner読取り観測は不存在・境界置換・観測不能をEffect0�
   if (replaced.status === "ready")
     assert.notEqual(replaced.boundaryIdentity, first.boundaryIdentity);
   const original = fs.lstatSync;
+  const originalMkdir = fs.mkdirSync;
+  let creates = 0;
+  const existingState = path.join(runtimeRoot, "existing-state.json");
+  fs.writeFileSync(existingState, "preserved");
+  Reflect.set(fs, "mkdirSync", ((...args: unknown[]) => {
+    creates++;
+    return Reflect.apply(originalMkdir, fs, args);
+  }) as typeof fs.mkdirSync);
   Reflect.set(fs, "lstatSync", ((target: fs.PathLike, ...args: unknown[]) => {
-    if (path.resolve(String(target)) === path.resolve(area))
+    if ([area, runtimeRoot].includes(path.resolve(String(target))))
       throw Object.assign(new Error("unobservable"), { code: "EACCES" });
     return Reflect.apply(original, fs, [target, ...args]);
   }) as typeof fs.lstatSync);
   try {
+    assert.equal(
+      checkRepositoryRuntimeDataProtectionDirectory(
+        verified.capability,
+        "observe",
+      ),
+      "blocked",
+    );
+    assert.equal(
+      checkRepositoryRuntimeDataProtectionDirectory(
+        verified.capability,
+        "prepare",
+      ),
+      "blocked",
+    );
+    assert.equal(creates, 0);
+    assert.equal(fs.readFileSync(existingState, "utf8"), "preserved");
     const unknown = observeRepositoryRuntimeDataArea(
       verified.capability,
       "execution-intelligence",
@@ -158,6 +315,7 @@ test("Owner読取り観測は不存在・境界置換・観測不能をEffect0�
       );
   } finally {
     Reflect.set(fs, "lstatSync", original);
+    Reflect.set(fs, "mkdirSync", originalMkdir);
   }
   assert.equal(
     fs.existsSync(path.join(root, ".git", "info", "exclude")),
@@ -196,6 +354,7 @@ test("検証済みRepository Rootだけから全Repository-local Pathを解決�
     "coordinator",
     "execution-intelligence",
     "candidates",
+    "workspaces",
     "release",
     "communication",
     "tests",

@@ -65,6 +65,8 @@ MCP Client → MCP Server ────┼→ Orchestrator → Coordinator → AI
 
 ## 4. 配置とRoot解決
 
+Git Worktreeの物理配置はVersion Controlが所有し、OrchestratorとCoordinatorは既存`observeRepositoryWorktree`が返すWorkspace ID・相対配置と必要なGit観測の相関を確認して利用する。欠測時に独自の固定Pathへ戻らない。Domain Modelの名前付き`workspaces`は採用済み領域の宣言でありGit操作を所有しない。借用Treeの内部状態保護先だけはDomainの用途限定観測／準備へ委譲し、raw Rootを上位へ公開しない。
+
 ```text
 対象Repository/
 ├ .git/                         共有Git管理情報

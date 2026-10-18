@@ -25,6 +25,48 @@ import {
 import type { RepositoryRuntimeArea } from "../repository/types.ts";
 
 /**
+ * AI書込みから守る内部Directoryだけを観測又は準備する。
+ * @responsibility raw Rootを公開せず空の保護Mount先を既存Ownerで扱う。
+ * @trace ARCH-000011
+ * @input 検証済み実行Treeとobserve／prepareの明示操作。
+ * @returns ready／absent／blocked。Pathや書込みAuthorityは返さない。
+ * @precondition 呼出し元が借用Treeの利用許可を保持する。
+ * @postcondition 観測は作成0、準備も既存内容を変更しない。
+ * @effect prepare時の真正不存在に限りRoot直下のDirectory一件を作成する。
+ * @failure 型不正・link・観測不能はblocked、旧Pathへfallbackしない。
+ * @invariant 状態初期化、子領域、Lockや台帳を追加しない。
+ * @boundary 実行Treeと内部状態の保護Mount先。
+ * @security raw Rootを一般保存先として利用側へ渡さない。
+ * @concurrency 既存の上位利用調停下で呼び、将来の置換不存在は保証しない。
+ */
+export function checkRepositoryRuntimeDataProtectionDirectory(
+  capability: VerifiedRepositoryRoot,
+  operation: "observe" | "prepare",
+): "ready" | "absent" | "blocked" {
+  try {
+    if (operation !== "observe" && operation !== "prepare") return "blocked";
+    const paths = resolveRepositoryRuntimeDataPathsForInternalUse(capability);
+    if (!paths) return "blocked";
+    let metadata: fs.Stats;
+    try {
+      metadata = fs.lstatSync(paths.root);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") return "blocked";
+      if (operation === "observe") return "absent";
+      fs.mkdirSync(paths.root);
+      metadata = fs.lstatSync(paths.root);
+    }
+    return metadata.isDirectory() &&
+      !metadata.isSymbolicLink() &&
+      fs.realpathSync.native(paths.root) === paths.root
+      ? "ready"
+      : "blocked";
+  } catch {
+    return "blocked";
+  }
+}
+
+/**
  * Canonical Directoryが成立する状態を確保する。
  *
  * @responsibility Canonical Directoryの成立条件、作成または再利用、失敗時の非成立境界を所有する。

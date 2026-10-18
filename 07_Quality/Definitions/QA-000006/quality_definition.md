@@ -1,5 +1,9 @@
 # QA-000006 外部実行境界の検証定義
 
+## 読取り助言の実試験器（ERB-IT-021への直接接続）
+
+外部AIなしの有限Ownerと公開HTTPで、一Provider一回・固定入力・明示同意と引数拒否を確認する。標準Network ID差と構成差、既存Container／利用者Network変更、未知追加、重複、不正型、取得・parse・容量等の観測不能、cleanup不明を反証する。一次失敗＋close失敗を分離し、timeout後の完了競合でも成功にしない。比較成立だけでProvider結果・個別回収・全E2E成立へ換算しない。保存Lock Workerのstdio分離は`RFD-UT-006`と既存`ERB-IT-002`で、親listener不増に加え取得・競合・解放・error／exitの保持を確認する。
+
 ## Workspace方式の追加検証条件（2026-10-17）
 
 Coordinator借用接続の追加断面は、`ERB-IT-006`の通常二役割・一回是正・範囲逸脱停止・取消、`RFD-IT-013`／`PRL-IT-013`の実GitでのDirect／Isolated入力搬送・開始dirty基準・二Task継続・元Tree／Branch保全、`ERB-UT-023`の三Mount計画と回収観測照合に割り当てる。旧Bundle準備／保存へ進まないこと、Reader拒否でfallbackしないこと、欠測を変更なしやTree保持済みへ補完しないことを確認する。局所代役の成功を実Provider・公開E2EのPassへ拡張しない。
@@ -635,6 +639,8 @@ OPEN: 旧入口／署名依存撤去、限定unknown終了Class、実Dockerと�
 ERB-IT-010／ERB-ST-013は5CのOrchestrator／Coordinator大改修に依存するOPENとして保持する。旧CROS Handoffのpure prototypeと専用値試験は撤去し、sourceActive:false／destinationEffectIssued:trueを実Owner終了、Effect発行、重複消費防止の観測へ流用しない。QA ID・検証義務・正式Not Run・v0.22対象は変えない。[固定Git履歴と処置](../../../99_Roadmap/Changes/CHG-000082/second-stage-plan.md#旧cros試作品の撤去--2026-10-13)を参照する。
 
 ## Checklist
+
+読取り助言の試験器では、Hash対象fieldの欠落・異型と正常null、標準Network ID差、利用者資源の追加・消失、前後のpaused／restartingを反証する。Root検証先行、試験器自身の前後照合でのGit子Process未使用、親GIT_DIRでRevision観測先が変わらないこと、対象文書・Revisionのみの不変主張と全Repository不変非主張を確認する。既存Workbenchの安全なGit読取りは変更しない。合成Ownerと実loopback HTTPによる局所成功を実Provider再試験へ流用しない。
 
 - [x] Quality ID、検証目標およびSource固有条件を自己完結して示した
 - [x] 各Local ItemをRequired Verification Obligationの局所参照と導出元へ接続した

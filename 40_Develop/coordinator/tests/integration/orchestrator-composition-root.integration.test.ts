@@ -155,8 +155,23 @@ test("development composition uses the explicitly supplied candidate integration
           throw new Error("fixture_has_no_docker_result");
         },
       }),
-    startTask: (_request, _root, _correlation, notifyStarted) => {
+    startTask: (
+      _request,
+      _root,
+      _correlation,
+      notifyStarted,
+      consumer,
+      workspaceTarget,
+    ) => {
       taskStarts += 1;
+      assert.equal(consumer, "orchestrator");
+      assert.deepEqual(workspaceTarget, {
+        workspaceId: null,
+        ownerRepositoryRoot: root,
+        executionTree: root,
+        baseCommit: null,
+        head: null,
+      });
       return Object.freeze({
         status: "started" as const,
         reason: "coordinator_task_started" as const,
@@ -188,6 +203,13 @@ test("development composition uses the explicitly supplied candidate integration
             executorProvider: "codex",
             reviewerProvider: "claude",
             canonicalRepositoryChanged: false,
+            workspaceResult: {
+              workspaceId: null,
+              changedPaths: [],
+              canonicalRepositoryChanged: false,
+              changeAttribution: "unattributed",
+              workspaceDeletionIssued: false,
+            },
           });
         }),
         rawOutputReported: false as const,

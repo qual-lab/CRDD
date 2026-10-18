@@ -9,11 +9,333 @@
  * @security Token、Prompt、結果本文を出力せず、自動再送とredirect追従を禁止する。
  */
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import type {
   WorkbenchAiRequests,
   WorkbenchAiRequestCommand,
 } from "../src/ai-request/types.ts";
 import { inspectWorkbenchClientModel } from "../src/browser/client-model.ts";
+
+/** 実試験で捕捉する属性の同一性。Filesystem内容の保全証明ではない。 */
+export type VerificationDockerInventory = Readonly<{
+  containers: readonly Readonly<{
+    id: string;
+    name: string;
+    image: string;
+    state: string;
+    configurationHash: string;
+  }>[];
+  networks: readonly Readonly<{
+    id: string;
+    name: string;
+    driver: string;
+    scope: string;
+    defaultBridge: boolean;
+    configurationHash: string;
+  }>[];
+}>;
+
+const digest = (value: unknown): string => {
+  const normalize = (v: unknown): unknown =>
+    Array.isArray(v)
+      ? v.map(normalize)
+      : v !== null && typeof v === "object"
+        ? Object.fromEntries(
+            Object.entries(v)
+              .sort(([a], [b]) => a.localeCompare(b))
+              .map(([k, item]) => [k, normalize(item)]),
+          )
+        : v;
+  return createHash("sha256")
+    .update(JSON.stringify(normalize(value)))
+    .digest("hex");
+};
+
+/**
+ * Dockerを読取りだけで観測する。失敗・過大出力・不完全形はnullで保持する。
+ * @trace ERB-IT-021
+ * @effect 既存CLIの一覧・inspectだけ。起動／作成／再起動を発行しない。
+ * @security inspectの本文・環境変数・Host Pathは出力しない。
+ * @boundary 省電力cacheをlive Engineの証明とは扱わない。
+ */
+export function observeVerificationDockerInventory(): VerificationDockerInventory | null {
+  try {
+    const record = (v: unknown): v is Record<string, unknown> =>
+      v !== null && typeof v === "object" && !Array.isArray(v);
+    const nullableRecord = (v: unknown) => v === null || record(v);
+    const nullableStrings = (v: unknown) =>
+      v === null || (Array.isArray(v) && v.every((s) => typeof s === "string"));
+    const docker = (...args: string[]) =>
+      execFileSync("docker", args, {
+        encoding: "utf8",
+        windowsHide: true,
+        timeout: 20_000,
+        maxBuffer: 1024 * 1024,
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+    const list = (...args: string[]) =>
+      docker(...args)
+        .trim()
+        .split(/\r?\n/u)
+        .filter(Boolean);
+    const containerIds = list("ps", "-aq", "--no-trunc");
+    const networkIds = list("network", "ls", "-q", "--no-trunc");
+    if (containerIds.length > 256 || networkIds.length > 256) return null;
+    if (
+      [...containerIds, ...networkIds].some((id) => !/^[a-f0-9]{64}$/u.test(id))
+    )
+      return null;
+    const inspect = (
+      kind: string,
+      ids: string[],
+    ): Record<string, unknown>[] => {
+      if (ids.length === 0) return [];
+      const value: unknown = JSON.parse(docker(kind, "inspect", ...ids));
+      if (
+        !Array.isArray(value) ||
+        value.length !== ids.length ||
+        value.some((v) => !v || typeof v !== "object")
+      )
+        throw new Error("inventory_invalid");
+      if (
+        new Set(ids).size !== ids.length ||
+        JSON.stringify(value.map((v) => v.Id).sort()) !==
+          JSON.stringify([...ids].sort())
+      )
+        throw new Error("inventory_identity_changed");
+      return value;
+    };
+    const containers = inspect("container", containerIds).map((v) => {
+      const config = v.Config as Record<string, unknown>;
+      const state = v.State as Record<string, unknown>;
+      if (
+        !record(config) ||
+        typeof config.User !== "string" ||
+        typeof config.WorkingDir !== "string" ||
+        !nullableStrings(config.Cmd) ||
+        !nullableStrings(config.Entrypoint) ||
+        !record(state) ||
+        !record(v.HostConfig) ||
+        !Array.isArray(v.Mounts)
+      )
+        throw new Error("container_configuration_unobserved");
+      return {
+        id: v.Id as string,
+        name: v.Name as string,
+        image: v.Image as string,
+        state: state.Status as string,
+        configurationHash: digest({
+          image: v.Image,
+          user: config.User,
+          directory: config.WorkingDir,
+          command: config.Cmd,
+          entrypoint: config.Entrypoint,
+          host: v.HostConfig,
+          mounts: v.Mounts,
+        }),
+      };
+    });
+    const networks = inspect("network", networkIds).map((v) => {
+      if (
+        typeof v.Internal !== "boolean" ||
+        typeof v.EnableIPv6 !== "boolean" ||
+        typeof v.EnableIPv4 !== "boolean" ||
+        !record(v.IPAM) ||
+        typeof v.IPAM.Driver !== "string" ||
+        !(
+          v.IPAM.Config === null ||
+          (Array.isArray(v.IPAM.Config) && v.IPAM.Config.every(record))
+        ) ||
+        !nullableRecord(v.IPAM.Options) ||
+        !record(v.Containers) ||
+        !nullableRecord(v.Options) ||
+        !nullableRecord(v.Labels) ||
+        typeof v.Attachable !== "boolean" ||
+        typeof v.Ingress !== "boolean" ||
+        typeof v.ConfigOnly !== "boolean" ||
+        !record(v.ConfigFrom)
+      )
+        throw new Error("network_configuration_unobserved");
+      return {
+        id: v.Id as string,
+        name: v.Name as string,
+        driver: v.Driver as string,
+        scope: v.Scope as string,
+        defaultBridge:
+          (v.Options as Record<string, unknown> | null)?.[
+            "com.docker.network.bridge.default_bridge"
+          ] === "true",
+        configurationHash: digest({
+          driver: v.Driver,
+          scope: v.Scope,
+          internal: v.Internal,
+          ipv4: v.EnableIPv4,
+          ipv6: v.EnableIPv6,
+          options: v.Options,
+          ipam: v.IPAM,
+          labels: v.Labels,
+          attachable: v.Attachable,
+          ingress: v.Ingress,
+          configOnly: v.ConfigOnly,
+          configFrom: v.ConfigFrom,
+          containers: v.Containers,
+        }),
+      };
+    });
+    const value = { containers, networks };
+    return validInventory(value) ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+function validInventory(value: unknown): value is VerificationDockerInventory {
+  if (!value || typeof value !== "object") return false;
+  const v = value as VerificationDockerInventory;
+  if (!Array.isArray(v.containers) || !Array.isArray(v.networks)) return false;
+  const common = (
+    items: readonly { id: string; name: string; configurationHash: string }[],
+  ) =>
+    items.length <= 256 &&
+    items.every(
+      (r) =>
+        r &&
+        /^[a-f0-9]{64}$/u.test(r.id) &&
+        typeof r.name === "string" &&
+        r.name.length > 0 &&
+        /^[a-f0-9]{64}$/u.test(r.configurationHash),
+    ) &&
+    new Set(items.map((r) => r.id)).size === items.length &&
+    new Set(items.map((r) => r.name)).size === items.length;
+  if (
+    !common(v.containers) ||
+    !common(v.networks) ||
+    v.containers.some(
+      (c) =>
+        typeof c.image !== "string" ||
+        ![
+          "created",
+          "running",
+          "paused",
+          "restarting",
+          "removing",
+          "exited",
+          "dead",
+        ].includes(c.state),
+    )
+  )
+    return false;
+  for (const n of v.networks) {
+    if (
+      typeof n.driver !== "string" ||
+      typeof n.scope !== "string" ||
+      typeof n.defaultBridge !== "boolean"
+    )
+      return false;
+    if (
+      n.name === "bridge" &&
+      (n.driver !== "bridge" || n.scope !== "local" || !n.defaultBridge)
+    )
+      return false;
+    if (
+      n.name === "host" &&
+      (n.driver !== "host" || n.scope !== "local" || n.defaultBridge)
+    )
+      return false;
+    if (
+      n.name === "none" &&
+      (n.driver !== "null" || n.scope !== "local" || n.defaultBridge)
+    )
+      return false;
+    if (n.defaultBridge && n.name !== "bridge") return false;
+  }
+  return ["bridge", "host", "none"].every((name) =>
+    v.networks.some((n) => n.name === name),
+  );
+}
+
+/**
+ * 標準NetworkのID世代差、今回の回収、既存資源属性を分離して評価する。
+ * @trace ERB-IT-021
+ * @effect N/A: 純粋比較。標準資源名だけの例外・欠測の空配列化を禁止する。
+ * @boundary 成立は捕捉属性に限定し、全設定・Filesystem内容・Engine生存を保証しない。
+ */
+export function assessVerificationDockerInventory(
+  before: unknown,
+  after: unknown,
+  cleanupConfirmed: boolean,
+) {
+  if (!validInventory(before) || !validInventory(after))
+    return {
+      status: "unknown" as const,
+      reason: "docker_inventory_unobserved",
+      standardNetworkIdentityChanged: false,
+    };
+  const system = (name: string) => ["bridge", "host", "none"].includes(name);
+  const ordered = <T extends { name: string }>(items: readonly T[]) =>
+    [...items].sort((a, b) => a.name.localeCompare(b.name));
+  const same = (a: unknown, b: unknown) => digest(a) === digest(b);
+  const standardBefore = ordered(before.networks.filter((n) => system(n.name)));
+  const standardAfter = ordered(after.networks.filter((n) => system(n.name)));
+  const standardNetworkIdentityChanged = standardBefore.some(
+    (n, i) => n.id !== standardAfter[i]?.id,
+  );
+  const systemConfigurationEqual = same(
+    standardBefore.map(({ id: _id, ...rest }) => rest),
+    standardAfter.map(({ id: _id, ...rest }) => rest),
+  );
+  const existingResourceInventoryPreserved =
+    same(ordered(before.containers), ordered(after.containers)) &&
+    same(
+      ordered(before.networks.filter((n) => !system(n.name))),
+      ordered(after.networks.filter((n) => !system(n.name))),
+    );
+  const addedContainers = after.containers
+    .filter((a) => !before.containers.some((b) => a.id === b.id))
+    .map((a) => a.id);
+  const removedContainers = before.containers
+    .filter((b) => !after.containers.some((a) => a.id === b.id))
+    .map((b) => b.id);
+  const addedNetworks = after.networks
+    .filter((a) => !before.networks.some((b) => a.id === b.id))
+    .map((a) => a.id);
+  const removedNetworks = before.networks
+    .filter((b) => !after.networks.some((a) => a.id === b.id))
+    .map((b) => b.id);
+  const status =
+    !cleanupConfirmed ||
+    [...before.containers, ...after.containers].some(
+      (c) => !["created", "exited", "dead"].includes(c.state),
+    ) ||
+    !existingResourceInventoryPreserved ||
+    !systemConfigurationEqual
+      ? ("blocked" as const)
+      : ("verified" as const);
+  return {
+    status,
+    reason: !cleanupConfirmed
+      ? "provider_cleanup_unconfirmed"
+      : [...before.containers, ...after.containers].some(
+            (c) => !["created", "exited", "dead"].includes(c.state),
+          )
+        ? "docker_inventory_not_idle"
+        : !existingResourceInventoryPreserved
+          ? "existing_or_unexpected_resource_changed"
+          : !systemConfigurationEqual
+            ? "standard_network_configuration_changed"
+            : standardNetworkIdentityChanged
+              ? "standard_network_identity_changed"
+              : "observed_inventory_unchanged",
+    standardNetworkIdentityChanged,
+    existingResourceInventoryPreserved,
+    systemConfigurationEqual,
+    addedContainers,
+    removedContainers,
+    addedNetworks,
+    removedNetworks,
+  };
+}
 
 /**
  * 固定Workbench Routeの応答を受信中の上限付きで取得する。

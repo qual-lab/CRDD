@@ -135,8 +135,16 @@ function acquireFilesystemStoreKernelLock(
   const state = new Int32Array(sharedState);
   const worker = new Worker(
     new URL("./kernel-lock-worker.ts", import.meta.url),
-    { workerData: Object.freeze({ endpoint, state: sharedState }) },
+    {
+      workerData: Object.freeze({ endpoint, state: sharedState }),
+      stdout: true,
+      stderr: true,
+    },
   );
+  // この内部Workerは共有状態だけで応答する。親Consoleへ自動pipeせず消費する。
+  // 解放ACKとWorker exit／stdio終了は別であり、親の同期待機でexitを待たない。
+  worker.stdout.resume();
+  worker.stderr.resume();
   worker.unref();
   const deadline = Date.now() + KERNEL_LOCK_ACQUIRE_TIMEOUT_MS;
   while (Atomics.load(state, 0) === 0) {

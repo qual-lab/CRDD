@@ -7,6 +7,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { types } from "node:util";
+import { checkRepositoryRuntimeDataProtectionDirectory } from "../../../domain-model/src/index.ts";
 import {
   verifyRepositoryRoot,
   observeRepositoryWorktree,
@@ -128,15 +129,7 @@ export function inspectBorrowedWorkspaceTarget(
         typeof target.baseCommit !== "string" ||
         !commit.test(target.baseCommit) ||
         typeof target.head !== "string" ||
-        !commit.test(target.head) ||
-        target.executionTree !==
-          path.join(
-            ownerRoot,
-            ".crdd",
-            "workspaces",
-            target.workspaceId,
-            "worktree",
-          )
+        !commit.test(target.head)
       )
         return null;
       const observation = observeRepositoryWorktree(
@@ -146,6 +139,10 @@ export function inspectBorrowedWorkspaceTarget(
       const git = observation.observation;
       if (
         observation.status !== "completed" ||
+        observation.workspaceId !== target.workspaceId ||
+        observation.relativePath === null ||
+        target.executionTree !==
+          path.join(ownerRoot, observation.relativePath) ||
         !git?.registered ||
         !git.directoryPresent ||
         git.locked ||
@@ -165,11 +162,15 @@ export function inspectBorrowedWorkspaceTarget(
       !(git.isDirectory() || git.isFile())
     )
       return null;
-    const internal = path.join(target.executionTree, ".crdd");
-    if (fs.existsSync(internal)) {
-      const entry = fs.lstatSync(internal);
-      if (!entry.isDirectory() || entry.isSymbolicLink()) return null;
-    }
+    const executionRoot = verifyRepositoryRoot(target.executionTree);
+    if (
+      executionRoot.status !== "completed" ||
+      checkRepositoryRuntimeDataProtectionDirectory(
+        executionRoot.capability,
+        "observe",
+      ) === "blocked"
+    )
+      return null;
     return Object.freeze(target);
   } catch {
     return null;
@@ -201,8 +202,15 @@ export function bindBorrowedWorkspaceTarget(
   if (!target || borrowed.has(management)) return null;
   const binding = verifyOwnedOperationManagementMountBinding(management, mount);
   // 空のMount先だけを初期化する。状態・履歴をこのTreeへ保存しない。
-  const internal = path.join(target.executionTree, ".crdd");
-  if (!fs.existsSync(internal)) fs.mkdirSync(internal);
+  const executionRoot = verifyRepositoryRoot(target.executionTree);
+  if (
+    executionRoot.status !== "completed" ||
+    checkRepositoryRuntimeDataProtectionDirectory(
+      executionRoot.capability,
+      "prepare",
+    ) !== "ready"
+  )
+    return null;
   const directory = path.join(binding.mounts.projection, "workspace-masks");
   fs.mkdirSync(directory);
   const gitSourcePath = path.join(directory, "git");

@@ -12,6 +12,8 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { stripTypeScriptTypes } from "node:module";
+import { runInNewContext } from "node:vm";
 import type { TestContext } from "node:test";
 import test from "node:test";
 import { ensureRepositoryRuntimeDataAreaFromWorkingDirectory } from "../../../domain-model/src/index.ts";
@@ -35,6 +37,140 @@ import {
 
 const firstRevision = "1".repeat(40);
 const secondRevision = "2".repeat(40);
+
+/**
+ * 実体IDの5取得点が同じOS別表現・拒否境界を持つことを確認する。
+ * @responsibility Windows限定変換の境界と他の識別条件の維持を反証する。
+ * @trace PRL-IT-012
+ * @precondition 現行の実関数本文をFilesystem観測だけの代役へ接続する。
+ * @stimulus 符号境界、ゼロ、範囲外、POSIX、型・link・dev・時刻不正を与える。
+ * @observation 返されたIDまたは拒否例外を観測する。
+ * @oracle 同じ64bitだけを保存し、既存の識別不能条件を拒否する。
+ * @cleanup N/A: メモリだけで外部Effectを発行しない。
+ * @boundary 各Ownerの実体識別関数→OS観測値。
+ */
+test("実体IDの5取得点はWindowsだけ符号を補正し他の拒否条件を維持する", () => {
+  const sample = fs.lstatSync(import.meta.dirname, { bigint: true });
+  for (const [sourcePath, names] of [
+    ["../../../version-control/src/git/layout.ts", ["identity"]],
+    [
+      "../../../domain-model/src/storage/bounded-file-snapshot.ts",
+      ["identity"],
+    ],
+    [
+      "../../src/host-execution/operation-workspace-lifecycle.ts",
+      ["readFilesystemIdentity", "readFileIdentity", "readOpenFileIdentity"],
+    ],
+  ] as const) {
+    const source = stripTypeScriptTypes(
+      fs.readFileSync(new URL(sourcePath, import.meta.url), "utf8"),
+    );
+    for (const name of names) {
+      const body = source.match(
+        new RegExp(`function ${name}\\([\\s\\S]*?\\r?\\n\\}`, "u"),
+      )?.[0];
+      assert.ok(body, name);
+      for (const platform of ["win32", "linux"]) {
+        const metadata: fs.BigIntStats = Object.assign(
+          Object.create(Object.getPrototypeOf(sample)),
+          sample,
+          {
+            isFile: () => true,
+            isDirectory: () => true,
+            isSymbolicLink: () => false,
+            size: 1n,
+          },
+        );
+        const observe = runInNewContext(`(${body})`, {
+          process: { platform },
+          fs: { lstatSync: () => metadata, fstatSync: () => metadata },
+        }) as (...args: unknown[]) => { ino: bigint };
+        const args = sourcePath.includes("layout.ts")
+          ? [metadata, "directory"]
+          : sourcePath.includes("bounded-file")
+            ? [metadata, 128]
+            : ["fixture"];
+        for (const ino of [1n, 42n, 1n << 63n]) {
+          metadata.ino = ino;
+          assert.equal(observe(...args).ino, ino, `${name}/${platform}`);
+        }
+        for (const ino of [-(1n << 63n), -1n]) {
+          metadata.ino = ino;
+          if (platform === "win32")
+            assert.equal(observe(...args).ino, BigInt.asUintN(64, ino));
+          else assert.throws(() => observe(...args));
+        }
+        for (const ino of [0n, -(1n << 63n) - 1n, undefined, 42, "-1"]) {
+          Reflect.set(metadata, "ino", ino);
+          assert.throws(() => observe(...args));
+        }
+        metadata.ino = 42n;
+        for (const field of ["dev", "birthtimeNs"] as const) {
+          const original = metadata[field];
+          metadata[field] = 0n;
+          assert.throws(() => observe(...args));
+          metadata[field] = original;
+        }
+        metadata.isFile = () => false;
+        metadata.isDirectory = () => false;
+        assert.throws(() => observe(...args));
+        metadata.isFile = () => true;
+        metadata.isDirectory = () => true;
+        if (name !== "readOpenFileIdentity") {
+          metadata.isSymbolicLink = () => true;
+          assert.throws(() => observe(...args));
+        }
+      }
+    }
+  }
+});
+
+/**
+ * Windowsの上位bit付き実体IDを操作の作成・再検証・回収へ接続する。
+ * @responsibility Directory・File・descriptorの識別表現を全取得点で一致させる。
+ * @trace PRL-IT-012
+ * @precondition Repository内の自己生成領域だけを使用する。
+ * @stimulus 全statに符号付き64bit表現を与え操作を生成・再検証・回収する。
+ * @observation Capabilityの有効性と終了後の不存在を観測する。
+ * @oracle 負表現でも同じ実体だけを受理し元の操作を回収できる。
+ * @cleanup stat代役を復元し所有操作を回収する。
+ * @boundary Coordinator所有領域→Filesystem。
+ */
+test("Windowsの上位bit付きIDで操作作成・再検証・回収が成立する", {
+  skip: process.platform !== "win32",
+}, (t) => {
+  const area = requireReadyRepositoryRuntimeDataArea(
+    ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
+      import.meta.dirname,
+      "tests",
+    ),
+    "coordinator_state_test_root_invalid",
+  );
+  for (const name of ["lstatSync", "fstatSync"] as const) {
+    const original = fs[name];
+    t.mock.method(fs, name, (...args: unknown[]) => {
+      const metadata = Reflect.apply(original, fs, args) as fs.BigIntStats;
+      if (typeof metadata.ino === "bigint")
+        metadata.ino = BigInt.asIntN(64, metadata.ino | (1n << 63n));
+      return metadata;
+    });
+  }
+  const owned = createOwnedOperationDirectories(area.directory);
+  let cleaned = false;
+  t.after(() => {
+    if (!cleaned) cleanupOwnedOperationDirectories(owned);
+  });
+  const management = createOwnedOperationManagementCapability(
+    createOwnedOperationContextCapability(owned),
+    createOwnedMountCapability(owned),
+  );
+  const root = path.resolve(import.meta.dirname, "../../../..");
+  assert.ok(bindRuntimeOwnedRepositoryOperation(management, root));
+  assert.ok(verifyRuntimeOwnedRepositoryOperation(management));
+  cleanupOwnedOperationDirectories(owned);
+  cleaned = true;
+  assert.equal(fs.existsSync(owned.root), false);
+});
 
 /**
  * Coordinator保存先の内部借用を実Repositoryと操作Ownerへ結合する。

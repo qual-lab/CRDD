@@ -18,6 +18,7 @@ import path from "node:path";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
 import { Worker } from "node:worker_threads";
+import { fileURLToPath } from "node:url";
 
 import {
   createFilesystemStoreRoot,
@@ -26,6 +27,41 @@ import {
   resolveFilesystemStorePath,
   withFilesystemStoreLock,
 } from "../../../src/storage/root-and-lock.ts";
+
+/**
+ * 同期Lock反復が親Consoleの監視を増やさないことを実Workerで確認する。
+ * @trace RFD-UT-006
+ * @precondition Repository内の自己生成Rootだけを使用する。
+ * @stimulus イベント処理へ戻る前に11回取得・解放する。
+ * @observation Lock結果、stderr listener数と残存File。
+ * @oracle 解放ACK後にstdio監視が親へ積み上がらず全Lockが清掃済み。
+ * @cleanup 専用Rootを空確認後に削除する。
+ * @boundary 親stdioの観測は全Worker exit完了の証明ではない。
+ */
+test("同期Lock11反復は解放結果を維持し親Console監視を増やさない", () => {
+  const base = fileURLToPath(
+    new URL("../../../../../.crdd/tests/", import.meta.url),
+  );
+  fs.mkdirSync(base, { recursive: true });
+  const root = fs.mkdtempSync(path.join(base, "store-stdio-"));
+  try {
+    const capability = createFilesystemStoreRoot(root);
+    assert.ok(capability);
+    const errorCount = process.stderr.listenerCount("error");
+    const closeCount = process.stderr.listenerCount("close");
+    for (let index = 0; index < 11; index++) {
+      const result: { acquired: boolean; cleanupConfirmed?: boolean } =
+        withFilesystemStoreLock<number>(capability, "state.lock", () => index);
+      assert.equal(result.acquired, true);
+      assert.equal(result.cleanupConfirmed, true);
+      assert.equal(process.stderr.listenerCount("error"), errorCount);
+      assert.equal(process.stderr.listenerCount("close"), closeCount);
+    }
+    assert.deepEqual(fs.readdirSync(root), []);
+  } finally {
+    fs.rmdirSync(root);
+  }
+});
 
 /**
  * 保存Workerの固定構築と取得結果を実本文で確認する。
@@ -89,7 +125,13 @@ test("保存Workerは固定URL・共有状態・endpointで構築され取得結
                 new URL("./kernel-lock-worker.ts", moduleUrl).href,
               );
               assert.ok(options && typeof options === "object");
-              assert.deepEqual(Object.keys(options), ["workerData"]);
+              assert.deepEqual(Object.keys(options), [
+                "workerData",
+                "stdout",
+                "stderr",
+              ]);
+              assert.equal(Reflect.get(options, "stdout"), true);
+              assert.equal(Reflect.get(options, "stderr"), true);
               const data: unknown = Reflect.get(options, "workerData");
               assert.ok(data && typeof data === "object");
               assert.deepEqual(Object.keys(data).sort(), ["endpoint", "state"]);
@@ -113,6 +155,8 @@ test("保存Workerは固定URL・共有状態・endpointで構築され取得結
                 unref: () => {
                   unref += 1;
                 },
+                stdout: { resume: () => undefined },
+                stderr: { resume: () => undefined },
                 terminate: () => {
                   terminated += 1;
                   return Promise.resolve(0);

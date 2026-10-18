@@ -542,26 +542,22 @@ export function executeWorkspaceCommand(
         data,
       };
     }
-    const target = verifyRepositoryRoot(
-      path.join(
-        ownerRoot,
-        ".crdd",
-        "workspaces",
-        record.workspaceId,
-        "worktree",
-      ),
-    );
-    if (target.status !== "completed")
-      throw new Error("workspace_target_unavailable");
     const observed = observeRepositoryWorktree(
       root.capability,
       record.workspaceId,
     );
     if (
       observed.status !== "completed" ||
+      observed.workspaceId !== record.workspaceId ||
+      observed.relativePath === null ||
       observed.observation?.head !== record.head ||
       record.phase !== "ready"
     )
+      throw new Error("workspace_target_unavailable");
+    const target = verifyRepositoryRoot(
+      path.join(ownerRoot, observed.relativePath),
+    );
+    if (target.status !== "completed")
       throw new Error("workspace_target_unavailable");
     data =
       command.operation === "inspect"

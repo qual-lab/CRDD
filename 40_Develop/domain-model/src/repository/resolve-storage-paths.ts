@@ -58,6 +58,7 @@ function resolveRepositoryRuntimeDataPathsFromValidatedRoot(
     coordinator: path.join(root, "coordinator"),
     executionIntelligence: path.join(root, "execution-intelligence"),
     candidates: path.join(root, "candidates"),
+    workspaces: path.join(root, "workspaces"),
     release: path.join(root, "release"),
     communication: path.join(root, "communication"),
     tests: path.join(root, "tests"),

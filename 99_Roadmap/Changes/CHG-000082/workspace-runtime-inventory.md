@@ -645,3 +645,117 @@ Workbenchに残る既知2件は、既存の巨大な`second-stage-plan.md`がOwn
 人間の指示で上記までを`9e4b4d08`へコミットした。プッシュは未実施。Sourceを変更せずOrchestratorの公開`npm test`を再実行し、静的検査成功、UT全75件成功（1,615ms）、IT全37件成功（276,098ms）、失敗・取消・skip 0を確認した。Lintの既知style情報2件はerror／warningではない。先行runの36成功・1失敗を消さず、期待値同期後の今回一括成功と区別する。実Git・自己生成Writer／排他の試験であり、Docker・外部AIは使用していない。
 
 後続E2Eの入口照合では、既存`verify-orchestrator-real-providers.ts`はProject計画と採用を含み、今回のWorkbench単発依頼そのものではないと確認した。そのまま新経路全体の成立証明へ流用しない。新しい単発経路の実Provider確認は送信対象・範囲を明示し、追加承認前に開始しない。
+
+#### 読取り専用の実Provider確認（2026-10-18、途中停止）
+
+人間はCodex／Claude各一回、`PROJECT_CONTEXT.md`と固定質問だけの送信、既存Docker隔離、自己生成資源の回収を承認した。編集・採用・Commit・Docker再起動・Profile変更は対象外。短命Runnerを実行前に独立確認し、Profile／Catalog固定、一次失敗とclose失敗の分離、timeout後の完了競合でも失敗を保持する条件を確認した。製品Sourceは`0dac1529`のまま。最初の環境審査は送信許可確認不足で拒否され、対象ファイル・両送信先を明示した提案と人間の直接承認を同じ入口へ再提示後に実行が許可された。迂回・初回拒否時の送信はない。
+
+| 対象 | 実測結果と限界 |
+|---|---|
+| Codex一回 | `PROFILE-100001`／`gpt-5.6-sol`、依頼`request-47ee9354-3e3c-44b0-8702-bbb2b3523802`、Operation `OP-264717650761609107924181161446803518758`。公開HTTPから本番単発Ownerへ接続し、Provider開始・exit0・公開completedを確認。事実2項目・次候補1項目、本文は保存しない |
+| 個別回収・状態 | Process終了、今回Container／Network不存在、cleanup確認、回復参照・副次失敗0。Coordinatorのoperations／unresolvedRecoveries／pendingDeliveriesは各0。Orchestratorは今回Queueがcompleted／settled、Lease acquired／releasedを確認。通常の終了記録・historyPendingを未解決実行資源と混同しない |
+| 全体試験の停止 | 正本不変・Server close成功だったが、試験前後のDocker全Container／Network ID集合一致がfalseとなり、stickyな安全停止で終了。試験全体は不合格であり、個別成功で上書きしない。初回基準のID集合を出力しておらず、差分の完全な再構成と原因特定はできていない |
+| 後続の読取り確認 | 現在は試験前から存在した停止Container一件と、bridge／host／none／jarvis_defaultのみ。今回のinternal／egress二NetworkはDockerイベントでもcreate→destroyを確認した。標準bridgeのCreatedは試験開始付近だが、不一致原因とは断定しない。連続した一覧二読取りは一致。資源削除・再起動・製品是正は追加しない |
+| 警告 | NodeがSocketのerror／close各14 listenerに対するMaxListenersExceededWarningを出した。今回closeは成功したが、監視漏れ不存在や警告原因の解消を主張しない。製品修正を今回試験へ混入させない |
+| Claude | 未実行。Codex再依頼は行わない。全一覧不一致を未確定のまま安全停止条件から除外せず、新baselineによるClaude一回だけの継続を人間へ確認する |
+
+実行別Evidence書庫・生出力は追加しない。短命Runnerは試験終了後に回収し、未使用のClaude承認だけを理由に安全停止を自動解除しない。今回の観測は読取り助言の一経路に限り、新方式全E2E・人間UAT・編集／採用／移行の成立ではない。
+
+#### Claude単独一回の確認（2026-10-18）
+
+人間が安全停止後の新baselineによるClaude一回と試験物回収を明示承認した。同じ固定質問と`PROJECT_CONTEXT.md`だけを使用し、Codex再依頼、Profile変更、編集・採用、Docker再起動は行っていない。短命Runnerの限定独立確認は指摘0。製品Sourceは`0dac1529`のまま、前回結果を記録した未コミット文書も試験前後で不変だった。
+
+| 確認 | 結果 |
+|---|---|
+| 実Provider | `PROFILE-200001`／Claude `opus`、依頼`request-ff1bbf3b-b952-4026-89e9-e617c8e597e9`、Operation `OP-154392190998890482546238155370879165941`。公開HTTP→本番単発Ownerから一回実行し、開始・exit0・公開completed／executionStatus completedを確認。事実4・共有分析3・追加推論2・次候補2。回答本文は保存しない |
+| 終了・回収 | timeoutなし、一次失敗なし、回復参照・副次失敗0。Process終了、所有Container／Network不存在、cleanup確認、Server close成功。Coordinatorの実行中・回復待ち・配送待ちは各0、今回Task completed／settled、Lease acquired／releasedを終了後に再確認 |
+| 前後観測 | 開始時の既存Container一件とNetwork四件のIDを記録し、終了後の追加／消失はすべて0、稼働0。正本のCommit・status・diff・Context Hash不変。Claude単独の限定試験は成功、終了Code 0 |
+| 残る不確実性 | Node Socketのerror／close各14 listener警告は再現し、原因・監視漏れ不存在は未確認。前回Codexの全一覧不一致は未解明のまま保持する。今回を両Provider単一run全成功や全E2E成立へ拡張しない |
+
+短命Runnerと専用空Rootは確認後に削除し、通常の終了状態・履歴は既存Ownerへ残す。製品修正・新しい回復機構・実行別Evidence書庫は追加しない。
+
+#### 警告・一覧不一致の原因調査（2026-10-18、製品修正なし）
+
+人間の調査指示により、Source、当時のDocker Host／VMログと外部AIなしの局所再現を確認した。実Providerの再依頼、Docker再起動・修復・新規Container作成は行っていない。
+
+| 対象 | 確認した原因・根拠 | 限界と最小是正候補（未実装） |
+|---|---|---|
+| Socket監視数警告 | 既存`withFilesystemStoreLock`を自己生成Rootで11回同期取得・解放すると、cleanupは全件trueでもstderrのerror／close監視は各2→24となる。続く既存Lifecycle Reporterの登録で各25の同型警告が発生し、stackは`execution-controller.ts:669/670`を示す。イベント処理後250msの観測では各2へ戻る。各Lock間に25msのイベント処理を挟んだ反証では最大4・終了2・警告なし | Node組込みWorkerは既定stdioを親へ転送し、その登録時だけ警告上限を抑制する。`root-and-lock.ts`の解放ACKはWorker内のserver close完了であり、親側のexit／stdio監視撤去とは別。同期Lock群で親の終了通知処理が遅れ、Reporterの追加登録が警告を顕在化させる説明を強く支持する。全経路の恒久漏れ不存在は未証明。既存Workerのstdio／終了所有を整理する候補であり、上限増加・固定sleep・親の同期Atomicsでexit待機へ変更しない |
+| HTTP起因の反証 | Package読込み後のstderr監視は各2。合成HTTP基盤40読取り、実Workbench公開GET30読取り、期限付きGET3読取り、本番検証Client＋合成Owner20観測では警告なし。後者は監視各2を維持しListener close完了 | 警告をHTTP pollingやReporter単独の恒久漏れと断定しない。途中の長いGET診断は終了時に30読取り成功・exit0を確認した |
+| Codex全一覧不一致 | Docker backend logは18:32:17.301／19.964 JSTのnetwork一覧と事前version／pingを`apicache`の応答として記録。18:32:30.526のContainer createが9時間33分idle後のVM起動を発火し、engine stopped→starting。VMログで18:32:35.072にdaemon起動、標準bridge Createdは18:32:35.868。事前baselineと復帰後観測は同じEngine世代ではなかった | 省電力キャッシュ→復帰後の全ID完全一致という試験条件が不適切だった説明を強く支持する。初回baseline ID未保存のため、差分がbridgeだけだったことや全既存資源保全は未確定。元Failは保持。標準Engine資源の世代、今回exact所有資源不存在、既存利用者資源保全を分けて観測する候補とし、全一覧条件の単純削除・eventsだけで不存在判定はしない |
+
+原因解釈の限定独立確認は指摘解消済み。調査用二Sourceと自己生成Lock Rootは回収し、製品Source・設定は変更していない。新しいRecovery、Registry、Lock Framework、試験再実行は追加しない。
+
+#### 監視数警告・一覧比較の限定是正（2026-10-18）
+
+人間が二点の是正・局所試験・回帰を許可した。内部Lock Workerのstdioを親Consoleへ自動pipeせず明示消費する方式へ変更した。共有状態ACK、error／exit通知、既存Lockの取得・解放・回復条件は維持し、固定sleep・監視上限変更・新しい管理機構は追加していない。同期11回の実Lock試験で親stderr監視数が増えないことを確認した。これを全Workerの恒久漏れ不存在証明へ拡張しない。
+
+検証入口は`workbench-server/scripts/verify-readonly-ai.ts`へ固定した。別許可済みの一Provider・固定質問・Context一件だけを扱い、通常回帰では実AIを起動しない。Docker比較は標準NetworkのID差を専用診断へ分離し、捕捉構成・利用者資源・個別cleanupと前後idleを独立評価する。Hash対象fieldの欠落・異型は非成功、正常nullは区別する。試験器自身の前後照合は検証Root・Revision・Context Hash・Profileに限定し、Git子Processを使用しない。既存Workbenchの安全なGit読取りは維持し、全Repository／indexの不変は主張しない。今回、実AI・実Dockerの再試験は行っておらず、先行Codexの元Failは変更しない。
+
+| 確認 | 結果と限界 |
+|---|---|
+| 局所 | Domain Lock 13件、Coordinator Lock／終了29件、試験器4件が成功。回帰で判明した模擬Workerのstdio追従不足は代役だけ修正し、Process安全6件（内部10故障モード）も成功。合計52件。取得失敗・timeout・error／exit・cleanup Oracleを緩めていない |
+| 静的確認・独立確認 | 関連Packageのformat／型／lintを確認。技術・品質の限定独立再レビューは是正後残指摘0。文書のGit非使用主張も試験器自身へ限定した |
+| Workbench回帰 | Build・静的確認と全64件成功。局所HTTPが制限環境で接続前拒否されたため、通常環境で再実行し成功した。外部AI・Docker操作・資格は使用しない |
+| Domain回帰 | 全123件中122成功・1失敗。Runtime保存Consumerの配置チェック8指摘は、自変更をHEADへ戻したメモリ上の比較でも同一であり既存不整合。今回scopeへ混入させない |
+| Coordinator回帰 | 公開`npm test`のportable回帰を最後まで実行しexit1。Host Windows専用集合・実Provider E2Eの成功は主張しない。修正前のPoison代役失敗は上記局所再確認で解消したが、修正後の全回帰を再実行したとはしない。既存2失敗は下表に保持する |
+
+| 既存回帰残件 | 確認した内容 |
+|---|---|
+| 保存先Consumerチェック | `storage-consumer-closure.integration.test.ts`。新Workspace経路4ファイルに由来するraw-root／root-literal／未登録workspacesの計8指摘。今回変更前にも同じ結果 |
+| Single Task有限結果 | `orchestrator-execution.contract.test.ts`のPR-N-01。先行Workspace接続で必須になった`workspaceResult`を旧completion代役が返さない。有限startTaskは今回変更したWorker生成を呼ばない。安全条件の緩和ではなく別の試験追従が必要 |
+| Core Source母集団 | `orchestrator-platform-independence.contract.test.ts`。基準HEADにも存在するTask／Workspaceの6ファイルが旧分類表にない。import辺評価前の母集団不一致であり、全件を一律pureへ追加して通さない |
+
+今回の二是正は局所・独立確認済みだが、全回帰成功・実Provider再確認・全E2E成立ではない。実行別Evidence書庫は増やさず、この要約と既存Ownerの履歴だけを保持する。
+
+#### Workspace関連3件の是正と回帰（2026-10-18）
+
+人間の指示により上記3件を是正した。基準Commitは`0dac1529f51cbbb424800a702014eb9482c13a36`で、先行する監視数警告・一覧比較の未コミット是正を含む作業ツリーを対象とした。新しいState、Registry、Lock、監視Process、Recovery機構は追加していない。
+
+| 対象 | 是正内容 |
+|---|---|
+| 保存先Consumer | Domain Modelへ既存Worktree領域の名前付き定義を追加。物理配置はVersion Controlが所有し、上位は既存の配置観測結果を利用する。Coordinatorの保護用Directory準備は既存Domain保存処理へ集約し、内部Rootを公開しない。観測時の作成なし、準備時の空Directoryのみ、file・link・観測不能時の拒否を試験した |
+| Single Task有限結果 | 既存Direct実行契約のWorkspace完了結果を試験代役へ補い、実際の引数・返却条件を確認した。全回帰で見つかったComposition側の同型代役も追従し、同File全10件成功。製品の完了判定は緩めていない |
+| Core Source母集団 | Task／Workspaceの6ファイルを実際の依存責務に基づき分類した。未知Source・不正import辺の拒否を維持する。固定export一覧・検証Toolの実Consumer一覧も現行APIへ追従した |
+
+| 回帰範囲 | 結果と限界 |
+|---|---|
+| Domain Model | 公開試験123件すべて成功 |
+| Version Control | 公開試験64件すべて成功 |
+| Orchestrator | 公開試験UT75件・IT37件すべて成功 |
+| Workbench Server | Build・静的確認を含む公開試験64件すべて成功 |
+| MCP Server | 公開試験89件すべて成功 |
+| Coordinator全回帰 | portable集合を最後まで実行。全1,923件中1,910成功・8失敗・5対象外、取消0、exit1、約17分5秒。8失敗中1件は上記Composition代役で、是正後の同File10件成功と区別する。残る7件は未解消であり、全回帰Passとしない |
+| Coordinatorの残る7件 | Queue取消試験の初期状態保存1件、Git配置識別5件、操作領域の実体識別1件。取消処理到達前の準備拒否や実体識別取得の拒否を観測したが、共通原因・今回変更との因果は未確定。識別条件は変更していない |
+| 局所診断 | Git配置・操作領域の同じ25件は通常実行で成功した一方、全回帰と同じ実行設定では一度5件失敗した。その後の設定再照合・非改変の識別観測付き実行は25件成功し、異常metadataは捕捉できなかった。合成3,072観測も正常。局所成功を間欠失敗の解消や既存不具合の証明へ読み替えない |
+| 独立確認 | 技術・品質の限定再レビューは是正後残指摘0。残る7件を未解消とする評価を維持し、識別確認の緩和・根拠のないTimeout延長・管理機構追加は行わない |
+
+Coordinatorの書式・型・Lintと追跡検査は成功し、Lintの既知情報64件はerror／warningではない。Composition代役の最終変更後にも型・書式・Lintを再確認した。実AI依頼、Docker操作、資格使用、Commit・Pushは行っていない。正式QA全体の成立数やRelease判断は変更しない。次の確認対象は残る7件の最初の拒否原因であり、原因未確定のまま安全条件を弱めない。
+
+#### Windows実体識別の限定是正と回帰（2026-10-18）
+
+人間が残る7件の調査・最小是正・回帰を許可した。試験用File一件で、Node v24.19.0のBigInt inodeは`-6998593820933646654`、Windows標準照会は`0x9ee00000000196c2`だった。同じ64bit列を符号なし値へ直すと`11448150252775904962`でWindows IDと完全一致する。実Nodeのstat配列も`BigInt64Array`だった。[libuvのstat型](https://docs.libuv.org/en/v1.x/fs.html#c.uv_stat_t)はinodeを`uint64_t`としている。正常な上位bit付きIDを負値という理由だけで拒否する欠陥を確認した。Number変換・絶対値化は使わない。
+
+| 処置 | 内容と維持した条件 |
+|---|---|
+| 最小補正 | VCのGit配置識別、Domainの上限付き保存Reader、Coordinator所有領域のDirectory／File／descriptorの計5取得点で、Windowsのbigintかつ`-2^63 ≤ ino < 0`だけを同じ64bit列の符号なし値へ正規化。型不正・ゼロ・下限逸脱・POSIX負値・型・link・dev・birthtime・容量・途中変更・別IDを引き続き拒否する |
+| 保存・利用側 | 従来の正値と保存済み記録は不変更。Schema・移行Reader・State・Registry・Lock・Recoveryを追加しない。Orchestrator試験準備では既存の固定失敗理由をassertionへ保持した |
+| 反証 | 負値を与えた実Reader三経路は修正前3件失敗、修正後成功。5取得点の実本文でOS別・符号境界・不正型・欠測・link等を確認。実Readerの別ID拒否、操作作成・再検証・回収、保存・再読・開始前取消まで計5試験を接続した |
+| 実観測と限界 | 実在する負inodeのmetadataを補正済みVC関数へ渡してもWindows IDと一致し、dev・birthtimeは不変だった。元7失敗の各metadataは未捕捉であり、過去すべての原因が同一だったとは断定しない。観測済み同型欠陥の反証と今回全回帰の成功を現在の是正根拠とする |
+
+| 公開回帰 | 最終結果 |
+|---|---|
+| Coordinator | portable全1,927件：1,922成功・失敗0・取消0・対象外5、exit0、1,172,872ms。元7件と追加4件を含む。実AI・Docker試験やHost専用集合の成功ではない |
+| Domain Model | 124／124成功、44,998ms |
+| Version Control | 64／64成功、114,734ms。先行63成功・1失敗は機能確認後の試験Root清掃EPERM。空・非使用を確認した当該Rootだけ非再帰で回収し、Source・合否条件を変えず全回帰を再実行した。元Failは保持する |
+| Orchestrator | UT75／75成功、IT37／37成功（IT531,795ms） |
+| Access Management | 共通保存Readerの直接利用側152／152成功、224,283ms |
+| MCP Server | 89／89成功、211,581ms |
+| Workbench Server | Build・静的確認と64／64成功、275,128ms |
+| 静的・独立確認 | 書式・型・LintとCoordinator追跡検査は成功。既知Lint情報64件はerror／warningではない。技術・品質の限定独立レビューは残指摘0 |
+
+製品Sourceは回帰中不変更。基準HEADは`0dac1529`、先行Tool二ファイルを除く`40_Develop`対HEAD差分Hashは`a222ad39d04c73bd6c35ae49f77bce8994400ebe`で開始・終了時に一致。二ファイルのSHA-256も先行固定値から不変だった。ステージ操作を内容変更と混同せず、こちらからCommit・Pushはしていない。
+
+横断調査で見つけたProbe記録、Docker IsolationのCLI／回収／退避、Platform Accessの別Readerには未評価の同型判定候補がある。各Package Ownerが実障害または当該領域改修時に再評価する。今回5取得点との直接Identity受渡し不整合は確認されず、一斉修正を混入させない。Probe Writerには記録作成後の拒否もあり得るため、単なる拒否をEffect 0や清掃成立と表示しない。全Windows経路対応済みとは主張しない。
+
+実AI・Docker操作・実資格使用、新管理機構、実行別Evidence書庫は追加していない。正式198項目の全数評価、実Provider全E2E、人間UAT・移行・Release判断は別に残す。

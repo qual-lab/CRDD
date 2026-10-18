@@ -9,6 +9,7 @@
  * @boundary 試験用差替え→Runtime拒否契約。実Providerや外部Processの正常実行は証明しない。
  */
 import childProcess from "node:child_process";
+import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
 import fs from "node:fs";
 import { syncBuiltinESMExports } from "node:module";
@@ -62,11 +63,19 @@ type Listener = (value: unknown) => void;
 class FixtureWorker {
   readonly listeners = new Map<string, Listener>();
   readonly state: Int32Array;
+  readonly stdout = { resume() {} };
+  readonly stderr = { resume() {} };
 
   constructor(
     _filename: URL,
-    options: Readonly<{ workerData?: Readonly<{ state?: SharedArrayBuffer }> }>,
+    options: Readonly<{
+      workerData?: Readonly<{ state?: SharedArrayBuffer }>;
+      stdout?: boolean;
+      stderr?: boolean;
+    }>,
   ) {
+    assert.equal(options.stdout, true);
+    assert.equal(options.stderr, true);
     this.state = new Int32Array(
       options.workerData?.state ?? new SharedArrayBuffer(4),
     );

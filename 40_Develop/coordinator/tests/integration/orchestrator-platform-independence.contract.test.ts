@@ -147,6 +147,7 @@ const SOURCE_ROLES = {
     "task/executor.ts",
     "task/observer.ts",
     "task/recovery.ts",
+    "task/single-task-record.ts",
   ],
   workflow: [
     "activity/read.ts",
@@ -160,6 +161,7 @@ const SOURCE_ROLES = {
     "state/query.ts",
     "task/dispatch.ts",
     "task/settle-docker-recovery.ts",
+    "workspace/record.ts",
   ],
   adapter: [
     "candidate/integration-adapter.ts",
@@ -173,6 +175,10 @@ const SOURCE_ROLES = {
     "task/host-adapter.ts",
     "task/intelligence-adapter.ts",
     "task/recovery-adapter.ts",
+    "task/request-composition.ts",
+    "task/requests.ts",
+    "workspace/commands.ts",
+    "workspace/operations.ts",
   ],
   storage: [
     "storage/current-state.ts",

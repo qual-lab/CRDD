@@ -32,7 +32,7 @@ Version ControlのWorktree管理に続き、名前付きCandidateの明示固定
 
 | 残件 | 影響・処置 | Owner Relation |
 |---|---|---|
-| 回帰 | 本Packageの回帰・是正・独立レビューは完了。実Provider全E2Eと後続改修の回帰は今回結果で代替しない | [変更計画](99_Roadmap/Changes/CHG-000082/second-stage-plan.md) |
+| 回帰 | Workspace関連3件と実体識別の同型欠陥を是正。Coordinatorは1,922成功・失敗0・対象外5、関連6Packageも全回帰成功。実Provider全E2E・正式QA全数評価・移行の成功へは換算しない | [今回の回帰](99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#windows実体識別の限定是正と回帰2026-10-18) |
 | 文書・工程の全体検査 | 全Repository Checkerは3,341件のエラーで不合格。Changes内リンク等3,321件とIA／UI／SPEC工程契約20件。Changes外の現行リンク切れは0件だが、歴史Evidence・今回差分への影響の分類は未完了 | [変更計画と検査の範囲](99_Roadmap/Changes/CHG-000082/second-stage-plan.md) |
 | 整理後の実境界接続 | 上位接続の限定整理は確認済み。自動破棄保存前の中断から明示保持し、同じstateで新Taskへ接続する限定Caseと同File全16件が成功。新しい共有State・Registry・Lock・Recovery Frameworkは追加しない | [隔離設計](06_Architecture/Details/docker-isolation/01_Architecture.md)、[保存設計](06_Architecture/Details/domain-model/03_Repository_Storage.md) |
 | 実境界 | 実Docker五資源・未起動認証構成・fresh回収・認証create不明の限定終了・公式Imageの版／三Hash／隔離を確認。009はWSL保守後に同ID正式終了。030は実Ctrl+Cとreviewer準備中の親喪失を元IDの回収・待ち0まで確認。Windows自動削除・汎用WSL fallback・executor実行中の親喪失・実Provider全E2Eは主張しない | [検証計画](99_Roadmap/Changes/CHG-000082/second-stage-plan.md)、[実行手順](19_Workflows/01_Coordinator_Runtime.md) |
@@ -41,13 +41,13 @@ Version ControlのWorktree管理に続き、名前付きCandidateの明示固定
 
 ## 3. 今、人間が決めることは何か
 
-今回の退避物はWSL限定保守と同ID正式終了まで確認済み。公開Taskの実Ctrl+C、reviewer準備中のCLI親喪失とも、元IDで資源回収・履歴・正式Readerの待ち0まで確認した。親喪失をexecutor実行中の成立へ拡張しない。再認証の技術構築・旧Docker環境profile・試験結合漏れを是正し、DIの完成条件へ現在の回帰・実測・独立レビューを照合した。一般Recovery拡張・追加再起動・記録手編集はしない。現在、追加の人間判断は必要ない。
+今回の退避物はWSL限定保守と同ID正式終了まで確認済み。公開Taskの実Ctrl+C、reviewer準備中のCLI親喪失とも、元IDで資源回収・履歴・正式Readerの待ち0まで確認した。親喪失をexecutor実行中の成立へ拡張しない。再認証の技術構築・旧Docker環境profile・試験結合漏れを是正し、DIの完成条件へ現在の回帰・実測・独立レビューを照合した。一般Recovery拡張・追加再起動・記録手編集はしない。承認済みのClaude単独一回は終了・回収まで成功し、現在追加の人間判断は必要ない。
 
 | 対象 | 現在の判断・許可境界 |
 |---|---|
 | Docker隔離と簡素化 | 使い捨てと最小管理へ簡素化する方針は承認済み |
 | 実境界の評価 | 009と030の今回の観測を正式義務へ限定接続する。未観測の全異常枝や全Provider経路のPassへ拡張しない。追加の故意破損・Provider依頼・再起動は予定しない |
-| 実Docker再起動・外部AIへの新しい依頼 | 対象・影響・送信範囲を確定した時点で必要な許可を確認。過去の一回承認を流用しない |
+| 実Docker再起動・外部AIへの新しい依頼 | 監視数警告・一覧比較・Workspace関連3件に続き、Windowsの正常な64bit File IDの負数表現を拒否する欠陥を限定是正した。Coordinator1,922件成功・失敗0・対象外5、Domain124件・VC64件・Orchestrator UT75件／IT37件・AM152件・Workbench64件・MCP89件も成功。限定独立レビュー残指摘0。元7失敗の各metadataは未捕捉であり同一原因の断定とは区別する。実AI・Docker再試験は未実施で、先行Codexの元Failとbaseline欠測も保持する。追加依頼・再起動は自動実行しない。[是正・回帰結果](99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#windows実体識別の限定是正と回帰2026-10-18) |
 | 初回設定・鍵操作の実入口と人間UAT | 後続E2Eで確認する |
 | 最終統合・版・期限・リリース | 今回の局所結果から決定しない |
 

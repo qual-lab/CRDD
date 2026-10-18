@@ -188,7 +188,15 @@ export function createRuntimeLocalTypeScriptWorker(
   if (options.eval === true)
     throw new Error("runtime_local_typescript_child_worker_eval_forbidden");
   const entrypoint = entrypointFor(role, "worker");
-  return new Worker(new URL(entrypoint.relativePath, import.meta.url), options);
+  // worker kindはLock用途だけ。状態／error／exitを維持し、Console pipeを持たせない。
+  const worker = new Worker(new URL(entrypoint.relativePath, import.meta.url), {
+    ...options,
+    stdout: true,
+    stderr: true,
+  });
+  worker.stdout.resume();
+  worker.stderr.resume();
+  return worker;
 }
 
 /**

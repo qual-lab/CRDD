@@ -65,6 +65,54 @@ function makeGitDirectory(target: string) {
 }
 
 /**
+ * Windowsの符号付きstat値から同じ64bit File IDを識別する。
+ * @responsibility 上位bit付きIDの受理と別実体の拒否を実Readerで確認する。
+ * @trace RFD-IT-001
+ * @precondition 自己生成RepositoryとWindowsのstat表現を使用する。
+ * @stimulus lstat／fstatに同じ負の64bit表現を返し、その後fstatだけ別IDへ変える。
+ * @observation Layout候補の状態を観測する。
+ * @oracle 同じIDは候補、別ID・ゼロ・範囲外は拒否する。
+ * @cleanup mockを復元し自己生成Rootを回収する。
+ * @boundary Version Control Reader→Filesystem。
+ */
+test("Windowsの上位bit付きFile IDは同一性を保ち欠測・差替えを拒否する", {
+  skip: process.platform !== "win32",
+}, (t) => {
+  const repositoryRoot = temporaryRoot(t);
+  makeGitDirectory(path.join(repositoryRoot, ".git"));
+  let invalid: bigint | null = null;
+  let changed = false;
+  for (const name of ["lstatSync", "fstatSync"] as const) {
+    const original = fs[name];
+    t.mock.method(fs, name, (...args: unknown[]) => {
+      const metadata = Reflect.apply(original, fs, args) as fs.BigIntStats;
+      if (typeof metadata.ino === "bigint") {
+        metadata.ino = invalid ?? BigInt.asIntN(64, metadata.ino | (1n << 63n));
+        if (changed && name === "fstatSync") metadata.ino ^= 1n;
+      }
+      return metadata;
+    });
+  }
+  assert.equal(
+    inspectGitRepositoryLayoutCandidate({ repositoryRoot }).status,
+    "candidate",
+  );
+  changed = true;
+  assert.equal(
+    inspectGitRepositoryLayoutCandidate({ repositoryRoot }).status,
+    "blocked",
+  );
+  changed = false;
+  for (const value of [0n, -(1n << 63n) - 1n]) {
+    invalid = value;
+    assert.equal(
+      inspectGitRepositoryLayoutCandidate({ repositoryRoot }).status,
+      "blocked",
+    );
+  }
+});
+
+/**
  * 通常worktreeのcommon metadata候補をPath非保持で識別するを検証する。
  *
  * @responsibility 通常worktreeのcommon metadata候補をPath非保持で識別するの合否判定を所有する。

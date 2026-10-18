@@ -350,10 +350,8 @@ function fixture(
   const root = fs.mkdtempSync(path.join(tests, "project-execution-"));
   execFileSync("git", ["init", "--quiet", root], { windowsHide: true });
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
-  assert.equal(
-    initializeOrchestratorSnapshot(root, "binding-a").status,
-    "completed",
-  );
+  const initialized = initializeOrchestratorSnapshot(root, "binding-a");
+  assert.equal(initialized.status, "completed", initialized.reason);
   const created = createOrchestratorState({
     projectId: "project-a",
     milestoneId: "milestone-a",
@@ -366,22 +364,18 @@ function fixture(
   });
   assert.equal(created.status, "completed");
   if (created.status !== "completed") throw new Error("fixture_failed");
-  assert.equal(
-    writeOrchestratorState(root, "binding-a", created.state, 0).status,
-    "completed",
-  );
-  assert.equal(
-    enqueueProjectOperation(root, "binding-a", {
-      queueId: "queue-a",
-      projectId: "project-a",
-      milestoneId: "milestone-a",
-      requestHash: hash("request"),
-      originLane: "interactive",
-      repositoryRevision: revision,
-      scopeHash: hash("scope"),
-    }).status,
-    "completed",
-  );
+  const saved = writeOrchestratorState(root, "binding-a", created.state, 0);
+  assert.equal(saved.status, "completed", saved.reason);
+  const queued = enqueueProjectOperation(root, "binding-a", {
+    queueId: "queue-a",
+    projectId: "project-a",
+    milestoneId: "milestone-a",
+    requestHash: hash("request"),
+    originLane: "interactive",
+    repositoryRevision: revision,
+    scopeHash: hash("scope"),
+  });
+  assert.equal(queued.status, "completed", queued.reason);
   const input = {
     workingDirectory: root,
     repositoryBindingId: "binding-a",
@@ -606,8 +600,21 @@ test("PR-N-01 uses the existing Single Task adapter without widening its authori
       runSingleTaskAttempt: (attempt) =>
         runOrchestratorSingleTaskAttempt(
           {
-            startTask: (_request, _root, _correlation, notifyStarted) => {
+            startTask: (
+              _request,
+              _root,
+              _correlation,
+              notifyStarted,
+              workspaceTarget,
+            ) => {
               starts += 1;
+              assert.deepEqual(workspaceTarget, {
+                workspaceId: null,
+                ownerRepositoryRoot: attempt.ownerRepositoryRoot,
+                executionTree: attempt.executionTree,
+                baseCommit: null,
+                head: null,
+              });
               return {
                 status: "started",
                 controlCapability: {},
@@ -625,6 +632,14 @@ test("PR-N-01 uses the existing Single Task adapter without widening its authori
                   return {
                     status: "completed",
                     reason: "coordinator_task_completed",
+                    canonicalRepositoryChanged: false,
+                    workspaceResult: {
+                      workspaceId: null,
+                      changedPaths: [],
+                      canonicalRepositoryChanged: false,
+                      changeAttribution: "unattributed",
+                      workspaceDeletionIssued: false,
+                    },
                     cleanupConfirmed: true,
                     manualRecoveryRequired: false,
                     processRestartRequired: false,
@@ -1421,6 +1436,51 @@ test("PR-Q-04 cancels before Task effect and releases durable ownership", async 
     queue.status === "completed" && queue.value.ownerGeneration,
     null,
   );
+});
+
+/**
+ * Windowsの符号付きFile IDでも状態保存・再読・開始前取消を維持する。
+ * @responsibility 共通保存Readerの補正を実Orchestratorの終了条件へ接続する。
+ * @trace PRL-IT-012
+ * @precondition 自己生成Repository・既存Snapshot・Queueを使用する。
+ * @stimulus lstat／fstatを符号付き64bit表現にし取消済み要求を実行する。
+ * @observation 保存・再読結果、Task Effect数、Queue終端・Owner解放を確認する。
+ * @oracle 取消済みとなりTask Effect0、Queue cancelled、Ownerなし。
+ * @cleanup mockを復元し自己生成Repositoryを回収する。
+ * @boundary Orchestrator→Domain保存Reader→Filesystem。
+ */
+test("Windowsの上位bit付きIDでも状態保存・再読と開始前取消が成立する", {
+  skip: process.platform !== "win32",
+}, async (t) => {
+  for (const name of ["lstatSync", "fstatSync"] as const) {
+    const original = fs[name];
+    t.mock.method(fs, name, (...args: unknown[]) => {
+      const metadata = Reflect.apply(original, fs, args) as fs.BigIntStats;
+      if (typeof metadata.ino === "bigint")
+        metadata.ino = BigInt.asIntN(64, metadata.ino | (1n << 63n));
+      return metadata;
+    });
+  }
+  const { root, input } = fixture(t, [task("task-a")], 1);
+  const controller = new AbortController();
+  controller.abort();
+  let effects = 0;
+  const outcome = await runOrchestratorOperation(
+    {
+      runSingleTaskAttempt: async (attempt) => {
+        effects += 1;
+        return completed(attempt);
+      },
+    },
+    { ...input, cancellationSignal: controller.signal },
+  );
+  assert.equal(outcome.status, "cancelled", outcome.reason);
+  assert.equal(effects, 0);
+  const queue = readProjectOperationQueueState(root, "binding-a", "queue-a");
+  assert.equal(queue.status, "completed", queue.reason);
+  if (queue.status !== "completed") throw new Error("queue_read_failed");
+  assert.equal(queue.value.state, "cancelled");
+  assert.equal(queue.value.ownerGeneration, null);
 });
 
 /**

@@ -80,6 +80,7 @@ const ALLOWED_TOP_LEVEL_AREAS = new Set([
   "coordinator",
   "execution-intelligence",
   "candidates",
+  "workspaces",
   "release",
   "communication",
   "tests",
@@ -190,12 +191,17 @@ function violations(sources: SourceSet): string[] {
       findings.push(`raw-root:${item}`);
     // Topic探索の固定除外式はPath構築ではない。同Fileの他のliteralは免除しない。
     const rootLiteralSource =
-      item === "40_Develop/domain-model/src/storage/topic-meeting-store.ts"
+      item === "40_Develop/version-control/src/git/worktree-management.ts"
         ? source.replace(
-            '[".git", ".crdd", "node_modules"].includes(entry.name)',
-            "repositoryExplorationExclusion",
+            '[".crdd", ".crdd/workspaces"]',
+            "versionControlWorkspaceParents",
           )
-        : source;
+        : item === "40_Develop/domain-model/src/storage/topic-meeting-store.ts"
+          ? source.replace(
+              '[".git", ".crdd", "node_modules"].includes(entry.name)',
+              "repositoryExplorationExclusion",
+            )
+          : source;
     if (
       !SEMANTIC_ROOT_LITERAL_OWNERS.has(item) &&
       /["'](?:\.crdd|crdd)["']/u.test(rootLiteralSource)
@@ -219,7 +225,7 @@ function violations(sources: SourceSet): string[] {
       ),
     ].flatMap((match) => (match[1] ? [match[1]] : []));
     const properties =
-      "config|orchestrator|coordinator|executionIntelligence|verification|candidates|release|communication|tests|temporary";
+      "config|orchestrator|coordinator|executionIntelligence|verification|candidates|workspaces|release|communication|tests|temporary";
     if (
       pathSets.some((name) =>
         new RegExp(
@@ -356,6 +362,20 @@ test("本番Runtime Data Consumer集合は公開された名前付き境界だ�
  */
 test("新規Componentのraw Root構築と名前付きPathの親再解釈を拒否する", () => {
   const sources = consumerSources();
+  const workspaceOwner =
+    "40_Develop/version-control/src/git/worktree-management.ts";
+  sources.set(
+    workspaceOwner,
+    `${sources.get(workspaceOwner)}\nconst unrelated = path.join(root, ".crdd", "other");`,
+  );
+  assert.ok(violations(sources).includes(`raw-root:${workspaceOwner}`));
+  assert.ok(violations(sources).includes(`root-literal:${workspaceOwner}`));
+  const upper = "40_Develop/orchestrator/src/workspace/commands.ts";
+  sources.set(
+    upper,
+    `${sources.get(upper)}\nconst duplicated = path.join(root, ".crdd", "workspaces");`,
+  );
+  assert.ok(violations(sources).includes(`raw-root:${upper}`));
   sources.set(
     "40_Develop/future-tool/src/consumer.ts",
     [

@@ -158,20 +158,29 @@ export function identity(
   metadata: fs.BigIntStats,
   expectedType: EntityType,
 ): EntityIdentity {
+  // Windowsの64bit File IDはNodeのBigInt64Arrayで負値になり得る。
+  const ino =
+    process.platform === "win32" &&
+    typeof metadata.ino === "bigint" &&
+    metadata.ino >= -(1n << 63n) &&
+    metadata.ino < 0n
+      ? BigInt.asUintN(64, metadata.ino)
+      : metadata.ino;
   const isTypeValid =
     expectedType === "file" ? metadata.isFile() : metadata.isDirectory();
   if (
     !isTypeValid ||
     metadata.isSymbolicLink() ||
+    typeof ino !== "bigint" ||
     metadata.dev <= 0n ||
-    metadata.ino <= 0n ||
+    ino <= 0n ||
     metadata.birthtimeNs <= 0n
   )
     throw new Error("repository_git_layout_invalid");
   return Object.freeze({
     type: expectedType,
     dev: metadata.dev,
-    ino: metadata.ino,
+    ino,
     birthtimeNs: metadata.birthtimeNs,
     size: metadata.size,
     mode: metadata.mode,

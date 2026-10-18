@@ -1,5 +1,7 @@
 # CRDD内部ツールの品質の現在状態
 
+Workspace回帰残件の局所是正では、Windowsの64bit File ID表現を5取得点で補正し、Coordinator portable回帰1,922成功・失敗0・対象外5と関連6Packageの全回帰成功を確認した。既存の安全拒否は維持し、限定独立レビュー残指摘0。[今回の対象と限界](../99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#windows実体識別の限定是正と回帰2026-10-18)を参照する。この件数を正式198 Local Itemの成立数や実Provider全E2E・移行・Release可能へ換算しない。
+
 Workspace方式の現設計集合は13定義・198 Local Item（RFD-IT-029を1件追加）。[追加統合](04_Quality_Integration.md#workspace方式の追加統合2026-10-17)と[新方式の検証計画](03_Verification_Design.md#workspace方式の段階別検証計画2026-10-17)へ接続した。新方式の検証結果は全件Not Run、既存197件時点の試験／Evidence・DI完成は基準対象に限定する。設計反映を実装・移行・全体Readyへ換算しない。以下の197等の件数はWorkspace追加前の対象として区別する。
 
 状態: Quality Design In Progress — Latest Contract Propagation

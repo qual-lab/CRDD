@@ -64,6 +64,7 @@ export {
 } from "./storage/root-and-lock.ts";
 export {
   createCoordinatorRuntimeDataArea,
+  checkRepositoryRuntimeDataProtectionDirectory,
   ensureRepositoryRuntimeDataArea,
   ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
 } from "./storage/ensure-area.ts";

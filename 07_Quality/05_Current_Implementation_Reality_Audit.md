@@ -1,5 +1,9 @@
 # 現行実装との照合
 
+2026-10-18のWorkspace回帰残件は、Windowsの正常な上位bit付きFile IDを負値として拒否する同型欠陥を5取得点で限定是正し、Coordinator portable全1,927件中1,922成功・失敗0・対象外5、関連6Packageも全回帰成功を確認した。元7失敗の個別metadataは未捕捉であり、過去の同一原因断定とは区別する。既存の安全条件・保存済み記録を維持し、新管理機構は追加していない。[調査・反証・回帰の範囲](../99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#windows実体識別の限定是正と回帰2026-10-18)を参照する。正式198項目の全体再評価、実Provider全E2E・移行・Releaseの成立へ換算しない。
+
+以下のWorkspace初期反映時の記述は当時の状態であり、現行の局所是正・回帰判定には上記の結果を用いる。正式Local Itemの全数再評価は別に残す。
+
 Workspace方式のArchitecture／Quality反映後は13定義・198 Local Item。新RFD-IT-029のSource／Test Symbol接続は0・Not Run、既存Local Itemへ追加した新方式条件もNot Run。現Sourceは基準`a04ecb70`のままであり、旧Host Candidate Store、Workspace未識別Queue、Workbench専用AI経路は[棚卸し](../99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md)の移行元として残る。新契約の実装済み・関係全件成立・実Git／Mount成立は主張しない。以下の197件・DI局所完成は基準対象の根拠である。
 
 2026-10-17の追加実測では、公開CLIの実Ctrl+Cと、executor完了後のreviewer準備中のCLI親喪失を別に確認した。親喪失で検出したReceipt保存中断と既回収Hostの先行記録終端を限定是正し、両元回復IDの正式終了、履歴、全排他解放、正式Reader revision72・操作0／未解決0／配送0を確認した。実Docker試験資源と合成Repository追跡差分は0。executor実行中の親喪失・公開JSONの成功を補完しない。009のWindows自動disposal失敗は承認済みWSL保守と同ID正式終了へ接続したが、自動回収・Continuation全枝の実証にはしない。

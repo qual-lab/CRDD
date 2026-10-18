@@ -1598,18 +1598,27 @@ function requireOwnedIdentity(value: object): OwnedIdentity {
  */
 function readFilesystemIdentity(root: string): FilesystemIdentity {
   const metadata = fs.lstatSync(root, { bigint: true });
+  // Windowsの64bit File IDはNodeのBigInt64Arrayで負値になり得る。
+  const ino =
+    process.platform === "win32" &&
+    typeof metadata.ino === "bigint" &&
+    metadata.ino >= -(1n << 63n) &&
+    metadata.ino < 0n
+      ? BigInt.asUintN(64, metadata.ino)
+      : metadata.ino;
   if (
     !metadata.isDirectory() ||
     metadata.isSymbolicLink() ||
+    typeof ino !== "bigint" ||
     metadata.dev <= 0n ||
-    metadata.ino <= 0n ||
+    ino <= 0n ||
     metadata.birthtimeNs <= 0n
   ) {
     throw new Error("owned_operation_directory_identity_unavailable");
   }
   return Object.freeze({
     dev: metadata.dev,
-    ino: metadata.ino,
+    ino,
     birthtimeNs: metadata.birthtimeNs,
   });
 }
@@ -1632,17 +1641,25 @@ function readFilesystemIdentity(root: string): FilesystemIdentity {
  */
 function readFileIdentity(target: string): FilesystemIdentity {
   const metadata = fs.lstatSync(target, { bigint: true });
+  const ino =
+    process.platform === "win32" &&
+    typeof metadata.ino === "bigint" &&
+    metadata.ino >= -(1n << 63n) &&
+    metadata.ino < 0n
+      ? BigInt.asUintN(64, metadata.ino)
+      : metadata.ino;
   if (
     !metadata.isFile() ||
     metadata.isSymbolicLink() ||
+    typeof ino !== "bigint" ||
     metadata.dev <= 0n ||
-    metadata.ino <= 0n ||
+    ino <= 0n ||
     metadata.birthtimeNs <= 0n
   )
     throw new Error("owned_operation_file_identity_unavailable");
   return Object.freeze({
     dev: metadata.dev,
-    ino: metadata.ino,
+    ino,
     birthtimeNs: metadata.birthtimeNs,
   });
 }
@@ -1665,16 +1682,24 @@ function readFileIdentity(target: string): FilesystemIdentity {
  */
 function readOpenFileIdentity(handle: number): FilesystemIdentity {
   const metadata = fs.fstatSync(handle, { bigint: true });
+  const ino =
+    process.platform === "win32" &&
+    typeof metadata.ino === "bigint" &&
+    metadata.ino >= -(1n << 63n) &&
+    metadata.ino < 0n
+      ? BigInt.asUintN(64, metadata.ino)
+      : metadata.ino;
   if (
     !metadata.isFile() ||
+    typeof ino !== "bigint" ||
     metadata.dev <= 0n ||
-    metadata.ino <= 0n ||
+    ino <= 0n ||
     metadata.birthtimeNs <= 0n
   )
     throw new Error("owned_operation_file_identity_unavailable");
   return Object.freeze({
     dev: metadata.dev,
-    ino: metadata.ino,
+    ino,
     birthtimeNs: metadata.birthtimeNs,
   });
 }

@@ -780,6 +780,8 @@ export function resolveOrchestratorWorkspaceTaskTarget(
   );
   if (
     git.status !== "completed" ||
+    git.workspaceId !== record.workspaceId ||
+    git.relativePath === null ||
     git.observation?.registered !== true ||
     !git.observation.directoryPresent ||
     git.observation.locked ||
@@ -794,13 +796,7 @@ export function resolveOrchestratorWorkspaceTaskTarget(
     value: {
       workspaceId: record.workspaceId,
       ownerRepositoryRoot,
-      executionTree: path.join(
-        ownerRepositoryRoot,
-        ".crdd",
-        "workspaces",
-        record.workspaceId,
-        "worktree",
-      ),
+      executionTree: path.join(ownerRepositoryRoot, git.relativePath),
       baseCommit: record.baseCommit,
       head: record.head,
     },

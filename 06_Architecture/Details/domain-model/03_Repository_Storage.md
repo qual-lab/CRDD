@@ -1,10 +1,20 @@
 # `.crdd` Runtime Dataの目標Architecture
 
-[Workspace配置契約](../orchestrator/03_Workspace.md#4-配置とroot解決)を新方式の目標として適用する。Repository Identity／Manifestと共通の配置解決は本領域、Workspace利用・寿命はOrchestrator。新`.crdd/workspaces/`と所属Repositoryを検証し、Tool RuntimeやWorktree内へRuntime正本を重複生成しない。以下の一般候補の配置は維持するが、コード変更候補の独自Bundle Storeは置換対象であり新しい常設Storeを作る指示ではない。Sourceの名前付き領域追加・探索除外・移行は未実施。
+[Workspace配置契約](../orchestrator/03_Workspace.md#4-配置とroot解決)に従い、Repository Identity／Manifestと共通の名前付き領域は本領域、Workspace利用・寿命はOrchestrator、Git Worktreeの物理配置はVersion Controlが所有する。`workspaces`を既存の名前付き領域集合へ含める。上位はVC観測のWorkspace ID・relativePath・登録・実体・HEADを照合し、配置文字列を再定義しない。Tool RuntimeやWorktree内へRuntime正本を重複生成しない。以下の一般候補の配置は維持するが、コード変更候補の独自Bundle Storeは置換対象であり新しい常設Storeを作る指示ではない。旧データ移行・全体実境界の完了は別に判定する。
+
+借用実行Treeの内部Directory保護は、既存`storage/ensure-area.ts`の`checkRepositoryRuntimeDataProtectionDirectory`へ委譲する。検証Root能力とobserve／prepareを受け、ready／absent／blockedだけを返しraw Rootは公開しない。observeは作成0、prepareは真正不存在の場合だけ空Directory一件を作り、既存内容・子領域・状態・Ignore・台帳・Lockを変更しない。link・File・観測不能は停止する。この空Mount先をWorktree内へのRuntime正本保存許可と扱わない。
 
 成果物種別: Architecture詳細設計
 詳細設計領域: domain-model（Repository保存）
 状態: Canonical
+
+### Lock Workerの標準入出力
+
+保存Lock Workerは共有状態による取得・解放ACKだけを応答経路とする。stdout／stderrは親Consoleへ自動pipeせず、生成したOwnerが各streamを消費する。Workerのerror／exitと既存の取得・解放期限は維持する。解放ACKはWorker内のEndpoint close完了であり、親側のexit／stdio終了とは区別する。親Threadの同期Atomics待機でexitを待たず、固定sleep・監視上限増加・新しい管理状態で警告を隠さない。
+
+### 保存ReaderのFile ID表現
+
+`storage/bounded-file-snapshot.ts`は、WindowsのNode BigInt statが返すinodeのうち`-2^63`以上・`-1`以下だけを、同じ64bit列の符号なし値へ正規化する。読取り前後のPathとdescriptorは同じ変換を使用し、IDそのものの比較を省略しない。ゼロ、型不正、下限逸脱、POSIXの負値、File型・link・dev・birthtime・容量・途中変更の拒否は維持する。既存の正値と保存済み記録は変更せず、新たな状態・移行Reader・排他を追加しない。Orchestratorの状態保存・再読はこのReaderへ接続する。
 
 ## 基本設計との関係
 

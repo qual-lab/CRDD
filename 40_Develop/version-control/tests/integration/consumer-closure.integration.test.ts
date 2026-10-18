@@ -480,6 +480,7 @@ test("Fixed SnapshotとFixed Revisionの既知Consumer集合が宣言と一致�
       "40_Develop/coordinator/src/repository-operation/binding.ts",
       "40_Develop/orchestrator/src/activity/read.ts",
       "40_Develop/orchestrator/src/task/request-composition.ts",
+      "40_Develop/workbench-server/scripts/verify-readonly-ai.ts",
     ],
   );
 });
@@ -591,6 +592,7 @@ test("Repository LocationとRepository-local Ignoreの既知Consumer集合が宣
       "40_Develop/verification-runner/src/regression/stages.ts",
       "40_Develop/visual-preview/src/server.ts",
       "40_Develop/workbench-server/bin/workbench-server.ts",
+      "40_Develop/workbench-server/scripts/verify-readonly-ai.ts",
       "40_Develop/workbench-server/src/project/surface.ts",
       "40_Develop/workbench-server/src/activity/observe.ts",
       "40_Develop/workbench-server/src/server.ts",
@@ -856,6 +858,7 @@ test("Local Change Setと用途別Named SymbolのConsumer集合が宣言と一�
       "40_Develop/visual-preview/src/server.ts",
       "40_Develop/orchestrator/src/workspace/commands.ts",
       "40_Develop/workbench-server/bin/workbench-server.ts",
+      "40_Develop/workbench-server/scripts/verify-readonly-ai.ts",
       "40_Develop/workbench-server/src/activity/observe.ts",
       "40_Develop/workbench-server/src/server.ts",
       "template/tools/crdd-mcp-server.ts",

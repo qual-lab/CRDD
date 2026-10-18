@@ -1,5 +1,7 @@
 # Coordinator Runtimeの実行アーキテクチャ
 
+Host操作領域のDirectory・File・descriptor識別は、WindowsのNode BigInt statが返す`-2^63 ≤ ino < 0`だけを同じ64bit列の符号なし値へ揃えてから比較・保存する。ゼロ・型不正・範囲外・POSIX負値・型・link・dev・birthtimeの既存拒否と、元操作の作成・再検証・回収条件は維持する。保存済み正値・履歴・回復参照は読み替えず、補正のための新状態・回復経路を追加しない。
+
 [Workspace再編の目標責務](../orchestrator/03_Workspace.md#3-packageの責務と依存方向)により、本領域は単発AIの調整・取消・通知・結果返却へ縮小する。通常実行はOrchestrator経由とし、業務永続状態・Workspace／Candidate寿命・採用・Promotionを所有しない。以下の現行state・Bundle Store・workbench-ai・Host相関は移行元であり、対応能力の接続前に撤去しない。DI完成を新Workspace借用の検証済み根拠にしない。具体切替・API・Schemaは未完了。
 
 ## 単発Workbench依頼の終了相関（2026-10-18、実装・検証中）

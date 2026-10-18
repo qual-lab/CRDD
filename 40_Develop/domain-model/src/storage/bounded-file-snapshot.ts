@@ -45,11 +45,20 @@ export type StableFileIdentity = Readonly<{
  * @concurrency N/A: identityは共有非同期状態を持たない同期処理である。
  */
 function identity(metadata: fs.BigIntStats, maximumBytes: number) {
+  // Windowsの64bit File IDはNodeのBigInt64Arrayで負値になり得る。
+  const ino =
+    process.platform === "win32" &&
+    typeof metadata.ino === "bigint" &&
+    metadata.ino >= -(1n << 63n) &&
+    metadata.ino < 0n
+      ? BigInt.asUintN(64, metadata.ino)
+      : metadata.ino;
   if (
     !metadata.isFile() ||
     metadata.isSymbolicLink() ||
+    typeof ino !== "bigint" ||
     metadata.dev <= 0n ||
-    metadata.ino <= 0n ||
+    ino <= 0n ||
     metadata.birthtimeNs <= 0n ||
     metadata.size <= 0n ||
     metadata.size > BigInt(maximumBytes)
@@ -57,7 +66,7 @@ function identity(metadata: fs.BigIntStats, maximumBytes: number) {
     throw new Error("bounded_file_snapshot_invalid");
   return Object.freeze({
     dev: metadata.dev,
-    ino: metadata.ino,
+    ino,
     birthtimeNs: metadata.birthtimeNs,
     ctimeNs: metadata.ctimeNs,
     mtimeNs: metadata.mtimeNs,

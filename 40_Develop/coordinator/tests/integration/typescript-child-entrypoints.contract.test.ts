@@ -10,10 +10,50 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
+import { randomUUID } from "node:crypto";
 import {
   createRuntimeLocalTypeScriptWorker,
   spawnRuntimeLocalTypeScriptChild,
 } from "../../src/host-execution/typescript-child-entrypoints.ts";
+
+/**
+ * Lock Workerのstdio分離はerror／exit通知を失わない。
+ * @trace ERB-IT-002
+ * @precondition 固定Workerへ不正な共有状態だけを渡す。
+ * @stimulus Worker内の入力例外を起こす。ProviderとDockerは使用しない。
+ * @observation 親stderr監視数、errorとexit。
+ * @oracle Console pipeは増えず、Worker errorと非0終了を取得できる。
+ * @cleanup Workerのexitまで待つ。
+ * @boundary Worker stdio分離と親への失敗通知。
+ */
+test("Lock Workerは親Consoleへpipeせず実errorとexitを通知する", async () => {
+  const errors = process.stderr.listenerCount("error");
+  const closes = process.stderr.listenerCount("close");
+  const worker = createRuntimeLocalTypeScriptWorker(
+    "candidate_store_lock_worker",
+    {
+      stdout: false,
+      stderr: false,
+      workerData: {
+        pipeName: `\\\\.\\pipe\\CRDD.Test.${randomUUID()}`,
+        state: null,
+      },
+    },
+  );
+  assert.equal(process.stderr.listenerCount("error"), errors);
+  assert.equal(process.stderr.listenerCount("close"), closes);
+  let errorObserved = false;
+  worker.once("error", () => {
+    errorObserved = true;
+  });
+  const code = await new Promise<number>((resolve) =>
+    worker.once("exit", resolve),
+  );
+  assert.equal(errorObserved, true);
+  assert.notEqual(code, 0);
+  assert.equal(process.stderr.listenerCount("error"), errors);
+  assert.equal(process.stderr.listenerCount("close"), closes);
+});
 
 /**
  * 子ProcessとWorkerの不正な要求を生成前に拒否する。

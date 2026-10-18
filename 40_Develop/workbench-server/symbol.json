@@ -4,6 +4,20 @@
   "subsystem": "workbench-server",
   "symbols": [
     {
+      "symbolId": "workbench.verification.readonly-cli",
+      "kind": "file",
+      "path": "scripts/verify-readonly-ai.ts",
+      "archIds": ["ARCH-000015"]
+    },
+    {
+      "symbolId": "workbench.test.integration.ai-verification",
+      "kind": "test-suite",
+      "path": "tests/integration/ai-verification.contract.test.ts",
+      "qaIds": ["QA-000006"],
+      "localTestIds": ["ERB-IT-021"],
+      "verifies": ["workbench.verification.readonly-cli"]
+    },
+    {
       "symbolId": "workbench.presentation.workspace-panel",
       "kind": "file",
       "path": "src/browser/workspace-panel.tsx",
