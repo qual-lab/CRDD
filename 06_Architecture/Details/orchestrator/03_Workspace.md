@@ -217,7 +217,7 @@ Workspace編集の本番構成は既存Hostの初回外部送信同意を維持�
 
 公開結果は本文欠測、元の実行状態・一次失敗、cleanup、回復参照、保存／解放の副次失敗を区別する。取消は下位終了をjoinした後に再認可し、失効時は本文・対象詳細を返さない。Workbenchの一件表示では実行中の次受付を拒否し、元の取消対象を失わない。共有利用は資格・RepositoryごとにProcess内のOwnerを分離する。活動投影の単発項目はProject計画のMilestone／Task件数とは別に表示する。
 
-今回撤去するのはWorkbench専用の旧Request台帳、変更Bundle Executor、Bundle確認・採用・破棄のConsumerである。Project計画のObjective／Milestone進行と既存Bundle統合の本番能力はこの置換だけを理由に削除しない。旧Project計画経路を新Workspaceの実行・採用成立の根拠には使わず、その全面再編は別の対応範囲として保持する。
+単発経路の置換で撤去するのはWorkbench専用の旧Request台帳、変更Bundle Executor、Bundle確認・採用・破棄のConsumerである。Project計画のObjective／Milestone進行は維持する。計画の旧Bundle本番統合は単発経路の成功だけを理由に撤去せず、後続の「複数Task計画のWorkspace集約」で利用側を切り替える。旧Project計画経路を新Workspaceの実行・採用成立の根拠には使わず、旧専用Store等の全面撤去は移行確認まで区別する。
 
 この表は目標契約であり、Source・Reader・公開入口の全接続と検証が完了するまでは置換完了としない。
 
@@ -273,7 +273,11 @@ Task完了、結果配送、再入場又は旧`adoptResult`指定を、自動Com
 
 Isolatedの品質受入入口は、既存の採用結果記録から元計画・Queue・Workspace・固定候補・取込Commitの相関を再確認する。現在HEADが取込Commitに一致することを照合し、無関係なHEADへの移動又は採用記録欠測では停止する。計画の元Revisionを現在HEADへ無条件に書換えず、候補Ref終了後も既存結果記録から同じ採用を確認できるようにする。表示上の待ち状態だけに依存せず、公開判断Ownerが採用前の品質受入を拒否する。DirectにはGit採用条件を追加しない。
 
-本節は人間が採用した切替先の契約であり、上記のSource接続・移行・検証の完了を表さない。現在の成立範囲と残件は[変更記録](../../../99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md)で区別する。
+本番接続は、Dispatcherの予約対象を一件に限定し、開始・結果保存・回復・Lease終了後にだけ次Taskへ進む既存経路を使う。公開Compositionは初回と再入場の保存済みQueueを照合し、旧Bundle統合Adapterを生成しない。旧`adoptResult:true`は受付Effect前に拒否する。
+
+品質受入の相関確認は既存Snapshotの計画・Queue・採用結果だけを読み、Store・Registry・Lockを追加しない。採用結果の過去の一次失敗は保持し、正常な同操作再入場による現在の採用成立と区別する。保留・差戻しは採用前でも既存の判断契約で扱い、受入だけにIsolatedの採用確認を要求する。
+
+上記はSource接続済みだが、外部AIを伴う計画実行の成立、旧Bundle／Store全面撤去、移行及びRelease完了を表さない。外部AIなしの結合確認、現在の成立範囲と残件は[変更記録](../../../99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md)で区別する。
 
 ## 7. Qualityへの引渡し
 

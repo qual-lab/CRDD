@@ -322,6 +322,11 @@ export async function executeOrchestratorObjective(
   request: OrchestratorObjectiveRequest,
   cancellationSignal: AbortSignal,
 ) {
+  if (request.adoptResult)
+    return blocked(
+      request,
+      "orchestrator_explicit_workspace_adoption_required",
+    );
   if (
     !(cancellationSignal instanceof AbortSignal) ||
     !validId(dependencies.authenticatedPrincipalId)

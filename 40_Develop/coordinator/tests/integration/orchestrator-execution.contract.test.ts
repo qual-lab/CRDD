@@ -675,7 +675,7 @@ test("PR-N-01 uses the existing Single Task adapter without widening its authori
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
-test("PR-N-02 runs at most five independent tasks and then drains the remainder", async (t) => {
+test("PR-N-02 同じWorkspaceの独立Taskを並行上限によらず直列に完了する", async (t) => {
   const tasks = Array.from({ length: 7 }, (_unused, index) =>
     task(`task-${index + 1}`),
   );
@@ -714,8 +714,8 @@ test("PR-N-02 runs at most five independent tasks and then drains the remainder"
     input,
   );
   assert.equal(outcome.status, "completed");
-  assert.equal(preparedAtFirstEffect, 5);
-  assert.equal(maximumActive, 5);
+  assert.equal(preparedAtFirstEffect, 1);
+  assert.equal(maximumActive, 1);
   assert.equal(outcome.completedTaskIds.length, 7);
   assert.equal(observedOperationIds.size, 7);
 });
@@ -753,7 +753,7 @@ test("PR-N-03 and PR-Q-01 enforce dependency and conflict reservations across wa
     input,
   );
   assert.equal(outcome.status, "completed");
-  assert.deepEqual(startedItems.slice(0, 2), ["task-a", "task-d"]);
+  assert.deepEqual(startedItems, ["task-a", "task-b", "task-c", "task-d"]);
   assert.ok(
     outcome.completedTaskIds.indexOf("task-a") <
       outcome.completedTaskIds.indexOf("task-b"),
@@ -1172,7 +1172,8 @@ test("runtime_process義務は同じTask attemptとoperationにだけ結合す�
   );
   assert.equal(first?.recoveryObligations[0]?.recoveryId, firstRecoveryId);
   assert.notEqual(second?.recoveryObligations[0]?.recoveryId, firstRecoveryId);
-  assert.equal(second?.recoveryObligations[0]?.kind, "runtime_process");
+  assert.deepEqual(second?.recoveryObligations, []);
+  assert.equal(second?.attemptId, null);
 });
 
 /**

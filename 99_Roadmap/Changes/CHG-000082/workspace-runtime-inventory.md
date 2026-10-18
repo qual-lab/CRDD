@@ -846,10 +846,39 @@ AI Adapter通常回帰33件、Controllerの非Host回帰109件、追加の数値
 
 #### ②・③の残件と次の進め方（今回の区切り）
 
+③の着手前対応表（基準`d60f8c06`）。既存の技術・品質の読み取り専用確認から、下記の接続は採用済み契約内で実施でき、追加の人間判断はない。実AI・保持物処置・旧Store全面撤去は今回の接続作業へ含めない。
+
+| 既存利用側／成立済み責務 | 今回の処置・接続先 | 確認する反証 |
+|---|---|---|
+| `task/dispatch.ts`のTask予約・結果受領・回復・Lease終了 | 同じQueueのWorkspace対象をTask直前に読み、予約から保存・回復処置まで一件ずつ実行。既存Writer／回復参照は維持 | 依存なし二Taskでも同時稼働1、取消・保存不明後は後続0 |
+| `objective/execute.ts`の初回・再入場 | 保存済みQueue／Workspaceの同一性を用いてDirectの品質判断待ち、Isolatedの明示Git採用待ちを投影。初回だけの結果metadataに依存しない | 再入場でTask再送・旧統合0、対象差・欠測を拒否 |
+| `operation-composition.ts`の計画終了後Bundle統合・`adoptResult` | Workspaceの待ち結果へ接続し、旧自動採用要求はEffect前に明示拒否 | 旧Integration Adapter生成0、Task完了・配送ACKでCommit／Merge0 |
+| 公開品質受入と既存Decision／根拠保存 | DirectはGit採用不要。Isolatedは元計画と同Queue／Workspaceの既存採用結果・固定候補・Merge・現在HEADを照合 | 採用前、別HEAD、別Queue、記録欠測を拒否。Ref回収後も受入可能 |
+| `orchestrator/src/cli/command.ts`と`template/tools/crdd-mcp-server.ts`の計画受付 | 共通の公開Objective／品質判断Ownerへの接続を維持する。MCPは閉じた結果へ再構成し、旧Bundle統合へ分岐しない | 同じQueueの再入場で初回変更観測がなくても再送0。状態・取消・認証条件を維持 |
+| Workbenchの共通単発Taskと活動Reader | 計画を捏造しない既存単発OwnerとSnapshotの投影を維持する。計画経路の切替を理由に別の受付・本文Storeを作らない | Repository／主体分離、再構成後の元ID観測・取消。単発成功を複数Taskの実AI成立へ流用しない |
+| 旧Bundle／Store・別用途の候補・歴史Evidence | 今回は接続切替の成立範囲を確認。旧保存・回復参照の全数処置前に全面撤去しない | 実AI未確認を成功にせず、②保持物を清掃対象に含めない |
+
 | 対象 | 済んだ範囲 | 残件 |
 |---|---|---|
 | ② 実AI編集E2E | 合成Git・有限代役の事前確認、固定Imageの無通信起動・三Mount、診断補完、通信失敗後の終了処置。今回の実試験は終了判断済み | Directの実AI編集・既存dirty／stage保全、Isolatedの実AI編集から明示固定・二親Merge・Worktree／Branch回収までの実境界成功は未成立。新しい実AI試行は別途許可を要する |
 | 今回の回収 | 元失敗・unknown・exact回復参照と保持物を維持。停止Containerが遅れて残る可能性の許容を記録 | 回収自体は未完了。今回の試験終了とは独立し、再起動・強制削除・一般回復改修を他作業の前提にしない |
-| ③ 計画のWorkspace接続・旧Bundle撤去 | 同じWorkspaceでTaskを順次実行する方針、Direct／Isolated別の品質受入条件をArchitecture／Qualityへ伝播 | 計画本番Consumer、実行・結果参照・再入場・品質受入のSource切替と結合試験。旧Bundle生成／統合／Store専用処理・公開参照・設定の撤去と移行確認、回帰・独立レビュー |
+| ③ 計画のWorkspace接続・旧Bundle撤去 | 同じWorkspaceでTaskを順次実行する本番接続、初回／再入場の待ち結果、Direct／Isolated別の公開品質受入を既存Queue・採用記録へ接続。旧Bundle自動統合の呼出しを除去。外部AIなしの結合・関連回帰と限定独立レビューを完了 | 旧Bundle生成／統合／Store専用処理・公開参照・設定の全面撤去と移行確認、必要な実境界確認は別途残る |
 
 次の推奨順序は、まず③の本番利用側・旧処理・成立済みCapabilityの対応を固定し、外部AIなしでWorkspace接続と複数Task・実保存・再入場・明示採用・品質受入の結合確認を進めることとする。旧処理は置換先・利用側・必要検証が揃った範囲だけ撤去し、別用途のDomain候補・採用判断・歴史Evidenceを削除しない。②の実AI再検証は必要な実境界条件を固定して別途人間の許可を得た後とし、今回の許容を再送許可へ読み替えない。最終的な③の完了は必要な実境界、移行、回帰・レビューとの対応まで確認し、有限代役の成功だけで旧処理全面置換又はRelease可能と表示しない。
+
+#### ③の本番接続と外部AIなしの確認（2026-10-18）
+
+計画の予約対象を一件ずつに限定し、既存の結果保存・回復・Lease終了を経て次Taskへ進む。公開Compositionから旧Bundle統合呼出しを除去し、初回と再入場とも保存済みQueueを用いてDirectの品質判断待ち／Isolatedの明示採用待ちを返す。`adoptResult:true`は新規受付・Task・採用Effect前に拒否する。旧Store又は初回だけの`workspaceResults`へのfallbackは追加しない。
+
+Isolatedの品質判断と状態取得は、元計画Revision、Project／Milestone、同Queue／Workspace、既存の固定候補・採用結果、現在Merge HEADを照合する。過去の一次失敗を消さず、正常な同操作再入場後の現在の採用成立と分ける。候補Ref終了後も同じ既存結果記録で判断できる。DirectはGit採用を要求せず、Task完了・候補採用・品質受入を別操作として維持する。
+
+| 確認 | 現在の結果・限界 |
+|---|---|
+| 静的確認・単体 | Orchestratorの書式・型・Lint、CoordinatorのSource／試験型と変更試験Lintは成功。Orchestrator単体76件成功。既存Lintの情報表示2件は警告と区別する |
+| 本番Composition・Dispatcher | 関連結合58件成功。旧統合Adapter呼出し0、初回観測欠測の再入場でTask再送0、旧自動採用要求のEffect前拒否、取消・保存失敗・同じ回復参照の保持を含む |
+| 実Git・実保存 | Orchestrator全結合38件成功。Direct／Isolated各二Taskの直列実行、前Task変更の継続、Git自動処置0を確認。Merge Commit拒否→同操作再入場成功→一次失敗保持→Ref終了→別Process公開品質受入も成功。追加したMerge後の元計画の状態取得は、同じ実Git結合一件を再実行して成功 |
+| 利用側 | MCPの公開契約20件、Workbenchの主体／Repository分離・元ID観測／取消2件成功。外部AIは使わない |
+| 独立確認 | 技術・品質及び限定文書／不足影響の指摘は是正済み。過去失敗からの正常採用、Commit IDの不正な中間長拒否を追加反証し、状態取得の追加接続も技術レビュー指摘0 |
+| 文書Checker | 全体3,342件、対象を絞った展開範囲63件で非Pass。今回変更した3文書自体への指摘は0件。全体の未整合を今回の限定接続で解消したとは扱わない |
+
+新しいStore・Registry・Lock・回復機構、外部AI送信、Docker操作は追加・実行していない。②の保持結果と両Runtime状態のHashは着手前と一致し、unknown・exact回復参照・物理保持を変更していない。旧Bundle／Store専用Source・公開参照・設定の全面撤去、移行処置及び実AI編集の成立は残る。今回の成功を②の失敗の解消、③全体完成又はRelease許可へ昇格しない。

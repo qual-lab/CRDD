@@ -193,7 +193,7 @@ test("development composition uses the explicitly supplied candidate integration
             cleanupConfirmed: true,
             manualRecoveryRequired: false,
             processRestartRequired: false,
-            candidateId: "candidate-task",
+            candidateId: null,
             hostRecoveryId: null,
             dockerRecoveryId: null,
             candidateRecoveryId: null,
@@ -280,7 +280,7 @@ test("development composition uses the explicitly supplied candidate integration
           shouldBlockCandidateObservation
             ? Object.freeze({
                 status: "blocked" as const,
-                reason: "orchestrator_candidate_base_cleanup_unconfirmed",
+                reason: "orchestrator_explicit_workspace_adoption_required",
                 effectIssued: false,
                 effectStateUnknown: false,
                 cleanupConfirmed: false,
@@ -332,7 +332,36 @@ test("development composition uses the explicitly supplied candidate integration
     Object.freeze({ principalId: "local-user-test-user" }),
   );
   assert.equal(result.status, "blocked", JSON.stringify(result));
-  assert.equal(result.reason, "orchestrator_acceptance_decision_required");
+  assert.equal(result.reason, "orchestrator_quality_acceptance_required");
+  const resumedPending = await runtime.run(
+    {
+      requestId: "request-public-runtime",
+      projectId: "project-public-runtime",
+      milestoneId: "milestone-public-runtime",
+      repositoryRevision: revision,
+      objective: "Create the bounded result.",
+      acceptanceCriteria: ["result accepted"],
+      allowedPaths: ["result.txt"],
+      readPaths: ["result.txt"],
+      maximumConcurrency: 1,
+      maximumReplans: 0,
+      originLane: "interactive",
+      requestedExecutorProvider: "codex",
+      adoptResult: false,
+      intakeEpoch,
+    },
+    new AbortController().signal,
+    root,
+    { principalId: "local-user-test-user" },
+  );
+  assert.equal(
+    resumedPending.reason,
+    "orchestrator_quality_acceptance_required",
+  );
+  assert.equal(resumedPending.queueId, result.queueId);
+  assert.equal(resumedPending.workspaceResults, undefined);
+  assert.equal(taskStarts, 1);
+  assert.equal(integrationAdapterCalls, 0);
   let pending = runtime.runStateQuery(
     {
       requestId: "query-acceptance-pending",
@@ -455,7 +484,7 @@ test("development composition uses the explicitly supplied candidate integration
   assert.equal(result.milestoneId, "milestone-public-runtime");
   assert.equal(result.projection?.milestoneState, "executing");
   assert.equal(result.effectState, "settled");
-  assert.equal(integrationAdapterCalls, 1);
+  assert.equal(integrationAdapterCalls, 0);
   assert.equal(taskStarts, 1);
   shouldBlockCandidateObservation = true;
   const cleanupBlocked = await runtime.run(
@@ -481,15 +510,14 @@ test("development composition uses the explicitly supplied candidate integration
   );
   assert.equal(
     cleanupBlocked.reason,
-    "orchestrator_candidate_base_cleanup_unconfirmed",
+    "orchestrator_explicit_workspace_adoption_required",
   );
-  const cleanupBlockedDetails = cleanupBlocked as Record<string, unknown>;
-  assert.equal(cleanupBlockedDetails.effectIssued, false);
-  assert.equal(cleanupBlockedDetails.effectStateUnknown, false);
-  assert.equal(cleanupBlocked.cleanupConfirmed, false);
-  assert.equal(cleanupBlockedDetails.retryAllowed, false);
-  assert.equal(cleanupBlocked.manualRecoveryRequired, true);
+  assert.equal(cleanupBlocked.cleanupConfirmed, true);
+  assert.equal(cleanupBlocked.manualRecoveryRequired, false);
+  assert.equal(cleanupBlocked.effectState, "no_effect");
   assert.deepEqual(cleanupBlocked.recoveryIds, []);
+  assert.equal(taskStarts, 1);
+  assert.equal(integrationAdapterCalls, 0);
   const verifiedRoot = verifyExecutionIntelligenceRepositoryRoot(root);
   assert.equal(verifiedRoot.status, "completed");
   if (verifiedRoot.status !== "completed")
@@ -500,7 +528,7 @@ test("development composition uses the explicitly supplied candidate integration
   assert.equal(executionIntelligenceResult.status, "completed");
   if (executionIntelligenceResult.status !== "completed")
     throw new Error("execution_intelligence_observation_failed");
-  assert.equal(executionIntelligenceResult.events.length, 2);
+  assert.equal(executionIntelligenceResult.events.length, 1);
   const primaryExecutionEvent = executionIntelligenceResult.events.find(
     (entry) => entry.identity.projectId === "project-public-runtime",
   );
@@ -570,7 +598,7 @@ test("development composition uses the explicitly supplied candidate integration
   assert.equal(mcpResult.structuredContent.status, "blocked");
   assert.equal(
     mcpResult.structuredContent.reason,
-    "orchestrator_acceptance_decision_required",
+    "orchestrator_quality_acceptance_required",
   );
   assert.deepEqual(mcpResult.structuredContent.recoveryIds, []);
 
@@ -647,8 +675,8 @@ test("development composition uses the explicitly supplied candidate integration
   );
   assert.equal(replay.status, "completed", JSON.stringify(replay));
   assert.equal(replay.reason, "orchestrator_objective_already_accepted");
-  assert.equal(taskStarts, 2);
-  assert.equal(integrationAdapterCalls, 2);
+  assert.equal(taskStarts, 1);
+  assert.equal(integrationAdapterCalls, 0);
 
   shouldBlockExecutionPublication = true;
   const publicationBlocked = await runtime.run(
@@ -675,13 +703,13 @@ test("development composition uses the explicitly supplied candidate integration
   assert.equal(publicationBlocked.status, "blocked");
   assert.equal(
     publicationBlocked.reason,
-    "orchestrator_acceptance_decision_required",
+    "orchestrator_quality_acceptance_required",
   );
   assert.equal(
     (publicationObservations.at(-1) as { status?: unknown }).status,
     "blocked",
   );
-  assert.equal(taskStarts, 3);
+  assert.equal(taskStarts, 2);
 
   shouldThrowFromPublicationObserver = true;
   const diagnosticFailed = await runtime.run(
@@ -708,9 +736,9 @@ test("development composition uses the explicitly supplied candidate integration
   assert.equal(diagnosticFailed.status, "blocked");
   assert.equal(
     diagnosticFailed.reason,
-    "orchestrator_acceptance_decision_required",
+    "orchestrator_quality_acceptance_required",
   );
-  assert.equal(taskStarts, 4);
+  assert.equal(taskStarts, 3);
 });
 
 class ControlledDiagnosticStream extends Writable {

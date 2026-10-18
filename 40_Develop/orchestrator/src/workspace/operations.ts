@@ -34,6 +34,81 @@ import type { OrchestratorWorkspace } from "./record.ts";
 import type { OrchestratorLease } from "../lease/controller.ts";
 
 /**
+ * 計画の品質受入に必要な既存Git採用記録を再観測する。
+ * @responsibility 元計画・Queue・Workspace・固定候補・取込HEADを結合する。
+ * @trace ARCH-000005 ARCH-000004
+ * @input 所属Root、Repository結合、Project／Milestone、元計画Revision、現在HEAD。
+ * @returns Direct又は同じ計画の明示採用を確認できた場合だけtrue。
+ * @effect 既存Snapshotの読取りのみ。Git変更・Task開始なし。
+ * @failure 欠測・別対象・採用前・別HEADはfalse。
+ * @invariant 候補Refの現存を要求せず、Git採用を品質受入へ昇格しない。
+ */
+export function workspacePlanReadyForAcceptance(
+  root: string,
+  binding: string,
+  projectId: string,
+  milestoneId: string,
+  planRevision: string,
+  currentHead: string,
+): boolean {
+  const read = readOrchestratorSnapshot(root, binding);
+  if (read.status !== "completed" || !read.value) return false;
+  const plan = read.value.projects.find(
+    (p) => p.projectId === projectId && p.milestoneId === milestoneId,
+  );
+  if (!plan || plan.repositoryRevision !== planRevision) return false;
+  const queues = read.value.queueEntries.filter(
+    (q) =>
+      q.projectId === projectId &&
+      q.milestoneId === milestoneId &&
+      q.state === "integration_pending",
+  );
+  if (queues.length !== 1) return false;
+  const queue = queues[0];
+  if (!queue || queue.ownerGeneration !== null) return false;
+  if (queue.workspaceId == null) return currentHead === planRevision;
+  const adopted = read.value.results.filter((entry) => {
+    if (
+      entry.kind !== "adoption" ||
+      entry.repositoryBindingId !== binding ||
+      entry.projectId !== projectId ||
+      entry.milestoneId !== milestoneId ||
+      entry.queueId !== queue.queueId
+    )
+      return false;
+    const value = entry.value as Record<string, unknown> | null;
+    if (
+      !value ||
+      typeof value !== "object" ||
+      Object.keys(value).sort().join(",") !==
+        "candidateCommit,disposition,mergeCommit,primaryFailure,recordKind,request,target" ||
+      value.recordKind !== "workspace-candidate" ||
+      value.disposition !== "adopted" ||
+      value.mergeCommit !== currentHead ||
+      typeof value.candidateCommit !== "string" ||
+      !/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/u.test(value.candidateCommit) ||
+      !validWorkspaceCandidateRequest(value.request)
+    )
+      return false;
+    const request = value.request;
+    const target = value.target as Record<string, unknown> | null;
+    return (
+      request.workspaceId === queue.workspaceId &&
+      request.baseCommit === planRevision &&
+      entry.identity === `workspace-candidate-${request.operationId}` &&
+      target !== null &&
+      typeof target === "object" &&
+      Object.keys(target).sort().join(",") ===
+        "expectedTargetHead,targetBranch" &&
+      typeof target.targetBranch === "string" &&
+      typeof target.expectedTargetHead === "string" &&
+      /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/u.test(target.expectedTargetHead)
+    );
+  });
+  return adopted.length === 1;
+}
+
+/**
  * 既存Queueに結合したWorkspace操作入力。
  * @responsibility 任意Pathと暗黙作成を受け付けない。
  * @trace ARCH-000004

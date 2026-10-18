@@ -882,7 +882,8 @@ export async function runOrchestratorOperation(
   const completedTaskIds: string[] = [];
   let processRestartRequired = false;
   while (true) {
-    const selectedItems = selectSchedulableProjectTasks(state);
+    // 同じWorkspaceの予約・実行・結果保存を一件ずつ閉じる。
+    const selectedItems = selectSchedulableProjectTasks(state).slice(0, 1);
     if (selectedItems.length === 0) break;
     const attempts: Array<{
       taskId: string;

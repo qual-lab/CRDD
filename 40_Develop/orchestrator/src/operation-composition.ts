@@ -35,17 +35,14 @@ import {
   inspectOrchestratorStateQuery,
   ORCHESTRATOR_STATE_QUERY_CONTRACT,
 } from "./state/query-contract.ts";
-import { integrateOrchestratorOperation } from "./candidate/integrate.ts";
+import { workspacePlanReadyForAcceptance } from "./workspace/operations.ts";
 import {
-  issueOrchestratorHumanDecision,
   orchestratorDecisionRecordId,
   recoverOrchestratorHumanDecision,
-  replaceOrchestratorHumanDecision,
   submitOrchestratorHumanDecision,
 } from "./decision/lifecycle.ts";
 import { ORCHESTRATOR_PUBLIC_RUNTIME_CONTRACT } from "./operation-result-contract.ts";
 import type { OrchestratorCandidatePort } from "./candidate/operations.ts";
-import { projectOrchestratorState } from "./state/transitions.ts";
 import { queryOrchestratorState } from "./state/query.ts";
 import { recordOrchestratorAcceptanceDecision } from "./decision/record-acceptance.ts";
 import { recordOrchestratorExecutionEvent } from "./task/intelligence-adapter.ts";
@@ -53,11 +50,9 @@ import { runOrchestratorSingleTaskAttempt } from "./task/execute-attempt.ts";
 import {
   createOrchestratorSnapshotAcceptanceDecisionStore as createOrchestratorAcceptanceDecisionStore,
   createOrchestratorSnapshotDecisionRecoveryStore as createOrchestratorDecisionRecoveryStore,
-  createOrchestratorSnapshotIntegrationRecordPort as createOrchestratorIntegrationRecordAdapter,
   createCurrentOrchestratorPersistencePorts as createOrchestratorPersistencePorts,
   maintainOrchestratorSnapshot,
   readOrchestratorSnapshot,
-  readCurrentOrchestratorState as readOrchestratorState,
 } from "./storage/current-state.ts";
 import { openRuntimeOwnedWindowsProjectDecisionStore } from "./storage/protected-decision.ts";
 import { createRuntimeOwnedProjectCandidateIntegrationAdapter } from "./candidate/integration-adapter.ts";
@@ -498,6 +493,11 @@ async function executeOrchestratorPublicObjective(
       manualRecoveryRequired: false,
       effectState: "no_effect" as const,
     });
+  if (request.adoptResult)
+    return createOrchestratorObjectiveResult(request, {
+      status: "blocked",
+      reason: "orchestrator_explicit_workspace_adoption_required",
+    });
   let repositoryRoot: string;
   try {
     repositoryRoot =
@@ -573,7 +573,15 @@ async function executeOrchestratorPublicObjective(
       verifyProjectBinding(input) {
         if (
           identity?.status !== "candidate" ||
-          identity.commit !== input.repositoryRevision
+          (identity.commit !== input.repositoryRevision &&
+            !workspacePlanReadyForAcceptance(
+              repositoryRoot,
+              deriveOrchestratorRepositoryBindingId(repositoryRoot),
+              input.projectId,
+              input.milestoneId,
+              input.repositoryRevision,
+              identity.commit,
+            ))
         )
           return Object.freeze({
             status: "blocked",
@@ -583,7 +591,7 @@ async function executeOrchestratorPublicObjective(
           status: "verified",
           repositoryBindingId:
             deriveOrchestratorRepositoryBindingId(repositoryRoot),
-          repositoryRevision: identity.commit,
+          repositoryRevision: input.repositoryRevision,
           workingDirectory: repositoryRoot,
           repositoryRoot,
           bindingCapability: Object.freeze({}),
@@ -767,139 +775,64 @@ async function executeOrchestratorPublicObjective(
     cancellationSignal,
   );
   if (
-    execution.status !== "completed" ||
-    execution.reason !== "orchestrator_tasks_completed_integration_pending" ||
-    typeof execution.queueId !== "string"
+    execution.projection?.milestoneState === "accepted" &&
+    execution.reason === "orchestrator_tasks_already_integration_pending"
   )
-    return execution;
-  const integrationAdapter =
-    runtimeDependencies.createIntegrationAdapter(repositoryRoot);
-  const repositoryBindingId =
-    deriveOrchestratorRepositoryBindingId(repositoryRoot);
-  const integration = await integrateOrchestratorOperation(
-    Object.freeze({
-      candidate: Object.freeze({ ...integrationAdapter, observeLeaseOwner }),
-      records: createOrchestratorIntegrationRecordAdapter({
-        workingDirectory: repositoryRoot,
-        repositoryBindingId,
-        projectId: request.projectId,
-        milestoneId: request.milestoneId,
-        queueId: execution.queueId,
-      }),
-      persistence: createOrchestratorPersistencePorts(
-        repositoryRoot,
-        repositoryBindingId,
-      ),
-    }),
-    {
-      projectId: request.projectId,
-      milestoneId: request.milestoneId,
-      queueId: execution.queueId,
-      allowedPaths: request.allowedPaths,
-      adoptionAuthorized: request.adoptResult,
-    },
-  );
+    return createOrchestratorObjectiveResult(request, {
+      ...execution,
+      status: "completed",
+      reason: "orchestrator_objective_already_accepted",
+    });
   if (
-    integration.status === "completed" &&
-    (integration.reason === "orchestrator_milestone_accepted" ||
-      integration.reason === "orchestrator_acceptance_decision_required")
+    execution.queueId &&
+    execution.projection?.milestoneState !== "accepted" &&
+    [
+      "orchestrator_tasks_completed_integration_pending",
+      "orchestrator_tasks_already_integration_pending",
+    ].includes(execution.reason)
   ) {
-    const latest = readOrchestratorState(
+    const snapshot = readOrchestratorSnapshot(
+      repositoryRoot,
+      deriveOrchestratorRepositoryBindingId(repositoryRoot),
+    );
+    const queue =
+      snapshot.status === "completed"
+        ? snapshot.value?.queueEntries.find(
+            (q) =>
+              q.queueId === execution.queueId &&
+              q.projectId === request.projectId &&
+              q.milestoneId === request.milestoneId,
+          )
+        : null;
+    if (
+      !queue ||
+      (queue.workspaceId !== request.workspaceId &&
+        !(queue.workspaceId == null && request.workspaceId === undefined))
+    )
+      return createOrchestratorObjectiveResult(request, {
+        ...execution,
+        status: "blocked",
+        reason: "orchestrator_workspace_target_unconfirmed",
+        cleanupConfirmed: false,
+      });
+    const ready = workspacePlanReadyForAcceptance(
       repositoryRoot,
       deriveOrchestratorRepositoryBindingId(repositoryRoot),
       request.projectId,
+      request.milestoneId,
+      request.repositoryRevision,
+      identity?.commit ?? "",
     );
-    if (latest.status !== "completed" || latest.value === null)
-      return createOrchestratorObjectiveResult(request, {
-        status: "blocked",
-        reason: "orchestrator_state_observation_unknown",
-        queueId: execution.queueId,
-        cleanupConfirmed: false,
-        manualRecoveryRequired: true,
-        effectState: "unknown",
-      });
     return createOrchestratorObjectiveResult(request, {
-      status:
-        integration.reason === "orchestrator_milestone_accepted"
-          ? "completed"
-          : "blocked",
-      reason: integration.reason,
-      queueId: execution.queueId,
-      projection: projectOrchestratorState(latest.value),
-      cleanupConfirmed: integration.cleanupConfirmed,
-      manualRecoveryRequired: integration.manualRecoveryRequired,
-      recoveryIds: integration.recoveryIds,
-      effectState: "settled",
+      ...execution,
+      status: "blocked",
+      reason:
+        queue.workspaceId != null && !ready
+          ? "orchestrator_workspace_adoption_required"
+          : "orchestrator_quality_acceptance_required",
     });
   }
-  if (
-    integration.status !== "blocked" ||
-    integration.reason !== "orchestrator_integration_conflict" ||
-    typeof integration.candidateId !== "string" ||
-    typeof integration.stateGeneration !== "number"
-  )
-    return integration;
-  const protectedStore = runtimeDependencies.openDecisionStore();
-  if (protectedStore.status !== "completed")
-    return Object.freeze({
-      ...integration,
-      reason: "orchestrator_decision_store_unavailable",
-      cleanupConfirmed: false,
-      manualRecoveryRequired: true,
-    });
-  const decisionId = stable(
-    "decision",
-    request.projectId,
-    request.milestoneId,
-    execution.queueId,
-    integration.candidateId,
-  );
-  const decisionCapability = createOrchestratorDecisionCapabilityAdapter();
-  const decisionCommon = {
-    projectId: request.projectId,
-    milestoneId: request.milestoneId,
-    queueId: execution.queueId,
-    principalId: protectedStore.principalId,
-    store: protectedStore.store,
-    recoveryStore: createOrchestratorDecisionRecoveryStore(
-      repositoryRoot,
-      deriveOrchestratorRepositoryBindingId(repositoryRoot),
-    ),
-    capability: decisionCapability,
-    persistence: createOrchestratorPersistencePorts(
-      repositoryRoot,
-      deriveOrchestratorRepositoryBindingId(repositoryRoot),
-    ),
-  } as const;
-  const decision = request.decisionCapabilityReplacement
-    ? request.decisionCapabilityReplacement.decisionId !== decisionId
-      ? Object.freeze({
-          contract: ORCHESTRATOR_PUBLIC_RUNTIME_CONTRACT,
-          status: "blocked" as const,
-          reason: "orchestrator_decision_replacement_binding_mismatch",
-          cleanupConfirmed: true,
-          manualRecoveryRequired: false,
-          effectState: "no_effect" as const,
-        })
-      : replaceOrchestratorHumanDecision(decisionCommon, {
-          recordId: orchestratorDecisionRecordId(
-            decisionCapability,
-            request.projectId,
-            request.milestoneId,
-            decisionId,
-          ),
-          replacementRequestId:
-            request.decisionCapabilityReplacement.replacementRequestId,
-          lifetimeMs: 24 * 60 * 60 * 1_000,
-        })
-    : issueOrchestratorHumanDecision(decisionCommon, {
-        decisionId,
-        repositoryRevision: request.repositoryRevision,
-        expectedGeneration: integration.stateGeneration,
-        allowedOptions: Object.freeze(["resume", "cancel"]),
-        lifetimeMs: 24 * 60 * 60 * 1_000,
-      });
-  return Object.freeze({ ...integration, decision });
+  return execution;
 }
 
 /**
@@ -1232,13 +1165,28 @@ export function executeOrchestratorPublicAcceptanceDecision(
         ? (rawRequest as Readonly<{
             repositoryRevision?: unknown;
             projectId?: unknown;
+            milestoneId?: unknown;
             principalId?: unknown;
+            decision?: unknown;
           }>)
         : null;
     if (
       !identity ||
       typeof candidate?.repositoryRevision !== "string" ||
-      identity.commit !== candidate.repositoryRevision
+      typeof candidate.projectId !== "string" ||
+      typeof candidate.milestoneId !== "string" ||
+      !(
+        (candidate.decision !== "accept" &&
+          identity.commit === candidate.repositoryRevision) ||
+        workspacePlanReadyForAcceptance(
+          repositoryRoot,
+          deriveOrchestratorRepositoryBindingId(repositoryRoot),
+          candidate.projectId,
+          candidate.milestoneId,
+          candidate.repositoryRevision,
+          identity.commit,
+        )
+      )
     )
       return Object.freeze({
         contract: ORCHESTRATOR_PUBLIC_RUNTIME_CONTRACT,
@@ -1395,7 +1343,30 @@ export function executeOrchestratorPublicStateQuery(
     });
   }
   const identity = inspectRepositoryIdentityCandidate(repositoryRoot);
-  if (!identity || identity.commit !== request.repositoryRevision)
+  const adoptedPlan =
+    identity && identity.commit !== request.repositoryRevision
+      ? readOrchestratorSnapshot(
+          repositoryRoot,
+          deriveOrchestratorRepositoryBindingId(repositoryRoot),
+        ).value?.projects.find(
+          (plan) =>
+            plan.projectId === request.projectId &&
+            plan.repositoryRevision === request.repositoryRevision,
+        )
+      : null;
+  if (
+    !identity ||
+    (identity.commit !== request.repositoryRevision &&
+      (!adoptedPlan ||
+        !workspacePlanReadyForAcceptance(
+          repositoryRoot,
+          deriveOrchestratorRepositoryBindingId(repositoryRoot),
+          request.projectId,
+          adoptedPlan.milestoneId,
+          request.repositoryRevision,
+          identity.commit,
+        )))
+  )
     return Object.freeze({
       contract: ORCHESTRATOR_STATE_QUERY_CONTRACT,
       status: "blocked" as const,

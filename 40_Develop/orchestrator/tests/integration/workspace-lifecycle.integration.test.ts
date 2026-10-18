@@ -18,6 +18,7 @@ import path from "node:path";
 import { stripTypeScriptTypes, syncBuiltinESMExports } from "node:module";
 import { devNull } from "node:os";
 import { pathToFileURL } from "node:url";
+import { promisify } from "node:util";
 import test, { type TestContext } from "node:test";
 import {
   createOrchestratorState,
@@ -46,6 +47,11 @@ import {
 import { deriveOrchestratorRepositoryBindingId } from "../../src/identity/repository-binding.ts";
 import type { OrchestratorWorkspaceRequest } from "../../src/index.ts";
 import { inspectMcpOrchestratorObjectiveResult } from "../../../mcp-server/src/index.ts";
+import { workspacePlanReadyForAcceptance } from "../../src/workspace/operations.ts";
+import {
+  executeOrchestratorPublicAcceptanceDecision,
+  executeOrchestratorPublicStateQuery,
+} from "../../src/operation-composition.ts";
 
 const testsRoot = path.resolve(import.meta.dirname, "../../../../.crdd/tests");
 const empty = process.platform === "win32" ? "NUL" : devNull;
@@ -99,7 +105,7 @@ function git(root: string, args: string[]) {
  * @cleanup 自己生成Rootだけを削除し不存在確認。
  * @boundary 実Git・Filesystem・既存Native排他。
  */
-function fixture(t: TestContext) {
+function fixture(t: TestContext, independent = false) {
   assert.equal(fs.realpathSync.native(testsRoot), testsRoot);
   const root = fs.mkdtempSync(path.join(testsRoot, "orchestrator-workspace-"));
   t.after(() => {
@@ -113,6 +119,9 @@ function fixture(t: TestContext) {
   git(root, ["config", "user.email", "test@example.invalid"]);
   fs.writeFileSync(path.join(root, ".gitignore"), ".crdd/\n.env\n");
   fs.writeFileSync(path.join(root, "source.txt"), "base\n");
+  if (independent)
+    for (const name of ["task-a.txt", "task-b.txt"])
+      fs.writeFileSync(path.join(root, name), "base\n");
   git(root, ["add", "."]);
   git(root, ["commit", "-m", "base"]);
   const base = git(root, ["rev-parse", "HEAD"]);
@@ -125,15 +134,15 @@ function fixture(t: TestContext) {
     projectId: "project-a",
     milestoneId: "milestone-a",
     repositoryRevision: base,
-    maximumConcurrency: 1,
+    maximumConcurrency: independent ? 3 : 1,
     milestoneAcceptanceCriteria: ["done"],
     objectives: [{ id: "objective-a", acceptanceCriteria: ["done"] }],
     tasks: ["task-a", "task-b"].map((id, index) => ({
       id,
       objectiveId: "objective-a",
-      dependencies: index ? ["task-a"] : [],
-      allowedPaths: ["source.txt"],
-      conflictKeys: ["same-file"],
+      dependencies: !independent && index ? ["task-a"] : [],
+      allowedPaths: [independent ? `${id}.txt` : "source.txt"],
+      conflictKeys: independent ? [id] : ["same-file"],
     })),
     ownerGeneration: "owner-a",
   });
@@ -196,6 +205,305 @@ function fixture(t: TestContext) {
     tree: path.join(root, ".crdd", "workspaces", workspaceId, "worktree"),
   };
 }
+
+/**
+ * 独立Taskも同じTreeでは順番に実行し、明示Git採用と品質受入を分離する。
+ * @trace CPR-IT-001 CPR-IT-004 CPR-IT-006
+ * @precondition 自己生成Gitと実Writer。Provider／Dockerは使わない。
+ * @stimulus Direct／Isolated、最大並行数3、依存なし二Task、取消と失敗。
+ * @observation 稼働最大数、後続の前変更読取り、HEAD／index、品質判断。
+ * @oracle 一件終端後だけ次開始、自動Commit0、Isolatedは採用前拒否・Ref終了後も別Process受入。
+ * @cleanup fixtureのexact Rootだけ回収する。
+ */
+test("計画の独立二Taskは同じWorkspaceで直列実行し明示採用後だけ品質受入する", async (t) => {
+  for (const isolated of [false, true]) {
+    for (const stop of ["none", "cancel", "failure"]) {
+      const f = fixture(t, true);
+      if (isolated)
+        assert.equal(
+          f.operate({ operation: "create", baseCommit: f.base }).status,
+          "completed",
+        );
+      const tree = isolated ? f.tree : f.root;
+      const indexBefore = fs.readFileSync(path.join(f.root, ".git", "index"));
+      const controller = new AbortController();
+      let calls = 0,
+        active = 0,
+        maximum = 0;
+      const result = await runOrchestratorOperation(
+        {
+          ...createOrchestratorExecutionHostPorts(),
+          persistence: f.ports,
+          runSingleTaskAttempt: async (input) => {
+            const call = ++calls;
+            active++;
+            maximum = Math.max(maximum, active);
+            assert.equal(input.executionTree, tree);
+            assert.equal(await input.observeStarted?.(), true);
+            await Promise.resolve();
+            if (call === 2)
+              assert.equal(
+                fs.readFileSync(path.join(tree, "task-a.txt"), "utf8"),
+                "first\n",
+              );
+            fs.writeFileSync(
+              path.join(tree, call === 1 ? "task-a.txt" : "task-b.txt"),
+              call === 1 ? "first\n" : "second\n",
+            );
+            if (stop === "cancel") controller.abort();
+            active--;
+            return {
+              contract: "crdd-coordinator/orchestrator-single-task-adapter",
+              attemptId: input.attemptId,
+              operationId: input.operationId,
+              authorityBindingId: input.authorityBindingId,
+              repositoryRevision: input.repositoryRevision,
+              status: stop === "failure" ? "blocked" : "completed",
+              reason:
+                stop === "failure" ? "synthetic_failure" : "task_completed",
+              effectState: "settled",
+              cleanupConfirmed: true,
+              manualRecoveryRequired: false,
+              processRestartRequired: false,
+              candidateId: null,
+              recoveryIds: [],
+              workspaceResult: {
+                workspaceId: input.workspaceId ?? null,
+                changedPaths: [call === 1 ? "task-a.txt" : "task-b.txt"],
+                canonicalRepositoryChanged: !isolated,
+                changeAttribution: "unattributed",
+                workspaceDeletionIssued: false,
+              },
+            };
+          },
+        },
+        {
+          projectId: "project-a",
+          milestoneId: "milestone-a",
+          queueId: "queue-a",
+          cancellationSignal: controller.signal,
+          taskExecutions: ["task-a", "task-b"].map((taskId) => ({
+            taskId,
+            authorityBindingId: `authority-${taskId}`,
+            taskRequest: {},
+            repositoryRoot: f.root,
+          })),
+        },
+      );
+      assert.equal(maximum, 1);
+      assert.equal(calls, stop === "none" ? 2 : 1);
+      assert.equal(git(f.root, ["rev-parse", "HEAD"]), f.base);
+      assert.deepEqual(
+        fs.readFileSync(path.join(f.root, ".git", "index")),
+        indexBefore,
+      );
+      if (stop !== "none") {
+        assert.notEqual(result.status, "completed");
+        continue;
+      }
+      assert.equal(result.status, "completed", JSON.stringify(result));
+      const decide = async (separate = false) => {
+        const plan = f.snapshot().projects[0];
+        assert.ok(plan);
+        const input = {
+          contract: "crdd-coordinator/orchestrator-acceptance-decision/v1",
+          decisionId: "quality-objective",
+          sourceSpecId: "SPEC-000002",
+          projectId: "project-a",
+          milestoneId: "milestone-a",
+          repositoryRevision: f.base,
+          expectedGeneration: plan.generation,
+          target: "objective",
+          targetId: "objective-a",
+          decision: "accept",
+          criterionEvidenceIds: ["evidence-synthetic"],
+          principalId: "principal-a",
+        };
+        if (!separate)
+          return executeOrchestratorPublicAcceptanceDecision(
+            () => ({ status: "completed", principalId: "principal-a" }),
+            input,
+            f.root,
+            { principalId: "principal-a" },
+          );
+        const entry = pathToFileURL(
+          path.resolve(
+            import.meta.dirname,
+            "../../src/operation-composition.ts",
+          ),
+        ).href;
+        return JSON.parse(
+          (
+            await promisify(childProcess.execFile)(
+              process.execPath,
+              [
+                "-e",
+                `import {executeOrchestratorPublicAcceptanceDecision as run} from ${JSON.stringify(entry)}; console.log(JSON.stringify(run(()=>({status:'completed',principalId:'principal-a'}),${JSON.stringify(input)},${JSON.stringify(f.root)},{principalId:'principal-a'})));`,
+              ],
+              { encoding: "utf8", windowsHide: true, timeout: 30_000 },
+            )
+          ).stdout,
+        );
+      };
+      if (isolated) {
+        assert.equal((await decide()).status, "blocked");
+        assert.equal(
+          workspacePlanReadyForAcceptance(
+            f.root,
+            f.binding,
+            "project-a",
+            "milestone-a",
+            f.base,
+            f.base,
+          ),
+          false,
+        );
+        const selections = ["task-a.txt", "task-b.txt"].map(
+          (file) =>
+            (
+              executeWorkspaceCommand(
+                f.root,
+                "project-a",
+                {
+                  projectId: "project-a",
+                  queueId: "queue-a",
+                  workspaceId: f.common.workspaceId,
+                  operation: "inspect",
+                  path: file,
+                },
+                () => true,
+              ).data as { selection: unknown }
+            ).selection,
+        );
+        const fixed = f.operate({
+          operation: "freeze",
+          operationId: randomUUID(),
+          baseCommit: f.base,
+          expectedHead: f.base,
+          selection: selections,
+          candidateName: "計画候補",
+          relatedChangeIds: [],
+          authorize: () => true,
+        });
+        assert.equal(fixed.status, "completed", JSON.stringify(fixed));
+        const commit = fixed.workspace?.candidate?.candidateCommit;
+        assert.ok(commit);
+        const adoption = {
+          operation: "adopt" as const,
+          candidateCommit: commit,
+          targetBranch: "main",
+          expectedTargetHead: f.base,
+          authorize: () => true,
+        };
+        const spawn = childProcess.spawnSync;
+        childProcess.spawnSync = ((
+          ...args: Parameters<typeof childProcess.spawnSync>
+        ) => {
+          if (Array.isArray(args[1]) && args[1].includes("commit"))
+            return {
+              pid: 0,
+              output: [null, "", ""],
+              stdout: "",
+              stderr: "synthetic",
+              status: 1,
+              signal: null,
+            };
+          return Reflect.apply(spawn, childProcess, args);
+        }) as typeof childProcess.spawnSync;
+        syncBuiltinESMExports();
+        try {
+          assert.equal(f.operate(adoption).status, "blocked");
+        } finally {
+          childProcess.spawnSync = spawn;
+          syncBuiltinESMExports();
+        }
+        const primary = f.snapshot().workspaces[0]?.candidate?.primaryFailure;
+        assert.ok(primary);
+        const adopted = f.operate(adoption);
+        assert.equal(adopted.status, "completed", JSON.stringify(adopted));
+        assert.equal(
+          f.snapshot().workspaces[0]?.candidate?.primaryFailure,
+          primary,
+        );
+        assert.equal(
+          workspacePlanReadyForAcceptance(
+            f.root,
+            f.binding,
+            "project-a",
+            "milestone-a",
+            f.base,
+            git(f.root, ["rev-parse", "HEAD"]),
+          ),
+          true,
+        );
+        assert.equal(
+          f.operate({
+            operation: "close-candidate",
+            expectedCommit: commit,
+            disposition: "adopted",
+            referencesReleased: true,
+            authorize: () => true,
+          }).status,
+          "completed",
+        );
+        assert.equal(f.snapshot().workspaces[0]?.candidate, null);
+        assert.equal(
+          workspacePlanReadyForAcceptance(
+            f.root,
+            f.binding,
+            "project-a",
+            "milestone-a",
+            f.base,
+            f.base,
+          ),
+          false,
+        );
+        assert.equal(
+          workspacePlanReadyForAcceptance(
+            f.root,
+            f.binding,
+            "other",
+            "milestone-a",
+            f.base,
+            git(f.root, ["rev-parse", "HEAD"]),
+          ),
+          false,
+        );
+      }
+      assert.equal(
+        workspacePlanReadyForAcceptance(
+          f.root,
+          f.binding,
+          "project-a",
+          "milestone-a",
+          f.base,
+          git(f.root, ["rev-parse", "HEAD"]),
+        ),
+        true,
+        JSON.stringify(f.snapshot().results),
+      );
+      const accepted = await decide(isolated);
+      assert.equal(accepted.status, "completed", JSON.stringify(accepted));
+      const query = executeOrchestratorPublicStateQuery(
+        () => ({ status: "completed", principalId: "principal-a" }) as never,
+        {
+          requestId: "query-after-adoption",
+          projectId: "project-a",
+          repositoryRevision: f.base,
+        },
+        f.root,
+        { principalId: "principal-a" },
+      );
+      assert.equal(query.status, "completed", JSON.stringify(query));
+      assert.equal(f.snapshot().projects[0]?.repositoryRevision, f.base);
+      assert.equal(f.snapshot().projects[0]?.objectives[0]?.state, "accepted");
+      assert.equal(
+        f.snapshot().projects[0]?.milestone.state === "accepted",
+        false,
+      );
+    }
+  }
+});
 
 /**
  * 公開入力から本番Writer・実Gitの固定／統合／回収まで照合する。
