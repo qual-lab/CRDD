@@ -2228,6 +2228,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       stage: "command_wait",
       reason: "provider_result_invalid",
       exceptionCode: null,
+      commandObservation: { exitCode: 1, stdoutBytes: 12, stderrBytes: 7 },
       commandHandleObtained: true,
       responseObserved: true,
       receiptRecorded: false,
@@ -2880,7 +2881,11 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     null,
     { ...lifecycle.primaryFailure, reason: "docker_setup_deadline_exceeded" },
     { ...lifecycle.primaryFailure, commandHandleObtained: false },
-    { ...lifecycle.primaryFailure, responseObserved: false },
+    {
+      ...lifecycle.primaryFailure,
+      responseObserved: false,
+      commandObservation: null,
+    },
     { ...lifecycle.primaryFailure, receiptRecorded: true },
     { ...lifecycle.primaryFailure, stage: "command_start" },
     { ...lifecycle.primaryFailure, purpose: "create_proxy" },
@@ -6790,6 +6795,74 @@ test("Host Windows: 認証unknownの専用Writerを実保存へ接続する", as
     "history.jsonl",
     "state.json",
   ]);
+});
+
+/**
+ * 一次診断の追加観測を保存契約の実本文で反証する。
+ * @trace ERB-IT-003
+ * @precondition 合成値と実Validatorだけを使用する。
+ * @stimulus 新旧正常形、欠測・過剰field・不正数値・応答相関違反。
+ * @observation 実Validatorの真偽。
+ * @oracle 旧形と正常形のみ受理し、不正値をゼロへ丸めない。
+ * @cleanup N/A: 外部Effectなし。
+ */
+test("一次失敗のCommand観測は閉じた数値契約と応答相関を検査する", () => {
+  const source = fs.readFileSync(
+    new URL("../../src/state-storage/model.ts", import.meta.url),
+    "utf8",
+  );
+  const extract = (name: string) => {
+    const start = source.indexOf(`function ${name}(`);
+    const end = source.indexOf("\n/**", start);
+    assert.ok(start >= 0 && end > start);
+    return stripTypeScriptTypes(source.slice(start, end));
+  };
+  const validate = runInNewContext(
+    `${extract("exactRecordKeys")}\n${extract("validCoordinatorPrimaryFailure")}\nvalidCoordinatorPrimaryFailure`,
+    {
+      commandPurposes: ["start_provider_attached"],
+      Object,
+      failureStages: ["execution_classification"],
+      finalReasons: new Set(["provider_process_exit_nonzero"]),
+    },
+  ) as (value: unknown) => boolean;
+  const base = {
+    purpose: "start_provider_attached",
+    stage: "execution_classification",
+    reason: "provider_process_exit_nonzero",
+    exceptionCode: null,
+    commandHandleObtained: true,
+    responseObserved: true,
+    receiptRecorded: false,
+  };
+  const observation = { exitCode: 1, stdoutBytes: 12, stderrBytes: 7 };
+  for (const value of [
+    base,
+    { ...base, commandObservation: null },
+    { ...base, commandObservation: observation },
+    { ...base, commandObservation: { ...observation, exitCode: null } },
+  ])
+    assert.equal(validate(value), true);
+  for (const value of [
+    undefined,
+    {},
+    { ...observation, extra: 1 },
+    { stdoutBytes: 12, stderrBytes: 7 },
+    ...[-1, 0.5, Infinity, NaN, "1"].flatMap((n) => [
+      { ...observation, stdoutBytes: n },
+      { ...observation, stderrBytes: n },
+      { ...observation, exitCode: n },
+    ]),
+  ])
+    assert.equal(validate({ ...base, commandObservation: value }), false);
+  assert.equal(
+    validate({
+      ...base,
+      responseObserved: false,
+      commandObservation: observation,
+    }),
+    false,
+  );
 });
 
 test("上位受理Readerは保存済みの同じAttemptだけを返す", async (t) => {

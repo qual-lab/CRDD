@@ -1856,6 +1856,10 @@ OPEN: Snapshotの実保存Portと現在Writer／Caller、Windows保存primitive�
 
 ### Provider外部境界の診断接続
 
+非0終了の一次診断には、同じCommandの観測値として`commandObservation`（`exitCode`、`stdoutBytes`、`stderrBytes`）を保持する。応答未観測は`null`とし、前Commandの値を転用しない。これはDocker CLIの終了観測であり、Container内AIの開始又は終了を単独では証明しない。過去記録の欠落はゼロへ補完しない。生本文は保存しない。
+
+Codex非0終了は既知stderr分類を優先し、未分類時だけ容量・行数・行長を制限したJSONLの`error.message`又は`turn.failed.error.message`を既存理由へ分類する。通常回答本文、未知・重複キー・不正・過大入力を診断へ昇格せず、原文を返さない。実行許可・隔離・清掃条件は変更しない。
+
 実行loop移管では、Coordinatorはraw HandleやDocker commandの反復を所有せず、DIの不透明cancel／completionへ接続する。保存と認証・AI結果受理は有限同期hookへ残す。開始factの通知からReporter→Task開始保存の既存順序でPromiseを監視するが、そのPromiseをDIへ返さない。上位の最終結果は確認のsettleを待ち、false／throwは開始観測失敗として保持し同じcancelへ一度だけ接続する。技術completion後に判明しても成功へ丸めず、既発生の保存を巻き戻したとは主張しない。DIの技術一次失敗・清掃事実と上位開始確認失敗を分け、誘発した取消や清掃理由で元失敗を上書きしない。実行期限はDIの開始観測から起算し、上位保存待ちでは延長しない。上位確認の新期限や再送・回復管理は追加しない。
 
 起動構成の意味は下位Ownerへ委ねる。CoordinatorはDIの`projectDockerExecutionBoundary`からDocker三設定と分離済みpayloadを受け、Codexの場合だけAI Adapterの`projectCodexExecutionBoundary`へpayloadを渡して既存構成通知を組み立てる。Claudeの承認／sandboxはnot_applicableとし、Role・Provider・操作ID・Workspace modeは元計画へ相関する。Coordinator自身ではDocker／Codex optionを走査しない。分離不能は三設定false・Codex other／implicitとして表し、診断だけを理由に本処理・Authority・cleanupを変更しない。内側のDocker風flagを外側設定と数えていた旧診断は是正するが、正常計画の通知fieldと語彙は維持する。

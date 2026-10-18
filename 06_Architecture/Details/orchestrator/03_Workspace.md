@@ -258,6 +258,23 @@ field省略は今回応答に観測がないことを表し、再入場で初回
 
 この接続は結果搬送だけである。旧Bundle統合の停止、助言種別、Workbench切替は未完了。特に初回応答の観測fieldの有無だけで旧統合への進入を決めない。Directと再入場も同じ新経路へ閉じる切替時に扱う。
 
+### 複数Task計画のWorkspace集約（2026-10-18、採用済み・切替未完了）
+
+一つの計画は同じWorkspaceを継続利用し、そのWorkspaceを編集するTaskは順番に実行する。依存関係のない二Taskでも、同じTreeへの並行編集を発行しない。`maximumConcurrency`は上限であり、同じWorkspace内の並行実行を要求する保証ではない。Task別Worktree、追加の成果集約Store、新しいQueue・排他・Registryは作らない。
+
+| 実行形態 | Task完了後 | 明示的な次操作 |
+|---|---|---|
+| Direct | 変更を現在Treeへ残し、既存dirty／stageも保全する | 必要な品質検証・受入判断。候補固定・Git採用を必須にしない |
+| Isolated | 変更を同じ独立Treeへ蓄積する。共有Treeは変更しない | 公開差分確認→選択した変更の候補固定→別操作のGit採用→品質検証・受入判断 |
+
+Task完了、結果配送、再入場又は旧`adoptResult`指定を、自動Commit・Merge・Bundle適用へ結合しない。旧自動採用要求は黙って無視せず、Effect前に拒否して明示操作へ案内する。既存の品質受入Decisionと根拠参照は維持し、Git採用の成功を品質受入へ変換しない。Directの受入とIsolatedのGit採用待ちを、同じ「Git統合待ち」として表示しない。
+
+計画の再入場は元Queue・Workspace・結果参照と現在状態を照合し、Task再送・自動候補固定・二重Mergeを発行しない。初回応答だけに存在する`workspaceResults`の有無を新旧経路の選択条件にしない。旧Bundle生成・保存・自動統合・採用の本番Consumerを同じ単位で切り替えてから専用Store・保護・回復入口を撤去する。歴史的Evidenceと別用途のDomain候補処理は変更しない。
+
+Isolatedの品質受入入口は、既存の採用結果記録から元計画・Queue・Workspace・固定候補・取込Commitの相関を再確認する。現在HEADが取込Commitに一致することを照合し、無関係なHEADへの移動又は採用記録欠測では停止する。計画の元Revisionを現在HEADへ無条件に書換えず、候補Ref終了後も既存結果記録から同じ採用を確認できるようにする。表示上の待ち状態だけに依存せず、公開判断Ownerが採用前の品質受入を拒否する。DirectにはGit採用条件を追加しない。
+
+本節は人間が採用した切替先の契約であり、上記のSource接続・移行・検証の完了を表さない。現在の成立範囲と残件は[変更記録](../../../99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md)で区別する。
+
 ## 7. Qualityへの引渡し
 
 | 導出キー | ARCH | 必要な保証 | 試験段階・実境界 | 主なQA |

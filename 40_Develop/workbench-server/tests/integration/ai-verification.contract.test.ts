@@ -13,7 +13,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { runInNewContext } from "node:vm";
 import { createHash } from "node:crypto";
-import { join } from "node:path";
+import path, { join } from "node:path";
 import {
   gitRepositoryRevisionAdapter,
   verifyRepositoryRoot,
@@ -25,8 +25,447 @@ import {
 import {
   assessVerificationDockerInventory,
   createWorkbenchAiVerificationHttpClient,
+  projectVerificationTransportFailure,
   type VerificationDockerInventory,
 } from "../../scripts/ai-verification-http.ts";
+
+/**
+ * 編集試験の失敗後処置を実本文と有限Ownerで確認する。
+ * @trace ERB-IT-021
+ * @precondition HTTP・AI・Docker・Filesystem書込みを代役へ置く。
+ * @stimulus 受付前／受付応答不明、観測失敗、取消成功・未確認・例外、close失敗。
+ * @observation 同じIDの取消回数、終了順序、一次診断と回収結果。
+ * @oracle Task再送0、取消最大1、取消結果を待ってclose、不明を清掃成功にしない。
+ * @cleanup VMのPromiseをすべて完了する。実資源なし。
+ */
+test("Workspace試験は通信失敗後に同じTaskの取消結果を保存してから閉じる", async () => {
+  const source = fs.readFileSync(
+    new URL("../../scripts/verify-workspace-ai.ts", import.meta.url),
+    "utf8",
+  );
+  const start = source.indexOf("  const workspaceId = randomUUID();");
+  const end = source.indexOf("\n  return evidence;", start);
+  assert.ok(start > 0 && end > start);
+  const body = stripTypeScriptTypes(
+    `(async () => { ${source.slice(start, end)}\nreturn evidence; })()`,
+  );
+  for (const scenario of [
+    "success",
+    "before-accept",
+    "accept-unknown",
+    "cancel-clean",
+    "cancel-unknown",
+    "cancel-throws",
+    "cancel-running",
+    "cancel-secondary",
+    "cancel-secondary-missing",
+    "cancel-other-id",
+    "close-fails",
+  ]) {
+    let starts = 0;
+    let observes = 0;
+    const events: string[] = [];
+    const transport = new Error("workbench_verification_transport_failed", {
+      cause: {
+        failureClass: "headers_unobserved",
+        timedOut: true,
+        transportCode: "ECONNRESET",
+        secret: "synthetic-secret",
+      },
+    });
+    const snapshot = {
+      requestId: "request-synthetic",
+      status: "blocked",
+      reason: "synthetic_failure",
+      cleanupConfirmed: true,
+      recoveryIds: [],
+      secondaryFailures: [],
+    };
+    const result = await runInNewContext(body, {
+      Error,
+      assert,
+      path,
+      mode: "direct",
+      root: "synthetic-root",
+      parent: "synthetic-parent",
+      base: "base",
+      preflight: false,
+      projectId: "synthetic",
+      randomUUID: () => "workspace-id",
+      hash: () => "fixed-hash",
+      projectVerificationTransportFailure,
+      git: (_root: string, args: string[]) =>
+        args[0] === "rev-parse" ? "base" : "staged.txt",
+      fs: {
+        readFileSync: (file: string) =>
+          ({
+            "source.txt": "DIRECT_OK\n",
+            "dirty.txt": "EXISTING_DIRTY\n",
+            "staged.txt": "EXISTING_STAGE\n",
+            "unselected.txt": "EXISTING_UNTRACKED\n",
+          })[path.basename(file)] ?? "index",
+      },
+      requestBounded: () => {
+        throw new Error("unexpected_workspace_operation");
+      },
+      readMain: async () => ({ actionToken: "synthetic" }),
+      createWorkbenchAiVerificationHttpClient: async () => ({
+        start: async () => {
+          starts++;
+          if (scenario === "before-accept") throw transport;
+          if (scenario === "accept-unknown")
+            throw new Error("workbench_ai_http_start_outcome_unknown");
+          return { status: "accepted", requestId: snapshot.requestId };
+        },
+        observe: async () => {
+          observes++;
+          if (scenario !== "success") throw transport;
+          return {
+            ...snapshot,
+            status: "completed",
+            executionStatus: "completed",
+          };
+        },
+        cancel: async () => {
+          throw new Error("unexpected_http_retry");
+        },
+      }),
+      owner: {
+        cancel: async (id: string) => {
+          assert.equal(id, snapshot.requestId);
+          events.push("cancel");
+          await Promise.resolve();
+          events.push("cancel-result");
+          if (scenario === "cancel-throws") throw new Error("synthetic-secret");
+          if (scenario === "cancel-other-id")
+            return { ...snapshot, requestId: "other" };
+          if (scenario === "cancel-unknown")
+            return {
+              ...snapshot,
+              status: "unknown",
+              cleanupConfirmed: false,
+              recoveryIds: ["recovery-synthetic"],
+            };
+          if (scenario === "cancel-running")
+            return { ...snapshot, status: "running" };
+          if (scenario === "cancel-secondary")
+            return { ...snapshot, secondaryFailures: ["synthetic_secondary"] };
+          if (scenario === "cancel-secondary-missing")
+            return { ...snapshot, secondaryFailures: undefined };
+          return snapshot;
+        },
+      },
+      handle: {
+        baseUrl: "http://synthetic.invalid",
+        close: async () => {
+          events.push("close");
+          if (scenario === "close-fails") throw new Error("synthetic-secret");
+        },
+      },
+    });
+    assert.equal(starts, 1, scenario);
+    assert.equal(
+      observes,
+      ["before-accept", "accept-unknown"].includes(scenario) ? 0 : 1,
+      scenario,
+    );
+    if (["success", "before-accept", "accept-unknown"].includes(scenario))
+      assert.deepEqual(events, ["close"], scenario);
+    else
+      assert.deepEqual(events, ["cancel", "cancel-result", "close"], scenario);
+    assert.equal(result.limitedProbePassed, scenario === "success", scenario);
+    if (scenario !== "success") assert.ok(result.primaryFailure);
+    if (!["success", "accept-unknown"].includes(scenario)) {
+      assert.equal(
+        result.primaryFailure,
+        "workbench_verification_transport_failed",
+      );
+      assert.equal(result.transportFailure.timedOut, true);
+      assert.equal(result.transportFailure.transportCode, "ECONNRESET");
+    }
+    assert.equal(
+      result.runtimeClean,
+      ["success", "cancel-clean", "close-fails"].includes(scenario),
+      scenario,
+    );
+    assert.equal(result.closeConfirmed, scenario !== "close-fails");
+    if (scenario === "cancel-unknown")
+      assert.equal(result.task.recoveryIds[0], "recovery-synthetic");
+    if (scenario === "cancel-secondary")
+      assert.equal(result.task.secondaryFailures[0], "synthetic_secondary");
+    if (scenario === "cancel-secondary-missing")
+      assert.equal(result.task.secondaryFailures, undefined);
+    if (["cancel-throws", "cancel-other-id"].includes(scenario))
+      assert.equal(
+        result.cancellationFailure,
+        "workspace_verification_cancel_unconfirmed",
+      );
+    assert.equal(JSON.stringify(result).includes("synthetic-secret"), false);
+  }
+});
+
+/**
+ * 通信例外は許可済み分類だけを保持する。
+ * @trace ERB-IT-021
+ * @precondition 合成例外のみ。外部接続なし。
+ * @stimulus 既知／未知code、自由なmessage・cause。
+ * @observation 投影JSON。
+ * @oracle URL・秘密本文・未知codeを出力しない。
+ * @cleanup N/A: 同期判定。
+ */
+test("通信診断は未知codeと自由な例外本文を保存しない", () => {
+  assert.equal(
+    projectVerificationTransportFailure(new Error("synthetic-secret")),
+    null,
+  );
+  const result = projectVerificationTransportFailure(
+    new Error("workbench_verification_transport_failed", {
+      cause: {
+        failureClass: "headers_unobserved",
+        timedOut: false,
+        transportCode: "synthetic-secret",
+        url: "synthetic-secret",
+      },
+    }),
+  );
+  assert.equal(result?.transportCode, null);
+  assert.equal(result?.failureClass, "headers_unobserved");
+  assert.equal(result?.timedOut, false);
+  assert.equal(JSON.stringify(result).includes("synthetic-secret"), false);
+});
+
+/**
+ * 有界HTTPの実本文で期限発火と清掃中断を区別する。
+ * @trace ERB-IT-021
+ * @precondition fetch・Timer・Readerは有限代役。外部通信なし。
+ * @stimulus 接続拒否、期限超過、本文切断、本文上限、Reader回収失敗。
+ * @observation 固定診断とReader解放。
+ * @oracle 期限発火だけtimedOut=true、本文の清掃abortはfalse。
+ * @cleanup Timer解除とReaderのcancel／releaseLockを観測する。
+ */
+test("HTTP試験器は期限超過と本文清掃のabortを区別する", async () => {
+  const source = fs.readFileSync(
+    new URL("../../scripts/ai-verification-http.ts", import.meta.url),
+    "utf8",
+  );
+  const start = source.indexOf("export async function requestBounded(");
+  const end = source.indexOf("\n/**", start);
+  assert.ok(start > 0 && end > start);
+  const body = stripTypeScriptTypes(
+    source.slice(start, end).replace("export async", "async"),
+  );
+  for (const scenario of [
+    "refused",
+    "timeout",
+    "read-failed",
+    "body-limit",
+    "reader-cleanup-failed",
+  ]) {
+    let expire!: () => void;
+    let releases = 0;
+    let cancels = 0;
+    let clears = 0;
+    const invoke = runInNewContext(`${body}\nrequestBounded`, {
+      Error,
+      URL,
+      AbortController,
+      Buffer,
+      Object,
+      setTimeout: (callback: () => void, ms: number) => {
+        if (ms === 15_000) expire = callback;
+        return 1;
+      },
+      clearTimeout: () => {
+        clears++;
+      },
+      fetch: async () => {
+        if (scenario === "timeout") expire();
+        if (["refused", "timeout"].includes(scenario))
+          throw new TypeError("synthetic-secret", {
+            cause: Object.assign(new Error("synthetic-secret"), {
+              code: "ECONNREFUSED",
+            }),
+          });
+        return {
+          body: {
+            getReader: () => ({
+              read: async () => {
+                if (scenario === "body-limit")
+                  return { done: false, value: Buffer.alloc(1024 * 1024 + 1) };
+                throw new Error("synthetic-secret");
+              },
+              cancel: async () => {
+                cancels++;
+                if (scenario === "reader-cleanup-failed")
+                  throw new Error("synthetic-secret");
+              },
+              releaseLock: () => {
+                releases++;
+              },
+            }),
+          },
+        };
+      },
+    }) as (url: string, route: string) => Promise<unknown>;
+    let error: unknown;
+    try {
+      await invoke("http://synthetic.invalid", "/fixed");
+    } catch (caught) {
+      error = caught;
+    }
+    const diagnostic = projectVerificationTransportFailure(error);
+    assert.ok(diagnostic, scenario);
+    assert.equal(diagnostic.timedOut, scenario === "timeout", scenario);
+    assert.equal(
+      diagnostic.reason,
+      ["refused", "timeout"].includes(scenario)
+        ? "workbench_verification_transport_failed"
+        : scenario === "reader-cleanup-failed"
+          ? "workbench_verification_reader_cleanup_unknown"
+          : "workbench_verification_response_incomplete",
+    );
+    assert.equal(releases, ["refused", "timeout"].includes(scenario) ? 0 : 1);
+    assert.equal(cancels, releases);
+    assert.ok(clears > 0);
+    assert.equal(
+      JSON.stringify(diagnostic).includes("synthetic-secret"),
+      false,
+    );
+  }
+});
+
+/**
+ * 合成編集試験も明示された一回の用途以外を受け付けない。
+ * @trace ERB-IT-021
+ * @precondition 実AI・Dockerを起動しない不正引数だけを与える。
+ * @stimulus 同意なし・追加引数・未知用途。
+ * @observation 実CLIの終了値。
+ * @oracle 64で外部Effect前に停止する。
+ * @cleanup 子Processの終了を待つ。試験Rootは作成されない。
+ */
+test("Workspace実AI試験CLIは同意なしと未知引数を起動前に拒否する", () => {
+  const entry = fileURLToPath(
+    new URL("../../scripts/verify-workspace-ai.ts", import.meta.url),
+  );
+  for (const args of [
+    [],
+    ["--unknown"],
+    ["--external-send-confirmed", "--retry"],
+  ]) {
+    assert.throws(
+      () =>
+        execFileSync(process.execPath, [entry, ...args], {
+          stdio: "pipe",
+          windowsHide: true,
+          timeout: 15_000,
+        }),
+      (error: unknown) =>
+        error !== null &&
+        typeof error === "object" &&
+        "status" in error &&
+        error.status === 64,
+    );
+  }
+});
+
+/**
+ * 試験器のRoot検査と清掃失敗を実main本文で反証する。
+ * @trace ERB-IT-021
+ * @precondition Filesystem・Providerは有限代役であり実Effectなし。
+ * @stimulus 親のlink、自己生成物削除EPERM、正常終了。
+ * @observation 作成件数、元Task結果、保存した清掃失敗、終了値。
+ * @oracle linkは書込み0、削除失敗は元結果を保持してexit2。
+ * @cleanup N/A: 実資源を作らない。
+ */
+test("Workspace試験mainは作成前のRoot検査と元結果を失わない清掃を行う", async () => {
+  const source = fs.readFileSync(
+    new URL("../../scripts/verify-workspace-ai.ts", import.meta.url),
+    "utf8",
+  );
+  const body = source.slice(
+    source.indexOf("async function main()"),
+    source.lastIndexOf("await main().catch"),
+  );
+  for (const scenario of [
+    "success",
+    "cleanup-fails",
+    "task-failed-clean",
+    "linked-parent",
+  ]) {
+    let writes = 0;
+    const saved: string[] = [];
+    const processState = {
+      argv: ["node", "probe", "--preflight"],
+      cwd: () => path.resolve("fixture"),
+      exitCode: 0,
+      stderr: { write: () => undefined },
+    };
+    const execution = runInNewContext(
+      stripTypeScriptTypes(`${body}\nmain();`),
+      {
+        assert,
+        path,
+        process: processState,
+        verifyRepositoryRoot: () => ({ status: "completed", capability: {} }),
+        resolveVerifiedRepositoryRoot: () => processState.cwd(),
+        observeVerificationDockerInventory: () => ({
+          containers: [],
+          networks: [],
+        }),
+        assessVerificationDockerInventory: () => ({ status: "verified" }),
+        verify: async (_parent: string, mode: string) => ({
+          mode,
+          limitedProbePassed: scenario !== "task-failed-clean",
+          runtimeClean: true,
+          workspaceClean: true,
+          closeConfirmed: true,
+          task: { primaryFailure: null },
+        }),
+        fs: {
+          lstatSync: () => ({
+            isDirectory: () => true,
+            isSymbolicLink: () => scenario === "linked-parent",
+          }),
+          realpathSync: { native: (value: string) => value },
+          existsSync: () => false,
+          mkdirSync: () => {
+            writes++;
+          },
+          rmSync: (value: string) => {
+            if (scenario === "cleanup-fails" && value.endsWith("direct"))
+              throw new Error("EPERM");
+          },
+          writeFileSync: (_file: string, value: string) => {
+            writes++;
+            saved.push(value);
+          },
+        },
+        console: { log: () => undefined },
+      },
+    );
+    if (scenario === "linked-parent") {
+      await assert.rejects(execution, /verification_parent_invalid/u);
+      assert.equal(writes, 0);
+    } else {
+      await execution;
+      const report = JSON.parse(saved.at(-1) ?? "null");
+      assert.equal(
+        report.results.length,
+        scenario === "task-failed-clean" ? 1 : 2,
+      );
+      assert.equal(report.results[0].task.primaryFailure, null);
+      assert.equal(
+        report.fixtureRootsRemoved,
+        scenario === "success" || scenario === "task-failed-clean",
+      );
+      assert.equal(processState.exitCode, scenario === "success" ? 0 : 2);
+      if (scenario === "cleanup-fails")
+        assert.deepEqual(report.fixtureCleanupFailures, [
+          "direct_fixture_removal_failed",
+        ]);
+    }
+  }
+});
 
 /**
  * @trace ERB-IT-021

@@ -399,6 +399,11 @@ export type CoordinatorStateTaskOperation = Readonly<{
     commandHandleObtained: boolean;
     responseObserved: boolean;
     receiptRecorded: boolean;
+    commandObservation?: Readonly<{
+      exitCode: number | null;
+      stdoutBytes: number;
+      stderrBytes: number;
+    }> | null;
   }> | null;
   outcome: Readonly<{
     status: "completed" | "blocked" | "cancelled";
@@ -3646,6 +3651,11 @@ export function prepareCoordinatorStateHistoryLine(
  */
 function validCoordinatorPrimaryFailure(value: unknown): boolean {
   if (value === null) return true;
+  // 既存診断にない観測値を0で補わず、追加された場合だけ閉じて検査する。
+  const hasObservation =
+    value !== null &&
+    typeof value === "object" &&
+    Object.hasOwn(value, "commandObservation");
   if (
     !exactRecordKeys(value, [
       "purpose",
@@ -3655,6 +3665,7 @@ function validCoordinatorPrimaryFailure(value: unknown): boolean {
       "commandHandleObtained",
       "responseObserved",
       "receiptRecorded",
+      ...(hasObservation ? ["commandObservation"] : []),
     ])
   )
     return false;
@@ -3686,7 +3697,22 @@ function validCoordinatorPrimaryFailure(value: unknown): boolean {
       failure.responseObserved,
       failure.receiptRecorded,
     ].every((isObservedFlag) => typeof isObservedFlag === "boolean") &&
-    (!failure.receiptRecorded || failure.responseObserved)
+    (!failure.receiptRecorded || failure.responseObserved) &&
+    (!hasObservation ||
+      failure.commandObservation === null ||
+      (failure.responseObserved &&
+        exactRecordKeys(failure.commandObservation, [
+          "exitCode",
+          "stdoutBytes",
+          "stderrBytes",
+        ]) &&
+        (failure.commandObservation?.exitCode === null ||
+          (Number.isSafeInteger(failure.commandObservation?.exitCode) &&
+            Number(failure.commandObservation?.exitCode) >= 0)) &&
+        [
+          failure.commandObservation?.stdoutBytes,
+          failure.commandObservation?.stderrBytes,
+        ].every((v) => Number.isSafeInteger(v) && Number(v) >= 0)))
   );
 }
 

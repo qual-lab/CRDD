@@ -1274,6 +1274,16 @@ test("作成境界の一次失敗を清掃結果から分離する", async () =>
         assert.equal(terminal.resources, fixture.resourceObservations);
       }
       assert.equal(primary.purpose, "create_subscription_auth_probe");
+      assert.deepEqual(
+        primary.commandObservation,
+        scenario === "nonzero" || scenario.startsWith("receipt")
+          ? {
+              exitCode: scenario === "nonzero" ? 1 : 0,
+              stdoutBytes: Buffer.byteLength("fixed-id"),
+              stderrBytes: Buffer.byteLength("secret-value-must-not-escape"),
+            }
+          : null,
+      );
       assert.equal(
         primary.stage,
         scenario.startsWith("submission")
@@ -1666,6 +1676,7 @@ test("Provider境界診断は実行構成とProcess・cleanup観測を本文な�
         commandHandleObtained: true,
         responseObserved: true,
         receiptRecorded: false,
+        commandObservation: { exitCode: 127, stdoutBytes: 0, stderrBytes: 0 },
       },
     },
   ]);
@@ -5365,6 +5376,7 @@ test("技術失敗と開始確認拒否の二順序は一次診断を上書き�
               : "provider_start_observation",
           reason,
           exceptionCode: first === "technical" ? "EPIPE" : null,
+          commandObservation: null,
           commandHandleObtained: true,
           responseObserved: false,
           receiptRecorded: false,

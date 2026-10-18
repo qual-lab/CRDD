@@ -353,18 +353,24 @@ export function assessVerificationDockerInventory(
  * @security 本文、Tokenおよび例外本文をlogへ出さない。
  * @concurrency 各要求が独立したAbortControllerを所有する。
  */
-async function requestBounded(
+export async function requestBounded(
   baseUrl: string,
   route: string,
   form?: URLSearchParams,
 ) {
   const controller = new AbortController();
   let headersReceived = false;
-  const timer = setTimeout(() => controller.abort(), 15_000);
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, 15_000);
   try {
     const response = await fetch(new URL(route, baseUrl), {
       method: form === undefined ? "GET" : "POST",
-      ...(form === undefined ? {} : { body: form }),
+      ...(form === undefined
+        ? {}
+        : { body: form, headers: { origin: new URL(baseUrl).origin } }),
       redirect: "manual",
       signal: controller.signal,
     });
@@ -420,11 +426,17 @@ async function requestBounded(
     }
     if (!cleanupConfirmed)
       throw new Error("workbench_verification_reader_cleanup_unknown", {
-        cause: Object.freeze({ failureClass }),
+        cause: Object.freeze({
+          failureClass,
+          timedOut,
+        }),
       });
     if (failureClass !== null)
       throw new Error("workbench_verification_response_incomplete", {
-        cause: Object.freeze({ failureClass }),
+        cause: Object.freeze({
+          failureClass,
+          timedOut,
+        }),
       });
     return {
       status: response.status,
@@ -440,13 +452,68 @@ async function requestBounded(
     throw new Error("workbench_verification_transport_failed", {
       cause: Object.freeze({
         failureClass: headersReceived ? "read_failed" : "headers_unobserved",
-        timedOut: controller.signal.aborted,
+        timedOut,
+        transportCode:
+          error instanceof Error &&
+          error.cause instanceof Error &&
+          "code" in error.cause &&
+          typeof error.cause.code === "string" &&
+          /^(?:ECONNREFUSED|ECONNRESET|EPIPE|ETIMEDOUT|UND_ERR_(?:SOCKET|CONNECT_TIMEOUT|HEADERS_TIMEOUT|BODY_TIMEOUT))$/u.test(
+            error.cause.code,
+          )
+            ? error.cause.code
+            : null,
       }),
     });
   } finally {
     controller.abort();
     clearTimeout(timer);
   }
+}
+
+/**
+ * 試験器の通信失敗を秘密本文なしの有限診断へ投影する。
+ * @trace ERB-IT-021
+ * @input 同じ試験器が送出した例外。
+ * @returns 固定理由、観測段階、期限超過、既知code。未知例外はnull。
+ * @effect なし。
+ * @security URL・Token・本文・自由な例外messageを返さない。
+ */
+export function projectVerificationTransportFailure(error: unknown) {
+  if (
+    !(error instanceof Error) ||
+    ![
+      "workbench_verification_transport_failed",
+      "workbench_verification_response_incomplete",
+      "workbench_verification_reader_cleanup_unknown",
+      "workbench_verification_body_limit",
+      "workbench_verification_body_missing",
+    ].includes(error.message)
+  )
+    return null;
+  const cause = error.cause;
+  const detail =
+    cause !== null && typeof cause === "object"
+      ? (cause as Record<string, unknown>)
+      : {};
+  return Object.freeze({
+    reason: error.message,
+    failureClass:
+      typeof detail.failureClass === "string" &&
+      ["headers_unobserved", "read_failed", "body_limit"].includes(
+        detail.failureClass,
+      )
+        ? detail.failureClass
+        : null,
+    timedOut: typeof detail.timedOut === "boolean" ? detail.timedOut : null,
+    transportCode:
+      typeof detail.transportCode === "string" &&
+      /^(?:ECONNREFUSED|ECONNRESET|EPIPE|ETIMEDOUT|UND_ERR_(?:SOCKET|CONNECT_TIMEOUT|HEADERS_TIMEOUT|BODY_TIMEOUT))$/u.test(
+        detail.transportCode,
+      )
+        ? detail.transportCode
+        : null,
+  });
 }
 
 /**
@@ -465,7 +532,7 @@ async function requestBounded(
  * @security 取得本文はmemory内だけで扱う。
  * @concurrency N/A: 一要求の読取りに閉じる。
  */
-async function readMain(baseUrl: string) {
+export async function readMain(baseUrl: string) {
   const response = await requestBounded(
     baseUrl,
     "/api/workbench-view?route=%2F",

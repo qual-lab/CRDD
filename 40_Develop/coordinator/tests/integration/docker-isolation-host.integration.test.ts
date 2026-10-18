@@ -14,6 +14,7 @@ import assert from "node:assert/strict";
 import { spawnSync, type SpawnSyncReturns } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import fs from "node:fs";
+import { stripTypeScriptTypes } from "node:module";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
@@ -21,7 +22,9 @@ import { runInNewContext } from "node:vm";
 import {
   describeClaudeSubscriptionAuthenticationCli,
   describeCodexAdviceDistributionIdentity,
+  planCodexIsolatedTask,
 } from "../../../ai-adapter/src/index.ts";
+import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
 import {
   createClaudeSubscriptionAuthenticationDependencies,
   createClaudeSubscriptionAuthenticationPlan,
@@ -40,6 +43,441 @@ import {
   type DockerIsolationRuntimePlan,
   type DockerResourceReceipts,
 } from "../../../docker-isolation/src/index.ts";
+
+/**
+ * 固定編集CLIの引数受付と三Mountの書込み境界を外部AIなしで確認する。
+ * @responsibility 起動前の拒否とProvider依頼を分離し、元IDで試験物を回収する。
+ * @trace ERB-IT-031
+ * @precondition 明示承認済み、起動中Engine、取得済み固定Image。
+ * @stimulus 通常Entrypointのexec --helpと、別Containerの固定Python一回。
+ * @observation 数値終了、固定エラー分類、構成、合成Sourceと保護領域。
+ * @oracle none・資格Mountなし・非root・readonly Rootを維持し、自己資源不存在。
+ * @cleanup 元ID・Label・Image・構成を確認したContainerだけ削除。不明時はRoot保持。
+ * @boundary ヘルプ成功は実Task・認証・モデル利用可能の証明ではない。
+ */
+test("Windows Process Gate: Codex編集CLI起動と借用三Mountを無通信で確認する", {
+  timeout: 120_000,
+}, () => {
+  const repository = path.resolve(
+    fileURLToPath(new URL("../../../../", import.meta.url)),
+  );
+  assert.equal(verifyRepositoryRoot(repository).status, "completed");
+  const parent = path.join(repository, ".crdd", "tests");
+  for (const directory of [path.join(repository, ".crdd"), parent]) {
+    assert.equal(fs.lstatSync(directory).isSymbolicLink(), false);
+    assert.equal(fs.realpathSync.native(directory), directory);
+  }
+  const plan = planCodexIsolatedTask({
+    provider: "codex",
+    mode: "isolated_task",
+    effort: "low",
+    taskRole: "executor",
+  });
+  assert.equal(plan.status, "candidate");
+  if (plan.status !== "candidate") throw new Error("probe_plan_unavailable");
+  const image = plan.distributionBinding.fixedImageDigest;
+  const snapshot = observeTrustedDockerCli();
+  const env = createDockerProcessEnvironment();
+  const docker = (args: string[]) => {
+    const result = spawnSync(
+      verifyTrustedDockerCliSnapshot(snapshot),
+      ["--host", "npipe:////./pipe/dockerDesktopLinuxEngine", ...args],
+      {
+        env,
+        encoding: "utf8",
+        windowsHide: true,
+        shell: false,
+        timeout: 20_000,
+        maxBuffer: 65_536,
+      },
+    );
+    verifyTrustedDockerCliSnapshot(snapshot);
+    return result;
+  };
+  const completed = (args: string[]) => {
+    const result = docker(args);
+    assert.equal(result.error, undefined, "probe_command_error");
+    assert.equal(result.signal, null, "probe_command_signalled");
+    assert.equal(result.status, 0, "probe_command_failed");
+    return result.stdout;
+  };
+  completed(["version", "--format", "{{.Server.Version}}"]);
+  assert.equal(JSON.parse(completed(["image", "inspect", image]))[0].Id, image);
+  const directory = fs.mkdtempSync(path.join(parent, "codex-startup-"));
+  const tree = path.join(directory, "tree");
+  const git = path.join(directory, "git-protection");
+  const internal = path.join(directory, "internal-protection");
+  for (const entry of [
+    tree,
+    git,
+    internal,
+    path.join(tree, ".git"),
+    path.join(tree, ".crdd"),
+  ])
+    fs.mkdirSync(entry);
+  fs.writeFileSync(path.join(tree, "source.txt"), "BASE\n");
+  const label = `crdd.coordinator.startup-probe=${randomBytes(12).toString("hex")}`;
+  const [labelKey, labelValue] = label.split("=");
+  assert.ok(labelKey && labelValue);
+  const resources: {
+    id: string | null;
+    name: string;
+    removed: boolean;
+    argv: string[];
+    python: boolean;
+  }[] = [];
+  const observations: Record<string, unknown>[] = [];
+  let primaryFailure: string | null = null;
+  let cleanupFailure: string | null = null;
+  const inspect = (resource: (typeof resources)[number]) => {
+    assert.ok(resource.id);
+    const value = JSON.parse(
+      completed(["container", "inspect", resource.id]),
+    )[0];
+    assert.equal(value.Id, resource.id);
+    assert.equal(value.Name, `/${resource.name}`);
+    assert.equal(value.Image, image);
+    assert.equal(value.Config.Labels[labelKey], labelValue);
+    assert.equal(value.Config.User, "65534:65534");
+    assert.equal(value.Config.WorkingDir, "/work");
+    assert.deepEqual(value.Config.Cmd, resource.argv);
+    assert.deepEqual(value.Config.Entrypoint, [
+      resource.python ? "/usr/local/bin/python3" : plan.command,
+    ]);
+    assert.equal(value.HostConfig.NetworkMode, "none");
+    assert.equal(value.HostConfig.ReadonlyRootfs, true);
+    assert.equal(value.HostConfig.Privileged, false);
+    assert.equal(value.HostConfig.PidsLimit, 32);
+    assert.deepEqual(value.HostConfig.Tmpfs, {
+      "/tmp": "rw,nosuid,nodev,size=16m",
+    });
+    assert.deepEqual(value.HostConfig.CapDrop, ["ALL"]);
+    assert.ok(value.HostConfig.SecurityOpt.includes("no-new-privileges"));
+    assertStartupProbeMounts(value.Mounts, tree, git, internal);
+    return value;
+  };
+  const python = [
+    "import errno,json",
+    "with open('/work/source.txt','w') as f: f.write('PROBE_OK\\n')",
+    "for target in ['/work/.git/probe','/work/.crdd/probe']:",
+    " try:",
+    "  with open(target,'w') as f: f.write('forbidden')",
+    " except OSError as e:",
+    "  assert e.errno in [errno.EROFS,errno.EACCES,errno.EPERM]",
+    " else: raise RuntimeError('protected_write_succeeded')",
+    "print(json.dumps({'sourceWrite':True,'gitWriteDenied':True,'internalWriteDenied':True}))",
+  ].join("\n");
+  try {
+    for (const isPython of [false, true]) {
+      const argv = isPython
+        ? ["-c", python]
+        : [...plan.argv.slice(0, -1), "--help"];
+      const resource = {
+        id: null as string | null,
+        name: `crdd-startup-${randomBytes(12).toString("hex")}`,
+        removed: false,
+        argv,
+        python: isPython,
+      };
+      resources.push(resource);
+      fs.writeFileSync(
+        path.join(directory, "resources.json"),
+        JSON.stringify({ image, label, resources }),
+      );
+      const created = docker([
+        "create",
+        "--pull=never",
+        "--name",
+        resource.name,
+        "--label",
+        label,
+        "--network",
+        "none",
+        "--read-only",
+        "--user",
+        "65534:65534",
+        "--cap-drop",
+        "ALL",
+        "--security-opt",
+        "no-new-privileges",
+        "--pids-limit",
+        "32",
+        "--tmpfs",
+        "/tmp:rw,nosuid,nodev,size=16m",
+        "--mount",
+        `type=bind,src=${tree},dst=/work`,
+        "--mount",
+        `type=bind,src=${git},dst=/work/.git,readonly`,
+        "--mount",
+        `type=bind,src=${internal},dst=/work/.crdd,readonly`,
+        ...(isPython ? ["--entrypoint", "/usr/local/bin/python3"] : []),
+        image,
+        ...argv,
+      ]);
+      assert.equal(created.error, undefined, "probe_create_error");
+      assert.equal(created.status, 0, "probe_create_failed");
+      assert.match(
+        created.stdout.trim(),
+        /^[a-f0-9]{64}$/u,
+        "probe_create_identity_unknown",
+      );
+      resource.id = created.stdout.trim();
+      fs.writeFileSync(
+        path.join(directory, "resources.json"),
+        JSON.stringify({ image, label, resources }),
+      );
+      inspect(resource);
+      const result = docker(["start", "--attach", resource.id]);
+      const after = inspect(resource);
+      observations.push({
+        purpose: isPython ? "three_mount_python" : "codex_exec_help",
+        dockerExitCode: result.status,
+        containerExitCode: after.State.ExitCode,
+        signal: result.signal,
+        stdoutBytes: Buffer.byteLength(result.stdout),
+        stderrBytes: Buffer.byteLength(result.stderr),
+        argumentRejected:
+          /unexpected (?:argument|option)|unknown (?:argument|option)|invalid (?:argument|option)/iu.test(
+            result.stderr,
+          ),
+        errorMentionsApproveForMe: result.stderr.includes("--approve-for-me"),
+        helpDisplayed: !isPython && /Usage:|USAGE:/u.test(result.stdout),
+        ...(isPython && result.status === 0
+          ? { mountResult: JSON.parse(result.stdout) }
+          : {}),
+      });
+      assert.equal(result.error, undefined, "probe_start_observation_error");
+      assert.equal(result.signal, null, "probe_start_signalled");
+      assert.ok(Number.isInteger(result.status), "probe_exit_unobserved");
+      assert.equal(after.State.Running, false, "probe_still_running");
+      completed(["rm", resource.id]);
+      const absent = docker(["container", "inspect", resource.id]);
+      assert.equal(absent.status, 1);
+      assert.match(absent.stderr, /No such (?:object|container)/iu);
+      resource.removed = true;
+      if (isPython) {
+        assert.equal(result.status, 0, "probe_mount_execution_failed");
+        assert.equal(
+          fs.readFileSync(path.join(tree, "source.txt"), "utf8"),
+          "PROBE_OK\n",
+        );
+      }
+      // ヘルプの拒否も観測結果として残し、別のAI起動や引数変更はしない。
+    }
+  } catch (error) {
+    primaryFailure =
+      error instanceof Error
+        ? (error.message.split("\n")[0] ?? "probe_failed")
+        : "probe_failed";
+  } finally {
+    for (const resource of resources.filter(
+      (r) => !r.removed && r.id !== null,
+    )) {
+      try {
+        const value = inspect(resource);
+        if (value.State.Running) {
+          cleanupFailure = "probe_still_running";
+          continue;
+        }
+        completed(["rm", resource.id as string]);
+        const absent = docker(["container", "inspect", resource.id as string]);
+        assert.equal(absent.status, 1);
+        assert.match(absent.stderr, /No such (?:object|container)/iu);
+        resource.removed = true;
+      } catch {
+        cleanupFailure = "probe_container_cleanup_unconfirmed";
+      }
+    }
+    const clean =
+      cleanupFailure === null &&
+      resources.every((r) => r.id !== null && r.removed);
+    const report: Record<string, unknown> = {
+      contract: "crdd/codex-offline-startup-probe",
+      image,
+      observations,
+      primaryFailure,
+      cleanupFailure,
+      resourcesRemoved: clean,
+      externalAiRequested: false,
+      credentialsMounted: false,
+      fullE2eVerified: false,
+      rootRemoved: false,
+    };
+    try {
+      fs.writeFileSync(
+        path.join(directory, "result.json"),
+        JSON.stringify(report, null, 2),
+      );
+    } catch {
+      cleanupFailure ??= "probe_result_save_failed";
+    }
+    if (clean && cleanupFailure === null) {
+      try {
+        assert.equal(fs.realpathSync.native(directory), directory);
+        assert.equal(path.dirname(directory), parent);
+        fs.rmSync(directory, { recursive: true, force: true });
+        report.rootRemoved = !fs.existsSync(directory);
+        if (report.rootRemoved !== true)
+          cleanupFailure = "probe_root_removal_unconfirmed";
+      } catch {
+        cleanupFailure = "probe_root_removal_failed";
+      }
+    }
+    report.cleanupFailure = cleanupFailure;
+    console.log(JSON.stringify(report));
+  }
+  assert.equal(cleanupFailure, null);
+  assert.equal(primaryFailure, null);
+  assert.equal(
+    resources.every((r) => r.removed),
+    true,
+  );
+});
+
+/**
+ * 元の合成三領域へのbindだけを受理する。
+ * @responsibility Destinationの一致だけで別Sourceを回収対象にしない。
+ * @trace ERB-IT-031
+ * @precondition 既存Engineのinspect値と元作成Path。
+ * @stimulus bind構成を照合する。
+ * @observation 不一致時はthrowし後続rmへ進まない。
+ * @oracle 種別・Source・Destination・RW全件一致。
+ * @cleanup N/A: 純粋判定。
+ */
+function assertStartupProbeMounts(
+  value: unknown,
+  tree: string,
+  git: string,
+  internal: string,
+) {
+  assert.ok(Array.isArray(value));
+  assert.ok(
+    value.every(
+      (m) =>
+        m.Type === "bind" || (m.Type === "tmpfs" && m.Destination === "/tmp"),
+    ),
+  );
+  assert.deepEqual(
+    value
+      .filter((m) => m.Type === "bind")
+      .map((m) => [m.Type, m.Source, m.Destination, m.RW])
+      .sort((a, b) => String(a[2]).localeCompare(String(b[2]))),
+    [
+      ["bind", tree, "/work", true],
+      ["bind", internal, "/work/.crdd", false],
+      ["bind", git, "/work/.git", false],
+    ],
+  );
+}
+
+/**
+ * 起動欠測と清掃失敗を実試験器の制御断面で反証する。
+ * @trace ERB-IT-031
+ * @precondition 合成inspectのみ。Dockerなし。
+ * @stimulus error／Signal／終了値欠測と結果保存・Root削除失敗。
+ * @observation 後続作成代役と終了report。
+ * @oracle 次Container作成0、一次理由保持、清掃失敗別記録、削除未確認を成功にしない。
+ * @cleanup N/A: 外部資源なし。
+ */
+test("起動確認は終了欠測で次Containerへ進まず清掃失敗を一次へ上書きしない", () => {
+  const source = fs.readFileSync(fileURLToPath(import.meta.url), "utf8");
+  const start = source.indexOf(
+    '      assert.equal(result.error, undefined, "probe_start_observation_error");',
+  );
+  const end = source.indexOf("      assert.equal(after.State.Running", start);
+  assert.ok(start > 0 && end > start);
+  const guard = source.slice(start, end);
+  for (const result of [
+    { error: new Error("fixture"), signal: null, status: null },
+    { error: undefined, signal: "SIGTERM", status: null },
+    { error: undefined, signal: null, status: null },
+  ]) {
+    let creates = 0;
+    assert.throws(() =>
+      runInNewContext(`${guard}\nnext();`, {
+        assert,
+        result,
+        next: () => creates++,
+      }),
+    );
+    assert.equal(creates, 0);
+  }
+  const reportStart = source.indexOf("    const clean =", end);
+  const reportEnd = source.indexOf(
+    "\n  }\n  assert.equal(cleanupFailure",
+    reportStart,
+  );
+  assert.ok(reportStart > end && reportEnd > reportStart);
+  const block = stripTypeScriptTypes(source.slice(reportStart, reportEnd));
+  for (const failure of ["none", "save", "remove", "remains"]) {
+    let report: Record<string, unknown> | undefined;
+    const primaryFailure = failure === "none" ? null : "original_start_failure";
+    runInNewContext(`let cleanupFailure = null; ${block}`, {
+      primaryFailure,
+      resources: [{ id: "fixture", removed: true }],
+      image: "fixture",
+      observations: [],
+      directory: "C:\\fixture\\probe",
+      parent: "C:\\fixture",
+      path,
+      assert,
+      fs: {
+        writeFileSync() {
+          if (failure === "save") throw new Error("fixture");
+        },
+        realpathSync: { native: (p: string) => p },
+        rmSync() {
+          if (failure === "remove") throw new Error("fixture");
+        },
+        existsSync: () => failure === "remains",
+      },
+      console: {
+        log: (value: string) => {
+          report = JSON.parse(value);
+        },
+      },
+    });
+    assert.ok(report);
+    assert.equal(report.primaryFailure, primaryFailure);
+    assert.equal(report.rootRemoved, failure === "none");
+    assert.equal(report.cleanupFailure === null, failure === "none");
+  }
+});
+
+/**
+ * 構成差で処置へ進まない有限反例。
+ * @trace ERB-IT-031
+ * @precondition 合成inspectのみ。Dockerなし。
+ * @stimulus 同じDestinationの別Source・別種別・書込み可否差。
+ * @observation 削除代役の呼出し数。
+ * @oracle すべて拒否しrm0。
+ * @cleanup N/A: 外部資源なし。
+ */
+test("起動確認のMount照合はSource差替えで削除へ進まない", () => {
+  const mounts = [
+    { Type: "bind", Source: "tree", Destination: "/work", RW: true },
+    { Type: "bind", Source: "git", Destination: "/work/.git", RW: false },
+    { Type: "bind", Source: "internal", Destination: "/work/.crdd", RW: false },
+  ];
+  assertStartupProbeMounts(mounts, "tree", "git", "internal");
+  let removes = 0;
+  for (const change of [
+    { Source: "other" },
+    { Type: "volume" },
+    { RW: false },
+  ]) {
+    assert.throws(() => {
+      assertStartupProbeMounts(
+        [{ ...mounts[0], ...change }, ...mounts.slice(1)],
+        "tree",
+        "git",
+        "internal",
+      );
+      removes++;
+    });
+  }
+  assert.equal(removes, 0);
+});
 
 /**
  * 公式配置物の二つの観測を同じ実Imageへ結合する。

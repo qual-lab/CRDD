@@ -374,6 +374,11 @@ type PrimaryFailureDiagnostic = Readonly<{
   commandHandleObtained: boolean;
   responseObserved: boolean;
   receiptRecorded: boolean;
+  commandObservation: Readonly<{
+    exitCode: number | null;
+    stdoutBytes: number;
+    stderrBytes: number;
+  }> | null;
 }>;
 
 /**
@@ -1627,6 +1632,7 @@ async function executePlan(
   let hasCommandHandle = false;
   let hasResponseObservation = false;
   let receiptRecorded = false;
+  let commandObservation: PrimaryFailureDiagnostic["commandObservation"] = null;
   let primaryFailure: PrimaryFailureDiagnostic | null = null;
   let startConfirmation: Promise<void> | null = null;
   let lastStdoutBytes = 0;
@@ -1669,6 +1675,7 @@ async function executePlan(
       commandHandleObtained: hasCommandHandle,
       responseObserved: hasResponseObservation,
       receiptRecorded,
+      commandObservation,
     });
     return false;
   }
@@ -1695,6 +1702,7 @@ async function executePlan(
       hasCommandHandle = false;
       hasResponseObservation = false;
       receiptRecorded = false;
+      commandObservation = null;
       return (
         commandRestrictionAllows(record.commandRestriction, purpose) ||
         reject("docker_process_controller_execution_restricted")
@@ -1865,6 +1873,14 @@ async function executePlan(
       diagnosticStage = "execution_classification";
       hasCommandHandle = true;
       hasResponseObservation = execution !== null;
+      commandObservation =
+        execution === null
+          ? null
+          : Object.freeze({
+              exitCode: execution.status,
+              stdoutBytes: Buffer.byteLength(execution.stdout, "utf8"),
+              stderrBytes: Buffer.byteLength(execution.stderr, "utf8"),
+            });
       const classified = classifyExecution(
         execution,
         purpose,
@@ -1987,6 +2003,7 @@ async function executePlan(
               commandHandleObtained: true,
               responseObserved: false,
               receiptRecorded: false,
+              commandObservation: null,
             });
           }
           if (requestedStatus !== "blocked") {

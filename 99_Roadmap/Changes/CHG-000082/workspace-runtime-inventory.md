@@ -759,3 +759,97 @@ Coordinatorの書式・型・Lintと追跡検査は成功し、Lintの既知情�
 横断調査で見つけたProbe記録、Docker IsolationのCLI／回収／退避、Platform Accessの別Readerには未評価の同型判定候補がある。各Package Ownerが実障害または当該領域改修時に再評価する。今回5取得点との直接Identity受渡し不整合は確認されず、一斉修正を混入させない。Probe Writerには記録作成後の拒否もあり得るため、単なる拒否をEffect 0や清掃成立と表示しない。全Windows経路対応済みとは主張しない。
 
 実AI・Docker操作・実資格使用、新管理機構、実行別Evidence書庫は追加していない。正式198項目の全数評価、実Provider全E2E、人間UAT・移行・Release判断は別に残す。
+
+#### 最新Sourceの読取り専用実AI確認と残る切替（2026-10-18）
+
+基準Commitは`9e99cdf1001ba98cd7d859c1878733d33a8551e6`。人間が`PROJECT_CONTEXT.md`全文と固定質問を既存SubscriptionのCodex／Claudeへ各一回送信する範囲を明示承認した後、既存`verify-readonly-ai.ts`を順番に実行した。最初の環境審査拒否はProcess作成・外部送信前であり、Provider再試行には数えない。実行別Evidence Directoryは追加しない。
+
+| 対象 | 公開入口からの観測結果 |
+|---|---|
+| Codex | `PROFILE-100001`／`gpt-5.6-sol`、要求`request-ad9170fb-0fcd-4df4-8c5f-2eedbdee5524`。completed、一次失敗なし、二次失敗0、回復参照0、cleanup確認済み、exit0 |
+| Claude | `PROFILE-200001`／`opus`、要求`request-63798336-2a73-4e33-8e5d-be0fc95ba697`。completed、一次失敗なし、二次失敗0、回復参照0、cleanup確認済み、exit0 |
+| 共通の終了確認 | Server close確認済み、Timeoutなし、Context Hash／Git Revision不変、既存Container／Network一覧と構成の前後一致、追加・消失資源0。監視数警告は今回の両実行で観測されなかった |
+| 主張の限界 | 公開HTTP経由の読取り助言と回収の限定成功であり、全Repository／index不変、編集E2E、回答内容の全数品質、人間UAT、全E2E成立は主張しない。生の回答・資格は記録しない |
+
+続く編集E2Eと旧方式撤去は未完了。既存の技術・品質の読取り専用事前確認を統合し、次の順で進める。
+
+1. 自己生成RepositoryでDirectの既存dirty／stage保全と編集・終了を確認する。Directを自動採用へ接続しない。
+2. 同じ自己生成RepositoryのIsolatedで、実AI編集、公開差分確認、選択した変更だけの固定、別操作の採用、二親Mergeと不要Branch／Worktreeの回収を確認する。候補CommitとMerge親・Treeを実Gitで照合する。
+3. Project計画の本番利用側をWorkspace方式へ接続してから、旧Bundle生成・統合・採用・Store専用処理を除去する。`operation-composition.ts`の計画終了後統合と既存採用入口は現用であり、単発Taskの成功だけから置換済みとしない。計画・Quality・判断待ちを失わせず、AI完了から自動Commit・Mergeしない。
+
+旧Storeの想定先`%LOCALAPPDATA%/Qual-Lab/CRDD/CandidateStore`は読取り照会時点で不存在だった。この一点から全旧保存先・回復参照不存在や全移行完了は推定しない。正式Evidenceは歴史的証跡として不変更とし、Domain Modelの別用途の候補処理を名称だけで削除しない。
+
+今回の経路は既存Capabilityの検証と複数Packageの利用側切替である。編集前にArchitecture／Qualityと実Consumerを照合し、製品変更の固定候補には技術・品質の独立レビューと利用側の不足／影響確認を行う。準拠表明・Releaseは変更しないため、それらの全件監査を今回の限定検証へ追加しない。編集試験の外部送信許可は上記読取り助言の承認とは別に扱う。
+
+人間は続いて、合成Root内のDirect／Isolated各一Task、候補固定・二親Merge・自己生成物回収を承認した。編集用固定Imageの互換性を再照合し、助言用`gpt-5.6-sol`と編集用`gpt-5.5`の違いを説明した上で、編集試験だけ既存`PROFILE-100003`／`gpt-5.5`へ変更する判断を得た。Claudeは`opus`を維持する。5.6用Profileの追加案は取りやめ、Catalog・Imageの本体設定を変更しない。
+
+外部AIなしの試験器事前確認では、合成二RepositoryのDirect変更保全とIsolatedの公開差分確認・候補固定・別採用・二親／Tree照合・候補終了・Workspace終了・Branch／Worktree不存在・子Root回収が成功した。Docker前後一覧・構成は一致した。実mainの親link拒否・清掃EPERM反例を含む局所6件と静的確認は成功し、試験器の独立再レビューは残指摘0。これは実AI編集の成功ではない。先行する試験器のGit空設定、ロゴ前提、HTTP必須field、合成Rootに存在しない関連CHG指定の失敗は外部AI前に止まり、自己生成物だけを確認後に清掃した。
+
+③の計画集約は、人間が「同じWorkspaceでTaskを順番に実行」を採用した。Directは現在Treeのまま品質判断へ、Isolatedは明示固定・別Git採用後に品質判断へ接続する。Task完了から自動Commit・Mergeしない。Architecture詳細とQA-000005へ切替先の条件を反映したが、本番Sourceの切替・旧Bundle／Store撤去は未完了である。
+
+編集の実試験は承認済みの外部対話端末で一回だけ開始した。Direct要求`request-6e383c4e-d563-41d8-a676-af4ab26633c5`は`provider_process_exit_nonzero`でblockedとなり、Isolatedは開始していない。元Operationは`OP-177329842347160795331207977218656387170`、最初の失敗は`execution_classification`／`start_provider_attached`で、command handle取得・応答観測あり、receipt記録なし。Provider終了の詳細原因と外部送信成立の有無は、この閉じた診断だけでは確定しない。モデル又はDockerが原因だったと断定せず、自動再試行・別Provider切替をしない。
+
+| 終了時の確認 | 結果 |
+|---|---|
+| Directの変更 | `source.txt`は`BASE`のまま、閉じた変更観測は空配列。編集成功・dirty保全の実AI成立は主張しない |
+| Task・Server | 元失敗を保持、cleanup確認済み、回復参照0、二次失敗0、Server close確認済み |
+| 現在状態 | Coordinatorの操作・未解決回復・配送待ちは各0。Orchestratorの当該単発依頼はsettled、cleanup済み |
+| Docker | 試験後の読取り再確認では既存の停止Container一件だけ。既存利用者資源の一覧・構成は不変。標準bridgeのIDは変わったが、構成一致と個別回収を別に観測しており再起動・修復は発行していない |
+| 試験器の評価修正 | 元reportの`provider_cleanup_unconfirmed`は、両方式の試験成功をcleanup条件へ誤結合した試験器の判定であった。Task失敗・技術回収・合成Root清掃を分離し、Task失敗でも回収成立を独立評価する有限反例を追加。元FailをPassへ書換えない |
+
+実AI編集は失敗条件に従って停止した。②の編集E2Eは未成立、③は設計伝播までであり、1〜3全完了又はRelease可能とは扱わない。不要な失敗診断書庫は増やしていない。現在非使用・回復不要・実行資源不存在、当該単発依頼settledと既存Git Worktree登録追加なしを再確認し、今回の`.crdd/tests/workspace-real-ai/`を回収して不存在を確認した。
+
+試験の合否とcleanup判定を分離した最終Toolの書式・型・Lint及び局所6件は成功した。最終文書／不足影響の限定独立レビューと検証Toolの限定独立レビューはともに指摘0件。これは実編集の元Failを解消する根拠ではなく、原因調査前に再試行・旧方式撤去へ進まない。今回Commit・Pushは行っていない。
+
+#### 編集非0終了の最小診断補完と無通信確認
+
+一次失敗へ同じDocker CLIの数値終了値とstdout／stderr byte数を追加し、Codexの有界JSONLエラーを既存の失敗分類へ接続した。原文保存・実行条件の緩和・新しい回復管理は追加しない。元失敗では数値終了値を保存しておらず、詳細原因は遡及確定できない。
+
+固定Image `sha256:e7fefafffd4b96614811b2d51b9704d3280e4995c358ed5e25ec795215dbd45c`で、資格Mountなし・Network none・非root・readonly Root・合成三Mountだけの限定確認を実施した。通常Entrypointの編集CLI引数＋`--help`はDocker／Containerとも終了0、help表示あり、引数拒否なし（stdout 3957 bytes、stderr 103 bytes）。別Containerの固定Pythonは終了0で通常Source書込み、`.git`／`.crdd`書込み拒否を確認した。stderr本文を記録しておらず、警告不存在とは主張しない。二Containerと専用Rootの不存在を確認した。
+
+この確認はImageの基本起動と三Mountだけの成立を示し、認証・モデル・実Taskを評価しない。元E2E原因をDocker又はモデルへ断定できず、AI再試行・再認証・Docker再起動は行っていない。
+
+AI Adapter通常回帰33件、Controllerの非Host回帰109件、追加の数値契約・起動欠測・清掃失敗反例3件、Windows実保存・読戻し1件は成功した。型・書式・Lintも成功し、実装／保存契約と試験器／主張範囲の限定独立再レビューは各指摘0件。試験器の失敗反例は有限代役によるもので、実Dockerの故障再現ではない。実AI編集の再試行は未承認・未実施のまま残す。
+
+#### 同条件の一回再実行（2026-10-18、失敗・回収未完了）
+
+上記時点の後、人間が同じ条件で一回だけの再実行と試験物回収を承認した。端末起動文の構文誤りは試験本体開始前に検出し、Root不存在を確認して起動方法だけを修正した。実試験は一回だけ開始し、Direct要求`request-f4e17fe1-6ca6-4afc-9471-58ae859b858e`の受付後、公開状態取得で`workbench_verification_transport_failed`となった。Isolatedは未開始、Task再送・別Provider切替なし。
+
+元Operationは`OP-173742365490754481381956596975309094311`。保存状態はProvider未開始・外部送信未発行・共有書込み未発行、一次Process診断はnullであり、前回のAI非0終了の再現とは扱わない。HTTP試験器は15秒期限を持つが、今回の最終reportは例外causeを保持していないため、期限超過と別の搬送失敗を断定しない。
+
+同じ回復ID `docker-task.7a8a913ba325345122de111096d1e616e1f6cd4b9499ef405901862b8198f56a.3e1615d6c5f027a803efd6518df0d30558cc7b711c766a1610cc98293fea2ad7.7a7a9408b57b0127f42f0e71ce377bd6bef00ac2e28f81d483ac2c46d204b770` の正式回収は`docker_task_recovery_resource_unconfirmed`で停止した。認証確認用Containerだけが作成結果unknown、他四資源は未要求。OwnerのEffectはdisabledとなり、回収CLIのLock解放は確認済みだが、Task回収・Host回収・記録終了は未完了である。
+
+回収後の読取り一覧は既存停止Container `jarvis-python-1`と既存Networkだけで、今回の試験資源追加は観測されなかった。これを未確定Createの正式終了証明に置換しない。`.crdd/tests/workspace-real-ai/`と同じ回復参照、関連Host領域は未解決のため保持し、自動期限削除・手動記録書換え・再起動・再試験を行わない。次はHTTP状態取得の失敗原因と、未確定Createの既存終了経路を確認する。今回②は未成立である。
+
+#### 通信失敗後の試験器終了処置の限定是正
+
+人間の許可に基づき、通信失敗の固定分類・操作段階・期限Timerの発火・許可済みcodeを保存し、清掃用abortを期限超過と誤記録しないようにした。受付IDが確定した後の観測失敗だけ、既存Ownerへ同じTask IDの取消を一回発行し、そのTask結果・cleanup・回復参照を記録してからServerを閉じる。取消例外・別ID・実行中返却・回復待ち・副次失敗又はその欠測は清掃成功へ畳まない。元通信失敗、取消失敗、close失敗を分離し、新規Task再送・期限延長・新しい管理機構・本番回復条件の変更は行わない。
+
+外部AI・Docker・認証情報を使わない有限反例とloopback公開HTTPによる関連回帰9件が成功し、型・書式・Lintも成功。技術／品質の限定独立再レビューは各残指摘0件。これは実AI再試行、公開取消HTTPの実証、元通信失敗の詳細原因確定又は保持中試験物の回収成立ではない。保持中Root内の結果・Coordinator状態・Orchestrator状態の3ファイルはSHA-256不変を確認し、関連Host領域も処置しない。AI再試行・Docker再起動・記録強制削除は未実施、今回の残存は同じ回復参照で保持する。
+
+<a id="workspace-edit-trial-ended-unresolved"></a>
+
+#### 今回の試験終了と未解決回収の保持（2026-10-18、人間判断）
+
+決定権限者である利用者は、今回の認証確認用Containerが遅れて停止状態で残る可能性を許容し、今回の試験を終了扱いにすることを指示した。これは今回の失敗試験だけの判断であり、一般のunknown回収条件の変更、AI再試行、Docker再起動又は削除の許可ではない。
+
+| 区分 | 確定した扱い |
+|---|---|
+| 試験 | 終了。Directは失敗、Isolatedは未実施。②の編集E2E成立・Pass・Release可能を主張しない |
+| 回収 | 未完了。`cleanupConfirmed:false`を成功へ変更せず、認証確認用Container作成結果のunknownを維持する |
+| 対象・追跡 | 要求`request-f4e17fe1-6ca6-4afc-9471-58ae859b858e`、Operation `OP-173742365490754481381956596975309094311`。上記一回再実行に記載したexact Docker回復IDと関連Host回復参照をそのまま保持する |
+| 物理残存 | `.crdd/tests/workspace-real-ai/`、対応Host一時領域・markerを保持する。状態・結果の強制書換えや削除は行わない |
+| 残るリスク | 遅延したCreateにより、未startの停止Containerだけが後発で残る可能性。現在資源未観測を将来の不存在保証へ拡張しない |
+| 再評価契機・担当 | Front AI又はRuntime運用担当が、利用者から明示された同IDの回収調査で再評価する。後からID・作成結果が判明した場合は既存の構成照合・同ID回収を検討する。期限だけでunknownや保持物を自動破棄しない |
+
+今回の記録更新では、Runtimeの状態・終了条件・排他・回復機構を変更しない。試験終了と未解決回収を分離して記録するだけとし、AI再試行・Docker操作・残存削除は行っていない。
+
+#### ②・③の残件と次の進め方（今回の区切り）
+
+| 対象 | 済んだ範囲 | 残件 |
+|---|---|---|
+| ② 実AI編集E2E | 合成Git・有限代役の事前確認、固定Imageの無通信起動・三Mount、診断補完、通信失敗後の終了処置。今回の実試験は終了判断済み | Directの実AI編集・既存dirty／stage保全、Isolatedの実AI編集から明示固定・二親Merge・Worktree／Branch回収までの実境界成功は未成立。新しい実AI試行は別途許可を要する |
+| 今回の回収 | 元失敗・unknown・exact回復参照と保持物を維持。停止Containerが遅れて残る可能性の許容を記録 | 回収自体は未完了。今回の試験終了とは独立し、再起動・強制削除・一般回復改修を他作業の前提にしない |
+| ③ 計画のWorkspace接続・旧Bundle撤去 | 同じWorkspaceでTaskを順次実行する方針、Direct／Isolated別の品質受入条件をArchitecture／Qualityへ伝播 | 計画本番Consumer、実行・結果参照・再入場・品質受入のSource切替と結合試験。旧Bundle生成／統合／Store専用処理・公開参照・設定の撤去と移行確認、回帰・独立レビュー |
+
+次の推奨順序は、まず③の本番利用側・旧処理・成立済みCapabilityの対応を固定し、外部AIなしでWorkspace接続と複数Task・実保存・再入場・明示採用・品質受入の結合確認を進めることとする。旧処理は置換先・利用側・必要検証が揃った範囲だけ撤去し、別用途のDomain候補・採用判断・歴史Evidenceを削除しない。②の実AI再検証は必要な実境界条件を固定して別途人間の許可を得た後とし、今回の許容を再送許可へ読み替えない。最終的な③の完了は必要な実境界、移行、回帰・レビューとの対応まで確認し、有限代役の成功だけで旧処理全面置換又はRelease可能と表示しない。

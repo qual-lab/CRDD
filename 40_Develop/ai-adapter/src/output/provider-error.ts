@@ -51,10 +51,80 @@ export function classifyProviderNonzeroExit(
     Buffer.byteLength(execution.stderr, "utf8") > 8_192
   )
     return "provider_process_exit_nonzero";
-  const diagnostic = execution.stderr
-    .replaceAll("\r\n", "\n")
-    .trim()
-    .toLowerCase();
+  const stderrReason = classifyDiagnostic(execution.stderr);
+  if (stderrReason !== "provider_process_exit_nonzero" || provider !== "codex")
+    return stderrReason;
+  const messages = codexErrorMessages(execution.stdout);
+  return messages === null ? stderrReason : classifyDiagnostic(messages);
+}
+
+/**
+ * 固定Codexのエラーイベントだけを容量上限内で抽出する。
+ * @responsibility 通常回答や未知イベントをエラー説明へ読み替えない。
+ * @trace ARCH-000010
+ * @input 同じ非0終了の標準出力。
+ * @returns 一時的な分類入力、又は不正・欠測のnull。本文は保存しない。
+ * @effect N/A: 文字列解析だけ。
+ * @failure 過大・NUL・曖昧JSON・未知イベント・不正messageはnull。
+ */
+function codexErrorMessages(raw: string): string | null {
+  if (raw.includes("\0") || Buffer.byteLength(raw, "utf8") > 65_536)
+    return null;
+  const lines = raw.split(/\r?\n/u).filter((line) => line.length > 0);
+  if (lines.length === 0 || lines.length > 128) return null;
+  const known = new Set([
+    "thread.started",
+    "turn.started",
+    "turn.completed",
+    "turn.failed",
+    "error",
+    "item.started",
+    "item.updated",
+    "item.completed",
+  ]);
+  const messages: string[] = [];
+  for (const line of lines) {
+    if (Buffer.byteLength(line, "utf8") > 8_192) return null;
+    const event = parseUnambiguousJsonDocument(line);
+    if (!event || typeof event !== "object" || Array.isArray(event))
+      return null;
+    const record = event as Record<string, unknown>;
+    if (typeof record.type !== "string" || !known.has(record.type)) return null;
+    let message: unknown;
+    if (record.type === "error") message = record.message;
+    else if (record.type === "turn.failed") {
+      if (
+        !record.error ||
+        typeof record.error !== "object" ||
+        Array.isArray(record.error)
+      )
+        return null;
+      message = (record.error as Record<string, unknown>).message;
+    } else continue;
+    if (
+      typeof message !== "string" ||
+      message.length === 0 ||
+      Buffer.byteLength(message, "utf8") > 8_192
+    )
+      return null;
+    messages.push(message);
+  }
+  const text = messages.join("\n");
+  return text.length === 0 || Buffer.byteLength(text, "utf8") > 8_192
+    ? null
+    : text;
+}
+
+/**
+ * 診断本文を既存の閉じた失敗理由へ変換する。
+ * @responsibility 出力先によらず同じ分類順序を維持し、本文を返さない。
+ * @trace ARCH-000010
+ * @input 上限確認済みの一時的な説明。
+ * @returns 固定理由のみ。
+ * @effect N/A: 同期の文字列照合。
+ */
+function classifyDiagnostic(raw: string) {
+  const diagnostic = raw.replaceAll("\r\n", "\n").trim().toLowerCase();
   if (
     /(?:usage|rate) limit|quota (?:exceeded|exhausted)|credit balance (?:is )?too low|hit your (?:current )?limit/u.test(
       diagnostic,
@@ -68,7 +138,7 @@ export function classifyProviderNonzeroExit(
   )
     return "provider_authentication_expired";
   if (
-    /unknown (?:argument|option)|invalid (?:argument|option)|json schema (?:is )?invalid|unsupported model|model (?:is )?not found/u.test(
+    /unknown (?:argument|option)|unexpected (?:argument|option)|invalid (?:argument|option)|json schema (?:is )?invalid|unsupported model|model (?:is )?not found/u.test(
       diagnostic,
     )
   )
