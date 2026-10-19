@@ -9,15 +9,15 @@
  * @security Secret、任意実行Path、任意CLI引数をProfile契約へ含めない。
  */
 export { PROVIDER_AUTHENTICATION_POLICIES } from "./profile/authentication-policy.ts";
-export { isProviderSubscriptionAuthenticationConfirmed } from "./profile/subscription-status.ts";
+export { isProviderSubscriptionAuthenticationConfirmed } from "./provider/subscription-status.ts";
 export { classifyProviderNonzeroExit } from "./provider/error.ts";
-export { evaluateProviderEligibility } from "./profile/eligibility.ts";
+export { evaluateProviderEligibility } from "./provider/availability.ts";
 export {
   providerProfileMatchesExecutionIdentity,
   providerProfileSupportsExecution,
   normalizeProviderExactModelId,
 } from "./profile/execution-identity.ts";
-export { prepareProviderFixedEnvironment } from "./profile/environment.ts";
+export { prepareProviderFixedEnvironment } from "./provider/environment.ts";
 export type { ProviderProfileExecutionIdentity } from "./profile/types.ts";
 export {
   PROVIDER_MODEL_PROFILE_RUNTIME_CONTRACT,
@@ -26,7 +26,7 @@ export {
   resolveRuntimeOwnedProviderModelProfileFromCatalog,
   describeProviderModelProfileRuntimeContract,
   selectProviderFamilyPreference,
-} from "./profile/model.ts";
+} from "./profile/resolve.ts";
 export {
   WORKBENCH_AI_ADVICE_PROVIDER_COMMAND_CONTRACT,
   WORKBENCH_AI_ADVICE_PROVIDER_COMMAND_CONTRACT_REVISION,
@@ -81,7 +81,7 @@ export {
   createAiProfileCatalogAdministration,
   validateAiProfileMutationResult,
   parseAiProfileCatalogMutation,
-} from "./profile/administration.ts";
+} from "./profile/crud.ts";
 export {
   createCrosAiProfileCatalogStore,
   createRepositoryAiProfileCatalogStore,

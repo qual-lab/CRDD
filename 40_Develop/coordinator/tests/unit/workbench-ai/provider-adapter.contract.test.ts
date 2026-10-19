@@ -18,7 +18,7 @@ import {
 } from "../../../../ai-adapter/src/index.ts";
 import { CODEX_FORBIDDEN_ENVIRONMENT_NAMES } from "../../../../ai-adapter/src/index.ts";
 import { CLAUDE_FORBIDDEN_ENVIRONMENT_NAMES } from "../../../../ai-adapter/src/index.ts";
-import type { ResolvedAiProfileIdentity } from "../../../../ai-adapter/src/catalog/types.ts";
+import type { ResolvedAiProfileIdentity } from "../../../../ai-adapter/src/index.ts";
 
 import {
   DEFAULT_AI_PROFILE_CATALOG,

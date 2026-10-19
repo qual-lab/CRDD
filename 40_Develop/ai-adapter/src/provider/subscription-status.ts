@@ -1,14 +1,13 @@
 /**
  * Provider認証Probeの出力をSubscription成立条件へ分類する。
  *
- * @packageDocumentation
  * @responsibility Provider固有の出力意味を判定し、実行・回収・Authorityを所有しない。
  * @trace ARCH-000010
  * @boundary 未信頼のCLI出力とProvider分類の境界。
  * @effect N/A: 入力文字列だけを分類する。
  * @security 生出力を公開結果や例外へ複製しない。
  */
-import { parseUnambiguousJsonDocument } from "../provider/json.ts";
+import { parseUnambiguousJsonDocument } from "./json.ts";
 
 /**
  * Provider認証Probeの出力をSubscription成立条件へ分類する。

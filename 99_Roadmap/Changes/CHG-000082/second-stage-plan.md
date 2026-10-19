@@ -98,6 +98,28 @@ Source観測の`config/`・`schemas/`追加は既存Observerへの必要な追�
 
 残るPackage内の精査は`advice/`の用途・Provider固有CLI分岐、Profile／Catalog／保存と契約属性、Codex／Claude計画中のImage・Seccomp等のOwner、Symbol／変数名・Headerと公開集合である。`advice/`を丸ごと改名するだけの処置は保留し、実責務とConsumerを先に確認する。②のAI再試行・保持物削除・実Docker操作・Image取得／更新は実施していない。
 
+#### ProfileとProviderの責務配置（2026-10-19）
+
+初回移管は`14ef13ce`でコミット・プッシュした。次の単位では、Profileの設定・選定と、Providerの実行条件の純粋判定を区別する。新しい観測・認証・実行許可は追加しない。
+
+| 旧実体 | 現在の実体 | 判断理由・維持する条件 |
+|---|---|---|
+| `profile/model.ts` | `profile/resolve.ts` | 実態はModel本体でなくCatalogからの一意選定。明示Profile、Family／Role／Tier、拒否・fallbackなしを維持 |
+| `profile/administration.ts` | `profile/crud.ts` | 同じProfileの登録・更新・削除と入力／結果検査。改訂競合・削除確認・既存Adapter限定・採用最大一回を分散しない |
+| `profile/environment.ts` | `provider/environment.ts` | Profile設定でなく固定CLI環境の検査。禁止名、取得一回、順序と例外伝播を維持 |
+| `profile/subscription-status.ts` | `provider/subscription-status.ts` | 認証Probe出力の分類。Offering相関、Codexのexact文言／既知Warning、Claudeの五条件を維持 |
+| `profile/eligibility.ts` | `provider/availability.ts` | Provider観測の五軸評価。理由優先順、unknown拒否と直前確認候補の区別を維持 |
+
+`ObservationState`／`ProviderObservation`は一Fileだけの利用だったため、新しい共通型Fileを作らず、`availability.ts`の非公開型へ同居させた。前者は非公開の`ProviderObservationState`とし、状態値は不変更。`profile/types.ts`は複数Consumerで使う既存Profile実行Identityへ限定する。認証・課金方針はProfile契約属性として維持し、Process内の同期Snapshot RegistryとFilesystem Storeは変更理由・Effect・失敗境界が異なるため統合しない。
+
+公開入口のSymbol集合・通信値・保存shape・意味IDは維持し、実体Path、Checker期待公開集合、Symbol実Pathを同期した。Coordinatorと対応試験のCatalog型deep import四箇所は、既に公開済みのRoot型へ接続した。AI Adapterの利用側結合試験も自PackageとWorkbenchの公開入口を使い、新しい公開型・中継は追加していない。過去の旧CROS比較文書は現行仕様でなく歴史的比較として維持する。
+
+自己確認はAI Adapter静的三軸・全33件、Coordinator／MCP静的確認、Profile選定・五軸評価・環境搬送・助言利用側35件、MCP管理3件、公開入口／Header／QA3件、Symbol Graph16件が成功した。移動五Sourceの型除去後Codeは、import・TSDoc・空白を除く基準テキスト比較で一致し、AST同等性や全体完成の証明とはしない。Profile型の局所化とHeader具体化以外に操作本体を変更していない。
+
+完成後の独立技術・限定文書／影響確認は指摘0件。Repository Checkerは現行0・歴史CHG旧参照3,353によるExit 1を維持する。追加読取りではProcess内Registryの呼出しはAI Adapter／MCPの試験4箇所だけで、本番Consumerは見つかっていない。今回の配置変更では公開能力を削除せず維持するが、存続の必要性を確定したとは扱わず、残る不要機能評価で公開契約と試験用代替を照合する。
+
+助言のProvider固有CLI／出力処理、Provider計画の固定Image・Seccomp等、残る命名・Headerと公開集合の精査は継続対象であり、AI Adapter全体完了ではない。②の再実行・保持物削除・実Docker・外部AIの依頼は行わない。
+
 新方針の現物差分と最初の実装（2026-10-17）: [差分・実装順序](workspace-runtime-inventory.md#10-新方針と既存実装の差分実装順序2026-10-17)を整理した。既存DIに`.env`別maskはなく追加不要、明示コピー防止のsecret検出は一括撤去しない。VCのTree／差分二Adapterを共通の有限Git読取りへ接続し、是正後の静的三軸と全50件成功。続いてWorktree作成・観測・明示終了時の専用Worktree／Branch削除を実装した。filter利用・gitlink作成は未対応として拒否し、独自の変換・管理台帳・State・Lockを追加しない。[実装と実Git試験](workspace-runtime-inventory.md#git-worktree管理の部分実装と実git試験)に現在結果・部分成立・制約を集約する。上位Task／採否の本番接続・Merge・Direct切替・旧Bundle撤去は後続で、今回を全体完成としない。
 
 開発情報・共通隔離方針の採用（2026-10-17）: 人間はローカル開発用`.env`がCoding AIから読まれ得るリスク、本番SecretのGit／通常開発環境外での既存管理、開発資格の本番権限なし・限定権限・有効期限、Direct／Candidate共通DI方針を採用した。[DI正本](../../../06_Architecture/Details/docker-isolation/01_Architecture.md#workspace-isolation-policy)と[判断差分](workspace-runtime-inventory.md#9-開発情報と共通隔離方針の変更2026-10-17)へ反映する。独自Secret Manager・file別ACL・動的Mount許可Frameworkは作らない。以前の隠蔽試験は当時の反例として保持し、新方針の不合格へ流用しない。Git／内部状態書込み・認証領域等の境界は維持する。Source共通化・Cloud権限の実確認は未実施で、今回は文書伝播だけ。

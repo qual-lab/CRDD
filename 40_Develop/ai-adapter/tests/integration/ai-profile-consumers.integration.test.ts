@@ -11,9 +11,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { resolveRuntimeOwnedProviderModelProfile } from "../../src/profile/model.ts";
-import { createDefaultWorkbenchAiProfileSurface } from "../../../workbench-server/src/ai-profile/projection.ts";
-import { DEFAULT_AI_PROFILE_CATALOG } from "../../src/catalog/resolve.ts";
+import {
+  DEFAULT_AI_PROFILE_CATALOG,
+  resolveRuntimeOwnedProviderModelProfile,
+} from "../../src/index.ts";
+import { createDefaultWorkbenchAiProfileSurface } from "../../../workbench-server/src/index.ts";
 
 /**
  * CoordinatorとWorkbenchが同じProfile Identityを利用することを検証する。

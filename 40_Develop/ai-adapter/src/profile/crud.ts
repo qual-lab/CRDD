@@ -1,7 +1,6 @@
 /**
- * AI Profile Catalogの限定管理Application。
+ * AI Profileの登録・更新・削除と操作結果の相関を検証する。
  *
- * @packageDocumentation
  * @responsibility 登録済みAdapter／Modelだけを使うProfileの作成、更新、確認付き削除を不変Catalog Snapshotへ反映する。
  * @trace ARCH-000010
  * @boundary Workbench等の管理入口とOwner別Catalog Storeの境界。
@@ -116,7 +115,7 @@ export function validateAiProfileMutationResult(
  * @responsibility Profile Identity、操作種別、削除確認および改訂競合をCatalog全体の採用前に評価する。
  * @trace ARCH-000010
  * @input store: RepositoryまたはCROS Ownerの検証済みCatalog Store。
- * @returns 現在Snapshotの取得と限定Mutation実行を持つApplication。
+ * @returns 現在Snapshotの取得とProfile限定Mutationの実行操作。
  * @precondition storeは一つのOwnerに固定され、Snapshot採用を直列化する。
  * @postcondition completed時だけRevisionが一つ進み、rejected時はSnapshotを変更しない。
  * @effect execute成功時にOwner別Catalog Snapshotを一件追加する。

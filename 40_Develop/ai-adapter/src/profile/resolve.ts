@@ -1,7 +1,7 @@
 /**
- * provider-model-profile-runtimeに属する責務をまとめる。
+ * Profile要求をCatalogの一意な実行設定へ解決する。
  *
- * @responsibility Providerを中心とする実装、型および境界を同じModuleで所有する。
+ * @responsibility 明示Profile又はFamily・Role・Tier条件を検証し、対応する設定だけを返す。
  * @trace ARCH-000010
  */
 import {
@@ -43,20 +43,20 @@ const ROLES = new Set([
 const PROFILE_ID = /^PROFILE-[0-9]{6,}$/u;
 
 /**
- * Runtime 所有 Provider Model Profileを一意に解決する。
+ * 同梱Catalogから明示要求のProfileを一意に解決する。
  *
- * @responsibility Runtime 所有 Provider Model Profileの候補集合、解決規則、曖昧時の拒否境界を所有する。
+ * @responsibility 既定Catalogを指定した同じ検証・選定経路へ要求を渡す。
  * @trace ARCH-000010
- * @input rawRequest: unknown
- * @returns resolveRuntimeOwnedProviderModelProfileの計算結果を返す。
- * @precondition 「rawRequest: unknown」がresolveRuntimeOwnedProviderModelProfileの入力契約を満たす。
- * @postcondition resolveRuntimeOwnedProviderModelProfileの責務を完了した結果だけを返す。
- * @effect N/A: resolveRuntimeOwnedProviderModelProfileは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: resolveRuntimeOwnedProviderModelProfileは独自の失敗分岐を所有しない。
- * @invariant resolveRuntimeOwnedProviderModelProfileは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: resolveRuntimeOwnedProviderModelProfileはProcess内の同一Subsystemで完結する。
- * @security resolveRuntimeOwnedProviderModelProfileはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: resolveRuntimeOwnedProviderModelProfileは共有非同期状態を持たない同期処理である。
+ * @input 未信頼のProfile要求。
+ * @returns 対応するProfile設定、又は拒否時null。
+ * @precondition 同梱CatalogはModule初期化時に検証されている。
+ * @postcondition Catalog指定版と同じ要求の受理・拒否条件を使う。
+ * @effect N/A: 入力又は固定値の同期評価だけで、保存・Process・通信を行わない。
+ * @failure 不正要求、非対応値、不一致又は曖昧な選定はnull。
+ * @invariant 別Modelや別Providerへの暗黙fallbackを行わない。
+ * @boundary Profile Catalogと実行設定を利用するConsumerの間。
+ * @security 秘密値・Host Path・実行Authorityを返さない。
+ * @concurrency N/A: 共有状態を更新しない同期処理。
  */
 export function resolveRuntimeOwnedProviderModelProfile(rawRequest: unknown) {
   return resolveRuntimeOwnedProviderModelProfileFromCatalog(
@@ -175,20 +175,20 @@ export function resolveRuntimeOwnedProviderModelProfileFromCatalog(
 }
 
 /**
- * Provider Model Profile Runtime 契約の公開契約を記述する。
+ * 既定Profileの固定互換構成と未対応範囲を記述する。
  *
- * @responsibility Provider Model Profile Runtime 契約の公開field、非公開境界、互換性を所有する。
+ * @responsibility 固定Profile ID、Model互換性、Tier、速度・課金制約の宣言を返す。
  * @trace ARCH-000010
- * @input N/A: 実行時引数を受け取らない。
- * @returns describeProviderModelProfileRuntimeContractの計算結果を返す。
- * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeProviderModelProfileRuntimeContractの入力契約を満たす。
- * @postcondition describeProviderModelProfileRuntimeContractの責務を完了した結果だけを返す。
- * @effect N/A: describeProviderModelProfileRuntimeContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: describeProviderModelProfileRuntimeContractは独自の失敗分岐を所有しない。
- * @invariant describeProviderModelProfileRuntimeContractは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: describeProviderModelProfileRuntimeContractはProcess内の同一Subsystemで完結する。
- * @security describeProviderModelProfileRuntimeContractはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: describeProviderModelProfileRuntimeContractは共有非同期状態を持たない同期処理である。
+ * @input N/A: 実行時入力を持たない。
+ * @returns 固定互換Profileの記述Object。
+ * @precondition N/A: 宣言値だけで構成する。
+ * @postcondition Provider実行やCatalog採用を開始しない。
+ * @effect N/A: 入力又は固定値の同期評価だけで、保存・Process・通信を行わない。
+ * @failure N/A: 固定Objectの生成だけで拒否分岐を持たない。
+ * @invariant 宣言した検証済み範囲を全Profile・全Providerの成立へ一般化しない。
+ * @boundary Profile Catalogと実行設定を利用するConsumerの間。
+ * @security 秘密値・Host Path・実行Authorityを返さない。
+ * @concurrency N/A: 共有状態を更新しない同期処理。
  */
 export function describeProviderModelProfileRuntimeContract() {
   return Object.freeze({
@@ -235,20 +235,20 @@ export function describeProviderModelProfileRuntimeContract() {
 }
 
 /**
- * Family Preferenceを選択する。
+ * Providerに対応する既定Familyを返す。
  *
- * @responsibility Family Preferenceの候補集合、選択理由、選択不能時の境界を所有する。
+ * @responsibility CodexのsolとClaudeのopusの既存対応を所有する。
  * @trace ARCH-000010
- * @input provider: Provider
- * @returns selectProviderFamilyPreferenceの計算結果を返す。
- * @precondition 「provider: Provider」がselectProviderFamilyPreferenceの入力契約を満たす。
- * @postcondition selectProviderFamilyPreferenceの責務を完了した結果だけを返す。
- * @effect N/A: selectProviderFamilyPreferenceは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: selectProviderFamilyPreferenceは独自の失敗分岐を所有しない。
- * @invariant selectProviderFamilyPreferenceは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: selectProviderFamilyPreferenceはProcess内の同一Subsystemで完結する。
- * @security selectProviderFamilyPreferenceはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: selectProviderFamilyPreferenceは共有非同期状態を持たない同期処理である。
+ * @input 型契約で限定されたProvider。
+ * @returns 対応するFamily名。
+ * @precondition Providerはcodex又はclaudeである。
+ * @postcondition Profile・Model・実行権限を選定したとは扱わない。
+ * @effect N/A: 入力又は固定値の同期評価だけで、保存・Process・通信を行わない。
+ * @failure N/A: 型契約内の二Providerを既存の対応で処理する。
+ * @invariant Family選択から費用・速度・上位Modelの自動切替を行わない。
+ * @boundary Profile Catalogと実行設定を利用するConsumerの間。
+ * @security 秘密値・Host Path・実行Authorityを返さない。
+ * @concurrency N/A: 共有状態を更新しない同期処理。
  */
 export function selectProviderFamilyPreference(provider: "codex" | "claude") {
   return provider === "codex" ? "sol" : "opus";

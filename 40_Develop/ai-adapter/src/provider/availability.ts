@@ -1,14 +1,49 @@
 /**
  * Provider利用可能性の純粋な判定を所有する。
  *
- * @packageDocumentation
  * @responsibility 明示された観測値の意味を判定し、観測・認証・実行Authorityを発行しない。
  * @trace ARCH-000010
  * @boundary Coordinatorから明示的に渡された観測値と利用可能性候補の間。
  */
 import { snapshotPlainRecord } from "../../../domain-model/src/index.ts";
 import type { AiProvider } from "../catalog/types.ts";
-import type { ProviderObservation, ObservationState } from "./types.ts";
+
+/**
+ * Provider観測の確認段階を区別する。
+ *
+ * @responsibility 確認済み、直前確認候補、要求時確認、利用不可と未観測を別の値にする。
+ * @trace ARCH-000010
+ * @shape 既存の五つの観測状態からなるliteral union。
+ * @invariant unknownとunavailableをconfirmedへ補正しない。
+ * @boundary このFileの五軸評価だけで利用する非公開型。
+ * @security 状態値自身は実行許可や認証情報を持たない。
+ * @compatibility 観測入力の既存文字列値を変更しない。
+ */
+type ProviderObservationState =
+  | "confirmed"
+  | "runtime_preflight_required"
+  | "bounded_request_check"
+  | "unavailable"
+  | "unknown";
+
+/**
+ * Provider実行候補の五つの観測軸を保持する。
+ *
+ * @responsibility Capability・認証・利用量・公式配布・方針の状態を別々に扱う。
+ * @trace ARCH-000010
+ * @shape 各軸はProviderObservationStateを持つ。
+ * @invariant 一つの軸の成功から他の軸を確認済みにしない。
+ * @boundary 観測Snapshotの検査と利用可能性の純粋評価の間。
+ * @security Host Path、秘密値とCapability本体を持たない。
+ * @compatibility 既存の五fieldと状態値を維持するFile内型。
+ */
+type ProviderObservation = Readonly<{
+  requiredCapability: ProviderObservationState;
+  subscriptionAuth: ProviderObservationState;
+  subscriptionQuota: ProviderObservationState;
+  officialDistribution: ProviderObservationState;
+  policy: ProviderObservationState;
+}>;
 
 const OBSERVATION_KEYS = new Set([
   "requiredCapability",
@@ -26,20 +61,20 @@ const OBSERVATION_STATES = new Set([
 ]);
 
 /**
- * Provider Observationを所有Snapshotへ変換する。
+ * Provider観測を実行可能Propertyのない五軸Snapshotへ固定する。
  *
- * @responsibility Provider Observationの取得範囲、plain-data制約、拒否境界を所有する。
+ * @responsibility 五fieldの状態語彙を検証し、所有済みの値だけを返す。
  * @trace ARCH-000010
- * @input rawObservation: unknown
- * @returns snapshotProviderObservationの計算結果を返す。
- * @precondition 「rawObservation: unknown」がsnapshotProviderObservationの入力契約を満たす。
- * @postcondition snapshotProviderObservationの責務を完了した結果だけを返す。
- * @effect N/A: snapshotProviderObservationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: snapshotProviderObservationは独自の失敗分岐を所有しない。
- * @invariant snapshotProviderObservationは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: snapshotProviderObservationはProcess内の同一Subsystemで完結する。
- * @security snapshotProviderObservationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: snapshotProviderObservationは共有非同期状態を持たない同期処理である。
+ * @input 未信頼のrawObservation。
+ * @returns 有効な五軸観測、又は不正のnull。
+ * @precondition N/A: 任意の未信頼値を受け付ける。
+ * @postcondition 元Objectの参照・Getterを後続判定へ持ち込まない。
+ * @effect N/A: 入力又は固定値の同期評価だけで、保存・Process・通信を行わない。
+ * @failure 未知field、accessor、Proxy、不正状態又は欠落を拒否する。
+ * @invariant 実観測を実施せず、入力の確認段階を保持する。
+ * @boundary Coordinatorが取得する観測とProviderの純粋な意味判定の間。
+ * @security 秘密値・Host Path・実行Authorityを返さない。
+ * @concurrency N/A: 共有状態を更新しない同期処理。
  */
 function snapshotProviderObservation(rawObservation: unknown) {
   const observation = snapshotPlainRecord(rawObservation, OBSERVATION_KEYS);
@@ -54,29 +89,32 @@ function snapshotProviderObservation(rawObservation: unknown) {
     return null;
   }
   return Object.freeze({
-    requiredCapability: observation.requiredCapability as ObservationState,
-    subscriptionAuth: observation.subscriptionAuth as ObservationState,
-    subscriptionQuota: observation.subscriptionQuota as ObservationState,
-    officialDistribution: observation.officialDistribution as ObservationState,
-    policy: observation.policy as ObservationState,
+    requiredCapability:
+      observation.requiredCapability as ProviderObservationState,
+    subscriptionAuth: observation.subscriptionAuth as ProviderObservationState,
+    subscriptionQuota:
+      observation.subscriptionQuota as ProviderObservationState,
+    officialDistribution:
+      observation.officialDistribution as ProviderObservationState,
+    policy: observation.policy as ProviderObservationState,
   });
 }
 
 /**
- * Eligibilityを構築する。
+ * 五軸観測からProviderの利用可能性候補を決める。
  *
- * @responsibility Eligibilityの構築入力、生成結果、不正入力の拒否境界を所有する。
+ * @responsibility 利用不可の理由優先順と、未観測・実行直前確認候補を区別する。
  * @trace ARCH-000010
- * @input provider: Provider、observation: ProviderObservation | null
- * @returns createEligibilityの計算結果を返す。
- * @precondition 「provider: Provider、observation: ProviderObservation | null」がcreateEligibilityの入力契約を満たす。
- * @postcondition createEligibilityの責務を完了した結果だけを返す。
- * @effect N/A: createEligibilityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: createEligibilityは独自の失敗分岐を所有しない。
- * @invariant createEligibilityは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: createEligibilityはProcess内の同一Subsystemで完結する。
- * @security createEligibilityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: createEligibilityは共有非同期状態を持たない同期処理である。
+ * @input 対象Providerと検査済み観測又はnull。
+ * @returns eligible／ineligibleと固定理由の不変値。
+ * @precondition 観測の各fieldは既存の状態語彙に限定されている。
+ * @postcondition 不正・欠落・unknownをreadyへ昇格しない。
+ * @effect N/A: 入力又は固定値の同期評価だけで、保存・Process・通信を行わない。
+ * @failure null観測はobservation_unavailable、利用不可は該当軸の優先理由を返す。
+ * @invariant 直前確認候補のeligibleを認証成立・実行許可とみなさない。
+ * @boundary Coordinatorが取得する観測とProviderの純粋な意味判定の間。
+ * @security 秘密値・Host Path・実行Authorityを返さない。
+ * @concurrency N/A: 共有状態を更新しない同期処理。
  */
 function createEligibility(
   provider: AiProvider,

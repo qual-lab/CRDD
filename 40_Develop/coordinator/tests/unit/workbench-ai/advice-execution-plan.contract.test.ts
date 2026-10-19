@@ -15,7 +15,7 @@ import {
   DEFAULT_AI_PROFILE_CATALOG,
   resolveAiProfileById,
 } from "../../../../ai-adapter/src/catalog/resolve.ts";
-import type { ResolvedAiProfileIdentity } from "../../../../ai-adapter/src/catalog/types.ts";
+import type { ResolvedAiProfileIdentity } from "../../../../ai-adapter/src/index.ts";
 import type { WorkbenchAiProviderExecutionInput } from "../../../src/workbench-ai/advice-execution-plan.ts";
 import { prepareWorkbenchAiAdviceExecutionPlan } from "../../../src/workbench-ai/advice-execution-plan.ts";
 

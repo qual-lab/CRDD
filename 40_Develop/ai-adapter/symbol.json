@@ -20,7 +20,7 @@
     {
       "symbolId": "ai-adapter.profile.subscription-status",
       "kind": "file",
-      "path": "src/profile/subscription-status.ts",
+      "path": "src/provider/subscription-status.ts",
       "archIds": ["ARCH-000010"]
     },
     {
@@ -32,7 +32,7 @@
     {
       "symbolId": "ai-adapter.profile.provider-environment",
       "kind": "file",
-      "path": "src/profile/environment.ts",
+      "path": "src/provider/environment.ts",
       "archIds": ["ARCH-000010"]
     },
     {
@@ -50,7 +50,7 @@
     {
       "symbolId": "ai-adapter.profile.eligibility",
       "kind": "file",
-      "path": "src/profile/eligibility.ts",
+      "path": "src/provider/availability.ts",
       "archIds": ["ARCH-000010"]
     },
     {
@@ -68,7 +68,7 @@
     {
       "symbolId": "coordinator.source.src.security.provider.model.profile.runtime",
       "kind": "file",
-      "path": "src/profile/model.ts",
+      "path": "src/profile/resolve.ts",
       "archIds": ["ARCH-000010"]
     },
     {
@@ -184,7 +184,7 @@
     {
       "symbolId": "ai-runtime.profile-administration",
       "kind": "file",
-      "path": "src/profile/administration.ts",
+      "path": "src/profile/crud.ts",
       "archIds": [
         "ARCH-000010"
       ]

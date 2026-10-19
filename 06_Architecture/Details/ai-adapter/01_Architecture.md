@@ -1,6 +1,6 @@
 # AI Adapter詳細設計
 
-Workspace再編後も[Package責務](../orchestrator/03_Workspace.md#3-packageの責務と依存方向)に従いProvider CLI・Profile・認証手順・入出力差を所有する。Workspace寿命・Queue・Git採用は引き取らない。既存の短命作業Directory表記を新設Workspaceと区別して命名し、外部CLIの予約語・認証保存先は無断変更しない。Source切替は未実施。
+Workspace再編後も[Package責務](../orchestrator/03_Workspace.md#3-packageの責務と依存方向)に従いProvider CLI・Profile・認証手順・入出力差を所有する。Workspace寿命・Queue・Git採用は引き取らない。既存の短命作業Directory表記を新設Workspaceと区別して命名し、外部CLIの予約語・認証保存先は無断変更しない。Package内のSource配置変更と未完了範囲は[現在の構造](#71-責務別配置と公開操作)で区別する。
 
 成果物種別: Architecture詳細設計
 詳細設計領域: ai-adapter
@@ -173,6 +173,10 @@ ai-adapter/
 
 開発Source観測はCoordinatorの既存Observerが所有し、移管後の`config/`・`schemas/`も固定範囲へ含める。Scope文字列・返却shapeは維持するが、範囲構成を含む内容Hashは新旧で一致しない。旧観測・保持中の回復参照を書き換えて現在値へ補正しない。これは新しい認可・署名・回復機構ではなく、従来対象だった静的資産の観測落ちを防ぐ追従である。
 
+ProfileとProviderの再配置では、Profileの一意解決を`profile/resolve.ts`、限定管理を`profile/crud.ts`が所有する。CRUDの改訂競合・削除確認・入力閉Schema・結果相関は同じ能力の条件であり、名前変更を理由に省略・分散しない。`provider/environment.ts`は固定CLI環境の純粋検査、`provider/subscription-status.ts`は認証Probe出力の分類、`provider/availability.ts`は五軸観測の純粋判定を所有する。認証情報の取得・実観測・実行許可は移さない。観測状態と五軸の型は同Fileだけで使う非公開型とし、Profile実行Identityの共有型と混在させない。
+
+`profile/authentication-policy.ts`と`billing-policy.ts`はProfileの契約条件、`registry.ts`はProcess内Snapshotの同期置換、`store.ts`はOwner別Filesystemへの耐久採用を所有する。同じSnapshotを使うことだけで統合せず、保存の失敗・実体確認・改訂競合を純粋なRegistryへ混ぜない。新しい認証・課金・状態管理Folderや共通型の公開は追加しない。
+
 ### 7.1. 責務別配置と公開操作
 
 構成診断のCodex argvは既存producer上限256件を全descriptor取得前に確認する。超過入力は不正配列と同じ固定fallbackへ閉じ、実行・選定・保存へ影響させない。
@@ -183,9 +187,9 @@ Codexの構成診断は既存`codex/execution-plan.ts`の`projectCodexExecutionB
 40_Develop/ai-adapter/src/
 ├ index.ts             共通のProfile・計画・結果契約
 ├ catalog/             Catalog検証、一意解決、既定JSON
-├ profile/             Owner別設定Store、登録・編集・削除
+├ profile/             resolve.ts: 選定、crud.ts: 限定管理、registry.ts: 同期Snapshot、store.ts: 耐久採用
 ├ advice/              助言CLI計画・Provider出力変換。共通結果Schemaは呼出し側から受け取る
-├ provider/            json.ts: 厳密JSON解析、task-result.ts: Task搬送差、error.ts: 非0理由分類
+├ provider/            JSON・結果・非0分類、environment.ts: 環境検査、subscription-status.ts: 認証出力、availability.ts: 五軸評価
 ├ codex/               公式Codexの計画・認証方式・出力変換
 └ claude/              Claude Codeの計画・認証方式・出力変換
 ```
@@ -195,18 +199,19 @@ DirectoryはProviderまたは具体責務を表し、`internal/`、`application/
 | 公開操作／既存Symbol | Ownerと入口 | 入力／出力 | Authority／Effectと禁止事項 |
 |---|---|---|---|
 | `validateAiProfileCatalog`、`resolveAiProfile`、`resolveAiProfileById`、`evaluateAiProfileAvailability` | Rootから`catalog/resolve.ts` | 明示Snapshot・条件・独立した観測軸／検証・一意解決・利用可能性 | 純粋処理。unknownを実行可能へ補正せず、Authorityを発行しない |
-| `parseAiProfileCatalogMutation`、`createAiProfileCatalogRegistry`、`createAiProfileCatalogAdministration`、Owner別Store生成 | Rootから`profile/registry.ts`、`administration.ts`、`store.ts` | 期待Revision、登録済みAdapter／Model、明示管理操作／採用Snapshot・競合拒否 | 許可Ownerの設定だけ保存。CROS管理権限とContent Accessを分離し、秘密や任意実行入口を受理しない |
+| `parseAiProfileCatalogMutation`、`createAiProfileCatalogRegistry`、`createAiProfileCatalogAdministration`、Owner別Store生成 | Rootから`profile/registry.ts`、`crud.ts`、`store.ts` | 期待Revision、登録済みAdapter／Model、明示管理操作／採用Snapshot・競合拒否 | 許可Ownerの設定だけ保存。CROS管理権限とContent Accessを分離し、秘密や任意実行入口を受理しない |
+| `resolveRuntimeOwnedProviderModelProfile`、`resolveRuntimeOwnedProviderModelProfileFromCatalog` | Rootから`profile/resolve.ts` | 同梱又は明示Catalogと要求／一意なProfile実行設定又はnull | 明示ProfileとProvider・Role・Tierの整合を確認し、不正・未知・曖昧な要求でfallbackしない。設定解決は実行許可を発行しない |
 | `planCodexReadOnlyProbe`、`planCodexIsolatedTask` | Rootから`codex/execution-plan.ts` | Mode、Role、effort等の固定入力／固定公式CLIの起動計画 | 外部Effectなし。計画はcandidateであり、起動・外部送信・Mount Authorityを含まない |
 | `planClaudeReadOnlyProbe`、`planClaudeIsolatedTask`、`planClaudeTaskTurnBudget`、`buildClaudeExecutionArguments` | Rootから`claude/execution-plan.ts` | Mode、Role、Task予算、照合済みModel・effort／固定CLI計画・Turn予算・完成argv | 外部Effectなし。Model受理と選定IdentityはCoordinator、Claude固有オプションと固定argv順序はAI Adapter。Turn完了とProcess終了・資源不存在を同一視しない |
 | `normalizeCodexStructuredResult`、`normalizeClaudeStructuredResult` | Rootから各Providerの`structured-result.ts` | 対応固定CLIの出力Envelope／共通の構造化入力または拒否 | 生出力を公開しない。候補採否・共通Task判定・是正Capabilityの発行はCoordinator |
 | `describeProviderBillingPolicyContract`と課金方針定数 | Rootから`profile/billing-policy.ts` | 引数なし／Subscription限定の不変な方針記述 | 既存CoordinatorのAPI key課金fallback・追加購入非対応を記述する。Quota不足、構成選択や利用者設定から有料APIへの切替・実行Authorityを発行しない。将来の明示Profile、exact Provider／Account、専用Credential、予算、操作Authorityの5条件は未実装機能の要件記述であり、現実の課金防止やRuntime許可の証明ではない。 |
 | `parseUnambiguousJsonDocument` | Rootから`provider/json.ts` | 未信頼JSON文字列／構造化値または拒否 | 重複key、不正文法、BOM、末尾データを拒否する純粋解析。Codex・Claude・助言から共有し、Provider固有入口を経由しない |
 | `extractProviderTaskEnvelope` | Rootから`provider/task-result.ts` | Provider、Role、受理Turn上限、CLI出力／構造化入力・固定拒否理由・本文非公開の実行観測 | Codex JSONL、Claude Result・Turns・Usageの解釈だけを所有する。共通Schema、Reviewer判断、Remediation Capability、実Process終了・cleanup判定はCoordinator |
-| `isProviderSubscriptionAuthenticationConfirmed` | Rootから`profile/subscription-status.ts` | Provider、期待Offering、認証Probeの出力／固定条件の一致 | Process終了、出力量、取消はCoordinatorが評価する。対話認証とは判定契約を分け、出力の分類だけから実行Authorityを発行しない |
+| `isProviderSubscriptionAuthenticationConfirmed` | Rootから`provider/subscription-status.ts` | Provider、期待Offering、認証Probeの出力／固定条件の一致 | Process終了、出力量、取消はCoordinatorが評価する。対話認証とは判定契約を分け、出力の分類だけから実行Authorityを発行しない |
 | `classifyProviderNonzeroExit` | Rootから`provider/error.ts` | Providerと非正常終了出力／共通失敗理由 | 構造化エラーと限定診断を既存の順序で分類し、生出力を返さない。終了・取消・資源回収の判定はCoordinatorが所有する |
-| `evaluateProviderEligibility` | `index.ts`から`profile/eligibility.ts`へ接続 | Capability、認証、Quota、公式配布、Policyの五軸観測／利用可能性候補 | 観測取得はCoordinatorが所有する。欠落・不正・未観測を確認済みへ補正せず、実行直前確認の候補を認証成立・実行Authorityへ昇格しない |
+| `evaluateProviderEligibility` | `index.ts`から`provider/availability.ts`へ接続 | Capability、認証、Quota、公式配布、Policyの五軸観測／利用可能性候補 | 観測取得はCoordinatorが所有する。欠落・不正・未観測を確認済みへ補正せず、実行直前確認の候補を認証成立・実行Authorityへ昇格しない |
 | `providerProfileSupportsExecution`、`providerProfileMatchesExecutionIdentity` | 共通入口から`profile/execution-identity.ts`へ接続 | 解決済みProfile、呼出し側の必要Role、明示実行Identity／Subscription条件とexact一致の真偽 | 純粋な既存条件の照合。Task対応、Catalog改訂・Hash・Prompt検査、実行条件、Executor呼出しと取消・回収はCoordinator。真偽値を認証成立や送信Authorityとしない |
-| `normalizeProviderExactModelId`、`prepareProviderFixedEnvironment` | 共通入口から`profile/execution-identity.ts`、`profile/environment.ts`へ接続 | Model文字列、Providerと固定CLI環境／構文一致値・順序付き環境組またはnull | Provider禁止名と値を一回取得して検査する。Docker引数化、Proxy値、Mount、Prepared Capability、取消・回収はCoordinator。構文一致を提供Modelや実行権限の成立としない |
+| `normalizeProviderExactModelId`、`prepareProviderFixedEnvironment` | 共通入口から`profile/execution-identity.ts`、`provider/environment.ts`へ接続 | Model文字列、Providerと固定CLI環境／構文一致値・順序付き環境組またはnull | Provider禁止名と値を一回取得して検査する。Docker引数化、Proxy値、Mount、Prepared Capability、取消・回収はCoordinator。構文一致を提供Modelや実行権限の成立としない |
 | `planWorkbenchAiAdviceProviderCommand` | 共通入口から対応Providerの計画関数へ直接分岐 | exact Profile Identity／Provider別の助言コマンド計画 | Promptはstdin用。任意argv、API-key・有料APIへのFallbackを追加しない |
 | `extractWorkbenchAiAdviceProviderOutput` | 共通入口から対応Providerの変換関数へ直接分岐 | Provider、固定CLI stdout／助言JSONまたは閉じた拒否理由 | Providerの通知分類・Envelope差だけを処理。共通助言Schema・開示範囲・採用判断はCoordinator |
 | Provider認証方式・Probe計画・Provider固有終了解釈 | 各Providerの用途限定公開入口 | Codexのlogin status／CODEX_HOME、Claudeのlogin／status・固定認証環境、Provider別禁止環境変数／固定記述と分類 | 秘密値は既存専用Homeに残す。実Home観測、対話Process、Docker、Lock・回復記録はCoordinator／Native。記述自体を認証確認済みとしない |

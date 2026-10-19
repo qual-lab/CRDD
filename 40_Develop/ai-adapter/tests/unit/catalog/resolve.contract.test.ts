@@ -25,7 +25,7 @@ import {
   validateAiProfileCatalog,
   validateAiProfileDefinition,
 } from "../../../src/catalog/resolve.ts";
-import { createAiProfileCatalogAdministration } from "../../../src/profile/administration.ts";
+import { createAiProfileCatalogAdministration } from "../../../src/profile/crud.ts";
 import { createAiProfileCatalogRegistry } from "../../../src/profile/registry.ts";
 
 /**

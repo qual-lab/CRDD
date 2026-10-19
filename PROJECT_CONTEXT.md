@@ -71,7 +71,7 @@ Version ControlのWorktree管理に続き、名前付きCandidateの明示固定
 
 ## 5. 次に何をすべきか
 
-規約・全17Packageの構造整理計画は`d9672eb0`までコミット・プッシュ済み。AI Adapterでは共通解析3Sourceと静的5資産の移管、利用側・Source観測の追従、Header具体化と関連回帰まで進めた。[順序・現在結果・残件](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#source-structure-review)を参照する。助言・Profile・Provider計画等の責務精査は残り、Package全体・Source全面移管の完了ではない。以下の回帰・実境界残件も保持し、②のAI再試行と保持物削除は行わない。
+全17Packageの構造整理では、AI Adapterの共通解析・静的資産の移管を`14ef13ce`までコミット・プッシュ済み。続いてProfileの選定／CRUDとProviderの環境／認証結果／利用可否を再配置し、局所型の同居、既存公開型への接続、Header・設計と関連回帰を追従した。[順序・現在結果・残件](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#source-structure-review)を参照する。助言・Provider計画等の責務精査は残り、Package全体・Source全面移管の完了ではない。以下の回帰・実境界残件も保持し、②のAI再試行と保持物削除は行わない。
 
 | 順序 | 次の作業候補 | 完了条件・停止点 |
 |---|---|---|

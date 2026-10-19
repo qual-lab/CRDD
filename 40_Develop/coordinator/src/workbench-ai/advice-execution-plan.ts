@@ -13,7 +13,7 @@ import { describeWorkbenchAiAdviceResultSchema } from "./advice-result.ts";
 import type {
   AiReasoningEffort,
   ResolvedAiProfileIdentity,
-} from "../../../ai-adapter/src/catalog/types.ts";
+} from "../../../ai-adapter/src/index.ts";
 import {
   planWorkbenchAiAdviceProviderCommand,
   providerProfileMatchesExecutionIdentity,

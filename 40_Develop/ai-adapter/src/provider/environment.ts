@@ -1,5 +1,5 @@
 /**
- * 固定Provider計画の環境値を検査する。
+ * Provider CLIへ渡す固定環境の禁止名と値を検査する。
  *
  * @responsibility Provider別禁止名と不正値を拒否し、Docker表現を所有しない。
  * @trace ARCH-000010
