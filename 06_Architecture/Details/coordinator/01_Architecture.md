@@ -650,7 +650,7 @@ Workbenchで利用者が明示したAI Profileによる助言実行は、Front A
 
 SessionはTask数、期限、予約・一回消費、Operation／Repository結合、取消、送信許可と結果相関を維持する。一方、実測のために別の署名済みNative配布を用意する契約は廃止し、Moduleから導出した同じSource Rootの固定Bootstrap Nativeを使用する。旧`nativeDistributionRoot`と`expectedNativeRelease`は新入力から除去し、旧packetを互換受理しない。期待Source Hashは`expectedSourceSha256`として維持し、同じadmission呼出し内で現在値を自動補完しない。
 
-Source観測は正確なModule到達閉包ではなく、版付きの有界Snapshotとする。既存Runtime母集団の11 Package（coordinator、platform-access、docker-isolation、domain-model、ai-adapter、artifact-signing、access-management、mcp-server、orchestrator、execution-intelligence、version-control）について、直下`package.json`と`src/`・`bin/`・`runtime/`・`scripts/`・`policies/`を固定対象とする。任意Directoryの不存在はScopeに記録し、追加時にはHashが変わる。Package本体・`package.json`・`src/`の欠落、空の部分結果、link・非通常File、観測不明は拒否する。
+Source観測は正確なModule到達閉包ではなく、版付きの有界Snapshotとする。既存Runtime母集団の11 Package（coordinator、platform-access、docker-isolation、domain-model、ai-adapter、artifact-signing、access-management、mcp-server、orchestrator、execution-intelligence、version-control）について、直下`package.json`と`src/`・`bin/`・`runtime/`・`config/`・`schemas/`・`scripts/`・`policies/`を固定対象とする。任意Directoryの不存在はScopeに記録し、追加時にはHashが変わる。Package本体・`package.json`・`src/`の欠落、空の部分結果、link・非通常File、観測不明は拒否する。静的資産の配置変更後も同じ二読取り・上限・拒否条件を用い、Scope構成の変化に伴う新旧Hash差を自動補正しない。
 
 | 観点 | 契約 |
 |---|---|

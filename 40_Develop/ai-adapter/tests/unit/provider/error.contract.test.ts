@@ -9,7 +9,7 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-import { classifyProviderNonzeroExit } from "../../../src/output/provider-error.ts";
+import { classifyProviderNonzeroExit } from "../../../src/provider/error.ts";
 
 /**
  * 正式エラーイベントだけを既存理由へ分類する。

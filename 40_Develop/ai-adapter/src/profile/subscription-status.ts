@@ -8,7 +8,7 @@
  * @effect N/A: 入力文字列だけを分類する。
  * @security 生出力を公開結果や例外へ複製しない。
  */
-import { parseUnambiguousJsonDocument } from "../output/unambiguous-json-document.ts";
+import { parseUnambiguousJsonDocument } from "../provider/json.ts";
 
 /**
  * Provider認証Probeの出力をSubscription成立条件へ分類する。

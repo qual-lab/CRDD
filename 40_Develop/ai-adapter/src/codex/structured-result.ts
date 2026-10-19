@@ -4,7 +4,7 @@
  * @responsibility blockedを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000015
  */
-import { parseUnambiguousJsonDocument } from "../output/unambiguous-json-document.ts";
+import { parseUnambiguousJsonDocument } from "../provider/json.ts";
 
 export const CODEX_STRUCTURED_RESULT_CONTRACT =
   "crdd-coordinator/codex-structured-result";

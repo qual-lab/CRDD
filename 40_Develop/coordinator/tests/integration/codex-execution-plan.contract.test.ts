@@ -178,10 +178,7 @@ test("effort・Provider・shape差をEffect前に拒否する", () => {
 test("Codex Structured Output Schemaはboolean型を明示したexact形に固定する", () => {
   const schema = JSON.parse(
     fs.readFileSync(
-      new URL(
-        "../../../ai-adapter/runtime/codex-result-schema.json",
-        import.meta.url,
-      ),
+      new URL("../../../ai-adapter/schemas/codex-result.json", import.meta.url),
       "utf8",
     ),
   );
@@ -298,7 +295,7 @@ test("一般Task SchemaはExecutorとReviewerのexact出力を分離する", () 
   const executor = JSON.parse(
     fs.readFileSync(
       new URL(
-        "../../../ai-adapter/runtime/codex-executor-result-schema.json",
+        "../../../ai-adapter/schemas/codex-executor-result.json",
         import.meta.url,
       ),
       "utf8",
@@ -307,7 +304,7 @@ test("一般Task SchemaはExecutorとReviewerのexact出力を分離する", () 
   const reviewer = JSON.parse(
     fs.readFileSync(
       new URL(
-        "../../../ai-adapter/runtime/codex-reviewer-result-schema.json",
+        "../../../ai-adapter/schemas/codex-reviewer-result.json",
         import.meta.url,
       ),
       "utf8",
@@ -346,9 +343,9 @@ test("一般Task SchemaはExecutorとReviewerのexact出力を分離する", () 
  */
 test("Codex Structured Output Schemaは公式対応部分集合だけを搬送する", () => {
   const schemaPaths = [
-    "../../../ai-adapter/runtime/codex-result-schema.json",
-    "../../../ai-adapter/runtime/codex-executor-result-schema.json",
-    "../../../ai-adapter/runtime/codex-reviewer-result-schema.json",
+    "../../../ai-adapter/schemas/codex-result.json",
+    "../../../ai-adapter/schemas/codex-executor-result.json",
+    "../../../ai-adapter/schemas/codex-reviewer-result.json",
   ];
   const unsupportedKeywords = new Set([
     "allOf",

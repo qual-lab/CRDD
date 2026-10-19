@@ -33,7 +33,15 @@ const PACKAGES = [
   "platform-access",
   "version-control",
 ] as const;
-const DIRECTORIES = ["src", "bin", "runtime", "scripts", "policies"] as const;
+const DIRECTORIES = [
+  "src",
+  "bin",
+  "runtime",
+  "config",
+  "schemas",
+  "scripts",
+  "policies",
+] as const;
 const sourceRoot = path.resolve(
   fileURLToPath(new URL("../../../../", import.meta.url)),
 );

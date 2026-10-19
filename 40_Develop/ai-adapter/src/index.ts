@@ -10,7 +10,7 @@
  */
 export { PROVIDER_AUTHENTICATION_POLICIES } from "./profile/authentication-policy.ts";
 export { isProviderSubscriptionAuthenticationConfirmed } from "./profile/subscription-status.ts";
-export { classifyProviderNonzeroExit } from "./output/provider-error.ts";
+export { classifyProviderNonzeroExit } from "./provider/error.ts";
 export { evaluateProviderEligibility } from "./profile/eligibility.ts";
 export {
   providerProfileMatchesExecutionIdentity,
@@ -86,8 +86,8 @@ export {
   createCrosAiProfileCatalogStore,
   createRepositoryAiProfileCatalogStore,
 } from "./profile/store.ts";
-export { parseUnambiguousJsonDocument } from "./output/unambiguous-json-document.ts";
-export { extractProviderTaskEnvelope } from "./output/task-envelope.ts";
+export { parseUnambiguousJsonDocument } from "./provider/json.ts";
+export { extractProviderTaskEnvelope } from "./provider/task-result.ts";
 export {
   CODEX_FORBIDDEN_ENVIRONMENT_NAMES,
   CODEX_EXECUTION_PLAN_CONTRACT,

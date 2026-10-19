@@ -6,7 +6,7 @@
     {
       "symbolId": "ai-adapter.test.output.provider-error",
       "kind": "test-suite",
-      "path": "tests/unit/output/provider-error.contract.test.ts",
+      "path": "tests/unit/provider/error.contract.test.ts",
       "qaIds": ["QA-000006"],
       "localTestIds": ["ERB-UT-032"],
       "verifies": ["ai-adapter.output.provider-error"]
@@ -26,7 +26,7 @@
     {
       "symbolId": "ai-adapter.output.provider-error",
       "kind": "file",
-      "path": "src/output/provider-error.ts",
+      "path": "src/provider/error.ts",
       "archIds": ["ARCH-000010"]
     },
     {
@@ -44,7 +44,7 @@
     {
       "symbolId": "ai-adapter.output.task-envelope",
       "kind": "file",
-      "path": "src/output/task-envelope.ts",
+      "path": "src/provider/task-result.ts",
       "archIds": ["ARCH-000015"]
     },
     {
@@ -62,7 +62,7 @@
     {
       "symbolId": "ai-adapter.output.unambiguous-json-document",
       "kind": "file",
-      "path": "src/output/unambiguous-json-document.ts",
+      "path": "src/provider/json.ts",
       "archIds": ["ARCH-000015"]
     },
     {

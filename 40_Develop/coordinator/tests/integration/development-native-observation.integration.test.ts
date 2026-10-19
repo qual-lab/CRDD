@@ -115,7 +115,7 @@ if (process.argv[2] !== "--probe") {
    * @responsibility Snapshotをコピー署名やRoot実体Hashと混同しないことを検証する。
    * @trace ERB-IT-004
    * @precondition 固定11Packageの通常Fileが存在する。
-   * @stimulus 対象外更新、任意Scope追加、内容変更、同内容File交換を行う。
+   * @stimulus 対象外更新、config／schemasの追加・内容変更・削除、任意Scope追加、同内容File交換を行う。
    * @observation 各観測の内容Hashと実体Hash。
    * @oracle 対象外は不変、対象内追加・内容変更は内容差、同内容交換は実体差となる。
    * @cleanup Fixture Rootをfinallyで削除する。
@@ -131,7 +131,27 @@ if (process.argv[2] !== "--probe") {
       assert.ok(Object.isFrozen(first));
       mkdirSync(path.join(fixture.root, ".crdd"));
       writeFileSync(path.join(fixture.root, ".crdd", "ignored.json"), "{}");
+      writeFileSync(path.join(fixture.root, ".env"), "SYNTHETIC=true");
       assert.deepEqual(fixture.observe(), first);
+      const adapter = path.join(fixture.root, "40_Develop", "ai-adapter");
+      for (const name of ["config", "schemas"]) {
+        const directory = path.join(adapter, name);
+        mkdirSync(directory);
+        const added = fixture.observe();
+        assert.ok(added);
+        assert.notEqual(added.sourceSha256, first.sourceSha256);
+        const asset = path.join(directory, "asset.json");
+        writeFileSync(asset, "{}");
+        const populated = fixture.observe();
+        assert.ok(populated);
+        assert.notEqual(populated.sourceSha256, added.sourceSha256);
+        writeFileSync(asset, '{"changed":true}');
+        const edited = fixture.observe();
+        assert.ok(edited);
+        assert.notEqual(edited.sourceSha256, populated.sourceSha256);
+        rmSync(directory, { recursive: true });
+        assert.equal(fixture.observe()?.sourceSha256, first.sourceSha256);
+      }
       const base = path.join(fixture.root, "40_Develop", "coordinator");
       mkdirSync(path.join(base, "policies"));
       const withPolicy = fixture.observe();
@@ -192,12 +212,12 @@ if (process.argv[2] !== "--probe") {
       assert.equal(fixture.observe(), null);
       assert.equal(readFileSync(outside, "utf8"), "outside unchanged");
       rmSync(path.join(base, "src", "hardlink.ts"));
-      symlinkSync(
-        path.join(base, "src"),
-        path.join(base, "policies"),
-        "junction",
-      );
-      assert.equal(fixture.observe(), null);
+      for (const name of ["policies", "config", "schemas"]) {
+        const alias = path.join(base, name);
+        symlinkSync(path.join(base, "src"), alias, "junction");
+        assert.equal(fixture.observe(), null);
+        rmSync(alias);
+      }
     } finally {
       fixture.cleanup();
     }

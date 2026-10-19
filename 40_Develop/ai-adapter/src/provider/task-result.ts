@@ -1,24 +1,23 @@
 /**
  * 固定Provider CLIのTask出力Envelopeを共通入力へ変換する。
  *
- * @packageDocumentation
  * @responsibility JSONL・Envelope・Turn・UsageのProvider差だけを解釈する。
  * @trace ARCH-000015
  * @boundary 未信頼のCLI出力と共通Task結果判定の間。
  */
-import { parseUnambiguousJsonDocument } from "./unambiguous-json-document.ts";
+import { parseUnambiguousJsonDocument } from "./json.ts";
 
 const MAXIMUM_RAW_BYTES = 65_536;
 
 /**
- * 記録かを判定する。
+ * JSON値が配列でないobjectかを判定する。
  *
- * @responsibility 記録の判定条件とtrue／false境界を所有する。
+ * @responsibility EnvelopeのPropertyを読む前にnull・primitive・配列を除外する。
  * @trace ARCH-000015
  * @input value: unknown
- * @returns value is Record<string, unknown>を返す。
- * @precondition 「value: unknown」がisRecordの入力契約を満たす。
- * @postcondition isRecordの責務を完了した結果だけを返す。
+ * @returns 配列でない非null objectだけtrueとなる型述語。
+ * @precondition 判定値はJSON parserが返した値である。
+ * @postcondition object判定をEnvelope内容の検証済みへ昇格しない。
  * @effect N/A: isRecordは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: isRecordは独自の失敗分岐を所有しない。
  * @invariant isRecordは入力から導いた結果以外の共有状態を変更しない。

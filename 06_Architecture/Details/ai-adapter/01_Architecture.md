@@ -151,7 +151,7 @@ Production Compositionの専用Dispatch、固定Adapter選択、Repository非共
 
 ### Source構造レビューの目標と現行の区別（2026-10-19）
 
-全Packageの[再編計画](../../../99_Roadmap/Changes/CHG-000082/second-stage-plan.md#source-structure-review)に従い、以下を現物照合する。現行`src/`は`advice`、`catalog`、`claude`、`codex`、`output`、`profile`、静的5資産は`runtime/`にある。以下は目標候補であり、Source移管済みを示さない。
+全Packageの[再編計画](../../../99_Roadmap/Changes/CHG-000082/second-stage-plan.md#source-structure-review)に従う。基準`d9672eb0`の`output/`三Sourceを`provider/json.ts`、`task-result.ts`、`error.ts`へ、静的5資産を`config/`・`schemas/`へ移管した。公開Symbol・文字列契約・JSON本文・Container Pathは維持する。以下はPackage全体の目標候補であり、助言・Profile・Provider計画の責務整理まで完了したTreeではない。
 
 ```text
 ai-adapter/
@@ -167,9 +167,11 @@ ai-adapter/
 └ tests/            既存保証を新配置で確認
 ```
 
-静的資産は`runtime/claude-managed-settings.json`と`claude-task-settings.json`を同名で`config/`へ、`codex-result-schema.json`、`codex-executor-result-schema.json`、`codex-reviewer-result-schema.json`をそれぞれ`schemas/codex-result.json`、`codex-executor-result.json`、`codex-reviewer-result.json`へ移す方針とする。JSON本文・Container内Path・版・Hash契約は場所変更だけを理由に変更しない。全Reader、Docker Build／Mount、Hash・Size検証、配布・試験の接続確認が移管の条件である。
+静的資産は旧`runtime/claude-managed-settings.json`と`claude-task-settings.json`を同名で`config/`へ、旧`codex-result-schema.json`、`codex-executor-result-schema.json`、`codex-reviewer-result-schema.json`をそれぞれ`schemas/codex-result.json`、`codex-executor-result.json`、`codex-reviewer-result.json`へ移管する。JSON本文・Container内Path・版・Hash契約は場所変更だけを理由に変更しない。DockerレシピのCOPY入力名は従来どおりとし、Source側の新Pathと区別する。レシピ・新資産・固定Hashの相関を既存結合試験で確認し、Image再Build・実Docker実行とは区別する。
 
-`advice/`・`output/`は内容を共通契約、Provider固有変換、上位用途の判断へ分類してから移動・統合する。Subscription／Billing／認証に専用Folderを機械的に作らず、Profile属性・Provider固有手順と独立した責務を区別する。Provider記述中のImage／Seccomp等はDocker技術構成とProvider固有要件を照合し、単純移動や上位への逆依存で解消しない。公開Symbol集合、通信契約・永続Schemaの変更は内部Path整理と別に評価する。
+`output/`の三処理は状態・Process・Task採否を持たない共通Provider解析であり、`provider/`へまとめる。`advice/`は固定CLI・Image記述を含むため、共通契約・Provider固有変換・上位用途の判断へ分類してから整理する。Subscription／Billing／認証に専用Folderを機械的に作らず、Profile属性・Provider固有手順と独立した責務を区別する。Provider記述中のImage／Seccomp等はDocker技術構成とProvider固有要件を照合し、単純移動や上位への逆依存で解消しない。公開Symbol集合、通信契約・永続Schemaの変更は内部Path整理と別に評価する。
+
+開発Source観測はCoordinatorの既存Observerが所有し、移管後の`config/`・`schemas/`も固定範囲へ含める。Scope文字列・返却shapeは維持するが、範囲構成を含む内容Hashは新旧で一致しない。旧観測・保持中の回復参照を書き換えて現在値へ補正しない。これは新しい認可・署名・回復機構ではなく、従来対象だった静的資産の観測落ちを防ぐ追従である。
 
 ### 7.1. 責務別配置と公開操作
 
@@ -183,12 +185,12 @@ Codexの構成診断は既存`codex/execution-plan.ts`の`projectCodexExecutionB
 ├ catalog/             Catalog検証、一意解決、既定JSON
 ├ profile/             Owner別設定Store、登録・編集・削除
 ├ advice/              助言CLI計画・Provider出力変換。共通結果Schemaは呼出し側から受け取る
-├ output/              曖昧でないJSON解析とTask EnvelopeのProvider差変換
+├ provider/            json.ts: 厳密JSON解析、task-result.ts: Task搬送差、error.ts: 非0理由分類
 ├ codex/               公式Codexの計画・認証方式・出力変換
 └ claude/              Claude Codeの計画・認証方式・出力変換
 ```
 
-DirectoryはProviderまたは具体責務を表し、`internal/`、`application/`、`runtime/`等の中間階層を増やさない。標準公開入口は`src/index.ts`一つとし、以下のCatalog、Profile管理、Provider計画・変換、出力解析の操作を実体Sourceから明示exportする。子Directoryに公開集約Fileを置かない。Rootは管理Storeの生成関数も公開するが、importだけでOwner設定を読取り・変更したりProviderを起動したりしない。静的依存閉包にはRootが到達する管理Moduleも含まれ得る。Coordinatorの署名では実際の静的閉包とCatalog JSONを検証し、Named importだけから管理Module不存在を主張しない。
+DirectoryはProviderまたは具体責務を表し、`internal/`、`application/`、`runtime/`等の中間階層を増やさない。標準公開入口は`src/index.ts`一つとし、以下のCatalog、Profile管理、Provider計画・変換、出力解析の操作を実体Sourceから明示exportする。子Directoryに公開集約Fileを置かない。Rootは管理Storeの生成関数も公開するが、importだけでOwner設定を読取り・変更したりProviderを起動したりしない。静的依存閉包にはRootが到達する管理Moduleも含まれ得る。通常実行にCRDD署名を要求せず、Named importだけから管理Module不存在を主張しない。
 
 | 公開操作／既存Symbol | Ownerと入口 | 入力／出力 | Authority／Effectと禁止事項 |
 |---|---|---|---|
@@ -198,10 +200,10 @@ DirectoryはProviderまたは具体責務を表し、`internal/`、`application/
 | `planClaudeReadOnlyProbe`、`planClaudeIsolatedTask`、`planClaudeTaskTurnBudget`、`buildClaudeExecutionArguments` | Rootから`claude/execution-plan.ts` | Mode、Role、Task予算、照合済みModel・effort／固定CLI計画・Turn予算・完成argv | 外部Effectなし。Model受理と選定IdentityはCoordinator、Claude固有オプションと固定argv順序はAI Adapter。Turn完了とProcess終了・資源不存在を同一視しない |
 | `normalizeCodexStructuredResult`、`normalizeClaudeStructuredResult` | Rootから各Providerの`structured-result.ts` | 対応固定CLIの出力Envelope／共通の構造化入力または拒否 | 生出力を公開しない。候補採否・共通Task判定・是正Capabilityの発行はCoordinator |
 | `describeProviderBillingPolicyContract`と課金方針定数 | Rootから`profile/billing-policy.ts` | 引数なし／Subscription限定の不変な方針記述 | 既存CoordinatorのAPI key課金fallback・追加購入非対応を記述する。Quota不足、構成選択や利用者設定から有料APIへの切替・実行Authorityを発行しない。将来の明示Profile、exact Provider／Account、専用Credential、予算、操作Authorityの5条件は未実装機能の要件記述であり、現実の課金防止やRuntime許可の証明ではない。 |
-| `parseUnambiguousJsonDocument` | Rootから`output/`の実体Source | 未信頼JSON文字列／構造化値または拒否 | 重複key、不正文法、BOM、末尾データを拒否する純粋解析。Codex・Claude・助言から共有し、Provider固有入口を経由しない |
-| `extractProviderTaskEnvelope` | Rootから`output/`の実体Source | Provider、Role、受理Turn上限、CLI出力／構造化入力・固定拒否理由・本文非公開の実行観測 | Codex JSONL、Claude Result・Turns・Usageの解釈だけを所有する。共通Schema、Reviewer判断、Remediation Capability、実Process終了・cleanup判定はCoordinator |
+| `parseUnambiguousJsonDocument` | Rootから`provider/json.ts` | 未信頼JSON文字列／構造化値または拒否 | 重複key、不正文法、BOM、末尾データを拒否する純粋解析。Codex・Claude・助言から共有し、Provider固有入口を経由しない |
+| `extractProviderTaskEnvelope` | Rootから`provider/task-result.ts` | Provider、Role、受理Turn上限、CLI出力／構造化入力・固定拒否理由・本文非公開の実行観測 | Codex JSONL、Claude Result・Turns・Usageの解釈だけを所有する。共通Schema、Reviewer判断、Remediation Capability、実Process終了・cleanup判定はCoordinator |
 | `isProviderSubscriptionAuthenticationConfirmed` | Rootから`profile/subscription-status.ts` | Provider、期待Offering、認証Probeの出力／固定条件の一致 | Process終了、出力量、取消はCoordinatorが評価する。対話認証とは判定契約を分け、出力の分類だけから実行Authorityを発行しない |
-| `classifyProviderNonzeroExit` | Rootから`output/provider-error.ts` | Providerと非正常終了出力／共通失敗理由 | 構造化エラーと限定診断を既存の順序で分類し、生出力を返さない。終了・取消・資源回収の判定はCoordinatorが所有する |
+| `classifyProviderNonzeroExit` | Rootから`provider/error.ts` | Providerと非正常終了出力／共通失敗理由 | 構造化エラーと限定診断を既存の順序で分類し、生出力を返さない。終了・取消・資源回収の判定はCoordinatorが所有する |
 | `evaluateProviderEligibility` | `index.ts`から`profile/eligibility.ts`へ接続 | Capability、認証、Quota、公式配布、Policyの五軸観測／利用可能性候補 | 観測取得はCoordinatorが所有する。欠落・不正・未観測を確認済みへ補正せず、実行直前確認の候補を認証成立・実行Authorityへ昇格しない |
 | `providerProfileSupportsExecution`、`providerProfileMatchesExecutionIdentity` | 共通入口から`profile/execution-identity.ts`へ接続 | 解決済みProfile、呼出し側の必要Role、明示実行Identity／Subscription条件とexact一致の真偽 | 純粋な既存条件の照合。Task対応、Catalog改訂・Hash・Prompt検査、実行条件、Executor呼出しと取消・回収はCoordinator。真偽値を認証成立や送信Authorityとしない |
 | `normalizeProviderExactModelId`、`prepareProviderFixedEnvironment` | 共通入口から`profile/execution-identity.ts`、`profile/environment.ts`へ接続 | Model文字列、Providerと固定CLI環境／構文一致値・順序付き環境組またはnull | Provider禁止名と値を一回取得して検査する。Docker引数化、Proxy値、Mount、Prepared Capability、取消・回収はCoordinator。構文一致を提供Modelや実行権限の成立としない |

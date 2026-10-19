@@ -1517,7 +1517,7 @@
     {
       "id": "ai-adapter:unit:output-provider-error",
       "owner": "ai-adapter",
-      "path": "40_Develop/ai-adapter/tests/unit/output/provider-error.contract.test.ts",
+      "path": "40_Develop/ai-adapter/tests/unit/provider/error.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [

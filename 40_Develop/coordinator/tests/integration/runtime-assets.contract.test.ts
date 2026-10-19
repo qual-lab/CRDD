@@ -22,6 +22,14 @@ import {
   describeCodexExecutionPlanContract,
 } from "../../../ai-adapter/src/index.ts";
 
+const PROVIDER_ASSET_PATHS: Readonly<Record<string, string>> = Object.freeze({
+  "claude-managed-settings.json": "config/claude-managed-settings.json",
+  "claude-task-settings.json": "config/claude-task-settings.json",
+  "codex-result-schema.json": "schemas/codex-result.json",
+  "codex-executor-result-schema.json": "schemas/codex-executor-result.json",
+  "codex-reviewer-result-schema.json": "schemas/codex-reviewer-result.json",
+});
+
 /**
  * 現在Repositoryの対象Sourceを読取る。
  *
@@ -110,10 +118,13 @@ test("Dockerビルド入力は隔離レシピとProvider設定を明示的に組
     );
     for (const input of inputs) {
       const basename = input.split(" ")[2];
-      if (basename?.endsWith(".json"))
+      if (basename?.endsWith(".json")) {
+        const assetPath = PROVIDER_ASSET_PATHS[basename];
+        assert.ok(assetPath, basename);
         assert.doesNotThrow(() =>
-          JSON.parse(source(`40_Develop/ai-adapter/runtime/${basename}`)),
+          JSON.parse(source(`40_Develop/ai-adapter/${assetPath}`)),
         );
+      }
     }
   }
   const preparation = source(
@@ -244,9 +255,11 @@ test("隔離レシピはAI Adapterの版・実行先・設定Identityへ結合�
     ["claude-task-settings.json", claude.fixedImageEvidence.taskSettingsSha256],
     ["codex-executor-result-schema.json", codex.executorSchemaSha256],
     ["codex-reviewer-result-schema.json", codex.reviewerSchemaSha256],
-  ]) {
+  ] as const) {
+    const assetPath = PROVIDER_ASSET_PATHS[name];
+    assert.ok(assetPath, name);
     const bytes = Buffer.from(
-      source(`40_Develop/ai-adapter/runtime/${name}`).replace(/\r\n/gu, "\n"),
+      source(`40_Develop/ai-adapter/${assetPath}`).replace(/\r\n/gu, "\n"),
       "utf8",
     );
     assert.equal(

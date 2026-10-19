@@ -1,14 +1,13 @@
 /**
  * Providerの非正常終了を生出力を返さず理由分類へ変換する。
  *
- * @packageDocumentation
  * @responsibility Provider固有の出力意味を判定し、実行・回収・Authorityを所有しない。
  * @trace ARCH-000010
  * @boundary 未信頼のCLI出力とProvider分類の境界。
  * @effect N/A: 入力文字列だけを分類する。
  * @security 生出力を公開結果や例外へ複製しない。
  */
-import { parseUnambiguousJsonDocument } from "./unambiguous-json-document.ts";
+import { parseUnambiguousJsonDocument } from "./json.ts";
 
 /**
  * Providerの非正常終了を生出力を返さず理由分類へ変換する。
@@ -64,8 +63,14 @@ export function classifyProviderNonzeroExit(
  * @trace ARCH-000010
  * @input 同じ非0終了の標準出力。
  * @returns 一時的な分類入力、又は不正・欠測のnull。本文は保存しない。
+ * @precondition 呼出し側がCodexの非0終了とstderrの一般分類を観測している。
+ * @postcondition 既知のエラー通知だけを上限付きの分類入力へまとめる。
  * @effect N/A: 文字列解析だけ。
  * @failure 過大・NUL・曖昧JSON・未知イベント・不正messageはnull。
+ * @invariant 通常のagent_messageを障害説明へ読み替えない。
+ * @boundary Codex JSONLから非公開の診断分類入力への変換。
+ * @security エラー本文を公開結果・永続記録へ返さない。
+ * @concurrency N/A: 解析内の配列だけを使う同期処理。
  */
 function codexErrorMessages(raw: string): string | null {
   if (raw.includes("\0") || Buffer.byteLength(raw, "utf8") > 65_536)
@@ -121,7 +126,14 @@ function codexErrorMessages(raw: string): string | null {
  * @trace ARCH-000010
  * @input 上限確認済みの一時的な説明。
  * @returns 固定理由のみ。
+ * @precondition 呼出し側がProviderの非0終了を観測している。
+ * @postcondition quota・認証・起動・通信・serviceの既存分類順を保持する。
  * @effect N/A: 同期の文字列照合。
+ * @failure 未認識の文面はprovider_process_exit_nonzeroに分類する。
+ * @invariant 分類を自動再送や回復許可に変換しない。
+ * @boundary 未信頼診断本文と共通の閉じた理由値の間。
+ * @security 元の文面や資格情報を返さない。
+ * @concurrency N/A: 文字列と正規表現の局所計算だけ。
  */
 function classifyDiagnostic(raw: string) {
   const diagnostic = raw.replaceAll("\r\n", "\n").trim().toLowerCase();

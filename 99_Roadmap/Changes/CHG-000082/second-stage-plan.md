@@ -77,6 +77,27 @@ Package個別の順序を基本としつつ、Coordinator／Orchestrator／Docke
 
 通常CLIのparseと業務手順が独立する例は分割候補、同じ概念の小規模CRUDは非分割候補、保存と排他の境界が交差する例は同居理由を評価、Consumerや由来が不明な旧処理は削除せず確認待ちとする。規約・設計の整理を、未完了E2E・Browser元原因未確定・正式QA未評価の解消へ換算しない。
 
+#### AI Adapterの最初のSource単位（2026-10-19）
+
+規約・計画は`d9672eb0`でコミット・プッシュした。次の配置変更は同Commitを基準とし、Package全体の完了と区別する。既存Capabilityは[AI Adapterの公開操作](../../../06_Architecture/Details/ai-adapter/01_Architecture.md#71-責務別配置と公開操作)、Qualityは既存`ERB-UT-032`・`ERB-IT-004`等と各試験のLocal Itemを維持する。[先行の固定版結果](workspace-runtime-inventory.md#workspace-fixed-regression)と[検証Tool・文書是正](workspace-runtime-inventory.md#verification-tool-document-closure)は当時の成立範囲に限り、今回の移動後結果へ流用しない。
+
+| 基準の実体 | 現在の実体・主要公開関数 | 処置・保証の確認 |
+|---|---|---|
+| `src/output/unambiguous-json-document.ts` | `src/provider/json.ts`／`parseUnambiguousJsonDocument` | 共通の構文解析として移動。重複key・escape・BOM・末尾拒否は既存正負例で確認 |
+| `src/output/task-envelope.ts` | `src/provider/task-result.ts`／`extractProviderTaskEnvelope` | 搬送解釈と非公開診断の集計として移動。Task採否・Process終了・cleanupは引き取らない |
+| `src/output/provider-error.ts` | `src/provider/error.ts`／`classifyProviderNonzeroExit` | 非0終了の分類として移動。対応UTも`tests/unit/provider/error.contract.test.ts`へ移動 |
+| `runtime/`のJSON5資産 | `config/`二設定と`schemas/`三Schema | [静的資産の対応](../../../06_Architecture/Details/ai-adapter/01_Architecture.md#source構造レビューの目標と現行の区別2026-10-19)。五Hashは移動前後で完全一致。Docker COPY入力名・Container Path・固定Imageは不変更 |
+
+利用側はRootの明示export、Codex／Claude正規化、Profile認証結果、助言抽出のJSON参照、Coordinatorの資産検査、Checker公開集合、Symbol／Test Catalogの実Pathを追従した。意味ID・公開Symbol・通信値・JSON本文・返却値は変更していない。三SourceはTSDoc・import・空行を除くCode本文の基準比較で一致する。JSON走査のHeaderを構文拒否・部分値と文書全体の区別へ具体化し、非0分類Helperの不足項目を補った。新しい分割層・中継・型集合は追加していない。
+
+Source観測の`config/`・`schemas/`追加は既存Observerへの必要な追従である。範囲構成が内容Hashに含まれるため、旧新のHashを同一扱いせず、旧記録を補正しない。既存の7試験で追加・内容変更・削除・link拒否・上限・二読取り差・対象外不変を確認した。Scope文字列・公開shape・現在認可と回収条件は変更していない。
+
+自己確認では、AI Adapterの静的三軸と全33件、Coordinator静的確認・既存Trace確認、資産／両Provider計画22件、利用側のTask／助言29件、Source観測7件、公開入口・Header・QA接続3件、Symbol Graph16件が成功した。通常制限環境の初回試験では既存link操作2件がEPERMとなったが、同じRepository内合成物だけを用いる実行許可後は基準版・変更版とも33件成功。構成の整形・型の追従漏れも局所修正後に静的確認を再実行した。未完了の全体命名Gate、Browser元失敗、実AI編集E2Eと正式QA評価を、この局所結果でPassにしない。
+
+独立した技術・限定文書／影響確認では軽微2件（分類順のHeader表現、Coordinator詳細の観測対象列挙）を是正し、限定再レビューの残指摘0件を確認した。Repository Checkerは現行0、歴史CHG旧参照3,353で全体Exit 1を維持する。過去Evidenceを編集せず、結果の大きな複製書庫も追加していない。
+
+残るPackage内の精査は`advice/`の用途・Provider固有CLI分岐、Profile／Catalog／保存と契約属性、Codex／Claude計画中のImage・Seccomp等のOwner、Symbol／変数名・Headerと公開集合である。`advice/`を丸ごと改名するだけの処置は保留し、実責務とConsumerを先に確認する。②のAI再試行・保持物削除・実Docker操作・Image取得／更新は実施していない。
+
 新方針の現物差分と最初の実装（2026-10-17）: [差分・実装順序](workspace-runtime-inventory.md#10-新方針と既存実装の差分実装順序2026-10-17)を整理した。既存DIに`.env`別maskはなく追加不要、明示コピー防止のsecret検出は一括撤去しない。VCのTree／差分二Adapterを共通の有限Git読取りへ接続し、是正後の静的三軸と全50件成功。続いてWorktree作成・観測・明示終了時の専用Worktree／Branch削除を実装した。filter利用・gitlink作成は未対応として拒否し、独自の変換・管理台帳・State・Lockを追加しない。[実装と実Git試験](workspace-runtime-inventory.md#git-worktree管理の部分実装と実git試験)に現在結果・部分成立・制約を集約する。上位Task／採否の本番接続・Merge・Direct切替・旧Bundle撤去は後続で、今回を全体完成としない。
 
 開発情報・共通隔離方針の採用（2026-10-17）: 人間はローカル開発用`.env`がCoding AIから読まれ得るリスク、本番SecretのGit／通常開発環境外での既存管理、開発資格の本番権限なし・限定権限・有効期限、Direct／Candidate共通DI方針を採用した。[DI正本](../../../06_Architecture/Details/docker-isolation/01_Architecture.md#workspace-isolation-policy)と[判断差分](workspace-runtime-inventory.md#9-開発情報と共通隔離方針の変更2026-10-17)へ反映する。独自Secret Manager・file別ACL・動的Mount許可Frameworkは作らない。以前の隠蔽試験は当時の反例として保持し、新方針の不合格へ流用しない。Git／内部状態書込み・認証領域等の境界は維持する。Source共通化・Cloud権限の実確認は未実施で、今回は文書伝播だけ。

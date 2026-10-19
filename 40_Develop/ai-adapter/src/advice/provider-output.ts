@@ -8,7 +8,7 @@
  * @effect N/A: 生文字列を検証するだけで外部Effectを発行しない。
  * @security 生出力、Session ID、Cost、Provider metadataおよびTool出力を公開結果へ含めない。
  */
-import { parseUnambiguousJsonDocument } from "../output/unambiguous-json-document.ts";
+import { parseUnambiguousJsonDocument } from "../provider/json.ts";
 
 export const WORKBENCH_AI_ADVICE_PROVIDER_OUTPUT_CONTRACT =
   "crdd-coordinator/workbench-ai-advice-provider-output";
