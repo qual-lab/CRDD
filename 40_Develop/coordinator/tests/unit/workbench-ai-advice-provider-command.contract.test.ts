@@ -12,10 +12,9 @@ import { planProviderExecution } from "../../../ai-adapter/src/index.ts";
 import { describeWorkbenchAiAdviceResultSchema } from "../../src/workbench-ai/advice-result.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
-
-import { describeCodexAdviceDistributionIdentity } from "../../../ai-adapter/src/index.ts";
 import { codexAdviceProviderInitRequired } from "../../../docker-isolation/src/index.ts";
-import { describeProviderExecution } from "../../../ai-adapter/src/index.ts";
+import { describeDockerProviderExecutionLocations } from "../../../docker-isolation/src/index.ts";
+import { describeDockerProviderAssets } from "../../../docker-isolation/src/index.ts";
 
 /**
  * Codex助言をToolなし・Repository非共有の標準入力計画へ固定するを検証する。
@@ -31,38 +30,44 @@ import { describeProviderExecution } from "../../../ai-adapter/src/index.ts";
  */
 test("Codex助言をToolなし・Repository非共有の標準入力計画へ固定する", () => {
   const plan =
-    planProviderExecution({
-      provider: "codex",
-      purpose: "advice",
-      input: {
+    planProviderExecution(
+      {
         provider: "codex",
-        exactModelId: "gpt-6.1-sol",
-        reasoningEffort: "medium",
+        purpose: "advice",
+        input: {
+          provider: "codex",
+          exactModelId: "gpt-6.1-sol",
+          reasoningEffort: "medium",
+        },
+        resultSchema: describeWorkbenchAiAdviceResultSchema(),
       },
-      resultSchema: describeWorkbenchAiAdviceResultSchema(),
-    }).plan ?? assert.fail("provider_execution_plan_not_ready");
+      describeDockerProviderExecutionLocations("codex", "advice"),
+    ).plan ?? assert.fail("provider_execution_plan_not_ready");
 
   assert.equal(plan.provider, "codex");
   assert.equal(plan.exactModelId, "gpt-6.1-sol");
-  const distribution = describeCodexAdviceDistributionIdentity();
+  const distribution = describeDockerProviderAssets("codex").adviceIdentity;
   assert.equal(distribution.officialCliUnmodified, true);
   assert.equal(
     distribution.binarySha256,
     "1748767b230ebfc3d4ab7e4e254920d0c0ad9691fd8c11f190e7d44511a4a92e",
   );
   assert.equal("startupPatchSha256" in distribution, false);
-  const normal = describeProviderExecution("codex").distributionIdentity;
+  const normal = describeDockerProviderAssets("codex").identity;
   assert.equal(plan.command, distribution.executablePath);
-  assert.equal(plan.fixedImageDigest, distribution.fixedImageDigest);
+  assert.equal(distribution.fixedImageDigest, distribution.fixedImageDigest);
   assert.notEqual(plan.command, normal.executablePath);
-  assert.notEqual(plan.fixedImageDigest, normal.fixedImageDigest);
+  assert.notEqual(distribution.fixedImageDigest, normal.fixedImageDigest);
   assert.equal(
-    codexAdviceProviderInitRequired("workbench_advice", plan.fixedImageDigest),
+    codexAdviceProviderInitRequired(
+      "workbench_advice",
+      distribution.fixedImageDigest,
+    ),
     true,
   );
   for (const mode of ["boolean_probe", "isolated_task", "unknown"]) {
     assert.equal(
-      codexAdviceProviderInitRequired(mode, plan.fixedImageDigest),
+      codexAdviceProviderInitRequired(mode, distribution.fixedImageDigest),
       false,
     );
   }
@@ -109,8 +114,8 @@ test("Codex助言をToolなし・Repository非共有の標準入力計画へ固�
   assert.equal(plan.argv.includes("features.shell_tool=false"), true);
   assert.equal(plan.argv.includes("features.unified_exec=false"), true);
   assert.equal(plan.argv.includes('web_search="disabled"'), true);
-  assert.equal(plan.repositoryMounted, false);
-  assert.equal(plan.workspaceMountRequired, false);
+  assert.equal("repositoryMounted" in plan, false);
+  assert.equal("workspaceMountRequired" in plan, false);
   assert.equal(plan.toolsAllowed, false);
   assert.equal(plan.sessionPersistenceAllowed, false);
 });
@@ -129,16 +134,19 @@ test("Codex助言をToolなし・Repository非共有の標準入力計画へ固�
  */
 test("Claude助言をSchema付き・Toolなしの標準入力計画へ固定する", () => {
   const plan =
-    planProviderExecution({
-      provider: "claude",
-      purpose: "advice",
-      input: {
+    planProviderExecution(
+      {
         provider: "claude",
-        exactModelId: "opus",
-        reasoningEffort: "high",
+        purpose: "advice",
+        input: {
+          provider: "claude",
+          exactModelId: "opus",
+          reasoningEffort: "high",
+        },
+        resultSchema: describeWorkbenchAiAdviceResultSchema(),
       },
-      resultSchema: describeWorkbenchAiAdviceResultSchema(),
-    }).plan ?? assert.fail("provider_execution_plan_not_ready");
+      describeDockerProviderExecutionLocations("claude", "advice"),
+    ).plan ?? assert.fail("provider_execution_plan_not_ready");
 
   assert.equal(plan.provider, "claude");
   assert.equal(plan.exactModelId, "opus");
@@ -160,16 +168,19 @@ test("Claude助言をSchema付き・Toolなしの標準入力計画へ固定す�
   );
   const callerSchema = Object.freeze({ type: "string", maxLength: 17 });
   const callerPlan =
-    planProviderExecution({
-      provider: "claude",
-      purpose: "advice",
-      input: {
+    planProviderExecution(
+      {
         provider: "claude",
-        exactModelId: "opus",
-        reasoningEffort: "high",
+        purpose: "advice",
+        input: {
+          provider: "claude",
+          exactModelId: "opus",
+          reasoningEffort: "high",
+        },
+        resultSchema: callerSchema,
       },
-      resultSchema: callerSchema,
-    }).plan ?? assert.fail("provider_execution_plan_not_ready");
+      describeDockerProviderExecutionLocations("claude", "advice"),
+    ).plan ?? assert.fail("provider_execution_plan_not_ready");
   assert.deepEqual(
     JSON.parse(
       callerPlan.argv[callerPlan.argv.indexOf("--json-schema") + 1] ?? "null",
@@ -180,8 +191,8 @@ test("Claude助言をSchema付き・Toolなしの標準入力計画へ固定す�
   assert.equal(plan.argv.filter((value) => value === "--max-turns").length, 1);
   assert.equal(plan.argv[plan.argv.indexOf("--max-turns") + 1], "2");
   assert.equal(plan.argv.includes("--no-session-persistence"), true);
-  assert.equal(plan.repositoryMounted, false);
-  assert.equal(plan.workspaceMountRequired, false);
+  assert.equal("repositoryMounted" in plan, false);
+  assert.equal("workspaceMountRequired" in plan, false);
   assert.equal(plan.toolsAllowed, false);
   assert.equal(plan.sessionPersistenceAllowed, false);
 });
@@ -200,26 +211,32 @@ test("Claude助言をSchema付き・Toolなしの標準入力計画へ固定す�
  */
 test("ProviderコマンドにPrompt本文やWorkspace Pathを埋め込まない", () => {
   for (const plan of [
-    planProviderExecution({
-      provider: "codex",
-      purpose: "advice",
-      input: {
+    planProviderExecution(
+      {
         provider: "codex",
-        exactModelId: "gpt-5.6-sol",
-        reasoningEffort: "low",
+        purpose: "advice",
+        input: {
+          provider: "codex",
+          exactModelId: "gpt-5.6-sol",
+          reasoningEffort: "low",
+        },
+        resultSchema: describeWorkbenchAiAdviceResultSchema(),
       },
-      resultSchema: describeWorkbenchAiAdviceResultSchema(),
-    }).plan ?? assert.fail("provider_execution_plan_not_ready"),
-    planProviderExecution({
-      provider: "claude",
-      purpose: "advice",
-      input: {
+      describeDockerProviderExecutionLocations("codex", "advice"),
+    ).plan ?? assert.fail("provider_execution_plan_not_ready"),
+    planProviderExecution(
+      {
         provider: "claude",
-        exactModelId: "opus",
-        reasoningEffort: "low",
+        purpose: "advice",
+        input: {
+          provider: "claude",
+          exactModelId: "opus",
+          reasoningEffort: "low",
+        },
+        resultSchema: describeWorkbenchAiAdviceResultSchema(),
       },
-      resultSchema: describeWorkbenchAiAdviceResultSchema(),
-    }).plan ?? assert.fail("provider_execution_plan_not_ready"),
+      describeDockerProviderExecutionLocations("claude", "advice"),
+    ).plan ?? assert.fail("provider_execution_plan_not_ready"),
   ]) {
     const commandLine = [plan.command, ...plan.argv].join(" ");
     assert.doesNotMatch(commandLine, /providerPrompt|taskHash|projectionHash/u);

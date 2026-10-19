@@ -16,9 +16,9 @@
  * @effect localhost Listenerを開始・終了し、承認済みBrand Assetを読取る。
  * @security 外部Bind、任意Filesystem参照、Force Pushおよび未確認公開を許可せず、Credential管理は検証済み管理Contextの注入時だけ許可する。
  */
-import { readFile } from "node:fs/promises";
+
 import { randomBytes } from "node:crypto";
-import { inspectWorkbenchPublicOrigin } from "./connection/configuration.ts";
+import { readFile } from "node:fs/promises";
 import {
   createServer,
   type IncomingMessage,
@@ -26,98 +26,70 @@ import {
 } from "node:http";
 import type { Socket } from "node:net";
 import path from "node:path";
-
-import type {
-  FilesystemStoreRoot,
-  TopicMeetingListQuery,
-  TopicMeetingPage,
-  TopicPromotionCommandResult,
-  TopicMeetingWriteResult,
-} from "../../domain-model/src/index.ts";
-import {
-  createTopicOperations,
-  parseTopicMarkdown,
-  parseMeetingMarkdown,
-} from "../../domain-model/src/index.ts";
-import type { MeetingOutcomeCommandResult } from "../../domain-model/src/index.ts";
-import { createMeetingOperations } from "../../domain-model/src/index.ts";
-import type { PortfolioProjection } from "../../domain-model/src/index.ts";
-import {
-  executeChangePublication,
-  gitChangePublicationAdapter,
-  observeChangePublicationTarget,
-  gitChangePublicationTargetObservationAdapter,
-  gitRepositoryWorktreeViewAdapter,
-  observeRepositoryWorktreeFileDiff,
-  observeRepositoryWorktreeTree,
-  type ChangePublicationRequest,
-  type ChangePublicationResult,
-  type RepositoryWorktreeFileDiff,
-  type RepositoryWorktreeTreePage,
-} from "../../version-control/src/index.ts";
-import {
-  resolveVerifiedRepositoryRootFromWorkingDirectory,
-  resolveVerifiedRepositoryRoot,
-  verifyRepositoryRoot,
-  type VerifiedRepositoryRoot,
-} from "../../version-control/src/index.ts";
-import {
-  readWorkbenchProjectSurface,
-  type WorkbenchProjectSurface,
-} from "./project/surface.ts";
-import {
-  validateRepositoryActionForm,
-  inspectRepositoryActionResult,
-} from "./project/repository-action.ts";
-import {
-  type CredentialAdministration,
-  executeCredentialAdministrationAction,
-  authenticateWorkbenchConnection,
-} from "./credential/administration.ts";
-import {
-  readCredentialAdministrationState,
-  resolveConnectionAuthentication,
-  resolveAiProfileManagementAccess,
-  resolveRepositoryAccessCollection,
-  resolveRepositoryAccess,
-  sameAccessCollection,
-  type RepositoryAccessCollectionResult,
-} from "../../access-management/src/index.ts";
-import { readAuthorizedPortfolio } from "./project/access-reader.ts";
-import { composeAuthorizedTopicMeeting } from "./topic-meeting/access-resolver.ts";
-import {
-  validateTopicMeetingActionForm,
-  executeTopicMeetingActionForm,
-} from "./topic-meeting/action.ts";
-import {
-  readWorkbenchManagement,
-  executeWorkbenchManagement,
-} from "./management/operations.ts";
-import type { ManagementView } from "./management/contract.ts";
 import { setTimeout as yieldToTransport } from "node:timers/promises";
 import {
-  createAiProfileCatalogAdministration,
-  createRepositoryAiProfileCatalogStore,
-  validateAiProfileCatalog,
-  validateAiProfileMutationResult,
-  type AiProfileCatalogAdministration,
+  type RepositoryAccessCollectionResult,
+  readCredentialAdministrationState,
+  evaluateAiProfileManagementPermission,
+  resolveConnectionAuthentication,
+  resolveRepositoryAccess,
+  resolveRepositoryAccessCollection,
+  sameAccessCollection,
+} from "../../access-management/src/index.ts";
+import {
   type AiModelTier,
+  type AiProfileCatalogAdministration,
   type AiProfileCatalogMutation,
   type AiProfileCatalogMutationResult,
   type AiProfileCatalogSnapshot,
   type AiProfileDefinition,
   type AiReasoningEffort,
   type AiSelectionRole,
+  createAiProfileCatalogAdministration,
+  createRepositoryAiProfileCatalogStore,
+  validateAiProfileCatalog,
+  validateAiProfileMutationResult,
 } from "../../ai-adapter/src/index.ts";
-import {
-  createDefaultWorkbenchAiProfileSurface,
-  createWorkbenchAiProfileSurface,
-  type WorkbenchAiProfileSurface,
-} from "./ai-profile/projection.ts";
 import type {
-  WorkbenchAiRequests,
-  WorkbenchAiRequestSnapshot,
-} from "./ai-request/types.ts";
+  FilesystemStoreRoot,
+  MeetingOutcomeCommandResult,
+  PortfolioProjection,
+  TopicMeetingListQuery,
+  TopicMeetingPage,
+  TopicMeetingWriteResult,
+  TopicPromotionCommandResult,
+} from "../../domain-model/src/index.ts";
+import {
+  createFilesystemRepositoryObservationPort,
+  createMeetingOperations,
+  createTopicOperations,
+  inspectRepositoryManifest,
+  parseMeetingMarkdown,
+  parseTopicMarkdown,
+  REPOSITORY_MANIFEST_RELATIVE_PATH,
+} from "../../domain-model/src/index.ts";
+import {
+  executeWorkspaceCommand,
+  inspectWorkspaceCommand,
+  readAuthorizedRuntimeActivity,
+} from "../../orchestrator/src/index.ts";
+import {
+  type ChangePublicationRequest,
+  type ChangePublicationResult,
+  executeChangePublication,
+  gitChangePublicationAdapter,
+  gitChangePublicationTargetObservationAdapter,
+  gitRepositoryWorktreeViewAdapter,
+  observeChangePublicationTarget,
+  observeRepositoryWorktreeFileDiff,
+  observeRepositoryWorktreeTree,
+  type RepositoryWorktreeFileDiff,
+  type RepositoryWorktreeTreePage,
+  resolveVerifiedRepositoryRoot,
+  resolveVerifiedRepositoryRootFromWorkingDirectory,
+  type VerifiedRepositoryRoot,
+  verifyRepositoryRoot,
+} from "../../version-control/src/index.ts";
 import {
   createRepositoryWorkbenchActivityReader,
   projectRuntimeActivityForWorkbench,
@@ -125,10 +97,14 @@ import {
   type WorkbenchRuntimeActivityObservation,
 } from "./activity/observe.ts";
 import {
-  readWorkbenchChangeArtifact,
-  readWorkbenchOwnerArtifact,
-} from "./owner-artifact/read.ts";
-import type { WorkbenchTopicMeetingDocumentReader } from "./topic-meeting/action.ts";
+  createDefaultWorkbenchAiProfileSurface,
+  createWorkbenchAiProfileSurface,
+  type WorkbenchAiProfileSurface,
+} from "./ai-profile/projection.ts";
+import type {
+  WorkbenchAiRequestSnapshot,
+  WorkbenchAiRequests,
+} from "./ai-request/types.ts";
 import type {
   WorkbenchClientModel,
   WorkbenchCredentialAdministrationView,
@@ -136,16 +112,36 @@ import type {
   WorkbenchRecordDocumentView,
   WorkbenchTopicMeetingResultView,
 } from "./browser/client-model.ts";
-import { readAuthorizedRuntimeActivity } from "../../orchestrator/src/index.ts";
+import { inspectWorkbenchPublicOrigin } from "./connection/configuration.ts";
 import {
-  executeWorkspaceCommand,
-  inspectWorkspaceCommand,
-} from "../../orchestrator/src/index.ts";
+  authenticateWorkbenchConnection,
+  type CredentialAdministration,
+  executeCredentialAdministrationAction,
+} from "./credential/administration.ts";
+import type { ManagementView } from "./management/contract.ts";
 import {
-  createFilesystemRepositoryObservationPort,
-  inspectRepositoryManifest,
-  REPOSITORY_MANIFEST_RELATIVE_PATH,
-} from "../../domain-model/src/index.ts";
+  executeWorkbenchManagement,
+  readWorkbenchManagement,
+} from "./management/operations.ts";
+import {
+  readWorkbenchChangeArtifact,
+  readWorkbenchOwnerArtifact,
+} from "./owner-artifact/read.ts";
+import { readAuthorizedPortfolio } from "./project/access-reader.ts";
+import {
+  inspectRepositoryActionResult,
+  validateRepositoryActionForm,
+} from "./project/repository-action.ts";
+import {
+  readWorkbenchProjectSurface,
+  type WorkbenchProjectSurface,
+} from "./project/surface.ts";
+import { composeAuthorizedTopicMeeting } from "./topic-meeting/access-resolver.ts";
+import type { WorkbenchTopicMeetingDocumentReader } from "./topic-meeting/action.ts";
+import {
+  executeTopicMeetingActionForm,
+  validateTopicMeetingActionForm,
+} from "./topic-meeting/action.ts";
 
 const HOST = "127.0.0.1";
 const CONTRACT = "crdd/workbench/v1";
@@ -1322,7 +1318,7 @@ export async function startWorkbench(
                 requestUrl.search !== "" ||
                 !credentialAdministration ||
                 !request.crosProfileAdministration ||
-                resolveAiProfileManagementAccess(
+                evaluateAiProfileManagementPermission(
                   credentialAdministration.root,
                   credentialAdministration.token,
                 ) !== "allowed"
@@ -1346,7 +1342,7 @@ export async function startWorkbench(
               if (requestController.signal.aborted || response.destroyed)
                 return;
               if (
-                resolveAiProfileManagementAccess(
+                evaluateAiProfileManagementPermission(
                   credentialAdministration.root,
                   credentialAdministration.token,
                 ) !== "allowed"
@@ -2136,7 +2132,7 @@ export async function startWorkbench(
           if (
             !credentialAdministration ||
             !request.crosProfileAdministration ||
-            resolveAiProfileManagementAccess(
+            evaluateAiProfileManagementPermission(
               credentialAdministration.root,
               credentialAdministration.token,
             ) !== "allowed"
@@ -2155,7 +2151,7 @@ export async function startWorkbench(
           await yieldToTransport(0);
           if (requestController.signal.aborted || response.destroyed) return;
           if (
-            resolveAiProfileManagementAccess(
+            evaluateAiProfileManagementPermission(
               credentialAdministration.root,
               credentialAdministration.token,
             ) !== "allowed"

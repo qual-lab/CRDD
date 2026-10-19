@@ -14,7 +14,7 @@ import {
   revokeCredential,
   exchangeCredentials,
   finishKeyExchange,
-  recordCredentialPresentation,
+  updateCredentialPresentationState,
   readCredentialAdministrationState,
   resolveConnectionAuthentication,
   confirmInitialConnection,
@@ -516,7 +516,7 @@ export async function executeCredentialAdministrationAction(
           : administration.token;
     }
     if (signal.aborted) return;
-    const started = recordCredentialPresentation(administration.root, {
+    const started = updateCredentialPresentationState(administration.root, {
       credentialId,
       issuanceOperationId: operationId,
       expectedRevision: revision,
@@ -551,7 +551,7 @@ export async function executeCredentialAdministrationAction(
     );
     token = null;
     if (!(await pending) || signal.aborted) return;
-    const confirmed = recordCredentialPresentation(administration.root, {
+    const confirmed = updateCredentialPresentationState(administration.root, {
       credentialId,
       issuanceOperationId: operationId,
       expectedRevision: started.value.revision,

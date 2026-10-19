@@ -21,60 +21,60 @@
  * @boundary 自己生成Store／Repositoryから既存HTTP Transportまで。公開Launcherの完成ではない。
  */
 import assert from "node:assert/strict";
-import fs from "node:fs";
-import path from "node:path";
-import { randomUUID, createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
+import { createHash, randomUUID } from "node:crypto";
+import fs from "node:fs";
 import { request as httpRequest, ServerResponse } from "node:http";
+import path from "node:path";
 import test, { type TestContext } from "node:test";
-
+import {
+  readCurrentAccess,
+  registerRepository,
+  resolveRepositoryAccess,
+  updateExposure,
+} from "../../../access-management/src/index.ts";
+import {
+  createInitialAdministrator,
+  createInitialCredential,
+  initializeAccessManagementState,
+} from "../../../access-management/src/initialization/execution.ts";
+import type { AccessManagementState } from "../../../access-management/src/storage/types.ts";
 import {
   createAiProfileCatalogAdministration,
   createRepositoryAiProfileCatalogStore,
   defaultAiProfileCatalog,
 } from "../../../ai-adapter/src/index.ts";
 import {
-  createInitialAdministrator,
-  createInitialCredential,
-  initializeAccessManagementState,
-  registerRepository,
-  updateExposure,
-  readCurrentAccess,
-  projectCurrentAccessResult,
-  resolveRepositoryAccess,
-  type AccessManagementState,
-} from "../../../access-management/src/index.ts";
-import {
   createFilesystemStoreRoot,
-  createTopicOperations,
   createMeetingOperations,
+  createTopicOperations,
 } from "../../../domain-model/src/index.ts";
 import {
-  createAccessMcpResolver,
-  MCP_TOPIC_MEETING_TOOLS,
-  MCP_AI_PROFILE_TOOLS,
-  startMcpAuthenticatedStreamableHttp,
-  MCP_PROJECT_CONTEXT_GET_TOOL,
-  MCP_RUNTIME_ACTIVITY_TOOL,
-  MCP_PROJECT_CONTEXT_LIST_TOOL,
-  MCP_ORCHESTRATOR_PROTOCOL_VERSION,
-  MCP_CURRENT_ACCESS_TOOL,
-  type McpResponse,
-} from "../../src/index.ts";
+  createTaskAttemptSettledEvent,
+  usageNotObserved,
+  verifyExecutionIntelligenceRepositoryRoot,
+  writeExecutionIntelligenceEvent,
+} from "../../../execution-intelligence/src/index.ts";
 import {
   createOrchestratorState,
-  initializeOrchestratorSnapshot,
   executeWorkspaceCommand,
+  initializeOrchestratorSnapshot,
 } from "../../../orchestrator/src/index.ts";
 import { writeOrchestratorSnapshotState } from "../../../orchestrator/src/storage/current-state.ts";
 import { prepareWorkspaceSurface } from "../../../orchestrator/tests/fixtures/workspace-surface.ts";
 import { startWorkbench } from "../../../workbench-server/src/index.ts";
 import {
-  createTaskAttemptSettledEvent,
-  writeExecutionIntelligenceEvent,
-  verifyExecutionIntelligenceRepositoryRoot,
-  usageNotObserved,
-} from "../../../execution-intelligence/src/index.ts";
+  createAccessMcpResolver,
+  MCP_AI_PROFILE_TOOLS,
+  MCP_CURRENT_ACCESS_TOOL,
+  MCP_ORCHESTRATOR_PROTOCOL_VERSION,
+  MCP_PROJECT_CONTEXT_GET_TOOL,
+  MCP_PROJECT_CONTEXT_LIST_TOOL,
+  MCP_RUNTIME_ACTIVITY_TOOL,
+  MCP_TOPIC_MEETING_TOOLS,
+  type McpResponse,
+  startMcpAuthenticatedStreamableHttp,
+} from "../../src/index.ts";
 
 /**
  * 通常三Roleの本人を他Userから推定せず実HTTPで取得する。
@@ -162,10 +162,7 @@ test("MCP本人readは三Roleの現在本人だけを実HTTPへ返す", async (t
         role,
       });
       assert.equal(result.revision, state.revision);
-      assert.deepEqual(
-        result,
-        projectCurrentAccessResult(readCurrentAccess(f.root, f.token)),
-      );
+      assert.deepEqual(result, readCurrentAccess(f.root, f.token));
       const unchangedState = fs.readFileSync(f.current);
       const later = Date.now() + 365 * 24 * 60 * 60 * 1000;
       const clock = t.mock.method(Date, "now", () => later);
@@ -300,11 +297,19 @@ test("非鍵管理MCPの十操作はRoleと閉結果を実保存へ接続する"
     assert.equal(tools.length, 28);
     assert.equal(new Set(tools.map((tool) => tool.name)).size, 28);
     assert.equal(
+      tools.some((tool) => tool.name === "crdd.update_user_role"),
+      true,
+    );
+    assert.equal(
+      tools.some((tool) => tool.name === "crdd.change_user_role"),
+      false,
+    );
+    assert.equal(
       tools.some((tool) => tool.name === "crdd.register_repository"),
       false,
     );
     for (const tool of tools.filter((tool) =>
-      /access_users|role_content_access|registered_repositories|repository_exposure|register_user|update_user_name|change_user_role|unregister_repository/.test(
+      /access_users|role_content_access|registered_repositories|repository_exposure|register_user|update_user_name|update_user_role|unregister_repository/.test(
         tool.name,
       ),
     )) {
@@ -367,7 +372,7 @@ test("非鍵管理MCPの十操作はRoleと閉結果を実保存へ接続する"
     for (const [name, input] of [
       ["crdd.update_user_name", { userId, username: "変更ユーザー" }],
       [
-        "crdd.change_user_role",
+        "crdd.update_user_role",
         { userId, currentRole: "developer", nextRole: "manager" },
       ],
       [
@@ -439,7 +444,7 @@ test("非鍵管理MCPの十操作はRoleと閉結果を実保存へ接続する"
         { username: "禁止管理者", plannedRole: "administrator" },
       ],
       [
-        "crdd.change_user_role",
+        "crdd.update_user_role",
         { userId, currentRole: "manager", nextRole: "administrator" },
       ],
       [

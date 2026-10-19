@@ -16,9 +16,8 @@
  * @boundary Workbench本番Server→本番Bundle→専用Browser→AM保存Owner。成果物原文は同じ選択Rootに相関し、文字列表示・履歴移動・遅延拒否・再読込後の再接続を観測する。
  */
 import assert from "node:assert/strict";
-import { spawn, spawnSync, type ChildProcess } from "node:child_process";
+import { type ChildProcess, spawn, spawnSync } from "node:child_process";
 import fs, { existsSync } from "node:fs";
-import { syncBuiltinESMExports } from "node:module";
 import {
   lstat,
   mkdir,
@@ -27,26 +26,25 @@ import {
   rm,
   writeFile,
 } from "node:fs/promises";
+import { syncBuiltinESMExports } from "node:module";
 import path from "node:path";
-import { setTimeout as delay } from "node:timers/promises";
 import test from "node:test";
+import { setTimeout as delay } from "node:timers/promises";
+import { createCredentialMaterial } from "../../../access-management/src/credential/token.ts";
+import { deriveRepositoryBindingId } from "../../../access-management/src/repository/binding.ts";
+import type { AccessManagementState } from "../../../access-management/src/storage/types.ts";
 import {
-  createCredentialMaterial,
-  type AccessManagementState,
-} from "../../../access-management/src/index.ts";
-import { deriveRepositoryBindingId } from "../../../access-management/src/state/repository-binding.ts";
+  createAiProfileCatalogAdministration,
+  createHostAiProfileCatalogStore,
+} from "../../../ai-adapter/src/index.ts";
 import { createFilesystemStoreRoot } from "../../../domain-model/src/index.ts";
+import { prepareWorkspaceSurface } from "../../../orchestrator/tests/fixtures/workspace-surface.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
 import {
   closeOwnedBrowserProcessTree,
   observeLocalListener,
 } from "../../../visual-preview/src/browser/verify-visual.ts";
 import { startWorkbench } from "../../src/index.ts";
-import { prepareWorkspaceSurface } from "../../../orchestrator/tests/fixtures/workspace-surface.ts";
-import {
-  createHostAiProfileCatalogStore,
-  createAiProfileCatalogAdministration,
-} from "../../../ai-adapter/src/index.ts";
 
 const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
   import.meta.dirname,
@@ -570,8 +568,8 @@ function managementBrowserExpression(
       rename.elements.namedItem('username').value='管理画面改名'; rename.requestSubmit();
       const renamed = await waitFor(() => panel().querySelector('[role=status]')?.textContent.includes('改訂 3。') && formFor('updateUserName', 'userId', id)?.elements.namedItem('username').value === '管理画面改名' && !formFor('registerUser').querySelector('button').disabled);
       stage='change-role';
-      const role = formFor('changeUserRole', 'userId', id); role.elements.namedItem('nextRole').value='manager'; role.requestSubmit();
-      const roleChanged = await waitFor(() => panel().querySelector('[role=status]')?.textContent.includes('改訂 4。') && formFor('changeUserRole', 'userId', id)?.elements.namedItem('currentRole').value === 'manager' && !formFor('registerUser').querySelector('button').disabled);
+      const role = formFor('updateUserRole', 'userId', id); role.elements.namedItem('nextRole').value='manager'; role.requestSubmit();
+      const roleChanged = await waitFor(() => panel().querySelector('[role=status]')?.textContent.includes('改訂 4。') && formFor('updateUserRole', 'userId', id)?.elements.namedItem('currentRole').value === 'manager' && !formFor('registerUser').querySelector('button').disabled);
       stage='content-access';
       const targetRole=exerciseFailures ? 'manager' : 'developer';
       const content = formFor('updateRoleContentAccess', 'targetRole', targetRole); for(const box of content.querySelectorAll('input[type=checkbox]')) box.checked=false; content.requestSubmit();

@@ -16,32 +16,39 @@
  * @boundary 自己生成AM／登録Repositoryだけ。公開Launcherと実Browserは別評価。
  */
 import assert from "node:assert/strict";
-import fs from "node:fs";
-import path from "node:path";
-import { randomUUID } from "node:crypto";
 import { spawnSync } from "node:child_process";
-import { syncBuiltinESMExports } from "node:module";
-import test from "node:test";
+import { randomUUID } from "node:crypto";
+import fs from "node:fs";
 import {
-  request as httpRequest,
   type ClientRequest,
+  request as httpRequest,
   ServerResponse,
 } from "node:http";
+import { syncBuiltinESMExports } from "node:module";
+import path from "node:path";
+import test from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
-import { observeLocalListener } from "../../../visual-preview/src/index.ts";
+import { createCredentialMaterial } from "../../../access-management/src/credential/token.ts";
+import { deriveRepositoryBindingId } from "../../../access-management/src/repository/binding.ts";
+import type { AccessManagementState } from "../../../access-management/src/storage/types.ts";
+import {
+  type AiProfileCatalogAdministration,
+  type AiProfileCatalogMutation,
+  type AiProfileCatalogSnapshot,
+  createAiProfileCatalogAdministration,
+  createHostAiProfileCatalogStore,
+} from "../../../ai-adapter/src/index.ts";
 import { createFilesystemStoreRoot } from "../../../domain-model/src/index.ts";
 import {
-  createCredentialMaterial,
-  type AccessManagementState,
-} from "../../../access-management/src/index.ts";
+  createTaskAttemptSettledEvent,
+  usageNotObserved,
+  verifyExecutionIntelligenceRepositoryRoot,
+  writeExecutionIntelligenceEvent,
+} from "../../../execution-intelligence/src/index.ts";
+import { observeLocalListener } from "../../../visual-preview/src/index.ts";
+import { inspectWorkbenchClientModel } from "../../src/browser/client-model.ts";
+import { authenticateWorkbenchConnection } from "../../src/credential/administration.ts";
 import { startWorkbench } from "../../src/index.ts";
-import {
-  createHostAiProfileCatalogStore,
-  createAiProfileCatalogAdministration,
-  type AiProfileCatalogAdministration,
-  type AiProfileCatalogSnapshot,
-  type AiProfileCatalogMutation,
-} from "../../../ai-adapter/src/index.ts";
 import { inspectManagementResult } from "../../src/management/contract.ts";
 import {
   readAccessPortfolio,
@@ -49,15 +56,6 @@ import {
 } from "../../src/project/access-reader.ts";
 import { resolveAccessTopicMeeting } from "../../src/topic-meeting/access-resolver.ts";
 import { validateTopicMeetingActionForm } from "../../src/topic-meeting/action.ts";
-import { authenticateWorkbenchConnection } from "../../src/credential/administration.ts";
-import { inspectWorkbenchClientModel } from "../../src/browser/client-model.ts";
-import { deriveRepositoryBindingId } from "../../../access-management/src/state/repository-binding.ts";
-import {
-  createTaskAttemptSettledEvent,
-  writeExecutionIntelligenceEvent,
-  verifyExecutionIntelligenceRepositoryRoot,
-  usageNotObserved,
-} from "../../../execution-intelligence/src/index.ts";
 
 /**
  * 自己生成Repositoryへ非秘密の活動履歴を準備する。
@@ -1381,7 +1379,7 @@ for (const mode of ["local", "cros"] as const) {
       for (const [operation, fields] of [
         ["updateUserName", { userId: newUser, username: "改名" }],
         [
-          "changeUserRole",
+          "updateUserRole",
           { userId: newUser, currentRole: "developer", nextRole: "manager" },
         ],
         [

@@ -20,6 +20,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
+import { describeDockerProviderExecutionLocations } from "../../../docker-isolation/src/index.ts";
 
 const repositoryRoot = path.resolve(import.meta.dirname, "../..");
 
@@ -264,39 +265,42 @@ test("Codex／ClaudeのExecutor・Reviewer計画を同じProvider境界Matrixで
   for (const item of PLAN_CASES) {
     const plan = (
       item.provider === "codex"
-        ? (planProviderExecution({
-            provider: "codex",
-            purpose: "task",
-            input: {
+        ? (planProviderExecution(
+            {
               provider: "codex",
-              mode: "isolated_task",
-              effort: "low",
-              taskRole: item.role,
-            },
-          }).plan ?? assert.fail("provider_execution_plan_not_ready"))
-        : (planProviderExecution({
-            provider: "claude",
-            purpose: "task",
-            input: {
-              provider: "claude",
-              mode: "isolated_task",
-              effort: "low",
-              taskRole: item.role,
-              taskWorkload: {
-                readPathCount: 1,
-                allowedPathCount: 1,
-                acceptanceCriterionCount: 1,
-                remediationFindingCount: 0,
+              purpose: "task",
+              input: {
+                provider: "codex",
+                mode: "isolated_task",
+                effort: "low",
+                taskRole: item.role,
               },
             },
-          }).plan ?? assert.fail("provider_execution_plan_not_ready"))
+            describeDockerProviderExecutionLocations("codex", "task"),
+          ).plan ?? assert.fail("provider_execution_plan_not_ready"))
+        : (planProviderExecution(
+            {
+              provider: "claude",
+              purpose: "task",
+              input: {
+                provider: "claude",
+                mode: "isolated_task",
+                effort: "low",
+                taskRole: item.role,
+                taskWorkload: {
+                  readPathCount: 1,
+                  allowedPathCount: 1,
+                  acceptanceCriterionCount: 1,
+                  remediationFindingCount: 0,
+                },
+              },
+            },
+            describeDockerProviderExecutionLocations("claude", "task"),
+          ).plan ?? assert.fail("provider_execution_plan_not_ready"))
     ) as Readonly<Record<string, unknown>>;
     const argv = plan.argv as readonly string[];
     assert.equal(plan.status, "candidate");
-    assert.equal(
-      plan.workspaceMountMode,
-      item.role === "executor" ? "read_write" : "read_only",
-    );
+    assert.equal("workspaceMountMode" in plan, false);
     assert.equal(plan.taskPromptTransport, "stdin_only");
     assert.equal(plan.taskPromptInArgvAllowed, false);
     assert.equal(plan.reviewerFilesystemOrShellToolAllowed, false);
@@ -304,7 +308,7 @@ test("Codex／ClaudeのExecutor・Reviewer計画を同じProvider境界Matrixで
       assert.equal(plan.providerHomeCommandReadAllowed, false);
       assert.equal(
         plan.explicitSandboxOption,
-        "approve_for_me_executor_with_docker_userns_seccomp_reviewer_read_only",
+        "approve_for_me_executor_reviewer_read_only",
       );
       assert.equal(argv.includes("--approve-for-me"), item.role === "executor");
       assert.equal(argv.includes("--sandbox"), item.role === "reviewer");

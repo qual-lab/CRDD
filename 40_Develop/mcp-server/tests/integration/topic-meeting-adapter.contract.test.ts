@@ -23,28 +23,26 @@ import {
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
-
-import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
-
 import {
+  createMeetingOperations,
   createTopicOperations,
   type TopicMeetingAccess,
 } from "../../../domain-model/src/index.ts";
-import { createMeetingOperations } from "../../../domain-model/src/index.ts";
+import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
 import {
-  routeMcpRequest,
   getMcpTopicMeetingToolDefinitions,
-  MCP_ORCHESTRATOR_PROTOCOL_VERSION,
-  MCP_MEETING_TREAT_OUTCOME_TOOL,
+  handleMcpTopicMeetingRequest,
   MCP_MEETING_CREATE_TOOL,
+  MCP_MEETING_TREAT_OUTCOME_TOOL,
   MCP_MEETING_UPDATE_TOOL,
+  MCP_ORCHESTRATOR_PROTOCOL_VERSION,
   MCP_TOPIC_CREATE_TOOL,
   MCP_TOPIC_GET_TOOL,
   MCP_TOPIC_LIST_TOOL,
+  MCP_TOPIC_MEETING_TOOLS,
   MCP_TOPIC_PROMOTE_TOOL,
   MCP_TOPIC_UPDATE_TOOL,
-  MCP_TOPIC_MEETING_TOOLS,
-  handleMcpTopicMeetingRequest,
+  routeMcpRequest,
 } from "../../src/index.ts";
 
 const META = Object.freeze({

@@ -28,6 +28,10 @@ import { createDockerAuthenticationEnvironment } from "../../../docker-isolation
 import { selectProviderModelCandidate } from "./model-selection.ts";
 import { describeEgressProxyTopology } from "../external-send/egress-proxy-policy.ts";
 import type { WorkbenchAiAdviceRuntimePacket } from "../workbench-ai/advice-packet.ts";
+import {
+  describeDockerProviderAssets,
+  describeDockerProviderExecutionLocations,
+} from "../../../docker-isolation/src/index.ts";
 
 const codexAuthenticationCli = describeProviderAuthentication("codex");
 const claudeAuthenticationCli = describeProviderAuthentication("claude");
@@ -73,38 +77,46 @@ export function buildProviderDockerExecutionPlan(
     consumer !== "orchestrator"
   )
     return null;
-  const generated = planProviderExecution({
-    provider,
-    purpose: taskPacket ? "task" : "probe",
-    input: taskPacket
-      ? {
-          provider,
-          mode: "isolated_task",
-          effort: consumedModelSelection.effort,
-          taskRole: taskPacket.taskRole,
-          ...(provider === "claude"
-            ? { taskWorkload: taskPacket.taskWorkload }
-            : {}),
-        }
-      : {
-          provider,
-          mode: "read_only_probe",
-          ...(provider === "codex"
-            ? { effort: consumedModelSelection.effort }
-            : {}),
-        },
-    ...(advicePacket
-      ? {}
-      : {
-          modelSelection: {
+  const generated = planProviderExecution(
+    {
+      provider,
+      purpose: taskPacket ? "task" : "probe",
+      input: taskPacket
+        ? {
             provider,
-            exactModelId: consumedModelSelection.model,
-            reasoningEffort: consumedModelSelection.effort,
+            mode: "isolated_task",
+            effort: consumedModelSelection.effort,
+            taskRole: taskPacket.taskRole,
+            ...(provider === "claude"
+              ? { taskWorkload: taskPacket.taskWorkload }
+              : {}),
+          }
+        : {
+            provider,
+            mode: "read_only_probe",
+            ...(provider === "codex"
+              ? { effort: consumedModelSelection.effort }
+              : {}),
           },
-        }),
-  });
+      ...(advicePacket
+        ? {}
+        : {
+            modelSelection: {
+              provider,
+              exactModelId: consumedModelSelection.model,
+              reasoningEffort: consumedModelSelection.effort,
+            },
+          }),
+    },
+    describeDockerProviderExecutionLocations(
+      provider,
+      taskPacket ? "task" : "probe",
+    ),
+  );
   if (generated.status !== "ready") return null;
   const execution = generated.plan;
+  const assets = describeDockerProviderAssets(provider);
+  const codexAssets = describeDockerProviderAssets("codex");
   const codex = execution.provider === "codex" ? execution : null;
   const claude = execution.provider === "claude" ? execution : null;
   const egress = describeEgressProxyTopology(provider);
@@ -149,7 +161,7 @@ export function buildProviderDockerExecutionPlan(
         advicePacket.workspaceMounted !== false ||
         advicePacket.toolsAllowed !== false ||
         advicePacket.sessionPersistenceAllowed !== false)) ||
-    execution.distributionBinding.fixedDigestImageRequired !== true ||
+    assets.fixedDigestImageRequired !== true ||
     egress.providerNetworkInternal !== true ||
     egress.providerDirectExternalNetwork !== false ||
     egress.proxyNetworks.length !== 2
@@ -165,9 +177,8 @@ export function buildProviderDockerExecutionPlan(
     codex?.status === "candidate" &&
     taskPacket?.taskRole === "executor"
       ? {
-          sha256:
-            codex.distributionBinding.identity.executorSeccompProfileSha256,
-          bytes: codex.distributionBinding.identity.executorSeccompProfileBytes,
+          sha256: codexAssets.identity.executorSeccompProfileSha256,
+          bytes: codexAssets.identity.executorSeccompProfileBytes,
         }
       : null;
   const suffix = createDockerIsolationRandomHex(state, 8);
@@ -197,8 +208,7 @@ export function buildProviderDockerExecutionPlan(
     ownershipLabel,
   } = resourceNames;
   const providerImageDigest =
-    advicePacket?.providerCommand.fixedImageDigest ??
-    execution.distributionBinding.fixedImageDigest;
+    advicePacket?.providerCommand.fixedImageDigest ?? assets.fixedImageDigest;
   const proxyImageDigest = egress.verificationAdapter.imageDigest;
   const authenticationEnvironment = createDockerAuthenticationEnvironment(
     provider === "codex"

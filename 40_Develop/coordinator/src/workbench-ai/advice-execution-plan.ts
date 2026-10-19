@@ -19,6 +19,10 @@ import {
   providerProfileMatchesExecutionIdentity,
   type ProviderAdvicePlan,
 } from "../../../ai-adapter/src/index.ts";
+import {
+  describeDockerProviderAssets,
+  describeDockerProviderExecutionLocations,
+} from "../../../docker-isolation/src/index.ts";
 
 export const WORKBENCH_AI_ADVICE_EXECUTION_PLAN_CONTRACT =
   "crdd-coordinator/workbench-ai-advice-execution-plan";
@@ -93,7 +97,7 @@ export type WorkbenchAiAdviceExecutionPlan = Readonly<{
   sessionPersistenceAllowed: false;
   apiKeyFallbackAllowed: false;
   paidApiFallbackAllowed: false;
-  providerCommand: ProviderAdvicePlan;
+  providerCommand: WorkbenchAiProviderCommand;
 }>;
 
 /**
@@ -166,16 +170,19 @@ export function prepareWorkbenchAiAdviceExecutionPlan(
   )
     return blocked();
 
-  const generated = planProviderExecution({
-    provider: input.provider,
-    purpose: "advice",
-    input: {
+  const generated = planProviderExecution(
+    {
       provider: input.provider,
-      exactModelId: input.exactModelId,
-      reasoningEffort: input.reasoningEffort,
+      purpose: "advice",
+      input: {
+        provider: input.provider,
+        exactModelId: input.exactModelId,
+        reasoningEffort: input.reasoningEffort,
+      },
+      resultSchema: describeWorkbenchAiAdviceResultSchema(),
     },
-    resultSchema: describeWorkbenchAiAdviceResultSchema(),
-  });
+    describeDockerProviderExecutionLocations(input.provider, "advice"),
+  );
   if (generated.status !== "ready") return blocked();
   return Object.freeze({
     status: "prepared" as const,
@@ -200,7 +207,7 @@ export function prepareWorkbenchAiAdviceExecutionPlan(
       sessionPersistenceAllowed: false as const,
       apiKeyFallbackAllowed: false as const,
       paidApiFallbackAllowed: false as const,
-      providerCommand: generated.plan,
+      providerCommand: bindWorkbenchAiProviderCommand(generated.plan),
     }),
   });
 }
@@ -227,5 +234,53 @@ function blocked(): WorkbenchAiAdviceExecutionPlanPreparation {
     status: "blocked" as const,
     reason: "workbench_ai_advice_execution_plan_invalid" as const,
     executionPlan: null,
+  });
+}
+
+/**
+ * 助言CLI計画に隔離実行の固定Image・共有範囲を結合する。
+ * @responsibility Image相関をAI AdapterでなくCoordinatorの技術Packetへ保持する。
+ * @trace ARCH-000015
+ * @shape ProviderAdvicePlanと固定Image・Home必要・Repository／Workspace非共有。
+ * @invariant Image・argv・環境を同じPacket Hashへ結合する。
+ * @boundary AIのCLI記述とDockerの配置を結合する上位境界。
+ * @security 起動・送信許可を生成しない。
+ * @compatibility 既存のPacket field・Hash対象を維持する。
+ */
+export type WorkbenchAiProviderCommand = ProviderAdvicePlan &
+  Readonly<{
+    fixedImageDigest: string;
+    providerHomeMountRequired: true;
+    repositoryMounted: false;
+    workspaceMountRequired: false;
+  }>;
+
+/**
+ * CLI計画を助言Packetの既存技術契約へ結合する。
+ * @responsibility Imageと非共有条件の所有を上位に閉じる。
+ * @trace ARCH-000015
+ * @input plan: AI Adapterが生成した検証済み助言CLI計画。
+ * @returns 固定ImageとMount意図を結合した同じ閉じたCommand。
+ * @precondition 信頼した構成側がDocker側の実行位置で生成している。
+ * @postcondition CLI引数・環境・Modelを改変しない。
+ * @effect N/A: 不変値の構築だけ。
+ * @failure N/A: 対応Providerの固定データだけを利用する。
+ * @invariant 取得を実Image検証や送信許可にしない。
+ * @boundary ProviderのCLI記述と隔離実行の技術相関。
+ * @security Prompt・秘密・Host Rootを追加しない。
+ * @concurrency N/A: 同期値だけ。
+ */
+export function bindWorkbenchAiProviderCommand(
+  plan: ProviderAdvicePlan,
+): WorkbenchAiProviderCommand {
+  return Object.freeze({
+    ...plan,
+    fixedImageDigest:
+      plan.provider === "codex"
+        ? describeDockerProviderAssets("codex").adviceIdentity.fixedImageDigest
+        : describeDockerProviderAssets("claude").fixedImageDigest,
+    providerHomeMountRequired: true as const,
+    repositoryMounted: false as const,
+    workspaceMountRequired: false as const,
   });
 }

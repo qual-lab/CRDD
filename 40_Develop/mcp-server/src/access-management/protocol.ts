@@ -19,7 +19,7 @@ export const MCP_ACCESS_MANAGEMENT_TOOLS = Object.freeze({
   listExposure: "crdd.list_repository_exposure",
   registerUser: "crdd.register_user",
   updateUserName: "crdd.update_user_name",
-  changeUserRole: "crdd.change_user_role",
+  updateUserRole: "crdd.update_user_role",
   updateRoleContentAccess: "crdd.update_role_content_access",
   unregisterRepository: "crdd.unregister_repository",
   updateExposure: "crdd.update_repository_exposure",
@@ -103,7 +103,7 @@ export function getMcpAccessManagementToolDefinitions() {
       { userId, username: { type: "string" } },
     ],
     [
-      "changeUserRole",
+      "updateUserRole",
       "ユーザーRole変更",
       { userId, currentRole: role, nextRole: role },
     ],

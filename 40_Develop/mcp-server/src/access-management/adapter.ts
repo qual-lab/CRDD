@@ -6,42 +6,39 @@
  * @boundary HTTP要求の認証ContextとAM公開API。
  * @security 資格は要求Contextだけに保持し、結果・例外へ転記しない。
  */
+
+import { setTimeout as yieldToTransport } from "node:timers/promises";
 import {
   authenticateNormalConnection,
+  updateUserRole,
+  type ManagementOperationOutcome,
   readCurrentAccess,
-  projectCurrentAccessResult,
-  projectManagementReadResult,
-  projectManagementOperationResult,
   readManagementState,
   registerUser,
-  updateUserName,
-  changeUserRole,
-  updateRoleContentAccess,
   unregisterRepository,
   updateExposure,
-  type UserRoleManagementResult,
-  type RepositoryExposureManagementResult,
+  updateRoleContentAccess,
+  updateUserName,
 } from "../../../access-management/src/index.ts";
-import { setTimeout as yieldToTransport } from "node:timers/promises";
 import type { FilesystemStoreRoot } from "../../../domain-model/src/index.ts";
 import {
-  snapshotPlainRecord,
-  snapshotPlainArray,
-} from "../request/snapshot.ts";
-import {
   callKeys,
-  inspectProtocolRequest,
   inspectMcpEnvelope,
-  protocolComplete,
-  protocolError,
+  inspectProtocolRequest,
   type JsonRpcId,
   type McpResponse,
+  protocolComplete,
+  protocolError,
 } from "../orchestrator/protocol.ts";
 import {
+  snapshotPlainArray,
+  snapshotPlainRecord,
+} from "../request/snapshot.ts";
+import {
+  getMcpAccessManagementToolDefinitions,
   MCP_ACCESS_MANAGEMENT_TOOLS,
   MCP_CURRENT_ACCESS_TOOL,
   MCP_CURRENT_ACCESS_TOOL_DEFINITION,
-  getMcpAccessManagementToolDefinitions,
 } from "./protocol.ts";
 
 /**
@@ -229,9 +226,7 @@ export async function handleMcpAccessRequest(
   } as const;
   try {
     if (params.name === MCP_CURRENT_ACCESS_TOOL) {
-      const projected = projectCurrentAccessResult(
-        readCurrentAccess(context.root, context.token),
-      );
+      const projected = readCurrentAccess(context.root, context.token);
       await yieldToTransport(0);
       return signal.aborted
         ? protocolError(request.id, -32800, "Request cancelled")
@@ -257,12 +252,12 @@ export async function handleMcpAccessRequest(
       });
     if (kind !== undefined) {
       const result = readManagementState(context.root, context.token, kind);
-      projected = projectManagementReadResult(result);
+      projected = result;
     } else {
       const { root, token } = context;
       const revision = args.expectedRevision as number;
       const operationId = args.operationId as string;
-      let result: UserRoleManagementResult | RepositoryExposureManagementResult;
+      let result: ManagementOperationOutcome;
       switch (params.name) {
         case MCP_ACCESS_MANAGEMENT_TOOLS.registerUser:
           result = registerUser(
@@ -284,8 +279,8 @@ export async function handleMcpAccessRequest(
             args.username as string,
           );
           break;
-        case MCP_ACCESS_MANAGEMENT_TOOLS.changeUserRole:
-          result = changeUserRole(
+        case MCP_ACCESS_MANAGEMENT_TOOLS.updateUserRole:
+          result = updateUserRole(
             root,
             token,
             revision,
@@ -327,7 +322,7 @@ export async function handleMcpAccessRequest(
         default:
           return protocolError(request.id, -32602, "Invalid params");
       }
-      projected = projectManagementOperationResult(result);
+      projected = result;
     }
     // 同期AM処理を終えてから、届いたTransport取消を処置する機会を設ける。
     // 切断の到着や保存の取消を保証する待機ではない。

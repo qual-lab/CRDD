@@ -31,6 +31,16 @@
 
 #### 実施順序と入口の初回棚卸し
 
+Access Managementの追加命名整理では、公開APIを`evaluateAiProfileManagementPermission`、`updateUserRole`、`updateCredentialPresentationState`へ統一し、利用側・型・試験を追従した。動詞の使い分けはコーディング規約へ反映した。MCP Toolも`crdd.update_user_role`へ変更し、旧名の互換入口は追加しないため、利用ClientはTool一覧を更新する。保存Schema・権限分担は変更しない。
+
+ユーザーが有効かを返す独立API`readUserStatus`を追加した。現在は有効な鍵の存在から`enabled`を導出するが、公開上の意味はユーザーの有効状態とし、鍵の詳細を返さない。確認不能は`unavailable`として無効と区別する。既存のユーザー管理の参照範囲を維持し、新しい保存状態・権限・Transport入口は追加していない。今回の最終回帰はAccess Management 157件、Workbench関連6件、MCP関連46件、Header・公開Module・QA接続5件が成功。型・整形・静的確認とWorkbench Buildも成功した。独立レビューの重複記載指摘は是正し、再レビュー残指摘0。対象4文書の診断は0だが、関連文書には2,907診断がありRepository全体のCheckerは不合格のままとする。実AI・Docker操作・②の保持物削除は行っておらず、正式全体QAや初回Host UATの完了とは扱わない。
+
+Access Managementの今回の配置・公開APIの正本は[Source構造の再編](../../../06_Architecture/Details/access-management/01_Architecture.md#source構造の再編--2026-10-19)。`e7b79affc`を基準に添付MDと追加合意を適用した。実装・Consumer・試験の移管、内部公開APIの縮小、通常管理結果の直接返却は接続済み。Package回帰154件、Workbench関連44件、MCP関連28件が成功し、Header／QA接続も成功した。独立レビューの機能指摘0、文書追従4件は是正済み。保存Schema／Root／Role分担は変更しない。旧106件の保存結合試験は7責務Suiteと共通Fixtureへ分け、過去Evidenceは変更していない。今回のSource整備を一区切りとし、初回実Host ST／人間UATやv0.22全体完成とは区別する。続いてCodex／Claudeの固定配布・Docker情報をAI Adapterから分離する。実AI②の再試行・保持物削除は含めない。
+
+Codex／ClaudeのDocker配置境界も、[AI Adapter設計](../../../06_Architecture/Details/ai-adapter/01_Architecture.md#docker配置とprovider操作の分離--2026-10-19)と[DI設計](../../../06_Architecture/Details/docker-isolation/01_Architecture.md#provider実行物の配置所有--2026-10-19)に従いSource整備を一区切りとした。両`distribution.ts`を撤去し、DIが固定実行物・Image・配置・Seccompを所有する。AI Adapterは配置非依存のCLI計画を返し、信頼した構成側からの位置データだけを受ける。過去の検証済み定数は削除し、正式Evidenceを維持した。独立比較で旧／新8構成のcommand・argv・environment、および移管した全実行物Identityに差分0を確認し、PacketのImage結合・Hash・起動直前照合も維持する。新Registry・Lock・State・Recoveryは追加しない。
+
+今回の最終局所回帰はAI Adapter 35件、Coordinator関連282件、既存Windows子Process取消4件が成功。DI通常344件は343成功・実Docker専用1件未実施で終了した。途中にWindowsの試験Directory名変更が一度EPERMになったが、同じSourceの単独確認と最終通常回帰で成功し、安全条件・試験の緩和は行っていない。型検査と関連Header／公開Module／QA接続5件が成功。独立レビューで検出したCheckerの公開Module許可集合の追従漏れをAM／DI両方で是正し、限定再レビューの残指摘0。これは実Docker／実AI・初回Host UAT・v0.22全体完成を表さず、②の保持物・unknown・同じ回復参照を変更しない。通常の管理・認証・Git／隔離の保証変更や追加の人間判断はない。
+
 以下は`673aa5c0`の実Path・package exports・binを読んだ初回一覧であり、各File本文・全Consumer・保証の精査完了ではない。全17Packageに`src/index.ts`がある。CLIが存在しないLibraryへ`bin/`を新設する義務はない。
 
 | 順序 | Package | binの実File | 初回の重点 |

@@ -12,15 +12,15 @@ import { planProviderExecution } from "../../../../ai-adapter/src/index.ts";
 import { describeWorkbenchAiAdviceResultSchema } from "../../../src/workbench-ai/advice-result.ts";
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-
-import type { ProviderAdvicePlan } from "../../../../ai-adapter/src/index.ts";
-
+import type { WorkbenchAiProviderCommand } from "../../../src/workbench-ai/advice-execution-plan.ts";
 import {
   consumeRuntimeOwnedWorkbenchAiAdvicePacket,
   describeWorkbenchAiAdviceRuntimePacketContract,
   issueRuntimeOwnedWorkbenchAiAdvicePacket,
   revokeRuntimeOwnedWorkbenchAiAdvicePacket,
 } from "../../../src/workbench-ai/advice-packet.ts";
+import { describeDockerProviderExecutionLocations } from "../../../../docker-isolation/src/index.ts";
+import { bindWorkbenchAiProviderCommand } from "../../../src/workbench-ai/advice-execution-plan.ts";
 
 const sha = "a".repeat(64);
 
@@ -44,17 +44,21 @@ function input() {
     taskHash: sha,
     projectionHash: "b".repeat(64),
     providerPrompt: "Read the bounded projection and return structured advice.",
-    providerCommand:
-      planProviderExecution({
-        provider: "codex",
-        purpose: "advice",
-        input: {
+    providerCommand: bindWorkbenchAiProviderCommand(
+      planProviderExecution(
+        {
           provider: "codex",
-          exactModelId: "gpt-6-sol",
-          reasoningEffort: "medium",
+          purpose: "advice",
+          input: {
+            provider: "codex",
+            exactModelId: "gpt-6-sol",
+            reasoningEffort: "medium",
+          },
+          resultSchema: describeWorkbenchAiAdviceResultSchema(),
         },
-        resultSchema: describeWorkbenchAiAdviceResultSchema(),
-      }).plan ?? assert.fail("provider_execution_plan_not_ready"),
+        describeDockerProviderExecutionLocations("codex", "advice"),
+      ).plan ?? assert.fail("provider_execution_plan_not_ready"),
+    ),
   };
 }
 
@@ -178,7 +182,7 @@ describe("workbench ai advice runtime packet", () => {
       providerCommand: {
         ...current.providerCommand,
         workspaceMountRequired: true,
-      } as unknown as ProviderAdvicePlan,
+      } as unknown as WorkbenchAiProviderCommand,
     });
     assert.equal(result.status, "blocked");
     assert.equal(result.providerEffectIssued, false);
@@ -208,7 +212,7 @@ describe("workbench ai advice runtime packet", () => {
       ...current.providerCommand,
       argv,
       environment,
-    } as ProviderAdvicePlan;
+    } as WorkbenchAiProviderCommand;
     const issued = issueRuntimeOwnedWorkbenchAiAdvicePacket({
       ...current,
       providerCommand: mutable,

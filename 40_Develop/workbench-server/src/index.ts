@@ -8,25 +8,7 @@
  * @effect localhost Listenerを開始・終了し、承認済みBrand Assetを読取る。
  * @security 外部BindとRepository越境を許可せず、Credential管理は検証済み管理Contextが注入された場合だけ公開する。
  */
-export type {
-  CredentialAdministration,
-  CredentialAdministrationResult,
-} from "./credential/administration.ts";
-export { readWorkbenchServerConfiguration } from "./connection/configuration.ts";
-export {
-  createDefaultWorkbenchAiProfileSurface,
-  createWorkbenchAiProfileSurface,
-  type WorkbenchAiProfileObservation,
-  type WorkbenchAiProfileSurface,
-} from "./ai-profile/projection.ts";
-export type {
-  WorkbenchAiRequests,
-  WorkbenchAiRequestCommand,
-  WorkbenchAiRequestMode,
-  WorkbenchAiResultItem,
-  WorkbenchAiRequestSnapshot,
-  WorkbenchAiRequestStartResult,
-} from "./ai-request/types.ts";
+
 // 活動Readerは起動時のDomain ContextのProject／Repository IDを第二引数に要求する。
 export {
   createRepositoryWorkbenchActivityReader,
@@ -37,21 +19,40 @@ export {
   type WorkbenchRuntimeEventProjection,
 } from "./activity/observe.ts";
 export {
+  createDefaultWorkbenchAiProfileSurface,
+  createWorkbenchAiProfileSurface,
+  type WorkbenchAiProfileObservation,
+  type WorkbenchAiProfileSurface,
+} from "./ai-profile/projection.ts";
+export type {
+  WorkbenchAiRequestCommand,
+  WorkbenchAiRequestMode,
+  WorkbenchAiRequestSnapshot,
+  WorkbenchAiRequestStartResult,
+  WorkbenchAiRequests,
+  WorkbenchAiResultItem,
+} from "./ai-request/types.ts";
+export { readWorkbenchServerConfiguration } from "./connection/configuration.ts";
+export type {
+  CredentialAdministration,
+  CredentialAdministrationResult,
+} from "./credential/administration.ts";
+export {
   readWorkbenchOwnerArtifact,
   readWorkbenchOwnerArtifactCatalog,
   type WorkbenchOwnerArtifact,
   type WorkbenchOwnerArtifactCatalog,
 } from "./owner-artifact/read.ts";
-export type { WorkbenchProjectPlanObservation } from "./project-plan/types.ts";
-export type { WorkbenchQualityObservation } from "./quality/types.ts";
-export {
-  type WorkbenchHandle,
-  type WorkbenchStartRequest,
-  startWorkbench,
-} from "./server.ts";
 export {
   readWorkbenchProjectSurface,
   type WorkbenchCapabilityState,
   type WorkbenchProjectSurface,
   type WorkbenchRecordCollection,
 } from "./project/surface.ts";
+export type { WorkbenchProjectPlanObservation } from "./project-plan/types.ts";
+export type { WorkbenchQualityObservation } from "./quality/types.ts";
+export {
+  startWorkbench,
+  type WorkbenchHandle,
+  type WorkbenchStartRequest,
+} from "./server.ts";

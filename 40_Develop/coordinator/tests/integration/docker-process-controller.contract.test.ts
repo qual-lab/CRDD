@@ -17,7 +17,6 @@ import test from "node:test";
 import { bindTaskCliCancellationSignals } from "../../src/cli/task-cancellation.ts";
 import type { OwnedCommandHandle } from "../../../docker-isolation/src/index.ts";
 import { planDockerIsolationCommands } from "../../../docker-isolation/src/index.ts";
-
 import {
   borrowRuntimeOwnedDockerTerminalObservations,
   cancelRuntimeOwnedDockerProcessController,
@@ -35,6 +34,8 @@ import {
 } from "../../src/task/execution.ts";
 import { createDevelopmentMeasurementConstraints } from "../../src/task/development-measurement-constraints.ts";
 import { createOwnedProcessTreeFixture } from "../fixtures/docker-owned-process-test-support.ts";
+import { describeDockerProviderExecutionLocations } from "../../../docker-isolation/src/index.ts";
+import { bindWorkbenchAiProviderCommand } from "../../src/workbench-ai/advice-execution-plan.ts";
 
 /**
  * createPlanのTest準備責務を実行する。
@@ -120,62 +121,79 @@ function createPlan(
  */
 test("実plannerのProbe・Task・助言設定は通知全文へ接続しClaudeは適用外を維持する", async () => {
   const codexProbe =
-    planProviderExecution({
-      provider: "codex",
-      purpose: "probe",
-      input: {
+    planProviderExecution(
+      {
         provider: "codex",
-        mode: "read_only_probe",
-        effort: "low",
+        purpose: "probe",
+        input: {
+          provider: "codex",
+          mode: "read_only_probe",
+          effort: "low",
+        },
       },
-    }).plan ?? assert.fail("provider_execution_plan_not_ready");
+      describeDockerProviderExecutionLocations("codex", "probe"),
+    ).plan ?? assert.fail("provider_execution_plan_not_ready");
   const codexExecutor =
-    planProviderExecution({
-      provider: "codex",
-      purpose: "task",
-      input: {
+    planProviderExecution(
+      {
         provider: "codex",
-        mode: "isolated_task",
-        effort: "low",
-        taskRole: "executor",
+        purpose: "task",
+        input: {
+          provider: "codex",
+          mode: "isolated_task",
+          effort: "low",
+          taskRole: "executor",
+        },
       },
-    }).plan ?? assert.fail("provider_execution_plan_not_ready");
+      describeDockerProviderExecutionLocations("codex", "task"),
+    ).plan ?? assert.fail("provider_execution_plan_not_ready");
   const codexReviewer =
-    planProviderExecution({
-      provider: "codex",
-      purpose: "task",
-      input: {
+    planProviderExecution(
+      {
         provider: "codex",
-        mode: "isolated_task",
-        effort: "low",
-        taskRole: "reviewer",
+        purpose: "task",
+        input: {
+          provider: "codex",
+          mode: "isolated_task",
+          effort: "low",
+          taskRole: "reviewer",
+        },
       },
-    }).plan ?? assert.fail("provider_execution_plan_not_ready");
+      describeDockerProviderExecutionLocations("codex", "task"),
+    ).plan ?? assert.fail("provider_execution_plan_not_ready");
   assert.equal(codexProbe.status, "candidate");
   assert.equal(codexExecutor.status, "candidate");
   assert.equal(codexReviewer.status, "candidate");
-  const codexAdvice =
-    planProviderExecution({
-      provider: "codex",
-      purpose: "advice",
-      input: {
+  const codexAdvice = bindWorkbenchAiProviderCommand(
+    planProviderExecution(
+      {
         provider: "codex",
-        exactModelId: "gpt-5.5",
-        reasoningEffort: "low",
+        purpose: "advice",
+        input: {
+          provider: "codex",
+          exactModelId: "gpt-5.5",
+          reasoningEffort: "low",
+        },
+        resultSchema: { type: "object" },
       },
-      resultSchema: { type: "object" },
-    }).plan ?? assert.fail("provider_execution_plan_not_ready");
-  const claudeAdvice =
-    planProviderExecution({
-      provider: "claude",
-      purpose: "advice",
-      input: {
+      describeDockerProviderExecutionLocations("codex", "advice"),
+    ).plan ?? assert.fail("provider_execution_plan_not_ready"),
+  );
+  const claudeAdvice = bindWorkbenchAiProviderCommand(
+    planProviderExecution(
+      {
         provider: "claude",
-        exactModelId: "opus",
-        reasoningEffort: "low",
+        purpose: "advice",
+        input: {
+          provider: "claude",
+          exactModelId: "opus",
+          reasoningEffort: "low",
+        },
+        resultSchema: { type: "object" },
       },
-      resultSchema: { type: "object" },
-    }).plan ?? assert.fail("provider_execution_plan_not_ready");
+      describeDockerProviderExecutionLocations("claude", "advice"),
+    ).plan ?? assert.fail("provider_execution_plan_not_ready"),
+  );
   for (const [provider, argv, role, approval, sandbox] of [
     ["codex", codexProbe.argv, null, "other", "read_only"],
     ["codex", codexExecutor.argv, "executor", "approve_for_me", "implicit"],

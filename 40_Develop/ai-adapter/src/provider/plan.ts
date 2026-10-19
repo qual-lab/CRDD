@@ -7,6 +7,21 @@
 import type { AiProvider, AiReasoningEffort } from "./types.ts";
 import { snapshotPlainRecord } from "../../../domain-model/src/index.ts";
 import { validateProviderModelId } from "../profile/validation.ts";
+import {
+  planCodexAdviceCommand,
+  planCodexIsolatedTask,
+  planCodexReadOnlyProbe,
+  describeCodexExecutionPlanContract,
+} from "../codex/plan.ts";
+import {
+  planClaudeAdviceCommand,
+  planClaudeIsolatedTask,
+  planClaudeReadOnlyProbe,
+  buildClaudeExecutionArguments,
+  planClaudeTaskTurnBudget,
+  describeClaudeExecutionPlanContract,
+} from "../claude/plan.ts";
+import type { ProviderExecutionLocations } from "./types.ts";
 
 export const WORKBENCH_AI_ADVICE_PROVIDER_COMMAND_CONTRACT =
   "crdd-coordinator/workbench-ai-advice-provider-command";
@@ -49,32 +64,13 @@ export type ProviderAdvicePlan = Readonly<{
   command: string;
   argv: readonly string[];
   environment: Readonly<Record<string, string>>;
-  fixedImageDigest: string;
   exactModelId: string;
   reasoningEffort: AiReasoningEffort;
   promptTransport: "stdin_only";
   resultTransport: "codex_cli_jsonl" | "claude_json_envelope";
-  providerHomeMountRequired: true;
-  repositoryMounted: false;
-  workspaceMountRequired: false;
   toolsAllowed: false;
   sessionPersistenceAllowed: false;
 }>;
-
-import {
-  planCodexAdviceCommand,
-  planCodexIsolatedTask,
-  planCodexReadOnlyProbe,
-  describeCodexExecutionPlanContract,
-} from "../codex/plan.ts";
-import {
-  planClaudeAdviceCommand,
-  planClaudeIsolatedTask,
-  planClaudeReadOnlyProbe,
-  buildClaudeExecutionArguments,
-  planClaudeTaskTurnBudget,
-  describeClaudeExecutionPlanContract,
-} from "../claude/plan.ts";
 
 /**
  * Providerごとの固定実行定義を表す。
@@ -328,7 +324,7 @@ export function evaluateProviderTaskScope<P extends AiProvider>(
  * @input request: Provider、用途、検証対象入力、助言Schema又は実行Model選定。
  * @returns 成功計画又は理由を持つ拒否。
  * @precondition 呼出し側が選定のAuthorityを所有する。
- * @postcondition 内部計画のargv・環境・配布Identityを維持する。
+ * @postcondition Providerの引数・環境と構成側が指定した実行位置を計画へ保持する。
  * @effect N/A: 値だけを生成する。
  * @failure 不正Provider・用途・入力・選定を拒否する。
  * @invariant 計画生成を実起動・認証・回収の成立へ昇格しない。
@@ -339,7 +335,10 @@ export function evaluateProviderTaskScope<P extends AiProvider>(
 export function planProviderExecution<
   P extends AiProvider,
   K extends ProviderExecutionPurpose,
->(request: ProviderExecutionInput<P, K>): ProviderExecutionPlanResult<P, K> {
+>(
+  request: ProviderExecutionInput<P, K>,
+  locations: ProviderExecutionLocations = {},
+): ProviderExecutionPlanResult<P, K> {
   const snapshot =
     snapshotPlainRecord(
       request,
@@ -406,10 +405,11 @@ export function planProviderExecution<
     }
     const command =
       provider === "codex"
-        ? planCodexAdviceCommand(selection as ProviderModelSelection)
+        ? planCodexAdviceCommand(selection as ProviderModelSelection, locations)
         : planClaudeAdviceCommand(
             selection as ProviderModelSelection,
             advice.resultSchema,
+            locations,
           );
     const plan = Object.freeze({
       contract: WORKBENCH_AI_ADVICE_PROVIDER_COMMAND_CONTRACT,
@@ -435,11 +435,11 @@ export function planProviderExecution<
   const generated =
     provider === "codex"
       ? purpose === "task"
-        ? planCodexIsolatedTask(execution.input)
-        : planCodexReadOnlyProbe(execution.input)
+        ? planCodexIsolatedTask(execution.input, locations)
+        : planCodexReadOnlyProbe(execution.input, locations)
       : purpose === "task"
-        ? planClaudeIsolatedTask(execution.input)
-        : planClaudeReadOnlyProbe(execution.input);
+        ? planClaudeIsolatedTask(execution.input, locations)
+        : planClaudeReadOnlyProbe(execution.input, locations);
   if (generated.status !== "candidate") {
     return Object.freeze({
       status: "blocked",

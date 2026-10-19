@@ -171,3 +171,8 @@ export {
   normalizeContainerCreation,
   normalizeContainerAbsence,
 } from "./execution/probe-result.ts";
+
+export {
+  describeDockerProviderAssets,
+  describeDockerProviderExecutionLocations,
+} from "./execution/provider-assets.ts";

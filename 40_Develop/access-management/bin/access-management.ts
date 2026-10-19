@@ -5,7 +5,8 @@
  * @responsibility Process引数と取消を公開Host commandへ搬送する。
  * @trace ARCH-000013
  */
-import { runHostAccessCommand } from "../src/index.ts";
+import { runHostAccessCommand } from "../src/cli/command.ts";
+
 const controller = new AbortController();
 const cancel = () => controller.abort();
 process.on("SIGINT", cancel);

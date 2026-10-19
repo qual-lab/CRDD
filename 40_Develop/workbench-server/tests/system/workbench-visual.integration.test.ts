@@ -10,6 +10,7 @@
  */
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import {
   copyFile,
   mkdir,
@@ -20,19 +21,15 @@ import {
 } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
-
+import { createCredentialMaterial } from "../../../access-management/src/credential/token.ts";
+import type { AccessManagementState } from "../../../access-management/src/storage/types.ts";
+import { createFilesystemStoreRoot } from "../../../domain-model/src/index.ts";
+import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
 import {
   observeLocalListener,
   verifyLocalWebApplicationVisual,
 } from "../../../visual-preview/src/index.ts";
-import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
 import { startWorkbench } from "../../src/index.ts";
-import {
-  createCredentialMaterial,
-  type AccessManagementState,
-} from "../../../access-management/src/index.ts";
-import { createFilesystemStoreRoot } from "../../../domain-model/src/index.ts";
-import { randomUUID } from "node:crypto";
 
 const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
   import.meta.dirname,

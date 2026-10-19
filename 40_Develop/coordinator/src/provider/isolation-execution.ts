@@ -26,6 +26,12 @@ import { describeDockerIsolationExecutionEnvironment } from "../../../docker-iso
 import { inspectRuntimeOwnedDockerResourceReceipts } from "../task/recovery.ts";
 import { describeEgressProxyTopology } from "../external-send/egress-proxy-policy.ts";
 import { borrowOwnedDockerExecutionPaths } from "../host-execution/operation-workspace-lifecycle.ts";
+import {
+  describeDockerProviderAssets,
+  describeDockerProviderExecutionLocations,
+} from "../../../docker-isolation/src/index.ts";
+import { bindWorkbenchAiProviderCommand } from "../workbench-ai/advice-execution-plan.ts";
+import { hashWorkbenchAiProviderCommand } from "../workbench-ai/advice-packet.ts";
 
 export const DOCKER_EFFECT_RUNTIME_CONTRACT =
   "crdd-coordinator/docker-effect-runtime";
@@ -146,58 +152,70 @@ function resolveIsolationCommandInput(
 ): DockerIsolationCommandInput | null {
   const adviceResult =
     plan.operationMode === "workbench_advice"
-      ? planProviderExecution({
-          provider: plan.provider,
-          purpose: "advice",
-          input: {
+      ? planProviderExecution(
+          {
             provider: plan.provider,
-            exactModelId: plan.selectedModel,
-            reasoningEffort: plan.selectedEffort,
+            purpose: "advice",
+            input: {
+              provider: plan.provider,
+              exactModelId: plan.selectedModel,
+              reasoningEffort: plan.selectedEffort,
+            },
+            resultSchema: describeWorkbenchAiAdviceResultSchema(),
           },
-          resultSchema: describeWorkbenchAiAdviceResultSchema(),
-        })
+          describeDockerProviderExecutionLocations(plan.provider, "advice"),
+        )
       : null;
   if (adviceResult?.status === "blocked") return null;
-  const adviceCommand = adviceResult?.plan ?? null;
-  const generated = planProviderExecution({
-    provider: plan.provider,
-    purpose: plan.operationMode === "isolated_task" ? "task" : "probe",
-    input:
-      plan.operationMode === "isolated_task"
-        ? {
-            provider: plan.provider,
-            mode: "isolated_task",
-            taskRole: plan.taskRole,
-            effort: plan.selectedEffort,
-            ...(plan.provider === "claude"
-              ? { taskWorkload: plan.taskWorkload }
-              : {}),
-          }
+  const adviceCommand =
+    adviceResult?.status === "ready"
+      ? bindWorkbenchAiProviderCommand(adviceResult.plan)
+      : null;
+  const generated = planProviderExecution(
+    {
+      provider: plan.provider,
+      purpose: plan.operationMode === "isolated_task" ? "task" : "probe",
+      input:
+        plan.operationMode === "isolated_task"
+          ? {
+              provider: plan.provider,
+              mode: "isolated_task",
+              taskRole: plan.taskRole,
+              effort: plan.selectedEffort,
+              ...(plan.provider === "claude"
+                ? { taskWorkload: plan.taskWorkload }
+                : {}),
+            }
+          : {
+              provider: plan.provider,
+              mode: "read_only_probe",
+              ...(plan.provider === "codex"
+                ? { effort: plan.selectedEffort }
+                : {}),
+            },
+      ...(adviceCommand
+        ? {}
         : {
-            provider: plan.provider,
-            mode: "read_only_probe",
-            ...(plan.provider === "codex"
-              ? { effort: plan.selectedEffort }
-              : {}),
-          },
-    ...(adviceCommand
-      ? {}
-      : {
-          modelSelection: {
-            provider: plan.provider,
-            exactModelId: plan.selectedModel,
-            reasoningEffort: plan.selectedEffort,
-          },
-        }),
-  });
+            modelSelection: {
+              provider: plan.provider,
+              exactModelId: plan.selectedModel,
+              reasoningEffort: plan.selectedEffort,
+            },
+          }),
+    },
+    describeDockerProviderExecutionLocations(
+      plan.provider,
+      plan.operationMode === "isolated_task" ? "task" : "probe",
+    ),
+  );
   if (generated.status !== "ready") return null;
   const providerPlan = generated.plan;
+  const assets = describeDockerProviderAssets(plan.provider);
   const egress = describeEgressProxyTopology(plan.provider);
   if (
     providerPlan.status !== "candidate" ||
     egress.verificationAdapter.imageDigest !== plan.proxyImageDigest ||
-    (adviceCommand?.fixedImageDigest ??
-      providerPlan.distributionBinding.fixedImageDigest) !==
+    (adviceCommand?.fixedImageDigest ?? assets.fixedImageDigest) !==
       plan.providerImageDigest
   ) {
     return null;
@@ -209,7 +227,7 @@ function resolveIsolationCommandInput(
   if (!proxy || proxy.profile !== plan.provider) {
     return null;
   }
-  const providerIdentity = providerPlan.distributionBinding.identity;
+  const providerIdentity = assets.identity;
   const authenticationEnvironment = createDockerAuthenticationEnvironment(
     plan.provider === "codex"
       ? describeProviderAuthentication("codex").homeEnvironmentVariable
@@ -330,23 +348,27 @@ function expectedCommands(
 function validatePlan(plan: PreparedPlan, tmpSourcePath: string) {
   const isAdvicePlan = plan.operationMode === "workbench_advice";
   const expectedAdviceResult = isAdvicePlan
-    ? planProviderExecution({
-        provider: plan.provider,
-        purpose: "advice",
-        input: {
+    ? planProviderExecution(
+        {
           provider: plan.provider,
-          exactModelId: plan.selectedModel,
-          reasoningEffort: plan.selectedEffort,
+          purpose: "advice",
+          input: {
+            provider: plan.provider,
+            exactModelId: plan.selectedModel,
+            reasoningEffort: plan.selectedEffort,
+          },
+          resultSchema: describeWorkbenchAiAdviceResultSchema(),
         },
-        resultSchema: describeWorkbenchAiAdviceResultSchema(),
-      })
+        describeDockerProviderExecutionLocations(plan.provider, "advice"),
+      )
     : null;
   if (expectedAdviceResult?.status === "blocked") return false;
-  const expectedAdviceCommand = expectedAdviceResult?.plan ?? null;
+  const expectedAdviceCommand =
+    expectedAdviceResult?.status === "ready"
+      ? bindWorkbenchAiProviderCommand(expectedAdviceResult.plan)
+      : null;
   const expectedAdviceCommandHash = expectedAdviceCommand
-    ? createHash("sha256")
-        .update(JSON.stringify(expectedAdviceCommand), "utf8")
-        .digest("hex")
+    ? hashWorkbenchAiProviderCommand(expectedAdviceCommand)
     : null;
   const isProviderBindingValid =
     (isAdvicePlan &&

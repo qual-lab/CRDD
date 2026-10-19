@@ -8,278 +8,475 @@
       "verificationTarget": "environment",
       "kind": "test-suite",
       "path": "tests/integration/direct-mount-boundary.integration.test.ts",
-      "qaIds": ["QA-000006"],
-      "localTestIds": ["ERB-IT-001", "ERB-IT-002"],
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-001",
+        "ERB-IT-002"
+      ],
       "verifies": []
     },
     {
       "symbolId": "docker-isolation.test.integration.package-boundary",
       "kind": "test-suite",
       "path": "tests/integration/package-boundary.contract.test.ts",
-      "qaIds": ["QA-000006"],
-      "localTestIds": ["ERB-IT-004"],
-      "verifies": ["docker-isolation.package-api"]
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-004"
+      ],
+      "verifies": [
+        "docker-isolation.package-api"
+      ]
     },
     {
       "symbolId": "docker-isolation.execution.command-session",
       "kind": "module",
       "path": "src/execution/command-session.ts",
-      "archIds": ["ARCH-000008"]
+      "archIds": [
+        "ARCH-000008"
+      ]
     },
     {
       "symbolId": "docker-isolation.test.integration.command-session",
       "kind": "test-suite",
       "path": "tests/integration/command-session.contract.test.ts",
-      "qaIds": ["QA-000006"],
-      "localTestIds": ["ERB-IT-002", "ERB-IT-004"],
-      "verifies": ["docker-isolation.execution.command-session", "docker-isolation.package-api"]
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-002",
+        "ERB-IT-004"
+      ],
+      "verifies": [
+        "docker-isolation.execution.command-session",
+        "docker-isolation.package-api"
+      ]
     },
     {
       "symbolId": "docker-isolation.test.integration.repair-disposal-composition",
       "kind": "test-suite",
       "path": "tests/integration/repair-disposal-composition.contract.test.ts",
-      "qaIds": ["QA-000006"],
-      "localTestIds": ["ERB-IT-001", "ERB-IT-002"],
-      "verifies": ["docker-isolation.desktop.repair-runtime", "docker-isolation.desktop.repair-checkpoint", "docker-isolation.desktop.runtime-directory", "docker-isolation.package-api"]
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-001",
+        "ERB-IT-002"
+      ],
+      "verifies": [
+        "docker-isolation.desktop.repair-runtime",
+        "docker-isolation.desktop.repair-checkpoint",
+        "docker-isolation.desktop.runtime-directory",
+        "docker-isolation.package-api"
+      ]
     },
     {
       "symbolId": "docker-isolation.desktop.repair-directory-disposal",
       "kind": "module",
       "path": "src/desktop/repair-directory-disposal.ts",
-      "archIds": ["ARCH-000008"]
+      "archIds": [
+        "ARCH-000008"
+      ]
     },
     {
       "symbolId": "docker-isolation.test.integration.repair-directory-disposal",
       "kind": "test-suite",
       "path": "tests/integration/repair-directory-disposal.contract.test.ts",
-      "qaIds": ["QA-000006"],
-      "localTestIds": ["ERB-IT-001", "ERB-IT-002"],
-      "verifies": ["docker-isolation.desktop.repair-directory-disposal", "docker-isolation.desktop.runtime-directory"]
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-001",
+        "ERB-IT-002"
+      ],
+      "verifies": [
+        "docker-isolation.desktop.repair-directory-disposal",
+        "docker-isolation.desktop.runtime-directory"
+      ]
     },
     {
       "symbolId": "docker-isolation.test.integration.probe-lifecycle",
       "kind": "test-suite",
       "path": "tests/integration/probe-lifecycle.contract.test.ts",
-      "qaIds": ["QA-000006"],
-      "localTestIds": ["ERB-IT-004"],
-      "verifies": ["docker-isolation.execution.probe-runtime", "docker-isolation.execution.probe-result", "docker-isolation.execution.probe-container"]
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-004"
+      ],
+      "verifies": [
+        "docker-isolation.execution.probe-runtime",
+        "docker-isolation.execution.probe-result",
+        "docker-isolation.execution.probe-container"
+      ]
     },
     {
       "symbolId": "docker-isolation.execution.probe-runtime",
       "kind": "module",
       "path": "src/execution/probe-runtime.ts",
-      "archIds": ["ARCH-000008"]
+      "archIds": [
+        "ARCH-000008"
+      ]
     },
     {
       "symbolId": "docker-isolation.test.integration.probe-runtime",
       "kind": "test-suite",
       "path": "tests/integration/probe-runtime.contract.test.ts",
-      "qaIds": ["QA-000006"],
-      "localTestIds": ["ERB-IT-004"],
-      "verifies": ["docker-isolation.execution.probe-runtime", "docker-isolation.execution.probe-command", "docker-isolation.execution.probe-result"]
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-004"
+      ],
+      "verifies": [
+        "docker-isolation.execution.probe-runtime",
+        "docker-isolation.execution.probe-command",
+        "docker-isolation.execution.probe-result"
+      ]
     },
     {
       "symbolId": "docker-isolation.execution.probe-container",
       "kind": "module",
       "path": "src/execution/probe-container.ts",
-      "archIds": ["ARCH-000008"]
+      "archIds": [
+        "ARCH-000008"
+      ]
     },
     {
       "symbolId": "docker-isolation.execution.probe-configuration",
       "kind": "module",
       "path": "src/execution/probe-configuration.ts",
-      "archIds": ["ARCH-000008"]
+      "archIds": [
+        "ARCH-000008"
+      ]
     },
     {
       "symbolId": "docker-isolation.test.integration.probe-configuration",
       "kind": "test-suite",
       "path": "tests/integration/probe-configuration.contract.test.ts",
-      "qaIds": ["QA-000006"],
-      "localTestIds": ["ERB-IT-004"],
-      "verifies": ["docker-isolation.execution.probe-configuration", "docker-isolation.execution.probe-command", "docker-isolation.execution.probe-container"]
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-004"
+      ],
+      "verifies": [
+        "docker-isolation.execution.probe-configuration",
+        "docker-isolation.execution.probe-command",
+        "docker-isolation.execution.probe-container"
+      ]
     },
     {
       "symbolId": "docker-isolation.execution.probe-result",
       "kind": "module",
       "path": "src/execution/probe-result.ts",
-      "archIds": ["ARCH-000008"]
+      "archIds": [
+        "ARCH-000008"
+      ]
     },
     {
       "symbolId": "docker-isolation.test.unit.probe-result",
       "kind": "test-suite",
       "path": "tests/unit/probe-result.contract.test.ts",
-      "qaIds": ["QA-000006"],
-      "localTestIds": ["ERB-UT-038"],
-      "verifies": ["docker-isolation.execution.probe-result"]
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-UT-038"
+      ],
+      "verifies": [
+        "docker-isolation.execution.probe-result"
+      ]
     },
     {
       "symbolId": "docker-isolation.desktop.repair-operations",
       "kind": "module",
       "path": "src/desktop/repair-operations.ts",
-      "archIds": ["ARCH-000008"]
+      "archIds": [
+        "ARCH-000008"
+      ]
     },
     {
       "symbolId": "docker-isolation.test.integration.repair-operations",
       "kind": "test-suite",
       "path": "tests/integration/repair-operations.contract.test.ts",
-      "qaIds": ["QA-000006"],
-      "localTestIds": ["ERB-IT-014"],
-      "verifies": ["docker-isolation.desktop.repair-operations", "docker-isolation.desktop.repair-runtime", "docker-isolation.desktop.repair-machine"]
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-014"
+      ],
+      "verifies": [
+        "docker-isolation.desktop.repair-operations",
+        "docker-isolation.desktop.repair-runtime",
+        "docker-isolation.desktop.repair-machine"
+      ]
     },
     {
       "symbolId": "docker-isolation.desktop.repair-runtime",
       "kind": "module",
       "path": "src/desktop/repair-runtime.ts",
-      "archIds": ["ARCH-000008"]
+      "archIds": [
+        "ARCH-000008"
+      ]
     },
     {
       "symbolId": "docker-isolation.test.integration.repair-runtime",
       "kind": "test-suite",
       "path": "tests/integration/repair-runtime.contract.test.ts",
-      "qaIds": ["QA-000006"],
-      "localTestIds": ["ERB-IT-014"],
-      "verifies": ["docker-isolation.desktop.repair-runtime", "docker-isolation.desktop.repair-machine", "docker-isolation.desktop.repair-checkpoint"]
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-014"
+      ],
+      "verifies": [
+        "docker-isolation.desktop.repair-runtime",
+        "docker-isolation.desktop.repair-machine",
+        "docker-isolation.desktop.repair-checkpoint"
+      ]
     },
     {
       "symbolId": "docker-isolation.desktop.repair-machine",
       "kind": "module",
       "path": "src/desktop/repair-machine.ts",
-      "archIds": ["ARCH-000008"]
+      "archIds": [
+        "ARCH-000008"
+      ]
     },
     {
       "symbolId": "docker-isolation.test.integration.repair-machine",
       "kind": "test-suite",
       "path": "tests/integration/repair-machine.contract.test.ts",
-      "qaIds": ["QA-000006"],
-      "localTestIds": ["ERB-IT-014"],
-      "verifies": ["docker-isolation.desktop.repair-machine", "docker-isolation.desktop.repair-checkpoint"]
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-014"
+      ],
+      "verifies": [
+        "docker-isolation.desktop.repair-machine",
+        "docker-isolation.desktop.repair-checkpoint"
+      ]
     },
     {
       "symbolId": "docker-isolation.desktop.repair-checkpoint",
       "kind": "module",
       "path": "src/desktop/repair-checkpoint.ts",
-      "archIds": ["ARCH-000008"]
+      "archIds": [
+        "ARCH-000008"
+      ]
     },
     {
       "symbolId": "docker-isolation.test.unit.repair-checkpoint",
       "kind": "test-suite",
       "path": "tests/unit/repair-checkpoint.contract.test.ts",
-      "qaIds": ["QA-000006"],
-      "localTestIds": ["ERB-UT-036"],
-      "verifies": ["docker-isolation.desktop.repair-checkpoint", "docker-isolation.package-api"]
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-UT-036"
+      ],
+      "verifies": [
+        "docker-isolation.desktop.repair-checkpoint",
+        "docker-isolation.package-api"
+      ]
     },
     {
       "symbolId": "docker-isolation.test.integration.repair-host-operations",
       "kind": "test-suite",
       "path": "tests/integration/repair-host-operations.contract.test.ts",
-      "qaIds": ["QA-000006"],
-      "localTestIds": ["ERB-IT-001", "ERB-IT-014"],
-      "verifies": ["docker-isolation.desktop.runtime-directory", "docker-isolation.desktop.native-process", "docker-isolation.desktop.backend-state", "docker-isolation.package-api"]
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-001",
+        "ERB-IT-014"
+      ],
+      "verifies": [
+        "docker-isolation.desktop.runtime-directory",
+        "docker-isolation.desktop.native-process",
+        "docker-isolation.desktop.backend-state",
+        "docker-isolation.package-api"
+      ]
     },
     {
       "symbolId": "docker-isolation.desktop.runtime-directory",
       "kind": "module",
       "path": "src/desktop/runtime-directory.ts",
-      "archIds": ["ARCH-000008"]
+      "archIds": [
+        "ARCH-000008"
+      ]
     },
     {
       "symbolId": "docker-isolation.test.integration.runtime-directory",
       "kind": "test-suite",
       "path": "tests/integration/runtime-directory.contract.test.ts",
-      "qaIds": ["QA-000006"],
-      "localTestIds": ["ERB-IT-001"],
-      "verifies": ["docker-isolation.desktop.runtime-directory", "docker-isolation.package-api"]
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-001"
+      ],
+      "verifies": [
+        "docker-isolation.desktop.runtime-directory",
+        "docker-isolation.package-api"
+      ]
     },
     {
       "symbolId": "docker-isolation.test.integration.native-process",
       "kind": "test-suite",
       "path": "tests/integration/native-process.contract.test.ts",
-      "qaIds": ["QA-000006"],
-      "localTestIds": ["ERB-IT-001"],
-      "verifies": ["docker-isolation.desktop.native-process", "docker-isolation.desktop.native-process-lifecycle", "docker-isolation.execution.cli-trust"]
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-001"
+      ],
+      "verifies": [
+        "docker-isolation.desktop.native-process",
+        "docker-isolation.desktop.native-process-lifecycle",
+        "docker-isolation.execution.cli-trust"
+      ]
     },
     {
       "symbolId": "docker-isolation.desktop.native-process",
       "kind": "module",
       "path": "src/desktop/native-process.ts",
-      "archIds": ["ARCH-000008"]
+      "archIds": [
+        "ARCH-000008"
+      ]
     },
     {
       "symbolId": "docker-isolation.desktop.native-process-lifecycle",
       "kind": "module",
       "path": "src/desktop/native-process-lifecycle.ts",
-      "archIds": ["ARCH-000008"]
+      "archIds": [
+        "ARCH-000008"
+      ]
     },
     {
       "symbolId": "docker-isolation.desktop.restart-machine",
       "kind": "module",
       "path": "src/desktop/restart-machine.ts",
-      "archIds": ["ARCH-000008"]
+      "archIds": [
+        "ARCH-000008"
+      ]
     },
     {
       "symbolId": "docker-isolation.desktop.restart-runtime",
       "kind": "module",
       "path": "src/desktop/restart-runtime.ts",
-      "archIds": ["ARCH-000008"]
+      "archIds": [
+        "ARCH-000008"
+      ]
     },
     {
       "symbolId": "docker-isolation.test.integration.restart-machine",
       "kind": "test-suite",
       "path": "tests/integration/restart-machine.contract.test.ts",
-      "qaIds": ["QA-000006"],
-      "localTestIds": ["ERB-IT-014"],
-      "verifies": ["docker-isolation.desktop.restart-machine", "docker-isolation.desktop.engine-state"]
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-014"
+      ],
+      "verifies": [
+        "docker-isolation.desktop.restart-machine",
+        "docker-isolation.desktop.engine-state"
+      ]
     },
     {
       "symbolId": "docker-isolation.test.integration.restart-runtime",
       "kind": "test-suite",
       "path": "tests/integration/restart-runtime.contract.test.ts",
-      "qaIds": ["QA-000006"],
-      "localTestIds": ["ERB-IT-014"],
-      "verifies": ["docker-isolation.desktop.restart-runtime", "docker-isolation.desktop.restart-machine", "docker-isolation.package-api"]
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-014"
+      ],
+      "verifies": [
+        "docker-isolation.desktop.restart-runtime",
+        "docker-isolation.desktop.restart-machine",
+        "docker-isolation.package-api"
+      ]
     },
     {
       "symbolId": "docker-isolation.desktop.engine-state",
       "kind": "module",
       "path": "src/desktop/engine-state.ts",
-      "archIds": ["ARCH-000008"]
+      "archIds": [
+        "ARCH-000008"
+      ]
     },
     {
       "symbolId": "docker-isolation.test.integration.engine-state",
       "kind": "test-suite",
       "path": "tests/integration/engine-state.contract.test.ts",
-      "qaIds": ["QA-000006"],
-      "localTestIds": ["ERB-IT-001", "ERB-IT-014"],
-      "verifies": ["docker-isolation.desktop.engine-state", "docker-isolation.package-api"]
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-001",
+        "ERB-IT-014"
+      ],
+      "verifies": [
+        "docker-isolation.desktop.engine-state",
+        "docker-isolation.package-api"
+      ]
     },
     {
       "symbolId": "docker-isolation.test.integration.backend-state",
       "kind": "test-suite",
       "path": "tests/integration/backend-state.contract.test.ts",
-      "qaIds": ["QA-000006"],
-      "localTestIds": ["ERB-IT-002"],
-      "verifies": ["docker-isolation.desktop.backend-state", "docker-isolation.package-api"]
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-002"
+      ],
+      "verifies": [
+        "docker-isolation.desktop.backend-state",
+        "docker-isolation.package-api"
+      ]
     },
     {
       "symbolId": "docker-isolation.desktop.backend-state",
       "kind": "module",
       "path": "src/desktop/backend-state.ts",
-      "archIds": ["ARCH-000008"]
+      "archIds": [
+        "ARCH-000008"
+      ]
     },
     {
       "symbolId": "docker-isolation.test.unit.backend-state",
       "kind": "test-suite",
       "path": "tests/unit/desktop/backend-state.contract.test.ts",
-      "qaIds": ["QA-000006"],
-      "localTestIds": ["ERB-UT-034"],
-      "verifies": ["docker-isolation.desktop.backend-state"]
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-UT-034"
+      ],
+      "verifies": [
+        "docker-isolation.desktop.backend-state"
+      ]
     },
     {
       "symbolId": "docker-isolation.test.integration.cli-environment",
       "kind": "test-suite",
       "path": "tests/integration/cli-environment.contract.test.ts",
-      "qaIds": ["QA-000006"],
-      "localTestIds": ["ERB-IT-001", "ERB-IT-002"],
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-001",
+        "ERB-IT-002"
+      ],
       "verifies": [
         "docker-isolation.execution.cli-environment",
         "docker-isolation.execution.cli-trust",
@@ -290,50 +487,79 @@
       "symbolId": "docker-isolation.execution.cli-environment",
       "kind": "module",
       "path": "src/execution/cli-environment.ts",
-      "archIds": ["ARCH-000008"]
+      "archIds": [
+        "ARCH-000008"
+      ]
     },
     {
       "symbolId": "docker-isolation.execution.cli-trust",
       "kind": "module",
       "path": "src/execution/cli-trust.ts",
-      "archIds": ["ARCH-000014"]
+      "archIds": [
+        "ARCH-000014"
+      ]
     },
     {
       "symbolId": "docker-isolation.test.unit.command-result",
       "kind": "test-suite",
       "path": "tests/unit/command-result.contract.test.ts",
-      "qaIds": ["QA-000006"],
-      "localTestIds": ["ERB-UT-023"],
-      "verifies": ["docker-isolation.execution.command-result"]
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-UT-023"
+      ],
+      "verifies": [
+        "docker-isolation.execution.command-result"
+      ]
     },
     {
       "symbolId": "docker-isolation.execution.command-result",
       "kind": "file",
       "path": "src/execution/command-result.ts",
-      "archIds": ["ARCH-000008"]
+      "archIds": [
+        "ARCH-000008"
+      ]
     },
     {
       "symbolId": "docker-isolation.test.integration.cli-config",
       "kind": "test-suite",
       "path": "tests/integration/cli-config.contract.test.ts",
-      "qaIds": ["QA-000006"],
-      "localTestIds": ["ERB-IT-004"],
-      "verifies": ["docker-isolation.execution.cli-config"]
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-004"
+      ],
+      "verifies": [
+        "docker-isolation.execution.cli-config"
+      ]
     },
     {
       "symbolId": "docker-isolation.test.integration.effect-cleanup",
       "kind": "test-suite",
       "path": "tests/integration/effect-cleanup.contract.test.ts",
-      "qaIds": ["QA-000006"],
-      "localTestIds": ["ERB-IT-004"],
-      "verifies": ["docker-isolation.execution.command-runtime", "docker-isolation.cleanup.resource-configuration"]
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-004"
+      ],
+      "verifies": [
+        "docker-isolation.execution.command-runtime",
+        "docker-isolation.cleanup.resource-configuration"
+      ]
     },
     {
       "symbolId": "docker-isolation.test.integration.owned-process",
       "kind": "test-suite",
       "path": "tests/integration/owned-process.integration.test.ts",
-      "qaIds": ["QA-000006"],
-      "localTestIds": ["ERB-IT-002"],
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-002"
+      ],
       "verifies": [
         "docker-isolation.execution.owned-windows-process",
         "docker-isolation.execution.attached-process",
@@ -431,19 +657,25 @@
       "symbolId": "docker-isolation.execution.authentication-command-runtime",
       "kind": "file",
       "path": "src/execution/authentication-command-runtime.ts",
-      "archIds": ["ARCH-000008"]
+      "archIds": [
+        "ARCH-000008"
+      ]
     },
     {
       "symbolId": "docker-isolation.execution.authentication-command-plan",
       "kind": "file",
       "path": "src/execution/authentication-command-plan.ts",
-      "archIds": ["ARCH-000008"]
+      "archIds": [
+        "ARCH-000008"
+      ]
     },
     {
       "symbolId": "docker-isolation.execution.probe-command",
       "kind": "file",
       "path": "src/execution/probe-command.ts",
-      "archIds": ["ARCH-000008"]
+      "archIds": [
+        "ARCH-000008"
+      ]
     },
     {
       "symbolId": "docker-isolation.execution.attached-process",
@@ -548,6 +780,30 @@
         "docker-isolation.cleanup.recovery-executor",
         "docker-isolation.cleanup.resource-recovery",
         "docker-isolation.execution.process-environment"
+      ]
+    },
+    {
+      "symbolId": "ai-adapter.codex.advice-distribution",
+      "kind": "file",
+      "path": "src/execution/provider-assets.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "ai-adapter.claude.distribution",
+      "kind": "file",
+      "path": "src/execution/provider-assets.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "ai-adapter.codex.distribution",
+      "kind": "file",
+      "path": "src/execution/provider-assets.ts",
+      "archIds": [
+        "ARCH-000008"
       ]
     }
   ]

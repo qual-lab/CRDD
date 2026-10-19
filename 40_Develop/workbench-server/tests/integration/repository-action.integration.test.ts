@@ -10,19 +10,17 @@
  * @boundary Browser操作は別試験。Git開始後の通信切断を観測し、Process tree取消は主張しない。
  */
 import assert from "node:assert/strict";
-import fs from "node:fs";
-import path from "node:path";
 import childProcess from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { syncBuiltinESMExports } from "node:module";
-import { Worker } from "node:worker_threads";
+import fs from "node:fs";
 import { ServerResponse } from "node:http";
+import { syncBuiltinESMExports } from "node:module";
+import path from "node:path";
 import test from "node:test";
-import {
-  createCredentialMaterial,
-  type AccessManagementState,
-} from "../../../access-management/src/index.ts";
-import { deriveRepositoryBindingId } from "../../../access-management/src/state/repository-binding.ts";
+import { Worker } from "node:worker_threads";
+import { createCredentialMaterial } from "../../../access-management/src/credential/token.ts";
+import { deriveRepositoryBindingId } from "../../../access-management/src/repository/binding.ts";
+import type { AccessManagementState } from "../../../access-management/src/storage/types.ts";
 import { createFilesystemStoreRoot } from "../../../domain-model/src/index.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
 import { startWorkbench } from "../../src/index.ts";

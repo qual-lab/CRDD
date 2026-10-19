@@ -11,21 +11,21 @@
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import fs from "node:fs";
-import path from "node:path";
 import { request as httpRequest } from "node:http";
+import path from "node:path";
 import test, { type TestContext } from "node:test";
-import { createFilesystemStoreRoot } from "../../../domain-model/src/index.ts";
+import { updateCredentialPresentationState } from "../../../access-management/src/index.ts";
 import {
-  initializeAccessManagementState,
   createInitialAdministrator,
   createInitialCredential,
-  recordCredentialPresentation,
-  type AccessManagementState,
-} from "../../../access-management/src/index.ts";
+  initializeAccessManagementState,
+} from "../../../access-management/src/initialization/execution.ts";
+import type { AccessManagementState } from "../../../access-management/src/storage/types.ts";
+import { createFilesystemStoreRoot } from "../../../domain-model/src/index.ts";
 import {
   createAccessMcpResolver,
-  startMcpAuthenticatedStreamableHttp,
   MCP_ORCHESTRATOR_PROTOCOL_VERSION,
+  startMcpAuthenticatedStreamableHttp,
 } from "../../src/index.ts";
 import { handleMcpDiscoverRequest } from "../../src/request/discover.ts";
 
@@ -72,7 +72,7 @@ function fixture(t: TestContext) {
   );
   const issued = createInitialCredential(root, attempt);
   assert.ok(issued.status === "completed" && issued.value.token);
-  const start = recordCredentialPresentation(root, {
+  const start = updateCredentialPresentationState(root, {
     credentialId: issued.value.credentialId,
     issuanceOperationId: attempt,
     expectedRevision: issued.value.revision,
@@ -80,7 +80,7 @@ function fixture(t: TestContext) {
   });
   assert.ok(start.status === "completed");
   assert.equal(
-    recordCredentialPresentation(root, {
+    updateCredentialPresentationState(root, {
       credentialId: issued.value.credentialId,
       issuanceOperationId: attempt,
       expectedRevision: start.value.revision,

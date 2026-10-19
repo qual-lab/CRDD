@@ -16,10 +16,92 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { runInNewContext } from "node:vm";
-import {
-  describeCodexAdviceDistributionIdentity,
-  describeProviderExecution,
-} from "../../../ai-adapter/src/index.ts";
+import { describeDockerProviderAssets } from "../../../docker-isolation/src/index.ts";
+import { describeDockerProviderExecutionLocations } from "../../../docker-isolation/src/index.ts";
+import { planProviderExecution } from "../../../ai-adapter/src/index.ts";
+
+/**
+ * CLI位置の注入と固定資産の対応を外部実行なしで反証する。
+ * @responsibility 既定CLI名を固定バイナリ依存とせず、Docker構成時の実行位置を一貫させる。
+ * @trace ERB-IT-004
+ * @precondition 現在Sourceの純粋な計画APIと配置APIを使う。
+ * @stimulus Codex両Roleの既定・注入計画、Provider三用途と未知入力を比較する。
+ * @observation argv内の実行Path・cd・Schema、Home、固定資産と凍結を確認する。
+ * @oracle Pathの片側置換や過去検証の固定値で一致を補完しない。
+ * @cleanup N/A: 値生成のみでファイル・Process・Dockerを作成しない。
+ * @boundary ERB-IT-004=Integration: AIの引数生成とDocker配置の値境界。
+ */
+test("CLI計画は配置を外から受け、Docker固定資産とは上位で結合する", () => {
+  for (const taskRole of ["executor", "reviewer"] as const) {
+    const request = {
+      provider: "codex",
+      purpose: "task",
+      input: {
+        provider: "codex",
+        mode: "isolated_task",
+        taskRole,
+        effort: "low",
+      },
+    } as const;
+    const neutral = planProviderExecution(request);
+    assert.equal(neutral.plan?.command, "codex");
+    const locations = {
+      commandPath: "/configured/codex",
+      workingDirectory: "/configured/work",
+      providerHomeDirectory: "/configured/home",
+      executorSchemaPath: "/configured/executor.json",
+      reviewerSchemaPath: "/configured/reviewer.json",
+    };
+    const bound = planProviderExecution(request, locations);
+    assert.equal(bound.status, "ready");
+    if (bound.status !== "ready") assert.fail("location_plan_rejected");
+    const plan = bound.plan;
+    assert.equal(plan.command, locations.commandPath);
+    assert.ok(
+      plan.argv.some((value) => value.includes('"/configured/codex"="read"')),
+    );
+    assert.equal(
+      plan.argv[plan.argv.indexOf("--cd") + 1],
+      locations.workingDirectory,
+    );
+    assert.equal(
+      plan.argv[plan.argv.indexOf("--output-schema") + 1],
+      taskRole === "executor"
+        ? locations.executorSchemaPath
+        : locations.reviewerSchemaPath,
+    );
+    assert.equal(plan.environment.CODEX_HOME, locations.providerHomeDirectory);
+    for (const key of [
+      "fixedImageDigest",
+      "distributionBinding",
+      "workspaceMountMode",
+    ])
+      assert.equal(key in plan, false, key);
+  }
+  for (const provider of ["codex", "claude"] as const) {
+    const assets = describeDockerProviderAssets(provider);
+    assert.equal(Object.isFrozen(assets), true);
+    assert.equal(Object.isFrozen(assets.identity), true);
+    assert.equal("manifestSignatureVerified" in assets, false);
+    for (const purpose of ["probe", "task", "advice"] as const) {
+      const locations = describeDockerProviderExecutionLocations(
+        provider,
+        purpose,
+      );
+      assert.equal(Object.isFrozen(locations), true);
+      const expected =
+        provider === "codex" && purpose === "advice"
+          ? describeDockerProviderAssets("codex").adviceIdentity.executablePath
+          : assets.identity.executablePath;
+      assert.equal(locations.commandPath, expected);
+      assert.equal("fixedImageDigest" in locations, false);
+    }
+  }
+  assert.throws(() => describeDockerProviderAssets("unknown" as "codex"));
+  assert.throws(() =>
+    describeDockerProviderExecutionLocations("codex", "unknown" as "task"),
+  );
+});
 
 const PROVIDER_ASSET_PATHS: Readonly<Record<string, string>> = Object.freeze({
   "claude-managed-settings.json": "config/claude-managed-settings.json",
@@ -182,10 +264,10 @@ function assertProviderRecipe(
  * @cleanup N/A: Source・資産を書き換えない。
  * @boundary ERB-IT-004=Integration: AI公開契約→実移管資産。
  */
-test("隔離レシピはAI Adapterの版・実行先・設定Identityへ結合する", () => {
-  const codex = describeProviderExecution("codex").distributionIdentity;
-  const advice = describeCodexAdviceDistributionIdentity();
-  const claude = describeProviderExecution("claude").distribution.binding;
+test("隔離レシピはDocker Isolationの実行物とAI設定へ結合する", () => {
+  const codex = describeDockerProviderAssets("codex").identity;
+  const advice = describeDockerProviderAssets("codex").adviceIdentity;
+  const claude = describeDockerProviderAssets("claude");
   const declarations = [
     {
       recipe: codex.imageBuildDefinition,
@@ -243,15 +325,12 @@ test("隔離レシピはAI Adapterの版・実行先・設定Identityへ結合�
     );
   }
   assert.equal(
-    claude.fixedImageEvidence.imageEntrypoint,
+    describeDockerProviderExecutionLocations("claude", "task").commandPath,
     claude.identity.executablePath,
   );
   for (const [name, expected] of [
-    [
-      "claude-managed-settings.json",
-      claude.fixedImageEvidence.managedSettingsSha256,
-    ],
-    ["claude-task-settings.json", claude.fixedImageEvidence.taskSettingsSha256],
+    ["claude-managed-settings.json", claude.managedSettingsSha256],
+    ["claude-task-settings.json", claude.taskSettingsSha256],
     ["codex-executor-result-schema.json", codex.executorSchemaSha256],
     ["codex-reviewer-result-schema.json", codex.reviewerSchemaSha256],
   ] as const) {

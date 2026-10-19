@@ -8,34 +8,27 @@
  * @effect 検証済みRepository Root内の固定Project Contextと既知Capability Directoryを読取る。
  * @security 任意Path、Role外Contextまたは存在しないRepositoryを探索しない。
  */
-import { readFile, readdir, stat } from "node:fs/promises";
+import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
-
 import {
-  parseTopicMarkdown,
-  type TopicRecord,
-} from "../../../domain-model/src/index.ts";
-import {
-  parseMeetingMarkdown,
   type MeetingRecord,
-} from "../../../domain-model/src/index.ts";
-import {
+  parseMeetingMarkdown,
   parseRepositoryProjectContextMarkdown,
   parseRepositoryQualityProjectionMarkdown,
   parseRepositoryReleaseProjectionMarkdown,
+  parseTopicMarkdown,
   type RepositoryProjectContext,
+  type TopicRecord,
 } from "../../../domain-model/src/index.ts";
-import { gitLocalChangeSetAdapter } from "../../../version-control/src/index.ts";
-import { gitChangePublicationTargetObservationAdapter } from "../../../version-control/src/index.ts";
 import {
-  observeLocalChangeSet,
-  type LocalChangeSet,
-} from "../../../version-control/src/index.ts";
-import {
-  observeChangePublicationTarget,
   type ChangePublicationTargetObservation,
+  gitChangePublicationTargetObservationAdapter,
+  gitLocalChangeSetAdapter,
+  type LocalChangeSet,
+  observeChangePublicationTarget,
+  observeLocalChangeSet,
+  verifyRepositoryRoot,
 } from "../../../version-control/src/index.ts";
-import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
 import {
   readWorkbenchOwnerArtifactCatalog,
   type WorkbenchOwnerArtifactCatalog,

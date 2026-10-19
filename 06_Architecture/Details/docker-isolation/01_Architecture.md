@@ -1,5 +1,18 @@
 # Docker隔離の詳細設計
 
+## Provider実行物の配置所有 — 2026-10-19
+
+`execution/provider-assets.ts`は、Codex／Claudeの固定Image、公式実行物の版・Hash・配置、設定とSeccompの同一性を所有する。AI Adapterの旧`distribution.ts`から移し、過去の署名・認証・送信の「検証済み」定数は引き取らない。返却値は現在の構成記述であり、実Imageの存在・同一性・認証・実行許可の証明ではない。
+
+| 公開API | 入出力と境界 |
+|---|---|
+| `describeDockerProviderAssets(provider)` | 現在の固定資産記述。TaskとCodex助言の異なるImage・実行物を保持し、Image取得・更新・起動を行わない |
+| `describeDockerProviderExecutionLocations(provider, purpose)` | CLIの実行位置・作業位置・Home・Schema／設定位置だけを不変値として返す。AI Adapterの型へ依存せず、Image・Mount・Authorityを含まない |
+
+Coordinatorが同じ配置でCLI計画を準備時とEffect直前に再生成し、既存Image・Seccomp・Packet Hashへ結合する。助言CommandのImage・非共有条件はCoordinator側の技術契約であり、AI AdapterのCLI契約には含めない。AI AdapterからDIへの逆依存、新Registry、永続State、Lock、配布Frameworkは追加しない。設定・Schema本文、実Image・バイナリ・Hash、認証Homeと既存回復参照は変更しない。
+
+今回の移管はSourceと構成結合の回帰対象であり、実Docker／実AIの再実行や保持中の②試験物の処置は含まない。
+
 新Workspace方式への接続は[借用・終了契約](../orchestrator/03_Workspace.md#5-状態競合終了条件)を目標とする。DIは上位が検証・許可した作業対象だけを借用し、実行資源を回収する。継続Workspace／Branchを削除・resetせず、上位Task・採否を知らない。Direct／Candidateの共通方針は本書の採用済み契約に従うが、具体的Mount・書込み保護の本番接続は未完了で、現完成範囲には含めない。以下の実装・検証完了は基準のDI技術分離に限り、新方式の実Mount／取消／成果保全はNot Run。
 
 成果物種別: Architecture詳細設計

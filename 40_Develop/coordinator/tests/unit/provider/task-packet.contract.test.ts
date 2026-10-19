@@ -528,7 +528,7 @@ test("固定4経路の実TaskからReviewer指示と未変更の上限・読取�
         plan.argv[plan.argv.indexOf("--disallowedTools") + 1] ?? "",
         /^Bash,/u,
       );
-      assert.equal(plan.workspaceMountMode, "read_only");
+      assert.equal("workspaceMountMode" in plan, false);
       assert.equal(plan.reviewerFilesystemOrShellToolAllowed, false);
       assert.equal(
         plan.reviewerInput,

@@ -300,7 +300,7 @@ Repository登録解除の非鍵結果は、同じ受理済み操作・採用改�
 | `crdd.list_repository_exposure` | 空Object | revision、repositories（repositoryId／workspaceIds） |
 | `crdd.register_user` | username、plannedRole | User登録結果 |
 | `crdd.update_user_name` | userId、username | User変更結果 |
-| `crdd.change_user_role` | userId、currentRole、nextRole | User変更結果 |
+| `crdd.update_user_role` | userId、currentRole、nextRole | User変更結果 |
 | `crdd.update_role_content_access` | targetRole、workspaceIds | Role内容変更結果（userIdはnull） |
 | `crdd.unregister_repository` | repositoryId | 登録・対応公開範囲の解除結果 |
 | `crdd.update_repository_exposure` | repositoryId、workspaceIds | 公開範囲変更結果 |
@@ -362,7 +362,7 @@ MCP起動・`--cros`・設定File存在・Remote要求は初回設定の明示�
 
 ### 現在RoleによるProfile管理の局所実装候補 — 2026-10-12
 
-`createAccessMcpResolver(root, profileAdministration)`はCatalog Owner操作を明示注入し、各一覧／CallでAMの`resolveAiProfileManagementAccess`を呼ぶ。Routingの`aiProfileAdministrationResolver`は現在認可後だけ既存操作を返し、認証不成立・初回未完了・状態不明は固定内部エラー、developerは非公開とする。AMはCatalog型・保存を所有せず、LockをCatalog中まで保持しない。
+`createAccessMcpResolver(root, profileAdministration)`はCatalog Owner操作を明示注入し、各一覧／CallでAMの`evaluateAiProfileManagementPermission`を呼ぶ。Routingの`aiProfileAdministrationResolver`は現在認可後だけ既存操作を返し、認証不成立・初回未完了・状態不明は固定内部エラー、developerは非公開とする。AMはCatalog型・保存を所有せず、LockをCatalog中まで保持しない。
 
 旧／Local静的依存`aiProfileAdministration`と新AM遅延依存は排他とし、両方指定は認可／Store前の固定構成失敗へ閉じる。Callは完全Schema・Mutation検査→取消→現在認可一回→取消再確認→Catalog操作最大一回→結果検査→取消再確認。一覧は完全入力検査後だけ現在認可し、観測不能を空一覧へ畳まない。AM解決後のRole変更は次要求に反映し、二Storeの原子性や採用済みMutationの取消を保証しない。公開Launcherは実Ownerを構成し、Workbenchは同Hostの専門APIを直接利用する。正式191項目と後続E2Eの成立は別に評価する。
 

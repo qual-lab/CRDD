@@ -2,40 +2,40 @@
  * Host保存先準備とCLI起動条件を検証する。
  * @packageDocumentation
  * @responsibility 自己生成Rootだけで部分作成・旧入力・拒否・対話終了を反証する。
+ * @trace RFD-IT-017
  * @trace RFD-IT-024
  * @trace RFD-IT-025
- * @trace RFD-IT-017
  * @level IT
  * @scope access-management/initialization、Host入口の局所接続
  * @boundary 実Filesystemと局所TTY代役。実Host TTYは対象外。
  */
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { spawnSync } from "node:child_process";
 import { PassThrough, Writable } from "node:stream";
 import test, { type TestContext } from "node:test";
 import {
-  prepareHostInitializationRoot,
-  readExistingHostRoot,
-  resolveHostRootInput,
-  runHostAccessCommand,
-  initializeFromHost,
-  createCredentialMaterial,
-  parseAccessManagementState,
-  exchangeCredentialsFromHost,
-  recordCredentialPresentation,
-  readAccessManagementState,
-  type AccessManagementState,
-} from "../../../src/index.ts";
-import {
-  resolveCrosRuntimeRoots,
   type CrosRootInput,
+  resolveCrosRuntimeRoots,
 } from "../../../../domain-model/src/index.ts";
 import {
-  verifyRepositoryRootFromWorkingDirectory,
   resolveVerifiedRepositoryRoot,
+  verifyRepositoryRootFromWorkingDirectory,
 } from "../../../../version-control/src/index.ts";
+import { runHostAccessCommand } from "../../../src/cli/command.ts";
+import { createCredentialMaterial } from "../../../src/credential/token.ts";
+import {
+  exchangeCredentialsFromHost,
+  initializeFromHost,
+  prepareHostInitializationRoot,
+  readExistingHostRoot,
+  updateCredentialPresentationState,
+  resolveHostRootInput,
+} from "../../../src/index.ts";
+import { parseAccessManagementState } from "../../../src/storage/parse.ts";
+import { readAccessManagementState } from "../../../src/storage/store.ts";
+import type { AccessManagementState } from "../../../src/storage/types.ts";
 
 /**
  * Repository markerのDirectoryとworktree File両形態を検査する。
@@ -903,7 +903,7 @@ test("Host交換CLIは確認した対象だけ一度提示し拒否と競合で�
         const credential = saved.credentials[1];
         let presentationOperationId: string | undefined;
         for (const target of ["unconfirmed", "confirmed"] as const) {
-          const result = recordCredentialPresentation(root.root, {
+          const result = updateCredentialPresentationState(root.root, {
             credentialId: credential.credentialId,
             issuanceOperationId: priorOperation,
             expectedRevision: JSON.parse(fs.readFileSync(current, "utf8"))

@@ -9,18 +9,18 @@
  * @boundary 配置HeaderとWorkbench Server。MCP・Providerは使用しない。
  */
 import assert from "node:assert/strict";
-import fs from "node:fs";
-import { open, type FileHandle } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
+import fs from "node:fs";
+import { type FileHandle, open } from "node:fs/promises";
 import { request as httpRequest } from "node:http";
 import path from "node:path";
 import test from "node:test";
-import { createCredentialMaterial } from "../../../access-management/src/index.ts";
+import { createCredentialMaterial } from "../../../access-management/src/credential/token.ts";
 import { createFilesystemStoreRoot } from "../../../domain-model/src/index.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
 import {
-  startWorkbench,
   readWorkbenchServerConfiguration,
+  startWorkbench,
 } from "../../src/index.ts";
 
 const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(

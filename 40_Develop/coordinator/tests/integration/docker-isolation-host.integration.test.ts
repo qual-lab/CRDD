@@ -20,10 +20,7 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { runInNewContext } from "node:vm";
-import {
-  describeProviderAuthentication,
-  describeCodexAdviceDistributionIdentity,
-} from "../../../ai-adapter/src/index.ts";
+import { describeProviderAuthentication } from "../../../ai-adapter/src/index.ts";
 import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
 import {
   createClaudeSubscriptionAuthenticationDependencies,
@@ -43,6 +40,8 @@ import {
   type DockerIsolationRuntimePlan,
   type DockerResourceReceipts,
 } from "../../../docker-isolation/src/index.ts";
+import { describeDockerProviderExecutionLocations } from "../../../docker-isolation/src/index.ts";
+import { describeDockerProviderAssets } from "../../../docker-isolation/src/index.ts";
 
 /**
  * 固定編集CLIの引数受付と三Mountの書込み境界を外部AIなしで確認する。
@@ -68,19 +67,22 @@ test("Windows Process Gate: Codex編集CLI起動と借用三Mountを無通信で
     assert.equal(fs.realpathSync.native(directory), directory);
   }
   const plan =
-    planProviderExecution({
-      provider: "codex",
-      purpose: "task",
-      input: {
+    planProviderExecution(
+      {
         provider: "codex",
-        mode: "isolated_task",
-        effort: "low",
-        taskRole: "executor",
+        purpose: "task",
+        input: {
+          provider: "codex",
+          mode: "isolated_task",
+          effort: "low",
+          taskRole: "executor",
+        },
       },
-    }).plan ?? assert.fail("provider_execution_plan_not_ready");
+      describeDockerProviderExecutionLocations("codex", "task"),
+    ).plan ?? assert.fail("provider_execution_plan_not_ready");
   assert.equal(plan.status, "candidate");
   if (plan.status !== "candidate") throw new Error("probe_plan_unavailable");
-  const image = plan.distributionBinding.fixedImageDigest;
+  const image = describeDockerProviderAssets("codex").fixedImageDigest;
   const snapshot = observeTrustedDockerCli();
   const env = createDockerProcessEnvironment();
   /**
@@ -540,7 +542,7 @@ function assertAdviceImageObservation(
   versionImageId: string,
   hashesImageId: string,
 ) {
-  const expected = describeCodexAdviceDistributionIdentity();
+  const expected = describeDockerProviderAssets("codex").adviceIdentity;
   for (const result of [version, hashes]) {
     assert.equal(result.error, undefined);
     assert.equal(result.status, 0);
@@ -577,7 +579,7 @@ function assertAdviceImageObservation(
  * @boundary ERB-IT-031=実境界試験の判定部分だけ。実Imageの存在は証明しない。
  */
 test("公式助言Imageの観測Oracleは三Hash・版・実Imageと警告を分離する", () => {
-  const identity = describeCodexAdviceDistributionIdentity();
+  const identity = describeDockerProviderAssets("codex").adviceIdentity;
   const values: Record<string, string> = {
     [identity.executablePath]: identity.binarySha256,
     [identity.hostExecutablePath]: identity.hostBinarySha256,
@@ -1265,7 +1267,7 @@ test("Windows Process Gate: Docker Isolation本番Ownerが五資源を実IDで�
 test("Windows Process Gate: 公式助言Imageの版と三Hashを実配置物で確認する", {
   timeout: 120_000,
 }, () => {
-  const expected = describeCodexAdviceDistributionIdentity();
+  const expected = describeDockerProviderAssets("codex").adviceIdentity;
   const repository = fileURLToPath(new URL("../../../../", import.meta.url));
   const parent = path.join(repository, ".crdd", "tests");
   const snapshot = observeTrustedDockerCli();

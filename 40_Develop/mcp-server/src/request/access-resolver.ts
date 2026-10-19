@@ -11,7 +11,7 @@
  */
 import {
   resolveConnectionAuthentication,
-  resolveAiProfileManagementAccess,
+  evaluateAiProfileManagementPermission,
   resolveRepositoryAccessCollection,
   sameAccessCollection,
   resolveRepositoryAccess,
@@ -124,7 +124,10 @@ export function createAccessMcpResolver(
                  * @concurrency 各一覧／Callで再観測し、Catalog中にAM Lockを保持しない。
                  */
                 aiProfileAdministrationResolver: () => {
-                  const access = resolveAiProfileManagementAccess(root, token);
+                  const access = evaluateAiProfileManagementPermission(
+                    root,
+                    token,
+                  );
                   if (access === "unavailable")
                     throw new Error("profile_management_unavailable");
                   return access === "allowed" ? profileAdministration : null;

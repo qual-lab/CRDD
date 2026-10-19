@@ -8,50 +8,67 @@
  * @concurrency 複数RequestとServer終了を独立管理し、終了時に取消とjoinを行う。
  * @security 認証済みClient Principalを持つ要求だけを意味処理へ渡す。
  */
-export { readMcpServerConfiguration } from "./transport/configuration.ts";
+
 export {
-  getMcpWorkspaceToolDefinitions,
-  handleMcpWorkspaceRequest,
-  MCP_WORKSPACE_READ_TOOL,
-  MCP_WORKSPACE_MANAGE_TOOL,
-  type WorkspaceAccessResolver,
-} from "./workspace/adapter.ts";
+  MCP_ACCESS_MANAGEMENT_TOOLS,
+  MCP_CURRENT_ACCESS_TOOL,
+} from "./access-management/protocol.ts";
 export {
-  MCP_ORCHESTRATOR_ADAPTER_CONTRACT,
+  getMcpAiProfileToolDefinitions,
+  handleMcpAiProfileRequest,
+  MCP_AI_PROFILE_TOOLS,
+} from "./ai-profile/adapter.ts";
+export {
   describeMcpOrchestratorAdapterContract,
   handleMcpOrchestratorRequest,
   inspectMcpOrchestratorObjectiveResult,
+  MCP_ORCHESTRATOR_ADAPTER_CONTRACT,
   type McpOrchestratorDependencies,
 } from "./orchestrator/adapter.ts";
+export {
+  callKeys,
+  decisionKeys,
+  decisionKeysNoComment,
+  discoverKeys,
+  getMcpOrchestratorToolDefinitions,
+  inspectMcpEnvelope,
+  inspectProtocolRequest,
+  type JsonRpcId,
+  listKeys,
+  listKeysNoCursor,
+  MCP_ORCHESTRATOR_DECISION_TOOL,
+  MCP_ORCHESTRATOR_OBJECTIVE_TOOL,
+  MCP_ORCHESTRATOR_PROTOCOL_VERSION,
+  MCP_ORCHESTRATOR_STATE_TOOL,
+  type McpResponse,
+  objectiveKeys,
+  protocolComplete,
+  protocolError,
+  requestKeys,
+  stateQueryKeys,
+  validJsonRpcId,
+} from "./orchestrator/protocol.ts";
 export {
   handleMcpProjectContextRequest,
   type McpProjectContextDependencies,
 } from "./project-context/adapter.ts";
 export {
-  routeMcpRequest,
-  type McpRequestRoutingDependencies,
-} from "./request/route.ts";
-export { createAccessMcpResolver } from "./request/access-resolver.ts";
-export {
-  MCP_CURRENT_ACCESS_TOOL,
-  MCP_ACCESS_MANAGEMENT_TOOLS,
-} from "./access-management/protocol.ts";
-export {
-  MCP_AI_PROFILE_TOOLS,
-  getMcpAiProfileToolDefinitions,
-  handleMcpAiProfileRequest,
-} from "./ai-profile/adapter.ts";
-export {
-  MCP_RUNTIME_ACTIVITY_TOOL,
-  getMcpRuntimeActivityToolDefinitions,
-  handleMcpRuntimeActivityRequest,
-  type McpRuntimeActivityDependencies,
-} from "./runtime-activity/adapter.ts";
-export {
   getMcpProjectContextToolDefinitions,
   MCP_PROJECT_CONTEXT_GET_TOOL,
   MCP_PROJECT_CONTEXT_LIST_TOOL,
 } from "./project-context/protocol.ts";
+export { createAccessMcpResolver } from "./request/access-resolver.ts";
+export {
+  type McpRequestRoutingDependencies,
+  routeMcpRequest,
+} from "./request/route.ts";
+export {
+  getMcpRuntimeActivityToolDefinitions,
+  handleMcpRuntimeActivityRequest,
+  MCP_RUNTIME_ACTIVITY_TOOL,
+  type McpRuntimeActivityDependencies,
+} from "./runtime-activity/adapter.ts";
+export { handleMcpTopicMeetingRequest } from "./topic-meeting/adapter.ts";
 export {
   getMcpTopicMeetingToolDefinitions,
   MCP_MEETING_CREATE_TOOL,
@@ -68,51 +85,35 @@ export {
   MCP_TOPIC_PROMOTE_TOOL,
   MCP_TOPIC_UPDATE_TOOL,
 } from "./topic-meeting/protocol.ts";
-export { handleMcpTopicMeetingRequest } from "./topic-meeting/adapter.ts";
-export {
-  MCP_ORCHESTRATOR_DECISION_TOOL,
-  MCP_ORCHESTRATOR_OBJECTIVE_TOOL,
-  MCP_ORCHESTRATOR_PROTOCOL_VERSION,
-  MCP_ORCHESTRATOR_STATE_TOOL,
-  callKeys,
-  decisionKeys,
-  decisionKeysNoComment,
-  discoverKeys,
-  getMcpOrchestratorToolDefinitions,
-  inspectMcpEnvelope,
-  inspectProtocolRequest,
-  listKeys,
-  listKeysNoCursor,
-  objectiveKeys,
-  protocolComplete,
-  protocolError,
-  requestKeys,
-  stateQueryKeys,
-  validJsonRpcId,
-  type JsonRpcId,
-  type McpResponse,
-} from "./orchestrator/protocol.ts";
-export {
-  MCP_ORCHESTRATOR_STDIO_CONTRACT,
-  describeMcpOrchestratorStdioContract,
-  runMcpStdio,
-  runMcpOrchestratorStdio,
-} from "./transport/stdio.ts";
-export {
-  MCP_ORCHESTRATOR_STREAMABLE_HTTP_CONTRACT,
-  describeMcpOrchestratorStreamableHttpContract,
-  startMcpAuthenticatedStreamableHttp,
-  startMcpStreamableHttp,
-  startMcpOrchestratorStreamableHttp,
-  type McpAuthenticatedHttpOptions,
-  type McpOrchestratorHttpOptions,
-} from "./transport/streamable-http.ts";
+export { readMcpServerConfiguration } from "./transport/configuration.ts";
 export {
   closeMcpHttpOnProcessSignal,
   type McpHttpServerCloseBoundary,
   type McpProcessSignalSource,
 } from "./transport/process-signal-shutdown.ts";
+export {
+  describeMcpOrchestratorStdioContract,
+  MCP_ORCHESTRATOR_STDIO_CONTRACT,
+  runMcpOrchestratorStdio,
+  runMcpStdio,
+} from "./transport/stdio.ts";
+export {
+  describeMcpOrchestratorStreamableHttpContract,
+  MCP_ORCHESTRATOR_STREAMABLE_HTTP_CONTRACT,
+  type McpAuthenticatedHttpOptions,
+  type McpOrchestratorHttpOptions,
+  startMcpAuthenticatedStreamableHttp,
+  startMcpOrchestratorStreamableHttp,
+  startMcpStreamableHttp,
+} from "./transport/streamable-http.ts";
 export type {
   McpAuthenticatedRequestHandlerResolver,
   McpRequestHandler,
 } from "./transport/types.ts";
+export {
+  getMcpWorkspaceToolDefinitions,
+  handleMcpWorkspaceRequest,
+  MCP_WORKSPACE_MANAGE_TOOL,
+  MCP_WORKSPACE_READ_TOOL,
+  type WorkspaceAccessResolver,
+} from "./workspace/adapter.ts";

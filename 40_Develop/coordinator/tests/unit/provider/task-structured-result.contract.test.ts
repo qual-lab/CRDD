@@ -11,12 +11,12 @@
 import { planProviderExecution } from "../../../../ai-adapter/src/index.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
-
 import { evaluateProviderTaskScope } from "../../../../ai-adapter/src/index.ts";
 import {
   describeProviderTaskStructuredResultContract,
   normalizeProviderTaskStructuredResult,
 } from "../../../src/provider/task-structured-result.ts";
+import { describeDockerProviderExecutionLocations } from "../../../../docker-isolation/src/index.ts";
 
 const EXECUTOR = JSON.stringify({
   status: "completed",
@@ -770,17 +770,20 @@ test("Claudeの実行目標と結果受理の絶対上限を分離する", () =>
   for (const taskRole of ["executor", "reviewer"] as const) {
     for (const effort of ["low", "medium", "high"] as const) {
       const plan =
-        planProviderExecution({
-          provider: "claude",
-          purpose: "task",
-          input: {
+        planProviderExecution(
+          {
             provider: "claude",
-            mode: "isolated_task",
-            taskRole,
-            effort,
-            taskWorkload: TASK_WORKLOAD,
+            purpose: "task",
+            input: {
+              provider: "claude",
+              mode: "isolated_task",
+              taskRole,
+              effort,
+              taskWorkload: TASK_WORKLOAD,
+            },
           },
-        }).plan ?? assert.fail("provider_execution_plan_not_ready");
+          describeDockerProviderExecutionLocations("claude", "task"),
+        ).plan ?? assert.fail("provider_execution_plan_not_ready");
       assert.equal(plan.status, "candidate");
       if (plan.status !== "candidate") throw new Error("plan_not_candidate");
       const limit = expectedLimits[taskRole][effort];
@@ -870,17 +873,20 @@ test("作業量の有限見積りは全推論で一致し、選定上限を超�
     };
     for (const effort of ["low", "medium", "high"]) {
       const plan =
-        planProviderExecution({
-          provider: "claude",
-          purpose: "task",
-          input: {
+        planProviderExecution(
+          {
             provider: "claude",
-            mode: "isolated_task",
-            taskRole: "reviewer",
-            effort,
-            taskWorkload: workload,
+            purpose: "task",
+            input: {
+              provider: "claude",
+              mode: "isolated_task",
+              taskRole: "reviewer",
+              effort,
+              taskWorkload: workload,
+            },
           },
-        }).plan ?? assert.fail("provider_execution_plan_not_ready");
+          describeDockerProviderExecutionLocations("claude", "task"),
+        ).plan ?? assert.fail("provider_execution_plan_not_ready");
       assert.equal(plan.status, "candidate");
       if (plan.status !== "candidate") throw new Error("plan_invalid");
       assert.equal(plan.maximumTurns, expected);

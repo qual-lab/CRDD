@@ -1,10 +1,85 @@
 # ユーザー・資格・認可の詳細設計
 
+## Source構造の再編 — 2026-10-19
+
+添付のSource Structure Reviewとその後の人間判断を適用する。以下は内部配置と公開APIの再編であり、Role分担、保存Schema v2、Host管理Root、同一Lock内の現在認証・期待改訂・保存・読戻し、鍵の一度提示、MCP非公開の鍵操作を変更しない。実Host ST／人間UATの残件をこのRefactorの回帰成功へ読み替えない。
+
+```text
+src/
+├ index.ts                         専門操作と公開結果型だけを明示公開
+├ user/{types,crud,status}.ts       ユーザー登録・表示名変更・有効状態取得
+├ role/{types,assign}.ts            固定Role・Userと内容権限の割当
+├ permission/{types,validation}.ts  共通の権限語彙・内容範囲の入力検査
+├ authorization/{current,management}.ts
+│                                  現在認可・管理対象別の非秘密投影
+├ repository/{types,register,exposure,binding,resolve}.ts
+│                                  接続登録・公開範囲・実体と認可済み集合
+├ credential/{types,authentication,crud,exchange,presentation,token}.ts
+│                                  認証・発行失効・交換・一度表示
+├ initialization/{execution,connection,state,root}.ts
+│                                  初回設定・限定接続・状態・Host Root
+├ cli/command.ts                   引数・対話・表示と処理の振分け
+└ storage/{types,parse,store}.ts    完全保存型・Schema・物理保存
+bin/access-management.ts           Process入口と取消通知
+```
+
+`repository/resolve.ts`はRepository固有の現在認可・公開範囲・実Rootを照合し、単体または集合を返す。添付案の`authorization/repository.ts`は作らない。`authorization/management.ts`は管理権限判定と対象別の非秘密な結果を所有し、User／Repositoryの変更そのものを引き取らない。AI Profile管理の小さな認可判定はここへ統合する。
+
+### 公開と内部利用の区別
+
+公開動詞はコーディング規約に従い、権限評価を`evaluate…Permission`、既存属性・状態の変更を`update*`へ揃える。`evaluateAiProfileManagementPermission`は現在資格の認証を伴う評価であり、渡されたRoleだけを評価する`evaluateManagementPermission`とI/O・入力が異なる。名前の統一を理由に両者の認証・Lock境界を統合しない。`updateCredentialPresentationState`は出来事の追記ではなく、同じ資格の提示状態を更新する内部Consumer用APIである。
+
+`updateUserRole`への改名はPackage API、Workbenchの管理operation、MCPの`crdd.update_user_role`へ同時反映する。未Releaseの旧操作名`crdd.change_user_role`・旧`changeUserRole`は互換受理せず、Clientは現在のTool一覧を再取得する。要求field・保存Schema・Role権限・失効・交換動作は不変更。過去Evidenceは当時の名前のまま維持する。
+
+| 公開する能力 | 所有Source | 主な利用側 |
+|---|---|---|
+| User登録・表示名変更 | user/crud | Workbench／MCP |
+| ユーザー有効状態取得 | user/status | Package API。既存ユーザー管理の可視範囲内だけ。新しいMCP／HTTP入口は追加しない |
+| UserのRole変更・Role内容範囲割当 | role/assign | Workbench／MCP |
+| 接続登録・解除・公開設定 | repository/register・exposure | 登録はWorkbenchだけ。解除・公開は既存の公開範囲を維持 |
+| 現在権限・管理情報取得・Profile管理認可 | authorization/current・management | Workbench／MCP |
+| 認可済みRepository単体・集合の解決 | repository/resolve | Workbench／MCPからDomain処理へ渡す前 |
+| 通常認証・鍵発行失効・交換・提示結果 | credential各操作 | 鍵管理はWorkbench／信頼Hostだけ。MCPへ追加しない |
+| 初回設定・限定接続・既存Root確認 | initialization各操作 | Host CLI／既存Surface接続 |
+
+保存完全Snapshot、汎用状態更新、Parser、鍵材料生成・Verifier照合、初回の個別保存段階とCLI受付はPackage内部と試験から直接利用する。Root公開から外すことを保存機能の撤去と扱わない。秘密の生成・照合をTransportへ移管しない。
+
+通常管理7操作と本人／管理読取りは、公開入口で既存の非秘密投影を一回だけ適用し、利用側へ型付き結果を直接返す。`projectManagementOperationResult`等は内部の共用変換として維持するがRootから公開しない。Workbench／MCPは再投影しない。公開status・reason・対象別field・主失敗・出版／清掃結果は従来のSurface結果と同じにし、内部の自由理由やBindingを追加しない。内部保存結果を検証する試験だけが同じFileの`save*`／`read*State`等を直接利用する。
+
+| Root公開API | 返すもの／用途 |
+|---|---|
+| `registerUser`、`updateUserName`、`updateUserRole`、`updateRoleContentAccess` | 非秘密の`ManagementOperationOutcome`。拒否と保存後不明を分離 |
+| `readUserStatus` | `UserStatusResult`。completedはrevision・userId・enabled、unavailableは固定理由のみ |
+| `registerRepository`、`unregisterRepository`、`updateExposure` | 同じ公開管理結果。登録≠公開を維持 |
+| `readCurrentAccess`、`readManagementState` | `CurrentAccessOutcome`／`ManagementReadOutcome`。種類外情報・内部Bindingを除外 |
+| `evaluateManagementPermission`、`evaluateAiProfileManagementPermission` | 固定Role分担と現在のProfile管理可否 |
+| `resolveRepositoryAccess`、`resolveRepositoryAccessCollection`、`sameAccessCollection` | 信頼したBackend向けの認可済み実Root・集合とその同一性。外部DTOではない |
+| `authenticateNormalConnection`、`resolveConnectionAuthentication`、`confirmInitialConnection` | 通常認証と初回限定接続を区別した既存結果 |
+| `issueCredential`、`revokeCredential`、`readCredentialIssuance`、`readCredentialAdministrationState`、`updateCredentialPresentationState` | administratorの鍵操作と非秘密状態。生成成功時だけ一度提示用の秘密を保持 |
+| `exchangeCredentials`、`exchangeCredentialsFromHost`、`finishKeyExchange`、`finishKeyExchangeFromHost`、`readKeyExchangeState`、`readKeyExchangeStateFromHost` | Workbench／信頼Hostのexact交換処理・終了・再観測。MCPへ公開しない |
+| `initializeFromHost`、`readHostInitializationState`、`resolveHostRootInput`、`readExistingHostRoot`、`prepareHostInitializationRoot` | 明示初回設定と通常Root検証を分離したHost接続 |
+
+これは未ReleaseのPackage内部APIの破壊的整理を含むため、旧内部SymbolのRoot importを利用側・試験で同時に変更する。通信／保存Schemaの移行とは区別し、互換aliasを新設しない。Source移管の回帰結果と初回実Host／人間UATの未完了は別に追跡する。
+
+### ユーザー有効状態の取得
+
+`readUserStatus(root, token, userId)`はユーザーが有効か無効かを返す独立したAPIとする。鍵の状態を公開するAPIではなく、将来判定方法が変わってもユーザー有効状態という契約を維持する。現在は、検査済み現在値に対象ユーザーの非失効鍵が1件以上ある場合だけ`enabled:true`、0件なら`enabled:false`とする。鍵の提示確認・Role内容権限・Exposureを有効判定へ混ぜず、新しいユーザー停止状態や保存fieldは追加しない。
+
+同じ既存Lock・改訂で現在認証とユーザー管理の可視集合を照合し、対象存在を確認してから状態を導出する。既存のユーザー一覧と同じ閲覧範囲を使用し、独立した権限設定は追加しない。対象不在・非認可・初回未完了・Schema／読取り不明・pending清掃／Lock解放不明は、対象情報のない`unavailable`とし、無効へ変換しない。有効状態は認証成功・操作許可・後続要求での有効性を保証しない。保存Schema、既存一覧DTO、鍵処置、認証経路、MCP／HTTP入口は不変更。
+
+### 保存境界と移管時の反証
+
+`storage/store.ts`は既存の`locked`、現在値読取り、pending照合、出版・読戻し・清掃を内部部品として提供する。各操作はその一回のLock内で現在認証・期待改訂・対象検査を行う。公開readの後に別Lockでupdateする構造へ分解せず、新Store・Lock・取引Frameworkを作らない。Bindingは純粋なHash導出に留め、`store → parse → binding`から業務操作へ戻る依存を作らない。
+
+反証は、非認可入力、Role変更・失効の次要求反映、改訂競合、pendingと現在値の不一致、出版後読戻し・清掃・Lock解放不明、同じ交換参照による再入場、登録と公開の分離を既存試験で再確認する。`workspaceIds`は現行の内容範囲を表す保存・通信fieldであり、作業Workspaceではない。内部名だけを内容範囲へ改め、Schema・wire値を今回の配置変更で黙って変更しない。
+
+この節は現行Source構造のOwnerであり、後続本文の旧Pathや接続前の候補記述を現行Treeとして利用しない。過去Evidenceは変更しない。
+
 [Workspace対象と内容領域の分離](../orchestrator/03_Workspace.md#2-方式識別所有境界)を適用する。既存development／managementのworkspaceId(s)はcontentAreaId(s)へ改名する設計対象で、意味・権限を新Workspaceへ自動転用しない。共有接続の操作ごとに現在のRepository／内容範囲と要求操作を評価し、対象IDだけで許可しない。具体的Workspace操作の認可要求・Schema・Consumer切替は未決であり、一般IAMや新しい権限Frameworkは追加しない。
 
 成果物種別: Architecture詳細設計
 詳細設計領域: access-management
-状態: Candidate（保存・Host CLI・Workbench／MCP公開入口のSource接続と局所確認済み。固定候補の最終回帰・独立確認は進行中。実Host ST／人間UAT・正式191項目の全体評価は未完了）
+状態: Candidate（Source再編・利用側回帰・限定独立レビュー完了。実Host ST／人間UAT・正式191項目の全体評価は未完了）
 維持責任者: Qual-Lab
 
 管理API・内部状態・物理保存方式の比較・移行・出版後故障の具体化候補は[管理APIと現在状態の保存設計](02_Management_State_and_API.md)が所有する。本文は責務と意味・処理境界を所有し、具体化候補から実装Readyや保存保証の成立を推定しない。

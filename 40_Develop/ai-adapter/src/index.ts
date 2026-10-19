@@ -139,7 +139,6 @@ export {
   normalizeCodexStructuredResult,
   describeCodexStructuredResultContract,
 } from "./codex/result.ts";
-export { describeCodexAdviceDistributionIdentity } from "./codex/distribution.ts";
 export {
   CLAUDE_EXECUTION_PLAN_CONTRACT,
   CLAUDE_EXECUTION_PLAN_CONTRACT_REVISION,
@@ -151,3 +150,5 @@ export {
   normalizeClaudeStructuredResult,
   describeClaudeStructuredResultContract,
 } from "./claude/result.ts";
+
+export type { ProviderExecutionLocations } from "./provider/types.ts";

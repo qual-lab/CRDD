@@ -61,7 +61,6 @@ test("同梱JSONの全値を保持して深い不変Catalogを公開する", () 
     "createRepositoryAiProfileCatalogStore",
     "defaultAiProfileCatalog",
     "describeClaudeStructuredResultContract",
-    "describeCodexAdviceDistributionIdentity",
     "describeCodexStructuredResultContract",
     "describeProviderAuthentication",
     "describeProviderBillingPolicy",

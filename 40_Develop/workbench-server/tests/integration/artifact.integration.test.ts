@@ -11,22 +11,20 @@
  * @boundary 実Browser表示と公開Launcherは別試験。
  */
 import assert from "node:assert/strict";
-import fs from "node:fs";
-import path from "node:path";
-import { randomUUID } from "node:crypto";
 import { spawnSync } from "node:child_process";
-import { syncBuiltinESMExports } from "node:module";
-import test from "node:test";
+import { randomUUID } from "node:crypto";
+import fs from "node:fs";
 import { request as httpRequest, ServerResponse } from "node:http";
-import {
-  createCredentialMaterial,
-  type AccessManagementState,
-} from "../../../access-management/src/index.ts";
-import { deriveRepositoryBindingId } from "../../../access-management/src/state/repository-binding.ts";
+import { syncBuiltinESMExports } from "node:module";
+import path from "node:path";
+import test from "node:test";
+import { createCredentialMaterial } from "../../../access-management/src/credential/token.ts";
+import { deriveRepositoryBindingId } from "../../../access-management/src/repository/binding.ts";
+import type { AccessManagementState } from "../../../access-management/src/storage/types.ts";
 import { createFilesystemStoreRoot } from "../../../domain-model/src/index.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
-import { startWorkbench } from "../../src/index.ts";
 import { inspectWorkbenchClientModel } from "../../src/browser/client-model.ts";
+import { startWorkbench } from "../../src/index.ts";
 
 /**
  * 同名本文の選択、閉Queryと読取り後の失効／取消を反証する。

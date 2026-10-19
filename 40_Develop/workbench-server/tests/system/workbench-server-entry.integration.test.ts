@@ -9,36 +9,36 @@
  */
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
-import { createServer } from "node:net";
-import {
-  createServer as createHttpServer,
-  request as httpRequest,
-  type ClientRequest,
-  type IncomingHttpHeaders,
-} from "node:http";
-import type { Duplex } from "node:stream";
-import {
-  createServer as createHttpsServer,
-  request as httpsRequest,
-} from "node:https";
 import {
   copyFile,
   mkdir,
   mkdtemp,
-  readFile,
   readdir,
+  readFile,
   rm,
   writeFile,
 } from "node:fs/promises";
-import path from "node:path";
-import test from "node:test";
-import { createHostAiProfileCatalogStore } from "../../../ai-adapter/src/index.ts";
 import {
-  createCredentialMaterial,
+  type ClientRequest,
+  createServer as createHttpServer,
+  request as httpRequest,
+  type IncomingHttpHeaders,
+} from "node:http";
+import {
+  createServer as createHttpsServer,
+  request as httpsRequest,
+} from "node:https";
+import { createServer } from "node:net";
+import path from "node:path";
+import type { Duplex } from "node:stream";
+import test from "node:test";
+import { createCredentialMaterial } from "../../../access-management/src/credential/token.ts";
+import {
   prepareHostInitializationRoot,
   readHostInitializationState,
   resolveHostRootInput,
 } from "../../../access-management/src/index.ts";
+import { createHostAiProfileCatalogStore } from "../../../ai-adapter/src/index.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
 
 const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(

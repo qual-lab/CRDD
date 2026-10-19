@@ -7,13 +7,18 @@
       "symbolId": "ai-adapter.provider.execution-plan",
       "kind": "file",
       "path": "src/provider/plan.ts",
-      "archIds": ["ARCH-000010", "ARCH-000015"]
+      "archIds": [
+        "ARCH-000010",
+        "ARCH-000015"
+      ]
     },
     {
       "symbolId": "ai-adapter.provider.result",
       "kind": "file",
       "path": "src/provider/result.ts",
-      "archIds": ["ARCH-000015"]
+      "archIds": [
+        "ARCH-000015"
+      ]
     },
     {
       "symbolId": "ai-adapter.test.output.provider-error",
@@ -27,14 +32,6 @@
       ],
       "verifies": [
         "ai-adapter.output.provider-error"
-      ]
-    },
-    {
-      "symbolId": "ai-adapter.codex.advice-distribution",
-      "kind": "file",
-      "path": "src/codex/distribution.ts",
-      "archIds": [
-        "ARCH-000010"
       ]
     },
     {
@@ -120,7 +117,7 @@
     {
       "symbolId": "ai-adapter.claude.authentication",
       "kind": "file",
-      "path": "src/claude/distribution.ts",
+      "path": "src/authentication/plan.ts",
       "archIds": [
         "ARCH-000010"
       ]
@@ -351,14 +348,6 @@
       ]
     },
     {
-      "symbolId": "ai-adapter.claude.distribution",
-      "kind": "file",
-      "path": "src/claude/distribution.ts",
-      "archIds": [
-        "ARCH-000010"
-      ]
-    },
-    {
       "symbolId": "ai-adapter.test.catalog.resolver",
       "kind": "test-suite",
       "path": "tests/unit/catalog/resolve.contract.test.ts",
@@ -402,14 +391,6 @@
         "ai-runtime.profile-administration",
         "ai-runtime.catalog",
         "ai-adapter.catalog.resolver"
-      ]
-    },
-    {
-      "symbolId": "ai-adapter.codex.distribution",
-      "kind": "file",
-      "path": "src/codex/distribution.ts",
-      "archIds": [
-        "ARCH-000010"
       ]
     }
   ]

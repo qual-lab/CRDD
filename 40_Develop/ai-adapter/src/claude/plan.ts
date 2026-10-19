@@ -4,26 +4,14 @@
  * @responsibility Model・effortの引数順、Turn予算、固有CLI制約と配布要件を純粋に生成し、実起動・認可・回収を所有しない。
  * @trace ARCH-000010
  */
-import {
-  DISTRIBUTION_IDENTITY,
-  distributionBinding,
-  noNetworkVersionProbe,
-  COMMERCIAL_TERMS_DOCUMENT,
-  CONSUMER_TERMS_DOCUMENT,
-  LICENSE_DOCUMENT,
-  FIXED_PROMPT_REQUEST_ATTEMPT,
-  FIXED_PROMPT_SCHEMA_REQUEST_ATTEMPT,
-  FIXED_PROMPT_BOUNDED_REQUEST_ATTEMPT,
-  FIXED_PROMPT_BOOLEAN_REQUEST_VERIFICATION,
-  OFFERING_CANDIDATES,
-  authenticationVerification,
-} from "./distribution.ts";
+
 import { snapshotPlainRecord } from "../../../domain-model/src/index.ts";
 import { describeProviderBillingPolicy } from "../billing/policy.ts";
 import type {
   ProviderModelSelection,
   ProviderAdvicePlan,
 } from "../provider/plan.ts";
+import type { ProviderExecutionLocations } from "../provider/types.ts";
 
 export const CLAUDE_EXECUTION_PLAN_CONTRACT =
   "crdd-coordinator/claude-execution-plan";
@@ -149,7 +137,7 @@ const FIXED_STRUCTURED_OUTPUT_SCHEMA = Object.freeze({
 });
 const FIXED_STRUCTURED_OUTPUT_SCHEMA_ARGUMENT =
   '{"type":"object","properties":{"status":{"const":true}},"required":["status"],"additionalProperties":false}';
-const TASK_SETTINGS_PATH = "/etc/crdd/claude-task-settings.json";
+const TASK_SETTINGS_PATH = "claude-task-settings.json";
 const EXECUTOR_SCHEMA_ARGUMENT =
   '{"type":"object","properties":{"status":{"type":"string","const":"completed"},"summary":{"type":"string","minLength":1,"maxLength":8192},"changedPaths":{"type":"array","maxItems":1000,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":1024}},"verification":{"type":"array","maxItems":32,"items":{"type":"string","minLength":1,"maxLength":1024}}},"required":["status","summary","changedPaths","verification"],"additionalProperties":false}';
 const FIXED_ARGV = Object.freeze([
@@ -211,13 +199,9 @@ const FORBIDDEN_PARENT_ENVIRONMENT_CATEGORIES = Object.freeze([
 ]);
 const ACTIVATION_GATES = Object.freeze([
   "runtime_owned_model_selection_grant",
-  "fixed_digest_official_provider_image",
   "runtime_owned_minimal_environment_replacement",
-  "dedicated_provider_home_observation_and_mount_grant",
   "interactive_external_send_grant",
-  "limited_egress_proxy",
   "subscription_oauth_preflight_before_provider_request",
-  "runtime_owned_authority_revision_cleanup_and_recovery",
 ]);
 const ACTIVATION_BLOCKERS = Object.freeze([] as string[]);
 
@@ -265,7 +249,10 @@ function blocked<R extends string>(reason: R) {
  * @security planClaudeReadOnlyProbeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: planClaudeReadOnlyProbeは共有非同期状態を持たない同期処理である。
  */
-export function planClaudeReadOnlyProbe(candidate: unknown) {
+export function planClaudeReadOnlyProbe(
+  candidate: unknown,
+  locations: ProviderExecutionLocations = {},
+) {
   const value = snapshotPlainRecord(candidate, PLAN_KEYS);
   if (!value) return blocked("claude_execution_plan_shape_invalid");
   if (value.provider !== "claude")
@@ -285,9 +272,8 @@ export function planClaudeReadOnlyProbe(candidate: unknown) {
     operationCapabilityIssued: false,
     provider: "claude",
     mode: "read_only_probe",
-    distributionBinding: distributionBinding,
-    noNetworkVersionProbe,
-    command: distributionBinding.identity.executablePath,
+
+    command: locations.commandPath ?? "claude",
     modelSelection:
       "coordinator_explainable_selection_and_verified_profile_required",
     effortSelection:
@@ -301,11 +287,11 @@ export function planClaudeReadOnlyProbe(candidate: unknown) {
     structuredOutputSchema: FIXED_STRUCTURED_OUTPUT_SCHEMA,
     environmentMode: "replace_required",
     environmentReplacementImplemented: true,
-    environmentReplacementTransientlyVerified: true,
     parentEnvironmentInherited: false,
     environment: FIXED_ENVIRONMENT,
     managedSettings: FIXED_MANAGED_SETTINGS,
-    managedSettingsPath: "/etc/claude-code/managed-settings.json" as const,
+    managedSettingsPath:
+      locations.managedSettingsPath ?? "managed-settings.json",
     bareModeAllowed: false,
     safeModeRequired: true,
     runtimeOwnedEnvironmentSlots: RUNTIME_OWNED_ENVIRONMENT_SLOTS,
@@ -313,9 +299,6 @@ export function planClaudeReadOnlyProbe(candidate: unknown) {
       FORBIDDEN_PARENT_ENVIRONMENT_CATEGORIES,
     shellAllowed: false,
     pathLookupAllowed: false,
-    workspaceMountRequired: false,
-    providerHomeMountRequired: true,
-    providerHomeBindMountTransientlyVerified: true,
     providerRequestExpected: true,
     includedSubscriptionUsageMayBeConsumed: true,
     apiKeyAllowed: false,
@@ -325,18 +308,9 @@ export function planClaudeReadOnlyProbe(candidate: unknown) {
     sessionResumeAllowed: false,
     sessionPersistenceAllowed: false,
     builtInToolsRequested: "none",
-    builtInToolsRestrictionVerified: true,
     mcpToolsRequested: "none",
-    mcpToolsRestrictionVerified: true,
     projectInstructionsRequested: "not_loaded",
-    projectInstructionsRestrictionVerified: true,
     autoDiscoveredCustomizationsRequested: "not_loaded",
-    autoDiscoveredCustomizationsRestrictionVerified: true,
-    settingsSourcesVerification: "fixed_empty_sources_verified",
-    managedSettingsVerification: "fixed_image_hash_verified",
-    providerHomeSettingsIsolation: "dedicated_provider_home_connected",
-    authenticationStateAndSettingsSeparation:
-      "dedicated_provider_home_no_cross_provider_mixing",
   });
 }
 
@@ -356,7 +330,10 @@ export function planClaudeReadOnlyProbe(candidate: unknown) {
  * @security planClaudeIsolatedTaskはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: planClaudeIsolatedTaskは共有非同期状態を持たない同期処理である。
  */
-export function planClaudeIsolatedTask(candidate: unknown) {
+export function planClaudeIsolatedTask(
+  candidate: unknown,
+  locations: ProviderExecutionLocations = {},
+) {
   const value = snapshotPlainRecord(candidate, TASK_PLAN_KEYS);
   if (!value) return blocked("claude_task_execution_plan_shape_invalid");
   if (value.provider !== "claude")
@@ -395,14 +372,13 @@ export function planClaudeIsolatedTask(candidate: unknown) {
     mode: "isolated_task" as const,
     taskRole,
     effort,
-    distributionBinding: distributionBinding,
-    command: distributionBinding.identity.executablePath,
+    command: locations.commandPath ?? "claude",
     speedMode: "normal_only" as const,
     argv: Object.freeze([
       "--safe-mode",
       "--setting-sources=",
       "--settings",
-      TASK_SETTINGS_PATH,
+      locations.taskSettingsPath ?? TASK_SETTINGS_PATH,
       "--strict-mcp-config",
       "--mcp-config",
       '{"mcpServers":{}}',
@@ -428,9 +404,6 @@ export function planClaudeIsolatedTask(candidate: unknown) {
     environment: FIXED_ENVIRONMENT,
     environmentMode: "replace_required" as const,
     parentEnvironmentInherited: false,
-    providerHomeMountRequired: true,
-    workspaceMountRequired: true,
-    workspaceMountMode: taskRole === "executor" ? "read_write" : "read_only",
     reviewerFilesystemOrShellToolAllowed: false,
     reviewerInput: "runtime_owned_immutable_candidate_content_projection_only",
     taskPromptTransport: "stdin_only" as const,
@@ -473,7 +446,7 @@ export function planClaudeIsolatedTask(candidate: unknown) {
 /**
  * Claude実行の固定条件を記述する。
  *
- * @responsibility 配布・認証Offering・過去確認と未成立条件を所有する。
+ * @responsibility Providerの認証方法・CLI制約・入出力条件だけを記述する。
  * @trace ARCH-000010
  * @input N/A: 実行時引数を受け取らない。
  * @returns 固定実行定義。
@@ -491,106 +464,36 @@ export function describeClaudeExecutionPlanContract() {
     contract: CLAUDE_EXECUTION_PLAN_CONTRACT,
     contractRevision: CLAUDE_EXECUTION_PLAN_CONTRACT_REVISION,
     provider: "claude",
-    implementationState:
-      "local_personal_task_execution_gates_connected_candidate",
-    distribution: Object.freeze({
-      binding: distributionBinding,
-      installationMethod: "official_native_binary_in_fixed_runtime_image",
-      binaryDistributionTerms: Object.freeze({
-        licenseDocument: LICENSE_DOCUMENT,
-        referencedTermsCandidate: COMMERCIAL_TERMS_DOCUMENT,
-        termsIdentityResolved: false,
-        termsActivated: false,
-        fixedImageUsePermission: "local_personal_user_directed_use_only",
-        redistributionPermission: "unresolved_not_exercised",
-      }),
-      autoUpdateAllowed: false,
-      manualUpdateAllowedAtRuntime: false,
-    }),
     authentication: Object.freeze({
       loginPolicy: "existing_subscription_oauth",
       explicitLoginCommand: Object.freeze([
-        DISTRIBUTION_IDENTITY.executablePath,
+        "claude",
         "auth",
         "login",
         "--claudeai",
       ]),
       consoleLoginAllowed: false,
-      offeringCandidates: OFFERING_CANDIDATES,
-      selectedAccountOfferingObserved: true,
-      selectedAccountOffering: "claude_max",
-      verification: authenticationVerification,
-      authenticatedServiceTerms: Object.freeze({
-        candidateDocuments: Object.freeze([
-          CONSUMER_TERMS_DOCUMENT,
-          COMMERCIAL_TERMS_DOCUMENT,
-        ]),
-        termsIdentityResolved: false,
-        termsActivated: false,
-        automatedSubscriptionUsePermission:
-          "user_directed_local_personal_use_only_no_general_permission_claim",
-      }),
-      humanAuthorityConfirmed: true,
-      accountAuthorityBinding:
-        "network_none_read_only_subscription_preflight_connected",
       consoleApiAccountAllowed: false,
       thirdPartyApiProviderAllowed: false,
       apiKeyAllowed: false,
       hostCredentialImportAllowed: false,
-      accountCardinality: 1,
       rawAuthOutputRecorded: false,
       oauthTokenReadByRuntime: false,
     }),
-    billingPolicy: billingPolicy,
+    billingPolicy,
     readOnlyProbe: Object.freeze({
-      distributionBinding: distributionBinding,
-      noNetworkVersionProbe,
-      command: distributionBinding.identity.executablePath,
-      modelSelection:
-        "coordinator_explainable_selection_and_verified_profile_required",
-      effortSelection:
-        "coordinator_cost_guarded_selection_and_authority_binding_required",
-      fallbackModelAllowed: false,
-      providerAutomaticModelSwitchingAllowed: false,
-      coordinatorPrelaunchModelSelectionAllowed: true,
-      midExecutionModelSwitchingAllowed: false,
-      speedMode: "normal_only",
+      command: "claude",
       argv: FIXED_ARGV,
       structuredOutputSchema: FIXED_STRUCTURED_OUTPUT_SCHEMA,
-      environmentMode: "replace_required",
-      environmentReplacementImplemented: true,
-      environmentReplacementTransientlyVerified: true,
-      parentEnvironmentInherited: false,
       environment: FIXED_ENVIRONMENT,
       managedSettings: FIXED_MANAGED_SETTINGS,
-      managedSettingsPath: "/etc/claude-code/managed-settings.json",
-      bareModeAllowed: false,
+      environmentMode: "replace_required",
+      parentEnvironmentInherited: false,
       safeModeRequired: true,
+      bareModeAllowed: false,
       runtimeOwnedEnvironmentSlots: RUNTIME_OWNED_ENVIRONMENT_SLOTS,
       forbiddenParentEnvironmentCategories:
         FORBIDDEN_PARENT_ENVIRONMENT_CATEGORIES,
-      workspaceMountRequired: false,
-      providerHomeMountRequired: true,
-      providerHomeBindMountTransientlyVerified: true,
-      providerRequestExpected: true,
-      includedSubscriptionUsageMayBeConsumed: true,
-      additionalCreditPurchaseAllowed: false,
-      sessionResumeAllowed: false,
-      sessionPersistenceAllowed: false,
-      builtInToolsRequested: "none",
-      builtInToolsRestrictionVerified: true,
-      mcpToolsRequested: "none",
-      mcpToolsRestrictionVerified: true,
-      projectInstructionsRequested: "not_loaded",
-      projectInstructionsRestrictionVerified: true,
-      autoDiscoveredCustomizationsRequested: "not_loaded",
-      autoDiscoveredCustomizationsRestrictionVerified: true,
-      settingsSourcesVerification: "fixed_empty_sources_verified",
-      managedSettingsVerification: "fixed_image_hash_verified",
-      providerHomeSettingsIsolation: "dedicated_provider_home_connected",
-      authenticationStateAndSettingsSeparation:
-        "dedicated_provider_home_no_cross_provider_mixing",
-      resultFormat: "single_json_result",
       maximumTurns: 2,
       maximumBudgetUsd: 0.1,
     }),
@@ -621,13 +524,6 @@ export function describeClaudeExecutionPlanContract() {
       ]),
       explicitSpendBudgetProfileImplemented: false,
     }),
-    fixedPromptRequestAttempt: FIXED_PROMPT_REQUEST_ATTEMPT,
-    fixedPromptSchemaRequestAttempt: FIXED_PROMPT_SCHEMA_REQUEST_ATTEMPT,
-    fixedPromptBoundedRequestAttempt: FIXED_PROMPT_BOUNDED_REQUEST_ATTEMPT,
-    fixedPromptBooleanRequestVerification:
-      FIXED_PROMPT_BOOLEAN_REQUEST_VERIFICATION,
-    activationBlockers: ACTIVATION_BLOCKERS,
-    activationGates: ACTIVATION_GATES,
     providerSpawn: "runtime_adapter_authority_and_preflight_gated",
     operationCapabilityIssued: false,
   });
@@ -636,7 +532,7 @@ export function describeClaudeExecutionPlanContract() {
 /**
  * Claude向け助言コマンドを生成する。
  *
- * @responsibility 固定Claude配布物へToolなし・標準入力・Schema付きJSON出力の一回助言を割り当てる。
+ * @responsibility Claude CLIへToolなし・標準入力・Schema付きJSON出力の一回助言を割り当てる。
  * @trace ARCH-000010
  * @trace ARCH-000015
  * @input input: Claude Profile Identity。resultSchema: Coordinatorの固定助言結果Schema。
@@ -645,7 +541,7 @@ export function describeClaudeExecutionPlanContract() {
  * @postcondition Prompt本文はargvへ含めず、標準入力からだけ受け取る。
  * @effect N/A: コマンド計画を生成するだけである。
  * @failure N/A: Catalog検証済み入力だけを受け取る。
- * @invariant 固定Image Digestと公式CLI Pathを変更しない。
+ * @invariant 配置は信頼した構成側の値だけを使い、Catalogや外部要求から受け付けない。
  * @boundary Workbench助言とClaude CLIの間。
  * @security Built-in Tool、MCP、Chrome、Slash CommandおよびSession保存を無効化する。
  * @concurrency N/A: 共有状態を持たない同期処理である。
@@ -653,11 +549,12 @@ export function describeClaudeExecutionPlanContract() {
 export function planClaudeAdviceCommand(
   input: ProviderModelSelection,
   resultSchema: Readonly<Record<string, unknown>>,
+  locations: ProviderExecutionLocations = {},
 ): Omit<ProviderAdvicePlan, "contract" | "contractRevision"> {
   const contract = describeClaudeExecutionPlanContract();
   return Object.freeze({
     provider: "claude" as const,
-    command: contract.readOnlyProbe.command,
+    command: locations.commandPath ?? "claude",
     argv: Object.freeze([
       "--model",
       input.exactModelId,
@@ -687,15 +584,10 @@ export function planClaudeAdviceCommand(
       "false",
     ]),
     environment: contract.readOnlyProbe.environment,
-    fixedImageDigest:
-      contract.readOnlyProbe.distributionBinding.fixedImageDigest,
     exactModelId: input.exactModelId,
     reasoningEffort: input.reasoningEffort,
     promptTransport: "stdin_only" as const,
     resultTransport: "claude_json_envelope" as const,
-    providerHomeMountRequired: true as const,
-    repositoryMounted: false as const,
-    workspaceMountRequired: false as const,
     toolsAllowed: false as const,
     sessionPersistenceAllowed: false as const,
   });

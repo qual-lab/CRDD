@@ -9,16 +9,11 @@ import {
   snapshotPlainRecord,
 } from "../../../domain-model/src/index.ts";
 import { describeProviderBillingPolicy } from "../billing/policy.ts";
-import {
-  describeCodexAdviceDistributionIdentity,
-  DISTRIBUTION_IDENTITY,
-  distributionBinding,
-  DISTRIBUTION_VERIFICATION,
-} from "./distribution.ts";
 import type {
   ProviderModelSelection,
   ProviderAdvicePlan,
 } from "../provider/plan.ts";
+import type { ProviderExecutionLocations } from "../provider/types.ts";
 
 /**
  * Codexの起動引数から非秘密の構成分類だけを投影する。
@@ -79,9 +74,9 @@ const TASK_PLAN_KEYS = new Set(["provider", "mode", "effort", "taskRole"]);
 const EFFORTS = new Set(["low", "medium", "high"]);
 const FIXED_PROMPT =
   "Return one JSON object with the single key status and the boolean value true. Do not use tools.";
-const FIXED_SCHEMA_PATH = "/etc/crdd/codex-result-schema.json";
-const EXECUTOR_SCHEMA_PATH = "/etc/crdd/codex-executor-result-schema.json";
-const REVIEWER_SCHEMA_PATH = "/etc/crdd/codex-reviewer-result-schema.json";
+const FIXED_SCHEMA_PATH = "codex-result-schema.json";
+const EXECUTOR_SCHEMA_PATH = "codex-executor-result-schema.json";
+const REVIEWER_SCHEMA_PATH = "codex-reviewer-result-schema.json";
 const COMPATIBLE_TASK_MODEL = "gpt-5.5";
 const billingPolicy = describeProviderBillingPolicy();
 
@@ -128,7 +123,10 @@ function blocked<R extends string>(reason: R) {
  * @security planCodexReadOnlyProbeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: planCodexReadOnlyProbeは共有非同期状態を持たない同期処理である。
  */
-export function planCodexReadOnlyProbe(candidate: unknown) {
+export function planCodexReadOnlyProbe(
+  candidate: unknown,
+  locations: ProviderExecutionLocations = {},
+) {
   const value = snapshotPlainRecord(candidate, PLAN_KEYS);
   if (!value) return blocked("codex_execution_plan_shape_invalid");
   if (value.provider !== "codex")
@@ -146,8 +144,7 @@ export function planCodexReadOnlyProbe(candidate: unknown) {
     providerEffectAllowed: false,
     provider: "codex" as const,
     mode: "read_only_probe" as const,
-    distributionBinding: distributionBinding,
-    command: DISTRIBUTION_IDENTITY.executablePath,
+    command: locations.commandPath ?? "codex",
     exactModel: "gpt-5.6-sol",
     effort,
     speedMode: "normal" as const,
@@ -167,19 +164,17 @@ export function planCodexReadOnlyProbe(candidate: unknown) {
       "read-only",
       "--skip-git-repo-check",
       "--output-schema",
-      FIXED_SCHEMA_PATH,
+      locations.resultSchemaPath ?? FIXED_SCHEMA_PATH,
       "--color",
       "never",
       FIXED_PROMPT,
     ]),
     environment: Object.freeze({
-      CODEX_HOME: "/provider-home",
+      ...(locations.providerHomeDirectory
+        ? { CODEX_HOME: locations.providerHomeDirectory }
+        : {}),
       CODEX_DISABLE_AUTO_UPDATE: "1",
     }),
-    providerHomeMountRequired: true,
-    repositoryMounted: false,
-    workspaceMountRequired: false,
-    rootFilesystemReadOnly: true,
     sessionPersistenceAllowed: false,
     projectRulesLoaded: false,
     userConfigLoaded: false,
@@ -209,7 +204,10 @@ export function planCodexReadOnlyProbe(candidate: unknown) {
  * @security planCodexIsolatedTaskはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: planCodexIsolatedTaskは共有非同期状態を持たない同期処理である。
  */
-export function planCodexIsolatedTask(candidate: unknown) {
+export function planCodexIsolatedTask(
+  candidate: unknown,
+  locations: ProviderExecutionLocations = {},
+) {
   const value = snapshotPlainRecord(candidate, TASK_PLAN_KEYS);
   if (!value) return blocked("codex_task_execution_plan_shape_invalid");
   if (value.provider !== "codex")
@@ -233,8 +231,7 @@ export function planCodexIsolatedTask(candidate: unknown) {
     provider: "codex" as const,
     mode: "isolated_task" as const,
     taskRole,
-    distributionBinding: distributionBinding,
-    command: DISTRIBUTION_IDENTITY.executablePath,
+    command: locations.commandPath ?? "codex",
     exactModel: COMPATIBLE_TASK_MODEL,
     effort,
     speedMode: "normal" as const,
@@ -279,34 +276,33 @@ export function planCodexIsolatedTask(candidate: unknown) {
       "--config",
       `default_permissions="${permissionProfile}"`,
       "--config",
-      `permissions.${permissionProfile}.filesystem={":root"="deny",":minimal"="read",":workspace_roots"={"."="${workspaceAccess}"},"${DISTRIBUTION_IDENTITY.executablePath}"="read"}`,
+      `permissions.${permissionProfile}.filesystem={":root"="deny",":minimal"="read",":workspace_roots"={"."="${workspaceAccess}"},"${locations.commandPath ?? "codex"}"="read"}`,
       "--config",
       `permissions.${permissionProfile}.network.enabled=false`,
       ...(taskRole === "reviewer" ? ["--sandbox", "read-only"] : []),
       "--skip-git-repo-check",
       "--cd",
-      "/work",
+      locations.workingDirectory ?? ".",
       "--json",
       "--output-schema",
-      taskRole === "executor" ? EXECUTOR_SCHEMA_PATH : REVIEWER_SCHEMA_PATH,
+      taskRole === "executor"
+        ? (locations.executorSchemaPath ?? EXECUTOR_SCHEMA_PATH)
+        : (locations.reviewerSchemaPath ?? REVIEWER_SCHEMA_PATH),
       "--color",
       "never",
       "-",
     ]),
     environment: Object.freeze({
-      CODEX_HOME: "/provider-home",
+      ...(locations.providerHomeDirectory
+        ? { CODEX_HOME: locations.providerHomeDirectory }
+        : {}),
       CODEX_DISABLE_AUTO_UPDATE: "1",
     }),
-    providerHomeMountRequired: true,
-    workspaceMountRequired: true,
-    workspaceMountMode: taskRole === "executor" ? "read_write" : "read_only",
-    explicitSandboxOption:
-      "approve_for_me_executor_with_docker_userns_seccomp_reviewer_read_only",
+    explicitSandboxOption: "approve_for_me_executor_reviewer_read_only",
     approvalMode:
       taskRole === "executor"
         ? "automatic_review_workspace_write"
         : "never_read_only",
-    rootFilesystemReadOnly: true,
     taskPromptTransport: "stdin_only" as const,
     structuredEventTransport: "fixed_cli_jsonl_v0_149_1" as const,
     taskPromptInArgvAllowed: false,
@@ -352,25 +348,18 @@ export function describeCodexExecutionPlanContract() {
     contract: CODEX_EXECUTION_PLAN_CONTRACT,
     contractRevision: CODEX_EXECUTION_PLAN_CONTRACT_REVISION,
     provider: "codex",
-    implementationState: "fixed_distribution_read_only_probe_candidate",
-    distributionIdentity: DISTRIBUTION_IDENTITY,
-    distributionVerification: DISTRIBUTION_VERIFICATION,
     authentication: "existing_chatgpt_subscription_oauth_only",
     apiKeyAllowed: false,
     paidApiFallbackAllowed: false,
     readOnlyProbeExactModel: "gpt-5.6-sol",
     isolatedTaskExactModel: COMPATIBLE_TASK_MODEL,
     preferredModelFamily: "sol",
-    compatibilityReason:
-      "gpt_5_6_code_mode_only_host_unavailable_in_fixed_linux_runtime",
     efforts: Object.freeze(["low", "medium", "high"]),
     speedMode: "normal_only",
     outboundProxyPolicy: "official_cli_respect_system_proxy_required",
     isolatedTask: Object.freeze({
       roles: Object.freeze(["executor", "reviewer"]),
       structuredEventTransport: "fixed_cli_jsonl_v0_149_1",
-      explicitSandboxOption:
-        "approve_for_me_executor_with_docker_userns_seccomp_reviewer_read_only",
       permissionProfile: "root_deny_minimal_read_workspace_role_access",
       providerHomeCommandReadAllowed: false,
       commandNetworkAccessAllowed: false,
@@ -378,8 +367,6 @@ export function describeCodexExecutionPlanContract() {
       taskPromptTransport: "stdin_only",
       promptInArgvAllowed: false,
     }),
-    repositoryMounted: false,
-    workspaceMountRequired: false,
     directProviderSpawnAllowed: false,
     providerEffectAllowed: false,
   });
@@ -397,18 +384,18 @@ export function describeCodexExecutionPlanContract() {
  * @postcondition argv末尾は標準入力を示す`-`で、Prompt本文を含まない。
  * @effect N/A: コマンド計画を生成するだけである。
  * @failure N/A: Catalog検証済み入力だけを受け取る。
- * @invariant 固定Image Digestと助言専用CLI Pathを呼出し側入力で変更しない。
+ * @invariant 配置は信頼した構成側の値だけを使い、Catalogや外部要求から受け付けない。
  * @boundary Workbench助言とCodex CLIの間。
  * @security Filesystem Tool、Web、MCP、Plugin、MemoryおよびSubagentを無効化する。
  * @concurrency N/A: 共有状態を持たない同期処理である。
  */
 export function planCodexAdviceCommand(
   input: ProviderModelSelection,
+  locations: ProviderExecutionLocations = {},
 ): Omit<ProviderAdvicePlan, "contract" | "contractRevision"> {
-  const distribution = describeCodexAdviceDistributionIdentity();
   return Object.freeze({
     provider: "codex" as const,
-    command: distribution.executablePath,
+    command: locations.commandPath ?? "codex",
     argv: Object.freeze([
       "exec",
       "--ephemeral",
@@ -462,17 +449,15 @@ export function planCodexAdviceCommand(
       "-",
     ]),
     environment: Object.freeze({
-      CODEX_HOME: "/provider-home",
+      ...(locations.providerHomeDirectory
+        ? { CODEX_HOME: locations.providerHomeDirectory }
+        : {}),
       CODEX_DISABLE_AUTO_UPDATE: "1",
     }),
-    fixedImageDigest: distribution.fixedImageDigest,
     exactModelId: input.exactModelId,
     reasoningEffort: input.reasoningEffort,
     promptTransport: "stdin_only" as const,
     resultTransport: "codex_cli_jsonl" as const,
-    providerHomeMountRequired: true as const,
-    repositoryMounted: false as const,
-    workspaceMountRequired: false as const,
     toolsAllowed: false as const,
     sessionPersistenceAllowed: false as const,
   });

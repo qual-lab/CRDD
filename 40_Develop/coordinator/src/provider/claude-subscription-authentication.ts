@@ -10,11 +10,9 @@
 import { randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-
 import {
   describeProviderAuthentication,
   evaluateProviderAuthentication,
-  describeProviderExecution,
 } from "../../../ai-adapter/src/index.ts";
 import { acquireRuntimeOwnedLogicalProviderHomeKernelLock } from "../host-execution/kernel-lock.ts";
 import { describeEgressProxyTopology } from "../external-send/egress-proxy-policy.ts";
@@ -24,6 +22,7 @@ import {
   createDockerAuthenticationRuntimeFactory,
   type DockerAuthenticationPlan,
 } from "../../../docker-isolation/src/index.ts";
+import { describeDockerProviderAssets } from "../../../docker-isolation/src/index.ts";
 
 export const CLAUDE_SUBSCRIPTION_AUTHENTICATION_CONTRACT =
   "crdd-coordinator/claude-subscription-authentication";
@@ -732,10 +731,11 @@ export function createClaudeSubscriptionAuthenticationPlan(
     !/^[a-f0-9]{64}$/u.test(proxyToken)
   )
     return null;
-  const claude = describeProviderExecution("claude");
+
   const authenticationCli = describeProviderAuthentication("claude");
   const egress = describeEgressProxyTopology("claude");
-  const providerImageDigest = claude.distribution.binding.fixedImageDigest;
+  const providerImageDigest =
+    describeDockerProviderAssets("claude").fixedImageDigest;
   const proxyImageDigest = egress.verificationAdapter.imageDigest;
   if (
     !/^sha256:[a-f0-9]{64}$/u.test(providerImageDigest) ||

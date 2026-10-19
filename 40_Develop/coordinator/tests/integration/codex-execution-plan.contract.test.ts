@@ -13,11 +13,12 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import { createHash } from "node:crypto";
 import test from "node:test";
-
 import {
   projectCodexExecutionBoundary,
   describeProviderExecution,
 } from "../../../ai-adapter/src/index.ts";
+import { describeDockerProviderExecutionLocations } from "../../../docker-isolation/src/index.ts";
+import { describeDockerProviderAssets } from "../../../docker-isolation/src/index.ts";
 
 /**
  * Codex固有の診断分類と不正入力拒否を確認する。
@@ -86,15 +87,18 @@ test("Codex境界診断はpayloadの承認優先順と最初のsandbox値を保�
  */
 test("公式Codex artifactとSubscription限定のread-only計画を固定する", () => {
   const plan =
-    planProviderExecution({
-      provider: "codex",
-      purpose: "probe",
-      input: {
+    planProviderExecution(
+      {
         provider: "codex",
-        mode: "read_only_probe",
-        effort: "low",
+        purpose: "probe",
+        input: {
+          provider: "codex",
+          mode: "read_only_probe",
+          effort: "low",
+        },
       },
-    }).plan ?? assert.fail("provider_execution_plan_not_ready");
+      describeDockerProviderExecutionLocations("codex", "probe"),
+    ).plan ?? assert.fail("provider_execution_plan_not_ready");
   assert.equal(plan.status, "candidate");
   assert.equal(plan.exactModel, "gpt-5.6-sol");
   assert.equal(plan.effort, "low");
@@ -106,7 +110,6 @@ test("公式Codex artifactとSubscription限定のread-only計画を固定する
   assert.equal(plan.argv.includes("danger-full-access"), false);
   assert.equal(plan.argv.includes("features.respect_system_proxy=true"), true);
   assert.equal(plan.argv.includes("features.code_mode_host=false"), false);
-  assert.equal(plan.repositoryMounted, false);
 });
 
 /**
@@ -122,7 +125,6 @@ test("公式Codex artifactとSubscription限定のread-only計画を固定する
  * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Executor計画が宣言するSeccomp identityは実配布資産と一致する", () => {
-  const contract = describeProviderExecution("codex");
   const bytes = fs.readFileSync(
     new URL(
       "../../../docker-isolation/runtime/codex-executor-seccomp.json",
@@ -131,11 +133,11 @@ test("Executor計画が宣言するSeccomp identityは実配布資産と一致�
   );
   assert.equal(
     createHash("sha256").update(bytes).digest("hex"),
-    contract.distributionIdentity.executorSeccompProfileSha256,
+    describeDockerProviderAssets("codex").identity.executorSeccompProfileSha256,
   );
   assert.equal(
     bytes.length,
-    contract.distributionIdentity.executorSeccompProfileBytes,
+    describeDockerProviderAssets("codex").identity.executorSeccompProfileBytes,
   );
 });
 
@@ -164,11 +166,14 @@ test("effort・Provider・shape差をEffect前に拒否する", () => {
     },
   ]) {
     assert.equal(
-      planProviderExecution({
-        provider: "codex",
-        purpose: "probe",
-        input: candidate,
-      }).status,
+      planProviderExecution(
+        {
+          provider: "codex",
+          purpose: "probe",
+          input: candidate,
+        },
+        describeDockerProviderExecutionLocations("codex", "probe"),
+      ).status,
       "blocked",
     );
   }
@@ -215,34 +220,36 @@ test("Codex Structured Output Schemaはboolean型を明示したexact形に固�
  */
 test("一般Taskはroot denyとRole別workspace権限をstdin計画へ固定する", () => {
   const executor =
-    planProviderExecution({
-      provider: "codex",
-      purpose: "task",
-      input: {
+    planProviderExecution(
+      {
         provider: "codex",
-        mode: "isolated_task",
-        effort: "low",
-        taskRole: "executor",
+        purpose: "task",
+        input: {
+          provider: "codex",
+          mode: "isolated_task",
+          effort: "low",
+          taskRole: "executor",
+        },
       },
-    }).plan ?? assert.fail("provider_execution_plan_not_ready");
+      describeDockerProviderExecutionLocations("codex", "task"),
+    ).plan ?? assert.fail("provider_execution_plan_not_ready");
   const reviewer =
-    planProviderExecution({
-      provider: "codex",
-      purpose: "task",
-      input: {
+    planProviderExecution(
+      {
         provider: "codex",
-        mode: "isolated_task",
-        effort: "high",
-        taskRole: "reviewer",
+        purpose: "task",
+        input: {
+          provider: "codex",
+          mode: "isolated_task",
+          effort: "high",
+          taskRole: "reviewer",
+        },
       },
-    }).plan ?? assert.fail("provider_execution_plan_not_ready");
+      describeDockerProviderExecutionLocations("codex", "task"),
+    ).plan ?? assert.fail("provider_execution_plan_not_ready");
   assert.equal(executor.status, "candidate");
   assert.equal(executor.exactModel, "gpt-5.5");
-  assert.equal(executor.workspaceMountMode, "read_write");
-  assert.equal(
-    executor.explicitSandboxOption,
-    "approve_for_me_executor_with_docker_userns_seccomp_reviewer_read_only",
-  );
+
   assert.equal(executor.approvalMode, "automatic_review_workspace_write");
   assert.equal(executor.argv.includes("--approve-for-me"), true);
   assert.equal(executor.argv.includes("--sandbox"), false);
@@ -250,11 +257,7 @@ test("一般Taskはroot denyとRole別workspace権限をstdin計画へ固定す�
   assert.equal(executor.argv.includes("--json"), true);
   assert.equal(reviewer.status, "candidate");
   assert.equal(reviewer.exactModel, "gpt-5.5");
-  assert.equal(reviewer.workspaceMountMode, "read_only");
-  assert.equal(
-    reviewer.explicitSandboxOption,
-    "approve_for_me_executor_with_docker_userns_seccomp_reviewer_read_only",
-  );
+
   assert.equal(reviewer.approvalMode, "never_read_only");
   assert.equal(reviewer.argv.includes("--approve-for-me"), false);
   assert.equal(
@@ -414,51 +417,30 @@ test("Codex Structured Output Schemaは公式対応部分集合だけを搬送�
 });
 
 /**
- * 公開契約はSigstore検証と通常速度・API課金禁止を明示するを検証する。
+ * CLI公開契約は通常速度・API課金禁止を明示し配布検証を持たないを検証する。
  *
- * @responsibility 公開契約はSigstore検証と通常速度・API課金禁止を明示するの合否判定を所有する。
+ * @responsibility CLI公開契約は通常速度・API課金禁止を明示し配布検証を持たないの合否判定を所有する。
  * @trace ERB-IT-001
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 公開契約はSigstore検証と通常速度・API課金禁止を明示するの対象操作を実行する。
+ * @stimulus CLI公開契約は通常速度・API課金禁止を明示し配布検証を持たないの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
-test("公開契約はSigstore検証と通常速度・API課金禁止を明示する", () => {
+test("CLI公開契約は通常速度・API課金禁止を明示し配布検証を持たない", () => {
   const contract = describeProviderExecution("codex");
   assert.equal(contract.contractRevision, 15);
+  assert.equal("distributionVerification" in contract, false);
+  assert.equal("distributionIdentity" in contract, false);
+
   assert.equal(
-    contract.distributionVerification.sigstoreBlobSignatureVerified,
-    true,
-  );
-  assert.equal(
-    contract.distributionVerification.sigstoreCertificateIdentityMatched,
-    true,
-  );
-  assert.equal(
-    contract.distributionVerification.bundledBwrapSigstoreBlobSignatureVerified,
-    true,
-  );
-  assert.equal(
-    contract.distributionVerification.bundledBwrapCertificateIdentityMatched,
-    true,
-  );
-  assert.equal(
-    contract.distributionVerification
-      .fixedImageBundledBwrapSelectedUnderNoNetworkProbe,
-    true,
-  );
-  assert.equal(
-    contract.distributionVerification.executorSeccompProfileDigestMatched,
-    true,
-  );
-  assert.equal(
-    contract.distributionIdentity.executorSeccompProfileSha256,
+    describeDockerProviderAssets("codex").identity.executorSeccompProfileSha256,
     "01e577dd6fc81e04987af29b05389e9432dc0623a66aa435fd2f31f2b1070b95",
   );
   assert.equal(
-    contract.distributionIdentity.executorSeccompBaselineCommit,
+    describeDockerProviderAssets("codex").identity
+      .executorSeccompBaselineCommit,
     "c3065211177705ada59a9ccf8b5c182f286f8c97",
   );
   assert.equal(
@@ -475,31 +457,12 @@ test("公開契約はSigstore検証と通常速度・API課金禁止を明示す
     contract.isolatedTask.structuredEventTransport,
     "fixed_cli_jsonl_v0_149_1",
   );
-  assert.equal(
-    contract.isolatedTask.explicitSandboxOption,
-    "approve_for_me_executor_with_docker_userns_seccomp_reviewer_read_only",
-  );
+
   assert.equal(
     contract.outboundProxyPolicy,
     "official_cli_respect_system_proxy_required",
   );
   assert.deepEqual(contract.efforts, ["low", "medium", "high"]);
-  assert.equal(
-    contract.distributionVerification.subscriptionBooleanRequestPassed,
-    true,
-  );
-  assert.deepEqual(
-    contract.distributionVerification.subscriptionBooleanRequestResult,
-    { status: true },
-  );
-  assert.equal(
-    contract.distributionVerification.isolatedTaskCompatibilityModel,
-    "gpt-5.5",
-  );
-  assert.equal(
-    contract.distributionVerification.isolatedTaskShellVerificationPassed,
-    true,
-  );
 });
 
 /**
@@ -515,17 +478,25 @@ test("公開契約はSigstore検証と通常速度・API課金禁止を明示す
  * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("固定Codex imageはbwrapとExecutor用の限定seccomp境界を固定する", () => {
-  const contract = describeProviderExecution("codex");
   assert.deepEqual(
     {
-      archiveSha256: contract.distributionIdentity.bwrapArchiveSha256,
-      archiveBytes: contract.distributionIdentity.bwrapArchiveBytes,
-      binaryPath: contract.distributionIdentity.bwrapBinaryPath,
-      binarySha256: contract.distributionIdentity.bwrapBinarySha256,
-      binaryBytes: contract.distributionIdentity.bwrapBinaryBytes,
-      bundleSha256: contract.distributionIdentity.bwrapSigstoreBundleSha256,
-      identity: contract.distributionIdentity.bwrapSigstoreIdentity,
-      issuer: contract.distributionIdentity.bwrapSigstoreIssuer,
+      archiveSha256:
+        describeDockerProviderAssets("codex").identity.bwrapArchiveSha256,
+      archiveBytes:
+        describeDockerProviderAssets("codex").identity.bwrapArchiveBytes,
+      binaryPath:
+        describeDockerProviderAssets("codex").identity.bwrapBinaryPath,
+      binarySha256:
+        describeDockerProviderAssets("codex").identity.bwrapBinarySha256,
+      binaryBytes:
+        describeDockerProviderAssets("codex").identity.bwrapBinaryBytes,
+      bundleSha256:
+        describeDockerProviderAssets("codex").identity
+          .bwrapSigstoreBundleSha256,
+      identity:
+        describeDockerProviderAssets("codex").identity.bwrapSigstoreIdentity,
+      issuer:
+        describeDockerProviderAssets("codex").identity.bwrapSigstoreIssuer,
     },
     {
       archiveSha256:
@@ -557,16 +528,19 @@ test("固定Codex imageはbwrapとExecutor用の限定seccomp境界を固定す�
   );
   assert.equal(dockerfile.includes("dangerously-bypass"), false);
   const executor =
-    planProviderExecution({
-      provider: "codex",
-      purpose: "task",
-      input: {
+    planProviderExecution(
+      {
         provider: "codex",
-        mode: "isolated_task",
-        effort: "low",
-        taskRole: "executor",
+        purpose: "task",
+        input: {
+          provider: "codex",
+          mode: "isolated_task",
+          effort: "low",
+          taskRole: "executor",
+        },
       },
-    }).plan ?? assert.fail("provider_execution_plan_not_ready");
+      describeDockerProviderExecutionLocations("codex", "task"),
+    ).plan ?? assert.fail("provider_execution_plan_not_ready");
   if (executor.status !== "candidate") assert.fail(executor.reason);
   assert.equal(
     executor.argv.includes("--dangerously-bypass-approvals-and-sandbox"),

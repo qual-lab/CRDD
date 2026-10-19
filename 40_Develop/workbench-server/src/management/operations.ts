@@ -6,18 +6,15 @@
  * @security 管理Rootは内部構成、Bearerは当該要求内だけ。MCPへ依存しない。
  */
 import {
+  updateUserRole,
   readCurrentAccess,
   readManagementState,
-  registerUser,
-  updateUserName,
-  changeUserRole,
-  updateRoleContentAccess,
   registerRepository,
+  registerUser,
   unregisterRepository,
   updateExposure,
-  projectCurrentAccessResult,
-  projectManagementReadResult,
-  projectManagementOperationResult,
+  updateRoleContentAccess,
+  updateUserName,
 } from "../../../access-management/src/index.ts";
 import type { CredentialAdministration } from "../credential/administration.ts";
 import type { ManagementView, WorkbenchManagementResult } from "./contract.ts";
@@ -25,7 +22,7 @@ import type { ManagementView, WorkbenchManagementResult } from "./contract.ts";
 const FIELDS = {
   registerUser: ["username", "plannedRole"],
   updateUserName: ["userId", "username"],
-  changeUserRole: ["userId", "currentRole", "nextRole"],
+  updateUserRole: ["userId", "currentRole", "nextRole"],
   updateRoleContentAccess: ["targetRole", "workspaceIds"],
   registerRepository: ["repositoryId", "repositoryRoot"],
   unregisterRepository: ["repositoryId"],
@@ -125,17 +122,15 @@ export async function readWorkbenchManagement(
   if (signal.aborted) throw new Error("workbench_management_cancelled");
   const { root, token } = context;
   return view === "current"
-    ? projectCurrentAccessResult(readCurrentAccess(root, token))
-    : projectManagementReadResult(
-        readManagementState(
-          root,
-          token,
-          view === "roles"
-            ? "roleContentAccess"
-            : view === "repositories"
-              ? "registeredRepositories"
-              : view,
-        ),
+    ? readCurrentAccess(root, token)
+    : readManagementState(
+        root,
+        token,
+        view === "roles"
+          ? "roleContentAccess"
+          : view === "repositories"
+            ? "registeredRepositories"
+            : view,
       );
 }
 
@@ -164,81 +159,67 @@ export async function executeWorkbenchManagement(
   const { root, token } = context;
   switch (operation) {
     case "registerUser":
-      return projectManagementOperationResult(
-        registerUser(
-          root,
-          token,
-          expectedRevision,
-          operationId,
-          args.username as string,
-          args.plannedRole,
-        ),
+      return registerUser(
+        root,
+        token,
+        expectedRevision,
+        operationId,
+        args.username as string,
+        args.plannedRole,
       );
     case "updateUserName":
-      return projectManagementOperationResult(
-        updateUserName(
-          root,
-          token,
-          expectedRevision,
-          operationId,
-          args.userId as string,
-          args.username as string,
-        ),
+      return updateUserName(
+        root,
+        token,
+        expectedRevision,
+        operationId,
+        args.userId as string,
+        args.username as string,
       );
-    case "changeUserRole":
-      return projectManagementOperationResult(
-        changeUserRole(
-          root,
-          token,
-          expectedRevision,
-          operationId,
-          args.userId as string,
-          args.currentRole,
-          args.nextRole,
-        ),
+    case "updateUserRole":
+      return updateUserRole(
+        root,
+        token,
+        expectedRevision,
+        operationId,
+        args.userId as string,
+        args.currentRole,
+        args.nextRole,
       );
     case "updateRoleContentAccess":
-      return projectManagementOperationResult(
-        updateRoleContentAccess(
-          root,
-          token,
-          expectedRevision,
-          operationId,
-          args.targetRole,
-          args.workspaceIds,
-        ),
+      return updateRoleContentAccess(
+        root,
+        token,
+        expectedRevision,
+        operationId,
+        args.targetRole,
+        args.workspaceIds,
       );
     case "registerRepository":
-      return projectManagementOperationResult(
-        registerRepository(
-          root,
-          token,
-          expectedRevision,
-          operationId,
-          args.repositoryId,
-          args.repositoryRoot,
-        ),
+      return registerRepository(
+        root,
+        token,
+        expectedRevision,
+        operationId,
+        args.repositoryId,
+        args.repositoryRoot,
       );
     case "unregisterRepository":
-      return projectManagementOperationResult(
-        unregisterRepository(
-          root,
-          token,
-          expectedRevision,
-          operationId,
-          args.repositoryId,
-        ),
+      return unregisterRepository(
+        root,
+        token,
+        expectedRevision,
+        operationId,
+        args.repositoryId,
       );
     case "updateExposure":
-      return projectManagementOperationResult(
-        updateExposure(
-          root,
-          token,
-          expectedRevision,
-          operationId,
-          args.repositoryId,
-          args.workspaceIds,
-        ),
+      return updateExposure(
+        root,
+        token,
+        expectedRevision,
+        operationId,
+        args.repositoryId,
+        args.workspaceIds,
       );
   }
 }

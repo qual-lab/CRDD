@@ -12,7 +12,6 @@ import { planProviderExecution } from "../../../../ai-adapter/src/index.ts";
 import { describeWorkbenchAiAdviceResultSchema } from "../../../src/workbench-ai/advice-result.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
-
 import {
   cancelRuntimeOwnedClaudeDockerCandidate,
   createIsolatedClaudeDockerRuntimeAdapterCandidate,
@@ -20,6 +19,8 @@ import {
   prepareRuntimeOwnedClaudeDockerCandidate,
 } from "../../../src/provider/claude-docker-adapter.ts";
 import { createIsolatedDelegationSelectionGrantRuntimeCandidate } from "../../../src/provider/delegation-selection-grant.ts";
+import { describeDockerProviderExecutionLocations } from "../../../../docker-isolation/src/index.ts";
+import { bindWorkbenchAiProviderCommand } from "../../../src/workbench-ai/advice-execution-plan.ts";
 
 const MODEL_SELECTION = Object.freeze({
   selectionRecordId: "MODELSEL-12345678",
@@ -202,17 +203,21 @@ function createFixture(
  * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Workbench助言をRepository非共有のClaude Planへ固定する", () => {
-  const providerCommand =
-    planProviderExecution({
-      provider: "claude",
-      purpose: "advice",
-      input: {
+  const providerCommand = bindWorkbenchAiProviderCommand(
+    planProviderExecution(
+      {
         provider: "claude",
-        exactModelId: "claude-opus-test-profile",
-        reasoningEffort: "low",
+        purpose: "advice",
+        input: {
+          provider: "claude",
+          exactModelId: "claude-opus-test-profile",
+          reasoningEffort: "low",
+        },
+        resultSchema: describeWorkbenchAiAdviceResultSchema(),
       },
-      resultSchema: describeWorkbenchAiAdviceResultSchema(),
-    }).plan ?? assert.fail("provider_execution_plan_not_ready");
+      describeDockerProviderExecutionLocations("claude", "advice"),
+    ).plan ?? assert.fail("provider_execution_plan_not_ready"),
+  );
   const fixture = createFixture({
     consumeAdvicePacket: () =>
       Object.freeze({

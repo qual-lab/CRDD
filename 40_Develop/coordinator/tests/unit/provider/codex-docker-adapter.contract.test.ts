@@ -24,7 +24,6 @@ import {
   consumeProviderDockerPreparation,
 } from "../../../src/provider/preparation-lifecycle.ts";
 import { fileURLToPath } from "node:url";
-
 import {
   cancelRuntimeOwnedCodexDockerCandidate,
   createIsolatedCodexDockerRuntimeAdapterCandidate,
@@ -33,8 +32,9 @@ import {
 } from "../../../src/provider/codex-docker-adapter.ts";
 import { createIsolatedDelegationSelectionGrantRuntimeCandidate } from "../../../src/provider/delegation-selection-grant.ts";
 import { bindDockerIsolationRuntime } from "../../../src/provider/isolation-execution.ts";
-
 import { describeProviderAuthentication } from "../../../../ai-adapter/src/index.ts";
+import { describeDockerProviderExecutionLocations } from "../../../../docker-isolation/src/index.ts";
+import { bindWorkbenchAiProviderCommand } from "../../../src/workbench-ai/advice-execution-plan.ts";
 
 /**
  * 共通本番依存の組立てと拒否結果が準備状態を追加しないことを確認する。
@@ -326,17 +326,21 @@ function createFixture(
  * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Workbench助言をRepository非共有のCodex Planへ固定する", () => {
-  const providerCommand =
-    planProviderExecution({
-      provider: "codex",
-      purpose: "advice",
-      input: {
+  const providerCommand = bindWorkbenchAiProviderCommand(
+    planProviderExecution(
+      {
         provider: "codex",
-        exactModelId: "gpt-5.5",
-        reasoningEffort: "low",
+        purpose: "advice",
+        input: {
+          provider: "codex",
+          exactModelId: "gpt-5.5",
+          reasoningEffort: "low",
+        },
+        resultSchema: describeWorkbenchAiAdviceResultSchema(),
       },
-      resultSchema: describeWorkbenchAiAdviceResultSchema(),
-    }).plan ?? assert.fail("provider_execution_plan_not_ready");
+      describeDockerProviderExecutionLocations("codex", "advice"),
+    ).plan ?? assert.fail("provider_execution_plan_not_ready"),
+  );
   const fixture = createFixture(
     {
       consumeAdvicePacket: () =>

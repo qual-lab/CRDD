@@ -9,25 +9,25 @@
  * @boundary Workbench HTTPとAMの実保存。
  */
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { randomUUID } from "node:crypto";
-import { execFileSync } from "node:child_process";
 import test from "node:test";
-import { createFilesystemStoreRoot } from "../../../domain-model/src/index.ts";
+import { createCredentialMaterial } from "../../../access-management/src/credential/token.ts";
 import {
-  createCredentialMaterial,
-  type AccessManagementState,
   resolveConnectionAuthentication,
   resolveRepositoryAccess,
   resolveRepositoryAccessCollection,
 } from "../../../access-management/src/index.ts";
-import { deriveRepositoryBindingId } from "../../../access-management/src/state/repository-binding.ts";
-import { startWorkbench } from "../../src/index.ts";
-import type { WorkbenchAiRequestSnapshot } from "../../src/ai-request/types.ts";
-import { readWorkbenchProjectSurface } from "../../src/project/surface.ts";
-import { readAuthorizedPortfolio } from "../../src/project/access-reader.ts";
+import { deriveRepositoryBindingId } from "../../../access-management/src/repository/binding.ts";
+import type { AccessManagementState } from "../../../access-management/src/storage/types.ts";
+import { createFilesystemStoreRoot } from "../../../domain-model/src/index.ts";
 import { resolveVerifiedRepositoryRoot } from "../../../version-control/src/index.ts";
+import type { WorkbenchAiRequestSnapshot } from "../../src/ai-request/types.ts";
+import { startWorkbench } from "../../src/index.ts";
+import { readAuthorizedPortfolio } from "../../src/project/access-reader.ts";
+import { readWorkbenchProjectSurface } from "../../src/project/surface.ts";
 
 /**
  * 二主体・二Repositoryの開始と取消を混在させない。

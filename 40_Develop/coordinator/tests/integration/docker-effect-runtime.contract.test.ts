@@ -9,8 +9,8 @@
  * @boundary Adapter→Coordinator投影→Docker Isolation Root API、および実Host世代・Kernel排他。
  */
 import { planProviderExecution } from "../../../ai-adapter/src/index.ts";
+import { hashWorkbenchAiProviderCommand } from "../../src/workbench-ai/advice-packet.ts";
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import test, { mock } from "node:test";
@@ -36,7 +36,6 @@ import {
   parseHostRecoveryToken,
   loadHostRecoveryRecordByToken,
 } from "../../src/host-execution/recovery-record.ts";
-
 import {
   planDockerIsolationCommands,
   startDockerCommandSessionCandidate,
@@ -51,6 +50,8 @@ import {
 import { createIsolatedClaudeDockerRuntimeAdapterCandidate } from "../../src/provider/claude-docker-adapter.ts";
 import { createIsolatedCodexDockerRuntimeAdapterCandidate } from "../../src/provider/codex-docker-adapter.ts";
 import { describeWorkbenchAiAdviceResultSchema } from "../../src/workbench-ai/advice-result.ts";
+import { describeDockerProviderExecutionLocations } from "../../../docker-isolation/src/index.ts";
+import { bindWorkbenchAiProviderCommand } from "../../src/workbench-ai/advice-execution-plan.ts";
 
 /**
  * createPlanFixtureのTest準備責務を実行する。
@@ -185,21 +186,32 @@ function createPlanFixture(
         promptTransport: "provider_stdin_only" as const,
       }),
     consumeAdvicePacket: () => {
-      const providerCommand =
-        planProviderExecution({
-          provider: {
-            provider,
-            exactModelId: model,
-            reasoningEffort: "low",
-          }.provider,
-          purpose: "advice",
-          input: {
-            provider,
-            exactModelId: model,
-            reasoningEffort: "low",
+      const providerCommand = bindWorkbenchAiProviderCommand(
+        planProviderExecution(
+          {
+            provider: {
+              provider,
+              exactModelId: model,
+              reasoningEffort: "low",
+            }.provider,
+            purpose: "advice",
+            input: {
+              provider,
+              exactModelId: model,
+              reasoningEffort: "low",
+            },
+            resultSchema: describeWorkbenchAiAdviceResultSchema(),
           },
-          resultSchema: describeWorkbenchAiAdviceResultSchema(),
-        }).plan ?? assert.fail("provider_execution_plan_not_ready");
+          describeDockerProviderExecutionLocations(
+            {
+              provider,
+              exactModelId: model,
+              reasoningEffort: "low",
+            }.provider,
+            "advice",
+          ),
+        ).plan ?? assert.fail("provider_execution_plan_not_ready"),
+      );
       return Object.freeze({
         contract: "crdd-coordinator/workbench-ai-advice-runtime-packet",
         contractRevision: 1,
@@ -209,9 +221,9 @@ function createPlanFixture(
         provider,
         taskHash: "2".repeat(64),
         projectionHash: "3".repeat(64),
-        commandHash: createHash("sha256")
-          .update(JSON.stringify(providerCommand), "utf8")
-          .digest("hex"),
+        commandHash:
+          hashWorkbenchAiProviderCommand(providerCommand) ??
+          assert.fail("invalid_command_fixture"),
         packetHash: "5".repeat(64),
         providerCommand,
         providerPrompt: "Give advice from the supplied projection.",

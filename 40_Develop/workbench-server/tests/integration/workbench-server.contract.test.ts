@@ -22,14 +22,13 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
-import { syncBuiltinESMExports } from "node:module";
 import {
   copyFile,
   lstat,
   mkdir,
   mkdtemp,
-  readFile,
   readdir,
+  readFile,
   rm,
   unlink,
   writeFile,
@@ -39,39 +38,38 @@ import {
   request as httpRequest,
   ServerResponse,
 } from "node:http";
+import { syncBuiltinESMExports } from "node:module";
 import { connect } from "node:net";
 import path from "node:path";
 import test from "node:test";
-import { createWorkbenchAiVerificationHttpClient } from "../../scripts/ai-verification-http.ts";
-import {
-  inspectWorkbenchClientModel,
-  type WorkbenchClientModel,
-} from "../../src/browser/client-model.ts";
+import { createCredentialMaterial } from "../../../access-management/src/credential/token.ts";
+import type { AccessManagementState } from "../../../access-management/src/storage/types.ts";
 
 import {
-  defaultAiProfileCatalog,
   createRepositoryAiProfileCatalogStore,
+  defaultAiProfileCatalog,
 } from "../../../ai-adapter/src/index.ts";
+import { createFilesystemStoreRoot } from "../../../domain-model/src/index.ts";
 import {
   createTaskAttemptSettledEvent,
   usageNotObserved,
   verifyExecutionIntelligenceRepositoryRoot,
   writeExecutionIntelligenceEvent,
 } from "../../../execution-intelligence/src/index.ts";
-import { createFilesystemStoreRoot } from "../../../domain-model/src/index.ts";
-import {
-  createCredentialMaterial,
-  type AccessManagementState,
-} from "../../../access-management/src/index.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
+import { createWorkbenchAiVerificationHttpClient } from "../../scripts/ai-verification-http.ts";
 import {
-  readWorkbenchProjectSurface,
-  createWorkbenchAiProfileSurface,
+  inspectWorkbenchClientModel,
+  type WorkbenchClientModel,
+} from "../../src/browser/client-model.ts";
+import {
   createRepositoryWorkbenchActivityReader,
+  createWorkbenchAiProfileSurface,
+  readWorkbenchProjectSurface,
   startWorkbench,
-  type WorkbenchAiRequests,
-  type WorkbenchAiRequestCommand,
   type WorkbenchActivityReader,
+  type WorkbenchAiRequestCommand,
+  type WorkbenchAiRequests,
 } from "../../src/index.ts";
 
 const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(

@@ -10,8 +10,7 @@
  * @security Repository内容や任意Commandを追加せず、受理済みPromptと固定Command Hashだけを搬送する。
  */
 import { createHash, randomBytes } from "node:crypto";
-
-import type { ProviderAdvicePlan } from "../../../ai-adapter/src/index.ts";
+import type { WorkbenchAiProviderCommand } from "./advice-execution-plan.ts";
 
 export const WORKBENCH_AI_ADVICE_RUNTIME_PACKET_CONTRACT =
   "crdd-coordinator/workbench-ai-advice-runtime-packet";
@@ -63,7 +62,7 @@ export type WorkbenchAiAdviceRuntimePacket = Readonly<{
   projectionHash: string;
   commandHash: string;
   packetHash: string;
-  providerCommand: ProviderAdvicePlan;
+  providerCommand: WorkbenchAiProviderCommand;
   providerPrompt: string;
   repositoryMounted: false;
   workspaceMounted: false;
@@ -90,7 +89,7 @@ export type WorkbenchAiAdviceRuntimePacketInput = Readonly<{
   taskHash: string;
   projectionHash: string;
   providerPrompt: string;
-  providerCommand: ProviderAdvicePlan;
+  providerCommand: WorkbenchAiProviderCommand;
 }>;
 
 /**
@@ -280,12 +279,14 @@ function issue(
   state: RuntimeState,
   input: WorkbenchAiAdviceRuntimePacketInput,
 ) {
-  let providerCommand: ProviderAdvicePlan | null = null;
+  let providerCommand: WorkbenchAiProviderCommand | null = null;
   let commandHash: string | null = null;
   let token: string | null = null;
   try {
     providerCommand = snapshotCommand(input.providerCommand);
-    commandHash = providerCommand ? hashCommand(providerCommand) : null;
+    commandHash = providerCommand
+      ? hashWorkbenchAiProviderCommand(providerCommand)
+      : null;
     token = state.randomHex(16);
   } catch {
     providerCommand = null;
@@ -444,7 +445,7 @@ function revoke(state: RuntimeState, ownerCapability: unknown) {
  */
 function validInput(
   input: WorkbenchAiAdviceRuntimePacketInput,
-  providerCommand: ProviderAdvicePlan,
+  providerCommand: WorkbenchAiProviderCommand,
 ) {
   return (
     OPERATION_ID.test(input.operationId) &&
@@ -481,7 +482,7 @@ function validInput(
  * @security 任意Propertyや遅延getterをEffect直前境界へ持ち込まない。
  * @concurrency N/A: 共有状態を変更しない同期処理である。
  */
-function snapshotCommand(command: ProviderAdvicePlan) {
+function snapshotCommand(command: WorkbenchAiProviderCommand) {
   if (
     !plainExactRecord(command, COMMAND_KEYS) ||
     !Array.isArray(command.argv) ||
@@ -510,7 +511,7 @@ function snapshotCommand(command: ProviderAdvicePlan) {
     workspaceMountRequired: command.workspaceMountRequired,
     toolsAllowed: command.toolsAllowed,
     sessionPersistenceAllowed: command.sessionPersistenceAllowed,
-  }) as ProviderAdvicePlan;
+  }) as WorkbenchAiProviderCommand;
 }
 
 /**
@@ -613,7 +614,9 @@ function plainStringRecord(value: unknown): value is Record<string, string> {
  * @security 任意Objectのgetter例外を外へ公開しない。
  * @concurrency N/A: 共有状態を変更しない同期処理である。
  */
-function hashCommand(command: ProviderAdvicePlan) {
+export function hashWorkbenchAiProviderCommand(
+  command: WorkbenchAiProviderCommand,
+) {
   try {
     return createHash("sha256")
       .update(

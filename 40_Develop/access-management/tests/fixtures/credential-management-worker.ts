@@ -12,15 +12,16 @@
  * @cleanup 親がProcessをjoinして自己生成Rootを回収する。
  * @boundary Node実Process・pipe入力・AM公開内部API。
  */
-import fs from "node:fs";
+
 import crypto from "node:crypto";
+import fs from "node:fs";
 import { createFilesystemStoreRoot } from "../../../domain-model/src/index.ts";
 import {
-  issueCredential,
-  revokeCredential,
   exchangeCredentials,
   exchangeCredentialsFromHost,
   finishKeyExchangeFromHost,
+  issueCredential,
+  revokeCredential,
 } from "../../src/index.ts";
 
 const input = JSON.parse(fs.readFileSync(0, "utf8")) as {

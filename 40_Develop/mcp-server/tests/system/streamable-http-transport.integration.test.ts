@@ -10,49 +10,51 @@
  */
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
-import fs from "node:fs";
-import { open, type FileHandle } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { EventEmitter } from "node:events";
-import { request as httpRequest, type ClientRequest } from "node:http";
+import fs from "node:fs";
+import { type FileHandle, open } from "node:fs/promises";
+import { type ClientRequest, request as httpRequest } from "node:http";
 import {
   createServer as createHttpsServer,
   request as httpsRequest,
 } from "node:https";
-import type { Duplex } from "node:stream";
 import { createConnection, createServer } from "node:net";
 import path from "node:path";
+import type { Duplex } from "node:stream";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import {
+  issueCredential,
   prepareHostInitializationRoot,
-  initializeAccessManagementState,
+  updateCredentialPresentationState,
+  registerUser,
+  revokeCredential,
+} from "../../../access-management/src/index.ts";
+import {
   createInitialAdministrator,
   createInitialCredential,
-  recordCredentialPresentation,
-  readAccessManagementState,
-  revokeCredential,
-  registerUser,
-  issueCredential,
-} from "../../../access-management/src/index.ts";
+  initializeAccessManagementState,
+} from "../../../access-management/src/initialization/execution.ts";
+import { readAccessManagementState } from "../../../access-management/src/storage/store.ts";
 import { defaultAiProfileCatalog } from "../../../ai-adapter/src/index.ts";
 import { resolveCrosRuntimeRoots } from "../../../domain-model/src/index.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
 
 import {
   closeMcpHttpOnProcessSignal,
-  MCP_ORCHESTRATOR_PROTOCOL_VERSION,
-  startMcpOrchestratorStreamableHttp,
-  startMcpAuthenticatedStreamableHttp,
-  readMcpServerConfiguration,
-  MCP_CURRENT_ACCESS_TOOL,
   MCP_ACCESS_MANAGEMENT_TOOLS,
   MCP_AI_PROFILE_TOOLS,
-  MCP_TOPIC_MEETING_TOOLS,
-  MCP_PROJECT_CONTEXT_LIST_TOOL,
+  MCP_CURRENT_ACCESS_TOOL,
+  MCP_ORCHESTRATOR_PROTOCOL_VERSION,
   MCP_PROJECT_CONTEXT_GET_TOOL,
+  MCP_PROJECT_CONTEXT_LIST_TOOL,
   MCP_RUNTIME_ACTIVITY_TOOL,
+  MCP_TOPIC_MEETING_TOOLS,
   type McpOrchestratorDependencies,
+  readMcpServerConfiguration,
+  startMcpAuthenticatedStreamableHttp,
+  startMcpOrchestratorStreamableHttp,
 } from "../../src/index.ts";
 
 const TOKEN = "local-development-token-0123456789abcdef";
@@ -962,7 +964,7 @@ for (const mode of [
           const issued = createInitialCredential(root, attempt);
           assert.ok(issued.status === "completed" && issued.value.token);
           const token = issued.value.token;
-          const pending = recordCredentialPresentation(root, {
+          const pending = updateCredentialPresentationState(root, {
             credentialId: issued.value.credentialId,
             issuanceOperationId: attempt,
             expectedRevision: issued.value.revision,
@@ -970,7 +972,7 @@ for (const mode of [
           });
           assert.ok(pending.status === "completed");
           assert.equal(
-            recordCredentialPresentation(root, {
+            updateCredentialPresentationState(root, {
               credentialId: issued.value.credentialId,
               issuanceOperationId: attempt,
               expectedRevision: pending.value.revision,
