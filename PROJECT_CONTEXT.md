@@ -71,7 +71,7 @@ Version ControlのWorktree管理に続き、名前付きCandidateの明示固定
 
 ## 5. 次に何をすべきか
 
-全17Packageの構造整理では、AI Adapterの共通解析・静的資産、Profile／Providerの責務再配置を`afd059a6`までコミット・プッシュ済み。続いて助言CLI固有処理を各Providerへ移し、承認済みの試験専用メモリ保存APIを本番公開から撤去した。関連83件と静的確認は成功し、独立レビューで検出したFile Headerも是正した。[順序・現在結果・残件](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#source-structure-review)を参照する。Provider計画のImage等のOwner精査は残り、Package全体・Source全面移管の完了ではない。以下の回帰・実境界残件も保持し、②のAI再試行と保持物削除は行わない。
+全17Packageの構造整理では、AI Adapterの助言責務整理と試験専用メモリ保存API撤去を`e2fbc02b`までコミット・プッシュ済み。続いてProvider配布記述とDocker要件のOwnerを照合し、助言ImageのInit判定をDIへ移管した。関連回帰・Host限定3件・独立レビューを完了し、通常の設定保存・実行条件は維持する。[順序・現在結果・残件](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#source-structure-review)を参照する。残る名称・Header・公開集合の総点検は後続で、Package全体・Source全面移管の完了ではない。以下の回帰・実境界残件も保持し、②のAI再試行と保持物削除は行わない。
 
 | 順序 | 次の作業候補 | 完了条件・停止点 |
 |---|---|---|

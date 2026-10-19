@@ -168,6 +168,8 @@ Probeのinspect構成と三つのbind mountの実体照合は、DIの`execution/
 
 Docker Isolationは、Docker資源、所有子ProcessとDocker実行環境の技術Ownerである。通常隔離に加え、診断と、上位が許可した実行環境の停止・開始・限定修復の実処理を所有する。Containerを復元して継続するのではなく、所有資源の終端状態を確認し、上位が新しい実行を開始できる状態へ戻す。独立Server、CLI、履歴Store、共有Registry、Lock Frameworkは設けない。
 
+助言Imageの`--init`適用条件は、AI Adapterから既存`execution/command-plan.ts`の`codexAdviceProviderInitRequired`へ移管した。`workbench_advice`と現行／保持対象旧Imageのexact二Digestだけを受理する。通常Task、Claude、未知・空・欠測Digestへ条件を拡張しない。上位の計画・Effect直前照合・元Recoveryの期待構成は同じDI公開関数を利用する。現在のAI配布記述との一致は利用側試験で確認し、DIからAI Adapterへの依存は作らない。返却値だけではInitの実観測、Process終端や回収成功を意味しない。新しいState・Registry・Lock・回復経路は追加しない。
+
 ### 起動失敗の診断
 
 起動側は固定`startFailure`で、停止未確認、起動前の初回信頼・Client Process・Desktop Process・Engine・backend・最終信頼、境界失効、起動要求拒否、Ready信頼拒否、既存待機期限、例外を区別する。各startで初期化し、成功・起動未実施はnullとする。停止済み再観測の順・短絡・回数と既存期限は変えず、診断用の追加観測や再試行を行わない。Runtime返却・settled通知・上位の結果・手動試験器へ同じ非秘密値を搬送する。`stopFailure`、一次失敗、Effect不明、資源回収、処置許可を上書きしない。詳細位置は耐久checkpointへ追加せず、既存の再起動失敗理由の履歴保全と区別する。起動前拒否または評価例外は起動要求未発行のままで、起動要求直前以降の例外はEffect不明を維持する。

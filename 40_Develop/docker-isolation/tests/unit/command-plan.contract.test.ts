@@ -19,6 +19,7 @@ import test from "node:test";
 import {
   type DockerIsolationCommandInput,
   planDockerIsolationCommands,
+  codexAdviceProviderInitRequired,
   projectDockerProxyConfiguration,
   createDockerAuthenticationEnvironment,
   projectDockerExecutionBoundary,
@@ -26,6 +27,48 @@ import {
   createDockerIsolationResourceNames,
   dockerIsolationResourceIdentityIsValid,
 } from "../../src/index.ts";
+
+/**
+ * 助言Imageのinit要否を方式とexact Imageの直積で確認する。
+ * @responsibility 未知値や通常Taskへinit要求を広げない。
+ * @trace ERB-UT-023
+ * @precondition 現在と旧助言の固定Digest、Claudeと未知のDigestを用意する。
+ * @stimulus 五方式と六Image値の全組合せを判定する。
+ * @observation 各組合せの要求有無を取得する。
+ * @oracle workbench_adviceかつ現在または旧助言Digestだけtrue。
+ * @cleanup N/A: 純粋な値の照合だけで資源を作らない。
+ * @boundary 技術要件の判定であり実Init観測や回収許可ではない。
+ */
+test("助言initは方式と二つのexact Imageだけに限定する", () => {
+  const current =
+    "sha256:4f35a6542ee0b412714d558bc38e578bcea00490ec2a1f02f02b88c1226f924e";
+  const previous =
+    "sha256:843db607376a454cb7c901e76d4da1d168d6e384912366448df3363b42624d36";
+  const claude =
+    "sha256:ddd766072db6e69f55efb11fc3e82b401542cb5583c179f56aac4004f4ea317a";
+  for (const mode of [
+    "workbench_advice",
+    "boolean_probe",
+    "isolated_task",
+    "unknown",
+    "",
+  ]) {
+    for (const image of [
+      current,
+      previous,
+      claude,
+      `sha256:${"0".repeat(64)}`,
+      "",
+      null,
+    ]) {
+      assert.equal(
+        codexAdviceProviderInitRequired(mode, image),
+        mode === "workbench_advice" &&
+          (image === current || image === previous),
+      );
+    }
+  }
+});
 
 /**
  * 固定二領域をExecutor／Reviewerで同じ三本構成へ接続する。

@@ -102,10 +102,7 @@ export {
   normalizeCodexStructuredResult,
   describeCodexStructuredResultContract,
 } from "./codex/structured-result.ts";
-export {
-  describeCodexAdviceDistributionIdentity,
-  codexAdviceProviderInitRequired,
-} from "./codex/advice-distribution.ts";
+export { describeCodexAdviceDistributionIdentity } from "./codex/advice-distribution.ts";
 export {
   describeClaudeSubscriptionAuthenticationCli,
   isClaudeSubscriptionAuthenticationConfirmed,

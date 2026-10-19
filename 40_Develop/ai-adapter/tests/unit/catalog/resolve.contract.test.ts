@@ -170,7 +170,6 @@ test("同梱JSONの全値を保持して深い不変Catalogを公開する", () 
     "WORKBENCH_AI_ADVICE_PROVIDER_OUTPUT_REASONS",
     "buildClaudeExecutionArguments",
     "classifyProviderNonzeroExit",
-    "codexAdviceProviderInitRequired",
     "createAiProfileCatalogAdministration",
     "createCrosAiProfileCatalogStore",
     "createRepositoryAiProfileCatalogStore",

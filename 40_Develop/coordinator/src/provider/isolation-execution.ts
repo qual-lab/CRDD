@@ -17,7 +17,7 @@ import {
   type DockerIsolationRuntimePlan,
   type DockerExecutionHooks,
 } from "../../../docker-isolation/src/index.ts";
-import { codexAdviceProviderInitRequired } from "../../../ai-adapter/src/index.ts";
+import { codexAdviceProviderInitRequired } from "../../../docker-isolation/src/index.ts";
 import {
   buildClaudeExecutionArguments,
   describeCodexSubscriptionAuthenticationCli,

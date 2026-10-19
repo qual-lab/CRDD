@@ -6,6 +6,7 @@
  */
 import {
   planDockerIsolationCommands,
+  codexAdviceProviderInitRequired,
   createDockerIsolationRandomHex,
   createDockerIsolationResourceNames,
 } from "../../../docker-isolation/src/index.ts";
@@ -22,7 +23,6 @@ import {
 import {
   planCodexIsolatedTask,
   planCodexReadOnlyProbe,
-  codexAdviceProviderInitRequired,
   describeCodexSubscriptionAuthenticationCli,
 } from "../../../ai-adapter/src/index.ts";
 import {

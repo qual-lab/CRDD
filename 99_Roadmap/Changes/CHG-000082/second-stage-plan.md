@@ -76,6 +76,21 @@ Package個別の順序を基本としつつ、Coordinator／Orchestrator／Docke
 
 残るAI Adapter内精査は、Provider計画のImage・Seccomp等のOwnerと残る命名・Header・公開集合。②のAI再試行、保持物削除、Docker操作、外部送信は行わない。歴史Evidenceは不変更。今回は局所技術レビューと現行文書・直接影響確認を行い、準拠基準・Releaseの変更を伴わないため全体準拠監査・実E2Eは実施しない。
 
+#### Provider配布記述・Docker構成の責務照合（2026-10-19）
+
+基準は`e2fbc02b`。非自明な責務移管として、AI Adapter／DI詳細設計、公開入口、計画・Effect直前照合・Recoveryの三Consumer、公開集合と既存試験を着手前に照合し、独立確認で整合した。技術レビュー・限定文書／直接影響確認を行い、動作条件・準拠基準・Releaseは変えないため全準拠監査・実Docker／Provider試験は行わない。新しいState・Schema・Lock・回復Frameworkは追加しない。
+
+| 対象 | 処置と理由 |
+|---|---|
+| `codexAdviceProviderInitRequired` | AI AdapterからDIの既存`execution/command-plan.ts`へ同名移管。DockerのInit構成を決める純粋条件であり、CLI引数差ではない。現在と保持対象旧Imageのexact二Digestと方式条件を維持。AI Rootの公開から外し、DI Rootから明示公開する |
+| 三本番Consumerと二直接試験 | 計画・Effect直前・Recovery、助言コマンド試験・再起動準備順試験のimportをDI Rootへ変更。戻り値・保存field・既存VM代役の名前は不変更 |
+| Image・CLIの固定配布IdentityとSeccomp期待値 | AI AdapterのProvider要件記述として維持。Task／助言の互換組合せを分離しない。Artifact実観測・照合・Docker引数化は既存DIにあり、AIへ実操作やDIからの逆依存を追加しない |
+| 検証と限界 | DI側で五方式×六Image値の30組合せを追加。現在のAI配布Identityとの一致、argvのInit、inspect欠測・相違と回収拒否、元状態の再入場を既存試験へ接続する。真偽の一致を実Initや資源回収・外部AI成功と同一視しない |
+
+既存未解決Imageの条件を削除せず、②の保持物・回復参照・過去Evidenceは不変更。AI Adapterの静的三軸・32件、DIの静的三軸・通常343件（明示Docker1件skip）、Coordinator静的確認・関連80件、Header／公開集合3件・Symbol Graph16件が成功。初回DI公開集合の追従漏れを是正した。初回Coordinator試験は82成功／4失敗で、内訳はHostのhardlink権限制限1件と試験module-mocks起動指定不足3件だった。正しい指定の通常80件に続き、必要な権限のHost限定3件も成功し、製品側の安全条件は変更していない。Host限定確認は約227秒を要した。初回結果をなかったことにせず、再確認条件を区別する。
+
+完成候補の独立技術・限定文書／直接影響レビューは指摘0。文書Checkerは現行0、歴史CHG旧参照3,353による全体Exit 1。Docker要求・外部AI・Image取得／更新・保持物削除は行っていない。今回のProvider配布記述と隔離要件のOwner照合は完了し、実Runtime全体の成立を追加主張しない。AI Adapter全体完了ではなく、残る名称・Header・公開集合の総点検は後続とする。
+
 #### 初回単位の具体的処置
 
 | 編集対象 | 処置と確認 |

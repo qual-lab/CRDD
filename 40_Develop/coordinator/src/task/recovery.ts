@@ -8,7 +8,7 @@ import { createHash, randomBytes } from "node:crypto";
 import path from "node:path";
 import { setImmediate as yieldRecoveryEvents } from "node:timers/promises";
 import { types as utilTypes } from "node:util";
-import { codexAdviceProviderInitRequired } from "../../../ai-adapter/src/index.ts";
+import { codexAdviceProviderInitRequired } from "../../../docker-isolation/src/index.ts";
 import {
   type createDockerResourceRecoveryExecutor,
   planDockerRecoveryResourceExpectations,

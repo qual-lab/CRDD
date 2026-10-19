@@ -12,10 +12,8 @@ import { describeWorkbenchAiAdviceResultSchema } from "../../src/workbench-ai/ad
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
-  codexAdviceProviderInitRequired,
-  describeCodexAdviceDistributionIdentity,
-} from "../../../ai-adapter/src/index.ts";
+import { describeCodexAdviceDistributionIdentity } from "../../../ai-adapter/src/index.ts";
+import { codexAdviceProviderInitRequired } from "../../../docker-isolation/src/index.ts";
 import { describeCodexExecutionPlanContract } from "../../../ai-adapter/src/index.ts";
 import { planWorkbenchAiAdviceProviderCommand } from "../../../ai-adapter/src/index.ts";
 

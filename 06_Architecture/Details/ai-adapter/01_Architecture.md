@@ -179,6 +179,17 @@ ProfileとProviderの再配置では、Profileの一意解決を`profile/resolve
 
 助言の共通コマンド振分けは`provider/advice-command.ts`、共有型・契約値は`advice-contract.ts`、具体的なCLI引数は既存の各Providerの`execution-plan.ts`が所有する。具象関数はPackage内部だけで利用し、Rootの公開操作は増やさない。結果抽出は`provider/advice-result.ts`に同居させる。一つの返却契約・拒否理由・共通Helperを共有し、Provider別の独立Consumerがないため、追加分割しない。引数、環境、配布Identity、出力の受理集合と拒否順序は不変更。
 
+#### Provider配布記述とDocker技術構成の境界
+
+| 対象 | 所有と理由 |
+|---|---|
+| CLI版・実行Path・配布Hash、互換設定と固定Imageの組合せ | AI Adapterが固定Provider構成として記述する。Image取得・更新や実物検証・起動を行う契約ではない。Taskと助言でCLIの版・包装が異なるため、Image名だけへ切り離さない |
+| Seccompの期待Hash・容量 | AI Adapterは既存Provider実行要件の期待値だけを記述する。固定Artifactの実体観測・同一性照合とDocker引数化はDI。Source Pathは配布追跡用metadataで、上位から任意Host Pathを渡す入力にはしない |
+| 助言Imageの`--init`要否 | DIの既存`execution/command-plan.ts`へ移管する。現在と保持対象の旧Imageのexact二Digest、`workbench_advice`条件を維持する。計画・実行直前・再入場は同じDI公開関数を利用し、AI Adapterへ逆依存しない |
+| 過去の配布・argv実測の固定記述 | 当時の条件を持つ記述として維持し、現在の実物一致・認証・回収・全体E2E成立の証拠にはしない。通常実行へCRDD署名を再導入しない |
+
+`codexAdviceProviderInitRequired`の公開OwnerはAI AdapterからDIへ変更する。名前・引数・真偽条件と保存Schemaは不変更。現在Imageの記述とDI側の固定判定の一致は既存の助言コマンド試験で照合し、未知ImageをProvider名・tag・経過時間から補完しない。新しい配布Registry・設定State・Image更新機構は追加しない。
+
 ### 7.1. 責務別配置と公開操作
 
 構成診断のCodex argvは既存producer上限256件を全descriptor取得前に確認する。超過入力は不正配列と同じ固定fallbackへ閉じ、実行・選定・保存へ影響させない。

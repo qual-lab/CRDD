@@ -11,6 +11,35 @@ import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { types as utilTypes } from "node:util";
 
+/**
+ * 公式助言Imageと未解決の旧助言Imageにinitを要求する。
+ *
+ * @responsibility 起動計画、Effect直前検査と耐久Recoveryで同じinit適用条件を使う。
+ * @trace ARCH-000004
+ * @input operationMode: 実行方式、imageDigest: 固定Image Identity。
+ * @returns 助言方式と現行または回復対象の旧Imageが一致する場合だけtrue。
+ * @precondition 呼出し側がcreate_provider以外へ適用しない。
+ * @postcondition 通常TaskとClaude助言へ波及させず、旧exact Recoveryの構成を保持する。
+ * @effect N/A: 固定Identityを比較するだけである。
+ * @failure N/A: 不一致はfalseとして返す。
+ * @invariant 専用Imageであることを名前やtagから推測しない。
+ * @boundary Provider作成とexactな終了後検査・Recoveryの共通境界。
+ * @security 戻り値は削除Authorityではなく構成上の必要条件だけを示す。
+ * @concurrency N/A: 同期の純粋比較である。
+ */
+export function codexAdviceProviderInitRequired(
+  operationMode: string,
+  imageDigest: string | null,
+) {
+  return (
+    operationMode === "workbench_advice" &&
+    (imageDigest ===
+      "sha256:4f35a6542ee0b412714d558bc38e578bcea00490ec2a1f02f02b88c1226f924e" ||
+      imageDigest ===
+        "sha256:843db607376a454cb7c901e76d4da1d168d6e384912366448df3363b42624d36")
+  );
+}
+
 const executorSeccompProfilePath = fileURLToPath(
   new URL("../../runtime/codex-executor-seccomp.json", import.meta.url),
 );

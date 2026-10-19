@@ -15,7 +15,7 @@ import { stripTypeScriptTypes } from "node:module";
 import path from "node:path";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
-import { codexAdviceProviderInitRequired } from "../../../ai-adapter/src/index.ts";
+import { codexAdviceProviderInitRequired } from "../../../docker-isolation/src/index.ts";
 import {
   planDockerRecoveryResourceExpectations,
   isDockerResourcePurpose,
