@@ -71,6 +71,8 @@ Version ControlのWorktree管理に続き、名前付きCandidateの明示固定
 
 ## 5. 次に何をすべきか
 
+現在は`673aa5c0`までコミット・プッシュ済み。利用者の新しい指示により、次は全17Packageの責務・構造・公開入口・命名・HeaderとArchitecture／規約を見直す。[順序・現物棚卸し・停止条件](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#source-structure-review)を参照する。初回は規約・設計の整合と入口棚卸しで、Source全面移管の完了ではない。以下の回帰・実境界残件も保持し、②のAI再試行と保持物削除は行わない。
+
 | 順序 | 次の作業候補 | 完了条件・停止点 |
 |---|---|---|
 | 1 | 固定版で再現した不整合の局所是正 | 新検証Toolの境界・Consumer、旧前提の試験・台帳・現行説明を接続し、未確定のWindows／Browser事象を区別する。②再試行・保持物削除なし |

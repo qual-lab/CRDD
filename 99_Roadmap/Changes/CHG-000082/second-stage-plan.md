@@ -5,9 +5,77 @@
 対象変更: [CHG-000082](change.md)
 基準改訂版: `98cab6e3278a61684c557a6499cfb602e2d19111`
 維持責任者・採用決定権限: Qual-Lab
-最終更新日: 2026-10-17
+最終更新日: 2026-10-19
 
 ## 1. 結論と実行境界
+
+<a id="source-structure-review"></a>
+
+### 全Packageの構造・責務レビュー — 2026-10-19
+
+現在の構造整理の基準は、コミット・プッシュ済みの`673aa5c0`とする。利用者が提示した10/18「CRDD v0.22 リファクタリング方針・Source Code Structure Review」を基本入力、10/15「共通ルールとモジュール別Before / After案」を補足入力とする。後者の認証・Subscription・Billing専用Folder案は、前者で独立性を確認する方針へ改訂されており、例示Treeをそのまま作成しない。
+
+**今回は全Packageの棚卸しと規約・設計の再整理を開始する。全Packageの移管完了ではない。** Workspace新経路のSource接続と旧Bundle／Store撤去は先行しているが、Phase 01全体の受入完了を主張しない。②の実AI編集E2Eは終了扱い・回収未完了で、unknownと同じ回復参照・保持物を維持する。AI再試行、保持物削除、Docker再起動は本作業へ含めない。構造変更ごとに、この未確認境界と独立して検証できる範囲を確認し、実AI成立を要する変更は別途判断へ戻す。
+
+#### 変更経路と着手前整合確認
+
+| 項目 | 今回の扱い |
+|---|---|
+| 変更分類 | 非自明な保守・Refactor。Source構造規約、Architecture、検査、Package利用側へ影響する |
+| 正本 | 共通命名・配置・Headerは[コーディング規約](../../../06_Architecture/99_Coding_Standards.md)、能力・依存・公開契約は各Package詳細設計。計画本文で再定義しない |
+| 先行整合確認 | 現行規約、17Packageの入口・exports・第一階層と添付案を照合。独立した読み取り確認も実施し、CRUD同居、React Component境界、旧Package列挙の追従を編集対象とした。完成後レビューとは区別する |
+| 維持する意味 | 既存認可、外部送信、Git明示採用、隔離、失敗・取消・回収、Production／Quality Trace。過去Evidenceは不変更 |
+| レビュー・監査 | 規約・設計・利用側の独立レビュー、文書構造と影響伝播確認。実装後はPackage固有静的確認・局所・必要回帰・公開IF確認。実境界は変更した意味から選び、必要時に別途許可を得る |
+| 実行しない判定 | 今回は準拠表明・最終統合・リリースを扱わず、準拠監査や全E2Eを規約編集だけから機械発火しない |
+| 人間判断 | 公開能力の削除、永続／通信契約変更、権限・保証変更、複数の有力な責務配置で利用者影響が異なる場合に、影響・推奨・代替を示す。現在の棚卸し・規約整合には追加判断なし |
+
+#### 実施順序と入口の初回棚卸し
+
+以下は`673aa5c0`の実Path・package exports・binを読んだ初回一覧であり、各File本文・全Consumer・保証の精査完了ではない。全17Packageに`src/index.ts`がある。CLIが存在しないLibraryへ`bin/`を新設する義務はない。
+
+| 順序 | Package | binの実File | 初回の重点 |
+|---:|---|---|---|
+| 1 | ai-adapter | なし | Provider共通／固有処理、Profile・Catalog、静的runtime資産、Docker構成との境界 |
+| 2 | access-management | access-management.ts | access／management／stateの実責務、User／Role／Credential／認可と保存 |
+| 3 | domain-model | なし | Repository／Context／CRUD／保存。公開Subpath `./outcome`の実Consumer |
+| 4 | version-control | なし | Git／Worktree／Candidate／Merge。標準Gitとの責務重複 |
+| 5 | docker-isolation | なし | execution／desktop／cleanup、使い捨て・回収の現在保証 |
+| 6 | coordinator | coordinator.ts | 単発AI調整、provider／task／authority／state-storageの残存責務。公開`./cli`も照合 |
+| 7 | orchestrator | なし | Task／Queue／Workspace／Decision、state／storage／lease等の重複有無 |
+| 8 | execution-intelligence | なし | record／store／projection／evaluationの所有状態と導出可能性 |
+| 9 | checker | checker.ts | Rule・検査・診断。package exports未定義とRoot公開入口の実Consumer |
+| 10 | semantic-coverage | なし | 意味・コンパイル・coverage・migration。`bundle`は名前だけで旧Candidate Storeと同一視しない |
+| 11 | verification-runner | verification-runner.ts | catalog／regression、実行・分類・結果取得の責務 |
+| 12 | artifact-signing | なし | 署名ライブラリの公開範囲、正式配布専用責務。通常Runtimeへ再導入しない |
+| 13 | official-asset-governance | なし | 公式素材の管理判断と署名Packageとの境界 |
+| 14 | visual-preview | visual-preview.ts | Preview起動とbrowserの検証用途、通常製品との境界 |
+| 15 | platform-access | なし | TS公開入口とprivate Rust、filesystem／process／Docker Desktop技術境界 |
+| 16 | mcp-server | なし | MCP Protocolと専門API。配布CLI入口`template/tools/crdd-mcp-server.ts`の実接続を照合 |
+| 17 | workbench-server | workbench-server.ts | HTTP／CSRと専門API、connection／management等。MCP依存を復活させない |
+
+Package個別の順序を基本としつつ、Coordinator／Orchestrator／Docker Isolation／Version Control、Checker／Semantic Coverage／Runner、署名／公式素材、MCP／Workbenchの各境界は横断して照合する。フォルダ名だけから責務逸脱・デッドコード・削除可能を確定しない。
+
+#### Packageごとの作業と完了条件
+
+1. 基準Capability・公開API・bin／配布入口・依存・全Consumer・既存試験と過去Evidenceの成立範囲を対応付ける。
+2. 不要処理の削除・既存Owner／標準機能への委譲、過剰分割の統合を先に評価する。名称変更だけで完了しない。
+3. 残す処理のBefore／After Treeに主要Fileの責務と公開型・関数を付記し、移動・改名・統合・分割・維持の理由を示す。
+4. 実際の責務・状態・操作からSymbol名とHeaderを見直す。通信・永続契約の改名は内部Symbol改名と区別する。
+5. Architecture・Source・公開入口・全Consumer・設定／配布・UT対応・IT以降の検証責務を同じ単位で更新する。旧経路を互換中継として残さない。
+6. 静的確認、正負例、局所・回帰、公開Symbol集合・非公開漏出・deep import・旧参照と必要な実境界を確認し、固定候補を独立レビューへ渡す。
+
+細分化・汎用化・File削減数は目的にせず、新しいRegistry、Lock、Recovery、監視Process、共通Frameworkを追加しない。実現不能な保証や既存能力の喪失を見つけた場合は、追加実装より前に影響を返す。
+
+#### 初回単位の具体的処置
+
+| 編集対象 | 処置と確認 |
+|---|---|
+| コーディング規約§3.2／§4／§4.3／§8 | CRUD同居、静的config／schemas、分割前の削減検討、実Component限定PascalCase、実態に基づくHeader確認、旧Package列挙を更新。公開入口・Header必須項目は維持 |
+| AI Adapter詳細設計 | 現行Treeと目標Treeを区別し、runtime静的5資産のconfig／schemas移動案、共通Providerと固有差・隔離Ownerの照合点を示す |
+| 現在の1,600診断 | 新規約による再評価対象。React27件も実Component利用を確認して分類する。規約更新だけで検査接続済み・診断解消とは表示しない |
+| 次のSource単位 | ai-adapterの全Source・公開API・資産参照・既存Evidenceの対応表を確定してから実装。単なる5資産移動だけでPackage完成としない |
+
+通常CLIのparseと業務手順が独立する例は分割候補、同じ概念の小規模CRUDは非分割候補、保存と排他の境界が交差する例は同居理由を評価、Consumerや由来が不明な旧処理は削除せず確認待ちとする。規約・設計の整理を、未完了E2E・Browser元原因未確定・正式QA未評価の解消へ換算しない。
 
 新方針の現物差分と最初の実装（2026-10-17）: [差分・実装順序](workspace-runtime-inventory.md#10-新方針と既存実装の差分実装順序2026-10-17)を整理した。既存DIに`.env`別maskはなく追加不要、明示コピー防止のsecret検出は一括撤去しない。VCのTree／差分二Adapterを共通の有限Git読取りへ接続し、是正後の静的三軸と全50件成功。続いてWorktree作成・観測・明示終了時の専用Worktree／Branch削除を実装した。filter利用・gitlink作成は未対応として拒否し、独自の変換・管理台帳・State・Lockを追加しない。[実装と実Git試験](workspace-runtime-inventory.md#git-worktree管理の部分実装と実git試験)に現在結果・部分成立・制約を集約する。上位Task／採否の本番接続・Merge・Direct切替・旧Bundle撤去は後続で、今回を全体完成としない。
 

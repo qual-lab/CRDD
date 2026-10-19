@@ -2,7 +2,7 @@
 
 Status: Draft (v0.22.0 Source構造改訂。実装・機械検査の移行は未完了)
 Owner: Qual-Lab
-Last Updated: 2026-10-09
+Last Updated: 2026-10-19
 Scope: `40_Develop/**`の実装と、CRDDが配布する`template/tools/**`の現行Tool本体・起動入口・設定・Schema。v0.21移行目標は本文で区別する
 
 ## 1. 目的と正本
@@ -153,6 +153,10 @@ Source File名はFolderのContextを前提として主要な機能・操作・�
 
 Store、Registry、Catalogは保存方式ではなく責務によって区別する。Registryを保存するStoreは存在し得るが、登録・索引・解決を保存処理へ混同しない。名前が違うという理由だけで三Fileへ分割せず、独立した変更理由で判断する。Adapterは入力・出力契約の変換と外部方式への接続を所有し、新しい業務Ruleを生成しない。同じ責務内の単なる関数分割をAdapterと呼ばない。
 
+`crud.ts`、`register.ts`、`assign.ts`、`command.ts`、`execution.ts`、`validation.ts`、`storage.ts`も、実際の操作・役割を表す場合に使用できる。命名例は閉じた一覧ではなく、例のFileをすべて作る義務でもない。`storage`は永続データの読書き、`state`は現在状態・Snapshot、`lock`は排他を表すが、意味を区別するためだけに三Fileへ分割しない。CLIの入力解釈と独立した業務手順は区別し、独立性のない転送だけの`execution.ts`を追加しない。
+
+Package直下の`config/`は外部CLI・Tool・実行環境へ渡す静的設定、`schemas/`は外部へ渡すデータ契約を置く候補とする。内部型・内部検証は`src/`で所有でき、JSONという拡張子だけで移動先を決めない。必要な資産がないPackageへ空Folderを作らず、実行中の可変状態と静的資産を同じ`runtime/`へ混在させない。
+
 `application`、`runtime`、`core`、`internal`、`service`、`manager`、`helper`、`helpers`、`utils`、`common`、`logic`、`misc`、`port`を、主要責務を隠すFile名として新設してはならない（MUST NOT）。禁止語の機械置換ではなく、所有する状態保持、判断、境界変換、生成、解析、回復等へ改名または分割する。
 
 `runtime`は実行環境・Process・lifecycle自体が製品上の対象であり、他の具体名では表現できない理由を説明できる場合だけ許容する。例えば`node-runtime-version.ts`はRuntimeそのものを対象とする。関連処理の寄せ集めを`*-runtime.ts`にしてはならない。`ports/`、`*-port.ts`、`FooPort`は抽象化の種類しか示さないため原則使用せず、`TaskExecutor`、`IntegrationRecordWriter`、`ExecutionObserver`、`LeaseController`等の提供能力で命名する。InterfaceやTypeによる抽象契約・依存反転、およびArchitecture説明語としてのPortは許容する。外部製品の正式名称、外部固定契約・ecosystemの要求語彙は第2節・3.3節に従い、内部aliasへ無条件に流用しない。
@@ -208,7 +212,9 @@ CRDD所有APIはNamed Exportを基本とし、Default Exportは明確な理由�
 
 Function／Methodは何をするかを示す動詞句とする。`process()`、`handle()`、`execute()`、`run()`、`manage()`だけでは対象・動作を説明できない場合、`handleProviderResult()`等の具体名にする。呼出し箇所から対象と処理内容が明確な既存契約や外部overrideは、第2節の固定語彙境界と合わせて評価する。
 
-Fileの公開責務は原則一つとするが、公開Symbol数を一つに制限する意味ではない。一つの操作の入力型・結果型・実現関数と、それを成立させるprivate Functionは同居してよい。発行・失効・一覧取得等、独立した操作が同居する場合は改名または分割を評価する。File・Functionを行数やサイズだけで分割してはならず、短いFunctionを大量に作ることを目的にしない（MUST NOT）。
+Fileの公開責務は原則一つとするが、公開Symbol数を一つに制限する意味ではない。一つの操作の入力型・結果型・実現関数と、それを成立させるprivate Functionは同居してよい。発行・失効・一覧取得等の操作名が異なるだけで分割せず、同じ概念・変更理由・依存・検証境界に閉じるCRUDは一Fileへまとめてよい。独立した変更理由または境界がある場合に改名・分割を評価する。File・Functionを行数やサイズだけで分割してはならず、短いFunctionを大量に作ることを目的にしない（MUST NOT）。
+
+再編では、不要処理の削除・標準機能または既存Ownerへの委譲、過剰分割の統合、移動・改名、必要な分割の順に検討する。使用頻度の低さや名前の古さだけで不要とせず、既存Capability・全Consumer・失敗／取消／回収・検証根拠を照合する。残す判断も可能であり、削減数を目標にしない。全Packageへ同じFolder構成や中継型を追加しない。
 
 | 対象 | 必ず評価する問い |
 |---|---|
@@ -236,6 +242,7 @@ Sourceの新設・実質変更・再編では、次を評価し、`Applicable: �
 - [ ] Store／Registry／Catalog、Adapter、Runtime・Portの名称が実責務と一致する。
 - [ ] 変更する場合は公開Symbol、全Consumer、試験・配布・設定・現在文書への伝播を照合した。
 - [ ] 未移行Source、未実装の機械検査、判断不能な責務を完成扱いせず追跡した。
+- [ ] 変更後のFile Treeに各Folder／主要Fileの責務を付記し、`src/index.ts`の公開能力と`bin/`の用途へ対応付けた。単なる再export中継、不要な公開Symbol、実装と異なるHeaderを残していない。
 
 #### 規約改訂と実装移行の境界
 
@@ -270,6 +277,8 @@ Sourceの新設・実質変更・再編では、次を評価し、`Applicable: �
 | Booleanの変数 / parameter | 意味に合う補助動詞predicate、または主語＋閉じた状態／イベントpredicate | `isReady`, `hasFindings`, `configurationMatches` |
 | Array / readonly Array | 内容を表す複数形 | `findings`, `candidatePaths` |
 | 真の定数 | `UPPER_SNAKE_CASE` | `MAX_INPUT_BYTES` |
+
+Browser Buildが所有するReact Componentは、JSXの要素型またはReact rendererのComponent契約へ実際に渡す関数・Component bindingに限り`PascalCase`を使う。`memo`／`forwardRef`等のComponent wrapperも実利用を確認する。大文字名、`.tsx`配置または`ReactNode`等の戻り型だけを根拠に通常関数を例外にしない。Hook、イベントHandler、通常Helper、Component内の変数・parameterは通常規則を維持する。File名の`kebab-case`、Header・Trace・本体内識別子の検査は免除しない。この適用境界の機械検査への接続と既存Symbolの評価は、規約更新だけで完了としない。
 
 Boolean規則はBoolean型の変数とparameterへ適用する。`null`または`undefined`を除いたunionの全構成がBooleanまたはBoolean literalである場合もBooleanとして扱う。許可する文法は、次の三つの閉集合だけである。
 
@@ -460,6 +469,8 @@ export function applyHumanDecision(...) {
 
 HeaderはCodeから明白な「値を返す」「関数を実行する」等を反復しない。ArchitectureからImplementation Detailを逆輸入せず、現行実装に存在するという理由だけで新しいCanonical意味を`@trace`へ追加しない。設計由来が不明な場合は推測でHeaderを埋めず、Architecture Gapとして所有工程へ戻す。
 
+再編時は、File Headerを移動先の責務と公開範囲へ、Symbol Headerを実際の入力・判定・失敗・Effect・終了条件へ照合する。名前を文章化しただけのSummaryや、拒否分岐があるのに失敗なしとする説明は是正する。移動だけで保証が増えたとは記述せず、必須項目とProduction／QualityのTrace境界は維持する。Header不足を定型文の大量複製で埋めない。
+
 実装または試験によって、上位正本にない順序、境界、状態、所有、並行性、資源Lifecycle、回復、外部契約または利用者から観測可能な振る舞いが必要だと判明した場合は、[実装知識の上位還元](../27_Architecture.md#44-implementation-knowledge-promotion)を評価する。この評価は任意に省略しない。別言語・別Framework・別の内部構造でも同じ成果または保証へ必要なら`Applicable`として責務を持つ上位工程へ戻し、現在の変更トレースへ候補、還元先、影響する利用側および再開条件を残す。技術固有の方式であり別実装で変更しても保証が変わらない場合は`N/A`とし、その理由をレビューまたは変更トレースから取得可能にする。判断不能な場合は`OPEN`として上位を推測で補完せず、Source HeaderやTestだけを正本の代用にしない。
 
 ```text
@@ -582,7 +593,7 @@ Rust等の言語またはFrameworkの標準配置を維持する場合は、物�
 - Biomeは表現できるTypeScript filenameとsource規則を検査する。
 - Rust sourceは固定toolchainの`rustfmt --check`、rustc、Clippy Warning拒否、`cargo test --locked`、locked buildおよび固定`llvm-tools-preview`によるcoverageで検査する。stable toolchainがbranch mappingを生成せず分母0を返す場合は率へ換算せず`Not Available`とし、region／function／line実測とセキュリティ判断上の検証義務を別の確認として記録する。coverage runnerは実Directoryとして検証したcrate直下の`target`へrun固有Directoryを作り、既存treeを削除または再利用しない。
 - CheckerとCoordinatorのprivate packageが所有する`lint`は、Repository rootのBiome設定を`--error-on-warnings`付きで実行し、Warningが1件以上ある場合は各packageの`check`を失敗させる。Infoはこの継続Gateの失敗条件ではなく、固定版ごとの検証結果として区別する。
-- Checker packageの命名contract testは、ファイル／フォルダの検査母集団を`40_Develop/**`と`template/tools/**`の全Pathとし、未知のsubfolderまたは後続packageも同じ規則へ含める。型付き識別子の検査母集団は、固定TypeScript 7.0.2でCRDD所有の全TypeScript packageが宣言する`tsconfig*.json`から取得する。現在の対象はartifact-signing、checker、coordinator、crdd-domain-library、cros、execution-intelligence、mcp、official-asset-governance、project-operation、orchestrator、runtime-data、semantic-coverage、verification-runnerおよびversion-controlである。実Pathで重複を除いたproject source集合と両Path配下のTypeScript実ファイル集合を完全一致させ、固定件数を母集団Identityの代用にせず、未所属source、project外実体、symbolic link、取得不能または未分類構文を成功扱いにしない。各packageの再生成可能な依存Directoryである`node_modules`はRepository Rootの`.gitignore`で全階層を既定除外し、lockfileだけを追跡する。Checker試験runnerはpackage root以下の`.test.ts`をnested folderまで安全に再帰列挙し、正規化したrelative Pathのordinal順で実行する。root外解決、重複または大文字小文字だけが異なるPath、symbolic link／junction、未対応entryを拒否し、`node_modules`はexact名かつ実Directoryと確認できた場合だけ除外する。runner列挙集合と`40_Develop/checker/tsconfig.json`が所有するChecker試験集合を件数ではなくPathの完全一致で検査し、0件、欠落または余剰を成功扱いにしない。Rust sourceは`40_Develop/platform-access/src/**`と`40_Develop/platform-access/tests/**`の閉集合として別に扱い、固定件数ではなく許可Rootへの包含と空集合拒否を確認し、TypeScript projectへ算入しない。型から完全判定できない動詞句、責務名および自然言語上の妥当性は独立reviewで確認し、機械検査だけを規約全体の完全証明としない。
+- Checker packageの命名contract testは、ファイル／フォルダの検査母集団を`40_Develop/**`と`template/tools/**`の全Pathとし、未知のsubfolderまたは後続packageも同じ規則へ含める。型付き識別子の検査母集団は、固定TypeScript 7.0.2でCRDD所有の全TypeScript packageが宣言する標準`tsconfig.json`および用途別TypeScript設定から取得する。対象Packageと設定は現行の`40_Develop/*/package.json`、各Packageの公開入口・SourceとTypeScript設定から列挙する。2026-10-19の17Packageは[現行棚卸し](../99_Roadmap/Changes/CHG-000082/second-stage-plan.md#source-structure-review)に示すが、その件数を検査母集団の固定値にしない。実Pathで重複を除いたproject source集合と両Path配下のTypeScript実ファイル集合を完全一致させ、固定件数を母集団Identityの代用にせず、未所属source、project外実体、symbolic link、取得不能または未分類構文を成功扱いにしない。各packageの再生成可能な依存Directoryである`node_modules`はRepository Rootの`.gitignore`で全階層を既定除外し、lockfileだけを追跡する。Checker試験runnerはpackage root以下の`.test.ts`をnested folderまで安全に再帰列挙し、正規化したrelative Pathのordinal順で実行する。root外解決、重複または大文字小文字だけが異なるPath、symbolic link／junction、未対応entryを拒否し、`node_modules`はexact名かつ実Directoryと確認できた場合だけ除外する。runner列挙集合と`40_Develop/checker/tsconfig.json`が所有するChecker試験集合を件数ではなくPathの完全一致で検査し、0件、欠落または余剰を成功扱いにしない。Rust sourceは`40_Develop/platform-access/src/**`と`40_Develop/platform-access/tests/**`の閉集合として別に扱い、固定件数ではなく許可Rootへの包含と空集合拒否を確認し、TypeScript projectへ算入しない。型から完全判定できない動詞句、責務名および自然言語上の妥当性は独立reviewで確認し、機械検査だけを規約全体の完全証明としない。
 - 命名contract testの移行先は3.2節を正本とし、曖昧なSource File名、責務単位の共有型の`types.ts`配置と実行値・実処理の非混在、標準公開入口および正式公開Subpathの入口FileのPackage Headerおよび無名Barrel Exportを検査する。子Directoryの`index.ts`不存在と`bin/`主要File名も検査対象とする。局所型を一律に別Fileへ移す判定を使用しない。責務別配置と無関係な型集積の不存在はArchitectureとの照合・独立reviewでも確認する。Git管理から除外した再生成可能な依存Directory `node_modules`とBrowser Build出力Directory `dist`はSource母集団へ含めず、Sourceと生成JavaScriptを二重検査しない。公開Header本文の意味、`@trace`が示す設計との一致、固定tagと非該当理由の十分性および非公開Symbolの公開漏れは、機械検査の成功だけで成立済みとせず独立reviewで確認する。今回の規約改訂で検査実装は変更していない。旧検査条件と新規約の差分、対象母集団と未移行をCHG-000082で追跡し、新規約の検査実装済み・全Source適合と表示しない。
 - `template/tools/**`の実行入口は、その入口を実装する責務の型検査Projectへexactに一度だけ所属させる。Checker入口`template/tools/crdd-check.ts`は`40_Develop/checker/tsconfig.json`が所有する。Coordinator入口`template/tools/crdd-coordinator.ts`とMCP入口`template/tools/crdd-mcp-server.ts`は、配布対象を増やさない`40_Develop/checker/template-tools-tsconfig.json`が所有し、通常のChecker source projectへ混在させない。新しい入口を追加する場合は、実体の追加と同じ変更で所有Projectを明示し、未所属または複数Projectへの重複所属を許可しない。
 - Runtime実行Identityへ含めるDirectoryには、実行時に読み取る設定、Policy、Schema、Native成果物その他の実依存だけを置く。設計対応、試験台帳、Coverage、監査入力その他の検証専用投影は`07_Quality`へ置き、実行時Directoryへ混在させない。配布Toolであることだけを理由にCoordinatorのRuntime実行Identityへ含めず、公開入口または正式な署名・検証入口から到達する依存閉包で判定する。誤配置を是正して実行集合が変わる場合は、その一回のIdentity変更を検証し、以後の文書・検証投影更新がRuntime再署名を発火しないことを確認する。

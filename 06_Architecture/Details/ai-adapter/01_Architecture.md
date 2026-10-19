@@ -149,6 +149,28 @@ Production Compositionの専用Dispatch、固定Adapter選択、Repository非共
 
 ## 7. Provider差の公開契約と実行境界
 
+### Source構造レビューの目標と現行の区別（2026-10-19）
+
+全Packageの[再編計画](../../../99_Roadmap/Changes/CHG-000082/second-stage-plan.md#source-structure-review)に従い、以下を現物照合する。現行`src/`は`advice`、`catalog`、`claude`、`codex`、`output`、`profile`、静的5資産は`runtime/`にある。以下は目標候補であり、Source移管済みを示さない。
+
+```text
+ai-adapter/
+├ src/
+│  ├ index.ts        Profile・Provider計画・結果の明示公開
+│  ├ provider/       実在する共通契約・解析。例示だけの型や中継は作らない
+│  ├ profile/        選定・契約条件・Owner別保存
+│  ├ catalog/        定義済みModel／Profileの検証・解決
+│  ├ codex/          Codex固有の引数・認証・出力差
+│  └ claude/         Claude固有の引数・認証・出力差
+├ config/           Claude managed／task静的設定
+├ schemas/          Codex fixed／executor／reviewer結果Schema
+└ tests/            既存保証を新配置で確認
+```
+
+静的資産は`runtime/claude-managed-settings.json`と`claude-task-settings.json`を同名で`config/`へ、`codex-result-schema.json`、`codex-executor-result-schema.json`、`codex-reviewer-result-schema.json`をそれぞれ`schemas/codex-result.json`、`codex-executor-result.json`、`codex-reviewer-result.json`へ移す方針とする。JSON本文・Container内Path・版・Hash契約は場所変更だけを理由に変更しない。全Reader、Docker Build／Mount、Hash・Size検証、配布・試験の接続確認が移管の条件である。
+
+`advice/`・`output/`は内容を共通契約、Provider固有変換、上位用途の判断へ分類してから移動・統合する。Subscription／Billing／認証に専用Folderを機械的に作らず、Profile属性・Provider固有手順と独立した責務を区別する。Provider記述中のImage／Seccomp等はDocker技術構成とProvider固有要件を照合し、単純移動や上位への逆依存で解消しない。公開Symbol集合、通信契約・永続Schemaの変更は内部Path整理と別に評価する。
+
 ### 7.1. 責務別配置と公開操作
 
 構成診断のCodex argvは既存producer上限256件を全descriptor取得前に確認する。超過入力は不正配列と同じ固定fallbackへ閉じ、実行・選定・保存へ影響させない。
