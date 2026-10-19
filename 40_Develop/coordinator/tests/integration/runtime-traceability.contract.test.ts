@@ -104,9 +104,9 @@ test("Coordinator Runtime TraceはArchitecture・実在試験・検証区分を�
     inspectCoordinatorRuntimeTraceability(trace, repositoryReader),
     {
       status: "accepted",
-      resources: 9,
-      states: 18,
-      transitions: 19,
+      resources: 8,
+      states: 17,
+      transitions: 18,
       attemptClassifications: 0,
       invariants: 10,
       verificationBindings: 7,
@@ -409,7 +409,7 @@ test("検証caseのsource未接続・未観測資源・拒否結果の誤到達�
   taskNormal.cases = cases;
   taskNormal.observedResources = (
     taskNormal.observedResources as string[]
-  ).filter((resource) => resource !== "RES-CANDIDATE-ENTRY");
+  ).filter((resource) => resource !== "RES-HOST-GENERATION");
   trace.verificationBindings = bindings;
   const result = inspectCoordinatorRuntimeTraceability(trace, repositoryReader);
   assert.equal(result.status, "blocked");
@@ -422,7 +422,7 @@ test("検証caseのsource未接続・未観測資源・拒否結果の誤到達�
     assert.ok(result.issues.includes("VER-TASK-NORMAL:test_case_id_not_found"));
     assert.ok(
       result.issues.includes(
-        "VER-TASK-NORMAL:case_resource_not_observed:RES-CANDIDATE-ENTRY",
+        "VER-TASK-NORMAL:case_resource_not_observed:RES-HOST-GENERATION",
       ),
     );
   }

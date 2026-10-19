@@ -270,6 +270,18 @@ for (const publicationFault of [
   "restart_cli_entry",
   "restart_auth_cli_entry",
 ] as const) {
+  /**
+   * 実意図保存・Host遷移・token確定を同じ実Snapshotへ接続する。
+   * @responsibility 遷移・Host清掃各二版と解放後終端一版の完全期待値、元結果保持、再処置0と全自己生成物清掃を確認する。
+   * @trace ERB-IT-014
+   * @precondition Windows実Kernel排他と自己生成Git Repositoryだけを使う。
+   * @stimulus 正規開始・disabled Ownerの新回収、同cap再実行とfresh settled再入場、結果引渡し前の失敗を行う。
+   * 再起動結果の代役を使う条件では公開組立ての保存後に別Process通常CLIへ接続する。auth形は模擬二回不存在と専用実Writerを通す。実再起動は対象外。
+   * @observation 遷移・清掃各二回のstate公開本文、改訂／元版Hash、実marker、他操作と元結果。
+   * @oracle 親子の独立予定tokenと全本文が一致し、遷移・清掃は各保存二回、終端は全解放後一回だけ。既存結果・一次失敗は保持し、結果欠測は固定blockedとする。
+   * @cleanup 子が全準備を解放後にexact Hostを回収し、親は不存在確認後だけ試験Repositoryを削除する。
+   * @boundary ERB-IT-014=Related 2 Blocks: 別Process現在回収→実Host／状態Writer。実Docker・競合CAS・pending旧／予定再入場は対象外。
+   */
   test(`Host Windows: 現在Host遷移と清掃の実保存・出版再入場 ${publicationFault}`, async (t) => {
     const area = requireReadyRepositoryRuntimeDataArea(
       ensureRepositoryRuntimeDataAreaFromWorkingDirectory(

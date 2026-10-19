@@ -66,6 +66,10 @@ const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
  * @boundary 試験の開始準備とRepository-local Filesystem。
  * @security OS一時領域・Host管理領域を使用しない。
  * @concurrency 既存Directoryは再利用し、各modeの専用Directoryはmkdtempで分離する。
+ * @stimulus 許可済みRoot直下の固定tests Directoryを作成する。
+ * @observation 返却Pathと固定Directoryの存在。
+ * @oracle 入力Rootの外へfallbackせず既存共有領域を削除しない。
+ * @cleanup mode別自己生成Directoryは親Caseが回収し共有tests Rootは保持する。
  */
 async function prepareCredentialBrowserTestRoot(root: string): Promise<string> {
   const testRoot = path.join(root, ".crdd", "tests");
@@ -87,6 +91,10 @@ async function prepareCredentialBrowserTestRoot(root: string): Promise<string> {
  * @boundary 専用Browserと自己生成Filesystem。
  * @security Endpointをログへ出さない。
  * @concurrency BrowserのFile確定まで100ms間隔で再観測する。
+ * @stimulus 同じProfileのDevToolsActivePortを期限内で再読取りする。
+ * @observation portとbrowserPath、元Processの終了有無。
+ * @oracle 正規localhost相関が成立しない限り起動成功を返さない。
+ * @cleanup 所有BrowserとProfileはCaseのafterで終了・不存在を確認する。
  */
 async function readBrowserEndpoint(profile: string, child: ChildProcess) {
   const deadline = Date.now() + 30_000;
@@ -118,7 +126,7 @@ async function readBrowserEndpoint(profile: string, child: ChildProcess) {
  * 所有Browserの固定CDP要求を一回だけ送る。
  * @responsibility 応答相関・期限・WebSocket終了を所有し、例外本文や秘密を返さない。
  * @trace RFD-ST-016
- * @input 同じ操作のlocalhost Endpoint、固定methodとparams、任意Profile表示領域、固定の単一／複合評価区分。
+ * @input 同じ操作のlocalhost Endpoint、固定methodとparams、任意Profile表示領域、固定の単一／複合評価区分、省略可能な閉じた評価地点。
  * @returns Runtime評価のboolean／counter／非秘密寸法。その他はtrue。
  * @precondition 利用者入力・Network本文・Header・画像を要求しない。
  * @postcondition WebSocketのclose後だけ完了する。
@@ -128,6 +136,10 @@ async function readBrowserEndpoint(profile: string, child: ChildProcess) {
  * @boundary 試験専用localhost DevTools。
  * @security 鍵比較はBrowser内だけで行う。
  * @concurrency 通常はID1、Profileは同一接続内でID0設定→1計測／focus→2 keyDown→3 keyUp→4 focus確認を順次受理し、成功・失敗ともcloseでTimerを回収する。
+ * @stimulus 固定methodとparamsを所有Browserへ送る。
+ * @observation 相関IDの応答、有限計測値、WebSocket close。
+ * @oracle 不正相関・期限・評価失敗を固定Errorとして返す。
+ * @cleanup 成功失敗ともTimerとWebSocketをcloseまで回収する。
  */
 async function requestBrowser(
   url: string,
@@ -135,6 +147,12 @@ async function requestBrowser(
   params: Record<string, unknown> = {},
   viewport?: Readonly<{ width: number; height: number }>,
   evaluation: "single" | "composite" = "single",
+  evaluationStep?:
+    | "local_partial_conflict"
+    | "local_partial_unavailable"
+    | "local_ready"
+    | "local_connect"
+    | "local_navigation",
 ): Promise<unknown> {
   const socket = new WebSocket(url);
   return await new Promise((resolve, reject) => {
@@ -251,7 +269,9 @@ async function requestBrowser(
             diagnostic.includes("Execution context was destroyed") ||
               diagnostic.includes("Cannot find context")
               ? "credential_browser_context_replaced"
-              : "credential_browser_evaluation_failed",
+              : evaluationStep === undefined
+                ? "credential_browser_evaluation_failed"
+                : `credential_browser_evaluation_failed_${evaluationStep}`,
           );
         } else
           outcome =
@@ -280,6 +300,99 @@ async function requestBrowser(
 }
 
 /**
+ * Browser評価の失敗は閉じた地点だけを伴い機密を返さない。
+ * @responsibility 実requestBrowserの失敗拒否と固定診断を有限Transportで確認する。
+ * @trace RFD-ST-003
+ * @precondition WebSocketだけを同Process内の有限応答へ置換する。
+ * @stimulus 機密風description付き評価失敗を地点あり・なしで返す。
+ * @observation 拒否理由、cause非保持、正常応答値とclose後の完了。
+ * @oracle 生例外を返さず地点なしは従来理由、地点ありは固定理由のまま拒否する。
+ * @cleanup finallyで元WebSocketを復元し各要求のTimerをcloseで解除する。
+ * @boundary CDP応答の局所搬送だけ。実Browserや外部通信は発行しない。
+ */
+test("Browser評価失敗の診断は固定地点だけを公開する", async () => {
+  const original = globalThis.WebSocket;
+  let reply: unknown;
+  class ProtocolSocket extends EventTarget {
+    constructor() {
+      super();
+      queueMicrotask(() => this.dispatchEvent(new Event("open")));
+    }
+    send() {
+      queueMicrotask(() =>
+        this.dispatchEvent(
+          new MessageEvent("message", {
+            data: JSON.stringify(reply),
+          }),
+        ),
+      );
+    }
+    close() {
+      this.dispatchEvent(new Event("close"));
+    }
+  }
+  globalThis.WebSocket = ProtocolSocket as unknown as typeof WebSocket;
+  try {
+    for (const step of [
+      undefined,
+      "local_partial_conflict",
+      "local_partial_unavailable",
+      "local_ready",
+      "local_connect",
+      "local_navigation",
+    ] as const) {
+      reply = {
+        id: 1,
+        result: {
+          exceptionDetails: {
+            exception: { description: "fixture-secret-token-never-output" },
+          },
+        },
+      };
+      await assert.rejects(
+        requestBrowser(
+          "ws://fixture.invalid",
+          "Runtime.evaluate",
+          {},
+          undefined,
+          "single",
+          step,
+        ),
+        (error: unknown) => {
+          assert.ok(error instanceof Error);
+          assert.equal(
+            error.message,
+            step === undefined
+              ? "credential_browser_evaluation_failed"
+              : `credential_browser_evaluation_failed_${step}`,
+          );
+          assert.equal(error.cause, undefined);
+          assert.equal(
+            String(error).includes("fixture-secret-token-never-output"),
+            false,
+          );
+          return true;
+        },
+      );
+    }
+    reply = { id: 1, result: { result: { value: true } } };
+    assert.equal(
+      await requestBrowser(
+        "ws://fixture.invalid",
+        "Runtime.evaluate",
+        {},
+        undefined,
+        "single",
+        "local_ready",
+      ),
+      true,
+    );
+  } finally {
+    globalThis.WebSocket = original;
+  }
+});
+
+/**
  * 本番CSRの操作反証を固定Browser式へ構成する。
  * @responsibility 鍵をDOMと同じBrowser内でだけ比較し、非秘密判定だけ返す。
  * @trace RFD-ST-016
@@ -293,10 +406,25 @@ async function requestBrowser(
  * @boundary 専用Browserの本番DOMとfetch。
  * @security 要求/応答Bodyの比較はBrowser内のみで、結果はboolean/counter。
  * @concurrency 重複submitの一要求化と次操作開始時の消去を観測する。
+ * @stimulus 指定modeの資格操作と一回の通信故障を式に組み込む。
+ * @observation DOM提示・一要求化・GET/URL/Storageの非保持を示すboolean。
+ * @oracle 鍵比較をBrowser内に閉じて秘密値を返却しない。
+ * @cleanup 式のfinallyでfetch復元、親CaseがBrowser/Profileを回収する。
  */
 function credentialBrowserExpression(mode: "issue" | "self" | "all"): string {
   return `(async () => {
     const mode = ${JSON.stringify(mode)};
+    /**
+     * 資格Formの描画と一回提示を待つ。
+     * @responsibility 資格Formの描画と一回提示を待つ。
+     * @trace RFD-ST-016
+     * @precondition 資格操作を描画した同Origin画面。
+     * @stimulus 15秒内で条件を再評価し成立trueまたは期限falseを返す。
+     * @observation Form・短命鍵・旧接続の各条件。
+     * @oracle 未成立は親式が固定失敗とし提示成功を捏造しない。
+     * @cleanup Timerは各待機で完了し、親CaseがBrowser・Server・Profileを終了確認する。
+     * @boundary 専用Browser内DOMの有限観測。返却は非秘密の判定だけ。
+     */
     const waitFor = async (condition) => { const end = Date.now() + 15000; while(Date.now() < end) { if(condition()) return true; await new Promise(r => setTimeout(r, 50)); } return false; };
     if(!await waitFor(() => document.querySelector('#credential-administration form'))) throw new Error('credential_browser_dom_unavailable');
     const originalFetch = window.fetch.bind(window);
@@ -315,6 +443,17 @@ function credentialBrowserExpression(mode: "issue" | "self" | "all"): string {
     };
     const operation = mode === 'issue' ? 'issue' : mode === 'self' ? 'exchange-user' : 'exchange-all';
     const userId = mode === 'issue' ? '00000000-0000-4000-8000-000000000004' : '00000000-0000-4000-8000-000000000003';
+    /**
+     * 指定資格操作とUser IDに一致するFormだけを選ぶ。
+     * @responsibility 指定資格操作とUser IDに一致するFormだけを選ぶ。
+     * @trace RFD-ST-016
+     * @precondition 固定operationとuserId。
+     * @stimulus 資格panelのForm集合から二field一致を選ぶ。
+     * @observation 対象Formまたはundefined。
+     * @oracle 別Userの資格操作をsubmitしない。
+     * @cleanup N/A: DOM読取りのみ。親Caseが所有Browserを終了する。
+     * @boundary 本番DOM内の対象選択。Nodeへ秘密値を返さない。
+     */
     const selectForm = () => Array.from(document.querySelectorAll('#credential-administration form')).find(f => f.elements.namedItem('operation')?.value === operation && f.elements.namedItem('userId')?.value === userId);
     const form = selectForm(); if(!form) throw new Error('credential_browser_form_unavailable');
     if(mode === 'all') form.elements.namedItem('confirmed').checked = true;
@@ -355,6 +494,10 @@ function credentialBrowserExpression(mode: "issue" | "self" | "all"): string {
  * @boundary 本番DOMと同Origin管理POST。固定応答注入は表示だけの反証で、実清掃故障の証明ではない。
  * @security 自己生成の名前・Role・登録Rootだけを操作Formへ渡す。試験資格は認証Headerと再接続だけに使用し、返却値へ含めない。
  * @concurrency 重複submitを観測し、各fresh投影を待って次の操作へ進む。
+ * @stimulus 通常管理Formの保存と用途限定応答故障を順に操作する。
+ * @observation 保存回数、fresh投影、focus、拒否・不明表示のboolean。
+ * @oracle 二重submitは一回、再観測だけで暗黙再送をしない。
+ * @cleanup Browser内fetchを復元しServerとProfileを親Caseが回収する。
  */
 function managementBrowserExpression(
   exerciseFailures = false,
@@ -362,8 +505,44 @@ function managementBrowserExpression(
   registrationRoot?: string,
 ): string {
   return `(async () => {
+    /**
+     * 管理Formの保存後描画を有限時間で待つ。
+     * @responsibility 管理Formの保存後描画を有限時間で待つ。
+     * @trace RFD-ST-022
+     * @trace EST-ST-013
+     * @precondition 本番管理CSRを同Originで評価している。
+     * @stimulus 15秒の条件再観測後、未成立なら固定例外。
+     * @observation 対象Formと保存結果の再描画。
+     * @oracle 期限切れを正常な管理保存完了として返さない。
+     * @cleanup Timerは各待機で完了し、親CaseがBrowser・Server・Profileを終了確認する。
+     * @boundary 専用Browser内DOMの有限観測。返却は非秘密の判定だけ。
+     */
     const waitFor = async (condition) => { const end=Date.now()+15000; while(Date.now()<end) { if(condition()) return true; await new Promise(r=>setTimeout(r,50)); } throw new Error('management_browser_wait_failed'); };
+    /**
+     * 通常管理の現在panelだけを取得する。
+     * @responsibility 通常管理の現在panelだけを取得する。
+     * @trace RFD-ST-022
+     * @trace EST-ST-013
+     * @precondition 本番管理画面。
+     * @stimulus access-managementのDOMを選ぶ。
+     * @observation 現在panelまたはnull。
+     * @oracle 他panelを管理Formの代用にしない。
+     * @cleanup N/A: DOM読取りのみ。親Caseが所有Browserを終了する。
+     * @boundary 本番DOM内の対象選択。Nodeへ秘密値を返さない。
+     */
     const panel = () => document.querySelector('#access-management');
+    /**
+     * 管理操作と任意field値に一致するFormを選ぶ。
+     * @responsibility 管理操作と任意field値に一致するFormを選ぶ。
+     * @trace RFD-ST-022
+     * @trace EST-ST-013
+     * @precondition 管理panelと固定操作値。
+     * @stimulus 同じpanel内のoperation/field値を照合する。
+     * @observation 対象Formまたはundefined。
+     * @oracle 別Userや別操作のFormへ送信しない。
+     * @cleanup N/A: DOM読取りのみ。親Caseが所有Browserを終了する。
+     * @boundary 本番DOM内の対象選択。Nodeへ秘密値を返さない。
+     */
     const formFor = (operation, field, value) => Array.from(panel()?.querySelectorAll('form') ?? []).find(f => f.elements.namedItem('operation')?.value === operation && (!field || f.elements.namedItem(field)?.value === value));
     await waitFor(() => formFor('registerUser'));
     const exerciseFailures = ${JSON.stringify(exerciseFailures)};
@@ -984,8 +1163,42 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
             expression: `(async()=>{
             const key=${JSON.stringify(material.token)}, originalFetch=window.fetch;let posts=0,authenticated=true,stage='connect';
             window.fetch=(input,options)=>{if(new URL(String(input),location.href).pathname==='/repository/action'){posts++;authenticated=authenticated&&new Headers(options?.headers).get('authorization')==='Bearer '+key;}return originalFetch(input,options);};
+            /**
+             * Git操作の描画と結果確定を期限内で待つ。
+             * @responsibility Git操作の描画と結果確定を期限内で待つ。
+             * @trace ERB-ST-022
+             * @trace RFD-ST-015
+             * @precondition Repository操作の本番DOM。
+             * @stimulus 10秒以内のpredicate成立を待つ。
+             * @observation 操作Formと固定結果reason。
+             * @oracle 期限でgit_ui_unconfirmedとなり次操作へ進まない。
+             * @cleanup Timerは各待機で完了し、親CaseがBrowser・Server・Profileを終了確認する。
+             * @boundary 専用Browser内DOMの有限観測。返却は非秘密の判定だけ。
+             */
             const wait=async(predicate)=>{const end=Date.now()+10000;while(Date.now()<end){if(predicate())return true;await new Promise(resolve=>setTimeout(resolve,40));}throw new Error('git_ui_unconfirmed');};
+            /**
+             * 指定Git操作の現在Formを選ぶ。
+             * @responsibility 指定Git操作の現在Formを選ぶ。
+             * @trace ERB-ST-022
+             * @precondition 本番Repository panelの固定操作名。
+             * @stimulus operation fieldが一致するFormを取得する。
+             * @observation prepare・unprepare・Commit・PushのForm。
+             * @oracle 別操作の完了を同じ操作の成功に使わない。
+             * @cleanup N/A: DOM読取りのみ。親Caseが所有Browserを終了する。
+             * @boundary 本番DOM内の対象選択。Nodeへ秘密値を返さない。
+             */
             const form=(operation)=>document.querySelector('#repository form:has([name=operation][value='+operation+'])');
+            /**
+             * Git結果reasonと操作再開可能を共同確認する。
+             * @responsibility Git結果reasonと操作再開可能を共同確認する。
+             * @trace ERB-ST-022
+             * @precondition 同じGit操作の結果表示。
+             * @stimulus 結果本文のreasonとfieldsetのdisabledを読む。
+             * @observation 同じreasonの表示と有効化の真偽。
+             * @oracle 結果表示だけで待機中の処理を完了としない。
+             * @cleanup N/A: DOM読取りのみ。親Caseが所有Browserを終了する。
+             * @boundary 本番DOM内の対象選択。Nodeへ秘密値を返さない。
+             */
             const settled=(reason)=>document.querySelector('.repository-operation-surface .operation-result')?.innerText.includes(reason)&&!document.querySelector('.repository-operation-surface fieldset')?.disabled;
             try{
               document.querySelector('#connection input[name=token]').value=key;document.querySelector('#connection form').requestSubmit();
@@ -1039,7 +1252,29 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
           "Runtime.evaluate",
           {
             expression: `(async()=>{
+            /**
+             * Workspace操作の受付と再取得表示を待つ。
+             * @responsibility Workspace操作の受付と再取得表示を待つ。
+             * @trace ERB-ST-022
+             * @precondition 本番Workspace panelと有限応答故障。
+             * @stimulus 10秒内で対象UI条件を再観測する。
+             * @observation 受付一覧・結果未確認・終了表示。
+             * @oracle 未確認応答を成功とせず期限で停止する。
+             * @cleanup Timerは各待機で完了し、親CaseがBrowser・Server・Profileを終了確認する。
+             * @boundary 専用Browser内DOMの有限観測。返却は非秘密の判定だけ。
+             */
             const wait=async(predicate)=>{const end=Date.now()+10000;while(Date.now()<end){if(predicate())return true;await new Promise(resolve=>setTimeout(resolve,40));}throw new Error('workspace_ui_unconfirmed');};
+            /**
+             * Workspace panelと現在操作要素を同じ対象から取得する。
+             * @responsibility Workspace panelと現在操作要素を同じ対象から取得する。
+             * @trace ERB-ST-022
+             * @precondition Workspace画面を描画した状態。
+             * @stimulus panel・表示名一致button・statusを同じDOMから読む。
+             * @observation 操作要素と固定表示。
+             * @oracle 不正応答時に別Workspaceの表示を採用しない。
+             * @cleanup N/A: DOM読取りのみ。親Caseが所有Browserを終了する。
+             * @boundary 本番DOM内の対象選択。Nodeへ秘密値を返さない。
+             */
             const panel=()=>document.querySelector('#workspaces'), button=(text)=>[...panel().querySelectorAll('button')].find(b=>b.textContent===text), notice=()=>panel().querySelector('[role=status]')?.textContent;
             const originalFetch=window.fetch;let creates=0,renames=0,corrupt=false;
             window.fetch=async(input,options)=>{const route=new URL(String(input),location.href).pathname;const command=route==='/workspace/action'?JSON.parse(new URLSearchParams(String(options.body)).get('command')):null;if(command?.operation==='create')creates++;if(command?.operation==='rename')renames++;const response=await originalFetch(input,options);if(corrupt===true&&command?.operation==='rename'){await response.arrayBuffer();return new Response('{',{headers:{'content-type':'application/json'}});}if(typeof corrupt==='string'&&command?.operation==='get'){const result=await response.json();if(corrupt==='wrong-id')result.data.workspace.workspaceId='00000000-0000-4000-8000-000000000099';if(corrupt==='bad-paths')result.data.changedPaths=[{}];if(corrupt==='fixture-paths')result.data.changedPaths=['synthetic-changed.txt'];return new Response(JSON.stringify(result),{headers:{'content-type':'application/json'}});}if(corrupt==='bad-status'&&command?.operation==='rename'){const result=await response.json();result.data.status='made-up';return new Response(JSON.stringify(result),{headers:{'content-type':'application/json'}});}return response;};
@@ -1095,8 +1330,41 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
             expression: `(async()=>{
             const originalFetch=window.fetch;let posts=0,failRead=false,corrupt=false,hold=false,release=null,signal=null,stage='saved-read-failure';
             window.fetch=async(input,options)=>{const route=new URL(String(input),location.href).pathname;if(route==='/api/workbench-view'&&failRead)throw new Error('fixture_read_failure');if(route==='/repository/action')posts++;const response=await originalFetch(input,options);if(route==='/repository/action'&&corrupt){await response.arrayBuffer();return new Response('{',{headers:{'content-type':'application/json'}});}if(route==='/repository/action'&&hold){signal=options.signal;return new Promise(resolve=>{release=()=>resolve(response);});}return response;};
+            /**
+             * Git応答故障後の拒否・不明表示を待つ。
+             * @responsibility Git応答故障後の拒否・不明表示を待つ。
+             * @trace ERB-ST-022
+             * @precondition 実Git操作に用途限定fetch故障を加えた画面。
+             * @stimulus 10秒内の結果または再取得条件を待つ。
+             * @observation 既知保存・不明・再取得後Form。
+             * @oracle 表示未成立ならgit_fault_unconfirmedとして停止する。
+             * @cleanup Timerは各待機で完了し、親CaseがBrowser・Server・Profileを終了確認する。
+             * @boundary 専用Browser内DOMの有限観測。返却は非秘密の判定だけ。
+             */
             const wait=async(predicate)=>{const end=Date.now()+10000;while(Date.now()<end){if(predicate())return true;await new Promise(resolve=>setTimeout(resolve,40));}throw new Error('git_fault_unconfirmed');};
+            /**
+             * Git故障試験の現在操作Formを取得する。
+             * @responsibility Git故障試験の現在操作Formを取得する。
+             * @trace ERB-ST-022
+             * @precondition 固定Git操作名と現在Repository画面。
+             * @stimulus operation selectorでFormを選ぶ。
+             * @observation 再取得後の対象Form。
+             * @oracle 不明応答中の古いFormを次操作へ再使用しない。
+             * @cleanup N/A: DOM読取りのみ。親Caseが所有Browserを終了する。
+             * @boundary 本番DOM内の対象選択。Nodeへ秘密値を返さない。
+             */
             const form=(operation)=>document.querySelector('#repository form:has([name=operation][value='+operation+'])');
+            /**
+             * Git故障時の結果案内を現在表示から読む。
+             * @responsibility Git故障時の結果案内を現在表示から読む。
+             * @trace ERB-ST-022
+             * @precondition repository-operation-surfaceがある。
+             * @stimulus 同surfaceのstatus本文を読む。
+             * @observation 拒否・既知保存・結果未確認の案内。
+             * @oracle 異なる分類を同じ完了通知へ畳まない。
+             * @cleanup N/A: DOM読取りのみ。親Caseが所有Browserを終了する。
+             * @boundary 本番DOM内の対象選択。Nodeへ秘密値を返さない。
+             */
             const notice=()=>document.querySelector('.repository-operation-surface [role=status]')?.innerText;
             try{
               failRead=true;form('prepare').requestSubmit();await wait(()=>notice()?.includes('操作の完了は確認済み')&&!document.querySelector('#repository'));
@@ -1156,8 +1424,41 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
           expression: `(async()=>{
             const key=${JSON.stringify(material.token)}, originalFetch=window.fetch;let authenticated=0,reads=0,stage='connect';
             window.fetch=(input,options)=>{if(new URL(String(input),location.href).pathname==='/api/workbench-view'){reads++;if(new Headers(options.headers).get('authorization')==='Bearer '+key)authenticated++;}return originalFetch(input,options);};
+            /**
+             * 成果物の対象切替後の本文描画を待つ。
+             * @responsibility 成果物の対象切替後の本文描画を待つ。
+             * @trace ERB-ST-022
+             * @precondition 本番Artifact詳細の遷移前画面。
+             * @stimulus 10秒以内の選択対象と本文条件を検査する。
+             * @observation 対象本文と見出し表示。
+             * @oracle 旧対象の本文を新対象の完了表示に使わない。
+             * @cleanup Timerは各待機で完了し、親CaseがBrowser・Server・Profileを終了確認する。
+             * @boundary 専用Browser内DOMの有限観測。返却は非秘密の判定だけ。
+             */
             const wait=async(predicate)=>{const end=Date.now()+10000;while(Date.now()<end){if(predicate())return true;await new Promise(r=>setTimeout(r,40));}throw new Error('artifact_navigation_unconfirmed');};
+            /**
+             * 成果物の同Originリンク遷移を本番CSRへ届ける。
+             * @responsibility 成果物の同Originリンク遷移を本番CSRへ届ける。
+             * @trace ERB-ST-022
+             * @precondition 固定された同Originの試験href。
+             * @stimulus 一時anchorをReact Root内へ追加してclickする。
+             * @observation CSRの現在対象と表示本文。
+             * @oracle 通常のリンク搬送を経て旧対象の遅延結果を採用しない。
+             * @cleanup click直後に自分で作成したanchorだけを除去する。
+             * @boundary 専用Browser DOM。直接Owner APIで遷移を迂回しない。
+             */
             const click=(href)=>{const a=document.createElement('a');a.href=href;document.querySelector('[data-workbench-react-root]').append(a);a.click();a.remove();};
+            /**
+             * 成果物詳細の正本本文だけを読む。
+             * @responsibility 成果物詳細の正本本文だけを読む。
+             * @trace ERB-ST-022
+             * @precondition artifact-detailの表示。
+             * @stimulus canonical-markdownのtextContentを取得する。
+             * @observation 現在対象の本文またはundefined。
+             * @oracle 一覧や旧詳細本文で新対象表示を代替しない。
+             * @cleanup N/A: DOM読取りのみ。親Caseが所有Browserを終了する。
+             * @boundary 本番DOM内の対象選択。Nodeへ秘密値を返さない。
+             */
             const body=()=>document.querySelector('#artifact-detail .canonical-markdown')?.textContent;
             try{
               document.querySelector('#connection input[name=token]').value=key;document.querySelector('#connection form').requestSubmit();await wait(()=>document.querySelector('#connection input[name=operation]')?.value==='disconnect' && !document.querySelector('#connection button')?.disabled);
@@ -1203,7 +1504,29 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
                 signal=options.signal;model.artifact.markdown='遅延旧本文';return new Promise(resolve=>{release=()=>resolve(new Response(JSON.stringify(model),{headers:{'content-type':'application/json'}}));});
               }return response;
             };
+            /**
+             * 遅延した成果物応答の非採用を待つ。
+             * @responsibility 遅延した成果物応答の非採用を待つ。
+             * @trace ERB-ST-022
+             * @precondition 旧要求の応答を保留するBrowser式。
+             * @stimulus 10秒以内で新対象の表示を再観測する。
+             * @observation 新本文と遅延旧本文の非表示。
+             * @oracle 遅延旧応答が現在画面を置換したら失敗する。
+             * @cleanup Timerは各待機で完了し、親CaseがBrowser・Server・Profileを終了確認する。
+             * @boundary 専用Browser内DOMの有限観測。返却は非秘密の判定だけ。
+             */
             const wait=async(predicate)=>{const end=Date.now()+10000;while(Date.now()<end){if(predicate())return true;await new Promise(r=>setTimeout(r,40));}throw new Error('artifact_late_unconfirmed');};
+            /**
+             * 遅延成果物試験の対象切替を本番CSRへ届ける。
+             * @responsibility 遅延成果物試験の対象切替を本番CSRへ届ける。
+             * @trace ERB-ST-022
+             * @precondition 固定された同Originの試験href。
+             * @stimulus 一時anchorをReact Root内へ追加してclickする。
+             * @observation CSRの現在対象と表示本文。
+             * @oracle 通常のリンク搬送を経て旧対象の遅延結果を採用しない。
+             * @cleanup click直後に自分で作成したanchorだけを除去する。
+             * @boundary 専用Browser DOM。直接Owner APIで遷移を迂回しない。
+             */
             const click=(href)=>{const a=document.createElement('a');a.href=href;document.querySelector('[data-workbench-react-root]').append(a);a.click();a.remove();};
             try{
               click('/change?repositoryId=repository.next&id=CHG-000401');await wait(()=>typeof release==='function');stage='switch';click('/change?repositoryId=repository.latest&id=CHG-000401');await wait(()=>document.querySelector('#artifact-detail .canonical-markdown')?.textContent.includes('原文-latest'));
@@ -1443,10 +1766,65 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
               if(url.pathname==='/topic-meeting/action' && corruptResponse) { await response.arrayBuffer(); return new Response('{',{headers:{'content-type':'application/json'}}); }
               return response;
             };
+            /**
+             * Topic保存とRepository内遷移の描画を待つ。
+             * @responsibility Topic保存とRepository内遷移の描画を待つ。
+             * @trace CPR-ST-005
+             * @precondition 同ProjectのTopic一覧・詳細。
+             * @stimulus 10秒以内で指定したDOM条件を再観測する。
+             * @observation 保存表示と同Repositoryの本文。
+             * @oracle 内容未確定のまま次の操作を開始しない。
+             * @cleanup Timerは各待機で完了し、親CaseがBrowser・Server・Profileを終了確認する。
+             * @boundary 専用Browser内DOMの有限観測。返却は非秘密の判定だけ。
+             */
             const wait=async(predicate)=>{const end=Date.now()+10000; while(Date.now()<end){if(predicate())return true;await new Promise(r=>setTimeout(r,40));} throw new Error('content_condition_unconfirmed');};
+            /**
+             * Topic一覧と詳細の同Repository遷移を届ける。
+             * @responsibility Topic一覧と詳細の同Repository遷移を届ける。
+             * @trace CPR-ST-005
+             * @precondition 固定された同Originの試験href。
+             * @stimulus 一時anchorをReact Root内へ追加してclickする。
+             * @observation CSRの現在対象と表示本文。
+             * @oracle 通常のリンク搬送を経て旧対象の遅延結果を採用しない。
+             * @cleanup click直後に自分で作成したanchorだけを除去する。
+             * @boundary 専用Browser DOM。直接Owner APIで遷移を迂回しない。
+             */
             const click=(href)=>{const link=document.createElement('a');link.href=href;document.querySelector('[data-workbench-react-root]').append(link);link.click();link.remove();};
+            /**
+             * 内容保存の確認済み案内を読む。
+             * @responsibility 内容保存の確認済み案内を読む。
+             * @trace CPR-ST-005
+             * @precondition 同じrecord-operation-surface。
+             * @stimulus 保存確認statusの文字列を検査する。
+             * @observation 保存を確認した表示の真偽。
+             * @oracle POST送信だけで保存確認表示を成立させない。
+             * @cleanup N/A: DOM読取りのみ。親Caseが所有Browserを終了する。
+             * @boundary 本番DOM内の対象選択。Nodeへ秘密値を返さない。
+             */
             const saved=()=>document.querySelector('.record-operation-surface [role=status]')?.innerText.includes('保存を確認し');
+            /**
+             * Topic作成の正規action Formだけを取得する。
+             * @responsibility Topic作成の正規action Formだけを取得する。
+             * @trace CPR-ST-005
+             * @precondition topics panelが現在表示されている。
+             * @stimulus actionとoperation=createの双方を照合する。
+             * @observation 対象作成Form。
+             * @oracle 別種別や旧対象のFormへ登録しない。
+             * @cleanup N/A: DOM読取りのみ。親Caseが所有Browserを終了する。
+             * @boundary 本番DOM内の対象選択。Nodeへ秘密値を返さない。
+             */
             const createForm=()=>document.querySelector('#topics form[action="/topic-meeting/action"]:has([name=operation][value=create])');
+            /**
+             * 同Projectの合成Topic本文をBrowser内で組み立てる。
+             * @responsibility 同Projectの合成Topic本文をBrowser内で組み立てる。
+             * @trace CPR-ST-005
+             * @precondition 固定Projectと自己生成Topic ID・見出し。
+             * @stimulus 指定ID・titleと改訂をMarkdownへ結合する。
+             * @observation 公開Formへ渡すTopic本文。
+             * @oracle 正規本文対照を使い保存故障の分類だけを反証する。
+             * @cleanup N/A: Browser内の合成文字列のみ。
+             * @boundary 実秘密を含まず、返却結果へ本文を搬送しない。
+             */
             const markdown=(id,title,revision)=>'# '+title+'\\n\\n成果物種別: Topic\\nTopic ID: \\x60'+id+'\\x60\\nProject ID: \\x60project.fixture\\x60\\n状態: \\x60open\\x60\\n改訂: \\x60'+revision+'\\x60\\n維持責任者: \\x60試験担当\\x60\\n\\n## 1. 現在の論点\\n\\n### 結論\\n\\n自己生成試験。\\n';
             try {
               stage='select'; click('/?repositoryId=repository.next'); await wait(()=>!!createForm() && !createForm().closest('fieldset').disabled);
@@ -1493,8 +1871,41 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
               if(route==='/topic-meeting/action' && corruptResponse){await response.arrayBuffer();return new Response('{',{headers:{'content-type':'application/json'}});}
               return response;
             };
+            /**
+             * 内容保存の故障分類とGET再取得を待つ。
+             * @responsibility 内容保存の故障分類とGET再取得を待つ。
+             * @trace CPR-ST-005
+             * @precondition Topic保存応答とGETへ有限故障を注入する。
+             * @stimulus 10秒内に保存済み・不明の区別を確認する。
+             * @observation 旧本文非表示、固定結果、再取得後本文。
+             * @oracle 故障時に保存未成立と決めつけずPOST再送0を保つ。
+             * @cleanup Timerは各待機で完了し、親CaseがBrowser・Server・Profileを終了確認する。
+             * @boundary 専用Browser内DOMの有限観測。返却は非秘密の判定だけ。
+             */
             const wait=async(predicate)=>{const end=Date.now()+10000;while(Date.now()<end){if(predicate())return true;await new Promise(r=>setTimeout(r,40));}throw new Error('content_fault_unconfirmed');};
+            /**
+             * 保存故障を注入するTopic作成Formを選ぶ。
+             * @responsibility 保存故障を注入するTopic作成Formを選ぶ。
+             * @trace CPR-ST-005
+             * @precondition 現在Topic一覧と固定create操作。
+             * @stimulus topics内のcreate Formを選ぶ。
+             * @observation 故障注入対象のForm。
+             * @oracle 応答故障後に古いFormの再送へ進まない。
+             * @cleanup N/A: DOM読取りのみ。親Caseが所有Browserを終了する。
+             * @boundary 本番DOM内の対象選択。Nodeへ秘密値を返さない。
+             */
             const createForm=()=>document.querySelector('#topics form:has([name=operation][value=create])');
+            /**
+             * 同Projectの合成Topic本文をBrowser内で組み立てる。
+             * @responsibility 同Projectの合成Topic本文をBrowser内で組み立てる。
+             * @trace CPR-ST-005
+             * @precondition 固定Projectと自己生成Topic ID・見出し。
+             * @stimulus 指定ID・titleと固定初版をMarkdownへ結合する。
+             * @observation 公開Formへ渡すTopic本文。
+             * @oracle 正規本文対照を使い保存故障の分類だけを反証する。
+             * @cleanup N/A: Browser内の合成文字列のみ。
+             * @boundary 実秘密を含まず、返却結果へ本文を搬送しない。
+             */
             const markdown=(id,title)=>'# '+title+'\\n\\n成果物種別: Topic\\nTopic ID: \\x60'+id+'\\x60\\nProject ID: \\x60project.fixture\\x60\\n状態: \\x60open\\x60\\n改訂: \\x601\\x60\\n維持責任者: \\x60試験担当\\x60\\n\\n## 1. 現在の論点\\n\\n### 結論\\n\\n自己生成試験。\\n';
             try{
               const fault=createForm(); fault.closest('details').open=true; fault.querySelector('textarea').value=markdown('TOPIC-000102','保存後表示故障');
@@ -1535,9 +1946,53 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
             expression: `(async()=>{
             const originalFetch=window.fetch; let posts=0, lastBody=null, stage='promotion-create', lastReadStatus=null;
             window.fetch=async(input,options)=>{const route=new URL(String(input),location.href).pathname;if(route==='/topic-meeting/action'){posts++;lastBody=new URLSearchParams(options.body);}const response=await originalFetch(input,options);if(route==='/api/workbench-view')lastReadStatus=response.status;return response;};
+            /**
+             * Topic昇格とMeeting処置の表示を待つ。
+             * @responsibility Topic昇格とMeeting処置の表示を待つ。
+             * @trace CPR-ST-005
+             * @precondition 二つのOutcomeを持つ合成Meeting。
+             * @stimulus 10秒内の処置結果とForm有効化を確認する。
+             * @observation 昇格先・未処置件数・Close結果。
+             * @oracle 早期Close拒否と全件処置後Closeを区別する。
+             * @cleanup Timerは各待機で完了し、親CaseがBrowser・Server・Profileを終了確認する。
+             * @boundary 専用Browser内DOMの有限観測。返却は非秘密の判定だけ。
+             */
             const wait=async(predicate)=>{const end=Date.now()+10000;while(Date.now()<end){if(predicate())return true;await new Promise(r=>setTimeout(r,40));}throw new Error('content_lifecycle_unconfirmed');};
+            /**
+             * Topic昇格とMeeting処置後のリンク遷移を届ける。
+             * @responsibility Topic昇格とMeeting処置後のリンク遷移を届ける。
+             * @trace CPR-ST-005
+             * @precondition 固定された同Originの試験href。
+             * @stimulus 一時anchorをReact Root内へ追加してclickする。
+             * @observation CSRの現在対象と表示本文。
+             * @oracle 通常のリンク搬送を経て旧対象の遅延結果を採用しない。
+             * @cleanup click直後に自分で作成したanchorだけを除去する。
+             * @boundary 専用Browser DOM。直接Owner APIで遷移を迂回しない。
+             */
             const click=(href)=>{const a=document.createElement('a');a.href=href;document.querySelector('[data-workbench-react-root]').append(a);a.click();a.remove();};
+            /**
+             * 内容処置reasonとForm有効化を共同確認する。
+             * @responsibility 内容処置reasonとForm有効化を共同確認する。
+             * @trace CPR-ST-005
+             * @precondition 同じ処置のrecord-operation-surface。
+             * @stimulus 結果reasonとfieldsetのdisabledを読む。
+             * @observation 処置終了と次操作可能の真偽。
+             * @oracle 結果だけ現れても待機中は次処置を開始しない。
+             * @cleanup N/A: DOM読取りのみ。親Caseが所有Browserを終了する。
+             * @boundary 本番DOM内の対象選択。Nodeへ秘密値を返さない。
+             */
             const result=(reason)=>document.querySelector('.record-operation-surface .operation-result')?.innerText.includes(reason) && !document.querySelector('.record-operation-surface fieldset')?.disabled;
+            /**
+             * Meeting処置の指定操作Formだけを取得する。
+             * @responsibility Meeting処置の指定操作Formだけを取得する。
+             * @trace CPR-ST-005
+             * @precondition Meeting詳細に固定操作名がある。
+             * @stimulus operation field一致でFormを選ぶ。
+             * @observation Outcome処置・Close用の対象Form。
+             * @oracle 別操作のFormへ値を書き込まない。
+             * @cleanup N/A: DOM読取りのみ。親Caseが所有Browserを終了する。
+             * @boundary 本番DOM内の対象選択。Nodeへ秘密値を返さない。
+             */
             const getForm=(operation)=>document.querySelector('form:has([name=operation][value='+operation+'])');
             try {
               const create=document.querySelector('#topics form:has([name=operation][value=create])');create.closest('details').open=true;create.querySelector('textarea').value=${JSON.stringify(promotionMarkdown)};create.requestSubmit();await wait(()=>result('record_created'));
@@ -1548,6 +2003,17 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
               stage='meeting-select'; click('/?repositoryId=repository.next');await wait(()=>!!document.querySelector('#meetings form:has([name=operation][value=create])'));
               stage='meeting-create'; const meeting=document.querySelector('#meetings form:has([name=operation][value=create])');meeting.closest('details').open=true;meeting.querySelector('textarea').value=${JSON.stringify(meetingMarkdown)};meeting.requestSubmit();await wait(()=>result('record_created'));
               stage='meeting-detail'; click('/meeting?repositoryId=repository.next&id=MTG-000201');await wait(()=>!!document.querySelector('#meeting-detail') && !!getForm('treat-outcome') && !getForm('treat-outcome').closest('fieldset').disabled);
+              /**
+               * 指定Outcomeの処置内容とClose選択をFormへ設定する。
+               * @responsibility 指定Outcomeの処置内容とClose選択をFormへ設定する。
+               * @trace CPR-ST-005
+               * @precondition 合成Meetingの未処置Outcomeと明示close選択。
+               * @stimulus 処置Formを開き固定担当・追跡・結果fieldとcheckboxを埋める。
+               * @observation 送信対象OutcomeとCloseの真偽。
+               * @oracle 一件処置と全件完了を混同せず未選択falseを保持する。
+               * @cleanup 親Caseが合成Meetingとfixtureを回収する。
+               * @boundary Browser内Form準備。送信は呼出し元が明示する。
+               */
               const fill=(outcome, close)=>{const form=getForm('treat-outcome');form.closest('details').open=true;for(const [name,value] of Object.entries({outcomeId:outcome,owner:'試験担当',reviewTrigger:'次回',targetReference:'N/A: 自己完結',treatment:'完了確認',completionCondition:'確認済み',result:'確認済み'}))form.querySelector('[name='+name+']').value=value;form.querySelector('[name=closeMeeting]').checked=close;return form;};
               stage='early-close'; fill('OUT-001',true).requestSubmit();await wait(()=>result('meeting_outcome_invalid'));
               const earlyCloseRejected=document.querySelector('#meeting-detail header')?.innerText.includes('recorded') && lastBody.getAll('closeMeeting').join(',')==='true';
@@ -1589,8 +2055,41 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
               if(route==='/topic-meeting/action' && holdPost) {lateSignal=options.signal;return new Promise(resolve=>{releaseLate=()=>resolve(response);});}
               return response;
             };
+            /**
+             * 内容保存中の対象切替と取消を待つ。
+             * @responsibility 内容保存中の対象切替と取消を待つ。
+             * @trace CPR-ST-005
+             * @precondition 応答を保留した本番内容Form。
+             * @stimulus 10秒内で新対象表示と旧要求の非採用を確認する。
+             * @observation Signal取消・現在本文・POST件数。
+             * @oracle 遅延応答で対象を戻さず再送を発行しない。
+             * @cleanup Timerは各待機で完了し、親CaseがBrowser・Server・Profileを終了確認する。
+             * @boundary 専用Browser内DOMの有限観測。返却は非秘密の判定だけ。
+             */
             const wait=async(predicate)=>{const end=Date.now()+10000;while(Date.now()<end){if(predicate())return true;await new Promise(r=>setTimeout(r,40));}throw new Error('content_interruption_unconfirmed');};
+            /**
+             * 処置待機中の新対象リンクを本番CSRへ届ける。
+             * @responsibility 処置待機中の新対象リンクを本番CSRへ届ける。
+             * @trace CPR-ST-005
+             * @precondition 固定された同Originの試験href。
+             * @stimulus 一時anchorをReact Root内へ追加してclickする。
+             * @observation CSRの現在対象と表示本文。
+             * @oracle 通常のリンク搬送を経て旧対象の遅延結果を採用しない。
+             * @cleanup click直後に自分で作成したanchorだけを除去する。
+             * @boundary 専用Browser DOM。直接Owner APIで遷移を迂回しない。
+             */
             const click=(href)=>{const a=document.createElement('a');a.href=href;document.querySelector('[data-workbench-react-root]').append(a);a.click();a.remove();};
+            /**
+             * 対象切替反例で現在内容操作のFormを選ぶ。
+             * @responsibility 対象切替反例で現在内容操作のFormを選ぶ。
+             * @trace CPR-ST-005
+             * @precondition 応答保留前の固定操作名。
+             * @stimulus operation selectorで現在Formを取得する。
+             * @observation 同じ要求を発行するForm。
+             * @oracle 旧対象への再送や別操作の送信に使わない。
+             * @cleanup N/A: DOM読取りのみ。親Caseが所有Browserを終了する。
+             * @boundary 本番DOM内の対象選択。Nodeへ秘密値を返さない。
+             */
             const form=(operation)=>document.querySelector('form:has([name=operation][value='+operation+'])');
             try{
               click('/topic?repositoryId=repository.next&id=TOPIC-000103');await wait(()=>!!document.querySelector('#topic-detail') && !!form('update'));
@@ -1705,6 +2204,11 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
                   awaitPromise: true,
                   returnByValue: true,
                 },
+                undefined,
+                "single",
+                expected === "競合あり"
+                  ? "local_partial_conflict"
+                  : "local_partial_unavailable",
               );
               assert.deepEqual(partial, {
                 state: true,
@@ -1724,14 +2228,24 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
             await writeFile(nextPath, nextBody);
             await requestBrowser(pageUrl, "Page.reload", {});
           }
-          const ready = await requestBrowser(pageUrl, "Runtime.evaluate", {
-            expression: `(async()=>{const end=Date.now()+15000;while(Date.now()<end){if(document.querySelector('#connection input[name=token]'))return true;await new Promise(r=>setTimeout(r,50));}return false;})()`,
-            awaitPromise: true,
-            returnByValue: true,
-          });
+          const ready = await requestBrowser(
+            pageUrl,
+            "Runtime.evaluate",
+            {
+              expression: `(async()=>{const end=Date.now()+15000;while(Date.now()<end){if(document.querySelector('#connection input[name=token]'))return true;await new Promise(r=>setTimeout(r,50));}return false;})()`,
+              awaitPromise: true,
+              returnByValue: true,
+            },
+            undefined,
+            "single",
+            "local_ready",
+          );
           assert.equal(ready, true);
-          const setup = await requestBrowser(pageUrl, "Runtime.evaluate", {
-            expression: `(async()=>{
+          const setup = await requestBrowser(
+            pageUrl,
+            "Runtime.evaluate",
+            {
+              expression: `(async()=>{
               const originalFetch=window.fetch;let posts=0,nextViewAuthenticated=false;
               const key=${JSON.stringify(material.token)};
               window.fetch=(input,options)=>{const pathname=new URL(String(input),location.href).pathname;if(pathname==='/local-connection/action')posts++;if(pathname==='/api/workbench-view'&&new Headers(options?.headers).get('authorization')==='Bearer '+key)nextViewAuthenticated=true;return originalFetch(input,options);};
@@ -1744,9 +2258,13 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
                 }return{unconfirmed:true,posts};
               }finally{window.fetch=originalFetch;}
             })()`,
-            awaitPromise: true,
-            returnByValue: true,
-          });
+              awaitPromise: true,
+              returnByValue: true,
+            },
+            undefined,
+            "single",
+            "local_connect",
+          );
           assert.deepEqual(setup, { posts: 1, nextViewAuthenticated: true });
           connectionSetup = setup as Readonly<{
             posts: number;
@@ -1776,6 +2294,18 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
               }
               return response;
             };
+            /**
+             * 接続とProfile操作の現在表示を有限時間で待つ。
+             * @responsibility 接続とProfile操作の現在表示を有限時間で待つ。
+             * @trace RFD-ST-003
+             * @trace ERB-ST-022
+             * @precondition 同じBrowser内の接続とProfile画面。
+             * @stimulus 待機番号を増やし15秒以内でpredicateを評価する。
+             * @observation 接続・資格非表示・現在Role別Profile状態。
+             * @oracle 未成立は固定例外にし途中描画を完了としない。
+             * @cleanup Timerは各待機で完了し、親CaseがBrowser・Server・Profileを終了確認する。
+             * @boundary 専用Browser内DOMの有限観測。返却は非秘密の判定だけ。
+             */
             const wait=async(predicate)=>{ waitNumber++; const end=Date.now()+15000; while(Date.now()<end){ if(predicate()) return true; await new Promise(r=>setTimeout(r,50)); } throw new Error('browser_condition_unconfirmed'); };
             try {
               if(${JSON.stringify(mode)}!=='local-connection'){
@@ -1794,6 +2324,17 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
               }
               const profileReady=await wait(()=>document.querySelector('#ai-profile-administration form') && !document.querySelector('#ai-profile-administration fieldset')?.disabled);
               if(${JSON.stringify(mode)}==='profile-manager') {
+              /**
+               * Profile管理の固定入力を通常Formへ設定する。
+               * @responsibility Profile管理の固定入力を通常Formへ設定する。
+               * @trace RCM-ST-012
+               * @precondition managerの本番Profile Form。
+               * @stimulus 操作・Profile ID・固定model・選択Role・理由を設定する。
+               * @observation 作成更新削除へ渡す現在Form。
+               * @oracle 旧認証を迂回せずProfile Consumerの明示操作だけに使う。
+               * @cleanup 親Caseが自己生成ProfileとServer/Browserを終了する。
+               * @boundary 本番CSRのProfile管理。実AI要求を発行しない。
+               */
               const fillProfile=(operation,reason)=>{
                 const form=document.querySelector('#ai-profile-administration .ai-profile-administration-form');
                 form.querySelector('[name=operation]').value=operation;
@@ -1904,6 +2445,17 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
                 if(kind==='blank')node.setAttribute('target','_blank');
                 oldRoot.append(node);
                 const type=kind==='post'?'submit':'click'; let untouched=false;
+                /**
+                 * Syntheticなリンク操作で既定処理の未消費を観測する。
+                 * @responsibility Syntheticなリンク操作で既定処理の未消費を観測する。
+                 * @trace ERB-ST-022
+                 * @precondition 対象リンクにCase専用Listenerを登録する。
+                 * @stimulus 既存defaultPreventedを記録してnative動作だけを抑止する。
+                 * @observation 本番Handlerが非対象イベントを消費していない真偽。
+                 * @oracle 修飾操作等を通常CSR遷移として横取りしない。
+                 * @cleanup 試験内Listenerを解除しBrowserを終了する。
+                 * @boundary DOMイベント搬送だけ。新しいWindowや外部通信を開始しない。
+                 */
                 const stopNative=event=>{untouched=!event.defaultPrevented;event.preventDefault();};
                 window.addEventListener(type,stopNative,{once:true});
                 const before=modelReads;
@@ -1968,6 +2520,7 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
           },
           undefined,
           mode === "profile-developer" ? "single" : "composite",
+          mode === "local-connection" ? "local_navigation" : undefined,
         );
         const profileExpected = {
           connected: true,
@@ -2121,15 +2674,21 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
           fs.closeSync(probe);
           assert.equal(contentReads, 1, "content_observer_positive_control");
           contentReads = 0;
-          observed = await requestBrowser(pageUrl, "Runtime.evaluate", {
-            expression: managementBrowserExpression(
-              mode === "cros-management",
-              mode === "cros-management" ? material.token : undefined,
-              registrationRoot,
-            ),
-            awaitPromise: true,
-            returnByValue: true,
-          });
+          observed = await requestBrowser(
+            pageUrl,
+            "Runtime.evaluate",
+            {
+              expression: managementBrowserExpression(
+                mode === "cros-management",
+                mode === "cros-management" ? material.token : undefined,
+                registrationRoot,
+              ),
+              awaitPromise: true,
+              returnByValue: true,
+            },
+            undefined,
+            "composite",
+          );
         } finally {
           contentObservation.mock.restore();
           syncBuiltinESMExports();

@@ -5,8 +5,8 @@
  * @trace ARCH-000005
  */
 import { createHash } from "node:crypto";
-import { ORCHESTRATOR_INTEGRATION_CONTRACT } from "./types.ts";
-import type { OrchestratorResultRecord } from "./types.ts";
+import { ORCHESTRATOR_INTEGRATION_CONTRACT } from "./result-record.ts";
+import type { OrchestratorResultRecord } from "./result-record.ts";
 
 const RECORD_IDENTITY = /^[A-Za-z0-9][A-Za-z0-9._-]{0,511}$/u;
 const BINDING_IDENTITY = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,511}$/u;

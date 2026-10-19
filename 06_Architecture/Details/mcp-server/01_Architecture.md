@@ -95,12 +95,14 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 
 鍵管理の非公開境界は既存Transport導出項目とは別に、Access Management詳細§8の`access-management.secret-delivery`へ接続する。新しいQA Local Itemは本書で推測採番しない。
 
+導出キーは本領域内でQualityが同じ設計項目を反復参照するための局所参照であり、CRDD全体の安定コンテキストIDではない。
+
+## 公開境界の補足説明
+
 | 対象 | 反証と観測 | 段階・終了後条件 | 未確認 |
 |---|---|---|---|
 | MCPの鍵操作非公開 | 単体／CROS、管理者／非管理者、stdio／HTTPで提供する構成のTool一覧・Schema・登録・直接Call／dispatchを照合。非秘密一覧・失効も公開されない。認証用Credential検証は存続 | IT／ST、Direct Boundary／System/E2E。鍵Owner呼出し・発行・失効・交換Effect0、Secret結果0。未提供の構成はN/A理由をQualityに残す | Quality Local Item、Source全登録閉包、本番Consumerと新Evidence |
 | 認可Ownerの分離 | AMが現在認可した集合だけをDomainへ渡す。管理可否から内容参照を生成せず、DomainのCredential／Role／Grant解釈0を反証 | IT／ST、Direct Boundary。非許可Source読取り・情報開示0。単体の検証済み一Repositoryは資格不要 | 具体公開型、保存Schema、本番構成 |
-
-導出キーは本領域内でQualityが同じ設計項目を反復参照するための局所参照であり、CRDD全体の安定コンテキストIDではない。
 
 ## 現行実装との照合
 
@@ -466,7 +468,7 @@ MCP packageの作成、stdio／HTTP起動またはtool一覧取得だけでは�
 
 | Detail Source | UI／SPEC Definition | この領域が担当するSCR／PRT／Interaction／BHV | Relation状態 | 未解決Gap／戻し先 |
 |---|---|---|---|---|
-| [UI／SPEC Detail Architecture Traceability](../../08_UI_SPEC_Detail_Traceability.md) | ARCH-000005、ARCH-000012、ARCH-000015のSource Definition | 同Traceability表の担当Detail ID（次行の鍵断面を除く） | Covered（既存対応。今回再評価せず、現在実装の証明ではない） | Detailの意味変更はUI／SPECへ、配置責務の変更は該当ARCH定義へ戻す |
+| [UI／SPEC Detail Architecture Traceability](../../08_UI_SPEC_Detail_Traceability.md) | ARCH-000005、ARCH-000012、ARCH-000013、ARCH-000015のSource Definition | 同Traceability表の担当Detail ID（次行の鍵断面を除く） | Covered（既存対応。今回再評価せず、現在実装の証明ではない） | Detailの意味変更はUI／SPECへ、配置責務の変更は該当ARCH定義へ戻す |
 | 同Traceability | ARCH-000013、UI-000008／SPEC-000012 | SCR-000008／BHV-000012の`PRT-000008.spec-000012`におけるMCP鍵操作非公開境界だけ | Partial | 非公開契約は§3.3。具体公開API・全Consumer・Quality・Source照合と新しい実境界検証は未完了。鍵意味・Host処理はAccess Management、通常表示はWorkbenchへ戻す |
 
 担当Interaction Relation: `PRT-000004.spec-000002`、`PRT-000004.spec-000006`、`PRT-000004.spec-000007`、`PRT-000007.spec-000011`、`PRT-000008.spec-000012`、`PRT-000016.spec-000021`、`PRT-000016.spec-000026`、`PRT-000016.spec-000027`
@@ -474,6 +476,8 @@ MCP packageの作成、stdio／HTTP起動またはtool一覧取得だけでは�
 本領域は上記Relationの配置責務を局所所有する。Detailを新しい要求として解釈せず、対応ARCH-IDが所有する配置・境界・状態・観測の制約として実現する。
 
 Checklist評価根拠: 既存の非鍵能力、二ModeのRepository指定とTransport設計を保持した。旧Credential Tool候補は撤回し、鍵断面は非公開境界だけをPartialで担当する。下のチェック済み項目は既存設計範囲の評価であり、新Owner接続・現在Source・Quality・実境界の完成を意味しない。既存QA-000001／004／007／009およびstdio ST-012／HTTP ST-013の過去判定を新境界へ流用しない。鍵非公開の新しい検証義務は本書の「Qualityへの引渡し」からQualityが具体化する。
+
+最新固定8分担の限定独立レビューは当時の範囲だけに適用する。登録解除結果と鍵非公開境界の詳細伝播は候補反映・今回の契約・品質の限定独立レビュー済み・残指摘0である。旧観測・Checklistは当時の限定範囲を維持し、Quality・Source・本番接続・実境界の完成根拠へ流用しない。
 
 ## Checklist
 
@@ -492,5 +496,3 @@ Checklist評価根拠: 既存の非鍵能力、二ModeのRepository指定とTran
 - [x] Human Inputの必要性とOpen／Gapを評価した
 - [x] 現行実装との照合をReality Auditとして分離した
 - [x] Source構造をCanonical詳細設計へ逆輸入していない
-
-最新固定8分担の限定独立レビューは当時の範囲だけに適用する。登録解除結果と鍵非公開境界の詳細伝播は候補反映・今回の契約・品質の限定独立レビュー済み・残指摘0。旧観測・Checklistは当時の限定範囲を維持し、Quality・Source・本番接続・実境界の完成根拠へ流用しない。

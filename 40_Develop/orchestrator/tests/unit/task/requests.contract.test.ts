@@ -1,7 +1,8 @@
 /**
  * 単発依頼の閉入力を検証する。
+ * @packageDocumentation
  * @responsibility 暗黙Context、越境Path、旧Bundle入力とgetterを実行前に拒否する。
- * @trace CPR-UT-001
+ * @trace PRL-UT-006
  * @level UT
  * @scope 値検査のみ。
  * @boundary Surface入力と単発Owner。
@@ -13,7 +14,7 @@ import { inspectSingleTaskCommand } from "../../../src/task/requests.ts";
 /**
  * 固定ContextとmodeごとのPath条件を照合する。
  * @responsibility 作業指示のPathを技術的ACLや任意Root許可にしない。
- * @trace CPR-UT-001
+ * @trace PRL-UT-006
  * @precondition 合成の非秘密入力だけを使う。
  * @stimulus mode、対象、同意、余剰field、getterとProxyを変更する。
  * @observation 閉じたSnapshot又はnullとgetter呼出し0。

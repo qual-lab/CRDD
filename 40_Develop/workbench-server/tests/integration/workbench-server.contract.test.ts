@@ -3,15 +3,12 @@
  *
  * @packageDocumentation
  * @responsibility Workbench Production Shellのloopback配信、公式ロゴ、固定RouteおよびListener清掃を直接境界で検証する。
- * @trace CPR-IT-006
- * @trace CPR-IT-008
  * @trace CPR-IT-010
  * @trace CPR-IT-012
  * @trace ERB-IT-021
  * @trace ERP-IT-001
  * @trace PPR-IT-002
  * @trace RCM-IT-005
- * @trace RFD-IT-005
  * @trace RFD-IT-013
  * @trace RFD-IT-014
  * @trace RFD-IT-017

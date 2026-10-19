@@ -4,6 +4,7 @@
  * @packageDocumentation
  * @responsibility 未発見・観測不能・構成差を回復成功や削除へ昇格しないことを反証する。
  * @trace ERB-IT-004
+ * @trace PRL-IT-013
  * @level IT
  * @scope Runner結果→資源観測Gate。実Docker・回復記録の成立ではない。
  * @boundary Direct Boundary: 固定Runner結果→資源処置。
@@ -33,6 +34,17 @@ import type { DockerResourceExpectation } from "../../src/index.ts";
 test("非作成用途と不正IdentityはDocker要求前に拒否する", () => {
   const base = networkExpectation();
   let calls = 0;
+  /**
+   * 不正な資源回収入力で発行された要求数を数える。
+   * @responsibility 不正な資源回収入力で発行された要求数を数える。
+   * @trace ERB-IT-004
+   * @precondition 目的・名前・label・ID・digestの反例。
+   * @stimulus 呼ばれた場合だけcallsを増やし固定結果を返す。
+   * @observation runの到達回数。
+   * @oracle 入力拒否時はcallsが0のままである。
+   * @cleanup N/A: 実回収処理はない。
+   * @boundary 回収Executorの有限代役。Docker操作0。
+   */
   const run = () => {
     calls += 1;
     return commandResult();

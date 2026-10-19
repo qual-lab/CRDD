@@ -216,6 +216,7 @@ test("Seccompの後発欠測は新規開始を拒否し元Contextの清掃を妨
  * @oracle 正規dataだけを受理し、旧in判定では同じ期待値が成立しない。
  * @cleanup VMだけを破棄しHostのprototype・Filesystem・Dockerは変更しない。
  * @boundary 公開Factoryの入力検査。実Host動作の証明ではない。
+ * @stimulus 継承valueを持つdescriptorとown valueの正常対照を公開Factoryへ渡す。
  */
 test("公開Factoryはdescriptorの継承valueを受理しない", () => {
   const source = fs.readFileSync(
@@ -237,6 +238,17 @@ test("公開Factoryはdescriptorの継承valueを受理しない", () => {
       : body;
     const observed = runInNewContext(
       stripTypeScriptTypes(`${candidate}
+        /**
+         * Factoryのdescriptor検査に不要な借用Path処理を無作用にする。
+         * @responsibility Factoryのdescriptor検査に不要な借用Path処理を無作用にする。
+         * @trace ERB-IT-004
+         * @precondition VM内だけで使う境界関数の代役。
+         * @stimulus 呼び出されても値も資源も生成しない。
+         * @observation Factory引数の受理・拒否。
+         * @oracle descriptor反例の結果を外部処理に依存させない。
+         * @cleanup N/A: 無作用関数だけ。
+         * @boundary VM内の構成検査。実借用Workspaceを作らない。
+         */
         const noop = () => {};
         let reads = 0;
         let inheritedCalls = 0;
@@ -252,7 +264,29 @@ test("公開Factoryはdescriptorの継承valueを受理しない", () => {
         Object.prototype.borrowPaths = { value: noop };
         Object.prototype.inspectReceipts = () => { inheritedCalls++; };
         let captured;
+        /**
+         * 公開Factoryが下位へ渡した構成を捕捉する。
+         * @responsibility 公開Factoryが下位へ渡した構成を捕捉する。
+         * @trace ERB-IT-004
+         * @precondition VM内で下位Runtime生成だけを置換している。
+         * @stimulus 受けた値をcapturedへ保存し同じ値を返す。
+         * @observation capturedのfieldと入力相関。
+         * @oracle 継承fieldが下位構成へ紛れないことを呼出し元が確認する。
+         * @cleanup VM評価を終了して捕捉値を破棄する。
+         * @boundary 下位Factoryの代役。Process作成0。
+         */
         function createDockerIsolationRuntimeCandidate(value) { captured = value; return value; }
+        /**
+         * 公開Factoryの入力受理を真偽へ投影する。
+         * @responsibility 公開Factoryの入力受理を真偽へ投影する。
+         * @trace ERB-IT-004
+         * @precondition VM内でFactoryと下位捕捉関数が結合済み。
+         * @stimulus 対象値をFactoryへ渡し例外をfalseへ分類する。
+         * @observation 正常対照trueと継承descriptor false。
+         * @oracle 不正入力が例外なしで受理されれば試験を失敗させる。
+         * @cleanup N/A: 局所の呼出し結果のみ。
+         * @boundary Factory検査だけ。実Runtimeの起動を証明しない。
+         */
         function accepted(value) {
           try { createDockerIsolationRuntime(value); return true; }
           catch { return false; }

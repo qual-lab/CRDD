@@ -9,7 +9,7 @@
       "stability": "pilot",
       "subsystem": "coordinator",
       "sourceDocument": "06_Architecture/Details/coordinator/01_Architecture.md",
-      "sourceSha256": "131d7efcfc2f75c97a4af0aa6495c30bc7bebb299ef15d5e42fc2a69661fa131",
+      "sourceSha256": "f4cd045069476d8f10b6b87dec964cf15d7e7167e963422bf0a5e53843531294",
       "meanings": [
         {
           "semanticKey": "coordinator.candidate-review-boundary",
@@ -100,7 +100,7 @@
       "stability": "pilot",
       "subsystem": "orchestrator",
       "sourceDocument": "06_Architecture/Details/orchestrator/02_Detailed_Design.md",
-      "sourceSha256": "84ab82fa78c3ca5fe1e868b3e736504782069604360ab85f191dfdd63fb4080e",
+      "sourceSha256": "8ffc726d96e5456530d216c5e3d83a68e31fca1df0ff227f99942fb870269104",
       "meanings": [
         {
           "semanticKey": "orchestrator.acceptance-decision-authority",
@@ -116,7 +116,7 @@
         {
           "semanticKey": "orchestrator.candidate-adoption",
           "kind": "authority",
-          "statement": "同一候補の再読取り、明示採用Authority、Leaseと現在Revision／dirty Scopeの確認を通じて正本へ採用し、Receiptを耐久記録する。拒否時は正本Effect 0、settlement不明時は同じRecovery義務を保持し、Commit／Pushを伴わない。",
+          "statement": "Workspaceの現在状態とVersion Controlの固定Ref／Commitから同一候補を再観測し、明示採用Authority、Workspace／Candidate Identity、取込先HEAD、現在Revision／dirty Scopeを確認して二親Mergeと既存結果Writerへ接続する。処置前の拒否だけ正本Effect 0とし、発行後失敗は元Effect・HEAD／Indexの観測・結果・回復参照を保持する。settlement不明時は同じRecovery義務を保持し、候補固定と採用を同じ成功へ畳まず、Pushを伴わない。",
           "archIds": [
             "ARCH-000004"
           ],
@@ -390,8 +390,7 @@
           "ARCH-000004"
         ],
         "implementationSymbolIds": [
-          "coordinator.source.src.composition.workbench.candidate.application",
-          "orchestrator.candidate-adoption-application"
+          "orchestrator.workspace.operations"
         ],
         "implementationObservation": "observed",
         "qualityLocalIds": [
@@ -400,7 +399,8 @@
         ],
         "verificationMode": "automated",
         "testSymbolIds": [
-          "orchestrator.test.unit.candidate-adoption-application"
+          "orchestrator.test.integration.workspace-lifecycle",
+          "orchestrator.test.workspace-acceptance-record"
         ],
         "testObservation": "observed"
       },
@@ -446,7 +446,6 @@
           "ARCH-000004"
         ],
         "implementationSymbolIds": [
-          "orchestrator.integration-application",
           "orchestrator.objective-application",
           "orchestrator.replanning-application",
           "orchestrator.state-core"
@@ -509,7 +508,6 @@
           "ARCH-000004"
         ],
         "implementationSymbolIds": [
-          "orchestrator.integration-application",
           "orchestrator.objective-application",
           "orchestrator.state-core"
         ],

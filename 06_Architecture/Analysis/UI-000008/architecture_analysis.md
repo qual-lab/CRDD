@@ -9,9 +9,9 @@
 - [UI-000008 ユーザー・Role権限・接続資格とAccess回復](../../../04_UI/Definitions/UI-000008/ui_definition.md)
 - 基準Commit: `07d21331`（正式入力の最小提示契約を照合）
 
-このUI Definitionだけを意味の正式入力とする。UX-000013／UX-000035／IA-000009は同Definitionが示す来歴であり、追加の正式入力ではない。SPEC、現行Architecture、Sourceや旧Evidenceから不足するUI意味を補完しない。UI工程Exit後の通常Handoffではなく、採用済み契約への既存設計の是正伝播である。
+このUI Definitionだけを意味の正式入力とする。上流来歴は追加の正式入力ではない。SPEC、現行Architecture、Sourceや旧Evidenceから不足するUI意味を補完しない。UI工程Exit後の通常Handoffではなく、採用済み契約への既存設計の是正伝播である。
 
-## 2. 引き継ぐUI契約
+## 2. Architectureへ引き継ぐUI契約
 
 鍵の発行・独立失効・交換は固定administrator専用で、Role設定のON／OFF対象にしない。通常鍵操作は同一Process Workbench backendだけ。MCPには鍵操作の一覧・Schema・登録・dispatchを公開しない。通常Host鍵回復はログイン済みローカル操作者を信頼する対話CLIで交換2操作のみを扱い、追加認証・専用資格・承認コード・OS管理者昇格なし、既存Root／Path検証を維持する。
 
@@ -57,7 +57,23 @@
 
 重要な不足・不明・制限を詳細へ隠さず、色だけで識別させない。対象確認・判断・戻り先はキーボードと文字表示でも理解できるようにする。Workbench／Host CLIの入口分担は採用済み。具体表示・案内、Layout、CMP、Schemaは未確定事項を維持する。
 
-## 3. Architecture観点の評価
+## 3. Architecture観点の分析
+
+### 観点別評価
+
+| 観点 | 判定 | 根拠・引渡し |
+|---|---|---|
+| Responsibility | 評価済み | 認証・認可とユーザー／Role／資格状態をAccess Management、認可済みContext集約をDomain Modelへ分ける。 |
+| Boundary／Component／Interface | 評価済み | UIはAuthority・Effectを発行せず、通常Remote利用からHost実行能力を生成しない。 |
+| Data／State Ownership | 評価済み | 名前、ID、Role権限、資格、公開範囲、取得可能性および回復結果を独立軸で搬送する。 |
+| Failure／Recovery | 評価済み | 元処理の再観測、確定後の別明示交換、現在administrator非接続時の既存Hostを分ける。 |
+| Security／Trust | 評価済み | 三可視境界、秘密一度表示・非保存、管理と内容閲覧の分離を維持する。 |
+| Quality Constraint | 評価済み | 部分成立、不明、処置前停止および処置後不明を成功へ畳まない反証をQualityへ渡す。 |
+| Human Input | 継承あり | Human Inputの判断者は代表利用者・管理者・Host運用者・Qual-Labで、実利用または前提変更時に再評価する。 |
+| Open／Gap | 上流確認を継承 | 具体表示・案内、Layout、CMPおよびSchemaの未確定事項を維持する。 |
+| Verification Intent | 評価済み | Role別許可、対象、時間順、登録・公開・解除、初回途中と秘密非再表示を反証する。 |
+
+### 統合評価
 
 | 観点 | 評価・引き渡し |
 |---|---|
@@ -68,11 +84,11 @@
 | Security・品質 | 三可視境界、秘密一度表示・非保存、管理と内容閲覧の分離、部分成立と不明の保持を利用側でも反証する |
 | 検証意図 | 9 Role分担行の各Role許可／拒否、操作別対象、managerのadministrator名前のみ変更、自己範囲変更の時間順、管理≠内容、登録≠公開、解除≠削除を対象にする。developer管理拒否を自身表示・許可内利用の拒否へ広げない。2操作×2入口、独立失効、同名／改名、三可視境界、処置前停止、処置後不明も保持する。初回では双方未初期化確認と明示開始、既存拒否、確認済み途中、観測不能の表示と戻り先、二重UUID／追加鍵／Secret保存・再表示0、自動登録・公開・内容付与0、部分成立≠全体完了を対象にする。試験ID・実測結果はQualityで定める |
 
-## 4. 処置と未確認事項
+## 4. Architecture処置
 
 検証意図には、登録だけ除去・Exposure残存／観測不能、両除去後の開始済み終了未観測、対象外変更、通常発行不明からの新交換、確定発行の不明化、別交換成功による旧受領推定、遅延した失効鍵の利用案内を含める。UIの表示と次行動を確認し、結果の保存方式や試験IDをこの分析で定めない。
 
-既存ARCH-000013を更新する。新ARCH-IDや新しい一般IAM責務を作らない。管理の具体的な操作対象は追加されるが、メール・Password・本人確認・自己登録／自己編集・SSO・複数Role・個別追加権限は追加しない。
+[ARCH-000013](../../Definitions/ARCH-000013/architecture_definition.md)を更新する。新ARCH-IDや新しい一般IAM責務を作らない。管理の具体的な操作対象は追加されるが、メール・Password・本人確認・自己登録／自己編集・SSO・複数Role・個別追加権限は追加しない。
 
 | 継承事項 | 判断者・再評価契機 | 未確認時の扱い |
 |---|---|---|
@@ -81,20 +97,28 @@
 
 現在の追加採用判断は不要。上記の未確認を解消済みと扱わない。意味・開示・必要な操作に不足や競合があればUIへ戻し、UIが示す来歴Ownerへの再開を判断する。
 
-## 5. 統合時の確認
+## 5. SPEC観点との統合時に確認すること
 
 対応SPEC-000012とは、UI操作／表示とSystemの契機／結果を後段で照合する。反対観点のAuthorityをこの分析へ暗黙に取り込まない。通常×指定ユーザー交換へ追加の確認Gateを作らない。
 
-## Checklist
-
 今回の検証意図は通常鍵3操作の固定administrator、MCP鍵操作非公開、通常Host鍵回復での新規発行・独立失効なし、追加Host認証なし、交換4組表示・3組確認、処置前停止、参照許可と鍵操作権限の分離を含む。通常発行の旧資格非失効、独立失効の指定Credential以外非失効・新資格／Secret非発行、交換の所定失効範囲を認識できることも確認する。新規発行・独立失効に交換再入場を付与しない。Quality Local Itemや実測結果はこの分析で確定しない。
 
-- [x] 自身のUI Definitionだけを正式意味入力とした
-- [x] 認識・操作・Feedback・状態・アクセシビリティを保持した
-- [x] 責務・Component・Interface・データOwner・Authority・Effectを評価した
-- [x] 失敗・回復・Security・品質制約・検証意図を評価した
-- [x] Human Inputと未確認事項・戻り条件を保持した
-- [x] 現行Sourceから意味を逆輸入せず、反対観点との統合事項を示した
-- OPEN: 今回の最小鍵提示方式の分析差分は限定再レビュー済み（最小鍵提示方式の伝播差分、全重大度0）。旧固定版の初回設定分析Passは履歴。具体接続入口・確認方式・SchemaとHost交換後の確認対象BindingはArchitecture詳細で閉じる。Quality・Source・本番接続・工程Ready・実E2Eは未成立。
+今回の最小鍵提示方式の分析差分は限定再レビュー済み（最小鍵提示方式の伝播差分、全重大度0）である。旧固定版の初回設定分析Passは履歴とし、具体接続入口・確認方式・SchemaとHost交換後の確認対象BindingはArchitecture詳細で閉じる。Quality・Source・本番接続・工程Ready・実E2Eは未成立である。
 
 最小提示契約から、新しい受領操作・Session・Receipt Storeは導出しない。初回の限定接続は通常の管理・内容Authorityを発行せず、確認保存・読戻し・清掃後だけ初回完了へ進む。具体Protocol・Owner・保存形状は詳細設計へ渡す。通常の提示成功を対象本人受領へ昇格しない。Qualityへは各段階の未確認・失敗・観測不能で完了表示と通常Authorityが0となる反例を渡す。
+
+## Checklist
+
+- [x] 自分自身のUI定義だけを正式入力として処置した
+- [x] 利用者が得る結果、認識、操作、Feedbackおよび状態差を保持した
+- [x] Architectureが担う責務と担わない責務を評価した
+- [x] Boundary、主要ComponentおよびInterfaceの必要性を評価した
+- [x] Data／State Ownershipを評価した
+- [x] Authority、Effectおよび開示境界を評価した
+- [x] Failure BoundaryとRecovery責任を評価した
+- [x] Security／TrustとQuality Constraintを評価した
+- [x] Human Inputの必要性を評価した
+- [x] Open／GapとOwner工程へ戻す条件を明示した
+- [x] Verification Intentを評価した
+- [x] 現行Sourceや実装構造から意味を逆輸入していない
+- [x] SPEC観点との統合時に確認する事項を明示した

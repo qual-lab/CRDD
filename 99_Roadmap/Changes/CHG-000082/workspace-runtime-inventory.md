@@ -5,7 +5,7 @@
 対象変更: [CHG-000082](change.md)
 基準Commit: `a04ecb7038f1bbdc044bda07bbc709cddd0e2851`
 担当責任者・方針決定権限: Qual-Lab
-最終更新日: 2026-10-17
+最終更新日: 2026-10-19
 
 ## 1. 結論と今回の範囲
 
@@ -1000,3 +1000,199 @@ Nativeの現行配布実体は再ビルド後SHA-256 `ce265feabf5ef08aa0ab103078
 | 失敗試験の保持物 | 同じ回復参照でunknownと回収未完了を保持 | ②／③と独立した処置。今回削除せず、再評価・回収の許可があったときだけ既存経路で扱う |
 
 推奨順序は、Commit／Pushによる区切り→固定候補の外部AIなし全体回帰と残存参照確認→②の限定実AI再試行の承認確認→実境界結果を③の最終評価へ接続、である。保持物の強制清掃や新しいRecovery機構を、次の作業の前提にしない。
+
+<a id="workspace-fixed-regression"></a>
+
+#### 固定Commitの全体回帰と残存参照確認（2026-10-19）
+
+**全体回帰は不合格。** `d4edcd1e6db2c213dbc19a017c2aa05751025a85`を固定し、実装を編集せずに確認した。終了時もHEADと追跡ファイルに差分はなく、以下の結果を確認後に本要約と現在投影だけを更新した。旧Store撤去の限定成立を、③の全体完成へ昇格しない。
+
+| 確認群 | 固定版の結果・限界 |
+|---|---|
+| 全17 Packageの静的検査 | 型検査17/17、Biome書式・Lint成功。各試験入口を別途実行し、静的成功を試験成功へ換算しない |
+| 通常回帰 | 3,389件＝成功3,315・失敗67・対象外7。Orchestratorは単体66・結合39を含む。失敗はCoordinator 10、Checker 29、Domain Model 1、Version Control 2、Semantic Coverage 1、Verification Runner 24 |
+| Windows追加回帰 | 実Docker試験を除外したCoordinatorは176件＝成功172・失敗4。他のPlatform Access 1件・Docker Isolationの実Process 7件は成功。修復Ownerの4失敗は根事象3件と親Case失敗1件であり、4個の独立不具合とは数えない |
+| Workbench実Browser／入口 | 22件＝成功19・失敗2・対象外1。`cros-management`の`credential_browser_protocol_timeout`と親Caseの失敗を維持する。停止した詳細段階・原因は未確定 |
+| Workbench表示 | 明示実行1件成功。15画面の表示Profileと実Zoom、終了後のBrowser・試験Root回収を確認。上記管理操作の失敗や人間UATを代替しない |
+| Native | Rust 1.94.1、明示Windows targetでfmt・test・clippy成功。単体47・CLI結合8成功、ignore 24は成功へ加算しない。実Docker等の専用試験を追加実行しない |
+| 機械Trace | Runtime／Orchestrator検査はaccepted。Runtimeは8資源・17状態・18遷移。旧件数を期待する試験と、下記の意味記述残存を別に検出したため、機械受理だけで同期完了としない |
+| Repository Checker | 3,375 errors・0 warnings。CHG配下のリンク等3,353件、範囲外22件（旧Store試験リンク1・Symbol関係1・IA／UI／SPEC契約20）。試験失敗数へ加算しない |
+
+通常回帰は各Packageの`test:run`、Coordinatorの`test:portable`、Checkerの`tests/test-runner.ts`とOrchestratorの結合入口から再実行できる。Windows追加はCoordinatorの`test:host-windows`に列挙するFileから`codex-executor-sandbox.integration.test.ts`を除外した集合を使い、別入口の`docker-isolation-host.integration.test.ts`も実行しない。WorkbenchはBuild後のBrowser管理・Server入口試験と、`CRDD_WORKBENCH_VISUAL_E2E=1`による表示試験を分けた。Nodeはv24.19.0。実行群の母集団・親子Caseが異なるため、全群の成功数を合算してQA項目のPass数にしない。生出力を恒久Evidence書庫へ複製しない。
+
+| 是正・調査単位 | 今回確認した原因又は未確定事項 |
+|---|---|
+| 新しい検証Toolの利用側閉包 | `scripts/workspace-task-fixture.ts`が保存先を直接組み立て、Domainの名前付き保存先境界検査で2診断。Version ControlのConsumer宣言にも未登録で2試験失敗。今回追加した利用側として処置する |
+| Coordinatorの試験追従 | 削除済み`prepareCandidateStore`を抽出終端にする試験1、Workspace対象の前提不足2、旧STAGED／資源／Caseを期待するTrace試験3、旧CLI OwnerへのAST試験2、旧help期待1、正規Queueを欠く受入Fixture 1。集合・取消・Root相関・改訂検査を緩めず、現Ownerと正規前提へ接続する。単発Adapterの実際の停止理由との追加照合は残る |
+| Catalog | 削除済みWorkbench AI試験2件、未登録の現試験7件、未知の`qaIds`、未定義lifecycle、試験集合が空の旧統合Block等の14診断が計画生成を妨げ、Runnerの24失敗へ連鎖した。旧Pathには不存在と登録欠損の両診断がある。旧Blockを別意味へ転用せず、現責務と照合する |
+| Checker／Symbol | Checkerの29失敗中22は同じ不存在の旧Architecture文書を読むFixture準備失敗。他は旧bin／package／template期待、命名例外、公開Export一覧、Header、Symbol関係。Docker Isolationの合成Mount試験の`verifies: []`は機械契約との不整合であり、虚偽の本番Source関係を補って解消しない |
+| Windows修復Owner | `runtime-repair-owner.contract.test.ts`の取得回数が期待1に対し2、marker再入場結果が欠測する2事象は原因未確定。`session_begin`変異対象文字列の件数0は試験追従不足。再起動・新しいRecovery・安全条件緩和を行わず局所照合する |
+| Browser | Protocol期限超過の元Failを保持。表示試験成功で置換せず、任意のTimeout延長や再試行は行っていない |
+
+残存参照の読み取り専用独立確認では、旧Bundle／Store本体・公開API・専用Native処理への本番実行参照は検出しなかった。一方、現行Platform Access／Coordinator／Workbench詳細のStore初期化・排他・採否説明、`04_UI/06_Current_Interface_Reference.md`の旧試験リンク、`orchestrator-design-traceability.json`のStore発行Identity不変条件は同期が必要である。過去Evidence、旧値拒否、歴史保存のnull field、Domainの別用途Candidateは現用の旧Store経路と区別して維持する。
+
+技術・品質の独立確認で、件数の母集団、Fixture不足と本番退行の区別、原因未確定事項、歴史記録の保全を照合した。実装是正は未着手。次は今回追加Toolの境界・Consumerと、旧前提の試験／台帳／現行説明を是正し、未確定のWindows・Browser失敗を局所確認してから新版を固定する。全件回帰を是正の最初の影響分析にしない。
+
+外部AI依頼・実Docker操作・②再試行・保持物削除・歴史Evidence変更は行っていない。保持結果とCoordinator／Orchestrator状態の3 Hashは既存値と一致した。②のunknown・同じ回復参照・回収未完了を維持する。正式198 Local Itemの評価、実境界・移行、Releaseの完成を主張しない。現在、検証結果の記録に追加の人間判断は必要ない。
+
+<a id="workspace-follow-up-remediation"></a>
+
+#### 追従是正とWindows／Browserの原因確認（2026-10-19）
+
+`d4edcd1e`を基準とする作業差分で、上記の追従漏れを是正した。実装・Schema・Registryの`git diff HEAD --binary`を`git hash-object --stdin`で照合した値は`9ac2e1e5d641df047e0220ef40b55c1a0e71206a`（対象: `40_Develop`、`template/tools/schemas/reality-symbol-schema.json`、`07_Quality/Registry`）。署名・実行許可ではなく差分の相関値である。**局所確認は成功したが、全体回帰の合格は未確定である。** 旧版の失敗結果を消さず、今回の確認範囲を分離する。
+
+| 対象 | 是正・原因と保持条件 |
+|---|---|
+| 検証Tool・利用側 | Worktreeの保存先を検証済みRootとDomainの名前付き領域から解決し、同じUUIDをVC作成と返却へ結合。利用側閉集合3箇所を同期。作成不明時の同対象保持・回収未確認は不変更 |
+| Coordinator試験 | 旧Store／CLI Owner／Trace期待を現Ownerへ接続。Directは実HEADを持つ合成Repository、品質受入は正規Queue・実Lease・解放確定を準備する。取消のstart／wait／closeのawait・finally・単一bindingを変異試験で維持 |
+| 台帳・意味接続 | Catalogの14診断を解消し、旧Block／Corridorを退役、新7試験を登録。現在のWorkspace採用Ownerへ意味を接続し、旧実装への辺を撤去。既存生成入口で意味Coverage Bundleを更新 |
+| Checker・現行説明 | Architectureの旧固定名を現行`01_Architecture.md`へ同期し、Fixture・公開API集合・Headerの同一Trace集合を追従。現行UI／Architecture／SPEC投影を同期し、旧Baseline・歴史Evidenceは維持 |
+| 環境実証 | 本番Sourceを呼ばない合成Mount試験を明示区分へ接続。QA・Local ID・実Pathと明示空配列を必須とし、通常試験の実装関係必須は維持。実装・意味Coverageへの算入0を反証。独立確認の未指定値受理指摘は型確認と負例で是正 |
+| Windows修復Owner | 共通Fixture未使用による計数持越し、履歴まで完了する現終端と旧途中状態期待の差、履歴Ownerが回収するmarkerを旧内部helper結果で判定した差、旧Session変異文字列が原因。本番Source・安全条件を変えず、実履歴・現在操作不存在・再入場不変・marker不存在・解放・技術再取得0で判定 |
+| Browser | 11逐次管理操作を単一操作の25秒区分で呼んだ試験の接続漏れ。既存の複合操作60秒区分へ接続し、設定値・認可・操作回数のOracleは不変更。局所は約46秒で成功 |
+
+| 確認群 | 新差分での観測 |
+|---|---|
+| 静的 | 全17 Package型検査、Rootの整形・Lint、Runtime／Orchestrator機械Trace成功。既存57 infosを警告・エラーへ読み替えない |
+| 局所・関連回帰 | Coordinator 78/78、取消接続12/12、保存先境界4/4、VC利用側12/12、Symbol Graph13/13、Semantic Coverage16/16、Orchestrator単体66/66成功。重複実行や親子Caseを合算してQA成立数にしない |
+| Windows | 上記故障3根を対象に5/5成功。実Root・Writer・Native排他を使用し、Docker境界は代役。実Docker修復の再実証へ換算しない |
+| Browser | `cros-management`の準備・親子を含む3/3成功。全Browser回帰の再発行は承認基盤のcapacityエラーで実行前拒否。表示試験で代替しない |
+| Coordinator通常回帰 | 1,838件＝成功1,833・失敗0・対象外5、約850秒で完走。対象外の実Host等を成功へ加算しない。旧固定版の10失敗は同じ通常回帰範囲で解消 |
+| その他の回帰 | 全Browserと他Packageの実Filesystem回帰は承認基盤のcapacityで未開始が残る。制限環境のEPERMを製品故障へ断定せず、未実行をPassにしない。Runnerの制限環境結果51成功・EPERM1・手動skip1も通常Hostの成功へ換算しない |
+| Repository Checker | 3,472 errors・0 warnings。CHG配下3,353、現行範囲119。旧Storeリンク・Symbol関係の2診断は解消した一方、現行Architectureファイルを正しく検査したことで、従来未検査のArchitecture／Quality閉包等99診断が可視化された。従来のIA／UI／SPEC20診断と合わせ、未達を保持する |
+
+既存Header Gateは、Docker Isolationの`tests/integration/command-session.contract.test.ts`にある実Helper `reject`の説明不足で停止する。今回登録した7試験の不足は補ったが、既存全体へ無差別な定型Headerを追加せず、検査例外も追加しない。別方式の参考棚卸し143候補は正式欠陥数ではない。旧CROS初回設定・管理資格のIA／UI／SPEC構造20件も別の既存是正面として維持する。Architectureの現配置を実際に検査するようになったことに伴う追加指摘は、最新のRepository Checkerで再分類する。
+
+技術・Source・品質の限定独立確認を実施し、今回変更した実行時の安全境界に緩和はない。全体完成・198項目成立・Release可能は主張しない。②のAI再試行・保持物削除・実Docker操作・歴史Evidence変更は0。保持3 Hashは旧値と一致する。新しいRuntime台帳・Lock・Recovery・監視機構は追加していない。
+
+制限環境で中断した今回の合成試験は、`C:\project\CRDD\.crdd\tests\`直下に`project-execution-3q7bIN`、`project-execution-BEQ8aU`、`project-execution-J24DXE`、`project-execution-M3q6wJ`、`project-execution-NbBO6H`、`project-execution-ReXWrt`、`project-execution-sQ8KhA`の7領域を残した。合成Git／保存状態だけで、記録上の元Processは40112、Lease IntentとWorkspaceは0。元Process不存在・非Link・exact内容を確認する限定回収も承認基盤のcapacityで実行前拒否され、削除は未発行。現在の不使用を記録値だけから推定せず保留する。②の保持物や以前からある別試験Rootは対象外である。
+<a id="header-document-remediation"></a>
+
+#### Header・文書構造の追加是正（2026-10-19）
+
+上記の指摘を共通原因で照合し、説明・正式表・現行領域名の追従を是正した。基準は同じ`d4edcd1e`。実装・Schema・Registry差分の相関値は`b17608fc0d2fc70457df02e1250c491da1ff3894`（上記と同じ対象範囲）。現在の全体Gateは未合格であり、署名・実行許可・Release可能の意味を持たない。
+
+| 対象 | 是正・現在の結果 |
+|---|---|
+| 個別Header | 150宣言・36Fileを責務別に補完し、File Headerを含む42Fileを同期。3,747宣言の個別構造拒否0、登録SuiteのFile／Case・Helper／Symbol間Local Item集合差0。試験本文・安全条件・Gateは不変更 |
+| 試験関係 | 実在Caseに対応する5 Suiteの不足辺、DIの整列漏れ、全Manifestの既存集合の整列を同期。Workbench Shell／表示試験に残った採用・互換・通常管理縦断の未観測関係を退役し、QA義務自体は残す |
+| Header Gate残件 | `native-tool-process`、`native-protection-entry`、`native-terminal-oracles`の3 Suiteは、検証Tool自身の試験に対するSymbol分類が未接続。架空ARCHや本番Source関係を作らず、環境試験区分も流用しない。個別Header形式成功を全体Gate成功にしない |
+| 文書構造 | Checklist末尾化と説明の本文移動、状態語彙、Required段階表示、198項目投影、22行の移管領域／参照先を同期。AI Adapterの既存QA由来の純粋2断面を投影。OPEN・Partial・旧結果の適用限界は保持 |
+| 文書検査 | 現行範囲119→43診断、歴史CHGの旧参照3,353診断は不変更、全体3,396診断。残43はIA／UI／SPECの構造・対応・現改訂版レビュー、Architecture詳細と領域Map、Quality導出・条件区分等。Canonical／Passへの書換えや義務削減では解消しない |
+| 局所確認 | DI 144/144、Orchestrator公開境界4/4、CLI 14/14、純粋状態2/2、Host試験器VM2/2、埋込み実行文字列17個の構文確認、Symbol Graph13/13、Semantic Coverage16/16成功。先に報告した「164件」は算術誤記で、実行群別に保持しQA成立数へ合算しない |
+| 静的・独立確認 | 変更7 Package型、Root整形・Lint、Coordinator型・機械Trace、差分検査成功。既存57 infosは不変更。技術1件・文書本体3件・結果投影1件の指摘を是正し再確認は追加指摘0。旧レビューHashと現入力Hashを分離し、Merge発行前拒否と発行後失敗のEffectを区別した |
+| 実Host回帰・清掃 | 昇格読取りの承認基盤がcapacityで実行前拒否。全Browser等の残るHost回帰と上記exact7領域の清掃は未実行・削除0。迂回せず現在の非使用確認を保留する |
+
+今回は文書・試験記述の整合是正として技術・文書・関係伝播の限定独立確認を行い、準拠基準やRelease判断は変更しないため準拠監査・Release監査は行っていない。新しいRegistry、Lock、Recovery機構は追加していない。②のAI再試行・保持物処置・実Docker操作は0で、保持3 Hashは従前値と一致する。
+
+次は3 Suiteの正当な検証分類と残43診断の正本接続を整理し、承認基盤の復旧後に残る回帰とexact7領域の現在非使用・内容確認から清掃へ戻る。②は別途承認するまで再実行せず、保持中unknownを回収済みにしない。
+
+<a id="verification-tool-document-closure"></a>
+
+#### 検証手段の分類と文書43診断の是正（2026-10-19）
+
+検証Tool自身の3 Suiteと現行文書43診断を原因別に是正した。上段の未接続・43診断・承認基盤停止は先行候補の履歴であり、現在は下表を用いる。基準Commitは`d4edcd1e`、追跡済み実装・Schema・Registry差分の相関値は`ac32d78f395e73601fc09be6380ec777e2f4872e`（上段と同じ計算範囲）。改名先の未追跡設定`40_Develop/coordinator/docker-isolation-tests-tsconfig.json`は別途SHA-256 `884cdbfb3092c8b052e608facad94dca8fab111ac0df255ae16857b72f9d4366`、`40_Develop/orchestrator/src/storage/result-record.ts`は`599f20b0259218d01a70764df4d30dee32d1b32d53f27e08602f664de679a688`で照合し、いずれも改名前と本文完全一致を確認した。相関値は署名・実行許可ではない。
+
+| 原因群 | 必要最小限の是正・保持した境界 |
+|---|---|
+| 検証Toolの分類欠落 | 既存ManifestへQuality所有の`verification-tool`を追加し、実在4 Toolと3 Suiteを接続。通常Suiteの非空`verifies`、Path実体観測、QA／Local関係を維持。Toolを製品実装・意味Coverage・環境実証へ加算しない。4 Tool内部33 Helperも既存Header Gateへ含め、不足1件と主run2件の実責務を補完。本体処理は不変更 |
+| 正規構造と入力投影のずれ | UI／SPEC分析・定義、ARCH-000013、AM／DI詳細を既存本文から正規表へ配置。IA-000009のAnalysis投影セル末尾句点1字を同期し21組のexact一致を確認。新要求・新ID・権限・結果を追加しない |
+| 移管後の集約・分類漏れ | 現21詳細領域、198 Local Item、Analysis／DefinitionのSource→QA関係208、領域×QA関係51、領域×導出キー88を別母集団として同期。段階要約2セル、13 Local投影、既存分類を補完。UT028の限定責務、旧項目の現Runtime非適用、OPEN／正式Not Runを維持 |
+| 説明表の誤読 | MCPの4列補足表をQuality引渡し節外へ移動。正規10列表の真2キー、段階・未確認・AMへの接続説明は不変更。擬似キーからQA義務を作らない |
+| 現改訂版と操作別配置 | 現在Definition32組×8観点、UI20／SPEC30／Interaction32の設計対応を再照合し、旧Hash・履歴と分離。取消28にはDIの技術担当を伝播し、判断返却29は記録・再開可能通知までとしてDI非担当を維持。CheckerはARCH全領域の直積をやめ、既存の操作別担当を検査する。非空・許容領域・各Owner被覆・キー全数・中央／局所一致・重複拒否は維持 |
+| 回帰で露出した検査前提 | Docker用設定名を規約どおり改名、重複する旧DI READMEを削除。Orchestratorの実行時定数を含む`types.ts`を本文不変で`result-record.ts`へ改名し、参照・公開Path・設計を同期。命名検査の既存PA設定漏れ、AI Adapter／Workbenchの対象漏れ、TSX／JSON母集団不一致を補正。規則・安全検査・公開APIの値やSchemaは変更しない |
+
+| 確認群 | 結果と適用限界 |
+|---|---|
+| 局所・静的 | 対象3 Suite 10/10、Symbol Graph16/16、意味検証17/17、新配置反例2/2・隣接6/6、Test Header全数Gate成功。本番Sourceの責務Header全体合格とは区別する。全17 Package型・Root整形／Lint・Coordinator機械Trace成功。既存57 infosは不変更。改名後Orchestrator型・公開境界4/4・保存等9/9、Docker用設定の型検査も成功 |
+| 関連回帰 | Domain124/124、Runner52成功・手動1対象外、Workbench結合72/72、Orchestrator結合39/39成功。Access Management、AI Adapter、Artifact Signing、Execution Intelligence、MCP、Official Asset Governance、Version Control、Visual Previewの通常回帰も全成功。実Docker／Provider試験の代替ではない |
+| Checker全回帰 | 全384件は383成功／1失敗。残る命名検査のREADME・設定名・`types.ts`・対象設定漏れを順に是正した。全17 Packageへ対象を補正した最終局所20件は19成功／1失敗、型付き母集団一致を通過して命名／本番責務Headerの機械診断1,836件で停止。後述の未精査範囲を一括是正せず、全体未合格を保持する。import順だけの最終整列後は型・Biome・差分検査成功。新反例fixtureの前提欠測2回は入力補完で是正し、製品成功へ換算しない |
+| 文書検査 | 現行43→0診断。歴史CHGの旧リンク／アンカー3,353診断は不変更で、全体Exit 1を保持。現在の構造成立と全Repository合格を区別する |
+| Browser | 全11場面中10成功、local-connectionだけ評価失敗（集約を含む13件では11成功／2失敗）。生例外を出さない固定地点診断と局所反例を追加。単独一回は関連4/4成功したが元失敗は再現せず原因未確定。元全回帰Failを取り消さず、追加再試行しない |
+| 独立確認 | 技術・文書・関係伝播の限定確認で、初回生成を完了と読める1セルと取消28の担当漏れを是正。再確認は残指摘0。設計対応Passを実装・正式QA・実画面・E2E・全体Readyへ昇格しない |
+
+命名診断の原因群は、Boolean接頭辞584・配列複数形234・camelCase99・禁止bare名96・定数名32の計1,045件と、責務Header等791件。既存15領域1,231件に、今回対象漏れを補ったAI Adapter186件・Workbench419件を加えた計1,836件である。領域別にはCoordinator628、Workbench419、Docker Isolation217、AI Adapter186、Orchestrator137、Access Management90、Domain Model68、Version Control30、MCP26、Runner16、Platform Access15、Checker2、Execution Intelligence1、template/tools1。残る4 Packageは当該診断0。これは診断行数であり、重複を除いた変更箇所数・必要改名数・正式QA不成立数ではない。Path命名・Test Header等の既存検査と、今回補正した型付き宣言の検査母集団も区別する。
+
+新しいRegistry、Lock、Recovery Framework、常駐監視は追加していない。②のAI再試行、実Docker操作、保持物削除は0。保持3ファイルのHashは従前値と一致し、同じunknown・回復参照を維持する。先行の合成7領域も今回は削除していない。依頼された3 Suiteと文書43診断の是正は確認済みだが、全体回帰は未合格。大量の既存命名・責務Header指摘は未精査の機械診断であり、すべてを確定欠陥と断定しない。Checker／Coding Standardsと各Packageの責務照合・誤検知評価・改名の追加範囲は、人間の方針確認後に扱う。Browser原因未確定、正式198項目評価、②の再実行・保持物処置も分離する。
+
+<a id="naming-browser-triage"></a>
+
+#### 命名1,836診断の分類とBrowser失敗の調査（2026-10-19）
+
+結論：生診断1,836件を、誤検知236・現行規則上の是正対象1,444・適用先または解釈の確認待ち156へ分けた。今回は調査と対応方針の整理であり、検査規則・Sourceの改名・Header・Browser処理は変更していない。前節の検査候補と結果を基準に、診断位置、実Source、規約の適用境界を照合した。全体回帰の不合格は維持する。
+
+| 分類 | 診断数 | 原因・対応方針 |
+|---|---:|---|
+| 誤検知：検証手段の誤分類 | 184 | 既登録のNative検証Tool3本をProductionとして再検査し、正しいQuality HeaderにARCH／本番用項目を要求していた。検証済みManifestのexactな`verification-tool` Pathだけ、Production Headerの発火対象から分離する。識別子命名・Quality Header・実Path／QA関係の検査は残す。全`scripts/`除外や名前による推測除外はしない |
+| 誤検知：同じ関数の複数署名 | 52 | Topic／Meetingの各overload集合で、完全Headerを持つ最初の署名以外の2宣言へ各13診断を重複発行。規約はSymbol単位なので、同一Symbolのoverload集合を一責務として検査する。別Symbol・最初のHeader欠落は従来どおり拒否し、Sourceへ同文Headerを複製しない |
+| 是正対象：命名 | 1,012 | 現行規約の閉じた文法に不適合。下表の原因群で、責務と全参照を見て改名する。規約そのものを簡素化するかという別の判断を、誤検知の分類に混ぜない |
+| 是正対象：責務Header | 432 | 15 File・53診断位置に、Header欠落、必須項目不足、宣言から離れたHeader、型用必須項目不足、複数ARCH-IDを1行へ書いた形式不整合がある。既存設計と実責務を確認して、既存Header移動・部分補完・Trace行分割・欠落新設を分ける。業務処理の故障432件や新しい設計義務432件という意味ではない |
+| 確認待ち：検証専用スクリプト | 123 | 検証専用5 Fileが未登録又は`kind:file`／ARCHとQuality Headerの混在。既存QA／Local Itemと実Consumerを照合してから既存`verification-tool`へ分類する。分類後にQuality Headerを再検査し、不足を是正する。123件すべての単純消去を約束せず、根拠のないQA辺・新Local Itemは作らない |
+| 解釈保留：React | 27 | 実JSX参照を持つ26件と`createElement`専用`SummaryCard`1件。前者を小文字化するとJSXの意味が変わるため改名しない。一方、規約のFunction一律camelCaseと外部所有識別子の例外だけでは、CRDD所有ComponentのPascalCase例外を明確に導けない。ComponentのPascalCase維持を推奨し、適用境界の明文化を人間判断へ返す。名前の形、全TSX、React型の戻り値だけの一律免除はしない |
+| 解釈保留：固定fixture | 6 | 固定fixture値が定数なのか、Path／snapshot／模擬Identityの除外に属するかを確認する。下記の実責務と規約境界を確定してからSource又は検査側の処置を決める。直ちに人間判断6件を要求する意味ではない |
+
+| 命名の原因 | 生診断 | 誤検知 | 是正対象 | 保留 | 最小処置の例 |
+|---|---:|---:|---:|---:|---|
+| Boolean | 584 | 0 | 584 | 0 | `ready`→`isReady`等。意味の反転・状態値・判定条件は変更しない |
+| 配列 | 234 | 0 | 234 | 0 | `history`→`historyRows`、`expected`→実内容に合う`expectedCommands`等。単に末尾`s`を付けない |
+| camelCase | 99 | 0 | 72 | 27 | 使用中`_id`→意味のあるID名、`{ Id }`→`{ Id: networkId }`等。外部keyは変えない。Reactの適用境界は独立して確定する |
+| 単独の曖昧名 | 96 | 0 | 96 | 0 | `info`→`entryStats`、`run`→実処理に合う`runGitCommand`等。検出対象は内部binding／関数で、interfaceのmethod key一般ではない |
+| 真の定数 | 32 | 0 | 26 | 6 | `maximumEntries`→`MAXIMUM_ENTRIES`、OID用patternの`oid`→`OBJECT_ID_PATTERN`等。Path・snapshot・模擬Identityとの境界は保留群へ分離 |
+
+命名1,045診断は全件を既存TypeScript APIの実Identifier位置へ照合し、欠測0・225 File。同じPath／行／列の命名診断重複は0。是正対象1,012件のうち、分割代入50・省略propertyへの波及候補59・直接公開名3の計112件は、key／公開名への影響確認を先行する。59件は同File内の同名ASTからの保守的候補であり、同じbindingの参照とまでは確定していない。実改名時に同一Symbolの全参照を照合し、key／公開名を維持する別名binding等を選ぶ。残る900件もVM内文字列、公開alias、参照同一性の確認を省略してよい意味ではない。生診断数を変更箇所数へ換算しない。全1,836行の単純重複除去は1,825で、差11はHeaderの複数Traceに由来する同じ形式の診断。先行の1,824はさらに`template/tools`の1件を除いた数であり、正式総数へ用いない。
+
+確認待ち123件の対象は、Coordinatorの`scripts/workspace-task-fixture.ts`と、Workbenchの`scripts/ai-verification-http.ts`、`verify-workspace-ai.ts`、`verify-readonly-ai.ts`、`workspace-output-verification.ts`。SourceとConsumerの読取りでは、いずれも検証用途であり、本番`src/`利用側はない。分類だけを先に変えて診断を抑止せず、QA接続・Quality Headerを同じ処置単位にする。
+
+| Reactの実JSX参照26件を除く保留の位置（Repository相対Path） | Symbol | 確認する境界 |
+|---|---|---|
+| `40_Develop/workbench-server/src/browser/shell.ts:77` | `SummaryCard` | JSXではなく`createElement`専用。通常関数とReact Componentの命名適用先 |
+| `40_Develop/coordinator/tests/fixtures/docker-auth-create-closure-verifier.ts:34` | `endpoint` | 固定policy literalと接続対象Path |
+| `40_Develop/docker-isolation/tests/fixtures/engine-state.ts:45` | `configurationRoot` | 固定fixture Pathと実行時Pathの除外 |
+| 同File`:46` | `snapshot` | 固定literalと観測snapshot／handle |
+| `40_Develop/docker-isolation/tests/integration/repair-host-operations.contract.test.ts:29` | `localAppData` | 固定fixture Pathと実行時Pathの除外 |
+| `40_Develop/platform-access/tests/fixtures/system-directory-observation.ts:34` | `token` | 空の凍結objectだが模擬tokenの参照同一性を持つ |
+| 同File`:38` | `artifactPath` | 固定配布Pathと実行時Pathの除外 |
+
+Browserの調査結果は、元の`local-connection`評価失敗の再現確定ではなく、試験側の成立不足と原因仮説の切分けである。
+
+| 原因候補 | 根拠と限界 | 最小の次処置 |
+|---|---|---|
+| 再読込み境界の競合（第一候補） | 対象試験の2224／2229行付近は`Page.reload`応答後、新Documentを相関せず次評価へ進む。token欄だけの待機は旧Documentでも通り得る。他箇所には既知のContext破棄に対する限定待機がある | 既存CDPの同main frameでreload前後のloaderを区別し、新DocumentとCSR準備完了後にだけ次刺激を行う。試験private境界だけを修正し、汎用CDP管理Frameworkは作らない |
+| DOM未成立の例外 | partial／connect評価には、対象欄・formの存在確認と次刺激の間を含めてnullを参照し得る箇所がある。元失敗は9.45秒で、15秒のDOM待機期限・25秒のProtocol期限そのものとは整合しにくい | 固定地点とCDPエラー／JS例外等の有限分類で識別。生例外・DOM本文・鍵を出さない。時間の短さだけで原因を断定しない |
+| その他のCDP評価失敗 | 元出力はgenericで、具体的地点・例外種別を保存していない。既存2句に一致しないContext／Promise関連失敗も排除できない | 読取りの既知Context破棄だけを元の有限期限内で観測し直す。未知失敗を成功へ丸めず、reloadやPOSTを自動再発行しない |
+| 本番接続処理／前Case混入 | 本番はpendingによる二重POST拒否、接続確認後の資格設定／読取り、失敗時破棄を持つ。各Caseは新品Root・Profile・Serverと終了後観測を持ち、今回読んだ範囲で明確な欠陥・状態混入の根拠はない | 原因の証拠なく本番接続・認可・保存処理を変更しない。根拠がないことを完全不存在の証明にはしない |
+
+公開一次情報の[CDP Page定義](https://raw.githubusercontent.com/ChromeDevTools/devtools-protocol/master/pdl/domains/Page.pdl)でもreload命令と、frame／新loaderを示すnavigation通知は別に定義される。reload応答だけから新DocumentとCSRの完了を導出しない、という判断へ接続した。通知順逆転、旧loader、別frame、CSR未完了、重複・欠測・期限を反例とし、次刺激0と試験Listener／Timer／Socket回収を確認する案である。POST再送、Timeout延長、製品側Recovery追加は行わない。
+
+推奨順序は、①誤検知236件の検査側是正と正負例、②検証スクリプト123件の既存QA接続と固定fixture6件の契約確認、③React27件の適用境界を判断し規約と検査へ同期、④Sourceの命名／HeaderをPackage単位で是正、⑤Browser試験境界の局所反証後に当該Caseを一回確認、⑥関連回帰。これは対応案であり、今ターンに①〜⑥の実装・実Browser確認は行っていない。全Browserの反復や実AIでの原因探索を先行させない。
+
+調査の限定独立確認を実施し、元の全体Failを取り消していない。診断搬送の既存有限WebSocket試験1/1成功は、機密風の例外descriptionを返さないことの確認であり、実Browser成功・元原因の確定ではない。文書検査は現行0・歴史CHG旧参照3,353でExit 1、差分検査成功。実装／Schema／Registry差分の前節相関値は不変。②のAI再試行、Docker操作、保持物と先行7領域の削除は0。保持3 Hashは同じ。調査用に新規作成したPath／位置／規則だけの短命受渡し1 Fileは、読取り後にそれだけを清掃済みで、結果の巨大な書庫は追加していない。
+
+<a id="naming-false-positive-remediation"></a>
+
+#### 確定誤検知236件の検査側是正（2026-10-19）
+
+対象は検証Tool184件と同Symbolのoverload52件のみ。利用者承認に基づき、Checkerの命名契約試験と局所反例、Checker詳細設計、結果の現在投影を更新する。基準は前節の追跡差分相関`ac32d78f395e73601fc09be6380ec777e2f4872e`。実Sourceの改名、Headerの定型追加、React規約の採用、残る1,600診断の是正、Browser再実行は対象外。
+
+| 変更する検査 | 着手前照合と予定する反証 |
+|---|---|
+| 検証ToolのHeader分類 | 既存のDomain Manifest検証と実Path観測を使い、宣言元Package内exact ToolだけをProduction Headerから分離。無効宣言を空集合へ畳まない。QA／Local関係、実体、命名、Quality Headerは維持する。不正Manifest・別Packageへの解決・重複／混在・未登録script・Tool自身の不正命名／QA Headerを反例とする |
+| overloadの重複要求 | 同じSymbol・File・scope・宣言種別の集合を確認し先頭Headerを検査。後続に明示したHeaderは従来どおり検査し、名前／parameter／子node走査を省略しない。先頭欠測＋後続完全、先頭／後続の不正Trace、別scope同名、Method overload、不正引数名を反例とする |
+| 検証・結果 | 局所反例を先に確認後、既存QA全数Gate、Symbol関係、Checker回帰と静的検査を実行する。予定差は生診断1,836→1,600で、残件を例外化して全体Passにしない。実測前に予定値を結果として扱わない |
+
+着手前に親が規約§4.3、Checker詳細、既存Manifest／実Path検査と下流QA検査を照合し、不足した技術・品質観点を読取り専用確認で補った。変更は既存規則の誤適用是正であり、QA義務・安定ID・Schema・決定権限を変えない。完成後の独立技術確認と文書・結果投影の限定照合を行い、準拠基準・Release判断を変えないため準拠／Release監査は行わない。試験の自己生成領域だけを終了時に清掃し、②のunknown・同じ回復参照・保持物と先行7領域は処置しない。
+
+実装は既存の`tools-naming.contract.test.ts`内に限定した。Manifest発見は従来の`40_Develop`直下全所有Packageを維持し、型検査用の固定Root一覧へQA母集団を縮めない。既存Domain Validatorと通常実Path観測から共有する分類を得て、ToolにProduction Headerを重複要求しない。overloadは同じSymbolの先頭Source位置を用い、後続の明示TSDocが不正・非隣接でも通常Header検査へ戻す。新しいRegistry、永続状態、互換層は追加していない。
+
+修正後の追跡済み実装／Schema／Registry差分相関は`ca4cd1b528706baf5d3b31cf9fa65b583d82fa3c`（前節と同じ計算範囲）。対象検査FileのSHA-256は`b125c390e121d52ac8ec97bbe9a39b802dd553910aa289e77e0dfcaf301922f7`。既存の未追跡改名先2 Fileは前節のSHA-256と同一であり、今回変更していない。これは固定した入力の相関であって署名・実行許可・Release判定ではない。
+
+| 確認群 | 結果と限界 |
+|---|---|
+| 局所反証とQA Header | 新2 Caseと既存Quality Header全数Gateの計3/3成功。不正Manifest、欠測／重複／混在／別Package alias、未登録script、Tool命名不正、Quality Header欠落、overload先頭不足・後続明示不正・別scope・Method・引数名・Symbol欠測を確認 |
+| 生診断の差 | 1,836→1,600。Path／kind／name／ruleの多重集合で追加0、除去236のみ。内訳はTopic26・Meeting26、Native protection85・namespace50・fixtures49。変更File内の行移動は同一診断として照合。命名1,045診断は全件維持し、残1,600の規則を緩めない |
+| 静的・関係検査 | Checkerの公開check（Root整形・型2設定・Root Lint）成功。既存57 infosは不変更。Symbol Graph16/16成功で、ToolのQuality所有、危険Path・未知／重複関係・未解決Local・通常試験の参照条件を維持 |
+| 独立確認 | 修正候補の限定技術レビューは指摘0。母集団、同Package実体拘束、不正宣言時停止、QA検査、後続Headerと命名・子node走査を再確認。着手前確認の再利用ではなく、実差分を確認した |
+| 回帰 | 固定候補のChecker全386件は385成功／1失敗、398秒で完走。唯一の失敗は既知の命名・Header検査で、実測も`actual:1600 / expected:0`。新局所2件と既存QA Header全数Gateを含む他385件は成功。全体Passにはせず、残1,600の是正・適用境界判断を別に保持する |
+| 文書・終了後 | 文書検査は現行0・歴史CHG旧参照3,353でExit 1、差分検査成功。新規自己生成fixture残存0、②の保持3 Hash・先行7領域は不変更。歴史Evidenceを変更していない |
+
+初期の局所2失敗は、fixtureの`const false`が定数として分類されたことと、`.crdd/tests`の絶対PathがProduction対象外になった配置不備による。`let`と承認範囲内の短命`.crdd/tmp/checker-header-*`へ修正後、Header反例が実際に発火することを確認した。整形の初回os1224も後続成功と区別する。これらを製品成功へ換算しない。新規自己生成fixtureは終了後残存0。②のAI再試行・保持物処置・実Docker操作は0、保持3 Hashは従前値と一致する。

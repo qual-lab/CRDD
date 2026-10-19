@@ -75,9 +75,15 @@ UI-000008の最新引渡しは[9 Role分担行分担](Definitions/UI-000008/ui_d
 
 更新前固定版の履歴: Definition対応のv0.21固定時点では29 BHV／31 Relationを[UI／SPEC対応](../05_SPEC/06_UI_SPEC_Correspondence.md)で確認した。今回のUI-000008／SPEC-000012更新前のv0.22固定版ではBHV-000031とRelationを1件追加し、30 BHV／32 Relationを[UI／SPEC Detail対応](../05_SPEC/Details/02_UI_SPEC_Detail_Correspondence.md)で双方向に全件確認して`Pass`とした。前判断のDetail限定対応は確認済み。更新前固定版のDefinition対応と横断投影は限定独立レビュー済みであり、この過去Passを現在の引き渡し完了へ読み替えない。
 
-## Checklist
+## 初回Host設定の現行伝播
 
-チェック済み項目は今回更新前の固定版の確認記録である。
+鍵提示方式の現在引渡しは[UI-000008](Definitions/UI-000008/ui_definition.md#鍵提示の表示面と完了feedback)の表示面・状態差を[SPEC-000012](../05_SPEC/Definitions/SPEC-000012/spec_definition.md#一度提示と初回接続確認の成立境界)の成立順・失敗条件へ対応付ける。追加受領操作なし、通常提示≠本人受領、初回接続確認前の完了表示0と通常Authority0を接続する。今回の対応は候補伝播・限定再レビュー済み（鍵提示方式伝播差分、全重大度0）で、旧対応Passを流用しない。
+
+今回更新前の固定版では、登録解除・鍵の受け渡し未確認に関するDefinition・1組対応・横断投影の限定独立再レビューが残指摘0だった。今回変更分の根拠へ流用しない。今回の鍵提示方式を反映したDefinition・現行対応・横断投影・Detailは候補伝播済み・限定再レビュー済み（鍵提示方式伝播差分、全重大度0）。Visual／Architecture／Quality／Sourceは未追従で、実画面評価・工程Exitは未完了である。
+
+以下のチェック済み項目は今回更新前の固定版の確認記録であり、今回の工程Exit判定ではない。
+
+## Checklist
 
 - [x] UIとSPECの共通正式入力を明示した
 - [x] UIとSPECの責任境界を区別した
@@ -92,9 +98,3 @@ UI-000008の最新引渡しは[9 Role分担行分担](Definitions/UI-000008/ui_d
 - [x] Open・GapとOwner工程へ戻す条件を明示した
 - [x] UI／SPEC独自の第三仕様を作っていない
 - [x] 補足分析へ必須情報を退避していない
-- 履歴: 今回更新前の固定版では、登録解除・鍵の受け渡し未確認に関するDefinition・1組対応・横断投影の限定独立再レビューが残指摘0だった。今回変更分の根拠へ流用しない。
-- OPEN: 今回の鍵提示方式を反映したDefinition・現行対応・横断投影・Detailは候補伝播済み・限定再レビュー済み（鍵提示方式伝播差分、全重大度0）。Visual／Architecture／Quality／Sourceは未追従。実画面評価・工程Exitは未完了。
-
-## 初回Host設定の現行伝播
-
-鍵提示方式の現在引渡しは[UI-000008](Definitions/UI-000008/ui_definition.md#鍵提示の表示面と完了feedback)の表示面・状態差を[SPEC-000012](../05_SPEC/Definitions/SPEC-000012/spec_definition.md#一度提示と初回接続確認の成立境界)の成立順・失敗条件へ対応付ける。追加受領操作なし、通常提示≠本人受領、初回接続確認前の完了表示0と通常Authority0を接続する。今回の対応は候補伝播・限定再レビュー済み（鍵提示方式伝播差分、全重大度0）で、旧対応Passを流用しない。

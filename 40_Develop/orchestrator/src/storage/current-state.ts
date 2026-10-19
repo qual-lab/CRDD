@@ -56,15 +56,15 @@ import type {
 import type {
   IntegrationRecordBinding,
   OrchestratorResultRecord,
-} from "./types.ts";
+} from "./result-record.ts";
 import {
   ORCHESTRATOR_ACCEPTANCE_DECISION_STORE_CONTRACT,
   type OrchestratorAcceptanceDecisionEnvelope,
   validOrchestratorAcceptanceDecisionEnvelope,
   validOrchestratorAcceptanceDecisionRecord,
 } from "../decision/acceptance-record.ts";
-import { ORCHESTRATOR_INTEGRATION_CONTRACT } from "./types.ts";
-import type { OrchestratorIntegrationRecordPort } from "./types.ts";
+import { ORCHESTRATOR_INTEGRATION_CONTRACT } from "./result-record.ts";
+import type { OrchestratorIntegrationRecordPort } from "./result-record.ts";
 import { validOrchestratorDecisionRecoveryIntent } from "../decision/recovery-record.ts";
 import { validOrchestratorResultRecord } from "./validate-result-record.ts";
 import {

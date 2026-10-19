@@ -593,7 +593,29 @@ test("interactive Queue wins a fresh binding-wide selection before a scheduled c
  * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("PR-N-01 uses the existing Single Task adapter without widening its authority", async (t) => {
-  const { input } = fixture(t, [task("task-a")], 1);
+  const { root, input } = fixture(t, [task("task-a")], 1);
+  // Directの借用対象も、実在する固定HEADを持つRepositoryで検証する。
+  execFileSync(
+    "git",
+    [
+      "-C",
+      root,
+      "-c",
+      "user.name=CRDD Test",
+      "-c",
+      "user.email=test@example.invalid",
+      "-c",
+      "commit.gpgSign=false",
+      "-c",
+      "core.hooksPath=NUL",
+      "commit",
+      "--allow-empty",
+      "--quiet",
+      "-m",
+      "fixture",
+    ],
+    { windowsHide: true },
+  );
   let starts = 0;
   const outcome = await runOrchestratorOperation(
     {
@@ -659,7 +681,7 @@ test("PR-N-01 uses the existing Single Task adapter without widening its authori
     },
     input,
   );
-  assert.equal(outcome.status, "completed");
+  assert.equal(outcome.status, "completed", outcome.reason);
   assert.equal(starts, 1);
 });
 

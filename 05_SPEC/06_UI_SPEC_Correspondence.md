@@ -26,10 +26,14 @@ UI-000008／SPEC-000012の最小ユーザー管理への更新により、下記
 
 | 項目 | 対象 |
 |---|---|
-| 対象改訂版 | UI／SPEC Definition集合 SHA-256: `e11a86a6b7f439e08f088c468e54fdf59eafc43d4cd21459dcf0f0efb068f0cb` |
+| 対象改訂版 | UI／SPEC Definition集合 SHA-256: `cf24bf0d5595acc5d603a5433d97e46add19bd1534bf4b2d67fbe2c1bc141f36` |
+| 対象改訂版（旧32組レビュー） | UI／SPEC Definition集合 SHA-256: `e11a86a6b7f439e08f088c468e54fdf59eafc43d4cd21459dcf0f0efb068f0cb` |
+| 先行候補入力集合（現行レビュー前の履歴） | UI／SPEC Definition集合 SHA-256: `5a55fd31b33d6e982be17c3deb5cd853dd7b38b08624c4fcbae07e32298dd9dc`。旧32組の引用・結果をこの集合のレビュー根拠へ結合しない |
 | 対象関係 | 32組 |
 | 判定単位 | UI／SPECの組ごとに、Shared Contextと8観点を確認する |
 | 工程境界 | 対応PassはUI契約とSPEC契約の対応Closureを示す。Prototype／実画面評価を含むUI工程ExitまたはArchitectureへの通常Handoffは別Gate |
+
+現行32組は、各Definitionの責務、状態、発火条件、結果、失敗、回復、Authority、可視性、制約および非対象を8観点で再照合した。各行のUI事実・SPEC事実・対応理由は現在Definition本文に存在する内容へ結合し、旧Hashや旧引用の一致だけを根拠にしていない。この設計対応の確認は、Detail、Architecture、Quality、Source、実画面またはE2Eの成立を意味しない。
 
 ## 2. 対応関係と個別レビュー結果
 
@@ -301,14 +305,14 @@ UI-000008／SPEC-000012の最小ユーザー管理への更新により、下記
 
 | 観点 | UI側の根拠 | SPEC側の根拠 | 判定 | 理由 |
 |---|---|---|---|---|
-| State | [UI-000008](../04_UI/Definitions/UI-000008/ui_definition.md#状態と表示差) | [SPEC-000012](Definitions/SPEC-000012/spec_definition.md#振る舞い状態結果) | 一致 | UI事実（UI-000008）「active／expired／revoked／rotating／unknown、確認待ち／進行中／blocked／completed」／SPEC事実（SPEC-000012）「administrator、management、developerのRole別Credentialを管理し、認証時は現在有効なRole GrantとRepository Roleから利用可能範囲を確定する。」／対応: Credential状態とRecovery状態を、Role Grantによる利用範囲とは別軸で表示する。 |
-| Trigger | [UI-000008](../04_UI/Definitions/UI-000008/ui_definition.md#操作とfeedback) | [SPEC-000012](Definitions/SPEC-000012/spec_definition.md#契機事前条件authority) | 一致 | UI事実（UI-000008）「Credentialを発行・失効・ローテーションする／Accessを回復する」／SPEC事実（SPEC-000012）「Remote接続、Credential発行・失効・ローテーション、またはAccess Recoveryを開始する時」／対応: 通常資格管理とHost Recoveryの開始契機を区別する。 |
-| Result | [UI-000008](../04_UI/Definitions/UI-000008/ui_definition.md#操作とfeedback) | [SPEC-000012](Definitions/SPEC-000012/spec_definition.md#振る舞い状態結果) | 一致 | UI事実（UI-000008）「失効対象、保持するProduct Data、Recovery IDおよびBootstrap再入場先を示す」／SPEC事実（SPEC-000012）「Secretは発行時に一度だけ返し、System管理能力、Management内容Access、Development内容Accessを別に判定する。」／対応: 発行結果とRecovery結果を秘密値保存なしで示す。 |
-| Failure | [UI-000008](../04_UI/Definitions/UI-000008/ui_definition.md#操作とfeedback) | [SPEC-000012](Definitions/SPEC-000012/spec_definition.md#失敗回復副作用) | 履歴（期限方針採用前） | UI事実（UI-000008）「Remote認証へ依存する／Secretを再表示・保存する／Product Dataを削除する」／SPEC事実（SPEC-000012）「無効・期限切れ・失効Credential、Role不整合、Secret再表示要求、全Administrator喪失、認可状態破損、Recovery途中失敗を区別する。」／対応: SecretとProduct Dataを守り、失敗地点を隠さない。 |
-| Recovery | [UI-000008](../04_UI/Definitions/UI-000008/ui_definition.md#状態と表示差) | [SPEC-000012](Definitions/SPEC-000012/spec_definition.md#失敗回復副作用) | 一致 | UI事実（UI-000008）「Role→Credential→処置。通常管理不能時はHost確認→Recovery→Bootstrap再入場」／SPEC事実（SPEC-000012）「最初の失敗から同じRecovery IDを保持し、失効対象・保持対象・終了後状態を再観測してBootstrap Credentialから通常管理へ戻す。」／対応: 同一Recoveryの現在地と通常管理への再入場を示す。 |
-| Authority | [UI-000008](../04_UI/Definitions/UI-000008/ui_definition.md#制約) | [SPEC-000012](Definitions/SPEC-000012/spec_definition.md#契機事前条件authority) | 一致 | UI事実（UI-000008）「Administrator能力から内容Accessを推定しない。」／SPEC事実（SPEC-000012）「通常管理はAdministrator能力、内容AccessはRole別Grant、全喪失RecoveryはServer Host Authorityに限定する」／対応: 管理能力、内容Access、Host RecoveryのAuthorityを分離する。 |
-| Visibility | [UI-000008](../04_UI/Definitions/UI-000008/ui_definition.md#表示面と情報の優先順位) | [SPEC-000012](Definitions/SPEC-000012/spec_definition.md#受入条件と検証義務) | 履歴（期限方針採用前） | UI事実（UI-000008）「接続資格状態: 発行・有効・期限切れ・失効・ローテーションを区別する状態」／SPEC事実（SPEC-000012）「境界: active／expired／revoked／rotating／unknown、三Role、Repository単体利用、通常管理／Host Recoveryを分ける」／対応: Role、資格状態、利用範囲、Recoveryを独立表示する。 |
-| Constraint | [UI-000008](../04_UI/Definitions/UI-000008/ui_definition.md#制約) | [SPEC-000012](Definitions/SPEC-000012/spec_definition.md#制約) | 一致 | UI事実（UI-000008）「Repository単体利用へCROS Role、CredentialまたはServer登録を要求しない。」／SPEC事実（SPEC-000012）「Repository単体利用へCROS Credentialを要求しない。」／対応: Remote CROSの資格管理をLocal Repository利用へ波及させない。 |
+| State | [UI-000008](../04_UI/Definitions/UI-000008/ui_definition.md#状態と表示差) | [SPEC-000012](Definitions/SPEC-000012/spec_definition.md#振る舞い状態結果) | 一致 | UI事実（UI-000008）「有効／失効／不明。永続resettingやrotation状態を追加しない」／SPEC事実（SPEC-000012）「資格は有効／失効／不明を区別する。」／対応: UIとSPECは資格状態を同じ三値で区別し、旧rotation状態を現行状態へ持ち込まない。 |
+| Trigger | [UI-000008](../04_UI/Definitions/UI-000008/ui_definition.md#操作とfeedback) | [SPEC-000012](Definitions/SPEC-000012/spec_definition.md#契機事前条件authority) | 一致 | UI事実（UI-000008）「新規資格発行」／SPEC事実（SPEC-000012）「新規資格発行・独立失効」／対応: Workbenchの固定administratorが既存対象と操作内容を確認した場合だけ、新規発行または独立失効を開始する。 |
+| Result | [UI-000008](../04_UI/Definitions/UI-000008/ui_definition.md#操作とfeedback) | [SPEC-000012](Definitions/SPEC-000012/spec_definition.md#振る舞い状態結果) | 一致 | UI事実（UI-000008）「対象資格、失効結果、以後の要求拒否、結果不明時の既知状態と確認先」／SPEC事実（SPEC-000012）「失効した資格を以後の要求で拒否する。」／対応: 独立失効の既知結果と次要求での拒否を示し、結果不明を完了へ畳まない。 |
+| Failure | [UI-000008](../04_UI/Definitions/UI-000008/ui_definition.md#操作とfeedback) | [SPEC-000012](Definitions/SPEC-000012/spec_definition.md#失敗回復副作用) | 一致 | UI事実（UI-000008）「発行不明の成功化、rollback推定」／SPEC事実（SPEC-000012）「結果不明時は成功・失敗を推定せず、既知の対象・現在状態を確認してから再処置する。」／対応: 発行・保存・提示の不明を成功やrollbackへ読み替えず、既知事実から再観測する。 |
+| Recovery | [UI-000008](../04_UI/Definitions/UI-000008/ui_definition.md#状態と表示差) | [SPEC-000012](Definitions/SPEC-000012/spec_definition.md#失敗回復副作用) | 一致 | UI事実（UI-000008）「元発行の確認範囲と別明示交換のIdentityを区別」／SPEC事実（SPEC-000012）「元発行または結果記録が未確定の交換途中失敗では別Recoveryを重ねず、同じexact ID・種別・対象へ再入場する。」／対応: 元処理のexact Recoveryと、確定発行後に人間が開始する別交換を別Identityとして扱う。 |
+| Authority | [UI-000008](../04_UI/Definitions/UI-000008/ui_definition.md#制約) | [SPEC-000012](Definitions/SPEC-000012/spec_definition.md#契機事前条件authority) | 一致 | UI事実（UI-000008）「管理能力は内容閲覧権限ではない。」／SPEC事実（SPEC-000012）「通常管理権限から内容閲覧やHost回復Authorityを推定しない。」／対応: 管理、内容閲覧、Host回復のAuthorityを互いに推定せず、入口ごとの現在条件を使う。 |
+| Visibility | [UI-000008](../04_UI/Definitions/UI-000008/ui_definition.md#表示面と情報の優先順位) | [SPEC-000012](Definitions/SPEC-000012/spec_definition.md#受入条件と検証義務) | 一致 | UI事実（UI-000008）「許可外Identityを隠した理由」／SPEC事実（SPEC-000012）「名前Authority化・古権限固定・秘密再表示／保存・非開示漏えい・Product Data削除をしない」／対応: 許可された対象と不足だけを示し、非開示Identityや秘密値を結果・理由へ漏らさない。 |
+| Constraint | [UI-000008](../04_UI/Definitions/UI-000008/ui_definition.md#制約) | [SPEC-000012](Definitions/SPEC-000012/spec_definition.md#制約) | 一致 | UI事実（UI-000008）「Repository単体利用にCredentialを要求しない。」／SPEC事実（SPEC-000012）「一般IAM、メール・Password・本人確認・自己登録・自己編集・SSO・複数Role・個別追加権限・個人行動監査を追加しない。」／対応: 資格管理を単体Repository利用へ波及させず、一般IAM機能を追加しない。 |
 
 ### UI-000009／SPEC-000013
 
@@ -736,9 +740,9 @@ UI-000008／SPEC-000012の最小ユーザー管理への更新により、下記
 
 正本は[UI-000008](../04_UI/Definitions/UI-000008/ui_definition.md#鍵提示の表示面と完了feedback)と[SPEC-000012](Definitions/SPEC-000012/spec_definition.md#一度提示と初回接続確認の成立境界)。対応だけで実装・正式QA・全体Readyを主張しない。
 
-## Checklist
+チェック済み項目は今回更新前の固定版のレビュー記録であり、今回の改訂版の判定ではない。鍵の期限なし方針の断面はDetail／Architecture／Qualityへ候補伝播済み・契約・品質限定独立再レビュー済み（残指摘0）である。Source／Store／本番接続、Visual・実画面評価・工程Exitおよび他の未完了範囲は維持し、旧完成記録を新版へ流用しない。
 
-チェック済み項目は今回更新前の固定版のレビュー記録であり、今回の改訂版の判定ではない。
+## Checklist
 
 - [x] UIとSPECが同じUX・IA Contextを保持している
 - [x] Shared Stateの意味が一致する
@@ -759,4 +763,3 @@ UI-000008／SPEC-000012の最小ユーザー管理への更新により、下記
 - [x] Definition対応とDetail対応を区別した
 - [x] 対象Detail RelationをDefinition対応のPassで代替せず独立確認した
 - [x] 未決事項をAI推測で補完していない
-- OPEN: 鍵の期限なし方針の断面はDetail／Architecture／Qualityへ候補伝播済み・契約・品質限定独立再レビュー済み（残指摘0）。Source／Store／本番接続は未追従。Visual・実画面評価・工程Exitおよび他の未完了範囲は維持する。旧完成記録を新版へ流用しない。

@@ -151,7 +151,7 @@ crateは`rust-toolchain.toml`、`Cargo.toml`および`Cargo.lock`でtoolchain、
   → Platform Accessの固定Artifact／Bootstrapで実体・Hashを観測
   → 固定Pathのcrdd-platform-access.exe
     ├ Provider Home／Runtime Stateの観測
-    ├ Candidate Store／Runtime Stateの限定初期化
+    ├ Runtime Stateの限定初期化
     └ Docker Desktop最終復旧helper
   → nonce・応答・終了・実体同一性を再確認
   → 診断／Task／Recovery結果
@@ -167,9 +167,9 @@ crateは`rust-toolchain.toml`、`Cargo.toml`および`Cargo.lock`でtoolchain、
 Coordinatorの用途別Adapter（許可・耐久記録・全体結果の所有者）
   ↓ 固定binaryへの要求
 受付・dispatch [main.rs]
-  ├→ Root／Home／Store／State要求・応答 [protocol/access.rs]
+  ├→ Root／Provider Home／Runtime State要求・応答 [protocol/access.rs]
   │     ├→ Root用途別観測 [filesystem/root_observation.rs]
-  │     └→ 固定Home／Store／State観測・限定初期化 [filesystem/protected_root.rs]
+  │     └→ 固定Provider Home／Runtime State観測・限定初期化 [filesystem/protected_root.rs]
   │          ├→ 主体・Token観測 [process/principal.rs]
   │          └→ 保護・実体観測 [filesystem/protection.rs]
   │                                         ↓
@@ -194,12 +194,12 @@ Coordinator側で再検証 → 診断／回復結果
 
 | 内部ブロック | Source群 | 所有範囲 |
 |---|---|---|
-| 受付・応答形式 | `src/main.rs`、`src/protocol/access.rs` | mode選択、要求形式、Root／Home系応答の符号化 |
+| 受付・応答形式 | `src/main.rs`、`src/protocol/access.rs` | mode選択、要求形式、Root／Provider Home／Runtime State応答の符号化 |
 | Windowsフォルダ観測 | `src/filesystem/windows_directory.rs` | System Directoryと固定Known FolderのOS API観測 |
 | Windows主体観測 | `src/process/principal.rs` | Token／SID／認証Sessionと主体分類のOS観測 |
 | Windows保護・実体観測 | `src/filesystem/protection.rs` | Handle・Descriptor所有、Directory Identity、固定入力のopen、ACL AccessCheckとhash resourceの解放 |
 | Windows Root観測 | `src/filesystem/root_observation.rs` | Rootの用途別要求を主体・保護の観測へ接続する。Native入口は用途別Ownerを直接呼び出す |
-| 固定Home観測 | `src/filesystem/protected_root.rs` | Provider Home／Candidate Store／Runtime Stateの固定親、構成、限定初期化と主体・保護Bindingを照合する |
+| 固定Provider Home／Runtime State観測 | `src/filesystem/protected_root.rs` | Provider Home／Runtime Stateの固定親、構成、Runtime Stateだけの限定初期化と主体・保護Bindingを照合する。旧Store値は現行Protocolで拒否する |
 | Host記録処理 | `src/filesystem/host_record.rs` | 容量・予約・保存・読戻しを保護付きFileとNamespace対象観測へ接続し、専用公開結果と部分処置を搬送する |
 | 保護付きFile操作 | `src/filesystem/protected_file.rs` | 同期Handleのopen・close、実体・ACL照合、Descriptor構成、上限付き読取り、保存Stageのwrite・flush・同一実体への非置換公開と部分receipt |
 | Host Namespace観測 | `src/filesystem/host_namespace.rs` | 固定NamespaceのIdentity型、実体値照合、対象名・一時親Path判定、保持Directory chainの取得・検証・個別終了、期待値付き固定child初期化と専用公開要求 |
@@ -217,7 +217,7 @@ Host保護試験の反復入口は`40_Develop/coordinator/scripts/verify-native-
 | 経路 | 実装上の所有者 | 条件・効果・限界 |
 |---|---|---|
 | Provider Home観測 | `filesystem/protected_root.rs`の`observe_provider_home` | Codex／Claudeの選択HomeをOS Known Folderから結合する。Credential本文は読まず、既存Homeを修復しない |
-| Store／State初期化 | `initialize_runtime_owned_directory_if_missing` | 明示されたRuntime-owned directoryの最終Directoryだけを保護付きで作る。既存物を推測修復しない |
+| Runtime State初期化 | `initialize_runtime_owned_directory_if_missing` | 明示されたRuntime Stateの最終Directoryだけを保護付きで作る。既存物を推測修復しない |
 | Docker Desktop最終復旧 | `docker-desktop/repair.rs` | 固定Policy、artifact、mutex、対象Process確認、終了および固定Desktop起動を扱う。耐久記録、Directory rename、再開判断はTypeScript側が所有する |
 
 RootやHomeの観測結果は、用途別Adapterが同じOperationのRepository、選択ユーザー、署名済み配布物およびRecovery状態と再結合して初めて利用できる。別Operationへ持ち回らない。
@@ -360,12 +360,12 @@ Host終端記録のSchema、参照、容量、Authority、再入場と清掃は[
 
 ## 4. バイナリ境界
 
-Root／Home／Store／Stateのbyte・flag定義は[protocol/access.rs](../../../40_Develop/platform-access/src/protocol/access.rs)、Docker復旧のcommand・応答は[docker-desktop/repair.rs](../../../40_Develop/platform-access/src/docker-desktop/repair.rs)を正本とする。
+Root／Provider Home／Runtime Stateのbyte・flag定義は[protocol/access.rs](../../../40_Develop/platform-access/src/protocol/access.rs)、Docker復旧のcommand・応答は[docker-desktop/repair.rs](../../../40_Develop/platform-access/src/docker-desktop/repair.rs)を正本とする。
 
 | protocol | 識別と長さ | 確認事項 |
 |---|---|---|
 | Root | revision 3、`CRDDPA03`／`CRDDPR03`、応答86 bytes | nonce、role、Path、期待実体、既知flag、終了状態 |
-| Home／Store／State | revision 3、`CRDDPH02`／`CRDDHO02`、要求76・応答182 bytes | provider、nonce、主体・保護・安定Identity。初期化flagはStore／Stateだけ |
+| Provider Home／Runtime State | revision 3、`CRDDPH02`／`CRDDHO02`、要求76・応答182 bytes | provider、nonce、主体・保護・安定Identity。初期化flagはRuntime Stateだけ。旧Store値は拒否する |
 | Docker障害修復 | `CRDDDR05`、応答41 bytes | 現行公式成果物の署名・同一操作Identityを固定し、公式停止と残存Process終了を分離して返す |
 | 検証付き再起動 | `CRDDDS01`、応答41 bytes | 現行公式成果物の署名・同一操作Identityを固定する別mode。`S`だけが公式停止を許可し、`N`未発行／`T`exit 0と子回収確認／`P`発行後不明を返す |
 | Host対象の現在観測 | 専用`--host-terminal-observe`、`CRDDHT02`／`CRDDHR02`、revision 2。要求最大342、応答最大1024 bytes | nonceは要求相関専用。Root／marker単純名、namespace三実体の六u32と独立した選択利用者Hashを入力し、十一実体・元marker Hash・取得数と初回close列を返す。標準／AppContainer／Home modeへ混ぜない |
@@ -454,7 +454,7 @@ Docker復旧helperは固定mutexとartifact handleを保持し、検証済み対
 |---|---|
 | 要求・応答とCLI | [Rust CLI試験](../../../40_Develop/platform-access/tests/cli.rs)、protocol内試験、[TS Adapter試験](../../../40_Develop/coordinator/tests/unit/platform-access/adapter.contract.test.ts) |
 | 成果物同一性 | [成果物同一性試験](../../../40_Develop/platform-access/tests/integration/artifact-identity-observation.contract.test.ts)。固定Artifact／Bootstrapと実Filesystemの相関を確認する。Coordinator専用Trust Core／Release Identity試験は専用方式とともに退役し、この試験を配布元真正性・旧配布閉包保証の代替にしない |
-| Home／Store／State | `filesystem/root_observation.rs`内試験、[Home観測試験](../../../40_Develop/coordinator/tests/unit/platform-access/protected-root-protocol.contract.test.ts)、[Store Adapter試験](../../../40_Develop/coordinator/tests/unit/platform-access/protected-root-windows-adapter.contract.test.ts) |
+| Provider Home／Runtime State | `filesystem/root_observation.rs`内試験、[Home／Runtime State観測試験](../../../40_Develop/coordinator/tests/unit/platform-access/protected-root-protocol.contract.test.ts)、[Runtime State Adapter試験](../../../40_Develop/coordinator/tests/unit/platform-access/protected-root-windows-adapter.contract.test.ts) |
 | Docker復旧 | docker-desktop/repair.rs内試験、[DI Machine・技術接続試験](../../../40_Develop/docker-isolation/tests/integration/repair-runtime.contract.test.ts)、[Coordinatorの現在Writer・履歴・保持／終了接続試験](../../../40_Develop/coordinator/tests/integration/runtime-repair-owner.contract.test.ts) |
 
 単体試験の合格から、実Native・Docker Desktop復旧、配布元真正性または終了後資源0を推定しない。本番同等入口のE2Eと回復行列を別に実測する。退役した署名方式の実行を現在の通常完成条件へ戻さない。

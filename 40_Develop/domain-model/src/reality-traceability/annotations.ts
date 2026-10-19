@@ -105,7 +105,9 @@ export function validateRealitySymbolAnnotations(
   const annotations = extractRealitySymbolAnnotations(source);
   const issues: DomainIssue[] = [];
   const isTestSymbol =
-    symbol.kind === "test-suite" || symbol.kind === "test-case";
+    symbol.kind === "test-suite" ||
+    symbol.kind === "test-case" ||
+    symbol.kind === "verification-tool";
   if (!isTestSymbol && annotations.qaIds.size > 0)
     issues.push(
       createRealityDomainIssue(

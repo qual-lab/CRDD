@@ -2,7 +2,8 @@
  * 用途固定Engine観測のProcess・出所・pipe境界を差し替える。
  * @packageDocumentation
  * @responsibility 実Docker・Publisher・Host pipeを触らず、公開APIの要求と結果を照合する。
- * @trace ERB-IT-014 ERB-IT-001
+ * @trace ERB-IT-014
+ * @trace ERB-IT-001
  * @level IT
  * @scope 別NodeのModule差替え、固定結果。
  * @boundary 合成境界。実環境成立を主張しない。

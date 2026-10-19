@@ -471,6 +471,8 @@ HeaderはCodeから明白な「値を返す」「関数を実行する」等を�
 
 Test CodeではARCH-IDへ直接接続せず、検証するQuality Local Itemへ接続する。Test File HeaderはそのFileが扱う一つ以上のLocal Itemを示し、個別Test Case、名前付きTest Helperおよび名前付きFixtureは対応する一つ以上のLocal Itemへ`@trace`する。Local ItemがArchitectureとのRelationを所有するため、Test側へARCH-IDを重複記載しない。匿名CallbackやInline Object等、独立責務を持たない処理はSymbol Header対象外だが、`test`／`it`等で宣言する個別Test Caseは匿名Callbackであっても検証責務を持つため、呼出し直前のTSDocを必須とする。
 
+検証Toolとその用途限定の判定fixtureは、実装CapabilityではなくQualityが所有する検証手段である。これらを試験する場合、Symbol Manifestでは`kind: "verification-tool"`としてQA・Local Item・実Pathへ接続し、試験Suiteから既存の`verifies`で対象Toolを参照する。対象はPackage内の`scripts/`または`tests/fixtures/`にある通常のTypeScript／Rust fileに限定し、`src/`の本番実装をこの分類へ移さない。ToolはARCH・意味実装・環境実証のRelationを持たず、自身の`verifies`は明示空配列とする。ToolのFileとNamed Helperにも、以下のQuality HeaderとLocal Itemの対応を適用する。通常試験の非空`verifies`条件は維持する。Toolとそれを検査するSuiteの関係は本番実装／意味Coverageへ加算せず、Tool試験の成功を実Native・OS・Runtimeの成立へ読み替えない。
+
 Test File Headerは、File全体の検証範囲を示す。
 
 ```ts

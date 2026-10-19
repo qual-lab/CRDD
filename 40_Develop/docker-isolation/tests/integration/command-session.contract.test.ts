@@ -253,6 +253,17 @@ test("同期Gateのfalse・throw・Promiseは固定停止点として清掃へ�
     "acceptOutput",
   ] as const) {
     for (const mode of ["false", "throw", "promise"] as const) {
+      /**
+       * 同期Gateへ拒否・例外・非同期返却の故障を注入する。
+       * @responsibility 同期Gateへ拒否・例外・非同期返却の故障を注入する。
+       * @trace ERB-IT-002
+       * @precondition 対象Gateと故障modeが一つ選ばれている。
+       * @stimulus false、固定例外、Promiseのいずれかを返す。
+       * @observation failureのGate名と拒否種別、cleanup回数。
+       * @oracle 呼出し元が種別を区別しexecutionCompletedをfalseと確認する。
+       * @cleanup 元completionの待機と一回のcleanupは呼出し元が確認する。
+       * @boundary Gateの代役だけ。外部Processを生成しない。
+       */
       const reject = (() => {
         if (mode === "throw") throw new Error("fixed_gate_failure");
         return mode === "promise" ? Promise.resolve(true) : false;
@@ -429,7 +440,8 @@ test("清掃中取消を保持し終端後の重複取消は追加処置を発�
 /**
  * 開始通知の例外と非同期返却を受領済みにしない。
  * @responsibility 同期通知の破損後に追加callbackや重複Provider待機を発行しない。
- * @trace ERB-IT-002 ERB-IT-004
+ * @trace ERB-IT-002
+ * @trace ERB-IT-004
  * @precondition 通知だけが例外または拒否Promiseを返す。
  * @stimulus 固定九目的を開始して元完了を待つ。
  * @observation 配送確認、Provider待機、終端、清掃、後続callback数。
@@ -505,7 +517,8 @@ test("認証出力の拒否後は残る技術要求を発行しない", async ()
 /**
  * 通知破損と終端不明でも元清掃へ進む。
  * @responsibility 未解決waitを新しい管理状態にせず、後着settlementのEffectを発生させない。
- * @trace ERB-IT-002 ERB-IT-004
+ * @trace ERB-IT-002
+ * @trace ERB-IT-004
  * @precondition Provider待機を保留し、通知と終端へ独立した故障を注入する。
  * @stimulus 通知throw／Promise、終端false／throw後に元waitを成功／拒否へ解放する。
  * @observation wait解放前の清掃、元結果、後着後イベント列と処置数。

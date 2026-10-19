@@ -1,5 +1,6 @@
 /**
  * 単発受付を架空のProject計画なしで既存Snapshotへ保存する。
+ * @packageDocumentation
  * @responsibility 反復依頼・識別子・保存前停止・同じLeaseの終端を実Writerで確認する。
  * @trace PRL-IT-013
  * @trace CPR-IT-004

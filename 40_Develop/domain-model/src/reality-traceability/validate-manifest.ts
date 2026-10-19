@@ -256,6 +256,7 @@ export function validateRealitySymbolManifest(
     "qaIds",
     "localTestIds",
     "verifies",
+    "verificationTarget",
     "implements",
   ]);
   for (const [index, rawSymbol] of rawSymbols.entries()) {
@@ -355,7 +356,55 @@ export function validateRealitySymbolManifest(
       issues,
     );
     const isTestSymbol = kind === "test-suite" || kind === "test-case";
-    if (isTestSymbol && (qaIds.length === 0 || verifies.length === 0))
+    const isVerificationTool = kind === "verification-tool";
+    if (
+      isVerificationTool &&
+      (!/^(?:scripts\/|tests\/fixtures\/).+\.(?:ts|rs)$/u.test(symbolPath) ||
+        !["qaIds", "localTestIds", "verifies"].every(
+          (key) =>
+            Object.hasOwn(rawSymbol, key) && Array.isArray(rawSymbol[key]),
+        ) ||
+        qaIds.length === 0 ||
+        localTestIds.length === 0 ||
+        archIds.length > 0 ||
+        verifies.length > 0 ||
+        implementsMeanings.length > 0 ||
+        Object.hasOwn(rawSymbol, "verificationTarget"))
+    )
+      issues.push(
+        createRealityDomainIssue(
+          "manifest.verification-tool.relation-domain-invalid",
+          location,
+          symbolId || location,
+          "verification_tool_requires_quality_relations_and_owned_tool_path",
+          {},
+        ),
+      );
+    const environmentTest =
+      Object.hasOwn(rawSymbol, "verificationTarget") &&
+      rawSymbol.verificationTarget === "environment";
+    if (
+      Object.hasOwn(rawSymbol, "verificationTarget") &&
+      (!environmentTest ||
+        !isTestSymbol ||
+        !Object.hasOwn(rawSymbol, "verifies") ||
+        !Array.isArray(rawSymbol.verifies) ||
+        verifies.length !== 0 ||
+        localTestIds.length === 0)
+    )
+      issues.push(
+        createRealityDomainIssue(
+          "manifest.test.relation-missing",
+          location,
+          symbolId || location,
+          "environment_test_requires_empty_implementation_relation",
+          {},
+        ),
+      );
+    if (
+      isTestSymbol &&
+      (qaIds.length === 0 || (!environmentTest && verifies.length === 0))
+    )
       issues.push(
         createRealityDomainIssue(
           "manifest.test.relation-missing",
@@ -365,7 +414,7 @@ export function validateRealitySymbolManifest(
           {},
         ),
       );
-    if (!isTestSymbol && archIds.length === 0)
+    if (!isTestSymbol && !isVerificationTool && archIds.length === 0)
       issues.push(
         createRealityDomainIssue(
           "manifest.implementation.architecture-relation-missing",
@@ -377,6 +426,7 @@ export function validateRealitySymbolManifest(
       );
     if (
       !isTestSymbol &&
+      !isVerificationTool &&
       (qaIds.length > 0 || localTestIds.length > 0 || verifies.length > 0)
     )
       issues.push(
@@ -412,6 +462,9 @@ export function validateRealitySymbolManifest(
         qaIds,
         localTestIds,
         verifies,
+        ...(environmentTest
+          ? { verificationTarget: "environment" as const }
+          : {}),
         implements: implementsMeanings,
       });
   }

@@ -270,6 +270,17 @@ test("初期Host再導出は実依存へ肯定到達し欠測を拒否成功と�
     for (const dockerRestart of [null, settled]) {
       const candidate = { ...operation, dockerRestart };
       const snapshot = { ...decoded.snapshot, operations: [candidate] };
+      /**
+       * 準備の正常保存対照へ有限の成功値を渡す。
+       * @responsibility 準備の正常保存対照へ有限の成功値を渡す。
+       * @trace ERB-IT-014
+       * @precondition 固定Ownerと準備観測fixture。
+       * @stimulus 正常準備値を返して後続到達を記録する。
+       * @observation 取得・保存・処置の順序と回数。
+       * @oracle 拒否変異に対する正例が本番本文を通る。
+       * @cleanup 模擬Lockは既存finallyで解放確認する。
+       * @boundary 準備本文VM。実Dockerを操作しない。
+       */
       const positive = () =>
         assert.equal(invoke(candidate, snapshot, hostToken, "host_only"), true);
       if (omitted) assert.throws(positive, { name: "ReferenceError" });
@@ -388,6 +399,17 @@ function fixture(mode: "restart" | "recovery" = "restart") {
     string,
     { record: Record<string, unknown>; serialized: string }
   >();
+  /**
+   * exact回復対象の五資源を持つ操作記録を構成する。
+   * @responsibility exact回復対象の五資源を持つ操作記録を構成する。
+   * @trace ERB-IT-014
+   * @precondition 固定recoveryId・operationId・nonce。
+   * @stimulus 同じidから資源名と保存状態を組み立てる。
+   * @observation 本番準備へ渡す現在操作本文。
+   * @oracle 別操作の記録を同対象と扱わず元相関を検査する。
+   * @cleanup N/A: 合成記録の構築のみ。
+   * @boundary 現在stateの入力fixture。保存実体の証明ではない。
+   */
   const operation = (recoveryId: string, id: string, nonce: string) => ({
     kind: "docker_task" as const,
     recoveryId,
@@ -458,6 +480,17 @@ function fixture(mode: "restart" | "recovery" = "restart") {
   };
   const maps = new WeakMap();
   const generations = new WeakMap();
+  /**
+   * Owner喪失と解放失敗を段階別に注入するLockを返す。
+   * @responsibility Owner喪失と解放失敗を段階別に注入するLockを返す。
+   * @trace ERB-IT-014
+   * @precondition 取得・live確認・解放の有限fault選択。
+   * @stimulus 取得列を記録し選択点でfalse/nullまたは例外を返す。
+   * @observation acquire/assertLive/releaseの到達列。
+   * @oracle 失効後の処置0と同じLockの解放を親Oracleが確認する。
+   * @cleanup 呼出し元が解放試行回数と結果を確認する。
+   * @boundary Lock代役。OS排他成立の実証へ流用しない。
+   */
   const lock = (id: string) => {
     acquired.push(id);
     if (acquireFault === id) throw new Error("private acquisition detail");

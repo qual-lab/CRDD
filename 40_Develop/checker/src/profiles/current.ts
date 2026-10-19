@@ -1065,7 +1065,7 @@ export function runChecker(request: CheckerRunRequest): CheckerResult {
               root,
               "template",
               "06_Architecture",
-              "02_Activity_Context.md",
+              "01_Architecture.md",
             ),
           ]) {
             if (!lstatIfPresent(templatePath)?.isFile()) continue;
@@ -5313,7 +5313,7 @@ export function runChecker(request: CheckerRunRequest): CheckerResult {
           const detailPath = path.join(
             architectureDetailsRoot,
             entry.name,
-            "02_Activity_Context.md",
+            "01_Architecture.md",
           );
           if (!lstatIfPresent(detailPath)?.isFile()) continue;
           const source = visibleMarkdownStructure(read(detailPath));
@@ -5470,10 +5470,21 @@ export function runChecker(request: CheckerRunRequest): CheckerResult {
               : commonArchitecture.size === 1
                 ? "Single"
                 : "Shared";
-          const expectedAreas = new Set<string>();
+          const allowedAreas = new Set<string>();
           for (const owner of expectedArchitectureOwners)
             for (const area of areasByArchitecture.get(owner) ?? [])
-              expectedAreas.add(area);
+              allowedAreas.add(area);
+          const expectedAreas =
+            architectureAreaOwners.get(relationKey) ?? new Set<string>();
+          const hasInvalidAreaAssignment =
+            expectedAreas.size === 0 ||
+            [...expectedAreas].some((area) => !allowedAreas.has(area)) ||
+            [...expectedArchitectureOwners].some(
+              (owner) =>
+                ![...(areasByArchitecture.get(owner) ?? [])].some((area) =>
+                  expectedAreas.has(area),
+                ),
+            );
           const architectureCentral =
             architectureCentralRelations.get(relationKey);
           const uiQuality = qualityUiOwners.get(relation.ui) ?? new Set();
@@ -5497,13 +5508,10 @@ export function runChecker(request: CheckerRunRequest): CheckerResult {
             architectureCentral.mode !== expectedArchitectureMode ||
             !sameSet(architectureCentral.owners, expectedArchitectureOwners) ||
             !sameSet(architectureCentral.areas, expectedAreas) ||
+            hasInvalidAreaAssignment ||
             !sameSet(
               architectureRelationOwners.get(relationKey) ?? new Set(),
               expectedArchitectureOwners,
-            ) ||
-            !sameSet(
-              architectureAreaOwners.get(relationKey) ?? new Set(),
-              expectedAreas,
             ) ||
             !qualityCentral ||
             qualityCentral.bhv !== relation.bhv ||
@@ -5542,6 +5550,10 @@ export function runChecker(request: CheckerRunRequest): CheckerResult {
           ) ||
           architectureCentralRelations.size !== expectedDetailRelations.size ||
           qualityCentralRelations.size !== expectedDetailRelations.size ||
+          !sameSet(
+            new Set(architectureAreaOwners.keys()),
+            new Set(expectedDetailRelations.keys()),
+          ) ||
           architectureCentralRelationRows !==
             architectureCentralRelations.size ||
           qualityCentralRelationRows !== qualityCentralRelations.size ||
@@ -5961,7 +5973,7 @@ export function runChecker(request: CheckerRunRequest): CheckerResult {
       const architectureIndexPath = path.join(
         root,
         "06_Architecture",
-        "02_Activity_Context.md",
+        "01_Architecture.md",
       );
       if (!lstatIfPresent(architectureIndexPath)?.isFile()) return;
       const architectureIndexRaw = read(architectureIndexPath);
@@ -6010,7 +6022,7 @@ export function runChecker(request: CheckerRunRequest): CheckerResult {
             "06_Architecture",
             "Details",
             "area",
-            "02_Activity_Context.md",
+            "01_Architecture.md",
           ),
           architectureDetailTemplateChecklistItemTexts,
         ],
@@ -6043,7 +6055,7 @@ export function runChecker(request: CheckerRunRequest): CheckerResult {
         "06_Architecture",
         "Details",
         "area",
-        "02_Activity_Context.md",
+        "01_Architecture.md",
       );
       if (lstatIfPresent(architectureDefinitionTemplatePath)?.isFile()) {
         const source = visibleMarkdownStructure(
@@ -6709,14 +6721,14 @@ export function runChecker(request: CheckerRunRequest): CheckerResult {
           const detailPath = path.join(
             detailRoot,
             entry.name,
-            "02_Activity_Context.md",
+            "01_Architecture.md",
           );
           if (!lstatIfPresent(detailPath)?.isFile()) {
             add(
               "error",
               "architecture-detail-document-missing",
               relative(detailPath),
-              "Every detailed design area must have one self-contained 02_Activity_Context.md.",
+              "Every detailed design area must have one self-contained 01_Architecture.md.",
             );
             continue;
           }
@@ -7068,7 +7080,7 @@ export function runChecker(request: CheckerRunRequest): CheckerResult {
       const architectureIndexPath = path.join(
         root,
         "06_Architecture",
-        "02_Activity_Context.md",
+        "01_Architecture.md",
       );
       if (!lstatIfPresent(architectureIndexPath)?.isFile()) return;
       if (
@@ -7914,11 +7926,11 @@ export function runChecker(request: CheckerRunRequest): CheckerResult {
                 (entry) =>
                   entry.isDirectory() &&
                   lstatIfPresent(
-                    path.join(detailRoot, entry.name, "02_Activity_Context.md"),
+                    path.join(detailRoot, entry.name, "01_Architecture.md"),
                   )?.isFile(),
               )
               .map((entry) =>
-                path.join(detailRoot, entry.name, "02_Activity_Context.md"),
+                path.join(detailRoot, entry.name, "01_Architecture.md"),
               )
           : [],
       );
@@ -11138,7 +11150,7 @@ export function runChecker(request: CheckerRunRequest): CheckerResult {
         ],
       ],
       [
-        "template/06_Architecture/02_Activity_Context.md",
+        "template/06_Architecture/01_Architecture.md",
         [
           "全体／内部ブロック図",
           "状態遷移表／状態遷移図",

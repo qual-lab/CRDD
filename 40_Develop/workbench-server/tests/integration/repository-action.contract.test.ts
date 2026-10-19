@@ -27,6 +27,7 @@ import {
  * @effect N/A: 純粋検査。
  * @cleanup N/A: 資源を取得しない。
  * @postcondition 実Git・認可・Filesystem呼出し0。
+ * @boundary 閉じたFormとGit結果DTOの純粋検査。実認可・Git・Filesystemを呼ばない。
  */
 test("Repository操作Formは対象と操作ごとの閉集合を保持する", () => {
   const revision = "a".repeat(40);
@@ -129,6 +130,7 @@ test("Repository操作Formは対象と操作ごとの閉集合を保持する", 
  * @effect N/A: 純粋検査。
  * @cleanup N/A: 資源を取得しない。
  * @postcondition 再送・Git呼出し0。
+ * @boundary 閉じたFormとGit結果DTOの純粋検査。実認可・Git・Filesystemを呼ばない。
  */
 test("Repository操作結果は理由とEffectを操作へ相関する", () => {
   const revision = "a".repeat(40);

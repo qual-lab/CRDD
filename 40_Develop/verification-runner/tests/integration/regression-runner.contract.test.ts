@@ -39,7 +39,8 @@ const runner = path.join(
 /**
  * 通常段階の旧検査除外をWindows専用段階の有無と分離する。
  * @responsibility Windows未選択時に旧全Tool固定検査を暗黙再実行しない。
- * @trace CQS-IT-011 CQS-IT-012
+ * @trace CQS-IT-011
+ * @trace CQS-IT-012
  * @precondition 実RunnerをProcess要求記録fixtureへ接続する。
  * @stimulus Windows専用試験を含む選択と含まない選択を与える。
  * @observation 実Node argvのskip指定と試験File集合。
@@ -119,7 +120,8 @@ test("通常試験の除外はWindows専用段階だけに限定する", () => {
 /**
  * Host記録の変更で選択した試験Fileが実spawn argvへ全数搬送される。
  * @responsibility 計画側の集合だけで実dispatch成功を推定しない。
- * @trace CQS-IT-011 CQS-IT-012
+ * @trace CQS-IT-011
+ * @trace CQS-IT-012
  * @precondition 実Catalog・本番Runnerと要求argvを保存する無Effect fixtureを使う。
  * @stimulus Host Reader変更の計画だけを取得し、直接試験Path変更時の実搬送と欠落・余分・誤Owner・重複搬送の報告を照合する。
  * @observation 通常NodeとWindows専用段階の実argv File集合。
@@ -177,7 +179,8 @@ test("Host記録試験の実argv搬送は欠落と誤Ownerを拒否する", () =
   /**
    * 実搬送報告を同じ固定計画の完全集合と照合する。
    * @responsibility ファイル欠落・余分・誤Owner・重複を件数一致で見逃さない。
-   * @trace CQS-IT-011 CQS-IT-012
+   * @trace CQS-IT-011
+   * @trace CQS-IT-012
    * @precondition 本番Runnerが返した段階計画を固定する。
    * @stimulus spawnの実要求報告またはその反例を入力する。
    * @observation Owner付き相対File集合。
@@ -239,7 +242,8 @@ test("Host記録試験の実argv搬送は欠落と誤Ownerを拒否する", () =
 /**
  * 同じOwnerのNodeとRustを本番Runnerが搬送し片系失敗で停止する。
  * @responsibility 名前上の登録だけで実dispatchが抜ける反例を検出する。
- * @trace CQS-IT-011 CQS-IT-012
+ * @trace CQS-IT-011
+ * @trace CQS-IT-012
  * @precondition 実台帳と本番Runnerを使い、spawnだけを別Processで差し替える。
  * @stimulus Node／Cargo static、Cargo UT、Node IT、Cargo IT、Windows専用段階の六失敗点と正常対照を実行する。
  * @observation 固定要求順、Owner、終了結果と後段未要求。

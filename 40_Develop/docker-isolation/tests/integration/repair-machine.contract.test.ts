@@ -671,6 +671,10 @@ test("修復Machine: 待機段階と非永続の限定継続判定を分離す�
  * @boundary failed_launch観測と保存Owner。
  * @security 実Docker・Native操作0。
  * @concurrency 一つの模擬実行へ閉じる。
+ * @stimulus failedGenerationを持つfixtureで処置前checkpoint通知を捕捉する。
+ * @observation stop intentより前に保存したfailed/auxiliaryのbinding列。
+ * @oracle 退避実体の対応を保存しないまま停止処置へ進まない。
+ * @cleanup 有限通知とfixtureを破棄し実Directoryは変更しない。
  */
 async function assertFailedGenerationSaved(runner: typeof run) {
   const f = fixture(5, true);
@@ -1162,6 +1166,17 @@ test("修復Machine: 不正fresh部分継続は観測開始前に拒否する", 
   for (const [index, candidate] of candidates.entries()) {
     const checkpoint = decode(candidate);
     assert.ok(checkpoint, `candidate_decode:${index}`);
+    /**
+     * 不正candidate checkpointが初回の技術観測へ進まないことを確認する。
+     * @responsibility 不正candidate checkpointが初回の技術観測へ進まないことを確認する。
+     * @trace ERB-IT-014
+     * @precondition 正常対照から作った不正checkpointとrunner。
+     * @stimulus 同じinputへ候補を渡す。
+     * @observation 観測・通知・許可・execute・engineの到達数とJSON本文。
+     * @oracle 拒否後すべて未到達で元checkpointも不変。
+     * @cleanup N/A: fixture内の計数と値だけ。
+     * @boundary 修復Machineへの入力境界で実修復を起動しない。
+     */
     const verify = async (runner: typeof run) => {
       const f = fixture(5, true);
       const before = JSON.stringify(checkpoint);

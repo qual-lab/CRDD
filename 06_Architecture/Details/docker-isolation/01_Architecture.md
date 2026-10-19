@@ -8,6 +8,69 @@
 担当責任者: Qual-Lab
 最終更新日: 2026-10-17
 
+## 基本設計との関係
+
+| Architecture定義 | 担当する責務断面 | Relation状態 |
+|---|---|---|
+| [ARCH-000004](../../Definitions/ARCH-000004/architecture_definition.md) | 許可済み実行の隔離環境開始、待機、取消、終了、所有資源回収 | Partial |
+| [ARCH-000008](../../Definitions/ARCH-000008/architecture_definition.md) | 要求、開始、Process結果、一次失敗、資源観測、清掃後条件の区別 | Partial |
+
+新Workspace方式の実Mount／取消／成果保全、実Provider全経路、残る上位Consumerは未完了である。既存の局所実装・検証を基本設計全体のCoveredへ読み替えない。
+
+## 詳細成果物の適用判断
+
+| 詳細成果物 | 判定 | 理由 | 正本節／成果物 |
+|---|---|---|---|
+| Component Model | Required | DIと上位Owner、Platform Access、Docker Engineの責務を分離する | [§1](#1-責務と変更境界) |
+| Interface Model | Required | 許可済み入力、固定command、技術結果と上位通知を分ける | [§2](#2-入力と公開api) |
+| Data Flow | Required | 元操作相関、要求、実ID、結果、清掃観測を同じ流れで保持する | [§2](#2-入力と公開api) |
+| State Model | Required | pending、実行中、結果不明、清掃不明、終了を区別する | [§3](#3-状態順序失敗) |
+| Sequence | Required | 許可、保存、要求、観測、通知、回収の順を保持する | [§6](#6-通知と上位状態の接続) |
+| Failure／Recovery | Required | 一次失敗、清掃失敗、親Process喪失、再入場を分ける | [§3](#3-状態順序失敗) |
+| Deployment | Required | Host、Container、Network、固定Mount、認証Homeを区別する | [§4](#4-配置保存実行環境) |
+| Observability | Required | 実ID、Handle、Process終端、資源不存在を別々に観測する | [§5](#5-qualityへの引渡しと完成条件) |
+| Security Boundary | Required | Repository外、Git、内部状態、認証、秘密の境界を保持する | [共通隔離方針](#workspace-isolation-policy) |
+| Implementation Structure | Required | 下表で共通契約と具象差を評価する | [Implementation Structure](#implementation-structure) |
+
+## Engineering Concern評価
+
+| Concern | Result | Rationale | Evidence／Related ID |
+|---|---|---|---|
+| Concurrency | OPEN | Lock、所有Process、同一回復Identityは既存契約にあるが、新Workspace方式の並行借用・終了は本番未接続 | [§3](#3-状態順序失敗) |
+| Timing | OPEN | 取消、遅延通知、Process終端を区別するが、新方式の全待機境界は未実証 | [§6](#6-通知と上位状態の接続) |
+| Resource Lifecycle | OPEN | 実ID回収と不存在観測は局所成立したが、新Mountと全Consumerの終了後条件は未完了 | [§5](#5-qualityへの引渡しと完成条件) |
+| External Boundary | OPEN | Docker／Process境界は実測済みだが、実Provider全体と新Workspace本番接続は未評価 | [現在の接続状況](#現在の接続状況) |
+| State／Consistency | OPEN | 既知状態と観測不能を分けるが、上位Workspace状態との全相関は接続中 | [§3](#3-状態順序失敗) |
+| Failure／Recovery | OPEN | 一次失敗保持、清掃不明、親喪失を扱うが、追加二領域の実障害Continuationは未実証 | [現在の接続状況](#現在の接続状況) |
+| Observability | OPEN | 実ID・名前・Labelと終了後不存在を観測するが、全本番Consumerの観測閉包は未完了 | [§5](#5-qualityへの引渡しと完成条件) |
+| Security／Trust | OPEN | 共通隔離方針と固定Path保護は採用済みだが、新方式の実Mountと秘密境界は本番未接続 | [共通隔離方針](#workspace-isolation-policy) |
+
+`PASS`: 詳細設計上、必須条件と反証が閉じている。`N/A`: Architecture上、そのConcern自体が存在しない。`OPEN`: 未解決の設計事項を保持する。`FAIL`: 必須設計と矛盾する。
+
+## Qualityへの引渡し
+
+| 導出キー | 設計項目種別 | 対象 | 正常条件 | 反証する失敗 | 主な試験段階 | 外部境界の段階 | 観測 | 終了後条件 | 未確認 |
+|---|---|---|---|---|---|---|---|---|---|
+| `docker-isolation.lifecycle` | Resource／Lifecycle | 許可済みDocker／Processと所有資源 | 元操作相関、固定構成、実ID、終端を同じ操作で確認する | 要求受理＝Effect成立、取消要求＝終了、名前だけで削除、観測不能＝不存在 | IT／ST | Direct Boundary／System/E2E | Process、Container、Network、Mount、Label、Imageの実観測 | 所有Handle終端と実ID・名前の不存在 | 新Workspace方式の実Mount／取消／成果保全、全Provider経路 |
+| `docker-isolation.failure-recovery` | Failure／Recovery | 結果不明、清掃不明、親Process喪失、再入場 | 一次失敗と清掃結果を分離し同じexact回復Identityで再観測する | 不明の成功化、別Identity生成、他Owner資源の削除、履歴値だけの不存在推定 | IT／ST | Direct Boundary／System/E2E | 保存済み相関、現在資源、一次・二次結果 | 未解決参照保持または正式回収完了 | 追加二領域の実障害Continuation |
+| `docker-isolation.security-boundary` | Security／Trust | 作業Tree、Git、内部状態、認証Home、秘密 | 許可対象だけをMountし保護対象をROまたは非公開にする | Repository外書込み、保護Path変更、秘密の明示複製、別名経路の未検査許可 | IT／ST／UAT | System/E2E／User Acceptance | 実Mount、Path実体、書込み結果、Host側不変 | 試験物回収、保護対象不変 | 新方式の本番Mount、実Provider、利用者確認 |
+
+## 現行実装との照合
+
+Docker Isolation Packageの既存技術境界、実ID回収、限定故障・回復、公開CLI取消等は局所実装・実測済みである。一方、新Workspace方式の実Mount／取消／成果保全、全Provider経路と全Consumer閉包は未完了であるため、上表のRelationとConcernは`Partial`／`OPEN`を維持する。過去署名Evidenceや単一runの結果を現行全体の成立へ流用しない。
+
+## Implementation Structure
+
+| 観点 | 適用 | 判定理由 | 成立させる構造 | 局所責務・不変条件 | 失敗・変更時の影響 | Qualityへの導出キー |
+|---|---|---|---|---|---|---|
+| Variation | Required | DirectとCandidate、複数Provider形状がある | 共通隔離方針＋用途別計画 | 方式差で保護境界を弱めない | 別方式だけの越境 | `docker-isolation.security-boundary` |
+| Common Contract | Required | 全入口で同じ資源・失敗・回収意味を使う | Package Rootの技術契約 | 上位がDocker argvを再定義しない | Consumer間の終了差 | `docker-isolation.lifecycle` |
+| Creation／Selection | Required | 許可済み対象・構成だけを開始する | 固定入力検査と計画 | 入力不正・開始前取消でEffect 0 | 誤対象・余剰資源 | `docker-isolation.lifecycle` |
+| State-dependent Behavior | Required | pending／実行／不明／清掃を区別する | 技術状態と回復Identity | 観測不能を成功・不存在へ畳まない | 二重要求・誤回収 | `docker-isolation.failure-recovery` |
+| Composition／Recursion | Required | Coordinator／Orchestratorと下位技術境界を合成する | 通知と用途限定projection | 下位は上位判断を所有しない | Authority逆流 | `docker-isolation.lifecycle` |
+| Lifecycle Ownership | Required | Process・stream・Container等にOwnerがある | 所有Handleと実IDの追跡 | 他Owner資源を削除しない | Leak・誤削除 | `docker-isolation.failure-recovery` |
+| External Boundary | OPEN | Docker／OS／Provider実境界を使う | 固定CLI・実Process・実資源観測 | 全Providerと新Workspace方式は未完了 | 局所成功の全体化 | `docker-isolation.security-boundary` |
+
 <a id="workspace-isolation-policy"></a>
 
 ## Workspace方式の共通隔離方針（採用済み・借用実行接続中）
@@ -60,21 +123,22 @@ Candidateへローカル`.env`や資格を自動複製／注入しない。共�
 
 ### UI／SPEC Detailの配置分担
 
-中央の[UI／SPEC Detail配置対応](../../08_UI_SPEC_Detail_Traceability.md)に対し、本領域はARCH-000004／ARCH-000008の次の7関係の技術担当だけを持つ。ARCH-ID・Owner Mode・UI／BHVの意味・QA義務は変更しない。
+中央の[UI／SPEC Detail Architecture Traceability](../../08_UI_SPEC_Detail_Traceability.md)に対し、本領域はARCH-000004／ARCH-000008の次の8関係の技術担当だけを持つ。ARCH-ID・Owner Mode・UI／BHVの意味・QA義務は変更しない。
 
-担当Interaction Relation: `PRT-000002.spec-000002`、`PRT-000002.spec-000003`、`PRT-000003.spec-000004`、`PRT-000003.spec-000005`、`PRT-000005.spec-000009`、`PRT-000011.spec-000005`、`PRT-000012.spec-000017`
+担当Interaction Relation: `PRT-000002.spec-000002`、`PRT-000002.spec-000003`、`PRT-000002.spec-000028`、`PRT-000003.spec-000004`、`PRT-000003.spec-000005`、`PRT-000005.spec-000009`、`PRT-000011.spec-000005`、`PRT-000012.spec-000017`
 
 | 関係 | DIの技術担当 | 上位に残す責務・禁止する読み替え |
 |---|---|---|
 | PRT-000002.spec-000002／BHV-000002 | 受理後の別状態から呼ばれる隔離実行 | 受理自体はTask作成のみ。受理からProvider Effectを発行しない |
 | PRT-000002.spec-000003／BHV-000003 | 既存の技術観測・通知を状態の根拠として返す | 状態照会は読取り。照会ごとに新Probeを発行しない |
+| PRT-000002.spec-000028／BHV-000028 | 検証済み対象の技術取消、Process／Container終端、所有資源の回収・不存在／不明の観測 | Task／試行／世代／Authority検査、取消一回の編成、状態・Recovery保存、競合結果と利用者結果は上位へ残す |
 | PRT-000003.spec-000004／BHV-000004 | 次行動分類に使う既存の実行・回復観測 | 分類判断は上位。分類から回復Effectを発行しない |
 | PRT-000003.spec-000005／BHV-000005 | 許可されたDocker／Processの回収・終了後観測 | 対象・Authority・保存・保持判断は上位。一般Filesystem清掃を引き取らない |
 | PRT-000005.spec-000009／BHV-000009 | 許可済み技術Probe・故障境界観測 | 診断許可から修復／再起動Authorityを生成しない |
 | PRT-000011.spec-000005／BHV-000005 | 共同清掃のDocker／Process担当と終了後観測 | 実行時データの保持・削除判断と保存OwnerはARCH-000011側に残す |
 | PRT-000012.spec-000017／BHV-000017 | 同じTaskに相関する実行通知・終了／回収事実 | 引継ぎ・現在Grant・結果取得・再発行は上位。結果再取得時のDocker操作を必須にしない |
 
-対応するSCR／PRTは000002・000003・000005・000011・000012、BHVは000002・000003・000004・000005・000009・000017。SCR-000011自体の保存意味は移さず、共同Relationだけへ参加する。モデル選択28／29は担当外である。この表は配置対応であり実境界の成立証拠ではない。以降の技術契約はこの担当範囲で適用する。
+対応するSCR／PRTは000002・000003・000005・000011・000012、BHVは000002・000003・000004・000005・000009・000017・000028。SCR-000011自体の保存意味は移さず、共同Relationだけへ参加する。取消28では技術取消・終端・所有資源観測だけを担当し、判断返却29は判断記録と再開可能通知まででProvider作用を開始しないため担当外である。この表は配置対応であり実境界の成立証拠ではない。以降の技術契約はこの担当範囲で適用する。
 
 現行Sourceの依存方向は、同Packageのsrc、Node組込みModuleとPlatform AccessのRoot公開入口に限定する。上位Packageへのtype-only参照も逆依存として扱い、PA内部へのdeep importを置かない。通常の配置回帰は`tests/integration/package-boundary.contract.test.ts`が現src全数と反例で確認し、必要な技術入口四件は実Root exportへ接続する。これは署名・実行許可の検査ではない。試験の限定構文や未評価範囲はQA-000006を正本とし、旧署名graphの完全解析を再実装しない。
 
@@ -455,3 +519,21 @@ Process喪失では通知が欠け得るため、通知受領だけを回復の�
 | 不明 | 要求受理後のProcess喪失、観測不能、callback例外、未対応環境では成功・不存在を捏造しない |
 
 検証は開始前拒否、部分Effect、取消、遅延・重複、callback例外・不正戻り値、通知欠測、親喪失、同ID再入場、清掃後不存在と上位の進行停止を対象にする。同時callback 0、例外後callback 0、最終返却後callback 0、登録参照0、部分更新後throwでも一次結果・cleanup不変を観測する。通知購読の存在や内部モックだけで、公開利用側まで成立したと判定しない。
+
+## Checklist
+
+- [x] 関連するARCH-IDと担当する責務断面を明示した
+- [x] 10種類の詳細成果物を全数Applicability判定した
+- [x] Requiredを実在する節または成果物へ接続した
+- [x] N/AにArchitecture上の理由を記録した
+- [x] 8種類のEngineering Concernを全数評価した
+- [x] PASSを設計済みの意味に限定した
+- [x] Component、Interface、Data／StateおよびSequenceを必要な粒度で具体化した
+- [x] Failure／Recovery、ObservabilityおよびSecurity Boundaryを具体化した
+- [x] 7種類のImplementation Structure観点を全数Applicability判定した
+- [x] 二つ目の具象実装がある責務で、共通契約への昇格または非昇格理由を評価した
+- [x] Qualityへ渡す設計項目を局所的な導出キーまたは同等に一意な参照へ接続した
+- [x] Qualityへ対象、正常条件、反証する失敗、観測および終了後条件を渡した
+- [x] Human Inputの必要性とOpen／Gapを評価した
+- [x] 現行実装との照合をReality Auditとして分離した
+- [x] Source構造をCanonical詳細設計へ逆輸入していない

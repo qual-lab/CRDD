@@ -2,7 +2,8 @@
  * Platform Access両言語のRunner搬送観測fixture。
  * @packageDocumentation
  * @responsibility 実Compiler・Rust試験を開始せず本番Runnerの要求順と停止を観測する。
- * @trace CQS-IT-011 CQS-IT-012
+ * @trace CQS-IT-011
+ * @trace CQS-IT-012
  * @level IT
  * @scope Node／Cargo静的検査・段階実行
  * @boundary 本番Runner→試験用spawn応答。実試験成功とは区別する。

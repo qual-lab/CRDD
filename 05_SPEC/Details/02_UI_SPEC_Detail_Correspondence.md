@@ -1,7 +1,7 @@
 # UI／SPEC Detail対応
 
 成果物種別: UI／SPEC Detail対応投影
-状態: 更新候補（2026-10-12の鍵提示方式をUI／SPEC Detailまで伝播・限定再レビュー済み（鍵提示方式伝播差分、全重大度0）。旧限定Pass／Hashは履歴。Architecture／Quality／Source・実画面・全体Readyは未成立）
+状態: Pass（現在の32 Interaction RelationについてUI／SPEC Detailの双方向設計対応を確認済み。Architecture／Quality／Source・実画面・全体Readyの成立を意味しない）
 維持責任者: Qual-Lab
 
 ## 1. 対象と判定境界

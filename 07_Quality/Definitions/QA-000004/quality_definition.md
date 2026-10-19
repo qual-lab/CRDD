@@ -46,13 +46,13 @@ Quality ID: `QA-000004`
 |---|---|
 | [cros](../../../06_Architecture/Details/cros/01_Architecture.md) | Repository横断解決、Grant、投影、外部接続、候補処置 |
 | [execution-intelligence](../../../06_Architecture/Details/execution-intelligence/01_Architecture.md) | Canonical記録、不変公開、並行Writer、実行事実、観測不能、出所と評価候補の分離 |
-| [mcp](../../../06_Architecture/Details/mcp-server/01_Architecture.md) | Transport変換、公開Schema、Session、結果搬送 |
+| [mcp-server](../../../06_Architecture/Details/mcp-server/01_Architecture.md) | Transport変換、公開Schema、Session、結果搬送 |
 | [project-operation](../../../06_Architecture/Details/domain-model/02_Activity_Context.md) | Project運営状態、Meeting／Topic候補、正本への引渡し |
 | [orchestrator](../../../06_Architecture/Details/orchestrator/01_Architecture.md) | Objective、Task、判断、取消、回復、公開結果 |
 | [runtime-data](../../../06_Architecture/Details/domain-model/03_Repository_Storage.md) | Repository-local／OS管理Root、用途、保持、清掃、回復 |
 | [semantic-coverage](../../../06_Architecture/Details/semantic-coverage/01_Architecture.md) | Architectureの意味単位、実装Symbol、Quality Local Itemおよび試験Symbolの対応関係を決定論的に投影する |
 | [version-control](../../../06_Architecture/Details/version-control/01_Architecture.md) | Repository境界、Revision、差し替え可能な履歴管理Adapter |
-| [workbench](../../../06_Architecture/Details/workbench-server/01_Architecture.md) | Project／Portfolio ProjectionのView State、欠測・制限・根拠表示 |
+| [workbench-server](../../../06_Architecture/Details/workbench-server/01_Architecture.md) | Project／Portfolio ProjectionのView State、欠測・制限・根拠表示 |
 
 ## 2. 試験段階と外部境界の適用
 
@@ -149,6 +149,14 @@ Source Definition由来の検証義務を維持し、Detailは具体的な観測
 
 全数Coverageと試験段階の扱いは[UI／SPEC DetailのQuality分析](../../Analysis/Detail/quality_analysis.md)を中央統合投影とし、本定義は上記Relationの検証責務を局所所有する。
 
+## 認可済みPortfolio集約のOwner移管候補 — 2026-10-12
+
+PPR-IT-002の純粋集約部分はDomain Modelの公開`createPortfolioProjection`へ接続する。Source SnapshotでContext未提供、両Identity競合、競合優先、全Source完全性、Project／Source昇順、入力非変更、不変結果、集合欠落の拒否をDomain試験で観測する。既存CROS統合試験は現在Session／Exposureの認可後に4項目だけを搬送し、非許可Context参照0を確認する。HTTP／MCPの既存Consumer回帰を併用し、Domain試験だけで認可成立を主張しない。旧結果shapeと状態語彙は不変。null／missingは入力SnapshotでContext未提供を表し、Filesystem不存在・Reader正常完了を証明しない。新たなmissing／unknown識別や実Root本文読取り保証はOPENで、観測不能をnullへ変換するReader・API・fallbackは追加しない。
+
+AMの現在認可からの本番搬送、実Root読取り、不完全性の公開ST／UAT、旧REST撤去と正式Local Item全体評価は未完了。局所候補の実行結果はCHG計画で追跡し、PPR-IT-002全体Passへ読み替えない。
+
+固定本文Readerの局所接続では、PPR-IT-019として実Git Root内の本文→解析→三Identity照合を観測する。不存在、Directory／Link、1 MiB境界／超過、不正Markdown、Project／Repository／Role各不一致、読取り途中変更と下位例外、取得descriptorの終了、固定失敗結果・Path／原文非透過を反証する。本文相関revisionは解析したUTF-8 textのSHA-256として、同一textで一致、空白変更で解析結果が同じでも不一致、固定prefixと小文字hex、失敗結果の非返却を確認する。成功Contextと本文版を同じ試験で中立SourceからPortfolioへ渡す範囲だけPPR-IT-002にも接続する。AM本番Consumer、複数File原子性、生byte同一性、正式Local Item全体評価はこの試験だけで成立としない。読取り不成立をmissing／nullへ変換しない。
+
 ## Checklist
 
 - [x] Quality ID、検証目標およびSource固有条件を自己完結して示した
@@ -162,11 +170,3 @@ Source Definition由来の検証義務を維持し、Detailは具体的な観測
 - [x] RT／PT／LTの適用または理由付きN/Aを記録し、PT／LTは人間の明示指定なしに実行しない
 - [x] 自動化、手動確認および人間判断の境界を示した
 - [x] 現行Source、TestおよびEvidenceとの照合をReality Auditへ分離した
-
-## 認可済みPortfolio集約のOwner移管候補 — 2026-10-12
-
-PPR-IT-002の純粋集約部分はDomain Modelの公開`createPortfolioProjection`へ接続する。Source SnapshotでContext未提供、両Identity競合、競合優先、全Source完全性、Project／Source昇順、入力非変更、不変結果、集合欠落の拒否をDomain試験で観測する。既存CROS統合試験は現在Session／Exposureの認可後に4項目だけを搬送し、非許可Context参照0を確認する。HTTP／MCPの既存Consumer回帰を併用し、Domain試験だけで認可成立を主張しない。旧結果shapeと状態語彙は不変。null／missingは入力SnapshotでContext未提供を表し、Filesystem不存在・Reader正常完了を証明しない。新たなmissing／unknown識別や実Root本文読取り保証はOPENで、観測不能をnullへ変換するReader・API・fallbackは追加しない。
-
-AMの現在認可からの本番搬送、実Root読取り、不完全性の公開ST／UAT、旧REST撤去と正式Local Item全体評価は未完了。局所候補の実行結果はCHG計画で追跡し、PPR-IT-002全体Passへ読み替えない。
-
-固定本文Readerの局所接続では、PPR-IT-019として実Git Root内の本文→解析→三Identity照合を観測する。不存在、Directory／Link、1 MiB境界／超過、不正Markdown、Project／Repository／Role各不一致、読取り途中変更と下位例外、取得descriptorの終了、固定失敗結果・Path／原文非透過を反証する。本文相関revisionは解析したUTF-8 textのSHA-256として、同一textで一致、空白変更で解析結果が同じでも不一致、固定prefixと小文字hex、失敗結果の非返却を確認する。成功Contextと本文版を同じ試験で中立SourceからPortfolioへ渡す範囲だけPPR-IT-002にも接続する。AM本番Consumer、複数File原子性、生byte同一性、正式Local Item全体評価はこの試験だけで成立としない。読取り不成立をmissing／nullへ変換しない。

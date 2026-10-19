@@ -2,7 +2,8 @@
  * 単一entry観測の固定Processとraw応答を検証する。
  * @packageDocumentation
  * @responsibility 不正応答・観測不能を不存在や削除許可へ補完しない。
- * @trace ERB-IT-001 ERB-IT-002
+ * @trace ERB-IT-001
+ * @trace ERB-IT-002
  * @level IT
  * @scope 模擬Nativeによる固定要求／raw応答反証と、Hostでの公開Root→配布Native→自己生成実体観測。
  * @boundary ERB-IT-001=Direct Boundary: 実本文→模擬Process、およびHost公開Root→配布Native→実Filesystem。
@@ -25,7 +26,8 @@ import { observeWindowsFilesystemEntry } from "../../src/index.ts";
 /**
  * 本番本文へ固定要求・異常frameを搬送する。
  * @responsibility 一条件ずつ壊した応答を成功へ補完しない。
- * @trace ERB-IT-001 ERB-IT-002
+ * @trace ERB-IT-001
+ * @trace ERB-IT-002
  * @precondition 実観測本文と模擬Artifact／Process。
  * @stimulus 正常file・Directory・AF_UNIX・未知tag・不存在と独立した異常を渡す。
  * @observation 要求全列、呼出し数、凍結結果、異常時null。
@@ -292,7 +294,8 @@ test("単一entry観測は固定Process・完全frame・Artifact前後を要求�
 /**
  * 固定配布Native経由のraw観測を自己生成の実体へ結合する。
  * @responsibility 通常実体・hardlink・junctionを異なるraw値として返し、処置許可を出さない。
- * @trace ERB-IT-001 ERB-IT-002
+ * @trace ERB-IT-001
+ * @trace ERB-IT-002
  * @precondition Windowsと同候補の固定配布Native。検証したRepository-local試験Rootのみ。
  * @stimulus file／Directory／hardlink／junction／不存在を公開Rootから観測する。
  * @observation 前後の実体、tag、linkCount、内容不変と試験Root不存在。

@@ -262,7 +262,8 @@ export function createRealitySymbolGraph(
         );
         continue;
       }
-      appendToIndex(testsByImplementationId, targetId, node);
+      if (target.symbol.kind !== "verification-tool")
+        appendToIndex(testsByImplementationId, targetId, node);
     }
 
   return {

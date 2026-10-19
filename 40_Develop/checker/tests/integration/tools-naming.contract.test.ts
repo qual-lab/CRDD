@@ -34,12 +34,12 @@ import {
   isFunctionExpression,
   isGetAccessorDeclaration,
   isIdentifier,
-  isInterfaceDeclaration,
   isImportDeclaration,
+  isInterfaceDeclaration,
   isMethodDeclaration,
-  isNewExpression,
-  isNamedImports,
   isNamedExports,
+  isNamedImports,
+  isNewExpression,
   isNonNullExpression,
   isNoSubstitutionTemplateLiteral,
   isObjectLiteralExpression,
@@ -70,6 +70,10 @@ import {
   type Type,
   TypeFlags,
 } from "typescript/unstable/sync";
+import {
+  type RealitySymbolManifest,
+  validateRealitySymbolManifest,
+} from "../../../domain-model/src/index.ts";
 import {
   assertExactCheckerTestPopulation,
   discoverCheckerTestFiles,
@@ -217,6 +221,7 @@ const pathInspectionRoots = Object.freeze([
   path.join(repositoryRoot, "template", "tools"),
 ]);
 const sourceOwnershipRoots = Object.freeze([
+  path.join(repositoryRoot, "40_Develop", "ai-adapter"),
   path.join(repositoryRoot, "40_Develop", "artifact-signing"),
   path.join(repositoryRoot, "40_Develop", "checker"),
   path.join(repositoryRoot, "40_Develop", "coordinator"),
@@ -232,6 +237,7 @@ const sourceOwnershipRoots = Object.freeze([
   path.join(repositoryRoot, "40_Develop", "verification-runner"),
   path.join(repositoryRoot, "40_Develop", "version-control"),
   path.join(repositoryRoot, "40_Develop", "visual-preview"),
+  path.join(repositoryRoot, "40_Develop", "workbench-server"),
   path.join(repositoryRoot, "template", "tools"),
 ]);
 type PublicIndexProfile = Readonly<{
@@ -257,6 +263,14 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
       "./desktop/engine-state.ts",
       "./desktop/runtime-directory.ts",
       "./desktop/restart-runtime.ts",
+      "./desktop/restart-machine.ts",
+      "./desktop/repair-checkpoint.ts",
+      "./desktop/repair-runtime.ts",
+      "./execution/command-session.ts",
+      "./execution/probe-configuration.ts",
+      "./execution/probe-container.ts",
+      "./execution/probe-result.ts",
+      "./execution/probe-runtime.ts",
       "./execution/attached-process.ts",
       "./execution/probe-command.ts",
       "./execution/authentication-command-plan.ts",
@@ -366,6 +380,7 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
       "./host-execution/node-runtime-version.ts",
       "./host-execution/process-safety-state.ts",
       "./host-execution/kernel-lock.ts",
+      "./state-storage/settlement-store.ts",
       "./task/recovery.ts",
     ],
   },
@@ -444,6 +459,7 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
       "./ai-profile/adapter.ts",
       "./runtime-activity/adapter.ts",
       "./orchestrator/adapter.ts",
+      "./workspace/adapter.ts",
       "./project-context/adapter.ts",
       "./request/route.ts",
       "./request/access-resolver.ts",
@@ -487,7 +503,6 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
       "./decision/acceptance-authority.ts",
       "./task/observer.ts",
       "./task/intelligence-adapter.ts",
-      "./storage/types.ts",
       "./identity/clock-and-hash.ts",
       "./decision/records.ts",
       "./decision/capability.ts",
@@ -496,6 +511,10 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
       "./process/safety-contract.ts",
       "./state/persistence.ts",
       "./task/recovery.ts",
+      "./task/request-composition.ts",
+      "./workspace/commands.ts",
+      "./workspace/operations.ts",
+      "./workspace/record.ts",
       "./objective/request.ts",
       "./decision/request.ts",
       "./operation-result-contract.ts",
@@ -506,7 +525,7 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
       "./decision/acceptance-record.ts",
       "./decision/recovery-record.ts",
       "./storage/validate-result-record.ts",
-      "./storage/types.ts",
+      "./storage/result-record.ts",
       "./storage/current-state.ts",
       "./operation-composition.ts",
       "./identity/observe-principal.ts",
@@ -519,6 +538,8 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
     exportedModules: [
       "./artifact/identity-observation.ts",
       "./windows/system-directory.ts",
+      "./windows/entry-observation.ts",
+      "./windows/local-app-data.ts",
       "./windows/child-tree-termination.ts",
       "./windows/child-environment.ts",
     ],
@@ -564,6 +585,8 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
       "./migration-closure.ts",
       "./git/checker-observation-adapter.ts",
       "./git/layout-adapter.ts",
+      "./git/workspace-candidate.ts",
+      "./git/worktree-management.ts",
       "./git/local-ignore-adapter.ts",
       "./local-change-set.ts",
       "./repository/local-ignore.ts",
@@ -576,6 +599,7 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
 const projectConfigs = Object.freeze([
   path.join(checkerRoot, "tsconfig.json"),
   path.join(checkerRoot, "template-tools-tsconfig.json"),
+  path.join(repositoryRoot, "40_Develop", "ai-adapter", "tsconfig.json"),
   path.join(repositoryRoot, "40_Develop", "artifact-signing", "tsconfig.json"),
   path.join(
     repositoryRoot,
@@ -588,7 +612,7 @@ const projectConfigs = Object.freeze([
     repositoryRoot,
     "40_Develop",
     "coordinator",
-    "tsconfig.docker-isolation-tests.json",
+    "docker-isolation-tests-tsconfig.json",
   ),
   path.join(repositoryRoot, "40_Develop", "docker-isolation", "tsconfig.json"),
   path.join(repositoryRoot, "40_Develop", "access-management", "tsconfig.json"),
@@ -599,6 +623,7 @@ const projectConfigs = Object.freeze([
     "tsconfig.json",
   ),
   path.join(repositoryRoot, "40_Develop", "orchestrator", "tsconfig.json"),
+  path.join(repositoryRoot, "40_Develop", "platform-access", "tsconfig.json"),
   path.join(repositoryRoot, "40_Develop", "mcp-server", "tsconfig.json"),
   path.join(
     repositoryRoot,
@@ -616,6 +641,7 @@ const projectConfigs = Object.freeze([
   ),
   path.join(repositoryRoot, "40_Develop", "version-control", "tsconfig.json"),
   path.join(repositoryRoot, "40_Develop", "visual-preview", "tsconfig.json"),
+  path.join(repositoryRoot, "40_Develop", "workbench-server", "tsconfig.json"),
 ]);
 
 /**
@@ -1353,7 +1379,10 @@ function isContainedPath(candidate: string, root: string): boolean {
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
  * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
-function resolveOwnedSource(file: string): string {
+function resolveOwnedSource(
+  file: string,
+  ownershipRoots: readonly string[] = sourceOwnershipRoots,
+): string {
   const stats = fs.lstatSync(file);
   assert.equal(stats.isSymbolicLink(), false, `symbolic source: ${file}`);
   assert.equal(stats.isFile(), true, `non-file source: ${file}`);
@@ -1365,13 +1394,84 @@ function resolveOwnedSource(file: string): string {
   );
   assert.equal(resolved.includes(`${path.sep}node_modules${path.sep}`), false);
   assert.ok(
-    sourceOwnershipRoots.some((root) =>
+    ownershipRoots.some((root) =>
       isContainedPath(resolved, fs.realpathSync.native(root)),
     ),
     `source outside owned roots: ${resolved}`,
   );
   return resolved;
 }
+
+/**
+ * Package所有の検証済みManifestと検証Toolのexact Sourceを取得する。
+ * @responsibility Manifest検証とPackage実体境界を通ったToolだけをHeader分類へ渡す。
+ * @trace RCM-IT-005
+ * @precondition 指定Rootは現Package又は自己生成した局所fixtureである。
+ * @stimulus 各symbol.jsonを既存Domain Validatorへ渡し、Toolの通常File実体を照合する。
+ * @observation 検証済みManifestと同Package内の重複しないTool実Path。
+ * @oracle 無効Manifest、別Packageへのalias、同Tool Pathの異種又は重複登録は拒否する。
+ * @cleanup N/A: 読取りだけでSourceやManifestを変更しない。
+ * @boundary RCM-IT-005=Direct Boundary: ManifestとFilesystem→Header分類。
+ */
+function collectVerifiedSymbolManifests(
+  subsystemRoots: readonly string[],
+): Readonly<{
+  manifests: ReadonlyMap<string, RealitySymbolManifest>;
+  verificationToolPaths: ReadonlySet<string>;
+}> {
+  const manifests = new Map<string, RealitySymbolManifest>();
+  const verificationToolPaths = new Set<string>();
+  for (const subsystemRoot of subsystemRoots) {
+    const subsystem = path.basename(subsystemRoot);
+    const rootStats = fs.lstatSync(subsystemRoot);
+    assert.ok(rootStats.isDirectory() && !rootStats.isSymbolicLink());
+    const realRoot = fs.realpathSync.native(subsystemRoot);
+    assert.equal(realRoot, path.resolve(subsystemRoot), "aliased Package Root");
+    const manifestPath = path.join(subsystemRoot, "symbol.json");
+    const realManifestPath = resolveOwnedSource(manifestPath, subsystemRoots);
+    assert.ok(isContainedPath(realManifestPath, realRoot));
+    assert.equal(realManifestPath, manifestPath, "aliased Manifest Path");
+    const outcome = validateRealitySymbolManifest(
+      JSON.parse(fs.readFileSync(realManifestPath, "utf8")),
+      `${subsystem}/symbol.json`,
+    );
+    assert.equal(outcome.status, "complete", `invalid Manifest: ${subsystem}`);
+    assert.ok(outcome.result);
+    assert.equal(outcome.issues.length, 0);
+    assert.equal(outcome.result.subsystem, subsystem);
+    manifests.set(subsystem, outcome.result);
+    for (const symbol of outcome.result.symbols) {
+      if (symbol.kind !== "verification-tool") continue;
+      assert.equal(
+        outcome.result.symbols.filter(
+          (candidate) => candidate.path === symbol.path,
+        ).length,
+        1,
+        `Tool Path must have one classification: ${symbol.path}`,
+      );
+      const toolPath = path.join(realRoot, symbol.path);
+      const realToolPath = resolveOwnedSource(toolPath, subsystemRoots);
+      assert.ok(
+        isContainedPath(realToolPath, realRoot),
+        "Tool outside Package",
+      );
+      assert.equal(realToolPath, toolPath, "aliased Tool Path");
+      assert.equal(verificationToolPaths.has(realToolPath), false);
+      verificationToolPaths.add(realToolPath);
+    }
+  }
+  return { manifests, verificationToolPaths };
+}
+
+const verifiedSymbolSources = collectVerifiedSymbolManifests(
+  fs
+    .readdirSync(path.join(repositoryRoot, "40_Develop"), {
+      withFileTypes: true,
+    })
+    .filter((entry) => entry.isDirectory() || entry.isSymbolicLink())
+    .map((entry) => path.join(repositoryRoot, "40_Develop", entry.name))
+    .filter((root) => fs.existsSync(path.join(root, "symbol.json"))),
+);
 
 /**
  * isOwnedProgramFileのTest準備責務を実行する。
@@ -1390,6 +1490,7 @@ function isOwnedProgramFile(
   ownershipRoots: readonly string[] = sourceOwnershipRoots,
 ): boolean {
   return (
+    (file.endsWith(".ts") || file.endsWith(".tsx")) &&
     !file.endsWith(".d.ts") &&
     !file.includes(`${path.sep}node_modules${path.sep}`) &&
     ownershipRoots.some((root) => isContainedPath(file, root))
@@ -2783,8 +2884,12 @@ function inspectBindingName(
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
  * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
-function isImplementationSourceFile(sourceFile: SourceFile): boolean {
+function isImplementationSourceFile(
+  sourceFile: SourceFile,
+  verificationToolPaths: ReadonlySet<string> = verifiedSymbolSources.verificationToolPaths,
+): boolean {
   const normalized = path.normalize(sourceFile.fileName);
+  if (verificationToolPaths.has(normalized)) return false;
   const segments = normalized.split(path.sep);
   if (segments.includes("tests") || normalized.endsWith(".test.ts"))
     return false;
@@ -2810,8 +2915,9 @@ function isImplementationSourceFile(sourceFile: SourceFile): boolean {
  */
 function inspectProductionFileHeader(
   sourceFile: SourceFile,
+  verificationToolPaths: ReadonlySet<string> = verifiedSymbolSources.verificationToolPaths,
 ): NamingViolation[] {
-  if (!isImplementationSourceFile(sourceFile)) return [];
+  if (!isImplementationSourceFile(sourceFile, verificationToolPaths)) return [];
   const header =
     sourceFile.text.match(
       /^\uFEFF?(?:#![^\r\n]*(?:\r?\n))?\s*\/\*\*[\s\S]*?\*\//u,
@@ -2892,9 +2998,10 @@ function inspectResponsibilityHeader(
   node: Node,
   name: Identifier,
   declarationKind: string,
+  verificationToolPaths: ReadonlySet<string> = verifiedSymbolSources.verificationToolPaths,
 ): NamingViolation[] {
   const sourceFile = node.getSourceFile();
-  if (!isImplementationSourceFile(sourceFile)) return [];
+  if (!isImplementationSourceFile(sourceFile, verificationToolPaths)) return [];
   const leadingText = sourceFile.text.slice(
     node.getFullStart(),
     node.getStart(sourceFile),
@@ -3062,6 +3169,62 @@ function assertTypeOnlySourceFile(sourceFile: SourceFile): void {
 }
 
 /**
+ * 同じSymbolのoverloadへHeaderを重複要求するかを判定する。
+ * @responsibility 同scopeの先頭署名を必須とし、後続の明示Headerは検査対象へ残す。
+ * @trace RCM-IT-005
+ * @precondition 既存型付きAPIのFunction又はMethod宣言と、その名前を渡す。
+ * @stimulus 解決済みSymbolの宣言集合と後続宣言のTSDoc有無を照合する。
+ * @observation 同file・同親・同種のoverload集合と先頭宣言。
+ * @oracle 集合欠測や異scopeは免除せず、Headerなしの後続だけ重複要求を省く。
+ * @cleanup N/A: ASTとSymbolの読取りのみ。
+ * @boundary RCM-IT-005=Direct Boundary: 型付きSymbol→責務Headerの発火条件。
+ */
+function shouldInspectOverloadHeader(
+  node: Node,
+  name: Identifier,
+  checker: Checker,
+): boolean {
+  const symbol = checker.getSymbolAtLocation(name);
+  const declarations = symbol?.declarations.map((reference) =>
+    reference.resolve(),
+  );
+  if (!declarations || declarations.length < 2) return true;
+  const sourceFile = node.getSourceFile();
+  if (
+    declarations.some(
+      (declaration) =>
+        !declaration ||
+        declaration.kind !== node.kind ||
+        (!isFunctionDeclaration(declaration) &&
+          !isMethodDeclaration(declaration)) ||
+        declaration.getSourceFile() !== sourceFile ||
+        declaration.parent !== node.parent ||
+        !declaration.name ||
+        !isIdentifier(declaration.name) ||
+        declaration.name.text !== name.text,
+    )
+  )
+    return true;
+  const firstDeclaration = declarations.reduce((first, declaration) =>
+    declaration &&
+    first &&
+    declaration.getStart(sourceFile) < first.getStart(sourceFile)
+      ? declaration
+      : first,
+  );
+  if (
+    !firstDeclaration ||
+    node.getStart(sourceFile) === firstDeclaration.getStart(sourceFile)
+  )
+    return true;
+  const leadingText = sourceFile.text.slice(
+    node.getFullStart(),
+    node.getStart(sourceFile),
+  );
+  return leadingText.includes("/**");
+}
+
+/**
  * inspectSourceFileのTest準備責務を実行する。
  *
  * @responsibility inspectSourceFileがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
@@ -3077,11 +3240,12 @@ function inspectSourceFile(
   sourceFile: SourceFile,
   checker: Checker,
   ownershipRoots: readonly string[] = sourceOwnershipRoots,
+  verificationToolPaths: ReadonlySet<string> = verifiedSymbolSources.verificationToolPaths,
 ): NamingViolation[] {
   if (path.basename(sourceFile.fileName) === "types.ts")
     assertTypeOnlySourceFile(sourceFile);
   const violations: NamingViolation[] = [
-    ...inspectProductionFileHeader(sourceFile),
+    ...inspectProductionFileHeader(sourceFile, verificationToolPaths),
   ];
   const visit = (node: Node): void => {
     if (isInterfaceDeclaration(node) || isTypeAliasDeclaration(node)) {
@@ -3090,7 +3254,12 @@ function inspectSourceFile(
           violations.push(identifierLocation(node.name, "type", "pascal-case"));
         }
         violations.push(
-          ...inspectResponsibilityHeader(node, node.name, "type"),
+          ...inspectResponsibilityHeader(
+            node,
+            node.name,
+            "type",
+            verificationToolPaths,
+          ),
         );
       }
     } else if (isClassDeclaration(node) || isClassExpression(node)) {
@@ -3100,7 +3269,12 @@ function inspectSourceFile(
             identifierLocation(node.name, "class", "pascal-case"),
           );
         violations.push(
-          ...inspectResponsibilityHeader(node, node.name, "class"),
+          ...inspectResponsibilityHeader(
+            node,
+            node.name,
+            "class",
+            verificationToolPaths,
+          ),
         );
       }
     } else if (isFunctionDeclaration(node) || isFunctionExpression(node)) {
@@ -3115,9 +3289,18 @@ function inspectSourceFile(
             identifierLocation(node.name, "function", "forbidden-bare-name"),
           );
         }
-        violations.push(
-          ...inspectResponsibilityHeader(node, node.name, "function"),
-        );
+        if (
+          !isFunctionDeclaration(node) ||
+          shouldInspectOverloadHeader(node, node.name, checker)
+        )
+          violations.push(
+            ...inspectResponsibilityHeader(
+              node,
+              node.name,
+              "function",
+              verificationToolPaths,
+            ),
+          );
       }
     } else if (
       (isMethodDeclaration(node) ||
@@ -3147,9 +3330,18 @@ function inspectSourceFile(
           identifierLocation(node.name, declarationKind, "forbidden-bare-name"),
         );
       }
-      violations.push(
-        ...inspectResponsibilityHeader(node, node.name, declarationKind),
-      );
+      if (
+        !isMethodDeclaration(node) ||
+        shouldInspectOverloadHeader(node, node.name, checker)
+      )
+        violations.push(
+          ...inspectResponsibilityHeader(
+            node,
+            node.name,
+            declarationKind,
+            verificationToolPaths,
+          ),
+        );
     } else if (isVariableDeclaration(node)) {
       violations.push(
         ...inspectBindingName(
@@ -3266,11 +3458,11 @@ function collectOwnedTypeScriptPaths(files: readonly string[]): Set<string> {
     files
       .filter(
         (file) =>
-          file.endsWith(".ts") &&
+          (file.endsWith(".ts") || file.endsWith(".tsx")) &&
           !file.endsWith(".d.ts") &&
           isOwnedProgramFile(file),
       )
-      .map(resolveOwnedSource),
+      .map((file) => resolveOwnedSource(file)),
   );
 }
 
@@ -3568,7 +3760,7 @@ test("内部実装のPathと型付きsource identifierは内部コーディン�
             (file) =>
               file.endsWith(".test.ts") && isContainedPath(file, checkerRoot),
           )
-          .map(resolveOwnedSource) ?? [];
+          .map((file) => resolveOwnedSource(file)) ?? [];
       assertExactCheckerTestPopulation(
         discoverCheckerTestFiles(checkerRoot),
         projectCheckerTests,
@@ -5234,6 +5426,358 @@ test("旧checker実体は現行Treeに残らない", () => {
 });
 
 /**
+ * 検証済みToolだけをProduction Headerから分離して残る検査を維持する。
+ * @responsibility Manifest分類、Package実体境界とQuality Headerの接続を局所で反証する。
+ * @trace RCM-IT-005
+ * @precondition Repository-localの自己生成Packageと既存QA Local Itemを使う。
+ * @stimulus 正規Tool、未登録script、不正Manifest、同Path異分類と別Package aliasを観測する。
+ * @observation Production Header診断、命名診断、Quality Header拒否と分類取得の例外。
+ * @oracle 正規ToolだけARCH要求を省き、命名とQuality Headerは引き続き拒否できる。
+ * @cleanup 自己生成したfixture Rootだけをfinallyで回収する。
+ * @boundary RCM-IT-005=Direct Boundary: Manifest・Filesystem→Source分類検査。
+ */
+test("検証ToolのHeader分類は検証済みexact Package Pathだけに閉じる", () => {
+  const temporaryParent = path.join(repositoryRoot, ".crdd", "tmp");
+  fs.mkdirSync(temporaryParent, { recursive: true });
+  const temporaryRoot = fs.mkdtempSync(
+    path.join(temporaryParent, "checker-header-tool-"),
+  );
+  const fixtureRoot = path.join(temporaryRoot, "fixture");
+  const scriptsRoot = path.join(fixtureRoot, "scripts");
+  fs.mkdirSync(scriptsRoot, { recursive: true });
+  const manifestPath = path.join(fixtureRoot, "symbol.json");
+  const toolPath = path.join(scriptsRoot, "probe.ts");
+  const adjacentPath = path.join(scriptsRoot, "adjacent.ts");
+  const configPath = path.join(fixtureRoot, "tsconfig.json");
+  const localTestId = "RCM-IT-005";
+  const qaId = canonicalQualityLocalItems.get(localTestId);
+  assert.ok(qaId);
+  const manifest = {
+    contract: "crdd/reality-symbol-manifest",
+    contractRevision: 1,
+    subsystem: "fixture",
+    symbols: [
+      {
+        symbolId: "fixture.verification.probe",
+        kind: "verification-tool",
+        path: "scripts/probe.ts",
+        qaIds: [qaId],
+        localTestIds: [localTestId],
+        verifies: [],
+      },
+    ],
+  };
+  const qualityHeader = [
+    "/**",
+    " * 合成Toolの観測値を作る。",
+    " * @packageDocumentation",
+    " * @responsibility 合成Toolの検査入力を所有する。",
+    ` * @trace ${localTestId}`,
+    " * @level IT",
+    " * @scope header-classification",
+    ` * @boundary ${localTestId}=Direct Boundary: fixture→classifier`,
+    " */",
+  ].join("\n");
+  try {
+    fs.writeFileSync(manifestPath, JSON.stringify(manifest));
+    fs.writeFileSync(
+      toolPath,
+      `${qualityHeader}\nlet ready = false; void ready;`,
+    );
+    fs.writeFileSync(adjacentPath, "const isReady = false; void isReady;");
+    fs.writeFileSync(
+      configPath,
+      JSON.stringify({
+        compilerOptions: {
+          strict: true,
+          target: "ES2022",
+          module: "NodeNext",
+          moduleResolution: "NodeNext",
+        },
+        files: [toolPath, adjacentPath],
+      }),
+    );
+    const verified = collectVerifiedSymbolManifests([fixtureRoot]);
+    assert.deepEqual([...verified.verificationToolPaths], [toolPath]);
+    const api = new API({ cwd: fixtureRoot });
+    try {
+      const { projects, snapshot } = collectOwnedProjects(api, [configPath]);
+      try {
+        const project = projects[0];
+        assert.ok(project);
+        const toolSource = project.program.getSourceFile(toolPath);
+        const adjacentSource = project.program.getSourceFile(adjacentPath);
+        assert.ok(toolSource && adjacentSource);
+        const toolViolations = inspectSourceFile(
+          toolSource,
+          project.checker,
+          [fixtureRoot],
+          verified.verificationToolPaths,
+        );
+        assert.deepEqual(
+          toolViolations.map((violation) => violation.rule),
+          ["boolean-prefix"],
+        );
+        assert.ok(
+          inspectProductionFileHeader(
+            adjacentSource,
+            verified.verificationToolPaths,
+          ).some(
+            (violation) =>
+              violation.rule === "file-header-architecture-trace-missing",
+          ),
+        );
+        assertTestFileHeader(toolSource.text, [localTestId], "IT", toolPath);
+        assert.throws(() =>
+          assertTestFileHeader("", [localTestId], "IT", toolPath),
+        );
+      } finally {
+        snapshot.dispose();
+      }
+    } finally {
+      api.close();
+    }
+    for (const malformed of [
+      "{",
+      JSON.stringify({ ...manifest, subsystem: "another-package" }),
+      JSON.stringify({
+        ...manifest,
+        symbols: [{ ...manifest.symbols[0], qaIds: [] }],
+      }),
+      JSON.stringify({
+        ...manifest,
+        symbols: [{ ...manifest.symbols[0], path: "src/probe.ts" }],
+      }),
+      JSON.stringify({
+        ...manifest,
+        symbols: [
+          manifest.symbols[0],
+          {
+            ...manifest.symbols[0],
+            symbolId: "fixture.verification.duplicate",
+          },
+        ],
+      }),
+      JSON.stringify({
+        ...manifest,
+        symbols: [
+          manifest.symbols[0],
+          {
+            symbolId: "fixture.production.probe",
+            kind: "file",
+            path: "scripts/probe.ts",
+            archIds: ["ARCH-000008"],
+          },
+        ],
+      }),
+    ]) {
+      fs.writeFileSync(manifestPath, malformed);
+      assert.throws(() => collectVerifiedSymbolManifests([fixtureRoot]));
+    }
+    fs.writeFileSync(
+      manifestPath,
+      JSON.stringify({
+        ...manifest,
+        symbols: [{ ...manifest.symbols[0], path: "scripts/missing.ts" }],
+      }),
+    );
+    assert.throws(() => collectVerifiedSymbolManifests([fixtureRoot]));
+    const otherRoot = path.join(temporaryRoot, "other-package");
+    fs.mkdirSync(otherRoot);
+    fs.writeFileSync(path.join(otherRoot, "probe.ts"), "export {};");
+    fs.symlinkSync(otherRoot, path.join(scriptsRoot, "aliased"), "junction");
+    fs.writeFileSync(
+      manifestPath,
+      JSON.stringify({
+        ...manifest,
+        symbols: [{ ...manifest.symbols[0], path: "scripts/aliased/probe.ts" }],
+      }),
+    );
+    assert.throws(() =>
+      collectVerifiedSymbolManifests([fixtureRoot, otherRoot]),
+    );
+    fs.writeFileSync(manifestPath, JSON.stringify(manifest));
+    assert.equal(
+      collectVerifiedSymbolManifests([fixtureRoot]).verificationToolPaths.size,
+      1,
+    );
+  } finally {
+    assert.ok(isContainedPath(temporaryRoot, temporaryParent));
+    fs.rmSync(temporaryRoot, { recursive: true, force: true });
+  }
+});
+
+/**
+ * 同Symbolのoverload先頭と後続の明示Headerを区別する。
+ * @responsibility 関数・MethodのHeader重複要求だけを除き、誤記と名前・parameter検査を維持する。
+ * @trace RCM-IT-005
+ * @precondition 自己生成Sourceを既存型付きAPIで読む。
+ * @stimulus 先頭完全・欠落・不正ARCH、後続明示Header、同名別scopeとSymbol欠測を渡す。
+ * @observation 対象SymbolごとのHeader診断とBoolean parameter診断。
+ * @oracle Headerなしの同Symbol後続だけ省き、別Symbolや明示不正Headerは拒否する。
+ * @cleanup 自己生成したRepository-local fixtureだけをfinallyで回収する。
+ * @boundary RCM-IT-005=Direct Boundary: 型付きoverload Symbol→Header発火判定。
+ */
+test("overload Headerは同Symbol先頭を必須とし後続の明示不正も拒否する", () => {
+  const temporaryParent = path.join(repositoryRoot, ".crdd", "tmp");
+  fs.mkdirSync(temporaryParent, { recursive: true });
+  const temporaryRoot = fs.mkdtempSync(
+    path.join(temporaryParent, "checker-header-overload-"),
+  );
+  const sourceRoot = path.join(temporaryRoot, "src");
+  fs.mkdirSync(sourceRoot);
+  const fixturePath = path.join(sourceRoot, "overloads.ts");
+  const configPath = path.join(temporaryRoot, "tsconfig.json");
+  const header = [
+    "/**",
+    " * 合成overloadの値を返す。",
+    " * @responsibility 合成入力の同一性を保持する。",
+    " * @trace ARCH-000008",
+    ...REQUIRED_EXECUTABLE_HEADER_TAGS.map(
+      (tag) => ` * @${tag} N/A: 合成値の同期読取りに限定する。`,
+    ),
+    " */",
+  ].join("\n");
+  const invalidHeader = header.replace("ARCH-000008", "ARCH-999999");
+  const classHeader = [
+    "/**",
+    " * Method集合を保持する。",
+    " * @responsibility 合成Methodのscopeを所有する。",
+    " * @trace ARCH-000008",
+    ...REQUIRED_CLASS_HEADER_TAGS.map(
+      (tag) => ` * @${tag} N/A: 合成Methodの局所scopeのみ。`,
+    ),
+    " */",
+  ].join("\n");
+  const source = [
+    "/** 合成Source。",
+    " * @responsibility Header分類の入力を所有する。",
+    " * @trace ARCH-000008",
+    " */",
+    header,
+    "function validOverload(value: string): string;",
+    "function validOverload(value: number): number;",
+    "function validOverload(value: string | number) { return value; }",
+    "function missingFirst(value: string): string;",
+    header,
+    "function missingFirst(value: string) { return value; }",
+    invalidHeader,
+    "function invalidFirst(value: string): string;",
+    "function invalidFirst(value: string) { return value; }",
+    header,
+    "function invalidLater(value: string): string;",
+    invalidHeader,
+    "function invalidLater(value: string) { return value; }",
+    header,
+    "function separatedLater(value: string): string;",
+    header,
+    "// Headerから離れた宣言も明示Headerとして拒否する。",
+    "function separatedLater(value: string) { return value; }",
+    header,
+    "function booleanOverload(ready: boolean): boolean;",
+    "function booleanOverload(ready: boolean) { return ready; }",
+    header,
+    "function firstScope() {",
+    header,
+    "function scopedOverload(value: string): string;",
+    "function scopedOverload(value: string) { return value; }",
+    "return scopedOverload; }",
+    header,
+    "function secondScope() {",
+    "function scopedOverload(value: string): string;",
+    "function scopedOverload(value: string) { return value; }",
+    "return scopedOverload; }",
+    classHeader,
+    "class HeaderMethods {",
+    header,
+    "validMethod(value: string): string;",
+    "validMethod(value: string) { return value; }",
+    header,
+    "invalidMethod(value: string): string;",
+    invalidHeader,
+    "invalidMethod(value: string) { return value; }",
+    "}",
+  ].join("\n");
+  try {
+    fs.writeFileSync(fixturePath, source);
+    fs.writeFileSync(
+      configPath,
+      JSON.stringify({
+        compilerOptions: {
+          strict: true,
+          target: "ES2022",
+          module: "NodeNext",
+          moduleResolution: "NodeNext",
+        },
+        files: [fixturePath],
+      }),
+    );
+    const api = new API({ cwd: temporaryRoot });
+    try {
+      const { projects, snapshot } = collectOwnedProjects(api, [configPath]);
+      try {
+        const project = projects[0];
+        assert.ok(project);
+        const sourceFile = project.program.getSourceFile(fixturePath);
+        assert.ok(sourceFile);
+        const violations = inspectSourceFile(
+          sourceFile,
+          project.checker,
+          [temporaryRoot],
+          new Set(),
+        );
+        for (const name of ["validOverload", "validMethod"])
+          assert.equal(
+            violations.some((violation) => violation.name === name),
+            false,
+            formatViolations(violations),
+          );
+        for (const name of ["missingFirst", "separatedLater", "scopedOverload"])
+          assert.ok(
+            violations.some(
+              (violation) =>
+                violation.name === name &&
+                violation.rule === "responsibility-header-summary-missing",
+            ),
+            name,
+          );
+        for (const name of ["invalidFirst", "invalidLater", "invalidMethod"])
+          assert.ok(
+            violations.some(
+              (violation) =>
+                violation.name === name &&
+                violation.rule === "architecture-trace-not-found",
+            ),
+            name,
+          );
+        assert.equal(
+          violations.filter(
+            (violation) =>
+              violation.name === "ready" && violation.rule === "boolean-prefix",
+          ).length,
+          2,
+        );
+        const declaration = sourceFile.statements.find(isFunctionDeclaration);
+        assert.ok(declaration?.name);
+        assert.equal(
+          shouldInspectOverloadHeader(declaration, declaration.name, {
+            getSymbolAtLocation: () => undefined,
+          } as unknown as Checker),
+          true,
+        );
+      } finally {
+        snapshot.dispose();
+      }
+    } finally {
+      api.close();
+    }
+  } finally {
+    assert.ok(isContainedPath(temporaryRoot, temporaryParent));
+    fs.rmSync(temporaryRoot, { recursive: true, force: true });
+  }
+});
+
+/**
  * 廃止済みPathの参照は固定履歴と移行説明にだけ残るを検証する。
  *
  * @responsibility 廃止済みPathの参照は固定履歴と移行説明にだけ残るの合否判定を所有する。
@@ -5700,10 +6244,10 @@ test("Test File HeaderはRustとTypeScriptで同じ固定項目を検査する",
 /**
  * 全Test SourceをQuality Local Itemへ一意に接続するを検証する。
  *
- * @responsibility Test Catalog、Source Header、Symbol RelationおよびQuality Local Itemの全数整合を検証する。
+ * @responsibility Test Catalogと検証ToolのSource Header、Symbol RelationおよびQuality Local Itemの全数整合を検証する。
  * @trace RCM-IT-005
  * @precondition Test Catalog、Quality Definitionおよび各Subsystemのsymbol.jsonが読取り可能である。
- * @stimulus 登録済みTest Sourceを全件走査してHeaderとRelationを照合する。
+ * @stimulus 登録済みTest Sourceと検証Toolを全件走査してHeaderとRelationを照合する。
  * @observation Catalog件数、Test宣言、Header tag、Trace、段階およびSymbol Relationを取得する。
  * @oracle Test FileはCase／HelperのLocal Item和集合へ接続し、個別Test CaseとNamed Helperは一つ以上の実在・同段階Local Itemを持つ。
  * @cleanup N/A: 読取り専用検査でありRepositoryを変更しない。
@@ -5725,33 +6269,52 @@ test("全Test SourceをQuality Local Itemへ責務単位で接続する", () => 
     }[];
   };
   assert.ok(catalog.tests.length > 0, "Test Catalog population is empty");
-  const manifests = new Map<
-    string,
-    { readonly symbols: readonly Record<string, unknown>[] }
-  >();
-  for (const catalogTest of catalog.tests) {
+  const manifests = verifiedSymbolSources.manifests;
+  const headerTargets = catalog.tests.map((entry) => ({
+    ...entry,
+    verificationTool: false,
+  }));
+  for (const [owner, manifest] of manifests) {
+    for (const symbol of manifest.symbols) {
+      if (symbol.kind !== "verification-tool") continue;
+      assert.ok(Array.isArray(symbol.localTestIds));
+      const levels = new Set(
+        symbol.localTestIds.map((id) => String(id).split("-")[1]),
+      );
+      assert.equal(
+        levels.size,
+        1,
+        `Tool Header level must be exact: ${symbol.symbolId}`,
+      );
+      const level = Object.entries(TEST_LEVEL_CODE).find(([, code]) =>
+        levels.has(code),
+      )?.[0];
+      assert.ok(level, `Tool Header level missing: ${symbol.symbolId}`);
+      assert.equal(typeof symbol.path, "string");
+      headerTargets.push({
+        id: String(symbol.symbolId),
+        owner,
+        level: level as keyof typeof TEST_LEVEL_CODE,
+        path: `40_Develop/${owner}/${symbol.path}`,
+        humanInput: false,
+        verificationTool: true,
+      });
+    }
+  }
+  for (const catalogTest of headerTargets) {
     const expectedLevel = TEST_LEVEL_CODE[catalogTest.level];
     assert.ok(expectedLevel, `Unsupported test level: ${catalogTest.id}`);
-    const manifest =
-      manifests.get(catalogTest.owner) ??
-      (JSON.parse(
-        fs.readFileSync(
-          path.join(
-            repositoryRoot,
-            "40_Develop",
-            catalogTest.owner,
-            "symbol.json",
-          ),
-          "utf8",
-        ),
-      ) as { readonly symbols: readonly Record<string, unknown>[] });
-    manifests.set(catalogTest.owner, manifest);
+    const manifest = manifests.get(catalogTest.owner);
+    assert.ok(manifest, `Verified Manifest missing: ${catalogTest.owner}`);
     const relativePath = catalogTest.path.replace(
       `40_Develop/${catalogTest.owner}/`,
       "",
     );
     const symbols = manifest.symbols.filter(
-      (symbol) => symbol.kind === "test-suite" && symbol.path === relativePath,
+      (symbol) =>
+        symbol.kind ===
+          (catalogTest.verificationTool ? "verification-tool" : "test-suite") &&
+        symbol.path === relativePath,
     );
     const source = fs.readFileSync(
       path.join(repositoryRoot, catalogTest.path),
@@ -5813,7 +6376,11 @@ test("全Test SourceをQuality Local Itemへ責務単位で接続する", () => 
       `Test Symbol QA relation mismatch: ${catalogTest.id}`,
     );
     assert.ok(
-      Array.isArray(symbols[0]?.verifies) && symbols[0].verifies.length > 0,
+      Array.isArray(symbols[0]?.verifies) &&
+        (catalogTest.verificationTool ||
+        symbols[0].verificationTarget === "environment"
+          ? symbols[0].verifies.length === 0
+          : symbols[0].verifies.length > 0),
       `Test Symbol implementation relation missing: ${catalogTest.id}`,
     );
 
@@ -5861,7 +6428,8 @@ test("全Test SourceをQuality Local Itemへ責務単位で接続する", () => 
         `Test Symbol relation must be used by a Case or Helper: ${catalogTest.id}`,
       );
     } else if (catalogTest.path.endsWith(".rs")) {
-      const isPureTestFile = relativePath.startsWith("tests/");
+      const isPureTestFile =
+        catalogTest.verificationTool || relativePath.startsWith("tests/");
       if (isPureTestFile)
         assertTestFileHeader(
           source,

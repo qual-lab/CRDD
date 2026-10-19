@@ -1,5 +1,6 @@
 /**
  * 共有AI入口の主体・Repository分離を実HTTPで検証する。
+ * @packageDocumentation
  * @responsibility AMの現在認可を有限Task Ownerの開始・観測・取消へ接続する。
  * @trace CPR-IT-010
  * @trace CPR-IT-012
@@ -193,6 +194,18 @@ test("共有Task入口は主体とRepositoryを分離し毎要求の認可を使
       owners++;
       const key = `${resolveVerifiedRepositoryRoot(_root)}:${_principal}`;
       let snapshot: WorkbenchAiRequestSnapshot | null = null;
+      /**
+       * 所有を確認できないIDへ内容を開示しないSnapshotを返す。
+       * @responsibility 不明IDを既存Taskの状態と混同しない。
+       * @trace CPR-IT-010
+       * @trace CPR-IT-012
+       * @precondition 合成Ownerの保存Mapに対象がない。
+       * @stimulus 指定IDで未観測結果を構築する。
+       * @observation mode未確定と本文なしのSnapshot。
+       * @oracle 別主体・別Repositoryの内容を返さない。
+       * @cleanup N/A: 値生成だけ。
+       * @boundary 有限Ownerから実HTTP公開値。
+       */
       const unavailable = (requestId: string): WorkbenchAiRequestSnapshot => ({
         requestId,
         mode: null,
@@ -253,9 +266,33 @@ test("共有Task入口は主体とRepositoryを分離し毎要求の認可を使
   t.after(async () => {
     await handle.close();
   });
+  /**
+   * 主体ごとの合成資格をHTTPへ渡す。
+   * @responsibility 同じ試験主体の資格Headerを構築する。
+   * @trace CPR-IT-010
+   * @trace CPR-IT-012
+   * @precondition 発行済み合成資格の添字を指定する。
+   * @stimulus 添字に対応する資格を選ぶ。
+   * @observation 認証Header。
+   * @oracle 他主体の資格を混在させない。
+   * @cleanup N/A: 値構築のみ。
+   * @boundary 合成AM資格からHTTP要求Header。
+   */
   const headers = (index: number) => ({
     authorization: `Bearer ${materials[index]?.token ?? "invalid_fixture_credential"}`,
   });
+  /**
+   * 同じ主体で指定Repositoryの画面モデルを取得する。
+   * @responsibility 実HTTPの現在認可を画面モデルへ接続する。
+   * @trace CPR-IT-010
+   * @trace CPR-IT-012
+   * @precondition 試験Serverが稼働している。
+   * @stimulus 主体とRepositoryを指定して取得する。
+   * @observation 応答JSON。
+   * @oracle 後続assertで主体・Repository分離を確認する。
+   * @cleanup Serverは親Caseで終了する。
+   * @boundary Browser相当HTTPからWorkbenchとAM。
+   */
   const model = async (index: number, id: string) =>
     (
       await fetch(`${handle.baseUrl}/api/workbench-view?repositoryId=${id}`, {
@@ -264,6 +301,18 @@ test("共有Task入口は主体とRepositoryを分離し毎要求の認可を使
     ).json();
   const first = await model(0, "repository.a");
   let actionToken = first.actionToken;
+  /**
+   * 現在の画面Tokenを同一Originの操作要求へ渡す。
+   * @responsibility 主体・Repository・操作入力を実HTTPへ搬送する。
+   * @trace CPR-IT-010
+   * @trace CPR-IT-012
+   * @precondition 取得済みactionTokenがある。
+   * @stimulus 操作値をフォームへ符号化して一回送る。
+   * @observation HTTP応答。
+   * @oracle 後続assertで失効と別主体の拒否を確認する。
+   * @cleanup Serverは親Caseで終了する。
+   * @boundary HTTPから認可済みTask Owner。
+   */
   const action = async (
     index: number,
     repositoryId: string,
@@ -426,9 +475,33 @@ test("単体Task入口は再構成後の元IDを観測・取消へ接続する",
   await handle.close();
   handle = await startWorkbench(configuration);
   t.after(() => handle.close());
+  /**
+   * 再構成後Serverの現在Tokenを実HTTPで取得する。
+   * @responsibility 新Server世代の画面モデルを受け取る。
+   * @trace CPR-IT-010
+   * @trace CPR-IT-012
+   * @precondition 同じ保存先でServerを再構成済み。
+   * @stimulus workbench-viewを一回取得する。
+   * @observation 応答JSONとToken。
+   * @oracle 元Taskへの再入場を後続操作で照合する。
+   * @cleanup 親CaseがServerを閉じる。
+   * @boundary 実HTTPから保存済みOwner参照。
+   */
   const model = async () =>
     (await fetch(`${handle.baseUrl}/api/workbench-view`)).json();
   const actionToken = (await model()).actionToken;
+  /**
+   * 元Task IDを再構成後の公開操作へ渡す。
+   * @responsibility 観測と取消を同じIDへ結合する。
+   * @trace CPR-IT-010
+   * @trace CPR-IT-012
+   * @precondition 新世代のactionTokenと元requestIdがある。
+   * @stimulus 同一Originで操作を一回送る。
+   * @observation HTTP応答。
+   * @oracle 後続assertで元ID維持と再送0を確認する。
+   * @cleanup 親CaseがServerを閉じる。
+   * @boundary 実HTTPから再構成したTask Owner。
+   */
   const action = (operation: string, requestId: string) =>
     fetch(`${handle.baseUrl}/ai-request/action`, {
       method: "POST",

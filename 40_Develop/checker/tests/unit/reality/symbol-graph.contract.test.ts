@@ -15,6 +15,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 import type { LoadedRealitySymbolManifest } from "../../../../domain-model/src/index.ts";
+import { discoverRealitySymbols } from "../../../../domain-model/src/index.ts";
 import {
   readRegisteredRealityTests,
   readRegisteredRealityTestsFromRepository,
@@ -224,6 +225,285 @@ test("Symbol Manifestは未知Property・危険Path・Test relation欠落を拒�
     "symbol-manifest-test-relation-missing",
   ]);
   assert.equal(validation.manifest, null);
+});
+
+/**
+ * 検証Toolの閉じた分類と通常実装の分類を分離する。
+ * @responsibility 検証手段へ架空ARCHを与えず、本番Sourceの分類迂回を拒否する。
+ * @trace PPR-UT-017
+ * @precondition QAとLocal Itemを持つ合成Tool記述。
+ * @stimulus Path・関係・欠測・型を一つずつ変更する。
+ * @observation Manifest受理と固定診断。
+ * @oracle 所有検証領域・QA・Local・明示空verifiesだけを許す。
+ * @cleanup N/A: 値検証だけで資源を取得しない。
+ * @boundary SchemaとDomain Validator。実Toolや本番実装を実行しない。
+ */
+test("検証Toolは所有PathとQuality関係を要求し実装へ誤分類しない", () => {
+  const tool = {
+    symbolId: "sample.tool",
+    kind: "verification-tool",
+    path: "scripts/verify.ts",
+    qaIds: ["QA-000001"],
+    localTestIds: ["PPR-UT-017"],
+    verifies: [],
+  };
+  for (const [change, accepted] of [
+    [{}, true],
+    [{ path: "tests/fixtures/oracle.ts" }, true],
+    [{ path: "scripts/check.rs" }, true],
+    [{ path: "src/owner.ts" }, false],
+    [{ path: "tests/case.test.ts" }, false],
+    [{ path: "scripts/../src/owner.ts" }, false],
+    [{ path: "/scripts/verify.ts" }, false],
+    [{ path: "scripts/verify.json" }, false],
+    [{ archIds: ["ARCH-000001"] }, false],
+    [{ implements: ["sample.meaning"] }, false],
+    [{ verificationTarget: "environment" }, false],
+    [{ verificationTarget: undefined }, false],
+    [{ verifies: ["sample.source"] }, false],
+    [{ verifies: undefined }, false],
+    [{ verifies: null }, false],
+    [{ verifies: {} }, false],
+    [{ qaIds: [] }, false],
+    [{ localTestIds: [] }, false],
+    [{ kind: "file", path: "src/source.ts" }, false],
+    [{ kind: "test-suite", path: "tests/case.test.ts" }, false],
+  ] as const) {
+    assert.equal(
+      validateRealitySymbolManifest(
+        {
+          contract: "crdd/reality-symbol-manifest",
+          contractRevision: 1,
+          subsystem: "sample",
+          symbols: [{ ...tool, ...change }],
+        },
+        "40_Develop/sample/symbol.json",
+      ).manifest !== null,
+      accepted,
+      JSON.stringify(change),
+    );
+  }
+  for (const key of ["qaIds", "localTestIds", "verifies"]) {
+    const missing = { ...tool };
+    Reflect.deleteProperty(missing, key);
+    assert.equal(
+      validateRealitySymbolManifest(
+        {
+          contract: "crdd/reality-symbol-manifest",
+          contractRevision: 1,
+          subsystem: "sample",
+          symbols: [missing],
+        },
+        "40_Develop/sample/symbol.json",
+      ).manifest,
+      null,
+      key,
+    );
+  }
+  const schema = JSON.parse(
+    fs.readFileSync(
+      path.join(
+        repositoryRoot,
+        "template/tools/schemas/reality-symbol-schema.json",
+      ),
+      "utf8",
+    ),
+  );
+  assert.ok(
+    schema.$defs.symbol.properties.kind.enum.includes("verification-tool"),
+  );
+  const branch = schema.$defs.symbol.allOf[0].else;
+  assert.equal(branch.if.properties.kind.const, "verification-tool");
+  assert.deepEqual(branch.then.required, ["qaIds", "localTestIds", "verifies"]);
+  assert.deepEqual(branch.then.not, { required: ["verificationTarget"] });
+  assert.equal(branch.then.properties.archIds.maxItems, 0);
+  assert.equal(branch.then.properties.implements.maxItems, 0);
+  assert.equal(branch.then.properties.verifies.maxItems, 0);
+  assert.equal(
+    schema.$defs.symbol.allOf[0].then.else.properties.verifies.minItems,
+    1,
+  );
+});
+
+/**
+ * 検証Toolへの参照を検査しても本番実装の検証辺に加算しない。
+ * @responsibility 参照欠落とTestへの循環的代替を拒否しCoverageを分離する。
+ * @trace PPR-UT-017
+ * @precondition 同じQA・Localと実在するToolを表す合成Manifest。
+ * @stimulus 正常Tool・未知対象・別Testをverifiesへ指定する。
+ * @observation Graph受理、Quality Indexと実装検証Index。
+ * @oracle Tool参照だけを受理しtestsByImplementationIdは空のまま。
+ * @cleanup N/A: 同期Graph構築だけ。
+ * @boundary Relation解決とCoverage Index。実Tool動作は評価しない。
+ */
+test("検証Toolへの検証辺は実装Coverageを生成しない", () => {
+  for (const target of ["sample.tool", "sample.missing", "sample.test"]) {
+    const validated = validateRealitySymbolManifest(
+      {
+        contract: "crdd/reality-symbol-manifest",
+        contractRevision: 1,
+        subsystem: "sample",
+        symbols: [
+          {
+            symbolId: "sample.tool",
+            kind: "verification-tool",
+            path: "scripts/verify.ts",
+            qaIds: ["QA-000001"],
+            localTestIds: ["PPR-UT-017"],
+            verifies: [],
+          },
+          {
+            symbolId: "sample.test",
+            kind: "test-suite",
+            path: "tests/tool.test.ts",
+            qaIds: ["QA-000001"],
+            localTestIds: ["PPR-UT-017"],
+            verifies: [target],
+          },
+        ],
+      },
+      "40_Develop/sample/symbol.json",
+    );
+    assert.ok(validated.manifest);
+    const built = createRealitySymbolGraph(
+      [
+        {
+          manifestPath: "40_Develop/sample/symbol.json",
+          subsystemRoot: "40_Develop/sample",
+          manifest: validated.manifest,
+        },
+      ],
+      new Set(),
+      new Set(["QA-000001"]),
+      new Map([["QA-000001", new Set(["PPR-UT-017"])]]),
+      new Map([
+        [
+          "40_Develop/sample/tests/tool.test.ts",
+          { owner: "sample", testId: "sample:test" },
+        ],
+      ]),
+      [],
+    );
+    if (target === "sample.tool") {
+      assert.deepEqual(built.findings, []);
+      assert.ok(built.graph);
+      assert.equal(built.graph.testsByImplementationId.size, 0);
+      assert.equal(built.graph.symbolsByArchId.size, 0);
+      assert.equal(built.graph.symbolsByQaId.get("QA-000001")?.length, 2);
+    } else assert.equal(built.graph, null);
+  }
+});
+
+/**
+ * 検証ToolのSource注釈を実装注釈とは独立に照合する。
+ * @responsibility Qualityの実体接続を保持しARCH混入を拒否する。
+ * @trace PPR-UT-017
+ * @precondition 合成Sourceを渡す既存Discovery入口。
+ * @stimulus 正しいQA、別QA、ARCH注釈とSource欠測を与える。
+ * @observation DiscoveryのstatusとIssue。
+ * @oracle 一致したQuality注釈だけを受理し観測不能を成功化しない。
+ * @cleanup N/A: メモリSourceだけでFilesystemを作らない。
+ * @boundary Discovery→Annotationの実接続。
+ */
+test("検証Toolの注釈もQualityへ拘束し欠測を拒否する", () => {
+  for (const source of [
+    "// @crdd QA-000001",
+    "// @crdd QA-000002",
+    "// @crdd ARCH-000001",
+    null,
+  ]) {
+    const result = discoverRealitySymbols({
+      prerequisiteIssues: [],
+      sources: [
+        {
+          subsystem: "sample",
+          subsystemPath: "40_Develop/sample",
+          manifestPath: "40_Develop/sample/symbol.json",
+          manifestSource: JSON.stringify({
+            contract: "crdd/reality-symbol-manifest",
+            contractRevision: 1,
+            subsystem: "sample",
+            symbols: [
+              {
+                symbolId: "sample.tool",
+                kind: "verification-tool",
+                path: "scripts/verify.ts",
+                qaIds: ["QA-000001"],
+                localTestIds: ["PPR-UT-017"],
+                verifies: [],
+              },
+            ],
+          }),
+          symbolSources: new Map(
+            source === null ? [] : [["scripts/verify.ts", source]],
+          ),
+        },
+      ],
+    });
+    assert.equal(result.status === "complete", source === "// @crdd QA-000001");
+  }
+});
+
+/**
+ * 環境実証の明示は実装への検証関係を生成しない。
+ * @responsibility 通常試験の関係必須と環境試験の閉条件を区別する。
+ * @trace PPR-UT-017
+ * @precondition 合成Manifestだけを使用する。
+ * @stimulus 対象種別・関係・Local IDを個別に変異する。
+ * @observation Manifestの受理と投影を確認する。
+ * @oracle 環境明示・QA・Local ID・空verifiesだけを受理する。
+ * @cleanup 外部資源を作成しない。
+ * @boundary Manifest値検証だけであり実装Coverage成立ではない。
+ */
+test("環境試験は明示と空実装関係を要求し通常試験を免除しない", () => {
+  const symbol = {
+    symbolId: "sample.environment",
+    kind: "test-suite",
+    path: "tests/environment.test.ts",
+    qaIds: ["QA-000001"],
+    localTestIds: ["PPR-UT-017"],
+    verifies: [],
+    verificationTarget: "environment",
+  };
+  for (const [change, accepted] of [
+    [{}, true],
+    [{ verificationTarget: undefined }, false],
+    [{ verificationTarget: "implementation" }, false],
+    [{ verifies: ["sample.source"] }, false],
+    [{ verifies: undefined }, false],
+    [{ verifies: null }, false],
+    [{ verifies: {} }, false],
+    [{ qaIds: [] }, false],
+    [{ localTestIds: [] }, false],
+    [{ kind: "module", archIds: ["ARCH-000001"] }, false],
+    [{ path: "../outside.ts" }, false],
+  ] as const) {
+    const result = validateRealitySymbolManifest(
+      {
+        contract: "crdd/reality-symbol-manifest",
+        contractRevision: 1,
+        subsystem: "sample",
+        symbols: [{ ...symbol, ...change }],
+      },
+      "40_Develop/sample/symbol.json",
+    );
+    assert.equal(result.manifest !== null, accepted);
+    if (accepted) assert.deepEqual(result.manifest?.symbols[0]?.verifies, []);
+  }
+  const missingRelation = { ...symbol };
+  Reflect.deleteProperty(missingRelation, "verifies");
+  assert.equal(
+    validateRealitySymbolManifest(
+      {
+        contract: "crdd/reality-symbol-manifest",
+        contractRevision: 1,
+        subsystem: "sample",
+        symbols: [missingRelation],
+      },
+      "40_Develop/sample/symbol.json",
+    ).manifest,
+    null,
+  );
 });
 
 /**

@@ -608,31 +608,6 @@
       ]
     },
     {
-      "id": "orchestrator:integration-projection",
-      "owner": "orchestrator",
-      "architectureAnchor": "06_Architecture/Details/orchestrator/01_Architecture.md#7-公開アプリケーション契約",
-      "responsibilities": [
-        "candidate_integration",
-        "existing_candidate_adoption",
-        "accepted_result",
-        "read_only_state_projection"
-      ],
-      "externalBoundaries": [
-        "candidate_port",
-        "integration_record",
-        "public_application_contract"
-      ],
-      "lifecycleProfile": "durable_operation",
-      "testIds": [],
-      "postconditions": [
-        "candidate_and_result_correlated",
-        "adoption_authority_explicit",
-        "adoption_lease_released_or_recovery_reported",
-        "projection_effect_zero",
-        "unaccepted_candidate_not_published"
-      ]
-    },
-    {
       "id": "coordinator:provider-task-lifecycle",
       "owner": "coordinator",
       "architectureAnchor": "06_Architecture/Details/coordinator/01_Architecture.md#3-一般taskの主シーケンス",
@@ -702,7 +677,7 @@
         "repository_filesystem",
         "borrowed_working_tree"
       ],
-      "lifecycleProfile": "transient_operation",
+      "lifecycleProfile": "external_effect_operation",
       "testIds": [
         "coordinator:integration:repository-workspace-runtime",
         "coordinator:integration:coordinator-task-runtime"
@@ -1280,23 +1255,6 @@
       ]
     },
     {
-      "id": "runtime:candidate-to-mcp-result",
-      "architectureAnchor": "06_Architecture/Details/mcp-server/01_Architecture.md#3-依存と所有権",
-      "blockPath": [
-        "coordinator:workspace-execution",
-        "orchestrator:integration-projection",
-        "mcp:public-contract-adapter"
-      ],
-      "testIds": [
-        "mcp:integration:transport-lifecycle"
-      ],
-      "postconditions": [
-        "canonical_result_not_reinterpreted",
-        "recovery_references_preserved",
-        "unaccepted_candidate_not_exposed"
-      ]
-    },
-    {
       "id": "mcp:contract-to-transport",
       "architectureAnchor": "06_Architecture/Details/mcp-server/01_Architecture.md#5-transport-lifecycle",
       "blockPath": [
@@ -1556,6 +1514,143 @@
     }
   ],
   "tests": [
+    {
+      "id": "ai-adapter:unit:output-provider-error",
+      "owner": "ai-adapter",
+      "path": "40_Develop/ai-adapter/tests/unit/output/provider-error.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "provider",
+        "error"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:unit:workbench-ai-advice-contract",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/workbench-ai/advice-contract.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "advice",
+        "contract"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "orchestrator:integration:single-task-state",
+      "owner": "orchestrator",
+      "path": "40_Develop/orchestrator/tests/integration/single-task-state.integration.test.ts",
+      "level": "integration",
+      "kind": "integration",
+      "semanticTags": [
+        "single-task",
+        "state",
+        "lease"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "orchestrator:unit:task-requests",
+      "owner": "orchestrator",
+      "path": "40_Develop/orchestrator/tests/unit/task/requests.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "single-task",
+        "input"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "orchestrator:unit:workspace-acceptance-record",
+      "owner": "orchestrator",
+      "path": "40_Develop/orchestrator/tests/unit/workspace/acceptance-record.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "workspace",
+        "acceptance",
+        "correlation"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "workbench-server:integration:ai-shared-task",
+      "owner": "workbench-server",
+      "path": "40_Develop/workbench-server/tests/integration/ai-shared-task.integration.test.ts",
+      "level": "integration",
+      "kind": "integration",
+      "semanticTags": [
+        "ai",
+        "shared",
+        "authorization"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "workbench-server:integration:ai-verification",
+      "owner": "workbench-server",
+      "path": "40_Develop/workbench-server/tests/integration/ai-verification.contract.test.ts",
+      "level": "integration",
+      "kind": "integration",
+      "semanticTags": [
+        "ai",
+        "verification",
+        "diagnostics"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed",
+        "owned_resources_settled_or_reported"
+      ],
+      "mandatoryByDefault": true
+    },
     {
       "id": "platform-access:unit:entry_observation",
       "owner": "platform-access",
@@ -4011,10 +4106,7 @@
         "boundary_result_observed",
         "owned_resources_settled_or_reported"
       ],
-      "mandatoryByDefault": true,
-      "qaIds": [
-        "QA-000006"
-      ]
+      "mandatoryByDefault": true
     },
     {
       "id": "coordinator:integration:claude-execution-plan",
@@ -7769,42 +7861,6 @@
       "mandatoryByDefault": false
     },
     {
-      "id": "coordinator:unit:workbench-ai-request-application",
-      "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/workbench-ai/request-lifecycle.contract.test.ts",
-      "level": "unit",
-      "kind": "contract",
-      "semanticTags": [
-        "workbench",
-        "ai-request",
-        "mode-routing",
-        "cancellation",
-        "unknown-state",
-        "result-provenance",
-        "read-projection-boundary",
-        "read-projection-packet",
-        "projection-integrity",
-        "repository-production-composition"
-      ],
-      "environment": "node_process",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "request_mode_executor_exact",
-        "invalid_request_effect_zero",
-        "cancelled_not_overwritten",
-        "unknown_identity_not_inferred",
-        "ungrounded_result_rejected",
-        "out_of_projection_reference_rejected",
-        "projection_integrity_verified",
-        "secret_or_traversal_input_effect_zero",
-        "task_preparation_effect_zero",
-        "repository_project_context_packet_exact",
-        "raw_provider_output_not_reported"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
       "id": "coordinator:unit:workbench-ai-advice-execution-plan",
       "owner": "coordinator",
       "path": "40_Develop/coordinator/tests/unit/workbench-ai/advice-execution-plan.contract.test.ts",
@@ -7958,30 +8014,6 @@
         "unused_packet_revocable",
         "repository_and_workspace_not_mounted",
         "packet_issue_effect_zero"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
-      "id": "coordinator:unit:workbench-ai-change-candidate-runtime",
-      "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/workbench-ai/change-candidate-executor.contract.test.ts",
-      "level": "unit",
-      "kind": "contract",
-      "semanticTags": [
-        "workbench",
-        "ai-request",
-        "change-candidate",
-        "allowed-paths",
-        "untrusted-not-adopted"
-      ],
-      "environment": "node_process",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "allowed_paths_required_before_task_effect",
-        "exact_executor_profile_preserved",
-        "candidate_returned_as_untrusted_and_not_adopted",
-        "source_repository_not_adopted_or_published"
       ],
       "mandatoryByDefault": true
     },

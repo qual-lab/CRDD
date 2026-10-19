@@ -254,6 +254,17 @@ test("Native検証Toolは一件の通常実体だけを選択する", () => {
           : fault === "two"
             ? [row, row].join("\n")
             : row;
+      /**
+       * 選択したNative成果物の実Path差だけを故障として注入する。
+       * @responsibility 他Pathを読まず同じ成果物のalias拒否を反証する。
+       * @trace ERB-IT-001
+       * @precondition 固定binaryと一つのfaultを選択している。
+       * @stimulus realpath反例だけ別Pathを返し通常対照は同じPathを返す。
+       * @observation 実体検査の拒否と渡された対象Path。
+       * @oracle 固定binary以外の観測や非canonical成果物の受理を失敗とする。
+       * @cleanup N/A: Filesystem観測値の有限代役のみ。
+       * @boundary 成果物選択の実本文。実Native成果物やlinkは生成しない。
+       */
       const realpath = (selected: string) => {
         assert.equal(selected, binary);
         return fault === "realpath" ? [selected, ".other"].join("") : selected;
@@ -284,6 +295,17 @@ test("Native検証Toolは一件の通常実体だけを選択する", () => {
           realpathSync: Object.assign(realpath, { native: realpath }),
         },
       };
+      /**
+       * 三Toolの成果物選択断面へ同じ正常値と反例を入力する。
+       * @responsibility 試験側の複製判定でなく実選択本文を評価する。
+       * @trace ERB-IT-001
+       * @precondition Cargo出力と実体観測を同じfaultへ結合している。
+       * @stimulus 型除去した選択本文を有限contextのVMで評価する。
+       * @observation 選択されたbinaryまたはassertion拒否。
+       * @oracle 正常一件だけ受理し欠落・複数・不正実体は拒否する。
+       * @cleanup N/A: VMの値だけでProcessや実Fileを生成しない。
+       * @boundary 検証Toolの成果物選択。実Build成立は主張しない。
+       */
       const run = () =>
         runInNewContext(
           stripTypeScriptTypes(

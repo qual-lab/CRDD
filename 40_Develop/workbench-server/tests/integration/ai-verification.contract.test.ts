@@ -1,5 +1,7 @@
 /**
  * 読取り助言の試験器を外部AIなしで検証する。
+ * @packageDocumentation
+ * @responsibility 有限代役と公開HTTPで診断・原失敗・回収の相関を検証する。
  * @trace ERB-IT-021
  * @level IT
  * @scope Docker比較、公開HTTP搬送、一次失敗と終了観測。
@@ -38,6 +40,8 @@ import {
  * @observation 同じIDの取消回数、終了順序、一次診断と回収結果。
  * @oracle Task再送0、取消最大1、取消結果を待ってclose、不明を清掃成功にしない。
  * @cleanup VMのPromiseをすべて完了する。実資源なし。
+ * @responsibility 編集試験の失敗後処置を実本文と有限Ownerで確認する。
+ * @boundary 正式試験器と有限代役の局所境界。実AI・実Dockerなし。
  */
 test("Workspace試験は通信失敗後に同じTaskの取消結果を保存してから閉じる", async () => {
   const source = fs.readFileSync(
@@ -222,6 +226,8 @@ test("Workspace試験は通信失敗後に同じTaskの取消結果を保存し�
  * @observation 投影JSON。
  * @oracle URL・秘密本文・未知codeを出力しない。
  * @cleanup N/A: 同期判定。
+ * @responsibility 通信例外は許可済み分類だけを保持する。
+ * @boundary 正式試験器と有限代役の局所境界。実AI・実Dockerなし。
  */
 test("通信診断は未知codeと自由な例外本文を保存しない", () => {
   assert.equal(
@@ -252,6 +258,8 @@ test("通信診断は未知codeと自由な例外本文を保存しない", () =
  * @observation 固定診断とReader解放。
  * @oracle 期限発火だけtimedOut=true、本文の清掃abortはfalse。
  * @cleanup Timer解除とReaderのcancel／releaseLockを観測する。
+ * @responsibility 有界HTTPの実本文で期限発火と清掃中断を区別する。
+ * @boundary 正式試験器と有限代役の局所境界。実AI・実Dockerなし。
  */
 test("HTTP試験器は期限超過と本文清掃のabortを区別する", async () => {
   const source = fs.readFileSync(
@@ -352,6 +360,8 @@ test("HTTP試験器は期限超過と本文清掃のabortを区別する", async
  * @observation 実CLIの終了値。
  * @oracle 64で外部Effect前に停止する。
  * @cleanup 子Processの終了を待つ。試験Rootは作成されない。
+ * @responsibility 合成編集試験も明示された一回の用途以外を受け付けない。
+ * @boundary 正式試験器と有限代役の局所境界。実AI・実Dockerなし。
  */
 test("Workspace実AI試験CLIは同意なしと未知引数を起動前に拒否する", () => {
   const entry = fileURLToPath(
@@ -386,6 +396,8 @@ test("Workspace実AI試験CLIは同意なしと未知引数を起動前に拒否
  * @observation 作成件数、元Task結果、保存した清掃失敗、終了値。
  * @oracle linkは書込み0、削除失敗は元結果を保持してexit2。
  * @cleanup N/A: 実資源を作らない。
+ * @responsibility 試験器のRoot検査と清掃失敗を実main本文で反証する。
+ * @boundary 正式試験器と有限代役の局所境界。実AI・実Dockerなし。
  */
 test("Workspace試験mainは作成前のRoot検査と元結果を失わない清掃を行う", async () => {
   const source = fs.readFileSync(
@@ -499,12 +511,15 @@ test("Workspace試験mainは作成前のRoot検査と元結果を失わない清
 });
 
 /**
+ * 実inventory Readerは欠測を拒否しIPAMとOptions差を比較へ搬送する。
  * @trace ERB-IT-021
  * @precondition Docker CLI出力だけを有限代役に置き換える。
  * @stimulus 正常inspect、IPAM／Options差、欠測・不正JSON・取得失敗を与える。
  * @observation 実Readerの戻り値とConfiguration Hash。
  * @oracle 不完全観測を空配列へ畳まず、意味上の構成差をHashへ反映する。
  * @cleanup N/A: Docker CLIを実行しない。
+ * @responsibility 不完全観測を空配列へ畳まず、意味上の構成差をHashへ反映する。
+ * @boundary 正式試験器と有限代役の局所境界。実AI・実Dockerなし。
  */
 test("実inventory Readerは欠測を拒否しIPAMとOptions差を比較へ搬送する", () => {
   const source = fs.readFileSync(
@@ -518,6 +533,17 @@ test("実inventory Readerは欠測を拒否しIPAMとOptions差を比較へ搬�
     )
     .replaceAll("export function", "function");
   assert.ok(body.includes("function validInventory"));
+  /**
+   * 構成Hashを比較する独立した合成Docker観測を作る。
+   * @responsibility 各反例の前に正常な値を新規生成する。
+   * @trace ERB-IT-021
+   * @precondition 固定ID関数を使用する。
+   * @stimulus 正常Containerと標準Networkを構築する。
+   * @observation 独立した合成Object。
+   * @oracle 反例間で変異を共有しない。
+   * @cleanup N/A: Process内値のみ。
+   * @boundary 合成観測から実Reader。
+   */
   const raw = () => ({
     containers: [
       {
@@ -550,6 +576,17 @@ test("実inventory Readerは欠測を拒否しIPAMとOptions差を比較へ搬�
       ConfigFrom: {},
     })),
   });
+  /**
+   * 有限CLI出力を実inventory Reader本文へ渡す。
+   * @responsibility 取得失敗と構成欠測を観測結果へ搬送する。
+   * @trace ERB-IT-021
+   * @precondition 合成inventoryと閉じた故障値を指定する。
+   * @stimulus VMのCLI代役から一覧とinspect結果を返す。
+   * @observation Reader結果又は不明。
+   * @oracle 後続assertで差をHashへ反映し欠測を拒否する。
+   * @cleanup N/A: VM内で完結し実CLIは発行しない。
+   * @boundary 取得代役と本番相当Reader本文。
+   */
   const run = (data: ReturnType<typeof raw>, fault = "") =>
     runInNewContext(
       stripTypeScriptTypes(`${body}\nobserveVerificationDockerInventory();`),
@@ -656,6 +693,17 @@ test("実inventory Readerは欠測を拒否しIPAMとOptions差を比較へ搬�
   assert.equal(run(changed), null);
 });
 
+/**
+ * 比較反例用の非秘密Docker IDを作る。
+ * @responsibility 固定整数から64桁の合成IDを構築する。
+ * @trace ERB-IT-021
+ * @precondition 試験内の非負整数を使う。
+ * @stimulus 16進表現を固定長へ埋める。
+ * @observation ID文字列。
+ * @oracle 正常IDと構成差を実Dockerなしで区別する。
+ * @cleanup N/A: 値変換だけ。
+ * @boundary 合成Docker inventory入力。
+ */
 const id = (n: number) => n.toString(16).padStart(64, "0");
 type MutableInventory = {
   containers: [Record<string, unknown>, ...Record<string, unknown>[]];
@@ -713,12 +761,15 @@ const base: VerificationDockerInventory = {
 };
 
 /**
+ * Docker比較は標準ID差を区別し不明・構成差・利用者資源差を拒否する。
  * @trace ERB-IT-021
  * @precondition 合成の既存Containerと標準／利用者Networkを用意する。
  * @stimulus ID世代差・属性差・欠測・重複・未回収を与える。
  * @observation 比較status、理由、専用診断と追加／消失ID。
  * @oracle 標準ID差だけを構成不変と分け、他の不明・変更を成功にしない。
  * @cleanup N/A: 値だけの比較。
+ * @responsibility 標準ID差だけを構成不変と分け、他の不明・変更を成功にしない。
+ * @boundary 正式試験器と有限代役の局所境界。実AI・実Dockerなし。
  */
 test("Docker比較は標準ID差を区別し不明・構成差・利用者資源差を拒否する", () => {
   assert.equal(
@@ -812,12 +863,15 @@ test("Docker比較は標準ID差を区別し不明・構成差・利用者資源
 });
 
 /**
+ * 実AI試験CLIは明示同意と固定Provider以外を起動前に拒否する。
  * @trace ERB-IT-021
  * @precondition 正式CLIを未同意又は不正引数で起動する。
  * @stimulus 同意なし、未知Provider、余剰引数。
  * @observation exit64と案内だけ。
  * @oracle Server／Docker／Provider要求へ進まない。
  * @cleanup 子Processの終了を待つ。
+ * @responsibility Server／Docker／Provider要求へ進まない。
+ * @boundary 正式試験器と有限代役の局所境界。実AI・実Dockerなし。
  */
 test("実AI試験CLIは明示同意と固定Provider以外を起動前に拒否する", () => {
   const script = fileURLToPath(
@@ -843,6 +897,7 @@ test("実AI試験CLIは明示同意と固定Provider以外を起動前に拒否�
 });
 
 /**
+ * 正式試験mainは公開HTTPで一回だけ依頼し失敗と終了観測を分ける。
  * @trace ERB-IT-021
  * @precondition 正式main本文と公開HTTPを使い、Provider OwnerとCLI観測だけ有限代役へ置く。
  * @stimulus 成功、標準世代差、一次失敗＋close失敗、cleanup不明を与える。
@@ -850,6 +905,7 @@ test("実AI試験CLIは明示同意と固定Provider以外を起動前に拒否�
  * @oracle 外部AIなしで本文搬送を維持し、失敗をclose又は比較成功で消さない。
  * @cleanup 実loopback ServerとSocketをcloseする。
  * @boundary Source本文の結合であり、実AI又は実Docker再実行ではない。
+ * @responsibility 外部AIなしで本文搬送を維持し、失敗をclose又は比較成功で消さない。
  */
 test("正式試験mainは公開HTTPで一回だけ依頼し失敗と終了観測を分ける", async () => {
   const root = fileURLToPath(new URL("../../../../", import.meta.url));
@@ -1044,6 +1100,7 @@ test("正式試験mainは公開HTTPで一回だけ依頼し失敗と終了観測
  * @observation 長さ、Hash、返却fieldを確認する。
  * @oracle 固定Byteから導いた二値だけを返す。
  * @cleanup N/A: 値のみ。
+ * @boundary 正式試験器と有限代役の局所境界。実AI・実Dockerなし。
  */
 test("成果の実Byte・長さ・SHA-256を一致確認する", () => {
   const bytes = Buffer.from("合成成果\n");
@@ -1070,6 +1127,7 @@ test("成果の実Byte・長さ・SHA-256を一致確認する", () => {
  * @observation 固定拒否理由。
  * @oracle 全てByte不一致。
  * @cleanup N/A: 値のみ。
+ * @boundary 正式試験器と有限代役の局所境界。実AI・実Dockerなし。
  */
 test("改行とUTF-8の差を成功へ丸めない", () => {
   for (const bytes of [
@@ -1096,6 +1154,7 @@ test("改行とUTF-8の差を成功へ丸めない", () => {
  * @observation 固定拒否理由。
  * @oracle 全て変更範囲不一致。
  * @cleanup N/A: 値のみ。
+ * @boundary 正式試験器と有限代役の局所境界。実AI・実Dockerなし。
  */
 test("本文一致でも変更Pathが不明又は過剰なら拒否する", () => {
   for (const paths of [

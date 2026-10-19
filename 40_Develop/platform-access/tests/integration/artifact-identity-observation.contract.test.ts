@@ -3,7 +3,8 @@
  *
  * @packageDocumentation
  * @responsibility platform-access:integration:artifact-identity-observationが所有する検証責務を実行する。
- * @trace ERB-IT-001 ERB-IT-002
+ * @trace ERB-IT-001
+ * @trace ERB-IT-002
  * @level IT
  * @scope platform、access、artifact、identity-observation
  * @boundary ERB-IT-001／ERB-IT-002=Direct Boundary: Platform Access Node公開入口→実Filesystem観測。合成バイナリを使用し実Nativeは実行しない。
@@ -30,7 +31,8 @@ import {
  * fixtureのTest準備責務を実行する。
  *
  * @responsibility fixtureがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
- * @trace ERB-IT-001 ERB-IT-002
+ * @trace ERB-IT-001
+ * @trace ERB-IT-002
  * @precondition 呼出し元Test Caseが必要な入力を渡す。
  * @stimulus fixtureを呼び出す。
  * @observation 返却値、生成fixtureまたは観測値を取得する。
@@ -255,7 +257,8 @@ test("Artifact公開契約は固定target・Protocol・用途固定公開集合�
 /**
  * 偽Snapshotと不正Rootから観測結果やAuthorityを生成しない。
  * @responsibility opaqueな元Snapshotだけを再照合する境界を反証する。
- * @trace ERB-IT-001 ERB-IT-002
+ * @trace ERB-IT-001
+ * @trace ERB-IT-002
  * @precondition 自己生成Native fixtureと元観測がある。
  * @stimulus 元tokenのコピー・継承・空objectと不正Rootを渡す。
  * @observation 再照合結果、候補状態、公開field。

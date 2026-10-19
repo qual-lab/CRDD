@@ -516,11 +516,51 @@ test("Pilot Semantic Keyを実装Symbol側のimplementsから解決する", () =
     false,
   );
   assert.equal(built.graph.implementationIdsByMeaningKey.size, 17);
+  const environmentTests = discovery.manifests.flatMap(({ manifest }) =>
+    manifest.symbols.filter(
+      (symbol) => symbol.verificationTarget === "environment",
+    ),
+  );
+  assert.ok(environmentTests.length > 0);
+  for (const symbol of environmentTests) {
+    assert.deepEqual(symbol.verifies, []);
+    assert.equal(
+      [...built.graph.testSymbolIdsByMeaningKey.values()]
+        .flat()
+        .includes(symbol.symbolId),
+      false,
+    );
+  }
+  const verificationTools = discovery.manifests.flatMap(({ manifest }) =>
+    manifest.symbols.filter((symbol) => symbol.kind === "verification-tool"),
+  );
+  assert.equal(verificationTools.length, 4);
+  const toolIds = new Set(verificationTools.map(({ symbolId }) => symbolId));
+  const toolTests = discovery.manifests.flatMap(({ manifest }) =>
+    manifest.symbols.filter((symbol) =>
+      symbol.verifies.some((target) => toolIds.has(target)),
+    ),
+  );
+  assert.equal(toolTests.length, 3);
+  for (const symbol of [...verificationTools, ...toolTests]) {
+    assert.equal(
+      [...built.graph.implementationIdsByMeaningKey.values()]
+        .flat()
+        .includes(symbol.symbolId),
+      false,
+    );
+    assert.equal(
+      [...built.graph.testSymbolIdsByMeaningKey.values()]
+        .flat()
+        .includes(symbol.symbolId),
+      false,
+    );
+  }
   assert.equal(built.graph.qualityLocalIdsByMeaningKey.size, 17);
   assert.ok(
     built.graph.implementationIdsByMeaningKey
       .get("orchestrator.candidate-adoption")
-      ?.includes("orchestrator.candidate-adoption-application"),
+      ?.includes("orchestrator.workspace.operations"),
   );
   assert.deepEqual(
     built.graph.qualityLocalIdsByMeaningKey.get(
@@ -658,6 +698,104 @@ test("Test SymbolはQA-IDとLocal IDの完全一致だけを意味へ接続す�
     ),
     ["sample.exact-test"],
   );
+});
+
+/**
+ * 検証Toolの意味実装偽装をCoverage構築でも算入しない。
+ * @responsibility Domain拒否とは独立に意味Coverageへの混入を反証する。
+ * @trace PPR-UT-016
+ * @precondition 一つの実Meaningと正常実装・通常試験の合成対照。
+ * @stimulus 本来Validatorが拒否するimplements付きToolを直接Graph入力へ追加する。
+ * @observation 実装ID集合と検証Symbol集合。
+ * @oracle 正常対照だけを維持しTool・Tool試験の加算0。
+ * @cleanup N/A: Sourceを読むだけで外部Effectを発行しない。
+ * @boundary Semantic Graphの防御的分類。実装完成や実試験成功を表さない。
+ */
+test("検証Toolを意味実装と偽装しても実装と検証Coverageへ加算しない", () => {
+  const ir = compileSemanticIrPilot(
+    repositoryRoot,
+    "06_Architecture/Details/coordinator/01_Architecture.md",
+    "coordinator",
+  ).ir;
+  assert.ok(ir);
+  const key = "coordinator.objective-lifecycle";
+  const result = createSemanticCoveragePilotGraph(
+    [
+      {
+        ...ir,
+        meanings: ir.meanings.filter(({ semanticKey }) => semanticKey === key),
+      },
+    ],
+    [
+      {
+        manifestPath: "40_Develop/sample/symbol.json",
+        subsystemRoot: "40_Develop/sample",
+        manifest: {
+          contract: "crdd/reality-symbol-manifest",
+          contractRevision: 1,
+          subsystem: "sample",
+          symbols: [
+            {
+              symbolId: "sample.source",
+              kind: "file",
+              path: "src/source.ts",
+              archIds: ["ARCH-000004"],
+              qaIds: [],
+              localTestIds: [],
+              verifies: [],
+              implements: [key],
+            },
+            {
+              symbolId: "sample.test",
+              kind: "test-case",
+              path: "tests/source.test.ts",
+              archIds: [],
+              qaIds: ["QA-000003"],
+              localTestIds: ["PRL-ST-003"],
+              verifies: ["sample.source"],
+            },
+            {
+              symbolId: "sample.tool",
+              kind: "verification-tool",
+              path: "scripts/verify.ts",
+              archIds: [],
+              qaIds: ["QA-000003"],
+              localTestIds: ["PRL-ST-003"],
+              verifies: [],
+              implements: [key],
+            },
+            {
+              symbolId: "sample.tool-test",
+              kind: "test-case",
+              path: "tests/tool.test.ts",
+              archIds: [],
+              qaIds: ["QA-000003"],
+              localTestIds: ["PRL-ST-003"],
+              verifies: ["sample.tool"],
+            },
+          ],
+        },
+      },
+    ],
+    [
+      {
+        qaId: "QA-000003",
+        localId: "PRL-ST-003",
+        semanticKey: key,
+        sourceDocument:
+          "07_Quality/Definitions/QA-000003/quality_definition.md",
+        executionMode: "automated",
+      },
+    ],
+    [],
+  );
+  assert.deepEqual(result.findings, []);
+  assert.deepEqual(result.graph?.implementationIdsByMeaningKey.get(key), [
+    "sample.source",
+  ]);
+  assert.deepEqual(result.graph?.testSymbolIdsByMeaningKey.get(key), [
+    "sample.test",
+  ]);
 });
 
 /**

@@ -55,7 +55,7 @@
 | [REQ-000038](../../../01_Discovery/Definitions/REQ-000038/requirement.md) | Consumerに依存しない標準Project Context | 固定Markdownから五つの利用場面を同じ範囲・根拠・不完全性で再構成し、Repository境界と正本関係を越えない | [投影と出所](../../Definitions/QA-000004/quality_definition.md)<br>[RepositoryとFederation](../../Definitions/QA-000007/quality_definition.md)<br>[成果物の理解と工程引継ぎ](../../Definitions/QA-000013/quality_definition.md) | IT／ST／UAT | Projection／Identity／Non-disclosure／Reconstruction | Mapped |
 | [REQ-000039](../../../01_Discovery/Definitions/REQ-000039/requirement.md) | TopicとMeetingの共通操作 | Topic／Meetingの登録・編集・取得・一覧・終了・訂正・削除が入口間で同じ意味を保ち、候補・Action・Relationを安全に後続へ接続する | [候補の昇格](../../Definitions/QA-000005/quality_definition.md) | IT／ST／UAT | Lifecycle／Authority／Relation／Deletion | Mapped |
 | [REQ-000040](../../../01_Discovery/Definitions/REQ-000040/requirement.md) | Project情報と作業ツリーをつなぐWorkbench | Projectの意味から作業差分、Commit、確認済み通常Pushまでを一続きで扱い、Owner Relationと外部Effect境界を失わない | [RepositoryとFederation](../../Definitions/QA-000007/quality_definition.md) | IT／ST／UAT | Workbench／Version Control／External Effect | Mapped |
-| [REQ-000041](../../../01_Discovery/Definitions/REQ-000041/requirement.md) | 最小ユーザー識別とRole権限によるRemote CROS利用 | ユーザー登録・表示名、developer／manager Role変更・内容権限、Repository登録・解除・Exposureはmanager／administrator。administrator Role変更・内容権限と鍵3操作はadministratorのみ。固定管理権限を内容設定で変更しない。通常7保存操作はadministrator存在を前提にせず、登録と公開、解除と削除を区別する。UUIDのユーザーと管理用表示名・Roleに資格を結合する。通常発行・独立失効・交換はadministrator固定で同一Process Workbenchだけ。通常Host回復は既存ユーザーへの交換2操作だけ、MCPに鍵操作を公開しない。Secret一度表示、指定／全ユーザー交換、対象・影響の事前表示と条件付き確認、失敗段階分離を確認する。単体利用に資格を要求しない。登録解除では登録と対応Exposureの同時解除・両読戻しと他対象／本体保持を確認し、事前の別公開解除を要求せず、旧実行取消の保証と分ける。発行または非秘密記録が不明なら元発行Identityによる再観測だけを許し、新交換0・通常発行への交換Recovery新設0とする。発行・記録が確定し受け渡しだけ未確認の場合に限り、現在administratorの明示した別Operation／別Recovery交換で先の資格も失効対象にする。現在administrator認証が未接続／喪失した場合だけ既存Host交換へ戻す。旧事実を保持し、遅延失効鍵の利用案内と別交換からの旧受領・rollback・取消完了推定を反証する。初回追加義務: 初回管理接続を成立させる要求として、明示開始・最初の管理者・一度だけの鍵受け渡しと、その後の通常管理接続を区別する。失敗時に別ユーザーや別鍵を自動生成せず、安全な次の行動を示す。 通常の本人受領は製品外で観測せず追加確認を求めない。初回はHost一度提示と同鍵による限定接続確認・保存成立後の通常利用を検証する。 | [RepositoryとFederation](../../Definitions/QA-000007/quality_definition.md) | IT／ST／UAT | Authentication／Authorization／Recovery／Non-disclosure | Mapped — Not Run（初回4項目への定義接続、実行未完了） |
+| [REQ-000041](../../../01_Discovery/Definitions/REQ-000041/requirement.md) | 最小ユーザー識別とRole権限によるRemote CROS利用 | ユーザー登録・表示名、developer／manager Role変更・内容権限、Repository登録・解除・Exposureはmanager／administrator。administrator Role変更・内容権限と鍵3操作はadministratorのみ。固定管理権限を内容設定で変更しない。通常7保存操作はadministrator存在を前提にせず、登録と公開、解除と削除を区別する。UUIDのユーザーと管理用表示名・Roleに資格を結合する。通常発行・独立失効・交換はadministrator固定で同一Process Workbenchだけ。通常Host回復は既存ユーザーへの交換2操作だけ、MCPに鍵操作を公開しない。Secret一度表示、指定／全ユーザー交換、対象・影響の事前表示と条件付き確認、失敗段階分離を確認する。単体利用に資格を要求しない。登録解除では同一受理操作・採用改訂での登録と対応Exposureの両除去読戻しと他対象／本体保持を確認し、事前の別公開解除を要求せず、旧実行取消の保証と分ける。発行または非秘密記録が不明なら元発行Identityによる再観測だけを許し、新交換0・通常発行への交換Recovery新設0とする。発行・記録が確定し受け渡しだけ未確認の場合に限り、現在administratorの明示した別Operation／別Recovery交換で先の資格も失効対象にする。現在administrator認証が未接続／喪失した場合だけ既存Host交換へ戻す。旧事実を保持し、遅延失効鍵の利用案内と別交換からの旧受領・rollback・取消完了推定を反証する。初回追加義務: 初回管理接続を成立させる要求として、明示開始・最初の管理者・一度だけの鍵受け渡しと、その後の通常管理接続を区別する。失敗時に別ユーザーや別鍵を自動生成せず、安全な次の行動を示す。 通常の本人受領は製品外で観測せず追加確認を求めない。初回はHost一度提示と同鍵による限定接続確認・保存成立後の通常利用を検証する。 | [RepositoryとFederation](../../Definitions/QA-000007/quality_definition.md) | IT／ST／UAT | Authentication／Authorization／Recovery／Non-disclosure | Mapped — Not Run（初回4項目への定義接続、実行未完了） |
 
 ## 3. 検証目標への統合
 
@@ -69,7 +69,7 @@
 | [REQ-000004](../../../01_Discovery/Definitions/REQ-000004/requirement.md) | `req-000004.qa-000004` | Requirement Definition（成立条件・失敗・検証意図） | [投影と出所](../../Definitions/QA-000004/quality_definition.md) | タスクの識別情報、実行者、時刻、結果、利用量等の観測事実を相関できる。別実行基盤またはTypeScriptアプリから同じ契約で記録・読取りできる。観測値、推定、改善候補、人間の採用判断を別状態として保つ。複数作成側、再試行、部分記録、並行書込み、途中失敗を与え、事実の同一性、欠測、保存後の比較可能性を観測する | IT／UAT | IT: Direct Boundary<br>UAT: User Acceptance | `PPR-IT-004`、`PPR-IT-003`、`PPR-UAT-008` |
 | [REQ-000005](../../../01_Discovery/Definitions/REQ-000005/requirement.md) | `req-000005.qa-000001` | Requirement Definition（成立条件・失敗・検証意図） | [Repositoryと契約移行](../../Definitions/QA-000001/quality_definition.md) | プロジェクト管理、実行編成、通信方式、観測、Platform境界の責任者を一意に説明できる。仕事管理から実行編成への依存は公開入口に限定し、下位から上位の実装への逆依存を持たない。各部品の公開入口以外を利用側が参照せず、単独利用時の契約を確認できる。依存Graph、公開import、package単独試験、代表利用側を確認し、内部パス参照や逆向き依存を反証する | IT | IT: Direct Boundary | `RCM-IT-009` |
 | [REQ-000005](../../../01_Discovery/Definitions/REQ-000005/requirement.md) | `req-000005.qa-000006` | Requirement Definition（成立条件・失敗・検証意図） | [外部Runtime境界](../../Definitions/QA-000006/quality_definition.md) | プロジェクト管理、実行編成、通信方式、観測、Platform境界の責任者を一意に説明できる。仕事管理から実行編成への依存は公開入口に限定し、下位から上位の実装への逆依存を持たない。各部品の公開入口以外を利用側が参照せず、単独利用時の契約を確認できる。依存Graph、公開import、package単独試験、代表利用側を確認し、内部パス参照や逆向き依存を反証する | IT／ST | IT: Direct Boundary<br>ST: System/E2E | `ERB-IT-001`、`ERB-ST-005` |
-| [REQ-000006](../../../01_Discovery/Definitions/REQ-000006/requirement.md) | `req-000006.qa-000009` | Requirement Definition（成立条件・失敗・検証意図） | [外部送信とTransport](../../Definitions/QA-000009/quality_definition.md) | stdioとlocalhost HTTPが同じ入力を同じアプリケーション契約（Application Contract）へ渡す。正常、入力不正、判断待ち、回復要求、取消を同じ結果意味で返す。通信方式終了後に実行基盤状態や外部作用（Effect）が入口差で分岐しない。どの通信方式で失敗したかと、外部作用（Effect）が発行されたかを区別して確認できる。同一依頼を両通信方式で実行し、成功、拒否、取消、回復結果と実行基盤側外部作用（Effect）を比較する | IT／ST／UAT | IT: Direct Boundary<br>ST: System/E2E<br>UAT: User Acceptance | `EST-IT-001`、`EST-IT-002`、`EST-ST-005`、`EST-UAT-007` |
+| [REQ-000006](../../../01_Discovery/Definitions/REQ-000006/requirement.md) | `req-000006.qa-000009` | Requirement Definition（成立条件・失敗・検証意図） | [外部送信とTransport](../../Definitions/QA-000009/quality_definition.md) | stdioとlocalhost HTTPが同じ入力を同じアプリケーション契約（Application Contract）へ渡す。正常、入力不正、判断待ち、回復要求、取消を同じ結果意味で返す。通信方式終了後に実行基盤状態や外部作用（Effect）が入口差で分岐しない。どの通信方式で失敗したかと、外部作用（Effect）が発行されたかを区別して確認できる。同一依頼を両通信方式で実行し、成功、拒否、取消、回復結果と実行基盤側外部作用（Effect）を比較する | IT／ST／UAT | IT: Direct Boundary<br>ST: System/E2E<br>UAT: User Acceptance | `EST-IT-001`、`EST-IT-002`、`EST-ST-005`、`EST-UAT-007`、`EST-IT-014` |
 | [REQ-000007](../../../01_Discovery/Definitions/REQ-000007/requirement.md) | `req-000007.qa-000004` | Requirement Definition（成立条件・失敗・検証意図） | [投影と出所](../../Definitions/QA-000004/quality_definition.md) | 各表示項目から情報源、改訂版または観測時点へ到達できる。missing、restricted、stale、conflictingを正常値や空値へ丸めない。プロジェクト全体の表示は読取り専用で、変更操作は所有正本へ戻る。完全、欠測、制限、古い、競合する情報源を投影し、利用者が不足を識別して根拠または判断対象へ進めるか観測する | UT／IT／ST／UAT | UT: N/A<br>IT: Direct Boundary<br>ST: System/E2E<br>UAT: User Acceptance | `PPR-IT-002`、`PPR-ST-005`、`PPR-IT-001`、`PPR-UT-006`、`PPR-UAT-007` |
 | [REQ-000008](../../../01_Discovery/Definitions/REQ-000008/requirement.md) | `req-000008.qa-000007` | Requirement Definition（成立条件・失敗・検証意図） | [RepositoryとFederation](../../Definitions/QA-000007/quality_definition.md) | リポジトリ取得後、別Serverなしで標準ツールとAI作業を開始できる。CROS停止中もリポジトリ内で完結する更新と検証を完了できる。横断入口と手元入口で同じ操作の意味が変わらない。CROS未設定、停止、利用可能の各状態でリポジトリ内代表作業を実行し、依存と結果差を観測する | IT | IT: Direct Boundary | `RFD-IT-009` |
 | [REQ-000009](../../../01_Discovery/Definitions/REQ-000009/requirement.md) | `req-000009.qa-000007` | Requirement Definition（成立条件・失敗・検証意図） | [RepositoryとFederation](../../Definitions/QA-000007/quality_definition.md) | 一プロジェクト一リポジトリと一プロジェクト複数リポジトリを同じ識別情報規則で表せる。リポジトリ名や配置ではなく検証済みBindingからプロジェクト所属と基点フォルダを解決する。同じProject IDでもリポジトリごとの責務とアクセス境界を保持する。単一、複数、移動後基点フォルダ、偽装パス、重複識別情報を与え、Binding解決と拒否を観測する | UT／IT／ST | UT: N/A<br>IT: Direct Boundary<br>ST: System/E2E | `RFD-IT-001`、`RFD-ST-004`、`RFD-UT-006` |
@@ -113,7 +113,7 @@
 | [REQ-000038](../../../01_Discovery/Definitions/REQ-000038/requirement.md) | `req-000038.qa-000013` | Requirement Definition（成立条件・失敗・検証意図） | [成果物の理解と工程引継ぎ](../../Definitions/QA-000013/quality_definition.md) | 人間可読かつ機械可読な固定Markdownだけから、異なる利用者・AIが五つの利用場面、根拠、不完全性および次の判断を同じ意味で説明できる。固定見出し・表・統制語彙を保ちつつ、結論を先に平易に示す | IT／ST／UAT | IT: N/A<br>ST: N/A<br>UAT: User Acceptance | `AUH-IT-002`、`AUH-ST-006`、`AUH-UAT-001` |
 | [REQ-000039](../../../01_Discovery/Definitions/REQ-000039/requirement.md) | `req-000039.qa-000005` | Requirement Definition（成立条件・失敗・検証意図） | [候補の昇格](../../Definitions/QA-000005/quality_definition.md) | TopicとMeetingの一通りの操作、Meeting候補の全件処置、Actionの追跡先移管、正当な履歴と誤登録削除を区別する。削除前に参照影響・失われる内容・復旧可能性を示し、明示確認後もDangling Relationや暗黙の連鎖削除を残さない | IT／ST／UAT | IT: Direct Boundary<br>ST: System/E2E<br>UAT: User Acceptance | `CPR-IT-006`、`CPR-IT-008`、`CPR-ST-005`、`CPR-UAT-007` |
 | [REQ-000040](../../../01_Discovery/Definitions/REQ-000040/requirement.md) | `req-000040.qa-000007` | Requirement Definition（成立条件・失敗・検証意図） | [RepositoryとFederation](../../Definitions/QA-000007/quality_definition.md) | Project ContextからOwner情報と作業対象へ進み、Tree／Diff／Stage／Commit／通常Pushを扱う。Remote・Branch・送信Commitを確認し、Push拒否・通信断・結果不明を成功や暗黙再送へ畳まない | IT／ST／UAT | IT: Related 2 Blocks<br>ST: System/E2E<br>UAT: User Acceptance | `RFD-IT-014`、`RFD-ST-015`、`RFD-UAT-007` |
-| [REQ-000041](../../../01_Discovery/Definitions/REQ-000041/requirement.md) | `req-000041.qa-000007` | Requirement Definition（成立条件・失敗・検証意図） | [RepositoryとFederation](../../Definitions/QA-000007/quality_definition.md) | ユーザー登録・表示名、developer／manager Role変更・内容権限、Repository登録・解除・Exposureはmanager／administrator。administrator Role変更・内容権限と鍵3操作はadministratorのみ。固定管理権限を内容設定で変更しない。通常7保存操作はadministrator存在を前提にせず、登録と公開、解除と削除を区別する。UUIDのユーザーと管理用表示名・Roleに資格を結合する。通常発行・独立失効・交換はadministrator固定で同一Process Workbenchだけ。通常Host回復は既存ユーザーへの交換2操作だけ、MCPに鍵操作を公開しない。Secret一度表示、指定／全ユーザー交換、対象・影響の事前表示と条件付き確認、失敗段階分離を確認する。単体利用に資格を要求しない。登録解除では登録と対応Exposureの同時解除・両読戻しと他対象／本体保持を確認し、事前の別公開解除を要求せず、旧実行取消の保証と分ける。発行または非秘密記録が不明なら元発行Identityによる再観測だけを許し、新交換0・通常発行への交換Recovery新設0とする。発行・記録が確定し受け渡しだけ未確認の場合に限り、現在administratorの明示した別Operation／別Recovery交換で先の資格も失効対象にする。現在administrator認証が未接続／喪失した場合だけ既存Host交換へ戻す。旧事実を保持し、遅延失効鍵の利用案内と別交換からの旧受領・rollback・取消完了推定を反証する。初回追加義務: 初回管理接続を成立させる要求として、明示開始・最初の管理者・一度だけの鍵受け渡しと、その後の通常管理接続を区別する。失敗時に別ユーザーや別鍵を自動生成せず、安全な次の行動を示す。管理状態と進行中初回記録の両方が未初期化と確認できた場合だけ開始する。欠落一件、読取り不能、破損、Lock使用中、既存ユーザー、部分状態、確認不能を未初期化へ畳まない。発行／記録不明では元試行だけ再観測し、発行・記録確定後のHost提示または初回限定接続確認だけ不明では作成済み管理者の既存Host指定交換へ別の明示操作として渡す。秘密再表示・自動再発行・自動再初期化を行わない。初回設定とその状態照会をMCPの一覧・Schema・登録・dispatchへ出さず、遠隔Workbenchも実行しない。追加認証、Repository登録・公開、内容権限の暗黙付与を追加しない。 通常の本人受領は製品外で観測せず追加確認を求めない。初回はHost一度提示と同鍵による限定接続確認・保存成立後の通常利用を検証する。 | IT／ST／UAT | IT: Related 2 Blocks<br>ST: System/E2E<br>UAT: User Acceptance | `RFD-ST-003`、`RFD-ST-004`、`RFD-IT-013`、`RFD-UAT-007`、`RFD-ST-016`、`RFD-IT-017`、`RFD-IT-018`、`RFD-IT-021`、`RFD-ST-022`<br>初回設定: `RFD-IT-024`、`RFD-IT-025`、`RFD-ST-026`、`RFD-UAT-027` |
+| [REQ-000041](../../../01_Discovery/Definitions/REQ-000041/requirement.md) | `req-000041.qa-000007` | Requirement Definition（成立条件・失敗・検証意図） | [RepositoryとFederation](../../Definitions/QA-000007/quality_definition.md) | ユーザー登録・表示名、developer／manager Role変更・内容権限、Repository登録・解除・Exposureはmanager／administrator。administrator Role変更・内容権限と鍵3操作はadministratorのみ。固定管理権限を内容設定で変更しない。通常7保存操作はadministrator存在を前提にせず、登録と公開、解除と削除を区別する。UUIDのユーザーと管理用表示名・Roleに資格を結合する。通常発行・独立失効・交換はadministrator固定で同一Process Workbenchだけ。通常Host回復は既存ユーザーへの交換2操作だけ、MCPに鍵操作を公開しない。Secret一度表示、指定／全ユーザー交換、対象・影響の事前表示と条件付き確認、失敗段階分離を確認する。単体利用に資格を要求しない。登録解除では同一受理操作・採用改訂での登録と対応Exposureの両除去読戻しと他対象／本体保持を確認し、事前の別公開解除を要求せず、旧実行取消の保証と分ける。発行または非秘密記録が不明なら元発行Identityによる再観測だけを許し、新交換0・通常発行への交換Recovery新設0とする。発行・記録が確定し受け渡しだけ未確認の場合に限り、現在administratorの明示した別Operation／別Recovery交換で先の資格も失効対象にする。現在administrator認証が未接続／喪失した場合だけ既存Host交換へ戻す。旧事実を保持し、遅延失効鍵の利用案内と別交換からの旧受領・rollback・取消完了推定を反証する。初回追加義務: 初回管理接続を成立させる要求として、明示開始・最初の管理者・一度だけの鍵受け渡しと、その後の通常管理接続を区別する。失敗時に別ユーザーや別鍵を自動生成せず、安全な次の行動を示す。管理状態と進行中初回記録の両方が未初期化と確認できた場合だけ開始する。欠落一件、読取り不能、破損、Lock使用中、既存ユーザー、部分状態、確認不能を未初期化へ畳まない。発行／記録不明では元試行だけ再観測し、発行・記録確定後のHost提示または初回限定接続確認だけ不明では作成済み管理者の既存Host指定交換へ別の明示操作として渡す。秘密再表示・自動再発行・自動再初期化を行わない。初回設定とその状態照会をMCPの一覧・Schema・登録・dispatchへ出さず、遠隔Workbenchも実行しない。追加認証、Repository登録・公開、内容権限の暗黙付与を追加しない。 通常の本人受領は製品外で観測せず追加確認を求めない。初回はHost一度提示と同鍵による限定接続確認・保存成立後の通常利用を検証する。 | IT／ST／UAT | IT: Related 2 Blocks<br>ST: System/E2E<br>UAT: User Acceptance | `RFD-ST-003`、`RFD-ST-004`、`RFD-IT-013`、`RFD-UAT-007`、`RFD-ST-016`、`RFD-IT-017`、`RFD-IT-018`、`RFD-IT-021`、`RFD-ST-022`<br>初回設定: `RFD-IT-024`、`RFD-IT-025`、`RFD-ST-026`、`RFD-UAT-027` |
 
 ## 4. 必要義務と定義済み項目の差分
 
@@ -131,20 +131,6 @@
 ## 鍵の期限なし方針の接続 — 2026-10-11
 
 期限なし方針の現在導出（2026-10-11）: REQ-000041から、時間経過だけで同じ鍵の認証可否を変えず、自動失効・交換・発行0、明示失効後の旧鍵拒否、現在権限変更の次要求反映を別に観測する。既存QA-000007／RFD-ST-003／RFD-IT-013へ統合し、新Local ItemやUTを追加しない。更新項目の正式評価はNot Run、Source・Store・本番資格接続と新Evidenceは未成立。
-
-## Checklist
-
-- [x] 対象工程の全Canonical IDを一件以上処置した
-- [x] 各Source固有の成功、境界、失敗、Riskおよび観測不能を分析した
-- [x] 表題や共通定型句ではなくSource固有の検証義務を記録した
-- [x] 意味の近い義務を統合してもSource固有条件を失っていない
-- [x] 各Sourceと検証目標、試験段階およびLocal Itemを接続した — 初回義務は今回定義接続。実行Passとは別
-- [x] 必要検証義務を既存Local ItemやTestから逆算していない
-- [x] Required／Definedの集合差、Level不一致およびRelation不明を評価した
-- [x] 上流の未確認事項をUAT、OPEN義務または上流再開へ処置した
-- [x] 現行Source、TestまたはEvidenceから検証義務を逆算していない
-- [x] 未解決事項、判断者および再評価契機を明示した
-
 
 ## 前段の初回Host設定の追加導出 — 2026-10-11
 
@@ -179,3 +165,20 @@ REQ-000041の現在の正本から、初回設定の義務を追加導出する�
 | QA-000009 | EST-ST-015 | 初回設定と状態照会のMCP四面非公開をSame統合、Not Run |
 
 前段の未接続差分は定義接続の範囲だけ解消した。Local Itemの具体的な刺激・観測・Oracle・終了後条件は各QA定義が所有する。初回4項目は既存通常管理項目の流用ではなく、同じ意味を工程ごとに重複発行しない。物理保存・受領・清掃の具体観測、Source／Test・実行・新EvidenceはOPEN。今回13文書の定義接続は契約・品質の限定独立レビュー済み・残指摘0であり、実装や全体品質の成立ではない。
+
+DefinitionとDetailの現行Relation集合の照合は未完了である。Definition由来の成立条件とDetail由来の具体的観測条件の区別を、現在の接続先と再照合する。
+
+初回義務は定義へ接続したが、実行Passとは区別する。
+
+## Checklist
+
+- [x] 対象工程の全Canonical IDを一件以上処置した
+- [x] 各Source固有の成功、境界、失敗、Riskおよび観測不能を分析した
+- [x] 表題や共通定型句ではなくSource固有の検証義務を記録した
+- [x] 意味の近い義務を統合してもSource固有条件を失っていない
+- [x] 各Sourceと検証目標、試験段階およびLocal Itemを接続した
+- [x] 必要検証義務を既存Local ItemやTestから逆算していない
+- [x] Required／Definedの集合差、Level不一致およびRelation不明を評価した
+- [x] 上流の未確認事項をUAT、OPEN義務または上流再開へ処置した
+- [x] 現行Source、TestまたはEvidenceから検証義務を逆算していない
+- [x] 未解決事項、判断者および再評価契機を明示した

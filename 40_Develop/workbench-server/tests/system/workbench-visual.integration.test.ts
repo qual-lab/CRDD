@@ -4,7 +4,6 @@
  * @packageDocumentation
  * @responsibility Workbench Production Serverの15 Logical ScreenをDesktop／Tablet／Mobileと100%／200%／400%で実Browser検証する。
  * @trace ERB-ST-022
- * @trace RFD-ST-022
  * @level ST
  * @scope workbench、actual-browser、logical-screen、responsive、zoom、focus、brand、cleanup
  * @boundary ERB-ST-022=System/E2E: Workbench Production Server→専用Chrome Profile→Rendered DOM→全資源終了

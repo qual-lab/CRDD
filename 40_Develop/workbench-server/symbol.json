@@ -187,8 +187,7 @@
       "kind": "test-suite",
       "path": "tests/integration/topic-meeting-presentation.contract.test.ts",
       "qaIds": [
-        "QA-000005",
-        "QA-000009"
+        "QA-000005"
       ],
       "localTestIds": [
         "CPR-IT-010",
@@ -536,15 +535,12 @@
         "QA-000012"
       ],
       "localTestIds": [
-        "CPR-IT-006",
-        "CPR-IT-008",
         "CPR-IT-010",
         "CPR-IT-012",
         "ERB-IT-021",
         "ERP-IT-001",
         "PPR-IT-002",
         "RCM-IT-005",
-        "RFD-IT-005",
         "RFD-IT-013",
         "RFD-IT-014",
         "RFD-IT-017",
@@ -627,12 +623,10 @@
       "kind": "test-suite",
       "path": "tests/system/workbench-visual.integration.test.ts",
       "qaIds": [
-        "QA-000006",
-        "QA-000007"
+        "QA-000006"
       ],
       "localTestIds": [
-        "ERB-ST-022",
-        "RFD-ST-022"
+        "ERB-ST-022"
       ],
       "verifies": [
         "workbench.server",

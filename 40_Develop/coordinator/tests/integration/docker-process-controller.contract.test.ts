@@ -4,6 +4,7 @@
  * @packageDocumentation
  * @responsibility coordinator:integration:docker-process-controllerが所有する検証責務を実行する。
  * @trace ERB-IT-002
+ * @trace ERB-IT-004
  * @level IT
  * @scope docker、process、controller
  * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
@@ -5187,7 +5188,8 @@ test("呼出し単位の開始通知待機中も元の取消と完了を維持�
  * 上位の開始確認が保留中でも技術実行と回収を完了する。
  *
  * @responsibility 回収の完了とConsumerの保存確認を分離し、遅い拒否を成功へ丸めない。
- * @trace ERB-IT-002 ERB-IT-004
+ * @trace ERB-IT-002
+ * @trace ERB-IT-004
  * @precondition Fakeの技術実行は完了し、上位確認だけを保留できる。
  * @stimulus 開始確認を保留し、回収後に受理・拒否・例外へ解決する。
  * @observation 実行数、回収数、公開完了、最終結果を観測する。
@@ -5252,7 +5254,8 @@ test("開始確認の保留は技術完了と回収を阻害せず遅い拒否�
 /**
  * 技術失敗と開始確認拒否の先着診断を保持する。
  * @responsibility 後着失敗と清掃不明による公開理由から一次診断を分離する。
- * @trace ERB-IT-002 ERB-IT-004
+ * @trace ERB-IT-002
+ * @trace ERB-IT-004
  * @precondition Provider待機と開始確認を別々のPromiseで制御する。
  * @stimulus EPIPEと開始確認false／throwを二順序で解放し、清掃成立・不明を組み合わせる。
  * @observation 一次診断全文、公開理由、清掃回数、終端回数を取得する。

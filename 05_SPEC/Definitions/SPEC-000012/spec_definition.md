@@ -6,15 +6,20 @@ SPEC ID: `SPEC-000012`
 確認状態: 鍵提示方式の現行契約を候補伝播・限定再レビュー済み（鍵提示方式伝播差分、全重大度0）。旧限定Passは履歴。Architecture／Quality／Source・実画面・全体Readyは未成立。
 維持責任者: Qual-Lab
 
-## 振る舞いの目的と統合判断
+## 振る舞いの目的
 
 鍵の発行・独立失効・交換はadministrator専用固定で、Role詳細権限のON／OFF設定を設けない。通常鍵操作は同一Process Workbench backendだけで提供し、MCPには秘密値の有無を問わず鍵操作の一覧・Schema・登録・dispatchを公開しない。通常Host回復はログイン済みローカル操作者を信頼する対話CLIで交換2操作だけを扱い、追加認証・専用資格・承認コード・OS管理者昇格を要求しない。既存Root／Path検証を維持する。manager／administratorはユーザー登録・表示名変更、developer／managerの割当て・詳細権限、Repository登録・登録解除・公開範囲を管理する。administratorの付与・解除・降格を含むRole変更、administrator詳細権限と鍵3操作はadministratorだけが管理する。developerへ管理操作、managerへ管理者専用操作を設定で委譲しない。
 
-| 正式入力と変換根拠 | 保持する意味 | SPECで成立させる契約 |
-|---|---|---|
-| [UX-000013](../../../02_UX/Definitions/UX-000013/ux_definition.md)／[UX分析](../../Analysis/UX-000013/spec_analysis.md) | Role許可内だけ利用し理由と管理能力を区別する | 資格からユーザーを識別し、現行Role・公開対象・実アクセスを別判定する |
-| [UX-000035](../../../02_UX/Definitions/UX-000035/ux_definition.md)／[UX分析](../../Analysis/UX-000035/spec_analysis.md) | 未初期化から最初の管理者と鍵を成立させ、以後の最小管理・鍵回復へ進む。最小管理で対象を維持しProduct Dataを保って再入場する | 初回のHost明示開始・一度作成／発行／Host提示とexact同鍵の初回確認用限定接続成功による受領・接続確認と4状態・部分結果を既存鍵交換から分離する。最小ユーザー・Role権限・資格の通常管理と2操作と2入口を別軸にし、情報を保持して既存ユーザーへ再発行する。 |
-| [IA-000009](../../../03_IA/Definitions/IA-000009/ia_definition.md)／[IA分析](../../Analysis/IA-000009/spec_analysis.md) | 初回管理状態・確認済み元試行と成立ユーザー／資格の関係。同一性・関係・状態・可視性・責任。 | 未初期化／既存／確認済み途中／観測不能と安全な導線・責任を保持する。対象相関・次認可反映・秘密境界、元発行の確認範囲と各交換内exact Recovery／別明示交換を保持する |
+## UX観点の分析結果
+
+- [UX-000013](../../Analysis/UX-000013/spec_analysis.md): Role許可内だけを利用し、利用不能理由と管理能力を区別する。資格からユーザーを識別し、現行Role・公開対象・実アクセスを別判定する。
+- [UX-000035](../../Analysis/UX-000035/spec_analysis.md): 未初期化から最初の管理者と鍵を成立させ、通常管理と鍵回復へ進む。初回の一度提示とexact同鍵の初回限定接続確認、通常管理、2操作と2入口を別軸で保持する。
+
+## IA観点の分析結果
+
+- [IA-000009](../../Analysis/IA-000009/spec_analysis.md): 初回管理状態、確認済み元試行、成立ユーザーと資格の同一性・関係・状態・可視性・責任を保持し、対象相関、次認可反映、秘密境界、各交換内exact Recoveryと別明示交換を区別する。
+
+## 両観点の統合判断
 
 | 対象 | 保持する意味・関係 |
 |---|---|
@@ -123,7 +128,7 @@ administratorの表示名変更はmanagerにも許可するが、administrator�
 | 失敗 | 名前Authority化・古権限固定・秘密再表示／保存・非開示漏えい・Product Data削除をしない |
 | 回復 | 2操作の失効集合・既存発行先と2入口のAuthority・明示確認を別軸で検証する。処置前中断は新Effectなし、失効後に発行自体または結果記録が未確定なら既知失効／発行不明を同じexact Recoveryへ保持し、現在再観測なしに完了・rollback・Authority復元を推定しない |
 | 観測不能 | 不明を完了・許可・不存在へ丸めず、未確定処置を進めない |
-| 対応UI | UIの対象確認・状態・操作・Feedbackに契機・結果・失敗を対応付ける |
+| 対応UI | [UI-000008](../../../04_UI/Definitions/UI-000008/ui_definition.md)の対象確認・状態・操作・Feedbackに契機・結果・失敗を対応付ける |
 
 ## 対応するUI
 
@@ -195,6 +200,14 @@ UUIDは採用済み継承制約として保持し、版・生成方式・Schema�
 ## 補足定義
 
 なし。
+
+## 正式入力と変換根拠
+
+- 正式入力: [UX-000013](../../../02_UX/Definitions/UX-000013/ux_definition.md)
+- 正式入力: [UX-000035](../../../02_UX/Definitions/UX-000035/ux_definition.md)
+- 正式入力: [IA-000009](../../../03_IA/Definitions/IA-000009/ia_definition.md)
+
+各分析記録は変換根拠であり、正式入力そのものではない。SPEC定義は正式入力の成果と情報構造を観測可能な振る舞いへ統合し、UI、Architecture、Sourceまたは旧Evidenceから不足する意味を補完しない。
 
 ## Checklist
 

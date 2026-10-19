@@ -2,7 +2,8 @@
  * Docker環境構成を固定OS観測値へ接続する試験fixture。
  * @packageDocumentation
  * @responsibility 下位の固定key構成と観測不能時の停止を実Native起動と区別して検証する。
- * @trace ERB-IT-001 ERB-IT-002
+ * @trace ERB-IT-001
+ * @trace ERB-IT-002
  * @level IT
  * @scope Platform Access観測は差替え。Docker・Provider・実Native操作0。
  * @boundary Docker環境構成→Platform Access公開観測の試験境界。

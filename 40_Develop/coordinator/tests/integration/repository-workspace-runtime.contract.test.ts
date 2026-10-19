@@ -4,6 +4,7 @@
  * @packageDocumentation
  * @responsibility coordinator:integration:repository-workspace-runtimeが所有する検証責務を実行する。
  * @trace RFD-IT-013
+ * @trace PRL-IT-013
  * @level IT
  * @scope repository、workspace、runtime
  * @boundary RFD-IT-013=Direct Boundary: Session Grant→Workspace→Repository Exposure
@@ -71,6 +72,17 @@ test("検証ToolのWorktreeは実Byteを読み取消終了不明では保持し�
     assert.equal(path.dirname(path.resolve(root)), parent);
     fs.rmSync(root, { recursive: true, force: true });
   });
+  /**
+   * 自己生成Workspace試験だけへ中立環境のGit要求を発行する。
+   * @responsibility 自己生成Workspace試験だけへ中立環境のGit要求を発行する。
+   * @trace RFD-IT-013
+   * @precondition 検証済みfixture Rootと固定argv。
+   * @stimulus hooks・署名・親GIT環境を無効にして有限時間でGitを呼ぶ。
+   * @observation 終了値とstdout、実HEAD・Index。
+   * @oracle 正常終了だけ返し本体Gitへ要求を配送しない。
+   * @cleanup Caseのfinallyで借用Treeと自己生成Rootを確認後に回収する。
+   * @boundary 通信なし実Git。ProviderやDockerは使用しない。
+   */
   const git = (args: string[]) =>
     execFileSync(
       "git",
@@ -213,7 +225,8 @@ test("検証ToolのWorktreeは実Byteを読み取消終了不明では保持し�
 /**
  * DirectとIsolatedの実Treeを複製せず借用する。
  * @responsibility dirty基準、保護領域除外、清掃と寿命分離を確認する。
- * @trace RFD-IT-013 PRL-IT-013
+ * @trace RFD-IT-013
+ * @trace PRL-IT-013
  * @precondition Repository-localの自己生成Gitと元Operation。
  * @stimulus 二Taskで同Treeを編集し、capture／verify後に一時物だけ回収する。
  * @observation 変更Path、開始基準、元Tree・Git・内部状態。
@@ -225,6 +238,18 @@ test("借用Workspaceは開始時dirtyを保持し二Task後も同Treeを残す"
   const parent = path.resolve(import.meta.dirname, "../../../../.crdd/tests");
   const root = fs.mkdtempSync(path.join(parent, "borrowed-workspace-"));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  /**
+   * 自己生成Workspace試験だけへ中立環境のGit要求を発行する。
+   * @responsibility 自己生成Workspace試験だけへ中立環境のGit要求を発行する。
+   * @trace RFD-IT-013
+   * @trace PRL-IT-013
+   * @precondition 検証済みfixture Rootと固定argv。
+   * @stimulus hooks・署名・親GIT環境を無効にして有限時間でGitを呼ぶ。
+   * @observation 終了値とstdout、実HEAD・Index。
+   * @oracle 正常終了だけ返し本体Gitへ要求を配送しない。
+   * @cleanup Caseのfinallyで借用Treeと自己生成Rootを確認後に回収する。
+   * @boundary 通信なし実Git。ProviderやDockerは使用しない。
+   */
   const git = (args: string[]) =>
     execFileSync(
       "git",

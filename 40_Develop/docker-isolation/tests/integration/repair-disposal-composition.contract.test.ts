@@ -2,7 +2,8 @@
  * 修復終了後の回収・保持照合を固定技術境界へ接続して検証する。
  * @packageDocumentation
  * @responsibility 元Scope・終了条件・現在確認を回収と保持照合へ接続する。
- * @trace ERB-IT-001 ERB-IT-002
+ * @trace ERB-IT-001
+ * @trace ERB-IT-002
  * @level IT
  * @scope 実本文・実decoderと模擬Artifact／KnownFolder／factory。
  * @boundary ERB-IT-001／ERB-IT-002=Direct Boundary: 固定composition→技術factory。
@@ -21,7 +22,8 @@ import {
 /**
  * 正常三用途と一軸拒否を同じ元checkpointへ適用する。
  * @responsibility 新Native Session取得や保存代役を真正保存と誤認しない。
- * @trace ERB-IT-001 ERB-IT-002
+ * @trace ERB-IT-001
+ * @trace ERB-IT-002
  * @precondition 実composition本文・実decoder、全I/Oは模擬。
  * @stimulus 元Scope差、終了欠測、意図拒否、待機後失効、部分回収。
  * @observation factory材料、Driver件数、現在callback、元値全文。
@@ -255,7 +257,8 @@ test("修復回収compositionは元Scopeと保存後の現在許可だけを使�
 /**
  * 固定保持先の二読取りを元checkpointと照合する。
  * @responsibility 元保持物の消失と元から対象なしを混同しない。
- * @trace ERB-IT-001 ERB-IT-002
+ * @trace ERB-IT-001
+ * @trace ERB-IT-002
  * @precondition 実本文・実decoder、Artifact／KnownFolder／Directoryだけ模擬。
  * @stimulus 実体・用途・処置tuple・二読取り・現在確認の一軸差。
  * @observation 固定六読取り、全三用途の独立期待、凍結と入力不変。

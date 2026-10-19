@@ -14,8 +14,17 @@ import { EventEmitter } from "node:events";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import { API } from "typescript/unstable/sync";
+import type {
+  CallExpression,
+  FunctionDeclaration,
+  Identifier,
+  Node,
+  SourceFile,
+  TryStatement,
+  VariableDeclaration,
+} from "typescript/unstable/ast";
 import {
+  isAwaitExpression,
   isCallExpression,
   isFunctionDeclaration,
   isIdentifier,
@@ -26,16 +35,8 @@ import {
   isTryStatement,
   isVariableDeclaration,
 } from "typescript/unstable/ast/is";
-import type {
-  CallExpression,
-  FunctionDeclaration,
-  Identifier,
-  Node,
-  SourceFile,
-  TryStatement,
-  VariableDeclaration,
-} from "typescript/unstable/ast";
 import type { Project } from "typescript/unstable/sync";
+import { API } from "typescript/unstable/sync";
 
 import { renderSafeHumanCommandReport } from "../../src/cli/command-report.ts";
 import {
@@ -571,39 +572,28 @@ function inspectTaskCliCancellationWiring(
   const helperImports = namedImportIdentifier(
     sourceFile,
     "bindTaskCliCancellationSignals",
-    "./task-cancellation.ts",
+    "../../../coordinator/src/cli/task-cancellation.ts",
   );
-  const cancelImports = namedImportIdentifier(
+  const ownerImports = namedImportIdentifier(
     sourceFile,
-    "cancelRuntimeOwnedCoordinatorTask",
-    "../task/execution.ts",
-  );
-  const projectorImports = namedImportIdentifier(
-    sourceFile,
-    "projectTaskCliCancellationFailure",
-    "./task-cancellation.ts",
+    "createRepositoryTaskRequests",
+    "../task/request-composition.ts",
   );
   if (helperImports.length !== 1) failures.push("helper_import_not_exact");
-  if (cancelImports.length !== 1) failures.push("cancel_import_not_exact");
-  if (projectorImports.length !== 1)
-    failures.push("projector_import_not_exact");
+  if (ownerImports.length !== 1) failures.push("owner_import_not_exact");
   const helperSymbol = helperImports[0]
     ? checker.getResolvedSymbol(helperImports[0])
     : undefined;
-  const cancelSymbol = cancelImports[0]
-    ? checker.getResolvedSymbol(cancelImports[0])
-    : undefined;
-  const projectorSymbol = projectorImports[0]
-    ? checker.getResolvedSymbol(projectorImports[0])
+  const ownerFactorySymbol = ownerImports[0]
+    ? checker.getResolvedSymbol(ownerImports[0])
     : undefined;
   if (!helperSymbol) failures.push("helper_import_symbol_missing");
-  if (!cancelSymbol) failures.push("cancel_import_symbol_missing");
-  if (!projectorSymbol) failures.push("projector_import_symbol_missing");
+  if (!ownerFactorySymbol) failures.push("owner_import_symbol_missing");
 
   const taskFunctions = sourceFile.statements.filter(
     (statement): statement is FunctionDeclaration =>
       isFunctionDeclaration(statement) &&
-      statement.name?.text === "runTaskCommand",
+      statement.name?.text === "runSingleTaskCommand",
   );
   const taskFunction = taskFunctions[0];
   const taskBody = taskFunction?.body;
@@ -626,57 +616,198 @@ function inspectTaskCliCancellationWiring(
   );
   if (helperCalls.length !== 1) failures.push("helper_call_not_exact");
   const helperCall = helperCalls[0];
+  const ownerFactoryCalls = calls.filter(
+    (call) =>
+      isIdentifier(call.expression) &&
+      checker.getResolvedSymbol(call.expression)?.id === ownerFactorySymbol?.id,
+  );
+  if (ownerFactoryCalls.length !== 1)
+    failures.push("owner_factory_call_not_exact");
+
   const bindingDeclarations = declarations.filter(
     (declaration) =>
       isIdentifier(declaration.name) &&
-      declaration.name.text === "cancellationBinding",
+      declaration.name.text === "cancellation",
   );
   if (bindingDeclarations.length !== 1)
     failures.push("binding_declaration_not_exact");
   const bindingDeclaration = bindingDeclarations[0];
-  if (
-    !bindingDeclaration ||
-    !helperCall ||
-    bindingDeclaration.initializer?.pos !== helperCall.pos ||
-    bindingDeclaration.initializer.end !== helperCall.end
-  )
-    failures.push("helper_call_not_binding_initializer");
   const bindingSymbol =
     bindingDeclaration && isIdentifier(bindingDeclaration.name)
       ? checker.getResolvedSymbol(bindingDeclaration.name)
       : undefined;
   if (!bindingSymbol) failures.push("binding_symbol_missing");
-  for (const identifier of identifiers)
-    if (
-      identifier.text === "cancellationBinding" &&
-      checker.getResolvedSymbol(identifier)?.id !== bindingSymbol?.id
-    )
-      failures.push("binding_shadowed_or_unresolved");
+  const ownerDeclarations = declarations.filter(
+    (declaration) =>
+      isIdentifier(declaration.name) && declaration.name.text === "owner",
+  );
+  const ownerDeclaration = ownerDeclarations[0];
+  const ownerSymbol =
+    ownerDeclarations.length === 1 &&
+    ownerDeclaration &&
+    isIdentifier(ownerDeclaration.name)
+      ? checker.getResolvedSymbol(ownerDeclaration.name)
+      : undefined;
+  if (!ownerSymbol) failures.push("owner_binding_not_exact");
+  const controllerDeclarations = declarations.filter(
+    (declaration) =>
+      isIdentifier(declaration.name) && declaration.name.text === "controller",
+  );
+  const controllerDeclaration = controllerDeclarations[0];
+  const controllerSymbol =
+    controllerDeclarations.length === 1 &&
+    controllerDeclaration &&
+    isIdentifier(controllerDeclaration.name)
+      ? checker.getResolvedSymbol(controllerDeclaration.name)
+      : undefined;
+  if (!controllerSymbol) failures.push("controller_binding_not_exact");
+  for (const identifier of identifiers) {
+    const expected =
+      identifier.text === "cancellation"
+        ? bindingSymbol
+        : identifier.text === "owner"
+          ? ownerSymbol
+          : identifier.text === "controller"
+            ? controllerSymbol
+            : undefined;
+    if (expected && checker.getResolvedSymbol(identifier)?.id !== expected.id)
+      failures.push(`${identifier.text}_shadowed_or_unresolved`);
+  }
+
+  /**
+   * Property呼出しの受信者を型検査器のSymbolへ解決する。
+   * @responsibility Property呼出しの受信者を型検査器のSymbolへ解決する。
+   * @trace ERB-IT-003
+   * @precondition 解析済みCLI ASTとchecker。
+   * @stimulus 識別子受信者だけのSymbolを取得する。
+   * @observation 呼出し受信者のSymbolまたはnull。
+   * @oracle 同名decoyを所有Ownerと同一視しない。
+   * @cleanup N/A: AST読取りのみ。
+   * @boundary 静的CLI解析。stdinやProcessの実操作なし。
+   */
+  const receiverSymbol = (call: CallExpression) => {
+    if (!isPropertyAccessExpression(call.expression)) return undefined;
+    const receiver = call.expression.expression;
+    return isIdentifier(receiver)
+      ? checker.getResolvedSymbol(receiver)
+      : undefined;
+  };
+  /**
+   * 同じOwnerの指定操作だけをAST呼出し集合から選ぶ。
+   * @responsibility 同じOwnerの指定操作だけをAST呼出し集合から選ぶ。
+   * @trace ERB-IT-003
+   * @precondition Owner Symbolと抽出済み呼出し。
+   * @stimulus 操作名と受信者Symbolの両方を照合する。
+   * @observation start・wait・closeの対象呼出し数。
+   * @oracle 別Ownerや同名関数を数えず各一回を検査する。
+   * @cleanup N/A: 局所配列の選別だけ。
+   * @boundary AST所有者相関。実Taskを開始しない。
+   */
+  const ownerCalls = (name: string) =>
+    calls.filter(
+      (call) =>
+        callPropertyName(call) === name &&
+        receiverSymbol(call)?.id === ownerSymbol?.id,
+    );
+  const startCalls = ownerCalls("start");
+  const waitCalls = ownerCalls("wait");
+  const closeCalls = ownerCalls("close");
+  if (startCalls.length !== 1) failures.push("owner_start_call_not_exact");
+  if (waitCalls.length !== 1) failures.push("owner_wait_call_not_exact");
+  if (closeCalls.length !== 1) failures.push("owner_close_call_not_exact");
+  const startCall = startCalls[0];
+  const waitCall = waitCalls[0];
+  const closeCall = closeCalls[0];
+  /**
+   * 対象呼出しの直上awaitとSource範囲を確認する。
+   * @responsibility 対象呼出しの直上awaitとSource範囲を確認する。
+   * @trace ERB-IT-003
+   * @precondition 同一SourceのCallExpression。
+   * @stimulus 親ノードとpos/endを比較する。
+   * @observation awaitされた同じ呼出しかの真偽。
+   * @oracle 終了待機を別呼出しやdecoyのawaitで代替しない。
+   * @cleanup N/A: ASTノード参照のみ。
+   * @boundary CLI取消・終了の静的接続で実取消完了は主張しない。
+   */
+  const isAwaitedCall = (call: CallExpression | undefined) =>
+    Boolean(
+      call &&
+        isAwaitExpression(call.parent) &&
+        call.parent.expression.pos === call.pos &&
+        call.parent.expression.end === call.end,
+    );
+  if (!isAwaitedCall(startCall)) failures.push("owner_start_not_awaited");
+  if (!isAwaitedCall(waitCall)) failures.push("owner_wait_not_awaited");
+  if (!isAwaitedCall(closeCall)) failures.push("owner_close_not_awaited");
+
+  const abortCalls = calls.filter(
+    (call) =>
+      callPropertyName(call) === "abort" &&
+      receiverSymbol(call)?.id === controllerSymbol?.id,
+  );
+  if (abortCalls.length !== 1) failures.push("controller_abort_call_not_exact");
+  if (
+    !helperCall ||
+    !abortCalls[0] ||
+    abortCalls[0].pos < helperCall.pos ||
+    abortCalls[0].end > helperCall.end
+  )
+    failures.push("abort_call_outside_binding_callback");
+  const startSignal = startCall?.arguments[1];
+  if (
+    !startSignal ||
+    !isPropertyAccessExpression(startSignal) ||
+    startSignal.name.text !== "signal" ||
+    !isIdentifier(startSignal.expression) ||
+    checker.getResolvedSymbol(startSignal.expression)?.id !==
+      controllerSymbol?.id
+  )
+    failures.push("owner_start_signal_mismatch");
 
   const unbindCalls = calls.filter(
-    (call) => callPropertyName(call) === "unbind",
+    (call) =>
+      callPropertyName(call) === "unbind" &&
+      receiverSymbol(call)?.id === bindingSymbol?.id,
   );
   if (unbindCalls.length !== 1) failures.push("unbind_call_not_exact");
   const unbindCall = unbindCalls[0];
-  const unbindReceiver =
-    unbindCall && isPropertyAccessExpression(unbindCall.expression)
-      ? unbindCall.expression.expression
-      : undefined;
-  if (
-    !unbindReceiver ||
-    !isIdentifier(unbindReceiver) ||
-    checker.getResolvedSymbol(unbindReceiver)?.id !== bindingSymbol?.id
-  )
-    failures.push("unbind_receiver_binding_mismatch");
   const containingFinallyItems = tryStatements.filter(
     (statement) =>
       statement.finallyBlock &&
+      closeCall &&
       unbindCall &&
+      closeCall.pos >= statement.finallyBlock.pos &&
+      closeCall.end <= statement.finallyBlock.end &&
       unbindCall.pos >= statement.finallyBlock.pos &&
       unbindCall.end <= statement.finallyBlock.end,
   );
   if (containingFinallyItems.length !== 1)
-    failures.push("unbind_not_in_finally");
+    failures.push("owner_close_and_unbind_not_in_same_finally");
+  const lifecycleTry = containingFinallyItems[0];
+  if (
+    !lifecycleTry ||
+    !startCall ||
+    !waitCall ||
+    startCall.pos < lifecycleTry.tryBlock.pos ||
+    startCall.end > lifecycleTry.tryBlock.end ||
+    waitCall.pos < lifecycleTry.tryBlock.pos ||
+    waitCall.end > lifecycleTry.tryBlock.end
+  )
+    failures.push("start_wait_not_guarded_by_finally");
+  if (
+    !helperCall ||
+    !startCall ||
+    !waitCall ||
+    !closeCall ||
+    !unbindCall ||
+    !(
+      helperCall.pos < startCall.pos &&
+      startCall.pos < waitCall.pos &&
+      waitCall.pos < closeCall.pos &&
+      closeCall.pos < unbindCall.pos
+    )
+  )
+    failures.push("lifecycle_order_invalid");
 
   const directSignalCalls = calls.filter(
     (call) =>
@@ -687,64 +818,21 @@ function inspectTaskCliCancellationWiring(
   );
   if (directSignalCalls.length !== 0)
     failures.push("direct_signal_call_present");
-  const oldLatchCalls = calls.filter(
+  const outputCalls = calls.filter(
     (call) =>
-      isIdentifier(call.expression) &&
-      call.expression.text === "createTaskCliCancellationLatch",
+      callPropertyName(call) === "write" &&
+      isPropertyAccessExpression(call.expression) &&
+      isPropertyAccessExpression(call.expression.expression) &&
+      call.expression.expression.name.text === "stdout",
   );
-  if (oldLatchCalls.length !== 0) failures.push("old_latch_call_present");
-  const cancelCalls = calls.filter(
-    (call) =>
-      isIdentifier(call.expression) &&
-      checker.getResolvedSymbol(call.expression)?.id === cancelSymbol?.id,
-  );
-  if (cancelCalls.length !== 1) failures.push("cancel_call_not_exact");
+  const outputCall = outputCalls[0];
   if (
-    helperCall &&
-    cancelCalls[0] &&
-    (cancelCalls[0].pos < helperCall.pos || cancelCalls[0].end > helperCall.end)
+    outputCalls.length !== 1 ||
+    !outputCall ||
+    !lifecycleTry ||
+    outputCall.pos < lifecycleTry.end
   )
-    failures.push("cancel_call_outside_helper_callback");
-  const projectorCalls = calls.filter(
-    (call) =>
-      isIdentifier(call.expression) &&
-      checker.getResolvedSymbol(call.expression)?.id === projectorSymbol?.id,
-  );
-  if (projectorCalls.length !== 1) failures.push("projector_call_not_exact");
-  const resultDeclarations = declarations.filter(
-    (declaration) =>
-      isIdentifier(declaration.name) && declaration.name.text === "result",
-  );
-  const resultSymbol =
-    resultDeclarations.length === 1 &&
-    resultDeclarations[0] &&
-    isIdentifier(resultDeclarations[0].name)
-      ? checker.getResolvedSymbol(resultDeclarations[0].name)
-      : undefined;
-  const projectorResultArgument = projectorCalls[0]?.arguments[0];
-  if (
-    !resultSymbol ||
-    !projectorResultArgument ||
-    !isIdentifier(projectorResultArgument) ||
-    checker.getResolvedSymbol(projectorResultArgument)?.id !== resultSymbol.id
-  )
-    failures.push("projector_result_binding_mismatch");
-
-  const bodyStatements = taskBody.statements;
-  const bindingStatementIndex = bodyStatements.findIndex(
-    (statement) =>
-      bindingDeclaration &&
-      bindingDeclaration.pos >= statement.pos &&
-      bindingDeclaration.end <= statement.end,
-  );
-  const followingStatement = bodyStatements[bindingStatementIndex + 1];
-  if (
-    bindingStatementIndex < 0 ||
-    !followingStatement ||
-    !isTryStatement(followingStatement) ||
-    followingStatement.finallyBlock !== containingFinallyItems[0]?.finallyBlock
-  )
-    failures.push("helper_not_immediately_guarded_by_finally");
+    failures.push("report_not_after_lifecycle_finally");
   return Object.freeze(failures);
 }
 
@@ -780,10 +868,16 @@ function projectSourceFile(project: Project, fileName: string) {
  * @boundary ERB-IT-003=Direct Boundary: coordinator Test Source→対象契約
  */
 test("公開CLIはproduction helperの単一bindingとfinally解除をAST・symbolで固定する", () => {
-  const coordinatorRoot = path.resolve(import.meta.dirname, "../..");
-  const api = new API({ cwd: coordinatorRoot });
+  const orchestratorRoot = path.resolve(
+    import.meta.dirname,
+    "..",
+    "..",
+    "..",
+    "orchestrator",
+  );
+  const api = new API({ cwd: orchestratorRoot });
   try {
-    const configFile = path.join(coordinatorRoot, "tsconfig.strict.json");
+    const configFile = path.join(orchestratorRoot, "tsconfig.json");
     const snapshot = api.updateSnapshot({ openProjects: [configFile] });
     try {
       const project =
@@ -791,7 +885,7 @@ test("公開CLIはproduction helperの単一bindingとfinally解除をAST・symb
       assert.ok(project);
       const sourceFile = projectSourceFile(
         project,
-        path.join(coordinatorRoot, "src", "cli", "command.ts"),
+        path.join(orchestratorRoot, "src", "cli", "command.ts"),
       );
       assert.deepEqual(
         inspectTaskCliCancellationWiring(project, sourceFile),
@@ -806,68 +900,93 @@ test("公開CLIはproduction helperの単一bindingとfinally解除をAST・symb
 });
 
 /**
- * CLI AST契約はshadow・二重binding・直接signal・finally外解除・guard前returnを拒否するを検証する。
+ * CLI AST契約はshadow・二重binding・直接signal・非await join・finally外終了・signal差替え・解放順序違反を拒否するを検証する。
  *
- * @responsibility CLI AST契約はshadow・二重binding・直接signal・finally外解除・guard前returnを拒否するの合否判定を所有する。
+ * @responsibility CLI AST契約はshadow・二重binding・直接signal・非await join・finally外終了・signal差替え・解放順序違反を拒否するの合否判定を所有する。
  * @trace ERB-IT-003
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus CLI AST契約はshadow・二重binding・直接signal・finally外解除・guard前returnを拒否するの対象操作を実行する。
+ * @stimulus CLI AST契約はshadow・二重binding・直接signal・非await join・finally外終了・signal差替え・解放順序違反を拒否するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary ERB-IT-003=Direct Boundary: coordinator Test Source→対象契約
  */
-test("CLI AST契約はshadow・二重binding・直接signal・finally外解除・guard前returnを拒否する", () => {
+test("CLI AST契約はshadow・二重binding・直接signal・非await join・finally外終了・signal差替え・解放順序違反を拒否する", () => {
+  const orchestratorRoot = path.resolve(
+    import.meta.dirname,
+    "..",
+    "..",
+    "..",
+    "orchestrator",
+  );
   const original = fs.readFileSync(
-    path.join(import.meta.dirname, "..", "..", "src", "cli", "command.ts"),
+    path.join(orchestratorRoot, "src", "cli", "command.ts"),
     "utf8",
   );
   const mutations = [
     original.replace(
-      "releaseStatus = cancellationBinding.unbind();",
-      "{ const cancellationBinding = { unbind: () => ({ status: 'released' }) }; releaseStatus = cancellationBinding.unbind(); }",
+      'if (cancellation && cancellation.unbind().status !== "released") {',
+      '{ const cancellation = null; }\n    if (cancellation && cancellation.unbind().status !== "released") {',
     ),
     original.replace(
-      "  try {\n    result = await started.completion;",
-      "  bindTaskCliCancellationSignals(() => cancelRuntimeOwnedCoordinatorTask(started.controlCapability));\n  try {\n    result = await started.completion;",
+      "    cancellation = bindTaskCliCancellationSignals(async () =>",
+      "    bindTaskCliCancellationSignals(async () => controller.abort());\n    cancellation = bindTaskCliCancellationSignals(async () =>",
     ),
     original.replace(
-      "  try {\n    result = await started.completion;",
-      "  process.on('SIGINT', () => undefined);\n  try {\n    result = await started.completion;",
+      "    cancellation = bindTaskCliCancellationSignals(async () =>",
+      "    process.on('SIGINT', () => undefined);\n    cancellation = bindTaskCliCancellationSignals(async () =>",
+    ),
+    original
+      .replace(
+        "    try {\n      await owner?.close();",
+        "    try {\n      await Promise.resolve();",
+      )
+      .replace(
+        "  process.exitCode =",
+        "  await owner?.close();\n  process.exitCode =",
+      ),
+    original.replace(
+      "    const started = await owner.start(command, controller.signal);",
+      "    const started = await owner.start(command, new AbortController().signal);",
     ),
     original.replace(
-      "  } finally {\n    releaseStatus = cancellationBinding.unbind();\n  }",
-      "  } finally {\n    // deliberately empty\n  }\n  releaseStatus = cancellationBinding.unbind();",
+      "    const started = await owner.start(command, controller.signal);",
+      "    const started = owner.start(command, controller.signal);",
     ),
     original.replace(
-      "  try {\n    result = await started.completion;",
-      "  if (false) return;\n  try {\n    result = await started.completion;",
+      '      report = { command: "task", ...(await owner.wait(started.requestId)) };',
+      '      report = { command: "task", ...owner.wait(started.requestId) };',
     ),
-    original.replace(
-      "projectTaskCliCancellationFailure(\n      result,",
-      "projectTaskCliCancellationFailure(\n      { status: 'blocked', reason: 'discarded_runtime_result' },",
-    ),
+    original.replace("      await owner?.close();", "      owner?.close();"),
+    original
+      .replace(
+        "      await owner?.close();",
+        "      cancellation?.unbind();\n      await owner?.close();",
+      )
+      .replace(
+        '    if (cancellation && cancellation.unbind().status !== "released") {',
+        "    if (false) {",
+      ),
   ];
-  const coordinatorRoot = path.resolve(import.meta.dirname, "../..");
   for (const mutation of mutations) assert.notEqual(mutation, original);
   const virtualFiles: Record<string, string> = {};
   const fileNames = [original, ...mutations].map((source, index) => {
     const fileName = path
-      .join(coordinatorRoot, "src/cli", `.crdd-cli-mutation-${index}.ts`)
+      .join(orchestratorRoot, "src/cli", `.crdd-cli-mutation-${index}.ts`)
       .replaceAll("\\", "/");
     virtualFiles[fileName] = source;
     return fileName;
   });
   const configFile = path
-    .join(coordinatorRoot, ".crdd-cli-mutation.json")
+    .join(orchestratorRoot, ".crdd-cli-mutation.json")
     .replaceAll("\\", "/");
   virtualFiles[configFile] = JSON.stringify({
-    extends: "./tsconfig.strict.json",
+    extends: "./tsconfig.json",
     files: fileNames,
     include: [],
   });
   const api = new API({
-    cwd: coordinatorRoot,
+    cwd: orchestratorRoot,
     fs: {
       readFile: (name) => virtualFiles[name],
       fileExists: (name) => (name in virtualFiles ? true : undefined),
@@ -882,12 +1001,15 @@ test("CLI AST契約はshadow・二重binding・直接signal・finally外解除�
       assert.ok(project);
       const expectedFailures = [
         null,
-        "binding_shadowed_or_unresolved",
+        "cancellation_shadowed_or_unresolved",
         "helper_call_not_exact",
         "direct_signal_call_present",
-        "unbind_not_in_finally",
-        "helper_not_immediately_guarded_by_finally",
-        "projector_result_binding_mismatch",
+        "owner_close_and_unbind_not_in_same_finally",
+        "owner_start_signal_mismatch",
+        "owner_start_not_awaited",
+        "owner_wait_not_awaited",
+        "owner_close_not_awaited",
+        "lifecycle_order_invalid",
       ];
       for (const [index, fileName] of fileNames.entries()) {
         assert.equal(

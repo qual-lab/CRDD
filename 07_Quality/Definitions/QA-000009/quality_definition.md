@@ -45,9 +45,9 @@ Quality ID: `QA-000009`
 |---|---|
 | [coordinator](../../../06_Architecture/Details/coordinator/01_Architecture.md) | 実行編成、Authority、外部Effect、候補、回収・回復 |
 | [cros](../../../06_Architecture/Details/cros/01_Architecture.md) | Repository横断解決、Grant、投影、外部接続、候補処置 |
-| [mcp](../../../06_Architecture/Details/mcp-server/01_Architecture.md) | Transport変換、公開Schema、Session、結果搬送 |
+| [mcp-server](../../../06_Architecture/Details/mcp-server/01_Architecture.md) | Transport変換、公開Schema、Session、結果搬送 |
 | [orchestrator](../../../06_Architecture/Details/orchestrator/01_Architecture.md) | Objective、Task、判断、取消、回復、公開結果 |
-| [workbench](../../../06_Architecture/Details/workbench-server/01_Architecture.md) | Repository単体／Local CROS／Remote CROSの入口差とAI依頼の外部送信境界 |
+| [workbench-server](../../../06_Architecture/Details/workbench-server/01_Architecture.md) | Repository単体／Local CROS／Remote CROSの入口差とAI依頼の外部送信境界 |
 
 ## 2. 試験段階と外部境界の適用
 
@@ -173,9 +173,9 @@ Source Definition由来の検証義務を維持し、Detailは具体的な観測
 
 旧`surface/operation.ts`の四Surface名を付けたメモリOwnerと結果帰還の純値Oracleは、本番SurfaceやTask保存・処置集合更新・Evidence搬送を行わないため撤去した。EST-IT-010は現在のWorkbench直接Ownerと独立MCPの部分接続を保持するが、全採用入口の同値確認はOPEN。EST-ST-011はCoordinator／Orchestratorの実帰還境界としてOPEN・正式Not Runを保持し、5Cの承認済み持越しと区別する。旧試験の削除をQA ID廃止・Pass・代替完了へ読み替えない。過去Evidenceは不変更で、当時SourceはGit Commit `378d93cb6ffb0cc7c9561e0572d62bdd656f3312` の`40_Develop/cros/src/surface/operation.ts`と専用試験から再構成する。
 
-## Checklist
-
 Runtime活動の入力・結果拒否は`EST-IT-002`、現在Role認可と非開示は`RFD-IT-013`、取消と待機終了は`EST-IT-014`で確認する。開始前取消のReader零回、開始後取消の読取りjoin・応答保留・join後取消を別々に観測する。非取消Readerに対するSignal確認だけをReader中断や外部資源不存在の証明へ昇格しない。同Host Workbenchの直接経路では、同Projectの許可全Rootを既存Orchestrator Readerへ渡し、二つの実EI履歴25件の20件＋続き5件、別Project除外、Cursor不正の先頭戻り0、現在状態と履歴不明の独立、初期化0を確認する。活動取得後のAM全集合不一致はMain全体の拒否とし、Reader故障だけのunknown表示と区別する。Server終了・切断の実Transport利用側は`EST-ST-013`で別途確認する。
+
+## Checklist
 
 - [x] Quality ID、検証目標およびSource固有条件を自己完結して示した
 - [x] 各Local ItemをRequired Verification Obligationの局所参照と導出元へ接続した

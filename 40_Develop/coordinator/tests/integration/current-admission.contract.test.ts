@@ -365,7 +365,7 @@ test("現在入場: Task通常・開発・CLIの本番構成式はexact Rootを�
     "prepareDockerRecoveryState: inspectRuntimeOwnedDockerTaskAdmission,";
   assert.equal(task.split(normal).length, 2);
   const start = task.indexOf("prepareDockerRecoveryState: guard((root)");
-  const end = task.indexOf("prepareCandidateStore:", start);
+  const end = task.indexOf("observeProviderHome:", start);
   assert.ok(start > 0 && end > start);
   const development = task.slice(start, end);
   const cliStart = cli.indexOf(": (() => {");

@@ -155,10 +155,12 @@ function inputIdentity(target: string): string {
  * 自己生成Native試験の再実行と短命結果の回収を所有する。
  * @responsibility Buildから能力別の元Oracle・終了・不存在・入力不変まで共同確認する。
  * @trace ERB-IT-001
+ * @trace ERB-IT-002
+ * @trace ERB-IT-003
  * @precondition Windows、Repository Root、前回run処置済み、静的検査成功。
  * @stimulus 固定Cargoとexact Native test一件を実行する。
- * @observation 今回実行物、閉packet、exit/closeと直接不存在。
- * @oracle 全条件成立だけを限定成功とする。
+ * @observation 今回実行物、能力別の拒否・部分結果、期限・kill要求、error/exit/close、直接不存在と保持。
+ * @oracle 元の能力別Oracleと終了観測を独立に照合し、終了不明を清掃成功にせず全条件成立だけを限定成功とする。
  * @cleanup 成功時は自己生成小領域だけ回収し、失敗は保持する。
  * @boundary 未署名開発Native。Docker・本番Recovery・E2Eは対象外。
  */

@@ -252,6 +252,14 @@ Host終端専用環境の`PRL-UT-006`では、同じ本番関数bodyに対する
 
 現在回収Ownerの退役接続は`ERB-IT-014`で確認する。真正な準備・同Root／Host世代・全三排他・元版全文一致を前提に、active／unknownからphaseとownerEffectだけを変更し、他の実行評価・資源・一次失敗・結果・履歴・他操作を保持する。既退役の書込み0、後期状態拒否、各lock・Reader・Writer・読戻し不明後の後段処置0、保存後取消と全解放を反証する。メモリWriterによる境界試験と、実Kernel排他・実Writer・実読戻しを通す保存試験を区別する。退役成功を孤立CLI終端・遅延create無害化・資源不存在や限定unknown終了の根拠にしない。
 
+`PRL-IT-013`の開始拒否は、現行beginから実Home排他・Reader／Writer・Hostへ接続して検証する。invalid current、正規currentに対する不正pending、未知entry、Reader後の実Writerによる有効な同Home未終端状態の追加、abandonで物理Homeが解放された後の耐久同Home残存、Home取得後のRoot失効を独立に刺激する。各到達を一回確認し、Host開始0、Coordinator直下の全名前集合・種別・実体・本文とHost marker不変、実行binding・資源記録・清掃資格の非発行、失敗後のHome再取得を確認する。注入自身または競合Writer完了直後を比較基準にし、拒否直後と資格に対する負例の実行後、fixture復元前に全領域を比較する。短命物追加、本文変更、同本文の別実体への置換を同じ観測で拒否できることも確認する。Root失効は全既存操作と異なる専用Homeを用い、同Home競合による代替拒否を除く。実Home取得後の失効到達、実ReaderのRoot拒否・値なし、Writer／Host開始0を確認し、HEAD復元後に旧CapabilityでRepository操作を再開しない。生成済みIDと使用可能な実行Authorityを同一視せず、新品RootのReader値なしを不正状態と一括しない。旧五Callerの開始側をこの現行反例へ対応し、混合三Caseの旧Recovery側・kill fixture・実Dockerと全体完成は別範囲として残す。
+
+`PRL-IT-013`の放棄・再入場は、実begin／abandon／Host世代解放を行う旧Processの終了確認後、別Processが真正Rootと同じexact回復IDから本番consumer回復へ進む条件を検証する。放棄前後のstate全文・改訂・Host marker不変、実Home排他再取得と正常解放証明の非発行を確認し、排他解放を清掃へ読み替えない。回復子は同期・非同期Process発行を観測し、許可した固定Native／Host supervisorと読取りGit以外をsticky拒否する。五資源未要求からDocker／Provider要求0、両子Processの終了、非対象操作全文保全、対象exact履歴、対象state除去、Host／marker／短命物不存在を独立に確認する。未確認時は試験Rootを保持する。この限定結合の成功から実Docker・作成結果不明・遅延要求の終端を推定せず、旧3Caseは対応確認後に撤去済みであり、現行の別Process放棄回復を検証先とする。
+
+認証作成の通常例外は、同じ`PRL-IT-013`と`ERB-IT-003`の限定範囲として、実Owner／Writer／Home排他・Host世代とDocker代役を結合する。image確認・create後inspect・unknown保存前・実Writer返却後かつ結果検査前のfixture例外・packet直前の五刺激を分け、前半三形はintent_saved、後半二形はunknownの実model全文を要求する。指定故障到達一回、真正abandon一回、一次例外の保持、実Home再取得・解放、Host／marker実体・本文と非対象操作保全を確認する。Writer内部の応答喪失を実測したとは主張しない。正常完了・Container回収・実Dockerや親統括の成立には流用しない。fakeは通常自己生成試験Rootだけに限定し、実証専用Rootと実Docker発行を拒否する。
+
+認証作成の手動親では、実本文の一意抽出と閉じた境界代役で、正常時の全spy接続、入口・各baseline時点・通知・再起動・削除前保存・実rm省略・不存在の各軸・最終清掃の単独故障を確認する。故障到達一回と後続処置0を共同条件とし、最初のReader不明では参照を推測せず、確定後だけ同exact IDを保持する。named bindingとimport接続の省略、identified確認省略は同じOracleの変異で反証する。毎回新品の評価閉包・登録表・Process代役を用い、実Node module mockや実Dockerへ接続しない。合成Reader／Writer／Runtimeの成功値は実codec・保存・Kernel・Nativeの成立根拠にせず、既存実境界と後続限定実証を別に評価する。
+
 ## Checklist
 
 - [x] Quality ID、検証目標およびSource固有条件を自己完結して示した
@@ -265,11 +273,3 @@ Host終端専用環境の`PRL-UT-006`では、同じ本番関数bodyに対する
 - [x] RT／PT／LTの適用または理由付きN/Aを記録し、PT／LTは人間の明示指定なしに実行しない
 - [x] 自動化、手動確認および人間判断の境界を示した
 - [x] 現行Source、TestおよびEvidenceとの照合をReality Auditへ分離した
-
-`PRL-IT-013`の開始拒否は、現行beginから実Home排他・Reader／Writer・Hostへ接続して検証する。invalid current、正規currentに対する不正pending、未知entry、Reader後の実Writerによる有効な同Home未終端状態の追加、abandonで物理Homeが解放された後の耐久同Home残存、Home取得後のRoot失効を独立に刺激する。各到達を一回確認し、Host開始0、Coordinator直下の全名前集合・種別・実体・本文とHost marker不変、実行binding・資源記録・清掃資格の非発行、失敗後のHome再取得を確認する。注入自身または競合Writer完了直後を比較基準にし、拒否直後と資格に対する負例の実行後、fixture復元前に全領域を比較する。短命物追加、本文変更、同本文の別実体への置換を同じ観測で拒否できることも確認する。Root失効は全既存操作と異なる専用Homeを用い、同Home競合による代替拒否を除く。実Home取得後の失効到達、実ReaderのRoot拒否・値なし、Writer／Host開始0を確認し、HEAD復元後に旧CapabilityでRepository操作を再開しない。生成済みIDと使用可能な実行Authorityを同一視せず、新品RootのReader値なしを不正状態と一括しない。旧五Callerの開始側をこの現行反例へ対応し、混合三Caseの旧Recovery側・kill fixture・実Dockerと全体完成は別範囲として残す。
-
-`PRL-IT-013`の放棄・再入場は、実begin／abandon／Host世代解放を行う旧Processの終了確認後、別Processが真正Rootと同じexact回復IDから本番consumer回復へ進む条件を検証する。放棄前後のstate全文・改訂・Host marker不変、実Home排他再取得と正常解放証明の非発行を確認し、排他解放を清掃へ読み替えない。回復子は同期・非同期Process発行を観測し、許可した固定Native／Host supervisorと読取りGit以外をsticky拒否する。五資源未要求からDocker／Provider要求0、両子Processの終了、非対象操作全文保全、対象exact履歴、対象state除去、Host／marker／短命物不存在を独立に確認する。未確認時は試験Rootを保持する。この限定結合の成功から実Docker・作成結果不明・遅延要求の終端を推定せず、旧3Caseは対応確認後に撤去済みであり、現行の別Process放棄回復を検証先とする。
-
-認証作成の通常例外は、同じ`PRL-IT-013`と`ERB-IT-003`の限定範囲として、実Owner／Writer／Home排他・Host世代とDocker代役を結合する。image確認・create後inspect・unknown保存前・実Writer返却後かつ結果検査前のfixture例外・packet直前の五刺激を分け、前半三形はintent_saved、後半二形はunknownの実model全文を要求する。指定故障到達一回、真正abandon一回、一次例外の保持、実Home再取得・解放、Host／marker実体・本文と非対象操作保全を確認する。Writer内部の応答喪失を実測したとは主張しない。正常完了・Container回収・実Dockerや親統括の成立には流用しない。fakeは通常自己生成試験Rootだけに限定し、実証専用Rootと実Docker発行を拒否する。
-
-認証作成の手動親では、実本文の一意抽出と閉じた境界代役で、正常時の全spy接続、入口・各baseline時点・通知・再起動・削除前保存・実rm省略・不存在の各軸・最終清掃の単独故障を確認する。故障到達一回と後続処置0を共同条件とし、最初のReader不明では参照を推測せず、確定後だけ同exact IDを保持する。named bindingとimport接続の省略、identified確認省略は同じOracleの変異で反証する。毎回新品の評価閉包・登録表・Process代役を用い、実Node module mockや実Dockerへ接続しない。合成Reader／Writer／Runtimeの成功値は実codec・保存・Kernel・Nativeの成立根拠にせず、既存実境界と後続限定実証を別に評価する。

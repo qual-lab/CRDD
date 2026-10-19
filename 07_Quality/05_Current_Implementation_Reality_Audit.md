@@ -1,5 +1,9 @@
 # 現行実装との照合
 
+確定誤検知236件の検査側是正を局所・QA Header全数3/3、関係16/16、静的確認と限定独立確認で照合した。生診断1,836→1,600、追加0。Checker全回帰386件は385成功／既知1失敗（残1,600診断）で完走し、全体不合格を維持する。残1,600の是正、Browser再確認、正式QA再評価は未実施。Browserの再読込み境界不足は元generic失敗の原因確定と区別する。[今回の是正範囲](../99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#naming-false-positive-remediation)と[分類の根拠と限界](../99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#naming-browser-triage)を参照する。
+
+2026-10-19の限定是正では、検証Tool3 Suiteの分類、Test Header全数Gate、現行文書43診断を是正した。現在の構造診断0は正式198項目の実測成立を意味しない。関連回帰・限定独立再確認は成功。Checker全回帰383成功／1失敗後、前提不整合で隠れていた既存Source命名・責務Headerの未達を別範囲として確認した。Browser接続1場面も元失敗の原因未確定を維持する。歴史CHG旧参照3,353・②のunknownと同じ回復参照・保持物は不変更。[現在の限定結果と残件](../99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#verification-tool-document-closure)を参照する。以下の日付付き結果はそれぞれ当時の対象に限定する。
+
 2026-10-18のWorkspace回帰残件は、Windowsの正常な上位bit付きFile IDを負値として拒否する同型欠陥を5取得点で限定是正し、Coordinator portable全1,927件中1,922成功・失敗0・対象外5、関連6Packageも全回帰成功を確認した。元7失敗の個別metadataは未捕捉であり、過去の同一原因断定とは区別する。既存の安全条件・保存済み記録を維持し、新管理機構は追加していない。[調査・反証・回帰の範囲](../99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#windows実体識別の限定是正と回帰2026-10-18)を参照する。正式198項目の全体再評価、実Provider全E2E・移行・Releaseの成立へ換算しない。
 
 以下のWorkspace初期反映時の記述は当時の状態であり、現行の局所是正・回帰判定には上記の結果を用いる。正式Local Itemの全数再評価は別に残す。
@@ -17,16 +21,16 @@ Workspace方式のArchitecture／Quality反映後は13定義・198 Local Item。
 2026-10-13の旧Shared Host撤去候補では、下段のGateway観測は当時の実装・条件・Evidenceとして保持する。旧REST同一Origin・health・HTTP入口stdin EOFを新構成へ再実装しない。MCPは新AM Resolver、Workbenchは専門Owner直接接続へ切り替え、旧Gateway専用試験を撤去する。既存の4 Adapter Caseは責務別試験へ分離保持する。過去RFD-ST-004のSystem観測を新ST Passへ流用せず、現Treeの全数再照合は⑥に残す。
 
 成果物種別: Quality現実照合
-状態: In Progress
-進捗: 現行197項目の再照合中。先行全Subsystem照合は是正経路へ接続済み
-現在範囲: 現行197 Local Item。全18 Architecture詳細設計領域の先行照合は下段で区別する
+状態: Blocked — Quality Design Review Pending
+進捗: 現行198項目の構造・関係投影を同期し、限定レビューを完了。未観測・OPEN・正式Not Runを残し、全体の現実照合は確定しない
+現在範囲: 現行198 Local Item。過去の197項目・18 Architecture詳細設計領域の照合は履歴として区別する
 維持責任者: Qual-Lab
 
 ## 設計集合
 
 | 項目 | 件数 |
 |---|---:|
-| Local Item数 | 197 |
+| Local Item数 | 198 |
 | 内訳 | 現行13 Quality Definitionの正式項目を再計数。167工程入力・172項目は先行版の集合であり、現在の母集合へ流用しない。Source／Test／Evidenceの現在適用は段階6／7で再照合する |
 
 ## 1. 目的

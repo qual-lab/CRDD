@@ -97,6 +97,17 @@ test("Task回復factoryは要求時だけCLIと環境を取得しclose後も同�
       },
     },
   ) as (input: object) => (typeof lower)[number];
+  /**
+   * 設定getter拒否の試験へ有効なOwner確認を供給する。
+   * @responsibility 設定getter拒否の試験へ有効なOwner確認を供給する。
+   * @trace ERB-IT-004
+   * @precondition Owner以外の不正構成を反証する入力。
+   * @stimulus 同期trueだけを返す。
+   * @observation 構成拒否とgetter読取り数。
+   * @oracle Owner拒否を混ぜず不正設定が処置前に止まる。
+   * @cleanup N/A: Authorityや資源を発行しない。
+   * @boundary Owner確認の代役であり生存保証の実測ではない。
+   */
   const owner = () => true;
   const input = Object.defineProperties(
     { managementDirectory: "fixed-management", assertOwner: owner },

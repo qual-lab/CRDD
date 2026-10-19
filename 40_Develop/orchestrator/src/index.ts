@@ -150,7 +150,7 @@ export {
 export type {
   OrchestratorIntegrationRecord,
   OrchestratorIntegrationRecordPort,
-} from "./storage/types.ts";
+} from "./storage/result-record.ts";
 export type {
   OrchestratorClockIdentityPort,
   OrchestratorClockReading,
@@ -187,7 +187,7 @@ export type {
   OrchestratorRecoveryTransition,
   OrchestratorTaskRecoveryPort,
 } from "./task/recovery.ts";
-export { ORCHESTRATOR_INTEGRATION_CONTRACT } from "./storage/types.ts";
+export { ORCHESTRATOR_INTEGRATION_CONTRACT } from "./storage/result-record.ts";
 export {
   inspectOrchestratorObjectiveRequest,
   type OrchestratorObjectiveRequest,
@@ -231,7 +231,7 @@ export { validOrchestratorResultRecord } from "./storage/validate-result-record.
 export type {
   IntegrationRecordBinding,
   OrchestratorResultRecord,
-} from "./storage/types.ts";
+} from "./storage/result-record.ts";
 export {
   createCurrentOrchestratorPersistencePorts,
   createOrchestratorSnapshotPersistencePorts,

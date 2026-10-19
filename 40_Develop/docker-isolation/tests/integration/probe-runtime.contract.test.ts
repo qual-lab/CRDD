@@ -223,6 +223,17 @@ test("本番Probe bindingは旧順序と同期所在一回・同snapshotを維�
       verifyCli: () => string;
       environment: () => unknown;
     };
+    /**
+     * ProbeのCLI・環境・Mount読取りへ故障値を与える。
+     * @responsibility ProbeのCLI・環境・Mount読取りへ故障値を与える。
+     * @trace ERB-IT-004
+     * @precondition 読取り段階と故障modeの組。
+     * @stimulus 例外、Promise、空・相対・非canonical値を返す。
+     * @observation Reader到達列と上位の固定拒否理由。
+     * @oracle 不正な技術観測をProbe起動許可にしない。
+     * @cleanup N/A: Readerは局所値と計数だけを変更する。
+     * @boundary 境界観測の代役。実CLIは実行しない。
+     */
     const reader = () => {
       events.push("read");
       if (["platform", "cli", "mount"].includes(mode))

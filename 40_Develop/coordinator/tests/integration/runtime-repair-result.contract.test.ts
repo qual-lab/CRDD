@@ -2,7 +2,8 @@
  * 修復の保存結果と技術結果の相関を実Sourceで反証する。
  * @packageDocumentation
  * @responsibility 実DI Runtime／Machineと純粋保存モデルをつなぎ、OS I/Oは別Host試験と区別する。
- * @trace ERB-IT-014 ERB-IT-002
+ * @trace ERB-IT-014
+ * @trace ERB-IT-002
  * @level IT
  * @scope メモリ境界。保存故障・終了・回収Caller。実Docker・Native・Provider・Filesystem書込み0。
  * @boundary 修復呼出し→保存モデル／DI終了結果。
@@ -631,6 +632,17 @@ function fixture(transform: (source: string) => string = (source) => source) {
     runDockerRuntimeRepairSession: (input: Input) => {
       state.entries++;
       late = input.onCheckpoint;
+      /**
+       * Native Session終了時の通知・取消・回収結果を注入する。
+       * @responsibility Native Session終了時の通知・取消・回収結果を注入する。
+       * @trace ERB-IT-014
+       * @precondition 固定modeと同じSession/controller。
+       * @stimulus joinedを増やし選択modeの失敗通知とcleanup/protocolを返す。
+       * @observation close回数、一次失敗とcleanup分類。
+       * @oracle 後着取消や回収不明が元失敗を消さない。
+       * @cleanup 親fixtureが同じSessionの一回joinと購読解除を確認する。
+       * @boundary Session終了代役。実Native/Processは生成しない。
+       */
       const close = async () => {
         state.joined++;
         if (state.close.startsWith("cancel")) controller.abort();
@@ -811,7 +823,8 @@ function fixture(transform: (source: string) => string = (source) => source) {
 /**
  * 回収意図・部分結果・再入場を実modelの専用遷移へ接続する。
  * @responsibility 新Sessionを取得せず同IDの回収後に既存履歴を一度だけ確定する。
- * @trace ERB-IT-014 ERB-IT-002
+ * @trace ERB-IT-014
+ * @trace ERB-IT-002
  * @precondition 実Caller・実model、WriterとDIはメモリ代役。
  * @stimulus 三用途成功、primary不明、処置後保存拒否からの再入場。
  * @observation 全DI用途列、元checkpoint／outcome、保存された要求履歴と不存在。
@@ -2059,6 +2072,17 @@ test("修復結果: 回収確認と理由の誤返却を共同Oracleで検出す
  */
 test("修復結果: 現在Owner失効後は既発行事実を推測保存しない", async () => {
   for (const point of ["prepared", "effect"] as const) {
+    /**
+     * Owner喪失後の保存とEffectを同じOracleで拒否する。
+     * @responsibility Owner喪失後の保存とEffectを同じOracleで拒否する。
+     * @trace ERB-IT-014
+     * @precondition 準備前後で失効させるOwnerと対象Source変異。
+     * @stimulus 実run本文またはguard変異を固定fixtureで呼ぶ。
+     * @observation 保存回数、処置0/1とblocked理由。
+     * @oracle 喪失点以降の書込み0、元失敗を保持し変異を検出する。
+     * @cleanup fixtureの同じSessionを終了し代役を破棄する。
+     * @boundary 実回復本文の局所故障注入。実Dockerなし。
+     */
     const verify = async (mutant: boolean) => {
       const f = fixture((source) => {
         if (!mutant) return source;

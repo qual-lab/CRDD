@@ -2,7 +2,8 @@
  * Coordinator最新現在状態の実Filesystem保存を自己生成Repositoryで確認する。
  * @packageDocumentation
  * @responsibility 固定配置、pending再入場、拒否時の保全とOwner失効を検証する。
- * @trace ERB-IT-003 ERB-IT-014
+ * @trace ERB-IT-003
+ * @trace ERB-IT-014
  * @level IT
  * @scope Coordinator現在状態、fresh回収Owner、Host清掃後保存、Repository-local Filesystem。
  * @boundary ERB-IT-003=Direct Boundary: 現在状態Writer→Repository-local Filesystem。
@@ -124,7 +125,8 @@ import {
 /**
  * 固定二File保存と同じ更新の再入場、保全停止を確認する。
  * @responsibility 自己生成Repositoryで実保存・現在回収Owner・拒否境界を観測する。
- * @trace ERB-IT-003 ERB-IT-014
+ * @trace ERB-IT-003
+ * @trace ERB-IT-014
  * @precondition Windowsの実効排他とRepository内試験領域だけを使う。
  * @stimulus 初回・次版・pending再入場、不一致・hardlink・Owner失効、実CLIの単一Host／Probe・重複・別Repository・旧token拒否と、実準備Map／Kernel排他／Writerで再起動要求の全保存段階を処置する。技術完了入力は合成としNative／Docker要求を発行しない。
  * @observation 本文、pendingとlock不存在、拒否結果、再起動欄とReader／Writer境界の排他・Owner再確認。
@@ -618,6 +620,18 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
          const before = store.readRuntimeOwnedCoordinatorRecoverySnapshot(verified.capability);
          const host = await import(${JSON.stringify(hostModule)});
          const probe = await import(${JSON.stringify(probeModule)});
+         /**
+          * 回復CLIの配送先とRootのHashを記録して処置を拒否する。
+          * @responsibility 回復CLIの配送先とRootのHashを記録して処置を拒否する。
+          * @trace ERB-IT-003
+          * @trace ERB-IT-014
+          * @precondition 子Process内の回復先を有限代役へ置換済み。
+          * @stimulus kind・id・rootを受け取り観測packetを返す。
+          * @observation kind、元回復ID、RootのHashとfixture_no_effect理由。
+          * @oracle CLIが同じ対象を一回配送し実処置へ進まない。
+          * @cleanup 所有子をCaseが終了待機して自己生成Rootを回収する。
+          * @boundary 実CLI子と回復代役。HostやDockerの回収成功は主張しない。
+          */
          const observe = (kind, id, root) => {
            calls.push({kind, id, rootHash:createHash("sha256").update(root).digest("hex")});
            return {status:"blocked",reason:"fixture_no_effect",recoveryId:id,hostCleanupCompleted:false};
@@ -5612,7 +5626,8 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
 /**
  * 確定未発行と発行済み既知失敗の再起動結果を実保存からTask終了へ接続する。
  * @responsibility 過去unknownを保持し、実Host清掃・履歴・transient操作除去を一つの入口で確認する。
- * @trace ERB-IT-003 ERB-IT-014
+ * @trace ERB-IT-003
+ * @trace ERB-IT-014
  * @precondition 自己生成Repository、未要求五資源、真正OwnerとWindows実排他を使う。
  * @stimulus 段階checkpoint、Owner解放、未発行／発行済み失敗の合成DI結果を実finalizeへ渡し公開回収を一回呼ぶ。
  * @observation 実Reader全文・Hash、Host／marker不存在、履歴一件、操作除去、再要求禁止。
@@ -5621,6 +5636,18 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
  * @boundary 実Writer／Kernel／Host／履歴。DI技術結果は合成で実再起動を証明しない。
  */
 for (const issuedFailure of [false, true]) {
+  /**
+   * 確定未発行と発行済み既知失敗の再起動結果を実保存からTask終了へ接続する。
+   * @responsibility 過去unknownを保持し、実Host清掃・履歴・transient操作除去を一つの入口で確認する。
+   * @trace ERB-IT-003
+   * @trace ERB-IT-014
+   * @precondition 自己生成Repository、未要求五資源、真正OwnerとWindows実排他を使う。
+   * @stimulus 段階checkpoint、Owner解放、未発行／発行済み失敗の合成DI結果を実finalizeへ渡し公開回収を一回呼ぶ。
+   * @observation 実Reader全文・Hash、Host／marker不存在、履歴一件、操作除去、再要求禁止。
+   * @oracle 再起動blockedを維持したままTask回収だけが成立し、Docker実行を必要としない。
+   * @cleanup 自己生成Rootだけを回収し不存在を確認する。
+   * @boundary 実Writer／Kernel／Host／履歴。DI技術結果は合成で実再起動を証明しない。
+   */
   test(`Host Windows: 再起動${issuedFailure ? "発行済み既知失敗" : "未発行の確定結果"}を実履歴とTask終了へ接続する`, async (t) => {
     const restartReason = issuedFailure
       ? "docker_restart_start_unconfirmed"
@@ -5850,7 +5877,8 @@ for (const issuedFailure of [false, true]) {
 /**
  * 専用auth不存在の候補を実Root・既存Kernel・固定File保存へ結合する。
  * @responsibility 模擬した過去観測を実保存の成立と区別し、CAS・Owner拒否と読戻しを確認する。
- * @trace ERB-IT-003 ERB-IT-014
+ * @trace ERB-IT-003
+ * @trace ERB-IT-014
  * @precondition Repository-localの自己生成Git Rootと合成したcodec合法状態だけを使う。
  * @stimulus 別operationId、Owner失効、元版差、rename故障と再入場後、本番Driver本文の観測順と保存停止を確認する。
  * @observation state全文、revision、Hash、短命File不存在、Kernel排他解放と実履歴・transient終了出版。
@@ -5859,6 +5887,18 @@ for (const issuedFailure of [false, true]) {
  * @boundary 実Root／Kernel／Filesystemと本番Driver本文・履歴／終了出版。Owner生存・Host終了値・Docker観測・再起動結果・Driver Readerは代役で実Daemon／公開Consumerの証明ではない。
  */
 for (const consumer of ["workbench", "coordinator_cli"] as const) {
+  /**
+   * 専用auth不存在の候補を実Root・既存Kernel・固定File保存へ結合する。
+   * @responsibility 模擬した過去観測を実保存の成立と区別し、CAS・Owner拒否と読戻しを確認する。
+   * @trace ERB-IT-003
+   * @trace ERB-IT-014
+   * @precondition Repository-localの自己生成Git Rootと合成したcodec合法状態だけを使う。
+   * @stimulus 別operationId、Owner失効、元版差、rename故障と再入場後、本番Driver本文の観測順と保存停止を確認する。
+   * @observation state全文、revision、Hash、短命File不存在、Kernel排他解放と実履歴・transient終了出版。
+   * @oracle 拒否時の本文不変、成功時のauth以外全文不変とunknown維持。
+   * @cleanup 自作Rootだけを回収し不存在を確認する。
+   * @boundary 実Root／Kernel／Filesystemと本番Driver本文・履歴／終了出版。Owner生存・Host終了値・Docker観測・再起動結果・Driver Readerは代役で実Daemon／公開Consumerの証明ではない。
+   */
   test(`Host Windows: 認証unknownの専用Writerを実保存へ接続する ${consumer}`, async (t) => {
     assert.equal(process.platform, "win32");
     const area = requireReadyRepositoryRuntimeDataArea(
@@ -6241,7 +6281,8 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
     /**
      * 保存後資源の許可差分だけを独立比較する。
      * @responsibility authの観測差分で他資源の変更を隠さない。
-     * @trace ERB-IT-003 ERB-IT-014
+     * @trace ERB-IT-003
+     * @trace ERB-IT-014
      * @precondition 正常fixtureの元五資源を閉包から使う。
      * @stimulus 実読戻し資源またはその単独変更コピーを受ける。
      * @observation purpose順序・全文とauthのunknown／null／null。
@@ -6834,12 +6875,25 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
  * @observation 実Validatorの真偽。
  * @oracle 旧形と正常形のみ受理し、不正値をゼロへ丸めない。
  * @cleanup N/A: 外部Effectなし。
+ * @responsibility 一次失敗のCommand観測を閉じた数値と応答有無へ相関する。
+ * @boundary 実model本文のVM検査。ProcessやDocker要求はない。
  */
 test("一次失敗のCommand観測は閉じた数値契約と応答相関を検査する", () => {
   const source = fs.readFileSync(
     new URL("../../src/state-storage/model.ts", import.meta.url),
     "utf8",
   );
+  /**
+   * modelから対象検証関数の実本文を抽出する。
+   * @responsibility modelから対象検証関数の実本文を抽出する。
+   * @trace ERB-IT-003
+   * @precondition 固定Sourceと一意な関数名。
+   * @stimulus 宣言と次のHeader位置を確認して型を除く。
+   * @observation VMへ渡される関数本文。
+   * @oracle 宣言開始と次Header終端の存在・順序を確認してから切り出す。
+   * @cleanup N/A: Source読取りとメモリ変換だけ。
+   * @boundary 実Sourceを読むが書き換えず、Commandは実行しない。
+   */
   const extract = (name: string) => {
     const start = source.indexOf(`function ${name}(`);
     const end = source.indexOf("\n/**", start);
@@ -6894,6 +6948,17 @@ test("一次失敗のCommand観測は閉じた数値契約と応答相関を検�
   );
 });
 
+/**
+ * 上位ACKの同一Attemptだけを終端受理Readerへ渡す。
+ * @responsibility 上位ACKの同一Attemptだけを終端受理Readerへ渡す。
+ * @trace ERB-IT-003
+ * @precondition 保存Readerだけを模擬し固定bindingを用意する。
+ * @stimulus 新形式ACK、別Task、世代差、旧形式と読取り失敗を与える。
+ * @observation Reader引数、十一項目の返却またはnull、元入力。
+ * @oracle 同じ保存済みAttemptの閉本文だけ受理し入力を変更しない。
+ * @cleanup 試験終了時にModule mockを復元する。
+ * @boundary 上位保存Readerと終端受理Reader。実Docker・Providerなし。
+ */
 test("上位受理Readerは保存済みの同じAttemptだけを返す", async (t) => {
   const binding = {
     workingDirectory: "fixed-repository",

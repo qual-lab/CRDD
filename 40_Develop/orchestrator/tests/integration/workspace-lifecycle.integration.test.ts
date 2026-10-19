@@ -1,11 +1,14 @@
 /**
  * Workspace操作を実Git・実Snapshot・既存Leaseで結合検証する。
+ * @packageDocumentation
  * @responsibility 複数Task継続、Root分離、明示破棄と再入場。
  * @trace PRL-IT-011
  * @trace PRL-IT-013
  * @trace CPR-IT-001
  * @trace CPR-IT-004
  * @trace CPR-IT-006
+ * @trace PRL-IT-012
+ * @trace RFD-IT-029
  * @level IT
  * @scope OrchestratorとVersion Control。AIは合成作業のみ。
  * @boundary 実Filesystem／Git／既存操作Lease。Provider・Dockerなし。
@@ -98,6 +101,7 @@ function git(root: string, args: string[]) {
  * 実StoreにProjectとQueueを受付し、試験単位で回収する。
  * @responsibility 架空の保存Portを使わず本番Writerへ接続する。
  * @trace PRL-IT-013
+ * @trace RFD-IT-029
  * @precondition Repository-local tests領域が実Directory。
  * @stimulus 新品Snapshot初期化と二Task計画。
  * @observation 世代・Queue・受付と固定Commit。
@@ -187,6 +191,17 @@ function fixture(t: TestContext, independent = false) {
       ...common,
       ...operation,
     } as OrchestratorWorkspaceRequest);
+  /**
+   * 同じWorkspace fixtureの保存Snapshotを実Readerから取得する。
+   * @responsibility 同じWorkspace fixtureの保存Snapshotを実Readerから取得する。
+   * @trace PRL-IT-013
+   * @precondition 実Writerで初期化したRootとbinding。
+   * @stimulus readOrchestratorSnapshotを呼びcompleted/valueを検査する。
+   * @observation 世代、Queue、Workspaceと保存結果。
+   * @oracle 読取り拒否やvalue欠測は即時試験失敗とする。
+   * @cleanup 自己生成Rootはfixtureのafterで回収する。
+   * @boundary 既存Snapshot読取りと実Filesystem。別台帳なし。
+   */
   const snapshot = () => {
     const read = readOrchestratorSnapshot(root, binding);
     assert.equal(read.status, "completed", JSON.stringify(read));
@@ -208,12 +223,16 @@ function fixture(t: TestContext, independent = false) {
 
 /**
  * 独立Taskも同じTreeでは順番に実行し、明示Git採用と品質受入を分離する。
- * @trace CPR-IT-001 CPR-IT-004 CPR-IT-006
+ * @trace CPR-IT-001
+ * @trace CPR-IT-004
+ * @trace CPR-IT-006
  * @precondition 自己生成Gitと実Writer。Provider／Dockerは使わない。
  * @stimulus Direct／Isolated、最大並行数3、依存なし二Task、取消と失敗。
  * @observation 稼働最大数、後続の前変更読取り、HEAD／index、品質判断。
  * @oracle 一件終端後だけ次開始、自動Commit0、Isolatedは採用前拒否・Ref終了後も別Process受入。
  * @cleanup fixtureのexact Rootだけ回収する。
+ * @responsibility 同Workspaceの逐次Taskと別採用後の明示品質受入を結合する。
+ * @boundary 実Git・実Writer・有限Task代役。実Provider成功や公開E2Eは主張しない。
  */
 test("計画の独立二Taskは同じWorkspaceで直列実行し明示採用後だけ品質受入する", async (t) => {
   for (const isolated of [false, true]) {
@@ -302,6 +321,19 @@ test("計画の独立二Taskは同じWorkspaceで直列実行し明示採用後�
         continue;
       }
       assert.equal(result.status, "completed", JSON.stringify(result));
+      /**
+       * 保存済み対象へ明示品質受入を同Processか別Processで届ける。
+       * @responsibility 保存済み対象へ明示品質受入を同Processか別Processで届ける。
+       * @trace CPR-IT-001
+       * @trace CPR-IT-004
+       * @trace CPR-IT-006
+       * @precondition 同じ計画Revisionと現在Workspace採用記録。
+       * @stimulus 最新保存状態から受入入力を作り公開処理へ渡す。
+       * @observation 未採用時拒否、採用後受入と元Revision。
+       * @oracle Task完了だけでは受け入れず同じ採用証拠へ相関する。
+       * @cleanup 所有子の終了後にfixtureを正式終了・回収する。
+       * @boundary 実Snapshotと公開受入。Task代役を実AIとみなさない。
+       */
       const decide = async (separate = false) => {
         const plan = f.snapshot().projects[0];
         assert.ok(plan);
@@ -525,6 +557,19 @@ test("公開Workspace操作は閉入力と世代を保ち固定候補だけを�
     queueId: "queue-a",
     workspaceId: f.common.workspaceId,
   };
+  /**
+   * 固定ProjectのWorkspace commandを現在認可付きで実行する。
+   * @responsibility 固定ProjectのWorkspace commandを現在認可付きで実行する。
+   * @trace CPR-IT-001
+   * @trace CPR-IT-004
+   * @trace CPR-IT-006
+   * @precondition 同じroot・project・common binding。
+   * @stimulus executeWorkspaceCommandへcommandを渡す。
+   * @observation 閉入力拒否と操作結果、観測回数。
+   * @oracle hostile値は処置前拒否し正常対象だけ配送する。
+   * @cleanup fixtureが所有Workspace・Ref・Rootを回収する。
+   * @boundary 実Owner入口。認可callbackのみ固定しAM実認可の証明にしない。
+   */
   const call = (command: Record<string, unknown>) =>
     executeWorkspaceCommand(
       f.root,
@@ -1080,6 +1125,17 @@ test("回収終端保存後の解除失敗と後発欠測でも固定本文を�
     path.resolve(import.meta.dirname, "../../src/index.ts"),
   ).href;
   const diagnostic = `Promise.all([import(${JSON.stringify(module)}),import('node:child_process'),import('node:module')]).then(([m,cp,modules])=>{const original=cp.default.spawnSync;cp.default.spawnSync=(...args)=>Array.isArray(args[1])&&args[1].includes('rev-parse')&&args[1].includes(${JSON.stringify(ref)})?{pid:0,status:1,signal:null,stdout:'synthetic',stderr:'',output:[null,'synthetic','']}:Reflect.apply(original,cp.default,args);modules.syncBuiltinESMExports();process.stdout.write(JSON.stringify(m.manageOrchestratorWorkspace({...JSON.parse(process.argv[1]),authorize:()=>true})));});`;
+  /**
+   * 保存済みCandidateのcloseを別Node Processから再入場する。
+   * @responsibility 保存済みCandidateのcloseを別Node Processから再入場する。
+   * @trace CPR-IT-006
+   * @precondition 同じRoot・Candidate・close操作IDを保持している。
+   * @stimulus 固定scriptをNode -eで実行しJSON結果を読む。
+   * @observation 終了値、close結果とRef・元採否本文。
+   * @oracle 応答喪失や一回のRef欠測でも元結果を不変再利用する。
+   * @cleanup 子を終了待機し最後に同じfixture Rootを回収する。
+   * @boundary 別Processと実Git・Writer。外部AIなし。
+   */
   const run = (script: string) =>
     JSON.parse(
       execFileSync(
@@ -1401,6 +1457,17 @@ test("同Workspaceを二Taskで継続し保存Rootを分けて不採用後に回
     const initialState = f.snapshot().projects[0];
     assert.ok(initialState);
     let state = initialState;
+    /**
+     * 実Writerへ次Snapshotを現在世代付きで保存する。
+     * @responsibility 実Writerへ次Snapshotを現在世代付きで保存する。
+     * @trace PRL-IT-013
+     * @precondition 直前に読んだ実stateと固定Root。
+     * @stimulus 遷移成功を確認し世代を付け保存する。
+     * @observation 保存結果と更新後state。
+     * @oracle 保存拒否を成功扱いせず次の期待世代を維持する。
+     * @cleanup fixture終了時に所有Rootを回収する。
+     * @boundary 実Snapshot・既存排他。本文の新永続先はない。
+     */
     const save = (next: ReturnType<typeof reserveProjectTaskStart>) => {
       assert.equal(next.status, "completed", JSON.stringify(next));
       assert.ok(next.state);
@@ -1866,7 +1933,8 @@ test("本番Task搬送は所属Rootと選択Treeを分離し不正入力ではPr
 /**
  * Directの対象解決と途中失敗まで観測を搬送する。
  * @responsibility Workspace ID省略をnullと照合し既得観測を落とさない。
- * @trace PRL-IT-012 PRL-IT-013
+ * @trace PRL-IT-012
+ * @trace PRL-IT-013
  * @precondition Workspace未作成の実QueueとGit。
  * @stimulus 二Taskの正常、二件目失敗。
  * @observation 受けた対象と最終workspaceResults。
@@ -2000,6 +2068,17 @@ test("Git作成後の保存失敗は意図を残して別Processで再観測す�
   assert.equal(failed.gitResult?.status, "completed");
   assert.equal(f.snapshot().workspaces[0]?.phase, "creating");
   assert.equal(fs.existsSync(f.tree), true);
+  /**
+   * 作成中Workspaceの不適合観測が意図を維持することを確認する。
+   * @responsibility 作成中Workspaceの不適合観測が意図を維持することを確認する。
+   * @trace PRL-IT-013
+   * @precondition dirty・locked・別HEAD・prunableの各反例。
+   * @stimulus 作成再入場を呼び現在Snapshotを読む。
+   * @observation blocked、固定Baseとpending/headの内容。
+   * @oracle 正常readyへ進まず元の作成意図を変えない。
+   * @cleanup 各反例の状態を戻してfixtureを回収する。
+   * @boundary 実Git観測と既存Writer。新回復機構は作らない。
+   */
   const checkStillCreating = () => {
     const refused = f.operate({ operation: "observe" });
     assert.equal(refused.status, "blocked", JSON.stringify(refused));
@@ -2143,6 +2222,17 @@ test("Workspaceの保存失敗と解放失敗は元理由と両回復参照を�
   const body = source.slice(start, end).replace("export function", "function");
   for (const saveFails of [true, false]) {
     let reads = 0;
+    /**
+     * 保存または解放失敗のexact回復参照を返す。
+     * @responsibility 保存または解放失敗のexact回復参照を返す。
+     * @trace PRL-IT-013
+     * @precondition 有限reasonと固有recoveryId。
+     * @stimulus manualRecoveryRequired付きblocked StoreResultを構築する。
+     * @observation 元reason、一次回復IDと解放側回復ID。
+     * @oracle 一次失敗を上書きせず副次参照も脱落しない。
+     * @cleanup N/A: 故障結果の局所生成だけ。
+     * @boundary 既存Store/Lease Portの代役。実回復要求なし。
+     */
     const blocked = (reason: string, recoveryId: string) => ({
       status: "blocked",
       reason,

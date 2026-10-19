@@ -46,6 +46,7 @@ export type RealityIssueDetails = Readonly<{
   "manifest.relation.identity-shape": { property: string };
   "manifest.relation.identity-duplicate": { property: string };
   "manifest.test.relation-missing": Record<string, never>;
+  "manifest.verification-tool.relation-domain-invalid": Record<string, never>;
   "manifest.implementation.architecture-relation-missing": Record<
     string,
     never

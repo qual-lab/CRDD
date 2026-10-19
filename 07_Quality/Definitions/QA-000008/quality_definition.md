@@ -111,11 +111,11 @@ Source Definition由来の検証義務を維持し、Detailは具体的な観測
 
 全数Coverageと試験段階の扱いは[UI／SPEC DetailのQuality分析](../../Analysis/Detail/quality_analysis.md)を中央統合投影とし、本定義は上記Relationの検証責務を局所所有する。
 
-## Checklist
-
 共通保存ReaderのFile ID表現は、Windowsの上位bit付き64bit値をlstat／fstat両側で同じ値へ正規化できること、POSIX負値・ゼロ・範囲外・型不正・link・dev／birthtime不正と別実体を拒否することを確認する。Domain Reader、VC配置観測、Coordinatorの三取得点、Orchestratorの保存・再読・開始前取消を接続し、Reader単体の成功だけから上位の完了を主張しない。履歴・保存済みIdentityの変換や安全条件の省略は行わない。
 
 `RDL-IT-001`ではWorkspaceの名前付き領域とVC物理Ownerを照合し、上位による固定Path再構成、VC内の別用途raw Root、未知Consumerを拒否する。保護Mount先の観測は作成0、準備は空Directory一件だけ、既存内容の保持、File／link／観測不能時の変更0を確認する。raw Rootは公開せず、Git Worktree操作・新たな状態管理へ責務を広げない。
+
+## Checklist
 
 - [x] Quality ID、検証目標およびSource固有条件を自己完結して示した
 - [x] 各Local ItemをRequired Verification Obligationの局所参照と導出元へ接続した

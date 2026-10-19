@@ -4,14 +4,22 @@
   "subsystem": "orchestrator",
   "symbols": [
     {
+      "symbolId": "orchestrator.test.workspace-acceptance-record",
+      "kind": "test-suite",
+      "path": "tests/unit/workspace/acceptance-record.contract.test.ts",
+      "qaIds": ["QA-000005"],
+      "localTestIds": ["CPR-UT-009"],
+      "verifies": ["orchestrator.workspace.operations"]
+    },
+    {
       "symbolId": "orchestrator.test.task-requests",
       "kind": "test-suite",
       "path": "tests/unit/task/requests.contract.test.ts",
       "qaIds": [
-        "QA-000005"
+        "QA-000003"
       ],
       "localTestIds": [
-        "CPR-UT-001"
+        "PRL-UT-006"
       ],
       "verifies": [
         "orchestrator.task.requests"
@@ -41,6 +49,9 @@
       "archIds": [
         "ARCH-000004",
         "ARCH-000009"
+      ],
+      "implements": [
+        "orchestrator.candidate-adoption"
       ]
     },
     {
@@ -53,13 +64,13 @@
         "QA-000007"
       ],
       "localTestIds": [
+        "CPR-IT-001",
+        "CPR-IT-004",
+        "CPR-IT-006",
         "PRL-IT-011",
         "PRL-IT-012",
         "PRL-IT-013",
-        "RFD-IT-029",
-        "CPR-IT-001",
-        "CPR-IT-004",
-        "CPR-IT-006"
+        "RFD-IT-029"
       ],
       "verifies": [
         "orchestrator.workspace.record",
@@ -143,8 +154,8 @@
       "kind": "test-suite",
       "path": "tests/integration/docker-recovery-settlement.contract.test.ts",
       "qaIds": [
-        "QA-000006",
-        "QA-000003"
+        "QA-000003",
+        "QA-000006"
       ],
       "localTestIds": [
         "ERB-IT-003",
@@ -272,7 +283,7 @@
     {
       "symbolId": "orchestrator.storage.types",
       "kind": "file",
-      "path": "src/storage/types.ts",
+      "path": "src/storage/result-record.ts",
       "archIds": [
         "ARCH-000005"
       ]
@@ -716,8 +727,8 @@
         "QA-000005"
       ],
       "localTestIds": [
-        "PRL-IT-013",
-        "CPR-IT-004"
+        "CPR-IT-004",
+        "PRL-IT-013"
       ],
       "verifies": [
         "orchestrator.task.single-task-record",

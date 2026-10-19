@@ -5,6 +5,7 @@
   "symbols": [
     {
       "symbolId": "docker-isolation.test.integration.direct-mount-boundary",
+      "verificationTarget": "environment",
       "kind": "test-suite",
       "path": "tests/integration/direct-mount-boundary.integration.test.ts",
       "qaIds": ["QA-000006"],
@@ -525,8 +526,8 @@
         "QA-000006"
       ],
       "localTestIds": [
-        "PRL-IT-013",
-        "ERB-IT-004"
+        "ERB-IT-004",
+        "PRL-IT-013"
       ],
       "verifies": [
         "docker-isolation.cleanup.resource-recovery",

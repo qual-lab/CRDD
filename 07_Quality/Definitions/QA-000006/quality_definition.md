@@ -41,7 +41,7 @@ Sessionの署名配布依存撤去では同じ`ERB-IT-004`で、旧三入力fiel
 成果物種別: Quality定義
 Quality ID: `QA-000006`
 検証目標: OS、Process、Container、外部CLIおよびAI Runtimeの意味を推測せず、要求から終了後状態までを段階別に確認する
-主な試験段階: Integration／System
+主な試験段階: Unit／Integration／System
 状態: Canonical
 維持責任者: Qual-Lab
 
@@ -201,6 +201,8 @@ fresh回収Ownerと途中Writerの局所確認は`ERB-IT-003`／`ERB-IT-014`へ�
 | `ERB-IT-012` | 回復 | IT | Docker Repair Handoff | Coordinator→Repair Record→Platform Adapter | Related 2 Blocks | exact Repair Identity、旧Effect記録、署名検証済みorigin／adoption／handoff chain、同一Sessionで更新した現在Release、旧Continuation、fresh観測、手組みOperation、chain外tuple、現在境界未結合、別Session反例 | Record Storeが検証したchainと現在実行境界から旧Continuationの発行元を導出し、既存Repairを現在境界で継続可能なPlatform要求へ変換する | Repair Identity、Authority順序、同一SessionでのRelease更新、Continuationの発行元と追記元、fresh状態、Effect要求、拒否理由を記録する | Record Storeの検証結果だけをAuthorityとし、同一SessionのRelease更新では検証済み現在境界を末尾Authorityに加える。旧Effectを再発行せず同じRepair義務を現在境界から追記し、手組み・chain外・未結合はEffect 0で拒否する | Identity、chain、現在Release、Continuation sequence、追記tuple、状態、要求、Effect件数、判定 | 重複Effect 0、別Repair 0、未検証Authority 0 | Automated |
 ```
 
+検証Toolとして登録する三script（`verify-native-protection.ts`、`verify-native-terminal-namespace.ts`、`verify-native-terminal-fixtures.ts`）と判定部品`native-terminal-oracles.ts`の局所保全は、既存`ERB-IT-001`／002／003の対応断面だけを扱う。検証Toolへの試験関係は本番Sourceの実装関係・意味Coverageへ加算せず、局所試験の成功を実Native／OS／Task／Dockerの成立やLocal Item全体の正式Passへ換算しない。元の実境界検証義務は維持する。
+
 ## 1. 情報源と網羅条件
 
 | Source ID | Obligation Key | 導出元 | 保持する固有条件 | 試験段階 | 対応Local Item |
@@ -219,7 +221,7 @@ fresh回収Ownerと途中Writerの局所確認は`ERB-IT-003`／`ERB-IT-014`へ�
 | [UI-000010](../../../04_UI/Definitions/UI-000010/ui_definition.md) | `ui-000010.qa-000006` | UI Definition（認識・操作・Feedback・失敗表示） | 仕事に合うToolとAIモデルを根拠付きで選び、安全に変更できる。UX-000016: 固定Commitに対応するツール／実行基盤と利用可能性を知る: 発見したツール／実行基盤を起動する直前: Commit・配布集合・Manifest・実行基盤の対応を検証する: 版不一致・欠落実行基盤・改ざんManifestを対応版と誤認する。UX-000018: AIモデル選択を検証可能な構成として更新する: AI提供元で実行する前のモデル確定: 構成変更を検証し実効選択を観測可能にする: 未知または非対応のモデルを実行可能と表示する。UX-000016／IA-000011: 利用可能（available）／利用不能（unavailable）／未確認（unverified）／停止（blocked）: 仕事→必要能力→登録Tool→配布根拠→起動。UX-000018／IA-000013: 有効（valid）／無効（invalid）／利用可能（available）／利用不能（unavailable）／選択済み（selected）: 設定→検証→利用可能候補→選択→理由・再選定条件 | IT | `ERB-IT-004`、`ERB-IT-001`、`ERB-IT-006` |
 | [SPEC-000009](../../../05_SPEC/Definitions/SPEC-000009/spec_definition.md) | `spec-000009.qa-000006` | SPEC Definition（正常・境界・失敗・観測不能・副作用） | 正常: 原因未確定と確定済みを分け、Providerごとの差を保持する。境界: 診断対象内／対象外、原因確定／未確定を分け、診断から修復Effectを発行しない。失敗: 一つの失敗から全機能停止や原因を断定しない。観測不能: 不明を正常・不存在・完了へ丸めず、実際の副作用「許可された小規模Probeだけを実行し、Provider仕事や修復Effectを発行しない」と矛盾する結果を返さない。失敗: 一つの失敗から全機能停止や原因を断定しない。副作用: 許可された小規模Probeだけを実行し、Provider仕事や修復Effectを発行しない。本SPEC固有の回復経路は設けず、失敗理由と安全な戻り先を返す | IT／ST | `ERB-IT-004`、`ERB-ST-005` |
 | [SPEC-000015](../../../05_SPEC/Definitions/SPEC-000015/spec_definition.md) | `spec-000015.qa-000006` | SPEC Definition（正常・境界・失敗・観測不能・副作用） | 正常: コード変更なしで構成を更新でき、選択理由と適用範囲を確認できる。境界: 許可値／未知値、利用可能／利用不能を分け、不正構成を暗黙fallbackしない。失敗: 未知モデルや不正構成を暗黙fallbackせず、構成変更を実行許可にしない。観測不能: 不明を正常・不存在・完了へ丸めず、実際の副作用「採用時だけ構成を保存する。選択はProvider実行Effectを発行しない」と矛盾する結果を返さない。失敗: 未知モデルや不正構成を暗黙fallbackせず、構成変更を実行許可にしない。副作用: 採用時だけ構成を保存する。選択はProvider実行Effectを発行しない。本SPEC固有の回復経路は設けず、失敗理由と安全な戻り先を返す | IT／ST | `ERB-IT-004`、`ERB-ST-005`、`ERB-IT-006` |
-| [ARCH-000008](../../../06_Architecture/Definitions/ARCH-000008/architecture_definition.md) | `arch-000008.qa-000006` | Architecture Definition（責務・境界・状態・故障） | 境界ごとのavailable／blocked／unknownと相関IDを返し、診断成功をTask成功へ読み替えない。観測手段に許可された最小Probeだけを使う。所有する責務: 外部境界ごとの到達、受理、開始、結果搬送、終了状態の観測。所有しない責務: Provider Task、Docker修復、再起動、結果採用。主な外部境界: OS Process、Docker、Network、外部CLI。SPEC-000009: 一つの失敗から全機能停止や原因を断定しない。Effect: 許可された小規模Probeだけを実行し、Provider仕事や修復Effectを発行しない。入力SPECが固有Recoveryを定義しない場合、Architectureから追加しない。結果には最後に確認できた状態、観測時点、不足および次の安全な行動を、入力契約が必要とする範囲で含める | UT／IT／ST | `ERB-IT-004`、`ERB-IT-001`、`ERB-ST-005`、`ERB-UT-034`、`ERB-UT-035`、`ERB-UT-036`、`ERB-UT-037`、`ERB-UT-039` |
+| [ARCH-000008](../../../06_Architecture/Definitions/ARCH-000008/architecture_definition.md) | `arch-000008.qa-000006` | Architecture Definition（責務・境界・状態・故障） | 境界ごとのavailable／blocked／unknownと相関IDを返し、診断成功をTask成功へ読み替えない。観測手段に許可された最小Probeだけを使う。所有する責務: 外部境界ごとの到達、受理、開始、結果搬送、終了状態の観測。所有しない責務: Provider Task、Docker修復、再起動、結果採用。主な外部境界: OS Process、Docker、Network、外部CLI。SPEC-000009: 一つの失敗から全機能停止や原因を断定しない。Effect: 許可された小規模Probeだけを実行し、Provider仕事や修復Effectを発行しない。入力SPECが固有Recoveryを定義しない場合、Architectureから追加しない。結果には最後に確認できた状態、観測時点、不足および次の安全な行動を、入力契約が必要とする範囲で含める | UT／IT／ST | `ERB-UT-038`、`ERB-IT-004`、`ERB-IT-001`、`ERB-ST-005`、`ERB-UT-034`、`ERB-UT-035`、`ERB-UT-036`、`ERB-UT-037`、`ERB-UT-039` |
 | [ARCH-000010](../../../06_Architecture/Definitions/ARCH-000010/architecture_definition.md) | `arch-000010.qa-000006` | Architecture Definition（責務・境界・状態・故障） | Toolのavailable／unavailable／unverified／blockedと、モデル構成のvalid／invalid／selectedを分ける。コード埋込みのモデル一覧ではなく検証済み外部構成から選ぶ。所有する責務: Repositoryに適合するTool能力の発見、AIモデル構成の検証・選択理由。所有しない責務: Tool実行、Provider利用可能性の捏造、Repository Binding。主な外部境界: Repository設定、Tool Package、Provider Preflight。SPEC-000014: Tool一覧の閲覧だけで実行Authorityを発行しない。Effect: 読取り専用で候補を返し、Toolまたは配布物を実行・変更しない。SPEC-000015: 未知モデルや不正構成を暗黙fallbackせず、構成変更を実行許可にしない。Effect: 採用時だけ構成を保存する。選択はProvider実行Effectを発行しない。入力SPECが固有Recoveryを定義しない場合、Architectureから追加しない。結果には最後に確認できた状態、観測時点、不足および次の安全な行動を、入力契約が必要とする範囲で含める | UT／IT／ST | `ERB-UT-016`、`ERB-IT-017`、`ERB-IT-004`、`ERB-ST-005`、`ERB-IT-003`、`ERB-IT-006`、`ERB-UT-033` |
 | [ARCH-000004](../../../06_Architecture/Definitions/ARCH-000004/architecture_definition.md) | `arch-000004.qa-000006` | Architecture Definition／詳細設計（Provider結果境界） | Provider固有出力の解釈をAI Adapterへ分離し、正規化だけをTask・実行・回収の完成へ昇格しない | UT／IT | `ERB-UT-032`、`ERB-IT-001`、`ERB-IT-002` |
 | [ARCH-000015](../../../06_Architecture/Definitions/ARCH-000015/architecture_definition.md) | `arch-000015.qa-000006` | Architecture Definition／詳細設計（結果と公開境界） | 曖昧な構造化結果を拒否し、生Provider出力を公開しない。共通結果判定とProvider固有解析を分ける | UT | `ERB-UT-032` |
@@ -235,13 +237,13 @@ Provider差の純粋検証は、`ARCH-000004`／`ARCH-000015`の結果変換と`
 | 詳細設計領域 | 受け取る成立条件 |
 |---|---|
 | [coordinator](../../../06_Architecture/Details/coordinator/01_Architecture.md) | 実行編成、Authority、外部Effect、候補、回収・回復。7.5.1の未改造公式CLI・Docker隔離は`ERB-IT-031`で配布と公開起動を確認する。通知と最終結果は`ERB-UT-023`、同11節を含む公開CLIの取消・親Process喪失は`ERB-ST-030`で確認する。旧内部改造の024～029は現行の要求集合から外す。 |
-| [ai-adapter](../../../06_Architecture/Details/ai-adapter/01_Architecture.md#73-qa導出と残る照合) | Provider構造化結果の純粋解析・正規化／拒否を`ERB-UT-032`、Subscription限定の方針記述を`ERB-UT-033`へ接続する。実CLI、課金、Process、取消、cleanupは別の義務である。 |
+| [ai-adapter](../../../06_Architecture/Details/ai-adapter/01_Architecture.md) | Provider構造化結果の純粋解析・正規化／拒否を`ERB-UT-032`、Subscription限定の方針記述を`ERB-UT-033`へ接続する。実CLI、課金、Process、取消、cleanupは別の義務である。 |
 | [cros](../../../06_Architecture/Details/cros/01_Architecture.md) | Repository横断解決、Grant、投影、外部接続、候補処置 |
 | [platform-access](../../../06_Architecture/Details/platform-access/01_Architecture.md) | OS資源、Process Effect、観測、cleanup、回復 |
-| [docker-isolation](../../../06_Architecture/Details/docker-isolation/01_Architecture.md#6-通知と上位状態の接続) | Docker技術処理・環境依存の下位集約、環境共通API、技術結果／通知の相関。上位の許可・正本状態・Task進行は所有しない。現行Windows実装の保持と未対応環境の新Effect前停止を区別する。Probe作成ID・三軸応答の純粋分類は`ERB-UT-038`が所有する。 |
+| [docker-isolation](../../../06_Architecture/Details/docker-isolation/01_Architecture.md) | Docker技術処理・環境依存の下位集約、環境共通API、技術結果／通知の相関。上位の許可・正本状態・Task進行は所有しない。現行Windows実装の保持と未対応環境の新Effect前停止を区別する。Probe作成ID・三軸応答の純粋分類は`ERB-UT-038`が所有する。 |
 | [verification-runner](../../../06_Architecture/Details/verification-runner/01_Architecture.md) | 外部境界試験の段階適用、子Process結果および観測不能時の停止 |
 | [visual-preview](../../../06_Architecture/Details/visual-preview/01_Architecture.md) | Repository内Visual Root、localhost HTTP、読取り専用配信およびListener清掃 |
-| [workbench](../../../06_Architecture/Details/workbench-server/01_Architecture.md) | Production localhost Server、Browser UI、公式ロゴ、実Visual Profileおよび終了後資源 |
+| [workbench-server](../../../06_Architecture/Details/workbench-server/01_Architecture.md) | Production localhost Server、Browser UI、公式ロゴ、実Visual Profileおよび終了後資源 |
 
 ## 2. Lifecycle全体
 
@@ -268,15 +270,15 @@ Provider差の純粋検証は、`ARCH-000004`／`ARCH-000015`の結果変換と`
 
 ### 条件区分の適用
 
+本表は、旧比較用の項目を含むCanonical検証項目の分類閉包を示す。分類への掲載は現在のRuntimeでの実行要求や適用結果を意味しない。旧`ERB-ST-011`／`ERB-IT-012`は旧handoff比較専用として保持し、現在のRuntimeのRequired実行集合には含めない。ID・元Oracle・過去Evidence・正式Not Runを別の意味へ転用しない。
+
 | 条件区分 | 適用 | 対応Local Item | 判断理由 |
 |---|---|---|---|
 | 正常 | Required | ERB-IT-001、ERB-UT-016、ERB-IT-031、ERB-UT-033 | 通常の成立経路と固定課金方針の記述を独立して確認する。 |
 | 境界 | Required | ERB-IT-006、ERB-UAT-007、ERB-IT-008、ERB-IT-010、ERB-ST-015、ERB-IT-018、ERB-ST-019、ERB-IT-020、ERB-IT-021、ERB-ST-022、ERB-UT-023、ERB-UT-034、ERB-UT-035、ERB-UT-036、ERB-UT-037、ERB-UT-038、ERB-UT-039 | 値、Authority、情報、責務、localhost配信範囲、Browser lifecycle、Workbench Production Shell、AI依頼種別、公式助言のDocker隔離、実Browser観測、固定Native応答の値境界または利用者判断の境界を確認する。故障注入ERB-IT-002は異常へ分類する。 |
 | 準正常 | Required | ERB-IT-004、ERB-ST-005 | 継続可能な分岐、保留、観測不能または診断状態を成功へ畳まない。 |
 | 異常 | Required | ERB-IT-002、ERB-UT-032 | 起動・搬送・終了の失敗と不正Provider構造化入力の拒否を区別して確認する。親Process喪失は回復項目ERB-ST-030でも独立scenarioとして処置する。 |
-| 回復 | Required | ERB-IT-003、ERB-ST-009、ERB-ST-013、ERB-IT-014、ERB-IT-017、ERB-ST-030 | 失敗・取消後に同じIdentityと義務で安全に再入場できることを確認する。旧ERB-ST-011／ERB-IT-012は旧handoff比較専用で現RuntimeのRequired集合に非適用。ID・旧Oracle・正式191母集団・Not Runは保持し、別意味へ再利用しない。 |
-
-## 4. 検証項目
+| 回復 | Required | ERB-IT-003、ERB-ST-009、ERB-ST-011、ERB-IT-012、ERB-ST-013、ERB-IT-014、ERB-IT-017、ERB-ST-030 | 失敗・取消後に同じIdentityと義務で安全に再入場できることを確認する。旧二項目の現在Runtimeへの非適用は上記の区分に従い、分類の保持から再実行を要求しない。 |
 
 公式CLI移行では、旧内部改造に対する`ERB-IT-024`～`ERB-IT-029`を現行の必須集合から除外する。旧6項目の詳細は基準Commit `823cb32deaa0e21a28aad73942ab5a05a9aa0950`の本定義で追跡し、現行の検証項目表には残さない。IDを別の意味に再利用せず、過去の成功を新方式の成功へ流用しない。公式CLI内部のTool登録禁止とJS能力不存在は現行CRDDの保証対象ではない。
 
@@ -294,6 +296,8 @@ Provider差の純粋検証は、`ARCH-000004`／`ARCH-000015`の結果変換と`
 | 通知と返却結果の相関 | `ERB-UT-023`、`ERB-IT-002`、`ERB-IT-004` | 要求・受理・開始・完了の混同、コピー／別Operationの結果、遅延・重複通知、callback例外・Promise／不正戻り値・部分更新後throw、OS固有reasonによる上位再試行 | 純粋相関と関連Blockの実接続。同期・直列、例外後／最終返却後のcallback 0、登録参照0を観測。一次失敗・cleanup・配送不成立・未確定保存を別に保持し、二重Effectと完了状態の巻戻し0 |
 | 取消・親喪失・同ID再入場 | `ERB-IT-003`、`ERB-ST-030` | 通知未着だけから不存在を推定、古いHandle再利用、正本記録との相関欠落、通知購読解除だけで終了、Consumer保存待ちでDocker清掃を未完了扱い | 実Process・現在Docker資源観測と公開利用側。不存在または同じexact回復参照の保持を確認する |
 | 許可済み運用介入の下位実処理 | `ERB-ST-009`、`ERB-IT-014` | 旧Nativeの真正性・Job所有・終了保証を落とす、未許可再起動、部分Effect／不明を成功化、旧fence／IDを別操作へ流用 | 既存Windows／Docker境界。介入の実行許可は別に確認し、Source移管の許可を再起動許可へ読み替えない。旧`ERB-ST-011`／`ERB-IT-012`は移行元保証の比較だけに使用し、新義務を付けない |
+
+## 4. 検証項目
 
 | Local ID | 条件区分 | 試験段階 | 試験種別 | 対象／境界 | 外部境界の段階 | 事前状態／入力 | 操作／刺激 | 観測 | Oracle | Evidence | 終了後条件 | 実行形態 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -644,9 +648,9 @@ OPEN: 旧入口／署名依存撤去、限定unknown終了Class、実Dockerと�
 
 ERB-IT-010／ERB-ST-013は5CのOrchestrator／Coordinator大改修に依存するOPENとして保持する。旧CROS Handoffのpure prototypeと専用値試験は撤去し、sourceActive:false／destinationEffectIssued:trueを実Owner終了、Effect発行、重複消費防止の観測へ流用しない。QA ID・検証義務・正式Not Run・v0.22対象は変えない。[固定Git履歴と処置](../../../99_Roadmap/Changes/CHG-000082/second-stage-plan.md#旧cros試作品の撤去--2026-10-13)を参照する。
 
-## Checklist
-
 読取り助言の試験器では、Hash対象fieldの欠落・異型と正常null、標準Network ID差、利用者資源の追加・消失、前後のpaused／restartingを反証する。Root検証先行、試験器自身の前後照合でのGit子Process未使用、親GIT_DIRでRevision観測先が変わらないこと、対象文書・Revisionのみの不変主張と全Repository不変非主張を確認する。既存Workbenchの安全なGit読取りは変更しない。合成Ownerと実loopback HTTPによる局所成功を実Provider再試験へ流用しない。
+
+## Checklist
 
 - [x] Quality ID、検証目標およびSource固有条件を自己完結して示した
 - [x] 各Local ItemをRequired Verification Obligationの局所参照と導出元へ接続した

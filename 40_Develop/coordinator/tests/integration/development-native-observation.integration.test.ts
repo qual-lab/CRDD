@@ -1452,6 +1452,18 @@ if (process.argv[2] === "--probe") {
                 };
               },
             }) as (...args: unknown[]) => Record<string, unknown>;
+            /**
+             * 拒否時に出力Decoderへ到達しないことを計数する。
+             * @responsibility 拒否時に出力Decoderへ到達しないことを計数する。
+             * @trace AIT-IT-002
+             * @trace ERB-IT-004
+             * @precondition 保存・観測結果の有限Decoder代役。
+             * @stimulus 呼出し時だけdecodeCallsを増やし固定phaseを返す。
+             * @observation decodeCallsと開始拒否結果。
+             * @oracle 出力読取り前の拒否ではDecoder呼出し0。
+             * @cleanup N/A: 計数と返却値のみ。
+             * @boundary Native起動境界の代役。実Native処置は行わない。
+             */
             const decode = () => {
               decodeCalls += 1;
               return {
@@ -1635,6 +1647,17 @@ if (process.argv[2] === "--probe") {
             nonce: "nonce",
             provider: "codex",
           };
+          /**
+           * 固定Bootstrap試験へ候補の正常観測値を供給する。
+           * @responsibility 固定Bootstrap試験へ候補の正常観測値を供給する。
+           * @trace ERB-IT-004
+           * @precondition 本番Bootstrapを評価するVM入力。
+           * @stimulus candidate状態の固定値だけを返す。
+           * @observation 後続検証の到達数と固定入口拒否。
+           * @oracle 他の不正条件を候補欠測の失敗で隠さない。
+           * @cleanup N/A: メモリ値だけ。
+           * @boundary 候補観測代役であり旧Storeを生成しない。
+           */
           const candidate = () => ({ status: "candidate" });
           let verifies = 0;
           let spawns = 0;

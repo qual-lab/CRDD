@@ -132,7 +132,10 @@ test("入口統合後も引数なしと従来helpは成功する", () => {
     });
     assert.equal(result.status, 0, result.stderr);
     assert.equal(result.stderr, "");
-    assert.match(result.stdout, /coordinator task --request-stdin/u);
+    assert.match(
+      result.stdout,
+      /crdd-coordinator\.ts task --request-stdin --json/u,
+    );
   }
 });
 

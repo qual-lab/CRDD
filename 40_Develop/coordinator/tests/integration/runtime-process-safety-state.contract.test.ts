@@ -229,15 +229,10 @@ test("Host failure drain中はTask／External SendをEffect前に一時拒否し
   );
   assert.equal(grant.manualRecoveryRequired, false);
   assert.equal(endRuntimeProcessEffectDrain(drain), true);
-  const started = startRuntimeOwnedCoordinatorTask(
-    Object.freeze({}),
-    "C:\\repository",
+  assert.throws(
+    () => startRuntimeOwnedCoordinatorTask(Object.freeze({}), "C:\\repository"),
+    /coordinator_task_workspace_target_invalid/u,
   );
-  const result = await started.completion;
-  assert.equal(result.status, "blocked");
-  assert.equal(result.reason, "coordinator_task_request_invalid");
-  assert.equal(result.cleanupConfirmed, true);
-  assert.equal(result.manualRecoveryRequired, false);
 });
 
 /**

@@ -2,7 +2,8 @@
  * 固定旧targetの回収を実本文と模擬Filesystem境界で検証する。
  * @packageDocumentation
  * @responsibility 型・実体・Scope不明の削除0と部分要求後の不明を区別する。
- * @trace ERB-IT-001 ERB-IT-002
+ * @trace ERB-IT-001
+ * @trace ERB-IT-002
  * @level IT
  * @scope 内部Driverと固定factoryの接続。保存・Session・実Hostは別確認。
  * @boundary ERB-IT-001／ERB-IT-002=Direct Boundary: 実Driver→模擬Node／Native観測・削除。
@@ -19,7 +20,8 @@ import { runInNewContext } from "node:vm";
 /**
  * 試験内の物理entryを模擬する。
  * @responsibility NativeとNodeで別単位の観測を供給する。
- * @trace ERB-IT-001 ERB-IT-002
+ * @trace ERB-IT-001
+ * @trace ERB-IT-002
  * @shape 種別と擬似inodeだけ。
  * @invariant 実PathやOS資源を生成しない。
  * @boundary メモリ内だけ。
@@ -37,7 +39,8 @@ type FixtureEntry = {
 /**
  * 回収の全preflightと処置・後観測を独立した要求列で検査する。
  * @responsibility 初期拒否と部分成功を同じEffect 0へ畳まない。
- * @trace ERB-IT-001 ERB-IT-002
+ * @trace ERB-IT-001
+ * @trace ERB-IT-002
  * @precondition 実Driver本文、固定Windows PathとメモリFSだけ。
  * @stimulus 正常型、未知型・実体差・上限、取消、削除失敗・追加entry・後観測不明。
  * @observation 全unlink／rmdir対象、列挙close、要求状態と不存在。
@@ -61,10 +64,15 @@ test("固定退避物の回収は全preflight・fresh実体・現在許可を必
   /**
    * 同じ固定Oracleを正常本文と一意変異へ適用する。
    * @responsibility 変異に合わせて期待を変更しない。
-   * @trace ERB-IT-001 ERB-IT-002
+   * @trace ERB-IT-001
+   * @trace ERB-IT-002
    * @input program: 実本文または一箇所変異。
    * @returns 全ケースの独立期待が一致したとき完了。
    * @precondition 実境界を使わない。
+   * @stimulus 正常・不存在・親差替え・Owner喪失・観測不明を独立入力で実行する。
+   * @observation 処置要求列、返却値と残存状態。
+   * @oracle ケース固有の独立期待を変異前後で維持する。
+   * @cleanup N/A: 模擬Filesystem内で完結する。
    * @postcondition 各ケースのメモリを分離する。
    * @effect 模擬要求と局所Assertionだけ。
    * @failure 期待差はAssertion失敗。
@@ -489,7 +497,8 @@ test("固定退避物の回収は全preflight・fresh実体・現在許可を必
 /**
  * 固定factoryの三用途が同じ導出値だけをDriverへ渡すことを確認する。
  * @responsibility 任意Path入力と不正実体・Proxyを回収能力へ昇格しない。
- * @trace ERB-IT-001 ERB-IT-002
+ * @trace ERB-IT-001
+ * @trace ERB-IT-002
  * @precondition 実factory／Scope本文と模擬Local Directory観測。
  * @stimulus 三用途・不正用途・Accessor実体を渡す。
  * @observation Driverへ渡すsource／target・expected・現在Scope callback。

@@ -563,6 +563,7 @@ test("Repository LocationとRepository-local Ignoreの既知Consumer集合が宣
       "40_Develop/coordinator/scripts/verify-signed-general-task.ts",
       "40_Develop/coordinator/scripts/verify-signed-reviewer-boundary.ts",
       "40_Develop/coordinator/scripts/verify-signed-route-matrix.ts",
+      "40_Develop/coordinator/scripts/workspace-task-fixture.ts",
       "40_Develop/orchestrator/src/operation-composition.ts",
       "40_Develop/coordinator/src/cli/command.ts",
       "40_Develop/coordinator/src/diagnostics/doctor.ts",
@@ -829,6 +830,7 @@ test("Local Change Setと用途別Named SymbolのConsumer集合が宣言と一�
       "40_Develop/coordinator/scripts/verify-signed-general-task.ts",
       "40_Develop/coordinator/scripts/verify-signed-reviewer-boundary.ts",
       "40_Develop/coordinator/scripts/verify-signed-route-matrix.ts",
+      "40_Develop/coordinator/scripts/workspace-task-fixture.ts",
       "40_Develop/coordinator/src/cli/command.ts",
       "40_Develop/coordinator/src/diagnostics/doctor.ts",
       "40_Develop/coordinator/src/diagnostics/runtime-repair.ts",
@@ -900,6 +902,7 @@ test("Local Change Setと用途別Named SymbolのConsumer集合が宣言と一�
     .map(({ relativePath }) => relativePath)
     .sort();
   assert.deepEqual(candidateConsumers, [
+    "40_Develop/coordinator/scripts/workspace-task-fixture.ts",
     "40_Develop/orchestrator/src/workspace/commands.ts",
     "40_Develop/orchestrator/src/workspace/operations.ts",
     "40_Develop/orchestrator/src/workspace/record.ts",

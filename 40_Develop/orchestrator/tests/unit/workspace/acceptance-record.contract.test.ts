@@ -1,7 +1,9 @@
 /**
  * 既存採用記録から品質受入への相関条件を有限Snapshotで反証する。
+ * @packageDocumentation
+ * @scope 保存読取り代役と本番相関判定。Git変更・Providerなし。
  * @responsibility Hash形式、対象、欠測と過去失敗の区別。
- * @trace CPR-IT-004 CPR-IT-006
+ * @trace CPR-UT-009
  * @level UT
  * @boundary 保存読取りだけを代役にし、本番判定本文を実行する。Git／Providerなし。
  */
@@ -13,12 +15,14 @@ import { validWorkspaceCandidateRequest } from "../../../../version-control/src/
 
 /**
  * 本番判定を有限の既存保存結果へ接続する。
- * @trace CPR-IT-004
+ * @trace CPR-UT-009
  * @precondition 判定関数の境界をSourceから一意に抽出できる。
  * @stimulus 正常採用と不正長・対象差・欠測。
  * @observation boolean。保存や外部Effectは発行しない。
  * @oracle 40／64桁だけを許容し、不明・不一致は拒否する。
  * @cleanup N/A: Process内の合成値だけ。
+ * @responsibility 本番判定を有限の既存保存結果へ接続する。
+ * @boundary 本番判定本文と保存読取り代役。Git・Provider処置は発行しない。
  */
 test("採用記録はexactなCommit長と計画相関を要求し過去失敗を消さない", () => {
   const source = fs.readFileSync(

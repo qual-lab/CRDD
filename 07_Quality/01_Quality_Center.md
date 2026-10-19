@@ -1,12 +1,16 @@
 # CRDD内部ツールの品質の現在状態
 
-Workspace回帰残件の局所是正では、Windowsの64bit File ID表現を5取得点で補正し、Coordinator portable回帰1,922成功・失敗0・対象外5と関連6Packageの全回帰成功を確認した。既存の安全拒否は維持し、限定独立レビュー残指摘0。[今回の対象と限界](../99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#windows実体識別の限定是正と回帰2026-10-18)を参照する。この件数を正式198 Local Itemの成立数や実Provider全E2E・移行・Release可能へ換算しない。
+確定誤検知236件を検査側で是正した。生診断1,836→1,600、追加0、残る命名1,045は全件維持。局所・QA Header全数3/3、関係16/16・静的確認成功。Checker全回帰386件は385成功／既知1失敗（残1,600診断）で完走した。残1,600は現行規則上の是正対象1,444・適用先／解釈待ち156である。Browser原因未確定、正式未評価、②保持の扱いは維持する。[236件の是正と確認](../99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#naming-false-positive-remediation)と[原因別分類・Browser調査](../99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#naming-browser-triage)を参照する。以下の回帰結果は各固定候補に限定する。
+
+検証Tool自身の3 Suiteと4 Toolを接続し、Test Header全数Gate成功、現行文書43→0診断を確認した。歴史CHG旧リンク／アンカー3,353診断は不変更で全体Exit 1を保持する。型・静的検査と関連Package回帰は成功。Checker全回帰383成功／1失敗後、前提不整合で隠れていた既存Source命名・責務Headerの未達を別範囲として確認した。Browser接続1場面も元失敗の原因未確定を維持する。正式198項目・実Provider全E2E・全体Passへ換算しない。②のAI再試行・保持物削除と先行合成7領域の削除は行っていない。[原因別是正・確認範囲・残件](../99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#verification-tool-document-closure)を参照する。先行Coordinator通常回帰1,833成功・失敗0・対象外5は当該先行差分の結果として保持する。
+
+是正前の固定Commit `d4edcd1e`の全体回帰は不合格。通常17 Packageは3,389件＝成功3,315・失敗67・対象外7、CoordinatorのWindows追加は176件＝成功172・失敗4、Workbench実Browser／入口は22件＝成功19・失敗2・対象外1である。各実行群を合算して正式QA項目の成立数にしない。型検査17/17・Biome・Native単体47／CLI結合8・15画面の表示試験は成功したが、失敗の代替根拠にはしない。[固定版の原因群・残存参照・限界](../99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#workspace-fixed-regression)を参照する。旧結果は現在の全体Passへ流用しない。
 
 Workspace方式の現設計集合は13定義・198 Local Item（RFD-IT-029を1件追加）。[追加統合](04_Quality_Integration.md#workspace方式の追加統合2026-10-17)と[新方式の検証計画](03_Verification_Design.md#workspace方式の段階別検証計画2026-10-17)へ接続した。新方式の検証結果は全件Not Run、既存197件時点の試験／Evidence・DI完成は基準対象に限定する。設計反映を実装・移行・全体Readyへ換算しない。以下の197等の件数はWorkspace追加前の対象として区別する。
 
-状態: Quality Design In Progress — Latest Contract Propagation
+状態: Quality Design Under Review — Reality Audit Blocked
 担当責任者: Qual-Lab
-最終更新日: 2026-10-18
+最終更新日: 2026-10-19
 
 現在の判定は[現在の品質投影](#current-quality-projection)を参照する。以下の先行候補の経過にある「現在」「最新」「未完了」は記録当時の対象版に限り、現行Sourceの成立状態へ流用しない。
 
@@ -108,12 +112,12 @@ Workbenchの参照文書一覧・表示試験の既知2失敗は是正し、固�
 |---|---|---|
 | 全体状態 | ⑥の品質整合・正式評価を進行中 | 全体Quality Ready・リリース可能とはしない |
 | 現在対象 | v0.22.0 | CHG-000082の実行系再編を作業中。AM・Domain・Workbench・MCPの限定結果は保持する。CROSは全体概念であり旧Packageではない |
-| 設計集合 | 13定義・198 Local Item | Workspaceの実Git LifecycleをRFD-IT-029として1件追加。新方式は全件Not Runで、Source／Test Symbolの接続・実行／Pass件数は増えない。旧197件時点の結果・歴史的非適用ID・旧191件の履歴は変更しない |
-| 観測済み | 現Coordinator全回帰は1,926件中1,912成功・9失敗・対象外5。試験VM結合漏れだけを是正し全24件再検証成功 | 未変更母集団との対応評価は1,921成功・対象外5・未解消失敗0。元全回帰Failと適用限界を保持し、単一run全緑とはしない。DI337件・実Host Process7件・認証隣接30件・状態回収実Windows42件と独立レビューを完成条件へ照合。正式Local Itemの全体Passや実Provider全E2Eへ換算しない |
-| 未観測 | 正式198項目の全体評価、後続E2E・UATの未確認範囲を保持 | 新Workspace方式はNot Run。旧197件時点の結果は基準対象へ維持する。初回実Host・鍵実入口・利用者理解等は後続E2Eで確認し、局所成功を実Win32故障や新Workspace回収成立へ換算しない |
+| 設計集合 | 13定義・198 Local Item | Workspaceの実Git LifecycleをRFD-IT-029として1件追加。設計追加だけからSource／Test接続・実行・Passを推定しない。正式項目の再評価と個々の局所観測を分け、旧197件・191件の履歴は変更しない |
+| 観測済み | Coordinator通常1,833成功・対象外5・失敗0。Windows該当5件、Semantic16件等も成功 | [追従是正後の観測](../99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#workspace-follow-up-remediation)を現在値とする。他の回帰群に未開始が残り、先行版の1,926件等の結果は現在の全体合格へ流用しない。局所件数を正式項目のPass数へ換算しない |
+| 未観測 | 正式198項目の全体評価、後続E2E・UATの未確認範囲を保持 | 新Workspace方式の正式評価は未完了。Source接続・局所実測済みの範囲と未評価を分ける。初回実Host・鍵実入口・利用者理解等は後続E2Eで確認し、局所成功を実Win32故障や実Provider全体成立へ換算しない |
 | 既知Gap | 全体Checker未合格、正式Evidence対応を再照合中 | 局所成功や関係の存在から全体完成を推定しない |
-| 局所根拠 | AM152 Case、MCP86 Case、Workbench78 Case成功 | 異なる局所実行と対象範囲を合算して正式義務の成立数にしない。実行方法・限界は変更計画を参照 |
-| 検査 | 全体Checkerの直前3341 errors・0 warningsは未解消 | 2026-10-17の直前CheckerはChanges内リンク等3321件とIA／UI／SPEC工程契約20件。031接続後のManifest再計数は197項目・Relationあり146／なし51、17 Manifest・774 Symbol、重複ID・未定義Local参照0。欠損Path・不明verifies参照0は先行全数照合の結果。Relation有無を実行／Passへ換算せず、Header全数・正式Evidenceの全体評価は未完了 |
+| 局所根拠 | 先行AM152、MCP86、Workbench78等は当時の対象に限定 | 最新差分の結果は冒頭と変更計画を参照。異なる版・局所実行を合算して正式義務の成立数にしない |
+| 検査 | 最新の文書検査は現行0・歴史CHG旧参照3,353で全体Exit 1 | 3 Suite分類・Test Header・現行43診断を是正。Checker既存Source命名・責務Header未達、Browser元失敗・原因未確定、未実施Host境界・合成7領域清掃、正式198項目の全体評価・Evidence対応は分離して保持する。[現在結果と限界](../99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#verification-tool-document-closure)を参照 |
 | 限定実境界 | 診断付き新品一回でDocker再起動と認証create結果不明の限定終了が成功 | 再起動1回・不存在2回・終了保存1回、正式回収・履歴・操作除去・Root不存在を確認。過去Failと原因未確定を保持し、汎用unknown終了や別の実境界成立へ換算しない。詳細は変更計画を正本とする |
 | 公式配置Image | 通常entrypointの公式0.159.2、三実行物Hash、実Image IDと隔離構成の実Caseが1/1成功 | 二Containerを順次回収しRoot不存在。read-onlyのPATH alias作成Warningを元のまま保持する。再Build・公式取得元再検証・Host機能・助言／取消の成功へ拡張しない。正式義務の全体評価は別に照合 |
 | 後続E2E | 初回設定・鍵実入口、利用者理解、実Provider／隔離／取消／回収 | 後回しは免除でない。通常実行へCRDD独自署名を再要求しない |
@@ -130,7 +134,7 @@ Workbenchの参照文書一覧・表示試験の既知2失敗は是正し、固�
 |---|---:|
 | Canonical入力 | 167 |
 | Quality検証目標 | 13 |
-| Local Item数 | 197 |
+| Local Item数 | 198 |
 
 ## 集計の履歴と現在への適用
 

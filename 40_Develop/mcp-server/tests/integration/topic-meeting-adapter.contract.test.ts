@@ -211,6 +211,18 @@ test("全Topic／Meeting Toolは完全入力検査後だけRepositoryを解決�
           code: -32603,
           message: "Internal error",
         });
+        /**
+         * Domain列挙の固定失敗をAdapterへ返す。
+         * @responsibility Domain列挙の固定失敗をAdapterへ返す。
+         * @trace CPR-IT-012
+         * @trace RFD-IT-013
+         * @precondition 有限のDomain reasonを一つ選ぶ。
+         * @stimulus listでその固定Errorを投げる。
+         * @observation Protocol codeと非秘密の固定message。
+         * @oracle 内部Error本文を漏らさず既存失敗分類へ対応する。
+         * @cleanup N/A: 局所代役で資源を取得しない。
+         * @boundary Topic/Meeting Adapterの入力失敗経路。実保存なし。
+         */
         const list = () => {
           throw new Error(reason);
         };

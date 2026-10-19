@@ -1,7 +1,7 @@
 # SPEC Detail
 
 成果物種別: SPEC Detail統合投影
-状態: 更新候補（2026-10-12の鍵提示方式をUI／SPEC Detailまで伝播・限定再レビュー済み（鍵提示方式伝播差分、全重大度0）。旧限定Pass／Hashは履歴。Architecture／Quality／Source・実画面・全体Readyは未成立）
+状態: Canonical（30 SPEC Definitionから30 BHVへの現在の設計対応を全数確認済み。Architecture／Quality／Source・実画面・全体Readyの成立を意味しない）
 維持責任者: Qual-Lab
 
 ## 1. 目的と移行境界

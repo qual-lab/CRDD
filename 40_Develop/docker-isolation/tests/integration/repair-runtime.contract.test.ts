@@ -5,6 +5,7 @@
  * @trace ERB-IT-014
  * @level IT
  * @scope 内部生涯管理。実Docker・Native・外部AI要求0。
+ * @boundary 実Session所有処理と有限Native代役。実Processの終了証明とは区別する。
  */
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -38,6 +39,10 @@ import type { DockerDesktopRepairNativeHelperSession as Session } from "../../sr
  * @boundary 内部runtimeと模擬Native。
  * @security 認証情報なし。
  * @concurrency 失敗通知を明示的に駆動する。
+ * @stimulus 正常・失敗・取消に対応するSession購読と終了代役を生成する。
+ * @observation abort/release/unsubscribe回数と返却cleanup/protocol。
+ * @oracle 同じSessionの終了分類を検証でき、二重closeを計数できる。
+ * @cleanup 実資源なし。呼出し元が購読解除と一回終了を確認する。
  */
 function fixture(
   close = async () => ({
@@ -95,6 +100,10 @@ function fixture(
  * @boundary Native生涯・準備保存・実Machine。
  * @security Path・秘密値なし。
  * @concurrency 同じ入力と子だけを使う。
+ * @stimulus 固定inputとprepare/save/observe代役を実runSessionへ結合する。
+ * @observation 準備回数・checkpoint・executeと保存候補。
+ * @oracle 実Machineへの接続と最終候補の未保存を区別できる。
+ * @cleanup 模擬Nativeをjoinし購読解除を確認する。
  */
 function sessionFixture() {
   const f = fixture();
@@ -195,6 +204,10 @@ function sessionFixture() {
  * @boundary 準備とMachineとjoin。
  * @security 実Docker 0。
  * @concurrency 最終join後の通知0。
+ * @stimulus 初回実行後、同じH/Scopeの回収済みcheckpointで再入場する。
+ * @observation 準備一回、合法通知、保存済みpendingと最終候補。
+ * @oracle 両経路ともrecoveredでも最終cleanup候補を保存済みと誤認しない。
+ * @cleanup 同じSessionの終了と通知解除をfixtureで確認する。
  */
 test("修復接続: 初回とclean再入場を実Machineへ結びfinal候補を未保存で返す", async () => {
   const f = sessionFixture();
@@ -241,6 +254,10 @@ test("修復接続: 初回とclean再入場を実Machineへ結びfinal候補を�
  * @boundary 同Adapterのsticky値、Machine、Native join、最終候補。
  * @security 実OS操作0。
  * @concurrency 内部signalと現在確認を同じ準備へ結合する。
+ * @stimulus 観測回収不明の前後へNative回収三分類を与える。
+ * @observation 一次失敗、cleanup候補、Effectと後着通知の数。
+ * @oracle Native成功でも観測不明を消さずfresh処置を拒否する。
+ * @cleanup 取得した同Sessionをabort/joinして購読を解除する。
  */
 test("修復接続: 観測cleanup不明はNative回収で消さずfreshを拒否する", async () => {
   for (const stage of ["before_effect", "after_effect"] as const) {
@@ -359,6 +376,10 @@ test("修復接続: 観測cleanup不明はNative回収で消さずfreshを拒否
  * @boundary prepare返却と準備拒否。
  * @security 実OS・外部AI操作0。
  * @concurrency prepare返却直前の取消を明示的に駆動する。
+ * @stimulus prepareにcleanup失敗を返し、必要なら直前取消を入れる。
+ * @observation 固定理由・観測/保存/execute0とabort一回。
+ * @oracle 準備拒否や取消より先に観測cleanup不明を保持する。
+ * @cleanup 同じ模擬子をabortし後続通知を解除する。
  */
 async function assertPreparationCleanupUnknown(
   connection: typeof runSession,
@@ -414,6 +435,10 @@ async function assertPreparationCleanupUnknown(
  * @boundary 準備事実と取消分類。
  * @security 実Docker・認証情報なし。
  * @concurrency 各条件を独立した子で評価する。
+ * @stimulus 捕捉順を遅らせた変異と実接続へ通常・取消を与える。
+ * @observation 実接続の成功と順序変異へのassertion拒否。
+ * @oracle 同じOracleがprepare返却直後のcleanup不明を検出する。
+ * @cleanup メモリ変異と模擬Sessionを破棄する。実Source不変更。
  */
 test("修復接続: prepare返却時のcleanup不明は準備拒否・取消より先に捕捉する", async () => {
   const source = fs
@@ -453,6 +478,10 @@ test("修復接続: prepare返却時のcleanup不明は準備拒否・取消よ�
  * @boundary 入力、準備保存、Machine開始。
  * @security getterとProxyを実行しない。
  * @concurrency 準備中・保存中の取消も含む。
+ * @stimulus 不正checkpoint、取得前拒否、準備保存拒否を個別に与える。
+ * @observation 取得・通知・executeと取得済み子abortの回数。
+ * @oracle 拒否後Machine未開始、unknownをfresh許可へ変換しない。
+ * @cleanup 取得済みの同じ子だけをabortしjoinする。
  */
 test("修復接続: 不正再入場と準備保存拒否はMachine開始前に止まる", async () => {
   const baseline = sessionFixture();
@@ -582,6 +611,10 @@ test("修復接続: 不正再入場と準備保存拒否はMachine開始前に�
  * @boundary 接続本文と負対照。
  * @security 実OS・外部AIへ接続しない。
  * @concurrency N/A: 局所評価。
+ * @stimulus 本番接続SourceからImport/Exportだけを除き型を消す。
+ * @observation 既存Machine・decoder・checkpoint準備を結合したrunner。
+ * @oracle Source抽出が成立しなければ停止し、変異だけを同じOracleへ渡す。
+ * @cleanup VMとSource変異をメモリ内で破棄する。
  */
 function repairConnectionMutant(source: string): typeof runSession {
   const stripped = stripTypeScriptTypes(
@@ -614,6 +647,10 @@ function repairConnectionMutant(source: string): typeof runSession {
  * @boundary 準備、実Machine、技術処置、join。
  * @security 実Effect0。
  * @concurrency 保存後の処置許可単独喪失を含む。
+ * @stimulus 一slotの正常・拒否・許可喪失と通知二重化変異を実行する。
+ * @observation execute0/1、意図・発行・確認列、全通知の合法性。
+ * @oracle 実接続は成立し同じOracleが不要化・二重化変異を拒否する。
+ * @cleanup 模擬Native終了を待機し通知解除を確認する。
  */
 test("修復接続: 一処置の搬送と通知一回性を同Oracleで反証する", async () => {
   const oracle = async (
@@ -625,6 +662,17 @@ test("修復接続: 一処置の搬送と通知一回性を同Oracleで反証す
     let preparedCalls = 0;
     let effectCalls = 0;
     const sequence: string[] = [];
+    /**
+     * stop_runtimeのcheckpoint遷移を重複なしで記録する。
+     * @responsibility stop_runtimeのcheckpoint遷移を重複なしで記録する。
+     * @trace ERB-IT-014
+     * @precondition 同一slotのcheckpoint通知列。
+     * @stimulus action値を結合し直前値と異なるときだけ追加する。
+     * @observation 意図・発行・確認の順序列。
+     * @oracle 保存前処置や重複通知を独立期待列で検出する。
+     * @cleanup N/A: 局所の文字列配列のみ。
+     * @boundary 実Runtime通知と有限処置。実OS操作なし。
+     */
     const record = (checkpoint: Checkpoint) => {
       const value = Object.values(checkpoint.actions.stop_runtime).join(":");
       if (sequence.at(-1) !== value) sequence.push(value);
@@ -736,6 +784,10 @@ test("修復接続: 一処置の搬送と通知一回性を同Oracleで反証す
  * @boundary 未信頼入力、非同期準備、保存前確認。
  * @security hostile getterとapply trapは0。
  * @concurrency await後と同期callback後を確認する。
+ * @stimulus prepare待機中・保存確認中の取消やNative喪失とhostile値を与える。
+ * @observation 拒否後の観測・通知0、getter/Proxy到達数。
+ * @oracle 喪失や不正値をtrueへ昇格せず同じ子を一回abortする。
+ * @cleanup 同Sessionをjoinし登録購読を解除する。
  */
 test("修復接続: 準備中喪失とhostile値では後続通知0", async () => {
   for (const mode of [
@@ -857,6 +909,10 @@ test("修復接続: 準備中喪失とhostile値では後続通知0", async () =
  * @boundary 取得待機と取消。
  * @security 実Effect 0。
  * @concurrency 遅延closeの完了まで返却しない。
+ * @stimulus 事前取消と取得Promise保留後の取消を別々に駆動する。
+ * @observation 取得数・execute0・同じ子abortと待機の完了順。
+ * @oracle 遅れて取得した子の終了まで返らず取消を取得失敗へ畳まない。
+ * @cleanup 遅延closeを解決して同じ子をjoinする。
  */
 test("修復生涯: 取消中に遅れて取得した同じ子を終了待機する", async () => {
   const controller = new AbortController();
@@ -924,6 +980,10 @@ test("修復生涯: 取消中に遅れて取得した同じ子を終了待機す
  * @boundary 実行と回収。
  * @security 実OS操作0。
  * @concurrency 終了後の遅延通知も送る。
+ * @stimulus 正常・Native失敗・実行例外・close例外を組み合わせる。
+ * @observation 一次value/reason、abort/releaseの別計数と遅延通知。
+ * @oracle 元実行値を保ちclose一回、解除後の通知を無効にする。
+ * @cleanup 同じ模擬子の終了と購読解除を確認する。
  */
 test("修復生涯: 正常releaseとNative失敗abortを分離する", async () => {
   for (const mode of ["normal", "native", "throw", "close_throw"] as const) {
@@ -984,6 +1044,10 @@ test("修復生涯: 正常releaseとNative失敗abortを分離する", async () 
  * @boundary 内部runtimeの取得と終了。
  * @security Sourceはメモリ変異だけで実ファイルを変更しない。
  * @concurrency 遅延取得・順序違いを明示駆動する。
+ * @stimulus 取得分類と通知順序を変え、終了gate/解除欠落の変異も実行する。
+ * @observation 最初の停止理由・同じ参照・終了後SignalとListener数。
+ * @oracle first-wins理由を保持し同Oracleで終了gate欠落を拒否する。
+ * @cleanup 監視用Signal wrapperを復元し同Sessionをjoinする。
  */
 test("修復生涯: first-wins理由と終了gateを独立Oracleで反証する", async () => {
   for (const status of [
@@ -1044,6 +1108,17 @@ test("修復生涯: first-wins理由と終了gateを独立Oracleで反証する"
     assert.deepEqual(result.cleanup, { cleanup: "unknown", protocol });
     assert.deepEqual(f.counts, { abort: 1, release: 0, unsubscribe: 1 });
   }
+  /**
+   * first-winsと終了後監視解除を同一Oracleで反証する。
+   * @responsibility first-winsと終了後監視解除を同一Oracleで反証する。
+   * @trace ERB-IT-014
+   * @precondition 実runnerまたは終了gate/解除を無効化した変異。
+   * @stimulus 取消順序を駆動しSignal購読数を前後で取得する。
+   * @observation 一次理由、signal、同じ子の回収と購読解除数。
+   * @oracle 元理由保持・同じ子の終了・Listener解除が全部成立する。
+   * @cleanup 取り付けたSignal観測代役を復元して同じSessionを終了する。
+   * @boundary 取消とNative Sessionの有限代役。実Processは生成しない。
+   */
   const oracle = async (runner: typeof run) => {
     const controller = new AbortController();
     const initialListeners = getEventListeners(
@@ -1145,6 +1220,10 @@ test("修復生涯: first-wins理由と終了gateを独立Oracleで反証する"
  * @boundary Native取得と修復開始。
  * @security 外部送信0。
  * @concurrency 購読登録中の通知にも対応する。
+ * @stimulus 四つの取得分類、取得例外と購読時の同期失敗を与える。
+ * @observation 回収分類・execute0と一次理由。
+ * @oracle null Sessionを一律cleanup成功にせずprotocol/cleanup失敗を分ける。
+ * @cleanup 取得したSessionがある場合だけ同じ対象を終了する。
  */
 test("修復生涯: 取得不能の回収分類と同期失敗を保持する", async () => {
   for (const status of [

@@ -2,7 +2,8 @@
  * 固定System Directory観測の異常入力fixture。
  * @packageDocumentation
  * @responsibility 実Nativeを起動せず固定Artifact・Process応答を境界ごとに差し替える。
- * @trace ERB-IT-001 ERB-IT-002
+ * @trace ERB-IT-001
+ * @trace ERB-IT-002
  * @level IT
  * @scope System Directoryの前後Artifact・固定Process・Protocol検査
  * @boundary 試験Module差替え。実OS保証は別の実Native観測で確認する。

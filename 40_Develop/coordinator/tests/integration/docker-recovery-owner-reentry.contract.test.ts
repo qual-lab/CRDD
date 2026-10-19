@@ -763,16 +763,52 @@ async function runExternallyTerminatedProducer(worker: string, root: string) {
   let terminationRequests = 0;
   let cleanupFallbackIssued = false;
   let cleanupFallbackAccepted: boolean | null = null;
+  /**
+   * 所有子のstdoutを64KiB以内だけ捕捉する。
+   * @responsibility 所有子のstdoutを64KiB以内だけ捕捉する。
+   * @trace PRL-IT-013
+   * @trace ERB-IT-003
+   * @precondition 同じChildProcessの出力監視を登録している。
+   * @stimulus 文字列chunkを受け取り累積容量を検査する。
+   * @observation stdout本文と固定owned_producer_output_limit例外。
+   * @oracle 上限超過を本文へ追加せずprocessErrorとして保持する。
+   * @cleanup 所有子のjoin後に同じdata Listenerを解除する。
+   * @boundary 実Windows子のstdio。秘密や無制限本文の収集に使わない。
+   */
   const onOutput = (chunk: string) => {
     if (Buffer.byteLength(stdout) + Buffer.byteLength(chunk) > 64 * 1024)
       processError = new Error("owned_producer_output_limit");
     else stdout += chunk;
   };
+  /**
+   * 所有子のstderrを64KiB以内だけ捕捉する。
+   * @responsibility 所有子のstderrを64KiB以内だけ捕捉する。
+   * @trace PRL-IT-013
+   * @trace ERB-IT-003
+   * @precondition 同じChildProcessの出力監視を登録している。
+   * @stimulus 文字列chunkを受け取り累積容量を検査する。
+   * @observation stderr本文と固定owned_producer_error_limit例外。
+   * @oracle 上限超過を本文へ追加せずprocessErrorとして保持する。
+   * @cleanup 所有子のjoin後に同じdata Listenerを解除する。
+   * @boundary 実Windows子のstdio。秘密や無制限本文の収集に使わない。
+   */
   const onDiagnostic = (chunk: string) => {
     if (Buffer.byteLength(stderr) + Buffer.byteLength(chunk) > 64 * 1024)
       processError = new Error("owned_producer_error_limit");
     else stderr += chunk;
   };
+  /**
+   * 所有子のProcess errorを終了観測へ保持する。
+   * @responsibility 所有子のProcess errorを終了観測へ保持する。
+   * @trace PRL-IT-013
+   * @trace ERB-IT-003
+   * @precondition 同じ所有子のerror購読。
+   * @stimulus 通知されたErrorをprocessErrorへ保存する。
+   * @observation 返却または例外化されるProcess失敗。
+   * @oracle closeだけから成功を推定せずerrorを参照する。
+   * @cleanup 終了待機後に同じerror Listenerを解除する。
+   * @boundary 所有ChildProcessの通知。DockerやProviderは起動しない。
+   */
   const onError = (error: Error) => {
     processError = error;
   };
@@ -1099,6 +1135,18 @@ for (const producerMode of [
   "cleanup_withheld",
   "parent_terminated",
 ] as const) {
+  /**
+   * 放棄した実Ownerの終了後、別Processでexact回復を完了する。
+   * @responsibility 排他解放と清掃を区別し、旧Process終了から本番consumerまで結合する。
+   * @trace PRL-IT-013
+   * @trace ERB-IT-003
+   * @precondition Windowsと自己生成Repository、五資源未要求の固定Planを使う。
+   * @stimulus begin／abandon後、保存直後、Host開始後、清掃観測を省略した正常exitと清掃途中二点の終了から別Processへ接続する。
+   * @observation 各子の終了、実state全文と改訂、非対象本文／実体、履歴、Host／markerと短命物を個別確認する。
+   * @oracle 放棄またはcleanup_withheldのexitだけでは清掃せず、本番回復後だけ対象を除去し非対象を全文保持する。
+   * @cleanup 両子と対象清掃の確認後に自己生成Rootだけを回収し、不明時は保持する。
+   * @boundary Process喪失とfresh回復。Home観測だけを模擬し実Dockerは使わない。
+   */
   test(`Host Windows: Owner終了境界${producerMode}から別Processの本番回復へ結合する`, async () => {
     const area = requireReadyRepositoryRuntimeDataArea(
       ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
@@ -1996,6 +2044,18 @@ for (const fault of [
   "after_unknown",
   "packet",
 ]) {
+  /**
+   * 認証create切断子の通常例外で真正Ownerの解放と記録保持を確認する。
+   * @responsibility 実Dockerなしの故障刺激と、実保存・実Home排他・Host保持を分離する。
+   * @trace PRL-IT-013
+   * @trace ERB-IT-003
+   * @precondition Windowsの自己生成Repositoryと固定Docker代役だけを使用する。
+   * @stimulus 作成前、作成後、unknown保存前後、packet直前を個別Processで失敗させる。
+   * @observation 元例外、故障到達、要求列、abandon回数、実stateとHost・markerの保持。
+   * @oracle 前半三形はintent_saved、後半二形はunknownで、実Docker0とHome再取得を要求する。
+   * @cleanup 子終端・解放・自己生成実体の確認後に専用Rootを回収する。不明時は保持する。
+   * @boundary 実Owner／Writer／KernelとDocker代役。Container回収や実restartは検証しない。
+   */
   test(`Host Windows: 認証create通常例外${fault}でOwner解放と現在記録を保持する`, () => {
     const area = requireReadyRepositoryRuntimeDataArea(
       ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
@@ -2144,6 +2204,19 @@ for (const { repeatCount, retained } of [
   { repeatCount: 1, retained: true },
   { repeatCount: 2, retained: false },
 ]) {
+  /**
+   * 正常完了Ownerを実Host・Home排他・現在Writerへ接続する。
+   * @responsibility Docker証明の模擬とHost回収の実測を分け、結果保存までの本番結合を検証する。
+   * @trace PRL-IT-013
+   * @trace ERB-IT-003
+   * @trace ERB-IT-014
+   * @precondition Windowsと自己生成Repositoryを使い、修復Native・技術観測、Home観測とDocker証明だけを模擬する。
+   * @stimulus 1回形は退避なし、または自動破棄判断の保存直前を一回拒否して自己生成物を明示保持した後、同じstateを再初期化せずTaskへ渡す。2回形は同一Host・Homeで本番begin／正常completeを反復し、一度の実清掃後に逆順で結果を登録する。
+   * @observation 実state本文、Home排他競合、Host marker、履歴、短命物と非対象操作を確認する。
+   * @oracle 修復中のTask追加候補はnull。保持期限は七日で同ID再入場でも不変、保持物を再利用・削除せず、修復終了からの改訂・元版Hashと元修復履歴行を保全する。清掃前finalizeと複製結果は状態不変で拒否し、真正清掃後だけ対象を履歴化して現在状態から除く。
+   * @cleanup 真正Ownerを放棄・解放し、確認済み自己生成HostとRepositoryだけを清掃する。
+   * @boundary 実Owner／Kernel／Host／Writerと、模擬Docker cleanup・mount・terminal証明。
+   */
   test(`Host Windows: 正常Owner${repeatCount}回${retained ? "・保持あり" : ""}から実Home解放・Host清掃・結果保存まで結合する`, async () => {
     const area = requireReadyRepositoryRuntimeDataArea(
       ensureRepositoryRuntimeDataAreaFromWorkingDirectory(

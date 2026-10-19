@@ -273,7 +273,7 @@
         "QA-000003", "QA-000006"
       ],
       "localTestIds": [
-        "PRL-UT-006", "ERB-UT-037"
+        "ERB-UT-037", "PRL-UT-006"
       ],
       "verifies": [
         "platform-access.native-entry",
@@ -347,12 +347,12 @@
       "kind": "test-suite",
       "path": "src/filesystem/windows_directory.rs",
       "qaIds": [
-        "QA-000008",
-        "QA-000006"
+        "QA-000006",
+        "QA-000008"
       ],
       "localTestIds": [
-        "RDL-UT-005",
-        "ERB-UT-035"
+        "ERB-UT-035",
+        "RDL-UT-005"
       ],
       "verifies": [
         "platform-access.native-entry",

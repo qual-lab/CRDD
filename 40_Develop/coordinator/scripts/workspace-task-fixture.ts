@@ -7,6 +7,7 @@
 import { randomUUID, createHash } from "node:crypto";
 import { readFileSync, lstatSync } from "node:fs";
 import path from "node:path";
+import { resolveRepositoryRuntimeDataPaths } from "../../domain-model/src/index.ts";
 import {
   verifyRepositoryRoot,
   createRepositoryWorktree,
@@ -37,22 +38,18 @@ export function prepareVerificationWorkspace(
   baseCommit: string,
 ): VerificationWorkspacePreparation {
   const workspaceId = randomUUID();
+  const verified = verifyRepositoryRoot(root);
+  if (verified.status !== "completed")
+    throw new Error("verification_workspace_root_invalid");
+  const paths = resolveRepositoryRuntimeDataPaths(verified.capability);
+  if (!paths) throw new Error("verification_workspace_root_invalid");
   const target = Object.freeze({
     workspaceId,
     ownerRepositoryRoot: root,
-    executionTree: path.join(
-      root,
-      ".crdd",
-      "workspaces",
-      workspaceId,
-      "worktree",
-    ),
+    executionTree: path.join(paths.workspaces, workspaceId, "worktree"),
     baseCommit,
     head: baseCommit,
   });
-  const verified = verifyRepositoryRoot(root);
-  if (verified.status !== "completed")
-    return { target, prepared: false, cleanupConfirmed: true };
   const created = createRepositoryWorktree(verified.capability, {
     workspaceId,
     baseCommit,

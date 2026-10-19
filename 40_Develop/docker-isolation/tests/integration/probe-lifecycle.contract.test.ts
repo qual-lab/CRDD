@@ -521,6 +521,17 @@ test("稼働残存は保存後fresh確認から同実IDを一回開始し回収�
       identity: object,
       read: () => object,
     ) => { runningConfirmed: boolean };
+    /**
+     * 同じProbe bindingの開始処理とMount再観測を呼ぶ。
+     * @responsibility 同じProbe bindingの開始処理とMount再観測を呼ぶ。
+     * @trace ERB-IT-004
+     * @precondition 固定bindingと観測回数を記録するmountReader。
+     * @stimulus 実startへ同じidとReaderを渡す。
+     * @observation Mount読取り、inspect、startの順序と失敗。
+     * @oracle 正常時二度の確認を行い、後発差分・Owner喪失は拒否する。
+     * @cleanup fixtureの終了処理で模擬Probeを閉じる。
+     * @boundary 実開始関数と有限Transport。実Dockerは使わない。
+     */
     const run = () =>
       start(binding, { id, probeId }, () => {
         reads++;

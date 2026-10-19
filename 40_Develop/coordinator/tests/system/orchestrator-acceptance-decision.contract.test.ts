@@ -140,10 +140,11 @@ function persistAcceptancePendingState(
     initializeOrchestratorSnapshot(root, repositoryBindingId).status,
     "completed",
   );
-  const port = createCurrentOrchestratorPersistencePorts(
+  const ports = createCurrentOrchestratorPersistencePorts(
     root,
     repositoryBindingId,
-  ).state;
+  );
+  const port = ports.state;
   let current: OrchestratorState = state.state;
   assert.equal(port.writeState(current, 0).status, "completed");
   const transitions = [
@@ -194,6 +195,41 @@ function persistAcceptancePendingState(
   }
   assert.equal(current.objectives[0]?.state, "integration_pending");
   assert.equal(current.milestone.state, "executing");
+  const queueId = `queue-${projectId}`;
+  const queued = port.enqueueOperation({
+    queueId,
+    projectId,
+    milestoneId: current.milestone.id,
+    requestHash: createHash("sha256").update(queueId).digest("hex"),
+    originLane: "interactive",
+    repositoryRevision: revision,
+    scopeHash: createHash("sha256").update(projectId).digest("hex"),
+  });
+  assert.equal(queued.status, "completed", queued.reason);
+  const acquired = ports.lease.acquire(projectId, queueId, "project-operation");
+  assert.equal(acquired.status, "completed", acquired.reason);
+  assert.ok(acquired.value && queued.value);
+  let queue = queued.value;
+  for (const state of ["leased", "running", "integration_pending"] as const) {
+    const updated = port.updateQueue(queueId, queue.generation, {
+      state,
+      lease: acquired.value,
+      resumeCondition: null,
+      resultReference: null,
+    });
+    assert.equal(updated.status, "completed", updated.reason);
+    assert.ok(updated.value);
+    queue = updated.value;
+  }
+  assert.equal(acquired.value.release().status, "completed");
+  assert.ok(queue.ownerGeneration);
+  const released = port.settleQueueLeaseRelease(
+    queueId,
+    queue.generation,
+    queue.ownerGeneration,
+  );
+  assert.equal(released.status, "completed", released.reason);
+  assert.equal(released.value?.ownerGeneration, null);
   return current;
 }
 

@@ -255,7 +255,12 @@ export function createSemanticCoverageGraph(
 
   for (const loadedManifest of manifests)
     for (const symbol of loadedManifest.manifest.symbols) {
-      if (symbol.kind === "test-suite" || symbol.kind === "test-case") continue;
+      if (
+        symbol.kind === "test-suite" ||
+        symbol.kind === "test-case" ||
+        symbol.kind === "verification-tool"
+      )
+        continue;
       for (const semanticKey of symbol.implements ?? []) {
         if (!meaningsByKey.has(semanticKey)) {
           issues.push(

@@ -65,7 +65,7 @@ SPEC工程が定義した成立条件を全件処置し、成功の意味、失�
 | [SPEC-000011](../../../05_SPEC/Definitions/SPEC-000011/spec_definition.md) | `spec-000011.qa-000007` | SPEC Definition（正常・境界・失敗・観測不能・副作用） | [RepositoryとFederation](../../Definitions/QA-000007/quality_definition.md) | 正常: Consumerを変えても同じRepository Project Contextを返す。境界: Repository Role内外とPrincipalの参照可能範囲を分ける。失敗: Consumer固有Store、Role外推測または独自の現在状態を作らない。副作用: Project Contextを読取りで返し正本を変更しない | IT／ST／UAT | IT: Direct Boundary<br>ST: System/E2E<br>UAT: User Acceptance | `RFD-IT-011`、`RFD-ST-010`、`RFD-UAT-007` |
 | [SPEC-000011](../../../05_SPEC/Definitions/SPEC-000011/spec_definition.md) | `spec-000011.qa-000013` | SPEC Definition（正常・境界・失敗・観測不能・副作用） | [成果物の理解と工程引継ぎ](../../Definitions/QA-000013/quality_definition.md) | 正常: 各Consumerが固定Project Contextから五つの観点を同じ意味で再構成する。境界: 事実、共有分析、追加推論および不完全性を区別する。失敗: Consumer差を意味差へ変えない。副作用: 読取りだけを行い第三の仕様を作らない | IT／ST／UAT | IT: Direct Boundary<br>ST: System/E2E<br>UAT: User Acceptance | `AUH-IT-002`、`AUH-ST-006`、`AUH-UAT-001` |
 | [SPEC-000012](../../../05_SPEC/Definitions/SPEC-000012/spec_definition.md) | `spec-000012.qa-000007` | SPEC Definition（正常・境界・失敗・観測不能・副作用） | [RepositoryとFederation](../../Definitions/QA-000007/quality_definition.md) | 通常7保存操作は操作別入力と変更前現在Roleの固定管理判定から保存・読戻しへ進む。改訂競合、処置前不明、保存後読戻し／応答不明を分け、確定更新の未保存化・暗黙再更新・rollback・鍵交換Recoveryを行わない。通常発行・独立失効・交換のadministrator固定、同一Process Workbench入口、Host交換2操作、MCP鍵操作非公開を分ける。対象と既存ユーザーの結合をEffect前に確認し、交換の旧失効前からexact Recoveryを保持する。失効／発行／記録／提示を独立観測し、確定発行を後続失敗でunknownにしない。不明・認可破損時は修復やBootstrapをせず停止する。登録解除は同一受理操作・採用改訂で登録と対応Exposureを除去し、両読戻し時だけ完了とする。他設定／本体を保持し、事前別公開解除・登録時Binding再検証を解除条件にせず、旧実行取消を保証しない。発行／非秘密記録不明はCredential IDとは別の元発行Identity再観測、新交換0、通常発行Recovery新設0、交換由来のみ元exact保持。発行・記録確定で提示だけ不明（本人受領は観測外）なら旧事実を保持して現在administratorの明示した別Operation／別Recovery交換を受理する。先の発行鍵を含む指定ユーザー全旧有効資格→同user発行／全員全旧有効資格→指定既存administrator発行を確認し、各交換内exact、4組表示・3組確認を維持する。現在admin認証未接続／喪失のみ既存Host2交換へ戻る。遅延旧応答の失効鍵利用案内・秘密再表示・自動再発行・新交換からの旧受領／rollback／取消推定は0。初回追加義務: Hostの明示開始から非秘密の元試行記録確定・読戻し、UUID管理者作成、鍵発行・結果記録、Host提示・限定接続確認・通常管理接続までの各結果を区別する。途中失敗時は同じ元試行の既知事実だけを再観測し、新規作成や再発行へ進まない。管理状態と進行中初回記録の両方が未初期化と確認できた場合だけ開始する。欠落一件、読取り不能、破損、Lock使用中、既存ユーザー、部分状態、確認不能を未初期化へ畳まない。発行／記録不明では元試行だけ再観測し、発行・記録確定後のHost提示または初回限定接続確認だけ不明では作成済み管理者の既存Host指定交換へ別の明示操作として渡す。秘密再表示・自動再発行・自動再初期化を行わない。初回設定とその状態照会をMCPの一覧・Schema・登録・dispatchへ出さず、遠隔Workbenchも実行しない。追加認証、Repository登録・公開、内容権限の暗黙付与を追加しない。 通常提示と本人受領を分け、初回は同鍵限定接続の確認保存・読戻し・清掃／Lock終了後だけ応答する。同要求の通常権限は0、次要求で現在認証を取り直す。 | IT／ST／UAT | IT: Related 2 Blocks<br>ST: System/E2E<br>UAT: User Acceptance | `RFD-ST-003`、`RFD-IT-013`、`RFD-ST-016`、`RFD-IT-017`、`RFD-IT-018`、`RFD-UAT-007`、`RFD-IT-021`、`RFD-ST-022`<br>初回設定: `RFD-IT-024`、`RFD-IT-025`、`RFD-ST-026`、`RFD-UAT-027` |
-| [SPEC-000013](../../../05_SPEC/Definitions/SPEC-000013/spec_definition.md) | `spec-000013.qa-000005` | SPEC Definition（正常・境界・失敗・観測不能・副作用） | [候補の昇格](../../Definitions/QA-000005/quality_definition.md) | Topic／MeetingのCRUD、Outcome全件処置、Action移管、終了・撤回・訂正・削除を区別する。部分成功とRelation不整合を隠さず、確認なしの物理削除、暗黙の連鎖削除、時点記録の上書きを行わない | IT／ST／UAT | IT: Direct Boundary<br>ST: System/E2E<br>UAT: User Acceptance | `CPR-IT-006`、`CPR-IT-008`、`CPR-ST-005`、`CPR-UAT-007` |
+| [SPEC-000013](../../../05_SPEC/Definitions/SPEC-000013/spec_definition.md) | `spec-000013.qa-000005` | SPEC Definition（正常・境界・失敗・観測不能・副作用） | [候補の昇格](../../Definitions/QA-000005/quality_definition.md) | Topic／MeetingのCRUD、Outcome全件処置、Action移管、終了・撤回・訂正・削除を区別する。部分成功とRelation不整合を隠さず、確認なしの物理削除、暗黙の連鎖削除、時点記録の上書きを行わない | IT／ST／UAT | IT: Direct Boundary<br>ST: System/E2E<br>UAT: User Acceptance | `CPR-IT-006`、`CPR-IT-008`、`CPR-ST-005`、`CPR-UAT-007`、`CPR-IT-010`、`CPR-IT-011`、`CPR-IT-012` |
 | [SPEC-000014](../../../05_SPEC/Definitions/SPEC-000014/spec_definition.md) | `spec-000014.qa-000001` | SPEC Definition（正常・境界・失敗・観測不能・副作用） | [Repositoryと契約移行](../../Definitions/QA-000001/quality_definition.md) | 正常: 未登録能力を推測せず、版不一致や欠落を明示する。境界: 登録済み／未登録能力、改訂版一致／不一致を分け、候補提示から実行Authorityを発行しない。失敗: Tool一覧の閲覧だけで実行Authorityを発行しない。観測不能: 不明を正常・不存在・完了へ丸めず、実際の副作用「読取り専用で候補を返し、Toolまたは配布物を実行・変更しない」と矛盾する結果を返さない。失敗: Tool一覧の閲覧だけで実行Authorityを発行しない。副作用: 読取り専用で候補を返し、Toolまたは配布物を実行・変更しない。本SPEC固有の回復経路は設けず、失敗理由と安全な戻り先を返す | UT／IT | UT: N/A<br>IT: Direct Boundary | `RCM-UT-002`、`RCM-UT-001`、`RCM-IT-010` |
 | [SPEC-000015](../../../05_SPEC/Definitions/SPEC-000015/spec_definition.md) | `spec-000015.qa-000006` | SPEC Definition（正常・境界・失敗・観測不能・副作用） | [外部Runtime境界](../../Definitions/QA-000006/quality_definition.md) | 正常: コード変更なしで構成を更新でき、選択理由と適用範囲を確認できる。境界: 許可値／未知値、利用可能／利用不能を分け、不正構成を暗黙fallbackしない。失敗: 未知モデルや不正構成を暗黙fallbackせず、構成変更を実行許可にしない。観測不能: 不明を正常・不存在・完了へ丸めず、実際の副作用「採用時だけ構成を保存する。選択はProvider実行Effectを発行しない」と矛盾する結果を返さない。失敗: 未知モデルや不正構成を暗黙fallbackせず、構成変更を実行許可にしない。副作用: 採用時だけ構成を保存する。選択はProvider実行Effectを発行しない。本SPEC固有の回復経路は設けず、失敗理由と安全な戻り先を返す | IT／ST | IT: Direct Boundary<br>ST: System/E2E | `ERB-IT-004`、`ERB-ST-005`、`ERB-IT-006` |
 | [SPEC-000016](../../../05_SPEC/Definitions/SPEC-000016/spec_definition.md) | `spec-000016.qa-000008` | SPEC Definition（正常・境界・失敗・観測不能・副作用） | [Runtime Data lifecycle](../../Definitions/QA-000008/quality_definition.md) | 正常: Repository-localとOS管理領域を混同せず、終了時に残存義務を確認できる。境界: Repository-local／OS管理Root、耐久／一時、参照中／清掃可能を分ける。失敗: 用途不明の直下書込み、時間だけの削除、別Repositoryへの波及を拒否する。観測不能: 不明を正常・不存在・完了へ丸めず、実際の副作用「許可領域への作成・publish・清掃Effectを発行し、終了後状態を再観測する」と矛盾する結果を返さない。失敗: 用途不明の直下書込み、時間だけの削除、別Repositoryへの波及を拒否する。副作用: 許可領域への作成・publish・清掃Effectを発行し、終了後状態を再観測する。応答喪失またはEffect不明では同じ識別情報で再確認し、終了後確認まで回復義務を保持する | IT／ST | IT: Direct Boundary<br>ST: System/E2E | `RDL-IT-003`、`RDL-IT-001`、`RDL-ST-002` |
@@ -102,20 +102,6 @@ SPEC工程が定義した成立条件を全件処置し、成功の意味、失�
 
 期限なし方針の現在導出（2026-10-11）: SPEC-000012から、同じ鍵で時間だけ経過した要求と、明示失効・交換、現在Role／詳細権限／Exposure変更後の要求を分けて観測する。既存QA-000007／RFD-ST-003／RFD-IT-013へ統合し、新Local ItemやUTを追加しない。更新項目の正式評価はNot Run、Source・Store・本番資格接続と新Evidenceは未成立。
 
-## Checklist
-
-- [x] 対象工程の全Canonical IDを一件以上処置した
-- [x] 各Source固有の成功、境界、失敗、Riskおよび観測不能を分析した
-- [x] 表題や共通定型句ではなくSource固有の検証義務を記録した
-- [x] 意味の近い義務を統合してもSource固有条件を失っていない
-- [x] 各Sourceと検証目標、試験段階およびLocal Itemを接続した — 初回義務は今回定義接続。実行Passとは別
-- [x] 必要検証義務を既存Local ItemやTestから逆算していない
-- [x] Required／Definedの集合差、Level不一致およびRelation不明を評価した
-- [x] 上流の未確認事項をUAT、OPEN義務または上流再開へ処置した
-- [x] 現行Source、TestまたはEvidenceから検証義務を逆算していない
-- [x] 未解決事項、判断者および再評価契機を明示した
-
-
 ## 前段の初回Host設定の追加導出 — 2026-10-11
 
 以下の未定義OPENは分析段階の履歴。現在の定義接続は次節と主表を参照する。初回分析の限定Passを今回の定義レビューへ流用しない。
@@ -149,3 +135,20 @@ SPEC-000012の現在の正本から、初回設定の義務を追加導出する
 | QA-000009 | EST-ST-015 | 初回設定と状態照会のMCP四面非公開をSame統合、Not Run |
 
 前段の未接続差分は定義接続の範囲だけ解消した。Local Itemの具体的な刺激・観測・Oracle・終了後条件は各QA定義が所有する。初回4項目は既存通常管理項目の流用ではなく、同じ意味を工程ごとに重複発行しない。物理保存・受領・清掃の具体観測、Source／Test・実行・新EvidenceはOPEN。今回13文書の定義接続は契約・品質の限定独立レビュー済み・残指摘0であり、実装や全体品質の成立ではない。
+
+DefinitionとDetailの現行Relation集合の照合は未完了である。Definition由来の成立条件とDetail由来の具体的観測条件の区別を、現在の接続先と再照合する。
+
+初回義務は定義へ接続したが、実行Passとは区別する。
+
+## Checklist
+
+- [x] 対象工程の全Canonical IDを一件以上処置した
+- [x] 各Source固有の成功、境界、失敗、Riskおよび観測不能を分析した
+- [x] 表題や共通定型句ではなくSource固有の検証義務を記録した
+- [x] 意味の近い義務を統合してもSource固有条件を失っていない
+- [x] 各Sourceと検証目標、試験段階およびLocal Itemを接続した
+- [x] 必要検証義務を既存Local ItemやTestから逆算していない
+- [x] Required／Definedの集合差、Level不一致およびRelation不明を評価した
+- [x] 上流の未確認事項をUAT、OPEN義務または上流再開へ処置した
+- [x] 現行Source、TestまたはEvidenceから検証義務を逆算していない
+- [x] 未解決事項、判断者および再評価契機を明示した

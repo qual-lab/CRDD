@@ -165,6 +165,17 @@ test("修復Writerの二重scope guardは他操作と参照の変更・除去を
       );
       assert.equal(requests, scenario === "preserved" || mutated ? 1 : 0);
       let continuations = 0;
+      /**
+       * 現在Owner境界の実本文と変異を同じVMで評価する。
+       * @responsibility 現在Owner境界の実本文と変異を同じVMで評価する。
+       * @trace ERB-IT-014
+       * @precondition 現repair記録と固定状態byte・Owner確認。
+       * @stimulus 対象境界をVMへ結合し継続到達を数える。
+       * @observation 拒否結果、継続回数と保存本文。
+       * @oracle Owner喪失や元版差では後続処置0・本文不変。
+       * @cleanup VMの有限代役を評価後に破棄する。
+       * @boundary 実Sourceの境界断面。実Host・Docker操作なし。
+       */
       const evaluateBoundary = () =>
         runInNewContext(
           `(function(){${mutated ? boundaryMutant : boundary}; proceed();})()`,
@@ -318,6 +329,17 @@ test("認証限定Writerの二重対象相関は別操作Ownerを拒否する", 
         `${scenario}: wrapper`,
       );
       let continuations = 0;
+      /**
+       * authunknownの内側再入場境界を局所評価する。
+       * @responsibility authunknownの内側再入場境界を局所評価する。
+       * @trace ERB-IT-014
+       * @precondition 固定current/Ownerとauthunknown記録。
+       * @stimulus 内側本文へ同じbindingと故障を渡す。
+       * @observation 継続回数、blockedと元記録。
+       * @oracle Owner失効・current差を既知不存在へ丸めない。
+       * @cleanup N/A: メモリ上のVM評価のみ。
+       * @boundary auth再入場のSource断面。実回復成功ではない。
+       */
       const evaluateInner = () =>
         runInNewContext(
           `(function(){${mutant ? innerMutant : inner}; proceed();})()`,
@@ -425,6 +447,17 @@ test("修復Writer wrapperは初期化Effectを後続拒否・例外から保全
       unresolvedRecoveries: [],
       pendingDeliveries: [],
     };
+    /**
+     * 回復Writer断面へ固定Repo・state・Capabilityを結合する。
+     * @responsibility 回復Writer断面へ固定Repo・state・Capabilityを結合する。
+     * @trace ERB-IT-014
+     * @precondition 抽出Sourceとcreate代役。
+     * @stimulus 実Writer本文をVMで生成し入力を渡す。
+     * @observation 保存要求・返却理由・参照相関。
+     * @oracle scopeとOwnerの差を保存成功へ変換しない。
+     * @cleanup VM用代役を破棄し実記録を書き換えない。
+     * @boundary Writerの局所境界。実Filesystem変更なし。
+     */
     const evaluate = (source: string, create: boolean) => {
       const wrapper = runInNewContext(
         `${dispatch}\n${source}; writeRuntimeOwnedCoordinatorRepairSnapshot`,
@@ -607,6 +640,17 @@ test("Task Writerの修復保全guardは新規・変更・除去を拒否する"
       const original = JSON.stringify({ before, after });
       for (const mutated of [false, true]) {
         let continuations = 0;
+        /**
+         * 回復の観測間隔境界をSource変異付きで検査する。
+         * @responsibility 回復の観測間隔境界をSource変異付きで検査する。
+         * @trace ERB-IT-014
+         * @precondition 同じ保存byteとOwner確認の有限値。
+         * @stimulus 実interval本文または変異をVMで評価する。
+         * @observation 継続到達と状態byte。
+         * @oracle 観測間の失効・版差で処置を止める。
+         * @cleanup N/A: 実TimerやI/Oは生成しない。
+         * @boundary 観測順序の局所Source評価。
+         */
         const evaluate = () =>
           runInNewContext(
             `(function(){${stripTypeScriptTypes(mutated ? mutant : interval.body)}; proceed();})()`,
@@ -1434,7 +1478,29 @@ test("既Host不存在: 未要求からpendingを経て確認し物理処置し�
       revision: 1,
       operations: [initial],
     };
+    /**
+     * 合成Snapshotを比較用JSON本文へ符号化する。
+     * @responsibility 合成Snapshotを比較用JSON本文へ符号化する。
+     * @trace ERB-IT-014
+     * @precondition 同試験の閉じたsnapshot。
+     * @stimulus JSON.stringifyを適用する。
+     * @observation 固定JSON文字列。
+     * @oracle 差替え前後の本文一致を同じ符号化で検査する。
+     * @cleanup N/A: 文字列生成のみ。
+     * @boundary VMfixtureの期待byte生成で実保存なし。
+     */
     const encode = (value: unknown) => JSON.stringify(value);
+    /**
+     * Snapshotの保存形式byteを再構成する。
+     * @responsibility Snapshotの保存形式byteを再構成する。
+     * @trace ERB-IT-014
+     * @precondition 同じsnapshotとJSON符号化関数。
+     * @stimulus JSON末尾に改行を加えてBufferにする。
+     * @observation 比較対象の全文byte。
+     * @oracle 拒否時の本文変化を部分field比較で見落とさない。
+     * @cleanup N/A: Bufferだけを生成する。
+     * @boundary 局所保存byte比較。実File作成なし。
+     */
     const bytes = () => Buffer.from(`${encode(snapshot)}\n`);
     const record = {
       kind: "recovery",

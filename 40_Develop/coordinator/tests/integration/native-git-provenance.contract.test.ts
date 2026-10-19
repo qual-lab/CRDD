@@ -227,6 +227,17 @@ for (const prefix of ["", "01_CRDD"] as const) {
    */
   test(`単一Native出所は署名なしで固定Revisionへ一致する: ${prefix || "Root直下"}`, (t) => {
     const value = createNativeProvenanceFixture(t, prefix);
+    /**
+     * 同じ固定配布RootのNative Git provenanceを再観測する。
+     * @responsibility 同じ固定配布RootのNative Git provenanceを再観測する。
+     * @trace AIT-IT-002
+     * @precondition 自己生成distributionRootと固定Git/Native成果物。
+     * @stimulus 実provenance Readerを繰り返し呼ぶ。
+     * @observation Commit、Native SHAと拒否結果。
+     * @oracle 実体差は拒否し無関係な文書dirtyは結果へ混ぜない。
+     * @cleanup 自己生成配布領域をCaseのfinallyで回収する。
+     * @boundary Git・Native成果物の読取り。署名やAuthority発行なし。
+     */
     const inspect = () =>
       inspectPlatformAccessNativeGitProvenanceCandidate(value.distributionRoot);
     const result = inspect();

@@ -4,6 +4,7 @@
  * @responsibility 親の入口・再起動・発見・削除前読戻し・回収・二回不存在・Root清掃の論理接続を反証する。
  * @trace PRL-IT-013
  * @trace ERB-IT-003
+ * @trace ERB-IT-014
  * @level IT
  * @scope 統括本文の単独故障・変異、標準bridgeの構成・段階比較、値相関・実入口拒否と清掃前実体。
  * @boundary 合成統括は実codec／Owner／Native／Docker／再起動を証明しない。実Filesystem処置は自己生成試験Rootだけ。

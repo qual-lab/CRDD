@@ -42,21 +42,76 @@ function observeGitClientWorker(worker: Worker): Promise<unknown> {
   return new Promise((resolve, reject) => {
     let notified = false;
     let observation: unknown;
+    /**
+     * Git通知WorkerのTimerと三種Listenerを解除する。
+     * @responsibility Git通知WorkerのTimerと三種Listenerを解除する。
+     * @trace EST-IT-010
+     * @precondition 所有するGit通知WorkerとPromiseが接続されている。
+     * @stimulus 期限Timerを解除し同じcallbackをoffする。
+     * @observation message・error・exit購読の解除。
+     * @oracle 正常・失敗の両経路で同じcleanupへ到達する。
+     * @cleanup この関数がTimer/Listener、呼出し元がWorker terminateを所有する。
+     * @boundary 試験Workerの監視資源だけ。製品取消ではない。
+     */
     const cleanup = () => {
       clearTimeout(deadline);
       worker.off("message", onMessage);
       worker.off("error", onError);
       worker.off("exit", onExit);
     };
+    /**
+     * 所有Worker観測失敗を固定ErrorでPromise拒否へ結合する。
+     * @responsibility 所有Worker観測失敗を固定ErrorでPromise拒否へ結合する。
+     * @trace EST-IT-010
+     * @precondition 所有するGit通知WorkerとPromiseが接続されている。
+     * @stimulus 監視を解除して固定Errorでrejectする。
+     * @observation 固定理由と待機終了。
+     * @oracle 期限切れ・無通知・異常を正常観測へ変換しない。
+     * @cleanup reject前に全監視を外しWorkerは呼出し元でjoinする。
+     * @boundary Worker試験の待機境界。外部本文はErrorへ転記しない。
+     */
     const fail = () => {
       cleanup();
       reject(new Error("owned_git_client_worker_failed"));
     };
+    /**
+     * 同じGit通知Workerの最初の通知値を保持する。
+     * @responsibility 同じGit通知Workerの最初の通知値を保持する。
+     * @trace EST-IT-010
+     * @precondition 所有するGit通知WorkerとPromiseが接続されている。
+     * @stimulus messageでnotifiedとobservationを記録する。
+     * @observation 通知有無と通知本文。
+     * @oracle exit0だけで未通知の観測を成功としない。
+     * @cleanup 終了時にmessage Listenerを解除する。
+     * @boundary Worker messageは試験観測値でありGit完了証拠と単独同一視しない。
+     */
     const onMessage = (value: unknown) => {
       notified = true;
       observation = value;
     };
+    /**
+     * Git通知Workerのerrorを既存失敗処理へ渡す。
+     * @responsibility Git通知Workerのerrorを既存失敗処理へ渡す。
+     * @trace EST-IT-010
+     * @precondition 所有するGit通知WorkerとPromiseが接続されている。
+     * @stimulus error通知でfailを一回呼ぶ。
+     * @observation Promiseの固定拒否。
+     * @oracle raw Error本文を返さず監視失敗として終了する。
+     * @cleanup failがTimerとListenerを外し呼出し元がWorkerを閉じる。
+     * @boundary 試験Workerのerror通知。Gitの再要求はしない。
+     */
     const onError = () => fail();
+    /**
+     * 通知済み正常exitだけをGit切断観測の完了とする。
+     * @responsibility 通知済み正常exitだけをGit切断観測の完了とする。
+     * @trace EST-IT-010
+     * @precondition 所有するGit通知WorkerとPromiseが接続されている。
+     * @stimulus exit codeと通知済みflagを共同検査する。
+     * @observation resolveされたobservationまたは固定拒否。
+     * @oracle 通知なし・非0終了はfail、それ以外だけresolveする。
+     * @cleanup 分岐を問わずTimerとListenerを解除する。
+     * @boundary 同じWorkerのmessage/exit結合。Process tree取消は主張しない。
+     */
     const onExit = (code: number) => {
       if (!notified || code !== 0) return fail();
       cleanup();
@@ -505,6 +560,17 @@ test("共有Repository操作は選択Rootと現在Targetへ一度だけ配送す
       const fs=require('node:fs'),http=require('node:http');
       const request=http.request(workerData.url,{method:'POST',headers:workerData.headers});
       let sent=false,done=false;
+      /**
+       * Git Client Workerの切断観測を一度だけ親へ通知する。
+       * @responsibility Git Client Workerの切断観測を一度だけ親へ通知する。
+       * @trace RFD-IT-014
+       * @precondition Worker内でHTTP要求と観測Timerを所有している。
+       * @stimulus doneを確認しTimer解除・HTTP破棄後に観測をpostする。
+       * @observation marker観測とclientDestroyed、parentPort終了。
+       * @oracle 二重通知せずHTTP要求破棄と親通知を同じ試行へ結合する。
+       * @cleanup poll/deadlineを解除しrequestとparentPortを閉じる。
+       * @boundary 試験用Worker内のHTTP Client。Server側Git終了とは区別する。
+       */
       const finish=(observed)=>{if(done)return;done=true;clearInterval(poll);clearTimeout(deadline);request.destroy();parentPort.postMessage({markerObserved:observed,clientDestroyed:request.destroyed});parentPort.close();};
       request.on('error',()=>{});request.on('finish',()=>{sent=true;});
       const poll=setInterval(()=>{if(sent&&fs.existsSync(workerData.marker))finish(true);},5);

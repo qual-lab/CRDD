@@ -5,6 +5,7 @@
  * @trace ERB-IT-014
  * @level IT
  * @scope 実Docker・Native・外部AI要求0。実Directory factoryは別契約試験。
+ * @boundary 実修復Adapter・Machineと有限OS代役。実Host修復の成立は主張しない。
  */
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -39,6 +40,10 @@ import type { DockerDesktopRepairNativeHelperSession as Session } from "../../sr
  * @boundary 実Adapterと最下位Native／Directory／Engine。
  * @security Path・資格・秘密値なし。
  * @concurrency 同じsignalとSessionだけを利用する。
+ * @stimulus 継続有無を選び固定Runtimeと通知callbackを組み立てる。
+ * @observation checkpoint・source/failed/auxiliary identityとcallback到達列。
+ * @oracle 同じfixtureで正常と故障を比べ、処置順・保存順の差を検出できる。
+ * @cleanup 技術操作は有限代役だけで、実DirectoryやProcessを作らない。
  */
 function fixture(continuation = false, createOperations = operations) {
   type Identity = NonNullable<Checkpoint["directories"]["primary"]["expected"]>;
@@ -284,6 +289,17 @@ function fixture(continuation = false, createOperations = operations) {
       },
     };
   };
+  /**
+   * 同じ修復fixtureのcheckpointと通知を実Runtimeへ渡す。
+   * @responsibility 同じ修復fixtureのcheckpointと通知を実Runtimeへ渡す。
+   * @trace ERB-IT-014
+   * @precondition 固定nonce・resume・取消Signalと有限操作代役。
+   * @stimulus 指定runnerへinputと観測callbackを結合する。
+   * @observation 保存列、通知、結果と操作回数。
+   * @oracle 既存Owner確認と保存順に一致しなければ拒否する。
+   * @cleanup 模擬Sessionのrelease/abortと通知解除を親Caseが確認する。
+   * @boundary 実Runtime・Machineと有限技術代役。実Dockerなし。
+   */
   const execute = (runtime: typeof run = run) =>
     runtime(
       {
@@ -372,6 +388,10 @@ function fixture(continuation = false, createOperations = operations) {
  * @boundary 固定本番組立てと既存下位境界。
  * @security Pathは固定試験値だけ。
  * @concurrency 同じ内部signalを実Runtimeが所有する。
+ * @stimulus 本番の修復接続へ有限Artifact・Native・Owner境界を結合して実行する。
+ * @observation 取得、factory生成、Directory観測とcheckpoint通知の計数。
+ * @oracle 実compositionの到達列を独立期待へ一致させる。
+ * @cleanup 同じ模擬Native Sessionをjoinし通知を解除する。
  */
 async function productionComposition(
   continuation = false,
@@ -520,6 +540,10 @@ async function productionComposition(
  * @boundary 本番組立てと回数Oracle。
  * @security 秘密値を扱わない。
  * @concurrency N/A: 終了後の値検査。
+ * @stimulus 実compositionのcompletionを待機して保存列を照合する。
+ * @observation recovered結果と取得・観測・通知の正確な回数。
+ * @oracle 初回と継続の実接続が同じ本番処理を通り、余分なfactoryを生成しない。
+ * @cleanup completion後の同Session終了を確認する。
  */
 function assertProductionComposition(
   value: Awaited<ReturnType<typeof productionComposition>>,
@@ -945,6 +969,17 @@ test("修復実操作接続: ready最終観測中の新世代差替えを拒否�
   const mutant = runInThisContext(
     `(function(decode){${source.replace(guard, "false")}; return createDockerDesktopRepairOperations;})`,
   )(decode) as typeof operations;
+  /**
+   * 停止後に元Directory実体が変わった場合の拒否を確認する。
+   * @responsibility 停止後に元Directory実体が変わった場合の拒否を確認する。
+   * @trace ERB-IT-014
+   * @precondition 同じfixtureと実operations生成関数。
+   * @stimulus 一回だけ初期待機後のsource identityを差し替える。
+   * @observation 再観測列、結果と新世代処置回数。
+   * @oracle 実体差を検出してunsafeな二回目処置へ進まない。
+   * @cleanup fixture内の観測代役を終了して破棄する。
+   * @boundary 実operations接続の故障刺激。Host Directoryを変更しない。
+   */
   const verify = async (createOperations: typeof operations) => {
     const f = fixture(false, createOperations);
     const observe = f.access.observe;
@@ -953,6 +988,17 @@ test("修復実操作接続: ready最終観測中の新世代差替えを拒否�
     f.afterWait(() => {
       armed = true;
     });
+    /**
+     * 停止待機後の一観測だけへ別実体を注入する。
+     * @responsibility 停止待機後の一観測だけへ別実体を注入する。
+     * @trace ERB-IT-014
+     * @precondition 元observeとswap未発行flag。
+     * @stimulus 実観測を得てから選択点のinoを一回変更する。
+     * @observation swap回数とsource identity。
+     * @oracle 未変更の正常対照を保持し選択点の実体差だけを反証する。
+     * @cleanup N/A: 観測値のメモリ差替えのみ。
+     * @boundary Filesystem観測の代役で実Directoryを差し替えない。
+     */
     const observeWithSwap: typeof observe = (purpose) => {
       const pair = observe(purpose);
       if (armed && purpose === "initial" && injected === 0) {
@@ -1082,6 +1128,10 @@ test("修復実操作接続: Native不明と待機中停止を未発行成功へ
  * @boundary Native応答と退避前のfresh観測。
  * @security 実Docker要求0。
  * @concurrency 二回目の停止の直後だけ一回注入する。
+ * @stimulus 停止確認後にEngineまたはProcess状態だけを差し替える。
+ * @observation terminate/launch回数と保持された初期Directory。
+ * @oracle 再起動後の旧停止観測を再利用せず、意図保存で停止する。
+ * @cleanup 模擬Sessionを終了し実Desktopは変更しない。
  */
 async function assertStoppedDriftRejected(
   createOperations: typeof operations,

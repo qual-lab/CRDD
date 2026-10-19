@@ -68,6 +68,18 @@ test("期待Projectを両種別の保存・読取り・Relationへ拘束する",
       const id = kind === "topic" ? "TOPIC-000042" : "MTG-000042";
       const build = kind === "topic" ? topic : meeting;
       const area = kind === "topic" ? "22_Topics" : "23_Meetings";
+      /**
+       * 同じProjectの正常Topic・Meeting本文を作る。
+       * @responsibility 同じProjectの正常Topic・Meeting本文を作る。
+       * @trace CPR-IT-010
+       * @trace CPR-IT-011
+       * @precondition 検証済みProject IDと指定改訂番号。
+       * @stimulus 固定MarkdownのProject IDだけを試験対象へ置換する。
+       * @observation Parserと保存処理へ渡す本文。
+       * @oracle foreign Project拒否の対照が同Project本文として成立する。
+       * @cleanup N/A: 文字列生成だけ。実Recordの回収はCaseが所有する。
+       * @boundary Domain保存試験の入力準備で外部送信しない。
+       */
       const valid = (revision: number) =>
         build(revision).replace("PRJ-001", projectId);
       const target = path.join(root, area, id, `${kind}.md`);

@@ -159,8 +159,8 @@
         "QA-000006"
       ],
       "localTestIds": [
-        "PRL-IT-013",
-        "ERB-IT-014"
+        "ERB-IT-014",
+        "PRL-IT-013"
       ],
       "verifies": [
         "coordinator.source.src.security.docker.recovery.runtime.internal",
@@ -176,8 +176,8 @@
         "QA-000006"
       ],
       "localTestIds": [
-        "ERB-IT-014",
-        "ERB-IT-002"
+        "ERB-IT-002",
+        "ERB-IT-014"
       ],
       "verifies": [
         "coordinator.diagnostics.runtime-repair",
@@ -201,6 +201,7 @@
         "QA-000006"
       ],
       "localTestIds": [
+        "ERB-IT-002",
         "ERB-IT-014"
       ],
       "verifies": [
@@ -300,13 +301,13 @@
       "kind": "test-suite",
       "path": "tests/integration/docker-recovery-owner-reentry.contract.test.ts",
       "qaIds": [
-        "QA-000006",
-        "QA-000003"
+        "QA-000003",
+        "QA-000006"
       ],
       "localTestIds": [
         "ERB-IT-003",
-        "PRL-IT-013",
-        "ERB-IT-014"
+        "ERB-IT-014",
+        "PRL-IT-013"
       ],
       "verifies": [
         "coordinator.source.src.security.docker.recovery.runtime.internal",
@@ -320,11 +321,12 @@
       "kind": "test-suite",
       "path": "tests/integration/docker-auth-create-closure.contract.test.ts",
       "qaIds": [
-        "QA-000006",
-        "QA-000003"
+        "QA-000003",
+        "QA-000006"
       ],
       "localTestIds": [
         "ERB-IT-003",
+        "ERB-IT-014",
         "PRL-IT-013"
       ],
       "verifies": [
@@ -502,8 +504,8 @@
         "QA-000010"
       ],
       "localTestIds": [
-        "ERB-IT-003",
-        "AIT-IT-002"
+        "AIT-IT-002",
+        "ERB-IT-003"
       ],
       "verifies": [
         "coordinator.source.src.security.host.recovery.namespace.windows.adapter",
@@ -662,8 +664,8 @@
         "QA-000006"
       ],
       "localTestIds": [
-        "PRL-IT-012",
-        "ERB-IT-003"
+        "ERB-IT-003",
+        "PRL-IT-012"
       ],
       "verifies": [
         "coordinator.source.src.core.cli.options",
@@ -738,7 +740,8 @@
         "ERB-IT-006",
         "ERB-IT-008",
         "PRL-IT-005",
-        "PRL-IT-012"
+        "PRL-IT-012",
+        "PRL-IT-013"
       ],
       "verifies": [
         "coordinator.provider-model-selection-runtime",
@@ -774,8 +777,8 @@
         "QA-000010"
       ],
       "localTestIds": [
-        "ERB-IT-004",
-        "AIT-IT-002"
+        "AIT-IT-002",
+        "ERB-IT-004"
       ],
       "verifies": [
         "coordinator.platform-access.protected-root-windows-adapter",
@@ -825,7 +828,8 @@
         "QA-000006"
       ],
       "localTestIds": [
-        "ERB-IT-002"
+        "ERB-IT-002",
+        "ERB-IT-004"
       ],
       "verifies": [
         "ai-adapter.profile.subscription-status",
@@ -1101,7 +1105,6 @@
         "execution-intelligence.source.src.store.execution.intelligence.store",
         "execution-intelligence.source.src.store.verified.repository.root",
         "orchestrator.human-decision-application",
-        "orchestrator.integration-application",
         "orchestrator.replanning-application",
         "orchestrator.source.src.ports.decision.port",
         "orchestrator.decision.acceptance-decision-record",
@@ -1304,9 +1307,11 @@
       "kind": "test-suite",
       "path": "tests/integration/repository-workspace-runtime.contract.test.ts",
       "qaIds": [
+        "QA-000003",
         "QA-000007"
       ],
       "localTestIds": [
+        "PRL-IT-013",
         "RFD-IT-013"
       ],
       "verifies": [
@@ -1502,7 +1507,6 @@
       ],
       "verifies": [
         "coordinator.source.scripts.orchestrator.real.provider.contract",
-        "orchestrator.integration-application",
         "orchestrator.objective-application",
         "orchestrator.public-api",
         "orchestrator.state-core"
@@ -2603,8 +2607,8 @@
       "kind": "test-suite",
       "path": "tests/integration/docker-restart-preparation-order.contract.test.ts",
       "qaIds": [
-        "QA-000006",
-        "QA-000003"
+        "QA-000003",
+        "QA-000006"
       ],
       "localTestIds": [
         "ERB-IT-014",
@@ -2656,8 +2660,8 @@
       "kind": "test-suite",
       "path": "tests/integration/docker-restart-runtime.contract.test.ts",
       "qaIds": [
-        "QA-000006",
-        "QA-000003"
+        "QA-000003",
+        "QA-000006"
       ],
       "localTestIds": [
         "ERB-IT-014",
@@ -2884,8 +2888,8 @@
       "kind": "test-suite",
       "path": "tests/integration/host-recovery-record.contract.test.ts",
       "qaIds": [
-        "QA-000006",
-        "QA-000003"
+        "QA-000003",
+        "QA-000006"
       ],
       "localTestIds": [
         "ERB-IT-003",
@@ -2901,8 +2905,8 @@
       "kind": "test-suite",
       "path": "tests/integration/current-host-transition.integration.test.ts",
       "qaIds": [
-        "QA-000006",
-        "QA-000003"
+        "QA-000003",
+        "QA-000006"
       ],
       "localTestIds": [
         "ERB-IT-014",
@@ -3660,6 +3664,69 @@
         "ARCH-000004",
         "ARCH-000009"
       ]
+    },
+    {
+      "symbolId": "coordinator.verification.native-protection",
+      "kind": "verification-tool",
+      "path": "scripts/verify-native-protection.ts",
+      "qaIds": ["QA-000006"],
+      "localTestIds": ["ERB-IT-001", "ERB-IT-002"],
+      "verifies": []
+    },
+    {
+      "symbolId": "coordinator.verification.native-terminal-namespace",
+      "kind": "verification-tool",
+      "path": "scripts/verify-native-terminal-namespace.ts",
+      "qaIds": ["QA-000006"],
+      "localTestIds": ["ERB-IT-001", "ERB-IT-002", "ERB-IT-003"],
+      "verifies": []
+    },
+    {
+      "symbolId": "coordinator.verification.native-terminal-fixtures",
+      "kind": "verification-tool",
+      "path": "scripts/verify-native-terminal-fixtures.ts",
+      "qaIds": ["QA-000006"],
+      "localTestIds": ["ERB-IT-001", "ERB-IT-002", "ERB-IT-003"],
+      "verifies": []
+    },
+    {
+      "symbolId": "coordinator.verification.native-terminal-oracles",
+      "kind": "verification-tool",
+      "path": "tests/fixtures/native-terminal-oracles.ts",
+      "qaIds": ["QA-000006"],
+      "localTestIds": ["ERB-IT-001", "ERB-IT-002", "ERB-IT-003"],
+      "verifies": []
+    },
+    {
+      "symbolId": "coordinator.test.integration.native-tool-process",
+      "kind": "test-suite",
+      "path": "tests/integration/native-tool-process.contract.test.ts",
+      "qaIds": ["QA-000006"],
+      "localTestIds": ["ERB-IT-001", "ERB-IT-002"],
+      "verifies": [
+        "coordinator.verification.native-protection",
+        "coordinator.verification.native-terminal-fixtures",
+        "coordinator.verification.native-terminal-namespace"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.integration.native-protection-entry",
+      "kind": "test-suite",
+      "path": "tests/integration/native-protection-entry.contract.test.ts",
+      "qaIds": ["QA-000006"],
+      "localTestIds": ["ERB-IT-001"],
+      "verifies": [
+        "coordinator.verification.native-protection",
+        "coordinator.verification.native-terminal-namespace"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.integration.native-terminal-oracles",
+      "kind": "test-suite",
+      "path": "tests/integration/native-terminal-oracles.contract.test.ts",
+      "qaIds": ["QA-000006"],
+      "localTestIds": ["ERB-IT-001", "ERB-IT-002", "ERB-IT-003"],
+      "verifies": ["coordinator.verification.native-terminal-oracles"]
     }
   ]
 }

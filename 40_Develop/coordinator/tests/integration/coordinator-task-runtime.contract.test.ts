@@ -8,6 +8,7 @@
  * @trace ERB-IT-008
  * @trace PRL-IT-012
  * @trace PRL-IT-005
+ * @trace PRL-IT-013
  * @level IT
  * @scope coordinator、task、runtime
  * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store / PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Orchestrator Application Port→Core
@@ -1697,7 +1698,8 @@ function fixture(
 /**
  * 借用TreeのTaskを旧Bundle保存なしで完結させる。
  * @responsibility 正常・是正・範囲逸脱・取消の既存調整経路を検証する。
- * @trace ERB-IT-006 PRL-IT-013
+ * @trace ERB-IT-006
+ * @trace PRL-IT-013
  * @precondition 外部EffectのないTask依存を模擬し借用入力を渡す。
  * @stimulus 二役割、是正、逸脱、取消を実行する。
  * @observation 結果、準備回数、Provider回数、清掃。

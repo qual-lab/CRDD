@@ -282,6 +282,12 @@ Architecture Definition          Quality Definition
 
 新Subsystemは`40_Develop/<subsystem>/symbol.json`を追加して参加する。Checker CoreへSubsystem名を追加しない。Implementation SymbolはARCH Relationだけを、Test SymbolはQA、Local Test、`verifies` Relationだけを所有し、設計と検証の責務を一つのSymbolへ混在させない。Symbol Pathは途中要素を含めてlink／junctionではない通常fileであり、実体PathもSubsystem内に留まる場合だけ受理する。Test SymbolはTest Catalog Adapterが返す登録集合へexact Pathと同一Ownerで接続する。`symbol.json`が存在しPathとIDが解決できることはRelationの構造成立だけを意味し、`Covered`、実装済み、試験済みまたは合格済みを意味しない。
 
+本番実装を呼ばない合成環境の実証は、Test Symbolへ`verificationTarget: "environment"`を明示する。この場合もQA・Local Test・実Pathの関係を必須とし、`verifies`は空集合だけを許す。通常試験の`verifies`非空条件は維持し、環境実証を実装Symbol又は実装の意味Coverageへ加算しない。未知値、実装Symbolへの付与、架空の実装関係との併記は拒否する。
+
+検証Tool自身の構築・判定・終了制御を検査するSuiteは、環境実証へ分類しない。検証Toolと用途限定判定fixtureを`kind: "verification-tool"`としてQA・Local Test・実Pathへ接続し、Suiteは非空の`verifies`で実際の対象Toolへ結合する。ToolのPathはPackage内の`scripts/`または`tests/fixtures/`の通常TypeScript／Rust fileだけを許す。ARCH・意味実装・環境指定とTool自身の検証辺を禁止し、`verifies`は明示空配列とする。既存のPath実体観測、QA／Local解決、通常試験の参照条件を維持する。Tool宛て辺は実装検証Indexへ登録せず、Semantic CoverageもToolを実装や意味の検証証拠へ加算しない。ここで確認するのは検証手段の局所契約であり、本番Capabilityや実Native／OS動作の合格ではない。
+
+Header検査もこの分類に従う。検証済みManifestと宣言元Package内の通常実Pathへexactに結合した検証ToolにはQuality Headerを適用し、Production Headerを重複要求しない。Toolの識別子命名とQA／Local Item対応の検査は維持し、未登録script、不正Manifest、別Packageへの解決、重複又は実装との混在を免除に利用しない。同じTypeScript Symbolのoverload集合は先頭宣言のHeaderを一度検査し、後続宣言にHeaderがないことだけを重複診断しない。先頭の不足、後続に明示した不正Header、別Symbolの不足、各宣言の命名・parameterは引き続き検査する。
+
 Test Catalogの定義、変更影響からの試験選択、試験段階の実行および結果集約は[Verification Runner](../verification-runner/01_Architecture.md)が所有する。CheckerのTest Catalog Adapterは、Reality Symbolとの構造整合だけを読取り検査し、試験を選択・実行しない。
 
 ## Implementation Structure

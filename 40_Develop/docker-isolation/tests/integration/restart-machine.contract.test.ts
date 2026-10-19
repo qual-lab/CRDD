@@ -641,6 +641,17 @@ for (const failure of [
         "backend_unconfirmed",
         "final_trust_unconfirmed",
       ] as const;
+      /**
+       * 再起動の最初の失敗段階をfalseまたは例外で注入する。
+       * @responsibility 再起動の最初の失敗段階をfalseまたは例外で注入する。
+       * @trace ERB-IT-014
+       * @precondition 選択した失敗stageと観測順序列。
+       * @stimulus stageを記録して該当点だけ拒否・例外を返す。
+       * @observation 確認の順序・回数とstartFailure。
+       * @oracle 短絡後に後続観測やlaunchへ進まない。
+       * @cleanup N/A: 有限predicate代役だけ。
+       * @boundary 実Machineの局所呼出し。実Desktop操作なし。
+       */
       const fails = (stage: string) => {
         observed.push(stage);
         if (stage !== failure) return false;

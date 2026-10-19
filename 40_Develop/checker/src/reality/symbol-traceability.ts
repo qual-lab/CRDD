@@ -143,7 +143,12 @@ export function mapRealityDomainIssueToCheckerFinding(
       case "manifest.test.relation-missing":
         return [
           "symbol-manifest-test-relation-missing",
-          "Test symbols require qaIds and verifies relations.",
+          "Test symbols require qaIds and implementation or verification-tool verifies; explicit environment tests require Local IDs and empty verifies.",
+        ];
+      case "manifest.verification-tool.relation-domain-invalid":
+        return [
+          "symbol-manifest-verification-tool-invalid",
+          "Verification tools require an owned scripts or tests/fixtures path, Quality and Local IDs, empty verifies, and no Architecture, meaning, or environment declaration.",
         ];
       case "manifest.implementation.architecture-relation-missing":
         return [
@@ -198,7 +203,7 @@ export function mapRealityDomainIssueToCheckerFinding(
       case "graph.verification.target-domain-invalid":
         return [
           "reality-symbol-verifies-target-invalid",
-          `${value("symbolId")} must verify an implementation symbol.`,
+          `${value("symbolId")} must verify an implementation or verification-tool symbol, not another test.`,
         ];
       case "graph.input.snapshot-unavailable":
         return [

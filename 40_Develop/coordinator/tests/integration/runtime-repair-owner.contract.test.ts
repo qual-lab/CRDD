@@ -3,6 +3,7 @@
  * @packageDocumentation
  * @responsibility DI Root入口をUsingと模擬Scope・技術境界へ差替え、実Root・Kernel・Filesystem保存を通す。
  * @trace ERB-IT-014
+ * @trace ERB-IT-002
  * @level IT
  * @scope 自己生成Repository。実Docker・Provider・認証要求0。
  * @boundary 修復呼出し→実Writer、実DI Runtime／Machine。
@@ -408,7 +409,8 @@ function prepareRepairOwnerFixture(t: TestContext) {
 /**
  * 実Callerの意図保存・回収結果保存・再入場を実Writerへ結合する。
  * @responsibility 模擬DIの肯定を保存成功や修復全体完成へ読み替えない。
- * @trace ERB-IT-014 ERB-IT-002
+ * @trace ERB-IT-014
+ * @trace ERB-IT-002
  * @precondition 自己生成Repository、実Kernel／Filesystem Writer、DI処置だけ模擬。
  * @stimulus 判断保存拒否、primary結果保存拒否、同ID再入場と三用途確定。
  * @observation state.json全文、用途列、履歴一行、終了後のexact再入場、元結果不変。
@@ -1912,47 +1914,9 @@ test("Host Windows: 修復終了は既存completion保存でexact対象だけ除
  * @boundary 実物理Writerと最下位を模擬したDI接続。
  */
 test("Host Windows: 修復呼出しは実Writerへ準備保存後にMachineを開始する", async (t) => {
-  const tests = requireReadyRepositoryRuntimeDataArea(
-    ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
-      import.meta.dirname,
-      "tests",
-    ),
-    "test_root",
-  );
-  const root = fs.mkdtempSync(path.join(tests.directory, "repair-owner-"));
-  t.after(() => {
-    assert.equal(fs.realpathSync.native(root), root);
-    assert.ok(root.startsWith(`${tests.directory}${path.sep}repair-owner-`));
-    fs.rmSync(root, { recursive: true });
-    assert.equal(fs.existsSync(root), false);
-    if (fs.readdirSync(tests.directory).length === 0)
-      fs.rmdirSync(tests.directory);
-  });
-  execFileSync("git", ["init", "--quiet", root], { windowsHide: true });
-  execFileSync(
-    "git",
-    [
-      "-C",
-      root,
-      "-c",
-      "user.name=CRDD Test",
-      "-c",
-      "user.email=test@example.invalid",
-      "-c",
-      "commit.gpgsign=false",
-      "commit",
-      "--allow-empty",
-      "--quiet",
-      "-m",
-      "fixture",
-    ],
-    { windowsHide: true },
-  );
-  ensureRepositoryRuntimeDataAreaFromWorkingDirectory(root, "tests");
-  const verified = verifyRepositoryRoot(root);
-  assert.equal(verified.status, "completed");
-  if (verified.status !== "completed") throw new Error("root_unavailable");
-  stateFile = path.join(root, ".crdd", "coordinator", "state.json");
+  const verified = prepareRepairOwnerFixture(t);
+  observeMode = "incomplete";
+  faultStage = "none";
   const first = await repairRuntimeOwnedDockerRuntime(
     verified.capability,
     new AbortController().signal,
@@ -2024,22 +1988,33 @@ test("Host Windows: 修復呼出しは実Writerへ準備保存後にMachineを�
   assert.equal(completed.status, "observed");
   assert.equal(completed.finalCheckpointConfirmed, true);
   assert.equal(completed.outcomeConfirmed, true);
+  assert.equal(completed.historyConfirmed, true);
+  assert.equal(completed.completionConfirmed, true);
   const terminalBytes = fs.readFileSync(stateFile);
   const terminal = JSON.parse(terminalBytes.toString("utf8"));
-  assert.equal(terminal.operations[0].outcome.status, "recovered");
-  assert.equal(terminal.operations[0].phase, "settling");
-  assert.equal(terminal.operations[0].checkpoint.cleanup, "confirmed");
+  assert.deepEqual(terminal.operations, []);
+  const historyFile = path.join(path.dirname(stateFile), "history.jsonl");
+  const historyBytes = fs.readFileSync(historyFile);
+  const rows = model.decodeCoordinatorHistoryRows(historyBytes);
+  assert.equal(rows?.length, 1);
+  assert.equal(rows?.[0]?.recoveryId, first.recoveryId);
+  const summary = JSON.parse(historyBytes.toString("utf8")).summary;
+  assert.equal(summary.outcome.status, "recovered");
+  assert.equal(summary.technical.cleanup, "confirmed");
   const terminalAcquired = acquireCount;
   const terminalWrites = writeCalls;
-  const refused = await repairRuntimeOwnedDockerRuntime(
+  const settled = await repairRuntimeOwnedDockerRuntime(
     verified.capability,
     new AbortController().signal,
     first.recoveryId,
   );
-  assert.equal(refused.status, "blocked");
+  assert.equal(settled.status, "observed");
+  assert.equal(settled.reason, "runtime_repair_recovered");
+  assert.equal(settled.completionConfirmed, true);
   assert.equal(acquireCount, terminalAcquired);
   assert.equal(writeCalls, terminalWrites);
   assert.ok(fs.readFileSync(stateFile).equals(terminalBytes));
+  assert.ok(fs.readFileSync(historyFile).equals(historyBytes));
 });
 
 /**
@@ -2397,10 +2372,10 @@ test("Host Windows: 保存済み一次失敗はNative再取得なしに記録だ
 
 /**
  * 実出版後に残ったmarkerを同じ修復入口で回収する。
- * @responsibility 出版済みoutcomeを再保存せず技術再取得もしない。
+ * @responsibility 出版済み履歴のcurrent本文を保全し、技術再取得もしない。
  * @trace ERB-IT-014
  * @precondition 実Root・Kernel・Writer、自己生成Repositoryだけ。
- * @stimulus outcome出版後のexact marker unlinkを一回拒否し、Abort済みで再入場。
+ * @stimulus 履歴確認出版後のexact marker unlinkを一回拒否し、Abort済みで再入場。
  * @observation 実current本文、marker存在／不存在、WriterとDI回数、清掃診断。
  * @oracle markerだけ除去、current全文不変、再保存・技術要求0。
  * @cleanup unlink差替えを必ず復元し、自作Rootの不存在を確認。
@@ -2421,7 +2396,12 @@ test("Host Windows: 修復結果出版後のmarkerを再入場で回収する", 
   const unlink = fs.unlinkSync;
   let hits = 0;
   const hook = mock.method(fs, "unlinkSync", (file: fs.PathLike) => {
-    if (file === marker && hits === 0) {
+    if (
+      file === marker &&
+      hits === 0 &&
+      JSON.parse(fs.readFileSync(stateFile, "utf8")).operations[0]?.history
+        ?.confirmed === true
+    ) {
       hits++;
       throw new Error("synthetic_marker_unlink_failure");
     }
@@ -2435,7 +2415,7 @@ test("Host Windows: 修復結果出版後のmarkerを再入場で回収する", 
       cancelled.signal,
       first.recoveryId,
     );
-    assert.equal(interrupted.outcomeConfirmed, false);
+    assert.equal(interrupted.outcomeConfirmed, true);
   } finally {
     hook.mock.restore();
   }
@@ -2446,6 +2426,12 @@ test("Host Windows: 修復結果出版後のmarkerを再入場で回収する", 
     JSON.parse(published.toString("utf8")).operations[0].outcome.status,
     "blocked",
   );
+  assert.equal(
+    JSON.parse(published.toString("utf8")).operations[0].history.confirmed,
+    true,
+  );
+  const historyFile = path.join(path.dirname(stateFile), "history.jsonl");
+  const historyBytes = fs.readFileSync(historyFile);
   const writes = writeCalls,
     entries = runtimeEntries,
     acquired = acquireCount;
@@ -2454,12 +2440,12 @@ test("Host Windows: 修復結果出版後のmarkerを再入場で回収する", 
     cancelled.signal,
     first.recoveryId,
   );
-  assert.equal(resumed.stateMarkerCleanup?.status, "completed");
-  assert.equal(resumed.stateMarkerCleanup?.markerRemoved, true);
-  assert.equal(resumed.stateMarkerCleanup?.storageConfirmed, true);
-  assert.equal(resumed.stateMarkerCleanup?.lockReleased, true);
+  assert.equal(resumed.status, "observed", JSON.stringify(resumed));
+  assert.equal(resumed.historyConfirmed, true);
+  assert.equal(resumed.historyLockReleased, true);
   assert.throws(() => fs.lstatSync(marker), { code: "ENOENT" });
   assert.ok(fs.readFileSync(stateFile).equals(published));
+  assert.ok(fs.readFileSync(historyFile).equals(historyBytes));
   assert.equal(writeCalls, writes);
   assert.equal(runtimeEntries, entries);
   assert.equal(acquireCount, acquired);
@@ -2468,10 +2454,13 @@ test("Host Windows: 修復結果出版後のmarkerを再入場で回収する", 
     cancelled.signal,
     first.recoveryId,
   );
-  assert.equal(fresh.stateMarkerCleanup?.filesystemEffectIssued, false);
+  assert.equal(fresh.historyConfirmed, true);
+  assert.equal(fresh.historyEffectIssued, false);
+  assert.equal(fresh.historyLockReleased, true);
   assert.equal(writeCalls, writes);
   assert.equal(runtimeEntries, entries);
   assert.ok(fs.readFileSync(stateFile).equals(published));
+  assert.ok(fs.readFileSync(historyFile).equals(historyBytes));
 });
 
 /**
@@ -2920,13 +2909,13 @@ test("Host Windows: 修復出版のIdentity追加とSession用途を物理接続
       const mutant = stateStoreSource((source) => {
         const token =
           mode === "session_begin"
-            ? 'publication.mode === "session_begin" ? "session_begin" : "checkpoint"'
+            ? ": publication.mode,"
             : "!repairPublication?.candidate.equals(bytes)";
         assert.equal(source.split(token).length - 1, 1);
         return source.replace(
           token,
           mode === "session_begin"
-            ? '"checkpoint"'
+            ? ': "checkpoint",'
             : '(repairPublication?.mode === "identity" || !repairPublication?.candidate.equals(bytes))',
         );
       }).resume;

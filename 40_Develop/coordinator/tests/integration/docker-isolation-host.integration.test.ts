@@ -78,6 +78,17 @@ test("Windows Process Gate: Codex編集CLI起動と借用三Mountを無通信で
   const image = plan.distributionBinding.fixedImageDigest;
   const snapshot = observeTrustedDockerCli();
   const env = createDockerProcessEnvironment();
+  /**
+   * 信頼を前後再確認して固定Engineへ試験用Docker要求を出す。
+   * @responsibility 信頼を前後再確認して固定Engineへ試験用Docker要求を出す。
+   * @trace ERB-IT-031
+   * @precondition 明示許可されたHost試験と検証済みCLI観測。
+   * @stimulus 固定npipe・中立環境・有限出力と期限で同期実行する。
+   * @observation 終了値、signal、error、stdoutと前後CLI観測。
+   * @oracle CLI同一性の差や失敗を呼出し元が成功へ畳まない。
+   * @cleanup 作成資源はCaseがexact構成照合後に回収する。
+   * @boundary 明示Host経路だけ実Docker。通常回帰では呼ばない。
+   */
   const docker = (args: string[]) => {
     const result = spawnSync(
       verifyTrustedDockerCliSnapshot(snapshot),
@@ -94,6 +105,17 @@ test("Windows Process Gate: Codex編集CLI起動と借用三Mountを無通信で
     verifyTrustedDockerCliSnapshot(snapshot);
     return result;
   };
+  /**
+   * Docker要求の正常終了を確認して標準出力を渡す。
+   * @responsibility Docker要求の正常終了を確認して標準出力を渡す。
+   * @trace ERB-IT-031
+   * @precondition 同Caseの固定Docker実行関数。
+   * @stimulus 要求を発行しerror・signal・statusを検査する。
+   * @observation 正常終了のstdout。
+   * @oracle errorなし・signalなし・status0だけ受理する。
+   * @cleanup 資源の不存在確認はCaseのfinallyが所有する。
+   * @boundary Host試験の同期CLI終了。終了0だけで回収を推定しない。
+   */
   const completed = (args: string[]) => {
     const result = docker(args);
     assert.equal(result.error, undefined, "probe_command_error");
@@ -343,6 +365,7 @@ test("Windows Process Gate: Codex編集CLI起動と借用三Mountを無通信で
  * @observation 不一致時はthrowし後続rmへ進まない。
  * @oracle 種別・Source・Destination・RW全件一致。
  * @cleanup N/A: 純粋判定。
+ * @boundary 既存inspect結果の純粋照合。Container削除要求自体は呼出し側が所有する。
  */
 function assertStartupProbeMounts(
   value: unknown,
@@ -378,6 +401,8 @@ function assertStartupProbeMounts(
  * @observation 後続作成代役と終了report。
  * @oracle 次Container作成0、一次理由保持、清掃失敗別記録、削除未確認を成功にしない。
  * @cleanup N/A: 外部資源なし。
+ * @responsibility 起動終了の欠測で次の作成を止め、一次失敗と保存・回収失敗を分離する。
+ * @boundary 本番試験器のtry/finally本文をVMで評価し、実Dockerは呼ばない。
  */
 test("起動確認は終了欠測で次Containerへ進まず清掃失敗を一次へ上書きしない", () => {
   const source = fs.readFileSync(fileURLToPath(import.meta.url), "utf8");
@@ -452,6 +477,8 @@ test("起動確認は終了欠測で次Containerへ進まず清掃失敗を一�
  * @observation 削除代役の呼出し数。
  * @oracle すべて拒否しrm0。
  * @cleanup N/A: 外部資源なし。
+ * @responsibility 元ContainerのMount Sourceが変われば回収要求0とする。
+ * @boundary inspect構成の有限代役。実Containerを削除しない。
  */
 test("起動確認のMount照合はSource差替えで削除へ進まない", () => {
   const mounts = [

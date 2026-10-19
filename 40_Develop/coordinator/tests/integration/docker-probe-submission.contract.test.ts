@@ -394,6 +394,17 @@ test("全Probe作成Callerはprofile・Probe名・三Path・bindingを一致さ�
       const captured: object[] = [];
       const bindings: unknown[] = [];
       let factoryCalls = 0;
+      /**
+       * Probe失敗を固定理由付きの閉じたblocked値へする。
+       * @responsibility Probe失敗を固定理由付きの閉じたblocked値へする。
+       * @trace ERB-IT-004
+       * @precondition 故障点に対応する有限reason。
+       * @stimulus 空のProbe lifecycleを伴うblocked値を返す。
+       * @observation 返却reasonと上位の停止結果。
+       * @oracle 呼出し元がreasonを保持しProbe成功へ変換しない。
+       * @cleanup N/A: メモリ上の結果構築だけ。
+       * @boundary Probe Consumerの故障代役。Providerを起動しない。
+       */
       const blocked = (reason: string) => ({
         status: "blocked",
         reason,

@@ -1,5 +1,6 @@
 /**
  * 非0終了の分類を出力媒体・容量・曖昧性の境界で検証する。
+ * @packageDocumentation
  * @responsibility 生本文を返さず固定理由だけを導出する。
  * @trace ERB-UT-032
  * @level UT
@@ -18,6 +19,8 @@ import { classifyProviderNonzeroExit } from "../../../src/output/provider-error.
  * @observation 固定理由。
  * @oracle stderr優先、異常形はgeneric、秘密の本文非返却。
  * @cleanup N/A: 純粋同期処理。
+ * @responsibility 正式エラーイベントだけを既存理由へ分類する。
+ * @boundary Provider出力の合成値と固定分類。Process・通信なし。
  */
 test("Codex非0終了は有界な構造化エラーだけを分類する", () => {
   const error = JSON.stringify({

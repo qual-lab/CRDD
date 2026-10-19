@@ -39,6 +39,7 @@
             "schema",
             "migration",
             "resource",
+            "verification-tool",
             "test-suite",
             "test-case"
           ]
@@ -66,6 +67,7 @@
           },
           "uniqueItems": true
         },
+        "verificationTarget": { "const": "environment" },
         "verifies": {
           "type": "array",
           "items": {
@@ -94,18 +96,45 @@
           "then": {
             "required": ["qaIds", "verifies"],
             "properties": {
-              "qaIds": { "minItems": 1 },
-              "verifies": { "minItems": 1 }
-            }
+              "qaIds": { "minItems": 1 }
+            },
+            "if": { "required": ["verificationTarget"] },
+            "then": {
+              "required": ["localTestIds"],
+              "properties": {
+                "localTestIds": { "minItems": 1 },
+                "verifies": { "maxItems": 0 }
+              }
+            },
+            "else": { "properties": { "verifies": { "minItems": 1 } } }
           },
           "else": {
-            "required": ["archIds"],
-            "properties": {
-              "archIds": { "minItems": 1 },
-              "qaIds": { "maxItems": 0 },
-            "localTestIds": { "maxItems": 0 },
-            "verifies": { "maxItems": 0 },
-            "implements": { "maxItems": 0 }
+            "if": {
+              "properties": { "kind": { "const": "verification-tool" } },
+              "required": ["kind"]
+            },
+            "then": {
+              "required": ["qaIds", "localTestIds", "verifies"],
+              "not": { "required": ["verificationTarget"] },
+              "properties": {
+                "path": { "pattern": "^(scripts/|tests/fixtures/).+\\.(ts|rs)$" },
+                "archIds": { "maxItems": 0 },
+                "qaIds": { "minItems": 1 },
+                "localTestIds": { "minItems": 1 },
+                "verifies": { "maxItems": 0 },
+                "implements": { "maxItems": 0 }
+              }
+            },
+            "else": {
+              "required": ["archIds"],
+              "not": { "required": ["verificationTarget"] },
+              "properties": {
+                "archIds": { "minItems": 1 },
+                "qaIds": { "maxItems": 0 },
+                "localTestIds": { "maxItems": 0 },
+                "verifies": { "maxItems": 0 },
+                "implements": { "maxItems": 0 }
+              }
             }
           }
         }

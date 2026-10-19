@@ -25,6 +25,7 @@ import {
  * @oracle Console pipeは増えず、Worker errorと非0終了を取得できる。
  * @cleanup Workerのexitまで待つ。
  * @boundary Worker stdio分離と親への失敗通知。
+ * @responsibility Lock Workerの独立stdioが親Listenerを増やさず実errorとexitを搬送することを確認する。
  */
 test("Lock Workerは親Consoleへpipeせず実errorとexitを通知する", async () => {
   const errors = process.stderr.listenerCount("error");

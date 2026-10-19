@@ -375,7 +375,7 @@ Taskの既存型契約は`startRuntimeOwnedCoordinatorTask`の引数・戻り値
 
 新しい公開型はCoordinator側の`types.ts`へ置き、開始結果・取消結果・終了結果・通知本文を区別する。型名の変更だけで結果fieldを削除せず、実装移管時に既存の相関条件を照合する。現在のTask関数Headerには外部Effectを持たない旨の記載があるが、本体は実行開始・取消を発行するため設計と一致しない。段階5では入口の移管と同時にHeaderを是正し、Header検査の成功だけを意味妥当性の証明としない。
 
-この表はTask開始・取消の実Consumer集合の対応であり、候補Store、診断、任意配布検証と旧署名Gate撤去の全Symbol対応を代替しない。未署名通常入口の実装・本番接続・回帰・必要な実Provider E2Eは段階5〜7で確認する。任意配布署名は別の適用範囲で確認する。
+この表はTask開始・取消の実Consumer集合の対応であり、Workspace候補、診断、任意配布検証と旧署名Gate撤去の全Symbol対応を代替しない。未署名通常入口の実装・本番接続・回帰・必要な実Provider E2Eは段階5〜7で確認する。任意配布署名は別の適用範囲で確認する。
 
 ### 2.4. 候補・診断・配布検証と旧署名Gateの公開境界
 
@@ -453,8 +453,7 @@ Provider成功だけで`completed`にしない。cleanup不明、候補Identity�
 | Provider Home lock | Home session controller | Home観測後 | 対応Stage終了後 |
 | Mount Grant | Mount Grant runtime | 対象PathとStage固定後 | Stage終了・取消・失敗時に失効 |
 | Docker container/network | Docker process controller | Provider起動時 | `docker wait`／inspectと不存在確認 |
-| Candidate Workspace | Repository operation runtime | Executor前 | 採用候補の保存または破棄後 |
-| Candidate Store lock | Candidate Store | 保存・export・discard時 | 同一Identity再読取り後 |
+| Candidate Workspace | Orchestrator／Version ControlのRepository operation runtime | Executor前 | 固定Candidateの採用・終了またはWorkspaceの明示終了後 |
 | Console reader | 対話境界 | 必要なHuman入力前 | reader、pipe、childの終了確認 |
 | Recovery record | 対応Effect controller | Effect前に耐久化 | 復旧完了のread-back後だけ完了化 |
 
@@ -469,7 +468,7 @@ Provider成功だけで`completed`にしない。cleanup不明、候補Identity�
 ```text
 Host Operation
   → Provider Home
-    → Candidate StoreまたはDocker Recovery
+    → Runtime StateまたはDocker Recovery
       → Console reader（必要時だけ）
 ```
 
@@ -2033,7 +2032,7 @@ Coordinator
 | Recovery | Project／Taskとの相関を保持する | 実行資源のexact Recovery情報を返す |
 | 完成 | 明示Authorityと根拠からObjective／Milestoneの判断を記録する | Task結果とcleanupを別軸で報告する |
 
-CoordinatorはProject状態を再定義せず、Orchestratorをimport・構成・再exportしない。OrchestratorはProvider、OS、Containerや候補Storeの内部実装へ依存せず、公開APIから必要な結果を受ける。通知型はCoordinatorが定義し、Orchestratorがハンドラーを登録する。意味契約は[状態・資源詳細](../orchestrator/02_Detailed_Design.md)、実装・試験接続は既存の機械投影と契約試験で照合する。旧上位Adapterに存在する結果検査を捨てず、下位共通結果検査と上位結合検査へ分けて移す。
+CoordinatorはProject状態を再定義せず、Orchestratorをimport・構成・再exportしない。OrchestratorはProvider、OS、Containerや退役した候補Storeの内部実装へ依存せず、公開APIから必要な結果を受ける。通知型はCoordinatorが定義し、Orchestratorがハンドラーを登録する。意味契約は[状態・資源詳細](../orchestrator/02_Detailed_Design.md)、実装・試験接続は既存の機械投影と契約試験で照合する。旧上位Adapterに存在する結果検査を捨てず、下位共通結果検査と上位結合検査へ分けて移す。
 
 単一Taskの拒否結果では、実効Executor Providerが未選択の場合の`executorProvider: null`を正当な未選択として受け取る。上位の省略可能なProvider項目へは投影せず、元の拒否理由、cleanup、再起動要否およびexact回復参照を保持する。未選択だけからEffect 0や資源不存在を推定しない。成功結果のnull、未知Provider、ProxyまたはAccessorは拒否し、欠測・data `undefined`の既存互換は維持する。Accessorを欠測へ読み替えず、Getterを実行しない。
 

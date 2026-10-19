@@ -483,6 +483,18 @@ async function runNativeProtection(): Promise<void> {
   );
   let isStopped = false;
   let isTimedOut = false;
+  /**
+   * 同じNative試験子Processへ停止要求を送る。
+   * @responsibility 取消通知と期限超過から共有する停止要求の発行点を所有する。
+   * @trace ERB-IT-001
+   * @trace ERB-IT-002
+   * @precondition 本関数が作成した同じchild handleを保持する。
+   * @stimulus SIGINT・SIGTERM又は既存30秒期限から呼ばれる。
+   * @observation isStoppedを記録して同childのkillを要求する。
+   * @oracle kill要求をexit・close・cleanup成立とは扱わない。
+   * @cleanup 呼出し元がclose後に期限TimerとSignal Listenerを解除する。
+   * @boundary 自己生成Native試験子だけ。別Processや実Runtimeを停止しない。
+   */
   const stop = () => {
     isStopped = true;
     child.kill();

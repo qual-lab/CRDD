@@ -37,6 +37,7 @@ import {
  * @oracle 解放ACK後にstdio監視が親へ積み上がらず全Lockが清掃済み。
  * @cleanup 専用Rootを空確認後に削除する。
  * @boundary 親stdioの観測は全Worker exit完了の証明ではない。
+ * @responsibility 同期Lockを十一回取得解放して親ConsoleのListener増加を検出する。
  */
 test("同期Lock11反復は解放結果を維持し親Console監視を増やさない", () => {
   const base = fileURLToPath(

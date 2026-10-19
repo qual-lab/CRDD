@@ -30,7 +30,7 @@ Topic／Meeting一覧の純粋入力検査は公開`validateTopicMeetingListInpu
 | [ARCH-000006](../../Definitions/ARCH-000006/architecture_definition.md) | Topic／Meetingの構造化CRUD、Outcome処置、昇格とRelation解決を責務別に提供する。 | Partial |
 | [ARCH-000011](../../Definitions/ARCH-000011/architecture_definition.md) | 用途限定Root、設定読取り、保存・排他・短命ファイルの共通部品を提供し、Runtimeごとの終了判断を所有しない。 | Partial |
 | [ARCH-000016](../../Definitions/ARCH-000016/architecture_definition.md) | Source改訂版、現在性、履歴と未観測を投影・保存契約で区別する。 | Partial |
-| [ARCH-000013](../../Definitions/ARCH-000013/architecture_definition.md) | 認可済み集合のContext／Portfolio集約と中立なRoot／保存部品。認証・認可状態は所有しない。 | Partial。具体型・公開API・本番接続はOPEN |
+| [ARCH-000013](../../Definitions/ARCH-000013/architecture_definition.md) | 認可済み集合のContext／Portfolio集約と中立なRoot／保存部品。認証・認可状態は所有しない。具体型・公開API・本番接続はOPEN。 | Partial |
 
 本書は、旧CRDD Domain Library、Project Operation、Runtime Dataの実装を`domain-model`へ統合する責務境界を定義する。Topic／Meetingの意味・状態は[活動Context詳細](./02_Activity_Context.md)、保存用途・保持・清掃は[保存配置詳細](./03_Repository_Storage.md)が所有し、Package統合を理由に重複定義しない。現在の移管と検証Gateは[CHG-000082](../../../99_Roadmap/Changes/CHG-000082/change.md)、過去のLibrary分離は[CHG-000076](../../../99_Roadmap/Changes/CHG-000076/change.md)へ戻る。
 
@@ -458,7 +458,7 @@ Provider計画の分離時に、Coordinatorの共通入力防御を`plain-data/s
 
 | Detail Source | UI／SPEC Definition | この領域が担当するSCR／PRT／Interaction／BHV | Relation状態 | 未解決Gap／戻し先 |
 |---|---|---|---|---|
-| [UI／SPEC Detail Architecture Traceability](../../08_UI_SPEC_Detail_Traceability.md) | ARCH-000001、ARCH-000002、ARCH-000008、ARCH-000009のSource Definition | 同Traceability表で上記ARCH-IDへ接続された全Detail ID | Covered | Detailの意味変更はUI／SPECへ、配置責務の変更は該当ARCH定義へ戻す |
+| [UI／SPEC Detail Architecture Traceability](../../08_UI_SPEC_Detail_Traceability.md) | ARCH-000001、ARCH-000002、ARCH-000008、ARCH-000009、ARCH-000013のSource Definition | 同Traceability表で上記ARCH-IDへ接続された全Detail ID | Covered | Detailの意味変更はUI／SPECへ、配置責務の変更は該当ARCH定義へ戻す |
 | [活動Contextの担当Relation](./02_Activity_Context.md#上流uispec-detailとの関係) | ARCH-000005、ARCH-000006、ARCH-000016のSource Definition | Topic／MeetingとProject Contextの既存担当Relationを統合Packageの責務別入口で実現する | Partial | 詳細の意味は活動Contextが所有。新配置の利用側接続は段階5〜7で確認する |
 | [保存配置の担当Relation](./03_Repository_Storage.md#上流uispec-detailとの関係) | ARCH-000009、ARCH-000011、ARCH-000013、ARCH-000016のSource Definition | Repository-local／CROSの保存境界に接続された既存担当Relation | Partial | 認可状態はAccess Managementへ、Context集約はDomain Modelへ、Runtime固有の現在状態は各Ownerへ残す |
 | [認可済みContext／Portfolio集約](#41-認可済みcontextportfolioの集約) | ARCH-000013のUI-000008／SPEC-000012 | SCR-000008／PRT-000008／BHV-000012、`PRT-000008.spec-000012`の集約断面 | Partial | 具体型・API・Reader接続・Quality・Source・本番接続はOPEN。意味変更はUI／SPECへ、配置変更はARCH-000013へ戻す |

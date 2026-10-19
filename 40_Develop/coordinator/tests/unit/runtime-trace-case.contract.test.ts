@@ -29,7 +29,7 @@ import {
  * @boundary PPR-UT-006=Direct Boundary: coordinator Test Source→対象契約
  */
 test("実観測のEffect差分がCanonical値から1件でもずれれば拒否する", () => {
-  const canonical = getRuntimeTraceCase("CASE-NORMAL-STAGED-TO-HOST-CLEAN");
+  const canonical = getRuntimeTraceCase("CASE-NORMAL-REVIEWER-TO-HOST-CLEAN");
   assert.doesNotThrow(() => assertRuntimeTraceCase(canonical.id, canonical));
   assert.throws(
     () =>

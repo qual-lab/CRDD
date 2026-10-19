@@ -160,6 +160,17 @@ test("成果物本文は選択Rootと現在認可に拘束される", async (t) 
     localAccessRoot: root,
   });
   const headers = { authorization: `Bearer ${material.token}` };
+  /**
+   * 成果物HTTP要求へRepository選択と主体を固定して配送する。
+   * @responsibility 成果物HTTP要求へRepository選択と主体を固定して配送する。
+   * @trace RFD-IT-024
+   * @precondition Caseが起動したServerと自己生成二Repository。
+   * @stimulus id・route・identityを既存HTTP要求へ渡す。
+   * @observation 認証結果、本文状態と対象Artifact。
+   * @oracle 別Repository/主体への配送や上限拒否を正常表示に畳まない。
+   * @cleanup Serverと所有fixtureの終了はCaseのfinallyで確認する。
+   * @boundary 実HTTP→Artifact Reader。外部AIなし。
+   */
   const query = (id: string, route: string, identity: string) =>
     `/api/workbench-view?${new URLSearchParams({ repositoryId: id, route, [route === "/change" ? "id" : "path"]: identity })}`;
   try {

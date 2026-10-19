@@ -97,10 +97,10 @@ CPR-IT-010／011では、期待Projectを指定したTopic／Meeting両種別の
 | 詳細設計領域 | 受け取る成立条件 |
 |---|---|
 | [coordinator](../../../06_Architecture/Details/coordinator/01_Architecture.md) | 実行編成、Authority、外部Effect、候補、回収・回復 |
-| [mcp](../../../06_Architecture/Details/mcp-server/01_Architecture.md) | Transport変換、公開Schema、Session、結果搬送 |
+| [mcp-server](../../../06_Architecture/Details/mcp-server/01_Architecture.md) | Transport変換、公開Schema、Session、結果搬送 |
 | [project-operation](../../../06_Architecture/Details/domain-model/02_Activity_Context.md) | Project運営状態、Meeting／Topic候補、正本への引渡し |
 | [orchestrator](../../../06_Architecture/Details/orchestrator/01_Architecture.md) | 公開済み候補の明示採用、Lease、Revision／Scope再観測、Receiptおよび回復義務 |
-| [workbench](../../../06_Architecture/Details/workbench-server/01_Architecture.md) | Topic／Meeting操作、候補採否、競合・部分成功・結果不明からの再入場 |
+| [workbench-server](../../../06_Architecture/Details/workbench-server/01_Architecture.md) | Topic／Meeting操作、候補採否、競合・部分成功・結果不明からの再入場 |
 
 ## 2. 成立の流れ
 

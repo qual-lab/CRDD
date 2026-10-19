@@ -114,6 +114,17 @@ const fs=(await import('node:fs')).default;
 const {syncBuiltinESMExports}=await import('node:module');
 const {pathToFileURL}=await import('node:url');
 let effects=0, output='';
+/**
+ * 旧CLI操作がEffectへ到達したら試験を失敗させる。
+ * @responsibility 旧CLI操作がEffectへ到達したら試験を失敗させる。
+ * @trace PRL-IT-012
+ * @precondition 子Process内の旧処置先を拒否代役へ置換。
+ * @stimulus 到達回数を増やし固定例外を投げる。
+ * @observation effectsとCLIの不正操作結果。
+ * @oracle 旧candidate入力はこの代役へ到達せず拒否される。
+ * @cleanup 子を待機しModule mockは子終了で破棄する。
+ * @boundary 実CLI子の配送検査だけ。旧Storeを生成しない。
+ */
 const refuse=()=>{effects++;throw Error('retired_effect_forbidden')};
 for(const key of ['spawn','spawnSync','execFile','execFileSync','exec','execSync','fork'])cp[key]=refuse;
 for(const key of ['writeFileSync','appendFileSync','mkdirSync','renameSync','rmSync','unlinkSync','rmdirSync'])fs[key]=refuse;

@@ -1,5 +1,6 @@
 /**
  * Worktreeの作成・観測・明示破棄を合成Repositoryの実Gitで確認する。
+ * @packageDocumentation
  * @responsibility dirty非継承、残存回収、対象拘束と途中失敗の反証。
  * @trace RFD-IT-029
  * @level IT
@@ -104,6 +105,17 @@ function fixture(t: TestContext) {
   const verified = verifyRepositoryRoot(root);
   assert.equal(verified.status, "completed");
   if (verified.status !== "completed") throw new Error("fixture_root_invalid");
+  /**
+   * 所有Worktreeの固定相対配置を試験Rootへ結合する。
+   * @responsibility 所有Worktreeの固定相対配置を試験Rootへ結合する。
+   * @trace RFD-IT-029
+   * @precondition fixtureのRepo Rootと試験UUID。
+   * @stimulus 固定workspaces配置へidを結合する。
+   * @observation 期待するWorktree絶対Path。
+   * @oracle 作成・観測・削除の結果を同じ対象Pathへ照合する。
+   * @cleanup 実WorktreeとRefは呼出し元が正式処理で回収する。
+   * @boundary 試験の期待Path計算のみ。資源は生成しない。
+   */
   const target = (id: string) =>
     path.join(root, ".crdd", "workspaces", id, "worktree");
   return { root, base, capability: verified.capability, target };

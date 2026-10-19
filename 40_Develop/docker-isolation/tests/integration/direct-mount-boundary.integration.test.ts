@@ -2,7 +2,8 @@
  * Direct／Isolated共通の固定Path書込み境界を合成物で確認する。
  * @packageDocumentation
  * @responsibility 実ID固定の二構成、Host前後観測、失敗時停止と自己生成物回収を所有する。
- * @trace ERB-IT-001 ERB-IT-002
+ * @trace ERB-IT-001
+ * @trace ERB-IT-002
  * @level IT
  * @scope DirectのFilesystem構成。製品Provider・実Git・未知秘密の包括保護は対象外。
  * @boundary 実Docker→合成Tree。通常回帰では実行しない。
@@ -337,7 +338,8 @@ test("Direct試験器は一次・清掃・最終Host失敗を分離する", () =
 /**
  * 回収前の構成不一致を有限代役で反証する。
  * @responsibility 照合失敗から削除へ進まないことを確認する。
- * @trace ERB-IT-001 ERB-IT-002
+ * @trace ERB-IT-001
+ * @trace ERB-IT-002
  * @precondition 局所のinspect代役だけを使う。
  * @stimulus Mount・NetworkMode・名前を一軸ずつ変更する。
  * @observation 削除要求回数と清掃失敗。
@@ -400,7 +402,8 @@ test("試験Container構成差は回収を発行せず清掃失敗として保�
 /**
  * 承認済みの固定Path書込み境界を二構成だけで確認する。
  * @responsibility 実ID・構成照合・Host不変・失敗停止と清掃を分離する。
- * @trace ERB-IT-001 ERB-IT-002
+ * @trace ERB-IT-001
+ * @trace ERB-IT-002
  * @precondition 明示許可、Engine応答、既存固定Image、稼働Container0、専用Root不存在。
  * @stimulus 通常Source編集とGit／内部状態への書込み・rename・unlink。
  * @observation Container判定、Host実体、同IDと回収後不存在。

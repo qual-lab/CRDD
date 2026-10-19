@@ -139,7 +139,7 @@ const SOURCE_ROLES = {
     "state/persistence.ts",
     "state/query-contract.ts",
     "state/transitions.ts",
-    "storage/types.ts",
+    "storage/result-record.ts",
     "storage/validate-result-record.ts",
     "task/executor.ts",
     "task/observer.ts",
@@ -617,6 +617,17 @@ test("import走査は解釈できない取り込み構文をFail Closedで検出
             "outside pure runtime closure",
             null,
           ][index - 4];
+          /**
+           * 変異した依存辺を純粋状態Moduleの境界へ照合する。
+           * @responsibility 変異した依存辺を純粋状態Moduleの境界へ照合する。
+           * @trace PRL-IT-012
+           * @precondition state/transitionsのscanと有限変異。
+           * @stimulus 既存assertPureImportEdgesを同じ対象へ実行する。
+           * @observation 禁止依存に対応する固定診断。
+           * @oracle 型だけを含む禁止辺も拒否し正常対照は通る。
+           * @cleanup N/A: Source解析とメモリ変異だけ。
+           * @boundary 静的Import境界。実ModuleのEffectは起動しない。
+           */
           const check = () =>
             assertPureImportEdges(`${SOURCE_PREFIX}state/transitions.ts`, scan);
           if (expected === null) check();

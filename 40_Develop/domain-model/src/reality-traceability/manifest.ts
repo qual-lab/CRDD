@@ -14,6 +14,7 @@ export const realitySymbolKinds = [
   "schema",
   "migration",
   "resource",
+  "verification-tool",
   "test-suite",
   "test-case",
 ] as const;
@@ -50,6 +51,7 @@ export type RealitySymbol = Readonly<{
   qaIds: readonly string[];
   localTestIds: readonly string[];
   verifies: readonly string[];
+  verificationTarget?: "environment";
   implements?: readonly string[];
 }>;
 

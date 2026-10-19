@@ -6,15 +6,20 @@ UI ID: `UI-000008`
 確認状態: 鍵提示方式の現行契約を候補伝播・限定再レビュー済み（鍵提示方式伝播差分、全重大度0）。旧限定Passは履歴。Architecture／Quality／Source・実画面・全体Readyは未成立。
 維持責任者: Qual-Lab
 
-## 利用者成果と統合判断
+## 利用者成果
 
 鍵の発行・独立失効・交換はadministrator専用固定で、Role詳細権限のON／OFF設定を設けない。通常鍵操作は同一Process Workbench backendだけで提供し、MCPには秘密値の有無を問わず鍵操作の一覧・Schema・登録・dispatchを公開しない。通常Host回復はログイン済みローカル操作者を信頼する対話CLIで交換2操作だけを扱い、追加認証・専用資格・承認コード・OS管理者昇格を要求しない。既存Root／Path検証を維持する。manager／administratorはユーザー登録・表示名変更、developer／managerの割当て・詳細権限、Repository登録・登録解除・公開範囲を管理する。administratorの付与・解除・降格を含むRole変更、administrator詳細権限と鍵3操作はadministratorだけが管理する。developerへ管理操作、managerへ管理者専用操作を設定で委譲しない。
 
-| 正式入力と変換根拠 | 保持する成果・情報 | UIで成立させる対応 |
-|---|---|---|
-| [UX-000013](../../../02_UX/Definitions/UX-000013/ux_definition.md)／[UX分析](../../Analysis/UX-000013/ui_analysis.md) | Roleで許可されたRepositoryだけをRemote利用する | 自身、現行Role権限、公開対象、実アクセスと部分成立を見分け、許可内の対象を選ぶ |
-| [UX-000035](../../../02_UX/Definitions/UX-000035/ux_definition.md)／[UX分析](../../Analysis/UX-000035/ui_analysis.md) | 未初期化から最初の管理者と鍵を成立させ、以後の最小管理・鍵回復へ進む。最小ユーザー管理で接続を維持・回復する | 初回のHost明示開始・一度作成／発行／Host提示とexact同鍵の初回確認用限定接続成功による受領・接続確認と4状態・部分結果を既存鍵交換から分離する。対象ID・表示名・Role・資格状態、処置影響、一度表示Secret、鍵交換2操作・2入口と既存ユーザーの新資格による再入場を認識する。 |
-| [IA-000009](../../../03_IA/Definitions/IA-000009/ia_definition.md)／[IA分析](../../Analysis/IA-000009/ui_analysis.md) | 初回管理状態・確認済み元試行と成立ユーザー／資格の関係。同一性・関係・可視性・導線。 | 未初期化／既存／確認済み途中／観測不能と安全な導線・責任を保持する。各情報を独立して見分け、名前をAuthorityへ昇格せず通常管理とHost回復を分ける |
+## UX観点の分析結果
+
+- [UX-000013](../../Analysis/UX-000013/ui_analysis.md): Roleで許可されたRepositoryだけをRemote利用し、自身、現行Role権限、公開対象、実アクセスと部分成立を見分ける。
+- [UX-000035](../../Analysis/UX-000035/ui_analysis.md): 未初期化から最初の管理者と鍵を成立させ、通常管理と鍵回復へ進む。初回のHost明示開始、一度提示、exact同鍵の初回確認用限定接続成功、4状態と部分結果を既存鍵交換から分離する。
+
+## IA観点の分析結果
+
+- [IA-000009](../../Analysis/IA-000009/ui_analysis.md): 初回管理状態、確認済み元試行、成立ユーザーと資格の同一性・関係・可視性・導線を保持し、未初期化／既存／確認済み途中／観測不能を区別する。
+
+## 両観点の統合判断
 
 両観点を統合して認識・操作・Feedbackを定義する。ユーザーIDのUUID制約は正式入力から継承し、版・生成方式・Schemaを決めない。
 
@@ -132,6 +137,8 @@ Repository非開示対象の存在・名前・件数を理由表示でも漏ら�
 | 独立した資格失効 | 対象と失効結果、結果不明時の確認先 | Workbenchの固定administrator権限、以後の要求拒否、新発行なし、開始済み取消非証明 |
 | 鍵交換2操作／2入口 | 対象・失効範囲・既存発行先・保持情報・部分結果・再入場 | Workbenchの固定administrator権限またはHostのログイン済み操作者、必要な明示確認、発行／記録不明なら元Identityの再観測（交換由来だけsame exact Recovery）、受け渡しだけ未確認なら別明示交換 |
 
+## 対応するSPEC
+
 - pairs_with: [SPEC-000012](../../../05_SPEC/Definitions/SPEC-000012/spec_definition.md)
 
 SPECを正式入力にせず、同じUX／IAから独立に導いた条件・結果と照合する。
@@ -194,6 +201,14 @@ UUIDは採用済み継承制約として保持し、版・生成方式・Schema�
 ## 補足定義
 
 なし。
+
+## 正式入力と変換根拠
+
+- 正式入力: [UX-000013](../../../02_UX/Definitions/UX-000013/ux_definition.md)
+- 正式入力: [UX-000035](../../../02_UX/Definitions/UX-000035/ux_definition.md)
+- 正式入力: [IA-000009](../../../03_IA/Definitions/IA-000009/ia_definition.md)
+
+各分析記録は変換根拠であり、正式入力そのものではない。UI定義は正式入力の成果と情報構造を統合し、SPEC、Architecture、Sourceまたは旧Evidenceから不足する意味を補完しない。
 
 ## Checklist
 

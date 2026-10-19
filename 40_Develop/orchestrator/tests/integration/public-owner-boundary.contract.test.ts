@@ -31,10 +31,32 @@ const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
  * @boundary 実CLIと有限Owner。Docker／Provider実証ではない。
  */
 test("単発CLIは受付後の待機・終了例外でも元依頼IDを保持する", () => {
+  /**
+   * 実ModuleへのURLをRepository内の相対指定から作る。
+   * @responsibility 実ModuleへのURLをRepository内の相対指定から作る。
+   * @trace PRL-IT-012
+   * @precondition 固定repository Rootと既知Module相対Path。
+   * @stimulus pathToFileURLでModule URLへ変換する。
+   * @observation mock対象のexact URL。
+   * @oracle CLIと同じModuleを置換し別URLへ逸れない。
+   * @cleanup N/A: URL文字列生成だけ。
+   * @boundary 子Process Module接続の準備。FS変更なし。
+   */
   const url = (relative: string) =>
     pathToFileURL(path.join(repositoryRoot, relative)).href;
   const script = `
     import { mock } from "node:test";
+    /**
+     * 子Processの既存Moduleへ有限の失敗代役を重ねる。
+     * @responsibility 子Processの既存Moduleへ有限の失敗代役を重ねる。
+     * @trace PRL-IT-012
+     * @precondition 実Module exportsと指定override。
+     * @stimulus mock.moduleで元exportsを保持して必要fieldだけ置換する。
+     * @observation 実CLIの受付・wait・close回数と失敗JSON。
+     * @oracle 指定故障以外の入口を消さず元request IDと一次失敗を保持する。
+     * @cleanup 子Process終了でmockを破棄する。
+     * @boundary 実CLI本文と有限Module代役。AI・Dockerなし。
+     */
     const replace = async (url, exports) => {
       const actual = await import(url);
       mock.module(url, { exports: { ...actual, ...exports } });

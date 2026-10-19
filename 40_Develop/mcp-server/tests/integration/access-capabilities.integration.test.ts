@@ -13,6 +13,9 @@
  * @trace RCM-IT-010
  * @trace EST-IT-002
  * @trace EST-IT-014
+ * @trace CPR-IT-001
+ * @trace CPR-IT-004
+ * @trace CPR-IT-006
  * @level IT
  * @scope MCP専用Resolver、AM、Domain固定本文、HTTP。
  * @boundary 自己生成Store／Repositoryから既存HTTP Transportまで。公開Launcherの完成ではない。
@@ -1147,6 +1150,19 @@ test("WorkspaceはWorkbenchとMCPから同じ現在認可・実Gitへ接続す�
   const f = fixture(t);
   const target = f.targets[0];
   assert.ok(target);
+  /**
+   * 公開Workspace試験の対象Repositoryへ固定Git要求を出す。
+   * @responsibility 公開Workspace試験の対象Repositoryへ固定Git要求を出す。
+   * @trace CPR-IT-001
+   * @trace CPR-IT-004
+   * @trace CPR-IT-006
+   * @precondition 自己生成targetと固定argv。
+   * @stimulus hooksと署名を無効化してGitを同期実行する。
+   * @observation 終了statusとtrim済みstdout。
+   * @oracle status0だけを正常な候補・Merge観測として返す。
+   * @cleanup Server終了後にfixtureが所有Rootを回収する。
+   * @boundary 合成Repositoryのlocal Git。外部AIなし。
+   */
   const run = (args: string[]) => {
     const result = spawnSync(
       "git",
@@ -1210,6 +1226,20 @@ test("WorkspaceはWorkbenchとMCPから同じ現在認可・実Gitへ接続す�
       workspaceId,
     };
     const readOps = ["list", "get", "inspect", "candidate-diff"];
+    /**
+     * 現在資格とRepository IDでWorkspace MCP要求を送る。
+     * @responsibility 現在資格とRepository IDでWorkspace MCP要求を送る。
+     * @trace CPR-IT-001
+     * @trace CPR-IT-004
+     * @trace CPR-IT-006
+     * @trace EST-IT-002
+     * @precondition 起動済み認証HTTPと固定token・target ID。
+     * @stimulus 読取り操作と管理操作に対応するToolへcommandを渡す。
+     * @observation HTTPとMCPの公開JSON結果。
+     * @oracle 選択Repositoryだけに配送し不正・失効結果を補完しない。
+     * @cleanup 呼出し元がServerをcloseし所有fixtureを回収する。
+     * @boundary 実HTTP→認可→Workspace Owner。Providerは呼ばない。
+     */
     const sendMcp = async (command: Record<string, unknown>) =>
       (
         await call(
@@ -1600,6 +1630,21 @@ test("WorkspaceはWorkbenchとMCPから同じ現在認可・実Gitへ接続す�
   }
 });
 
+/**
+ * 認証済み二Repositoryの実保存fixtureを用意する。
+ * @responsibility 認証済み二Repositoryの実保存fixtureを用意する。
+ * @trace EST-IT-002
+ * @trace CPR-IT-010
+ * @trace CPR-IT-012
+ * @trace RFD-IT-013
+ * @trace RFD-IT-021
+ * @precondition Repository直下tests領域が非linkの通常Directory。
+ * @stimulus AM初期化、固定資格、合成Git RootとProject Contextを作る。
+ * @observation 検証済みStore Root、tokenと二つの対象。
+ * @oracle 指定した初期化段階・Role・公開範囲を実Readerが読める。
+ * @cleanup t.afterでexact所有Directoryだけを削除し不存在を確認する。
+ * @boundary 実AM・Filesystem・local Git。tokenを公開本文やログへ出さない。
+ */
 function fixture(t: TestContext, completed = true) {
   const repository = path.resolve(import.meta.dirname, "../../../..");
   assert.ok(fs.statSync(path.join(repository, ".git")).isDirectory());
@@ -1807,6 +1852,7 @@ function call(
  * @observation Parserと実保存結果。
  * @oracle Project以外の必須Meaningを欠落させない。
  * @cleanup N/A: メモリ文字列のみ。
+ * @boundary 同Projectの固定Markdown入力生成だけ。保存・公開は呼出し元が検証する。
  */
 function topicMarkdown(
   revision = 1,
@@ -1826,6 +1872,7 @@ function topicMarkdown(
  * @observation Parserと実保存結果。
  * @oracle Outcome処置と通常更新を区別できる。
  * @cleanup N/A: メモリ文字列のみ。
+ * @boundary 同Projectの固定Markdown入力生成だけ。保存・公開は呼出し元が検証する。
  */
 function meetingMarkdown(revision = 1, project = "project.fixture") {
   return `# Meeting\n\n成果物種別: Meeting\nMeeting ID: \`MTG-000042\`\nProject ID: \`${project}\`\n状態: \`recorded\`\n開催日時: \`2026-10-12 10:00 JST\`\n改訂: \`${revision}\`\n維持責任者: \`PM\`\n\n## 1. 目的と要約\n\n### 結論\n\nHTTP接続を確認する。\n\n## 4. Outcome\n\n| Local ID | 種別 | 内容 | 状態 | Owner | 期限／再評価契機 | 追跡先 |\n|---|---|---|---|---|---|---|\n| \`OUT-001\` | Action | 確認する | \`pending\` | PM | 次回 | \`N/A: 未移管\` |\n\n## 5. Actionと移管\n\n| Outcome | 処置 | 追跡先 | 完了条件 | 結果 |\n|---|---|---|---|---|\n| \`OUT-001\` | | | | |\n\n## 6. Close・訂正\n\n| 項目 | 内容 |\n|---|---|\n| Close判定 | \`OPEN: 未処置\` |\n| 未処置Outcome | \`OUT-001\` |\n| 訂正元／訂正先 | \`N/A: 訂正なし\` |\n| 残る影響 | |\n`;
@@ -1841,6 +1888,7 @@ function meetingMarkdown(revision = 1, project = "project.fixture") {
  * @observation wire結果、実Record、Relation Ownerと不存在。
  * @oracle 公開12Toolすべて成功し、指定Repositoryだけを変更する。
  * @cleanup Server終了確認後に所有Fixtureを回収する。
+ * @boundary 実認証HTTP→内容MCP→Domain保存。AIと外部通信はない。
  */
 test("AM内容MCPの全12操作は指定Repositoryの実保存へ到達する", async (t) => {
   const f = fixture(t),
@@ -2104,6 +2152,7 @@ test("未完了資格はHandlerなし、開始前取消は対象読取りなし"
  * @observation 固定Protocol拒否、実本文の改訂と対象open数。
  * @oracle 認可拒否とforeign書込みは実データ不変。集合不明は部分成功なし。
  * @cleanup hook復元とServer終了後に所有Fixtureを回収する。
+ * @boundary 実HTTPの現在認可とProject境界。拒否時の対象本文保全を実観測する。
  */
 test("AM内容MCPは現在認可とforeign Projectと集合欠測で停止する", async (t) => {
   const f = fixture(t),
@@ -2246,6 +2295,7 @@ test("AM内容MCPは現在認可とforeign Projectと集合欠測で停止する
  * @observation 実HTTPのRelation状態とOwner ID。
  * @oracle 不在／競合ではOwnerなし、一意だけOwnerを返し異Project本文を探索しない。
  * @cleanup Server終了後に所有Fixtureを回収する。
+ * @boundary 現在許可されたRepository集合の実Relation探索。集合不明を空集合にしない。
  */
 test("AM内容MCPのRelationは現在同Project集合に限定する", async (t) => {
   const f = fixture(t),
@@ -2318,6 +2368,7 @@ test("AM内容MCPのRelationは現在同Project集合に限定する", async (t)
  * @observation 管理Storeと対象Repositoryのopen数、Protocol code。
  * @oracle 不正入力は-32602、事前取消は-32800、いずれも観測0。
  * @cleanup hook復元後に自己生成Fixtureを回収する。
+ * @boundary MCP入力検証と取消済みSignal。対象open前の拒否を計数する。
  */
 test("AM内容MCPの入力拒否と開始前取消は再認可前で閉じる", async (t) => {
   const f = fixture(t),
