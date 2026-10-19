@@ -10,6 +10,7 @@
  * @scope 実Dockerの三Container・二Network、既存認証記録と別Process再入場、公式Imageの版・Hash。AI依頼・認証・Desktop修復は含めない。
  * @boundary Host Process→Docker Engine→資源不存在。
  */
+import { planProviderExecution } from "../../../ai-adapter/src/index.ts";
 import assert from "node:assert/strict";
 import { spawnSync, type SpawnSyncReturns } from "node:child_process";
 import { randomBytes } from "node:crypto";
@@ -20,9 +21,8 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { runInNewContext } from "node:vm";
 import {
-  describeClaudeSubscriptionAuthenticationCli,
+  describeProviderAuthentication,
   describeCodexAdviceDistributionIdentity,
-  planCodexIsolatedTask,
 } from "../../../ai-adapter/src/index.ts";
 import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
 import {
@@ -67,12 +67,17 @@ test("Windows Process Gate: Codex編集CLI起動と借用三Mountを無通信で
     assert.equal(fs.lstatSync(directory).isSymbolicLink(), false);
     assert.equal(fs.realpathSync.native(directory), directory);
   }
-  const plan = planCodexIsolatedTask({
-    provider: "codex",
-    mode: "isolated_task",
-    effort: "low",
-    taskRole: "executor",
-  });
+  const plan =
+    planProviderExecution({
+      provider: "codex",
+      purpose: "task",
+      input: {
+        provider: "codex",
+        mode: "isolated_task",
+        effort: "low",
+        taskRole: "executor",
+      },
+    }).plan ?? assert.fail("provider_execution_plan_not_ready");
   assert.equal(plan.status, "candidate");
   if (plan.status !== "candidate") throw new Error("probe_plan_unavailable");
   const image = plan.distributionBinding.fixedImageDigest;
@@ -705,7 +710,7 @@ test("Windows Process Gate: 未起動認証五資源の実構成と作成Receipt
     proxyToken: randomBytes(32).toString("hex"),
     proxyPort: 8080,
     proxyProfile: "claude",
-    authenticationCli: describeClaudeSubscriptionAuthenticationCli(),
+    authenticationCli: describeProviderAuthentication("claude"),
   };
   const plan = planDockerAuthenticationCommands(input);
   const createRuntime = createDockerAuthenticationRuntimeFactory();

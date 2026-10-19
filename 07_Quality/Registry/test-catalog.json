@@ -123,6 +123,7 @@
         "profile_delete_confirmation_effect_zero",
         "profile_resolution_exact",
         "availability_unknown_not_available",
+        "model_id_validation_returns_unmodified_value_or_typed_rejection",
         "provider_effect_zero"
       ]
     },
@@ -3139,15 +3140,13 @@
     {
       "id": "ai-runtime:unit:profile-catalog",
       "owner": "ai-adapter",
-      "path": "40_Develop/ai-adapter/tests/unit/catalog/resolve.contract.test.ts",
+      "path": "40_Develop/ai-adapter/tests/unit/catalog/validation.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
         "ai-profile",
         "adapter",
-        "model",
-        "availability",
-        "profile-administration"
+        "model"
       ],
       "environment": "node_process",
       "externalProviderEffect": false,
@@ -3155,16 +3154,75 @@
       "postconditions": [
         "profile_resolution_deterministic",
         "unknown_configuration_rejected",
+        "provider_effect_zero"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "ai-adapter:unit:catalog:resolver",
+      "owner": "ai-adapter",
+      "path": "40_Develop/ai-adapter/tests/unit/catalog/resolve.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "ai-profile",
+        "adapter",
+        "model"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "profile_resolution_deterministic",
+        "unknown_configuration_rejected",
+        "provider_effect_zero"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "ai-adapter:unit:profile:resolver",
+      "owner": "ai-adapter",
+      "path": "40_Develop/ai-adapter/tests/unit/profile/validation.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "ai-profile",
+        "availability"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
         "availability_unknown_not_available",
+        "provider_effect_zero"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "ai-adapter:unit:profile:crud",
+      "owner": "ai-adapter",
+      "path": "40_Develop/ai-adapter/tests/unit/profile/crud.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "ai-profile",
+        "profile-administration"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
         "provider_effect_zero",
-        "profile_delete_confirmation_effect_zero"
+        "profile_delete_confirmation_effect_zero",
+        "catalog_read_failure_prevents_adoption",
+        "unknown_adoption_has_no_current_snapshot_or_automatic_retry"
       ],
       "mandatoryByDefault": true
     },
     {
       "id": "ai-runtime:integration:catalog-store",
       "owner": "ai-adapter",
-      "path": "40_Develop/ai-adapter/tests/integration/ai-profile-catalog-store.integration.test.ts",
+      "path": "40_Develop/ai-adapter/tests/integration/catalog-storage.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -3181,6 +3239,8 @@
         "catalog_snapshot_durable",
         "catalog_revision_conflict_effect_zero",
         "invalid_catalog_storage_effect_zero",
+        "read_write_verify_cleanup_failures_remain_observable",
+        "postpublication_failure_is_not_reported_as_unsaved",
         "provider_effect_zero"
       ],
       "mandatoryByDefault": true
@@ -3188,7 +3248,7 @@
     {
       "id": "ai-runtime:integration:profile-consumers",
       "owner": "ai-adapter",
-      "path": "40_Develop/ai-adapter/tests/integration/ai-profile-consumers.integration.test.ts",
+      "path": "40_Develop/ai-adapter/tests/integration/profile-consumers.contract.test.ts",
       "level": "integration",
       "kind": "integration",
       "semanticTags": [
@@ -5522,6 +5582,8 @@
       "humanInput": false,
       "postconditions": [
         "codex_and_claude_role_plans_closed",
+        "common_plan_rejects_unknown_provider_purpose_and_input_traps",
+        "common_result_preserves_purpose_limits_and_schema_owner",
         "declared_lifecycle_cases_mapped_to_tests",
         "real_route_set_closed"
       ],
@@ -5909,7 +5971,7 @@
     {
       "id": "coordinator:unit:claude-structured-result",
       "owner": "ai-adapter",
-      "path": "40_Develop/ai-adapter/tests/unit/claude/structured-result.contract.test.ts",
+      "path": "40_Develop/ai-adapter/tests/unit/claude/result.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -5948,7 +6010,7 @@
     {
       "id": "coordinator:unit:codex-structured-result",
       "owner": "ai-adapter",
-      "path": "40_Develop/ai-adapter/tests/unit/codex/structured-result.contract.test.ts",
+      "path": "40_Develop/ai-adapter/tests/unit/codex/result.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -6903,7 +6965,7 @@
     {
       "id": "coordinator:unit:provider-billing-policy",
       "owner": "ai-adapter",
-      "path": "40_Develop/ai-adapter/tests/unit/profile/billing-policy.contract.test.ts",
+      "path": "40_Develop/ai-adapter/tests/unit/billing/policy.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [

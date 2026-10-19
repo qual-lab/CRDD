@@ -140,10 +140,17 @@ Source File名はFolderのContextを前提として主要な機能・操作・�
 |---|---|---|
 | `model.ts`、`state.ts` | 概念・Data構造、状態と状態遷移 | 何であり、どう変化するか |
 | `types.ts` | 宣言した責務別範囲に閉じる型専用集合 | どの型を一緒に使うか |
-| `store.ts` | 保存・取得・永続化 | どう保存・取得するか |
+| `crud.ts` | 対象概念の登録・取得・変更・削除と、その操作の受理条件 | 対象に対して何を操作できるか |
+| `store.ts` | 保存・読取り、改訂競合の確認、保存確定と必要な読戻し | どう保存・取得し、保存結果を確認するか |
+| `resolve.ts` | 入力条件から既存の候補・設定・参照先を解決する処理と、そのための入力確認 | どの対象・構成を使うか |
+| `validation.ts` | 複数の操作・利用側で共有する入力・構造・整合条件の検証 | 入力や状態が必要条件を満たすか |
 | `registry.ts` | Identity付き集合の登録・索引・解決 | 何を登録・解決するか |
 | `catalog.ts` | 定義済み候補・利用可能構成の参照集合 | どの候補を提供するか |
-| `policy.ts` | Rule、Authority、選択、許可または適用判断 | 何を判断するか |
+| `policy.ts` | 独立した意味と変更理由を持つ、選択・許可・適用等の方針判断 | どの方針に従って判断するか |
+| `<subject>-contract.ts` | 特定の境界で共有する契約識別子・版・入力／出力構造 | 何についての合意された契約か |
+| `request.ts` | 操作要求の構造・組立て・解釈 | 何を要求するか |
+| `result.ts` | 操作結果の構造・解析・正規化 | どの結果として受け取るか |
+| `lock.ts` | 実在する共有資源の排他取得・解放 | 何を同時に操作させないか |
 | `projection.ts` | 情報源から読取り用Modelを生成 | 何を投影するか |
 | `protocol.ts`、`transport.ts` | Wire契約、接続・Session・Data搬送 | 何をどの契約で搬送するか |
 | `adapter.ts` | 異なる外部System・Platform・Provider・Transport契約や方式の変換 | どの契約間を変換するか |
@@ -152,6 +159,23 @@ Source File名はFolderのContextを前提として主要な機能・操作・�
 具体的操作名には`issue.ts`、`revoke.ts`、`rotate.ts`、`resolve.ts`、`parse.ts`、`validate.ts`、`verify.ts`、`select.ts`、`plan.ts`、`observe.ts`、`publish.ts`、`load.ts`、`sign.ts`、`promote.ts`、`recover.ts`、`cleanup.ts`、`dispatch.ts`、`route.ts`、`query.ts`等を使用できる。Domain固有名には`journal.ts`、`cursor.ts`、`manifest.ts`、`lease.ts`、`lock.ts`、`graph.ts`、`contract.ts`、`request.ts`、`result.ts`、`identity.ts`、`snapshot.ts`、`record.ts`、`outcome.ts`等を使用できる。列挙は命名allowlistではなく例であり、Folderとの組合せで責務が明確であることを優先する。
 
 Store、Registry、Catalogは保存方式ではなく責務によって区別する。Registryを保存するStoreは存在し得るが、登録・索引・解決を保存処理へ混同しない。名前が違うという理由だけで三Fileへ分割せず、独立した変更理由で判断する。Adapterは入力・出力契約の変換と外部方式への接続を所有し、新しい業務Ruleを生成しない。同じ責務内の単なる関数分割をAdapterと呼ばない。
+
+#### File名の選択と分割の判断
+
+上表は役割を区別する基準であり、各責務Folderへ同名のFile一式を作る規則ではない（MUST NOT）。次の順序で、既存Fileへの同居と分離を判断する。
+
+1. 一つの操作だけが使う入力確認、条件分岐、型は、その操作を所有するFileへ同居させる。例えば登録条件は`crud.ts`、候補解決の入力確認は`resolve.ts`へ置ける。
+2. 同じ責務内で、独立した変更理由・依存または試験境界を説明できる処理だけを分離する。検証関数であることだけを理由に`validation.ts`へ移さず、条件分岐であることだけを理由に`policy.ts`へ移さない（MUST NOT）。
+3. `resolve.ts`、`validation.ts`、`policy.ts`を分ける場合は、各Fileの対象・利用側と同居しない理由を説明する。File数・行数だけを分割根拠にしない。新設・改名する候補解決処理は操作名の`resolve.ts`を基本とし、同じ役割へ`resolver.ts`を併用しない。
+4. 契約の型・定数は、まず実際の操作を所有するFileまたは共有型の`types.ts`への配置を検討する。助言・編集・レビュー等の用途が違うことだけを独立契約Fileの根拠にしない。独立した変更理由・利用側がある契約Fileだけ、FolderとFile名で対象を特定できる名前にする。識別子・版等の実行時定数を`types.ts`へ置かない。
+
+#### 操作と保存の配置
+
+概念ごとの操作を`<concept>/crud.ts`、複数概念を一体で保存する処理を`storage/store.ts`へ置く構成を許容する。`crud.ts`は意味上の操作と受理条件を所有し、`store.ts`は実際の読書き・改訂競合・保存確定を所有する。同一の保存単位を、概念Folderへ合わせるためだけに別々のStore・状態File・Lockへ分割してはならない（MUST NOT）。
+
+保存処理が一つの概念に閉じる場合は`<concept>/store.ts`でもよく、保存単位と利用側から配置を決める。両方に同じ保存契約を重複定義せず、処理を転送するだけの`crud.ts`やStore中継を追加しない。`storage/`は実在する保存責務だけを持ち、対象不明の共通置場にしない。
+
+`lock.ts`は独立した排他処理が実在する場合だけ作る。保存時の改訂確認を持つことだけから、別Lock、新しい排他Frameworkまたは実行資源管理を追加しない。既存の排他・競合検査を移動する場合は、その保証と利用側を維持する。
 
 `crud.ts`、`register.ts`、`assign.ts`、`command.ts`、`execution.ts`、`validation.ts`、`storage.ts`も、実際の操作・役割を表す場合に使用できる。命名例は閉じた一覧ではなく、例のFileをすべて作る義務でもない。`storage`は永続データの読書き、`state`は現在状態・Snapshot、`lock`は排他を表すが、意味を区別するためだけに三Fileへ分割しない。CLIの入力解釈と独立した業務手順は区別し、独立性のない転送だけの`execution.ts`を追加しない。
 
@@ -235,6 +259,7 @@ Sourceの新設・実質変更・再編では、次を評価し、`Applicable: �
 - [ ] Fileの所有状態、Effect、依存、公開APIをそれぞれ評価した。
 - [ ] Folder ContextとFile名の重複、Symbol単体の意味、曖昧語の使用理由を評価した。
 - [ ] File／Functionの意味・失敗・変更理由の境界を評価し、分割または同居の理由を説明できる。
+- [ ] `crud.ts`と`store.ts`の操作・保存境界、`resolve.ts`／`validation.ts`／`policy.ts`の実責務、契約Fileの対象を確認し、命名例に合わせるだけの分割・中継・Lockを追加していない。
 - [ ] 局所型と共有型を区別し、`types.ts`が無関係な型の退避先になっていない。
 - [ ] `index.ts`が`src/index.ts`だけに存在し、別名の再export専用集約もCapability配下に残っていない。正式Subpathは実責務を所有する具体Fileへ接続し、明示exportとNamed Exportの原則を評価した。
 - [ ] `bin/`の主要File名がPackage Folder名と一致し、`bin/`、`scripts/`、`src/`、`tests/`の所有範囲と参照経路が整合する。追加CLIがある場合は独立理由を明示した。
@@ -267,6 +292,26 @@ Sourceの新設・実質変更・再編では、次を評価し、`Applicable: �
 `40_Develop`は実装、試験、packageおよび実行設定だけを所有し、配下に`README.md`を置いてはならない（MUST NOT）。実装の構造と公開面はArchitecture、反復可能な導入・開発・実行手順はWorkflow、検証義務と結果はQualityが所有する。packageの機械入口は`package.json`と公開`index`等で表し、説明を実装Directoryへ複製しない。
 
 ## 4. TypeScript識別子
+
+### 操作を表す動詞の意味
+
+新設・変更する関数名の動詞は、呼出し側が受け取る主結果とEffectに合わせ、次の意味で使い分ける（MUST）。内部で呼ぶ補助処理の名前ではなく、関数全体が提供する操作から選ぶ。同じ意味の操作へ異なる動詞を無理由に使わない。以下はすべての動詞を制限する閉じた一覧ではない。
+
+| 動詞 | 主な責務・戻り値 | 含めない意味 |
+|---|---|---|
+| `parse` | 文字列・Byte列等の外部表現を文法に従って読み取り、構造化した値または解析失敗を返す | 解析成功だけで業務上の受理・認可まで保証しない |
+| `convert` | 既に解釈された値を、明示した対応に従って別の表現・単位・形式へ変換する | 分類・認可・採用判断を単なる形式変換と扱わない |
+| `classify` | 入力を既定の分類へ割り当て、分類値・理由コードまたは分類に必要な根拠を返す | 再試行・回収・保存・実行許可等の処置を発行しない |
+| `validate` | 宣言した条件への適合を確認し、適合結果・違反内容、または検証済み入力を返す | 入力の補正や設定変更を暗黙に行わない |
+| `normalize` | 同じ意味を持つ複数の表現を定めた標準表現へ揃える | 不明値を成功値へ補完したり、意味・権限を変更したりしない |
+| `evaluate` | 条件・観測・規則を組み合わせ、利用可否等の評価結果と必要な理由を返す | 評価結果だけで後続処置を実行したと扱わない |
+| `resolve` | 条件・識別子・参照から対象または構成を特定する | 存在しない対象の作成や起動を暗黙に行わない |
+| `plan` | 実行する操作・引数・構成の計画を生成する | 計画生成だけで外部Process等を起動しない |
+| `prepare` | 後続処理に必要な入力・構成・資源を準備する | 計画だけか実資源取得を伴うかを曖昧にせず、EffectをHeaderと契約へ明記する |
+
+例えば、Provider出力を内部でJSON解析していても、主結果が非正常終了の理由コードなら`classifyProviderNonzeroExit`とする。Booleanだけを返す必要はなく、`classify`は種類の判定とその分類結果の返却を表す。エラー構造自体を別のエラー構造へ写すなら`convert`、生出力を構造化する段階なら`parse`である。分類後の再試行・回収等は、それを所有する別の操作として明示し、分類関数へ隠さない。
+
+利用可否の概念は`Availability`へ揃え、`evaluateProviderAvailability`等で表す。実行環境の準備を表す`prepareProviderEnvironment`とは操作が異なるため、同じ名前へ統合しない。既存Sourceの移行は利用側・型・公開APIを同じ変更で照合し、規約更新だけで改名済みと表示しない。
 
 | 対象 | 必須形式 | 例 |
 |---|---|---|

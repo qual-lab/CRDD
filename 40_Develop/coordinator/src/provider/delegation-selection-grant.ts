@@ -201,7 +201,8 @@ const productionState = createRuntimeState({
     return operation;
   },
   observeProviderEligibility: observeRuntimeOwnedProviderEligibility,
-  resolveModelProfile: resolveRuntimeOwnedProviderModelProfile,
+  resolveModelProfile: (request) =>
+    resolveRuntimeOwnedProviderModelProfile(request).value,
   wallNow: Date.now,
   monotonicNow: performance.now.bind(performance),
   randomBytes,

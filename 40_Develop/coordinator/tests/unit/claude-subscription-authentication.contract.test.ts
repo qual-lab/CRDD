@@ -12,8 +12,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  describeClaudeSubscriptionAuthenticationCli,
-  isClaudeSubscriptionAuthenticationConfirmed,
+  describeProviderAuthentication,
+  evaluateProviderAuthentication,
 } from "../../../ai-adapter/src/index.ts";
 
 import {
@@ -292,7 +292,7 @@ test("再認証は秘密codeの非表示と一回入力を事前案内する", (
  * @boundary ERB-UT-016=Direct Boundary: coordinator Test Source→対象契約
  */
 test("再認証Planは専用Provider Home以外をmountしない", () => {
-  const cli = describeClaudeSubscriptionAuthenticationCli();
+  const cli = describeProviderAuthentication("claude");
   assert.deepEqual(cli.loginArgv, ["auth", "login", "--claudeai"]);
   assert.deepEqual(cli.statusArgv, ["auth", "status", "--json"]);
   assert.equal(cli.homeDirectoryName, "claude");
@@ -349,29 +349,104 @@ test("認証Probe判定は四条件の完全一致だけを受理する", () => 
     subscriptionType: "max",
   };
   assert.equal(
-    isClaudeSubscriptionAuthenticationConfirmed(JSON.stringify(confirmed)),
-    true,
+    evaluateProviderAuthentication(
+      "claude",
+      "claude_max",
+      JSON.stringify(confirmed),
+      "",
+      "login",
+    ).status,
+    "confirmed",
   );
   for (const [key, value] of Object.entries(confirmed)) {
     const missing = { ...confirmed } as Record<string, unknown>;
     delete missing[key];
-    assert.equal(
-      isClaudeSubscriptionAuthenticationConfirmed(JSON.stringify(missing)),
-      false,
+    assert.notEqual(
+      evaluateProviderAuthentication(
+        "claude",
+        "claude_max",
+        JSON.stringify(missing),
+        "",
+        "login",
+      ).status,
+      "confirmed",
     );
-    assert.equal(
-      isClaudeSubscriptionAuthenticationConfirmed(
+    assert.notEqual(
+      evaluateProviderAuthentication(
+        "claude",
+        "claude_max",
         JSON.stringify({
           ...confirmed,
           [key]: typeof value === "boolean" ? false : "other",
         }),
-      ),
-      false,
+        "",
+        "login",
+      ).status,
+      "confirmed",
     );
   }
   for (const invalid of ["", "not-json", "null", "[]", "{}"]) {
-    assert.equal(isClaudeSubscriptionAuthenticationConfirmed(invalid), false);
+    assert.equal(
+      evaluateProviderAuthentication(
+        "claude",
+        "claude_max",
+        invalid,
+        "",
+        "login",
+      ).status,
+      "unknown",
+    );
   }
+  assert.equal(
+    evaluateProviderAuthentication(
+      "claude",
+      "claude_max",
+      JSON.stringify({ loggedIn: false }),
+      "",
+      "login",
+    ).status,
+    "unconfirmed",
+  );
+  assert.equal(
+    evaluateProviderAuthentication(
+      "claude",
+      "chatgpt_subscription_oauth",
+      JSON.stringify(confirmed),
+      "",
+      "login",
+    ).status,
+    "unknown",
+  );
+  assert.equal(
+    evaluateProviderAuthentication(
+      "claude",
+      "claude_max",
+      JSON.stringify(confirmed),
+      "",
+      "execution",
+    ).status,
+    "unknown",
+  );
+  assert.equal(
+    evaluateProviderAuthentication(
+      "claude",
+      "claude_max",
+      JSON.stringify({ ...confirmed, forcedLoginMethod: "claudeai" }),
+      "",
+      "execution",
+    ).status,
+    "confirmed",
+  );
+  assert.equal(
+    evaluateProviderAuthentication(
+      "claude",
+      "claude_max",
+      '{"loggedIn":true,"loggedIn":false}',
+      "",
+      "login",
+    ).status,
+    "unknown",
+  );
 });
 
 /**

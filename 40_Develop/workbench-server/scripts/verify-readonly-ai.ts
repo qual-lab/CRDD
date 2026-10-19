@@ -68,7 +68,8 @@ async function main() {
     throw new Error("docker_preflight_unconfirmed");
   const profiles = createRepositoryAiProfileCatalogStore(root);
   if (profiles.status !== "ready") throw new Error("profiles_unavailable");
-  const catalog = profiles.store.snapshot();
+  const catalog = profiles.store.snapshot().value;
+  if (!catalog) throw new Error("ai_profile_catalog_read_failed");
   const catalogHash = hash(JSON.stringify(catalog));
   const profileId = provider === "codex" ? "PROFILE-100001" : "PROFILE-200001";
   const profile = catalog.catalog.profiles.find(
@@ -87,7 +88,7 @@ async function main() {
   );
   const permitted = () =>
     hash(JSON.stringify(canonical())) === hash(JSON.stringify(before)) &&
-    hash(JSON.stringify(profiles.store.snapshot())) === catalogHash;
+    hash(JSON.stringify(profiles.store.snapshot().value)) === catalogHash;
   const surface = await readWorkbenchProjectSurface(root);
   const owner = createRepositoryTaskRequests(
     verified.capability,

@@ -4,7 +4,10 @@
  * @responsibility Providerを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000010
  */
-import { evaluateProviderEligibility } from "../../../ai-adapter/src/index.ts";
+import {
+  evaluateProviderAvailability,
+  type ProviderAvailability,
+} from "../../../ai-adapter/src/index.ts";
 
 export const PROVIDER_ELIGIBILITY_RUNTIME_CONTRACT =
   "crdd-coordinator/provider-eligibility-runtime";
@@ -55,14 +58,25 @@ type RuntimeDependencies = Readonly<{
  */
 function observeEligibility(dependencies: RuntimeDependencies) {
   const observe = (provider: Provider) => {
+    let availability: ProviderAvailability;
     try {
-      return evaluateProviderEligibility(
+      availability = evaluateProviderAvailability(
         provider,
         dependencies.observeProvider(provider),
       );
     } catch {
-      return evaluateProviderEligibility(provider, null);
+      availability = evaluateProviderAvailability(provider, null);
     }
+    // この既存選択契約のeligibleは、実行許可ではなく直前確認へ進める候補を含む。
+    return Object.freeze({
+      provider,
+      status:
+        availability.status === "available" ||
+        availability.status === "preflight_required"
+          ? ("eligible" as const)
+          : ("ineligible" as const),
+      reason: availability.reason,
+    });
   };
   return Object.freeze([observe("codex"), observe("claude")]);
 }

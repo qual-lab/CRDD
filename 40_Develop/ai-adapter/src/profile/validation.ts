@@ -1,14 +1,16 @@
 /**
- * 解決済みProfileの実行条件とexact Identityを照合する。
+ * Profileの観測値、実行条件とexact Identityを検査する。
  *
  * @responsibility ProviderとOffering、Role、Modelおよび推論強度の純粋な整合検査を所有する。
  * @trace ARCH-000010
  */
+import type { AiReasoningEffort } from "../provider/types.ts";
 import type {
   AiSelectionRole,
   ResolvedAiProfileIdentity,
-} from "../catalog/types.ts";
-import type { ProviderProfileExecutionIdentity } from "./types.ts";
+  AiProfileAvailability,
+  AiProfileAvailabilityObservation,
+} from "./types.ts";
 
 /**
  * exact Model IDが固定CLIへ搬送できる構文か確認する。
@@ -16,18 +18,26 @@ import type { ProviderProfileExecutionIdentity } from "./types.ts";
  * @responsibility 小文字識別子と128文字以内の既存構文を変更せず検証する。
  * @trace ARCH-000010
  * @input model: 解決済みModel ID。
- * @returns 構文が一致した入力自身、またはnull。
+ * @returns validの入力文字列又はblockedの固定拒否理由。
  * @precondition 入力は文字列であり、Catalog対応の確認は呼出し側が所有する。
  * @postcondition trim、大小文字変換および別Modelへの置換を行わない。
  * @effect N/A: 文字列検査だけを行う。
- * @failure 不正文字、空値または上限超過をnullで拒否する。
+ * @failure 不正文字、空値または上限超過をblockedで拒否する。
  * @invariant 構文受理をModel提供・実行権限の成立としない。
  * @boundary Profile解決と固定Provider CLI計画の間。
  * @security 空白、制御文字およびCLI引数区切りを受理しない。
  * @concurrency N/A: 共有状態を持たない同期検査である。
  */
-export function normalizeProviderExactModelId(model: string): string | null {
-  return /^[a-z0-9][a-z0-9._-]{0,127}$/.test(model) ? model : null;
+export function validateProviderModelId(
+  model: string,
+): ProviderModelIdValidationResult {
+  return /^[a-z0-9][a-z0-9._-]{0,127}$/.test(model)
+    ? Object.freeze({ status: "valid", value: model, error: null })
+    : Object.freeze({
+        status: "blocked",
+        value: null,
+        error: "provider_model_id_invalid",
+      });
 }
 
 /**
@@ -89,3 +99,81 @@ export function providerProfileMatchesExecutionIdentity(
     profile.allowedReasoningEfforts.includes(identity.reasoningEffort)
   );
 }
+
+/**
+ * Consumerが搬送するProfile実行Identityの値契約。
+ *
+ * @responsibility 解決済みProfileとの比較に必要な五項目だけを保持する。
+ * @trace ARCH-000010
+ * @shape Profile ID、Provider、Model、Offeringと推論強度の閉じた値。
+ * @invariant Task、Prompt、PathまたはAuthorityを持たない。
+ * @boundary AI Adapterと実行計画Consumerの型境界。
+ * @security 秘密値や実行Capabilityを表さない。
+ * @compatibility Profile Identityの既存値と完全一致で比較する。
+ */
+export type ProviderProfileExecutionIdentity = Readonly<
+  Pick<
+    ResolvedAiProfileIdentity,
+    "profileId" | "provider" | "exactModelId" | "offering"
+  > & {
+    reasoningEffort: AiReasoningEffort;
+  }
+>;
+
+/**
+ * Profileの四つの利用可能性軸を一つの表示状態へ投影する。
+ *
+ * @responsibility 登録、Host、認証、実行Authorityを混同せず状態と理由を返す。
+ * @trace ARCH-000010
+ * @input observation: 各利用可能性軸の観測結果。
+ * @returns available、unavailable、unknownの投影。
+ * @precondition nullは未観測でありfalseへ畳まない。
+ * @postcondition falseが一つでもあればunavailable、falseがなくnullがあればunknownになる。
+ * @effect N/A: 観測値の投影だけを行う。
+ * @failure N/A: 閉じたBoolean/null契約を処理する。
+ * @invariant 未観測を利用可能として表示しない。
+ * @boundary Runtime観測とWorkbench等の表示利用側の境界。
+ * @security 認証状態からCredential値を公開しない。
+ * @concurrency N/A: 共有状態を持たない同期処理である。
+ */
+export function evaluateAiProfileAvailability(
+  observation: AiProfileAvailabilityObservation,
+): AiProfileAvailability {
+  const entries = Object.entries(observation) as [
+    keyof AiProfileAvailabilityObservation,
+    boolean | null,
+  ][];
+  const unavailableAxes = entries
+    .filter(([, isAvailable]) => isAvailable === false)
+    .map(([key]) => key);
+  const unknownAxes = entries
+    .filter(([, isAvailable]) => isAvailable === null)
+    .map(([key]) => key);
+  return Object.freeze({
+    ...observation,
+    status:
+      unavailableAxes.length > 0
+        ? "unavailable"
+        : unknownAxes.length > 0
+          ? "unknown"
+          : "available",
+    reasons: Object.freeze(
+      unavailableAxes.length > 0 ? unavailableAxes : unknownAxes,
+    ),
+  });
+}
+
+/**
+ * Model ID構文の確認値と拒否理由を表す。
+ * @responsibility 無変換の構文検査を登録・提供・認証の確認と区別する。
+ * @trace ARCH-000010
+ * @shape validは入力文字列、blockedは値欠測と固定理由を持つ直和型。
+ * @invariant 大小文字補正、空白除去、別Modelへの置換をしない。
+ * @boundary Profile検証とProvider計画の値契約。
+ * @security Path、秘密値、任意引数、Authorityを発行しない。
+ * @compatibility 旧構文の受理集合を維持し、内部結果形だけを変更する。
+ */
+export type ProviderModelIdValidationResult = Readonly<
+  | { status: "valid"; value: string; error: null }
+  | { status: "blocked"; value: null; error: "provider_model_id_invalid" }
+>;

@@ -32,7 +32,7 @@ import {
 } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
-import { createCrosAiProfileCatalogStore } from "../../../ai-adapter/src/index.ts";
+import { createHostAiProfileCatalogStore } from "../../../ai-adapter/src/index.ts";
 import {
   createCredentialMaterial,
   prepareHostInitializationRoot,
@@ -655,7 +655,7 @@ for (const mode of ["localhost", "public", "tls"] as const) {
         readHostInitializationState(prepared.root).status,
         "existing",
       );
-      assert.equal(createCrosAiProfileCatalogStore(input).status, "ready");
+      assert.equal(createHostAiProfileCatalogStore(input).status, "ready");
       const driver =
         "const {pathToFileURL}=require('node:url');process.once('message',()=>{process.emit('SIGTERM');process.disconnect();});void import(pathToFileURL(process.argv[1]).href);";
       child = spawn(

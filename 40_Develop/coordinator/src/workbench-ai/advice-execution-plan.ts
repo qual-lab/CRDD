@@ -15,9 +15,9 @@ import type {
   ResolvedAiProfileIdentity,
 } from "../../../ai-adapter/src/index.ts";
 import {
-  planWorkbenchAiAdviceProviderCommand,
+  planProviderExecution,
   providerProfileMatchesExecutionIdentity,
-  type WorkbenchAiAdviceProviderCommand,
+  type ProviderAdvicePlan,
 } from "../../../ai-adapter/src/index.ts";
 
 export const WORKBENCH_AI_ADVICE_EXECUTION_PLAN_CONTRACT =
@@ -93,7 +93,7 @@ export type WorkbenchAiAdviceExecutionPlan = Readonly<{
   sessionPersistenceAllowed: false;
   apiKeyFallbackAllowed: false;
   paidApiFallbackAllowed: false;
-  providerCommand: WorkbenchAiAdviceProviderCommand;
+  providerCommand: ProviderAdvicePlan;
 }>;
 
 /**
@@ -166,6 +166,17 @@ export function prepareWorkbenchAiAdviceExecutionPlan(
   )
     return blocked();
 
+  const generated = planProviderExecution({
+    provider: input.provider,
+    purpose: "advice",
+    input: {
+      provider: input.provider,
+      exactModelId: input.exactModelId,
+      reasoningEffort: input.reasoningEffort,
+    },
+    resultSchema: describeWorkbenchAiAdviceResultSchema(),
+  });
+  if (generated.status !== "ready") return blocked();
   return Object.freeze({
     status: "prepared" as const,
     reason: null,
@@ -189,14 +200,7 @@ export function prepareWorkbenchAiAdviceExecutionPlan(
       sessionPersistenceAllowed: false as const,
       apiKeyFallbackAllowed: false as const,
       paidApiFallbackAllowed: false as const,
-      providerCommand: planWorkbenchAiAdviceProviderCommand(
-        {
-          provider: input.provider,
-          exactModelId: input.exactModelId,
-          reasoningEffort: input.reasoningEffort,
-        },
-        describeWorkbenchAiAdviceResultSchema(),
-      ),
+      providerCommand: generated.plan,
     }),
   });
 }

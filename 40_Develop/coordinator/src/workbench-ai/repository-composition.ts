@@ -105,14 +105,17 @@ export function createRepositoryReadOnlyAdviceExecutor(
       return blocked("coordinator_ai_request_cancelled");
     let catalogSnapshot: AiProfileCatalogSnapshot;
     try {
-      catalogSnapshot = profileCatalogStore.snapshot();
+      const read = profileCatalogStore.snapshot();
+      if (read.status !== "read")
+        return blocked("coordinator_ai_profile_snapshot_unavailable");
+      catalogSnapshot = read.value;
     } catch {
       return blocked("coordinator_ai_profile_snapshot_unavailable");
     }
     const profile = resolveAiProfileById(
       catalogSnapshot.catalog,
       packet.profileId,
-    );
+    ).value;
     if (profile === null || !profile.selectionRoles.includes("coordinator"))
       return blocked("coordinator_ai_profile_not_available_for_advice");
     if (cancellationSignal.aborted)

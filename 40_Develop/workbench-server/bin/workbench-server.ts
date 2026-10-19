@@ -17,7 +17,7 @@ import {
 } from "../src/index.ts";
 import {
   createRepositoryAiProfileCatalogStore,
-  createCrosAiProfileCatalogStore,
+  createHostAiProfileCatalogStore,
   createAiProfileCatalogAdministration,
 } from "../../ai-adapter/src/index.ts";
 import {
@@ -123,7 +123,7 @@ async function startFromCommandLine(): Promise<WorkbenchHandle | null> {
   const initialization = readHostInitializationState(root);
   if (initialization.status === "fresh" || initialization.status === "unknown")
     throw new Error("workbench_host_initialization_unavailable");
-  const profiles = createCrosAiProfileCatalogStore(input);
+  const profiles = createHostAiProfileCatalogStore(input);
   if (profiles.status !== "ready")
     throw new Error("workbench_host_profile_unavailable");
   return startWorkbench({

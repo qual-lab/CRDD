@@ -66,6 +66,54 @@ Package個別の順序を基本としつつ、Coordinator／Orchestrator／Docke
 
 細分化・汎用化・File削減数は目的にせず、新しいRegistry、Lock、Recovery、監視Process、共通Frameworkを追加しない。実現不能な保証や既存能力の喪失を見つけた場合は、追加実装より前に影響を返す。
 
+#### AI Adapter全体のFolder／File移管（2026-10-19）
+
+公開API再編の追加判断: 利用者は用途別の配置・名前整理に加え、型・処理の共通化と利用側が状態を判別できる戻り値への変更を採用した。Target一覧は[AI Adapterの公開API再編方針](../../../06_Architecture/Details/ai-adapter/01_Architecture.md#ai-adapter-public-api-refactor)を正本とする。エラー変換→利用可否・環境・認証→計画と結果→Profile／保存の順に直接利用側と契約試験を同時移行した。第一〜第四単位は途中断面の記録であり、現在の区切りは後述の仕上げで評価する。新しい中継・共通Result Frameworkは作らず、②のAI再試行・保持物削除・Docker操作は含めない。
+
+第二単位のSource接続: `evaluateProviderAvailability`、`prepareProviderEnvironment`、`describeProviderAuthentication`、`evaluateProviderAuthentication`と戻り値型を公開し、旧公開名を現行TypeScriptから撤去した。五軸評価はavailable／unavailable／unknown／preflight_requiredを区別し、Coordinatorの既存候補選択語彙への写像は同Packageで明示する。環境はready／blockedで返し、一回取得・禁止名・型・NUL拒否と既存の取得例外経路を保持する。認証はlogin／executionの条件差を保持し、confirmedだけを受理する。Claude loginも共通の厳密JSON解析へ統合し、重複keyの曖昧入力を拒否する（受理条件の強化）。認証定義は新しい認証Subsystemではなく既存のProvider定義を一Fileへ集約した。AI Adapter32件、Coordinator関連50件と静的確認が成功。実AI・実Docker・実認証・全体回帰の成立は主張しない。独立レビューはこの固定候補で実施する。
+
+第一単位のSource接続: `convertProviderError`と`ProviderError`／`ProviderErrorReason`を公開し、Coordinator唯一の本番利用側と公開集合試験を同時移行した。旧公開分類関数や互換Wrapperは残さず、内部の分類順序・理由値・生出力非公開を維持する。AI Adapter静的確認と32試験は成功（sandbox内ではLink作成制限2件、許可環境で同じ32件を成功確認）。Coordinator静的確認は成功・既存info57件、局所31件とController非正常終了の結合3件は成功。Controller全Suiteの実行では変更外のHost Windows子孫終了2件が失敗しており、全Suite成功とは扱わない。全公開APIの統合・型付き戻り値移行は未完了。
+
+第三単位のSource接続: 助言・Task（executor／reviewer）・診断Probeの計画生成を`planProviderExecution`へ統合し、Provider別の生成関数と引数付加を公開から外した。`describeProviderExecution`は固定定義を、`evaluateProviderTaskScope`は準備前と結果受理で共有する既存予算条件を提供する。共通計画はready／blockedを型で区別し、未知Provider／用途、入力Trap、Model／推論強度不一致を拒否する。共通結果は`parseProviderResult`から解析値又は固定エラーを返し、Schema・Reviewer判断・RemediationはCoordinatorに保持する。旧契約だけのFileは撤去し、用途別型・定数を実処理へ同居した。内部助言コマンドのwire ID・field順・値を維持し、Hash対象へ共通結果Wrapperを混入させない。新しいRegistry・Lock・状態・Recovery・転送専用Wrapperはない。実境界再試験と②の保持物処置は行わない。
+
+第三単位の確認: AI Adapter静的三軸・32件、Coordinator静的確認（既存info57件）・直接利用側と結合258件、公開集合／Header3件・Symbol Graph16件が成功。258件は実Host子孫終了の試験を除く固定集合であり、先行の全Controller実行では同じ既知2件が失敗している。Task Packetの初回実行ではsandbox側の一時Root保存がEPERMとなり、TEMPをRepository内`.crdd/tests`へ限定した許可環境で同じ検証を成功確認した。結果をなかったことにせず、Host・実Docker・実Providerの成功に換算しない。追加した共通入口の反証は既存`ERB-IT-004`へ接続し、全体の正式QA結果を自動更新しない。固定候補の限定独立レビューは残指摘0。文書検査は歴史的CHGの参照不備3353件でExit1、今回の対象指摘0であり、Repository全体の文書検査Passとは扱わない。
+
+第四単位のSource接続: Profile／Catalog検証、管理入力解析、結果相関検証、条件／ID／Runtime Profile解決を型付き結果へ移行した。Store読取りは成功値と破損・観測不能を区別し、採用結果は成功・拒否・段階付き確定不能を分ける。確定不能には古いSnapshotを付けず、CRUDは読取り失敗後の採用と保存不明後の自動再送を行わない。保存先、Schema、排他的link・読戻し、既存認可と成功通信Envelopeは変更しない。Coordinator、Orchestrator、MCP、Workbench、検証Scriptと試験代役を直接移行し、互換Wrapperや共通Result Frameworkは増やさない。`storage/store.ts`へ改名し、Host用生成名を`createHostAiProfileCatalogStore`、構成結果型を`AiProfileCatalogStoreResult`へ統一した。過去の移管断面とEvidenceは変更しない。
+
+第四単位の是正: 独立レビューで、Storeの存在観測、Workbenchの確定不能結果残留、表示注入時の不要なStore読取り、Header追従を検出した。ENOENTだけを空Storeとして受理し、他の観測不能を失敗へ保持する。Workbenchは確定不能を既存503へ写像して表示結果をclearし、次GETで現在値を再観測する。明示表示設定がある場合は従来どおりStoreを読まない。公開後読戻し・清掃故障、観測不能、管理の再送0、同Serverの次GETと表示注入の反証を既存Suiteへ追加した。VM内の検証器Store代役とSnapshot本文のHash比較も追従した。最後の再レビューでHeaderの公開済み可能性と観測不能時のwrite-open 0を追補し、最終残指摘0を確認した。
+
+第四単位の検証: AI Adapter静的確認と全34件、Coordinator関連56件、MCP関連21件とunknown二種追補後の同管理Suite3件、Workbench関連48件、Orchestrator公開接続4件、公開集合／Header／QA接続3件、Symbol Graph16件が成功。直接利用5Packageの型・整形・Lintを確認し、Coordinator既存info57件とOrchestrator既存info2件は保持する。Link試験のsandbox EPERMと初回HTTP試験の待機は失敗／中断として区別し、通常権限・Repository内TEMP・期限付きの同集合で確認した。Header反証用TEMPをtests配下に置くと試験Source扱いになることを確認し、tmp配下へ修正して3件成功を再確認した。全体命名検査は既存の他Packageと先行移管の指摘で不合格であり、今回の型付きAPI移行とPackage全体の命名完了を混同しない。文書検査も歴史的CHGの参照不備3353件でExit1、今回更新した3文書の指摘0であり全体Passではない。実AI・実Docker・②の保持物処置は未実施。
+
+仕上げの固定候補（2026-10-19）: catalog／profileの候補解決をresolve.ts、Profileの観測・実行適合をvalidation.tsへ統一し、対応UTとConsumer・Traceを同期した。Claudeの処理を持たないauthentication.tsをdistribution.tsへ統合した。課金の明示型、無変換Model検査の型付き結果、算出Catalog名、内部変数名、曖昧なHeaderを整理し、Rootから禁止環境名定数2件を非公開化した。実Consumerのある厳密JSON、boolean Probe、Claude受理Turn上限、通常Taskと異なるCodex助言配布Identityは理由をArchitectureへ明記して維持する。File名変更だけで安定Symbol Identityを改名せずPathとverifiesを更新する。保存Schema・wire・固定値・Model版・認可・資源管理を変更せず、新しい中継・Subsystemは追加しない。
+
+仕上げの確認: AI Adapter静的三軸・全35件、Coordinatorの直接利用・模擬Provider結合280件、Workbench関連48件、MCP関連21件、Orchestratorの追加合成Git回帰23件、公開集合／Header／QA接続3件とSymbol Graph16件が成功。対象5Packageの静的確認も成功し、既存infoは保持する。命名の全Repository検査は他Packageの既存指摘で不合格だが、ai-adapterの指摘0を確認した。独立レビューの残件はHeader追従だけであり、JSON解析済み値のProperty取得とGetter回避を混同する説明、引数なし関数の前提、旧Package表示を訂正して最終残指摘0を確認した。台帳のPath・verifiesとModel無変換検査のpostconditionを同期し、安定ID・正式QA結果は不変更。Package Sourceの配置・命名・公開API整備はここで一区切りとする。実AI・実Docker・正式全E2E・全Repository命名完了の主張ではなく、既知のHost Windows終了2件も別残件として保持する。
+
+以下の`8a729260`基準の配置表・件数・公開名維持の記録は、追加公開API再編前の先行移管断面である。現在の公開APIと配置はArchitectureの現在表を正本とし、先行断面を現在の公開集合として扱わない。
+
+基準は`8a729260`。添付のSource Code Structure Review §1・§3に基づき、個別処理だけでなくPackage全体のツリーを一単位として再配置した。変更分類は内部責務の再編と直接利用側・試験・設計への追従。新機能・実行Policy・保存Schema・認可・Provider版・外部送信条件は変更しない。着手前の独立照合で`types.ts`への契約定数同居を避ける指摘があり、先行移管時点では既存共有契約Fileを`provider/contract.ts`として維持した。その後の第三単位で実処理へ統合した。
+
+| 基準の実体 | 移管後のOwner・処置 |
+|---|---|
+| `catalog/resolve.ts` | 検証を`catalog/validation.ts`、既定初期化と候補検索を`catalog/resolver.ts`、四軸の可否投影を`profile/resolver.ts`へ分割 |
+| `profile/resolve.ts` | `profile/resolver.ts`へ改名。候補検索はCatalogの同関数を呼び、二重実装しない |
+| `catalog/types.ts` | Provider・Adapter定義は`provider/types.ts`、登録集合は`catalog/types.ts`、Profile定義・選択・解決・四軸は`profile/types.ts`、操作契約は`profile/crud.ts`、保存契約は`storage/catalog.ts`へ |
+| 旧`profile/types.ts`の一型 | `execution-identity.ts`へ同居。既存Rootの公開型は維持 |
+| `profile/store.ts` | `storage/catalog.ts`へ移管。保存・改訂競合・拒否条件は不変更 |
+| `profile/authentication-policy.ts`／`provider/subscription-status.ts` | `authentication/policy.ts`／`result.ts`へ移管 |
+| `profile/billing-policy.ts` | `billing/policy.ts`へ移管 |
+| `provider/advice-command.ts`／`advice-contract.ts` | `provider/plan.ts`／`contract.ts`へ改名。型専用`types.ts`と契約値を分離 |
+| `provider/task-result.ts`／`advice-result.ts` | `provider/result.ts`へ統合。異なるRecord条件と容量は意味の分かる別局所名で保持し、一律共通化しない |
+| Codex／Claudeの`execution-plan.ts` | `plan.ts`へ改名。固定配布Identityと限定実測記述は各`distribution.ts`へ。Claude固有の認証・Offering記述は既存`authentication.ts`へ |
+| `codex/advice-distribution.ts` | 通常配布記述と同じ`codex/distribution.ts`へ。Taskと助言の異なる版・Hash・Imageを混同しない |
+| 各`structured-result.ts` | Provider Folderの`result.ts`へ改名 |
+| 既定JSON・UT／IT | `default-catalog.json`へ改名。UTは検証・候補解決・Profile可否・CRUDへCaseを移し、ITは保存・利用側の境界名へ改名。Case数32は維持、Suite Fileは7→10 |
+
+現物の全Treeは[AI Adapter設計](../../../06_Architecture/Details/ai-adapter/01_Architecture.md#7-provider差の公開契約と実行境界)へ反映した。SourceはJSON一件を含め26→28File。数の最小化ではなく、同じ概念の所在と変更理由を明確にする。`src/index.ts`の操作名・型名と返却契約は維持し、Rootの公開集合は増減しない。Package外の旧内部import四箇所は既存Rootへ接続した。Symbolの既存Meaning IDは移管先へ保持し、分割実体には新しい検証先を追加する。過去Evidenceは不変更。
+
+Source配置・静的依存の変化で開発Source Hashは変わる。古い観測・同じ回復参照・②の保持物を補正・削除せず、過去実測を新配置のEvidenceとして流用しない。通常実行の署名や汎用Registry・Lock・Recoveryを再導入しない。Provider／Docker／Host実要求は今回行わない。
+
+自己確認はAI Adapter静的三軸・全32件、Coordinator静的三軸・既存Trace検査・関連86件、MCP静的確認・管理3件、Workbench静的確認、公開入口／Header／QA3件・Symbol Graph16件が成功。基準Sourceを型除去した局所VMで両Providerのdescribe返却を新実体とJSON全文比較し、一致を確認した。既定Catalogの全値も基準JSONと一致。これは実CLI・取消・資源回収や全体E2Eの成功を意味しない。完成候補の独立レビューと文書検査はこれから行う。
+
 #### Provider検査の同居（2026-10-19）
 
 基準は`b2e568ba`。添付のSource Code Structure Review §3.2〜3.7の「Provider共通契約を中心とし、小処理を機械分割しない」方向と、利用者が確認した観測・環境変数検査の同居を適用する。変更分類は内部File統合であり、`provider/availability.ts`と`environment.ts`を`provider/validation.ts`へまとめた。`evaluateProviderEligibility`と`prepareProviderFixedEnvironment`は別の公開関数として維持し、条件・理由順序・未観測の拒否・環境値の一回取得・返却値を変更しない。実観測・AI実行・Docker・排他管理は追加しない。設定保存の既存改訂競合は別責務として不変更。
@@ -164,7 +212,7 @@ src/
 | `src/output/unambiguous-json-document.ts` | `src/provider/json.ts`／`parseUnambiguousJsonDocument` | 共通の構文解析として移動。重複key・escape・BOM・末尾拒否は既存正負例で確認 |
 | `src/output/task-envelope.ts` | `src/provider/task-result.ts`／`extractProviderTaskEnvelope` | 搬送解釈と非公開診断の集計として移動。Task採否・Process終了・cleanupは引き取らない |
 | `src/output/provider-error.ts` | `src/provider/error.ts`／`classifyProviderNonzeroExit` | 非0終了の分類として移動。対応UTも`tests/unit/provider/error.contract.test.ts`へ移動 |
-| `runtime/`のJSON5資産 | `config/`二設定と`schemas/`三Schema | [静的資産の対応](../../../06_Architecture/Details/ai-adapter/01_Architecture.md#source構造レビューの目標と現行の区別2026-10-19)。五Hashは移動前後で完全一致。Docker COPY入力名・Container Path・固定Imageは不変更 |
+| `runtime/`のJSON5資産 | `config/`二設定と`schemas/`三Schema | [静的資産の対応](../../../06_Architecture/Details/ai-adapter/01_Architecture.md#source構造レビュー後の配置2026-10-19)。五Hashは移動前後で完全一致。Docker COPY入力名・Container Path・固定Imageは不変更 |
 
 利用側はRootの明示export、Codex／Claude正規化、Profile認証結果、助言抽出のJSON参照、Coordinatorの資産検査、Checker公開集合、Symbol／Test Catalogの実Pathを追従した。意味ID・公開Symbol・通信値・JSON本文・返却値は変更していない。三SourceはTSDoc・import・空行を除くCode本文の基準比較で一致する。JSON走査のHeaderを構文拒否・部分値と文書全体の区別へ具体化し、非0分類Helperの不足項目を補った。新しい分割層・中継・型集合は追加していない。
 

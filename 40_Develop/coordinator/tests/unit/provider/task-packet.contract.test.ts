@@ -8,11 +8,11 @@
  * @scope provider、task、packet、runtime
  * @boundary PRL-UT-014=N/A: Orchestrator Application Portは外部実行境界を持たない。
  */
+import { planProviderExecution } from "../../../../ai-adapter/src/index.ts";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import test from "node:test";
 import { createSignedGeneralTaskVerificationRequest } from "../../../scripts/verify-signed-general-task.ts";
-import { planClaudeIsolatedTask } from "../../../../ai-adapter/src/index.ts";
 
 import {
   cleanupOwnedOperationDirectories,
@@ -506,13 +506,18 @@ test("固定4経路の実TaskからReviewer指示と未変更の上限・読取�
         acceptanceCriterionCount: 3,
         remediationFindingCount: 0,
       });
-      const plan = planClaudeIsolatedTask({
-        provider: "claude",
-        mode: "isolated_task",
-        taskRole: "reviewer",
-        effort: "medium",
-        taskWorkload: consumed.taskWorkload,
-      });
+      const plan =
+        planProviderExecution({
+          provider: "claude",
+          purpose: "task",
+          input: {
+            provider: "claude",
+            mode: "isolated_task",
+            taskRole: "reviewer",
+            effort: "medium",
+            taskWorkload: consumed.taskWorkload,
+          },
+        }).plan ?? assert.fail("provider_execution_plan_not_ready");
       if (plan.status !== "candidate") assert.fail(plan.reason);
       assert.equal(plan.maximumTurns, 6);
       assert.equal(plan.argv[plan.argv.indexOf("--max-turns") + 1], "6");

@@ -8,6 +8,7 @@
  * @scope claude、execution、plan
  * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
+import { planProviderExecution } from "../../../ai-adapter/src/index.ts";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -16,10 +17,7 @@ import test from "node:test";
 import {
   CLAUDE_EXECUTION_PLAN_CONTRACT,
   CLAUDE_EXECUTION_PLAN_CONTRACT_REVISION,
-  describeClaudeExecutionPlanContract,
-  planClaudeIsolatedTask,
-  buildClaudeExecutionArguments,
-  planClaudeReadOnlyProbe,
+  describeProviderExecution,
 } from "../../../ai-adapter/src/index.ts";
 
 /**
@@ -35,12 +33,27 @@ import {
  * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Claude配布候補は固定絶対pathと同じexact artifact Identityへ結合する", () => {
-  const fixedArguments = Object.freeze(["--output-format", "json", "-p"]);
-  const combinedArguments = buildClaudeExecutionArguments(
-    "claude-sonnet-4-6",
-    "low",
-    fixedArguments,
-  );
+  const fixed = planProviderExecution({
+    provider: "claude",
+    purpose: "probe",
+    input: { provider: "claude", mode: "read_only_probe" },
+  });
+  assert.equal(fixed.status, "ready");
+  if (fixed.status !== "ready") assert.fail("probe_plan_rejected");
+  const fixedArguments = fixed.plan.argv;
+  const bound = planProviderExecution({
+    provider: "claude",
+    purpose: "probe",
+    input: { provider: "claude", mode: "read_only_probe" },
+    modelSelection: {
+      provider: "claude",
+      exactModelId: "claude-sonnet-4-6",
+      reasoningEffort: "low",
+    },
+  });
+  assert.equal(bound.status, "ready");
+  if (bound.status !== "ready") assert.fail("bound_plan_rejected");
+  const combinedArguments = bound.plan.argv;
   assert.deepEqual(combinedArguments, [
     "--model",
     "claude-sonnet-4-6",
@@ -49,8 +62,8 @@ test("Claude配布候補は固定絶対pathと同じexact artifact Identityへ�
     ...fixedArguments,
   ]);
   assert.equal(Object.isFrozen(combinedArguments), true);
-  assert.deepEqual(fixedArguments, ["--output-format", "json", "-p"]);
-  const contract = describeClaudeExecutionPlanContract();
+  assert.deepEqual(fixed.plan.argv, fixedArguments);
+  const contract = describeProviderExecution("claude");
   const binding = contract.distribution.binding;
   const identity = binding.identity;
   assert.equal(contract.contract, CLAUDE_EXECUTION_PLAN_CONTRACT);
@@ -114,10 +127,15 @@ test("Claude配布候補は固定絶対pathと同じexact artifact Identityへ�
   });
   assert.equal(contract.readOnlyProbe.command, identity.executablePath);
   assert.deepEqual(contract.readOnlyProbe.distributionBinding, binding);
-  const plan = planClaudeReadOnlyProbe({
-    provider: "claude",
-    mode: "read_only_probe",
-  });
+  const plan =
+    planProviderExecution({
+      provider: "claude",
+      purpose: "probe",
+      input: {
+        provider: "claude",
+        mode: "read_only_probe",
+      },
+    }).plan ?? assert.fail("provider_execution_plan_not_ready");
   if (plan.status !== "candidate") assert.fail(plan.reason);
   assert.deepEqual(plan.distributionBinding, binding);
   assert.equal(plan.distributionBinding.manifestSignatureVerified, true);
@@ -167,7 +185,7 @@ test("Claude配布候補は固定絶対pathと同じexact artifact Identityへ�
  * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("配布物条件と認証service条件を別axisの未解決条件にする", () => {
-  const contract = describeClaudeExecutionPlanContract();
+  const contract = describeProviderExecution("claude");
   const distributionTerms = contract.distribution.binaryDistributionTerms;
   const authentication = contract.authentication;
   const serviceTerms = authentication.authenticatedServiceTerms;
@@ -281,7 +299,7 @@ test("配布物条件と認証service条件を別axisの未解決条件にする
  * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Claude認証はsubscription OAuth候補だけを残しAPI課金経路を拒否する", () => {
-  const contract = describeClaudeExecutionPlanContract();
+  const contract = describeProviderExecution("claude");
   const authentication = contract.authentication;
   assert.equal(authentication.loginPolicy, "existing_subscription_oauth");
   assert.deepEqual(authentication.explicitLoginCommand, [
@@ -329,11 +347,16 @@ test("Claude認証はsubscription OAuth候補だけを残しAPI課金経路を�
  * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("読取専用probe候補は固定argv、環境置換要求、未検証制約を投影する", () => {
-  const contract = describeClaudeExecutionPlanContract();
-  const plan = planClaudeReadOnlyProbe({
-    provider: "claude",
-    mode: "read_only_probe",
-  });
+  const contract = describeProviderExecution("claude");
+  const plan =
+    planProviderExecution({
+      provider: "claude",
+      purpose: "probe",
+      input: {
+        provider: "claude",
+        mode: "read_only_probe",
+      },
+    }).plan ?? assert.fail("provider_execution_plan_not_ready");
   assert.equal(plan.status, "candidate");
   assert.equal(plan.reason, "claude_task_execution_gates_required");
   assert.equal(plan.activationBlockers.length, 0);
@@ -482,8 +505,8 @@ test("Managed Settingsの固定byte列を検証済みimage identityへ結合す�
   );
   assert.equal(
     createHash("sha256").update(settings).digest("hex"),
-    describeClaudeExecutionPlanContract().distribution.binding
-      .fixedImageEvidence.managedSettingsSha256,
+    describeProviderExecution("claude").distribution.binding.fixedImageEvidence
+      .managedSettingsSha256,
   );
   assert.deepEqual(JSON.parse(settings.toString("utf8")), {
     autoUpdates: false,
@@ -506,30 +529,40 @@ test("Managed Settingsの固定byte列を検証済みimage identityへ結合す�
  * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("一般TaskはRole別built-in tools、stdin、Provider Home denyへ固定する", () => {
-  const executor = planClaudeIsolatedTask({
-    provider: "claude",
-    mode: "isolated_task",
-    taskRole: "executor",
-    effort: "low",
-    taskWorkload: {
-      readPathCount: 1,
-      allowedPathCount: 1,
-      acceptanceCriterionCount: 1,
-      remediationFindingCount: 0,
-    },
-  });
-  const reviewer = planClaudeIsolatedTask({
-    provider: "claude",
-    mode: "isolated_task",
-    taskRole: "reviewer",
-    effort: "high",
-    taskWorkload: {
-      readPathCount: 1,
-      allowedPathCount: 1,
-      acceptanceCriterionCount: 1,
-      remediationFindingCount: 0,
-    },
-  });
+  const executor =
+    planProviderExecution({
+      provider: "claude",
+      purpose: "task",
+      input: {
+        provider: "claude",
+        mode: "isolated_task",
+        taskRole: "executor",
+        effort: "low",
+        taskWorkload: {
+          readPathCount: 1,
+          allowedPathCount: 1,
+          acceptanceCriterionCount: 1,
+          remediationFindingCount: 0,
+        },
+      },
+    }).plan ?? assert.fail("provider_execution_plan_not_ready");
+  const reviewer =
+    planProviderExecution({
+      provider: "claude",
+      purpose: "task",
+      input: {
+        provider: "claude",
+        mode: "isolated_task",
+        taskRole: "reviewer",
+        effort: "high",
+        taskWorkload: {
+          readPathCount: 1,
+          allowedPathCount: 1,
+          acceptanceCriterionCount: 1,
+          remediationFindingCount: 0,
+        },
+      },
+    }).plan ?? assert.fail("provider_execution_plan_not_ready");
   assert.equal(executor.status, "candidate");
   assert.equal(executor.activationBlockers.length, 0);
   assert.equal(
@@ -663,28 +696,43 @@ test("Claude Task SettingsはProvider Homeと外部Toolをdenyする", () => {
  */
 test("probeの任意Provider、mode、余分field、accessor、Proxyを拒否する", () => {
   assert.equal(
-    planClaudeReadOnlyProbe({ provider: "codex", mode: "read_only_probe" })
-      .reason,
+    planProviderExecution({
+      provider: "claude",
+      purpose: "probe",
+      input: { provider: "codex", mode: "read_only_probe" },
+    }).error?.reason,
     "claude_execution_plan_provider_mismatch",
   );
   assert.equal(
-    planClaudeReadOnlyProbe({ provider: "claude", mode: "run" }).reason,
+    planProviderExecution({
+      provider: "claude",
+      purpose: "probe",
+      input: { provider: "claude", mode: "run" },
+    }).error?.reason,
     "claude_execution_plan_mode_not_supported",
   );
   assert.equal(
-    planClaudeReadOnlyProbe({
+    planProviderExecution({
       provider: "claude",
-      mode: "read_only_probe",
-      billingProfile: "paid_api",
-    }).reason,
+      purpose: "probe",
+      input: {
+        provider: "claude",
+        mode: "read_only_probe",
+        billingProfile: "paid_api",
+      },
+    }).error?.reason,
     "claude_execution_plan_shape_invalid",
   );
   assert.equal(
-    planClaudeReadOnlyProbe({
+    planProviderExecution({
       provider: "claude",
-      mode: "read_only_probe",
-      prompt: "forged",
-    }).reason,
+      purpose: "probe",
+      input: {
+        provider: "claude",
+        mode: "read_only_probe",
+        prompt: "forged",
+      },
+    }).error?.reason,
     "claude_execution_plan_shape_invalid",
   );
   const accessor = Object.create(null) as Record<string, unknown>;
@@ -697,12 +745,18 @@ test("probeの任意Provider、mode、余分field、accessor、Proxyを拒否す
     value: "read_only_probe",
   });
   assert.equal(
-    planClaudeReadOnlyProbe(accessor).reason,
+    planProviderExecution({
+      provider: "claude",
+      purpose: "probe",
+      input: accessor,
+    }).error?.reason,
     "claude_execution_plan_shape_invalid",
   );
   assert.equal(
-    planClaudeReadOnlyProbe(
-      new Proxy(
+    planProviderExecution({
+      provider: "claude",
+      purpose: "probe",
+      input: new Proxy(
         {},
         {
           ownKeys() {
@@ -710,7 +764,7 @@ test("probeの任意Provider、mode、余分field、accessor、Proxyを拒否す
           },
         },
       ),
-    ).reason,
+    }).error?.reason,
     "claude_execution_plan_shape_invalid",
   );
 });
@@ -728,7 +782,7 @@ test("probeの任意Provider、mode、余分field、accessor、Proxyを拒否す
  * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("全Task実行gateとPlan単体のEffect非発行を説明契約へ保持する", () => {
-  const contract = describeClaudeExecutionPlanContract();
+  const contract = describeProviderExecution("claude");
   assert.equal(
     contract.implementationState,
     "local_personal_task_execution_gates_connected_candidate",

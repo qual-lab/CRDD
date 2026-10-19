@@ -63,7 +63,10 @@
         "coordinator.scripts.prepare-codex-advice-image",
         "ai-adapter.codex.advice-distribution",
         "coordinator.source.src.security.claude.execution.plan",
-        "coordinator.source.src.security.codex.execution.plan"
+        "coordinator.source.src.security.codex.execution.plan",
+        "ai-adapter.claude.distribution",
+        "ai-adapter.claude.authentication",
+        "ai-adapter.codex.distribution"
       ]
     },
     {
@@ -652,7 +655,9 @@
         "ERB-IT-001"
       ],
       "verifies": [
-        "coordinator.source.src.security.claude.execution.plan"
+        "coordinator.source.src.security.claude.execution.plan",
+        "ai-adapter.claude.distribution",
+        "ai-adapter.claude.authentication"
       ]
     },
     {
@@ -685,7 +690,8 @@
       ],
       "verifies": [
         "coordinator.source.src.security.codex.execution.plan",
-        "docker-isolation.execution.command-runtime"
+        "docker-isolation.execution.command-runtime",
+        "ai-adapter.codex.distribution"
       ]
     },
     {
@@ -1475,6 +1481,8 @@
         "PRL-IT-005"
       ],
       "verifies": [
+        "ai-adapter.provider.execution-plan",
+        "ai-adapter.provider.result",
         "coordinator.source.src.security.claude.execution.plan",
         "coordinator.source.src.security.codex.execution.plan"
       ]

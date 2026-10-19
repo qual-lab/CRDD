@@ -12,9 +12,9 @@ import fs from "node:fs";
 import path from "node:path";
 
 import {
-  describeClaudeExecutionPlanContract,
-  describeClaudeSubscriptionAuthenticationCli,
-  isClaudeSubscriptionAuthenticationConfirmed,
+  describeProviderAuthentication,
+  evaluateProviderAuthentication,
+  describeProviderExecution,
 } from "../../../ai-adapter/src/index.ts";
 import { acquireRuntimeOwnedLogicalProviderHomeKernelLock } from "../host-execution/kernel-lock.ts";
 import { describeEgressProxyTopology } from "../external-send/egress-proxy-policy.ts";
@@ -732,8 +732,8 @@ export function createClaudeSubscriptionAuthenticationPlan(
     !/^[a-f0-9]{64}$/u.test(proxyToken)
   )
     return null;
-  const claude = describeClaudeExecutionPlanContract();
-  const authenticationCli = describeClaudeSubscriptionAuthenticationCli();
+  const claude = describeProviderExecution("claude");
+  const authenticationCli = describeProviderAuthentication("claude");
   const egress = describeEgressProxyTopology("claude");
   const providerImageDigest = claude.distribution.binding.fixedImageDigest;
   const proxyImageDigest = egress.verificationAdapter.imageDigest;
@@ -1182,7 +1182,15 @@ export async function authenticateClaudeSubscription(
         break;
       }
       if (command.purpose === "start_probe_attached") {
-        if (!isClaudeSubscriptionAuthenticationConfirmed(result.stdout)) {
+        if (
+          evaluateProviderAuthentication(
+            "claude",
+            "claude_max",
+            result.stdout,
+            "",
+            "login",
+          ).status !== "confirmed"
+        ) {
           reason = "claude_subscription_authentication_not_confirmed";
           break;
         }

@@ -1,7 +1,7 @@
 /**
- * codex-structured-resultに属する責務をまとめる。
+ * Codexのboolean Probe結果を限定条件で解析する。
  *
- * @responsibility blockedを中心とする実装、型および境界を同じModuleで所有する。
+ * @responsibility Codexのboolean Probe出力を単一JSON・容量・exact status条件で解析し、確認と拒否を区別する。
  * @trace ARCH-000015
  */
 import { parseUnambiguousJsonDocument } from "../provider/json.ts";
@@ -11,18 +11,18 @@ export const CODEX_STRUCTURED_RESULT_CONTRACT =
 export const CODEX_STRUCTURED_RESULT_CONTRACT_REVISION = 1;
 
 /**
- * codex-structured-resultを停止結果として構築する。
+ * Codex Probe解析の拒否値を生成する。
  *
- * @responsibility codex-structured-resultの停止理由、未発行Effect、公開結果境界を所有する。
+ * @responsibility 確認不能と確認成功の区別を所有する。
  * @trace ARCH-000015
  * @input N/A: 実行時引数を受け取らない。
- * @returns blockedの計算結果を返す。
- * @precondition 「N/A: 実行時引数を受け取らない。」がblockedの入力契約を満たす。
- * @postcondition blockedの責務を完了した結果だけを返す。
+ * @returns 固定理由付きblocked。
+ * @precondition N/A: 実行時入力を持たない。
+ * @postcondition 返却値を現在の認証、実行成功又は資源回収の証明としない。
  * @effect N/A: blockedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: blockedは独自の失敗分岐を所有しない。
- * @invariant blockedは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: blockedはProcess内の同一Subsystemで完結する。
+ * @failure N/A: 拒否値を構築する。
+ * @invariant 計画・解析・宣言の範囲に限り、起動・送信同意・Authorityを代行しない。
+ * @boundary Provider固有条件と共通AI Adapter APIの内部境界。
  * @security blockedはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: blockedは共有非同期状態を持たない同期処理である。
  */
@@ -35,18 +35,18 @@ function blocked() {
 }
 
 /**
- * Codex Structured 結果を固定Schemaへ正規化する。
+ * Codexのboolean Probe結果を正規化する。
  *
- * @responsibility Codex Structured 結果の入力検証、正規化規則、不正値の拒否境界を所有する。
+ * @responsibility 16KiB以内の単一JSONとstatus=trueの照合を所有する。
  * @trace ARCH-000015
  * @input raw: unknown
- * @returns normalizeCodexStructuredResultの計算結果を返す。
- * @precondition 「raw: unknown」がnormalizeCodexStructuredResultの入力契約を満たす。
- * @postcondition normalizeCodexStructuredResultの責務を完了した結果だけを返す。
+ * @returns confirmedの最小結果又はblocked。
+ * @precondition rawを未信頼値として文字列・容量・JSON形を本処理で検査する。
+ * @postcondition 返却値を現在の認証、実行成功又は資源回収の証明としない。
  * @effect N/A: normalizeCodexStructuredResultは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: normalizeCodexStructuredResultは独自の失敗分岐を所有しない。
- * @invariant normalizeCodexStructuredResultは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: normalizeCodexStructuredResultはProcess内の同一Subsystemで完結する。
+ * @failure 非文字列、容量超過、曖昧JSON、余剰field、falseを拒否する。
+ * @invariant 計画・解析・宣言の範囲に限り、起動・送信同意・Authorityを代行しない。
+ * @boundary Provider固有条件と共通AI Adapter APIの内部境界。
  * @security normalizeCodexStructuredResultはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: normalizeCodexStructuredResultは共有非同期状態を持たない同期処理である。
  */
@@ -73,18 +73,18 @@ export function normalizeCodexStructuredResult(raw: unknown) {
 }
 
 /**
- * Codex Structured 結果 契約の公開契約を記述する。
+ * Codex Probe結果の受理条件を記述する。
  *
- * @responsibility Codex Structured 結果 契約の公開field、非公開境界、互換性を所有する。
+ * @responsibility 容量と単一JSONの診断契約を所有する。
  * @trace ARCH-000015
  * @input N/A: 実行時引数を受け取らない。
- * @returns describeCodexStructuredResultContractの計算結果を返す。
- * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeCodexStructuredResultContractの入力契約を満たす。
- * @postcondition describeCodexStructuredResultContractの責務を完了した結果だけを返す。
+ * @returns 固定のProbe結果契約。
+ * @precondition N/A: 実行時入力を持たない。
+ * @postcondition 返却値を現在の認証、実行成功又は資源回収の証明としない。
  * @effect N/A: describeCodexStructuredResultContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: describeCodexStructuredResultContractは独自の失敗分岐を所有しない。
- * @invariant describeCodexStructuredResultContractは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: describeCodexStructuredResultContractはProcess内の同一Subsystemで完結する。
+ * @failure N/A: 固定宣言を返す。
+ * @invariant 計画・解析・宣言の範囲に限り、起動・送信同意・Authorityを代行しない。
+ * @boundary Provider固有条件と共通AI Adapter APIの内部境界。
  * @security describeCodexStructuredResultContractはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: describeCodexStructuredResultContractは共有非同期状態を持たない同期処理である。
  */

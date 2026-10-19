@@ -12,16 +12,16 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  DEFAULT_AI_PROFILE_CATALOG,
+  defaultAiProfileCatalog,
   resolveAiProfileById,
 } from "../../../../ai-adapter/src/index.ts";
 import { createWorkbenchAiAdviceDispatchRuntime } from "../../../src/workbench-ai/advice-dispatch.ts";
 import { prepareWorkbenchAiAdviceTask } from "../../../src/workbench-ai/advice-task.ts";
 
 const resolvedProfile = resolveAiProfileById(
-  DEFAULT_AI_PROFILE_CATALOG,
+  defaultAiProfileCatalog,
   "PROFILE-100001",
-);
+).value;
 if (resolvedProfile === null) throw new Error("test_profile_required");
 const profile = resolvedProfile;
 

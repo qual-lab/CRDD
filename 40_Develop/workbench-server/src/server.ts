@@ -920,10 +920,16 @@ export async function startWorkbench(
     request.aiProfiles === undefined && aiProfileStore?.status === "ready"
       ? createAiProfileCatalogAdministration(aiProfileStore.store)
       : undefined;
+  const initialProfileRead =
+    request.aiProfiles === undefined && aiProfileStore?.status === "ready"
+      ? aiProfileStore.store.snapshot()
+      : undefined;
+  if (initialProfileRead?.status === "blocked")
+    throw new Error(initialProfileRead.error);
   let aiProfiles =
     request.aiProfiles ??
-    (aiProfileStore?.status === "ready"
-      ? createWorkbenchAiProfileSurface(aiProfileStore.store.snapshot().catalog)
+    (initialProfileRead?.status === "read"
+      ? createWorkbenchAiProfileSurface(initialProfileRead.value.catalog)
       : createDefaultWorkbenchAiProfileSurface());
   const aiRequests = request.aiRequests;
   const sharedAiSessions = new Map<
@@ -1322,8 +1328,10 @@ export async function startWorkbench(
                 ) !== "allowed"
               )
                 throw new Error("workbench_profile_access_unavailable");
-              const snapshot = request.crosProfileAdministration.snapshot();
-              const catalog = validateAiProfileCatalog(snapshot.catalog);
+              const read = request.crosProfileAdministration.snapshot();
+              if (read.status !== "read") throw new Error(read.error);
+              const snapshot = read.value;
+              const catalog = validateAiProfileCatalog(snapshot.catalog).value;
               if (
                 !catalog ||
                 !Number.isSafeInteger(snapshot.revision) ||
@@ -1561,11 +1569,17 @@ export async function startWorkbench(
                 const selectedAiSnapshot = selectedAi?.currentId
                   ? await selectedAi.owner.observe(selectedAi.currentId)
                   : null;
-                const sharedProfiles =
+                const sharedProfileRead =
                   request.sharedAiRequestsFactory &&
                   request.crosProfileAdministration
+                    ? request.crosProfileAdministration.snapshot()
+                    : undefined;
+                if (sharedProfileRead?.status === "blocked")
+                  throw new Error(sharedProfileRead.error);
+                const sharedProfiles =
+                  sharedProfileRead?.status === "read"
                     ? createWorkbenchAiProfileSurface(
-                        request.crosProfileAdministration.snapshot().catalog,
+                        sharedProfileRead.value.catalog,
                       )
                     : null;
                 model = createWorkbenchMainViewModel(
@@ -2128,12 +2142,15 @@ export async function startWorkbench(
             ) !== "allowed"
           )
             throw new Error("workbench_profile_access_unavailable");
-          const snapshot = request.crosProfileAdministration.snapshot();
+          const read = request.crosProfileAdministration.snapshot();
+          if (read.status !== "read") throw new Error(read.error);
+          const snapshot = read.value;
           const mutation = aiProfileMutation(form, snapshot);
           dispatched = true;
           const raw = request.crosProfileAdministration.execute(mutation);
-          const result = validateAiProfileMutationResult(mutation, raw);
-          if (!result) throw new Error("workbench_profile_result_invalid");
+          const result = validateAiProfileMutationResult(mutation, raw).value;
+          if (!result || result.status === "unknown")
+            throw new Error("workbench_profile_result_invalid");
           const body = JSON.stringify(result);
           await yieldToTransport(0);
           if (requestController.signal.aborted || response.destroyed) return;
@@ -2518,8 +2535,9 @@ export async function startWorkbench(
       if (method === "POST" && requestPath === "/ai-profiles/action") {
         let profileDispatched = false;
         try {
-          const administrationSnapshot = aiProfileAdministration?.snapshot();
-          if (administrationSnapshot === undefined)
+          const administrationSnapshot =
+            aiProfileAdministration?.snapshot().value;
+          if (administrationSnapshot == null)
             throw new Error("workbench_ai_profile_administration_unavailable");
           const form = await readActionForm(incoming);
           if (form.get("actionToken") !== actionToken)
@@ -2529,8 +2547,12 @@ export async function startWorkbench(
           if (aiProfileAdministration === undefined)
             throw new Error("workbench_ai_profile_administration_unavailable");
           profileDispatched = true;
-          aiProfileAdministrationResult =
-            aiProfileAdministration.execute(mutation);
+          const result = aiProfileAdministration.execute(mutation);
+          if (result.status === "unknown") {
+            aiProfileAdministrationResult = null;
+            throw new Error(result.reason);
+          }
+          aiProfileAdministrationResult = result;
           aiProfiles = createWorkbenchAiProfileSurface(
             aiProfileAdministrationResult.snapshot.catalog,
           );
@@ -2800,7 +2822,7 @@ export async function startWorkbench(
           meetingQuery,
           topicMeetingResult,
           aiProfiles,
-          aiProfileAdministration?.snapshot(),
+          aiProfileAdministration?.snapshot().value ?? undefined,
           "Repository",
           aiProfileAdministrationResult,
           aiRequests,

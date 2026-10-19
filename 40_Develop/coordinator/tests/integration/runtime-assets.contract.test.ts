@@ -17,9 +17,8 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { runInNewContext } from "node:vm";
 import {
-  describeClaudeExecutionPlanContract,
   describeCodexAdviceDistributionIdentity,
-  describeCodexExecutionPlanContract,
+  describeProviderExecution,
 } from "../../../ai-adapter/src/index.ts";
 
 const PROVIDER_ASSET_PATHS: Readonly<Record<string, string>> = Object.freeze({
@@ -184,9 +183,9 @@ function assertProviderRecipe(
  * @boundary ERB-IT-004=Integration: AI公開契約→実移管資産。
  */
 test("隔離レシピはAI Adapterの版・実行先・設定Identityへ結合する", () => {
-  const codex = describeCodexExecutionPlanContract().distributionIdentity;
+  const codex = describeProviderExecution("codex").distributionIdentity;
   const advice = describeCodexAdviceDistributionIdentity();
-  const claude = describeClaudeExecutionPlanContract().distribution.binding;
+  const claude = describeProviderExecution("claude").distribution.binding;
   const declarations = [
     {
       recipe: codex.imageBuildDefinition,

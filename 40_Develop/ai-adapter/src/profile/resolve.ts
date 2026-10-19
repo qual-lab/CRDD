@@ -1,15 +1,17 @@
 /**
- * Profile要求をCatalogの一意な実行設定へ解決する。
+ * Profile要求をCatalogから一意な実行設定へ解決する。
  *
  * @responsibility 明示Profile又はFamily・Role・Tier条件を検証し、対応する設定だけを返す。
  * @trace ARCH-000010
  */
-import {
-  DEFAULT_AI_PROFILE_CATALOG,
-  resolveAiProfile,
-  validateAiProfileCatalog,
-} from "../catalog/resolve.ts";
+import type { AiProfileResolutionResult } from "../catalog/resolve.ts";
+import type { ResolvedAiProfile } from "./types.ts";
 import type { AiProfileCatalog } from "../catalog/types.ts";
+import {
+  defaultAiProfileCatalog,
+  resolveAiProfile,
+} from "../catalog/resolve.ts";
+import { validateAiProfileCatalog } from "../catalog/validation.ts";
 import { snapshotPlainRecord } from "../../../domain-model/src/index.ts";
 
 export const PROVIDER_MODEL_PROFILE_RUNTIME_CONTRACT =
@@ -48,11 +50,11 @@ const PROFILE_ID = /^PROFILE-[0-9]{6,}$/u;
  * @responsibility 既定Catalogを指定した同じ検証・選定経路へ要求を渡す。
  * @trace ARCH-000010
  * @input 未信頼のProfile要求。
- * @returns 対応するProfile設定、又は拒否時null。
+ * @returns resolvedの実行設定又は固定拒否理由付きのblocked結果。
  * @precondition 同梱CatalogはModule初期化時に検証されている。
  * @postcondition Catalog指定版と同じ要求の受理・拒否条件を使う。
  * @effect N/A: 入力又は固定値の同期評価だけで、保存・Process・通信を行わない。
- * @failure 不正要求、非対応値、不一致又は曖昧な選定はnull。
+ * @failure 不正要求、非対応値、不一致又は曖昧な選定はblocked。
  * @invariant 別Modelや別Providerへの暗黙fallbackを行わない。
  * @boundary Profile Catalogと実行設定を利用するConsumerの間。
  * @security 秘密値・Host Path・実行Authorityを返さない。
@@ -60,7 +62,7 @@ const PROFILE_ID = /^PROFILE-[0-9]{6,}$/u;
  */
 export function resolveRuntimeOwnedProviderModelProfile(rawRequest: unknown) {
   return resolveRuntimeOwnedProviderModelProfileFromCatalog(
-    DEFAULT_AI_PROFILE_CATALOG,
+    defaultAiProfileCatalog,
     rawRequest,
   );
 }
@@ -71,22 +73,28 @@ export function resolveRuntimeOwnedProviderModelProfile(rawRequest: unknown) {
  * @responsibility 外部構成で追加したFamilyを中核の固定列挙へ戻さず、閉じたCatalog契約から解決する。
  * @trace ARCH-000010
  * @input rawCatalog: 採用候補または採用済みCatalog、rawRequest: Profile解決要求。
- * @returns 既存Coordinator公開形の解決結果。拒否時はnull。
+ * @returns resolvedの実行設定又は入力・Catalog・選択不成立を示すblocked結果。
  * @precondition rawCatalogとrawRequestを信頼済みObjectと仮定しない。
  * @postcondition Profile、Adapter、Modelの参照整合と一意性を満たす結果だけを返す。
  * @effect N/A: Snapshot検証とCatalog検索だけを行う。
- * @failure 不正Catalog、未知値、余分Key、0件または複数一致をnullとして拒否する。
+ * @failure 不正Catalog、未知値、余分Key、0件または複数一致を固定理由付きblockedとして拒否する。
  * @invariant Catalog選択だけでProvider実行Authorityを発行しない。
- * @boundary AI Runtime CatalogとCoordinator選択Consumerの境界。
+ * @boundary AI Adapter CatalogとCoordinator選択Consumerの境界。
  * @security 秘密値、任意実行Pathまたは任意引数をCatalogから受理しない。
  * @concurrency N/A: 不変Snapshotを読む同期処理である。
  */
 export function resolveRuntimeOwnedProviderModelProfileFromCatalog(
   rawCatalog: unknown,
   rawRequest: unknown,
-) {
-  const catalog: AiProfileCatalog | null = validateAiProfileCatalog(rawCatalog);
-  if (!catalog) return null;
+): AiProfileResolutionResult<RuntimeProviderModelProfile> {
+  const catalog: AiProfileCatalog | null =
+    validateAiProfileCatalog(rawCatalog).value;
+  if (!catalog)
+    return Object.freeze({
+      status: "blocked",
+      value: null,
+      error: "ai_profile_catalog_invalid",
+    });
   const request =
     snapshotPlainRecord(rawRequest, REQUEST_KEYS) ??
     snapshotPlainRecord(rawRequest, AUTOMATIC_REQUEST_KEYS);
@@ -101,14 +109,22 @@ export function resolveRuntimeOwnedProviderModelProfileFromCatalog(
     request.speedMode !== "normal" ||
     request.billingMode !== "subscription_oauth"
   ) {
-    return null;
+    return Object.freeze({
+      status: "blocked",
+      value: null,
+      error: "ai_profile_request_invalid",
+    });
   }
   if (
     request.profileId !== undefined &&
     (typeof request.profileId !== "string" ||
       !PROFILE_ID.test(request.profileId))
   )
-    return null;
+    return Object.freeze({
+      status: "blocked",
+      value: null,
+      error: "ai_profile_request_invalid",
+    });
   if (typeof request.profileId === "string") {
     const profile = catalog.profiles.find(
       (candidate) => candidate.profileId === request.profileId,
@@ -116,6 +132,18 @@ export function resolveRuntimeOwnedProviderModelProfileFromCatalog(
     const adapter = catalog.adapters.find(
       (candidate) => candidate.adapterId === profile?.adapterId,
     );
+    if (!profile)
+      return Object.freeze({
+        status: "blocked",
+        value: null,
+        error: "ai_profile_not_found",
+      });
+    if (!adapter)
+      return Object.freeze({
+        status: "blocked",
+        value: null,
+        error: "ai_profile_reference_invalid",
+      });
     if (
       profile === undefined ||
       adapter === undefined ||
@@ -131,21 +159,29 @@ export function resolveRuntimeOwnedProviderModelProfileFromCatalog(
         request.modelTier as "preferred" | "upper_allowed",
       )
     )
-      return null;
+      return Object.freeze({
+        status: "blocked",
+        value: null,
+        error: "ai_profile_request_invalid",
+      });
     return Object.freeze({
-      provider: adapter.provider,
-      profileId: profile.profileId,
-      exactModelId: profile.exactModelId,
-      family: profile.family,
-      selectionRole: request.role as
-        | "coordinator"
-        | "executor"
-        | "independent_reviewer"
-        | "result_integration",
-      modelTier: request.modelTier as "preferred" | "upper_allowed",
-      speedMode: profile.speedMode,
-      billingMode: profile.billingMode,
-      compatibilityReason: profile.compatibilityReason,
+      status: "resolved",
+      error: null,
+      value: Object.freeze({
+        provider: adapter.provider,
+        profileId: profile.profileId,
+        exactModelId: profile.exactModelId,
+        family: profile.family,
+        selectionRole: request.role as
+          | "coordinator"
+          | "executor"
+          | "independent_reviewer"
+          | "result_integration",
+        modelTier: request.modelTier as "preferred" | "upper_allowed",
+        speedMode: profile.speedMode,
+        billingMode: profile.billingMode,
+        compatibilityReason: profile.compatibilityReason,
+      }),
     });
   }
   const resolved = resolveAiProfile(catalog, {
@@ -160,17 +196,21 @@ export function resolveRuntimeOwnedProviderModelProfileFromCatalog(
     speedMode: "normal",
     billingMode: "subscription_oauth",
   });
-  if (!resolved) return null;
+  if (resolved.status !== "resolved") return resolved;
   return Object.freeze({
-    provider: resolved.provider,
-    profileId: resolved.profileId,
-    exactModelId: resolved.exactModelId,
-    family: resolved.family,
-    selectionRole: resolved.selectionRole,
-    modelTier: resolved.modelTier,
-    speedMode: resolved.speedMode,
-    billingMode: resolved.billingMode,
-    compatibilityReason: resolved.compatibilityReason,
+    status: "resolved",
+    error: null,
+    value: Object.freeze({
+      provider: resolved.value.provider,
+      profileId: resolved.value.profileId,
+      exactModelId: resolved.value.exactModelId,
+      family: resolved.value.family,
+      selectionRole: resolved.value.selectionRole,
+      modelTier: resolved.value.modelTier,
+      speedMode: resolved.value.speedMode,
+      billingMode: resolved.value.billingMode,
+      compatibilityReason: resolved.value.compatibilityReason,
+    }),
   });
 }
 
@@ -181,7 +221,7 @@ export function resolveRuntimeOwnedProviderModelProfileFromCatalog(
  * @trace ARCH-000010
  * @input N/A: 実行時入力を持たない。
  * @returns 固定互換Profileの記述Object。
- * @precondition N/A: 宣言値だけで構成する。
+ * @precondition N/A: 実行時入力を持たない。
  * @postcondition Provider実行やCatalog採用を開始しない。
  * @effect N/A: 入力又は固定値の同期評価だけで、保存・Process・通信を行わない。
  * @failure N/A: 固定Objectの生成だけで拒否分岐を持たない。
@@ -253,3 +293,26 @@ export function describeProviderModelProfileRuntimeContract() {
 export function selectProviderFamilyPreference(provider: "codex" | "claude") {
   return provider === "codex" ? "sol" : "opus";
 }
+
+/**
+ * 実行選択へ渡すProfileの最小投影。認証・実行許可は含めない。
+ * @responsibility 成功値と固定拒否理由又は観測不能を型で区別する。
+ * @trace ARCH-000010
+ * @shape 状態で値と欠測を絞り込める読取り専用の直和型。
+ * @invariant 型だけで認証、実行、保存又は回収の成立を主張しない。
+ * @boundary AI Profile APIと直接利用側の値契約。
+ * @security 秘密値、内部Path及び操作Authorityを含めない。
+ * @compatibility 通信Envelopeと保存Schemaを変更せず、内部戻り値だけを移行する。
+ */
+export type RuntimeProviderModelProfile = Pick<
+  ResolvedAiProfile,
+  | "provider"
+  | "profileId"
+  | "exactModelId"
+  | "family"
+  | "selectionRole"
+  | "modelTier"
+  | "speedMode"
+  | "billingMode"
+  | "compatibilityReason"
+>;

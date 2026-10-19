@@ -13,24 +13,22 @@ import test from "node:test";
 import {
   providerProfileMatchesExecutionIdentity,
   providerProfileSupportsExecution,
-  normalizeProviderExactModelId,
-  prepareProviderFixedEnvironment,
+  validateProviderModelId,
+  prepareProviderEnvironment,
 } from "../../../../ai-adapter/src/index.ts";
-import { CODEX_FORBIDDEN_ENVIRONMENT_NAMES } from "../../../../ai-adapter/src/index.ts";
-import { CLAUDE_FORBIDDEN_ENVIRONMENT_NAMES } from "../../../../ai-adapter/src/index.ts";
 import type { ResolvedAiProfileIdentity } from "../../../../ai-adapter/src/index.ts";
 
 import {
-  DEFAULT_AI_PROFILE_CATALOG,
+  defaultAiProfileCatalog,
   resolveAiProfileById,
-} from "../../../../ai-adapter/src/catalog/resolve.ts";
+} from "../../../../ai-adapter/src/index.ts";
 import { prepareWorkbenchAiAdviceTask } from "../../../src/workbench-ai/advice-task.ts";
 import { createWorkbenchAiProviderAdapter } from "../../../src/workbench-ai/provider-adapter.ts";
 
 const profile = resolveAiProfileById(
-  DEFAULT_AI_PROFILE_CATALOG,
+  defaultAiProfileCatalog,
   "PROFILE-100001",
-);
+).value;
 if (profile === null) throw new Error("test_profile_required");
 const prepared = prepareWorkbenchAiAdviceTask({
   profileId: profile.profileId,
@@ -62,9 +60,9 @@ if (prepared.status !== "prepared" || prepared.taskPacket === null)
 test("Profile照合の移管は両Providerの正常値と全五項目反例を保持する", () => {
   for (const profileId of ["PROFILE-100001", "PROFILE-200001"]) {
     const resolved = resolveAiProfileById(
-      DEFAULT_AI_PROFILE_CATALOG,
+      defaultAiProfileCatalog,
       profileId,
-    );
+    ).value;
     assert.notEqual(resolved, null);
     const candidate = resolved as ResolvedAiProfileIdentity;
     const identity = Object.freeze({
@@ -327,7 +325,7 @@ test("Task Profile不一致はAI Adapter移管後もExecutor Effect前に拒否�
  */
 test("Modelと固定環境の単一移管は構文境界・禁止集合・一回取得を保持する", () => {
   for (const model of ["gpt-5.5", "claude-opus-4.8", "a".repeat(128)]) {
-    assert.equal(normalizeProviderExactModelId(model), model);
+    assert.equal(validateProviderModelId(model).value, model);
   }
   for (const model of [
     "",
@@ -339,37 +337,63 @@ test("Modelと固定環境の単一移管は構文境界・禁止集合・一回
     "-gpt",
     "gpt/5.5",
   ]) {
-    assert.equal(normalizeProviderExactModelId(model), null);
+    assert.equal(validateProviderModelId(model).value, null);
   }
   for (const [provider, forbiddenNames] of [
-    ["codex", CODEX_FORBIDDEN_ENVIRONMENT_NAMES],
-    ["claude", CLAUDE_FORBIDDEN_ENVIRONMENT_NAMES],
+    [
+      "codex",
+      [
+        "OPENAI_API_KEY",
+        "CODEX_API_KEY",
+        "OPENAI_BASE_URL",
+        "OPENAI_ORG_ID",
+        "OPENAI_PROJECT_ID",
+        "HTTPS_PROXY",
+        "HTTP_PROXY",
+        "ALL_PROXY",
+        "NO_PROXY",
+      ],
+    ],
+    [
+      "claude",
+      [
+        "ANTHROPIC_API_KEY",
+        "ANTHROPIC_AUTH_TOKEN",
+        "ANTHROPIC_BASE_URL",
+        "CLAUDE_CODE_OAUTH_TOKEN",
+        "HTTP_PROXY",
+        "NO_PROXY",
+      ],
+    ],
   ] as const) {
     const environment = Object.freeze({
       PROVIDER_HOME: "/provider-home",
       FIXED_EMPTY: "",
       FIXED_VALUE: "value",
     });
-    assert.deepEqual(
-      prepareProviderFixedEnvironment(provider, environment),
-      Object.entries(environment),
-    );
-    assert.deepEqual(prepareProviderFixedEnvironment(provider, {}), []);
+    assert.deepEqual(prepareProviderEnvironment(provider, environment), {
+      status: "ready",
+      entries: Object.entries(environment),
+    });
+    assert.deepEqual(prepareProviderEnvironment(provider, {}), {
+      status: "ready",
+      entries: [],
+    });
     for (const name of forbiddenNames) {
-      assert.equal(
-        prepareProviderFixedEnvironment(provider, { [name]: "forbidden" }),
-        null,
+      assert.deepEqual(
+        prepareProviderEnvironment(provider, { [name]: "forbidden" }),
+        { status: "blocked", reason: "provider_environment_invalid" },
       );
     }
-    assert.equal(
-      prepareProviderFixedEnvironment(provider, { FIXED: "nul\0value" }),
-      null,
+    assert.deepEqual(
+      prepareProviderEnvironment(provider, { FIXED: "nul\0value" }),
+      { status: "blocked", reason: "provider_environment_invalid" },
     );
-    assert.equal(
-      prepareProviderFixedEnvironment(provider, {
+    assert.deepEqual(
+      prepareProviderEnvironment(provider, {
         FIXED: 1,
       } as unknown as Record<string, string>),
-      null,
+      { status: "blocked", reason: "provider_environment_invalid" },
     );
     let reads = 0;
     const accessor = Object.defineProperty({}, "FIXED", {
@@ -379,10 +403,21 @@ test("Modelと固定環境の単一移管は構文境界・禁止集合・一回
         return "snapshot";
       },
     });
-    assert.deepEqual(prepareProviderFixedEnvironment(provider, accessor), [
-      ["FIXED", "snapshot"],
-    ]);
+    assert.deepEqual(prepareProviderEnvironment(provider, accessor), {
+      status: "ready",
+      entries: [["FIXED", "snapshot"]],
+    });
     assert.equal(reads, 1);
+    const failedEnvironment = Object.defineProperty({}, "FIXED", {
+      enumerable: true,
+      get: () => {
+        throw new Error("synthetic_environment_read_failed");
+      },
+    });
+    assert.throws(
+      () => prepareProviderEnvironment(provider, failedEnvironment),
+      { message: "synthetic_environment_read_failed" },
+    );
     assert.deepEqual(environment, {
       PROVIDER_HOME: "/provider-home",
       FIXED_EMPTY: "",

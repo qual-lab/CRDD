@@ -9,6 +9,7 @@
  * @scope docker、process、controller
  * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
  */
+import { planProviderExecution } from "../../../ai-adapter/src/index.ts";
 import assert from "node:assert/strict";
 import path from "node:path";
 import { Writable } from "node:stream";
@@ -16,11 +17,7 @@ import test from "node:test";
 import { bindTaskCliCancellationSignals } from "../../src/cli/task-cancellation.ts";
 import type { OwnedCommandHandle } from "../../../docker-isolation/src/index.ts";
 import { planDockerIsolationCommands } from "../../../docker-isolation/src/index.ts";
-import {
-  planCodexReadOnlyProbe,
-  planCodexIsolatedTask,
-  planWorkbenchAiAdviceProviderCommand,
-} from "../../../ai-adapter/src/index.ts";
+
 import {
   borrowRuntimeOwnedDockerTerminalObservations,
   cancelRuntimeOwnedDockerProcessController,
@@ -122,34 +119,63 @@ function createPlan(
  * @boundary ERB-IT-002=Adjacent 1 Block: AI Adapter／DI planner→Controller通知。
  */
 test("実plannerのProbe・Task・助言設定は通知全文へ接続しClaudeは適用外を維持する", async () => {
-  const codexProbe = planCodexReadOnlyProbe({
-    provider: "codex",
-    mode: "read_only_probe",
-    effort: "low",
-  });
-  const codexExecutor = planCodexIsolatedTask({
-    provider: "codex",
-    mode: "isolated_task",
-    effort: "low",
-    taskRole: "executor",
-  });
-  const codexReviewer = planCodexIsolatedTask({
-    provider: "codex",
-    mode: "isolated_task",
-    effort: "low",
-    taskRole: "reviewer",
-  });
+  const codexProbe =
+    planProviderExecution({
+      provider: "codex",
+      purpose: "probe",
+      input: {
+        provider: "codex",
+        mode: "read_only_probe",
+        effort: "low",
+      },
+    }).plan ?? assert.fail("provider_execution_plan_not_ready");
+  const codexExecutor =
+    planProviderExecution({
+      provider: "codex",
+      purpose: "task",
+      input: {
+        provider: "codex",
+        mode: "isolated_task",
+        effort: "low",
+        taskRole: "executor",
+      },
+    }).plan ?? assert.fail("provider_execution_plan_not_ready");
+  const codexReviewer =
+    planProviderExecution({
+      provider: "codex",
+      purpose: "task",
+      input: {
+        provider: "codex",
+        mode: "isolated_task",
+        effort: "low",
+        taskRole: "reviewer",
+      },
+    }).plan ?? assert.fail("provider_execution_plan_not_ready");
   assert.equal(codexProbe.status, "candidate");
   assert.equal(codexExecutor.status, "candidate");
   assert.equal(codexReviewer.status, "candidate");
-  const codexAdvice = planWorkbenchAiAdviceProviderCommand(
-    { provider: "codex", exactModelId: "gpt-5.5", reasoningEffort: "low" },
-    { type: "object" },
-  );
-  const claudeAdvice = planWorkbenchAiAdviceProviderCommand(
-    { provider: "claude", exactModelId: "opus", reasoningEffort: "low" },
-    { type: "object" },
-  );
+  const codexAdvice =
+    planProviderExecution({
+      provider: "codex",
+      purpose: "advice",
+      input: {
+        provider: "codex",
+        exactModelId: "gpt-5.5",
+        reasoningEffort: "low",
+      },
+      resultSchema: { type: "object" },
+    }).plan ?? assert.fail("provider_execution_plan_not_ready");
+  const claudeAdvice =
+    planProviderExecution({
+      provider: "claude",
+      purpose: "advice",
+      input: {
+        provider: "claude",
+        exactModelId: "opus",
+        reasoningEffort: "low",
+      },
+      resultSchema: { type: "object" },
+    }).plan ?? assert.fail("provider_execution_plan_not_ready");
   for (const [provider, argv, role, approval, sandbox] of [
     ["codex", codexProbe.argv, null, "other", "read_only"],
     ["codex", codexExecutor.argv, "executor", "approve_for_me", "implicit"],

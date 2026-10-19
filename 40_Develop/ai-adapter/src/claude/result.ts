@@ -1,5 +1,5 @@
 /**
- * claude-structured-resultに属する責務をまとめる。
+ * Claudeのboolean Probe結果を限定条件で解析する。
  *
  * @responsibility 共通JSON解析を利用し、Claude固有Envelopeの成立条件と結果分類を所有する。
  * @trace ARCH-000015
@@ -14,18 +14,18 @@ const MAXIMUM_TURNS = 2;
 const MAXIMUM_API_EQUIVALENT_COST_USD = 0.1;
 
 /**
- * 記録かを判定する。
+ * JSON値のObject形を確認する。
  *
- * @responsibility 記録の判定条件とtrue／false境界を所有する。
+ * @responsibility 非null・非配列Objectの判定を所有する。
  * @trace ARCH-000015
  * @input value: unknown
- * @returns value is Record<string, unknown>を返す。
- * @precondition 「value: unknown」がisRecordの入力契約を満たす。
- * @postcondition isRecordの責務を完了した結果だけを返す。
+ * @returns Record候補かの真偽値。
+ * @precondition valueは任意のJSON解析結果である。Object形だけを判定する。
+ * @postcondition 返却値を現在の認証、実行成功又は資源回収の証明としない。
  * @effect N/A: isRecordは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: isRecordは独自の失敗分岐を所有しない。
- * @invariant isRecordは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: isRecordはProcess内の同一Subsystemで完結する。
+ * @failure 不一致をfalseとする。
+ * @invariant 計画・解析・宣言の範囲に限り、起動・送信同意・Authorityを代行しない。
+ * @boundary Provider固有条件と共通AI Adapter APIの内部境界。
  * @security isRecordはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: isRecordは共有非同期状態を持たない同期処理である。
  */
@@ -34,18 +34,18 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 /**
- * own Valueを決定する。
+ * JSON解析済み値から自身のPropertyを取得する。
  *
- * @responsibility own Valueの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @responsibility 厳密JSON parserが生成した値から、自身に属するfieldだけを取得する。
  * @trace ARCH-000015
  * @input value: Record<string, unknown>、key: string
- * @returns ownValueの計算結果を返す。
- * @precondition 「value: Record<string, unknown>、key: string」がownValueの入力契約を満たす。
- * @postcondition ownValueの責務を完了した結果だけを返す。
+ * @returns 所有データ値又はundefined。
+ * @precondition valueはparseUnambiguousJsonDocumentで生成した値であり、Proxy／accessorを含まない。
+ * @postcondition 返却値を現在の認証、実行成功又は資源回収の証明としない。
  * @effect N/A: ownValueは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: ownValueは独自の失敗分岐を所有しない。
- * @invariant ownValueは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: ownValueはProcess内の同一Subsystemで完結する。
+ * @failure 未所有Propertyをundefinedとして返す。任意ObjectのGetter回避は所有しない。
+ * @invariant 計画・解析・宣言の範囲に限り、起動・送信同意・Authorityを代行しない。
+ * @boundary Provider固有条件と共通AI Adapter APIの内部境界。
  * @security ownValueはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: ownValueは共有非同期状態を持たない同期処理である。
  */
@@ -54,18 +54,18 @@ function ownValue(value: Record<string, unknown>, key: string) {
 }
 
 /**
- * Blocked 結果を構築する。
+ * Claude Probe解析の拒否値を生成する。
  *
- * @responsibility Blocked 結果の構築入力、生成結果、不正入力の拒否境界を所有する。
+ * @responsibility 確認不能と確認成功の区別を所有する。
  * @trace ARCH-000015
  * @input N/A: 実行時引数を受け取らない。
- * @returns createBlockedResultの計算結果を返す。
- * @precondition 「N/A: 実行時引数を受け取らない。」がcreateBlockedResultの入力契約を満たす。
- * @postcondition createBlockedResultの責務を完了した結果だけを返す。
+ * @returns 固定理由付きblocked。
+ * @precondition N/A: 実行時入力を持たない。
+ * @postcondition 返却値を現在の認証、実行成功又は資源回収の証明としない。
  * @effect N/A: createBlockedResultは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: createBlockedResultは独自の失敗分岐を所有しない。
- * @invariant createBlockedResultは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: createBlockedResultはProcess内の同一Subsystemで完結する。
+ * @failure N/A: 拒否値を構築する。
+ * @invariant 計画・解析・宣言の範囲に限り、起動・送信同意・Authorityを代行しない。
+ * @boundary Provider固有条件と共通AI Adapter APIの内部境界。
  * @security createBlockedResultはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: createBlockedResultは共有非同期状態を持たない同期処理である。
  */
@@ -80,18 +80,18 @@ function createBlockedResult() {
 }
 
 /**
- * Claude Structured 結果を固定Schemaへ正規化する。
+ * Claudeのboolean Probe結果を正規化する。
  *
- * @responsibility Claude Structured 結果の入力検証、正規化規則、不正値の拒否境界を所有する。
+ * @responsibility 単一JSON成功Envelope、Turn・費用相当上限、status=trueの照合を所有する。
  * @trace ARCH-000015
  * @input raw: unknown
- * @returns normalizeClaudeStructuredResultの計算結果を返す。
- * @precondition 「raw: unknown」がnormalizeClaudeStructuredResultの入力契約を満たす。
- * @postcondition normalizeClaudeStructuredResultの責務を完了した結果だけを返す。
+ * @returns confirmedの最小結果又はblocked。
+ * @precondition rawを未信頼値として文字列とJSON Envelopeを本処理で検査する。
+ * @postcondition 返却値を現在の認証、実行成功又は資源回収の証明としない。
  * @effect N/A: normalizeClaudeStructuredResultは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: normalizeClaudeStructuredResultは独自の失敗分岐を所有しない。
- * @invariant normalizeClaudeStructuredResultは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: normalizeClaudeStructuredResultはProcess内の同一Subsystemで完結する。
+ * @failure 曖昧JSON、不正Envelope、上限超過、falseを拒否する。
+ * @invariant 計画・解析・宣言の範囲に限り、起動・送信同意・Authorityを代行しない。
+ * @boundary Provider固有条件と共通AI Adapter APIの内部境界。
  * @security normalizeClaudeStructuredResultはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: normalizeClaudeStructuredResultは共有非同期状態を持たない同期処理である。
  */
@@ -133,18 +133,18 @@ export function normalizeClaudeStructuredResult(raw: unknown) {
 }
 
 /**
- * Claude Structured 結果 契約の公開契約を記述する。
+ * Claude Probe結果の受理条件を記述する。
  *
- * @responsibility Claude Structured 結果 契約の公開field、非公開境界、互換性を所有する。
+ * @responsibility 単一JSONとTurn・費用相当上限の診断契約を所有する。
  * @trace ARCH-000015
  * @input N/A: 実行時引数を受け取らない。
- * @returns describeClaudeStructuredResultContractの計算結果を返す。
- * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeClaudeStructuredResultContractの入力契約を満たす。
- * @postcondition describeClaudeStructuredResultContractの責務を完了した結果だけを返す。
+ * @returns 固定のProbe結果契約。
+ * @precondition N/A: 実行時入力を持たない。
+ * @postcondition 返却値を現在の認証、実行成功又は資源回収の証明としない。
  * @effect N/A: describeClaudeStructuredResultContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: describeClaudeStructuredResultContractは独自の失敗分岐を所有しない。
- * @invariant describeClaudeStructuredResultContractは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: describeClaudeStructuredResultContractはProcess内の同一Subsystemで完結する。
+ * @failure N/A: 固定宣言を返す。
+ * @invariant 計画・解析・宣言の範囲に限り、起動・送信同意・Authorityを代行しない。
+ * @boundary Provider固有条件と共通AI Adapter APIの内部境界。
  * @security describeClaudeStructuredResultContractはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: describeClaudeStructuredResultContractは共有非同期状態を持たない同期処理である。
  */

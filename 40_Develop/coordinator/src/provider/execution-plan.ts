@@ -17,27 +17,20 @@ import type {
   ProviderDockerTaskPacket,
 } from "./execution-types.ts";
 import {
-  normalizeProviderExactModelId,
-  prepareProviderFixedEnvironment,
+  validateProviderModelId,
+  prepareProviderEnvironment,
 } from "../../../ai-adapter/src/index.ts";
 import {
-  planCodexIsolatedTask,
-  planCodexReadOnlyProbe,
-  describeCodexSubscriptionAuthenticationCli,
-} from "../../../ai-adapter/src/index.ts";
-import {
-  planClaudeIsolatedTask,
-  planClaudeReadOnlyProbe,
-  buildClaudeExecutionArguments,
-  describeClaudeSubscriptionAuthenticationCli,
+  planProviderExecution,
+  describeProviderAuthentication,
 } from "../../../ai-adapter/src/index.ts";
 import { createDockerAuthenticationEnvironment } from "../../../docker-isolation/src/index.ts";
 import { selectProviderModelCandidate } from "./model-selection.ts";
 import { describeEgressProxyTopology } from "../external-send/egress-proxy-policy.ts";
 import type { WorkbenchAiAdviceRuntimePacket } from "../workbench-ai/advice-packet.ts";
 
-const codexAuthenticationCli = describeCodexSubscriptionAuthenticationCli();
-const claudeAuthenticationCli = describeClaudeSubscriptionAuthenticationCli();
+const codexAuthenticationCli = describeProviderAuthentication("codex");
+const claudeAuthenticationCli = describeProviderAuthentication("claude");
 
 /**
  * 消費済みPacketとMountを固定ProviderのDocker計画へ結合する。
@@ -80,34 +73,40 @@ export function buildProviderDockerExecutionPlan(
     consumer !== "orchestrator"
   )
     return null;
-  const codex =
-    provider === "codex"
-      ? taskPacket
-        ? planCodexIsolatedTask({
+  const generated = planProviderExecution({
+    provider,
+    purpose: taskPacket ? "task" : "probe",
+    input: taskPacket
+      ? {
+          provider,
+          mode: "isolated_task",
+          effort: consumedModelSelection.effort,
+          taskRole: taskPacket.taskRole,
+          ...(provider === "claude"
+            ? { taskWorkload: taskPacket.taskWorkload }
+            : {}),
+        }
+      : {
+          provider,
+          mode: "read_only_probe",
+          ...(provider === "codex"
+            ? { effort: consumedModelSelection.effort }
+            : {}),
+        },
+    ...(advicePacket
+      ? {}
+      : {
+          modelSelection: {
             provider,
-            mode: "isolated_task",
-            effort: consumedModelSelection.effort,
-            taskRole: taskPacket.taskRole,
-          })
-        : planCodexReadOnlyProbe({
-            provider,
-            mode: "read_only_probe",
-            effort: consumedModelSelection.effort,
-          })
-      : null;
-  const claude =
-    provider === "claude"
-      ? taskPacket
-        ? planClaudeIsolatedTask({
-            provider,
-            mode: "isolated_task",
-            taskRole: taskPacket.taskRole,
-            effort: consumedModelSelection.effort,
-            taskWorkload: taskPacket.taskWorkload,
-          })
-        : planClaudeReadOnlyProbe({ provider, mode: "read_only_probe" })
-      : null;
-  const execution = codex ?? claude;
+            exactModelId: consumedModelSelection.model,
+            reasoningEffort: consumedModelSelection.effort,
+          },
+        }),
+  });
+  if (generated.status !== "ready") return null;
+  const execution = generated.plan;
+  const codex = execution.provider === "codex" ? execution : null;
+  const claude = execution.provider === "claude" ? execution : null;
   const egress = describeEgressProxyTopology(provider);
   const selection = selectProviderModelCandidate(consumedModelSelection.basis);
   if (
@@ -126,7 +125,7 @@ export function buildProviderDockerExecutionPlan(
       consumedModelSelection.selectionRecordId,
     ) ||
     execution?.status !== "candidate" ||
-    !normalizeProviderExactModelId(consumedModelSelection.model) ||
+    !validateProviderModelId(consumedModelSelection.model).value ||
     (provider === "codex" &&
       (codex?.status !== "candidate" ||
         consumedModelSelection.model !==
@@ -157,7 +156,7 @@ export function buildProviderDockerExecutionPlan(
   ) {
     return null;
   }
-  const fixedEnvironment = prepareProviderFixedEnvironment(
+  const fixedEnvironment = prepareProviderEnvironment(
     provider,
     advicePacket?.providerCommand.environment ?? execution.environment,
   );
@@ -174,7 +173,7 @@ export function buildProviderDockerExecutionPlan(
   const suffix = createDockerIsolationRandomHex(state, 8);
   const proxyToken = createDockerIsolationRandomHex(state, 32);
   if (
-    !fixedEnvironment ||
+    fixedEnvironment.status !== "ready" ||
     (provider === "codex" &&
       taskPacket?.taskRole === "executor" &&
       !executorSeccompProfile) ||
@@ -235,16 +234,8 @@ export function buildProviderDockerExecutionPlan(
       environment: authenticationEnvironment,
     },
     execution: {
-      argv:
-        advicePacket?.providerCommand.argv ??
-        (provider === "claude"
-          ? buildClaudeExecutionArguments(
-              consumedModelSelection.model,
-              selection.effort,
-              execution.argv,
-            )
-          : execution.argv),
-      environment: Object.fromEntries(fixedEnvironment),
+      argv: advicePacket?.providerCommand.argv ?? execution.argv,
+      environment: Object.fromEntries(fixedEnvironment.entries),
       interactive: Boolean(taskPacket || advicePacket),
       initRequired:
         provider === "codex" &&

@@ -8,13 +8,11 @@
  * @scope provider、task、structured、result
  * @boundary RCM-UT-016=N/A: Domain Outcome／IssueとSurface Adapterは外部実行境界を持たない。
  */
+import { planProviderExecution } from "../../../../ai-adapter/src/index.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
-  planClaudeIsolatedTask,
-  planClaudeTaskTurnBudget,
-} from "../../../../ai-adapter/src/index.ts";
+import { evaluateProviderTaskScope } from "../../../../ai-adapter/src/index.ts";
 import {
   describeProviderTaskStructuredResultContract,
   normalizeProviderTaskStructuredResult,
@@ -771,13 +769,18 @@ test("Claudeの実行目標と結果受理の絶対上限を分離する", () =>
   };
   for (const taskRole of ["executor", "reviewer"] as const) {
     for (const effort of ["low", "medium", "high"] as const) {
-      const plan = planClaudeIsolatedTask({
-        provider: "claude",
-        mode: "isolated_task",
-        taskRole,
-        effort,
-        taskWorkload: TASK_WORKLOAD,
-      });
+      const plan =
+        planProviderExecution({
+          provider: "claude",
+          purpose: "task",
+          input: {
+            provider: "claude",
+            mode: "isolated_task",
+            taskRole,
+            effort,
+            taskWorkload: TASK_WORKLOAD,
+          },
+        }).plan ?? assert.fail("provider_execution_plan_not_ready");
       assert.equal(plan.status, "candidate");
       if (plan.status !== "candidate") throw new Error("plan_not_candidate");
       const limit = expectedLimits[taskRole][effort];
@@ -866,13 +869,18 @@ test("作業量の有限見積りは全推論で一致し、選定上限を超�
       remediationFindingCount,
     };
     for (const effort of ["low", "medium", "high"]) {
-      const plan = planClaudeIsolatedTask({
-        provider: "claude",
-        mode: "isolated_task",
-        taskRole: "reviewer",
-        effort,
-        taskWorkload: workload,
-      });
+      const plan =
+        planProviderExecution({
+          provider: "claude",
+          purpose: "task",
+          input: {
+            provider: "claude",
+            mode: "isolated_task",
+            taskRole: "reviewer",
+            effort,
+            taskWorkload: workload,
+          },
+        }).plan ?? assert.fail("provider_execution_plan_not_ready");
       assert.equal(plan.status, "candidate");
       if (plan.status !== "candidate") throw new Error("plan_invalid");
       assert.equal(plan.maximumTurns, expected);
@@ -923,7 +931,7 @@ test("不明または予算超過の作業量を旧固定値へfallbackしない
     { ...TASK_WORKLOAD, readPathCount: 13 },
   ]) {
     assert.equal(
-      planClaudeTaskTurnBudget("reviewer", workload).status,
+      evaluateProviderTaskScope("claude", "reviewer", workload).status,
       "blocked",
     );
     assert.equal(
@@ -954,12 +962,12 @@ test("不明または予算超過の作業量を旧固定値へfallbackしない
     },
   ]) {
     assert.equal(
-      planClaudeTaskTurnBudget("reviewer", workload).status,
+      evaluateProviderTaskScope("claude", "reviewer", workload).status,
       "blocked",
     );
   }
   assert.equal(trapCount, 0);
-  const split = planClaudeTaskTurnBudget("reviewer", {
+  const split = evaluateProviderTaskScope("claude", "reviewer", {
     ...TASK_WORKLOAD,
     readPathCount: 13,
   });

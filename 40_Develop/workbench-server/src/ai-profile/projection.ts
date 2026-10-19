@@ -9,7 +9,7 @@
  * @security Credential、Provider Home、Host PathをRead Modelへ含めない。
  */
 import {
-  DEFAULT_AI_PROFILE_CATALOG,
+  defaultAiProfileCatalog,
   type AiProfileAvailabilityObservation,
   type AiProfileCatalog,
 } from "../../../ai-adapter/src/index.ts";
@@ -65,7 +65,7 @@ export type WorkbenchAiProfileSurface = Readonly<{
  * @concurrency N/A: 共有状態を持たない同期処理である。
  */
 export function createDefaultWorkbenchAiProfileSurface(): WorkbenchAiProfileSurface {
-  return createWorkbenchAiProfileSurface(DEFAULT_AI_PROFILE_CATALOG);
+  return createWorkbenchAiProfileSurface(defaultAiProfileCatalog);
 }
 
 /**

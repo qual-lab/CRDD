@@ -36,7 +36,7 @@ import {
 } from "../../../access-management/src/index.ts";
 import { startWorkbench } from "../../src/index.ts";
 import {
-  createCrosAiProfileCatalogStore,
+  createHostAiProfileCatalogStore,
   createAiProfileCatalogAdministration,
   type AiProfileCatalogAdministration,
   type AiProfileCatalogSnapshot,
@@ -770,7 +770,7 @@ for (const mode of ["local", "cros"] as const) {
     if (mode === "cros") {
       const host = path.join(owned, "profile-host");
       fs.mkdirSync(host);
-      const adapter = createCrosAiProfileCatalogStore({
+      const adapter = createHostAiProfileCatalogStore({
         platform: "win32",
         localAppData: host,
         publisher: "qual-lab",
@@ -1079,8 +1079,12 @@ for (const mode of ["local", "cros"] as const) {
             }
           }
           for (const kind of ["role", "credential", "throw", "cut"] as const) {
-            const source: AiProfileCatalogSnapshot = sharedProfiles.snapshot();
-            const profile = source.catalog.profiles[0];
+            const source: AiProfileCatalogSnapshot | null =
+              sharedProfiles.snapshot().value;
+            assert.ok(source);
+            const profile:
+              | AiProfileCatalogSnapshot["catalog"]["profiles"][number]
+              | undefined = source.catalog.profiles[0];
             assert.ok(profile);
             const reason = `fixture-after-save-${kind}`;
             const form = new URLSearchParams({
@@ -1195,7 +1199,7 @@ for (const mode of ["local", "cros"] as const) {
             }
             const currentProfile = (await (
               await fetchWorkbench(`${handle.baseUrl}/api/ai-profiles`)
-            ).json()) as ReturnType<AiProfileCatalogAdministration["snapshot"]>;
+            ).json()) as AiProfileCatalogSnapshot;
             assert.equal(currentProfile.revision, source.revision + 1);
             assert.equal(
               currentProfile.catalog.profiles.find(

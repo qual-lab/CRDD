@@ -22,6 +22,7 @@ Version ControlのWorktree管理に続き、名前付きCandidateの明示固定
 
 | 対象 | 現在の状態 | Owner Relation |
 |---|---|---|
+| AI AdapterのSource整備 | 命名・配置・公開APIの整理を一区切りとし、利用側回帰・限定独立レビュー残指摘0を確認。ai-adapter内の命名指摘0。実AI・Docker・正式全E2Eと他Packageの整備は別に残る | [最終ツリーと公開API](06_Architecture/Details/ai-adapter/01_Architecture.md#ai-adapter-public-api-refactor)、[区切りと検証範囲](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#source-structure-review) |
 | Workspace／Orchestrator | ③の本番Workspace接続・旧Bundle／Store本体と専用Nativeの撤去、検証Toolの取消・終了確認移管を完了。変更範囲の実Git・結合回帰と限定独立レビューは完了した。新構成全体の回帰・実境界・移行の最終評価、②の実AI編集E2Eは残る | [撤去の区切りと現在残件](99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#workspace-store-retirement) |
 | Access Management／公開入口 | 専門Packageへの接続と旧CROS Package・REST／Gateway撤去の区切りは完了。初回設定・鍵操作の実入口と人間確認は後続E2Eへ保持する | [変更の現在地](99_Roadmap/Changes/CHG-000082/change.md)、[接続と後続E2E](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#今回の区切りと後続e2e--2026-10-14) |
 | Docker Isolation | 実装・検証完了。技術的な実行・観測・取消・回収を分離し、旧Docker両Folderとruntimeを撤去。状態保存・操作前後のOwner確認・結果受領は上位に保持。実境界の成立と未実証の限界は隔離設計の現在表を参照 | [現在の計画・検証結果](99_Roadmap/Changes/CHG-000082/second-stage-plan.md)、[隔離設計](06_Architecture/Details/docker-isolation/01_Architecture.md) |

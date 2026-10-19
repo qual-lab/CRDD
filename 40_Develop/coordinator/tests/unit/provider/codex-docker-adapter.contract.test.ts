@@ -8,6 +8,7 @@
  * @scope codex、docker、runtime、adapter
  * @boundary PRL-UT-014=N/A: Orchestrator Application Portは外部実行境界を持たない。
  */
+import { planProviderExecution } from "../../../../ai-adapter/src/index.ts";
 import { describeWorkbenchAiAdviceResultSchema } from "../../../src/workbench-ai/advice-result.ts";
 import assert from "node:assert/strict";
 import test, { mock } from "node:test";
@@ -32,8 +33,8 @@ import {
 } from "../../../src/provider/codex-docker-adapter.ts";
 import { createIsolatedDelegationSelectionGrantRuntimeCandidate } from "../../../src/provider/delegation-selection-grant.ts";
 import { bindDockerIsolationRuntime } from "../../../src/provider/isolation-execution.ts";
-import { planWorkbenchAiAdviceProviderCommand } from "../../../../ai-adapter/src/index.ts";
-import { describeCodexSubscriptionAuthenticationCli } from "../../../../ai-adapter/src/index.ts";
+
+import { describeProviderAuthentication } from "../../../../ai-adapter/src/index.ts";
 
 /**
  * 共通本番依存の組立てと拒否結果が準備状態を追加しないことを確認する。
@@ -325,14 +326,17 @@ function createFixture(
  * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Workbench助言をRepository非共有のCodex Planへ固定する", () => {
-  const providerCommand = planWorkbenchAiAdviceProviderCommand(
-    {
+  const providerCommand =
+    planProviderExecution({
       provider: "codex",
-      exactModelId: "gpt-5.5",
-      reasoningEffort: "low",
-    },
-    describeWorkbenchAiAdviceResultSchema(),
-  );
+      purpose: "advice",
+      input: {
+        provider: "codex",
+        exactModelId: "gpt-5.5",
+        reasoningEffort: "low",
+      },
+      resultSchema: describeWorkbenchAiAdviceResultSchema(),
+    }).plan ?? assert.fail("provider_execution_plan_not_ready");
   const fixture = createFixture(
     {
       consumeAdvicePacket: () =>
@@ -424,7 +428,7 @@ test("Codex Executorの正規seccomp commandをDocker Effect利用側も同じ�
   assert.ok(plan);
   const firstCommand = plan.commands[0];
   assert.ok(firstCommand);
-  const authenticationCli = describeCodexSubscriptionAuthenticationCli();
+  const authenticationCli = describeProviderAuthentication("codex");
   assert.ok(Object.isFrozen(authenticationCli));
   assert.ok(Object.isFrozen(authenticationCli.statusArgv));
   assert.deepEqual(authenticationCli.statusArgv, ["login", "status"]);

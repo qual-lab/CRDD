@@ -1,0 +1,267 @@
+/**
+ * Claude公式CLIの固定配布情報と互換性検証の記述を保持する。
+ *
+ * @responsibility 版・Hash・設定・過去の限定実測を記述し、現在の認証や実行・回収の成功を主張しない。
+ * @trace ARCH-000010
+ */
+export const DISTRIBUTION_IDENTITY = Object.freeze({
+  targetPlatform: "linux-x64",
+  executablePath: "/opt/crdd/providers/claude/2.1.220/claude",
+  exactVersion: "2.1.220",
+  upstreamCommit: "4073f59596e272f39393db4f96abc5f4b10eff21",
+  binarySha256:
+    "674f61f20ff306f3100cf9200e4c36c4b70278b5bef2884549819b942a89c863",
+  binaryBytes: 275_012_592,
+  manifestUrl:
+    "https://downloads.claude.ai/claude-code-releases/2.1.220/manifest.json",
+});
+export const distributionBinding = Object.freeze({
+  identity: DISTRIBUTION_IDENTITY,
+  manifestSignatureRequired: true,
+  manifestSignatureVerified: true,
+  manifestSignatureEvidence: Object.freeze({
+    verifiedAt: "2026-08-24",
+    releaseSigningKeyFingerprint: "31DDDE24DDFAB679F42D7BD2BAA929FF1A7ECACE",
+    detachedSignature: "verified_good_signature",
+    binaryLengthAndSha256MatchedManifest: true,
+  }),
+  releaseSigningKeyFingerprint: "31DDDE24DDFAB679F42D7BD2BAA929FF1A7ECACE",
+  fixedDigestImageRequired: true,
+  fixedImageDigest:
+    "sha256:ddd766072db6e69f55efb11fc3e82b401542cb5583c179f56aac4004f4ea317a",
+  fixedImageEvidence: Object.freeze({
+    verifiedAt: "2026-08-25",
+    buildNetworkMode: "none",
+    baseImageDigest:
+      "sha256:d67a7b66b989ad6b6d6b10d428dcc5e0bfc3e5f88906e67d490c4d3daac57047",
+    embeddedBinaryLengthAndSha256Matched: true,
+    managedSettingsSha256:
+      "736c1447df695f074743f52564eefd4f9f8d8850737657d54a1f3d6052151ee8",
+    taskSettingsSha256:
+      "1924f4754c93793668056446ee68e3cd1b0f45dd38db6b137c5aa43441599ca1",
+    fixedImageBytes: 129_732_853,
+    imageUser: "65534:65534",
+    imageWorkingDirectory: "/work",
+    imageEntrypoint: DISTRIBUTION_IDENTITY.executablePath,
+    reproducibleImageBuildClaimed: false,
+    releaseDistributionConnected: false,
+  }),
+  argvCompatibilityRequired: true,
+  argvCompatibilityVerified: true,
+  argvCompatibilityEvidence: Object.freeze({
+    verifiedAt: "2026-08-25",
+    exactBinaryVersion: "2.1.220",
+    networkMode: "none",
+    credentialOrProviderHomeMounted: false,
+    processReachedAuthenticationBoundary: true,
+    providerRequestIssued: false,
+    totalCostUsd: 0,
+    inputTokens: 0,
+    outputTokens: 0,
+    structuredOutputSchemaArgumentVerified: true,
+  }),
+});
+export const noNetworkVersionProbe = Object.freeze({
+  status: "verified" as const,
+  verifiedAt: "2026-08-24",
+  command: DISTRIBUTION_IDENTITY.executablePath,
+  argv: Object.freeze(["--version"]),
+  output: "2.1.220 (Claude Code)",
+  processExitCode: 0,
+  providerRequestExpected: false,
+  networkMode: "none",
+  repositoryMounted: false,
+  credentialOrProviderHomeMounted: false,
+  readOnlyRootFilesystem: true,
+  linuxUser: "65534:65534",
+  capabilities: "all_dropped",
+  pidLimit: 16,
+  binaryMount: "read_only_verified_artifact",
+  baseImage:
+    "python@sha256:d67a7b66b989ad6b6d6b10d428dcc5e0bfc3e5f88906e67d490c4d3daac57047",
+  containerRemovedAfterExit: true,
+  finalProviderImageEstablished: false,
+});
+export const COMMERCIAL_TERMS_DOCUMENT = Object.freeze({
+  documentIdentity: "anthropic_commercial_terms_2025-06-17",
+  url: "https://www.anthropic.com/legal/commercial-terms",
+  publishedVersionEffectiveDate: "2025-06-17",
+  reviewedAt: "2026-08-22",
+  reviewState: "candidate_unresolved",
+});
+export const CONSUMER_TERMS_DOCUMENT = Object.freeze({
+  documentIdentity: "anthropic_consumer_terms_2025-10-08",
+  url: "https://www.anthropic.com/legal/consumer-terms",
+  publishedVersionEffectiveDate: "2025-10-08",
+  reviewedAt: "2026-08-22",
+  reviewState: "candidate_unresolved",
+});
+export const LICENSE_DOCUMENT = Object.freeze({
+  documentIdentity: "claude_code_license_at_release_v2.1.220",
+  sourceRevision: "7ef6eec9d9ba84ea6f233f26c45f1df5c5991843",
+  url: "https://github.com/anthropics/claude-code/blob/7ef6eec9d9ba84ea6f233f26c45f1df5c5991843/LICENSE.md",
+  publishedVersionEffectiveDate: null,
+  reviewedAt: "2026-08-22",
+  reviewState: "candidate_unresolved",
+  relation: "references_anthropic_commercial_terms",
+});
+export const FIXED_PROMPT_REQUEST_ATTEMPT = Object.freeze({
+  executedAt: "2026-08-24",
+  exactRequestCount: 1,
+  processExitCode: 0,
+  providerReportedError: false,
+  numberOfTurns: 1,
+  providerReportedApiEquivalentCostUsd: 0.036975,
+  inputTokens: 2,
+  outputTokens: 15,
+  cacheCreationInputTokens: 3659,
+  cacheReadInputTokens: 0,
+  resultContractVerified: false,
+  resultRecorded: false,
+  rawOutputSha256:
+    "b8ee44de22aea189061358353123b0e9eff10d62f2723cb05ddd2a8b0e6940be",
+  providerNetworkInternal: true,
+  repositoryMounted: false,
+  workspaceMounted: false,
+  toolsRequested: "none",
+  sessionPersistenceRequested: false,
+  apiKeyEnvironmentProvided: false,
+  cleanupVerified: true,
+  containerResidue: 0,
+  networkResidue: 0,
+  retryIssued: false,
+});
+export const FIXED_PROMPT_SCHEMA_REQUEST_ATTEMPT = Object.freeze({
+  executedAt: "2026-08-24",
+  exactRequestCommandCount: 1,
+  structuredOutputSchemaRequested: true,
+  processExitCode: 1,
+  resultContractVerified: false,
+  resultRecorded: false,
+  providerRequestIssued: "unknown",
+  rawOutputSha256:
+    "2e5ab9be33e00c0330eb30cf15791f1a15a87705b97f0ee20a58f46569178e70",
+  authenticationStatusAfterAttempt: "logged_in_claude_ai_max",
+  authenticationStatusNetworkMode: "none",
+  cleanupVerified: true,
+  containerResidue: 0,
+  networkResidue: 0,
+  automaticRetryIssued: false,
+});
+export const FIXED_PROMPT_BOUNDED_REQUEST_ATTEMPT = Object.freeze({
+  executedAt: "2026-08-24",
+  exactRequestCommandCount: 1,
+  structuredOutputSchemaRequested: true,
+  processExitCode: 0,
+  responseSubtype: "success",
+  providerReportedError: false,
+  numberOfTurns: 2,
+  providerReportedApiEquivalentCostUsd: 0.022397,
+  inputTokens: 2,
+  outputTokens: 262,
+  cacheCreationInputTokens: 1452,
+  cacheReadInputTokens: 2634,
+  structuredOutputPresent: true,
+  structuredOutputPropertyCount: 1,
+  localStringResultContractVerified: false,
+  resultRecorded: false,
+  rawOutputSha256:
+    "71fe73491564fe87b94f95b25905c23c5e2764aefcb00300c5dca14bd84235a0",
+  providerNetworkInternal: true,
+  repositoryMounted: false,
+  workspaceMounted: false,
+  toolsRequested: "none",
+  maximumTurns: 2,
+  maximumBudgetUsd: 0.1,
+  apiKeyEnvironmentProvided: false,
+  cleanupVerified: true,
+  containerResidue: 0,
+  networkResidue: 0,
+  automaticRetryIssued: false,
+});
+export const FIXED_PROMPT_BOOLEAN_REQUEST_VERIFICATION = Object.freeze({
+  status: "verified",
+  executedAt: "2026-08-24",
+  exactRequestCommandCount: 1,
+  processExitCode: 0,
+  responseSubtype: "success",
+  providerReportedError: false,
+  normalizedResult: Object.freeze({ status: true }),
+  numberOfTurns: 2,
+  maximumTurns: 2,
+  maximumBudgetUsd: 0.1,
+  providerReportedApiEquivalentCostUsd: 0.04699,
+  inputTokens: 2,
+  outputTokens: 244,
+  cacheCreationInputTokens: 4088,
+  cacheReadInputTokens: 0,
+  structuredOutputPresent: true,
+  structuredOutputPropertyCount: 1,
+  resultPropertyNameExact: true,
+  resultValueBooleanTrue: true,
+  verifierCorrection: Object.freeze({
+    defect: "powershell_single_element_expression_unwrapped_to_scalar_string",
+    oldIndexZero: "s",
+    correctedCollectionType: "System.Object[]",
+    correctedIndexZero: "status",
+    deterministicFixtureVerified: true,
+  }),
+  rawOutputSha256:
+    "65c2a2079a4de7b673bae1197b82025a5a251276e9781b8e68d42bb4d5169aeb",
+  rawOutputRecorded: false,
+  identityFieldsRecorded: false,
+  providerNetworkCount: 1,
+  providerNetworkInternal: true,
+  proxyOutcomes: Object.freeze([
+    "ready",
+    "tunnel_established",
+    "tunnel_closed",
+  ]),
+  repositoryMounted: false,
+  workspaceMounted: false,
+  toolsRequested: "none",
+  sessionPersistenceRequested: false,
+  apiKeyEnvironmentProvided: false,
+  cleanupVerified: true,
+  containerResidue: 0,
+  networkResidue: 0,
+});
+
+export const OFFERING_CANDIDATES = Object.freeze([
+  Object.freeze({
+    offering: "claude_pro",
+    offeringClass: "individual_offering_candidate",
+  }),
+  Object.freeze({
+    offering: "claude_max",
+    offeringClass: "individual_offering_candidate",
+  }),
+  Object.freeze({
+    offering: "claude_team",
+    offeringClass: "organization_offering_candidate",
+  }),
+  Object.freeze({
+    offering: "claude_enterprise",
+    offeringClass: "organization_offering_candidate",
+  }),
+]);
+export const authenticationVerification = Object.freeze({
+  verifiedAt: "2026-08-24",
+  loginCommand: Object.freeze([
+    DISTRIBUTION_IDENTITY.executablePath,
+    "auth",
+    "login",
+    "--claudeai",
+  ]),
+  loginProcessExitCode: 0,
+  loginMethod: "claude.ai",
+  subscriptionType: "max",
+  authStatusProcessExitCode: 0,
+  authStatusNetworkMode: "none",
+  authStatusProviderHomeMount: "read_only",
+  rawAuthOutputRecorded: false,
+  identityFieldsRecorded: false,
+  credentialContentRead: false,
+  oauthTokenReadByRuntime: false,
+  oauthInfrastructureCleanupVerified: true,
+});

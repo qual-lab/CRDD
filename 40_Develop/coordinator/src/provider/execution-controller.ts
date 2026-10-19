@@ -12,10 +12,10 @@ import { normalizeCodexStructuredResult } from "../../../ai-adapter/src/index.ts
 import { projectCodexExecutionBoundary } from "../../../ai-adapter/src/index.ts";
 import { projectDockerExecutionBoundary } from "../../../docker-isolation/src/index.ts";
 import { dockerIsolationResourceIdentityIsValid } from "../../../docker-isolation/src/index.ts";
-import { extractWorkbenchAiAdviceProviderOutput } from "../../../ai-adapter/src/index.ts";
+import { parseProviderResult } from "../../../ai-adapter/src/index.ts";
 import {
-  isProviderSubscriptionAuthenticationConfirmed,
-  classifyProviderNonzeroExit,
+  evaluateProviderAuthentication,
+  convertProviderError,
 } from "../../../ai-adapter/src/index.ts";
 import { consumeRuntimeOwnedClaudeDockerPlanForProcessController } from "../provider/claude-docker-adapter.ts";
 import { consumeRuntimeOwnedCodexDockerPlanForProcessController } from "../provider/codex-docker-adapter.ts";
@@ -1535,7 +1535,7 @@ function classifyExecution(
     return Object.freeze({
       ok: false,
       reason: isProvider
-        ? classifyProviderNonzeroExit(provider, execution)
+        ? convertProviderError(provider, execution).reason
         : isDockerSetupCommandPurpose(purpose)
           ? SETUP_COMMAND_FAILURE_REASONS[purpose]
           : "docker_setup_command_failed",
@@ -1910,12 +1910,12 @@ async function executePlan(
       if (purpose === "start_subscription_auth_probe_attached") {
         diagnosticStage = "subscription_auth_verification";
         if (
-          !isProviderSubscriptionAuthenticationConfirmed(
+          evaluateProviderAuthentication(
             plan.provider,
             plan.subscriptionOffering,
             execution.stdout,
             execution.stderr,
-          )
+          ).status !== "confirmed"
         )
           return reject("provider_subscription_auth_not_confirmed");
         isSubscriptionAuthConfirmed = true;
@@ -2326,20 +2326,25 @@ function normalizeWorkbenchAdviceProviderResult(
   provider: "codex" | "claude",
   stdout: string,
 ) {
-  const extracted = extractWorkbenchAiAdviceProviderOutput(provider, stdout);
-  return extracted.status === "confirmed" && extracted.adviceJson !== null
+  const extracted = parseProviderResult({
+    provider,
+    purpose: "advice",
+    raw: stdout,
+  });
+  return extracted.status === "confirmed" && typeof extracted.value === "string"
     ? Object.freeze({
         status: "confirmed" as const,
         reason: null,
         normalizedResult: Object.freeze({
           contract: "crdd-coordinator/workbench-ai-advice-provider-output",
           contractRevision: 1,
-          adviceJson: extracted.adviceJson,
+          adviceJson: extracted.value,
         }),
       })
     : Object.freeze({
         status: "blocked" as const,
-        reason: extracted.reason,
+        reason:
+          extracted.error?.reason ?? "workbench_ai_provider_output_invalid",
         normalizedResult: null,
       });
 }

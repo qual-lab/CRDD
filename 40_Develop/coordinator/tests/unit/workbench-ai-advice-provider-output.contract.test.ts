@@ -14,7 +14,7 @@ import test from "node:test";
 import { dockerProcessControllerPublicCompletionReasons } from "../../src/provider/execution-result-reasons.ts";
 import { coordinatorTaskPublicReasons } from "../../src/task/result-reasons.ts";
 import {
-  extractWorkbenchAiAdviceProviderOutput,
+  parseProviderResult,
   WORKBENCH_AI_ADVICE_PROVIDER_OUTPUT_REASONS,
 } from "../../../ai-adapter/src/index.ts";
 
@@ -71,12 +71,16 @@ test("助言抽出の全拒否理由を閉じた公開語彙へ接続する", ()
   ] as const;
   const observed = new Set<string>();
   for (const [provider, raw] of cases) {
-    const result = extractWorkbenchAiAdviceProviderOutput(provider, raw);
+    const result = parseProviderResult({
+      provider: provider,
+      purpose: "advice",
+      raw: raw,
+    });
     assert.equal(result.status, "blocked");
-    assert.equal(result.adviceJson, null);
+    assert.equal(result.value, null);
     assert.equal(result.rawOutputReported, false);
-    assert.ok(typeof result.reason === "string");
-    observed.add(result.reason);
+    assert.ok(typeof result.error?.reason === "string");
+    observed.add(result.error?.reason);
   }
   assert.equal(observed.size, 10);
   assert.deepEqual(
@@ -122,9 +126,13 @@ test("Codex JSONLからToolなしの唯一の最終本文を抽出する", () =>
     }),
     JSON.stringify({ type: "turn.completed" }),
   ].join("\n");
-  const result = extractWorkbenchAiAdviceProviderOutput("codex", raw);
+  const result = parseProviderResult({
+    provider: "codex",
+    purpose: "advice",
+    raw: raw,
+  });
   assert.equal(result.status, "confirmed");
-  assert.equal(result.adviceJson, JSON.stringify(ADVICE));
+  assert.equal(result.value, JSON.stringify(ADVICE));
   assert.equal("thread_id" in result, false);
   assert.equal(result.rawOutputReported, false);
 });
@@ -160,10 +168,17 @@ test("Codexの未知・不正Itemを拒否する", () => {
         }),
         JSON.stringify({ type: "turn.completed" }),
       ].join("\n");
-      const result = extractWorkbenchAiAdviceProviderOutput("codex", raw);
+      const result = parseProviderResult({
+        provider: "codex",
+        purpose: "advice",
+        raw: raw,
+      });
       assert.equal(result.status, "blocked");
-      assert.equal(result.reason, "workbench_ai_codex_tool_event_forbidden");
-      assert.equal(result.adviceJson, null);
+      assert.equal(
+        result.error?.reason,
+        "workbench_ai_codex_tool_event_forbidden",
+      );
+      assert.equal(result.value, null);
     }
   }
 });
@@ -201,10 +216,11 @@ test("公式CLIの既知通知を最終助言と分離する", () => {
         },
         { type: "turn.completed" },
       ];
-      const missing = extractWorkbenchAiAdviceProviderOutput(
-        "codex",
-        events.map((event) => JSON.stringify(event)).join("\n"),
-      );
+      const missing = parseProviderResult({
+        provider: "codex",
+        purpose: "advice",
+        raw: events.map((event) => JSON.stringify(event)).join("\n"),
+      });
       assert.equal(missing.status, "blocked");
       events.unshift({
         type: "item.completed",
@@ -214,12 +230,13 @@ test("公式CLIの既知通知を最終助言と分離する", () => {
           text: JSON.stringify(ADVICE),
         },
       });
-      const result = extractWorkbenchAiAdviceProviderOutput(
-        "codex",
-        events.map((event) => JSON.stringify(event)).join("\n"),
-      );
+      const result = parseProviderResult({
+        provider: "codex",
+        purpose: "advice",
+        raw: events.map((event) => JSON.stringify(event)).join("\n"),
+      });
       assert.equal(result.status, "confirmed");
-      assert.equal(result.adviceJson, JSON.stringify(ADVICE));
+      assert.equal(result.value, JSON.stringify(ADVICE));
       assert.equal(JSON.stringify(result).includes("private-marker"), false);
     }
   }
@@ -259,16 +276,24 @@ test("正常な思考通知を非公開のまま最終助言と分離する", ()
   ]
     .map((event) => JSON.stringify(event))
     .join("\n");
-  const result = extractWorkbenchAiAdviceProviderOutput("codex", raw);
+  const result = parseProviderResult({
+    provider: "codex",
+    purpose: "advice",
+    raw: raw,
+  });
   assert.equal(result.status, "confirmed");
-  assert.equal(result.adviceJson, JSON.stringify(ADVICE));
+  assert.equal(result.value, JSON.stringify(ADVICE));
   assert.equal(JSON.stringify(result).includes("private-marker"), false);
   assert.equal(result.rawOutputReported, false);
   const reasoningOnly = [...reasoningEvents, { type: "turn.completed" }]
     .map((event) => JSON.stringify(event))
     .join("\n");
   assert.equal(
-    extractWorkbenchAiAdviceProviderOutput("codex", reasoningOnly).status,
+    parseProviderResult({
+      provider: "codex",
+      purpose: "advice",
+      raw: reasoningOnly,
+    }).status,
     "blocked",
   );
 });
@@ -305,9 +330,13 @@ test("正常回答があっても不正Itemと不正本文を無視しない", (
     ]
       .map((event) => JSON.stringify(event))
       .join("\n");
-    const result = extractWorkbenchAiAdviceProviderOutput("codex", raw);
+    const result = parseProviderResult({
+      provider: "codex",
+      purpose: "advice",
+      raw: raw,
+    });
     assert.equal(result.status, "blocked");
-    assert.equal(result.adviceJson, null);
+    assert.equal(result.value, null);
     assert.equal(result.rawOutputReported, false);
   }
 });
@@ -343,7 +372,8 @@ test("Codexの失敗Turnと複数最終本文を拒否する", () => {
     ].join("\n"),
   ]) {
     assert.equal(
-      extractWorkbenchAiAdviceProviderOutput("codex", raw).status,
+      parseProviderResult({ provider: "codex", purpose: "advice", raw: raw })
+        .status,
       "blocked",
     );
   }
@@ -363,9 +393,10 @@ test("Codexの失敗Turnと複数最終本文を拒否する", () => {
  */
 test("Claude成功Envelopeからstructured_outputだけを抽出する", () => {
   for (const numberOfTurns of [1, 2]) {
-    const result = extractWorkbenchAiAdviceProviderOutput(
-      "claude",
-      JSON.stringify({
+    const result = parseProviderResult({
+      provider: "claude",
+      purpose: "advice",
+      raw: JSON.stringify({
         type: "result",
         subtype: "success",
         is_error: false,
@@ -375,9 +406,9 @@ test("Claude成功Envelopeからstructured_outputだけを抽出する", () => {
         usage: { input_tokens: 1, output_tokens: 2 },
         structured_output: ADVICE,
       }),
-    );
+    });
     assert.equal(result.status, "confirmed");
-    assert.equal(result.adviceJson, JSON.stringify(ADVICE));
+    assert.equal(result.value, JSON.stringify(ADVICE));
     assert.equal("session_id" in result, false);
     assert.equal("total_cost_usd" in result, false);
     assert.equal(result.rawOutputReported, false);
@@ -411,9 +442,10 @@ test("ClaudeのError、Turn上限外、Cost不正および出力欠落を拒否�
     { total_cost_usd: -1 },
     { structured_output: undefined },
   ]) {
-    const result = extractWorkbenchAiAdviceProviderOutput(
-      "claude",
-      JSON.stringify({
+    const result = parseProviderResult({
+      provider: "claude",
+      purpose: "advice",
+      raw: JSON.stringify({
         type: "result",
         subtype: "success",
         is_error: false,
@@ -422,9 +454,9 @@ test("ClaudeのError、Turn上限外、Cost不正および出力欠落を拒否�
         structured_output: ADVICE,
         ...overrides,
       }),
-    );
+    });
     assert.equal(result.status, "blocked");
-    assert.equal(result.adviceJson, null);
+    assert.equal(result.value, null);
   }
 });
 
@@ -477,18 +509,20 @@ test("Claude拒否層は先頭不成立だけを返し受理集合を変えな�
     [{ total_cost_usd: -1, structured_output: null }, "metadata_invalid"],
   ];
   for (const [overrides, suffix] of cases) {
-    const result = extractWorkbenchAiAdviceProviderOutput(
-      "claude",
-      JSON.stringify({ ...baseline, ...overrides }),
-    );
+    const result = parseProviderResult({
+      provider: "claude",
+      purpose: "advice",
+      raw: JSON.stringify({ ...baseline, ...overrides }),
+    });
     assert.equal(result.status, "blocked");
-    assert.equal(result.reason, `workbench_ai_claude_${suffix}`);
-    assert.equal(result.adviceJson, null);
+    assert.equal(result.error?.reason, `workbench_ai_claude_${suffix}`);
+    assert.equal(result.value, null);
     assert.equal(JSON.stringify(result).includes("private-marker"), false);
   }
   for (const raw of ["null", "[]", "not-json"])
     assert.equal(
-      extractWorkbenchAiAdviceProviderOutput("claude", raw).reason,
+      parseProviderResult({ provider: "claude", purpose: "advice", raw: raw })
+        .error?.reason,
       "workbench_ai_claude_envelope_invalid",
     );
   for (const type of ["result", "other"])
@@ -497,9 +531,10 @@ test("Claude拒否層は先頭不成立だけを返し受理集合を変えな�
         for (const turnCount of [1, 2, 0, 3, 1.5, "2", null])
           for (const totalCostUsd of [0, -1, "0", null])
             for (const structuredOutput of [ADVICE, null, []]) {
-              const result = extractWorkbenchAiAdviceProviderOutput(
-                "claude",
-                JSON.stringify({
+              const result = parseProviderResult({
+                provider: "claude",
+                purpose: "advice",
+                raw: JSON.stringify({
                   type,
                   subtype,
                   is_error: isError,
@@ -507,7 +542,7 @@ test("Claude拒否層は先頭不成立だけを返し受理集合を変えな�
                   total_cost_usd: totalCostUsd,
                   structured_output: structuredOutput,
                 }),
-              );
+              });
               const wasPreviouslyAccepted =
                 type === "result" &&
                 subtype === "success" &&

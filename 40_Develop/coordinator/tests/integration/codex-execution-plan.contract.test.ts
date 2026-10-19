@@ -8,16 +8,15 @@
  * @scope codex、execution、plan
  * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container
  */
+import { planProviderExecution } from "../../../ai-adapter/src/index.ts";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { createHash } from "node:crypto";
 import test from "node:test";
 
 import {
-  describeCodexExecutionPlanContract,
   projectCodexExecutionBoundary,
-  planCodexIsolatedTask,
-  planCodexReadOnlyProbe,
+  describeProviderExecution,
 } from "../../../ai-adapter/src/index.ts";
 
 /**
@@ -86,11 +85,16 @@ test("Codex境界診断はpayloadの承認優先順と最初のsandbox値を保�
  * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("公式Codex artifactとSubscription限定のread-only計画を固定する", () => {
-  const plan = planCodexReadOnlyProbe({
-    provider: "codex",
-    mode: "read_only_probe",
-    effort: "low",
-  });
+  const plan =
+    planProviderExecution({
+      provider: "codex",
+      purpose: "probe",
+      input: {
+        provider: "codex",
+        mode: "read_only_probe",
+        effort: "low",
+      },
+    }).plan ?? assert.fail("provider_execution_plan_not_ready");
   assert.equal(plan.status, "candidate");
   assert.equal(plan.exactModel, "gpt-5.6-sol");
   assert.equal(plan.effort, "low");
@@ -118,7 +122,7 @@ test("公式Codex artifactとSubscription限定のread-only計画を固定する
  * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Executor計画が宣言するSeccomp identityは実配布資産と一致する", () => {
-  const contract = describeCodexExecutionPlanContract();
+  const contract = describeProviderExecution("codex");
   const bytes = fs.readFileSync(
     new URL(
       "../../../docker-isolation/runtime/codex-executor-seccomp.json",
@@ -159,7 +163,14 @@ test("effort・Provider・shape差をEffect前に拒否する", () => {
       extra: true,
     },
   ]) {
-    assert.equal(planCodexReadOnlyProbe(candidate).status, "blocked");
+    assert.equal(
+      planProviderExecution({
+        provider: "codex",
+        purpose: "probe",
+        input: candidate,
+      }).status,
+      "blocked",
+    );
   }
 });
 
@@ -203,18 +214,28 @@ test("Codex Structured Output Schemaはboolean型を明示したexact形に固�
  * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("一般Taskはroot denyとRole別workspace権限をstdin計画へ固定する", () => {
-  const executor = planCodexIsolatedTask({
-    provider: "codex",
-    mode: "isolated_task",
-    effort: "low",
-    taskRole: "executor",
-  });
-  const reviewer = planCodexIsolatedTask({
-    provider: "codex",
-    mode: "isolated_task",
-    effort: "high",
-    taskRole: "reviewer",
-  });
+  const executor =
+    planProviderExecution({
+      provider: "codex",
+      purpose: "task",
+      input: {
+        provider: "codex",
+        mode: "isolated_task",
+        effort: "low",
+        taskRole: "executor",
+      },
+    }).plan ?? assert.fail("provider_execution_plan_not_ready");
+  const reviewer =
+    planProviderExecution({
+      provider: "codex",
+      purpose: "task",
+      input: {
+        provider: "codex",
+        mode: "isolated_task",
+        effort: "high",
+        taskRole: "reviewer",
+      },
+    }).plan ?? assert.fail("provider_execution_plan_not_ready");
   assert.equal(executor.status, "candidate");
   assert.equal(executor.exactModel, "gpt-5.5");
   assert.equal(executor.workspaceMountMode, "read_write");
@@ -405,7 +426,7 @@ test("Codex Structured Output Schemaは公式対応部分集合だけを搬送�
  * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("公開契約はSigstore検証と通常速度・API課金禁止を明示する", () => {
-  const contract = describeCodexExecutionPlanContract();
+  const contract = describeProviderExecution("codex");
   assert.equal(contract.contractRevision, 15);
   assert.equal(
     contract.distributionVerification.sigstoreBlobSignatureVerified,
@@ -494,7 +515,7 @@ test("公開契約はSigstore検証と通常速度・API課金禁止を明示す
  * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("固定Codex imageはbwrapとExecutor用の限定seccomp境界を固定する", () => {
-  const contract = describeCodexExecutionPlanContract();
+  const contract = describeProviderExecution("codex");
   assert.deepEqual(
     {
       archiveSha256: contract.distributionIdentity.bwrapArchiveSha256,
@@ -535,12 +556,17 @@ test("固定Codex imageはbwrapとExecutor用の限定seccomp境界を固定す�
     true,
   );
   assert.equal(dockerfile.includes("dangerously-bypass"), false);
-  const executor = planCodexIsolatedTask({
-    provider: "codex",
-    mode: "isolated_task",
-    effort: "low",
-    taskRole: "executor",
-  });
+  const executor =
+    planProviderExecution({
+      provider: "codex",
+      purpose: "task",
+      input: {
+        provider: "codex",
+        mode: "isolated_task",
+        effort: "low",
+        taskRole: "executor",
+      },
+    }).plan ?? assert.fail("provider_execution_plan_not_ready");
   if (executor.status !== "candidate") assert.fail(executor.reason);
   assert.equal(
     executor.argv.includes("--dangerously-bypass-approvals-and-sandbox"),

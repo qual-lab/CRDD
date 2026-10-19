@@ -7,10 +7,10 @@
  * @effect N/A: 同期の値検査だけで、実観測・設定保存・Process起動を行わない。
  * @security 検査の成功から認証成立・実行Authority・隔離成立を推定しない。
  */
+import type { AiProvider } from "./types.ts";
 import { snapshotPlainRecord } from "../../../domain-model/src/index.ts";
-import type { AiProvider } from "../catalog/types.ts";
-import { CLAUDE_FORBIDDEN_ENVIRONMENT_NAMES } from "../claude/execution-plan.ts";
-import { CODEX_FORBIDDEN_ENVIRONMENT_NAMES } from "../codex/execution-plan.ts";
+import { CLAUDE_FORBIDDEN_ENVIRONMENT_NAMES } from "../claude/plan.ts";
+import { CODEX_FORBIDDEN_ENVIRONMENT_NAMES } from "../codex/plan.ts";
 
 /**
  * Provider観測の確認段階を区別する。
@@ -48,6 +48,52 @@ type ProviderObservation = Readonly<{
   officialDistribution: ProviderObservationState;
   policy: ProviderObservationState;
 }>;
+
+/**
+ * Providerの現在の利用可能性と確認待ちを返す。
+ * @responsibility 利用不可・未観測・直前確認待ちを分離する。
+ * @trace ARCH-000010
+ * @shape Provider、状態、閉じた理由の不変値。
+ * @invariant 確認待ちは利用可能または実行許可ではない。
+ * @boundary 観測入力と公開評価結果。
+ * @security Authority・秘密値を返さない。
+ * @compatibility 旧候補語彙への搬送はCoordinatorが所有する。
+ */
+export type ProviderAvailability = Readonly<
+  {
+    provider: AiProvider;
+  } & (
+    | { status: "available"; reason: "ready" }
+    | { status: "preflight_required"; reason: "runtime_preflight_required" }
+    | { status: "unknown"; reason: "observation_unavailable" }
+    | {
+        status: "unavailable";
+        reason:
+          | "required_capability_unavailable"
+          | "subscription_auth_unavailable"
+          | "subscription_quota_unavailable"
+          | "provider_distribution_unavailable"
+          | "policy_blocked";
+      }
+  )
+>;
+
+/**
+ * 検証した環境値または拒否結果を表す。
+ * @responsibility 空の正常環境と拒否を区別する。
+ * @trace ARCH-000010
+ * @shape readyでは値組、blockedでは固定理由を返す。
+ * @invariant 拒否時に部分環境を返さない。
+ * @boundary 固定計画と環境搬送。
+ * @security 禁止変数を受理しない。
+ * @compatibility 検査・値取得順序を維持する。
+ */
+export type ProviderEnvironmentResult =
+  | Readonly<{
+      status: "ready";
+      entries: readonly (readonly [string, string])[];
+    }>
+  | Readonly<{ status: "blocked"; reason: "provider_environment_invalid" }>;
 
 const OBSERVATION_KEYS = new Set([
   "requiredCapability",
@@ -110,59 +156,59 @@ function snapshotProviderObservation(rawObservation: unknown) {
  * @responsibility 利用不可の理由優先順と、未観測・実行直前確認候補を区別する。
  * @trace ARCH-000010
  * @input 対象Providerと検査済み観測又はnull。
- * @returns eligible／ineligibleと固定理由の不変値。
+ * @returns available／unavailable／unknown／preflight_requiredと固定理由の不変値。
  * @precondition 観測の各fieldは既存の状態語彙に限定されている。
  * @postcondition 不正・欠落・unknownをreadyへ昇格しない。
  * @effect N/A: 入力又は固定値の同期評価だけで、保存・Process・通信を行わない。
  * @failure null観測はobservation_unavailable、利用不可は該当軸の優先理由を返す。
- * @invariant 直前確認候補のeligibleを認証成立・実行許可とみなさない。
+ * @invariant preflight_requiredを認証成立・実行許可とみなさない。
  * @boundary Coordinatorが取得する観測とProviderの純粋な意味判定の間。
  * @security 秘密値・Host Path・実行Authorityを返さない。
  * @concurrency N/A: 共有状態を更新しない同期処理。
  */
-function createEligibility(
+function createAvailability(
   provider: AiProvider,
   observation: ProviderObservation | null,
-) {
+): ProviderAvailability {
   if (!observation) {
     return Object.freeze({
       provider,
-      status: "ineligible" as const,
+      status: "unknown" as const,
       reason: "observation_unavailable" as const,
     });
   }
   if (observation.requiredCapability === "unavailable") {
     return Object.freeze({
       provider,
-      status: "ineligible" as const,
+      status: "unavailable" as const,
       reason: "required_capability_unavailable" as const,
     });
   }
   if (observation.subscriptionAuth === "unavailable") {
     return Object.freeze({
       provider,
-      status: "ineligible" as const,
+      status: "unavailable" as const,
       reason: "subscription_auth_unavailable" as const,
     });
   }
   if (observation.subscriptionQuota === "unavailable") {
     return Object.freeze({
       provider,
-      status: "ineligible" as const,
+      status: "unavailable" as const,
       reason: "subscription_quota_unavailable" as const,
     });
   }
   if (observation.officialDistribution === "unavailable") {
     return Object.freeze({
       provider,
-      status: "ineligible" as const,
+      status: "unavailable" as const,
       reason: "provider_distribution_unavailable" as const,
     });
   }
   if (observation.policy === "unavailable") {
     return Object.freeze({
       provider,
-      status: "ineligible" as const,
+      status: "unavailable" as const,
       reason: "policy_blocked" as const,
     });
   }
@@ -185,7 +231,7 @@ function createEligibility(
   ) {
     return Object.freeze({
       provider,
-      status: "eligible" as const,
+      status: "preflight_required" as const,
       reason: "runtime_preflight_required" as const,
     });
   }
@@ -198,13 +244,13 @@ function createEligibility(
   ) {
     return Object.freeze({
       provider,
-      status: "ineligible" as const,
+      status: "unknown" as const,
       reason: "observation_unavailable" as const,
     });
   }
   return Object.freeze({
     provider,
-    status: "eligible" as const,
+    status: "available" as const,
     reason: "ready" as const,
   });
 }
@@ -225,11 +271,11 @@ function createEligibility(
  * @security 秘密値・Host Path・Capabilityを返さない。
  * @concurrency N/A: 共有可変状態を持たない。
  */
-export function evaluateProviderEligibility(
+export function evaluateProviderAvailability(
   provider: AiProvider,
   rawObservation: unknown,
-) {
-  return createEligibility(
+): ProviderAvailability {
+  return createAvailability(
     provider,
     snapshotProviderObservation(rawObservation),
   );
@@ -248,20 +294,20 @@ const claudeForbiddenEnvironmentNames = new Set(
  * @responsibility Provider別禁止環境名、文字列以外の値およびNULを拒否する。
  * @trace ARCH-000010
  * @input provider: 計画のProvider。environment: 固定CLI計画から取得した環境値。
- * @returns 取得順の名前・値組、または拒否時null。
+ * @returns readyと取得順の名前・値組、またはblockedと固定拒否理由。
  * @precondition 呼出し側は固定CLI計画を選択済みで、任意環境を実行へ昇格しない。
  * @postcondition 入力を変更せず、一回取得した同じ値を利用側へ返す。
  * @effect N/A: 環境Snapshotを検査するだけでProcessへ設定しない。
- * @failure 禁止名、文字列以外またはNULをnullで拒否する。取得例外は呼出し側の準備境界へ伝播する。
+ * @failure 禁止名、文字列以外またはNULをblockedで拒否する。取得例外は呼出し側の既存準備失敗境界へ伝播する。
  * @invariant Proxy認証値、Docker引数、MountまたはAuthorityを生成しない。
  * @boundary AI Adapterの固定計画とCoordinatorの環境搬送の間。
  * @security API KeyとProvider接続先の上書きを既存禁止集合で拒否する。
  * @concurrency N/A: 共有集合を変更しない同期検査である。
  */
-export function prepareProviderFixedEnvironment(
+export function prepareProviderEnvironment(
   provider: AiProvider,
   environment: Readonly<Record<string, string>>,
-): readonly (readonly [string, string])[] | null {
+): ProviderEnvironmentResult {
   const forbiddenNames =
     provider === "codex"
       ? codexForbiddenEnvironmentNames
@@ -275,6 +321,9 @@ export function prepareProviderFixedEnvironment(
         value.includes("\0"),
     )
   )
-    return null;
-  return entries;
+    return Object.freeze({
+      status: "blocked",
+      reason: "provider_environment_invalid",
+    });
+  return Object.freeze({ status: "ready", entries });
 }

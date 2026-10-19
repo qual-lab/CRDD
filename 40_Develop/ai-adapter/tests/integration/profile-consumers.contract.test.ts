@@ -6,13 +6,13 @@
  * @trace RCM-IT-005
  * @level IT
  * @scope ai-profile、coordinator、workbench
- * @boundary RCM-IT-005=Direct Boundary: AI Runtime Catalog→Coordinator／Workbench Consumer
+ * @boundary RCM-IT-005=Direct Boundary: AI Adapter Catalog→Coordinator／Workbench Consumer
  */
 import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  DEFAULT_AI_PROFILE_CATALOG,
+  defaultAiProfileCatalog,
   resolveRuntimeOwnedProviderModelProfile,
 } from "../../src/index.ts";
 import { createDefaultWorkbenchAiProfileSurface } from "../../../workbench-server/src/index.ts";
@@ -22,12 +22,12 @@ import { createDefaultWorkbenchAiProfileSurface } from "../../../workbench-serve
  *
  * @responsibility Catalogの安定Profile IDを選択側と表示側で一致させる。
  * @trace RCM-IT-005
- * @precondition AI Runtimeの既定Catalogが検証済みである。
+ * @precondition AI Adapterの既定Catalogが検証済みである。
  * @stimulus Codex executorを解決し、WorkbenchのProfile Surfaceを構築する。
  * @observation Coordinator結果とWorkbench SurfaceのProfile ID、Model、利用可能性を観測する。
  * @oracle PROFILE-100003とgpt-5.5が両Consumerで一致し、未観測はunknownである。
  * @cleanup N/A: 外部資源を生成しない。
- * @boundary RCM-IT-005=Direct Boundary: ai-runtime Test Source→対象契約
+ * @boundary RCM-IT-005=Direct Boundary: AI Adapter Test Source→対象契約
  */
 test("CoordinatorとWorkbenchは同じProfile Identityを再解釈せず利用する", () => {
   const resolved = resolveRuntimeOwnedProviderModelProfile({
@@ -37,12 +37,12 @@ test("CoordinatorとWorkbenchは同じProfile Identityを再解釈せず利用�
     modelTier: "preferred",
     speedMode: "normal",
     billingMode: "subscription_oauth",
-  });
+  }).value;
   assert.equal(resolved?.profileId, "PROFILE-100003");
   assert.equal(resolved?.exactModelId, "gpt-5.5");
 
   const surface = createDefaultWorkbenchAiProfileSurface();
-  assert.strictEqual(surface.catalog, DEFAULT_AI_PROFILE_CATALOG);
+  assert.strictEqual(surface.catalog, defaultAiProfileCatalog);
   const workbenchProfile = surface.catalog.profiles.find(
     (profile) => profile.profileId === "PROFILE-100003",
   );

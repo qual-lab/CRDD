@@ -108,14 +108,22 @@ export function getMcpAiProfileToolDefinitions() {
  * @concurrency N/A: 同期取得する。
  */
 function parseCatalogSnapshot(value: unknown): AiProfileCatalogSnapshot | null {
-  const record = snapshotPlainRecord(value, new Set(["revision", "catalog"]));
+  const read = snapshotPlainRecord(
+    value,
+    new Set(["status", "value", "error"]),
+  );
+  if (read?.status !== "read" || read.error !== null) return null;
+  const record = snapshotPlainRecord(
+    read.value,
+    new Set(["revision", "catalog"]),
+  );
   if (
     !record ||
     !Number.isSafeInteger(record.revision) ||
     Number(record.revision) < 0
   )
     return null;
-  const catalog = validateAiProfileCatalog(record.catalog);
+  const catalog = validateAiProfileCatalog(record.catalog).value;
   return catalog === null
     ? null
     : Object.freeze({ revision: Number(record.revision), catalog });
@@ -169,7 +177,7 @@ export async function handleMcpAiProfileRequest(
   const mutation =
     operation === "list"
       ? null
-      : parseAiProfileCatalogMutation({ ...args, operation });
+      : parseAiProfileCatalogMutation({ ...args, operation }).value;
   if (operation !== "list" && mutation === null)
     return protocolError(request.id, -32602, "Invalid params");
   if (signal.aborted)
@@ -188,8 +196,12 @@ export async function handleMcpAiProfileRequest(
       result = snapshot;
     } else {
       const rawResult = current.execute(mutation);
-      const validated = validateAiProfileMutationResult(mutation, rawResult);
-      if (!validated) throw new Error("profile_result_invalid");
+      const validated = validateAiProfileMutationResult(
+        mutation,
+        rawResult,
+      ).value;
+      if (!validated || validated.status === "unknown")
+        throw new Error("profile_result_invalid");
       result = validated;
     }
     if (signal.aborted)

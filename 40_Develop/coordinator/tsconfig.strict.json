@@ -59,7 +59,7 @@
     "src/authority/root-path-lexical.ts",
     "src/host-execution/kernel-lock-worker.ts",
     "src/authority/trust-loader.ts",
-    "../ai-adapter/src/claude/execution-plan.ts",
+    "../ai-adapter/src/claude/plan.ts",
     "src/task/development-measurement-constraints.ts",
     "src/diagnostics/isolation-probe.ts",
     "src/external-send/egress-proxy-policy.ts",

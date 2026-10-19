@@ -47,7 +47,7 @@ import {
   readHostInitializationState,
 } from "../../40_Develop/access-management/src/index.ts";
 import {
-  createCrosAiProfileCatalogStore,
+  createHostAiProfileCatalogStore,
   createAiProfileCatalogAdministration,
 } from "../../40_Develop/ai-adapter/src/index.ts";
 
@@ -307,7 +307,7 @@ async function main(): Promise<number> {
       );
       return 2;
     }
-    const profiles = createCrosAiProfileCatalogStore(input);
+    const profiles = createHostAiProfileCatalogStore(input);
     if (profiles.status !== "ready") return 2;
     server = await startMcpAuthenticatedStreamableHttp(
       createAccessMcpResolver(

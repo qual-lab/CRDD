@@ -35,7 +35,7 @@ import {
   registerUser,
   issueCredential,
 } from "../../../access-management/src/index.ts";
-import { DEFAULT_AI_PROFILE_CATALOG } from "../../../ai-adapter/src/index.ts";
+import { defaultAiProfileCatalog } from "../../../ai-adapter/src/index.ts";
 import { resolveCrosRuntimeRoots } from "../../../domain-model/src/index.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
 
@@ -1267,7 +1267,7 @@ for (const mode of [
             managerCredential.token,
           );
           assert.equal(managerCatalog.status, 200);
-          const originalProfile = DEFAULT_AI_PROFILE_CATALOG.profiles[0];
+          const originalProfile = defaultAiProfileCatalog.profiles[0];
           assert.ok(originalProfile);
           const profile = {
             ...originalProfile,

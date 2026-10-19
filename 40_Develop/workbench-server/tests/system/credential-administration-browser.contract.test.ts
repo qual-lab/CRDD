@@ -44,7 +44,7 @@ import {
 import { startWorkbench } from "../../src/index.ts";
 import { prepareWorkspaceSurface } from "../../../orchestrator/tests/fixtures/workspace-surface.ts";
 import {
-  createCrosAiProfileCatalogStore,
+  createHostAiProfileCatalogStore,
   createAiProfileCatalogAdministration,
 } from "../../../ai-adapter/src/index.ts";
 
@@ -992,7 +992,7 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
       ) {
         const config = path.join(directory, "catalog-host");
         await mkdir(config);
-        const catalog = createCrosAiProfileCatalogStore({
+        const catalog = createHostAiProfileCatalogStore({
           platform: "win32",
           localAppData: config,
           publisher: "qual-lab",

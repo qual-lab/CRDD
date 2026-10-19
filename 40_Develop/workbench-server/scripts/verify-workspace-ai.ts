@@ -190,7 +190,8 @@ async function verify(
   assert.equal(profiles.status, "ready", "fixture_profiles_unavailable");
   if (profiles.status !== "ready")
     throw new Error("fixture_profiles_unavailable");
-  const catalog = profiles.store.snapshot();
+  const catalog = profiles.store.snapshot().value;
+  if (!catalog) throw new Error("ai_profile_catalog_read_failed");
   assert.equal(
     catalog.catalog.profiles.find((p) => p.profileId === "PROFILE-100003")
       ?.exactModelId,
@@ -210,7 +211,7 @@ async function verify(
   const permitted = () =>
     hash(fs.readFileSync(path.join(root, "PROJECT_CONTEXT.md"))) ===
       contextHash &&
-    hash(JSON.stringify(profiles.store.snapshot())) ===
+    hash(JSON.stringify(profiles.store.snapshot().value)) ===
       hash(JSON.stringify(catalog));
   assert.equal(
     (await readWorkbenchProjectSurface(root)).context.projectId,

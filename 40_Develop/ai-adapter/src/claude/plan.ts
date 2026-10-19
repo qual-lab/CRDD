@@ -4,14 +4,26 @@
  * @responsibility Model・effortの引数順、Turn予算、固有CLI制約と配布要件を純粋に生成し、実起動・認可・回収を所有しない。
  * @trace ARCH-000010
  */
-import { snapshotPlainRecord } from "../../../domain-model/src/index.ts";
-import { describeProviderBillingPolicyContract } from "../profile/billing-policy.ts";
 import {
-  WORKBENCH_AI_ADVICE_PROVIDER_COMMAND_CONTRACT,
-  WORKBENCH_AI_ADVICE_PROVIDER_COMMAND_CONTRACT_REVISION,
-  type WorkbenchAiAdviceProviderCommandInput,
-  type WorkbenchAiAdviceProviderCommand,
-} from "../provider/advice-contract.ts";
+  DISTRIBUTION_IDENTITY,
+  distributionBinding,
+  noNetworkVersionProbe,
+  COMMERCIAL_TERMS_DOCUMENT,
+  CONSUMER_TERMS_DOCUMENT,
+  LICENSE_DOCUMENT,
+  FIXED_PROMPT_REQUEST_ATTEMPT,
+  FIXED_PROMPT_SCHEMA_REQUEST_ATTEMPT,
+  FIXED_PROMPT_BOUNDED_REQUEST_ATTEMPT,
+  FIXED_PROMPT_BOOLEAN_REQUEST_VERIFICATION,
+  OFFERING_CANDIDATES,
+  authenticationVerification,
+} from "./distribution.ts";
+import { snapshotPlainRecord } from "../../../domain-model/src/index.ts";
+import { describeProviderBillingPolicy } from "../billing/policy.ts";
+import type {
+  ProviderModelSelection,
+  ProviderAdvicePlan,
+} from "../provider/plan.ts";
 
 export const CLAUDE_EXECUTION_PLAN_CONTRACT =
   "crdd-coordinator/claude-execution-plan";
@@ -59,18 +71,18 @@ const TASK_WORKLOAD_KEYS = new Set([
 ]);
 
 /**
- * plan Claude Task Turn Budgetを決定する。
+ * Claude TaskのTurn予算を評価する。
  *
- * @responsibility plan Claude Task Turn Budgetの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @responsibility 役割と作業量に基づく要求上限と受理上限を所有する。
  * @trace ARCH-000010
  * @input taskRole: unknown、taskWorkload: unknown
- * @returns planClaudeTaskTurnBudgetの計算結果を返す。
- * @precondition 「taskRole: unknown、taskWorkload: unknown」がplanClaudeTaskTurnBudgetの入力契約を満たす。
- * @postcondition planClaudeTaskTurnBudgetの責務を完了した結果だけを返す。
+ * @returns 候補予算又はblocked。
+ * @precondition taskRoleとworkloadは関数内で検査し、計画を起動許可としない。
+ * @postcondition 返却値を現在の認証、実行成功又は資源回収の証明としない。
  * @effect N/A: planClaudeTaskTurnBudgetは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: planClaudeTaskTurnBudgetは独自の失敗分岐を所有しない。
- * @invariant planClaudeTaskTurnBudgetは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: planClaudeTaskTurnBudgetはProcess内の同一Subsystemで完結する。
+ * @failure 不正な役割・作業量と上限超過を拒否する。
+ * @invariant 計画・解析・宣言の範囲に限り、起動・送信同意・Authorityを代行しない。
+ * @boundary Provider固有条件と共通AI Adapter APIの内部境界。
  * @security planClaudeTaskTurnBudgetはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: planClaudeTaskTurnBudgetは共有非同期状態を持たない同期処理である。
  */
@@ -124,7 +136,7 @@ const TASK_PLAN_KEYS = new Set([
   "effort",
   "taskWorkload",
 ]);
-const billingPolicy = describeProviderBillingPolicyContract();
+const billingPolicy = describeProviderBillingPolicy();
 const FIXED_PROMPT =
   "Return one JSON object with the single key status and the boolean value true. Do not use tools.";
 const FIXED_STRUCTURED_OUTPUT_SCHEMA = Object.freeze({
@@ -197,266 +209,6 @@ const FORBIDDEN_PARENT_ENVIRONMENT_CATEGORIES = Object.freeze([
   "host_proxy_configuration",
   "host_credential_or_settings_paths",
 ]);
-const DISTRIBUTION_IDENTITY = Object.freeze({
-  targetPlatform: "linux-x64",
-  executablePath: "/opt/crdd/providers/claude/2.1.220/claude",
-  exactVersion: "2.1.220",
-  upstreamCommit: "4073f59596e272f39393db4f96abc5f4b10eff21",
-  binarySha256:
-    "674f61f20ff306f3100cf9200e4c36c4b70278b5bef2884549819b942a89c863",
-  binaryBytes: 275_012_592,
-  manifestUrl:
-    "https://downloads.claude.ai/claude-code-releases/2.1.220/manifest.json",
-});
-const distributionBinding = Object.freeze({
-  identity: DISTRIBUTION_IDENTITY,
-  manifestSignatureRequired: true,
-  manifestSignatureVerified: true,
-  manifestSignatureEvidence: Object.freeze({
-    verifiedAt: "2026-08-24",
-    releaseSigningKeyFingerprint: "31DDDE24DDFAB679F42D7BD2BAA929FF1A7ECACE",
-    detachedSignature: "verified_good_signature",
-    binaryLengthAndSha256MatchedManifest: true,
-  }),
-  releaseSigningKeyFingerprint: "31DDDE24DDFAB679F42D7BD2BAA929FF1A7ECACE",
-  fixedDigestImageRequired: true,
-  fixedImageDigest:
-    "sha256:ddd766072db6e69f55efb11fc3e82b401542cb5583c179f56aac4004f4ea317a",
-  fixedImageEvidence: Object.freeze({
-    verifiedAt: "2026-08-25",
-    buildNetworkMode: "none",
-    baseImageDigest:
-      "sha256:d67a7b66b989ad6b6d6b10d428dcc5e0bfc3e5f88906e67d490c4d3daac57047",
-    embeddedBinaryLengthAndSha256Matched: true,
-    managedSettingsSha256:
-      "736c1447df695f074743f52564eefd4f9f8d8850737657d54a1f3d6052151ee8",
-    taskSettingsSha256:
-      "1924f4754c93793668056446ee68e3cd1b0f45dd38db6b137c5aa43441599ca1",
-    fixedImageBytes: 129_732_853,
-    imageUser: "65534:65534",
-    imageWorkingDirectory: "/work",
-    imageEntrypoint: DISTRIBUTION_IDENTITY.executablePath,
-    reproducibleImageBuildClaimed: false,
-    releaseDistributionConnected: false,
-  }),
-  argvCompatibilityRequired: true,
-  argvCompatibilityVerified: true,
-  argvCompatibilityEvidence: Object.freeze({
-    verifiedAt: "2026-08-25",
-    exactBinaryVersion: "2.1.220",
-    networkMode: "none",
-    credentialOrProviderHomeMounted: false,
-    processReachedAuthenticationBoundary: true,
-    providerRequestIssued: false,
-    totalCostUsd: 0,
-    inputTokens: 0,
-    outputTokens: 0,
-    structuredOutputSchemaArgumentVerified: true,
-  }),
-});
-const noNetworkVersionProbe = Object.freeze({
-  status: "verified" as const,
-  verifiedAt: "2026-08-24",
-  command: DISTRIBUTION_IDENTITY.executablePath,
-  argv: Object.freeze(["--version"]),
-  output: "2.1.220 (Claude Code)",
-  processExitCode: 0,
-  providerRequestExpected: false,
-  networkMode: "none",
-  repositoryMounted: false,
-  credentialOrProviderHomeMounted: false,
-  readOnlyRootFilesystem: true,
-  linuxUser: "65534:65534",
-  capabilities: "all_dropped",
-  pidLimit: 16,
-  binaryMount: "read_only_verified_artifact",
-  baseImage:
-    "python@sha256:d67a7b66b989ad6b6d6b10d428dcc5e0bfc3e5f88906e67d490c4d3daac57047",
-  containerRemovedAfterExit: true,
-  finalProviderImageEstablished: false,
-});
-const COMMERCIAL_TERMS_DOCUMENT = Object.freeze({
-  documentIdentity: "anthropic_commercial_terms_2025-06-17",
-  url: "https://www.anthropic.com/legal/commercial-terms",
-  publishedVersionEffectiveDate: "2025-06-17",
-  reviewedAt: "2026-08-22",
-  reviewState: "candidate_unresolved",
-});
-const CONSUMER_TERMS_DOCUMENT = Object.freeze({
-  documentIdentity: "anthropic_consumer_terms_2025-10-08",
-  url: "https://www.anthropic.com/legal/consumer-terms",
-  publishedVersionEffectiveDate: "2025-10-08",
-  reviewedAt: "2026-08-22",
-  reviewState: "candidate_unresolved",
-});
-const LICENSE_DOCUMENT = Object.freeze({
-  documentIdentity: "claude_code_license_at_release_v2.1.220",
-  sourceRevision: "7ef6eec9d9ba84ea6f233f26c45f1df5c5991843",
-  url: "https://github.com/anthropics/claude-code/blob/7ef6eec9d9ba84ea6f233f26c45f1df5c5991843/LICENSE.md",
-  publishedVersionEffectiveDate: null,
-  reviewedAt: "2026-08-22",
-  reviewState: "candidate_unresolved",
-  relation: "references_anthropic_commercial_terms",
-});
-const OFFERING_CANDIDATES = Object.freeze([
-  Object.freeze({
-    offering: "claude_pro",
-    offeringClass: "individual_offering_candidate",
-  }),
-  Object.freeze({
-    offering: "claude_max",
-    offeringClass: "individual_offering_candidate",
-  }),
-  Object.freeze({
-    offering: "claude_team",
-    offeringClass: "organization_offering_candidate",
-  }),
-  Object.freeze({
-    offering: "claude_enterprise",
-    offeringClass: "organization_offering_candidate",
-  }),
-]);
-const authenticationVerification = Object.freeze({
-  verifiedAt: "2026-08-24",
-  loginCommand: Object.freeze([
-    DISTRIBUTION_IDENTITY.executablePath,
-    "auth",
-    "login",
-    "--claudeai",
-  ]),
-  loginProcessExitCode: 0,
-  loginMethod: "claude.ai",
-  subscriptionType: "max",
-  authStatusProcessExitCode: 0,
-  authStatusNetworkMode: "none",
-  authStatusProviderHomeMount: "read_only",
-  rawAuthOutputRecorded: false,
-  identityFieldsRecorded: false,
-  credentialContentRead: false,
-  oauthTokenReadByRuntime: false,
-  oauthInfrastructureCleanupVerified: true,
-});
-const FIXED_PROMPT_REQUEST_ATTEMPT = Object.freeze({
-  executedAt: "2026-08-24",
-  exactRequestCount: 1,
-  processExitCode: 0,
-  providerReportedError: false,
-  numberOfTurns: 1,
-  providerReportedApiEquivalentCostUsd: 0.036975,
-  inputTokens: 2,
-  outputTokens: 15,
-  cacheCreationInputTokens: 3659,
-  cacheReadInputTokens: 0,
-  resultContractVerified: false,
-  resultRecorded: false,
-  rawOutputSha256:
-    "b8ee44de22aea189061358353123b0e9eff10d62f2723cb05ddd2a8b0e6940be",
-  providerNetworkInternal: true,
-  repositoryMounted: false,
-  workspaceMounted: false,
-  toolsRequested: "none",
-  sessionPersistenceRequested: false,
-  apiKeyEnvironmentProvided: false,
-  cleanupVerified: true,
-  containerResidue: 0,
-  networkResidue: 0,
-  retryIssued: false,
-});
-const FIXED_PROMPT_SCHEMA_REQUEST_ATTEMPT = Object.freeze({
-  executedAt: "2026-08-24",
-  exactRequestCommandCount: 1,
-  structuredOutputSchemaRequested: true,
-  processExitCode: 1,
-  resultContractVerified: false,
-  resultRecorded: false,
-  providerRequestIssued: "unknown",
-  rawOutputSha256:
-    "2e5ab9be33e00c0330eb30cf15791f1a15a87705b97f0ee20a58f46569178e70",
-  authenticationStatusAfterAttempt: "logged_in_claude_ai_max",
-  authenticationStatusNetworkMode: "none",
-  cleanupVerified: true,
-  containerResidue: 0,
-  networkResidue: 0,
-  automaticRetryIssued: false,
-});
-const FIXED_PROMPT_BOUNDED_REQUEST_ATTEMPT = Object.freeze({
-  executedAt: "2026-08-24",
-  exactRequestCommandCount: 1,
-  structuredOutputSchemaRequested: true,
-  processExitCode: 0,
-  responseSubtype: "success",
-  providerReportedError: false,
-  numberOfTurns: 2,
-  providerReportedApiEquivalentCostUsd: 0.022397,
-  inputTokens: 2,
-  outputTokens: 262,
-  cacheCreationInputTokens: 1452,
-  cacheReadInputTokens: 2634,
-  structuredOutputPresent: true,
-  structuredOutputPropertyCount: 1,
-  localStringResultContractVerified: false,
-  resultRecorded: false,
-  rawOutputSha256:
-    "71fe73491564fe87b94f95b25905c23c5e2764aefcb00300c5dca14bd84235a0",
-  providerNetworkInternal: true,
-  repositoryMounted: false,
-  workspaceMounted: false,
-  toolsRequested: "none",
-  maximumTurns: 2,
-  maximumBudgetUsd: 0.1,
-  apiKeyEnvironmentProvided: false,
-  cleanupVerified: true,
-  containerResidue: 0,
-  networkResidue: 0,
-  automaticRetryIssued: false,
-});
-const FIXED_PROMPT_BOOLEAN_REQUEST_VERIFICATION = Object.freeze({
-  status: "verified",
-  executedAt: "2026-08-24",
-  exactRequestCommandCount: 1,
-  processExitCode: 0,
-  responseSubtype: "success",
-  providerReportedError: false,
-  normalizedResult: Object.freeze({ status: true }),
-  numberOfTurns: 2,
-  maximumTurns: 2,
-  maximumBudgetUsd: 0.1,
-  providerReportedApiEquivalentCostUsd: 0.04699,
-  inputTokens: 2,
-  outputTokens: 244,
-  cacheCreationInputTokens: 4088,
-  cacheReadInputTokens: 0,
-  structuredOutputPresent: true,
-  structuredOutputPropertyCount: 1,
-  resultPropertyNameExact: true,
-  resultValueBooleanTrue: true,
-  verifierCorrection: Object.freeze({
-    defect: "powershell_single_element_expression_unwrapped_to_scalar_string",
-    oldIndexZero: "s",
-    correctedCollectionType: "System.Object[]",
-    correctedIndexZero: "status",
-    deterministicFixtureVerified: true,
-  }),
-  rawOutputSha256:
-    "65c2a2079a4de7b673bae1197b82025a5a251276e9781b8e68d42bb4d5169aeb",
-  rawOutputRecorded: false,
-  identityFieldsRecorded: false,
-  providerNetworkCount: 1,
-  providerNetworkInternal: true,
-  proxyOutcomes: Object.freeze([
-    "ready",
-    "tunnel_established",
-    "tunnel_closed",
-  ]),
-  repositoryMounted: false,
-  workspaceMounted: false,
-  toolsRequested: "none",
-  sessionPersistenceRequested: false,
-  apiKeyEnvironmentProvided: false,
-  cleanupVerified: true,
-  containerResidue: 0,
-  networkResidue: 0,
-});
 const ACTIVATION_GATES = Object.freeze([
   "runtime_owned_model_selection_grant",
   "fixed_digest_official_provider_image",
@@ -470,22 +222,22 @@ const ACTIVATION_GATES = Object.freeze([
 const ACTIVATION_BLOCKERS = Object.freeze([] as string[]);
 
 /**
- * claude-execution-planを停止結果として構築する。
+ * Claude計画の拒否値を生成する。
  *
- * @responsibility claude-execution-planの停止理由、未発行Effect、公開結果境界を所有する。
+ * @responsibility 入力拒否理由と起動・Effect禁止を所有する。
  * @trace ARCH-000010
  * @input reason: string
- * @returns blockedの計算結果を返す。
- * @precondition 「reason: string」がblockedの入力契約を満たす。
- * @postcondition blockedの責務を完了した結果だけを返す。
+ * @returns 固定理由付きblocked。
+ * @precondition reasonは計画検査が選んだ固定拒否理由である。
+ * @postcondition 返却値を現在の認証、実行成功又は資源回収の証明としない。
  * @effect N/A: 停止結果の値だけを構築し、Process・Filesystem・外部送信を開始しない。
- * @failure N/A: blockedは独自の失敗分岐を所有しない。
- * @invariant blockedは宣言した境界以外へEffectを拡張しない。
- * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @failure N/A: 拒否値を構築する。
+ * @invariant 計画・解析・宣言の範囲に限り、起動・送信同意・Authorityを代行しない。
+ * @boundary Provider固有条件と共通AI Adapter APIの内部境界。
  * @security blockedはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: blockedは共有非同期状態を持たない同期処理である。
  */
-function blocked(reason: string) {
+function blocked<R extends string>(reason: R) {
   return Object.freeze({
     status: "blocked",
     reason,
@@ -498,18 +250,18 @@ function blocked(reason: string) {
 }
 
 /**
- * plan Claude Read Only Probeを決定する。
+ * Claude読取りProbeを計画する。
  *
- * @responsibility plan Claude Read Only Probeの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @responsibility Provider・用途の検査と固定CLI・設定条件を所有する。
  * @trace ARCH-000010
  * @input candidate: unknown
- * @returns planClaudeReadOnlyProbeの計算結果を返す。
- * @precondition 「candidate: unknown」がplanClaudeReadOnlyProbeの入力契約を満たす。
- * @postcondition planClaudeReadOnlyProbeの責務を完了した結果だけを返す。
+ * @returns candidate計画又はblocked。
+ * @precondition candidateを未信頼値として関数内で閉じたshapeと値を検査する。
+ * @postcondition 返却値を現在の認証、実行成功又は資源回収の証明としない。
  * @effect N/A: 検証用の起動計画を構築するだけで、Process・Filesystem・外部送信を開始しない。
- * @failure N/A: planClaudeReadOnlyProbeは独自の失敗分岐を所有しない。
- * @invariant planClaudeReadOnlyProbeは宣言した境界以外へEffectを拡張しない。
- * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @failure 不正shape、Provider、用途を拒否する。
+ * @invariant 計画・解析・宣言の範囲に限り、起動・送信同意・Authorityを代行しない。
+ * @boundary Provider固有条件と共通AI Adapter APIの内部境界。
  * @security planClaudeReadOnlyProbeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: planClaudeReadOnlyProbeは共有非同期状態を持たない同期処理である。
  */
@@ -589,18 +341,18 @@ export function planClaudeReadOnlyProbe(candidate: unknown) {
 }
 
 /**
- * plan Claude Isolated Taskを決定する。
+ * Claude Taskを役割別に計画する。
  *
- * @responsibility plan Claude Isolated Taskの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @responsibility 役割・Turn予算と固定CLI・環境条件を所有する。
  * @trace ARCH-000010
  * @input candidate: unknown
- * @returns planClaudeIsolatedTaskの計算結果を返す。
- * @precondition 「candidate: unknown」がplanClaudeIsolatedTaskの入力契約を満たす。
- * @postcondition planClaudeIsolatedTaskの責務を完了した結果だけを返す。
+ * @returns candidate計画又はblocked。
+ * @precondition candidateを未信頼値として関数内で閉じたshape・役割・予算を検査する。
+ * @postcondition 返却値を現在の認証、実行成功又は資源回収の証明としない。
  * @effect N/A: Taskの起動計画を構築するだけで、Process・Filesystem・外部送信を開始しない。
- * @failure N/A: planClaudeIsolatedTaskは独自の失敗分岐を所有しない。
- * @invariant planClaudeIsolatedTaskは宣言した境界以外へEffectを拡張しない。
- * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @failure 不正shape、役割、予算を拒否する。
+ * @invariant 計画・解析・宣言の範囲に限り、起動・送信同意・Authorityを代行しない。
+ * @boundary Provider固有条件と共通AI Adapter APIの内部境界。
  * @security planClaudeIsolatedTaskはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: planClaudeIsolatedTaskは共有非同期状態を持たない同期処理である。
  */
@@ -719,18 +471,18 @@ export function planClaudeIsolatedTask(candidate: unknown) {
 }
 
 /**
- * Claude Execution Plan 契約の公開契約を記述する。
+ * Claude実行の固定条件を記述する。
  *
- * @responsibility Claude Execution Plan 契約の公開field、非公開境界、互換性を所有する。
+ * @responsibility 配布・認証Offering・過去確認と未成立条件を所有する。
  * @trace ARCH-000010
  * @input N/A: 実行時引数を受け取らない。
- * @returns describeClaudeExecutionPlanContractの計算結果を返す。
- * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeClaudeExecutionPlanContractの入力契約を満たす。
- * @postcondition describeClaudeExecutionPlanContractの責務を完了した結果だけを返す。
+ * @returns 固定実行定義。
+ * @precondition N/A: 実行時入力を持たない。
+ * @postcondition 返却値を現在の認証、実行成功又は資源回収の証明としない。
  * @effect N/A: describeClaudeExecutionPlanContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: describeClaudeExecutionPlanContractは独自の失敗分岐を所有しない。
- * @invariant describeClaudeExecutionPlanContractは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: describeClaudeExecutionPlanContractはProcess内の同一Subsystemで完結する。
+ * @failure N/A: 固定宣言を返す。
+ * @invariant 計画・解析・宣言の範囲に限り、起動・送信同意・Authorityを代行しない。
+ * @boundary Provider固有条件と共通AI Adapter APIの内部境界。
  * @security describeClaudeExecutionPlanContractはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: describeClaudeExecutionPlanContractは共有非同期状態を持たない同期処理である。
  */
@@ -899,13 +651,11 @@ export function describeClaudeExecutionPlanContract() {
  * @concurrency N/A: 共有状態を持たない同期処理である。
  */
 export function planClaudeAdviceCommand(
-  input: WorkbenchAiAdviceProviderCommandInput,
+  input: ProviderModelSelection,
   resultSchema: Readonly<Record<string, unknown>>,
-): WorkbenchAiAdviceProviderCommand {
+): Omit<ProviderAdvicePlan, "contract" | "contractRevision"> {
   const contract = describeClaudeExecutionPlanContract();
   return Object.freeze({
-    contract: WORKBENCH_AI_ADVICE_PROVIDER_COMMAND_CONTRACT,
-    contractRevision: WORKBENCH_AI_ADVICE_PROVIDER_COMMAND_CONTRACT_REVISION,
     provider: "claude" as const,
     command: contract.readOnlyProbe.command,
     argv: Object.freeze([

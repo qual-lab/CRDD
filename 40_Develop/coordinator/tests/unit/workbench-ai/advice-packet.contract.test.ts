@@ -8,12 +8,13 @@
  * @scope coordinator、contract、node_process
  * @boundary Unit TestとPacket Runtimeの公開APIの間。
  */
+import { planProviderExecution } from "../../../../ai-adapter/src/index.ts";
 import { describeWorkbenchAiAdviceResultSchema } from "../../../src/workbench-ai/advice-result.ts";
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import type { WorkbenchAiAdviceProviderCommand } from "../../../../ai-adapter/src/index.ts";
-import { planWorkbenchAiAdviceProviderCommand } from "../../../../ai-adapter/src/index.ts";
+import type { ProviderAdvicePlan } from "../../../../ai-adapter/src/index.ts";
+
 import {
   consumeRuntimeOwnedWorkbenchAiAdvicePacket,
   describeWorkbenchAiAdviceRuntimePacketContract,
@@ -43,14 +44,17 @@ function input() {
     taskHash: sha,
     projectionHash: "b".repeat(64),
     providerPrompt: "Read the bounded projection and return structured advice.",
-    providerCommand: planWorkbenchAiAdviceProviderCommand(
-      {
+    providerCommand:
+      planProviderExecution({
         provider: "codex",
-        exactModelId: "gpt-6-sol",
-        reasoningEffort: "medium",
-      },
-      describeWorkbenchAiAdviceResultSchema(),
-    ),
+        purpose: "advice",
+        input: {
+          provider: "codex",
+          exactModelId: "gpt-6-sol",
+          reasoningEffort: "medium",
+        },
+        resultSchema: describeWorkbenchAiAdviceResultSchema(),
+      }).plan ?? assert.fail("provider_execution_plan_not_ready"),
   };
 }
 
@@ -174,7 +178,7 @@ describe("workbench ai advice runtime packet", () => {
       providerCommand: {
         ...current.providerCommand,
         workspaceMountRequired: true,
-      } as unknown as WorkbenchAiAdviceProviderCommand,
+      } as unknown as ProviderAdvicePlan,
     });
     assert.equal(result.status, "blocked");
     assert.equal(result.providerEffectIssued, false);
@@ -204,7 +208,7 @@ describe("workbench ai advice runtime packet", () => {
       ...current.providerCommand,
       argv,
       environment,
-    } as WorkbenchAiAdviceProviderCommand;
+    } as ProviderAdvicePlan;
     const issued = issueRuntimeOwnedWorkbenchAiAdvicePacket({
       ...current,
       providerCommand: mutable,

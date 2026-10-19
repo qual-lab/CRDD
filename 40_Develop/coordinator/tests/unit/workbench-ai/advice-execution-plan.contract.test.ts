@@ -12,9 +12,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  DEFAULT_AI_PROFILE_CATALOG,
+  defaultAiProfileCatalog,
   resolveAiProfileById,
-} from "../../../../ai-adapter/src/catalog/resolve.ts";
+} from "../../../../ai-adapter/src/index.ts";
 import type { ResolvedAiProfileIdentity } from "../../../../ai-adapter/src/index.ts";
 import type { WorkbenchAiProviderExecutionInput } from "../../../src/workbench-ai/advice-execution-plan.ts";
 import { prepareWorkbenchAiAdviceExecutionPlan } from "../../../src/workbench-ai/advice-execution-plan.ts";
@@ -73,9 +73,9 @@ function executionInput(
  */
 test("既定Catalog revision 0を助言実行計画へ受理する", () => {
   const profile = resolveAiProfileById(
-    DEFAULT_AI_PROFILE_CATALOG,
+    defaultAiProfileCatalog,
     "PROFILE-100001",
-  );
+  ).value;
   assert.notEqual(profile, null);
   const result = prepareWorkbenchAiAdviceExecutionPlan(
     executionInput(profile as ResolvedAiProfileIdentity, 0),
@@ -99,7 +99,10 @@ for (const profileId of ["PROFILE-100001", "PROFILE-200001"] as const) {
    * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
    */
   test(`${profileId}をRepository非共有のexact実行計画へ変換する`, () => {
-    const profile = resolveAiProfileById(DEFAULT_AI_PROFILE_CATALOG, profileId);
+    const profile = resolveAiProfileById(
+      defaultAiProfileCatalog,
+      profileId,
+    ).value;
     assert.notEqual(profile, null);
     const result = prepareWorkbenchAiAdviceExecutionPlan(
       executionInput(profile as ResolvedAiProfileIdentity),
@@ -156,9 +159,9 @@ for (const profileId of ["PROFILE-100001", "PROFILE-200001"] as const) {
 }
 
 const codexProfile = resolveAiProfileById(
-  DEFAULT_AI_PROFILE_CATALOG,
+  defaultAiProfileCatalog,
   "PROFILE-100001",
-);
+).value;
 if (codexProfile === null) throw new Error("test_profile_required");
 
 for (const [name, candidate] of [

@@ -26,15 +26,127 @@ import test from "node:test";
 
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
 import { resolveCrosRuntimeRoots } from "../../../domain-model/src/index.ts";
-import { DEFAULT_AI_PROFILE_CATALOG } from "../../src/catalog/resolve.ts";
+import { defaultAiProfileCatalog } from "../../src/catalog/resolve.ts";
 import {
-  createCrosAiProfileCatalogStore,
+  createHostAiProfileCatalogStore,
   createRepositoryAiProfileCatalogStore,
-} from "../../src/profile/store.ts";
+} from "../../src/storage/store.ts";
 
 const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
   import.meta.dirname,
 );
+
+/**
+ * 保存段階の故障を型付き結果と実Fileの両方で確認する。
+ * @responsibility 読取り失敗を空値、公開後故障を未保存へ丸めない。
+ * @trace RCM-IT-005
+ * @precondition Repository内の自己生成Git fixtureだけを使う。
+ * @stimulus 読取り・書込み開始・公開後読戻し・staging清掃を一箇所ずつ失敗させる。
+ * @observation 結果状態、段階、Snapshot欠測と公開Fileの存在を観測する。
+ * @oracle read失敗はblocked、adopt失敗はunknown、公開後はFileが残っても成功にしない。
+ * @cleanup mockを復元し、今回のfixtureだけ回収して不存在を確認する。
+ * @boundary RCM-IT-005=Direct Boundary: Store→Node Filesystem
+ */
+test("Store故障は欠測と保存確定不能を区別し、自動再保存しない", async (context) => {
+  const testsRoot = path.join(repositoryRoot, ".crdd", "tests");
+  await mkdir(testsRoot, { recursive: true });
+  for (const mode of [
+    "read",
+    "observe",
+    "write",
+    "verify",
+    "cleanup",
+  ] as const) {
+    const fixture = await mkdtemp(path.join(testsRoot, "ai-profile-failure-"));
+    initializeGitRepository(fixture);
+    const adapter = createRepositoryAiProfileCatalogStore(fixture);
+    assert.ok(adapter.store);
+    const directory = path.join(
+      fixture,
+      ".crdd",
+      "config",
+      "ai-profile-catalog",
+    );
+    if (mode === "read") await mkdir(directory, { recursive: true });
+    const method =
+      mode === "observe"
+        ? "lstatSync"
+        : mode === "read"
+          ? "readdirSync"
+          : mode === "write"
+            ? "openSync"
+            : mode === "verify"
+              ? "readFileSync"
+              : "unlinkSync";
+    const original = fs[method];
+    let faults = 0;
+    let writeOpens = 0;
+    const openObserver =
+      mode === "observe"
+        ? context.mock.method(
+            fs,
+            "openSync",
+            new Proxy(fs.openSync, {
+              apply(target, receiver, args) {
+                if (
+                  typeof args[0] === "string" &&
+                  args[0].startsWith(directory)
+                )
+                  writeOpens++;
+                return Reflect.apply(target, receiver, args);
+              },
+            }),
+          )
+        : null;
+    const mocked = context.mock.method(
+      fs,
+      method,
+      new Proxy(original, {
+        apply(target, receiver, args) {
+          if (typeof args[0] === "string" && args[0].startsWith(directory)) {
+            faults++;
+            throw Object.assign(new Error("fixture-private-path-secret"), {
+              code: "EACCES",
+            });
+          }
+          return Reflect.apply(target, receiver, args);
+        },
+      }),
+    );
+    syncBuiltinESMExports();
+    try {
+      if (mode === "read" || mode === "observe") {
+        assert.deepEqual(adapter.store.snapshot(), {
+          status: "blocked",
+          value: null,
+          error: "ai_profile_catalog_read_failed",
+        });
+      }
+      const outcome = adapter.store.adopt({
+        expectedRevision: 0,
+        candidate: defaultAiProfileCatalog,
+      });
+      assert.equal(outcome.status, "unknown");
+      if (outcome.status !== "unknown") assert.fail("unknown required");
+      assert.equal(outcome.phase, mode === "observe" ? "read" : mode);
+      assert.equal(outcome.snapshot, null);
+      assert.equal(outcome.revision, null);
+      assert.equal(JSON.stringify(outcome).includes("fixture-private"), false);
+      assert.equal(
+        fs.existsSync(path.join(directory, "catalog-0000000001.json")),
+        mode === "verify" || mode === "cleanup",
+      );
+      assert.equal(faults, mode === "read" || mode === "observe" ? 2 : 1);
+      if (mode === "observe") assert.equal(writeOpens, 0);
+    } finally {
+      mocked.mock.restore();
+      openObserver?.mock.restore();
+      syncBuiltinESMExports();
+      await rm(fixture, { recursive: true, force: true });
+      assert.equal(fs.existsSync(fixture), false);
+    }
+  }
+});
 
 /**
  * CROS Catalogの親とCatalog自身のLinkを構成時・利用時に拒否する。
@@ -82,26 +194,27 @@ test("CROS Catalogは親Linkと構成後のCatalog Linkを拒否する", async (
       const catalog = path.join(roots.config, "ai-profile-catalog");
       if (mode === "parent") {
         fs.symlinkSync(target, path.join(directory, "qual-lab"), "junction");
-        assert.equal(createCrosAiProfileCatalogStore(input).status, "blocked");
+        assert.equal(createHostAiProfileCatalogStore(input).status, "blocked");
       } else {
         fs.mkdirSync(roots.config, { recursive: true });
         if (mode === "catalog") {
           fs.symlinkSync(target, catalog, "junction");
           assert.equal(
-            createCrosAiProfileCatalogStore(input).status,
+            createHostAiProfileCatalogStore(input).status,
             "blocked",
           );
         } else {
-          const adapter = createCrosAiProfileCatalogStore(input);
+          const adapter = createHostAiProfileCatalogStore(input);
           assert.equal(adapter.status, "ready");
           assert.ok(adapter.store);
           fs.symlinkSync(target, catalog, "junction");
-          assert.throws(() => adapter.store?.snapshot());
-          assert.throws(() =>
+          assert.equal(adapter.store?.snapshot().status, "blocked");
+          assert.equal(
             adapter.store?.adopt({
               expectedRevision: 0,
-              candidate: DEFAULT_AI_PROFILE_CATALOG,
-            }),
+              candidate: defaultAiProfileCatalog,
+            })?.status,
+            "unknown",
           );
         }
       }
@@ -165,11 +278,11 @@ test("CROS Catalogは観測不能と作成中のLink置換で本文を書かな�
             };
       const roots = resolveCrosRuntimeRoots(input);
       assert.ok(roots);
-      const adapter = createCrosAiProfileCatalogStore(input);
+      const adapter = createHostAiProfileCatalogStore(input);
       assert.equal(adapter.status, "ready");
       assert.ok(adapter.store);
       let writeOpens = 0,
-        faultObserved = false;
+        isFaultObserved = false;
       fs.openSync = ((
         file: fs.PathLike,
         flags: string | number,
@@ -182,7 +295,7 @@ test("CROS Catalogは観測不能と作成中のLink置換で本文を書かな�
         Object.defineProperty(fs, "lstatSync", {
           value: ((file: fs.PathLike, options?: fs.StatOptions) => {
             if (String(file) === roots.config) {
-              faultObserved = true;
+              isFaultObserved = true;
               throw Object.assign(new Error("synthetic_lstat_unavailable"), {
                 code: "EACCES",
               });
@@ -197,7 +310,7 @@ test("CROS Catalogは観測不能と作成中のLink置換で本文を書かな�
         ) => {
           const result = originalMkdir(file, options);
           if (String(file) === path.join(directory, "qual-lab")) {
-            faultObserved = true;
+            isFaultObserved = true;
             fs.rmdirSync(String(file));
             fs.symlinkSync(target, String(file), "junction");
           }
@@ -206,16 +319,17 @@ test("CROS Catalogは観測不能と作成中のLink置換で本文を書かな�
       }
       syncBuiltinESMExports();
       if (mode === "unknown") {
-        assert.equal(createCrosAiProfileCatalogStore(input).status, "blocked");
-        assert.throws(() => adapter.store?.snapshot());
+        assert.equal(createHostAiProfileCatalogStore(input).status, "blocked");
+        assert.equal(adapter.store?.snapshot().status, "blocked");
       }
-      assert.throws(() =>
+      assert.equal(
         adapter.store?.adopt({
           expectedRevision: 0,
-          candidate: DEFAULT_AI_PROFILE_CATALOG,
-        }),
+          candidate: defaultAiProfileCatalog,
+        })?.status,
+        "unknown",
       );
-      assert.equal(faultObserved, true);
+      assert.equal(isFaultObserved, true);
       assert.equal(writeOpens, 0);
       assert.deepEqual(fs.readdirSync(target), ["marker.txt"]);
       assert.equal(
@@ -252,13 +366,16 @@ test("同梱JSONの欠落・構文不正・Schema不正はModule起動を停止�
   await mkdir(testsRoot, { recursive: true });
   const fixture = await mkdtemp(path.join(testsRoot, "ai-profile-default-"));
   const sourceRoot = path.resolve(import.meta.dirname, "../../src/catalog");
-  const jsonPath = path.join(fixture, "default-ai-profile-catalog.json");
+  const jsonPath = path.join(fixture, "default-catalog.json");
   try {
-    const source = await readFile(path.join(sourceRoot, "resolve.ts"), "utf8");
+    const source = await readFile(
+      path.join(sourceRoot, "validation.ts"),
+      "utf8",
+    );
     const dependency = '"../../../domain-model/src/index.ts"';
     assert.equal(source.split(dependency).length, 2);
     await writeFile(
-      path.join(fixture, "catalog.ts"),
+      path.join(fixture, "validation.ts"),
       source.replace(
         dependency,
         JSON.stringify(
@@ -274,13 +391,14 @@ test("同梱JSONの欠落・構文不正・Schema不正はModule起動を停止�
         ),
       ),
     );
+    await copyFile(
+      path.join(sourceRoot, "resolve.ts"),
+      path.join(fixture, "catalog.ts"),
+    );
     await writeFile(path.join(fixture, "package.json"), '{"type":"module"}');
     for (const scenario of ["normal", "missing", "syntax", "schema"] as const) {
       if (scenario === "normal") {
-        await copyFile(
-          path.join(sourceRoot, "default-ai-profile-catalog.json"),
-          jsonPath,
-        );
+        await copyFile(path.join(sourceRoot, "default-catalog.json"), jsonPath);
       } else if (scenario === "missing") {
         await rm(jsonPath);
       } else {
@@ -294,7 +412,7 @@ test("同梱JSONの欠落・構文不正・Schema不正はModule起動を停止�
         [
           "--input-type=module",
           "-e",
-          'import { DEFAULT_AI_PROFILE_CATALOG } from "./catalog.ts"; if (DEFAULT_AI_PROFILE_CATALOG.profiles.length > 0) console.log("CATALOG_LOADED");',
+          'import { defaultAiProfileCatalog } from "./catalog.ts"; if (defaultAiProfileCatalog.profiles.length > 0) console.log("CATALOG_LOADED");',
         ],
         {
           cwd: fixture,
@@ -337,7 +455,7 @@ test("同梱JSONの欠落・構文不正・Schema不正はModule起動を停止�
  * @observation Command終了状態を観測する。
  * @oracle 非0終了を試験失敗にする。
  * @cleanup 呼出し側がfixture全体を削除する。
- * @boundary RCM-IT-005=Direct Boundary: ai-runtime Test Source→対象契約
+ * @boundary RCM-IT-005=Direct Boundary: AI Adapter Test Source→対象契約
  */
 function initializeGitRepository(fixture: string): void {
   execFileSync("git", ["init", "--initial-branch=main"], {
@@ -357,7 +475,7 @@ function initializeGitRepository(fixture: string): void {
  * @observation 採用結果、再生成StoreのSnapshotおよび競合結果を観測する。
  * @oracle 各OwnerはRevision 1の固有値を保持し、古いRevisionからの再採用を拒否する。
  * @cleanup Repository-local試験Root全体を削除する。
- * @boundary RCM-IT-005=Direct Boundary: ai-runtime Test Source→対象契約
+ * @boundary RCM-IT-005=Direct Boundary: AI Adapter Test Source→対象契約
  */
 test("Repository単体とCROSは同じSchemaを別Ownerとして耐久保存する", async () => {
   const testsRoot = path.join(repositoryRoot, ".crdd", "tests");
@@ -373,7 +491,7 @@ test("Repository単体とCROSは同じSchemaを別Ownerとして耐久保存す�
     const repositoryAdapter = createRepositoryAiProfileCatalogStore(repository);
     assert.equal(repositoryAdapter.status, "ready");
     assert.ok(repositoryAdapter.store);
-    assert.equal(repositoryAdapter.store.snapshot().revision, 0);
+    assert.equal(repositoryAdapter.store.snapshot().value?.revision, 0);
     const repositoryAdoption = repositoryAdapter.store.adopt({
       expectedRevision: 0,
       candidate: repositoryCatalog,
@@ -387,7 +505,7 @@ test("Repository単体とCROSは同じSchemaを別Ownerとして耐久保存す�
       application: "cros" as const,
       localAppData: crosRoot,
     });
-    const crosAdapter = createCrosAiProfileCatalogStore(crosInput);
+    const crosAdapter = createHostAiProfileCatalogStore(crosInput);
     assert.equal(crosAdapter.status, "ready");
     assert.ok(crosAdapter.store);
     const crosAdoption = crosAdapter.store.adopt({
@@ -398,16 +516,17 @@ test("Repository単体とCROSは同じSchemaを別Ownerとして耐久保存す�
 
     const reopenedRepository =
       createRepositoryAiProfileCatalogStore(repository);
-    const reopenedCros = createCrosAiProfileCatalogStore(crosInput);
-    assert.equal(reopenedRepository.store?.snapshot().revision, 1);
+    const reopenedCros = createHostAiProfileCatalogStore(crosInput);
+    assert.equal(reopenedRepository.store?.snapshot().value?.revision, 1);
     assert.equal(
-      reopenedRepository.store?.snapshot().catalog.profiles[0]
+      reopenedRepository.store?.snapshot().value?.catalog.profiles[0]
         ?.compatibilityReason,
       "repository-owner",
     );
-    assert.equal(reopenedCros.store?.snapshot().revision, 1);
+    assert.equal(reopenedCros.store?.snapshot().value?.revision, 1);
     assert.equal(
-      reopenedCros.store?.snapshot().catalog.profiles[0]?.compatibilityReason,
+      reopenedCros.store?.snapshot().value?.catalog.profiles[0]
+        ?.compatibilityReason,
       "cros-owner",
     );
 
@@ -419,7 +538,7 @@ test("Repository単体とCROSは同じSchemaを別Ownerとして耐久保存す�
     if (conflict.status === "rejected")
       assert.equal(conflict.reason, "revision_conflict");
     assert.equal(
-      repositoryAdapter.store.snapshot().catalog.profiles[0]
+      repositoryAdapter.store.snapshot().value?.catalog.profiles[0]
         ?.compatibilityReason,
       "repository-owner",
     );
@@ -438,7 +557,7 @@ test("Repository単体とCROSは同じSchemaを別Ownerとして耐久保存す�
  * @observation 拒否理由と現在Revisionを観測する。
  * @oracle catalog_invalidかつRevision 0のままである。
  * @cleanup Repository-local試験Root全体を削除する。
- * @boundary RCM-IT-005=Direct Boundary: ai-runtime Test Source→対象契約
+ * @boundary RCM-IT-005=Direct Boundary: AI Adapter Test Source→対象契約
  */
 test("不正Catalogは耐久Snapshotを作成する前に拒否する", async () => {
   const testsRoot = path.join(repositoryRoot, ".crdd", "tests");
@@ -451,12 +570,12 @@ test("不正Catalogは耐久Snapshotを作成する前に拒否する", async ()
     assert.ok(adapter.store);
     const result = adapter.store.adopt({
       expectedRevision: 0,
-      candidate: { ...DEFAULT_AI_PROFILE_CATALOG, secret: "not-allowed" },
+      candidate: { ...defaultAiProfileCatalog, secret: "not-allowed" },
     });
     assert.equal(result.status, "rejected");
     if (result.status === "rejected")
       assert.equal(result.reason, "catalog_invalid");
-    assert.equal(adapter.store.snapshot().revision, 0);
+    assert.equal(adapter.store.snapshot().value?.revision, 0);
   } finally {
     await rm(fixture, { recursive: true, force: true });
   }
@@ -478,12 +597,12 @@ test("不正Catalogは耐久Snapshotを作成する前に拒否する", async ()
  * @effect N/A: 新しいPlain Dataを構築するだけである。
  * @failure N/A: 既定Catalogを固定入力とする。
  * @invariant 秘密値と実行Pathを追加しない。
- * @boundary RCM-IT-005=Direct Boundary: ai-runtime Test Source→対象契約
+ * @boundary RCM-IT-005=Direct Boundary: AI Adapter Test Source→対象契約
  */
 function withCompatibilityReason(reason: string): unknown {
   return {
-    ...DEFAULT_AI_PROFILE_CATALOG,
-    profiles: DEFAULT_AI_PROFILE_CATALOG.profiles.map((profile, index) =>
+    ...defaultAiProfileCatalog,
+    profiles: defaultAiProfileCatalog.profiles.map((profile, index) =>
       index === 0 ? { ...profile, compatibilityReason: reason } : profile,
     ),
   };

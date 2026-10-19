@@ -8,14 +8,14 @@
  * @scope coordinator、contract、node_process
  * @boundary Catalog IdentityとProvider CLI計画の局所境界。
  */
+import { planProviderExecution } from "../../../ai-adapter/src/index.ts";
 import { describeWorkbenchAiAdviceResultSchema } from "../../src/workbench-ai/advice-result.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
 
 import { describeCodexAdviceDistributionIdentity } from "../../../ai-adapter/src/index.ts";
 import { codexAdviceProviderInitRequired } from "../../../docker-isolation/src/index.ts";
-import { describeCodexExecutionPlanContract } from "../../../ai-adapter/src/index.ts";
-import { planWorkbenchAiAdviceProviderCommand } from "../../../ai-adapter/src/index.ts";
+import { describeProviderExecution } from "../../../ai-adapter/src/index.ts";
 
 /**
  * Codex助言をToolなし・Repository非共有の標準入力計画へ固定するを検証する。
@@ -30,14 +30,17 @@ import { planWorkbenchAiAdviceProviderCommand } from "../../../ai-adapter/src/in
  * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Codex助言をToolなし・Repository非共有の標準入力計画へ固定する", () => {
-  const plan = planWorkbenchAiAdviceProviderCommand(
-    {
+  const plan =
+    planProviderExecution({
       provider: "codex",
-      exactModelId: "gpt-6.1-sol",
-      reasoningEffort: "medium",
-    },
-    describeWorkbenchAiAdviceResultSchema(),
-  );
+      purpose: "advice",
+      input: {
+        provider: "codex",
+        exactModelId: "gpt-6.1-sol",
+        reasoningEffort: "medium",
+      },
+      resultSchema: describeWorkbenchAiAdviceResultSchema(),
+    }).plan ?? assert.fail("provider_execution_plan_not_ready");
 
   assert.equal(plan.provider, "codex");
   assert.equal(plan.exactModelId, "gpt-6.1-sol");
@@ -48,7 +51,7 @@ test("Codex助言をToolなし・Repository非共有の標準入力計画へ固�
     "1748767b230ebfc3d4ab7e4e254920d0c0ad9691fd8c11f190e7d44511a4a92e",
   );
   assert.equal("startupPatchSha256" in distribution, false);
-  const normal = describeCodexExecutionPlanContract().distributionIdentity;
+  const normal = describeProviderExecution("codex").distributionIdentity;
   assert.equal(plan.command, distribution.executablePath);
   assert.equal(plan.fixedImageDigest, distribution.fixedImageDigest);
   assert.notEqual(plan.command, normal.executablePath);
@@ -125,14 +128,17 @@ test("Codex助言をToolなし・Repository非共有の標準入力計画へ固�
  * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Claude助言をSchema付き・Toolなしの標準入力計画へ固定する", () => {
-  const plan = planWorkbenchAiAdviceProviderCommand(
-    {
+  const plan =
+    planProviderExecution({
       provider: "claude",
-      exactModelId: "opus",
-      reasoningEffort: "high",
-    },
-    describeWorkbenchAiAdviceResultSchema(),
-  );
+      purpose: "advice",
+      input: {
+        provider: "claude",
+        exactModelId: "opus",
+        reasoningEffort: "high",
+      },
+      resultSchema: describeWorkbenchAiAdviceResultSchema(),
+    }).plan ?? assert.fail("provider_execution_plan_not_ready");
 
   assert.equal(plan.provider, "claude");
   assert.equal(plan.exactModelId, "opus");
@@ -153,10 +159,17 @@ test("Claude助言をSchema付き・Toolなしの標準入力計画へ固定す�
     describeWorkbenchAiAdviceResultSchema(),
   );
   const callerSchema = Object.freeze({ type: "string", maxLength: 17 });
-  const callerPlan = planWorkbenchAiAdviceProviderCommand(
-    { provider: "claude", exactModelId: "opus", reasoningEffort: "high" },
-    callerSchema,
-  );
+  const callerPlan =
+    planProviderExecution({
+      provider: "claude",
+      purpose: "advice",
+      input: {
+        provider: "claude",
+        exactModelId: "opus",
+        reasoningEffort: "high",
+      },
+      resultSchema: callerSchema,
+    }).plan ?? assert.fail("provider_execution_plan_not_ready");
   assert.deepEqual(
     JSON.parse(
       callerPlan.argv[callerPlan.argv.indexOf("--json-schema") + 1] ?? "null",
@@ -187,22 +200,26 @@ test("Claude助言をSchema付き・Toolなしの標準入力計画へ固定す�
  */
 test("ProviderコマンドにPrompt本文やWorkspace Pathを埋め込まない", () => {
   for (const plan of [
-    planWorkbenchAiAdviceProviderCommand(
-      {
+    planProviderExecution({
+      provider: "codex",
+      purpose: "advice",
+      input: {
         provider: "codex",
         exactModelId: "gpt-5.6-sol",
         reasoningEffort: "low",
       },
-      describeWorkbenchAiAdviceResultSchema(),
-    ),
-    planWorkbenchAiAdviceProviderCommand(
-      {
+      resultSchema: describeWorkbenchAiAdviceResultSchema(),
+    }).plan ?? assert.fail("provider_execution_plan_not_ready"),
+    planProviderExecution({
+      provider: "claude",
+      purpose: "advice",
+      input: {
         provider: "claude",
         exactModelId: "opus",
         reasoningEffort: "low",
       },
-      describeWorkbenchAiAdviceResultSchema(),
-    ),
+      resultSchema: describeWorkbenchAiAdviceResultSchema(),
+    }).plan ?? assert.fail("provider_execution_plan_not_ready"),
   ]) {
     const commandLine = [plan.command, ...plan.argv].join(" ");
     assert.doesNotMatch(commandLine, /providerPrompt|taskHash|projectionHash/u);

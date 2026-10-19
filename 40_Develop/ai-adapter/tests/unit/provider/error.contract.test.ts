@@ -9,7 +9,7 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-import { classifyProviderNonzeroExit } from "../../../src/provider/error.ts";
+import { convertProviderError } from "../../../src/provider/error.ts";
 
 /**
  * 正式エラーイベントだけを既存理由へ分類する。
@@ -36,14 +36,14 @@ test("Codex非0終了は有界な構造化エラーだけを分類する", () =>
     `${JSON.stringify({ type: "thread.started", thread_id: "synthetic" })}\n${failed}\n`,
   ])
     assert.equal(
-      classifyProviderNonzeroExit("codex", { stdout, stderr: "" }),
+      convertProviderError("codex", { stdout, stderr: "" }).reason,
       "provider_invocation_rejected",
     );
   assert.equal(
-    classifyProviderNonzeroExit("codex", {
+    convertProviderError("codex", {
       stdout: failed,
       stderr: "authentication failed",
-    }),
+    }).reason,
     "provider_authentication_expired",
   );
   for (const stdout of [
@@ -65,23 +65,34 @@ test("Codex非0終了は有界な構造化エラーだけを分類する", () =>
     `${error}\0`,
   ])
     assert.equal(
-      classifyProviderNonzeroExit("codex", { stdout, stderr: "" }),
+      convertProviderError("codex", { stdout, stderr: "" }).reason,
       "provider_process_exit_nonzero",
     );
   for (const stderr of ["\0", "x".repeat(8193)])
     assert.equal(
-      classifyProviderNonzeroExit("codex", { stdout: error, stderr }),
+      convertProviderError("codex", { stdout: error, stderr }).reason,
       "provider_process_exit_nonzero",
     );
   assert.equal(
-    classifyProviderNonzeroExit("claude", { stdout: error, stderr: "" }),
+    convertProviderError("claude", { stdout: error, stderr: "" }).reason,
     "provider_process_exit_nonzero",
   );
   assert.equal(
-    classifyProviderNonzeroExit("claude", {
+    convertProviderError("claude", {
       stdout: JSON.stringify({ type: "result", subtype: "error_max_turns" }),
       stderr: "",
-    }),
+    }).reason,
     "provider_turn_limit_exceeded",
   );
+  for (const provider of ["codex", "claude"] as const) {
+    const result = convertProviderError(provider, {
+      stdout: "synthetic-secret",
+      stderr: "authentication failed synthetic-secret",
+    });
+    assert.deepEqual(result, {
+      provider,
+      reason: "provider_authentication_expired",
+    });
+    assert.equal(Object.isFrozen(result), true);
+  }
 });

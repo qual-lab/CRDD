@@ -8,6 +8,7 @@
  * @scope 実Adapter・本番binderと実Host Owner失効。Docker開始は記録代役とし実Dockerは別試験で確認する。
  * @boundary Adapter→Coordinator投影→Docker Isolation Root API、および実Host世代・Kernel排他。
  */
+import { planProviderExecution } from "../../../ai-adapter/src/index.ts";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
@@ -35,7 +36,7 @@ import {
   parseHostRecoveryToken,
   loadHostRecoveryRecordByToken,
 } from "../../src/host-execution/recovery-record.ts";
-import { planWorkbenchAiAdviceProviderCommand } from "../../../ai-adapter/src/index.ts";
+
 import {
   planDockerIsolationCommands,
   startDockerCommandSessionCandidate,
@@ -184,14 +185,21 @@ function createPlanFixture(
         promptTransport: "provider_stdin_only" as const,
       }),
     consumeAdvicePacket: () => {
-      const providerCommand = planWorkbenchAiAdviceProviderCommand(
-        {
-          provider,
-          exactModelId: model,
-          reasoningEffort: "low",
-        },
-        describeWorkbenchAiAdviceResultSchema(),
-      );
+      const providerCommand =
+        planProviderExecution({
+          provider: {
+            provider,
+            exactModelId: model,
+            reasoningEffort: "low",
+          }.provider,
+          purpose: "advice",
+          input: {
+            provider,
+            exactModelId: model,
+            reasoningEffort: "low",
+          },
+          resultSchema: describeWorkbenchAiAdviceResultSchema(),
+        }).plan ?? assert.fail("provider_execution_plan_not_ready");
       return Object.freeze({
         contract: "crdd-coordinator/workbench-ai-advice-runtime-packet",
         contractRevision: 1,

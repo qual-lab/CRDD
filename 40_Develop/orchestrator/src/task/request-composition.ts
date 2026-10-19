@@ -151,8 +151,9 @@ export function createRepositoryTaskRequests(
     observeRevision: () =>
       gitRepositoryRevisionAdapter(root)?.revisionIdentity ?? null,
     resolveProfile: (id, mode) => {
-      const snapshot = profiles.snapshot();
-      const profile = resolveAiProfileById(snapshot.catalog, id);
+      const snapshot = profiles.snapshot().value;
+      if (!snapshot) return null;
+      const profile = resolveAiProfileById(snapshot.catalog, id).value;
       return profile?.selectionRoles.includes(
         mode === "read_only_advice" ? "coordinator" : "executor",
       )
@@ -166,8 +167,10 @@ export function createRepositoryTaskRequests(
       started,
       operationCreated,
     ): Promise<SingleTaskOutcome> => {
-      const snapshot = profiles.snapshot();
-      const profile = resolveAiProfileById(snapshot.catalog, command.profileId);
+      const snapshot = profiles.snapshot().value;
+      const profile = snapshot
+        ? resolveAiProfileById(snapshot.catalog, command.profileId).value
+        : null;
       const empty = (reason: string): SingleTaskOutcome => ({
         mode: command.mode,
         status: "blocked",
@@ -179,6 +182,7 @@ export function createRepositoryTaskRequests(
       });
       if (
         !authorize() ||
+        !snapshot ||
         snapshot.revision !== execution.record.catalogRevision ||
         !profile ||
         resolveVerifiedRepositoryRoot(rootCapability) !== root
@@ -213,7 +217,15 @@ export function createRepositoryTaskRequests(
         );
         const execute = createRepositoryReadOnlyAdviceExecutor(
           rootCapability,
-          { ...profiles, snapshot: () => snapshot },
+          {
+            ...profiles,
+            snapshot: () =>
+              Object.freeze({
+                status: "read" as const,
+                value: snapshot,
+                error: null,
+              }),
+          },
           dispatch,
         );
         const result = await execute(

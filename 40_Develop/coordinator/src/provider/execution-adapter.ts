@@ -4,7 +4,7 @@
  * @responsibility 独立Store、具体計画、公開結果と既存準備Lifecycleの組立てを所有する。
  * @trace ARCH-000015
  */
-import { planClaudeTaskTurnBudget } from "../../../ai-adapter/src/index.ts";
+import { evaluateProviderTaskScope } from "../../../ai-adapter/src/index.ts";
 import { buildProviderDockerExecutionPlan } from "./execution-plan.ts";
 import {
   createProviderDockerRuntimeState,
@@ -96,7 +96,8 @@ export function createProviderDockerRuntimeAdapterCandidate<
                 taskRole: "executor" | "reviewer";
                 taskWorkload?: unknown;
               }) => {
-                const budget = planClaudeTaskTurnBudget(
+                const budget = evaluateProviderTaskScope(
+                  "claude",
                   packet.taskRole,
                   packet.taskWorkload,
                 );

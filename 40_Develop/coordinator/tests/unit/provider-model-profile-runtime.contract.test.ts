@@ -18,7 +18,7 @@ import {
   resolveRuntimeOwnedProviderModelProfile,
   resolveRuntimeOwnedProviderModelProfileFromCatalog,
 } from "../../../ai-adapter/src/index.ts";
-import { DEFAULT_AI_PROFILE_CATALOG } from "../../../ai-adapter/src/index.ts";
+import { defaultAiProfileCatalog } from "../../../ai-adapter/src/index.ts";
 
 /**
  * createRequestのTest準備責務を実行する。
@@ -57,28 +57,31 @@ function createRequest(overrides: Record<string, unknown> = {}) {
  * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Codex SolとClaude Opusのpreferred／upper profileを固定解決する", () => {
-  assert.deepEqual(resolveRuntimeOwnedProviderModelProfile(createRequest()), {
-    provider: "codex",
-    profileId: "PROFILE-100003",
-    exactModelId: "gpt-5.5",
-    family: "sol",
-    selectionRole: "executor",
-    modelTier: "preferred",
-    speedMode: "normal",
-    billingMode: "subscription_oauth",
-    compatibilityReason:
-      "gpt_5_6_code_mode_only_host_unavailable_in_fixed_linux_runtime",
-  });
+  assert.deepEqual(
+    resolveRuntimeOwnedProviderModelProfile(createRequest()).value,
+    {
+      provider: "codex",
+      profileId: "PROFILE-100003",
+      exactModelId: "gpt-5.5",
+      family: "sol",
+      selectionRole: "executor",
+      modelTier: "preferred",
+      speedMode: "normal",
+      billingMode: "subscription_oauth",
+      compatibilityReason:
+        "gpt_5_6_code_mode_only_host_unavailable_in_fixed_linux_runtime",
+    },
+  );
   assert.equal(
     resolveRuntimeOwnedProviderModelProfile(
       createRequest({ modelTier: "upper_allowed" }),
-    )?.profileId,
+    ).value?.profileId,
     "PROFILE-100004",
   );
   assert.deepEqual(
     resolveRuntimeOwnedProviderModelProfile(
       createRequest({ provider: "claude", family: "opus" }),
-    ),
+    ).value,
     {
       provider: "claude",
       profileId: "PROFILE-200001",
@@ -98,7 +101,7 @@ test("Codex SolとClaude Opusのpreferred／upper profileを固定解決する",
         family: "opus",
         modelTier: "upper_allowed",
       }),
-    )?.profileId,
+    ).value?.profileId,
     "PROFILE-200002",
   );
 });
@@ -116,7 +119,7 @@ test("Codex SolとClaude Opusのpreferred／upper profileを固定解決する",
  * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
 test("外部Catalogの追加Familyを固定列挙なしで解決する", () => {
-  const candidate = structuredClone(DEFAULT_AI_PROFILE_CATALOG) as unknown as {
+  const candidate = structuredClone(defaultAiProfileCatalog) as unknown as {
     profiles: Record<string, unknown>[];
   } & Record<string, unknown>;
   candidate.profiles.push({
@@ -135,7 +138,7 @@ test("外部Catalogの追加Familyを固定列挙なしで解決する", () => {
     resolveRuntimeOwnedProviderModelProfileFromCatalog(
       candidate,
       createRequest({ family: "astra" }),
-    ),
+    ).value,
     {
       provider: "codex",
       profileId: "PROFILE-300001",
@@ -152,7 +155,7 @@ test("外部Catalogの追加Familyを固定列挙なしで解決する", () => {
     resolveRuntimeOwnedProviderModelProfileFromCatalog(
       candidate,
       createRequest({ profileId: "PROFILE-300001" }),
-    )?.profileId,
+    ).value?.profileId,
     "PROFILE-300001",
   );
   assert.equal(
@@ -162,7 +165,7 @@ test("外部Catalogの追加Familyを固定列挙なしで解決する", () => {
         profileId: "PROFILE-300001",
         provider: "claude",
       }),
-    ),
+    ).value,
     null,
   );
   assert.equal(
@@ -172,7 +175,7 @@ test("外部Catalogの追加Familyを固定列挙なしで解決する", () => {
         profileId: "PROFILE-300001",
         role: "independent_reviewer",
       }),
-    ),
+    ).value,
     null,
   );
   assert.equal(
@@ -182,18 +185,19 @@ test("外部Catalogの追加Familyを固定列挙なしで解決する", () => {
         profileId: "PROFILE-300001",
         role: "reviewer",
       }),
-    ),
+    ).value,
     null,
   );
   assert.equal(
     resolveRuntimeOwnedProviderModelProfileFromCatalog(
       candidate,
       createRequest({ profileId: "PROFILE-999999" }),
-    ),
+    ).value,
     null,
   );
   assert.equal(
-    resolveRuntimeOwnedProviderModelProfile(createRequest({ family: "astra" })),
+    resolveRuntimeOwnedProviderModelProfile(createRequest({ family: "astra" }))
+      .value,
     null,
   );
 });
@@ -218,7 +222,7 @@ test("family差、fast、API課金、未知tierと余分keyを解決しない", 
     createRequest({ modelTier: "maximum" }),
     createRequest({ fallbackModel: "gpt-5.6-terra" }),
   ]) {
-    assert.equal(resolveRuntimeOwnedProviderModelProfile(request), null);
+    assert.equal(resolveRuntimeOwnedProviderModelProfile(request).value, null);
   }
 });
 
@@ -244,10 +248,11 @@ test("accessorとProxyを実行せずProfile解決をfail closedにする", () =
       return "sol";
     },
   });
-  assert.equal(resolveRuntimeOwnedProviderModelProfile(accessor), null);
+  assert.equal(resolveRuntimeOwnedProviderModelProfile(accessor).value, null);
   assert.equal(getterExecuted, false);
   assert.equal(
-    resolveRuntimeOwnedProviderModelProfile(new Proxy(createRequest(), {})),
+    resolveRuntimeOwnedProviderModelProfile(new Proxy(createRequest(), {}))
+      .value,
     null,
   );
 });
@@ -295,12 +300,12 @@ test("公開契約は通常速度、Subscription、同family内effort切替だ�
  * @boundary N/A: 実Taskを開始せず、公開Transportと本番Operation Authorityは確認対象外である。
  */
 test("実Catalogから選択許可までProfile適合性を保持する", () => {
-  const catalogBefore = JSON.stringify(DEFAULT_AI_PROFILE_CATALOG);
+  const catalogBefore = JSON.stringify(defaultAiProfileCatalog);
   for (const frontProvider of ["codex", "claude"] as const) {
     for (const provider of ["codex", "claude"] as const) {
       const profileId =
         provider === "codex" ? "PROFILE-100003" : "PROFILE-200001";
-      const profile = DEFAULT_AI_PROFILE_CATALOG.profiles.find(
+      const profile = defaultAiProfileCatalog.profiles.find(
         (candidate) => candidate.profileId === profileId,
       );
       assert.ok(profile);
@@ -336,7 +341,8 @@ test("実Catalogから選択許可までProfile適合性を保持する", () => 
             { provider: "codex", status: "eligible", reason: "ready" },
             { provider: "claude", status: "eligible", reason: "ready" },
           ],
-          resolveModelProfile: resolveRuntimeOwnedProviderModelProfile,
+          resolveModelProfile: (request) =>
+            resolveRuntimeOwnedProviderModelProfile(request).value,
           wallNow: () => 1_000,
           monotonicNow: () => 2_000,
           randomBytes: (size) => Buffer.alloc(size, 1),
@@ -406,5 +412,5 @@ test("実Catalogから選択許可までProfile適合性を保持する", () => 
       }
     }
   }
-  assert.equal(JSON.stringify(DEFAULT_AI_PROFILE_CATALOG), catalogBefore);
+  assert.equal(JSON.stringify(defaultAiProfileCatalog), catalogBefore);
 });

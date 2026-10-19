@@ -8,9 +8,9 @@ import { createHash } from "node:crypto";
 
 import {
   CLAUDE_RESULT_ACCEPTANCE_MAXIMUM_TURNS,
-  planClaudeTaskTurnBudget,
+  evaluateProviderTaskScope,
 } from "../../../ai-adapter/src/index.ts";
-import { extractProviderTaskEnvelope } from "../../../ai-adapter/src/index.ts";
+import { parseProviderResult } from "../../../ai-adapter/src/index.ts";
 
 export const PROVIDER_TASK_STRUCTURED_RESULT_CONTRACT =
   "crdd-coordinator/provider-task-structured-result";
@@ -418,7 +418,7 @@ export function normalizeProviderTaskStructuredResult(
   }
   const turnBudget =
     provider === "claude"
-      ? planClaudeTaskTurnBudget(taskRole, taskWorkload)
+      ? evaluateProviderTaskScope("claude", taskRole, taskWorkload)
       : null;
   if (provider === "claude" && turnBudget?.status !== "candidate") {
     return Object.freeze({
@@ -427,17 +427,20 @@ export function normalizeProviderTaskStructuredResult(
       normalizedResult: null,
     });
   }
-  const extracted = extractProviderTaskEnvelope(
+  const extracted = parseProviderResult({
     provider,
+    purpose: "task",
     taskRole,
-    turnBudget?.status === "candidate" ? turnBudget.hardMaximumTurns : 0,
+    resultAcceptanceMaximumTurns:
+      turnBudget?.status === "candidate" ? turnBudget.hardMaximumTurns : 0,
     raw,
-  );
-  if (extracted.reason !== null || extracted.value === null) {
+  });
+  if (extracted.status !== "confirmed" || extracted.value === null) {
     return Object.freeze({
       status: "blocked" as const,
       reason:
-        extracted.reason ?? ("provider_task_result_json_invalid" as const),
+        extracted.error?.reason ??
+        ("provider_task_result_json_invalid" as const),
       normalizedResult: null,
       rawOutputReported: false,
       untrustedProviderTextReported: false,

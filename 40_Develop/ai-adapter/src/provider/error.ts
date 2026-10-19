@@ -8,6 +8,43 @@
  * @security 生出力を公開結果や例外へ複製しない。
  */
 import { parseUnambiguousJsonDocument } from "./json.ts";
+import type { AiProvider } from "./types.ts";
+
+/**
+ * 非正常終了から判別する共通の失敗理由を表す。
+ * @responsibility 既存の理由値だけを列挙し、処置や再試行許可を表さない。
+ * @trace ARCH-000010
+ * @shape 閉じた文字列Union。
+ * @invariant 不明な原因を既知の原因へ補完しない。
+ * @boundary Provider出力と利用側の失敗理由。
+ * @security 生出力・秘密値を含めない。
+ * @compatibility 通信上の既存理由値を維持する。
+ */
+export type ProviderErrorReason =
+  | "provider_operation_budget_exceeded"
+  | "provider_turn_limit_exceeded"
+  | "provider_structured_output_retry_exhausted"
+  | "provider_subscription_quota_exhausted"
+  | "provider_authentication_expired"
+  | "provider_invocation_rejected"
+  | "provider_network_unavailable"
+  | "provider_service_unavailable"
+  | "provider_process_exit_nonzero";
+
+/**
+ * Providerの失敗を利用側へ返す共通エラー値を表す。
+ * @responsibility Provider識別と分類済み理由を保持する。
+ * @trace ARCH-000010
+ * @shape Providerと閉じた理由コードの読取り専用構造。
+ * @invariant エラー値は再試行・回収の許可ではない。
+ * @boundary AI Adapterの公開結果とCoordinatorの一次失敗。
+ * @security 生出力・Path・秘密値を返さない。
+ * @compatibility 理由値の意味と優先順位は変えない。
+ */
+export type ProviderError = Readonly<{
+  provider: AiProvider;
+  reason: ProviderErrorReason;
+}>;
 
 /**
  * Providerの非正常終了を生出力を返さず理由分類へ変換する。
@@ -15,7 +52,7 @@ import { parseUnambiguousJsonDocument } from "./json.ts";
  * @responsibility Provider固有の非正常終了出力を共通の失敗理由へ分類する。
  * @trace ARCH-000010
  * @input Providerと観測済みCLIの標準出力・標準エラー。
- * @returns 既知の失敗分類、または一般の非正常終了理由。
+ * @returns Providerと既知の失敗理由、または一般の非正常終了理由を持つ共通エラー。
  * @precondition Process終了・出力量・取消は呼出し側が先に評価する。
  * @postcondition Provider生出力と実行Authorityを返さない。
  * @effect N/A: 同期の入力分類だけを行う。
@@ -25,10 +62,10 @@ import { parseUnambiguousJsonDocument } from "./json.ts";
  * @security 秘密値、任意生出力、Process Capabilityを公開しない。
  * @concurrency N/A: 共有可変状態を持たない。
  */
-export function classifyProviderNonzeroExit(
-  provider: "codex" | "claude",
+export function convertProviderError(
+  provider: AiProvider,
   execution: Readonly<{ stdout: string; stderr: string }>,
-) {
+): ProviderError {
   if (provider === "claude") {
     const envelope = parseUnambiguousJsonDocument(execution.stdout);
     if (
@@ -39,22 +76,35 @@ export function classifyProviderNonzeroExit(
     ) {
       const subtype = (envelope as Record<string, unknown>).subtype;
       if (subtype === "error_max_budget_usd")
-        return "provider_operation_budget_exceeded";
-      if (subtype === "error_max_turns") return "provider_turn_limit_exceeded";
+        return Object.freeze({
+          provider,
+          reason: "provider_operation_budget_exceeded",
+        });
+      if (subtype === "error_max_turns")
+        return Object.freeze({
+          provider,
+          reason: "provider_turn_limit_exceeded",
+        });
       if (subtype === "error_max_structured_output_retries")
-        return "provider_structured_output_retry_exhausted";
+        return Object.freeze({
+          provider,
+          reason: "provider_structured_output_retry_exhausted",
+        });
     }
   }
   if (
     execution.stderr.includes("\0") ||
     Buffer.byteLength(execution.stderr, "utf8") > 8_192
   )
-    return "provider_process_exit_nonzero";
+    return Object.freeze({ provider, reason: "provider_process_exit_nonzero" });
   const stderrReason = classifyDiagnostic(execution.stderr);
   if (stderrReason !== "provider_process_exit_nonzero" || provider !== "codex")
-    return stderrReason;
+    return Object.freeze({ provider, reason: stderrReason });
   const messages = codexErrorMessages(execution.stdout);
-  return messages === null ? stderrReason : classifyDiagnostic(messages);
+  return Object.freeze({
+    provider,
+    reason: messages === null ? stderrReason : classifyDiagnostic(messages),
+  });
 }
 
 /**
@@ -135,7 +185,7 @@ function codexErrorMessages(raw: string): string | null {
  * @security 元の文面や資格情報を返さない。
  * @concurrency N/A: 文字列と正規表現の局所計算だけ。
  */
-function classifyDiagnostic(raw: string) {
+function classifyDiagnostic(raw: string): ProviderErrorReason {
   const diagnostic = raw.replaceAll("\r\n", "\n").trim().toLowerCase();
   if (
     /(?:usage|rate) limit|quota (?:exceeded|exhausted)|credit balance (?:is )?too low|hit your (?:current )?limit/u.test(

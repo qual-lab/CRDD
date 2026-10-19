@@ -15,7 +15,7 @@ import path from "node:path";
 import test from "node:test";
 
 import {
-  DEFAULT_AI_PROFILE_CATALOG,
+  defaultAiProfileCatalog,
   createRepositoryAiProfileCatalogStore,
 } from "../../../ai-adapter/src/index.ts";
 import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
@@ -67,7 +67,7 @@ test("空のRepository Catalogをrevision 0から助言Dispatchと初回採用�
     const adapter = createRepositoryAiProfileCatalogStore(fixture);
     assert.equal(adapter.status, "ready");
     assert.ok(adapter.store);
-    assert.equal(adapter.store.snapshot().revision, 0);
+    assert.equal(adapter.store.snapshot().value?.revision, 0);
     const observedPlans: WorkbenchAiAdviceExecutionPlan[] = [];
     const application = createRepositoryReadOnlyAdviceExecutor(
       verified.capability,
@@ -123,14 +123,14 @@ test("空のRepository Catalogをrevision 0から助言Dispatchと初回採用�
     assert.equal(observedPlan.profileId, "PROFILE-100001");
     assert.equal(
       observedPlan.exactModelId,
-      DEFAULT_AI_PROFILE_CATALOG.profiles.find(
+      defaultAiProfileCatalog.profiles.find(
         (profile) => profile.profileId === "PROFILE-100001",
       )?.exactModelId,
     );
 
     const adopted = adapter.store.adopt({
       expectedRevision: 0,
-      candidate: DEFAULT_AI_PROFILE_CATALOG,
+      candidate: defaultAiProfileCatalog,
     });
     assert.equal(adopted.status, "adopted");
     if (adopted.status === "adopted")
@@ -182,7 +182,7 @@ test("不連続なRepository Catalogをrevision 0へ補正せずEffect前に拒�
         contract: "crdd/ai-profile-catalog-snapshot",
         contractRevision: 1,
         revision: 2,
-        catalog: DEFAULT_AI_PROFILE_CATALOG,
+        catalog: defaultAiProfileCatalog,
       })}\n`,
       "utf8",
     );

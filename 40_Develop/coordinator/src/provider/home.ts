@@ -5,8 +5,7 @@
  * @trace ARCH-000010
  */
 import path from "node:path";
-import { describeCodexSubscriptionAuthenticationCli } from "../../../ai-adapter/src/index.ts";
-import { describeClaudeSubscriptionAuthenticationCli } from "../../../ai-adapter/src/index.ts";
+import { describeProviderAuthentication } from "../../../ai-adapter/src/index.ts";
 
 import { isSupportedWindowsAbsolutePathCandidate } from "../authority/root-path-lexical.ts";
 import { snapshotPlainRecord } from "../../../domain-model/src/index.ts";
@@ -29,8 +28,8 @@ export const PROVIDER_HOME_ROOT_SEGMENTS = Object.freeze([
 
 const PROVIDERS = Object.freeze(["codex", "claude"] as const);
 const providerDirectoryNames = Object.freeze({
-  codex: describeCodexSubscriptionAuthenticationCli().homeDirectoryName,
-  claude: describeClaudeSubscriptionAuthenticationCli().homeDirectoryName,
+  codex: describeProviderAuthentication("codex").homeDirectoryName,
+  claude: describeProviderAuthentication("claude").homeDirectoryName,
 });
 const INPUT_KEYS = new Set(["provider", "localAppDataRoot"]);
 

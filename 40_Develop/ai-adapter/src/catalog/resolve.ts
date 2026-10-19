@@ -1,426 +1,23 @@
 /**
- * AI Profile Catalogの検証、既定値、解決処理を提供する。
+ * 既定Catalogを初期化し、登録候補を一意に解決する。
  *
- * @responsibility 登録済みAdapterとProfileの閉じた関係、曖昧解決の拒否、利用可能性の分離を所有する。
+ * @responsibility 既定値を一回検証し、登録集合からのID・条件一致を解決する。
  * @trace ARCH-000010
+ * @trace ARCH-000015
  */
-import {
-  snapshotPlainRecord,
-  snapshotPlainArray,
-} from "../../../domain-model/src/index.ts";
+import type { AiProfileCatalog } from "./types.ts";
 import type {
-  AiAdapterDefinition,
-  AiModelTier,
-  AiProfileAvailability,
-  AiProfileAvailabilityObservation,
-  AiProfileCatalog,
-  AiProfileDefinition,
   AiProfileResolutionRequest,
-  AiProvider,
-  AiReasoningEffort,
-  AiSelectionRole,
   ResolvedAiProfile,
   ResolvedAiProfileIdentity,
-} from "./types.ts";
-
-import defaultCatalogData from "./default-ai-profile-catalog.json" with {
-  type: "json",
-};
-
-const IDENTIFIER = /^[a-z][a-z0-9._-]{1,63}$/u;
-const PROFILE_ID = /^PROFILE-[0-9]{6,}$/u;
-const MODEL_ID = /^[a-z0-9][a-z0-9._-]{0,127}$/u;
-const PROVIDERS = new Set<AiProvider>(["codex", "claude"]);
-const ROLES = new Set<AiSelectionRole>([
-  "coordinator",
-  "executor",
-  "independent_reviewer",
-  "result_integration",
-]);
-const TIERS = new Set<AiModelTier>(["preferred", "upper_allowed"]);
-const EFFORTS = new Set<AiReasoningEffort>([
-  "low",
-  "medium",
-  "high",
-  "xhigh",
-  "max",
-]);
-
-export const DEFAULT_AI_PROFILE_CATALOG: AiProfileCatalog = (() => {
-  const catalog = validateAiProfileCatalog(defaultCatalogData);
+} from "../profile/types.ts";
+import defaultCatalogData from "./default-catalog.json" with { type: "json" };
+import { validateAiProfileCatalog } from "./validation.ts";
+export const defaultAiProfileCatalog: AiProfileCatalog = (() => {
+  const catalog = validateAiProfileCatalog(defaultCatalogData).value;
   if (!catalog) throw new Error("ai_profile_default_catalog_invalid");
   return catalog;
 })();
-
-/**
- * 候補が配列でないRecordか判定する。
- *
- * @responsibility 未信頼値をProperty参照前にObject境界へ絞る。
- * @trace ARCH-000010
- * @input value: 未信頼値。
- * @returns 配列でない非null Objectならtrue。
- * @precondition valueの型を仮定しない。
- * @postcondition trueの場合だけRecordとして参照できる。
- * @effect N/A: 型判定だけを行う。
- * @failure N/A: 全値をBooleanへ分類する。
- * @invariant 配列をRecord候補へ含めない。
- * @boundary 未信頼値と設定検証の境界。
- * @security Getterを列挙せず、基本型だけを確認する。
- * @concurrency N/A: 共有状態を持たない同期処理である。
- */
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-/**
- * Recordが許可Propertyだけを持つか判定する。
- *
- * @responsibility 未知Propertyの黙示受理を防ぐ。
- * @trace ARCH-000010
- * @input value: 検査Record、expected: 許可Property集合。
- * @returns Property集合が完全一致すればtrue。
- * @precondition valueはRecordとして確認済みである。
- * @postcondition trueの場合は不足と余分Propertyがない。
- * @effect N/A: Property名を比較するだけである。
- * @failure N/A: 不一致をfalseで返す。
- * @invariant Property順序へ依存しない。
- * @boundary 設定Schemaと候補Objectの境界。
- * @security Secret等の未知Propertyを無視しない。
- * @concurrency N/A: 共有状態を持たない同期処理である。
- */
-function hasExactKeys(
-  value: Record<string, unknown>,
-  expected: readonly string[],
-) {
-  const keys = Object.keys(value).sort();
-  return (
-    keys.length === expected.length &&
-    keys.every((key, index) => key === [...expected].sort()[index])
-  );
-}
-
-/**
- * 重複を許さない文字列配列を検証する。
- *
- * @responsibility 配列の非空、要素型、値制約、一意性をまとめて確認する。
- * @trace ARCH-000010
- * @input value: 未信頼値、predicate: 要素値の許可判定。
- * @returns 全条件を満たす配列ならtrue。
- * @precondition predicateはEffectを発行しない。
- * @postcondition trueの場合は一件以上の一意な許可文字列だけを含む。
- * @effect N/A: 配列要素を検査するだけである。
- * @failure N/A: 不正候補をfalseで返す。
- * @invariant 同じ値の重複を設定上の別意味として扱わない。
- * @boundary 未信頼配列と設定値集合の境界。
- * @security 非文字列をcoerceしない。
- * @concurrency N/A: 共有状態を持たない同期処理である。
- */
-function parseStringArray(
-  value: unknown,
-  predicate: (item: string) => boolean,
-) {
-  return (
-    Array.isArray(value) &&
-    value.length > 0 &&
-    value.every((item) => typeof item === "string" && predicate(item)) &&
-    new Set(value).size === value.length
-  );
-}
-
-/**
- * Adapter候補を検証済み定義へ変換する。
- *
- * @responsibility Provider接続部の固定Identity、許可Model、推論強度、Authority Originを検証する。
- * @trace ARCH-000010
- * @input value: 未信頼Adapter候補。
- * @returns 検証済みAdapter。拒否時はnull。
- * @precondition valueを信頼済みObjectと仮定しない。
- * @postcondition 返却値はHTTPS Originと閉じたProvider値を持つ。
- * @effect N/A: Snapshot作成だけを行う。
- * @failure 不正候補をnullで拒否する。
- * @invariant 任意実行PathとCLI引数を受理しない。
- * @boundary 外部設定とAdapter定義の境界。
- * @security HTTPS Origin以外を拒否し、Credentialを持たない。
- * @concurrency N/A: 共有状態を持たない同期処理である。
- */
-function parseAdapter(candidate: unknown): AiAdapterDefinition | null {
-  const record = snapshotPlainRecord(
-    candidate,
-    new Set([
-      "adapterId",
-      "provider",
-      "offering",
-      "authorityOrigin",
-      "allowedModelIds",
-      "allowedReasoningEfforts",
-    ]),
-  );
-  if (!record) return null;
-  const models = snapshotPlainArray(
-    record.allowedModelIds,
-    Number.MAX_SAFE_INTEGER,
-  );
-  const efforts = snapshotPlainArray(
-    record.allowedReasoningEfforts,
-    EFFORTS.size,
-  );
-  if (models.status !== "ok" || efforts.status !== "ok") return null;
-  const value: Record<string, unknown> = {
-    ...record,
-    allowedModelIds: models.value,
-    allowedReasoningEfforts: efforts.value,
-  };
-  if (
-    !isRecord(value) ||
-    !hasExactKeys(value, [
-      "adapterId",
-      "provider",
-      "offering",
-      "authorityOrigin",
-      "allowedModelIds",
-      "allowedReasoningEfforts",
-    ])
-  )
-    return null;
-  if (
-    typeof value.adapterId !== "string" ||
-    !IDENTIFIER.test(value.adapterId) ||
-    typeof value.provider !== "string" ||
-    !PROVIDERS.has(value.provider as AiProvider) ||
-    (value.offering !== "chatgpt_subscription_oauth" &&
-      value.offering !== "claude_max") ||
-    typeof value.authorityOrigin !== "string" ||
-    !parseStringArray(value.allowedModelIds, (item) => MODEL_ID.test(item)) ||
-    !parseStringArray(value.allowedReasoningEfforts, (item) =>
-      EFFORTS.has(item as AiReasoningEffort),
-    )
-  )
-    return null;
-  let origin: URL;
-  try {
-    origin = new URL(value.authorityOrigin);
-  } catch {
-    return null;
-  }
-  if (origin.protocol !== "https:" || origin.origin !== value.authorityOrigin)
-    return null;
-  return Object.freeze({
-    adapterId: value.adapterId,
-    provider: value.provider as AiProvider,
-    offering: value.offering,
-    authorityOrigin: value.authorityOrigin,
-    allowedModelIds: Object.freeze([...(value.allowedModelIds as string[])]),
-    allowedReasoningEfforts: Object.freeze([
-      ...(value.allowedReasoningEfforts as AiReasoningEffort[]),
-    ]),
-  });
-}
-
-/**
- * Profile候補を検証済み定義へ変換する。
- *
- * @responsibility 安定ID、Adapter参照、仕事Role、Tier、Model選択内容を検証する。
- * @trace ARCH-000010
- * @input value: 未信頼Profile候補。
- * @returns 検証済みProfile。拒否時はnull。
- * @precondition valueを信頼済みObjectと仮定しない。
- * @postcondition 返却値は閉じたRole、Tier、推論強度だけを持つ。
- * @effect N/A: Snapshot作成だけを行う。
- * @failure 不正候補をnullで拒否する。
- * @invariant Profile設定だけでAdapterを新設しない。
- * @boundary 外部設定とProfile定義の境界。
- * @security Credential、Path、任意引数を受理しない。
- * @concurrency N/A: 共有状態を持たない同期処理である。
- */
-export function validateAiProfileDefinition(
-  candidate: unknown,
-): AiProfileDefinition | null {
-  const record = snapshotPlainRecord(
-    candidate,
-    new Set([
-      "profileId",
-      "adapterId",
-      "family",
-      "exactModelId",
-      "selectionRoles",
-      "modelTiers",
-      "speedMode",
-      "billingMode",
-      "defaultReasoningEffort",
-      "compatibilityReason",
-    ]),
-  );
-  if (!record) return null;
-  const roles = snapshotPlainArray(record.selectionRoles, ROLES.size);
-  const tiers = snapshotPlainArray(record.modelTiers, TIERS.size);
-  if (roles.status !== "ok" || tiers.status !== "ok") return null;
-  const value: Record<string, unknown> = {
-    ...record,
-    selectionRoles: roles.value,
-    modelTiers: tiers.value,
-  };
-  if (
-    !isRecord(value) ||
-    !hasExactKeys(value, [
-      "profileId",
-      "adapterId",
-      "family",
-      "exactModelId",
-      "selectionRoles",
-      "modelTiers",
-      "speedMode",
-      "billingMode",
-      "defaultReasoningEffort",
-      "compatibilityReason",
-    ])
-  )
-    return null;
-  if (
-    typeof value.profileId !== "string" ||
-    !PROFILE_ID.test(value.profileId) ||
-    typeof value.adapterId !== "string" ||
-    !IDENTIFIER.test(value.adapterId) ||
-    typeof value.family !== "string" ||
-    !IDENTIFIER.test(value.family) ||
-    typeof value.exactModelId !== "string" ||
-    !MODEL_ID.test(value.exactModelId) ||
-    !parseStringArray(value.selectionRoles, (item) =>
-      ROLES.has(item as AiSelectionRole),
-    ) ||
-    !parseStringArray(value.modelTiers, (item) =>
-      TIERS.has(item as AiModelTier),
-    ) ||
-    value.speedMode !== "normal" ||
-    value.billingMode !== "subscription_oauth" ||
-    typeof value.defaultReasoningEffort !== "string" ||
-    !EFFORTS.has(value.defaultReasoningEffort as AiReasoningEffort) ||
-    (value.compatibilityReason !== null &&
-      typeof value.compatibilityReason !== "string")
-  )
-    return null;
-  return Object.freeze({
-    profileId: value.profileId,
-    adapterId: value.adapterId,
-    family: value.family,
-    exactModelId: value.exactModelId,
-    selectionRoles: Object.freeze([
-      ...(value.selectionRoles as AiSelectionRole[]),
-    ]),
-    modelTiers: Object.freeze([...(value.modelTiers as AiModelTier[])]),
-    speedMode: "normal",
-    billingMode: "subscription_oauth",
-    defaultReasoningEffort: value.defaultReasoningEffort as AiReasoningEffort,
-    compatibilityReason: value.compatibilityReason as string | null,
-  });
-}
-
-/**
- * 未信頼の設定候補を閉じたAI Profile Catalogへ変換する。
- *
- * @responsibility 未知Property、重複Identity、未登録Adapter、許可外ModelをEffect前に拒否する。
- * @trace ARCH-000010
- * @input candidate: 未信頼の設定候補。
- * @returns 検証済みCatalog。拒否時はnull。
- * @precondition candidateを信頼済みObjectと仮定しない。
- * @postcondition 返却CatalogのProfileは一意な登録済みAdapterと許可Modelへ結合する。
- * @effect N/A: 入力の検証とSnapshot作成だけを行う。
- * @failure 不正または曖昧な候補をnullとして拒否する。
- * @invariant Secret、実行Path、任意引数を受理しない。
- * @boundary JSON等から受け取った未信頼設定とAI Runtimeの境界。
- * @security 未知Propertyを黙って無視せず、Authorityを設定値から生成しない。
- * @concurrency N/A: 共有状態を持たない同期検証である。
- */
-export function validateAiProfileCatalog(
-  candidate: unknown,
-): AiProfileCatalog | null {
-  const record = snapshotPlainRecord(
-    candidate,
-    new Set(["contract", "contractRevision", "adapters", "profiles"]),
-  );
-  if (!record) return null;
-  const adapterValues = snapshotPlainArray(
-    record.adapters,
-    Number.MAX_SAFE_INTEGER,
-  );
-  const profileValues = snapshotPlainArray(
-    record.profiles,
-    Number.MAX_SAFE_INTEGER,
-  );
-  if (adapterValues.status !== "ok" || profileValues.status !== "ok")
-    return null;
-  candidate = {
-    ...record,
-    adapters: [...adapterValues.value],
-    profiles: [...profileValues.value],
-  };
-  if (
-    !isRecord(candidate) ||
-    !hasExactKeys(candidate, [
-      "contract",
-      "contractRevision",
-      "adapters",
-      "profiles",
-    ]) ||
-    candidate.contract !== "crdd/ai-profile-catalog" ||
-    candidate.contractRevision !== 1 ||
-    !Array.isArray(candidate.adapters) ||
-    !Array.isArray(candidate.profiles) ||
-    candidate.adapters.length === 0 ||
-    candidate.profiles.length === 0
-  )
-    return null;
-  const adapters = candidate.adapters.map(parseAdapter);
-  const profiles = candidate.profiles.map(validateAiProfileDefinition);
-  if (
-    adapters.some((item) => item === null) ||
-    profiles.some((item) => item === null)
-  )
-    return null;
-  const validAdapters = adapters as AiAdapterDefinition[];
-  const validProfiles = profiles as AiProfileDefinition[];
-  if (
-    new Set(validAdapters.map((item) => item.adapterId)).size !==
-      validAdapters.length ||
-    new Set(validProfiles.map((item) => item.profileId)).size !==
-      validProfiles.length
-  )
-    return null;
-  const adapterById = new Map(
-    validAdapters.map((item) => [item.adapterId, item]),
-  );
-  for (const profile of validProfiles) {
-    const adapter = adapterById.get(profile.adapterId);
-    if (
-      !adapter?.allowedModelIds.includes(profile.exactModelId) ||
-      !adapter.allowedReasoningEfforts.includes(profile.defaultReasoningEffort)
-    )
-      return null;
-  }
-  for (const provider of PROVIDERS) {
-    for (const role of ROLES) {
-      for (const tier of TIERS) {
-        const matches = validProfiles.filter((profile) => {
-          const adapter = adapterById.get(profile.adapterId);
-          return (
-            adapter?.provider === provider &&
-            profile.selectionRoles.includes(role) &&
-            profile.modelTiers.includes(tier)
-          );
-        });
-        const keys = matches.map(
-          (item) => `${item.family}:${item.speedMode}:${item.billingMode}`,
-        );
-        if (new Set(keys).size !== keys.length) return null;
-      }
-    }
-  }
-  return Object.freeze({
-    contract: "crdd/ai-profile-catalog",
-    contractRevision: 1,
-    adapters: Object.freeze(validAdapters),
-    profiles: Object.freeze(validProfiles),
-  });
-}
 
 /**
  * Profile要求をCatalogから一意に解決する。
@@ -428,11 +25,11 @@ export function validateAiProfileCatalog(
  * @responsibility Provider、Family、Role、Tierの完全一致だけを実行候補へ変換する。
  * @trace ARCH-000010
  * @input catalog: 検証済みCatalog、request: Profile解決要求。
- * @returns 一意なProfile。未登録または曖昧時はnull。
+ * @returns resolvedのProfile又は未登録・曖昧・不整合を示すblocked結果。
  * @precondition catalogはvalidateAiProfileCatalogで検証済みである。
  * @postcondition 返却値はAdapterのProvider・Offering・許可Modelを含む。
  * @effect N/A: Catalog検索だけを行う。
- * @failure 未登録または複数一致をnullとして拒否する。
+ * @failure 未登録・複数一致・参照不整合を固定理由付きblockedで区別する。
  * @invariant 利用可能性、認証、実行Authorityを解決結果へ推測しない。
  * @boundary AI Profile設定とCoordinator等の選択利用側の境界。
  * @security Profile一致だけでProvider Effectを許可しない。
@@ -441,7 +38,7 @@ export function validateAiProfileCatalog(
 export function resolveAiProfile(
   catalog: AiProfileCatalog,
   request: AiProfileResolutionRequest,
-): ResolvedAiProfile | null {
+): AiProfileResolutionResult<ResolvedAiProfile> {
   const adapterById = new Map(
     catalog.adapters.map((item) => [item.adapterId, item]),
   );
@@ -456,19 +53,39 @@ export function resolveAiProfile(
       profile.billingMode === request.billingMode
     );
   });
-  if (matches.length !== 1) return null;
+  if (matches.length !== 1)
+    return Object.freeze({
+      status: "blocked",
+      value: null,
+      error:
+        matches.length === 0 ? "ai_profile_not_found" : "ai_profile_ambiguous",
+    });
   const profile = matches[0];
-  if (!profile) return null;
+  if (!profile)
+    return Object.freeze({
+      status: "blocked",
+      value: null,
+      error: "ai_profile_reference_invalid",
+    });
   const adapter = adapterById.get(profile.adapterId);
-  if (!adapter) return null;
+  if (!adapter)
+    return Object.freeze({
+      status: "blocked",
+      value: null,
+      error: "ai_profile_reference_invalid",
+    });
   return Object.freeze({
-    ...profile,
-    provider: adapter.provider,
-    offering: adapter.offering,
-    authorityOrigin: adapter.authorityOrigin,
-    allowedReasoningEfforts: adapter.allowedReasoningEfforts,
-    selectionRole: request.role,
-    modelTier: request.modelTier,
+    status: "resolved",
+    error: null,
+    value: Object.freeze({
+      ...profile,
+      provider: adapter.provider,
+      offering: adapter.offering,
+      authorityOrigin: adapter.authorityOrigin,
+      allowedReasoningEfforts: adapter.allowedReasoningEfforts,
+      selectionRole: request.role,
+      modelTier: request.modelTier,
+    }),
   });
 }
 
@@ -479,11 +96,11 @@ export function resolveAiProfile(
  * @trace ARCH-000010
  * @trace ARCH-000015
  * @input catalog: 検証済みCatalog、profileId: 選択済みProfile ID。
- * @returns 一意なProfile Identity。未登録、重複またはAdapter不整合時はnull。
+ * @returns resolvedのProfile Identity又は未登録・曖昧・不整合を示すblocked結果。
  * @precondition catalogはvalidateAiProfileCatalogで検証済みである。
  * @postcondition 返却値はProfileと対応Adapterの実行設定を同じSnapshotから保持する。
  * @effect N/A: Catalog検索だけを行う。
- * @failure 解決不能を既定Profileへ置換せずnullを返す。
+ * @failure 解決不能を既定Profileへ置換せず固定理由付きblockedを返す。
  * @invariant Catalog外のModel、ReasoningまたはAuthority Originを補完しない。
  * @boundary AI Profile設定と選択済みProfile利用側の境界。
  * @security Profile解決だけで認証またはProvider実行Authorityを発行しない。
@@ -492,63 +109,66 @@ export function resolveAiProfile(
 export function resolveAiProfileById(
   catalog: AiProfileCatalog,
   profileId: string,
-): ResolvedAiProfileIdentity | null {
+): AiProfileResolutionResult<ResolvedAiProfileIdentity> {
   const matches = catalog.profiles.filter(
     (profile) => profile.profileId === profileId,
   );
-  if (matches.length !== 1) return null;
+  if (matches.length !== 1)
+    return Object.freeze({
+      status: "blocked",
+      value: null,
+      error:
+        matches.length === 0 ? "ai_profile_not_found" : "ai_profile_ambiguous",
+    });
   const profile = matches[0];
-  if (!profile) return null;
+  if (!profile)
+    return Object.freeze({
+      status: "blocked",
+      value: null,
+      error: "ai_profile_reference_invalid",
+    });
   const adapter = catalog.adapters.find(
     (candidate) => candidate.adapterId === profile.adapterId,
   );
-  if (!adapter) return null;
+  if (!adapter)
+    return Object.freeze({
+      status: "blocked",
+      value: null,
+      error: "ai_profile_reference_invalid",
+    });
   return Object.freeze({
-    ...profile,
-    provider: adapter.provider,
-    offering: adapter.offering,
-    authorityOrigin: adapter.authorityOrigin,
-    allowedReasoningEfforts: adapter.allowedReasoningEfforts,
+    status: "resolved",
+    error: null,
+    value: Object.freeze({
+      ...profile,
+      provider: adapter.provider,
+      offering: adapter.offering,
+      authorityOrigin: adapter.authorityOrigin,
+      allowedReasoningEfforts: adapter.allowedReasoningEfforts,
+    }),
   });
 }
 
 /**
- * Profileの四つの利用可能性軸を一つの表示状態へ投影する。
- *
- * @responsibility 登録、Host、認証、実行Authorityを混同せず状態と理由を返す。
+ * Profile選択の値と未登録・曖昧・不整合を区別する。
+ * @responsibility 成功値と固定拒否理由又は観測不能を型で区別する。
  * @trace ARCH-000010
- * @input observation: 各利用可能性軸の観測結果。
- * @returns available、unavailable、unknownの投影。
- * @precondition nullは未観測でありfalseへ畳まない。
- * @postcondition falseが一つでもあればunavailable、falseがなくnullがあればunknownになる。
- * @effect N/A: 観測値の投影だけを行う。
- * @failure N/A: 閉じたBoolean/null契約を処理する。
- * @invariant 未観測を利用可能として表示しない。
- * @boundary Runtime観測とWorkbench等の表示利用側の境界。
- * @security 認証状態からCredential値を公開しない。
- * @concurrency N/A: 共有状態を持たない同期処理である。
+ * @shape 状態で値と欠測を絞り込める読取り専用の直和型。
+ * @invariant 型だけで認証、実行、保存又は回収の成立を主張しない。
+ * @boundary AI Profile APIと直接利用側の値契約。
+ * @security 秘密値、内部Path及び操作Authorityを含めない。
+ * @compatibility 通信Envelopeと保存Schemaを変更せず、内部戻り値だけを移行する。
  */
-export function evaluateAiProfileAvailability(
-  observation: AiProfileAvailabilityObservation,
-): AiProfileAvailability {
-  const entries = Object.entries(observation) as [
-    keyof AiProfileAvailabilityObservation,
-    boolean | null,
-  ][];
-  const unavailable = entries
-    .filter(([, value]) => value === false)
-    .map(([key]) => key);
-  const unknown = entries
-    .filter(([, value]) => value === null)
-    .map(([key]) => key);
-  return Object.freeze({
-    ...observation,
-    status:
-      unavailable.length > 0
-        ? "unavailable"
-        : unknown.length > 0
-          ? "unknown"
-          : "available",
-    reasons: Object.freeze(unavailable.length > 0 ? unavailable : unknown),
-  });
-}
+export type AiProfileResolutionResult<T = ResolvedAiProfile> = Readonly<
+  | { status: "resolved"; value: T; error: null }
+  | {
+      status: "blocked";
+      value: null;
+      error:
+        | "ai_profile_not_found"
+        | "ai_profile_ambiguous"
+        | "ai_profile_reference_invalid"
+        | "ai_profile_request_invalid"
+        | "ai_profile_catalog_invalid";
+    }
+>;

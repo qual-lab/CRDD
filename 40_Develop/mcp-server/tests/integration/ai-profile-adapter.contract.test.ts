@@ -13,7 +13,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  DEFAULT_AI_PROFILE_CATALOG,
+  defaultAiProfileCatalog,
   validateAiProfileCatalog,
   type AiProfileCatalogStore,
   type AiProfileCatalogSnapshot,
@@ -41,7 +41,7 @@ import {
  */
 test("Profile遅延認可は現在判定と二依存拒否を分離する", async () => {
   const administration = createAiProfileCatalogAdministration(
-    createTestCatalogStore(DEFAULT_AI_PROFILE_CATALOG),
+    createTestCatalogStore(defaultAiProfileCatalog),
   );
   let resolutions = 0,
     reads = 0;
@@ -148,9 +148,9 @@ test("Profile遅延認可は現在判定と二依存拒否を分離する", asyn
  * @boundary MCP Adapter→同期Catalog採用→応答。
  */
 test("Profile管理MCPは保存後故障と取消で自動再実行しない", async () => {
-  const baseProfile = DEFAULT_AI_PROFILE_CATALOG.profiles[0];
+  const baseProfile = defaultAiProfileCatalog.profiles[0];
   assert.ok(baseProfile);
-  const store = createTestCatalogStore(DEFAULT_AI_PROFILE_CATALOG);
+  const store = createTestCatalogStore(defaultAiProfileCatalog);
   const administration = createAiProfileCatalogAdministration(store);
   const abort = new AbortController();
   let calls = 0;
@@ -199,11 +199,13 @@ test("Profile管理MCPは保存後故障と取消で自動再実行しない", a
   assert.equal(failure.error.code, -32603);
   assert.doesNotMatch(JSON.stringify(failure), /private_error_secret/u);
   assert.equal(calls, 1);
-  assert.equal(store.snapshot().revision, 2);
+  assert.equal(store.snapshot().value?.revision, 2);
   assert.equal(
     store
       .snapshot()
-      .catalog.profiles.some((item) => item.profileId === profile.profileId),
+      .value?.catalog.profiles.some(
+        (item) => item.profileId === profile.profileId,
+      ),
     true,
   );
   const afterAdoption = new AbortController();
@@ -233,12 +235,13 @@ test("Profile管理MCPは保存後故障と取消で自動再実行しない", a
   assert.ok("error" in final);
   assert.equal(final.error.code, -32800);
   assert.equal(calls, 2);
-  assert.equal(store.snapshot().revision, 3);
+  assert.equal(store.snapshot().value?.revision, 3);
   assert.equal(
     store
       .snapshot()
-      .catalog.profiles.find((item) => item.profileId === profile.profileId)
-      ?.family,
+      .value?.catalog.profiles.find(
+        (item) => item.profileId === profile.profileId,
+      )?.family,
     "cancelled-after-save",
   );
 });
@@ -257,7 +260,7 @@ test("Profile管理MCPは保存後故障と取消で自動再実行しない", a
  * @boundary MCP→Catalog操作結果→公開Snapshot。
  */
 test("Profile管理MCPは結果相関の矛盾と実行可能Propertyを拒否する", async () => {
-  const baseProfile = DEFAULT_AI_PROFILE_CATALOG.profiles[0];
+  const baseProfile = defaultAiProfileCatalog.profiles[0];
   assert.ok(baseProfile);
   const profile = {
     ...baseProfile,
@@ -265,8 +268,8 @@ test("Profile管理MCPは結果相関の矛盾と実行可能Propertyを拒否�
     family: "owned-result",
   };
   const validCatalog = structuredClone({
-    ...DEFAULT_AI_PROFILE_CATALOG,
-    profiles: [...DEFAULT_AI_PROFILE_CATALOG.profiles, profile],
+    ...defaultAiProfileCatalog,
+    profiles: [...defaultAiProfileCatalog.profiles, profile],
   });
   const valid = {
     status: "completed",
@@ -293,8 +296,26 @@ test("Profile管理MCPは結果相関の矛盾と実行可能Propertyを拒否�
       MCP_AI_PROFILE_TOOLS.create,
       { expectedRevision: 1, profile },
       {
+        status: "unknown",
+        reason: "ai_profile_catalog_save_unconfirmed",
+        snapshot: null,
+      },
+    ],
+    [
+      MCP_AI_PROFILE_TOOLS.create,
+      { expectedRevision: 1, profile },
+      {
+        status: "unknown",
+        reason: "ai_profile_catalog_read_failed",
+        snapshot: null,
+      },
+    ],
+    [
+      MCP_AI_PROFILE_TOOLS.create,
+      { expectedRevision: 1, profile },
+      {
         ...valid,
-        snapshot: { revision: 2, catalog: DEFAULT_AI_PROFILE_CATALOG },
+        snapshot: { revision: 2, catalog: defaultAiProfileCatalog },
       },
     ],
     [
@@ -308,7 +329,7 @@ test("Profile管理MCPは結果相関の矛盾と実行可能Propertyを拒否�
       {
         status: "completed",
         reason: "profile_updated",
-        snapshot: { revision: 2, catalog: DEFAULT_AI_PROFILE_CATALOG },
+        snapshot: { revision: 2, catalog: defaultAiProfileCatalog },
       },
     ],
     [
@@ -321,7 +342,7 @@ test("Profile管理MCPは結果相関の矛盾と実行可能Propertyを拒否�
       {
         status: "completed",
         reason: "profile_deleted",
-        snapshot: { revision: 2, catalog: DEFAULT_AI_PROFILE_CATALOG },
+        snapshot: { revision: 2, catalog: defaultAiProfileCatalog },
       },
     ],
     [
@@ -341,7 +362,7 @@ test("Profile管理MCPは結果相関の矛盾と実行可能Propertyを拒否�
         ...valid,
         status: "rejected",
         reason: "profile_already_exists",
-        snapshot: { revision: 1, catalog: DEFAULT_AI_PROFILE_CATALOG },
+        snapshot: { revision: 1, catalog: defaultAiProfileCatalog },
       },
     ],
     [
@@ -434,14 +455,15 @@ test("Profile管理MCPは結果相関の矛盾と実行可能Propertyを拒否�
 function createTestCatalogStore(
   initialCandidate: unknown,
 ): AiProfileCatalogStore {
-  const initialCatalog = validateAiProfileCatalog(initialCandidate);
+  const initialCatalog = validateAiProfileCatalog(initialCandidate).value;
   if (!initialCatalog) throw new Error("ai_profile_catalog_initial_invalid");
   let current: AiProfileCatalogSnapshot = Object.freeze({
     revision: 1,
     catalog: initialCatalog,
   });
   return Object.freeze({
-    snapshot: () => current,
+    snapshot: () =>
+      Object.freeze({ status: "read" as const, value: current, error: null }),
     adopt: (request) => {
       if (request.expectedRevision !== current.revision)
         return Object.freeze({
@@ -450,7 +472,7 @@ function createTestCatalogStore(
           revision: current.revision,
           snapshot: current,
         });
-      const validated = validateAiProfileCatalog(request.candidate);
+      const validated = validateAiProfileCatalog(request.candidate).value;
       if (!validated)
         return Object.freeze({
           status: "rejected" as const,

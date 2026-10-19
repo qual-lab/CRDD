@@ -10,6 +10,7 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
+import { evaluateProviderAvailability } from "../../../../ai-adapter/src/index.ts";
 
 import { selectDelegationRouteCandidate } from "../../../src/provider/delegation-route-selection.ts";
 import {
@@ -98,6 +99,55 @@ function createRequest() {
  * @boundary AIT-UT-005=Direct Boundary: coordinator Test Source→対象契約
  */
 test("全軸をRuntimeが確認した場合だけCodexとClaudeをeligibleにする", () => {
+  for (const provider of ["codex", "claude"] as const) {
+    assert.deepEqual(
+      evaluateProviderAvailability(provider, createObservation()),
+      {
+        provider,
+        status: "available",
+        reason: "ready",
+      },
+    );
+    assert.deepEqual(evaluateProviderAvailability(provider, null), {
+      provider,
+      status: "unknown",
+      reason: "observation_unavailable",
+    });
+    for (const axis of [
+      "subscriptionAuth",
+      "officialDistribution",
+      "policy",
+    ] as const) {
+      assert.equal(
+        evaluateProviderAvailability(
+          provider,
+          createObservation({ [axis]: "runtime_preflight_required" }),
+        ).status,
+        "preflight_required",
+      );
+    }
+    assert.equal(
+      evaluateProviderAvailability(
+        provider,
+        createObservation({ subscriptionQuota: "bounded_request_check" }),
+      ).status,
+      "preflight_required",
+    );
+    assert.deepEqual(
+      evaluateProviderAvailability(
+        provider,
+        createObservation({
+          subscriptionAuth: "unknown",
+          subscriptionQuota: "unavailable",
+        }),
+      ),
+      {
+        provider,
+        status: "unavailable",
+        reason: "subscription_quota_unavailable",
+      },
+    );
+  }
   const runtime = createIsolatedProviderEligibilityRuntimeCandidate({
     observeProvider: () => createObservation(),
   });

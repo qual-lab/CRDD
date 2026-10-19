@@ -4,6 +4,18 @@
   "subsystem": "ai-adapter",
   "symbols": [
     {
+      "symbolId": "ai-adapter.provider.execution-plan",
+      "kind": "file",
+      "path": "src/provider/plan.ts",
+      "archIds": ["ARCH-000010", "ARCH-000015"]
+    },
+    {
+      "symbolId": "ai-adapter.provider.result",
+      "kind": "file",
+      "path": "src/provider/result.ts",
+      "archIds": ["ARCH-000015"]
+    },
+    {
       "symbolId": "ai-adapter.test.output.provider-error",
       "kind": "test-suite",
       "path": "tests/unit/provider/error.contract.test.ts",
@@ -20,7 +32,7 @@
     {
       "symbolId": "ai-adapter.codex.advice-distribution",
       "kind": "file",
-      "path": "src/codex/advice-distribution.ts",
+      "path": "src/codex/distribution.ts",
       "archIds": [
         "ARCH-000010"
       ]
@@ -28,7 +40,7 @@
     {
       "symbolId": "ai-adapter.profile.subscription-status",
       "kind": "file",
-      "path": "src/provider/subscription-status.ts",
+      "path": "src/authentication/result.ts",
       "archIds": [
         "ARCH-000010"
       ]
@@ -52,7 +64,7 @@
     {
       "symbolId": "ai-adapter.profile.profile-execution",
       "kind": "file",
-      "path": "src/profile/execution-identity.ts",
+      "path": "src/profile/validation.ts",
       "archIds": [
         "ARCH-000010"
       ]
@@ -60,7 +72,7 @@
     {
       "symbolId": "ai-adapter.output.task-envelope",
       "kind": "file",
-      "path": "src/provider/task-result.ts",
+      "path": "src/provider/result.ts",
       "archIds": [
         "ARCH-000015"
       ]
@@ -76,7 +88,7 @@
     {
       "symbolId": "ai-adapter.codex.authentication",
       "kind": "file",
-      "path": "src/codex/authentication.ts",
+      "path": "src/authentication/plan.ts",
       "archIds": [
         "ARCH-000010"
       ]
@@ -100,7 +112,7 @@
     {
       "symbolId": "ai-adapter.authentication-policy",
       "kind": "file",
-      "path": "src/profile/authentication-policy.ts",
+      "path": "src/authentication/policy.ts",
       "archIds": [
         "ARCH-000010"
       ]
@@ -108,7 +120,7 @@
     {
       "symbolId": "ai-adapter.claude.authentication",
       "kind": "file",
-      "path": "src/claude/authentication.ts",
+      "path": "src/claude/distribution.ts",
       "archIds": [
         "ARCH-000010"
       ]
@@ -116,7 +128,7 @@
     {
       "symbolId": "coordinator.source.src.security.workbench.ai.advice.provider.command",
       "kind": "file",
-      "path": "src/provider/advice-command.ts",
+      "path": "src/provider/plan.ts",
       "archIds": [
         "ARCH-000010",
         "ARCH-000015"
@@ -125,7 +137,7 @@
     {
       "symbolId": "coordinator.source.src.security.workbench.ai.advice.provider.output",
       "kind": "file",
-      "path": "src/provider/advice-result.ts",
+      "path": "src/provider/result.ts",
       "archIds": [
         "ARCH-000015"
       ]
@@ -133,7 +145,7 @@
     {
       "symbolId": "coordinator.source.src.security.claude.execution.plan",
       "kind": "file",
-      "path": "src/claude/execution-plan.ts",
+      "path": "src/claude/plan.ts",
       "archIds": [
         "ARCH-000010"
       ]
@@ -141,7 +153,7 @@
     {
       "symbolId": "coordinator.source.src.security.codex.execution.plan",
       "kind": "file",
-      "path": "src/codex/execution-plan.ts",
+      "path": "src/codex/plan.ts",
       "archIds": [
         "ARCH-000010"
       ]
@@ -149,7 +161,7 @@
     {
       "symbolId": "coordinator.source.src.security.claude.structured.result",
       "kind": "file",
-      "path": "src/claude/structured-result.ts",
+      "path": "src/claude/result.ts",
       "archIds": [
         "ARCH-000015"
       ]
@@ -157,7 +169,7 @@
     {
       "symbolId": "coordinator.source.src.security.codex.structured.result",
       "kind": "file",
-      "path": "src/codex/structured-result.ts",
+      "path": "src/codex/result.ts",
       "archIds": [
         "ARCH-000015"
       ]
@@ -165,7 +177,7 @@
     {
       "symbolId": "coordinator.source.src.security.provider.billing.policy",
       "kind": "file",
-      "path": "src/profile/billing-policy.ts",
+      "path": "src/billing/policy.ts",
       "archIds": [
         "ARCH-000010"
       ]
@@ -181,7 +193,7 @@
     {
       "symbolId": "ai-runtime.catalog",
       "kind": "file",
-      "path": "src/catalog/resolve.ts",
+      "path": "src/catalog/validation.ts",
       "archIds": [
         "ARCH-000010"
       ]
@@ -197,7 +209,7 @@
     {
       "symbolId": "ai-runtime.catalog-store",
       "kind": "file",
-      "path": "src/profile/store.ts",
+      "path": "src/storage/store.ts",
       "archIds": [
         "ARCH-000010",
         "ARCH-000011"
@@ -214,24 +226,25 @@
     {
       "symbolId": "ai-runtime.test.catalog",
       "kind": "test-suite",
-      "path": "tests/unit/catalog/resolve.contract.test.ts",
+      "path": "tests/unit/catalog/validation.contract.test.ts",
       "qaIds": [
         "QA-000001"
       ],
       "localTestIds": [
-        "RCM-UT-001",
         "RCM-UT-002"
       ],
       "verifies": [
         "ai-runtime.catalog",
         "ai-runtime.types",
-        "ai-runtime.profile-administration"
+        "ai-adapter.profile.types",
+        "ai-adapter.provider.types",
+        "ai-adapter.catalog.resolver"
       ]
     },
     {
       "symbolId": "ai-runtime.test.catalog-store",
       "kind": "test-suite",
-      "path": "tests/integration/ai-profile-catalog-store.integration.test.ts",
+      "path": "tests/integration/catalog-storage.contract.test.ts",
       "qaIds": [
         "QA-000001"
       ],
@@ -240,13 +253,14 @@
       ],
       "verifies": [
         "ai-runtime.catalog-store",
-        "ai-runtime.catalog"
+        "ai-runtime.catalog",
+        "ai-adapter.catalog.resolver"
       ]
     },
     {
       "symbolId": "ai-runtime.test.consumers",
       "kind": "test-suite",
-      "path": "tests/integration/ai-profile-consumers.integration.test.ts",
+      "path": "tests/integration/profile-consumers.contract.test.ts",
       "qaIds": [
         "QA-000001"
       ],
@@ -255,13 +269,14 @@
       ],
       "verifies": [
         "ai-runtime.catalog",
-        "ai-runtime.public-api"
+        "ai-runtime.public-api",
+        "ai-adapter.catalog.resolver"
       ]
     },
     {
       "symbolId": "coordinator.test.unit.claude-structured-result",
       "kind": "test-suite",
-      "path": "tests/unit/claude/structured-result.contract.test.ts",
+      "path": "tests/unit/claude/result.contract.test.ts",
       "qaIds": [
         "QA-000006"
       ],
@@ -276,7 +291,7 @@
     {
       "symbolId": "coordinator.test.unit.codex-structured-result",
       "kind": "test-suite",
-      "path": "tests/unit/codex/structured-result.contract.test.ts",
+      "path": "tests/unit/codex/result.contract.test.ts",
       "qaIds": [
         "QA-000006"
       ],
@@ -290,7 +305,7 @@
     {
       "symbolId": "coordinator.test.unit.provider-billing-policy",
       "kind": "test-suite",
-      "path": "tests/unit/profile/billing-policy.contract.test.ts",
+      "path": "tests/unit/billing/policy.contract.test.ts",
       "qaIds": [
         "QA-000006"
       ],
@@ -304,10 +319,97 @@
     {
       "symbolId": "ai-adapter.provider.advice-contract",
       "kind": "file",
-      "path": "src/provider/advice-contract.ts",
+      "path": "src/provider/plan.ts",
       "archIds": [
         "ARCH-000010",
         "ARCH-000015"
+      ]
+    },
+    {
+      "symbolId": "ai-adapter.catalog.resolver",
+      "kind": "file",
+      "path": "src/catalog/resolve.ts",
+      "archIds": [
+        "ARCH-000010",
+        "ARCH-000015"
+      ]
+    },
+    {
+      "symbolId": "ai-adapter.provider.types",
+      "kind": "file",
+      "path": "src/provider/types.ts",
+      "archIds": [
+        "ARCH-000010"
+      ]
+    },
+    {
+      "symbolId": "ai-adapter.profile.types",
+      "kind": "file",
+      "path": "src/profile/types.ts",
+      "archIds": [
+        "ARCH-000010"
+      ]
+    },
+    {
+      "symbolId": "ai-adapter.claude.distribution",
+      "kind": "file",
+      "path": "src/claude/distribution.ts",
+      "archIds": [
+        "ARCH-000010"
+      ]
+    },
+    {
+      "symbolId": "ai-adapter.test.catalog.resolver",
+      "kind": "test-suite",
+      "path": "tests/unit/catalog/resolve.contract.test.ts",
+      "qaIds": [
+        "QA-000001"
+      ],
+      "localTestIds": [
+        "RCM-UT-001"
+      ],
+      "verifies": [
+        "ai-adapter.catalog.resolver",
+        "ai-runtime.public-api"
+      ]
+    },
+    {
+      "symbolId": "ai-adapter.test.profile.resolver",
+      "kind": "test-suite",
+      "path": "tests/unit/profile/validation.contract.test.ts",
+      "qaIds": [
+        "QA-000001"
+      ],
+      "localTestIds": [
+        "RCM-UT-001"
+      ],
+      "verifies": [
+        "ai-adapter.profile.profile-execution",
+        "ai-adapter.profile.types"
+      ]
+    },
+    {
+      "symbolId": "ai-adapter.test.profile.crud",
+      "kind": "test-suite",
+      "path": "tests/unit/profile/crud.contract.test.ts",
+      "qaIds": [
+        "QA-000001"
+      ],
+      "localTestIds": [
+        "RCM-UT-002"
+      ],
+      "verifies": [
+        "ai-runtime.profile-administration",
+        "ai-runtime.catalog",
+        "ai-adapter.catalog.resolver"
+      ]
+    },
+    {
+      "symbolId": "ai-adapter.codex.distribution",
+      "kind": "file",
+      "path": "src/codex/distribution.ts",
+      "archIds": [
+        "ARCH-000010"
       ]
     }
   ]

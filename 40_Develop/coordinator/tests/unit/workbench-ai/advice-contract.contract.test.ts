@@ -12,7 +12,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import test from "node:test";
 import {
-  DEFAULT_AI_PROFILE_CATALOG,
+  defaultAiProfileCatalog,
   type AiProfileCatalogStore,
 } from "../../../../ai-adapter/src/index.ts";
 import { createRepositoryReadOnlyAdviceExecutor } from "../../../src/workbench-ai/repository-composition.ts";
@@ -354,8 +354,12 @@ test("Repository Project Contextを専用Task Packetへ固定してDispatchす�
     Object.freeze({
       snapshot: () =>
         Object.freeze({
-          revision: 7,
-          catalog: DEFAULT_AI_PROFILE_CATALOG,
+          status: "read" as const,
+          error: null,
+          value: Object.freeze({
+            revision: 7,
+            catalog: defaultAiProfileCatalog,
+          }),
         }),
       adopt: () => {
         throw new Error("not_used");
@@ -412,7 +416,14 @@ test("未登録または非Coordinator ProfileはDispatch前に拒否する", as
   let dispatchCount = 0;
   const store = Object.freeze({
     snapshot: () =>
-      Object.freeze({ revision: 2, catalog: DEFAULT_AI_PROFILE_CATALOG }),
+      Object.freeze({
+        status: "read" as const,
+        error: null,
+        value: Object.freeze({
+          revision: 2,
+          catalog: defaultAiProfileCatalog,
+        }),
+      }),
     adopt: () => {
       throw new Error("not_used");
     },

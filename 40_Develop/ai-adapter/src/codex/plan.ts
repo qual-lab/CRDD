@@ -8,14 +8,17 @@ import {
   snapshotPlainArray,
   snapshotPlainRecord,
 } from "../../../domain-model/src/index.ts";
-import { describeProviderBillingPolicyContract } from "../profile/billing-policy.ts";
-import { describeCodexAdviceDistributionIdentity } from "./advice-distribution.ts";
+import { describeProviderBillingPolicy } from "../billing/policy.ts";
 import {
-  WORKBENCH_AI_ADVICE_PROVIDER_COMMAND_CONTRACT,
-  WORKBENCH_AI_ADVICE_PROVIDER_COMMAND_CONTRACT_REVISION,
-  type WorkbenchAiAdviceProviderCommandInput,
-  type WorkbenchAiAdviceProviderCommand,
-} from "../provider/advice-contract.ts";
+  describeCodexAdviceDistributionIdentity,
+  DISTRIBUTION_IDENTITY,
+  distributionBinding,
+  DISTRIBUTION_VERIFICATION,
+} from "./distribution.ts";
+import type {
+  ProviderModelSelection,
+  ProviderAdvicePlan,
+} from "../provider/plan.ts";
 
 /**
  * Codexの起動引数から非秘密の構成分類だけを投影する。
@@ -80,81 +83,25 @@ const FIXED_SCHEMA_PATH = "/etc/crdd/codex-result-schema.json";
 const EXECUTOR_SCHEMA_PATH = "/etc/crdd/codex-executor-result-schema.json";
 const REVIEWER_SCHEMA_PATH = "/etc/crdd/codex-reviewer-result-schema.json";
 const COMPATIBLE_TASK_MODEL = "gpt-5.5";
-const DISTRIBUTION_IDENTITY = Object.freeze({
-  targetPlatform: "linux-x64-musl",
-  executablePath: "/opt/crdd/providers/codex/0.149.1/codex",
-  exactVersion: "0.149.1",
-  releaseTag: "rust-v0.149.1",
-  releaseCommit: "ff29a44391deccde0aba0f8390337d7f3c319ea4",
-  archiveSha256:
-    "e24fb784c7d71140d67afb620f56e9137496cf7f6c9e19217fa3666dcf306278",
-  archiveBytes: 99_479_490,
-  binarySha256:
-    "73dc5888888f411c1f0fa7b81d866e721dcc86b527ce8e3b2cf4708661e823ba",
-  binaryBytes: 258_227_840,
-  sigstoreBundleSha256:
-    "1976d459060cac4638f481b72142271d8bbd821abebd72555145b83b2bf3e85e",
-  sigstoreIdentity:
-    "https://github.com/openai/codex/.github/workflows/rust-release.yml@refs/tags/rust-v0.149.1",
-  sigstoreIssuer: "https://token.actions.githubusercontent.com",
-  bwrapArchiveSha256:
-    "7b0604dc48a487e25dae35a1f200aaf125666c5c8ef73bc913e915cebc86ce7b",
-  bwrapArchiveBytes: 261_611,
-  bwrapBinaryPath: "/opt/crdd/providers/codex/0.149.1/codex-resources/bwrap",
-  bwrapBinarySha256:
-    "01fb705f067bd5365b63d8ad2323a61c8d007733ca5e649437e086f3fb9935d8",
-  bwrapBinaryBytes: 529_776,
-  bwrapSigstoreBundleSha256:
-    "2c8b6f67a874ecb25e231366302386450775266220c08d98625408171c0d0238",
-  bwrapSigstoreIdentity:
-    "https://github.com/openai/codex/.github/workflows/rust-release.yml@refs/tags/rust-v0.149.1",
-  bwrapSigstoreIssuer: "https://token.actions.githubusercontent.com",
-  executorSeccompProfilePath:
-    "40_Develop/docker-isolation/runtime/codex-executor-seccomp.json",
-  executorSeccompProfileSha256:
-    "01e577dd6fc81e04987af29b05389e9432dc0623a66aa435fd2f31f2b1070b95",
-  executorSeccompProfileBytes: 16_703,
-  executorSeccompBaselineCommit: "c3065211177705ada59a9ccf8b5c182f286f8c97",
-  executorSeccompBaselineSha256:
-    "536529b665dd0972c37bfb569f5d4ac8a53592e7b00752bc39ff063ca9864c74",
-  fixedImageDigest:
-    "sha256:e7fefafffd4b96614811b2d51b9704d3280e4995c358ed5e25ec795215dbd45c",
-  fixedImageBytes: 145_299_281,
-  executorSchemaSha256:
-    "daf04adf5282157984b43559298a82f1ab16de837cfb5f6cc929805390f776ce",
-  reviewerSchemaSha256:
-    "09e8592838b1642f738eee07fb2c1b366dc25d6a3e842dbb0649930c94a25df8",
-  imageBuildDefinition:
-    "40_Develop/docker-isolation/runtime/codex-provider.Dockerfile",
-  releaseUrl: "https://github.com/openai/codex/releases/tag/rust-v0.149.1",
-});
-const distributionBinding = Object.freeze({
-  identity: DISTRIBUTION_IDENTITY,
-  fixedDigestImageRequired: true,
-  fixedImageDigest: DISTRIBUTION_IDENTITY.fixedImageDigest,
-  fixedImageBytes: DISTRIBUTION_IDENTITY.fixedImageBytes,
-  autoUpdateAllowed: false,
-  runtimePullAllowed: false,
-});
-const billingPolicy = describeProviderBillingPolicyContract();
+const billingPolicy = describeProviderBillingPolicy();
 
 /**
- * codex-execution-planを停止結果として構築する。
+ * Codex計画の拒否値を生成する。
  *
- * @responsibility codex-execution-planの停止理由、未発行Effect、公開結果境界を所有する。
+ * @responsibility 入力拒否理由と起動・Effect禁止を所有する。
  * @trace ARCH-000010
  * @input reason: string
- * @returns blockedの計算結果を返す。
- * @precondition 「reason: string」がblockedの入力契約を満たす。
- * @postcondition blockedの責務を完了した結果だけを返す。
+ * @returns 固定理由付きblocked。
+ * @precondition reasonは計画検査が選んだ固定拒否理由である。
+ * @postcondition 返却値を現在の認証、実行成功又は資源回収の証明としない。
  * @effect N/A: 停止結果の値だけを構築し、Process・Filesystem・外部送信を開始しない。
- * @failure N/A: blockedは独自の失敗分岐を所有しない。
- * @invariant blockedは宣言した境界以外へEffectを拡張しない。
- * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @failure N/A: 拒否値を構築する。
+ * @invariant 計画・解析・宣言の範囲に限り、起動・送信同意・Authorityを代行しない。
+ * @boundary Provider固有条件と共通AI Adapter APIの内部境界。
  * @security blockedはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: blockedは共有非同期状態を持たない同期処理である。
  */
-function blocked(reason: string) {
+function blocked<R extends string>(reason: R) {
   return Object.freeze({
     status: "blocked" as const,
     reason,
@@ -166,18 +113,18 @@ function blocked(reason: string) {
 }
 
 /**
- * plan Codex Read Only Probeを決定する。
+ * Codex読取りProbeを計画する。
  *
- * @responsibility plan Codex Read Only Probeの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @responsibility 閉じたProvider・用途・推論強度と固定CLI構成を所有する。
  * @trace ARCH-000010
  * @input candidate: unknown
- * @returns planCodexReadOnlyProbeの計算結果を返す。
- * @precondition 「candidate: unknown」がplanCodexReadOnlyProbeの入力契約を満たす。
- * @postcondition planCodexReadOnlyProbeの責務を完了した結果だけを返す。
+ * @returns candidate計画又はblocked。
+ * @precondition candidateを未信頼値として関数内で閉じたshapeと値を検査する。
+ * @postcondition 返却値を現在の認証、実行成功又は資源回収の証明としない。
  * @effect N/A: 検証用の起動計画を構築するだけで、Process・Filesystem・外部送信を開始しない。
- * @failure N/A: planCodexReadOnlyProbeは独自の失敗分岐を所有しない。
- * @invariant planCodexReadOnlyProbeは宣言した境界以外へEffectを拡張しない。
- * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @failure 不正shape、Provider、用途、推論強度を拒否する。
+ * @invariant 計画・解析・宣言の範囲に限り、起動・送信同意・Authorityを代行しない。
+ * @boundary Provider固有条件と共通AI Adapter APIの内部境界。
  * @security planCodexReadOnlyProbeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: planCodexReadOnlyProbeは共有非同期状態を持たない同期処理である。
  */
@@ -247,18 +194,18 @@ export function planCodexReadOnlyProbe(candidate: unknown) {
 }
 
 /**
- * plan Codex Isolated Taskを決定する。
+ * Codex Taskを役割別に計画する。
  *
- * @responsibility plan Codex Isolated Taskの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @responsibility executor／reviewerの固定CLIとTool・書込み条件を所有する。
  * @trace ARCH-000010
  * @input candidate: unknown
- * @returns planCodexIsolatedTaskの計算結果を返す。
- * @precondition 「candidate: unknown」がplanCodexIsolatedTaskの入力契約を満たす。
- * @postcondition planCodexIsolatedTaskの責務を完了した結果だけを返す。
+ * @returns candidate計画又はblocked。
+ * @precondition candidateを未信頼値として関数内で閉じたshape・役割・推論強度を検査する。
+ * @postcondition 返却値を現在の認証、実行成功又は資源回収の証明としない。
  * @effect N/A: Taskの起動計画を構築するだけで、Process・Filesystem・外部送信を開始しない。
- * @failure N/A: planCodexIsolatedTaskは独自の失敗分岐を所有しない。
- * @invariant planCodexIsolatedTaskは宣言した境界以外へEffectを拡張しない。
- * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @failure 不正shape、役割、推論強度を拒否する。
+ * @invariant 計画・解析・宣言の範囲に限り、起動・送信同意・Authorityを代行しない。
+ * @boundary Provider固有条件と共通AI Adapter APIの内部境界。
  * @security planCodexIsolatedTaskはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: planCodexIsolatedTaskは共有非同期状態を持たない同期処理である。
  */
@@ -385,18 +332,18 @@ export function planCodexIsolatedTask(candidate: unknown) {
 }
 
 /**
- * Codex Execution Plan 契約の公開契約を記述する。
+ * Codex実行の固定条件を記述する。
  *
- * @responsibility Codex Execution Plan 契約の公開field、非公開境界、互換性を所有する。
+ * @responsibility 配布・認証・CLIの宣言と未成立条件を所有する。
  * @trace ARCH-000010
  * @input N/A: 実行時引数を受け取らない。
- * @returns describeCodexExecutionPlanContractの計算結果を返す。
- * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeCodexExecutionPlanContractの入力契約を満たす。
- * @postcondition describeCodexExecutionPlanContractの責務を完了した結果だけを返す。
+ * @returns 固定実行定義。
+ * @precondition N/A: 実行時入力を持たない。
+ * @postcondition 返却値を現在の認証、実行成功又は資源回収の証明としない。
  * @effect N/A: describeCodexExecutionPlanContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: describeCodexExecutionPlanContractは独自の失敗分岐を所有しない。
- * @invariant describeCodexExecutionPlanContractは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: describeCodexExecutionPlanContractはProcess内の同一Subsystemで完結する。
+ * @failure N/A: 固定宣言を返す。
+ * @invariant 計画・解析・宣言の範囲に限り、起動・送信同意・Authorityを代行しない。
+ * @boundary Provider固有条件と共通AI Adapter APIの内部境界。
  * @security describeCodexExecutionPlanContractはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: describeCodexExecutionPlanContractは共有非同期状態を持たない同期処理である。
  */
@@ -407,39 +354,7 @@ export function describeCodexExecutionPlanContract() {
     provider: "codex",
     implementationState: "fixed_distribution_read_only_probe_candidate",
     distributionIdentity: DISTRIBUTION_IDENTITY,
-    distributionVerification: Object.freeze({
-      githubReleaseArchiveDigestMatched: true,
-      extractedBinaryDigestMatchedRekorBody: true,
-      sigstoreBlobSignatureVerified: true,
-      sigstoreCertificateIdentityMatched: true,
-      bundledBwrapDigestMatchedRekorBody: true,
-      bundledBwrapSigstoreBlobSignatureVerified: true,
-      bundledBwrapCertificateIdentityMatched: true,
-      fixedImageBuiltFromExactBinary: true,
-      fixedImageBuiltFromExactBundledBwrap: true,
-      fixedImageBundledBwrapProbePassed: true,
-      fixedImageBundledBwrapSelectedUnderNoNetworkProbe: true,
-      executorSeccompProfileDigestMatched: true,
-      executorSeccompProfileAllowsOnlyRequiredSandboxSyscalls: true,
-      fixedImageNoNetworkVersionProbePassed: true,
-      fixedImageNonRootSchemaReadPassed: true,
-      subscriptionBooleanRequestPassed: true,
-      subscriptionBooleanRequestExitCode: 0,
-      subscriptionBooleanRequestResult: Object.freeze({ status: true }),
-      subscriptionBooleanRequestModel: "gpt-5.6-sol",
-      subscriptionBooleanRequestEffort: "low",
-      subscriptionBooleanRequestSandbox: "read-only",
-      subscriptionBooleanRequestContainerResidue: 0,
-      subscriptionBooleanRequestNetworkResidue: 0,
-      isolatedTaskCompatibilityModel: "gpt-5.5",
-      isolatedTaskCodeModeHostDisabled: true,
-      isolatedTaskShellVerificationPassed: true,
-      isolatedTaskExactCandidateContentPassed: true,
-      isolatedTaskContainerResidue: 0,
-      isolatedTaskNetworkResidue: 0,
-      isolatedTaskVerifiedAt: "2026-08-30",
-      verifiedAt: "2026-08-25",
-    }),
+    distributionVerification: DISTRIBUTION_VERIFICATION,
     authentication: "existing_chatgpt_subscription_oauth_only",
     apiKeyAllowed: false,
     paidApiFallbackAllowed: false,
@@ -488,12 +403,10 @@ export function describeCodexExecutionPlanContract() {
  * @concurrency N/A: 共有状態を持たない同期処理である。
  */
 export function planCodexAdviceCommand(
-  input: WorkbenchAiAdviceProviderCommandInput,
-): WorkbenchAiAdviceProviderCommand {
+  input: ProviderModelSelection,
+): Omit<ProviderAdvicePlan, "contract" | "contractRevision"> {
   const distribution = describeCodexAdviceDistributionIdentity();
   return Object.freeze({
-    contract: WORKBENCH_AI_ADVICE_PROVIDER_COMMAND_CONTRACT,
-    contractRevision: WORKBENCH_AI_ADVICE_PROVIDER_COMMAND_CONTRACT_REVISION,
     provider: "codex" as const,
     command: distribution.executablePath,
     argv: Object.freeze([

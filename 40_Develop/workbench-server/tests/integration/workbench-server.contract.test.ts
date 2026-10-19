@@ -22,6 +22,7 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
+import { syncBuiltinESMExports } from "node:module";
 import {
   copyFile,
   lstat,
@@ -48,7 +49,7 @@ import {
 } from "../../src/browser/client-model.ts";
 
 import {
-  DEFAULT_AI_PROFILE_CATALOG,
+  defaultAiProfileCatalog,
   createRepositoryAiProfileCatalogStore,
 } from "../../../ai-adapter/src/index.ts";
 import {
@@ -65,6 +66,7 @@ import {
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
 import {
   readWorkbenchProjectSurface,
+  createWorkbenchAiProfileSurface,
   createRepositoryWorkbenchActivityReader,
   startWorkbench,
   type WorkbenchAiRequests,
@@ -3113,9 +3115,9 @@ test("WorkbenchはRepository Ownerの採用済みAI Profile Catalogを表示す�
     const adoption = adapter.store.adopt({
       expectedRevision: 0,
       candidate: {
-        ...DEFAULT_AI_PROFILE_CATALOG,
+        ...defaultAiProfileCatalog,
         profiles: [
-          ...DEFAULT_AI_PROFILE_CATALOG.profiles,
+          ...defaultAiProfileCatalog.profiles,
           {
             profileId: "PROFILE-300001",
             adapterId: "codex-cli",
@@ -3160,11 +3162,11 @@ test("WorkbenchはRepository Ownerの採用済みAI Profile Catalogを表示す�
  * @precondition AI Profile Catalog未作成の隔離RepositoryからWorkbenchを開始する。
  * @stimulus Profileを作成し、未確認削除と確認済み削除を順に送信する。
  * @observation Browser表示、結果理由、Revisionおよび耐久Snapshotを観測する。
- * @oracle 作成と確認済み削除だけが反映され、未確認削除はEffect 0になる。
+ * @oracle 通常の作成・確認済み削除を反映し、未確認削除はEffect 0。公開後不明は503後のGETを壊さず、表示注入時は無関係なStoreを読まない。
  * @cleanup Workbench Handleと隔離Repositoryを削除する。
  * @boundary RCM-IT-005=Direct Boundary: workbench Test Source→対象契約
  */
-test("Workbenchは登録済みAdapterだけでAI Profileを作成し確認付きで削除する", async () => {
+test("Workbenchは登録済みAdapterだけでAI Profileを作成し確認付きで削除する", async (context) => {
   const testRoot = path.join(repositoryRoot, ".crdd", "tests");
   await mkdir(testRoot, { recursive: true });
   const fixture = await mkdtemp(path.join(testRoot, "workbench-ai-admin-"));
@@ -3295,17 +3297,89 @@ test("Workbenchは登録済みAdapterだけでAI Profileを作成し確認付き
       "profile_deleted",
     );
     assert.equal(afterDelete.aiProfileAdministration.snapshot?.revision, 2);
+    // 公開直後の故障は503。次のGETへunknownを残さず、実Snapshotを再観測する。
+    let publications = 0;
+    const originalLink = fs.linkSync;
+    const failure = context.mock.method(
+      fs,
+      "linkSync",
+      (source: fs.PathLike, target: fs.PathLike) => {
+        originalLink(source, target);
+        publications++;
+        throw new Error("synthetic-publication-unconfirmed");
+      },
+    );
+    syncBuiltinESMExports();
+    try {
+      const uncertainForm = new URLSearchParams(createForm);
+      uncertainForm.set("expectedRevision", "2");
+      const uncertain = await requestRaw(
+        handle.baseUrl,
+        "/ai-profiles/action",
+        "POST",
+        uncertainForm.toString(),
+      );
+      assert.equal(uncertain.status, 503);
+      assert.equal(publications, 1);
+    } finally {
+      failure.mock.restore();
+      syncBuiltinESMExports();
+    }
+    const afterUnknown = await requestMainModel(handle.baseUrl);
+    assert.equal(afterUnknown.aiProfileAdministration.result, null);
+    assert.equal(afterUnknown.aiProfileAdministration.snapshot?.revision, 3);
+    assert.equal(publications, 1);
     const reopened = createRepositoryAiProfileCatalogStore(fixture);
     assert.equal(reopened.status, "ready");
     assert.ok(reopened.store);
     assert.equal(
       reopened.store
         .snapshot()
-        .catalog.profiles.some(
+        .value?.catalog.profiles.some(
           (profile) => profile.profileId === "PROFILE-300001",
         ),
-      false,
+      true,
     );
+    await handle.close();
+    handle = null;
+    let reads = 0;
+    const originalRead = fs.readdirSync;
+    const readFailure = context.mock.method(
+      fs,
+      "readdirSync",
+      new Proxy(originalRead, {
+        apply(target, receiver, args) {
+          if (
+            args[0] ===
+            path.join(fixture, ".crdd", "config", "ai-profile-catalog")
+          ) {
+            reads++;
+            throw Object.assign(new Error("synthetic-access-denied"), {
+              code: "EACCES",
+            });
+          }
+          return Reflect.apply(target, receiver, args);
+        },
+      }),
+    );
+    syncBuiltinESMExports();
+    try {
+      handle = await startWorkbench({
+        workingDirectory: fixture,
+        aiProfiles: createWorkbenchAiProfileSurface(defaultAiProfileCatalog),
+      });
+      assert.equal(reads, 0);
+      await handle.close();
+      handle = null;
+      await assert.rejects(
+        startWorkbench({ workingDirectory: fixture }),
+        /ai_profile_catalog_read_failed/u,
+      );
+      assert.equal(reads, 1);
+    } finally {
+      readFailure.mock.restore();
+      syncBuiltinESMExports();
+    }
   } finally {
     await handle?.close();
     await rm(fixture, { recursive: true, force: true });

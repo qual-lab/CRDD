@@ -31,7 +31,7 @@ import test, { type TestContext } from "node:test";
 import {
   createAiProfileCatalogAdministration,
   createRepositoryAiProfileCatalogStore,
-  DEFAULT_AI_PROFILE_CATALOG,
+  defaultAiProfileCatalog,
 } from "../../../ai-adapter/src/index.ts";
 import {
   createInitialAdministrator,
@@ -817,7 +817,7 @@ test("AM Profile MCPは現在Roleの四操作と非開示を実保存へ接続�
         await call(base, f.token, MCP_AI_PROFILE_TOOLS.list, {})
       ).json();
       const revision = listed.result.structuredContent.revision;
-      const original = DEFAULT_AI_PROFILE_CATALOG.profiles[0];
+      const original = defaultAiProfileCatalog.profiles[0];
       assert.ok(original);
       const profile = {
         ...original,
@@ -845,7 +845,7 @@ test("AM Profile MCPは現在Roleの四操作と非開示を実保存へ接続�
         const response = await (await call(base, f.token, name, args)).json();
         assert.equal(response.result.structuredContent.status, "completed");
       }
-      assert.equal(administration.snapshot().revision, revision + 3);
+      assert.equal(administration.snapshot().value?.revision, revision + 3);
     }
     user.role = "developer";
     fs.writeFileSync(f.current, JSON.stringify(state));

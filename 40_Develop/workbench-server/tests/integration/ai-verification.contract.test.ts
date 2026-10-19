@@ -1026,7 +1026,9 @@ test("正式試験mainは公開HTTPで一回だけ依頼し失敗と終了観測
         verifyRepositoryRoot,
         createRepositoryAiProfileCatalogStore: () => ({
           status: "ready",
-          store: { snapshot: () => catalog },
+          store: {
+            snapshot: () => ({ status: "read", value: catalog, error: null }),
+          },
         }),
         readWorkbenchProjectSurface: async () => surface,
         createRepositoryTaskRequests: () => fakeOwner,

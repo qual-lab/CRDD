@@ -17,9 +17,9 @@ import {
 } from "../../../src/host-execution/process-safety-state.ts";
 
 import {
-  DEFAULT_AI_PROFILE_CATALOG,
+  defaultAiProfileCatalog,
   resolveAiProfileById,
-} from "../../../../ai-adapter/src/catalog/resolve.ts";
+} from "../../../../ai-adapter/src/index.ts";
 import { prepareWorkbenchAiAdviceExecutionPlan } from "../../../src/workbench-ai/advice-execution-plan.ts";
 import {
   createIsolatedWorkbenchAiAdviceRuntimeCandidate,
@@ -32,9 +32,9 @@ import { createIsolatedDelegationSelectionGrantRuntimeCandidate } from "../../..
 import { createIsolatedCoordinatorOperationCreationCandidate } from "../../../src/repository-operation/create.ts";
 
 const profile = resolveAiProfileById(
-  DEFAULT_AI_PROFILE_CATALOG,
+  defaultAiProfileCatalog,
   "PROFILE-100001",
-);
+).value;
 if (profile === null) throw new Error("test_profile_required");
 const prepared = prepareWorkbenchAiAdviceExecutionPlan(
   Object.freeze({

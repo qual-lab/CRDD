@@ -1,26 +1,33 @@
 /**
- * 外部AI Profile設定と利用可能性投影を提供する公開境界。
+ * Provider実行計画・結果変換とAI Profile管理を提供する公開境界。
  *
  * @packageDocumentation
- * @responsibility 同じProfile契約をRepositoryローカル、CROS、Coordinator、Workbenchへ提供する。
+ * @responsibility Provider固有差を共通の計画・解析・認証・設定APIとして公開し、起動・送信許可・資源回収は利用側Ownerへ残す。
  * @trace ARCH-000010
- * @boundary AI Runtimeと各Consumerの公開境界。
+ * @boundary AI Adapterと各Consumerの公開境界。
  * @effect Module読込みだけでは操作を開始しない。公開Storeの操作は検証済みOwner設定Rootの読取り・採用時保存を行い得る。
  * @security Secret、任意実行Path、任意CLI引数をProfile契約へ含めない。
  */
-export { PROVIDER_AUTHENTICATION_POLICIES } from "./profile/authentication-policy.ts";
-export { isProviderSubscriptionAuthenticationConfirmed } from "./provider/subscription-status.ts";
-export { classifyProviderNonzeroExit } from "./provider/error.ts";
+export { PROVIDER_AUTHENTICATION_POLICIES } from "./authentication/policy.ts";
+export { evaluateProviderAuthentication } from "./authentication/result.ts";
+export type { ProviderAuthenticationResult } from "./authentication/result.ts";
+export { convertProviderError } from "./provider/error.ts";
+export type { ProviderError, ProviderErrorReason } from "./provider/error.ts";
 export {
-  evaluateProviderEligibility,
-  prepareProviderFixedEnvironment,
+  evaluateProviderAvailability,
+  prepareProviderEnvironment,
+} from "./provider/validation.ts";
+export type {
+  ProviderAvailability,
+  ProviderEnvironmentResult,
 } from "./provider/validation.ts";
 export {
   providerProfileMatchesExecutionIdentity,
   providerProfileSupportsExecution,
-  normalizeProviderExactModelId,
-} from "./profile/execution-identity.ts";
-export type { ProviderProfileExecutionIdentity } from "./profile/types.ts";
+  validateProviderModelId,
+} from "./profile/validation.ts";
+export type { ProviderProfileExecutionIdentity } from "./profile/validation.ts";
+export type { ProviderModelIdValidationResult } from "./profile/validation.ts";
 export {
   PROVIDER_MODEL_PROFILE_RUNTIME_CONTRACT,
   PROVIDER_MODEL_PROFILE_RUNTIME_CONTRACT_REVISION,
@@ -32,97 +39,115 @@ export {
 export {
   WORKBENCH_AI_ADVICE_PROVIDER_COMMAND_CONTRACT,
   WORKBENCH_AI_ADVICE_PROVIDER_COMMAND_CONTRACT_REVISION,
-  type WorkbenchAiAdviceProviderCommandInput,
-  type WorkbenchAiAdviceProviderCommand,
-} from "./provider/advice-contract.ts";
-export { planWorkbenchAiAdviceProviderCommand } from "./provider/advice-command.ts";
+  type ProviderModelSelection,
+  type ProviderAdvicePlan,
+  type ProviderExecutionInput,
+  type ProviderExecutionPurpose,
+  type ProviderExecutionPlan,
+  type ProviderExecutionPlanResult,
+  type ProviderPlanningReason,
+  planProviderExecution,
+  describeProviderExecution,
+  type ProviderExecutionDefinition,
+  evaluateProviderTaskScope,
+  type ProviderTaskScopeResult,
+} from "./provider/plan.ts";
 export {
   WORKBENCH_AI_ADVICE_PROVIDER_OUTPUT_CONTRACT,
   WORKBENCH_AI_ADVICE_PROVIDER_OUTPUT_CONTRACT_REVISION,
   WORKBENCH_AI_ADVICE_PROVIDER_OUTPUT_REASONS,
-  extractWorkbenchAiAdviceProviderOutput,
-} from "./provider/advice-result.ts";
+  parseProviderResult,
+  type ProviderResultInput,
+  type ProviderResultReason,
+  type ProviderResultParseResult,
+} from "./provider/result.ts";
 export {
-  describeProviderBillingPolicyContract,
+  describeProviderBillingPolicy,
   PROVIDER_BILLING_POLICY_CONTRACT,
   PROVIDER_BILLING_POLICY_CONTRACT_REVISION,
-} from "./profile/billing-policy.ts";
+} from "./billing/policy.ts";
+export type { ProviderBillingPolicy } from "./billing/policy.ts";
 export {
-  DEFAULT_AI_PROFILE_CATALOG,
-  evaluateAiProfileAvailability,
+  defaultAiProfileCatalog,
   resolveAiProfile,
   resolveAiProfileById,
+} from "./catalog/resolve.ts";
+export { evaluateAiProfileAvailability } from "./profile/validation.ts";
+export type { RuntimeProviderModelProfile } from "./profile/resolve.ts";
+export type { AiProfileResolutionResult } from "./catalog/resolve.ts";
+export type {
+  AiProfileCatalogValidationResult,
+  AiProfileValidationResult,
+} from "./catalog/validation.ts";
+export type {
+  AiProfileMutationParseResult,
+  AiProfileMutationValidationResult,
+} from "./profile/crud.ts";
+export type { AiProfileCatalogReadResult } from "./storage/store.ts";
+export {
   validateAiProfileCatalog,
   validateAiProfileDefinition,
-} from "./catalog/resolve.ts";
+} from "./catalog/validation.ts";
 export type {
   AiAdapterDefinition,
+  AiProvider,
+  AiReasoningEffort,
+} from "./provider/types.ts";
+export type {
   AiModelTier,
   AiProfileAvailability,
   AiProfileAvailabilityObservation,
-  AiProfileCatalog,
-  AiProfileCatalogAdministration,
-  AiProfileCatalogAdoptionRequest,
-  AiProfileCatalogAdoptionResult,
-  AiProfileCatalogStore,
-  AiProfileCatalogStoreAdapterResult,
-  AiProfileCatalogMutation,
-  AiProfileCatalogMutationResult,
-  AiProfileCatalogSnapshot,
   AiProfileDefinition,
   AiProfileResolutionRequest,
-  AiProvider,
-  AiReasoningEffort,
   AiSelectionRole,
   ResolvedAiProfile,
   ResolvedAiProfileIdentity,
-} from "./catalog/types.ts";
+} from "./profile/types.ts";
+export type { AiProfileCatalog } from "./catalog/types.ts";
+export type {
+  AiProfileCatalogAdministration,
+  AiProfileCatalogMutation,
+  AiProfileCatalogMutationResult,
+} from "./profile/crud.ts";
+export type {
+  AiProfileCatalogAdoptionRequest,
+  AiProfileCatalogAdoptionResult,
+  AiProfileCatalogStore,
+  AiProfileCatalogStoreResult,
+  AiProfileCatalogSnapshot,
+} from "./storage/store.ts";
 export {
   createAiProfileCatalogAdministration,
   validateAiProfileMutationResult,
   parseAiProfileCatalogMutation,
 } from "./profile/crud.ts";
 export {
-  createCrosAiProfileCatalogStore,
+  createHostAiProfileCatalogStore,
   createRepositoryAiProfileCatalogStore,
-} from "./profile/store.ts";
+} from "./storage/store.ts";
 export { parseUnambiguousJsonDocument } from "./provider/json.ts";
-export { extractProviderTaskEnvelope } from "./provider/task-result.ts";
 export {
-  CODEX_FORBIDDEN_ENVIRONMENT_NAMES,
   CODEX_EXECUTION_PLAN_CONTRACT,
   CODEX_EXECUTION_PLAN_CONTRACT_REVISION,
-  planCodexReadOnlyProbe,
   projectCodexExecutionBoundary,
-  planCodexIsolatedTask,
-  describeCodexExecutionPlanContract,
-} from "./codex/execution-plan.ts";
-export { describeCodexSubscriptionAuthenticationCli } from "./codex/authentication.ts";
+} from "./codex/plan.ts";
+export { describeProviderAuthentication } from "./authentication/plan.ts";
+export type { ProviderAuthenticationDefinition } from "./authentication/plan.ts";
 export {
   CODEX_STRUCTURED_RESULT_CONTRACT,
   CODEX_STRUCTURED_RESULT_CONTRACT_REVISION,
   normalizeCodexStructuredResult,
   describeCodexStructuredResultContract,
-} from "./codex/structured-result.ts";
-export { describeCodexAdviceDistributionIdentity } from "./codex/advice-distribution.ts";
-export {
-  describeClaudeSubscriptionAuthenticationCli,
-  isClaudeSubscriptionAuthenticationConfirmed,
-} from "./claude/authentication.ts";
+} from "./codex/result.ts";
+export { describeCodexAdviceDistributionIdentity } from "./codex/distribution.ts";
 export {
   CLAUDE_EXECUTION_PLAN_CONTRACT,
-  CLAUDE_FORBIDDEN_ENVIRONMENT_NAMES,
   CLAUDE_EXECUTION_PLAN_CONTRACT_REVISION,
   CLAUDE_RESULT_ACCEPTANCE_MAXIMUM_TURNS,
-  planClaudeTaskTurnBudget,
-  buildClaudeExecutionArguments,
-  planClaudeReadOnlyProbe,
-  planClaudeIsolatedTask,
-  describeClaudeExecutionPlanContract,
-} from "./claude/execution-plan.ts";
+} from "./claude/plan.ts";
 export {
   CLAUDE_STRUCTURED_RESULT_CONTRACT,
   CLAUDE_STRUCTURED_RESULT_CONTRACT_REVISION,
   normalizeClaudeStructuredResult,
   describeClaudeStructuredResultContract,
-} from "./claude/structured-result.ts";
+} from "./claude/result.ts";

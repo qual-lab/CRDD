@@ -1,5 +1,5 @@
 /**
- * AI Profile CatalogのOwner別耐久保存Adapter。
+ * AI Profile CatalogのOwner別耐久保存Store。
  *
  * @packageDocumentation
  * @responsibility Repository単体設定とCROS設定を別Rootへ不変Snapshotとして保存し、同じCatalog Schemaで観測する。
@@ -9,9 +9,9 @@
  * @effect 採用時だけ検証済みRoot内へ不変Snapshot fileを公開する。
  * @security 秘密値、任意実行Pathおよび任意CLI引数をSchema検証で拒否し、Pathを公開結果へ含めない。
  */
+import type { AiProfileCatalog } from "../catalog/types.ts";
 import {
   closeSync,
-  existsSync,
   fsyncSync,
   linkSync,
   lstatSync,
@@ -30,17 +30,8 @@ import {
   resolveRepositoryRuntimeDataPathsFromWorkingDirectory,
   type CrosRootInput,
 } from "../../../domain-model/src/index.ts";
-import {
-  DEFAULT_AI_PROFILE_CATALOG,
-  validateAiProfileCatalog,
-} from "../catalog/resolve.ts";
-import type {
-  AiProfileCatalogAdoptionRequest,
-  AiProfileCatalogAdoptionResult,
-  AiProfileCatalogSnapshot,
-  AiProfileCatalogStore,
-  AiProfileCatalogStoreAdapterResult,
-} from "../catalog/types.ts";
+import { defaultAiProfileCatalog } from "../catalog/resolve.ts";
+import { validateAiProfileCatalog } from "../catalog/validation.ts";
 
 const SNAPSHOT_PATTERN = /^catalog-(\d{10})\.json$/u;
 
@@ -63,7 +54,7 @@ const SNAPSHOT_PATTERN = /^catalog-(\d{10})\.json$/u;
  */
 export function createRepositoryAiProfileCatalogStore(
   workingDirectory: unknown,
-): AiProfileCatalogStoreAdapterResult {
+): AiProfileCatalogStoreResult {
   const paths =
     resolveRepositoryRuntimeDataPathsFromWorkingDirectory(workingDirectory);
   if (!paths) return blockedStore();
@@ -87,14 +78,14 @@ export function createRepositoryAiProfileCatalogStore(
  * @security 解決したOS Pathを返却結果へ含めない。
  * @concurrency 採用時は次Revision名への排他的linkで競合を決める。
  */
-export function createCrosAiProfileCatalogStore(
+export function createHostAiProfileCatalogStore(
   input: CrosRootInput,
-): AiProfileCatalogStoreAdapterResult {
+): AiProfileCatalogStoreResult {
   const roots = resolveCrosRuntimeRoots(input);
   if (!roots) return blockedStore();
   const directory = path.join(roots.config, "ai-profile-catalog");
   try {
-    verifyCrosCatalogDirectory(directory, false);
+    verifyHostCatalogDirectory(directory, false);
     return readyStore(directory, true);
   } catch {
     return blockedStore();
@@ -119,12 +110,12 @@ export function createCrosAiProfileCatalogStore(
  */
 function readyStore(
   directory: string,
-  cros = false,
-): AiProfileCatalogStoreAdapterResult {
+  isHostStore = false,
+): AiProfileCatalogStoreResult {
   return Object.freeze({
     status: "ready" as const,
     reason: "ai_profile_catalog_store_ready" as const,
-    store: createFileStore(directory, cros),
+    store: createFileStore(directory, isHostStore),
   });
 }
 
@@ -135,7 +126,7 @@ function readyStore(
  * @trace ARCH-000010
  * @input N/A: 固定blocked結果を生成する。
  * @returns Path非開示のblocked結果。
- * @precondition Root Resolverが非成立を返している。
+ * @precondition N/A: 実行時入力を持たない。
  * @postcondition Storeを公開しない。
  * @effect N/A: Filesystemへ触れない。
  * @failure N/A: 固定結果を返す。
@@ -144,7 +135,7 @@ function readyStore(
  * @security 入力Pathを返さない。
  * @concurrency N/A: 共有状態を持たない。
  */
-function blockedStore(): AiProfileCatalogStoreAdapterResult {
+function blockedStore(): AiProfileCatalogStoreResult {
   return Object.freeze({
     status: "blocked" as const,
     reason: "ai_profile_catalog_storage_root_invalid" as const,
@@ -160,9 +151,9 @@ function blockedStore(): AiProfileCatalogStoreAdapterResult {
  * @input directory: 検証済み設定Directory。
  * @returns Catalog Store Port。
  * @precondition directoryは固定Owner Root配下である。
- * @postcondition 採用成功時だけRevisionが一つ進む。
- * @effect adopt成功時だけSnapshot fileを作成する。
- * @failure 破損は例外、Candidate不正・Revision競合は拒否結果とする。
+ * @postcondition adoptedは次Revisionの確認済み保存を示し、unknownでは公開済みの可能性が残る。
+ * @effect 検証済み候補のadopt試行でSnapshot fileを作成し得る。unknownでも未保存とは限らない。
+ * @failure 読取り不成立はblocked、採用処理の故障は段階付きunknownで返す。
  * @invariant 既存Snapshotを上書き・削除しない。
  * @boundary Catalog DomainとFilesystem Snapshotの境界。
  * @security 検証済みCatalog以外を書き込まない。
@@ -170,14 +161,33 @@ function blockedStore(): AiProfileCatalogStoreAdapterResult {
  */
 function createFileStore(
   directory: string,
-  cros = false,
+  isHostStore = false,
 ): AiProfileCatalogStore {
   return Object.freeze({
     snapshot: () => {
-      if (cros) verifyCrosCatalogDirectory(directory, false);
-      return inspectSnapshot(directory);
+      try {
+        if (isHostStore) verifyHostCatalogDirectory(directory, false);
+        return Object.freeze({
+          status: "read",
+          value: inspectSnapshot(directory),
+          error: null,
+        });
+      } catch (error) {
+        return Object.freeze({
+          status: "blocked",
+          value: null,
+          error:
+            error instanceof Error &&
+            [
+              "ai_profile_catalog_snapshot_invalid",
+              "ai_profile_catalog_snapshot_revision_invalid",
+            ].includes(error.message)
+              ? "ai_profile_catalog_invalid"
+              : "ai_profile_catalog_read_failed",
+        });
+      }
     },
-    adopt: (request) => adoptSnapshot(directory, request, cros),
+    adopt: (request) => adoptSnapshot(directory, request, isHostStore),
   });
 }
 
@@ -190,15 +200,18 @@ function createFileStore(
  * @returns N/A: 検証成功時だけ復帰する。
  * @precondition 固定CROS config用途の絶対Pathである。
  * @postcondition 既存全親は通常Directoryで実Path一致、作成時は親Identityを再確認する。
- * @effect 読取り検証。create時だけ不足suffixを一段ずつ非再帰mkdirする。
+ * @effect 読取り検証。shouldCreate時だけ不足suffixを一段ずつ非再帰mkdirする。
  * @failure Link・非Directory・観測不能・親置換は固定例外で停止する。
  * @invariant ENOENT以外を不存在へ変換せず、状態Rootや既存Snapshotを変更しない。
  * @boundary CROS config保存OwnerとFilesystem実体。
  * @security Repositoryや任意入力Rootを検証APIとして公開しない。
  * @concurrency 各Store操作と書込み段階で再検証し、恒久的な置換耐性は主張しない。
  */
-function verifyCrosCatalogDirectory(directory: string, create: boolean): void {
-  const missing: string[] = [];
+function verifyHostCatalogDirectory(
+  directory: string,
+  shouldCreate: boolean,
+): void {
+  const missingDirectories: string[] = [];
   let ancestor = directory;
   for (;;) {
     try {
@@ -207,7 +220,7 @@ function verifyCrosCatalogDirectory(directory: string, create: boolean): void {
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT")
         throw new Error("ai_profile_catalog_root_unavailable");
-      missing.push(ancestor);
+      missingDirectories.push(ancestor);
       const parent = path.dirname(ancestor);
       if (parent === ancestor)
         throw new Error("ai_profile_catalog_root_invalid");
@@ -227,16 +240,16 @@ function verifyCrosCatalogDirectory(directory: string, create: boolean): void {
     if (parent === cursor) break;
     cursor = parent;
   }
-  if (!create) return;
-  for (const next of missing.reverse()) {
-    verifyCrosCatalogDirectory(ancestor, false);
+  if (!shouldCreate) return;
+  for (const next of missingDirectories.reverse()) {
+    verifyHostCatalogDirectory(ancestor, false);
     const before = lstatSync(ancestor, { bigint: true });
     try {
       mkdirSync(next);
     } catch (error) {
       if (!isAlreadyExists(error)) throw error;
     }
-    verifyCrosCatalogDirectory(next, false);
+    verifyHostCatalogDirectory(next, false);
     const after = lstatSync(ancestor, { bigint: true });
     if (before.dev !== after.dev || before.ino !== after.ino)
       throw new Error("ai_profile_catalog_root_changed");
@@ -261,8 +274,21 @@ function verifyCrosCatalogDirectory(directory: string, create: boolean): void {
  * @concurrency 完全公開済みSnapshotだけを列挙する。
  */
 function inspectSnapshot(directory: string): AiProfileCatalogSnapshot {
-  if (!existsSync(directory))
-    return Object.freeze({ revision: 0, catalog: DEFAULT_AI_PROFILE_CATALOG });
+  try {
+    lstatSync(directory);
+  } catch (error) {
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      error.code === "ENOENT"
+    )
+      return Object.freeze({
+        revision: 0,
+        catalog: defaultAiProfileCatalog,
+      });
+    throw error;
+  }
   const snapshots = readdirSync(directory)
     .map((name) => ({ name, match: SNAPSHOT_PATTERN.exec(name) }))
     .filter(
@@ -272,7 +298,7 @@ function inspectSnapshot(directory: string): AiProfileCatalogSnapshot {
     .map((entry) => ({ name: entry.name, revision: Number(entry.match[1]) }))
     .sort((left, right) => left.revision - right.revision);
   if (snapshots.length === 0)
-    return Object.freeze({ revision: 0, catalog: DEFAULT_AI_PROFILE_CATALOG });
+    return Object.freeze({ revision: 0, catalog: defaultAiProfileCatalog });
   snapshots.forEach((entry, index) => {
     if (entry.revision !== index + 1)
       throw new Error("ai_profile_catalog_snapshot_revision_invalid");
@@ -291,11 +317,11 @@ function inspectSnapshot(directory: string): AiProfileCatalogSnapshot {
  * @responsibility Candidateと現在値を分離し、検証・Revision照合・公開確認を順序固定する。
  * @trace ARCH-000010
  * @input directoryとCatalog採用要求。
- * @returns adoptedまたは理由付きrejected結果。
+ * @returns adopted、理由付きrejected又は段階付きunknown結果。
  * @precondition requestのCandidateとRevisionを未信頼入力として扱う。
  * @postcondition adopted時はread-back可能な次Snapshotが存在する。
  * @effect 成功候補に限りDirectory、staging file、Snapshot fileを作成する。
- * @failure Candidate不正・競合は拒否、観測不能・清掃不能・書込み失敗は例外で停止する。
+ * @failure Candidate不正・競合はrejected、観測不能・清掃不能・書込み失敗は段階付きunknownで返す。
  * @invariant Candidateを公開してから検証しない。
  * @boundary Catalog採用ApplicationとFilesystem公開の境界。
  * @security Catalog Schema外の秘密値や任意実行情報を保存しない。
@@ -304,56 +330,77 @@ function inspectSnapshot(directory: string): AiProfileCatalogSnapshot {
 function adoptSnapshot(
   directory: string,
   request: AiProfileCatalogAdoptionRequest,
-  cros = false,
+  isHostStore = false,
 ): AiProfileCatalogAdoptionResult {
-  if (cros) verifyCrosCatalogDirectory(directory, false);
-  const current = inspectSnapshot(directory);
-  if (request.expectedRevision !== current.revision)
-    return rejected("revision_conflict", current);
-  const catalog = validateAiProfileCatalog(request.candidate);
-  if (!catalog) return rejected("catalog_invalid", current);
-  if (cros) verifyCrosCatalogDirectory(directory, true);
-  else mkdirSync(directory, { recursive: true });
-  const revision = current.revision + 1;
-  const target = path.join(
-    directory,
-    `catalog-${String(revision).padStart(10, "0")}.json`,
-  );
-  const staging = path.join(
-    directory,
-    `.catalog-${String(revision).padStart(10, "0")}-${process.pid}-${Date.now()}.tmp`,
-  );
-  const payload = `${JSON.stringify({
-    contract: "crdd/ai-profile-catalog-snapshot",
-    contractRevision: 1,
-    revision,
-    catalog,
-  })}\n`;
-  const handle = openSync(staging, "wx", 0o600);
+  let phase: "read" | "prepare" | "write" | "publish" | "verify" | "cleanup" =
+    "read";
   try {
-    if (cros) verifyCrosCatalogDirectory(directory, false);
-    writeFileSync(handle, payload, "utf8");
-    fsyncSync(handle);
-  } finally {
-    closeSync(handle);
+    if (isHostStore) verifyHostCatalogDirectory(directory, false);
+    const current = inspectSnapshot(directory);
+    if (request.expectedRevision !== current.revision)
+      return rejected("revision_conflict", current);
+    const catalog = validateAiProfileCatalog(request.candidate).value;
+    if (!catalog) return rejected("catalog_invalid", current);
+    phase = "prepare";
+    if (isHostStore) verifyHostCatalogDirectory(directory, true);
+    else mkdirSync(directory, { recursive: true });
+    const revision = current.revision + 1;
+    const target = path.join(
+      directory,
+      `catalog-${String(revision).padStart(10, "0")}.json`,
+    );
+    const staging = path.join(
+      directory,
+      `.catalog-${String(revision).padStart(10, "0")}-${process.pid}-${Date.now()}.tmp`,
+    );
+    const payload = `${JSON.stringify({
+      contract: "crdd/ai-profile-catalog-snapshot",
+      contractRevision: 1,
+      revision,
+      catalog,
+    })}\n`;
+    phase = "write";
+    const handle = openSync(staging, "wx", 0o600);
+    try {
+      if (isHostStore) verifyHostCatalogDirectory(directory, false);
+      writeFileSync(handle, payload, "utf8");
+      fsyncSync(handle);
+    } finally {
+      closeSync(handle);
+    }
+    phase = "publish";
+    try {
+      if (isHostStore) verifyHostCatalogDirectory(directory, false);
+      linkSync(staging, target);
+    } catch (error) {
+      phase = "cleanup";
+      unlinkSync(staging);
+      phase = "publish";
+      if (isAlreadyExists(error))
+        return rejected("revision_conflict", inspectSnapshot(directory));
+      throw error;
+    }
+    phase = "verify";
+    try {
+      if (readFileSync(target, "utf8") !== payload)
+        throw new Error("ai_profile_catalog_snapshot_publish_unconfirmed");
+    } finally {
+      const previousPhase = phase;
+      phase = "cleanup";
+      unlinkSync(staging);
+      phase = previousPhase;
+    }
+    const snapshot = Object.freeze({ revision, catalog });
+    return Object.freeze({ status: "adopted" as const, revision, snapshot });
+  } catch {
+    return Object.freeze({
+      status: "unknown",
+      reason: "ai_profile_catalog_save_unconfirmed",
+      phase,
+      revision: null,
+      snapshot: null,
+    });
   }
-  try {
-    if (cros) verifyCrosCatalogDirectory(directory, false);
-    linkSync(staging, target);
-  } catch (error) {
-    unlinkSync(staging);
-    if (isAlreadyExists(error))
-      return rejected("revision_conflict", inspectSnapshot(directory));
-    throw error;
-  }
-  try {
-    if (readFileSync(target, "utf8") !== payload)
-      throw new Error("ai_profile_catalog_snapshot_publish_unconfirmed");
-  } finally {
-    unlinkSync(staging);
-  }
-  const snapshot = Object.freeze({ revision, catalog });
-  return Object.freeze({ status: "adopted" as const, revision, snapshot });
 }
 
 /**
@@ -396,7 +443,7 @@ function parseSnapshot(
     throw new Error("ai_profile_catalog_snapshot_invalid");
   const catalog = validateAiProfileCatalog(
     (raw as Record<string, unknown>).catalog,
-  );
+  ).value;
   if (!catalog) throw new Error("ai_profile_catalog_snapshot_invalid");
   return Object.freeze({ revision: expectedRevision, catalog });
 }
@@ -453,3 +500,121 @@ function isAlreadyExists(error: unknown): boolean {
     (error as { code?: unknown }).code === "EEXIST"
   );
 }
+
+/**
+ * Catalogとその保存改訂番号の組を表す。
+ * @responsibility Catalogとその保存改訂番号の組を表すが、実行・保存・認可の成立を型だけでは保証しない。
+ * @trace ARCH-000010
+ * @shape 宣言されたPropertyとliteral値を持つ読取り専用契約。
+ * @invariant 改訂・選択・観測の意味は呼出し元と処理Ownerで照合する。
+ * @boundary storage/store.tsと既存公開API利用側の値契約。
+ * @security 秘密値や操作Authorityを発行しない。
+ * @compatibility 既存の型名・Property・値域を維持する。
+ */
+export type AiProfileCatalogSnapshot = Readonly<{
+  revision: number;
+  catalog: AiProfileCatalog;
+}>;
+
+/**
+ * 期待改訂と採用候補を渡す保存要求を表す。
+ * @responsibility 期待改訂と採用候補を渡す保存要求を表すが、実行・保存・認可の成立を型だけでは保証しない。
+ * @trace ARCH-000010
+ * @shape 宣言されたPropertyとliteral値を持つ読取り専用契約。
+ * @invariant 改訂・選択・観測の意味は呼出し元と処理Ownerで照合する。
+ * @boundary storage/store.tsと既存公開API利用側の値契約。
+ * @security 秘密値や操作Authorityを発行しない。
+ * @compatibility 既存の型名・Property・値域を維持する。
+ */
+export type AiProfileCatalogAdoptionRequest = Readonly<{
+  expectedRevision: number;
+  candidate: unknown;
+}>;
+
+/**
+ * 保存採用または不正・改訂競合の拒否結果を表す。
+ * @responsibility 保存採用または不正・改訂競合の拒否結果を表すが、実行・保存・認可の成立を型だけでは保証しない。
+ * @trace ARCH-000010
+ * @shape 宣言されたPropertyとliteral値を持つ読取り専用契約。
+ * @invariant 改訂・選択・観測の意味は呼出し元と処理Ownerで照合する。
+ * @boundary storage/store.tsと既存公開API利用側の値契約。
+ * @security 秘密値や操作Authorityを発行しない。
+ * @compatibility 既存の型名・Property・値域を維持する。
+ */
+export type AiProfileCatalogAdoptionResult =
+  | Readonly<{
+      status: "unknown";
+      reason: "ai_profile_catalog_save_unconfirmed";
+      phase: "read" | "prepare" | "write" | "publish" | "verify" | "cleanup";
+      revision: null;
+      snapshot: null;
+    }>
+  | Readonly<{
+      status: "adopted";
+      revision: number;
+      snapshot: AiProfileCatalogSnapshot;
+    }>
+  | Readonly<{
+      status: "rejected";
+      reason: "catalog_invalid" | "revision_conflict";
+      revision: number;
+      snapshot: AiProfileCatalogSnapshot;
+    }>;
+
+/**
+ * Snapshotの取得と明示的な採用操作の契約を表す。
+ * @responsibility Snapshotの取得と明示的な採用操作の契約を表すが、実行・保存・認可の成立を型だけでは保証しない。
+ * @trace ARCH-000010
+ * @shape 宣言されたPropertyとliteral値を持つ読取り専用契約。
+ * @invariant 改訂・選択・観測の意味は呼出し元と処理Ownerで照合する。
+ * @boundary storage/store.tsと既存公開API利用側の値契約。
+ * @security 秘密値や操作Authorityを発行しない。
+ * @compatibility 既存の型名・Property・値域を維持する。
+ */
+export type AiProfileCatalogStore = Readonly<{
+  snapshot: () => AiProfileCatalogReadResult;
+  adopt: (
+    request: AiProfileCatalogAdoptionRequest,
+  ) => AiProfileCatalogAdoptionResult;
+}>;
+
+/**
+ * Owner保存先の構成成功またはRoot不正の停止結果を表す。
+ * @responsibility Owner保存先の構成成功またはRoot不正の停止結果を表すが、実行・保存・認可の成立を型だけでは保証しない。
+ * @trace ARCH-000010
+ * @shape 宣言されたPropertyとliteral値を持つ読取り専用契約。
+ * @invariant 改訂・選択・観測の意味は呼出し元と処理Ownerで照合する。
+ * @boundary storage/store.tsと既存公開API利用側の値契約。
+ * @security 秘密値や操作Authorityを発行しない。
+ * @compatibility 既存の型名・Property・値域を維持する。
+ */
+export type AiProfileCatalogStoreResult = Readonly<
+  | {
+      status: "ready";
+      reason: "ai_profile_catalog_store_ready";
+      store: AiProfileCatalogStore;
+    }
+  | {
+      status: "blocked";
+      reason: "ai_profile_catalog_storage_root_invalid";
+      store: null;
+    }
+>;
+/**
+ * 読取り成功と観測不能を区別し、失敗時に既定値へ縮退しない。
+ * @responsibility 成功値と固定拒否理由又は観測不能を型で区別する。
+ * @trace ARCH-000010
+ * @shape 状態で値と欠測を絞り込める読取り専用の直和型。
+ * @invariant 型だけで認証、実行、保存又は回収の成立を主張しない。
+ * @boundary AI Profile APIと直接利用側の値契約。
+ * @security 秘密値、内部Path及び操作Authorityを含めない。
+ * @compatibility 通信Envelopeと保存Schemaを変更せず、内部戻り値だけを移行する。
+ */
+export type AiProfileCatalogReadResult = Readonly<
+  | { status: "read"; value: AiProfileCatalogSnapshot; error: null }
+  | {
+      status: "blocked";
+      value: null;
+      error: "ai_profile_catalog_read_failed" | "ai_profile_catalog_invalid";
+    }
+>;

@@ -19,23 +19,13 @@ import {
 } from "../../../docker-isolation/src/index.ts";
 import { codexAdviceProviderInitRequired } from "../../../docker-isolation/src/index.ts";
 import {
-  buildClaudeExecutionArguments,
-  describeCodexSubscriptionAuthenticationCli,
-  describeClaudeSubscriptionAuthenticationCli,
-} from "../../../ai-adapter/src/index.ts";
-import {
-  planClaudeIsolatedTask,
-  planClaudeReadOnlyProbe,
-} from "../../../ai-adapter/src/index.ts";
-import {
-  planCodexIsolatedTask,
-  planCodexReadOnlyProbe,
+  describeProviderAuthentication,
+  planProviderExecution,
 } from "../../../ai-adapter/src/index.ts";
 import { describeDockerIsolationExecutionEnvironment } from "../../../docker-isolation/src/index.ts";
 import { inspectRuntimeOwnedDockerResourceReceipts } from "../task/recovery.ts";
 import { describeEgressProxyTopology } from "../external-send/egress-proxy-policy.ts";
 import { borrowOwnedDockerExecutionPaths } from "../host-execution/operation-workspace-lifecycle.ts";
-import { planWorkbenchAiAdviceProviderCommand } from "../../../ai-adapter/src/index.ts";
 
 export const DOCKER_EFFECT_RUNTIME_CONTRACT =
   "crdd-coordinator/docker-effect-runtime";
@@ -154,43 +144,54 @@ function resolveIsolationCommandInput(
   plan: PreparedPlan,
   tmpSourcePath: string,
 ): DockerIsolationCommandInput | null {
-  const adviceCommand =
+  const adviceResult =
     plan.operationMode === "workbench_advice"
-      ? planWorkbenchAiAdviceProviderCommand(
-          {
+      ? planProviderExecution({
+          provider: plan.provider,
+          purpose: "advice",
+          input: {
             provider: plan.provider,
             exactModelId: plan.selectedModel,
             reasoningEffort: plan.selectedEffort,
           },
-          describeWorkbenchAiAdviceResultSchema(),
-        )
+          resultSchema: describeWorkbenchAiAdviceResultSchema(),
+        })
       : null;
-  const providerPlan =
-    plan.provider === "codex"
-      ? plan.operationMode === "isolated_task"
-        ? planCodexIsolatedTask({
-            provider: "codex",
-            mode: "isolated_task",
-            effort: plan.selectedEffort,
-            taskRole: plan.taskRole,
-          })
-        : planCodexReadOnlyProbe({
-            provider: "codex",
-            mode: "read_only_probe",
-            effort: plan.selectedEffort,
-          })
-      : plan.operationMode === "isolated_task"
-        ? planClaudeIsolatedTask({
-            provider: "claude",
+  if (adviceResult?.status === "blocked") return null;
+  const adviceCommand = adviceResult?.plan ?? null;
+  const generated = planProviderExecution({
+    provider: plan.provider,
+    purpose: plan.operationMode === "isolated_task" ? "task" : "probe",
+    input:
+      plan.operationMode === "isolated_task"
+        ? {
+            provider: plan.provider,
             mode: "isolated_task",
             taskRole: plan.taskRole,
             effort: plan.selectedEffort,
-            taskWorkload: plan.taskWorkload,
-          })
-        : planClaudeReadOnlyProbe({
-            provider: "claude",
+            ...(plan.provider === "claude"
+              ? { taskWorkload: plan.taskWorkload }
+              : {}),
+          }
+        : {
+            provider: plan.provider,
             mode: "read_only_probe",
-          });
+            ...(plan.provider === "codex"
+              ? { effort: plan.selectedEffort }
+              : {}),
+          },
+    ...(adviceCommand
+      ? {}
+      : {
+          modelSelection: {
+            provider: plan.provider,
+            exactModelId: plan.selectedModel,
+            reasoningEffort: plan.selectedEffort,
+          },
+        }),
+  });
+  if (generated.status !== "ready") return null;
+  const providerPlan = generated.plan;
   const egress = describeEgressProxyTopology(plan.provider);
   if (
     providerPlan.status !== "candidate" ||
@@ -211,7 +212,7 @@ function resolveIsolationCommandInput(
   const providerIdentity = providerPlan.distributionBinding.identity;
   const authenticationEnvironment = createDockerAuthenticationEnvironment(
     plan.provider === "codex"
-      ? describeCodexSubscriptionAuthenticationCli().homeEnvironmentVariable
+      ? describeProviderAuthentication("codex").homeEnvironmentVariable
       : null,
   );
   if (!authenticationEnvironment) return null;
@@ -262,19 +263,12 @@ function resolveIsolationCommandInput(
     authentication: {
       argv:
         plan.provider === "codex"
-          ? describeCodexSubscriptionAuthenticationCli().statusArgv
-          : describeClaudeSubscriptionAuthenticationCli().statusArgv,
+          ? describeProviderAuthentication("codex").statusArgv
+          : describeProviderAuthentication("claude").statusArgv,
       environment: authenticationEnvironment,
     },
     execution: {
-      argv:
-        plan.provider === "claude" && !adviceCommand
-          ? buildClaudeExecutionArguments(
-              plan.selectedModel,
-              plan.selectedEffort,
-              providerPlan.argv,
-            )
-          : (adviceCommand?.argv ?? providerPlan.argv),
+      argv: adviceCommand?.argv ?? providerPlan.argv,
       environment: adviceCommand?.environment ?? providerPlan.environment,
       interactive:
         plan.operationMode === "isolated_task" || adviceCommand !== null,
@@ -335,16 +329,20 @@ function expectedCommands(
  */
 function validatePlan(plan: PreparedPlan, tmpSourcePath: string) {
   const isAdvicePlan = plan.operationMode === "workbench_advice";
-  const expectedAdviceCommand = isAdvicePlan
-    ? planWorkbenchAiAdviceProviderCommand(
-        {
+  const expectedAdviceResult = isAdvicePlan
+    ? planProviderExecution({
+        provider: plan.provider,
+        purpose: "advice",
+        input: {
           provider: plan.provider,
           exactModelId: plan.selectedModel,
           reasoningEffort: plan.selectedEffort,
         },
-        describeWorkbenchAiAdviceResultSchema(),
-      )
+        resultSchema: describeWorkbenchAiAdviceResultSchema(),
+      })
     : null;
+  if (expectedAdviceResult?.status === "blocked") return false;
+  const expectedAdviceCommand = expectedAdviceResult?.plan ?? null;
   const expectedAdviceCommandHash = expectedAdviceCommand
     ? createHash("sha256")
         .update(JSON.stringify(expectedAdviceCommand), "utf8")

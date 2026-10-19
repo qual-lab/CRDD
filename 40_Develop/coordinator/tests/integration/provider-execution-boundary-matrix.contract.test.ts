@@ -9,15 +9,155 @@
  * @scope provider、executor、reviewer、lifecycle、coverage
  * @boundary ERB-IT-004=Direct Boundary: Observer→Effect Gate / PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
+import {
+  planProviderExecution,
+  parseProviderResult,
+  evaluateProviderTaskScope,
+  type ProviderExecutionInput,
+  type ProviderResultInput,
+} from "../../../ai-adapter/src/index.ts";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 
-import { planClaudeIsolatedTask } from "../../../ai-adapter/src/index.ts";
-import { planCodexIsolatedTask } from "../../../ai-adapter/src/index.ts";
-
 const repositoryRoot = path.resolve(import.meta.dirname, "../..");
+
+/**
+ * 共通計画入口の不正入力をEffect前に拒否する。
+ * @responsibility Provider・用途・選定の不一致と入力Trapを候補へ昇格しない。
+ * @trace ERB-IT-004
+ * @precondition 合成入力だけを使う。
+ * @stimulus 不明Provider・用途、欠落、余分field、accessor、ProxyとModel不一致を渡す。
+ * @observation ready／blockedと計画の不存在。
+ * @oracle 未知値をClaude又は正常計画へ暗黙配送しない。
+ * @cleanup N/A: 外部資源を作らない。
+ * @boundary 公開API→Provider固有計画のGate。
+ */
+test("共通計画APIは用途・Provider・選定の不一致と入力Trapを拒否する", () => {
+  const request = {
+    provider: "codex",
+    purpose: "probe",
+    input: { provider: "codex", mode: "read_only_probe", effort: "low" },
+  };
+  let trapCount = 0;
+  for (const candidate of [
+    null,
+    {},
+    { ...request, provider: "unknown" },
+    { ...request, purpose: "unknown" },
+    { ...request, extra: true },
+    {
+      ...request,
+      modelSelection: {
+        provider: "claude",
+        exactModelId: "gpt-5.6-sol",
+        reasoningEffort: "low",
+      },
+    },
+    {
+      ...request,
+      modelSelection: {
+        provider: "codex",
+        exactModelId: "gpt-5.6-sol",
+        reasoningEffort: "high",
+      },
+    },
+    {
+      ...request,
+      modelSelection: {
+        provider: "codex",
+        exactModelId: "other-model",
+        reasoningEffort: "low",
+      },
+    },
+    Object.defineProperty({ ...request }, "provider", {
+      get: () => {
+        trapCount++;
+        return "codex";
+      },
+    }),
+    new Proxy(request, {
+      ownKeys: () => {
+        trapCount++;
+        return [];
+      },
+    }),
+  ]) {
+    const result = planProviderExecution(
+      candidate as unknown as ProviderExecutionInput,
+    );
+    assert.equal(result.status, "blocked");
+    assert.equal(result.plan, null);
+    assert.ok(result.error);
+  }
+  assert.equal(trapCount, 0);
+  assert.equal(
+    evaluateProviderTaskScope("unknown" as "codex", "executor", {}).status,
+    "blocked",
+  );
+  assert.equal(
+    evaluateProviderTaskScope("codex", "unknown", {}).status,
+    "blocked",
+  );
+});
+
+/**
+ * 共通結果入口で用途と容量・Schema判断の責務を分離する。
+ * @responsibility 不正入力を拒否し、解析成功を上位Schema成立へ読み替えない。
+ * @trace ERB-IT-004
+ * @precondition 合成JSONだけを使う。
+ * @stimulus Taskの正常JSON、助言への誤配送、過大Task入力と不明用途を渡す。
+ * @observation 解析結果・固定理由・生出力非公開。
+ * @oracle 用途別の受理条件を緩めず、不正値から結果を生成しない。
+ * @cleanup N/A: 純粋解析だけを行う。
+ * @boundary 共通解析→Coordinatorの結果Schema検証。
+ */
+test("共通結果APIは用途・容量・上位Schema判断を区別する", () => {
+  let trapCount = 0;
+  const input = {
+    provider: "codex",
+    purpose: "task",
+    taskRole: "executor",
+    resultAcceptanceMaximumTurns: 0,
+    raw: '{"status":true}',
+  } as const;
+  const parsed = parseProviderResult(input);
+  assert.equal(parsed.status, "confirmed");
+  assert.deepEqual(parsed.value, { status: true });
+  assert.equal(parsed.error, null);
+  assert.equal(parsed.rawOutputReported, false);
+  for (const candidate of [
+    null,
+    {},
+    { ...input, provider: "unknown" },
+    { ...input, purpose: "unknown" },
+    { ...input, purpose: "advice" },
+    { ...input, taskRole: "unknown" },
+    { ...input, raw: " ".repeat(65_537) + input.raw },
+    Object.defineProperty({ ...input }, "raw", {
+      get: () => {
+        trapCount++;
+        return input.raw;
+      },
+    }),
+    new Proxy(input, {
+      ownKeys: () => {
+        trapCount++;
+        return [];
+      },
+    }),
+  ]) {
+    const result = parseProviderResult(
+      candidate as unknown as ProviderResultInput,
+    );
+    assert.equal(result.status, "blocked");
+    assert.equal(result.value, null);
+    assert.ok(result.error);
+    assert.equal(result.rawOutputReported, false);
+  }
+  assert.equal(trapCount, 0);
+});
 
 const PLAN_CASES = Object.freeze([
   Object.freeze({ provider: "codex", role: "executor" }),
@@ -124,24 +264,32 @@ test("Codex／ClaudeのExecutor・Reviewer計画を同じProvider境界Matrixで
   for (const item of PLAN_CASES) {
     const plan = (
       item.provider === "codex"
-        ? planCodexIsolatedTask({
+        ? (planProviderExecution({
             provider: "codex",
-            mode: "isolated_task",
-            effort: "low",
-            taskRole: item.role,
-          })
-        : planClaudeIsolatedTask({
-            provider: "claude",
-            mode: "isolated_task",
-            effort: "low",
-            taskRole: item.role,
-            taskWorkload: {
-              readPathCount: 1,
-              allowedPathCount: 1,
-              acceptanceCriterionCount: 1,
-              remediationFindingCount: 0,
+            purpose: "task",
+            input: {
+              provider: "codex",
+              mode: "isolated_task",
+              effort: "low",
+              taskRole: item.role,
             },
-          })
+          }).plan ?? assert.fail("provider_execution_plan_not_ready"))
+        : (planProviderExecution({
+            provider: "claude",
+            purpose: "task",
+            input: {
+              provider: "claude",
+              mode: "isolated_task",
+              effort: "low",
+              taskRole: item.role,
+              taskWorkload: {
+                readPathCount: 1,
+                allowedPathCount: 1,
+                acceptanceCriterionCount: 1,
+                remediationFindingCount: 0,
+              },
+            },
+          }).plan ?? assert.fail("provider_execution_plan_not_ready"))
     ) as Readonly<Record<string, unknown>>;
     const argv = plan.argv as readonly string[];
     assert.equal(plan.status, "candidate");

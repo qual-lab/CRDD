@@ -10,7 +10,7 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-import { DEFAULT_AI_PROFILE_CATALOG } from "../../../ai-adapter/src/index.ts";
+import { defaultAiProfileCatalog } from "../../../ai-adapter/src/index.ts";
 import {
   inspectWorkbenchProfileSnapshot,
   inspectWorkbenchProfileResult,
@@ -31,7 +31,7 @@ import {
 test("Profile Snapshotは完全Catalogと閉Envelopeを検査する", () => {
   const valid = {
     revision: 0,
-    catalog: structuredClone(DEFAULT_AI_PROFILE_CATALOG),
+    catalog: structuredClone(defaultAiProfileCatalog),
   };
   assert.equal(inspectWorkbenchProfileSnapshot(valid).revision, 0);
   assert.throws(() =>
@@ -49,7 +49,7 @@ test("Profile Snapshotは完全Catalogと閉Envelopeを検査する", () => {
     "origin",
     "ambiguity",
   ] as const) {
-    const catalog = structuredClone(DEFAULT_AI_PROFILE_CATALOG);
+    const catalog = structuredClone(defaultAiProfileCatalog);
     const adapter = catalog.adapters[0],
       profile = catalog.profiles[0];
     assert.ok(adapter);
@@ -95,7 +95,7 @@ test("Profile Snapshotは完全Catalogと閉Envelopeを検査する", () => {
  * @boundary JSON結果とBrowserの操作確認。
  */
 test("Profile結果は操作と改訂・対象へ相関する", () => {
-  const catalog = structuredClone(DEFAULT_AI_PROFILE_CATALOG);
+  const catalog = structuredClone(defaultAiProfileCatalog);
   const profile = catalog.profiles[0];
   assert.ok(profile);
   const form = new URLSearchParams({

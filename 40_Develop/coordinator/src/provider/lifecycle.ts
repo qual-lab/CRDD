@@ -9,7 +9,7 @@ import {
   snapshotPlainRecord,
 } from "../../../domain-model/src/index.ts";
 import {
-  describeProviderBillingPolicyContract,
+  describeProviderBillingPolicy,
   PROVIDER_AUTHENTICATION_POLICIES as AUTH_POLICIES,
 } from "../../../ai-adapter/src/index.ts";
 import { describeProviderHomeContract } from "./home.ts";
@@ -32,7 +32,7 @@ const FAKE_STATES = Object.freeze([
   "cleanup_confirmed",
 ]);
 const PLAN_KEYS = new Set(["provider", "mode"]);
-const billingPolicy = describeProviderBillingPolicyContract();
+const billingPolicy = describeProviderBillingPolicy();
 const OBSERVATION_KEYS = new Set([
   "contract",
   "contractRevision",

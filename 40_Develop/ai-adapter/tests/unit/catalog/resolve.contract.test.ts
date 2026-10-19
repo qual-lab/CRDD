@@ -1,136 +1,26 @@
 /**
- * AI Profile Catalogの閉じたSchema、解決、利用可能性を検証する。
+ * Catalog登録内容と候補解決を検証する。
  *
  * @packageDocumentation
- * @responsibility 外部設定が任意実行構成や曖昧Profileを持ち込まないことを反証する。
+ * @responsibility 既存Caseを実責務のSourceへ接続し、受理・拒否条件を維持する。
  * @trace RCM-UT-001
- * @trace RCM-UT-002
  * @level UT
- * @scope ai-profile、adapter、model、availability
- * @boundary N/A: Process内の純粋な設定検証境界。
+ * @scope catalog/resolveの純粋契約。
+ * @boundary N/A: Process内の値だけを扱い外部資源を作らない。
  */
 import assert from "node:assert/strict";
 import test from "node:test";
 import * as adapterPublicApi from "../../../src/index.ts";
-import { parseAiProfileCatalogMutation } from "../../../src/index.ts";
-import defaultCatalogData from "../../../src/catalog/default-ai-profile-catalog.json" with {
+import defaultCatalogData from "../../../src/catalog/default-catalog.json" with {
   type: "json",
 };
 
 import {
-  DEFAULT_AI_PROFILE_CATALOG,
-  evaluateAiProfileAvailability,
+  defaultAiProfileCatalog,
   resolveAiProfile,
   resolveAiProfileById,
-  validateAiProfileCatalog,
-  validateAiProfileDefinition,
 } from "../../../src/catalog/resolve.ts";
-import { createAiProfileCatalogAdministration } from "../../../src/profile/crud.ts";
-import type {
-  AiProfileCatalogStore,
-  AiProfileCatalogSnapshot,
-} from "../../../src/index.ts";
-
-/**
- * Profile限定Mutation入力はCatalog Ownerの公開入口で検査する。
- * @responsibility TransportやCROSにSchemaを複製せず閉じた所有値へ固定する。
- * @trace RCM-UT-002
- * @precondition 既定Profileと未信頼Mutation入力を用意する。
- * @stimulus 三操作、余分field、改訂不正、ID不正、Proxy/accessorを渡す。
- * @observation 所有済みMutation、拒否値、hook実行数。
- * @oracle 三操作の正常入力だけ受理し、不正はnull、hook0、元値の変更を受けない。
- * @cleanup N/A: I/O・Store・Providerを使用しない。
- * @boundary AI Adapterの純粋な公開入力契約。
- */
-test("Profile Mutation Parserは三操作の閉じた入力だけを所有する", () => {
-  const profile = structuredClone(DEFAULT_AI_PROFILE_CATALOG.profiles[0]);
-  assert.ok(profile);
-  for (const operation of ["create", "update"] as const) {
-    const input: unknown = { operation, expectedRevision: 0, profile };
-    const parsed = parseAiProfileCatalogMutation(input);
-    assert.deepEqual(parsed, input);
-    assert.notEqual(parsed, input);
-  }
-  const deletion = {
-    operation: "delete",
-    expectedRevision: 1,
-    profileId: profile.profileId,
-    confirmed: true,
-  };
-  assert.deepEqual(parseAiProfileCatalogMutation(deletion), deletion);
-  for (const raw of [
-    { ...deletion, extra: true },
-    { ...deletion, expectedRevision: -1 },
-    { ...deletion, expectedRevision: 0.5 },
-    { ...deletion, profileId: "invalid" },
-    { ...deletion, confirmed: 1 },
-    { operation: "create", expectedRevision: 0, profile: {} },
-    { operation: "unknown", expectedRevision: 0, profile },
-  ])
-    assert.equal(parseAiProfileCatalogMutation(raw), null);
-  let hooks = 0;
-  const proxy = new Proxy(deletion, {
-    ownKeys() {
-      hooks++;
-      return [];
-    },
-  });
-  const accessor = Object.defineProperty({}, "operation", {
-    get() {
-      hooks++;
-      return "delete";
-    },
-  });
-  assert.equal(parseAiProfileCatalogMutation(proxy), null);
-  assert.equal(parseAiProfileCatalogMutation(accessor), null);
-  assert.equal(hooks, 0);
-});
-
-/**
- * Profile構造の取得で実行可能なPropertyを評価しない。
- *
- * @responsibility 共通Validatorが未信頼Profileを所有済み値へ固定することを確認する。
- * @trace RCM-UT-002
- * @precondition 既定Profileの独立複製とProxy／accessorを用意する。
- * @stimulus 正常、Proxy、accessor、未知fieldを検査し取得後に元配列を変更する。
- * @observation hook回数、検査結果と所有済み配列を観測する。
- * @oracle 不正値はnull、hook0、正常値は元入力の変更を受けない。
- * @cleanup N/A: 局所値だけを使用する。
- * @boundary 未信頼ProfileとAI Adapterの構造契約。
- */
-test("Profile構造検査はProxyとaccessorを実行せず値を所有する", () => {
-  const profile = structuredClone(DEFAULT_AI_PROFILE_CATALOG.profiles[0]);
-  assert.ok(profile);
-  let hooks = 0;
-  const proxy = new Proxy(profile, {
-    ownKeys: () => {
-      hooks += 1;
-      return Reflect.ownKeys(profile);
-    },
-  });
-  assert.equal(validateAiProfileDefinition(proxy), null);
-  const accessor = { ...profile };
-  Object.defineProperty(accessor, "family", {
-    enumerable: true,
-    get: () => {
-      hooks += 1;
-      return "executed";
-    },
-  });
-  assert.equal(validateAiProfileDefinition(accessor), null);
-  assert.equal(
-    validateAiProfileDefinition({ ...profile, command: "forbidden" }),
-    null,
-  );
-  assert.equal(hooks, 0);
-  const owned = validateAiProfileDefinition(profile);
-  assert.ok(owned);
-  const roles = [...owned.selectionRoles];
-  (profile.selectionRoles as string[]).push("later-change");
-  assert.deepEqual(owned.selectionRoles, roles);
-  assert.equal(Object.isFrozen(owned), true);
-  assert.equal(Object.isFrozen(owned.selectionRoles), true);
-});
+import { validateAiProfileCatalog } from "../../../src/catalog/validation.ts";
 
 /**
  * 同梱JSONを検証済みの不変Catalogとして公開する。
@@ -148,16 +38,13 @@ test("同梱JSONの全値を保持して深い不変Catalogを公開する", () 
   assert.deepEqual(Object.keys(adapterPublicApi).sort(), [
     "CLAUDE_EXECUTION_PLAN_CONTRACT",
     "CLAUDE_EXECUTION_PLAN_CONTRACT_REVISION",
-    "CLAUDE_FORBIDDEN_ENVIRONMENT_NAMES",
     "CLAUDE_RESULT_ACCEPTANCE_MAXIMUM_TURNS",
     "CLAUDE_STRUCTURED_RESULT_CONTRACT",
     "CLAUDE_STRUCTURED_RESULT_CONTRACT_REVISION",
     "CODEX_EXECUTION_PLAN_CONTRACT",
     "CODEX_EXECUTION_PLAN_CONTRACT_REVISION",
-    "CODEX_FORBIDDEN_ENVIRONMENT_NAMES",
     "CODEX_STRUCTURED_RESULT_CONTRACT",
     "CODEX_STRUCTURED_RESULT_CONTRACT_REVISION",
-    "DEFAULT_AI_PROFILE_CATALOG",
     "PROVIDER_AUTHENTICATION_POLICIES",
     "PROVIDER_BILLING_POLICY_CONTRACT",
     "PROVIDER_BILLING_POLICY_CONTRACT_REVISION",
@@ -168,38 +55,29 @@ test("同梱JSONの全値を保持して深い不変Catalogを公開する", () 
     "WORKBENCH_AI_ADVICE_PROVIDER_OUTPUT_CONTRACT",
     "WORKBENCH_AI_ADVICE_PROVIDER_OUTPUT_CONTRACT_REVISION",
     "WORKBENCH_AI_ADVICE_PROVIDER_OUTPUT_REASONS",
-    "buildClaudeExecutionArguments",
-    "classifyProviderNonzeroExit",
+    "convertProviderError",
     "createAiProfileCatalogAdministration",
-    "createCrosAiProfileCatalogStore",
+    "createHostAiProfileCatalogStore",
     "createRepositoryAiProfileCatalogStore",
-    "describeClaudeExecutionPlanContract",
+    "defaultAiProfileCatalog",
     "describeClaudeStructuredResultContract",
-    "describeClaudeSubscriptionAuthenticationCli",
     "describeCodexAdviceDistributionIdentity",
-    "describeCodexExecutionPlanContract",
     "describeCodexStructuredResultContract",
-    "describeCodexSubscriptionAuthenticationCli",
-    "describeProviderBillingPolicyContract",
+    "describeProviderAuthentication",
+    "describeProviderBillingPolicy",
+    "describeProviderExecution",
     "describeProviderModelProfileRuntimeContract",
     "evaluateAiProfileAvailability",
-    "evaluateProviderEligibility",
-    "extractProviderTaskEnvelope",
-    "extractWorkbenchAiAdviceProviderOutput",
-    "isClaudeSubscriptionAuthenticationConfirmed",
-    "isProviderSubscriptionAuthenticationConfirmed",
+    "evaluateProviderAuthentication",
+    "evaluateProviderAvailability",
+    "evaluateProviderTaskScope",
     "normalizeClaudeStructuredResult",
     "normalizeCodexStructuredResult",
-    "normalizeProviderExactModelId",
     "parseAiProfileCatalogMutation",
+    "parseProviderResult",
     "parseUnambiguousJsonDocument",
-    "planClaudeIsolatedTask",
-    "planClaudeReadOnlyProbe",
-    "planClaudeTaskTurnBudget",
-    "planCodexIsolatedTask",
-    "planCodexReadOnlyProbe",
-    "planWorkbenchAiAdviceProviderCommand",
-    "prepareProviderFixedEnvironment",
+    "planProviderExecution",
+    "prepareProviderEnvironment",
     "projectCodexExecutionBoundary",
     "providerProfileMatchesExecutionIdentity",
     "providerProfileSupportsExecution",
@@ -211,21 +89,22 @@ test("同梱JSONの全値を保持して深い不変Catalogを公開する", () 
     "validateAiProfileCatalog",
     "validateAiProfileDefinition",
     "validateAiProfileMutationResult",
+    "validateProviderModelId",
   ]);
-  assert.deepEqual(DEFAULT_AI_PROFILE_CATALOG, defaultCatalogData);
-  assert.notEqual(DEFAULT_AI_PROFILE_CATALOG, defaultCatalogData);
+  assert.deepEqual(defaultAiProfileCatalog, defaultCatalogData);
+  assert.notEqual(defaultAiProfileCatalog, defaultCatalogData);
   assert.notEqual(
-    DEFAULT_AI_PROFILE_CATALOG.adapters,
+    defaultAiProfileCatalog.adapters,
     defaultCatalogData.adapters,
   );
   assert.notEqual(
-    DEFAULT_AI_PROFILE_CATALOG.profiles,
+    defaultAiProfileCatalog.profiles,
     defaultCatalogData.profiles,
   );
-  assert.ok(Object.isFrozen(DEFAULT_AI_PROFILE_CATALOG));
+  assert.ok(Object.isFrozen(defaultAiProfileCatalog));
   for (const collection of [
-    DEFAULT_AI_PROFILE_CATALOG.adapters,
-    DEFAULT_AI_PROFILE_CATALOG.profiles,
+    defaultAiProfileCatalog.adapters,
+    defaultAiProfileCatalog.profiles,
   ]) {
     assert.ok(Object.isFrozen(collection));
     for (const item of collection) {
@@ -237,50 +116,15 @@ test("同梱JSONの全値を保持して深い不変Catalogを公開する", () 
   }
   assert.throws(() => {
     (
-      DEFAULT_AI_PROFILE_CATALOG.profiles[0] as unknown as Record<
-        string,
-        unknown
-      >
+      defaultAiProfileCatalog.profiles[0] as unknown as Record<string, unknown>
     ).exactModelId = "unregistered-model";
   }, TypeError);
   assert.throws(() => {
-    const adapter = DEFAULT_AI_PROFILE_CATALOG.adapters[0];
+    const adapter = defaultAiProfileCatalog.adapters[0];
     assert.ok(adapter);
     (adapter.allowedModelIds as string[]).push("unregistered-model");
   }, TypeError);
-  assert.deepEqual(DEFAULT_AI_PROFILE_CATALOG, defaultCatalogData);
-});
-
-/**
- * 同梱設定と同じSchemaで不正なProfile関係を拒否する。
- *
- * @responsibility 未登録Model、重複Identityおよび未知項目を初期設定でも許容しないことを検証する。
- * @trace RCM-UT-002
- * @precondition 同梱JSONを各反証用に独立複製する。
- * @stimulus Model参照、Profile IdentityおよびSchema項目を破損する。
- * @observation 各候補の検証結果を観測する。
- * @oracle 全候補がnullで拒否され、元の公開Catalogは変更されない。
- * @cleanup N/A: 外部資源を生成しない。
- * @boundary N/A: 同一Process内の設定検証である。
- */
-test("初期設定の未登録Model・重複Profile・未知項目を拒否する", () => {
-  const unknownModel = structuredClone(defaultCatalogData);
-  const unknownModelProfile = unknownModel.profiles[0];
-  assert.ok(unknownModelProfile);
-  unknownModelProfile.exactModelId = "unregistered-model";
-  assert.equal(validateAiProfileCatalog(unknownModel), null);
-  const duplicate = structuredClone(defaultCatalogData);
-  const duplicateProfile = duplicate.profiles[0];
-  assert.ok(duplicateProfile);
-  duplicate.profiles.push(structuredClone(duplicateProfile));
-  assert.equal(validateAiProfileCatalog(duplicate), null);
-  const unknownField = structuredClone(defaultCatalogData) as Record<
-    string,
-    unknown
-  >;
-  unknownField.executable = "unregistered-command";
-  assert.equal(validateAiProfileCatalog(unknownField), null);
-  assert.deepEqual(DEFAULT_AI_PROFILE_CATALOG, defaultCatalogData);
+  assert.deepEqual(defaultAiProfileCatalog, defaultCatalogData);
 });
 
 /**
@@ -293,30 +137,30 @@ test("初期設定の未登録Model・重複Profile・未知項目を拒否す�
  * @observation 解決したProfile IDを観測する。
  * @oracle 同じ要求は既存の安定Profile IDへ一意に解決される。
  * @cleanup N/A: 外部資源を生成しない。
- * @boundary RCM-UT-001=Direct Boundary: ai-runtime Test Source→対象契約
+ * @boundary RCM-UT-001=Direct Boundary: AI Adapter Test Source→対象契約
  */
 test("既定Catalogは既存CodexとClaude Profileを同じ結果へ解決する", () => {
-  assert.ok(validateAiProfileCatalog(DEFAULT_AI_PROFILE_CATALOG));
+  assert.ok(validateAiProfileCatalog(defaultAiProfileCatalog).value);
   assert.equal(
-    resolveAiProfile(DEFAULT_AI_PROFILE_CATALOG, {
+    resolveAiProfile(defaultAiProfileCatalog, {
       provider: "codex",
       family: "sol",
       role: "executor",
       modelTier: "preferred",
       speedMode: "normal",
       billingMode: "subscription_oauth",
-    })?.profileId,
+    }).value?.profileId,
     "PROFILE-100003",
   );
   assert.equal(
-    resolveAiProfile(DEFAULT_AI_PROFILE_CATALOG, {
+    resolveAiProfile(defaultAiProfileCatalog, {
       provider: "claude",
       family: "opus",
       role: "independent_reviewer",
       modelTier: "upper_allowed",
       speedMode: "normal",
       billingMode: "subscription_oauth",
-    })?.profileId,
+    }).value?.profileId,
     "PROFILE-200002",
   );
 });
@@ -329,258 +173,37 @@ test("既定Catalogは既存CodexとClaude Profileを同じ結果へ解決する
  * @precondition 既定Catalogを使用する。
  * @stimulus 登録済みProfile IDと未登録Profile IDを解決する。
  * @observation Model、Providerおよび未登録時の結果を観測する。
- * @oracle 登録済みIDだけ同じCatalogのexact設定へ解決され、未登録IDはnullになる。
+ * @oracle 登録済みIDだけexact設定へ解決し、未登録・曖昧・参照不整合は値欠測と固定理由で区別する。
  * @cleanup N/A: 外部資源を生成しない。
- * @boundary RCM-UT-001=Direct Boundary: ai-runtime Test Source→対象契約
+ * @boundary RCM-UT-001=Direct Boundary: AI Adapter Test Source→対象契約
  */
 test("選択済みProfile IDをexact実行設定へ解決する", () => {
   const resolved = resolveAiProfileById(
-    DEFAULT_AI_PROFILE_CATALOG,
+    defaultAiProfileCatalog,
     "PROFILE-100001",
-  );
+  ).value;
   assert.equal(resolved?.provider, "codex");
   assert.equal(resolved?.adapterId, "codex-cli");
   assert.equal(resolved?.exactModelId, "gpt-5.6-sol");
   assert.equal(resolved?.defaultReasoningEffort, "medium");
-  assert.equal(
-    resolveAiProfileById(DEFAULT_AI_PROFILE_CATALOG, "PROFILE-999999"),
-    null,
-  );
-});
-
-/**
- * 許可Modelの追加と曖昧Profileの拒否を検証する。
- *
- * @responsibility コード改修なしのProfile追加と一意解決条件を同時に反証する。
- * @trace RCM-UT-002
- * @precondition Codex Adapterがgpt-6-astraを許可している。
- * @stimulus 新Familyを追加後、同じ解決Keyを持つ二件目を追加する。
- * @observation Catalogの受理または拒否を観測する。
- * @oracle 一意な追加は受理し、曖昧な追加はEffect 0で拒否する。
- * @cleanup N/A: 外部資源を生成しない。
- * @boundary RCM-UT-002=Direct Boundary: ai-runtime Test Source→対象契約
- */
-test("登録Adapterの許可Modelなら追加Profileを受理し曖昧な重複を拒否する", () => {
-  const added = structuredClone(DEFAULT_AI_PROFILE_CATALOG) as unknown as {
-    profiles: Record<string, unknown>[];
-  } & Record<string, unknown>;
-  added.profiles.push({
-    profileId: "PROFILE-300001",
-    adapterId: "codex-cli",
-    family: "astra",
-    exactModelId: "gpt-6-astra",
-    selectionRoles: ["executor"],
-    modelTiers: ["preferred"],
-    speedMode: "normal",
-    billingMode: "subscription_oauth",
-    defaultReasoningEffort: "high",
-    compatibilityReason: null,
-  });
-  assert.ok(validateAiProfileCatalog(added));
-  added.profiles.push({
-    ...added.profiles.at(-1),
-    profileId: "PROFILE-300002",
-  });
-  assert.equal(validateAiProfileCatalog(added), null);
-});
-
-/**
- * Profile設定への秘密値と任意実行Path混入を拒否する。
- *
- * @responsibility 外部設定がCredentialまたは任意実行入口へ拡張されないことを検証する。
- * @trace RCM-UT-002
- * @precondition 正常な既定Catalogを複製する。
- * @stimulus API KeyまたはexecutablePathを未知Propertyとして追加する。
- * @observation Catalog検証結果を観測する。
- * @oracle 両候補を理由境界上で拒否し、未知Propertyを無視しない。
- * @cleanup N/A: 外部資源を生成しない。
- * @boundary RCM-UT-002=Direct Boundary: ai-runtime Test Source→対象契約
- */
-test("秘密値や任意実行Pathを未知Propertyとして拒否する", () => {
-  const candidate = structuredClone(
-    DEFAULT_AI_PROFILE_CATALOG,
-  ) as unknown as Record<string, unknown>;
-  candidate.apiKey = "secret";
-  assert.equal(validateAiProfileCatalog(candidate), null);
-  const adapterCandidate = structuredClone(DEFAULT_AI_PROFILE_CATALOG);
-  (
-    adapterCandidate.adapters[0] as unknown as Record<string, unknown>
-  ).executablePath = "C:/arbitrary.exe";
-  assert.equal(validateAiProfileCatalog(adapterCandidate), null);
-});
-
-/**
- * Profile利用可能性の未観測と利用不可を分ける。
- *
- * @responsibility Host、認証、Authorityの四軸を一つの真偽値へ畳まないことを検証する。
- * @trace RCM-UT-001
- * @precondition 未観測をnull、利用不可をfalseで与える。
- * @stimulus 利用可能性Projectionを生成する。
- * @observation statusとreason軸を観測する。
- * @oracle nullはunknown、falseが一つでもあればunavailableになる。
- * @cleanup N/A: 外部資源を生成しない。
- * @boundary RCM-UT-001=Direct Boundary: ai-runtime Test Source→対象契約
- */
-test("利用可能性は未観測と利用不可を区別する", () => {
   assert.deepEqual(
-    evaluateAiProfileAvailability({
-      adapterRegistered: true,
-      hostAvailable: null,
-      authenticated: true,
-      executionAuthorized: true,
-    }),
-    {
-      adapterRegistered: true,
-      hostAvailable: null,
-      authenticated: true,
-      executionAuthorized: true,
-      status: "unknown",
-      reasons: ["hostAvailable"],
-    },
+    resolveAiProfileById(defaultAiProfileCatalog, "PROFILE-999999"),
+    { status: "blocked", value: null, error: "ai_profile_not_found" },
+  );
+  const profile = defaultAiProfileCatalog.profiles[0];
+  assert.ok(profile);
+  assert.equal(
+    resolveAiProfileById(
+      { ...defaultAiProfileCatalog, profiles: [profile, profile] },
+      profile.profileId,
+    ).error,
+    "ai_profile_ambiguous",
   );
   assert.equal(
-    evaluateAiProfileAvailability({
-      adapterRegistered: true,
-      hostAvailable: true,
-      authenticated: false,
-      executionAuthorized: null,
-    }).status,
-    "unavailable",
+    resolveAiProfileById(
+      { ...defaultAiProfileCatalog, adapters: [] },
+      profile.profileId,
+    ).error,
+    "ai_profile_reference_invalid",
   );
 });
-
-/**
- * Profile限定管理がAdapter定義を変更せず作成・更新・削除を処理する。
- *
- * @responsibility Profile存在条件、Revision、削除確認およびCatalog再検証を反証する。
- * @trace RCM-UT-002
- * @precondition 既定CatalogをRevision 1で保持する保存代役をStoreとして使用する。
- * @stimulus Profile作成、古いRevision更新、更新、未確認削除、確認済み削除を順に実行する。
- * @observation 各結果理由、RevisionおよびProfile集合を観測する。
- * @oracle 成功操作だけRevisionを進め、Adapter集合を変えず、未確認削除と競合をEffect 0で拒否する。
- * @cleanup N/A: Process内の局所保存代役だけを使用する。
- * @boundary RCM-UT-002=Direct Boundary: ai-runtime Test Source→対象契約
- */
-test("Profile限定管理は改訂競合と未確認削除をEffect 0で拒否する", () => {
-  const registry = createTestCatalogStore(DEFAULT_AI_PROFILE_CATALOG);
-  const application = createAiProfileCatalogAdministration(registry);
-  const profile = Object.freeze({
-    profileId: "PROFILE-300001",
-    adapterId: "codex-cli",
-    family: "astra",
-    exactModelId: "gpt-6-astra",
-    selectionRoles: Object.freeze(["executor"] as const),
-    modelTiers: Object.freeze(["preferred"] as const),
-    speedMode: "normal" as const,
-    billingMode: "subscription_oauth" as const,
-    defaultReasoningEffort: "high" as const,
-    compatibilityReason: null,
-  });
-  const created = application.execute({
-    operation: "create",
-    expectedRevision: 1,
-    profile,
-  });
-  assert.equal(created.status, "completed");
-  assert.equal(created.reason, "profile_created");
-  assert.equal(created.snapshot.revision, 2);
-
-  const conflict = application.execute({
-    operation: "update",
-    expectedRevision: 1,
-    profile: { ...profile, defaultReasoningEffort: "max" },
-  });
-  assert.equal(conflict.reason, "revision_conflict");
-  assert.equal(application.snapshot().revision, 2);
-
-  const updated = application.execute({
-    operation: "update",
-    expectedRevision: 2,
-    profile: { ...profile, defaultReasoningEffort: "max" },
-  });
-  assert.equal(updated.reason, "profile_updated");
-  assert.equal(updated.snapshot.revision, 3);
-  assert.equal(
-    updated.snapshot.catalog.profiles.at(-1)?.defaultReasoningEffort,
-    "max",
-  );
-
-  const unconfirmed = application.execute({
-    operation: "delete",
-    expectedRevision: 3,
-    profileId: profile.profileId,
-    confirmed: false,
-  });
-  assert.equal(unconfirmed.reason, "profile_delete_confirmation_required");
-  assert.equal(application.snapshot().revision, 3);
-
-  const deleted = application.execute({
-    operation: "delete",
-    expectedRevision: 3,
-    profileId: profile.profileId,
-    confirmed: true,
-  });
-  assert.equal(deleted.reason, "profile_deleted");
-  assert.equal(deleted.snapshot.revision, 4);
-  assert.equal(
-    deleted.snapshot.catalog.profiles.some(
-      (candidate) => candidate.profileId === profile.profileId,
-    ),
-    false,
-  );
-  assert.deepEqual(
-    deleted.snapshot.catalog.adapters,
-    DEFAULT_AI_PROFILE_CATALOG.adapters,
-  );
-});
-
-/**
- * 管理操作試験用の局所Catalog保存代役を作る。
- * @responsibility 本番保存を使わず改訂競合と採用後のSnapshotを試験へ提供する。
- * @trace RCM-UT-002
- * @precondition 初期候補は既存Catalog Validatorで検証できる。
- * @stimulus snapshotとadoptを管理操作へ渡す。
- * @observation 改訂、採用値、拒否理由を返す。
- * @oracle 不正・競合は不変、妥当な採用だけ改訂を一つ進める。
- * @cleanup N/A: 試験内のメモリだけで資源を持たない。
- * @boundary 試験の保存代役であり本番の耐久保存を保証しない。
- */
-function createTestCatalogStore(
-  initialCandidate: unknown,
-): AiProfileCatalogStore {
-  const initialCatalog = validateAiProfileCatalog(initialCandidate);
-  if (!initialCatalog) throw new Error("ai_profile_catalog_initial_invalid");
-  let current: AiProfileCatalogSnapshot = Object.freeze({
-    revision: 1,
-    catalog: initialCatalog,
-  });
-  return Object.freeze({
-    snapshot: () => current,
-    adopt: (request) => {
-      if (request.expectedRevision !== current.revision)
-        return Object.freeze({
-          status: "rejected" as const,
-          reason: "revision_conflict" as const,
-          revision: current.revision,
-          snapshot: current,
-        });
-      const validated = validateAiProfileCatalog(request.candidate);
-      if (!validated)
-        return Object.freeze({
-          status: "rejected" as const,
-          reason: "catalog_invalid" as const,
-          revision: current.revision,
-          snapshot: current,
-        });
-      current = Object.freeze({
-        revision: current.revision + 1,
-        catalog: validated,
-      });
-      return Object.freeze({
-        status: "adopted" as const,
-        revision: current.revision,
-        snapshot: current,
-      });
-    },
-  });
-}
