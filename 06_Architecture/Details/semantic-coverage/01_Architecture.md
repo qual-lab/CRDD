@@ -4,6 +4,37 @@
 詳細設計領域: semantic-coverage
 状態: Canonical
 
+## 2026-10-19の責務移管
+
+Semantic Coverageは独立Packageではなく、Domain Modelの意味計算とCheckerの実行入口として提供する。以下の旧Package配置・Owner記述は本節で置き換える。意味契約・生成Schema・Semantic Key・既存Snapshotは変更せず、旧Packageや互換barrelは残さない。
+
+| 旧配置 | 新しい所有先 | 責務 |
+|---|---|---|
+| compilation/compile-ir.ts | domain-model/src/semantic/ir.ts | 可視表からのIR生成。自由文推測をしない |
+| compilation/compile-quality-relations.ts | domain-model/src/semantic/relations.ts | Quality Local ItemとSemantic Keyの正方向Relation |
+| coverage/graph-and-bundle.ts | domain-model/src/semantic/coverage.ts | 実装・品質・試験のCoverageと直列化用Bundle |
+| bundle/publish.ts | domain-model/src/semantic/publish.ts | Bundle生成と保存要求の結合 |
+| bundle/filesystem-publisher.ts | domain-model/src/storage/semantic-store.ts | 検証済みRoot内の原子的保存・旧Snapshot保全・短命File回収 |
+| compilation/from-repository.ts | checker/src/semantic/inspection.ts | 既存Repository観測、Domain呼出し、診断変換。意味判定本体を複製しない |
+| scripts/compile-pilot.ts | checker/src/semantic/command.ts | 公開APIと`checker --semantic`による固定二領域の表示／明示保存 |
+| migration/inventory-legacy-fields.ts | checker/scripts/semantic-legacy-inventory.ts | フロントAI用の移行調査。通常実行APIへ公開しない |
+
+Domainの公開APIはIR／Relation／Graph計算、Bundle生成、保存要求、検証済みRootに結合した保存入口を持つ。診断コード・表示文はCheckerが所有する。保存の故障注入HookはRoot公開APIに含めず、内部保存試験だけが参照する。新Registry・Lock・Runner・Recoveryは追加しない。
+
+| 公開Owner | API | 返却の意味 |
+|---|---|---|
+| domain-model | `compileSemanticIr` | 中立Issue付きの`DomainOutcome<SemanticIr>` |
+| domain-model | `compileQualitySemanticRelations` | 中立Issue付きのRelation集合Outcome |
+| domain-model | `createSemanticCoverageGraph` | 前提不成立・関係不整合を保持するGraph Outcome |
+| domain-model | `createSemanticBundle` | 既存SchemaのBundle値。保存や品質Passを表さない |
+| domain-model | `publishSemanticCoverage` | 指定Publisherへ一回の保存要求を渡したReceipt。失敗は既存例外契約を維持 |
+| domain-model | `createFilesystemSemanticBundlePublisher` | 検証済みRootに結合した既存保存操作。構成だけで書き込まない |
+| checker | `runSemanticCoverage` | 診断・表示または明示保存の終了Code。通常`runChecker`は維持 |
+
+Checkerは`--semantic`を選んだ場合だけSemantic入口を起動し、既定の文書検査は従来どおりとする。`--root`は対象Repository、`--write`は従来と同じRegistryへの明示保存を表す。現段階の固定二領域・Quality入力集合は維持し、任意全領域対応や意味Coverage全体の完成を主張しない。結果の欠落・観測不能・不正と実行失敗を成功へ丸めない。
+
+移管後の試験は、Domainの意味計算・中立Issueと実Filesystem保存、Checkerの観測編成・診断変換・公開入口へ接続する。旧試験の反例を維持し、Registry・Symbol・QA接続も新Ownerへ移管する。過去Evidenceは変更しない。
+
 ## 基本設計との関係
 
 | Architecture定義 | この領域が具体化する責務 | Relation状態 |
@@ -24,7 +55,7 @@ Relation状態はSemantic Coverageが担当する責務断面に対する状態�
 | State Model | Required | complete、partial、invalid、unobservableを区別する。 | [§5](#5-状態と終了条件) |
 | Sequence | Required | 観測、IR生成、Relation接続、Graph生成、公開を順序化する。 | [§4](#4-実行の流れ) |
 | Failure／Recovery | Required | 入力不足、関係不整合、公開失敗を既存Snapshot保全とともに扱う。 | [§6](#6-失敗と回復) |
-| Deployment | Required | 独立Packageと薄いCLIとして配置し、Checkerから分離する。 | [§3](#3-component) |
+| Deployment | Required | Domain Modelへ意味・保存、Checkerへ起動・診断を配置する。 | [§3](#3-component) |
 | Observability | Required | 入力Path、Semantic Key、未解決Relationおよび公開結果を返す。 | [§5](#5-状態と終了条件) |
 | Security Boundary | Required | 検証済みRepository Root外への読取り・公開を拒否する。 | [§2](#2-責務境界) |
 | Implementation Structure | Required | 設計責務を具象差、選択、状態依存、構成、資源Ownerおよび外部境界へ分解する。 | [§Implementation Structure](#implementation-structure) |
@@ -78,27 +109,27 @@ Semantic Coverageは、設計上の意味が実装Symbol、Quality Local Itemお
 
 | Owner | 所有する責務 | 所有しない責務 |
 |---|---|---|
-| Semantic Coverage Compilation／Coverage | Semantic IR、Relation、Coverage GraphおよびBundleの純粋計算 | Repository観測、公開Effect、利用者向け診断 |
-| Semantic Coverage Application／Infrastructure | Repository入力の編成、診断、Bundle生成・公開 | Architecture、実装、Quality、Testの内容採否 |
-| CRDD Domain Library | 共通Outcome、Reality TraceabilityおよびRepository Observation | Semantic IR、Checker Finding、Bundle公開 |
-| Checker | 現行Profile違反のFinding表示 | Semantic Coverageの生成・公開Operation |
+| Domain Model semantic | Semantic IR、Relation、Coverage GraphおよびBundleの純粋計算 | Repository観測、公開Effect、利用者向け診断 |
+| Checker semantic | Repository入力の編成、診断、明示生成・保存要求 | Architecture、実装、Quality、Testの内容採否、意味計算・保存本体の複製 |
+| Domain Model storage | 共通Outcome、Reality Traceability、Repository Observation、Semantic生成物の原子的保存 | Checker固有Finding・CLI |
+| Checker | 現行ProfileのFindingとSemantic診断・結果表示 | 意味計算・保存本体の再実装 |
 | Version Control／Repository Port | 検証済みRootとFilesystem観測 | Semantic Relationの意味判断 |
 
 ## 3. Component
 
 ```text
-semantic-coverage/
-├ src/index.ts
-├ src/compilation/       Semantic IR・Quality Relation
-├ src/coverage/          Coverage Graph・Bundle
-├ src/application/       IR・Relation・Coverageの編成
-├ src/infrastructure/    原子的Bundle公開
-├ src/migrations/        旧Runtime JSONの移行入力
-├ bin/                   Pilot CLI
-└ tests/                 Domain接続と実Filesystem公開の契約試験
+domain-model/
+├ src/semantic/          IR・Relation・Coverage・保存要求
+├ src/storage/semantic-store.ts
+└ tests/                 意味計算・実Filesystem保存
+checker/
+├ src/semantic/          入力編成・診断・実行入口
+├ bin/checker.ts         --semanticで起動
+├ scripts/semantic-legacy-inventory.ts
+└ tests/                 診断と公開CLIの接続
 ```
 
-`src`配下は2階層以内とし、利用側は`src/index.ts`から利用する。`bin/`は意味抽出や公開契約を再実装しない。
+各Packageの`src/index.ts`を公開境界とし、利用側はOwnerのRoot APIへ接続する。`bin/`は意味抽出や保存本体を再実装しない。
 
 ## 4. 実行の流れ
 

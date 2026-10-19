@@ -8,12 +8,8 @@ import type { FilesystemStoreRoot } from "../../../domain-model/src/index.ts";
 import { projectManagementState } from "../authorization/management.ts";
 import { resolveCredentialAuthentication } from "../credential/authentication.ts";
 import { readCredentialId } from "../credential/token.ts";
-import {
-  ATTEMPT_UUID,
-  locked,
-  readCurrent,
-  settlePending,
-} from "../storage/store.ts";
+import { ATTEMPT_UUID, readCurrent, settlePending } from "../storage/store.ts";
+import { locked } from "../storage/lock.ts";
 
 /**
  * ユーザーの有効状態と確認不能を区別する。

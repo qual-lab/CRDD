@@ -2,7 +2,13 @@
 
 成果物種別: Architecture詳細設計
 詳細設計領域: official-asset-governance
-状態: Canonical
+状態: Superseded
+
+## 2026-10-19の廃止判断
+
+人間の承認により、`official-asset-governance` Packageと専用の素材判断・保存・収載照合機能を廃止する。別Packageへの移管や代替台帳は新設しない。以下の本文は旧方式の比較用設計であり、現行実装の責務・完成条件・検証根拠として適用しない。過去Evidenceは変更しない。
+
+素材の出所・権利・許可用途を確認する人間の責務、公式ロゴ等の既存権利記録、公開判断は維持する。Packageの廃止を権利確認不要または公開許可と解釈しない。処置と検証は[再編計画](../../../99_Roadmap/Changes/CHG-000082/second-stage-plan.md#検査検証packageの縮小--2026-10-19の途中見直し)を参照する。
 維持責任者: Qual-Lab
 
 ## 基本設計との関係

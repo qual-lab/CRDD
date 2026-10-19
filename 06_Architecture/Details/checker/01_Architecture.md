@@ -4,6 +4,10 @@
 詳細設計領域: checker
 状態: Canonical
 
+## Semantic実行入口の移管 — 2026-10-19
+
+Checkerは`src/semantic/inspection.ts`で既存Repository観測とDomainのSemantic計算を編成し、Issueを既存の診断コードへ変換する。`src/semantic/command.ts`の`runSemanticCoverage`と既存binの`--semantic`を公開入口とする。意味解析・Relation・Coverage・保存本体を複製せずDomain Root APIへ接続する。既定の`runChecker`と文書検査の振る舞いは変えない。詳細は[Semantic責務移管](../semantic-coverage/01_Architecture.md#2026-10-19の責務移管)に従う。旧JSON調査は`scripts/semantic-legacy-inventory.ts`へ置き、本番APIへ公開しない。以下の「CheckerはSemantic生成・公開を所有しない」という旧記述は、意味計算・保存本体を所有しないという境界へ置換する。
+
 ## 基本設計との関係
 
 | Architecture定義 | この領域が具体化する責務 | Relation状態 |

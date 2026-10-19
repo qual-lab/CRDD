@@ -18,7 +18,6 @@ import {
   CURRENT,
   CURRENT_LIMIT,
   hash,
-  locked,
   PENDING,
   PENDING_LIMIT,
   present,
@@ -29,6 +28,7 @@ import {
   settlePending,
   writeExclusive,
 } from "../storage/store.ts";
+import { locked } from "../storage/lock.ts";
 import type {
   AccessManagementState,
   StateStoreResult,

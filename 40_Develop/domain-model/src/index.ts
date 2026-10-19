@@ -14,6 +14,35 @@ export {
   type DomainStatus,
   validateDomainOutcome,
 } from "./outcome.ts";
+export {
+  compileSemanticIr,
+  type SemanticIr,
+  type SemanticIrMeaning,
+  type SemanticSourceDocument,
+} from "./semantic/ir.ts";
+export {
+  compileQualitySemanticRelations,
+  type QualitySemanticRelation,
+} from "./semantic/relations.ts";
+export {
+  createSemanticBundle,
+  createSemanticCoverageGraph,
+  type SemanticBundleContent,
+  type SemanticCoverageBundle,
+  type SemanticCoverageGraph,
+  type SemanticCoverageProjection,
+} from "./semantic/coverage.ts";
+export {
+  publishSemanticCoverage,
+  type PublishSemanticCoverageRequest,
+  type PublishSemanticCoverageResult,
+} from "./semantic/publish.ts";
+export {
+  createFilesystemSemanticBundlePublisher,
+  type SemanticBundlePublisher,
+  type SemanticBundlePublishReceipt,
+  type SemanticBundlePublishRequest,
+} from "./storage/semantic-store.ts";
 export type {
   TopicState,
   TopicRecord,

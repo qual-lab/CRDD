@@ -19,7 +19,8 @@ src/
 ├ initialization/{execution,connection,state,root}.ts
 │                                  初回設定・限定接続・状態・Host Root
 ├ cli/command.ts                   引数・対話・表示と処理の振分け
-└ storage/{types,parse,store}.ts    完全保存型・Schema・物理保存
+└ storage/{types,parse,store,lock}.ts
+                                   完全保存型・Schema・物理保存・既存排他
 bin/access-management.ts           Process入口と取消通知
 ```
 
@@ -69,7 +70,7 @@ bin/access-management.ts           Process入口と取消通知
 
 ### 保存境界と移管時の反証
 
-`storage/store.ts`は既存の`locked`、現在値読取り、pending照合、出版・読戻し・清掃を内部部品として提供する。各操作はその一回のLock内で現在認証・期待改訂・対象検査を行う。公開readの後に別Lockでupdateする構造へ分解せず、新Store・Lock・取引Frameworkを作らない。Bindingは純粋なHash導出に留め、`store → parse → binding`から業務操作へ戻る依存を作らない。
+`storage/lock.ts`は既存の`locked`と固定Lock名を所有し、取得・同じ回復参照による回収・解放結果をDomainの既存排他部品へ接続する。`storage/store.ts`は現在値読取り、pending照合、出版・読戻し・清掃を所有し、必要な排他を`lock.ts`から直接利用する。各操作も`lock.ts`を直接利用し、その一回のLock内で現在認証・期待改訂・対象検査を行う。`lock.ts`は保存本体に依存せず、内部の結果型だけを共有する。公開readの後に別Lockでupdateする構造へ分解せず、新Store・Lock・取引Frameworkを作らない。Bindingは純粋なHash導出に留め、`store → parse → binding`から業務操作へ戻る依存を作らない。Package Rootの公開API、保存形式、Lock名と取得・回復・解放条件は変更しない。
 
 反証は、非認可入力、Role変更・失効の次要求反映、改訂競合、pendingと現在値の不一致、出版後読戻し・清掃・Lock解放不明、同じ交換参照による再入場、登録と公開の分離を既存試験で再確認する。`workspaceIds`は現行の内容範囲を表す保存・通信fieldであり、作業Workspaceではない。内部名だけを内容範囲へ改め、Schema・wire値を今回の配置変更で黙って変更しない。
 

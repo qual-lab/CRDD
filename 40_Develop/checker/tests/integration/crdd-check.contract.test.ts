@@ -828,7 +828,6 @@ test("Checker packageのLintはWarningを検査失敗にする", () => {
  */
 test("CRDD所有packageの全回帰入口は静的検査後にだけ試験本体を開始する", () => {
   const packageRoots = [
-    "artifact-signing",
     "checker",
     "coordinator",
     "execution-intelligence",

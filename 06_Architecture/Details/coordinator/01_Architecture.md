@@ -650,7 +650,7 @@ Workbenchで利用者が明示したAI Profileによる助言実行は、Front A
 
 SessionはTask数、期限、予約・一回消費、Operation／Repository結合、取消、送信許可と結果相関を維持する。一方、実測のために別の署名済みNative配布を用意する契約は廃止し、Moduleから導出した同じSource Rootの固定Bootstrap Nativeを使用する。旧`nativeDistributionRoot`と`expectedNativeRelease`は新入力から除去し、旧packetを互換受理しない。期待Source Hashは`expectedSourceSha256`として維持し、同じadmission呼出し内で現在値を自動補完しない。
 
-Source観測は正確なModule到達閉包ではなく、版付きの有界Snapshotとする。既存Runtime母集団の11 Package（coordinator、platform-access、docker-isolation、domain-model、ai-adapter、artifact-signing、access-management、mcp-server、orchestrator、execution-intelligence、version-control）について、直下`package.json`と`src/`・`bin/`・`runtime/`・`config/`・`schemas/`・`scripts/`・`policies/`を固定対象とする。任意Directoryの不存在はScopeに記録し、追加時にはHashが変わる。Package本体・`package.json`・`src/`の欠落、空の部分結果、link・非通常File、観測不明は拒否する。静的資産の配置変更後も同じ二読取り・上限・拒否条件を用い、Scope構成の変化に伴う新旧Hash差を自動補正しない。
+Source観測は正確なModule到達閉包ではなく、版付きの有界Snapshotとする。既存Runtime母集団の10 Package（coordinator、platform-access、docker-isolation、domain-model、ai-adapter、access-management、mcp-server、orchestrator、execution-intelligence、version-control）について、直下`package.json`と`src/`・`bin/`・`runtime/`・`config/`・`schemas/`・`scripts/`・`policies/`を固定対象とする。任意Directoryの不存在はScopeに記録し、追加時にはHashが変わる。Package本体・`package.json`・`src/`の欠落、空の部分結果、link・非通常File、観測不明は拒否する。静的資産の配置変更後も同じ二読取り・上限・拒否条件を用い、Scope構成の変化に伴う新旧Hash差を自動補正しない。
 
 | 観点 | 契約 |
 |---|---|
@@ -681,11 +681,11 @@ Windowsの共有回復領域初期化も、通常署名やGit HEAD一致を前�
 | 出所・同一性の追跡 | 選択したSourceの基準Commit／Tree、実際の作業Treeとの差、必要なNative・CLI・Image・設定のIdentity／Hashを用途に応じて相関する。必要な元値との不一致・観測不能では当該Effect前に停止する | Hash一致からPublisher真正性、途中の変更不能、悪意ある同一OS利用者への完全防御を推定しない |
 | 正式配布の真正性 | 必要な配布単位だけRelease／QA Ownerが評価する。署名機能の利用自体は任意で、v0.22通常Runtimeの完成Gateにしない | 通常Taskの一回Capability、Docker／Recovery Authorityを発行・失効しない |
 
-署名済みReleaseを未署名として表示したり、未確認Publisherを真正と表示したりしない。必要な公式CLI／Imageの出所確認と実体検査は維持するが、CRDD独自署名Frameworkとは別の専門Ownerの責務であり、新しい組織Trust Policy Frameworkを追加しない。一般の`artifact-signing`を配布時の独立Toolとして残すことと、Coordinator専用の署名・配布閉包・準備／回復機構を通常実行から撤去することを分ける。
+署名済みReleaseを未署名として表示したり、未確認Publisherを真正と表示したりしない。必要な公式CLI／Imageの出所確認と実体検査は維持するが、CRDD独自署名Frameworkとは別の専門Ownerの責務であり、新しい組織Trust Policy Frameworkを追加しない。Coordinator専用機構に続き、2026-10-19に一般の`artifact-signing`も廃止した。正式配布の将来判断と現在の通常実行を分ける。
 
 固定Workerの回復MatrixはCRDD署名を実行前提にしない。親の直接呼出しと内部子の両入口はRoot生成・シナリオ開始前に既存Node対応版を確認し、その後は既存の隔離・Host境界で処理する。代替資格は発行しない。結果改訂2は`packageVerification: not_required`、`signatureRequired: false`を宣言する。残るTool群の移行中は`verify-signed-recovery-matrix.ts`と既存の公開識別子を維持するが、署名成立の主張には使わない。七シナリオの呼出し接続確認と、実回復成立の検証を区別する。
 
-一般Taskと経路別検証も署名資格を要求しない。検証Runnerの固定module Rootで既存11Package Source観測とGit改訂を取得し、開始前と全Task settlement後でScope・内容Hash・内部実体Hash・Commit／Treeを比較する。公開するのは`sourceScope`、`sourceSha256`、`crddCommit`、`crddTree`と固定語彙の検証状態だけで、内部実体Hashや絶対Rootを公開しない。これはロード済みModuleの原子的固定、配布元真正性または実行Authorityの証明ではない。初回の欠測はTask開始前に停止する。終了時のSource不成立でも候補破棄・取消・終了待機を省略せず、既存の一次失敗を保持する。Source変更と作業対象Repositoryの変更、検証不成立とProvider Effect不明を分離する。四経路の全試行および二経路の結合は同じ公開Source tupleを要求し、対象Repositoryの改訂比較は別に維持する。
+一般Taskと経路別検証も署名資格を要求しない。検証Runnerの固定module Rootで既存10Package Source観測とGit改訂を取得し、開始前と全Task settlement後でScope・内容Hash・内部実体Hash・Commit／Treeを比較する。公開するのは`sourceScope`、`sourceSha256`、`crddCommit`、`crddTree`と固定語彙の検証状態だけで、内部実体Hashや絶対Rootを公開しない。これはロード済みModuleの原子的固定、配布元真正性または実行Authorityの証明ではない。初回の欠測はTask開始前に停止する。終了時のSource不成立でも候補破棄・取消・終了待機を省略せず、既存の一次失敗を保持する。Source変更と作業対象Repositoryの変更、検証不成立とProvider Effect不明を分離する。四経路の全試行および二経路の結合は同じ公開Source tupleを要求し、対象Repositoryの改訂比較は別に維持する。
 
 Workbench助言、Task、CLI、Workbench候補実行およびOrchestratorから旧署名Gateの引数・発行・消費を外し、Orchestratorの署名専用Execution Authorization PortとAdapterを撤去した。Task公開契約は改訂36で通常実行に署名資格を要求しない。Processの片付け中・再利用禁止、現在の送信許可、Root／Revision、隔離・取消・回収は維持する。旧資格三APIと専用Script・固定AST graph・配布Identity・専用試験／設定は物理撤去した。`package-verification.ts`の通常保証は維持する各Ownerの試験へ対応付け、旧Fileを削除した。撤去後の全体回帰・実境界・実Provider／E2Eは未完了である。署名Capabilityの改名、常時trueの代替Gate、巨大閉包・全体コピー・署名準備状態を通常実行へ残さない。
 
@@ -703,13 +703,13 @@ Git改訂の単一Native出所照合は、追跡／任意配布の読取りと�
 
 Orchestrator実Provider検証Toolは、公開MCPの起動要求前と発行後の不明を区別する。起動引数の構築を終えてspawn要求を発行する直前に、当該Process内だけの発行状態を固定する。未発行で停止した場合は`verification_not_started`と`no_effect`を標準出力だけへ返し、回復・再起動・結果保存・fixture書戻しを要求しない。ここでのjoin／清掃成立は子資源を生成せず回収義務がない意味であり、実子の終了観測を意味しない。発行後の例外は、同期spawn例外も含め既存の不明結果と保存を維持する。通常の試験Directory作成は結果保存直前まで遅らせる。これは署名依存切替の前段是正であり、同Toolの旧署名依存撤去や実Provider E2Eの成立を示さない。
 
-同Toolの現在方式は、引数で別配布Rootを受け取らず、module自身のCheckoutにある公開MCP入口を起動する。既存11Package Source観測に加え、固定`template/tools/crdd-mcp-server.ts`を既存Domain Readerの64KiB上限で読み、通常File・非Link・単一Linkと前後の実体一致を確認する。`mcpEntrySourceSha256`はReaderが返したUTF8文字列のHashであり、生byteの完全性Hashではない。開始前と全経路終了後のSource・内部実体・Git・入口を照合し、最終欠測は`unavailable`、差分は`changed`として検証完成だけを拒否する。既知の回収結果・一次問題をSource不成立で上書きしない。
+同Toolの現在方式は、引数で別配布Rootを受け取らず、module自身のCheckoutにある公開MCP入口を起動する。既存10Package Source観測に加え、固定`template/tools/crdd-mcp-server.ts`を既存Domain Readerの64KiB上限で読み、通常File・非Link・単一Linkと前後の実体一致を確認する。`mcpEntrySourceSha256`はReaderが返したUTF8文字列のHashであり、生byteの完全性Hashではない。開始前と全経路終了後のSource・内部実体・Git・入口を照合し、最終欠測は`unavailable`、差分は`changed`として検証完成だけを拒否する。既知の回収結果・一次問題をSource不成立で上書きしない。
 
 結果改訂12は作業対象の`executionIdentity`と実行Sourceの`runtimeSource`を分離する。後者はScope・内容Hash・Commit／Tree・入口文字列Hash・固定観測状態・署名不要の七項目だけを再構築し、実体Hash・時刻・絶対Root・未知fieldを公開しない。旧`distributionIdentity`や署名Manifestを新版の根拠へ流用せず、歴史Evidenceは不変更。正常二経路・取消・親喪失・同じRequestの再入場・公開受付世代取得・fixture復元を維持し、Source観測の成功だけをそれらの実成立と表示しない。
 
-旧署名資格の発行・消費・失効API、そのWeakMap・5秒寿命・同一性Record・試験専用factoryは撤去した。資格を一回消費する旧保証は退役し、別資格へ置換しない。TaskのProcess poison／drain拒否とExternal Sendの現在許可は、それぞれ現在の入口で確認する。旧APIへのProxy読取り試験はTask入力のget・ownKeys・descriptor読取り0の直接反証へ移し、旧資格だけの試験は公開namespaceから四入口が消えたことの反証へ置換した。Coordinator専用の署名Script・配布Identity・Manifest／Tree検証・固定AST graphと専用試験は物理撤去した。現在Treeの固定旧18Pathの明示不存在と通常入口・Task回復・Nativeの非依存を専用試験で確認する。汎用artifact-signingと固定Native／公式CLI／Imageの検証は維持し、歴史Evidenceは変更しない。撤去後の全体回帰・実境界・最終独立レビューの完了は別に確認する。
+旧署名資格の発行・消費・失効API、そのWeakMap・5秒寿命・同一性Record・試験専用factoryは撤去した。資格を一回消費する旧保証は退役し、別資格へ置換しない。TaskのProcess poison／drain拒否とExternal Sendの現在許可は、それぞれ現在の入口で確認する。旧APIへのProxy読取り試験はTask入力のget・ownKeys・descriptor読取り0の直接反証へ移し、旧資格だけの試験は公開namespaceから四入口が消えたことの反証へ置換した。Coordinator専用の署名Script・配布Identity・Manifest／Tree検証・固定AST graphと専用試験は物理撤去した。現在Treeの固定旧18Pathの明示不存在と通常入口・Task回復・Nativeの非依存を専用試験で確認する。汎用artifact-signingも廃止する一方、固定Native／公式CLI／Imageの検証は維持し、歴史Evidenceは変更しない。撤去後の全体回帰・実境界・最終独立レビューの完了は別に確認する。
 
-Coordinator固有の署名・準備コピー・Manifest昇格・巨大閉包検査は退役対象とし、正式配布で署名が必要な場合だけ独立した汎用`artifact-signing`を利用する。Nativeの単一Git出所観測、必要Artifact Hash、公式CLI／Image、現在認可、Docker隔離・取消・回収はこの退役へ含めない。先行して共通Launcherの`sign-release`／`promote-release`をmode集合・dispatch・help・端末条件から削除し、旧modeは引数・端末条件を問わず既存`coordinator_launch_mode_invalid`／exit64で対象Tool読込み前に拒否する。通常Task・対話・自動処理・経路検証・回復検証・Claude認証の入口は維持する。旧Script本体・graph・配布Identity・専用試験と設定の物理撤去は別に閉じ、Launcher撤去だけでFramework全体の退役完了としない。
+Coordinator固有の署名・準備コピー・Manifest昇格・巨大閉包検査は退役対象とし、2026-10-19に汎用`artifact-signing`も廃止した。正式配布署名の将来採用は具体的Consumerから別途判断する。Nativeの単一Git出所観測、必要Artifact Hash、公式CLI／Image、現在認可、Docker隔離・取消・回収はこの退役へ含めない。先行して共通Launcherの`sign-release`／`promote-release`をmode集合・dispatch・help・端末条件から削除し、旧modeは引数・端末条件を問わず既存`coordinator_launch_mode_invalid`／exit64で対象Tool読込み前に拒否する。通常Task・対話・自動処理・経路検証・回復検証・Claude認証の入口は維持する。旧Script本体・graph・配布Identity・専用試験と設定の物理撤去は別に閉じ、Launcher撤去だけでFramework全体の退役完了としない。
 
 単一NativeのGit出所照合は`diagnostics/native-git-provenance.ts`が所有し、旧配布全体の`platform-access/release-identity.ts`から分離する。対応する実Git・Blob差・読取り中差替え・Windows junctionのITも同名の専用Suiteへ移し、処理本文と試験本文は変更しない。旧配布Tree／署名閉包の試験をNative観測の根拠へ混在させず、Source／Test Symbol・台帳・Host Profile・coverage対象も同じOwnerへ接続する。これはGit出所観測を通常Nativeの必須Gateへ戻すものではなく、固定Bootstrap Hashと同じtokenの要求前後確認は現行方式を維持する。
 
@@ -750,7 +750,7 @@ Coordinator固有の署名・準備コピー・Manifest昇格・巨大閉包検�
 
 この件数はV6の選択したRuntime入力と固定成果物のための上限であり、Runtimeの履歴保持数や同時実行数ではない。秘密入力前に同じ固定入力を観測し、選択FileのGit Blob・modeと実行bytesの一致を確認する。文書・試験・未到達Componentの全体コピーを新規署名の前提にしない。
 
-鍵参照、direct TTYの秘密入力および任意byte列への暗号署名は[成果物署名Component](../artifact-signing/01_Architecture.md)が所有する。CoordinatorはRuntime依存集合、Manifest payload、固定Publisher Policy、P検査／S検査の順序、Envelopeおよびstaging配置だけを所有し、鍵PathのFilesystem検査や暗号Primitiveを再実装しない。
+旧方式の鍵参照・秘密入力・暗号署名とCoordinator固有Manifest準備は廃止した。[旧成果物署名設計](../artifact-signing/01_Architecture.md)は比較履歴に限定する。Coordinatorへ代替署名・秘密入力機構を追加しない。
 
 CRDDはGit clone／submoduleだけでRuntimeを利用できる配布構造を採る。v0.21の目標Release候補TreeにはSource、文書、試験および固定成果物`40_Develop/platform-access/artifacts/windows-x64/crdd-platform-access.exe`を含める。署名ManifestはCoordinator配布物の固定入口である`template/tools/coordinator/coordinator-package-manifest.json`へ置き、launcher、公開API改訂、`40_Develop`実装およびNative Runtime Artifactを同じ配布全体Identityへ結合する。実装、署名、昇格および検証は同じPathを正本として使用し、設定用の別Pathへ複製しない。
 
@@ -769,7 +769,7 @@ manifest revision 5は、Coordinatorのproduction distribution allowlistであ�
 | project-operation／runtime-dataの宣言とcrdd-domain-libraryの利用側 | domain-modelの用途別公開操作と一つのpackage metadata | Root／保存／署名一時操作と、検証入口が使用する成果物操作。現在の宣言外利用も不足として照合し、未到達の全機能を追加しない。 |
 | orchestrator | orchestratorの検証入口が到達した操作 | 本体の逆依存を撤去し、署名検証の実入口から下位呼出しまでを確認。 |
 | mcp | mcp-serverの登録検証入口からの到達部分 | 配布Launcher、stdio／HTTP試験入口、CROS能力接続。旧REST／Gatewayは撤去。 |
-| artifact-signing／cros／execution-intelligence／version-control | 維持するOwnerの到達部分とmetadata | 既存の暗号・認可・記録・Git意味と新利用側の接続を保持。 |
+| access-management／execution-intelligence／version-control | 維持するOwnerの到達部分とmetadata | 現在認可・記録・Git意味と新利用側の接続を保持。独自署名Packageは廃止。 |
 
 閉包表、Launcherのliteral import、子Process／Worker宣言、Source上の実呼出し、Package名・module解釈、Git由来、Native固定Pathを同じ改訂で更新する。表の予定処置だけからSource接続や署名検証Passを主張しない。
 
@@ -2089,7 +2089,7 @@ OPEN: 保存確定、履歴上限、既存回復の移行と限定Classの実接
 
 Coordinator固有署名ToolとManifest設定を撤去したため、現行Runtimeは`.crdd/tmp/signature/`を作成・読込み・回復しない。旧`preparation.json`・Lock・pending・workと正式Manifestの自動移行は実装しない。フロントAIが現在参照、非使用、exact Rootと所有実体を照合し、唯一の必要な成果物を保全してから旧一時物を清掃する。名前や経過時間だけを削除許可にせず、秘密鍵・Local秘密設定・歴史Evidenceは対象へ含めない。
 
-将来の正式配布署名が必要になった場合は、汎用artifact-signingと配布物の具体的Consumerから再評価する。旧準備領域や通常Runtime資格を再導入する根拠にはしない。
+将来の正式配布署名が必要になった場合は、配布物の具体的Consumerと既存標準手段から再評価する。廃止した汎用artifact-signingを前提にしない。旧準備領域や通常Runtime資格を再導入する根拠にはしない。
 
 ### 現在状態と利用側接続の評価
 

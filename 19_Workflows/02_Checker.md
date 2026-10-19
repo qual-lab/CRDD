@@ -9,12 +9,18 @@
 検証済みNode.jsと対象Repositoryの絶対Pathを使う。次は公式CRDD Repositoryの例であり、採用先では配布済みの`tools/crdd-check.ts`を指定する。
 
 ```powershell
-& "C:\Program Files\nodejs\node.exe" "C:\project\CRDD\40_Develop\checker\bin\crdd-check.ts" --root "C:\project\CRDD" --json --summary
+& "C:\Program Files\nodejs\node.exe" "C:\project\CRDD\40_Develop\checker\bin\checker.ts" --root "C:\project\CRDD" --json --summary
 ```
 
 `--root`を省略すると起動Directoryが対象になる。subdirectoryからの起動をRepository全体確認と誤認しない。通常Checkerは文書を書き換えず、Providerへ送信しない。
 
 ## 中間確認と参照調査
+
+### Semanticの確認と明示保存
+
+意味IR・Relation・Coverageの固定二領域確認は、同じ入口へ`--semantic --root "C:\project\CRDD"`を指定する。既定はJSON表示のみで、`--write`を追加した場合だけ従来の`07_Quality/Registry/semantic-coverage-pilot.json`へ保存する。保存先Directoryは既存であることを前提とし、観測不能や入力不成立では書き込まない。これは全領域対応や品質Passを意味しない。
+
+`npm run semantic --prefix 40_Develop/checker`からも同じ入口を使える。SemanticでRootを省略した場合だけ、起動Directoryを含む最寄りの検証済みRepositoryを対象とする。通常文書検査の対象選択は変えない。Semantic入口は成功0、検査不成立1、実行不能・保存失敗2、引数不正64を返す。生成Schemaや既存Snapshotの形式をPackage移管だけで変更しない。
 
 - 限定確認は上記へ`--scope 04_UI`等を追加する。直接の参照先・参照元が一段追加され、全体の構造等も検査されるが、全体確認の代替ではない。
 - 参照関係を調べる場合は`--json --summary --references 04_UI/01_User_Interface.md`のようにRoot相対の対象を指定する。`--references`だけでは引数不足になる。

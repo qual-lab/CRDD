@@ -18,12 +18,12 @@ import type {
 import { parseAccessManagementState } from "../storage/parse.ts";
 import {
   ATTEMPT_UUID,
-  locked,
   publishState,
   readCurrent,
   serialize,
   settlePending,
 } from "../storage/store.ts";
+import { locked } from "../storage/lock.ts";
 import type {
   AccessManagementState,
   StateStoreResult,

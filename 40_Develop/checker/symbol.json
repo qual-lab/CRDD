@@ -9,7 +9,8 @@
       "path": "src/index.ts",
       "archIds": [
         "ARCH-000001",
-        "ARCH-000002"
+        "ARCH-000002",
+        "ARCH-000008"
       ]
     },
     {
@@ -181,6 +182,83 @@
       "path": "src/reality/symbol-traceability.ts",
       "archIds": [
         "ARCH-000001"
+      ]
+    },
+    {
+      "symbolId": "semantic-coverage.test.unit.pilot",
+      "kind": "test-suite",
+      "path": "tests/unit/semantic/coverage.contract.test.ts",
+      "qaIds": [
+        "QA-000004"
+      ],
+      "localTestIds": [
+        "PPR-UT-016",
+        "PPR-UT-017"
+      ],
+      "verifies": [
+        "crdd-domain-library.source.src.reality.traceability.symbol.manifest.validator",
+        "crdd-domain-library.source.src.repository.observation.reality.symbol.repository.observer",
+        "semantic-coverage.source.src.application.semantic.coverage",
+        "semantic-coverage.source.src.compilation.index",
+        "semantic-coverage.source.src.migrations.legacy.runtime.inventory",
+        "version-control.source.src.repository.location"
+      ]
+    },
+    {
+      "symbolId": "semantic-coverage.test.unit.public-boundary",
+      "kind": "test-suite",
+      "path": "tests/unit/semantic/public-boundary.contract.test.ts",
+      "qaIds": [
+        "QA-000001"
+      ],
+      "localTestIds": [
+        "RCM-UT-014"
+      ],
+      "verifies": [
+        "semantic-coverage.public-entry"
+      ]
+    },
+    {
+      "symbolId": "semantic-coverage.source.src.application.semantic.coverage",
+      "kind": "file",
+      "path": "src/semantic/inspection.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "semantic-coverage.source.src.migrations.legacy.runtime.inventory",
+      "kind": "file",
+      "path": "scripts/semantic-legacy-inventory.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "checker.semantic-command",
+      "kind": "file",
+      "path": "src/semantic/command.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "checker.test.integration.semantic-command",
+      "kind": "test-suite",
+      "path": "tests/integration/semantic-command.integration.test.ts",
+      "qaIds": [
+        "QA-000001",
+        "QA-000004"
+      ],
+      "localTestIds": [
+        "PPR-IT-018",
+        "RCM-IT-005"
+      ],
+      "verifies": [
+        "checker.semantic-command",
+        "domain-model.semantic-publish",
+        "semantic-coverage.source.src.application.semantic.coverage",
+        "semantic-coverage.source.src.infrastructure.filesystem.semantic.bundle.publisher"
       ]
     }
   ]

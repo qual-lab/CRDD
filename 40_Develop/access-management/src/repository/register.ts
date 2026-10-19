@@ -28,13 +28,13 @@ import { parseContentAreaIds } from "../permission/validation.ts";
 import { parseAccessManagementState } from "../storage/parse.ts";
 import {
   ATTEMPT_UUID,
-  locked,
   ordinaryChange,
   publishState,
   readCurrent,
   serialize,
   settlePending,
 } from "../storage/store.ts";
+import { locked } from "../storage/lock.ts";
 import type { AccessManagementState } from "../storage/types.ts";
 import { deriveRepositoryBindingId } from "./binding.ts";
 import type { RepositoryExposureManagementResult } from "./types.ts";

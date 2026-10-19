@@ -16,7 +16,7 @@ verified／trusted／quality_assuredを別軸にし、Qual-Lab署名を実行資
 | 所有しない責務 | 利用者に代わる信頼判断、外部送信、候補採用 |
 | 主な外部境界 | Runtime Artifact、署名検証、Deployment OwnerのTrust Policy |
 
-準拠、完全性、Publisher、利用者判断、品質の独立軸は維持する。v0.22では既存のCoordinator実行閉包・署名検証と各公開境界の採用済み確認を保持し、汎用Trust Policy Frameworkの本番接続を今回の必須実装へ追加しない。未実装・未評価をtrustedやquality_assuredへ畳まず、署名があることだけで全Toolへ実行Authorityを発行しない。独立Policyの将来採用と現版の必須Gateを混同しない。
+準拠、完全性、Publisher、利用者判断、品質の独立軸は維持する。2026-10-19の人間判断により、独自の成果物署名Packageは廃止し、通常実行資格へ署名を要求しない。必要ArtifactのHash照合と各公開境界の採用済み確認は維持し、汎用Trust Policy Frameworkや代替署名機能は追加しない。未実装・未評価をtrustedやquality_assuredへ畳まず、署名があることだけで全Toolへ実行Authorityを発行しない。旧署名の設計・結果は歴史的比較に限定する。
 
 ## 2. UI観点の入力
 

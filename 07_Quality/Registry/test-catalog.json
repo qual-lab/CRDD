@@ -17,16 +17,13 @@
   "runnerProfiles": {
     "access-management": "node_test",
     "ai-adapter": "node_test",
-    "artifact-signing": "node_test",
     "checker": "node_test",
     "coordinator": "node_test",
     "docker-isolation": "node_test",
     "domain-model": "node_test",
     "execution-intelligence": "node_test",
     "mcp-server": "node_test",
-    "official-asset-governance": "node_test",
     "orchestrator": "node_test",
-    "semantic-coverage": "node_test",
     "version-control": "node_test",
     "platform-access": "node_and_cargo_test",
     "verification-runner": "node_test",
@@ -156,7 +153,7 @@
     },
     {
       "id": "semantic-coverage:meaning-to-bundle",
-      "owner": "semantic-coverage",
+      "owner": "domain-model",
       "architectureAnchor": "06_Architecture/Details/semantic-coverage/01_Architecture.md#4-実行の流れ",
       "responsibilities": [
         "semantic_ir_compilation",
@@ -169,62 +166,13 @@
       "lifecycleProfile": "durable_operation",
       "testIds": [
         "semantic-coverage:unit:pilot",
-        "semantic-coverage:integration:bundle-publisher"
+        "semantic-coverage:integration:bundle-publisher",
+        "checker:integration:semantic-command"
       ],
       "postconditions": [
         "semantic_meaning_not_inferred",
         "failed_publish_preserves_previous_snapshot",
         "temporary_file_cleaned"
-      ]
-    },
-    {
-      "id": "artifact-signing:key-to-signature",
-      "owner": "artifact-signing",
-      "architectureAnchor": "06_Architecture/Details/artifact-signing/01_Architecture.md#3-鍵参照と署名の状態遷移",
-      "responsibilities": [
-        "private_key_reference_preflight",
-        "hidden_secret_input",
-        "ed25519_payload_signing"
-      ],
-      "externalBoundaries": [
-        "external_private_key_file",
-        "interactive_terminal",
-        "crypto_runtime"
-      ],
-      "lifecycleProfile": "external_effect_operation",
-      "testIds": [
-        "artifact-signing:integration:private-key-signing"
-      ],
-      "postconditions": [
-        "key_reference_reobserved",
-        "authorization_single_use",
-        "secret_bytes_zeroized",
-        "manifest_semantics_not_owned"
-      ]
-    },
-    {
-      "id": "official-asset-governance:decision-and-inclusion",
-      "owner": "official-asset-governance",
-      "architectureAnchor": "06_Architecture/Details/official-asset-governance/01_Architecture.md#3-lifecycle",
-      "responsibilities": [
-        "asset_decision",
-        "asset_inclusion_traceability",
-        "revision_conflict"
-      ],
-      "externalBoundaries": [
-        "decision_authority",
-        "official_asset_store",
-        "repository_inclusion"
-      ],
-      "lifecycleProfile": "pure_component",
-      "testIds": [
-        "official-asset-governance:unit:revision-conflict",
-        "official-asset-governance:integration:asset-governance"
-      ],
-      "postconditions": [
-        "incomplete_decision_effect_zero",
-        "conflicting_decision_effect_zero",
-        "inclusion_returns_to_exact_decision"
       ]
     },
     {
@@ -918,6 +866,22 @@
   ],
   "integrationCorridors": [
     {
+      "id": "version-control:revision-to-fixed-snapshot",
+      "architectureAnchor": "06_Architecture/Details/version-control/01_Architecture.md#6-段階移行",
+      "blockPath": [
+        "version-control:fixed-revision-and-ignore",
+        "version-control:fixed-snapshot-candidate"
+      ],
+      "testIds": [
+        "version-control:integration:fixed-revision-and-ignore",
+        "version-control:integration:fixed-snapshot"
+      ],
+      "postconditions": [
+        "fixed_revision_identity_preserved",
+        "candidate_output_capability_preserved"
+      ]
+    },
+    {
       "id": "orchestrator:workspace-to-git",
       "architectureAnchor": "06_Architecture/Details/orchestrator/02_Detailed_Design.md#workspace接続の実装順序と移管先",
       "blockPath": [
@@ -1040,42 +1004,6 @@
         "compatibility_shim_connection_observed",
         "checker_consumer_result_preserved",
         "final_consumer_migration_not_claimed"
-      ]
-    },
-    {
-      "id": "version-control:revision-to-signing-input",
-      "architectureAnchor": "06_Architecture/Details/version-control/01_Architecture.md#6-段階移行",
-      "blockPath": [
-        "version-control:fixed-revision-and-ignore",
-        "version-control:fixed-snapshot-candidate",
-        "artifact-signing:key-to-signature"
-      ],
-      "testIds": [
-        "version-control:integration:fixed-revision-and-ignore",
-        "version-control:integration:fixed-snapshot",
-        "artifact-signing:integration:private-key-signing"
-      ],
-      "postconditions": [
-        "fixed_revision_identity_preserved",
-        "candidate_output_capability_preserved",
-        "key_reference_preflight_preserved"
-      ]
-    },
-    {
-      "id": "official-asset-governance:decision-to-fixed-snapshot",
-      "architectureAnchor": "06_Architecture/Details/official-asset-governance/01_Architecture.md#3-lifecycle",
-      "blockPath": [
-        "official-asset-governance:decision-and-inclusion",
-        "version-control:fixed-snapshot-candidate"
-      ],
-      "testIds": [
-        "official-asset-governance:integration:asset-governance",
-        "version-control:integration:fixed-snapshot"
-      ],
-      "postconditions": [
-        "asset_revision_and_decision_relation_preserved",
-        "unapproved_asset_not_included",
-        "fixed_snapshot_does_not_confer_publication_authority"
       ]
     },
     {
@@ -1511,6 +1439,19 @@
       "testIds": [
         "coordinator:integration:external-send-policy-runtime",
         "coordinator:integration:orchestrator-durable-foundation"
+      ]
+    },
+    {
+      "producerOwner": "domain-model",
+      "producerPaths": [
+        "40_Develop/domain-model/src"
+      ],
+      "consumerOwner": "checker",
+      "consumerStatic": true,
+      "testIds": [
+        "semantic-coverage:unit:pilot",
+        "semantic-coverage:unit:public-boundary",
+        "checker:integration:semantic-command"
       ]
     }
   ],
@@ -3449,8 +3390,8 @@
     },
     {
       "id": "semantic-coverage:integration:bundle-publisher",
-      "owner": "semantic-coverage",
-      "path": "40_Develop/semantic-coverage/tests/integration/semantic-bundle-publisher.integration.test.ts",
+      "owner": "domain-model",
+      "path": "40_Develop/domain-model/tests/integration/storage/semantic-store.integration.test.ts",
       "level": "integration",
       "kind": "integration",
       "semanticTags": [
@@ -3466,48 +3407,6 @@
         "verified_repository_root_capability_required",
         "failed_publish_preserves_previous_snapshot",
         "temporary_file_cleaned"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
-      "id": "official-asset-governance:unit:revision-conflict",
-      "owner": "official-asset-governance",
-      "path": "40_Develop/official-asset-governance/tests/unit/decisions.contract.test.ts",
-      "level": "unit",
-      "kind": "contract",
-      "semanticTags": [
-        "official-asset",
-        "revision",
-        "conflict"
-      ],
-      "environment": "node_process",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "winning_revision_preserved",
-        "losing_decision_effect_zero"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
-      "id": "official-asset-governance:integration:asset-governance",
-      "owner": "official-asset-governance",
-      "path": "40_Develop/official-asset-governance/tests/integration/asset-governance.contract.test.ts",
-      "level": "integration",
-      "kind": "contract",
-      "semanticTags": [
-        "official-asset",
-        "decision",
-        "inclusion",
-        "traceability"
-      ],
-      "environment": "local_component_boundary",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "complete_decision_applied_once",
-        "incomplete_decision_effect_zero",
-        "inclusion_relation_exact"
       ],
       "mandatoryByDefault": true
     },
@@ -3904,51 +3803,6 @@
         "revision_identity_preserved",
         "ignore_content_identity_preserved",
         "unknown_effect_not_reported_complete"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
-      "id": "artifact-signing:integration:private-key-signing",
-      "owner": "artifact-signing",
-      "path": "40_Develop/artifact-signing/tests/integration/private-key-signing.integration.test.ts",
-      "level": "integration",
-      "kind": "integration",
-      "semanticTags": [
-        "artifact-signing",
-        "private-key-reference",
-        "secret-input",
-        "ed25519"
-      ],
-      "environment": "node_process",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "reference_preflight_before_secret",
-        "replacement_rejected",
-        "authorization_single_use",
-        "signature_verifiable"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
-      "id": "artifact-signing:unit:one-shot-authorization",
-      "owner": "artifact-signing",
-      "path": "40_Develop/artifact-signing/tests/unit/one-shot-authorization.contract.test.ts",
-      "level": "unit",
-      "kind": "contract",
-      "semanticTags": [
-        "artifact-signing",
-        "authorization",
-        "one-shot",
-        "state"
-      ],
-      "environment": "node_process",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "single_consumer",
-        "reuse_rejected",
-        "loser_does_not_read_protected_value"
       ],
       "mandatoryByDefault": true
     },
@@ -8301,8 +8155,8 @@
     },
     {
       "id": "semantic-coverage:unit:pilot",
-      "owner": "semantic-coverage",
-      "path": "40_Develop/semantic-coverage/tests/unit/semantic-coverage-pilot.contract.test.ts",
+      "owner": "checker",
+      "path": "40_Develop/checker/tests/unit/semantic/coverage.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -8320,8 +8174,8 @@
     },
     {
       "id": "semantic-coverage:unit:public-boundary",
-      "owner": "semantic-coverage",
-      "path": "40_Develop/semantic-coverage/tests/unit/public-boundary.contract.test.ts",
+      "owner": "checker",
+      "path": "40_Develop/checker/tests/unit/semantic/public-boundary.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -9375,6 +9229,48 @@
         "visibility_not_expanded",
         "unknown_not_disabled",
         "test_root_removed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "domain-model:unit:semantic-coverage",
+      "owner": "domain-model",
+      "path": "40_Develop/domain-model/tests/unit/semantic/coverage.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "semantic",
+        "domain-boundary",
+        "publication"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "repository_boundary_preserved",
+        "partial_not_success",
+        "temporary_file_cleaned"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "checker:integration:semantic-command",
+      "owner": "checker",
+      "path": "40_Develop/checker/tests/integration/semantic-command.integration.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "semantic",
+        "domain-boundary",
+        "publication"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "repository_boundary_preserved",
+        "partial_not_success",
+        "temporary_file_cleaned"
       ],
       "mandatoryByDefault": true
     }

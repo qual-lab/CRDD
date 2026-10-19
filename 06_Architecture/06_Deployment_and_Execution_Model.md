@@ -126,7 +126,7 @@ Canonical Architectureが独立レビューで閉じた後に、次を照合す�
 | Execution Intelligence | 実行事実の生成・保存と読取りPort | [実行知](Details/execution-intelligence/01_Architecture.md) |
 | Platform Access | OS／Process／Containerの意味、診断、回復 | [Platform Access](Details/platform-access/01_Architecture.md) |
 | Version Control | Root検証、Binding、差替え可能なPort | [Version Control](Details/version-control/01_Architecture.md) |
-| Artifact Signing | 秘密入力、署名、Manifest、配布Root | [成果物署名](Details/artifact-signing/01_Architecture.md) |
+| 旧Artifact Signing（廃止） | 専用Package・署名機能は廃止。通常Runtimeの配置要素ではない | [成果物署名](Details/artifact-signing/01_Architecture.md) |
 | Checker | Generic Core、現行Profile、終了・回帰 | [Checker](Details/checker/01_Architecture.md) |
 | CROSの認可／Context操作 | 現在認可、Federation、Projection、候補Lifecycle | [Access Management](Details/access-management/01_Architecture.md)、[Domain Model](Details/domain-model/01_Architecture.md)、[Context操作](Details/domain-model/02_Activity_Context.md) |
 | Source／Tests | Canonical責務との対応、未実装、旧Owner残存 | `40_Develop/**`、`template/tools/**`、`07_Quality/**` |

@@ -16,7 +16,8 @@ import type {
   ManagementRequest,
 } from "../permission/types.ts";
 import type { AccessRole } from "../role/types.ts";
-import { locked, readCurrent, settlePending } from "../storage/store.ts";
+import { readCurrent, settlePending } from "../storage/store.ts";
+import { locked } from "../storage/lock.ts";
 import type { AccessManagementState } from "../storage/types.ts";
 import { evaluateManagementPermission } from "./management.ts";
 

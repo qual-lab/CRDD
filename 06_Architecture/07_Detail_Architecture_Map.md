@@ -1,5 +1,7 @@
 # Architecture詳細設計の対応表
 
+2026-10-19にartifact-signing／official-asset-governanceの実装Packageを廃止した。以下の同名領域はSupersededな比較設計への参照であり、現行Packageの存在や実装完成を示さない。ARCH-IDとのRelationは旧設計の所在を失わないため保持する。
+
 [Workspace横断契約](Details/orchestrator/03_Workspace.md)をOrchestrator詳細へ追加する。既存ARCH-000004／008／009／011／012／013／015の担当断面を接続し、独立Subsystemや新ARCH-IDは作らない。Git技術・Domain・認可・隔離の意味は各Ownerへ維持する。新方式のRelationは設計接続でありSource／検証完了を示さない。
 
 成果物種別: Architecture詳細設計の統合投影
@@ -32,7 +34,7 @@ Quality／Development
 |---|---|---|---|
 | [access-management](Details/access-management/01_Architecture.md) | ARCH-000013 | 最小ユーザー・Role・資格と交換相関の意味、現在認可、接続／公開範囲。初回Host設定の状態・元試行・個別事実を所有し、通常Host交換2操作とは別の明示CLI入口。Domain内容・Transportを所有しない | Candidate／Partial。初回State／SequenceはAM詳細01、内部操作候補と進行記録は02へ対応。登録解除・通常鍵3分岐を維持。物理保存Schema・具体API・表示／提示方式・初回限定接続確認方式OPEN |
 | [ai-adapter](Details/ai-adapter/01_Architecture.md) | ARCH-000004、ARCH-000010、ARCH-000015 | AI AdapterのCatalog・Profile管理、Provider別計画・出力変換と実行Authorityの分離 | Candidate |
-| [artifact-signing](Details/artifact-signing/01_Architecture.md) | ARCH-000014 | 配布物の完全性、鍵Capability、Publisher証明 | Canonical |
+| [artifact-signing](Details/artifact-signing/01_Architecture.md) | ARCH-000014 | 配布物の完全性、鍵Capability、Publisher証明 | Superseded |
 | [checker](Details/checker/01_Architecture.md) | ARCH-000001、ARCH-000002 | 決定論的構造検査と契約移行時の機械的集合検査 | Canonical |
 | [coordinator](Details/coordinator/01_Architecture.md) | ARCH-000004、ARCH-000008、ARCH-000010、ARCH-000014、ARCH-000015 | 単体・上位利用共通のTask公開API、実行Authority、AI Adapter接続、資源回収、通知と結果搬送 | Candidate |
 | [contract-migration](Details/contract-migration/01_Architecture.md) | ARCH-000002 | Canonical Contract変更時の全Consumer・派生物・公開／Release／Recovery経路の閉包 | Canonical |
@@ -41,14 +43,14 @@ Quality／Development
 | [docker-isolation](Details/docker-isolation/01_Architecture.md) | ARCH-000004、ARCH-000008 | 許可済みDocker／Processの隔離、実資源Lifecycle、失敗・回復・清掃後観測。新Workspace方式の実境界はOPEN | Candidate／Partial |
 | [execution-intelligence](Details/execution-intelligence/01_Architecture.md) | ARCH-000007、ARCH-000016、ARCH-000018 | 実行記録のCanonical記録、不変公開、読取りProjectionと時間的出所。書込みと読取りを別責務として接続 | Canonical |
 | [mcp-server](Details/mcp-server/01_Architecture.md) | ARCH-000005、ARCH-000012、ARCH-000013、ARCH-000015 | MCP ServerとしてMachine向け公開Transportを所有し、Orchestrator／Domain Model／CROSの公開契約へ接続する。Shared Host全体や受入判断Authorityは所有しない | Candidate |
-| [official-asset-governance](Details/official-asset-governance/01_Architecture.md) | ARCH-000017 | 公式素材の出所、権利、用途、判断、収載状態 | Canonical |
+| [official-asset-governance](Details/official-asset-governance/01_Architecture.md) | ARCH-000017 | 公式素材の出所、権利、用途、判断、収載状態 | Superseded |
 | [platform-access](Details/platform-access/01_Architecture.md) | ARCH-000004、ARCH-000008、ARCH-000011、ARCH-000014 | OS／Process／Container境界、実在するEffectと資源Lifecycle | Canonical |
 | [活動Context（domain-model）](./Details/domain-model/02_Activity_Context.md) | ARCH-000005、ARCH-000006、ARCH-000016 | Domain Modelが実装する活動Contextの意味・状態・正本保存と現在投影。受入判断書込みは所有しない | Candidate |
 | [orchestrator](Details/orchestrator/01_Architecture.md) | ARCH-000004、ARCH-000005、ARCH-000007、ARCH-000012 | OrchestratorのProject実行、状態投影、明示受入判断、実行事実読取り、公開APIと通知・取消契約 | Candidate |
 | [quality-change-control](Details/quality-change-control/01_Architecture.md) | ARCH-000003 | 固定改訂版に対する変更・監査・試験結果と品質状態の統合 | Canonical |
 | [Repository保存（domain-model）](./Details/domain-model/03_Repository_Storage.md) | ARCH-000009、ARCH-000011、ARCH-000013、ARCH-000016 | Repository-local／OS管理領域の配置、保持、Identity、清掃 | Canonical |
 | [runtime-trust](Details/runtime-trust/01_Architecture.md) | ARCH-000014 | 準拠、完全性、Publisher、品質と利用者所有Trust Policyの独立評価 | Canonical |
-| [semantic-coverage](Details/semantic-coverage/01_Architecture.md) | ARCH-000008 | Architecture上の意味と実装・Quality・Test Symbolの決定論的な接続、Coverage生成およびBundle公開 | Canonical |
+| [semantic-coverage](Details/semantic-coverage/01_Architecture.md) | ARCH-000008 | Domain Modelによる意味・関係・Coverage・保存とCheckerによる起動・診断。独立Packageではない | Canonical |
 | [verification-runner](Details/verification-runner/01_Architecture.md) | ARCH-000003 | Test Catalog、変更影響からの試験選択、段階実行、Authority確認および結果集約 | Canonical |
 | [visual-preview](Details/visual-preview/01_Architecture.md) | ARCH-000003 | Repository内Visual成果物のlocalhost限定・読取り専用Preview | Canonical |
 | [version-control](Details/version-control/01_Architecture.md) | ARCH-000002、ARCH-000009、ARCH-000014、ARCH-000016 | Repository Root、履歴境界、Binding、完全性入力、差替可能なPort | Canonical |

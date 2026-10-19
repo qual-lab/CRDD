@@ -19,7 +19,6 @@ import { parseAccessManagementState } from "../storage/parse.ts";
 import {
   ATTEMPT_UUID,
   CURRENT_LIMIT,
-  locked,
   ordinaryChange,
   PENDING_LIMIT,
   preparePublicationBytes,
@@ -28,6 +27,7 @@ import {
   serialize,
   settlePending,
 } from "../storage/store.ts";
+import { locked } from "../storage/lock.ts";
 import type { AccessManagementState } from "../storage/types.ts";
 import type {
   PreparedUserRoleChange,

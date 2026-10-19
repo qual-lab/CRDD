@@ -23,7 +23,6 @@ const SOURCE_SCOPE = "crdd-development-source-snapshot/v1";
 const PACKAGES = [
   "access-management",
   "ai-adapter",
-  "artifact-signing",
   "coordinator",
   "docker-isolation",
   "domain-model",

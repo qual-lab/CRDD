@@ -2,7 +2,13 @@
 
 成果物種別: Architecture詳細設計
 詳細設計領域: artifact-signing
-状態: Canonical
+状態: Superseded
+
+## 2026-10-19の廃止判断
+
+人間の承認により、`artifact-signing` Packageと専用署名機能を廃止する。別Packageへの移管や互換APIは設けない。以下の本文は旧方式の比較用設計であり、現行実装の責務・完成条件・検証根拠として適用しない。過去Evidenceは変更しない。
+
+廃止対象は秘密鍵参照、対話秘密入力、一回限り署名認可、Ed25519署名と専用結果検証である。Access ManagementのCredential、必要ArtifactのHash照合、Docker隔離、OS出所観測、既存の標準暗号利用は対象外である。将来の配布署名は具体的Consumerと必要性から別途判断し、本Packageの存在を前提にしない。処置と検証は[再編計画](../../../99_Roadmap/Changes/CHG-000082/second-stage-plan.md#検査検証packageの縮小--2026-10-19の途中見直し)を参照する。
 
 ## 基本設計との関係
 

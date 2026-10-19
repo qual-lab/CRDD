@@ -9,6 +9,8 @@ Architecture ID: `ARCH-000017`
 
 candidate／approved／restricted／withdrawnを区別し、生成手段や見た目だけから公開・再配布権を推定しない。
 
+2026-10-19の人間判断により、専用`official-asset-governance` Packageによる判断・保存・収載照合の自動処理は廃止する。本定義が所有する出所・権利・許可用途・判断者の確認と記録は既存の素材文書と人間の収載判断で維持し、専用Storeや代替Registryを新設しない。旧Packageの設計・試験結果を現行実装の根拠として用いない。
+
 | 区分 | 内容 |
 |---|---|
 | 状態Owner | 公式Repositoryの素材収載判断 |

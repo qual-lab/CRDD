@@ -8,13 +8,13 @@
 import type { FilesystemStoreRoot } from "../../../domain-model/src/index.ts";
 import {
   CURRENT,
-  locked,
   PENDING,
   present,
   REPLACE,
   readCurrent,
   settlePending,
 } from "../storage/store.ts";
+import { locked } from "../storage/lock.ts";
 import type { AccessManagementState } from "../storage/types.ts";
 
 /**

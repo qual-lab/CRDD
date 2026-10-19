@@ -1,5 +1,5 @@
 /**
- * 管理状態の排他・読取り・保存確定・読戻し・短命材料の清掃を所有する。
+ * 管理状態の読取り・保存確定・読戻し・短命材料の清掃を所有する。
  * @packageDocumentation
  * @responsibility 既存の操作・認可・保存境界を維持し、この責務の実装を集約する。
  * @trace ARCH-000013
@@ -9,12 +9,10 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import {
   type FilesystemStoreRoot,
-  observeFilesystemStoreLockOwnerAbsence,
   readStableBoundedFileSnapshot,
-  recoverFilesystemStoreLock,
   resolveFilesystemStorePath,
-  withFilesystemStoreLock,
 } from "../../../domain-model/src/index.ts";
+import { locked } from "./lock.ts";
 import { parseAccessManagementState } from "./parse.ts";
 import type { AccessManagementState, StateStoreResult } from "./types.ts";
 
@@ -23,8 +21,6 @@ export const CURRENT = "access-management.json";
 export const PENDING = "access-management.pending.json";
 
 export const REPLACE = "access-management.replace.json";
-
-const LOCK = "access-management.lock";
 
 export const CURRENT_LIMIT = 16_777_216;
 
@@ -340,91 +336,6 @@ export function settlePending(
   fs.rmSync(resolveFilesystemStorePath(root, PENDING));
   if (present(root, PENDING)) throw new Error("state_store_cleanup_unknown");
   return published ? "published" : "discarded";
-}
-
-/**
- * 既存Lockのexact回収と結果を保存Ownerへ閉じる。
- * @responsibility 新排他を作らず、既知出版とLock解放不明を別に保持する。
- * @trace ARCH-000013
- * @input Rootと同期保存処理。
- * @returns 内部StateStoreResult。
- * @precondition 同じ用途限定Rootと既存排他を使用する内部保存Ownerだけが呼び出す。
- * @postcondition 確認した事実だけを返し、観測不能を成功へ変換しない。
- * @effect 既存Lock取得・必要時exact回収・解放。
- * @failure 競合・Owner存在・観測不能・解放不明は未完了。
- * @invariant 回収は同じIDと既存Owner不存在Proofだけ。
- * @boundary 保存OwnerとDomain排他。
- * @security Snapshot・Verifier・salt・内部Pathを外部応答や例外本文へ出さない。
- * @concurrency 再入場は一回だけ、無限再試行なし。
- */
-export function locked<T>(
-  root: FilesystemStoreRoot,
-  operation: () => StateStoreResult<T>,
-): StateStoreResult<T> {
-  let observed: StateStoreResult<T> = {
-    status: "unavailable",
-    reason: "state_store_observation_unknown",
-    publication: "not_attempted",
-    revision: null,
-    cleanupConfirmed: false,
-  };
-  try {
-    const execute = () => {
-      observed = operation();
-      return observed;
-    };
-    let lock = withFilesystemStoreLock(root, LOCK, execute);
-    if (
-      !lock.acquired &&
-      lock.reason === "filesystem_store_lock_recovery_required"
-    ) {
-      const absence = observeFilesystemStoreLockOwnerAbsence(
-        root,
-        LOCK,
-        lock.recoveryId,
-      );
-      if (
-        absence.status === "confirmed" &&
-        recoverFilesystemStoreLock(root, LOCK, absence.proof).status ===
-          "completed"
-      )
-        lock = withFilesystemStoreLock(root, LOCK, execute);
-    }
-    if (!lock.acquired)
-      return {
-        status: "unavailable",
-        reason: lock.reason,
-        publication: "not_attempted",
-        revision: null,
-        cleanupConfirmed: false,
-        ...("recoveryId" in lock ? { lockRecoveryId: lock.recoveryId } : {}),
-      };
-    if (!lock.cleanupConfirmed)
-      return {
-        status: "unavailable",
-        reason:
-          observed.status === "unavailable" ? observed.reason : lock.reason,
-        publication: observed.publication,
-        revision: observed.revision,
-        cleanupConfirmed: false,
-        lockRecoveryId: lock.recoveryId,
-        ...(observed.status === "unavailable"
-          ? { secondaryReason: lock.reason }
-          : {}),
-      };
-    return observed;
-  } catch {
-    const latest = observed as StateStoreResult<T>;
-    return latest.status === "unavailable"
-      ? { ...latest, cleanupConfirmed: false }
-      : {
-          status: "unavailable",
-          reason: "state_store_lock_unknown",
-          publication: latest.publication,
-          revision: latest.revision,
-          cleanupConfirmed: false,
-        };
-  }
 }
 
 /**

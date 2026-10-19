@@ -1,5 +1,9 @@
 # Domain Modelの責務境界
 
+### Semanticの移管 — 2026-10-19
+
+旧Semantic Coverage PackageのIR、Quality Relation、Coverage Graph、Bundle生成を`src/semantic/`、原子的保存を`src/storage/semantic-store.ts`へ移管する。Root APIから実責務Fileを明示exportし、Capability内barrelや新しい管理状態を作らない。中立的なDomainOutcomeとDomainIssueを返し、Checker固有の診断・起動・旧JSON移行調査は所有しない。保存は既存の検証済みRoot・Link拒否・書込み同期・読戻し・原子的置換・finally回収を維持する。以下の旧「Semantic IRとBundle公開はDomain外」という記述はこの範囲で置換する。意味と関係の詳細は[Semantic詳細](../semantic-coverage/01_Architecture.md#2026-10-19の責務移管)に従い、同名の設計領域と廃止した実装Packageを区別する。
+
 ### 目的限定Contextの未接続範囲 — 2026-10-13
 
 旧CROSのContext Package値生成prototypeは撤去する。認可済みSource／Portfolio集約はDomainの入力処理として接続済みだが、目的限定Package Identity、Consumer lifecycle、消費終了後に第二正本を残さないことは未接続である。RFD-ST-010をOPENとして保持し、単純な値copyを新Domain APIへ移して完成としない。認可は引き続きAccess Management、Handoffの実行・再開判断はOrchestratorの5C依存範囲であり、DomainはAuthorityを発行しない。
@@ -105,14 +109,11 @@ Topic／Meeting一覧の純粋入力検査は公開`validateTopicMeetingListInpu
    ├ bin/                           人間／package script向けの薄いCLI
    └ tests/                         検証実行Capabilityの試験
 
-└ semantic-coverage/
-   ├ src/
-   │  ├ index.ts                   公開入口
-   │  ├ application/               意味Coverage生成の編成
-   │  ├ infrastructure/            Bundleの原子的公開
-   │  └ migrations/                旧Runtime JSONの移行入力
-   ├ bin/                           Pilot CLI
-   └ tests/                         意味Coverageと公開境界の試験
+Semantic Coverageの配置
+├ domain-model/src/semantic/       IR・Relation・Coverage
+├ domain-model/src/storage/semantic-store.ts
+├ checker/src/semantic/            起動・診断・表示
+└ checker/scripts/semantic-legacy-inventory.ts
 
 template/tools/
 ├ crdd-check.ts                    薄い起動入口
@@ -175,9 +176,9 @@ Repository／Version Control Infrastructure
 | Quality Change Control `domain-model/src/index.ts` | 品質・変更状態の中立な判定 | なし | Checker固有Rule、採用・Release Authority |
 | Reality Traceability `domain-model/src/index.ts` | Symbol Manifest、Annotation解釈、Graphの公開型と決定論的な生成・検証関数 | なし。Path APIはRepository相対表記の構文検査だけに用いる | Repository走査、Checker Finding変換、Reality Audit実行、Test合格、実装完成 |
 | Repository `domain-model/src/index.ts` | 検証済みRoot内のRepository観測、名前付きPath解決、保存領域の読取り専用観測 | Filesystem読取りだけ | Directory作成、設定自動生成、Git確定・公開、採用判断 |
-| Semantic Coverage `semantic-coverage/src/index.ts` | Repository入力の編成、診断、Bundle生成・公開 | 明示したBundle公開 | Architecture・Quality・実装の意味採否、部分公開の成功扱い |
+| Domain Model Semantic API／Checker実行入口 | Domainは意味・関係・Coverage・保存、Checkerは入力編成と診断表示 | 明示したBundle公開 | Architecture・Quality・実装の意味採否、部分公開の成功扱い |
 | Version Control `version-control/src/index.ts` | [Version Control用途限定公開入口](../version-control/01_Architecture.md#32-用途を限定した公開入口)のNamed Symbolを明示利用 | 宣言されたRepository観測とIdentity確認 | Domain意味、未Commit通常操作の拒否、利用しないGit Adapterの依存閉包への混入 |
-| Checker `checker/src/index.ts` | `CheckerRunRequest`、`CheckerResult`、`CheckerFinding`、`runChecker` | Repository読取りのみ | Domain Issueの改変、意味採否、外部Effect許可 |
+| Checker `checker/src/index.ts` | `CheckerRunRequest`、`CheckerResult`、`CheckerFinding`、`runChecker`、`runSemanticCoverage` | `runChecker`はRepository読取りのみ。`runSemanticCoverage`も既定は読取りで、明示`--write`時だけDomain storageへBundle保存を委譲する | Domain Issueの改変、意味採否、外部Effect許可、Checker内での保存本体再実装 |
 | Verification Runner `verification-runner/src/index.ts` | `RegressionRunRequest`、`RegressionRunResult`、`runRegression` | 宣言された試験段階の選択と子Process実行 | Checker規則、CLI表示、`process.argv`解釈、`process.exitCode`設定 |
 
 Domain Modelの各責務は共通Rootから公開する。本表は操作の責務・Effect境界を示し、Rootの実行時・型を含む明示export集合は固定許可集合の契約試験で完全一致を検査する。`./outcome`は共通結果だけの既存Subpathとして維持し、廃止したCapability別Subpathを再導入しない。新しい公開Symbolは対象責務と本表へ接続し、固定許可集合の変更を審査する。
@@ -204,12 +205,13 @@ CRDD Domain Library
                   │
        ┌──────────┼──────────────────┐
        ▼          ▼                  ▼
- Checker Adapter  MCP／Workbench  Semantic Coverage
-       │                             │
-       ▼                             ▼
- Checker Finding／Exit Code   Bundle公開Adapter
-                         temporary→fsync→readback
-                               →atomic publish→cleanup
+ Checker Adapter  MCP／Workbench
+       │
+       ├→ Domain semantic：意味・関係・Coverage
+       ├→ Domain storage：明示Bundle公開
+       │    temporary→fsync→readback→atomic publish→cleanup
+       ▼
+ Checker Finding／Exit Code
 ```
 
 純粋な解析・意味変換は`node:fs`実装へ依存せず、Repositoryの観測結果または呼出し側が取得した内容を受け取る。統合Package内のCRUDと設定読取りは責務別のRepository／保存公開面を利用し、純粋Coreから暗黙に呼び出さない。Checker AdapterがDomainの構造化Issueを`CheckerFinding`へ変換し、RuleとPipelineが最終結果を構成する。

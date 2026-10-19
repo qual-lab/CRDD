@@ -56,7 +56,6 @@ async function createSourceObservationFixture(readMutation = "") {
     const names = [
       "access-management",
       "ai-adapter",
-      "artifact-signing",
       "coordinator",
       "docker-isolation",
       "domain-model",
@@ -126,7 +125,7 @@ if (process.argv[2] !== "--probe") {
     try {
       const first = fixture.observe();
       assert.ok(first);
-      assert.equal(first.fileCount, 22);
+      assert.equal(first.fileCount, 20);
       assert.equal(first.scope, "crdd-development-source-snapshot/v1");
       assert.ok(Object.isFrozen(first));
       mkdirSync(path.join(fixture.root, ".crdd"));
@@ -260,7 +259,7 @@ if (process.argv[2] !== "--probe") {
    *
    * @responsibility 個別File上限だけで全体有界性を推定しない。
    * @trace ERB-IT-004
-   * @precondition 22通常Fileの最小Fixtureが存在する。
+   * @precondition 10Package・20通常Fileの最小Fixtureが存在する。
    * @stimulus File数2048、Directory数2048、64MiBの境界と各超過を作る。
    * @observation 各Snapshotの件数・byte数と拒否。
    * @oracle 各上限を受理し、一つでも超えたらnullとする。
@@ -273,14 +272,14 @@ if (process.argv[2] !== "--probe") {
       const base = path.join(fixture.root, "40_Develop", "coordinator", "src");
       const extras = path.join(base, "extras");
       mkdirSync(extras);
-      for (let i = 0; i < 2026; i += 1)
+      for (let i = 0; i < 2028; i += 1)
         writeFileSync(path.join(extras, `${i}.ts`), "");
       assert.equal(fixture.observe()?.fileCount, 2048);
       writeFileSync(path.join(extras, "overflow.ts"), "");
       assert.equal(fixture.observe(), null);
       rmSync(extras, { recursive: true });
       mkdirSync(extras);
-      for (let i = 0; i < 2036; i += 1) mkdirSync(path.join(extras, String(i)));
+      for (let i = 0; i < 2037; i += 1) mkdirSync(path.join(extras, String(i)));
       assert.ok(fixture.observe());
       mkdirSync(path.join(extras, "overflow"));
       assert.equal(fixture.observe(), null);

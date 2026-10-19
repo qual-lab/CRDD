@@ -18,7 +18,8 @@ import {
 import { resolveCredentialAuthentication } from "../credential/authentication.ts";
 import { readCredentialId } from "../credential/token.ts";
 import type { AuthenticatedRequest } from "../credential/types.ts";
-import { locked, readCurrent, settlePending } from "../storage/store.ts";
+import { readCurrent, settlePending } from "../storage/store.ts";
+import { locked } from "../storage/lock.ts";
 import type { AccessManagementState } from "../storage/types.ts";
 import { deriveRepositoryBindingId } from "./binding.ts";
 import type {

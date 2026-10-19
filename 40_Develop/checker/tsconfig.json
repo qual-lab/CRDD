@@ -16,6 +16,10 @@
   "include": [
     "./bin/checker.ts",
     "./src/index.ts",
+    "./src/semantic/**/*.ts",
+    "./tests/unit/semantic/**/*.ts",
+    "./tests/integration/semantic-command.integration.test.ts",
+    "./scripts/semantic-legacy-inventory.ts",
     "./src/profiles/current.ts",
     "./tests/integration/crdd-check.contract.test.ts",
     "./tests/integration/tools-naming.contract.test.ts",

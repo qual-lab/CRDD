@@ -272,6 +272,14 @@
       ]
     },
     {
+      "symbolId": "access-management.storage-lock",
+      "kind": "file",
+      "path": "src/storage/lock.ts",
+      "archIds": [
+        "ARCH-000013"
+      ]
+    },
+    {
       "symbolId": "access-management.test.integration.state-file-store",
       "kind": "test-suite",
       "path": "tests/integration/storage/store.contract.test.ts",
@@ -288,6 +296,7 @@
       "verifies": [
         "access-management.public-api",
         "access-management.state-file-store",
+        "access-management.storage-lock",
         "access-management.state-parse",
         "access-management.initialization-host-state",
         "access-management.initialization-host-execution",

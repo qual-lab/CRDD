@@ -1,5 +1,7 @@
 # UI／SPEC Detail Architecture Traceability
 
+2026-10-19にartifact-signing／official-asset-governanceの実装Packageを廃止した。同名の詳細領域は旧方式の設計参照として保持し、該当行をPartialとする。現在の署名実装・素材管理Engineの存在を意味しない。上流の信頼判断・素材権利確認自体は維持し、廃止を新版の検証Passへ数えない。
+
 成果物種別: Architecture入力・配置の統合投影
 状態: Candidate（ARCH-000013断面とDocker Isolation配置を限定更新。全体再評価は未完了）
 維持責任者: Qual-Lab
@@ -38,13 +40,13 @@ Architecture Detail Area
 | [SCR-000010／PRT-000010](../04_UI/Details/Areas/configuration-trust/SCR-000010/screen.md) | UI-000010 | ARCH-000010 | coordinator、cros | Covered |
 | [SCR-000011／PRT-000011](../04_UI/Details/Areas/configuration-trust/SCR-000011/screen.md) | UI-000011 | ARCH-000011 | platform-access | Covered |
 | [SCR-000012／PRT-000012](../04_UI/Details/Areas/operation/SCR-000012/screen.md) | UI-000012 | ARCH-000004 | orchestrator、coordinator、docker-isolation、platform-access | Covered |
-| [SCR-000013／PRT-000013](../04_UI/Details/Areas/configuration-trust/SCR-000013/screen.md) | UI-000013 | ARCH-000014 | runtime-trust、artifact-signing、coordinator、version-control | Covered |
+| [SCR-000013／PRT-000013](../04_UI/Details/Areas/configuration-trust/SCR-000013/screen.md) | UI-000013 | ARCH-000014 | runtime-trust、artifact-signing、coordinator、version-control | Partial |
 | [SCR-000014／PRT-000014](../04_UI/Details/Areas/governance/SCR-000014/screen.md) | UI-000014 | ARCH-000002 | contract-migration、checker、version-control、domain-model | Covered |
 | [SCR-000015／PRT-000015](../04_UI/Details/Areas/governance/SCR-000015/screen.md) | UI-000015 | ARCH-000003 | quality-change-control、verification-runner | Covered |
 | [SCR-000016／PRT-000016](../04_UI/Details/Areas/operation/SCR-000016/screen.md) | UI-000016 | ARCH-000015 | coordinator、cros、mcp-server | Covered |
 | [SCR-000017／PRT-000017](../04_UI/Details/Areas/project-context/SCR-000017/screen.md) | UI-000017 | ARCH-000016 | execution-intelligence、cros、version-control | Covered |
 | [SCR-000018／PRT-000018](../04_UI/Details/Areas/project-context/SCR-000018/screen.md) | UI-000018 | ARCH-000001 | checker、domain-model | Covered |
-| [SCR-000019／PRT-000019](../04_UI/Details/Areas/project-context/SCR-000019/screen.md) | UI-000019 | ARCH-000017 | official-asset-governance | Covered |
+| [SCR-000019／PRT-000019](../04_UI/Details/Areas/project-context/SCR-000019/screen.md) | UI-000019 | ARCH-000017 | official-asset-governance | Partial |
 | [SCR-000020／PRT-000020](../04_UI/Details/Areas/operation/SCR-000020/screen.md) | UI-000020 | ARCH-000018 | execution-intelligence | Covered |
 
 ## 3. SPEC DetailからArchitectureへの全数対応
@@ -69,13 +71,13 @@ Architecture Detail Area
 | [BHV-000015](../05_SPEC/Details/BHV-000015/behavior.md) | SPEC-000015 | ARCH-000010 | coordinator、cros | Covered |
 | [BHV-000016](../05_SPEC/Details/BHV-000016/behavior.md) | SPEC-000016 | ARCH-000011 | platform-access | Covered |
 | [BHV-000017](../05_SPEC/Details/BHV-000017/behavior.md) | SPEC-000017 | ARCH-000004 | orchestrator、coordinator、docker-isolation、platform-access | Covered |
-| [BHV-000018](../05_SPEC/Details/BHV-000018/behavior.md) | SPEC-000018 | ARCH-000014 | runtime-trust、artifact-signing、coordinator、version-control | Covered |
+| [BHV-000018](../05_SPEC/Details/BHV-000018/behavior.md) | SPEC-000018 | ARCH-000014 | runtime-trust、artifact-signing、coordinator、version-control | Partial |
 | [BHV-000019](../05_SPEC/Details/BHV-000019/behavior.md) | SPEC-000019 | ARCH-000002 | contract-migration、checker、version-control、domain-model | Covered |
 | [BHV-000020](../05_SPEC/Details/BHV-000020/behavior.md) | SPEC-000020 | ARCH-000003 | quality-change-control、verification-runner | Covered |
 | [BHV-000021](../05_SPEC/Details/BHV-000021/behavior.md) | SPEC-000021 | ARCH-000015 | coordinator、cros、mcp-server | Covered |
 | [BHV-000022](../05_SPEC/Details/BHV-000022/behavior.md) | SPEC-000022 | ARCH-000016 | execution-intelligence、cros、version-control | Covered |
 | [BHV-000023](../05_SPEC/Details/BHV-000023/behavior.md) | SPEC-000023 | ARCH-000001 | checker、domain-model | Covered |
-| [BHV-000024](../05_SPEC/Details/BHV-000024/behavior.md) | SPEC-000024 | ARCH-000017 | official-asset-governance | Covered |
+| [BHV-000024](../05_SPEC/Details/BHV-000024/behavior.md) | SPEC-000024 | ARCH-000017 | official-asset-governance | Partial |
 | [BHV-000026](../05_SPEC/Details/BHV-000026/behavior.md) | SPEC-000026 | ARCH-000015 | coordinator、cros、mcp-server | Covered |
 | [BHV-000027](../05_SPEC/Details/BHV-000027/behavior.md) | SPEC-000027 | ARCH-000015 | coordinator、cros、mcp-server | Covered |
 | [BHV-000028](../05_SPEC/Details/BHV-000028/behavior.md) | SPEC-000028 | ARCH-000004 | orchestrator、coordinator、docker-isolation、platform-access | Covered |
@@ -110,7 +112,7 @@ Architecture Detail Area
 | `PRT-000011.spec-000005` | BHV-000005 | ARCH-000004、ARCH-000011 | Joint | orchestrator、coordinator、docker-isolation、platform-access | Covered |
 | `PRT-000011.spec-000016` | BHV-000016 | ARCH-000011 | Single | platform-access | Covered |
 | `PRT-000012.spec-000017` | BHV-000017 | ARCH-000004 | Single | orchestrator、coordinator、docker-isolation、platform-access | Covered |
-| `PRT-000013.spec-000018` | BHV-000018 | ARCH-000014 | Single | runtime-trust、artifact-signing、coordinator、version-control | Covered |
+| `PRT-000013.spec-000018` | BHV-000018 | ARCH-000014 | Single | runtime-trust、artifact-signing、coordinator、version-control | Partial |
 | `PRT-000014.spec-000019` | BHV-000019 | ARCH-000002 | Single | contract-migration、checker、version-control、domain-model | Covered |
 | `PRT-000015.spec-000020` | BHV-000020 | ARCH-000003 | Single | quality-change-control、verification-runner | Covered |
 | `PRT-000016.spec-000021` | BHV-000021 | ARCH-000015 | Single | coordinator、cros、mcp-server | Covered |
@@ -118,7 +120,7 @@ Architecture Detail Area
 | `PRT-000016.spec-000027` | BHV-000027 | ARCH-000015 | Single | coordinator、cros、mcp-server | Covered |
 | `PRT-000017.spec-000022` | BHV-000022 | ARCH-000016 | Single | execution-intelligence、cros、version-control | Covered |
 | `PRT-000018.spec-000023` | BHV-000023 | ARCH-000001 | Single | checker、domain-model | Covered |
-| `PRT-000019.spec-000024` | BHV-000024 | ARCH-000017 | Single | official-asset-governance | Covered |
+| `PRT-000019.spec-000024` | BHV-000024 | ARCH-000017 | Single | official-asset-governance | Partial |
 | `PRT-000020.spec-000030` | BHV-000030 | ARCH-000018 | Single | execution-intelligence | Covered |
 
 `PRT-000011.spec-000005`は、実行時データの保持・清掃を所有するARCH-000011と、Effect不明・回復を所有するARCH-000004をまたぐ。片方へ意味を移さず、両責務が同じInteractionを共同で閉じる。

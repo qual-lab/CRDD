@@ -63,16 +63,13 @@ export type TestCatalogEntry = Readonly<{
   owner:
     | "access-management"
     | "ai-adapter"
-    | "artifact-signing"
     | "checker"
     | "coordinator"
     | "docker-isolation"
     | "domain-model"
     | "execution-intelligence"
     | "mcp-server"
-    | "official-asset-governance"
     | "orchestrator"
-    | "semantic-coverage"
     | "version-control"
     | "platform-access"
     | "verification-runner"
@@ -110,16 +107,13 @@ export type TestCatalog = Readonly<{
   runnerProfiles: Readonly<{
     "access-management": "node_test";
     "ai-adapter": "node_test";
-    "artifact-signing": "node_test";
     checker: "node_test";
     coordinator: "node_test";
     "docker-isolation": "node_test";
     "domain-model": "node_test";
     "execution-intelligence": "node_test";
     "mcp-server": "node_test";
-    "official-asset-governance": "node_test";
     orchestrator: "node_test";
-    "semantic-coverage": "node_test";
     "version-control": "node_test";
     "platform-access": "node_and_cargo_test";
     "verification-runner": "node_test";
@@ -160,16 +154,13 @@ const RESOURCE_INTENSIVE_LEVELS = new Set<TestLevel>([
 const RUNNER_SUPPORTED_OWNERS = new Set([
   "access-management",
   "ai-adapter",
-  "artifact-signing",
   "checker",
   "coordinator",
   "docker-isolation",
   "domain-model",
   "execution-intelligence",
   "mcp-server",
-  "official-asset-governance",
   "orchestrator",
-  "semantic-coverage",
   "version-control",
   "platform-access",
   "verification-runner",
@@ -179,16 +170,13 @@ const RUNNER_SUPPORTED_OWNERS = new Set([
 const RUNNER_PROFILES = Object.freeze({
   "access-management": "node_test",
   "ai-adapter": "node_test",
-  "artifact-signing": "node_test",
   checker: "node_test",
   coordinator: "node_test",
   "docker-isolation": "node_test",
   "domain-model": "node_test",
   "execution-intelligence": "node_test",
   "mcp-server": "node_test",
-  "official-asset-governance": "node_test",
   orchestrator: "node_test",
-  "semantic-coverage": "node_test",
   "version-control": "node_test",
   "platform-access": "node_and_cargo_test",
   "verification-runner": "node_test",
@@ -348,16 +336,13 @@ export function discoverRepositoryTestFiles(repositoryRoot: string): string[] {
     "platform-access",
     "access-management",
     "ai-adapter",
-    "artifact-signing",
     "checker",
     "coordinator",
     "docker-isolation",
     "domain-model",
     "execution-intelligence",
     "mcp-server",
-    "official-asset-governance",
     "orchestrator",
-    "semantic-coverage",
     "version-control",
     "verification-runner",
     "visual-preview",
@@ -432,7 +417,7 @@ function isTestLevel(value: unknown): value is TestLevel {
 function expectedNodeLevel(entryPath: string): string | null {
   if (!entryPath.endsWith(".test.ts")) return null;
   return (
-    /^40_Develop\/(?:access-management|ai-adapter|artifact-signing|checker|coordinator|docker-isolation|domain-model|execution-intelligence|mcp-server|official-asset-governance|orchestrator|platform-access|semantic-coverage|verification-runner|version-control|visual-preview|workbench-server)\/tests\/([^/]+)\//u.exec(
+    /^40_Develop\/(?:access-management|ai-adapter|checker|coordinator|docker-isolation|domain-model|execution-intelligence|mcp-server|orchestrator|platform-access|verification-runner|version-control|visual-preview|workbench-server)\/tests\/([^/]+)\//u.exec(
       entryPath,
     )?.[1] ?? null
   );
@@ -1061,8 +1046,6 @@ function ownerForPath(changedPath: string): TestCatalogEntry["owner"] | null {
   if (changedPath.startsWith("40_Develop/access-management/"))
     return "access-management";
   if (changedPath.startsWith("40_Develop/ai-adapter/")) return "ai-adapter";
-  if (changedPath.startsWith("40_Develop/artifact-signing/"))
-    return "artifact-signing";
   if (changedPath.startsWith("40_Develop/coordinator/")) return "coordinator";
   if (changedPath.startsWith("40_Develop/docker-isolation/"))
     return "docker-isolation";
@@ -1075,11 +1058,7 @@ function ownerForPath(changedPath: string): TestCatalogEntry["owner"] | null {
   if (changedPath.startsWith("40_Develop/execution-intelligence/"))
     return "execution-intelligence";
   if (changedPath.startsWith("40_Develop/mcp-server/")) return "mcp-server";
-  if (changedPath.startsWith("40_Develop/official-asset-governance/"))
-    return "official-asset-governance";
   if (changedPath.startsWith("40_Develop/orchestrator/")) return "orchestrator";
-  if (changedPath.startsWith("40_Develop/semantic-coverage/"))
-    return "semantic-coverage";
   if (changedPath.startsWith("40_Develop/version-control/"))
     return "version-control";
   if (changedPath.startsWith("40_Develop/platform-access/"))

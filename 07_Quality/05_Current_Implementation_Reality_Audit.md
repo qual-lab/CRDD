@@ -172,7 +172,7 @@ Sandbox内ではProcess列挙が`Access denied`となり、取消試験も子Pro
 
 | 詳細設計領域 | 実装Owner | 現在確認 | 現在判定 | 主な不足／次の処置 |
 |---|---|---|---|---|
-| artifact-signing | `40_Develop/artifact-signing` | 8／8 Pass | Partial | `AIT-IT-007`、`AIT-IT-009`と実試験のRelationを確認して接続する |
+| artifact-signing（廃止） | Package撤去 | 旧8／8は過去結果 | Legacy | 2026-10-19の人間判断で専用機能を撤去。新版Passへ流用しない |
 | checker | `40_Develop/checker` | 構造・Relation Error 0／Warning 0、Feature Branch固有の既知tag mismatch 1、全契約試験375／375 Pass | In Review | 構造・関係・Consumer Closure・Symbol Graphの機械確認は成立した。既知tag mismatchはv0.22 Release候補固定後に再評価し、独立レビューで意味妥当性を確認する |
 | contract-migration | checker／version-control等へ分散 | 専用Runnerなし | Gap | 独立packageを要求せず、Consumer Closureと縦断移行の実Owner／Test／Evidenceを明示する |
 | coordinator | `40_Develop/coordinator` | 静的確認Pass、通常ユーザー境界のPilot取消2／2 Pass、AI依頼Mode Router 4／4 Pass | Partial／Missing | 現行の期待Local Itemは採用範囲へ再接続した。`AIT-ST-004`、`ERB-ST-011`はTrust組合せと別Session handoff chainの追加確認が必要。独立Trust Policy起動接続は現行Scope外 |
@@ -180,14 +180,14 @@ Sandbox内ではProcess列挙が`Access denied`となり、取消試験も子Pro
 | cros（旧Package） | Git Commit `378d93cb6ffb0cc7c9561e0572d62bdd656f3312`の旧Source | 当時12／12 Pass、新版へ流用不可 | Historical | 現行Packageは撤去。認証・認可はAM、ContextはDomain、活動はOrchestrator、ProfileはAI Adapterへ接続。三状態の実操作比較・全Surface同値・実Task帰還はOPENを維持する |
 | execution-intelligence | `40_Develop/execution-intelligence` | 56／56 Pass | Partial | 10期待Local Itemのうち7件を接続。利用者判断2件とClock／現行性の結合確認が残る |
 | mcp | `40_Develop/mcp` | 32／32 Pass | Partial | 6期待Local Itemのうち4件を接続。Candidate Storeと四入口のEffect同等性が残る |
-| official-asset-governance | `40_Develop/official-asset-governance` | 静的確認Pass、11／11 Pass | Partial | 判断完全性、Revision競合、exact残存Lock回復義務、不完全Lockの観測不能分離、Store Effect後のcleanup不明と`issued`／`not_issued`／`unknown`の公開搬送、および収載Relationを確認した。公開・撤回のSystem境界と人間受入4件は未観測を維持する |
+| official-asset-governance（廃止） | Package撤去 | 旧11／11は過去結果 | Legacy | 専用判断・保存機能を撤去。素材の権利確認・公開判断と未評価の上流義務は維持 |
 | platform-access | `40_Develop/platform-access` | Rust 29 Pass、8 Explicit Ignore | Partial | Process／Docker境界試験は存在するが、`PRL-ST-003`、`ERB-IT-002`のRelationを確認して接続する。Ignore 8件は明示実環境試験として別扱い |
 | project-operation | `40_Develop/project-operation` | 7／7 Pass | Partial | Project ContextとTopic／Meetingの固定Readerは成立した。永続CRUD、Outcome移管、Authorityおよび安全な削除は後続Phaseで継続する |
 | orchestrator | `40_Develop/orchestrator` | 66／66 Pass | Partial | 14期待Local Itemのうち9件を接続。Transport同等性、取消、判断待ち再開、受入Scenario／UATが残る |
 | quality-change-control | 保守／監査工程 | 専用Runnerなし | Process-owned Partial | 独立Runtimeは要求しない。監査集合統合、是正再入場と3 Local Itemを実レビュー／監査Evidenceへ接続する |
 | runtime-data | `40_Develop/runtime-data` | 35／35 Pass | Partial | 6期待Local Itemのうち4件を接続。Project View分類とCredential→Session Grantを伴うCROS Root利用は別Ownerの成立が必要 |
 | runtime-trust | なし | v0.21対象外 | Deferred to v0.22 | 利用者所有Trust Policy、Policy activationおよびProvider launch結合はGroup Cとしてv0.22へ移管した |
-| semantic-coverage | `40_Develop/semantic-coverage` | 16／16 Pass | Covered Candidate | 期待Local Itemを全て接続。Pilot名称と全Subsystem対応は別の移行処置 |
+| Semantic Coverage（Domain／Checkerへ移管） | `40_Develop/domain-model/src/semantic`、`40_Develop/checker/src/semantic` | 移管前17件を保持し追加4件を含む21／21成功、Domain全128件成功 | 移管範囲の回帰・独立再レビュー完了 | 独立Packageを撤去。公開CLI・保存失敗・Snapshot保全を新Ownerで確認。Pilot全意味の充足や正式全体QAのPassを意味しない |
 | verification-runner | `40_Develop/verification-runner` | 40 Pass、1 Explicit Skip | Covered Candidate | 自動実行対象は全てPass。1件は人間入力を要するUAT計画であり、未実行をEvidenceへ昇格していない。PT／LTは計画のみで、明示Authorityなしに実行していない |
 | version-control | `40_Develop/version-control` | 41／41 Pass | Covered Candidate | 固定Snapshot、Consumer ClosureおよびSystem移行Closureを接続。独立レビューで意味一致を確認する |
 
@@ -304,6 +304,8 @@ v0.21の固定Baseline108件観測済み・22件未観測を履歴として維�
 今回の局所Closureでは、`AIT-ST-010`、`CQS-ST-013`、`RDL-ST-002`、`ERB-IT-012`、`CQS-ST-012`、`ERB-ST-015`、`RFD-IT-005`、`ERB-IT-008`、`ERB-UT-016`および`ERB-IT-017`を、それぞれの実境界と専用試験へ接続した。公式素材の判断完全性、Revision競合および収載Relationも、専用Packageの`OAG-IT-005`、`OAG-IT-006`、`OAG-IT-007`、`OAG-UT-008`へ接続した。v0.22では`ERB-UT-023`をCoordinator AI依頼種別Router、`ERB-IT-021`をWorkbench Production Shell、`ERB-ST-022`を15画面×3表示Profile×3 Zoomの実Browser Visual Gate、`PPR-IT-002`を許可済みProject Context FederationとWorkbench表示、`PPR-IT-019`をProject Context Consumer Reader、`CPR-IT-008`をTopic／Meeting Record Reader、`CPR-UT-009`を候補採用ApplicationのAuthority・Revision・Scope・Lease境界、`RFD-IT-014`と`RFD-ST-015`をRepository変更公開の直接境界・実Browser・故障分類Evidenceへ接続した。一方、v0.21の`RCM-ST-012`と`ERB-ST-011`およびv0.22の未完了Capabilityは、Relationを保持したまま完成Evidenceへの算入を外した。skipされた`CQS-UAT-007`はRelationを持たないManual未観測である。移管母集団46件は、既観測12件にShared Gateway非開示境界の`RFD-ST-004`を加えて13件を観測済みとする。残る33件のRelationは現実記録として保持しても、新Capability全体のRelease Evidenceへは数えない。PT／LT実処理は人間の明示許可がないため実行していない。最終Source A `01eb00a63dcab09b4b32a41bf142bab70897cd8c`とmanifest carrier B `7362268eecbbc744fc08f809a3a0976fe16ac805`を固定し、同じRuntime Execution Identity `9850722655b50fcf3d9e70064801729280ab1d0202a6f0472af590535df26f54`でRecovery Matrix 7シナリオと署名4経路E2E 4／4を完了した。[最終署名Evidence](../99_Roadmap/Changes/CHG-000080/Evidence/260924-1930_signed-e2e.md)は`AIT-ST-010`と`ERB-IT-014`の限定範囲へ接続する。Docker Engine利用可能という非発火を`ERB-ST-009`／`ERB-ST-011`の修復完走へ、4経路成功を`RCM-ST-012`の実Consumer全数観測へ読み替えず、v0.21対象のHybrid 12件・Manual 10件を未観測として維持する。
 
 ### 12.1 初回のSubsystem別Snapshot
+
+artifact-signingとofficial-asset-governanceは2026-10-19に廃止した。以下は初回の履歴値であり、現在の不足・Passへ算入しない。
 
 次表の48／155と未接続107件は、同じLocal Itemを複数Subsystemへ展開した初回の`Subsystem × Local Item` Snapshotである。境界Ownerの発見には使用するが、一意な検証義務の現在Coverageや完了件数には使用しない。以前の`60／118`もLocal Item細分化前かつ段階不一致Relationを含むため、現在判定へ使用しない。
 

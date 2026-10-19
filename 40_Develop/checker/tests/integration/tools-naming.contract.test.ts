@@ -222,7 +222,6 @@ const pathInspectionRoots = Object.freeze([
 ]);
 const sourceOwnershipRoots = Object.freeze([
   path.join(repositoryRoot, "40_Develop", "ai-adapter"),
-  path.join(repositoryRoot, "40_Develop", "artifact-signing"),
   path.join(repositoryRoot, "40_Develop", "checker"),
   path.join(repositoryRoot, "40_Develop", "coordinator"),
   path.join(repositoryRoot, "40_Develop", "docker-isolation"),
@@ -230,10 +229,8 @@ const sourceOwnershipRoots = Object.freeze([
   path.join(repositoryRoot, "40_Develop", "access-management"),
   path.join(repositoryRoot, "40_Develop", "execution-intelligence"),
   path.join(repositoryRoot, "40_Develop", "mcp-server"),
-  path.join(repositoryRoot, "40_Develop", "official-asset-governance"),
   path.join(repositoryRoot, "40_Develop", "orchestrator"),
   path.join(repositoryRoot, "40_Develop", "platform-access"),
-  path.join(repositoryRoot, "40_Develop", "semantic-coverage"),
   path.join(repositoryRoot, "40_Develop", "verification-runner"),
   path.join(repositoryRoot, "40_Develop", "version-control"),
   path.join(repositoryRoot, "40_Develop", "visual-preview"),
@@ -328,20 +325,14 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
     ],
   },
   {
-    relativePath: "40_Develop/artifact-signing/src/index.ts",
-    expectedTrace: "ARCH-000014",
-    requiredTags: ["boundary", "security"],
-    exportedModules: [
-      "./private-key-signing.ts",
-      "./terminal-secret-input.ts",
-      "./signature-result.ts",
-    ],
-  },
-  {
     relativePath: "40_Develop/checker/src/index.ts",
-    expectedTrace: "ARCH-000001",
+    expectedTrace: "ARCH-000001 ARCH-000008",
     requiredTags: ["boundary"],
-    exportedModules: ["./profiles/current.ts", "./findings/collector.ts"],
+    exportedModules: [
+      "./profiles/current.ts",
+      "./findings/collector.ts",
+      "./semantic/command.ts",
+    ],
   },
   {
     relativePath: "40_Develop/access-management/src/index.ts",
@@ -394,6 +385,11 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
       "./project-context/portfolio.ts",
       "./project-context/read-context.ts",
       "./outcome.ts",
+      "./semantic/ir.ts",
+      "./semantic/relations.ts",
+      "./semantic/coverage.ts",
+      "./semantic/publish.ts",
+      "./storage/semantic-store.ts",
       "./topic/types.ts",
       "./topic/markdown.ts",
       "./topic/create-operations.ts",
@@ -474,12 +470,6 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
     ],
   },
   {
-    relativePath: "40_Develop/official-asset-governance/src/index.ts",
-    expectedTrace: "ARCH-000017",
-    requiredTags: ["boundary", "effect", "security"],
-    exportedModules: ["./decisions.ts", "./store.ts"],
-  },
-  {
     relativePath: "40_Develop/orchestrator/src/index.ts",
     expectedTrace: "ARCH-000004",
     requiredTags: ["boundary", "concurrency", "effect", "security"],
@@ -545,19 +535,6 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
     ],
   },
   {
-    relativePath: "40_Develop/semantic-coverage/src/index.ts",
-    expectedTrace: "ARCH-000008",
-    requiredTags: ["boundary", "concurrency", "effect", "security"],
-    exportedModules: [
-      "./compilation/compile-quality-relations.ts",
-      "./compilation/compile-ir.ts",
-      "./coverage/graph-and-bundle.ts",
-      "./compilation/from-repository.ts",
-      "./bundle/publish.ts",
-      "./bundle/filesystem-publisher.ts",
-    ],
-  },
-  {
     relativePath: "40_Develop/verification-runner/src/index.ts",
     expectedTrace: "ARCH-000003",
     requiredTags: ["boundary", "effect"],
@@ -600,7 +577,6 @@ const projectConfigs = Object.freeze([
   path.join(checkerRoot, "tsconfig.json"),
   path.join(checkerRoot, "template-tools-tsconfig.json"),
   path.join(repositoryRoot, "40_Develop", "ai-adapter", "tsconfig.json"),
-  path.join(repositoryRoot, "40_Develop", "artifact-signing", "tsconfig.json"),
   path.join(
     repositoryRoot,
     "40_Develop",
@@ -625,14 +601,7 @@ const projectConfigs = Object.freeze([
   path.join(repositoryRoot, "40_Develop", "orchestrator", "tsconfig.json"),
   path.join(repositoryRoot, "40_Develop", "platform-access", "tsconfig.json"),
   path.join(repositoryRoot, "40_Develop", "mcp-server", "tsconfig.json"),
-  path.join(
-    repositoryRoot,
-    "40_Develop",
-    "official-asset-governance",
-    "tsconfig.json",
-  ),
   path.join(repositoryRoot, "40_Develop", "domain-model", "tsconfig.json"),
-  path.join(repositoryRoot, "40_Develop", "semantic-coverage", "tsconfig.json"),
   path.join(
     repositoryRoot,
     "40_Develop",
@@ -693,6 +662,7 @@ test("Checker公開入口はArchitecture宣言済みSymbolだけを公開する"
     "CheckerResult",
     "CheckerRunRequest",
     "runChecker",
+    "runSemanticCoverage",
   ]);
 });
 

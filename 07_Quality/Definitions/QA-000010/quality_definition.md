@@ -9,12 +9,14 @@ Quality ID: `QA-000010`
 
 ## v0.22通常実行と配布評価の分離
 
+2026-10-19の人間判断で汎用`artifact-signing` Packageも廃止した。署名専用の`AIT-IT-007`〜`AIT-IT-009`、`AIT-ST-010`、`AIT-UT-011`〜`AIT-UT-012`、`AIT-IT-013`、`AIT-IT-015`は現版の廃止方式に対する検証として対象外であり、削除をPassへ数えない。以下の汎用署名維持という記述は旧判断の比較履歴に限定する。必要Artifact同一性・実行認可・隔離の検証は維持し、未評価の上流Trust義務を署名機能廃止だけで完了としない。
+
 2026-10-14の人間判断で、CRDD独自署名を通常Runtimeの資格にしない。[Coordinatorの三分離](../../../06_Architecture/Details/coordinator/01_Architecture.md#9-通常実行追跡正式配布の分離)に従い、完全性／Publisher／準拠／公式表示の独立評価を維持する。Commit／Hashの同一性を真正性や実行Authorityへ昇格しない。
 
 | 既存Local Itemの母集団 | 現在の処置 |
 |---|---|
 | `AIT-IT-001`〜`AIT-IT-003`、`AIT-ST-004`、`AIT-UT-005`、`AIT-UAT-006` | 独立読取り評価の義務を維持し、結果から通常実行Capabilityを発行しない。利用者Trust Policyの将来範囲を今回新設しない |
-| `AIT-IT-007`〜`AIT-IT-009`、`AIT-ST-010`、`AIT-UT-011`〜`AIT-UT-012`、`AIT-IT-013`、`AIT-IT-015` | Coordinator固有の旧署名・鍵Capability・promotion方式と専用試験／設定を退役した。既存結果は当時の方式に限定し、削除をPassへ数えない。維持するNative出所観測・通常Artifact・Process境界は現在のOwnerと個別試験へ接続する。汎用成果物署名は維持するが、将来の正式配布の必要性は具体的Consumerから別途判断する |
+| `AIT-IT-007`〜`AIT-IT-009`、`AIT-ST-010`、`AIT-UT-011`〜`AIT-UT-012`、`AIT-IT-013`、`AIT-IT-015` | Coordinator固有の旧署名・鍵Capability・promotion方式と専用試験／設定を退役した。既存結果は当時の方式に限定し、削除をPassへ数えない。維持するNative出所観測・通常Artifact・Process境界は現在のOwnerと個別試験へ接続する。汎用成果物署名も2026-10-19に廃止した。将来の正式配布の必要性は具体的Consumerから別途判断する |
 
 未署名通常実行と必要Artifact同一性はQA-000006へ、任意の正式配布真正性は本定義へ分ける。署名を実施しないことを署名試験Passにせず、適用範囲の訂正・旧方式との対応と未検証範囲を保持する。上流REQ／SPEC／ARCH、Domainと汎用成果物署名の前提はCHG-000082の直接伝播表で追跡し、QAだけで要求を再定義しない。旧runtime-trustは退役済みの実装Ownerであり、現行Packageの不足とは扱わない。
 

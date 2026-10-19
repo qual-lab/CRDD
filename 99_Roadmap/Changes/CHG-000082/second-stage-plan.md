@@ -31,6 +31,116 @@
 
 #### 実施順序と入口の初回棚卸し
 
+##### 検査・検証Packageの縮小 — 2026-10-19の途中見直し
+
+状態: 先行2Packageの撤去とSemanticのDomain／Checker移管・限定回帰・独立再レビューを完了。Runner／Checker本体の責務移管は未着手。基準Commitは`0e26cf797`。以下は人間が提示した新方針であり、旧Package維持判断と初回17Package順序をこの範囲で変更する。局所完了を全体移管の完成と扱わない。
+
+| 対象 | 採用された処置方向 | 維持するもの／今回増やさないもの |
+|---|---|---|
+| artifact-signing | Packageと専用署名機能を削除する。別Packageへ移して温存しない | 過去の正式Evidence、他OwnerのHash照合・認証鍵・標準暗号利用は別物として維持する |
+| official-asset-governance | Packageと専用の素材承認・保存機能を削除する | 文書が所有する出所・権利・公開判断そのものを無断で廃止しない。独自の代替台帳・管理機能を追加しない |
+| semantic-coverage | 意味モデル・解析・Relation・Coverage計算をdomain-modelへ、検査入口・診断表示をcheckerへ移し、旧Packageを削除する | 意味Coverage、入力不足・観測不能の区別、必要な生成物の安全な保存を維持。旧Pilot・移行専用処理は実利用を確認して処置する |
+| verification-runner | catalogのモデル・整合判定・回帰選択をdomain-modelへ、検査・計画の実行入口をcheckerへ移す。試験実行はnpmへ分離し、旧Packageを削除する | test catalogは維持する。独自Process Runnerをdomain-modelへ移さず、新しいRegistry・Runnerを追加しない |
+| checker | 共通成果物モデル・解析・検査意味をdomain-modelへ移し、薄い実行入口にする | 引数受付、実行対象選択、結果の表示・終了Code。Package内へ検査本体を残すだけの名目的Wrapper化はしない |
+
+**変更経路**: 公開API・検証方式・複数正本へ及ぶ非自明な保守と一部機能廃止。Architecture定義・詳細、Quality設計・Registry、Coding Standardsの適用関係、npm入口、template入口、Source・Test・Symbolと公開案内を照合する。着手前にはSource所有と利用側、既存の成立能力・歴史Evidenceの対応を確認する。固定候補には独立技術／品質レビュー、文書構造と不足影響の確認を行う。準拠表明、最終統合、Releaseは今回の目的ではなく、準拠監査・実AI／Docker E2Eを機械的に追加しない。現在Repository以外へ書き込まない。②のAI再試行・保持物削除・Docker操作は引き続き対象外とする。
+
+###### 初回Source棚卸しと移管対応
+
+件数は`src/**/*.ts`の物理File数であり、能力・検証義務の数ではない。
+
+| Package | Source File | 現行責務と確認した接続 | 処置 |
+|---|---:|---|---|
+| artifact-signing | 5 | 秘密鍵参照、対話秘密入力、Ed25519署名、一回限り認可、署名結果。公開操作の他Packageからの実処理呼出しは初回検索で0 | 専用Source・試験2File・開発設定を削除。Coordinatorの`development-source-observation.ts`の旧Package列挙、Checker許可集合、Registry・設計の現行参照を追従する |
+| official-asset-governance | 3 | 素材判断、収載確認、File Store。公開操作の他Packageからの実処理呼出しは初回検索で0 | 専用Source・試験2File・開発設定を削除。現行設計・Registry・許可集合を追従する |
+| semantic-coverage | 8 | IR生成、Quality Relation、Graph、Repository読取り、診断変換、Bundle保存、旧Field棚卸し。`scripts/compile-pilot.ts`が実入口 | 純粋計算とRepository意味処理はdomain-modelへ、CLI表示はcheckerへ。保存は既存domain-modelのstorage責務との適合を確認し、移行・Pilot専用部品の実Consumerを確認する |
+| verification-runner | 4 | catalog解析、Git差分による回帰選択、段階計画・集約、子Process実行。`bin/verification-runner.ts`が実入口 | catalogモデル・解析・整合判定・回帰選択はdomain-modelへ、検査起動はcheckerへ移管する。試験Process実行はnpmへ返し、固定Package一覧の重複と専用Runnerを整理する |
+| checker | 12 | `profiles/current.ts`が約12,800非空行を占め、CLI／Filesystem／文書・品質・命名検査を同居。別途Pipeline、Rule Registry、Finding、Reality照合がある | 巨大Fileの丸ごと移動は禁止。検査対象の意味ごとに分解し、既存artifact／reality-traceability等と重複を統合。表示と検査判定を分離する |
+
+上記の呼出し0は本番利用側の初回確認であり、設定・配布・試験・文書参照が0という意味ではない。旧Package削除前に参照母集団を全数処置する。過去Evidenceは変更せず、現行仕様・新方式の検証根拠として流用しない。
+
+###### 目標構造の責務境界
+
+```text
+40_Develop/
+├ domain-model/
+│  ├ src/index.ts                共通成果物・検査の型付きAPI
+│  ├ src/artifact/               成果物解析・構造・関係（既存を拡張）
+│  ├ src/reality-traceability/    設計・実装・試験の実在／関係照合（既存）
+│  ├ src/semantic/               意味IR・Quality Relation・Coverage（移管候補）
+│  ├ src/inspection/             工程横断の検査編成・構造化診断（移管候補）
+│  ├ src/quality/                catalogモデル・整合判定・回帰選択・必要な結果集約
+│  ├ src/storage/                必要な生成物保存。Runner・履歴台帳は持たない
+│  └ tests/                      移した責務のUT／IT
+└ checker/
+   ├ bin/checker.ts              CLI入口
+   ├ src/index.ts                検査実行の公開入口
+   ├ src/cli/                    引数・検査／計画の起動・出力・終了Code
+   └ tests/                      CLI・Package公開境界の結合確認
+
+各Package/package.json          型・静的確認・試験実行をnpm scriptsで提供
+```
+
+これは責務候補であって、空Folderや各Folderへの一律File作成要求ではない。domain-modelの現行49 Source Fileへ丸ごと追加せず、既存責務への統合を優先する。`types.ts`・`crud.ts`・`storage/store.ts`等は規約と実処理に合わせる。Capability内barrel、新しい汎用Rule登録Framework、互換Packageは追加しない。公開APIの具体名・入出力と全移管File対応はSource分解後のBefore／Afterで確定する。
+
+###### test catalog維持と責務移管 — 人間の確定判断
+
+人間は廃止案のデメリットを確認した後、test catalogを残し、モデル部分をdomain-model、実行部分をcheckerへ適切に移管すると判断した。直前の廃止案・自動回帰選択の廃止提案を取り下げる。`07_Quality/Registry/test-catalog.json`の保存先と役割を維持し、別名catalogや代替Registryを新設しない。
+
+| 現在の役割 | 移管先 | 維持する境界 |
+|---|---|---|
+| catalog型・試験一覧・Owner／段階 | domain-model。構文解析・整合判定・既存Repository観測による読取り | 現行catalogと公開意味を維持。固定Package列挙の重複は整理する |
+| QA／実装／試験の登録集合照合 | domain-model。実在Source・Header・symbol.jsonとcatalogの欠落／余剰を照合 | 観測不能を空集合にしない。登録・実在・実行・Passを区別する |
+| 変更Pathからの自動回帰選択 | domain-model。変更集合とcatalogから対象・段階を導出 | 選択能力を保持。Git操作・子Process開始は持ち込まない |
+| catalog検査・回帰計画の実行 | checker。引数受付、必要入力取得、Domain API呼出し、診断・計画表示、終了Code | 判定本体を再実装せず、薄い実行入口にする |
+| 試験Process実行と実AI・人間入力・Windows制御・PT／LT | npm scriptsと既存承認入口。catalogの分類・条件は維持 | npm自体は承認機構ではない。通常回帰への混入を防ぎ、新しい独自Runnerは作らない |
+| 実行結果・未実施の集約 | 必要な共通型・判定はdomain-model、表示はcheckerまたは実Consumer | 正式結果は既存Quality／Evidenceを参照。npm成功だけで全体QA成立・未実行Passとは扱わない |
+| integrationBlocksの責務・終了後条件 | catalogの接続用途を維持し、Architecture詳細・Quality定義と照合 | 正本を再定義する重複だけ整理し、必要な情報を削らない |
+
+Reality Graphはcatalog Snapshotと実在試験・Manifestの照合を維持する。廃止案にあったcatalog入力の除去は行わない。外部Effect等をcatalog選択だけで許可済みと扱わない。具体的な公開API・CLI引数は利用側対応表で確定し、旧RunnerのProcess制御をcheckerへ丸ごと移植しない。
+
+###### 実行順と完了条件
+
+1. 本対応案と独立した着手前確認を統合し、Architecture／Qualityへ廃止と移管の正式処置を反映する。旧ARCH-IDを削除Package名だけで機械削除せず、残る意味と不要になった実装を区別する。
+2. artifact-signing、official-asset-governanceの廃止。専用試験は機能廃止として除去し、残るOwnerへの接続試験を維持する。削除後の設定・起動・参照検査を行う。
+3. Semantic責務をdomain-model／checkerへ移管し、旧Packageと旧直importを撤去する。意味・診断・必要生成結果と失敗時の保存保証を回帰する。
+4. catalogモデル・照合・回帰選択をdomain-modelへ、検査・計画の実行入口をcheckerへ移管する。catalogは維持し、試験実行をnpmへ接続してからverification-runnerを撤去する。
+5. Checkerの巨大Profileを意味別にdomain-modelへ分解・統合し、Checker公開API・CLI・template入口を薄い実装へ接続する。現行診断の意味、対象範囲、未検査・終了Codeを比較する。
+6. 公開API・利用側・保存Schema・npm scripts・試験Header・Symbol／Quality・文書の残存参照を確認し、回帰・独立レビューと是正を実施する。廃止した能力、同等維持した能力、未観測を区別する。
+
+直前の廃止案に対する独立した読み取り専用の着手前確認では、両廃止Packageの外部本番Consumer確認0、Semantic責務のDomain移管、catalog依存のReality入力、npm単独では実行承認を代替しない点を確認した。catalog維持判断後はReality入力を除去せず移管する。新実装の完成後レビューとは区別する。
+
+test catalog以外の前案と今回のcatalog維持・移管は承認済みで、同じ方針の再承認は求めない。実AI・Docker再試行、保持物清掃、既存不合格のPass化は行わない。必要な実行安全条件を既存構造内で維持できない場合や新たな機能喪失が判明した場合だけ、代替と影響を人間へ返す。
+
+###### 先行2Package撤去の実施結果
+
+2026-10-19、基準Commitからの作業差分でartifact-signing／official-asset-governanceの追跡21Fileを削除した。残った両Package直下が生成node_modulesだけであることとexact Pathを確認して回収し、両Directoryの不存在を確認した。秘密鍵・素材原本・Host状態・歴史Evidenceは操作していない。Source観測母集団を11→10、Fixtureを22→20通常Fileに追従し、File／Directoryの上限反証は維持した。catalogは維持し、退役した2Profile・2Block・2Corridor・4Test登録を除去した。残る既存Git改訂→Snapshot能力は2試験に接続した1Corridorで維持し、検査条件は緩めていない。
+
+| 検証 | 結果と範囲 |
+|---|---|
+| Runner `npm run test:run` | 52成功、対話UAT1件Skip。初回は退役Corridorにだけ依存していた残存Git Blockの登録漏れで失敗し、接続是正後に成功 |
+| Coordinator Source観測の全Suite | 130成功。初回のFixture件数2件不一致を是正し、上限・取消・観測不能・CLIを再確認。外部AI・Dockerは使用しない |
+| 既存Git改訂／Snapshot結合 | 18成功。合成Repositoryだけで既存固定・保存・拒否境界を確認 |
+| Checker契約 | Header／npm入口等9件、詳細設計／全試験QA接続等7件、公開index1件が成功 |
+| 静的確認 | Runnerの整形・型・Lint、CoordinatorとCheckerの型検査、変更Source整形、差分空白検査が成功 |
+| 文書・影響確認 | 変更文書の初回検査で旧領域集合と処置語彙の不一致を検出し、検査を緩めず是正。最終Map／Trace／QA統合／Realityの対象診断0、同実行の関連文書286診断・全体exit1を維持 |
+| 独立レビュー | 初回1件は初回Snapshot表の履歴値・列構造の誤変更。基準の3列・1／5・4／8を復元し、現在廃止との区別を追記。再レビュー残指摘0 |
+
+現行設計・QAは旧実装のCoveredを取り下げ、Supersededな比較設計、Partialな上流接続、退役Local Itemと未評価の残る義務を分けた。過去の実測値を現在Passへ置換しない。Sourceの残る2文字列はHeader負例と旧設計のChecklistを読む文書試験Fixtureであり、本番実装依存ではない。この段階の次工程だったSemantic移管の結果は以下に記す。全体回帰・実境界・後続全Packageの完成は未達である。
+
+###### Semantic移管の実施結果 — 2026-10-19
+
+意味IR・Relation・Coverage計算とBundle保存本体をDomainへ、Repository入力編成・診断変換・公開CLIをCheckerへ移した。具体的な配置・公開APIは[Semantic詳細設計](../../../06_Architecture/Details/semantic-coverage/01_Architecture.md)を正本とする。旧Packageと旧実行importは撤去し、旧Field棚卸しはCheckerの移行用scriptだけに限定した。既存Schema・Semantic Key・保存時の拒否・原子的置換・短命File回収は維持する。新Store・Lock・Registry・Runner・互換Packageは追加していない。test catalogは維持し、Owner・Path・Consumer接続だけを追従した。
+
+| 確認 | 結果と限界 |
+|---|---|
+| Semantic | 移管前17件を保持し、Domain公開API・CLI結合4件を追加。最終21／21成功。合成Repositoryで表示時の非書込み、明示保存、診断不成立、保存・出力失敗とSnapshot保全を確認 |
+| 回帰 | Domain全128件、Version Controlの利用側照合12件、Runner52件成功。Runnerの手動UAT1件は未実施のまま |
+| 静的・接続 | Domain／Checkerの整形・型・Lint成功。Checkerの既存情報診断57件は残る。Header・公開Module・QA接続の選択5件成功 |
+| 文書・独立確認 | 対象6文書の診断0、関連文書3,219診断でRepository全体のCheckerは不合格。独立レビュー2指摘（一次失敗境界、設計API表）を最小是正し、再レビュー残指摘0 |
+
+外部AI・Docker操作・②の保持物清掃・過去Evidence更新は行っていない。Semanticの移管完了は、既存Pilotの全意味Coverage充足、正式全体QA、Release可能性を意味しない。次はcatalogのモデルと検査・計画入口をDomain／Checkerへ移し、npmの試験実行接続を確認して旧Runnerを撤去する。
+
 Access Managementの追加命名整理では、公開APIを`evaluateAiProfileManagementPermission`、`updateUserRole`、`updateCredentialPresentationState`へ統一し、利用側・型・試験を追従した。動詞の使い分けはコーディング規約へ反映した。MCP Toolも`crdd.update_user_role`へ変更し、旧名の互換入口は追加しないため、利用ClientはTool一覧を更新する。保存Schema・権限分担は変更しない。
 
 ユーザーが有効かを返す独立API`readUserStatus`を追加した。現在は有効な鍵の存在から`enabled`を導出するが、公開上の意味はユーザーの有効状態とし、鍵の詳細を返さない。確認不能は`unavailable`として無効と区別する。既存のユーザー管理の参照範囲を維持し、新しい保存状態・権限・Transport入口は追加していない。今回の最終回帰はAccess Management 157件、Workbench関連6件、MCP関連46件、Header・公開Module・QA接続5件が成功。型・整形・静的確認とWorkbench Buildも成功した。独立レビューの重複記載指摘は是正し、再レビュー残指摘0。対象4文書の診断は0だが、関連文書には2,907診断がありRepository全体のCheckerは不合格のままとする。実AI・Docker操作・②の保持物削除は行っておらず、正式全体QAや初回Host UATの完了とは扱わない。
@@ -66,6 +176,12 @@ Codex／ClaudeのDocker配置境界も、[AI Adapter設計](../../../06_Architec
 Package個別の順序を基本としつつ、Coordinator／Orchestrator／Docker Isolation／Version Control、Checker／Semantic Coverage／Runner、署名／公式素材、MCP／Workbenchの各境界は横断して照合する。フォルダ名だけから責務逸脱・デッドコード・削除可能を確定しない。
 
 #### Packageごとの作業と完了条件
+
+排他配置の確認（2026-10-19）: 人間はAccess Managementだけを今回処置し、Domain共通部品は後のDomain Model全体整理で一括対応することを指定した。Access Managementは既存`locked`と固定Lock名を`storage/store.ts`から`storage/lock.ts`へ移し、各内部Consumerを直接接続する。取得・exact回収・解放・公開API・保存形式は不変更。Domainの`storage/root-and-lock.ts`はRoot処理と排他が同居する残件として保持し、今回は編集しない。AI AdapterはLockファイルではなく`storage/store.ts`の排他的な不変Snapshot公開で競合を判定する。Semantic保存は原子的置換であり、同時Writerの排他保証は持たない。方式の違いを無視して全てをlock.tsへ機械移動せず、新Lock・Frameworkを追加しない。
+
+Access Managementの着手前照合は、既存詳細設計、`locked`全Consumer、保存ITの競合・子Process喪失・主失敗／解放不明の反証を対象とした。配置だけの変更で、保存層から操作層への逆依存・転送用互換exportを追加しない。既存Package回帰、Header／QA接続、静的検査と固定差分の独立レビューを行う。標準規則・Domain共通排他の変更、実Host／Docker／外部AI操作、過去Evidence変更は対象外。現在、追加の人間判断は必要ない。
+
+同日のAccess Management排他分離は完了。`locked<T>`本体と固定Lock名は変更前と一致し、全Consumerを直接移管、Root公開APIと保存形式は不変更。整形・型・LintとHeader／公開Module／QA接続5件が成功。Package回帰157件は制限環境で153成功・リンク作成EPERMによる4失敗で終了し、同じ4件を許可された実行環境で再確認して4成功。試験や安全条件の緩和は行っていない。固定差分の独立レビューは残指摘0。Domain ModelのRoot／Lock混在は後の一括整理へ保留し、新しい排他機構は追加していない。
 
 1. 基準Capability・公開API・bin／配布入口・依存・全Consumer・既存試験と過去Evidenceの成立範囲を対応付ける。
 2. 不要処理の削除・既存Owner／標準機能への委譲、過剰分割の統合を先に評価する。名称変更だけで完了しない。

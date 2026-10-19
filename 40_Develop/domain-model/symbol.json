@@ -7,35 +7,57 @@
       "symbolId": "domain-model.activity-federate-relations",
       "kind": "file",
       "path": "src/activity/federate-relations.ts",
-      "archIds": ["ARCH-000006", "ARCH-000013"]
+      "archIds": [
+        "ARCH-000006",
+        "ARCH-000013"
+      ]
     },
     {
       "symbolId": "domain-model.project-context-read",
       "kind": "file",
       "path": "src/project-context/read-context.ts",
-      "archIds": ["ARCH-000005"]
+      "archIds": [
+        "ARCH-000005"
+      ]
     },
     {
       "symbolId": "domain-model.test.integration.project-context-read",
       "kind": "test-suite",
       "path": "tests/integration/project-context-read.contract.test.ts",
-      "qaIds": ["QA-000004"],
-      "localTestIds": ["PPR-IT-002", "PPR-IT-019"],
-      "verifies": ["domain-model.project-context-read", "domain-model.project-portfolio"]
+      "qaIds": [
+        "QA-000004"
+      ],
+      "localTestIds": [
+        "PPR-IT-002",
+        "PPR-IT-019"
+      ],
+      "verifies": [
+        "domain-model.project-context-read",
+        "domain-model.project-portfolio"
+      ]
     },
     {
       "symbolId": "domain-model.project-portfolio",
       "kind": "file",
       "path": "src/project-context/portfolio.ts",
-      "archIds": ["ARCH-000005", "ARCH-000013"]
+      "archIds": [
+        "ARCH-000005",
+        "ARCH-000013"
+      ]
     },
     {
       "symbolId": "domain-model.test.integration.project-portfolio",
       "kind": "test-suite",
       "path": "tests/integration/project-portfolio.contract.test.ts",
-      "qaIds": ["QA-000004"],
-      "localTestIds": ["PPR-IT-002"],
-      "verifies": ["domain-model.project-portfolio"]
+      "qaIds": [
+        "QA-000004"
+      ],
+      "localTestIds": [
+        "PPR-IT-002"
+      ],
+      "verifies": [
+        "domain-model.project-portfolio"
+      ]
     },
     {
       "symbolId": "coordinator.source.src.security.bounded.file.snapshot",
@@ -339,8 +361,8 @@
       ],
       "verifies": [
         "project-operation.domain.repository-project-context",
-        "project-operation.domain.repository-release-projection",
-        "project-operation.domain.repository-quality-projection"
+        "project-operation.domain.repository-quality-projection",
+        "project-operation.domain.repository-release-projection"
       ]
     },
     {
@@ -411,8 +433,8 @@
         "CPR-IT-008"
       ],
       "verifies": [
-        "domain-model.topic-markdown",
-        "domain-model.meeting-markdown"
+        "domain-model.meeting-markdown",
+        "domain-model.topic-markdown"
       ]
     },
     {
@@ -499,8 +521,8 @@
         "CPR-IT-011"
       ],
       "verifies": [
-        "domain-model.topic-markdown",
         "domain-model.meeting-markdown",
+        "domain-model.topic-markdown",
         "project-operation.repository.topic-meeting"
       ]
     },
@@ -578,9 +600,9 @@
         "RDL-UT-005"
       ],
       "verifies": [
-        "domain-model.runtime-data-path-reader",
+        "domain-model.runtime-area-result",
         "domain-model.runtime-data-area-writer",
-        "domain-model.runtime-area-result"
+        "domain-model.runtime-data-path-reader"
       ]
     },
     {
@@ -594,9 +616,9 @@
         "RDL-IT-001"
       ],
       "verifies": [
-        "domain-model.runtime-data-path-reader",
-        "domain-model.runtime-data-area-writer",
         "domain-model.runtime-area-result",
+        "domain-model.runtime-data-area-writer",
+        "domain-model.runtime-data-path-reader",
         "version-control.source.src.repository.location"
       ]
     },
@@ -611,9 +633,9 @@
         "RDL-IT-001"
       ],
       "verifies": [
-        "domain-model.configuration-entry",
+        "crdd-domain-library.filesystem-store-root-entry",
         "crdd-domain-library.repository-entry",
-        "crdd-domain-library.filesystem-store-root-entry"
+        "domain-model.configuration-entry"
       ]
     },
     {
@@ -628,9 +650,9 @@
         "RDL-IT-004"
       ],
       "verifies": [
-        "domain-model.runtime-data-path-reader",
-        "domain-model.runtime-data-area-writer",
         "domain-model.runtime-area-result",
+        "domain-model.runtime-data-area-writer",
+        "domain-model.runtime-data-path-reader",
         "runtime-data.source.src.store.temporary.operation.store",
         "version-control.source.src.repository.location"
       ]
@@ -646,12 +668,12 @@
         "RDL-ST-002"
       ],
       "verifies": [
-        "domain-model.configuration-entry",
-        "crdd-domain-library.repository-entry",
         "crdd-domain-library.filesystem-store-root-entry",
-        "domain-model.runtime-data-path-reader",
-        "domain-model.runtime-data-area-writer",
+        "crdd-domain-library.repository-entry",
+        "domain-model.configuration-entry",
         "domain-model.runtime-area-result",
+        "domain-model.runtime-data-area-writer",
+        "domain-model.runtime-data-path-reader",
         "runtime-data.source.src.store.temporary.operation.store",
         "version-control.source.src.repository.location"
       ]
@@ -740,6 +762,96 @@
       ],
       "verifies": [
         "domain-model.tool-runtime-config"
+      ]
+    },
+    {
+      "symbolId": "semantic-coverage.public-entry",
+      "kind": "module",
+      "path": "src/index.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "semantic-coverage.test.integration.bundle-publisher",
+      "kind": "test-suite",
+      "path": "tests/integration/storage/semantic-store.integration.test.ts",
+      "qaIds": [
+        "QA-000004",
+        "QA-000008"
+      ],
+      "localTestIds": [
+        "PPR-IT-018",
+        "RDL-IT-007"
+      ],
+      "verifies": [
+        "semantic-coverage.source.src.infrastructure.filesystem.semantic.bundle.publisher",
+        "version-control.source.src.repository.location"
+      ]
+    },
+    {
+      "symbolId": "semantic-coverage.source.src.infrastructure.filesystem.semantic.bundle.publisher",
+      "kind": "file",
+      "path": "src/storage/semantic-store.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "semantic-coverage.source.src.compilation.index",
+      "kind": "file",
+      "path": "src/index.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "domain-model.semantic-ir",
+      "kind": "file",
+      "path": "src/semantic/ir.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "domain-model.semantic-relations",
+      "kind": "file",
+      "path": "src/semantic/relations.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "domain-model.semantic-coverage",
+      "kind": "file",
+      "path": "src/semantic/coverage.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "domain-model.semantic-publish",
+      "kind": "file",
+      "path": "src/semantic/publish.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "domain-model.test.unit.semantic-coverage",
+      "kind": "test-suite",
+      "path": "tests/unit/semantic/coverage.contract.test.ts",
+      "qaIds": [
+        "QA-000004"
+      ],
+      "localTestIds": [
+        "PPR-UT-016",
+        "PPR-UT-017"
+      ],
+      "verifies": [
+        "domain-model.semantic-coverage",
+        "domain-model.semantic-ir",
+        "domain-model.semantic-relations"
       ]
     }
   ]

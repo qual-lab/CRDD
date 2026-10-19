@@ -7,6 +7,10 @@ Quality ID: `QA-000011`
 状態: Canonical
 維持責任者: Qual-Lab
 
+## v0.22専用Package廃止後の適用範囲
+
+2026-10-19の人間判断により、専用`official-asset-governance` Packageを廃止する。`OAG-IT-006`〜`OAG-IT-007`、`OAG-UT-008`の専用判断Engine・Revision競合・Storeを対象にした検証は現版では対象外とし、旧実測結果を新版Passへ流用しない。素材の由来・権利・許可用途、収載・公開判断およびWorkbenchの承認済みロゴ利用の検証は維持する。以下の専用実装に関する設計は旧方式との比較に限り、Package廃止から上流義務や公開判断の成立を推定しない。
+
 ## 1. 情報源と網羅条件
 
 | Source ID | Obligation Key | 導出元 | 保持する固有条件 | 試験段階 | 対応Local Item |
