@@ -11,13 +11,15 @@
 export { PROVIDER_AUTHENTICATION_POLICIES } from "./profile/authentication-policy.ts";
 export { isProviderSubscriptionAuthenticationConfirmed } from "./provider/subscription-status.ts";
 export { classifyProviderNonzeroExit } from "./provider/error.ts";
-export { evaluateProviderEligibility } from "./provider/availability.ts";
+export {
+  evaluateProviderEligibility,
+  prepareProviderFixedEnvironment,
+} from "./provider/validation.ts";
 export {
   providerProfileMatchesExecutionIdentity,
   providerProfileSupportsExecution,
   normalizeProviderExactModelId,
 } from "./profile/execution-identity.ts";
-export { prepareProviderFixedEnvironment } from "./provider/environment.ts";
 export type { ProviderProfileExecutionIdentity } from "./profile/types.ts";
 export {
   PROVIDER_MODEL_PROFILE_RUNTIME_CONTRACT,

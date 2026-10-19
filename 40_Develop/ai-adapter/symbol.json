@@ -44,7 +44,7 @@
     {
       "symbolId": "ai-adapter.profile.provider-environment",
       "kind": "file",
-      "path": "src/provider/environment.ts",
+      "path": "src/provider/validation.ts",
       "archIds": [
         "ARCH-000010"
       ]
@@ -68,7 +68,7 @@
     {
       "symbolId": "ai-adapter.profile.eligibility",
       "kind": "file",
-      "path": "src/provider/availability.ts",
+      "path": "src/provider/validation.ts",
       "archIds": [
         "ARCH-000010"
       ]

@@ -66,6 +66,59 @@ Package個別の順序を基本としつつ、Coordinator／Orchestrator／Docke
 
 細分化・汎用化・File削減数は目的にせず、新しいRegistry、Lock、Recovery、監視Process、共通Frameworkを追加しない。実現不能な保証や既存能力の喪失を見つけた場合は、追加実装より前に影響を返す。
 
+#### Provider検査の同居（2026-10-19）
+
+基準は`b2e568ba`。添付のSource Code Structure Review §3.2〜3.7の「Provider共通契約を中心とし、小処理を機械分割しない」方向と、利用者が確認した観測・環境変数検査の同居を適用する。変更分類は内部File統合であり、`provider/availability.ts`と`environment.ts`を`provider/validation.ts`へまとめた。`evaluateProviderEligibility`と`prepareProviderFixedEnvironment`は別の公開関数として維持し、条件・理由順序・未観測の拒否・環境値の一回取得・返却値を変更しない。実観測・AI実行・Docker・排他管理は追加しない。設定保存の既存改訂競合は別責務として不変更。
+
+着手前に両実体・Root API・二つの意味Symbol・利用側・既存試験・設計を照合した。Module内の純粋な同期検査の配置変更で、Authority・永続Schema・外部Effect・取消／回復の契約は不変更。完成後の独立技術レビュー、現行文書と直接影響の確認を行い、全体準拠監査・実Docker／Provider・Host試験は今回の意味変更がないため実施しない。②のAI再試行・保持物削除と過去Evidence変更は対象外。
+
+添付に基づくAfter候補は`provider`・`profile`・`catalog`・`authentication`・`billing`・`storage`・`codex`・`claude`。`provider`の検査は`available.ts`と`environment.ts`の二Fileではなく`validation.ts`とする。独立責務のない`subscription`や新しいCLI入口は追加しない。これは全Afterの実装完了ではなく、残るFile対応・分割統合はその実体・依存・公開契約を照合して進める。先行の`execution`／`response`への再分類案は採用しない。
+
+自己確認はAI Adapter静的三軸・全32件、Coordinator静的確認・関連35件、公開入口／Header／QA3件・Symbol Graph16件が成功。独立技術・限定文書／直接影響レビューは指摘0。文書Checkerは現行0、歴史CHG旧参照3,353による全体Exit 1を維持する。両操作本体は配置・import・File Header以外を変更せず、旧実体参照は現行Source・設定・Registryから撤去した。
+
+添付と対話を反映したSourceのAfter候補は次のとおり。現物との対応を継続照合する基準であり、このTreeの全項目を実装済み・最終確定と表示しない。子Folderのbarrel、一般Registry、独立CLI、実行ロックは追加しない。既存UTは対応する実責務へ、ITは保存・利用側等の境界単位へ追従し、Treeのために空Folderや空試験を作らない。
+
+```text
+src/
+├ index.ts                       唯一のPackage公開入口
+├ provider/                      Provider共通契約
+│  ├ types.ts                    実利用される共有型だけ
+│  ├ plan.ts                     共通命令計画・具象への振分け
+│  ├ result.ts                   Task／助言の共通結果抽出
+│  ├ error.ts                    非0終了の分類
+│  ├ json.ts                     共通JSON解析
+│  └ validation.ts               観測・環境変数の検査（今回実装）
+├ catalog/                       登録集合の意味と候補解決
+│  ├ types.ts                    Catalog・Adapter定義
+│  ├ validation.ts               登録内容の検証
+│  ├ resolver.ts                 登録集合から候補解決
+│  └ default-catalog.json        既定構成
+├ profile/                       利用目的別の選択・管理
+│  ├ types.ts                    Profile定義・選択条件
+│  ├ resolver.ts                 Role・Tier等の選択
+│  ├ crud.ts                     登録・更新・削除
+│  └ execution-identity.ts       選択値と実行値の照合・局所型
+├ authentication/                共通認証方針・結果分類
+│  ├ policy.ts
+│  └ result.ts
+├ billing/
+│  └ policy.ts                   共通課金制約
+├ storage/
+│  └ catalog.ts                  Owner別保存・改訂競合
+├ codex/                         固有CLI差
+│  ├ plan.ts
+│  ├ authentication.ts
+│  ├ distribution.ts
+│  └ result.ts
+└ claude/                        固有CLI差
+   ├ plan.ts
+   ├ authentication.ts
+   ├ distribution.ts
+   └ result.ts
+```
+
+`config`／`schemas`は現配置を維持する。`command.ts`はCLI受付ではないため採用しない。Catalogの候補解決とProfile選択に同じ条件を二重実装せず、独立した役割を説明できない分割は統合する。File名から公開Symbol名へ機械置換せず、実責務と既存の通信・保存契約を区別して対応する。
+
 #### 助言の責務整理と試験専用API撤去（2026-10-19）
 
 基準は`afd059a6`。変更分類は既存の責務再配置と、利用者が承認したメモリ保存公開APIの撤去。助言の共通振分けを`provider/advice-command.ts`、型・契約値を`provider/advice-contract.ts`、CLI固有処理を既存Codex／Claudeの`execution-plan.ts`へ置いた。新しいProvider別Fileの増設案より、既存計画Ownerへの同居を選ぶ。依存は共通振分け→具象計画→共通契約の一方向とし、内部具象関数はRootへ公開しない。出力抽出は共通Helperと単一結果契約を持つため`provider/advice-result.ts`へ同居する。引数、環境、配布Identity、出力受理集合・拒否順序は変更しない。
