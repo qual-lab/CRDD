@@ -114,13 +114,6 @@ export type AiProfileCatalogAdoptionResult =
       snapshot: AiProfileCatalogSnapshot;
     }>;
 
-export type AiProfileCatalogRegistry = Readonly<{
-  snapshot: () => AiProfileCatalogSnapshot;
-  adopt: (
-    request: AiProfileCatalogAdoptionRequest,
-  ) => AiProfileCatalogAdoptionResult;
-}>;
-
 export type AiProfileCatalogStore = Readonly<{
   snapshot: () => AiProfileCatalogSnapshot;
   adopt: (

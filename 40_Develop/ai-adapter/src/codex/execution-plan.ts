@@ -1,7 +1,7 @@
 /**
- * codex-execution-planに属する責務をまとめる。
+ * CodexのTask・Probe・読取り助言の固定CLI計画と構成診断を所有する。
  *
- * @responsibility blockedを中心とする実装、型および境界を同じModuleで所有する。
+ * @responsibility Codex固有の引数・配布要件・制約と非秘密の構成分類を生成し、実起動・認可・回収を所有しない。
  * @trace ARCH-000010
  */
 import {
@@ -9,6 +9,13 @@ import {
   snapshotPlainRecord,
 } from "../../../domain-model/src/index.ts";
 import { describeProviderBillingPolicyContract } from "../profile/billing-policy.ts";
+import { describeCodexAdviceDistributionIdentity } from "./advice-distribution.ts";
+import {
+  WORKBENCH_AI_ADVICE_PROVIDER_COMMAND_CONTRACT,
+  WORKBENCH_AI_ADVICE_PROVIDER_COMMAND_CONTRACT_REVISION,
+  type WorkbenchAiAdviceProviderCommandInput,
+  type WorkbenchAiAdviceProviderCommand,
+} from "../provider/advice-contract.ts";
 
 /**
  * Codexの起動引数から非秘密の構成分類だけを投影する。
@@ -460,5 +467,100 @@ export function describeCodexExecutionPlanContract() {
     workspaceMountRequired: false,
     directProviderSpawnAllowed: false,
     providerEffectAllowed: false,
+  });
+}
+
+/**
+ * Codex向け助言コマンドを生成する。
+ *
+ * @responsibility 固定Codex配布物へToolなし・標準入力・JSONL出力の一回助言を割り当てる。
+ * @trace ARCH-000010
+ * @trace ARCH-000015
+ * @input input: Codex Profile Identity。
+ * @returns Codex助言コマンド計画。
+ * @precondition input.providerはcodexである。
+ * @postcondition argv末尾は標準入力を示す`-`で、Prompt本文を含まない。
+ * @effect N/A: コマンド計画を生成するだけである。
+ * @failure N/A: Catalog検証済み入力だけを受け取る。
+ * @invariant 固定Image Digestと助言専用CLI Pathを呼出し側入力で変更しない。
+ * @boundary Workbench助言とCodex CLIの間。
+ * @security Filesystem Tool、Web、MCP、Plugin、MemoryおよびSubagentを無効化する。
+ * @concurrency N/A: 共有状態を持たない同期処理である。
+ */
+export function planCodexAdviceCommand(
+  input: WorkbenchAiAdviceProviderCommandInput,
+): WorkbenchAiAdviceProviderCommand {
+  const distribution = describeCodexAdviceDistributionIdentity();
+  return Object.freeze({
+    contract: WORKBENCH_AI_ADVICE_PROVIDER_COMMAND_CONTRACT,
+    contractRevision: WORKBENCH_AI_ADVICE_PROVIDER_COMMAND_CONTRACT_REVISION,
+    provider: "codex" as const,
+    command: distribution.executablePath,
+    argv: Object.freeze([
+      "exec",
+      "--ephemeral",
+      "--ignore-user-config",
+      "--ignore-rules",
+      "--strict-config",
+      "--model",
+      input.exactModelId,
+      "--config",
+      `model_reasoning_effort="${input.reasoningEffort}"`,
+      "--config",
+      "suppress_unstable_features_warning=true",
+      "--config",
+      "features.respect_system_proxy=true",
+      "--config",
+      "features.code_mode=true",
+      "--config",
+      "features.code_mode_host={enabled=true,disable_in_process_fallback=true}",
+      "--config",
+      "features.code_mode_interrupt=true",
+      "--config",
+      "features.code_mode_only=true",
+      "--config",
+      "features.shell_tool=false",
+      "--config",
+      "features.unified_exec=false",
+      "--config",
+      'approval_policy="never"',
+      "--config",
+      'web_search="disabled"',
+      "--config",
+      "features.plugins=false",
+      "--config",
+      "features.memories=false",
+      "--config",
+      "features.multi_agent=false",
+      "--config",
+      "features.multi_agent_v2=false",
+      "--config",
+      "memories.generate_memories=false",
+      "--config",
+      "memories.use_memories=false",
+      "--config",
+      "project_doc_max_bytes=0",
+      "--sandbox",
+      "read-only",
+      "--skip-git-repo-check",
+      "--json",
+      "--color",
+      "never",
+      "-",
+    ]),
+    environment: Object.freeze({
+      CODEX_HOME: "/provider-home",
+      CODEX_DISABLE_AUTO_UPDATE: "1",
+    }),
+    fixedImageDigest: distribution.fixedImageDigest,
+    exactModelId: input.exactModelId,
+    reasoningEffort: input.reasoningEffort,
+    promptTransport: "stdin_only" as const,
+    resultTransport: "codex_cli_jsonl" as const,
+    providerHomeMountRequired: true as const,
+    repositoryMounted: false as const,
+    workspaceMountRequired: false as const,
+    toolsAllowed: false as const,
+    sessionPersistenceAllowed: false as const,
   });
 }

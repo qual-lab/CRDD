@@ -30,16 +30,16 @@ export {
 export {
   WORKBENCH_AI_ADVICE_PROVIDER_COMMAND_CONTRACT,
   WORKBENCH_AI_ADVICE_PROVIDER_COMMAND_CONTRACT_REVISION,
-  planWorkbenchAiAdviceProviderCommand,
   type WorkbenchAiAdviceProviderCommandInput,
   type WorkbenchAiAdviceProviderCommand,
-} from "./advice/provider-command.ts";
+} from "./provider/advice-contract.ts";
+export { planWorkbenchAiAdviceProviderCommand } from "./provider/advice-command.ts";
 export {
   WORKBENCH_AI_ADVICE_PROVIDER_OUTPUT_CONTRACT,
   WORKBENCH_AI_ADVICE_PROVIDER_OUTPUT_CONTRACT_REVISION,
   WORKBENCH_AI_ADVICE_PROVIDER_OUTPUT_REASONS,
   extractWorkbenchAiAdviceProviderOutput,
-} from "./advice/provider-output.ts";
+} from "./provider/advice-result.ts";
 export {
   describeProviderBillingPolicyContract,
   PROVIDER_BILLING_POLICY_CONTRACT,
@@ -62,7 +62,6 @@ export type {
   AiProfileCatalogAdministration,
   AiProfileCatalogAdoptionRequest,
   AiProfileCatalogAdoptionResult,
-  AiProfileCatalogRegistry,
   AiProfileCatalogStore,
   AiProfileCatalogStoreAdapterResult,
   AiProfileCatalogMutation,
@@ -76,7 +75,6 @@ export type {
   ResolvedAiProfile,
   ResolvedAiProfileIdentity,
 } from "./catalog/types.ts";
-export { createAiProfileCatalogRegistry } from "./profile/registry.ts";
 export {
   createAiProfileCatalogAdministration,
   validateAiProfileMutationResult,

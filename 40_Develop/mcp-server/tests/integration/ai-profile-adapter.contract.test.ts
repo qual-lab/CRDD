@@ -14,7 +14,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   DEFAULT_AI_PROFILE_CATALOG,
-  createAiProfileCatalogRegistry,
+  validateAiProfileCatalog,
+  type AiProfileCatalogStore,
+  type AiProfileCatalogSnapshot,
   createAiProfileCatalogAdministration,
   type AiProfileCatalogMutationResult,
 } from "../../../ai-adapter/src/index.ts";
@@ -39,7 +41,7 @@ import {
  */
 test("Profile遅延認可は現在判定と二依存拒否を分離する", async () => {
   const administration = createAiProfileCatalogAdministration(
-    createAiProfileCatalogRegistry(DEFAULT_AI_PROFILE_CATALOG),
+    createTestCatalogStore(DEFAULT_AI_PROFILE_CATALOG),
   );
   let resolutions = 0,
     reads = 0;
@@ -148,7 +150,7 @@ test("Profile遅延認可は現在判定と二依存拒否を分離する", asyn
 test("Profile管理MCPは保存後故障と取消で自動再実行しない", async () => {
   const baseProfile = DEFAULT_AI_PROFILE_CATALOG.profiles[0];
   assert.ok(baseProfile);
-  const store = createAiProfileCatalogRegistry(DEFAULT_AI_PROFILE_CATALOG);
+  const store = createTestCatalogStore(DEFAULT_AI_PROFILE_CATALOG);
   const administration = createAiProfileCatalogAdministration(store);
   const abort = new AbortController();
   let calls = 0;
@@ -417,3 +419,54 @@ test("Profile管理MCPは結果相関の矛盾と実行可能Propertyを拒否�
   validCatalog.profiles.pop();
   assert.equal(JSON.stringify(owned), before);
 });
+
+/**
+ * 管理操作試験用の局所Catalog保存代役を作る。
+ * @responsibility 本番保存を使わず改訂競合と採用後のSnapshotを試験へ提供する。
+ * @trace RCM-IT-005
+ * @precondition 初期候補は既存Catalog Validatorで検証できる。
+ * @stimulus snapshotとadoptを管理操作へ渡す。
+ * @observation 改訂、採用値、拒否理由を返す。
+ * @oracle 不正・競合は不変、妥当な採用だけ改訂を一つ進める。
+ * @cleanup N/A: 試験内のメモリだけで資源を持たない。
+ * @boundary 試験の保存代役であり本番の耐久保存を保証しない。
+ */
+function createTestCatalogStore(
+  initialCandidate: unknown,
+): AiProfileCatalogStore {
+  const initialCatalog = validateAiProfileCatalog(initialCandidate);
+  if (!initialCatalog) throw new Error("ai_profile_catalog_initial_invalid");
+  let current: AiProfileCatalogSnapshot = Object.freeze({
+    revision: 1,
+    catalog: initialCatalog,
+  });
+  return Object.freeze({
+    snapshot: () => current,
+    adopt: (request) => {
+      if (request.expectedRevision !== current.revision)
+        return Object.freeze({
+          status: "rejected" as const,
+          reason: "revision_conflict" as const,
+          revision: current.revision,
+          snapshot: current,
+        });
+      const validated = validateAiProfileCatalog(request.candidate);
+      if (!validated)
+        return Object.freeze({
+          status: "rejected" as const,
+          reason: "catalog_invalid" as const,
+          revision: current.revision,
+          snapshot: current,
+        });
+      current = Object.freeze({
+        revision: current.revision + 1,
+        catalog: validated,
+      });
+      return Object.freeze({
+        status: "adopted" as const,
+        revision: current.revision,
+        snapshot: current,
+      });
+    },
+  });
+}

@@ -1,11 +1,17 @@
 /**
- * claude-execution-planに属する責務をまとめる。
+ * ClaudeのTask・Probe・読取り助言の固定CLI計画とTurn予算を所有する。
  *
- * @responsibility planClaudeTaskTurnBudgetを中心とする実装、型および境界を同じModuleで所有する。
+ * @responsibility Model・effortの引数順、Turn予算、固有CLI制約と配布要件を純粋に生成し、実起動・認可・回収を所有しない。
  * @trace ARCH-000010
  */
 import { snapshotPlainRecord } from "../../../domain-model/src/index.ts";
 import { describeProviderBillingPolicyContract } from "../profile/billing-policy.ts";
+import {
+  WORKBENCH_AI_ADVICE_PROVIDER_COMMAND_CONTRACT,
+  WORKBENCH_AI_ADVICE_PROVIDER_COMMAND_CONTRACT_REVISION,
+  type WorkbenchAiAdviceProviderCommandInput,
+  type WorkbenchAiAdviceProviderCommand,
+} from "../provider/advice-contract.ts";
 
 export const CLAUDE_EXECUTION_PLAN_CONTRACT =
   "crdd-coordinator/claude-execution-plan";
@@ -872,5 +878,75 @@ export function describeClaudeExecutionPlanContract() {
     activationGates: ACTIVATION_GATES,
     providerSpawn: "runtime_adapter_authority_and_preflight_gated",
     operationCapabilityIssued: false,
+  });
+}
+
+/**
+ * Claude向け助言コマンドを生成する。
+ *
+ * @responsibility 固定Claude配布物へToolなし・標準入力・Schema付きJSON出力の一回助言を割り当てる。
+ * @trace ARCH-000010
+ * @trace ARCH-000015
+ * @input input: Claude Profile Identity。resultSchema: Coordinatorの固定助言結果Schema。
+ * @returns Claude助言コマンド計画。
+ * @precondition input.providerはclaudeである。
+ * @postcondition Prompt本文はargvへ含めず、標準入力からだけ受け取る。
+ * @effect N/A: コマンド計画を生成するだけである。
+ * @failure N/A: Catalog検証済み入力だけを受け取る。
+ * @invariant 固定Image Digestと公式CLI Pathを変更しない。
+ * @boundary Workbench助言とClaude CLIの間。
+ * @security Built-in Tool、MCP、Chrome、Slash CommandおよびSession保存を無効化する。
+ * @concurrency N/A: 共有状態を持たない同期処理である。
+ */
+export function planClaudeAdviceCommand(
+  input: WorkbenchAiAdviceProviderCommandInput,
+  resultSchema: Readonly<Record<string, unknown>>,
+): WorkbenchAiAdviceProviderCommand {
+  const contract = describeClaudeExecutionPlanContract();
+  return Object.freeze({
+    contract: WORKBENCH_AI_ADVICE_PROVIDER_COMMAND_CONTRACT,
+    contractRevision: WORKBENCH_AI_ADVICE_PROVIDER_COMMAND_CONTRACT_REVISION,
+    provider: "claude" as const,
+    command: contract.readOnlyProbe.command,
+    argv: Object.freeze([
+      "--model",
+      input.exactModelId,
+      "--effort",
+      input.reasoningEffort,
+      "--safe-mode",
+      "--setting-sources=",
+      "--strict-mcp-config",
+      "--mcp-config",
+      '{"mcpServers":{}}',
+      "--no-chrome",
+      "--json-schema",
+      JSON.stringify(resultSchema),
+      "-p",
+      "--output-format",
+      "json",
+      "--max-turns",
+      "2",
+      "--no-session-persistence",
+      "--permission-mode",
+      "dontAsk",
+      "--tools=",
+      "--disallowedTools",
+      "Bash,WebFetch,WebSearch,Task,NotebookEdit,mcp__*",
+      "--disable-slash-commands",
+      "--prompt-suggestions",
+      "false",
+    ]),
+    environment: contract.readOnlyProbe.environment,
+    fixedImageDigest:
+      contract.readOnlyProbe.distributionBinding.fixedImageDigest,
+    exactModelId: input.exactModelId,
+    reasoningEffort: input.reasoningEffort,
+    promptTransport: "stdin_only" as const,
+    resultTransport: "claude_json_envelope" as const,
+    providerHomeMountRequired: true as const,
+    repositoryMounted: false as const,
+    workspaceMountRequired: false as const,
+    toolsAllowed: false as const,
+    sessionPersistenceAllowed: false as const,
   });
 }

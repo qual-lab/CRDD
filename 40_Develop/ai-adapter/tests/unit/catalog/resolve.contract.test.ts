@@ -26,7 +26,10 @@ import {
   validateAiProfileDefinition,
 } from "../../../src/catalog/resolve.ts";
 import { createAiProfileCatalogAdministration } from "../../../src/profile/crud.ts";
-import { createAiProfileCatalogRegistry } from "../../../src/profile/registry.ts";
+import type {
+  AiProfileCatalogStore,
+  AiProfileCatalogSnapshot,
+} from "../../../src/index.ts";
 
 /**
  * Profile限定Mutation入力はCatalog Ownerの公開入口で検査する。
@@ -169,7 +172,6 @@ test("同梱JSONの全値を保持して深い不変Catalogを公開する", () 
     "classifyProviderNonzeroExit",
     "codexAdviceProviderInitRequired",
     "createAiProfileCatalogAdministration",
-    "createAiProfileCatalogRegistry",
     "createCrosAiProfileCatalogStore",
     "createRepositoryAiProfileCatalogStore",
     "describeClaudeExecutionPlanContract",
@@ -449,72 +451,19 @@ test("利用可能性は未観測と利用不可を区別する", () => {
 });
 
 /**
- * Catalog採用は妥当なCandidateだけを改訂競合なしで現在値へ昇格する。
- *
- * @responsibility Candidate、採用済みSnapshot、Revisionを混同しないことを検証する。
- * @trace RCM-UT-002
- * @precondition 既定CatalogをRevision 1としてRegistryへ与える。
- * @stimulus 不正Candidate、妥当な追加Profile、古い期待Revisionを順に採用要求する。
- * @observation status、reason、revisionおよび現在Snapshotを観測する。
- * @oracle 不正と競合はEffect 0、妥当なCandidateだけがRevision 2になる。
- * @cleanup N/A: Process内の局所Registryだけを使用する。
- * @boundary RCM-UT-002=Direct Boundary: ai-runtime Test Source→対象契約
- */
-test("Catalog採用は妥当なCandidateだけを改訂競合なしで現在値へ昇格する", () => {
-  const registry = createAiProfileCatalogRegistry(DEFAULT_AI_PROFILE_CATALOG);
-  const invalid = registry.adopt({
-    expectedRevision: 1,
-    candidate: { contract: "crdd/ai-profile-catalog" },
-  });
-  assert.equal(invalid.status, "rejected");
-  assert.equal(invalid.revision, 1);
-
-  const candidate = structuredClone(DEFAULT_AI_PROFILE_CATALOG) as unknown as {
-    profiles: Record<string, unknown>[];
-  } & Record<string, unknown>;
-  candidate.profiles.push({
-    profileId: "PROFILE-300001",
-    adapterId: "codex-cli",
-    family: "astra",
-    exactModelId: "gpt-6-astra",
-    selectionRoles: ["executor"],
-    modelTiers: ["preferred"],
-    speedMode: "normal",
-    billingMode: "subscription_oauth",
-    defaultReasoningEffort: "high",
-    compatibilityReason: null,
-  });
-  const adopted = registry.adopt({ expectedRevision: 1, candidate });
-  assert.equal(adopted.status, "adopted");
-  assert.equal(adopted.revision, 2);
-  assert.equal(
-    registry.snapshot().catalog.profiles.at(-1)?.profileId,
-    "PROFILE-300001",
-  );
-
-  const conflict = registry.adopt({
-    expectedRevision: 1,
-    candidate: DEFAULT_AI_PROFILE_CATALOG,
-  });
-  assert.equal(conflict.status, "rejected");
-  assert.equal(conflict.reason, "revision_conflict");
-  assert.equal(registry.snapshot().revision, 2);
-});
-
-/**
  * Profile限定管理がAdapter定義を変更せず作成・更新・削除を処理する。
  *
  * @responsibility Profile存在条件、Revision、削除確認およびCatalog再検証を反証する。
  * @trace RCM-UT-002
- * @precondition 既定CatalogをRevision 1で保持するRegistryをStoreとして使用する。
+ * @precondition 既定CatalogをRevision 1で保持する保存代役をStoreとして使用する。
  * @stimulus Profile作成、古いRevision更新、更新、未確認削除、確認済み削除を順に実行する。
  * @observation 各結果理由、RevisionおよびProfile集合を観測する。
  * @oracle 成功操作だけRevisionを進め、Adapter集合を変えず、未確認削除と競合をEffect 0で拒否する。
- * @cleanup N/A: Process内の局所Registryだけを使用する。
+ * @cleanup N/A: Process内の局所保存代役だけを使用する。
  * @boundary RCM-UT-002=Direct Boundary: ai-runtime Test Source→対象契約
  */
 test("Profile限定管理は改訂競合と未確認削除をEffect 0で拒否する", () => {
-  const registry = createAiProfileCatalogRegistry(DEFAULT_AI_PROFILE_CATALOG);
+  const registry = createTestCatalogStore(DEFAULT_AI_PROFILE_CATALOG);
   const application = createAiProfileCatalogAdministration(registry);
   const profile = Object.freeze({
     profileId: "PROFILE-300001",
@@ -585,3 +534,54 @@ test("Profile限定管理は改訂競合と未確認削除をEffect 0で拒否�
     DEFAULT_AI_PROFILE_CATALOG.adapters,
   );
 });
+
+/**
+ * 管理操作試験用の局所Catalog保存代役を作る。
+ * @responsibility 本番保存を使わず改訂競合と採用後のSnapshotを試験へ提供する。
+ * @trace RCM-UT-002
+ * @precondition 初期候補は既存Catalog Validatorで検証できる。
+ * @stimulus snapshotとadoptを管理操作へ渡す。
+ * @observation 改訂、採用値、拒否理由を返す。
+ * @oracle 不正・競合は不変、妥当な採用だけ改訂を一つ進める。
+ * @cleanup N/A: 試験内のメモリだけで資源を持たない。
+ * @boundary 試験の保存代役であり本番の耐久保存を保証しない。
+ */
+function createTestCatalogStore(
+  initialCandidate: unknown,
+): AiProfileCatalogStore {
+  const initialCatalog = validateAiProfileCatalog(initialCandidate);
+  if (!initialCatalog) throw new Error("ai_profile_catalog_initial_invalid");
+  let current: AiProfileCatalogSnapshot = Object.freeze({
+    revision: 1,
+    catalog: initialCatalog,
+  });
+  return Object.freeze({
+    snapshot: () => current,
+    adopt: (request) => {
+      if (request.expectedRevision !== current.revision)
+        return Object.freeze({
+          status: "rejected" as const,
+          reason: "revision_conflict" as const,
+          revision: current.revision,
+          snapshot: current,
+        });
+      const validated = validateAiProfileCatalog(request.candidate);
+      if (!validated)
+        return Object.freeze({
+          status: "rejected" as const,
+          reason: "catalog_invalid" as const,
+          revision: current.revision,
+          snapshot: current,
+        });
+      current = Object.freeze({
+        revision: current.revision + 1,
+        catalog: validated,
+      });
+      return Object.freeze({
+        status: "adopted" as const,
+        revision: current.revision,
+        snapshot: current,
+      });
+    },
+  });
+}

@@ -66,6 +66,16 @@ Package個別の順序を基本としつつ、Coordinator／Orchestrator／Docke
 
 細分化・汎用化・File削減数は目的にせず、新しいRegistry、Lock、Recovery、監視Process、共通Frameworkを追加しない。実現不能な保証や既存能力の喪失を見つけた場合は、追加実装より前に影響を返す。
 
+#### 助言の責務整理と試験専用API撤去（2026-10-19）
+
+基準は`afd059a6`。変更分類は既存の責務再配置と、利用者が承認したメモリ保存公開APIの撤去。助言の共通振分けを`provider/advice-command.ts`、型・契約値を`provider/advice-contract.ts`、CLI固有処理を既存Codex／Claudeの`execution-plan.ts`へ置いた。新しいProvider別Fileの増設案より、既存計画Ownerへの同居を選ぶ。依存は共通振分け→具象計画→共通契約の一方向とし、内部具象関数はRootへ公開しない。出力抽出は共通Helperと単一結果契約を持つため`provider/advice-result.ts`へ同居する。引数、環境、配布Identity、出力受理集合・拒否順序は変更しない。
+
+`createAiProfileCatalogRegistry`／`AiProfileCatalogRegistry`は本番利用がなく、試験4箇所だけだった。承認に基づき本番API・同型の専用型・本体を削除し、各Package内の試験用Storeへ置き換えた。他Packageの試験への依存や公開test APIは追加しない。Registry単独の専用Caseを1件退役し、CRUD・改訂競合・削除確認・MCPの現在認可・事前取消・保存後応答故障／取消の確認は維持する。通常Filesystem Storeと保存Schemaは不変更。既存の検証義務`RCM-UT-002`等は退役しない。
+
+着手前の独立確認は助言移管・API撤去とも整合。実装後の自己確認ではAI Adapterの静的三軸と全32件、Coordinator／MCP静的確認、助言・結果29件、MCP管理3件、公開入口／Header／QA3件、Symbol Graph16件が成功。試験33→32は上記専用Caseの退役による。最初の制限環境では既存Link試験2件がEPERMになり、許可された実行環境で全32件を再確認した。実体CLI二関数の空白を除く本文は基準と一致し、AST同等性の証明とはしない。独立レビューは実体技術・利用側・直接影響に指摘0、File Headerの旧説明1件（二File）を検出し実責務へ最小是正した。是正後の静的三軸は成功。文書Checkerは現行0、歴史CHG旧参照3,353による全体Exit 1。新しいDocker・Provider成功、全Package完成、正式QA Passは主張しない。
+
+残るAI Adapter内精査は、Provider計画のImage・Seccomp等のOwnerと残る命名・Header・公開集合。②のAI再試行、保持物削除、Docker操作、外部送信は行わない。歴史Evidenceは不変更。今回は局所技術レビューと現行文書・直接影響確認を行い、準拠基準・Releaseの変更を伴わないため全体準拠監査・実E2Eは実施しない。
+
 #### 初回単位の具体的処置
 
 | 編集対象 | 処置と確認 |

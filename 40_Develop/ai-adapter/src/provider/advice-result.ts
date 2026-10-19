@@ -1,14 +1,13 @@
 /**
  * Workbench助言のProvider固有出力から助言JSONだけを抽出する。
  *
- * @packageDocumentation
  * @responsibility Codex JSONLとClaude JSON envelopeの成功条件を検証し、共通Normalizerへ渡す一つのJSON文字列へ変換する。
  * @trace ARCH-000015
  * @boundary Provider CLIの生出力とWorkbench助言結果Normalizerの間。
  * @effect N/A: 生文字列を検証するだけで外部Effectを発行しない。
  * @security 生出力、Session ID、Cost、Provider metadataおよびTool出力を公開結果へ含めない。
  */
-import { parseUnambiguousJsonDocument } from "../provider/json.ts";
+import { parseUnambiguousJsonDocument } from "./json.ts";
 
 export const WORKBENCH_AI_ADVICE_PROVIDER_OUTPUT_CONTRACT =
   "crdd-coordinator/workbench-ai-advice-provider-output";

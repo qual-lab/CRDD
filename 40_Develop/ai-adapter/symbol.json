@@ -7,86 +7,116 @@
       "symbolId": "ai-adapter.test.output.provider-error",
       "kind": "test-suite",
       "path": "tests/unit/provider/error.contract.test.ts",
-      "qaIds": ["QA-000006"],
-      "localTestIds": ["ERB-UT-032"],
-      "verifies": ["ai-adapter.output.provider-error"]
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-UT-032"
+      ],
+      "verifies": [
+        "ai-adapter.output.provider-error"
+      ]
     },
     {
       "symbolId": "ai-adapter.codex.advice-distribution",
       "kind": "file",
       "path": "src/codex/advice-distribution.ts",
-      "archIds": ["ARCH-000010"]
+      "archIds": [
+        "ARCH-000010"
+      ]
     },
     {
       "symbolId": "ai-adapter.profile.subscription-status",
       "kind": "file",
       "path": "src/provider/subscription-status.ts",
-      "archIds": ["ARCH-000010"]
+      "archIds": [
+        "ARCH-000010"
+      ]
     },
     {
       "symbolId": "ai-adapter.output.provider-error",
       "kind": "file",
       "path": "src/provider/error.ts",
-      "archIds": ["ARCH-000010"]
+      "archIds": [
+        "ARCH-000010"
+      ]
     },
     {
       "symbolId": "ai-adapter.profile.provider-environment",
       "kind": "file",
       "path": "src/provider/environment.ts",
-      "archIds": ["ARCH-000010"]
+      "archIds": [
+        "ARCH-000010"
+      ]
     },
     {
       "symbolId": "ai-adapter.profile.profile-execution",
       "kind": "file",
       "path": "src/profile/execution-identity.ts",
-      "archIds": ["ARCH-000010"]
+      "archIds": [
+        "ARCH-000010"
+      ]
     },
     {
       "symbolId": "ai-adapter.output.task-envelope",
       "kind": "file",
       "path": "src/provider/task-result.ts",
-      "archIds": ["ARCH-000015"]
+      "archIds": [
+        "ARCH-000015"
+      ]
     },
     {
       "symbolId": "ai-adapter.profile.eligibility",
       "kind": "file",
       "path": "src/provider/availability.ts",
-      "archIds": ["ARCH-000010"]
+      "archIds": [
+        "ARCH-000010"
+      ]
     },
     {
       "symbolId": "ai-adapter.codex.authentication",
       "kind": "file",
       "path": "src/codex/authentication.ts",
-      "archIds": ["ARCH-000010"]
+      "archIds": [
+        "ARCH-000010"
+      ]
     },
     {
       "symbolId": "ai-adapter.output.unambiguous-json-document",
       "kind": "file",
       "path": "src/provider/json.ts",
-      "archIds": ["ARCH-000015"]
+      "archIds": [
+        "ARCH-000015"
+      ]
     },
     {
       "symbolId": "coordinator.source.src.security.provider.model.profile.runtime",
       "kind": "file",
       "path": "src/profile/resolve.ts",
-      "archIds": ["ARCH-000010"]
+      "archIds": [
+        "ARCH-000010"
+      ]
     },
     {
       "symbolId": "ai-adapter.authentication-policy",
       "kind": "file",
       "path": "src/profile/authentication-policy.ts",
-      "archIds": ["ARCH-000010"]
+      "archIds": [
+        "ARCH-000010"
+      ]
     },
     {
       "symbolId": "ai-adapter.claude.authentication",
       "kind": "file",
       "path": "src/claude/authentication.ts",
-      "archIds": ["ARCH-000010"]
+      "archIds": [
+        "ARCH-000010"
+      ]
     },
     {
       "symbolId": "coordinator.source.src.security.workbench.ai.advice.provider.command",
       "kind": "file",
-      "path": "src/advice/provider-command.ts",
+      "path": "src/provider/advice-command.ts",
       "archIds": [
         "ARCH-000010",
         "ARCH-000015"
@@ -95,7 +125,7 @@
     {
       "symbolId": "coordinator.source.src.security.workbench.ai.advice.provider.output",
       "kind": "file",
-      "path": "src/advice/provider-output.ts",
+      "path": "src/provider/advice-result.ts",
       "archIds": [
         "ARCH-000015"
       ]
@@ -160,14 +190,6 @@
       "symbolId": "ai-runtime.types",
       "kind": "file",
       "path": "src/catalog/types.ts",
-      "archIds": [
-        "ARCH-000010"
-      ]
-    },
-    {
-      "symbolId": "ai-runtime.registry",
-      "kind": "file",
-      "path": "src/profile/registry.ts",
       "archIds": [
         "ARCH-000010"
       ]
@@ -277,6 +299,15 @@
       ],
       "verifies": [
         "coordinator.source.src.security.provider.billing.policy"
+      ]
+    },
+    {
+      "symbolId": "ai-adapter.provider.advice-contract",
+      "kind": "file",
+      "path": "src/provider/advice-contract.ts",
+      "archIds": [
+        "ARCH-000010",
+        "ARCH-000015"
       ]
     }
   ]

@@ -2371,7 +2371,10 @@
         "ERB-UT-023"
       ],
       "verifies": [
-        "coordinator.source.src.security.workbench.ai.advice.provider.command"
+        "coordinator.source.src.security.workbench.ai.advice.provider.command",
+        "ai-adapter.provider.advice-contract",
+        "coordinator.source.src.security.codex.execution.plan",
+        "coordinator.source.src.security.claude.execution.plan"
       ]
     },
     {
