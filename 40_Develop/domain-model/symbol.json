@@ -853,6 +853,50 @@
         "domain-model.semantic-ir",
         "domain-model.semantic-relations"
       ]
+    },
+    {
+      "symbolId": "domain-model.test.unit.test-catalog",
+      "kind": "test-suite",
+      "path": "tests/unit/test-catalog/inspect.contract.test.ts",
+      "qaIds": [
+        "QA-000002"
+      ],
+      "localTestIds": [
+        "CQS-UT-010"
+      ],
+      "verifies": [
+        "domain-model.test-catalog"
+      ]
+    },
+    {
+      "symbolId": "domain-model.test-catalog-plan",
+      "kind": "file",
+      "path": "src/test-catalog/plan.ts",
+      "archIds": [
+        "ARCH-000003"
+      ]
+    },
+    {
+      "symbolId": "domain-model.test-catalog",
+      "kind": "file",
+      "path": "src/test-catalog/inspect.ts",
+      "archIds": [
+        "ARCH-000003"
+      ]
+    },
+    {
+      "symbolId": "domain-model.test.unit.test-catalog-plan",
+      "kind": "test-suite",
+      "path": "tests/unit/test-catalog/plan.contract.test.ts",
+      "qaIds": [
+        "QA-000002"
+      ],
+      "localTestIds": [
+        "CQS-UT-010"
+      ],
+      "verifies": [
+        "domain-model.test-catalog-plan"
+      ]
     }
   ]
 }

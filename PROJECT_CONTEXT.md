@@ -22,7 +22,7 @@ Version ControlのWorktree管理に続き、名前付きCandidateの明示固定
 
 | 対象 | 現在の状態 | Owner Relation |
 |---|---|---|
-| 検査・検証Packageの再編 | artifact-signing／official-asset-governanceを撤去。SemanticもDomain／Checkerへ移管し、局所21件・独立再レビューを完了。Runner／Checker本体の移管は未着手。test catalogは維持する | [再編の現在地](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#検査検証packageの縮小--2026-10-19の途中見直し) |
+| 検査・検証Packageの再編 | 先行2Package撤去とSemantic移管に続き、RunnerのモデルをDomain、計画入口をCheckerへ移管。一括自動実行を廃止し、局所34件・独立再レビュー完了。Domain全体回帰は既存試験条件で未成立、Checker本体の移管は未着手 | [再編の現在地](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#検査検証packageの縮小--2026-10-19の途中見直し) |
 | AI AdapterのSource整備 | 命名・公開APIに加え、両ProviderのDocker配置・固定実行物情報をDIへ分離。利用側回帰・限定独立レビュー残指摘0。実AI・実Docker・正式全E2Eと他Packageの整備は別に残る | [配置との境界](06_Architecture/Details/ai-adapter/01_Architecture.md#docker配置とprovider操作の分離--2026-10-19)、[区切りと検証範囲](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#source-structure-review) |
 | Workspace／Orchestrator | ③の本番Workspace接続・旧Bundle／Store本体と専用Nativeの撤去、検証Toolの取消・終了確認移管を完了。変更範囲の実Git・結合回帰と限定独立レビューは完了した。新構成全体の回帰・実境界・移行の最終評価、②の実AI編集E2Eは残る | [撤去の区切りと現在残件](99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#workspace-store-retirement) |
 | Access Management／公開入口 | 責務別配置・公開API整理に加え、ユーザー有効状態の独立APIを接続。現在は鍵の有無から導出し、確認不能を無効と区別する。回帰・限定独立レビュー完了。保存Schema・権限分担は維持。MCPのロール更新Tool名は変更済み。初回設定・鍵操作の実入口と人間確認は後続E2Eへ保持する | [現在の構造・公開API](06_Architecture/Details/access-management/01_Architecture.md#source構造の再編--2026-10-19)、[区切りと検証範囲](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#source-structure-review) |

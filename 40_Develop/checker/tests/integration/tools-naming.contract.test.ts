@@ -231,7 +231,6 @@ const sourceOwnershipRoots = Object.freeze([
   path.join(repositoryRoot, "40_Develop", "mcp-server"),
   path.join(repositoryRoot, "40_Develop", "orchestrator"),
   path.join(repositoryRoot, "40_Develop", "platform-access"),
-  path.join(repositoryRoot, "40_Develop", "verification-runner"),
   path.join(repositoryRoot, "40_Develop", "version-control"),
   path.join(repositoryRoot, "40_Develop", "visual-preview"),
   path.join(repositoryRoot, "40_Develop", "workbench-server"),
@@ -326,12 +325,13 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
   },
   {
     relativePath: "40_Develop/checker/src/index.ts",
-    expectedTrace: "ARCH-000001 ARCH-000008",
+    expectedTrace: "ARCH-000001 ARCH-000003 ARCH-000008",
     requiredTags: ["boundary"],
     exportedModules: [
       "./profiles/current.ts",
       "./findings/collector.ts",
       "./semantic/command.ts",
+      "./test-catalog/command.ts",
     ],
   },
   {
@@ -385,6 +385,8 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
       "./project-context/portfolio.ts",
       "./project-context/read-context.ts",
       "./outcome.ts",
+      "./test-catalog/inspect.ts",
+      "./test-catalog/plan.ts",
       "./semantic/ir.ts",
       "./semantic/relations.ts",
       "./semantic/coverage.ts",
@@ -535,12 +537,6 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
     ],
   },
   {
-    relativePath: "40_Develop/verification-runner/src/index.ts",
-    expectedTrace: "ARCH-000003",
-    requiredTags: ["boundary", "effect"],
-    exportedModules: ["./regression/run.ts"],
-  },
-  {
     relativePath: "40_Develop/visual-preview/src/index.ts",
     expectedTrace: "ARCH-000003",
     requiredTags: ["boundary", "effect", "security"],
@@ -602,12 +598,7 @@ const projectConfigs = Object.freeze([
   path.join(repositoryRoot, "40_Develop", "platform-access", "tsconfig.json"),
   path.join(repositoryRoot, "40_Develop", "mcp-server", "tsconfig.json"),
   path.join(repositoryRoot, "40_Develop", "domain-model", "tsconfig.json"),
-  path.join(
-    repositoryRoot,
-    "40_Develop",
-    "verification-runner",
-    "tsconfig.json",
-  ),
+  path.join(repositoryRoot, "40_Develop", "tsconfig.json"),
   path.join(repositoryRoot, "40_Develop", "version-control", "tsconfig.json"),
   path.join(repositoryRoot, "40_Develop", "visual-preview", "tsconfig.json"),
   path.join(repositoryRoot, "40_Develop", "workbench-server", "tsconfig.json"),
@@ -663,6 +654,7 @@ test("Checker公開入口はArchitecture宣言済みSymbolだけを公開する"
     "CheckerRunRequest",
     "runChecker",
     "runSemanticCoverage",
+    "runTestCatalog",
   ]);
 });
 

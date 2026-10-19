@@ -1,5 +1,5 @@
 /**
- * Regression Plan理解の受入範囲を定義する。
+ * Checkerが返す試験計画の理解を人間が確認する受入範囲を定義する。
  *
  * @packageDocumentation
  * @responsibility 利用者が試験段階、未確認範囲および追加検証の選択肢を理解できるかを人間判断で確認する。

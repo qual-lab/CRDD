@@ -1,7 +1,7 @@
 /**
- * test-catalogに属する責務をまとめる。
+ * 試験台帳の値契約・読取り・整合検査・回帰選択を所有する。
  *
- * @responsibility TestLevelを中心とする実装、型および境界を同じModuleで所有する。
+ * @responsibility 既存台帳と実在試験の照合を維持し、試験Processは起動しない。
  * @trace ARCH-000003
  */
 import fs from "node:fs";
@@ -72,7 +72,6 @@ export type TestCatalogEntry = Readonly<{
     | "orchestrator"
     | "version-control"
     | "platform-access"
-    | "verification-runner"
     | "visual-preview"
     | "workbench-server";
   path: string;
@@ -116,7 +115,6 @@ export type TestCatalog = Readonly<{
     orchestrator: "node_test";
     "version-control": "node_test";
     "platform-access": "node_and_cargo_test";
-    "verification-runner": "node_test";
     "visual-preview": "node_test";
     "workbench-server": "node_test";
   }>;
@@ -163,7 +161,6 @@ const RUNNER_SUPPORTED_OWNERS = new Set([
   "orchestrator",
   "version-control",
   "platform-access",
-  "verification-runner",
   "visual-preview",
   "workbench-server",
 ]);
@@ -179,7 +176,6 @@ const RUNNER_PROFILES = Object.freeze({
   orchestrator: "node_test",
   "version-control": "node_test",
   "platform-access": "node_and_cargo_test",
-  "verification-runner": "node_test",
   "visual-preview": "node_test",
   "workbench-server": "node_test",
 });
@@ -344,7 +340,6 @@ export function discoverRepositoryTestFiles(repositoryRoot: string): string[] {
     "mcp-server",
     "orchestrator",
     "version-control",
-    "verification-runner",
     "visual-preview",
     "workbench-server",
   ].flatMap((owner) =>
@@ -417,7 +412,7 @@ function isTestLevel(value: unknown): value is TestLevel {
 function expectedNodeLevel(entryPath: string): string | null {
   if (!entryPath.endsWith(".test.ts")) return null;
   return (
-    /^40_Develop\/(?:access-management|ai-adapter|checker|coordinator|docker-isolation|domain-model|execution-intelligence|mcp-server|orchestrator|platform-access|verification-runner|version-control|visual-preview|workbench-server)\/tests\/([^/]+)\//u.exec(
+    /^40_Develop\/(?:access-management|ai-adapter|checker|coordinator|docker-isolation|domain-model|execution-intelligence|mcp-server|orchestrator|platform-access|version-control|visual-preview|workbench-server)\/tests\/([^/]+)\//u.exec(
       entryPath,
     )?.[1] ?? null
   );
@@ -1050,8 +1045,6 @@ function ownerForPath(changedPath: string): TestCatalogEntry["owner"] | null {
   if (changedPath.startsWith("40_Develop/docker-isolation/"))
     return "docker-isolation";
   if (changedPath.startsWith("40_Develop/checker/")) return "checker";
-  if (changedPath.startsWith("40_Develop/verification-runner/"))
-    return "verification-runner";
   if (changedPath.startsWith("40_Develop/visual-preview/"))
     return "visual-preview";
   if (changedPath.startsWith("40_Develop/domain-model/")) return "domain-model";

@@ -2,7 +2,7 @@
  * CRDD Current Profile Checkerの公開境界。
  * @packageDocumentation
  * @responsibility 検査要求を受け、構造化した検査結果だけを返す。
- * @trace ARCH-000001 ARCH-000008
+ * @trace ARCH-000001 ARCH-000003 ARCH-000008
  * @boundary 検証済みRepositoryのFilesystem観測とChecker判断の境界。
  */
 export {
@@ -12,3 +12,4 @@ export {
 } from "./profiles/current.ts";
 export type { CheckerFinding } from "./findings/collector.ts";
 export { runSemanticCoverage } from "./semantic/command.ts";
+export { runTestCatalog } from "./test-catalog/command.ts";

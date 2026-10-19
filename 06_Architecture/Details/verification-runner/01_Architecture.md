@@ -1,5 +1,21 @@
 # Verification Runner Architecture
 
+## 2026-10-19の責務移管
+
+CHG-000082の人間判断により独立Packageと一括自動実行を廃止する。以下の旧Runner設計は置換前の比較基準であり、新方式の実行保証として利用しない。過去Evidenceは変更しない。
+
+| 既存能力 | 新Owner／処置 |
+|---|---|
+| Test Catalogの型・解析・母集団と関係の検査・回帰選択 | Domain Model `test-catalog/inspect.ts`。既存catalogの保存先・Schemaを維持 |
+| 段階型・順序計画・観測済み結果の集約・相対Path正規化 | Domain Model `test-catalog/plan.ts`。試験を起動するCallbackは持たない |
+| 引数・Root・Git差分・Catalog観測・計画表示 | Checker `test-catalog/command.ts`。npm／Cargo／任意試験Processを起動・構成しない |
+| 一括自動実行と専用dispatch | 廃止。フロントAI／人間が計画に沿って対象Projectの実行手段を利用する |
+| CRDD公式Repositoryの試験起動 | 各Packageのnpm設定と開発手順。適用先へnpm使用を要求しない |
+
+Checkerの計画は試験ID・Path・Owner・段階・順序・実行条件・未選択の高負荷試験を示す。`effectIssued:false`は試験の未起動を表し、GitやFilesystemの読取りがないことまでは意味しない。計画成功を試験Passとせず、人間UAT、外部AI、Windows固有Process制御、PT／LTの許可を計画作成から推定しない。PT／LTは既存の全上限を検査しても実強制を提供しないため、引き続き計画のみとする。
+
+Package横断の先行失敗後停止・結果記録は実行手順へ引き渡し、Checkerによる機械保証とは表示しない。観測済み結果を集約する純粋な関数と、自動実行・自動結果収集は別の責務である。旧公開APIの互換中継や新しいRunner／Registry／Lockは追加しない。
+
 成果物種別: Architecture詳細設計
 詳細設計領域: verification-runner
 状態: Canonical

@@ -33,6 +33,7 @@ test("Semantic Coverageは宣言した公開Capabilityだけを公開する", ()
   assert.deepEqual(Object.keys(checker).sort(), [
     "runChecker",
     "runSemanticCoverage",
+    "runTestCatalog",
   ]);
   for (const operation of [
     semanticCoverage.compileQualitySemanticRelations,

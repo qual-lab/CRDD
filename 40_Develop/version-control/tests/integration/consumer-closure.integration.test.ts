@@ -587,7 +587,7 @@ test("Repository LocationとRepository-local Ignoreの既知Consumer集合が宣
       "40_Develop/domain-model/src/repository/resolve-storage-paths.ts",
       "40_Develop/domain-model/src/storage/ensure-area.ts",
       "40_Develop/checker/src/semantic/command.ts",
-      "40_Develop/verification-runner/src/regression/stages.ts",
+      "40_Develop/checker/src/test-catalog/command.ts",
       "40_Develop/visual-preview/src/server.ts",
       "40_Develop/workbench-server/bin/workbench-server.ts",
       "40_Develop/workbench-server/scripts/verify-readonly-ai.ts",
@@ -766,8 +766,8 @@ test("Local Change Setと用途別Named SymbolのConsumer集合が宣言と一�
     )
     .sort();
   assert.deepEqual(localChangeSetConsumers, [
+    "40_Develop/checker/src/test-catalog/command.ts",
     "40_Develop/orchestrator/src/workspace/commands.ts",
-    "40_Develop/verification-runner/src/regression/stages.ts",
     "40_Develop/workbench-server/src/project/surface.ts",
   ]);
 
@@ -879,7 +879,7 @@ test("Local Change Setと用途別Named SymbolのConsumer集合が宣言と一�
       "40_Develop/checker/src/semantic/inspection.ts",
       "40_Develop/domain-model/src/storage/semantic-store.ts",
       "40_Develop/checker/scripts/semantic-legacy-inventory.ts",
-      "40_Develop/verification-runner/src/regression/stages.ts",
+      "40_Develop/checker/src/test-catalog/command.ts",
       "40_Develop/workbench-server/src/project/surface.ts",
     ].sort(),
   );
@@ -926,7 +926,7 @@ test("既知ConsumerはGitを再解釈せずVersion Control公開契約だけを
   const consumerPaths = [
     "40_Develop/checker/src/profiles/current.ts",
     "40_Develop/checker/src/rules/reality-symbol-graph.ts",
-    "40_Develop/verification-runner/src/regression/stages.ts",
+    "40_Develop/checker/src/test-catalog/command.ts",
   ];
   const forbiddenPatterns = [
     /node:child_process/u,

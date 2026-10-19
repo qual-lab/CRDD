@@ -12,7 +12,9 @@
     "test:run": "node ./tests/test-runner.ts",
     "typecheck": "tsc -p ./tsconfig.json && tsc -p ./template-tools-tsconfig.json",
     "verify:repository": "node ./bin/checker.ts --root ../.. --json --summary",
-    "semantic": "node ./bin/checker.ts --semantic"
+    "semantic": "node ./bin/checker.ts --semantic",
+    "catalog:check": "node ./bin/checker.ts --test-catalog",
+    "test:plan": "node ./bin/checker.ts --test-catalog --base main"
   },
   "engines": {
     "node": ">=24.12"

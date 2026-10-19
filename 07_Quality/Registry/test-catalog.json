@@ -26,7 +26,6 @@
     "orchestrator": "node_test",
     "version-control": "node_test",
     "platform-access": "node_and_cargo_test",
-    "verification-runner": "node_test",
     "visual-preview": "node_test",
     "workbench-server": "node_test"
   },
@@ -383,28 +382,27 @@
       ]
     },
     {
-      "id": "verification-runner:regression-runner",
-      "owner": "verification-runner",
-      "architectureAnchor": "06_Architecture/Details/verification-runner/01_Architecture.md#4-実行の流れ",
+      "id": "checker:test-catalog-plan",
+      "owner": "checker",
+      "architectureAnchor": "06_Architecture/Details/verification-runner/01_Architecture.md#2026-10-19の責務移管",
       "responsibilities": [
-        "test_discovery",
-        "bounded_child_execution",
-        "result_aggregation"
+        "test_catalog_inspection",
+        "change_selection",
+        "execution_neutral_plan"
       ],
       "externalBoundaries": [
-        "node_child_process",
-        "test_fixture_root",
-        "exit_status"
+        "repository_read",
+        "git_change_observation",
+        "public_cli_result"
       ],
-      "lifecycleProfile": "external_effect_operation",
+      "lifecycleProfile": "read_only_boundary",
       "testIds": [
-        "verification-runner:integration:regression-runner",
-        "verification-runner:unit:test-catalog"
+        "checker:integration:test-catalog-plan",
+        "domain-model:unit:test-catalog"
       ],
       "postconditions": [
-        "child_process_absent",
-        "fixture_cleanup_classified",
-        "partial_result_not_reported_complete"
+        "test_process_not_started",
+        "selection_not_reported_as_test_pass"
       ]
     },
     {
@@ -1028,11 +1026,11 @@
       "architectureAnchor": "06_Architecture/Details/version-control/01_Architecture.md#6-段階移行",
       "blockPath": [
         "version-control:repository-observation",
-        "verification-runner:regression-runner"
+        "checker:test-catalog-plan"
       ],
       "testIds": [
         "version-control:integration:local-change-set",
-        "verification-runner:integration:regression-runner"
+        "checker:integration:test-catalog-plan"
       ],
       "postconditions": [
         "canonical_change_set_preserved",
@@ -1133,11 +1131,11 @@
       "architectureAnchor": "06_Architecture/Details/checker/01_Architecture.md#7-設計から試験への接続",
       "blockPath": [
         "checker:repository-verification",
-        "verification-runner:regression-runner"
+        "checker:test-catalog-plan"
       ],
       "testIds": [
         "checker:integration:crdd-check",
-        "verification-runner:integration:regression-runner"
+        "checker:integration:test-catalog-plan"
       ],
       "postconditions": [
         "discovered_scope_matches_execution_plan",
@@ -1451,7 +1449,9 @@
       "testIds": [
         "semantic-coverage:unit:pilot",
         "semantic-coverage:unit:public-boundary",
-        "checker:integration:semantic-command"
+        "checker:integration:semantic-command",
+        "checker:integration:test-catalog-plan",
+        "checker:system:test-catalog-policy"
       ]
     }
   ],
@@ -7325,9 +7325,9 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "verification-runner:integration:regression-runner",
-      "owner": "verification-runner",
-      "path": "40_Develop/verification-runner/tests/integration/regression-runner.contract.test.ts",
+      "id": "checker:integration:test-catalog-plan",
+      "owner": "checker",
+      "path": "40_Develop/checker/tests/integration/test-catalog/command.integration.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -8054,9 +8054,9 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "verification-runner:acceptance:regression-plan-understanding",
-      "owner": "verification-runner",
-      "path": "40_Develop/verification-runner/tests/acceptance/regression-plan-understanding.contract.test.ts",
+      "id": "checker:acceptance:regression-plan-understanding",
+      "owner": "checker",
+      "path": "40_Develop/checker/tests/acceptance/regression-plan-understanding.contract.test.ts",
       "level": "acceptance",
       "kind": "contract",
       "semanticTags": [
@@ -8074,9 +8074,9 @@
       "mandatoryByDefault": false
     },
     {
-      "id": "verification-runner:system:resource-intensive-gate",
-      "owner": "verification-runner",
-      "path": "40_Develop/verification-runner/tests/system/resource-intensive-gate.contract.test.ts",
+      "id": "checker:system:test-catalog-policy",
+      "owner": "checker",
+      "path": "40_Develop/checker/tests/system/test-catalog/policy.contract.test.ts",
       "level": "system",
       "kind": "contract",
       "semanticTags": [
@@ -8096,9 +8096,9 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "verification-runner:unit:test-catalog",
-      "owner": "verification-runner",
-      "path": "40_Develop/verification-runner/tests/unit/catalog/inspect.contract.test.ts",
+      "id": "domain-model:unit:test-catalog",
+      "owner": "domain-model",
+      "path": "40_Develop/domain-model/tests/unit/test-catalog/inspect.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -9271,6 +9271,24 @@
         "repository_boundary_preserved",
         "partial_not_success",
         "temporary_file_cleaned"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "domain-model:unit:test-catalog-plan",
+      "owner": "domain-model",
+      "path": "40_Develop/domain-model/tests/unit/test-catalog/plan.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "test",
+        "catalog"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "repository_check_result_observed"
       ],
       "mandatoryByDefault": true
     }

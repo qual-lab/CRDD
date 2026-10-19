@@ -1,5 +1,11 @@
 # Domain Modelの責務境界
 
+### 試験台帳・計画モデルの移管 — 2026-10-19
+
+旧Runnerの台帳型・読取り・整合検査・回帰選択を`src/test-catalog/inspect.ts`へ、段階型・計画・結果集約・相対Path正規化を`src/test-catalog/plan.ts`へ移した。公開型は`TestCatalog`／`TestCatalogEntry`／`TestLevel`、高負荷の条件型、段階・計画・結果型であり、公開操作は台帳の読取り・整合検査、条件検査、Owner／試験選択、段階計画、結果集約、Path正規化である。正確な集合はRoot明示exportと固定集合試験で照合する。
+
+台帳の読取り・試験Sourceとの照合は読取りEffectを持つが、選択・段階計画・結果集約は局所計算である。Git差分の観測はCheckerからVersion Controlへ委譲し、DomainはGit操作・npm／Cargo構成・試験の起動Callback・自動段階制御を持たない。既存catalogの保存先・Schema・Profile分類を維持し、Project固有の実行手段と計画を分ける。[移管境界](../verification-runner/01_Architecture.md#2026-10-19の責務移管)を参照する。
+
 ### Semanticの移管 — 2026-10-19
 
 旧Semantic Coverage PackageのIR、Quality Relation、Coverage Graph、Bundle生成を`src/semantic/`、原子的保存を`src/storage/semantic-store.ts`へ移管する。Root APIから実責務Fileを明示exportし、Capability内barrelや新しい管理状態を作らない。中立的なDomainOutcomeとDomainIssueを返し、Checker固有の診断・起動・旧JSON移行調査は所有しない。保存は既存の検証済みRoot・Link拒否・書込み同期・読戻し・原子的置換・finally回収を維持する。以下の旧「Semantic IRとBundle公開はDomain外」という記述はこの範囲で置換する。意味と関係の詳細は[Semantic詳細](../semantic-coverage/01_Architecture.md#2026-10-19の責務移管)に従い、同名の設計領域と廃止した実装Packageを区別する。
@@ -178,8 +184,8 @@ Repository／Version Control Infrastructure
 | Repository `domain-model/src/index.ts` | 検証済みRoot内のRepository観測、名前付きPath解決、保存領域の読取り専用観測 | Filesystem読取りだけ | Directory作成、設定自動生成、Git確定・公開、採用判断 |
 | Domain Model Semantic API／Checker実行入口 | Domainは意味・関係・Coverage・保存、Checkerは入力編成と診断表示 | 明示したBundle公開 | Architecture・Quality・実装の意味採否、部分公開の成功扱い |
 | Version Control `version-control/src/index.ts` | [Version Control用途限定公開入口](../version-control/01_Architecture.md#32-用途を限定した公開入口)のNamed Symbolを明示利用 | 宣言されたRepository観測とIdentity確認 | Domain意味、未Commit通常操作の拒否、利用しないGit Adapterの依存閉包への混入 |
-| Checker `checker/src/index.ts` | `CheckerRunRequest`、`CheckerResult`、`CheckerFinding`、`runChecker`、`runSemanticCoverage` | `runChecker`はRepository読取りのみ。`runSemanticCoverage`も既定は読取りで、明示`--write`時だけDomain storageへBundle保存を委譲する | Domain Issueの改変、意味採否、外部Effect許可、Checker内での保存本体再実装 |
-| Verification Runner `verification-runner/src/index.ts` | `RegressionRunRequest`、`RegressionRunResult`、`runRegression` | 宣言された試験段階の選択と子Process実行 | Checker規則、CLI表示、`process.argv`解釈、`process.exitCode`設定 |
+| Checker `checker/src/index.ts` | `CheckerRunRequest`、`CheckerResult`、`CheckerFinding`、`runChecker`、`runSemanticCoverage`、`runTestCatalog` | `runChecker`はRepository読取りのみ。`runSemanticCoverage`も既定は読取りで、明示`--write`時だけDomain storageへBundle保存を委譲する | Domain Issueの改変、意味採否、外部Effect許可、Checker内での保存本体再実装 |
+| Test Catalog `domain-model/src/index.ts` | `TestCatalog`、`TestCatalogEntry`、`TestLevel`、台帳の読取り・整合検査・回帰選択、段階計画・結果型と純粋な結果集約。全SymbolはRootと契約試験に固定 | 台帳・試験Sourceの読取り。計画・結果集約は局所計算 | Git差分観測、npm／Cargoの構成、試験起動、許可・品質成立の推定 |
 
 Domain Modelの各責務は共通Rootから公開する。本表は操作の責務・Effect境界を示し、Rootの実行時・型を含む明示export集合は固定許可集合の契約試験で完全一致を検査する。`./outcome`は共通結果だけの既存Subpathとして維持し、廃止したCapability別Subpathを再導入しない。新しい公開Symbolは対象責務と本表へ接続し、固定許可集合の変更を審査する。
 
@@ -288,7 +294,7 @@ Root候補はlauncher実Pathの`template/tools`からexactに2階層上だけを
 |---|---|
 | `template/tools` launcher | 同じ基準版Rootの公開入口だけへ接続し、実装本体を持たない |
 | CRDD公式Repository CLI | Checker公開入口へ接続し、DomainやRuleの非公開Pathをimportしない |
-| Verification Runner CLI | `verification-runner/src/index.ts`だけへ接続し、試験段階、Process実行、Authority判定または計画・結果構築を再実装しない |
+| Checker試験台帳入口 | `runTestCatalog`がDomain Rootの台帳検査・選択・計画へ接続する。試験起動・npm構成・一括自動結果収集を持たない |
 | 開発／生成Script | 用途を限定し、必要なCapabilityの宣言済み公開入口を使う |
 | 同一Capabilityの単体試験 | 公開入口を原則とし、非公開単位だけ同じCapabilityの実装Pathを利用できる |
 | 複数Capabilityの結合試験 | 各Capabilityの公開入口を使い、他Capabilityの実装Pathをimportしない |

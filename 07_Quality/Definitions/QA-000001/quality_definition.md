@@ -78,6 +78,8 @@ Quality ID: `QA-000001`
 
 ## 5. 検証項目
 
+2026-10-19のRunner移管では、旧Runnerの専用dispatchと試験fixtureを廃止する。`RCM-IT-007`の当該旧Runnerへの適用は退役し、旧実測を新しいCheckerの実行保証へ流用しない。他の開発用Processやfixtureに対する適用は各Ownerで維持する。新しいChecker計画入口は試験を起動しない。
+
 | Local ID | 条件区分 | 試験段階 | 試験種別 | 対象／境界 | 外部境界の段階 | 事前状態／入力 | 操作／刺激 | 観測 | Oracle | Evidence | 終了後条件 | 実行形態 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | `RCM-UT-001` | 正常 | UT | Determinism／Checker | Checker Core。外部実行境界なし | N/A | 同一Root・Profile・対象の固定fixtureと空のRepository差分 | 同じ検査を二回実行する | RCM-UT-001として、「同じ検査を二回実行する」前後のChecker Core。外部実行境界なしについて、入力差分、判定結果、欠落・重複・不一致および理由codeを記録する | 構造化結果と順序が一致し、意味の採否は返さない | RCM-UT-001、固定入力「同一Root・Profile・対象の固定fixtureと空のRepository差分」、観測した差分と理由code、Oracle判定「構造化結果と順序が一致し、意味の採否は返さない」および終了後条件「Repository Effect 0」を保存する | Repository Effect 0 | Automated |

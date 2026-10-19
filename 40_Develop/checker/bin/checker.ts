@@ -6,15 +6,27 @@
  * @trace ARCH-000001
  */
 
-import { runChecker, runSemanticCoverage } from "../src/index.ts";
+import {
+  runChecker,
+  runSemanticCoverage,
+  runTestCatalog,
+} from "../src/index.ts";
 
 const arguments_ = process.argv.slice(2);
 const semantic = arguments_.includes("--semantic");
-const run = semantic ? runSemanticCoverage : runChecker;
+const catalog = arguments_.includes("--test-catalog");
+const run = catalog
+  ? runTestCatalog
+  : semantic
+    ? runSemanticCoverage
+    : runChecker;
 const result = run({
-  arguments: semantic
-    ? arguments_.filter((value) => value !== "--semantic")
-    : arguments_,
+  arguments:
+    semantic || catalog
+      ? arguments_.filter(
+          (value) => value !== (catalog ? "--test-catalog" : "--semantic"),
+        )
+      : arguments_,
   cwd: process.cwd(),
   writeOutput: (value) => process.stdout.write(value),
   writeError: (value) => process.stderr.write(value),

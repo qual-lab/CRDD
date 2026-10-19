@@ -1,5 +1,13 @@
 # Checkerの設計
 
+## 試験台帳・計画の入口 — 2026-10-19
+
+`src/test-catalog/command.ts`の`runTestCatalog(CheckerRunRequest)`をPackage Rootと既存binの`--test-catalog`から利用する。引数は`--root`、`--changed`反復、`--base`、`--all`、`--levels`と既存の高負荷条件入力である。変更指定なしは台帳検査だけ、変更指定ありは回帰計画を返す。既定Rootは既存Version Controlでcwdから検証し、Git差分も同Packageの公開APIへ委譲する。
+
+モデル、台帳読取り・整合検査、選択、段階計画はDomain Root APIを利用する。Checkerはnpm／Cargoコマンドを生成せず、試験Processや実行Callbackも持たない。公開結果は試験ID・Path・Owner・段階・順序・必要な条件と`testExecution:not_started`を含む。計画成功は試験合格ではない。高負荷条件が揃っても実上限を強制しないため計画のみである。
+
+旧Runnerの一括自動実行・自動結果収集を廃止し、フロントAI／人間がProjectの実行手段で実施する。CRDD公式Repositoryのnpm設定は開発環境固有であり、Checkerの依存や適用先への要求にしない。[移管境界](../verification-runner/01_Architecture.md#2026-10-19の責務移管)を参照する。
+
 成果物種別: Architecture詳細設計
 詳細設計領域: checker
 状態: Canonical

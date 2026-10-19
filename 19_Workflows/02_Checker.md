@@ -1,5 +1,21 @@
 # Checkerを実行して結果を読む
 
+## 試験台帳と回帰計画
+
+次は試験を起動せず、台帳検査または計画だけを表示する。
+
+```powershell
+node 40_Develop/checker/bin/checker.ts --test-catalog --root .
+node 40_Develop/checker/bin/checker.ts --test-catalog --root . --base main
+node 40_Develop/checker/bin/checker.ts --test-catalog --root . --changed 40_Develop/domain-model/src/test-catalog/inspect.ts --levels unit,integration,system
+```
+
+`--changed`、`--base`、`--all`は互いに排他的である。引数不正64、台帳不整合1、Root・読取り・差分観測不能2、台帳検査／計画成功0を返す。成功0は試験Passではなく、常に試験未起動として扱う。手動UAT、外部AI、Windows固有Process制御、高負荷の必要条件を計画から確認し、実行許可がない操作は実行しない。PT／LTは全条件があっても計画のみである。
+
+フロントAI／人間は計画の段階順に実施し、先行失敗時は後続を止め、実施済みと未実施を既存QAへ記録する。Checkerはこの起動・停止・結果収集を自動化しない。適用先は言語や環境に合う実行手段を使う。
+
+CRDD公式Repositoryの開発に限り、各Packageの`npm run check`、`npm run test:run`等を使う。Owner全試験は選択範囲より広いため未許可試験を含めないことを確認する。Coordinator／Docker Isolationの通常とHost Windows入口を分ける。Platform AccessのRust確認は同Packageの`rust:check`、`test:rust:unit`、`test:rust:integration`に移した固定toolchain・明示targetを使う。WorkbenchのSTは`test:system`を通常ITと区別する。Checkerへ移した計画理解UATは人間参加のままで、自動Passにしない。npm成功や手動UATのskipを全体QA成立へ読み替えない。
+
 状態: 現行の操作手順
 担当責任者: Qual-Lab
 最終更新日: 2026-08-31

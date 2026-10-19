@@ -33,7 +33,7 @@
 
 ##### 検査・検証Packageの縮小 — 2026-10-19の途中見直し
 
-状態: 先行2Packageの撤去とSemanticのDomain／Checker移管・限定回帰・独立再レビューを完了。Runner／Checker本体の責務移管は未着手。基準Commitは`0e26cf797`。以下は人間が提示した新方針であり、旧Package維持判断と初回17Package順序をこの範囲で変更する。局所完了を全体移管の完成と扱わない。
+状態: 先行2Package撤去、Semantic移管、Runnerのモデル／計画入口移管と局所回帰・独立再レビューを完了。Domain全体回帰は下記の既存試験条件により未成立。Checker本体の責務移管は未着手。初回基準Commitは`0e26cf797`、Runner移管の基準は先行作業をcommit／pushした`fb19c5dae`。以下は人間が提示した新方針であり、旧Package維持判断と初回17Package順序をこの範囲で変更する。局所完了を全体移管の完成と扱わない。
 
 | 対象 | 採用された処置方向 | 維持するもの／今回増やさないもの |
 |---|---|---|
@@ -87,6 +87,10 @@
 
 人間は廃止案のデメリットを確認した後、test catalogを残し、モデル部分をdomain-model、実行部分をcheckerへ適切に移管すると判断した。直前の廃止案・自動回帰選択の廃止提案を取り下げる。`07_Quality/Registry/test-catalog.json`の保存先と役割を維持し、別名catalogや代替Registryを新設しない。
 
+2026-10-19の追加境界: Checker自体はnpmへ依存させない。CRDD標準の実装言語がTypeScriptであることを、適用先の試験実行方式へ強制しない。Checkerがnpmコマンドを組み立てる案は取り下げ、検査・選択結果は試験ID、対象、段階、順序、必要な実行条件で表す。npmはCRDD公式Repositoryの開発用設定・手順の責務であり、他言語の適用先ではその環境の実行手段を利用する。人間はこの分担で旧Runnerの一括自動実行を廃止し、フロントAI／人間による環境別実行へ切り替えることを承認した。選択・計画能力を維持し、計画作成を試験実行・品質成立と表示しない。
+
+移管の一次対応は、`catalog/inspect.ts`をDomainの`test-catalog/inspect.ts`へ、段階型・計画・結果集約・相対Path正規化を`test-catalog/plan.ts`へ配置する。Checkerは`test-catalog/command.ts`で引数、検証済みRoot、既存Version Controlによる差分観測とDomain結果の表示だけを担当する。DomainへGit操作・試験実行Callbackを移さない。旧Runnerの子Process dispatch・自動段階実行・専用fixtureは廃止対象、catalog UTはDomain、公開計画IT／STと手動UATはCheckerへ対応付ける。CRDD固有のnpm入口とRustの固定targetは開発用設定・手順に残し、Checkerへ含めない。既存計画の人間入力・外部Provider・Windows専用Profile・PT／LT条件は保持し、新しい実行状態・Runnerを作らない。
+
 | 現在の役割 | 移管先 | 維持する境界 |
 |---|---|---|
 | catalog型・試験一覧・Owner／段階 | domain-model。構文解析・整合判定・既存Repository観測による読取り | 現行catalogと公開意味を維持。固定Package列挙の重複は整理する |
@@ -111,6 +115,20 @@ Reality Graphはcatalog Snapshotと実在試験・Manifestの照合を維持す�
 直前の廃止案に対する独立した読み取り専用の着手前確認では、両廃止Packageの外部本番Consumer確認0、Semantic責務のDomain移管、catalog依存のReality入力、npm単独では実行承認を代替しない点を確認した。catalog維持判断後はReality入力を除去せず移管する。新実装の完成後レビューとは区別する。
 
 test catalog以外の前案と今回のcatalog維持・移管は承認済みで、同じ方針の再承認は求めない。実AI・Docker再試行、保持物清掃、既存不合格のPass化は行わない。必要な実行安全条件を既存構造内で維持できない場合や新たな機能喪失が判明した場合だけ、代替と影響を人間へ返す。
+
+###### Runner移管の実施結果 — 2026-10-19
+
+旧Packageの追跡FileとDirectory、旧本番import・公開API・実行Callbackを撤去した。test catalogは同じ保存先・Schemaで維持し、Owner・試験Path・Block・Consumerを新Ownerへ接続した。Domainは台帳・選択・計画・結果モデル、Checkerの`runTestCatalog`／`--test-catalog`は検査と計画だけを提供する。CRDD開発用のRust固定targetはPlatform Accessのnpm設定へ、Workbench ST起動は同Packageのnpm設定へ置いた。Checkerはnpm・Cargoの構成を持たず、計画成功に試験未起動を明示する。
+
+| 確認 | 結果と限界 |
+|---|---|
+| 局所モデル／公開接続 | Domain台帳・計画27件、Checker IT／ST 7件成功。移管した計画理解UAT 1件は手動確認待ちでskipのまま |
+| 利用側・静的 | Version ControlのConsumer照合12件、Header／公開Module／QA接続5件成功。Domain／Checkerの整形・型・Lint成功。既存の情報診断57件は不変更 |
+| 独立レビュー | 引数Pathの失敗分類、全件選択の架空Path、Git公開接続のOracle不足を最小是正。固定差分の再レビュー残指摘0。新しい実行・管理機構なし |
+| 文書確認 | 対象6文書の診断0、関連文書3,207診断でRepository全体のCheckerは不合格のまま |
+| Domain全体回帰 | 通常制限環境ではリンク・Kernel排他等46件が失敗。許可Hostでは154／155成功、既存並行Lock試験がready timeout。その同一Sourceの単独確認は成功。TEMPをRepository内に限定した全体確認では154／155成功、Lockは成功したが既存Semantic試験の「os.tmpdirはRepository外」という前提が成立せず失敗。別実行の成功を合算して全体Passとはしない |
+
+Domain共通Root／Lockと既存Semantic試験は今回は変更しない。後のDomain全体整理で、実行環境・一時領域の前提と並行試験を確認する。旧自動実行への`CQS-IT-012`／`CQS-ST-012`と旧Runner範囲の`RCM-IT-007`は退役し、新方式のPass根拠へ流用しない。局所移管の完了とDomain全体の回帰未成立を区別する。実AI再試行・Docker操作・保持物削除・旧Evidence変更は行っていない。
 
 ###### 先行2Package撤去の実施結果
 

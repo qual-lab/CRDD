@@ -10,6 +10,7 @@
       "archIds": [
         "ARCH-000001",
         "ARCH-000002",
+        "ARCH-000003",
         "ARCH-000008"
       ]
     },
@@ -259,6 +260,47 @@
         "domain-model.semantic-publish",
         "semantic-coverage.source.src.application.semantic.coverage",
         "semantic-coverage.source.src.infrastructure.filesystem.semantic.bundle.publisher"
+      ]
+    },
+    {
+      "symbolId": "checker.test.integration.test-catalog-plan",
+      "kind": "test-suite",
+      "path": "tests/integration/test-catalog/command.integration.test.ts",
+      "qaIds": [
+        "QA-000002"
+      ],
+      "localTestIds": [
+        "CQS-IT-011",
+        "CQS-IT-013"
+      ],
+      "verifies": [
+        "checker.test-catalog-command",
+        "domain-model.test-catalog",
+        "domain-model.test-catalog-plan"
+      ]
+    },
+    {
+      "symbolId": "checker.test.system.test-catalog-policy",
+      "kind": "test-suite",
+      "path": "tests/system/test-catalog/policy.contract.test.ts",
+      "qaIds": [
+        "QA-000002",
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "CQS-ST-013",
+        "ERB-ST-015"
+      ],
+      "verifies": [
+        "checker.test-catalog-command"
+      ]
+    },
+    {
+      "symbolId": "checker.test-catalog-command",
+      "kind": "file",
+      "path": "src/test-catalog/command.ts",
+      "archIds": [
+        "ARCH-000003"
       ]
     }
   ]

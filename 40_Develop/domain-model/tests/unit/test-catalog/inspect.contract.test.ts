@@ -1,8 +1,8 @@
 /**
- * verification-runner:unit:test-catalogの検証範囲を定義する。
+ * domain-model:unit:test-catalogの検証範囲を定義する。
  *
  * @packageDocumentation
- * @responsibility verification-runner:unit:test-catalogが所有する検証責務を実行する。
+ * @responsibility domain-model:unit:test-catalogが所有する検証責務を実行する。
  * @trace CQS-UT-010
  * @level UT
  * @scope test、catalog
@@ -11,7 +11,7 @@
 import assert from "node:assert/strict";
 import path from "node:path";
 import test from "node:test";
-import { buildRegressionStagePlan } from "../../../src/regression/stages.ts";
+import { buildRegressionStagePlan } from "../../../src/test-catalog/plan.ts";
 import { fileURLToPath } from "node:url";
 import {
   inspectTestCatalog,
@@ -21,13 +21,13 @@ import {
   selectRegressionStaticOwners,
   selectRegressionTests,
   type TestCatalog,
-} from "../../../src/catalog/inspect.ts";
+} from "../../../src/test-catalog/inspect.ts";
 
-const verificationRunnerRoot = path.resolve(
+const domainRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "../../..",
 );
-const repositoryRoot = path.resolve(verificationRunnerRoot, "../..");
+const repositoryRoot = path.resolve(domainRoot, "../..");
 const loadedCatalog = loadTestCatalog(
   path.join(repositoryRoot, "07_Quality", "Registry/test-catalog.json"),
 );
@@ -43,7 +43,7 @@ const catalog = loadedCatalog as TestCatalog;
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CQS-UT-010=Direct Boundary: verification-runner Test Source→対象契約
+ * @boundary CQS-UT-010=Direct Boundary: Domain Test Source→対象契約
  */
 test("実在試験、登録試験、実行可能Ownerをexactに照合する", () => {
   assert.deepEqual(inspectTestCatalog(repositoryRoot, loadedCatalog), []);
@@ -53,7 +53,7 @@ test("実在試験、登録試験、実行可能Ownerをexactに照合する", (
   for (const changed of [
     "40_Develop/coordinator/src/host-execution/recovery-record.ts",
     "40_Develop/coordinator/src/host-execution/operation-workspace-lifecycle.ts",
-  ]) {
+  ] as const) {
     const selected = selectRegressionTests(catalog, [changed]);
     assert.ok(
       selected.some(
@@ -286,7 +286,7 @@ test("改名後のServer配下でも試験段階の不一致を拒否する", ()
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CQS-UT-010=Direct Boundary: verification-runner Test Source→対象契約
+ * @boundary CQS-UT-010=Direct Boundary: Domain Test Source→対象契約
  */
 test("全Toolの結合ブロックはArchitecture、Lifecycle、実在ITへ閉じる", () => {
   assert.deepEqual(
@@ -302,7 +302,6 @@ test("全Toolの結合ブロックはArchitecture、Lifecycle、実在ITへ閉�
       "mcp-server",
       "orchestrator",
       "platform-access",
-      "verification-runner",
       "version-control",
       "visual-preview",
       "workbench-server",
@@ -334,7 +333,7 @@ test("全Toolの結合ブロックはArchitecture、Lifecycle、実在ITへ閉�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CQS-UT-010=Direct Boundary: verification-runner Test Source→対象契約
+ * @boundary CQS-UT-010=Direct Boundary: Domain Test Source→対象契約
  */
 test("結合ブロックの未登録Tool、試験欠落、Lifecycle欠落を拒否する", () => {
   const first = catalog.integrationBlocks[0];
@@ -386,7 +385,7 @@ test("結合ブロックの未登録Tool、試験欠落、Lifecycle欠落を拒�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CQS-UT-010=Direct Boundary: verification-runner Test Source→対象契約
+ * @boundary CQS-UT-010=Direct Boundary: Domain Test Source→対象契約
  */
 test("ブロック間結合は実在Sequence、二段以内の経路、IT、全block被覆へ閉じる", () => {
   const first = catalog.integrationCorridors[0];
@@ -456,7 +455,7 @@ test("ブロック間結合は実在Sequence、二段以内の経路、IT、全b
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CQS-UT-010=Direct Boundary: verification-runner Test Source→対象契約
+ * @boundary CQS-UT-010=Direct Boundary: Domain Test Source→対象契約
  */
 test("変更した意味に対応する試験を選び、未分類の実装変更はOwner全件へ閉じる", () => {
   const focusedEntries = selectRegressionTests(catalog, [
@@ -493,7 +492,7 @@ test("変更した意味に対応する試験を選び、未分類の実装変�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CQS-UT-010=Direct Boundary: verification-runner Test Source→対象契約
+ * @boundary CQS-UT-010=Direct Boundary: Domain Test Source→対象契約
  */
 test("直接変更した試験だけはその試験に限定する", () => {
   const target =
@@ -514,7 +513,7 @@ test("直接変更した試験だけはその試験に限定する", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CQS-UT-010=Direct Boundary: verification-runner Test Source→対象契約
+ * @boundary CQS-UT-010=Direct Boundary: Domain Test Source→対象契約
  */
 test("実行知の実装変更は共通試験と登録済み利用側契約を選ぶ", () => {
   const ownerPaths = catalog.tests
@@ -538,7 +537,7 @@ test("実行知の実装変更は共通試験と登録済み利用側契約を�
       "40_Develop/execution-intelligence/src/index.ts",
       "40_Develop/coordinator/tests/integration/orchestrator-execution.contract.test.ts",
     ],
-  ]) {
+  ] as const) {
     const selectedPaths = selectRegressionTests(catalog, [changedPath]).map(
       (entry) => entry.path,
     );
@@ -562,7 +561,7 @@ test("実行知の実装変更は共通試験と登録済み利用側契約を�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CQS-UT-010=Direct Boundary: verification-runner Test Source→対象契約
+ * @boundary CQS-UT-010=Direct Boundary: Domain Test Source→対象契約
  */
 test("利用側静的検査は試験levelの絞込みと独立して選ぶ", () => {
   const changedPaths = [
@@ -640,7 +639,7 @@ test("Docker TrustとRoot変更は下位技術と上位利用側を選ぶ", () =
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CQS-UT-010=Direct Boundary: verification-runner Test Source→対象契約
+ * @boundary CQS-UT-010=Direct Boundary: Domain Test Source→対象契約
  */
 test("利用側契約は欠落・Owner不一致・循環を拒否する", () => {
   const first = catalog.consumerBindings.find(
@@ -702,7 +701,7 @@ test("利用側契約は欠落・Owner不一致・循環を拒否する", () => 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CQS-UT-010=Direct Boundary: verification-runner Test Source→対象契約
+ * @boundary CQS-UT-010=Direct Boundary: Domain Test Source→対象契約
  */
 test("利用側契約の未分類Producer変更は登録済み利用側全件へ閉じる", () => {
   for (const producerOwner of [
@@ -734,7 +733,7 @@ test("利用側契約の未分類Producer変更は登録済み利用側全件へ
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CQS-UT-010=Direct Boundary: verification-runner Test Source→対象契約
+ * @boundary CQS-UT-010=Direct Boundary: Domain Test Source→対象契約
  */
 test("production・support・fixture変更はownerのUT／IT／ST全件へ閉じる", () => {
   const expected = catalog.tests.filter(
@@ -763,7 +762,7 @@ test("production・support・fixture変更はownerのUT／IT／ST全件へ閉じ
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CQS-UT-010=Direct Boundary: verification-runner Test Source→対象契約
+ * @boundary CQS-UT-010=Direct Boundary: Domain Test Source→対象契約
  */
 test("共有設定とowner不明の実行変更は全ownerへ閉じる", () => {
   const expected = catalog.tests.filter((entry) =>
@@ -790,7 +789,7 @@ test("共有設定とowner不明の実行変更は全ownerへ閉じる", () => {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CQS-UT-010=Direct Boundary: verification-runner Test Source→対象契約
+ * @boundary CQS-UT-010=Direct Boundary: Domain Test Source→対象契約
  */
 test("文書変更はRepository規則を検査するCheckerへ接続する", () => {
   for (const changedPath of [
@@ -817,7 +816,7 @@ test("文書変更はRepository規則を検査するCheckerへ接続する", () 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CQS-UT-010=Direct Boundary: verification-runner Test Source→対象契約
+ * @boundary CQS-UT-010=Direct Boundary: Domain Test Source→対象契約
  */
 test("PT／LTは明示Authorityと全上限がなければEffect前に拒否する", () => {
   const levels = new Set(["performance"] as const);
@@ -868,7 +867,7 @@ test("PT／LTは明示Authorityと全上限がなければEffect前に拒否す�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CQS-UT-010=Direct Boundary: verification-runner Test Source→対象契約
+ * @boundary CQS-UT-010=Direct Boundary: Domain Test Source→対象契約
  */
 test("通常回帰は任意PT／LTを選ばず、PT／LTの既定必須化を拒否する", () => {
   const normalEntries = selectRegressionTests(catalog, [
@@ -910,7 +909,7 @@ test("通常回帰は任意PT／LTを選ばず、PT／LTの既定必須化を拒
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CQS-UT-010=Direct Boundary: verification-runner Test Source→対象契約
+ * @boundary CQS-UT-010=Direct Boundary: Domain Test Source→対象契約
  */
 test("実行Profileは閉集合かつ重複なしでなければならない", () => {
   const first = catalog.tests[0];
@@ -942,7 +941,7 @@ test("実行Profileは閉集合かつ重複なしでなければならない", (
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CQS-UT-010=Direct Boundary: verification-runner Test Source→対象契約
+ * @boundary CQS-UT-010=Direct Boundary: Domain Test Source→対象契約
  */
 test("Windows実Process Gateと実行Profileをexactに照合する", () => {
   const gatePaths = catalog.tests
@@ -1006,7 +1005,7 @@ test("Windows実Process Gateと実行Profileをexactに照合する", () => {
  * @observation windows_process_profile_missingが返るかを観測する。
  * @oracle windows_process_controlを外した場合だけ不足として拒否する。
  * @cleanup 一時Repositoryを試験終了時に削除する。
- * @boundary CQS-UT-010=Direct Boundary: verification-runner Test Source→対象契約
+ * @boundary CQS-UT-010=Direct Boundary: Domain Test Source→対象契約
  */
 test("Host Windows接頭辞をWindows実Process Gateとして検出する", () => {
   const gateEntry = catalog.tests.find((entry) =>
@@ -1038,7 +1037,7 @@ test("Host Windows接頭辞をWindows実Process Gateとして検出する", () =
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CQS-UT-010=Direct Boundary: verification-runner Test Source→対象契約
+ * @boundary CQS-UT-010=Direct Boundary: Domain Test Source→対象契約
  */
 test("試験台帳は実行判断fieldの欠落・誤型・未知keyを拒否する", () => {
   const first = catalog.tests[0];
@@ -1098,7 +1097,7 @@ test("試験台帳は実行判断fieldの欠落・誤型・未知keyを拒否す
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary CQS-UT-010=Direct Boundary: verification-runner Test Source→対象契約
+ * @boundary CQS-UT-010=Direct Boundary: Domain Test Source→対象契約
  */
 test("試験台帳は危険なPathと空・重複配列を拒否する", () => {
   const first = catalog.tests[0];

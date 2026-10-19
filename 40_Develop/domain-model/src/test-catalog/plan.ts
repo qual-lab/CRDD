@@ -1,16 +1,8 @@
 /**
- * regression-executionに属する責務をまとめる。
- *
- * @responsibility RegressionStageを中心とする実装、型および境界を同じModuleで所有する。
+ * 試験段階の値契約・計画・結果集約を所有する。
+ * @responsibility 入力から順序と未実施の区別を導き、Git操作や試験起動を行わない。
  * @trace ARCH-000003
  */
-import {
-  changedPaths,
-  gitLocalChangeSetAdapter,
-  observeLocalChangeSet,
-  verifyRepositoryRoot,
-} from "../../../version-control/src/index.ts";
-
 export const regressionStageOrder = [
   "static",
   "unit",
@@ -212,97 +204,6 @@ export function buildRegressionStagePlan(
 }
 
 /**
- * regression-executionで使用するRegression Stage Executor Dependenciesの値契約を定義する。
- *
- * @responsibility Regression Stage Executor DependenciesのProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000003
- * @shape RegressionStageExecutorDependenciesが表すProperty、識別子およびRelationを型として固定する。
- * @invariant RegressionStageExecutorDependenciesで宣言した値と責務の対応を維持する。
- * @boundary N/A: RegressionStageExecutorDependenciesの宣言は外部境界を開かない。
- * @security N/A: RegressionStageExecutorDependenciesはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility RegressionStageExecutorDependenciesの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-export type RegressionStageExecutorDependencies = Readonly<{
-  runStatic: () => number;
-  runLevel: (stage: Exclude<RegressionStage, "static">) => number;
-  runWindowsProcess: () => number;
-}>;
-
-/**
- * Regression Stage Executorを構築する。
- *
- * @responsibility Regression Stage Executorの構築入力、生成結果、不正入力の拒否境界を所有する。
- * @trace ARCH-000003
- * @input dependencies: RegressionStageExecutorDependencies
- * @returns (plan: RegressionStagePlan) => numberを返す。
- * @precondition 「dependencies: RegressionStageExecutorDependencies」がcreateRegressionStageExecutorの入力契約を満たす。
- * @postcondition createRegressionStageExecutorの責務を完了した結果だけを返す。
- * @effect N/A: createRegressionStageExecutorは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: createRegressionStageExecutorは独自の失敗分岐を所有しない。
- * @invariant createRegressionStageExecutorは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: createRegressionStageExecutorはProcess内の同一Subsystemで完結する。
- * @security N/A: createRegressionStageExecutorはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: createRegressionStageExecutorは共有非同期状態を持たない同期処理である。
- */
-export function createRegressionStageExecutor(
-  dependencies: RegressionStageExecutorDependencies,
-): (plan: RegressionStagePlan) => number {
-  return (plan) => {
-    if (plan.stage === "static") return dependencies.runStatic();
-    if (plan.stage === "windows_process_control")
-      return dependencies.runWindowsProcess();
-    return dependencies.runLevel(plan.stage);
-  };
-}
-
-/**
- * Regression Stagesを実行する。
- *
- * @responsibility Regression Stagesの実行条件、Effect範囲、終了結果の境界を所有する。
- * @trace ARCH-000003
- * @input plans: readonly RegressionStagePlan[]、executeStage: (plan: RegressionStagePlan) => number
- * @returns readonly RegressionStageResult[]を返す。
- * @precondition 「plans: readonly RegressionStagePlan[]、executeStage: (plan: RegressionStagePlan) => number」がexecuteRegressionStagesの入力契約を満たす。
- * @postcondition executeRegressionStagesの責務を完了した結果だけを返す。
- * @effect N/A: executeRegressionStagesは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: executeRegressionStagesは独自の失敗分岐を所有しない。
- * @invariant executeRegressionStagesは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: executeRegressionStagesはProcess内の同一Subsystemで完結する。
- * @security N/A: executeRegressionStagesはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: executeRegressionStagesは共有非同期状態を持たない同期処理である。
- */
-export function executeRegressionStages(
-  plans: readonly RegressionStagePlan[],
-  executeStage: (plan: RegressionStagePlan) => number,
-): readonly RegressionStageResult[] {
-  const results: RegressionStageResult[] = [];
-  let priorStageFailed = false;
-  for (const plan of plans) {
-    if (priorStageFailed) {
-      results.push({
-        ...plan,
-        status: "not_run_due_to_prior_stage",
-        exitCode: null,
-      });
-      continue;
-    }
-    if (plan.execution === "human_input_required") {
-      results.push({
-        ...plan,
-        status: "not_run_due_to_human_input",
-        exitCode: null,
-      });
-      continue;
-    }
-    const exitCode = executeStage(plan);
-    const status = exitCode === 0 ? "completed" : "failed";
-    results.push({ ...plan, status, exitCode });
-    if (exitCode !== 0) priorStageFailed = true;
-  }
-  return results;
-}
-
-/**
  * 回帰段階の結果を公開結果へ集約する。
  *
  * @responsibility 失敗、人間入力待ち、完了の優先順位を固定し、部分成立を全体完了として返さない。
@@ -401,32 +302,4 @@ export function normalizeExplicitChangedPaths(
  */
 function pathIsAbsolute(value: string): boolean {
   return /^(?:[A-Za-z]:|\/)/u.test(value);
-}
-
-/**
- * Changed Pathsを収集する。
- *
- * @responsibility Changed Pathsの収集範囲、重複排除、欠落時の結果境界を所有する。
- * @trace ARCH-000003
- * @input repositoryRoot: string、base: string
- * @returns readonly string[]を返す。
- * @precondition 「repositoryRoot: string、base: string」がcollectChangedPathsの入力契約を満たす。
- * @postcondition collectChangedPathsの責務を完了した結果だけを返す。
- * @effect N/A: collectChangedPathsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure collectChangedPathsは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant collectChangedPathsは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: collectChangedPathsはProcess内の同一Subsystemで完結する。
- * @security N/A: collectChangedPathsはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: collectChangedPathsは共有非同期状態を持たない同期処理である。
- */
-export function collectChangedPaths(
-  repositoryRoot: string,
-  base: string,
-): readonly string[] {
-  const verified = verifyRepositoryRoot(repositoryRoot);
-  if (verified.status !== "completed")
-    throw new Error("regression_runner_repository_invalid");
-  return changedPaths(
-    observeLocalChangeSet(verified.capability, base, gitLocalChangeSetAdapter),
-  );
 }

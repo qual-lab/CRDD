@@ -250,3 +250,28 @@ export {
   type FederatedProjectProjection,
   type PortfolioProjection,
 } from "./project-context/portfolio.ts";
+export {
+  testLevels,
+  type TestLevel,
+  type TestCatalogEntry,
+  type TestCatalog,
+  type ResourceIntensiveTestAuthority,
+  discoverRepositoryTestFiles,
+  loadTestCatalog,
+  inspectTestCatalog,
+  inspectResourceIntensiveTestAuthority,
+  selectRegressionStaticOwners,
+  selectRegressionTests,
+} from "./test-catalog/inspect.ts";
+export {
+  regressionStageOrder,
+  type RegressionStage,
+  type RegressionExecutionStep,
+  type RegressionStageResult,
+  type RegressionAggregateResult,
+  type RegressionPlanEntry,
+  type RegressionStagePlan,
+  buildRegressionStagePlan,
+  aggregateRegressionStageResults,
+  normalizeExplicitChangedPaths,
+} from "./test-catalog/plan.ts";
