@@ -9,7 +9,8 @@
  * @effect Form送信以外の外部Effectを発行しない。
  * @security ReactのText escapingを使用し、秘密値・Host Path・Credentialを表示しない。
  */
-import { createElement, type ReactElement } from "react";
+import { createElement, useState, type ReactElement } from "react";
+import type { RepositoryNetworkPolicies } from "../../../../coordinator/src/index.ts";
 
 import type { WorkbenchAiProfileSurface } from "../../server/ai-profile/projection.ts";
 import type {
@@ -17,6 +18,97 @@ import type {
   WorkbenchAiResultItem,
 } from "../../server/ai-request/types.ts";
 import { ActionTokenInput, EmptyState, WorkbenchPanel } from "./elements.ts";
+
+/**
+ * 選択Profileの通信先と確認Hashを同じFormへ表示する。
+ * @responsibility Provider切替時に確認対象と送信するHashを一致させる。
+ * @trace ARCH-000012
+ * @input profiles、disabled、networkPolicies: Serverの非秘密投影。
+ * @returns Profile選択と通信条件のReact要素。
+ * @precondition 投影は現在Repositoryの認可後に取得する。
+ * @postcondition Browserの値を通信許可そのものにしない。
+ * @effect N/A: 局所UI状態だけ。
+ * @failure 投影不足ではHashを空にしServerが拒否する。
+ * @invariant Host編集欄を提供しない。
+ * @boundary 表示と開始時再照合の相関。
+ * @security 認証情報を含めない。
+ * @concurrency Repositoryの投影変更時は親のkeyで選択を初期化する。
+ */
+function AiRequestProfile({
+  profiles,
+  disabled,
+  networkPolicies,
+}: {
+  profiles: WorkbenchAiProfileSurface | null;
+  disabled: boolean;
+  networkPolicies: RepositoryNetworkPolicies | null;
+}): ReactElement {
+  const entries = profiles?.catalog.profiles ?? [];
+  const [profileId, selectProfile] = useState(entries[0]?.profileId ?? "");
+  const profile = entries.find((entry) => entry.profileId === profileId);
+  const provider = profiles?.catalog.adapters.find(
+    (adapter) => adapter.adapterId === profile?.adapterId,
+  )?.provider;
+  const policy = provider ? networkPolicies?.[provider] : null;
+  return createElement(
+    "div",
+    null,
+    createElement(
+      "label",
+      null,
+      "Profile",
+      createElement(
+        "select",
+        {
+          name: "profileId",
+          required: true,
+          disabled,
+          value: profileId,
+          onChange: (event: React.ChangeEvent<HTMLSelectElement>) =>
+            selectProfile(event.currentTarget.value),
+        },
+        ...entries.map((entry) =>
+          createElement(
+            "option",
+            { key: entry.profileId, value: entry.profileId },
+            `${entry.profileId} — ${entry.exactModelId}`,
+          ),
+        ),
+      ),
+    ),
+    createElement("input", {
+      type: "hidden",
+      name: "expectedNetworkPolicyHash",
+      value: policy?.policyHash ?? "",
+    }),
+    createElement(
+      "p",
+      null,
+      policy
+        ? `許可通信先（${policy.provider}）：${policy.allowedHosts.join("、")}。HTTPS CONNECT / 443のみ。通信本文は検査しません。`
+        : "通信設定を確認できないため開始できません。",
+    ),
+    createElement(
+      "label",
+      {
+        className: "confirm",
+        key: `${provider ?? ""}:${policy?.policyHash ?? ""}`,
+      },
+      createElement("input", {
+        type: "checkbox",
+        name: "externalSendConfirmed",
+        value: "yes",
+        required: true,
+        disabled: disabled || !policy,
+      }),
+      createElement(
+        "span",
+        null,
+        "この依頼と依頼種別に応じた許可済みContextを選択した外部AIへ一回送信する",
+      ),
+    ),
+  );
+}
 
 /**
  * Workbench AI依頼Panelを現在Sessionの一件だけから描画する。
@@ -41,8 +133,10 @@ export function renderWorkbenchAiRequest(
   applicationConfigured: boolean,
   snapshot: WorkbenchAiRequestSnapshot | null,
   notice: string | null = null,
+  networkPolicies: RepositoryNetworkPolicies | null = null,
 ): ReactElement {
-  const disabled = !applicationConfigured || profiles === null;
+  const disabled =
+    !applicationConfigured || profiles === null || networkPolicies === null;
   const result =
     snapshot === null ? null : renderSnapshot(snapshot, actionToken);
   return createElement(
@@ -90,22 +184,11 @@ export function renderWorkbenchAiRequest(
           ),
         ),
       ),
-      createElement(
-        "label",
-        null,
-        "Profile",
-        createElement(
-          "select",
-          { name: "profileId", required: true, disabled },
-          ...(profiles?.catalog.profiles ?? []).map((profile) =>
-            createElement(
-              "option",
-              { key: profile.profileId, value: profile.profileId },
-              `${profile.profileId} — ${profile.exactModelId}`,
-            ),
-          ),
-        ),
-      ),
+      createElement(AiRequestProfile, {
+        profiles,
+        disabled,
+        networkPolicies,
+      }),
       createElement(
         "label",
         null,
@@ -140,22 +223,6 @@ export function renderWorkbenchAiRequest(
           placeholder: "40_Develop/workbench-server/src",
           disabled,
         }),
-      ),
-      createElement(
-        "label",
-        { className: "confirm" },
-        createElement("input", {
-          type: "checkbox",
-          name: "externalSendConfirmed",
-          value: "yes",
-          required: true,
-          disabled,
-        }),
-        createElement(
-          "span",
-          null,
-          "この依頼と依頼種別に応じた許可済みContextを選択した外部AIへ一回送信する",
-        ),
       ),
       createElement("button", { type: "submit", disabled }, "依頼を開始"),
     ),

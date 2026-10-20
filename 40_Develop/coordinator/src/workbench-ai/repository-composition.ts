@@ -33,6 +33,8 @@ import {
   type WorkbenchAiAdviceTaskPacket,
 } from "./advice-task.ts";
 
+import { readRepositoryNetworkPolicies } from "../external-send/policy.ts";
+import type { DockerNetworkPolicy } from "../../../docker-isolation/src/index.ts";
 const PROJECT_CONTEXT_REFERENCE = "PROJECT_CONTEXT.md";
 
 /**
@@ -47,6 +49,7 @@ const PROJECT_CONTEXT_REFERENCE = "PROJECT_CONTEXT.md";
  * @compatibility Workbench Advice Task Contract revision 1へ適合する。
  */
 export type WorkbenchAiAdviceDispatchInput = Readonly<{
+  networkPolicy: DockerNetworkPolicy;
   taskPacket: WorkbenchAiAdviceTaskPacket;
   catalogRevision: number;
   profile: ResolvedAiProfileIdentity;
@@ -120,8 +123,18 @@ export function createRepositoryReadOnlyAdviceExecutor(
       return blocked("coordinator_ai_profile_not_available_for_advice");
     if (cancellationSignal.aborted)
       return blocked("coordinator_ai_request_cancelled");
+    const network = readRepositoryNetworkPolicies(repositoryRootCapability);
+    if (
+      network.status !== "ready" ||
+      network.policies[profile.provider].policyHash !==
+        request.expectedNetworkPolicyHash
+    )
+      return blocked("coordinator_ai_network_policy_changed");
+    if (cancellationSignal.aborted)
+      return blocked("coordinator_ai_request_cancelled");
     return dispatchReadOnlyAdvice(
       Object.freeze({
+        networkPolicy: network.policies[profile.provider],
         taskPacket: packet,
         catalogRevision: catalogSnapshot.revision,
         profile,

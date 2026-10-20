@@ -16,6 +16,7 @@ import { fileURLToPath } from "node:url";
 import { runInNewContext } from "node:vm";
 import { createHash } from "node:crypto";
 import { verifyWorkspaceOutputBytes } from "../../scripts/workspace-output-verification.ts";
+import { readRepositoryNetworkPolicies } from "../../../coordinator/src/index.ts";
 import path, { join } from "node:path";
 import {
   gitRepositoryRevisionAdapter,
@@ -90,6 +91,11 @@ test("Workspace試験は通信失敗後に同じTaskの取消結果を保存し�
       Error,
       Buffer,
       verifyWorkspaceOutputBytes,
+      verified: { capability: Object.freeze({}) },
+      readRepositoryNetworkPolicies: () => ({
+        status: "ready",
+        policies: { codex: { policyHash: "a".repeat(64) } },
+      }),
       assert,
       path,
       mode: "direct",
@@ -1024,6 +1030,7 @@ test("正式試験mainは公開HTTPで一回だけ依頼し失敗と終了観測
         },
         readFileSync: () => Buffer.from("synthetic context"),
         verifyRepositoryRoot,
+        readRepositoryNetworkPolicies,
         createRepositoryAiProfileCatalogStore: () => ({
           status: "ready",
           store: {

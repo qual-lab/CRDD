@@ -1,5 +1,13 @@
 # Coordinator Runtimeの実行アーキテクチャ
 
+## Repository通信条件の同意・実行への接続（確認中）
+
+検証済みRepositoryから現在の`network-policy.json`を要求ごとに一回読む。Domain Modelが読取り、Docker IsolationがProvider固定Hostとの合成・技術検査・意味Hashを所有する。同じ不変設定を既存PolicyRecord、同意境界、Grant、Task Packet、実行計画へ搬送し、後段で設定を再読しない。既存の外部送信方針Hashを通信設定Hashへ転用せず、生File HashやHost Pathを通信先確認へ混ぜない。
+
+CLIの既存送信確認にProvider別の実効Host・443 CONNECT・通信Hashを表示する。旧同意は新境界Hashと一致しないため再利用しない。Workbenchは画面に表示したProviderの期待Hashを渡し、開始時の設定と不一致ならAI／Docker要求前に拒否する。既存の操作準備・状態受付とProvider／Docker Effectを区別し、File読取りや既存準備までEffect 0とは表示しない。
+
+助言は既存の一回配送GrantとCommand Hashへ、編集・レビューは送信GrantとTask Packet Hashへ通信条件を結合する。ログインはRepository設定を読まずProvider固定通信だけを維持する。元create設定を回収時の構成照合にも使い、一次失敗と回収不明を保持する。追加の承認Store・Registry・Lock・Recoveryは作らない。Source接続・合成回帰と新Imageの実通信確認は別の完了条件とし、現在は後者未実施である。
+
 Host操作領域のDirectory・File・descriptor識別は、WindowsのNode BigInt statが返す`-2^63 ≤ ino < 0`だけを同じ64bit列の符号なし値へ揃えてから比較・保存する。ゼロ・型不正・範囲外・POSIX負値・型・link・dev・birthtimeの既存拒否と、元操作の作成・再検証・回収条件は維持する。保存済み正値・履歴・回復参照は読み替えず、補正のための新状態・回復経路を追加しない。
 
 [Workspace再編の目標責務](../orchestrator/03_Workspace.md#3-packageの責務と依存方向)により、本領域は単発AIの調整・取消・通知・結果返却へ縮小する。通常実行はOrchestrator経由とし、業務永続状態・Workspace／Candidate寿命・採用・Promotionを所有しない。以下の現行state・Bundle Store・workbench-ai・Host相関は移行元であり、対応能力の接続前に撤去しない。DI完成を新Workspace借用の検証済み根拠にしない。具体切替・API・Schemaは未完了。
@@ -618,9 +626,9 @@ Qualityでは公式配布一致、公開設定、標準入力とDocker隔離、�
 
 Docker準備候補の取消・期限確認・一回消費は`src/provider/preparation-lifecycle.ts`へまとめる。呼出し側が所有する計画・管理対応の二WeakMapをそのまま利用し、Provider別のStoreを合成・コピーしない。共通処理は管理Capabilityの参照一致、壁時計と単調時計の両方が30秒未満である条件、Authority失効とHome Lease解放の既存順序を維持する。Mount解放が未確認なら候補参照を保持し、所定の解放確認後にだけ除去する。消費後の具体Provider計画型と、Provider別の拒否理由・公開結果は維持する。CLI・Model解釈はAI Adapter、計画相関・実行Authorityと現在状態はCoordinator、Docker技術構成と資源LifecycleはDocker Isolationの責務であり、新しい保存状態・回復方式を作らない。
 
-固定Dockerコマンドとbind Mount文字列は`40_Develop/docker-isolation/src/execution/command-plan.ts`へ単一化する。認証確認、内部／外向きNetwork、Proxy、Provider作成、起動の九コマンドとその順序、non-root・read-only・cap-drop・no-new-privileges、Reviewer Workspaceのreadonlyは同じ実体で保持する。Provider固有CLI・認証環境・init要求・Seccompの適用要否と期待Identityを記述として渡し、共通組立てでModelやAuthorityを再判断しない。組立てはDocker要求を発行せず、Prompt本文もargvへ入れない。実要求と終了後観測は既存Docker実行Ownerが保持する。
+固定Dockerコマンドとbind Mount文字列は`40_Develop/docker-isolation/src/execution/plan.ts`へ単一化する。認証確認、内部／外向きNetwork、Proxy、Provider作成、起動の九コマンドとその順序、non-root・read-only・cap-drop・no-new-privileges、Reviewer Workspaceのreadonlyは同じ実体で保持する。Provider固有CLI・認証環境・init要求・Seccompの適用要否と期待Identityを記述として渡し、共通組立てでModelやAuthorityを再判断しない。組立てはDocker要求を発行せず、Prompt本文もargvへ入れない。実要求と終了後観測は既存Docker実行Ownerが保持する。
 
-資源名とProxy用乱数の値検査は`40_Develop/docker-isolation/src/execution/command-plan.ts`へまとめる。呼出し側所有の乱数関数を使い、Buffer型と所定byte数を維持する。認証・Proxy・二Networkは同じsuffixへ、Provider Containerは固定Provider名とHome Identity Hash先頭16桁へ結合する。既存の64桁小文字hexと63文字上限を維持し、資源名やlabelだけを所有・不存在・削除Authorityの証明へ昇格しない。
+資源名とProxy用乱数の値検査は`40_Develop/docker-isolation/src/execution/plan.ts`へまとめる。呼出し側所有の乱数関数を使い、Buffer型と所定byte数を維持する。認証・Proxy・二Networkは同じsuffixへ、Provider Containerは固定Provider名とHome Identity Hash先頭16桁へ結合する。既存の64桁小文字hexと63文字上限を維持し、資源名やlabelだけを所有・不存在・削除Authorityの証明へ昇格しない。
 
 準備候補の受理から保存までは`src/provider/preparation.ts`へまとめる。入力modeと回復参照、Mount有効化、Model・Task・助言Packetの一回消費、Home取得、二時計、計画、Authority照合、既存二WeakMapへの保存を同じ順序で接続する。Provider別の計画と公開結果、Claudeの作業量確認は二つの固定呼出し側から渡し、外部入力で接続先を選ばない。失敗時の失効・Mount解放と例外搬送を維持し、新しい保存状態、汎用実行FrameworkまたはDocker要求を追加しない。局所検証用Factoryも同じFileでprobe・Task・助言の引数搬送、取消と一回消費を所有し、Provider別状態に結合した固定操作だけを受け取る。本番Authorityは持たず、準備・取消の例外を固定理由へ、消費例外をnullへ搬送する既存契約を保持する。
 

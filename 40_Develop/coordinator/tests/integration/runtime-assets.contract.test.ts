@@ -20,6 +20,10 @@ import { describeDockerProviderAssets } from "../../../docker-isolation/src/inde
 import { describeDockerProviderExecutionLocations } from "../../../docker-isolation/src/index.ts";
 import { planProviderExecution } from "../../../ai-adapter/src/index.ts";
 
+import buildInputs from "../../../docker-isolation/images/build-inputs.json" with {
+  type: "json",
+};
+
 /**
  * CLI位置の注入と固定資産の対応を外部実行なしで反証する。
  * @responsibility 既定CLI名を固定バイナリ依存とせず、Docker構成時の実行位置を一貫させる。
@@ -82,6 +86,37 @@ test("CLI計画は配置を外から受け、Docker固定資産とは上位で�
     const assets = describeDockerProviderAssets(provider);
     assert.equal(Object.isFrozen(assets), true);
     assert.equal(Object.isFrozen(assets.identity), true);
+    assert.deepEqual(
+      Object.keys(assets).sort(),
+      provider === "codex"
+        ? [
+            "adviceIdentity",
+            "autoUpdateAllowed",
+            "fixedDigestImageRequired",
+            "fixedImageDigest",
+            "identity",
+            "proxy",
+            "runtimePullAllowed",
+          ]
+        : [
+            "autoUpdateAllowed",
+            "fixedDigestImageRequired",
+            "fixedImageDigest",
+            "identity",
+            "proxy",
+            "runtimePullAllowed",
+          ],
+    );
+    assert.equal(assets.runtimePullAllowed, false);
+    assert.equal(assets.autoUpdateAllowed, false);
+    assert.equal(Object.isFrozen(assets.proxy), true);
+    assert.equal(assets.proxy.runtimePullAllowed, false);
+    assert.equal(assets.proxy.autoUpdateAllowed, false);
+    assert.equal(assets.proxy, describeDockerProviderAssets("codex").proxy);
+    assert.equal("binarySha256" in assets.identity, false);
+    assert.equal("archiveSha256" in assets.identity, false);
+    assert.equal("sigstoreBundleSha256" in assets.identity, false);
+    assert.equal("fixedImageDigest" in assets.identity, false);
     assert.equal("manifestSignatureVerified" in assets, false);
     for (const purpose of ["probe", "task", "advice"] as const) {
       const locations = describeDockerProviderExecutionLocations(
@@ -104,11 +139,11 @@ test("CLI計画は配置を外から受け、Docker固定資産とは上位で�
 });
 
 const PROVIDER_ASSET_PATHS: Readonly<Record<string, string>> = Object.freeze({
-  "claude-managed-settings.json": "config/claude-managed-settings.json",
-  "claude-task-settings.json": "config/claude-task-settings.json",
-  "codex-result-schema.json": "schemas/codex-result.json",
-  "codex-executor-result-schema.json": "schemas/codex-executor-result.json",
-  "codex-reviewer-result-schema.json": "schemas/codex-reviewer-result.json",
+  "claude-managed-settings.json": "src/claude/claude-managed-settings.json",
+  "claude-task-settings.json": "src/claude/claude-task-settings.json",
+  "codex-result-schema.json": "src/codex/codex-result.json",
+  "codex-executor-result-schema.json": "src/codex/codex-executor-result.json",
+  "codex-reviewer-result-schema.json": "src/codex/codex-reviewer-result.json",
 });
 
 /**
@@ -182,7 +217,7 @@ test("Dockerビルド入力は隔離レシピとProvider設定を明示的に組
     ],
   };
   for (const [recipe, inputs] of Object.entries(expected)) {
-    const text = source(`40_Develop/docker-isolation/runtime/${recipe}`);
+    const text = source(`40_Develop/docker-isolation/images/${recipe}`);
     const copies = Array.from(
       text.matchAll(/^COPY --chown=(\S+) --chmod=(\S+) (\S+) (\S+)\r?$/gmu),
       (match) => match.slice(1).join(" "),
@@ -213,7 +248,7 @@ test("Dockerビルド入力は隔離レシピとProvider設定を明示的に組
   );
   assert.ok(
     preparation.includes(
-      "40_Develop/docker-isolation/runtime/codex-advice-provider.Dockerfile",
+      "40_Develop/docker-isolation/images/codex-advice-provider.Dockerfile",
     ),
   );
   assert.ok(preparation.includes('name: "codex-code-mode-host"'));
@@ -265,8 +300,14 @@ function assertProviderRecipe(
  * @boundary ERB-IT-004=Integration: AI公開契約→実移管資産。
  */
 test("隔離レシピはDocker Isolationの実行物とAI設定へ結合する", () => {
-  const codex = describeDockerProviderAssets("codex").identity;
-  const advice = describeDockerProviderAssets("codex").adviceIdentity;
+  const codex = {
+    ...buildInputs.codex.identity,
+    ...describeDockerProviderAssets("codex").identity,
+  };
+  const advice = {
+    ...buildInputs.codex.adviceIdentity,
+    ...describeDockerProviderAssets("codex").adviceIdentity,
+  };
   const claude = describeDockerProviderAssets("claude");
   const declarations = [
     {
@@ -282,7 +323,7 @@ test("隔離レシピはDocker Isolationの実行物とAI設定へ結合する",
       extra: [advice.hostExecutablePath, advice.bwrapBinaryPath],
     },
     {
-      recipe: "40_Develop/docker-isolation/runtime/claude-provider.Dockerfile",
+      recipe: "40_Develop/docker-isolation/images/claude-provider.Dockerfile",
       name: "claude-provider.Dockerfile",
       identity: claude.identity,
       extra: [],
@@ -291,7 +332,7 @@ test("隔離レシピはDocker Isolationの実行物とAI設定へ結合する",
   for (const declaration of declarations) {
     assert.equal(
       declaration.recipe,
-      `40_Develop/docker-isolation/runtime/${declaration.name}`,
+      `40_Develop/docker-isolation/images/${declaration.name}`,
     );
     const recipe = source(declaration.recipe);
     const identity = declaration.identity;
@@ -329,8 +370,8 @@ test("隔離レシピはDocker Isolationの実行物とAI設定へ結合する",
     claude.identity.executablePath,
   );
   for (const [name, expected] of [
-    ["claude-managed-settings.json", claude.managedSettingsSha256],
-    ["claude-task-settings.json", claude.taskSettingsSha256],
+    ["claude-managed-settings.json", buildInputs.claude.managedSettingsSha256],
+    ["claude-task-settings.json", buildInputs.claude.taskSettingsSha256],
     ["codex-executor-result-schema.json", codex.executorSchemaSha256],
     ["codex-reviewer-result-schema.json", codex.reviewerSchemaSha256],
   ] as const) {
@@ -374,7 +415,7 @@ test("助言Imageの実準備本体は公式入力二件と移管レシピだけ
     root,
     "40_Develop",
     "docker-isolation",
-    "runtime",
+    "images",
     "codex-advice-provider.Dockerfile",
   );
   const recipe = fs.readFileSync(recipePath);
@@ -385,6 +426,7 @@ test("助言Imageの実準備本体は公式入力二件と移管レシピだけ
   const run = runInNewContext(
     `${stripTypeScriptTypes(body)}; prepareCodexAdviceImage`,
     {
+      buildInputs,
       path,
       fileURLToPath,
       Buffer,

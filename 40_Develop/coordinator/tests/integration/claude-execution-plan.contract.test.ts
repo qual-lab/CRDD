@@ -21,6 +21,10 @@ import {
 import { describeDockerProviderExecutionLocations } from "../../../docker-isolation/src/index.ts";
 import { describeDockerProviderAssets } from "../../../docker-isolation/src/index.ts";
 
+import buildInputs from "../../../docker-isolation/images/build-inputs.json" with {
+  type: "json",
+};
+
 /**
  * Claude配布候補は固定絶対pathと同じexact artifact Identityへ結合するを検証する。
  *
@@ -296,13 +300,13 @@ test("読取専用probe候補はCLI引数と環境置換要求だけを投影す
 test("Managed Settingsの固定byte列を検証済みimage identityへ結合する", () => {
   const settings = readFileSync(
     new URL(
-      "../../../ai-adapter/config/claude-managed-settings.json",
+      "../../../ai-adapter/src/claude/claude-managed-settings.json",
       import.meta.url,
     ),
   );
   assert.equal(
     createHash("sha256").update(settings).digest("hex"),
-    describeDockerProviderAssets("claude").managedSettingsSha256,
+    buildInputs.claude.managedSettingsSha256,
   );
   assert.deepEqual(JSON.parse(settings.toString("utf8")), {
     autoUpdates: false,
@@ -457,7 +461,7 @@ test("Claude Task SettingsはProvider Homeと外部Toolをdenyする", () => {
   const settings = JSON.parse(
     readFileSync(
       new URL(
-        "../../../ai-adapter/config/claude-task-settings.json",
+        "../../../ai-adapter/src/claude/claude-task-settings.json",
         import.meta.url,
       ),
       "utf8",

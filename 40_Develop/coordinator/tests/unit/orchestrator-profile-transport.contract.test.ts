@@ -69,6 +69,21 @@ test("Objective Profileは全八組合せで既存Task契約へexactに搬送す
         frontProvider,
       );
       const inspected = snapshotCoordinatorTaskRequest(task);
+      const networkHash = "c".repeat(64);
+      const withNetwork = snapshotCoordinatorTaskRequest({
+        ...task,
+        expectedNetworkPolicyHash: networkHash,
+      });
+      assert.equal(withNetwork?.status, "accepted");
+      if (withNetwork?.status !== "accepted") assert.fail("network_rejected");
+      assert.equal(withNetwork.request.expectedNetworkPolicyHash, networkHash);
+      assert.equal(
+        snapshotCoordinatorTaskRequest({
+          ...task,
+          expectedNetworkPolicyHash: "invalid",
+        }),
+        null,
+      );
       assert.equal(inspected?.status, "accepted");
       assert.ok(inspected?.status === "accepted");
       const snapshot = inspected.request;

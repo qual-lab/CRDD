@@ -9,6 +9,7 @@
  * @boundary RCM-IT-005=Direct Boundary: Repository Catalog Store→Workbench AI Application→Advice Dispatch
  */
 import assert from "node:assert/strict";
+import { fixtureNetworkPolicy } from "../fixtures/network-policy.ts";
 import { execFileSync } from "node:child_process";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -23,6 +24,7 @@ import { createRepositoryReadOnlyAdviceExecutor } from "../../src/workbench-ai/r
 import { createWorkbenchAiAdviceDispatchRuntime } from "../../src/workbench-ai/advice-dispatch.ts";
 import type { WorkbenchAiAdviceExecutionPlan } from "../../src/workbench-ai/advice-execution-plan.ts";
 import { createWorkbenchAiProviderAdapter } from "../../src/workbench-ai/provider-adapter.ts";
+import { readRepositoryNetworkPolicies } from "../../src/index.ts";
 
 const canonicalRepositoryRoot = path.resolve(
   import.meta.dirname,
@@ -111,6 +113,7 @@ test("空のRepository Catalogをrevision 0から助言Dispatchと初回採用�
         prompt: "現在状態を確認する",
         contextReferences: Object.freeze(["PROJECT_CONTEXT.md"]),
         allowedPaths: Object.freeze([]),
+        expectedNetworkPolicyHash: fixtureNetworkPolicy("codex").policyHash,
         externalSendConfirmed: true,
       },
       new AbortController().signal,
@@ -127,6 +130,85 @@ test("空のRepository Catalogをrevision 0から助言Dispatchと初回採用�
         (profile) => profile.profileId === "PROFILE-100001",
       )?.exactModelId,
     );
+
+    const confirmedRequest = {
+      mode: "read_only_advice" as const,
+      profileId: "PROFILE-100001",
+      prompt: "現在状態を確認する",
+      contextReferences: ["PROJECT_CONTEXT.md"],
+      allowedPaths: [],
+      externalSendConfirmed: true,
+      expectedNetworkPolicyHash: fixtureNetworkPolicy("codex").policyHash,
+    };
+    for (const hash of [
+      "",
+      "wrong",
+      fixtureNetworkPolicy("claude").policyHash,
+    ]) {
+      const refused = await application(
+        { ...confirmedRequest, expectedNetworkPolicyHash: hash },
+        new AbortController().signal,
+      );
+      assert.equal(refused.reason, "coordinator_ai_network_policy_changed");
+      assert.equal(observedPlans.length, 1);
+    }
+    const networkFile = path.join(
+      fixture,
+      ".crdd",
+      "config",
+      "network-policy.json",
+    );
+    await mkdir(path.dirname(networkFile), { recursive: true });
+    await writeFile(
+      networkFile,
+      JSON.stringify({ version: 1, allowedHosts: ["pypi.org"] }),
+    );
+    assert.equal(
+      (await application(confirmedRequest, new AbortController().signal))
+        .reason,
+      "coordinator_ai_network_policy_changed",
+    );
+    assert.equal(observedPlans.length, 1);
+    const next = readRepositoryNetworkPolicies(verified.capability);
+    if (next.status !== "ready") assert.fail();
+    assert.equal(
+      (
+        await application(
+          {
+            ...confirmedRequest,
+            expectedNetworkPolicyHash: next.policies.codex.policyHash,
+          },
+          new AbortController().signal,
+        )
+      ).status,
+      "completed",
+    );
+    assert.equal(observedPlans.length, 2);
+    assert.ok(
+      observedPlan.providerCommand.networkPolicy?.allowedHosts.includes(
+        "registry.npmjs.org",
+      ),
+    );
+    assert.equal(
+      observedPlans[1]?.providerCommand.networkPolicy?.allowedHosts.includes(
+        "registry.npmjs.org",
+      ),
+      false,
+    );
+    await writeFile(networkFile, "invalid");
+    assert.equal(
+      (
+        await application(
+          {
+            ...confirmedRequest,
+            expectedNetworkPolicyHash: next.policies.codex.policyHash,
+          },
+          new AbortController().signal,
+        )
+      ).reason,
+      "coordinator_ai_network_policy_changed",
+    );
+    assert.equal(observedPlans.length, 2);
 
     const adopted = adapter.store.adopt({
       expectedRevision: 0,
@@ -217,6 +299,7 @@ test("不連続なRepository Catalogをrevision 0へ補正せずEffect前に拒�
         prompt: "現在状態を確認する",
         contextReferences: Object.freeze(["PROJECT_CONTEXT.md"]),
         allowedPaths: Object.freeze([]),
+        expectedNetworkPolicyHash: fixtureNetworkPolicy("codex").policyHash,
         externalSendConfirmed: true,
       },
       new AbortController().signal,
@@ -304,6 +387,7 @@ test("連続Revisionの破損Repository Catalogをrevision 0へ補正せずEffec
         prompt: "現在状態を確認する",
         contextReferences: Object.freeze(["PROJECT_CONTEXT.md"]),
         allowedPaths: Object.freeze([]),
+        expectedNetworkPolicyHash: fixtureNetworkPolicy("codex").policyHash,
         externalSendConfirmed: true,
       },
       new AbortController().signal,

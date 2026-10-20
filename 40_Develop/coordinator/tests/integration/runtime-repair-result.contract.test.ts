@@ -15,7 +15,7 @@ import { stripTypeScriptTypes } from "node:module";
 import { runInThisContext } from "node:vm";
 import test from "node:test";
 import type { repairRuntimeOwnedDockerRuntime } from "../../src/diagnostics/runtime-repair.ts";
-import { runDockerRuntimeRepairSessionUsing } from "../../../docker-isolation/src/desktop/repair-runtime.ts";
+import { runDockerRuntimeRepairSessionUsing } from "../../../docker-isolation/src/docker-desktop/repair-session.ts";
 import {
   dockerRuntimeRepairCheckpointIsSettled,
   dockerRuntimeRepairDisposalIsSettled,

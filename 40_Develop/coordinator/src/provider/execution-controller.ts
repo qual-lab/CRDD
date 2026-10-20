@@ -219,6 +219,9 @@ type Command = Readonly<{ purpose: string; argv: readonly string[] }>;
  * @compatibility PreparedPlanの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
 type PreparedPlan = Readonly<{
+  networkPolicy:
+    | import("../../../docker-isolation/src/index.ts").DockerNetworkPolicy
+    | null;
   provider: "codex" | "claude";
   operationId: string;
   consumer: "coordinator_cli" | "workbench" | "orchestrator";
@@ -409,6 +412,7 @@ type ProviderBoundaryDiagnosticNotice =
         | "not_applicable"
         | "other";
       workspaceMountModeConfigured: "read_write" | "read_only" | null;
+      networkPolicyHash: string | null;
       rootFilesystemReadOnlyConfigured: boolean;
       nonRootUserConfigured: boolean;
       workdirConfigured: boolean;
@@ -726,6 +730,7 @@ function providerBoundaryConfiguration(
     approvalModeConfigured: codex?.approvalModeConfigured ?? "not_applicable",
     sandboxModeConfigured: codex?.sandboxModeConfigured ?? "not_applicable",
     workspaceMountModeConfigured: plan.workspaceMountMode,
+    networkPolicyHash: plan.networkPolicy?.policyHash ?? null,
     rootFilesystemReadOnlyConfigured:
       docker?.rootFilesystemReadOnlyConfigured ?? false,
     nonRootUserConfigured: docker?.nonRootUserConfigured ?? false,

@@ -16,6 +16,10 @@ import { codexAdviceProviderInitRequired } from "../../../docker-isolation/src/i
 import { describeDockerProviderExecutionLocations } from "../../../docker-isolation/src/index.ts";
 import { describeDockerProviderAssets } from "../../../docker-isolation/src/index.ts";
 
+import buildInputs from "../../../docker-isolation/images/build-inputs.json" with {
+  type: "json",
+};
+
 /**
  * Codex助言をToolなし・Repository非共有の標準入力計画へ固定するを検証する。
  *
@@ -46,7 +50,10 @@ test("Codex助言をToolなし・Repository非共有の標準入力計画へ固�
 
   assert.equal(plan.provider, "codex");
   assert.equal(plan.exactModelId, "gpt-6.1-sol");
-  const distribution = describeDockerProviderAssets("codex").adviceIdentity;
+  const distribution = {
+    ...buildInputs.codex.adviceIdentity,
+    ...describeDockerProviderAssets("codex").adviceIdentity,
+  };
   assert.equal(distribution.officialCliUnmodified, true);
   assert.equal(
     distribution.binarySha256,
@@ -55,9 +62,15 @@ test("Codex助言をToolなし・Repository非共有の標準入力計画へ固�
   assert.equal("startupPatchSha256" in distribution, false);
   const normal = describeDockerProviderAssets("codex").identity;
   assert.equal(plan.command, distribution.executablePath);
-  assert.equal(distribution.fixedImageDigest, distribution.fixedImageDigest);
+  assert.equal(
+    "binarySha256" in describeDockerProviderAssets("codex").adviceIdentity,
+    false,
+  );
   assert.notEqual(plan.command, normal.executablePath);
-  assert.notEqual(distribution.fixedImageDigest, normal.fixedImageDigest);
+  assert.notEqual(
+    distribution.fixedImageDigest,
+    describeDockerProviderAssets("codex").fixedImageDigest,
+  );
   assert.equal(
     codexAdviceProviderInitRequired(
       "workbench_advice",
@@ -79,7 +92,7 @@ test("Codex助言をToolなし・Repository非共有の標準入力計画へ固�
     true,
   );
   for (const image of [
-    normal.fixedImageDigest,
+    describeDockerProviderAssets("codex").fixedImageDigest,
     null,
     `sha256:${"0".repeat(64)}`,
   ]) {

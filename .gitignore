@@ -4,7 +4,7 @@
 /.env
 /.env-crdd
 
-# These files are repository configuration bound to the reviewed Git revision.
+# Explicit non-secret repository configuration; each owner defines revision or working-file semantics.
 !/.crdd/config/
 /.crdd/config/*
 !/.crdd/config/repository-manifest.json
@@ -14,6 +14,9 @@
 !/.crdd/config/coordinator.json
 !/.crdd/config/mcp-server.json
 !/.crdd/config/workbench-server.json
+!/.crdd/config/network-policy.json
+
+# Network policy uses the current working file; execution binds its effective snapshot to consent.
 
 # Configuration examples are distribution artifacts, not runtime state.
 !/template/.crdd/

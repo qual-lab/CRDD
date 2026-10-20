@@ -12,6 +12,7 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import fs from "node:fs";
+import { syncBuiltinESMExports } from "node:module";
 import path from "node:path";
 import test from "node:test";
 import { createCredentialMaterial } from "../../../access-management/src/credential/token.ts";
@@ -67,6 +68,10 @@ test("共有Task入口は主体とRepositoryを分離し毎要求の認可を使
         stdio: "pipe",
       });
       fs.mkdirSync(path.join(target, ".crdd", "config"), { recursive: true });
+      fs.writeFileSync(
+        path.join(target, ".crdd", "config", "network-policy.json"),
+        JSON.stringify({ version: 1, allowedHosts: ["registry.npmjs.org"] }),
+      );
       fs.writeFileSync(
         path.join(target, ".crdd", "config", "repository-manifest.json"),
         JSON.stringify({
@@ -186,6 +191,7 @@ test("共有Task入口は主体とRepositoryを分離し毎要求の認可を使
     cancels = 0,
     closed = 0;
   let owners = 0;
+  let revokeDuringObserve = false;
   const saved = new Map<string, WorkbenchAiRequestSnapshot>();
   const configuration: Parameters<typeof startWorkbench>[0] = {
     workingDirectory: repository,
@@ -244,10 +250,19 @@ test("共有Task入口は主体とRepositoryを分離し毎要求の認可を使
           saved.set(`${key}:${requestId}`, snapshot);
           return { status: "accepted", requestId, reason: null };
         },
-        observe: async (id) =>
-          authorize()
+        observe: async (id) => {
+          if (revokeDuringObserve) {
+            revokeDuringObserve = false;
+            state.revision++;
+            const credential = state.credentials[0];
+            assert.ok(credential);
+            credential.revoked = true;
+            fs.writeFileSync(current, JSON.stringify(state));
+          }
+          return authorize()
             ? (saved.get(`${key}:${id}`) ?? unavailable(id))
-            : unavailable(id),
+            : unavailable(id);
+        },
         cancel: async (id) => {
           const original = saved.get(`${key}:${id}`);
           if (!authorize() || !original) return unavailable(id);
@@ -333,10 +348,21 @@ test("共有Task入口は主体とRepositoryを分離し毎要求の認可を使
     profileId: "PROFILE-100001",
     prompt: "合成入力",
     externalSendConfirmed: "yes",
+    expectedNetworkPolicyHash: "a".repeat(64),
   };
   try {
     assert.equal(first.view, "main");
     assert.equal(first.aiRequest.configured, true);
+    assert.equal(starts, 0);
+    assert.equal(
+      (
+        await action(0, "repository.a", {
+          ...command,
+          expectedNetworkPolicyHash: "",
+        })
+      ).status,
+      400,
+    );
     assert.equal(starts, 0);
     const started = await action(0, "repository.a", command);
     assert.equal(started.status, 200);
@@ -396,11 +422,29 @@ test("共有Task入口は主体とRepositoryを分離し毎要求の認可を使
     );
     assert.equal(starts, 2, "再入場で新依頼を発行しない");
     assert.equal(cancels, 2);
-    state.revision++;
-    const firstCredential = state.credentials[0];
-    assert.ok(firstCredential);
-    firstCredential.revoked = true;
-    fs.writeFileSync(current, JSON.stringify(state));
+    let networkReads = 0;
+    const originalOpen = fs.openSync;
+    fs.openSync = ((...args: Parameters<typeof fs.openSync>) => {
+      if (String(args[0]).endsWith("network-policy.json")) networkReads++;
+      return originalOpen(...args);
+    }) as typeof fs.openSync;
+    syncBuiltinESMExports();
+    try {
+      await model(0, "repository.a");
+      assert.ok(networkReads > 0, "有効設定を開く正対照");
+      networkReads = 0;
+      revokeDuringObserve = true;
+      const revoked = await fetch(
+        `${handle.baseUrl}/api/workbench-view?repositoryId=repository.a`,
+        { headers: headers(0) },
+      );
+      assert.equal(revoked.status, 403);
+      assert.equal(revokeDuringObserve, false, "先行await内の失効を実行する");
+      assert.equal(networkReads, 0, "失効後は通信設定を開かない");
+    } finally {
+      fs.openSync = originalOpen;
+      syncBuiltinESMExports();
+    }
     assert.equal(
       (
         await fetch(

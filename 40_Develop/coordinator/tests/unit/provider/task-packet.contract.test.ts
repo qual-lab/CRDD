@@ -9,9 +9,11 @@
  * @boundary PRL-UT-014=N/A: Orchestrator Application Portは外部実行境界を持たない。
  */
 import { planProviderExecution } from "../../../../ai-adapter/src/index.ts";
+import { prepareDockerNetworkPolicy } from "../../../../docker-isolation/src/index.ts";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import test from "node:test";
+import { createRepositoryTestDirectory } from "../../support/repository-test-directory.ts";
 import { createSignedGeneralTaskVerificationRequest } from "../../../scripts/verify-signed-general-task.ts";
 
 import {
@@ -28,6 +30,20 @@ import {
 import { compileExternalSendScopeHash } from "../../../src/external-send/grant.ts";
 import { normalizeProviderTaskStructuredResult } from "../../../src/provider/task-structured-result.ts";
 
+const operationFixture = createRepositoryTestDirectory("task-packet-network-");
+/**
+ * 試験終了後に自己生成Rootを回収する。
+ * @responsibility Packet試験の一時Filesystemを残さない。
+ * @trace PRL-UT-014
+ * @precondition 同じ試験Root capabilityを保持している。
+ * @stimulus Suite終了時のafter hook。
+ * @observation 同じ実体のcleanupと不存在。
+ * @oracle 差替えや観測不能を削除成功へ畳まない。
+ * @cleanup 所有Rootだけを正式helperで回収する。
+ * @boundary Repository-localの自己生成試験物。
+ */
+test.after(() => operationFixture.cleanup());
+
 /**
  * operationのTest準備責務を実行する。
  *
@@ -41,7 +57,7 @@ import { normalizeProviderTaskStructuredResult } from "../../../src/provider/tas
  * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
 function operation() {
-  const owned = createOwnedOperationDirectories();
+  const owned = createOwnedOperationDirectories(operationFixture.path);
   const contextCapability = createOwnedOperationContextCapability(owned);
   const mountCapability = createOwnedMountCapability(owned);
   const managementCapability = createOwnedOperationManagementCapability(
@@ -166,6 +182,11 @@ function packetRuntime() {
             taskAttempt,
             scopeHash: compileExternalSendScopeHash(scope) as string,
             externalSendAuthorized: true as const,
+            networkPolicy: (() => {
+              const result = prepareDockerNetworkPolicy(provider, []);
+              if (result.status !== "ready") throw new Error("fixture");
+              return result.policy;
+            })(),
           })
         : null,
   );

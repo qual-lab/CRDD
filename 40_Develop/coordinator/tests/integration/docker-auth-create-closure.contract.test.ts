@@ -17,8 +17,8 @@ import path from "node:path";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
 import { stripTypeScriptTypes } from "node:module";
-import { createDockerRestartMachineForVerification } from "../../../docker-isolation/src/desktop/restart-machine.ts";
-import { classifyDockerEngineResult } from "../../../docker-isolation/src/desktop/engine-state.ts";
+import { createDockerRestartMachineForVerification } from "../../../docker-isolation/src/docker-desktop/restart-state.ts";
+import { classifyDockerEngineResult } from "../../../docker-isolation/src/docker-desktop/engine.ts";
 import { fileURLToPath } from "node:url";
 import type {
   CoordinatorStateSnapshot,
@@ -281,7 +281,7 @@ test("認証create親のspyは実停止判定の固定読取りを透過する",
   assert.ok(branchStart > 0 && branchEnd > branchStart);
   const machineSource = fs.readFileSync(
     new URL(
-      "../../../docker-isolation/src/desktop/restart-machine.ts",
+      "../../../docker-isolation/src/docker-desktop/restart-state.ts",
       import.meta.url,
     ),
     "utf8",
@@ -476,7 +476,7 @@ test("認証create親はEngineと一覧の実読取りを同じ停止境界へ�
   );
   const engineText = fs.readFileSync(
     new URL(
-      "../../../docker-isolation/src/desktop/engine-state.ts",
+      "../../../docker-isolation/src/docker-desktop/engine.ts",
       import.meta.url,
     ),
     "utf8",
@@ -491,7 +491,7 @@ test("認証create親はEngineと一覧の実読取りを同じ停止境界へ�
   ).replace("export function", "function");
   const machineText = fs.readFileSync(
     new URL(
-      "../../../docker-isolation/src/desktop/restart-machine.ts",
+      "../../../docker-isolation/src/docker-desktop/restart-state.ts",
       import.meta.url,
     ),
     "utf8",

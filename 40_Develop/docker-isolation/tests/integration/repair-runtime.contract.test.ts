@@ -14,15 +14,15 @@ import { stripTypeScriptTypes } from "node:module";
 import { runInThisContext } from "node:vm";
 import { getEventListeners } from "node:events";
 import { types } from "node:util";
-import { runDockerRuntimeRepairMachine } from "../../src/desktop/repair-machine.ts";
-import { ownDockerRepairNativeSession as run } from "../../src/desktop/repair-runtime.ts";
-import { runDockerRuntimeRepairSessionUsing as runSession } from "../../src/desktop/repair-runtime.ts";
+import { runDockerRuntimeRepairMachine } from "../../src/docker-desktop/repair.ts";
+import { ownDockerRepairNativeSession as run } from "../../src/docker-desktop/repair-session.ts";
+import { runDockerRuntimeRepairSessionUsing as runSession } from "../../src/docker-desktop/repair-session.ts";
 import {
   validateDockerRuntimeRepairCheckpointTransition as transition,
   decodeDockerRuntimeRepairCheckpoint as decode,
   prepareDockerRuntimeRepairSessionCheckpoint,
   type DockerRuntimeRepairCheckpoint as Checkpoint,
-} from "../../src/desktop/repair-checkpoint.ts";
+} from "../../src/docker-desktop/repair-state.ts";
 import type { DockerDesktopRepairNativeHelperSession as Session } from "../../../platform-access/src/index.ts";
 
 /**
@@ -443,7 +443,7 @@ async function assertPreparationCleanupUnknown(
 test("修復接続: prepare返却時のcleanup不明は準備拒否・取消より先に捕捉する", async () => {
   const source = fs
     .readFileSync(
-      new URL("../../src/desktop/repair-runtime.ts", import.meta.url),
+      new URL("../../src/docker-desktop/repair-session.ts", import.meta.url),
       "utf8",
     )
     .replaceAll("\r\n", "\n");
@@ -746,7 +746,7 @@ test("修復接続: 一処置の搬送と通知一回性を同Oracleで反証す
   for (const mode of ["normal", "reject", "lost"] as const)
     await oracle(runSession, mode);
   const source = fs.readFileSync(
-    new URL("../../src/desktop/repair-runtime.ts", import.meta.url),
+    new URL("../../src/docker-desktop/repair-session.ts", import.meta.url),
     "utf8",
   );
   assert.equal(source.split("prepared.technical,").length, 2);
@@ -1171,7 +1171,7 @@ test("修復生涯: first-wins理由と終了gateを独立Oracleで反証する"
   };
   await oracle(run);
   const source = fs.readFileSync(
-    new URL("../../src/desktop/repair-runtime.ts", import.meta.url),
+    new URL("../../src/docker-desktop/repair-session.ts", import.meta.url),
     "utf8",
   );
   assert.equal(source.split("ended = true;").length, 2);

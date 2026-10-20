@@ -353,7 +353,7 @@ test("Probe観測と回収はfresh構成・実ID・三軸を同じ技術群で�
     assert.deepEqual(calls, []);
   }
   const aggregateSource = fs.readFileSync(
-    new URL("../../src/execution/probe-container.ts", import.meta.url),
+    new URL("../../src/probe/container.ts", import.meta.url),
     "utf8",
   );
   const body = stripTypeScriptTypes(
@@ -567,13 +567,13 @@ test("Probe三mountの実Path照合は差と観測不能を拒否する", (t) =>
   assert.deepEqual(reads, aliasReads);
   const source = stripTypeScriptTypes(
     fs.readFileSync(
-      new URL("../../src/execution/probe-configuration.ts", import.meta.url),
+      new URL("../../src/probe/configuration.ts", import.meta.url),
       "utf8",
     ),
   )
     .replace(/^import fs from "node:fs";\r?\n/m, "")
     .replace(
-      /^import \{ describeDockerProbeResource \} from "\.\/probe-command.ts";\r?\n/m,
+      /^import \{ describeDockerProbeResource \} from "\.\/plan.ts";\r?\n/m,
       "",
     )
     .replaceAll("export function ", "function ");
@@ -637,13 +637,13 @@ test("Probe構成のOS比較と条件省略変異を区別する", (t) => {
   const f = fixture(t);
   const text = stripTypeScriptTypes(
     fs.readFileSync(
-      new URL("../../src/execution/probe-configuration.ts", import.meta.url),
+      new URL("../../src/probe/configuration.ts", import.meta.url),
       "utf8",
     ),
   )
     .replace(/^import fs from "node:fs";\r?\n/m, "")
     .replace(
-      /^import \{ describeDockerProbeResource \} from "\.\/probe-command.ts";\r?\n/m,
+      /^import \{ describeDockerProbeResource \} from "\.\/plan.ts";\r?\n/m,
       "",
     )
     .replaceAll("export function ", "function ");

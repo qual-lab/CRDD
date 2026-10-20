@@ -8,6 +8,7 @@
  * @security 既存の認可・取消・情報境界を維持し、新しい保存状態や自動再送を追加しない。
  */
 import type { ServerResponse } from "node:http";
+import { readRepositoryNetworkPolicies } from "../../../../coordinator/src/index.ts";
 import type { AiProfileCatalogAdministration } from "../../../../ai-adapter/src/index.ts";
 import type { WorkbenchAiRequests } from "../ai-request/types.ts";
 import type { CredentialAdministration } from "../credential/administration.ts";
@@ -232,7 +233,7 @@ export async function handleRepositoryView({
         });
       }
     }
-    const clientModel = createWorkbenchMainViewModel(
+    const baseModel = createWorkbenchMainViewModel(
       presentation.projectSurface,
       portfolio,
       actionToken,
@@ -264,6 +265,17 @@ export async function handleRepositoryView({
       worktreeView,
       selectedRepositoryId,
     );
+    const network =
+      aiRequests === undefined
+        ? null
+        : readRepositoryNetworkPolicies(capability);
+    const clientModel = {
+      ...baseModel,
+      aiRequest: {
+        ...baseModel.aiRequest,
+        networkPolicies: network?.status === "ready" ? network.policies : null,
+      },
+    };
     let responseModel: WorkbenchClientModel = clientModel;
     const clientRoute = requestUrl.searchParams.get("route") ?? "/";
     if (clientRoute === "/project") {

@@ -9,6 +9,7 @@
  * @boundary 検証済みProvider入力と純粋な実行計画生成の局所境界。
  */
 import assert from "node:assert/strict";
+import { fixtureNetworkPolicy } from "../../fixtures/network-policy.ts";
 import test from "node:test";
 
 import {
@@ -47,6 +48,7 @@ function executionInput(
   catalogRevision = 1,
 ): WorkbenchAiProviderExecutionInput {
   return Object.freeze({
+    networkPolicy: fixtureNetworkPolicy(profile.provider),
     catalogRevision,
     provider: profile.provider,
     providerPrompt: "固定投影だけを根拠に現在状態を説明する",

@@ -2570,6 +2570,16 @@ async function runCoordinatorTaskCore(
         ? [slateExecutorProvider]
         : [slateExecutorProvider, slateReviewerProvider],
     );
+    const networkPolicyHashes = snapshotPlainRecord(
+      externalSendPolicy.networkPolicyHashes,
+      new Set(["codex", "claude"]),
+    );
+    if (
+      request.expectedNetworkPolicyHash !== null &&
+      networkPolicyHashes?.[slateExecutorProvider] !==
+        request.expectedNetworkPolicyHash
+    )
+      return blocked("coordinator_task_network_policy_changed");
     const externalSendGrant = await state.dependencies.authorizeExternalSend(
       operation.managementCapability,
       repositoryBinding,

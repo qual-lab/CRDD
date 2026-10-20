@@ -9,6 +9,9 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
+import { spawnSync } from "node:child_process";
+import fs from "node:fs";
+import path from "node:path";
 import {
   onlineManager,
   QueryClient,
@@ -21,6 +24,91 @@ import {
 } from "../../src/client/api/queries.ts";
 import { requestWorkbenchMutation } from "../../src/client/api/mutations.ts";
 import { clearWorkbenchCredential } from "../../src/client/api/connection.ts";
+
+/**
+ * 通信条件の変化で確認DOMだけを再生成する構成を確認する。
+ * @responsibility React要素のidentityと現在Hashを相関させる。
+ * @trace ERB-IT-021
+ * @precondition 実React createElementと局所useState代役。Browser DOM自体は別確認。
+ * @stimulus Provider変更、同ProviderでHash変更、元条件の再描画。
+ * @observation checkboxのkey、hidden Hash、同じProfile部品のkey。
+ * @oracle 条件が変わる場合だけcheckbox identityが変わり、親Form全体は変えない。
+ * @cleanup 同期子Process終了でModule代役を破棄。File・Network作成なし。
+ * @boundary 実Componentの要素構築。Browserの操作成立へ拡張しない。
+ */
+test("通信確認はProviderと実効Hashへ結合し依頼入力を再生成しない", () => {
+  const component = path.resolve(
+    import.meta.dirname,
+    "../../src/client/components/ai-request-panel.tsx",
+  );
+  const script = `
+    import assert from 'node:assert/strict';
+    import fs from 'node:fs';
+    import {stripTypeScriptTypes} from 'node:module';
+    import vm from 'node:vm';
+    import {createElement} from 'react';
+    let selected='p1';
+    const source=stripTypeScriptTypes(fs.readFileSync(${JSON.stringify(component)},'utf8'),{mode:'transform'});
+    const module=new vm.SourceTextModule(source);
+    await module.link(specifier=>{
+      const values=specifier==='react'?{createElement,useState:()=>[selected,()=>{}]}:{ActionTokenInput:()=>null,EmptyState:()=>null,WorkbenchPanel:()=>null};
+      return new vm.SyntheticModule(Object.keys(values),function(){for(const [key,value]of Object.entries(values))this.setExport(key,value);});
+    });
+    await module.evaluate();
+    const profiles={catalog:{profiles:[{profileId:'p1',adapterId:'a1'},{profileId:'p2',adapterId:'a2'}],adapters:[{adapterId:'a1',provider:'codex'},{adapterId:'a2',provider:'claude'}]}};
+    const policies={codex:{provider:'codex',policyHash:'a'.repeat(64),allowedHosts:['chatgpt.com']},claude:{provider:'claude',policyHash:'b'.repeat(64),allowedHosts:['claude.ai']}};
+    /**
+     * React要素木から対象を探す。
+     * @responsibility 固定試験の要素Propertyを再帰観測する。
+     * @trace ERB-IT-021
+     * @precondition 局所React要素だけを受け取る。
+     * @stimulus 固定predicateで深さ優先検索する。
+     * @observation 最初の一致要素またはnull。
+     * @oracle 無関係な要素の値を補完しない。
+     * @cleanup N/A: 局所値のみ。
+     * @boundary VM内の要素構成。実DOMではない。
+     */
+    function find(element,predicate){if(!element||typeof element!=='object')return null;if(predicate(element))return element;for(const child of [element.props?.children].flat(Infinity)){const found=find(child,predicate);if(found)return found;}return null;}
+    const tree=module.namespace.renderWorkbenchAiRequest('token',profiles,true,null,null,policies);
+    const profile=find(tree,e=>typeof e.type==='function'&&e.type.name==='AiRequestProfile');
+    assert.ok(profile);assert.equal(profile.key,null);
+    /**
+     * 現在Profileの確認identityとHashを読む。
+     * @responsibility 実Componentを通して同じ描画の二値を観測する。
+     * @trace ERB-IT-021
+     * @precondition Profile部品を一つ特定済み。
+     * @stimulus 固定propsと局所選択値で部品を構築する。
+     * @observation checkbox keyとhidden Hash。
+     * @oracle 別描画の値を混在させない。
+     * @cleanup N/A: 局所値のみ。
+     * @boundary VM内の実Component、実DOMではない。
+     */
+    function observe(){const value=profile.type(profile.props);return {key:find(value,e=>e.props?.className==='confirm').key,hash:find(value,e=>e.props?.name==='expectedNetworkPolicyHash').props.value};}
+    const first=observe();assert.equal(first.hash,policies.codex.policyHash);
+    selected='p2';const second=observe();assert.notEqual(second.key,first.key);assert.equal(second.hash,policies.claude.policyHash);
+    policies.claude={...policies.claude,policyHash:'c'.repeat(64)};const third=observe();assert.notEqual(third.key,second.key);assert.equal(third.hash,policies.claude.policyHash);assert.deepEqual(observe(),third);
+  `;
+  const result = spawnSync(
+    process.execPath,
+    ["--experimental-vm-modules", "--input-type=module", "-e", script],
+    {
+      cwd: path.resolve(import.meta.dirname, "../.."),
+      encoding: "utf8",
+      windowsHide: true,
+      timeout: 15000,
+    },
+  );
+  assert.equal(result.error, undefined);
+  assert.equal(result.status, 0, result.stderr);
+  const overview = fs.readFileSync(
+    path.resolve(import.meta.dirname, "../../src/client/pages/overview.tsx"),
+    "utf8",
+  );
+  assert.match(
+    overview,
+    /key=\{`ai-request:\$\{model.selectedRepositoryId\}:\$\{model.actionToken\}`\}/u,
+  );
+});
 
 /**
  * 同一用途でも毎回読取り、失敗・offlineから自動再送しない。

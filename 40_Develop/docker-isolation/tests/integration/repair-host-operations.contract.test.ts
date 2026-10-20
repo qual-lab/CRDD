@@ -23,7 +23,7 @@ import {
   retainDockerDesktopRepairRunDirectory,
   retainDockerDesktopRepairContinuationDirectory,
   createDockerDesktopRepairDirectoryAccess,
-} from "../../src/desktop/runtime-directory.ts";
+} from "../../src/docker-desktop/directory.ts";
 
 const operationId = "a".repeat(32);
 const localAppData = "C:\\Users\\fixture\\AppData\\Local";
@@ -296,7 +296,7 @@ test("修復Directoryアクセスは同じScope対象だけを観測・退避す
     assert.equal(moves, before + 1);
   }
   const moduleSource = fs.readFileSync(
-    new URL("../../src/desktop/runtime-directory.ts", import.meta.url),
+    new URL("../../src/docker-desktop/directory.ts", import.meta.url),
     "utf8",
   );
   const returned =
@@ -398,7 +398,7 @@ function assertLocalRealpathRequests(
 test("修復Scopeは安定Localだけへ結合し固定targetsを共有する", () => {
   const source = stripTypeScriptTypes(
     fs.readFileSync(
-      new URL("../../src/desktop/runtime-directory.ts", import.meta.url),
+      new URL("../../src/docker-desktop/directory.ts", import.meta.url),
       "utf8",
     ),
   )
@@ -676,7 +676,7 @@ test("修復Scopeは安定Localだけへ結合し固定targetsを共有する", 
  */
 test("backend修復停止は固定環境・argv・上限と発行分類を保つ", () => {
   const source = fs.readFileSync(
-    new URL("../../src/desktop/backend-state.ts", import.meta.url),
+    new URL("../../src/docker-desktop/backend.ts", import.meta.url),
     "utf8",
   );
   const start = source.indexOf(
@@ -769,7 +769,7 @@ test("backend修復停止は固定環境・argv・上限と発行分類を保つ
  */
 test("固定三用途の退避は入力・同一実体・事後不存在を必須とする", () => {
   const source = fs.readFileSync(
-    new URL("../../src/desktop/runtime-directory.ts", import.meta.url),
+    new URL("../../src/docker-desktop/directory.ts", import.meta.url),
     "utf8",
   );
   const body = stripTypeScriptTypes(
@@ -1046,7 +1046,7 @@ test("固定三用途の退避は入力・同一実体・事後不存在を必�
  */
 test("LocalAppData字句条件は既存契約と一致し不正値はFS0", () => {
   const source = fs.readFileSync(
-    new URL("../../src/desktop/runtime-directory.ts", import.meta.url),
+    new URL("../../src/docker-desktop/directory.ts", import.meta.url),
     "utf8",
   );
   const body = stripTypeScriptTypes(

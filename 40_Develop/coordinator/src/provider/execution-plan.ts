@@ -26,7 +26,7 @@ import {
 } from "../../../ai-adapter/src/index.ts";
 import { createDockerAuthenticationEnvironment } from "../../../docker-isolation/src/index.ts";
 import { selectProviderModelCandidate } from "./model-selection.ts";
-import { describeEgressProxyTopology } from "../external-send/egress-proxy-policy.ts";
+import { describeDockerProxyTopology } from "../../../docker-isolation/src/index.ts";
 import type { WorkbenchAiAdviceRuntimePacket } from "../workbench-ai/advice-packet.ts";
 import {
   describeDockerProviderAssets,
@@ -119,7 +119,7 @@ export function buildProviderDockerExecutionPlan(
   const codexAssets = describeDockerProviderAssets("codex");
   const codex = execution.provider === "codex" ? execution : null;
   const claude = execution.provider === "claude" ? execution : null;
-  const egress = describeEgressProxyTopology(provider);
+  const egress = describeDockerProxyTopology(provider);
   const selection = selectProviderModelCandidate(consumedModelSelection.basis);
   if (
     selection.status !== "candidate" ||
@@ -209,13 +209,19 @@ export function buildProviderDockerExecutionPlan(
   } = resourceNames;
   const providerImageDigest =
     advicePacket?.providerCommand.fixedImageDigest ?? assets.fixedImageDigest;
-  const proxyImageDigest = egress.verificationAdapter.imageDigest;
+  const proxyImageDigest = egress.imageDigest;
   const authenticationEnvironment = createDockerAuthenticationEnvironment(
     provider === "codex"
       ? codexAuthenticationCli.homeEnvironmentVariable
       : null,
   );
   if (!authenticationEnvironment) return null;
+  if (
+    taskPacket &&
+    (!taskPacket.networkPolicy ||
+      taskPacket.networkPolicy.provider !== provider)
+  )
+    return null;
   const commands = planDockerIsolationCommands({
     authenticationContainerName: authContainerName,
     executionContainerName: providerContainerName,
@@ -260,6 +266,10 @@ export function buildProviderDockerExecutionPlan(
       token: proxyToken,
       port: egress.containerPort,
       extendedProxyEnvironment: provider === "codex",
+      networkPolicy:
+        taskPacket?.networkPolicy ??
+        advicePacket?.providerCommand.networkPolicy ??
+        null,
     },
   });
   if (!commands) return null;
@@ -286,6 +296,10 @@ export function buildProviderDockerExecutionPlan(
     ownershipLabel,
     providerImageDigest,
     proxyImageDigest,
+    networkPolicy:
+      taskPacket?.networkPolicy ??
+      advicePacket?.providerCommand.networkPolicy ??
+      null,
     selectionRecordId: consumedModelSelection.selectionRecordId,
     subscriptionOffering:
       provider === "codex"

@@ -17,7 +17,7 @@ import test from "node:test";
 import {
   decodeDockerRuntimeRepairCheckpoint as decode,
   dockerRuntimeRepairCheckpointIsSettled,
-} from "../../src/desktop/repair-checkpoint.ts";
+} from "../../src/docker-desktop/repair-state.ts";
 
 /**
  * 正常三用途と一軸拒否を同じ元checkpointへ適用する。
@@ -33,7 +33,7 @@ import {
  */
 test("修復回収compositionは元Scopeと保存後の現在許可だけを使用する", async () => {
   const source = fs.readFileSync(
-    new URL("../../src/desktop/repair-runtime.ts", import.meta.url),
+    new URL("../../src/docker-desktop/repair-session.ts", import.meta.url),
     "utf8",
   );
   const begin = source.indexOf("export type DockerRuntimeRepairDisposalInput");
@@ -271,7 +271,7 @@ test("修復回収compositionは元Scopeと保存後の現在許可だけを使�
  */
 test("保持照合は三固定対象の二読取りだけを返す", async () => {
   const source = fs.readFileSync(
-    new URL("../../src/desktop/repair-runtime.ts", import.meta.url),
+    new URL("../../src/docker-desktop/repair-session.ts", import.meta.url),
     "utf8",
   );
   const begin = source.indexOf(

@@ -10,7 +10,7 @@
  * @security Task・送信許可・Credential・永続Stateを所有せず、実ID／固定構成の照合前に削除しない。
  */
 
-export { dockerContainerInitObservationMatches } from "./cleanup/container-init-observation.ts";
+export { dockerContainerInitObservationMatches } from "./cleanup/init.ts";
 export {
   observeDockerProbeEngine,
   createDockerProbeRuntimeBinding,
@@ -21,19 +21,19 @@ export {
   planDockerProbeCreation,
   describeDockerProbeConfiguration,
   type DockerProbeProfile,
-} from "./execution/probe-runtime.ts";
+} from "./probe/execute.ts";
 export {
   inspectDockerProbeContainer,
   observeDockerProbeContainerAbsence,
   cleanupDockerProbeContainer,
-} from "./execution/probe-container.ts";
+} from "./probe/container.ts";
 export {
   runDockerRuntimeRepairSession,
   type DockerRuntimeRepairInput,
   disposeDockerRuntimeRepairDirectory,
   type DockerRuntimeRepairDisposalInput,
   observeDockerRuntimeRepairRetention,
-} from "./desktop/repair-runtime.ts";
+} from "./docker-desktop/repair-session.ts";
 export {
   type DockerRuntimeRepairCheckpoint,
   type DockerRuntimeRepairRetentionTargets,
@@ -48,17 +48,17 @@ export {
   prepareDockerRuntimeRepairSessionCheckpoint,
   validateDockerRuntimeRepairCheckpointTransition,
   validateDockerRuntimeRepairSessionCheckpoint,
-} from "./desktop/repair-checkpoint.ts";
+} from "./docker-desktop/repair-state.ts";
 export {
   type DockerRuntimeBackendState,
   observeDockerRuntimeBackendState,
-} from "./desktop/backend-state.ts";
+} from "./docker-desktop/backend.ts";
 export {
   restartDockerRuntime,
   type DockerRuntimeRestartInput,
   type DockerRuntimeRestartObservation,
   type DockerRuntimeRestartEvent,
-} from "./desktop/restart-runtime.ts";
+} from "./docker-desktop/restart.ts";
 export {
   createDockerResourceRecoveryExecutor,
   createDockerOperationRecoveryExecutor,
@@ -66,29 +66,29 @@ export {
   type DockerOperationRecoveryInput,
   type DockerRecoveryExecutionBinding,
   observeDockerRecoveryConfigIdentity,
-} from "./cleanup/recovery-executor.ts";
+} from "./cleanup/execute.ts";
 export {
   type DockerResourceExpectation,
   dockerResourceConfigurationMatches,
   planDockerRecoveryResourceExpectations,
   isDockerResourcePurpose,
-} from "./cleanup/resource-configuration.ts";
+} from "./cleanup/plan.ts";
 export {
   type DockerAttachedProcess,
   startDockerProbeAttachedProcess,
   startOwnedAttachTerminationFixture,
-} from "./execution/attached-process.ts";
+} from "./probe/process.ts";
 export {
   type DockerAuthenticationCommand,
   type DockerAuthenticationInput,
   type DockerAuthenticationPlan,
   planDockerAuthenticationCommands,
   planDockerAuthenticationResourceRecovery,
-} from "./execution/authentication-command-plan.ts";
+} from "./authentication/plan.ts";
 export {
   createDockerAuthenticationRuntimeFactory,
   type DockerAuthenticationExecution,
-} from "./execution/authentication-command-runtime.ts";
+} from "./authentication/execute.ts";
 export {
   type DockerIsolationCommand,
   type DockerIsolationCommandInput,
@@ -101,18 +101,18 @@ export {
   projectDockerProxyConfiguration,
   createDockerAuthenticationEnvironment,
   projectDockerExecutionBoundary,
-} from "./execution/command-plan.ts";
+} from "./execution/plan.ts";
 export {
   createDockerIsolationRuntime,
   describeDockerIsolationExecutionEnvironment,
   type DockerIsolationRuntimePlan,
   type DockerResourceCleanupObservation,
   type DockerResourceReceipts,
-} from "./execution/command-runtime.ts";
+} from "./execution/execute.ts";
 export type {
   CommandHandle,
   OwnedCommandHandle,
-} from "./execution/owned-windows-process.ts";
+} from "./process/start.ts";
 export {
   type CommandExecution,
   type CommandObservation,
@@ -121,31 +121,31 @@ export {
   classifyDockerProcessExit,
   STDERR_LIMIT_BYTES,
   STDOUT_LIMIT_BYTES,
-} from "./execution/command-result.ts";
+} from "./execution/result.ts";
 export {
   startDockerCommandSessionCandidate,
   describeDockerCommandSessionContract,
   type DockerExecutionHooks,
   type DockerSessionCleanup,
-} from "./execution/command-session.ts";
+} from "./execution/session.ts";
 export {
   type DockerProbeCommand,
   describeDockerProbeResource,
   executeDockerProbeCommand,
   planDockerProbeCommand,
-} from "./execution/probe-command.ts";
+} from "./probe/plan.ts";
 export {
   createDockerProcessEnvironment,
   createDockerCliEnvironment,
   createDockerDesktopRepairHelperEnvironment,
-} from "./execution/cli-environment.ts";
+} from "./docker-cli/environment.ts";
 export {
   type DockerCliTrustSnapshot,
   observeTrustedDockerCli,
   verifyTrustedDockerCliSnapshot,
   describeDockerCliTrustContract,
   describeDockerRuntimeArtifactTrustContract,
-} from "./execution/cli-trust.ts";
+} from "./docker-cli/trust.ts";
 export {
   type DockerRuntimeEngineObservation,
   type DockerRuntimeEngineState,
@@ -155,24 +155,32 @@ export {
   awaitDockerRepairEngine,
   observeDockerRuntimeEngine,
   observeDockerRepairEngine,
-} from "./desktop/engine-state.ts";
-export { observeDockerRuntimeDirectoryLock } from "./desktop/runtime-directory.ts";
+} from "./docker-desktop/engine.ts";
+export { observeDockerRuntimeDirectoryLock } from "./docker-desktop/directory.ts";
 export type {
   DockerRestartStopFailure,
   DockerRestartStartFailure,
-} from "./desktop/restart-machine.ts";
+} from "./docker-desktop/restart-state.ts";
 export {
   dockerProbeConfigurationMatches,
   type DockerProbeConfigurationExpectation,
-} from "./execution/probe-configuration.ts";
+} from "./probe/configuration.ts";
 export {
   classifyDockerProbeExecution,
   classifyDockerProbeCancellation,
   normalizeContainerCreation,
   normalizeContainerAbsence,
-} from "./execution/probe-result.ts";
+} from "./probe/result.ts";
 
 export {
   describeDockerProviderAssets,
   describeDockerProviderExecutionLocations,
-} from "./execution/provider-assets.ts";
+} from "./image/assets.ts";
+
+export {
+  prepareDockerNetworkPolicy,
+  describeDockerProxyTopology,
+  parseDockerNetworkPolicy,
+  type DockerNetworkPolicy,
+  type DockerNetworkPolicyResult,
+} from "./network/policy.ts";

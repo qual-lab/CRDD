@@ -73,6 +73,7 @@ export const coordinatorTaskPublicReasons = Object.freeze([
   "coordinator_task_external_send_not_authorized",
   "coordinator_task_external_send_notice_unavailable",
   "coordinator_task_external_send_policy_unresolved",
+  "coordinator_task_network_policy_changed",
   "coordinator_task_failed_closed",
   "coordinator_task_final_projection_failed_closed",
   "coordinator_task_git_object_format_unsupported",

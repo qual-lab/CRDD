@@ -282,6 +282,7 @@ export function MainWorkbench({
             refreshReadModel={refreshReadModel}
           />
           <div
+            key={`ai-request:${model.selectedRepositoryId}:${model.actionToken}`}
             onSubmit={
               model.connection.state === "cros_available"
                 ? (event: FormEvent<HTMLDivElement>) => {
@@ -340,6 +341,7 @@ export function MainWorkbench({
               model.aiRequest.configured,
               model.aiRequest.snapshot,
               model.aiRequest.notice,
+              model.aiRequest.networkPolicies,
             )}
           </div>
         </Fragment>

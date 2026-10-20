@@ -30,6 +30,7 @@ test("単発入力はROとWorkspaceを分け越境・旧Bundle・余剰値を拒
     contextReferences: ["PROJECT_CONTEXT.md"],
     allowedPaths: [],
     externalSendConfirmed: true,
+    expectedNetworkPolicyHash: "a".repeat(64),
     workspaceId: null,
   };
   assert.ok(inspectSingleTaskCommand(command));
@@ -43,6 +44,8 @@ test("単発入力はROとWorkspaceを分け越境・旧Bundle・余剰値を拒
   for (const invalid of [
     { ...command, mode: "change_candidate" },
     { ...command, externalSendConfirmed: false },
+    { ...command, expectedNetworkPolicyHash: undefined },
+    { ...command, expectedNetworkPolicyHash: "wrong" },
     { ...command, contextReferences: ["secret.txt"] },
     { ...command, allowedPaths: ["src"] },
     { ...command, mode: "workspace_edit" },

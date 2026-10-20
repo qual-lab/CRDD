@@ -681,6 +681,30 @@ function isWorkbenchMainViewModel(value: Record<string, unknown>): boolean {
         isWorkbenchCatalog(aiAdministration.result.snapshot.catalog))) &&
     isRecord(value.aiRequest) &&
     typeof value.aiRequest.configured === "boolean" &&
+    (value.aiRequest.networkPolicies === null ||
+      ((policies: unknown) =>
+        isRecord(policies) &&
+        ["codex", "claude"].every((provider) => {
+          const policy = policies[provider];
+          return (
+            isRecord(policy) &&
+            policy.provider === provider &&
+            typeof policy.policyHash === "string" &&
+            /^[a-f0-9]{64}$/u.test(policy.policyHash) &&
+            policy.allowedPort === 443 &&
+            policy.allowedMethod === "CONNECT" &&
+            policy.contractRevision === 1 &&
+            policy.purpose === "repository_ai_execution" &&
+            Array.isArray(policy.allowedHosts) &&
+            policy.allowedHosts.length <= 35 &&
+            policy.allowedHosts.every(
+              (host: unknown) =>
+                typeof host === "string" &&
+                host.length <= 253 &&
+                /^[a-z0-9.-]+$/u.test(host),
+            )
+          );
+        }))(value.aiRequest.networkPolicies)) &&
     aiSnapshotIsValid(value.aiRequest.snapshot) &&
     isNullableString(value.aiRequest.notice) &&
     isRecord(value.portfolioQuery) &&

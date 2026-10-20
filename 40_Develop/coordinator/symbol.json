@@ -2011,7 +2011,7 @@
         "AIT-UT-005"
       ],
       "verifies": [
-        "coordinator.source.src.security.egress.proxy.policy",
+        "docker-isolation.network.policy",
         "coordinator.source.src.security.provider.isolation.profile"
       ]
     },
@@ -3338,14 +3338,6 @@
       "path": "scripts/check-dynamic-fake-provider-coverage.ts",
       "archIds": [
         "ARCH-000004"
-      ]
-    },
-    {
-      "symbolId": "coordinator.source.src.security.egress.proxy.policy",
-      "kind": "file",
-      "path": "src/external-send/egress-proxy-policy.ts",
-      "archIds": [
-        "ARCH-000015"
       ]
     },
     {

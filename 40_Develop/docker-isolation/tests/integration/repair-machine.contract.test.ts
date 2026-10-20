@@ -13,13 +13,13 @@ import { stripTypeScriptTypes } from "node:module";
 import { runInThisContext } from "node:vm";
 import { types } from "node:util";
 import test from "node:test";
-import { runDockerRuntimeRepairMachine as run } from "../../src/desktop/repair-machine.ts";
+import { runDockerRuntimeRepairMachine as run } from "../../src/docker-desktop/repair.ts";
 import {
   decodeDockerRuntimeRepairCheckpoint as decode,
   validateDockerRuntimeRepairCheckpointTransition as transition,
   dockerRuntimeRepairCheckpointIsSettled,
   type DockerRuntimeRepairCheckpoint as Checkpoint,
-} from "../../src/desktop/repair-checkpoint.ts";
+} from "../../src/docker-desktop/repair-state.ts";
 
 const names = [
   "stop_runtime",
@@ -732,7 +732,7 @@ test("修復Machine: failed-launchの両世代を保存してから追加処置�
   await assertFailedGenerationSaved(run);
   const source = stripTypeScriptTypes(
     fs.readFileSync(
-      new URL("../../src/desktop/repair-machine.ts", import.meta.url),
+      new URL("../../src/docker-desktop/repair.ts", import.meta.url),
       "utf8",
     ),
   )
@@ -1031,7 +1031,7 @@ test("修復Machine: 不正Effect観測でもunknownを保存する", async () =
 test("修復Machine: issued通知省略は故障注入の必須到達Oracleが拒否する", async () => {
   const source = stripTypeScriptTypes(
     fs.readFileSync(
-      new URL("../../src/desktop/repair-machine.ts", import.meta.url),
+      new URL("../../src/docker-desktop/repair.ts", import.meta.url),
       "utf8",
     ),
   )
@@ -1152,7 +1152,7 @@ test("修復Machine: 不正fresh部分継続は観測開始前に拒否する", 
   ];
   const source = stripTypeScriptTypes(
     fs.readFileSync(
-      new URL("../../src/desktop/repair-machine.ts", import.meta.url),
+      new URL("../../src/docker-desktop/repair.ts", import.meta.url),
       "utf8",
     ),
   )

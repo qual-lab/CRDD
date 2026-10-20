@@ -5,6 +5,7 @@
  * @security 明示同意した合成内容だけを送信し、本体Repositoryを編集しない。
  */
 import assert from "node:assert/strict";
+import { readRepositoryNetworkPolicies } from "../../coordinator/src/index.ts";
 import { execFileSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
@@ -316,6 +317,12 @@ async function verify(
       );
       step = "start";
       const start = await client.start({
+        expectedNetworkPolicyHash: (() => {
+          const network = readRepositoryNetworkPolicies(verified.capability);
+          if (network.status !== "ready")
+            throw new Error("network_policy_unavailable");
+          return network.policies.codex.policyHash;
+        })(),
         mode: "workspace_edit",
         profileId: "PROFILE-100003",
         prompt: `合成試験です。source.txtだけを${JSON.stringify(expected)}という一行（末尾改行あり）に変更してください。他のファイル・Git・.crddは変更せず、Commit等のGit操作をしないでください。完了時のchangedPathsはsource.txtだけです。`,

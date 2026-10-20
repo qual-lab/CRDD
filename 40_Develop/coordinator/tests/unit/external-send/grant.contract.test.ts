@@ -10,6 +10,7 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
+import { fixtureNetworkPolicy } from "../../fixtures/network-policy.ts";
 
 import {
   compileExternalSendScopeHash,
@@ -204,6 +205,10 @@ function fixture(
       candidate === policyCapability
         ? Object.freeze({
             policyId: "fixture/policy/v1",
+            networkPolicies: Object.freeze({
+              codex: fixtureNetworkPolicy("codex"),
+              claude: fixtureNetworkPolicy("claude"),
+            }),
             policyHash: "a".repeat(64),
             sourceFileHash: "b".repeat(64),
             informationClassification: "public",

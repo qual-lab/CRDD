@@ -39,7 +39,7 @@ import {
  */
 test("Probe bindingの拒否Promiseは同期拒否後も未処理通知を残さない", () => {
   const source = fs.readFileSync(
-    new URL("../../src/execution/probe-runtime.ts", import.meta.url),
+    new URL("../../src/probe/execute.ts", import.meta.url),
     "utf8",
   );
   const begin = source.indexOf(
@@ -149,7 +149,7 @@ test("Probe保存用記述は六profileの実作成計画と同じ固定構成�
  */
 test("本番Probe bindingは旧順序と同期所在一回・同snapshotを維持する", () => {
   const source = fs.readFileSync(
-    new URL("../../src/execution/probe-runtime.ts", import.meta.url),
+    new URL("../../src/probe/execute.ts", import.meta.url),
     "utf8",
   );
   const begin = source.indexOf(

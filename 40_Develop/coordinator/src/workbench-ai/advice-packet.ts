@@ -10,6 +10,7 @@
  * @security Repository内容や任意Commandを追加せず、受理済みPromptと固定Command Hashだけを搬送する。
  */
 import { createHash, randomBytes } from "node:crypto";
+import { parseDockerNetworkPolicy } from "../../../docker-isolation/src/index.ts";
 import type { WorkbenchAiProviderCommand } from "./advice-execution-plan.ts";
 
 export const WORKBENCH_AI_ADVICE_RUNTIME_PACKET_CONTRACT =
@@ -28,6 +29,7 @@ const COMMAND_KEYS = Object.freeze([
   "environment",
   "exactModelId",
   "fixedImageDigest",
+  "networkPolicy",
   "promptTransport",
   "provider",
   "providerHomeMountRequired",
@@ -483,8 +485,14 @@ function validInput(
  * @concurrency N/A: 共有状態を変更しない同期処理である。
  */
 function snapshotCommand(command: WorkbenchAiProviderCommand) {
+  if (!plainExactRecord(command, COMMAND_KEYS)) return null;
+  const networkPolicy =
+    command?.networkPolicy === null
+      ? null
+      : parseDockerNetworkPolicy(command?.networkPolicy);
   if (
-    !plainExactRecord(command, COMMAND_KEYS) ||
+    (command.networkPolicy !== null &&
+      (!networkPolicy || networkPolicy.provider !== command.provider)) ||
     !Array.isArray(command.argv) ||
     command.argv.length === 0 ||
     !command.argv.every(
@@ -502,6 +510,7 @@ function snapshotCommand(command: WorkbenchAiProviderCommand) {
     argv: Object.freeze([...command.argv]),
     environment: Object.freeze({ ...command.environment }),
     fixedImageDigest: command.fixedImageDigest,
+    networkPolicy,
     exactModelId: command.exactModelId,
     reasoningEffort: command.reasoningEffort,
     promptTransport: command.promptTransport,
@@ -628,6 +637,7 @@ export function hashWorkbenchAiProviderCommand(
           argv: command.argv,
           environment: command.environment,
           fixedImageDigest: command.fixedImageDigest,
+          networkPolicy: command.networkPolicy,
           exactModelId: command.exactModelId,
           reasoningEffort: command.reasoningEffort,
           promptTransport: command.promptTransport,

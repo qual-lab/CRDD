@@ -147,9 +147,7 @@ test("Docker Isolation全試験を収集し上位の同名試験を混同しな�
     [...found].sort(),
     expected.map((entry) => entry.path).sort(),
   );
-  const changed = [
-    "40_Develop/docker-isolation/src/execution/command-runtime.ts",
-  ];
+  const changed = ["40_Develop/docker-isolation/src/execution/execute.ts"];
   const selected = selectRegressionTests(catalog, changed);
   for (const entry of expected)
     assert.ok(
@@ -589,9 +587,9 @@ test("利用側静的検査は試験levelの絞込みと独立して選ぶ", () 
  */
 test("Docker TrustとRoot変更は下位技術と上位利用側を選ぶ", () => {
   for (const changedPath of [
-    "40_Develop/docker-isolation/src/execution/cli-trust.ts",
+    "40_Develop/docker-isolation/src/docker-cli/trust.ts",
     "40_Develop/platform-access/src/docker-desktop/helper.ts",
-    "40_Develop/docker-isolation/src/desktop/restart-machine.ts",
+    "40_Develop/docker-isolation/src/docker-desktop/restart-state.ts",
     "40_Develop/docker-isolation/src/index.ts",
   ]) {
     const selected = selectRegressionTests(catalog, [changedPath]);

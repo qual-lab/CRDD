@@ -1,5 +1,19 @@
 # QA-000006 外部実行境界の検証定義
 
+## 追加通信条件の純粋構成（2026-10-21）
+
+接続確認では、`ERB-UT-023`の搬送設定再検査・Proxy引数への固定搬送・通信なしPython実Source確認、`EST-IT-004`の同意Hash差、既存Workbench／Orchestratorの公開受付を使う。画面期待Hashの欠落・不正・別Provider・設定変更、同意の非再利用、実行中Snapshotの不変性、ログインへの追加設定0を反証する。Provider／Docker要求0と、既存のFile読取り・操作準備を区別する。
+
+明示Pythonを使う局所確認はTypeScriptとの正規形・Hash一致と不正設定時の起動拒否を確認し、未指定時は明示skipする。公開DNS24／32件の受理、33件拒否、一件でも非公開IPを含む拒否、全接続試行の単一15秒期限、失敗Socket closeと成功Socketの所有移譲も実Sourceへの有限代役で反証する。実通信は承認済みのProxy＋合成Client断面でnpm／pip取得、未許可Host・直接通信の拒否、取得後待機の取消・元ID回収を別々に観測する。認証を含む本番全体、実通信中の取消、実AIの成立へ拡張しない。個別実測結果は[変更記録](../../../99_Roadmap/Changes/CHG-000082/docker-isolation-source-structure.md)を正本とする。
+
+`ERB-UT-023`の`network/policy.contract.test.ts`は、Provider別固定Hostと最大32追加Host、253文字・label63文字、ASCIIのみ、URL・port・IP・wildcard・末尾dot・正規化後重複の拒否を確認する。小文字化前のUnicodeも拒否し、getter・Proxy・hole・余分fieldから許可集合を作らない。順序・大小文字・固定Host重複が同じ実効集合ならHashを一致させ、返却Policyを深く固定する。用途・Provider・443 CONNECTもHashへ結合する。DNS実観測・Python Proxy・Image・本番同意はこの純粋試験の対象外である。
+
+## Image実行定義とBuild入力の分離（2026-10-21）
+
+`ERB-IT-004`の資産相関試験で、通常公開APIが取得Archive・Binary・Sigstore Hashを返さないことと、Build入力を明示的に読んだ場合に既存レシピ・Schema／設定期待値と一致することを分離して確認する。`ERB-IT-001`の既存bwrap取得・Seccomp条件、`ERB-UT-023`の助言Image・CLI位置・init条件、`ERB-IT-031`の版／内包Hashの観測Oracleは接続先だけを変更し、既存の期待値・拒否条件を維持する。実Image試験は明示許可時だけ実行し、通常回帰でDockerを起動しない。
+
+Hostから渡すSeccompはImageの外なので、実行時の実体・容量・Hash照合と変異拒否を維持する。`--pull=never`、固定Image指定・構成読戻し・元ID回収の既存試験を保持し、禁止booleanやDigest文字列だけを実強制の証拠にしない。Build入力の期待値保持は署名検証の実行結果ではなく、通常試験の成功もImage取得・Build・実Provider・追加通信先の成立を証明しない。
+
 ## 読取り助言の実試験器（ERB-IT-021への直接接続）
 
 合成編集試験器の終了処置も`ERB-IT-021`の有限反例で確認する。受付前失敗・受付応答不明では別ID取消／Task再送0、受付後の観測失敗では同じIDの取消一回と結果受領後のServer closeを観測する。取消成功・未確認・例外・別ID・実行中返却・close失敗を分け、最初の通信失敗を保持する。通信診断は応答前／本文受信中、期限発火と清掃abort、既知／未知codeを区別し、秘密本文を出さない。有限代役の成功を実Provider再試行、今回残存の回収成立又は公開取消HTTPの実証へ拡張しない。

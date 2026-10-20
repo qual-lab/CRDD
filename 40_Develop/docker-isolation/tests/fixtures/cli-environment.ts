@@ -69,7 +69,7 @@ const {
   createDockerCliEnvironment,
   createDockerDesktopRepairHelperEnvironment,
   createDockerProcessEnvironment,
-} = await import("../../src/execution/cli-environment.ts");
+} = await import("../../src/docker-cli/environment.ts");
 
 for (const [dockerConfig, dockerHome] of [
   [null, "D:\\owned-home"],

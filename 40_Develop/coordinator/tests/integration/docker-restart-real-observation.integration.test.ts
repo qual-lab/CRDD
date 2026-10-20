@@ -19,7 +19,7 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import test from "node:test";
 import { startDockerDesktopRestartHelper } from "../../../platform-access/src/index.ts";
-import { createDockerRestartMachine } from "../../../docker-isolation/src/desktop/restart-machine.ts";
+import { createDockerRestartMachine } from "../../../docker-isolation/src/docker-desktop/restart-state.ts";
 import { observePlatformAccessArtifactCandidate } from "../../../platform-access/src/index.ts";
 import { acquireRuntimeOwnedDockerRuntimeStateKernelLock } from "../../src/host-execution/kernel-lock.ts";
 import { observeSystemWindowsDirectory } from "../../../platform-access/src/index.ts";

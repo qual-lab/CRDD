@@ -289,6 +289,7 @@ export function createRepositoryTaskRequests(
             frontProvider: profile.provider,
             requestedExecutorProvider: profile.provider,
             requestedProfileId: profile.profileId,
+            expectedNetworkPolicyHash: command.expectedNetworkPolicyHash,
             objective: command.prompt,
             acceptanceCriteria: [
               "Edit the selected working tree only. Do not commit, merge, push, stash, reset, clean, or promote changes.",

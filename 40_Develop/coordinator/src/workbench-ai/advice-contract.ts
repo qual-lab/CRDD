@@ -42,6 +42,7 @@ export type CoordinatorAiRequestInput = Readonly<{
   contextReferences: readonly string[];
   allowedPaths: readonly string[];
   externalSendConfirmed: boolean;
+  expectedNetworkPolicyHash: string;
 }>;
 
 /**

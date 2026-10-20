@@ -63,7 +63,7 @@ test("単発CLIは受付後の待機・終了例外でも元依頼IDを保持す
     };
     let starts = 0, waits = 0, closes = 0;
     await replace(${JSON.stringify(url("40_Develop/coordinator/src/cli/request-input.ts"))}, {
-      readBoundedTaskRequestFromStdin: () => ({ mode: "workspace_edit", profileId: "PROFILE-100001", prompt: "synthetic", contextReferences: ["PROJECT_CONTEXT.md"], allowedPaths: ["source.txt"], externalSendConfirmed: true, workspaceId: null })
+      readBoundedTaskRequestFromStdin: () => ({ mode: "workspace_edit", profileId: "PROFILE-100001", prompt: "synthetic", contextReferences: ["PROJECT_CONTEXT.md"], allowedPaths: ["source.txt"], externalSendConfirmed: true, expectedNetworkPolicyHash: "a".repeat(64), workspaceId: null })
     });
     await replace(${JSON.stringify(url("40_Develop/version-control/src/index.ts"))}, {
       resolveVerifiedRepositoryRootFromWorkingDirectory: () => ${JSON.stringify(repositoryRoot)},
@@ -253,6 +253,7 @@ test("業務公開操作はOrchestratorが所有しCoordinatorから再公開し
     "isSupportedCoordinatorNodeRuntime",
     "observeRuntimeOwnedTransientTaskCompletion",
     "poisonRuntimeProcessAfterCleanupUnknown",
+    "readRepositoryNetworkPolicies",
     "recoverRuntimeOwnedDockerTaskForCurrentConsumer",
     "resolveRuntimeOwnedDockerTaskCurrentCorrelations",
     "runCoordinatorTaskAttempt",

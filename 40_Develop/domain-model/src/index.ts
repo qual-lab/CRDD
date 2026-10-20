@@ -510,6 +510,11 @@ export {
 
 export { parseCanonicalReleaseHeader } from "./artifact/document-header.ts";
 export { parseChangeTraceHeader } from "./artifact/change.ts";
+export type { NetworkPolicy } from "./configuration/network-policy.ts";
+export {
+  readNetworkPolicy,
+  type NetworkPolicyReadResult,
+} from "./storage/network-policy.ts";
 export {
   parseStableIdentityOccurrences,
   inspectStableIdentityOwnership,

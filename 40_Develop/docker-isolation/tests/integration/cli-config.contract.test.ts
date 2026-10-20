@@ -15,7 +15,7 @@ import { fileURLToPath } from "node:url";
 import {
   createDockerCliConfig,
   verifyDockerCliConfig,
-} from "../../src/execution/cli-config.ts";
+} from "../../src/docker-cli/config.ts";
 
 /**
  * 実config回収後に同じ借用管理領域へ空configを再作成できることを確認する。

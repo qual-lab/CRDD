@@ -12,8 +12,8 @@ import assert from "node:assert/strict";
 import * as childProcess from "node:child_process";
 import fs from "node:fs";
 import { mock } from "node:test";
-import * as cliTrust from "../../src/execution/cli-trust.ts";
-import * as cliEnvironment from "../../src/execution/cli-environment.ts";
+import * as cliTrust from "../../src/docker-cli/trust.ts";
+import * as cliEnvironment from "../../src/docker-cli/environment.ts";
 
 const purpose = process.argv[2];
 const scenario = process.argv[3];
@@ -51,7 +51,7 @@ let publishersBefore = 0;
 let publishersAfter = 0;
 const verifiedSnapshots: unknown[] = [];
 await mock.module(
-  new URL("../../src/execution/cli-environment.ts", import.meta.url).href,
+  new URL("../../src/docker-cli/environment.ts", import.meta.url).href,
   {
     namedExports: {
       ...cliEnvironment,
@@ -63,7 +63,7 @@ await mock.module(
   },
 );
 await mock.module(
-  new URL("../../src/execution/cli-trust.ts", import.meta.url).href,
+  new URL("../../src/docker-cli/trust.ts", import.meta.url).href,
   {
     namedExports: {
       ...cliTrust,
@@ -135,7 +135,7 @@ const observed =
     : purpose === "repair"
       ? api.observeDockerRepairEngine(configurationRoot)
       : (
-          await import("../../src/desktop/engine-state.ts")
+          await import("../../src/docker-desktop/engine.ts")
         ).observeDockerDesktopRepairEngine();
 assert.equal("observeDockerDesktopRepairEngine" in api, false);
 const preRejected = ["environment", "publisher-before", "unsupported"].includes(

@@ -232,12 +232,12 @@ ai-adapter/
 │  ├ storage/store.ts              Owner別保存・改訂競合・保存契約
 │  ├ codex/
 │  │  ├ plan.ts                    固有CLI計画・構成診断
-│  │  └ result.ts                  固有構造化結果
+│  │  ├ result.ts                  固有構造化結果
+│  │  └ codex-*-result.json         固定結果Schema（三File）
 │  └ claude/
 │     ├ plan.ts                    固有CLI計画・Turn予算
-│     └ result.ts                  固有構造化結果
-├ config/                          Claude固定設定（二File）
-├ schemas/                         Codex結果Schema（三File）
+│     ├ result.ts                  固有構造化結果
+│     └ claude-*-settings.json      固定設定（二File）
 └ tests/
    ├ unit/                         実責務Folder・Fileへ対応
    └ integration/                  保存・利用側等の境界へ対応
@@ -255,7 +255,7 @@ Profile操作の型は`profile/crud.ts`、Snapshot・Adoption・Store型は`stor
 
 共通結果抽出は`provider/result.ts`へ同居するが、Taskと助言の容量・拒否条件を混ぜない。Record判定はTaskと助言でPrototype条件が異なるため別の局所関数を保持し、統合を理由に受理集合を変更しない。認証・課金は実在する共通方針だけを配置し、Subscription専用管理やAI実行排他を追加しない。
 
-Providerの`distribution.ts`は廃止し、Docker配置・実行物の同一性はDocker Isolationの`execution/provider-assets.ts`が所有する。過去の配布・認証・送信実測は正式EvidenceとGit履歴に残し、現在のAPIから「検証済み」という固定値を返さない。認証CLI定義は共通の`authentication/plan.ts`が所有し、Provider識別子を付けた型を返す。
+Providerの`distribution.ts`は廃止し、Docker配置・実行物の同一性はDocker Isolationの`image/assets.ts`が所有する。過去の配布・認証・送信実測は正式EvidenceとGit履歴に残し、現在のAPIから「検証済み」という固定値を返さない。認証CLI定義は共通の`authentication/plan.ts`が所有し、Provider識別子を付けた型を返す。
 
 最終配置の判断: `catalog/resolve.ts`は登録集合の検索、`profile/resolve.ts`は利用目的との結合、`profile/validation.ts`は別の利用側が必要とする観測・実行条件の検査を所有する。三者を同じ「解決」へ統合してDomain選択と実行適合を混同せず、逆に四軸評価だけの小Fileは追加しない。UTは`catalog/resolve.contract.test.ts`と`profile/validation.contract.test.ts`へ対応し、ITは保存・Consumer接続の境界名を維持する。安定Symbol IDはFile名ではなく検証対象の意味を追跡するため保持し、Pathとverifiesを実Ownerへ更新する。
 
@@ -272,7 +272,7 @@ Providerの`distribution.ts`は廃止し、Docker配置・実行物の同一性�
 | Probe解析・定義・契約定数 | 実診断Consumerが利用する既存契約として維持。Task／助言とは別のboolean Probe保証であり統合成功へ換算しない |
 | Claude受理Turn上限 | CoordinatorのTask結果再照合が実利用するため公開を維持。別のRegistryや定義Wrapperを作らない |
 
-`config/`・`schemas/`の本文、Container内Path、固定Hash、DockerレシピのCOPY名は不変更。開発Source観測のOwnerはCoordinatorであり、今回のPath・依存構成の変更により内容Hashは新旧で一致しない。旧観測・保持中回復参照を書き換えて現在値へ補正しない。
+`src/claude/`の固定設定二Fileと`src/codex/`の結果Schema三Fileは、利用者が変更する運用設定ではなく実装と一緒に改訂する内部固定データである。旧`config/`・`schemas/`から移し、本文byte、Container内Path、固定Hash、DockerレシピのCOPY名は不変更。開発Source観測のOwnerはCoordinatorである。資産本文のcontent Hashは新旧で一致し、Pathを含む開発Source集合の観測値は変わり得る。旧観測・保持中回復参照を書き換えて現在値へ補正しない。
 
 #### Provider配布記述とDocker技術構成の境界
 
@@ -280,7 +280,7 @@ Providerの`distribution.ts`は廃止し、Docker配置・実行物の同一性�
 |---|---|
 | CLI版・実行Path・配布Hashと固定Imageの組合せ | Docker Isolationが所有する。AI Adapterは配置を知らず、信頼した構成側の`ProviderExecutionLocations`からCLI引数を生成する。Taskと助言の異なる実行物はDIで明示する |
 | Seccompの期待Hash・容量 | Docker Isolationが既存Artifactの同一性と実体照合を所有する。AI AdapterはSeccompを含まない。上位から任意Host Pathを渡す入力は追加しない |
-| 助言Imageの`--init`要否 | DIの既存`execution/command-plan.ts`へ移管する。現在と保持対象の旧Imageのexact二Digest、`workbench_advice`条件を維持する。計画・実行直前・再入場は同じDI公開関数を利用し、AI Adapterへ逆依存しない |
+| 助言Imageの`--init`要否 | DIの既存`execution/plan.ts`へ移管する。現在と保持対象の旧Imageのexact二Digest、`workbench_advice`条件を維持する。計画・実行直前・再入場は同じDI公開関数を利用し、AI Adapterへ逆依存しない |
 | 過去の配布・argv実測の記録 | 正式Evidence・Git履歴に維持し、現行Source APIの検証済み定数は廃止する。現在の実物一致・認証・回収・全体E2E成立へ流用せず、通常実行へCRDD署名を再導入しない |
 
 `codexAdviceProviderInitRequired`の公開OwnerはAI AdapterからDIへ変更する。名前・引数・真偽条件と保存Schemaは不変更。現在Imageの記述とDI側の固定判定の一致は既存の助言コマンド試験で照合し、未知ImageをProvider名・tag・経過時間から補完しない。新しい配布Registry・設定State・Image更新機構は追加しない。

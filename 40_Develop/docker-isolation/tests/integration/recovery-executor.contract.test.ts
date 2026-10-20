@@ -35,7 +35,7 @@ import {
  */
 test("Task回復factoryは要求時だけCLIと環境を取得しclose後も同じsnapshotを検証する", () => {
   const source = fs.readFileSync(
-    new URL("../../src/cleanup/recovery-executor.ts", import.meta.url),
+    new URL("../../src/cleanup/execute.ts", import.meta.url),
     "utf8",
   );
   const cacheStart = source.indexOf("let recoveryDockerCliSnapshot:");

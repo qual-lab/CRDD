@@ -1,5 +1,9 @@
 # QA-000008 Runtime Dataと資源Lifecycleの検証定義
 
+## Repository追加通信設定の読取り（2026-10-21）
+
+`RDL-IT-001`の`network-policy.integration.test.ts`は公開Readerを検証済みRootと自己生成Fileへ接続し、親・File不存在だけの既定値、明示空、未Commitの現在値、深い不変Snapshot、別Repository非共有、重複／escape重複Key、型・版・件数・文字数・16KiB・UTF-8の境界を確認する。File以外・hardlink・File／親Identity差・読取り不能・不在再確認前の出現はunavailableとし、値を返さない。read故障でも取得済みdescriptorを閉じる。設定の取得成功を追加通信の許可・実強制成立へ拡張しない。
+
 ## Workspace方式の追加検証条件（2026-10-17）
 
 Merge分析資料は既存`RDL-IT-001`／003へ追加する。最初のMergeでの`merge-result.md`生成と後続Mergeでの更新、対象Workspace・取込Commit・分析Taskとの相関、要点・未解決事項・Decision参照の保存と読戻しを確認する。保存拒否・読戻し不明・中断・対象更新時は資料の未確定／古さを表示し、分析完了と誤認しない。保存失敗を先行Mergeの未実施・自動Rollback・成果削除へ変換せず、同じ対象の未完了保存へ戻る。Task／Decision本文や全ログを重複した正本として蓄積しない。

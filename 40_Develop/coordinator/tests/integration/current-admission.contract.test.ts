@@ -488,7 +488,7 @@ test("現在入場: Task通常・開発・CLIの本番構成式はexact Rootを�
     "tests/integration/current-admission.contract.test.ts",
   );
   assert.deepEqual(suite.qaIds, ["QA-000003", "QA-000006"]);
-  assert.deepEqual(suite.localTestIds, ["PRL-IT-013", "ERB-IT-014"]);
+  assert.deepEqual(suite.localTestIds, ["ERB-IT-014", "PRL-IT-013"]);
   assert.deepEqual(
     suite.verifies.map(
       (id: string) =>

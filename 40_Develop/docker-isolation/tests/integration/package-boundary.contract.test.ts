@@ -112,9 +112,9 @@ test("逆依存・PA内部参照・未知module・非literalの取りこぼし�
   const file = path.join(sourceRoot, "index.ts");
   for (const text of [
     'import fs from "node:fs";',
-    'import type { Value } from "./execution/command-plan.ts";',
+    'import type { Value } from "./execution/plan.ts";',
     'export { Value } from "../../platform-access/src/index.ts";',
-    'const selected = import("./execution/command-plan.ts");',
+    'const selected = import("./execution/plan.ts");',
     'const marker = Buffer.from("CRDDDR06");',
   ])
     assert.doesNotThrow(() => assertDependencyBoundary(file, text));
@@ -156,9 +156,9 @@ test("逆依存・PA内部参照・未知module・非literalの取りこぼし�
   for (const expression of [
     "variable",
     '"./execution/" + variable',
-    'condition ? "./execution/command-plan.ts" : variable',
-    '("./execution/command-plan.ts")',
-    '"./execution/command-plan.ts", { with: {} }',
+    'condition ? "./execution/plan.ts" : variable',
+    '("./execution/plan.ts")',
+    '"./execution/plan.ts", { with: {} }',
     '"./execution/command\\u002dplan.ts"',
   ])
     assert.throws(

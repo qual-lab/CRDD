@@ -22,6 +22,8 @@ import {
 import {
   describeDockerProviderAssets,
   describeDockerProviderExecutionLocations,
+  parseDockerNetworkPolicy,
+  type DockerNetworkPolicy,
 } from "../../../docker-isolation/src/index.ts";
 
 export const WORKBENCH_AI_ADVICE_EXECUTION_PLAN_CONTRACT =
@@ -32,6 +34,7 @@ const SHA256 = /^[a-f0-9]{64}$/u;
 const EXECUTION_INPUT_KEYS = Object.freeze([
   "catalogRevision",
   "exactModelId",
+  "networkPolicy",
   "offering",
   "profileId",
   "projectionHash",
@@ -54,6 +57,7 @@ const EXECUTION_INPUT_KEYS = Object.freeze([
  */
 
 export type WorkbenchAiProviderExecutionInput = Readonly<{
+  networkPolicy: DockerNetworkPolicy;
   catalogRevision: number;
   provider: "codex" | "claude";
   providerPrompt: string;
@@ -147,7 +151,10 @@ export function prepareWorkbenchAiAdviceExecutionPlan(
   profile: ResolvedAiProfileIdentity,
 ): WorkbenchAiAdviceExecutionPlanPreparation {
   const keys = Object.keys(input).sort();
+  const networkPolicy = parseDockerNetworkPolicy(input.networkPolicy);
   if (
+    !networkPolicy ||
+    networkPolicy.provider !== input.provider ||
     keys.length !== EXECUTION_INPUT_KEYS.length ||
     !keys.every((key, index) => key === EXECUTION_INPUT_KEYS[index]) ||
     !Number.isSafeInteger(input.catalogRevision) ||
@@ -207,7 +214,10 @@ export function prepareWorkbenchAiAdviceExecutionPlan(
       sessionPersistenceAllowed: false as const,
       apiKeyFallbackAllowed: false as const,
       paidApiFallbackAllowed: false as const,
-      providerCommand: bindWorkbenchAiProviderCommand(generated.plan),
+      providerCommand: bindWorkbenchAiProviderCommand(
+        generated.plan,
+        networkPolicy,
+      ),
     }),
   });
 }
@@ -250,6 +260,7 @@ function blocked(): WorkbenchAiAdviceExecutionPlanPreparation {
 export type WorkbenchAiProviderCommand = ProviderAdvicePlan &
   Readonly<{
     fixedImageDigest: string;
+    networkPolicy: DockerNetworkPolicy | null;
     providerHomeMountRequired: true;
     repositoryMounted: false;
     workspaceMountRequired: false;
@@ -272,9 +283,11 @@ export type WorkbenchAiProviderCommand = ProviderAdvicePlan &
  */
 export function bindWorkbenchAiProviderCommand(
   plan: ProviderAdvicePlan,
+  networkPolicy: DockerNetworkPolicy | null = null,
 ): WorkbenchAiProviderCommand {
   return Object.freeze({
     ...plan,
+    networkPolicy,
     fixedImageDigest:
       plan.provider === "codex"
         ? describeDockerProviderAssets("codex").adviceIdentity.fixedImageDigest

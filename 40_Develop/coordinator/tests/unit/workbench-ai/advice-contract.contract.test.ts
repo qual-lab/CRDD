@@ -9,6 +9,7 @@
  * @boundary Workbench Application PortとCoordinator依頼種別別Executorの局所境界。
  */
 import assert from "node:assert/strict";
+import { fixtureNetworkPolicy } from "../../fixtures/network-policy.ts";
 import { createHash } from "node:crypto";
 import test from "node:test";
 import {
@@ -50,6 +51,7 @@ const request = (mode: "read_only_advice") =>
     prompt: "現在状態を確認する",
     contextReferences: Object.freeze(["PROJECT_CONTEXT.md"]),
     allowedPaths: Object.freeze([]),
+    expectedNetworkPolicyHash: fixtureNetworkPolicy("codex").policyHash,
     externalSendConfirmed: true,
   });
 

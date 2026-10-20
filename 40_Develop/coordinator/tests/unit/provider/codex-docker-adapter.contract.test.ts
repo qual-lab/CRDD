@@ -11,6 +11,7 @@
 import { planProviderExecution } from "../../../../ai-adapter/src/index.ts";
 import { describeWorkbenchAiAdviceResultSchema } from "../../../src/workbench-ai/advice-result.ts";
 import assert from "node:assert/strict";
+import { prepareDockerNetworkPolicy } from "../../../../docker-isolation/src/index.ts";
 import test, { mock } from "node:test";
 import fs from "node:fs";
 import {
@@ -272,6 +273,11 @@ function createFixture(
         taskRole,
         taskPacketHash: "a".repeat(64),
         prompt: "Implement the bounded local candidate.",
+        networkPolicy: (() => {
+          const result = prepareDockerNetworkPolicy("codex", []);
+          if (result.status !== "ready") throw new Error("fixture");
+          return result.policy;
+        })(),
         promptTransport: "provider_stdin_only" as const,
       }),
     issueProviderAuthority: (management: unknown, active: unknown) => {
@@ -827,7 +833,7 @@ test("Task Packetをstdin専用入力と隔離workspace RW mountへ結合する"
       "--security-opt=seccomp=" +
         fileURLToPath(
           new URL(
-            "../../../../docker-isolation/runtime/codex-executor-seccomp.json",
+            "../../../../docker-isolation/src/execution/codex-executor-seccomp.json",
             import.meta.url,
           ),
         ),
@@ -864,6 +870,11 @@ test("Reviewerはread-only workspaceを使いExecutor専用seccomp profileを受
           taskRole: "reviewer" as const,
           taskPacketHash: "a".repeat(64),
           prompt: "Review the bounded local candidate.",
+          networkPolicy: (() => {
+            const result = prepareDockerNetworkPolicy("codex", []);
+            if (result.status !== "ready") throw new Error("fixture");
+            return result.policy;
+          })(),
           promptTransport: "provider_stdin_only" as const,
         }),
     },

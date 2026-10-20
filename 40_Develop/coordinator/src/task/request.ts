@@ -56,6 +56,14 @@ const AUTOMATIC_REQUEST_KEYS = new Set([
   "hasUnresolvedDirection",
   "requiresCrossContextAlignment",
 ]);
+const REQUEST_KEYS_WITH_NETWORK_POLICY = new Set([
+  ...REQUEST_KEYS,
+  "expectedNetworkPolicyHash",
+]);
+const AUTOMATIC_REQUEST_KEYS_WITH_NETWORK_POLICY = new Set([
+  ...AUTOMATIC_REQUEST_KEYS,
+  "expectedNetworkPolicyHash",
+]);
 /**
  * Coordinator Task Requestを所有Snapshotへ変換する。
  *
@@ -74,6 +82,11 @@ const AUTOMATIC_REQUEST_KEYS = new Set([
  */
 export function snapshotCoordinatorTaskRequest(rawRequest: unknown) {
   const request =
+    snapshotPlainRecord(rawRequest, REQUEST_KEYS_WITH_NETWORK_POLICY) ??
+    snapshotPlainRecord(
+      rawRequest,
+      AUTOMATIC_REQUEST_KEYS_WITH_NETWORK_POLICY,
+    ) ??
     snapshotPlainRecord(rawRequest, REQUEST_KEYS) ??
     snapshotPlainRecord(rawRequest, AUTOMATIC_REQUEST_KEYS);
   const acceptance = request
@@ -96,6 +109,9 @@ export function snapshotCoordinatorTaskRequest(rawRequest: unknown) {
     (request.requestedProfileId !== undefined &&
       (typeof request.requestedProfileId !== "string" ||
         !/^PROFILE-[0-9]{6,}$/u.test(request.requestedProfileId))) ||
+    (request.expectedNetworkPolicyHash !== undefined &&
+      (typeof request.expectedNetworkPolicyHash !== "string" ||
+        !/^[a-f0-9]{64}$/u.test(request.expectedNetworkPolicyHash))) ||
     typeof request.objective !== "string" ||
     request.objective.length === 0 ||
     acceptance?.status !== "ok" ||
@@ -129,6 +145,10 @@ export function snapshotCoordinatorTaskRequest(rawRequest: unknown) {
     requestedProfileId:
       typeof request.requestedProfileId === "string"
         ? request.requestedProfileId
+        : null,
+    expectedNetworkPolicyHash:
+      typeof request.expectedNetworkPolicyHash === "string"
+        ? request.expectedNetworkPolicyHash
         : null,
     objective: request.objective,
     acceptanceCriteria: acceptance.value,

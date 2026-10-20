@@ -11,6 +11,7 @@
 import { planProviderExecution } from "../../../ai-adapter/src/index.ts";
 import { hashWorkbenchAiProviderCommand } from "../../src/workbench-ai/advice-packet.ts";
 import assert from "node:assert/strict";
+import { prepareDockerNetworkPolicy } from "../../../docker-isolation/src/index.ts";
 import fs from "node:fs";
 import path from "node:path";
 import test, { mock } from "node:test";
@@ -183,6 +184,11 @@ function createPlanFixture(
         },
         taskPacketHash: "d".repeat(64),
         prompt: "Execute the exact isolated task.",
+        networkPolicy: (() => {
+          const result = prepareDockerNetworkPolicy("claude", []);
+          if (result.status !== "ready") throw new Error("fixture");
+          return result.policy;
+        })(),
         promptTransport: "provider_stdin_only" as const,
       }),
     consumeAdvicePacket: () => {

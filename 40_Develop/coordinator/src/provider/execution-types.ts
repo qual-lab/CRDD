@@ -5,7 +5,10 @@
  * @trace ARCH-000015
  */
 import type { OwnedMountPaths } from "../host-execution/operation-workspace-lifecycle.ts";
-import type { DockerIsolationCommand } from "../../../docker-isolation/src/index.ts";
+import type {
+  DockerIsolationCommand,
+  DockerNetworkPolicy,
+} from "../../../docker-isolation/src/index.ts";
 import type { WorkbenchAiAdviceRuntimePacket } from "../workbench-ai/advice-packet.ts";
 
 /**
@@ -44,6 +47,7 @@ export type ProviderDockerModelSelection = Readonly<{
  * @compatibility 既存両Providerの消費済みTaskから使用fieldを受け取る。
  */
 export type ProviderDockerTaskPacket = Readonly<{
+  networkPolicy: DockerNetworkPolicy;
   operationId: string;
   taskPacketRef: string;
   taskRole: "executor" | "reviewer";
@@ -284,6 +288,7 @@ export type ProviderDockerPreparedPlan<P extends "codex" | "claude"> =
     ownershipLabel: string;
     providerImageDigest: string;
     proxyImageDigest: string;
+    networkPolicy: DockerNetworkPolicy | null;
     selectionRecordId: string;
     subscriptionOffering: P extends "codex"
       ? "chatgpt_subscription_oauth"

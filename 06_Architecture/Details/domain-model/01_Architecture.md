@@ -1,5 +1,19 @@
 # Domain Modelの責務境界
 
+### Repository追加通信設定の読取り — 2026-10-21
+
+`configuration/network-policy.ts`は`version:1`と`allowedHosts`の値契約、既定npm／PyPI三Host、重複Keyを拒否するJSON解析を所有する。最大32要素、各253文字、Fileは16KiB以内とする。Hostnameの技術的可否・Provider固定集合・通信許可は所有しない。
+
+| 公開API | 入出力と境界 |
+|---|---|
+| `readNetworkPolicy(root)` | 発行済みRepository Rootから固定`.crdd/config/network-policy.json`を安定読取りし、ready/default・ready/fileまたはblockedを返す。書込み・mkdir・Lockは行わない |
+| `NetworkPolicy` | 版と不変の追加Host配列。Role別設定・Repository外参照を持たない |
+| `NetworkPolicyReadResult` | 不在だけ既定値、明示空配列は追加0、不正と読取り／実体確認不能を区別。Fileの生Hashは由来確認用であり許可ではない |
+
+実I/Oは`storage/network-policy.ts`が所有し、既存bounded readerに親Directory chain・nlink・Root能力の前後確認を組み合わせる。未Commitの現在Fileを一回固定し、別Repositoryの値をCache・継承しない。Coordinatorの同意とDI／Proxyへの本番接続は後続であり、このReaderだけで追加通信を有効化しない。
+
+非秘密の運用設定を`.crdd/config/network-policy.json`へ置き、配布例は`template/.crdd/config/network-policy.example.json`とする。File不存在はnpm／PyPIの既定3Host、`allowedHosts: []`は追加0とする。Schemaは`version: 1`と`allowedHosts`だけ、最大32要素・各253文字、本文は16KiB以下のUTF-8。JSONの重複Key（escape表記を含む）・未知／欠落Key・型差・上限超過は不正として止める。Hostの技術判断はDIが行い、Readerでは内容の勝手な補正や既定値fallbackをしない。source File Hashは由来確認用で、実効集合の同意Hashとは別である。
+
 ### 共通文書の表・Header・版・Identity — 2026-10-20
 
 | Source | 公開操作と責務 |

@@ -38,7 +38,7 @@ import {
 import * as stateRuntime from "../../src/state-storage/settlement-store.ts";
 import * as development from "../../src/task/development-measurement-session.ts";
 import * as isolation from "../../../docker-isolation/src/index.ts";
-import { runDockerRuntimeRepairSessionUsing } from "../../../docker-isolation/src/desktop/repair-runtime.ts";
+import { runDockerRuntimeRepairSessionUsing } from "../../../docker-isolation/src/docker-desktop/repair-session.ts";
 import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
 
 /**

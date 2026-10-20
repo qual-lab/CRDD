@@ -10,6 +10,12 @@ import { EXTERNAL_SEND_POLICY_RELATIVE_PATH } from "../../../domain-model/src/in
 import { readFixedSnapshotFile } from "../../../version-control/src/index.ts";
 import { gitFixedSnapshotAdapter } from "../../../version-control/src/index.ts";
 import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
+import type { VerifiedRepositoryRoot } from "../../../version-control/src/index.ts";
+import { readNetworkPolicy } from "../../../domain-model/src/index.ts";
+import {
+  prepareDockerNetworkPolicy,
+  type DockerNetworkPolicy,
+} from "../../../docker-isolation/src/index.ts";
 
 import { parseUnambiguousJsonDocument } from "../../../ai-adapter/src/index.ts";
 import { verifyOwnedOperationManagementCapability } from "../host-execution/operation-workspace-lifecycle.ts";
@@ -130,8 +136,69 @@ type PolicyRecord = Readonly<{
   managementCapability: object;
   repositoryBindingCapability: object;
   operationId: string;
-  policy: ExternalSendPolicy;
+  policy: ResolvedExternalSendPolicy;
 }>;
+
+/**
+ * 同じRepository設定から固定したProvider別通信条件。
+ * @responsibility 役割では分けずProvider固有集合だけを分離する。
+ * @trace ARCH-000015
+ * @shape codexとclaudeの不変Policy。
+ * @invariant File Hashを同意の意味へ混入させない。
+ * @boundary 設定Readerから既存同意・実行への値搬送。
+ * @security 値はAuthorityではなく実行条件。
+ * @compatibility loginでは使用しない。
+ */
+export type RepositoryNetworkPolicies = Readonly<
+  Record<"codex" | "claude", DockerNetworkPolicy>
+>;
+
+/**
+ * Git固定の送信方針と現在通信Snapshotの結合。
+ * @responsibility 既存policyHashの意味を変えず別の通信相関を保持する。
+ * @trace ARCH-000015
+ * @shape ExternalSendPolicyとProvider別networkPolicies。
+ * @invariant 同意後に設定を再読しない。
+ * @boundary 非公開Policy Recordと同意・Grant。
+ * @security networkPoliciesだけで実行許可を発行しない。
+ * @compatibility 旧送信方針のHash・Revisionは不変更。
+ */
+export type ResolvedExternalSendPolicy = ExternalSendPolicy &
+  Readonly<{ networkPolicies: RepositoryNetworkPolicies }>;
+
+/**
+ * 選択Repositoryの現在通信先を一回だけ固定する。
+ * @responsibility Domain読取りとDI技術構成を同じRootへ接続する。
+ * @trace ARCH-000015
+ * @input repositoryRoot: 検証済みRepository Root。
+ * @returns readyとProvider別Policy、又は固定blocked。
+ * @precondition 呼出し元で対象Repositoryへの現在認可を確認する。
+ * @postcondition 他Repositoryの設定・Provider Homeを参照しない。
+ * @effect Domain Readerによる読取りだけ。書込み・Docker・Networkなし。
+ * @failure 読取り不能・不正Hostはblocked。
+ * @invariant 同じ追加配列を両Providerへ一回ずつ適用する。
+ * @boundary Workbench・Taskの準備と専門Package。
+ * @security Path・本文・File Hash・秘密を返さず、許可を発行しない。
+ * @concurrency 返却後のFile変更を現在Snapshotへ反映しない。
+ */
+export function readRepositoryNetworkPolicies(
+  repositoryRoot: VerifiedRepositoryRoot,
+) {
+  const read = readNetworkPolicy(repositoryRoot);
+  if (read.status !== "ready")
+    return Object.freeze({ status: "blocked" as const, reason: read.reason });
+  const codex = prepareDockerNetworkPolicy("codex", read.policy.allowedHosts);
+  const claude = prepareDockerNetworkPolicy("claude", read.policy.allowedHosts);
+  if (codex.status !== "ready" || claude.status !== "ready")
+    return Object.freeze({
+      status: "blocked" as const,
+      reason: "network_policy_invalid" as const,
+    });
+  return Object.freeze({
+    status: "ready" as const,
+    policies: Object.freeze({ codex: codex.policy, claude: claude.policy }),
+  });
+}
 
 const policies = new WeakMap<object, PolicyRecord>();
 
@@ -370,10 +437,10 @@ export function compileExternalSendPolicyCandidate(
  * @returns resolveRuntimeOwnedExternalSendPolicyの計算結果を返す。
  * @precondition 「managementCapability: unknown、repositoryBindingCapability: unknown」がresolveRuntimeOwnedExternalSendPolicyの入力契約を満たす。
  * @postcondition resolveRuntimeOwnedExternalSendPolicyの責務を完了した結果だけを返す。
- * @effect N/A: resolveRuntimeOwnedExternalSendPolicyは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @effect 固定版の送信方針と現在のRepository通信設定を読み、既存の非公開PolicyRecordへ保持する。
  * @failure resolveRuntimeOwnedExternalSendPolicyは入力不正または下位処理の失敗を呼出し側へ返す。
  * @invariant resolveRuntimeOwnedExternalSendPolicyは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: resolveRuntimeOwnedExternalSendPolicyはProcess内の同一Subsystemで完結する。
+ * @boundary 固定Git Snapshot、現在Filesystemおよび外部送信前の同意入力。
  * @security resolveRuntimeOwnedExternalSendPolicyはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: resolveRuntimeOwnedExternalSendPolicyは共有非同期状態を持たない同期処理である。
  */
@@ -425,11 +492,17 @@ export function resolveRuntimeOwnedExternalSendPolicy(
       source.revision,
       file.sha256,
     );
+    const network = readRepositoryNetworkPolicies(verified.capability);
     const reverified = verifyRuntimeOwnedRepositoryBindingCapability(
       repositoryBindingCapability,
       managementCapability,
     );
-    if (!policy || reverified?.revision !== policy.sourceRevision) return null;
+    if (
+      !policy ||
+      network.status !== "ready" ||
+      reverified?.revision !== policy.sourceRevision
+    )
+      return null;
     if (!policy.enabled) {
       return Object.freeze({
         status: "disabled" as const,
@@ -448,12 +521,16 @@ export function resolveRuntimeOwnedExternalSendPolicy(
         managementCapability,
         repositoryBindingCapability,
         operationId: operation.operationId,
-        policy,
+        policy: Object.freeze({ ...policy, networkPolicies: network.policies }),
       }),
     );
     return Object.freeze({
       status: "resolved" as const,
       capability,
+      networkPolicyHashes: Object.freeze({
+        codex: network.policies.codex.policyHash,
+        claude: network.policies.claude.policyHash,
+      }),
       policyId: policy.policyId,
       policyHash: policy.policyHash,
       informationClassification: policy.informationClassification,

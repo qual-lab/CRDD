@@ -11,6 +11,9 @@ import { fileURLToPath } from "node:url";
 import { ensureRepositoryRuntimeDataArea } from "../../domain-model/src/index.ts";
 import { requireReadyRepositoryRuntimeDataArea } from "../../domain-model/src/index.ts";
 import { verifyRepositoryRoot } from "../../version-control/src/index.ts";
+import buildInputs from "../../docker-isolation/images/build-inputs.json" with {
+  type: "json",
+};
 
 /**
  * 明示した公式CLIとHostから有限のImage入力を作成する。
@@ -40,13 +43,13 @@ export function prepareCodexAdviceImage(codexPath: string, hostPath: string) {
       name: "codex",
       source: codexPath,
       size: 286754152,
-      hash: "1748767b230ebfc3d4ab7e4e254920d0c0ad9691fd8c11f190e7d44511a4a92e",
+      hash: buildInputs.codex.adviceIdentity.binarySha256,
     },
     {
       name: "codex-code-mode-host",
       source: hostPath,
       size: 74068880,
-      hash: "5b2c075ac2380fa04d76d7313fbc044d29c8d0a0d0b9138415acd4610211ca03",
+      hash: buildInputs.codex.adviceIdentity.hostBinarySha256,
     },
   ].map((input) => {
     const source = path.resolve(input.source);
@@ -73,7 +76,7 @@ export function prepareCodexAdviceImage(codexPath: string, hostPath: string) {
   const dockerfile = fs.readFileSync(
     path.join(
       root,
-      "40_Develop/docker-isolation/runtime/codex-advice-provider.Dockerfile",
+      "40_Develop/docker-isolation/images/codex-advice-provider.Dockerfile",
     ),
   );
   const temporary = requireReadyRepositoryRuntimeDataArea(

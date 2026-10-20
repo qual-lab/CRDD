@@ -9,6 +9,7 @@
  * @boundary Provider AdapterとFake Runtime Portの局所境界。
  */
 import assert from "node:assert/strict";
+import { fixtureNetworkPolicy } from "../../fixtures/network-policy.ts";
 import test from "node:test";
 
 import {
@@ -25,6 +26,7 @@ const profile = resolveAiProfileById(
 if (profile === null) throw new Error("test_profile_required");
 const prepared = prepareWorkbenchAiAdviceExecutionPlan(
   Object.freeze({
+    networkPolicy: fixtureNetworkPolicy(profile.provider),
     catalogRevision: 1,
     provider: profile.provider,
     providerPrompt: "固定投影だけを根拠に説明する",

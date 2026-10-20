@@ -179,7 +179,18 @@ Store、Registry、Catalogは保存方式ではなく責務によって区別す
 
 `crud.ts`、`register.ts`、`assign.ts`、`command.ts`、`execution.ts`、`validation.ts`、`storage.ts`も、実際の操作・役割を表す場合に使用できる。命名例は閉じた一覧ではなく、例のFileをすべて作る義務でもない。`storage`は永続データの読書き、`state`は現在状態・Snapshot、`lock`は排他を表すが、意味を区別するためだけに三Fileへ分割しない。CLIの入力解釈と独立した業務手順は区別し、独立性のない転送だけの`execution.ts`を追加しない。
 
-Package直下の`config/`は外部CLI・Tool・実行環境へ渡す静的設定、`schemas/`は外部へ渡すデータ契約を置く候補とする。内部型・内部検証は`src/`で所有でき、JSONという拡張子だけで移動先を決めない。必要な資産がないPackageへ空Folderを作らず、実行中の可変状態と静的資産を同じ`runtime/`へ混在させない。
+JSON等のデータFileは拡張子ではなく、変更主体・用途・責務で配置する（MUST）。外部プログラムへFileとして渡すことだけを理由に、利用者向け設定と同じFolderへ置かない。
+
+| 用途・変更主体 | 配置 | 例 |
+|---|---|---|
+| 利用者・Repositoryが運用で変更する設定 | 検証済みRepository Rootの`.crdd/config/`。秘密・User／Host所有の設定は既存の保存Owner契約を優先 | Repository追加通信先、AI Profile設定 |
+| 実装と一緒に改訂する内部固定データ | `src/<責務>/`の利用する処理と同じFolder | 既定Catalog、Provider固定設定・内部結果Schema、固定Seccomp |
+| Image取得・Build用の固定入力・レシピ | `images/` | `build-inputs.json`、Dockerfile |
+| 試験専用入力 | `tests/fixtures/` | 正常・異常JSON、観測応答 |
+
+JSONを一律にPackage直下の`config/`へ集約しない（MUST NOT）。Dockerへ渡す固定Seccompも内部固定データであり、利用者向け設定とは区別する。外部提供するSchema等は実際の公開契約・配布先を確認し、内部固定データと名前だけで同一視しない。必要な資産がないPackageへ空Folderを作らず、実行中の可変状態と静的資産を同じ`runtime/`へ混在させない。
+
+移動時は利用側、Build context、配布入口、実行時読取り、試験・台帳とArchitectureを追従する（MUST）。Path変更と本文変更を分け、同一性を維持する移動ではbyte・Hashを照合する。Image外から渡す設定の保護をImage Digestだけで代替せず、過去Evidenceや未解決の回復参照を現在Pathへ書換えない。
 
 `application`、`runtime`、`core`、`internal`、`service`、`manager`、`helper`、`helpers`、`utils`、`common`、`logic`、`misc`、`port`を、主要責務を隠すFile名として新設してはならない（MUST NOT）。禁止語の機械置換ではなく、所有する状態保持、判断、境界変換、生成、解析、回復等へ改名または分割する。
 

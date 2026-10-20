@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "allowedHosts": [
+    "registry.npmjs.org",
+    "pypi.org",
+    "files.pythonhosted.org"
+  ]
+}

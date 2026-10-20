@@ -8,6 +8,7 @@
  * @security 既存の認可・取消・情報境界を維持し、新しい保存状態や自動再送を追加しない。
  */
 import type { ServerResponse } from "node:http";
+import { readRepositoryNetworkPolicies } from "../../../../coordinator/src/index.ts";
 import type { AiProfileCatalogAdministration } from "../../../../ai-adapter/src/index.ts";
 import type { WorkbenchAiRequests } from "../ai-request/types.ts";
 import type { CredentialAdministration } from "../credential/administration.ts";
@@ -343,10 +344,28 @@ export async function handleSharedView({
           true,
           true,
         );
+        if (requestSignal.aborted || response.destroyed) return true;
+        if (
+          !currentCollection ||
+          !credentialAdministration ||
+          !sameAccessCollection(
+            currentCollection,
+            resolveRepositoryAccessCollection(
+              credentialAdministration.root,
+              credentialAdministration.token,
+            ),
+          )
+        )
+          throw new Error("workbench_selected_content_unavailable");
+        const network = selected.workspaceIds.includes("development")
+          ? readRepositoryNetworkPolicies(selected.root)
+          : null;
         model = {
           ...model,
           aiProfiles: sharedProfiles,
           aiRequest: {
+            networkPolicies:
+              network?.status === "ready" ? network.policies : null,
             configured:
               configuration.sharedAiRequestsFactory !== undefined &&
               selected.workspaceIds.includes("development"),

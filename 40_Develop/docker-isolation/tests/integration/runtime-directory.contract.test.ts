@@ -13,7 +13,7 @@ import { stripTypeScriptTypes } from "node:module";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
 import * as publicApi from "../../src/index.ts";
-import { observeDockerRuntimeDirectoryLockUsingDependencies } from "../../src/desktop/runtime-directory.ts";
+import { observeDockerRuntimeDirectoryLockUsingDependencies } from "../../src/docker-desktop/directory.ts";
 const RUN_IDENTITY = Object.freeze({ dev: "1", ino: "2", birthtimeNs: "3" });
 
 /**
@@ -122,7 +122,7 @@ test("公開Rootは固定FS観測だけを提供する", (t) => {
  */
 test("未対応OSではDirectory観測のFS要求を発行しない", () => {
   const source = fs.readFileSync(
-    new URL("../../src/desktop/runtime-directory.ts", import.meta.url),
+    new URL("../../src/docker-desktop/directory.ts", import.meta.url),
     "utf8",
   );
   const begin = source.indexOf(

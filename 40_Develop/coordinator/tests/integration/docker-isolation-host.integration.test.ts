@@ -43,6 +43,10 @@ import {
 import { describeDockerProviderExecutionLocations } from "../../../docker-isolation/src/index.ts";
 import { describeDockerProviderAssets } from "../../../docker-isolation/src/index.ts";
 
+import buildInputs from "../../../docker-isolation/images/build-inputs.json" with {
+  type: "json",
+};
+
 /**
  * 固定編集CLIの引数受付と三Mountの書込み境界を外部AIなしで確認する。
  * @responsibility 起動前の拒否とProvider依頼を分離し、元IDで試験物を回収する。
@@ -542,7 +546,10 @@ function assertAdviceImageObservation(
   versionImageId: string,
   hashesImageId: string,
 ) {
-  const expected = describeDockerProviderAssets("codex").adviceIdentity;
+  const expected = {
+    ...buildInputs.codex.adviceIdentity,
+    ...describeDockerProviderAssets("codex").adviceIdentity,
+  };
   for (const result of [version, hashes]) {
     assert.equal(result.error, undefined);
     assert.equal(result.status, 0);
@@ -579,7 +586,10 @@ function assertAdviceImageObservation(
  * @boundary ERB-IT-031=実境界試験の判定部分だけ。実Imageの存在は証明しない。
  */
 test("公式助言Imageの観測Oracleは三Hash・版・実Imageと警告を分離する", () => {
-  const identity = describeDockerProviderAssets("codex").adviceIdentity;
+  const identity = {
+    ...buildInputs.codex.adviceIdentity,
+    ...describeDockerProviderAssets("codex").adviceIdentity,
+  };
   const values: Record<string, string> = {
     [identity.executablePath]: identity.binarySha256,
     [identity.hostExecutablePath]: identity.hostBinarySha256,
@@ -701,8 +711,7 @@ test("Windows Process Gate: 未起動認証五資源の実構成と作成Receipt
     providerHomeSourcePath: home,
     providerImageDigest:
       "sha256:ddd766072db6e69f55efb11fc3e82b401542cb5583c179f56aac4004f4ea317a",
-    proxyImageDigest:
-      "sha256:8a44e363453c0d0bed66e337007070c072ad1dc75a23ec584c95d361c5a5dcfc",
+    proxyImageDigest: describeDockerProviderAssets("claude").proxy.imageDigest,
     ownershipLabel: `crdd.coordinator.authentication=${nonce}`,
     internalNetworkName: `crdd-internal-${nonce}`,
     egressNetworkName: `crdd-egress-${nonce}`,
@@ -1112,8 +1121,7 @@ test("Windows Process Gate: Docker Isolation本番Ownerが五資源を実IDで�
       ownershipLabel: `crdd.coordinator.runtime=${nonce}`,
       executionImageDigest:
         "sha256:4f35a6542ee0b412714d558bc38e578bcea00490ec2a1f02f02b88c1226f924e",
-      proxyImageDigest:
-        "sha256:8a44e363453c0d0bed66e337007070c072ad1dc75a23ec584c95d361c5a5dcfc",
+      proxyImageDigest: describeDockerProviderAssets("codex").proxy.imageDigest,
       homeSourcePath: home,
       temporarySourcePath: tmp,
       workspace: null,
@@ -1267,7 +1275,10 @@ test("Windows Process Gate: Docker Isolation本番Ownerが五資源を実IDで�
 test("Windows Process Gate: 公式助言Imageの版と三Hashを実配置物で確認する", {
   timeout: 120_000,
 }, () => {
-  const expected = describeDockerProviderAssets("codex").adviceIdentity;
+  const expected = {
+    ...buildInputs.codex.adviceIdentity,
+    ...describeDockerProviderAssets("codex").adviceIdentity,
+  };
   const repository = fileURLToPath(new URL("../../../../", import.meta.url));
   const parent = path.join(repository, ".crdd", "tests");
   const snapshot = observeTrustedDockerCli();

@@ -17,6 +17,7 @@ const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
 const RESOLVER_PATH =
   "40_Develop/domain-model/src/repository/resolve-storage-paths.ts";
 const RUNTIME_STORAGE_OWNERS = new Set([
+  "40_Develop/domain-model/src/storage/network-policy.ts",
   RESOLVER_PATH,
   "40_Develop/domain-model/src/repository/require-storage-area.ts",
   "40_Develop/domain-model/src/repository/types.ts",

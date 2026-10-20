@@ -10,7 +10,7 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createDockerRestartMachineForVerification } from "../../src/desktop/restart-machine.ts";
+import { createDockerRestartMachineForVerification } from "../../src/docker-desktop/restart-state.ts";
 
 /**
  * fixtureのTest準備責務を実行する。

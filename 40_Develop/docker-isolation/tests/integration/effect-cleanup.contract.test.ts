@@ -19,7 +19,7 @@ import {
   type DockerIsolationRuntimePlan,
   type OwnedCommandHandle,
 } from "../../src/index.ts";
-import { createDockerIsolationRuntimeCandidate } from "../../src/execution/command-runtime.ts";
+import { createDockerIsolationRuntimeCandidate } from "../../src/execution/execute.ts";
 
 /**
  * createEffectFixtureのTest準備責務を実行する。

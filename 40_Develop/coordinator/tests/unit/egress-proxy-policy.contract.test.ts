@@ -10,6 +10,10 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
+import {
+  describeDockerProviderAssets,
+  describeDockerProxyTopology,
+} from "../../../docker-isolation/src/index.ts";
 
 import {
   PROVIDER_INPUT_LIMITS,
@@ -18,11 +22,10 @@ import {
 } from "../../src/provider/isolation-profile.ts";
 import {
   compileEgressProxyPolicyCandidate,
-  describeEgressProxyTopology,
   describeSpecialPurposeRegistrySnapshot,
   evaluateProxyConnectForFixture,
   evaluateResolvedAddressesForFixture,
-} from "../../src/external-send/egress-proxy-policy.ts";
+} from "../support/egress-proxy-policy.ts";
 
 /**
  * rawProfileのTest準備責務を実行する。
@@ -457,7 +460,7 @@ test("IANA snapshot metadataと検証済みTopologyをRuntime未接続として�
   assert.equal(registry.ipv4NoSpecialPurposeMatchDecision, "candidate");
   assert.equal(registry.ipv6NoAllocatedGlobalUnicastMatchDecision, "deny");
   assert.equal(registry.matchedUnknownValueDecision, "deny");
-  const topology = describeEgressProxyTopology();
+  const topology = describeDockerProxyTopology("claude");
   assert.equal(topology.containerPort, 8080);
   assert.equal(topology.providerNetworkInternal, true);
   assert.equal(topology.providerDirectExternalNetwork, false);
@@ -465,47 +468,20 @@ test("IANA snapshot metadataと検証済みTopologyをRuntime未接続として�
   assert.equal(topology.hostNetworkModeAllowed, false);
   assert.equal(
     topology.enforcement,
-    "fixed_runtime_adapter_connected_release_activation_pending",
-  );
-  assert.deepEqual(topology.verificationAdapter.externalProbe, {
-    providerImageDigest:
-      "sha256:9815772cdc09551d2635f8cf15d90077b2da07ee87f4fe83c7c29dd59cb48ec7",
-    providerNetworkInternal: true,
-    providerDirectExternalNetwork: false,
-    proxyDualNetwork: true,
-    directExternalDenied: true,
-    disallowedHostnameDenied: true,
-    allowedHostnameTlsReached: true,
-    allowedHostname: "claude.ai",
-    containerResidue: 0,
-    networkResidue: 0,
-  });
-  assert.equal(
-    topology.verificationAdapter.reproducibleImageBuildClaimed,
-    false,
+    "fixed_digest_proxy_runtime_validation_required",
   );
   assert.equal(
-    topology.verificationAdapter.releaseDistributionConnected,
-    false,
+    topology.imageDigest,
+    describeDockerProviderAssets("claude").proxy.imageDigest,
   );
-  const codexTopology = describeEgressProxyTopology("codex");
+  const codexTopology = describeDockerProxyTopology("codex");
   assert.equal(codexTopology.proxyProfile, "codex");
   assert.deepEqual(codexTopology.allowedHostnames, [
     "auth.openai.com",
     "chatgpt.com",
   ]);
-  assert.deepEqual(
-    codexTopology.verificationAdapter.codexExternalProbe.exactResult,
-    {
-      status: true,
-    },
-  );
   assert.equal(
-    codexTopology.verificationAdapter.codexExternalProbe.containerResidue,
-    0,
-  );
-  assert.equal(
-    codexTopology.verificationAdapter.codexExternalProbe.networkResidue,
-    0,
+    codexTopology.imageDigest,
+    describeDockerProviderAssets("codex").proxy.imageDigest,
   );
 });

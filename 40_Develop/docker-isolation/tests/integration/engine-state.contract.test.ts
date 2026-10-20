@@ -17,12 +17,12 @@ import {
   type DockerRepairEngineObservation,
   DOCKER_ENGINE_STARTUP_WAIT_MS,
 } from "../../src/index.ts";
-import { awaitDockerRepairEngineUsing } from "../../src/desktop/engine-state.ts";
+import { awaitDockerRepairEngineUsing } from "../../src/docker-desktop/engine.ts";
 import {
   isDockerEngineReady,
   observeDockerEnginePipe,
   classifyDockerEngineResult,
-} from "../../src/desktop/engine-state.ts";
+} from "../../src/docker-desktop/engine.ts";
 
 /**
  * 再起動・構成付き修復・Desktop修復の固定観測を確認する。

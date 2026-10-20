@@ -20,6 +20,10 @@ import {
 import { describeDockerProviderExecutionLocations } from "../../../docker-isolation/src/index.ts";
 import { describeDockerProviderAssets } from "../../../docker-isolation/src/index.ts";
 
+import buildInputs from "../../../docker-isolation/images/build-inputs.json" with {
+  type: "json",
+};
+
 /**
  * Codex固有の診断分類と不正入力拒否を確認する。
  * @responsibility 承認優先順と最初のsandbox値を固定する。
@@ -127,7 +131,7 @@ test("公式Codex artifactとSubscription限定のread-only計画を固定する
 test("Executor計画が宣言するSeccomp identityは実配布資産と一致する", () => {
   const bytes = fs.readFileSync(
     new URL(
-      "../../../docker-isolation/runtime/codex-executor-seccomp.json",
+      "../../../docker-isolation/src/execution/codex-executor-seccomp.json",
       import.meta.url,
     ),
   );
@@ -194,7 +198,10 @@ test("effort・Provider・shape差をEffect前に拒否する", () => {
 test("Codex Structured Output Schemaはboolean型を明示したexact形に固定する", () => {
   const schema = JSON.parse(
     fs.readFileSync(
-      new URL("../../../ai-adapter/schemas/codex-result.json", import.meta.url),
+      new URL(
+        "../../../ai-adapter/src/codex/codex-result.json",
+        import.meta.url,
+      ),
       "utf8",
     ),
   );
@@ -319,7 +326,7 @@ test("一般Task SchemaはExecutorとReviewerのexact出力を分離する", () 
   const executor = JSON.parse(
     fs.readFileSync(
       new URL(
-        "../../../ai-adapter/schemas/codex-executor-result.json",
+        "../../../ai-adapter/src/codex/codex-executor-result.json",
         import.meta.url,
       ),
       "utf8",
@@ -328,7 +335,7 @@ test("一般Task SchemaはExecutorとReviewerのexact出力を分離する", () 
   const reviewer = JSON.parse(
     fs.readFileSync(
       new URL(
-        "../../../ai-adapter/schemas/codex-reviewer-result.json",
+        "../../../ai-adapter/src/codex/codex-reviewer-result.json",
         import.meta.url,
       ),
       "utf8",
@@ -367,9 +374,9 @@ test("一般Task SchemaはExecutorとReviewerのexact出力を分離する", () 
  */
 test("Codex Structured Output Schemaは公式対応部分集合だけを搬送する", () => {
   const schemaPaths = [
-    "../../../ai-adapter/schemas/codex-result.json",
-    "../../../ai-adapter/schemas/codex-executor-result.json",
-    "../../../ai-adapter/schemas/codex-reviewer-result.json",
+    "../../../ai-adapter/src/codex/codex-result.json",
+    "../../../ai-adapter/src/codex/codex-executor-result.json",
+    "../../../ai-adapter/src/codex/codex-reviewer-result.json",
   ];
   const unsupportedKeywords = new Set([
     "allOf",
@@ -439,8 +446,7 @@ test("CLI公開契約は通常速度・API課金禁止を明示し配布検証�
     "01e577dd6fc81e04987af29b05389e9432dc0623a66aa435fd2f31f2b1070b95",
   );
   assert.equal(
-    describeDockerProviderAssets("codex").identity
-      .executorSeccompBaselineCommit,
+    buildInputs.codex.identity.executorSeccompBaselineCommit,
     "c3065211177705ada59a9ccf8b5c182f286f8c97",
   );
   assert.equal(
@@ -480,23 +486,14 @@ test("CLI公開契約は通常速度・API課金禁止を明示し配布検証�
 test("固定Codex imageはbwrapとExecutor用の限定seccomp境界を固定する", () => {
   assert.deepEqual(
     {
-      archiveSha256:
-        describeDockerProviderAssets("codex").identity.bwrapArchiveSha256,
-      archiveBytes:
-        describeDockerProviderAssets("codex").identity.bwrapArchiveBytes,
-      binaryPath:
-        describeDockerProviderAssets("codex").identity.bwrapBinaryPath,
-      binarySha256:
-        describeDockerProviderAssets("codex").identity.bwrapBinarySha256,
-      binaryBytes:
-        describeDockerProviderAssets("codex").identity.bwrapBinaryBytes,
-      bundleSha256:
-        describeDockerProviderAssets("codex").identity
-          .bwrapSigstoreBundleSha256,
-      identity:
-        describeDockerProviderAssets("codex").identity.bwrapSigstoreIdentity,
-      issuer:
-        describeDockerProviderAssets("codex").identity.bwrapSigstoreIssuer,
+      archiveSha256: buildInputs.codex.identity.bwrapArchiveSha256,
+      archiveBytes: buildInputs.codex.identity.bwrapArchiveBytes,
+      binaryPath: buildInputs.codex.identity.bwrapBinaryPath,
+      binarySha256: buildInputs.codex.identity.bwrapBinarySha256,
+      binaryBytes: buildInputs.codex.identity.bwrapBinaryBytes,
+      bundleSha256: buildInputs.codex.identity.bwrapSigstoreBundleSha256,
+      identity: buildInputs.codex.identity.bwrapSigstoreIdentity,
+      issuer: buildInputs.codex.identity.bwrapSigstoreIssuer,
     },
     {
       archiveSha256:
@@ -515,7 +512,7 @@ test("固定Codex imageはbwrapとExecutor用の限定seccomp境界を固定す�
   );
   const dockerfile = fs.readFileSync(
     new URL(
-      "../../../docker-isolation/runtime/codex-provider.Dockerfile",
+      "../../../docker-isolation/images/codex-provider.Dockerfile",
       import.meta.url,
     ),
     "utf8",

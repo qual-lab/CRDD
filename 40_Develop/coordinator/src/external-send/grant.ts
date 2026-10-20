@@ -27,6 +27,7 @@ import {
   resolveRuntimeOwnedExternalSendConsent,
 } from "./consent-store.ts";
 import { verifyRuntimeOwnedExternalSendPolicy } from "./policy.ts";
+import type { RepositoryNetworkPolicies } from "./policy.ts";
 import {
   snapshotPlainArray,
   snapshotPlainRecord,
@@ -104,6 +105,7 @@ type Scope = Readonly<{
  * @compatibility GrantRecordの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
 type GrantRecord = {
+  networkPolicies: RepositoryNetworkPolicies;
   managementCapability: object;
   repositoryBindingCapability: object;
   operationId: string;
@@ -776,6 +778,7 @@ async function requestGrant(
       informationClassification: policy.informationClassification,
       decisionAuthority: policy.decisionAuthority,
       providerDestinations: policy.destinations,
+      networkPolicies: policy.networkPolicies,
       localCandidatePersistence: Object.freeze({
         allowed: policy.candidatePersistenceAllowed,
         informationClassification: policy.informationClassification,
@@ -866,6 +869,7 @@ async function requestGrant(
       policyCapability,
       policyHash: policy.policyHash,
       providers: new Set(providers as Provider[]),
+      networkPolicies: policy.networkPolicies,
       consumedStages: new Set(),
       issuedWallClockMs,
       issuedMonotonicMs,
@@ -970,6 +974,7 @@ function consumeGrant(
       taskRole,
       taskAttempt,
       scopeHash: record.scopeHash,
+      networkPolicy: record.networkPolicies[provider as Provider],
       externalSendAuthorized: true,
     });
   } catch {

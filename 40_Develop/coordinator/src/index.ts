@@ -32,3 +32,7 @@ export {
   resolveRuntimeOwnedDockerTaskCurrentCorrelations,
 } from "./task/recovery.ts";
 export { observeRuntimeOwnedTransientTaskCompletion } from "./state-storage/settlement-store.ts";
+export {
+  readRepositoryNetworkPolicies,
+  type RepositoryNetworkPolicies,
+} from "./external-send/policy.ts";

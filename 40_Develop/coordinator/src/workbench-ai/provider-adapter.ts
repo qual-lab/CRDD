@@ -94,6 +94,7 @@ export function createWorkbenchAiProviderAdapter(
         cleanupConfirmed: true,
       });
     const executionInput = Object.freeze({
+      networkPolicy: input.networkPolicy,
       catalogRevision: input.catalogRevision,
       provider: input.profile.provider,
       providerPrompt: input.taskPacket.providerPrompt,

@@ -16,6 +16,7 @@ import {
   type DockerIsolationCommandInput,
   type DockerIsolationRuntimePlan,
   type DockerExecutionHooks,
+  type DockerNetworkPolicy,
 } from "../../../docker-isolation/src/index.ts";
 import { codexAdviceProviderInitRequired } from "../../../docker-isolation/src/index.ts";
 import {
@@ -24,7 +25,7 @@ import {
 } from "../../../ai-adapter/src/index.ts";
 import { describeDockerIsolationExecutionEnvironment } from "../../../docker-isolation/src/index.ts";
 import { inspectRuntimeOwnedDockerResourceReceipts } from "../task/recovery.ts";
-import { describeEgressProxyTopology } from "../external-send/egress-proxy-policy.ts";
+import { describeDockerProxyTopology } from "../../../docker-isolation/src/index.ts";
 import { borrowOwnedDockerExecutionPaths } from "../host-execution/operation-workspace-lifecycle.ts";
 import {
   describeDockerProviderAssets,
@@ -63,6 +64,7 @@ type Command = Readonly<{ purpose: string; argv: readonly string[] }>;
  * @compatibility PreparedPlanの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
 type PreparedPlan = Readonly<{
+  networkPolicy: DockerNetworkPolicy | null;
   provider: "codex" | "claude";
   operationId: string;
   grantRef: string;
@@ -169,7 +171,7 @@ function resolveIsolationCommandInput(
   if (adviceResult?.status === "blocked") return null;
   const adviceCommand =
     adviceResult?.status === "ready"
-      ? bindWorkbenchAiProviderCommand(adviceResult.plan)
+      ? bindWorkbenchAiProviderCommand(adviceResult.plan, plan.networkPolicy)
       : null;
   const generated = planProviderExecution(
     {
@@ -211,10 +213,10 @@ function resolveIsolationCommandInput(
   if (generated.status !== "ready") return null;
   const providerPlan = generated.plan;
   const assets = describeDockerProviderAssets(plan.provider);
-  const egress = describeEgressProxyTopology(plan.provider);
+  const egress = describeDockerProxyTopology(plan.provider);
   if (
     providerPlan.status !== "candidate" ||
-    egress.verificationAdapter.imageDigest !== plan.proxyImageDigest ||
+    egress.imageDigest !== plan.proxyImageDigest ||
     (adviceCommand?.fixedImageDigest ?? assets.fixedImageDigest) !==
       plan.providerImageDigest
   ) {
@@ -224,7 +226,11 @@ function resolveIsolationCommandInput(
     plan.commands,
     plan.proxyImageDigest,
   );
-  if (!proxy || proxy.profile !== plan.provider) {
+  if (
+    !proxy ||
+    proxy.profile !== plan.provider ||
+    JSON.stringify(proxy.networkPolicy) !== JSON.stringify(plan.networkPolicy)
+  ) {
     return null;
   }
   const providerIdentity = assets.identity;
@@ -301,6 +307,7 @@ function resolveIsolationCommandInput(
       token: proxy.token,
       port: egress.containerPort,
       extendedProxyEnvironment: plan.provider === "codex",
+      networkPolicy: proxy.networkPolicy,
     },
   };
 }
@@ -365,7 +372,10 @@ function validatePlan(plan: PreparedPlan, tmpSourcePath: string) {
   if (expectedAdviceResult?.status === "blocked") return false;
   const expectedAdviceCommand =
     expectedAdviceResult?.status === "ready"
-      ? bindWorkbenchAiProviderCommand(expectedAdviceResult.plan)
+      ? bindWorkbenchAiProviderCommand(
+          expectedAdviceResult.plan,
+          plan.networkPolicy,
+        )
       : null;
   const expectedAdviceCommandHash = expectedAdviceCommand
     ? hashWorkbenchAiProviderCommand(expectedAdviceCommand)

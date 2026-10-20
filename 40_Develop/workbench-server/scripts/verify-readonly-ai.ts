@@ -5,6 +5,7 @@
  * @security 本文・資格を保存せず、編集・採用・再送・再起動を行わない。
  */
 import assert from "node:assert/strict";
+import { readRepositoryNetworkPolicies } from "../../coordinator/src/index.ts";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -117,6 +118,16 @@ async function main() {
       handle.baseUrl,
     );
     const start = await client.start({
+      expectedNetworkPolicyHash: (() => {
+        const network = readRepositoryNetworkPolicies(verified.capability);
+        if (network.status !== "ready")
+          throw new Error("network_policy_unavailable");
+        return (
+          provider === "codex"
+            ? network.policies.codex
+            : network.policies.claude
+        ).policyHash;
+      })(),
       mode: "read_only_advice",
       profileId,
       prompt:

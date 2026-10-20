@@ -11,6 +11,7 @@
 import { planProviderExecution } from "../../../../ai-adapter/src/index.ts";
 import { describeWorkbenchAiAdviceResultSchema } from "../../../src/workbench-ai/advice-result.ts";
 import assert from "node:assert/strict";
+import { prepareDockerNetworkPolicy } from "../../../../docker-isolation/src/index.ts";
 import test from "node:test";
 import {
   cancelRuntimeOwnedClaudeDockerCandidate,
@@ -149,6 +150,11 @@ function createFixture(
         },
         taskPacketHash: "b".repeat(64),
         prompt: "Review the exact local candidate.",
+        networkPolicy: (() => {
+          const result = prepareDockerNetworkPolicy("claude", []);
+          if (result.status !== "ready") throw new Error("fixture");
+          return result.policy;
+        })(),
         promptTransport: "provider_stdin_only" as const,
       }),
     issueProviderAuthority: (management: unknown, active: unknown) => {
@@ -667,6 +673,11 @@ test("Executor Task PacketをacceptEditsと隔離workspace RW mountへ結合す�
         },
         taskPacketHash: "c".repeat(64),
         prompt: "Create the exact bounded candidate change.",
+        networkPolicy: (() => {
+          const result = prepareDockerNetworkPolicy("claude", []);
+          if (result.status !== "ready") throw new Error("fixture");
+          return result.policy;
+        })(),
         promptTransport: "provider_stdin_only" as const,
       }),
   });
@@ -740,6 +751,11 @@ test("検証済み作業量を固定argvへ接続し、過大・不明ならAuth
         taskWorkload,
         taskPacketHash: "b".repeat(64),
         prompt: "Review the exact local candidate.",
+        networkPolicy: (() => {
+          const result = prepareDockerNetworkPolicy("claude", []);
+          if (result.status !== "ready") throw new Error("fixture");
+          return result.policy;
+        })(),
         promptTransport: "provider_stdin_only",
       }),
       ...(readPathCount === 0 || readPathCount === 13

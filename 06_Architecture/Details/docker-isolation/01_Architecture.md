@@ -1,8 +1,38 @@
 # Docker隔離の詳細設計
 
+## Image同一性と取得・Build情報の分離 — 2026-10-21
+
+通常実行の固定Image、版、実行Pathは`src/image/assets.ts`を単一正本とする。`images/build-inputs.json`は取得・Build時のArchive／Binary・Sigstore・内包Schema／設定の期待値を所有し、通常実行から読み取らない。版・実行Path・Image Digestを同JSONへ重複定義せず、Build・資産検証では同じ実行定義と組み合わせる。取得元の真正性と取得物の完全性を検証する義務は維持し、期待値があるだけで検証済みとは扱わない。
+
+`describeDockerProviderAssets`は実行用のImage・配置と外部Seccomp照合材料だけを返し、取得Archive・署名Bundle・Image内Binary／Schemaの個別Hashは公開しない。取得・Build情報のfieldを参照した試験はBuild入力へ接続する。Providerの実行仕様はAI Adapter、Image内容・配置はDocker Isolationが所有する。新しいBuild Runner、Registry、署名Frameworkは作らない。
+
+Providerの作成計画は固定Image指定と`--pull=never`を維持する。Host上のSeccompを起動時に渡す場合はImage Digestの保護外なので、実物のIdentity・容量・Hash照合を維持する。Repository設定やMount内容もImage Digestだけでは保証しない。現行Imageの重複定義を除去する一方、未解決の旧exact Recoveryを識別する過去Digestは現在の正本と区別して保持する。Image IDとRegistry manifest digestを同義として新しい取得方式へ切り替えない。
+
+本改訂は情報の配置・公開範囲を整理するもので、既存ImageやHash値、Provider版、Pull条件、資源回収の保証は変更しない。限定Image検証やAllowlistの新Imageは別の検証対象であり、このSource変更だけから成立を主張しない。
+
+## 追加通信条件の純粋構成 — 2026-10-21
+
+`network/policy.ts`の`prepareDockerNetworkPolicy(provider, additionalHosts)`は、検証済み設定の追加Hostを技術境界で再検査し、Provider固定集合と合成した不変Policyまたはblockedを返す。公開型は`DockerNetworkPolicy`／`DockerNetworkPolicyResult`。最大32追加、各253文字・label63文字、ASCII DNS名を小文字化し、URL・port・IP literal・wildcard・末尾dot・重複を拒否する。Provider固定Hostとの重複は集合として一つへ統合する。単一labelやpunycodeを名前だけで禁止せず、実DNSの公開IP確認は既存Proxyが所有する。
+
+実効Hashは契約版・用途`repository_ai_execution`・Provider・整列Host集合・443／CONNECTへ結合する。設定の順序・大小文字や既定／明示同値でHashを変えない。DomainやRepository Pathを参照せず、外部Effect・Authorityを発行しない。
+
+このAPIはRepository内の編集・助言・レビューで共用し、ログインへ追加集合を渡さない。Coordinatorの既存同意・Grant・Task Packetと本番planは同じ凍結Snapshotを搬送し、Proxyは正規形・Hash・用途・Providerを再検査する。`parseDockerNetworkPolicy`は搬送値を再構成し、任意Object参照を保存しない。
+
+`describeDockerProxyTopology(provider)`は固定Image、port、Provider固定Hostと二Network構成を返す。Image定義は`image/assets.ts`の単一正本を参照する。Repository追加HostはTopologyへ保存せず一回の実効Policyへ渡す。過去のProbe成功・取得用Hash・署名情報をRuntimeの成立証明として返さない。Coordinatorの試験専用CIDR／CONNECT参照モデルは`tests/support/`へ限定し、実Pythonの強制と混同しない。
+
+ProxyはDNS応答の重複を除いた最大32アドレスを検査し、一つでも非公開・loopback等があれば拒否する。接続は検証したexact IPへ443で行い、候補ごとに期限を再開始せず、全接続試行を単調時刻の共通15秒期限内へ収める。失敗時の理由は固定分類だけを診断へ含め、生例外・任意IP・秘密値を複製しない。設定不正時に固定集合へfallbackしない。
+
+構成記述と実測結果は別である。限定npm／pip、拒否・取得後待機取消・回収の結果は[変更の実測記録](../../../99_Roadmap/Changes/CHG-000082/docker-isolation-source-structure.md)を参照し、認証を含む全体E2E・実AI・取得中取消へ拡張しない。
+
+## Source責務別配置 — 2026-10-20
+
+`execution/`は本実行の計画・実行・Session・結果だけを所有する。認証用隔離は`authentication/`、診断は`probe/`、Docker CLIの信頼・設定・環境は`docker-cli/`、所有子Processは`process/`、固定Image記述は`image/`、実資源の回収は`cleanup/`、Desktop・Engine観測と既存修復は`docker-desktop/`へ分ける。標準公開入口は`src/index.ts`一つ、公開Symbol集合・処理・状態・失敗条件・Protocol・Imageは配置だけでは変えない。Native技術処理はPlatform Accessへの既存委譲を維持する。
+
+UTは同じ責務Folderへ追従し、ITは既存の操作・結合シナリオを維持する。移動・全利用側と検証結果は[再編対応表](../../../99_Roadmap/Changes/CHG-000082/docker-isolation-source-structure.md)を参照する。固定材料も責務別に配置する。配置等価性、追加通信の接続、本番全体の成立を別々に評価する。
+
 ## Provider実行物の配置所有 — 2026-10-19
 
-`execution/provider-assets.ts`は、Codex／Claudeの固定Image、公式実行物の版・Hash・配置、設定とSeccompの同一性を所有する。AI Adapterの旧`distribution.ts`から移し、過去の署名・認証・送信の「検証済み」定数は引き取らない。返却値は現在の構成記述であり、実Imageの存在・同一性・認証・実行許可の証明ではない。
+`image/assets.ts`は、Codex／Claudeの固定Image、版・実行Pathと外部Seccompの実行時照合材料を所有する。取得・Build用の収録済みHashは`images/build-inputs.json`が所有する。AI Adapterの旧`distribution.ts`から移し、過去の署名・認証・送信の「検証済み」定数は引き取らない。返却値は現在の構成記述であり、実Imageの存在・同一性・認証・実行許可の証明ではない。
 
 | 公開API | 入出力と境界 |
 |---|---|
@@ -22,6 +52,14 @@ Coordinatorが同じ配置でCLI計画を準備時とEffect直前に再生成し
 最終更新日: 2026-10-17
 
 ## 基本設計との関係
+
+### Repository追加通信先の接続目標（実装・実通信確認中）
+
+既存の内部Networkとegress Network、HTTPS CONNECT Proxyを利用する。上位が検証済みRepositoryから一回読み取った不変の通信設定を注入し、ProxyはProvider・固定Host・追加Host・443／CONNECT・意味Hashを起動時に再照合する。設定不正は起動拒否とし、固定Hostへの暗黙fallbackを行わない。ログインは追加設定を渡さずProvider固定Hostだけを使用する。
+
+既存の要求・Receipt・取消・回収経路を維持し、Proxyの元create引数に追加した同じ非秘密設定を実構成照合にも用いる。新しいState、Registry、Lock、Recovery経路は作らない。ImageはBuild時の入力検証と固定Digestで識別し、古いProxy Imageを追加通信先対応済みと扱わない。
+
+承認済み限定試験はProxy＋Providerの通信断面だけを対象とし、npmとpipを順次実行する。同時最大2 Container・専用2 Networkを守り、取得成功、未許可Host拒否、直接egress拒否、取消後のexact資源不存在を別々に確認する。認証Containerを含む本番全体のE2E、TLS本文検査、任意Repositoryへの一般化を主張しない。失敗時は再試行せず今回の資源だけ安全に回収し、確認不能は保持する。
 
 | Architecture定義 | 担当する責務断面 | Relation状態 |
 |---|---|---|
@@ -155,25 +193,25 @@ Candidateへローカル`.env`や資格を自動複製／注入しない。共�
 
 現行Sourceの依存方向は、同Packageのsrc、Node組込みModuleとPlatform AccessのRoot公開入口に限定する。上位Packageへのtype-only参照も逆依存として扱い、PA内部へのdeep importを置かない。通常の配置回帰は`tests/integration/package-boundary.contract.test.ts`が現src全数と反例で確認し、必要な技術入口四件は実Root exportへ接続する。これは署名・実行許可の検査ではない。試験の限定構文や未評価範囲はQA-000006を正本とし、旧署名graphの完全解析を再実装しない。
 
-Proxy Containerの固定包装と認証Home環境は既存`execution/command-plan.ts`が所有する。九操作の構築と保存済みProxy包装の照合は同じ22引数のprivate構築を利用し、投影はcreate_proxy一件・二env・固定option・末尾image／payloadなしを全文照合してprofile/tokenだけを返す。上位は元Providerとの意味相関を検査し、Docker argvを走査しない。認証HomeはProvider metadataの環境名または明示不使用だけから固定生成する。元正常九argv・Hashは維持する。
+Proxy Containerの固定包装と認証Home環境は既存`execution/plan.ts`が所有する。九操作の構築と保存済みProxy包装の照合は同じ22引数のprivate構築を利用し、投影はcreate_proxy一件・二env・固定option・末尾image／payloadなしを全文照合してprofile/tokenだけを返す。上位は元Providerとの意味相関を検査し、Docker argvを走査しない。認証HomeはProvider metadataの環境名または明示不使用だけから固定生成する。元正常九argv・Hashは維持する。
 
 同じFileの`dockerIsolationResourceIdentityIsValid`は、五資源名・所有Label・二Image digestの文法と五名の重複だけを判定する。planner自身と上位の計画・開始・初期Identityの三利用側が、非秘密の八項目を明示投影して共用する。文法が正常でもTask・Provider・Home・Authority・Packet・元commandの意味相関は上位が別途検査する。既存回復の再入場・Receipt照合・清掃・配送へ新しい条件を追加せず、文法成功を所有権・存在・削除許可へ昇格しない。
 
-固定Seccomp Artifactの実体照合は既存`execution/command-plan.ts`の非公開Resolverが所有する。上位は適用要否とProvider metadataの期待Hash／bytesだけを渡し、固定Host Pathを取得・搬送しない。DIは同じ固定実物のfile・非link・native realpath・容量・読取り前後dev／ino／size／mtime・本文Hashを照合し、Docker optionを構築する。例外・不一致・欠測と旧Path入力は計画不成立とし、nullを適用外へ補完しない。初回計画・発行前の再計画は固定実物を再観測し、import時の先行観測・Cache・新しいAuthorityは追加しない。開始済みの元Contextの清掃は同じplan identityとOwnerを照合し、Seccompの再読取りを清掃条件にしない。
+固定Seccomp Artifactの実体照合は既存`execution/plan.ts`の非公開Resolverが所有する。上位は適用要否とProvider metadataの期待Hash／bytesだけを渡し、固定Host Pathを取得・搬送しない。DIは同じ固定実物のfile・非link・native realpath・容量・読取り前後dev／ino／size／mtime・本文Hashを照合し、Docker optionを構築する。例外・不一致・欠測と旧Path入力は計画不成立とし、nullを適用外へ補完しない。初回計画・発行前の再計画は固定実物を再観測し、import時の先行観測・Cache・新しいAuthorityは追加しない。開始済みの元Contextの清掃は同じplan identityとOwnerを照合し、Seccompの再読取りを清掃条件にしない。
 
-Task回復の本番技術組立は既存`cleanup/recovery-executor.ts`の`createDockerTaskRecoveryExecutor`が所有する。Coordinatorからは既存管理領域と同期の現在Owner確認だけを受け、低位入力を明示構築して固定CLI検証・最小環境を結合する。CLI snapshotはmodule共有の元寿命を維持し、初回観測成功後は別Executor・close後も同実体を再確認する。構築時には短命configの既存Filesystem処置だけを行い、環境は各要求時、CLIはその後に取得・再確認する。環境不明とCLI不明の理由を分け、再検証失敗から再観測へfallbackしない。低位factoryはDIの直接技術試験に維持するが、上位はそのCLI／環境注入を使用しない。Owner・config再照合・元executor／closeの順序と回収結果は変更しない。
+Task回復の本番技術組立は既存`cleanup/execute.ts`の`createDockerTaskRecoveryExecutor`が所有する。Coordinatorからは既存管理領域と同期の現在Owner確認だけを受け、低位入力を明示構築して固定CLI検証・最小環境を結合する。CLI snapshotはmodule共有の元寿命を維持し、初回観測成功後は別Executor・close後も同実体を再確認する。構築時には短命configの既存Filesystem処置だけを行い、環境は各要求時、CLIはその後に取得・再確認する。環境不明とCLI不明の理由を分け、再検証失敗から再観測へfallbackしない。低位factoryはDIの直接技術試験に維持するが、上位はそのCLI／環境注入を使用しない。Owner・config再照合・元executor／closeの順序と回収結果は変更しない。
 
-ProbeのImage、Name、Label、保存用Engine識別と技術profileは既存`execution/probe-command.ts`の`describeDockerProbeResource`から投影する。作成argv、inspect期待値、上位の既存回復記録はこの同じ記述を参照し、上位がWindows／Desktopの固定値を再定義しない。記録Schema・保存field・Hash／Token形式は変更しない。この記述の取得は実資源の存在や実行・回収の許可ではない。
+ProbeのImage、Name、Label、保存用Engine識別と技術profileは既存`probe/plan.ts`の`describeDockerProbeResource`から投影する。作成argv、inspect期待値、上位の既存回復記録はこの同じ記述を参照し、上位がWindows／Desktopの固定値を再定義しない。記録Schema・保存field・Hash／Token形式は変更しない。この記述の取得は実資源の存在や実行・回収の許可ではない。
 
 Attach試験用の三シナリオと観測待機は製品Coordinatorから撤去し、既存DIの実Process試験が直接所有する。ready・overflow・終端要求一回・元closeのOracleを維持し、上位のSTや実Docker取消の成立へ昇格しない。
 
-Probeの本番固定bindingは既存`execution/probe-runtime.ts`が所有する。生成順は対応platform確認→CLI snapshot観測→上位の同期management読取り一回→固定env領域生成とし、CLI観測失敗と上位Mount読取り失敗を同じ理由へ畳まない。読取りcallbackは返却後保持せず、上位Host型や保存処理をDIへ持ち込まない。Promise・不正な所在では環境領域を作らず停止する。bindingは同操作のsnapshotと環境だけをclosure所有し、fresh CLI検証は生成時でなく各要求直前に維持する。通常・四故障・取消・稼働残存・fresh回復のすべてで、途中再生成せず同じbindingを用いる。回復時は上位の世代取得とrecord／Root／child検証後に生成し、Host相関と最終公開は上位が所有する。
+Probeの本番固定bindingは既存`probe/execute.ts`が所有する。生成順は対応platform確認→CLI snapshot観測→上位の同期management読取り一回→固定env領域生成とし、CLI観測失敗と上位Mount読取り失敗を同じ理由へ畳まない。読取りcallbackは返却後保持せず、上位Host型や保存処理をDIへ持ち込まない。Promise・不正な所在では環境領域を作らず停止する。bindingは同操作のsnapshotと環境だけをclosure所有し、fresh CLI検証は生成時でなく各要求直前に維持する。通常・四故障・取消・稼働残存・fresh回復のすべてで、途中再生成せず同じbindingを用いる。回復時は上位の世代取得とrecord／Root／child検証後に生成し、Host相関と最終公開は上位が所有する。
 
-Probeのinspect構成と三つのbind mountの実体照合は、DIの`execution/probe-configuration.ts`が所有する。上位は同じProbeのid／probeId、必須profile、workspace／providerHome／tmpの三PathをDIの純粋describeへ渡し、期待構成を投影する。現行profileは一候補、旧record採用一箇所の明示`legacy_recovery`だけ固定六候補を選ぶ。欠測・空・未知profileへ候補集合を補完しない。構成判定は投影済み候補へのmembershipを照合し、上位の6領域全体、Host能力、保存Ownerを受け取らない。固定Image／Name／Label、pids64、三RW mount等の現行条件を維持する。Filesystemは各mountで観測側→期待側の順に各一回realpathを読み、例外はfalse、Windowsはen-US小文字、他OSは完全一致とする。これは実資源の包括的な安全性や新しいAuthorityを与える処理ではない。
+Probeのinspect構成と三つのbind mountの実体照合は、DIの`probe/configuration.ts`が所有する。上位は同じProbeのid／probeId、必須profile、workspace／providerHome／tmpの三PathをDIの純粋describeへ渡し、期待構成を投影する。現行profileは一候補、旧record採用一箇所の明示`legacy_recovery`だけ固定六候補を選ぶ。欠測・空・未知profileへ候補集合を補完しない。構成判定は投影済み候補へのmembershipを照合し、上位の6領域全体、Host能力、保存Ownerを受け取らない。固定Image／Name／Label、pids64、三RW mount等の現行条件を維持する。Filesystemは各mountで観測側→期待側の順に各一回realpathを読み、例外はfalse、Windowsはen-US小文字、他OSは完全一致とする。これは実資源の包括的な安全性や新しいAuthorityを与える処理ではない。
 
-診断Probeの作成IDと三軸（実ID・名前・Label）の不存在応答は、DIの`execution/probe-result.ts`が純粋分類する。作成は既存条件どおりerrorなし・終了値0・完全64桁IDだけをconfirmedとし、三軸不存在は各応答が成功・UTF-8 64KiB以内・不正／重複IDなしで、すべて空の場合だけconfirmedとする。失敗・欠測・残存を空集合へ補完しない。上位は分類値を使っても、Host遷移・保存確定・世代排他・Authorityを下位へ移さず、現在Taskの異なる隔離構成へProbeを偽装しない。移管で分類条件を強化・緩和しない。
+診断Probeの作成IDと三軸（実ID・名前・Label）の不存在応答は、DIの`probe/result.ts`が純粋分類する。作成は既存条件どおりerrorなし・終了値0・完全64桁IDだけをconfirmedとし、三軸不存在は各応答が成功・UTF-8 64KiB以内・不正／重複IDなしで、すべて空の場合だけconfirmedとする。失敗・欠測・残存を空集合へ補完しない。上位は分類値を使っても、Host遷移・保存確定・世代排他・Authorityを下位へ移さず、現在Taskの異なる隔離構成へProbeを偽装しない。移管で分類条件を強化・緩和しない。
 
-診断Probeの現在構成観測と限定回収は`execution/probe-container.ts`が所有する。構成一致時はRunningの肯定事実だけを返し、falseを停止・不存在と解釈しない。回収は過去の観測を再利用せず、同じ呼出しで構成再確認→完全実IDの削除→実ID・名前・Labelの三軸不存在を順次確認する。不存在だけの観測は削除を発行しない。上位は私有Container参照を照合し、成功時だけ元のCLI・Host・Root・実IDに結合した私有不存在参照を登録する。下位の戻り値を外部から再投入する入口や新しいAuthority管理機構は設けない。作成・start・attach・取消全体と旧回復記録の移行は、この観測・回収単位の完成とは別に確認する。
+診断Probeの現在構成観測と限定回収は`probe/container.ts`が所有する。構成一致時はRunningの肯定事実だけを返し、falseを停止・不存在と解釈しない。回収は過去の観測を再利用せず、同じ呼出しで構成再確認→完全実IDの削除→実ID・名前・Labelの三軸不存在を順次確認する。不存在だけの観測は削除を発行しない。上位は私有Container参照を照合し、成功時だけ元のCLI・Host・Root・実IDに結合した私有不存在参照を登録する。下位の戻り値を外部から再投入する入口や新しいAuthority管理機構は設けない。作成・start・attach・取消全体と旧回復記録の移行は、この観測・回収単位の完成とは別に確認する。
 
 停止前拒否の診断は、既存Machineが実際に得た判定から固定の`stopFailure`を返す。初回の信頼確認、Client Process、Desktop Process、backend、Engine、Container不存在、境界失効、停止要求、停止待機、最終停止観測、例外を区別する。追加の観測や再試行は発行せず、既存の短絡順序・期限・要求数を維持する。停止成功・停止未実施・起動側失敗ではnullとし、次のstop開始時に前回値を破棄する。Runtime返却とsettled通知へ同じ値を搬送し、cleanup不明でも停止失敗の詳細を消さない。これは非Authorityの診断であり、既存reason／primaryFailure、耐久checkpoint、回復可否、終了条件は変更しない。Sourceと反証の完了前は実装済みと扱わない。
 
@@ -181,7 +219,7 @@ Probeのinspect構成と三つのbind mountの実体照合は、DIの`execution/
 
 Docker Isolationは、Docker資源、所有子ProcessとDocker実行環境の技術Ownerである。通常隔離に加え、診断と、上位が許可した実行環境の停止・開始・限定修復の実処理を所有する。Containerを復元して継続するのではなく、所有資源の終端状態を確認し、上位が新しい実行を開始できる状態へ戻す。独立Server、CLI、履歴Store、共有Registry、Lock Frameworkは設けない。
 
-助言Imageの`--init`適用条件は、AI Adapterから既存`execution/command-plan.ts`の`codexAdviceProviderInitRequired`へ移管した。`workbench_advice`と現行／保持対象旧Imageのexact二Digestだけを受理する。通常Task、Claude、未知・空・欠測Digestへ条件を拡張しない。上位の計画・Effect直前照合・元Recoveryの期待構成は同じDI公開関数を利用する。現在のAI配布記述との一致は利用側試験で確認し、DIからAI Adapterへの依存は作らない。返却値だけではInitの実観測、Process終端や回収成功を意味しない。新しいState・Registry・Lock・回復経路は追加しない。
+助言Imageの`--init`適用条件は、AI Adapterから既存`execution/plan.ts`の`codexAdviceProviderInitRequired`へ移管した。`workbench_advice`と現行／保持対象旧Imageのexact二Digestだけを受理する。通常Task、Claude、未知・空・欠測Digestへ条件を拡張しない。上位の計画・Effect直前照合・元Recoveryの期待構成は同じDI公開関数を利用する。現在のAI配布記述との一致は利用側試験で確認し、DIからAI Adapterへの依存は作らない。返却値だけではInitの実観測、Process終端や回収成功を意味しない。新しいState・Registry・Lock・回復経路は追加しない。
 
 ### 起動失敗の診断
 
@@ -189,11 +227,11 @@ Docker Isolationは、Docker資源、所有子ProcessとDocker実行環境の技
 
 ### Probe起動・取消の集約契約
 
-固定六profileのpayloadと期限は`execution/probe-runtime.ts`だけが所有する。作成計画は既存の固定command plannerへ委譲し、inspect／回収の期待構成も同じprofileから純粋投影する。Coordinatorの私有Container Identityは必須profileを保持し、通常・四故障・取消・稼働残存は現行profileを明示する。旧recordの採用箇所だけは`legacy_recovery`を明示し、固定六候補を使う。profile欠測・空・未知をlegacyやnormalへ補完しない。永続recordのSchemaは変更しない。上位の試験用三中継は撤去済みとし、固定argvはDI planner、本番のprofile・Probe ID・三Path・binding搬送は既存上位Caller試験で確認する。構成投影そのものは観測成功・実行Authorityではない。
+固定六profileのpayloadと期限は`probe/execute.ts`だけが所有する。作成計画は既存の固定command plannerへ委譲し、inspect／回収の期待構成も同じprofileから純粋投影する。Coordinatorの私有Container Identityは必須profileを保持し、通常・四故障・取消・稼働残存は現行profileを明示する。旧recordの採用箇所だけは`legacy_recovery`を明示し、固定六候補を使う。profile欠測・空・未知をlegacyやnormalへ補完しない。永続recordのSchemaは変更しない。上位の試験用三中継は撤去済みとし、固定argvはDI planner、本番のprofile・Probe ID・三Path・binding搬送は既存上位Caller試験で確認する。構成投影そのものは観測成功・実行Authorityではない。
 
 固定取消は`runDockerProbeCancellation`が、保存後のattach前、ready後、候補成立後の三地点で同期の三Path読取りと固定構成inspectを行う。各読取りは初回Pathと一致させ、欠測・Promise・accessor・Proxy・差替えは前進停止とする。readyとcompletionの待機、SIGTERM要求は各5秒、猶予計測にはtimeout／overflow時の必要なjoin時間を含める。期限後の遅延肯定で結果を巻き戻さない。一次失敗、最終理由、post構成確認、attach終端観測と実終端要求数を分離して返す。joinの例外・不明は最終技術理由を上書きするが、上位の既知Container補償回収を妨げない。上位は二保存・同ID・Host清掃を維持し、候補・post確認・attach終端・Host清掃がすべて成立した場合だけ公開verifiedにする。稼働残存開始は同じ技術群でfresh構成→固定start一回10秒→fresh構成かつRunning肯定を行い、成功時の自動回収はしない。これらは一般の外部取消APIではなく固定診断の移管であり、実Container取消と実稼働回収の成立は別に検証する。
 
-完了まで待つ固定診断のCLI要求・profile別期限・実時計測は`execution/probe-runtime.ts`、捕捉結果の純粋分類は既存`execution/probe-result.ts`が所有する。CLI再確認を含む要求直前から要求完了までを計測し、生stdout／stderr／例外本文を上位へ返さない。隔離判定とlifecycle候補の条件は別に保つ。前者の既存条件にSignal拒否やstderr空を黙って追加せず、後者で終了envelope、各64KiBと整数0〜30000msを評価する。上位は閉じた事実を公開fieldへ投影し、私有相関・回収・Host清掃の確認後だけ既存の最終評価へ進める。これらの値分類や同期要求の成功は、実取消・実回収・DI集約全体の完成ではない。
+完了まで待つ固定診断のCLI要求・profile別期限・実時計測は`probe/execute.ts`、捕捉結果の純粋分類は既存`probe/result.ts`が所有する。CLI再確認を含む要求直前から要求完了までを計測し、生stdout／stderr／例外本文を上位へ返さない。隔離判定とlifecycle候補の条件は別に保つ。前者の既存条件にSignal拒否やstderr空を黙って追加せず、後者で終了envelope、各64KiBと整数0〜30000msを評価する。上位は閉じた事実を公開fieldへ投影し、私有相関・回収・Host清掃の確認後だけ既存の最終評価へ進める。これらの値分類や同期要求の成功は、実取消・実回収・DI集約全体の完成ではない。
 
 固定診断のEngine確認、作成、作成後の実行と取消はDIの一つの技術群へ集約する。上位の前後二保存を跨ぐ自動pipelineや、操作ごとの薄い公開wrapperを追加しない。
 
@@ -227,17 +265,17 @@ Docker Isolationは、Docker資源、所有子ProcessとDocker実行環境の技
 
 ## 2. 入力と公開API
 
-認証用の公開`createDockerAuthenticationRuntimeFactory()`は、既存`execution/authentication-command-runtime.ts`が固定CLI snapshot、最小環境、System32の実Directoryを構成する。上位の認証dependencies生成時に一回呼び、従来の初回観測時点・例外経路とsnapshot寿命を維持する。同Factoryは元技術planだけからRuntimeを作り、各execute前に最初のsnapshotを再検証する。不正plan・観測不明・再検証失敗から新snapshotへのfallbackやProcess開始を行わない。元計画との結合、対話非捕捉、確認済み削除commandの一回使用とProcess回収は既存Runtimeが所有する。注入可能な`createDockerAuthenticationRuntimeUsing`は内部試験だけが参照し、Rootへ再公開しない。上位汎用環境の旧`docker_cli`／`docker_desktop_repair_helper`選択は撤去し、Host／保存用の一般環境をDocker技術へ兼用しない。
+認証用の公開`createDockerAuthenticationRuntimeFactory()`は、既存`authentication/execute.ts`が固定CLI snapshot、最小環境、System32の実Directoryを構成する。上位の認証dependencies生成時に一回呼び、従来の初回観測時点・例外経路とsnapshot寿命を維持する。同Factoryは元技術planだけからRuntimeを作り、各execute前に最初のsnapshotを再検証する。不正plan・観測不明・再検証失敗から新snapshotへのfallbackやProcess開始を行わない。元計画との結合、対話非捕捉、確認済み削除commandの一回使用とProcess回収は既存Runtimeが所有する。注入可能な`createDockerAuthenticationRuntimeUsing`は内部試験だけが参照し、Rootへ再公開しない。上位汎用環境の旧`docker_cli`／`docker_desktop_repair_helper`選択は撤去し、Host／保存用の一般環境をDocker技術へ兼用しない。
 
 ### Desktop修復の内部Host操作
 
 保存前の技術準備では、同じNative子の初期RとArtifact再確認Vの後、Repair06専用Hで同じ選択利用者のHashを取得する。NativeがMutex名へ使った捕捉値と同じ値を返し、Nodeは元子・command順序と有界frameへ結合する。これは非Authorityの相関であり、保存Ownerや実処置許可の代用ではない。旧RuntimeState Rootから利用者を逆算しない。上位への本番準備通知と保存専用Ownerは接続済みだが、Hの取得だけで全体完成としない。
 
-技術checkpointの純粋契約は`desktop/repair-checkpoint.ts`が所有する。Rootは型、厳格decoder、局所遷移validator、九処置の純粋終端predicateだけを公開し、処置を実行しない。固定九処置を意図保存・発行観測・結果観測に分け、初回／起動失敗世代／補助領域の期待実体とsource／retainedの四状態を持つ。生Path、任意用途、Provider／Home、署名履歴、人間の保持判断は持たない。上位は同じ保存モデルの修復variantにこのDTOを保持するが、DIのkey・遷移を再実装しない。unknown・確定結果・保持済み実体を巻き戻さず、前処置の結果不明のまま後続Effect用の意図を受理しない。現在cleanupと最初のcleanup失敗は別に保持する。codec単独の成立は実Writer・同Session保持・OS処置・実修復の証明ではない。現在はDI内部固定wrapperから全Machineへ接続済みで、最下位を模擬する接続試験と各技術境界の個別根拠で確認した。真正上位Owner／Writer／CLIは接続済み。実境界の成立と未実証範囲は冒頭の現在表へ限定する。
+技術checkpointの純粋契約は`docker-desktop/repair-state.ts`が所有する。Rootは型、厳格decoder、局所遷移validator、九処置の純粋終端predicateだけを公開し、処置を実行しない。固定九処置を意図保存・発行観測・結果観測に分け、初回／起動失敗世代／補助領域の期待実体とsource／retainedの四状態を持つ。生Path、任意用途、Provider／Home、署名履歴、人間の保持判断は持たない。上位は同じ保存モデルの修復variantにこのDTOを保持するが、DIのkey・遷移を再実装しない。unknown・確定結果・保持済み実体を巻き戻さず、前処置の結果不明のまま後続Effect用の意図を受理しない。現在cleanupと最初のcleanup失敗は別に保持する。codec単独の成立は実Writer・同Session保持・OS処置・実修復の証明ではない。現在はDI内部固定wrapperから全Machineへ接続済みで、最下位を模擬する接続試験と各技術境界の個別根拠で確認した。真正上位Owner／Writer／CLIは接続済み。実境界の成立と未実証範囲は冒頭の現在表へ限定する。
 
 既存Native helperは、選択利用者のIdentity hashへ結合した同じGlobal MutexをRepair／Restartのコマンドループ全期間で保持する。新しい共有Lockを追加せず、同じ選択利用者に属する協調的CRDD helper間の競合拒否を再利用する。別利用者を含むHost全体、手動Docker／WSL操作や他実装との排他ではない。Nodeの`assertLive()`はhelper子の生存・未解放・pipe writableの確認であり、Kernel Mutex所有やDirectory renameとの原子性を直接証明しない。全Machineでは一回取得した同じSessionを最終の技術Effectとその結果checkpointまで保持し、その後release／abortをjoinしてcleanup結果を上位の別checkpoint／終端判定へ保存する。喪失・Protocol不明の後は追加Effectを発行せず、release不明をcleanup不明として残す。fresh取得だけから過去Effectの結果を確定しない。この既存機構の再利用を、新しいHost排他の成立主張にしない。
 
-公式停止はPlatform Access公開APIの`requestDockerDesktopOfficialShutdown`と取得済みsession、固定Docker backend停止は`desktop/backend-state.ts`、Directory退避は`desktop/runtime-directory.ts`が所有する。操作許可・保存・境界判断はDI内部へ閉じ、Native補助子の固定Protocol・stdio・終了はPAへ委譲し、Coordinatorからのdeep importは撤去済み。個別Host操作をRoot公開集合へ追加しない。WSL停止単独公開の保留は維持する。全修復Machineは下位が所有し、上位は意図保存・排他・境界／取消確認と結果保存・ledgerを維持する。
+公式停止はPlatform Access公開APIの`requestDockerDesktopOfficialShutdown`と取得済みsession、固定Docker backend停止は`docker-desktop/backend.ts`、Directory退避は`docker-desktop/directory.ts`が所有する。操作許可・保存・境界判断はDI内部へ閉じ、Native補助子の固定Protocol・stdio・終了はPAへ委譲し、Coordinatorからのdeep importは撤去済み。個別Host操作をRoot公開集合へ追加しない。WSL停止単独公開の保留は維持する。全修復Machineは下位が所有し、上位は意図保存・排他・境界／取消確認と結果保存・ledgerを維持する。
 
 初回run退避はlocalAppData・操作ID・期待Identity、Continuation退避はさらに`failed_launch_run`／`secrets_engine`の固定用途だけを受ける。下位が固定source／targetを導出し、任意Path間の移動や削除を提供しない。Windows・正規絶対Path・32桁操作ID・三値Identityを確認し、Proxy／Accessor・余分keyを実行前に拒否する。元実体一致と退避先不存在をrename直前に再確認し、親実体の保持、rename後の退避先一致と元の明示不存在を要求する。同じ利用者の敵対的なPath差替えを原子的に排除する保証は追加しない。
 
@@ -293,7 +331,7 @@ Platform Accessは単一entryの属性・reparse tag・実体・linkCountを、�
 
 2026-10-17の自己生成Host試験では、異常終了した試験子のAF_UNIX端点が残り、raw tag `0x80000023`、Node Direntのlink=true、lstatのEACCESを観測した。Node unlink後の明示不存在と専用試験Root不存在を確認した。正常closeでは端点自体が消え、sandbox内のbindは拒否されたため、これらを残存端点の削除成功とは数えない。この実測は方式選択の根拠に限り、製品Driver・保存前後・三用途全体・実Docker修復の成立根拠ではない。
 
-回収進捗の純粋値は、元修復とは別の`DockerRuntimeRepairDisposalCheckpoint`とし、同じ`desktop/repair-checkpoint.ts`が所有する。Rootは型・decoder・一用途遷移validator・値上終端predicateだけを公開する。保存先や新しい管理機構を追加しない。
+回収進捗の純粋値は、元修復とは別の`DockerRuntimeRepairDisposalCheckpoint`とし、同じ`docker-desktop/repair-state.ts`が所有する。Rootは型・decoder・一用途遷移validator・値上終端predicateだけを公開する。保存先や新しい管理機構を追加しない。
 
 | 固定三用途それぞれのfield | 値と意味 |
 |---|---|
@@ -348,17 +386,17 @@ fresh呼出しで既存の`saved/not_issued/unobserved`へ遭遇しても、未�
 
 部分継続は新しい回復機構ではなく、同じcheckpointの確定済みprefixを再発行しない再入場とする。failed／auxiliaryの期待実体は両方未固定または両方固定だけを認め、固定時は旧primaryを含む三実体の相互分離、通常五処置の終端、初回退避・起動confirmed、primaryの退避実体一致、安全性確認を要求する。追加四処置は確定済みの連続prefixと未保存・未発行・未観測のsuffixに限り、gap・片側固定・未確定意図・unknownは新Effect前に停止する。freshでは初回timeout markerやfailed_launch固定観測を再取得せず、保存済み期待実体をcurrent観測で同じ固定対象へ再照合する。未退避は元一致＋先不存在、退避confirmed後は先一致と、次Effectが残る間の元Path明示不存在を必要とする。再起動confirmed後の同名新世代は、保存した三実体と異なることを確認し、旧実体を上書きしない。再起動confirmed後はHost処置を再発行せず、必要なら継続再起動後のEngine待機だけを行う。初回起動confirmed・pair未固定の再入場は初回待機へ戻り、同呼出しの完全fresh条件が成立した場合だけ新pairを固定する。観測・保存拒否・取消・Owner喪失後の新Effect0と、既発行事実の保持は既存契約を維持する。
 
-修復の実技術接続はDI内部`desktop/repair-operations.ts`へ置く。同じNative Session、捕捉済みDirectory Access、内部取消と現在許可を固定し、固定Engine／Backend観測・終了・起動・三用途退避だけへ接続する。技術前提は読取り専用であり、Machineの二回確認とは別にexecute直前でもArtifact／Scope／生存と操作固有条件を再確認する。発行後の取消で取得済み発行事実を捨てない。Engineのcleanup不明は局所sticky値へ記録して直ちに停止し、純粋Readerで外側runtimeへ返す。同期OS要求は既存の有界時間で戻るもので、即時取消可能とは主張しない。通常観測で旧primaryの退避後に新世代runを観測しても、旧primaryへ新世代を上書きしない。保存済みの旧元不存在は過去の確認値として維持し、現在Path不存在の主張へ使わず、処置直前のPath／Identity照合はDirectory Accessで別に行う。試験差替えはDI内部に限り、RootへSession・Path・argv・技術callbackを公開しない。実Adapterの本番入口接続と全体成立は、Source・試験・利用側の接続確認後に判定する。
+修復の実技術接続はDI内部`docker-desktop/repair-operations.ts`へ置く。同じNative Session、捕捉済みDirectory Access、内部取消と現在許可を固定し、固定Engine／Backend観測・終了・起動・三用途退避だけへ接続する。技術前提は読取り専用であり、Machineの二回確認とは別にexecute直前でもArtifact／Scope／生存と操作固有条件を再確認する。発行後の取消で取得済み発行事実を捨てない。Engineのcleanup不明は局所sticky値へ記録して直ちに停止し、純粋Readerで外側runtimeへ返す。同期OS要求は既存の有界時間で戻るもので、即時取消可能とは主張しない。通常観測で旧primaryの退避後に新世代runを観測しても、旧primaryへ新世代を上書きしない。保存済みの旧元不存在は過去の確認値として維持し、現在Path不存在の主張へ使わず、処置直前のPath／Identity照合はDirectory Accessで別に行う。試験差替えはDI内部に限り、RootへSession・Path・argv・技術callbackを公開しない。実Adapterの本番入口接続と全体成立は、Source・試験・利用側の接続確認後に判定する。
 
 起動待機のreadyだけを保存済み成功へ変換しない。実Machineは同じ現在観測を再取得し、Engine ready、Process verified、run present、保持済み実体一致、現在許可・Artifact・Scopeの継続成立を確認してからreadyを通知する。Directoryは再照合まで同じ実体であることを要求し、旧実体とは異なる二つの新世代間の差替えも拒否する。再起動confirmedのfreshで既にreadyの場合はHost処置・待機を再発行しない。この内部実装は部分継続・最終観測の接続試験と契約・品質の限定独立確認が成功している。真正上位保存Owner／CLIは接続済みだが、内部成立を実境界や全体完成へ拡張しない。
 
 ### 隔離用の静的資産
 
-`runtime/`はClaude／Codex／Codex助言／通信プロキシのDockerfile、Codex seccomp、プロキシ実装の6資産を所有する。Provider設定と結果Schemaの5資産はAI Adapterの`runtime/`が所有する。固定Task検証textはCoordinatorの`tests/fixtures/`に属し、通常実行の配布集合へ試験Directory全体を追加しない。通常配布は両Packageの固定11Pathを含め、任意の`runtime/**`を探索・採用しない。
+`images/`はClaude／Codex／Codex助言／通信プロキシのDockerfileと、収録済み取得・Build入力の期待値`build-inputs.json`を所有する。同JSONは全Imageの完全Build manifestではない。Codex seccompは`src/execution/`、プロキシ実装は`src/network/`、Provider固定設定はAI Adapterの`src/claude/`、結果Schemaは同`src/codex/`へ置く。固定Task検証textはCoordinatorの`tests/fixtures/`に属し、通常実行の配布集合へ試験Directory全体を追加しない。配布・Buildは実際に必要な固定Pathを明示し、任意Directoryを探索・採用しない。
 
-Dockerfileの所在はビルドcontextを意味しない。ビルド時は検証済み公式CLIと各Ownerの設定を、Dockerfileが宣言するbasename・mode・Container内Pathを維持して明示的に組み合わせる。Codexは`codex`・`bwrap`と3結果Schema、Claudeは`claude`と2設定、助言は`codex`・`codex-code-mode-host`、通信プロキシは同DirectoryのPython実装を入力とする。Provider版と取得元の正本はAI Adapterに残し、配置変更だけでImage digestや資産Hashを更新しない。seccompの物理取得は既存の単一Resolverが所有し、AI Adapterの宣言Pathと一致することを確認する。
+Dockerfileの所在はビルドcontextを意味しない。ビルド時は検証済み公式CLIと各Ownerの設定を、Dockerfileが宣言するbasename・mode・Container内Pathを維持して明示的に組み合わせる。Codexは`codex`・`bwrap`と3結果Schema、Claudeは`claude`と2設定、助言は`codex`・`codex-code-mode-host`、通信プロキシは`src/network/`のPython実装を入力とする。Image内のProvider版・実行PathはDIの実行定義、取得検証材料は同PackageのBuild入力が所有する。配置変更だけでImage digestや資産Hashを更新しない。seccompの物理取得と実体・容量・Hash照合はDIの既存単一Resolverへ閉じる。助言Imageの三入力Context準備は既存Scriptで確認するが、他三Imageの実Build context自動準備と全Imageの実Buildは本配置変更で成立済みとしない。
 
-Desktop修復の読取り技術処理は、`desktop/runtime-directory.ts`と既存`desktop/engine-state.ts`が所有する。上位修復は検証済み境界のDirectoryだけを渡して固定FS観測を呼び、前後の親実体と64件以内のentry集合が一致し、既知のopen拒否が少なくとも一つある場合だけロック識別子を受ける。非Windowsは下位入口でFS操作0のまま拒否する。open後のclose失敗は既知の拒否コードであっても観測不能とし、再closeしない。`null`は不存在・解放済みを意味しない。依存差替え入口はPackage内部試験に閉じ、Root公開は本番FS接続だけとする。
+Desktop修復の読取り技術処理は、`docker-desktop/directory.ts`と既存`docker-desktop/engine.ts`が所有する。上位修復は検証済み境界のDirectoryだけを渡して固定FS観測を呼び、前後の親実体と64件以内のentry集合が一致し、既知のopen拒否が少なくとも一つある場合だけロック識別子を受ける。非Windowsは下位入口でFS操作0のまま拒否する。open後のclose失敗は既知の拒否コードであっても観測不能とし、再closeしない。`null`は不存在・解放済みを意味しない。依存差替え入口はPackage内部試験に閉じ、Root公開は本番FS接続だけとする。
 
 Engine待機のRoot入口は既定180秒・間隔1秒に固定し、読取り観測・取消判定・取消通知だけを受ける。`ready`・`unknown`は直ちに返し、既知の未起動・起動途中だけ再観測する。取消後の追加観測は行わないが、競合させたsleep timer自体の取消完了までは保証しない。時計・sleep・期限差替えはPackage内部試験用とする。上位が持つ観測cleanup不明のsticky保持、一次理由、記録順序は変更しない。WSL停止は単独公開せず、後続の修復Machine移管まで既存private処理を維持する。
 
@@ -376,7 +414,7 @@ Package Rootの`src/index.ts`から必要な操作と型だけを明示exportす
 
 Task Packet、モデル選定、送信同意、User Credential、業務結果は所有しない。上位は同じ生涯の計画を検証し、下位も資源名・構成・コマンド所属・入力上限をEffect前に照合する。単なる文字列Pathを所有許可へ昇格しない。
 
-固定資源名と乱数値の検査は既存`execution/command-plan.ts`が所有する。実行namespaceは`codex`／`claude`の既存閉集合とし、上位で照合した不透明な64桁小文字hex Identityとsuffixから五資源名・labelを生成する。通常suffixは8byteのhexであり、単独helperの63文字防御境界は維持するが、長いsuffixをDocker commandの許可形へ拡張しない。乱数源と8byte→32byteの呼出順は上位Ownerに残し、DIは同じcallbackのBuffer型・長さ検査とhex化だけを担当する。新しい乱数源、Provider選択、所有証明または削除許可は作らない。
+固定資源名と乱数値の検査は既存`execution/plan.ts`が所有する。実行namespaceは`codex`／`claude`の既存閉集合とし、上位で照合した不透明な64桁小文字hex Identityとsuffixから五資源名・labelを生成する。通常suffixは8byteのhexであり、単独helperの63文字防御境界は維持するが、長いsuffixをDocker commandの許可形へ拡張しない。乱数源と8byte→32byteの呼出順は上位Ownerに残し、DIは同じcallbackのBuffer型・長さ検査とhex化だけを担当する。新しい乱数源、Provider選択、所有証明または削除許可は作らない。
 
 既存Ownerから借用するcallbackは、①専門Ownerが所有する実行能力のfresh観測、②検証済みoperation workspace／Host・Home leaseの借用と生存観測、③既存保存Ownerが検査済みの再入場projection、④既存結果／Receiptの用途限定照合、の閉集合へ限定する。Docker固有の実行物・環境・OS構成の観測は下位内部へ集約する。任意処理、上位State／Store／Repository参照、Lock acquire／release、Task／Authority操作は下位へ渡さない。観測callback自体はDocker Effectを発行せず、下位が各実処理直前の呼出し順序を所有する。例外・観測不能では新Effect前に停止し、既に発行済みなら一次失敗と残存観測を保持する。下位から上位への事実通知は§6の別方向の接続であり、保存・許可の委譲callbackと混同しない。
 
@@ -415,7 +453,7 @@ Task Packet、モデル選定、送信同意、User Credential、業務結果は
 
 Consumerの表示・任意保存は資源回収の終了条件に入れない。Candidateと必要な失敗根拠の保存は各Ownerが担当する。Orchestratorの耐久ACKもDocker資源回収とは独立する。
 
-修復のNative生涯所有は`desktop/repair-runtime.ts`へ置く。取得待ちの取消でも遅れて取得した同じ子を回収し、その終了待機前に返却しない。取消とNative喪失は最初の停止理由を固定し、後着事象を一次理由へ上書きしない。正常終了はrelease、取消・失敗・未確定処置はabortを一回だけ選択し、実行値とcleanup／protocolを分離する。終了後は購読解除と終了gateで通知を無効化する。この所有部品単独は上位保存の成立を代替しない。現在はDI内部固定wrapperから同じNative子・Scope・実Adapter・Machineへ接続済みで、最下位を模擬する接続試験と各技術境界の個別根拠で確認した。技術依存差替えと個別Host処置は非公開を維持し、真正上位Owner／Writer／CLIは接続済み。実境界の成立と未実証範囲は冒頭の現在表へ限定する。
+修復のNative生涯所有は`docker-desktop/repair-session.ts`へ置く。取得待ちの取消でも遅れて取得した同じ子を回収し、その終了待機前に返却しない。取消とNative喪失は最初の停止理由を固定し、後着事象を一次理由へ上書きしない。正常終了はrelease、取消・失敗・未確定処置はabortを一回だけ選択し、実行値とcleanup／protocolを分離する。終了後は購読解除と終了gateで通知を無効化する。この所有部品単独は上位保存の成立を代替しない。現在はDI内部固定wrapperから同じNative子・Scope・実Adapter・Machineへ接続済みで、最下位を模擬する接続試験と各技術境界の個別根拠で確認した。技術依存差替えと個別Host処置は非公開を維持し、真正上位Owner／Writer／CLIは接続済み。実境界の成立と未実証範囲は冒頭の現在表へ限定する。
 
 同Moduleの内部接続は、取得前に初回／fresh入力を捕捉・復号し、freshのcleanup未確認、失敗記録、unknownと保存済み未確定意図を拒否する。取得後は同じHとScopeを照合し、準備のawait前後、準備通知直前・直後に取消・生存・現在許可を再確認する。`onPrepared`の厳密な同期trueを一回受理してから実Machineへ進み、拒否時はMachine未開始を明示して同じ子をabort／joinする。最後のMachine結果は不変更とし、join結果のcleanupだけを反映した最終checkpoint候補は`finalCheckpointConfirmed:false`で返す。Root・Revision・未終端・真正Ownerの確認は上位Ownerの責務であり、Hashやこの内部接続では代替しない。Using単独の検証では技術Adapterを模擬して内部通知契約を確認する。固定wrapperの組立て試験は実Operations・Machineへ接続し、差し替えたDirectory factoryのScope出力の搬送を確認する。実factoryのScope導出・実Filesystem要求は別の個別試験で確認し、組立て試験が実factoryを一体実行した根拠とはしない。真正上位Owner／Writer／CLI、実Docker E2Eの完成とは区別する。
 
@@ -437,11 +475,11 @@ Consumerの表示・任意保存は資源回収の終了条件に入れない。
 
 Desktop停止・起動・待機・補助Process回収は、取得からreleaseまで一つの下位固定操作へ閉じる。Coordinatorは[再起動要求の現在状態契約](../coordinator/01_Architecture.md#再起動要求の現在状態と下位の短命状態)に従い、既存exact操作の単一要求記録と現在の許可／Scope確認だけを所有する。下位は生Session、停止／起動の個別phase、任意argvやOS処置callbackを上位へ公開しない。要求発行直前の耐久checkpointが不成立ならHost要求0とし、同じ稼働Ownerの受付／完了通知、取消と補助資源回収を区別する。fresh再入場は過去の要求を再発行せず、現在観測を過去成功へ変換しない。この契約は移管先の完成条件であり、上位Caller／Writerは接続済みだが、接続だけを実境界・Package完成の根拠にしない。
 
-Engine観測の実処理は`desktop/engine-state.ts`へ置く。公開入口は再起動用途の`observeDockerRuntimeEngine()`と、上位が検証した構成領域を受ける修復用途の`observeDockerRepairEngine(configurationRoot)`だけとする。前者はconfigなし・16,384 bytes、後者は同一Rootのconfig／Home・4,096 bytesを固定し、5秒の観測期限、Publisher・前後同一性、既存の状態分類を維持する。修復用途のTimeoutは一時的な未起動として保持し、pipe不存在と観測不能・close不明を区別する。公開結果は共通状態と観測資源のcleanupだけで、生出力・Process・pipe・Pathを返さない。上位は操作ごとのclosureでcleanup不明を保持し、以後の観測0と最終blockedを保証する。元のexact IDとNative helper固有cleanup値は変更しない。再試行・待機は既存運用の責務であり、観測だけから修復や再起動の完了を主張しない。旧修復判定seamは既存試験依存の整理対象で、新しい本番観測の根拠にしない。
+Engine観測の実処理は`docker-desktop/engine.ts`へ置く。公開入口は再起動用途の`observeDockerRuntimeEngine()`と、上位が検証した構成領域を受ける修復用途の`observeDockerRepairEngine(configurationRoot)`だけとする。前者はconfigなし・16,384 bytes、後者は同一Rootのconfig／Home・4,096 bytesを固定し、5秒の観測期限、Publisher・前後同一性、既存の状態分類を維持する。修復用途のTimeoutは一時的な未起動として保持し、pipe不存在と観測不能・close不明を区別する。公開結果は共通状態と観測資源のcleanupだけで、生出力・Process・pipe・Pathを返さない。上位は操作ごとのclosureでcleanup不明を保持し、以後の観測0と最終blockedを保証する。元のexact IDとNative helper固有cleanup値は変更しない。再試行・待機は既存運用の責務であり、観測だけから修復や再起動の完了を主張しない。旧修復判定seamは既存試験依存の整理対象で、新しい本番観測の根拠にしない。
 
-Docker実行物の固定Trust条件は既存`execution/cli-trust.ts`へ集約する。`describeDockerRuntimeArtifactTrustContract()`は固定条件と既存Native ProtocolのPolicy Hashだけを返し、実体検証成功・実行許可・CRDD署名資格を発行しない。上位の記録が保持するHashは操作の相関値であり、上位でDocker出所条件を再定義しない。操作をまたぐDocker更新は許容し、操作中のPublisher・Identity・Hash固定は維持する。
+Docker実行物の固定Trust条件は既存`docker-cli/trust.ts`へ集約する。`describeDockerRuntimeArtifactTrustContract()`は固定条件と既存Native ProtocolのPolicy Hashだけを返し、実体検証成功・実行許可・CRDD署名資格を発行しない。上位の記録が保持するHashは操作の相関値であり、上位でDocker出所条件を再定義しない。操作をまたぐDocker更新は許容し、操作中のPublisher・Identity・Hash固定は維持する。
 
-`desktop/backend-state.ts`はWindows／WSLの固定一覧操作と厳密分類を内部所有する。上位Root APIの`observeDockerRuntimeBackendState()`は入力を取らず、`stopped`／`running`／`unknown`だけを返す。未対応・観測不能はunknownとし、一時点の一覧からEngine全停止、Process不存在、再起動完了を推定しない。Quality導出キー`docker-isolation.backend-state`の純粋分類は`ERB-UT-034`、実取得と上位運用は既存IT／STへ接続する。
+`docker-desktop/backend.ts`はWindows／WSLの固定一覧操作と厳密分類を内部所有する。上位Root APIの`observeDockerRuntimeBackendState()`は入力を取らず、`stopped`／`running`／`unknown`だけを返す。未対応・観測不能はunknownとし、一時点の一覧からEngine全停止、Process不存在、再起動完了を推定しない。Quality導出キー`docker-isolation.backend-state`の純粋分類は`ERB-UT-034`、実取得と上位運用は既存IT／STへ接続する。
 
 Coordinator／Orchestratorは、実行・取消・回収・診断・許可済み運用介入を環境共通の固定APIで依頼する。Linux／Windows／Docker Desktopの選択、固定CLI所在、Engine endpoint、System32、WSL、Process treeの終了手段、Host socketの技術判定は下位内部で所有する。上位の入力型・結果型・通知型に、OS選択field、Desktop専用phase、Windows実行物Pathを要求しない。環境別の実処理を上位callbackへ逆流させない。
 
@@ -504,9 +542,9 @@ Process開始factの通知は同期であり、上位のReporter／Task開始保
 
 試験用Candidateは`productionAuthority:false`を固定し、本番FactoryのCLI／Process／Filesystem primitiveを差替え可能にしない。Candidate表示だけから注入primitiveのEffect 0や本番の清掃真正性を推定しない。上位の元Runtime／元計画／両Ownerの照合は維持する。
 
-診断入力は全descriptor取得前にcommands上限9、create argv上限420へ制限する。420は固定包装164（最大64環境変数・全optional構成）と既存payload上限256から導く現planner限定値であり、汎用Docker parserの上限ではない。包装の分離値が欠けた形や次optionを値にした形は拒否し、image以後のpayloadへこの判定を適用しない。descriptor集合の必須keyと各valueはown propertyで確認し、継承された値を実入力へ採用しない。
+診断入力は全descriptor取得前にcommands上限9、create argv上限428へ制限する。428は固定包装172（最大64環境変数・全optional構成）と既存payload上限256から導く現planner限定値であり、汎用Docker parserの上限ではない。包装の分離値が欠けた形や次optionを値にした形は拒否し、image以後のpayloadへこの判定を適用しない。descriptor集合の必須keyと各valueはown propertyで確認し、継承された値を実入力へ採用しない。
 
-実行前の構成診断では、`execution/command-plan.ts`の`projectDockerExecutionBoundary`がexactな`create_provider`一件を選び、固定包装optionのarityを先頭から消費して最初の位置引数を計画のimage digestへ照合する。外側からread-only・非root user・workdirの三値だけを投影し、以後の引数は解釈せず凍結コピーとして私有呼出しへ渡す。payload内の同名flagや同digestは外側の設定へ数えない。不正shape・欠測・重複・未対応包装はnullであり、上位のfalse投影は確認不能を閉じた診断値へ写すだけで、設定不存在・隔離成立・処置許可を証明しない。生argvを通知・ログ・永続値へ追加しない。
+実行前の構成診断では、`execution/plan.ts`の`projectDockerExecutionBoundary`がexactな`create_provider`一件を選び、固定包装optionのarityを先頭から消費して最初の位置引数を計画のimage digestへ照合する。外側からread-only・非root user・workdirの三値だけを投影し、以後の引数は解釈せず凍結コピーとして私有呼出しへ渡す。payload内の同名flagや同digestは外側の設定へ数えない。不正shape・欠測・重複・未対応包装はnullであり、上位のfalse投影は確認不能を閉じた診断値へ写すだけで、設定不存在・隔離成立・処置許可を証明しない。生argvを通知・ログ・永続値へ追加しない。
 
 下位は技術的な実行状態を持ち、上位はAI実行またはTask／Attemptの意味上の状態を持つ。Coordinatorは用途限定の通知callbackを登録し、元Operationへ相関して自身の正本状態を更新する。必要な事実だけを自身の公開契約でOrchestratorへ伝播する。下位は受信者のPackage、Task構造、正本Store、上位のイベント名を知らない。
 

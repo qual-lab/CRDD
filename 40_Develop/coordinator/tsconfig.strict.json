@@ -62,7 +62,6 @@
     "../ai-adapter/src/claude/plan.ts",
     "src/task/development-measurement-constraints.ts",
     "src/diagnostics/isolation-probe.ts",
-    "src/external-send/egress-proxy-policy.ts",
     "src/host-execution/operation-workspace-lifecycle.ts",
     "src/host-execution/operation-lock-supervisor.ts",
     "src/host-execution/recovery-record.ts",

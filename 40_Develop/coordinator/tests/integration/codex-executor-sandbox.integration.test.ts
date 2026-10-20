@@ -17,7 +17,7 @@ const CODEX_IMAGE_DIGEST =
   "sha256:e7fefafffd4b96614811b2d51b9704d3280e4995c358ed5e25ec795215dbd45c";
 const codexSeccompProfile = fileURLToPath(
   new URL(
-    "../../../docker-isolation/runtime/codex-executor-seccomp.json",
+    "../../../docker-isolation/src/execution/codex-executor-seccomp.json",
     import.meta.url,
   ),
 );

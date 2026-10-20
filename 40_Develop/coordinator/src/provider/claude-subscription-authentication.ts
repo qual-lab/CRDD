@@ -15,7 +15,7 @@ import {
   evaluateProviderAuthentication,
 } from "../../../ai-adapter/src/index.ts";
 import { acquireRuntimeOwnedLogicalProviderHomeKernelLock } from "../host-execution/kernel-lock.ts";
-import { describeEgressProxyTopology } from "../external-send/egress-proxy-policy.ts";
+import { describeDockerProxyTopology } from "../../../docker-isolation/src/index.ts";
 import {
   planDockerAuthenticationCommands,
   planDockerAuthenticationResourceRecovery,
@@ -733,10 +733,10 @@ export function createClaudeSubscriptionAuthenticationPlan(
     return null;
 
   const authenticationCli = describeProviderAuthentication("claude");
-  const egress = describeEgressProxyTopology("claude");
+  const egress = describeDockerProxyTopology("claude");
   const providerImageDigest =
     describeDockerProviderAssets("claude").fixedImageDigest;
-  const proxyImageDigest = egress.verificationAdapter.imageDigest;
+  const proxyImageDigest = egress.imageDigest;
   if (
     !/^sha256:[a-f0-9]{64}$/u.test(providerImageDigest) ||
     !/^sha256:[a-f0-9]{64}$/u.test(proxyImageDigest) ||

@@ -17,16 +17,16 @@ import { types } from "node:util";
 import {
   dockerDesktopDistributionRoot,
   describeDockerRuntimeArtifactTrustContract,
-} from "../../src/execution/cli-trust.ts";
-import { runDockerRuntimeRepairMachine } from "../../src/desktop/repair-machine.ts";
-import { createDockerDesktopRepairOperations as operations } from "../../src/desktop/repair-operations.ts";
-import { runDockerRuntimeRepairSessionUsing as run } from "../../src/desktop/repair-runtime.ts";
+} from "../../src/docker-cli/trust.ts";
+import { runDockerRuntimeRepairMachine } from "../../src/docker-desktop/repair.ts";
+import { createDockerDesktopRepairOperations as operations } from "../../src/docker-desktop/repair-operations.ts";
+import { runDockerRuntimeRepairSessionUsing as run } from "../../src/docker-desktop/repair-session.ts";
 import {
   validateDockerRuntimeRepairCheckpointTransition as transition,
   decodeDockerRuntimeRepairCheckpoint as decode,
   prepareDockerRuntimeRepairSessionCheckpoint,
   type DockerRuntimeRepairCheckpoint as Checkpoint,
-} from "../../src/desktop/repair-checkpoint.ts";
+} from "../../src/docker-desktop/repair-state.ts";
 import type { DockerDesktopRepairNativeHelperSession as Session } from "../../../platform-access/src/index.ts";
 
 /**
@@ -422,7 +422,7 @@ async function productionComposition(
   const body = stripTypeScriptTypes(
     source ??
       fs.readFileSync(
-        new URL("../../src/desktop/repair-runtime.ts", import.meta.url),
+        new URL("../../src/docker-desktop/repair-session.ts", import.meta.url),
         "utf8",
       ),
   )
@@ -646,7 +646,7 @@ test("修復本番組立て: 同Artifact・H・nonce・Scopeを実Adapterまで�
   }
   const source = fs
     .readFileSync(
-      new URL("../../src/desktop/repair-runtime.ts", import.meta.url),
+      new URL("../../src/docker-desktop/repair-session.ts", import.meta.url),
       "utf8",
     )
     .replaceAll("\r\n", "\n");
@@ -962,7 +962,7 @@ test("修復実操作接続: ready待機後の実体喪失は成功へ確定し�
 test("修復実操作接続: ready最終観測中の新世代差替えを拒否する", async () => {
   const source = stripTypeScriptTypes(
     fs.readFileSync(
-      new URL("../../src/desktop/repair-operations.ts", import.meta.url),
+      new URL("../../src/docker-desktop/repair-operations.ts", import.meta.url),
       "utf8",
     ),
   )
@@ -1196,7 +1196,7 @@ async function assertStoppedDriftRejected(
 test("修復実操作接続: 停止confirmedでもEngine未静止・Process残存なら退避しない", async () => {
   const source = stripTypeScriptTypes(
     fs.readFileSync(
-      new URL("../../src/desktop/repair-operations.ts", import.meta.url),
+      new URL("../../src/docker-desktop/repair-operations.ts", import.meta.url),
       "utf8",
     ),
   )

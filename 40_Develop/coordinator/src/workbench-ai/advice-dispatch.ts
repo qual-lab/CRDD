@@ -9,6 +9,10 @@
  * @security Task Packet、Catalog改訂およびexact ProfileをAuthority Scopeへ固定し、生Provider出力を公開しない。
  */
 import type { ResolvedAiProfileIdentity } from "../../../ai-adapter/src/index.ts";
+import {
+  parseDockerNetworkPolicy,
+  type DockerNetworkPolicy,
+} from "../../../docker-isolation/src/index.ts";
 import type {
   WorkbenchAiAdviceDispatch,
   WorkbenchAiAdviceDispatchInput,
@@ -34,6 +38,7 @@ export const WORKBENCH_AI_ADVICE_DISPATCH_RUNTIME_CONTRACT_REVISION = 1;
  */
 
 export type WorkbenchAiAdviceProviderInput = Readonly<{
+  networkPolicy: DockerNetworkPolicy;
   taskPacket: WorkbenchAiAdviceTaskPacket;
   catalogRevision: number;
   profile: ResolvedAiProfileIdentity;
@@ -89,6 +94,7 @@ export type WorkbenchAiAdviceProviderAdapter = (
  */
 
 type SendGrant = Readonly<{
+  networkPolicyHash: string;
   taskHash: string;
   catalogRevision: number;
   profileId: string;
@@ -132,6 +138,7 @@ export function createWorkbenchAiAdviceDispatchRuntime(
     try {
       outcome = await providerAdapter(
         Object.freeze({
+          networkPolicy: input.networkPolicy,
           taskPacket: input.taskPacket,
           catalogRevision: input.catalogRevision,
           profile: input.profile,
@@ -203,6 +210,7 @@ export function describeWorkbenchAiAdviceDispatchRuntimeContract() {
       "catalogRevision",
       "profileId",
       "provider",
+      "networkPolicyHash",
     ]),
     maximumProviderExecutionsPerRequest: 1,
     automaticRetryAllowed: false,
@@ -214,12 +222,12 @@ export function describeWorkbenchAiAdviceDispatchRuntimeContract() {
 /**
  * 検証済み依頼から一回送信Grantを発行する。
  *
- * @responsibility Task、Catalog改訂、ProfileおよびProviderを一つのAuthority Scopeへ固定する。
+ * @responsibility Task、Catalog改訂、Profile、Providerおよび通信設定Hashを一つのAuthority Scopeへ固定する。
  * @trace ARCH-000015
  * @input input: 検証済みWorkbench AI Dispatch入力。
  * @returns 一回消費専用のSend Grant。
  * @precondition Dispatch入口で入力妥当性と明示確認が成立している。
- * @postcondition Grantは入力と同じTask、Catalog改訂、ProfileおよびProviderだけを表す。
+ * @postcondition Grantは入力と同じTask、Catalog改訂、Profile、Providerおよび通信設定Hashだけを表す。
  * @effect N/A: 外部Effectを発行せずメモリ上の固定値を生成する。
  * @failure N/A: 入力検証済みの値を写像するだけである。
  * @invariant Prompt本文、Credentialおよび投影本文をGrantへ含めない。
@@ -229,6 +237,7 @@ export function describeWorkbenchAiAdviceDispatchRuntimeContract() {
  */
 function issueGrant(input: WorkbenchAiAdviceDispatchInput): SendGrant {
   return Object.freeze({
+    networkPolicyHash: input.networkPolicy.policyHash,
     taskHash: input.taskPacket.taskHash,
     catalogRevision: input.catalogRevision,
     profileId: input.profile.profileId,
@@ -259,6 +268,7 @@ function consumeGrant(
 ): boolean {
   if (
     consumedGrants.has(grant) ||
+    grant.networkPolicyHash !== input.networkPolicy.policyHash ||
     grant.taskHash !== input.taskPacket.taskHash ||
     grant.catalogRevision !== input.catalogRevision ||
     grant.profileId !== input.profile.profileId ||
@@ -286,7 +296,10 @@ function consumeGrant(
  * @concurrency N/A: 共有状態を変更しない同期検査である。
  */
 function isValidDispatchInput(input: WorkbenchAiAdviceDispatchInput): boolean {
+  const network = parseDockerNetworkPolicy(input.networkPolicy);
   return (
+    network !== null &&
+    network.provider === input.profile.provider &&
     Number.isSafeInteger(input.catalogRevision) &&
     input.catalogRevision >= 0 &&
     input.taskPacket.profileId === input.profile.profileId &&

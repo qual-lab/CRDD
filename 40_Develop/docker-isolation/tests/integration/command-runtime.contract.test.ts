@@ -17,7 +17,7 @@ import { stripTypeScriptTypes } from "node:module";
 import { runInNewContext } from "node:vm";
 import { types as utilTypes } from "node:util";
 import test, { mock } from "node:test";
-import { createDockerIsolationRuntimeCandidate } from "../../src/execution/command-runtime.ts";
+import { createDockerIsolationRuntimeCandidate } from "../../src/execution/execute.ts";
 import type {
   DockerIsolationRuntimePlan,
   DockerResourceReceipts,
@@ -40,7 +40,7 @@ import {
  */
 test("Seccomp Resolverは同じ固定実物を読みlinkと前後差を拒否する", () => {
   const artifact = fileURLToPath(
-    new URL("../../runtime/codex-executor-seccomp.json", import.meta.url),
+    new URL("../../src/execution/codex-executor-seccomp.json", import.meta.url),
   );
   const bytes = fs.readFileSync(artifact);
   const hash = createHash("sha256").update(bytes).digest("hex");
@@ -59,7 +59,7 @@ test("Seccomp Resolverは同じ固定実物を読みlinkと前後差を拒否す
       ?.argv.includes(`--security-opt=seccomp=${artifact}`),
   );
   const source = fs.readFileSync(
-    new URL("../../src/execution/command-plan.ts", import.meta.url),
+    new URL("../../src/execution/plan.ts", import.meta.url),
     "utf8",
   );
   const declaration = "function resolveFixedCodexExecutorSeccompProfile(";
@@ -148,7 +148,7 @@ test("Seccomp Resolverは同じ固定実物を読みlinkと前後差を拒否す
 test("Seccompの後発欠測は新規開始を拒否し元Contextの清掃を妨げない", async () => {
   const fixture = runtimeFixture();
   const artifact = new URL(
-    "../../runtime/codex-executor-seccomp.json",
+    "../../src/execution/codex-executor-seccomp.json",
     import.meta.url,
   );
   const bytes = fs.readFileSync(artifact);
@@ -220,7 +220,7 @@ test("Seccompの後発欠測は新規開始を拒否し元Contextの清掃を妨
  */
 test("公開Factoryはdescriptorの継承valueを受理しない", () => {
   const source = fs.readFileSync(
-    new URL("../../src/execution/command-runtime.ts", import.meta.url),
+    new URL("../../src/execution/execute.ts", import.meta.url),
     "utf8",
   );
   const start = source.indexOf("export function createDockerIsolationRuntime(");
@@ -1063,7 +1063,7 @@ test("明示未要求の終端は元結果と同じOwner・計画へだけ結合
  */
 test("公開Factory本体は固定CLI・環境を実Candidateへ結合する", async () => {
   const source = fs.readFileSync(
-    new URL("../../src/execution/command-runtime.ts", import.meta.url),
+    new URL("../../src/execution/execute.ts", import.meta.url),
     "utf8",
   );
   const bodies = [

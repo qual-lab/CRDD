@@ -598,6 +598,7 @@ export async function createWorkbenchAiVerificationHttpClient(
             prompt: request.prompt,
             allowedPaths: request.allowedPaths.join("\n"),
             externalSendConfirmed: request.externalSendConfirmed ? "yes" : "no",
+            expectedNetworkPolicyHash: request.expectedNetworkPolicyHash,
           }),
         );
         if (response.status === 400 && !request.externalSendConfirmed)

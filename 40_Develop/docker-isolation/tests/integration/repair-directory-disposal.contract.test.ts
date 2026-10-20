@@ -50,7 +50,7 @@ type FixtureEntry = {
  */
 test("固定退避物の回収は全preflight・fresh実体・現在許可を必要とする", async () => {
   const sourceText = fs.readFileSync(
-    new URL("../../src/desktop/repair-directory-disposal.ts", import.meta.url),
+    new URL("../../src/docker-desktop/dispose.ts", import.meta.url),
     "utf8",
   );
   const begin = sourceText.indexOf("const maximumEntries");
@@ -508,7 +508,7 @@ test("固定退避物の回収は全preflight・fresh実体・現在許可を必
  */
 test("回収factoryは三つの固定対象だけを接続する", async () => {
   const sourceText = fs.readFileSync(
-    new URL("../../src/desktop/runtime-directory.ts", import.meta.url),
+    new URL("../../src/docker-desktop/directory.ts", import.meta.url),
     "utf8",
   );
   const start = sourceText.indexOf("type RepairDirectoryRetention");

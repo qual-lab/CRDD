@@ -2676,6 +2676,7 @@ test("実Provider検証HTTPの受付後故障は再送せず不明結果と同�
             mode: "read_only_advice",
             profileId: "PROFILE-100001",
             prompt: "固定故障検証",
+            expectedNetworkPolicyHash: "a".repeat(64),
             contextReferences: ["PROJECT_CONTEXT.md"],
             allowedPaths: [],
             externalSendConfirmed: true,
@@ -2946,6 +2947,7 @@ test("Workbenchの単発依頼は助言四分類とWorkspace編集を分け旧Bu
           allowedPaths:
             mode === "workspace_edit" ? "40_Develop/workbench-server/src" : "",
           externalSendConfirmed: "yes",
+          expectedNetworkPolicyHash: "a".repeat(64),
         }).toString(),
       );
       assert.equal(started.status, 303);
@@ -2979,6 +2981,7 @@ test("Workbenchの単発依頼は助言四分類とWorkspace編集を分け旧Bu
         prompt: "旧方式は拒否",
         allowedPaths: "source.txt",
         externalSendConfirmed: "yes",
+        expectedNetworkPolicyHash: "a".repeat(64),
       }).toString(),
     );
     assert.equal(oldMode.status, 400);
@@ -3621,6 +3624,7 @@ test("実Provider検証のHTTP接続部は同意と同じ依頼Identityを公開
       mode: "read_only_advice",
       profileId: "PROFILE-100001",
       prompt: "固定検証依頼",
+      expectedNetworkPolicyHash: "a".repeat(64),
       contextReferences: ["PROJECT_CONTEXT.md"],
       allowedPaths: [],
       externalSendConfirmed: false,
@@ -3640,6 +3644,7 @@ test("実Provider検証のHTTP接続部は同意と同じ依頼Identityを公開
         profileId: command.profileId,
         prompt: command.prompt,
         externalSendConfirmed: "yes",
+        expectedNetworkPolicyHash: "a".repeat(64),
       }).toString(),
     );
     assert.equal(wrongToken.status, 400);
@@ -3647,6 +3652,7 @@ test("実Provider検証のHTTP接続部は同意と同じ依頼Identityを公開
     const accepted = await transport.start({
       ...command,
       externalSendConfirmed: true,
+      expectedNetworkPolicyHash: "a".repeat(64),
       workspaceId: null,
     });
     assert.equal(accepted.status, "accepted");

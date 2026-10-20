@@ -28,7 +28,7 @@ import {
   isExternalSendConsentRecordShape,
   parseExternalSendConsentActiveEntryName,
 } from "./consent-record.ts";
-import type { ExternalSendPolicy } from "./policy.ts";
+import type { ResolvedExternalSendPolicy } from "./policy.ts";
 
 export const EXTERNAL_SEND_CONSENT_RUNTIME_CONTRACT =
   "crdd-coordinator/external-send-consent-runtime";
@@ -89,9 +89,9 @@ type ConsentDependencies = Readonly<{
  *
  * @responsibility External Send Consent Boundary Hashの入力Schema、決定論的変換、変換不能時の拒否境界を所有する。
  * @trace ARCH-000015
- * @input policy: ExternalSendPolicy
+ * @input policy: ResolvedExternalSendPolicy
  * @returns compileExternalSendConsentBoundaryHashの計算結果を返す。
- * @precondition 「policy: ExternalSendPolicy」がcompileExternalSendConsentBoundaryHashの入力契約を満たす。
+ * @precondition 「policy: ResolvedExternalSendPolicy」がcompileExternalSendConsentBoundaryHashの入力契約を満たす。
  * @postcondition compileExternalSendConsentBoundaryHashの責務を完了した結果だけを返す。
  * @effect N/A: compileExternalSendConsentBoundaryHashは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: compileExternalSendConsentBoundaryHashは独自の失敗分岐を所有しない。
@@ -101,16 +101,23 @@ type ConsentDependencies = Readonly<{
  * @concurrency N/A: compileExternalSendConsentBoundaryHashは共有非同期状態を持たない同期処理である。
  */
 export function compileExternalSendConsentBoundaryHash(
-  policy: ExternalSendPolicy,
+  policy: ResolvedExternalSendPolicy,
 ) {
   return HEX64.test(policy.sourceFileHash)
     ? createHash("sha256")
-        .update("crdd-external-send-consent-boundary-v2\0")
+        .update("crdd-external-send-consent-boundary-v3\0")
         .update(policy.policyId)
         .update("\0")
         .update(policy.sourceFileHash)
         .update("\0")
         .update(EXTERNAL_SEND_RUNTIME_SEMANTICS_ID)
+        .update("\0")
+        .update(
+          JSON.stringify([
+            policy.networkPolicies.codex,
+            policy.networkPolicies.claude,
+          ]),
+        )
         .digest("hex")
     : null;
 }
@@ -183,9 +190,9 @@ function sameRoot(left: VerifiedRoot, right: VerifiedRoot) {
  *
  * @responsibility expected Boundaryの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000015
- * @input policy: ExternalSendPolicy、boundaryHash: string、root: VerifiedRoot
+ * @input policy: ResolvedExternalSendPolicy、boundaryHash: string、root: VerifiedRoot
  * @returns expectedBoundaryの計算結果を返す。
- * @precondition 「policy: ExternalSendPolicy、boundaryHash: string、root: VerifiedRoot」がexpectedBoundaryの入力契約を満たす。
+ * @precondition 「policy: ResolvedExternalSendPolicy、boundaryHash: string、root: VerifiedRoot」がexpectedBoundaryの入力契約を満たす。
  * @postcondition expectedBoundaryの責務を完了した結果だけを返す。
  * @effect N/A: expectedBoundaryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: expectedBoundaryは独自の失敗分岐を所有しない。
@@ -195,7 +202,7 @@ function sameRoot(left: VerifiedRoot, right: VerifiedRoot) {
  * @concurrency N/A: expectedBoundaryは共有非同期状態を持たない同期処理である。
  */
 function expectedBoundary(
-  policy: ExternalSendPolicy,
+  policy: ResolvedExternalSendPolicy,
   boundaryHash: string,
   root: VerifiedRoot,
 ) {
@@ -213,6 +220,12 @@ function expectedBoundary(
           subscriptionOffering: destination.subscriptionOffering,
           purposeOperations: Object.freeze([...destination.purposeOperations]),
           termsPolicyIdentity: destination.termsPolicyIdentity,
+          networkPolicyHash:
+            policy.networkPolicies[destination.provider].policyHash,
+          allowedHosts:
+            policy.networkPolicies[destination.provider].allowedHosts,
+          allowedPort: 443,
+          allowedMethod: "CONNECT",
         }),
       ),
     ),
@@ -230,9 +243,9 @@ function expectedBoundary(
  *
  * @responsibility record Forの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000015
- * @input policy: ExternalSendPolicy、boundaryHash: string、root: VerifiedRoot、now: number、generation: string
+ * @input policy: ResolvedExternalSendPolicy、boundaryHash: string、root: VerifiedRoot、now: number、generation: string
  * @returns recordForの計算結果を返す。
- * @precondition 「policy: ExternalSendPolicy、boundaryHash: string、root: VerifiedRoot、now: number、generation: string」がrecordForの入力契約を満たす。
+ * @precondition 「policy: ResolvedExternalSendPolicy、boundaryHash: string、root: VerifiedRoot、now: number、generation: string」がrecordForの入力契約を満たす。
  * @postcondition recordForの責務を完了した結果だけを返す。
  * @effect N/A: recordForは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: recordForは独自の失敗分岐を所有しない。
@@ -242,7 +255,7 @@ function expectedBoundary(
  * @concurrency N/A: recordForは共有非同期状態を持たない同期処理である。
  */
 function recordFor(
-  policy: ExternalSendPolicy,
+  policy: ResolvedExternalSendPolicy,
   boundaryHash: string,
   root: VerifiedRoot,
   now: number,
@@ -531,9 +544,9 @@ function createRuntime(dependencies: ConsentDependencies) {
    *
    * @responsibility external-send-consent-runtimeの候補集合、解決規則、曖昧時の拒否境界を所有する。
    * @trace ARCH-000015
-   * @input policy: ExternalSendPolicy
+   * @input policy: ResolvedExternalSendPolicy
    * @returns resolveの計算結果を返す。
-   * @precondition 「policy: ExternalSendPolicy」がresolveの入力契約を満たす。
+   * @precondition 「policy: ResolvedExternalSendPolicy」がresolveの入力契約を満たす。
    * @postcondition resolveの責務を完了した結果だけを返す。
    * @effect N/A: resolveは入力と局所値だけを扱い、外部または共有Effectを発行しない。
    * @failure resolveは入力不正または下位処理の失敗を呼出し側へ返す。
@@ -542,7 +555,7 @@ function createRuntime(dependencies: ConsentDependencies) {
    * @security resolveはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
    * @concurrency N/A: resolveは共有非同期状態を持たない同期処理である。
    */
-  function resolve(policy: ExternalSendPolicy) {
+  function resolve(policy: ResolvedExternalSendPolicy) {
     try {
       const boundaryHash = compileExternalSendConsentBoundaryHash(policy);
       if (!boundaryHash)
@@ -645,9 +658,9 @@ function createRuntime(dependencies: ConsentDependencies) {
    *
    * @responsibility external-send-consent-runtimeの保存Identity、確定条件、部分書込みの失敗境界を所有する。
    * @trace ARCH-000015
-   * @input policy: ExternalSendPolicy
+   * @input policy: ResolvedExternalSendPolicy
    * @returns persistの計算結果を返す。
-   * @precondition 「policy: ExternalSendPolicy」がpersistの入力契約を満たす。
+   * @precondition 「policy: ResolvedExternalSendPolicy」がpersistの入力契約を満たす。
    * @postcondition persistの責務を完了した結果だけを返す。
    * @effect N/A: persistは入力と局所値だけを扱い、外部または共有Effectを発行しない。
    * @failure persistは入力不正または下位処理の失敗を呼出し側へ返す。
@@ -656,7 +669,7 @@ function createRuntime(dependencies: ConsentDependencies) {
    * @security persistはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
    * @concurrency N/A: persistは共有非同期状態を持たない同期処理である。
    */
-  function persist(policy: ExternalSendPolicy) {
+  function persist(policy: ResolvedExternalSendPolicy) {
     try {
       const boundaryHash = compileExternalSendConsentBoundaryHash(policy);
       const root = dependencies.observeRoot(true);
@@ -773,9 +786,9 @@ function runtimeForOperation(managementCapability: unknown) {
  *
  * @responsibility Runtime 所有 External Send Consentの候補集合、解決規則、曖昧時の拒否境界を所有する。
  * @trace ARCH-000015
- * @input policy: ExternalSendPolicy、managementCapability: unknown
+ * @input policy: ResolvedExternalSendPolicy、managementCapability: unknown
  * @returns resolveRuntimeOwnedExternalSendConsentの計算結果を返す。
- * @precondition 「policy: ExternalSendPolicy、managementCapability: unknown」がresolveRuntimeOwnedExternalSendConsentの入力契約を満たす。
+ * @precondition 「policy: ResolvedExternalSendPolicy、managementCapability: unknown」がresolveRuntimeOwnedExternalSendConsentの入力契約を満たす。
  * @postcondition resolveRuntimeOwnedExternalSendConsentの責務を完了した結果だけを返す。
  * @effect N/A: resolveRuntimeOwnedExternalSendConsentは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: resolveRuntimeOwnedExternalSendConsentは独自の失敗分岐を所有しない。
@@ -785,7 +798,7 @@ function runtimeForOperation(managementCapability: unknown) {
  * @concurrency N/A: resolveRuntimeOwnedExternalSendConsentは共有非同期状態を持たない同期処理である。
  */
 export function resolveRuntimeOwnedExternalSendConsent(
-  policy: ExternalSendPolicy,
+  policy: ResolvedExternalSendPolicy,
   managementCapability?: unknown,
 ) {
   return runtimeForOperation(managementCapability).resolve(policy);
@@ -795,9 +808,9 @@ export function resolveRuntimeOwnedExternalSendConsent(
  *
  * @responsibility Runtime 所有 External Send Consentの保存Identity、確定条件、部分書込みの失敗境界を所有する。
  * @trace ARCH-000015
- * @input policy: ExternalSendPolicy、managementCapability: unknown
+ * @input policy: ResolvedExternalSendPolicy、managementCapability: unknown
  * @returns persistRuntimeOwnedExternalSendConsentの計算結果を返す。
- * @precondition 「policy: ExternalSendPolicy、managementCapability: unknown」がpersistRuntimeOwnedExternalSendConsentの入力契約を満たす。
+ * @precondition 「policy: ResolvedExternalSendPolicy、managementCapability: unknown」がpersistRuntimeOwnedExternalSendConsentの入力契約を満たす。
  * @postcondition persistRuntimeOwnedExternalSendConsentの責務を完了した結果だけを返す。
  * @effect N/A: persistRuntimeOwnedExternalSendConsentは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: persistRuntimeOwnedExternalSendConsentは独自の失敗分岐を所有しない。
@@ -807,7 +820,7 @@ export function resolveRuntimeOwnedExternalSendConsent(
  * @concurrency N/A: persistRuntimeOwnedExternalSendConsentは共有非同期状態を持たない同期処理である。
  */
 export function persistRuntimeOwnedExternalSendConsent(
-  policy: ExternalSendPolicy,
+  policy: ResolvedExternalSendPolicy,
   managementCapability?: unknown,
 ) {
   return runtimeForOperation(managementCapability).persist(policy);

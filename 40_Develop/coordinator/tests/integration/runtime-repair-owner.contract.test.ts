@@ -25,7 +25,7 @@ import * as kernel from "../../src/host-execution/kernel-lock.ts";
 import { classifyCoordinatorSnapshotReentry } from "../../src/state-storage/settlement-store.ts";
 import * as stateStore from "../../src/state-storage/settlement-store.ts";
 import * as isolation from "../../../docker-isolation/src/index.ts";
-import { runDockerRuntimeRepairSessionUsing } from "../../../docker-isolation/src/desktop/repair-runtime.ts";
+import { runDockerRuntimeRepairSessionUsing } from "../../../docker-isolation/src/docker-desktop/repair-session.ts";
 import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
 import {
   ensureRepositoryRuntimeDataAreaFromWorkingDirectory,

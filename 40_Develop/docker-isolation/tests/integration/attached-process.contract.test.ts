@@ -26,10 +26,10 @@ import {
   planDockerAuthenticationResourceRecovery,
   type DockerAuthenticationInput,
 } from "../../src/index.ts";
-import { createDockerAuthenticationRuntimeUsing as createDockerAuthenticationRuntime } from "../../src/execution/authentication-command-runtime.ts";
-import { dockerAuthenticationCommandIsPlanned } from "../../src/execution/authentication-command-plan.ts";
+import { createDockerAuthenticationRuntimeUsing as createDockerAuthenticationRuntime } from "../../src/authentication/execute.ts";
+import { dockerAuthenticationCommandIsPlanned } from "../../src/authentication/plan.ts";
 import { setTimeout as delay } from "node:timers/promises";
-import { startOwnedWindowsProcess } from "../../src/execution/owned-windows-process.ts";
+import { startOwnedWindowsProcess } from "../../src/process/start.ts";
 
 /**
  * 本番認証Factoryの固定構成と元snapshotの寿命を反証する。
@@ -44,10 +44,7 @@ import { startOwnedWindowsProcess } from "../../src/execution/owned-windows-proc
  */
 test("認証Factoryは初期観測と同snapshotの各実行前検証を下位に閉じる", () => {
   const text = fs.readFileSync(
-    new URL(
-      "../../src/execution/authentication-command-runtime.ts",
-      import.meta.url,
-    ),
+    new URL("../../src/authentication/execute.ts", import.meta.url),
     "utf8",
   );
   const begin = text.indexOf(

@@ -24,7 +24,8 @@ import {
   EXTERNAL_SEND_ACTIVE_CONSENT_PREFIX,
 } from "../../src/external-send/consent-store.ts";
 import { dockerRecoveryCommitName } from "../../src/state-storage/docker-recovery-journal.ts";
-import type { ExternalSendPolicy } from "../../src/external-send/policy.ts";
+import type { ResolvedExternalSendPolicy } from "../../src/external-send/policy.ts";
+import { prepareDockerNetworkPolicy } from "../../../docker-isolation/src/index.ts";
 
 /**
  * policyのTest準備責務を実行する。
@@ -38,7 +39,13 @@ import type { ExternalSendPolicy } from "../../src/external-send/policy.ts";
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
  * @boundary EST-IT-004=Direct Boundary: coordinator Test Source→対象契約
  */
-function policy(overrides: Partial<ExternalSendPolicy> = {}) {
+function policy(overrides: Partial<ResolvedExternalSendPolicy> = {}) {
+  const codex = prepareDockerNetworkPolicy("codex", []);
+  const claude = prepareDockerNetworkPolicy("claude", []);
+  assert.equal(codex.status, "ready");
+  assert.equal(claude.status, "ready");
+  if (codex.status !== "ready" || claude.status !== "ready")
+    throw new Error("fixture");
   return Object.freeze({
     schema: "crdd-coordinator/external-send-policy/v2" as const,
     enabled: true,
@@ -53,8 +60,12 @@ function policy(overrides: Partial<ExternalSendPolicy> = {}) {
     policyHash: "a".repeat(64),
     sourceRevision: "1".repeat(40),
     sourceFileHash: "b".repeat(64),
+    networkPolicies: Object.freeze({
+      codex: codex.policy,
+      claude: claude.policy,
+    }),
     ...overrides,
-  }) as ExternalSendPolicy;
+  }) as ResolvedExternalSendPolicy;
 }
 
 /**
@@ -71,16 +82,36 @@ function policy(overrides: Partial<ExternalSendPolicy> = {}) {
  */
 test("初期同意境界はRepository revisionでなくexact Policy byteとPolicy IDへ結合する", () => {
   const first = compileExternalSendConsentBoundaryHash(policy());
+  const expanded = prepareDockerNetworkPolicy("codex", ["pypi.org"]);
+  if (expanded.status !== "ready") assert.fail();
+  assert.notEqual(
+    first,
+    compileExternalSendConsentBoundaryHash(
+      policy({
+        networkPolicies: {
+          ...policy().networkPolicies,
+          codex: expanded.policy,
+        },
+      }),
+    ),
+  );
   assert.match(first ?? "", /^[a-f0-9]{64}$/u);
   assert.equal(
     first,
     createHash("sha256")
-      .update("crdd-external-send-consent-boundary-v2\0")
+      .update("crdd-external-send-consent-boundary-v3\0")
       .update(policy().policyId)
       .update("\0")
       .update(policy().sourceFileHash)
       .update("\0")
       .update("bounded-reviewer-defect-claim-transfer-v1")
+      .update("\0")
+      .update(
+        JSON.stringify([
+          policy().networkPolicies.codex,
+          policy().networkPolicies.claude,
+        ]),
+      )
       .digest("hex"),
   );
   assert.equal(

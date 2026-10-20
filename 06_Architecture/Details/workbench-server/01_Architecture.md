@@ -1,5 +1,11 @@
 # CROS Workbench詳細設計
 
+### Repository通信条件の表示・開始時照合（確認中）
+
+単体接続では検証済みRoot、共有接続では現在認可した選択RepositoryのRootから、非秘密の通信条件を要求ごとに取得する。ProfileのProviderに対応した実効Host・443 CONNECT・本文非検査の限界を表示し、その設定Hashを開始要求へ含める。ClientのHost一覧を許可集合として採用せず、助言・編集とも専門Ownerが現在設定と照合して同じ不変値を実行へ渡す。旧booleanだけ・不正Hash・古い画面・別ProviderのHashは開始拒否となる。ログイン用途へ追加Hostを搬送しない。
+
+表示JSONはAuthorityを持たず、通信不能・取消・失効を成功や旧内容の再利用へ変換しない。Repository／主体／設定の切替時は古い選択・確認を残さない。追加のSession・Registry・承認台帳を設けず、既存の受付・取消・結果搬送を利用する。新Proxy Imageの実通信確認前に、表示成功を実強制や全E2Eの成立として扱わない。
+
 ### Framework移行の採用境界 — 2026-10-20
 
 Workbenchは同一Package内の`client/`、`server/`、`shared/`へ責務を分離する。React＋ViteのCSRを唯一の画面Rendering方式として維持し、ServerのHTTP RoutingをExpress 5、ClientのNavigationをReact Router、Serverデータ取得をTanStack Queryへ移す。Domain・認証認可・実行状態・Git操作の正本は既存専門Packageに維持し、WorkbenchからMCPへ依存しない。UX／IA・Visual再設計はこの移行へ含めない。

@@ -9,6 +9,7 @@
  * @boundary Provider非依存Adapterと固定Fake Executorの局所境界。
  */
 import assert from "node:assert/strict";
+import { fixtureNetworkPolicy } from "../../fixtures/network-policy.ts";
 import test from "node:test";
 import {
   providerProfileMatchesExecutionIdentity,
@@ -175,6 +176,7 @@ test("exact Codex Profileを変更せず一つのExecutorへ渡す", async () =>
   });
   const result = await adapter(
     Object.freeze({
+      networkPolicy: fixtureNetworkPolicy(profile.provider),
       taskPacket: prepared.taskPacket,
       catalogRevision: 1,
       profile,
@@ -259,6 +261,7 @@ test("Profile契約不整合を全Executor Effect前に拒否する", async () =
   });
   const result = await adapter(
     Object.freeze({
+      networkPolicy: fixtureNetworkPolicy(profile.provider),
       taskPacket: prepared.taskPacket,
       catalogRevision: 1,
       profile: Object.freeze({
@@ -300,6 +303,7 @@ test("Task Profile不一致はAI Adapter移管後もExecutor Effect前に拒否�
   });
   const result = await adapter(
     {
+      networkPolicy: fixtureNetworkPolicy(profile.provider),
       taskPacket: { ...prepared.taskPacket, profileId: "PROFILE-999999" },
       catalogRevision: 1,
       profile,

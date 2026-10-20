@@ -60,6 +60,9 @@ test("実行物Trustは既存Policy Hashと操作内実体固定を維持する"
  */
 test("Docker環境は固定四項目と用途別Driveを構成し観測不能を補完しない", () => {
   const expectedExports = [
+    "prepareDockerNetworkPolicy",
+    "describeDockerProxyTopology",
+    "parseDockerNetworkPolicy",
     "describeDockerProviderAssets",
     "describeDockerProviderExecutionLocations",
     "codexAdviceProviderInitRequired",

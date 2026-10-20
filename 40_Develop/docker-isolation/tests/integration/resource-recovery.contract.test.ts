@@ -16,7 +16,7 @@ import {
   discoverSubmittedDockerResource,
   observeSubmittedDockerResourceAbsent,
   recoverObservedDockerResource,
-} from "../../src/cleanup/resource-recovery.ts";
+} from "../../src/cleanup/resource.ts";
 import type { DockerResourceExpectation } from "../../src/index.ts";
 
 /**

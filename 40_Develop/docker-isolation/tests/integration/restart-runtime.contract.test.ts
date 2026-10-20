@@ -12,12 +12,12 @@ import test from "node:test";
 import {
   type createDockerRestartMachine,
   createDockerRestartMachineForVerification,
-} from "../../src/desktop/restart-machine.ts";
+} from "../../src/docker-desktop/restart-state.ts";
 import {
   restartDockerRuntimeForVerification,
   type DockerRuntimeRestartEvent,
   type DockerRuntimeRestartInput,
-} from "../../src/desktop/restart-runtime.ts";
+} from "../../src/docker-desktop/restart.ts";
 
 /**
  * 不正な公開入力をGetter評価や外部取得より前に拒否する。

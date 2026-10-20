@@ -15,8 +15,8 @@ import path from "node:path";
 import { stripTypeScriptTypes } from "node:module";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
-import { restartDockerRuntimeForVerification } from "../../../docker-isolation/src/desktop/restart-runtime.ts";
-import { createDockerRestartMachineForVerification } from "../../../docker-isolation/src/desktop/restart-machine.ts";
+import { restartDockerRuntimeForVerification } from "../../../docker-isolation/src/docker-desktop/restart.ts";
+import { createDockerRestartMachineForVerification } from "../../../docker-isolation/src/docker-desktop/restart-state.ts";
 import {
   decodeDockerRestartCheckpoint,
   validateDockerRestartCheckpointTransition,
@@ -125,7 +125,7 @@ test("production facadeとpackage exportsはcaller Root／observer／runner seam
   );
   const privateDriver = composition.replace(
     "../../../docker-isolation/src/index.ts",
-    "../../../docker-isolation/src/desktop/restart-runtime.ts",
+    "../../../docker-isolation/src/docker-desktop/restart.ts",
   );
   assert.notEqual(privateDriver, composition);
   assert.throws(() => assertCurrentRestartBoundary(hostFacade, privateDriver));
@@ -146,7 +146,7 @@ test("production facadeとpackage exportsはcaller Root／observer／runner seam
   assert.throws(() =>
     assertCurrentRestartBoundary(
       hostFacade,
-      `${composition}\nimport "../../../docker-isolation/src/desktop/restart-runtime.ts";`,
+      `${composition}\nimport "../../../docker-isolation/src/docker-desktop/restart.ts";`,
     ),
   );
   const blocked = spawnSync(

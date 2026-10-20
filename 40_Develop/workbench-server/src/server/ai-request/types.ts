@@ -19,6 +19,7 @@ export type WorkbenchAiRequestCommand = Readonly<{
   contextReferences: readonly string[];
   allowedPaths: readonly string[];
   externalSendConfirmed: boolean;
+  expectedNetworkPolicyHash: string;
   workspaceId: string | null;
 }>;
 

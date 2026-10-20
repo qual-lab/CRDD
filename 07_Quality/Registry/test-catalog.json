@@ -345,6 +345,7 @@
       "testIds": [
         "runtime-data:unit:contract",
         "runtime-data:unit:path-resolver",
+        "domain-model:integration:network-policy",
         "runtime-data:integration:repository-paths",
         "runtime-data:integration:temporary-operation-lifecycle",
         "runtime-data:system:temporary-operation-cleanup"
@@ -1486,6 +1487,58 @@
   ],
   "tests": [
     {
+      "id": "docker-isolation:unit:network-proxy",
+      "owner": "docker-isolation",
+      "path": "40_Develop/docker-isolation/tests/unit/network/proxy.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": ["network-policy", "proxy", "python-source"],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["process_joined", "source_unchanged"],
+      "mandatoryByDefault": false
+    },
+    {
+      "id": "docker-isolation:integration:network-policy",
+      "owner": "docker-isolation",
+      "path": "40_Develop/docker-isolation/tests/integration/network-policy.integration.test.ts",
+      "level": "integration",
+      "kind": "integration",
+      "semanticTags": ["network-policy", "npm", "pip", "synthetic-probe"],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["unapproved_docker_execution_absent", "exact_owned_resources_absent_or_unknown_preserved"],
+      "mandatoryByDefault": false
+    },
+    {
+      "id": "domain-model:integration:network-policy",
+      "owner": "domain-model",
+      "path": "40_Develop/domain-model/tests/integration/network-policy.integration.test.ts",
+      "level": "integration",
+      "kind": "integration",
+      "semanticTags": ["repository-root", "network-policy", "bounded-reader"],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["repository_root_exact", "unknown_not_absent", "owned_descriptor_closed"],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "docker-isolation:unit:network-policy",
+      "owner": "docker-isolation",
+      "path": "40_Develop/docker-isolation/tests/unit/network/policy.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": ["network-policy", "provider-separation", "input-snapshot"],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["result_observed", "source_unchanged"],
+      "mandatoryByDefault": true
+    },
+    {
       "id": "ai-adapter:unit:output-provider-error",
       "owner": "ai-adapter",
       "path": "40_Develop/ai-adapter/tests/unit/provider/error.contract.test.ts",
@@ -1929,7 +1982,7 @@
     {
       "id": "docker-isolation:unit:command-plan",
       "owner": "docker-isolation",
-      "path": "40_Develop/docker-isolation/tests/unit/command-plan.contract.test.ts",
+      "path": "40_Develop/docker-isolation/tests/unit/execution/plan.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -2096,7 +2149,7 @@
     {
       "id": "docker-isolation:unit:probe-result",
       "owner": "docker-isolation",
-      "path": "40_Develop/docker-isolation/tests/unit/probe-result.contract.test.ts",
+      "path": "40_Develop/docker-isolation/tests/unit/probe/result.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -2116,7 +2169,7 @@
     {
       "id": "docker-isolation:unit:command-result",
       "owner": "docker-isolation",
-      "path": "40_Develop/docker-isolation/tests/unit/command-result.contract.test.ts",
+      "path": "40_Develop/docker-isolation/tests/unit/execution/result.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -2136,7 +2189,7 @@
     {
       "id": "docker-isolation:unit:resource-configuration",
       "owner": "docker-isolation",
-      "path": "40_Develop/docker-isolation/tests/unit/resource-configuration.contract.test.ts",
+      "path": "40_Develop/docker-isolation/tests/unit/cleanup/plan.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -8681,7 +8734,7 @@
     {
       "id": "docker-isolation:unit:backend-state",
       "owner": "docker-isolation",
-      "path": "40_Develop/docker-isolation/tests/unit/desktop/backend-state.contract.test.ts",
+      "path": "40_Develop/docker-isolation/tests/unit/docker-desktop/backend.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -8760,7 +8813,7 @@
     {
       "id": "docker-isolation:unit:repair-checkpoint",
       "owner": "docker-isolation",
-      "path": "40_Develop/docker-isolation/tests/unit/repair-checkpoint.contract.test.ts",
+      "path": "40_Develop/docker-isolation/tests/unit/docker-desktop/repair-state.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [

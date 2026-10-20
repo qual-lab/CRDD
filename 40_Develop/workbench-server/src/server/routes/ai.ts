@@ -371,6 +371,8 @@ export async function handleSharedAiRequest({
       | WorkbenchAiRequestSnapshot;
     if (operation === "start") {
       const mode = form.get("mode");
+      if (!/^[a-f0-9]{64}$/u.test(form.get("expectedNetworkPolicyHash") ?? ""))
+        throw new Error("workbench_ai_network_policy_confirmation_required");
       if (mode !== "read_only_advice" && mode !== "workspace_edit")
         throw new Error("workbench_ai_request_mode_invalid");
       dispatched = true;
@@ -384,6 +386,9 @@ export async function handleSharedAiRequest({
           .map((p) => p.trim())
           .filter(Boolean),
         externalSendConfirmed: form.get("externalSendConfirmed") === "yes",
+        expectedNetworkPolicyHash: String(
+          form.get("expectedNetworkPolicyHash") ?? "",
+        ),
         workspaceId: form.get("workspaceId")?.trim() || null,
       });
       if (result.status === "accepted") session.currentId = result.requestId;
@@ -549,6 +554,8 @@ export async function handleAiRequestAction({
         .map((value) => value.trim().replaceAll("\\", "/"))
         .filter((value) => value.length > 0);
       const externalSendConfirmed = form.get("externalSendConfirmed") === "yes";
+      if (!/^[a-f0-9]{64}$/u.test(form.get("expectedNetworkPolicyHash") ?? ""))
+        throw new Error("workbench_ai_network_policy_confirmation_required");
       if (mode !== "read_only_advice" && mode !== "workspace_edit")
         throw new Error("workbench_ai_request_mode_invalid");
       if (
@@ -583,6 +590,9 @@ export async function handleAiRequestAction({
           contextReferences: Object.freeze(["PROJECT_CONTEXT.md"]),
           allowedPaths: Object.freeze(allowedPaths),
           externalSendConfirmed,
+          expectedNetworkPolicyHash: String(
+            form.get("expectedNetworkPolicyHash") ?? "",
+          ),
           workspaceId: form.get("workspaceId")?.trim() || null,
         }),
       );

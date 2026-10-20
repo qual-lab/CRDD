@@ -48,6 +48,7 @@ export type SingleTaskCommand = Readonly<{
   contextReferences: readonly string[];
   allowedPaths: readonly string[];
   externalSendConfirmed: boolean;
+  expectedNetworkPolicyHash: string;
   workspaceId: string | null;
 }>;
 
@@ -125,6 +126,7 @@ export function inspectSingleTaskCommand(
       "contextReferences",
       "allowedPaths",
       "externalSendConfirmed",
+      "expectedNetworkPolicyHash",
       "workspaceId",
     ]),
   );
@@ -132,7 +134,7 @@ export function inspectSingleTaskCommand(
   const paths = snapshotPlainArray<string>(r?.allowedPaths, 1024);
   if (
     !r ||
-    Object.keys(r).length !== 7 ||
+    Object.keys(r).length !== 8 ||
     typeof r.mode !== "string" ||
     !["read_only_advice", "workspace_edit"].includes(r.mode) ||
     typeof r.profileId !== "string" ||
@@ -141,6 +143,8 @@ export function inspectSingleTaskCommand(
     r.prompt.trim().length === 0 ||
     r.prompt.length > 32000 ||
     r.externalSendConfirmed !== true ||
+    typeof r.expectedNetworkPolicyHash !== "string" ||
+    !/^[a-f0-9]{64}$/u.test(r.expectedNetworkPolicyHash) ||
     refs.status !== "ok" ||
     refs.value.length !== 1 ||
     refs.value[0] !== "PROJECT_CONTEXT.md" ||

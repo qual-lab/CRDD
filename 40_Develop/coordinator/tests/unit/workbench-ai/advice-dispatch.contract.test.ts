@@ -9,13 +9,17 @@
  * @boundary Coordinator Dispatchと固定Fake Provider Adapterの局所境界。
  */
 import assert from "node:assert/strict";
+import { fixtureNetworkPolicy } from "../../fixtures/network-policy.ts";
 import test from "node:test";
 
 import {
   defaultAiProfileCatalog,
   resolveAiProfileById,
 } from "../../../../ai-adapter/src/index.ts";
-import { createWorkbenchAiAdviceDispatchRuntime } from "../../../src/workbench-ai/advice-dispatch.ts";
+import {
+  createWorkbenchAiAdviceDispatchRuntime,
+  describeWorkbenchAiAdviceDispatchRuntimeContract,
+} from "../../../src/workbench-ai/advice-dispatch.ts";
 import { prepareWorkbenchAiAdviceTask } from "../../../src/workbench-ai/advice-task.ts";
 
 const resolvedProfile = resolveAiProfileById(
@@ -66,6 +70,7 @@ const RAW_RESULT = JSON.stringify({
  */
 function dispatchInput(externalSendConfirmed = true) {
   return Object.freeze({
+    networkPolicy: fixtureNetworkPolicy(profile.provider),
     taskPacket,
     catalogRevision: 1,
     profile,
@@ -86,6 +91,16 @@ function dispatchInput(externalSendConfirmed = true) {
  * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
  */
 test("明示確認済みの一依頼だけをProviderへ渡して根拠付き結果を返す", async () => {
+  assert.deepEqual(
+    describeWorkbenchAiAdviceDispatchRuntimeContract().authorityScope,
+    [
+      "taskHash",
+      "catalogRevision",
+      "profileId",
+      "provider",
+      "networkPolicyHash",
+    ],
+  );
   let calls = 0;
   const dispatch = createWorkbenchAiAdviceDispatchRuntime(async () => {
     calls += 1;

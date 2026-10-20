@@ -4,6 +4,26 @@
   "subsystem": "domain-model",
   "symbols": [
     {
+      "symbolId": "domain-model.configuration.network-policy",
+      "kind": "file",
+      "path": "src/configuration/network-policy.ts",
+      "archIds": ["ARCH-000011"]
+    },
+    {
+      "symbolId": "domain-model.storage.network-policy",
+      "kind": "file",
+      "path": "src/storage/network-policy.ts",
+      "archIds": ["ARCH-000011"]
+    },
+    {
+      "symbolId": "domain-model.test.integration.network-policy",
+      "kind": "test-suite",
+      "path": "tests/integration/network-policy.integration.test.ts",
+      "qaIds": ["QA-000008"],
+      "localTestIds": ["RDL-IT-001"],
+      "verifies": ["domain-model.configuration.network-policy", "domain-model.storage.network-policy"]
+    },
+    {
       "symbolId": "domain-model.artifact-phase-checklists",
       "kind": "file",
       "path": "src/artifact/phase-checklists.ts",

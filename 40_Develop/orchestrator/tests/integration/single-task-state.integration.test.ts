@@ -334,6 +334,7 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
     contextReferences: ["PROJECT_CONTEXT.md"],
     allowedPaths: [] as string[],
     externalSendConfirmed: true,
+    expectedNetworkPolicyHash: "a".repeat(64),
     workspaceId: null,
   };
   const beforeCancellation = new AbortController();

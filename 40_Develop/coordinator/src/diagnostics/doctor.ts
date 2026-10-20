@@ -19,7 +19,7 @@ import {
   DOCKER_ISOLATION_PROFILE,
   runDockerIsolationProbe,
 } from "./isolation-probe.ts";
-import { describeEgressProxyTopology } from "../external-send/egress-proxy-policy.ts";
+import { describeDockerProxyTopology } from "../../../docker-isolation/src/index.ts";
 import {
   cleanupOwnedOperationDirectories,
   createProviderEnvironment,
@@ -1006,7 +1006,7 @@ export function runDoctor(options: unknown = {}) {
         authorityFileBundle: describeAuthorityFileBundleContract(),
         authorityPrelaunchVerifier:
           describeAuthorityPrelaunchVerifierContract(),
-        proxyTopology: describeEgressProxyTopology(),
+        proxyTopology: describeDockerProxyTopology("claude"),
       },
       recovery: shouldRetainOperationDirectories
         ? {

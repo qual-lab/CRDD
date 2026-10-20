@@ -50,7 +50,7 @@ function probeLifecycleFunction(source: string, name: string) {
  */
 test("Probe取消は三地点の失効と元失敗を保持し同じHandleを必ずjoinする", async () => {
   const source = fs.readFileSync(
-    new URL("../../src/execution/probe-runtime.ts", import.meta.url),
+    new URL("../../src/probe/execute.ts", import.meta.url),
     "utf8",
   );
   const helpers = [
@@ -438,7 +438,7 @@ test("Probe取消は三地点の失効と元失敗を保持し同じHandleを必
  */
 test("稼働残存は保存後fresh確認から同実IDを一回開始し回収しない", () => {
   const source = fs.readFileSync(
-    new URL("../../src/execution/probe-runtime.ts", import.meta.url),
+    new URL("../../src/probe/execute.ts", import.meta.url),
     "utf8",
   );
   const bodies = ["captureCurrentProbeMounts", "startDockerProbeResidue"]
