@@ -20,6 +20,9 @@ import type { DomainIssue } from "../outcome.ts";
  * @compatibility RealityIssueDetailsの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
 export type RealityIssueDetails = Readonly<{
+  "catalog.tests.array-missing": Record<string, never>;
+  "catalog.entry.fields-invalid": Record<string, never>;
+  "catalog.path.duplicate": { testPath: string };
   "discovery.manifest.json-invalid": { subsystem: string };
   "discovery.manifest.subsystem-mismatch": {
     expectedSubsystem: string;

@@ -187,8 +187,8 @@ Sandbox内ではProcess列挙が`Access denied`となり、取消試験も子Pro
 | quality-change-control | 保守／監査工程 | 専用Runnerなし | Process-owned Partial | 独立Runtimeは要求しない。監査集合統合、是正再入場と3 Local Itemを実レビュー／監査Evidenceへ接続する |
 | runtime-data | `40_Develop/runtime-data` | 35／35 Pass | Partial | 6期待Local Itemのうち4件を接続。Project View分類とCredential→Session Grantを伴うCROS Root利用は別Ownerの成立が必要 |
 | runtime-trust | なし | v0.21対象外 | Deferred to v0.22 | 利用者所有Trust Policy、Policy activationおよびProvider launch結合はGroup Cとしてv0.22へ移管した |
-| Semantic Coverage（Domain／Checkerへ移管） | `40_Develop/domain-model/src/semantic`、`40_Develop/checker/src/semantic` | 移管前17件を保持し追加4件を含む21／21成功、Domain全128件成功 | 移管範囲の回帰・独立再レビュー完了 | 独立Packageを撤去。公開CLI・保存失敗・Snapshot保全を新Ownerで確認。Pilot全意味の充足や正式全体QAのPassを意味しない |
-| 検証計画（Domain／Checkerへ移管） | `domain-model/src/test-catalog`、`checker/src/test-catalog` | 台帳／計画27件・公開接続7件成功。手動UAT1件未実施 | 局所移管・独立再レビュー完了、全体回帰は未成立 | catalog維持、一括自動実行廃止。Domain全体は許可Hostで155件中154成功・既存Lock競合待ち失敗、Repository-local TEMPでは別の既存試験前提が不成立。単独成功を合算して全体Passにしない |
+| Semantic Coverage（Domain／Checkerへ移管） | `domain-model/src/semantic`、`checker/src/repository/semantic.ts`、`checker/src/report/semantic.ts`、`checker/src/cli/semantic.ts` | 移管前17件を保持し追加4件を含む21／21成功、Domain全128件成功 | 移管範囲の回帰・独立再レビュー完了 | 独立Packageを撤去。公開CLI・保存失敗・Snapshot保全を新Ownerで確認。Pilot全意味の充足や正式全体QAのPassを意味しない |
+| 検証計画（Domain／Checkerへ移管） | `domain-model/src/test-catalog`、`checker/src/cli/test-catalog.ts` | 台帳／計画27件・公開接続7件成功。手動UAT1件未実施 | 局所移管・独立再レビュー完了、全体回帰は未成立 | catalog維持、一括自動実行廃止。Domain全体は許可Hostで155件中154成功・既存Lock競合待ち失敗、Repository-local TEMPでは別の既存試験前提が不成立。単独成功を合算して全体Passにしない |
 | version-control | `40_Develop/version-control` | 41／41 Pass | Covered Candidate | 固定Snapshot、Consumer ClosureおよびSystem移行Closureを接続。独立レビューで意味一致を確認する |
 
 `Process-owned Partial`は実装packageがないという理由での失敗ではない。各Local Itemに必要な判断、レビュー、公開記録または監査Evidenceが追跡できない状態である。`Missing`は現在宣言したRuntime能力に対する実装Ownerを確認できない状態である。

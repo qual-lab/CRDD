@@ -325,13 +325,14 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
   },
   {
     relativePath: "40_Develop/checker/src/index.ts",
-    expectedTrace: "ARCH-000001 ARCH-000003 ARCH-000008",
+    expectedTrace: ["ARCH-000001", "ARCH-000003", "ARCH-000008"],
     requiredTags: ["boundary"],
     exportedModules: [
-      "./profiles/current.ts",
-      "./findings/collector.ts",
-      "./semantic/command.ts",
-      "./test-catalog/command.ts",
+      "./cli/document.ts",
+      "./cli/types.ts",
+      "./report/types.ts",
+      "./cli/semantic.ts",
+      "./cli/test-catalog.ts",
     ],
   },
   {
@@ -411,6 +412,38 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
       "./configuration/types.ts",
       "./artifact/types.ts",
       "./artifact/graph.ts",
+      "./artifact/anchors.ts",
+      "./artifact/markdown.ts",
+      "./artifact/links.ts",
+      "./artifact/ux-inputs.ts",
+      "./artifact/ux-handoff.ts",
+      "./artifact/ux.ts",
+      "./artifact/discovery.ts",
+      "./artifact/spec.ts",
+      "./artifact/architecture.ts",
+      "./artifact/architecture-details.ts",
+      "./artifact/architecture-relations.ts",
+      "./artifact/document-header.ts",
+      "./artifact/identity.ts",
+      "./artifact/quality-analysis.ts",
+      "./artifact/quality-definition.ts",
+      "./artifact/quality-readiness.ts",
+      "./artifact/quality-relations.ts",
+      "./artifact/quality-templates.ts",
+      "./artifact/release.ts",
+      "./artifact/verification-tables.ts",
+      "./artifact/spec-correspondence.ts",
+      "./artifact/spec-details.ts",
+      "./artifact/ia.ts",
+      "./artifact/ui.ts",
+      "./artifact/quality-state.ts",
+      "./artifact/checklist.ts",
+      "./artifact/change.ts",
+      "./artifact/phase-diagrams.ts",
+      "./artifact/phase-checklists.ts",
+      "./artifact/inspect.ts",
+      "./reality-traceability/test-source.ts",
+      "./reality-traceability/catalog.ts",
       "./artifact/parse-markdown.ts",
       "./artifact/validate-schema.ts",
       "./repository/types.ts",
@@ -423,6 +456,7 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
       "./reality-traceability/validate-manifest.ts",
       "./reality-traceability/discover.ts",
       "./project-context/candidate-decision.ts",
+      "./project-context/inspect.ts",
       "./project-context/source-projection.ts",
       "./project-context/parse-context.ts",
       "./project-context/parse-release.ts",
@@ -598,7 +632,6 @@ const projectConfigs = Object.freeze([
   path.join(repositoryRoot, "40_Develop", "platform-access", "tsconfig.json"),
   path.join(repositoryRoot, "40_Develop", "mcp-server", "tsconfig.json"),
   path.join(repositoryRoot, "40_Develop", "domain-model", "tsconfig.json"),
-  path.join(repositoryRoot, "40_Develop", "tsconfig.json"),
   path.join(repositoryRoot, "40_Develop", "version-control", "tsconfig.json"),
   path.join(repositoryRoot, "40_Develop", "visual-preview", "tsconfig.json"),
   path.join(repositoryRoot, "40_Develop", "workbench-server", "tsconfig.json"),
@@ -659,43 +692,53 @@ test("Checker公開入口はArchitecture宣言済みSymbolだけを公開する"
 });
 
 /**
- * Checker公開Use Caseは工程別検査を所有せず現行Profileへ委譲するを検証する。
- *
- * @responsibility Checker公開Use Caseは工程別検査を所有せず現行Profileへ委譲するの合否判定を所有する。
+ * 文書受付と工程別Repository観測の分離を検証する。
+ * @responsibility 旧Profileの不存在、公開受付、観測Ownerと工程接続を全数確認する。
  * @trace RCM-IT-005
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Checker公開Use Caseは工程別検査を所有せず現行Profileへ委譲するの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
+ * @precondition 実Sourceを読取りできる。
+ * @stimulus 公開入口・CLI・Repository編成・工程観測の実体を読む。
+ * @observation Import先、公開関数と工程呼出しを取得する。
+ * @oracle 受付は文書意味・工程実装を持たず、Repository編成が専用Ownerへ接続する。
+ * @cleanup N/A: 読取り専用。
+ * @boundary RCM-IT-005=Direct Boundary: 試験→Checker公開・内部接続
  */
-test("Checker公開Use Caseは工程別検査を所有せず現行Profileへ委譲する", () => {
-  const applicationSource = fs.readFileSync(
-    path.join(checkerRoot, "src", "index.ts"),
+test("Checker文書受付は工程別Repository観測へ接続し旧Profileを持たない", () => {
+  const index = fs.readFileSync(path.join(checkerRoot, "src/index.ts"), "utf8");
+  const command = fs.readFileSync(
+    path.join(checkerRoot, "src/cli/document.ts"),
     "utf8",
   );
-  const profileSource = fs.readFileSync(
-    path.join(checkerRoot, "src", "profiles", "current.ts"),
+  const repository = fs.readFileSync(
+    path.join(checkerRoot, "src/repository/document.ts"),
     "utf8",
   );
-  assert.match(applicationSource, /from "\.\/profiles\/current\.ts"/u);
-  assert.match(profileSource, /export function runChecker\(/u);
+  assert.match(index, /from "\.\/cli\/document\.ts"/u);
+  assert.match(command, /inspectDocumentRepository\(/u);
+  assert.doesNotMatch(
+    command,
+    /function check[A-Z]|inspectQualityDefinition|inspectUiDefinition/u,
+  );
   assert.equal(
-    fs.existsSync(path.join(checkerRoot, "src", "inspection", "run.ts")),
+    fs.existsSync(path.join(checkerRoot, "src/profiles/current.ts")),
     false,
   );
-  assert.doesNotMatch(applicationSource, /function check[A-Z]/u);
-  for (const check of [
-    "checkWorkLifecycleNavigation",
-    "checkUxRequirementAnalysis",
-    "checkIaReconstruction",
-    "checkUiReconstruction",
-    "checkSpecReconstruction",
-    "checkArchitectureReconstruction",
-    "checkQualityReconstruction",
-  ])
-    assert.match(profileSource, new RegExp(`function ${check}\\(`, "u"));
+  for (const [module, name] of [
+    ["project-context", "inspectProjectContextRepository"],
+    ["work-lifecycle", "inspectWorkLifecycleRepository"],
+    ["discovery-ux", "inspectDiscoveryUxRepository"],
+    ["ia", "inspectIaRepository"],
+    ["ui", "inspectUiRepository"],
+    ["spec", "inspectSpecRepository"],
+    ["architecture", "inspectArchitectureRepository"],
+    ["quality", "inspectQualityRepository"],
+  ]) {
+    const source = fs.readFileSync(
+      path.join(checkerRoot, "src/repository", module + ".ts"),
+      "utf8",
+    );
+    assert.match(source, new RegExp("export function " + name + "\\(", "u"));
+    assert.match(repository, new RegExp(name + "\\(", "u"));
+  }
 });
 const KEBAB_CASE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
 const CAMEL_CASE = /^[a-z][A-Za-z0-9]*$/u;

@@ -226,6 +226,8 @@ Package Rootへ任意の`.ts` Sourceを平置きしてはならない（MUST NOT
 
 `bin/`は独立Processの薄い起動入口であり、主要な判断・状態管理・Domain処理を所有せず、自Packageの`src/index.ts`を基本的に利用する（MUST）。多数の内部Fileを直接組み立てる場合は公開APIと責務境界を再検討する。通常経路は`bin/`→`src/index.ts`→責務Sourceとする。
 
+自PackageのCLI受付を標準Programmatic APIへ公開する実利用がなく、公開集合を増やさず単一の受付実装へ接続する場合は、その受付へのPackage内直接参照を許容する。Architectureへexact Path、bin限定の利用側、実際の受付責務と公開しない理由を記録し、単一受付への接続・標準公開集合の維持・Package間deep import不存在を契約試験で確認する（MUST）。多数の内部実装の組立てや、他Packageの内部参照を許容する例外へ拡張しない。再exportだけの中継Fileを新設する理由にも使用しない。
+
 `bin/`の主要CLI File名は、Packageを所有する親Folder名と同じ`<package-folder>.ts`を基本とする（MUST）。例えば`checker/bin/checker.ts`、`mcp-server/bin/mcp-server.ts`とする。npm package名のscopeやprefixからFile名を生成しない。追加の独立したCLIが実在する場合は用途を表す名前を使い、別入口が必要な理由と利用側をArchitectureへ示す。外部固定コマンド名が異なる場合はpackageのコマンド解決定義で維持し、Source File名と利用者向けコマンド名を混同しない。
 
 `scripts/`は開発・保守・生成・署名・診断・実測の定型作業を所有する。開発・診断の必要性がある場合、同じPackageの内部Sourceを直接参照できるが、Script利用だけのために内部Capabilityを公開APIへ追加してはならない（MUST NOT）。通常Runtimeの実装を複製せず、共有する製品実装は`src/`へ置く。`src/`から`scripts/`または`tests/`を通常Runtimeの実装依存としてimport／再exportしてはならない（MUST NOT）。Architectureで宣言した用途限定の検証子入口のPath登録は実装依存と区別し、任意Script起動の許可へ広げない。Package Rootには`package.json`、TypeScript設定、lockfileその他のecosystemがRoot配置を要求する設定だけを置く。Root配置が外部ecosystem契約として必要な場合は、exact filenameと理由を本節または対象Architectureへ固定する。

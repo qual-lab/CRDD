@@ -8,7 +8,7 @@ CHG-000082の人間判断により独立Packageと一括自動実行を廃止す
 |---|---|
 | Test Catalogの型・解析・母集団と関係の検査・回帰選択 | Domain Model `test-catalog/inspect.ts`。既存catalogの保存先・Schemaを維持 |
 | 段階型・順序計画・観測済み結果の集約・相対Path正規化 | Domain Model `test-catalog/plan.ts`。試験を起動するCallbackは持たない |
-| 引数・Root・Git差分・Catalog観測・計画表示 | Checker `test-catalog/command.ts`。npm／Cargo／任意試験Processを起動・構成しない |
+| 引数・Root・Git差分・Catalog観測・計画表示 | Checker `cli/test-catalog.ts`。npm／Cargo／任意試験Processを起動・構成しない |
 | 一括自動実行と専用dispatch | 廃止。フロントAI／人間が計画に沿って対象Projectの実行手段を利用する |
 | CRDD公式Repositoryの試験起動 | 各Packageのnpm設定と開発手順。適用先へnpm使用を要求しない |
 

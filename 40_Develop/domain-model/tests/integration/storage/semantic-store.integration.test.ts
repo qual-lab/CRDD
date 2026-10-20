@@ -10,8 +10,8 @@
  * @boundary PPR-IT-018=Related 2 Blocks: Semantic IR→Implementation／QA／Test Relation / RDL-IT-007=Direct Boundary: Semantic Bundle Publisher→Filesystem
  */
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
@@ -91,23 +91,37 @@ test("Semantic Bundle公開前の失敗は既存Snapshotを置換しない", () 
  * @boundary RDL-IT-007=Direct Boundary: semantic-coverage Test Source→対象契約
  */
 test("Root外とLink出力を拒否し失敗後に一時成果物を残さない", () => {
-  const repositoryRoot = path.resolve(
+  const sourceRepositoryRoot = path.resolve(
     path.dirname(fileURLToPath(import.meta.url)),
     "../../../../..",
   );
-  const verified = verifyRepositoryRoot(repositoryRoot);
-  assert.equal(verified.status, "completed");
-  if (verified.status !== "completed") return;
   const testRoot = path.join(
-    repositoryRoot,
+    sourceRepositoryRoot,
     ".crdd",
     "tests",
     "semantic-coverage",
   );
   fs.mkdirSync(testRoot, { recursive: true });
   const temporaryRoot = fs.mkdtempSync(path.join(testRoot, "bundle-boundary-"));
-  const outsideRoot = fs.mkdtempSync(path.join(os.tmpdir(), "bundle-outside-"));
+  const outsideRoot = fs.mkdtempSync(path.join(testRoot, "bundle-outside-"));
   try {
+    const initialized = spawnSync(
+      "git",
+      ["-c", "init.templateDir=", "init", "--quiet", temporaryRoot],
+      {
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          GIT_CONFIG_NOSYSTEM: "1",
+          GIT_CONFIG_GLOBAL: process.platform === "win32" ? "NUL" : "/dev/null",
+        },
+      },
+    );
+    assert.equal(initialized.status, 0, initialized.stderr);
+    const repositoryRoot = temporaryRoot;
+    const verified = verifyRepositoryRoot(repositoryRoot);
+    assert.equal(verified.status, "completed");
+    if (verified.status !== "completed") return;
     const outsideRelativePath = path
       .relative(repositoryRoot, path.join(outsideRoot, "outside.json"))
       .replaceAll("\\", "/");
@@ -119,8 +133,10 @@ test("Root外とLink出力を拒否し失敗後に一時成果物を残さない
     );
     assert.equal(fs.existsSync(path.join(outsideRoot, "outside.json")), false);
 
-    const targetPath = path.join(temporaryRoot, "target.json");
-    const linkPath = path.join(temporaryRoot, "link.json");
+    const outputDirectory = path.join(temporaryRoot, "outputs");
+    fs.mkdirSync(outputDirectory);
+    const targetPath = path.join(outputDirectory, "target.json");
+    const linkPath = path.join(outputDirectory, "link.json");
     fs.writeFileSync(targetPath, "original\n", "utf8");
     fs.symlinkSync(targetPath, linkPath, "file");
     const linkRelativePath = path
@@ -137,7 +153,7 @@ test("Root外とLink出力を拒否し失敗後に一時成果物を残さない
     assert.equal(fs.readFileSync(targetPath, "utf8"), "original\n");
     assert.deepEqual(
       fs
-        .readdirSync(temporaryRoot)
+        .readdirSync(outputDirectory)
         .filter((name) => name.startsWith(".semantic-coverage-pilot.")),
       [],
     );

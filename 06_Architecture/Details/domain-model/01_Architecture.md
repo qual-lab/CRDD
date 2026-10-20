@@ -1,5 +1,201 @@
 # Domain Modelの責務境界
 
+### 共通文書の表・Header・版・Identity — 2026-10-20
+
+| Source | 公開操作と責務 |
+|---|---|
+| `artifact/verification-tables.ts` | `inspectBranchCoverageTable`は分岐数・実測率の算術を、`inspectRemediationTable`は是正の進捗・阻害・解決条件の相関と必要値を検査する。それぞれ検査行数とIssueを返す |
+| `artifact/document-header.ts` | `inspectRelatedOrder`はRelated節の存在と標準番号順、`parseCanonicalReleaseHeader`は限定したHeader境界から版・状態・Baselineを返す |
+| `artifact/release.ts` | `parseCandidateVersionHeader`、`parseReadmeVersion`は既存の限定文法を解析する。`inspectCanonicalDocumentVersions`は版集合・CandidateのBaselineとIssueを返す。`inspectChangelogRelease`は二言語節・移行宣言・分類・必要説明を検査する。`inspectStableCanonicalDocuments`、`inspectStableReadme`、`inspectStableChangelog`、`inspectStableReleaseHeader`はStable版の文書・表示・日付・変更記録の条件を検査する |
+| `artifact/identity.ts` | `parseStableIdentityOccurrences`は生本文の全出現を返す。`inspectStableIdentityDefinitions`は可視の明示定義位置と手動改訂Issue、`inspectStableIdentityOwnership`は集約済み定義の所有重複、`inspectDiscoveryIdentityLinks`はREQリンクの定義所有不一致を検査する |
+| `artifact/change.ts` | 既存の変更記録本文検査に加え、`parseChangeTraceHeader`で取得済みHeaderのID・標準見出しを独立に解析する |
+
+全出現と明示定義、一般表と是正表、未測定と非数値、CandidateとStable、解析済み値と現在の実在を分ける。Mapの入力順・重複・後勝ち値、単純pipeと既存Fence文法、最初の節・Header、数値許容差を変更しない。Root、GitのTag／HEAD、File配置、対象範囲と実在の観測はCheckerが所有する。派生モデル・Issueを現在の正本・実行許可・品質Passへ昇格しない。
+
+### Quality状態・分析・統合の本文契約 — 2026-10-20
+
+| Source | 公開操作と所有する意味 |
+|---|---|
+| `artifact/quality-readiness.ts` | `inspectQualityCenterState`は版表記を正規化した有限状態・Ready分岐・Issueを返す。`inspectQualityRealityState`はその同じ結果モデルとReality状態を受け、許可された状態対を検査する。`hasQualityOpenChecklist`は可視Checklistの未解決項目を検出する |
+| `artifact/quality-analysis.ts` | `inspectQualityAnalysis`は工程別Coverageと情報源・目標・条件・段階・Obligation Key・Local Itemの部分関係を返す。`inspectQualityCrossModelGoals`は五モデル処置、`inspectQualityDetailUnits`は詳細検証単位の行・重複・領域集合を照合する。`parseQualityCoverageSections`は工程本文からCoverage節を解析する |
+| `artifact/quality-relations.ts` | `inspectQualityDefinitionRelations`、`inspectQualityLocalItemRelations`、`inspectQualityGoalLocalRelations`は分析・定義・詳細引渡しの双方向関係、段階と境界到達を照合する。`parseQualityDetailHandoff`は取得済み詳細本文から検証単位・段階・境界の後勝ちMapを返し、`isQualityLocalItemCountInvalid`は宣言件数との一致を判定する |
+| `artifact/quality-templates.ts` | 検証結果・分析・統合の三書式の必須本文条件を判定する。通常成果物の状態・Coverage解析・件数照合は所有しない |
+
+これらは取得済み値だけを扱う。工程六本文→統合本文、Coverage欠落時の早期終了、Readyの場合だけの追加読取り、Detailごとの読取り、件数確認時のReality再読取りはCheckerが元の位置で行う。生本文と可視本文を一律に統合せず、不正行から取得できる部分関係、重複出現、後勝ちMap、Issue順を保持する。Issueは中立の種類・位置・理由・必要な値だけを持ち、既存の公開診断文・Code・SeverityはCheckerが変換する。新しいReader、Snapshot、Registry、状態保存、実行許可は追加しない。
+
+### Quality Definition本文とLocal ID所有 — 2026-10-20（限定移管）
+
+`artifact/quality-definition.ts`の`inspectQualityDefinition`は取得済み生本文とDirectory由来QA-IDから、情報源・Obligation Key・条件区分・13列の検証項目・試験段階／外部境界・追加試験種別の適用・PT／LTの明示承認条件を検査する。コメント／Fence除去を新設せず、Header不正でも項目行を走査する。`QualityDefinitionModel`は関係集合と出現配列、後勝ちの条件・段階・境界Map、13列条件と独立したLocal ID出現列、中立Issueを返す。不正な情報源行からも解析できた関係を保持する。
+
+`inspectQualityLocalItemOwnership`は診断位置、Local ID出現列、従来位置までのOwner Mapを受け、`QualityLocalItemOwnershipModel`で局所Mapの複製と出現ごとの重複Issueを返す。入力Mapを変更せず、同一File内の重複も検出し、Ownerは先勝ちとする。既存のOwner文字列の真偽判定を維持し、空文字を新たな所有確認済み値へ変えない。本文Issueの後に所有Issueを返す接続順はCheckerが維持する。保存・Registry・実行許可を所有しない。
+
+標準本文が説明する11軸と現行v0.22 Definition／Checkerの13列（観測・Oracle・Evidenceへの細分化）の既存表現粒度差は、この挙動保存移管で変更しない。移管成功を規範上の完全な同一性・準拠成立と扱わない。Repository観測編成・共通文書意味の移管・最終回帰は別の残件である。
+
+### Architecture分析・定義本文 — 2026-10-20（限定移管済み）
+
+`artifact/architecture.ts`の`inspectArchitectureAnalysis`、`inspectArchitectureDefinition`は、first read由来の可視本文、Directory由来kind／ID、既に観測したReady状態、second readを既存Checklist検査へ渡して得た理由を入力とする。`ArchitectureBodyModel`はRelation出現列と中立Issueを返し、不正本文の部分関係も保持する。分析は正式入力・九観点別の語彙／根拠・Human Input・処置、定義は両分析入力・未確認表の完全被覆・必須構造・説明用placeholder・Ready時のOPEN／FAILを既存条件で検査する。
+
+`inspectArchitectureDetailTemplate`はDefinition／Areaという固定二用途のDetail引渡し見出しと表Headerを検査する。`inspectArchitectureCrossModelIndex`は横断モデルの登録節が空ならIssueと空の取得対象列、存在すれば固定五文書の取得順を`ArchitectureCrossModelIndex`で返す。`inspectArchitectureCrossModel`は可視登録本文・可視モデル本文・同じ読取りに由来するFence保持本文から、厳密な登録リンク・見出し・図表断片を検査する。五文書の構造定義は非公開とし、任意モデルの登録やProfile拡張は提供しない。Ready以外でも既存と同じ条件を使用する。
+
+`artifact/architecture-details.ts`は`inspectArchitectureDetailMap`で登録領域・Map関係・定義閉包関係を別集合として返し、`inspectArchitectureDetail`で詳細本文の関係・Covered定義・適用判断・Concern・Implementation Structure・Quality引渡し・Ready条件を検査する。不正本文でも抽出した関係とCovered定義を保持する。`inspectArchitectureDetailCoverage`は領域被覆→関係閉包→Ready時のCovered所有者という三条件を順に検査する。公開型は`ArchitectureDetailMapModel`、`ArchitectureDetailModel`、`ArchitectureDetailCoverageRequest`とする。
+
+詳細表は既存の単純pipe分割と先頭行の省略を維持する。Quality引渡しは有効な10列行が少なくとも一件あれば受理し、Ready時だけ拒否する条件はRelationのMissing、ConcernとChecklistのOPEN／FAILに限定する。Implementation StructureのOPENやRelationのPartialを新たに拒否しない。
+
+`artifact/architecture-relations.ts`は`parseArchitectureRegistry`で各行の最初の定義Linkに同じ行の全UI／SPEC出現を対応付け、`ArchitectureRegistryModel`へ集合と出現配列を分けて返す。`inspectArchitectureAnalysisCoverage`は既存の件数条件とDirectory完全被覆を区別し、`inspectArchitectureRegistryCoverage`と`inspectArchitectureComponentCoverage`がそれぞれ実定義への重複なし完全被覆を検査する。`inspectArchitectureRelations`は重複→分析／定義閉包→登録／分析閉包の順で検査する。集合検査の要求型は`ArchitectureAnalysisCoverageRequest`と`ArchitectureRelationsRequest`とし、診断位置だけを受け、未使用本文を要求しない。
+
+各本文の取得・Checklist再読取り・Directory列挙・診断表示は所有しない。表／Sectionの専用補助は非公開とする。Architecture本文と集合判定の移管は、Repository観測編成やChecker全体の完成を意味しない。
+
+### UI／SPEC定義対応の根拠と固定改訂 — 2026-10-20（限定移管済み）
+
+`artifact/spec-correspondence.ts`は`parseSpecCorrespondenceRevision`で記録Fingerprintを解析し、`parseSpecCorrespondencePair`で厳密な正規対応行を`SpecCorrespondencePair`へ解析する。Cell数不足をこの時点で事前拒否せず、呼出し元のUI→SPEC読取り後に`inspectSpecCorrespondencePairEvidence`が共有UX／IA積集合、両側Anchor、八観点、見出し別の具体根拠、題名・定型理由・省略表現の除外を検査する。八行／八観点条件と`every`の短絡を維持し、返す理由列は実際に評価した行の出現だけとする。
+
+`inspectSpecCorrespondence`は集約した対応・理由・行不整合と記録／実測Fingerprintから閉包→根拠→改訂の順で三Issueを返す。根拠の意味はNFKC・既存記号除去・小文字化後の四文字連続部分一致であり、全文引用へ強化しない。本文取得・Definition集合の生本文Fingerprint計算は所有しない。表・Section・根拠比較の専用補助は非公開とする。
+
+### UI／SPEC Detail本文の対応モデル — 2026-10-20（限定移管済み）
+
+`artifact/spec-details.ts`は、UIの最後の有効対応行を返す`parseUiDetailBindings`、Screenの対象UIとRelation／BHV出現列を返す`parseSpecScreenRelations`、SPEC定義集合に対するDetail表を検査する`inspectSpecDetailIndex`、Screen・対応表・Definition対応数の双方向被覆を検査する`inspectSpecDetailCorrespondence`を公開する。対応表だけの解析補助は同File内の非公開関数とする。本文の取得・列挙・欠落診断は所有しない。
+
+UI対応の後勝ち、Screen行内の最初の一致、関係の出現順・重複、不正なSPEC行からも抽出できるBHV対応を維持する。Detail表の被覆と対応表の状態条件は二つの中立Issueへ分け、Checkerが旧code・文言へ変換する。UI／Screen／Detail表は生本文を受けて可視化し、対応表検査は既存の可視化済み本文を受けて再変換しない。
+
+下流の既読可視本文は`parseSpecDetailDefinitionOwnership`、`parseSpecDetailAreaOwnership`、`parseSpecDetailCentralTrace`で定義所有・領域所属・中央関係へ解析する。結果型はそれぞれ`SpecDetailDefinitionOwnership`、`SpecDetailAreaOwnership`、`SpecDetailCentralTrace`であり、出現列・行内重複・後勝ちMap・中央行数を保持する。`inspectSpecDetailDownstream(request: SpecDetailDownstreamRequest)`はそれらのモデルと観測済み集合・combined本文・件数からOwner集合、Single／Shared／Joint、各Ownerの領域被覆、別行重複、中央表と最終被覆を検査する。QA側ID集合は従来どおりサイズを比較し、発行IDの定義本文への包含は`includes`のままとする。新たなRepository Snapshot・Reader・永続状態を所有しない。
+
+### SPEC分析・登録表・定義の本文モデル — 2026-10-20（限定移管済み）
+
+集合照合も同じOwnerに置く。`inspectSpecAnalysisCoverage`、`inspectSpecDefinitionCoverage`、`inspectSpecCoverage`はそれぞれ分析網羅性／重複、定義重複／登録網羅性、件数表／三者関係閉包を扱う。`parseUiSpecPairs`はUI定義から対応SPECの重複を保持する出現列を取り、`inspectUiSpecRelations`がUI／SPEC／登録表の双方向閉包を検査する。APIの区切りは途中のUI定義件数取得・UI本文readという観測境界に対応し、一括先読みや汎用集合検査のためではない。空集合・整数解析・同数誤差し替え・Issue順の従来条件を維持する。
+
+`artifact/spec.ts`は`inspectSpecAnalysis(source, inputId)`、`parseSpecIndex(source)`、`inspectSpecDefinition(source, specId)`と対応する三つの結果型を公開する。分析はUX／IA観点の正式入力・処置とChecklist、登録表はID／関係集合・重複・件数表、定義は両分析の出典と正式入力・UI対応／受入条件・Checklistを扱う。関係の出現列を保持し、不正本文でも解析できた関係を後続へ渡す。定義内のUI判定は同じSPEC IDの局所出現列を使う。Checkerの一意な定義Directory列挙では、それまで集約した他IDの出現列がこの判定へ混入しないため、従来の集約列から対象IDだけ選ぶ条件と同じである。
+
+可視本文化はDomain APIでも実施する。既存Consumerが同じ可視化済み値を渡す箇所は変換の冪等性を保持し、列挙・読取り・ID追加と後続Detail／下流Trace観測はCheckerの元位置に残す。今回の移管はSPEC Detail・対応Evidence・Architecture／Quality移管全体の完了を意味しない。
+
+### Discovery分析・定義本文と採用要求解析 — 2026-10-20（限定移管済み）
+
+`artifact/discovery.ts`の`inspectDiscoveryDefinition(source, requirementId)`は取得済みの要求定義を生本文のまま検査する。必須節、既存の制約／引渡し見出し二選択、Placeholder、最初に一致したEXP参照の表示IDとPath内ID、末尾Checklistを扱い、構造→Checklistの順に中立Issueを返す。構造不正でもChecklistを検査する。状態値、探索記録の実在、参照一意性、定義間の意味重複は新たに検査しない。
+
+`inspectDiscoveryAnalysis(source, explorationId)`も生本文の成果物種別／EXP IDと可視Checklistの二Issueを順に返す。`parseAdoptedDiscoveryRequirements(markdown)`は入口の生本文から厳密な行頭形式・要求採用セル・最初のREQ IDだけを抽出し初出順のSetへまとめる。Root・列挙・実在ID追加・本文読取り・網羅性と診断表示はCheckerの責務に残す。入口の再readは元位置で行い、前の本文を再利用しない。入口Checklist・Template Checklist・正式入力・関係閉包の移管完了を意味しない。
+
+### UX入口・投影・分析・定義の本文検査 — 2026-10-20（限定移管済み）
+
+`artifact/ux.ts`は既読UX入口からID集合とREQ–UX関係を解析する`parseUxIndex`、横断投影Sectionを可視本文化して網羅性を判定する`isUxProjectionIncomplete`、Experience Mapの生本文からREQ–Journey集合を得る`parseUxJourneyRelations`を所有する。型`UxIndexModel`は入口の二集合だけを持つ。生本文と可視本文、単純Pipe分割とSet化の従来の違いを維持する。Checkerは同じ読取り位置で使用し、新しいI/O・状態保存・再解析は追加しない。
+
+`inspectUxDefinition(source, uxId)`は取得済みUX定義の本文構造、直接Handoff、Checklistを順序付き中立Issueとして返す。状態行は生本文で一件を要求し、Canonical／Supersededを受理する。Checklist理由はHandoff判定前に計算し、本文不正でも後続検査を続ける。対象選択・実在ID追加・読取り・網羅性はCheckerに残す。
+
+`inspectUxAnalysis(source, requirementId, registryLinkCount)`は既読分析本文の六段階構造、引渡し、Checklist、関係図／表、Same比較、責任境界表、Blueprint処置を検査する。`UxAnalysisModel`はREQ–UX／Journeyの二集合と順序付きIssueだけを持ち、不正本文からも解析可能な関係を保持する。図表の列比較で重複を消さず、Journeyは最初の指定行だけを使う。入口のPath出現数は既読文字列から得る値入力で、外部I/Oや診断順を変えないが、旧短絡条件内の純計算より前に計算される。
+
+`inspectUxFormalInput(source, requirementId, observation)`は正式入力Header・期待リンク・探索元補完禁止と六観測事実を照合する。`UxFormalInputObservation`は定義内容有無・一致する定義参照だけか・探索分析参照・不正Discovery参照・不正Entity・危険対象の六Booleanに限定し、Root・Path一覧・Readerを持たない。定義内容はBoolean(definition)相当で空白を新たに拒否しない。Fence除去→Comment除去の順と生本文の禁止行を維持する。Path安全性・Discovery定義read・参照分類はCheckerが所有し、観測不能を安全へ補完しない。一部の純計算は旧短絡より先行するが、外部I/O・診断順は変えない。
+
+`inspectUxRelations(request)`は入口モデルと分析／Journey関係集合を照合し、UX→Journeyの順でIssueを返す。UX側は入口IDが非空、Journey側はCanonical関係集合が非空という異なる条件を維持し、双方の双方向包含を検査する。呼出し元は旧Root観測の後で呼ぶ。入口／Template Checklist・他工程・全体完成の移管完了を意味しない。
+
+### 変更文書の構造と案内集合 — 2026-10-20（移管済み）
+
+`artifact/change.ts`は`inspectChangeDocument(source, aggregateId)`、`isChangeTemplateInvalid(markdown)`、`isChangeNavigationInvalid(markdown, aggregateIds)`をRootから公開する。Canonical本文は生本文の影響区画・旧見出し・番号80以降のPhase／Gate条件を既存順に検査し、影響見出し不一致だけは後続を打ち切る。ひな型は独立した既存条件、案内は最初の指定コメント区画と実在ID集合の一致を検査する。Root、存在確認・列挙・読取り、他工程TemplateやRelease Evidenceの観測はCheckerが所有し、中立Issueの表示もCheckerへ残す。通常のモデル検査であり、移行・互換変換・実行状態は所有しない。
+
+### Reality用試験登録対応の検査 — 2026-10-20（移管済み）
+
+`reality-traceability/catalog.ts`の`inspectRealityTestCatalog(value, sourcePath)`は、JSON解析済みの値からReality照合用の登録Path対応を作る。現行の`tests`配列、各要素の文字列`id`／`owner`／`path`、同一Pathの重複だけを検査し、空文字・未知field・空配列・ID重複を新たに拒否しない。一不正ごとに順序付き中立Issueを返し、一つでも不正があれば部分Mapを公開しない。登録要素は既存Graph入力と同じ`owner`／`testId`を使い、同じ意味のモデルを重複定義しない。
+
+通常Test Catalogの厳密な検査とは用途・受理条件が異なり、一律に置換しない。Root・Filesystem観測・JSON解析・観測不能診断はCheckerに残す。移行・互換入力や新しいRegistry、認可・実行許可は追加しない。
+
+### UI本文と関係の移管契約 — 2026-10-20（移管済み）
+
+`artifact/ui.ts`は既読本文の入口解析、Detail集合、UX／IA別分析、定義、網羅性、関係閉包を所有する。Root公開は`parseUiIndex`、`inspectUiDetail`、`inspectUiAnalysis`、`inspectUiDefinition`、`inspectUiAnalysisCoverage`、`inspectUiIndexCoverage`、`inspectUiRelations`と型`UiIndexModel`／`UiRelationsModel`。Directoryの実在・Root選択・Template選択・読取り・診断表示はCheckerに残す。
+
+入口の行別Issue、二観点別の重複を保持する関係列、本文不正とChecklist不正の別Issueを維持する。不正本文も抽出関係を返す。Detailは既存の行条件とSCR／PRT集合数だけを検査し、新しい一対一制約は追加しない。Definitionの正式入力はその本文内の分析参照と照合し、追加の読取りはしない。中立Issueは既存診断文言を持たず、Checkerが四項目へ明示変換する。
+
+### IA本文と関係の移管契約 — 2026-10-20（移管済み）
+
+`artifact/ia.ts`へ、IA入口の登録ID／UX–IA関係の解析、分析本文、定義本文、横断投影、分析網羅性、定義台帳、関係閉包の用途別検査を配置する。入力は読取り済み本文、期待ID、すでに得たIA意味モデルと実在確認済みID集合だけとする。Root、Reader、Filesystem Snapshot、診断callback、可変検査Sessionは含めない。
+
+分析・定義は不正時も抽出できたObject・Identity／Relation・関係列を保持し、中立Issueを併記する。Setだけへ縮小して重複を失わない。通常可視本文と図のFence内を保持する本文、完全一致Section、括弧除去、Same／Renameの同族扱いとN/Aの全角ダッシュを変えない。Checkerは元の読取り位置で検査を呼び、分析網羅性、定義台帳、横断投影、最終関係閉包を元の位置で診断する。新しい状態機械や万能工程モデルを作らない。
+
+### 成果物集合とUX引渡しの検査 — 2026-10-20
+
+`artifact/inspect.ts`の`inspectArtifactSources({ sources, schemas? })`は読取り済み本文を入力順に解析し、成果物順・適用Schema順のIssue、関係GraphのIssueの順に返す。Schemaがinvalidでも解析済み成果物を捨てず、partialのGraphは非nullの結果を維持する。Graphが得られない場合は既存の`artifact_graph_result_missing`で拒否する。CLIの重要度・code・文言・終了値、Rule登録、Repository観測は所有しない。旧Checker Pipelineの代わりに新しいRunnerやRegistryは作らない。
+
+`artifact/ux-handoff.ts`は読取り済み本文の正式な引渡し先を判定する。`isUxHandoffTargetSetExact`は四つの引渡し先の順序と完全一致を要求し、次の二段階または三段階見出しで対象Sectionを終える。`isUxRootHandoffValid`は入口の関係する三ラベルだけを比較し、二段階見出しだけで終える。この違いを汎用Parserへ畳まず、既存のコメント・Fence除外と判定条件を維持する。観測順と診断はCheckerが所有する。
+
+`reality-traceability/test-source.ts`の`hasSkippedTestDeclaration`は、既存の文字列・コメント除外とskip宣言検出をそのまま所有する。汎用TypeScript Parserや実行済みEvidenceの証明へ拡張しない。
+
+### 工程Checklist期待項目の所有 — 2026-10-20
+
+`artifact/phase-checklists.ts`の`createPhaseChecklistItems()`は、既存47種類の工程・成果物別Checklist期待項目を綴り・順序・派生列ごと所有する。呼出しごとに新しいObjectと配列を作り、共有可変状態・登録処理・Filesystem・版の自動選択は持たない。Checkerは同じ起動位置で一度取得し、既存の対象選択と`inspectEvaluatedChecklist`／`inspectTemplateChecklist`へ渡す。期待項目の所有移管であり、全工程の本文判定移管や品質Passを意味しない。
+
+### Project Context本文検査 — 2026-10-20
+
+`project-context/inspect.ts`の`isProjectContextProjectionInvalid(content, isTemplate)`は三Identity・五場面とChecklistの不一致をbooleanで返す。`isProjectContextManifestIdentityInvalid(content, manifest)`はBacktick内のIdentityとv2 Manifestの不一致を返す。両者は既存条件をそのまま移し、表示用Parserとは別の検査を所有する。Root・File観測・JSON解析・診断の文言・実行順はCheckerへ残す。型契約外のnull Manifestへのアクセス失敗も呼出し元へ伝播し、Checkerの既存catchによりManifest不正として扱う。今回の移管を理由に表や新しい品質条件を必須化しない。
+
+### 行とコードFence構造の解析 — 2026-10-20
+
+既存`artifact/markdown.ts`の`parseMarkdownFences(lines)`は、分割済み行から`{ entries, fences }`を返す。型`MarkdownFenceLine`／`MarkdownFence`は`artifact/types.ts`が所有し、操作と型をRootから明示公開する。行位置は0始まり、開始・終了行はFence内だがcontentsには含めず、内容行だけentriesと同じObjectを共有する。新しいfreeze・複製・状態保存を加えない。
+
+開始・終了のindentは最大三ASCII空白、markerはbacktickまたはtilde三個以上。backtick開始のinfo内にbacktickがあれば通常行とする。閉じは同markerかつ開始以上の長さで末尾はspace／tabだけ。言語はinfoの先頭語を小文字化し、空は空文字。未閉鎖は`end:null / closed:false`のまま返し、構文不正を一括拒否するAPIではない。BOM除去・改行分割・コメント除去は引き取らない。
+
+既存の可視本文除去APIや`parseMarkdownArtifact`はコメント処理・空白・返却情報が異なるため変更しない。三ConsumerはCheckerのDiscovery要求IDリンク、README版解析、CHANGELOG。Repository読取り・対象選択・リリース宣言の採否・診断はCheckerが所有し、DomainはFenceの言語や閉鎖だけから意味の妥当性を保証しない。
+
+### 工程ひな型の基本図処置契約 — 2026-10-19
+
+`artifact/phase-diagrams.ts`は既存七ProfileのPath・期待図名・列名・処置語彙と本文条件を所有する。Root公開は凍結した`phaseDiagramTemplatePaths`と、取得済み`ArtifactSource`列を受ける`inspectPhaseDiagramTemplates`だけとする。Profile Map自体や設定変更操作は公開しない。
+
+既知Pathは完全一致で選び、未知Pathは対象外とする。入力順で一不正Source一つの中立Issueを返す。kindは`artifact.phase-diagram.contract-invalid`、reasonは`contract_incomplete`、Identityと位置は元Path、`details.missingItems`は従来順・重複を保った不足項目の連結文字列である。File不足はここでは検査せず、空Issue列から七Fileの存在・図の実在・品質を推定しない。
+
+生本文の見出し・語彙照合、単純Pipe分割、二行skip、最初の非Pipe行で停止、重複図名の後勝ちを維持する。コメント・Fence内の記載も現状どおり参照し、新たな可視本文化や区切り行検査を追加しない。Discoveryの人間理解欄三条件も既存の特例として保持する。Filesystem探索・読取りとofficial適用判断、利用者向け診断はCheckerが所有する。
+
+### 可視Checklistの構造検査 — 2026-10-19
+
+`artifact/checklist.ts`は`inspectEvaluatedChecklist(markdown, expectedItems)`と`inspectTemplateChecklist(markdown, expectedItems)`をRootから公開する。返却値は既存`artifact/types.ts`の`ChecklistFailure`九理由またはnull。本文以外の観測、工程別期待項目の選択、診断表示は引き取らない。
+
+既存の可視本文除外を用い、可視の`## Checklist`が一つであること、末尾配置、項目数と順序の完全一致を検査する。評価済み版は小文字`[x]`または理由付き`OPEN`／`FAIL`／`N/A`を受理し、全項目Passを要求する意味ではない。ひな型版は未評価項目と結果記法・理由の案内を要求する。複数違反時の最初の理由、空白・括弧・大文字小文字の既存境界を維持する。nullはこの構造条件だけの成立であり、品質全体のPassではない。
+
+`parse-markdown.ts`は最初のSectionから評価結果をモデル化し、不正行を飛ばす場合や大文字`[X]`を読む場合がある。重複Section・後続本文・項目完全一致を検査しないため、今回の厳密な検査を同Parserの結果へ一律に置き換えない。補助の項目名抽出は非公開とし、汎用mode・options・Callbackを追加しない。
+
+### 品質設計成果物の状態検査 — 2026-10-19
+
+`src/artifact/quality-state.ts`の`inspectQualityDesignStates(artifacts)`は、渡された`ArtifactModel`集合だけを検査し、中立な`DomainIssue`列を入力順に返す。対象集合の選択やQuality Ready等の適用判断、CLI・Filesystem・診断文言は所有しない。
+
+版接頭辞の除去、末尾の全角`（Released Baseline:...）`の除去、trimの順で状態を正規化し、`Canonical`との完全一致を要求する。欠落・空値・大小文字違い・ASCII括弧等の従来の拒否境界は変えない。Issueは`artifact.quality-design.state-invalid`、reasonは`canonical_state_required`、対象はCanonical IDまたは元Path、位置は元のSource Locationとする。detailsには元の`status`（nullを含む）と判定用`normalizedStatus`を別に保持する。入力は変更しない。
+
+既存の汎用Schema検査は状態欠落時の扱いと正規化条件が異なるため、一律に置換しない。CheckerはこのIssueから従来のFindingへ明示変換し、未知のkindは拒否する。
+
+### UX正式入力の参照候補解析 — 2026-10-19
+
+`src/artifact/ux-inputs.ts`は`parseUxFormalInputTargets(text, repositoryRoot): UxFormalInputTarget[]`をRootから公開する。型は既存`artifact/types.ts`が所有し、target文字列とinvalidEntity flagを表す。補助のEntity処理・Discovery形状判定は非公開である。
+
+処理順はMarkdown参照、HTML href、裸Path、Entity候補。裸の`01_Discovery/...`だけをHostの`path.join`でRoot文字列へ結合し、その後に限定Entity DecodeとMap登録を行う。同じDecode後targetは挿入順を保ち、異常flagを論理和で引き継ぐ。Rootを結合する位置を変えると、絶対参照との重複やRoot内のEntityの扱いが変わるため、旧順序を維持する。
+
+Root引数は文字列の組立て用値であり、検証済みRoot Capabilityではない。Root検証・認可・Pathの実在・Link境界・Git履歴・Findingは所有しない。返却候補は存在・Root内・安全・正式入力として妥当なことを保証せず、invalidEntity=falseも全体妥当性ではない。限定名・数値Entityの一回Decode、不正値の原文保持、既存のescape・私用marker・形状条件を維持し、HTML全仕様への適合や新たな拒否を追加しない。
+
+### 共通リンク参照解析の移管 — 2026-10-19
+
+`src/artifact/links.ts`はRootから二つの純粋解析APIを公開する。Label正規化・URI Decode補助は非公開とし、既存のFence除外を同じDomain内から利用する。
+
+| 公開API | 返却値・意味 |
+|---|---|
+| `parseMarkdownLinkTargets(text)` | 未Decodeの参照先配列。Inline、参照形式、短縮参照の三走査順・重複と、正規化Labelの後勝ちを維持する |
+| `parseMarkdownLinkReference(raw)` | `MarkdownLinkReference`。最初の`#`で分割したtarget・anchorと、片方以上のDecode失敗を示す`decodeError` |
+
+`MarkdownLinkReference`は既存`artifact/types.ts`が所有するreadonly型である。targetは参照文字列であり、解決済みFilesystem Pathではない。targetとanchorは分割後に各一度だけDecodeし、不正Encoding時はその側の元文字列と他方の成功結果を保持する。`decodeError:false`は存在・Root内・安全性・認可を表さない。URL判定・Path正規化・Filesystem観測・Git履歴取得は所有しない。
+
+現在の受理集合を維持し、CommonMark全仕様への適合とは扱わない。Fence内は除外するがHTMLコメント内はこのAPI単独では除外しない。参照形式のLabelが短縮参照として再抽出される既存の重複も保持する。既存の`parseMarkdownArtifact`は可視行から安定IDを得て成果物Relationを構成する別責務なので、今回の参照文字列抽出へ一律置換しない。UX固有のEntity／Discovery参照候補は上記UX解析節が所有し、Root／Filesystem観測と正式入力の妥当性判断はCheckerへ残す。
+
+### 可視本文・表・先頭Headerの移管 — 2026-10-19
+
+`src/artifact/markdown.ts`は本文文字列だけを扱い、以下をRootから明示公開する。Filesystem・Git・Finding・CLIや新しい保存状態を所有しない。
+
+| 公開API | 返却値・意味 |
+|---|---|
+| `omitMarkdownCommentsAndFencedCode(text)` | コメントを同幅空白へ、Fenceと内部を空行へ置き換えた文字列 |
+| `omitMarkdownCommentsOutsideFencedCode(text)` | Fence内原文は維持し、Fence外コメントだけを同幅空白へ置き換えた文字列 |
+| `parseMarkdownTableRow(line)` | Escape・Code Span内Pipeを区切りから除くCell配列。Pipeなしはnull。Backtickは除去し、外側Pipeは任意 |
+| `isMarkdownTableSeparator(line, expectedCells)` | 共通表行解析後、Cell数とハイフン・配置記号の一致を返すboolean |
+| `readCanonicalDocumentHeader(content)` | BOM・初期Anchor・最初のH1を除き、先頭英字Key行を順序・重複を保って連結した文字列。欠落時は空文字列 |
+
+可視本文二方式はCRLFをLFへ正規化するが、コメントとFenceの受理順序を変更しない。Headerの値・重複の妥当性や表全体の意味は、この抽出APIでは保証しない。既存の`parse-markdown.ts`は行番号付き成果物モデル、`activity-table.ts`はTopic／Meetingの固定書式を所有し、コメント除去・Fence判定順や表の受理範囲が異なるため、一律に新APIへ置換しない。今回は小Fileを三つ新設せず、一つの純粋本文解析Fileへ同居する。
+
+### Markdown Anchor解析の移管 — 2026-10-19
+
+`src/artifact/anchors.ts`は本文文字列から見出しの可視文字、明示Anchor、重複接尾辞を解析する。Root公開APIは`parseMarkdownAnchors(content): Set<string>`と`omitMarkdownFencedCode(text): string`。後者はFenceを行数を保った空行へ置き換え、CRLFをLFへ正規化する。閉じていないFenceの以降は本文へ戻さない。これらはFilesystem・Git・CheckerのFinding・共有状態へ依存しない。Setは呼出しごとに新しく返す。
+
+既存の成果物構造解析とAnchor解析は、HTML comment、Fence、見出し記法の受理範囲が異なるため同名の処理として統合しない。今回は従来のAnchor意味を維持する分離であり、Markdown全構文への適合を宣言しない。ファイル読取り・リンク対象観測・診断変換はCheckerに残る。工程別検査本体のDomain移管は別の未完了範囲である。
+
 ### 試験台帳・計画モデルの移管 — 2026-10-19
 
 旧Runnerの台帳型・読取り・整合検査・回帰選択を`src/test-catalog/inspect.ts`へ、段階型・計画・結果集約・相対Path正規化を`src/test-catalog/plan.ts`へ移した。公開型は`TestCatalog`／`TestCatalogEntry`／`TestLevel`、高負荷の条件型、段階・計画・結果型であり、公開操作は台帳の読取り・整合検査、条件検査、Owner／試験選択、段階計画、結果集約、Path正規化である。正確な集合はRoot明示exportと固定集合試験で照合する。
@@ -118,8 +314,7 @@ Topic／Meeting一覧の純粋入力検査は公開`validateTopicMeetingListInpu
 Semantic Coverageの配置
 ├ domain-model/src/semantic/       IR・Relation・Coverage
 ├ domain-model/src/storage/semantic-store.ts
-├ checker/src/semantic/            起動・診断・表示
-└ checker/scripts/semantic-legacy-inventory.ts
+└ checker/src/semantic/            起動・診断・表示
 
 template/tools/
 ├ crdd-check.ts                    薄い起動入口
@@ -260,7 +455,9 @@ Readerの成功結果は解析済み`context`と`revision`を持つ。`revision`
 
 Domain IssueはChecker severity、Rule名、exit codeを持たない。MCP／Workbenchは同じDomain Issueから各Surface固有の表示を作り、Checker Findingを表示契約として流用しない。
 
-変換では`kind`、`targetIdentity`、`location`、`reason`、`details`、`status`およびResultの有無を欠落させない。Checkerは明示Mappingで`code`、`severity`、`rule`、`message`を追加し、未知kind、欠落detail、`partial`、`invalid`または`unobservable`を汎用Passへ畳まない。
+共通結果の妥当性は`validateDomainOutcome`への直接UTで四状態、result／Issue相関、必須field・禁止fieldを確認する。構造として正しい未知kindはDomainが拒否せず、各Surfaceの明示変換が表示可能性を判断する。このUTはCheckerの汎用四状態変換や各本番Consumer接続の証明ではない。
+
+Domain結果は`kind`、`targetIdentity`、`location`、`reason`、`details`、`status`およびResultの有無を中立な契約として保持する。Checkerは用途別の明示Mappingで既存診断へ変換し、未知kind・欠落detailを拒否する。非成功・欠測を成功へ丸めないことは、実Producerから本番診断・公開終了値までを確認する。全fieldや四状態を一律のChecker結果型へ複製する旧汎用変換契約は退役し、診断の既存shapeを変更しない。
 
 ## 6. 配布と開発の境界
 

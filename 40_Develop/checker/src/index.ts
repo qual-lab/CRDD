@@ -1,15 +1,14 @@
 /**
- * CRDD Current Profile Checkerの公開境界。
+ * Checkerの公開コマンドAPI境界。
  * @packageDocumentation
- * @responsibility 検査要求を受け、構造化した検査結果だけを返す。
- * @trace ARCH-000001 ARCH-000003 ARCH-000008
+ * @responsibility CLI型要求を受ける三操作と共有型だけを公開し、各操作は出力先へ結果を搬送して終了codeを返す。
+ * @trace ARCH-000001
+ * @trace ARCH-000003
+ * @trace ARCH-000008
  * @boundary 検証済みRepositoryのFilesystem観測とChecker判断の境界。
  */
-export {
-  runChecker,
-  type CheckerResult,
-  type CheckerRunRequest,
-} from "./profiles/current.ts";
-export type { CheckerFinding } from "./findings/collector.ts";
-export { runSemanticCoverage } from "./semantic/command.ts";
-export { runTestCatalog } from "./test-catalog/command.ts";
+export { runChecker } from "./cli/document.ts";
+export type { CheckerResult, CheckerRunRequest } from "./cli/types.ts";
+export type { CheckerFinding } from "./report/types.ts";
+export { runSemanticCoverage } from "./cli/semantic.ts";
+export { runTestCatalog } from "./cli/test-catalog.ts";

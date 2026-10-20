@@ -85,7 +85,7 @@ test("高負荷試験は条件充足後も計画だけで実行済みになら�
  */
 test("計画入口はnpmと試験起動処理へ依存しない", () => {
   const source = fs.readFileSync(
-    path.join(root, "40_Develop/checker/src/test-catalog/command.ts"),
+    path.join(root, "40_Develop/checker/src/cli/test-catalog.ts"),
     "utf8",
   );
   assert.doesNotMatch(

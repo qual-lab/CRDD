@@ -1,0 +1,747 @@
+/**
+ * Semantic Repository結果接続の検証範囲を定義する。
+ *
+ * @packageDocumentation
+ * @responsibility Semantic Repository結果接続が所有する検証責務を実行する。
+ * @trace PPR-UT-016
+ * @trace PPR-UT-017
+ * @level UT
+ * @scope architecture、semantic-coverage
+ * @boundary PPR-UT-016=N/A: Architecture Details→Semantic IRは外部実行境界を持たない。 / PPR-UT-017=N/A: Semantic Relation集合は外部実行境界を持たない。
+ */
+import assert from "node:assert/strict";
+import path from "node:path";
+import test from "node:test";
+import { fileURLToPath } from "node:url";
+
+import type { SemanticIr } from "../../../../domain-model/src/index.ts";
+import { verifyRepositoryRoot } from "../../../../version-control/src/index.ts";
+import {
+  compileQualitySemanticRelationsFromRepository,
+  compileSemanticIrFromRepository,
+  createSemanticCoverageGraphResult as createSemanticCoveragePilotGraph,
+} from "../../../src/repository/semantic.ts";
+import { validateRealitySymbolManifest as validateDomainRealitySymbolManifest } from "../../../../domain-model/src/index.ts";
+import { observeRealitySymbolRepository } from "../../../../domain-model/src/index.ts";
+
+const checkerRoot = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "../../..",
+);
+const repositoryRoot = path.resolve(checkerRoot, "../..");
+
+/**
+ * 前提診断があるとGraph構築へ進まないことを検証する。
+ * @responsibility 入力診断列の同一参照と下位入力へのアクセス省略を確認する。
+ * @trace PPR-UT-017
+ * @precondition 参照されると例外を投げるGraph入力と前提診断を使う。
+ * @stimulus Graph結果接続を呼ぶ。
+ * @observation 戻り値と例外の有無を取得する。
+ * @oracle Graphはnull、診断列は同一参照、下位入力へのアクセスはない。
+ * @cleanup N/A: 局所値だけを使う。
+ * @boundary PPR-UT-017=N/A: 純粋な結果接続の短絡検査。
+ */
+test("Semantic前提診断はGraph構築を省略し同じ診断列を返す", () => {
+  const inaccessibleInputs = new Proxy([], {
+    get() {
+      throw new Error("graph_input_must_not_be_observed");
+    },
+  });
+  const findings = [
+    { code: "precondition", path: "source.md", message: "unobserved" },
+  ];
+  const result = createSemanticCoveragePilotGraph(
+    inaccessibleInputs,
+    [],
+    [],
+    findings,
+  );
+  assert.equal(result.graph, null);
+  assert.equal(result.findings, findings);
+});
+const verifiedRepository = verifyRepositoryRoot(repositoryRoot);
+assert.equal(verifiedRepository.status, "completed");
+if (verifiedRepository.status !== "completed")
+  throw new Error("repository root verification failed");
+const capability = verifiedRepository.capability;
+const discoveryObservation = observeRealitySymbolRepository(capability);
+const discovery = {
+  manifests: discoveryObservation.manifests,
+  knownArchIds: discoveryObservation.knownArchIds,
+  knownQaIds: discoveryObservation.knownQaIds,
+  knownLocalTestIdsByQaId: discoveryObservation.knownLocalTestIdsByQaId,
+  findings: [
+    ...discoveryObservation.repositoryIssues.map(({ code, path, reason }) => ({
+      code,
+      path,
+      message: reason,
+    })),
+    ...discoveryObservation.domainIssues.map((issue) => ({
+      code: issue.kind,
+      path: issue.location.path,
+      message: issue.reason,
+    })),
+  ],
+};
+
+/**
+ * validateRealitySymbolManifestのTest準備責務を実行する。
+ *
+ * @responsibility validateRealitySymbolManifestがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PPR-UT-016
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus validateRealitySymbolManifestを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary PPR-UT-016=Direct Boundary: semantic-coverage Test Source→対象契約
+ */
+function validateRealitySymbolManifest(value: unknown, manifestPath: string) {
+  const outcome = validateDomainRealitySymbolManifest(value, manifestPath);
+  return {
+    manifest: outcome.result,
+    findings: outcome.issues.map((issue) => ({
+      code: issue.kind,
+      path: issue.location.path,
+      message: issue.reason,
+    })),
+  };
+}
+
+/**
+ * compileSemanticIrPilotのTest準備責務を実行する。
+ *
+ * @responsibility compileSemanticIrPilotがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PPR-UT-016
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus compileSemanticIrPilotを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary PPR-UT-016=Direct Boundary: semantic-coverage Test Source→対象契約
+ */
+function compileSemanticIrPilot(
+  _repositoryRoot: string,
+  sourceDocument: string,
+  subsystem: string,
+) {
+  return compileSemanticIrFromRepository(
+    capability,
+    sourceDocument,
+    subsystem,
+    discovery.knownArchIds,
+  );
+}
+
+/**
+ * compileQualitySemanticRelationsのTest準備責務を実行する。
+ *
+ * @responsibility compileQualitySemanticRelationsがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PPR-UT-016
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus compileQualitySemanticRelationsを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary PPR-UT-016=Direct Boundary: semantic-coverage Test Source→対象契約
+ */
+function compileQualitySemanticRelations(
+  _repositoryRoot: string,
+  sourceDocuments: readonly string[],
+  semanticIrs: readonly SemanticIr[],
+) {
+  return compileQualitySemanticRelationsFromRepository(
+    capability,
+    sourceDocuments,
+    semanticIrs,
+  );
+}
+
+/**
+ * discoverRealitySymbolManifestsのTest準備責務を実行する。
+ *
+ * @responsibility discoverRealitySymbolManifestsがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
+ * @trace PPR-UT-016
+ * @precondition 呼出し元Test Caseが必要な入力を渡す。
+ * @stimulus discoverRealitySymbolManifestsを呼び出す。
+ * @observation 返却値、生成fixtureまたは観測値を取得する。
+ * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
+ * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
+ * @boundary PPR-UT-016=Direct Boundary: semantic-coverage Test Source→対象契約
+ */
+function discoverRealitySymbolManifests(_repositoryRoot: string) {
+  return discovery;
+}
+
+const qualitySources = [
+  "07_Quality/Definitions/QA-000003/quality_definition.md",
+  "07_Quality/Definitions/QA-000004/quality_definition.md",
+  "07_Quality/Definitions/QA-000005/quality_definition.md",
+  "07_Quality/Definitions/QA-000006/quality_definition.md",
+  "07_Quality/Definitions/QA-000010/quality_definition.md",
+] as const;
+
+/**
+ * CoordinatorとOrchestratorの可視表からPilot IRを決定論的に生成するを検証する。
+ *
+ * @responsibility CoordinatorとOrchestratorの可視表からPilot IRを決定論的に生成するの合否判定を所有する。
+ * @trace PPR-UT-016
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus CoordinatorとOrchestratorの可視表からPilot IRを決定論的に生成するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PPR-UT-016=Direct Boundary: semantic-coverage Test Source→対象契約
+ */
+test("CoordinatorとOrchestratorの可視表からPilot IRを決定論的に生成する", () => {
+  const pilots = [
+    {
+      subsystem: "coordinator",
+      sourceDocument: "06_Architecture/Details/coordinator/01_Architecture.md",
+      expectedMeaningCount: 7,
+    },
+    {
+      subsystem: "orchestrator",
+      sourceDocument:
+        "06_Architecture/Details/orchestrator/02_Detailed_Design.md",
+      expectedMeaningCount: 10,
+    },
+  ] as const;
+  for (const pilot of pilots) {
+    const first = compileSemanticIrPilot(
+      repositoryRoot,
+      pilot.sourceDocument,
+      pilot.subsystem,
+    );
+    const second = compileSemanticIrPilot(
+      repositoryRoot,
+      pilot.sourceDocument,
+      pilot.subsystem,
+    );
+    assert.deepEqual(first.findings, []);
+    assert.ok(first.ir);
+    assert.equal(first.ir.stability, "pilot");
+    assert.equal(first.ir.meanings.length, pilot.expectedMeaningCount);
+    assert.equal(JSON.stringify(first), JSON.stringify(second));
+  }
+});
+
+/**
+ * Pilot IRは自由文推測をせず構造欠落を拒否するを検証する。
+ *
+ * @responsibility Pilot IRは自由文推測をせず構造欠落を拒否するの合否判定を所有する。
+ * @trace PPR-UT-016
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Pilot IRは自由文推測をせず構造欠落を拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PPR-UT-016=Direct Boundary: semantic-coverage Test Source→対象契約
+ */
+test("Pilot IRは自由文推測をせず構造欠落を拒否する", () => {
+  const missingTable = compileSemanticIrPilot(
+    repositoryRoot,
+    "06_Architecture/Details/orchestrator/01_Architecture.md",
+    "orchestrator",
+  );
+  assert.equal(missingTable.ir, null);
+  assert.deepEqual(
+    missingTable.findings.map(({ code }) => code),
+    ["semantic-ir-source-table-missing"],
+  );
+});
+
+/**
+ * Pilot Semantic Keyを実装Symbol側のimplementsから解決するを検証する。
+ *
+ * @responsibility Pilot Semantic Keyを実装Symbol側のimplementsから解決するの合否判定を所有する。
+ * @trace PPR-UT-016
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Pilot Semantic Keyを実装Symbol側のimplementsから解決するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PPR-UT-016=Direct Boundary: semantic-coverage Test Source→対象契約
+ */
+test("Pilot Semantic Keyを実装Symbol側のimplementsから解決する", () => {
+  const semanticIrs = [
+    compileSemanticIrPilot(
+      repositoryRoot,
+      "06_Architecture/Details/coordinator/01_Architecture.md",
+      "coordinator",
+    ).ir,
+    compileSemanticIrPilot(
+      repositoryRoot,
+      "06_Architecture/Details/orchestrator/02_Detailed_Design.md",
+      "orchestrator",
+    ).ir,
+  ];
+  assert.ok(semanticIrs.every((ir) => ir !== null));
+  const qualityRelations = compileQualitySemanticRelations(
+    repositoryRoot,
+    qualitySources,
+    semanticIrs.filter((ir) => ir !== null),
+  );
+  assert.deepEqual(qualityRelations.findings, []);
+  assert.ok(qualityRelations.relations);
+  const discovery = discoverRealitySymbolManifests(repositoryRoot);
+  assert.deepEqual(discovery.findings, []);
+  const built = createSemanticCoveragePilotGraph(
+    semanticIrs.filter((ir) => ir !== null),
+    discovery.manifests,
+    qualityRelations.relations,
+    discovery.findings,
+  );
+  assert.deepEqual(built.findings, []);
+  assert.ok(built.graph);
+  assert.equal(built.graph.meaningsByKey.size, 17);
+  assert.equal(
+    built.graph.meaningsByKey.has("coordinator.runtime-trust-consumption"),
+    false,
+  );
+  assert.equal(built.graph.implementationIdsByMeaningKey.size, 17);
+  const environmentTests = discovery.manifests.flatMap(({ manifest }) =>
+    manifest.symbols.filter(
+      (symbol) => symbol.verificationTarget === "environment",
+    ),
+  );
+  assert.ok(environmentTests.length > 0);
+  for (const symbol of environmentTests) {
+    assert.deepEqual(symbol.verifies, []);
+    assert.equal(
+      [...built.graph.testSymbolIdsByMeaningKey.values()]
+        .flat()
+        .includes(symbol.symbolId),
+      false,
+    );
+  }
+  const verificationTools = discovery.manifests.flatMap(({ manifest }) =>
+    manifest.symbols.filter((symbol) => symbol.kind === "verification-tool"),
+  );
+  assert.equal(verificationTools.length, 4);
+  const toolIds = new Set(verificationTools.map(({ symbolId }) => symbolId));
+  const toolTests = discovery.manifests.flatMap(({ manifest }) =>
+    manifest.symbols.filter((symbol) =>
+      symbol.verifies.some((target) => toolIds.has(target)),
+    ),
+  );
+  assert.equal(toolTests.length, 3);
+  for (const symbol of [...verificationTools, ...toolTests]) {
+    assert.equal(
+      [...built.graph.implementationIdsByMeaningKey.values()]
+        .flat()
+        .includes(symbol.symbolId),
+      false,
+    );
+    assert.equal(
+      [...built.graph.testSymbolIdsByMeaningKey.values()]
+        .flat()
+        .includes(symbol.symbolId),
+      false,
+    );
+  }
+  assert.equal(built.graph.qualityLocalIdsByMeaningKey.size, 17);
+  assert.ok(
+    built.graph.implementationIdsByMeaningKey
+      .get("orchestrator.candidate-adoption")
+      ?.includes("orchestrator.workspace.operations"),
+  );
+  assert.deepEqual(
+    built.graph.qualityLocalIdsByMeaningKey.get(
+      "orchestrator.candidate-adoption",
+    ),
+    ["QA-000005/CPR-IT-006", "QA-000005/CPR-UT-009"],
+  );
+  assert.deepEqual(
+    built.graph.implementationIdsByMeaningKey.get(
+      "coordinator.provider-effect-authority",
+    ),
+    [
+      "coordinator.provider-authority-runtime",
+      "coordinator.source.scripts.authenticate.claude.subscription",
+      "coordinator.source.src.security.claude.subscription.authentication",
+    ],
+  );
+  assert.deepEqual(
+    built.graph.implementationIdsByMeaningKey.get(
+      "coordinator.runtime-trust-consumption",
+    ),
+    undefined,
+  );
+  assert.deepEqual(
+    built.graph.qualityLocalIdsByMeaningKey.get(
+      "orchestrator.queue-lease-lifecycle",
+    ),
+    ["QA-000003/PRL-IT-011"],
+  );
+  assert.deepEqual(
+    built.graph.testSymbolIdsByMeaningKey.get(
+      "orchestrator.objective-task-lifecycle",
+    ),
+    ["coordinator.test.system.orchestrator-real-provider-verification-script"],
+  );
+  assert.deepEqual(
+    built.graph.testSymbolIdsByMeaningKey.get(
+      "orchestrator.queue-lease-lifecycle",
+    ),
+    ["coordinator.test.integration.orchestrator-queue-priority"],
+  );
+  assert.deepEqual(
+    built.graph.verificationModesByMeaningKey.get(
+      "orchestrator.execution-intelligence-read-model",
+    ),
+    ["manual"],
+  );
+});
+
+/**
+ * Test SymbolはQA-IDとLocal IDの完全一致だけを意味へ接続するを検証する。
+ *
+ * @responsibility Test SymbolはQA-IDとLocal IDの完全一致だけを意味へ接続するの合否判定を所有する。
+ * @trace PPR-UT-016
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Test SymbolはQA-IDとLocal IDの完全一致だけを意味へ接続するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PPR-UT-016=Direct Boundary: semantic-coverage Test Source→対象契約
+ */
+test("Test SymbolはQA-IDとLocal IDの完全一致だけを意味へ接続する", () => {
+  const coordinatorIr = compileSemanticIrPilot(
+    repositoryRoot,
+    "06_Architecture/Details/coordinator/01_Architecture.md",
+    "coordinator",
+  ).ir;
+  assert.ok(coordinatorIr);
+  const semanticIrs = [
+    {
+      ...coordinatorIr,
+      meanings: coordinatorIr.meanings.filter(
+        ({ semanticKey }) => semanticKey === "coordinator.objective-lifecycle",
+      ),
+    },
+  ];
+  const relations = [
+    {
+      qaId: "QA-000003",
+      localId: "PRL-ST-003",
+      semanticKey: "coordinator.objective-lifecycle",
+      executionMode: "automated" as const,
+      sourceDocument: "qa-3.md",
+    },
+  ];
+  const manifest = {
+    manifestPath: "40_Develop/sample/symbol.json",
+    subsystemRoot: "40_Develop/sample",
+    manifest: {
+      contract: "crdd/reality-symbol-manifest" as const,
+      contractRevision: 1 as const,
+      subsystem: "sample",
+      symbols: [
+        {
+          symbolId: "sample.owner",
+          kind: "file" as const,
+          path: "src/owner.ts",
+          archIds: [],
+          qaIds: [],
+          localTestIds: [],
+          verifies: [],
+          implements: ["coordinator.objective-lifecycle"],
+        },
+        {
+          symbolId: "sample.exact-test",
+          kind: "test-case" as const,
+          path: "tests/exact.test.ts",
+          archIds: [],
+          qaIds: ["QA-000003"],
+          localTestIds: ["PRL-ST-003"],
+          verifies: ["sample.owner"],
+        },
+        {
+          symbolId: "sample.wrong-qa-test",
+          kind: "test-case" as const,
+          path: "tests/wrong.test.ts",
+          archIds: [],
+          qaIds: ["QA-000004"],
+          localTestIds: ["PRL-ST-003"],
+          verifies: ["sample.owner"],
+        },
+      ],
+    },
+  };
+  const result = createSemanticCoveragePilotGraph(
+    semanticIrs,
+    [manifest],
+    relations,
+    [],
+  );
+  assert.deepEqual(result.findings, []);
+  assert.deepEqual(
+    result.graph?.testSymbolIdsByMeaningKey.get(
+      "coordinator.objective-lifecycle",
+    ),
+    ["sample.exact-test"],
+  );
+});
+
+/**
+ * 検証Toolの意味実装偽装をCoverage構築でも算入しない。
+ * @responsibility Domain拒否とは独立に意味Coverageへの混入を反証する。
+ * @trace PPR-UT-016
+ * @precondition 一つの実Meaningと正常実装・通常試験の合成対照。
+ * @stimulus 本来Validatorが拒否するimplements付きToolを直接Graph入力へ追加する。
+ * @observation 実装ID集合と検証Symbol集合。
+ * @oracle 正常対照だけを維持しTool・Tool試験の加算0。
+ * @cleanup N/A: Sourceを読むだけで外部Effectを発行しない。
+ * @boundary Semantic Graphの防御的分類。実装完成や実試験成功を表さない。
+ */
+test("検証Toolを意味実装と偽装しても実装と検証Coverageへ加算しない", () => {
+  const ir = compileSemanticIrPilot(
+    repositoryRoot,
+    "06_Architecture/Details/coordinator/01_Architecture.md",
+    "coordinator",
+  ).ir;
+  assert.ok(ir);
+  const key = "coordinator.objective-lifecycle";
+  const result = createSemanticCoveragePilotGraph(
+    [
+      {
+        ...ir,
+        meanings: ir.meanings.filter(({ semanticKey }) => semanticKey === key),
+      },
+    ],
+    [
+      {
+        manifestPath: "40_Develop/sample/symbol.json",
+        subsystemRoot: "40_Develop/sample",
+        manifest: {
+          contract: "crdd/reality-symbol-manifest",
+          contractRevision: 1,
+          subsystem: "sample",
+          symbols: [
+            {
+              symbolId: "sample.source",
+              kind: "file",
+              path: "src/source.ts",
+              archIds: ["ARCH-000004"],
+              qaIds: [],
+              localTestIds: [],
+              verifies: [],
+              implements: [key],
+            },
+            {
+              symbolId: "sample.test",
+              kind: "test-case",
+              path: "tests/source.test.ts",
+              archIds: [],
+              qaIds: ["QA-000003"],
+              localTestIds: ["PRL-ST-003"],
+              verifies: ["sample.source"],
+            },
+            {
+              symbolId: "sample.tool",
+              kind: "verification-tool",
+              path: "scripts/verify.ts",
+              archIds: [],
+              qaIds: ["QA-000003"],
+              localTestIds: ["PRL-ST-003"],
+              verifies: [],
+              implements: [key],
+            },
+            {
+              symbolId: "sample.tool-test",
+              kind: "test-case",
+              path: "tests/tool.test.ts",
+              archIds: [],
+              qaIds: ["QA-000003"],
+              localTestIds: ["PRL-ST-003"],
+              verifies: ["sample.tool"],
+            },
+          ],
+        },
+      },
+    ],
+    [
+      {
+        qaId: "QA-000003",
+        localId: "PRL-ST-003",
+        semanticKey: key,
+        sourceDocument:
+          "07_Quality/Definitions/QA-000003/quality_definition.md",
+        executionMode: "automated",
+      },
+    ],
+    [],
+  );
+  assert.deepEqual(result.findings, []);
+  assert.deepEqual(result.graph?.implementationIdsByMeaningKey.get(key), [
+    "sample.source",
+  ]);
+  assert.deepEqual(result.graph?.testSymbolIdsByMeaningKey.get(key), [
+    "sample.test",
+  ]);
+});
+
+/**
+ * 同じLocal IDが複数QAに存在するTest Symbolは曖昧として拒否するを検証する。
+ *
+ * @responsibility 同じLocal IDが複数QAに存在するTest Symbolは曖昧として拒否するの合否判定を所有する。
+ * @trace PPR-UT-016
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 同じLocal IDが複数QAに存在するTest Symbolは曖昧として拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PPR-UT-016=Direct Boundary: semantic-coverage Test Source→対象契約
+ */
+test("同じLocal IDが複数QAに存在するTest Symbolは曖昧として拒否する", () => {
+  const coordinatorIr = compileSemanticIrPilot(
+    repositoryRoot,
+    "06_Architecture/Details/coordinator/01_Architecture.md",
+    "coordinator",
+  ).ir;
+  assert.ok(coordinatorIr);
+  const semanticIrs = [
+    {
+      ...coordinatorIr,
+      meanings: coordinatorIr.meanings.filter(
+        ({ semanticKey }) => semanticKey === "coordinator.objective-lifecycle",
+      ),
+    },
+  ];
+  const result = createSemanticCoveragePilotGraph(
+    semanticIrs,
+    [
+      {
+        manifestPath: "40_Develop/sample/symbol.json",
+        subsystemRoot: "40_Develop/sample",
+        manifest: {
+          contract: "crdd/reality-symbol-manifest",
+          contractRevision: 1,
+          subsystem: "sample",
+          symbols: [
+            {
+              symbolId: "sample.owner",
+              kind: "file",
+              path: "src/owner.ts",
+              archIds: [],
+              qaIds: [],
+              localTestIds: [],
+              verifies: [],
+              implements: ["coordinator.objective-lifecycle"],
+            },
+            {
+              symbolId: "sample.ambiguous-test",
+              kind: "test-case",
+              path: "tests/ambiguous.test.ts",
+              archIds: [],
+              qaIds: ["QA-000003", "QA-000004"],
+              localTestIds: ["PRL-ST-003"],
+              verifies: ["sample.owner"],
+            },
+          ],
+        },
+      },
+    ],
+    [
+      {
+        qaId: "QA-000003",
+        localId: "PRL-ST-003",
+        semanticKey: "coordinator.objective-lifecycle",
+        executionMode: "automated",
+        sourceDocument: "qa-3.md",
+      },
+      {
+        qaId: "QA-000004",
+        localId: "PRL-ST-003",
+        semanticKey: "coordinator.objective-lifecycle",
+        executionMode: "automated",
+        sourceDocument: "qa-4.md",
+      },
+    ],
+    [],
+  );
+  assert.equal(result.graph, null);
+  assert.ok(
+    result.findings.some(
+      ({ code }) => code === "semantic-coverage-test-quality-pair-ambiguous",
+    ),
+  );
+});
+
+/**
+ * Quality Local Itemが全Pilot Semantic Keyの正方向Relationを所有するを検証する。
+ *
+ * @responsibility Quality Local Itemが全Pilot Semantic Keyの正方向Relationを所有するの合否判定を所有する。
+ * @trace PPR-UT-017
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Quality Local Itemが全Pilot Semantic Keyの正方向Relationを所有するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PPR-UT-017=Direct Boundary: semantic-coverage Test Source→対象契約
+ */
+test("Quality Local Itemが全Pilot Semantic Keyの正方向Relationを所有する", () => {
+  const semanticIrs = [
+    compileSemanticIrPilot(
+      repositoryRoot,
+      "06_Architecture/Details/coordinator/01_Architecture.md",
+      "coordinator",
+    ).ir,
+    compileSemanticIrPilot(
+      repositoryRoot,
+      "06_Architecture/Details/orchestrator/02_Detailed_Design.md",
+      "orchestrator",
+    ).ir,
+  ].filter((ir) => ir !== null);
+  const compiled = compileQualitySemanticRelations(
+    repositoryRoot,
+    qualitySources,
+    semanticIrs,
+  );
+  assert.deepEqual(compiled.findings, []);
+  assert.ok(compiled.relations);
+  assert.equal(
+    new Set(compiled.relations.map(({ semanticKey }) => semanticKey)).size,
+    17,
+  );
+});
+
+/**
+ * Test Symbolはimplementsを所有できないを検証する。
+ *
+ * @responsibility Test Symbolはimplementsを所有できないの合否判定を所有する。
+ * @trace PPR-UT-016
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Test Symbolはimplementsを所有できないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PPR-UT-016=Direct Boundary: semantic-coverage Test Source→対象契約
+ */
+test("Test Symbolはimplementsを所有できない", () => {
+  const validation = validateRealitySymbolManifest(
+    {
+      contract: "crdd/reality-symbol-manifest",
+      contractRevision: 1,
+      subsystem: "sample",
+      symbols: [
+        {
+          symbolId: "sample.test",
+          kind: "test-case",
+          path: "tests/sample.test.ts",
+          qaIds: ["QA-000001"],
+          verifies: ["sample.module"],
+          implements: ["sample.meaning"],
+        },
+      ],
+    },
+    "40_Develop/sample/symbol.json",
+  );
+  assert.ok(
+    validation.findings.some(
+      ({ code }) => code === "manifest.test.meaning-relation-domain-invalid",
+    ),
+  );
+  assert.equal(validation.manifest, null);
+});

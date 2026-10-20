@@ -1,32 +1,17 @@
 #!/usr/bin/env node
 /**
- * crdd-checkに属する責務をまとめる。
+ * CheckerをProcessの標準入出力へ接続する。
  *
- * @responsibility このFileに属する実装、型および境界を同じModuleで所有する。
+ * @responsibility argv・cwd・標準streamを単一受付へ渡し、終了codeを設定する。
  * @trace ARCH-000001
+ * @trace ARCH-000003
+ * @trace ARCH-000008
  */
 
-import {
-  runChecker,
-  runSemanticCoverage,
-  runTestCatalog,
-} from "../src/index.ts";
+import { runCheckerCommand } from "../src/cli/command.ts";
 
-const arguments_ = process.argv.slice(2);
-const semantic = arguments_.includes("--semantic");
-const catalog = arguments_.includes("--test-catalog");
-const run = catalog
-  ? runTestCatalog
-  : semantic
-    ? runSemanticCoverage
-    : runChecker;
-const result = run({
-  arguments:
-    semantic || catalog
-      ? arguments_.filter(
-          (value) => value !== (catalog ? "--test-catalog" : "--semantic"),
-        )
-      : arguments_,
+const result = runCheckerCommand({
+  arguments: process.argv.slice(2),
   cwd: process.cwd(),
   writeOutput: (value) => process.stdout.write(value),
   writeError: (value) => process.stderr.write(value),

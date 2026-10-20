@@ -148,8 +148,13 @@ export type {
   ArtifactRelation,
   ArtifactSection,
   ArtifactSource,
+  ChecklistFailure,
   ChecklistResult,
+  MarkdownFence,
+  MarkdownFenceLine,
+  MarkdownLinkReference,
   SourceLocation,
+  UxFormalInputTarget,
 } from "./artifact/types.ts";
 export {
   type ArtifactGraph,
@@ -157,7 +162,33 @@ export {
   type BuildArtifactGraphRequest,
   buildArtifactGraph,
 } from "./artifact/graph.ts";
+export {
+  parseMarkdownAnchors,
+  omitMarkdownFencedCode,
+} from "./artifact/anchors.ts";
+export {
+  omitMarkdownCommentsAndFencedCode,
+  omitMarkdownCommentsOutsideFencedCode,
+  parseMarkdownTableRow,
+  isMarkdownTableSeparator,
+  readCanonicalDocumentHeader,
+  parseMarkdownFences,
+} from "./artifact/markdown.ts";
+export {
+  parseMarkdownLinkTargets,
+  parseMarkdownLinkReference,
+} from "./artifact/links.ts";
+export { parseUxFormalInputTargets } from "./artifact/ux-inputs.ts";
 export { parseMarkdownArtifact } from "./artifact/parse-markdown.ts";
+export { inspectQualityDesignStates } from "./artifact/quality-state.ts";
+export {
+  inspectPhaseDiagramTemplates,
+  phaseDiagramTemplatePaths,
+} from "./artifact/phase-diagrams.ts";
+export {
+  inspectEvaluatedChecklist,
+  inspectTemplateChecklist,
+} from "./artifact/checklist.ts";
 export {
   type ArtifactSchema,
   type ArtifactSchemaValidationResult,
@@ -275,3 +306,211 @@ export {
   aggregateRegressionStageResults,
   normalizeExplicitChangedPaths,
 } from "./test-catalog/plan.ts";
+
+export {
+  isProjectContextProjectionInvalid,
+  isProjectContextManifestIdentityInvalid,
+} from "./project-context/inspect.ts";
+
+export { createPhaseChecklistItems } from "./artifact/phase-checklists.ts";
+export { inspectArtifactSources } from "./artifact/inspect.ts";
+
+export { hasSkippedTestDeclaration } from "./reality-traceability/test-source.ts";
+
+export {
+  isUxHandoffTargetSetExact,
+  isUxRootHandoffValid,
+} from "./artifact/ux-handoff.ts";
+
+export {
+  parseIaIndex,
+  inspectIaAnalysis,
+  inspectIaDefinition,
+  inspectIaAnalysisCoverage,
+  inspectIaIndexCoverage,
+  inspectIaCrossProjection,
+  inspectIaRelations,
+  type IaIndexModel,
+  type IaAnalysisModel,
+  type IaDefinitionModel,
+} from "./artifact/ia.ts";
+
+export {
+  parseUiIndex,
+  inspectUiDetail,
+  inspectUiAnalysis,
+  inspectUiDefinition,
+  inspectUiAnalysisCoverage,
+  inspectUiIndexCoverage,
+  inspectUiRelations,
+  type UiRelationsModel,
+  type UiIndexModel,
+} from "./artifact/ui.ts";
+
+export { inspectRealityTestCatalog } from "./reality-traceability/catalog.ts";
+
+export {
+  inspectChangeDocument,
+  isChangeTemplateInvalid,
+  isChangeNavigationInvalid,
+} from "./artifact/change.ts";
+
+export {
+  inspectUxDefinition,
+  inspectUxAnalysis,
+  inspectUxFormalInput,
+  inspectUxRelations,
+  parseUxIndex,
+  isUxProjectionIncomplete,
+  parseUxJourneyRelations,
+  type UxIndexModel,
+  type UxAnalysisModel,
+  type UxFormalInputObservation,
+} from "./artifact/ux.ts";
+
+export {
+  inspectDiscoveryDefinition,
+  inspectDiscoveryAnalysis,
+  parseAdoptedDiscoveryRequirements,
+} from "./artifact/discovery.ts";
+
+export {
+  inspectSpecAnalysis,
+  inspectSpecAnalysisCoverage,
+  inspectSpecDefinitionCoverage,
+  inspectSpecCoverage,
+  parseUiSpecPairs,
+  inspectUiSpecRelations,
+  inspectSpecDefinition,
+  parseSpecIndex,
+  type SpecAnalysisModel,
+  type SpecDefinitionModel,
+  type SpecIndexModel,
+} from "./artifact/spec.ts";
+
+export {
+  inspectSpecDetailIndex,
+  inspectSpecDetailCorrespondence,
+  parseUiDetailBindings,
+  parseSpecScreenRelations,
+} from "./artifact/spec-details.ts";
+
+export {
+  parseSpecDetailDefinitionOwnership,
+  parseSpecDetailAreaOwnership,
+  parseSpecDetailCentralTrace,
+  inspectSpecDetailDownstream,
+  type SpecDetailDefinitionOwnership,
+  type SpecDetailAreaOwnership,
+  type SpecDetailCentralTrace,
+  type SpecDetailDownstreamRequest,
+} from "./artifact/spec-details.ts";
+
+export {
+  parseSpecCorrespondenceRevision,
+  parseSpecCorrespondencePair,
+  inspectSpecCorrespondencePairEvidence,
+  inspectSpecCorrespondence,
+  type SpecCorrespondencePair,
+} from "./artifact/spec-correspondence.ts";
+
+export {
+  inspectArchitectureCrossModelIndex,
+  inspectArchitectureCrossModel,
+  type ArchitectureCrossModelIndex,
+  inspectArchitectureAnalysis,
+  inspectArchitectureDefinition,
+  inspectArchitectureDetailTemplate,
+  type ArchitectureBodyModel,
+} from "./artifact/architecture.ts";
+
+export {
+  inspectArchitectureDetailMap,
+  inspectArchitectureDetail,
+  inspectArchitectureDetailCoverage,
+  type ArchitectureDetailMapModel,
+  type ArchitectureDetailModel,
+  type ArchitectureDetailCoverageRequest,
+} from "./artifact/architecture-details.ts";
+
+export {
+  inspectArchitectureAnalysisCoverage,
+  parseArchitectureRegistry,
+  inspectArchitectureRegistryCoverage,
+  inspectArchitectureComponentCoverage,
+  inspectArchitectureRelations,
+  type ArchitectureRegistryModel,
+  type ArchitectureAnalysisCoverageRequest,
+  type ArchitectureRelationsRequest,
+} from "./artifact/architecture-relations.ts";
+
+export {
+  inspectQualityDefinition,
+  inspectQualityLocalItemOwnership,
+  type QualityDefinitionModel,
+  type QualityLocalItemOwnershipModel,
+} from "./artifact/quality-definition.ts";
+
+export {
+  inspectQualityCenterState,
+  inspectQualityRealityState,
+} from "./artifact/quality-readiness.ts";
+
+export {
+  inspectQualityAnalysis,
+  inspectQualityCrossModelGoals,
+  inspectQualityDetailUnits,
+} from "./artifact/quality-analysis.ts";
+
+export {
+  inspectQualityDefinitionRelations,
+  inspectQualityLocalItemRelations,
+  inspectQualityGoalLocalRelations,
+  parseQualityDetailHandoff,
+} from "./artifact/quality-relations.ts";
+
+export {
+  isQualityVerificationResultTemplateInvalid,
+  isQualityAnalysisTemplateInvalid,
+  isQualityIntegrationTemplateInvalid,
+} from "./artifact/quality-templates.ts";
+
+export {
+  inspectBranchCoverageTable,
+  inspectRemediationTable,
+} from "./artifact/verification-tables.ts";
+
+export { inspectRelatedOrder } from "./artifact/document-header.ts";
+
+export { inspectChangelogRelease } from "./artifact/release.ts";
+
+export { hasQualityOpenChecklist } from "./artifact/quality-readiness.ts";
+
+export { parseQualityCoverageSections } from "./artifact/quality-analysis.ts";
+
+export { isQualityLocalItemCountInvalid } from "./artifact/quality-relations.ts";
+
+export {
+  parseCandidateVersionHeader,
+  parseReadmeVersion,
+  inspectCanonicalDocumentVersions,
+} from "./artifact/release.ts";
+
+export {
+  inspectDiscoveryIdentityLinks,
+  inspectStableIdentityDefinitions,
+} from "./artifact/identity.ts";
+
+export {
+  inspectStableCanonicalDocuments,
+  inspectStableReadme,
+  inspectStableChangelog,
+  inspectStableReleaseHeader,
+} from "./artifact/release.ts";
+
+export { parseCanonicalReleaseHeader } from "./artifact/document-header.ts";
+export { parseChangeTraceHeader } from "./artifact/change.ts";
+export {
+  parseStableIdentityOccurrences,
+  inspectStableIdentityOwnership,
+} from "./artifact/identity.ts";

@@ -75,6 +75,8 @@ Quality ID: `QA-000004`
 
 ## 3. 検証項目
 
+2026-10-20の承認により、旧Runtime JSONの移行棚卸し専用コードと三試験への適用を退役させた。旧形式の調査・移行はフロントAIが保守手順で行う。`PPR-UT-016`の現在Semanticコンパイルと`PPR-UT-017`の現在Relation整合の義務は維持し、旧棚卸し試験の成功を移管後の成立根拠へ繰り越さない。現在モデルの解析・拒否・関係・公開診断・明示保存の試験は削除対象にしない。
+
 | Local ID | 条件区分 | 試験段階 | 試験種別 | 対象／境界 | 外部境界の段階 | 事前状態／入力 | 操作／刺激 | 観測 | Oracle | Evidence | 終了後条件 | 実行形態 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | `PPR-IT-001` | 正常 | IT | Data Flow／Provenance | 複数Source Reader→Projector | Adjacent 1 Block | current・historical・observedの値とSource・Revision・Observed At | 複数Sourceから同じProject Viewを生成する | PPR-IT-001として、「複数Sourceから同じProject Viewを生成する」前後の複数Source Reader→Projectorについて、Identity、phase／state遷移、結果field、Effect発行回数、資源残存数および失敗理由を記録する | 項目ごとにSource、Revision、Observed At、現行性を返す | PPR-IT-001、固定した改訂版・環境・入力Identity、phase／state遷移、結果field、Effect／資源件数、Oracle判定「項目ごとにSource、Revision、Observed At、現行性を返す」および終了後条件「未解消状態と残存Effect／資源を評価へ引き渡す」を保存する。Secret、鍵bytes、passphrase、生Provider出力および絶対Pathは保存しない | 未解消状態と残存Effect／資源を評価へ引き渡す | Automated |

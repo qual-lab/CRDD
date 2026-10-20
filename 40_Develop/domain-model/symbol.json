@@ -4,6 +4,50 @@
   "subsystem": "domain-model",
   "symbols": [
     {
+      "symbolId": "domain-model.artifact-phase-checklists",
+      "kind": "file",
+      "path": "src/artifact/phase-checklists.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "domain-model.project-context-inspection",
+      "kind": "file",
+      "path": "src/project-context/inspect.ts",
+      "archIds": [
+        "ARCH-000005"
+      ]
+    },
+    {
+      "symbolId": "domain-model.test.unit.project-context-inspection",
+      "kind": "test-suite",
+      "path": "tests/unit/project-context/inspect.contract.test.ts",
+      "qaIds": [
+        "QA-000001"
+      ],
+      "localTestIds": [
+        "RCM-UT-014"
+      ],
+      "verifies": [
+        "domain-model.project-context-inspection"
+      ]
+    },
+    {
+      "symbolId": "domain-model.test.unit.outcome",
+      "kind": "test-suite",
+      "path": "tests/unit/outcome.contract.test.ts",
+      "qaIds": [
+        "QA-000001"
+      ],
+      "localTestIds": [
+        "RCM-UT-016"
+      ],
+      "verifies": [
+        "crdd-domain-library.common-outcome-entry"
+      ]
+    },
+    {
       "symbolId": "domain-model.activity-federate-relations",
       "kind": "file",
       "path": "src/activity/federate-relations.ts",
@@ -896,6 +940,562 @@
       ],
       "verifies": [
         "domain-model.test-catalog-plan"
+      ]
+    },
+    {
+      "symbolId": "domain-model.artifact-anchors",
+      "kind": "file",
+      "path": "src/artifact/anchors.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "domain-model.test.unit.artifact-anchors",
+      "kind": "test-suite",
+      "path": "tests/unit/artifact/anchors.contract.test.ts",
+      "qaIds": [
+        "QA-000001"
+      ],
+      "localTestIds": [
+        "RCM-UT-001"
+      ],
+      "verifies": [
+        "domain-model.artifact-anchors"
+      ]
+    },
+    {
+      "symbolId": "domain-model.artifact-markdown",
+      "kind": "file",
+      "path": "src/artifact/markdown.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "domain-model.test.unit.artifact-markdown",
+      "kind": "test-suite",
+      "path": "tests/unit/artifact/markdown.contract.test.ts",
+      "qaIds": [
+        "QA-000001"
+      ],
+      "localTestIds": [
+        "RCM-UT-001"
+      ],
+      "verifies": [
+        "domain-model.artifact-markdown",
+        "domain-model.artifact-types"
+      ]
+    },
+    {
+      "symbolId": "domain-model.artifact-links",
+      "kind": "file",
+      "path": "src/artifact/links.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "domain-model.test.unit.artifact-links",
+      "kind": "test-suite",
+      "path": "tests/unit/artifact/links.contract.test.ts",
+      "qaIds": [
+        "QA-000001"
+      ],
+      "localTestIds": [
+        "RCM-UT-001"
+      ],
+      "verifies": [
+        "domain-model.artifact-links"
+      ]
+    },
+    {
+      "symbolId": "domain-model.artifact-ux-inputs",
+      "kind": "file",
+      "path": "src/artifact/ux-inputs.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "domain-model.test.unit.artifact-ux-inputs",
+      "kind": "test-suite",
+      "path": "tests/unit/artifact/ux-inputs.contract.test.ts",
+      "qaIds": [
+        "QA-000001"
+      ],
+      "localTestIds": [
+        "RCM-UT-001"
+      ],
+      "verifies": [
+        "domain-model.artifact-ux-inputs"
+      ]
+    },
+    {
+      "symbolId": "domain-model.artifact-quality-state",
+      "kind": "file",
+      "path": "src/artifact/quality-state.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "domain-model.test.unit.artifact-quality-state",
+      "kind": "test-suite",
+      "path": "tests/unit/artifact/quality-state.contract.test.ts",
+      "qaIds": [
+        "QA-000001"
+      ],
+      "localTestIds": [
+        "RCM-UT-001"
+      ],
+      "verifies": [
+        "domain-model.artifact-quality-state"
+      ]
+    },
+    {
+      "symbolId": "domain-model.artifact-checklist",
+      "kind": "file",
+      "path": "src/artifact/checklist.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "domain-model.test.unit.artifact-checklist",
+      "kind": "test-suite",
+      "path": "tests/unit/artifact/checklist.contract.test.ts",
+      "qaIds": [
+        "QA-000001"
+      ],
+      "localTestIds": [
+        "RCM-UT-001"
+      ],
+      "verifies": [
+        "domain-model.artifact-checklist",
+        "domain-model.artifact-phase-checklists"
+      ]
+    },
+    {
+      "symbolId": "domain-model.artifact-phase-diagrams",
+      "kind": "file",
+      "path": "src/artifact/phase-diagrams.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "domain-model.test.unit.artifact-phase-diagrams",
+      "kind": "test-suite",
+      "path": "tests/unit/artifact/phase-diagrams.contract.test.ts",
+      "qaIds": [
+        "QA-000001"
+      ],
+      "localTestIds": [
+        "RCM-UT-001"
+      ],
+      "verifies": [
+        "domain-model.artifact-phase-diagrams"
+      ]
+    },
+    {
+      "symbolId": "domain-model.artifact-inspection",
+      "kind": "file",
+      "path": "src/artifact/inspect.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "domain-model.reality-test-source",
+      "kind": "file",
+      "path": "src/reality-traceability/test-source.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "domain-model.test.unit.artifact-inspection",
+      "kind": "test-suite",
+      "path": "tests/unit/artifact/inspect.contract.test.ts",
+      "qaIds": [
+        "QA-000001"
+      ],
+      "localTestIds": [
+        "RCM-UT-001",
+        "RCM-UT-002"
+      ],
+      "verifies": [
+        "domain-model.artifact-inspection"
+      ]
+    },
+    {
+      "symbolId": "domain-model.test.unit.reality-test-source",
+      "kind": "test-suite",
+      "path": "tests/unit/reality-traceability/test-source.contract.test.ts",
+      "qaIds": [
+        "QA-000004"
+      ],
+      "localTestIds": [
+        "PPR-UT-017"
+      ],
+      "verifies": [
+        "domain-model.reality-test-source"
+      ]
+    },
+    {
+      "symbolId": "domain-model.artifact-ux-handoff",
+      "kind": "file",
+      "path": "src/artifact/ux-handoff.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "domain-model.test.unit.artifact-ux-handoff",
+      "kind": "test-suite",
+      "path": "tests/unit/artifact/ux-handoff.contract.test.ts",
+      "qaIds": [
+        "QA-000001"
+      ],
+      "localTestIds": [
+        "RCM-UT-002"
+      ],
+      "verifies": [
+        "domain-model.artifact-ux-handoff"
+      ]
+    },
+    {
+      "symbolId": "domain-model.artifact-ia",
+      "kind": "file",
+      "path": "src/artifact/ia.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "domain-model.test.unit.artifact-ia",
+      "kind": "test-suite",
+      "path": "tests/unit/artifact/ia.contract.test.ts",
+      "qaIds": [
+        "QA-000001"
+      ],
+      "localTestIds": [
+        "RCM-UT-002"
+      ],
+      "verifies": [
+        "domain-model.artifact-ia"
+      ]
+    },
+    {
+      "symbolId": "domain-model.artifact-ui",
+      "kind": "file",
+      "path": "src/artifact/ui.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "domain-model.test.unit.artifact-ui",
+      "kind": "test-suite",
+      "path": "tests/unit/artifact/ui.contract.test.ts",
+      "qaIds": [
+        "QA-000001"
+      ],
+      "localTestIds": [
+        "RCM-UT-002"
+      ],
+      "verifies": [
+        "domain-model.artifact-ui"
+      ]
+    },
+    {
+      "symbolId": "domain-model.reality-catalog",
+      "kind": "file",
+      "path": "src/reality-traceability/catalog.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "domain-model.test.unit.reality-catalog",
+      "kind": "test-suite",
+      "path": "tests/unit/reality-traceability/catalog.contract.test.ts",
+      "qaIds": [
+        "QA-000004"
+      ],
+      "localTestIds": [
+        "PPR-UT-017"
+      ],
+      "verifies": [
+        "domain-model.reality-catalog"
+      ]
+    },
+    {
+      "symbolId": "domain-model.artifact-change",
+      "kind": "file",
+      "path": "src/artifact/change.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "domain-model.test.unit.artifact-change",
+      "kind": "test-suite",
+      "path": "tests/unit/artifact/change.contract.test.ts",
+      "qaIds": [
+        "QA-000001"
+      ],
+      "localTestIds": [
+        "RCM-UT-002"
+      ],
+      "verifies": [
+        "domain-model.artifact-change"
+      ]
+    },
+    {
+      "symbolId": "domain-model.artifact-ux",
+      "kind": "file",
+      "path": "src/artifact/ux.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "domain-model.test.unit.artifact-ux",
+      "kind": "test-suite",
+      "path": "tests/unit/artifact/ux.contract.test.ts",
+      "qaIds": [
+        "QA-000001"
+      ],
+      "localTestIds": [
+        "RCM-UT-002"
+      ],
+      "verifies": [
+        "domain-model.artifact-ux"
+      ]
+    },
+    {
+      "symbolId": "domain-model.artifact-discovery",
+      "kind": "file",
+      "path": "src/artifact/discovery.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "domain-model.test.unit.artifact-discovery",
+      "kind": "test-suite",
+      "path": "tests/unit/artifact/discovery.contract.test.ts",
+      "qaIds": [
+        "QA-000001"
+      ],
+      "localTestIds": [
+        "RCM-UT-002"
+      ],
+      "verifies": [
+        "domain-model.artifact-discovery"
+      ]
+    },
+    {
+      "symbolId": "domain-model.artifact-spec",
+      "kind": "file",
+      "path": "src/artifact/spec.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "domain-model.test.unit.artifact-spec",
+      "kind": "test-suite",
+      "path": "tests/unit/artifact/spec.contract.test.ts",
+      "qaIds": [
+        "QA-000001"
+      ],
+      "localTestIds": [
+        "RCM-UT-002"
+      ],
+      "verifies": [
+        "domain-model.artifact-spec",
+        "domain-model.artifact-spec-details",
+        "domain-model.artifact-spec-correspondence"
+      ]
+    },
+    {
+      "symbolId": "domain-model.artifact-spec-details",
+      "kind": "file",
+      "path": "src/artifact/spec-details.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "domain-model.artifact-spec-correspondence",
+      "kind": "file",
+      "path": "src/artifact/spec-correspondence.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "domain-model.artifact-architecture",
+      "kind": "file",
+      "path": "src/artifact/architecture.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "domain-model.artifact-architecture-details",
+      "kind": "file",
+      "path": "src/artifact/architecture-details.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "domain-model.artifact-architecture-relations",
+      "kind": "file",
+      "path": "src/artifact/architecture-relations.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "domain-model.test.unit.artifact-architecture",
+      "kind": "test-suite",
+      "path": "tests/unit/artifact/architecture.contract.test.ts",
+      "qaIds": [
+        "QA-000001"
+      ],
+      "localTestIds": [
+        "RCM-UT-002"
+      ],
+      "verifies": [
+        "domain-model.artifact-architecture",
+        "domain-model.artifact-architecture-details",
+        "domain-model.artifact-architecture-relations"
+      ]
+    },
+    {
+      "symbolId": "domain-model.artifact-quality-definition",
+      "kind": "file",
+      "path": "src/artifact/quality-definition.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "domain-model.test.unit.artifact-quality-definition",
+      "kind": "test-suite",
+      "path": "tests/unit/artifact/quality-definition.contract.test.ts",
+      "qaIds": [
+        "QA-000001"
+      ],
+      "localTestIds": [
+        "RCM-UT-002"
+      ],
+      "verifies": [
+        "domain-model.artifact-quality-definition"
+      ]
+    },
+    {
+      "symbolId": "domain-model.artifact-quality-readiness",
+      "kind": "file",
+      "path": "src/artifact/quality-readiness.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "domain-model.artifact-quality-analysis",
+      "kind": "file",
+      "path": "src/artifact/quality-analysis.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "domain-model.artifact-quality-relations",
+      "kind": "file",
+      "path": "src/artifact/quality-relations.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "domain-model.artifact-quality-templates",
+      "kind": "file",
+      "path": "src/artifact/quality-templates.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "domain-model.test.unit.artifact-quality-analysis",
+      "kind": "test-suite",
+      "path": "tests/unit/artifact/quality-analysis.contract.test.ts",
+      "qaIds": [
+        "QA-000001"
+      ],
+      "localTestIds": [
+        "RCM-UT-002"
+      ],
+      "verifies": [
+        "domain-model.artifact-quality-readiness",
+        "domain-model.artifact-quality-analysis",
+        "domain-model.artifact-quality-relations",
+        "domain-model.artifact-quality-templates"
+      ]
+    },
+    {
+      "symbolId": "domain-model.artifact-verification-tables",
+      "kind": "file",
+      "path": "src/artifact/verification-tables.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "domain-model.artifact-document-header",
+      "kind": "file",
+      "path": "src/artifact/document-header.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "domain-model.artifact-release",
+      "kind": "file",
+      "path": "src/artifact/release.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "domain-model.artifact-identity",
+      "kind": "file",
+      "path": "src/artifact/identity.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "domain-model.test.unit.artifact-document",
+      "kind": "test-suite",
+      "path": "tests/unit/artifact/document.contract.test.ts",
+      "qaIds": [
+        "QA-000001"
+      ],
+      "localTestIds": [
+        "RCM-UT-002"
+      ],
+      "verifies": [
+        "domain-model.artifact-verification-tables",
+        "domain-model.artifact-document-header",
+        "domain-model.artifact-release",
+        "domain-model.artifact-identity",
+        "domain-model.artifact-change"
       ]
     }
   ]

@@ -15,9 +15,8 @@ Semantic Coverageは独立Packageではなく、Domain Modelの意味計算とCh
 | coverage/graph-and-bundle.ts | domain-model/src/semantic/coverage.ts | 実装・品質・試験のCoverageと直列化用Bundle |
 | bundle/publish.ts | domain-model/src/semantic/publish.ts | Bundle生成と保存要求の結合 |
 | bundle/filesystem-publisher.ts | domain-model/src/storage/semantic-store.ts | 検証済みRoot内の原子的保存・旧Snapshot保全・短命File回収 |
-| compilation/from-repository.ts | checker/src/semantic/inspection.ts | 既存Repository観測、Domain呼出し、診断変換。意味判定本体を複製しない |
-| scripts/compile-pilot.ts | checker/src/semantic/command.ts | 公開APIと`checker --semantic`による固定二領域の表示／明示保存 |
-| migration/inventory-legacy-fields.ts | checker/scripts/semantic-legacy-inventory.ts | フロントAI用の移行調査。通常実行APIへ公開しない |
+| compilation/from-repository.ts | checker/src/repository/semantic.ts、checker/src/report/semantic.ts | repositoryが既存観測・Domain呼出しと結果接続、reportが純粋な診断変換を所有する。意味判定本体を複製しない |
+| scripts/compile-pilot.ts | checker/src/cli/semantic.ts | 公開APIと`checker --semantic`による固定二領域の表示／明示保存 |
 
 Domainの公開APIはIR／Relation／Graph計算、Bundle生成、保存要求、検証済みRootに結合した保存入口を持つ。診断コード・表示文はCheckerが所有する。保存の故障注入HookはRoot公開APIに含めず、内部保存試験だけが参照する。新Registry・Lock・Runner・Recoveryは追加しない。
 
@@ -123,9 +122,10 @@ domain-model/
 ├ src/storage/semantic-store.ts
 └ tests/                 意味計算・実Filesystem保存
 checker/
-├ src/semantic/          入力編成・診断・実行入口
+├ src/repository/semantic.ts  入力観測・Domain呼出し・結果接続
+├ src/report/semantic.ts      中立Issueから既存診断への純変換
+├ src/cli/semantic.ts         引数受付・表示・明示保存接続
 ├ bin/checker.ts         --semanticで起動
-├ scripts/semantic-legacy-inventory.ts
 └ tests/                 診断と公開CLIの接続
 ```
 

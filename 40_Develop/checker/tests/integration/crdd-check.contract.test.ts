@@ -21,10 +21,9 @@ import path from "node:path";
 import test, { after } from "node:test";
 import { pathToFileURL } from "node:url";
 
-import { mapArtifactDomainIssueToCheckerFinding } from "../../src/findings/artifact-issues.ts";
-import { runCheckerPipeline } from "../../src/inspection/pipeline.ts";
-import { RuleRegistry } from "../../src/rules/registry.ts";
-import { runChecker as runCurrentProfile } from "../../src/profiles/current.ts";
+import { mapArtifactDomainIssueToCheckerFinding } from "../../src/report/convert.ts";
+import { inspectArtifactSources } from "../../../domain-model/src/index.ts";
+import { runChecker as runDocumentChecker } from "../../src/index.ts";
 
 const testEntry = process.argv[1];
 if (testEntry === undefined) throw new Error("checker_test_entry_missing");
@@ -52,12 +51,13 @@ const faultInjector = pathToFileURL(
  */
 test("Checker固有Moduleは40_Develop/checkerだけが所有する", () => {
   const expectedModules = [
-    "src/findings/collector.ts",
-    "src/inspection/pipeline.ts",
-    "src/rules/current-profile.ts",
-    "src/rules/quality-design-state.ts",
-    "src/rules/reality-symbol-graph.ts",
-    "src/rules/registry.ts",
+    "src/report/collect.ts",
+    "src/cli/document.ts",
+    "src/repository/document.ts",
+    "src/repository/discover.ts",
+    "src/repository/scope.ts",
+    "src/repository/references.ts",
+    "src/repository/reality.ts",
   ] as const;
   for (const modulePath of expectedModules)
     assert.equal(
@@ -79,48 +79,25 @@ test("Checker固有Moduleは40_Develop/checkerだけが所有する", () => {
     path.join(checkerRoot, "bin", "checker.ts"),
     "utf8",
   );
-  assert.match(officialCli, /\.\.\/src\/index\.ts/u);
+  assert.match(officialCli, /\.\.\/src\/cli\/command\.ts/u);
+  assert.doesNotMatch(officialCli, /--semantic|--test-catalog/u);
   assert.doesNotMatch(officialCli, /pipeline|rules|findings/u);
 });
 
 /**
- * Checker PipelineはMarkdownをArtifact Modelへ変換し固定順のRuleを実行するを検証する。
+ * Domain成果物検査はMarkdownを解析してSchemaと関係を検査するを検証する。
  *
- * @responsibility Checker PipelineはMarkdownをArtifact Modelへ変換し固定順のRuleを実行するの合否判定を所有する。
+ * @responsibility Domain成果物検査はMarkdownを解析してSchemaと関係を検査するの合否判定を所有する。
  * @trace AUH-IT-003
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Checker PipelineはMarkdownをArtifact Modelへ変換し固定順のRuleを実行するの対象操作を実行する。
+ * @stimulus Domain成果物検査はMarkdownを解析してSchemaと関係を検査するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary AUH-IT-003=Direct Boundary: checker Test Source→対象契約
  */
-test("Checker PipelineはMarkdownをArtifact Modelへ変換し固定順のRuleを実行する", () => {
-  const registry = new RuleRegistry();
-  const executedRuleIds: string[] = [];
-  registry.register({
-    id: "special.z",
-    stage: "special-rules",
-    run: () => executedRuleIds.push("z"),
-  });
-  registry.register({
-    id: "special.a",
-    stage: "special-rules",
-    run: () => executedRuleIds.push("a"),
-  });
-  registry.register({
-    id: "special.finding",
-    stage: "special-rules",
-    run: ({ add }) =>
-      add({
-        severity: "error",
-        code: "pipeline-finding-propagated",
-        path: "sample.md",
-        rule: "special.finding",
-        message: "Rule finding reaches the pipeline result.",
-      }),
-  });
-  const result = runCheckerPipeline({
+test("Domain成果物検査はMarkdownを解析してSchemaと関係を検査する", () => {
+  const result = inspectArtifactSources({
     sources: [
       {
         path: "sample.md",
@@ -157,13 +134,8 @@ UX ID: UX-000001
         allowedStatuses: ["Canonical"],
       },
     ],
-    registry,
   });
-  assert.deepEqual(
-    result.findings.map(({ code }) => code),
-    ["pipeline-finding-propagated"],
-  );
-  assert.deepEqual(executedRuleIds, ["a", "z"]);
+  assert.deepEqual(result.issues, []);
   assert.equal(result.artifacts[0]?.canonicalId, "UX-000001");
   assert.deepEqual(result.artifacts[0]?.formalInputs, ["REQ-000001"]);
   assert.equal(result.artifacts[0]?.status, "Canonical");
@@ -180,23 +152,23 @@ UX ID: UX-000001
 });
 
 /**
- * Checker PipelineはSchema不整合とCanonical ID重複を共通Findingで返すを検証する。
+ * Domain成果物検査のSchema不整合とID重複をChecker診断へ変換するを検証する。
  *
- * @responsibility Checker PipelineはSchema不整合とCanonical ID重複を共通Findingで返すの合否判定を所有する。
+ * @responsibility Domain成果物検査のSchema不整合とID重複をChecker診断へ変換するの合否判定を所有する。
  * @trace RCM-IT-005
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Checker PipelineはSchema不整合とCanonical ID重複を共通Findingで返すの対象操作を実行する。
+ * @stimulus Domain成果物検査のSchema不整合とID重複をChecker診断へ変換するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
-test("Checker PipelineはSchema不整合とCanonical ID重複を共通Findingで返す", () => {
+test("Domain成果物検査のSchema不整合とID重複をChecker診断へ変換する", () => {
   const source = {
     path: "duplicate.md",
     content: "# REQ-000001 Duplicate\n\n成果物種別: Discovery定義\n",
   };
-  const result = runCheckerPipeline({
+  const result = inspectArtifactSources({
     sources: [source, { ...source, path: "duplicate-2.md" }],
     schemas: [
       {
@@ -206,12 +178,22 @@ test("Checker PipelineはSchema不整合とCanonical ID重複を共通Findingで
       },
     ],
   });
-  assert.deepEqual(result.findings.map(({ code }) => code).sort(), [
-    "artifact-canonical-id-duplicate",
-    "artifact-schema-property-missing",
-    "artifact-schema-property-missing",
-  ]);
-  assert.ok(result.findings.every(({ rule }) => rule.length > 0));
+  assert.deepEqual(
+    result.issues
+      .map(mapArtifactDomainIssueToCheckerFinding)
+      .map(({ code }) => code)
+      .sort(),
+    [
+      "artifact-canonical-id-duplicate",
+      "artifact-schema-property-missing",
+      "artifact-schema-property-missing",
+    ],
+  );
+  assert.ok(
+    result.issues
+      .map(mapArtifactDomainIssueToCheckerFinding)
+      .every(({ rule }) => rule.length > 0),
+  );
 });
 
 /**
@@ -4869,7 +4851,7 @@ test("UI／SPEC Detailの領域担当はRelation別に閉じる", () => {
    */
   const rejected = () => {
     let output = "";
-    runCurrentProfile({
+    runDocumentChecker({
       arguments: ["--root", root, "--json", "--summary"],
       cwd: root,
       writeOutput: (value) => {

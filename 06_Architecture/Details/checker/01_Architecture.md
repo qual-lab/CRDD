@@ -1,8 +1,184 @@
 # Checkerの設計
 
+## 文書入口とRepository観測の分離 — 2026-10-20（実装済み・最終確認中）
+
+旧Profileは撤去した。`cli/document.ts`は引数・Root初回確認・表示・終了値を所有し、`repository/document.ts`は探索・Scope・参照・文書状態・工程観測の順序と報告集計を所有する。工程観測はproject-context、work-lifecycle、discovery-ux、ia、ui、spec、architecture、qualityの八Fileへ分ける。工程間をつなぐ共通Reader、Snapshot、Registryは作らず、取得済み値をDomainへ渡す。既存参照解決関数だけをDiscovery／UXへ明示搬送し、Readerを再構築しない。診断は元の追記配列に配送し、途中の例外でも先行診断を破棄しない。
+
+Qualityの有限状態・工程分析・統合・Detail引渡し・関係閉包と書式条件はDomainへ接続する。Centerの解析結果を同じままReality状態対の検査へ渡し、関連flagを独立に再構成しない。DomainのIssueは専用の二変換で従来診断へ接続する。Coverage節欠落時は従来どおり統合本文をreadした後でreturnし、以降の定義列挙・Detail取得を実行しない。読取り前の先読みSnapshotは作らず、同Fileの再read、Ready条件付きread、実Path集合とIDの観測は元位置に保持する。
+
+Quality Definitionは従来のphysicalDefinitionPaths順に一回ずつ生本文をreadし、Directoryから解決したQA-IDと診断位置を`inspectQualityDefinition`へ渡す。部分関係・出現列・後勝ちMapを既存の集約先へ追加し、本文Issueを表示する。その後に独立抽出Local ID列と現在のOwner Mapを`inspectQualityLocalItemOwnership`へ渡し、先勝ちの所有と重複Issueを後続へ接続する。新しいFile読取り・先読み・保存・管理基盤は追加しない。`report/quality.ts`の専用変換が二十kindを従来のcode・文言へ接続し、動的文言の必要情報と未知kindを検査する。
+
+Architecture分析／定義は従来どおり本文read・可視化後に同Fileを再readし、既存Domain Checklist検査を実行してから`inspectArchitectureAnalysis`／`inspectArchitectureDefinition`へ渡す。分析済みIDとRelationの集約は診断表示前、定義の実在ID追加は二回read前に維持する。Templateのlstat・readと不存在時の省略も維持し、用途別の意味だけを`inspectArchitectureDetailTemplate`へ渡す。横断モデルは`inspectArchitectureCrossModelIndex`が返す固定文書順にlstat・readし、欠落時は旧診断を表示して次へ進む。登録節が空ならモデルFileは観測しない。一回のreadから可視本文とFence保持本文を導き、`inspectArchitectureCrossModel`へ渡す。
+
+詳細Mapの取得後に`inspectArchitectureDetailMap`へ接続する。Detail DirectoryはFile有無より前に実領域集合へ追加し、File欠落は診断後に継続する。一回目の可視本文と二回目のChecklist理由を`inspectArchitectureDetail`へ渡し、部分関係とCovered定義を従来位置で集約する。領域列挙後の三閉包条件は`inspectArchitectureDetailCoverage`へ接続し、診断位置文字列だけを渡す。
+
+分析列挙後の網羅性は`inspectArchitectureAnalysisCoverage`、横断モデル取得後の登録本文は`parseArchitectureRegistry`へ接続する。定義列挙後は`inspectArchitectureRegistryCoverage`を呼び、Component表は横断モデルの取得値を流用せず同Fileを元位置で再readして`inspectArchitectureComponentCoverage`へ渡す。Detail処理後の重複・三者閉包は`inspectArchitectureRelations`へ渡す。専用変換が十八kindを旧code・文言へ接続する。本文意味をCheckerへ再実装しない。本文意味と観測編成のSource分離は実装済みであり、固定候補の最終回帰・レビュー・清掃を別に確認する。
+
+定義対応Evidenceは`artifact/spec-correspondence.ts`の四APIへ接続する。対応本文read後の改訂表解析、全Definition Directory名sort・Fileのlstat・生本文の直接read・相対Path付きNUL区切りSHA-256、続く対応行別UI→SPECのreadという順を維持する。Fingerprint用の生本文と可視根拠検査用本文の二度取りを統合しない。正規行だけの対象解決後に行検査を呼び、実際に訪問した理由を出現順に集約する。最後の閉包・根拠・改訂の中立Issueを`report/convert.ts`で旧診断三分類へ変換する。表・根拠文の解釈をCheckerへ再実装せず、Fingerprint用のFilesystem観測とhash計算だけを維持する。
+
+DetailのUI対応・Screen関係・SPEC表被覆・対応表状態をDomainの`artifact/spec-details.ts`へ直接接続する。Checkerは従来の列挙、`lstat`、read、欠落診断を維持し、`report/convert.ts`で中立Issueを旧診断へ変換する。期待Relation集合の編成は既存位置に置き、Screenの純粋な集合照合だけは対応表検査内で行う。対応表が欠落している場合の読取りや解析を新たに実行しない。
+
+下流では中央ARCH→中央QA→combined ARCH→combined QA→ARCH定義再read→領域→QA定義再read→UI Directory件数の観測順を維持する。定義／領域は各read直後、中央表はQA定義列挙後の従来位置でDomainの用途別モデルへ変換する。Directory名をOwner／領域名とし、本文IDで上書きしない。最終UI件数観測後に`inspectSpecDetailDownstream`へ渡し、純粋なOwner集合編成と閉包判定だけを同観測後へ移す。不存在時の追加lstat、combined本文の別read、UI Directory数（定義File存在数ではない）を維持する。下流被覆の中立Issueは旧診断へ変換する。
+
+SPEC分析・登録表・定義の取得済み本文はDomainの三APIへ渡し、関係出現列／集合を従来の位置で集約し、既存report/convertのSPEC用変換で旧診断へ配送する。分析網羅性、定義網羅性、UI定義件数取得後の件数／三者閉包、UI本文read後の対応関係閉包も、元位置でDomainへ直接接続する。不正本文からも関係を保持し、観点別ID追加と後続Detail／下流Traceの列挙・読取りを先取りしない。工程本文意味と観測編成の分離は実装済み。最終回帰・レビュー・清掃を別に確認する。
+
+UX正式入力はDiscovery定義read・参照候補解析・Path解決・境界確認を維持し、観測済み六事実をDomainの`inspectUxFormalInput`へ渡す。定義参照が一件のときだけ同一Pathを比較し、観測失敗を安全なfalseへ畳まない。正式入力診断は本文診断より先に表示する。最終UX／Journey閉包は旧Root観測後の元位置で`inspectUxRelations`へ渡し、従来の二診断を既存report/convertから表示する。新しい参照観測・状態・回復処理は追加しない。
+
+Discovery要求定義は列挙・実在ID追加・読取り後にDomainの`inspectDiscoveryDefinition`へ渡し、探索分析は元の読取り位置で`inspectDiscoveryAnalysis`へ渡す。`report/convert.ts`のDiscovery用変換は各二Issueを成果物別の旧診断へ変換する。採用要求IDは元位置で入口を再readして`parseAdoptedDiscoveryRequirements`へ渡す。採用要求との網羅性確認は従来位置に残し、入口Checklist・Template条件は今回の移管対象に含めない。
+
+UX分析は正式入力のPath解決・Discovery定義の観測・先行不正診断を行った後、既読本文と期待REQ ID・入口のPath出現数をDomainの`inspectUxAnalysis`へ渡す。分析専用六Issueは既存report/convertで旧診断へ変換し、解析済み関係を現在の集合へ集約する。本文不正でも関係を保持し、外部読取りと後続閉包確認は従来の位置に残す。
+
+UX定義の本文構造・直接Handoff・ChecklistはDomainの`inspectUxDefinition`へ渡し、定義専用の三種類の中立Issueを`report/convert.ts`で旧code・文言へ変換する。定義Directory列挙、ID集合追加、本文読取り、最後の網羅性確認は従来の位置に残す。Discovery本文の移管済みを意味しない。
+
+変更記録の本文構造・ひな型固有条件・指定案内区画の集合照合はDomainの`artifact/change.ts`へ移管した。CheckerはRoot、CHG列挙・整列・読取り、他工程TemplateとRelease Evidenceの観測を所有し、中立Issueを`report/convert.ts`で既存の四field診断へ変換する。見出し不正時の短絡や番号80以降の適用条件は変更しない。旧形式の移行処理や一般的な工程検査Frameworkは追加しない。
+
+探索を`repository/discover.ts`、指定範囲と一段参照拡張を`repository/scope.ts`、現在参照先・固定Git履歴の読取り・短命cacheと参照mapを`repository/references.ts`へ移す。初期Root・基準版観測の値を明示入力とし、観測の先読み・新しい永続状態・一般I/O抽象を追加しない。固定履歴表の読取りは従来どおりFile探索の前に行い、検査後の参照mapも元の位置で作る。
+
+Project Context本文の固定構造とManifest Identity比較はDomainの`project-context/inspect.ts`へ分離する。表示用Parserとは受理条件が異なるため、そのParserへの置換で条件を強めない。Root検証・Manifest Path解決・通常File／Link確認・JSON解析・失敗診断と読取り順はCheckerに残す。旧Registry／Pipelineは撤去し、品質状態はDomain検査と既存診断変換、Realityはrepository/reality.tsの観測へ直接接続した。工程本文判定のDomain移管、専用診断変換の配置、旧Profile撤去は実装済み。全体回帰・独立確認・清掃の最終確認前であり、Repository全体の品質合格は主張しない。
+
+## Repository観測の配置整理 — 2026-10-20
+
+Semanticの残存接続は`repository/semantic.ts`が既存の観測順・Domain Compile・Graph結果接続を所有し、`report/semantic.ts`が既存Issueの診断変換だけを所有する。三fieldの`SemanticCoverageDiagnostic`は`report/types.ts`へ置き、文書／Rule診断と無理に統合しない。前提診断がある場合はGraphを作らず、その入力診断列を同じ参照で返す。未知kindや不足Detailは従来どおり拒否する。旧`semantic/inspection.ts`と互換reexportは残さず、Root公開・保存契約は変更しない。
+
+Realityも同じ境界にそろえる。`report/reality.ts`は既存の三field診断への変換、`repository/reality.ts`はManifest・Catalog・Test Source観測とDomain結果の接続を所有する。CatalogのJSON解析は観測側、その後の限定的な登録対応検査はDomainの`inspectRealityTestCatalog`へ渡す。旧二Fileと試験専用Manifest変換wrapperは本番から撤去する。Manifestがない場合のCatalog読取り省略、前提診断時のGraph省略と同一診断列、観測不能・JSON不正・本文不正の既存区別を維持する。
+
+`repository/observe.ts`は既存の`lstatIfPresent`、`pathContainsSymbolicLink(root, target)`、`isWithin(parent, child)`を所有する。Repository観測はRootを明示して呼び、Rootの選択・実体拒否・適用範囲・診断を維持する。Package Rootの公開集合には追加しない。
+
+`lstatIfPresent`はENOENTだけnullとし、その他の観測失敗は伝播する。Link検出はRoot自身を含まず、配下構成要素を順に読み、Root同一・字句上Root外・途中不存在でfalseを返す。このfalseを安全性や不存在の一般証明には用いない。`isWithin`はScope・Gitlink・採用基準版・履歴領域にも使う既存の字句判定であり、先頭`..`の名前も拒否する条件を維持する。実体固定・Hardlink検出・競合防止・新しい認可は追加しない。
+
+## 診断型・収集・変換の配置整理 — 2026-10-19
+
+本番使用中のArtifact Issue変換を`report/convert.ts`、局所診断収集を`report/collect.ts`、診断型を`report/types.ts`へ配置した。公開`CheckerFinding`と内部`DocumentFinding`は別shapeのまま保持する。Rootは従来どおり前者だけを実体から公開し、旧Pathの互換exportは残さない。収集は単純な追加順・重複・元Objectを保持し、並替えや新しい重複除去を追加しない。
+
+通常文書の表示は`report/output.ts`の`writeDocumentReport(report, options, writeOutput)`へ分離した。内部の`DocumentReport`と`DocumentReferenceMap`は既存field・null・観測順を保持する表示用型で、Rootへ公開しない。repository/document.tsがレポートを元のkey順に構築して時刻・件数を集計し、cli/document.tsが終了値を確定する。表示側はObjectを再構築せず、JSON単独は診断配列、JSON＋Summaryは全レポート、人間表示は元の文字列・改行・callback粒度で渡す。参照mapの別表示は人間Summary時だけ。callbackの失敗は同じ例外を伝播し後続発行を止める。cli/document.tsは元requestのメソッド呼出しも維持する。保存先・Filesystem・時計・新しい合否判定を表示側へ持たせない。
+
+利用者承認により、本番Consumerが0件だった`findings/domain-outcome.ts`の汎用変換・専用結果型・旧ITを撤去する。Domainの四状態・相関・必須／禁止fieldはDomain直接UTが確認する。Checkerは本番Producerが返す結果から、用途別の診断・拒否・既存終了値へ接続する。汎用四状態を一律にChecker公開結果へ残す旧契約は退役し、その旧ITを本番接続の根拠へ流用しない。新しい汎用変換や状態管理は追加しない。
+
+Domainの成果物集合検査と用途別変換ではSchema invalidのIssueとGraph partialの非null結果を保持する。一方、現Quality本番呼出しはschemasを指定せず、品質状態の診断だけを公開する。文書公開入口の実入力不備・Realityの実Source欠測・Semantic入力欠測は診断と終了1、Semantic Root不正は終了2として検証する。Domain構造として妥当な未知kindはSurfaceの各本番変換が拒否する。公開三操作・JSON・文言・出力順・終了値は不変とし、詳細な検証条件はQA-000001のRCM-IT-011／RCM-UT-016が所有する。
+
+## 移管後のSource構造と公開入口案 — 2026-10-19
+
+状態: 責務移管後の現在配置。以下のTreeへSource・利用側を接続済みであり、最終回帰・独立確認を行う。小さな判定の抽出だけではChecker再編を完成としない。添付Source Structure Reviewと現在のCoding Standardsに従い、Folderは責務、Fileは実際の操作・役割を表す。
+
+単一受付の合意と実装単位: 受付は`cli/command.ts`へ集約し、`cli/types.ts`は維持する。exactな接続は`bin/checker.ts`→`src/cli/command.ts`の内部操作`runCheckerCommand`→既存三操作の実体である。binはargv・cwd・stdioと終了codeだけを接続する。受付は実際のモード選択・flag除去を所有し、再exportだけの転送ではない。bin専用操作を標準APIへ増やす実利用はないためRootへ公開せず、他Packageからこの内部Fileへのdeep importを許可しない。通常公開三操作は従来どおりRootから利用する。
+
+共有要求・終了型は`cli/types.ts`へ移し、旧Profileから互換exportしない。操作固有の引数解釈は各実処理が引き続き所有し、万能parserへ統合しない。Semanticと台帳／計画の受付は`cli/semantic.ts`／`cli/test-catalog.ts`へ配置した。importの移動差以外は本文を変更せず、Rootと単一受付は同じ実体へ接続する。旧Pathの互換転送は残さない。document受付と観測・固有検査の分離も実装済みであり、Source配置の成立と全体品質の評価を区別する。
+
+出力・保存の境界: 通常レポートは`report/output.ts`で整形後に`writeOutput`へ搬送し、エラー通知は従来どおり`writeError`へ渡す。binではstdout／stderrとなる。Checkerはレポート用`storage/`・履歴・ローテーションを持たない。`--semantic --write`だけは表示用レポートではなく意味Coverage生成物を既存Domain保存APIへ渡す。Semantic／台帳の固有出力を通常文書の新レポートへ無理に統合しない。
+
+```text
+checker/
+├ bin/checker.ts                 argv・cwd・標準入出力と単一受付を接続
+└ src/
+   ├ index.ts                    公開三操作・共有型だけを明示export
+   ├ cli/
+   │  ├ command.ts               既存三モードの単一受付・振分け
+   │  ├ types.ts                 既存要求・終了結果の共有型
+   │  ├ document.ts              文書検査の引数・Root初回確認・表示・終了値
+   │  ├ semantic.ts              意味Coverageの引数・取得編成・明示保存接続
+   │  └ test-catalog.ts          台帳検査／回帰計画の引数・差分入力・表示接続
+   ├ repository/
+   │  ├ document.ts              文書検査全体の観測順・工程接続・報告集計
+   │  ├ project-context.ts       ProjectionとManifestの実在・Identity接続
+   │  ├ work-lifecycle.ts        CHG／Releaseの実在・本文・案内接続
+   │  ├ discovery-ux.ts          Discovery・UXの列挙・正式入力・本文接続
+   │  ├ ia.ts                    IAの列挙・本文・関係接続
+   │  ├ ui.ts                    UI／Detailの列挙・本文・関係接続
+   │  ├ spec.ts                  SPEC／対応根拠の列挙・取得・Hash・関係接続
+   │  ├ architecture.ts          Architectureの列挙・本文・横断モデル・Detail接続
+   │  ├ quality.ts               Qualityの構成・状態・分析・定義・閉包接続
+   │  ├ observe.ts               初期Root形態・実在File・Link等の観測
+   │  ├ discover.ts              Git一覧・基準版・取得不能時のFile探索
+   │  ├ scope.ts                 指定範囲・一段関係・未検査集合の選択
+   │  ├ references.ts            参照先・Anchor・固定Git履歴・参照map
+   │  ├ semantic.ts              意味入力の観測・Domain Compile・結果接続
+   │  ├ reality.ts               Manifest・Catalog・Test Source観測と結果接続
+   │  └ types.ts                 観測済み入力・探索結果・参照の型
+   └ report/
+      ├ types.ts                 既存診断・報告の型（異なる公開shapeは維持）
+      ├ convert.ts               中立Issueから既存code・文言への明示変換
+      ├ document.ts              共通文書・Identity・版の診断変換
+      ├ quality.ts               Quality状態・定義・分析・関係の診断変換
+      ├ semantic.ts              Semantic固有Issueの三field診断への変換
+      ├ reality.ts               Reality固有Issueの三field診断への変換
+      ├ collect.ts               診断収集・既存順序・重複処置
+      └ output.ts                JSON・Summary・人間向け表示
+```
+
+空Folder・空Fileは作らない。CLI用途ごとの小さな解析・変換は各入口Fileへ同居し、独立した変更理由と実共有があるものだけをrepository／reportへ分離する。独立再利用のないexecution中継、万能Parser、共通Result Framework、Capability内barrelは追加しない。convertが異なる診断体系を隠す巨大Fileになる場合は実際の変換契約に応じて分け、ファイル数をこのTreeへ合わせるための統合はしない。
+
+| 現在の配置 | 到達先での処置 |
+|---|---|
+| 旧`profiles/current.ts` | 本文意味をDomain、受付をcli/document、観測をrepository、診断をreportへ分けて撤去済み。丸ごとの改名・移動や互換中継は残さない |
+| `inspection/pipeline.ts`、`rules/*` | 判定意味をDomain、必要な観測順をRepositoryへ対応付け、Checkerには直接呼出しの編成だけを残した。callback中継・旧Registryは撤去済みで、新Registryは作成しない |
+| `findings/*` | 診断型・変換・収集をreportへ整理し、不要な中継を撤去済み |
+| 旧`semantic/command.ts`、旧`test-catalog/command.ts` | `cli/semantic.ts`／`cli/test-catalog.ts`へ移管済み。旧Path・転送は撤去し、既存公開操作を維持する |
+| `semantic/inspection.ts`、`reality/*` | 判定をDomain、実観測をrepository、既存診断変換をreportへ対応付けた。旧File・転送だけの型・関数は撤去済み |
+
+UTは新Owner・新Pathへ追従し、検査意味を移した試験はDomain、CLI・観測・表示・終了値の試験はCheckerが所有する。IT以降は内部File名へ機械的に合わせず、維持する公開操作・利用場面を名前と検証義務へ対応付ける。全Source Headerは移管後の実責務・Effect・失敗境界へ更新する。
+
+### 最終公開APIの範囲
+
+既存の公開操作三つと共有型三つを維持する。以下はCLI型のAPIであり、一般的な成果物モデル検査APIはDomainが所有する。
+
+| 公開名 | 役割 | 実体の配置 |
+|---|---|---|
+| `runChecker(request): CheckerResult` | 文書検査の起動と結果出力 | cli/document.ts |
+| `runSemanticCoverage(request): CheckerResult` | 固定対象の意味Coverage確認・明示保存 | cli/semantic.ts |
+| `runTestCatalog(request): CheckerResult` | 台帳検査または回帰計画。試験は起動しない | cli/test-catalog.ts |
+| `CheckerRunRequest` | arguments、cwd、writeOutput、writeError | cli/types.ts |
+| `CheckerResult` | exitCode | cli/types.ts |
+| `CheckerFinding` | 既存の公開診断型 | report/types.ts |
+
+レポート本文は既存の出力先へ渡す。`CheckerResult`が型付きレポート全体を返すとは説明しない。通常文書診断の四fieldと、rule必須・evidence任意の`CheckerFinding`は現在別shapeである。配置整理を理由に全診断へrule等を追加せず、JSON・文言・順序・終了値を維持する。新しいAPI体系や汎用実行層は今回の到達条件に含めない。
+
+### binの操作一覧
+
+binはPackage名と同じ`bin/checker.ts`一つを維持する。以下は現在の公開操作であり、新しいsubcommand体系へ変更しない。
+
+| 操作 | 引数 | Effect |
+|---|---|---|
+| 文書検査 | `--root <path>`、`--json`、`--summary`、`--scope <path>`反復、`--references <path>` | 読取りと表示 |
+| 意味Coverage確認 | `--semantic`、`--root <path>` | 読取りとJSON表示 |
+| 意味Coverage保存 | 上記へ`--write` | 既存Snapshotの明示保存。保存OwnerはDomain |
+| 台帳検査 | `--test-catalog`、`--root <path>` | 読取りと表示 |
+| 回帰計画 | 上記へ`--changed <path>`反復、`--base <revision>`、`--all`のいずれか。`--levels <list>`でLevel選択 | Git等の読取りと計画表示。試験起動なし |
+
+計画の高負荷条件入力は既存の`--resource-intensive-authorized`、`--purpose`、`--environment`、`--max-duration-minutes`、`--max-invocations`、`--max-credits`、`--cleanup`、`--stop-condition`を維持する。入力充足を実行許可や実上限の強制へ昇格しない。`--semantic`と`--test-catalog`は併用しない。現行binでも両指定は後段引数拒否64となり、優先実行が成立するわけではない。配置換え時に受付で明示拒否する場合は、その診断経路の変更を別に照合し、既存64を維持する。`--help`は未対応であり、新設済みと扱わない。実際の操作手順は[Checker手順](../../../19_Workflows/02_Checker.md)が所有する。
+
+## 工程ひな型の基本図処置検査のDomain移管 — 2026-10-19
+
+`checkPhaseDiagramDispositionContracts`はofficial適用を判定し、Domainの`phaseDiagramTemplatePaths`の順で既存の探索・fallback・存在確認・本文読取りを行う。存在しないFileは従来どおりskipする。本文条件は`inspectPhaseDiagramTemplates`へ委譲し、返却Issueから既存code・Path・文言のFindingへ変換する。未知kindや不正detailsは正常診断へ丸めず拒否する。
+
+七Profileの内容・列・図名・処置語彙は[Domain詳細](../domain-model/01_Architecture.md#工程ひな型の基本図処置契約--2026-10-19)へ集約し、Checkerには同じ表を複製しない。generic／adopterへの適用拡大、図の品質保証、新しいRegistryは追加しない。
+
+## 共通Checklist検査のDomain移管 — 2026-10-19
+
+Discovery・UX・IA・UI・SPEC・Architecture・Qualityが共有する可視Checklistの構造判定は、Domain Rootの`inspectEvaluatedChecklist`／`inspectTemplateChecklist`へ接続する。47種類の期待項目配列と移管済み本文検査はDomainが所有し、適用対象の選択・観測と既存code・文言はCheckerが維持する。既存の失敗理由と判定順を変更せず、互換aliasや新しい登録基盤は設けない。意味の正本は[Domain詳細](../domain-model/01_Architecture.md#可視checklistの構造検査--2026-10-19)であり、工程別検査全体の移管完了ではない。
+
+## 品質設計成果物の状態検査のDomain移管 — 2026-10-19
+
+旧品質状態RuleとRegistryは撤去した。現在は`repository/quality.ts`からDomain Rootの`inspectQualityDesignStates`と`report/quality.ts`の表示変換へ直接接続する。品質設計の対象集合、readiness、Findingのseverity・code・文言・入力順はCheckerが維持する。状態正規化とCanonical判定の意味は[Domain詳細](../domain-model/01_Architecture.md#品質設計成果物の状態検査--2026-10-19)が所有する。
+
+report/convert.tsで中立Issueを明示変換し、未知kindは例外として拒否する。新しいRegistryや変換専用Fileは追加しない。この規則の移管だけでQuality Readyの全体成立やChecker全体の薄い入口化を主張しない。
+
+## 本文解析のDomain移管 — 2026-10-19
+
+行・コードFence構造はDomain Rootの`parseMarkdownFences`へ移管した。CheckerのDiscovery要求IDリンク、README版表示、CHANGELOGの三箇所が同じ結果を利用する。BOM除去・改行分割と検査の適用・宣言の意味・診断は元の場所へ残し、局所`parseMarkdownStructure`と二型の互換定義は撤去する。行index・内外・未閉鎖・内容行の参照関係を維持し、詳細は[Domainの行／Fence解析](../domain-model/01_Architecture.md#行とコードfence構造の解析--2026-10-20)に従う。
+
+見出し・明示Anchor・重複接尾辞とFence除外は、Domain Rootの`parseMarkdownAnchors`／`omitMarkdownFencedCode`へ移管した。`repository/document.ts`と`repository/references.ts`は検証対象ファイルの読取り、固定履歴本文の取得、リンク先の存在照合とFinding表示を引き続き所有する。DomainへChecker code・message・CLI引数・読取りcallbackを渡さない。公開CLI、診断順序、Scope、References、終了Codeは変更しない。
+
+続いて可視本文二方式・表行／区切り行・先頭Header抽出をDomain `artifact/markdown.ts`へ移管した。CheckerはRoot公開APIから得た本文・Cell・Headerに既存の検査条件を適用する。HeaderのVersion／Status検査・診断を抽出APIへ混ぜず、RootやRepositoryの観測も移さない。
+
+共通リンク参照の抽出・target／anchor分解は、Domain Rootの`parseMarkdownLinkTargets`／`parseMarkdownLinkReference`へ移管した。Checkerは返却値を既存の`resolveLocalTarget`へ接続し、外部URL分類・Root境界・Link観測・固定Git履歴・Finding変換を維持する。参照文字列の解析成功から、参照の存在や安全性を推定しない。
+
+UX固有の参照候補解析は、本文と現在のRoot文字列を`parseUxFormalInputTargets`へ渡す形へ移管した。Checkerは返却候補を既存のPath解決・Discovery Definition／Analysis識別・正式入力検査へ接続する。Root検証や権限判断をDomainへ移したものではない。参照候補の意味は[UX解析の境界](../domain-model/01_Architecture.md#ux正式入力の参照候補解析--2026-10-19)に従う。
+
+受付・観測・意味・表示のSource分離を実装した。全体回帰の不合格や未実施項目を局所成功からPassへ読み替えない。巨大なProfileをそのままDomainへ移動したり、新しいRule登録基盤を追加したりしない。具体的な本文APIと既存Parserとの差は[Domain詳細](../domain-model/01_Architecture.md#可視本文表先頭headerの移管--2026-10-19)、共通リンクの意味は[リンク解析の境界](../domain-model/01_Architecture.md#共通リンク参照解析の移管--2026-10-19)に従う。
+
 ## 試験台帳・計画の入口 — 2026-10-19
 
-`src/test-catalog/command.ts`の`runTestCatalog(CheckerRunRequest)`をPackage Rootと既存binの`--test-catalog`から利用する。引数は`--root`、`--changed`反復、`--base`、`--all`、`--levels`と既存の高負荷条件入力である。変更指定なしは台帳検査だけ、変更指定ありは回帰計画を返す。既定Rootは既存Version Controlでcwdから検証し、Git差分も同Packageの公開APIへ委譲する。
+`src/cli/test-catalog.ts`の`runTestCatalog(CheckerRunRequest)`をPackage Rootと既存binの`--test-catalog`から利用する。引数は`--root`、`--changed`反復、`--base`、`--all`、`--levels`と既存の高負荷条件入力である。変更指定なしは台帳検査だけ、変更指定ありは回帰計画を返す。既定Rootは既存Version Controlでcwdから検証し、Git差分も同Packageの公開APIへ委譲する。
 
 モデル、台帳読取り・整合検査、選択、段階計画はDomain Root APIを利用する。Checkerはnpm／Cargoコマンドを生成せず、試験Processや実行Callbackも持たない。公開結果は試験ID・Path・Owner・段階・順序・必要な条件と`testExecution:not_started`を含む。計画成功は試験合格ではない。高負荷条件が揃っても実上限を強制しないため計画のみである。
 
@@ -14,7 +190,7 @@
 
 ## Semantic実行入口の移管 — 2026-10-19
 
-Checkerは`src/semantic/inspection.ts`で既存Repository観測とDomainのSemantic計算を編成し、Issueを既存の診断コードへ変換する。`src/semantic/command.ts`の`runSemanticCoverage`と既存binの`--semantic`を公開入口とする。意味解析・Relation・Coverage・保存本体を複製せずDomain Root APIへ接続する。既定の`runChecker`と文書検査の振る舞いは変えない。詳細は[Semantic責務移管](../semantic-coverage/01_Architecture.md#2026-10-19の責務移管)に従う。旧JSON調査は`scripts/semantic-legacy-inventory.ts`へ置き、本番APIへ公開しない。以下の「CheckerはSemantic生成・公開を所有しない」という旧記述は、意味計算・保存本体を所有しないという境界へ置換する。
+Checkerは`src/repository/semantic.ts`と`src/report/semantic.ts`で既存Repository観測とDomainのSemantic計算を編成し、Issueを既存の診断コードへ変換する。`src/cli/semantic.ts`の`runSemanticCoverage`と既存binの`--semantic`を公開入口とする。意味解析・Relation・Coverage・保存本体を複製せずDomain Root APIへ接続する。既定の`runChecker`と文書検査の振る舞いは変えない。詳細は[Semantic責務移管](../semantic-coverage/01_Architecture.md#2026-10-19の責務移管)に従う。旧形式の調査・移行はフロントAIが保守手順に従って行い、Checkerへ移行専用コードを恒久保持しない。以下の「CheckerはSemantic生成・公開を所有しない」という旧記述は、意味計算・保存本体を所有しないという境界へ置換する。
 
 ## 基本設計との関係
 
@@ -88,12 +264,12 @@ Checkerは、CRDD文書の構造、版、識別子、リンク、アンカー、
 
 ## 2. 実装正本と配布入口
 
-Checker固有のPipeline、Finding、Rule RegistryおよびProfile本体は`40_Develop/checker/src`の責務別Directoryが所有する。`application/checker-command.ts`は公開Use Caseを現行Profileへ接続する薄い入口であり、工程別検査本体を所有しない。`template/tools/crdd-check.ts`と公式Repository CLIも同じ公開Use Caseへ接続し、検査実装を所有しない。
+現在残るFindingおよびProfile本体は`40_Develop/checker/src`が所有し、上記到達先へ移管中である。`cli/command.ts`は単一受付として既存三操作へ接続し、工程別検査本体を所有しない。`template/tools/crdd-check.ts`は公式Repository CLIを起動し、両入口とも検査本体を複製しない。
 
 | 部品 | 責務 | この分離の理由 |
 |---|---|---|
 | [配布入口](../../../template/tools/crdd-check.ts) | 安定CLI名から同じ基準版Root内の公式Repository CLIへ相対接続する | 採用Repository向け入口を維持しつつ、検査意味を`template`に二重管理しない |
-| [Checker実装正本](../../../40_Develop/checker) | Checker固有Finding、Rule、Profile、Pipeline、CLIおよび結果報告を所有する | Rule追加のたびにlauncherを変更せず、共通能力をChecker専有にしない |
+| [Checker実装正本](../../../40_Develop/checker) | Checker固有Finding、Repository観測、CLIおよび結果報告を所有する | Rule追加のたびにlauncherを変更せず、共通能力をChecker専有にしない |
 | [公式Repository CLI](../../../40_Develop/checker/bin/checker.ts) | 同じChecker公開APIへ接続する | 実装工程から発見できる入口を持ち、コピーを作らない |
 | [private package](../../../40_Develop/checker/package.json) | 型・命名・静的解析・試験の開発環境 | 開発依存を採用先の必須導入物へ広げない |
 | [試験runner](../../../40_Develop/checker/tests/test-runner.ts) | 安全に列挙した試験を子Processで実行する | 通常Checkerの検査と、fixtureを作る開発試験を分ける |
@@ -104,7 +280,7 @@ Checker固有のPipeline、Finding、Rule RegistryおよびProfile本体は`40_D
 
 ### 内部ブロック
 
-Checkerは一つの配布入口から開始し、検査基盤は`40_Develop/checker/src`の責務別Directoryが所有する。Pipeline、Finding、Rule RegistryおよびProfile RuleはCheckerが所有する。工程別検査本体をlauncherへ置かず、callback登録だけで責務分離済みと扱わない。
+Checkerは一つの配布入口から開始し、検査基盤は`40_Develop/checker/src`の責務別Directoryが所有する。Findingと検査の編成はChecker、成果物解析・Schema・関係Graphの意味はDomainが所有する。旧Rule RegistryとPipelineは撤去した。工程別検査本体をlauncherへ置かず、callback登録だけで責務分離済みと扱わない。
 
 ```text
 配布入口 [template/tools/crdd-check.ts]
@@ -117,50 +293,35 @@ Checkerは一つの配布入口から開始し、検査基盤は`40_Develop/chec
        └─────────────────┘
                          │ Checker公開API
                          ▼
-┌────────────────────────────────────────────┐
-│ Checker Pipeline                           │
-│ [40_Develop/checker/src/]                   │
-│                                            │
-│ Markdown Parse                             │
-│      ↓                                     │
-│ Artifact Model                             │
-│      ↓                                     │
-│ Schema Validation                          │
-│      ↓                                     │
-│ Relation Resolution                        │
-│      ↓                                     │
-│ Cross-artifact Validation                  │
-│      ↓                                     │
-│ Registered Special Rules                   │
-└───────────────────┬────────────────────────┘
-                    │ 共通Finding
-                    ▼
-       指摘・未確認・範囲の集計 → stdout／終了値
+Checker
+  cli/command.ts                 単一受付・三操作の選択
+  cli/document.ts                文書の引数・Root初回確認・表示・終了値
+       ↓
+  repository/document.ts         探索・Scope・参照・工程順と集計
+       ├ 工程別八File            実在・列挙・読取り・Domain接続
+       ├ repository/reality.ts   実装・試験Traceの観測
+       └ Domain Model公開API     本文解析・Schema・関係・品質条件
+                    ↓ 中立Issue
+  report/                        既存診断変換・JSON・人間向け表示
 
-現行Profile境界
-  ├ application/checker-command.ts : 公開Use Caseの委譲だけ
-  ├ profiles/current-profile.ts     : CRDD公式の工程別検査本体と報告
-  ├ pipeline/                       : 汎用実行順序
-  └ rules/                          : 独立したProfile Rule
-
-開発試験入口 [test-runner.ts]
-  → 試験列挙 [test-discovery.ts]
+開発試験入口 tests/test-runner.ts
+  → tests/support/test-discovery.ts
   → tests/（通常Checkerとは別の子Process・fixture lifecycle）
 ```
 
 | 内部ブロック | Source群・関数群 | 役割 |
 |---|---|---|
-| 開発用接続部 | `40_Develop/checker/bin/checker.ts` | `40_Develop/checker/src/index.ts`へ接続し、launcherへ検査実装を複製しない |
+| 開発用接続部 | `40_Develop/checker/bin/checker.ts` | 内部の`src/cli/command.ts`へ接続し、launcherへ検査実装を複製しない |
 | 発見・参照・範囲 | `40_Develop/checker/src/`のRepository発見、`anchorsFor*`、`resolveLocalTarget`と範囲選択部 | 確認する文書集合と参照先を構成する |
-| Artifact変換 | `markdown-artifact-parser.ts`、`artifact-model.ts` | Markdown表現を検査用の意味Modelへ一度だけ変換する |
-| 構造・関係検査 | `schema-validator.ts`、`relation-engine.ts` | 単一成果物の決定論的構造と成果物間Relationを分けて検査する |
-| Rule実行 | `rule-registry.ts`、`rules/` | 固定Stage内でRule ID順に実行し、個別RuleをCoreへ埋め込まない |
-| Pipeline | `checker-pipeline.ts` | Parser、Model、Schema、Relation、Ruleを固定順序で合成する |
-| Finding | `finding-model.ts` | severity、code、path、rule、message、evidenceを共通形式へ揃える |
-| 公開Use Case | `application/checker-command.ts` | 受け取った要求を現行Profileへ委譲し、工程別検査を再定義しない |
-| 現行Profile | `profiles/current-profile.ts`、`rules/current-profile.ts` | CRDD公式の工程別検査、集計および報告を所有し、CLIやApplication入口へ複製しない |
-| 報告 | `profiles/current-profile.ts`の集計・出力部 | 機械的指摘と未確認範囲をstdoutと終了値へ返す |
-| 開発検証 | `40_Develop/checker/test-*`、`tests/` | 試験発見と契約検証。通常実行の構成部ではない |
+| Artifact変換 | Domain `artifact/parse-markdown.ts`、`artifact/types.ts` | 取得済みMarkdown表現を意味Modelへ変換する |
+| 構造・関係検査 | Domain `artifact/validate-schema.ts`、`artifact/graph.ts`と工程別意味検査 | 単一成果物の構造と成果物間Relationを検査する |
+| 用途別検査 | 工程別検査と`repository/reality.ts` | 十工程を既存順で直接実行し、その後にRealityを観測する。Registryを介在させない |
+| 成果物集合の検査 | Domain `artifact/inspect.ts` | Source順の解析、Schema順の検査、関係Graphを構成し、表示はCheckerが行う |
+| 診断 | `report/types.ts`、`report/convert.ts`、`report/document.ts`、`report/quality.ts`等 | 異なる既存shapeを維持して表示へ変換する。一律のrule・evidenceを追加しない |
+| 公開操作 | `cli/document.ts`、`cli/semantic.ts`、`cli/test-catalog.ts` | 既存三操作の引数・表示・終了値を所有する |
+| 文書観測の編成 | `repository/document.ts`と工程別八File | 工程を元の順に直接呼び、Realityはその後に実行する。旧Profile・互換中継・Rule Registryは持たない |
+| 報告 | `repository/document.ts`の集計と`report/output.ts` | 観測済みの指摘・未確認・件数を既存stdout形式へ返す。CLIが終了値を確定する |
+| 開発検証 | `40_Develop/checker/tests/` | 試験発見と契約検証。通常実行の構成部ではない |
 
 専門的な意味監査、外部URLへの照会、自動文書修正は接続していない。次の順序説明と境界表が、その制約を具体化する。
 
@@ -182,7 +343,7 @@ Checkerは一つの配布入口から開始し、検査基盤は`40_Develop/chec
 8. Finding Report
 ```
 
-PipelineのStage順序は固定する。同一StageのRuleはRule ID順で決定論的に実行し、Rule追加のためにPipeline順序を変更しない。Markdown Parser libraryやJSON Schema validatorの採用は実装選択であり、この責務境界を満たす限り特定libraryを設計契約にしない。
+検査の既存順序は維持するが、汎用Stage・Rule ID登録APIは提供しない。用途別検査を直接呼び、観測・短絡・失敗の順序を変更しない。Markdown Parser libraryやJSON Schema validatorの採用は実装選択であり、この責務境界を満たす限り特定libraryを設計契約にしない。
 
 実装上の順序は`40_Develop/checker`の実装正本で照合できる。引数処理、`discoverProjectFiles`、参照解決、範囲選択、報告構築を辿ると、どの集合を実際に確認したか再構成できる。単なるファイル件数では確認範囲を表さない。
 

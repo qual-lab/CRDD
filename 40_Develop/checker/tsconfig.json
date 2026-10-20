@@ -10,26 +10,31 @@
     "skipLibCheck": true,
     "strict": true,
     "target": "ESNext",
-    "typeRoots": ["./node_modules/@types"],
-    "types": ["node"]
+    "typeRoots": [
+      "./node_modules/@types"
+    ],
+    "types": [
+      "node"
+    ]
   },
   "include": [
     "./bin/checker.ts",
     "./src/index.ts",
-    "./src/semantic/**/*.ts",
-    "./src/test-catalog/**/*.ts",
+    "./src/cli/**/*.ts",
+    "./src/report/**/*.ts",
+    "./src/repository/**/*.ts",
+    "./tests/unit/repository/**/*.ts",
+    "./tests/unit/cli/**/*.ts",
+    "./tests/unit/report/**/*.ts",
     "./tests/integration/test-catalog/**/*.ts",
     "./tests/system/test-catalog/**/*.ts",
     "./tests/acceptance/regression-plan-understanding.contract.test.ts",
     "./tests/unit/semantic/**/*.ts",
     "./tests/integration/semantic-command.integration.test.ts",
-    "./scripts/semantic-legacy-inventory.ts",
-    "./src/profiles/current.ts",
     "./tests/integration/crdd-check.contract.test.ts",
     "./tests/integration/tools-naming.contract.test.ts",
-    "./tests/integration/domain-outcome-adapter.contract.test.ts",
-    "./tests/unit/inspection/pipeline.contract.test.ts",
-    "./tests/unit/reality/symbol-graph.contract.test.ts",
+    "./tests/integration/domain-results.integration.test.ts",
+    "./tests/unit/report/quality-state.contract.test.ts",
     "./tests/support/test-discovery.ts",
     "./tests/support/fault-injector.ts",
     "./tests/test-runner.ts",

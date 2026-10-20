@@ -5,9 +5,99 @@
 対象変更: [CHG-000082](change.md)
 基準改訂版: `98cab6e3278a61684c557a6499cfb602e2d19111`
 維持責任者・採用決定権限: Qual-Lab
-最終更新日: 2026-10-19
+最終更新日: 2026-10-20
 
 ## 1. 結論と実行境界
+
+<a id="checker-refactor-closure"></a>
+
+### Checker残件1〜6の一括対応 — 2026-10-20（再編作業完了・全体QAは未合格）
+
+現在の結果: 工程・共通文書の本文意味をDomainへ移管し、旧Profileを撤去した。Checkerは薄い文書CLI、Repository全体編成と工程別八File、用途別診断表示へ分離した。公開三操作・三型、引数、診断shape・順序・終了値、読取り・短絡・再読取りを維持する。新Reader・Snapshot・Registry・Lock・互換中継は追加しない。最終Domain全249件成功、Checker全442件は440成功・横断命名1失敗・手動UAT1未実施。関連146件、Header／公開／QA接続8件、実保存2件、Version Control利用側12件、両型・静的検査と台帳370件も成功した。静的検査のInfo62件は警告・失敗と区別する。実Repositoryの旧新比較は163,311観測イベントと報告・診断・終了値が一致した（時計だけ除外）。Source等133Pathの固定表Hash `2a991b2ee9894921d815ef9e92029239d7d9f29a16e001b0cc7083ef5504d28e`の独立再レビューと、追加8文書の是正後再確認は残指摘0。今回の補助物・実行結果は要点だけ本計画へ残して回収し、Source・設計・QAを同じ作業ブランチへ固定する。②再試行・保持物削除・Docker操作は行っていない。
+
+全体品質の留保: 横断命名の1,411診断は今回変更したFile外に残り、検査条件を緩めず失敗を維持した。これを全数確定欠陥とは扱わない。文書Checkerは3,426診断・終了1であり、歴史CHG内の参照3,422件と、HEADにも存在する旧RunnerのQuality表4件（Partial三行・Superseded一行がCovered／OPENの受理条件に不一致）へ分類した。過去Evidenceの改変や旧保証の成功化はしない。今回の再編完了をRepository全体QA・正式198項目評価・Release可能へ換算しない。
+
+試験時の失敗と是正: Windowsリンク／原子的公開は必要権限で再確認した。保存試験のRoot外fixtureがRepository-local TEMP配下ではRoot内になったため、空の独立Git fixtureを使い、実出力Directoryの短命File不存在を観測するよう修正した。Publisher・拒否条件は不変。追加全回帰を誤った起動Directoryから実行した際の子fixture未解決は、正式Package Directoryで全249件を再実行して区別した。公開module一覧とTest Headerの追従漏れも是正した。今回の回帰で残った初回staging一件は、exact参照・旧Owner PID不存在を確認し、既存resume／settleで失敗終了・不存在まで確認した。由来不明な過去残存と②の保持物は対象外とする。
+
+Architecture本文の着手前照合: まず分析本文の九観点・正式入力・Human Input・処置Relation・Ready時のOPEN／FAIL条件と、Definition／AreaのDetail引渡しTemplate条件を`artifact/architecture.ts`へ移す。本文用とChecklist用の二回read、Checklistの既存Domain検査、Directory由来kind／ID、集約と診断順を維持する。読み取れない本文を空値にせず、不正本文でも抽出関係を保持する。新Reader・Framework・永続状態・互換処理を追加せず、既存反例・旧新比較・型／公開／Header／台帳と独立確認を実施する。
+SPEC対応Evidenceの現在結果: 正規行・改訂表解析、共有Context／八観点根拠、閉包／根拠／改訂の三Issueを`artifact/spec-correspondence.ts`へ移管した。四つの実利用APIと未検査Cellを保持するPair型だけをRoot公開し、専用表・Section・引用判定は非公開とする。raw fingerprint再readと各行UI→SPEC read、最初の表／Section、短絡everyの訪問理由、NFKC四文字部分一致を維持した。関連97試験、既存Evidence結合2試験、公開／Header4試験、両型・静的確認・台帳363件が成功。実本文15変異×11先行失敗の165ケースで診断全field・理由出現・pairs・Fingerprint・read／lstat／列挙順・例外が一致し、独立レビューの定数命名1件を是正後の残指摘0。今回の補助と専用試験Rootは回収した。`profiles/current.ts`は7,255行であり、Architecture／Quality・共通本文・観測編成・旧Profile撤去・全体回帰・commit／pushは引き続き未完了。
+
+SPEC対応Evidenceの着手前照合: 改訂表解析、canonical行の対応先解析、既読UI／SPECによる行別八観点検査、最後の関係閉包・Evidence・改訂診断を`artifact/spec-correspondence.ts`へ移す。Checkerはfingerprint用の生本文再read・sort・hash、行ごとのUI→SPEC read、既存診断順を維持する。`every`で評価した理由だけを出現順に返し、短絡で未評価の行を補完しない。最初の見出し・表、共有UX／IA集合、NFKC・四文字引用・定型文拒否・重複・固定改訂の既存条件を維持する。本文取得の一括先読み・Reader・callback・永続状態・移行機能を追加せず、旧新比較・既存Evidence結合試験・直接試験・型／公開／Header／台帳と独立確認を行う。現在追加の人間判断は不要。
+
+SPEC Detailの現在結果: `artifact/spec-details.ts`へUI対応の後勝ちMap、ScreenのRelation出現列、SPEC Detail表のBHV抽出と被覆、対応表の状態／双方向被覆を移管した。さらにARCH／QA定義所有・Area所属・中央Traceを用途別モデルへ解析し、最終Owner／領域被覆を同じDomainへ接続した。八つの実利用APIと四モデル型をRoot公開し、対応表だけの解析補助は非公開とする。三つの中立IssueはCheckerの旧診断へ接続する。列挙・`lstat`・read・欠落診断・combined本文・UI Directory件数観測を維持し、可視本文を重ねて変換しない。最新関連33試験、既存Detail結合8試験、公開／Header4試験、両型・静的検査、台帳363件が成功。本文対応の旧新501ケースに加え、下流の三Owner方式・15変異・10先行失敗の450ケースで診断・例外・列挙／lstat／read順が一致した。独立レビューの不要公開API・設計反映・型Header・局所Map更新説明を是正し、残指摘0。今回の専用補助と試験Rootは回収した。`profiles/current.ts`は7,461行で、対応Evidence・Architecture／Quality・共通本文・観測編成は引き続き残る。局所成功を全体Passへ換算せず、全体回帰・最終確認・commit／pushは未完了である。
+
+SPEC Detail移管の着手前照合: UI/SCR/PRT対応、SPEC/BHV対応、画面Relation tuple、対応表と下流Owner／領域の意味をartifact/spec-detailsへ分離する。意味モデルは各read直後に作り、Root・Directory列挙・同じ本文の再read・combined本文・UI定義件数の観測はCheckerの元位置に残す。後段は意味モデルと観測済み値からSingle／Shared／Joint、領域被覆・重複・双方向閉包を検査する。純集合編成だけが後続観測後へ移る場合は区別し、失敗し得る本文解析を先読み・省略しない。新しいSnapshot／Reader・状態管理・Registry・Lock・汎用検証Frameworkは追加しない。既存Detail／Owner反例、直接UT、旧新比較、公開／Header／登録／型・静的確認と独立技術／品質・文書／直接影響確認を実施する。現在追加の人間判断は不要。
+
+SPEC集合照合の現在結果: 分析網羅性／重複、定義重複／登録網羅性、件数表／三者閉包、UI側pairs_with解析／閉包を元の観測境界でDomainへ接続した。旧集合条件963ケース、関連／公開90件、既存入口9件、Header5件、両型・静的確認と台帳363件が成功した。未使用となったChecker内の重複判定helperを撤去し、解析APIのHeader一件を実際の返却値へ是正して独立再レビュー残指摘0。定義件数取得・UI本文read・診断順は維持。補助八Fileと専用試験Rootは回収した。SPEC Detail／下流Trace／対応Evidence、Architecture／Quality、共通本文、Profile撤去、全体回帰、commit／pushは未完了であり、1〜5の目標は継続中。
+
+SPEC集合照合の追加照合: 分析網羅性／重複、定義重複／登録網羅性、件数表／三者閉包、UI側pairs_with抽出／双方向閉包を、現在の観測境界ごとに既存artifact/specへ移す。UI定義件数取得とUI本文readを先読みせず、元位置のIssue順を維持する。汎用集合検査・Reader・状態モデルを追加せず、重複出現列と集合を用途別に入力する。旧集合条件の組合せ比較・直接UT・既存SPEC入口・型／公開／登録確認と独立レビューで照合する。
+
+SPEC coreの現在結果: 分析・登録表・定義を三つの本文APIと関係モデルへ移管し、旧診断六分類と不正本文の関係出現列を維持した。共通／直接／公開86件、既存入口9件、Header5件、両型・静的確認と台帳363件が成功。旧分析348・定義180・登録5ケースでモデル・診断全field／順序が一致し、独立再実行・設計／登録照合後の残指摘0。定義のUI局所列は一意なDirectory IDの列挙条件で従来の対象ID抽出と等価。移管先の型厳格性差分は既知match／境界内indexへのstring assertionだけで対処し、fallbackを追加していない。Detail・下流Trace・対応Evidence・最終閉包と1〜5全体は未完了。
+
+完結への継続方針（2026-10-20）: 利用者は残作業1〜5の完了を明示した。SPEC・Architecture・Qualityの本文／意味モデルを取得済み入力と観測事実からDomainへ移し、Checkerは現在位置の観測・短絡・結果配送を所有する。工程全体の先読みSnapshot、Reader／一般I/O callback、移行互換処理は作らない。現在の成立能力を移管先API・利用側・既存反例へ対応付けてから旧Profileを撤去し、最終回帰・独立確認・残存参照・自己生成物清掃・commit／pushまで進める。全Package命名検査の不合格は原因と今回差分への影響を確認し、例外化や検査緩和で隠さない。必要な人間判断が発生したときだけ停止する。準拠表明・main統合・Release・②AI再試行・保持物削除・Dockerは対象外。
+
+SPEC本文移管の着手前照合: まずUX／IA別分析、登録表、統合定義の本文と重複を保持する関係モデルを一つの用途単位としてDomainへ移す。不正本文でも解析済み関係を保持し、可視本文化、ID追加、診断、後続集合集約の位置を照合する。Detail・下流Traceの観測を先読みせず、本文／Checklistの既存条件・Issue順を維持する。公開集合・型・登録・既存入口・直接反例・旧新比較・静的確認と独立レビューを行い、新しい状態／Registry／Frameworkは追加しない。
+
+UX正式入力・関係閉包の現在結果: 正式入力Header／期待リンク／補完禁止と六観測事実の照合、UX／Journeyの最終関係閉包をDomainへ接続した。参照解決・境界観測・定義readはCheckerに残し、正式入力→本文診断、旧Root観測→閉包診断の順を維持。直接／公開／変換30件、共通回帰70件、既存安全反例・閉包11件、Header／公開5件、両型・静的確認と台帳362件が成功。正式入力18,368ケース・閉包512ケースの旧新診断が全field・順序とも一致し、独立再実行とSource／設計／登録照合後の残指摘0。初回の補助関数import元誤りを是正済み。補助四Fileと専用試験Rootは回収した。ID網羅性・入口／Template接続整理・他工程本文・Profile撤去・最終回帰は未完了であり、②再試行・保持物・Docker操作は行っていない。
+
+UX正式入力・関係閉包の着手前照合: 参照候補解析・Path解決・Discovery定義read・実体境界はCheckerへ残し、既読本文の正式入力Header・期待リンク・探索元補完禁止と観測済み事実の照合をDomainへ移す。新しいReader・Root・Snapshot・Stateは作らず、元のFence除去→Comment除去を維持する。一部の純計算は旧短絡より先行するが、外部read・診断順を変更しない。正式入力Issueを本文判定より先に出し、最終関係閉包も旧位置で検査する。旧新の組合せ比較、直接・公開・Header・既存安全反例・型・静的確認と独立技術／品質・文書／直接影響確認を行う。準拠表明・統合・Release・外部AI／Docker境界は変更しない。現在追加の人間判断は不要。
+
+Discovery本文の現在結果: 要求定義・探索分析の構造／Checklistと採用要求ID抽出をDomainへ接続した。直接／公開／変換24件、共通成果物・診断回帰67件、既存入口6件、Header／公開5件、両型・静的確認と台帳362件が成功。旧定義902ケース・旧分析432ケース・採用行8ケースが一致し、独立再実行とSource／設計／登録照合後の残指摘0。入口の再read・列挙・ID追加・後続網羅性を維持し、新しい状態・移行・受理条件は追加していない。補助七Fileと専用試験Rootは回収した。入口／Template Checklist・正式入力・最終閉包・他工程本文と全体回帰は未完了であり、②再試行・保持物・Dockerには触れていない。
+
+Discovery探索分析・採用要求解析の追加照合: 同じ本文Ownerへ探索分析の成果物種別／EXP IDとChecklistの限定条件、および入口の採用要求行からID集合を得る純粋解析を移す。探索分析は構造→Checklistの二Issue、入口は生本文の行条件・最初のREQ ID・Set化を維持する。入口の二回目のreadを省略・前倒しせず、既読文字列を取得した元位置で解析する。定義移管と同じ検証／独立確認集合へ含め、新しいI/O・状態・受理条件は追加しない。
+
+Discovery要求定義の着手前照合: 既読定義本文の必須節・Placeholder・最初のEXP参照の二ID一致とChecklistをartifact/discoveryへ移す。生本文・旧見出しの二選択・構造不正後のChecklist継続・診断順を維持する。Root・列挙・実在ID追加・read・網羅性はCheckerに残し、新しいReader・移行処理・状態・Frameworkは作らない。現行モデル・表示変換・公開集合・登録・既存入口と旧新比較、型・Header・静的確認、独立技術／品質・文書／直接影響確認を実施する。規範・準拠表明・最終統合・Releaseや外部実行境界は変更せず、全体準拠監査・実AI／Docker試験は追加しない。現在追加の人間判断は不要。
+
+UX分析本文の現在結果: 六段階構造・Handoff／Checklist・関係図表／Same比較・責任境界・Blueprint処置をDomainへ移し、不正本文でも二関係集合を保持した。直接／公開／変換25件、既存UX入口12件、正式入力の安全反例8件、Header／公開5件、共通成果物・診断回帰60件、両型・静的確認と台帳361件が成功。41文書から作った2,706ケースで旧診断の全field・順序と関係集合が一致し、独立再実行・直接登録／設計確認後の残指摘0。正式入力のPath観測と先行診断はCheckerへ残し、Discovery本文・正式入力の本文条件・最終閉包・全体完成は未完了。今回の補助三Fileと専用試験Rootは回収し、②再試行・保持物・Docker操作は行っていない。
+
+UX分析本文の着手前照合: 正式入力のPath観測・Discovery定義read・先行診断はCheckerへ残し、その後の既読分析本文の構造、Handoff／Checklist、New／Same関係、責任境界表、Blueprint処置を既存artifact/uxへ移す。入口のリンク出現数だけを値入力とし、新しいReader・Snapshot・callback・永続状態は追加しない。不正本文からも解析可能な関係を保持し、生本文／可視Checklist、診断順と最初の失敗の境界を維持する。直接UT・既存公開入口・旧新比較・型・Header・登録整合と独立技術／品質・文書／直接影響確認を行う。準拠表明、統合・Release、外部AI／Docker実境界の変更はなく、これらの監査・試験を機械的に追加しない。現在追加の人間判断は不要。
+
+UX定義の現在結果: 本文構造・直接Handoff・ChecklistをDomainへ接続し、表示側は定義専用三Issueだけを旧診断へ変換する。直接／公開／変換21件、既存入口5件、Header／公開5件、両型・静的確認と台帳361件が成功した。35文書から作った630ケースで基準版と一致し、独立再実行でも一致・残指摘0。今回の補助二Scriptと専用試験Rootは回収した。UX分析・Discovery本文・正式入力観測と全体完成は未完了であり、②再試行・保持物・Dockerには触れていない。
+
+UX定義の限定移管: 読取り専用確認者と本文構造・状態・引渡し・Checklistの受理条件を照合した。生本文のCanonical／Superseded、状態行一件、本文不正でも後続継続、Checklist理由計算後のHandoff→Checklist診断順を維持する。対象列挙・ID追加・read・最後の網羅性はChecker、本文意味は既存artifact/ux、表示は既存report/convertが所有する。実Domain由来の全三Issue変換、正常二状態・重複・期待ID・不可視本文反例、既存入口・Header・公開／QA・型・静的確認と独立レビューを行う。新しいモデル層・callback・状態・移行機能は追加せず、人間の追加判断は不要。
+
+UX解析の着手前照合: 既存UX全体を読取り専用確認者と棚卸ししたうえで、今回の移管単位を入口ID／REQ関係、可視の横断投影、Journeyの単純Pipe解析へ限定する。入口の関係計算だけ同じ本文取得直後へ寄せ、既存位置では同じモデルの集合を参照する。読取り・例外・診断は先取りせず、Projectionだけ可視本文化し、JourneyのSet化を維持する。正式入力のPath観測とUX分析／定義・Discovery本文・最終閉包は未完了として保持する。直接UT、公開・Header・QA、既存UX入口反例・型と独立技術／品質・文書／直接影響確認を行い、新しいReader・Snapshot・可変Sessionは追加しない。追加の人間判断は不要。
+
+UX解析の現在結果: 三つの純粋解析をDomainへ接続した。直接／公開15件、既存UX入口7件、Header／QA7件、型・静的検査と台帳361件が成功し、基準版の計算との19ケース比較も一致した。限定独立レビュー残指摘0。正式入力・分析／定義本文・Discovery・最終閉包は未完了であり、全体回帰の成功を意味しない。
+
+CHG本文移管の着手前照合: 変更文書の構造をDomainのartifact/changeへ移し、候補実行を所有するquality-change-control/gateとは分離する。対象はCanonical本文、ひな型の別条件、最初の指定コメント区画の案内集合だけ。見出し0／複数はそのIssueで打切り、Block不正は後続へ進み、旧見出し→番号80以降のPhase条件の順を維持する。生本文・正規表現・閾値を変更しない。CheckerのRoot、列挙・整列、read、Template不存在時の他Template観測省略、Release Evidence観測は保持する。既存入口反例、直接UT、診断変換、型・Header・公開／QA／VC接続、旧新の読取り／先行失敗比較と独立技術・品質・文書・直接影響確認を実施する。移行コードや新しい管理機構は追加せず、規範・準拠表明・統合・リリースの変更は行わない。追加の人間判断は不要。
+
+IA本文移管は完了した。入口・分析・定義・横断投影・網羅性・関係閉包をDomainへ移し、Checkerは列挙・読取り・診断配送を維持する。関連44件と既存IA入口21件、型確認が成功した。実Repositoryの全10,079読取りと競合する先行失敗2,031読取りで旧新の出力・例外・終了値・読取り順が一致し、限定独立レビューの是正後残指摘は0件。全体完成とは区別する。
+
+UI本文移管の着手前照合: 入口・Detail・UX／IA別分析・定義・集合網羅性・関係閉包を、既読本文と意味モデルだけでDomainへ移す。行別Issueの順序、読取り後の分析ID追加、本文不正とChecklist不正の別診断、不正本文の関係保持、Detailの既存集合数条件を維持する。CheckerにはPath・列挙・read・lstat・Template選択・診断変換を残す。新しいSnapshot、callback、Session、Registryは作らず、集合判定を強化しない。公開入口の既存反例、直接試験、読取り順・先行失敗比較、型・Header・公開境界と独立確認を行う。追加の人間判断は不要。
+
+Semantic配置の着手前照合: 読取り専用確認者と現行Source・CLI・UT／IT・VC閉包を照合した。混在Fileを既存report/types、report/semantic、repository/semanticの三責務へ分ける。未知Issue／不正Detail拒否、観測順、観測不能時のCompiler省略、前提診断時のGraph省略と入力列の同一参照返却を維持する。CLIと試験を新Ownerへ直接接続し旧File・互換reexportは撤去。診断UTはreport、Repository結果UTはrepositoryへ配置し、型・台帳・Header・公開境界・VC・既存Semantic入口と独立確認を実施する。新しい中継やDomain再実装は追加せず、人間の追加判断は不要。
+
+Reality配置の着手前照合: 既存の診断をreportへ、観測とGraph結果接続をrepository/realityへ統合し、Catalogの解析済み値の登録対応だけをDomainへ移す。空文字・未知field等の受理集合、全走査のIssue順、部分Map非公開、ManifestなしのCatalog省略、前提診断時のGraph省略・同一参照を維持する。試験専用Manifest wrapperを本番から撤去し、同じDomain結果変換だけ試験側へ置く。旧二File・互換reexportは撤去し、現行設計・API・利用側・UT／IT・VC・台帳・Header・型と独立確認を追従する。厳密Catalogへの置換、移行機能、新しい状態管理は対象外。読取り専用確認者と整合済みで、人間の追加判断は不要。
+
+利用者は工程本文判定のDomain移管、Repository処理整理、旧Profile撤去、旧中継整理、全体回帰・独立レビュー、清掃・commit／pushの六項目を一続きで承認した。現在追加の人間判断は不要。完了済みの部分だけを六項目全体の完成へ換算しない。
+
+| 項目 | 現在の結果と残件 |
+|---|---|
+| 1 工程本文判定 | 完了。工程・共通文書の本文意味をDomainへ接続。Quality状態・分析・統合・Definition・Detail引渡し・全体閉包と、表・Header・版・Identityも移管し、回帰・独立確認へ接続した |
+| 2 Repository処理 | 初期形態・探索・Scope・現在／固定参照に加え、文書全体の観測編成と工程別八Fileへ分離。DomainへReaderやFilesystem Effectを渡さず、既存の参照解決だけを実Consumerへ搬送する。全体163,311観測イベント比較は一致した |
+| 3 旧Profile撤去 | 完了。cli/documentへ丸ごと改名せず、薄い受付、Repository全体編成・工程観測・Domain意味・report表示へ分割。旧転送は残さない。公開API・利用側・試験を追従した |
+| 4 旧中継整理 | 十工程のcallback登録、汎用Pipeline・Rule Registry、Quality／RealityのRuleを撤去した。旧形式移行棚卸しScript・専用三試験も撤去。Semantic／Realityの混在Fileをreportの型・変換とrepositoryの観測・結果接続へ分離し、旧Fileと互換reexportを撤去した。RealityのCatalog本文意味はDomainへ移管、試験専用Manifest変換wrapperも本番から除去。限定回帰・独立確認は完了し、最終候補全体の確認は項目5で扱う |
+| 5 検証・独立確認 | 依頼範囲の確認完了。Domain249成功、Checker440成功／既存横断命名1失敗／手動1未実施、型・静的・台帳370 valid、独立再レビュー残指摘0。旧新比較・局所結果と全体不合格は上記のとおり分離する |
+| 6 清掃・commit／push | 比較補助48File、空の専用Root五件、最終実行Root二件（ログ・生成cache計407要素）、空のSemantic試験親と今回の中断記録一件を正式回収し、不存在確認済み。Source・設計・QA・計画を同じCommitへ固定し、作業ブランチをpushする。Git履歴とRemote参照を実行結果の正本とし、main統合・Releaseは行わない。②の保持物と由来不明な過去残存は対象外 |
+
+CHG移管の現在結果: 変更文書の影響区画・Phase条件、ひな型固有条件、最初の指定コメント区画の案内集合をDomainへ接続した。見出し不一致だけの打切り、生本文、番号79／80、Issue順、Template不存在時の他Template読取り省略を維持。直接／変換／公開16件、既存入口8件、Header／QA7件、両型・静的検査と台帳360件が成功した。全Repositoryの10,079読取りと競合する先行失敗1,584読取りで旧新の出力・例外・終了値・読取り順が一致。新UTの配列名一件と旧Headerの実責務説明を是正し、限定再レビュー残指摘0。全Packageの型付き命名は既知違反で不合格を維持し、全体Passとしない。今回の補助四Fileと専用試験Rootは回収し、②再試行・保持物・Dockerには触れていない。
+
+UI移管の現在結果: 本文・関係をDomainへ、診断変換をCheckerへ接続した。初回のIssue前置二重化とTest helper Header不足を是正し、実Domain生成から全11診断への接続を補強。最終の既存入口16件、直接／公開16件、Header／QA接続7件、型・静的確認が成功した。実Repositoryの全10,079読取りと競合する先行失敗1,688読取りで出力・例外・終了値・順序が旧新一致。未使用本文を要求した三APIはPathだけへ限定し、個別Headerも是正して独立レビュー残指摘0。
+
+Semantic配置の現在結果: 既存の診断型をreport/types、純変換をreport/semantic、観測・Domain結果接続をrepository/semanticへ分離した。試験もreportとrepositoryへ対応付け、CLI／IT／VCを直接接続。台帳の旧試験ID参照二件を是正し356件valid。関連27件、新しい短絡反例を含む10件、Header／公開／QA接続7件と静的確認が成功し、独立レビュー残指摘0（独立24件成功）。前提診断時はGraphを作らず同じ診断列を返す。今回の比較用本文と機械移動補助は回収し、生成した専用試験Rootも不存在を確認した。保持中の②試験物・旧JSON・過去Evidenceには触れていない。
+
+Reality配置の現在結果: 旧二Fileを撤去して観測とGraph接続をrepository/realityへ、三field診断変換をreport/realityへ統合した。Catalogの解析済み値の限定条件だけDomainへ移し、不正順・空文字・未知field・空配列・部分Map非公開を維持する。試験専用Manifest変換は試験側だけに残し、登録・VC・現行設計を追従。関連16件、公開／実入口IT／VC28件、Header／QA7件、型・静的検査と台帳358件が成功。旧新Catalogの12ケースで観測順・診断・部分結果境界が一致した。観測処理をProcess／Transport境界とした旧Header四箇所を是正し、独立レビュー残指摘0（独立28件成功）。今回の補助Scriptと専用試験Rootは回収し、②のAI再試行・保持物削除・Docker操作は行っていない。
+
+独立確認は、VCの利用元期待集合・移管後Header・Domain UT配置の三指摘を是正して残指摘0。追加のLayout／参照観測、局所名・Trace表記の限定再レビューも残指摘0（独立22件成功）。全体427件は追加移管前の結果であり、現在候補全体のPassへ流用しない。新しいRegistry・一般I/O callback・一括Snapshot・Lock・状態管理を追加せず、②のAI再試行・unknown保持物・Docker操作は引き続き対象外とする。
+
+今回の追加移管では、Domain／公開境界／報告／CLI／Reality等70件、Header・公開・逆依存・QA接続10件、実モデルとUX公開入口6件、VC閉包12件が成功した。実Repository全体の旧新比較は時刻だけを正規化し、出力・終了値・全本文読取り順が一致。不正引数と二組の読取り失敗候補でも先行例外・途中出力・読取り順が一致した。独立確認の文書一指摘は、DomainのSchema能力とQuality本番でschemas未指定である範囲を区別して是正し、再レビュー残指摘0。追加後の全体回帰は全Packageの型付き命名診断で不合格であり、全体Passではない。今回追加した局所名の違反は是正し、既存違反の例外化はしない。
+
+利用者は旧形式の移行をフロントAIの責務とし、Checkerを現在のCRDD仕様の検査へ限定することを確認した。旧移行棚卸しコード・専用三試験・登録・現行参照を撤去し、通常Semanticの解析・関係・診断・保存とPPR-UT-016／017の現在モデル義務は維持した。削除後の関連23件と型確認、台帳351件の整合が成功し、独立レビュー残指摘0。旧JSON・過去Evidenceは削除していない。今回の比較Source・移動補助は回収し、全体回帰の専用Rootも不存在を確認した。六項目全体とcommit／pushは未完了である。
+
+Repository観測の実装結果（2026-10-20）: 三つの観測・字句判定と共用の例外code取得を`repository/observe.ts`へ配置し、全Consumerを内部Named importへ接続した。例外code取得はwalkにも使われており同じ実装を共用する。Root・診断・既存同期性、公開集合は不変更。観測UT三件を含むCLI／表示／VC関連24件、実File／Linkを用いるRoot・Scope・References・fallback回帰19件、公開集合／Header／逆依存／試験集合六件が成功。静的三軸成功（既存Coordinator57 infoを保持）、台帳valid347。最初の試験集合確認は標準権限でWindows Link作成がEPERMとなり未成立だったため、許可された実行環境とRepository内専用TEMPで再確認し六件成功した。Root／Scope回帰と再確認の自己生成領域は不存在まで確認済み。独立レビュー残指摘0、新UT三件も独立再実行で成功。今回の観測配置単位は完了とし、Profileの意味判定・探索／範囲／参照の残る編成と全体回帰は引き続き未完了。②のAI再試行・保持物削除・Docker操作・Commit／Pushは行わない。
+
+Repository観測の着手前照合（2026-10-20）: 既存計画の`repository/observe.ts`へ同期lstat・構成要素Link観測・字句包含を移管する。Root選択・実体拒否・適用範囲・診断はProfileへ保持し、公開APIは増やさない。独立確認で三関数の利用側、ENOENT限定null、非ENOENT伝播、Root自身非観測、Root同一／外部／途中不存在false、`..name`拒否の旧条件を照合した。観測不能を不存在と見なす改善や新しい安全保証は追加しない。Source・型検査対象・Symbol・台帳・直接UTを追従し、Root／Scope／References／Link・fallbackの公開回帰、静的確認、独立レビューと文書・直接影響照合を行う。準拠表明・全体QA・Release・Docker・外部AI・保持物は対象外。現在、人間による追加判断は必要ない。
 
 <a id="source-structure-review"></a>
 
@@ -33,7 +123,7 @@
 
 ##### 検査・検証Packageの縮小 — 2026-10-19の途中見直し
 
-状態: 先行2Package撤去、Semantic移管、Runnerのモデル／計画入口移管と局所回帰・独立再レビューを完了。Domain全体回帰は下記の既存試験条件により未成立。Checker本体の責務移管は未着手。初回基準Commitは`0e26cf797`、Runner移管の基準は先行作業をcommit／pushした`fb19c5dae`。以下は人間が提示した新方針であり、旧Package維持判断と初回17Package順序をこの範囲で変更する。局所完了を全体移管の完成と扱わない。
+状態: 先行2Package撤去、Semantic移管、Runnerのモデル／計画入口移管と局所回帰・独立再レビューを完了。Domain全体回帰は下記の既存試験条件により未成立。Checker本体は本文Anchor解析から責務移管を開始した。初回基準Commitは`0e26cf797`、Runner移管の基準は先行作業をcommit／pushした`fb19c5dae`。以下は人間が提示した新方針であり、旧Package維持判断と初回17Package順序をこの範囲で変更する。局所完了を全体移管の完成と扱わない。
 
 | 対象 | 採用された処置方向 | 維持するもの／今回増やさないもの |
 |---|---|---|
@@ -61,6 +151,20 @@
 
 ###### 目標構造の責務境界
 
+Markdown Fence解析の着手前照合: `current.ts`の純粋な行／Fence構造解析を既存Domain `artifact/markdown.ts`の`parseMarkdownFences`へ移す。行・Fence型は既存`artifact/types.ts`が所有しRootから明示公開する。読取り専用確認で当初のCHANGELOGだけという想定を訂正し、Discovery要求IDリンク・README版解析・CHANGELOGの三Consumerを全数接続する。既存の可視本文除去・Artifact解析とはコメント、空白、返却情報が異なり統合しない。最大三ASCII空白、開始infoのbacktick拒否、marker・長さ・閉じ後空白、言語小文字化、行index、未閉鎖状態、entriesとcontentsのObject共有を維持する。不成立な開始行は通常行であり不正文法拒否APIとは呼ばない。BOM除去・改行分割・Root／Filesystem観測・リリース意味・診断はCheckerに保持する。分類は意味不変の責務移管。旧新固定500入力比較、Domain直接UT、同じ三用途の移管前後実入口30件、公開集合・Header・VC閉包・静的検査と独立技術／品質・文書／直接影響確認を行う。新しいRegistry・状態・Lock・Frameworkを作らず、準拠表明・Release・AI／Docker・保持物は対象外。追加の人間判断は不要である。
+
+Fence解析の自己確認: 旧新固定500入力で構造化結果が一致し、Domain直接UTへ閉鎖・未閉鎖・開始不成立・行所属・内容行Object共有の二件を追加した。公開集合・Artifact・VC閉包の関連46件とHeader／公開／逆依存七件が成功。三Consumerの実入口30件は移管前後とも成功し、専用試験親Rootも不存在を確認した。Checker静的三軸・Domain型確認は成功、既存Coordinator57 infoは維持する。初回の公開型許可集合の並び順を期待規則へ揃え、Windowsの一時的なFile mappingによる整形拒否は強制解除せず通常再確認で成功した。Node/V8の直接UT計測では移管関数の分岐12/12、Module全体85/87（97.70%）、行・関数100%。未到達二枝は既存表解析の190／208行の`cells[last] ?? ""`のfallbackで、初期化済み配列へ常に文字列を保持する正常入力では到達しない。今回の移管を理由に削除・強制到達・Module全体100%の表示はせず、Domain全体整理の既存条件として残す。新たな外部Effectや保持物処置は行っていない。
+
+Fence解析の独立確認: 残指摘0。旧新固定500入力とDomain直接UT五件を独立再実行して成功した。三ConsumerのRoot接続、旧局所関数・二型の撤去、空白・未閉鎖・開始／終了行・参照共有・mutableな結果、既存可視Parserとの差とChecker側のBOM・改行・意味判断の維持を確認した。今回のFence解析移管は完了し、比較・移動用の短命補助Fileを削除した。Checker全体の未移管責務・全体回帰は引き続き未完了とする。
+
+CLI用途別配置の着手前照合: 合意済みのChecker詳細Treeへ従い、Semantic受付を`src/cli/semantic.ts`、台帳／計画受付を`src/cli/test-catalog.ts`へ移す。親側が現Source、規約、Root export、単一受付、UTのSource観測、STの依存検査、Symbol／tsconfigと現行詳細設計を照合した。分類は意味不変の配置Refactorであり、関数本文・引数・出力callback・Root検証・読取り・明示保存の条件は変えない。旧Pathの互換転送を作らず、旧test-catalog Source Directoryは空なら撤去する。本文はimport差だけで一致すること、受付七入力の出力／エラー／終了値、既存公開API・実CLI・表示／明示保存・計画のみの契約を確認する。独立技術／品質レビューと文書・直接影響確認を行い、準拠・Release・外部AI／Dockerの境界は変更しないため、それらの全体監査・E2Eは発火しない。現在追加の人間判断は不要である。
+
+CLI用途別配置の自己確認: 二Fileともimportの移動差だけで本文が一致し、受付七入力の出力・エラー・終了値が移動前後で完全一致した。旧Sourceと空Directoryを撤去し、Root export／単一受付／UT・STのSource観測／Symbol／tsconfig、Checker・Semantic詳細、現在Reality Auditの実体Pathを追従した。関連19件成功、既存の人間理解UAT一件は未実施のまま。表示と明示保存・台帳計画・高負荷条件・Git変更集合の公開接続を確認し、新しい試験実行器は作らない。Checker静的三軸は成功し、既存Coordinator57 infoは維持する。移動適用で一部だけ反映された状態は現物照合で検出して揃え、計画の重複挿入も除去した。関数本文へ処理を追加していない。全体回帰・独立確認は別に判定する。
+
+CLI配置の独立確認後の是正方針: 二本文の同値性と公開接続10件は独立確認で成功したが、Version ControlのConsumer閉包試験の旧期待Path六箇所と、旧Runner詳細の現行Owner案内一箇所を検出した。全結果を統合して指摘元と方針整合後に追従した。同Suiteの再実行ではPath差は解消し、別の試験器不整合により二件が停止した。実Source全数の局所診断ではDomain Anchor本文の正規表現だけで再現し、移動前のGit index本文でも同じ失敗だった。既存lexerは正規表現開始候補として`&&`／`||`／`=>`を要求する一方、文字単位tokenしか生成しないため、直後の正規表現内backtickをTemplateと誤認していた。親側と読取り専用確認で、汎用一文字の前へこの三tokenを追加し、各直後の正規表現・その後のNamed import保持・Template式内の禁止dynamic／deep import拒否を確認する最小是正へ合意した。既存反例・探索集合・期待件数を維持し、Production Sourceの除外・変更や万能parser化は行わない。新しい状態・Effect・Framework・人間判断は不要で、更新版を独立再確認する。
+
+CLI配置の区切り: 是正後のVC Consumer閉包12件、Checker関連19件、公開集合／逆依存／Header六件が成功し、手動UAT一件は未実施のまま保持した。Checker静的三軸・VC型確認・Catalog整合も成功。再レビューは残指摘0、独立VC12件が成功し、二Sourceの本文同値性、旧現行参照が移管説明だけであること、探索・件数・拒否条件の維持を確認した。試験の自己生成Rootと旧空Source Directoryは不存在を確認した。CLI用途別配置は完了し、document受付・固有判定・観測の分離と全体回帰は未完了である。今回の結果を未実施UAT・実AI・Releaseの成立へ拡張しない。
+
 ```text
 40_Develop/
 ├ domain-model/
@@ -82,6 +186,98 @@
 ```
 
 これは責務候補であって、空Folderや各Folderへの一律File作成要求ではない。domain-modelの現行49 Source Fileへ丸ごと追加せず、既存責務への統合を優先する。`types.ts`・`crud.ts`・`storage/store.ts`等は規約と実処理に合わせる。Capability内barrel、新しい汎用Rule登録Framework、互換Packageは追加しない。公開APIの具体名・入出力と全移管File対応はSource分解後のBefore／Afterで確定する。
+
+###### Checker本体の移管順序と最初の単位
+
+出力整形の着手前照合: Profile末尾の表示分岐だけをreport/output.tsへ移す。DocumentReport・参照mapをreport/typesへ定義し、表示に必要な既存fieldを維持する。Report構築・時計・集計・並替え・終了判断はProfileが所有する。表示側は既存四表示組合せと参照map、callback粒度・改行・padding・nullを保持し、例外を握り潰さない。Profileから元requestのメソッド呼出しとして搬送し、callback受信者も変更しない。新しい保存、汎用Report、Root APIは追加しない。固定Report全四方式の旧表示断片比較、最初・途中・最終出力失敗、公開六方式と既存回帰、静的・Header／QA接続・独立レビューを行う。規約・文書・直接影響を照合し、準拠表明・Releaseは変更しないため全体準拠監査・AI／Docker試験は追加しない。未使用Outcome Adapterの保証対応・撤去は別残件とする。着手前の読取り専用確認で整合し、人間の追加判断は不要である。
+
+出力整形の自己確認: 固定500Report×四方式の2,000比較で、基準`eeb4b032e`の表示断片とcallbackごとの文字列列が完全一致した。固定時刻・所要時間の表示も比較に含めた。公開六方式では実時刻・所要時間だけを除いて出力・終了値が一致し、元requestのcallback受信者も確認した。合成Rootは回収・不存在確認済み。直接UT三件は全四方式、空・warning・重複・長いcode・日本語・null／空参照、最初／途中／最終callbackの同一例外と後続発行停止を固定した。関連31件、公開集合／Header／QA5件、文書実入口6件が成功し、試験親領域の不存在も確認した。Checker静的三軸は成功、既存Coordinatorの57 infoは維持する。独立レビュー・全体回帰は未完了である。
+
+出力整形の独立レビューは残指摘0。確認者も固定Report 2,000比較、公開六方式、直接UT三件を実行し、文字列・key順・発行粒度・callback受信者・失敗後停止、型とOwner・品質接続の一致を確認した。合成Rootの不存在と空白検査も確認済み。上記自己確認時点の未完了レビューを完了し、一時移管・比較helperを削除した。表示層に保存・時計・新しい判定を追加していない。全体回帰、残る判定移管と観測の配置整理は未完了で、変更は未コミットである。
+
+未使用Outcomeの撤去評価の途中結果: Domainの契約妥当性、現行本番Issue変換の未知kind拒否、実入口の失敗・未確認表示は別々に存在する。一方、現PipelineはGraphのissues／resultを利用し、汎用の四状態をそのまま公開するSurfaceではない。専用ITの四状態成功を現在の公開入口の成立根拠へ流用しない。RCM-IT-011等の保証全数を本番Owner・観測へ対応付ける作業が残るため、今回は汎用Adapter・型・旧ITを削除していない。新しい四状態Frameworkを本番へ追加して試験を正当化する処置も行わない。
+
+Outcome撤去評価の着手前照合と経路修正: 読取り専用の技術／品質確認で、本番Consumer0件に加え、Domain妥当性検査にも直接UTがないことを確認した。既存検証は未使用Adapter経由の専用ITだけだったため、Domainへ公開入口の直接UTを追加する。これは既存契約の検証追加であり、本番・公開API・QA義務を変更しない。正常四状態、partialのnull結果、非成功のIssue欠落、completeとIssue併存、不正field・位置・details、禁止field、構造的に正しい未知kindを確認する。RCM-UT-016への接続はDomain部分の根拠に限定する。局所・関連回帰、型・静的確認、Header／Catalog／Symbolと独立レビューを行う。外部Effect・準拠表明・Releaseは変えず、全体準拠監査とAI／Docker試験は追加しない。
+
+Outcome撤去の判断待ち: 「未使用の汎用Adapter・専用結果型・旧ITを撤去し、全四状態を一律にChecker結果へ変換する未接続の保証を退役させ、QAを実本番経路の結果・診断・拒否・終了値へ具体化する」ことを推奨する。ただし旧RCM-IT-011／RCM-UT-016の表現・観測対象が変わるため、純粋な配置換えとは扱わず人間へ確認する。Domain四状態の維持とChecker全四状態変換の維持は同じ保証ではない。確認までは旧Source・型・IT・QA文言を保持し、直接UTの成功を本番接続の根拠へ流用しない。
+
+Outcome撤去の採用と着手前照合: 利用者は具体的なBefore／Afterの説明後に「OK、それで進めて」と承認した。上記判断待ちは解除し、旧汎用契約の退役を今回のQA変更として明示する。読取り専用の技術／品質確認で、Domain直接UT、実Schema invalid→診断、実Graph partial→診断＋後続Graph、文書公開入口、Reality実Source欠測、Semantic欠測1／Root不正2を必要母集団として照合した。Sourceは未使用本体・型・専用ITの撤去だけとし、本番判定・公開API・JSON・文言・終了値を変更しない。新しい変換・State・Frameworkを作らない。QA定義と品質統合表、両詳細設計、Symbol／Catalog／tsconfig、計画・現在投影を追従する。固定差分の独立レビューは技術／品質と文書・直接影響を対象とし、準拠表明・Releaseを変えないため全体準拠監査は追加しない。AI／Docker・保持物削除は対象外である。
+
+Outcome撤去の自己確認: 未使用本体・型と専用ITを削除し、実Producer／公開入口の結合試験四件へ置換した。関連34件と公開集合・逆依存・Header／QA接続六件が成功。試験探索集合の一件は通常権限でWindowsのリンク作成拒否となったが、必要な実行権限で同じ既存試験を再実行して成功した。判定条件は変更しない。Checker静的三軸・Domain型確認と差分空白検査が成功し、既存Coordinatorの57 infoは維持する。最初の試験器の期待code誤記と、空00_CRDDを作ったためadopterへ切り替わる合成入力を修正し、本番Sourceは変えていない。旧API／Symbol／専用IT参照はSource・Registry・配布入口で0件、新試験Rootと権限不足で停止した探索Rootは不存在を確認した。局所成功を全体回帰・QA全体Pass・Release可能へ換算しない。
+
+Outcome撤去の独立確認と区切り: 初回レビューで現在投影の旧残件表示、新ITの実呼出しがない共通結果実装への検証リンク、既存Reality UTの旧固定期待集合の三件を検出した。全結果を統合し、指摘元と是正方針を照合して一括修正した。本番判定・新IT・QA新定義は変更せず、更新版の関連85件と公開集合／逆依存／Header／探索七件、Checker静的三軸・Domain型・Catalog整合（346登録、試験実行なし）を再確認して成功した。再レビュー残指摘0、新IT・QA定義のHashは初回固定版と一致し、今回の未使用経路撤去は完了。Checker全体の薄い入口化・全体回帰・既存未成立事項、②AI再試行と保持物は別に残す。新しいFramework・本番状態・回復処理は追加しない。
+
+Domain直接UTの自己確認: 新設三件と既存公開境界・旧Adapter IT・本番Pipeline・診断変換を含む関連24件が成功した。公開集合・逆依存・Header／QA接続六件、Domain／Checkerの型検査、Checker静的三軸も成功した。既存Coordinatorの57 infoは変更しない。本番Sourceと公開API、QA義務は不変で、外部AI・Docker・保持中E2E物には触れていない。全体回帰・全分岐網羅・Checker本番四状態接続をこの結果から主張しない。
+
+Domain直接UTの独立確認: 読取り専用レビューの残指摘0。新設三件を独立再実行して成功し、差分空白検査も成功した。旧Adapter・型・専用IT・QA義務の不変、Domain検査とChecker本番接続の区別、退役判断待ちの記録を確認した。今回単位は直接試験追加として完了し、未使用契約の退役・全体整理・全体回帰は未完了とする。
+
+診断配置の着手前照合: 本番使用中のRule診断型・文書四field型をreport/types、追加順・重複保持の収集をreport/collect、四種Artifact Issueの表示変換をreport/convertへ移す。Root公開集合、field・文言・診断順・終了値、detail guardと未知kind拒否を維持し、型を統合してrule等を文書JSONへ追加しない。Source・利用側・Header・Symbol／Catalog・既存契約試験を同時追従する。旧汎用Outcome変換は本番Consumer0だがQA-000001のRCM-IT-011等が明示義務を持つため、単なる移動・試験側温存・無断削除はしない。Domain契約・本番変換・非成功時の実入口へ保証を接続した後の撤去候補として分離する。新しい変換Framework・report保存・output分割は今回含めない。構造変更の独立技術／品質レビューと文書・直接影響確認を行い、準拠表明・Release・外部境界は変えない。AI再試行・Docker操作・保持物削除は対象外。読取り専用の着手前確認で整合し、人間の追加判断は不要である。
+
+診断配置の自己確認: 三つの新実Ownerへ型・収集・本番Artifact変換を移し、旧collector／artifact-issues本体を削除した。固定500入力で旧変換の成功値・拒否理由と収集の追加順・重複が一致し、異常を含む公開六方式も実行時刻・所要時間以外で全field・順序・終了値が一致した。合成Rootは回収し不存在確認済み。診断UT・既存Pipeline・CLI・専用Outcome IT・Symbol計28件、公開集合／Header／QA接続5件、実入口7件が成功し、実入口試験の親領域も不存在を確認した。初回UTの欠落detail列に対する推論型不一致は、入力を弱めずDomainIssue.detailsの明示型へ訂正した。Checker静的三軸は成功、既存Coordinatorの57 infoは維持する。旧汎用Outcome Adapterの本番Consumer0と専用ITだけの成立は未解消で、Sourceを別名で温存・新利用へ接続したとは扱わない。独立レビュー、report/output分割、残る固有検査と全体回帰は未完了である。
+
+診断配置の独立レビューは残指摘0。確認者も固定500入力・公開六方式・新UT三件を実行し、二shape・順序・重複・Object参照・拒否条件とSource／品質／設計接続の一致を確認した。専用合成Rootは不存在確認済み。上記自己確認時点の未完了レビューを完了し、一時移管・比較helperを削除した。現在Source／Registryの旧collector・artifact-issues参照0と差分空白検査の成功を確認した。出力整形分離、汎用Outcomeの保証対応・撤去評価、残る工程別判定・全体回帰は引き続き未完了。AI再試行・Docker操作・保持物削除は行っていない。
+
+単一CLI受付の着手前照合: 人間が`cli/command.ts`への受付集約と`cli/types.ts`維持を採用した。現binの選択・flag除去を内部専用`runCheckerCommand`へそのまま移し、binはProcess接続だけとする。標準公開三操作と三型は維持し、bin専用受付をRoot公開しない。規約の通常bin→Root経路と非公開Capabilityの不要公開禁止を照合し、自Packageの単一受付に限定した直接接続条件を正本へ補足する。発火例はexactなChecker bin→自Package受付、非発火は他Package内部への参照、境界例は実処理を持たない再export中継（採用しない）、情報不足はOwner・公開集合・接続契約未確認（適用を保留）とする。新しい解釈基盤・保存・レポートSchema・同時modeの新拒否文言は追加せず、後段の既存拒否64を維持する。型をProfileから移し、全利用側とRoot export・試験・Symbol／Catalogを同時追従する。独立技術／品質確認、規約・Architectureの文書／直接影響照合を行い、準拠表明・Releaseは変更しない。実AI／Docker操作・保持物削除は対象外。着手前の読取り専用確認で整合し、人間の追加判断は不要である。
+
+単一CLI受付の実装・確認: `cli/command.ts`へ既存振分けを移管し、`cli/types.ts`へ共有要求・終了型を移した。旧Profileの型宣言・互換exportを撤去し、三操作とRoot exportを実Ownerへ接続した。公開API集合とJSON shapeは変更しない。固定`eeb4b032e`の旧binと公開Process13入力（不明Root・不正引数・mode位置／反復／併用）を比較し、stdout・stderr・終了値が完全一致した。write flagを含む拒否CaseもRoot検証で停止し保存Effectはない。受付UT・Semantic／台帳IT計10件、文書実入口4件、公開集合／Header／QA5件、Symbol16件が成功し、試験親領域は回収・不存在確認済み。Checker静的三軸は成功、既存Coordinatorの57 infoは維持。独立確認者もProcess13入力・受付UT3件・空白検査を実行し、Source・規約の限定条件・Architecture・公開互換・品質接続の残指摘0を確認した。一時移管・比較helperを削除した。report分割・残る工程別検査・全体配置換えと全体回帰は未完了。Checkerに保存領域・履歴・新storageは作っていない。
+
+Checker自体の最終配置も整理対象とする。現行15Sourceは薄い入口の完成形ではなく、profiles/current.tsの受付・観測・判定・報告と旧Rule中継が残る。到達先Tree、現行Fileの処置、公開三操作と三型、binの操作一覧は[Checkerの構造・公開入口案](../../../06_Architecture/Details/checker/01_Architecture.md#移管後のsource構造と公開入口案--2026-10-19)を正本とする。意味判定の移管だけで完了とせず、その後にCLI／Repository観測／報告へ再配置し、Header・UT Owner／Path・公開操作のIT・Symbol／Catalogを同時追従する。公開APIの戻り値をレポート全体と誤記せず、既存JSON shape・診断・終了値を保持する。Source配置換えは未実施であり、空Folderや転送層は作らない。
+
+配置案の読取り専用独立確認では、CLI・観測・報告の分担と既存三操作の維持が整合した。文書診断四fieldと公開CheckerFindingのshape差、変換・表示の万能化回避、両mode同時指定の現行拒否64を資料へ反映した。新しい公開API体系・型付き全文レポート・bin subcommand体系は追加しない。これは配置案の確認であり、Source移管後の完成レビューや回帰の代替ではない。追加の人間判断はない。
+
+第七単位の着手前照合: 工程ひな型の基本図処置表をDomain `artifact/phase-diagrams.ts`へ移す。既存七ProfileのPath・図名・列・処置語彙と本文判定はDomain、探索・fallback・存在確認・official適用・診断表示はCheckerが所有する。公開は凍結したPath列と`inspectPhaseDiagramTemplates(sources)`。既知Pathだけを完全一致で検査し、入力順で一不正Source一Issueと従来順の不足語彙を返す。Fileなしskip、生本文照合、単純Pipe分割、二行skip、行停止・重複後勝ち、Discovery特例を維持し、検査強化や新Registryを追加しない。基準版との固定本文比較、七Profile・各反例の直接UT、異常診断が発火する公開六方式、旧二実入口と関連回帰、静的・Header・台帳・独立レビューを行う。文書・直接影響確認を実施し、準拠基準・Release・外部境界を変えないため全体準拠監査・実AI／Docker操作は行わない。着手前の読取り専用確認で整合し、人間の追加判断は不要である。
+
+第七単位の自己確認: 基準`eeb4b032e`の本文検査と500固定本文×七Profileの3,500比較で、診断順・不足項目・文言が一致した。基本図異常が発火する合成Rootの公開六方式も実行時刻・所要時間以外で一致（全Exit 1・引数エラーなし）。generic／adopterへの非適用と同版出力一致も確認した。合成Rootは回収・不存在確認済み。新直接UT四件は七Profile、未知Path、入力順と中立Issue、凍結、Discovery特例、表列・空処置・重複後勝ち・非Pipe停止・コメント／Fenceを固定した。本文解析／公開境界32件、Symbol Graph16件、Header／QA接続5件、基準実入口2件と移管後3件が成功し、実入口の親領域も不存在を確認した。両Package静的三軸は成功。初回移管helperの構文誤りはSource編集前に停止し是正、今回追加した文字列連結6 infoも是正して既存Coordinatorの57 infoだけを維持した。独立レビュー・全体回帰・旧中断試験物清掃は未完了である。
+
+第七単位の独立レビューは残指摘0。確認者が3,500比較と直接UT四件を独立実行し、七対象の所有・公開API・中立Issue・旧判定意味とCheckerの観測／表示境界、設計・品質接続を確認した。上記自己確認時点の未完了レビューを完了した。公開六方式・非適用二形態・実入口は親側の根拠と区別する。一時移管・比較helperを削除し、差分空白検査・Checker内の旧Profile定義残存0を確認した。工程別固有検査・全体回帰・旧中断試験物清掃は未完了、変更は未コミットである。②のAI再試行・保持物削除・Docker操作・過去Evidence変更は行っていない。
+
+第六単位の着手前照合: DiscoveryからQualityまでの共通Checklist検査三関数をDomain `artifact/checklist.ts`へ移す。公開は`inspectEvaluatedChecklist`／`inspectTemplateChecklist`、返却は既存九理由の`ChecklistFailure`またはnull。評価済みは全項目PassではなくOPEN／FAIL／N/Aの正しい記載も含むため、Completedという旧名は使わない。期待項目列・対象選択・現場固有FindingはCheckerへ残す。既存Artifact Parserは不正行・Section・大文字の受理意味が異なるため統合しない。非表示本文・末尾配置・項目数と順序・理由優先順を基準版との固定比較、九理由の直接UTと既存公開入口回帰で確認する。新mode／options／Callback／Registryは作らない。構造変更の独立レビュー、文書・直接影響照合を行い、準拠基準・Release・外部境界を変えないため全体準拠監査・実AI／Docker操作は行わない。着手前の読取り専用確認で整合し、人間の追加判断は不要である。
+
+第六単位の自己確認: 基準`eeb4b032e`の三関数と固定600本文×二方式の1,200比較が一致した。Checklist異常診断の発火を確認した合成Rootで、公開六方式（JSON／Summary／Scope／Directory References／人間表示）は実行時刻・所要時間だけを除いて一致し、すべてExit 1・引数エラーなしを確認した。最初のFile References比較は合成Rootの観測集合外を拒否したため成立比較へ数えず、Directory Referencesへ改めた。合成Rootは各回回収・不存在確認済み。直接UT三件は九理由・優先順・項目順・OPEN／FAIL／N/A・非表示領域を固定し、本文解析／公開境界／Symbol Graph計44件、Header／QA接続5件が成功。基準実入口3件と移管後の各工程13件が成功し、試験親領域は不存在を確認した。公開allowlistの辞書順と比較helperの旧依存名の初回追従不足は是正済み。両Packageの静的三軸は成功、既存Coordinatorの57 infoは維持する。独立レビューと全体回帰は未完了である。
+
+第六単位の独立レビューは残指摘0。確認者が1,200比較・直接UT三件を独立実行し、旧35呼出しから新35呼出しの全数対応、旧関数・互換alias不存在、公開型／API・品質接続・設計の整合を確認した。上記自己確認時点の未完了レビューを完了した。公開六方式と各工程13件は親側の根拠と区別する。工程別期待項目・固有検査・対象選択は引き続きCheckerに残り、全体回帰・旧中断試験物清掃・②の実AI編集E2Eは未完了のままである。
+
+追補: Quality側のChecklist利用を含む既存Architecture Ready実入口も1件成功し、専用試験親領域の不存在を確認した。一時移管・比較helperは削除済み。差分空白検査と旧三関数名のSource残存0を確認した。①〜第六単位の変更は未コミットであり、過去Evidence・保持物・Dockerへは操作していない。
+
+基準はcommit／push済みの`eeb4b032e`。着手前の読取り専用確認で、現在の巨大closureから純粋な本文解析を先に切り出す方針を照合した。現在、人間判断が必要な事項はない。共通Root／Lock整理は後続Domain全体見直しへ残す。
+
+| 順序 | 移す意味単位 | 維持する境界 |
+|---|---|---|
+| 1 | 見出し・明示Anchor・重複接尾辞、Fence除外をDomain `artifact/anchors.ts`へ | ファイル読取りはChecker。公開は本文入力の二関数だけ。既存の構造解析とは受理意味が異なるため安易に統合しない |
+| 2 | 可視構造・Table・Header等の本文解析 | 既存結果との固定比較後に切り出す |
+| 3 | Link参照の意味と実ファイル／Git履歴観測を分離 | Git観測はVersion Control、診断変換・表示はChecker |
+| 4 | 工程固有の構造・関係検査を意味単位で移管 | DomainIssueを用い、Checkerのcode・messageや万能callbackをDomainへ移さない |
+| 5 | 残った受付・対象選択・実行編成・診断表示を整理 | 既存CLI、Scope、References、未観測、診断順と終了値を維持 |
+
+最初の単位では基準版の関連25試験を固定し、移管後も同25件成功。文書更新前のRepository診断は前後とも3,416件、Exit 1、JSON全文SHA-256 `3a4a0338e97bc54fba6118001814e974c1dd0d57630c523bd59f415379fa150b`で一致した。これは不合格結果の同一性であり、Repository合格ではない。Domain公開集合・Anchor直接試験・台帳・Symbol Graphの関連57件、Checker台帳入口と高負荷計画7件、公開集合／Header5件が成功。DomainとCheckerの静的確認も成功し、既存Coordinatorの57 infoは変更しない。strict型条件に合わせた文字取得・必須captureの型明確化だけを行い、受理集合は変えていない。
+
+限定独立レビューと追補再確認は残指摘0。独立した基準版の純粋解析抽出と固定生成500入力で、Anchor集合・Fence除外本文が一致した。Symbol／CatalogとDomain→CheckerのConsumer Bindingを実在回帰へ接続し、Filesystem読取りを行う残存WrapperのHeaderも実Effectへ訂正した。Checker主Suiteを含む広い二回帰は完了結果が得られず中断（Exit 1）し、成功へ計上しない。今回の局所成功を全体回帰成功や工程別移管の完成へ換算しない。作業用の機械移管Scriptは削除し、正式Source・試験以外の複製を残さない。②のAI再試行・保持物削除・Docker操作はなし。
+
+次の本文解析単位の着手前照合: 可視本文二方式、表行・区切り行、先頭Header抽出の五関数を`artifact/markdown.ts`へまとめる。小Fileへの機械分割、options付き万能Parser、新しい管理構造は追加しない。Topic／Meetingの固定表、既存Artifactの行番号付き解析とは受理意味が異なるため今回統合しない。Header抽出は順序・重複を維持した文字列を返し、Version／Statusの妥当性を保証しない。公開APIはRoot明示exportとし、CLI・Filesystem・診断codeは変更しない。基準`eeb4b032e`との固定入力比較、関連CLI試験、静的確認、台帳／Header接続と独立レビューを行う。文書・直接影響を確認するが、準拠基準・Releaseを変えないため全体準拠監査・実AI／Docker試験は対象外。人間による追加判断は不要である。
+
+関連回帰ではRepository内の`.crdd/tests`をTEMP／TMPに指定し、実行時間を有界にする。前回中断試験の完了・清掃は未確認であり、今回の本文解析の局所成立とは分ける。今回も対象を広く取りすぎた最初の回帰は完了結果が得られず中断し、成功へ数えない。対象を意味別に選び直した基準版24件・移管後27件（既存Header・コメント反例を3件追加選択）は全成功。Domainの解析5件と公開境界12件、Symbol Graph16件、公開集合／Header5件も成功した。
+
+第二単位の比較では、基準`eeb4b032e`の五純粋関数と固定生成500入力×5操作が一致した。同じ合成Repositoryに対する公開要求六方式（JSON、Summary、Scope、References、人間表示）の結果も実行時刻・所要時間だけを除いて、診断順・本文・未確認・範囲・References・終了値まで一致した。合成Repositoryは同じ処理で回収し不存在を確認した。strict型対応で表の末尾Cellと文字取得を明確にしたが、空Cell・Pipeだけの行等の旧受理条件を変更しない。初回公開集合試験の並び追従不足は修正後に成功。Header反証fixtureを`tests`配下に置くと試験Sourceへ分類される既存条件を確認し、その専用確認だけTEMPをRepository内`tmp`へ切り替えて5件成功を再確認した。検査条件を緩めていない。両Packageの静的確認は成功し、既存Coordinatorの57 infoは維持した。
+
+第二単位の独立レビューは残指摘0。独立実行した2,500比較・解析UT5件も成功し、親側の公開六方式比較とは根拠を分ける。追加の台帳・計画・公開入口34件は全成功。新しいArchitecture間参照も移管済みAnchor APIで解決を確認した。機械移管・比較用の一時Script三Fileは削除した。中断した広域試験由来の`crdd-check-*`領域は残存しており、今回の清掃完了とは扱わない。名前・時刻だけで既存物と区別して削除せず、非使用と由来の確認を別に残す。②の保持物は変更しない。次はLink参照の意味とFilesystem／Git観測の分離であり、工程別検査と全体回帰は未完了である。
+
+第三単位の着手前照合: 共通のMarkdown参照先抽出と参照文字列の分解をDomain `artifact/links.ts`へ移す。公開は`parseMarkdownLinkTargets`と`parseMarkdownLinkReference`、返却型は既存`artifact/types.ts`の`MarkdownLinkReference`とする。Label正規化とURI Decode補助は非公開。`target`は参照文字列であり解決済みPathではない。三形式の走査順・重複・重複Label後勝ち・一度だけのDecode・不正Encoding時の元文字列保持を維持する。DomainでURL判定・Path正規化・Root判定は追加しない。Filesystem・固定Git履歴・UX固有のEntity／Discovery参照検査は今回残す。前二単位と同じ構造変更経路・独立レビュー・文書／直接影響確認を適用し、全体準拠監査・実AI／Docker操作は行わない。新しいRegistry・Framework・Root／Lock整理は対象外。着手前の読取り専用確認で整合し、人間の追加判断は不要である。
+
+第三単位の比較・自己確認: 基準`eeb4b032e`の純粋解析との固定500入力×二操作が一致し、合成Repositoryでの公開六方式も実行時刻・所要時間だけを除いて一致した。移管前の実入口9件と縮小6件は成功し、試験親領域も不存在を確認した。初回のstrict型エラーと型公開allowlistの追従不足を是正後、解析／公開境界／Symbol Graph36件、公開入口／Header5件が成功した。必須captureとsplitの返却要素に既定値を明記しただけで、正規表現の受理範囲は変更していない。移管後の同9件と両Packageの静的確認も成功し、今回の試験親領域の不存在を確認した。既存Coordinatorの57 infoは維持する。
+
+第三単位の独立レビューでは機能・境界の指摘0、移管補助Headerの保証過大表現1件（P3）を検出した。Label処理はtrim・空白縮約・小文字化、Decode処理は一回Decode・失敗時原文とflagを返す説明へ訂正し、型・名前・本体は変更しない。直接UT3件・1,000比較・公開六方式を再確認し、再レビューは残指摘0。独立して実行した1,000比較・UT3件と、親側の公開六方式・実入口9件は別の根拠として扱う。新しいArchitecture参照の解決と差分空白確認も成功した。一時Script二Fileは削除し、今回合成Rootも回収済み。中断した広域試験の94領域は読み取りで残存を確認したが、由来・非使用を一意に確定していないため保持し、今回の試験成功から清掃済みとは扱わない。②の保持物へは触れない。次はUX固有の参照意味と工程別検査の移管であり、全体回帰と旧試験物清掃は未完了である。
+
+第四単位の着手前照合: UX分析の参照候補抽出と三補助をDomain `artifact/ux-inputs.ts`へ移し、公開は`parseUxFormalInputTargets(text, repositoryRoot)`と既存`artifact/types.ts`の`UxFormalInputTarget`型へ限定する。Root引数は参照組立て用の文字列であり、DomainがRootを検証・認可する契約ではない。Hostの`path.join`による組立て→Entity Decode→Map登録という既存順序を保つ。結合を後段へ遅らせると、絶対参照との重複・Root内Entity・異常flagの意味が変わり得るため採用しない。Markdown／HTML／裸Path／Entity候補の走査順、重複時flag論理和、限定Entity Decode、escape・私用markerと受理集合を維持する。FS・Git・Root／Lock・認可・Findingは今回引き取らない。品質状態規則は診断変換を伴う別単位へ残し、汎用Context・Callback・Registry等を追加しない。基準版との複数Root軸の固定比較、既存UX診断の実入口回帰、静的確認、台帳／Header照合と独立レビューを実施する。文書・直接影響を確認し、準拠基準・Releaseは変更しないため全体準拠監査や実AI／Docker試験は行わない。着手前の独立確認で整合し、人間の追加判断は不要である。
+
+第四単位の自己確認: 基準`eeb4b032e`の旧四関数と500本文×五Root文字列（Windows形式・POSIX形式・Entity・日本語／空白・空文字列）の2,500比較が一致した。正式Repository ProfileでUX正式入力の異常診断が実際に発火する合成Rootを使い、公開六方式も実行時刻・所要時間だけを除いて一致した。合成Rootは回収し不存在を確認した。解析・公開境界・Symbol Graph39件、公開集合／Header5件、CommonMark参照形式の反例母集団を含む実入口UX5件が成功し、今回の試験親領域も不存在を確認した。両Packageの静的三軸は成功、既存Coordinatorの57 infoは維持した。初回型公開allowlistの並び追従不足は是正した。Entity補助Headerの「検証済み値」「拒否」という旧説明は、限定Decodeと異常flagの説明へ訂正し、本体・受理条件を変更していない。
+
+第四単位の独立レビューでは実装・品質接続の指摘0、同じDomain詳細内の旧残件表示1件（P3）を検出した。UX候補解析の現在Ownerを参照し、Root／Filesystem観測・正式入力妥当性判断をCheckerへ残す記述へ訂正し、再レビューは残指摘0。独立実行の2,500比較・直接UT3件と、親側の公開六方式・実入口5件は根拠を分ける。新しいArchitecture間参照の解決と差分空白確認も成功し、一時helper二Fileを削除した。品質状態規則、残る工程別検査、全体回帰と旧中断試験物清掃は未完了である。②のAI再試行・保持物削除やDocker操作は行っていない。
+
+第五単位の着手前照合: 品質設計成果物の状態正規化・Canonical判定だけをDomain `artifact/quality-state.ts`の`inspectQualityDesignStates(artifacts)`へ移す。既存ArtifactModel集合を受け中立DomainIssue列を入力順に返し、元status（nullを含む）と判定用normalizedStatusを分ける。対象集合、readiness、Rule ID／stage、既存severity／code／文言はCheckerに残す。既存Rule内の明示変換で未知kindを拒否し、新しいRegistry・Adapter File・Callbackは増やさない。汎用Schema検証は欠落時と正規化条件が異なるため無理に統合しない。版接頭辞・全角Released Baseline句・trimの適用順、欠落・大小文字・ASCII括弧の拒否境界を維持する。基準版のRuleとの固定状態比較、Domain直接UT、両readinessのFinding比較、既存Quality実入口、公開集合／Header／台帳、静的確認と独立レビューを行う。前単位と同じ構造変更の経路・文書／直接影響確認を適用し、準拠基準やReleaseは変更しないため全体準拠監査・実AI／Docker操作は行わない。着手前の独立確認で整合し、人間の追加判断は不要である。
+
+第五単位の自己確認: 基準`eeb4b032e`の旧正規化・Ruleと固定500状態入力を比較し、Domain Issueと両readinessのFinding 1,000比較が一致した。既存のArchitecture Ready実入口試験は移管前後とも成功し、各試験親領域の不存在を確認した。Domain本文解析・公開境界・Checker変換・Symbol Graph45件と、公開集合／Header／QA接続5件が成功。未知Issueの拒否は既存試験内の代役で確認し、本番に注入APIを追加していない。両Packageの静的三軸は成功、既存Coordinatorの57 infoは変更していない。独立レビューは未完了であり、全体回帰・旧中断試験物清掃、残る工程別検査も未完了として保持する。②のAI再試行・保持物削除・Docker操作は行っていない。
+
+第五単位の独立レビューは残指摘0。確認者が固定500入力・両readinessのFinding計1,000比較と直接6試験を独立実行し、一致・成功を確認した。対象選択・readiness・Rule登録・表示契約をCheckerへ残し、中立Issueと元値・位置・順序の保持、公開API・Symbol／Catalog・設計の整合を確認した。上記の自己確認時点で未完了だった独立レビューを完了し、一時比較helperを削除した。追加の人間判断は不要。全体回帰・旧中断試験物清掃と残る工程別検査は引き続き未完了であり、この単位の成立をChecker全体またはQuality Ready全体の成立として扱わない。
 
 ###### test catalog維持と責務移管 — 人間の確定判断
 

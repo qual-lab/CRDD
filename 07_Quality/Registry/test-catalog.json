@@ -164,7 +164,7 @@
       ],
       "lifecycleProfile": "durable_operation",
       "testIds": [
-        "semantic-coverage:unit:pilot",
+        "checker:unit:repository-semantic",
         "semantic-coverage:integration:bundle-publisher",
         "checker:integration:semantic-command"
       ],
@@ -1447,11 +1447,14 @@
       "consumerOwner": "checker",
       "consumerStatic": true,
       "testIds": [
-        "semantic-coverage:unit:pilot",
+        "checker:unit:repository-semantic",
         "semantic-coverage:unit:public-boundary",
         "checker:integration:semantic-command",
+        "checker:integration:crdd-check",
         "checker:integration:test-catalog-plan",
-        "checker:system:test-catalog-policy"
+        "checker:system:test-catalog-policy",
+        "checker:unit:quality-state",
+        "checker:integration:domain-results"
       ]
     }
   ],
@@ -7303,14 +7306,13 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "checker:integration:domain-outcome-adapter",
-      "owner": "checker",
-      "path": "40_Develop/checker/tests/integration/domain-outcome-adapter.contract.test.ts",
-      "level": "integration",
+      "id": "domain-model:unit:outcome",
+      "owner": "domain-model",
+      "path": "40_Develop/domain-model/tests/unit/outcome.contract.test.ts",
+      "level": "unit",
       "kind": "contract",
       "semanticTags": [
         "domain-outcome",
-        "adapter",
         "result-boundary"
       ],
       "environment": "node_process",
@@ -7319,8 +7321,29 @@
       "postconditions": [
         "domain_status_preserved",
         "invalid_correlation_rejected",
-        "unknown_issue_rejected",
         "forbidden_fields_rejected"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "checker:integration:domain-results",
+      "owner": "checker",
+      "path": "40_Develop/checker/tests/integration/domain-results.integration.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "domain-results",
+        "production-integration",
+        "result-boundary"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "domain_issues_converted",
+        "public_failure_observed",
+        "unknown_issue_rejected",
+        "fixture_absent"
       ],
       "mandatoryByDefault": true
     },
@@ -8114,16 +8137,15 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "checker:unit:checker-core",
+      "id": "checker:unit:quality-state",
       "owner": "checker",
-      "path": "40_Develop/checker/tests/unit/inspection/pipeline.contract.test.ts",
+      "path": "40_Develop/checker/tests/unit/report/quality-state.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
-        "checker",
-        "core",
-        "determinism",
-        "finding"
+        "quality-state",
+        "diagnostic",
+        "conversion"
       ],
       "environment": "node_process",
       "externalProviderEffect": false,
@@ -8137,7 +8159,7 @@
     {
       "id": "checker:unit:symbol-graph",
       "owner": "checker",
-      "path": "40_Develop/checker/tests/unit/reality/symbol-graph.contract.test.ts",
+      "path": "40_Develop/checker/tests/unit/repository/reality.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -8154,15 +8176,14 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "semantic-coverage:unit:pilot",
+      "id": "checker:unit:repository-semantic",
       "owner": "checker",
-      "path": "40_Develop/checker/tests/unit/semantic/coverage.contract.test.ts",
+      "path": "40_Develop/checker/tests/unit/repository/semantic.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
         "architecture",
-        "semantic-coverage",
-        "migration-inventory"
+        "semantic-coverage"
       ],
       "environment": "node_process",
       "externalProviderEffect": false,
@@ -9289,6 +9310,683 @@
       "humanInput": false,
       "postconditions": [
         "repository_check_result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "domain-model:unit:artifact-anchors",
+      "owner": "domain-model",
+      "path": "40_Develop/domain-model/tests/unit/artifact/anchors.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "artifact",
+        "markdown",
+        "anchors"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "deterministic_anchor_set",
+        "repository_effect_absent"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "domain-model:unit:artifact-markdown",
+      "owner": "domain-model",
+      "path": "40_Develop/domain-model/tests/unit/artifact/markdown.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "artifact",
+        "markdown",
+        "structure"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "deterministic_markdown_structure",
+        "repository_effect_absent"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "domain-model:unit:artifact-links",
+      "owner": "domain-model",
+      "path": "40_Develop/domain-model/tests/unit/artifact/links.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "artifact",
+        "markdown",
+        "links"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "deterministic_link_parsing",
+        "repository_effect_absent"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "domain-model:unit:artifact-ux-inputs",
+      "owner": "domain-model",
+      "path": "40_Develop/domain-model/tests/unit/artifact/ux-inputs.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "artifact",
+        "ux",
+        "formal-input"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "deterministic_ux_reference_candidates",
+        "repository_effect_absent"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "domain-model:unit:artifact-quality-state",
+      "owner": "domain-model",
+      "path": "40_Develop/domain-model/tests/unit/artifact/quality-state.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "artifact",
+        "quality",
+        "canonical-state"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "canonical_state_boundary_preserved",
+        "neutral_domain_issue",
+        "repository_effect_absent"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "domain-model:unit:artifact-checklist",
+      "owner": "domain-model",
+      "path": "40_Develop/domain-model/tests/unit/artifact/checklist.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "artifact",
+        "checklist"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "checklist_boundary_preserved",
+        "repository_effect_absent"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "domain-model:unit:artifact-phase-diagrams",
+      "owner": "domain-model",
+      "path": "40_Develop/domain-model/tests/unit/artifact/phase-diagrams.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "artifact",
+        "phase-diagrams"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "phase_diagram_contract_preserved",
+        "repository_effect_absent"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "checker:unit:cli-command",
+      "owner": "checker",
+      "path": "40_Develop/checker/tests/unit/cli/command.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "cli",
+        "command",
+        "dispatch"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "dispatch_contract_preserved",
+        "public_process_entry_connected"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "checker:unit:report-diagnostics",
+      "owner": "checker",
+      "path": "40_Develop/checker/tests/unit/report/diagnostics.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "report",
+        "finding",
+        "conversion"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "diagnostic_shape_preserved",
+        "order_and_duplicates_preserved"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "domain-model:unit:project-context-inspection",
+      "owner": "domain-model",
+      "path": "40_Develop/domain-model/tests/unit/project-context/inspect.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "project-context",
+        "inspection"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "projection_contract_preserved"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "checker:unit:repository-observe",
+      "owner": "checker",
+      "path": "40_Develop/checker/tests/unit/repository/observe.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "repository",
+        "observe"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "observation_failure_preserved",
+        "lexical_boundary_preserved"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "checker:unit:report-output",
+      "owner": "checker",
+      "path": "40_Develop/checker/tests/unit/report/output.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "report",
+        "output"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "output_chunks_preserved",
+        "callback_failure_propagated"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "domain-model:unit:artifact-inspection",
+      "owner": "domain-model",
+      "path": "40_Develop/domain-model/tests/unit/artifact/inspect.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "artifact",
+        "schema",
+        "graph",
+        "determinism"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "deterministic_result_observed",
+        "unknown_not_collapsed_to_pass"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "domain-model:unit:reality-test-source",
+      "owner": "domain-model",
+      "path": "40_Develop/domain-model/tests/unit/reality-traceability/test-source.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "reality",
+        "test-source",
+        "skip"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "deterministic_result_observed",
+        "unknown_not_collapsed_to_pass"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "domain-model:unit:artifact-ux-handoff",
+      "owner": "domain-model",
+      "path": "40_Develop/domain-model/tests/unit/artifact/ux-handoff.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "artifact",
+        "ux-handoff"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "deterministic_result_observed",
+        "unknown_not_collapsed_to_pass"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "domain-model:unit:artifact-ia",
+      "owner": "domain-model",
+      "path": "40_Develop/domain-model/tests/unit/artifact/ia.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "artifact",
+        "ia",
+        "relations"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "deterministic_result_observed",
+        "unknown_not_collapsed_to_pass"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "checker:unit:report-ia",
+      "owner": "checker",
+      "path": "40_Develop/checker/tests/unit/report/ia.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "ia",
+        "diagnostic",
+        "conversion"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "deterministic_result_observed",
+        "unknown_not_collapsed_to_pass"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "domain-model:unit:artifact-ui",
+      "owner": "domain-model",
+      "path": "40_Develop/domain-model/tests/unit/artifact/ui.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "artifact",
+        "ui",
+        "relations"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "deterministic_result_observed",
+        "unknown_not_collapsed_to_pass"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "checker:unit:report-ui",
+      "owner": "checker",
+      "path": "40_Develop/checker/tests/unit/report/ui.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "ui",
+        "diagnostic",
+        "conversion"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "deterministic_result_observed",
+        "unknown_not_collapsed_to_pass"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "checker:unit:report-semantic",
+      "owner": "checker",
+      "path": "40_Develop/checker/tests/unit/report/semantic.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "semantic",
+        "diagnostic",
+        "conversion"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "legacy_runtime_fields_classified_without_semantic_inference"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "checker:unit:report-reality",
+      "owner": "checker",
+      "path": "40_Develop/checker/tests/unit/report/reality.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "reality",
+        "catalog",
+        "diagnostic"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "symbol_relations_resolved_or_rejected"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "domain-model:unit:reality-catalog",
+      "owner": "domain-model",
+      "path": "40_Develop/domain-model/tests/unit/reality-traceability/catalog.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "reality",
+        "catalog",
+        "diagnostic"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "symbol_relations_resolved_or_rejected"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "domain-model:unit:artifact-change",
+      "owner": "domain-model",
+      "path": "40_Develop/domain-model/tests/unit/artifact/change.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "artifact",
+        "change",
+        "relations"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "deterministic_result_observed",
+        "unknown_not_collapsed_to_pass"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "checker:unit:report-change",
+      "owner": "checker",
+      "path": "40_Develop/checker/tests/unit/report/change.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "change",
+        "diagnostic",
+        "conversion"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "deterministic_result_observed",
+        "unknown_not_collapsed_to_pass"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "domain-model:unit:artifact-ux",
+      "owner": "domain-model",
+      "path": "40_Develop/domain-model/tests/unit/artifact/ux.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "artifact",
+        "ux",
+        "relations"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "deterministic_result_observed",
+        "unknown_not_collapsed_to_pass"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "domain-model:unit:artifact-discovery",
+      "owner": "domain-model",
+      "path": "40_Develop/domain-model/tests/unit/artifact/discovery.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "artifact",
+        "discovery",
+        "definition"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "deterministic_result_observed",
+        "unknown_not_collapsed_to_pass"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "domain-model:unit:artifact-spec",
+      "owner": "domain-model",
+      "path": "40_Develop/domain-model/tests/unit/artifact/spec.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "artifact",
+        "spec",
+        "relations"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "deterministic_result_observed",
+        "unknown_not_collapsed_to_pass"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "domain-model:unit:artifact-architecture",
+      "owner": "domain-model",
+      "path": "40_Develop/domain-model/tests/unit/artifact/architecture.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "artifact",
+        "architecture",
+        "relations"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "deterministic_result_observed",
+        "unknown_not_collapsed_to_pass"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "domain-model:unit:artifact-quality-definition",
+      "owner": "domain-model",
+      "path": "40_Develop/domain-model/tests/unit/artifact/quality-definition.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "artifact",
+        "quality-definition",
+        "relations"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "deterministic_result_observed",
+        "unknown_not_collapsed_to_pass"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "checker:unit:report-quality-definition",
+      "owner": "checker",
+      "path": "40_Develop/checker/tests/unit/report/quality-definition.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "report",
+        "quality-definition"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "deterministic_result_observed",
+        "unknown_not_collapsed_to_pass"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "domain-model:unit:artifact-quality-analysis",
+      "owner": "domain-model",
+      "path": "40_Develop/domain-model/tests/unit/artifact/quality-analysis.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "quality",
+        "analysis",
+        "relations",
+        "readiness"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "deterministic_result_observed",
+        "unknown_not_collapsed_to_pass"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "checker:unit:report-quality-analysis",
+      "owner": "checker",
+      "path": "40_Develop/checker/tests/unit/report/quality-analysis.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "quality",
+        "analysis",
+        "relations",
+        "readiness"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "deterministic_result_observed",
+        "unknown_not_collapsed_to_pass"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "domain-model:unit:artifact-document",
+      "owner": "domain-model",
+      "path": "40_Develop/domain-model/tests/unit/artifact/document.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "artifact",
+        "document",
+        "release",
+        "identity",
+        "tables"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "deterministic_result_observed",
+        "unknown_not_collapsed_to_pass"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "checker:unit:report-document",
+      "owner": "checker",
+      "path": "40_Develop/checker/tests/unit/report/document.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "artifact",
+        "document",
+        "release",
+        "identity",
+        "tables"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "deterministic_result_observed",
+        "unknown_not_collapsed_to_pass"
       ],
       "mandatoryByDefault": true
     }

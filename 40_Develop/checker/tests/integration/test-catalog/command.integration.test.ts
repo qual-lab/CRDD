@@ -242,7 +242,7 @@ test("公開計画はGit変更集合の全成分を保持する", () => {
     const verified = verifyRepositoryRoot(fixture);
     assert.equal(verified.status, "completed");
     if (verified.status !== "completed") return;
-    const observed = changedPaths(
+    const observedEntries = changedPaths(
       observeLocalChangeSet(
         verified.capability,
         base,
@@ -256,7 +256,7 @@ test("公開計画はGit変更集合の全成分を保持する", () => {
       "working.txt",
       "untracked.txt",
     ])
-      assert.ok(observed.includes(expected), expected);
+      assert.ok(observedEntries.includes(expected), expected);
     let output = "";
     const ownRoot = verifyRepositoryRoot(root);
     assert.equal(ownRoot.status, "completed");

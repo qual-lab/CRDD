@@ -67,7 +67,7 @@ test("Semantic Coverage CLIはSubsystem公開入口だけを利用する", () =>
   const source = fs.readFileSync(
     path.resolve(
       path.dirname(fileURLToPath(import.meta.url)),
-      "../../../src/semantic/command.ts",
+      "../../../src/cli/semantic.ts",
     ),
     "utf8",
   );

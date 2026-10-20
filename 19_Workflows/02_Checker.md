@@ -1,5 +1,11 @@
 # Checkerを実行して結果を読む
 
+## 現行検査と移行の境界
+
+Checkerは現在のCRDD仕様を検査する。旧形式からの調査・移行は、フロントAIが[保守の移行条件](../19_Maintenance.md#34-essential-correction-and-compatibility-boundary)に従って実施する。旧形式の棚卸し・自動変換・互換受付をCheckerへ恒久保持しない。
+
+フロントAIは旧成果物の意味と新Owner、利用側、停止・復旧条件を確認して移行し、その後に現在仕様のCheckerを実行する。Checker成功を旧成果物の移行完了証明にはしない。過去Evidenceは当時の記録として維持する。
+
 ## 試験台帳と回帰計画
 
 次は試験を起動せず、台帳検査または計画だけを表示する。

@@ -61,7 +61,7 @@ function importedVersionControlNames(source: string): readonly string[] {
     | { kind: "template"; tokenIndex: number }
   )[] = [{ kind: "code", depth: -1 }];
   const codeToken =
-    /\s+|\/\*[\s\S]*?\*\/|\/\/[^\r\n]*|"(?:\\[\s\S]|[^"\\])*"|'(?:\\[\s\S]|[^'\\])*'|[A-Za-z_$][\w$]*|[\s\S]/uy;
+    /\s+|\/\*[\s\S]*?\*\/|\/\/[^\r\n]*|"(?:\\[\s\S]|[^"\\])*"|'(?:\\[\s\S]|[^'\\])*'|[A-Za-z_$][\w$]*|=>|&&|\|\||[\s\S]/uy;
   for (let cursor = 0; cursor < source.length; ) {
     const mode = modes.at(-1);
     assert.ok(mode);
@@ -240,6 +240,26 @@ test("用途別Consumer抽出はNamed importを保持しRoot迂回を拒否す�
     "const text = `${({ value: `plain ${1}` }).value}`;",
   ])
     assert.deepEqual(importedVersionControlNames(source), []);
+  for (const prefix of ["value &&", "value ||", "() =>"]) {
+    const expression = `${prefix} /[\`{}]/u`;
+    assert.deepEqual(
+      importedVersionControlNames(
+        `const matched = ${expression}; import { verifyRepositoryRoot } from "${root}";`,
+      ),
+      ["verifyRepositoryRoot"],
+    );
+    for (const target of [
+      root,
+      "../../../version-control/src/repository/location.ts",
+    ])
+      assert.throws(
+        () =>
+          importedVersionControlNames(
+            `const text = \`\${(${expression}, await import("${target}"))}\`;`,
+          ),
+        /Version Control Root/u,
+      );
+  }
   for (const source of [
     `import * as versionControl from "${root}";`,
     `import versionControl from "${root}";`,
@@ -551,8 +571,8 @@ test("Repository LocationとRepository-local Ignoreの既知Consumer集合が宣
       "40_Develop/access-management/src/repository/register.ts",
       "40_Develop/mcp-server/src/transport/configuration.ts",
       "40_Develop/workbench-server/src/connection/configuration.ts",
-      "40_Develop/checker/src/profiles/current.ts",
-      "40_Develop/checker/src/rules/reality-symbol-graph.ts",
+      "40_Develop/checker/src/repository/project-context.ts",
+      "40_Develop/checker/src/repository/reality.ts",
       "40_Develop/coordinator/scripts/check-platform-access-coverage.ts",
       "40_Develop/coordinator/scripts/measure-development-providers.ts",
       "40_Develop/coordinator/scripts/prepare-codex-advice-image.ts",
@@ -586,8 +606,8 @@ test("Repository LocationとRepository-local Ignoreの既知Consumer集合が宣
       "40_Develop/execution-intelligence/src/store/verify-repository-root.ts",
       "40_Develop/domain-model/src/repository/resolve-storage-paths.ts",
       "40_Develop/domain-model/src/storage/ensure-area.ts",
-      "40_Develop/checker/src/semantic/command.ts",
-      "40_Develop/checker/src/test-catalog/command.ts",
+      "40_Develop/checker/src/cli/semantic.ts",
+      "40_Develop/checker/src/cli/test-catalog.ts",
       "40_Develop/visual-preview/src/server.ts",
       "40_Develop/workbench-server/bin/workbench-server.ts",
       "40_Develop/workbench-server/scripts/verify-readonly-ai.ts",
@@ -624,8 +644,8 @@ test("Checkerは同じ基準版RootのVersion Control公開入口だけを使う
       "40_Develop",
       "checker",
       "src",
-      "profiles",
-      "current.ts",
+      "repository",
+      "document.ts",
     ),
     "utf8",
   );
@@ -766,7 +786,7 @@ test("Local Change Setと用途別Named SymbolのConsumer集合が宣言と一�
     )
     .sort();
   assert.deepEqual(localChangeSetConsumers, [
-    "40_Develop/checker/src/test-catalog/command.ts",
+    "40_Develop/checker/src/cli/test-catalog.ts",
     "40_Develop/orchestrator/src/workspace/commands.ts",
     "40_Develop/workbench-server/src/project/surface.ts",
   ]);
@@ -787,7 +807,10 @@ test("Local Change Setと用途別Named SymbolのConsumer集合が宣言と一�
     .map(({ relativePath }) => relativePath)
     .sort();
   assert.deepEqual(checkerObservationConsumers, [
-    "40_Develop/checker/src/profiles/current.ts",
+    "40_Develop/checker/src/repository/discover.ts",
+    "40_Develop/checker/src/repository/document.ts",
+    "40_Develop/checker/src/repository/observe.ts",
+    "40_Develop/checker/src/repository/references.ts",
   ]);
 
   const repositoryIdentityConsumers = sources
@@ -863,10 +886,8 @@ test("Local Change Setと用途別Named SymbolのConsumer集合が宣言と一�
       "40_Develop/workbench-server/src/activity/observe.ts",
       "40_Develop/workbench-server/src/server.ts",
       "template/tools/crdd-mcp-server.ts",
-      "40_Develop/checker/src/reality/test-catalog.ts",
-      "40_Develop/checker/src/reality/symbol-traceability.ts",
-      "40_Develop/checker/src/profiles/current.ts",
-      "40_Develop/checker/src/rules/reality-symbol-graph.ts",
+      "40_Develop/checker/src/repository/project-context.ts",
+      "40_Develop/checker/src/repository/reality.ts",
       "40_Develop/domain-model/src/configuration/read-tool-config.ts",
       "40_Develop/domain-model/src/repository/observe-symbols.ts",
       "40_Develop/domain-model/src/repository/create-observer.ts",
@@ -875,11 +896,10 @@ test("Local Change Setと用途別Named SymbolのConsumer集合が宣言と一�
       "40_Develop/domain-model/src/storage/ensure-area.ts",
       "40_Develop/domain-model/src/storage/temporary-operation.ts",
       "40_Develop/execution-intelligence/src/store/verify-repository-root.ts",
-      "40_Develop/checker/src/semantic/command.ts",
-      "40_Develop/checker/src/semantic/inspection.ts",
+      "40_Develop/checker/src/cli/semantic.ts",
+      "40_Develop/checker/src/repository/semantic.ts",
       "40_Develop/domain-model/src/storage/semantic-store.ts",
-      "40_Develop/checker/scripts/semantic-legacy-inventory.ts",
-      "40_Develop/checker/src/test-catalog/command.ts",
+      "40_Develop/checker/src/cli/test-catalog.ts",
       "40_Develop/workbench-server/src/project/surface.ts",
     ].sort(),
   );
@@ -924,9 +944,10 @@ test("Local Change Setと用途別Named SymbolのConsumer集合が宣言と一�
  */
 test("既知ConsumerはGitを再解釈せずVersion Control公開契約だけを使う", () => {
   const consumerPaths = [
-    "40_Develop/checker/src/profiles/current.ts",
-    "40_Develop/checker/src/rules/reality-symbol-graph.ts",
-    "40_Develop/checker/src/test-catalog/command.ts",
+    "40_Develop/checker/src/repository/document.ts",
+    "40_Develop/checker/src/repository/project-context.ts",
+    "40_Develop/checker/src/repository/reality.ts",
+    "40_Develop/checker/src/cli/test-catalog.ts",
   ];
   const forbiddenPatterns = [
     /node:child_process/u,
