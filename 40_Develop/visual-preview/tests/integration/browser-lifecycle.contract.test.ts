@@ -15,11 +15,11 @@ import test from "node:test";
 
 import {
   closeOwnedBrowserProcessTree,
-  observeLocalListener,
-  runVisualCleanupStages,
   stopOwnedBrowser,
   terminateRemainingOwnedBrowserProcesses,
-} from "../../src/browser/verify-visual.ts";
+} from "../../src/browser/process.ts";
+import { observeLocalListener } from "../../src/browser/devtools.ts";
+import { runVisualCleanupStages } from "../../src/browser/measure.ts";
 
 /**
  * Listenerの接続成立・明示的拒否・不正入力を三値で区別することを検証する。

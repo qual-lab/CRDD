@@ -8,11 +8,9 @@
  * @effect N/A: 入力から提案を構成するだけで書込みや採用は行わない。
  * @security 提案に実行・採用Authorityを付与しない。
  */
-import {
-  inspectExecutionIntelligenceEvent,
-  summarizeExecutionIntelligence,
-  type ExecutionIntelligenceEvent,
-} from "../record/event-and-summary.ts";
+import { inspectExecutionIntelligenceEvent } from "../record/validation.ts";
+import { summarizeExecutionIntelligence } from "../record/summary.ts";
+import type { ExecutionIntelligenceEvent } from "../record/types.ts";
 
 /**
  * propose Execution Improvement Candidatesを決定する。

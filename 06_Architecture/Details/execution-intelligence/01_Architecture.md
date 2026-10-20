@@ -92,7 +92,34 @@ Reader → 検査・相関・Aggregation → Read-only Projection
 
 Writerだけが検証済みRecord PortからStoreへの公開Effectを所有する。ReaderとProjectionは入力Sourceを変更しない。いずれもTask状態、Project状態、実行許可または評価採用を所有しない。
 
-実装配置では`record/event-and-summary.ts`がEventの構成・検査と事実の要約を所有し、`evaluation/improvement-candidates.ts`が同じ検査・要約を利用して非Authorityの改善候補を導出する。`projection/execution-records.ts`は両者を別の結果として返す。Package公開入口は`src/index.ts`に限定し、改善候補の採用や実行は追加しない。
+実装配置は次のとおりとする。Package公開入口は`src/index.ts`に限定し、改善候補の採用や実行は追加しない。
+
+```text
+src/
+├ index.ts                    既存の公開操作・型を実Ownerから明示公開
+├ record/
+│  ├ types.ts                 Event・構築入力・要約の共有型
+│  ├ validation.ts            通常データ抽出、構造・Identity・観測整合の検査
+│  ├ event.ts                 観測値とTask／Operation Eventの構築
+│  ├ summary.ts               検査済み記録の実績・欠測集計
+│  └ recorder.ts              Root検証と記録操作・保存先の接続
+├ storage/
+│  ├ store.ts                 保存・読戻し・保持期間・公開結果の編成
+│  ├ lock.ts                  既存Lockの取得・所有確認・解放と存在観測
+│  └ result.ts                保存結果と残存を保持する共通失敗契約
+├ projection/
+│  ├ execution.ts             対象Project／Attemptの事実と評価候補の投影
+│  └ temporal.ts              Revision・観測時点の分類と時間投影
+└ evaluation/
+   ├ integrated-result.ts      Task群と統合結果の評価
+   └ improvement-candidates.ts 根拠に基づく非Authorityの改善候補
+```
+
+`event`と`summary`は`validation`の検査を利用し、検査側からEvent構築へ逆依存しない。通常データ抽出には任意キー、Array上限・返却shape等でDomainの汎用抽出と異なる現行契約があるため、転送Fileを残さず`record/validation.ts`へ集約する。Domainの汎用契約を今回拡張しない。
+
+`storage/result.ts`はLockだけでなくpending・保持設定・保存確認・読取りが共有する既存の具体的な失敗契約であり、新しいError Frameworkではない。既存の`history.lock`、Identity、待機条件、保存後読戻し位置、Effectとcleanupの相関を維持する。保存Path・JSONL・保持設定と期間は変更しない。
+
+独立Repository検証Fileは廃止するが、公開`verifyExecutionIntelligenceRepositoryRoot`と`VerifiedExecutionRepositoryRoot`はrecorderへ同居し、既存のreason／root shapeを維持する。実際のRoot検証・解決はVersion Controlが所有し、Storageはその型と解決操作を直接利用する。`classifyTemporalProvenance`も独立公開操作のまま`temporal.ts`へ同居する。公開操作・型の名前、引数、理由、結果shapeは変更せず、利用側へ変換処理を複製しない。
 
 ## 2. Interface Model
 

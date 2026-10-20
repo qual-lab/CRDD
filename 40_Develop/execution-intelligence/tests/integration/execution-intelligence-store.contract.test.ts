@@ -31,11 +31,11 @@ import {
   observed,
   type VerifiedExecutionRepositoryRoot,
 } from "../../src/index.ts";
-import { createBoundExecutionIntelligenceRecorder } from "../../src/record/create-recorder.ts";
+import { createBoundExecutionIntelligenceRecorder } from "../../src/record/recorder.ts";
 import {
   readExecutionIntelligenceWithRuntimeDataArea,
   writeExecutionIntelligenceEventWithRuntimeDataArea,
-} from "../../src/store/events.ts";
+} from "../../src/storage/store.ts";
 
 const testingRepositoryRoot = path.resolve(
   execFileSync("git", ["rev-parse", "--show-toplevel"], {

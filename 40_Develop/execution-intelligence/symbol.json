@@ -30,7 +30,12 @@
         "execution-intelligence.source.src.application.execution.intelligence.recorder",
         "execution-intelligence.source.src.core.execution.intelligence",
         "execution-intelligence.source.src.store.execution.intelligence.store",
-        "execution-intelligence.source.src.store.verified.repository.root"
+        "execution-intelligence.source.src.store.verified.repository.root",
+        "execution-intelligence.source.record.types",
+        "execution-intelligence.source.record.validation",
+        "execution-intelligence.source.record.summary",
+        "execution-intelligence.source.storage.lock",
+        "execution-intelligence.source.storage.result"
       ]
     },
     {
@@ -63,7 +68,10 @@
       "verifies": [
         "execution-intelligence.source.src.application.execution.record.projection",
         "execution-intelligence.source.src.core.execution.intelligence",
-        "execution-intelligence.improvement-candidates"
+        "execution-intelligence.improvement-candidates",
+        "execution-intelligence.source.record.types",
+        "execution-intelligence.source.record.validation",
+        "execution-intelligence.source.record.summary"
       ]
     },
     {
@@ -79,7 +87,10 @@
       "verifies": [
         "execution-intelligence.source.src.core.bounded.integrated.result.evaluation",
         "execution-intelligence.source.src.core.execution.intelligence",
-        "execution-intelligence.improvement-candidates"
+        "execution-intelligence.improvement-candidates",
+        "execution-intelligence.source.record.types",
+        "execution-intelligence.source.record.validation",
+        "execution-intelligence.source.record.summary"
       ]
     },
     {
@@ -99,7 +110,7 @@
     {
       "symbolId": "execution-intelligence.source.src.application.execution.intelligence.recorder",
       "kind": "file",
-      "path": "src/record/create-recorder.ts",
+      "path": "src/record/recorder.ts",
       "archIds": [
         "ARCH-000007"
       ]
@@ -107,7 +118,7 @@
     {
       "symbolId": "execution-intelligence.source.src.application.record.projection",
       "kind": "file",
-      "path": "src/projection/temporal-records.ts",
+      "path": "src/projection/temporal.ts",
       "archIds": [
         "ARCH-000007",
         "ARCH-000016"
@@ -116,7 +127,7 @@
     {
       "symbolId": "execution-intelligence.source.src.application.execution.record.projection",
       "kind": "file",
-      "path": "src/projection/execution-records.ts",
+      "path": "src/projection/execution.ts",
       "archIds": [
         "ARCH-000007"
       ]
@@ -124,7 +135,7 @@
     {
       "symbolId": "execution-intelligence.source.src.store.execution.intelligence.store",
       "kind": "file",
-      "path": "src/store/events.ts",
+      "path": "src/storage/store.ts",
       "archIds": [
         "ARCH-000007"
       ]
@@ -140,7 +151,7 @@
     {
       "symbolId": "execution-intelligence.source.src.core.execution.intelligence",
       "kind": "file",
-      "path": "src/record/event-and-summary.ts",
+      "path": "src/record/event.ts",
       "archIds": [
         "ARCH-000007"
       ]
@@ -148,7 +159,7 @@
     {
       "symbolId": "execution-intelligence.source.src.core.temporal.provenance",
       "kind": "file",
-      "path": "src/provenance/classify.ts",
+      "path": "src/projection/temporal.ts",
       "archIds": [
         "ARCH-000016"
       ]
@@ -156,7 +167,7 @@
     {
       "symbolId": "execution-intelligence.source.src.store.verified.repository.root",
       "kind": "file",
-      "path": "src/store/verify-repository-root.ts",
+      "path": "src/record/recorder.ts",
       "archIds": [
         "ARCH-000007"
       ]
@@ -165,6 +176,46 @@
       "symbolId": "execution-intelligence.improvement-candidates",
       "kind": "file",
       "path": "src/evaluation/improvement-candidates.ts",
+      "archIds": [
+        "ARCH-000007"
+      ]
+    },
+    {
+      "symbolId": "execution-intelligence.source.record.types",
+      "kind": "file",
+      "path": "src/record/types.ts",
+      "archIds": [
+        "ARCH-000007"
+      ]
+    },
+    {
+      "symbolId": "execution-intelligence.source.record.validation",
+      "kind": "file",
+      "path": "src/record/validation.ts",
+      "archIds": [
+        "ARCH-000007"
+      ]
+    },
+    {
+      "symbolId": "execution-intelligence.source.record.summary",
+      "kind": "file",
+      "path": "src/record/summary.ts",
+      "archIds": [
+        "ARCH-000007"
+      ]
+    },
+    {
+      "symbolId": "execution-intelligence.source.storage.lock",
+      "kind": "file",
+      "path": "src/storage/lock.ts",
+      "archIds": [
+        "ARCH-000007"
+      ]
+    },
+    {
+      "symbolId": "execution-intelligence.source.storage.result",
+      "kind": "file",
+      "path": "src/storage/result.ts",
       "archIds": [
         "ARCH-000007"
       ]

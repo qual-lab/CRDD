@@ -4,6 +4,14 @@
 詳細設計領域: visual-preview
 状態: Canonical
 
+## Source構造の整理 — 2026-10-20
+
+配信・Process世代と終了・DevTools通信・一測定の資源lifecycle・二種検証の編成・CLI受付へ分離する。入力条件、待機時間、三値観測、正常終了callback、全段cleanupと一次失敗／cleanup失敗の保持は変更しない。新しいSession・Registry・Lock・Recoveryは追加しない。実Chromeの現在改訂版確認は未実施であり、局所Process試験を実Visual成立へ換算しない。
+
+既存四操作に加え、利用者承認で`closeOwnedBrowserProcessTree`をBrowser検証の組立て側向けにRootから公開する。引数は自身が起動したChildProcessと正常終了要求callbackに限定し、世代・所有子孫の確認と現在の結果を維持する。依存注入用の内部型・ヘルパーはRootへ追加しない。WorkbenchのBrowser試験はRoot APIへ接続する。
+
+CLIは`bin/visual-preview.ts`から自Packageの`src/cli/command.ts`だけへ接続する。受付は引数解析・用途選択・serve時のsignal収束を実装し、単なる転送ではない。Programmatic ConsumerがないためRoot公開へ追加せず、bin限定の内部接続として検証する。通常の公開五操作はRootからのみ利用する。
+
 ## 基本設計との関係
 
 | Architecture定義 | この領域が具体化する責務 | Relation状態 |
@@ -80,8 +88,13 @@ Repository内Visual成果物
 ```text
 visual-preview/
 ├ src/index.ts           公開API
-├ src/preview-server.ts  Root検証・HTTP配信・Listener Owner
-├ src/browser-zoom-verifier.ts 専用Profile・Chrome・DevTools・測定・清掃
+├ src/preview/server.ts  Root検証・HTTP配信・Listener Owner
+├ src/browser/types.ts   実共有の要求・測定結果型
+├ src/browser/process.ts 実行物解決・世代観測・所有Processの終了
+├ src/browser/devtools.ts DevTools通信・Listener三値観測
+├ src/browser/measure.ts 単条件のBrowser起動・DOM測定・全段cleanup
+├ src/browser/verify.ts  二種の検証編成・対象条件の順次実行
+├ src/cli/command.ts     引数受付・用途選択・既存出力と終了値
 ├ bin/visual-preview.ts  Preview／Zoom検証のCLI入口
 └ tests/                 localhost直接境界の契約試験
 
@@ -106,8 +119,11 @@ template/tools/
 
 | 公開Module | 公開する責務 |
 |---|---|
-| `./preview-server.ts` | Repository内の許可Rootをlocalhostへ読取り専用で配信する。 |
-| `./browser-zoom-verifier.ts` | 専用Chrome Profileで実ZoomとVisual品質条件を観測し、所有資源を清掃する。 |
+| `./preview/server.ts` | `startVisualPreview`と要求・Handle型。許可Rootの読取り配信。 |
+| `./browser/types.ts` | 既存のWindow・Profile・Target・測定・二種の要求／結果型だけ。 |
+| `./browser/verify.ts` | `verifyBrowserZoom`、`verifyLocalWebApplicationVisual`。 |
+| `./browser/devtools.ts` | `observeLocalListener`。他の通信内部操作は非公開。 |
+| `./browser/process.ts` | 承認済み`closeOwnedBrowserProcessTree`だけ。内部注入型等は非公開。 |
 
 ## 4. Flow
 

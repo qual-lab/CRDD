@@ -526,11 +526,11 @@ test("実行知の実装変更は共通試験と登録済み利用側契約を�
     .sort();
   for (const [changedPath, consumerPath] of [
     [
-      "40_Develop/execution-intelligence/src/record/event-and-summary.ts",
+      "40_Develop/execution-intelligence/src/record/event.ts",
       "40_Develop/coordinator/tests/integration/orchestrator-execution.contract.test.ts",
     ],
     [
-      "40_Develop/execution-intelligence/src/store/events.ts",
+      "40_Develop/execution-intelligence/src/storage/store.ts",
       "40_Develop/coordinator/tests/integration/orchestrator-composition-root.integration.test.ts",
     ],
     [
@@ -565,7 +565,7 @@ test("実行知の実装変更は共通試験と登録済み利用側契約を�
  */
 test("利用側静的検査は試験levelの絞込みと独立して選ぶ", () => {
   const changedPaths = [
-    "40_Develop/execution-intelligence/src/record/event-and-summary.ts",
+    "40_Develop/execution-intelligence/src/record/event.ts",
   ];
   const selectedEntries = selectRegressionTests(
     catalog,

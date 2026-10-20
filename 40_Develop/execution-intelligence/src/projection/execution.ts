@@ -6,15 +6,13 @@
  * @boundary Event SourceからProjectorへ渡る直接境界とCandidate分類の隣接境界。
  * @effect N/A: 入力Eventと対象Projectを変更せず、読取り結果だけを返す。
  */
-import {
-  inspectExecutionIntelligenceEvent,
-  type ExecutionIntelligenceEvent,
-} from "../record/event-and-summary.ts";
+import { inspectExecutionIntelligenceEvent } from "../record/validation.ts";
+import type { ExecutionIntelligenceEvent } from "../record/types.ts";
 import { proposeExecutionImprovementCandidates } from "../evaluation/improvement-candidates.ts";
 import {
   snapshotPlainArray,
   snapshotPlainRecord,
-} from "../input/plain-data-snapshot.ts";
+} from "../record/validation.ts";
 
 const ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u;
 const MAXIMUM_EVENTS = 4_224;

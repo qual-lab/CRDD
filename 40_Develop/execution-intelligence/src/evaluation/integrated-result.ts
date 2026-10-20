@@ -4,15 +4,15 @@
  * @responsibility IntegratedResultObservationを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000007
  */
-import {
-  inspectExecutionIntelligenceEvent,
-  type TaskAttemptExecutionIntelligenceEvent,
-  type ExecutionObservation,
-} from "../record/event-and-summary.ts";
+import { inspectExecutionIntelligenceEvent } from "../record/validation.ts";
+import type {
+  TaskAttemptExecutionIntelligenceEvent,
+  ExecutionObservation,
+} from "../record/types.ts";
 import {
   snapshotPlainArray,
   snapshotPlainRecord,
-} from "../input/plain-data-snapshot.ts";
+} from "../record/validation.ts";
 
 export const BOUNDED_INTEGRATED_RESULT_EVALUATION_INPUT_CONTRACT =
   "crdd/bounded-integrated-result-evaluation-input/v1" as const;

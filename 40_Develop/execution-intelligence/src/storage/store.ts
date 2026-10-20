@@ -1,61 +1,46 @@
 /**
- * execution-intelligence-storeに属する責務をまとめる。
- *
- * @responsibility ExecutionIntelligencePublicationResultを中心とする実装、型および境界を同じModuleで所有する。
+ * 実行履歴の保存・読戻し・期間整理と結果の相関を所有する。
+ * @responsibility 実行履歴の保存・読戻し・期間整理と結果の相関を所有する。
  * @trace ARCH-000007
  */
-import { createHash, randomUUID } from "node:crypto";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { snapshotPlainRecord } from "../input/plain-data-snapshot.ts";
-
 import {
+  snapshotPlainRecord,
   inspectExecutionIntelligenceEvent,
-  summarizeExecutionIntelligence,
-  type ExecutionIntelligenceEvent,
-} from "../record/event-and-summary.ts";
+} from "../record/validation.ts";
+import { summarizeExecutionIntelligence } from "../record/summary.ts";
+import type { ExecutionIntelligenceEvent } from "../record/types.ts";
 import {
-  resolveVerifiedExecutionRepositoryRoot,
-  type VerifiedExecutionRepositoryRoot,
-} from "./verify-repository-root.ts";
-import { ensureRepositoryRuntimeDataArea } from "../../../domain-model/src/index.ts";
-import {
+  ensureRepositoryRuntimeDataArea,
   RepositoryRuntimeDataAreaBlockedError,
   requireReadyRepositoryRuntimeDataArea,
   observeRepositoryRuntimeDataArea,
+  readExecutionIntelligenceConfig,
 } from "../../../domain-model/src/index.ts";
-import { readExecutionIntelligenceConfig } from "../../../domain-model/src/index.ts";
-import type { VerifiedRepositoryRoot } from "../../../version-control/src/index.ts";
+import {
+  resolveVerifiedRepositoryRoot,
+  type VerifiedRepositoryRoot,
+} from "../../../version-control/src/index.ts";
+import {
+  MutationBoundaryError,
+  type ExecutionIntelligencePublicationResult,
+  blockedPublication,
+} from "./result.ts";
+import {
+  LOCK_ATTEMPTS,
+  waitArray,
+  LOCK_RETRY_MS,
+  entryExists,
+  type MutationLock,
+  acquireMutationLock,
+  releaseMutationLock,
+} from "./lock.ts";
 
 const MAXIMUM_EVENTS = 10_000;
+
 const MAXIMUM_TOTAL_BYTES = 32 * 1024 * 1024;
-const LOCK_ATTEMPTS = 200;
-const LOCK_RETRY_MS = 10;
-const waitArray = new Int32Array(new SharedArrayBuffer(4));
-/**
- * 不存在と観測不能を区別してDirectory Entryを観測する。
- * @responsibility ENOENTだけを不存在とし、権限不足やI/O障害を空状態へ畳まない。
- * @trace ARCH-000007
- * @input target: 検証済みRoot内の固定Path。
- * @returns 観測した存在の真偽。
- * @precondition 呼出し側がRootとPathの境界を検証済みである。
- * @postcondition 不明をfalseへ補完しない。
- * @effect Filesystem metadataを読み取る。書込みEffectは0。
- * @failure ENOENT以外の観測障害を呼出し側へ伝播する。
- * @invariant broken linkも存在として検査側へ渡す。
- * @boundary StoreとFilesystem metadataの境界。
- * @security 任意Pathを公開入力から受け取らない。
- * @concurrency 原子的なlstat一回の観測だけを表し将来の不存在を保証しない。
- */
-function entryExists(target: string): boolean {
-  try {
-    fs.lstatSync(target);
-    return true;
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return false;
-    throw error;
-  }
-}
 
 /**
  * 読取り期間の半開区間を定義する。
@@ -70,44 +55,6 @@ function entryExists(target: string): boolean {
 export type ExecutionIntelligenceReadOptions = Readonly<{
   period: Readonly<{ fromInclusive: string; toExclusive: string }>;
 }>;
-
-/**
- * execution-intelligence-storeで使用するExecution Intelligence Publication 結果の値契約を定義する。
- *
- * @responsibility Execution Intelligence Publication 結果のProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000007
- * @shape ExecutionIntelligencePublicationResultが表すProperty、識別子およびRelationを型として固定する。
- * @invariant ExecutionIntelligencePublicationResultで宣言した値と責務の対応を維持する。
- * @boundary N/A: ExecutionIntelligencePublicationResultの宣言は外部境界を開かない。
- * @security N/A: ExecutionIntelligencePublicationResultはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility ExecutionIntelligencePublicationResultの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-export type ExecutionIntelligencePublicationResult =
-  | Readonly<{
-      status: "completed";
-      reason: "execution_event_recorded" | "execution_event_already_recorded";
-      eventId: string;
-      effectState: "settled";
-      effectIssued: true;
-      effectStateUnknown: false;
-      cleanupConfirmed: true;
-      retryAllowed: false;
-      manualRecoveryRequired: false;
-      residualArtifactIds: readonly [];
-      recoveryReference: null;
-    }>
-  | Readonly<{
-      status: "blocked";
-      reason: string;
-      effectState: "no_effect" | "settled" | "unknown";
-      effectIssued: boolean;
-      effectStateUnknown: boolean;
-      cleanupConfirmed: boolean;
-      retryAllowed: boolean;
-      manualRecoveryRequired: boolean;
-      residualArtifactIds: readonly string[];
-      recoveryReference: string | null;
-    }>;
 
 /**
  * execution-intelligence-storeで使用するStore Layoutの値契約を定義する。
@@ -129,22 +76,6 @@ type StoreLayout = Readonly<{
 }>;
 
 /**
- * execution-intelligence-storeで使用するMutation Lockの値契約を定義する。
- *
- * @responsibility Mutation LockのProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000007
- * @shape MutationLockが表すProperty、識別子およびRelationを型として固定する。
- * @invariant MutationLockで宣言した値と責務の対応を維持する。
- * @boundary N/A: MutationLockの宣言は外部境界を開かない。
- * @security N/A: MutationLockはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility MutationLockの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-type MutationLock = Readonly<{
-  owner: string;
-  identity: string;
-}>;
-
-/**
  * execution-intelligence-storeで使用するRuntime Data Area Resolverの値契約を定義する。
  *
  * @responsibility Runtime Data Area ResolverのProperty、Identity、状態制約を型境界として所有する。
@@ -156,30 +87,6 @@ type MutationLock = Readonly<{
  * @compatibility RuntimeDataAreaResolverの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
 type RuntimeDataAreaResolver = typeof ensureRepositoryRuntimeDataArea;
-
-/**
- * MutationBoundaryErrorが担う状態と操作を提供する。
- *
- * @responsibility MutationBoundaryErrorに属する状態と操作の所有境界をまとめる。
- * @trace ARCH-000007
- * @construction MutationBoundaryErrorの生成に必要な依存と初期状態をConstructor契約で固定する。
- * @lifecycle MutationBoundaryErrorが所有する状態と資源を生成から終了まで同じInstanceで管理する。
- * @effect N/A: MutationBoundaryErrorの宣言自体は実行時Effectを発行しない。
- * @failure N/A: MutationBoundaryErrorの宣言自体は実行時失敗を所有しない。
- * @invariant MutationBoundaryErrorで宣言した値と責務の対応を維持する。
- * @boundary N/A: MutationBoundaryErrorの宣言は外部境界を開かない。
- * @security N/A: MutationBoundaryErrorはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: MutationBoundaryErrorは共有非同期状態を持たない同期処理である。
- */
-class MutationBoundaryError extends Error {
-  readonly residualArtifactIds: readonly string[];
-
-  constructor(reason: string, residualArtifactIds: readonly string[]) {
-    super(reason);
-    this.name = "MutationBoundaryError";
-    this.residualArtifactIds = Object.freeze([...residualArtifactIds]);
-  }
-}
 
 /**
  * sha256を決定する。
@@ -210,7 +117,7 @@ function sha256(bytes: string | Buffer) {
  * @returns booleanを返す。
  * @precondition 「left: string、right: string」がsamePathの入力契約を満たす。
  * @postcondition samePathの責務を完了した結果だけを返す。
- * @effect samePathは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @effect N/A: Path文字列と現在OSの区別だけを参照し、Process起動・Filesystem操作・書込みを行わない。
  * @failure N/A: samePathは独自の失敗分岐を所有しない。
  * @invariant samePathは宣言した境界以外へEffectを拡張しない。
  * @boundary FilesystemとProcess内Domain処理の境界。
@@ -282,9 +189,9 @@ function ensureDirectory(directory: string): void {
  *
  * @responsibility store Layoutの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000007
- * @input rootCapability: VerifiedExecutionRepositoryRoot、shouldCreate: boolean、resolveArea: RuntimeDataAreaResolver
+ * @input rootCapability: VerifiedRepositoryRoot、shouldCreate: boolean、resolveArea: RuntimeDataAreaResolver
  * @returns StoreLayout | nullを返す。
- * @precondition 「rootCapability: VerifiedExecutionRepositoryRoot、shouldCreate: boolean、resolveArea: RuntimeDataAreaResolver」がstoreLayoutの入力契約を満たす。
+ * @precondition 「rootCapability: VerifiedRepositoryRoot、shouldCreate: boolean、resolveArea: RuntimeDataAreaResolver」がstoreLayoutの入力契約を満たす。
  * @postcondition storeLayoutの責務を完了した結果だけを返す。
  * @effect storeLayoutはFilesystemの読取りまたは書込みを実行する。
  * @failure storeLayoutは入力不正または下位処理の失敗を呼出し側へ返す。
@@ -294,11 +201,11 @@ function ensureDirectory(directory: string): void {
  * @concurrency N/A: storeLayoutは共有非同期状態を持たない同期処理である。
  */
 function storeLayout(
-  rootCapability: VerifiedExecutionRepositoryRoot,
+  rootCapability: VerifiedRepositoryRoot,
   shouldCreate: boolean,
   resolveArea: RuntimeDataAreaResolver = ensureRepositoryRuntimeDataArea,
 ): StoreLayout | null {
-  const repositoryRoot = resolveVerifiedExecutionRepositoryRoot(rootCapability);
+  const repositoryRoot = resolveVerifiedRepositoryRoot(rootCapability);
   if (repositoryRoot === null)
     throw new Error("execution_store_root_capability_invalid");
   if (!shouldCreate) {
@@ -360,148 +267,6 @@ function storeLayout(
 }
 
 /**
- * Mutation Lockを取得する。
- *
- * @responsibility Mutation Lockの取得条件、所有権、失敗時の非取得境界を所有する。
- * @trace ARCH-000007
- * @input layout: StoreLayout
- * @returns MutationLock | nullを返す。
- * @precondition 「layout: StoreLayout」がacquireMutationLockの入力契約を満たす。
- * @postcondition acquireMutationLockの責務を完了した結果だけを返す。
- * @effect acquireMutationLockはFilesystemの読取りまたは書込みを実行する。
- * @failure acquireMutationLockは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant acquireMutationLockは宣言した境界以外へEffectを拡張しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
- * @security N/A: acquireMutationLockはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency Root全体のhistory.lockをwxで排他的に取得し、未所有Lockを自動奪取しない。
- */
-function acquireMutationLock(layout: StoreLayout): MutationLock | null {
-  for (let attempt = 0; attempt < LOCK_ATTEMPTS; attempt += 1) {
-    let descriptor: number;
-    try {
-      descriptor = fs.openSync(layout.lock, "wx", 0o600);
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
-      Atomics.wait(waitArray, 0, 0, LOCK_RETRY_MS);
-      continue;
-    }
-    const identity = randomUUID();
-    try {
-      try {
-        fs.writeFileSync(
-          descriptor,
-          `${JSON.stringify({
-            contract: "crdd/execution-store-lock/v2",
-            identity,
-          })}\n`,
-          "utf8",
-        );
-        fs.fsyncSync(descriptor);
-      } finally {
-        fs.closeSync(descriptor);
-      }
-      return Object.freeze({ owner: layout.lock, identity });
-    } catch {
-      let isCleanupConfirmed = false;
-      try {
-        fs.unlinkSync(layout.lock);
-        isCleanupConfirmed = !entryExists(layout.lock);
-      } catch {
-        isCleanupConfirmed = false;
-      }
-      throw new MutationBoundaryError(
-        "execution_store_lock_initialization_failed",
-        isCleanupConfirmed ? [] : ["history.lock"],
-      );
-    }
-  }
-  return null;
-}
-
-/**
- * Mutation Lockを解放する。
- *
- * @responsibility Mutation Lockの所有権、解放条件、終了後不存在の確認境界を所有する。
- * @trace ARCH-000007
- * @input lock: MutationLock
- * @returns booleanを返す。
- * @precondition 「lock: MutationLock」がreleaseMutationLockの入力契約を満たす。
- * @postcondition releaseMutationLockの責務を完了した結果だけを返す。
- * @effect releaseMutationLockはFilesystemの読取りまたは書込みを実行する。
- * @failure releaseMutationLockは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant releaseMutationLockは宣言した境界以外へEffectを拡張しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
- * @security N/A: releaseMutationLockはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency exactな所有Identityが一致するLockだけを解放する。
- */
-function releaseMutationLock(lock: MutationLock): boolean {
-  try {
-    const status = fs.lstatSync(lock.owner);
-    if (!status.isFile() || status.isSymbolicLink() || status.nlink !== 1)
-      return false;
-    const parsed = JSON.parse(fs.readFileSync(lock.owner, "utf8")) as {
-      identity?: unknown;
-      contract?: unknown;
-    };
-    if (
-      parsed.contract !== "crdd/execution-store-lock/v2" ||
-      parsed.identity !== lock.identity
-    )
-      return false;
-    fs.unlinkSync(lock.owner);
-    return !entryExists(lock.owner);
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Publicationを停止結果として構築する。
- *
- * @responsibility Publicationの停止理由、未発行Effect、公開結果境界を所有する。
- * @trace ARCH-000007
- * @input reason: string、effectState: "no_effect" | "settled" | "unknown"、cleanupConfirmed: boolean、residualArtifactIds: readonly string[]、retryAllowed、boundary: Readonly<{ effectIssued?: boolean; effectStateUnknown?: boolean; recoveryReference?: string | null; }>
- * @returns ExecutionIntelligencePublicationResultを返す。
- * @precondition 「reason: string、effectState: "no_effect" | "settled" | "unknown"、cleanupConfirmed: boolean、residualArtifactIds: readonly string[]、retryAllowed、boundary: Readonly<{ effectIssued?: boolean; effectStateUnknown?: boolean; recoveryReference?: string | null; }>」がblockedPublicationの入力契約を満たす。
- * @postcondition blockedPublicationの責務を完了した結果だけを返す。
- * @effect N/A: blockedPublicationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: blockedPublicationは独自の失敗分岐を所有しない。
- * @invariant blockedPublicationは入力から導いた結果以外の共有状態を変更しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
- * @security N/A: blockedPublicationはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: blockedPublicationは共有非同期状態を持たない同期処理である。
- */
-function blockedPublication(
-  reason: string,
-  effectState: "no_effect" | "settled" | "unknown",
-  cleanupConfirmed: boolean,
-  residualArtifactIds: readonly string[],
-  retryAllowed = false,
-  boundary: Readonly<{
-    effectIssued?: boolean;
-    effectStateUnknown?: boolean;
-    recoveryReference?: string | null;
-  }> = {},
-): Extract<ExecutionIntelligencePublicationResult, { status: "blocked" }> {
-  const isEffectStateUnknown =
-    boundary.effectStateUnknown ?? effectState === "unknown";
-  const recoveryReference = boundary.recoveryReference ?? null;
-  return Object.freeze({
-    status: "blocked" as const,
-    reason,
-    effectState,
-    effectIssued: boundary.effectIssued ?? effectState !== "no_effect",
-    effectStateUnknown: isEffectStateUnknown,
-    cleanupConfirmed,
-    retryAllowed,
-    manualRecoveryRequired:
-      isEffectStateUnknown || !cleanupConfirmed || recoveryReference !== null,
-    residualArtifactIds: Object.freeze([...residualArtifactIds]),
-    recoveryReference,
-  });
-}
-
-/**
  * existing Publicationを決定する。
  *
  * @responsibility existing Publicationの導出に必要な入力、判定規則、返却結果の境界を所有する。
@@ -545,9 +310,9 @@ function existingPublication(
  *
  * @responsibility Execution Intelligence Event With Runtime Data Areaの書込み先、確定条件、部分書込みの失敗境界を所有する。
  * @trace ARCH-000007
- * @input rootCapability: VerifiedExecutionRepositoryRoot、value: unknown、resolveArea: RuntimeDataAreaResolver
+ * @input rootCapability: VerifiedRepositoryRoot、value: unknown、resolveArea: RuntimeDataAreaResolver
  * @returns ExecutionIntelligencePublicationResultを返す。
- * @precondition 「rootCapability: VerifiedExecutionRepositoryRoot、value: unknown、resolveArea: RuntimeDataAreaResolver」がwriteExecutionIntelligenceEventWithRuntimeDataAreaの入力契約を満たす。
+ * @precondition 「rootCapability: VerifiedRepositoryRoot、value: unknown、resolveArea: RuntimeDataAreaResolver」がwriteExecutionIntelligenceEventWithRuntimeDataAreaの入力契約を満たす。
  * @postcondition writeExecutionIntelligenceEventWithRuntimeDataAreaの責務を完了した結果だけを返す。
  * @effect writeExecutionIntelligenceEventWithRuntimeDataAreaはFilesystemの読取りまたは書込みを実行する。
  * @failure writeExecutionIntelligenceEventWithRuntimeDataAreaは入力不正または下位処理の失敗を呼出し側へ返す。
@@ -557,7 +322,7 @@ function existingPublication(
  * @concurrency Root全体のLockで設定取得・読取り・保持整理・原子的公開を直列化する。
  */
 export function writeExecutionIntelligenceEventWithRuntimeDataArea(
-  rootCapability: VerifiedExecutionRepositoryRoot,
+  rootCapability: VerifiedRepositoryRoot,
   value: unknown,
   resolveArea: RuntimeDataAreaResolver,
   clock: () => number = Date.now,
@@ -752,9 +517,9 @@ export function writeExecutionIntelligenceEventWithRuntimeDataArea(
  *
  * @responsibility Execution Intelligence Eventの書込み先、確定条件、部分書込みの失敗境界を所有する。
  * @trace ARCH-000007
- * @input rootCapability: VerifiedExecutionRepositoryRoot、value: unknown
+ * @input rootCapability: VerifiedRepositoryRoot、value: unknown
  * @returns ExecutionIntelligencePublicationResultを返す。
- * @precondition 「rootCapability: VerifiedExecutionRepositoryRoot、value: unknown」がwriteExecutionIntelligenceEventの入力契約を満たす。
+ * @precondition 「rootCapability: VerifiedRepositoryRoot、value: unknown」がwriteExecutionIntelligenceEventの入力契約を満たす。
  * @postcondition writeExecutionIntelligenceEventの責務を完了した結果だけを返す。
  * @effect Repository-local履歴領域を作成し、history.lockの排他取得、pending書込み、履歴のatomic置換と保持期間整理を実行する。
  * @failure 入力不正、保存・観測・排他・回収の失敗を下位保存Ownerの結果として返し、Effect不明を未発行へ畳まない。
@@ -764,7 +529,7 @@ export function writeExecutionIntelligenceEventWithRuntimeDataArea(
  * @concurrency history.lockを排他的に取得し、保存確定と読戻し後に所有Lockの解放結果を確認する。
  */
 export function writeExecutionIntelligenceEvent(
-  rootCapability: VerifiedExecutionRepositoryRoot,
+  rootCapability: VerifiedRepositoryRoot,
   value: unknown,
 ): ExecutionIntelligencePublicationResult {
   return writeExecutionIntelligenceEventWithRuntimeDataArea(
@@ -879,9 +644,9 @@ function readFromExecutionDirectory(directory: string) {
  *
  * @responsibility Execution Intelligence With Runtime Data Areaの読取り元、上限、読取不能時の結果境界を所有する。
  * @trace ARCH-000007
- * @input rootCapability: VerifiedExecutionRepositoryRoot、resolveArea: RuntimeDataAreaResolver
+ * @input rootCapability: VerifiedRepositoryRoot、resolveArea: RuntimeDataAreaResolver
  * @returns | ReturnType<typeof readFromExecutionDirectory> | Extract<ExecutionIntelligencePublicationResult, { status: "blocked" }>を返す。
- * @precondition 「rootCapability: VerifiedExecutionRepositoryRoot、resolveArea: RuntimeDataAreaResolver」がreadExecutionIntelligenceWithRuntimeDataAreaの入力契約を満たす。
+ * @precondition 「rootCapability: VerifiedRepositoryRoot、resolveArea: RuntimeDataAreaResolver」がreadExecutionIntelligenceWithRuntimeDataAreaの入力契約を満たす。
  * @postcondition readExecutionIntelligenceWithRuntimeDataAreaの責務を完了した結果だけを返す。
  * @effect Filesystemを読み取る。Lock、設定、Directoryの作成・変更Effectは0。
  * @failure readExecutionIntelligenceWithRuntimeDataAreaは入力不正または下位処理の失敗を呼出し側へ返す。
@@ -891,7 +656,7 @@ function readFromExecutionDirectory(directory: string) {
  * @concurrency Lock／pendingを読取り前後に観測し、原子的に公開した完全なhistory snapshotだけを返す。
  */
 export function readExecutionIntelligenceWithRuntimeDataArea(
-  rootCapability: VerifiedExecutionRepositoryRoot,
+  rootCapability: VerifiedRepositoryRoot,
   resolveArea: RuntimeDataAreaResolver,
   options?: ExecutionIntelligenceReadOptions,
 ):
@@ -975,8 +740,7 @@ export function readExecutionIntelligenceWithRuntimeDataArea(
     if (
       finalArea.status !== "ready" ||
       finalArea.boundaryIdentity !== layout.boundaryIdentity ||
-      finalArea.repositoryRoot !==
-        resolveVerifiedExecutionRepositoryRoot(rootCapability)
+      finalArea.repositoryRoot !== resolveVerifiedRepositoryRoot(rootCapability)
     )
       return blockedPublication(
         "execution_store_boundary_changed",
@@ -1033,9 +797,9 @@ export function readExecutionIntelligenceWithRuntimeDataArea(
  *
  * @responsibility Execution Intelligenceの読取り元、上限、読取不能時の結果境界を所有する。
  * @trace ARCH-000007
- * @input rootCapability: VerifiedExecutionRepositoryRoot
+ * @input rootCapability: VerifiedRepositoryRoot
  * @returns readExecutionIntelligenceの計算結果を返す。
- * @precondition 「rootCapability: VerifiedExecutionRepositoryRoot」がreadExecutionIntelligenceの入力契約を満たす。
+ * @precondition 「rootCapability: VerifiedRepositoryRoot」がreadExecutionIntelligenceの入力契約を満たす。
  * @postcondition readExecutionIntelligenceの責務を完了した結果だけを返す。
  * @effect Filesystemを読み取る。Lock、設定、Directoryの作成・変更Effectは0。
  * @failure N/A: readExecutionIntelligenceは独自の失敗分岐を所有しない。
@@ -1045,7 +809,7 @@ export function readExecutionIntelligenceWithRuntimeDataArea(
  * @concurrency N/A: readExecutionIntelligenceは共有非同期状態を持たない同期処理である。
  */
 export function readExecutionIntelligence(
-  rootCapability: VerifiedExecutionRepositoryRoot,
+  rootCapability: VerifiedRepositoryRoot,
   options?: ExecutionIntelligenceReadOptions,
 ) {
   return readExecutionIntelligenceWithRuntimeDataArea(

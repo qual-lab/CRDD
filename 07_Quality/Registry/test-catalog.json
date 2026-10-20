@@ -7416,6 +7416,27 @@
       "mandatoryByDefault": true
     },
     {
+      "id": "visual-preview:integration:command",
+      "owner": "visual-preview",
+      "path": "40_Develop/visual-preview/tests/integration/command.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "visual-preview",
+        "cli",
+        "public-api"
+      ],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "child_process_joined",
+        "no_browser_started",
+        "no_listener_started"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
       "id": "workbench:integration:production-shell",
       "owner": "workbench-server",
       "path": "40_Develop/workbench-server/tests/integration/workbench-server.contract.test.ts",

@@ -43,7 +43,7 @@ import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../vers
 import {
   closeOwnedBrowserProcessTree,
   observeLocalListener,
-} from "../../../visual-preview/src/browser/verify-visual.ts";
+} from "../../../visual-preview/src/index.ts";
 import { startWorkbench } from "../../src/index.ts";
 
 const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(

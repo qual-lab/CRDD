@@ -48,10 +48,10 @@ const expectedAreaConsumers = [
   "40_Develop/coordinator/scripts/prepare-codex-advice-image.ts",
   "40_Develop/coordinator/scripts/verification-result-record.ts",
   "40_Develop/coordinator/src/host-execution/terminal-caller-checkpoint.ts",
-  "40_Develop/execution-intelligence/src/store/events.ts",
+  "40_Develop/execution-intelligence/src/storage/store.ts",
   "40_Develop/orchestrator/src/storage/current-state.ts",
   "40_Develop/orchestrator/src/storage/history.ts",
-  "40_Develop/visual-preview/src/browser/verify-visual.ts",
+  "40_Develop/visual-preview/src/browser/verify.ts",
 ] as const;
 const PUBLIC_ORCHESTRATOR_BOUNDARY =
   "40_Develop/orchestrator/src/operation-composition.ts";
@@ -61,7 +61,7 @@ const orchestratorStoreFactoryNames = [
   "createOrchestratorAcceptanceDecisionStore",
 ] as const;
 const EXECUTION_INTELLIGENCE_CONSUMER =
-  "40_Develop/execution-intelligence/src/store/events.ts";
+  "40_Develop/execution-intelligence/src/storage/store.ts";
 const blockedMeaningFields = [
   "effectIssued",
   "effectStateUnknown",

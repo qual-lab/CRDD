@@ -9,6 +9,24 @@
 
 ## 1. 結論と実行境界
 
+### Visual Preview・Execution Intelligenceの構造整理 — 2026-10-20（対象作業完了・全体QAは別途）
+
+利用者がvisual-preview→execution-intelligenceの順序とAfter構成を承認した。基準は`add26c33a`。VisualはPreview配信、Process、DevTools、単条件測定、二種の検証編成、CLI受付を分ける。EIは記録の型・検証・構築・集計・保存接続、storageの保存と既存排他へ整理し、時間的出所の分類を時間投影へ同居する。独立repository中継は削減対象とし、汎用入力検査はDomainとの受理条件差を照合してから共通化可否を決める。新しいRegistry・Lock方式・Recovery・Runnerは追加しない。
+
+変更分類は非自明な実装Refactor。各詳細Architecture、Coding Standards、QA接続、公開API、package設定と既知Consumerを追従する。親の着手前照合に加え、Process・Listener・一時領域・失敗とcleanupの相関を読取り専用確認者と確認した。測定はProcess→DevTools→Profileの全段cleanup、一次失敗とcleanup失敗、Process世代・観測不能、二種のListener所有差を維持する。既存四操作と既存結果・終了値を固定し、実共有型だけを分離する。局所・全回帰、型・静的確認、技術／品質独立レビュー、文書／直接伝播確認を行う。準拠基準・採用・Releaseは変えず、それらの監査は追加しない。
+
+Workbenchの実Browser試験が非公開のBrowser終了操作へ直接依存している点は、移管で解消済みと扱わない。公開APIの拡張可否を人間へ確認し、未決の間はその他の整理を進める。試験都合の無条件公開、内部参照のPath変更だけでの完了表示は行わない。通常の自己生成Process／loopback試験以外の実Chrome・外部AI・Docker操作は今回許可へ含めず、②保持物と過去Evidenceは変更しない。
+
+利用者判断: 既存の`closeOwnedBrowserProcessTree`を、Browser検証を組み立てる利用側向けの正式APIへ追加することを承認した。実装・終了条件は変更せず、WorkbenchはRoot APIへ接続する。ProcessPairや依存注入型等を一括公開せず、他の内部操作は公開しない。
+
+Visualの整理結果: 公開五操作、CLI受付、配信、Process／DevTools／測定／検証編成へ接続した。全12回帰、利用側型検査、Version Control利用側12件、公開／Header／台帳検査が成功し、独立レビューの公開Header是正後は残指摘0。実Chromeの表示評価は未実施であり、今回の構造整理の成功へ合算しない。
+
+EIの着手前照合: Event型、検査、構築、集計を実処理で分離し、検査から構築への逆依存を作らない。既存の任意キー・Proxy／getter拒否・疎配列・上限と返却shapeを維持するため、汎用入力検査はrecord/validationへ集約しDomain側へ非互換な拡張を行わない。独立Root検証Fileは廃止し、既存の公開検証操作と理由・root shapeは実利用するrecorderへ同居する。StorageはVersion Controlの型と解決を直接使用する。既存の保存結果・失敗契約はstorage/result、既存排他とその存在観測はstorage/lock、保存編成はstorage/storeへ置き、新しい状態・Lock方式を作らない。Lock初期化／世代／解放不明、pending、保持設定不明、保存読戻し、同一ID同値／異値、投影の欠測を反証として維持する。保存Path・Schema・保持設定・公開理由・Effect相関・読戻し順序は変更しない。
+
+EIの整理結果: 承認構成へSourceと利用側・試験・Symbolを接続した。共有契約定数はtypesが所有し、検査・構築・Rootが直接参照する。公開23操作・定数と既存型・理由・結果shapeを維持した。全84回帰、Domain台帳／保存境界29件、Version Control利用側12件、Orchestrator活動8件、Coordinatorの登録済み結合三Suite・61件、公開／Header／QA接続3件、台帳371件の検査が成功した。Visual／EIの型・整形・Lintと、Checker／Orchestrator／Coordinator／MCP／Workbenchの利用側型も成功。独立レビューの契約定数Owner、Recorder境界説明、現行資料リンクを是正し、Headerの最終確認を含め残指摘0件。移管61宣言の55件は本文Hash一致、6件はVCの同一型・解決操作への直接接続とLock入力型の限定で、実処理差がないことを独立照合した。
+
+実行結果の留保と回収: 通常sandboxではGit submodule起動が拒否された回帰を合格に含めず、同じ自己生成試験を必要権限で実行して全件成功を確認した。追加Coordinator回帰は約644秒で正常終了した。全体文書Checkerは既知の3,426指摘（過去CHG参照3,422件・既存Quality表4件）のままであり、今回の整理をRepository全体QAやRelease可能へ換算しない。比較用スクリプト・ログ11Fileは確認後に回収した。新しいFramework・Registry・Lock方式・保存形式は追加せず、実Chrome・外部AI・Docker・②の保持物・過去Evidenceを変更していない。
+
 <a id="checker-refactor-closure"></a>
 
 ### Checker残件1〜6の一括対応 — 2026-10-20（再編作業完了・全体QAは未合格）

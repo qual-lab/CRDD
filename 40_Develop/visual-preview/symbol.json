@@ -14,7 +14,7 @@
     {
       "symbolId": "visual-preview.server",
       "kind": "file",
-      "path": "src/server.ts",
+      "path": "src/preview/server.ts",
       "archIds": [
         "ARCH-000003"
       ]
@@ -22,7 +22,7 @@
     {
       "symbolId": "visual-preview.browser-zoom-verifier",
       "kind": "file",
-      "path": "src/browser/verify-visual.ts",
+      "path": "src/browser/verify.ts",
       "archIds": [
         "ARCH-000003"
       ]
@@ -52,15 +52,72 @@
         "ERB-IT-020"
       ],
       "verifies": [
-        "visual-preview.browser-zoom-verifier"
+        "visual-preview.browser-process",
+        "visual-preview.browser-devtools",
+        "visual-preview.browser-measure"
       ]
     },
     {
       "symbolId": "visual-preview.application.local-web-visual-verifier",
       "kind": "function",
-      "path": "src/browser/verify-visual.ts",
+      "path": "src/browser/verify.ts",
       "archIds": [
         "ARCH-000003"
+      ]
+    },
+    {
+      "symbolId": "visual-preview.browser-types",
+      "kind": "file",
+      "path": "src/browser/types.ts",
+      "archIds": [
+        "ARCH-000003"
+      ]
+    },
+    {
+      "symbolId": "visual-preview.browser-process",
+      "kind": "file",
+      "path": "src/browser/process.ts",
+      "archIds": [
+        "ARCH-000003"
+      ]
+    },
+    {
+      "symbolId": "visual-preview.browser-devtools",
+      "kind": "file",
+      "path": "src/browser/devtools.ts",
+      "archIds": [
+        "ARCH-000003"
+      ]
+    },
+    {
+      "symbolId": "visual-preview.browser-measure",
+      "kind": "file",
+      "path": "src/browser/measure.ts",
+      "archIds": [
+        "ARCH-000003"
+      ]
+    },
+    {
+      "symbolId": "visual-preview.command",
+      "kind": "file",
+      "path": "src/cli/command.ts",
+      "archIds": [
+        "ARCH-000003"
+      ]
+    },
+    {
+      "symbolId": "visual-preview.test.integration.command",
+      "kind": "test-suite",
+      "path": "tests/integration/command.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-018"
+      ],
+      "verifies": [
+        "visual-preview.public-api",
+        "visual-preview.command"
       ]
     }
   ]

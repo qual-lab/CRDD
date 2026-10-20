@@ -10,6 +10,7 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
+import * as publicApi from "../../src/index.ts";
 
 import {
   BOUNDED_INTEGRATED_RESULT_EVALUATION_INPUT_CONTRACT,
@@ -25,6 +26,48 @@ import {
   summarizeExecutionIntelligence,
   usageNotObserved,
 } from "../../src/index.ts";
+
+/**
+ * 再配置後も既存の実行記録公開操作だけを提供する。
+ * @responsibility 型のOwner分離で内部補助を公開しないことを確認する。
+ * @trace ERP-UT-006
+ * @precondition 外部資源を作成しない。
+ * @stimulus Root公開Moduleの実行時exportを列挙する。
+ * @observation 公開名の完全な集合。
+ * @oracle 整理前の23操作・定数と一致する。
+ * @cleanup N/A: 外部資源なし。
+ * @boundary ERP-UT-006=Direct Boundary。
+ */
+test("Root APIは既存の23操作・定数を維持し内部補助を公開しない", () => {
+  assert.deepEqual(
+    Object.keys(publicApi).sort(),
+    [
+      "BOUNDED_INTEGRATED_RESULT_EVALUATION_CONTRACT",
+      "BOUNDED_INTEGRATED_RESULT_EVALUATION_INPUT_CONTRACT",
+      "EXECUTION_INTELLIGENCE_EVENT_CONTRACT",
+      "classifyExecutionUsageCompleteness",
+      "classifyTemporalProvenance",
+      "createExecutionIntelligenceRecorder",
+      "createOperationSettledEvent",
+      "createTaskAttemptSettledEvent",
+      "evaluateBoundedIntegratedResult",
+      "inspectBoundedIntegratedResultEvaluationInput",
+      "inspectExecutionIntelligenceEvent",
+      "notApplicable",
+      "notObserved",
+      "observed",
+      "projectExecutionRecords",
+      "projectTemporalRecords",
+      "proposeExecutionImprovementCandidates",
+      "readAndProjectRecordState",
+      "readExecutionIntelligence",
+      "summarizeExecutionIntelligence",
+      "usageNotObserved",
+      "verifyExecutionIntelligenceRepositoryRoot",
+      "writeExecutionIntelligenceEvent",
+    ].sort(),
+  );
+});
 
 /**
  * 任意OperationのIdentityと安全観測のfixtureを構築する。
