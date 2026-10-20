@@ -22,6 +22,7 @@ Version ControlのWorktree管理に続き、名前付きCandidateの明示固定
 
 | 対象 | 現在の状態 | Owner Relation |
 |---|---|---|
+| WorkbenchのFramework・構造移行 | Express／Router／Query、画面分割・共有契約・全Client TSXの通常検査を接続。対象1〜5は最終通常78件・全Browser15件・表示検証・静的確認と限定独立再レビュー指摘0で完了。先行Browser失敗はreload応答境界まで特定して試験観測を是正したが、CDP内部原因の完全特定とは扱わない。実AI・実Hostの人間確認・全体QA・Releaseは別途 | [現在の結果と限界](99_Roadmap/Changes/CHG-000082/workbench-framework-structure.md#14-query画面分割共有配置と通常検査) |
 | MCP ServerのSDK・構造移行 | stdio／HTTPを公式SDKへ接続し、全Toolを責務別配置へ移管。旧Router・Protocol重複公開を撤去。本番入口と現在認証は同じ要求別Factoryへ接続。是正後全100試験・公式Client両Transport往復・独立再レビュー指摘0。modern規格に限定し、実Provider・全体QA・Releaseは別途 | [対象四項目の結果と限界](99_Roadmap/Changes/CHG-000082/mcp-server-sdk-structure.md) |
 | 検査・検証Packageの再編 | 工程・共通文書意味をDomainへ移し、旧Profile・中継を撤去。CheckerをCLI／Repository観測／診断表示へ整理した。公開三操作・三型と診断・観測順を維持。Domain249成功、Checker440成功／既存横断命名1失敗／手動1未実施。型・静的・台帳370 valid、独立再レビュー残指摘0。今回の再編と全体QA不合格（横断命名1,411、文書3,426診断）は区別する。②AI再試行・保持物削除・Docker操作は行っていない | [六項目の結果と限界](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#checker-refactor-closure) |
 | AI AdapterのSource整備 | 命名・公開APIに加え、両ProviderのDocker配置・固定実行物情報をDIへ分離。利用側回帰・限定独立レビュー残指摘0。実AI・実Docker・正式全E2Eと他Packageの整備は別に残る | [配置との境界](06_Architecture/Details/ai-adapter/01_Architecture.md#docker配置とprovider操作の分離--2026-10-19)、[区切りと検証範囲](99_Roadmap/Changes/CHG-000082/second-stage-plan.md#source-structure-review) |

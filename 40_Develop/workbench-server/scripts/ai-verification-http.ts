@@ -14,8 +14,8 @@ import { createHash } from "node:crypto";
 import type {
   WorkbenchAiRequests,
   WorkbenchAiRequestCommand,
-} from "../src/ai-request/types.ts";
-import { inspectWorkbenchClientModel } from "../src/browser/client-model.ts";
+} from "../src/server/ai-request/types.ts";
+import { inspectWorkbenchClientModel } from "../src/shared/view/validation.ts";
 
 /** 実試験で捕捉する属性の同一性。Filesystem内容の保全証明ではない。 */
 export type VerificationDockerInventory = Readonly<{

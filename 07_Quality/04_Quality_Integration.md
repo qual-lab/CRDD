@@ -1,5 +1,29 @@
 # Quality Integration
 
+## Workbench Framework移行の検証接続（2026-10-20、未評価）
+
+[移管計画](../99_Roadmap/Changes/CHG-000082/workbench-framework-structure.md)のExpress／React Router／TanStack Query置換は既存のWorkbench義務へ接続する。HTTP／操作保存はCPR-IT-010／012、通常公開と取消・終了はERB-IT-021、配置とBody搬送はEST-IT-010・RFD-IT-013、画面・公開CLI・Browser lifecycleはERB-ST-022の現行Local Itemを維持する。Framework導入だけを根拠に項目をPassへ変更しない。
+
+HTTPは基準のMethod・大小文字・末尾slash・HEAD・URL／Query・Header重複・Host／Origin・形式／容量／圧縮・静的配信を比較する。認証前拒否ではOwner呼出しと書込み0、配送後切断では元の結果・取消・Owner joinを別に観測する。Listener closeだけから保留要求・AI Ownerの終了を推定しない。
+
+明示Routeへの接続ではERB-IT-021でraw dot segment・encoded dot segment・absolute-formのWorkspace拒否／旧Candidate拒否・管理HEAD非接続を確認する。absolute-form内の二重slash Pathがhealth・表示・管理・Workspaceの正常入口へ変わらない反証も含める。EST-IT-010／RFD-IT-013では不正Originと不正URLの組合せを421・AM観測0、正規Originの不正URLを固定500・AM観測0として観測し、Expressの先行Path解析や自動応答へ流さない。前段待機後の取消確認をSource照合し、既存の管理保存・一度だけの鍵応答・初回接続・現在認可・取消joinを移管先の本番接続で再検証する。
+
+単体・共有GET編成の移管では、repository-view／shared-viewの本番接続で未知Path・Methodの既存拒否、共有の未処理返却、現在認可の再照合、GETとHEADの通知消費差を維持する。設定・表示状態をawait前に複製せず、同じ参照から従来時点の値を読むこともSource照合する。HTTP・CLI・Browserと利用側閉包を再実行し、今回の局所結果をClient Framework移行や実AI成立へ流用しない。
+
+Repository・Record・AIの明示POSTでは、既存ERB-IT-021へ絶対URL正規化後の配送前拒否・二重slash拒否・末尾slash拒否を追加する。CPR-IT-010／012、RFD-IT-013、EST-IT-002等の既存結合で、単体303／共有JSON、Gitの選択変更だけの処置、Record保存後失効／例外／切断、Profile保存後認可変更、共有活動読取りの取消joinを再確認する。表示変数の集約では、同じ参照を読むこと・更新順・GET通知消費・単体AIと共有Sessionの分離をSource差分へ照合する。変数の参照置換5件と抽出後の局所成功だけでは全回帰・Browser集合の成立を主張しない。
+
+Browserは既存URL・検索・戻る／進む・直接URLと、Principal／Repository切替・失効・pagehide／pageshowを検証する。旧Cache／応答／Tree／Mutation callbackの混入、失敗時の旧内容保持、二重取得、自動再送を反証する。鍵の入力・一度だけの提示をQueryだけでなくMutation Cacheにも渡さない。現行GETの通知消費を考慮し、自動再取得で通知を失わない条件を確認する。
+
+Client配置の移管では、型・純粋検査・選択URL生成を分けた宣言本文と、元の通信・Navigation本文の同値性を照合する。全Browser・通常結合・CLIを再実行し、Node依存閉包はclientへの実行時到達とReact混入を引き続き拒否する。生成Bundleは固定Pathの通常File・Git Indexとの一致を確認し、Source移動によるByte差を検査の免除理由にしない。
+
+React Router置換ではERB-ST-022の実Browserで戻る／進むのfresh取得、同一URLの一回取得、hash-onlyの取得0、遅延応答の取消・非採用、失敗先URLで旧Treeを表示しないことを観測する。既存のGET検索・選択Repository・接続切替・pagehide／pageshow・POST操作の検証は維持する。Sourceでは独自History／POP／Navigation世代の不存在、Router Signal搬送、dispose・Root終了・資格解放を照合する。実Browserの合成終了イベントを実BFCache採用の保証へ広げない。
+
+Query接続ではERB-IT-021の合成I/Oと実Queryで、同用途連続取得、旧finallyと新要求の分離、Caller／Query両取消、接続終了、offline保留なし、失敗再送0、Query／Mutationの終了後Cache空を反証する。秘密風例外は固定理由へ縮小し、鍵専用操作はMutationの許可集合外で送信0とする。ERB-ST-022では既存の接続・権限・管理保存・Profile・内容保存・Git・画面遷移を正式Bundleで回帰する。画面分割は状態寿命と既存DOM・操作回数を維持し、全Client TSXを通常の整形・型・Lintへ接続する。合成取消やCache空から実業務のrollback・実AI成立を推定しない。
+
+表示helperと起動Ownerの移動では、ERB-IT-021の固定Asset・Content-Type・HEAD・未知Path・旧拒否を維持する。CPR-IT-010／012、RFD-IT-013等の本番Reader接続で、Record読取りから資格観測への順序と例外・通知消費が変わらないことを照合する。ERB-ST-022の公開CLIで移動後のdist読取り・起動終了を再確認し、Version Controlの既知Consumer集合と現行SymbolのPathを追従する。固定Assetの共通化を、health形状の統一や新しい静的公開Rootの許可として扱わない。
+
+Build・静的・通常Integration、公開CLI、Browser管理、Visualの集合を区別する。既存の通常`npm test`はIntegration中心であり、System全件完了ではない。外部AI・Docker・②保持物は今回の試験対象外で、実Providerや全体QA・Releaseの未評価を局所回帰から昇格しない。
+
 ## MCP公式SDK移行の検証接続（2026-10-20、未評価）
 
 最終接続候補は同じFactoryをHTTPとstdioの要求別SDKへ接続する。既存EST-IT-002へ同一IDの逐次性・出力callback待機・実行中取消とOwner join・小frame待機総量を追加する。公式Clientのmodern固定接続を既存EST-ST-012（公開stdio Process）とEST-ST-003（実HTTP）で確認する。旧Router試験は同じFactoryのSDK受付へ移し、元入力の拒否条件は維持する。局所回帰と独立レビューの完了は、実Provider・Repository全体QA・Releaseの成立を意味しない。

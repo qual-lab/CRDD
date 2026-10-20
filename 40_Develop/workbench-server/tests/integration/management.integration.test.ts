@@ -46,16 +46,16 @@ import {
   writeExecutionIntelligenceEvent,
 } from "../../../execution-intelligence/src/index.ts";
 import { observeLocalListener } from "../../../visual-preview/src/index.ts";
-import { inspectWorkbenchClientModel } from "../../src/browser/client-model.ts";
-import { authenticateWorkbenchConnection } from "../../src/credential/administration.ts";
+import { inspectWorkbenchClientModel } from "../../src/shared/view/validation.ts";
+import { authenticateWorkbenchConnection } from "../../src/server/credential/administration.ts";
 import { startWorkbench } from "../../src/index.ts";
-import { inspectManagementResult } from "../../src/management/contract.ts";
+import { inspectManagementResult } from "../../src/shared/management/validation.ts";
 import {
   readAccessPortfolio,
   resolveAccessRepository,
-} from "../../src/project/access-reader.ts";
-import { resolveAccessTopicMeeting } from "../../src/topic-meeting/access-resolver.ts";
-import { validateTopicMeetingActionForm } from "../../src/topic-meeting/action.ts";
+} from "../../src/server/project/access-reader.ts";
+import { resolveAccessTopicMeeting } from "../../src/server/topic-meeting/access-resolver.ts";
+import { validateTopicMeetingActionForm } from "../../src/server/topic-meeting/action.ts";
 
 /**
  * 自己生成Repositoryへ非秘密の活動履歴を準備する。
@@ -1124,8 +1124,9 @@ for (const mode of ["local", "cros"] as const) {
                 this: ServerResponse,
                 ...args: Parameters<ServerResponse["end"]>
               ) {
+                const url = new URL(this.req.url ?? "/", "http://127.0.0.1");
                 if (
-                  this.req.url === "/ai-profiles/action" &&
+                  `${url.pathname}${url.search}` === "/ai-profiles/action" &&
                   this.statusCode === 200 &&
                   args[0] !== undefined
                 )
@@ -1689,9 +1690,10 @@ for (const mode of ["local", "cros"] as const) {
                 this: ServerResponse,
                 ...args: Parameters<typeof originalEnd>
               ) {
+                const url = new URL(this.req.url ?? "/", "http://127.0.0.1");
                 if (
                   this.req.method === "POST" &&
-                  this.req.url === "/topic-meeting/action" &&
+                  `${url.pathname}${url.search}` === "/topic-meeting/action" &&
                   this.statusCode === 200 &&
                   args[0] !== undefined
                 )
@@ -2361,8 +2363,9 @@ for (const mode of ["local", "cros"] as const) {
                 this: ServerResponse,
                 ...args: Parameters<ServerResponse["end"]>
               ) {
+                const url = new URL(this.req.url ?? "/", "http://127.0.0.1");
                 if (
-                  this.req.url === selectedUrl &&
+                  `${url.pathname}${url.search}` === selectedUrl &&
                   this.statusCode === 200 &&
                   args[0] !== undefined
                 )

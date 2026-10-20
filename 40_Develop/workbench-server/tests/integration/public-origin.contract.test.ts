@@ -229,26 +229,34 @@ test("共有WorkbenchはTLS配置拒否を認証前に行う", async () => {
      * @responsibility 重複Headerを保持し、HTTP状態と非秘密本文だけを取得する。
      * @trace EST-IT-010
      * @precondition 自己生成loopback URLだけを使用する。
-     * @stimulus GETまたは空BodyのPOSTと固定Header。
+     * @stimulus GETまたは空BodyのPOST、固定Header、任意のraw要求Path。
      * @observation HTTP状態と本文。
      * @oracle 送信・受信故障を成功へ補完しない。
      * @cleanup Timeout／終了でTimerを解除し、Responseを最後まで読む。
      * @boundary 実HTTPのみ。外部Host送信なし。
      */
-    const send = (headers: Record<string, string | string[]>, method = "GET") =>
+    const send = (
+      headers: Record<string, string | string[]>,
+      method = "GET",
+      requestPath = "/api/workbench-view",
+    ) =>
       new Promise<{ status: number; body: string }>((resolve, reject) => {
-        const request = httpRequest(url, { method, headers }, (response) => {
-          let body = "";
-          response.on("data", (chunk) => {
-            body += String(chunk);
-            if (body.length > 1024 * 1024)
-              request.destroy(new Error("fixture_response_limit"));
-          });
-          response.on("error", reject);
-          response.on("end", () =>
-            resolve({ status: response.statusCode ?? 0, body }),
-          );
-        });
+        const request = httpRequest(
+          url,
+          { method, headers, path: requestPath },
+          (response) => {
+            let body = "";
+            response.on("data", (chunk) => {
+              body += String(chunk);
+              if (body.length > 1024 * 1024)
+                request.destroy(new Error("fixture_response_limit"));
+            });
+            response.on("error", reject);
+            response.on("end", () =>
+              resolve({ status: response.statusCode ?? 0, body }),
+            );
+          },
+        );
         const timer = setTimeout(
           () => request.destroy(new Error("fixture_http_timeout")),
           5000,
@@ -276,6 +284,22 @@ test("共有WorkbenchはTLS配置拒否を認証前に行う", async () => {
       assert.equal(opens, 0);
     }
     assert.equal((await send(valid, "POST")).status, 421);
+    assert.equal(opens, 0);
+    const rejectedBeforeUrl = await send(
+      { ...valid, host: "localhost" },
+      "GET",
+      "http://[invalid",
+    );
+    assert.equal(rejectedBeforeUrl.status, 421);
+    assert.equal(rejectedBeforeUrl.body, "workbench_tls_boundary_invalid\n");
+    assert.equal(opens, 0);
+    const invalidUrl = await send(valid, "GET", "http://[invalid");
+    assert.equal(invalidUrl.status, 500);
+    assert.equal(invalidUrl.body, "workbench_request_failed\n");
+    assert.equal(opens, 0);
+    const normalized = await send(valid, "GET", "/x/../api/workbench-view");
+    assert.equal(normalized.status, 200);
+    assert.equal(JSON.parse(normalized.body).authenticated, false);
     assert.equal(opens, 0);
     const normal = await send(valid);
     assert.equal(normal.status, 200);

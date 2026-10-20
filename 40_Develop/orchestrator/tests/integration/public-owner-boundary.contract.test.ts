@@ -287,7 +287,7 @@ test("WorkbenchとMCPは業務Ownerへ直接接続する", () => {
   );
   assert.doesNotMatch(root, /orchestrator|OrchestratorPublic/);
   for (const relativePath of [
-    "40_Develop/workbench-server/src/activity/observe.ts",
+    "40_Develop/workbench-server/src/server/activity/observe.ts",
     "template/tools/crdd-mcp-server.ts",
   ]) {
     const source = fs.readFileSync(

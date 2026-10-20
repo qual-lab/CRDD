@@ -10,7 +10,7 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-import { inspectWorkbenchClientModel } from "../../src/browser/client-model.ts";
+import { inspectWorkbenchClientModel } from "../../src/shared/view/validation.ts";
 
 /**
  * 同じRepositoryの原文だけを閉Modelへ受理する。

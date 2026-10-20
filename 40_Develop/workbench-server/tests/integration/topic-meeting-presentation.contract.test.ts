@@ -13,8 +13,8 @@ import test from "node:test";
 import {
   createTopicMeetingActionBody,
   inspectTopicMeetingActionResult,
-} from "../../src/browser/topic-meeting-presentation.ts";
-import { createSelectedWorkbenchViewUrl } from "../../src/browser/client-model.ts";
+} from "../../src/client/api/record.ts";
+import { createSelectedWorkbenchViewUrl } from "../../src/client/api/view.ts";
 
 /**
  * checkboxと選択対象を欠測・暗黙確認へ変換しない。

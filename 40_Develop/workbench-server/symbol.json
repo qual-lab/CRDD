@@ -29,7 +29,7 @@
     {
       "symbolId": "workbench.presentation.workspace-panel",
       "kind": "file",
-      "path": "src/browser/workspace-panel.tsx",
+      "path": "src/client/components/workspace-panel.tsx",
       "archIds": [
         "ARCH-000012",
         "ARCH-000015"
@@ -38,7 +38,7 @@
     {
       "symbolId": "workbench.configuration.server",
       "kind": "file",
-      "path": "src/connection/configuration.ts",
+      "path": "src/server/connection/configuration.ts",
       "archIds": [
         "ARCH-000012"
       ]
@@ -57,7 +57,11 @@
       ],
       "verifies": [
         "workbench.server",
-        "workbench.configuration.server"
+        "workbench.configuration.server",
+        "workbench.http.application",
+        "workbench.http.security",
+        "workbench.http.repository-view",
+        "workbench.http.shared-view"
       ]
     },
     {
@@ -78,7 +82,7 @@
     {
       "symbolId": "workbench.presentation.repository-operation-panel",
       "kind": "file",
-      "path": "src/browser/repository-operation-panel.tsx",
+      "path": "src/client/components/repository-operation-panel.tsx",
       "archIds": [
         "ARCH-000009",
         "ARCH-000012"
@@ -100,13 +104,14 @@
       "verifies": [
         "workbench.server",
         "workbench.project.repository-action",
-        "version-control.change-publication"
+        "version-control.change-publication",
+        "workbench.http.repository"
       ]
     },
     {
       "symbolId": "workbench.project.repository-action",
       "kind": "file",
-      "path": "src/project/repository-action.ts",
+      "path": "src/server/project/repository-action.ts",
       "archIds": [
         "ARCH-000009",
         "ARCH-000012"
@@ -125,7 +130,8 @@
         "RFD-IT-014"
       ],
       "verifies": [
-        "workbench.project.repository-action"
+        "workbench.project.repository-action",
+        "workbench.shared.repository-validation"
       ]
     },
     {
@@ -141,7 +147,9 @@
         "RFD-IT-024"
       ],
       "verifies": [
-        "workbench.presentation.client-model"
+        "workbench.presentation.client-model",
+        "workbench.presentation.view-validation",
+        "workbench.presentation.view-url"
       ]
     },
     {
@@ -161,13 +169,19 @@
       "verifies": [
         "workbench.server",
         "workbench.application.owner-artifact-surface",
-        "workbench.presentation.client-model"
+        "workbench.presentation.client-model",
+        "workbench.presentation.project",
+        "workbench.http.assets",
+        "workbench.http.repository-view",
+        "workbench.http.shared-view",
+        "workbench.presentation.view-validation",
+        "workbench.presentation.view-url"
       ]
     },
     {
       "symbolId": "workbench.presentation.record-operation-panel",
       "kind": "file",
-      "path": "src/browser/record-operation-panel.tsx",
+      "path": "src/client/components/record-operation-panel.tsx",
       "archIds": [
         "ARCH-000006",
         "ARCH-000012"
@@ -176,7 +190,7 @@
     {
       "symbolId": "workbench.presentation.topic-meeting",
       "kind": "file",
-      "path": "src/browser/topic-meeting-presentation.ts",
+      "path": "src/client/api/record.ts",
       "archIds": [
         "ARCH-000006",
         "ARCH-000012"
@@ -195,13 +209,15 @@
       ],
       "verifies": [
         "workbench.presentation.topic-meeting",
-        "workbench.presentation.client-model"
+        "workbench.presentation.client-model",
+        "workbench.presentation.view-validation",
+        "workbench.presentation.view-url"
       ]
     },
     {
       "symbolId": "workbench.topic-meeting.action",
       "kind": "file",
-      "path": "src/topic-meeting/action.ts",
+      "path": "src/server/topic-meeting/action.ts",
       "archIds": [
         "ARCH-000006",
         "ARCH-000012"
@@ -210,7 +226,7 @@
     {
       "symbolId": "workbench.presentation.profile-management-panel",
       "kind": "file",
-      "path": "src/browser/profile-management-panel.tsx",
+      "path": "src/client/components/profile-management-panel.tsx",
       "archIds": [
         "ARCH-000010",
         "ARCH-000012",
@@ -231,13 +247,15 @@
       ],
       "verifies": [
         "workbench.presentation.client-model",
-        "workbench.presentation.profile-management-panel"
+        "workbench.presentation.profile-management-panel",
+        "workbench.presentation.view-validation",
+        "workbench.presentation.view-url"
       ]
     },
     {
       "symbolId": "workbench.presentation.connection",
       "kind": "file",
-      "path": "src/browser/connection.ts",
+      "path": "src/client/api/connection.ts",
       "archIds": [
         "ARCH-000012",
         "ARCH-000013"
@@ -260,7 +278,7 @@
     {
       "symbolId": "workbench.topic-meeting.access-resolver",
       "kind": "file",
-      "path": "src/topic-meeting/access-resolver.ts",
+      "path": "src/server/topic-meeting/access-resolver.ts",
       "archIds": [
         "ARCH-000006",
         "ARCH-000012",
@@ -270,7 +288,7 @@
     {
       "symbolId": "workbench.project.access-reader",
       "kind": "file",
-      "path": "src/project/access-reader.ts",
+      "path": "src/server/project/access-reader.ts",
       "archIds": [
         "ARCH-000005",
         "ARCH-000012",
@@ -278,18 +296,9 @@
       ]
     },
     {
-      "symbolId": "workbench.project.portfolio-result",
-      "kind": "file",
-      "path": "src/project/portfolio-result.ts",
-      "archIds": [
-        "ARCH-000005",
-        "ARCH-000012"
-      ]
-    },
-    {
       "symbolId": "workbench.management.operations",
       "kind": "file",
-      "path": "src/management/operations.ts",
+      "path": "src/server/management/operations.ts",
       "archIds": [
         "ARCH-000013"
       ]
@@ -297,7 +306,7 @@
     {
       "symbolId": "workbench.management.contract",
       "kind": "file",
-      "path": "src/management/contract.ts",
+      "path": "src/shared/management/validation.ts",
       "archIds": [
         "ARCH-000013"
       ]
@@ -305,7 +314,7 @@
     {
       "symbolId": "workbench.presentation.management-panel",
       "kind": "file",
-      "path": "src/browser/management-panel.tsx",
+      "path": "src/client/components/management-panel.tsx",
       "archIds": [
         "ARCH-000013"
       ]
@@ -335,6 +344,9 @@
         "workbench.server",
         "workbench.management.operations",
         "workbench.management.contract",
+        "workbench.http.application",
+        "workbench.http.management",
+        "workbench.http.connection",
         "workbench.project.access-reader",
         "workbench.topic-meeting.access-resolver",
         "workbench.topic-meeting.action",
@@ -342,7 +354,17 @@
         "workbench.application.runtime-activity",
         "orchestrator.activity.read",
         "access-management.profile-management",
-        "ai-runtime.profile-administration"
+        "ai-runtime.profile-administration",
+        "workbench.http.repository",
+        "workbench.http.record",
+        "workbench.http.ai",
+        "workbench.presentation.state",
+        "workbench.presentation.project",
+        "workbench.http.assets",
+        "workbench.http.repository-view",
+        "workbench.http.shared-view",
+        "workbench.presentation.view-validation",
+        "workbench.presentation.view-url"
       ]
     },
     {
@@ -372,9 +394,77 @@
       ]
     },
     {
+      "symbolId": "workbench.http.application",
+      "kind": "file",
+      "path": "src/server/app.ts",
+      "archIds": [
+        "ARCH-000012"
+      ]
+    },
+    {
+      "symbolId": "workbench.http.workspace",
+      "kind": "file",
+      "path": "src/server/routes/workspace.ts",
+      "archIds": [
+        "ARCH-000012",
+        "ARCH-000017"
+      ]
+    },
+    {
+      "symbolId": "workbench.http.management",
+      "kind": "file",
+      "path": "src/server/routes/management.ts",
+      "archIds": [
+        "ARCH-000012",
+        "ARCH-000013"
+      ]
+    },
+    {
+      "symbolId": "workbench.http.connection",
+      "kind": "file",
+      "path": "src/server/connection.ts",
+      "archIds": [
+        "ARCH-000012",
+        "ARCH-000013"
+      ]
+    },
+    {
+      "symbolId": "workbench.presentation.portfolio",
+      "kind": "file",
+      "path": "src/server/presentation/portfolio.ts",
+      "archIds": [
+        "ARCH-000012"
+      ]
+    },
+    {
+      "symbolId": "workbench.presentation.record",
+      "kind": "file",
+      "path": "src/server/presentation/record.ts",
+      "archIds": [
+        "ARCH-000006",
+        "ARCH-000012"
+      ]
+    },
+    {
+      "symbolId": "workbench.http.lifecycle",
+      "kind": "file",
+      "path": "src/server/http.ts",
+      "archIds": [
+        "ARCH-000012"
+      ]
+    },
+    {
+      "symbolId": "workbench.http.security",
+      "kind": "file",
+      "path": "src/server/security.ts",
+      "archIds": [
+        "ARCH-000012"
+      ]
+    },
+    {
       "symbolId": "workbench.server",
       "kind": "file",
-      "path": "src/server.ts",
+      "path": "src/server/start.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000005",
@@ -389,7 +479,7 @@
     {
       "symbolId": "workbench.presentation.react-shell",
       "kind": "file",
-      "path": "src/browser/shell.ts",
+      "path": "src/client/components/shell.ts",
       "archIds": [
         "ARCH-000005",
         "ARCH-000012",
@@ -399,7 +489,7 @@
     {
       "symbolId": "workbench.presentation.browser-client",
       "kind": "file",
-      "path": "src/browser/entry-client.tsx",
+      "path": "src/client/main.tsx",
       "archIds": [
         "ARCH-000012",
         "ARCH-000013"
@@ -408,7 +498,7 @@
     {
       "symbolId": "workbench.presentation.browser-application",
       "kind": "file",
-      "path": "src/browser/app.tsx",
+      "path": "src/client/app.tsx",
       "archIds": [
         "ARCH-000005",
         "ARCH-000009",
@@ -421,7 +511,7 @@
     {
       "symbolId": "workbench.presentation.client-model",
       "kind": "file",
-      "path": "src/browser/client-model.ts",
+      "path": "src/shared/view/types.ts",
       "archIds": [
         "ARCH-000005",
         "ARCH-000009",
@@ -434,7 +524,7 @@
     {
       "symbolId": "workbench.presentation.components",
       "kind": "file",
-      "path": "src/browser/components.ts",
+      "path": "src/client/components/elements.ts",
       "archIds": [
         "ARCH-000012",
         "ARCH-000017"
@@ -443,7 +533,7 @@
     {
       "symbolId": "workbench.application.project-surface",
       "kind": "file",
-      "path": "src/project/surface.ts",
+      "path": "src/server/project/surface.ts",
       "archIds": [
         "ARCH-000005",
         "ARCH-000012"
@@ -452,7 +542,7 @@
     {
       "symbolId": "workbench.application.credential-administration",
       "kind": "file",
-      "path": "src/credential/administration.ts",
+      "path": "src/server/credential/administration.ts",
       "archIds": [
         "ARCH-000013"
       ]
@@ -460,7 +550,7 @@
     {
       "symbolId": "workbench.application.ai-profile-surface",
       "kind": "file",
-      "path": "src/ai-profile/projection.ts",
+      "path": "src/server/ai-profile/projection.ts",
       "archIds": [
         "ARCH-000010",
         "ARCH-000012"
@@ -469,7 +559,7 @@
     {
       "symbolId": "workbench.application.ai-request",
       "kind": "file",
-      "path": "src/ai-request/types.ts",
+      "path": "src/server/ai-request/types.ts",
       "archIds": [
         "ARCH-000010",
         "ARCH-000015"
@@ -478,7 +568,7 @@
     {
       "symbolId": "workbench.application.runtime-activity",
       "kind": "file",
-      "path": "src/activity/observe.ts",
+      "path": "src/server/activity/observe.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000007",
@@ -488,7 +578,7 @@
     {
       "symbolId": "workbench.application.owner-artifact-surface",
       "kind": "file",
-      "path": "src/owner-artifact/read.ts",
+      "path": "src/server/owner-artifact/read.ts",
       "archIds": [
         "ARCH-000005",
         "ARCH-000012",
@@ -498,7 +588,7 @@
     {
       "symbolId": "workbench.application.project-plan-surface",
       "kind": "file",
-      "path": "src/project-plan/types.ts",
+      "path": "src/server/project-plan/types.ts",
       "archIds": [
         "ARCH-000005",
         "ARCH-000012"
@@ -507,7 +597,7 @@
     {
       "symbolId": "workbench.application.quality-surface",
       "kind": "file",
-      "path": "src/quality/types.ts",
+      "path": "src/server/quality/types.ts",
       "archIds": [
         "ARCH-000005",
         "ARCH-000012"
@@ -549,17 +639,34 @@
       "verifies": [
         "workbench.server",
         "workbench.presentation.react-shell",
+        "workbench.http.security",
+        "workbench.http.lifecycle",
+        "workbench.http.workspace",
+        "workbench.http.application",
+        "workbench.http.management",
+        "workbench.http.connection",
+        "workbench.presentation.portfolio",
+        "workbench.presentation.record",
         "workbench.presentation.client-model",
         "workbench.application.credential-administration",
         "workbench.application.ai-profile-surface",
         "workbench.application.ai-request",
         "workbench.application.runtime-activity",
         "orchestrator.activity.read",
-        "workbench.project.portfolio-result",
+        "workbench.presentation.view-validation",
         "workbench.application.owner-artifact-surface",
         "workbench.application.project-plan-surface",
         "workbench.application.quality-surface",
-        "project-operation.application.topic-meeting"
+        "project-operation.application.topic-meeting",
+        "workbench.http.repository",
+        "workbench.http.record",
+        "workbench.http.ai",
+        "workbench.presentation.state",
+        "workbench.presentation.project",
+        "workbench.http.assets",
+        "workbench.http.repository-view",
+        "workbench.http.shared-view",
+        "workbench.presentation.view-url"
       ]
     },
     {
@@ -615,7 +722,25 @@
         "workbench.presentation.repository-operation-panel",
         "workbench.project.repository-action",
         "workbench.presentation.topic-meeting",
-        "workbench.presentation.client-model"
+        "workbench.presentation.client-model",
+        "workbench.presentation.view-validation",
+        "workbench.presentation.view-url",
+        "workbench.presentation.router",
+        "workbench.presentation.components.project-context",
+        "workbench.presentation.components.records",
+        "workbench.presentation.components.credentials",
+        "workbench.presentation.components.portfolio-panel",
+        "workbench.presentation.components.repository-panel",
+        "workbench.presentation.components.activity-panel",
+        "workbench.presentation.components.ai-profiles",
+        "workbench.presentation.pages.overview",
+        "workbench.presentation.pages.project",
+        "workbench.presentation.pages.record",
+        "workbench.presentation.pages.artifact",
+        "workbench.presentation.pages.access",
+        "workbench.presentation.queries",
+        "workbench.presentation.mutations",
+        "workbench.shared.repository-validation"
       ]
     },
     {
@@ -637,7 +762,8 @@
         "workbench.presentation.components",
         "workbench.presentation.management-panel",
         "visual-preview.application.local-web-visual-verifier",
-        "workbench.project.portfolio-result"
+        "workbench.presentation.view-validation",
+        "workbench.presentation.view-url"
       ]
     },
     {
@@ -661,6 +787,241 @@
       "path": "scripts/workspace-output-verification.ts",
       "archIds": [
         "ARCH-000015"
+      ]
+    },
+    {
+      "symbolId": "workbench.http.repository",
+      "kind": "file",
+      "path": "src/server/routes/repository.ts",
+      "archIds": [
+        "ARCH-000009",
+        "ARCH-000012"
+      ]
+    },
+    {
+      "symbolId": "workbench.http.record",
+      "kind": "file",
+      "path": "src/server/routes/record.ts",
+      "archIds": [
+        "ARCH-000006",
+        "ARCH-000012"
+      ]
+    },
+    {
+      "symbolId": "workbench.http.ai",
+      "kind": "file",
+      "path": "src/server/routes/ai.ts",
+      "archIds": [
+        "ARCH-000010",
+        "ARCH-000012",
+        "ARCH-000015"
+      ]
+    },
+    {
+      "symbolId": "workbench.presentation.state",
+      "kind": "file",
+      "path": "src/server/presentation/types.ts",
+      "archIds": [
+        "ARCH-000012"
+      ]
+    },
+    {
+      "symbolId": "workbench.presentation.project",
+      "kind": "file",
+      "path": "src/server/presentation/project.ts",
+      "archIds": [
+        "ARCH-000012",
+        "ARCH-000013"
+      ]
+    },
+    {
+      "symbolId": "workbench.http.assets",
+      "kind": "file",
+      "path": "src/server/assets.ts",
+      "archIds": [
+        "ARCH-000012"
+      ]
+    },
+    {
+      "symbolId": "workbench.http.repository-view",
+      "kind": "file",
+      "path": "src/server/routes/repository-view.ts",
+      "archIds": [
+        "ARCH-000012",
+        "ARCH-000015"
+      ]
+    },
+    {
+      "symbolId": "workbench.http.shared-view",
+      "kind": "file",
+      "path": "src/server/routes/shared-view.ts",
+      "archIds": [
+        "ARCH-000012",
+        "ARCH-000013",
+        "ARCH-000015"
+      ]
+    },
+    {
+      "symbolId": "workbench.presentation.view-validation",
+      "kind": "file",
+      "path": "src/shared/view/validation.ts",
+      "archIds": [
+        "ARCH-000005",
+        "ARCH-000012"
+      ]
+    },
+    {
+      "symbolId": "workbench.presentation.view-url",
+      "kind": "file",
+      "path": "src/client/api/view.ts",
+      "archIds": [
+        "ARCH-000012"
+      ]
+    },
+    {
+      "symbolId": "workbench.presentation.router",
+      "kind": "file",
+      "path": "src/client/router.tsx",
+      "archIds": [
+        "ARCH-000012"
+      ]
+    },
+    {
+      "symbolId": "workbench.presentation.components.project-context",
+      "kind": "file",
+      "path": "src/client/components/project-context.tsx",
+      "archIds": [
+        "ARCH-000012"
+      ]
+    },
+    {
+      "symbolId": "workbench.presentation.components.records",
+      "kind": "file",
+      "path": "src/client/components/records.tsx",
+      "archIds": [
+        "ARCH-000012"
+      ]
+    },
+    {
+      "symbolId": "workbench.presentation.components.credentials",
+      "kind": "file",
+      "path": "src/client/components/credentials.tsx",
+      "archIds": [
+        "ARCH-000012"
+      ]
+    },
+    {
+      "symbolId": "workbench.presentation.components.portfolio-panel",
+      "kind": "file",
+      "path": "src/client/components/portfolio-panel.tsx",
+      "archIds": [
+        "ARCH-000012"
+      ]
+    },
+    {
+      "symbolId": "workbench.presentation.components.repository-panel",
+      "kind": "file",
+      "path": "src/client/components/repository-panel.tsx",
+      "archIds": [
+        "ARCH-000012"
+      ]
+    },
+    {
+      "symbolId": "workbench.presentation.components.activity-panel",
+      "kind": "file",
+      "path": "src/client/components/activity-panel.tsx",
+      "archIds": [
+        "ARCH-000012"
+      ]
+    },
+    {
+      "symbolId": "workbench.presentation.components.ai-profiles",
+      "kind": "file",
+      "path": "src/client/components/ai-profiles.tsx",
+      "archIds": [
+        "ARCH-000012"
+      ]
+    },
+    {
+      "symbolId": "workbench.presentation.pages.overview",
+      "kind": "file",
+      "path": "src/client/pages/overview.tsx",
+      "archIds": [
+        "ARCH-000012"
+      ]
+    },
+    {
+      "symbolId": "workbench.presentation.pages.project",
+      "kind": "file",
+      "path": "src/client/pages/project.tsx",
+      "archIds": [
+        "ARCH-000012"
+      ]
+    },
+    {
+      "symbolId": "workbench.presentation.pages.record",
+      "kind": "file",
+      "path": "src/client/pages/record.tsx",
+      "archIds": [
+        "ARCH-000012"
+      ]
+    },
+    {
+      "symbolId": "workbench.presentation.pages.artifact",
+      "kind": "file",
+      "path": "src/client/pages/artifact.tsx",
+      "archIds": [
+        "ARCH-000012"
+      ]
+    },
+    {
+      "symbolId": "workbench.presentation.pages.access",
+      "kind": "file",
+      "path": "src/client/pages/access.tsx",
+      "archIds": [
+        "ARCH-000012"
+      ]
+    },
+    {
+      "symbolId": "workbench.presentation.queries",
+      "kind": "file",
+      "path": "src/client/api/queries.ts",
+      "archIds": [
+        "ARCH-000012",
+        "ARCH-000013"
+      ]
+    },
+    {
+      "symbolId": "workbench.presentation.mutations",
+      "kind": "file",
+      "path": "src/client/api/mutations.ts",
+      "archIds": [
+        "ARCH-000012",
+        "ARCH-000013"
+      ]
+    },
+    {
+      "symbolId": "workbench.test.integration.browser-query",
+      "kind": "test-suite",
+      "path": "tests/integration/browser-query.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-021"
+      ],
+      "verifies": [
+        "workbench.presentation.queries",
+        "workbench.presentation.mutations"
+      ]
+    },
+    {
+      "symbolId": "workbench.shared.repository-validation",
+      "kind": "file",
+      "path": "src/shared/repository/validation.ts",
+      "archIds": [
+        "ARCH-000009",
+        "ARCH-000012"
       ]
     }
   ]

@@ -13,7 +13,7 @@ import test from "node:test";
 import {
   validateRepositoryActionForm,
   inspectRepositoryActionResult,
-} from "../../src/project/repository-action.ts";
+} from "../../src/shared/repository/validation.ts";
 
 /**
  * 対象と確認を閉Formから一意に確定する。

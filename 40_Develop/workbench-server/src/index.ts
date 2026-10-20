@@ -17,13 +17,13 @@ export {
   type WorkbenchRuntimeActivityPageRequest,
   type WorkbenchRuntimeActivityProjection,
   type WorkbenchRuntimeEventProjection,
-} from "./activity/observe.ts";
+} from "./server/activity/observe.ts";
 export {
   createDefaultWorkbenchAiProfileSurface,
   createWorkbenchAiProfileSurface,
   type WorkbenchAiProfileObservation,
   type WorkbenchAiProfileSurface,
-} from "./ai-profile/projection.ts";
+} from "./server/ai-profile/projection.ts";
 export type {
   WorkbenchAiRequestCommand,
   WorkbenchAiRequestMode,
@@ -31,28 +31,28 @@ export type {
   WorkbenchAiRequestStartResult,
   WorkbenchAiRequests,
   WorkbenchAiResultItem,
-} from "./ai-request/types.ts";
-export { readWorkbenchServerConfiguration } from "./connection/configuration.ts";
+} from "./server/ai-request/types.ts";
+export { readWorkbenchServerConfiguration } from "./server/connection/configuration.ts";
 export type {
   CredentialAdministration,
   CredentialAdministrationResult,
-} from "./credential/administration.ts";
+} from "./server/credential/administration.ts";
 export {
   readWorkbenchOwnerArtifact,
   readWorkbenchOwnerArtifactCatalog,
   type WorkbenchOwnerArtifact,
   type WorkbenchOwnerArtifactCatalog,
-} from "./owner-artifact/read.ts";
+} from "./server/owner-artifact/read.ts";
 export {
   readWorkbenchProjectSurface,
   type WorkbenchCapabilityState,
   type WorkbenchProjectSurface,
   type WorkbenchRecordCollection,
-} from "./project/surface.ts";
-export type { WorkbenchProjectPlanObservation } from "./project-plan/types.ts";
-export type { WorkbenchQualityObservation } from "./quality/types.ts";
+} from "./server/project/surface.ts";
+export type { WorkbenchProjectPlanObservation } from "./server/project-plan/types.ts";
+export type { WorkbenchQualityObservation } from "./server/quality/types.ts";
 export {
   startWorkbench,
   type WorkbenchHandle,
   type WorkbenchStartRequest,
-} from "./server.ts";
+} from "./server/start.ts";

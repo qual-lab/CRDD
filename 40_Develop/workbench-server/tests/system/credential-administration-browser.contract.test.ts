@@ -146,6 +146,8 @@ async function requestBrowser(
   viewport?: Readonly<{ width: number; height: number }>,
   evaluation: "single" | "composite" = "single",
   evaluationStep?:
+    | "document_ready"
+    | "local_reload"
     | "local_partial_conflict"
     | "local_partial_unavailable"
     | "local_ready"
@@ -263,13 +265,22 @@ async function requestBrowser(
               reply.result?.exceptionDetails?.exception?.description ??
               "",
           );
+          const errorClass =
+            reply.result?.exceptionDetails?.exception?.className;
+          const category = [
+            "TypeError",
+            "ReferenceError",
+            "SyntaxError",
+          ].includes(errorClass)
+            ? `_${errorClass}`
+            : "";
           failure = new Error(
             diagnostic.includes("Execution context was destroyed") ||
               diagnostic.includes("Cannot find context")
               ? "credential_browser_context_replaced"
               : evaluationStep === undefined
                 ? "credential_browser_evaluation_failed"
-                : `credential_browser_evaluation_failed_${evaluationStep}`,
+                : `credential_browser_evaluation_failed_${evaluationStep}${category}`,
           );
         } else
           outcome =
@@ -333,6 +344,8 @@ test("Browser評価失敗の診断は固定地点だけを公開する", async (
   try {
     for (const step of [
       undefined,
+      "document_ready",
+      "local_reload",
       "local_partial_conflict",
       "local_partial_unavailable",
       "local_ready",
@@ -373,6 +386,67 @@ test("Browser評価失敗の診断は固定地点だけを公開する", async (
         },
       );
     }
+    for (const className of [
+      "TypeError",
+      "ReferenceError",
+      "SyntaxError",
+      "fixture-secret-class-never-output",
+    ]) {
+      reply = {
+        id: 1,
+        result: {
+          exceptionDetails: {
+            exception: {
+              className,
+              description: "fixture-secret-description-never-output",
+            },
+          },
+        },
+      };
+      await assert.rejects(
+        requestBrowser(
+          "ws://fixture.invalid",
+          "Runtime.evaluate",
+          {},
+          undefined,
+          "single",
+          "document_ready",
+        ),
+        (error: unknown) => {
+          assert.ok(error instanceof Error);
+          assert.equal(
+            error.message,
+            `credential_browser_evaluation_failed_document_ready${className.startsWith("fixture-") ? "" : `_${className}`}`,
+          );
+          assert.equal(String(error).includes("fixture-secret"), false);
+          assert.equal(error.cause, undefined);
+          return true;
+        },
+      );
+    }
+    reply = {
+      id: 1,
+      result: {
+        exceptionDetails: {
+          exception: {
+            className: "TypeError",
+            description:
+              "Execution context was destroyed fixture-secret-never-output",
+          },
+        },
+      },
+    };
+    await assert.rejects(
+      requestBrowser(
+        "ws://fixture.invalid",
+        "Runtime.evaluate",
+        {},
+        undefined,
+        "single",
+        "document_ready",
+      ),
+      { message: "credential_browser_context_replaced" },
+    );
     reply = { id: 1, result: { result: { value: true } } };
     assert.equal(
       await requestBrowser(
@@ -385,6 +459,126 @@ test("Browser評価失敗の診断は固定地点だけを公開する", async (
       ),
       true,
     );
+  } finally {
+    globalThis.WebSocket = original;
+  }
+});
+
+/**
+ * 接続試験の再読込を新Documentの準備まで直列化する。
+ * @responsibility reload受理を完了とせず、次の明示送信前に新画面を読取り確認する。
+ * @trace ERB-ST-022
+ * @precondition 試験が所有する接続画面だけを扱う。
+ * @stimulus timeOrigin読取り、reload一回、準備状態の有限読取り。
+ * @observation 旧Documentと異なるtimeOrigin・complete・接続入力欄。
+ * @oracle Context置換では読取りだけを再評価し、POSTやreloadを再送しない。
+ * @cleanup 各requestBrowserがTimerとSocketを回収し、親CaseがBrowserを回収する。
+ * @boundary 試験用CDPの受理とDocument生成を分ける。製品の回復機構ではない。
+ */
+async function reloadConnectionDocument(pageUrl: string): Promise<void> {
+  const previous = await requestBrowser(
+    pageUrl,
+    "Runtime.evaluate",
+    {
+      expression: "performance.timeOrigin",
+      returnByValue: true,
+    },
+    undefined,
+    "single",
+    "local_reload",
+  );
+  assert.equal(typeof previous, "number");
+  assert.equal(Number.isFinite(previous), true);
+  await requestBrowser(
+    pageUrl,
+    "Page.reload",
+    {},
+    undefined,
+    "single",
+    "local_reload",
+  );
+  const end = Date.now() + 15_000;
+  while (Date.now() < end) {
+    try {
+      if (
+        (await requestBrowser(
+          pageUrl,
+          "Runtime.evaluate",
+          {
+            expression: `performance.timeOrigin!==${JSON.stringify(previous)}&&document.readyState==='complete'&&Boolean(document.querySelector('#connection input[name=token]'))`,
+            returnByValue: true,
+          },
+          undefined,
+          "single",
+          "local_reload",
+        )) === true
+      )
+        return;
+    } catch (error) {
+      if (
+        !(error instanceof Error) ||
+        error.message !== "credential_browser_context_replaced"
+      )
+        throw error;
+    }
+    await delay(100);
+  }
+  throw new Error("credential_browser_reload_ready_unconfirmed");
+}
+
+/**
+ * reload応答だけで次操作へ進まないことを合成CDPで検証する。
+ * @responsibility Context置換と旧Document準備を次送信の許可にしない。
+ * @trace ERB-ST-022
+ * @precondition 同Processの有限WebSocket応答だけ。
+ * @stimulus reload受理、Context破棄、準備false、準備trueを順に返す。
+ * @observation reload一回と読取り要求だけ。
+ * @oracle 送信操作を再試行せず新Document条件成立後だけ完了する。
+ * @cleanup 元WebSocketを復元し全SocketとTimerをcloseする。
+ * @boundary 合成CDPの受理・新Document確認だけ。実Browser成立は別Caseで確認する。
+ */
+test("Browser再読込は一回だけ発行し新Documentの準備を確認する", async () => {
+  const original = globalThis.WebSocket;
+  const methods: string[] = [];
+  let reads = 0;
+  class ReloadSocket extends EventTarget {
+    constructor() {
+      super();
+      queueMicrotask(() => this.dispatchEvent(new Event("open")));
+    }
+    send(data: string) {
+      const packet = JSON.parse(data);
+      methods.push(packet.method);
+      let reply: unknown;
+      if (packet.method === "Page.reload") reply = { id: 1, result: {} };
+      else if (++reads === 1)
+        reply = { id: 1, result: { result: { value: 10 } } };
+      else if (reads === 2)
+        reply = {
+          id: 1,
+          error: { message: "Execution context was destroyed" },
+        };
+      else reply = { id: 1, result: { result: { value: reads === 4 } } };
+      queueMicrotask(() =>
+        this.dispatchEvent(
+          new MessageEvent("message", { data: JSON.stringify(reply) }),
+        ),
+      );
+    }
+    close() {
+      this.dispatchEvent(new Event("close"));
+    }
+  }
+  globalThis.WebSocket = ReloadSocket as unknown as typeof WebSocket;
+  try {
+    await reloadConnectionDocument("ws://fixture.invalid");
+    assert.deepEqual(methods, [
+      "Runtime.evaluate",
+      "Page.reload",
+      "Runtime.evaluate",
+      "Runtime.evaluate",
+      "Runtime.evaluate",
+    ]);
   } finally {
     globalThis.WebSocket = original;
   }
@@ -1133,11 +1327,18 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
       for (let attempt = 0; attempt < 10 && !ready; attempt++) {
         try {
           ready =
-            (await requestBrowser(pageUrl, "Runtime.evaluate", {
-              expression: `(async () => { const end=Date.now()+15000; while(Date.now()<end) { if(document.querySelector(${JSON.stringify(mode === "local-connection" || mode === "content-operations" || mode === "artifact-navigation" || mode === "git-operations" || mode === "cros-management" || mode === "profile-manager" || mode === "profile-developer" ? "#connection form" : "#credential-administration form")}) && document.readyState==='complete') return true; await new Promise(r=>setTimeout(r,100)); } return false; })()`,
-              awaitPromise: true,
-              returnByValue: true,
-            })) === true;
+            (await requestBrowser(
+              pageUrl,
+              "Runtime.evaluate",
+              {
+                expression: `(async () => { const end=Date.now()+15000; while(Date.now()<end) { if(document.querySelector(${JSON.stringify(mode === "local-connection" || mode === "content-operations" || mode === "artifact-navigation" || mode === "git-operations" || mode === "cros-management" || mode === "profile-manager" || mode === "profile-developer" ? "#connection form" : "#credential-administration form")}) && document.readyState==='complete') return true; await new Promise(r=>setTimeout(r,100)); } return false; })()`,
+                awaitPromise: true,
+                returnByValue: true,
+              },
+              undefined,
+              "single",
+              "document_ready",
+            )) === true;
         } catch (error) {
           if (
             !(error instanceof Error) ||
@@ -1459,6 +1660,8 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
              */
             const body=()=>document.querySelector('#artifact-detail .canonical-markdown')?.textContent;
             try{
+              const unsentInput=document.querySelector('#connection input[name=token]');unsentInput.value='synthetic-unsent';const beforeInputHash=reads;click('#connection');await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+              const hashInputPreserved=unsentInput===document.querySelector('#connection input[name=token]')&&unsentInput.value==='synthetic-unsent'&&reads===beforeInputHash;
               document.querySelector('#connection input[name=token]').value=key;document.querySelector('#connection form').requestSubmit();await wait(()=>document.querySelector('#connection input[name=operation]')?.value==='disconnect' && !document.querySelector('#connection button')?.disabled);
               stage='select';click('/?repositoryId=repository.next');await wait(()=>!!document.querySelector('#documentation'));
               stage='change';click('/change?id=CHG-000401');await wait(()=>body()?.includes('原文-next'));
@@ -1470,19 +1673,26 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
               const ownerSource=new URL(location.href).pathname==='/owner-artifact' && new URL(location.href).searchParams.get('repositoryId')==='repository.next';
               const beforeBack=reads;stage='back';history.back();await wait(()=>!!document.querySelector('#documentation'));stage='forward';history.forward();await wait(()=>body()?.includes('原文-next'));
               const historyFresh=reads>=beforeBack+2;
+              const beforeSame=reads;stage='same-url';click(location.pathname+location.search);await wait(()=>reads===beforeSame+1&&body()?.includes('原文-next'));
+              const sameUrlFresh=reads===beforeSame+1;
+              const beforeHash=reads;stage='hash';click('#artifact-detail');await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+              const hashNoRead=reads===beforeHash;
               stage='other';click('/change?repositoryId=repository.latest&id=CHG-000401');await wait(()=>body()?.includes('原文-latest'));
               const otherSource=document.querySelector('#artifact-detail')?.dataset.repositoryId==='repository.latest' && !body().includes('原文-next');
-              return {changeSource,textOnly,ownerSource,historyFresh,otherSource,authenticated:authenticated>0,storageEmpty:localStorage.length===0&&sessionStorage.length===0};
+              return {hashInputPreserved,changeSource,textOnly,ownerSource,historyFresh,sameUrlFresh,hashNoRead,otherSource,authenticated:authenticated>0,storageEmpty:localStorage.length===0&&sessionStorage.length===0};
             }catch(error){return{failedStage:stage,errorClass:['Error','TypeError','SyntaxError','ReferenceError'].includes(error?.name)?error.name:'other'};}finally{window.fetch=originalFetch;}
           })()`,
           awaitPromise: true,
           returnByValue: true,
         });
         assert.deepEqual(observed, {
+          hashInputPreserved: true,
           changeSource: true,
           textOnly: true,
           ownerSource: true,
           historyFresh: true,
+          sameUrlFresh: true,
+          hashNoRead: true,
           otherSource: true,
           authenticated: true,
           storageEmpty: true,
@@ -1531,10 +1741,10 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
               const cancelled=signal?.aborted===true;release();await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
               const lateRejected=!document.body.innerText.includes('遅延旧本文') && document.querySelector('#artifact-detail')?.dataset.repositoryId==='repository.latest';
               stage='mismatch';corrupt=true;click('/change?repositoryId=repository.next&id=CHG-000401');await wait(()=>document.querySelector('[data-workbench-react-root]')?.dataset.workbenchClient==='blocked');
-              const mismatchRejected=!document.querySelector('#artifact-detail') && new URL(location.href).searchParams.get('repositoryId')==='repository.latest';
+              const mismatchRejected=!document.querySelector('#artifact-detail') && new URL(location.href).searchParams.get('repositoryId')==='repository.next';
               corrupt=false;click('/change?repositoryId=repository.latest&id=CHG-000401');await wait(()=>document.querySelector('#artifact-detail')?.dataset.repositoryId==='repository.latest');
               stage='shared-null';selectionNull=true;click('/change?repositoryId=repository.next&id=CHG-000401');await wait(()=>document.querySelector('[data-workbench-react-root]')?.dataset.workbenchClient==='blocked');
-              const sharedNullRejected=!document.querySelector('#artifact-detail') && new URL(location.href).searchParams.get('repositoryId')==='repository.latest';
+              const sharedNullRejected=!document.querySelector('#artifact-detail') && new URL(location.href).searchParams.get('repositoryId')==='repository.next';
               selectionNull=false;click('/change?repositoryId=repository.latest&id=CHG-000401');await wait(()=>document.querySelector('#artifact-detail')?.dataset.repositoryId==='repository.latest');
               stage='standalone-selection';standaloneMismatch=true;history.replaceState(null,'','/change?id=CHG-000401');dispatchEvent(new PopStateEvent('popstate'));await wait(()=>document.querySelector('[data-workbench-react-root]')?.dataset.workbenchClient==='blocked');
               const standaloneSelectionRejected=!document.querySelector('#artifact-detail') && new URL(location.href).searchParams.get('repositoryId')===null;
@@ -1755,9 +1965,10 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
           {
             expression: `(async()=>{
             const key=${JSON.stringify(material.token)}, originalFetch=window.fetch;
-            let posts=0, failRead=false, corruptResponse=false, lastBody=null, stage='connect';
+            let posts=0, reads=0, failRead=false, corruptResponse=false, lastBody=null, stage='connect';
             window.fetch=async(input, options)=>{
               const url=new URL(String(input),location.href);
+              if(url.pathname==='/api/workbench-view') reads++;
               if(url.pathname==='/api/workbench-view' && failRead) throw new Error('fixture_read_failure');
               if(url.pathname==='/topic-meeting/action') { posts++; lastBody=String(options.body); }
               const response=await originalFetch(input, options);
@@ -1835,10 +2046,16 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
               const detailUpdated=document.querySelector('#topic-detail h1')?.innerText==='更新済み' && document.querySelector('.detail-metadata')?.innerText.includes('2');
               const deletion=document.querySelector('form:has([name=operation][value=delete])'); const beforeDelete=posts;
               deletion.requestSubmit(); const confirmationRequired=posts===beforeDelete;
+              const beforeDeleteReads=reads;
               stage='delete'; deletion.querySelector('[name=confirmed]').checked=true; deletion.requestSubmit();
               await wait(()=>!!document.querySelector('#topics') && document.querySelector('#topics .operation-result')?.innerText.includes('record_deleted'));
               const deletedToSameRepository=location.pathname==='/' && new URL(location.href).searchParams.get('repositoryId')==='repository.next';
-              return {singleCreate,selectedAfterCreate,detailUpdated,confirmationRequired,deletedToSameRepository,posts};
+              const singleDeleteRead=reads-beforeDeleteReads===1 && posts-beforeDelete===1;
+              const afterDeleteReads=reads;
+              stage='delete-back';history.back();await wait(()=>reads===afterDeleteReads+1 && !!document.querySelector('#topics') && !document.querySelector('#topics .operation-result')?.innerText.includes('record_deleted'));
+              stage='delete-forward';history.forward();await wait(()=>location.hash==='#topics' && !!document.querySelector('#topics'));
+              const deleteHistoryConsistent=reads===afterDeleteReads+1 && !document.querySelector('#topics .operation-result')?.innerText.includes('record_deleted');
+              return {singleCreate,selectedAfterCreate,detailUpdated,confirmationRequired,deletedToSameRepository,singleDeleteRead,deleteHistoryConsistent,posts};
             } catch {return {failedStage:stage,posts};} finally {window.fetch=originalFetch;}
           })()`,
             awaitPromise: true,
@@ -1853,6 +2070,8 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
           detailUpdated: true,
           confirmationRequired: true,
           deletedToSameRepository: true,
+          singleDeleteRead: true,
+          deleteHistoryConsistent: true,
           posts: 3,
         });
         const faultResults = await requestBrowser(
@@ -2219,12 +2438,13 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
                 foreign: false,
               });
               await writeFile(nextPath, nextBody);
-              await requestBrowser(pageUrl, "Page.reload", {});
+              if (expected === "競合あり")
+                await reloadConnectionDocument(pageUrl);
             }
           } finally {
             await writeFile(unavailablePath, unavailableBody);
             await writeFile(nextPath, nextBody);
-            await requestBrowser(pageUrl, "Page.reload", {});
+            await reloadConnectionDocument(pageUrl);
           }
           const ready = await requestBrowser(
             pageUrl,

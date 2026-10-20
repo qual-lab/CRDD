@@ -24,10 +24,10 @@ import { deriveRepositoryBindingId } from "../../../access-management/src/reposi
 import type { AccessManagementState } from "../../../access-management/src/storage/types.ts";
 import { createFilesystemStoreRoot } from "../../../domain-model/src/index.ts";
 import { resolveVerifiedRepositoryRoot } from "../../../version-control/src/index.ts";
-import type { WorkbenchAiRequestSnapshot } from "../../src/ai-request/types.ts";
+import type { WorkbenchAiRequestSnapshot } from "../../src/server/ai-request/types.ts";
 import { startWorkbench } from "../../src/index.ts";
-import { readAuthorizedPortfolio } from "../../src/project/access-reader.ts";
-import { readWorkbenchProjectSurface } from "../../src/project/surface.ts";
+import { readAuthorizedPortfolio } from "../../src/server/project/access-reader.ts";
+import { readWorkbenchProjectSurface } from "../../src/server/project/surface.ts";
 
 /**
  * 二主体・二Repositoryの開始と取消を混在させない。

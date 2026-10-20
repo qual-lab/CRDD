@@ -34,7 +34,7 @@ import {
   readMain,
   projectVerificationTransportFailure,
 } from "./ai-verification-http.ts";
-import type { WorkbenchAiRequestSnapshot } from "../src/ai-request/types.ts";
+import type { WorkbenchAiRequestSnapshot } from "../src/server/ai-request/types.ts";
 import { verifyWorkspaceOutputBytes } from "./workspace-output-verification.ts";
 import { observeRuntimeOwnedDevelopmentSource } from "../../coordinator/src/task/development-source-observation.ts";
 

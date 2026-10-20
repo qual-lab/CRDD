@@ -570,7 +570,7 @@ test("Repository LocationとRepository-local Ignoreの既知Consumer集合が宣
       "40_Develop/access-management/src/repository/resolve.ts",
       "40_Develop/access-management/src/repository/register.ts",
       "40_Develop/mcp-server/src/transport/configuration.ts",
-      "40_Develop/workbench-server/src/connection/configuration.ts",
+      "40_Develop/workbench-server/src/server/connection/configuration.ts",
       "40_Develop/checker/src/repository/project-context.ts",
       "40_Develop/checker/src/repository/reality.ts",
       "40_Develop/coordinator/scripts/check-platform-access-coverage.ts",
@@ -612,9 +612,10 @@ test("Repository LocationとRepository-local Ignoreの既知Consumer集合が宣
       "40_Develop/workbench-server/bin/workbench-server.ts",
       "40_Develop/workbench-server/scripts/verify-readonly-ai.ts",
       "40_Develop/workbench-server/scripts/verify-workspace-ai.ts",
-      "40_Develop/workbench-server/src/project/surface.ts",
-      "40_Develop/workbench-server/src/activity/observe.ts",
-      "40_Develop/workbench-server/src/server.ts",
+      "40_Develop/workbench-server/src/server/project/surface.ts",
+      "40_Develop/workbench-server/src/server/activity/observe.ts",
+      "40_Develop/workbench-server/src/server/routes/workspace.ts",
+      "40_Develop/workbench-server/src/server/start.ts",
     ].sort(),
   );
   assert.deepEqual(
@@ -788,7 +789,7 @@ test("Local Change Setと用途別Named SymbolのConsumer集合が宣言と一�
   assert.deepEqual(localChangeSetConsumers, [
     "40_Develop/checker/src/cli/test-catalog.ts",
     "40_Develop/orchestrator/src/workspace/commands.ts",
-    "40_Develop/workbench-server/src/project/surface.ts",
+    "40_Develop/workbench-server/src/server/project/surface.ts",
   ]);
 
   const checkerObservationConsumers = sources
@@ -841,8 +842,8 @@ test("Local Change Setと用途別Named SymbolのConsumer集合が宣言と一�
       "40_Develop/mcp-server/src/transport/configuration.ts",
       "40_Develop/orchestrator/src/activity/read.ts",
       "40_Develop/orchestrator/src/activity/types.ts",
-      "40_Develop/workbench-server/src/connection/configuration.ts",
-      "40_Develop/workbench-server/src/topic-meeting/access-resolver.ts",
+      "40_Develop/workbench-server/src/server/connection/configuration.ts",
+      "40_Develop/workbench-server/src/server/topic-meeting/access-resolver.ts",
       "40_Develop/coordinator/scripts/check-platform-access-coverage.ts",
       "40_Develop/coordinator/scripts/measure-development-providers.ts",
       "40_Develop/coordinator/scripts/prepare-codex-advice-image.ts",
@@ -883,8 +884,12 @@ test("Local Change Setと用途別Named SymbolのConsumer集合が宣言と一�
       "40_Develop/workbench-server/bin/workbench-server.ts",
       "40_Develop/workbench-server/scripts/verify-readonly-ai.ts",
       "40_Develop/workbench-server/scripts/verify-workspace-ai.ts",
-      "40_Develop/workbench-server/src/activity/observe.ts",
-      "40_Develop/workbench-server/src/server.ts",
+      "40_Develop/workbench-server/src/server/activity/observe.ts",
+      "40_Develop/workbench-server/src/server/routes/repository-view.ts",
+      "40_Develop/workbench-server/src/server/routes/shared-view.ts",
+      "40_Develop/workbench-server/src/server/routes/repository.ts",
+      "40_Develop/workbench-server/src/server/routes/workspace.ts",
+      "40_Develop/workbench-server/src/server/start.ts",
       "template/tools/crdd-mcp-server.ts",
       "40_Develop/checker/src/repository/project-context.ts",
       "40_Develop/checker/src/repository/reality.ts",
@@ -900,7 +905,7 @@ test("Local Change Setと用途別Named SymbolのConsumer集合が宣言と一�
       "40_Develop/checker/src/repository/semantic.ts",
       "40_Develop/domain-model/src/storage/semantic-store.ts",
       "40_Develop/checker/src/cli/test-catalog.ts",
-      "40_Develop/workbench-server/src/project/surface.ts",
+      "40_Develop/workbench-server/src/server/project/surface.ts",
     ].sort(),
   );
   const candidateConsumers = sources

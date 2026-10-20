@@ -21,7 +21,7 @@ import {
   observeVerificationDockerInventory,
   assessVerificationDockerInventory,
 } from "./ai-verification-http.ts";
-import type { WorkbenchAiRequestSnapshot } from "../src/ai-request/types.ts";
+import type { WorkbenchAiRequestSnapshot } from "../src/server/ai-request/types.ts";
 
 /**
  * 固定の一回実行だけを受け付ける。

@@ -190,7 +190,7 @@ test("Workbench Node RuntimeはBrowser React value依存へ到達しない", () 
       }
     }
   }
-  assert.ok(visited.has(path.join(packageRoot, "src", "server.ts")));
+  assert.ok(visited.has(path.join(packageRoot, "src", "server", "start.ts")));
   assert.equal(
     [...visited].some((value) =>
       ["mcp-server", "cros"].includes(
@@ -201,14 +201,14 @@ test("Workbench Node RuntimeはBrowser React value依存へ到達しない", () 
     "workbench_runtime_has_no_machine_surface_dependency",
   );
   assert.equal(
-    visited.has(path.join(packageRoot, "src", "browser", "client-model.ts")),
+    visited.has(path.join(packageRoot, "src", "client", "main.tsx")),
     false,
   );
   assert.equal(
     [...visited].some(
       (value) =>
         value.endsWith(".tsx") ||
-        path.relative(packageRoot, value).split(path.sep).includes("browser"),
+        path.relative(packageRoot, value).split(path.sep).includes("client"),
     ),
     false,
   );
@@ -216,6 +216,54 @@ test("Workbench Node RuntimeはBrowser React value依存へ到達しない", () 
     [...external].some((specifier) => /^react(?:\/|$)/u.test(specifier)),
     false,
   );
+});
+
+/**
+ * BrowserがServer実装や別専門PackageのRuntimeへ直接依存しないことを確認する。
+ * @responsibility 共有純粋検査と型参照をServer実行から分離する。
+ * @trace ERB-IT-021
+ * @precondition 現在Client入口と相対Sourceが存在する。
+ * @stimulus 既存のRuntime specifier抽出でClientから再帰走査する。
+ * @observation Local Sourceの所有Folderと外部Package集合。
+ * @oracle client／sharedと明示したBrowser依存以外のRuntime参照を拒否する。
+ * @cleanup N/A: Source読取りのみ。Browser・Serverを起動しない。
+ * @boundary Browser Build入口からの実行時依存。Canonical型のtype importは維持する。
+ */
+test("Workbench BrowserはclientとsharedだけをRuntimeで参照する", () => {
+  const pending = [path.join(packageRoot, "src/client/main.tsx")];
+  const visited = new Set<string>();
+  const external = new Set([
+    "react",
+    "react-dom/client",
+    "react-router",
+    "react-router/dom",
+    "@tanstack/react-query",
+  ]);
+  while (pending.length > 0) {
+    const current = pending.pop();
+    assert.ok(current);
+    if (visited.has(current)) continue;
+    visited.add(current);
+    const relative = path.relative(packageRoot, current).split(path.sep);
+    assert.equal(relative[0], "src");
+    assert.ok(
+      ["client", "shared"].includes(relative[1] ?? ""),
+      "browser_runtime_owner",
+    );
+    for (const specifier of runtimeSpecifiers(current)) {
+      if (specifier.startsWith("."))
+        pending.push(resolveLocalSource(current, specifier));
+      else
+        assert.ok(
+          external.has(specifier),
+          "browser_runtime_external_allowlist",
+        );
+    }
+  }
+  assert.ok(
+    visited.has(path.join(packageRoot, "src/shared/repository/validation.ts")),
+  );
+  assert.ok(visited.has(path.join(packageRoot, "src/client/api/queries.ts")));
 });
 
 /**

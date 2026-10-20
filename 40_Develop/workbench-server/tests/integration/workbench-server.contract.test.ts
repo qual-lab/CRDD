@@ -58,10 +58,8 @@ import {
 } from "../../../execution-intelligence/src/index.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
 import { createWorkbenchAiVerificationHttpClient } from "../../scripts/ai-verification-http.ts";
-import {
-  inspectWorkbenchClientModel,
-  type WorkbenchClientModel,
-} from "../../src/browser/client-model.ts";
+import { inspectWorkbenchClientModel } from "../../src/shared/view/validation.ts";
+import type { WorkbenchClientModel } from "../../src/shared/view/types.ts";
 import {
   createRepositoryWorkbenchActivityReader,
   createWorkbenchAiProfileSurface,
@@ -1165,6 +1163,186 @@ test("Allowlist外Routeを拒否し終了後Listenerを残さない", async () =
   await handle.close();
   await handle.close();
   await assert.rejects(requestRaw(baseUrl, "/"));
+});
+
+/**
+ * Expressの既定Routing・応答加工で既存のHTTP契約を広げない。
+ * @responsibility 大小文字・末尾slash・encoded Path・Method・HEADと旧入口の拒否を公開HTTPで確認する。
+ * @trace ERB-IT-021
+ * @precondition 現在Repositoryを読取り、localhost Server一件だけを起動する。
+ * @stimulus 固定の正常・境界・未知PathとMethodを逐次要求する。
+ * @observation status、Allow、本文、容量Header、Security Headerを取得する。
+ * @oracle 暗黙Route・OPTIONS応答・Express情報を追加せず、HEADは本文なし、旧Candidateは410のままとする。
+ * @cleanup finallyで所有Serverをjoinし、終了後の接続拒否を確認する。
+ * @boundary 実HTTPとExpress受付。外部AI・Docker・保存Effectは使用しない。
+ */
+test("Express受付は現行のPath・Method・HEAD・固定拒否を維持する", async () => {
+  const handle = await startWorkbench({ workingDirectory: repositoryRoot });
+  try {
+    for (const [method, pathname, expectedStatus, expectedBody] of [
+      ["GET", "/PROJECT", 404, "not_found\n"],
+      ["GET", "/project/", 404, "not_found\n"],
+      ["GET", "/%70roject", 404, "not_found\n"],
+      ["GET", "/unknown", 404, "not_found\n"],
+      ["POST", "/unknown", 405, "method_not_allowed\n"],
+      ["OPTIONS", "/", 405, "method_not_allowed\n"],
+      ["PUT", "/", 405, "method_not_allowed\n"],
+      ["POST", "/workspace/action/", 405, "method_not_allowed\n"],
+      [
+        "POST",
+        "/candidate/action",
+        410,
+        "legacy_bundle_candidate_route_removed\n",
+      ],
+    ] as const) {
+      const response = await fetch(`${handle.baseUrl}${pathname}`, {
+        method,
+        redirect: "manual",
+      });
+      assert.equal(response.status, expectedStatus, `${method} ${pathname}`);
+      assert.equal(await response.text(), expectedBody);
+      assert.equal(response.headers.get("x-powered-by"), null);
+      assert.equal(response.headers.get("etag"), null);
+      assert.equal(response.headers.get("cache-control"), "no-store");
+      assert.equal(response.headers.get("x-content-type-options"), "nosniff");
+      if (expectedStatus === 405)
+        assert.equal(response.headers.get("allow"), "GET, HEAD");
+    }
+    const url = `${handle.baseUrl}/.well-known/crdd-workbench-health`;
+    const get = await fetch(url);
+    const body = await get.text();
+    const head = await fetch(url, { method: "HEAD" });
+    assert.equal(get.status, 200);
+    assert.equal(head.status, 200);
+    assert.equal(await head.text(), "");
+    assert.equal(
+      head.headers.get("content-length"),
+      String(Buffer.byteLength(body)),
+    );
+    assert.equal(
+      head.headers.get("content-type"),
+      get.headers.get("content-type"),
+    );
+    assert.equal(head.headers.get("x-powered-by"), null);
+  } finally {
+    await handle.close();
+  }
+  await assert.rejects(fetch(handle.healthUrl));
+});
+
+/**
+ * Route分割の前後でraw URLの解釈とMethod拒否を維持する。
+ * @responsibility dot segment・absolute-form・HEADを別操作へ読み替えず、同じ前段から処理する。
+ * @trace ERB-IT-021
+ * @precondition localhost Serverだけを起動し、処置前拒否に使う不正Workspace Formを用意する。
+ * @stimulus 正規化を要するraw Path、管理GETとHEAD、旧Candidate入口、二重slashを含む絶対URLを逐次要求する。
+ * @observation HTTP状態・固定本文・管理の非秘密な未構成結果を取得する。
+ * @oracle Workspace不正入力は400、管理HEADは404、正規化された旧Candidateは410。二重slash Pathは404／405のままで正常入口へ変化せず、操作を発行しない。
+ * @cleanup finallyで所有Serverをjoinし、終了後の接続拒否を確認する。
+ * @boundary raw HTTPと現在のURL解釈・操作別Handler。外部AI・Docker・保存は使用しない。
+ */
+test("Route分割はraw URLの正規化と管理HEAD拒否を維持する", async () => {
+  const handle = await startWorkbench({ workingDirectory: repositoryRoot });
+  try {
+    const model = await requestMainModel(handle.baseUrl);
+    const form = new URLSearchParams({
+      actionToken: model.actionToken,
+      repositoryId: model.surface.context.repositoryId,
+      command: "null",
+    }).toString();
+    for (const requestPath of [
+      "/x/../workspace/action",
+      "/x/%2e%2e/workspace/action",
+      "http://workbench.invalid/x/../workspace/action",
+    ]) {
+      const result = await requestTransport(
+        handle.baseUrl,
+        requestPath,
+        "POST",
+        form,
+        { Origin: handle.baseUrl },
+      );
+      assert.equal(result.status, 400, requestPath);
+      assert.equal(
+        result.body.toString("utf8"),
+        "workspace_request_rejected\n",
+      );
+    }
+    const current = await requestRaw(
+      handle.baseUrl,
+      "/x/../api/access-management?view=current",
+    );
+    assert.equal(current.status, 200);
+    assert.deepEqual(JSON.parse(current.body.toString("utf8")), {
+      status: "unavailable",
+      reason: "management_not_configured",
+    });
+    const head = await requestRaw(
+      handle.baseUrl,
+      "/x/../api/access-management?view=current",
+      "HEAD",
+    );
+    assert.equal(head.status, 404);
+    assert.equal(head.body.byteLength, 0);
+    const candidate = await requestRaw(
+      handle.baseUrl,
+      "http://workbench.invalid/x/../candidate/action",
+      "POST",
+    );
+    assert.equal(candidate.status, 410);
+    assert.equal(
+      candidate.body.toString("utf8"),
+      "legacy_bundle_candidate_route_removed\n",
+    );
+    for (const path of [
+      ".well-known/crdd-workbench-health",
+      "api/workbench-view",
+      "api/access-management",
+    ]) {
+      const result = await requestRaw(
+        handle.baseUrl,
+        `http://synthetic.invalid//shadow/${path}`,
+      );
+      assert.equal(result.status, 404, path);
+    }
+    for (const operation of [
+      "workspace",
+      "repository",
+      "topic-meeting",
+      "ai-profiles",
+      "ai-request",
+    ]) {
+      const shadow = await requestRaw(
+        handle.baseUrl,
+        `http://synthetic.invalid//shadow/${operation}/action`,
+        "POST",
+      );
+      assert.equal(shadow.status, 405, operation);
+      const trailing = await requestRaw(
+        handle.baseUrl,
+        `/${operation}/action/`,
+        "POST",
+      );
+      assert.equal(trailing.status, 405, operation);
+    }
+    for (const [operation, reason] of [
+      ["repository", "repository_action_rejected"],
+      ["topic-meeting", "topic_meeting_action_rejected"],
+      ["ai-profiles", "ai_profile_action_rejected"],
+      ["ai-request", "ai_request_action_rejected"],
+    ]) {
+      const normalized = await requestRaw(
+        handle.baseUrl,
+        `http://synthetic.invalid/x/../${operation}/action`,
+        "POST",
+      );
+      assert.equal(normalized.status, 400, operation);
+      assert.equal(normalized.body.toString("utf8"), `${reason}\n`);
+    }
+  } finally {
+    await handle.close();
+  }
+  await assert.rejects(requestRaw(handle.baseUrl, "/"));
 });
 
 /**

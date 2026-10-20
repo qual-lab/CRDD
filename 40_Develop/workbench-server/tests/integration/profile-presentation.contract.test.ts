@@ -14,7 +14,7 @@ import { defaultAiProfileCatalog } from "../../../ai-adapter/src/index.ts";
 import {
   inspectWorkbenchProfileSnapshot,
   inspectWorkbenchProfileResult,
-} from "../../src/browser/client-model.ts";
+} from "../../src/shared/view/validation.ts";
 
 /**
  * 正規Catalogと関係不整合を表示前に区別する。

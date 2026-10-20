@@ -9,6 +9,26 @@
 
 ## 1. 結論と実行境界
 
+### Workbench Framework導入・構造整理 — 2026-10-20（対象作業完了・全体QAは別途）
+
+人間の添付方針とAfter採用に従い、React＋Vite CSRを維持してExpress 5／React Router／TanStack Queryを導入した。HTTP・Client・共有値契約を責務で分離し、既存URL・操作・認証認可・取消終了を維持する。UX／IA・Visual再設計、MCP依存、新しいRegistry／Lock／Recoveryは追加しない。最終通常78件・全Browser15件・表示検証・CLI8件・静的89Fileが成功し、限定独立再レビューは文書是正後も残指摘0。対象1〜5を完了とする。以下の段階別結果は当時の記録とし、現在の結果は[移管計画§14](workbench-framework-structure.md#14-query画面分割共有配置と通常検査)を参照する。実AI・実Hostの人間確認・全体QA・Releaseは別途。外部AI再試行・Docker操作・②保持物削除は行っていない。
+
+最初のHTTP受付単位ではExpress 5を固定導入し、共通保護・有界Formを`server/security.ts`、要求取消・Socket／保留要求joinを`server/http.ts`へ移した。上位AI Owner closeを維持し、重複した内側Promise登録だけを除去した。基準72件・変更後73件、公開CLI 8件、Header／公開／QA接続3件が成功。限定独立レビューのHeader訂正1件は解消し、追加指摘0。これは旧HandlerへのExpress接続という中間段階であり、Route本分割・Client／共有契約・React Router／Query・最終Browser回帰は残る。
+
+管理・鍵・Workspaceを明示Routeへ接続し、PortfolioとRecord表示処理を分離した。独立確認のURL二重解釈と前段待機後取消を最小是正し、相対URL表現に依存した試験観測3箇所も期待条件を維持して追従した。最終通常結合74件・公開CLI8件・選択Browserケース4件・Header／公開／QA接続3件が成功し、再レビュー追加0。Repository・Record・AI・表示の残存Route、Client／共有契約、Router／Query、最終Browser集合は未完了。詳細と旧候補との差は同じ[移管計画](workbench-framework-structure.md)を参照する。
+
+続く単位ではRepository・Record・AIの操作受付を専用Routeへ接続し、既存の表示値を同じ寿命・参照で受け渡す型だけに整理した。全通常結合74件、Browser既存全14件、公開CLI8件、Header／公開／QA接続3件が成功。独立確認で処理差は見つからず、Header説明2種類を本文変更なしで訂正した。表示GET・静的配信と起動構成の残存分岐、Client／共有契約・Router／Queryは未完了であり、Workbench全体のFramework移行完了ではない。現在の配置と根拠・限界は同じ移管計画にまとめる。
+
+表示投影・固定Document／CSS／Asset選択を実Ownerへ移し、起動本体をserver/start.tsへ配置した。Root公開API・CLIは維持し、旧server.tsは撤去した。最終通常結合74件・CLI8件・選択Browser4件・VC閉包12件・Node依存閉包3件・Header／公開／QA接続3件が成功し、独立確認指摘0。移管前と同じ4関数・CSS本文を維持した。この単位の時点ではGETの本編成が残っていた。詳細は同じ移管計画の§10を参照する。
+
+続いて単体・共有GET本文をrepository-view／shared-viewへ分離し、既知GET／HEADをExpressへ明示接続した。現在認可・設定と状態の参照時点・GET通知消費・未知入力拒否・終了Ownerを維持し、新しい管理機構は追加しない。通常結合74件・全Browser14件・CLI8件・VC12件・Node3件・Header／公開／QA接続3件と静的確認が成功した。独立レビューの処理指摘0、設計書の旧残件表示1件を訂正。Client／共有契約・Router／Query、全体QA・Releaseは未完了。詳細は同計画§11を参照する。
+
+Client配置と共有表示契約の分離も確認した。旧browserを撤去し、表示はclient、型・純粋応答検査はshared/view、接続・Record搬送・選択URL生成はclient/apiへ移管した。41項目の本文比較は差分0、通常結合74件・全Browser14件・CLI8件・VC12件・直接QA3件と静的確認が成功。独立確認の台帳・旧Path表示2件を是正し、残指摘0。新依存・新状態を追加せず、独自Navigationは現状維持でRouter導入済みとは扱わない。画面分割・残る共有契約・Router／Queryは残る。詳細は同計画§12を参照する。
+
+React Router 8.5.0の本番接続を実装した。失敗先URLで固定エラーを表示する変更は人間承認済み。独自History／POP監視・Navigation世代を撤去し、既存通信と接続世代は維持した。hash入力保持と今回2TSXの通常Biome接続も是正した。是正前の全結合74件・Browser14件・CLI8件は成功し、最終Client候補のNode閉包3件・静的確認も成功。最終全Browserは接続実1ケースと親Suiteの2失敗で、診断付き局所4件は成功したが元の原因未確定。成功へ丸めず最終Browser Gateを残す。Query・画面分割・残共有契約・他TSXの検査接続も残る。実AI・Docker・②保持物は不変更。詳細は同計画§13を参照する。
+
+その後、診断付き全Browserを一度確認し14／14成功した。先行失敗の原因は再現・確定しておらず、今回成功と区別して追跡する。独立確認で挙がった試験のreload応答と新Document準備の観測差は原因候補にとどめ、操作の再送や製品の推測修正を追加しない。次は採用済み順序どおりQuery接続と画面分割へ進み、全Frameworkの最終評価は残す。結果と限界は同計画§13を正本とする。
+
 ### MCP Serverの公式SDK移行・構造整理 — 2026-10-20（対象作業完了・全体QAは別途）
 
 添付方針と追加判断に従いAM本体・公開API・保存を変更せず、stdio／HTTPのProtocol・Transportを公式SDKへ接続した。全ToolのSchemaと処理をtoolsへ、要求認証・SDK登録・閉入力検査をrequestへ配置し、旧Routerと旧Orchestrator Protocol File・汎用Protocol補助公開を撤去した。本番Launcherと現在認証は要求別Factoryを使い、前要求の入力・認可を再利用しない。HTTPはhttp.ts、実行状況Toolはget_execution_statusへ確定した。公式Clientの公開stdio・実HTTP接続、追加の取消・逐次・出力・待機総量反例と静的検査は局所成功。独立レビュー4指摘を是正し、最終全100試験と静的検査が成功した。独立再レビューは追加指摘0、独立lifecycle 10件・公式Client 2件も成功。対象四項目の作業は完了とし、正式QA・実Provider・UAT・Releaseは別途残す。[現行の対応表と検証範囲](mcp-server-sdk-structure.md)を参照する。外部AI・Docker・②保持物は未操作。
