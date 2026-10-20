@@ -342,6 +342,16 @@ test("初回HTTPの不正要求は確認出版せず入力境界で拒否する"
       },
       {
         body: JSON.stringify(packet()),
+        override: {
+          "content-type": "application/json; charset=utf-8, text/plain",
+        },
+      },
+      {
+        body: JSON.stringify(packet()),
+        override: { "mcp-protocol-version": "unsupported" },
+      },
+      {
+        body: JSON.stringify(packet()),
         override: { accept: "application/json" },
       },
       {

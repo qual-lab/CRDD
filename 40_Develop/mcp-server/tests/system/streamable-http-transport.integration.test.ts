@@ -598,8 +598,8 @@ async function availableMcpEntryPort(): Promise<number> {
  * @trace EST-ST-003
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus template toolsの公開入口はlocalhost HTTP discoveryへ到達するの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
+ * @observation HTTP結果、discover metadataのServer識別名と終了後条件を観測する。
+ * @oracle Server識別名はcrdd-mcp、要求IDとcomplete応答を保持する。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary EST-ST-003=Direct Boundary: mcp Test Source→対象契約
  */
@@ -629,10 +629,17 @@ test("template toolsの公開入口はlocalhost HTTP discoveryへ到達する", 
     assert.equal(response.status, 200);
     const result = (await response.json()) as {
       id: string;
-      result: { resultType: string };
+      result: {
+        resultType: string;
+        _meta: { "io.modelcontextprotocol/serverInfo": { name: string } };
+      };
     };
     assert.equal(result.id, "discover-http-process");
     assert.equal(result.result.resultType, "complete");
+    assert.equal(
+      result.result._meta["io.modelcontextprotocol/serverInfo"].name,
+      "crdd-mcp",
+    );
   } finally {
     if (child.exitCode === null) child.kill();
     await new Promise<void>((resolve) => {

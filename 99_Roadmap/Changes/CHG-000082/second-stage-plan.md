@@ -9,6 +9,27 @@
 
 ## 1. 結論と実行境界
 
+### 既存Package六観点の再確認 — 2026-10-21
+
+基準HEAD `e80baf2a5`、着手時clean。利用者の追加依頼として、SDKと入口検査、Query Cache、実績保存の正本境界、Server識別名、意味検査の製品固定、設定追跡例外を照合する。実装明確化・内部共通化とCheckerの入力契約変更として扱い、既存CHG内で設計・利用手順・試験を追従する。書込みは現在Repositoryのみ。保持中②・先行unknown、認証情報、外部AI、Docker、Release判断には触れない。
+
+着手前に実Source・固定SDK・設計・既存試験と独立した設計／品質の読取り確認を照合した。技術・品質の独立レビュー、対象文書の整合と横断影響確認を行う。準拠基準・決定権限・正式リリースを変えないため準拠監査・Release監査・外部AI E2Eは実施しない。現在の人間判断事項はない。
+
+| 再確認対象 | 処置と保持する意図 |
+|---|---|
+| MCP HTTP／SDK | Content-Type判定はSDK公開関数を共用。認証・Origin・生本文・初回保存前のGate、取消とjoinは維持。保存がSDK前にある状態でHeader／Accept Gateだけを撤去しない |
+| Workbench Query | Source変更なし。一回key・非共有・即時破棄を維持。安定keyの共有／invalidateの利点より、通知消費付きGET・Caller別取消・主体切替分離を優先 |
+| 実績保存の正本境界 | Source変更なし。現在Task／判断はOrchestrator、技術記録はCoordinator／DI、実績観測・傾向・非Authority評価はEI。EI自身の保存失敗と技術回復を区別して設計へ明記 |
+| MCP識別名 | 実Server二経路と応答metadataを内部共通定数`crdd-mcp`へ訂正。既存Tool payloadの契約namespaceと版は変更しない |
+| Checker Semantic | `--architecture subsystem=path`／`--quality path`の明示入力へ変更。製品固定二領域・QA集合をSourceから撤去。対象なし64、不正64、欠測1、Root／保存不能2、正常0を反証。固定fallback・新Config／Registryは作らない |
+| `.gitignore` | 現役の非秘密Repository Identity設定として`repository-manifest.json`例外を維持。Domain Readerと配置設計で現在の用途を確認し、理由コメントのみ追加 |
+
+移行はフロントAI／人間による既存呼出し引数の更新だけとし、既存Snapshot形式・保存先・過去Evidenceを改名しない。新しい抽象化、認可Cache、履歴統合、回復機構は追加しない。
+
+検証: MCP通常100成功、EI通常84成功、Checker関連19成功、Workbench Query関連4成功、Orchestratorの活動表示・観測記録12成功。Checker／MCP／EI／Orchestratorの静的検査成功。Workbenchは型・書式とQuery対象のLintが成功したが、Package全Lintは未変更`client/components/project-context.tsx`のindex key二指摘で不合格。今回のQuery評価をWorkbench全体Passへ拡張せず、当該二指摘は今回の変更範囲外として残す。
+
+独立レビューの指摘は、MCP識別名反証のHeader／Catalog追従、直接参照するSemantic設計の旧固定対象説明、通常文書のscope案内との混線の3点。統合方針を双方へ再提示して整合後、既存3試験の記述・台帳postcondition3行と現在説明だけを是正した。MCP静的・該当3試験、台帳382件valid、公開入口／責務階層／全Test Header接続3検査が成功。設計・品質／限定文書・直接影響の再レビューは双方残指摘0。追加の人間判断はなく、全体準拠・Release・Workbench全体Passの主張は行わない。
+
 ### Docker Isolationの構造・追加通信先 — 2026-10-21（対象の実装・限定通信・回帰確認済み）
 
 Platform Accessの区切りを`3583a62d9`でコミット・プッシュ後、配置移管と追加Allowlistの本番接続を実装した。設定はDomain、同意・注入はCoordinator、技術強制と単一Proxy Image定義はDIが所有する。Repositoryごとの未Commit設定を含め編集・助言・レビューへ共通適用し、ログインはProvider固定通信だけとする。DNS上限不足を局所再現・是正し、再承認した修正Imageの一回試験でnpm／pip・通信拒否・取得後待機取消・今回資源回収が成功した。通常回帰と影響先再確認を行い、限定独立レビュー残指摘0。広回帰の追従漏れ1件と是正後の成功は別に記録した。試験選択逸脱で生じた先行2Rootと既存②はunknown・同じ回復参照を保持し、削除・AI再試行・再起動していない。既存PA命名不合格と製品全体E2Eは別残件。対応表・集約結果と保証の限界は[DI構造再編計画§13](docker-isolation-source-structure.md#13-dns境界の是正と限定通信の成立--2026-10-21)を参照する。

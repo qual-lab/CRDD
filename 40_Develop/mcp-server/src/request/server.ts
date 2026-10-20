@@ -18,6 +18,7 @@ import { snapshotPlainRecord } from "./snapshot.ts";
 import { handleMcpDiscoverRequest } from "./discover.ts";
 import {
   callKeys,
+  MCP_SERVER_NAME,
   listKeys,
   listKeysNoCursor,
   inspectProtocolRequest,
@@ -255,7 +256,7 @@ export function createMcpServerFactory(
                 ),
         });
       const server = new Server(
-        { name: "crdd-coordinator", version: "0.20.0-development" },
+        { name: MCP_SERVER_NAME, version: "0.20.0-development" },
         {
           capabilities: { tools: {} },
           cacheHints: {
@@ -339,7 +340,7 @@ export async function createMcpRequestServer(
       throw new ProtocolError(result.error.code, result.error.message);
   }
   const server = new Server(
-    { name: "crdd-coordinator", version: "0.20.0-development" },
+    { name: MCP_SERVER_NAME, version: "0.20.0-development" },
     {
       capabilities: { tools: {} },
       cacheHints: { "server/discover": { ttlMs: 0, cacheScope: "private" } },

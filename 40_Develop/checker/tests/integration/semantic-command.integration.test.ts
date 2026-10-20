@@ -49,12 +49,27 @@ test("Semantic公開入口は不正引数と未検証Rootを成功へ丸めな�
   assert.equal(
     runSemanticCoverage({
       ...request,
-      arguments: ["--root", "missing-semantic-root"],
+      arguments: [
+        "--root",
+        "missing-semantic-root",
+        "--architecture",
+        "sample=design.md",
+      ],
     }).exitCode,
     2,
   );
   assert.equal(out, "");
   assert.match(err, /repository_root_unverified/);
+  err = "";
+  assert.equal(runSemanticCoverage({ ...request, arguments: [] }).exitCode, 64);
+  assert.match(err, /semantic_architecture_required/);
+  for (const value of ["sample", "=design.md", "sample=", "Sample=design.md"]) {
+    assert.equal(
+      runSemanticCoverage({ ...request, arguments: ["--architecture", value] })
+        .exitCode,
+      64,
+    );
+  }
 });
 
 /**
@@ -94,8 +109,8 @@ test("Semantic公開CLIは表示と明示保存を分け失敗後のSnapshotを�
       "# ARCH-000008\n",
     );
     for (const [area, name] of [
-      ["coordinator", "01_Architecture.md"],
-      ["orchestrator", "02_Detailed_Design.md"],
+      ["billing", "design.md"],
+      ["shipping", "design.md"],
     ]) {
       const dir = path.join(root, "06_Architecture", "Details", area as string);
       fs.mkdirSync(dir, { recursive: true });
@@ -113,7 +128,7 @@ test("Semantic公開CLIは表示と明示保存を分け失敗後のSnapshotを�
         ].join("\n"),
       );
     }
-    for (const id of ["000003", "000004", "000005", "000006", "000010"]) {
+    for (const id of ["000001"]) {
       const dir = path.join(root, "07_Quality", "Definitions", `QA-${id}`);
       fs.mkdirSync(dir, { recursive: true });
       fs.writeFileSync(
@@ -124,6 +139,14 @@ test("Semantic公開CLIは表示と明示保存を分け失敗後のSnapshotを�
     const registry = path.join(root, "07_Quality", "Registry");
     fs.mkdirSync(registry);
     const target = path.join(registry, "semantic-coverage-pilot.json");
+    const inputs = [
+      "--architecture",
+      "billing=06_Architecture/Details/billing/design.md",
+      "--architecture",
+      "shipping=06_Architecture/Details/shipping/design.md",
+      "--quality",
+      "07_Quality/Definitions/QA-000001/quality_definition.md",
+    ];
     const cli = path.join(
       repositoryRoot,
       "40_Develop",
@@ -133,17 +156,41 @@ test("Semantic公開CLIは表示と明示保存を分け失敗後のSnapshotを�
     );
     const view = spawnSync(
       process.execPath,
-      [cli, "--semantic", "--root", root],
+      [cli, "--semantic", "--root", root, ...inputs],
       { encoding: "utf8", windowsHide: true },
     );
     assert.equal(view.status, 0, view.stderr);
     assert.equal(JSON.parse(view.stdout).semanticIrs.length, 2);
     assert.equal(fs.existsSync(target), false);
+    for (const qualityPath of ["missing-quality.md", "../outside-quality.md"]) {
+      const missingQuality = spawnSync(
+        process.execPath,
+        [
+          cli,
+          "--semantic",
+          "--root",
+          root,
+          ...inputs,
+          "--quality",
+          qualityPath,
+          "--write",
+        ],
+        { encoding: "utf8", windowsHide: true },
+      );
+      assert.equal(missingQuality.status, 1, missingQuality.stderr);
+      assert.ok(
+        JSON.parse(missingQuality.stderr).findings.some(
+          (finding: { code: string }) =>
+            finding.code === "semantic-source-unobservable",
+        ),
+      );
+      assert.equal(fs.existsSync(target), false);
+    }
     let outputError = "";
     assert.equal(
       runSemanticCoverage({
         cwd: root,
-        arguments: ["--root", root],
+        arguments: ["--root", root, ...inputs],
         writeOutput: () => {
           throw new Error("synthetic output failure");
         },
@@ -157,7 +204,7 @@ test("Semantic公開CLIは表示と明示保存を分け失敗後のSnapshotを�
     assert.equal(fs.existsSync(target), false);
     const write = spawnSync(
       process.execPath,
-      [cli, "--semantic", "--root", root, "--write"],
+      [cli, "--semantic", "--root", root, ...inputs, "--write"],
       { encoding: "utf8", windowsHide: true },
     );
     assert.equal(write.status, 0, write.stderr);
@@ -171,14 +218,14 @@ test("Semantic公開CLIは表示と明示保存を分け失敗後のSnapshotを�
       root,
       "06_Architecture",
       "Details",
-      "coordinator",
-      "01_Architecture.md",
+      "billing",
+      "design.md",
     );
     const saved = fs.readFileSync(source, "utf8");
     fs.writeFileSync(source, "# 欠測\n");
     const invalid = spawnSync(
       process.execPath,
-      [cli, "--semantic", "--root", root, "--write"],
+      [cli, "--semantic", "--root", root, ...inputs, "--write"],
       { encoding: "utf8", windowsHide: true },
     );
     assert.equal(invalid.status, 1);
@@ -189,7 +236,7 @@ test("Semantic公開CLIは表示と明示保存を分け失敗後のSnapshotを�
     fs.mkdirSync(target);
     const failure = spawnSync(
       process.execPath,
-      [cli, "--semantic", "--root", root, "--write"],
+      [cli, "--semantic", "--root", root, ...inputs, "--write"],
       { encoding: "utf8", windowsHide: true },
     );
     assert.equal(failure.status, 2);

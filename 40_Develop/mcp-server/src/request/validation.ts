@@ -10,6 +10,7 @@ import {
 } from "../request/snapshot.ts";
 
 export const MCP_ORCHESTRATOR_PROTOCOL_VERSION = "2026-07-28" as const;
+export const MCP_SERVER_NAME = "crdd-mcp" as const;
 
 /**
  * orchestrator-protocolで使用するJson Rpc Idの値契約を定義する。
@@ -174,7 +175,7 @@ export function protocolComplete(
       ...result,
       _meta: Object.freeze({
         "io.modelcontextprotocol/serverInfo": Object.freeze({
-          name: "crdd-coordinator",
+          name: MCP_SERVER_NAME,
           version: "0.20.0-development",
         }),
       }),

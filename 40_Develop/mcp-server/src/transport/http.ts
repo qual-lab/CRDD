@@ -1,7 +1,6 @@
 /**
- * streamable-http-transportに属する責務をまとめる。
- *
- * @responsibility McpOrchestratorHttpOptionsを中心とする実装、型および境界を同じModuleで所有する。
+ * MCPのHTTP入口検査と要求別SDK接続・終了を所有する。
+ * @responsibility SDKへProtocol処理を委譲し、認証・生本文・初回保存前の拒否条件を維持する。
  * @trace ARCH-000012
  */
 import { timingSafeEqual } from "node:crypto";
@@ -13,7 +12,11 @@ import http, {
 } from "node:http";
 import type { Socket } from "node:net";
 import { types as utilTypes } from "node:util";
-import { createMcpHandler, ProtocolError } from "@modelcontextprotocol/server";
+import {
+  createMcpHandler,
+  isJsonContentType,
+  ProtocolError,
+} from "@modelcontextprotocol/server";
 import { toNodeHandler } from "@modelcontextprotocol/node";
 
 import type { McpOrchestratorDependencies } from "../tools/orchestrator.ts";
@@ -552,10 +555,7 @@ async function startMcpStreamableHttpWithHandler(
           return;
         }
         if (
-          request.headers["content-type"]
-            ?.split(";", 1)[0]
-            ?.trim()
-            .toLowerCase() !== "application/json" ||
+          !isJsonContentType(request.headers["content-type"]) ||
           !acceptsRequiredRepresentations(request.headers)
         ) {
           respondJson(

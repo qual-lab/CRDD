@@ -207,7 +207,15 @@ test("文書不備とSemantic欠測は公開診断・終了値に届く", () => 
     assert.ok(report.metrics.errors > 0);
     output = "";
     assert.equal(
-      runSemanticCoverage({ ...request, arguments: ["--root", root] }).exitCode,
+      runSemanticCoverage({
+        ...request,
+        arguments: [
+          "--root",
+          root,
+          "--architecture",
+          "sample=missing-design.md",
+        ],
+      }).exitCode,
       1,
     );
     assert.equal(output, "");
@@ -221,7 +229,12 @@ test("文書不備とSemantic欠測は公開診断・終了値に届く", () => 
     assert.equal(
       runSemanticCoverage({
         ...request,
-        arguments: ["--root", path.join(root, "absent")],
+        arguments: [
+          "--root",
+          path.join(root, "absent"),
+          "--architecture",
+          "sample=missing-design.md",
+        ],
       }).exitCode,
       2,
     );

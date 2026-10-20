@@ -303,8 +303,8 @@ function dependencies(
  * @trace PRL-UT-014
  * @precondition Test Fileが構築するfixtureと入力を使用する。
  * @stimulus MCP discovery and tool list expose the three public operationsの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
+ * @observation 直接discover metadataのServer識別名と公開Tool集合を観測する。
+ * @oracle Server識別名はcrdd-mcp、三つの公開操作の名前と順序を保持する。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-UT-014=Direct Boundary: mcp Test Source→対象契約
  */
@@ -314,6 +314,12 @@ test("MCP discovery and tool list expose the three public operations", async () 
     dependencies(),
   );
   assert.equal(discover.error, undefined);
+  assert.equal(
+    (discover.result as { _meta?: Record<string, { name: string }> })?._meta?.[
+      "io.modelcontextprotocol/serverInfo"
+    ]?.name,
+    "crdd-mcp",
+  );
   const listed = await handleMcpOrchestratorRequest(
     request("tools/list", { _meta: META }),
     dependencies(),

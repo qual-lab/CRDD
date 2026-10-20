@@ -6,6 +6,10 @@
 
 HTTPは公式SDKへ接続する。要求別の既存認証、byte／重複キー／Header一致検査、初回discoverの確認保存を公式entry前に維持し、同じ検査済みbodyをSDK Node接続へ渡す。SDKがJSON-RPCの受付・dispatch・応答生成を所有し、Tool callbackには既存のTool結果だけを返す。既存Handlerが返すProtocol errorはSDKの`ProtocolError`へ変換し、JSON-RPC応答全体をTool結果へ二重格納しない。初回保存成功後のSDK失敗・切断を未保存へ戻さず、自動再確認しない。
 
+SDKとの境界再確認（2026-10-21）: Content-Typeの意味判定はSDK公開`isJsonContentType`を使用する。Bearer、Origin、TLS終端Headerのexact相関と重複拒否、生JSONの重複key拒否、fatal UTF-8とbyte上限、公開methodの閉集合、取消・join・no-storeはCRDD側が所有する。標準HeaderとAcceptの事前Gateは、現状の初回確認保存がSDK呼出し前にあるため維持する。同じ不正要求をSDKも拒否することだけを理由に事前Gateを除去しない。今回、初回保存の位置や認可契約は変更しない。
+
+公開Server識別名は`crdd-mcp`とし、要求別SDK Server二経路と応答metadataで同じ内部定数を使う。Tool結果の`crdd-coordinator/...`等の既存契約namespace、Protocol版、Tool名、Release版の判断はこの識別名訂正へ含めない。
+
 通常要求は要求ごとのHandlerと現在ACLを使い、Serverの再利用でPrincipalをcacheしない。SDKの標準Handlerを持つことだけでping、旧Initialize、通知等の公開範囲を拡張しない。stdioでも待機byte総量、逐次意味実行、EOF取消とjoinをSDK接続へ保持する。HTTP接続だけでstdio・Source全移管・旧Router撤去・Client互換の完了とは表示しない。
 
 終了では従来の要求Controllerと未終了処理の集合を使い、SDK closeだけから下位Effect終了を推定しない。HTTP切断・Server終了は同じ要求の取消をTool callbackへ伝播し、既存Ownerの完了待ちとSDK資源回収を終えてから終了結果を返す。新しい永続状態、共有Lock、Registry、認証Frameworkは追加しない。

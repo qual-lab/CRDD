@@ -124,7 +124,7 @@ UTは新Owner・新Pathへ追従し、検査意味を移した試験はDomain、
 | 公開名 | 役割 | 実体の配置 |
 |---|---|---|
 | `runChecker(request): CheckerResult` | 文書検査の起動と結果出力 | cli/document.ts |
-| `runSemanticCoverage(request): CheckerResult` | 固定対象の意味Coverage確認・明示保存 | cli/semantic.ts |
+| `runSemanticCoverage(request): CheckerResult` | 明示対象の意味Coverage確認・明示保存 | cli/semantic.ts |
 | `runTestCatalog(request): CheckerResult` | 台帳検査または回帰計画。試験は起動しない | cli/test-catalog.ts |
 | `CheckerRunRequest` | arguments、cwd、writeOutput、writeError | cli/types.ts |
 | `CheckerResult` | exitCode | cli/types.ts |
@@ -139,7 +139,7 @@ binはPackage名と同じ`bin/checker.ts`一つを維持する。以下は現在
 | 操作 | 引数 | Effect |
 |---|---|---|
 | 文書検査 | `--root <path>`、`--json`、`--summary`、`--scope <path>`反復、`--references <path>` | 読取りと表示 |
-| 意味Coverage確認 | `--semantic`、`--root <path>` | 読取りとJSON表示 |
+| 意味Coverage確認 | `--semantic`、`--root <path>`、反復可能な`--architecture <subsystem>=<relative-path>`／`--quality <relative-path>` | 明示対象の読取りとJSON表示 |
 | 意味Coverage保存 | 上記へ`--write` | 既存Snapshotの明示保存。保存OwnerはDomain |
 | 台帳検査 | `--test-catalog`、`--root <path>` | 読取りと表示 |
 | 回帰計画 | 上記へ`--changed <path>`反復、`--base <revision>`、`--all`のいずれか。`--levels <list>`でLevel選択 | Git等の読取りと計画表示。試験起動なし |
@@ -189,6 +189,8 @@ UX固有の参照候補解析は、本文と現在のRoot文字列を`parseUxFor
 状態: Canonical
 
 ## Semantic実行入口の移管 — 2026-10-19
+
+2026-10-21の入力境界是正: Architecture対象は反復可能な`--architecture <subsystem>=<Root相対文書Path>`、Quality対象は反復可能な`--quality <Root相対文書Path>`から得る。製品名・文書Path・QA IDの既定集合をSourceに持たず、Architecture未指定は64で停止する。Quality省略は入力0件として既存Domainの必須Relation検査を維持する。Root検証・観測不能時の診断・明示保存の保証と既存Snapshot形式は不変。従来の対象指定なし呼出しはフロントAI／人間が[操作手順](../../../19_Workflows/02_Checker.md#semanticの確認と明示保存)へ従って更新し、固定対象への互換fallbackは追加しない。
 
 Checkerは`src/repository/semantic.ts`と`src/report/semantic.ts`で既存Repository観測とDomainのSemantic計算を編成し、Issueを既存の診断コードへ変換する。`src/cli/semantic.ts`の`runSemanticCoverage`と既存binの`--semantic`を公開入口とする。意味解析・Relation・Coverage・保存本体を複製せずDomain Root APIへ接続する。既定の`runChecker`と文書検査の振る舞いは変えない。詳細は[Semantic責務移管](../semantic-coverage/01_Architecture.md#2026-10-19の責務移管)に従う。旧形式の調査・移行はフロントAIが保守手順に従って行い、Checkerへ移行専用コードを恒久保持しない。以下の「CheckerはSemantic生成・公開を所有しない」という旧記述は、意味計算・保存本体を所有しないという境界へ置換する。
 

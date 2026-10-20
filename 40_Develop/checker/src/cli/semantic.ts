@@ -1,6 +1,6 @@
 /**
  * Semanticの入力編成・診断表示・明示保存を既存CLIへ接続する。
- * @responsibility 固定二領域の意味検査をDomainへ委譲し、結果と終了Codeを返す。
+ * @responsibility 明示した対象の意味検査をDomainへ委譲し、結果と終了Codeを返す。
  * @trace ARCH-000008
  * @boundary 検証済みRepositoryの読取りと明示保存の境界。
  * @effect --write指定時だけ既存RegistryのSnapshotを置換し得る。
@@ -25,7 +25,7 @@ import {
 import type { CheckerRunRequest, CheckerResult } from "./types.ts";
 
 /**
- * 固定二領域のSemantic検査を実行して表示または保存する。
+ * 明示したArchitecture・Quality文書のSemantic検査を実行する。
  * @responsibility 引数・Root・入力編成・結果表示を一回の操作へ閉じる。
  * @trace ARCH-000008
  * @input request: CLI引数、cwd、出力先。
@@ -42,9 +42,31 @@ import type { CheckerRunRequest, CheckerResult } from "./types.ts";
 export function runSemanticCoverage(request: CheckerRunRequest): CheckerResult {
   let repositoryRoot = request.cwd;
   let hasExplicitRoot = false;
+  const architectures: { subsystem: string; sourceDocument: string }[] = [];
+  const qualitySources: string[] = [];
   for (let i = 0; i < request.arguments.length; i += 1) {
     const arg = request.arguments[i];
     if (arg === "--write") continue;
+    const value = request.arguments[i + 1];
+    if (arg === "--architecture" && value && !value.startsWith("--")) {
+      const separator = value.indexOf("=");
+      const subsystem = value.slice(0, separator);
+      const sourceDocument = value.slice(separator + 1);
+      if (
+        separator > 0 &&
+        /^[a-z][a-z0-9-]*$/u.test(subsystem) &&
+        sourceDocument
+      ) {
+        architectures.push({ subsystem, sourceDocument });
+        i += 1;
+        continue;
+      }
+    }
+    if (arg === "--quality" && value && !value.startsWith("--")) {
+      qualitySources.push(value);
+      i += 1;
+      continue;
+    }
     if (
       arg === "--root" &&
       request.arguments[i + 1] &&
@@ -60,6 +82,10 @@ export function runSemanticCoverage(request: CheckerRunRequest): CheckerResult {
     request.writeError("semantic_arguments_invalid\n");
     return { exitCode: 64 };
   }
+  if (architectures.length === 0) {
+    request.writeError("semantic_architecture_required\n");
+    return { exitCode: 64 };
+  }
   const verifiedRepository = hasExplicitRoot
     ? verifyRepositoryRoot(repositoryRoot)
     : verifyRepositoryRootFromWorkingDirectory(request.cwd);
@@ -69,37 +95,17 @@ export function runSemanticCoverage(request: CheckerRunRequest): CheckerResult {
   }
   let failureStage: "inspection" | "publication" | "output" = "inspection";
   try {
-    const pilots = [
-      {
-        subsystem: "coordinator",
-        sourceDocument:
-          "06_Architecture/Details/coordinator/01_Architecture.md",
-      },
-      {
-        subsystem: "orchestrator",
-        sourceDocument:
-          "06_Architecture/Details/orchestrator/02_Detailed_Design.md",
-      },
-    ] as const;
-    const qualitySources = [
-      "07_Quality/Definitions/QA-000003/quality_definition.md",
-      "07_Quality/Definitions/QA-000004/quality_definition.md",
-      "07_Quality/Definitions/QA-000005/quality_definition.md",
-      "07_Quality/Definitions/QA-000006/quality_definition.md",
-      "07_Quality/Definitions/QA-000010/quality_definition.md",
-    ] as const;
-
     const outputRelativePath =
       "07_Quality/Registry/semantic-coverage-pilot.json";
     const symbolDiscovery = observeRealitySymbolRepository(
       verifiedRepository.capability,
     );
-    const results = pilots.map((pilot) => ({
-      ...pilot,
+    const results = architectures.map((target) => ({
+      ...target,
       result: compileSemanticIrFromRepository(
         verifiedRepository.capability,
-        pilot.sourceDocument,
-        pilot.subsystem,
+        target.sourceDocument,
+        target.subsystem,
         symbolDiscovery.knownArchIds,
       ),
     }));

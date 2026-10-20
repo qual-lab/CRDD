@@ -7,6 +7,10 @@
 
 ## 基本設計との関係
 
+正本境界の再確認（2026-10-21）: Taskの現在状態・進行・採用済み判断はOrchestrator、技術実行・失敗・回復の正本記録はCoordinator／Docker Isolationが所有する。Execution Intelligenceはそれらの作成側が観測した事実・欠測を実績イベントへ写し、傾向・時間的出所・改善候補を返す。履歴の`current`は対象Revisionに対する新鮮さであり、現在Taskの状態ではない。履歴欠測から現在Task不存在を推定しない。
+
+EIの保存結果にある`manualRecoveryRequired`／`recoveryReference`はEI自身の記録公開失敗の処置参照であり、Task／Container回復のAuthorityではない。イベント内の未回収・Effect不明は作成側の観測事実として保持保護へ使うが、EIは技術回復を実行せず、改善候補を採用済み判断へ昇格しない。既存Store・状態・保存先は分割・統合しない。
+
 | Architecture定義 | この領域が具体化する責務 | Relation状態 |
 |---|---|---|
 | [ARCH-000007](../../Definitions/ARCH-000007/architecture_definition.md) | 利用可能な実行記録を読取り、欠測を保った事実と非Authorityな評価候補を返す。 | Covered |

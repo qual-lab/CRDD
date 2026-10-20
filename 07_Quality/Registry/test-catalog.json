@@ -5410,6 +5410,7 @@
       "externalProviderEffect": false,
       "humanInput": false,
       "postconditions": [
+        "public_server_identity_crdd_mcp",
         "public_result_observed",
         "owned_resources_settled_or_reported"
       ],
@@ -6068,6 +6069,7 @@
       "externalProviderEffect": false,
       "humanInput": false,
       "postconditions": [
+        "public_server_identity_crdd_mcp",
         "public_result_observed",
         "owned_resources_settled_or_reported",
         "missing_host_root_not_created",
@@ -6624,6 +6626,7 @@
       "externalProviderEffect": false,
       "humanInput": false,
       "postconditions": [
+        "public_server_identity_crdd_mcp",
         "result_observed"
       ],
       "mandatoryByDefault": true

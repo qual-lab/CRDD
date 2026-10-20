@@ -25,8 +25,8 @@ import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
  * @trace EST-ST-012
  * @precondition ローカルRepositoryと固定SDK版のみを利用する。
  * @stimulus modern規格を固定して接続し、Project一覧Toolを呼ぶ。
- * @observation discover、一覧、実行結果とClient closeを確認する。
- * @oracle Project Toolが存在し、結果を一回取得できる。
+ * @observation discover、SDK Server識別名、一覧、実行結果とClient closeを確認する。
+ * @oracle Server識別名はcrdd-mcp、Project Toolが存在し、結果を一回取得できる。
  * @cleanup Client closeで自己生成子Processとstdioを回収する。
  * @boundary 公式SDK Client→配布Launcher→stdio→専門Owner。
  */
@@ -44,6 +44,7 @@ test("公式SDK Clientは公開stdioのdiscover・一覧・実行を利用でき
   });
   try {
     await client.connect(transport);
+    assert.equal(client.getServerVersion()?.name, "crdd-mcp");
     const listing = await client.listTools();
     assert.ok(listing.tools.some((tool) => tool.name === "crdd.list_projects"));
     const result = await client.callTool({

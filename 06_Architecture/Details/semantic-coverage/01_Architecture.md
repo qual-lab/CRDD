@@ -16,7 +16,7 @@ Semantic Coverageは独立Packageではなく、Domain Modelの意味計算とCh
 | bundle/publish.ts | domain-model/src/semantic/publish.ts | Bundle生成と保存要求の結合 |
 | bundle/filesystem-publisher.ts | domain-model/src/storage/semantic-store.ts | 検証済みRoot内の原子的保存・旧Snapshot保全・短命File回収 |
 | compilation/from-repository.ts | checker/src/repository/semantic.ts、checker/src/report/semantic.ts | repositoryが既存観測・Domain呼出しと結果接続、reportが純粋な診断変換を所有する。意味判定本体を複製しない |
-| scripts/compile-pilot.ts | checker/src/cli/semantic.ts | 公開APIと`checker --semantic`による固定二領域の表示／明示保存 |
+| scripts/compile-pilot.ts | checker/src/cli/semantic.ts | 公開APIと`checker --semantic`による明示対象の表示／明示保存 |
 
 Domainの公開APIはIR／Relation／Graph計算、Bundle生成、保存要求、検証済みRootに結合した保存入口を持つ。診断コード・表示文はCheckerが所有する。保存の故障注入HookはRoot公開APIに含めず、内部保存試験だけが参照する。新Registry・Lock・Runner・Recoveryは追加しない。
 
@@ -30,7 +30,7 @@ Domainの公開APIはIR／Relation／Graph計算、Bundle生成、保存要求�
 | domain-model | `createFilesystemSemanticBundlePublisher` | 検証済みRootに結合した既存保存操作。構成だけで書き込まない |
 | checker | `runSemanticCoverage` | 診断・表示または明示保存の終了Code。通常`runChecker`は維持 |
 
-Checkerは`--semantic`を選んだ場合だけSemantic入口を起動し、既定の文書検査は従来どおりとする。`--root`は対象Repository、`--write`は従来と同じRegistryへの明示保存を表す。現段階の固定二領域・Quality入力集合は維持し、任意全領域対応や意味Coverage全体の完成を主張しない。結果の欠落・観測不能・不正と実行失敗を成功へ丸めない。
+Checkerは`--semantic`を選んだ場合だけSemantic入口を起動し、既定の文書検査は従来どおりとする。2026-10-21から、反復可能な`--architecture <subsystem>=<Root相対文書Path>`と`--quality <Root相対文書Path>`で対象を明示する。Architecture未指定は64、Quality省略は入力0件として既存の必須Relation検査を維持する。製品固定の対象・QA集合へのfallbackは設けない。`--root`は対象Repository、`--write`は従来と同じRegistryへの明示保存を表し、Snapshot形式・保存先は変更しない。明示入力対応を全領域の品質成立や意味Coverage全体の完成へ拡張せず、結果の欠落・観測不能・不正と実行失敗を成功へ丸めない。
 
 移管後の試験は、Domainの意味計算・中立Issueと実Filesystem保存、Checkerの観測編成・診断変換・公開入口へ接続する。旧試験の反例を維持し、Registry・Symbol・QA接続も新Ownerへ移管する。過去Evidenceは変更しない。
 

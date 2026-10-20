@@ -40,12 +40,25 @@ CRDD公式Repositoryの開発に限り、各Packageの`npm run check`、`npm run
 
 ### Semanticの確認と明示保存
 
-意味IR・Relation・Coverageの固定二領域確認は、同じ入口へ`--semantic --root "C:\project\CRDD"`を指定する。既定はJSON表示のみで、`--write`を追加した場合だけ従来の`07_Quality/Registry/semantic-coverage-pilot.json`へ保存する。保存先Directoryは既存であることを前提とし、観測不能や入力不成立では書き込まない。これは全領域対応や品質Passを意味しない。
+意味IR・Relation・Coverageの対象は実行側が明示する。`--architecture <subsystem>=<Root相対文書Path>`を一つ以上、`--quality <Root相対文書Path>`を必要なだけ指定する。Checkerは製品名・Architecture文書・QA IDを固定しない。Qualityを省略した場合はQuality入力0件であり、必要な検証関係がある場合のDomain診断を省略しない。対象不足や未指定を全体検査の成功へ読み替えない。
 
-`npm run semantic --prefix 40_Develop/checker`からも同じ入口を使える。SemanticでRootを省略した場合だけ、起動Directoryを含む最寄りの検証済みRepositoryを対象とする。通常文書検査の対象選択は変えない。Semantic入口は成功0、検査不成立1、実行不能・保存失敗2、引数不正64を返す。生成Schemaや既存Snapshotの形式をPackage移管だけで変更しない。
+CRDD自身の従来二領域を検査する例を示す。これは適用先製品の既定対象ではない。
 
-- 限定確認は上記へ`--scope 04_UI`等を追加する。直接の参照先・参照元が一段追加され、全体の構造等も検査されるが、全体確認の代替ではない。
-- 参照関係を調べる場合は`--json --summary --references 04_UI/01_User_Interface.md`のようにRoot相対の対象を指定する。`--references`だけでは引数不足になる。
+```powershell
+$semanticInputs = @('--architecture', 'coordinator=06_Architecture/Details/coordinator/01_Architecture.md', '--architecture', 'orchestrator=06_Architecture/Details/orchestrator/02_Detailed_Design.md')
+$qualityIds = @('QA-000003', 'QA-000004', 'QA-000005', 'QA-000006', 'QA-000010')
+foreach ($id in $qualityIds) { $semanticInputs += @('--quality', "07_Quality/Definitions/$id/quality_definition.md") }
+node 40_Develop/checker/bin/checker.ts --semantic --root . @semanticInputs
+```
+
+`npm run semantic --prefix 40_Develop/checker -- <対象指定>`も同じ入口である。従来の対象指定なし呼出しは64となるため、フロントAI／人間が対象を確認して引数を更新する。互換用の製品固定fallbackは設けない。Root省略時だけ起動Directoryを含む最寄りの検証済みRepositoryを使い、通常文書検査の対象選択は変えない。
+
+既定はJSON表示のみ。`--write`指定時だけ既存の`07_Quality/Registry/semantic-coverage-pilot.json`へ保存する。保存先Directoryは既存を前提とし、観測不能や入力不成立では書き込まない。成功0、検査不成立1、実行不能・保存失敗2、引数不正／Architecture未指定64を返す。既存SnapshotのSchema・保存先・履歴的Evidenceはこの変更で改名しない。今回の入力指定対応を全工程の品質Passとは扱わない。
+
+以下は通常文書検査（`--semantic`なし）にだけ適用する。
+
+- 限定文書確認は`node 40_Develop/checker/bin/checker.ts --root . --scope 04_UI`のように指定する。直接の参照先・参照元が一段追加され、全体の構造等も検査されるが、全体確認の代替ではない。Semanticへ`--scope`を渡すと64となる。
+- 文書の参照関係を調べる場合は、通常文書検査へ`--json --summary --references 04_UI/01_User_Interface.md`のようにRoot相対の対象を指定する。`--references`だけでは引数不足になる。
 - 人間向けテキストは`--json`なし、指摘配列だけ必要なら`--json`単独を使う。範囲・未確認を引き渡す監査入力にはsummaryを使う。
 
 ## 結果から次へ

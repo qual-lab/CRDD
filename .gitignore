@@ -7,6 +7,7 @@
 # Explicit non-secret repository configuration; each owner defines revision or working-file semantics.
 !/.crdd/config/
 /.crdd/config/*
+# Active non-secret Domain Model repository identity, not execution history.
 !/.crdd/config/repository-manifest.json
 !/.crdd/config/external-send-policy.json
 !/.crdd/config/orchestrator.json
