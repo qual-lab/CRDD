@@ -1,6 +1,38 @@
 # Version Control境界
 
-Git配置の実体識別では、WindowsのNode BigInt statが返す`-2^63 ≤ ino < 0`を、同じ64bit列の符号なし値へ正規化する。`git/layout.ts`のPath・descriptor両観測を同じ表現で比較し、別ID・ゼロ・型不正・範囲外・POSIX負値・link・型・dev・birthtime・途中変更の拒否を維持する。既存の正値、Git配置契約、公開結果や保存済みIdentityは変更しない。
+## Source構造の再編 — 2026-10-20（対象の再配置・回帰完了）
+
+利用者が[全数対応表](../../../99_Roadmap/Changes/CHG-000082/version-control-source-structure.md)の配置と、未使用の移行比較API・専用合成試験・Fixture撤去を承認した。Repository、Workspace、通常変更公開、共通Git技術の四領域へ整理する。Git CLI、Object Reader、引数順序・環境・出力制限・期限、結果・失敗相関、安全条件は変更しない。
+
+```text
+src/
+├ index.ts                  各実Ownerから明示公開
+├ repository/
+│  ├ location.ts            exact Rootと能力の再確認
+│  ├ layout.ts              Git配置・実体と構成の検査
+│  ├ revision.ts            現在／固定Revisionと形式
+│  ├ snapshot.ts            固定内容の検査・読取り・限定実体化
+│  ├ changes.ts             変更集合の受付と観測
+│  ├ worktree-view.ts       読取りTree・差分・ページング
+│  └ ignore.ts              ローカル除外登録と安全な更新
+├ workspace/
+│  ├ worktree.ts            専用Worktree／Branchの技術操作
+│  ├ candidate.ts           選択差分固定・検査・専用Ref回収
+│  └ merge.ts               明示Merge・親とTreeの読戻し
+├ publication/
+│  ├ change.ts              通常Stage／Commit／Pushの要求・結果
+│  └ git.ts                 通常公開操作の具体的Git接続
+└ git/
+   ├ read.ts                diff／ls-filesだけの限定実行
+   ├ objects.ts             既存Object読取り・解析
+   └ observation.ts         入れ子Repository等の観測
+```
+
+型・操作と具体Adapterは同じ責務Fileへ同居するが、公開型・Adapter値・契約ID／revisionは名称整理だけを理由に変えない。`merge → candidate → worktree`の一方向で実共有検査を利用し、helper複製・新しい中継・Lock方式を作らない。通常変更公開は本番Workbenchが利用しておりCandidate採否へ統合しない。CLIを持たないPackageへbin／CLI受付を追加しない。
+
+移行比較の`inspectMigrationSystemClosure`・`MigrationConsumerObservation`はRuntime公開から撤去する。合成配列の比較を実Consumer移行の成立根拠にしない。`version-control.contract-migration-closure`の確認義務とQA-000001の`RCM-ST-012`はOPENを維持し、Root観測・固定Snapshot・実際の利用側閉包を使って必要な入力を提供する。公開・Release・Recoveryを含む実System全体の成立は別途観測し、削除した合成試験の成功を流用しない。過去Evidenceは変更しない。
+
+Git配置の実体識別では、WindowsのNode BigInt statが返す`-2^63 ≤ ino < 0`を、同じ64bit列の符号なし値へ正規化する。`repository/layout.ts`のPath・descriptor両観測を同じ表現で比較し、別ID・ゼロ・型不正・範囲外・POSIX負値・link・型・dev・birthtime・途中変更の拒否を維持する。既存の正値、Git配置契約、公開結果や保存済みIdentityは変更しない。
 
 Workspace再編で追加するGit操作は[Workspace詳細](../orchestrator/03_Workspace.md)を入力に設計する。明示要求のWorktree／Branch作成・除去、固定Commit、3-way競合計算、Merge取込と共有Git整合を本領域が技術的に担当し、寿命・採否・操作許可はOrchestratorへ残す。以下の既存worktree-viewはTree／Diff読取りであり新操作の実装根拠ではない。作成・観測・除去に加え、候補固定・MergeとOrchestratorの内部Package接続を実装した。公開Surface・実Provider E2E・実データ移行を含む全体完成とは区別する。
 
@@ -52,7 +84,7 @@ Workspace再編で追加するGit操作は[Workspace詳細](../orchestrator/03_W
 
 ### Workspace切替前の共通読取り
 
-Tree／Diffの既存二Adapterは、Package内部の`git/read-command.ts`でdiff／ls-filesの既定起動だけを共用する。親Git環境とglobal／system設定からの対象差替えを防ぎ、Git管理情報と作業Treeを指定Rootへ固定する。外部Diff・textconv・fsmonitor・pager・lazy fetchとoptional lockによる任意更新を抑止し、literal Pathを扱う。2MiB／16MiBの既存上限・30秒・利用側の失敗分類・注入Runnerは維持する。新しい公開API・State・Lock・Git実装Frameworkは作らない。これは二Adapterの有限操作だけで、Status／Log・全Git操作・Direct全体の安全やWorktree管理API完成を意味しない。実装と試験の現在結果は[差分と実装順序](../../../99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#10-新方針と既存実装の差分実装順序2026-10-17)へ接続する。
+Tree／Diffの既存二Adapterは、Package内部の`git/read.ts`でdiff／ls-filesの既定起動だけを共用する。親Git環境とglobal／system設定からの対象差替えを防ぎ、Git管理情報と作業Treeを指定Rootへ固定する。外部Diff・textconv・fsmonitor・pager・lazy fetchとoptional lockによる任意更新を抑止し、literal Pathを扱う。2MiB／16MiBの既存上限・30秒・利用側の失敗分類・注入Runnerは維持する。新しい公開API・State・Lock・Git実装Frameworkは作らない。これは二Adapterの有限操作だけで、Status／Log・全Git操作・Direct全体の安全やWorktree管理API完成を意味しない。実装と試験の現在結果は[差分と実装順序](../../../99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#10-新方針と既存実装の差分実装順序2026-10-17)へ接続する。
 
 diff前には同じRoot・固定環境で標準Gitの設定名だけを有界観測し、clean／process filterがある場合は観測を拒否する。変換処理の独自実装・設定の強制上書き・属性や改行変換全体の削除は行わない。Git LFS等のfilter利用Repositoryの差分は現経路では未対応となり、空差分や成功へ補完しない。設定なしは正規のexit1・stdout空・起動errorなしだけで確認する。二要求の合計待機枠は従来の30秒以内に収める。設定観測とdiffの間に非協調のHost操作者が設定を変更する場合の原子性は保証せず、新しいLockや監視を追加しない。
 
@@ -205,7 +237,6 @@ Git Adapterが本番RuntimeでGit CLIを起動する場合、その子Process境
 | Repository Worktree Management | `RepositoryWorktreeObservation`、`RepositoryWorktreeResult`、`createRepositoryWorktree`、`observeRepositoryWorktree`、`disposeRepositoryWorktree` |
 | Workspace Candidate | `WorkspaceCandidateSelection`、`WorkspaceCandidateRequest`、`WorkspaceCandidateResult`、`WorkspaceCandidateTemporary`、`validWorkspaceDisplayName`、`validWorkspaceCandidateRequest`、`inspectWorkspaceFile`、`inspectWorkspaceCandidatePatch`、`freezeWorkspaceCandidate`、`mergeWorkspaceCandidate`、`removeWorkspaceCandidate` |
 | Change Publication Git Adapter | `ChangePublicationCommandRunner`、`createGitChangePublicationAdapter`、`gitChangePublicationAdapter`、`createGitChangePublicationTargetObservationAdapter`、`gitChangePublicationTargetObservationAdapter` |
-| Migration System Closure | `MigrationConsumerObservation`、`inspectMigrationSystemClosure` |
 | Checker Repository Observation | `RepositoryEntryObservation`、`observeDeclaredNestedRepositoryPaths`、`observeNestedRepository`、`observeRepositoryEntries`、`readFixedSnapshotText`、`resolveRevisionIdentity` |
 | Repository Layout Git Adapter | `describeGitRepositoryLayoutAdapterContract`、`GIT_REPOSITORY_LAYOUT_ADAPTER_CONTRACT`、`GIT_REPOSITORY_LAYOUT_ADAPTER_CONTRACT_REVISION`、`inspectGitRepositoryLayoutCandidate` |
 | Repository-local Ignore Git Adapter | `gitRepositoryLocalIgnoreAdapter` |

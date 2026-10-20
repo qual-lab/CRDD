@@ -6,11 +6,11 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-
-import { resolveRepositoryGitLayout } from "../git/layout.ts";
+import { resolveRepositoryGitLayout } from "./layout.ts";
 
 export const REPOSITORY_LOCATION_CONTRACT =
   "crdd-version-control/repository-location/v1" as const;
+
 export const REPOSITORY_LOCATION_CONTRACT_REVISION = 1 as const;
 
 const roots = new WeakMap<object, string>();
@@ -126,10 +126,10 @@ function validAbsoluteDirectory(candidate: unknown): candidate is string {
  * @returns string | nullを返す。
  * @precondition 「candidate: unknown」がobserveExactRepositoryRootの入力契約を満たす。
  * @postcondition observeExactRepositoryRootの責務を完了した結果だけを返す。
- * @effect N/A: observeExactRepositoryRootは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @effect Repositoryの実体とGit管理境界をFilesystemから観測する。書込み・Process起動は行わない。
  * @failure observeExactRepositoryRootは入力不正または下位処理の失敗を呼出し側へ返す。
  * @invariant observeExactRepositoryRootは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: observeExactRepositoryRootはProcess内の同一Subsystemで完結する。
+ * @boundary Filesystem上のRepository実体とProcess内の検証済みRootの境界。
  * @security N/A: observeExactRepositoryRootはAuthority、秘密値または信頼判断を扱わない。
  * @concurrency N/A: observeExactRepositoryRootは共有非同期状態を持たない同期処理である。
  */
@@ -177,10 +177,10 @@ function issueCapability(root: string): VerifiedRepositoryRoot {
  * @returns | Readonly<{ status: "completed"; reason: "repository_root_verified"; capability: VerifiedRepositoryRoot; }> | Readonly<{ status: "blocked"; reason: "repository_root_invalid"; capability: null; }>を返す。
  * @precondition 「candidate: unknown」がverifyRepositoryRootの入力契約を満たす。
  * @postcondition verifyRepositoryRootの責務を完了した結果だけを返す。
- * @effect N/A: verifyRepositoryRootは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @effect Repositoryの実体とGit管理境界をFilesystemから観測する。書込み・Process起動は行わない。
  * @failure N/A: verifyRepositoryRootは独自の失敗分岐を所有しない。
  * @invariant verifyRepositoryRootは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: verifyRepositoryRootはProcess内の同一Subsystemで完結する。
+ * @boundary Filesystem上のRepository実体とProcess内の検証済みRootの境界。
  * @security N/A: verifyRepositoryRootはAuthority、秘密値または信頼判断を扱わない。
  * @concurrency N/A: verifyRepositoryRootは共有非同期状態を持たない同期処理である。
  */
@@ -218,10 +218,10 @@ export function verifyRepositoryRoot(candidate: unknown):
  * @returns ReturnType<typeof verifyRepositoryRoot>を返す。
  * @precondition 「workingDirectory: unknown」がverifyRepositoryRootFromWorkingDirectoryの入力契約を満たす。
  * @postcondition verifyRepositoryRootFromWorkingDirectoryの責務を完了した結果だけを返す。
- * @effect N/A: verifyRepositoryRootFromWorkingDirectoryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @effect Repositoryの実体とGit管理境界をFilesystemから観測する。書込み・Process起動は行わない。
  * @failure verifyRepositoryRootFromWorkingDirectoryは入力不正または下位処理の失敗を呼出し側へ返す。
  * @invariant verifyRepositoryRootFromWorkingDirectoryは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: verifyRepositoryRootFromWorkingDirectoryはProcess内の同一Subsystemで完結する。
+ * @boundary Filesystem上のRepository実体とProcess内の検証済みRootの境界。
  * @security N/A: verifyRepositoryRootFromWorkingDirectoryはAuthority、秘密値または信頼判断を扱わない。
  * @concurrency N/A: verifyRepositoryRootFromWorkingDirectoryは共有非同期状態を持たない同期処理である。
  */
@@ -246,10 +246,10 @@ export function verifyRepositoryRootFromWorkingDirectory(
  * @returns string | nullを返す。
  * @precondition 「capability: VerifiedRepositoryRoot」がresolveVerifiedRepositoryRootの入力契約を満たす。
  * @postcondition resolveVerifiedRepositoryRootの責務を完了した結果だけを返す。
- * @effect N/A: resolveVerifiedRepositoryRootは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @effect Repositoryの実体とGit管理境界をFilesystemから観測する。書込み・Process起動は行わない。
  * @failure N/A: resolveVerifiedRepositoryRootは独自の失敗分岐を所有しない。
  * @invariant resolveVerifiedRepositoryRootは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: resolveVerifiedRepositoryRootはProcess内の同一Subsystemで完結する。
+ * @boundary Filesystem上のRepository実体とProcess内の検証済みRootの境界。
  * @security resolveVerifiedRepositoryRootはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: resolveVerifiedRepositoryRootは共有非同期状態を持たない同期処理である。
  */

@@ -171,7 +171,7 @@ import {
   inspectGitCommitTreeCandidate,
   materializeGitCommitTreeCandidate as materializeVersionControlTree,
   readGitCommitFileCandidate,
-} from "../../../version-control/src/git/commit-tree.ts";
+} from "../../../version-control/src/git/objects.ts";
 import { containsRecognizedSecretMaterial } from "../../src/authority/secret-material-policy.ts";
 
 /**

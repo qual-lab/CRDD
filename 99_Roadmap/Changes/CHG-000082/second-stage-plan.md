@@ -9,6 +9,16 @@
 
 ## 1. 結論と実行境界
 
+### Version Controlの構造整理 — 2026-10-20（対象作業完了・全体QAは別途）
+
+利用者の添付方針に基づき23 Source・Root公開98名と利用側を照合した。`git/command.ts`案は、diff／ls-filesの有限実行を表す`git/read.ts`へ補正する合意を得た。Repository／Workspace／Publication／Gitの配置、保持Capability、既存根拠と必要回帰は[棚卸しと全数対応表](version-control-source-structure.md)を参照する。通常Commit／Pushは本番Workbenchが利用するため維持する。利用者の追加承認により移行比較API・専用合成試験・Fixtureを撤去し、実Consumer移行のQA義務はOPENを維持する。Sourceは16 File、Root公開は96名へ整理し、Mergeを実共有検査の複製なしで分離した。
+
+検証結果: Version Control実Git63件は実装側・独立確認側の両方で成功、関連Coordinator四Suite54件、Domainの台帳・保存境界29件、公開／Header／QA接続8件が成功した。台帳370件の妥当性検査、VCの整形・型・LintとChecker／Coordinator／Orchestrator／Workbench／MCPの型検査も成功した。独立レビューの20関数のeffect／boundary誤記を訂正し、処理本文・失敗条件・型・API・試験条件は変更していない。246宣言の244件は本文Hash一致、残るObject Readerと固定Snapshot Adapterは内部関数・methodのHeaderだけが異なる。再レビューで内部更新処理とAdapter委譲の説明を一箇所訂正し、最終確認は残指摘0件。今回の補助7Fileと空の専用TEMPを回収した。
+
+留保: 初回VC回帰の旧Path文字列2箇所の追従漏れは是正後に全63件成功。通常sandboxのWindows rename／symlink拒否は成功へ換算せず、必要権限とRepository-local専用TEMPで同じ試験を実行した。文書Checkerは3,470指摘（歴史CHG等の参照3,466件・既存Quality表4件）で、移動による歴史参照44件増を含む。過去Evidenceや検査条件は書き換えず、全体QA・実System移行・Release成立は主張しない。外部AI、Docker、②の保持物は未操作。
+
+規約照合の別件: 直前のEI整理で実行時契約定数を`record/types.ts`へ置いた点は、現行Coding Standardsの型専用File規則と不一致だった。定数をvalidationへ戻し、typesは同じliteral型だけを宣言する局所是正を行った。実挙動・公開名／値を変えず、型から検査実装への逆依存もない。型・静的検査と公開23名を含むUnit29件が成功し、独立確認でも同じ29件が成功した。VCの処理変更とは分離する。
+
 ### Visual Preview・Execution Intelligenceの構造整理 — 2026-10-20（対象作業完了・全体QAは別途）
 
 利用者がvisual-preview→execution-intelligenceの順序とAfter構成を承認した。基準は`add26c33a`。VisualはPreview配信、Process、DevTools、単条件測定、二種の検証編成、CLI受付を分ける。EIは記録の型・検証・構築・集計・保存接続、storageの保存と既存排他へ整理し、時間的出所の分類を時間投影へ同居する。独立repository中継は削減対象とし、汎用入力検査はDomainとの受理条件差を照合してから共通化可否を決める。新しいRegistry・Lock方式・Recovery・Runnerは追加しない。

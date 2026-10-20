@@ -15,7 +15,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { gitRepositoryWorktreeViewAdapter } from "../../src/git/worktree-view-adapter.ts";
+import { gitRepositoryWorktreeViewAdapter } from "../../src/repository/worktree-view.ts";
 import {
   observeRepositoryWorktreeFileDiff,
   observeRepositoryWorktreeTree,

@@ -1,17 +1,12 @@
 /**
- * Version Controlの変更公開契約を定義する。
- *
- * @packageDocumentation
- * @responsibility 選択差分の準備、Revision作成および確認済み通常公開をGit非依存の操作へ分離する。
- * @trace ARCH-000009
- * @boundary Workbench等の利用側とVersion Control Adapterの外部Effect境界。
- * @effect 明示操作に応じてRepositoryの準備領域、Local RevisionまたはRemote Branchを変更し得る。
- * @security 任意Command、Force公開および未確認対象を受け付けない。
+ * 通常の変更準備・Commit・確認済みPushの入力と結果を所有する。
+ * @responsibility 通常の変更準備・Commit・確認済みPushの入力と結果を所有する。
+ * @trace ARCH-000002
  */
 import {
   resolveVerifiedRepositoryRoot,
   type VerifiedRepositoryRoot,
-} from "./repository/location.ts";
+} from "../repository/location.ts";
 
 /**
  * 変更公開で許可する操作入力を定義する。

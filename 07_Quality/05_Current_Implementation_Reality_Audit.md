@@ -269,7 +269,7 @@ v0.21の固定Baseline108件観測済み・22件未観測を履歴として維�
 
 | 非完成・非Evidence Relation | Relationを保持する理由 | Evidenceへ算入しない理由 |
 |---|---|---|
-| `RCM-ST-012` | Consumer ClosureのSystem検証対象を明示する | 固定観測配列は実Consumerの実行を証明しない |
+| `RCM-ST-012` | 実Consumer移行確認の義務は維持する。2026-10-20のVersion Control整理で専用合成比較のSource／試験Relationは撤去した | 固定観測配列は実Consumerの実行を証明しない。専用処理の撤去を義務の成立や不要化へ読み替えない |
 | `ERB-ST-011` | Docker Session HandoffのSystem検証対象を明示する | 別Process RecordだけではDocker Engine／Host資源を独立観測していない |
 | `RFD-ST-003` | CROS Session AccessのPrototype検証対象を明示する | v0.22のCredential→Workspace Grant実境界を成立させていない |
 | `RFD-IT-009` | Repository Federationの局所対象を明示する | 局所Relationだけでは複数Repository Capabilityの完成を証明しない |

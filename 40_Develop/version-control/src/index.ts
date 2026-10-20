@@ -1,10 +1,10 @@
 /**
  * Version Control機能を差し替え可能にする公開境界。
  * @packageDocumentation
- * @responsibility Revision Identity、Snapshot、Repository観測をAdapter経由で提供する。
+ * @responsibility Repository観測、固定Snapshot、専用Worktree・Candidate・Mergeと通常変更公開を提供する。
  * @trace ARCH-000002
  * @boundary Git実装とCRDD Domain利用側の境界。
- * @effect 明示操作ではRepository-local ignore、専用Worktree／Branchと共有Git管理情報を更新し得る。
+ * @effect 明示操作ではローカル除外・出力先・Worktree／Branch・共有Git情報を更新し、確認済みの通常PushでRemoteへ送信し得る。
  */
 
 export {
@@ -15,14 +15,14 @@ export {
   type ChangePublicationTargetObservationAdapter,
   executeChangePublication,
   observeChangePublicationTarget,
-} from "./change-publication.ts";
+} from "./publication/change.ts";
 export {
   FIXED_REVISION_IDENTITY_CONTRACT,
   FIXED_REVISION_IDENTITY_CONTRACT_REVISION,
   type FixedRevisionIdentity,
   type FixedRevisionIdentityAdapter,
   observeFixedRevisionIdentity,
-} from "./fixed-revision.ts";
+} from "./repository/revision.ts";
 export {
   type CandidateMaterialization,
   type CandidateMaterializationBlocked,
@@ -37,14 +37,14 @@ export {
   materializeFixedSnapshotCandidate,
   readFixedSnapshotFile,
   verifyCandidateOutputDirectory,
-} from "./fixed-snapshot.ts";
+} from "./repository/snapshot.ts";
 export {
   type ChangePublicationCommandRunner,
   createGitChangePublicationAdapter,
   createGitChangePublicationTargetObservationAdapter,
   gitChangePublicationAdapter,
   gitChangePublicationTargetObservationAdapter,
-} from "./git/change-publication-adapter.ts";
+} from "./publication/git.ts";
 export {
   observeDeclaredNestedRepositoryPaths,
   observeNestedRepository,
@@ -52,29 +52,28 @@ export {
   type RepositoryEntryObservation,
   readFixedSnapshotText,
   resolveRevisionIdentity,
-} from "./git/checker-observation-adapter.ts";
+} from "./git/observation.ts";
 export {
   gitFixedSnapshotAdapter,
   inspectRepositoryFixedSnapshot,
-} from "./git/fixed-snapshot-adapter.ts";
+} from "./repository/snapshot.ts";
 export {
   describeGitRepositoryLayoutAdapterContract,
   GIT_REPOSITORY_LAYOUT_ADAPTER_CONTRACT,
   GIT_REPOSITORY_LAYOUT_ADAPTER_CONTRACT_REVISION,
   inspectGitRepositoryLayoutCandidate,
-} from "./git/layout-adapter.ts";
-export { gitLocalChangeSetAdapter } from "./git/local-change-set-adapter.ts";
-export { gitRepositoryLocalIgnoreAdapter } from "./git/local-ignore-adapter.ts";
+} from "./repository/layout.ts";
+export { gitLocalChangeSetAdapter } from "./repository/changes.ts";
+export { gitRepositoryLocalIgnoreAdapter } from "./repository/ignore.ts";
 export {
   gitFixedRevisionIdentityAdapter,
   gitRepositoryFormatAdapter,
   gitRepositoryRevisionAdapter,
-} from "./git/revision-adapter.ts";
+} from "./repository/revision.ts";
 export {
   freezeWorkspaceCandidate,
   inspectWorkspaceFile,
   inspectWorkspaceCandidatePatch,
-  mergeWorkspaceCandidate,
   removeWorkspaceCandidate,
   validWorkspaceDisplayName,
   validWorkspaceCandidateRequest,
@@ -82,15 +81,15 @@ export {
   type WorkspaceCandidateResult,
   type WorkspaceCandidateSelection,
   type WorkspaceCandidateTemporary,
-} from "./git/workspace-candidate.ts";
+} from "./workspace/candidate.ts";
 export {
   createRepositoryWorktree,
   disposeRepositoryWorktree,
   observeRepositoryWorktree,
   type RepositoryWorktreeObservation,
   type RepositoryWorktreeResult,
-} from "./git/worktree-management.ts";
-export { gitRepositoryWorktreeViewAdapter } from "./git/worktree-view-adapter.ts";
+} from "./workspace/worktree.ts";
+export { gitRepositoryWorktreeViewAdapter } from "./repository/worktree-view.ts";
 export {
   changedPaths,
   LOCAL_CHANGE_SET_CONTRACT,
@@ -99,18 +98,14 @@ export {
   type LocalChangeSetAdapter,
   type LocalChangeSetObservation,
   observeLocalChangeSet,
-} from "./local-change-set.ts";
-export {
-  inspectMigrationSystemClosure,
-  type MigrationConsumerObservation,
-} from "./migration-closure.ts";
+} from "./repository/changes.ts";
 export {
   REPOSITORY_LOCAL_IGNORE_CONTRACT,
   REPOSITORY_LOCAL_IGNORE_CONTRACT_REVISION,
   type RepositoryLocalIgnoreAdapter,
   type RepositoryLocalIgnoreAdapterResult,
   registerRepositoryLocalIgnore,
-} from "./repository/local-ignore.ts";
+} from "./repository/ignore.ts";
 export {
   describeRepositoryLocationContract,
   REPOSITORY_LOCATION_CONTRACT,
@@ -137,3 +132,5 @@ export {
   type RepositoryWorktreeViewAdapter,
   type RepositoryWorktreeViewObservation,
 } from "./repository/worktree-view.ts";
+
+export { mergeWorkspaceCandidate } from "./workspace/merge.ts";

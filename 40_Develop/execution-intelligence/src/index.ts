@@ -20,7 +20,7 @@ export {
   inspectExecutionIntelligenceEvent,
 } from "./record/validation.ts";
 export { summarizeExecutionIntelligence } from "./record/summary.ts";
-export { EXECUTION_INTELLIGENCE_EVENT_CONTRACT } from "./record/types.ts";
+export { EXECUTION_INTELLIGENCE_EVENT_CONTRACT } from "./record/validation.ts";
 export type {
   ExecutionIntelligenceEvent,
   TaskAttemptExecutionIntelligenceEvent,

@@ -1,21 +1,15 @@
 /**
- * Git CLIによるChange Publication Adapter。
- *
- * @packageDocumentation
- * @responsibility Canonicalな準備・Revision・通常公開操作を固定Git Commandへ写像し、結果を正規化する。
- * @trace ARCH-000009
- * @boundary Version Control PortとGit Process／Remoteの外部Effect境界。
- * @effect Git index、Local commitおよび確認済みRemote Branchを変更し得る。
- * @security shell、Force Push、Credential出力および任意Commandを許可しない。
+ * 通常の変更公開と公開先観測を具体的なGit操作へ接続する。
+ * @responsibility 通常の変更公開と公開先観測を具体的なGit操作へ接続する。
+ * @trace ARCH-000002
  */
 import { spawnSync, type SpawnSyncReturns } from "node:child_process";
-
 import type {
   ChangePublicationAdapter,
   ChangePublicationResult,
   ChangePublicationTargetObservation,
   ChangePublicationTargetObservationAdapter,
-} from "../change-publication.ts";
+} from "./change.ts";
 
 /**
  * Git子Processから利用する最小結果を定義する。

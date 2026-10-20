@@ -4,9 +4,6 @@
  * @trace ARCH-000007
  */
 
-export const EXECUTION_INTELLIGENCE_EVENT_CONTRACT =
-  "crdd/execution-intelligence-event/v2" as const;
-
 /**
  * execution-intelligenceで使用するExecution Observationの値契約を定義する。
  *
@@ -56,7 +53,7 @@ export type ExecutionUsage = Readonly<{
  * @compatibility ExecutionIntelligenceEventの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
 export type TaskAttemptExecutionIntelligenceEvent = Readonly<{
-  contract: typeof EXECUTION_INTELLIGENCE_EVENT_CONTRACT;
+  contract: "crdd/execution-intelligence-event/v2";
   eventId: string;
   eventType: "task_attempt_settled";
   occurredAt: string;

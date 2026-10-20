@@ -6,35 +6,55 @@
     {
       "symbolId": "version-control.workspace-candidate",
       "kind": "file",
-      "path": "src/git/workspace-candidate.ts",
-      "archIds": ["ARCH-000009"]
+      "path": "src/workspace/candidate.ts",
+      "archIds": [
+        "ARCH-000009"
+      ]
     },
     {
       "symbolId": "version-control.git-worktree-management",
       "kind": "file",
-      "path": "src/git/worktree-management.ts",
-      "archIds": ["ARCH-000009"]
+      "path": "src/workspace/worktree.ts",
+      "archIds": [
+        "ARCH-000009"
+      ]
     },
     {
       "symbolId": "version-control.test.integration.worktree-management",
       "kind": "test-suite",
       "path": "tests/integration/worktree-management.integration.test.ts",
-      "qaIds": ["QA-000007"],
-      "localTestIds": ["RFD-IT-029"],
-      "verifies": ["version-control.git-worktree-management", "version-control.workspace-candidate"]
+      "qaIds": [
+        "QA-000007"
+      ],
+      "localTestIds": [
+        "RFD-IT-029"
+      ],
+      "verifies": [
+        "version-control.git-worktree-management",
+        "version-control.workspace-candidate",
+        "version-control.source.src.workspace.merge"
+      ]
     },
     {
       "symbolId": "version-control.git-read-command",
       "kind": "file",
-      "path": "src/git/read-command.ts",
-      "archIds": ["ARCH-000002", "ARCH-000009"]
+      "path": "src/git/read.ts",
+      "archIds": [
+        "ARCH-000002",
+        "ARCH-000009"
+      ]
     },
     {
       "symbolId": "version-control.test.integration.git-read-command",
       "kind": "test-suite",
       "path": "tests/integration/git-read-command.integration.test.ts",
-      "qaIds": ["QA-000007"],
-      "localTestIds": ["RFD-IT-005", "RFD-IT-008"],
+      "qaIds": [
+        "QA-000007"
+      ],
+      "localTestIds": [
+        "RFD-IT-005",
+        "RFD-IT-008"
+      ],
       "verifies": [
         "version-control.git-read-command",
         "version-control.git-repository-worktree-view-adapter",
@@ -55,7 +75,7 @@
     {
       "symbolId": "version-control.change-publication",
       "kind": "file",
-      "path": "src/change-publication.ts",
+      "path": "src/publication/change.ts",
       "archIds": [
         "ARCH-000009"
       ]
@@ -63,7 +83,7 @@
     {
       "symbolId": "version-control.git-change-publication-adapter",
       "kind": "file",
-      "path": "src/git/change-publication-adapter.ts",
+      "path": "src/publication/git.ts",
       "archIds": [
         "ARCH-000009"
       ]
@@ -80,7 +100,7 @@
     {
       "symbolId": "version-control.git-repository-worktree-view-adapter",
       "kind": "file",
-      "path": "src/git/worktree-view-adapter.ts",
+      "path": "src/repository/worktree-view.ts",
       "archIds": [
         "ARCH-000002",
         "ARCH-000009"
@@ -104,19 +124,11 @@
     {
       "symbolId": "version-control.checker-repository-observation-adapter",
       "kind": "module",
-      "path": "src/git/checker-observation-adapter.ts",
+      "path": "src/git/observation.ts",
       "archIds": [
         "ARCH-000002",
         "ARCH-000009",
         "ARCH-000016"
-      ]
-    },
-    {
-      "symbolId": "version-control.migration-closure",
-      "kind": "file",
-      "path": "src/migration-closure.ts",
-      "archIds": [
-        "ARCH-000002"
       ]
     },
     {
@@ -220,20 +232,6 @@
       ]
     },
     {
-      "symbolId": "version-control.test.system.migration-system-closure",
-      "kind": "test-suite",
-      "path": "tests/system/migration-system-closure.contract.test.ts",
-      "qaIds": [
-        "QA-000001"
-      ],
-      "localTestIds": [
-        "RCM-ST-012"
-      ],
-      "verifies": [
-        "version-control.migration-closure"
-      ]
-    },
-    {
       "symbolId": "version-control.source.src.repository.identity.index",
       "kind": "file",
       "path": "src/index.ts",
@@ -244,7 +242,7 @@
     {
       "symbolId": "version-control.source.src.git.object.reader",
       "kind": "file",
-      "path": "src/git/commit-tree.ts",
+      "path": "src/git/objects.ts",
       "archIds": [
         "ARCH-000002"
       ]
@@ -252,7 +250,7 @@
     {
       "symbolId": "version-control.source.src.git.fixed.snapshot.adapter",
       "kind": "file",
-      "path": "src/git/fixed-snapshot-adapter.ts",
+      "path": "src/repository/snapshot.ts",
       "archIds": [
         "ARCH-000002"
       ]
@@ -260,7 +258,7 @@
     {
       "symbolId": "version-control.source.src.fixed.snapshot",
       "kind": "file",
-      "path": "src/fixed-snapshot.ts",
+      "path": "src/repository/snapshot.ts",
       "archIds": [
         "ARCH-000002"
       ]
@@ -268,7 +266,7 @@
     {
       "symbolId": "version-control.source.src.git.repository.layout",
       "kind": "file",
-      "path": "src/git/layout.ts",
+      "path": "src/repository/layout.ts",
       "archIds": [
         "ARCH-000002"
       ]
@@ -284,7 +282,7 @@
     {
       "symbolId": "version-control.source.src.git.repository.layout.adapter",
       "kind": "file",
-      "path": "src/git/layout-adapter.ts",
+      "path": "src/repository/layout.ts",
       "archIds": [
         "ARCH-000002"
       ]
@@ -292,7 +290,7 @@
     {
       "symbolId": "version-control.source.src.git.local.change.set.adapter",
       "kind": "file",
-      "path": "src/git/local-change-set-adapter.ts",
+      "path": "src/repository/changes.ts",
       "archIds": [
         "ARCH-000002"
       ]
@@ -308,7 +306,7 @@
     {
       "symbolId": "version-control.source.src.local.change.set",
       "kind": "file",
-      "path": "src/local-change-set.ts",
+      "path": "src/repository/changes.ts",
       "archIds": [
         "ARCH-000002"
       ]
@@ -316,7 +314,7 @@
     {
       "symbolId": "version-control.source.src.git.fixed.revision.adapter",
       "kind": "file",
-      "path": "src/git/revision-adapter.ts",
+      "path": "src/repository/revision.ts",
       "archIds": [
         "ARCH-000002"
       ]
@@ -324,7 +322,7 @@
     {
       "symbolId": "version-control.source.src.git.repository.local.ignore.adapter",
       "kind": "file",
-      "path": "src/git/local-ignore-adapter.ts",
+      "path": "src/repository/ignore.ts",
       "archIds": [
         "ARCH-000002"
       ]
@@ -332,7 +330,7 @@
     {
       "symbolId": "version-control.source.src.fixed.revision",
       "kind": "file",
-      "path": "src/fixed-revision.ts",
+      "path": "src/repository/revision.ts",
       "archIds": [
         "ARCH-000002"
       ]
@@ -340,9 +338,18 @@
     {
       "symbolId": "version-control.source.src.repository.local.ignore",
       "kind": "file",
-      "path": "src/repository/local-ignore.ts",
+      "path": "src/repository/ignore.ts",
       "archIds": [
         "ARCH-000002"
+      ]
+    },
+    {
+      "symbolId": "version-control.source.src.workspace.merge",
+      "kind": "file",
+      "path": "src/workspace/merge.ts",
+      "archIds": [
+        "ARCH-000002",
+        "ARCH-000009"
       ]
     }
   ]

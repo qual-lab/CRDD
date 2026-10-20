@@ -15,12 +15,12 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { createGitLocalChangeSetAdapter } from "../../src/git/local-change-set-adapter.ts";
+import { createGitLocalChangeSetAdapter } from "../../src/repository/changes.ts";
 import {
   changedPaths,
   observeLocalChangeSet,
-} from "../../src/local-change-set.ts";
-import { gitLocalChangeSetAdapter } from "../../src/git/local-change-set-adapter.ts";
+} from "../../src/repository/changes.ts";
+import { gitLocalChangeSetAdapter } from "../../src/repository/changes.ts";
 import { verifyRepositoryRoot } from "../../src/repository/location.ts";
 
 /**

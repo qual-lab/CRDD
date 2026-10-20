@@ -993,7 +993,7 @@ test("GitによるLocal Change Set観測能力はVersion Control Adapterだけ�
     .map(({ relativePath }) => relativePath)
     .sort();
   assert.deepEqual(owners, [
-    "40_Develop/version-control/src/git/local-change-set-adapter.ts",
+    "40_Develop/version-control/src/repository/changes.ts",
   ]);
 });
 
@@ -1012,11 +1012,11 @@ test("GitによるLocal Change Set観測能力はVersion Control Adapterだけ�
 test("Git配置観測は除外更新を所有せず内部primitiveをRootへ公開しない", () => {
   const sourceRoot = path.join(developRoot, "version-control", "src");
   const layout = fs.readFileSync(
-    path.join(sourceRoot, "git/layout.ts"),
+    path.join(sourceRoot, "repository/layout.ts"),
     "utf8",
   );
   const update = fs.readFileSync(
-    path.join(sourceRoot, "git/local-ignore-adapter.ts"),
+    path.join(sourceRoot, "repository/ignore.ts"),
     "utf8",
   );
   const root = fs.readFileSync(path.join(sourceRoot, "index.ts"), "utf8");

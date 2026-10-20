@@ -18,8 +18,8 @@ import type { TestContext } from "node:test";
 import {
   describeGitRepositoryLayoutAdapterContract,
   inspectGitRepositoryLayoutCandidate,
-} from "../../../version-control/src/git/layout-adapter.ts";
-import { inspectRepositoryGitObjectFormatCandidate } from "../../../version-control/src/git/layout.ts";
+} from "../../../version-control/src/repository/layout.ts";
+import { inspectRepositoryGitObjectFormatCandidate } from "../../../version-control/src/repository/layout.ts";
 import { assertPresent, errorCode } from "../support/contract-assertions.ts";
 
 /**

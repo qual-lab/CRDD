@@ -249,8 +249,7 @@
         "version-control:integration:repository-location",
         "version-control:integration:local-change-set",
         "version-control:integration:repository-worktree-view",
-        "version-control:integration:consumer-closure",
-        "version-control:system:migration-system-closure"
+        "version-control:integration:consumer-closure"
       ],
       "postconditions": [
         "repository_boundary_exact",
@@ -3739,29 +3738,6 @@
       "postconditions": [
         "duplicate_owner_absent",
         "public_contract_git_neutral"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
-      "id": "version-control:system:migration-system-closure",
-      "owner": "version-control",
-      "path": "40_Develop/version-control/tests/system/migration-system-closure.contract.test.ts",
-      "level": "system",
-      "kind": "contract",
-      "semanticTags": [
-        "migration",
-        "consumer-closure",
-        "snapshot",
-        "release",
-        "recovery"
-      ],
-      "environment": "node_process",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "old_contract_absent",
-        "undeclared_consumer_absent",
-        "mixed_snapshot_absent"
       ],
       "mandatoryByDefault": true
     },

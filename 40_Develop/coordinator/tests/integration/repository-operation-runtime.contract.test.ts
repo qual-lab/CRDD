@@ -52,7 +52,7 @@ const secondRevision = "2".repeat(40);
 test("実体IDの5取得点はWindowsだけ符号を補正し他の拒否条件を維持する", () => {
   const sample = fs.lstatSync(import.meta.dirname, { bigint: true });
   for (const [sourcePath, names] of [
-    ["../../../version-control/src/git/layout.ts", ["identity"]],
+    ["../../../version-control/src/repository/layout.ts", ["identity"]],
     [
       "../../../domain-model/src/storage/bounded-file-snapshot.ts",
       ["identity"],

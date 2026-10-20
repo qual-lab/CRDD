@@ -15,15 +15,15 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { gitFixedRevisionIdentityAdapter } from "../../src/git/revision-adapter.ts";
+import { gitFixedRevisionIdentityAdapter } from "../../src/repository/revision.ts";
 import {
   gitRepositoryLocalIgnoreAdapter,
   writeRepositoryLocalExclude,
-} from "../../src/git/local-ignore-adapter.ts";
-import { observeFixedRevisionIdentity } from "../../src/fixed-revision.ts";
-import { registerRepositoryLocalIgnore } from "../../src/repository/local-ignore.ts";
+} from "../../src/repository/ignore.ts";
+import { observeFixedRevisionIdentity } from "../../src/repository/revision.ts";
+import { registerRepositoryLocalIgnore } from "../../src/repository/ignore.ts";
 import { verifyRepositoryRoot } from "../../src/repository/location.ts";
-import { resolveRepositoryGitLayout } from "../../src/git/layout.ts";
+import { resolveRepositoryGitLayout } from "../../src/repository/layout.ts";
 
 /**
  * gitのTest準備責務を実行する。

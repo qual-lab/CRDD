@@ -22,8 +22,8 @@ import {
   materializeFixedSnapshotCandidate,
   readFixedSnapshotFile,
   verifyCandidateOutputDirectory,
-} from "../../src/fixed-snapshot.ts";
-import { gitFixedSnapshotAdapter } from "../../src/git/fixed-snapshot-adapter.ts";
+} from "../../src/repository/snapshot.ts";
+import { gitFixedSnapshotAdapter } from "../../src/repository/snapshot.ts";
 import { verifyRepositoryRoot } from "../../src/repository/location.ts";
 
 /**

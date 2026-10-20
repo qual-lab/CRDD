@@ -1,16 +1,154 @@
 /**
- * local-change-setに属する責務をまとめる。
- *
- * @responsibility LocalChangeSetを中心とする実装、型および境界を同じModuleで所有する。
+ * 変更集合の入力・結果契約と限定Git出力からの観測を所有する。
+ * @responsibility 変更集合の入力・結果契約と限定Git出力からの観測を所有する。
  * @trace ARCH-000002
  */
+import type { SpawnSyncReturns } from "node:child_process";
+import { runGitReadCommand } from "../git/read.ts";
 import {
   resolveVerifiedRepositoryRoot,
   type VerifiedRepositoryRoot,
-} from "./repository/location.ts";
+} from "./location.ts";
+
+/**
+ * local-change-set-adapterで使用するGit Local Change Set Process 結果の値契約を定義する。
+ *
+ * @responsibility Git Local Change Set Process 結果のProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000002
+ * @shape GitLocalChangeSetProcessResultが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant GitLocalChangeSetProcessResultで宣言した値と責務の対応を維持する。
+ * @boundary N/A: GitLocalChangeSetProcessResultの宣言は外部境界を開かない。
+ * @security N/A: GitLocalChangeSetProcessResultはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility GitLocalChangeSetProcessResultの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
+export type GitLocalChangeSetProcessResult = Pick<
+  SpawnSyncReturns<Buffer>,
+  "error" | "status" | "stdout"
+>;
+
+/**
+ * local-change-set-adapterで使用するGit Local Change Set Command Runnerの値契約を定義する。
+ *
+ * @responsibility Git Local Change Set Command RunnerのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000002
+ * @shape GitLocalChangeSetCommandRunnerが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant GitLocalChangeSetCommandRunnerで宣言した値と責務の対応を維持する。
+ * @boundary N/A: GitLocalChangeSetCommandRunnerの宣言は外部境界を開かない。
+ * @security N/A: GitLocalChangeSetCommandRunnerはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility GitLocalChangeSetCommandRunnerの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
+export type GitLocalChangeSetCommandRunner = (
+  commandArguments: readonly string[],
+) => GitLocalChangeSetProcessResult;
+
+/**
+ * Pathsを構造化値へ解析する。
+ *
+ * @responsibility Pathsの入力文法、解析結果、不正文法の拒否境界を所有する。
+ * @trace ARCH-000002
+ * @input result: GitLocalChangeSetProcessResult、phase: string
+ * @returns readonly string[]を返す。
+ * @precondition 「result: GitLocalChangeSetProcessResult、phase: string」がparsePathsの入力契約を満たす。
+ * @postcondition parsePathsの責務を完了した結果だけを返す。
+ * @effect N/A: parsePathsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure parsePathsは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant parsePathsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: parsePathsはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: parsePathsは共有非同期状態を持たない同期処理である。
+ */
+function parsePaths(
+  result: GitLocalChangeSetProcessResult,
+  phase: string,
+): readonly string[] {
+  if (result.error !== undefined || result.status !== 0)
+    throw new Error(`local_change_set_observation_failed:${phase}`);
+  return Object.freeze(
+    new TextDecoder("utf-8", { fatal: true })
+      .decode(result.stdout)
+      .split("\0")
+      .filter(Boolean),
+  );
+}
+
+/**
+ * Git Local Change Set Adapterを構築する。
+ *
+ * @responsibility Git Local Change Set Adapterの構築入力、生成結果、不正入力の拒否境界を所有する。
+ * @trace ARCH-000002
+ * @input commandRunner: GitLocalChangeSetCommandRunner
+ * @returns LocalChangeSetAdapterを返す。
+ * @precondition 「commandRunner: GitLocalChangeSetCommandRunner」がcreateGitLocalChangeSetAdapterの入力契約を満たす。
+ * @postcondition createGitLocalChangeSetAdapterの責務を完了した結果だけを返す。
+ * @effect createGitLocalChangeSetAdapterはFilesystemの読取りまたは書込みを実行する。
+ * @failure N/A: createGitLocalChangeSetAdapterは独自の失敗分岐を所有しない。
+ * @invariant createGitLocalChangeSetAdapterは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security N/A: createGitLocalChangeSetAdapterはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: createGitLocalChangeSetAdapterは共有非同期状態を持たない同期処理である。
+ */
+export function createGitLocalChangeSetAdapter(
+  commandRunner?: GitLocalChangeSetCommandRunner,
+): LocalChangeSetAdapter {
+  return (repositoryRoot, comparisonBase): LocalChangeSetObservation => {
+    const runCommand =
+      commandRunner ??
+      ((commandArguments: readonly string[]) =>
+        runGitReadCommand(
+          repositoryRoot,
+          commandArguments,
+          16 * 1_024 * 1_024,
+        ));
+    return Object.freeze({
+      revisionChanges: parsePaths(
+        runCommand([
+          "diff",
+          "--no-ext-diff",
+          "--no-textconv",
+          "--name-only",
+          "--no-renames",
+          "-z",
+          `${comparisonBase}...HEAD`,
+        ]),
+        "revision_changes",
+      ),
+      preparedChanges: parsePaths(
+        runCommand([
+          "diff",
+          "--no-ext-diff",
+          "--no-textconv",
+          "--cached",
+          "--name-only",
+          "--no-renames",
+          "-z",
+          "HEAD",
+        ]),
+        "prepared_changes",
+      ),
+      workingChanges: parsePaths(
+        runCommand([
+          "diff",
+          "--no-ext-diff",
+          "--no-textconv",
+          "--name-only",
+          "--no-renames",
+          "-z",
+        ]),
+        "working_changes",
+      ),
+      unregisteredPaths: parsePaths(
+        runCommand(["ls-files", "--others", "--exclude-standard", "-z"]),
+        "unregistered_paths",
+      ),
+    });
+  };
+}
+
+export const gitLocalChangeSetAdapter = createGitLocalChangeSetAdapter();
 
 export const LOCAL_CHANGE_SET_CONTRACT =
   "crdd-version-control/local-change-set/v1";
+
 export const LOCAL_CHANGE_SET_CONTRACT_REVISION = 1;
 
 /**
@@ -165,10 +303,10 @@ function uniqueSorted(
  * @returns LocalChangeSetを返す。
  * @precondition 「capability: VerifiedRepositoryRoot、comparisonBase: unknown、adapter: LocalChangeSetAdapter」がobserveLocalChangeSetの入力契約を満たす。
  * @postcondition observeLocalChangeSetの責務を完了した結果だけを返す。
- * @effect N/A: observeLocalChangeSetは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @effect 指定AdapterへRepositoryの変更集合の読取り観測を委譲する。
  * @failure observeLocalChangeSetは入力不正または下位処理の失敗を呼出し側へ返す。
  * @invariant observeLocalChangeSetは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: observeLocalChangeSetはProcess内の同一Subsystemで完結する。
+ * @boundary 指定Adapterの変更観測と型付き観測結果の境界。
  * @security observeLocalChangeSetはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: observeLocalChangeSetは共有非同期状態を持たない同期処理である。
  */

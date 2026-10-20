@@ -1,7 +1,6 @@
 /**
- * checker-repository-observation-adapterに属する責務をまとめる。
- *
- * @responsibility runGitCommandを中心とする実装、型および境界を同じModuleで所有する。
+ * 入れ子Repository・固定本文・改訂の有限なGit観測を提供する。
+ * @responsibility 入れ子Repository・固定本文・改訂の有限なGit観測を提供する。
  * @trace ARCH-000002
  */
 import { spawnSync } from "node:child_process";
@@ -47,7 +46,7 @@ function runGitCommand(root: string, commandArguments: readonly string[]) {
  * @returns booleanを返す。
  * @precondition 「left: string、right: string」がsamePathの入力契約を満たす。
  * @postcondition samePathの責務を完了した結果だけを返す。
- * @effect samePathは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @effect N/A: Path文字列を比較するだけで外部Process・Filesystem操作は行わない。
  * @failure N/A: samePathは独自の失敗分岐を所有しない。
  * @invariant samePathは宣言した境界以外へEffectを拡張しない。
  * @boundary FilesystemとProcess内Domain処理の境界。
@@ -114,7 +113,7 @@ export type RepositoryEntryObservation = Readonly<{
  * @returns | Readonly<{ status: "completed"; paths: readonly string[] }> | Readonly<{ status: "unavailable"; paths: readonly string[] }>を返す。
  * @precondition 「configPath: string」がobserveDeclaredNestedRepositoryPathsの入力契約を満たす。
  * @postcondition observeDeclaredNestedRepositoryPathsの責務を完了した結果だけを返す。
- * @effect observeDeclaredNestedRepositoryPathsは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @effect ローカルGit子Processで宣言を読み取る。書込み・外部送信は行わない。
  * @failure N/A: observeDeclaredNestedRepositoryPathsは独自の失敗分岐を所有しない。
  * @invariant observeDeclaredNestedRepositoryPathsは宣言した境界以外へEffectを拡張しない。
  * @boundary FilesystemとProcess内Domain処理の境界。
@@ -174,7 +173,7 @@ export function observeDeclaredNestedRepositoryPaths(
  * @returns | Readonly<{ status: "completed"; entries: readonly RepositoryEntryObservation[]; nestedRepositoryObservationComplete: boolean; repositoryPathReported: false; }> | Readonly<{ status: "unavailable"; reason: string; entries: readonly RepositoryEntryObservation[]; repositoryPathReported: false; }>を返す。
  * @precondition 「scopeRoot: string」がobserveRepositoryEntriesの入力契約を満たす。
  * @postcondition observeRepositoryEntriesの責務を完了した結果だけを返す。
- * @effect N/A: observeRepositoryEntriesは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @effect ローカルGit子Processで対象Entryを観測する。書込み・外部送信は行わない。
  * @failure N/A: observeRepositoryEntriesは独自の失敗分岐を所有しない。
  * @invariant observeRepositoryEntriesは入力から導いた結果以外の共有状態を変更しない。
  * @boundary FilesystemとProcess内Domain処理の境界。
@@ -319,7 +318,7 @@ export function observeRepositoryEntries(scopeRoot: string):
  * @returns observeNestedRepositoryの計算結果を返す。
  * @precondition 「scopeRoot: string、relativePath: string」がobserveNestedRepositoryの入力契約を満たす。
  * @postcondition observeNestedRepositoryの責務を完了した結果だけを返す。
- * @effect N/A: observeNestedRepositoryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @effect ローカルGit子Processで所在・管理領域・改訂を読む。書込み・外部送信は行わない。
  * @failure N/A: observeNestedRepositoryは独自の失敗分岐を所有しない。
  * @invariant observeNestedRepositoryは入力から導いた結果以外の共有状態を変更しない。
  * @boundary FilesystemとProcess内Domain処理の境界。
@@ -355,7 +354,7 @@ export function observeNestedRepository(
  * @returns string | nullを返す。
  * @precondition 「repositoryRoot: string、revisionIdentity: string、relativePath: string」がreadFixedSnapshotTextの入力契約を満たす。
  * @postcondition readFixedSnapshotTextの責務を完了した結果だけを返す。
- * @effect N/A: readFixedSnapshotTextは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @effect ローカルGit子Processで指定改訂の本文を読む。書込み・外部送信は行わない。
  * @failure N/A: readFixedSnapshotTextは独自の失敗分岐を所有しない。
  * @invariant readFixedSnapshotTextは入力から導いた結果以外の共有状態を変更しない。
  * @boundary FilesystemとProcess内Domain処理の境界。
@@ -394,7 +393,7 @@ export function readFixedSnapshotText(
  * @returns string | nullを返す。
  * @precondition 「repositoryRoot: string、selector: string」がresolveRevisionIdentityの入力契約を満たす。
  * @postcondition resolveRevisionIdentityの責務を完了した結果だけを返す。
- * @effect N/A: resolveRevisionIdentityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @effect ローカルGit子Processで指定Revisionを解決する。書込み・外部送信は行わない。
  * @failure N/A: resolveRevisionIdentityは独自の失敗分岐を所有しない。
  * @invariant resolveRevisionIdentityは入力から導いた結果以外の共有状態を変更しない。
  * @boundary FilesystemとProcess内Domain処理の境界。

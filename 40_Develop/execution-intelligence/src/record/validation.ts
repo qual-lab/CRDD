@@ -5,7 +5,6 @@
  */
 import { createHash } from "node:crypto";
 import { types as utilTypes } from "node:util";
-import { EXECUTION_INTELLIGENCE_EVENT_CONTRACT } from "./types.ts";
 import type {
   TaskAttemptExecutionIntelligenceEvent,
   OperationExecutionIntelligenceEvent,
@@ -14,6 +13,9 @@ import type {
   ExecutionObservation,
   ExecutionIntelligenceEvent,
 } from "./types.ts";
+
+export const EXECUTION_INTELLIGENCE_EVENT_CONTRACT =
+  "crdd/execution-intelligence-event/v2" as const;
 
 /**
  * plain-data-snapshotで使用するArray Snapshotの値契約を定義する。

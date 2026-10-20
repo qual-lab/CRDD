@@ -17,13 +17,13 @@ import {
   inspectGitCommitTreeCandidate,
   materializeGitCommitTreeCandidate as materializeVersionControlTree,
   readGitCommitFileCandidate,
-} from "../../../version-control/src/git/commit-tree.ts";
-import { gitFixedSnapshotAdapter } from "../../../version-control/src/git/fixed-snapshot-adapter.ts";
+} from "../../../version-control/src/git/objects.ts";
+import { gitFixedSnapshotAdapter } from "../../../version-control/src/repository/snapshot.ts";
 import {
   materializeFixedSnapshotCandidate,
   verifyCandidateOutputDirectory,
-} from "../../../version-control/src/fixed-snapshot.ts";
-import { resolveRepositoryGitLayout } from "../../../version-control/src/git/layout.ts";
+} from "../../../version-control/src/repository/snapshot.ts";
+import { resolveRepositoryGitLayout } from "../../../version-control/src/repository/layout.ts";
 import { verifyRepositoryRoot } from "../../../version-control/src/repository/location.ts";
 import {
   cleanupOwnedOperationDirectories,

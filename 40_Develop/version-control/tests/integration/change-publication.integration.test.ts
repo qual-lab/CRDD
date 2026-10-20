@@ -18,11 +18,11 @@ import {
   createGitChangePublicationAdapter,
   gitChangePublicationAdapter,
   gitChangePublicationTargetObservationAdapter,
-} from "../../src/git/change-publication-adapter.ts";
+} from "../../src/publication/git.ts";
 import {
   executeChangePublication,
   observeChangePublicationTarget,
-} from "../../src/change-publication.ts";
+} from "../../src/publication/change.ts";
 import { verifyRepositoryRoot } from "../../src/repository/location.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../src/repository/location.ts";
 

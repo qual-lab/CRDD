@@ -24,19 +24,30 @@ type ContentPolicy = (relativePath: string, bytes: Uint8Array) => boolean;
 
 export const GIT_OBJECT_READER_CONTRACT =
   "crdd-version-control/git-object-reader/v1";
+
 export const GIT_OBJECT_READER_CONTRACT_REVISION = 4;
 
 const OBJECT_ID = /^[a-f0-9]{40}$/u;
+
 const PACK_INDEX_MAGIC = 0xff744f63;
+
 const MAXIMUM_PACK_BYTES = 512 * 1024 * 1024;
+
 const MAXIMUM_INDEX_BYTES = 96 * 1024 * 1024;
+
 const MAXIMUM_OBJECT_BYTES = 64 * 1024 * 1024;
+
 const MAXIMUM_WORKSPACE_BYTES = 256 * 1024 * 1024;
+
 const MAXIMUM_WORKSPACE_FILES = 20_000;
+
 const MAXIMUM_TREE_DEPTH = 64;
+
 const MAXIMUM_RELATIVE_PATH_BYTES = 1_024;
+
 const RESERVED_WINDOWS_SEGMENT =
   /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\..*)?$/iu;
+
 const INVALID_WINDOWS_CHARACTER = /[<>:"|?*\\\x00-\x1f\x7f]/u;
 
 /**
@@ -51,6 +62,7 @@ const INVALID_WINDOWS_CHARACTER = /[<>:"|?*\\\x00-\x1f\x7f]/u;
  * @compatibility GitObjectTypeの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
 type GitObjectType = "commit" | "tree" | "blob" | "tag";
+
 /**
  * object-readerで使用するGit Objectの値契約を定義する。
  *
@@ -63,6 +75,7 @@ type GitObjectType = "commit" | "tree" | "blob" | "tag";
  * @compatibility GitObjectの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
 type GitObject = Readonly<{ type: GitObjectType; bytes: Buffer }>;
+
 /**
  * object-readerで使用するPack Indexの値契約を定義する。
  *
@@ -82,6 +95,7 @@ type PackIndex = Readonly<{
   offsetObjectIds: ReadonlyMap<number, string>;
   sortedOffsets: readonly number[];
 }>;
+
 /**
  * object-readerで使用するWorkspace Entryの値契約を定義する。
  *
@@ -598,10 +612,10 @@ function safePackIndexes(commonDirectory: string) {
  * @returns createObjectReaderの計算結果を返す。
  * @precondition 「commonDirectory: string」がcreateObjectReaderの入力契約を満たす。
  * @postcondition createObjectReaderの責務を完了した結果だけを返す。
- * @effect N/A: createObjectReaderは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @effect 必要に応じてFilesystem上のloose／pack形式のGit Objectを読み取る。書込み・Git子Process起動は行わない。
  * @failure createObjectReaderは入力不正または下位処理の失敗を呼出し側へ返す。
  * @invariant createObjectReaderは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: createObjectReaderはProcess内の同一Subsystemで完結する。
+ * @boundary Filesystem上のGit ObjectとProcess内の読取り・復元結果の境界。
  * @security N/A: createObjectReaderはAuthority、秘密値または信頼判断を扱わない。
  * @concurrency N/A: createObjectReaderは共有非同期状態を持たない同期処理である。
  */
@@ -620,10 +634,10 @@ function createObjectReader(commonDirectory: string) {
    * @returns packBytesの計算結果を返す。
    * @precondition 「index: PackIndex」がpackBytesの入力契約を満たす。
    * @postcondition packBytesの責務を完了した結果だけを返す。
-   * @effect N/A: packBytesは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+   * @effect 必要に応じてFilesystem上のloose／pack形式のGit Objectを読み取る。書込み・Git子Process起動は行わない。
    * @failure packBytesは入力不正または下位処理の失敗を呼出し側へ返す。
    * @invariant packBytesは入力から導いた結果以外の共有状態を変更しない。
-   * @boundary N/A: packBytesはProcess内の同一Subsystemで完結する。
+   * @boundary Filesystem上のGit ObjectとProcess内の読取り・復元結果の境界。
    * @security N/A: packBytesはAuthority、秘密値または信頼判断を扱わない。
    * @concurrency N/A: packBytesは共有非同期状態を持たない同期処理である。
    */
@@ -658,10 +672,10 @@ function createObjectReader(commonDirectory: string) {
    * @returns GitObjectを返す。
    * @precondition 「index: PackIndex、objectId: string、objectOffset: number、depth: number」がresolvePackObjectの入力契約を満たす。
    * @postcondition resolvePackObjectの責務を完了した結果だけを返す。
-   * @effect N/A: resolvePackObjectは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+   * @effect 必要に応じてFilesystem上のloose／pack形式のGit Objectを読み取る。書込み・Git子Process起動は行わない。
    * @failure resolvePackObjectは入力不正または下位処理の失敗を呼出し側へ返す。
    * @invariant resolvePackObjectは入力から導いた結果以外の共有状態を変更しない。
-   * @boundary N/A: resolvePackObjectはProcess内の同一Subsystemで完結する。
+   * @boundary Filesystem上のGit ObjectとProcess内の読取り・復元結果の境界。
    * @security N/A: resolvePackObjectはAuthority、秘密値または信頼判断を扱わない。
    * @concurrency N/A: resolvePackObjectは共有非同期状態を持たない同期処理である。
    */
@@ -749,10 +763,10 @@ function createObjectReader(commonDirectory: string) {
    * @returns GitObjectを返す。
    * @precondition 「objectId: string、depth」がreadObjectの入力契約を満たす。
    * @postcondition readObjectの責務を完了した結果だけを返す。
-   * @effect N/A: readObjectは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+   * @effect 必要に応じてFilesystem上のloose／pack形式のGit Objectを読み取る。書込み・Git子Process起動は行わない。
    * @failure readObjectは入力不正または下位処理の失敗を呼出し側へ返す。
    * @invariant readObjectは入力から導いた結果以外の共有状態を変更しない。
-   * @boundary N/A: readObjectはProcess内の同一Subsystemで完結する。
+   * @boundary Filesystem上のGit ObjectとProcess内の読取り・復元結果の境界。
    * @security N/A: readObjectはAuthority、秘密値または信頼判断を扱わない。
    * @concurrency N/A: readObjectは共有非同期状態を持たない同期処理である。
    */
@@ -1061,7 +1075,7 @@ function contentManifest(entries: readonly WorkspaceEntry[]) {
  * @returns inspectGitCommitTreeCandidateの計算結果を返す。
  * @precondition 「candidate: unknown」がinspectGitCommitTreeCandidateの入力契約を満たす。
  * @postcondition inspectGitCommitTreeCandidateの責務を完了した結果だけを返す。
- * @effect inspectGitCommitTreeCandidateはFilesystemの読取りまたは書込みを実行する。
+ * @effect 固定Git Objectを読み取り検証する。出力先や元Repositoryへの書込みは行わない。
  * @failure inspectGitCommitTreeCandidateは入力不正または下位処理の失敗を呼出し側へ返す。
  * @invariant inspectGitCommitTreeCandidateは宣言した境界以外へEffectを拡張しない。
  * @boundary FilesystemとProcess内Domain処理の境界。
@@ -1117,7 +1131,7 @@ export function inspectGitCommitTreeCandidate(candidate: unknown) {
  * @returns materializeGitCommitTreeCandidateUsingPolicyの計算結果を返す。
  * @precondition 「candidate: unknown、shouldRejectContent: ContentPolicy | null」がmaterializeGitCommitTreeCandidateUsingPolicyの入力契約を満たす。
  * @postcondition materializeGitCommitTreeCandidateUsingPolicyの責務を完了した結果だけを返す。
- * @effect materializeGitCommitTreeCandidateUsingPolicyはFilesystemの読取りまたは書込みを実行する。
+ * @effect 固定Objectを読み取り、Content Policy検査後に指定出力先へ生成する。
  * @failure materializeGitCommitTreeCandidateUsingPolicyは入力不正または下位処理の失敗を呼出し側へ返す。
  * @invariant materializeGitCommitTreeCandidateUsingPolicyは宣言した境界以外へEffectを拡張しない。
  * @boundary FilesystemとProcess内Domain処理の境界。
@@ -1242,7 +1256,7 @@ function materializeGitCommitTreeCandidateUsingPolicy(
  * @returns materializeGitCommitTreeCandidateの計算結果を返す。
  * @precondition 「candidate: unknown、shouldRejectContent: ContentPolicy」がmaterializeGitCommitTreeCandidateの入力契約を満たす。
  * @postcondition materializeGitCommitTreeCandidateの責務を完了した結果だけを返す。
- * @effect N/A: materializeGitCommitTreeCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @effect Content Policyを満たす固定内容を指定出力先へ生成する。
  * @failure N/A: materializeGitCommitTreeCandidateは独自の失敗分岐を所有しない。
  * @invariant materializeGitCommitTreeCandidateは入力から導いた結果以外の共有状態を変更しない。
  * @boundary N/A: materializeGitCommitTreeCandidateはProcess内の同一Subsystemで完結する。
@@ -1268,7 +1282,7 @@ export function materializeGitCommitTreeCandidate(
  * @returns materializeGitReleaseCandidateTreeの計算結果を返す。
  * @precondition 「candidate: unknown」がmaterializeGitReleaseCandidateTreeの入力契約を満たす。
  * @postcondition materializeGitReleaseCandidateTreeの責務を完了した結果だけを返す。
- * @effect N/A: materializeGitReleaseCandidateTreeは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @effect 既存の選択条件で固定内容を指定出力先へ生成する。
  * @failure N/A: materializeGitReleaseCandidateTreeは独自の失敗分岐を所有しない。
  * @invariant materializeGitReleaseCandidateTreeは入力から導いた結果以外の共有状態を変更しない。
  * @boundary N/A: materializeGitReleaseCandidateTreeはProcess内の同一Subsystemで完結する。
@@ -1288,7 +1302,7 @@ export function materializeGitReleaseCandidateTree(candidate: unknown) {
  * @returns readGitCommitFileCandidateの計算結果を返す。
  * @precondition 「candidate: unknown」がreadGitCommitFileCandidateの入力契約を満たす。
  * @postcondition readGitCommitFileCandidateの責務を完了した結果だけを返す。
- * @effect readGitCommitFileCandidateはFilesystemの読取りまたは書込みを実行する。
+ * @effect 固定Objectと対象Blobを有界で読み取る。書込みは行わない。
  * @failure readGitCommitFileCandidateは入力不正または下位処理の失敗を呼出し側へ返す。
  * @invariant readGitCommitFileCandidateは宣言した境界以外へEffectを拡張しない。
  * @boundary FilesystemとProcess内Domain処理の境界。

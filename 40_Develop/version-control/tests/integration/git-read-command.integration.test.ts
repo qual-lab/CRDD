@@ -16,9 +16,9 @@ import { devNull } from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { gitLocalChangeSetAdapter } from "../../src/git/local-change-set-adapter.ts";
-import { runGitReadCommand } from "../../src/git/read-command.ts";
-import { gitRepositoryWorktreeViewAdapter } from "../../src/git/worktree-view-adapter.ts";
+import { gitLocalChangeSetAdapter } from "../../src/repository/changes.ts";
+import { runGitReadCommand } from "../../src/git/read.ts";
+import { gitRepositoryWorktreeViewAdapter } from "../../src/repository/worktree-view.ts";
 
 const repository = path.resolve(
   fileURLToPath(new URL("../../../..", import.meta.url)),

@@ -4,7 +4,6 @@
  * @trace ARCH-000007
  */
 
-import { EXECUTION_INTELLIGENCE_EVENT_CONTRACT } from "./types.ts";
 import type {
   ExecutionObservation,
   ExecutionUsage,
@@ -14,6 +13,7 @@ import type {
   OperationExecutionIntelligenceEvent,
 } from "./types.ts";
 import {
+  EXECUTION_INTELLIGENCE_EVENT_CONTRACT,
   snapshotPlainRecord,
   identity,
   taskAttemptIdentityKeys,

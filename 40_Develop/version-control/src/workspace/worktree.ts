@@ -1,9 +1,8 @@
 /**
- * 独立作業用Worktreeと専用Branchの標準Git操作を所有する。
- * @responsibility 固定対象の作成・観測・明示削除と部分成立の返却。
+ * 専用WorktreeとBranchの作成・観測・明示終了を所有する。
+ * @responsibility 専用WorktreeとBranchの作成・観測・明示終了を所有する。
+ * @trace ARCH-000002
  * @trace ARCH-000009
- * @boundary Repository-local領域と共有Git管理情報。
- * @security 採否・利用調停・認可は呼出し元。秘密・生stderrは返さない。
  */
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
@@ -13,7 +12,7 @@ import {
   resolveVerifiedRepositoryRoot,
   type VerifiedRepositoryRoot,
 } from "../repository/location.ts";
-import { resolveRepositoryGitLayout } from "./layout.ts";
+import { resolveRepositoryGitLayout } from "../repository/layout.ts";
 
 /**
  * 登録・実体・Refを独立観測した値。

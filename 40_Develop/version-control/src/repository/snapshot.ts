@@ -1,18 +1,24 @@
 /**
- * fixed-snapshotに属する責務をまとめる。
- *
- * @responsibility CandidateOutputCapabilityを中心とする実装、型および境界を同じModuleで所有する。
+ * 固定Snapshotの検査・読取り・許可出力先への実体化を所有する。
+ * @responsibility 固定Snapshotの検査・読取り・許可出力先への実体化を所有する。
  * @trace ARCH-000002
  */
 import fs from "node:fs";
 import path from "node:path";
-
 import {
   resolveVerifiedRepositoryRoot,
   type VerifiedRepositoryRoot,
-} from "./repository/location.ts";
+} from "./location.ts";
+import {
+  inspectGitCommitTreeCandidate,
+  materializeGitCommitTreeCandidate,
+  materializeGitReleaseCandidateTree,
+  readGitCommitFileCandidate,
+} from "../git/objects.ts";
+import { resolveRepositoryGitLayout } from "./layout.ts";
 
 export const FIXED_SNAPSHOT_CONTRACT = "crdd-version-control/fixed-snapshot/v1";
+
 export const FIXED_SNAPSHOT_CONTRACT_REVISION = 1;
 
 const candidateOutputs = new WeakMap<
@@ -31,6 +37,7 @@ const candidateOutputs = new WeakMap<
     }>;
   }>
 >();
+
 const CANDIDATE_OUTPUT_BRAND: unique symbol = Symbol("candidate-output");
 
 /**
@@ -218,7 +225,7 @@ function samePath(left: string, right: string): boolean {
  * @returns observeCandidateOutputの計算結果を返す。
  * @precondition 「candidate: unknown」がobserveCandidateOutputの入力契約を満たす。
  * @postcondition observeCandidateOutputの責務を完了した結果だけを返す。
- * @effect observeCandidateOutputはFilesystemの読取りまたは書込みを実行する。
+ * @effect 出力先のFilesystem実体を読み取る。書込みは行わない。
  * @failure observeCandidateOutputは入力不正または下位処理の失敗を呼出し側へ返す。
  * @invariant observeCandidateOutputは宣言した境界以外へEffectを拡張しない。
  * @boundary FilesystemとProcess内Domain処理の境界。
@@ -261,7 +268,7 @@ function observeCandidateOutput(candidate: unknown) {
  * @returns | Readonly<{ status: "completed"; capability: CandidateOutputCapability; pathReported: false; }> | Readonly<{ status: "blocked"; capability: null; pathReported: false; }>を返す。
  * @precondition 「candidate: unknown、ownerCapability: unknown、ownerDirectory: unknown」がverifyCandidateOutputDirectoryの入力契約を満たす。
  * @postcondition verifyCandidateOutputDirectoryの責務を完了した結果だけを返す。
- * @effect verifyCandidateOutputDirectoryはFilesystemの読取りまたは書込みを実行する。
+ * @effect 出力先の実体を読み取り、Process内のopaque能力へ結合する。Fileの書込みは行わない。
  * @failure verifyCandidateOutputDirectoryは入力不正または下位処理の失敗を呼出し側へ返す。
  * @invariant verifyCandidateOutputDirectoryは宣言した境界以外へEffectを拡張しない。
  * @boundary FilesystemとProcess内Domain処理の境界。
@@ -335,7 +342,7 @@ export function verifyCandidateOutputDirectory(
  * @returns string | nullを返す。
  * @precondition 「capability: CandidateOutputCapability、ownerCapability: object」がresolveCandidateOutputDirectoryの入力契約を満たす。
  * @postcondition resolveCandidateOutputDirectoryの責務を完了した結果だけを返す。
- * @effect resolveCandidateOutputDirectoryはFilesystemの読取りまたは書込みを実行する。
+ * @effect 出力先のFilesystem実体を再確認する。書込みは行わない。
  * @failure resolveCandidateOutputDirectoryは入力不正または下位処理の失敗を呼出し側へ返す。
  * @invariant resolveCandidateOutputDirectoryは宣言した境界以外へEffectを拡張しない。
  * @boundary FilesystemとProcess内Domain処理の境界。
@@ -412,7 +419,7 @@ function blockedMaterialization(
  * @returns FixedSnapshotIdentity | nullを返す。
  * @precondition 「capability: VerifiedRepositoryRoot、revision: string、adapter: FixedSnapshotAdapter」がinspectFixedSnapshotの入力契約を満たす。
  * @postcondition inspectFixedSnapshotの責務を完了した結果だけを返す。
- * @effect N/A: inspectFixedSnapshotは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @effect 指定Adapterへ固定内容の読取り検査を委譲する。
  * @failure N/A: inspectFixedSnapshotは独自の失敗分岐を所有しない。
  * @invariant inspectFixedSnapshotは入力から導いた結果以外の共有状態を変更しない。
  * @boundary N/A: inspectFixedSnapshotはProcess内の同一Subsystemで完結する。
@@ -439,7 +446,7 @@ export function inspectFixedSnapshot(
  * @returns FixedSnapshotFile | nullを返す。
  * @precondition 「capability: VerifiedRepositoryRoot、revision: string、relativePath: string、adapter: FixedSnapshotAdapter」がreadFixedSnapshotFileの入力契約を満たす。
  * @postcondition readFixedSnapshotFileの責務を完了した結果だけを返す。
- * @effect readFixedSnapshotFileはFilesystemの読取りまたは書込みを実行する。
+ * @effect 指定Adapterへ固定Fileの有界読取りを委譲する。
  * @failure N/A: readFixedSnapshotFileは独自の失敗分岐を所有しない。
  * @invariant readFixedSnapshotFileは宣言した境界以外へEffectを拡張しない。
  * @boundary FilesystemとProcess内Domain処理の境界。
@@ -478,7 +485,7 @@ export function readFixedSnapshotFile(
  * @returns CandidateMaterialization | CandidateMaterializationBlocked | nullを返す。
  * @precondition 「capability: VerifiedRepositoryRoot、revision: string、ownerCapability: object、outputCapability: CandidateOutputCapability、readPaths: readonly string[] | null、contentPolicy: FixedSnapshotContentPolicy | null、adapter: FixedSnapshotAdapter」がmaterializeFixedSnapshotCandidateの入力契約を満たす。
  * @postcondition materializeFixedSnapshotCandidateの責務を完了した結果だけを返す。
- * @effect materializeFixedSnapshotCandidateはFilesystemの読取りまたは書込みを実行する。
+ * @effect 検証済み出力先への生成をAdapterへ委譲し、失敗時は同出力先の自己生成物を回収し得る。
  * @failure materializeFixedSnapshotCandidateは入力不正または下位処理の失敗を呼出し側へ返す。
  * @invariant materializeFixedSnapshotCandidateは宣言した境界以外へEffectを拡張しない。
  * @boundary FilesystemとProcess内Domain処理の境界。
@@ -549,4 +556,152 @@ export function materializeFixedSnapshotCandidate(
     false,
     true,
   );
+}
+
+export const gitFixedSnapshotAdapter: FixedSnapshotAdapter = Object.freeze({
+  /**
+   * fixed-snapshot-adapterを観測する。
+   *
+   * @responsibility fixed-snapshot-adapterの観測対象、取得根拠、観測不能結果の境界を所有する。
+   * @trace ARCH-000002
+   * @input repositoryRoot、revision
+   * @returns inspectの計算結果を返す。
+   * @precondition 「repositoryRoot、revision」がinspectの入力契約を満たす。
+   * @postcondition inspectの責務を完了した結果だけを返す。
+   * @effect Git配置と固定Objectを読み取る。書込みは行わない。
+   * @failure N/A: inspectは独自の失敗分岐を所有しない。
+   * @invariant inspectは入力から導いた結果以外の共有状態を変更しない。
+   * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+   * @security N/A: inspectはAuthority、秘密値または信頼判断を扱わない。
+   * @concurrency N/A: inspectは共有非同期状態を持たない同期処理である。
+   */
+  inspect(repositoryRoot, revision) {
+    const layout = resolveRepositoryGitLayout(repositoryRoot);
+    const result = inspectGitCommitTreeCandidate({
+      commonDirectory: layout.commonDirectory.realPath,
+      revision,
+    });
+    return result?.status === "candidate"
+      ? Object.freeze({
+          contract: "crdd-version-control/fixed-snapshot/v1" as const,
+          contractRevision: 1 as const,
+          status: "observed" as const,
+          revisionIdentity: result.commit,
+          snapshotIdentity: result.tree,
+          objectFormat: "sha1" as const,
+          observationComplete: true as const,
+          repositoryPathReported: false as const,
+        })
+      : null;
+  },
+  /**
+   * Fileを読み取る。
+   *
+   * @responsibility Fileの読取り元、上限、読取不能時の結果境界を所有する。
+   * @trace ARCH-000002
+   * @input repositoryRoot、revision、relativePath
+   * @returns readFileの計算結果を返す。
+   * @precondition 「repositoryRoot、revision、relativePath」がreadFileの入力契約を満たす。
+   * @postcondition readFileの責務を完了した結果だけを返す。
+   * @effect Git配置と固定Blobを読み取る。書込みは行わない。
+   * @failure N/A: readFileは独自の失敗分岐を所有しない。
+   * @invariant readFileは入力から導いた結果以外の共有状態を変更しない。
+   * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+   * @security N/A: readFileはAuthority、秘密値または信頼判断を扱わない。
+   * @concurrency N/A: readFileは共有非同期状態を持たない同期処理である。
+   */
+  readFile(repositoryRoot, revision, relativePath, maximumBytes) {
+    const layout = resolveRepositoryGitLayout(repositoryRoot);
+    const result = readGitCommitFileCandidate({
+      commonDirectory: layout.commonDirectory.realPath,
+      revision,
+      relativePath,
+      ...(maximumBytes === undefined ? {} : { maximumBytes }),
+    });
+    return result?.status === "read"
+      ? Object.freeze({
+          status: "read" as const,
+          revisionIdentity: result.revision,
+          relativePath: result.relativePath,
+          mode: result.mode,
+          bytes: result.bytes,
+          sha256: result.sha256,
+          repositoryPathReported: false as const,
+        })
+      : null;
+  },
+  /**
+   * fixed-snapshot-adapterをFilesystem上の候補として具体化する。
+   *
+   * @responsibility fixed-snapshot-adapterの入力Snapshot、書込み範囲、部分生成の失敗境界を所有する。
+   * @trace ARCH-000002
+   * @input repositoryRoot、revision、workspace、readPaths、contentPolicy
+   * @returns materializeの計算結果を返す。
+   * @precondition 「repositoryRoot、revision、workspace、readPaths、contentPolicy」がmaterializeの入力契約を満たす。
+   * @postcondition materializeの責務を完了した結果だけを返す。
+   * @effect 固定内容を許可された出力先へ生成する。元Repositoryの作業Treeは変更しない。
+   * @failure N/A: materializeは独自の失敗分岐を所有しない。
+   * @invariant materializeは入力から導いた結果以外の共有状態を変更しない。
+   * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+   * @security N/A: materializeはAuthority、秘密値または信頼判断を扱わない。
+   * @concurrency N/A: materializeは共有非同期状態を持たない同期処理である。
+   */
+  materialize(repositoryRoot, revision, workspace, readPaths, contentPolicy) {
+    const layout = resolveRepositoryGitLayout(repositoryRoot);
+    const input = {
+      commonDirectory: layout.commonDirectory.realPath,
+      revision,
+      workspace,
+      ...(readPaths === null ? {} : { readPaths }),
+    };
+    const result =
+      contentPolicy === null
+        ? materializeGitReleaseCandidateTree(input)
+        : materializeGitCommitTreeCandidate(input, contentPolicy);
+    if (result?.status === "blocked")
+      return Object.freeze({
+        status: "blocked" as const,
+        reason: "fixed_snapshot_content_policy_rejected" as const,
+        effectIssued: false,
+        effectStateUnknown: false,
+        cleanupConfirmed: true,
+        repositoryPathReported: false as const,
+        workspacePathReported: false as const,
+      });
+    return result?.status === "materialized"
+      ? Object.freeze({
+          status: "materialized" as const,
+          baseRevisionIdentity: result.baseCommit,
+          baseSnapshotIdentity: result.baseTree,
+          fileCount: result.fileCount,
+          byteLength: result.byteLength,
+          contentManifestHash: result.contentManifestHash,
+          repositoryPathReported: false as const,
+          workspacePathReported: false as const,
+        })
+      : null;
+  },
+});
+
+/**
+ * Repository Fixed Snapshotを観測する。
+ *
+ * @responsibility Repository Fixed Snapshotの観測対象、取得根拠、観測不能結果の境界を所有する。
+ * @trace ARCH-000002
+ * @input capability: VerifiedRepositoryRoot、revision: string
+ * @returns inspectRepositoryFixedSnapshotの計算結果を返す。
+ * @precondition 「capability: VerifiedRepositoryRoot、revision: string」がinspectRepositoryFixedSnapshotの入力契約を満たす。
+ * @postcondition inspectRepositoryFixedSnapshotの責務を完了した結果だけを返す。
+ * @effect 指定AdapterへRepositoryの固定内容の読取り検査を委譲する。
+ * @failure N/A: inspectRepositoryFixedSnapshotは独自の失敗分岐を所有しない。
+ * @invariant inspectRepositoryFixedSnapshotは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 指定Adapterの固定内容観測と検査結果の境界。
+ * @security inspectRepositoryFixedSnapshotはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: inspectRepositoryFixedSnapshotは共有非同期状態を持たない同期処理である。
+ */
+export function inspectRepositoryFixedSnapshot(
+  capability: VerifiedRepositoryRoot,
+  revision: string,
+) {
+  return inspectFixedSnapshot(capability, revision, gitFixedSnapshotAdapter);
 }

@@ -117,6 +117,8 @@ src/
 
 `event`と`summary`は`validation`の検査を利用し、検査側からEvent構築へ逆依存しない。通常データ抽出には任意キー、Array上限・返却shape等でDomainの汎用抽出と異なる現行契約があるため、転送Fileを残さず`record/validation.ts`へ集約する。Domainの汎用契約を今回拡張しない。
 
+実行時のEvent契約定数は検査を所有する`record/validation.ts`へ置く。型専用の`types.ts`は同じliteral型だけを宣言し、実行時定数や検査実装へ依存しない。Rootの公開名・値・Event shapeは維持する。
+
 `storage/result.ts`はLockだけでなくpending・保持設定・保存確認・読取りが共有する既存の具体的な失敗契約であり、新しいError Frameworkではない。既存の`history.lock`、Identity、待機条件、保存後読戻し位置、Effectとcleanupの相関を維持する。保存Path・JSONL・保持設定と期間は変更しない。
 
 独立Repository検証Fileは廃止するが、公開`verifyExecutionIntelligenceRepositoryRoot`と`VerifiedExecutionRepositoryRoot`はrecorderへ同居し、既存のreason／root shapeを維持する。実際のRoot検証・解決はVersion Controlが所有し、Storageはその型と解決操作を直接利用する。`classifyTemporalProvenance`も独立公開操作のまま`temporal.ts`へ同居する。公開操作・型の名前、引数、理由、結果shapeは変更せず、利用側へ変換処理を複製しない。
