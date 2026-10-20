@@ -664,67 +664,6 @@ test("修復Scopeは安定Localだけへ結合し固定targetsを共有する", 
 });
 
 /**
- * 公式停止の既存session能力と結果分類を確認する。
- * @responsibility コマンド終了をEngine停止や清掃完了へ昇格しない。
- * @trace ERB-IT-001
- * @precondition 本番停止関数本文と模擬sessionだけを使う。
- * @stimulus 能力欠落、全結果分類、未知結果と例外を渡す。
- * @observation 呼出し件数、発行と確認値。
- * @oracle 欠落は未発行、終了済みだけconfirmed、他はunknown、例外は伝播。
- * @cleanup N/A: Native／Docker要求を発行しない。
- * @boundary ERB-IT-001=Direct Boundary: 停止処理→取得済みsession。
- */
-test("公式停止は既存session一回だけを使い分類を維持する", async () => {
-  const source = fs.readFileSync(
-    new URL("../../src/desktop/native-process.ts", import.meta.url),
-    "utf8",
-  );
-  const start = source.indexOf(
-    "export async function requestDockerDesktopOfficialShutdown(",
-  );
-  assert.ok(start >= 0);
-  const shutdown = runInNewContext(
-    `${stripTypeScriptTypes(source.slice(start).replace("export async function", "async function"))}; requestDockerDesktopOfficialShutdown`,
-  ) as (session: object) => Promise<unknown>;
-  assert.deepEqual(JSON.parse(JSON.stringify(await shutdown({}))), {
-    issued: false,
-    confirmation: "not_issued",
-  });
-  for (const result of [
-    "not_issued",
-    "command_completed",
-    "outcome_unknown",
-    "unexpected",
-  ]) {
-    let calls = 0;
-    const observed = await shutdown({
-      stopDesktop: async () => {
-        calls++;
-        return result;
-      },
-    });
-    assert.equal(calls, 1);
-    assert.deepEqual(JSON.parse(JSON.stringify(observed)), {
-      issued: result !== "not_issued",
-      confirmation:
-        result === "not_issued"
-          ? "not_issued"
-          : result === "command_completed"
-            ? "confirmed"
-            : "unknown",
-    });
-  }
-  await assert.rejects(
-    shutdown({
-      stopDesktop: async () => {
-        throw new Error("fixture");
-      },
-    }),
-    /fixture/u,
-  );
-});
-
-/**
  * Docker backend停止の固定コマンドと発行分類を確認する。
  * @responsibility 環境欠落時の要求0と要求後不明を区別する。
  * @trace ERB-IT-001

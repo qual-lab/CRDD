@@ -138,12 +138,17 @@ test("修復回収compositionは元Scopeと保存後の現在許可だけを使�
           decode,
           dockerRuntimeRepairCheckpointIsSettled,
           dockerDesktopDistributionRoot: "fixed-distribution",
-          beginPlatformAccessArtifactObservation: (root: string) => {
+          observeNativeArtifact: (root: string, expected?: string) => {
             assert.equal(root, "fixed-distribution");
+            if (
+              expected !== undefined &&
+              (scenario === "artifact_changed" || !artifactCurrent)
+            )
+              return null;
             return scenario === "artifact_missing"
               ? null
               : {
-                  token: {},
+                  identitySha256: "a".repeat(64),
                   artifact: {
                     sha256:
                       scenario === "artifact_changed"
@@ -152,15 +157,13 @@ test("修復回収compositionは元Scopeと保存後の現在許可だけを使�
                   },
                 };
           },
-          verifyPlatformAccessArtifactObservation: () =>
-            scenario !== "artifact_changed" && artifactCurrent,
           observeWindowsLocalAppDataDirectory: () =>
             scenario === "local_missing"
               ? null
               : scenario === "local_changed"
                 ? "changed-local"
                 : "fixed-local",
-          acquireRuntimeOwnedDockerDesktopRepairNativeHelper: () => {
+          startDockerDesktopRepairHelper: () => {
             acquired++;
             throw new Error("must_not_acquire");
           },
@@ -454,7 +457,8 @@ test("保持照合は三固定対象の二読取りだけを返す", async () =>
         | "cancel";
       const guards = {
         owner: "!confirmRepair(fields.canObserve)",
-        artifact: "!verifyPlatformAccessArtifactObservation(artifact.token)",
+        artifact:
+          "!observeNativeArtifact(dockerDesktopDistributionRoot, artifact.identitySha256)",
         scope: "!access.verify()",
         cancel: "signal.aborted",
       };
@@ -465,10 +469,17 @@ test("保持照合は三固定対象の二読取りだけを返す", async () =>
       );
       assert.ok(start > 0 && end > start);
       const post = candidateBody.slice(start, end);
-      assert.equal(post.split(guards[key]).length - 1, 1);
+      const guardPattern =
+        key === "artifact"
+          ? /!observeNativeArtifact\(\s*dockerDesktopDistributionRoot,\s*artifact.identitySha256,?\s*\)/gu
+          : new RegExp(
+              guards[key].replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+              "gu",
+            );
+      assert.equal([...post.matchAll(guardPattern)].length, 1);
       candidateBody =
         candidateBody.slice(0, start) +
-        post.replace(guards[key], "false") +
+        post.replace(guardPattern, "false") +
         candidateBody.slice(end);
     }
     const run = runInNewContext(
@@ -482,14 +493,17 @@ test("保持照合は三固定対象の二読取りだけを返す", async () =>
         decode,
         dockerRuntimeRepairCheckpointIsSettled,
         dockerDesktopDistributionRoot: "fixed-distribution",
-        beginPlatformAccessArtifactObservation: () =>
-          scenario === "artifact_missing"
+        observeNativeArtifact: (_root: string, expected?: string) =>
+          scenario === "artifact_missing" ||
+          (expected !== undefined && !artifact)
             ? null
-            : { artifact: { sha256: "d".repeat(64) }, token: {} },
-        verifyPlatformAccessArtifactObservation: () => artifact,
+            : {
+                artifact: { sha256: "d".repeat(64) },
+                identitySha256: "a".repeat(64),
+              },
         observeWindowsLocalAppDataDirectory: () =>
           scenario === "local" ? null : "fixed-local",
-        acquireRuntimeOwnedDockerDesktopRepairNativeHelper: () => {
+        startDockerDesktopRepairHelper: () => {
           native++;
           throw new Error("unexpected_native");
         },

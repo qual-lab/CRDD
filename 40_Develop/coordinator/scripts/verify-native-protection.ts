@@ -143,7 +143,7 @@ async function runNativeProtection(): Promise<void> {
     repository +
     "/40_Develop/platform-access/tests/fixtures/windows_protection.rs";
   const exactTest =
-    "filesystem::host_record::protection_tests::terminal_protection_fixture_observes_handle_sharing";
+    "host_record::record::protection_tests::terminal_protection_fixture_observes_handle_sharing";
   const crateRoot = repository + "/40_Develop/platform-access";
   const buildRoot = crateRoot + "/target";
   nodeIdentity(crateRoot);
@@ -152,7 +152,7 @@ async function runNativeProtection(): Promise<void> {
   const sources = [
     crateRoot + "/Cargo.toml",
     crateRoot + "/Cargo.lock",
-    crateRoot + "/build.rs",
+    crateRoot + "/src/native/build.rs",
     crateRoot + "/rust-toolchain.toml",
   ];
   for (const directory of [crateRoot + "/src", crateRoot + "/tests"]) {

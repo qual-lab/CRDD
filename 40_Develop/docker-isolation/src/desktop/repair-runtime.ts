@@ -9,8 +9,12 @@ import type {
   DockerDesktopRepairNativeHelperOutcome,
   DockerDesktopRepairNativeHelperSession,
   DockerDesktopRepairHelperReleaseOutcome,
-} from "./native-process.ts";
+} from "../../../platform-access/src/index.ts";
 import { types } from "node:util";
+import {
+  dockerDesktopDistributionRoot,
+  describeDockerRuntimeArtifactTrustContract,
+} from "../execution/cli-trust.ts";
 import {
   decodeDockerRuntimeRepairCheckpoint as decode,
   dockerRuntimeRepairCheckpointIsSettled,
@@ -19,17 +23,13 @@ import {
   type DockerRuntimeRepairRetentionTargets,
 } from "./repair-checkpoint.ts";
 import { runDockerRuntimeRepairMachine } from "./repair-machine.ts";
-import {
-  acquireRuntimeOwnedDockerDesktopRepairNativeHelper,
-  dockerDesktopDistributionRoot,
-} from "./native-process.ts";
+import { startDockerDesktopRepairHelper } from "../../../platform-access/src/index.ts";
 import { createDockerDesktopRepairDirectoryAccess } from "./runtime-directory.ts";
 import { createDockerDesktopRepairOperations } from "./repair-operations.ts";
 import {
   observePlatformAccessArtifactCandidate,
   observeWindowsLocalAppDataDirectory,
-  beginPlatformAccessArtifactObservation,
-  verifyPlatformAccessArtifactObservation,
+  observeNativeArtifact,
 } from "../../../platform-access/src/index.ts";
 
 /**
@@ -95,7 +95,10 @@ export async function runDockerRuntimeRepairSession(
           ownerBindingSha256: null,
         });
       artifact = Object.freeze({ ...candidate.artifact });
-      return acquireRuntimeOwnedDockerDesktopRepairNativeHelper(artifact);
+      return startDockerDesktopRepairHelper(
+        artifact,
+        describeDockerRuntimeArtifactTrustContract().policySha256,
+      );
     },
     prepare: async (session, owner, nonce, signal, live) => {
       if (!artifact || !live()) return null;
@@ -206,9 +209,7 @@ export async function disposeDockerRuntimeRepairDirectory(
     )
       return unavailable;
     const signal = fields.signal;
-    const artifact = beginPlatformAccessArtifactObservation(
-      dockerDesktopDistributionRoot,
-    );
+    const artifact = observeNativeArtifact(dockerDesktopDistributionRoot);
     if (!artifact || signal.aborted || !confirmRepair(fields.canIssueEffect))
       return unavailable;
     const local = observeWindowsLocalAppDataDirectory();
@@ -228,7 +229,10 @@ export async function disposeDockerRuntimeRepairDirectory(
       checkpoint.directories[purpose].expected,
       () =>
         !signal.aborted &&
-        verifyPlatformAccessArtifactObservation(artifact.token) &&
+        observeNativeArtifact(
+          dockerDesktopDistributionRoot,
+          artifact.identitySha256,
+        ) !== null &&
         confirmRepair(fields.canIssueEffect),
     );
   } catch {
@@ -296,9 +300,7 @@ export function observeDockerRuntimeRepairRetention(
     )
       return null;
     const signal = fields.signal;
-    const artifact = beginPlatformAccessArtifactObservation(
-      dockerDesktopDistributionRoot,
-    );
+    const artifact = observeNativeArtifact(dockerDesktopDistributionRoot);
     if (!artifact || signal.aborted || !confirmRepair(fields.canObserve))
       return null;
     const local = observeWindowsLocalAppDataDirectory();
@@ -318,7 +320,10 @@ export function observeDockerRuntimeRepairRetention(
         if (
           signal.aborted ||
           !confirmRepair(fields.canObserve) ||
-          !verifyPlatformAccessArtifactObservation(artifact.token) ||
+          !observeNativeArtifact(
+            dockerDesktopDistributionRoot,
+            artifact.identitySha256,
+          ) ||
           !access.verify()
         )
           return null;
@@ -338,7 +343,10 @@ export function observeDockerRuntimeRepairRetention(
           !observed ||
           signal.aborted ||
           !confirmRepair(fields.canObserve) ||
-          !verifyPlatformAccessArtifactObservation(artifact.token) ||
+          !observeNativeArtifact(
+            dockerDesktopDistributionRoot,
+            artifact.identitySha256,
+          ) ||
           !access.verify()
         )
           return null;

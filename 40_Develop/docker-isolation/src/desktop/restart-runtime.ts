@@ -8,11 +8,12 @@
 import { performance } from "node:perf_hooks";
 import { fileURLToPath } from "node:url";
 import { types } from "node:util";
+import { describeDockerRuntimeArtifactTrustContract } from "../execution/cli-trust.ts";
 import { observePlatformAccessArtifactCandidate } from "../../../platform-access/src/index.ts";
 import {
-  acquireRuntimeOwnedDockerDesktopRestartNativeHelper,
+  startDockerDesktopRestartHelper,
   type DockerDesktopRestartNativeHelperOutcome,
-} from "./native-process.ts";
+} from "../../../platform-access/src/index.ts";
 import {
   createDockerRestartMachine,
   type DockerRestartStopFailure,
@@ -137,7 +138,10 @@ export function restartDockerRuntime(input: DockerRuntimeRestartInput) {
       const root = fileURLToPath(new URL("../../../..", import.meta.url));
       const observed = observePlatformAccessArtifactCandidate(root);
       return observed.status === "candidate"
-        ? acquireRuntimeOwnedDockerDesktopRestartNativeHelper(observed.artifact)
+        ? startDockerDesktopRestartHelper(
+            observed.artifact,
+            describeDockerRuntimeArtifactTrustContract().policySha256,
+          )
         : Object.freeze({ status: "unavailable" as const, session: null });
     },
     createMachine: createDockerRestartMachine,

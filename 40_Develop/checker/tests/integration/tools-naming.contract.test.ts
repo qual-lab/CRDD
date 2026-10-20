@@ -559,15 +559,21 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
   },
   {
     relativePath: "40_Develop/platform-access/src/index.ts",
-    expectedTrace: "ARCH-000004 ARCH-000008 ARCH-000011 ARCH-000014",
+    expectedTrace:
+      "ARCH-000004 ARCH-000008 ARCH-000010 ARCH-000011 ARCH-000014 ARCH-000015",
     requiredTags: ["boundary"],
     exportedModules: [
-      "./artifact/identity-observation.ts",
-      "./windows/system-directory.ts",
-      "./windows/entry-observation.ts",
-      "./windows/local-app-data.ts",
-      "./windows/child-tree-termination.ts",
-      "./windows/child-environment.ts",
+      "./artifact/identity.ts",
+      "./filesystem/system-directory.ts",
+      "./filesystem/entry.ts",
+      "./filesystem/local-app-data.ts",
+      "./process/termination.ts",
+      "./process/environment.ts",
+      "./filesystem/root.ts",
+      "./host-record/namespace.ts",
+      "./host-record/record.ts",
+      "./docker-desktop/helper.ts",
+      "./filesystem/protection.ts",
     ],
   },
   {
@@ -911,6 +917,13 @@ type NamingViolation = Readonly<{
  */
 function collectFiles(root: string): string[] {
   const files: string[] = [];
+  const nativeRoot = path.join(
+    repositoryRoot,
+    "40_Develop",
+    "platform-access",
+    "src",
+    "native",
+  );
   for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
     if (entry.name === "node_modules" || entry.name === "dist") {
       assertGeneratedTargetDirectory(path.join(root, entry.name));
@@ -927,12 +940,24 @@ function collectFiles(root: string): string[] {
         false,
         `symbolic directory: ${target}`,
       );
-      assert.match(entry.name, KEBAB_CASE, `folder name: ${target}`);
+      assert.match(
+        entry.name,
+        isContainedPath(target, nativeRoot)
+          ? /^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$/u
+          : KEBAB_CASE,
+        `folder name: ${target}`,
+      );
       assertSourceDirectoryPath(target);
       files.push(...collectFiles(target));
       continue;
     }
     assert.ok(entry.isFile(), `unsupported filesystem entry: ${target}`);
+    if (isContainedPath(target, nativeRoot))
+      assert.equal(
+        path.extname(target),
+        ".rs",
+        `Native source must be Rust: ${target}`,
+      );
     files.push(target);
   }
   return files;
@@ -1102,9 +1127,13 @@ function assertSourceDirectoryPath(directory: string): void {
   const sourceIndex = segments.indexOf("src");
   if (sourceIndex < 1) return;
   const sourceDepth = segments.length - sourceIndex - 1;
+  const nativeSource =
+    segments[0] === "platform-access" &&
+    sourceIndex === 1 &&
+    segments[2] === "native";
   assert.ok(
-    sourceDepth <= 2,
-    `source directory depth exceeds two levels: ${directory}`,
+    sourceDepth <= (nativeSource ? 3 : 2),
+    `source directory depth exceeds ${nativeSource ? "three Native" : "two"} levels: ${directory}`,
   );
   assert.equal(
     PROHIBITED_SOURCE_DIRECTORY_NAMES.has(segments.at(-1) ?? ""),
@@ -3784,13 +3813,21 @@ test("内部実装のPathと型付きsource identifierは内部コーディン�
       const rustSourceFiles = collectOwnedRustPaths(files);
       assert.ok(rustSourceFiles.size > 0, "owned Rust population is empty");
       const rustSourceRoots = [
-        path.join(repositoryRoot, "40_Develop", "platform-access", "src"),
+        path.join(
+          repositoryRoot,
+          "40_Develop",
+          "platform-access",
+          "src",
+          "native",
+        ),
         path.join(repositoryRoot, "40_Develop", "platform-access", "tests"),
       ];
       const rustBuildScript = path.join(
         repositoryRoot,
         "40_Develop",
         "platform-access",
+        "src",
+        "native",
         "build.rs",
       );
       const rustHeaderViolations: NamingViolation[] = [];
@@ -4598,7 +4635,7 @@ test("Boolean predicateの文法は正本化した三つの閉集合だけを許
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary RCM-IT-005=Direct Boundary: checker Test Source→対象契約
  */
-test("Path classifierは不正folderと不正fileを別々に拒否する", () => {
+test("Path classifierは不正folderと不正fileを別々に拒否する", (context) => {
   const temporaryRoot = fs.mkdtempSync(
     path.join(os.tmpdir(), "crdd-tools-path-naming-"),
   );
@@ -4637,6 +4674,34 @@ test("Path classifierは不正folderと不正fileを別々に拒否する", () =
       ["owned-module.ts"],
       "an unknown sibling package must still use the shared Path classifier",
     );
+
+    let nativeEntry = "probe.rs";
+    const originalReadDirectory = fs.readdirSync;
+    const nativeRoot = path.join(
+      repositoryRoot,
+      "40_Develop",
+      "platform-access",
+      "src",
+      "native",
+    );
+    const nativeListing = context.mock.method(fs, "readdirSync", ((
+      ...args: Parameters<typeof fs.readdirSync>
+    ) => {
+      if (String(args[0]) === nativeRoot)
+        return [
+          { name: nativeEntry, isDirectory: () => false, isFile: () => true },
+        ];
+      return Reflect.apply(originalReadDirectory, fs, args);
+    }) as typeof fs.readdirSync);
+    assert.deepEqual(collectFiles(nativeRoot), [
+      path.join(nativeRoot, "probe.rs"),
+    ]);
+    nativeEntry = "probe.ts";
+    assert.throws(
+      () => collectFiles(nativeRoot),
+      /Native source must be Rust/u,
+    );
+    nativeListing.mock.restore();
 
     for (const validArtifactName of [
       "provider-settings.json",

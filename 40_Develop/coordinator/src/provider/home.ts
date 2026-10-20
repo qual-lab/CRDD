@@ -11,7 +11,7 @@ import { isSupportedWindowsAbsolutePathCandidate } from "../authority/root-path-
 import { snapshotPlainRecord } from "../../../domain-model/src/index.ts";
 import { describeProviderHomeMountGrantContract } from "./home-mount-grant.ts";
 import { describeProviderHomeMountGrantRuntimeContract } from "./home-mount-authorization.ts";
-import { describeProviderHomeObservationContract } from "../platform-access/protected-root-protocol.ts";
+import { describeProviderHomeObservationContract } from "../../../platform-access/src/index.ts";
 import {
   describeProviderHomeWindowsAdapterContract,
   inspectRuntimeOwnedWindowsProviderHomeCandidate,

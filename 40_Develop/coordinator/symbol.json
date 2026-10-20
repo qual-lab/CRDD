@@ -490,28 +490,16 @@
       ]
     },
     {
-      "symbolId": "coordinator.source.src.security.host.recovery.namespace.windows.adapter",
-      "kind": "file",
-      "path": "src/host-execution/recovery-namespace-windows-adapter.ts",
-      "archIds": [
-        "ARCH-000008",
-        "ARCH-000011"
-      ]
-    },
-    {
       "symbolId": "coordinator.test.integration.host-recovery-namespace",
       "kind": "test-suite",
       "path": "tests/integration/host-recovery-namespace.integration.test.ts",
       "qaIds": [
-        "QA-000006",
-        "QA-000010"
+        "QA-000006"
       ],
       "localTestIds": [
-        "AIT-IT-002",
         "ERB-IT-003"
       ],
       "verifies": [
-        "coordinator.source.src.security.host.recovery.namespace.windows.adapter",
         "coordinator.source.src.security.coordinator.operation.creation.internal"
       ]
     },
@@ -579,15 +567,6 @@
       ],
       "implements": [
         "coordinator.external-boundary-diagnostics"
-      ]
-    },
-    {
-      "symbolId": "coordinator.provider-home-observation",
-      "kind": "file",
-      "path": "src/platform-access/protected-root-protocol.ts",
-      "archIds": [
-        "ARCH-000010",
-        "ARCH-000015"
       ]
     },
     {
@@ -779,19 +758,16 @@
       "kind": "test-suite",
       "path": "tests/integration/development-native-observation.integration.test.ts",
       "qaIds": [
-        "QA-000006",
-        "QA-000010"
+        "QA-000006"
       ],
       "localTestIds": [
-        "AIT-IT-002",
         "ERB-IT-004"
       ],
       "verifies": [
         "coordinator.platform-access.protected-root-windows-adapter",
         "coordinator.source.src.security.development.measurement.session",
         "coordinator.source.task.development-source-observation",
-        "coordinator.source.src.security.provider.home.windows.adapter",
-        "coordinator.source.src.security.host.terminal.windows.adapter"
+        "coordinator.source.src.security.provider.home.windows.adapter"
       ]
     },
     {
@@ -2259,7 +2235,7 @@
         "AIT-UT-005"
       ],
       "verifies": [
-        "coordinator.provider-home-observation",
+        "platform-access.source.protected-root-protocol",
         "platform-access.source.windows-child-environment",
         "coordinator.source.src.security.provider.home.windows.adapter"
       ]
@@ -2608,7 +2584,7 @@
       "verifies": [
         "platform-access.source.windows-child-environment",
         "coordinator.host-execution.kernel-lock",
-        "docker-isolation.desktop.native-process",
+        "platform-access.source.desktop-helper",
         "docker-isolation.desktop.restart-machine",
         "platform-access.source.artifact-identity-observation",
         "platform-access.source.system-directory"
@@ -3580,15 +3556,6 @@
       ]
     },
     {
-      "symbolId": "coordinator.source.src.security.host.terminal.windows.adapter",
-      "kind": "file",
-      "path": "src/host-execution/terminal-windows-adapter.ts",
-      "archIds": [
-        "ARCH-000008",
-        "ARCH-000011"
-      ]
-    },
-    {
       "symbolId": "coordinator.source.src.security.host.terminal.caller.lease",
       "kind": "file",
       "path": "src/host-execution/terminal-caller-lease.ts",
@@ -3635,7 +3602,7 @@
       ],
       "verifies": [
         "coordinator.source.src.security.host.terminal.record",
-        "coordinator.source.src.security.host.terminal.windows.adapter"
+        "platform-access.source.host-record"
       ]
     },
     {
@@ -3681,40 +3648,68 @@
       "symbolId": "coordinator.verification.native-protection",
       "kind": "verification-tool",
       "path": "scripts/verify-native-protection.ts",
-      "qaIds": ["QA-000006"],
-      "localTestIds": ["ERB-IT-001", "ERB-IT-002"],
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-001",
+        "ERB-IT-002"
+      ],
       "verifies": []
     },
     {
       "symbolId": "coordinator.verification.native-terminal-namespace",
       "kind": "verification-tool",
       "path": "scripts/verify-native-terminal-namespace.ts",
-      "qaIds": ["QA-000006"],
-      "localTestIds": ["ERB-IT-001", "ERB-IT-002", "ERB-IT-003"],
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-001",
+        "ERB-IT-002",
+        "ERB-IT-003"
+      ],
       "verifies": []
     },
     {
       "symbolId": "coordinator.verification.native-terminal-fixtures",
       "kind": "verification-tool",
       "path": "scripts/verify-native-terminal-fixtures.ts",
-      "qaIds": ["QA-000006"],
-      "localTestIds": ["ERB-IT-001", "ERB-IT-002", "ERB-IT-003"],
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-001",
+        "ERB-IT-002",
+        "ERB-IT-003"
+      ],
       "verifies": []
     },
     {
       "symbolId": "coordinator.verification.native-terminal-oracles",
       "kind": "verification-tool",
       "path": "tests/fixtures/native-terminal-oracles.ts",
-      "qaIds": ["QA-000006"],
-      "localTestIds": ["ERB-IT-001", "ERB-IT-002", "ERB-IT-003"],
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-001",
+        "ERB-IT-002",
+        "ERB-IT-003"
+      ],
       "verifies": []
     },
     {
       "symbolId": "coordinator.test.integration.native-tool-process",
       "kind": "test-suite",
       "path": "tests/integration/native-tool-process.contract.test.ts",
-      "qaIds": ["QA-000006"],
-      "localTestIds": ["ERB-IT-001", "ERB-IT-002"],
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-001",
+        "ERB-IT-002"
+      ],
       "verifies": [
         "coordinator.verification.native-protection",
         "coordinator.verification.native-terminal-fixtures",
@@ -3725,8 +3720,12 @@
       "symbolId": "coordinator.test.integration.native-protection-entry",
       "kind": "test-suite",
       "path": "tests/integration/native-protection-entry.contract.test.ts",
-      "qaIds": ["QA-000006"],
-      "localTestIds": ["ERB-IT-001"],
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-001"
+      ],
       "verifies": [
         "coordinator.verification.native-protection",
         "coordinator.verification.native-terminal-namespace"
@@ -3736,9 +3735,17 @@
       "symbolId": "coordinator.test.integration.native-terminal-oracles",
       "kind": "test-suite",
       "path": "tests/integration/native-terminal-oracles.contract.test.ts",
-      "qaIds": ["QA-000006"],
-      "localTestIds": ["ERB-IT-001", "ERB-IT-002", "ERB-IT-003"],
-      "verifies": ["coordinator.verification.native-terminal-oracles"]
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-001",
+        "ERB-IT-002",
+        "ERB-IT-003"
+      ],
+      "verifies": [
+        "coordinator.verification.native-terminal-oracles"
+      ]
     }
   ]
 }

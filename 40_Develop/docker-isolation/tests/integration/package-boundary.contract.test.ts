@@ -138,7 +138,7 @@ test("逆依存・PA内部参照・未知module・非literalの取りこぼし�
       );
   }
   for (const specifier of [
-    "../../platform-access/src/windows/child-environment.ts",
+    "../../platform-access/src/process/environment.ts",
     "../../../../outside.ts",
   ])
     assert.throws(

@@ -48,7 +48,7 @@ import {
 import {
   createHostTerminalReadRequest,
   createHostTerminalSaveRequest,
-} from "../../src/host-execution/terminal-windows-adapter.ts";
+} from "../../../platform-access/src/index.ts";
 
 const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
 
@@ -159,6 +159,13 @@ test("Host Windows: caller接続は前後のreader終了未確認理由を保持
           REFERENCE: /^host-terminal\.[a-f0-9-]{36}$/u,
           snapshotPlainRecord: (value: unknown) => value,
           readHostTerminalCallerCheckpoint,
+          projectHostRecordInput: compileFunction(
+            `return (${stripTypeScriptTypes(source.slice(source.indexOf("function projectHostRecordInput("), source.indexOf("\n/**", source.indexOf("function projectHostRecordInput("))))});`,
+          )(),
+          projectDevelopmentSourceReader: runInNewContext(
+            `(${stripTypeScriptTypes(source.slice(source.indexOf("function projectDevelopmentSourceReader("), source.indexOf("const MAX_ENTRIES", source.indexOf("function projectDevelopmentSourceReader("))))})`,
+            { borrowRuntimeOwnedDevelopmentNativeObservation: () => null },
+          ),
           createHostTerminalSaveRequest,
           createHostTerminalReadRequest,
           saveHostTerminalWindowsRecord: () => {
@@ -608,6 +615,7 @@ test("Host Windows: 既知file callerは十二実体を保持し旧形式と混�
       "resolveHostTerminalLegacyGeneration",
       "resolveRepositoryRuntimeDataPaths",
       "createHash",
+      "projectDevelopmentSourceReader",
     ],
   )(
     snapshotPlainRecord,
@@ -615,6 +623,10 @@ test("Host Windows: 既知file callerは十二実体を保持し旧形式と混�
     resolveHostTerminalLegacyGeneration,
     resolveRepositoryRuntimeDataPaths,
     createHash,
+    runInNewContext(
+      `(${stripTypeScriptTypes(source.slice(source.indexOf("function projectDevelopmentSourceReader("), source.indexOf("const MAX_ENTRIES", source.indexOf("function projectDevelopmentSourceReader("))))})`,
+      { borrowRuntimeOwnedDevelopmentNativeObservation: () => null },
+    ),
   ) as (
     ...args: unknown[]
   ) => Promise<

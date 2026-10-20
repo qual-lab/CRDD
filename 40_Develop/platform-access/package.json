@@ -14,7 +14,7 @@
     "lint": "biome lint ./src ./tests --error-on-warnings",
     "test": "npm run check && npm run test:run",
     "test:run": "node --test --test-concurrency=1 \"--test-skip-pattern=^Host Windows:\" ./tests/**/*.test.ts",
-    "test:host-windows": "npm run check && node --test --test-concurrency=1 \"--test-name-pattern=^Host Windows:\" ./tests/integration/entry-observation.contract.test.ts",
+    "test:host-windows": "npm run check && node --test --test-concurrency=1 \"--test-name-pattern=^Host Windows:\" ./tests/integration/entry-observation.contract.test.ts ./tests/integration/desktop-helper.contract.test.ts",
     "rust:check": "cargo +1.94.1-x86_64-pc-windows-msvc check --frozen --all-features --target x86_64-pc-windows-msvc",
     "test:rust:unit": "cargo +1.94.1-x86_64-pc-windows-msvc test --frozen --all-features --target x86_64-pc-windows-msvc --bin crdd-platform-access",
     "test:rust:integration": "cargo +1.94.1-x86_64-pc-windows-msvc test --frozen --all-features --target x86_64-pc-windows-msvc --test cli"

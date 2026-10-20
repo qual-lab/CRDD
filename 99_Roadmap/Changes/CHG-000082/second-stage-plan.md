@@ -9,6 +9,10 @@
 
 ## 1. 結論と実行境界
 
+### Platform Accessの構造・Native接続再編 — 2026-10-20（対象作業完了・全体QAは別途）
+
+添付MDと追加合意に従い、TS公開API→Rust→OS APIへ技術接続を集約した。Host記録・Desktop補助子・上位Artifact token縮小・Rust配置・設計と利用側追従の①〜⑤を完了し、上位Capability・許可・Recovery判断は維持した。PA通常88件・DI通常293件・Rust55件、静的検査・台帳378件validが成功し、限定独立レビューは残指摘0。明示Docker試験・固定配布更新・外部AI E2Eは対象外であり、全体文書検査の既存不合格も未解消。全体QA／Releaseの完成とは扱わない。詳細な結果と保証範囲は[移管計画§11](platform-access-source-structure.md#11-①⑤の最終照合)を参照する。
+
 ### Workbench Framework導入・構造整理 — 2026-10-20（対象作業完了・全体QAは別途）
 
 人間の添付方針とAfter採用に従い、React＋Vite CSRを維持してExpress 5／React Router／TanStack Queryを導入した。HTTP・Client・共有値契約を責務で分離し、既存URL・操作・認証認可・取消終了を維持する。UX／IA・Visual再設計、MCP依存、新しいRegistry／Lock／Recoveryは追加しない。最終通常78件・全Browser15件・表示検証・CLI8件・静的89Fileが成功し、限定独立再レビューは文書是正後も残指摘0。対象1〜5を完了とする。以下の段階別結果は当時の記録とし、現在の結果は[移管計画§14](workbench-framework-structure.md#14-query画面分割共有配置と通常検査)を参照する。実AI・実Hostの人間確認・全体QA・Releaseは別途。外部AI再試行・Docker操作・②保持物削除は行っていない。
@@ -2922,6 +2926,10 @@ Packageの限定完了は未検証の全体をPassと表示しない。既知の
 - 引数再検証では既存の認証記述とClaude引数Builderを利用する。引数順序、助言経路の例外、Docker設定は不変。公開入口、Symbol、Controller試験の実装参照、Checker期待集合、Architectureを追従した。
 - AI Adapterの書式・型・Lint・回帰13件はPass。Controller／Effect結合試験126件はPass、Skip 0。変更SourceのLintとCoordinatorのSource型検査はPass。Coordinatorの試験型検査は未変更二Fileの既知18件で失敗し、全体Passとは扱わない。
 - 固定差分の限定独立レビューは指摘0。実Provider／Docker起動、認証操作、署名・配布は行っておらず、これらの実境界成立の証拠ではない。
+
+### Platform Accessの最終移管結果 — 2026-10-20
+
+①Host記録の技術実行、②Desktop補助子、③上位Artifact token撤去、④Rust配置と試験分離、⑤設計・公開API・利用側・検査接続を完了した。通常回帰と限定独立レビューは残指摘0。結果・維持境界・未実行範囲は[Source構造対応表§11](platform-access-source-structure.md#11-①⑤の最終照合)を正本とする。以下の保証棚卸しは着手時の基準記録であり、現在のPathと完了状態は対応表を参照する。配布更新・実Docker操作・外部AI再試行・保持中②の削除は実施していない。
 
 ### Platform Accessの保証・利用側照合
 

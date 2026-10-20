@@ -298,7 +298,7 @@
       ],
       "verifies": [
         "docker-isolation.desktop.runtime-directory",
-        "docker-isolation.desktop.native-process",
+        "platform-access.source.desktop-helper",
         "docker-isolation.desktop.backend-state",
         "docker-isolation.package-api"
       ]
@@ -324,38 +324,6 @@
       "verifies": [
         "docker-isolation.desktop.runtime-directory",
         "docker-isolation.package-api"
-      ]
-    },
-    {
-      "symbolId": "docker-isolation.test.integration.native-process",
-      "kind": "test-suite",
-      "path": "tests/integration/native-process.contract.test.ts",
-      "qaIds": [
-        "QA-000006"
-      ],
-      "localTestIds": [
-        "ERB-IT-001"
-      ],
-      "verifies": [
-        "docker-isolation.desktop.native-process",
-        "docker-isolation.desktop.native-process-lifecycle",
-        "docker-isolation.execution.cli-trust"
-      ]
-    },
-    {
-      "symbolId": "docker-isolation.desktop.native-process",
-      "kind": "module",
-      "path": "src/desktop/native-process.ts",
-      "archIds": [
-        "ARCH-000008"
-      ]
-    },
-    {
-      "symbolId": "docker-isolation.desktop.native-process-lifecycle",
-      "kind": "module",
-      "path": "src/desktop/native-process-lifecycle.ts",
-      "archIds": [
-        "ARCH-000008"
       ]
     },
     {

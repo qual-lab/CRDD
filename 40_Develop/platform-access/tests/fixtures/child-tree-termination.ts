@@ -43,11 +43,9 @@ const environment = Object.freeze({
   PATH: "",
   NODE_OPTIONS: "",
 });
-const commonEnvironment = await import(
-  "../../src/windows/child-environment.ts"
-);
+const commonEnvironment = await import("../../src/process/environment.ts");
 await mock.module(
-  new URL("../../src/windows/child-environment.ts", import.meta.url).href,
+  new URL("../../src/process/environment.ts", import.meta.url).href,
   {
     namedExports: {
       ...commonEnvironment,

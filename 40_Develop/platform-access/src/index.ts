@@ -2,8 +2,8 @@
  * Platform AccessのNode公開境界。
  *
  * @packageDocumentation
- * @responsibility Native Artifact同一性、固定Windows Directory観測と用途固定の共通子Process環境を公開する。
- * @trace ARCH-000004 ARCH-000008 ARCH-000011 ARCH-000014
+ * @responsibility 固定Native観測、保護Root／Homeの技術搬送と用途固定の共通子Process環境を公開する。
+ * @trace ARCH-000004 ARCH-000008 ARCH-000010 ARCH-000011 ARCH-000014 ARCH-000015
  * @boundary Filesystem読取り、固定Native Processと用途固定の環境導出。権限・raw I/O・任意環境builder・内部実体は公開しない。
  */
 export {
@@ -12,22 +12,20 @@ export {
   PLATFORM_ACCESS_PROTOCOL_REVISION,
   PLATFORM_ACCESS_EXECUTABLE_MAXIMUM_BYTES,
   PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH,
-  beginPlatformAccessArtifactObservation,
-  beginPlatformAccessBootstrapObservation,
-  verifyPlatformAccessArtifactObservation,
+  observeNativeArtifact,
   observePlatformAccessArtifactCandidate,
-} from "./artifact/identity-observation.ts";
-export { observeSystemWindowsDirectory } from "./windows/system-directory.ts";
-export { observeWindowsLocalAppDataDirectory } from "./windows/local-app-data.ts";
+} from "./artifact/identity.ts";
+export { observeSystemWindowsDirectory } from "./filesystem/system-directory.ts";
+export { observeWindowsLocalAppDataDirectory } from "./filesystem/local-app-data.ts";
 export {
   observeWindowsFilesystemEntry,
   type WindowsEntryObservation,
-} from "./windows/entry-observation.ts";
+} from "./filesystem/entry.ts";
 export {
   startWindowsChildTreeTermination,
   type ChildTreeTerminationHandle,
   type ChildTreeTerminationResult,
-} from "./windows/child-tree-termination.ts";
+} from "./process/termination.ts";
 export {
   WINDOWS_CHILD_ENVIRONMENT_CONTRACT,
   WINDOWS_CHILD_ENVIRONMENT_CONTRACT_REVISION,
@@ -40,4 +38,39 @@ export {
   createWindowsPowerShellAuthenticodeEnvironment,
   deriveWindowsSystemDrive,
   describeWindowsChildEnvironmentContract,
-} from "./windows/child-environment.ts";
+} from "./process/environment.ts";
+export {
+  observeWindowsRuntimeState,
+  observeWindowsProviderHome,
+  type DevelopmentNativeSource,
+  type DevelopmentNativeSourceReader,
+} from "./filesystem/root.ts";
+export {
+  describeProviderHomeObservationContract,
+  type ProviderHomeObservationProvider,
+} from "./filesystem/protection.ts";
+export { initializeWindowsHostRecordNamespace } from "./host-record/namespace.ts";
+export {
+  startDockerDesktopRepairHelper,
+  startDockerDesktopRestartHelper,
+  requestDockerDesktopOfficialShutdown,
+  type DockerDesktopRepairNativeHelperOutcome,
+  type DockerDesktopRepairNativeHelperSession,
+  type DockerDesktopRepairHelperReleaseOutcome,
+  type DockerDesktopRestartNativeHelperOutcome,
+} from "./docker-desktop/helper.ts";
+export {
+  createHostTerminalCurrentObservationRequest,
+  createHostTerminalReadRequest,
+  createHostTerminalSaveRequest,
+  createKnownFileHostTerminalCurrentObservationRequest,
+  createKnownFileHostTerminalReadRequest,
+  createKnownFileHostTerminalSaveRequest,
+  observeHostTerminalWindowsCandidate,
+  observeKnownFileHostTerminalWindowsCandidate,
+  readHostTerminalWindowsRecord,
+  readKnownFileHostTerminalWindowsRecord,
+  saveHostTerminalWindowsRecord,
+  saveKnownFileHostTerminalWindowsRecord,
+  type HostTerminalWindowsIdentity,
+} from "./host-record/record.ts";

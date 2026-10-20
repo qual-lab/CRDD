@@ -4,235 +4,416 @@
   "subsystem": "platform-access",
   "symbols": [
     {
+      "symbolId": "platform-access.source.protected-root-protocol",
+      "kind": "module",
+      "path": "src/filesystem/protection.ts",
+      "archIds": [
+        "ARCH-000010",
+        "ARCH-000015"
+      ]
+    },
+    {
+      "symbolId": "platform-access.source.protected-root-native",
+      "kind": "module",
+      "path": "src/filesystem/root.ts",
+      "archIds": [
+        "ARCH-000008",
+        "ARCH-000010",
+        "ARCH-000015"
+      ]
+    },
+    {
+      "symbolId": "platform-access.test.integration.root-observation",
+      "kind": "test-suite",
+      "path": "tests/integration/root-observation.contract.test.ts",
+      "qaIds": [
+        "QA-000006",
+        "QA-000010"
+      ],
+      "localTestIds": [
+        "AIT-IT-002",
+        "ERB-IT-004"
+      ],
+      "verifies": [
+        "platform-access.source.protected-root-native",
+        "platform-access.source.protected-root-protocol"
+      ]
+    },
+    {
       "symbolId": "platform-access.test.unit.entry-observation",
       "kind": "test-suite",
-      "path": "src/filesystem/entry_observation.rs",
-      "qaIds": ["QA-000006"],
-      "localTestIds": ["ERB-UT-039"],
-      "verifies": ["platform-access.source.native-entry-observation"]
+      "path": "src/native/filesystem/windows/entry_observation.rs",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-UT-039"
+      ],
+      "verifies": [
+        "platform-access.source.native-entry-observation"
+      ]
     },
     {
       "symbolId": "platform-access.source.entry-observation",
       "kind": "module",
-      "path": "src/windows/entry-observation.ts",
-      "archIds": ["ARCH-000008"]
+      "path": "src/filesystem/entry.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
     },
     {
       "symbolId": "platform-access.source.native-entry-observation",
       "kind": "module",
-      "path": "src/filesystem/entry_observation.rs",
-      "archIds": ["ARCH-000008"]
+      "path": "src/native/filesystem/windows/entry_observation.rs",
+      "archIds": [
+        "ARCH-000008"
+      ]
     },
     {
       "symbolId": "platform-access.test.integration.entry-observation",
       "kind": "test-suite",
       "path": "tests/integration/entry-observation.contract.test.ts",
-      "qaIds": ["QA-000006"],
-      "localTestIds": ["ERB-IT-001", "ERB-IT-002"],
-      "verifies": ["platform-access.source.entry-observation", "platform-access.source.public-api"]
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-001",
+        "ERB-IT-002"
+      ],
+      "verifies": [
+        "platform-access.source.entry-observation",
+        "platform-access.source.public-api"
+      ]
     },
     {
       "symbolId": "platform-access.source.local-app-data",
       "kind": "module",
-      "path": "src/windows/local-app-data.ts",
-      "archIds": ["ARCH-000008"]
+      "path": "src/filesystem/local-app-data.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
     },
     {
       "symbolId": "platform-access.test.integration.local-app-data",
       "kind": "test-suite",
       "path": "tests/integration/local-app-data.contract.test.ts",
-      "qaIds": ["QA-000006"],
-      "localTestIds": ["ERB-IT-001", "ERB-IT-002"],
-      "verifies": ["platform-access.source.local-app-data", "platform-access.source.windows-directory", "platform-access.source.public-api"]
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-001",
+        "ERB-IT-002"
+      ],
+      "verifies": [
+        "platform-access.source.local-app-data",
+        "platform-access.source.windows-directory",
+        "platform-access.source.public-api"
+      ]
     },
     {
       "symbolId": "platform-access.source.windows-child-environment",
       "kind": "module",
-      "path": "src/windows/child-environment.ts",
-      "archIds": ["ARCH-000008", "ARCH-000011"]
+      "path": "src/process/environment.ts",
+      "archIds": [
+        "ARCH-000008",
+        "ARCH-000011"
+      ]
     },
     {
       "symbolId": "platform-access.source.public-api",
       "kind": "module",
       "path": "src/index.ts",
-      "archIds": ["ARCH-000004", "ARCH-000008", "ARCH-000011", "ARCH-000014"]
+      "archIds": [
+        "ARCH-000004",
+        "ARCH-000008",
+        "ARCH-000011",
+        "ARCH-000014"
+      ]
     },
     {
       "symbolId": "platform-access.test.integration.system-directory",
       "kind": "test-suite",
       "path": "tests/integration/system-directory.contract.test.ts",
-      "qaIds": ["QA-000006"],
-      "localTestIds": ["ERB-IT-001", "ERB-IT-002"],
-      "verifies": ["platform-access.source.system-directory"]
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-001",
+        "ERB-IT-002"
+      ],
+      "verifies": [
+        "platform-access.source.system-directory"
+      ]
     },
     {
       "symbolId": "platform-access.test.integration.child-tree-termination",
       "kind": "test-suite",
       "path": "tests/integration/child-tree-termination.contract.test.ts",
-      "qaIds": ["QA-000006"],
-      "localTestIds": ["ERB-IT-002"],
-      "verifies": ["platform-access.source.child-tree-termination"]
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-002"
+      ],
+      "verifies": [
+        "platform-access.source.child-tree-termination"
+      ]
     },
     {
       "symbolId": "platform-access.source.artifact-identity-observation",
       "kind": "module",
-      "path": "src/artifact/identity-observation.ts",
-      "archIds": ["ARCH-000014"]
+      "path": "src/artifact/identity.ts",
+      "archIds": [
+        "ARCH-000014"
+      ]
     },
     {
       "symbolId": "platform-access.source.system-directory",
       "kind": "module",
-      "path": "src/windows/system-directory.ts",
-      "archIds": ["ARCH-000004"]
+      "path": "src/filesystem/system-directory.ts",
+      "archIds": [
+        "ARCH-000004"
+      ]
     },
     {
       "symbolId": "platform-access.source.child-tree-termination",
       "kind": "module",
-      "path": "src/windows/child-tree-termination.ts",
-      "archIds": ["ARCH-000008"]
+      "path": "src/process/termination.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
     },
     {
       "symbolId": "platform-access.test.integration.artifact-identity-observation",
       "kind": "test-suite",
       "path": "tests/integration/artifact-identity-observation.contract.test.ts",
-      "qaIds": ["QA-000006"],
-      "localTestIds": ["ERB-IT-001", "ERB-IT-002"],
-      "verifies": ["platform-access.source.artifact-identity-observation", "platform-access.source.public-api"]
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-001",
+        "ERB-IT-002"
+      ],
+      "verifies": [
+        "platform-access.source.artifact-identity-observation",
+        "platform-access.source.public-api"
+      ]
     },
     {
       "symbolId": "platform-access.source.terminal-target",
       "kind": "module",
-      "path": "src/filesystem/terminal_target.rs",
-      "archIds": ["ARCH-000011"]
+      "path": "src/native/host_record/windows/terminal_target.rs",
+      "archIds": [
+        "ARCH-000011"
+      ]
     },
     {
       "symbolId": "platform-access.source.protected-file",
       "kind": "module",
-      "path": "src/filesystem/protected_file.rs",
-      "archIds": ["ARCH-000008", "ARCH-000011"]
+      "path": "src/native/host_record/windows/protected_file.rs",
+      "archIds": [
+        "ARCH-000008",
+        "ARCH-000011"
+      ]
     },
     {
       "symbolId": "platform-access.source.host-namespace",
       "kind": "module",
-      "path": "src/filesystem/host_namespace.rs",
-      "archIds": ["ARCH-000008", "ARCH-000011"]
+      "path": "src/native/host_record/windows/host_namespace.rs",
+      "archIds": [
+        "ARCH-000008",
+        "ARCH-000011"
+      ]
     },
     {
       "symbolId": "platform-access.source.provider-home",
       "kind": "module",
-      "path": "src/filesystem/protected_root.rs",
-      "archIds": ["ARCH-000008", "ARCH-000011"]
+      "path": "src/native/filesystem/windows/protected_root.rs",
+      "archIds": [
+        "ARCH-000008",
+        "ARCH-000011"
+      ]
     },
     {
       "symbolId": "platform-access.source.process",
       "kind": "module",
-      "path": "src/process/mod.rs",
-      "archIds": ["ARCH-000008", "ARCH-000011"]
+      "path": "src/native/process/mod.rs",
+      "archIds": [
+        "ARCH-000008",
+        "ARCH-000011"
+      ]
     },
     {
       "symbolId": "platform-access.source.principal",
       "kind": "module",
-      "path": "src/process/principal.rs",
-      "archIds": ["ARCH-000008", "ARCH-000011"]
+      "path": "src/native/process/windows/principal.rs",
+      "archIds": [
+        "ARCH-000008",
+        "ARCH-000011"
+      ]
     },
     {
       "symbolId": "platform-access.source.protection",
       "kind": "module",
-      "path": "src/filesystem/protection.rs",
-      "archIds": ["ARCH-000008", "ARCH-000011"]
+      "path": "src/native/filesystem/windows/protection.rs",
+      "archIds": [
+        "ARCH-000008",
+        "ARCH-000011"
+      ]
     },
     {
       "symbolId": "platform-access.source.filesystem",
       "kind": "module",
-      "path": "src/filesystem/mod.rs",
-      "archIds": ["ARCH-000008", "ARCH-000011"]
+      "path": "src/native/filesystem/mod.rs",
+      "archIds": [
+        "ARCH-000008",
+        "ARCH-000011"
+      ]
     },
     {
       "symbolId": "platform-access.source.windows-directory",
       "kind": "module",
-      "path": "src/filesystem/windows_directory.rs",
-      "archIds": ["ARCH-000008", "ARCH-000011"]
+      "path": "src/native/filesystem/windows/windows_directory.rs",
+      "archIds": [
+        "ARCH-000008",
+        "ARCH-000011"
+      ]
     },
     {
       "symbolId": "platform-access.source.protocol",
       "kind": "module",
-      "path": "src/protocol/mod.rs",
-      "archIds": ["ARCH-000004", "ARCH-000008", "ARCH-000011"]
+      "path": "src/native/protocol/mod.rs",
+      "archIds": [
+        "ARCH-000004",
+        "ARCH-000008",
+        "ARCH-000011"
+      ]
     },
     {
       "symbolId": "platform-access.source.docker-desktop",
       "kind": "module",
-      "path": "src/docker-desktop/mod.rs",
-      "archIds": ["ARCH-000008", "ARCH-000014"]
+      "path": "src/native/docker_desktop/mod.rs",
+      "archIds": [
+        "ARCH-000008",
+        "ARCH-000014"
+      ]
     },
     {
       "symbolId": "platform-access.source.docker-repair",
       "kind": "module",
-      "path": "src/docker-desktop/repair.rs",
-      "archIds": ["ARCH-000008"]
+      "path": "src/native/docker_desktop/windows/repair.rs",
+      "archIds": [
+        "ARCH-000008"
+      ]
     },
     {
       "symbolId": "platform-access.source.docker-identity",
       "kind": "module",
-      "path": "src/docker-desktop/identity.rs",
-      "archIds": ["ARCH-000008", "ARCH-000014"]
+      "path": "src/native/docker_desktop/windows/identity.rs",
+      "archIds": [
+        "ARCH-000008",
+        "ARCH-000014"
+      ]
     },
     {
       "symbolId": "platform-access.source.host-namespace-protocol",
       "kind": "module",
-      "path": "src/protocol/host_namespace.rs",
-      "archIds": ["ARCH-000008", "ARCH-000011"]
+      "path": "src/native/protocol/host_namespace.rs",
+      "archIds": [
+        "ARCH-000008",
+        "ARCH-000011"
+      ]
     },
     {
       "symbolId": "platform-access.test.integration.host-namespace-protocol",
       "kind": "test-suite",
-      "path": "src/protocol/host_namespace.rs",
-      "qaIds": ["QA-000006"],
-      "localTestIds": ["ERB-IT-003"],
-      "verifies": ["platform-access.source.host-namespace-protocol"]
+      "path": "src/native/protocol/host_namespace.rs",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-003"
+      ],
+      "verifies": [
+        "platform-access.source.host-namespace-protocol"
+      ]
     },
     {
       "symbolId": "platform-access.test.integration.host-namespace-creation",
       "kind": "test-suite",
       "path": "tests/fixtures/host_namespace_creation.rs",
-      "qaIds": ["QA-000006"],
-      "localTestIds": ["ERB-IT-003"],
-      "verifies": ["platform-access.source.windows-terminal", "platform-access.source.host-namespace", "platform-access.source.host-namespace-protocol"]
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-003"
+      ],
+      "verifies": [
+        "platform-access.source.windows-terminal",
+        "platform-access.source.host-namespace",
+        "platform-access.source.host-namespace-protocol"
+      ]
     },
     {
       "symbolId": "platform-access.source.terminal-protocol",
       "kind": "module",
-      "path": "src/protocol/host_record.rs",
-      "archIds": ["ARCH-000008", "ARCH-000011"]
+      "path": "src/native/protocol/host_record.rs",
+      "archIds": [
+        "ARCH-000008",
+        "ARCH-000011"
+      ]
     },
     {
       "symbolId": "platform-access.test.unit.terminal-protocol",
       "kind": "test-suite",
-      "path": "src/protocol/host_record.rs",
-      "qaIds": ["QA-000003"],
-      "localTestIds": ["PRL-UT-006"],
-      "verifies": ["platform-access.source.terminal-protocol"]
+      "path": "src/native/protocol/host_record.rs",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-UT-006"
+      ],
+      "verifies": [
+        "platform-access.source.terminal-protocol"
+      ]
     },
     {
       "symbolId": "platform-access.test.integration.windows-protection",
       "kind": "test-suite",
       "path": "tests/fixtures/windows_protection.rs",
-      "qaIds": ["QA-000006"],
-      "localTestIds": ["ERB-IT-001", "ERB-IT-002"],
-      "verifies": ["platform-access.native-entry"]
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-001",
+        "ERB-IT-002"
+      ],
+      "verifies": [
+        "platform-access.native-entry"
+      ]
     },
     {
       "symbolId": "platform-access.source.windows-terminal",
       "kind": "module",
-      "path": "src/filesystem/host_record.rs",
-      "archIds": ["ARCH-000008", "ARCH-000011", "ARCH-000015"]
+      "path": "src/native/host_record/windows/record.rs",
+      "archIds": [
+        "ARCH-000008",
+        "ARCH-000011",
+        "ARCH-000015"
+      ]
     },
     {
       "symbolId": "platform-access.test.integration.windows-terminal",
       "kind": "test-suite",
-      "path": "src/filesystem/host_record.rs",
-      "qaIds": ["QA-000006"],
-      "localTestIds": ["ERB-IT-001", "ERB-IT-002", "ERB-IT-003"],
+      "path": "tests/integration/host-record.rs",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-001",
+        "ERB-IT-002",
+        "ERB-IT-003"
+      ],
       "verifies": [
         "platform-access.source.windows-terminal",
         "platform-access.source.terminal-target",
@@ -244,7 +425,7 @@
     {
       "symbolId": "platform-access.native-entry",
       "kind": "module",
-      "path": "src/main.rs",
+      "path": "src/native/main.rs",
       "archIds": [
         "ARCH-000004",
         "ARCH-000008",
@@ -254,7 +435,7 @@
     {
       "symbolId": "platform-access.test.unit.protocol",
       "kind": "test-suite",
-      "path": "src/protocol/access.rs",
+      "path": "src/native/protocol/access.rs",
       "qaIds": [
         "QA-000001"
       ],
@@ -268,12 +449,14 @@
     {
       "symbolId": "platform-access.test.unit.docker-repair",
       "kind": "test-suite",
-      "path": "src/docker-desktop/repair.rs",
+      "path": "src/native/docker_desktop/windows/repair.rs",
       "qaIds": [
-        "QA-000003", "QA-000006"
+        "QA-000003",
+        "QA-000006"
       ],
       "localTestIds": [
-        "ERB-UT-037", "PRL-UT-006"
+        "ERB-UT-037",
+        "PRL-UT-006"
       ],
       "verifies": [
         "platform-access.native-entry",
@@ -284,7 +467,7 @@
     {
       "symbolId": "platform-access.test.unit.main",
       "kind": "test-suite",
-      "path": "src/main.rs",
+      "path": "src/native/main.rs",
       "qaIds": [
         "QA-000003"
       ],
@@ -298,7 +481,7 @@
     {
       "symbolId": "platform-access.test.unit.windows",
       "kind": "test-suite",
-      "path": "src/filesystem/root_observation.rs",
+      "path": "src/native/filesystem/windows/root_observation.rs",
       "qaIds": [
         "QA-000008"
       ],
@@ -313,9 +496,23 @@
       ]
     },
     {
+      "symbolId": "platform-access.test.integration.windows-entry-diagnostic",
+      "kind": "test-suite",
+      "path": "tests/integration/windows-entry-diagnostic.rs",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-001"
+      ],
+      "verifies": [
+        "platform-access.source.native-entry-observation"
+      ]
+    },
+    {
       "symbolId": "platform-access.test.integration.cli",
       "kind": "test-suite",
-      "path": "tests/cli.rs",
+      "path": "tests/integration/native-cli.rs",
       "qaIds": [
         "QA-000006"
       ],
@@ -331,7 +528,7 @@
     {
       "symbolId": "platform-access.test.unit.docker-authenticode",
       "kind": "test-suite",
-      "path": "src/docker-desktop/publisher.rs",
+      "path": "src/native/docker_desktop/windows/publisher.rs",
       "qaIds": [
         "QA-000010"
       ],
@@ -345,7 +542,7 @@
     {
       "symbolId": "platform-access.test.unit.windows-directory",
       "kind": "test-suite",
-      "path": "src/filesystem/windows_directory.rs",
+      "path": "src/native/filesystem/windows/windows_directory.rs",
       "qaIds": [
         "QA-000006",
         "QA-000008"
@@ -362,7 +559,7 @@
     {
       "symbolId": "platform-access.test.unit.windows-owned-child",
       "kind": "test-suite",
-      "path": "src/process/owned_child.rs",
+      "path": "src/native/process/windows/owned_child.rs",
       "qaIds": [
         "QA-000008"
       ],
@@ -371,6 +568,130 @@
       ],
       "verifies": [
         "platform-access.native-entry"
+      ]
+    },
+    {
+      "symbolId": "platform-access.source.host-record-namespace",
+      "kind": "module",
+      "path": "src/host-record/namespace.ts",
+      "archIds": [
+        "ARCH-000008",
+        "ARCH-000011"
+      ]
+    },
+    {
+      "symbolId": "platform-access.test.integration.host-record-namespace",
+      "kind": "test-suite",
+      "path": "tests/integration/host-record-namespace.contract.test.ts",
+      "qaIds": [
+        "QA-000006",
+        "QA-000010"
+      ],
+      "localTestIds": [
+        "AIT-IT-002",
+        "ERB-IT-003"
+      ],
+      "verifies": [
+        "platform-access.source.host-record-namespace"
+      ]
+    },
+    {
+      "symbolId": "platform-access.test.unit.protection",
+      "kind": "test-suite",
+      "path": "tests/unit/filesystem/protection.contract.test.ts",
+      "qaIds": [
+        "QA-000010"
+      ],
+      "localTestIds": [
+        "AIT-UT-005"
+      ],
+      "verifies": [
+        "platform-access.source.protected-root-protocol"
+      ]
+    },
+    {
+      "symbolId": "platform-access.test.unit.host-record-environment",
+      "kind": "test-suite",
+      "path": "tests/unit/process/environment.contract.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-UT-006"
+      ],
+      "verifies": [
+        "platform-access.source.windows-child-environment"
+      ]
+    },
+    {
+      "symbolId": "platform-access.source.desktop-helper",
+      "kind": "module",
+      "path": "src/docker-desktop/helper.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "platform-access.source.desktop-protocol",
+      "kind": "module",
+      "path": "src/docker-desktop/protocol.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "platform-access.test.integration.desktop-helper",
+      "kind": "test-suite",
+      "path": "tests/integration/desktop-helper.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-001"
+      ],
+      "verifies": [
+        "platform-access.source.desktop-helper",
+        "platform-access.source.desktop-protocol",
+        "docker-isolation.execution.cli-trust"
+      ]
+    },
+    {
+      "symbolId": "platform-access.source.host-record",
+      "kind": "file",
+      "path": "src/host-record/record.ts",
+      "archIds": [
+        "ARCH-000008",
+        "ARCH-000011"
+      ]
+    },
+    {
+      "symbolId": "platform-access.test.unit.host-record",
+      "kind": "test-suite",
+      "path": "tests/unit/host-record/record.contract.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-UT-006"
+      ],
+      "verifies": [
+        "platform-access.source.host-record"
+      ]
+    },
+    {
+      "symbolId": "platform-access.test.integration.host-record-native-observation",
+      "kind": "test-suite",
+      "path": "tests/integration/host-record-native-observation.contract.test.ts",
+      "qaIds": [
+        "QA-000006",
+        "QA-000010"
+      ],
+      "localTestIds": [
+        "AIT-IT-002",
+        "ERB-IT-004"
+      ],
+      "verifies": [
+        "platform-access.source.host-record"
       ]
     }
   ]

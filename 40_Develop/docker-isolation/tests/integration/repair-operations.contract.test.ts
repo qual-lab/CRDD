@@ -14,8 +14,11 @@ import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
 import { runInThisContext } from "node:vm";
 import { types } from "node:util";
+import {
+  dockerDesktopDistributionRoot,
+  describeDockerRuntimeArtifactTrustContract,
+} from "../../src/execution/cli-trust.ts";
 import { runDockerRuntimeRepairMachine } from "../../src/desktop/repair-machine.ts";
-import { dockerDesktopDistributionRoot } from "../../src/desktop/native-process.ts";
 import { createDockerDesktopRepairOperations as operations } from "../../src/desktop/repair-operations.ts";
 import { runDockerRuntimeRepairSessionUsing as run } from "../../src/desktop/repair-runtime.ts";
 import {
@@ -24,7 +27,7 @@ import {
   prepareDockerRuntimeRepairSessionCheckpoint,
   type DockerRuntimeRepairCheckpoint as Checkpoint,
 } from "../../src/desktop/repair-checkpoint.ts";
-import type { DockerDesktopRepairNativeHelperSession as Session } from "../../src/desktop/native-process.ts";
+import type { DockerDesktopRepairNativeHelperSession as Session } from "../../../platform-access/src/index.ts";
 
 /**
  * 三対象・同Native子・Engineの模擬実境界を構成する。
@@ -428,8 +431,9 @@ async function productionComposition(
     .replaceAll("export async function", "async function");
   const result = await f.execute(async (input, dependencies) => {
     const main = runInThisContext(
-      `((types, decode, prepareDockerRuntimeRepairSessionCheckpoint, runDockerRuntimeRepairMachine, dockerDesktopDistributionRoot, observePlatformAccessArtifactCandidate, acquireRuntimeOwnedDockerDesktopRepairNativeHelper, observeWindowsLocalAppDataDirectory, createDockerDesktopRepairDirectoryAccess, createDockerDesktopRepairOperations) => { ${body}; return runDockerRuntimeRepairSession; })`,
+      `((describeDockerRuntimeArtifactTrustContract, types, decode, prepareDockerRuntimeRepairSessionCheckpoint, runDockerRuntimeRepairMachine, dockerDesktopDistributionRoot, observePlatformAccessArtifactCandidate, startDockerDesktopRepairHelper, observeWindowsLocalAppDataDirectory, createDockerDesktopRepairDirectoryAccess, createDockerDesktopRepairOperations) => { ${body}; return runDockerRuntimeRepairSession; })`,
     )(
+      describeDockerRuntimeArtifactTrustContract,
       types,
       decode,
       prepareDockerRuntimeRepairSessionCheckpoint,

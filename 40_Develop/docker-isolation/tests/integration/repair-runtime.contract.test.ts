@@ -23,7 +23,7 @@ import {
   prepareDockerRuntimeRepairSessionCheckpoint,
   type DockerRuntimeRepairCheckpoint as Checkpoint,
 } from "../../src/desktop/repair-checkpoint.ts";
-import type { DockerDesktopRepairNativeHelperSession as Session } from "../../src/desktop/native-process.ts";
+import type { DockerDesktopRepairNativeHelperSession as Session } from "../../../platform-access/src/index.ts";
 
 /**
  * 同じ子のclose回数と通知解除を観測する。

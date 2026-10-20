@@ -295,7 +295,7 @@ fn run_protection_probe_worker(role: &str, cutoff: u64) -> Result<(), &'static s
         return Err("worker_start_cutoff");
     }
     let command = format!(
-        "\"{}\" --exact filesystem::host_record::protection_tests::terminal_protection_fixture_worker --ignored --nocapture --test-threads=1",
+        "\"{}\" --exact host_record::record::protection_tests::terminal_protection_fixture_worker --ignored --nocapture --test-threads=1",
         executable.display()
     );
     let environment = format!(

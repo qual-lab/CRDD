@@ -1,39 +1,17 @@
 /**
- * Windows Native Helperへ保護Rootの観測を接続する。
+ * 保護Rootの技術観測をRuntime Stateの上位Capabilityへ結合する。
  *
- * @responsibility Runtime Stateの固定Root・主体・保護Bindingを検証する。
+ * @responsibility Root用途の選択、開発観測の借用、Capability発行・消費を所有する。Native搬送とArtifact確認はPlatform Accessへ委譲する。
  * @trace ARCH-000015
  */
-import { spawnSync } from "node:child_process";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import {
-  createWindowsNativeHelperEnvironment,
+  observeWindowsRuntimeState,
   WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE,
 } from "../../../platform-access/src/index.ts";
 import { isSupportedWindowsAbsolutePathCandidate } from "../authority/root-path-lexical.ts";
 import { borrowRuntimeOwnedDevelopmentNativeObservation } from "../task/development-measurement-session.ts";
-import {
-  beginPlatformAccessArtifactObservation,
-  beginPlatformAccessBootstrapObservation,
-  observePlatformAccessArtifactCandidate,
-  PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH,
-  verifyPlatformAccessArtifactObservation,
-} from "../../../platform-access/src/index.ts";
-import {
-  createRuntimeStateObservationRequest,
-  evaluateRuntimeStateObservationResponseCandidate,
-  PROVIDER_HOME_OBSERVATION_RESPONSE_BYTES,
-} from "./protected-root-protocol.ts";
 
-const HELPER_TIMEOUT_MS = 5_000;
-const bundledDistributionRoot = fileURLToPath(
-  new URL("../../../..", import.meta.url),
-);
-const executablePath = path.join(
-  bundledDistributionRoot,
-  ...PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH.split("/"),
-);
 const rootCapabilities = new WeakMap<
   object,
   Readonly<{
@@ -45,57 +23,6 @@ const rootCapabilities = new WeakMap<
     stableLogicalHomeBindingHash: string;
   }>
 >();
-
-/**
- * runtime-state-windows-adapterで使用するArtifactの値契約を定義する。
- *
- * @responsibility ArtifactのProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000015
- * @shape Artifactが表すProperty、識別子およびRelationを型として固定する。
- * @invariant Artifactで宣言した値と責務の対応を維持する。
- * @boundary N/A: Artifactの宣言は外部境界を開かない。
- * @security ArtifactはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility Artifactの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-type Artifact = Readonly<{
-  relativePath: string;
-  target: string;
-  protocolRevision: number;
-  rustToolchain: string;
-  byteLength: number;
-  sha256: string;
-}>;
-
-/**
- * Artifactが同一かを判定する。
- *
- * @responsibility Artifactの同一性Propertyと一致／不一致境界を所有する。
- * @trace ARCH-000015
- * @input left: unknown、right: unknown
- * @returns sameArtifactの計算結果を返す。
- * @precondition 「left: unknown、right: unknown」がsameArtifactの入力契約を満たす。
- * @postcondition sameArtifactの責務を完了した結果だけを返す。
- * @effect N/A: sameArtifactは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: sameArtifactは独自の失敗分岐を所有しない。
- * @invariant sameArtifactは入力から導いた結果以外の共有状態を変更しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
- * @security sameArtifactはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: sameArtifactは共有非同期状態を持たない同期処理である。
- */
-function sameArtifact(left: unknown, right: unknown) {
-  if (!left || !right || typeof left !== "object" || typeof right !== "object")
-    return false;
-  const first = left as Partial<Artifact>;
-  const second = right as Partial<Artifact>;
-  return (
-    first.relativePath === second.relativePath &&
-    first.target === second.target &&
-    first.protocolRevision === second.protocolRevision &&
-    first.rustToolchain === second.rustToolchain &&
-    first.byteLength === second.byteLength &&
-    first.sha256 === second.sha256
-  );
-}
 
 /**
  * runtime-state-windows-adapterを停止結果として構築する。
@@ -205,129 +132,39 @@ function inspectRuntimeOwnedWindowsProtectedRoot(
   if (process.platform !== "win32")
     return blocked("runtime_state_windows_adapter_platform_unsupported");
   const rootPath = rootPathCandidate();
-  const request = createRuntimeStateObservationRequest(
+  if (!rootPath) return blocked("runtime_state_windows_adapter_root_invalid");
+  const native = observeWindowsRuntimeState(
     rootPath,
     initializeIfMissing,
-  );
-  if (!rootPath || !request)
-    return blocked("runtime_state_windows_adapter_root_invalid");
-  const development =
     developmentContext === undefined
-      ? null
-      : borrowRuntimeOwnedDevelopmentNativeObservation(
-          developmentContext as object,
-          initializeIfMissing === true,
-        );
-  if (developmentContext !== undefined && !development)
-    return blocked("runtime_state_windows_adapter_development_context_invalid");
-  const distributionRoot =
-    development?.distributionRoot ?? bundledDistributionRoot;
-  const bootstrap = development
-    ? null
-    : beginPlatformAccessBootstrapObservation(distributionRoot);
-  const expectedArtifact = development
-    ? development.verification.status === "candidate"
-      ? development.verification.platformAccessArtifact
-      : null
-    : bootstrap?.artifact;
-  if (!expectedArtifact)
-    return blocked(
-      "runtime_state_windows_adapter_artifact_bootstrap_unavailable",
-    );
-  const artifactBefore =
-    observePlatformAccessArtifactCandidate(distributionRoot);
-  const artifactObservation = development
-    ? beginPlatformAccessArtifactObservation(distributionRoot)
-    : bootstrap;
-  if (
-    artifactBefore.status !== "candidate" ||
-    !artifactObservation ||
-    !sameArtifact(expectedArtifact, artifactBefore.artifact) ||
-    !sameArtifact(artifactBefore.artifact, artifactObservation.artifact)
-  ) {
-    return blocked("runtime_state_windows_adapter_artifact_not_verified");
-  }
-  const environment = createWindowsNativeHelperEnvironment();
-  if (!environment)
-    return blocked("runtime_state_windows_adapter_environment_unavailable");
-  if (!verifyPlatformAccessArtifactObservation(artifactObservation.token))
-    return blocked("runtime_state_windows_adapter_artifact_changed");
-  const selectedExecutable = development
-    ? path.join(
-        distributionRoot,
-        ...PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH.split("/"),
-      )
-    : executablePath;
-  const execution = spawnSync(selectedExecutable, [], {
-    input: request.request,
-    encoding: "buffer",
-    env: environment,
-    shell: false,
-    windowsHide: true,
-    timeout: HELPER_TIMEOUT_MS,
-    maxBuffer: PROVIDER_HOME_OBSERVATION_RESPONSE_BYTES + 1,
-  });
-  const processEffectIssued = execution.pid !== undefined;
-  if (
-    execution.error ||
-    execution.signal !== null ||
-    execution.status !== 0 ||
-    !Buffer.isBuffer(execution.stdout) ||
-    execution.stdout.byteLength !== PROVIDER_HOME_OBSERVATION_RESPONSE_BYTES ||
-    !Buffer.isBuffer(execution.stderr) ||
-    execution.stderr.byteLength !== 0
-  ) {
-    return blocked(
-      "runtime_state_windows_adapter_helper_failed",
-      Object.freeze({
-        processEffectIssued,
-        filesystemEffectIssued:
-          initializeIfMissing === true && processEffectIssued,
-      }),
-    );
-  }
-  if (!verifyPlatformAccessArtifactObservation(artifactObservation.token))
-    return blocked(
-      "runtime_state_windows_adapter_artifact_changed",
-      Object.freeze({
-        processEffectIssued: true,
-        helperExitConfirmed: true,
-        filesystemEffectIssued: initializeIfMissing === true,
-      }),
-    );
-  const artifactAfter =
-    observePlatformAccessArtifactCandidate(distributionRoot);
-  if (
-    artifactAfter.status !== "candidate" ||
-    !sameArtifact(artifactBefore.artifact, artifactAfter.artifact) ||
-    (developmentContext !== undefined &&
-      !borrowRuntimeOwnedDevelopmentNativeObservation(
-        developmentContext as object,
-        initializeIfMissing === true,
-      ))
-  ) {
-    return blocked(
-      "runtime_state_windows_adapter_artifact_changed",
-      Object.freeze({
-        processEffectIssued: true,
-        helperExitConfirmed: true,
-        filesystemEffectIssued: initializeIfMissing === true,
-      }),
-    );
-  }
-  const observation = evaluateRuntimeStateObservationResponseCandidate(
-    execution.stdout,
-    request.nonce,
+      ? undefined
+      : () => {
+          const development = borrowRuntimeOwnedDevelopmentNativeObservation(
+            developmentContext as object,
+            initializeIfMissing === true,
+          );
+          return development
+            ? Object.freeze({
+                distributionRoot: development.distributionRoot,
+                expectedArtifact:
+                  development.verification.status === "candidate"
+                    ? development.verification.platformAccessArtifact
+                    : null,
+              })
+            : null;
+        },
   );
-  if (observation.status !== "candidate")
+  if (native.status !== "candidate")
     return blocked(
-      "runtime_state_windows_adapter_response_invalid",
+      `runtime_state_windows_adapter_${native.reason}`,
       Object.freeze({
-        processEffectIssued: true,
-        helperExitConfirmed: true,
-        filesystemEffectIssued: initializeIfMissing === true,
+        processEffectIssued: native.processEffectIssued,
+        helperExitConfirmed: native.helperExitConfirmed,
+        filesystemEffectIssued:
+          initializeIfMissing === true && native.processEffectIssued,
       }),
     );
+  const observation = native;
   const rootCapability = Object.freeze({});
   const identityHash = observation.runtimeStateIdentityHash;
   const protectionHash = observation.runtimeStateProtectionHash;
@@ -347,9 +184,7 @@ function inspectRuntimeOwnedWindowsProtectedRoot(
     reason: "runtime_owned_windows_runtime_state_observed",
     rootCapability,
     nativeSourceRevision: null,
-    executionSourceKind: development
-      ? "fixed_development_candidate"
-      : "fixed_bootstrap_native_artifact",
+    executionSourceKind: native.executionSourceKind,
     artifactVerifiedBeforeAndAfter: true,
     helperSpawnAttempts: 1,
     helperExitConfirmed: true,

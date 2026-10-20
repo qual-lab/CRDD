@@ -38,7 +38,7 @@ let spawns = 0;
 const artifactPath =
   "template/tools/coordinator/windows-x64/crdd-platform-access.exe";
 await mock.module(
-  new URL("../../src/artifact/identity-observation.ts", import.meta.url).href,
+  new URL("../../src/artifact/identity.ts", import.meta.url).href,
   {
     namedExports: {
       PLATFORM_ACCESS_TARGET: "x86_64-pc-windows-msvc",
@@ -49,6 +49,7 @@ await mock.module(
       PLATFORM_ACCESS_EXECUTABLE_MAXIMUM_BYTES: 16 * 1024 * 1024,
       PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH: artifactPath,
       observePlatformAccessArtifactCandidate: () => null,
+      observeNativeArtifact: () => null,
       beginPlatformAccessArtifactObservation: () => {
         begins += 1;
         return scenario === "artifact_missing"

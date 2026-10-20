@@ -988,7 +988,7 @@ namespace初期化の失敗ではexact Token回復へ接続できない。Token�
 
 #### 限定保守のcaller接続と二回の短命処理
 
-固定保存境界の読取り部品は[Platform Details](../platform-access/01_Architecture.md#固定保存境界の私有観測)へ具体化している。固定保存境界では三Directoryの独立期待値と利用者を照合し、十一実体のCurrent／Known観測は[Platformの私有読取り接続](../platform-access/01_Architecture.md#対象一式の私有読取り接続)へ具体化している。Source上では専用の読取り確認Protocolと`host-terminal-windows-adapter.ts`を接続する。Adapterは完全intentから三独立期待値・利用者と固定名を搬送し、nonce、応答形状、十一実体の型・相異、最初の三期待値、全資源close、実child終了と成果物前後一致を確認する。Generic Platform Adapterを置換せず、成功でも清掃Authorityを発行しない。回復Ownerからの実呼出し、初回期待値の取得、保存先初期化、記録公開・同参照の本番再入場と現在固定入口・必要Artifact確認は未接続である。所在候補の取得を許可済み保存先や新しいAuthorityの発行にしない。
+固定保存境界の読取り部品は[Platform Details](../platform-access/01_Architecture.md#固定保存境界の私有観測)へ具体化している。固定保存境界では三Directoryの独立期待値と利用者を照合し、十一実体のCurrent／Known観測は[Platformの私有読取り接続](../platform-access/01_Architecture.md#対象一式の私有読取り接続)へ具体化している。Source上では専用の読取り確認Protocolと`Platform Accessのhost-record/record.ts`を接続する。Adapterは完全intentから三独立期待値・利用者と固定名を搬送し、nonce、応答形状、十一実体の型・相異、最初の三期待値、全資源close、実child終了と成果物前後一致を確認する。Generic Platform Adapterを置換せず、成功でも清掃Authorityを発行しない。回復Ownerからの実呼出し、初回期待値の取得、保存先初期化、記録公開・同参照の本番再入場と現在固定入口・必要Artifact確認は未接続である。所在候補の取得を許可済み保存先や新しいAuthorityの発行にしない。
 
 元Taskを確定できない限定保守では、OrchestratorのTaskRecordへ回復情報を後付けしない。Coordinator自身が、検証済みRepository Rootから解決する`.crdd/coordinator/recovery/host-terminal/`に、同じ非Authority参照と完全intentを保持する。実行知の`task_attempt_settled`を保守記録へ流用せず、新しい汎用Storeや独立Subsystemも作らない。
 
@@ -1001,7 +1001,7 @@ namespace初期化の失敗ではexact Token回復へ接続できない。Token�
 
 二回のNative呼出し間で対象を継続保持したとは主張しない。記録公開前に全対象を再確認し、不一致・未知ならstage作成を行わない。namespace初期化後の失敗を「全Effect 0」にせず、記録Effect、管理Effect、Process／handle取得とRoot／marker処置を区別する。容量排他は別Supervisorの生存表示から推定せず、保存Effectを発行する同じNative Processが所有する。
 
-`publishHostTerminalRecoveryCheckpoint`は同参照のcaller canonicalを既存Readerでfreshに検証し、正規bytes／Hash、独立bindingsと十一Known値を専用保存要求へ結合する。自己申告のsaved結果Objectを入力にせず、保存前後で同じcaller bytesを照合する。`terminal-windows-adapter.ts`は採用済み固定Bootstrap Native／開発候補の実体、実child終了、成果物前後一致、nonceと同参照、対象全体、計数・保存・全closeを共同評価する。保存場所だけの一致から対象差替えを見逃さない。
+`publishHostTerminalRecoveryCheckpoint`は同参照のcaller canonicalを既存Readerでfreshに検証し、正規bytes／Hash、独立bindingsと十一Known値を専用保存要求へ結合する。自己申告のsaved結果Objectを入力にせず、保存前後で同じcaller bytesを照合する。`Platform Accessのhost-record/record.ts`は採用済み固定Bootstrap Native／開発候補の実体、実child終了、成果物前後一致、nonceと同参照、対象全体、計数・保存・全closeを共同評価する。保存場所だけの一致から対象差替えを見逃さない。
 
 Nativeへの保存要求は一回だけ発行する。搬送・返却・終了・成果物観測が不明なら記録Effectをfalseへ戻さず、同参照とcaller完全bytesを保持する。応答の形状・相関を確認できても終了コードと矛盾する場合は停止し、取得済みのNative部分結果を保持する。保存Effectは不明とし、部分結果から保存成功を主張しない。Nativeが保存した後でcaller再確認や取消が失敗しても、公開済みreceiptを消さない。これは内部の記録接続であり、公開Recovery CLI、非使用、処置承認、Root／marker清掃または同参照Native再入場の実境界成立ではない。
 

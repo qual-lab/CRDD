@@ -54,10 +54,8 @@ export function ProjectScene({
           </thead>
           <tbody>
             {scene.table.rows.map((row, rowIndex) => (
-              // biome-ignore lint/suspicious/noArrayIndexKey: 識別子のない静的text表であり、重複行も保持する。行内に状態を持たない。
               <tr key={`${scene.key}-${rowIndex}`}>
                 {row.map((cell, cellIndex) => (
-                  // biome-ignore lint/suspicious/noArrayIndexKey: 同値セルを許容する静的text表の列位置。状態付き部品は配置しない。
                   <td key={`${rowIndex}-${cellIndex}`}>{cell}</td>
                 ))}
               </tr>

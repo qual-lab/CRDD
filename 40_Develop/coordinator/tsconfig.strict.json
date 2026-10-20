@@ -67,7 +67,6 @@
     "src/host-execution/operation-lock-supervisor.ts",
     "src/host-execution/recovery-record.ts",
     "src/host-execution/terminal-record.ts",
-    "src/host-execution/terminal-windows-adapter.ts",
     "src/host-execution/terminal-caller-lease.ts",
     "src/host-execution/terminal-caller-checkpoint.ts",
     "src/host-execution/orphan-recovery-policy.ts",

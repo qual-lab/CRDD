@@ -346,7 +346,7 @@ test("Native検証Toolはerrorとexitだけで完了せずcloseまで待つ", as
   const runRoot = "/fixed/run";
   const fixture = "/fixed/run/fixture";
   const exactTest =
-    "filesystem::host_record::protection_tests::terminal_protection_fixture_observes_handle_sharing";
+    "host_record::record::protection_tests::terminal_protection_fixture_observes_handle_sharing";
   for (const file of tools) {
     const protection = file === tools[0];
     const fragment = toolFragment(
@@ -432,7 +432,7 @@ test("Native検証Toolはerrorとexitだけで完了せずcloseまで待つ", as
               ]
             : [
                 file === tools[1]
-                  ? "filesystem::host_record::tests::terminal_namespace_fixture"
+                  ? "host_record::record::tests::terminal_namespace_fixture"
                   : "fixed-fixture",
                 "--exact",
                 "--ignored",

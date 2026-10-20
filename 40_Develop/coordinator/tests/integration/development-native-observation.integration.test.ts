@@ -4,12 +4,12 @@
  * @packageDocumentation
  * @responsibility coordinator:integration:development-native-observationが所有する検証責務を実行する。
  * @trace ERB-IT-004
- * @trace AIT-IT-002
  * @level IT
  * @scope development、native、observation
  * @boundary ERB-IT-004=Direct Boundary: Observer→Effect Gate
  */
 import assert from "node:assert/strict";
+import { describeProviderHomeObservationContract } from "../../../platform-access/src/index.ts";
 import { spawnSync } from "node:child_process";
 import {
   mkdirSync,
@@ -450,8 +450,8 @@ if (process.argv[2] !== "--probe") {
         "same-bytes-replaced",
       ]) {
         const prior = Object.freeze({});
-        const oldToken = Object.freeze({});
-        const newToken = Object.freeze({});
+        const oldToken = "a".repeat(64);
+        const newToken = "b".repeat(64);
         const artifact = Object.freeze({
           relativePath: "native.exe",
           target: "windows",
@@ -462,11 +462,15 @@ if (process.argv[2] !== "--probe") {
         });
         const map = new WeakMap<
           object,
-          { token: object; verification: object; sourceObservation: object }
+          {
+            identitySha256: string;
+            verification: object;
+            sourceObservation: object;
+          }
         >();
         if (scenario !== "map-missing")
           map.set(prior, {
-            token: oldToken,
+            identitySha256: oldToken,
             verification: {},
             sourceObservation: {},
           });
@@ -489,24 +493,33 @@ if (process.argv[2] !== "--probe") {
               sourceIdentitySha256: "source-identity",
             };
           },
-          beginPlatformAccessBootstrapObservation: (root: string) => {
+          observeNativeArtifact: (root: string, expected?: string) => {
             assert.equal(root, "fixed-source");
-            events.push("begin");
-            replaced = scenario === "same-bytes-replaced";
-            return { artifact, token: newToken };
-          },
-          verifyPlatformAccessArtifactObservation: (token: object) => {
-            assert.ok(token === oldToken || token === newToken);
-            events.push(token === oldToken ? "verify-old" : "verify-new");
-            if (token === oldToken) {
+            if (expected === undefined) {
+              events.push("begin");
+              replaced = scenario === "same-bytes-replaced";
+              return {
+                artifact,
+                identitySha256: newToken,
+                bootstrapVerified: true,
+              };
+            }
+            assert.ok(expected === oldToken || expected === newToken);
+            events.push(expected === oldToken ? "verify-old" : "verify-new");
+            if (expected === oldToken) {
               oldChecks += 1;
-              return !(
+              if (
                 replaced ||
                 scenario === "old-first" ||
                 (scenario === "old-second" && oldChecks === 2)
-              );
-            }
-            return scenario !== "new-final";
+              )
+                return null;
+            } else if (scenario === "new-final") return null;
+            return {
+              artifact,
+              identitySha256: expected,
+              bootstrapVerified: true,
+            };
           },
         }) as (configuration: unknown, prior: object) => object | null;
         const result = observe(
@@ -531,7 +544,7 @@ if (process.argv[2] !== "--probe") {
           ]);
           const saved = map.get(result);
           assert.ok(saved);
-          assert.equal(saved.token, newToken);
+          assert.equal(saved.identitySha256, newToken);
           assert.equal(
             Reflect.get(saved.verification, "platformAccessArtifact"),
             artifact,
@@ -553,9 +566,9 @@ if (process.argv[2] !== "--probe") {
     };
     oracle(body);
     for (const pattern of [
-      /if\s*\(\s*priorIdentity !== undefined &&\s*\(!prior \|\| !verifyPlatformAccessArtifactObservation\(prior.token\)\)\s*\)\s*return null;/u,
-      /if\s*\(prior && !verifyPlatformAccessArtifactObservation\(prior.token\)\)\s*return null;/u,
-      /if\s*\(!verifyPlatformAccessArtifactObservation\(native.token\)\)\s*return null;/u,
+      /if\s*\(\s*priorIdentity !== undefined\s*&&\s*\(!prior\s*\|\|\s*!observeNativeArtifact\(\s*sourceDistributionRoot,\s*prior.identitySha256,?\s*\)\)\s*\)\s*return null;/u,
+      /if\s*\(\s*prior\s*&&\s*!observeNativeArtifact\(\s*sourceDistributionRoot,\s*prior.identitySha256,?\s*\)\s*\)\s*return null;/u,
+      /if\s*\(!observeNativeArtifact\(sourceDistributionRoot, native.identitySha256\)\)\s*return null;/u,
     ]) {
       const changed = body.replace(pattern, "");
       assert.notEqual(changed, body);
@@ -569,10 +582,11 @@ if (process.argv[2] !== "--probe") {
     const borrowBody = source.slice(borrowStart, borrowEnd);
     for (const scenario of ["normal", "missing", "invalid", "throws"]) {
       const identity = Object.freeze({});
-      const token = Object.freeze({});
+      const token = "c".repeat(64);
       const verification = Object.freeze({ status: "candidate" });
       const map = new WeakMap<object, object>();
-      if (scenario !== "missing") map.set(identity, { token, verification });
+      if (scenario !== "missing")
+        map.set(identity, { identitySha256: token, verification });
       let checks = 0;
       const borrow = runInNewContext(`(${borrowBody})`, {
         productionRuntime: {
@@ -582,11 +596,14 @@ if (process.argv[2] !== "--probe") {
           }),
         },
         nativeVerifications: map,
-        verifyPlatformAccessArtifactObservation: (received: object) => {
+        observeNativeArtifact: (root: string, received?: string) => {
+          assert.equal(root, "fixed-source");
           assert.equal(received, token);
           checks += 1;
           if (scenario === "throws") throw new Error("observation_failed");
-          return scenario !== "invalid";
+          return scenario === "invalid"
+            ? null
+            : { identitySha256: token, bootstrapVerified: true };
         },
       }) as (context: object, initialize: boolean) => object | null;
       const result = borrow({}, false);
@@ -788,15 +805,16 @@ async function runProbe(target: string, scenario: string) {
     sha256: "1".repeat(64),
   });
   let nativeCalls = 0;
-  let spawnCalls = 0;
-  let artifactCalls = 0;
+  let identitySequence = 0;
+  let nativeEffectObservations = 0;
+  let publicObservationCalls = 0;
+  let readerCalls = 0;
   let provenanceCalls = 0;
-  let tokenCalls = 0;
-  let admissionToken: object | null = null;
-  let latestBootstrapToken: object | null = null;
-  let warmedToken: object | null = null;
+  let admissionToken: string | null = null;
+  let latestBootstrapToken: string | null = null;
+  let warmedToken: string | null = null;
   let priorTokenChecks = 0;
-  const bootstrapTokens = new WeakSet<object>();
+  const bootstrapTokens = new Set<string>();
   const isCheckout = scenario.startsWith("checkout-");
   let isArmed = false;
   const management = Object.freeze({});
@@ -843,7 +861,9 @@ async function runProbe(target: string, scenario: string) {
     namedExports: {
       inspectRepositoryIdentityCandidate: () => ({
         commit:
-          isArmed && spawnCalls > 0 && scenario === "post-repository"
+          isArmed &&
+          nativeEffectObservations > 0 &&
+          scenario === "post-repository"
             ? "9".repeat(40)
             : "a".repeat(40),
         tree: "b".repeat(40),
@@ -878,7 +898,7 @@ async function runProbe(target: string, scenario: string) {
             ? "9".repeat(64)
             : "c".repeat(64),
         sourceIdentitySha256:
-          isArmed && spawnCalls > 0 && scenario === "post-source"
+          isArmed && nativeEffectObservations > 0 && scenario === "post-source"
             ? "9".repeat(64)
             : "2".repeat(64),
         fileCount: 22,
@@ -886,32 +906,43 @@ async function runProbe(target: string, scenario: string) {
       }),
     },
   });
-  await mock.module(moduleUrl("native-artifact-observation"), {
+  const artifactMock = {
     namedExports: {
-      createWindowsNativeHelperEnvironment: () =>
-        scenario === "environment" ? null : Object.freeze({}),
       WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE: "test_only",
-      PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH: artifact.relativePath,
-      observePlatformAccessArtifactCandidate: () => {
-        artifactCalls += 1;
-        const isMismatch =
-          (scenario === "pre-artifact" && artifactCalls === 1) ||
-          (scenario === "post-artifact" && artifactCalls === 2) ||
-          (scenario === "checkout-artifact-mismatch" && artifactCalls === 1) ||
-          (scenario === "checkout-post-artifact-mismatch" &&
-            artifactCalls === 2);
-        return {
-          status: "candidate",
-          artifact: isMismatch
-            ? { ...artifact, sha256: "9".repeat(64) }
-            : artifact,
-        };
-      },
-      beginPlatformAccessArtifactObservation: () => ({
-        artifact,
-        token: Object.freeze({}),
-      }),
-      beginPlatformAccessBootstrapObservation: (distributionRoot: string) => {
+      observeNativeArtifact: (distributionRoot: string, token?: string) => {
+        if (token !== undefined) {
+          if (isArmed) {
+            if (token === admissionToken) {
+              priorTokenChecks += 1;
+              if (scenario === "old-token-throw")
+                throw new Error("original_token_observation_failed");
+              if (
+                scenario === "old-token-stale" ||
+                scenario === "cleanup-old-token-stale" ||
+                (scenario === "old-token-second" && priorTokenChecks === 2)
+              )
+                return null;
+            }
+            if (
+              scenario === "new-token-final" &&
+              token === latestBootstrapToken &&
+              token !== admissionToken
+            )
+              return null;
+            if (scenario === "borrow-token-stale" && token === warmedToken)
+              return null;
+            if (scenario === "borrow-token-throw" && token === warmedToken)
+              throw new Error("borrow_token_observation_failed");
+            if (
+              scenario === "post-borrow-token" &&
+              nativeEffectObservations > 0 &&
+              bootstrapTokens.has(token)
+            )
+              return null;
+          }
+          return { artifact, identitySha256: token, bootstrapVerified: true };
+        }
+
         assert.equal(path.resolve(distributionRoot), root);
         nativeCalls += 1;
         if (isArmed && scenario === "native-throw")
@@ -922,87 +953,170 @@ async function runProbe(target: string, scenario: string) {
             scenario === "checkout-bootstrap-missing")
         )
           return null;
-        const token = Object.freeze({});
-        bootstrapTokens.add(token);
-        admissionToken ??= token;
-        latestBootstrapToken = token;
+        const currentIdentity = (++identitySequence)
+          .toString(16)
+          .padStart(64, "0");
+        bootstrapTokens.add(currentIdentity);
+        admissionToken ??= currentIdentity;
+        latestBootstrapToken = currentIdentity;
         return {
           artifact:
-            isArmed && spawnCalls > 0 && scenario === "post-native"
+            isArmed &&
+            nativeEffectObservations > 0 &&
+            scenario === "post-native"
               ? { ...artifact, sha256: "9".repeat(64) }
               : artifact,
-          token,
+          identitySha256: currentIdentity,
+          bootstrapVerified: true,
         };
-      },
-      verifyPlatformAccessArtifactObservation: (token: object) => {
-        tokenCalls += 1;
-        if (isArmed) {
-          if (token === admissionToken) {
-            priorTokenChecks += 1;
-            if (scenario === "old-token-throw")
-              throw new Error("original_token_observation_failed");
-            if (
-              scenario === "old-token-stale" ||
-              scenario === "cleanup-old-token-stale" ||
-              (scenario === "old-token-second" && priorTokenChecks === 2)
-            )
-              return false;
-          }
-          if (
-            scenario === "new-token-final" &&
-            token === latestBootstrapToken &&
-            token !== admissionToken
-          )
-            return false;
-          if (scenario === "borrow-token-stale" && token === warmedToken)
-            return false;
-          if (scenario === "borrow-token-throw" && token === warmedToken)
-            throw new Error("borrow_token_observation_failed");
-          if (
-            scenario === "post-borrow-token" &&
-            spawnCalls > 0 &&
-            bootstrapTokens.has(token)
-          )
-            return false;
-        }
-        return !(
-          (isArmed && scenario === "checkout-pre-token" && tokenCalls === 1) ||
-          (isArmed && scenario === "checkout-post-token" && tokenCalls === 2)
-        );
       },
     },
-  });
-  await mock.module("node:child_process", {
+  };
+  /**
+   * PA公開APIの固定結果と開発Readerの投影だけを代替する。
+   * @responsibility Native内部の検出ではなく、上位の処置・Capability非発行を確認する。
+   * @trace ERB-IT-004
+   * @precondition 故障名は旧結合CaseとPA側検出Caseへ対応付け済み。
+   * @stimulus 選択対象と任意Readerを受ける。
+   * @observation 公開API到達、Reader回数、固定結果のEffect。
+   * @oracle 初回拒否はEffectなし、後確認拒否は発行済み事実を保持する。
+   * @cleanup N/A: Native・Filesystem・外部AIは操作しない。
+   * @boundary PA公開APIの結果代替。実Native検出の証明ではない。
+   */
+  const observeNativeResult = (
+    provider: string | null,
+    rootPath: unknown,
+    initialize: boolean,
+    reader?: () => {
+      distributionRoot: string;
+      expectedArtifact: unknown;
+    } | null,
+  ) => {
+    publicObservationCalls += 1;
+    assert.equal(typeof rootPath, "string");
+    assert.equal(initialize, target === "state-init");
+    if (provider !== null) assert.equal(provider, target);
+    /**
+     * 固定された公開失敗結果を構築する。
+     * @responsibility 模擬結果の開始・終了・初期化Effectだけを保持する。
+     * @trace ERB-IT-004
+     * @precondition 故障Caseから決めた固定理由とEffectを渡す。
+     * @stimulus 停止結果を要求する。
+     * @observation immutableな公開結果を返す。
+     * @oracle 上位が処置の期待条件を確認する。
+     * @cleanup N/A: 局所値だけ。
+     * @boundary PA公開結果の代替であり実Native観測ではない。
+     */
+    const blocked = (reason: string, effect: boolean) =>
+      Object.freeze({
+        status: "blocked",
+        reason,
+        processEffectIssued: effect,
+        helperExitConfirmed: effect,
+        artifactVerifiedBeforeAndAfter: false,
+        filesystemEffectIssued: initialize && effect,
+      });
+    if (reader) {
+      readerCalls += 1;
+      const first = reader();
+      if (!first) return blocked("development_context_invalid", false);
+      assert.equal(first.distributionRoot, root);
+      assert.deepEqual(first.expectedArtifact, artifact);
+    }
+    // 固定した公開結果の注入。Artifact検出手順をここへ再実装しない。
+    const earlyFailure: Readonly<Record<string, string>> = {
+      "pre-artifact": "artifact_not_verified",
+      environment: "environment_unavailable",
+      "checkout-bootstrap-missing": "artifact_bootstrap_unavailable",
+      "checkout-artifact-mismatch": "artifact_not_verified",
+      "checkout-pre-token": "artifact_changed",
+    };
+    const earlyReason = earlyFailure[scenario];
+    if (earlyReason) return blocked(earlyReason, false);
+    nativeEffectObservations += 1;
+    const lateFailure: Readonly<Record<string, string>> = {
+      "post-artifact": "artifact_changed",
+      "checkout-post-token": "artifact_changed",
+      "checkout-post-artifact-mismatch": "artifact_changed",
+    };
+    const lateReason = lateFailure[scenario];
+    if (lateReason) return blocked(lateReason, true);
+    if (reader) {
+      readerCalls += 1;
+      if (!reader()) return blocked("artifact_changed", true);
+    }
+    return Object.freeze({
+      status: "candidate",
+      reason: provider
+        ? "runtime_owned_provider_home_observed_candidate"
+        : "runtime_owned_runtime_state_observed_candidate",
+      ...(provider
+        ? {
+            provider,
+            providerHomeIdentityHash: "1".repeat(64),
+            providerHomeProtectionHash: "2".repeat(64),
+            principalObservation: {
+              primaryToken: true,
+              interactiveGroup: true,
+              serviceGroup: false,
+              batchGroup: false,
+              networkGroup: false,
+              restrictedToken: false,
+              appContainer: false,
+              nonzeroSession: true,
+            },
+            homeObservation: {
+              directory: true,
+              fixedVolume: true,
+              noReparseChain: true,
+              stableIdentity: true,
+              ownerSelectedUser: true,
+              daclProtected: true,
+              writersRestricted: true,
+              selectedUserFullControl: true,
+              systemFullControl: true,
+            },
+            operationCapabilityIssued: false,
+          }
+        : {
+            runtimeStateIdentityHash: "1".repeat(64),
+            runtimeStateProtectionHash: "2".repeat(64),
+          }),
+      localUserBindingHash: "3".repeat(64),
+      stableLogicalHomeBindingHash: "4".repeat(64),
+      selectedUserBindingVerified: true,
+      protectionVerified: true,
+      stableIdentityObserved: true,
+      pathReported: false,
+      principalReported: false,
+      aclReported: false,
+      credentialContentRead: false,
+      runtimeAuthorityIssued: false,
+      mountGrantIssued: false,
+      networkEffectIssued: false,
+      processEffectIssued: true,
+      helperExitConfirmed: true,
+      artifactVerifiedBeforeAndAfter: true,
+      filesystemEffectIssued: initialize,
+      executionSourceKind: reader
+        ? "fixed_development_candidate"
+        : "fixed_bootstrap_native_artifact",
+    });
+  };
+  await mock.module(moduleUrl("native-artifact-observation"), {
     namedExports: {
-      spawnSync: (
-        _executable: string,
-        argv: string[],
-        options: { input: Buffer; shell: boolean },
-      ) => {
-        spawnCalls += 1;
-        assert.deepEqual(argv, []);
-        assert.equal(options.shell, false);
-        // The real request encoder and response validator share this fixed native wire contract.
-        const bytes = Buffer.alloc(182);
-        bytes.write("CRDDHO02", 0, "ascii");
-        bytes.writeUInt16LE(3, 8);
-        assert.equal(options.input.length, 76);
-        bytes[10] = options.input[10] ?? 0;
-        bytes[11] = 1;
-        options.input.copy(bytes, 12, 12, 44);
-        bytes.writeUInt16LE(100, 44);
-        bytes.writeUInt32LE(0x83, 46);
-        bytes.writeUInt32LE(0x1ff, 50);
-        for (let n = 0; n < 4; n += 1)
-          bytes.fill(n + 1, 54 + n * 32, 86 + n * 32);
-        return {
-          pid: 123,
-          status: 0,
-          signal: null,
-          stdout: bytes,
-          stderr: Buffer.alloc(0),
-        };
-      },
+      ...artifactMock.namedExports,
+      observeWindowsProviderHome: (
+        provider: string,
+        homePath: string,
+        reader?: Parameters<typeof observeNativeResult>[3],
+      ) => observeNativeResult(provider, homePath, false, reader),
+      observeWindowsRuntimeState: (
+        rootPath: string,
+        initialize: boolean,
+        reader?: Parameters<typeof observeNativeResult>[3],
+      ) => observeNativeResult(null, rootPath, initialize, reader),
+      describeProviderHomeObservationContract,
     },
   });
   const session = await import(
@@ -1048,13 +1162,15 @@ async function runProbe(target: string, scenario: string) {
     assert.equal(admitted.status, "blocked");
     assert.equal(admitted.capability, null);
     assert.equal(nativeCalls, 0);
-    assert.equal(spawnCalls, 0);
+    assert.equal(nativeEffectObservations, 0);
+    assert.equal(publicObservationCalls, 0);
+    assert.equal(readerCalls, 0);
     process.stdout.write(
       JSON.stringify({
         target,
         scenario,
         adapterNativeCalls: 0,
-        spawnCalls: 0,
+        nativeEffectObservations: 0,
       }),
     );
     return;
@@ -1118,7 +1234,6 @@ async function runProbe(target: string, scenario: string) {
   }
   if (scenario.endsWith("expiry")) simulatedTime = expiresAtMs + 1;
   nativeCalls = 0;
-  tokenCalls = 0;
   isArmed = true;
   const result =
     target === "codex" || target === "claude"
@@ -1139,6 +1254,11 @@ async function runProbe(target: string, scenario: string) {
     ((scenario === "cleanup-cancel" || scenario === "cleanup-expiry") &&
       !target.endsWith("-init"));
   assert.equal(result.status, shouldReturnCandidate ? "candidate" : "blocked");
+  assert.equal(
+    result.filesystemEffectIssued,
+    target === "state-init" && nativeEffectObservations > 0,
+    "初期化を要求した公開結果のEffectは失敗時も上位へ保持する",
+  );
   const adapterNativeCalls = nativeCalls;
   if (
     [
@@ -1159,10 +1279,10 @@ async function runProbe(target: string, scenario: string) {
   if (shouldReturnCandidate) {
     assert.equal(
       adapterNativeCalls,
-      scenario === "normal" ? 0 : 1,
+      scenario === "normal" || isCheckout ? 0 : 1,
       "one full check per lifecycle boundary; adapter post-observation reuses the same binding",
     );
-    assert.equal(spawnCalls, 1);
+    assert.equal(nativeEffectObservations, 1);
     assert.equal(result.artifactVerifiedBeforeAndAfter, true);
     if (isCheckout) {
       assert.equal(provenanceCalls, 0);
@@ -1196,7 +1316,7 @@ async function runProbe(target: string, scenario: string) {
   } else {
     const isAfterSpawn =
       scenario.startsWith("post-") || scenario.startsWith("checkout-post-");
-    assert.equal(spawnCalls, isAfterSpawn ? 1 : 0);
+    assert.equal(nativeEffectObservations, isAfterSpawn ? 1 : 0);
     assert.equal(result.manualRecoveryRequired, isAfterSpawn);
     assert.equal(result.helperExitConfirmed, isAfterSpawn);
     const capability =
@@ -1206,18 +1326,18 @@ async function runProbe(target: string, scenario: string) {
     assert.equal(capability, null);
     if (isCheckout) {
       assert.equal(provenanceCalls, 0);
-      assert.equal(
-        artifactCalls,
-        scenario === "checkout-post-token"
-          ? 1
-          : isAfterSpawn
-            ? 2
-            : scenario === "checkout-bootstrap-missing"
-              ? 0
-              : 1,
-      );
     }
   }
+  assert.equal(publicObservationCalls, 1, "上位はPA公開観測へ一回だけ配送する");
+  assert.equal(
+    readerCalls,
+    isCheckout
+      ? 0
+      : nativeEffectObservations > 0 && scenario !== "post-artifact"
+        ? 2
+        : 1,
+    "固定結果の停止段階に対応したReader搬送",
+  );
   assert.equal(
     session.cancelRuntimeOwnedDevelopmentMeasurementSession(
       admitted.capability,
@@ -1232,7 +1352,12 @@ async function runProbe(target: string, scenario: string) {
     null,
   );
   process.stdout.write(
-    JSON.stringify({ target, scenario, adapterNativeCalls, spawnCalls }),
+    JSON.stringify({
+      target,
+      scenario,
+      adapterNativeCalls,
+      nativeEffectObservations,
+    }),
   );
 }
 
@@ -1242,18 +1367,18 @@ if (process.argv[2] === "--probe") {
   for (const target of targets)
     for (const scenario of scenarios) {
       /**
-       * 本番sessionとnative Adapterの結合: ${target} / ${scenario}を検証する。
+       * 本番SessionとPA公開結果の結合: ${target} / ${scenario}を検証する。
        *
-       * @responsibility 本番sessionとnative Adapterの結合: ${target} / ${scenario}の合否判定を所有する。
+       * @responsibility 本番SessionとPA公開結果の結合: ${target} / ${scenario}の合否判定を所有する。
        * @trace ERB-IT-004
        * @precondition Test Fileが構築するfixtureと入力を使用する。
-       * @stimulus 本番sessionとnative Adapterの結合: ${target} / ${scenario}の対象操作を実行する。
+       * @stimulus 本番SessionとPA公開結果の結合: ${target} / ${scenario}の対象操作を実行する。
        * @observation 結果、状態、Effectおよび終了後条件を観測する。
        * @oracle Test本文のassertionが期待条件を満たす。
        * @cleanup Test本文または登録済みhookが作成資源を清掃する。
        * @boundary ERB-IT-004=Direct Boundary: coordinator Test Source→対象契約
        */
-      test(`本番sessionとnative Adapterの結合: ${target} / ${scenario}`, (context) => {
+      test(`本番SessionとPA公開結果の結合: ${target} / ${scenario}`, (context) => {
         if (process.platform !== "win32") {
           context.skip("Windows native adapter");
           return;
@@ -1280,558 +1405,4 @@ if (process.argv[2] === "--probe") {
         );
       });
     }
-  /**
-   * Host記録と対象観測の出所前後照合を実本文で反証する。
-   *
-   * @responsibility 通常Bootstrap観測の欠測・実体差、開発再借用、取消と記録Effectの不明を区別する。
-   * @trace AIT-IT-002
-   * @trace ERB-IT-004
-   * @precondition 現Sourceの二private実行本文と非Authorityのmemory依存だけを使う。
-   * @stimulus 二クラスのsave/read/observeに出所・実体・token・搬送・取消の故障を注入する。
-   * @observation 発行・decoder回数、終了、参照、記録Effect、出所情報を取得する。
-   * @oracle 前提拒否はspawn0、post拒否はdecode0、saveは不明を保持。各比較を外した変異は専用反例で誤成功する。
-   * @cleanup N/A: 実Process・Filesystem・Docker・Providerは操作しない。
-   * @boundary 本番Adapter本文と模擬Native依存。実Native Protocol・ACL・E2Eは未証明。
-   */
-  test("Host Native実行は署名なしの出所前後照合と部分結果を保持する", () => {
-    const source = readFileSync(
-      new URL(
-        "../../src/host-execution/terminal-windows-adapter.ts",
-        import.meta.url,
-      ),
-      "utf8",
-    );
-    const artifact = Object.freeze({
-      relativePath: "fixed/native.exe",
-      target: "windows",
-      protocolRevision: 3,
-      rustToolchain: "fixed",
-      byteLength: 1,
-      sha256: "fixed",
-    });
-    for (const mode of ["save", "read", "observe"] as const) {
-      const functionName =
-        mode === "observe"
-          ? "executeTerminalObservationRequest"
-          : "executeHostTerminalRecordRequest";
-      const start = source.indexOf(`function ${functionName}<`);
-      const end = source.indexOf("\n/**", start);
-      assert.ok(start >= 0 && end > start);
-      const body = stripTypeScriptTypes(source.slice(start, end));
-      for (const recordClass of ["eleven", "known_file"] as const) {
-        for (const scenario of [
-          "normal",
-          "initial_missing",
-          "initial_throw",
-          "initial_artifact",
-          "begin_missing",
-          "pre_token_false",
-          "pre_token_throw",
-          "post_token_false",
-          "post_token_throw",
-          "post_direct_artifact",
-          "transport",
-          "exit_mismatch",
-          "dev_initial",
-          "dev_verification",
-          "dev_final",
-          "dev_normal",
-          ...(mode === "observe"
-            ? []
-            : ["cancel_before", "cancel_at_environment", "cancel_after"]),
-        ]) {
-          const mutation =
-            scenario === "post_token_false" || scenario === "pre_token_false"
-              ? {
-                  pattern:
-                    /!verifyPlatformAccessArtifactObservation\(artifactObservation\.token\)/gu,
-                  replacement:
-                    "(verifyPlatformAccessArtifactObservation(artifactObservation.token), false)",
-                }
-              : scenario === "post_direct_artifact"
-                ? {
-                    pattern:
-                      /JSON\.stringify\(before\.artifact\)\s*!==\s*JSON\.stringify\(after\.artifact\)/u,
-                    replacement: "false",
-                  }
-                : null;
-          for (const isMutant of mutation ? [false, true] : [false]) {
-            const label = `${mode}/${recordClass}/${scenario}/mutant=${isMutant}`;
-            const selectedBody =
-              isMutant && mutation
-                ? body.replace(mutation.pattern, mutation.replacement)
-                : body;
-            if (isMutant) assert.notEqual(selectedBody, body, label);
-            let launches = 0;
-            let provenanceCalls = 0;
-            let artifactCalls = 0;
-            let borrowCalls = 0;
-            let decodeCalls = 0;
-            let tokenCalls = 0;
-            const request = Object.freeze({});
-            const contexts = new WeakMap([
-              [
-                request,
-                { reference: "fixture-reference", bytesBase64: "AA==" },
-              ],
-            ]);
-            const controller = new AbortController();
-            if (scenario === "cancel_before") controller.abort();
-            const development = scenario.startsWith("dev_");
-            const execute = runInNewContext(`(${selectedBody})`, {
-              Buffer,
-              Object,
-              JSON,
-              path,
-              process: { platform: "win32" },
-              bundledDistributionRoot: "fixed-distribution",
-              PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH: "fixed/native.exe",
-              MAX_SAVE_RESPONSE_BYTES: 2048,
-              MAX_RESPONSE_BYTES: 4096,
-              borrowRuntimeOwnedDevelopmentNativeObservation: () => {
-                borrowCalls += 1;
-                return scenario === "dev_initial" ||
-                  (scenario === "dev_final" && borrowCalls === 2)
-                  ? null
-                  : {
-                      distributionRoot: "fixed-distribution",
-                      verification: {
-                        status:
-                          scenario === "dev_verification"
-                            ? "blocked"
-                            : "candidate",
-                        platformAccessArtifact: artifact,
-                      },
-                    };
-              },
-              inspectPlatformAccessNativeGitProvenanceCandidate: () => {
-                provenanceCalls += 1;
-                throw new Error("runtime_must_not_read_git_provenance");
-              },
-              beginPlatformAccessBootstrapObservation: () => {
-                if (scenario === "initial_throw") throw new Error("bootstrap");
-                return ["initial_missing", "begin_missing"].includes(scenario)
-                  ? null
-                  : { artifact, token: {} };
-              },
-              observePlatformAccessArtifactCandidate: () => {
-                artifactCalls += 1;
-                return {
-                  status: "candidate",
-                  artifact:
-                    (scenario === "initial_artifact" && artifactCalls === 1) ||
-                    (scenario === "post_direct_artifact" && artifactCalls === 2)
-                      ? { ...artifact, sha256: "changed" }
-                      : artifact,
-                };
-              },
-              beginPlatformAccessArtifactObservation: () =>
-                scenario === "begin_missing" ? null : { artifact, token: {} },
-              verifyPlatformAccessArtifactObservation: () => {
-                tokenCalls += 1;
-                const stage = tokenCalls === 1 ? "pre" : "post";
-                if (scenario === `${stage}_token_throw`)
-                  throw new Error("fixture");
-                return scenario !== `${stage}_token_false`;
-              },
-              createWindowsHostTerminalHelperEnvironment: () => {
-                if (scenario === "cancel_at_environment") controller.abort();
-                return {};
-              },
-              spawnSync: (
-                _file: string,
-                argv: string[],
-                options: { shell: boolean; timeout: number; input: Buffer },
-              ) => {
-                launches += 1;
-                assert.equal(options.shell, false, label);
-                assert.equal(options.timeout, 5000, label);
-                assert.deepEqual(
-                  Array.from(argv),
-                  [
-                    `--host-terminal-${recordClass === "known_file" ? "known-file-" : ""}${mode}`,
-                  ],
-                  label,
-                );
-                if (scenario === "cancel_after") controller.abort();
-                return {
-                  pid: 1,
-                  status:
-                    scenario === "transport"
-                      ? null
-                      : scenario === "exit_mismatch"
-                        ? 2
-                        : 0,
-                  signal: null,
-                  ...(scenario === "transport"
-                    ? { error: new Error("fixture") }
-                    : {}),
-                  stdout: Buffer.alloc(0),
-                  stderr: Buffer.alloc(0),
-                };
-              },
-            }) as (...args: unknown[]) => Record<string, unknown>;
-            /**
-             * 拒否時に出力Decoderへ到達しないことを計数する。
-             * @responsibility 拒否時に出力Decoderへ到達しないことを計数する。
-             * @trace AIT-IT-002
-             * @trace ERB-IT-004
-             * @precondition 保存・観測結果の有限Decoder代役。
-             * @stimulus 呼出し時だけdecodeCallsを増やし固定phaseを返す。
-             * @observation decodeCallsと開始拒否結果。
-             * @oracle 出力読取り前の拒否ではDecoder呼出し0。
-             * @cleanup N/A: 計数と返却値のみ。
-             * @boundary Native起動境界の代役。実Native処置は行わない。
-             */
-            const decode = () => {
-              decodeCalls += 1;
-              return {
-                status: mode === "save" ? "saved" : "observed",
-                recordEffectIssued: mode === "save",
-                observation: { phase: 3 },
-              };
-            };
-            const result =
-              mode === "observe"
-                ? execute(
-                    request,
-                    development ? {} : undefined,
-                    recordClass,
-                    contexts,
-                    decode,
-                  )
-                : execute(
-                    request,
-                    mode,
-                    controller.signal,
-                    development ? {} : undefined,
-                    contexts,
-                    decode,
-                    decode,
-                    `--host-terminal-${recordClass === "known_file" ? "known-file-" : ""}${mode}`,
-                  );
-            const succeeds =
-              isMutant || scenario === "normal" || scenario === "dev_normal";
-            assert.equal(
-              result.status,
-              succeeds
-                ? mode === "observe"
-                  ? "observed"
-                  : "completed"
-                : "blocked",
-              label,
-            );
-            const noLaunch =
-              !isMutant &&
-              (scenario.startsWith("initial_") ||
-                scenario.startsWith("pre_token_") ||
-                scenario === "begin_missing" ||
-                scenario === "dev_initial" ||
-                scenario === "dev_verification" ||
-                scenario === "cancel_before" ||
-                scenario === "cancel_at_environment");
-            assert.equal(launches, noLaunch ? 0 : 1, label);
-            assert.equal(
-              result.helperExitConfirmed,
-              launches === 1 && scenario !== "transport",
-              label,
-            );
-            if (mode !== "observe") {
-              assert.equal(result.reference, "fixture-reference", label);
-              assert.equal(
-                result.recordEffectIssued,
-                mode === "read" || noLaunch
-                  ? false
-                  : succeeds || scenario === "cancel_after"
-                    ? true
-                    : null,
-                label,
-              );
-            } else assert.equal(result.filesystemEffectIssued, false, label);
-            assert.equal(
-              decodeCalls,
-              succeeds ||
-                scenario === "exit_mismatch" ||
-                scenario === "cancel_after"
-                ? 1
-                : 0,
-              label,
-            );
-            assert.equal(provenanceCalls, 0, label);
-            if (scenario === "dev_verification")
-              assert.equal(
-                result.reason,
-                "host_terminal_artifact_bootstrap_unavailable",
-              );
-            if (scenario === "initial_missing")
-              assert.equal(
-                result.reason,
-                "host_terminal_artifact_bootstrap_unavailable",
-              );
-            if (scenario === "cancel_before")
-              assert.equal(provenanceCalls, 0, label);
-            if (mode === "observe" && succeeds) {
-              assert.equal(
-                Object.isFrozen(result.nativeProvenance),
-                true,
-                label,
-              );
-              const metadata = result.nativeProvenance as {
-                artifact: object;
-                repositoryRevision: object | null;
-              };
-              assert.equal(Object.isFrozen(metadata.artifact), true, label);
-              assert.equal(
-                metadata.repositoryRevision === null ||
-                  Object.isFrozen(metadata.repositoryRevision),
-                true,
-                label,
-              );
-            }
-          }
-        }
-      }
-    }
-  });
-
-  /**
-   * 通常Home／保護Rootの固定Bootstrap接続を実本体で反証する。
-   * @responsibility 開始・前後確認省略を、旧配布本文Hashとは独立に検出する。
-   * @trace ERB-IT-004
-   * @precondition 現在の二Adapter本文を抽出し、外部依存だけを局所代役にする。
-   * @stimulus 正常、開始欠測、要求前後token失効と各検査省略を与える。
-   * @observation 同token・呼出し順、固定Process構成、結果、要求済み事実を確認する。
-   * @oracle 正常だけ候補、前拒否は要求0、後拒否は要求済みを保持。変異は同Oracleで失敗する。
-   * @cleanup N/A: 実Process・Filesystem・Docker・Providerは操作しない。
-   * @boundary 通常Adapter実本文→PA固定BootstrapとNative Processの局所搬送。
-   */
-  test("通常NativeのBootstrap開始・前後確認省略を同じOracleで検出する", () => {
-    for (const [relative, functionName, provider] of [
-      [
-        "provider/home-windows-adapter.ts",
-        "inspectRuntimeOwnedWindowsProviderHomeCandidate",
-        true,
-      ],
-      [
-        "platform-access/protected-root-windows-adapter.ts",
-        "inspectRuntimeOwnedWindowsProtectedRoot",
-        false,
-      ],
-    ] as const) {
-      const source = readFileSync(
-        new URL(`../../src/${relative}`, import.meta.url),
-        "utf8",
-      );
-      const start = source.indexOf(`function ${functionName}(`);
-      const end = source.indexOf("\n}\n", start) + 2;
-      const sameStart = source.indexOf("function sameArtifact(");
-      const sameEnd = source.indexOf("\n}\n", sameStart) + 2;
-      assert.ok(
-        start > 0 && end > start && sameStart > 0 && sameEnd > sameStart,
-      );
-      const body = stripTypeScriptTypes(source.slice(start, end));
-      const same = stripTypeScriptTypes(source.slice(sameStart, sameEnd));
-      /**
-       * 同じ本番本文を固定した正常・故障Oracleへ渡す。
-       * @responsibility 外部依存代役の呼出し順と前後token参照を確認する。
-       * @trace ERB-IT-004
-       * @precondition 現本文または一条件だけ変更した本文を受け取る。
-       * @stimulus 固定Bootstrap欠測、前失効、後失効、正常を順に実行する。
-       * @observation 候補・要求回数・元token・各Process optionを照合する。
-       * @oracle 正常と拒否の双方が同じ本文で成立する。
-       * @cleanup N/A: memory内の代役だけ。
-       * @boundary 実Adapter本文と非Authority局所依存。
-       */
-      const oracle = (selected: string) => {
-        for (const fault of [
-          "normal",
-          "missing",
-          "pre",
-          "post",
-          "development",
-        ] as const) {
-          const events: string[] = [];
-          const token = Object.freeze({});
-          const environment = Object.freeze({});
-          const artifact = Object.freeze({
-            relativePath: "fixed/native.exe",
-            target: "windows",
-            protocolRevision: 3,
-            rustToolchain: "fixed",
-            byteLength: 1,
-            sha256: "fixed",
-          });
-          const request = {
-            request: Buffer.alloc(1),
-            nonce: "nonce",
-            provider: "codex",
-          };
-          /**
-           * 固定Bootstrap試験へ候補の正常観測値を供給する。
-           * @responsibility 固定Bootstrap試験へ候補の正常観測値を供給する。
-           * @trace ERB-IT-004
-           * @precondition 本番Bootstrapを評価するVM入力。
-           * @stimulus candidate状態の固定値だけを返す。
-           * @observation 後続検証の到達数と固定入口拒否。
-           * @oracle 他の不正条件を候補欠測の失敗で隠さない。
-           * @cleanup N/A: メモリ値だけ。
-           * @boundary 候補観測代役であり旧Storeを生成しない。
-           */
-          const candidate = () => ({ status: "candidate" });
-          let verifies = 0;
-          let spawns = 0;
-          const execute = runInNewContext(`${same}\n(${selected})`, {
-            Buffer,
-            Object,
-            Date,
-            performance,
-            path,
-            process: { platform: "win32" },
-            bundledDistributionRoot: "C:\\fixed",
-            executablePath: "C:\\fixed\\native.exe",
-            HELPER_TIMEOUT_MS: 5000,
-            PROVIDER_HOME_OBSERVATION_RESPONSE_BYTES: 182,
-            runtimeOwnedProviderHomeMountSourceCandidate: () => "C:\\home",
-            rootPathCandidate: () => "C:\\root",
-            createProviderHomeObservationRequest: () => request,
-
-            createRuntimeStateObservationRequest: () => request,
-            beginPlatformAccessBootstrapObservation: (root: string) => {
-              events.push("begin");
-              assert.equal(root, "C:\\fixed");
-              return fault === "missing" ? null : { token, artifact };
-            },
-            beginPlatformAccessArtifactObservation: () => {
-              throw new Error("normal_must_use_bootstrap");
-            },
-            borrowRuntimeOwnedDevelopmentNativeObservation: () => {
-              if (fault === "development")
-                return {
-                  distributionRoot: "C:\\fixed",
-                  verification: { status: "blocked" },
-                };
-              throw new Error("normal_must_not_borrow_development");
-            },
-            observePlatformAccessArtifactCandidate: () => {
-              events.push("artifact");
-              return { status: "candidate", artifact };
-            },
-            verifyPlatformAccessArtifactObservation: (value: object) => {
-              assert.equal(value, token);
-              verifies += 1;
-              events.push(`verify${verifies}`);
-              return (
-                !(fault === "pre" && verifies === 1) &&
-                !(fault === "post" && verifies === 2)
-              );
-            },
-            createWindowsNativeHelperEnvironment: () => environment,
-            spawnSync: (
-              file: string,
-              argv: string[],
-              options: {
-                env: object;
-                shell: boolean;
-                windowsHide: boolean;
-                timeout: number;
-                maxBuffer: number;
-                encoding: string;
-                input: Buffer;
-              },
-            ) => {
-              assert.equal(file, "C:\\fixed\\native.exe");
-              assert.deepEqual(Array.from(argv), []);
-              assert.equal(options.env, environment);
-              assert.equal(options.shell, false);
-              assert.equal(options.windowsHide, true);
-              assert.equal(options.timeout, 5000);
-              assert.equal(options.maxBuffer, 183);
-              assert.equal(options.encoding, "buffer");
-              assert.equal(options.input, request.request);
-              spawns += 1;
-              events.push("spawn");
-              return {
-                pid: 1,
-                status: 0,
-                signal: null,
-                stdout: Buffer.alloc(182),
-                stderr: Buffer.alloc(0),
-              };
-            },
-            evaluateProviderHomeObservationResponseCandidate: candidate,
-
-            evaluateRuntimeStateObservationResponseCandidate: candidate,
-            rootCapabilities: new WeakMap(),
-            mountSourceCapabilities: new WeakMap(),
-            observationCapabilities: new WeakMap(),
-            blocked: (reason: string, detail = {}) => ({
-              status: "blocked",
-              reason,
-              processEffectIssued: false,
-              ...detail,
-            }),
-          }) as (...args: unknown[]) => Record<string, unknown>;
-          const result = provider
-            ? execute("codex", fault === "development" ? {} : undefined)
-            : execute(
-                "runtime_state",
-                false,
-                fault === "development" ? {} : undefined,
-              );
-          assert.equal(
-            result.status,
-            fault === "normal" ? "candidate" : "blocked",
-            `${relative}/${fault}`,
-          );
-          assert.equal(spawns, fault === "normal" || fault === "post" ? 1 : 0);
-          assert.equal(result.processEffectIssued, spawns === 1);
-          if (fault === "development")
-            assert.match(
-              String(result.reason),
-              /_artifact_bootstrap_unavailable$/u,
-            );
-          if (fault === "missing")
-            assert.match(
-              String(result.reason),
-              /_artifact_bootstrap_unavailable$/u,
-            );
-          if (fault === "normal") {
-            assert.deepEqual(events, [
-              "begin",
-              "artifact",
-              "verify1",
-              "spawn",
-              "verify2",
-              "artifact",
-            ]);
-            assert.equal(result.nativeSourceRevision, null);
-            assert.equal(
-              result.executionSourceKind,
-              "fixed_bootstrap_native_artifact",
-            );
-          }
-        }
-      };
-      oracle(body);
-      const gate =
-        "!verifyPlatformAccessArtifactObservation(artifactObservation.token)";
-      assert.equal(body.split(gate).length, 3);
-      for (const selected of [
-        body.replace(
-          "beginPlatformAccessBootstrapObservation(distributionRoot)",
-          "null",
-        ),
-        body.replace(gate, "false"),
-        body.replaceAll(gate, "false"),
-        body.replace("shell: false", "shell: true"),
-        body.replace(
-          "spawnSync(selectedExecutable, [],",
-          'spawnSync(selectedExecutable, ["--other"],',
-        ),
-      ]) {
-        assert.notEqual(selected, body);
-        assert.throws(() => oracle(selected), { name: "AssertionError" });
-      }
-    }
-  });
 }

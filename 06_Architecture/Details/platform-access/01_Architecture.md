@@ -4,11 +4,51 @@
 詳細設計領域: platform-access
 状態: Canonical
 
+## Source構造とNative接続の再編 — 2026-10-20
+
+採用した目標は、利用側→Platform AccessのTypeScript公開API→Rust Native Helper→OS APIである。Coordinator／Docker Isolationに残る固定Protocol・起動・搬送・応答検査・補助子終了はPlatform Accessへ移す。上位の操作許可、Task／Repositoryとの結合、Capability発行・消費・失効、回復判断・Checkpoint・清掃許可は移さない。技術観測の成功を上位Authorityや回復完了にしない。
+
+TypeScriptは機能別Folderへ配置し、Rustは`src/native/<責務>/windows/`へ実装をまとめ、責務の`mod.rs`が`#[cfg(windows)]`でビルド時に選択する。共通化するのは必要な操作・結果・終了保証であってOS APIそのものではない。Linux／macOSの空実装・Factory・Registryは作らず、現行の非Windows拒否を維持する。既存Protocol・保存形式・失敗理由・同じ回復参照・同期／非同期方式は構造変更から変更しない。
+
+Host保存本体の既存試験moduleは`tests/integration/host-record.rs`へ分離し、`#[cfg(test)]`と明示Pathで私有moduleへ接続する。試験項目、ignored条件、通常／明示試験の境界は維持し、完全修飾名と実行Scriptは改名後の`host_record::record`へ追従する。製品本体に試験本文を残さず、容量予約と保存の不可分な所有権は分割しない。
+
+PAから上位Packageを参照しない。開発観測の前後二回borrowとCapability判断は上位に残し、後確認が不成立なら発行しない。DI Policy Hashは上位が取得した用途固定入力であり、汎用raw argv／frame・任意実行物のAPIは公開しない。Rust側のWindows Publisher検証はCRDD署名の退役と別責務として維持する。
+
+Native実行物の確認はPlatform Access内部へ閉じる。Root公開APIからArtifactのbegin／verifyを撤去し、内部の確認を別名の公開Handle・Registryへ置き換えない。上位が継続性を確認する場合は`observeNativeArtifact`の非Authority値を使う。固定順のRoot実体、実行Path、File実体（bigintの精度を維持）、内容Hashとbyte長を同一Snapshotから`identitySha256`へ結合する。元Hashを指定した再観測は同じ実体・内容だけを返し、観測不能・不一致はnull、正常だが固定Bootstrap不一致は`bootstrapVerified:false`で区別する。
+
+最初の接続は`filesystem/root.ts`の`observeWindowsRuntimeState`／`observeWindowsProviderHome`とする。入力・nonceを含む要求構築→初回開発観測→Artifact・環境確認→固定Native→Helper結果→Artifact後確認→後開発観測→応答意味検査の順を維持する。開発観測は、上位が既存Contextをclosureに閉じた同期Readerを渡し、この一呼出し内だけで借用する。初回nullと期待Artifact欠落を区別し、後回の返却値から実行物を再選択しない。Reader例外を包括catchで隠さない。
+
+二APIは非Windowsを明示拒否し、観測候補または固定失敗区分・Process発行・終了・Artifact前後確認を返す。token・raw frame・実行物Path・Capabilityを返さない。Root用途・Home選択、鮮度10秒、Capability発行・消費・失効は従来の上位Ownerが維持する。純粋Protocolは`filesystem/protection.ts`へ移し、通常利用側へwire構築・解釈の手順を要求しない。
+
+`host-record/namespace.ts`の`initializeWindowsHostRecordNamespace`は、親の観測・期待Identity結合・保護付き初期化と固定Nativeの前後確認を所有する。上位は作成時点・失敗分類・清掃判断を所有する。観測と初期化の二要求、部分receiptとFilesystem Effectの不明値、個別終了・応答と終了値の相関を保持する。独立した観測APIや任意のwire入力は公開しない。純粋ProtocolとNative搬送の試験はPA、上位作成との結合試験はCoordinatorが所有し、別Packageの非公開Sourceを直接importしない。
+
+Cargo rootとtarget位置を維持し、Buildは`src/native/build.rs`、実行入口は`src/native/main.rs`、CLI結合試験は`tests/integration/native-cli.rs`へ明示接続する。[現物・Consumer対応表と検証範囲](../../../99_Roadmap/Changes/CHG-000082/platform-access-source-structure.md)が移管結果と未実行範囲を所有する。
+
+### TypeScript公開APIと所有者
+
+公開入口は`src/index.ts`だけとし、bin入口は新設しない。Rust CLIは用途固定の内部Protocolであり、上位Packageへraw frameを要求しない。
+
+| 責務Folder | 公開操作 | 返すもの・所有しない判断 |
+|---|---|---|
+| `artifact` | `observeNativeArtifact`、`observePlatformAccessArtifactCandidate` | 実体・内容の観測値。実行許可・Publisher真正性・tokenは返さない |
+| `filesystem` | `observeSystemWindowsDirectory`、`observeWindowsLocalAppDataDirectory`、`observeWindowsFilesystemEntry` | OS所在・対象一件の観測。削除許可は返さない |
+| `filesystem` | `observeWindowsRuntimeState`、`observeWindowsProviderHome`、`describeProviderHomeObservationContract` | 固定Nativeの技術観測と部分Effect。Capabilityの発行・鮮度判定は上位 |
+| `host-record` | `initializeWindowsHostRecordNamespace` | 用途固定の親照合・初期化と部分receipt。作成時点・清掃判断は上位 |
+| `host-record` | `createHostTerminalCurrentObservationRequest`、`createHostTerminalReadRequest`、`createHostTerminalSaveRequest` | 技術期待値から用途固定要求を作る。記録の意味検査は上位 |
+| `host-record` | `createKnownFileHostTerminalCurrentObservationRequest`、`createKnownFileHostTerminalReadRequest`、`createKnownFileHostTerminalSaveRequest` | 既知Fileを含む専用要求。旧形式へ暗黙変換しない |
+| `host-record` | `observeHostTerminalWindowsCandidate`、`readHostTerminalWindowsRecord`、`saveHostTerminalWindowsRecord` | 固定要求の搬送、応答・実子終了・部分結果の技術相関 |
+| `host-record` | `observeKnownFileHostTerminalWindowsCandidate`、`readKnownFileHostTerminalWindowsRecord`、`saveKnownFileHostTerminalWindowsRecord` | 既知File専用の同じ技術相関。Recovery完了・削除許可を返さない |
+| `docker-desktop` | `startDockerDesktopRepairHelper`、`startDockerDesktopRestartHelper`、`requestDockerDesktopOfficialShutdown` | 固定補助子・Protocol・stdio・終了処理。操作許可、Policy、Engine判断、CheckpointはDocker Isolation |
+| `process` | `startWindowsChildTreeTermination` | 所有子の終了結果。Process番号だけで別対象を停止しない |
+| `process` | `createInteractiveConsoleReaderEnvironment`、`createWindowsNodeConsoleReaderEnvironment`、`createWindowsHostOperationSupervisorEnvironment`、`createWindowsNativeHelperEnvironment`、`createWindowsHostTerminalHelperEnvironment`、`createWindowsPowerShellAuthenticodeEnvironment`、`deriveWindowsSystemDrive`、`describeWindowsChildEnvironmentContract` | 用途固定の環境値・契約。任意環境builderを公開しない |
+
+固定target・Protocol・Toolchain・容量・環境契約の定数と、各操作の型もRootから明示exportする。正確なexport集合は公開契約試験で固定し、用途内のdecoder・wire・内部Artifact tokenは含めない。
+
 ## v0.22 Node境界の追加（移管候補）
 
 ### 通常Nativeの固定Bootstrap確認
 
-`artifact/identity-observation.ts`の`beginPlatformAccessBootstrapObservation`は、既存のRoot／File観測を採用済み`PLATFORM_ACCESS_BOOTSTRAP_ARTIFACT_SHA256`へ限定する。固定Path・通常File・非link・size・Root／File実体・Hashを確認し、同じ既存観測tokenを返す。任意Hash・binaryの注入、Git HEAD一致、Publisher真正性、実行Authorityは所有しない。利用側は要求直前／直後に同tokenを検証し、不明を不存在や成功へ変換しない。Git改訂由来の照合は別の追跡／任意配布契約であり、通常実行の条件にしない。新しいState、Lock、資格または互換経路は追加しない。
+固定Bootstrap確認は`artifact/identity.ts`内部のNative実行経路で維持する。上位の開発Sessionは`observeNativeArtifact`の`bootstrapVerified:true`を要求し、元実体Hashの前確認→新観測→元Hashの後確認→新Hashの最終確認を維持する。Hash不一致・観測不能を新baselineで上書きしない。固定bytes一致はGit改訂一致、Publisher真正性、実行Authorityを意味しない。一般Artifactの継続性だけを要求していた診断・Docker保持照合へBootstrap必須条件を追加しない。
 
 ### 同じ修復補助子の利用者相関
 
@@ -26,11 +66,11 @@ Docker Isolationの保存前準備に必要な非秘密相関として、Repair 
 
 privateな同期関数だけがopen→query→close→write→flushを直列化する。本番の取得・照会closureは既存Win32入力と相関検査をそのまま使い、公開差替え、trait、共有状態は追加しない。取得成功ではquery失敗でもclose一回、close不明では出力0。取得不成立ではquery／closeを実行しない。write失敗では部分出力、flush失敗では完全frameがあり得るが、exit3を成功へ変更しない。この順序と故障分岐は`ERB-UT-039`のメモリ試験が所有し、現物の型・実体観測は既存ITが別に確認する。
 
-一要求一Process・exact argv・完全frame・Artifact前後確認を`src/windows/entry-observation.ts`で結合し、新nonceやRepair Session Protocol変更は追加しない。Native実体の単位をNode実体へ未実証で変換しない。Nodeのraw観測は未知tagも意味を保持して返し、削除可否はDIだけが判断する。2026-10-17の開発Buildでは自己生成AF_UNIXのhandleを閉じて残した端点のP応答・tag0x80000023を取得し、Node unlink後のA応答と専用Root不存在を確認した。子PowerShellを使う試験は環境の起動拒否で未到達だったため、この成功へ含めない。異常終了子の方式選択実測とは別の実測である。同期故障反証の限定レビュー後、既存固定配布Nativeとbootstrap Hashを`a85d46241ba5cb4d771d2b6c493254262492935e3a5e9d20fea2bd486acc9cc9`へ更新した。公開API経由のfile／Directory／hardlink／junction／不存在と旧Known Folder二用途は限定確認済み。Host専用試験は制限内のhardlink EPERMを成功へ丸めず別profileで実施し、自己生成物の清掃と不存在を確認する。既存保護API・Repair Protocol・過去の署名Manifestは不変更である。退役した署名Package方式は現在の完成条件にせず、歴史記録として保持する。現在のDI実回収・三用途終端と必要な実境界の成立は未完了である。
+一要求一Process・exact argv・完全frame・Artifact前後確認を`src/filesystem/entry.ts`で結合し、新nonceやRepair Session Protocol変更は追加しない。Native実体の単位をNode実体へ未実証で変換しない。Nodeのraw観測は未知tagも意味を保持して返し、削除可否はDIだけが判断する。2026-10-17の開発Buildでは自己生成AF_UNIXのhandleを閉じて残した端点のP応答・tag0x80000023を取得し、Node unlink後のA応答と専用Root不存在を確認した。子PowerShellを使う試験は環境の起動拒否で未到達だったため、この成功へ含めない。異常終了子の方式選択実測とは別の実測である。同期故障反証の限定レビュー後、既存固定配布Nativeとbootstrap Hashを`a85d46241ba5cb4d771d2b6c493254262492935e3a5e9d20fea2bd486acc9cc9`へ更新した。公開API経由のfile／Directory／hardlink／junction／不存在と旧Known Folder二用途は限定確認済み。Host専用試験は制限内のhardlink EPERMを成功へ丸めず別profileで実施し、自己生成物の清掃と不存在を確認する。既存保護API・Repair Protocol・過去の署名Manifestは不変更である。退役した署名Package方式は現在の完成条件にせず、歴史記録として保持する。現在のDI実回収・三用途終端と必要な実境界の成立は未完了である。
 
 ### 修復対象のLocalAppData所在観測
 
-Docker修復の新しいMachineは、旧RuntimeState Rootを逆算してOS所在を得ない。`src/windows/local-app-data.ts`の引数なし`observeWindowsLocalAppDataDirectory()`が、固定Native mode `--local-app-data-directory`と既存Rustの`local_app_data_path()`を使い、現在Processの利用者のKnown Folderを観測する。任意GUID／利用者／Path、環境値fallback、Directory作成・ACL変更・Authorityを提供しない。
+Docker修復の新しいMachineは、旧RuntimeState Rootを逆算してOS所在を得ない。`src/filesystem/local-app-data.ts`の引数なし`observeWindowsLocalAppDataDirectory()`が、固定Native mode `--local-app-data-directory`と既存Rustの`local_app_data_path()`を使い、現在Processの利用者のKnown Folderを観測する。任意GUID／利用者／Path、環境値fallback、Directory作成・ACL変更・Authorityを提供しない。
 
 専用frameは`CRDDLA01`の8bytes、little-endian u32のUTF-16単位数、1〜32767単位の本文である。既存System Directoryの`CRDDWD01`とは混用しない。固定Artifact Hashと前後実体を確認し、空環境・固定cwd・shellなし・5秒・65548bytes上限で一回起動する。成功exit・stderr空・完全frame・fatal UTF-16・正規絶対Path、Directory／非link・realpath一致と前後実体一致を要求し、不明はnullとする。System Directoryの既存Protocolと返却条件は変えない。両読取り入口のbootstrap HashはArtifact観測Moduleの単一固定値を使う。
 
@@ -40,11 +80,11 @@ Docker修復の新しいMachineは、旧RuntimeState Rootを逆算してOS所在
 
 | 配置 | 所有する処理 | 公開／終了条件 |
 |---|---|---|
-| `src/artifact/identity-observation.ts` | 固定NativeのRoot／file実体、同handleの有界Hash、前後再観測、Process内の非Authority Snapshot | candidate／begin／verifyと必要定数だけ。絶対Path・実体内部・raw Filesystem・WeakMapを公開しない。descriptorはfinallyでclose |
-| `src/windows/system-directory.ts` | 固定Nativeの`--system-windows-directory`、CRDDWD01の有界・厳密decode | 固定Hashと前後同一性、閉じたargv・環境・cwd・待機上限を維持。不明・不正・非Windowsは取得不能。これは資源不存在の観測ではない |
-| `src/windows/local-app-data.ts` | 固定Known Folderの`--local-app-data-directory`、CRDDLA01の厳密decodeと安定Directory確認 | 引数なし・非Authorityの所在観測。旧RuntimeState・環境fallbackなし。意図した利用者・Root Authority・処置許可は別確認 |
-| `src/windows/child-environment.ts` | OS由来Directory／Profile検証、中立環境、Console／Supervisor／Native／Host終端／固定PowerShell初期化環境、純粋Drive検査 | 既存用途固定の操作だけを公開。任意additions builderはprivate。親環境をAuthorityにせず、Host終端だけTMP／TEMPを導出する。Docker用Home・config・Hints・修復用Drive付与とPublisher判断は所有しない |
-| `src/windows/child-tree-termination.ts` | 所有ChildProcessを対象とする固定taskkillの開始、有界結果待機、補助子の終了とclose観測 | 生存元子だけを対象とし、観測後も未終了を再確認する。任意PID・実行物・引数・環境builderは公開しない。補助開始／終了値／closeと元子closeは別の事実。Consumerが一度発行と元子closeを所有する |
+| `src/artifact/identity.ts` | 固定NativeのRoot／file実体、同handleの有界Hash、前後再観測、Process内の非Authority Snapshot | Root公開は`observeNativeArtifact`／`observePlatformAccessArtifactCandidate`と必要定数。begin／verify・token・実体内部はPA内部。descriptorはfinallyでclose |
+| `src/filesystem/system-directory.ts` | 固定Nativeの`--system-windows-directory`、CRDDWD01の有界・厳密decode | 固定Hashと前後同一性、閉じたargv・環境・cwd・待機上限を維持。不明・不正・非Windowsは取得不能。これは資源不存在の観測ではない |
+| `src/filesystem/local-app-data.ts` | 固定Known Folderの`--local-app-data-directory`、CRDDLA01の厳密decodeと安定Directory確認 | 引数なし・非Authorityの所在観測。旧RuntimeState・環境fallbackなし。意図した利用者・Root Authority・処置許可は別確認 |
+| `src/process/environment.ts` | OS由来Directory／Profile検証、中立環境、Console／Supervisor／Native／Host終端／固定PowerShell初期化環境、純粋Drive検査 | 既存用途固定の操作だけを公開。任意additions builderはprivate。親環境をAuthorityにせず、Host終端だけTMP／TEMPを導出する。Docker用Home・config・Hints・修復用Drive付与とPublisher判断は所有しない |
+| `src/process/termination.ts` | 所有ChildProcessを対象とする固定taskkillの開始、有界結果待機、補助子の終了とclose観測 | 生存元子だけを対象とし、観測後も未終了を再確認する。任意PID・実行物・引数・環境builderは公開しない。補助開始／終了値／closeと元子closeは別の事実。Consumerが一度発行と元子closeを所有する |
 | `src/index.ts` | 上記の必要な意味操作を明示export | Coordinator／Docker Isolation等はRoot APIを使い、下位から上位import 0、旧Path／shim 0 |
 
 固定tree終端は、要求直前に元子未終了と観測したPIDを対象とする。観測からOS受理までのPID再利用防止やOSのexact Process Identity保証は成立範囲に含めない。補助子成功だけでは元子終了を判定せず、Consumerが元子closeを別に確認する。未再現の可能性だけを理由に共有Registryや新しい管理機構を追加しない。
@@ -164,49 +204,51 @@ crateは`rust-toolchain.toml`、`Cargo.toml`および`Cargo.lock`でtoolchain、
 ### 内部ブロックとOS接続
 
 ```text
-Coordinatorの用途別Adapter（許可・耐久記録・全体結果の所有者）
+Coordinator／Docker Isolation（許可・耐久記録・全体結果の所有者）
+  ↓ 用途固定の公開API
+Platform Access TypeScript（要求構築・搬送・応答・終了の技術Owner）
   ↓ 固定binaryへの要求
-受付・dispatch [main.rs]
+Rust受付・dispatch [src/native/main.rs]（以下のRust Pathはsrc/native基準）
   ├→ Root／Provider Home／Runtime State要求・応答 [protocol/access.rs]
-  │     ├→ Root用途別観測 [filesystem/root_observation.rs]
-  │     └→ 固定Provider Home／Runtime State観測・限定初期化 [filesystem/protected_root.rs]
-  │          ├→ 主体・Token観測 [process/principal.rs]
-  │          └→ 保護・実体観測 [filesystem/protection.rs]
+  │     ├→ Root用途別観測 [filesystem/windows/root_observation.rs]
+  │     └→ 固定Provider Home／Runtime State観測・限定初期化 [filesystem/windows/protected_root.rs]
+  │          ├→ 主体・Token観測 [process/windows/principal.rs]
+  │          └→ 保護・実体観測 [filesystem/windows/protection.rs]
   │                                         ↓
   │                                      Windows API
   ├→ Host Namespace要求 [protocol/host_namespace.rs]
-  │     └→ 固定親・初期化 [filesystem/host_namespace.rs]
+  │     └→ 固定親・初期化 [host_record/windows/host_namespace.rs]
   ├→ Host対象／記録要求 [protocol/host_record.rs]
-  │     └→ 記録処理 [filesystem/host_record.rs]
-  │          ├→ 対象観測 [filesystem/terminal_target.rs] → Namespace guard [filesystem/host_namespace.rs]
-  │          └→ 保護保存 [filesystem/protected_file.rs]
-  └→ Docker操作 [docker-desktop/repair.rs]
+  │     └→ 記録処理 [host_record/windows/record.rs]
+  │          ├→ 対象観測 [host_record/windows/terminal_target.rs] → Namespace guard [host_record/windows/host_namespace.rs]
+  │          └→ 保護保存 [host_record/windows/protected_file.rs]
+  └→ Docker操作 [docker_desktop/windows/repair.rs]
         ├ 障害修復protocol
         ├ 検証付き再起動protocol（Source接続済み・実機未完了）
-        │   └→ 公式停止CLI → 子Process・Job所有 [process/owned_child.rs]
-        ├→ artifact固定・Process観測 [docker-desktop/identity.rs]
+        │   └→ 公式停止CLI → 子Process・Job所有 [process/windows/owned_child.rs]
+        ├→ artifact固定・Process観測 [docker_desktop/windows/identity.rs]
         ├ 限定停止・起動操作
-        ├→ 発行元署名検証 [docker-desktop/publisher.rs] → Windows署名検証API
-        └→ Known Folder [filesystem/windows_directory.rs]・選択ユーザー情報 [process/principal.rs]
+        ├→ 発行元署名検証 [docker_desktop/windows/publisher.rs] → Windows署名検証API
+        └→ Known Folder [filesystem/windows/windows_directory.rs]・選択ユーザー情報 [process/windows/principal.rs]
   ↓ 閉じた応答frameとProcess終了
-Coordinator側で再検証 → 診断／回復結果
+Platform Access側で技術相関を確認 → 上位の許可・診断／回復判断
 ```
 
 | 内部ブロック | Source群 | 所有範囲 |
 |---|---|---|
-| 受付・応答形式 | `src/main.rs`、`src/protocol/access.rs` | mode選択、要求形式、Root／Provider Home／Runtime State応答の符号化 |
-| Windowsフォルダ観測 | `src/filesystem/windows_directory.rs` | System Directoryと固定Known FolderのOS API観測 |
-| Windows主体観測 | `src/process/principal.rs` | Token／SID／認証Sessionと主体分類のOS観測 |
-| Windows保護・実体観測 | `src/filesystem/protection.rs` | Handle・Descriptor所有、Directory Identity、固定入力のopen、ACL AccessCheckとhash resourceの解放 |
-| Windows Root観測 | `src/filesystem/root_observation.rs` | Rootの用途別要求を主体・保護の観測へ接続する。Native入口は用途別Ownerを直接呼び出す |
-| 固定Provider Home／Runtime State観測 | `src/filesystem/protected_root.rs` | Provider Home／Runtime Stateの固定親、構成、Runtime Stateだけの限定初期化と主体・保護Bindingを照合する。旧Store値は現行Protocolで拒否する |
-| Host記録処理 | `src/filesystem/host_record.rs` | 容量・予約・保存・読戻しを保護付きFileとNamespace対象観測へ接続し、専用公開結果と部分処置を搬送する |
-| 保護付きFile操作 | `src/filesystem/protected_file.rs` | 同期Handleのopen・close、実体・ACL照合、Descriptor構成、上限付き読取り、保存Stageのwrite・flush・同一実体への非置換公開と部分receipt |
-| Host Namespace観測 | `src/filesystem/host_namespace.rs` | 固定NamespaceのIdentity型、実体値照合、対象名・一時親Path判定、保持Directory chainの取得・検証・個別終了、期待値付き固定child初期化と専用公開要求 |
-| Host対象観測 | `src/filesystem/terminal_target.rs` | 借用したNamespace guard上の十一／十二実体の観測・部分取得・逆順終了。対象観測をNamespace初期化・記録保存・回収Authorityから分け、共有する停止flagと個別終了条件を維持する |
-| Host保護の結合試験 | `tests/fixtures/windows_protection.rs` | `filesystem::host_record::protection_tests`の試験専用子module。自己生成対象の共有拒否・別Process観測だけを所有し、一般UTから分離する。ignored試験は既定実行しない。正式Node入口がfresh runとCargo返却の一意なtest実行物を固定し、親と子は同じrun・実行物・期限を再確認する |
-| Docker実体検証 | `src/docker-desktop/identity.rs` | 固定artifactの署名・ハッシュ・同一実体とProcess Path・作成時刻・scope観測。停止・起動を所有しない |
-| Docker操作 | `src/docker-desktop/repair.rs` | 用途別protocol、mutex、検証済みartifactとProcessを使う限定停止・開始・再起動 |
+| 受付・応答形式 | `src/native/main.rs`、`src/native/protocol/access.rs` | mode選択、要求形式、Root／Provider Home／Runtime State応答の符号化 |
+| Windowsフォルダ観測 | `src/native/filesystem/windows/windows_directory.rs` | System Directoryと固定Known FolderのOS API観測 |
+| Windows主体観測 | `src/native/process/windows/principal.rs` | Token／SID／認証Sessionと主体分類のOS観測 |
+| Windows保護・実体観測 | `src/native/filesystem/windows/protection.rs` | Handle・Descriptor所有、Directory Identity、固定入力のopen、ACL AccessCheckとhash resourceの解放 |
+| Windows Root観測 | `src/native/filesystem/windows/root_observation.rs` | Rootの用途別要求を主体・保護の観測へ接続する。Native入口は用途別Ownerを直接呼び出す |
+| 固定Provider Home／Runtime State観測 | `src/native/filesystem/windows/protected_root.rs` | Provider Home／Runtime Stateの固定親、構成、Runtime Stateだけの限定初期化と主体・保護Bindingを照合する。旧Store値は現行Protocolで拒否する |
+| Host記録処理 | `src/native/host_record/windows/record.rs` | 容量・予約・保存・読戻しを保護付きFileとNamespace対象観測へ接続し、専用公開結果と部分処置を搬送する |
+| 保護付きFile操作 | `src/native/host_record/windows/protected_file.rs` | 同期Handleのopen・close、実体・ACL照合、Descriptor構成、上限付き読取り、保存Stageのwrite・flush・同一実体への非置換公開と部分receipt |
+| Host Namespace観測 | `src/native/host_record/windows/host_namespace.rs` | 固定NamespaceのIdentity型、実体値照合、対象名・一時親Path判定、保持Directory chainの取得・検証・個別終了、期待値付き固定child初期化と専用公開要求 |
+| Host対象観測 | `src/native/host_record/windows/terminal_target.rs` | 借用したNamespace guard上の十一／十二実体の観測・部分取得・逆順終了。対象観測をNamespace初期化・記録保存・回収Authorityから分け、共有する停止flagと個別終了条件を維持する |
+| Host保護の結合試験 | `tests/fixtures/windows_protection.rs` | `host_record::record::protection_tests`の試験専用子module。自己生成対象の共有拒否・別Process観測だけを所有し、一般UTから分離する。ignored試験は既定実行しない。正式Node入口がfresh runとCargo返却の一意なtest実行物を固定し、親と子は同じrun・実行物・期限を再確認する |
+| Docker実体検証 | `src/native/docker_desktop/windows/identity.rs` | 固定artifactの署名・ハッシュ・同一実体とProcess Path・作成時刻・scope観測。停止・起動を所有しない |
+| Docker操作 | `src/native/docker_desktop/windows/repair.rs` | 用途別protocol、mutex、検証済みartifactとProcessを使う限定停止・開始・再起動 |
 | 発行元検証 | `src/docker-desktop/publisher.rs` | 開いたDocker artifactのWindows署名・発行元検証 |
 | 停止CLIの子Process所有 | `src/process/owned_child.rs` | 停止前生成、Jobへの割当、実行、有限待機、取消と終了観測 |
 
@@ -360,7 +402,7 @@ Host終端記録のSchema、参照、容量、Authority、再入場と清掃は[
 
 ## 4. バイナリ境界
 
-Root／Provider Home／Runtime Stateのbyte・flag定義は[protocol/access.rs](../../../40_Develop/platform-access/src/protocol/access.rs)、Docker復旧のcommand・応答は[docker-desktop/repair.rs](../../../40_Develop/platform-access/src/docker-desktop/repair.rs)を正本とする。
+Root／Provider Home／Runtime Stateのbyte・flag定義は[protocol/access.rs](../../../40_Develop/platform-access/src/native/protocol/access.rs)、Docker復旧のcommand・応答は[docker_desktop/windows/repair.rs](../../../40_Develop/platform-access/src/native/docker_desktop/windows/repair.rs)を正本とする。
 
 | protocol | 識別と長さ | 確認事項 |
 |---|---|---|
@@ -452,7 +494,7 @@ Docker復旧helperは固定mutexとartifact handleを保持し、検証済み対
 
 | 対象 | 確認先 |
 |---|---|
-| 要求・応答とCLI | [Rust CLI試験](../../../40_Develop/platform-access/tests/cli.rs)、protocol内試験、[TS Adapter試験](../../../40_Develop/coordinator/tests/unit/platform-access/adapter.contract.test.ts) |
+| 要求・応答とCLI | [Rust CLI試験](../../../40_Develop/platform-access/tests/integration/native-cli.rs)、protocol内試験、[TS Adapter試験](../../../40_Develop/coordinator/tests/unit/platform-access/adapter.contract.test.ts) |
 | 成果物同一性 | [成果物同一性試験](../../../40_Develop/platform-access/tests/integration/artifact-identity-observation.contract.test.ts)。固定Artifact／Bootstrapと実Filesystemの相関を確認する。Coordinator専用Trust Core／Release Identity試験は専用方式とともに退役し、この試験を配布元真正性・旧配布閉包保証の代替にしない |
 | Provider Home／Runtime State | `filesystem/root_observation.rs`内試験、[Home／Runtime State観測試験](../../../40_Develop/coordinator/tests/unit/platform-access/protected-root-protocol.contract.test.ts)、[Runtime State Adapter試験](../../../40_Develop/coordinator/tests/unit/platform-access/protected-root-windows-adapter.contract.test.ts) |
 | Docker復旧 | docker-desktop/repair.rs内試験、[DI Machine・技術接続試験](../../../40_Develop/docker-isolation/tests/integration/repair-runtime.contract.test.ts)、[Coordinatorの現在Writer・履歴・保持／終了接続試験](../../../40_Develop/coordinator/tests/integration/runtime-repair-owner.contract.test.ts) |

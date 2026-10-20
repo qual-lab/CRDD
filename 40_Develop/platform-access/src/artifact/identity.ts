@@ -1,0 +1,552 @@
+/**
+ * Native Artifact同一性観測に属する責務をまとめる。
+ *
+ * @packageDocumentation
+ * @responsibility 固定Nativeの同handle有界Hashと前後実体観測を所有し、権限を発行しない。
+ * @boundary Filesystem読取りとProcess内の非Authority Snapshot。
+ * @trace ARCH-000014
+ */
+import { createHash } from "node:crypto";
+import fs from "node:fs";
+import path from "node:path";
+
+export const PLATFORM_ACCESS_TARGET = "x86_64-pc-windows-msvc";
+export const PLATFORM_ACCESS_RUST_TOOLCHAIN = "1.94.1";
+export const PLATFORM_ACCESS_PROTOCOL_REVISION = 3;
+// Fixed bootstrap observation only; this hash issues no Runtime authority.
+export const PLATFORM_ACCESS_BOOTSTRAP_ARTIFACT_SHA256 =
+  "ce265feabf5ef08aa0ab103078746fc40941db4fdf2d100eb7316711a4f6fddc";
+export const PLATFORM_ACCESS_EXECUTABLE_MAXIMUM_BYTES = 16 * 1024 * 1024;
+export const PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH =
+  "template/tools/coordinator/windows-x64/crdd-platform-access.exe";
+
+/**
+ * Native Artifact同一性観測で使用するFile Identityの値契約を定義する。
+ *
+ * @responsibility File IdentityのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000014
+ * @shape FileIdentityが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant FileIdentityで宣言した値と責務の対応を維持する。
+ * @boundary N/A: FileIdentityの宣言は外部境界を開かない。
+ * @security FileIdentityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility FileIdentityの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
+type FileIdentity = Readonly<{
+  dev: bigint;
+  ino: bigint;
+  birthtimeNs: bigint;
+  ctimeNs: bigint;
+  mtimeNs: bigint;
+  size: bigint;
+  mode: bigint;
+}>;
+
+/**
+ * Native Artifact同一性観測で使用するDirectory Identityの値契約を定義する。
+ *
+ * @responsibility Directory IdentityのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000014
+ * @shape DirectoryIdentityが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant DirectoryIdentityで宣言した値と責務の対応を維持する。
+ * @boundary N/A: DirectoryIdentityの宣言は外部境界を開かない。
+ * @security DirectoryIdentityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility DirectoryIdentityの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
+type DirectoryIdentity = Readonly<{
+  dev: bigint;
+  ino: bigint;
+  birthtimeNs: bigint;
+}>;
+
+const artifactSnapshots = new WeakMap<
+  object,
+  Readonly<{
+    root: string;
+    rootIdentity: DirectoryIdentity;
+    executablePath: string;
+    fileIdentity: FileIdentity;
+    artifact: Readonly<{
+      relativePath: string;
+      target: string;
+      protocolRevision: number;
+      rustToolchain: string;
+      byteLength: number;
+      sha256: string;
+    }>;
+  }>
+>();
+
+/**
+ * file Identityを決定する。
+ *
+ * @responsibility file Identityの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input metadata: fs.BigIntStats
+ * @returns FileIdentityを返す。
+ * @precondition 「metadata: fs.BigIntStats」がfileIdentityの入力契約を満たす。
+ * @postcondition fileIdentityの責務を完了した結果だけを返す。
+ * @effect N/A: fileIdentityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure fileIdentityは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant fileIdentityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: fileIdentityはProcess内の同一Subsystemで完結する。
+ * @security fileIdentityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: fileIdentityは共有非同期状態を持たない同期処理である。
+ */
+function fileIdentity(metadata: fs.BigIntStats): FileIdentity {
+  if (
+    !metadata.isFile() ||
+    metadata.isSymbolicLink() ||
+    metadata.dev <= 0n ||
+    metadata.ino <= 0n ||
+    metadata.birthtimeNs <= 0n ||
+    metadata.size <= 0n ||
+    metadata.size > BigInt(PLATFORM_ACCESS_EXECUTABLE_MAXIMUM_BYTES)
+  ) {
+    throw new Error("platform_access_release_executable_invalid");
+  }
+  return Object.freeze({
+    dev: metadata.dev,
+    ino: metadata.ino,
+    birthtimeNs: metadata.birthtimeNs,
+    ctimeNs: metadata.ctimeNs,
+    mtimeNs: metadata.mtimeNs,
+    size: metadata.size,
+    mode: metadata.mode,
+  });
+}
+
+/**
+ * Identityが同一かを判定する。
+ *
+ * @responsibility Identityの同一性Propertyと一致／不一致境界を所有する。
+ * @trace ARCH-000014
+ * @input left: FileIdentity、right: FileIdentity
+ * @returns booleanを返す。
+ * @precondition 「left: FileIdentity、right: FileIdentity」がsameIdentityの入力契約を満たす。
+ * @postcondition sameIdentityの責務を完了した結果だけを返す。
+ * @effect N/A: sameIdentityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: sameIdentityは独自の失敗分岐を所有しない。
+ * @invariant sameIdentityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: sameIdentityはProcess内の同一Subsystemで完結する。
+ * @security sameIdentityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: sameIdentityは共有非同期状態を持たない同期処理である。
+ */
+function sameIdentity(left: FileIdentity, right: FileIdentity): boolean {
+  return (
+    left.dev === right.dev &&
+    left.ino === right.ino &&
+    left.birthtimeNs === right.birthtimeNs &&
+    left.ctimeNs === right.ctimeNs &&
+    left.mtimeNs === right.mtimeNs &&
+    left.size === right.size &&
+    left.mode === right.mode
+  );
+}
+
+/**
+ * directory Identityを決定する。
+ *
+ * @responsibility directory Identityの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input metadata: fs.BigIntStats
+ * @returns DirectoryIdentityを返す。
+ * @precondition 「metadata: fs.BigIntStats」がdirectoryIdentityの入力契約を満たす。
+ * @postcondition directoryIdentityの責務を完了した結果だけを返す。
+ * @effect N/A: directoryIdentityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure directoryIdentityは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant directoryIdentityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: directoryIdentityはProcess内の同一Subsystemで完結する。
+ * @security directoryIdentityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: directoryIdentityは共有非同期状態を持たない同期処理である。
+ */
+function directoryIdentity(metadata: fs.BigIntStats): DirectoryIdentity {
+  if (
+    !metadata.isDirectory() ||
+    metadata.isSymbolicLink() ||
+    metadata.dev <= 0n ||
+    metadata.ino <= 0n ||
+    metadata.birthtimeNs <= 0n
+  ) {
+    throw new Error("platform_access_release_distribution_invalid");
+  }
+  return Object.freeze({
+    dev: metadata.dev,
+    ino: metadata.ino,
+    birthtimeNs: metadata.birthtimeNs,
+  });
+}
+
+/**
+ * Directory Identityが同一かを判定する。
+ *
+ * @responsibility Directory Identityの同一性Propertyと一致／不一致境界を所有する。
+ * @trace ARCH-000014
+ * @input left: DirectoryIdentity、right: DirectoryIdentity
+ * @returns booleanを返す。
+ * @precondition 「left: DirectoryIdentity、right: DirectoryIdentity」がsameDirectoryIdentityの入力契約を満たす。
+ * @postcondition sameDirectoryIdentityの責務を完了した結果だけを返す。
+ * @effect N/A: sameDirectoryIdentityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: sameDirectoryIdentityは独自の失敗分岐を所有しない。
+ * @invariant sameDirectoryIdentityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: sameDirectoryIdentityはProcess内の同一Subsystemで完結する。
+ * @security sameDirectoryIdentityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: sameDirectoryIdentityは共有非同期状態を持たない同期処理である。
+ */
+function sameDirectoryIdentity(
+  left: DirectoryIdentity,
+  right: DirectoryIdentity,
+): boolean {
+  return (
+    left.dev === right.dev &&
+    left.ino === right.ino &&
+    left.birthtimeNs === right.birthtimeNs
+  );
+}
+
+/**
+ * distribution Root Snapshotを決定する。
+ *
+ * @responsibility distribution Root Snapshotの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input raw: unknown
+ * @returns distributionRootSnapshotの計算結果を返す。
+ * @precondition 「raw: unknown」がdistributionRootSnapshotの入力契約を満たす。
+ * @postcondition distributionRootSnapshotの責務を完了した結果だけを返す。
+ * @effect distributionRootSnapshotはFilesystemを読み取り、書込みを行わない。
+ * @failure distributionRootSnapshotは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant distributionRootSnapshotは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security distributionRootSnapshotはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: distributionRootSnapshotは共有非同期状態を持たない同期処理である。
+ */
+function distributionRootSnapshot(raw: unknown) {
+  if (
+    typeof raw !== "string" ||
+    raw.length === 0 ||
+    raw.includes("\0") ||
+    !path.isAbsolute(raw)
+  ) {
+    throw new Error("platform_access_release_distribution_invalid");
+  }
+  const root = path.resolve(raw);
+  const identity = directoryIdentity(fs.lstatSync(root, { bigint: true }));
+  if (fs.realpathSync.native(root) !== root) {
+    throw new Error("platform_access_release_distribution_invalid");
+  }
+  return Object.freeze({ root, identity });
+}
+
+/**
+ * Distribution Root Snapshotを検証する。
+ *
+ * @responsibility Distribution Root Snapshotの検証根拠、成立条件、観測不能時の拒否境界を所有する。
+ * @trace ARCH-000014
+ * @input snapshot: { root: string; identity: DirectoryIdentity; }
+ * @returns verifyDistributionRootSnapshotの計算結果を返す。
+ * @precondition 「snapshot: { root: string; identity: DirectoryIdentity; }」がverifyDistributionRootSnapshotの入力契約を満たす。
+ * @postcondition verifyDistributionRootSnapshotの責務を完了した結果だけを返す。
+ * @effect verifyDistributionRootSnapshotはFilesystemを読み取り、書込みを行わない。
+ * @failure N/A: verifyDistributionRootSnapshotは独自の失敗分岐を所有しない。
+ * @invariant verifyDistributionRootSnapshotは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security verifyDistributionRootSnapshotはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: verifyDistributionRootSnapshotは共有非同期状態を持たない同期処理である。
+ */
+function verifyDistributionRootSnapshot(snapshot: {
+  root: string;
+  identity: DirectoryIdentity;
+}) {
+  const current = directoryIdentity(
+    fs.lstatSync(snapshot.root, { bigint: true }),
+  );
+  return (
+    sameDirectoryIdentity(snapshot.identity, current) &&
+    fs.realpathSync.native(snapshot.root) === snapshot.root
+  );
+}
+
+/**
+ * Artifact Snapshotを観測する。
+ *
+ * @responsibility Artifact Snapshotの観測対象、取得根拠、観測不能結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input distributionRoot: unknown
+ * @returns observeArtifactSnapshotの計算結果を返す。
+ * @precondition 「distributionRoot: unknown」がobserveArtifactSnapshotの入力契約を満たす。
+ * @postcondition observeArtifactSnapshotの責務を完了した結果だけを返す。
+ * @effect observeArtifactSnapshotはFilesystemを読み取り、書込みを行わない。
+ * @failure observeArtifactSnapshotは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant observeArtifactSnapshotは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security observeArtifactSnapshotはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: observeArtifactSnapshotは共有非同期状態を持たない同期処理である。
+ */
+function observeArtifactSnapshot(distributionRoot: unknown) {
+  const rootSnapshot = distributionRootSnapshot(distributionRoot);
+  const root = rootSnapshot.root;
+  const executablePath = path.join(
+    root,
+    ...PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH.split("/"),
+  );
+  const before = fileIdentity(fs.lstatSync(executablePath, { bigint: true }));
+  if (fs.realpathSync.native(executablePath) !== executablePath) {
+    throw new Error("platform_access_release_executable_invalid");
+  }
+  const descriptor = fs.openSync(executablePath, fs.constants.O_RDONLY);
+  try {
+    const opened = fileIdentity(fs.fstatSync(descriptor, { bigint: true }));
+    if (!sameIdentity(before, opened)) {
+      throw new Error("platform_access_release_executable_changed");
+    }
+    const hash = createHash("sha256");
+    const buffer = Buffer.allocUnsafe(64 * 1024);
+    let byteLength = 0;
+    while (true) {
+      const count = fs.readSync(descriptor, buffer, 0, buffer.length, null);
+      if (count === 0) break;
+      byteLength += count;
+      if (byteLength > PLATFORM_ACCESS_EXECUTABLE_MAXIMUM_BYTES) {
+        throw new Error("platform_access_release_executable_invalid");
+      }
+      hash.update(buffer.subarray(0, count));
+    }
+    const after = fileIdentity(fs.fstatSync(descriptor, { bigint: true }));
+    const pathAfter = fileIdentity(
+      fs.lstatSync(executablePath, { bigint: true }),
+    );
+    if (
+      BigInt(byteLength) !== opened.size ||
+      !sameIdentity(opened, after) ||
+      !sameIdentity(opened, pathAfter) ||
+      fs.realpathSync.native(executablePath) !== executablePath ||
+      !verifyDistributionRootSnapshot(rootSnapshot)
+    ) {
+      throw new Error("platform_access_release_executable_changed");
+    }
+    return Object.freeze({
+      rootSnapshot,
+      executablePath,
+      fileIdentity: opened,
+      artifact: Object.freeze({
+        relativePath: PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH,
+        target: PLATFORM_ACCESS_TARGET,
+        protocolRevision: PLATFORM_ACCESS_PROTOCOL_REVISION,
+        rustToolchain: PLATFORM_ACCESS_RUST_TOOLCHAIN,
+        byteLength,
+        sha256: hash.digest("hex"),
+      }),
+    });
+  } finally {
+    fs.closeSync(descriptor);
+  }
+}
+
+/**
+ * Native Artifact候補を観測する。
+ *
+ * @responsibility Native Artifact候補の観測対象、取得根拠、観測不能結果の境界を所有する。
+ * @trace ARCH-000014
+ * @input distributionRoot: unknown
+ * @returns observePlatformAccessArtifactCandidateの計算結果を返す。
+ * @precondition 「distributionRoot: unknown」がobservePlatformAccessArtifactCandidateの入力契約を満たす。
+ * @postcondition observePlatformAccessArtifactCandidateの責務を完了した結果だけを返す。
+ * @effect 固定NativeとRootを読み取る。書込み・実行許可は発行しない。
+ * @failure observePlatformAccessArtifactCandidateは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant observePlatformAccessArtifactCandidateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 固定NativeのFilesystem観測。内部実体情報と絶対Pathは公開しない。
+ * @security observePlatformAccessArtifactCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: observePlatformAccessArtifactCandidateは共有非同期状態を持たない同期処理である。
+ */
+export function observePlatformAccessArtifactCandidate(
+  distributionRoot: unknown,
+) {
+  try {
+    const snapshot = observeArtifactSnapshot(distributionRoot);
+    return Object.freeze({
+      status: "candidate" as const,
+      reason: "platform_access_release_artifact_observed_candidate",
+      artifact: snapshot.artifact,
+      absolutePathReported: false,
+      filesystemEffectIssued: false,
+      runtimeAuthorityConferred: false,
+      runtimeCapabilityIssued: false,
+    });
+  } catch {
+    return Object.freeze({
+      status: "blocked" as const,
+      reason: "platform_access_release_artifact_invalid",
+      artifact: null,
+      absolutePathReported: false,
+      filesystemEffectIssued: false,
+      runtimeAuthorityConferred: false,
+      runtimeCapabilityIssued: false,
+    });
+  }
+}
+
+/**
+ * Native Artifactの非Authority観測を開始する。
+ *
+ * @responsibility Native Artifactの非Authority観測の開始条件、初期状態、開始失敗境界を所有する。
+ * @trace ARCH-000014
+ * @input distributionRoot: unknown
+ * @returns beginPlatformAccessArtifactObservationの計算結果を返す。
+ * @precondition 「distributionRoot: unknown」がbeginPlatformAccessArtifactObservationの入力契約を満たす。
+ * @postcondition beginPlatformAccessArtifactObservationの責務を完了した結果だけを返す。
+ * @effect 固定NativeとRootを読み取る。書込み・実行許可は発行しない。Process内WeakMapへ元Snapshotを保持する。
+ * @failure beginPlatformAccessArtifactObservationは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant beginPlatformAccessArtifactObservationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 固定NativeのFilesystem観測。内部実体情報と絶対Pathは公開しない。
+ * @security beginPlatformAccessArtifactObservationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: beginPlatformAccessArtifactObservationは共有非同期状態を持たない同期処理である。
+ */
+export function beginPlatformAccessArtifactObservation(
+  distributionRoot: unknown,
+) {
+  try {
+    const observed = observeArtifactSnapshot(distributionRoot);
+    const token = Object.freeze({});
+    artifactSnapshots.set(
+      token,
+      Object.freeze({
+        root: observed.rootSnapshot.root,
+        rootIdentity: observed.rootSnapshot.identity,
+        executablePath: observed.executablePath,
+        fileIdentity: observed.fileIdentity,
+        artifact: observed.artifact,
+      }),
+    );
+    return Object.freeze({ token, artifact: observed.artifact });
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Native実体と内容を一回のSnapshotから非Authority値へ投影する。
+ * @responsibility OS実体・内容・Rootの継続性をHashへ結合し、tokenを公開しない。
+ * @trace ARCH-000014
+ * @input distributionRoot、任意の元観測identitySha256。
+ * @returns Artifact・実体Hash・固定Bootstrap一致、またはnull。
+ * @precondition 実行用途とRootは利用側が選択する。
+ * @postcondition 元Hash指定時は同じ実体・内容を再観測した場合だけ返す。
+ * @effect 固定NativeとRootの読取りだけ。
+ * @failure 不正Root・観測不能・元Hash差はnull。Bootstrap不一致はfalseで区別する。
+ * @invariant Hashは固定順の精度を保った値から導出しAuthorityを発行しない。
+ * @boundary Native実体観測→上位の値比較。
+ * @security Path・OS主体・内部tokenを返さず、署名やPublisher真正性を主張しない。
+ * @concurrency 同一Handleの読取りと前後実体確認を行う。原子的ロードは保証しない。
+ */
+export function observeNativeArtifact(
+  distributionRoot: unknown,
+  expectedIdentitySha256?: string,
+) {
+  try {
+    if (
+      expectedIdentitySha256 !== undefined &&
+      (typeof expectedIdentitySha256 !== "string" ||
+        !/^[a-f0-9]{64}$/u.test(expectedIdentitySha256))
+    )
+      return null;
+    const observed = observeArtifactSnapshot(distributionRoot);
+    const root = observed.rootSnapshot;
+    const file = observed.fileIdentity;
+    const identitySha256 = createHash("sha256")
+      .update(
+        JSON.stringify([
+          "crdd-native-artifact-identity/v1",
+          root.root,
+          root.identity.dev.toString(),
+          root.identity.ino.toString(),
+          root.identity.birthtimeNs.toString(),
+          observed.executablePath,
+          file.dev.toString(),
+          file.ino.toString(),
+          file.birthtimeNs.toString(),
+          file.ctimeNs.toString(),
+          file.mtimeNs.toString(),
+          file.size.toString(),
+          file.mode.toString(),
+          observed.artifact.byteLength,
+          observed.artifact.sha256,
+        ]),
+      )
+      .digest("hex");
+    if (
+      expectedIdentitySha256 !== undefined &&
+      identitySha256 !== expectedIdentitySha256
+    )
+      return null;
+    return Object.freeze({
+      artifact: observed.artifact,
+      identitySha256,
+      bootstrapVerified:
+        observed.artifact.sha256 === PLATFORM_ACCESS_BOOTSTRAP_ARTIFACT_SHA256,
+    });
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 採用済みの固定Nativeだけの実体観測を開始する。
+ * @responsibility 汎用Artifact観測を固定Bootstrap Hashへ限定する。
+ * @trace ARCH-000014
+ * @input distributionRoot: 固定Nativeを配置した正規Root。
+ * @returns 元観測tokenとArtifact、または不成立のnull。
+ * @precondition 呼出し側が実行用途と固定Protocolを選択している。
+ * @postcondition 返却Artifactは採用済みHashに一致する。
+ * @effect 固定NativeとRootを読み取り、既存の局所観測を開始する。
+ * @failure Root・File・Hashが不正または観測不能ならnull。
+ * @invariant Git改訂一致・配布元真正性・実行Authorityを主張しない。
+ * @boundary 固定Bootstrap Artifactと通常Native利用側。
+ * @security 任意binary・Hashの注入や別経路へのfallbackを許可しない。
+ * @concurrency 要求前後の同token再確認は利用側が行う。
+ */
+export function beginPlatformAccessBootstrapObservation(
+  distributionRoot: unknown,
+) {
+  const observed = beginPlatformAccessArtifactObservation(distributionRoot);
+  return observed?.artifact.sha256 === PLATFORM_ACCESS_BOOTSTRAP_ARTIFACT_SHA256
+    ? observed
+    : null;
+}
+
+/**
+ * Native Artifactの非Authority観測を検証する。
+ *
+ * @responsibility Native Artifactの非Authority観測の検証根拠、成立条件、観測不能時の拒否境界を所有する。
+ * @trace ARCH-000014
+ * @input token: object
+ * @returns booleanを返す。
+ * @precondition 「token: object」がverifyPlatformAccessArtifactObservationの入力契約を満たす。
+ * @postcondition verifyPlatformAccessArtifactObservationの責務を完了した結果だけを返す。
+ * @effect 固定NativeとRootを読み取る。書込み・実行許可は発行しない。
+ * @failure verifyPlatformAccessArtifactObservationは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant verifyPlatformAccessArtifactObservationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 固定NativeのFilesystem観測。内部実体情報と絶対Pathは公開しない。
+ * @security verifyPlatformAccessArtifactObservationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: verifyPlatformAccessArtifactObservationは共有非同期状態を持たない同期処理である。
+ */
+export function verifyPlatformAccessArtifactObservation(
+  token: object,
+): boolean {
+  try {
+    const snapshot = artifactSnapshots.get(token);
+    if (!snapshot) return false;
+    const rootSnapshot = Object.freeze({
+      root: snapshot.root,
+      identity: snapshot.rootIdentity,
+    });
+    const observed = observeArtifactSnapshot(snapshot.root);
+    return (
+      observed.executablePath === snapshot.executablePath &&
+      sameIdentity(snapshot.fileIdentity, observed.fileIdentity) &&
+      observed.artifact.byteLength === snapshot.artifact.byteLength &&
+      observed.artifact.sha256 === snapshot.artifact.sha256 &&
+      verifyDistributionRootSnapshot(rootSnapshot)
+    );
+  } catch {
+    return false;
+  }
+}

@@ -20,7 +20,7 @@ import { runInNewContext } from "node:vm";
 import {
   PLATFORM_ACCESS_BOOTSTRAP_ARTIFACT_SHA256,
   PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH,
-} from "../../src/artifact/identity-observation.ts";
+} from "../../src/artifact/identity.ts";
 import { observeWindowsFilesystemEntry } from "../../src/index.ts";
 
 /**
@@ -38,7 +38,7 @@ import { observeWindowsFilesystemEntry } from "../../src/index.ts";
  */
 test("単一entry観測は固定Process・完全frame・Artifact前後を要求する", () => {
   const source = fs.readFileSync(
-    new URL("../../src/windows/entry-observation.ts", import.meta.url),
+    new URL("../../src/filesystem/entry.ts", import.meta.url),
     "utf8",
   );
   const start = source.indexOf("export type WindowsEntryObservation");

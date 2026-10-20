@@ -284,8 +284,8 @@ Sourceの新設・実質変更・再編では、次を評価し、`Applicable: �
 - 任意のpackage rootにある`package.json`と`package-lock.json`
 - TypeScript設定の`tsconfig.json`、`tsconfig.strict.json`、`tsconfig.tests.json`
 - Browser UI package rootにあるVite設定`vite.config.ts`
-- Rust crate rootの`Cargo.toml`、`Cargo.lock`、`rust-toolchain.toml`、Cargo build scriptの`build.rs`および`.gitignore`
-- Rust executable入口の`src/main.rs`
+- Rust crate rootの`Cargo.toml`、`Cargo.lock`、`rust-toolchain.toml`、Cargo build scriptの`src/native/build.rs`および`.gitignore`
+- Rust executable入口の`src/native/main.rs`
 - Git設定の`.gitignore`
 - Repository、Release台帳または配布用ひな型など、`40_Develop`の外側で入口を所有する`README.md`
 
@@ -354,7 +354,9 @@ TypeScript `enum`構文はNode.js native type strippingの対象外なので導�
 
 Rustは`40_Develop/platform-access/**`のprivate crateだけへ適用する。module／file、function、method、variableおよびparameterは`snake_case`、struct、enum、traitおよび型は`PascalCase`、定数およびstaticは`SCREAMING_SNAKE_CASE`とする。FFIの`unsafe`はWindows API接続moduleへ限定し、各blockへ所有権、pointer lifetimeおよび解放責務の安全根拠を記載する。Rust標準の命名と型境界は`rustfmt`、rustcおよびClippyで検査し、TypeScript AST分類器へ混在させない。
 
-`40_Develop/platform-access/target/**`は生成物であり検査母集団とGit管理から除外する。ただし`target`実体が通常Directoryかつsymbolic link／junctionでないことを除外前に確認し、通常file、symbolic link、junctionまたは分類不能な実体は検査失敗とする。`.rs`実体は同crateのexact `build.rs`、`src/**`または`tests/**`へ限定し、`Cargo.lock`を追跡する。crate rootの別名`.rs`をCargo build scriptとみなさない。`.bat`、`.cmd`、`.ps1`、`.sh`その他のShell ScriptをOS権限判定またはbuild orchestrationとして`40_Develop/**`へ追加しない。
+同crateの`src/native/`は言語実装境界とし、Rust専用Directoryは`snake_case`で命名する。`src/native/<責務>/<OS>/`の三階層までを許可し、責務ごとの`mod.rs`がOS実装を選択する。他のTypeScript Sourceの二階層制限や命名規則は変更せず、Native配下を実体・Header検査から除外しない。
+
+`40_Develop/platform-access/target/**`は生成物であり検査母集団とGit管理から除外する。ただし`target`実体が通常Directoryかつsymbolic link／junctionでないことを除外前に確認し、通常file、symbolic link、junctionまたは分類不能な実体は検査失敗とする。`.rs`実体は同crateのexact `src/native/build.rs`、`src/native/**`または`tests/**`へ限定し、`Cargo.lock`を追跡する。crate rootの別名`.rs`をCargo build scriptとみなさない。`.bat`、`.cmd`、`.ps1`、`.sh`その他のShell ScriptをOS権限判定またはbuild orchestrationとして`40_Develop/**`へ追加しない。
 
 ## 4.2. Process・対話・実行コンテキスト境界
 

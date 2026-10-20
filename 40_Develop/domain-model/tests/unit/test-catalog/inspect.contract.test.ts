@@ -85,9 +85,7 @@ test("実在試験、登録試験、実行可能Ownerをexactに照合する", (
  * @boundary 実試験台帳・収集・選択の結合。
  */
 test("Platform AccessはNodeとRust双方を収集し片系欠落を拒否する", () => {
-  const changed = [
-    "40_Develop/platform-access/src/artifact/identity-observation.ts",
-  ];
+  const changed = ["40_Develop/platform-access/src/artifact/identity.ts"];
   const selected = selectRegressionTests(catalog, changed);
   for (const suffix of [".test.ts", ".rs"]) {
     assert.ok(
@@ -134,7 +132,6 @@ test("Docker Isolation全試験を収集し上位の同名試験を混同しな�
   );
   assert.ok(expected.length > 0);
   for (const id of [
-    "docker-isolation:integration:native-process",
     "docker-isolation:integration:restart-machine",
     "docker-isolation:integration:restart-runtime",
   ]) {
@@ -593,14 +590,18 @@ test("利用側静的検査は試験levelの絞込みと独立して選ぶ", () 
 test("Docker TrustとRoot変更は下位技術と上位利用側を選ぶ", () => {
   for (const changedPath of [
     "40_Develop/docker-isolation/src/execution/cli-trust.ts",
-    "40_Develop/docker-isolation/src/desktop/native-process.ts",
+    "40_Develop/platform-access/src/docker-desktop/helper.ts",
     "40_Develop/docker-isolation/src/desktop/restart-machine.ts",
     "40_Develop/docker-isolation/src/index.ts",
   ]) {
     const selected = selectRegressionTests(catalog, [changedPath]);
     assert.ok(
       selected.some(
-        (entry) => entry.id === "docker-isolation:integration:native-process",
+        (entry) =>
+          entry.id ===
+          (changedPath.startsWith("40_Develop/platform-access/")
+            ? "platform-access:integration:desktop-helper"
+            : "docker-isolation:integration:restart-runtime"),
       ),
     );
     assert.ok(

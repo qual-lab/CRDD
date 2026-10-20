@@ -19,10 +19,7 @@ import {
   snapshotPlainArray,
   snapshotPlainRecord,
 } from "../../../domain-model/src/index.ts";
-import {
-  beginPlatformAccessBootstrapObservation,
-  verifyPlatformAccessArtifactObservation,
-} from "../../../platform-access/src/index.ts";
+import { observeNativeArtifact } from "../../../platform-access/src/index.ts";
 import { observeRuntimeOwnedDevelopmentSource } from "./development-source-observation.ts";
 import {
   borrowRuntimeOwnedRepositorySource,
@@ -162,7 +159,7 @@ type Identity = Readonly<{
 type NativeVerification = Readonly<{
   status: "candidate";
   platformAccessArtifact: NonNullable<
-    ReturnType<typeof beginPlatformAccessBootstrapObservation>
+    ReturnType<typeof observeNativeArtifact>
   >["artifact"];
 }>;
 // Only the production observer can bind a verified native result to an identity.
@@ -172,7 +169,7 @@ const nativeVerifications = new WeakMap<
   Identity,
   Readonly<{
     verification: NativeVerification;
-    token: object;
+    identitySha256: string;
     sourceObservation: Readonly<{
       scope: NonNullable<
         ReturnType<typeof observeRuntimeOwnedDevelopmentSource>
@@ -392,11 +389,11 @@ function snapshotConfiguration(raw: unknown): Configuration | null {
  * @precondition 「configuration: Configuration」がobserveProductionの入力契約を満たす。
  * @postcondition observeProductionの責務を完了した結果だけを返す。
  * @effect Source、Native、Repositoryを読み、既存私有Mapへ観測を結合する。
- * @failure 欠測・期待差・元token失効・観測中差替えはnull。
+ * @failure 欠測・期待差・元実体観測失効・観測中差替えはnull。
  * @invariant fresh Hashだけで元Native tokenの失効を上書きしない。
  * @boundary 固定Source／NativeのFilesystem観測とRepository照合。
  * @security observeProductionはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency 旧token前後と新token最終確認を重ねる。変更不能や原子的ロードは保証しない。
+ * @concurrency 旧実体観測前後と新実体観測最終確認を重ねる。変更不能や原子的ロードは保証しない。
  */
 function observeProduction(
   configuration: Configuration,
@@ -406,7 +403,8 @@ function observeProduction(
     priorIdentity === undefined ? null : nativeVerifications.get(priorIdentity);
   if (
     priorIdentity !== undefined &&
-    (!prior || !verifyPlatformAccessArtifactObservation(prior.token))
+    (!prior ||
+      !observeNativeArtifact(sourceDistributionRoot, prior.identitySha256))
   )
     return null;
   const repository = inspectRepositoryIdentityCandidate(
@@ -421,17 +419,19 @@ function observeProduction(
   const source = observeRuntimeOwnedDevelopmentSource();
   if (!source || source.sourceSha256 !== configuration.expectedSourceSha256)
     return null;
-  const native = beginPlatformAccessBootstrapObservation(
-    sourceDistributionRoot,
-  );
-  if (!native) return null;
+  const native = observeNativeArtifact(sourceDistributionRoot);
+  if (!native?.bootstrapVerified) return null;
   const reobserved = inspectRepositoryIdentityCandidate(
     configuration.repositoryRoot,
   );
   if (JSON.stringify(repository) !== JSON.stringify(reobserved)) return null;
-  if (prior && !verifyPlatformAccessArtifactObservation(prior.token))
+  if (
+    prior &&
+    !observeNativeArtifact(sourceDistributionRoot, prior.identitySha256)
+  )
     return null;
-  if (!verifyPlatformAccessArtifactObservation(native.token)) return null;
+  if (!observeNativeArtifact(sourceDistributionRoot, native.identitySha256))
+    return null;
   const identity: Identity = Object.freeze({
     sourceIdentitySha256: source.sourceIdentitySha256,
     nativeIdentitySha256: digest([
@@ -452,7 +452,7 @@ function observeProduction(
         status: "candidate",
         platformAccessArtifact: native.artifact,
       }),
-      token: native.token,
+      identitySha256: native.identitySha256,
       sourceObservation: Object.freeze({
         scope: source.scope,
         expectedSourceSha256: source.sourceSha256,
@@ -1357,12 +1357,17 @@ export function borrowRuntimeOwnedDevelopmentNativeObservation(
     observation && nativeVerifications.get(observation.identity);
   if (!observation || !observedNative) return null;
   try {
-    if (!verifyPlatformAccessArtifactObservation(observedNative.token))
+    if (
+      !observeNativeArtifact(
+        observation.distributionRoot,
+        observedNative.identitySha256,
+      )
+    )
       return null;
   } catch {
     return null;
   }
-  // Each borrow verifies the original native token; the full Source snapshot
+  // Each borrow verifies the original native identity; the full Source snapshot
   // remains shared inside the same already-checked lifecycle boundary.
   return Object.freeze({
     distributionRoot: observation.distributionRoot,

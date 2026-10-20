@@ -6,6 +6,10 @@
  */
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
+import { fileURLToPath } from "node:url";
+export const dockerDesktopDistributionRoot = fileURLToPath(
+  new URL("../../../..", import.meta.url),
+);
 import fs from "node:fs";
 import path from "node:path";
 import { createWindowsPowerShellAuthenticodeEnvironment } from "../../../platform-access/src/index.ts";

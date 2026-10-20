@@ -95,7 +95,7 @@ async function runNativeTerminalNamespace(): Promise<void> {
   const sources = [
     crate + "/Cargo.toml",
     crate + "/Cargo.lock",
-    crate + "/build.rs",
+    crate + "/src/native/build.rs",
     crate + "/rust-toolchain.toml",
     fileURLToPath(import.meta.url).replaceAll("\\", "/"),
   ];
@@ -271,7 +271,7 @@ async function runNativeTerminalNamespace(): Promise<void> {
     const child = spawn(
       binary,
       [
-        "filesystem::host_record::tests::terminal_namespace_fixture",
+        "host_record::record::tests::terminal_namespace_fixture",
         "--exact",
         "--ignored",
         "--nocapture",

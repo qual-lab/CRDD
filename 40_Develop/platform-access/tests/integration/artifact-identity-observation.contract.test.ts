@@ -16,15 +16,18 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 import test from "node:test";
 import * as platformAccess from "../../src/index.ts";
+import {
+  beginPlatformAccessArtifactObservation,
+  beginPlatformAccessBootstrapObservation,
+  verifyPlatformAccessArtifactObservation,
+} from "../../src/artifact/identity.ts";
 
 import {
   PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH,
-  beginPlatformAccessArtifactObservation,
-  beginPlatformAccessBootstrapObservation,
   PLATFORM_ACCESS_TARGET,
   PLATFORM_ACCESS_PROTOCOL_REVISION,
+  observeNativeArtifact,
   observePlatformAccessArtifactCandidate,
-  verifyPlatformAccessArtifactObservation,
 } from "../../src/index.ts";
 
 /**
@@ -92,6 +95,54 @@ test("固定release PathのRust成果物を同一handleでHashへ結合する", 
         verifyPlatformAccessArtifactObservation(artifactObservation.token),
       true,
     );
+  } finally {
+    fs.rmSync(value.root, { recursive: true, force: true });
+  }
+});
+
+/**
+ * 公開値観測は元実体・内容の継続性だけを確認する。
+ * @responsibility token非公開と、同一bytesへの置換・内容差・観測不能の拒否を反証する。
+ * @trace ERB-IT-001
+ * @trace ERB-IT-002
+ * @precondition Repository内の合成Nativeを使用する。
+ * @stimulus 再観測、内容変更、同一bytesの別Fileへの置換、不正な元Hashを与える。
+ * @observation Artifact、実体Hash、Bootstrap一致とnull。
+ * @oracle 同じ実体だけ元Hashに一致し、合成bytesのBootstrap不一致と観測不能を区別する。
+ * @cleanup 自己生成したRootだけをfinallyで削除する。
+ * @boundary PA公開値API→実Filesystem。実Nativeは実行しない。
+ */
+test("公開Native観測は内容と実体を結合しtokenを返さない", () => {
+  const value = fixture();
+  try {
+    const first = observeNativeArtifact(value.root);
+    assert.ok(first);
+    assert.equal(first.bootstrapVerified, false);
+    assert.deepEqual(Object.keys(first).sort(), [
+      "artifact",
+      "bootstrapVerified",
+      "identitySha256",
+    ]);
+    assert.match(first.identitySha256, /^[a-f0-9]{64}$/u);
+    assert.deepEqual(
+      observeNativeArtifact(value.root, first.identitySha256),
+      first,
+    );
+    assert.equal(observeNativeArtifact(value.root, "invalid"), null);
+    fs.writeFileSync(
+      value.executablePath,
+      Buffer.alloc(value.bytes.length, 120),
+    );
+    assert.equal(observeNativeArtifact(value.root, first.identitySha256), null);
+    fs.rmSync(value.executablePath);
+    fs.writeFileSync(value.executablePath, value.bytes);
+    const replaced = observeNativeArtifact(value.root);
+    assert.ok(replaced);
+    assert.equal(replaced.artifact.sha256, first.artifact.sha256);
+    assert.notEqual(replaced.identitySha256, first.identitySha256);
+    assert.equal(observeNativeArtifact(value.root, first.identitySha256), null);
+    fs.rmSync(value.executablePath);
+    assert.equal(observeNativeArtifact(value.root), null);
   } finally {
     fs.rmSync(value.root, { recursive: true, force: true });
   }
@@ -222,8 +273,6 @@ test("Artifact公開契約は固定target・Protocol・用途固定公開集合�
       "WINDOWS_CHILD_ENVIRONMENT_CONTRACT",
       "WINDOWS_CHILD_ENVIRONMENT_CONTRACT_REVISION",
       "WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE",
-      "beginPlatformAccessArtifactObservation",
-      "beginPlatformAccessBootstrapObservation",
       "createInteractiveConsoleReaderEnvironment",
       "createWindowsHostOperationSupervisorEnvironment",
       "createWindowsHostTerminalHelperEnvironment",
@@ -232,12 +281,31 @@ test("Artifact公開契約は固定target・Protocol・用途固定公開集合�
       "createWindowsPowerShellAuthenticodeEnvironment",
       "deriveWindowsSystemDrive",
       "describeWindowsChildEnvironmentContract",
+      "describeProviderHomeObservationContract",
+      "observeNativeArtifact",
       "observePlatformAccessArtifactCandidate",
       "observeSystemWindowsDirectory",
       "observeWindowsFilesystemEntry",
       "observeWindowsLocalAppDataDirectory",
+      "observeWindowsRuntimeState",
+      "initializeWindowsHostRecordNamespace",
+      "createHostTerminalCurrentObservationRequest",
+      "createHostTerminalReadRequest",
+      "createHostTerminalSaveRequest",
+      "createKnownFileHostTerminalCurrentObservationRequest",
+      "createKnownFileHostTerminalReadRequest",
+      "createKnownFileHostTerminalSaveRequest",
+      "observeHostTerminalWindowsCandidate",
+      "observeKnownFileHostTerminalWindowsCandidate",
+      "readHostTerminalWindowsRecord",
+      "readKnownFileHostTerminalWindowsRecord",
+      "saveHostTerminalWindowsRecord",
+      "saveKnownFileHostTerminalWindowsRecord",
+      "startDockerDesktopRepairHelper",
+      "startDockerDesktopRestartHelper",
+      "requestDockerDesktopOfficialShutdown",
+      "observeWindowsProviderHome",
       "startWindowsChildTreeTermination",
-      "verifyPlatformAccessArtifactObservation",
     ].sort(),
   );
   assert.equal(PLATFORM_ACCESS_TARGET, "x86_64-pc-windows-msvc");

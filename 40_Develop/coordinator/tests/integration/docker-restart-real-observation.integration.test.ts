@@ -9,6 +9,7 @@
  * @boundary ERB-IT-014=Related 2 Blocks: Platform Adapter→Docker Desktop／Engine Observer
  */
 import assert from "node:assert/strict";
+import { describeDockerRuntimeArtifactTrustContract } from "../../../docker-isolation/src/index.ts";
 import childProcess from "node:child_process";
 import { randomBytes } from "node:crypto";
 import fs from "node:fs";
@@ -17,7 +18,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import test from "node:test";
-import { acquireRuntimeOwnedDockerDesktopRestartNativeHelper } from "../../../docker-isolation/src/desktop/native-process.ts";
+import { startDockerDesktopRestartHelper } from "../../../platform-access/src/index.ts";
 import { createDockerRestartMachine } from "../../../docker-isolation/src/desktop/restart-machine.ts";
 import { observePlatformAccessArtifactCandidate } from "../../../platform-access/src/index.ts";
 import { acquireRuntimeOwnedDockerRuntimeStateKernelLock } from "../../src/host-execution/kernel-lock.ts";
@@ -195,8 +196,9 @@ for (const hasRuntimeLock of [false, true]) {
     const root = fileURLToPath(new URL("../../../../", import.meta.url));
     const artifact = observePlatformAccessArtifactCandidate(root);
     assert.equal(artifact.status, "candidate");
-    const acquired = await acquireRuntimeOwnedDockerDesktopRestartNativeHelper(
+    const acquired = await startDockerDesktopRestartHelper(
       artifact.artifact,
+      describeDockerRuntimeArtifactTrustContract().policySha256,
     );
     assert.equal(acquired.status, "acquired");
     const session = acquired.session;

@@ -31,6 +31,7 @@ import { clearWorkbenchCredential } from "../../src/client/api/connection.ts";
  * @observation 呼出し回数・固定例外・Query Cache空。
  * @oracle 前回値再利用0、失敗再送0、自由本文出力0。
  * @cleanup Online設定とprototypeを復元しQueryを破棄する。
+ * @boundary 実Queryと合成読取りの結合。実Browser・Server・外部AIは使用しない。
  */
 test("Queryは毎回freshでoffline保留・自動再送・結果保持をしない", async () => {
   const original = QueryClient.prototype.getQueryCache;
@@ -87,6 +88,7 @@ test("Queryは毎回freshでoffline保留・自動再送・結果保持をしな
  * @observation 旧Signal取消・次結果・固定失敗と遅延値非採用。
  * @oracle 旧finallyが新要求を取消せず、終了後の値を返さない。
  * @cleanup 全遅延PromiseをsettleしQueryを破棄する。
+ * @boundary 実Queryと合成取消・遅延応答の結合。実通信は行わない。
  */
 test("Queryは取消済み旧要求を次要求や次接続へ共有しない", async () => {
   let finishOld: ((value: number) => void) | undefined;
@@ -172,6 +174,7 @@ test("Queryは取消済み旧要求を次要求や次接続へ共有しない", 
  * @observation 送信回数、返却応答、Cache空、固定拒否。
  * @oracle 各許可操作一回・専用鍵経路0回・失敗後Cache0。
  * @cleanup fetch・location・prototypeと資格参照を復元する。
+ * @boundary 実Mutationと合成fetchの結合。鍵操作・実Server・外部AIは使用しない。
  */
 test("Mutationは非鍵操作だけを一回送りCacheを回収する", async () => {
   const originalFetch = globalThis.fetch;

@@ -24,7 +24,7 @@ export const PLATFORM_ACCESS_TS_COVERAGE_SOURCES = Object.freeze([
   "40_Develop/coordinator/src/authority/root-path-lexical.ts",
   "40_Develop/domain-model/src/storage/bounded-file-snapshot.ts",
   "40_Develop/coordinator/src/platform-access/adapter.ts",
-  "40_Develop/platform-access/src/artifact/identity-observation.ts",
+  "40_Develop/platform-access/src/artifact/identity.ts",
   "40_Develop/coordinator/src/diagnostics/native-git-provenance.ts",
   "40_Develop/coordinator/src/repository-operation/root-observation.ts",
 ]);
@@ -150,13 +150,12 @@ const sourceCoverageObligations: Readonly<Record<string, CoverageObligation>> =
       "revision、nonce、role、全bit、主体HashおよびProxy負例",
       "wire protocolまたはproduction process再導入時",
     ),
-    "40_Develop/platform-access/src/artifact/identity-observation.ts":
-      obligation(
-        "成果物観測の全OS例外とIdentity failureを同一runで到達していない",
-        "Release artifact差替えの検出漏れ",
-        "同一handle観測、同長上書き、短縮、追記およびRoot差試験",
-        "Release artifactまたはFilesystem API変更時",
-      ),
+    "40_Develop/platform-access/src/artifact/identity.ts": obligation(
+      "成果物観測の全OS例外とIdentity failureを同一runで到達していない",
+      "Release artifact差替えの検出漏れ",
+      "同一handle観測、同長上書き、短縮、追記およびRoot差試験",
+      "Release artifactまたはFilesystem API変更時",
+    ),
     "40_Develop/coordinator/src/diagnostics/native-git-provenance.ts":
       obligation(
         "全Git・Root・Native観測不能の分岐を同一runで到達していない",

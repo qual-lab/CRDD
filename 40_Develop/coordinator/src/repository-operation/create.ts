@@ -16,7 +16,7 @@ import {
   getOwnedHostRecoveryId,
   verifyOwnedOperationManagementCapability,
 } from "../host-execution/operation-workspace-lifecycle.ts";
-import { initializeHostRecoveryNamespaceWindows } from "../host-execution/recovery-namespace-windows-adapter.ts";
+import { initializeWindowsHostRecordNamespace } from "../../../platform-access/src/index.ts";
 
 /**
  * coordinator-operation-creation-internalで使用するCreation 失敗の値契約を定義する。
@@ -185,7 +185,7 @@ function createProtectedRuntimeOwnedOperationDirectories() {
   } catch (cause) {
     fail(cause, true, null);
   }
-  const initialization = initializeHostRecoveryNamespaceWindows(parent);
+  const initialization = initializeWindowsHostRecordNamespace(parent);
   if (initialization.status !== "initialized") {
     fail(
       new Error("host_recovery_namespace_initialization_failed", {

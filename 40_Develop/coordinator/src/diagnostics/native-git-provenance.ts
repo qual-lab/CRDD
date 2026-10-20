@@ -15,10 +15,9 @@ import {
   gitRepositoryRevisionAdapter,
 } from "../../../version-control/src/index.ts";
 import {
-  beginPlatformAccessArtifactObservation,
+  observeNativeArtifact,
   PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH,
   PLATFORM_ACCESS_EXECUTABLE_MAXIMUM_BYTES,
-  verifyPlatformAccessArtifactObservation,
 } from "../../../platform-access/src/index.ts";
 
 /**
@@ -77,7 +76,7 @@ export function inspectPlatformAccessNativeGitProvenanceCandidate(
       gitRepositoryRevisionAdapter,
     );
     if (revision?.observationComplete !== true) return null;
-    const native = beginPlatformAccessArtifactObservation(distributionRoot);
+    const native = observeNativeArtifact(distributionRoot);
     if (!native) return null;
     const relativePath = [
       ...(prefix === "" ? [] : prefix.split(path.sep)),
@@ -99,7 +98,7 @@ export function inspectPlatformAccessNativeGitProvenanceCandidate(
       fixed.sha256 !== native.artifact.sha256 ||
       createHash("sha256").update(fixed.bytes).digest("hex") !==
         native.artifact.sha256 ||
-      !verifyPlatformAccessArtifactObservation(native.token) ||
+      !observeNativeArtifact(distributionRoot, native.identitySha256) ||
       resolveVerifiedRepositoryRoot(verified.capability) !== repositoryRoot ||
       JSON.stringify(
         observeRepositoryRevision(

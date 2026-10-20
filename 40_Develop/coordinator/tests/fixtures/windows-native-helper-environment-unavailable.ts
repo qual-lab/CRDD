@@ -2,24 +2,16 @@
  * Native Helper環境を取得できない状態を模擬する。
  *
  * @packageDocumentation
- * @responsibility 固定ArtifactとModule差替えで環境観測不能時のEffect前拒否を確認する。
+ * @responsibility PA公開失敗結果を上位へ渡しCapability非発行を確認する。環境欠測の検出はPA試験が所有する。
  * @trace EST-ST-003
  * @level ST
  * @scope Native Helper環境の観測不能
- * @boundary 試験Module差替え→環境準備境界。実Native操作は発行しない。
+ * @boundary PA公開結果の代役→上位の拒否・Capability境界。PA内部の検出や実Native操作は主張しない。
  */
 import assert from "node:assert/strict";
 import { mock } from "node:test";
+import { describeProviderHomeObservationContract } from "../../../platform-access/src/index.ts";
 
-const artifact = Object.freeze({
-  relativePath:
-    "template/tools/coordinator/windows-x64/crdd-platform-access.exe",
-  target: "x86_64-pc-windows-msvc",
-  protocolRevision: 3,
-  rustToolchain: "1.94.1-x86_64-pc-windows-msvc",
-  byteLength: 1,
-  sha256: "1".repeat(64),
-});
 let spawnCalls = 0;
 
 await mock.module(
@@ -43,23 +35,21 @@ await mock.module(
   new URL("../../../platform-access/src/index.ts", import.meta.url).href,
   {
     namedExports: {
-      createWindowsNativeHelperEnvironment: () => null,
       WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE:
         "fixed_test_environment_unavailable",
-      PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH: artifact.relativePath,
-      observePlatformAccessArtifactCandidate: () => ({
-        status: "candidate",
-        artifact,
+      describeProviderHomeObservationContract,
+      observeWindowsProviderHome: () => ({
+        status: "blocked",
+        reason: "environment_unavailable",
+        processEffectIssued: false,
+        helperExitConfirmed: false,
       }),
-      beginPlatformAccessArtifactObservation: () => ({
-        artifact,
-        token: Object.freeze({}),
+      observeWindowsRuntimeState: () => ({
+        status: "blocked",
+        reason: "environment_unavailable",
+        processEffectIssued: false,
+        helperExitConfirmed: false,
       }),
-      beginPlatformAccessBootstrapObservation: () => ({
-        artifact,
-        token: Object.freeze({}),
-      }),
-      verifyPlatformAccessArtifactObservation: () => true,
     },
   },
 );

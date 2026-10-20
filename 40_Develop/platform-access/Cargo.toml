@@ -4,10 +4,19 @@ version = "0.0.0"
 edition = "2024"
 publish = false
 rust-version = "1.94.1"
+build = "src/native/build.rs"
 
 [[bin]]
 name = "crdd-platform-access"
-path = "src/main.rs"
+path = "src/native/main.rs"
+
+[[test]]
+name = "cli"
+path = "tests/integration/native-cli.rs"
+
+[[test]]
+name = "windows-entry-diagnostic"
+path = "tests/integration/windows-entry-diagnostic.rs"
 
 [dependencies]
 ed25519-dalek = { version = "=2.2.0", default-features = false }

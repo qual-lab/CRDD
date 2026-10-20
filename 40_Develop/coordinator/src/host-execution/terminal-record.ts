@@ -6,6 +6,7 @@
  */
 import { createHash } from "node:crypto";
 import { types as utilTypes } from "node:util";
+import type { HostTerminalWindowsIdentity } from "../../../platform-access/src/index.ts";
 import {
   snapshotPlainArray,
   snapshotPlainRecord,
@@ -57,21 +58,6 @@ const bufferGetter = Object.getOwnPropertyDescriptor(
   typedArrayPrototype,
   "buffer",
 )?.get;
-
-/**
- * Win32の実体識別値を表す。
- *
- * @responsibility file indexとcreation timeをvolumeへ結合し、同じhandleの属性を欠落なく搬送する。
- * @trace ARCH-000008
- * @shape BY_HANDLE_FILE_INFORMATION由来の五つの識別値とattributesの六u32。
- * @invariant Nodeのdev／ino／birthtimeNsや既存三field Native Identityと相互変換しない。
- * @boundary 将来の固定Windows観測Adapterと記録codecの境界。
- * @security 値の受理は実観測、所有、保護または非使用の証明ではない。
- * @compatibility revision 2だけを受理し、属性のないrevision 1を推測補完しない。
- */
-export type HostTerminalWindowsIdentity = Readonly<
-  Record<(typeof identityKeys)[number], number>
->;
 
 /**
  * intentの結合元を区別する。

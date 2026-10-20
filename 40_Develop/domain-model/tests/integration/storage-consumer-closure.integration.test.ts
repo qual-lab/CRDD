@@ -361,8 +361,7 @@ test("本番Runtime Data Consumer集合は公開された名前付き境界だ�
  */
 test("新規Componentのraw Root構築と名前付きPathの親再解釈を拒否する", () => {
   const sources = consumerSources();
-  const workspaceOwner =
-    "40_Develop/version-control/src/workspace/worktree.ts";
+  const workspaceOwner = "40_Develop/version-control/src/workspace/worktree.ts";
   sources.set(
     workspaceOwner,
     `${sources.get(workspaceOwner)}\nconst unrelated = path.join(root, ".crdd", "other");`,

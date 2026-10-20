@@ -22,7 +22,7 @@ import {
 import {
   PLATFORM_ACCESS_BOOTSTRAP_ARTIFACT_SHA256,
   PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH,
-} from "../../src/artifact/identity-observation.ts";
+} from "../../src/artifact/identity.ts";
 
 /**
  * 本番観測本文の独立した失敗点と固定要求を反証する。
@@ -39,7 +39,7 @@ import {
  */
 test("LocalAppDataは固定Native・frame・安定Directoryの全条件を要求する", () => {
   const source = fs.readFileSync(
-    new URL("../../src/windows/local-app-data.ts", import.meta.url),
+    new URL("../../src/filesystem/local-app-data.ts", import.meta.url),
     "utf8",
   );
   const start = source.indexOf(

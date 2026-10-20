@@ -11,7 +11,7 @@ import {
   observeTrustedDockerCli,
   verifyTrustedDockerCliSnapshot,
 } from "../execution/cli-trust.ts";
-import type { DockerDesktopRestartNativeHelperOutcome } from "./native-process.ts";
+import type { DockerDesktopRestartNativeHelperOutcome } from "../../../platform-access/src/index.ts";
 import {
   type DockerRuntimeEngineState,
   type DockerRuntimeEngineObservation,

@@ -6,6 +6,7 @@
  * @trace ARCH-000011
  */
 import { createHash } from "node:crypto";
+import { borrowRuntimeOwnedDevelopmentNativeObservation } from "../task/development-measurement-session.ts";
 import fs from "node:fs";
 import path from "node:path";
 import {
@@ -40,7 +41,69 @@ import {
   readKnownFileHostTerminalWindowsRecord,
   saveHostTerminalWindowsRecord,
   saveKnownFileHostTerminalWindowsRecord,
-} from "./terminal-windows-adapter.ts";
+} from "../../../platform-access/src/index.ts";
+
+/**
+ * 同じ正規encode結果からNative用の技術期待値を投影する。
+ * @responsibility 上位の記録意味をPAへ移さず、本文と期待値を同じ改訂へ結合する。
+ * @trace ARCH-000008 ARCH-000011
+ * @input 一回の意味検査済みencode結果。
+ * @returns 本文・Hash・参照・利用者・対象だけの投影。
+ * @precondition 保存と再入場の許可は呼出し元が確認する。
+ * @postcondition producerや処置順の判断をPAへ委譲しない。
+ * @effect N/A: 所有値の投影のみ。
+ * @failure N/A: 型付き結果を使う。
+ * @invariant 同じ本文を別入力から取り直さない。
+ * @boundary Coordinator記録Owner→PA公開API。
+ * @security Authorityを含めない。
+ * @concurrency 同期投影。
+ */
+function projectHostRecordInput(
+  encoded: EncodedHostTerminalIntent | EncodedKnownFixtureHostTerminalIntent,
+) {
+  return Object.freeze({
+    serialized: encoded.serialized,
+    sha256: encoded.sha256,
+    reference: encoded.intent.reference,
+    selectedUserSha256: encoded.intent.bindings.selectedUserSha256,
+    target: encoded.intent.target,
+  });
+}
+
+/**
+ * 開発Contextを同期の技術観測Readerへ投影する。
+ * @responsibility ContextとCapabilityを上位に閉じたまま前後の借用位置を維持する。
+ * @trace ARCH-000008 ARCH-000011
+ * @input 既存の開発Context。
+ * @returns 同期Reader、または通常実行のundefined。
+ * @precondition 上位Sessionが開発実行を採用済み。
+ * @postcondition PAへContextそのものを保持させない。
+ * @effect Reader実行時に既存観測を再確認する。
+ * @failure 観測不成立はnull。
+ * @invariant 元観測をfresh値で上書きしない。
+ * @boundary 上位Session→用途固定Native。
+ * @security ReaderはAuthorityを発行しない。
+ * @concurrency 呼出し中だけ借用する。
+ */
+function projectDevelopmentSourceReader(context: unknown) {
+  return context === undefined
+    ? undefined
+    : () => {
+        const source = borrowRuntimeOwnedDevelopmentNativeObservation(
+          context as object,
+          false,
+        );
+        return source
+          ? Object.freeze({
+              distributionRoot: source.distributionRoot,
+              expectedArtifact:
+                source.verification.status === "candidate"
+                  ? source.verification.platformAccessArtifact
+                  : null,
+            })
+          : null;
+      };
+}
 
 const MAX_ENTRIES = 1_024;
 const MAX_BYTES = 8 * 1_024 * 1_024;
@@ -238,7 +301,7 @@ async function prepareTerminalRecoveryCheckpoint<
     request: NonNullable<
       ReturnType<typeof createHostTerminalCurrentObservationRequest>
     >,
-    context?: unknown,
+    context?: ReturnType<typeof projectDevelopmentSourceReader>,
     signal?: AbortSignal,
   ) => Observation,
   encode: (value: unknown) => Encoded,
@@ -333,7 +396,11 @@ async function prepareTerminalRecoveryCheckpoint<
     if (!request) return stopped("host_terminal_preparation_target_invalid");
     if (signal.aborted) return stopped("host_terminal_preparation_cancelled");
     isObservationStarted = true;
-    observation = observeCandidate(request, developmentContext, signal);
+    observation = observeCandidate(
+      request,
+      projectDevelopmentSourceReader(developmentContext),
+      signal,
+    );
     const snapshot = observation.knownObservation?.snapshot;
     if (observation.status !== "observed" || !snapshot)
       return stopped(observation.reason);
@@ -829,10 +896,14 @@ function connectHostTerminalRecoveryCheckpoint(
       mode === "save"
         ? (recordClass === "eleven"
             ? createHostTerminalSaveRequest
-            : createKnownFileHostTerminalSaveRequest)(before.intent)
+            : createKnownFileHostTerminalSaveRequest)(
+            projectHostRecordInput(before),
+          )
         : (recordClass === "eleven"
             ? createHostTerminalReadRequest
-            : createKnownFileHostTerminalReadRequest)(before.intent);
+            : createKnownFileHostTerminalReadRequest)(
+            projectHostRecordInput(before),
+          );
     if (!request || request.reference !== reference)
       return stopped(
         mode === "save"
@@ -851,13 +922,13 @@ function connectHostTerminalRecoveryCheckpoint(
         recordClass === "eleven"
           ? saveHostTerminalWindowsRecord
           : saveKnownFileHostTerminalWindowsRecord
-      )(request, signal, developmentContext);
+      )(request, signal, projectDevelopmentSourceReader(developmentContext));
     else
       nativeRead = (
         recordClass === "eleven"
           ? readHostTerminalWindowsRecord
           : readKnownFileHostTerminalWindowsRecord
-      )(request, signal, developmentContext);
+      )(request, signal, projectDevelopmentSourceReader(developmentContext));
     const after = reader(repository, reference, fixedBindings);
     isCallerVerifiedBeforeAndAfter =
       before.serialized === after.serialized && before.sha256 === after.sha256;

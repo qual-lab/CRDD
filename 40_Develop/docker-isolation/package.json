@@ -14,7 +14,7 @@
     "lint": "biome lint . --error-on-warnings",
     "test": "npm run check && npm run test:run",
     "test:run": "node --test --test-concurrency=1 \"--test-skip-pattern=^Host Windows:\" ./tests/**/*.test.ts",
-    "test:host-windows": "node --test --test-concurrency=1 \"--test-name-pattern=^Host Windows:\" ./tests/integration/owned-process.integration.test.ts ./tests/integration/native-process.contract.test.ts"
+    "test:host-windows": "node --test --test-concurrency=1 \"--test-name-pattern=^Host Windows:\" ./tests/integration/owned-process.integration.test.ts"
   },
   "engines": {
     "node": ">=24.12.0"
