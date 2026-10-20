@@ -22,7 +22,7 @@ import {
   protocolError,
   protocolComplete,
   type McpResponse,
-} from "../orchestrator/protocol.ts";
+} from "../request/validation.ts";
 
 export const MCP_AI_PROFILE_TOOLS = Object.freeze({
   list: "crdd.list_ai_profiles",

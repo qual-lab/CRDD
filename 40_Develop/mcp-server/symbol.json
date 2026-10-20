@@ -3,7 +3,15 @@
   "contractRevision": 1,
   "subsystem": "mcp-server",
   "symbols": [
-    { "symbolId": "mcp.workspace.adapter", "kind": "file", "path": "src/workspace/adapter.ts", "archIds": ["ARCH-000012", "ARCH-000013"] },
+    {
+      "symbolId": "mcp.workspace.adapter",
+      "kind": "file",
+      "path": "src/tools/workspace.ts",
+      "archIds": [
+        "ARCH-000012",
+        "ARCH-000013"
+      ]
+    },
     {
       "symbolId": "mcp.test.integration.ai-profile-adapter",
       "kind": "test-suite",
@@ -43,73 +51,141 @@
       "symbolId": "mcp.configuration.server",
       "kind": "file",
       "path": "src/transport/configuration.ts",
-      "archIds": ["ARCH-000012"]
+      "archIds": [
+        "ARCH-000012"
+      ]
     },
     {
       "symbolId": "mcp.test.integration.access-management-results",
       "kind": "test-suite",
       "path": "tests/integration/access-management-results.integration.test.ts",
-      "qaIds": ["QA-000009"],
-      "localTestIds": ["EST-IT-002", "EST-IT-010"],
-      "verifies": ["mcp.request.access-resolver", "mcp.access-management.adapter", "access-management.management-result"]
-    },
-    {
-      "symbolId": "mcp.access-management.protocol",
-      "kind": "file",
-      "path": "src/access-management/protocol.ts",
-      "archIds": ["ARCH-000012", "ARCH-000013"]
+      "qaIds": [
+        "QA-000009"
+      ],
+      "localTestIds": [
+        "EST-IT-002",
+        "EST-IT-010"
+      ],
+      "verifies": [
+        "mcp.request.access-resolver",
+        "mcp.access-management.adapter",
+        "access-management.management-result"
+      ]
     },
     {
       "symbolId": "mcp.access-management.adapter",
       "kind": "file",
-      "path": "src/access-management/adapter.ts",
-      "archIds": ["ARCH-000012", "ARCH-000013"]
+      "path": "src/tools/access-management.ts",
+      "archIds": [
+        "ARCH-000012",
+        "ARCH-000013"
+      ]
     },
     {
       "symbolId": "mcp.request.discover",
       "kind": "file",
       "path": "src/request/discover.ts",
-      "archIds": ["ARCH-000012", "ARCH-000013"]
+      "archIds": [
+        "ARCH-000012",
+        "ARCH-000013"
+      ]
     },
     {
       "symbolId": "mcp.request.initial-connection",
       "kind": "file",
       "path": "src/request/initial-connection.ts",
-      "archIds": ["ARCH-000012", "ARCH-000013"]
+      "archIds": [
+        "ARCH-000012",
+        "ARCH-000013"
+      ]
     },
     {
       "symbolId": "mcp.test.integration.initial-connection",
       "kind": "test-suite",
       "path": "tests/integration/initial-connection.integration.test.ts",
-      "qaIds": ["QA-000007"],
-      "localTestIds": ["RFD-IT-024", "RFD-IT-025"],
-      "verifies": ["mcp.request.access-resolver", "mcp.request.discover", "mcp.request.initial-connection", "mcp.source.src.adapters.application.adapter", "mcp.source.src.transports.streamable.http.transport"]
+      "qaIds": [
+        "QA-000007"
+      ],
+      "localTestIds": [
+        "RFD-IT-024",
+        "RFD-IT-025"
+      ],
+      "verifies": [
+        "mcp.request.access-resolver",
+        "mcp.request.discover",
+        "mcp.request.initial-connection",
+        "mcp.source.src.adapters.application.adapter",
+        "mcp.source.src.transports.streamable.http.transport"
+      ]
     },
     {
       "symbolId": "mcp.request.access-resolver",
       "kind": "file",
-      "path": "src/request/access-resolver.ts",
-      "archIds": ["ARCH-000005", "ARCH-000006", "ARCH-000012", "ARCH-000013"]
+      "path": "src/request/authentication.ts",
+      "archIds": [
+        "ARCH-000005",
+        "ARCH-000006",
+        "ARCH-000012",
+        "ARCH-000013"
+      ]
     },
     {
       "symbolId": "mcp.test.integration.access-capabilities",
       "kind": "test-suite",
       "path": "tests/integration/access-capabilities.integration.test.ts",
-      "qaIds": ["QA-000001", "QA-000004", "QA-000005", "QA-000007", "QA-000009"],
-      "localTestIds": ["CPR-IT-001", "CPR-IT-004", "CPR-IT-006", "CPR-IT-010", "CPR-IT-012", "EST-IT-002", "EST-IT-010", "EST-IT-014", "PPR-IT-002", "RCM-IT-005", "RCM-IT-010", "RFD-IT-013", "RFD-IT-019", "RFD-IT-021"],
-      "verifies": ["mcp.workspace.adapter", "orchestrator.workspace.commands", "workbench.server", "mcp.request.access-resolver", "mcp.ai-profile-adapter", "mcp.runtime-activity-adapter", "mcp.access-management.protocol", "mcp.access-management.adapter", "mcp.source.src.transports.streamable.http.transport"]
+      "qaIds": [
+        "QA-000001",
+        "QA-000004",
+        "QA-000005",
+        "QA-000007",
+        "QA-000009"
+      ],
+      "localTestIds": [
+        "CPR-IT-001",
+        "CPR-IT-004",
+        "CPR-IT-006",
+        "CPR-IT-010",
+        "CPR-IT-012",
+        "EST-IT-002",
+        "EST-IT-010",
+        "EST-IT-014",
+        "PPR-IT-002",
+        "RCM-IT-005",
+        "RCM-IT-010",
+        "RFD-IT-013",
+        "RFD-IT-019",
+        "RFD-IT-021"
+      ],
+      "verifies": [
+        "mcp.workspace.adapter",
+        "orchestrator.workspace.commands",
+        "workbench.server",
+        "mcp.request.access-resolver",
+        "mcp.ai-profile-adapter",
+        "mcp.runtime-activity-adapter",
+        "mcp.access-management.adapter",
+        "mcp.source.src.transports.streamable.http.transport"
+      ]
     },
     {
       "symbolId": "mcp.ai-profile-adapter",
       "kind": "file",
-      "path": "src/ai-profile/adapter.ts",
-      "archIds": ["ARCH-000010", "ARCH-000012", "ARCH-000013"]
+      "path": "src/tools/ai-profile.ts",
+      "archIds": [
+        "ARCH-000010",
+        "ARCH-000012",
+        "ARCH-000013"
+      ]
     },
     {
       "symbolId": "mcp.runtime-activity-adapter",
       "kind": "file",
-      "path": "src/runtime-activity/adapter.ts",
-      "archIds": ["ARCH-000005", "ARCH-000007", "ARCH-000012"]
+      "path": "src/tools/execution-status.ts",
+      "archIds": [
+        "ARCH-000005",
+        "ARCH-000007",
+        "ARCH-000012"
+      ]
     },
     {
       "symbolId": "mcp.public-api",
@@ -152,7 +228,6 @@
       "verifies": [
         "mcp.source.src.adapters.application.adapter",
         "mcp.source.src.adapters.project.context.adapter",
-        "mcp.source.src.protocol.project.context.protocol",
         "mcp.source.src.transports.stdio.transport"
       ]
     },
@@ -186,8 +261,7 @@
       ],
       "verifies": [
         "mcp.source.src.adapters.application.adapter",
-        "mcp.source.src.adapters.project.context.adapter",
-        "mcp.source.src.protocol.project.context.protocol"
+        "mcp.source.src.adapters.project.context.adapter"
       ]
     },
     {
@@ -206,7 +280,6 @@
       "verifies": [
         "mcp.source.src.adapters.application.adapter",
         "mcp.source.src.adapters.topic.meeting.adapter",
-        "mcp.source.src.protocol.topic.meeting.protocol",
         "project-operation.application.topic-meeting"
       ]
     },
@@ -230,7 +303,7 @@
     {
       "symbolId": "mcp.source.src.adapters.application.adapter",
       "kind": "file",
-      "path": "src/request/route.ts",
+      "path": "src/request/server.ts",
       "archIds": [
         "ARCH-000005",
         "ARCH-000012"
@@ -239,7 +312,7 @@
     {
       "symbolId": "mcp.source.src.adapters.project.context.adapter",
       "kind": "file",
-      "path": "src/project-context/adapter.ts",
+      "path": "src/tools/project-context.ts",
       "archIds": [
         "ARCH-000005",
         "ARCH-000012"
@@ -248,7 +321,7 @@
     {
       "symbolId": "mcp.source.src.adapters.orchestrator.adapter",
       "kind": "file",
-      "path": "src/orchestrator/adapter.ts",
+      "path": "src/tools/orchestrator.ts",
       "archIds": [
         "ARCH-000012"
       ]
@@ -256,35 +329,17 @@
     {
       "symbolId": "mcp.source.src.adapters.topic.meeting.adapter",
       "kind": "file",
-      "path": "src/topic-meeting/adapter.ts",
+      "path": "src/tools/topic-meeting.ts",
       "archIds": [
         "ARCH-000006",
-        "ARCH-000012"
-      ]
-    },
-    {
-      "symbolId": "mcp.source.src.protocol.project.context.protocol",
-      "kind": "file",
-      "path": "src/project-context/protocol.ts",
-      "archIds": [
-        "ARCH-000005",
         "ARCH-000012"
       ]
     },
     {
       "symbolId": "mcp.source.src.protocol.orchestrator.protocol",
       "kind": "file",
-      "path": "src/orchestrator/protocol.ts",
+      "path": "src/request/validation.ts",
       "archIds": [
-        "ARCH-000012"
-      ]
-    },
-    {
-      "symbolId": "mcp.source.src.protocol.topic.meeting.protocol",
-      "kind": "file",
-      "path": "src/topic-meeting/protocol.ts",
-      "archIds": [
-        "ARCH-000006",
         "ARCH-000012"
       ]
     },
@@ -307,7 +362,7 @@
     {
       "symbolId": "mcp.source.src.transports.streamable.http.transport",
       "kind": "file",
-      "path": "src/transport/streamable-http.ts",
+      "path": "src/transport/http.ts",
       "archIds": [
         "ARCH-000012"
       ]
@@ -315,7 +370,7 @@
     {
       "symbolId": "mcp.source.src.transports.process.signal.shutdown",
       "kind": "file",
-      "path": "src/transport/process-signal-shutdown.ts",
+      "path": "src/transport/shutdown.ts",
       "archIds": [
         "ARCH-000012"
       ]

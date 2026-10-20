@@ -16,6 +16,46 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 import { runMcpOrchestratorStdio } from "../../src/index.ts";
+import { Client } from "@modelcontextprotocol/client";
+import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
+
+/**
+ * 公式Clientが公開stdio入口で一覧とToolを往復できることを確認する。
+ * @responsibility SDKの規格選択・metadata・結果搬送を公開Processで照合する。
+ * @trace EST-ST-012
+ * @precondition ローカルRepositoryと固定SDK版のみを利用する。
+ * @stimulus modern規格を固定して接続し、Project一覧Toolを呼ぶ。
+ * @observation discover、一覧、実行結果とClient closeを確認する。
+ * @oracle Project Toolが存在し、結果を一回取得できる。
+ * @cleanup Client closeで自己生成子Processとstdioを回収する。
+ * @boundary 公式SDK Client→配布Launcher→stdio→専門Owner。
+ */
+test("公式SDK Clientは公開stdioのdiscover・一覧・実行を利用できる", async () => {
+  const root = fileURLToPath(new URL("../../../../", import.meta.url));
+  const client = new Client(
+    { name: "crdd-synthetic-test", version: "1" },
+    { versionNegotiation: { mode: { pin: "2026-07-28" } } },
+  );
+  const transport = new StdioClientTransport({
+    command: process.execPath,
+    args: [path.join(root, "template/tools/crdd-mcp-server.ts"), "--stdio"],
+    cwd: root,
+    stderr: "pipe",
+  });
+  try {
+    await client.connect(transport);
+    const listing = await client.listTools();
+    assert.ok(listing.tools.some((tool) => tool.name === "crdd.list_projects"));
+    const result = await client.callTool({
+      name: "crdd.list_projects",
+      arguments: {},
+    });
+    assert.notEqual(result.isError, true);
+    assert.ok(result.structuredContent);
+  } finally {
+    await client.close();
+  }
+});
 
 /**
  * outputのTest準備責務を実行する。

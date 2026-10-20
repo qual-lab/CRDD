@@ -9,6 +9,7 @@
  * @boundary loopback HTTPと自己生成Store。公開Launcher／Workbench／Host TTYは未接続。
  */
 import assert from "node:assert/strict";
+import { invokeMcpSource } from "../fixtures/sdk-request.ts";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import { request as httpRequest } from "node:http";
@@ -304,13 +305,17 @@ test("初回HTTPの不正要求は確認出版せず入力境界で拒否する"
         },
       },
     ]) {
-      const result = await handler(request, new AbortController().signal);
+      const result = await invokeMcpSource(
+        handler,
+        request,
+        new AbortController().signal,
+      );
       assert.ok(result.error);
     }
     const controller = new AbortController();
     controller.abort();
     assert.equal(
-      (await handler(packet(), controller.signal)).error?.code,
+      (await invokeMcpSource(handler, packet(), controller.signal)).error?.code,
       -32800,
     );
     assert.equal(confirmations, 0);

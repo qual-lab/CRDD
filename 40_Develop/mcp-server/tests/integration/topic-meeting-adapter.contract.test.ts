@@ -12,6 +12,7 @@
  * @boundary CPR-IT-012=Direct Boundary: MCP Tool Call→Domain保存故障の公開応答
  */
 import assert from "node:assert/strict";
+import { invokeMcpRequest } from "../fixtures/sdk-request.ts";
 import {
   existsSync,
   lstatSync,
@@ -42,7 +43,6 @@ import {
   MCP_TOPIC_MEETING_TOOLS,
   MCP_TOPIC_PROMOTE_TOOL,
   MCP_TOPIC_UPDATE_TOOL,
-  routeMcpRequest,
 } from "../../src/index.ts";
 
 const META = Object.freeze({
@@ -135,7 +135,7 @@ test("全Topic／Meeting Toolは完全入力検査後だけRepositoryを解決�
         return null;
       },
     };
-    const invalid = await routeMcpRequest(
+    const invalid = await invokeMcpRequest(
       call(name, { ...args, repositoryId: "repository.a", extra: true }),
       dependencies,
     );
@@ -144,7 +144,7 @@ test("全Topic／Meeting Toolは完全入力検査後だけRepositoryを解決�
     assert.equal(resolutions, 0);
     const cancelled = new AbortController();
     cancelled.abort();
-    const stopped = await routeMcpRequest(
+    const stopped = await invokeMcpRequest(
       call(name, { ...args, repositoryId: "repository.a" }),
       dependencies,
       cancelled.signal,
@@ -152,7 +152,7 @@ test("全Topic／Meeting Toolは完全入力検査後だけRepositoryを解決�
     assert.ok("error" in stopped);
     assert.equal(stopped.error.code, -32800);
     assert.equal(resolutions, 0);
-    const denied = await routeMcpRequest(
+    const denied = await invokeMcpRequest(
       call(name, { ...args, repositoryId: "repository.a" }),
       dependencies,
     );
@@ -160,7 +160,7 @@ test("全Topic／Meeting Toolは完全入力検査後だけRepositoryを解決�
     assert.equal(denied.error.code, -32602);
     assert.equal(resolutions, 1);
     const abort = new AbortController();
-    const resolving = await routeMcpRequest(
+    const resolving = await invokeMcpRequest(
       call(name, { ...args, repositoryId: "repository.a" }),
       {
         ...dependencies,
@@ -175,7 +175,7 @@ test("全Topic／Meeting Toolは完全入力検査後だけRepositoryを解決�
     assert.ok("error" in resolving);
     assert.equal(resolving.error.code, -32800);
     assert.equal(resolutions, 2);
-    const failed = await routeMcpRequest(
+    const failed = await invokeMcpRequest(
       call(name, { ...args, repositoryId: "repository.a" }),
       {
         ...dependencies,
@@ -195,7 +195,7 @@ test("全Topic／Meeting Toolは完全入力検査後だけRepositoryを解決�
         "project_operation_list_query_invalid",
         "project_operation_list_cursor_invalid",
       ]) {
-        const resolverFailure = await routeMcpRequest(
+        const resolverFailure = await invokeMcpRequest(
           call(name, { repositoryId: "repository.a" }),
           {
             ...dependencies,
@@ -252,7 +252,7 @@ test("全Topic／Meeting Toolは完全入力検査後だけRepositoryを解決�
       ];
       for (const invalidQuery of invalidQueries) {
         const before: number = resolutions;
-        const invalidList = await routeMcpRequest(
+        const invalidList = await invokeMcpRequest(
           call(name, { ...invalidQuery, repositoryId: "repository.a" }),
           dependencies,
         );
@@ -401,7 +401,7 @@ test("MCPは入力拒否と保存中の内部故障を区別する", async () =>
           ] as const,
       ),
     ] as const) {
-      const response = await routeMcpRequest(call(name, args), dependencies);
+      const response = await invokeMcpRequest(call(name, args), dependencies);
       assert.deepEqual(response, {
         jsonrpc: "2.0",
         id: 1,
@@ -415,7 +415,7 @@ test("MCPは入力拒否と保存中の内部故障を区別する", async () =>
       { relation: "bad-relation" },
     ]) {
       const previous = calls;
-      const response = await routeMcpRequest(
+      const response = await invokeMcpRequest(
         call(MCP_TOPIC_LIST_TOOL, args),
         dependencies,
       );
@@ -427,7 +427,7 @@ test("MCPは入力拒否と保存中の内部故障を区別する", async () =>
       assert.equal(calls, previous);
     }
     const previous = calls;
-    const failed = await routeMcpRequest(
+    const failed = await invokeMcpRequest(
       call(MCP_TOPIC_CREATE_TOOL, { markdown: topic(1) }),
       dependencies,
     );
@@ -472,7 +472,7 @@ test("MCPは入力拒否と保存中の内部故障を区別する", async () =>
           ] as const,
       ),
     ] as const) {
-      const response = await routeMcpRequest(call(name, args), dependencies);
+      const response = await invokeMcpRequest(call(name, args), dependencies);
       assert.deepEqual(response, {
         jsonrpc: "2.0",
         id: 1,
@@ -480,7 +480,7 @@ test("MCPは入力拒否と保存中の内部故障を区別する", async () =>
       });
       assert.equal(calls, previous + 1);
     }
-    const updated = await routeMcpRequest(
+    const updated = await invokeMcpRequest(
       call(MCP_TOPIC_UPDATE_TOOL, {
         id: "TOPIC-000042",
         expectedRevision: 1,
@@ -495,7 +495,7 @@ test("MCPは入力拒否と保存中の内部故障を区別する", async () =>
     });
     assert.equal(calls, previous + 2);
     assert.equal(topics.get("TOPIC-000042")?.revision, 2);
-    const listFailure = await routeMcpRequest(call(MCP_TOPIC_LIST_TOOL, {}), {
+    const listFailure = await invokeMcpRequest(call(MCP_TOPIC_LIST_TOOL, {}), {
       ...dependencies,
       topicMeeting: {
         ...dependencies.topicMeeting,
@@ -642,17 +642,17 @@ test("MCPからTopicを登録・一覧・取得・更新する", async () => {
       },
       topicMeeting,
     };
-    const created = await routeMcpRequest(
+    const created = await invokeMcpRequest(
       call(MCP_TOPIC_CREATE_TOOL, { markdown: topic(1) }),
       dependencies,
     );
     assert.equal(result(created).result.isError, false);
-    const listed = await routeMcpRequest(
+    const listed = await invokeMcpRequest(
       call(MCP_TOPIC_LIST_TOOL, { limit: 20 }),
       dependencies,
     );
     assert.equal(result(listed).result.structuredContent.records?.length, 1);
-    const fetched = await routeMcpRequest(
+    const fetched = await invokeMcpRequest(
       call(MCP_TOPIC_GET_TOOL, { id: "TOPIC-000042" }),
       dependencies,
     );
@@ -660,7 +660,7 @@ test("MCPからTopicを登録・一覧・取得・更新する", async () => {
       String(result(fetched).result.structuredContent.markdown),
       /MCP接続を検証/u,
     );
-    const updated = await routeMcpRequest(
+    const updated = await invokeMcpRequest(
       call(MCP_TOPIC_UPDATE_TOOL, {
         id: "TOPIC-000042",
         expectedRevision: 1,
@@ -694,7 +694,7 @@ test("MCPからMeeting Outcomeを処置してCloseする", async () => {
       meeting: createMeetingOperations(root),
     });
     topicMeeting.meeting.create(meeting());
-    const response = await routeMcpRequest(
+    const response = await invokeMcpRequest(
       call(MCP_MEETING_TREAT_OUTCOME_TOOL, {
         meetingId: "MTG-000042",
         expectedRevision: 1,
@@ -759,7 +759,7 @@ test("MCPからTopicを実在CHGへ昇格接続する", async () => {
       "# Change\n",
       "utf8",
     );
-    const response = await routeMcpRequest(
+    const response = await invokeMcpRequest(
       call(MCP_TOPIC_PROMOTE_TOOL, {
         topicId: "TOPIC-000042",
         expectedRevision: 1,

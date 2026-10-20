@@ -9,6 +9,10 @@
  * @boundary EST-ST-003=System/E2E: 公開入口→同意Gate→Provider→結果帰還
  */
 import assert from "node:assert/strict";
+import {
+  Client,
+  StreamableHTTPClientTransport,
+} from "@modelcontextprotocol/client";
 import { spawn, spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { EventEmitter } from "node:events";
@@ -43,13 +47,15 @@ import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../vers
 
 import {
   closeMcpHttpOnProcessSignal,
+  createMcpServerFactory,
+  startMcpStreamableHttp,
   MCP_ACCESS_MANAGEMENT_TOOLS,
   MCP_AI_PROFILE_TOOLS,
   MCP_CURRENT_ACCESS_TOOL,
   MCP_ORCHESTRATOR_PROTOCOL_VERSION,
   MCP_PROJECT_CONTEXT_GET_TOOL,
   MCP_PROJECT_CONTEXT_LIST_TOOL,
-  MCP_RUNTIME_ACTIVITY_TOOL,
+  MCP_EXECUTION_STATUS_TOOL,
   MCP_TOPIC_MEETING_TOOLS,
   type McpOrchestratorDependencies,
   readMcpServerConfiguration,
@@ -62,6 +68,62 @@ const revision = "a".repeat(40);
 const META = Object.freeze({
   "io.modelcontextprotocol/protocolVersion": MCP_ORCHESTRATOR_PROTOCOL_VERSION,
   "io.modelcontextprotocol/clientCapabilities": Object.freeze({}),
+});
+
+/**
+ * 公式Clientが実HTTPで同じTool定義とOwnerへ到達することを検証する。
+ * @responsibility SDKのHeader対応・discover・一覧・結果と非公開Tool拒否を照合する。
+ * @trace EST-ST-003
+ * @precondition 合成Portfolioと専用localhost Portだけを使用する。
+ * @stimulus modern固定Clientで一覧・実行・旧名拒否を確認する。
+ * @observation 読取り回数とSDKの型付き結果を確認する。
+ * @oracle 正常一回、旧名では追加Owner呼出し0。
+ * @cleanup ClientとServerを閉じて専用Socketを回収する。
+ * @boundary 公式SDK Client→HTTP→Factory→合成Owner。
+ */
+test("公式SDK ClientはHTTPのdiscover・一覧・実行と旧名拒否を維持する", async () => {
+  let reads = 0;
+  const server = await startMcpStreamableHttp(
+    createMcpServerFactory({
+      projectContext: {
+        readPortfolio: async () => {
+          reads += 1;
+          return { projects: [], retainedAsSourceOfTruth: false };
+        },
+      },
+    }),
+    { port: 0, bearerToken: TOKEN },
+  );
+  const client = new Client(
+    { name: "crdd-synthetic-test", version: "1" },
+    { versionNegotiation: { mode: { pin: "2026-07-28" } } },
+  );
+  try {
+    await client.connect(
+      new StreamableHTTPClientTransport(
+        new URL(`http://${server.host}:${server.port}${server.endpoint}`),
+        { requestInit: { headers: { authorization: `Bearer ${TOKEN}` } } },
+      ),
+    );
+    const listing = await client.listTools();
+    assert.deepEqual(
+      listing.tools.map((tool) => tool.name),
+      ["crdd.list_projects", "crdd.get_project_context"],
+    );
+    const result = await client.callTool({
+      name: "crdd.list_projects",
+      arguments: {},
+    });
+    assert.notEqual(result.isError, true);
+    assert.equal(reads, 1);
+    await assert.rejects(
+      client.callTool({ name: "crdd.get_runtime_activity", arguments: {} }),
+    );
+    assert.equal(reads, 1);
+  } finally {
+    await client.close();
+    await server.close();
+  }
 });
 
 /**
@@ -1218,7 +1280,7 @@ for (const mode of [
               ...MCP_TOPIC_MEETING_TOOLS,
               MCP_PROJECT_CONTEXT_LIST_TOOL,
               MCP_PROJECT_CONTEXT_GET_TOOL,
-              MCP_RUNTIME_ACTIVITY_TOOL,
+              MCP_EXECUTION_STATUS_TOOL,
               "crdd.get_workspace",
               "crdd.manage_workspace",
             ].sort(),

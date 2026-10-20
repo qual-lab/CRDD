@@ -12,64 +12,47 @@
 export {
   MCP_ACCESS_MANAGEMENT_TOOLS,
   MCP_CURRENT_ACCESS_TOOL,
-} from "./access-management/protocol.ts";
+} from "./tools/access-management.ts";
 export {
   getMcpAiProfileToolDefinitions,
   handleMcpAiProfileRequest,
   MCP_AI_PROFILE_TOOLS,
-} from "./ai-profile/adapter.ts";
+} from "./tools/ai-profile.ts";
 export {
   describeMcpOrchestratorAdapterContract,
   handleMcpOrchestratorRequest,
   inspectMcpOrchestratorObjectiveResult,
   MCP_ORCHESTRATOR_ADAPTER_CONTRACT,
   type McpOrchestratorDependencies,
-} from "./orchestrator/adapter.ts";
-export {
-  callKeys,
-  decisionKeys,
-  decisionKeysNoComment,
-  discoverKeys,
   getMcpOrchestratorToolDefinitions,
-  inspectMcpEnvelope,
-  inspectProtocolRequest,
-  type JsonRpcId,
-  listKeys,
-  listKeysNoCursor,
   MCP_ORCHESTRATOR_DECISION_TOOL,
   MCP_ORCHESTRATOR_OBJECTIVE_TOOL,
-  MCP_ORCHESTRATOR_PROTOCOL_VERSION,
   MCP_ORCHESTRATOR_STATE_TOOL,
+} from "./tools/orchestrator.ts";
+export {
+  MCP_ORCHESTRATOR_PROTOCOL_VERSION,
   type McpResponse,
-  objectiveKeys,
-  protocolComplete,
-  protocolError,
-  requestKeys,
-  stateQueryKeys,
-  validJsonRpcId,
-} from "./orchestrator/protocol.ts";
+} from "./request/validation.ts";
 export {
   handleMcpProjectContextRequest,
   type McpProjectContextDependencies,
-} from "./project-context/adapter.ts";
-export {
   getMcpProjectContextToolDefinitions,
   MCP_PROJECT_CONTEXT_GET_TOOL,
   MCP_PROJECT_CONTEXT_LIST_TOOL,
-} from "./project-context/protocol.ts";
-export { createAccessMcpResolver } from "./request/access-resolver.ts";
+} from "./tools/project-context.ts";
+export { createAccessMcpResolver } from "./request/authentication.ts";
 export {
-  type McpRequestRoutingDependencies,
-  routeMcpRequest,
-} from "./request/route.ts";
+  type McpServerDependencies,
+  createMcpServerFactory,
+} from "./request/server.ts";
 export {
-  getMcpRuntimeActivityToolDefinitions,
-  handleMcpRuntimeActivityRequest,
-  MCP_RUNTIME_ACTIVITY_TOOL,
-  type McpRuntimeActivityDependencies,
-} from "./runtime-activity/adapter.ts";
-export { handleMcpTopicMeetingRequest } from "./topic-meeting/adapter.ts";
+  getMcpExecutionStatusToolDefinitions,
+  handleMcpExecutionStatusRequest,
+  MCP_EXECUTION_STATUS_TOOL,
+  type McpExecutionStatusDependencies,
+} from "./tools/execution-status.ts";
 export {
+  handleMcpTopicMeetingRequest,
   getMcpTopicMeetingToolDefinitions,
   MCP_MEETING_CREATE_TOOL,
   MCP_MEETING_DELETE_TOOL,
@@ -84,13 +67,13 @@ export {
   MCP_TOPIC_MEETING_TOOLS,
   MCP_TOPIC_PROMOTE_TOOL,
   MCP_TOPIC_UPDATE_TOOL,
-} from "./topic-meeting/protocol.ts";
+} from "./tools/topic-meeting.ts";
 export { readMcpServerConfiguration } from "./transport/configuration.ts";
 export {
   closeMcpHttpOnProcessSignal,
   type McpHttpServerCloseBoundary,
   type McpProcessSignalSource,
-} from "./transport/process-signal-shutdown.ts";
+} from "./transport/shutdown.ts";
 export {
   describeMcpOrchestratorStdioContract,
   MCP_ORCHESTRATOR_STDIO_CONTRACT,
@@ -105,10 +88,12 @@ export {
   startMcpAuthenticatedStreamableHttp,
   startMcpOrchestratorStreamableHttp,
   startMcpStreamableHttp,
-} from "./transport/streamable-http.ts";
+} from "./transport/http.ts";
 export type {
   McpAuthenticatedRequestHandlerResolver,
   McpRequestHandler,
+  McpServerFactory,
+  McpRequestSource,
 } from "./transport/types.ts";
 export {
   getMcpWorkspaceToolDefinitions,
@@ -116,4 +101,4 @@ export {
   MCP_WORKSPACE_MANAGE_TOOL,
   MCP_WORKSPACE_READ_TOOL,
   type WorkspaceAccessResolver,
-} from "./workspace/adapter.ts";
+} from "./tools/workspace.ts";

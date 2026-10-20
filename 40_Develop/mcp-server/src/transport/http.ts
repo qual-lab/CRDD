@@ -13,19 +13,24 @@ import http, {
 } from "node:http";
 import type { Socket } from "node:net";
 import { types as utilTypes } from "node:util";
+import { createMcpHandler, ProtocolError } from "@modelcontextprotocol/server";
+import { toNodeHandler } from "@modelcontextprotocol/node";
 
-import {
-  handleMcpOrchestratorRequest,
-  type McpOrchestratorDependencies,
-} from "../orchestrator/adapter.ts";
+import type { McpOrchestratorDependencies } from "../tools/orchestrator.ts";
 import {
   MCP_ORCHESTRATOR_PROTOCOL_VERSION,
   protocolError,
-} from "../orchestrator/protocol.ts";
+  inspectProtocolRequest,
+  type McpResponse,
+} from "../request/validation.ts";
+import {
+  createMcpRequestServer,
+  createMcpServerFactory,
+} from "../request/server.ts";
 import { parseUnambiguousJsonDocument } from "../request/parse-json.ts";
 import type {
   McpAuthenticatedRequestHandlerResolver,
-  McpRequestHandler,
+  McpRequestSource,
 } from "./types.ts";
 
 export const MCP_ORCHESTRATOR_STREAMABLE_HTTP_CONTRACT =
@@ -295,6 +300,129 @@ async function readBody(request: IncomingMessage) {
 }
 
 /**
+ * 検査済みHTTP要求を公式SDKの要求別Serverへ一回だけ接続する。
+ * @responsibility CRDDの入口検査・初回保存とSDKのProtocol応答を分離する。
+ * @trace ARCH-000012
+ * @input 同じHTTP要求・応答、検査済みbody、現在認証のHandler、要求取消Signal。
+ * @returns SDK応答の送信と要求別資源回収の完了。
+ * @precondition 認証、本文byte・重複key、Header一致を既存入口が検査済み。
+ * @postcondition 意味操作は高々一回。初回discoverの保存失敗・取消ではSDK呼出し0。
+ * @effect 指定HandlerのEffect、SDKの応答搬送と要求別Serverの終了。
+ * @failure 旧Tool errorをSDK ProtocolErrorへ変換し、内部例外を固定エラーへ閉じる。
+ * @invariant JSON-RPC応答全体をTool結果へ二重格納せず、保存済みを再実行しない。
+ * @boundary CRDDの要求認証・意味Handlerと公式SDK Node HTTPの境界。
+ * @security 要求closureの資格・Ownerを共有せず、SDKの旧規格・未公開操作を有効化しない。
+ * @concurrency HTTP切断・終了Signalを伝播し、開始済み意味操作をjoinしてからSDKを閉じる。
+ */
+async function handleSdkHttpRequest(
+  request: IncomingMessage,
+  response: ServerResponse,
+  body: unknown,
+  handler: McpRequestSource,
+  signal: AbortSignal,
+): Promise<void> {
+  const validated = inspectProtocolRequest(body);
+  if (!validated) {
+    respondJson(response, 200, protocolError(null, -32600, "Invalid Request"));
+    return;
+  }
+  if (
+    !["server/discover", "tools/list", "tools/call"].includes(validated.method)
+  ) {
+    respondJson(
+      response,
+      404,
+      protocolError(validated.id, -32601, "Method not found"),
+    );
+    return;
+  }
+  if (signal.aborted) return;
+  let pending: Promise<McpResponse> | null = null;
+  let methodNotFound = false;
+  let server: Awaited<ReturnType<typeof createMcpRequestServer>>;
+  try {
+    server = await createMcpRequestServer(
+      handler,
+      body,
+      signal,
+      (operation) => {
+        pending = operation;
+        void operation.then(
+          (result) => {
+            methodNotFound = result.error?.code === -32601;
+          },
+          () => {},
+        );
+      },
+    );
+  } catch (error) {
+    const failure =
+      error instanceof ProtocolError
+        ? protocolError(validated.id, error.code, error.message)
+        : protocolError(validated.id, -32603, "Internal error");
+    if (!signal.aborted)
+      respondJson(
+        response,
+        failure.error?.code === -32601 ? 404 : 200,
+        failure,
+      );
+    return;
+  }
+  if (signal.aborted) {
+    await server.close();
+    return;
+  }
+  const sdk = createMcpHandler(() => server, {
+    legacy: "reject",
+    maxRequestBodySize: MAXIMUM_REQUEST_BYTES,
+  });
+  try {
+    await toNodeHandler(sdk, { maxRequestBodySize: MAXIMUM_REQUEST_BYTES })(
+      {
+        method: request.method ?? "POST",
+        url: request.url ?? ENDPOINT,
+        headers: request.headers,
+        [Symbol.asyncIterator]: () => request[Symbol.asyncIterator](),
+      },
+      {
+        writeHead: (statusCode, headers) => {
+          if (signal.aborted) {
+            response.destroy();
+            return response;
+          }
+          return response.writeHead(
+            statusCode === 200 && methodNotFound ? 404 : statusCode,
+            { ...headers, "cache-control": "no-store" },
+          );
+        },
+        write: (chunk) => {
+          if (signal.aborted) {
+            response.destroy();
+            return true;
+          }
+          return response.write(chunk);
+        },
+        end: (chunk) => {
+          if (signal.aborted) {
+            response.destroy();
+            return response;
+          }
+          return response.end(chunk);
+        },
+        on: (event, listener) => response.on(event, listener),
+        get destroyed() {
+          return response.destroyed;
+        },
+      },
+      body,
+    );
+  } finally {
+    if (pending !== null) await Promise.allSettled([pending]);
+    await sdk.close();
+  }
+}
+
+/**
  * Start the stateless 2026-07-28 Streamable HTTP binding. Authentication is
  *
  * @responsibility Mcp Orchestrator Streamable Httpの開始条件、Effect発行、開始失敗時の終了境界を所有する。
@@ -456,13 +584,13 @@ async function startMcpStreamableHttpWithHandler(
           );
           return;
         }
-        const result = await handler(body, controller.signal);
-        if (!controller.signal.aborted)
-          respondJson(
-            response,
-            result.error?.code === -32601 ? 404 : 200,
-            result,
-          );
+        await handleSdkHttpRequest(
+          request,
+          response,
+          body,
+          handler,
+          controller.signal,
+        );
       } catch {
         if (isClosing || controller.signal.aborted) response.destroy();
         else if (!response.headersSent)
@@ -568,7 +696,7 @@ async function startMcpStreamableHttpWithHandler(
  * @concurrency Requestごとの取消とServer全体のjoinを管理する。
  */
 export async function startMcpStreamableHttp(
-  handler: McpRequestHandler,
+  handler: McpRequestSource,
   options: McpOrchestratorHttpOptions,
 ) {
   if (!validToken(options.bearerToken))
@@ -631,8 +759,7 @@ export async function startMcpOrchestratorStreamableHttp(
   const expected = Buffer.from(options.bearerToken, "utf8");
   return startMcpStreamableHttpWithHandler((token) => {
     return authorized({ authorization: `Bearer ${token}` }, expected)
-      ? (request, signal) =>
-          handleMcpOrchestratorRequest(request, dependencies, signal)
+      ? createMcpServerFactory({ orchestrator: dependencies })
       : null;
   }, options);
 }

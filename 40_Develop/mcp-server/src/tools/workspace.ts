@@ -16,7 +16,7 @@ import {
   inspectProtocolRequest,
   protocolComplete,
   protocolError,
-} from "../orchestrator/protocol.ts";
+} from "../request/validation.ts";
 
 /**
  * 要求内だけの現在Workspaceアクセス解決を定義する。

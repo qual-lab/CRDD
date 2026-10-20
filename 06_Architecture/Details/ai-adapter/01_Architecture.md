@@ -144,7 +144,7 @@ CROS設定 ────────────┼─→ 設定Adapter ─→ AI
 | `createRepositoryAiProfileCatalogStore`、`createHostAiProfileCatalogStore` | `AiProfileCatalogStoreResult` | Repository／Host設定の保存先を構成 |
 | Storeの`adopt` | `AiProfileCatalogAdoptionResult` | 保存成功・競合・拒否・確定不能を区別 |
 
-共有データ型と既定Catalogは実利用側が必要な範囲で明示公開する。`validateAiProfileMutationResult`はMCP Serverの`ai-profile/adapter.ts`とWorkbench Serverの`server.ts`が操作結果を検証するために使用しており、公開を維持する。Provider別の引数生成、出力解析、Turn数計算、禁止環境名、内部JSON解析は、本番の利用側を共通入口へ移してから公開を撤去する。
+共有データ型と既定Catalogは実利用側が必要な範囲で明示公開する。`validateAiProfileMutationResult`はMCP Serverの`tools/ai-profile.ts`とWorkbench Serverの`server.ts`が操作結果を検証するために使用しており、公開を維持する。Provider別の引数生成、出力解析、Turn数計算、禁止環境名、内部JSON解析は、本番の利用側を共通入口へ移してから公開を撤去する。
 
 通常想定する失敗を`null`、空値または例外だけで返さず、利用側が状態で型を絞れる結果にする。固定定義の取得・分類値・変換値は直接返し、すべてのAPIへ万能Result型や同じ状態語彙を強制しない。未知・観測不能・保存確定不能を成功や安全な未実施へ丸めない。生出力・Secret・内部Pathを結果へ複製せず、エラー分類から再試行・回収・Authorityを発行しない。
 

@@ -28,7 +28,7 @@ import {
 } from "../../../domain-model/src/index.ts";
 import { resolveVerifiedRepositoryRoot } from "../../../version-control/src/index.ts";
 import { readAuthorizedRuntimeActivity } from "../../../orchestrator/src/index.ts";
-import { routeMcpRequest } from "./route.ts";
+import { createMcpServerFactory } from "./server.ts";
 import { createInitialConnectionHandler } from "./initial-connection.ts";
 import type { McpAuthenticatedRequestHandlerResolver } from "../transport/types.ts";
 
@@ -58,15 +58,16 @@ export function createAccessMcpResolver(
     const authentication = resolveConnectionAuthentication(root, token);
     if (authentication.status === "unavailable") return null;
     if (authentication.status === "initial")
-      return createInitialConnectionHandler(
-        root,
-        token,
-        authentication.binding,
-      );
-    return (request, signal) =>
-      routeMcpRequest(
-        request,
-        {
+      return createMcpServerFactory({
+        initialConnection: createInitialConnectionHandler(
+          root,
+          token,
+          authentication.binding,
+        ),
+      });
+    return {
+      async createServer(request, signal, observe) {
+        return createMcpServerFactory({
           accessManagement: { root, token },
           workspace: (repositoryId) => {
             const initial = resolveRepositoryAccess(
@@ -310,8 +311,8 @@ export function createAccessMcpResolver(
               return portfolio;
             },
           },
-        },
-        signal,
-      );
+        }).createServer(request, signal, observe);
+      },
+    };
   };
 }

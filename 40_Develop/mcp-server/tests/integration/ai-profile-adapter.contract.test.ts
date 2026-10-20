@@ -11,6 +11,7 @@
  * @boundary MCP Routing／Adapter→AI Adapter。Host資格・旧Gatewayは使わない。
  */
 import assert from "node:assert/strict";
+import { invokeMcpRequest } from "../fixtures/sdk-request.ts";
 import test from "node:test";
 import {
   defaultAiProfileCatalog,
@@ -23,7 +24,6 @@ import {
 import {
   MCP_AI_PROFILE_TOOLS,
   handleMcpAiProfileRequest,
-  routeMcpRequest,
   MCP_ORCHESTRATOR_PROTOCOL_VERSION,
 } from "../../src/index.ts";
 
@@ -84,23 +84,23 @@ test("Profile遅延認可は現在判定と二依存拒否を分離する", asyn
     method: "tools/list",
     params: { _meta: request.params._meta },
   };
-  const first = await routeMcpRequest(listing, dependencies);
+  const first = await invokeMcpRequest(listing, dependencies);
   assert.equal(JSON.stringify(first).includes(MCP_AI_PROFILE_TOOLS.list), true);
   assert.equal(resolutions, 1);
   assert.equal(reads, 0);
   access = "denied";
-  const denied = await routeMcpRequest(request, dependencies);
+  const denied = await invokeMcpRequest(request, dependencies);
   assert.ok("error" in denied);
   assert.equal(denied.error.code, -32601);
   assert.equal(resolutions, 2);
   assert.equal(reads, 0);
   access = "unavailable";
-  const unknown = await routeMcpRequest(listing, dependencies);
+  const unknown = await invokeMcpRequest(listing, dependencies);
   assert.ok("error" in unknown);
   assert.equal(unknown.error.code, -32603);
   assert.equal(JSON.stringify(unknown).includes("private state"), false);
   const before = resolutions;
-  const invalid = await routeMcpRequest(
+  const invalid = await invokeMcpRequest(
     { ...request, params: { ...request.params, arguments: { extra: true } } },
     dependencies,
   );
@@ -108,17 +108,17 @@ test("Profile遅延認可は現在判定と二依存拒否を分離する", asyn
   assert.equal(invalid.error.code, -32602);
   const abort = new AbortController();
   abort.abort();
-  const cancelled = await routeMcpRequest(request, dependencies, abort.signal);
+  const cancelled = await invokeMcpRequest(request, dependencies, abort.signal);
   assert.ok("error" in cancelled);
   assert.equal(cancelled.error.code, -32800);
-  const unknownTool = await routeMcpRequest(
+  const unknownTool = await invokeMcpRequest(
     { ...request, params: { ...request.params, name: "unknown" } },
     dependencies,
   );
   assert.ok("error" in unknownTool);
   assert.equal(unknownTool.error.code, -32601);
   for (const raw of [listing, request]) {
-    const conflict = await routeMcpRequest(raw, {
+    const conflict = await invokeMcpRequest(raw, {
       ...dependencies,
       aiProfileAdministration: counted,
     });
@@ -128,7 +128,7 @@ test("Profile遅延認可は現在判定と二依存拒否を分離する", asyn
   assert.equal(resolutions, before);
   assert.equal(reads, 0);
   access = "allowed";
-  const result = await routeMcpRequest(request, dependencies);
+  const result = await invokeMcpRequest(request, dependencies);
   assert.ok("result" in result);
   assert.equal(resolutions, before + 1);
   assert.equal(reads, 1);

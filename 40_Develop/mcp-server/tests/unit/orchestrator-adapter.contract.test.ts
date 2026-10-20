@@ -23,9 +23,9 @@ import {
   MCP_ORCHESTRATOR_OBJECTIVE_TOOL,
   MCP_ORCHESTRATOR_STATE_TOOL,
   MCP_ORCHESTRATOR_PROTOCOL_VERSION,
-  protocolError,
   type McpOrchestratorDependencies,
 } from "../../src/index.ts";
+import { protocolError } from "../../src/request/validation.ts";
 
 const revision = "a".repeat(40);
 const META = Object.freeze({
@@ -1563,10 +1563,7 @@ test("JSON-RPC error envelopeはProtocolだけが所有しTransportは再定義�
     error: { code: -32700, message: "Parse error" },
   });
   const sourceRoot = fileURLToPath(new URL("../../src/", import.meta.url));
-  for (const relative of [
-    "transport/stdio.ts",
-    "transport/streamable-http.ts",
-  ]) {
+  for (const relative of ["transport/stdio.ts", "transport/http.ts"]) {
     const source = fs.readFileSync(path.join(sourceRoot, relative), "utf8");
     assert.doesNotMatch(source, /jsonrpc\s*:/u, relative);
     assert.match(source, /protocolError\(/u, relative);

@@ -4,63 +4,167 @@
  * @responsibility writeを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000012
  */
-import type { Readable, Writable } from "node:stream";
-
+import { PassThrough, Writable, type Readable } from "node:stream";
 import {
-  handleMcpOrchestratorRequest,
-  type McpOrchestratorDependencies,
-} from "../orchestrator/adapter.ts";
-import { protocolError } from "../orchestrator/protocol.ts";
+  serveStdio,
+  StdioServerTransport,
+} from "@modelcontextprotocol/server/stdio";
+import { ProtocolError } from "@modelcontextprotocol/server";
+import {
+  createMcpRequestServer,
+  createMcpServerFactory,
+} from "../request/server.ts";
+
+import type { McpOrchestratorDependencies } from "../tools/orchestrator.ts";
+import {
+  protocolError,
+  inspectProtocolRequest,
+  inspectMcpEnvelope,
+  type McpResponse,
+} from "../request/validation.ts";
 import { parseUnambiguousJsonDocument } from "../request/parse-json.ts";
-import type { McpRequestHandler } from "./types.ts";
+import type { McpRequestSource } from "./types.ts";
 
 export const MCP_ORCHESTRATOR_STDIO_CONTRACT =
   "crdd-mcp/stdio-transport/v1" as const;
 const MAXIMUM_REQUEST_BYTES = 128 * 1024;
 
 /**
- * stdio-transportを書き込む。
+ * SDKが生成した応答byteを外部Writableへ書き込む。
  *
  * @responsibility stdio-transportの書込み先、確定条件、部分書込みの失敗境界を所有する。
  * @trace ARCH-000012
- * @input output: Writable、value: unknown
- * @returns writeの計算結果を返す。
- * @precondition 「output: Writable、value: unknown」がwriteの入力契約を満たす。
- * @postcondition writeの責務を完了した結果だけを返す。
- * @effect N/A: writeは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: writeは独自の失敗分岐を所有しない。
- * @invariant writeは入力から導いた結果以外の共有状態を変更しない。
+ * @input output: Writable、value: SDKの応答文字列。
+ * @returns 外部出力callbackが成功した場合だけtrue。
+ * @precondition valueは送信する一つのJSON-lines frameである。
+ * @postcondition 外部出力callbackの完了まで待つ。
+ * @effect 指定した外部Writableへbyteを書き込む。
+ * @failure 出力callbackのerrorはfalse、同期例外は呼出し側へ伝播する。
+ * @invariant 外部Streamをend・destroyしない。
  * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
  * @security N/A: writeはAuthority、秘密値または信頼判断を扱わない。
  * @concurrency writeは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
  */
-function write(output: Writable, value: unknown) {
+function write(output: Writable, value: string) {
   return new Promise<boolean>((resolve) => {
-    const bytes = `${JSON.stringify(value)}\n`;
-    output.write(bytes, "utf8", (error) =>
+    output.write(value, "utf8", (error) =>
       resolve(error === null || error === undefined),
     );
   });
 }
 
 /**
- * Bounded JSON-lines MCP transport. EOF means parent loss: the active request
- *
- * @responsibility Mcp Orchestrator Stdioの実行条件、Effect範囲、終了結果の境界を所有する。
+ * 検査済みの一要求を公式stdioへ接続し、SDKの応答byteを受け取る。
+ * @responsibility SDKの規格選択・dispatch・framingを既存の有界逐次入口へ接続する。
  * @trace ARCH-000012
- * @input dependencies: McpOrchestratorDependencies、input: Readable、output: Writable
- * @returns runMcpOrchestratorStdioの計算結果を返す。
- * @precondition 「dependencies: McpOrchestratorDependencies、input: Readable、output: Writable」がrunMcpOrchestratorStdioの入力契約を満たす。
- * @postcondition runMcpOrchestratorStdioの責務を完了した結果だけを返す。
- * @effect N/A: runMcpOrchestratorStdioは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure runMcpOrchestratorStdioは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant runMcpOrchestratorStdioは入力から導いた結果以外の共有状態を変更しない。
+ * @input 元要求、意味Handler、親取消、意味結果の観測、取消通知の受付接続。
+ * @returns SDKが生成した応答byte。Protocol取消で応答しない場合はnull。
+ * @precondition raw本文のbyte上限と重複keyは外側で検査済み。
+ * @postcondition 開始済みHandlerをjoinし、内部StreamとSDKを回収する。
+ * @effect Handlerとメモリ内SDK Streamだけを使用する。
+ * @failure 同期例外は非開示Internal error、SDK入出力失敗は呼出し側へ返す。
+ * @invariant 外部EOFをSDKへ即転送せず、従来の取消結果と出力完了を維持する。
+ * @boundary 外部stdio入口とSDK所有の内部Transport。
+ * @security 初回discoverの確認保存はSDK自動応答より先に実行する。
+ * @concurrency 一要求だけを搬送し、取消通知だけを待機列から分離する。
+ */
+async function dispatchMcpStdioRequest(
+  rawRequest: unknown,
+  handler: McpRequestSource,
+  signal: AbortSignal,
+  observe: (result: McpResponse) => void,
+  connectCancellation: (
+    cancel: ((notification: unknown) => void) | null,
+  ) => void,
+): Promise<string | null> {
+  const request = inspectProtocolRequest(rawRequest);
+  if (!request)
+    return `${JSON.stringify(protocolError(null, -32600, "Invalid Request"))}\n`;
+  if (!["server/discover", "tools/list", "tools/call"].includes(request.method))
+    return `${JSON.stringify(protocolError(request.id, -32601, "Method not found"))}\n`;
+  const input = new PassThrough();
+  let settle!: (bytes: string | null) => void;
+  let fail!: (error: Error) => void;
+  const response = new Promise<string | null>((resolve, reject) => {
+    settle = resolve;
+    fail = reject;
+  });
+  let pending: Promise<McpResponse> | null = null;
+  const output = new Writable({
+    write(chunk, _encoding, callback) {
+      callback();
+      settle(String(chunk));
+    },
+  });
+  let server: Awaited<ReturnType<typeof createMcpRequestServer>>;
+  try {
+    server = await createMcpRequestServer(
+      handler,
+      rawRequest,
+      signal,
+      (operation, sdkSignal) => {
+        pending = operation;
+        void operation.then(
+          (result) => {
+            observe(result);
+            if (sdkSignal.aborted) settle(null);
+          },
+          () => {
+            if (sdkSignal.aborted) settle(null);
+          },
+        );
+      },
+    );
+  } catch (error) {
+    input.destroy();
+    output.destroy();
+    const failure =
+      error instanceof ProtocolError
+        ? protocolError(request.id, error.code, error.message)
+        : protocolError(request.id, -32603, "Internal error");
+    return `${JSON.stringify(failure)}\n`;
+  }
+  const sdk = serveStdio(() => server, {
+    legacy: "reject",
+    transport: new StdioServerTransport(input, output, {
+      maxBufferSize: MAXIMUM_REQUEST_BYTES,
+    }),
+    onerror: () => fail(new Error("mcp_stdio_sdk_failed")),
+  });
+  try {
+    input.write(`${JSON.stringify(rawRequest)}\n`);
+    connectCancellation((notification) =>
+      input.write(`${JSON.stringify(notification)}\n`),
+    );
+    return await response;
+  } finally {
+    connectCancellation(null);
+    if (pending !== null) await Promise.allSettled([pending]);
+    await sdk.close();
+    input.destroy();
+    output.destroy();
+    output.removeAllListeners();
+  }
+}
+
+/**
+ * 有界な外部stdioを逐次処理し、要求別SDKとOwner終了を収束させる。
+ *
+ * @responsibility 入力待機量、要求順序、取消・出力完了・意味cleanup結果を所有する。
+ * @trace ARCH-000012
+ * @input handler: McpRequestSource、input: Readable、output: Writable。
+ * @returns Transport終了と観測した意味cleanup・回復要求の結果。
+ * @precondition 指定Sourceが認証済みの専門Ownerへ接続されている。
+ * @postcondition 開始済みOwnerをjoinし、自分のStream Listenerと内部SDKを回収する。
+ * @effect 外部stdio読取り・出力、要求別SDK接続とOwnerの既存Effect。
+ * @failure 容量超過・不完全末尾・入出力故障はblocked。意味cleanup不明は保持する。
+ * @invariant 待機入力は128KiB以内で逐次処理し、外部Stream自体を破棄しない。
  * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
- * @security N/A: runMcpOrchestratorStdioはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency runMcpOrchestratorStdioは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ * @security 元入力の閉検査とSourceの認可を維持し、取消を別IDへ流用しない。
+ * @concurrency EOF・出力故障・通知取消を開始済みOwnerへ伝播し、出力callback完了後に次要求へ進む。
  */
 async function runMcpStdioWithHandler(
-  handler: McpRequestHandler,
+  handler: McpRequestSource,
   input: Readable,
   output: Writable,
 ) {
@@ -70,10 +174,14 @@ async function runMcpStdioWithHandler(
   let queuedBytes = 0;
   let isInputClosed = false;
   let didInputError = false;
+  let didOutputError = false;
   let isFailed = false;
   let isSemanticResultObserved = false;
   let semanticCleanupConfirmed = true;
   let semanticManualRecoveryRequired = false;
+  let activeId: string | number | null = null;
+  let cancelActive: ((notification: unknown) => void) | null = null;
+  let pendingCancellation: unknown | null = null;
   let wake: (() => void) | null = null;
   const notify = () => {
     wake?.();
@@ -89,6 +197,12 @@ async function runMcpStdioWithHandler(
     didInputError = true;
     closeForParentLoss();
   };
+  const failOutput = () => {
+    didOutputError = true;
+    isFailed = true;
+    controller.abort();
+    notify();
+  };
   const receive = (rawChunk: string | Buffer) => {
     if (isInputClosed || isFailed) return;
     pending += String(rawChunk);
@@ -98,6 +212,45 @@ async function runMcpStdioWithHandler(
       const line = pending.slice(0, newline).replace(/\r$/u, "");
       pending = pending.slice(newline + 1);
       if (line.length === 0) continue;
+      if (Buffer.byteLength(line, "utf8") > MAXIMUM_REQUEST_BYTES) {
+        isFailed = true;
+        controller.abort();
+        input.pause();
+        notify();
+        return;
+      }
+      const notification = parseUnambiguousJsonDocument(line);
+      if (
+        notification &&
+        typeof notification === "object" &&
+        "method" in notification &&
+        notification.method === "notifications/cancelled" &&
+        "jsonrpc" in notification &&
+        notification.jsonrpc === "2.0" &&
+        !Object.hasOwn(notification, "id") &&
+        "params" in notification &&
+        notification.params &&
+        typeof notification.params === "object" &&
+        "requestId" in notification.params &&
+        Object.keys(notification).every((key) =>
+          ["jsonrpc", "method", "params"].includes(key),
+        ) &&
+        Object.keys(notification.params).every((key) =>
+          ["requestId", "reason", "_meta"].includes(key),
+        ) &&
+        (!Object.hasOwn(notification.params, "_meta") ||
+          ("_meta" in notification.params &&
+            inspectMcpEnvelope(notification.params._meta))) &&
+        (!Object.hasOwn(notification.params, "reason") ||
+          ("reason" in notification.params &&
+            typeof notification.params.reason === "string"))
+      ) {
+        if (activeId !== null && notification.params.requestId === activeId) {
+          if (cancelActive) cancelActive(notification);
+          else pendingCancellation = notification;
+        }
+        continue;
+      }
       queuedBytes += Buffer.byteLength(line, "utf8");
       lines.push(line);
     }
@@ -123,6 +276,8 @@ async function runMcpStdioWithHandler(
     input.once("error", failInput);
     input.once("close", closeForParentLoss);
     input.resume();
+    output.on("error", failOutput);
+    output.once("close", failOutput);
     while (!isFailed && (lines.length > 0 || !isInputClosed)) {
       if (lines.length === 0) {
         await waitForInput();
@@ -132,38 +287,59 @@ async function runMcpStdioWithHandler(
       if (line === undefined) continue;
       queuedBytes -= Buffer.byteLength(line, "utf8");
       const request = parseUnambiguousJsonDocument(line);
-      const response = request
-        ? await handler(request, controller.signal)
-        : protocolError(null, -32700, "Parse error");
-      if ("result" in response && response.result) {
-        const result = response.result as Readonly<{
-          structuredContent?: Readonly<{
-            cleanupConfirmed?: unknown;
-            manualRecoveryRequired?: unknown;
+      const observe = (response: McpResponse) => {
+        if ("result" in response && response.result) {
+          const result = response.result as Readonly<{
+            structuredContent?: Readonly<{
+              cleanupConfirmed?: unknown;
+              manualRecoveryRequired?: unknown;
+            }>;
           }>;
-        }>;
-        const semantic = result.structuredContent;
-        if (
-          semantic &&
-          typeof semantic.cleanupConfirmed === "boolean" &&
-          typeof semantic.manualRecoveryRequired === "boolean"
-        ) {
-          isSemanticResultObserved = true;
-          semanticCleanupConfirmed &&= semantic.cleanupConfirmed;
-          semanticManualRecoveryRequired ||= semantic.manualRecoveryRequired;
+          const semantic = result.structuredContent;
+          if (
+            semantic &&
+            typeof semantic.cleanupConfirmed === "boolean" &&
+            typeof semantic.manualRecoveryRequired === "boolean"
+          ) {
+            isSemanticResultObserved = true;
+            semanticCleanupConfirmed &&= semantic.cleanupConfirmed;
+            semanticManualRecoveryRequired ||= semantic.manualRecoveryRequired;
+          }
         }
-      }
-      if (!(await write(output, response))) isFailed = true;
+      };
+      activeId = inspectProtocolRequest(request)?.id ?? null;
+      const bytes = request
+        ? await dispatchMcpStdioRequest(
+            request,
+            handler,
+            controller.signal,
+            observe,
+            (cancel) => {
+              cancelActive = cancel;
+              if (cancel && pendingCancellation !== null) {
+                cancel(pendingCancellation);
+                pendingCancellation = null;
+              }
+            },
+          )
+        : `${JSON.stringify(protocolError(null, -32700, "Parse error"))}\n`;
+      activeId = null;
+      pendingCancellation = null;
+      if (bytes !== null && (didOutputError || !(await write(output, bytes))))
+        isFailed = true;
     }
     if (pending.trim().length > 0 || didInputError) isFailed = true;
   } catch {
     isFailed = true;
   } finally {
     controller.abort();
+    if (isFailed) await new Promise<void>((resolve) => setImmediate(resolve));
     input.removeListener("data", receive);
     input.removeListener("end", closeForParentLoss);
     input.removeListener("error", failInput);
     input.removeListener("close", closeForParentLoss);
+    output.removeListener("error", failOutput);
+    output.removeListener("close", failOutput);
   }
   return Object.freeze({
     contract: MCP_ORCHESTRATOR_STDIO_CONTRACT,
@@ -196,7 +372,7 @@ async function runMcpStdioWithHandler(
  * @concurrency 一つの入力Queueを順序保持して処理する。
  */
 export async function runMcpStdio(
-  handler: McpRequestHandler,
+  handler: McpRequestSource,
   input: Readable,
   output: Writable,
 ) {
@@ -225,8 +401,7 @@ export async function runMcpOrchestratorStdio(
   output: Writable,
 ) {
   return runMcpStdioWithHandler(
-    (request, signal) =>
-      handleMcpOrchestratorRequest(request, dependencies, signal),
+    createMcpServerFactory({ orchestrator: dependencies }),
     input,
     output,
   );

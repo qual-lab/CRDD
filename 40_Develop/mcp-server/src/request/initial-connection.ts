@@ -9,7 +9,7 @@ import {
   type InitialConnectionBinding,
 } from "../../../access-management/src/index.ts";
 import type { FilesystemStoreRoot } from "../../../domain-model/src/index.ts";
-import { protocolError } from "../orchestrator/protocol.ts";
+import { protocolError } from "../request/validation.ts";
 import type { McpRequestHandler } from "../transport/types.ts";
 import { handleMcpDiscoverRequest } from "./discover.ts";
 

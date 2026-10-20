@@ -1,5 +1,5 @@
 /**
- * 認可済みRuntime活動をMCPへ搬送する。
+ * 認可済みの実行状況と履歴をMCPへ搬送する。
  *
  * @responsibility 固定Toolの入力と公開結果をOrchestrator観測契約へ接続する。
  * @trace ARCH-000005
@@ -21,9 +21,9 @@ import {
   protocolComplete,
   protocolError,
   type McpResponse,
-} from "../orchestrator/protocol.ts";
+} from "../request/validation.ts";
 
-export const MCP_RUNTIME_ACTIVITY_TOOL = "crdd.get_runtime_activity" as const;
+export const MCP_EXECUTION_STATUS_TOOL = "crdd.get_execution_status" as const;
 
 /**
  * 認可適用済みの活動読取り依存を定義する。
@@ -37,14 +37,14 @@ export const MCP_RUNTIME_ACTIVITY_TOOL = "crdd.get_runtime_activity" as const;
  * @security 許可集合外のRepositoryを参照しない依存だけを渡す。
  * @compatibility Orchestratorの観測型を直接利用し、同型DTOを作らない。
  */
-export type McpRuntimeActivityDependencies = Readonly<{
+export type McpExecutionStatusDependencies = Readonly<{
   read(
     query: Readonly<{ projectId: string; cursor?: string; limit: number }>,
   ): Promise<RuntimeActivityObservation | null>;
 }>;
 
 /**
- * Runtime活動Toolの固定Schemaを返す。
+ * 実行状況と履歴を取得するToolの固定Schemaを返す。
  *
  * @responsibility 一覧とCallで同じ入力契約を公開する。
  * @trace ARCH-000012
@@ -59,10 +59,10 @@ export type McpRuntimeActivityDependencies = Readonly<{
  * @security Schemaから未許可Projectを開示しない。
  * @concurrency N/A: 共有状態を持たない。
  */
-export function getMcpRuntimeActivityToolDefinitions() {
+export function getMcpExecutionStatusToolDefinitions() {
   return Object.freeze([
     Object.freeze({
-      name: MCP_RUNTIME_ACTIVITY_TOOL,
+      name: MCP_EXECUTION_STATUS_TOOL,
       title: "実行状況と履歴を取得",
       description:
         "現在参照可能なProjectの実行状況とページ単位の履歴を取得します。",
@@ -106,9 +106,9 @@ export function getMcpRuntimeActivityToolDefinitions() {
  * @security Token・Path・内部Snapshotを応答へ追加しない。
  * @concurrency 開始後のreadをjoinし、完了後に取消状態を再確認する。
  */
-export async function handleMcpRuntimeActivityRequest(
+export async function handleMcpExecutionStatusRequest(
   rawRequest: unknown,
-  dependencies: McpRuntimeActivityDependencies,
+  dependencies: McpExecutionStatusDependencies,
   signal: AbortSignal,
 ): Promise<McpResponse> {
   const request = inspectProtocolRequest(rawRequest);
@@ -118,7 +118,7 @@ export async function handleMcpRuntimeActivityRequest(
   if (
     !params ||
     !inspectMcpEnvelope(params._meta) ||
-    params.name !== MCP_RUNTIME_ACTIVITY_TOOL
+    params.name !== MCP_EXECUTION_STATUS_TOOL
   )
     return protocolError(request.id, -32602, "Invalid params");
   const args = snapshotOpenPlainRecord(params.arguments);

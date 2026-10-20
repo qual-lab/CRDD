@@ -1,8 +1,38 @@
 # MCP Transportアーキテクチャ
 
+## 公式SDK移行の実装境界 — 2026-10-20
+
+[移行対応表](../../../99_Roadmap/Changes/CHG-000082/mcp-server-sdk-structure.md)に従い、ProtocolとTransportを公式SDK v2へ移す。固定依存はServer `2.3.1`、Node HTTP接続`2.1.1`。AMのSource・公開API・保存・認証・ACLは変更しない。AM内部結果の投影検証はAM自身のUnit、MCPは型付き公開Outcomeの搬送を検査し、内部関数へPackage間deep importしない。
+
+HTTPは公式SDKへ接続する。要求別の既存認証、byte／重複キー／Header一致検査、初回discoverの確認保存を公式entry前に維持し、同じ検査済みbodyをSDK Node接続へ渡す。SDKがJSON-RPCの受付・dispatch・応答生成を所有し、Tool callbackには既存のTool結果だけを返す。既存Handlerが返すProtocol errorはSDKの`ProtocolError`へ変換し、JSON-RPC応答全体をTool結果へ二重格納しない。初回保存成功後のSDK失敗・切断を未保存へ戻さず、自動再確認しない。
+
+通常要求は要求ごとのHandlerと現在ACLを使い、Serverの再利用でPrincipalをcacheしない。SDKの標準Handlerを持つことだけでping、旧Initialize、通知等の公開範囲を拡張しない。stdioでも待機byte総量、逐次意味実行、EOF取消とjoinをSDK接続へ保持する。HTTP接続だけでstdio・Source全移管・旧Router撤去・Client互換の完了とは表示しない。
+
+終了では従来の要求Controllerと未終了処理の集合を使い、SDK closeだけから下位Effect終了を推定しない。HTTP切断・Server終了は同じ要求の取消をTool callbackへ伝播し、既存Ownerの完了待ちとSDK資源回収を終えてから終了結果を返す。新しい永続状態、共有Lock、Registry、認証Frameworkは追加しない。
+
+Tool定義と処理は`tools/access-management.ts`、`tools/project-context.ts`、`tools/topic-meeting.ts`、`tools/ai-profile.ts`、`tools/workspace.ts`、`tools/execution-status.ts`へ責務単位で配置する。同じToolのSchemaと搬送をprotocol／adapterの二Fileに分けず、認可・保存の実処理は各専門Packageへ残す。要求認証の接続は`request/authentication.ts`、終了編成は`transport/shutdown.ts`が所有する。OrchestratorのToolとSchemaは`tools/orchestrator.ts`へ同居させ、共通の閉入力検査は内部`request/validation.ts`へ分離する。stdioは既存の有界Queueを入口Adapterとして維持し、SDK内部Streamへ検査済み要求だけを搬送する。意味実行の逐次性、待機総量、EOF後の取消結果搬送、出力callback完了とOwner joinをSDK closeと区別して検証する。
+
+本番の共通境界は`createMcpServerFactory`が返す要求別SDK Server生成とする。HTTP要求とstdioの一要求ごとの内部SDK接続へ、検査済みの元入力・現在取消・開始したOwner Promiseの観測先を結合する。一要求で作ったServerや認可結果を後続要求へ再利用しない。Tool定義とOwnerの対応を要求内の固定構成としてSDKへ登録し、旧`routeMcpRequest`を本番入口に残さない。標準McpServerのTool errorへの変換は既存Protocol errorと異なるため、公式の低水準Server登録を使い、入力拒否と業務上の`isError`を区別する。CRDD固有の閉入力・重複キー・getter拒否は内部`request/validation.ts`等へ残すが、汎用Protocol補助をPackage Rootから公開しない。直接試験も同じFactoryを公式SDK接続で呼び、試験専用の別dispatchを作らない。
+
 Workspace再編のMachine入口は[横断契約](../orchestrator/03_Workspace.md)へ接続する。`crdd.get_workspace`は一覧・状態・現在file・固定差分、`crdd.manage_workspace`は作成・選択・改名・保持・固定・別採用・終了を扱う。入力はRepository IDと操作別の閉じたcommandで、Root・認可関数・参照解放の自己申告を受けない。通常Launcherは固定RepositoryのManifest、共有HTTPは要求毎のAM現在development許可から同じOrchestrator公開Ownerを解決する。内容領域のworkspaceIdsをGit Workspace UUIDへ流用せず、鍵操作非公開・Repository登録Workbench限定の既存境界を変更しない。通常Objectiveには任意の`workspaceId`を搬送できるが、既存Queueの同Project所属・ready・保持なしを実Writerが再確認し、不明時にDirectへfallbackしない。公開接続の実装・検証中であり、実Provider全体の完成主張ではない。
 
 Topic／Meetingの横断Relationでは、構成が認可済み同Project集合を選び、Domainの`federateTopicMeetingRelations`へRepository ID・Project ID・既存操作だけを渡す。MCPは所有者の0／1／複数判定を再実装せず、認可とProtocolを所有する。AM本番Resolver・公開Launcherは接続済み、旧CROS／REST／Shared Hostは撤去済みである。正式品質評価と後続E2Eの完成は別に確認する。
+
+### SDK移行後の公開入口と互換範囲
+
+| 用途 | 公開API・起動入口 | 結果・境界 |
+|---|---|---|
+| Tool構成 | `createMcpServerFactory`、`McpServerDependencies`、`McpServerFactory` | 要求ごとのSDK Server。現在認可と元入力を後続要求へ共有しない |
+| 現在認証 | `createAccessMcpResolver` | 現在の資格から要求別Factoryまたは非開示null。旧来の関数として直接呼ばない |
+| stdio | `runMcpStdio`、限定用途の`runMcpOrchestratorStdio` | 有界逐次実行・EOF取消・Owner join・意味cleanup結果。外部Streamを破棄しない |
+| HTTP | `startMcpStreamableHttp`、`startMcpAuthenticatedStreamableHttp`、限定用途の`startMcpOrchestratorStreamableHttp` | 待受情報と`close()`。Origin・認証・切断取消・Owner join |
+| 構成・終了 | `readMcpServerConfiguration`、`closeMcpHttpOnProcessSignal` | 既存の閉設定とSignal終了編成 |
+| Tool契約 | 各`tools/*.ts`の明示公開定義・処理・結果検査 | 専門Ownerの既存入力・結果を維持。汎用Protocol補助は内部のみ |
+| 配布コマンド | `crdd-mcp-server --stdio`、`--http --port <port>`、`--cros --http --port <port>` | 既存利用形態を維持。CROS stdioは未採用のため拒否 |
+
+`routeMcpRequest`と`McpRequestRoutingDependencies`は撤去し、互換Routerを残さない。旧`orchestrator/adapter.ts`と`orchestrator/protocol.ts`も撤去する。Orchestrator固有Schemaは`tools/orchestrator.ts`、CRDDの閉入力・結果包絡は内部`request/validation.ts`へ分離する。Raw JSONの重複キー解析とgetterを呼ばない所有Snapshotは必要な入力境界として維持する。
+
+公式Client `2.3.1`は試験用の開発依存だけに固定する。対応対象はProtocol `2026-07-28`を明示したmodern Clientであり、既定legacy Initializeや購読・汎用pingの互換を新設しない。stdioの取消通知は現在のIDだけへ結合し、不明・完了済みIDを次要求へ流用しない。Owner終了、SDK応答生成、外部出力callback、内部資源回収を分けて確認する。
 
 成果物種別: Architecture詳細設計
 詳細設計領域: mcp-server
@@ -30,7 +60,7 @@ Routed Adapterは明示Repository IDを分離し、共通Adapterへ要求専用�
 
 ### 現在認可による内容操作の新Owner接続 — 2026-10-12
 
-`createAccessMcpResolver`（`request/access-resolver.ts`）は既存HTTP Transportへ渡す要求専用の構成入口である。Headerの通常認証は初回completedと現在資格を要求し、本文待機後のTool CallではAMの現在許可集合を再取得する。2026-10-14承認済みの切替では、Domain ReaderのProject・Repository・読取り状態・本文版・解析Contextの5項目をPortfolioへ渡す。文書未確認・競合は非complete Sourceとして本文・Role・版をnullにし、読めたSourceと併記する。認証済み空集合だけ正常空結果、認可集合不明・Root不成立・取消・公開前集合差は全体エラーとする。全Reader→集約→fresh AM集合→AM所有`sameAccessCollection`→Signal再確認→返却の順で公開し、新しい認可・保存Frameworkを作らない。切替の局所試験・全回帰・独立確認は別Gateで評価する。
+`createAccessMcpResolver`（`request/authentication.ts`）は既存HTTP Transportへ渡す要求専用の構成入口である。Headerの通常認証は初回completedと現在資格を要求し、本文待機後のTool CallではAMの現在許可集合を再取得する。2026-10-14承認済みの切替では、Domain ReaderのProject・Repository・読取り状態・本文版・解析Contextの5項目をPortfolioへ渡す。文書未確認・競合は非complete Sourceとして本文・Role・版をnullにし、読めたSourceと併記する。認証済み空集合だけ正常空結果、認可集合不明・Root不成立・取消・公開前集合差は全体エラーとする。全Reader→集約→fresh AM集合→AM所有`sameAccessCollection`→Signal再確認→返却の順で公開し、新しい認可・保存Frameworkを作らない。切替の局所試験・全回帰・独立確認は別Gateで評価する。
 
 Bearerは当該HTTP要求のclosureだけに保持し、保存・共有・応答・下位例外本文へ渡さない。文字列の消去保証は主張しない。開始前取消では集合・本文を読まず、同期Reader開始後は読取り終了を待って結果公開を止める。HTTP終了の資源所有・joinは既存Transportを利用し、新Session・State・Lockを追加しない。
 
@@ -236,7 +266,7 @@ Remote CROSのTopic／Meeting取得結果は、本文に記録された安定ID 
 
 | 操作 | 設計候補の入力 | 構造化結果とOwner | 認可・反例 |
 |---|---|---|---|
-| `crdd.get_runtime_activity` | 必須`projectId`、任意`cursor`、任意`limit`（既定20、1〜50の整数）。未知fieldを拒否する。 | 既存Activity公開契約（Owner移管・本番接続は未完了）。現在状態`observed / absent / unknown`、理由、projection、独立したeventState／eventReason、events、eventContinuation。 | 現在認可済みRepositoryだけを活動OwnerのReaderへ渡す。Eventが観測不能の場合は空の成功へ変えない。 |
+| `crdd.get_execution_status` | 必須`projectId`、任意`cursor`、任意`limit`（既定20、1〜50の整数）。未知fieldを拒否する。 | 既存Activity公開契約（Owner移管・本番接続は未完了）。現在状態`observed / absent / unknown`、理由、projection、独立したeventState／eventReason、events、eventContinuation。 | 現在認可済みRepositoryだけを活動OwnerのReaderへ渡す。Eventが観測不能の場合は空の成功へ変えない。 |
 | `crdd.list_ai_profiles` | 空Object。未知fieldを拒否する。 | AI Adapterの`AiProfileCatalogSnapshot`を認可済み操作経路から取得し、Repository Ownerと混合しない。 | 現在manager／administratorだけを許可。内容範囲と別判定し、未認可へCatalog内容・Store存在を返さず、観測不能を空Catalogに補正しない。旧systemAdminは比較履歴であり、鍵専用administrator判断を流用しない。 |
 | `crdd.create_ai_profile` | `expectedRevision`と`profile`。操作値はHandlerが`create`へ固定する。 | AI Adapterの`AiProfileCatalogMutationResult`をそのまま投影する。 | 重複Identity、未登録Adapter／Model、不正Catalog、revision競合を既存理由で拒否する。 |
 | `crdd.update_ai_profile` | `expectedRevision`と`profile`。操作値は`update`へ固定する。 | 同じMutationResult。 | 不在対象を作成へFallbackせず、revision競合を無断再試行しない。 |
@@ -246,7 +276,7 @@ Remote CROSのTopic／Meeting取得結果は、本文に記録された安定ID 
 
 Project一覧・Context取得とTopic／Meetingの既存Tool名・安定IDは維持する。Hostの指定ユーザー／全員鍵交換をRemote Toolにしない。新しい管理操作を一部登録しただけでCROS管理Surface全体を完成としない。
 
-活動接続では、`runtime-activity/adapter.ts`が`crdd.get_runtime_activity`のSchema・入力搬送を所有し、活動結果の意味・検査は[Orchestratorの認可済み活動読取り](../orchestrator/01_Architecture.md#73-認可済みrepositoryの活動読取り--新owner接続候補)へ委譲する。`request/route.ts`は実Readerを接続した場合だけ一覧とCallへ同時登録する。Access Managementの現在認可集合を今回要求のRoot・Project・Repositoryへ射影して渡し、資格・Role・AM Bindingを活動Ownerへ渡さない。実Storeと複数Repository合成が未確認の注入Readerだけでは公開Toolを完成としない。旧`readCrosRuntimeActivity`は歴史的な移管比較対象で、現行Ownerではない。Readerに取消APIを捏造せず、開始前取消は呼出し零回、開始後取消はReader完了をjoinしてから取消結果を返す。公開Launcher・Profile管理は接続済み、Workbenchは独立した直接経路を利用し、旧RESTは撤去済みである。正式評価と後続E2Eから全体完成を判定する。
+活動接続では、`tools/execution-status.ts`が`crdd.get_execution_status`のSchema・入力搬送を所有し、活動結果の意味・検査は[Orchestratorの認可済み活動読取り](../orchestrator/01_Architecture.md#73-認可済みrepositoryの活動読取り--新owner接続候補)へ委譲する。`request/server.ts`は実Readerを接続した場合だけ一覧とCallへ同時登録する。Access Managementの現在認可集合を今回要求のRoot・Project・Repositoryへ射影して渡し、資格・Role・AM Bindingを活動Ownerへ渡さない。実Storeと複数Repository合成が未確認の注入Readerだけでは公開Toolを完成としない。旧`readCrosRuntimeActivity`は歴史的な移管比較対象で、現行Ownerではない。Readerに取消APIを捏造せず、開始前取消は呼出し零回、開始後取消はReader完了をjoinしてから取消結果を返す。公開Launcher・Profile管理は接続済み、Workbenchは独立した直接経路を利用し、旧RESTは撤去済みである。正式評価と後続E2Eから全体完成を判定する。
 
 ### 3.2. Portfolioの一覧・詳細契約
 
@@ -344,7 +374,7 @@ Tool一覧では要求時の現在通常認証に基づきmanager／administrato
 
 完全Schema検査→開始前signal確認→AM同期API最大一回→終了後signal確認→閉結果公開の順とする。開始前取消は管理API呼出し0。同期保存開始後は終了まで待ち、取消・応答喪失で既知出版を戻さず、成功応答の抑止と保存の取消を区別する。自動再送せず次要求で現在状態を読む。Bearerは既存HTTP Headerから当該要求closureへ結合し、本文・結果・ログへ転記しない。Repository登録はWorkbench限定の採用済み方針に従い、このMCP経路では登録Root候補を受け取らない。
 
-実装の責務配置は`src/access-management/protocol.ts`（十Toolの閉入力）、`src/access-management/adapter.ts`（入力検査・現在通常認証・AM委譲・閉結果）、既存`request/route.ts`（一覧／dispatch）と`request/access-resolver.ts`（Header資格の要求専用構成）とする。外部Consumerは既存Package Rootの`createAccessMcpResolver`と`routeMcpRequest`を使い、新たなCapability barrelや管理Storeを追加しない。Repository登録を含めない採用済みTool集合の配置であり、正式評価・後続E2Eは未完了として保持する。
+実装の責務配置は`src/tools/access-management.ts`（十Toolの閉入力・現在通常認証・AM委譲・閉結果）、`request/server.ts`（一覧／SDK登録）と`request/authentication.ts`（Header資格の要求専用構成）とする。外部Consumerは既存Package Rootの`createAccessMcpResolver`と`createMcpServerFactory`を使い、新たなCapability barrelや管理Storeを追加しない。Repository登録を含めない採用済みTool集合の配置であり、正式評価・後続E2Eは未完了として保持する。
 
 上記の閉結果Unionは、既存Tool応答方式と同じ`structuredContent`へ置く。`content`は秘密・入力・内部理由を複製しない固定説明だけ、`isError`は管理結果がcompleted以外ならtrueとする。外側のJSON-RPC／Protocol metadataは既存契約を保持し、16 MiBはその最終応答全体で検査する。Schema不正や取消等のProtocol errorを、管理結果のstructuredContentへ混在させない。
 

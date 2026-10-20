@@ -837,7 +837,7 @@ test("Local Change Setと用途別Named SymbolのConsumer集合が宣言と一�
       "40_Develop/access-management/src/repository/register.ts",
       "40_Develop/access-management/src/repository/types.ts",
       "40_Develop/domain-model/src/project-context/read-context.ts",
-      "40_Develop/mcp-server/src/request/access-resolver.ts",
+      "40_Develop/mcp-server/src/request/authentication.ts",
       "40_Develop/mcp-server/src/transport/configuration.ts",
       "40_Develop/orchestrator/src/activity/read.ts",
       "40_Develop/orchestrator/src/activity/types.ts",

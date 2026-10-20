@@ -9,14 +9,14 @@
 
 import {
   closeMcpHttpOnProcessSignal,
-  routeMcpRequest,
+  createMcpServerFactory,
   MCP_ORCHESTRATOR_PROTOCOL_VERSION,
   runMcpStdio,
   startMcpStreamableHttp,
   startMcpAuthenticatedStreamableHttp,
   readMcpServerConfiguration,
   createAccessMcpResolver,
-  type McpRequestRoutingDependencies,
+  type McpServerDependencies,
   type McpOrchestratorDependencies,
 } from "../../40_Develop/mcp-server/src/index.ts";
 import { readFile } from "node:fs/promises";
@@ -179,7 +179,7 @@ async function readRepositoryPortfolio(workingDirectory: string) {
  * @security Repository単体利用ではCredentialを要求せず、現在Repositoryだけを読む。
  * @concurrency 各呼出しが独立したSnapshotを取得する。
  */
-function createRequestRoutingDependencies(): McpRequestRoutingDependencies {
+function createRequestRoutingDependencies(): McpServerDependencies {
   const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
     process.cwd(),
   );
@@ -252,7 +252,7 @@ async function main(): Promise<number> {
   if (args.length === 1 && args[0] === "--stdio") {
     const routing = createRequestRoutingDependencies();
     const result = await runMcpStdio(
-      (request, signal) => routeMcpRequest(request, routing, signal),
+      createMcpServerFactory(routing),
       process.stdin,
       process.stdout,
     );
@@ -319,10 +319,10 @@ async function main(): Promise<number> {
   } else {
     if (!bearerToken) return 64;
     const routing = createRequestRoutingDependencies();
-    server = await startMcpStreamableHttp(
-      (request, signal) => routeMcpRequest(request, routing, signal),
-      { port, bearerToken },
-    );
+    server = await startMcpStreamableHttp(createMcpServerFactory(routing), {
+      port,
+      bearerToken,
+    });
   }
   process.stderr.write(
     `CRDD MCP is listening on ${publicOrigin ?? `http://${server.host}:${server.port}`}${server.endpoint}\n`,

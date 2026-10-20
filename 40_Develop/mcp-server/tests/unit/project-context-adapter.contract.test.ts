@@ -9,16 +9,16 @@
  * @boundary PPR-UT-006=N/A: Adapterの決定論的RoutingとProjectionをProcess内で検証する。
  */
 import assert from "node:assert/strict";
+import { invokeMcpRequest } from "../fixtures/sdk-request.ts";
+import type { McpServerDependencies } from "../../src/request/server.ts";
 import test from "node:test";
 
 import type { PortfolioProjection } from "../../../domain-model/src/index.ts";
 import {
-  routeMcpRequest,
   handleMcpProjectContextRequest,
   MCP_PROJECT_CONTEXT_GET_TOOL,
   MCP_PROJECT_CONTEXT_LIST_TOOL,
   MCP_ORCHESTRATOR_PROTOCOL_VERSION,
-  type McpRequestRoutingDependencies,
 } from "../../src/index.ts";
 
 const META = Object.freeze({
@@ -217,8 +217,8 @@ test("MCP application publishes runtime and context tools without conflating the
       getProjectState: async () => ({}),
     },
     projectContext: { readPortfolio: async () => portfolio() },
-  } satisfies McpRequestRoutingDependencies;
-  const response = await routeMcpRequest(
+  } satisfies McpServerDependencies;
+  const response = await invokeMcpRequest(
     Object.freeze({
       jsonrpc: "2.0",
       id: 1,

@@ -9,6 +9,10 @@
 
 ## 1. 結論と実行境界
 
+### MCP Serverの公式SDK移行・構造整理 — 2026-10-20（対象作業完了・全体QAは別途）
+
+添付方針と追加判断に従いAM本体・公開API・保存を変更せず、stdio／HTTPのProtocol・Transportを公式SDKへ接続した。全ToolのSchemaと処理をtoolsへ、要求認証・SDK登録・閉入力検査をrequestへ配置し、旧Routerと旧Orchestrator Protocol File・汎用Protocol補助公開を撤去した。本番Launcherと現在認証は要求別Factoryを使い、前要求の入力・認可を再利用しない。HTTPはhttp.ts、実行状況Toolはget_execution_statusへ確定した。公式Clientの公開stdio・実HTTP接続、追加の取消・逐次・出力・待機総量反例と静的検査は局所成功。独立レビュー4指摘を是正し、最終全100試験と静的検査が成功した。独立再レビューは追加指摘0、独立lifecycle 10件・公式Client 2件も成功。対象四項目の作業は完了とし、正式QA・実Provider・UAT・Releaseは別途残す。[現行の対応表と検証範囲](mcp-server-sdk-structure.md)を参照する。外部AI・Docker・②保持物は未操作。
+
 ### Version Controlの構造整理 — 2026-10-20（対象作業完了・全体QAは別途）
 
 利用者の添付方針に基づき23 Source・Root公開98名と利用側を照合した。`git/command.ts`案は、diff／ls-filesの有限実行を表す`git/read.ts`へ補正する合意を得た。Repository／Workspace／Publication／Gitの配置、保持Capability、既存根拠と必要回帰は[棚卸しと全数対応表](version-control-source-structure.md)を参照する。通常Commit／Pushは本番Workbenchが利用するため維持する。利用者の追加承認により移行比較API・専用合成試験・Fixtureを撤去し、実Consumer移行のQA義務はOPENを維持する。Sourceは16 File、Root公開は96名へ整理し、Mergeを実共有検査の複製なしで分離した。

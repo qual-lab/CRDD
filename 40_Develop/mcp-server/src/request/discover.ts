@@ -13,7 +13,7 @@ import {
   protocolComplete,
   protocolError,
   type McpResponse,
-} from "../orchestrator/protocol.ts";
+} from "../request/validation.ts";
 
 /**
  * 完全なdiscover要求だけを固定応答へ変換する。

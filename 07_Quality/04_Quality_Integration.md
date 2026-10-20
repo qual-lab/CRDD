@@ -1,5 +1,15 @@
 # Quality Integration
 
+## MCP公式SDK移行の検証接続（2026-10-20、未評価）
+
+最終接続候補は同じFactoryをHTTPとstdioの要求別SDKへ接続する。既存EST-IT-002へ同一IDの逐次性・出力callback待機・実行中取消とOwner join・小frame待機総量を追加する。公式Clientのmodern固定接続を既存EST-ST-012（公開stdio Process）とEST-ST-003（実HTTP）で確認する。旧Router試験は同じFactoryのSDK受付へ移し、元入力の拒否条件は維持する。局所回帰と独立レビューの完了は、実Provider・Repository全体QA・Releaseの成立を意味しない。
+
+実行状況Toolの現行名は`crdd.get_execution_status`とする。旧名の一覧非掲載・実行拒否・Reader呼出し0、新名の一覧掲載・既存引数結果・取消後joinを既存EST-IT-014で確認する。過去Evidence内の旧名は歴史的記録であり現行契約を定義しない。
+
+[移行計画](../99_Roadmap/Changes/CHG-000082/mcp-server-sdk-structure.md)は既存のEST-ST-012／013／015、EST-IT-002／010、CPR-IT-012と初回接続のRFD義務を維持する。AM内部理由・非公開fieldの投影はAMのRFD-UT-020へ、MCPの公開Outcome搬送・byte上限・取消は既存access-management-results試験へ接続する。試験fixtureの旧内部形注入を型付き公開結果へ追従し、不正理由・prototype名・秘密fieldの反証はOwner側へ移す。AM実装・公開契約は変更しない。
+
+HTTPのSDK置換では正常Tool結果だけでなく、不正／重複JSON、未知field、初回確認前後取消、保存成功後のSDK拒否・切断、進行中Ownerのjoin、Signal／Socket終了を同じ公開入口から確認する。SDKが標準で持つ未公開操作を暗黙に有効化しない。HTTPの局所成功をstdio、旧Router撤去、実Client・実Provider、全体QAまたはReleaseの成立へ換算せず、正式項目のOPEN／未評価を維持する。
+
 ## Workspace方式の追加統合（2026-10-17）
 
 秘密区分の変更は隔離義務QA-000006の既存Local Itemへ条件追加し、[DI共通方針](../06_Architecture/Details/docker-isolation/01_Architecture.md#workspace-isolation-policy)をDirect／Candidateへ同じ基準で適用する。開発用`.env`の許容と、本番資格・Provider認証・AM鍵の保護を分離する。旧隠蔽試験は当時の反例として保持し、新方針の不合格や正式Passへ流用しない。件数・正式Not Runは変更しない。

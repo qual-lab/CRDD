@@ -21,6 +21,7 @@
  * @boundary 自己生成Store／Repositoryから既存HTTP Transportまで。公開Launcherの完成ではない。
  */
 import assert from "node:assert/strict";
+import { invokeMcpSource } from "../fixtures/sdk-request.ts";
 import { spawnSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
@@ -70,7 +71,7 @@ import {
   MCP_ORCHESTRATOR_PROTOCOL_VERSION,
   MCP_PROJECT_CONTEXT_GET_TOOL,
   MCP_PROJECT_CONTEXT_LIST_TOOL,
-  MCP_RUNTIME_ACTIVITY_TOOL,
+  MCP_EXECUTION_STATUS_TOOL,
   MCP_TOPIC_MEETING_TOOLS,
   type McpResponse,
   startMcpAuthenticatedStreamableHttp,
@@ -115,7 +116,8 @@ test("MCP本人readは三Roleの現在本人だけを実HTTPへ返す", async (t
       actor.role = role;
       state.revision += 1;
       fs.writeFileSync(f.current, JSON.stringify(state));
-      const listed: McpResponse = await handler(
+      const listed: McpResponse = await invokeMcpSource(
+        handler,
         {
           ...packet(),
           method: "tools/list",
@@ -192,7 +194,8 @@ test("MCP本人readは三Roleの現在本人だけを実HTTPへ返す", async (t
     const before = fs.readFileSync(f.current);
     assert.equal(
       (
-        await handler(
+        await invokeMcpSource(
+          handler,
           packet(MCP_CURRENT_ACCESS_TOOL, { userId: otherId }),
           new AbortController().signal,
         )
@@ -202,8 +205,13 @@ test("MCP本人readは三Roleの現在本人だけを実HTTPへ返す", async (t
     const cancelled = new AbortController();
     cancelled.abort();
     assert.equal(
-      (await handler(packet(MCP_CURRENT_ACCESS_TOOL, {}), cancelled.signal))
-        .error?.code,
+      (
+        await invokeMcpSource(
+          handler,
+          packet(MCP_CURRENT_ACCESS_TOOL, {}),
+          cancelled.signal,
+        )
+      ).error?.code,
       -32800,
     );
     assert.deepEqual(fs.readFileSync(f.current), before);
@@ -211,7 +219,8 @@ test("MCP本人readは三Roleの現在本人だけを実HTTPへ返す", async (t
     assert.ok(credential);
     credential.revoked = true;
     fs.writeFileSync(f.current, JSON.stringify(state));
-    const denied = await handler(
+    const denied = await invokeMcpSource(
+      handler,
       packet(MCP_CURRENT_ACCESS_TOOL, {}),
       new AbortController().signal,
     );
@@ -265,7 +274,11 @@ test("非鍵管理MCPの十操作はRoleと閉結果を実保存へ接続する"
     };
     const handler = await resolver(f.token);
     assert.ok(handler);
-    const deniedList = await handler(listRequest, new AbortController().signal);
+    const deniedList = await invokeMcpSource(
+      handler,
+      listRequest,
+      new AbortController().signal,
+    );
     assert.equal((deniedList.result as { tools: unknown[] }).tools.length, 18);
     const before = fs.readFileSync(f.current);
     const deniedRead = await (
@@ -285,7 +298,11 @@ test("非鍵管理MCPの十操作はRoleと閉結果を実保存へ接続する"
       (exposure) => exposure.repositoryId !== firstTarget.id,
     );
     fs.writeFileSync(f.current, JSON.stringify(state));
-    const listed = await handler(listRequest, new AbortController().signal);
+    const listed = await invokeMcpSource(
+      handler,
+      listRequest,
+      new AbortController().signal,
+    );
     const tools = (
       listed.result as {
         tools: {
@@ -478,7 +495,8 @@ test("非鍵管理MCPの十操作はRoleと閉結果を実保存へ接続する"
     assert.deepEqual(fs.readFileSync(f.current), unchanged);
     const cancelled = new AbortController();
     cancelled.abort();
-    const cancellation = await handler(
+    const cancellation = await invokeMcpSource(
+      handler,
       packet("crdd.update_user_name", {
         expectedRevision: revision,
         operationId: randomUUID(),
@@ -657,7 +675,7 @@ test("非鍵管理MCPは保存後のClient切断を取消として観測する",
       const handler = await resolver(token);
       assert.ok(handler);
       return async (request, signal) => {
-        const result = await handler(request, signal);
+        const result = await invokeMcpSource(handler, request, signal);
         handlerError = result.error?.code;
         notify();
         return result;
@@ -800,7 +818,11 @@ test("AM Profile MCPは現在Roleの四操作と非開示を実保存へ接続�
   });
   const base = `http://${server.host}:${server.port}`;
   try {
-    const deniedList = await handler(listRequest, new AbortController().signal);
+    const deniedList = await invokeMcpSource(
+      handler,
+      listRequest,
+      new AbortController().signal,
+    );
     assert.ok("result" in deniedList);
     assert.equal(
       JSON.stringify(deniedList).includes(MCP_AI_PROFILE_TOOLS.list),
@@ -812,7 +834,8 @@ test("AM Profile MCPは現在Roleの四操作と非開示を実保存へ接続�
     for (const role of ["manager", "administrator"] as const) {
       user.role = role;
       fs.writeFileSync(f.current, JSON.stringify(state));
-      const listedTools = await handler(
+      const listedTools = await invokeMcpSource(
+        handler,
         listRequest,
         new AbortController().signal,
       );
@@ -855,7 +878,8 @@ test("AM Profile MCPは現在Roleの四操作と非開示を実保存へ接続�
     user.role = "developer";
     fs.writeFileSync(f.current, JSON.stringify(state));
     const before = reads + mutations;
-    const afterRoleChange = await handler(
+    const afterRoleChange = await invokeMcpSource(
+      handler,
       packet(MCP_AI_PROFILE_TOOLS.list, {}),
       new AbortController().signal,
     );
@@ -863,7 +887,11 @@ test("AM Profile MCPは現在Roleの四操作と非開示を実保存へ接続�
     assert.equal(afterRoleChange.error.code, -32601);
     credential.revoked = true;
     fs.writeFileSync(f.current, JSON.stringify(state));
-    const revoked = await handler(listRequest, new AbortController().signal);
+    const revoked = await invokeMcpSource(
+      handler,
+      listRequest,
+      new AbortController().signal,
+    );
     assert.ok("error" in revoked);
     assert.equal(revoked.error.code, -32603);
     assert.equal(
@@ -880,14 +908,19 @@ test("AM Profile MCPは現在Roleの四操作と非開示を実保存へ接続�
       confirmationCredentialId: credential.credentialId,
     };
     fs.writeFileSync(f.current, JSON.stringify(state));
-    const unfinished = await handler(
+    const unfinished = await invokeMcpSource(
+      handler,
       packet(MCP_AI_PROFILE_TOOLS.list, {}),
       new AbortController().signal,
     );
     assert.ok("error" in unfinished);
     assert.equal(unfinished.error.code, -32603);
     fs.writeFileSync(f.current, "{}");
-    const unknown = await handler(listRequest, new AbortController().signal);
+    const unknown = await invokeMcpSource(
+      handler,
+      listRequest,
+      new AbortController().signal,
+    );
     assert.ok("error" in unknown);
     assert.equal(unknown.error.code, -32603);
     assert.equal(reads + mutations, before);
@@ -943,7 +976,7 @@ test("AM活動MCPは実保存観測と現在Exposure・失効を接続する", a
   );
   const base = `http://${server.host}:${server.port}`;
   try {
-    const response = await call(base, f.token, MCP_RUNTIME_ACTIVITY_TOOL, {
+    const response = await call(base, f.token, MCP_EXECUTION_STATUS_TOOL, {
       projectId: "project.fixture",
     });
     assert.equal(response.status, 200);
@@ -959,7 +992,7 @@ test("AM活動MCPは実保存観測と現在Exposure・失効を接続する", a
     assert.equal(text.includes(f.token), false);
     for (const target of f.targets)
       assert.equal(text.includes(target.target), false);
-    const foreign = await call(base, f.token, MCP_RUNTIME_ACTIVITY_TOOL, {
+    const foreign = await call(base, f.token, MCP_EXECUTION_STATUS_TOOL, {
       projectId: "project.other",
     });
     assert.equal((await foreign.json()).result.isError, true);
@@ -1050,7 +1083,7 @@ test("AM活動MCPは実保存観測と現在Exposure・失効を接続する", a
     const presentResponse = await call(
       base,
       f.token,
-      MCP_RUNTIME_ACTIVITY_TOOL,
+      MCP_EXECUTION_STATUS_TOOL,
       { projectId: "project.fixture" },
     );
     const presentText = await presentResponse.text();
@@ -1085,7 +1118,7 @@ test("AM活動MCPは実保存観測と現在Exposure・失効を接続する", a
       (entry) => entry.repositoryId !== a.id,
     );
     fs.writeFileSync(f.current, JSON.stringify(state));
-    const partial = await call(base, f.token, MCP_RUNTIME_ACTIVITY_TOOL, {
+    const partial = await call(base, f.token, MCP_EXECUTION_STATUS_TOOL, {
       projectId: "project.fixture",
     });
     const partialText = await partial.text();
@@ -1099,7 +1132,7 @@ test("AM活動MCPは実保存観測と現在Exposure・失効を接続する", a
     assert.equal(partialText.includes("milestone.fixture"), false);
     state.exposure = [];
     fs.writeFileSync(f.current, JSON.stringify(state));
-    const denied = await call(base, f.token, MCP_RUNTIME_ACTIVITY_TOOL, {
+    const denied = await call(base, f.token, MCP_EXECUTION_STATUS_TOOL, {
       projectId: "project.fixture",
     });
     const deniedBody = await denied.text();
@@ -1112,7 +1145,7 @@ test("AM活動MCPは実保存観測と現在Exposure・失効を接続する", a
     fs.writeFileSync(f.current, JSON.stringify(state));
     assert.equal(
       (
-        await call(base, f.token, MCP_RUNTIME_ACTIVITY_TOOL, {
+        await call(base, f.token, MCP_EXECUTION_STATUS_TOOL, {
           projectId: "project.fixture",
         })
       ).status,
@@ -2012,7 +2045,7 @@ test("AM内容MCPの全12操作は指定Repositoryの実保存へ到達する", 
         "crdd.manage_workspace",
         MCP_PROJECT_CONTEXT_GET_TOOL,
         MCP_PROJECT_CONTEXT_LIST_TOOL,
-        MCP_RUNTIME_ACTIVITY_TOOL,
+        MCP_EXECUTION_STATUS_TOOL,
         MCP_CURRENT_ACCESS_TOOL,
         ...MCP_TOPIC_MEETING_TOOLS,
       ].sort(),
@@ -2110,7 +2143,8 @@ test("未完了資格はHandlerなし、開始前取消は対象読取りなし"
     );
     const handler = await createAccessMcpResolver(f.root)(f.token);
     assert.ok(handler);
-    const discovery = await handler(
+    const discovery = await invokeMcpSource(
+      handler,
       {
         jsonrpc: "2.0",
         id: 2,
@@ -2128,14 +2162,14 @@ test("未完了資格はHandlerなし、開始前取消は対象読取りなし"
         "crdd.manage_workspace",
         MCP_PROJECT_CONTEXT_GET_TOOL,
         MCP_PROJECT_CONTEXT_LIST_TOOL,
-        MCP_RUNTIME_ACTIVITY_TOOL,
+        MCP_EXECUTION_STATUS_TOOL,
         MCP_CURRENT_ACCESS_TOOL,
         ...MCP_TOPIC_MEETING_TOOLS,
       ].sort(),
     );
     const controller = new AbortController();
     controller.abort();
-    const result = await handler(packet(), controller.signal);
+    const result = await invokeMcpSource(handler, packet(), controller.signal);
     assert.deepEqual(result, {
       jsonrpc: "2.0",
       id: 1,
@@ -2393,7 +2427,8 @@ test("AM内容MCPの入力拒否と開始前取消は再認可前で閉じる", 
   };
   try {
     for (const tool of MCP_TOPIC_MEETING_TOOLS) {
-      const rejected = await handler(
+      const rejected = await invokeMcpSource(
+        handler,
         packet(tool, { repositoryId: a.id, extra: true }),
         new AbortController().signal,
       );
@@ -2402,7 +2437,8 @@ test("AM内容MCPの入力拒否と開始前取消は再認可前で閉じる", 
     }
     const abort = new AbortController();
     abort.abort();
-    const cancelled = await handler(
+    const cancelled = await invokeMcpSource(
+      handler,
       packet("crdd.create_topic", {
         repositoryId: a.id,
         markdown: topicMarkdown(),
@@ -2653,7 +2689,7 @@ test("同期読取り開始後の取消はclose後に固定拒否し後続を読
     }
   };
   try {
-    const result = await handler(packet(), controller.signal);
+    const result = await invokeMcpSource(handler, packet(), controller.signal);
     assert.deepEqual(result, {
       jsonrpc: "2.0",
       id: 1,

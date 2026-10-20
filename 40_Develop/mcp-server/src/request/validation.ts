@@ -1,5 +1,5 @@
 /**
- * orchestrator-protocolに属する責務をまとめる。
+ * MCP要求の閉入力検査と結果の境界を所有する。
  *
  * @responsibility JsonRpcIdを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000012
@@ -10,10 +10,6 @@ import {
 } from "../request/snapshot.ts";
 
 export const MCP_ORCHESTRATOR_PROTOCOL_VERSION = "2026-07-28" as const;
-export const MCP_ORCHESTRATOR_OBJECTIVE_TOOL = "crdd.run_objective" as const;
-export const MCP_ORCHESTRATOR_DECISION_TOOL = "crdd.submit_decision" as const;
-export const MCP_ORCHESTRATOR_STATE_TOOL =
-  "crdd.get_orchestrator_state" as const;
 
 /**
  * orchestrator-protocolで使用するJson Rpc Idの値契約を定義する。
@@ -55,43 +51,6 @@ export const callKeys = new Set(["_meta", "name", "arguments"] as const);
 export const discoverKeys = new Set(["_meta"] as const);
 export const listKeys = new Set(["_meta", "cursor"] as const);
 export const listKeysNoCursor = new Set(["_meta"] as const);
-export const objectiveKeys = new Set([
-  "intakeEpoch",
-  "requestId",
-  "projectId",
-  "milestoneId",
-  "repositoryRevision",
-  "objective",
-  "acceptanceCriteria",
-  "allowedPaths",
-  "readPaths",
-  "maximumConcurrency",
-  "maximumReplans",
-  "originLane",
-  "adoptResult",
-  "decisionCapabilityReplacement",
-  "requestedExecutorProvider",
-  "requestedProfileId",
-  "workspaceId",
-] as const);
-export const decisionKeys = new Set([
-  "decisionId",
-  "projectId",
-  "milestoneId",
-  "generation",
-  "repositoryRevision",
-  "selectedOption",
-  "continuationCapability",
-  "comment",
-] as const);
-export const decisionKeysNoComment = new Set(
-  [...decisionKeys].filter((key) => key !== "comment"),
-);
-export const stateQueryKeys = new Set([
-  "requestId",
-  "projectId",
-  "repositoryRevision",
-] as const);
 
 /**
  * Json Rpc Idが有効か判定する。
@@ -221,162 +180,6 @@ export function protocolComplete(
       }),
     }),
   });
-}
-
-/**
- * toolを決定する。
- *
- * @responsibility toolの導出に必要な入力、判定規則、返却結果の境界を所有する。
- * @trace ARCH-000012
- * @input name: string、title: string、description: string、properties: object、requiredItems: readonly string[]
- * @returns toolの計算結果を返す。
- * @precondition 「name: string、title: string、description: string、properties: object、requiredItems: readonly string[]」がtoolの入力契約を満たす。
- * @postcondition toolの責務を完了した結果だけを返す。
- * @effect N/A: toolは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: toolは独自の失敗分岐を所有しない。
- * @invariant toolは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: toolはProcess内の同一Subsystemで完結する。
- * @security N/A: toolはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: toolは共有非同期状態を持たない同期処理である。
- */
-function tool(
-  name: string,
-  title: string,
-  description: string,
-  properties: object,
-  requiredItems: readonly string[],
-) {
-  return Object.freeze({
-    name,
-    title,
-    description,
-    inputSchema: Object.freeze({
-      type: "object",
-      additionalProperties: false,
-      required: Object.freeze([...requiredItems]),
-      properties: Object.freeze(properties),
-    }),
-  });
-}
-
-/**
- * Mcp Orchestrator Tool Definitionsを取得する。
- *
- * @responsibility Mcp Orchestrator Tool Definitionsの参照条件、返却値、未検出結果の境界を所有する。
- * @trace ARCH-000012
- * @input N/A: 実行時引数を受け取らない。
- * @returns getMcpOrchestratorToolDefinitionsの計算結果を返す。
- * @precondition 「N/A: 実行時引数を受け取らない。」がgetMcpOrchestratorToolDefinitionsの入力契約を満たす。
- * @postcondition getMcpOrchestratorToolDefinitionsの責務を完了した結果だけを返す。
- * @effect N/A: getMcpOrchestratorToolDefinitionsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: getMcpOrchestratorToolDefinitionsは独自の失敗分岐を所有しない。
- * @invariant getMcpOrchestratorToolDefinitionsは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: getMcpOrchestratorToolDefinitionsはProcess内の同一Subsystemで完結する。
- * @security N/A: getMcpOrchestratorToolDefinitionsはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: getMcpOrchestratorToolDefinitionsは共有非同期状態を持たない同期処理である。
- */
-export function getMcpOrchestratorToolDefinitions() {
-  const id = Object.freeze({
-    type: "string",
-    pattern: "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
-  });
-  const rev = Object.freeze({ type: "string", pattern: "^[0-9a-f]{40,64}$" });
-  const list = (maximum: number) =>
-    Object.freeze({
-      type: "array",
-      minItems: 1,
-      maxItems: maximum,
-      items: Object.freeze({ type: "string" }),
-    });
-  return Object.freeze([
-    tool(
-      MCP_ORCHESTRATOR_OBJECTIVE_TOOL,
-      "CRDD Objectiveを実行",
-      "検証済みProjectへObjectiveを登録し、Orchestratorで実行します。",
-      {
-        intakeEpoch: id,
-        requestId: id,
-        projectId: id,
-        milestoneId: id,
-        repositoryRevision: rev,
-        objective: Object.freeze({ type: "string", maxLength: 16_384 }),
-        acceptanceCriteria: list(128),
-        allowedPaths: list(128),
-        readPaths: list(128),
-        maximumConcurrency: Object.freeze({
-          type: "integer",
-          minimum: 1,
-          maximum: 5,
-        }),
-        maximumReplans: Object.freeze({
-          type: "integer",
-          minimum: 0,
-          maximum: 32,
-        }),
-        originLane: Object.freeze({
-          enum: Object.freeze(["interactive", "scheduled"]),
-        }),
-        adoptResult: Object.freeze({ type: "boolean" }),
-        decisionCapabilityReplacement: Object.freeze({
-          type: "object",
-          additionalProperties: false,
-          required: Object.freeze(["decisionId", "replacementRequestId"]),
-          properties: Object.freeze({
-            decisionId: id,
-            replacementRequestId: id,
-          }),
-        }),
-        requestedExecutorProvider: Object.freeze({
-          enum: Object.freeze(["auto", "codex", "claude"]),
-        }),
-        requestedProfileId: Object.freeze({
-          type: "string",
-          pattern: "^PROFILE-[0-9]{6,}$",
-        }),
-        workspaceId: Object.freeze({
-          type: "string",
-          pattern: "^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$",
-        }),
-      },
-      [...objectiveKeys].filter(
-        (key) =>
-          key !== "decisionCapabilityReplacement" &&
-          key !== "requestedExecutorProvider" &&
-          key !== "requestedProfileId" &&
-          key !== "workspaceId",
-      ),
-    ),
-    tool(
-      MCP_ORCHESTRATOR_DECISION_TOOL,
-      "CRDDの判断を送信",
-      "現在の判断要求へ、一回限りの継続権限を使って選択を返します。",
-      {
-        decisionId: id,
-        projectId: id,
-        milestoneId: id,
-        generation: Object.freeze({ type: "integer", minimum: 1 }),
-        repositoryRevision: rev,
-        selectedOption: id,
-        continuationCapability: Object.freeze({
-          type: "string",
-          maxLength: 512,
-        }),
-        comment: Object.freeze({ type: "string", maxLength: 1024 }),
-      },
-      [...decisionKeysNoComment],
-    ),
-    tool(
-      MCP_ORCHESTRATOR_STATE_TOOL,
-      "CRDD Orchestratorの実行状態を取得",
-      "Orchestratorの実行状態を、Project Contextとは別の読取り専用投影として取得します。",
-      {
-        requestId: id,
-        projectId: id,
-        repositoryRevision: rev,
-      },
-      [...stateQueryKeys],
-    ),
-  ]);
 }
 
 /**
