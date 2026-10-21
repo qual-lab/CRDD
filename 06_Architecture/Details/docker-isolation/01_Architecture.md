@@ -1,5 +1,9 @@
 # Docker隔離の詳細設計
 
+## B3の構成照合境界 — 2026-10-21
+
+既存`execution/plan.ts`の公開`dockerIsolationCommandsMatch`が閉じたDocker構成からcommandを再生成し、用途・順序・全argvの一致を照合する。上位は解決済みCLI／環境とMount・通信条件を渡すだけとし、DIはTask／Profile／Grant／Packetの意味を解釈しない。構成照合はProcess開始・資源回収や実行許可の証明ではない。上位のModel／Offering・Packet相関と、下位の固定構成・観測不能拒否を両方維持する。
+
 ## Image同一性と取得・Build情報の分離 — 2026-10-21
 
 通常実行の固定Image、版、実行Pathは`src/image/assets.ts`を単一正本とする。`images/build-inputs.json`は取得・Build時のArchive／Binary・Sigstore・内包Schema／設定の期待値を所有し、通常実行から読み取らない。版・実行Path・Image Digestを同JSONへ重複定義せず、Build・資産検証では同じ実行定義と組み合わせる。取得元の真正性と取得物の完全性を検証する義務は維持し、期待値があるだけで検証済みとは扱わない。

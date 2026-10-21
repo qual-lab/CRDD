@@ -97,6 +97,7 @@ export {
   createDockerIsolationResourceNames,
   dockerIsolationResourceIdentityIsValid,
   planDockerIsolationCommands,
+  dockerIsolationCommandsMatch,
   codexAdviceProviderInitRequired,
   projectDockerProxyConfiguration,
   createDockerAuthenticationEnvironment,

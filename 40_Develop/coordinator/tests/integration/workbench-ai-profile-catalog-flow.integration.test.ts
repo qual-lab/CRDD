@@ -8,6 +8,7 @@
  * @scope ai-profile-catalog、repository-store、workbench-ai-advice
  * @boundary RCM-IT-005=Direct Boundary: Repository Catalog Store→Workbench AI Application→Advice Dispatch
  */
+import type { WorkbenchAiAdviceProviderOutcome } from "../../src/workbench-ai/advice-dispatch.ts";
 import assert from "node:assert/strict";
 import { fixtureNetworkPolicy } from "../fixtures/network-policy.ts";
 import { execFileSync } from "node:child_process";
@@ -75,33 +76,59 @@ test("空のRepository Catalogをrevision 0から助言Dispatchと初回採用�
       verified.capability,
       adapter.store,
       createWorkbenchAiAdviceDispatchRuntime(
-        createWorkbenchAiProviderAdapter({
-          codex: async (executionPlan) => {
-            observedPlans.push(executionPlan);
-            return Object.freeze({
+        createWorkbenchAiProviderAdapter(async (plan) => {
+          const executors: Record<
+            "codex" | "claude",
+            (
+              plan: WorkbenchAiAdviceExecutionPlan,
+            ) => Promise<WorkbenchAiAdviceProviderOutcome>
+          > = {
+            codex: async (executionPlan) => {
+              observedPlans.push(executionPlan);
+              return Object.freeze({
+                status: "completed" as const,
+                reason: null,
+                rawOutput: JSON.stringify({
+                  contract: "crdd-coordinator/workbench-ai-advice-result",
+                  contractRevision: 1,
+                  status: "completed",
+                  facts: [
+                    {
+                      text: "現在状態",
+                      references: ["PROJECT_CONTEXT.md"],
+                    },
+                  ],
+                  sharedAnalysis: [],
+                  additionalInferences: [],
+                  nextOptions: [],
+                }),
+                providerEffectIssued: true,
+                cleanupConfirmed: true,
+              });
+            },
+            claude: async () => {
+              throw new Error("unexpected_claude_executor");
+            },
+          };
+          const outcome = await executors[plan.provider](plan);
+          if (
+            outcome.status === "completed" &&
+            typeof outcome.rawOutput === "string"
+          )
+            return {
               status: "completed" as const,
               reason: null,
-              rawOutput: JSON.stringify({
-                contract: "crdd-coordinator/workbench-ai-advice-result",
-                contractRevision: 1,
-                status: "completed",
-                facts: [
-                  {
-                    text: "現在状態",
-                    references: ["PROJECT_CONTEXT.md"],
-                  },
-                ],
-                sharedAnalysis: [],
-                additionalInferences: [],
-                nextOptions: [],
-              }),
-              providerEffectIssued: true,
-              cleanupConfirmed: true,
-            });
-          },
-          claude: async () => {
-            throw new Error("unexpected_claude_executor");
-          },
+              adviceJson: outcome.rawOutput,
+              providerEffectIssued: true as const,
+              cleanupConfirmed: true as const,
+            };
+          return {
+            status: "blocked" as const,
+            reason: outcome.reason ?? "fixture_blocked",
+            adviceJson: null,
+            providerEffectIssued: outcome.providerEffectIssued,
+            cleanupConfirmed: outcome.cleanupConfirmed,
+          };
         }),
       ),
     );
@@ -276,15 +303,41 @@ test("不連続なRepository Catalogをrevision 0へ補正せずEffect前に拒�
     assert.ok(adapter.store);
     let executorCalls = 0;
     const dispatch = createWorkbenchAiAdviceDispatchRuntime(
-      createWorkbenchAiProviderAdapter({
-        codex: async () => {
-          executorCalls += 1;
-          throw new Error("unreachable");
-        },
-        claude: async () => {
-          executorCalls += 1;
-          throw new Error("unreachable");
-        },
+      createWorkbenchAiProviderAdapter(async (plan) => {
+        const executors: Record<
+          "codex" | "claude",
+          (
+            plan: WorkbenchAiAdviceExecutionPlan,
+          ) => Promise<WorkbenchAiAdviceProviderOutcome>
+        > = {
+          codex: async () => {
+            executorCalls += 1;
+            throw new Error("unreachable");
+          },
+          claude: async () => {
+            executorCalls += 1;
+            throw new Error("unreachable");
+          },
+        };
+        const outcome = await executors[plan.provider](plan);
+        if (
+          outcome.status === "completed" &&
+          typeof outcome.rawOutput === "string"
+        )
+          return {
+            status: "completed" as const,
+            reason: null,
+            adviceJson: outcome.rawOutput,
+            providerEffectIssued: true as const,
+            cleanupConfirmed: true as const,
+          };
+        return {
+          status: "blocked" as const,
+          reason: outcome.reason ?? "fixture_blocked",
+          adviceJson: null,
+          providerEffectIssued: outcome.providerEffectIssued,
+          cleanupConfirmed: outcome.cleanupConfirmed,
+        };
       }),
     );
     const application = createRepositoryReadOnlyAdviceExecutor(
@@ -364,15 +417,41 @@ test("連続Revisionの破損Repository Catalogをrevision 0へ補正せずEffec
     assert.ok(adapter.store);
     let executorCalls = 0;
     const dispatch = createWorkbenchAiAdviceDispatchRuntime(
-      createWorkbenchAiProviderAdapter({
-        codex: async () => {
-          executorCalls += 1;
-          throw new Error("unreachable");
-        },
-        claude: async () => {
-          executorCalls += 1;
-          throw new Error("unreachable");
-        },
+      createWorkbenchAiProviderAdapter(async (plan) => {
+        const executors: Record<
+          "codex" | "claude",
+          (
+            plan: WorkbenchAiAdviceExecutionPlan,
+          ) => Promise<WorkbenchAiAdviceProviderOutcome>
+        > = {
+          codex: async () => {
+            executorCalls += 1;
+            throw new Error("unreachable");
+          },
+          claude: async () => {
+            executorCalls += 1;
+            throw new Error("unreachable");
+          },
+        };
+        const outcome = await executors[plan.provider](plan);
+        if (
+          outcome.status === "completed" &&
+          typeof outcome.rawOutput === "string"
+        )
+          return {
+            status: "completed" as const,
+            reason: null,
+            adviceJson: outcome.rawOutput,
+            providerEffectIssued: true as const,
+            cleanupConfirmed: true as const,
+          };
+        return {
+          status: "blocked" as const,
+          reason: outcome.reason ?? "fixture_blocked",
+          adviceJson: null,
+          providerEffectIssued: outcome.providerEffectIssued,
+          cleanupConfirmed: outcome.cleanupConfirmed,
+        };
       }),
     );
     const application = createRepositoryReadOnlyAdviceExecutor(

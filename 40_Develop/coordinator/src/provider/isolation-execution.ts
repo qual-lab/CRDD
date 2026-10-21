@@ -8,7 +8,7 @@ import { describeWorkbenchAiAdviceResultSchema } from "../workbench-ai/advice-re
 import { createHash } from "node:crypto";
 import {
   createDockerIsolationRuntime,
-  planDockerIsolationCommands,
+  dockerIsolationCommandsMatch,
   dockerIsolationResourceIdentityIsValid,
   projectDockerProxyConfiguration,
   createDockerAuthenticationEnvironment,
@@ -106,32 +106,6 @@ type PreparedPlan = Readonly<{
   workspaceMountMode: "read_write" | "read_only" | null;
   commands: readonly Command[];
 }>;
-/**
- * Arrayが完全一致するか判定する。
- *
- * @responsibility Arrayの比較対象、完全一致条件、判定結果境界を所有する。
- * @trace ARCH-000008
- * @input leftItems: readonly string[]、rightItems: readonly string[]
- * @returns exactArrayの計算結果を返す。
- * @precondition 「leftItems: readonly string[]、rightItems: readonly string[]」がexactArrayの入力契約を満たす。
- * @postcondition exactArrayの責務を完了した結果だけを返す。
- * @effect N/A: exactArrayは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: exactArrayは独自の失敗分岐を所有しない。
- * @invariant exactArrayは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: exactArrayはProcess内の同一Subsystemで完結する。
- * @security exactArrayはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: exactArrayは共有非同期状態を持たない同期処理である。
- */
-function exactArray(
-  leftItems: readonly string[],
-  rightItems: readonly string[],
-) {
-  return (
-    leftItems.length === rightItems.length &&
-    leftItems.every((value, i) => value === rightItems[i])
-  );
-}
-
 /**
  * expected Commandsを決定する。
  *
@@ -313,30 +287,6 @@ function resolveIsolationCommandInput(
 }
 
 /**
- * 上位記述から下位Ownerの固定コマンド集合を取得する。
- *
- * @responsibility 元計画の照合と本番構築が同じDocker技術Ownerを使うよう接続する。
- * @trace ARCH-000008
- * @input plan: 上位計画。tmpSourcePath: 既存Ownerから借用した所在。
- * @returns 固定九purposeの構成、不正計画はnull。
- * @precondition Provider記述と固定配布物を照合する。
- * @postcondition Docker flagの重複Ownerを残さない。
- * @effect 固定Seccomp配布物を観測する。Process・Docker要求は発行しない。
- * @failure 記述・配布物の不整合はnull。
- * @invariant argv構築を実行許可・開始・清掃の証明にしない。
- * @boundary 上位意味照合から技術計画Ownerへの境界。
- * @security 内部構成は上位照合だけに利用し公開結果へ含めない。
- * @concurrency N/A: 同期の固定値照合。
- */
-function expectedCommands(
-  plan: PreparedPlan,
-  tmpSourcePath: string,
-): readonly Command[] | null {
-  const input = resolveIsolationCommandInput(plan, tmpSourcePath);
-  return input ? planDockerIsolationCommands(input) : null;
-}
-
-/**
  * Planの契約を検証する。
  *
  * @responsibility Planの必須Property、拒否条件、検証結果の境界を所有する。
@@ -468,15 +418,10 @@ function validatePlan(plan: PreparedPlan, tmpSourcePath: string) {
   ) {
     return false;
   }
-  const expectedCommandPlans = expectedCommands(plan, tmpSourcePath);
+  const configuration = resolveIsolationCommandInput(plan, tmpSourcePath);
   return (
-    expectedCommandPlans !== null &&
-    plan.commands.length === expectedCommandPlans.length &&
-    plan.commands.every(
-      (command, index) =>
-        command.purpose === expectedCommandPlans[index]?.purpose &&
-        exactArray(command.argv, expectedCommandPlans[index]?.argv ?? []),
-    )
+    configuration !== null &&
+    dockerIsolationCommandsMatch(configuration, plan.commands)
   );
 }
 

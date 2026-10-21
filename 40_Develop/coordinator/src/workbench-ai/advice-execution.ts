@@ -60,7 +60,7 @@ import type { WorkbenchAiAdviceExecutionPlan } from "./advice-execution-plan.ts"
 import type {
   WorkbenchAiAdviceRuntimePort,
   WorkbenchAiAdviceRuntimeResult,
-} from "./advice-provider-executor.ts";
+} from "./provider-adapter.ts";
 import {
   issueRuntimeOwnedWorkbenchAiAdvicePacket,
   revokeRuntimeOwnedWorkbenchAiAdvicePacket,

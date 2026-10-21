@@ -1,5 +1,7 @@
 # QA-000006 外部実行境界の検証定義
 
+B3〜B5では、`ERB-UT-023`のDocker構成一致検査をDIの既存plan試験へ接続し、用途・順序・全argv差の拒否を維持する。助言のProvider Adapterと結果中継は一つへ統合し、既存の四つの一回実行／取消／cleanup不明／例外Oracleを統合後の受付から確認する。Profile・Catalog・Task／通信Hash・Repository非共有・元Host参照を維持し、編集Taskや追加Reviewerへ変換しない。既存Controller・Packet・Production Runtime試験と上位共通Task受付の結合を併用し、局所成功を実AI・実Docker・正式全項目Passへ読み替えない。
+
 B2の排他移管では、`ERB-IT-003`のWorker／Supervisor故障・ready往復・解放・終了観測をPA内の`lock-lifecycle`結合試験へ移す。Coordinator側は用途別対象・世代・namespaceの検査と、本番Root APIを使った実排他・取得順・回復判断を維持する。入力拒否と技術lifecycleを別Oracleとして対応付け、試験用再exportや公開APIの追加で私有依存を迂回しない。項目の正式結果と歴史Evidenceは移管だけでは変更しない。
 
 ## 追加通信条件の純粋構成（2026-10-21）

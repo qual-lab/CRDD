@@ -1,7 +1,7 @@
 # Orchestrator／Coordinator統合とDomain Model最終整理
 
 成果物種別: 変更計画・着手前対応表
-状態: A完了。Bの棚卸し候補を作成、Source移管は未着手。C〜Dは未完了
+状態: A・B1〜B5完了。C〜Dは未完了
 対象変更: [CHG-000082](change.md)
 責任者・採用決定権限: Qual-Lab
 最終更新日: 2026-10-21
@@ -96,7 +96,7 @@ Bの現在版棚卸し・移管単位・検証接続は[§8](#8-bの棚卸しと
 
 現時点は計画変更であり、準拠基準・決定権限を変えないため準拠監査・Release監査は実施しない。実AI依頼、Docker起動／再起動、Image更新、保持物の清掃は今回の計画整理に含めない。必要になった実操作は対象・回数・情報・回収条件を示して別途承認を得る。
 
-現在、人間による追加判断は必要ない。AのSource整理・対象回帰・独立レビューを完了し、Bの旧Coordinator能力を専門Packageへ対応付けた。BのSource移管は未着手であり、次は§8のB1から詳細化する。公開契約と順序を変える必要が判明した場合だけ、影響と最小代替案を提示して停止する。
+現在、人間による追加判断は必要ない。A・B1〜B5のSource整理・対象回帰・独立レビューを完了した。次はCの統合を詳細化し、公開契約と順序を変える必要が判明した場合だけ、影響と最小代替案を提示して停止する。
 
 ## 6. 状態責務分割の実装と確認
 
@@ -509,3 +509,55 @@ Sourceの独立確認は移管本文と上位判断の保持を照合し、Heade
 今回変更した文書の直接診断は0。参照先展開込みの文書検査は3,269診断でexit 1を維持し、非リンク診断は既存の設計単位処置四件・設計単位とGoal関係一件だった。完結記録と現在投影の二文書を最終更新後に再検査し、直接診断0、参照展開25診断・同じ非リンク五件を確認した。検査範囲の異なる件数を削減効果とは扱わない。歴史Evidenceの改名、全体QAのPass化は行わない。
 
 B2の予定範囲は、技術Owner・本番Root接続・既存Oracleの移管・関連回帰・独立確認まで完了した。残るB3はAI AdapterとDIの計画・実行境界、B4はGit／Repository観測と借用Treeの接続、B5はWorkbench助言の共通Task接続と全利用側の閉包であり、B2へ拡張しない。外部AI・Docker操作・認証・対話入力・②保持物の削除や回復参照変更は行っていない。作業ブランチへのCommit・Pushは、採用・最終統合・Release判断とは区別する。
+
+## 11. B3〜B5の着手前照合
+
+基準版は`3665d89bb7711486a914fdab9738ee06452cbc55`。二つの読取り専用確認は、既存専門API接続を再実装せず、残る技術重複と中継だけを整理する方針で一致した。
+
+| 単位 | 今回変える箇所 | 変えない意味・確認先 |
+|---|---|---|
+| B3 | Docker構成の再生成・固定command全数一致の照合をDI既存`execution/plan.ts`へ集約 | CLI／Envelopeは既存AI API。Operation／Selection／Packet Hash・Model／Offering受理・回復相関は上位。DI plan、Provider計画・Controller・取消／cleanup試験 |
+| B4 | Workspaceの安定File読取り・容量制限付きinventoryをVCのWorkspace観測へ移管 | 借用開始時dirty、未追跡、削除、Path・case・link・hardlink・深さ・容量の拒否順を保持。Task／許可Path／Secret／Capability／内容投影は上位。実Git・借用Tree／VC回帰 |
+| B5 | Workbench助言のProvider Adapterと実行結果中継を統合し、既存の共通Task受付から単一実行入口を組み立てる | 助言に編集・Candidate・Reviewerを追加しない。Profile／Hash・固定Context・参照制限・一回送信・事前取消・例外Effect不明・cleanup不明・元Host参照を保持。助言UT／IT、Orchestrator受付、Workbench／MCP接続 |
+
+発火は既存の実行／観測入口のみ。不正Profile・構成差・失効・開始前取消では後続Effectを拒否する。実行中取消・通知欠測・回収不明を成功へ補完せず、元参照を保持する。比較が同値の局所移管では新しい永続形式・Registry・Lock・回復管理を導入しない。実AI・Docker操作・認証・保持中②の操作は実施しない。
+
+専門Packageへの丸移動と、助言を編集Taskへそのまま変換する代替は、上位Authorityの逆流または追加送信を生むため採らない。Source・Architecture・Quality・公開入口・既存試験の対応を固定して独立レビューする。設定／公開Protocol／永続契約を変える必要が生じた場合は停止する。
+
+## 12. B3〜B5の実装・確認
+
+| 単位 | 実装結果 | 既存能力の対応 |
+|---|---|---|
+| B3 | DIの既存planへ`dockerIsolationCommandsMatch`を移管。上位の重複した全command比較を撤去 | 生成と照合で同じ用途・順序・全argvを使う。Model／Offering・Task／助言Hash・私有Ownerと上位計画Hashは上位に維持。既に接続済みのAI CLI生成・Envelope抽出とDI Sessionを再実装しない |
+| B4 | VC `workspace/observation.ts`へ安定読取り・inventory・同じPath文法を移管し、Rootから四項目を公開 | 既存dirty・未追跡・削除・容量・link・hardlink・深さ・途中差を保持。上位はAlias接続以外の許可Path・Secret・Capability・レビュー投影の本文不変。新しいGit操作や保存は追加しない |
+| B5 | `advice-provider-executor.ts`を撤去し、Profile／Plan検査と一回Runtime呼出し・結果受理を既存`provider-adapter.ts`へ統合 | Orchestratorの共通Task受付は単一Runtimeを直接注入。重複Provider関数表とExecutor Factoryの外部組立てを撤去。四つのLifecycle Oracleを統合後Adapterへ接続し、試験を`provider-adapter-execution.contract.test.ts`へ改名。助言専用Context／Schema／PacketとHost相関は意味のある上位契約として保持 |
+
+公開通信・永続Schema・回復参照は変更していない。Coordinator Root19項目は不変、Sourceは98→97 File。VCの追加公開は読取り技術四項目、DIの追加公開は既存command照合一操作だけであり、汎用Framework・Registry・State・Lockを作っていない。通常の外部AI実行・Docker操作・認証・保持中②の操作は行っていない。
+
+| 今回の確認 | 結果と限界 |
+|---|---|
+| Provider計画・助言・Repository／Workspaceの関連結合 | 109件成功。固定Profile・Packet・開始前取消・例外Effect不明・cleanup不明・dirtyとレビュー投影を確認 |
+| Controller／技術実行／Taskの共通接続 | 270件成功。合成依存で要求・通知・取消・一次失敗・同参照と回収を反証。実Provider／Docker成功ではない |
+| DI通常全回帰 | 初回305件中299成功・公開期待一覧の追従漏れ一件・明示対象外五件。期待一覧訂正後の局所16件成功、通常全回帰は305件中300成功・失敗0・明示対象外五件。元失敗は上書きしない |
+| VC通常全回帰 | 64件中63成功・Architecture公開一覧の追従漏れ一件。公開一覧追従後の閉包12件成功。実Git・dirty・Worktree／Ref回収の63成功と別runの補完を区別 |
+| Workbench／MCP利用側 | Workbench14件・MCP21件成功。WB初回のlocalhost接続EACCES三件は通常権限の同じ二Suiteで14件成功。外部通信やAI再試行ではない |
+| Orchestratorの単発状態・Workspace結合 | 二Suite20件成功。実Git／Writerで直列Task、明示採否、保存失敗、別Process再入場、元参照、Direct途中失敗とMCPへのWorkspace観測まで確認。実行時間は約8分28秒 |
+| 静的・台帳・対応表 | DI／VC check、Coordinator／Orchestrator／Workbench／MCP型、変更Source Lint、Production Header／全Test QA接続成功。Catalog388件valid。Symbol重複・実Path欠落・未解決参照0。Runtime／Orchestrator両対応表accepted |
+| 文書検査 | 変更六文書の直接診断0。参照先展開込み3,558診断でexit 1。非リンクは既存の設計単位処置四件・設計単位とGoal関係一件。全体文書／正式QAのPassへ変換しない |
+| 独立レビュー | SourceとArchitecture／Qualityの両観点で機能・Oracleの後退指摘なし。旧FactoryのHeader説明・borrowed条件をコメントだけ訂正し、限定再確認は両方残指摘0 |
+
+B3〜B5は予定した責務移管・本番利用側・合成反証回帰・独立レビューまで完了した。B系列の作業範囲を閉じるが、旧Coordinatorの撤去・Package統合はCとして残る。BrowserのDOM・CSS・公開DTOは変更していないため新しいVisual評価を追加せず、既存Browser未確定故障と正式E2Eは別の残件として維持する。作業ブランチへのCommit・Pushは最終統合・Release判断とは区別する。
+
+### Cへ渡す残存責務
+
+以下は現在実在する97 Source Fileの閉集合であり、97 Fileすべてを丸ごと移動する指示ではない。技術重複を再実装せず、意味・保存・私有CapabilityのOwner単位で現Orchestratorへ統合し、専門Package呼出しだけを維持する。
+
+| 現Folder | File数 | 残す意味・Cでの処置 |
+|---|---:|---|
+| `provider`・`task` | 25＋12 | 選定・準備／一回消費・実行順・開始／結果受領・取消・同じ回復参照。技術はAI／DI／PAへ接続済み。上位の実行調整を統合 |
+| `workbench-ai` | 9 | 固定Context・助言Schema／Packet、非共有・Host相関と用途別結果。共通Task受付を維持し、意味のない再export中継を作らない |
+| `authority`・`external-send` | 8＋4 | 現在の実行許可・外部送信同意・Secret区分。Access Managementの利用者認可へ混同しない |
+| `host-execution`・`state-storage`・`platform-access`・`repository-operation` | 11＋5＋2＋6 | Owner世代・poison・耐久受領・保存と再入場・Repository結合。OS排他と観測はPA、Git／実Tree読取りはVC。上位のAtomic境界を分断しない |
+| `cli`・`diagnostics`・Root | 7＋7＋1 | 公開受付・非秘密表示・専門診断の集約と公開API。単一bin・現行入力・利用側・起動Pathを統合先へ追従 |
+
+CのPackage統合・改名、DのDomain Model最終整理、正式QA・未実施実境界は本節の局所回帰とは別である。保持中②のunknownを成功化せず、再試行・削除は別判断を維持する。

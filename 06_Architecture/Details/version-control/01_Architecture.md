@@ -1,5 +1,9 @@
 # Version Control境界
 
+## B4の借用Tree観測 — 2026-10-21
+
+`workspace/observation.ts`へ既存の安定File読取りと容量制限付きinventoryを移管する。開始時dirtyを含む実Treeを観測し、Git Commitへ勝手に置き換えない。既存のPath・case衝突・link／hardlink・深さ・File数・容量・読取り前後Identityの検査と拒否順序を保持し、書込み・巻戻し・採用・削除を行わない。Task Capability、許可Path・Secretの意味、レビュー公開範囲とWorkspace寿命は上位Ownerに残す。
+
 ## Source構造の再編 — 2026-10-20（対象の再配置・回帰完了）
 
 利用者が[全数対応表](../../../99_Roadmap/Changes/CHG-000082/version-control-source-structure.md)の配置と、未使用の移行比較API・専用合成試験・Fixture撤去を承認した。Repository、Workspace、通常変更公開、共通Git技術の四領域へ整理する。Git CLI、Object Reader、引数順序・環境・出力制限・期限、結果・失敗相関、安全条件は変更しない。
@@ -236,6 +240,7 @@ Git Adapterが本番RuntimeでGit CLIを起動する場合、その子Process境
 | Repository Worktree View Git Adapter | `gitRepositoryWorktreeViewAdapter` |
 | Repository Worktree Management | `RepositoryWorktreeObservation`、`RepositoryWorktreeResult`、`createRepositoryWorktree`、`observeRepositoryWorktree`、`disposeRepositoryWorktree` |
 | Workspace Candidate | `WorkspaceCandidateSelection`、`WorkspaceCandidateRequest`、`WorkspaceCandidateResult`、`WorkspaceCandidateTemporary`、`validWorkspaceDisplayName`、`validWorkspaceCandidateRequest`、`inspectWorkspaceFile`、`inspectWorkspaceCandidatePatch`、`freezeWorkspaceCandidate`、`mergeWorkspaceCandidate`、`removeWorkspaceCandidate` |
+| Workspace読取り観測 | `WorkspaceInventoryEntry`、`inspectWorkspaceInventory`、`readWorkspaceFileContent`、`isWorkspaceRelativePath` |
 | Change Publication Git Adapter | `ChangePublicationCommandRunner`、`createGitChangePublicationAdapter`、`gitChangePublicationAdapter`、`createGitChangePublicationTargetObservationAdapter`、`gitChangePublicationTargetObservationAdapter` |
 | Checker Repository Observation | `RepositoryEntryObservation`、`observeDeclaredNestedRepositoryPaths`、`observeNestedRepository`、`observeRepositoryEntries`、`readFixedSnapshotText`、`resolveRevisionIdentity` |
 | Repository Layout Git Adapter | `describeGitRepositoryLayoutAdapterContract`、`GIT_REPOSITORY_LAYOUT_ADAPTER_CONTRACT`、`GIT_REPOSITORY_LAYOUT_ADAPTER_CONTRACT_REVISION`、`inspectGitRepositoryLayoutCandidate` |

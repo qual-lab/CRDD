@@ -1,5 +1,7 @@
 # QA-000007 リポジトリ境界とFederationの検証定義
 
+B4の借用Tree読取りはVCの`workspace/observation.ts`へ移管する。`RFD-IT-029`でdirty・未追跡・削除・容量境界とHEAD／Index不変、既存`RFD-IT-013`／`PRL-IT-013`の上位結合でPath・case・link／hardlink・深さ・File数・容量・途中差とレビュー投影を維持する。採否・許可Path・Secret・Task Capabilityは上位に残し、Git Snapshotへの置換や既存dirty破棄を行わない。正式結果と歴史Evidenceは配置変更だけでは更新しない。
+
 ## 固定Candidate・二親Mergeの追加検証条件（2026-10-18）
 
 公開Workspace操作は人間承認済みの`development`現在許可を三Role共通で適用する。`RFD-IT-009`／013とSTの非開示断面で、単体資格不要の固定Root、CROSのmanagementのみ／失効／Exposure除外／別Repository／Root差替えの処置前拒否、待機後とEffect直前の再認可、内部Root・一時物・資格を含めない公開結果を確認する。旧workspaceIdsは内容範囲でありGit Workspace IDへ転用しない。

@@ -106,6 +106,7 @@ test("Docker環境は固定四項目と用途別Driveを構成し観測不能を
     "describeDockerIsolationExecutionEnvironment",
     "createDockerIsolationRandomHex",
     "createDockerIsolationResourceNames",
+    "dockerIsolationCommandsMatch",
     "dockerIsolationResourceIdentityIsValid",
     "createDockerProcessEnvironment",
     "createDockerResourceRecoveryExecutor",

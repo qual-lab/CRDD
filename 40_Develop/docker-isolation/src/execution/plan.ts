@@ -17,6 +17,40 @@ import {
 } from "../network/policy.ts";
 
 /**
+ * 固定構成と保存済みcommand集合の完全一致を照合する。
+ * @responsibility 用途・順序・全argvを同じ技術計画Ownerで比較する。
+ * @trace ARCH-000004 ARCH-000008
+ * @input input: 解決済み技術構成。commands: 上位が相関した元command集合。
+ * @returns 再生成でき全要素が一致する場合だけtrue。
+ * @precondition 上位がTask・許可・元Operationの相関を照合する。
+ * @postcondition 一致から実行許可・Process開始・回収完了を推定しない。
+ * @effect 固定Seccompの同一性確認に必要な読取りだけを行う。
+ * @failure 構成拒否・用途・順序・argv差はfalse。読取り失敗は既存計画の拒否へ従う。
+ * @invariant command生成と検査の技術定数を上位へ複製しない。
+ * @boundary 上位の元計画とDocker技術構成。
+ * @security Provider本文・秘密値を診断へ返さない。
+ * @concurrency 同期照合で新しい状態やLockを持たない。
+ */
+export function dockerIsolationCommandsMatch(
+  input: DockerIsolationCommandInput,
+  commands: readonly Readonly<{ purpose: string; argv: readonly string[] }>[],
+) {
+  const expected = planDockerIsolationCommands(input);
+  return (
+    expected !== null &&
+    commands.length === expected.length &&
+    commands.every(
+      (command, index) =>
+        command.purpose === expected[index]?.purpose &&
+        command.argv.length === expected[index]?.argv.length &&
+        command.argv.every(
+          (value, position) => value === expected[index]?.argv[position],
+        ),
+    )
+  );
+}
+
+/**
  * 公式助言Imageと未解決の旧助言Imageにinitを要求する。
  *
  * @responsibility 起動計画、Effect直前検査と耐久Recoveryで同じinit適用条件を使う。

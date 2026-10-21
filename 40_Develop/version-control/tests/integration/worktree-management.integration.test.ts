@@ -25,6 +25,9 @@ import {
   mergeWorkspaceCandidate,
   removeWorkspaceCandidate,
   validWorkspaceDisplayName,
+  inspectWorkspaceInventory,
+  readWorkspaceFileContent,
+  isWorkspaceRelativePath,
   type WorkspaceCandidateRequest,
 } from "../../src/index.ts";
 
@@ -33,6 +36,53 @@ const repository = path.resolve(
 );
 const testsRoot = path.join(repository, ".crdd", "tests");
 const empty = process.platform === "win32" ? "NUL" : devNull;
+
+/**
+ * 実Treeのdirty・未追跡・削除と安定読取りを確認する。
+ * @responsibility 上位から移管した読取りがGit操作や内容採用を発行しないことを反証する。
+ * @trace RFD-IT-029
+ * @precondition 自己生成Repositoryだけを使用する。
+ * @stimulus 内容変更・未追跡追加・削除と容量上限を観測する。
+ * @observation inventory、bytes、HEADとIndex。
+ * @oracle dirty内容を読め、保護領域を除外し、容量超過を拒否してHEADとIndexは不変。
+ * @cleanup fixtureのafterで自己生成Rootのみ回収する。
+ * @boundary ローカルGit／Filesystem。Docker・Providerなし。
+ */
+test("借用Tree観測はdirtyと未追跡を読みGit状態を変更しない", (t) => {
+  const f = fixture(t);
+  const index = fs.readFileSync(path.join(f.root, ".git", "index"));
+  fs.mkdirSync(path.join(f.root, ".crdd"));
+  fs.writeFileSync(path.join(f.root, ".crdd", "state.json"), "private");
+  fs.writeFileSync(path.join(f.root, "source.txt"), "dirty\n");
+  fs.writeFileSync(path.join(f.root, "untracked.txt"), "new\n");
+  const first = inspectWorkspaceInventory(f.root, true);
+  assert.equal(
+    first.some((entry) => entry.relativePath.startsWith(".git/")),
+    false,
+  );
+  assert.equal(
+    first.some((entry) => entry.relativePath.startsWith(".crdd/")),
+    false,
+  );
+  assert.ok(first.some((entry) => entry.relativePath === "untracked.txt"));
+  const read = readWorkspaceFileContent(path.join(f.root, "source.txt"), 6);
+  assert.equal(read.content.toString(), "dirty\n");
+  assert.throws(
+    () => readWorkspaceFileContent(path.join(f.root, "source.txt"), 5),
+    /repository_workspace_file_invalid/u,
+  );
+  fs.rmSync(path.join(f.root, "untracked.txt"));
+  assert.equal(
+    inspectWorkspaceInventory(f.root, true).some(
+      (entry) => entry.relativePath === "untracked.txt",
+    ),
+    false,
+  );
+  assert.equal(isWorkspaceRelativePath("../outside"), false);
+  assert.equal(isWorkspaceRelativePath(".git/index"), false);
+  assert.equal(git(f.root, ["rev-parse", "HEAD"]), f.base);
+  assert.deepEqual(fs.readFileSync(path.join(f.root, ".git", "index")), index);
+});
 
 /**
  * 自己生成fixtureへ準備用Gitを発行する。

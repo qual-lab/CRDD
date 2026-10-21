@@ -19,6 +19,7 @@ import test from "node:test";
 import {
   type DockerIsolationCommandInput,
   planDockerIsolationCommands,
+  dockerIsolationCommandsMatch,
   prepareDockerNetworkPolicy,
   codexAdviceProviderInitRequired,
   projectDockerProxyConfiguration,
@@ -28,6 +29,51 @@ import {
   createDockerIsolationResourceNames,
   dockerIsolationResourceIdentityIsValid,
 } from "../../../src/index.ts";
+
+/**
+ * 元commandの用途・順序・全argv差を拒否する。
+ * @responsibility 上位から移管した一致検査の反証を固定する。
+ * @trace ERB-UT-023
+ * @precondition 既存の固定構成fixtureを使う。
+ * @stimulus 正常集合、欠落、順序、用途、引数を一項目ずつ変える。
+ * @observation 完全一致判定。
+ * @oracle 正常だけtrue、各差と不正構成はfalse。
+ * @cleanup N/A: 外部資源は生成しない。
+ * @boundary 技術計画の局所境界。
+ */
+test("固定command照合は用途・順序・全argvの差を拒否する", () => {
+  const input = inputFixture();
+  const commands = planDockerIsolationCommands(input);
+  assert.ok(commands);
+  const first = commands[0];
+  assert.ok(first);
+  assert.equal(dockerIsolationCommandsMatch(input, commands), true);
+  assert.equal(dockerIsolationCommandsMatch(input, commands.slice(1)), false);
+  assert.equal(
+    dockerIsolationCommandsMatch(input, [...commands].reverse()),
+    false,
+  );
+  for (const replacement of [
+    { ...first, purpose: "unknown" },
+    { ...first, argv: [...first.argv, "--extra"] },
+    {
+      ...first,
+      argv: first.argv.map((value, i) => (i === 0 ? "unknown" : value)),
+    },
+  ]) {
+    assert.equal(
+      dockerIsolationCommandsMatch(input, [replacement, ...commands.slice(1)]),
+      false,
+    );
+  }
+  assert.equal(
+    dockerIsolationCommandsMatch(
+      { ...input, ownershipLabel: "invalid" },
+      commands,
+    ),
+    false,
+  );
+});
 
 /**
  * 助言Imageのinit要否を方式とexact Imageの直積で確認する。

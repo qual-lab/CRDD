@@ -1,5 +1,11 @@
 # Coordinator Runtimeの実行アーキテクチャ
 
+## B3〜B5の責務境界 — 2026-10-21
+
+Provider CLI生成・結果Envelope抽出は既存AI Adapter API、Docker構成生成・固定command一致照合はDocker Isolation、借用Treeの安定File読取り・inventoryはVersion Controlが所有する。上位はModel／Offering・Operation／Packet相関、実行許可、dirty基準、許可Path、Secret判定、レビュー投影と元Capabilityの生涯を維持する。上位計画Hashには業務相関を含むため、DIの技術Hashへ統合しない。
+
+Workbench助言は共通の単発Task受付から一回実行する。専用のProvider振分け・結果中継は統合するが、助言の固定Context・許可参照・Profile／Catalog／通信Hash・一回送信・取消／回収不明・元Host参照は保持する。編集TaskのExecutor→Candidate→Reviewerへ変換せず、Repository／WorkspaceのMount・追加送信・自動Commitを導入しない。移管と本番接続・反証回帰の完了前に旧実装を置換済みと表示しない。
+
 ## Repository通信条件の同意・実行への接続（確認中）
 
 検証済みRepositoryから現在の`network-policy.json`を要求ごとに一回読む。Domain Modelが読取り、Docker IsolationがProvider固定Hostとの合成・技術検査・意味Hashを所有する。同じ不変設定を既存PolicyRecord、同意境界、Grant、Task Packet、実行計画へ搬送し、後段で設定を再読しない。既存の外部送信方針Hashを通信設定Hashへ転用せず、生File HashやHost Pathを通信先確認へ混ぜない。

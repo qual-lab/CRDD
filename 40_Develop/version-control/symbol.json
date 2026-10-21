@@ -4,6 +4,12 @@
   "subsystem": "version-control",
   "symbols": [
     {
+      "symbolId": "version-control.workspace.observation",
+      "kind": "file",
+      "path": "src/workspace/observation.ts",
+      "archIds": ["ARCH-000002", "ARCH-000013"]
+    },
+    {
       "symbolId": "version-control.workspace-candidate",
       "kind": "file",
       "path": "src/workspace/candidate.ts",
@@ -32,6 +38,7 @@
       "verifies": [
         "version-control.git-worktree-management",
         "version-control.workspace-candidate",
+        "version-control.workspace.observation",
         "version-control.source.src.workspace.merge"
       ]
     },

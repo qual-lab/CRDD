@@ -134,3 +134,9 @@ export {
 } from "./repository/worktree-view.ts";
 
 export { mergeWorkspaceCandidate } from "./workspace/merge.ts";
+export {
+  inspectWorkspaceInventory,
+  readWorkspaceFileContent,
+  isWorkspaceRelativePath,
+  type WorkspaceInventoryEntry,
+} from "./workspace/observation.ts";

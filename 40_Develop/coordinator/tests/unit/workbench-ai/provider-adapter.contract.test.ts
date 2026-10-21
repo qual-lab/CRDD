@@ -8,6 +8,8 @@
  * @scope coordinator、contract、node_process
  * @boundary Provider非依存Adapterと固定Fake Executorの局所境界。
  */
+import type { WorkbenchAiAdviceProviderOutcome } from "../../../src/workbench-ai/advice-dispatch.ts";
+import type { WorkbenchAiAdviceExecutionPlan } from "../../../src/workbench-ai/advice-execution-plan.ts";
 import assert from "node:assert/strict";
 import { fixtureNetworkPolicy } from "../../fixtures/network-policy.ts";
 import test from "node:test";
@@ -158,21 +160,44 @@ test("Profile照合の移管は両Providerの正常値と全五項目反例を�
 test("exact Codex Profileを変更せず一つのExecutorへ渡す", async () => {
   let codexInput: unknown = null;
   let claudeCalls = 0;
-  const adapter = createWorkbenchAiProviderAdapter({
-    codex: async (input) => {
-      codexInput = input;
-      return Object.freeze({
-        status: "blocked" as const,
-        reason: "fixture_completed",
-        rawOutput: null,
-        providerEffectIssued: false,
-        cleanupConfirmed: true,
-      });
-    },
-    claude: async () => {
-      claudeCalls += 1;
-      throw new Error("unreachable");
-    },
+  const adapter = createWorkbenchAiProviderAdapter(async (plan) => {
+    const executors: Record<
+      "codex" | "claude",
+      (
+        plan: WorkbenchAiAdviceExecutionPlan,
+      ) => Promise<WorkbenchAiAdviceProviderOutcome>
+    > = {
+      codex: async (input) => {
+        codexInput = input;
+        return Object.freeze({
+          status: "blocked" as const,
+          reason: "fixture_completed",
+          rawOutput: null,
+          providerEffectIssued: false,
+          cleanupConfirmed: true,
+        });
+      },
+      claude: async () => {
+        claudeCalls += 1;
+        throw new Error("unreachable");
+      },
+    };
+    const outcome = await executors[plan.provider](plan);
+    if (outcome.status === "completed" && typeof outcome.rawOutput === "string")
+      return {
+        status: "completed" as const,
+        reason: null,
+        adviceJson: outcome.rawOutput,
+        providerEffectIssued: true as const,
+        cleanupConfirmed: true as const,
+      };
+    return {
+      status: "blocked" as const,
+      reason: outcome.reason ?? "fixture_blocked",
+      adviceJson: null,
+      providerEffectIssued: outcome.providerEffectIssued,
+      cleanupConfirmed: outcome.cleanupConfirmed,
+    };
   });
   const result = await adapter(
     Object.freeze({
@@ -249,15 +274,38 @@ test("exact Codex Profileを変更せず一つのExecutorへ渡す", async () =>
  */
 test("Profile契約不整合を全Executor Effect前に拒否する", async () => {
   let calls = 0;
-  const adapter = createWorkbenchAiProviderAdapter({
-    codex: async () => {
-      calls += 1;
-      throw new Error("unreachable");
-    },
-    claude: async () => {
-      calls += 1;
-      throw new Error("unreachable");
-    },
+  const adapter = createWorkbenchAiProviderAdapter(async (plan) => {
+    const executors: Record<
+      "codex" | "claude",
+      (
+        plan: WorkbenchAiAdviceExecutionPlan,
+      ) => Promise<WorkbenchAiAdviceProviderOutcome>
+    > = {
+      codex: async () => {
+        calls += 1;
+        throw new Error("unreachable");
+      },
+      claude: async () => {
+        calls += 1;
+        throw new Error("unreachable");
+      },
+    };
+    const outcome = await executors[plan.provider](plan);
+    if (outcome.status === "completed" && typeof outcome.rawOutput === "string")
+      return {
+        status: "completed" as const,
+        reason: null,
+        adviceJson: outcome.rawOutput,
+        providerEffectIssued: true as const,
+        cleanupConfirmed: true as const,
+      };
+    return {
+      status: "blocked" as const,
+      reason: outcome.reason ?? "fixture_blocked",
+      adviceJson: null,
+      providerEffectIssued: outcome.providerEffectIssued,
+      cleanupConfirmed: outcome.cleanupConfirmed,
+    };
   });
   const result = await adapter(
     Object.freeze({
@@ -291,15 +339,38 @@ test("Profile契約不整合を全Executor Effect前に拒否する", async () =
  */
 test("Task Profile不一致はAI Adapter移管後もExecutor Effect前に拒否する", async () => {
   let calls = 0;
-  const adapter = createWorkbenchAiProviderAdapter({
-    codex: async () => {
-      calls += 1;
-      throw new Error("unreachable");
-    },
-    claude: async () => {
-      calls += 1;
-      throw new Error("unreachable");
-    },
+  const adapter = createWorkbenchAiProviderAdapter(async (plan) => {
+    const executors: Record<
+      "codex" | "claude",
+      (
+        plan: WorkbenchAiAdviceExecutionPlan,
+      ) => Promise<WorkbenchAiAdviceProviderOutcome>
+    > = {
+      codex: async () => {
+        calls += 1;
+        throw new Error("unreachable");
+      },
+      claude: async () => {
+        calls += 1;
+        throw new Error("unreachable");
+      },
+    };
+    const outcome = await executors[plan.provider](plan);
+    if (outcome.status === "completed" && typeof outcome.rawOutput === "string")
+      return {
+        status: "completed" as const,
+        reason: null,
+        adviceJson: outcome.rawOutput,
+        providerEffectIssued: true as const,
+        cleanupConfirmed: true as const,
+      };
+    return {
+      status: "blocked" as const,
+      reason: outcome.reason ?? "fixture_blocked",
+      adviceJson: null,
+      providerEffectIssued: outcome.providerEffectIssued,
+      cleanupConfirmed: outcome.cleanupConfirmed,
+    };
   });
   const result = await adapter(
     {

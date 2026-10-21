@@ -1256,6 +1256,7 @@
         "RFD-IT-013"
       ],
       "verifies": [
+        "version-control.workspace.observation",
         "coordinator.source.src.security.execution.environment",
         "coordinator.source.src.security.repository.operation.runtime",
         "coordinator.source.src.security.repository.workspace.runtime",
@@ -2339,7 +2340,7 @@
     {
       "symbolId": "coordinator.test.unit.workbench-ai-advice-provider-executor",
       "kind": "test-suite",
-      "path": "tests/unit/workbench-ai/advice-provider-executor.contract.test.ts",
+      "path": "tests/unit/workbench-ai/provider-adapter-execution.contract.test.ts",
       "qaIds": [
         "QA-000006"
       ],
@@ -2347,7 +2348,7 @@
         "ERB-UT-023"
       ],
       "verifies": [
-        "coordinator.source.src.security.workbench.ai.advice.provider.executor",
+        "coordinator.source.src.security.workbench.ai.provider.adapter",
         "coordinator.source.src.security.workbench.ai.advice.provider.output"
       ]
     },
@@ -2364,7 +2365,7 @@
       "verifies": [
         "coordinator.source.src.core.runtime.process.safety.state",
         "coordinator.source.src.security.workbench.ai.advice.production.runtime",
-        "coordinator.source.src.security.workbench.ai.advice.provider.executor",
+        "coordinator.source.src.security.workbench.ai.provider.adapter",
         "coordinator.source.src.security.coordinator.operation.creation.internal"
       ]
     },
@@ -2953,15 +2954,6 @@
       "symbolId": "coordinator.source.src.security.workbench.ai.advice.execution.plan",
       "kind": "file",
       "path": "src/workbench-ai/advice-execution-plan.ts",
-      "archIds": [
-        "ARCH-000010",
-        "ARCH-000015"
-      ]
-    },
-    {
-      "symbolId": "coordinator.source.src.security.workbench.ai.advice.provider.executor",
-      "kind": "file",
-      "path": "src/workbench-ai/advice-provider-executor.ts",
       "archIds": [
         "ARCH-000010",
         "ARCH-000015"

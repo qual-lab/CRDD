@@ -8089,7 +8089,7 @@
     {
       "id": "coordinator:unit:workbench-ai-advice-provider-executor",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/workbench-ai/advice-provider-executor.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/workbench-ai/provider-adapter-execution.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
