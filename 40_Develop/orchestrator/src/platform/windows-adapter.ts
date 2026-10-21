@@ -17,7 +17,7 @@ import {
   observeProcessLiveness,
 } from "../../../platform-access/src/index.ts";
 import { inspectRuntimeOwnedWindowsProviderHomeCandidate } from "../../../coordinator/src/execution/provider-home-windows-adapter.ts";
-import { compileWindowsRootObservationCandidate } from "../../../coordinator/src/workspace/root-observation.ts";
+import { compileWindowsRootObservationCandidate } from "../../../coordinator/src/execution/root-observation.ts";
 
 const ORCHESTRATOR_WINDOWS_PLATFORM_FAMILY = "windows" as const;
 

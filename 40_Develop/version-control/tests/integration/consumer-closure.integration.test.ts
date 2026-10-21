@@ -495,12 +495,92 @@ test("Fixed SnapshotとFixed Revisionの既知Consumer集合が宣言と一致�
     ),
     [
       "40_Develop/coordinator/scripts/native-git-provenance.ts",
-      "40_Develop/coordinator/src/workspace/binding.ts",
+      "40_Develop/coordinator/src/execution/repository-binding.ts",
       "40_Develop/orchestrator/src/activity/read.ts",
       "40_Develop/orchestrator/src/task/request-composition.ts",
       "40_Develop/workbench-server/scripts/verify-readonly-ai.ts",
     ],
   );
+
+  const candidateConsumers = {
+    inspectRepositoryIdentityCandidate: [
+      "40_Develop/coordinator/scripts/orchestrator-real-provider-contract.ts",
+      "40_Develop/coordinator/scripts/verify-orchestrator-real-providers.ts",
+      "40_Develop/coordinator/src/execution/borrowed-tree.ts",
+      "40_Develop/coordinator/src/execution/development-measurement-session.ts",
+      "40_Develop/orchestrator/src/decision/public-acceptance.ts",
+      "40_Develop/orchestrator/src/objective/public-operation.ts",
+      "40_Develop/orchestrator/src/state/public-query.ts",
+    ],
+    inspectRepositoryRevisionCandidate: [
+      "40_Develop/coordinator/scripts/verification-result-record.ts",
+      "40_Develop/coordinator/scripts/verify-general-task.ts",
+      "40_Develop/coordinator/scripts/verify-orchestrator-real-providers.ts",
+      "40_Develop/coordinator/src/cli/doctor.ts",
+    ],
+  };
+  /**
+   * Repository観測候補の本番利用集合を同じOracleで照合する。
+   * @responsibility 欠測・余剰と公開Rootを迂回するimport形式を拒否する。
+   * @trace RCM-IT-004
+   * @precondition 読取り済みSource集合または合成変異を渡す。
+   * @stimulus Named importを解析し、固定した利用側集合と比較する。
+   * @observation 操作別の利用File集合とimport形式を確認する。
+   * @oracle 全集合一致かつ迂回形式がない場合だけ正常終了する。
+   * @cleanup N/A: 外部資源を生成しない。
+   * @boundary 同一ProcessのSource検査だけを行う。
+   */
+  const verifyCandidateConsumers = (entries: typeof sources) => {
+    for (const [name, expected] of Object.entries(candidateConsumers)) {
+      const actual = entries
+        .filter(
+          ({ relativePath }) =>
+            !relativePath.startsWith("40_Develop/version-control/"),
+        )
+        .filter(({ source }) => {
+          const names = importedVersionControlNames(source);
+          assert.doesNotMatch(source, new RegExp(`\\b${name}\\s+as\\s+`, "u"));
+          return names.includes(name);
+        })
+        .map(({ relativePath }) => relativePath)
+        .sort();
+      assert.deepEqual(actual, expected);
+    }
+  };
+  verifyCandidateConsumers(sources);
+  for (const name of Object.keys(candidateConsumers)) {
+    const index = sources.findIndex(
+      ({ relativePath, source }) =>
+        !relativePath.startsWith("40_Develop/version-control/") &&
+        importedVersionControlNames(source).includes(name),
+    );
+    assert.ok(index >= 0);
+    const selected = sources[index];
+    assert.ok(selected);
+    assert.throws(() =>
+      verifyCandidateConsumers(
+        sources.filter(
+          (entry, position) => entry !== selected && position !== index,
+        ),
+      ),
+    );
+    const specifier = "../../../version-control/src/index.ts";
+    for (const source of [
+      `import { ${name} } from "${specifier}";`,
+      `import { ${name} as renamed } from "${specifier}";`,
+      `import * as vc from "${specifier}"; vc.${name};`,
+      `import vc from "${specifier}"; vc.${name};`,
+      `export { ${name} } from "${specifier}";`,
+      `const vc = await import("${specifier}"); vc.${name};`,
+    ]) {
+      assert.throws(() =>
+        verifyCandidateConsumers([
+          ...sources,
+          { relativePath: "40_Develop/synthetic-consumer.ts", source },
+        ]),
+      );
+    }
+  }
 });
 
 /**
@@ -589,8 +669,8 @@ test("Repository LocationとRepository-local Ignoreの既知Consumer集合が宣
       "40_Develop/orchestrator/src/decision/public-acceptance.ts",
       "40_Develop/orchestrator/src/state/public-query.ts",
       "40_Develop/coordinator/src/cli/command.ts",
-      "40_Develop/coordinator/src/diagnostics/doctor.ts",
-      "40_Develop/coordinator/src/diagnostics/runtime-repair.ts",
+      "40_Develop/coordinator/src/cli/doctor.ts",
+      "40_Develop/coordinator/src/execution/runtime-repair.ts",
       "40_Develop/coordinator/scripts/verification-result-record.ts",
       "40_Develop/coordinator/scripts/native-git-provenance.ts",
       "40_Develop/coordinator/src/external-send/policy.ts",
@@ -601,9 +681,9 @@ test("Repository LocationとRepository-local Ignoreの既知Consumer集合が宣
       "40_Develop/orchestrator/src/workspace/operations.ts",
       "40_Develop/orchestrator/src/task/settle-docker-recovery.ts",
       "40_Develop/orchestrator/src/platform/windows-adapter.ts",
-      "40_Develop/coordinator/src/workspace/binding.ts",
-      "40_Develop/coordinator/src/workspace/borrowed-tree.ts",
-      "40_Develop/coordinator/src/workspace/execution-target.ts",
+      "40_Develop/coordinator/src/execution/repository-binding.ts",
+      "40_Develop/coordinator/src/execution/borrowed-tree.ts",
+      "40_Develop/coordinator/src/execution/change-snapshot.ts",
       "40_Develop/coordinator/src/storage/settlement-store.ts",
       "40_Develop/coordinator/src/execution/recovery.ts",
       "40_Develop/execution-intelligence/src/record/recorder.ts",
@@ -860,19 +940,19 @@ test("Local Change Setと用途別Named SymbolのConsumer集合が宣言と一�
       "40_Develop/coordinator/scripts/verify-route-matrix.ts",
       "40_Develop/coordinator/scripts/workspace-task-fixture.ts",
       "40_Develop/coordinator/src/cli/command.ts",
-      "40_Develop/coordinator/src/diagnostics/doctor.ts",
-      "40_Develop/coordinator/src/diagnostics/runtime-repair.ts",
+      "40_Develop/coordinator/src/cli/doctor.ts",
+      "40_Develop/coordinator/src/execution/runtime-repair.ts",
       "40_Develop/coordinator/scripts/native-git-provenance.ts",
       "40_Develop/coordinator/src/external-send/policy.ts",
-      "40_Develop/coordinator/src/storage/terminal-caller-checkpoint.ts",
+      "40_Develop/coordinator/src/execution/terminal-caller-checkpoint.ts",
       "40_Develop/coordinator/src/execution/terminal-caller-lease.ts",
-      "40_Develop/coordinator/src/workspace/binding.ts",
-      "40_Develop/coordinator/src/workspace/borrowed-tree.ts",
-      "40_Develop/coordinator/src/workspace/execution-target.ts",
+      "40_Develop/coordinator/src/execution/repository-binding.ts",
+      "40_Develop/coordinator/src/execution/borrowed-tree.ts",
+      "40_Develop/coordinator/src/execution/change-snapshot.ts",
       "40_Develop/coordinator/src/storage/settlement-store.ts",
       "40_Develop/coordinator/src/execution/recovery.ts",
-      "40_Develop/coordinator/src/workbench-ai/advice-execution.ts",
-      "40_Develop/coordinator/src/workbench-ai/repository-composition.ts",
+      "40_Develop/coordinator/src/execution/provider-execution.ts",
+      "40_Develop/coordinator/src/execution/request.ts",
       "40_Develop/execution-intelligence/src/storage/store.ts",
       "40_Develop/orchestrator/src/cli/command.ts",
       "40_Develop/orchestrator/src/objective/public-operation.ts",

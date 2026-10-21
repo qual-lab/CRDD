@@ -23,7 +23,7 @@ import {
   parseDoctorArguments,
   parseTaskArguments,
 } from "../../src/cli/options.ts";
-import { renderDockerRecoveryDoctorReport } from "../../src/diagnostics/docker-recovery-command-report.ts";
+import { renderDockerRecoveryDoctorReport } from "../../src/cli/recovery-report.ts";
 import { assertPresent } from "../support/contract-assertions.ts";
 import { withUnsignedRuntimeFixture } from "../support/unsigned-runtime-fixture.ts";
 

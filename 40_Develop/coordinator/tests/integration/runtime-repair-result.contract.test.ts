@@ -14,7 +14,7 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { stripTypeScriptTypes } from "node:module";
 import { runInThisContext } from "node:vm";
 import test from "node:test";
-import type { repairRuntimeOwnedDockerRuntime } from "../../src/diagnostics/runtime-repair.ts";
+import type { repairRuntimeOwnedDockerRuntime } from "../../src/execution/runtime-repair.ts";
 import { runDockerRuntimeRepairSessionUsing } from "../../../docker-isolation/src/docker-desktop/repair-session.ts";
 import {
   dockerRuntimeRepairCheckpointIsSettled,
@@ -22,7 +22,7 @@ import {
   type DockerRuntimeRepairDisposalInput,
 } from "../../../docker-isolation/src/index.ts";
 import * as model from "../../src/storage/model.ts";
-import { renderDockerRecoveryDoctorReport } from "../../src/diagnostics/docker-recovery-command-report.ts";
+import { renderDockerRecoveryDoctorReport } from "../../src/cli/recovery-report.ts";
 
 /**
  * 実呼出しSourceを固定したメモリ保存境界へ組み立てる。
@@ -319,7 +319,7 @@ function fixture(transform: (source: string) => string = (source) => source) {
   };
   const source = stripTypeScriptTypes(
     fs.readFileSync(
-      new URL("../../src/diagnostics/runtime-repair.ts", import.meta.url),
+      new URL("../../src/execution/runtime-repair.ts", import.meta.url),
       "utf8",
     ),
   )

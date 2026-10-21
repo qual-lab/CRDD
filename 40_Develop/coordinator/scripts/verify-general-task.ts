@@ -10,7 +10,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { types as utilTypes } from "node:util";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../version-control/src/index.ts";
-import type { BorrowedWorkspaceTarget } from "../src/workspace/borrowed-tree.ts";
+import type { BorrowedExecutionTarget } from "../src/execution/borrowed-tree.ts";
 import {
   prepareVerificationWorkspace,
   readVerificationWorkspaceOutput,
@@ -42,8 +42,8 @@ import { observeRuntimeOwnedDevelopmentSource } from "../src/execution/developme
 import {
   isCanonicalCrddGitObjectId,
   isSupportedCrddRuntimeGitObjectId,
-} from "../src/diagnostics/release-identity-grammar.ts";
-import { inspectRepositoryRevisionCandidate } from "../src/workspace/binding.ts";
+} from "./verification-safety.ts";
+import { inspectRepositoryRevisionCandidate } from "../../version-control/src/index.ts";
 import {
   evaluateVerificationSafetyObservation,
   salvageVerificationNullableRecovery,
@@ -311,15 +311,15 @@ type VerificationDependencies = Readonly<{
   startTask: (
     request: RuntimeRecord,
     repositoryRoot: string,
-    target: BorrowedWorkspaceTarget,
+    target: BorrowedExecutionTarget,
   ) => unknown;
   cancelTask: (controlCapability: object) => unknown;
   readWorkspaceOutput: (
-    target: BorrowedWorkspaceTarget,
+    target: BorrowedExecutionTarget,
     result: RuntimeRecord,
   ) => RuntimeRecord | null;
   closeWorkspace: (
-    target: BorrowedWorkspaceTarget,
+    target: BorrowedExecutionTarget,
     result: RuntimeRecord,
   ) => RuntimeRecord;
   inspectRepositoryRevision: (repositoryRoot: string) => unknown;

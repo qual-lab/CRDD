@@ -22,10 +22,6 @@ import {
   ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
 } from "../../../domain-model/src/index.ts";
 import {
-  formatHostRecoveryToken,
-  parseHostRecoveryToken,
-  loadHostRecoveryRecordByToken,
-  observeHostRecoveryCleanup,
   writeDockerProbeRecoveryRecord,
   loadDockerProbeRecoveryRecord,
   parseDockerProbeRecoveryToken,
@@ -33,7 +29,13 @@ import {
   requireDockerProbeRecoveryMounts,
   formatDockerIsolationRecoveryToken,
   isDockerIsolationRecoveryIdCandidate,
-} from "../../src/storage/recovery-record.ts";
+} from "../../../docker-isolation/src/index.ts";
+import {
+  formatHostRecoveryToken,
+  parseHostRecoveryToken,
+  loadHostRecoveryRecordByToken,
+  observeHostRecoveryCleanup,
+} from "../../src/execution/host-recovery-record.ts";
 import {
   createOwnedOperationDirectories,
   classifyOwnedOperationDirectoryCreationFailure,
@@ -1758,7 +1760,7 @@ test("Host Windows: absent遷移の再入場は事前計算したexact tokenへ�
         pathToFileURL(
           path.resolve(
             import.meta.dirname,
-            "../../src/storage/recovery-record.ts",
+            "../../src/execution/host-recovery-record.ts",
           ),
         ).href,
         owned.root,

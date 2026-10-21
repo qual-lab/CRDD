@@ -13,7 +13,7 @@ import {
 import {
   createDevelopmentExecutionTiming,
   writeDevelopmentMeasurementProgress,
-} from "../diagnostics/development-execution-timing.ts";
+} from "./development-execution-timing.ts";
 import { evaluateManagedDockerCleanupEligibility } from "./cleanup-eligibility.ts";
 import {
   cancelRuntimeOwnedDockerProcessController,
@@ -70,22 +70,22 @@ import {
 import {
   classifyOwnedCoordinatorOperationCreationFailure,
   createRuntimeOwnedCoordinatorOperation,
-} from "../workspace/create.ts";
+} from "./operation-creation.ts";
 import {
   bindRuntimeOwnedRepositoryOperation,
   inspectRepositoryObjectFormatCandidate,
-} from "../workspace/binding.ts";
+} from "./repository-binding.ts";
 import {
-  captureRuntimeOwnedCandidateRevision,
-  materializeRuntimeOwnedRepositoryWorkspace,
-  orchestratorOwnedCandidateReadContent,
-  verifyRuntimeOwnedCandidateRevision,
-  projectBorrowedWorkspaceResult,
-} from "../workspace/execution-target.ts";
+  captureExecutionChangeSnapshot,
+  bindRuntimeOwnedExecutionSnapshot,
+  projectReviewerReadContent,
+  verifyExecutionChangeSnapshot,
+  projectBorrowedExecutionResult,
+} from "./change-snapshot.ts";
 import {
-  inspectBorrowedWorkspaceTarget,
-  type BorrowedWorkspaceTarget,
-} from "../workspace/borrowed-tree.ts";
+  inspectBorrowedExecutionTarget,
+  type BorrowedExecutionTarget,
+} from "./borrowed-tree.ts";
 import { snapshotCoordinatorTaskRequest } from "./request.ts";
 import {
   COORDINATOR_TASK_PROVIDER_PREPARATION_REASONS,
@@ -569,7 +569,7 @@ type RuntimeDependencies = Readonly<{
     managementCapability: object,
     mountCapability: object,
     readPaths: readonly string[],
-    borrowedTarget?: BorrowedWorkspaceTarget,
+    borrowedTarget?: BorrowedExecutionTarget,
   ) => RuntimeRecord | null;
   projectReviewerReadContent?: (
     workspaceCapability: object,
@@ -700,7 +700,7 @@ type RuntimeDependencies = Readonly<{
  * @compatibility ControlRecordの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
 type ControlRecord = {
-  workspaceTarget?: BorrowedWorkspaceTarget;
+  workspaceTarget?: BorrowedExecutionTarget;
   borrowedWorkspaceCapability?: object;
   lifecycleState: RuntimeLifecycleState;
   managementCapability: object;
@@ -3213,8 +3213,8 @@ const productionDependencies: RuntimeDependencies = Object.freeze({
   poisonProcessAfterCleanupUnknown: poisonRuntimeProcessAfterCleanupUnknown,
   isProcessPoisoned: isRuntimeProcessPoisoned,
   bindRepository: bindRuntimeOwnedRepositoryOperation,
-  materializeWorkspace: materializeRuntimeOwnedRepositoryWorkspace,
-  projectReviewerReadContent: orchestratorOwnedCandidateReadContent,
+  materializeWorkspace: bindRuntimeOwnedExecutionSnapshot,
+  projectReviewerReadContent: projectReviewerReadContent,
   issueSelection: issueRuntimeOwnedDelegationSelectionGrant,
   preflightSlate: preflightRuntimeOwnedDelegationExecutionSlate,
   revokeSelection: revokeRuntimeOwnedDelegationSelectionGrant,
@@ -3268,8 +3268,8 @@ const productionDependencies: RuntimeDependencies = Object.freeze({
     ),
   startProcess: startRuntimeOwnedDockerProcessController,
   cancelProcess: cancelRuntimeOwnedDockerProcessController,
-  captureCandidate: captureRuntimeOwnedCandidateRevision,
-  verifyCandidate: verifyRuntimeOwnedCandidateRevision,
+  captureCandidate: captureExecutionChangeSnapshot,
+  verifyCandidate: verifyExecutionChangeSnapshot,
   finalizeDockerRecovery: finalizeRuntimeOwnedDockerRecovery,
   readDockerProjectResult: readRuntimeOwnedDockerProjectResult,
   completeDockerProjectResultDelivery:
@@ -3343,7 +3343,7 @@ function createRuntime(dependencies: RuntimeDependencies) {
         | "coordinator_cli"
         | "workbench"
         | "orchestrator" = "coordinator_cli",
-      workspaceTarget?: BorrowedWorkspaceTarget,
+      workspaceTarget?: BorrowedExecutionTarget,
     ) => {
       if (
         consumer !== "coordinator_cli" &&
@@ -3791,7 +3791,7 @@ function createRuntime(dependencies: RuntimeDependencies) {
         })
         .then((result): TaskCompletionRecord => {
           if (control.workspaceTarget) {
-            const workspaceResult = projectBorrowedWorkspaceResult(
+            const workspaceResult = projectBorrowedExecutionResult(
               control.borrowedWorkspaceCapability,
               control.workspaceTarget,
             );
@@ -3977,7 +3977,7 @@ export function startRuntimeOwnedCoordinatorTask(
     | "coordinator_cli"
     | "workbench"
     | "orchestrator" = "coordinator_cli",
-  rawWorkspaceTarget?: BorrowedWorkspaceTarget,
+  rawWorkspaceTarget?: BorrowedExecutionTarget,
 ) {
   if (isRuntimeProcessEffectBlocked()) {
     throw new Error(
@@ -3994,7 +3994,7 @@ export function startRuntimeOwnedCoordinatorTask(
   const workspaceTarget =
     rawWorkspaceTarget === undefined
       ? null
-      : inspectBorrowedWorkspaceTarget(repositoryRoot, rawWorkspaceTarget);
+      : inspectBorrowedExecutionTarget(repositoryRoot, rawWorkspaceTarget);
   if (workspaceTarget === null)
     throw new Error("coordinator_task_workspace_target_invalid");
   if (

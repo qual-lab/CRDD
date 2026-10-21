@@ -41,7 +41,7 @@ import {
   observeHostRecoveryCleanup,
   parseHostRecoveryToken,
   validateHostRecoveryTransitionLineage,
-} from "../storage/recovery-record.ts";
+} from "./host-recovery-record.ts";
 import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
 import {
   consumeRuntimeOwnedProviderHomeObservationCapability,
@@ -50,7 +50,7 @@ import {
 import {
   borrowRuntimeOwnedCoordinatorStateRepository,
   borrowRuntimeOwnedCoordinatorRecoveryRepository,
-} from "../workspace/binding.ts";
+} from "./repository-binding.ts";
 import {
   coordinatorConsumerCompletionPolicy,
   decodeCoordinatorStateSnapshot,
@@ -103,10 +103,10 @@ import {
   createDockerRestartRequestId,
   type DockerRestartCheckpoint,
   isDockerRestartCheckpointSettled,
-} from "../storage/restart-checkpoint.ts";
+} from "./restart-checkpoint.ts";
 import { inspectRuntimeOwnedDevelopmentOperationContext } from "./development-measurement-session.ts";
 import { verifyRuntimeOwnedDockerProviderSubmissionNotice } from "./provider-controller.ts";
-import { parseDockerTaskRecoveryId } from "../storage/recovery-identity.ts";
+import { parseDockerTaskRecoveryId } from "../../../docker-isolation/src/index.ts";
 
 /**
  * 現在Repositoryの状態をTask入場前に観測する。

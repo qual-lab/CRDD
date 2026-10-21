@@ -836,7 +836,7 @@ async function runProbe(target: string, scenario: string) {
       return new URL("../../../platform-access/src/index.ts", import.meta.url)
         .href;
     const sources: Record<string, string> = {
-      "repository-operation-runtime": "workspace/binding.ts",
+      "repository-operation-runtime": "execution/repository-binding.ts",
       "execution-environment": "execution/operation.ts",
       "development-source-observation":
         "execution/development-source-observation.ts",
@@ -855,17 +855,27 @@ async function runProbe(target: string, scenario: string) {
       },
     },
   );
+  await mock.module(
+    new URL("../../src/execution/provider-execution.ts", import.meta.url).href,
+    {
+      namedExports: {
+        createRuntimeOwnedProviderAdviceRuntime: () => {
+          throw new Error("advice_runtime_not_used_by_native_observation");
+        },
+        classifyProviderAdviceHostFailure: () => {
+          throw new Error("advice_failure_not_used_by_native_observation");
+        },
+        recoverProviderAdviceHostOperation: () => {
+          throw new Error("advice_recovery_not_used_by_native_observation");
+        },
+      },
+    },
+  );
   await mock.module(moduleUrl("repository-operation-runtime"), {
     namedExports: {
-      inspectRepositoryIdentityCandidate: () => ({
-        commit:
-          isArmed &&
-          nativeEffectObservations > 0 &&
-          scenario === "post-repository"
-            ? "9".repeat(40)
-            : "a".repeat(40),
-        tree: "b".repeat(40),
-      }),
+      verifyRuntimeOwnedRepositoryBindingCapability: () => {
+        throw new Error("binding_verification_not_used_by_native_observation");
+      },
       borrowRuntimeOwnedRepositorySource: (
         repository: object,
         operation: object,
@@ -877,6 +887,24 @@ async function runProbe(target: string, scenario: string) {
               revision: "a".repeat(40),
             }
           : null,
+    },
+  });
+  const versionControlUrl = new URL(
+    "../../../version-control/src/index.ts",
+    import.meta.url,
+  ).href;
+  await mock.module(versionControlUrl, {
+    namedExports: {
+      ...(await import(versionControlUrl)),
+      inspectRepositoryIdentityCandidate: () => ({
+        commit:
+          isArmed &&
+          nativeEffectObservations > 0 &&
+          scenario === "post-repository"
+            ? "9".repeat(40)
+            : "a".repeat(40),
+        tree: "b".repeat(40),
+      }),
     },
   });
   await mock.module(moduleUrl("execution-environment"), {
@@ -1103,6 +1131,18 @@ async function runProbe(target: string, scenario: string) {
   };
   await mock.module(moduleUrl("native-artifact-observation"), {
     namedExports: {
+      ...Object.fromEntries(
+        Object.entries(
+          await import(moduleUrl("native-artifact-observation")),
+        ).map(([name, value]) => [
+          name,
+          typeof value === "function"
+            ? () => {
+                throw new Error("native_observation_dependency_not_allowed");
+              }
+            : value,
+        ]),
+      ),
       ...artifactMock.namedExports,
       observeWindowsProviderHome: (
         provider: string,

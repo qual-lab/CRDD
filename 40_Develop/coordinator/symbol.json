@@ -6,7 +6,7 @@
     {
       "symbolId": "coordinator.source.repository-operation.borrowed-workspace",
       "kind": "file",
-      "path": "src/workspace/borrowed-tree.ts",
+      "path": "src/execution/borrowed-tree.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000008"
@@ -177,7 +177,7 @@
     {
       "symbolId": "coordinator.diagnostics.runtime-repair",
       "kind": "module",
-      "path": "src/diagnostics/runtime-repair.ts",
+      "path": "src/execution/runtime-repair.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -238,7 +238,7 @@
     {
       "symbolId": "coordinator.state-storage.restart-checkpoint",
       "kind": "file",
-      "path": "src/storage/restart-checkpoint.ts",
+      "path": "src/execution/restart-checkpoint.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -246,7 +246,7 @@
     {
       "symbolId": "coordinator.test.unit.restart-checkpoint",
       "kind": "test-suite",
-      "path": "tests/unit/storage/restart-checkpoint.contract.test.ts",
+      "path": "tests/unit/execution/restart-checkpoint.contract.test.ts",
       "qaIds": [
         "QA-000003"
       ],
@@ -254,7 +254,8 @@
         "PRL-UT-006"
       ],
       "verifies": [
-        "coordinator.state-storage.restart-checkpoint"
+        "coordinator.state-storage.restart-checkpoint",
+        "docker-isolation.cleanup.recovery-identity"
       ]
     },
     {
@@ -492,7 +493,7 @@
     {
       "symbolId": "coordinator.test.integration.workbench-ai-profile-catalog-flow",
       "kind": "test-suite",
-      "path": "tests/integration/workbench-ai-profile-catalog-flow.integration.test.ts",
+      "path": "tests/integration/advice-profile-catalog-flow.integration.test.ts",
       "qaIds": [
         "QA-000001"
       ],
@@ -1574,7 +1575,7 @@
     {
       "symbolId": "coordinator.test.unit.authority-file-bundle",
       "kind": "test-suite",
-      "path": "tests/unit/authority/file-bundle.contract.test.ts",
+      "path": "tests/unit/execution/authority-bundle.contract.test.ts",
       "qaIds": [
         "QA-000003"
       ],
@@ -1591,7 +1592,7 @@
     {
       "symbolId": "coordinator.test.unit.authority-grant-verifier",
       "kind": "test-suite",
-      "path": "tests/unit/authority/grant-verifier.contract.test.ts",
+      "path": "tests/unit/execution/authority-validation.contract.test.ts",
       "qaIds": [
         "QA-000003"
       ],
@@ -1606,7 +1607,7 @@
     {
       "symbolId": "coordinator.test.unit.authority-prelaunch-verifier",
       "kind": "test-suite",
-      "path": "tests/unit/authority/prelaunch-verifier.contract.test.ts",
+      "path": "tests/unit/execution/prelaunch-validation.contract.test.ts",
       "qaIds": [
         "QA-000003"
       ],
@@ -1624,7 +1625,7 @@
     {
       "symbolId": "coordinator.test.unit.authority-root-path-lexical",
       "kind": "test-suite",
-      "path": "tests/unit/authority/root-path-lexical.contract.test.ts",
+      "path": "tests/unit/execution/root-path.contract.test.ts",
       "qaIds": [
         "QA-000007"
       ],
@@ -1638,7 +1639,7 @@
     {
       "symbolId": "coordinator.test.unit.authority-trust-loader",
       "kind": "test-suite",
-      "path": "tests/unit/authority/trust-loader.contract.test.ts",
+      "path": "tests/unit/execution/authority-policy.contract.test.ts",
       "qaIds": [
         "QA-000010"
       ],
@@ -1757,7 +1758,7 @@
     {
       "symbolId": "coordinator.test.unit.coordinator-operation-creation-internal",
       "kind": "test-suite",
-      "path": "tests/unit/workspace/create.contract.test.ts",
+      "path": "tests/unit/execution/operation-creation.contract.test.ts",
       "qaIds": [
         "QA-000003"
       ],
@@ -1877,7 +1878,7 @@
     {
       "symbolId": "coordinator.test.unit.host-execution.recovery-record",
       "kind": "test-suite",
-      "path": "tests/unit/storage/recovery-record.contract.test.ts",
+      "path": "tests/unit/execution/host-recovery-record.contract.test.ts",
       "qaIds": [
         "QA-000003"
       ],
@@ -1933,7 +1934,7 @@
     {
       "symbolId": "coordinator.test.unit.doctor",
       "kind": "test-suite",
-      "path": "tests/unit/doctor.contract.test.ts",
+      "path": "tests/unit/cli/doctor.contract.test.ts",
       "qaIds": [
         "QA-000003"
       ],
@@ -2004,7 +2005,7 @@
     {
       "symbolId": "coordinator.test.unit.local-personal-authority-runtime",
       "kind": "test-suite",
-      "path": "tests/unit/authority/local-personal-grant.contract.test.ts",
+      "path": "tests/unit/execution/local-authority.contract.test.ts",
       "qaIds": [
         "QA-000003"
       ],
@@ -2260,7 +2261,7 @@
     {
       "symbolId": "coordinator.test.unit.workbench-ai-request-application",
       "kind": "test-suite",
-      "path": "tests/unit/workbench-ai/advice-contract.contract.test.ts",
+      "path": "tests/unit/execution/advice-request.contract.test.ts",
       "qaIds": [
         "QA-000006"
       ],
@@ -2277,7 +2278,7 @@
     {
       "symbolId": "coordinator.test.unit.workbench-ai-advice-execution-plan",
       "kind": "test-suite",
-      "path": "tests/unit/workbench-ai/advice-execution-plan.contract.test.ts",
+      "path": "tests/unit/execution/provider-advice-plan.contract.test.ts",
       "qaIds": [
         "QA-000006"
       ],
@@ -2292,7 +2293,7 @@
     {
       "symbolId": "coordinator.test.unit.workbench-ai-advice-provider-command",
       "kind": "test-suite",
-      "path": "tests/unit/workbench-ai-advice-provider-command.contract.test.ts",
+      "path": "tests/unit/provider-advice-command.contract.test.ts",
       "qaIds": [
         "QA-000006"
       ],
@@ -2310,7 +2311,7 @@
     {
       "symbolId": "coordinator.test.unit.workbench-ai-advice-provider-output",
       "kind": "test-suite",
-      "path": "tests/unit/workbench-ai-advice-provider-output.contract.test.ts",
+      "path": "tests/unit/provider-advice-output.contract.test.ts",
       "qaIds": [
         "QA-000006"
       ],
@@ -2324,7 +2325,7 @@
     {
       "symbolId": "coordinator.test.unit.workbench-ai-advice-provider-executor",
       "kind": "test-suite",
-      "path": "tests/unit/workbench-ai/provider-adapter-execution.contract.test.ts",
+      "path": "tests/unit/execution/advice-runtime-result.contract.test.ts",
       "qaIds": [
         "QA-000006"
       ],
@@ -2339,7 +2340,7 @@
     {
       "symbolId": "coordinator.test.unit.workbench-ai-advice-production-runtime",
       "kind": "test-suite",
-      "path": "tests/unit/workbench-ai/advice-execution.contract.test.ts",
+      "path": "tests/unit/execution/provider-execution.contract.test.ts",
       "qaIds": [
         "QA-000006"
       ],
@@ -2356,7 +2357,7 @@
     {
       "symbolId": "coordinator.test.unit.workbench-ai-advice-runtime-packet",
       "kind": "test-suite",
-      "path": "tests/unit/workbench-ai/advice-packet.contract.test.ts",
+      "path": "tests/unit/execution/provider-packet.contract.test.ts",
       "qaIds": [
         "QA-000006"
       ],
@@ -2370,7 +2371,7 @@
     {
       "symbolId": "coordinator.test.unit.workbench-ai-advice-dispatch-runtime",
       "kind": "test-suite",
-      "path": "tests/unit/workbench-ai/advice-dispatch.contract.test.ts",
+      "path": "tests/unit/execution/advice-dispatch.contract.test.ts",
       "qaIds": [
         "QA-000006"
       ],
@@ -2384,7 +2385,7 @@
     {
       "symbolId": "coordinator.test.unit.workbench-ai-provider-adapter",
       "kind": "test-suite",
-      "path": "tests/unit/workbench-ai/provider-adapter.contract.test.ts",
+      "path": "tests/unit/execution/advice-profile.contract.test.ts",
       "qaIds": [
         "QA-000006"
       ],
@@ -2443,13 +2444,13 @@
         "AIT-UT-005"
       ],
       "verifies": [
-        "coordinator.source.src.security.release.identity.grammar"
+        "coordinator.source.src.security.signed.runner.safety.observation"
       ]
     },
     {
       "symbolId": "coordinator.test.unit.root-observation",
       "kind": "test-suite",
-      "path": "tests/unit/root-observation.contract.test.ts",
+      "path": "tests/unit/execution/root-observation.contract.test.ts",
       "qaIds": [
         "QA-000003",
         "QA-000007"
@@ -2465,7 +2466,7 @@
     {
       "symbolId": "coordinator.test.unit.root-protection-policy",
       "kind": "test-suite",
-      "path": "tests/unit/root-protection-policy.contract.test.ts",
+      "path": "tests/unit/execution/root-protection-policy.contract.test.ts",
       "qaIds": [
         "QA-000007"
       ],
@@ -2653,7 +2654,7 @@
     {
       "symbolId": "coordinator.source.src.core.docker.recovery.command.report",
       "kind": "file",
-      "path": "src/diagnostics/docker-recovery-command-report.ts",
+      "path": "src/cli/recovery-report.ts",
       "archIds": [
         "ARCH-000003"
       ]
@@ -2701,7 +2702,7 @@
     {
       "symbolId": "coordinator.source.src.core.development.execution.timing",
       "kind": "file",
-      "path": "src/diagnostics/development-execution-timing.ts",
+      "path": "src/execution/development-execution-timing.ts",
       "archIds": [
         "ARCH-000018"
       ]
@@ -2725,7 +2726,7 @@
     {
       "symbolId": "coordinator.source.src.security.repository.operation.runtime",
       "kind": "file",
-      "path": "src/workspace/binding.ts",
+      "path": "src/execution/repository-binding.ts",
       "archIds": [
         "ARCH-000009"
       ]
@@ -2805,7 +2806,7 @@
     {
       "symbolId": "coordinator.source.src.security.host.recovery.record",
       "kind": "file",
-      "path": "src/storage/recovery-record.ts",
+      "path": "src/execution/host-recovery-record.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -2824,6 +2825,7 @@
       ],
       "verifies": [
         "coordinator.source.src.security.host.recovery.record",
+        "docker-isolation.cleanup.probe-record",
         "coordinator.source.src.security.execution.environment"
       ]
     },
@@ -2873,7 +2875,7 @@
     {
       "symbolId": "coordinator.source.src.security.secret.material.policy",
       "kind": "file",
-      "path": "src/authority/secret-material-policy.ts",
+      "path": "src/execution/secret-validation.ts",
       "archIds": [
         "ARCH-000014"
       ]
@@ -2905,7 +2907,7 @@
     {
       "symbolId": "coordinator.source.src.composition.workbench.ai.request.application",
       "kind": "file",
-      "path": "src/workbench-ai/advice-contract.ts",
+      "path": "src/execution/types.ts",
       "archIds": [
         "ARCH-000010",
         "ARCH-000015"
@@ -2914,7 +2916,7 @@
     {
       "symbolId": "coordinator.source.src.composition.workbench.ai.repository.composition",
       "kind": "file",
-      "path": "src/workbench-ai/repository-composition.ts",
+      "path": "src/execution/request.ts",
       "archIds": [
         "ARCH-000009",
         "ARCH-000015"
@@ -2923,7 +2925,7 @@
     {
       "symbolId": "coordinator.source.src.security.workbench.ai.advice.result",
       "kind": "file",
-      "path": "src/workbench-ai/advice-result.ts",
+      "path": "src/execution/task-structured-result.ts",
       "archIds": [
         "ARCH-000015"
       ]
@@ -2931,7 +2933,7 @@
     {
       "symbolId": "coordinator.source.src.security.workbench.ai.advice.execution.plan",
       "kind": "file",
-      "path": "src/workbench-ai/advice-execution-plan.ts",
+      "path": "src/execution/provider-plan.ts",
       "archIds": [
         "ARCH-000010",
         "ARCH-000015"
@@ -2940,7 +2942,7 @@
     {
       "symbolId": "coordinator.source.src.security.workbench.ai.advice.production.runtime",
       "kind": "file",
-      "path": "src/workbench-ai/advice-execution.ts",
+      "path": "src/execution/provider-execution.ts",
       "archIds": [
         "ARCH-000008",
         "ARCH-000010",
@@ -2950,7 +2952,7 @@
     {
       "symbolId": "coordinator.source.src.security.workbench.ai.advice.runtime.packet",
       "kind": "file",
-      "path": "src/workbench-ai/advice-packet.ts",
+      "path": "src/execution/provider-packet.ts",
       "archIds": [
         "ARCH-000010",
         "ARCH-000015"
@@ -2959,7 +2961,7 @@
     {
       "symbolId": "coordinator.source.src.security.workbench.ai.advice.dispatch.runtime",
       "kind": "file",
-      "path": "src/workbench-ai/advice-dispatch.ts",
+      "path": "src/execution/request.ts",
       "archIds": [
         "ARCH-000015"
       ]
@@ -2967,7 +2969,7 @@
     {
       "symbolId": "coordinator.source.src.security.workbench.ai.provider.adapter",
       "kind": "file",
-      "path": "src/workbench-ai/provider-adapter.ts",
+      "path": "src/execution/request.ts",
       "archIds": [
         "ARCH-000010",
         "ARCH-000015"
@@ -2976,7 +2978,7 @@
     {
       "symbolId": "coordinator.source.src.security.workbench.ai.advice.task",
       "kind": "file",
-      "path": "src/workbench-ai/advice-task.ts",
+      "path": "src/execution/task-packet.ts",
       "archIds": [
         "ARCH-000014",
         "ARCH-000015"
@@ -3012,7 +3014,7 @@
     {
       "symbolId": "coordinator.source.src.security.repository.workspace.runtime",
       "kind": "file",
-      "path": "src/workspace/execution-target.ts",
+      "path": "src/execution/change-snapshot.ts",
       "archIds": [
         "ARCH-000013"
       ]
@@ -3049,7 +3051,7 @@
     {
       "symbolId": "coordinator.source.src.security.docker.isolation",
       "kind": "file",
-      "path": "src/diagnostics/isolation-probe.ts",
+      "path": "src/execution/isolation-probe.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -3137,7 +3139,7 @@
     {
       "symbolId": "coordinator.source.src.security.authority.file.bundle",
       "kind": "file",
-      "path": "src/authority/file-bundle.ts",
+      "path": "src/execution/authority-bundle.ts",
       "archIds": [
         "ARCH-000014"
       ]
@@ -3145,7 +3147,7 @@
     {
       "symbolId": "coordinator.source.src.security.authority.grant.verifier",
       "kind": "file",
-      "path": "src/authority/grant-verifier.ts",
+      "path": "src/execution/authority-validation.ts",
       "archIds": [
         "ARCH-000014"
       ]
@@ -3153,7 +3155,7 @@
     {
       "symbolId": "coordinator.source.src.security.authority.trust.loader",
       "kind": "file",
-      "path": "src/authority/trust-loader.ts",
+      "path": "src/execution/authority-policy.ts",
       "archIds": [
         "ARCH-000014"
       ]
@@ -3169,7 +3171,7 @@
     {
       "symbolId": "coordinator.source.src.security.authority.prelaunch.verifier",
       "kind": "file",
-      "path": "src/authority/prelaunch-verifier.ts",
+      "path": "src/execution/prelaunch-validation.ts",
       "archIds": [
         "ARCH-000014"
       ]
@@ -3177,7 +3179,7 @@
     {
       "symbolId": "coordinator.source.src.security.authority.root.path.lexical",
       "kind": "file",
-      "path": "src/authority/root-path-lexical.ts",
+      "path": "src/execution/root-path.ts",
       "archIds": [
         "ARCH-000014"
       ]
@@ -3185,7 +3187,7 @@
     {
       "symbolId": "coordinator.source.src.security.coordinator.operation.creation.internal",
       "kind": "file",
-      "path": "src/workspace/create.ts",
+      "path": "src/execution/operation-creation.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -3225,7 +3227,7 @@
     {
       "symbolId": "coordinator.source.src.core.doctor",
       "kind": "file",
-      "path": "src/diagnostics/doctor.ts",
+      "path": "src/cli/doctor.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -3249,7 +3251,7 @@
     {
       "symbolId": "coordinator.source.src.security.local.personal.authority.runtime",
       "kind": "file",
-      "path": "src/authority/local-personal-grant.ts",
+      "path": "src/execution/local-authority.ts",
       "archIds": [
         "ARCH-000014"
       ]
@@ -3257,7 +3259,7 @@
     {
       "symbolId": "coordinator.source.src.security.runtime.trust.evaluator",
       "kind": "file",
-      "path": "src/authority/runtime-trust.ts",
+      "path": "src/execution/runtime-trust.ts",
       "archIds": [
         "ARCH-000014"
       ]
@@ -3265,7 +3267,7 @@
     {
       "symbolId": "coordinator.source.src.security.root.observation",
       "kind": "file",
-      "path": "src/workspace/root-observation.ts",
+      "path": "src/execution/root-observation.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -3335,17 +3337,9 @@
       ]
     },
     {
-      "symbolId": "coordinator.source.src.security.release.identity.grammar",
-      "kind": "file",
-      "path": "src/diagnostics/release-identity-grammar.ts",
-      "archIds": [
-        "ARCH-000014"
-      ]
-    },
-    {
       "symbolId": "coordinator.source.src.security.root.protection.policy",
       "kind": "file",
-      "path": "src/workspace/root-protection-policy.ts",
+      "path": "src/execution/root-protection-policy.ts",
       "archIds": [
         "ARCH-000014"
       ]
@@ -3361,7 +3355,7 @@
     {
       "symbolId": "coordinator.diagnostics.runtime-restart",
       "kind": "file",
-      "path": "src/diagnostics/runtime-restart.ts",
+      "path": "src/execution/runtime-restart.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -3414,7 +3408,7 @@
     {
       "symbolId": "coordinator.source.src.security.host.terminal.record",
       "kind": "file",
-      "path": "src/storage/terminal-record.ts",
+      "path": "src/execution/terminal-record.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -3430,7 +3424,7 @@
     {
       "symbolId": "coordinator.source.src.security.host.terminal.caller.checkpoint",
       "kind": "file",
-      "path": "src/storage/terminal-caller-checkpoint.ts",
+      "path": "src/execution/terminal-caller-checkpoint.ts",
       "archIds": [
         "ARCH-000008",
         "ARCH-000011"
@@ -3457,7 +3451,7 @@
     {
       "symbolId": "coordinator.test.unit.host-terminal-record",
       "kind": "test-suite",
-      "path": "tests/unit/storage/terminal-record.contract.test.ts",
+      "path": "tests/unit/execution/terminal-record.contract.test.ts",
       "qaIds": [
         "QA-000003"
       ],

@@ -35,7 +35,7 @@ import {
 import { createDevelopmentMeasurementConstraints } from "../../src/execution/development-measurement-constraints.ts";
 import { createOwnedProcessTreeFixture } from "../fixtures/docker-owned-process-test-support.ts";
 import { describeDockerProviderExecutionLocations } from "../../../docker-isolation/src/index.ts";
-import { bindWorkbenchAiProviderCommand } from "../../src/workbench-ai/advice-execution-plan.ts";
+import { bindProviderAdviceCommand } from "../../src/execution/provider-plan.ts";
 
 /**
  * createPlanのTest準備責務を実行する。
@@ -164,7 +164,7 @@ test("実plannerのProbe・Task・助言設定は通知全文へ接続しClaude�
   assert.equal(codexProbe.status, "candidate");
   assert.equal(codexExecutor.status, "candidate");
   assert.equal(codexReviewer.status, "candidate");
-  const codexAdvice = bindWorkbenchAiProviderCommand(
+  const codexAdvice = bindProviderAdviceCommand(
     planProviderExecution(
       {
         provider: "codex",
@@ -179,7 +179,7 @@ test("実plannerのProbe・Task・助言設定は通知全文へ接続しClaude�
       describeDockerProviderExecutionLocations("codex", "advice"),
     ).plan ?? assert.fail("provider_execution_plan_not_ready"),
   );
-  const claudeAdvice = bindWorkbenchAiProviderCommand(
+  const claudeAdvice = bindProviderAdviceCommand(
     planProviderExecution(
       {
         provider: "claude",

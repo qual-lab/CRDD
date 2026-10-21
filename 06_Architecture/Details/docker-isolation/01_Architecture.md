@@ -30,6 +30,20 @@ ProxyはDNS応答の重複を除いた最大32アドレスを検査し、一つ�
 
 ## Source責務別配置 — 2026-10-20
 
+### Docker固有記録の所有者
+
+`cleanup/recovery-identity.ts`はDocker Task回復IDの固定文法を、`cleanup/probe-record.ts`はProbe記録と技術資源のRoot／子実体照合を所有する。Coordinatorの旧Storageから処理を移管し、互換Fileを残さない。記録Schema、token形式、保存Path、Hash、nonce、読戻し・差替え拒否と書込み順序は維持する。実行許可・上位Task・配送・Host終端の保存は所有しない。
+
+| 公開操作 | 境界 |
+|---|---|
+| `parseDockerTaskRecoveryId` | 固定三成分の解析またはnull。解析だけで実行／回収資格を発行しない |
+| `formatDockerIsolationRecoveryToken`、`isDockerIsolationRecoveryIdCandidate`、`parseDockerProbeRecoveryToken` | Probe回復参照の整形・文法確認・解析。旧参照を同じ形式で保持 |
+| `writeDockerProbeRecoveryRecord`、`loadDockerProbeRecoveryRecord` | 渡されたmanagement／Root内の既存固定記録を保存・読戻し。新しい保管領域や探索Registryを作らない |
+| `classifyDockerProbeRecoveryChildren`、`requireDockerProbeRecoveryMounts` | 元Rootと子実体を照合し、欠測・置換・linkを拒否。観測を処置許可へ昇格しない |
+| `DockerMounts`、`LoadedDockerRecovery` | 上記操作に渡す／返す既存の型。実装Owner移管だけで新fieldを追加しない |
+
+CoordinatorはDI Rootへ接続し、DIはCoordinatorをimportしない。Host終端記録、再起動要求とRepositoryの相関、現在状態のWriterと配送は上位Ownerに残す。汎用JSON確定Journalを名前だけでDocker責務へ移さず、新しいLock・Recovery機構は追加しない。
+
 `execution/`は本実行の計画・実行・Session・結果だけを所有する。認証用隔離は`authentication/`、診断は`probe/`、Docker CLIの信頼・設定・環境は`docker-cli/`、所有子Processは`process/`、固定Image記述は`image/`、実資源の回収は`cleanup/`、Desktop・Engine観測と既存修復は`docker-desktop/`へ分ける。標準公開入口は`src/index.ts`一つ、公開Symbol集合・処理・状態・失敗条件・Protocol・Imageは配置だけでは変えない。Native技術処理はPlatform Accessへの既存委譲を維持する。
 
 UTは同じ責務Folderへ追従し、ITは既存の操作・結合シナリオを維持する。移動・全利用側と検証結果は[再編対応表](../../../99_Roadmap/Changes/CHG-000082/docker-isolation-source-structure.md)を参照する。固定材料も責務別に配置する。配置等価性、追加通信の接続、本番全体の成立を別々に評価する。

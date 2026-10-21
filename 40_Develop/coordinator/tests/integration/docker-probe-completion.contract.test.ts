@@ -47,7 +47,7 @@ function completionFunctionSource(source: string, name: string) {
  */
 test("Probe完了の閉factsは全profileで相関され実私有評価だけで公開される", () => {
   const source = fs.readFileSync(
-    new URL("../../src/diagnostics/isolation-probe.ts", import.meta.url),
+    new URL("../../src/execution/isolation-probe.ts", import.meta.url),
     "utf8",
   );
   const helpers = [

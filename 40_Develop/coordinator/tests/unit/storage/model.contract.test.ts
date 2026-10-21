@@ -48,7 +48,7 @@ import {
 import {
   createDockerRestartRequestId,
   decodeDockerRestartCheckpoint,
-} from "../../../src/storage/restart-checkpoint.ts";
+} from "../../../src/execution/restart-checkpoint.ts";
 
 const binding = "a".repeat(64);
 

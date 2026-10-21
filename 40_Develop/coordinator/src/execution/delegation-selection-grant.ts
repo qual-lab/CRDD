@@ -15,7 +15,7 @@ import {
 import { verifyOwnedOperationManagementCapability } from "./operation.ts";
 import { observeRuntimeOwnedProviderEligibility } from "./eligibility-observation.ts";
 import { resolveRuntimeOwnedProviderModelProfile } from "../../../ai-adapter/src/index.ts";
-import { verifyRuntimeOwnedRepositoryOperation } from "../workspace/binding.ts";
+import { verifyRuntimeOwnedRepositoryOperation } from "./repository-binding.ts";
 
 export const DELEGATION_SELECTION_GRANT_RUNTIME_CONTRACT =
   "crdd-coordinator/delegation-selection-grant-runtime";

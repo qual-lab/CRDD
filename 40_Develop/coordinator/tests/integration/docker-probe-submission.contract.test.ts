@@ -51,7 +51,7 @@ function probeFunctionSource(source: string, name: string) {
  */
 test("Probe二保存はcreate前とstart前をそれぞれ停止できる", () => {
   const source = fs.readFileSync(
-    new URL("../../src/diagnostics/isolation-probe.ts", import.meta.url),
+    new URL("../../src/execution/isolation-probe.ts", import.meta.url),
     "utf8",
   );
   const marker = "function runDockerIsolationScenario(";
@@ -331,7 +331,7 @@ test("Probe二保存はcreate前とstart前をそれぞれ停止できる", () =
  */
 test("全Probe作成Callerはprofile・Probe名・三Path・bindingを一致させる", async () => {
   const source = fs.readFileSync(
-    new URL("../../src/diagnostics/isolation-probe.ts", import.meta.url),
+    new URL("../../src/execution/isolation-probe.ts", import.meta.url),
     "utf8",
   );
   const mounts = {

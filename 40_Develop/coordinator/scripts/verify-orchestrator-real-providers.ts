@@ -23,7 +23,7 @@ import { observeRuntimeOwnedDevelopmentSource } from "../src/execution/developme
 import {
   inspectRepositoryIdentityCandidate,
   inspectRepositoryRevisionCandidate,
-} from "../src/workspace/binding.ts";
+} from "../../version-control/src/index.ts";
 import {
   buildOrchestratorRealProviderReport,
   captureCanonicalRepositorySnapshot,

@@ -51,7 +51,7 @@ test("実在試験、登録試験、実行可能Ownerをexactに照合する", (
     "40_Develop/coordinator/tests/integration/host-recovery-record.contract.test.ts";
   assert.ok(discoverRepositoryTestFiles(repositoryRoot).includes(expected));
   for (const changed of [
-    "40_Develop/coordinator/src/storage/recovery-record.ts",
+    "40_Develop/coordinator/src/execution/host-recovery-record.ts",
     "40_Develop/coordinator/src/execution/operation.ts",
   ] as const) {
     const selected = selectRegressionTests(catalog, [changed]);

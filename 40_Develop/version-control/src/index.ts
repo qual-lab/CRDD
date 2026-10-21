@@ -22,6 +22,8 @@ export {
   type FixedRevisionIdentity,
   type FixedRevisionIdentityAdapter,
   observeFixedRevisionIdentity,
+  inspectRepositoryRevisionCandidate,
+  inspectRepositoryIdentityCandidate,
 } from "./repository/revision.ts";
 export {
   type CandidateMaterialization,

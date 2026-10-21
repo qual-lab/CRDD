@@ -38,7 +38,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
           }).sort((left,right) => left.recoveryId.localeCompare(right.recoveryId));
           assert.equal(identities.length, 2);
           const scopeSha256 = createHash('sha256').update(JSON.stringify({schema:'crdd-coordinator/docker-restart-scope/v1',repositoryBinding:snapshot.repositoryBinding,identities})).digest('hex');
-          const restartModel = await import(${JSON.stringify(new URL("../../src/storage/restart-checkpoint.ts", import.meta.url).href)});
+          const restartModel = await import(${JSON.stringify(new URL("../../src/execution/restart-checkpoint.ts", import.meta.url).href)});
           assert.equal(input.requestId, restartModel.createDockerRestartRequestId(snapshot.repositoryBinding,target.identitySha256,target.recoveryId,scopeSha256));
           restartExpectedBytes = before;
           const initial = {requestId:input.requestId,scopeSha256,request:'not_issued',cleanup:'not_required',result:null};
@@ -67,11 +67,11 @@ export const currentHostTransitionWorkerSource = `(async () => {
       const model = await import(${JSON.stringify(new URL("../../src/storage/model.ts", import.meta.url).href)});
       const recovery = await import(${JSON.stringify(new URL("../../src/execution/recovery.ts", import.meta.url).href)});
       const host = await import(${JSON.stringify(new URL("../../src/execution/operation.ts", import.meta.url).href)});
-      const record = await import(${JSON.stringify(new URL("../../src/storage/recovery-record.ts", import.meta.url).href)});
+      const record = await import(${JSON.stringify(new URL("../../src/execution/host-recovery-record.ts", import.meta.url).href)});
       const id = process.argv[2], verified = vc.verifyRepositoryRoot(process.cwd());
       assert.equal(verified.status, 'completed'); assert.ok(verified.capability);
       if(restartEntry) {
-        const restart = await import(${JSON.stringify(new URL("../../src/diagnostics/runtime-restart.ts", import.meta.url).href)});
+        const restart = await import(${JSON.stringify(new URL("../../src/execution/runtime-restart.ts", import.meta.url).href)});
         const statePath = path.join(process.cwd(), '.crdd', 'coordinator', 'state.json');
         const before = fs.readFileSync(statePath), snapshot = JSON.parse(before);
         const target = snapshot.operations.find(item => item.recoveryId === id);
@@ -746,7 +746,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
               const rebased = readerDisabled.replace(/from "([^"]+)"/g, (match, specifier) => specifier.startsWith('.') ? 'from '+JSON.stringify(new URL(specifier, storeUrl).href) : match);
               const instrumented = await import('data:text/javascript;base64,'+Buffer.from(stripTypeScriptTypes(rebased)).toString('base64'));
               assert.equal(instrumented.readRuntimeOwnedCoordinatorCurrentDeliverySnapshot(verified.capability, id).status, 'completed');
-              const binding = await import(${JSON.stringify(new URL("../../src/workspace/binding.ts", import.meta.url).href)});
+              const binding = await import(${JSON.stringify(new URL("../../src/execution/repository-binding.ts", import.meta.url).href)});
               const repository = binding.borrowRuntimeOwnedCoordinatorRecoveryRepository(verified.capability); assert.ok(repository);
               const rejected = instrumented.registerRuntimeOwnedCoordinatorRecoveryResultDelivery({ ...repository, operationId: identity.operationId }, id, () => true);
               assert.equal(rejected.status, 'blocked'); assert.equal(rejected.filesystemEffectIssued, false);

@@ -14,11 +14,11 @@ import {
   disposeRepositoryWorktree,
   inspectWorkspaceFile,
 } from "../../version-control/src/index.ts";
-import type { BorrowedWorkspaceTarget } from "../src/workspace/borrowed-tree.ts";
+import type { BorrowedExecutionTarget } from "../src/execution/borrowed-tree.ts";
 
 /** 一回の検証Toolが所有する作成結果。新しい永続台帳ではない。 */
 export type VerificationWorkspacePreparation = Readonly<{
-  target: BorrowedWorkspaceTarget;
+  target: BorrowedExecutionTarget;
   prepared: boolean;
   cleanupConfirmed: boolean;
 }>;
@@ -72,7 +72,7 @@ export function prepareVerificationWorkspace(
  * @invariant この観測だけで採用・回収成功を判断しない。
  */
 export function readVerificationWorkspaceOutput(
-  target: BorrowedWorkspaceTarget,
+  target: BorrowedExecutionTarget,
   relativePath: string,
   result: Readonly<Record<string, unknown>>,
 ) {
@@ -134,7 +134,7 @@ export function readVerificationWorkspaceOutput(
  * @invariant 借用対象の回収をCoordinatorへ持たせない。
  */
 export function closeVerificationWorkspace(
-  target: BorrowedWorkspaceTarget,
+  target: BorrowedExecutionTarget,
   result: Readonly<Record<string, unknown>>,
 ) {
   if (

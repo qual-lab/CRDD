@@ -7,9 +7,9 @@
 import { randomBytes } from "node:crypto";
 import { performance } from "node:perf_hooks";
 
-import { reverifyAuthorityBeforeProviderLaunch } from "../authority/prelaunch-verifier.ts";
+import { reverifyAuthorityBeforeProviderLaunch } from "./prelaunch-validation.ts";
 import { verifyOwnedOperationManagementCapability } from "./operation.ts";
-import { loadRuntimeOwnedLocalPersonalAuthority } from "../authority/local-personal-grant.ts";
+import { loadRuntimeOwnedLocalPersonalAuthority } from "./local-authority.ts";
 import { inspectRuntimeOwnedActiveProviderHomeMount } from "./provider-home-mount-authorization.ts";
 
 export const PROVIDER_AUTHORITY_RUNTIME_CONTRACT =

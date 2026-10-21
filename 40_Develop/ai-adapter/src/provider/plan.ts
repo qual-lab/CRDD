@@ -23,9 +23,9 @@ import {
 } from "../claude/plan.ts";
 import type { ProviderExecutionLocations } from "./types.ts";
 
-export const WORKBENCH_AI_ADVICE_PROVIDER_COMMAND_CONTRACT =
+export const PROVIDER_ADVICE_COMMAND_CONTRACT =
   "crdd-coordinator/workbench-ai-advice-provider-command";
-export const WORKBENCH_AI_ADVICE_PROVIDER_COMMAND_CONTRACT_REVISION = 1;
+export const PROVIDER_ADVICE_COMMAND_CONTRACT_REVISION = 1;
 
 /**
  * Provider計画で使う選定済みModelと推論強度を表す。
@@ -58,8 +58,8 @@ export type ProviderModelSelection = Readonly<{
  */
 
 export type ProviderAdvicePlan = Readonly<{
-  contract: typeof WORKBENCH_AI_ADVICE_PROVIDER_COMMAND_CONTRACT;
-  contractRevision: typeof WORKBENCH_AI_ADVICE_PROVIDER_COMMAND_CONTRACT_REVISION;
+  contract: typeof PROVIDER_ADVICE_COMMAND_CONTRACT;
+  contractRevision: typeof PROVIDER_ADVICE_COMMAND_CONTRACT_REVISION;
   provider: "codex" | "claude";
   command: string;
   argv: readonly string[];
@@ -412,8 +412,8 @@ export function planProviderExecution<
             locations,
           );
     const plan = Object.freeze({
-      contract: WORKBENCH_AI_ADVICE_PROVIDER_COMMAND_CONTRACT,
-      contractRevision: WORKBENCH_AI_ADVICE_PROVIDER_COMMAND_CONTRACT_REVISION,
+      contract: PROVIDER_ADVICE_COMMAND_CONTRACT,
+      contractRevision: PROVIDER_ADVICE_COMMAND_CONTRACT_REVISION,
       ...command,
     });
     return Object.freeze({

@@ -14,7 +14,7 @@ import {
   describeProviderDockerRuntimeAdapterContract,
 } from "../../../src/execution/provider-adapter.ts";
 import { planProviderExecution } from "../../../../ai-adapter/src/index.ts";
-import { describeWorkbenchAiAdviceResultSchema } from "../../../src/workbench-ai/advice-result.ts";
+import { describeAdviceResultSchema } from "../../../src/execution/task-structured-result.ts";
 import assert from "node:assert/strict";
 import { prepareDockerNetworkPolicy } from "../../../../docker-isolation/src/index.ts";
 import test, { mock } from "node:test";
@@ -33,7 +33,7 @@ import { createIsolatedDelegationSelectionGrantRuntimeCandidate } from "../../..
 import { bindDockerIsolationRuntime } from "../../../src/execution/isolation-execution.ts";
 import { describeProviderAuthentication } from "../../../../ai-adapter/src/index.ts";
 import { describeDockerProviderExecutionLocations } from "../../../../docker-isolation/src/index.ts";
-import { bindWorkbenchAiProviderCommand } from "../../../src/workbench-ai/advice-execution-plan.ts";
+import { bindProviderAdviceCommand } from "../../../src/execution/provider-plan.ts";
 
 /**
  * 共通本番依存の組立てと拒否結果が準備状態を追加しないことを確認する。
@@ -332,7 +332,7 @@ function createFixture(
  * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Workbench助言をRepository非共有のCodex Planへ固定する", () => {
-  const providerCommand = bindWorkbenchAiProviderCommand(
+  const providerCommand = bindProviderAdviceCommand(
     planProviderExecution(
       {
         provider: "codex",
@@ -342,7 +342,7 @@ test("Workbench助言をRepository非共有のCodex Planへ固定する", () => 
           exactModelId: "gpt-5.5",
           reasoningEffort: "low",
         },
-        resultSchema: describeWorkbenchAiAdviceResultSchema(),
+        resultSchema: describeAdviceResultSchema(),
       },
       describeDockerProviderExecutionLocations("codex", "advice"),
     ).plan ?? assert.fail("provider_execution_plan_not_ready"),

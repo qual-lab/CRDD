@@ -314,6 +314,8 @@ DirectoryはProviderまたは具体責務を表し、`internal/`、`application/
 | `planProviderExecution`のadvice、`parseProviderResult`のadvice | 共通計画・結果APIから内部の固有処理へ接続 | exact Profile Identity／助言計画、解析済みJSON又は固定理由 | Promptはstdin専用。Repository／Workspace共有・Toolを禁止し、共通助言Schema・開示範囲・採用判断はCoordinator |
 | Provider認証方式・Probe計画・Provider固有終了解釈 | 各Providerの用途限定公開入口 | Codexのlogin status／CODEX_HOME、Claudeのlogin／status・固定認証環境、Provider別禁止環境変数／固定記述と分類 | 秘密値は既存専用Homeに残す。実Home観測、対話Process、Docker、Lock・回復記録はCoordinator／Native。記述自体を認証確認済みとしない |
 
+助言の公開定数Symbolは`PROVIDER_ADVICE_*`を用い、呼出し元WorkbenchをProvider仕様の名称へ含めない。既存contract文字列とrevisionは保持する。この名称整理はCLI仕様・実行物・Image・認証方式の変更を含まない。
+
 Contract文字列、改訂値、理由値、固定CLI配布IdentityはFolder改名だけで変更しない。計画・変換が混在する既存Fileは責務単位で分割し、共通Packet／GrantをProvider側へ移さない。新Providerを予測したPlugin Registryや動的実行Frameworkは作らず、現在のCodex／Claudeの二つ目の具象から共通契約を固定する。
 
 Codex／Claude計画が利用する共通Record入力防御は、[Domain ModelのPlain Data公開契約](../domain-model/01_Architecture.md#33-rootから公開する責務別契約)へ直接依存する。Coordinator内の実装を逆importせず、Provider側にもコピーしない。共通防御はRecord／Arrayの浅い検査と所有Snapshot化だけを所有し、Profile Store、Authority、Process・Docker・回復へ依存しない。既存の返却値と負例を維持し、Provider入力の個別契約と共通防御を混同しない。

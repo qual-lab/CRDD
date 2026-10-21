@@ -20,12 +20,13 @@ const coordinatorRoot = path.resolve(import.meta.dirname, "..");
 const repositoryRoot = path.resolve(coordinatorRoot, "../..");
 
 export const DYNAMIC_FAKE_PROVIDER_COVERAGE_SOURCES = Object.freeze([
-  "40_Develop/coordinator/src/diagnostics/isolation-probe.ts",
+  "40_Develop/coordinator/src/execution/isolation-probe.ts",
   "40_Develop/coordinator/src/execution/provider-lifecycle.ts",
   "40_Develop/coordinator/src/execution/operation.ts",
-  "40_Develop/coordinator/src/storage/recovery-record.ts",
+  "40_Develop/coordinator/src/execution/host-recovery-record.ts",
+  "40_Develop/docker-isolation/src/cleanup/probe-record.ts",
   "40_Develop/domain-model/src/plain-data/snapshot.ts",
-  "40_Develop/coordinator/src/diagnostics/doctor.ts",
+  "40_Develop/coordinator/src/cli/doctor.ts",
   "40_Develop/coordinator/scripts/verify-dynamic-fake-provider-failures.ts",
   "40_Develop/coordinator/scripts/verify-dynamic-fake-provider-cancellation.ts",
   "40_Develop/coordinator/scripts/check-platform-access-ts-coverage.ts",
@@ -33,7 +34,7 @@ export const DYNAMIC_FAKE_PROVIDER_COVERAGE_SOURCES = Object.freeze([
 ]);
 
 export const DYNAMIC_FAKE_PROVIDER_COVERAGE_TESTS = Object.freeze([
-  "40_Develop/coordinator/tests/unit/doctor.contract.test.ts",
+  "40_Develop/coordinator/tests/unit/cli/doctor.contract.test.ts",
   "40_Develop/coordinator/tests/system/dynamic-fake-provider-failure-verification.contract.test.ts",
   "40_Develop/coordinator/tests/system/dynamic-fake-provider-cancellation-verification.contract.test.ts",
   "40_Develop/coordinator/tests/unit/execution/provider-lifecycle.contract.test.ts",
@@ -84,7 +85,7 @@ function obligation(
 }
 
 const coverageObligations = Object.freeze({
-  "40_Develop/coordinator/src/diagnostics/isolation-probe.ts": obligation(
+  "40_Develop/coordinator/src/execution/isolation-probe.ts": obligation(
     "実Docker、敵対的置換、全recovery分岐および同期process errorの全短絡をunit runで到達していない",
     "稀なDocker failureでcontainer不存在またはHost cleanupを誤分類する可能性",
     "Docker normalizer、Identity、inspect、submission、3軸absence、cleanupおよびrecoveryの正負・境界試験と固定環境integration",
@@ -102,11 +103,17 @@ const coverageObligations = Object.freeze({
     "owned root／child Identity、unknown entry、link置換、部分削除およびHost recovery試験",
     "Operation directory、mount capabilityまたはcleanup変更時",
   ),
-  "40_Develop/coordinator/src/storage/recovery-record.ts": obligation(
+  "40_Develop/coordinator/src/execution/host-recovery-record.ts": obligation(
     "全Filesystem errorとrecord置換競合を同一runで到達していない",
     "回復状態またはrecord Identityの稀な差を誤分類する可能性",
     "Host／Probe recordのcanonicality、Hash、二保存・旧token拒否、state transition、実体置換・部分欠測と再利用拒否試験",
     "Host／Probe recovery schema、記録Reader／Writerまたは遷移変更時",
+  ),
+  "40_Develop/docker-isolation/src/cleanup/probe-record.ts": obligation(
+    "全Filesystem errorとProbe記録の置換競合を同一runで到達していない",
+    "ProbeのRoot／子実体差や部分欠測を誤分類する可能性",
+    "Probe記録のHash、固定ID、Root／子実体、link置換と部分欠測の拒否試験",
+    "Probe記録schemaまたはReader／Writer変更時",
   ),
   "40_Develop/domain-model/src/plain-data/snapshot.ts": obligation(
     "未到達分岐がある場合はreflection failureの稀な順序である",
@@ -114,7 +121,7 @@ const coverageObligations = Object.freeze({
     "record／arrayのshape、accessor、Proxy、reflection failureおよび上限試験",
     "plain-data snapshot実装変更時",
   ),
-  "40_Develop/coordinator/src/diagnostics/doctor.ts": obligation(
+  "40_Develop/coordinator/src/cli/doctor.ts": obligation(
     "実Docker成功、全Git／Provider discovery形式および全cleanup failureを同一runで到達していない",
     "private reportの状態またはreason投影が稀な環境で不一致になる可能性",
     "passive／isolation、CLI discovery、readiness、runtime request、Fake lifecycleおよびexact report contract試験",

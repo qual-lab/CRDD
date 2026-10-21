@@ -20,22 +20,22 @@ const repositoryRoot = path.resolve(coordinatorRoot, "../..");
 
 export const PLATFORM_ACCESS_TS_COVERAGE_SOURCES = Object.freeze([
   "40_Develop/coordinator/scripts/check-platform-access-ts-coverage.ts",
-  "40_Develop/coordinator/src/diagnostics/doctor.ts",
-  "40_Develop/coordinator/src/authority/root-path-lexical.ts",
+  "40_Develop/coordinator/src/cli/doctor.ts",
+  "40_Develop/coordinator/src/execution/root-path.ts",
   "40_Develop/domain-model/src/storage/bounded-file-snapshot.ts",
   "40_Develop/platform-access/src/artifact/identity.ts",
   "40_Develop/coordinator/scripts/native-git-provenance.ts",
-  "40_Develop/coordinator/src/workspace/root-observation.ts",
+  "40_Develop/coordinator/src/execution/root-observation.ts",
 ]);
 
 export const PLATFORM_ACCESS_TS_COVERAGE_TESTS = Object.freeze([
-  "40_Develop/coordinator/tests/unit/authority/root-path-lexical.contract.test.ts",
+  "40_Develop/coordinator/tests/unit/execution/root-path.contract.test.ts",
   "40_Develop/coordinator/tests/integration/bounded-file-snapshot.contract.test.ts",
-  "40_Develop/coordinator/tests/unit/doctor.contract.test.ts",
+  "40_Develop/coordinator/tests/unit/cli/doctor.contract.test.ts",
   "40_Develop/platform-access/tests/integration/artifact-identity-observation.contract.test.ts",
   "40_Develop/coordinator/tests/integration/platform-access-ts-coverage.contract.test.ts",
   "40_Develop/coordinator/tests/integration/native-git-provenance.contract.test.ts",
-  "40_Develop/coordinator/tests/unit/root-observation.contract.test.ts",
+  "40_Develop/coordinator/tests/unit/execution/root-observation.contract.test.ts",
 ]);
 
 export const PLATFORM_ACCESS_TS_COVERAGE_NODE_OPTIONS = Object.freeze([
@@ -124,13 +124,13 @@ const sourceCoverageObligations: Readonly<Record<string, CoverageObligation>> =
         "exact source/test母集団、LCOV grammar負例および連続出力一致",
         "LCOV grammar、Node coverageまたは固定母集団の変更時",
       ),
-    "40_Develop/coordinator/src/diagnostics/doctor.ts": obligation(
+    "40_Develop/coordinator/src/cli/doctor.ts": obligation(
       "既存doctor全分岐を本変更専用coverage母集団で再到達していない",
       "状態投影の稀なblocked理由の回帰",
       "doctor契約試験、公開情報最小化試験および全Coordinator test",
       "doctor投影、blockerまたはevidence母集団変更時",
     ),
-    "40_Develop/coordinator/src/authority/root-path-lexical.ts": obligation(
+    "40_Develop/coordinator/src/execution/root-path.ts": obligation(
       "host OS dispatcherの反対側分岐を単一OS runで到達していない",
       "OS別dispatcherとpure字句判定の接続差",
       "Windows/POSIX pure validatorの正負・境界契約試験",
@@ -154,7 +154,7 @@ const sourceCoverageObligations: Readonly<Record<string, CoverageObligation>> =
       "実Git Blob・Root・Native差と読取り中差替えの契約試験",
       "固定Native観測またはGit出所照合の変更時",
     ),
-    "40_Develop/coordinator/src/workspace/root-observation.ts": obligation(
+    "40_Develop/coordinator/src/execution/root-observation.ts": obligation(
       "Rust結果からRoot観測へのproduction写像は未実装である",
       "未確認主体またはProtection値の補完",
       "selected-user binding必須、exact inputおよび固定blocked契約試験",

@@ -27,14 +27,14 @@ import { startWindowsChildTreeTermination } from "../../../platform-access/src/i
 import * as controller from "../../src/execution/provider-controller.ts";
 import * as locks from "../../src/execution/kernel-lock.ts";
 import * as hostRuntime from "../../src/execution/operation.ts";
-import { loadHostRecoveryRecordByToken } from "../../src/storage/recovery-record.ts";
+import { loadHostRecoveryRecordByToken } from "../../src/execution/host-recovery-record.ts";
 import * as homes from "../../src/execution/provider-home-windows-adapter.ts";
-import * as repository from "../../src/workspace/binding.ts";
+import * as repository from "../../src/execution/repository-binding.ts";
 import * as stateModel from "../../src/storage/model.ts";
 import {
   createDockerRestartRequestId,
   isDockerRestartCheckpointSettled,
-} from "../../src/storage/restart-checkpoint.ts";
+} from "../../src/execution/restart-checkpoint.ts";
 import * as stateRuntime from "../../src/storage/settlement-store.ts";
 import * as development from "../../src/execution/development-measurement-session.ts";
 import * as isolation from "../../../docker-isolation/src/index.ts";
@@ -2585,10 +2585,10 @@ for (const { repeatCount, retained } of [
           },
         );
         try {
-          let repair: typeof import("../../src/diagnostics/runtime-repair.ts") =
+          let repair: typeof import("../../src/execution/runtime-repair.ts") =
             await import(
               new URL(
-                `../../src/diagnostics/runtime-repair.ts?normal-owner-ready-prefix-${retained}`,
+                `../../src/execution/runtime-repair.ts?normal-owner-ready-prefix-${retained}`,
                 import.meta.url,
               ).href
             );
@@ -2617,7 +2617,7 @@ for (const { repeatCount, retained } of [
             writerFault = null;
             repair = await import(
               new URL(
-                "../../src/diagnostics/runtime-repair.ts?normal-owner-retained-after-cut",
+                "../../src/execution/runtime-repair.ts?normal-owner-retained-after-cut",
                 import.meta.url,
               ).href
             );
@@ -3835,7 +3835,8 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
       },
     ),
     mock.module(
-      new URL("../../src/workspace/binding.ts", import.meta.url).href,
+      new URL("../../src/execution/repository-binding.ts", import.meta.url)
+        .href,
       {
         namedExports: {
           ...repository,

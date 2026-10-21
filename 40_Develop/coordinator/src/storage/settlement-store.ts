@@ -23,22 +23,22 @@ import {
   borrowRuntimeOwnedDockerTerminalObservations,
   verifyRuntimeOwnedDockerUnissuedNotice,
 } from "../execution/provider-controller.ts";
-import { parseDockerTaskRecoveryId } from "./recovery-identity.ts";
+import { parseDockerTaskRecoveryId } from "../../../docker-isolation/src/index.ts";
 import { acquireRuntimeOwnedCoordinatorStateKernelLock } from "../execution/kernel-lock.ts";
-import { isDockerRestartCheckpointSettled } from "./restart-checkpoint.ts";
+import { isDockerRestartCheckpointSettled } from "../execution/restart-checkpoint.ts";
 import {
   beginOwnedDockerSubmissionRecovery,
   borrowOwnedHostRecoverySnapshot,
   captureOwnedOperationCleanupVerification,
   completeOwnedDockerSubmissionRecovery,
 } from "../execution/operation.ts";
-import { parseHostRecoveryToken } from "./recovery-record.ts";
+import { parseHostRecoveryToken } from "../execution/host-recovery-record.ts";
 import { verifyRuntimeOwnedProviderHomeMountCompletion } from "../execution/provider-home-mount-authorization.ts";
 import {
   borrowRuntimeOwnedCoordinatorRecoveryRepository,
   borrowRuntimeOwnedCoordinatorSettlementRepository,
   borrowRuntimeOwnedCoordinatorStateRepository,
-} from "../workspace/binding.ts";
+} from "../execution/repository-binding.ts";
 import {
   coordinatorConsumerCompletionPolicy,
   classifyCoordinatorSnapshotReentry,

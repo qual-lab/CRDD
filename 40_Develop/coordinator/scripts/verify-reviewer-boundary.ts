@@ -16,7 +16,7 @@ import {
   runRecordedVerification,
 } from "./verification-result-record.ts";
 import { snapshotPlainArray } from "../../domain-model/src/index.ts";
-import { isSupportedCrddRuntimeGitObjectId } from "../src/diagnostics/release-identity-grammar.ts";
+import { isSupportedCrddRuntimeGitObjectId } from "./verification-safety.ts";
 import {
   runSignedGeneralTaskVerification,
   SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT,

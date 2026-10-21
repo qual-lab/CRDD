@@ -35,21 +35,21 @@ const coordinatorRoot = path.resolve(import.meta.dirname, "../..");
 test("Provider Authority coverageはexact 6 sourceと9 testを所有する", () => {
   assert.deepEqual(PROVIDER_AUTHORITY_COVERAGE_SOURCES, [
     "40_Develop/coordinator/src/execution/isolation-profile.ts",
-    "40_Develop/coordinator/src/authority/grant-verifier.ts",
-    "40_Develop/coordinator/src/authority/prelaunch-verifier.ts",
-    "40_Develop/coordinator/src/authority/local-personal-grant.ts",
+    "40_Develop/coordinator/src/execution/authority-validation.ts",
+    "40_Develop/coordinator/src/execution/prelaunch-validation.ts",
+    "40_Develop/coordinator/src/execution/local-authority.ts",
     "40_Develop/coordinator/src/execution/authority-grant.ts",
     "40_Develop/domain-model/src/plain-data/snapshot.ts",
   ]);
   assert.deepEqual(PROVIDER_AUTHORITY_COVERAGE_TESTS, [
     "40_Develop/coordinator/tests/unit/plain-data-snapshot.contract.test.ts",
     "40_Develop/coordinator/tests/unit/execution/isolation-profile.contract.test.ts",
-    "40_Develop/coordinator/tests/unit/authority/grant-verifier.contract.test.ts",
-    "40_Develop/coordinator/tests/unit/authority/trust-loader.contract.test.ts",
-    "40_Develop/coordinator/tests/unit/authority/file-bundle.contract.test.ts",
-    "40_Develop/coordinator/tests/unit/authority/prelaunch-verifier.contract.test.ts",
+    "40_Develop/coordinator/tests/unit/execution/authority-validation.contract.test.ts",
+    "40_Develop/coordinator/tests/unit/execution/authority-policy.contract.test.ts",
+    "40_Develop/coordinator/tests/unit/execution/authority-bundle.contract.test.ts",
+    "40_Develop/coordinator/tests/unit/execution/prelaunch-validation.contract.test.ts",
     "40_Develop/coordinator/tests/unit/egress-proxy-policy.contract.test.ts",
-    "40_Develop/coordinator/tests/unit/authority/local-personal-grant.contract.test.ts",
+    "40_Develop/coordinator/tests/unit/execution/local-authority.contract.test.ts",
     "40_Develop/coordinator/tests/unit/execution/authority-grant.contract.test.ts",
   ]);
   const packageJson = JSON.parse(

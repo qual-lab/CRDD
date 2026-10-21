@@ -185,3 +185,16 @@ export {
   type DockerNetworkPolicy,
   type DockerNetworkPolicyResult,
 } from "./network/policy.ts";
+
+export { parseDockerTaskRecoveryId } from "./cleanup/recovery-identity.ts";
+export {
+  type DockerMounts,
+  type LoadedDockerRecovery,
+  formatDockerIsolationRecoveryToken,
+  isDockerIsolationRecoveryIdCandidate,
+  parseDockerProbeRecoveryToken,
+  writeDockerProbeRecoveryRecord,
+  loadDockerProbeRecoveryRecord,
+  classifyDockerProbeRecoveryChildren,
+  requireDockerProbeRecoveryMounts,
+} from "./cleanup/probe-record.ts";

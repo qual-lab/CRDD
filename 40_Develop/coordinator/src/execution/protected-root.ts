@@ -9,7 +9,7 @@ import {
   observeWindowsRuntimeState,
   WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE,
 } from "../../../platform-access/src/index.ts";
-import { isSupportedWindowsAbsolutePathCandidate } from "../authority/root-path-lexical.ts";
+import { isSupportedWindowsAbsolutePathCandidate } from "./root-path.ts";
 import { borrowRuntimeOwnedDevelopmentNativeObservation } from "./development-measurement-session.ts";
 
 const rootCapabilities = new WeakMap<

@@ -1459,7 +1459,7 @@ test("Executable sourceとpackage commandへShell依存のJSON搬送を再導入
     false,
   );
 
-  for (const relative of ["src/diagnostics/doctor.ts"]) {
+  for (const relative of ["src/cli/doctor.ts"]) {
     const source = fs.readFileSync(
       path.join(coordinatorRoot, relative),
       "utf8",

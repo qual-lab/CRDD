@@ -22,7 +22,7 @@ import { createInteractiveConsoleReaderEnvironment } from "../../platform-access
 import {
   createDynamicFakeProviderRecoverableResidue,
   recoverDockerIsolationProbe,
-} from "../src/diagnostics/isolation-probe.ts";
+} from "../src/execution/isolation-probe.ts";
 import { createOwnedOperationDirectories } from "../src/execution/operation.ts";
 import { verifyDynamicFakeProviderCancellation } from "./verify-dynamic-fake-provider-cancellation.ts";
 import { verifyDynamicFakeProviderFailures } from "./verify-dynamic-fake-provider-failures.ts";

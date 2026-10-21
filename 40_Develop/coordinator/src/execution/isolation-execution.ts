@@ -4,7 +4,7 @@
  * @responsibility Model・Packet・Authorityの意味照合とDocker Isolationへの上位接続を所有する。
  * @trace ARCH-000008
  */
-import { describeWorkbenchAiAdviceResultSchema } from "../workbench-ai/advice-result.ts";
+import { describeAdviceResultSchema } from "./task-structured-result.ts";
 import { createHash } from "node:crypto";
 import {
   createDockerIsolationRuntime,
@@ -31,8 +31,8 @@ import {
   describeDockerProviderAssets,
   describeDockerProviderExecutionLocations,
 } from "../../../docker-isolation/src/index.ts";
-import { bindWorkbenchAiProviderCommand } from "../workbench-ai/advice-execution-plan.ts";
-import { hashWorkbenchAiProviderCommand } from "../workbench-ai/advice-packet.ts";
+import { bindProviderAdviceCommand } from "./provider-plan.ts";
+import { hashProviderAdviceCommand } from "./provider-packet.ts";
 
 export const DOCKER_EFFECT_RUNTIME_CONTRACT =
   "crdd-coordinator/docker-effect-runtime";
@@ -137,7 +137,7 @@ function resolveIsolationCommandInput(
               exactModelId: plan.selectedModel,
               reasoningEffort: plan.selectedEffort,
             },
-            resultSchema: describeWorkbenchAiAdviceResultSchema(),
+            resultSchema: describeAdviceResultSchema(),
           },
           describeDockerProviderExecutionLocations(plan.provider, "advice"),
         )
@@ -145,7 +145,7 @@ function resolveIsolationCommandInput(
   if (adviceResult?.status === "blocked") return null;
   const adviceCommand =
     adviceResult?.status === "ready"
-      ? bindWorkbenchAiProviderCommand(adviceResult.plan, plan.networkPolicy)
+      ? bindProviderAdviceCommand(adviceResult.plan, plan.networkPolicy)
       : null;
   const generated = planProviderExecution(
     {
@@ -314,7 +314,7 @@ function validatePlan(plan: PreparedPlan, tmpSourcePath: string) {
             exactModelId: plan.selectedModel,
             reasoningEffort: plan.selectedEffort,
           },
-          resultSchema: describeWorkbenchAiAdviceResultSchema(),
+          resultSchema: describeAdviceResultSchema(),
         },
         describeDockerProviderExecutionLocations(plan.provider, "advice"),
       )
@@ -322,13 +322,10 @@ function validatePlan(plan: PreparedPlan, tmpSourcePath: string) {
   if (expectedAdviceResult?.status === "blocked") return false;
   const expectedAdviceCommand =
     expectedAdviceResult?.status === "ready"
-      ? bindWorkbenchAiProviderCommand(
-          expectedAdviceResult.plan,
-          plan.networkPolicy,
-        )
+      ? bindProviderAdviceCommand(expectedAdviceResult.plan, plan.networkPolicy)
       : null;
   const expectedAdviceCommandHash = expectedAdviceCommand
-    ? hashWorkbenchAiProviderCommand(expectedAdviceCommand)
+    ? hashProviderAdviceCommand(expectedAdviceCommand)
     : null;
   const isProviderBindingValid =
     (isAdvicePlan &&

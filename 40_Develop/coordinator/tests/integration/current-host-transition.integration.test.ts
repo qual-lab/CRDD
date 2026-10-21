@@ -29,11 +29,11 @@ import {
   createOwnedOperationDirectories,
   createOwnedOperationManagementCapability,
 } from "../../src/execution/operation.ts";
-import { loadHostRecoveryRecordByToken } from "../../src/storage/recovery-record.ts";
+import { loadHostRecoveryRecordByToken } from "../../src/execution/host-recovery-record.ts";
 import {
   bindRuntimeOwnedRepositoryOperation,
   borrowRuntimeOwnedCoordinatorStateRepository,
-} from "../../src/workspace/binding.ts";
+} from "../../src/execution/repository-binding.ts";
 import {
   COORDINATOR_STATE_SCHEMA,
   encodeCoordinatorStateValue,

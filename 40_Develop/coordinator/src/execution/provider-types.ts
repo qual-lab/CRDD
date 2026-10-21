@@ -9,7 +9,7 @@ import type {
   DockerIsolationCommand,
   DockerNetworkPolicy,
 } from "../../../docker-isolation/src/index.ts";
-import type { WorkbenchAiAdviceRuntimePacket } from "../workbench-ai/advice-packet.ts";
+import type { ProviderAdvicePacket } from "./provider-packet.ts";
 
 /**
  * 共通実行計画が照合する消費済みModel選定の値契約。
@@ -368,7 +368,7 @@ export type ProviderDockerRuntimeStateBase<P extends "codex" | "claude"> =
   ProviderDockerPreparationState<
     ProviderDockerConsumedModelSelection,
     ProviderDockerConsumedTaskPacket<P>,
-    WorkbenchAiAdviceRuntimePacket,
+    ProviderAdvicePacket,
     Omit<
       ProviderDockerPreparedPlan<P>,
       "authorityUseCapability" | "authorityControlCapability"

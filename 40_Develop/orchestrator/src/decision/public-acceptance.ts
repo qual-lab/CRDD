@@ -8,7 +8,7 @@ import {
   ORCHESTRATOR_PUBLIC_RUNTIME_CONTRACT,
 } from "../operation-result-contract.ts";
 import { deriveOrchestratorRepositoryBindingId } from "../identity/repository-binding.ts";
-import { inspectRepositoryIdentityCandidate } from "../../../coordinator/src/workspace/binding.ts";
+import { inspectRepositoryIdentityCandidate } from "../../../version-control/src/index.ts";
 import { RepositoryRuntimeDataAreaBlockedError } from "../../../domain-model/src/index.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
 import { createOrchestratorAcceptanceAuthorityAdapter } from "./authority-adapter.ts";

@@ -27,20 +27,20 @@ import {
   createOwnedOperationManagementCapability,
   verifyOwnedOperationManagementMountBinding,
 } from "../../src/execution/operation.ts";
-import { bindRuntimeOwnedRepositoryOperation } from "../../src/workspace/binding.ts";
+import { bindRuntimeOwnedRepositoryOperation } from "../../src/execution/repository-binding.ts";
 import {
-  captureRuntimeOwnedCandidateRevision,
-  describeRepositoryWorkspaceRuntimeContract,
-  materializeRuntimeOwnedRepositoryWorkspace as materializeReceivedTarget,
-  orchestratorOwnedCandidateReadContent,
-  verifyRuntimeOwnedCandidateRevision,
-  observeBorrowedWorkspaceChanges,
-  projectBorrowedWorkspaceResult,
-} from "../../src/workspace/execution-target.ts";
+  captureExecutionChangeSnapshot,
+  describeExecutionChangeSnapshotContract,
+  bindRuntimeOwnedExecutionSnapshot as materializeReceivedTarget,
+  projectReviewerReadContent,
+  verifyExecutionChangeSnapshot,
+  observeBorrowedExecutionChanges,
+  projectBorrowedExecutionResult,
+} from "../../src/execution/change-snapshot.ts";
 import {
-  inspectBorrowedWorkspaceTarget,
-  readBorrowedWorkspaceBinding,
-} from "../../src/workspace/borrowed-tree.ts";
+  inspectBorrowedExecutionTarget,
+  readBorrowedExecutionBinding,
+} from "../../src/execution/borrowed-tree.ts";
 import {
   createRepositoryWorktree,
   verifyRepositoryRoot,
@@ -310,19 +310,19 @@ test("借用Workspaceは開始時dirtyを保持し二Task後も同Treeを残す"
       baseCommit: workspaceId ? base : null,
       head: workspaceId ? base : null,
     };
-    assert.ok(inspectBorrowedWorkspaceTarget(root, target));
+    assert.ok(inspectBorrowedExecutionTarget(root, target));
     assert.ok(
-      inspectBorrowedWorkspaceTarget(root, {
+      inspectBorrowedExecutionTarget(root, {
         ...target,
         workspaceId: "upper-correlation-only",
       }),
     );
     assert.equal(
-      inspectBorrowedWorkspaceTarget(root, { ...target, head: "f".repeat(40) }),
+      inspectBorrowedExecutionTarget(root, { ...target, head: "f".repeat(40) }),
       null,
     );
     assert.equal(
-      inspectBorrowedWorkspaceTarget(root, {
+      inspectBorrowedExecutionTarget(root, {
         ...target,
         ownerRepositoryRoot: `${tree}-other`,
       }),
@@ -330,7 +330,7 @@ test("借用Workspaceは開始時dirtyを保持し二Task後も同Treeを残す"
     );
     if (workspaceId) {
       assert.equal(
-        inspectBorrowedWorkspaceTarget(root, { ...target, head: null }),
+        inspectBorrowedExecutionTarget(root, { ...target, head: null }),
         null,
       );
     }
@@ -395,7 +395,7 @@ test("借用Workspaceは開始時dirtyを保持し二Task後も同Treeを残す"
     for (let turn = 0; turn < 2; turn++) {
       const current = operation(t, root, false);
       try {
-        const borrowed = materializeRuntimeOwnedRepositoryWorkspace(
+        const borrowed = bindRuntimeOwnedExecutionSnapshot(
           current.bound.repositoryBindingCapability,
           current.managementCapability,
           current.mountCapability,
@@ -405,14 +405,14 @@ test("借用Workspaceは開始時dirtyを保持し二Task後も同Treeを残す"
         assert.ok(borrowed?.status === "materialized");
         if (borrowed?.status !== "materialized") return;
         assert.deepEqual(
-          observeBorrowedWorkspaceChanges(borrowed.workspaceCapability),
+          observeBorrowedExecutionChanges(borrowed.workspaceCapability),
           [],
         );
         const deliver = async (
           capability: object | undefined,
           failed = false,
         ) => {
-          const observation = projectBorrowedWorkspaceResult(
+          const observation = projectBorrowedExecutionResult(
             capability,
             target,
           );
@@ -492,7 +492,7 @@ test("借用Workspaceは開始時dirtyを保持し二Task後も同Treeを残す"
         );
         assert.equal((await deliver(undefined)).changedPaths, null);
         assert.equal(
-          readBorrowedWorkspaceBinding(current.managementCapability)?.target
+          readBorrowedExecutionBinding(current.managementCapability)?.target
             .executionTree,
           tree,
         );
@@ -505,7 +505,7 @@ test("借用Workspaceは開始時dirtyを保持し二Task後も同Treeを残す"
         assert.ok("workspaceProtection" in providerBinding);
         fs.writeFileSync(path.join(tree, "source.txt"), `turn-${turn}\n`);
         fs.writeFileSync(path.join(internal, "state.json"), `state-${turn}\n`);
-        const captured = captureRuntimeOwnedCandidateRevision(
+        const captured = captureExecutionChangeSnapshot(
           borrowed.workspaceCapability,
           current.bound.repositoryBindingCapability,
           current.managementCapability,
@@ -522,7 +522,7 @@ test("借用Workspaceは開始時dirtyを保持し二Task後も同Treeを残す"
           workspaceId === null,
         );
         assert.equal(
-          verifyRuntimeOwnedCandidateRevision(
+          verifyExecutionChangeSnapshot(
             captured.candidateCapability,
             current.bound.repositoryBindingCapability,
             current.managementCapability,
@@ -724,7 +724,7 @@ function snapshotRepositoryFiles(root: string) {
 
 const fixtureTargets = new WeakMap<
   object,
-  NonNullable<ReturnType<typeof inspectBorrowedWorkspaceTarget>>
+  NonNullable<ReturnType<typeof inspectBorrowedExecutionTarget>>
 >();
 
 /**
@@ -738,7 +738,7 @@ const fixtureTargets = new WeakMap<
  * @cleanup Worktreeを含む自己生成Rootを試験終了時に回収する。
  * @boundary 上位fixtureとCoordinator。製品にWorkspace解決を追加しない。
  */
-function materializeRuntimeOwnedRepositoryWorkspace(
+function bindRuntimeOwnedExecutionSnapshot(
   binding: unknown,
   management: unknown,
   mount: unknown,
@@ -972,7 +972,7 @@ test("変更path上限1000件を受理し1001件は候補を発行しない", (t
   const source = repository(t);
   const runtime = operation(t, source.root);
   const beforeFiles = snapshotRepositoryFiles(source.root);
-  const materialized = materializeRuntimeOwnedRepositoryWorkspace(
+  const materialized = bindRuntimeOwnedExecutionSnapshot(
     runtime.bound.repositoryBindingCapability,
     runtime.managementCapability,
     runtime.mountCapability,
@@ -997,7 +997,7 @@ test("変更path上限1000件を受理し1001件は候補を発行しない", (t
    * @boundary RFD-IT-013=Direct Boundary: coordinator Test Source→対象契約
    */
   const capture = () =>
-    captureRuntimeOwnedCandidateRevision(
+    captureExecutionChangeSnapshot(
       materialized?.workspaceCapability,
       runtime.bound.repositoryBindingCapability,
       runtime.managementCapability,
@@ -1032,7 +1032,7 @@ for (const scenario of ["file_count", "total_bytes"] as const) {
     const source = repository(t);
     const runtime = operation(t, source.root);
     const beforeFiles = snapshotRepositoryFiles(source.root);
-    const materialized = materializeRuntimeOwnedRepositoryWorkspace(
+    const materialized = bindRuntimeOwnedExecutionSnapshot(
       runtime.bound.repositoryBindingCapability,
       runtime.managementCapability,
       runtime.mountCapability,
@@ -1052,7 +1052,7 @@ for (const scenario of ["file_count", "total_bytes"] as const) {
             ];
       const observed = virtualInventory(t, runtime.workspace, fileSizes);
       try {
-        const candidate = captureRuntimeOwnedCandidateRevision(
+        const candidate = captureExecutionChangeSnapshot(
           materialized?.workspaceCapability,
           runtime.bound.repositoryBindingCapability,
           runtime.managementCapability,
@@ -1106,7 +1106,7 @@ for (const scenario of ["file_count", "total_bytes"] as const) {
 test("HEAD Treeから隔離workspaceを作り許可pathだけをCandidate Revisionへ固定する", (t) => {
   const source = repository(t);
   const runtime = operation(t, source.root);
-  const materialized = materializeRuntimeOwnedRepositoryWorkspace(
+  const materialized = bindRuntimeOwnedExecutionSnapshot(
     runtime.bound.repositoryBindingCapability,
     runtime.managementCapability,
     runtime.mountCapability,
@@ -1123,7 +1123,7 @@ test("HEAD Treeから隔離workspaceを作り許可pathだけをCandidate Revisi
     path.join(runtime.workspace, "src", "index.ts"),
     "export const value = 2;\n",
   );
-  const candidate = captureRuntimeOwnedCandidateRevision(
+  const candidate = captureExecutionChangeSnapshot(
     materialized?.workspaceCapability,
     runtime.bound.repositoryBindingCapability,
     runtime.managementCapability,
@@ -1135,7 +1135,7 @@ test("HEAD Treeから隔離workspaceを作り許可pathだけをCandidate Revisi
   assert.equal(candidate?.baseCommit, source.commitId);
   assert.equal(candidate?.canonicalRepositoryChanged, false);
   assert.equal(fs.existsSync(path.join(source.root, "src", "index.ts")), false);
-  const verified = verifyRuntimeOwnedCandidateRevision(
+  const verified = verifyExecutionChangeSnapshot(
     candidate?.candidateCapability,
     runtime.bound.repositoryBindingCapability,
     runtime.managementCapability,
@@ -1160,7 +1160,7 @@ test("HEAD Treeから隔離workspaceを作り許可pathだけをCandidate Revisi
 test("対象外変更を観測し、重複allowed path・Revision変化・内容差替えを拒否する", (t) => {
   const source = repository(t);
   const first = operation(t, source.root);
-  const firstWorkspace = materializeRuntimeOwnedRepositoryWorkspace(
+  const firstWorkspace = bindRuntimeOwnedExecutionSnapshot(
     first.bound.repositoryBindingCapability,
     first.managementCapability,
     first.mountCapability,
@@ -1169,7 +1169,7 @@ test("対象外変更を観測し、重複allowed path・Revision変化・内容
     assert.fail("first workspace must materialize");
   }
   fs.writeFileSync(path.join(first.workspace, "README.md"), "changed\n");
-  const outside = captureRuntimeOwnedCandidateRevision(
+  const outside = captureExecutionChangeSnapshot(
     firstWorkspace.workspaceCapability,
     first.bound.repositoryBindingCapability,
     first.managementCapability,
@@ -1182,7 +1182,7 @@ test("対象外変更を観測し、重複allowed path・Revision変化・内容
     ["README.md"],
   );
   assert.equal(
-    captureRuntimeOwnedCandidateRevision(
+    captureExecutionChangeSnapshot(
       firstWorkspace.workspaceCapability,
       first.bound.repositoryBindingCapability,
       first.managementCapability,
@@ -1194,7 +1194,7 @@ test("対象外変更を観測し、重複allowed path・Revision変化・内容
 
   const secondSource = repository(t);
   const second = operation(t, secondSource.root);
-  const secondWorkspace = materializeRuntimeOwnedRepositoryWorkspace(
+  const secondWorkspace = bindRuntimeOwnedExecutionSnapshot(
     second.bound.repositoryBindingCapability,
     second.managementCapability,
     second.mountCapability,
@@ -1208,7 +1208,7 @@ test("対象外変更を観測し、重複allowed path・Revision変化・内容
     `${"f".repeat(40)}\n`,
   );
   assert.equal(
-    captureRuntimeOwnedCandidateRevision(
+    captureExecutionChangeSnapshot(
       secondWorkspace.workspaceCapability,
       second.bound.repositoryBindingCapability,
       second.managementCapability,
@@ -1220,7 +1220,7 @@ test("対象外変更を観測し、重複allowed path・Revision変化・内容
 
   const thirdSource = repository(t);
   const third = operation(t, thirdSource.root);
-  const thirdWorkspace = materializeRuntimeOwnedRepositoryWorkspace(
+  const thirdWorkspace = bindRuntimeOwnedExecutionSnapshot(
     third.bound.repositoryBindingCapability,
     third.managementCapability,
     third.mountCapability,
@@ -1229,7 +1229,7 @@ test("対象外変更を観測し、重複allowed path・Revision変化・内容
     assert.fail("third workspace must materialize");
   }
   fs.writeFileSync(path.join(third.workspace, "README.md"), "changed\n");
-  const candidate = captureRuntimeOwnedCandidateRevision(
+  const candidate = captureExecutionChangeSnapshot(
     thirdWorkspace.workspaceCapability,
     third.bound.repositoryBindingCapability,
     third.managementCapability,
@@ -1241,7 +1241,7 @@ test("対象外変更を観測し、重複allowed path・Revision変化・内容
   }
   fs.writeFileSync(path.join(third.workspace, "README.md"), "replaced\n");
   assert.equal(
-    verifyRuntimeOwnedCandidateRevision(
+    verifyExecutionChangeSnapshot(
       candidate.candidateCapability,
       third.bound.repositoryBindingCapability,
       third.managementCapability,
@@ -1276,7 +1276,7 @@ for (const [scenario, label] of [
     const source = repository(t);
     const runtime = operation(t, source.root);
     const beforeFiles = snapshotRepositoryFiles(source.root);
-    const materialized = materializeRuntimeOwnedRepositoryWorkspace(
+    const materialized = bindRuntimeOwnedExecutionSnapshot(
       runtime.bound.repositoryBindingCapability,
       runtime.managementCapability,
       runtime.mountCapability,
@@ -1308,7 +1308,7 @@ for (const [scenario, label] of [
         assert.equal(fs.lstatSync(linkPath).isSymbolicLink(), true);
       }
       assert.equal(
-        captureRuntimeOwnedCandidateRevision(
+        captureExecutionChangeSnapshot(
           materialized?.workspaceCapability,
           runtime.bound.repositoryBindingCapability,
           runtime.managementCapability,
@@ -1347,14 +1347,14 @@ test("偽Capabilityと動的allowed pathをFilesystem Effectへ昇格しない",
   const source = repository(t);
   const runtime = operation(t, source.root);
   assert.equal(
-    materializeRuntimeOwnedRepositoryWorkspace(
+    bindRuntimeOwnedExecutionSnapshot(
       {},
       runtime.managementCapability,
       runtime.mountCapability,
     ),
     null,
   );
-  const materialized = materializeRuntimeOwnedRepositoryWorkspace(
+  const materialized = bindRuntimeOwnedExecutionSnapshot(
     runtime.bound.repositoryBindingCapability,
     runtime.managementCapability,
     runtime.mountCapability,
@@ -1368,7 +1368,7 @@ test("偽Capabilityと動的allowed pathをFilesystem Effectへ昇格しない",
     },
   });
   assert.equal(
-    captureRuntimeOwnedCandidateRevision(
+    captureExecutionChangeSnapshot(
       materialized.workspaceCapability,
       runtime.bound.repositoryBindingCapability,
       runtime.managementCapability,
@@ -1395,7 +1395,7 @@ test("開発用情報を借用Treeで許容しReviewerへの認識済みSecret�
   for (const scenario of ["path", "nested-path", "content"] as const) {
     const source = repository(t);
     const runtime = operation(t, source.root);
-    const materialized = materializeRuntimeOwnedRepositoryWorkspace(
+    const materialized = bindRuntimeOwnedExecutionSnapshot(
       runtime.bound.repositoryBindingCapability,
       runtime.managementCapability,
       runtime.mountCapability,
@@ -1418,7 +1418,7 @@ test("開発用情報を借用Treeで許容しReviewerへの認識済みSecret�
         `const token = "sk-${"A".repeat(24)}";\n`,
       );
     }
-    const captured = captureRuntimeOwnedCandidateRevision(
+    const captured = captureExecutionChangeSnapshot(
       materialized?.workspaceCapability,
       runtime.bound.repositoryBindingCapability,
       runtime.managementCapability,
@@ -1434,7 +1434,7 @@ test("開発用情報を借用Treeで許容しReviewerへの認識済みSecret�
     assert.equal(captured?.status, "candidate");
     if (captured?.status !== "candidate")
       throw new Error("fixture_capture_failed");
-    const projection = orchestratorOwnedCandidateReadContent(
+    const projection = projectReviewerReadContent(
       materialized?.workspaceCapability,
       captured.candidateCapability,
       runtime.bound.repositoryBindingCapability,
@@ -1469,7 +1469,7 @@ test("開発用情報を借用Treeで許容しReviewerへの認識済みSecret�
  * @boundary RFD-IT-013=Direct Boundary: coordinator Test Source→対象契約
  */
 test("公開契約は隔離workspaceと5要素Candidate Revisionを固定する", () => {
-  const contract = describeRepositoryWorkspaceRuntimeContract();
+  const contract = describeExecutionChangeSnapshotContract();
   assert.equal(contract.contractRevision, 7);
   assert.equal(contract.providerGitMetadataVisible, false);
   assert.equal(contract.workspaceWrite, "caller_resolved_execution_tree");
@@ -1504,7 +1504,7 @@ test("公開契約は隔離workspaceと5要素Candidate Revisionを固定する"
 test("Reviewer向け内容投影をCandidate Identityへ結合し差替えを拒否する", (t) => {
   const source = repository(t);
   const runtime = operation(t, source.root);
-  const materialized = materializeRuntimeOwnedRepositoryWorkspace(
+  const materialized = bindRuntimeOwnedExecutionSnapshot(
     runtime.bound.repositoryBindingCapability,
     runtime.managementCapability,
     runtime.mountCapability,
@@ -1512,7 +1512,7 @@ test("Reviewer向け内容投影をCandidate Identityへ結合し差替えを拒
   );
   assert.equal(materialized?.status, "materialized");
   fs.writeFileSync(path.join(runtime.workspace, "README.md"), "candidate\n");
-  const candidate = captureRuntimeOwnedCandidateRevision(
+  const candidate = captureExecutionChangeSnapshot(
     materialized?.workspaceCapability,
     runtime.bound.repositoryBindingCapability,
     runtime.managementCapability,
@@ -1521,7 +1521,7 @@ test("Reviewer向け内容投影をCandidate Identityへ結合し差替えを拒
   );
   assert.equal(candidate?.status, "candidate");
   assert.ok(candidate?.status === "candidate");
-  const projected = orchestratorOwnedCandidateReadContent(
+  const projected = projectReviewerReadContent(
     materialized?.workspaceCapability,
     candidate.candidateCapability,
     runtime.bound.repositoryBindingCapability,
@@ -1542,7 +1542,7 @@ test("Reviewer向け内容投影をCandidate Identityへ結合し差替えを拒
   ]);
   fs.writeFileSync(path.join(runtime.workspace, "README.md"), "replaced\n");
   assert.equal(
-    orchestratorOwnedCandidateReadContent(
+    projectReviewerReadContent(
       materialized?.workspaceCapability,
       candidate.candidateCapability,
       runtime.bound.repositoryBindingCapability,

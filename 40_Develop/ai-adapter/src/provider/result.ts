@@ -41,7 +41,7 @@ export type ProviderResultInput =
  */
 export type ProviderResultReason =
   | Exclude<ReturnType<typeof extractProviderTaskEnvelope>["reason"], null>
-  | (typeof WORKBENCH_AI_ADVICE_PROVIDER_OUTPUT_REASONS)[number]
+  | (typeof PROVIDER_ADVICE_OUTPUT_REASONS)[number]
   | "provider_result_input_invalid";
 
 /**
@@ -495,11 +495,11 @@ function extractProviderTaskEnvelope(
   });
 }
 
-export const WORKBENCH_AI_ADVICE_PROVIDER_OUTPUT_CONTRACT =
+export const PROVIDER_ADVICE_OUTPUT_CONTRACT =
   "crdd-coordinator/workbench-ai-advice-provider-output";
-export const WORKBENCH_AI_ADVICE_PROVIDER_OUTPUT_CONTRACT_REVISION = 1;
+export const PROVIDER_ADVICE_OUTPUT_CONTRACT_REVISION = 1;
 
-export const WORKBENCH_AI_ADVICE_PROVIDER_OUTPUT_REASONS = Object.freeze([
+export const PROVIDER_ADVICE_OUTPUT_REASONS = Object.freeze([
   "workbench_ai_provider_output_invalid",
   "workbench_ai_codex_output_invalid",
   "workbench_ai_codex_completion_invalid",
@@ -707,9 +707,7 @@ function confirmed(adviceJson: string) {
  * @security 生Provider出力を返さない。
  * @concurrency N/A: 共有状態を持たない同期処理である。
  */
-function blocked(
-  reason: (typeof WORKBENCH_AI_ADVICE_PROVIDER_OUTPUT_REASONS)[number],
-) {
+function blocked(reason: (typeof PROVIDER_ADVICE_OUTPUT_REASONS)[number]) {
   return Object.freeze({
     status: "blocked" as const,
     reason,

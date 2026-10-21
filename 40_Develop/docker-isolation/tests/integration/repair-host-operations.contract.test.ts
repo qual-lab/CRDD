@@ -18,7 +18,6 @@ import test from "node:test";
 import { types as utilTypes } from "node:util";
 import { runInNewContext } from "node:vm";
 import * as publicApi from "../../src/index.ts";
-import { isSupportedWindowsAbsolutePathCandidate } from "../../../coordinator/src/authority/root-path-lexical.ts";
 import {
   retainDockerDesktopRepairRunDirectory,
   retainDockerDesktopRepairContinuationDirectory,
@@ -1034,17 +1033,17 @@ test("固定三用途の退避は入力・同一実体・事後不存在を必�
 });
 
 /**
- * 下位Path字句条件を既存の上位契約と同じ値母集合で照合する。
- * @responsibility 修復用途のRoot拒否だけを追加し、不正値でFSへ到達しないことを確認する。
+ * Docker修復用LocalAppDataの固定正常・不正Pathを照合する。
+ * @responsibility 正常例の受理と不正値でFilesystemへ到達しないことを確認する。
  * @trace ERB-IT-001
- * @precondition 上位predicateは試験入力としてのみ使い、Runtime逆依存は追加しない。
+ * @precondition 正常・不正Pathの固定集合と模擬Filesystemを使用する。
  * @stimulus ADS、末尾文字、予約名、制御文字、UTF-16と長さ境界、正常Unicodeを渡す。
  * @observation 字句判定とFilesystem／rename件数。
- * @oracle 上位条件かつ非Rootと一致し、不正値はFS0。
+ * @oracle 固定した正常例だけを受理し、不正値はFS0。上位Packageの私有判定には依存しない。
  * @cleanup N/A: 模擬Filesystemだけを使用する。
  * @boundary ERB-IT-001=Direct Boundary: 内部Path判定→Filesystem直前。
  */
-test("LocalAppData字句条件は既存契約と一致し不正値はFS0", () => {
+test("LocalAppDataの固定正常Pathだけを受理し不正値はFS0", () => {
   const source = fs.readFileSync(
     new URL("../../src/docker-desktop/directory.ts", import.meta.url),
     "utf8",
@@ -1092,6 +1091,14 @@ test("LocalAppData字句条件は既存契約と一致し不正値はFS0", () =>
     12,
     new String(localAppData),
   ];
+  const acceptedPaths = new Set<unknown>([
+    localAppData,
+    "C:\\正常\\作業",
+    "C:\\emoji-😀",
+    "C:\\ordinary.name",
+    "C:\\LPTı",
+    `C:\\${"x".repeat(4093)}`,
+  ]);
   for (const value of paths) {
     let reads = 0,
       moves = 0;
@@ -1116,9 +1123,7 @@ test("LocalAppData字句条件は既存契約と一致し不正値はFS0", () =>
       guard: (value: unknown) => boolean;
       run: (...args: unknown[]) => unknown;
     };
-    const valid =
-      isSupportedWindowsAbsolutePathCandidate(value) &&
-      value !== path.win32.parse(value).root;
+    const valid = acceptedPaths.has(value);
     assert.equal(functions.guard(value), valid, String(value));
     assert.deepEqual(
       JSON.parse(JSON.stringify(functions.run(value, operationId, identity))),

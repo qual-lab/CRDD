@@ -21,7 +21,7 @@ import {
 import { consumeRuntimeOwnedProviderAuthority } from "./authority-grant.ts";
 import { completeRuntimeOwnedProviderHomeMount } from "./provider-home-mount-authorization.ts";
 import { normalizeProviderTaskStructuredResult } from "./task-structured-result.ts";
-import { verifyRuntimeOwnedRepositoryOperation } from "../workspace/binding.ts";
+import { verifyRuntimeOwnedRepositoryOperation } from "./repository-binding.ts";
 import {
   cleanupRuntimeOwnedDockerResources,
   startRuntimeOwnedDockerExecution,
@@ -31,7 +31,7 @@ import {
   type DockerProcessControllerPublicCompletionReason,
   dockerProcessControllerPublicCompletionReasons,
 } from "./provider-result-reasons.ts";
-import { parseDockerTaskRecoveryId } from "../storage/recovery-identity.ts";
+import { parseDockerTaskRecoveryId } from "../../../docker-isolation/src/index.ts";
 import {
   publicDockerRecoveryStartReason,
   publicVerifiedDockerRecoveryId,

@@ -48,7 +48,7 @@ const expectedAreaConsumers = [
   "40_Develop/coordinator/scripts/measure-development-providers.ts",
   "40_Develop/coordinator/scripts/prepare-codex-advice-image.ts",
   "40_Develop/coordinator/scripts/verification-result-record.ts",
-  "40_Develop/coordinator/src/storage/terminal-caller-checkpoint.ts",
+  "40_Develop/coordinator/src/execution/terminal-caller-checkpoint.ts",
   "40_Develop/execution-intelligence/src/storage/store.ts",
   "40_Develop/orchestrator/src/storage/current-state.ts",
   "40_Develop/orchestrator/src/storage/history.ts",

@@ -11,7 +11,6 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
@@ -24,6 +23,172 @@ import { observeFixedRevisionIdentity } from "../../src/repository/revision.ts";
 import { registerRepositoryLocalIgnore } from "../../src/repository/ignore.ts";
 import { verifyRepositoryRoot } from "../../src/repository/location.ts";
 import { resolveRepositoryGitLayout } from "../../src/repository/layout.ts";
+import {
+  inspectRepositoryIdentityCandidate,
+  inspectRepositoryRevisionCandidate,
+} from "../../src/index.ts";
+
+/**
+ * 自己生成Git試験領域をRepository内だけに作成する。
+ * @responsibility 既存Suiteの一時領域を用途限定tests Rootへ閉じる。
+ * @trace RFD-IT-008
+ * @precondition 呼出し元が自己生成Rootの終了清掃を登録する。
+ * @stimulus 用途名を接頭辞として空Directoryを作る。
+ * @observation 確定した専用Rootを返す。
+ * @oracle OS一時領域・本体RepositoryへGit書込みしない。
+ * @cleanup 呼出し元の既存after hookが専用Rootだけを回収する。
+ * @boundary RFD-IT-008=Direct Boundary: 試験→Repository-local Filesystem
+ */
+function createFixtureDirectory(prefix: string): string {
+  const root = path.resolve(import.meta.dirname, "../../../../.crdd/tests");
+  fs.mkdirSync(root, { recursive: true });
+  return fs.mkdtempSync(path.join(root, prefix));
+}
+
+/**
+ * 移管したGit観測をRepository内の自己生成fixtureで検証する。
+ * @responsibility Git設定・履歴・Worktreeを試験専用Rootに閉じる。
+ * @trace RFD-IT-008
+ * @precondition 試験だけが使うRepository-local tests Rootがある。
+ * @stimulus 空Repositoryに合成File一件をCommitする。
+ * @observation Gitが確定したRootとHEADを利用側へ渡す。
+ * @oracle 正本Repositoryや認証領域を変更しない。
+ * @cleanup 登録した終了処理が自己生成Rootだけを回収する。
+ * @boundary RFD-IT-008=Direct Boundary: 試験→実Git／Filesystem
+ */
+function observationRepository(t: test.TestContext) {
+  const testsRoot = path.resolve(
+    import.meta.dirname,
+    "../../../../.crdd/tests",
+  );
+  fs.mkdirSync(testsRoot, { recursive: true });
+  const root = fs.mkdtempSync(path.join(testsRoot, "vc-revision-observation-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  git(root, ["init", "--initial-branch=main"]);
+  fs.writeFileSync(path.join(root, "source.txt"), "synthetic\n");
+  git(root, ["add", "--", "source.txt"]);
+  git(root, [
+    "-c",
+    "user.name=CRDD Test",
+    "-c",
+    "user.email=test@example.invalid",
+    "-c",
+    "commit.gpgsign=false",
+    "commit",
+    "-m",
+    "synthetic base",
+  ]);
+  return root;
+}
+
+/**
+ * 不正入力をGit観測候補へ補完しない。
+ * @responsibility 既存null契約と非文字列・相対Path拒否を維持する。
+ * @trace RFD-IT-008
+ * @precondition 正式Repositoryを指さない合成入力だけを使う。
+ * @stimulus 二つの公開観測へ不正入力を渡す。
+ * @observation 戻り値を比較する。
+ * @oracle 全入力がnullになる。
+ * @cleanup N/A: 生成物なし。
+ * @boundary RFD-IT-008=N/A: 公開観測の入力拒否
+ */
+test("Repository候補観測は不正Rootをnullで拒否する", () => {
+  for (const value of [null, {}, 1, "", "relative", "C:\\invalid\u0000root"]) {
+    assert.equal(inspectRepositoryRevisionCandidate(value), null);
+    assert.equal(inspectRepositoryIdentityCandidate(value), null);
+  }
+});
+
+/**
+ * 現在HEAD／Treeと実体Identityを同じ実Gitへ結合する。
+ * @responsibility dirty・stage・未追跡をHEAD変更と誤認しない。
+ * @trace RFD-IT-008
+ * @precondition 合成Repositoryに一つの確定Commitがある。
+ * @stimulus 二観測の後にdirty・stage・未追跡Fileを追加する。
+ * @observation HEAD／Tree／実体HashとGit indexを読取る。
+ * @oracle 観測は同じHEAD／Tree／Identityで、作業内容を変更しない。
+ * @cleanup 自己生成Rootを終了処理で回収する。
+ * @boundary RFD-IT-008=Direct Boundary: 公開観測→実Git管理情報
+ */
+test("Repository候補観測はHEADとTreeを結合し既存作業を変更しない", (t) => {
+  const root = observationRepository(t);
+  const before = inspectRepositoryIdentityCandidate(root);
+  assert.ok(before);
+  assert.equal(before.commit, git(root, ["rev-parse", "HEAD"]));
+  assert.equal(before.tree, git(root, ["rev-parse", "HEAD^{tree}"]));
+  assert.equal(before.revision, before.commit);
+  assert.equal(before.repositoryKind, "primary");
+  assert.equal(before.repositoryPathReported, false);
+  assert.equal(before.externalGitCliUsed, false);
+  fs.writeFileSync(path.join(root, "source.txt"), "staged\n");
+  git(root, ["add", "--", "source.txt"]);
+  fs.writeFileSync(path.join(root, "source.txt"), "dirty\n");
+  fs.writeFileSync(path.join(root, "untracked.txt"), "untracked\n");
+  const status = git(root, ["status", "--porcelain=v1"]);
+  assert.deepEqual(inspectRepositoryIdentityCandidate(root), before);
+  assert.equal(inspectRepositoryRevisionCandidate(root)?.tree, before.tree);
+  assert.equal(git(root, ["status", "--porcelain=v1"]), status);
+  assert.equal(JSON.stringify(before).includes(root), false);
+});
+
+/**
+ * Linked Worktreeの共通Repositoryと個別実体を区別する。
+ * @responsibility 共有Git Identityと実行TreeのIdentityを混同しない。
+ * @trace RFD-IT-008
+ * @precondition 自己生成の通常Repositoryがある。
+ * @stimulus 同じCommitからLinked Worktreeを一件作る。
+ * @observation 両Rootの候補を比較する。
+ * @oracle Logical Identityは同じ、Instance Identityは異なりHEAD／Treeは同じ。
+ * @cleanup 自己生成Root配下のWorktreeとGit管理領域を一緒に回収する。
+ * @boundary RFD-IT-008=Direct Boundary: 公開観測→実Linked Worktree
+ */
+test("Repository候補観測はLinked Worktreeの個別実体を区別する", (t) => {
+  const root = observationRepository(t);
+  const linked = path.join(root, "linked");
+  git(root, ["worktree", "add", "--detach", linked, "HEAD"]);
+  const primary = inspectRepositoryIdentityCandidate(root);
+  const observed = inspectRepositoryIdentityCandidate(linked);
+  assert.ok(primary);
+  assert.ok(observed);
+  assert.equal(observed.repositoryKind, "linked");
+  assert.equal(
+    observed.logicalRepositoryIdentity,
+    primary.logicalRepositoryIdentity,
+  );
+  assert.notEqual(
+    observed.repositoryInstanceIdentity,
+    primary.repositoryInstanceIdentity,
+  );
+  assert.equal(observed.commit, primary.commit);
+  assert.equal(observed.tree, primary.tree);
+});
+
+/**
+ * HEADとCommit Objectの破損を候補成功へ補完しない。
+ * @responsibility 一部のGit観測成立だけで上位Identityを返さない。
+ * @trace RFD-IT-008
+ * @precondition 自己生成の確定Repositoryがある。
+ * @stimulus HEADを不正化し、次に存在しないCommitを指すHEADへ変える。
+ * @observation 二つの公開候補観測を実行する。
+ * @oracle どちらもnull。既知HEADだけからTreeを推測しない。
+ * @cleanup 自己生成Rootを終了処理で回収する。
+ * @boundary RFD-IT-008=Direct Boundary: 公開観測→破損Git管理情報
+ */
+test("Repository候補観測は不正HEADと欠測Commitを拒否する", (t) => {
+  const root = observationRepository(t);
+  const headPath = path.join(root, ".git", "HEAD");
+  const head = fs.readFileSync(headPath);
+  fs.writeFileSync(headPath, "invalid\n");
+  assert.equal(inspectRepositoryRevisionCandidate(root), null);
+  assert.equal(inspectRepositoryIdentityCandidate(root), null);
+  fs.writeFileSync(headPath, head);
+  const commit = git(root, ["rev-parse", "HEAD"]);
+  const missingCommit = "f".repeat(40);
+  assert.notEqual(commit, missingCommit);
+  fs.writeFileSync(headPath, `${missingCommit}\n`);
+  assert.equal(inspectRepositoryRevisionCandidate(root), null);
+  assert.equal(inspectRepositoryIdentityCandidate(root), null);
+});
 
 /**
  * gitのTest準備責務を実行する。
@@ -57,7 +222,7 @@ function git(root: string, commandArguments: readonly string[]): string {
  * @boundary RFD-IT-008=Direct Boundary: version-control Test Source→対象契約
  */
 function repository(t: test.TestContext): string {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-vc-revision-"));
+  const root = createFixtureDirectory("crdd-vc-revision-");
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   git(root, ["init"]);
   git(root, ["config", "user.name", "CRDD Test"]);
@@ -244,7 +409,7 @@ test("Repository-local ignoreは競合Writerを未変更として扱わない", 
  */
 test("Repository-local ignoreは二つの実Process競合後も内容と再入場を保つ", async (t) => {
   const root = repository(t);
-  const exchange = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-vc-writers-"));
+  const exchange = createFixtureDirectory("crdd-vc-writers-");
   t.after(() => fs.rmSync(exchange, { recursive: true, force: true }));
   const startPath = path.join(exchange, "start");
   const fixture = path.resolve(
@@ -333,8 +498,8 @@ test("Repository-local ignoreは二つの実Process競合後も内容と再入�
  * @boundary RFD-IT-008=Direct Boundary: version-control Test Source→対象契約
  */
 test("linked worktreeからのRepository-local ignoreは共有common directoryへ一度だけ登録する", (t) => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-vc-linked-main-"));
-  const linked = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-vc-linked-"));
+  const root = createFixtureDirectory("crdd-vc-linked-main-");
+  const linked = createFixtureDirectory("crdd-vc-linked-");
   fs.rmSync(linked, { recursive: true });
   git(root, ["init"]);
   git(root, ["config", "user.name", "CRDD Test"]);

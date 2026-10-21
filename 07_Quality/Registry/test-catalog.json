@@ -1644,7 +1644,7 @@
     {
       "id": "coordinator:unit:workbench-ai-advice-contract",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/workbench-ai/advice-contract.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/execution/advice-request.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -3248,7 +3248,7 @@
     {
       "id": "coordinator:unit:restart-checkpoint",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/storage/restart-checkpoint.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/execution/restart-checkpoint.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -5828,7 +5828,7 @@
     {
       "id": "coordinator:unit:authority-file-bundle",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/authority/file-bundle.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/execution/authority-bundle.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -5847,7 +5847,7 @@
     {
       "id": "coordinator:unit:authority-grant-verifier",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/authority/grant-verifier.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/execution/authority-validation.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -5866,7 +5866,7 @@
     {
       "id": "coordinator:unit:authority-prelaunch-verifier",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/authority/prelaunch-verifier.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/execution/prelaunch-validation.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -5885,7 +5885,7 @@
     {
       "id": "coordinator:unit:authority-root-path-lexical",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/authority/root-path-lexical.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/execution/root-path.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -5905,7 +5905,7 @@
     {
       "id": "coordinator:unit:authority-trust-loader",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/authority/trust-loader.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/execution/authority-policy.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -6089,7 +6089,7 @@
     {
       "id": "coordinator:unit:coordinator-operation-creation-internal",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/workspace/create.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/execution/operation-creation.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -6480,7 +6480,7 @@
     {
       "id": "coordinator:unit:host-recovery-record",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/storage/recovery-record.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/execution/host-recovery-record.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -6556,7 +6556,7 @@
     {
       "id": "coordinator:unit:doctor",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/doctor.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/cli/doctor.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -6652,7 +6652,7 @@
     {
       "id": "coordinator:unit:local-personal-authority-runtime",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/authority/local-personal-grant.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/execution/local-authority.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -7237,7 +7237,7 @@
     {
       "id": "coordinator:unit:host-terminal-record",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/storage/terminal-record.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/execution/terminal-record.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -7358,7 +7358,7 @@
     {
       "id": "coordinator:unit:root-observation",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/root-observation.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/execution/root-observation.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -7376,7 +7376,7 @@
     {
       "id": "coordinator:unit:root-protection-policy",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/root-protection-policy.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/execution/root-protection-policy.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -8004,7 +8004,7 @@
     {
       "id": "coordinator:unit:workbench-ai-advice-execution-plan",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/workbench-ai/advice-execution-plan.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/execution/provider-advice-plan.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -8031,7 +8031,7 @@
     {
       "id": "coordinator:unit:workbench-ai-advice-provider-command",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/workbench-ai-advice-provider-command.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/provider-advice-command.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -8057,7 +8057,7 @@
     {
       "id": "coordinator:unit:workbench-ai-advice-provider-output",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/workbench-ai-advice-provider-output.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/provider-advice-output.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -8083,7 +8083,7 @@
     {
       "id": "coordinator:unit:workbench-ai-advice-provider-executor",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/workbench-ai/provider-adapter-execution.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/execution/advice-runtime-result.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -8109,7 +8109,7 @@
     {
       "id": "coordinator:unit:workbench-ai-advice-production-runtime",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/workbench-ai/advice-execution.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/execution/provider-execution.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -8136,7 +8136,7 @@
     {
       "id": "coordinator:unit:workbench-ai-advice-runtime-packet",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/workbench-ai/advice-packet.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/execution/provider-packet.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -8161,7 +8161,7 @@
     {
       "id": "coordinator:unit:workbench-ai-advice-dispatch-runtime",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/workbench-ai/advice-dispatch.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/execution/advice-dispatch.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -8190,7 +8190,7 @@
     {
       "id": "coordinator:unit:workbench-ai-provider-adapter",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/workbench-ai/provider-adapter.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/execution/advice-profile.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -8215,7 +8215,7 @@
     {
       "id": "coordinator:integration:workbench-ai-profile-catalog-flow",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/workbench-ai-profile-catalog-flow.integration.test.ts",
+      "path": "40_Develop/coordinator/tests/integration/advice-profile-catalog-flow.integration.test.ts",
       "level": "integration",
       "kind": "integration",
       "semanticTags": [

@@ -7,7 +7,7 @@
 import path from "node:path";
 import { describeProviderAuthentication } from "../../../ai-adapter/src/index.ts";
 
-import { isSupportedWindowsAbsolutePathCandidate } from "../authority/root-path-lexical.ts";
+import { isSupportedWindowsAbsolutePathCandidate } from "./root-path.ts";
 import { snapshotPlainRecord } from "../../../domain-model/src/index.ts";
 import { describeProviderHomeMountGrantContract } from "./provider-home-mount-grant.ts";
 import { describeProviderHomeMountGrantRuntimeContract } from "./provider-home-mount-authorization.ts";

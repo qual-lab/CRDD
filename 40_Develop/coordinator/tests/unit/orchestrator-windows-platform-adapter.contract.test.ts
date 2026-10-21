@@ -18,7 +18,7 @@ import { resolveOrchestratorPlatformAdapter } from "../../../orchestrator/src/in
 import { createOrchestratorWindowsPlatformAdapter } from "../../../orchestrator/src/platform/windows-adapter.ts";
 import { inspectRuntimeOwnedWindowsProviderHomeCandidate } from "../../src/execution/provider-home-windows-adapter.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
-import { compileWindowsRootObservationCandidate } from "../../src/workspace/root-observation.ts";
+import { compileWindowsRootObservationCandidate } from "../../src/execution/root-observation.ts";
 
 const coordinatorRoot = path.resolve(import.meta.dirname, "../..");
 

@@ -32,8 +32,8 @@ import {
   snapshotPlainArray,
   snapshotPlainRecord,
 } from "../../../domain-model/src/index.ts";
-import { verifyRuntimeOwnedRepositoryBindingCapability } from "../workspace/binding.ts";
-import { containsRecognizedSecretScope } from "../authority/secret-material-policy.ts";
+import { verifyRuntimeOwnedRepositoryBindingCapability } from "../execution/repository-binding.ts";
+import { containsRecognizedSecretScope } from "../execution/secret-validation.ts";
 
 export const EXTERNAL_SEND_GRANT_RUNTIME_CONTRACT =
   "crdd-coordinator/external-send-grant-runtime";

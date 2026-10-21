@@ -17,7 +17,7 @@ import test from "node:test";
 import { stripTypeScriptTypes } from "node:module";
 import { runInNewContext } from "node:vm";
 import { withUnsignedRuntimeFixture } from "../support/unsigned-runtime-fixture.ts";
-import { renderDockerRecoveryDoctorReport } from "../../src/diagnostics/docker-recovery-command-report.ts";
+import { renderDockerRecoveryDoctorReport } from "../../src/cli/recovery-report.ts";
 import { parseDoctorArguments } from "../../src/cli/options.ts";
 
 const recoveryId = `docker-task.${"1".repeat(64)}.${"2".repeat(64)}.${"3".repeat(64)}`;

@@ -15,9 +15,9 @@ import type {
 } from "./types.ts";
 import { observeCoordinatorTaskCompletion } from "./completion-observation.ts";
 import {
-  inspectBorrowedWorkspaceTarget,
-  type BorrowedWorkspaceTarget,
-} from "../workspace/borrowed-tree.ts";
+  inspectBorrowedExecutionTarget,
+  type BorrowedExecutionTarget,
+} from "./borrowed-tree.ts";
 
 const STABLE_IDENTITY = /^[A-Za-z0-9][A-Za-z0-9._-]*$/u;
 
@@ -152,7 +152,7 @@ export type CoordinatorTaskDependencies = Readonly<{
     observeProviderStarted?: (
       notice: ProviderProcessStartedNotice,
     ) => boolean | Promise<boolean>,
-    workspaceTarget?: BorrowedWorkspaceTarget,
+    workspaceTarget?: BorrowedExecutionTarget,
   ) => unknown;
   cancelTask: (controlCapability: object) => unknown;
 }>;
@@ -621,7 +621,7 @@ export async function runCoordinatorTaskAttempt(
   const workspaceTarget =
     input.workspaceTarget === undefined
       ? undefined
-      : inspectBorrowedWorkspaceTarget(
+      : inspectBorrowedExecutionTarget(
           input.repositoryRoot,
           input.workspaceTarget,
         );

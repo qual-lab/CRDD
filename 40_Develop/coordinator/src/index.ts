@@ -32,6 +32,8 @@ export {
   resolveRuntimeOwnedDockerTaskCurrentCorrelations,
 } from "./execution/recovery.ts";
 export { observeRuntimeOwnedTransientTaskCompletion } from "./storage/settlement-store.ts";
+export { runRepositoryAdvice } from "./execution/request.ts";
+export { recoverProviderAdviceHostOperation } from "./execution/provider-execution.ts";
 export {
   readRepositoryNetworkPolicies,
   type RepositoryNetworkPolicies,

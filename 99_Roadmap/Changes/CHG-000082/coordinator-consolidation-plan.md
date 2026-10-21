@@ -1,10 +1,10 @@
 # Orchestrator／Coordinator統合とDomain Model最終整理
 
 成果物種別: 変更計画・着手前対応表
-状態: A・B1〜B5とC前のCoordinator事前整理は完了。C〜Dは未着手
+状態: A・B1〜B5とC前整理、助言・Workspace・診断・Authorityの解体、Docker固有記録の所有者移管は限定完了。先行Windows保存runは未確定。C〜Dは未着手
 対象変更: [CHG-000082](change.md)
 責任者・採用決定権限: Qual-Lab
-最終更新日: 2026-10-21
+最終更新日: 2026-10-22
 統合計画の初期基準（A着手前）: `1afbc6df4a76cd6800e20a5fa98a0c994577a42f`
 B調査のSource基準（A完了）: `f8f7a9986d47220a160fc141af09c6c51561e1e7`
 設計正本: [Orchestrator](../../../06_Architecture/Details/orchestrator/01_Architecture.md)、[Coordinator](../../../06_Architecture/Details/coordinator/01_Architecture.md)、[Domain Model](../../../06_Architecture/Details/domain-model/01_Architecture.md)
@@ -905,3 +905,136 @@ Source／専用Suite／Compiler／Catalog／Symbol／coverage固定母集団を�
 | 文書検査 | 変更六文書の直接診断0。参照展開134文書では3,285診断で不合格。全体文書品質の解消や正式QAのPassへ換算しない |
 
 残件1〜3を含むC前の事前整理は完了。Cの統合・改名とDは未着手。今回の回帰は既存の代役・自己生成Git／Process／Filesystem試験であり、実Provider・実Dockerの成立根拠ではない。②のAI再試行・保持物の変更／削除は行っていない。新しい状態管理、Registry、LockまたはRecovery Frameworkは追加していない。
+
+## 15. 呼出し元別助言経路の解体
+
+基準は`440f31f51`。利用者は`workbench-ai/`を独立責務として維持しないことを採用した。初回配置を最終形へ固定せず、同じCHG内の追加整理として実施する。変更分類は既存能力の内部再編。Source／Qualityの読取り専用着手前確認を統合し、追加の人間判断は不要とした。実装・本番Consumer・Qualityの独立レビュー、変更文書検査と影響伝播、関連回帰を行う。準拠基準・外部依存の有効化・Release判断は変更しないため、その監査は対象外とする。
+
+| 旧Source | 新しいOwnerと処置 |
+|---|---|
+| `advice-contract.ts` | `execution/types.ts`の値型へ統合。同形の結果Itemを単一定義にする |
+| `advice-execution-plan.ts` | `execution/provider-plan.ts`の用途別計画へ統合 |
+| `advice-task.ts` | `execution/task-packet.ts`の投影入力生成へ統合。編集PacketのAuthorityとは混ぜない |
+| `advice-result.ts` | `execution/task-structured-result.ts`の用途別結果検査へ統合 |
+| `repository-composition.ts`、`advice-dispatch.ts`、`provider-adapter.ts` | `execution/request.ts`へ統合し、本番の組立てを一つの受付へ閉じる。共通の空結果生成を使い、呼出し元別の中継Fileを残さない |
+| `advice-packet.ts` | 現に共通Provider準備が使う一回消費Packetを`execution/provider-packet.ts`へ移す。同じWeakMap実体を維持 |
+| `advice-execution.ts` | `execution/provider-execution.ts`へ移し、既存Controller／Adapterによる単発実行・取消・回収へ接続。実行基盤を新設しない |
+
+内部SymbolはWorkbenchを前提としない名称へ移す。一方、通信contract／revision／reason／mode、PromptとHashの入力bytesは保持する。助言は用途別の非共有実行であり、編集TaskのCandidate・Reviewer・Repository Mount・追加送信へ変換しない。既存のPacket Store、Authorityとcleanup不明・元回復参照の寿命を統合しない。
+
+Context読取りはDomain Modelの既存Repository Observerを要求ごとに構築し、`PROJECT_CONTEXT.md`一件だけを観測する。既存65,536-byte上限、本文文字列をUTF-8再符号化したHash、Secret検査を維持する。非同期読取りから同期の安定読取りへ変わる差は、読取り前後と配送前の取消確認で検証する。invalid／unobservableは既存の投影取得不能へ閉じ、下位Path・理由を公開しない。Domain Readerが証明できないOSをfallbackで回避しない。
+
+検証は旧九SourceのUT、両Provider準備・Controller・一回Packet・Runtime、Catalog／Profile／通信Hash・取消、Orchestrator本番組立て、Workbench／MCPの結果接続、Root公開集合、Catalog／Symbol／coverageと動的Source参照を対象とする。基準版の結果は移管前能力の照合にだけ使い、新候補の検証結果へ流用しない。実AI・実Docker・②保持物操作・C全体の統合は対象外。
+
+### 15.1. 実装接続と公開範囲
+
+九Sourceを既存五Fileと責務別二Fileへ再配置し、現在Sourceは85 Fileとなる。上位OrchestratorはRootの`runRepositoryAdvice`だけで一回の受付・計画・実行を接続し、助言用三Factoryを組み立てない。内部の局所試験用FactoryはPackage Rootへ公開しない。Host再入場は`recoverProviderAdviceHostOperation`をRootから公開する。既存19宣言にこの二操作を加えた21宣言とし、保存Schema・通信識別子・CLIは変更しない。
+
+同形の結果Item、文字列検査、空の拒否結果を既存処理へ統合した。助言と編集のPacket寿命・Schema・Hash領域は用途別に保持する。AI Adapterの助言定数Symbolも`PROVIDER_ADVICE_*`へ統一し、文字列実値を保持して利用側を追従した。
+
+Runtime応答が例外で失われた場合、旧上位組立ての既定`cleanupConfirmed: true`は根拠にならないため、公開入口ではunknownかつ応答未観測をcleanup未確認として返す。新しい回復記録・参照は作らず、観測した応答にHost回復参照がある場合だけ元参照を返す。公開入口の合成Runtime例外と清掃不明で反証する。
+
+`RCM-IT-005`の公開入口Caseは実Domain Readerと自己生成Repositoryを使い、用途固定Runtime構築・Host失敗分類の有限代役で十条件を別Process確認する。呼出し数はRuntime代役、Host参照は合成分類の投影であり、Operation／Home／一回Packet／Controller／実Host終端は既存別Suiteで評価する。Catalogのhardlink公開は制限環境では未確認になったが、通常権限で同じ四Caseが成功した。制限回避のfallbackや保存保証の緩和は加えていない。最終の検証結果は次節で区別する。
+
+### 15.2. 是正と現在の検証結果
+
+独立Source／Qualityレビューの指摘は是正・再確認済みで残件0。型専用importによる不要な実行時依存を除き、統合後のHeaderを実際の引数・Promise結果・用途境界へ合わせた。現在のCHG案内リンク三件だけ新試験Pathへ追従し、歴史Evidenceを変更しない。
+
+最終局所110件、Native観測Suite全128件（有限行列120件を含む）、Workbench18件、MCP21件、Version Control利用側閉包12件、Profile／公開集合3件、上位公開Owner4件、Workspace終了再入場の対象1件は成功。全体の整形993 File／Lint994 File、Coordinator・Orchestrator・AI Adapter・Workbench・MCPの型検査、既存二Trace検査とTest Catalog388件の構造検査は成功。Native代役の公開集合追従では、指定外操作を例外で拒否し、既存Oracleを緩めていない。
+
+通常回帰の初回は1,758件中1,633成功・120不合格・5 skip（約28分）。不合格は全て上記Native観測の代役公開集合不足であり、是正後の同Suite全128件再実行で解消を確認した。通常Profileの集約は1,753成立・5 skipで、最終候補で全1,758件を単一バッチ再実行した結果とは区別する。Orchestrator結合の初回に残った公開集合期待値と、修正途中の旧定数名を固定したSnapshotの失敗は、現行Sourceの上位公開Owner四件・対象Workspace再入場一件で再確認した。修正前の不合格を削除したり、基準版の結果を新版の成功へ転記したりしない。
+
+変更した設計・Quality・計画の四文書自身への文書検査指摘は0だが、展開された関連文書集合には不合格が残る。文書検査全体・正式QA全体・実Provider／実Docker・C統合の完成は主張しない。新しい実行ログ書庫・状態管理・Registry・Lock・Recovery Frameworkは追加せず、②保持物も変更していない。
+
+## 16. Workspace・診断Folderの解体と実責務への分配
+
+変更分類は既存実装の責務分離・内部配置変更。基準は§15完了時の作業Treeとし、先行のstage済み差分を保持する。C全体統合、通信契約・永続Schema・保存先・許可条件・Release判断は変更しない。SourceとQualityの着手前読取り確認を統合した。Architecture／Source／利用側／試験の独立レビュー、文書と影響伝播・依存閉包・関連回帰を行う。準拠基準と外部依存の有効化は変えないため準拠監査・Release監査は行わない。現時点で追加の人間判断は不要。
+
+棚卸しでは、当時の`workspace/`に継続Workspace管理はなく、`diagnostics/`の保存もCoordinatorの単発技術実行・修復記録であった。Orchestratorへ機械的に引き上げると逆依存または私有操作の公開中継を増やすため、両Folder解体という採用目的を維持し、実責務へ分配する。Orchestratorは既存のWorkspace寿命・Task進行を所有し、Git観測をVersion Controlから直接利用する。次表は§16時点の中間配置であり、Authorityの配置は§16.1で置き換える。
+
+| 移行元 | 移行先・処置 |
+|---|---|
+| `workspace/binding.ts` | Gitの形式・HEAD／Tree観測をVersion Controlの既存`repository/revision.ts`へ。実行制限・Capability結合・私有Mapと借用は`execution/repository-binding.ts`へ |
+| `workspace/borrowed-tree.ts` | `execution/borrowed-tree.ts`。上位指定対象の照合と固定保護Mount材料だけを所有 |
+| `workspace/execution-target.ts` | `execution/change-snapshot.ts`。実行前後変更とReviewer投影。永続Candidateの採否ではない |
+| `workspace/create.ts` | `execution/operation-creation.ts`。一時Operationの取得・途中失敗分類を同じ境界で維持 |
+| `workspace/root-observation.ts`、`root-protection-policy.ts` | `authority/`の同名Fileへ。観測候補・保護要件・非Authorityの境界を維持 |
+| `diagnostics/doctor.ts`、`docker-recovery-command-report.ts` | `cli/doctor.ts`、`cli/recovery-report.ts`。現在の受付・結果・表示を維持 |
+| `diagnostics/runtime-repair.ts`、`runtime-restart.ts` | `execution/`の同名Fileへ。技術Sessionの保存順・現在Scope・元参照を維持 |
+| `diagnostics/development-execution-timing.ts` | `execution/development-execution-timing.ts`。実Taskの計測とstderr出力を保持 |
+| `diagnostics/isolation-probe.ts` | 本番のProbe・exact回復と、それらと相関Ownerを共有する用途限定検証操作を`execution/isolation-probe.ts`へ。Map複製や10件以上の私有API公開を避けるため、故障／取消編成だけのscripts分離は採らない。検証用入口のConsumerをscripts／試験へ限定する |
+| `diagnostics/release-identity-grammar.ts` | 本番の40桁限定判定は実行結合の私有条件へ。検証用の受理集合は既存`scripts/verification-safety.ts`へ統合。汎用VCへRuntime制限を持ち込まない |
+
+私有Mapは各Owner一実体とし、互換File・二重Map・上位を知る下位処理を追加しない。通常結合は改訂を再照合し、Settlementの実体照合では既存の改訂変更許容を維持する。Directの差分検査を事前書込み防止へ読み替えず、借用Tree・既存dirtyを回収しない。Root候補の未実装・観測不能・非Authorityを配置変更から成功へ昇格しない。
+
+診断・修復・再起動・Probeの要求前保存、開始・完了、取消join、一次失敗、同じ回復参照と終了後条件を保持する。passive doctorにもOperation領域作成があるためEffect 0とは表示しない。実Docker・認証・外部AI・②の再試行・保持物操作は行わず、既存有限代役、実Git／Filesystem／Processと静的・台帳・依存閉包を検証する。過去Evidenceは変更しない。
+
+### 16.1. Authority Folderの解体
+
+利用者は独立したAuthority Folderを廃止し、単発実行確認をexecution、Docker固有処理をDocker Isolationへ分配する方針を採用した。着手前のSource／正本照合では、この10 SourceにDocker固有操作はなかった。許可Bundle、Registry、Policy、開始直前再検査、Local Personalの五要素をexecutionへ移し、既存の私有Map・cache・Schema・失効・Effect直前確認を維持する。Root Path、観測変換、保護候補も一般OSと実行前条件のためexecutionへ置き、下位Packageの公開APIを増やさない。
+
+| 移行元 | 現在のexecution内配置 |
+|---|---|
+| `authority/file-bundle.ts` | `authority-bundle.ts` |
+| `authority/grant-verifier.ts` | `authority-validation.ts` |
+| `authority/trust-loader.ts` | `authority-policy.ts` |
+| `authority/prelaunch-verifier.ts` | `prelaunch-validation.ts` |
+| `authority/local-personal-grant.ts` | `local-authority.ts` |
+| `authority/root-path-lexical.ts` | `root-path.ts` |
+| `authority/root-observation.ts` | `root-observation.ts` |
+| `authority/root-protection-policy.ts` | `root-protection-policy.ts` |
+| `authority/secret-material-policy.ts` | `secret-validation.ts` |
+| `authority/runtime-trust.ts` | `runtime-trust.ts` |
+
+秘密情報検査は送信前と結果取込で共用するためexecutionに置く。Runtime Trustは本番Consumer0・Root非公開だが、既存のmandatory試験とAIT-IT-001／003の独立評価義務があるため削除せず、通常実行Gateへも接続しない。候補のRoot保護契約を実装済み運用保証へ昇格させない。Storage全体のOwner再編はこの配置変更とは分け、Docker固有記録を移すためだけの大量の公開APIや新しい管理機構を作らない。
+
+Source／Qualityの独立確認と関連回帰を行う。既存レビューで検出したSymbol旧Path五件と、Version Control新二操作の利用側閉包不足も同じ固定候補で是正・再確認する。通信識別子、公開Root集合、保存形式、QA／Catalog ID、歴史Evidenceと②保持物は変更禁止とする。
+
+### 16.2. 配置変更の確認結果と限界
+
+Workspace・診断・Authorityの独立Folderを解体し、Sourceは84 File（execution62、storage8、external-send4、cli9、Root1）となった。公開Root21宣言と既存の通信値・保存形式を維持した。Source／Qualityの独立確認で検出したSymbol旧Path五件、VC新二操作の利用側閉包、同階層import十二件とDI試験の過大な説明を是正し、再確認の残指摘は0である。
+
+| 確認 | 結果と限界 |
+|---|---|
+| 関連回帰 | 既存単体全体と変更意味に対応するIT／STを合わせ1,047件成功。実Provider・実Docker・全Package全体回帰ではない。最後の同一解決先へのimport正規化は別の局所再確認で扱う |
+| 局所 | 許可・Root・Secret・doctor・Operation・Grammar・対応表の94件成功。制限環境ではWindows実行ユーザー不明で停止したCaseがあり、通常権限の同じ試験で成功を確認した。拒否条件の緩和やfallbackは追加しない |
+| 実Gitと上位利用側 | VCの自己生成Gitと利用側閉包29件、Orchestrator公開受付・採用・状態取得25件、Workbench依存閉包4件成功。VC新二操作は現在集合と欠測・余剰・alias・namespace・default・再公開・dynamicを同じOracleで照合 |
+| Docker側の模擬境界 | repair-host七件成功。Coordinator私有Path検査への試験依存を除き、固定正常・不正値とFS0を直接確認。実Docker操作はない |
+| 静的・台帳 | Coordinator／Orchestrator／Version Control／Docker Isolationの型検査、書式、Lintのerror／warningなし、既存二Trace検査とCatalog388件の構造検査が成功。既存Lint infoは合否と区別する。SymbolのPath実在欠落0・ID重複0。既存の跨Package参照やsymbol粒度を一律Path重複禁止へ変えない |
+| 文書 | 変更五文書自身の診断0。参照を展開した集合は3,600診断で不合格。文書全体・正式QA全体の合格を主張しない |
+
+最後の局所再確認にはWindows保存Caseを含む既存の修復／Probe／再起動試験も含めて実行中であり、終端結果の確定前に成功へ算入しない。Runtime Trustの本番接続、Storage全体のOwner再編、C／D、実AI／実Dockerと②のAI再試行・保持物操作は本結果に含めない。コミット・プッシュは今回の指示対象ではないため実施していない。
+
+## 17. Docker固有記録の所有者移管
+
+利用者はStorage内のDocker固有記録をDocker Isolationへ移す整理を承認した。変更分類は既存能力の内部責務移管であり、Source／Qualityの着手前照合を行った。対象の保存Schema・token・reason・Root・実Path・保存順序・原子性・回復参照・公開情報範囲を維持する。新しいState、Registry、Lock、Recovery機構や互換Fileは作らない。実Docker操作、②のAI再試行・保持物操作、Release判断は対象外。
+
+| 現在のStorage Source | 処置と所有者 |
+|---|---|
+| `recovery-identity.ts` | Docker Task回復ID解析をDIの`cleanup/recovery-identity.ts`へ。一般的な64hex判定は公開APIにしない |
+| `recovery-record.ts` | Probeの技術資源記録をDIの`cleanup/probe-record.ts`へ。Host記録はCoordinatorの`execution/host-recovery-record.ts`へ分離 |
+| `restart-checkpoint.ts` | Coordinatorの元操作・Repository・Scopeと結果を結ぶ要求相関として`execution/`へ。DIが既に所有するDesktopの技術的再起動状態とは分ける |
+| `terminal-record.ts`、`terminal-caller-checkpoint.ts` | CoordinatorのHost終端intent・caller再入場として`execution/`へ。上位記録意味をDI／Platform Accessへ渡さない |
+| `model.ts`、`settlement-store.ts` | Coordinatorの現在状態と配送・保存原子単位として維持。Docker fieldだけを分割して確定条件を壊さない |
+| `docker-recovery-journal.ts` | 外部送信同意・Orchestratorの判断保存にも使う汎用のFileIdentity確定処理として今回は維持。名前だけでDIへ移さない |
+
+既存のProbe記録操作と回復ID解析をDI Rootから明示公開し、Coordinatorは標準入口へ接続する。DIからCoordinatorへの依存、Private Sourceへの逆参照、単なる再export互換層は追加しない。Probeの記録・読戻し・Rootと子実体照合と、Host記録の状態遷移・元参照を保持する。既存Sourceの移管前能力と試験は§14〜16の対応・結果を照合し、新候補の根拠へ転用しない。
+
+検証はProbe記録・ID・再起動相関・Host記録・終端caller・同意保存・上位判断保存とSettlement、型・公開集合・利用側閉包・Symbol／Catalogを対象とする。Source／Qualityの独立レビューと文書／影響伝播確認を行い、準拠基準・外部依存・Releaseを変えないためそれらの採用監査は行わない。先行のWindows保存試験は別の開始版の結果として保持し、移管後の完了根拠へ流用しない。
+
+### 17.1. 接続と検証結果
+
+DIへ既存八操作・二型を移管し、CoordinatorはDI Rootへ接続した。CoordinatorのSourceは83 File（execution66、storage3、external-send4、cli9、Root1）。Storageには現在モデル・Settlement・汎用Journalだけが残る。Host／終端／再起動要求相関はexecutionが所有する。実Path・保存形式・token・Hash・nonce・処置／出版順序とCoordinator Root集合は維持した。DIから上位への逆依存や互換中継は追加していない。
+
+| 確認 | 結果と限界 |
+|---|---|
+| 通常関連回帰 | 1,117件成功。UTのPath移動前のrunとして保持し、移動後に同一バッチを再実行したとは表示しない |
+| 局所と配置追従 | 初回137件中136成功・一件は旧import表記を固定したOracleの追従漏れ。現配置へ同期した該当15件は成功。UT三Fileの移動・台帳追従とHeader／整形後は局所36件成功。安全確認・期待値を緩めていない |
+| 保存とcoverage | 44件成功。Host／Probeの実保存・差替え・部分欠測を含む。Journal 96.81／78.96／96.72、Host 100／84.51／100、DI Probe 99.48／88.57／100、全体97.68／81.30／97.62（行／分岐／関数％）。移管後DI Probeの母集団漏れをレビューで是正し、既存90／70／80の閾値を維持した |
+| 公開・利用側 | DIの公開集合／環境／依存五件、上位の受入判断とSettlement七件成功。既存ITはHost世代とDI Probe記録の結合を持つため、名前だけで分割しない |
+| 横断追従 | Domain Modelの台帳／保存利用側閉包29件、Version Controlの利用側閉包12件成功。既存のOwner選択・固定Root・台帳の拒否条件を維持 |
+| 静的・台帳 | Coordinator／DI／Orchestratorの型検査、書式、Lintのerror／warning0、既存二Trace、Catalog388件valid。両PackageのSymbol Path実在欠落0・ID重複0。既存info診断は別とする |
+| 独立確認 | SourceとQualityの全結果を統合し、coverage母集団漏れ・codec表記・UT配置を是正・再確認。残指摘0。移管対象関数の本文同値と、保存原子単位の不変更を確認 |
+| 文書確認 | 変更四文書自身の診断0。参照展開した集合は3,303診断で不合格。§16の別Scope・別runの3,600件と件数差を改善効果へ換算せず、正式文書／QA全体のPassは主張しない |
+
+先行Windows保存run `58760`は、今回の移管開始前から動作している別runであり、依然終端未確定である。`runtime-repair-owner`に含む15 Windows Caseの試験領域更新を観測しているが、進捗を完了・成功へ換算しない。停止・Root削除・強制的な記録整理は行っていない。今回成功した保存44件を、先行runや実Dockerの代替成功にはしない。実AI・Docker・認証・②保持物の操作、コミット・プッシュは行っていない。

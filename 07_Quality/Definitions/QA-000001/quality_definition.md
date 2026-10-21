@@ -159,6 +159,12 @@ Passは、集合の完全一致、全Consumerごとの契約試験、旧契約�
 
 RCM-IT-010の旧CROS汎用Tool Registry専用試験は、本番Consumer未接続の試作品として撤去する。実MCP／Workbenchの公開・dispatchは部分接続であり、CLI／MCP／Coordinator／Workbenchの同一能力、状態軸、取消・cleanupの全比較はOPEN。QA ID・検証義務・正式Not Run・v0.22対象は維持する。旧専用試験の成功や撤去後の件数減少を義務完了へ変換しない。[固定Git履歴と処置](../../../99_Roadmap/Changes/CHG-000082/second-stage-plan.md#旧cros試作品の撤去--2026-10-13)を参照する。
 
+## 呼出し元別助言経路の解体に伴う検証
+
+`RCM-IT-005`の現行入口はCoordinator公開`runRepositoryAdvice`とする。実Domain Readerと自己生成Repositoryを接続し、用途固定Runtime構築・Host失敗分類を有限代役にして、正常本文、65,536／65,537 bytes、欠測、Link、読取り前後・Catalog後の取消を確認する。拒否・取消ではRuntime代役呼出し0、正常では一回かつ計画のRepository／Workspace Mountなしを観測する。Runtime応答不明と清掃不明は成功へ丸めず、cleanup未確認と合成分類された元Host参照の投影を確認する。応答未観測からcleanup済みを推定しない。Operation／Home／一回Packet／Controller／Host終端の実接続は既存別Suiteで評価し、この代役Caseの成立へ含めない。既存Catalog採用・不連続版・破損版拒否は維持する。
+
+旧`workbench-ai/`の試験は`execution/`へ追従し、Schema・Hash入力・Profile／通信方針固定・一回消費・取消join・結果参照検査を維持する。内部Symbolの呼出し元名除去は通信上のcontract／revision／reason／modeを変更する根拠にしない。実Provider・実Dockerの再試行と②保持物の操作はこの整理の検証範囲へ含めない。
+
 ## Checklist
 
 - [x] Quality ID、検証目標およびSource固有条件を自己完結して示した

@@ -37,8 +37,8 @@ export {
   selectProviderFamilyPreference,
 } from "./profile/resolve.ts";
 export {
-  WORKBENCH_AI_ADVICE_PROVIDER_COMMAND_CONTRACT,
-  WORKBENCH_AI_ADVICE_PROVIDER_COMMAND_CONTRACT_REVISION,
+  PROVIDER_ADVICE_COMMAND_CONTRACT,
+  PROVIDER_ADVICE_COMMAND_CONTRACT_REVISION,
   type ProviderModelSelection,
   type ProviderAdvicePlan,
   type ProviderExecutionInput,
@@ -53,9 +53,9 @@ export {
   type ProviderTaskScopeResult,
 } from "./provider/plan.ts";
 export {
-  WORKBENCH_AI_ADVICE_PROVIDER_OUTPUT_CONTRACT,
-  WORKBENCH_AI_ADVICE_PROVIDER_OUTPUT_CONTRACT_REVISION,
-  WORKBENCH_AI_ADVICE_PROVIDER_OUTPUT_REASONS,
+  PROVIDER_ADVICE_OUTPUT_CONTRACT,
+  PROVIDER_ADVICE_OUTPUT_CONTRACT_REVISION,
+  PROVIDER_ADVICE_OUTPUT_REASONS,
   parseProviderResult,
   type ProviderResultInput,
   type ProviderResultReason,

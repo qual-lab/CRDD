@@ -50,7 +50,7 @@ function cancellationProjectionFunction(source: string, name: string) {
  */
 test("取消事実は二保存・同対象absence・全終了条件を満たしてだけ公開verifiedになる", async () => {
   const source = fs.readFileSync(
-    new URL("../../src/diagnostics/isolation-probe.ts", import.meta.url),
+    new URL("../../src/execution/isolation-probe.ts", import.meta.url),
     "utf8",
   );
   const helpers = [
@@ -444,7 +444,7 @@ test("取消事実は二保存・同対象absence・全終了条件を満たし�
  */
 test("稼働残存の上位Callerは二保存後の同対象を下位へ渡してreadyを返す", () => {
   const source = fs.readFileSync(
-    new URL("../../src/diagnostics/isolation-probe.ts", import.meta.url),
+    new URL("../../src/execution/isolation-probe.ts", import.meta.url),
     "utf8",
   );
   const helpers = [

@@ -16,20 +16,17 @@ import {
 } from "../../../version-control/src/index.ts";
 import { parseDoctorArguments } from "./options.ts";
 import { printCommandReport } from "./command-report.ts";
-import { renderDockerRecoveryDoctorReport } from "../diagnostics/docker-recovery-command-report.ts";
-import {
-  renderDoctorCommandFailure,
-  runDoctor,
-} from "../diagnostics/doctor.ts";
+import { renderDockerRecoveryDoctorReport } from "./recovery-report.ts";
+import { renderDoctorCommandFailure, runDoctor } from "./doctor.ts";
 import { isSupportedCoordinatorNodeRuntime } from "./node-runtime-version.ts";
 import { bindTaskCliCancellationSignals } from "./task-cancellation.ts";
-import { repairRuntimeOwnedDockerRuntime } from "../diagnostics/runtime-repair.ts";
-import { recoverDockerIsolationProbe } from "../diagnostics/isolation-probe.ts";
+import { repairRuntimeOwnedDockerRuntime } from "../execution/runtime-repair.ts";
+import { recoverDockerIsolationProbe } from "../execution/isolation-probe.ts";
 import {
   inspectRuntimeOwnedDockerTaskAdmission,
   recoverRuntimeOwnedDockerTaskForCurrentConsumer,
 } from "../execution/recovery.ts";
-import { restartRuntimeOwnedDockerForRecovery } from "../diagnostics/runtime-restart.ts";
+import { restartRuntimeOwnedDockerForRecovery } from "../execution/runtime-restart.ts";
 import { recoverOwnedOperationDirectories } from "../execution/operation.ts";
 import { readRuntimeOwnedCoordinatorRecoverySnapshot } from "../storage/settlement-store.ts";
 

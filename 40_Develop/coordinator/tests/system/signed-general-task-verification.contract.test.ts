@@ -23,7 +23,7 @@ import { stripTypeScriptTypes } from "node:module";
 import { runInNewContext } from "node:vm";
 import { fileURLToPath } from "node:url";
 import { observeRuntimeOwnedDevelopmentSource } from "../../src/execution/development-source-observation.ts";
-import { inspectRepositoryRevisionCandidate } from "../../src/workspace/binding.ts";
+import { inspectRepositoryRevisionCandidate } from "../../../version-control/src/index.ts";
 import {
   isCallExpression,
   isExportDeclaration,

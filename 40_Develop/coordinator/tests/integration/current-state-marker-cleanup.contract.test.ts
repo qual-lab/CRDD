@@ -21,7 +21,7 @@ import {
 } from "../../../domain-model/src/index.ts";
 import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
 import { acquireRuntimeOwnedCoordinatorStateKernelLock } from "../../src/execution/kernel-lock.ts";
-import { borrowRuntimeOwnedCoordinatorRecoveryRepository } from "../../src/workspace/binding.ts";
+import { borrowRuntimeOwnedCoordinatorRecoveryRepository } from "../../src/execution/repository-binding.ts";
 import {
   COORDINATOR_STATE_SCHEMA,
   decodeCoordinatorStateSnapshot,

@@ -36,9 +36,9 @@ import {
 import {
   bindRuntimeOwnedRepositoryOperation,
   borrowRuntimeOwnedRepositorySource,
-  inspectRepositoryRevisionCandidate,
-} from "../../src/workspace/binding.ts";
-import { containsRecognizedSecretMaterial } from "../../src/authority/secret-material-policy.ts";
+} from "../../src/execution/repository-binding.ts";
+import { inspectRepositoryRevisionCandidate } from "../../../version-control/src/index.ts";
+import { containsRecognizedSecretMaterial } from "../../src/execution/secret-validation.ts";
 import {
   createGitPackedObjectFixture,
   mutateGitPackedObjectFixture,

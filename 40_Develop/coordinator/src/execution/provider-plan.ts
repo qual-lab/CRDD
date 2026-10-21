@@ -9,6 +9,12 @@ import {
   codexAdviceProviderInitRequired,
   createDockerIsolationRandomHex,
   createDockerIsolationResourceNames,
+  createDockerAuthenticationEnvironment,
+  describeDockerProxyTopology,
+  describeDockerProviderAssets,
+  describeDockerProviderExecutionLocations,
+  parseDockerNetworkPolicy,
+  type DockerNetworkPolicy,
 } from "../../../docker-isolation/src/index.ts";
 import type {
   ProviderDockerOperationBinding,
@@ -19,20 +25,16 @@ import type {
 import {
   validateProviderModelId,
   prepareProviderEnvironment,
-} from "../../../ai-adapter/src/index.ts";
-import {
   planProviderExecution,
   describeProviderAuthentication,
+  type AiReasoningEffort,
+  type ResolvedAiProfileIdentity,
+  providerProfileMatchesExecutionIdentity,
+  type ProviderAdvicePlan,
 } from "../../../ai-adapter/src/index.ts";
-import { createDockerAuthenticationEnvironment } from "../../../docker-isolation/src/index.ts";
 import { selectProviderModelCandidate } from "./model-selection.ts";
-import { describeDockerProxyTopology } from "../../../docker-isolation/src/index.ts";
-import type { WorkbenchAiAdviceRuntimePacket } from "../workbench-ai/advice-packet.ts";
-import {
-  describeDockerProviderAssets,
-  describeDockerProviderExecutionLocations,
-} from "../../../docker-isolation/src/index.ts";
-
+import type { ProviderAdvicePacket } from "./provider-packet.ts";
+import { describeAdviceResultSchema } from "./task-structured-result.ts";
 const codexAuthenticationCli = describeProviderAuthentication("codex");
 const claudeAuthenticationCli = describeProviderAuthentication("claude");
 
@@ -67,7 +69,7 @@ export function buildProviderDockerExecutionPlan(
   preparedWallClockMs: number,
   preparedMonotonicMs: number,
   taskPacket: ProviderDockerTaskPacket | null,
-  advicePacket: WorkbenchAiAdviceRuntimePacket | null,
+  advicePacket: ProviderAdvicePacket | null,
   recoveryCorrelationId: string | null,
   consumer: "coordinator_cli" | "workbench" | "orchestrator",
 ) {
@@ -345,4 +347,273 @@ export function buildProviderDockerExecutionPlan(
         taskWorkload:
           claude && "taskWorkload" in claude ? claude.taskWorkload : null,
       });
+}
+
+export const PROVIDER_ADVICE_EXECUTION_PLAN_CONTRACT =
+  "crdd-coordinator/workbench-ai-advice-execution-plan";
+export const PROVIDER_ADVICE_EXECUTION_PLAN_CONTRACT_REVISION = 1;
+
+const SHA256 = /^[a-f0-9]{64}$/u;
+const EXECUTION_INPUT_KEYS = Object.freeze([
+  "catalogRevision",
+  "exactModelId",
+  "networkPolicy",
+  "offering",
+  "profileId",
+  "projectionHash",
+  "provider",
+  "providerPrompt",
+  "reasoningEffort",
+  "taskHash",
+]);
+
+/**
+ * 読取り助言の固定Provider実行計画で使用するProviderAdviceExecutionInputの構造を固定する。
+ *
+ * @responsibility 読取り助言の固定Provider実行計画が受け渡す値、状態および制約を一つの型契約として保持する。
+ * @trace ARCH-000010
+ * @shape 宣言されたPropertyだけを持つ閉じた型として扱う。
+ * @invariant Identity、状態およびAuthorityを暗黙に読み替えない。
+ * @boundary 本ModuleとConsumerの型境界。
+ * @security 秘密値または未許可のPathを公開値へ追加しない。
+ * @compatibility 変更時は全Consumer、Schemaおよび契約試験を同時更新する。
+ */
+
+export type ProviderAdviceExecutionInput = Readonly<{
+  networkPolicy: DockerNetworkPolicy;
+  catalogRevision: number;
+  provider: "codex" | "claude";
+  providerPrompt: string;
+  taskHash: string;
+  projectionHash: string;
+  profileId: string;
+  exactModelId: string;
+  reasoningEffort: AiReasoningEffort;
+  offering: "chatgpt_subscription_oauth" | "claude_max";
+}>;
+
+/**
+ * 読取り助言の固定Provider実行計画で使用するProviderAdviceExecutionPlanの構造を固定する。
+ *
+ * @responsibility 読取り助言の固定Provider実行計画が受け渡す値、状態および制約を一つの型契約として保持する。
+ * @trace ARCH-000010
+ * @shape 宣言されたPropertyだけを持つ閉じた型として扱う。
+ * @invariant Identity、状態およびAuthorityを暗黙に読み替えない。
+ * @boundary 本ModuleとConsumerの型境界。
+ * @security 秘密値または未許可のPathを公開値へ追加しない。
+ * @compatibility 変更時は全Consumer、Schemaおよび契約試験を同時更新する。
+ */
+
+export type ProviderAdviceExecutionPlan = Readonly<{
+  contract: typeof PROVIDER_ADVICE_EXECUTION_PLAN_CONTRACT;
+  contractRevision: typeof PROVIDER_ADVICE_EXECUTION_PLAN_CONTRACT_REVISION;
+  mode: "workbench_advice";
+  catalogRevision: number;
+  provider: ProviderAdviceExecutionInput["provider"];
+  profileId: string;
+  exactModelId: string;
+  reasoningEffort: ProviderAdviceExecutionInput["reasoningEffort"];
+  offering: ProviderAdviceExecutionInput["offering"];
+  providerPrompt: string;
+  promptTransport: "stdin";
+  taskHash: string;
+  projectionHash: string;
+  repositoryMounted: false;
+  workspaceMounted: false;
+  toolsAllowed: false;
+  sessionPersistenceAllowed: false;
+  apiKeyFallbackAllowed: false;
+  paidApiFallbackAllowed: false;
+  providerCommand: ProviderAdviceCommand;
+}>;
+
+/**
+ * 読取り助言の固定Provider実行計画で使用するProviderAdvicePlanPreparationの構造を固定する。
+ *
+ * @responsibility 読取り助言の固定Provider実行計画が受け渡す値、状態および制約を一つの型契約として保持する。
+ * @trace ARCH-000010
+ * @shape 宣言されたPropertyだけを持つ閉じた型として扱う。
+ * @invariant Identity、状態およびAuthorityを暗黙に読み替えない。
+ * @boundary 本ModuleとConsumerの型境界。
+ * @security 秘密値または未許可のPathを公開値へ追加しない。
+ * @compatibility 変更時は全Consumer、Schemaおよび契約試験を同時更新する。
+ */
+
+export type ProviderAdvicePlanPreparation = Readonly<
+  | {
+      status: "prepared";
+      reason: null;
+      executionPlan: ProviderAdviceExecutionPlan;
+    }
+  | {
+      status: "blocked";
+      reason: "workbench_ai_advice_execution_plan_invalid";
+      executionPlan: null;
+    }
+>;
+
+/**
+ * 読取り助言の固定Provider実行計画を生成する。
+ *
+ * @responsibility Catalogと完全一致する実行IdentityだけをRepository非共有・標準入力搬送の計画へ変換する。
+ * @trace ARCH-000010
+ * @trace ARCH-000015
+ * @input input: Provider Adapterが生成した閉じた実行入力、catalog: 採用済みAI Profile Catalog。
+ * @returns 検証済み実行計画、またはEffect前の拒否結果。
+ * @precondition catalogは呼出し側が指定する改訂に対応する候補である。
+ * @postcondition preparedの場合もProvider Effect Authority、認証成立または実行完了を主張しない。
+ * @effect N/A: 入力検査と固定値生成だけを行う。
+ * @failure Catalog不一致、未知Property、不正HashまたはProvider境界不整合をadvicePlanRejectedで返す。
+ * @invariant Provider、Model、推論強度、OfferingおよびTask Identityを補完・変更しない。
+ * @boundary 検証済みProfile IdentityとProvider固有実行境界の間。
+ * @security Repository、Workspace、Tool、Session、API Keyおよび有料Fallbackを計画上で禁止する。
+ * @concurrency N/A: 共有状態を持たない同期処理である。
+ */
+export function prepareProviderAdvicePlan(
+  input: ProviderAdviceExecutionInput,
+  profile: ResolvedAiProfileIdentity,
+): ProviderAdvicePlanPreparation {
+  const keys = Object.keys(input).sort();
+  const networkPolicy = parseDockerNetworkPolicy(input.networkPolicy);
+  if (
+    !networkPolicy ||
+    networkPolicy.provider !== input.provider ||
+    keys.length !== EXECUTION_INPUT_KEYS.length ||
+    !keys.every((key, index) => key === EXECUTION_INPUT_KEYS[index]) ||
+    !Number.isSafeInteger(input.catalogRevision) ||
+    input.catalogRevision < 0 ||
+    input.providerPrompt.trim().length === 0 ||
+    !SHA256.test(input.taskHash) ||
+    !SHA256.test(input.projectionHash)
+  )
+    return advicePlanRejected();
+
+  if (
+    !profile.selectionRoles.includes("coordinator") ||
+    !providerProfileMatchesExecutionIdentity(profile, {
+      profileId: input.profileId,
+      provider: input.provider,
+      exactModelId: input.exactModelId,
+      reasoningEffort: input.reasoningEffort,
+      offering: input.offering,
+    })
+  )
+    return advicePlanRejected();
+
+  const generated = planProviderExecution(
+    {
+      provider: input.provider,
+      purpose: "advice",
+      input: {
+        provider: input.provider,
+        exactModelId: input.exactModelId,
+        reasoningEffort: input.reasoningEffort,
+      },
+      resultSchema: describeAdviceResultSchema(),
+    },
+    describeDockerProviderExecutionLocations(input.provider, "advice"),
+  );
+  if (generated.status !== "ready") return advicePlanRejected();
+  return Object.freeze({
+    status: "prepared" as const,
+    reason: null,
+    executionPlan: Object.freeze({
+      contract: PROVIDER_ADVICE_EXECUTION_PLAN_CONTRACT,
+      contractRevision: PROVIDER_ADVICE_EXECUTION_PLAN_CONTRACT_REVISION,
+      mode: "workbench_advice" as const,
+      catalogRevision: input.catalogRevision,
+      provider: input.provider,
+      profileId: input.profileId,
+      exactModelId: input.exactModelId,
+      reasoningEffort: input.reasoningEffort,
+      offering: input.offering,
+      providerPrompt: input.providerPrompt,
+      promptTransport: "stdin" as const,
+      taskHash: input.taskHash,
+      projectionHash: input.projectionHash,
+      repositoryMounted: false as const,
+      workspaceMounted: false as const,
+      toolsAllowed: false as const,
+      sessionPersistenceAllowed: false as const,
+      apiKeyFallbackAllowed: false as const,
+      paidApiFallbackAllowed: false as const,
+      providerCommand: bindProviderAdviceCommand(generated.plan, networkPolicy),
+    }),
+  });
+}
+
+/**
+ * 読取り助言実行計画の拒否結果を生成する。
+ *
+ * @responsibility すべての計画不整合をEffect 0の同一公開結果へ閉じる。
+ * @trace ARCH-000010
+ * @trace ARCH-000015
+ * @input N/A: 固定拒否結果だけを生成する。
+ * @returns 実行計画を含まないadvicePlanRejected結果。
+ * @precondition N/A: 呼出し条件を持たない。
+ * @postcondition executionPlanは常にnullである。
+ * @effect N/A: 固定値を生成するだけである。
+ * @failure N/A: この関数自身は失敗分岐を持たない。
+ * @invariant 不正入力の詳細や秘密値を公開理由へ含めない。
+ * @boundary 内部検証理由と公開拒否結果の境界。
+ * @security Prompt、Profile詳細およびHashを結果へ複製しない。
+ * @concurrency N/A: 共有状態を持たない同期処理である。
+ */
+function advicePlanRejected(): ProviderAdvicePlanPreparation {
+  return Object.freeze({
+    status: "blocked" as const,
+    reason: "workbench_ai_advice_execution_plan_invalid" as const,
+    executionPlan: null,
+  });
+}
+
+/**
+ * 助言CLI計画に隔離実行の固定Image・共有範囲を結合する。
+ * @responsibility Image相関をAI AdapterでなくCoordinatorの技術Packetへ保持する。
+ * @trace ARCH-000015
+ * @shape ProviderAdvicePlanと固定Image・Home必要・Repository／Workspace非共有。
+ * @invariant Image・argv・環境を同じPacket Hashへ結合する。
+ * @boundary AIのCLI記述とDockerの配置を結合する上位境界。
+ * @security 起動・送信許可を生成しない。
+ * @compatibility 既存のPacket field・Hash対象を維持する。
+ */
+export type ProviderAdviceCommand = ProviderAdvicePlan &
+  Readonly<{
+    fixedImageDigest: string;
+    networkPolicy: DockerNetworkPolicy | null;
+    providerHomeMountRequired: true;
+    repositoryMounted: false;
+    workspaceMountRequired: false;
+  }>;
+
+/**
+ * CLI計画を助言Packetの既存技術契約へ結合する。
+ * @responsibility Imageと非共有条件の所有を上位に閉じる。
+ * @trace ARCH-000015
+ * @input plan: AI Adapterが生成した検証済み助言CLI計画。
+ * @returns 固定ImageとMount意図を結合した同じ閉じたCommand。
+ * @precondition 信頼した構成側がDocker側の実行位置で生成している。
+ * @postcondition CLI引数・環境・Modelを改変しない。
+ * @effect N/A: 不変値の構築だけ。
+ * @failure N/A: 対応Providerの固定データだけを利用する。
+ * @invariant 取得を実Image検証や送信許可にしない。
+ * @boundary ProviderのCLI記述と隔離実行の技術相関。
+ * @security Prompt・秘密・Host Rootを追加しない。
+ * @concurrency N/A: 同期値だけ。
+ */
+export function bindProviderAdviceCommand(
+  plan: ProviderAdvicePlan,
+  networkPolicy: DockerNetworkPolicy | null = null,
+): ProviderAdviceCommand {
+  return Object.freeze({
+    ...plan,
+    networkPolicy,
+    fixedImageDigest:
+      plan.provider === "codex"
+        ? describeDockerProviderAssets("codex").adviceIdentity.fixedImageDigest
+        : describeDockerProviderAssets("claude").fixedImageDigest,
+    providerHomeMountRequired: true as const,
+    repositoryMounted: false as const,
+    workspaceMountRequired: false as const,
+  });
 }

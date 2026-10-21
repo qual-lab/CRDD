@@ -27,7 +27,7 @@ import type {
   ProviderDockerPreparedPlan,
   ProviderDockerPreparedResult,
 } from "./provider-types.ts";
-import type { WorkbenchAiAdviceRuntimePacket } from "../workbench-ai/advice-packet.ts";
+import type { ProviderAdvicePacket } from "./provider-packet.ts";
 
 /**
  * Providerで識別した独立準備Runtimeを構築する。
@@ -79,7 +79,7 @@ export function createProviderDockerRuntimeAdapterCandidate<
     return prepareProviderDockerCandidate<
       ProviderDockerConsumedModelSelection,
       ProviderDockerConsumedTaskPacket<P>,
-      WorkbenchAiAdviceRuntimePacket,
+      ProviderAdvicePacket,
       Omit<
         ProviderDockerPreparedPlan<P>,
         "authorityUseCapability" | "authorityControlCapability"

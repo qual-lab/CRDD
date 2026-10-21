@@ -34,7 +34,7 @@ Workbench用途で上位の回復相関を持つ新しい終了要約に限り�
 |---|---|---|
 | 1. `execution/types.ts`／`execution/attempt.ts` | 所属保存Rootと借用実行対象を別入力にする。IsolatedはUUID・固定配置・Base・現在HEAD・実登録・実体をVCで再照合する。Directは所属Rootの現在Treeを扱う | CoordinatorからOrchestratorへ依存しない。継続中のdirtyを初回作成条件で拒否しない |
 | 2. DIの共通保護 | 通常SourceのRWと、`.git`・実Git管理領域・`.crdd`の書込み禁止を同時に成立させる。Directory型とポインタfile型、別名経路を評価する | 開発用`.env`の読取りを新たな拒否条件にしない。file別ACL・動的Mount承認・新Secret管理を作らない |
-| 3. `execution/task.ts`／`workspace/execution-target.ts` | 認可・受付・保存・回復・配送は所属Root、Providerだけ借用Treeへ接続する。借用TreeをOperation所有の一時領域として登録しない | Git Ref操作・Workspace寿命はVC／Orchestrator。Coordinator清掃はContainer・Process・自己所有の一時物だけ |
+| 3. `execution/task.ts`／`execution/change-snapshot.ts` | 認可・受付・保存・回復・配送は所属Root、Providerだけ借用Treeへ接続する。借用TreeをOperation所有の一時領域として登録しない | Git Ref操作・Workspace寿命はVC／Orchestrator。Coordinator清掃はContainer・Process・自己所有の一時物だけ |
 | 4. 旧capture／Review／publishの分離 | 旧Candidate capture／Bundleを要求しない新成果返却へ切替。レビュー対象の差分・基準・未確定事項を実結果と相関する | AI完了によるCommit・採用・Promotionなし。成果を保全できない箇所は旧能力の置換済みとしない |
 | 5. 利用側・失敗・終了後確認 | 正常・開始前後取消・通知失敗・配送失敗・親喪失と次Taskを確認する | 一次失敗・元回復参照を維持。Task終端からTree削除・resetへ進まない |
 
@@ -68,11 +68,11 @@ Provider計画の投影では、Proxy包装の解釈とContainer内Homeの定数
 
 Task回復の技術接続はDIの固定`createDockerTaskRecoveryExecutor`へ、借用managementDirectoryと同期assertOwnerだけを渡す。CLI出所snapshot、Windows実行物、Engine、環境変数の構成はCoordinatorが保持・選択しない。返却された元executorを使い、既存finallyで元closeを呼び、config回収不明を上位状態へ保持する。回復義務の保存・現在Owner確認・受領・終了判定は引き続きCoordinatorの責務である。
 
-隔離診断の上位調整は`diagnostics/isolation-probe.ts`が所有する。Dockerの技術実行・環境判定はDocker Isolation、Host記録の保存と遷移は既存Host Ownerへ委譲し、診断本体は順序、私有の対象相関と公開結果を扱う。旧`docker-execution/isolation-probe.ts`の互換入口は残さない。この配置変更は実行・回復本体の移管完了を意味しない。
+隔離診断の上位調整は`execution/isolation-probe.ts`が所有する。Dockerの技術実行・環境判定はDocker Isolation、Host記録の保存と遷移は既存Host Ownerへ委譲し、診断本体は順序、私有の対象相関と公開結果を扱う。旧`docker-execution/isolation-probe.ts`の互換入口は残さない。この配置変更は実行・回復本体の移管完了を意味しない。
 
 診断ProbeのHost状態遷移は、既存`execution/operation.ts`が所有する。開始・作成前取消は同Ownerの既存遷移へ委譲し、不存在確定は元Host markerの保存・token更新・元Capabilityへの採用を同じ順序で行う。Probeは遷移結果を受け渡すだけでmarkerを直接更新しない。明示Rootを使う再入場と生存OwnerのCapability経路を区別し、新しい状態・Lock・共有管理を追加しない。この配置だけからDocker資源不存在の成立は主張しない。
 
-Hostと診断Probeの回復token・記録codec・Filesystem保存／読取りは、既存`storage/recovery-record.ts`へ集約する。診断本体は同じOwnerのWriter／Readerを明示呼出しし、作成前とID確定後の二保存、fresh回復時のRoot・実体照合から技術観測への順序を維持する。WriterはDIの固定資源記述を記録するだけでCLIやEngineを判定しない。Host／ProbeのSchemaとtoken文法は別のまま、現在形式だけを扱い、Package root APIや互換中継は追加しない。
+Host回復token・記録codec・Filesystem保存／読取りは`execution/host-recovery-record.ts`、診断Probe記録はDocker Isolationの`cleanup/probe-record.ts`が所有する。診断本体は各OwnerのWriter／Readerを明示呼出しし、作成前とID確定後の二保存、fresh回復時のRoot・実体照合から技術観測への順序を維持する。Writerは固定資源記述を記録するだけでCLIやEngineを判定しない。Host／ProbeのSchemaとtoken文法は別のまま、現在形式だけを扱い、互換中継は追加しない。
 
 <a id="repair-directory-disposition"></a>
 
@@ -140,11 +140,11 @@ B2の完結では、確認コードの技術搬送、固定Reader、Named Pipe W
 
 修復Ownerは既存領域がreadyで現在Ownerが有効な場合、通常Readerの前に既存の出版marker清掃を一回だけ呼ぶ。status completed・storageConfirmed・markerAbsentConfirmed・lockReleasedとOwner再確認が共同成立してから通常Readerで本文を再取得する。清掃結果は非秘密の診断事実として返し、保存本文・修復成功・実資源不存在の代替根拠にしない。pending・不正marker・未知Fileの処置前拒否では除去0、除去後の観測や解放不明では既発生事実を保持して停止する。取消はmetadata清掃を妨げないが技術Session開始前の拒否は維持する。これは出版済みcurrentのmarkerだけの処置であり、未出版pendingの確定は後述の専用Reader／publisherで別に判断する。
 
-`diagnostics/runtime-repair.ts`は検証済みRootと現在Revisionを固定し、DIの固定Session入口からH／Scopeを受けた同じ呼出し内でIdentity保存→初checkpoint保存→Machineを接続する。現在許可は呼出し生存・Root／Revision・未取消で確認し、準備保存済みをNative準備前の許可条件には含めない。処置先行防止はDIの`onPrepared`同期trueの順序で所有する。保存Ownerは取消から独立し、保存不明またはfinally後の再利用を拒否する。freshのSession候補とDI準備値は既存の正規JSON符号化で比較し、Property順を実体差と扱わない。二版の結果保存・出版済みmarker清掃・未出版metadata確定・明示保持判断・履歴・退避物がない現在操作の終了整理は本番修復呼出しへ接続して局所検証済み。CLI切替は次の候補契約まで実装しているが、旧経路の全撤去と実修復を含む全体完成とは扱わない。
+`execution/runtime-repair.ts`は検証済みRootと現在Revisionを固定し、DIの固定Session入口からH／Scopeを受けた同じ呼出し内でIdentity保存→初checkpoint保存→Machineを接続する。現在許可は呼出し生存・Root／Revision・未取消で確認し、準備保存済みをNative準備前の許可条件には含めない。処置先行防止はDIの`onPrepared`同期trueの順序で所有する。保存Ownerは取消から独立し、保存不明またはfinally後の再利用を拒否する。freshのSession候補とDI準備値は既存の正規JSON符号化で比較し、Property順を実体差と扱わない。二版の結果保存・出版済みmarker清掃・未出版metadata確定・明示保持判断・履歴・退避物がない現在操作の終了整理は本番修復呼出しへ接続して局所検証済み。CLI切替は次の候補契約まで実装しているが、旧経路の全撤去と実修復を含む全体完成とは扱わない。
 
 CLIの通常明示修復は既存`--repair-docker-desktop-runtime`を維持して新compositionへ接続し、新exact IDは既存`--recover-isolation`でTask／Host／Probeより先に分類する。現在Rootを検証し、取消をsignalへ結合、finallyでlistenerを解除してから固定診断を表示する。解除不明は一次理由を上書きせず別fieldとexit2へ投影し、表示失敗から処置を再発行しない。旧close／adopt／after-repairと署名Root引数は撤去し、処置前の未知引数拒否とする。現行repair／retain／restart／recoverを維持し、旧Desktop記録3 Source・旧Inventory／回復APIは撤去済みである。実保持物・次Task・実Docker／再ログオン／E2Eの未完了は別に保持する。
 
-再起動の上位Callerは`diagnostics/runtime-restart.ts`が所有する。検証済みRoot・同じ回復対象の許可と現在checkpointを接続し、処置はDI公開`restartDockerRuntime`へ委譲する。準備・確認・保存・解放・終了確定の5操作はCoordinator私有の現在状態接続であり、Package Rootへ再公開しない。CallerはDIのprivate module、旧Desktop記録、OS／Desktopの起動方式を参照しない。移動は処理・保存契約・公開関数名を変更せず、技術再起動とTask回復完了を区別する。
+再起動の上位Callerは`execution/runtime-restart.ts`が所有する。検証済みRoot・同じ回復対象の許可と現在checkpointを接続し、処置はDI公開`restartDockerRuntime`へ委譲する。準備・確認・保存・解放・終了確定の5操作はCoordinator私有の現在状態接続であり、Package Rootへ再公開しない。CallerはDIのprivate module、旧Desktop記録、OS／Desktopの起動方式を参照しない。移動は処理・保存契約・公開関数名を変更せず、技術再起動とTask回復完了を区別する。
 
 公開診断`crdd-coordinator/current-runtime-repair`は、status／有限reason／exact recoveryIdと、結果・保持・履歴・終了整理・Native回収・CLI解除の個別確認だけを固定fieldで投影する。内部のRoot・Scope・checkpoint・出版／marker objectは公開しない。getter／Proxyを実行せず拒否する。
 
@@ -288,20 +288,28 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 
 ### 内部ブロック図
 
-以下はC統合前の現在の責務配置を示す。Sourceは`src`直下の用途別Directoryへ配置し、権限判断だけを`authority/`へ置く。`src`配下は2階層までとし、`core/`、`security/`、`composition/`、`internal/`を汎用の置場として残さない。基準97 Sourceの最終処置は[事前整理対応表](../../../99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#14-c前事前整理の最終配置と保証対応)で追跡する。過去の配置Evidenceは当時の記録であり、現在Treeの正本にはしない。
+以下はC統合前の現在の責務配置を示す。単発実行の許可確認は`execution/`が所有し、独立した`authority/`は設けない。`src`配下は2階層までとし、`core/`、`security/`、`composition/`、`internal/`を汎用の置場として残さない。基準97 Sourceの最終処置は[事前整理対応表](../../../99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#14-c前事前整理の最終配置と保証対応)と同計画の追加整理節で追跡する。過去の配置Evidenceは当時の記録であり、現在Treeの正本にはしない。
 
 | Source Directory | 所有する責務 |
 |---|---|
-| `cli/` | 引数、対話入力、表示、CLI取消と用途の振り分け |
-| `execution/` | 単発Taskの開始・取消・結果受領、Provider選定Grant・Home・Mount、Host世代・poison、専門AI／DI APIへの接続。42 Fileで操作別のOwnerを分け、巨大な一つの実行Managerへ統合しない |
+| `cli/` | 引数、対話入力、表示、CLI取消と用途の振り分け。単発環境診断のReport組立てと回復結果表示 |
+| `execution/` | 単発Taskと読取り助言の受付・計画・Packet・結果検査・取消・回収、Provider選定Grant・Home・Mount、Host世代・poison、専門AI／DI APIへの接続。呼出し元ではなく処理の責務でOwnerを分ける |
 | `external-send/` | 外部送信の同意、許可、一回消費と出口制御 |
-| `authority/` | Grant、事前許可、Trust読取り、秘密情報拒否の判断 |
-| `workspace/` | 解決済み作業対象と操作Ownerの結合、Root観測・借用Tree・dirty・変更投影。継続Workspaceの作成・採否管理は上位／VC |
-| `storage/` | 現在状態・Settlement・Journal・Host記録・caller確定。Writer・排他・原子単位は別のまま維持し、再入場の純粋分類はmodelが所有する |
-| `workbench-ai/` | 固定Context・助言Schema／Packet・非共有・結果公開。共通Runtimeへ直接接続し、編集・Reviewerを助言に追加しない |
-| `diagnostics/` | 環境、配布物、実行時間の診断 |
+| `storage/` | 現在状態のmodel、Settlementと汎用JSON確定Journal。Writer・排他・原子単位を維持し、再入場の純粋分類はmodelが所有する |
 
 純粋な値取込みはDomain Modelの既存公開APIを使う。公開Symbolは必要操作と検査へ限定して`src/index.ts`に明示集約する。通常Runtimeから実装依存を持たない検査・E2E補助は`scripts/`、試験と試験専用支援は`tests/`が所有する。保存方式・Protocol・Runtime所在はSource再配置から変更しない。
+
+`workspace/`と`diagnostics/`は実責務へ分配して解体する。継続Workspaceの選択・寿命・採否は既にOrchestratorが所有するため、CoordinatorからWorkspaceを新たに管理させない。借用対象照合・変更Snapshot・一時Operation作成・技術的な修復Sessionの保存直列化とRoot保護候補は`execution/`、診断受付・表示は`cli/`が所有する。GitのHEAD／Tree・前後同一性観測はVersion Controlへ移し、Orchestratorはその公開操作を直接利用する。Coordinatorの40桁実行制限を汎用Git観測へ持ち込まない。
+
+`authority/`の許可Bundle・Registry・Policy・開始直前再検査・Local Personal許可元は、`execution/`内の単発実行に閉じた構成要素である。ユーザー／Role認可を新たに所有せず、既存の失効・Scope・Operation相関を保持する。Root字句検査・観測変換・保護候補にはDocker操作がないため、Docker IsolationへAPIを追加する理由にはしない。秘密情報検査は入力投影と結果取込の双方で使用するため`execution/secret-validation.ts`が所有する。Runtime Trustの独立評価は既存QA義務を保持するが、本番未接続・Root非公開のままとし、通常実行のGateへ追加しない。Docker固有の隔離・起動・終了・資源回収はDocker Isolationが所有する。
+
+Docker Task回復IDの解析とProbe記録の保存・読戻し・Root／子実体の照合はDocker Isolationの公開APIを使う。Coordinatorの`execution/host-recovery-record.ts`はHost記録だけを所有する。Host終端intentとcaller checkpoint、元Repository／操作／Scopeへ結合する再起動要求checkpointも`execution/`へ置く。これらはDIの技術的な再起動状態とは異なり、処置許可・保存・通知の上位相関を所有する。現在状態の保存Schema、保存先、同じ回復参照と確定順序は変えない。`storage/docker-recovery-journal.ts`は名称に反して外部同意と採用判断にも使う汎用の確定処理であり、Docker Isolationへ移さない。
+
+診断記録はOrchestratorのTask進行状態ではなく単発の技術実行記録である。上位へ移すためだけのWrapperや私有APIの大量公開を作らず、CoordinatorからOrchestratorへ依存しない。Probeの本番回復と故障／取消検証は同じ相関Mapを一実体で維持し、検証用操作のConsumerだけをscripts／試験に限定する。passive doctorにも一時Operation作成があるため読取り専用・Effect 0とは表示しない。処置対応と検証義務は[解体計画](../../../99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#16-workspace診断folderの解体と実責務への分配)を参照する。
+
+呼出し元別の`workbench-ai/`は解体する。助言の値型は`execution/types.ts`、計画は`provider-plan.ts`、入力投影は`task-packet.ts`、結果検査は`task-structured-result.ts`へ統合する。同形の結果Itemと文字列検査を共通化するが、助言と編集のSchema、Hash領域、一回消費のAuthorityは混合しない。`provider-packet.ts`は一回Packet、`provider-execution.ts`は既存Controllerによる非共有実行と回収を所有する。
+
+上位は公開`runRepositoryAdvice`を一度呼び、結果・cleanup確認・元Host回復参照を受け取る。Orchestrator側に助言用Factoryの連鎖を置かない。Contextは要求ごとのDomain Model Observerで`PROJECT_CONTEXT.md`一件だけを安定観測し、65,536-byte上限とUTF-8本文Hashを維持する。欠測、Link、不正、観測不能は既存の投影取得不能へ閉じ、読取り前後・Catalog解決後・配送前に取消を確認する。Runtime応答が不明なら、応答を観測していないことからcleanup済みを推定しない。Host再入場は公開`recoverProviderAdviceHostOperation`を使い、上位へ内部実装importを要求しない。編集・Reviewer・Repository／Workspace Mountを助言へ追加しない。
 
 同じ制御参照への取消搬送、元の完了待機と監視解除は`execution/completion-observation.ts`が所有する。開始通知の登録・重複抑止と登録先の待機は`execution/attempt.ts`が所有し、Handle返却時に上位状態を更新しない。取消の返値・失敗を資源回収の根拠にせず、元の完了通知を待ち、完了拒否は観測不能として上位へ返す。上位Attempt・Revisionの相関と状態保存は登録先が所有し、この共通処理へ持ち込まない。
 
@@ -385,7 +393,9 @@ APIの具体的な型・呼出し点・利用側全数は棚卸しの関数単�
 
 Taskの既存型契約は`startRuntimeOwnedCoordinatorTask`の引数・戻り値と`cancelRuntimeOwnedCoordinatorTask`の引数・戻り値を基準にする。開始結果は`status: started`、同一Process内の不透明な`controlCapability`および`completion`を持つ。開始結果の返却はProvider開始・完了・資源回収の証明ではない。取消は同じcontrolだけを受理し、取消結果とは別に元の`completion`を待つ。controlをJSONへ保存・外部公開せず、新Processの回復参照の代用にしない。
 
-| 現在の呼出し点 | 再編後の担当と接続 | 保持する契約・確認 |
+以下は初期移管計画時点の対応であり、現在のConsumer集合ではない。現在の編集Taskは`runCoordinatorTaskAttempt`、助言は`runRepositoryAdvice`へ上位から接続する。旧候補経路を助言へ読み替えず、現在の配置は本書§2と統合計画§15を参照する。
+
+| 初期移管計画時点の呼出し点 | 再編後の担当と接続 | 保持する契約・確認 |
 |---|---|---|
 | `cli/coordinator-command.ts`のTask処理 | CoordinatorのCLIから下位公開Task操作へ接続 | Runtime検証とRoot確認、開始拒否、Signal登録、完了待機、Signal解除、最終結果を保持する。単体利用にOrchestratorを要求しない。 |
 | `workbench-ai/workbench-ai-change-candidate-runtime.ts` | Coordinatorの候補実行処理から同じTask操作へ接続 | Workbench受付は上位へ分離しても、候補生成時のTask開始・取消・回収は重複実装しない。正本採用・Commit・Pushを発行しない。 |
@@ -501,7 +511,7 @@ Host Operation
 
 ## 7. Authorityと外部送信
 
-Taskの清掃可否判定は`src/execution/cleanup-eligibility.ts`、現在入場と回復結果の公開投影は`src/execution/recovery-projection.ts`が所有する。両者は上位の結果・参照相関だけを検査し、Docker操作や処置Authorityを発行しない。Task回復IDの固定文法は`src/storage/recovery-identity.ts`へ集約し、現在状態、CLI、回復Callerと結果公開が同じ解析を用いる。配置変更を理由に公開理由・DTO・ID文法・清掃条件を変更しない。
+Taskの清掃可否判定は`src/execution/cleanup-eligibility.ts`、現在入場と回復結果の公開投影は`src/execution/recovery-projection.ts`が所有する。両者は上位の結果・参照相関だけを検査し、Docker操作や処置Authorityを発行しない。Task回復IDの固定文法はDocker Isolationの`cleanup/recovery-identity.ts`へ集約し、現在状態、CLI、回復Callerと結果公開がDI Rootの同じ解析を用いる。配置変更を理由に公開理由・DTO・ID文法・清掃条件を変更しない。
 
 Repository読取り、外部送信、Provider起動、候補書込み、候補export、Docker復旧は別Authorityである。RoleはAuthorityを意味しない。
 
@@ -1046,7 +1056,7 @@ Workbench助言の初期化失敗では、Operationが呼出し元へ返る前�
 
 #### 終端intentの閉じた搬送形式
 
-完全に観測できたsnapshotだけを、内部codec `host-terminal-record.ts`の入力にする。Root未作成、六childの部分作成、Identity不明の初期化失敗はこの形式の適用外である。欠けた値をゼロや推測で埋めず、既存の失敗分類と取得済みexact参照保持を維持する。初期化途中からの耐久再入場は別に接続する必要がある。
+完全に観測できたsnapshotだけを、内部codec `execution/terminal-record.ts`の入力にする。Root未作成、六childの部分作成、Identity不明の初期化失敗はこの形式の適用外である。欠けた値をゼロや推測で埋めず、既存の失敗分類と取得済みexact参照保持を維持する。初期化途中からの耐久再入場は別に接続する必要がある。
 
 | field | revision 2の形と意味 |
 |---|---|

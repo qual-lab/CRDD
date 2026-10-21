@@ -63,22 +63,22 @@ test("Provider Home coverageはRepository基準Node以上だけを受理する",
  */
 test("Provider Home coverageはrunnerと共有parserを含むexact母集団を所有する", () => {
   assert.deepEqual(PROVIDER_HOME_COVERAGE_SOURCES, [
-    "40_Develop/coordinator/src/authority/root-path-lexical.ts",
+    "40_Develop/coordinator/src/execution/root-path.ts",
     "40_Develop/domain-model/src/plain-data/snapshot.ts",
     "40_Develop/coordinator/src/execution/provider-home.ts",
     "40_Develop/coordinator/src/execution/provider-home-mount-grant.ts",
     "40_Develop/coordinator/src/execution/provider-lifecycle.ts",
-    "40_Develop/coordinator/src/diagnostics/doctor.ts",
+    "40_Develop/coordinator/src/cli/doctor.ts",
     "40_Develop/coordinator/scripts/check-platform-access-ts-coverage.ts",
     "40_Develop/coordinator/scripts/check-provider-home-coverage.ts",
   ]);
   assert.deepEqual(PROVIDER_HOME_COVERAGE_TESTS, [
-    "40_Develop/coordinator/tests/unit/authority/root-path-lexical.contract.test.ts",
+    "40_Develop/coordinator/tests/unit/execution/root-path.contract.test.ts",
     "40_Develop/coordinator/tests/unit/plain-data-snapshot.contract.test.ts",
     "40_Develop/coordinator/tests/unit/execution/provider-home.contract.test.ts",
     "40_Develop/coordinator/tests/unit/execution/provider-home-mount-grant.contract.test.ts",
     "40_Develop/coordinator/tests/unit/execution/provider-lifecycle.contract.test.ts",
-    "40_Develop/coordinator/tests/unit/doctor.contract.test.ts",
+    "40_Develop/coordinator/tests/unit/cli/doctor.contract.test.ts",
     "40_Develop/coordinator/tests/integration/platform-access-ts-coverage.contract.test.ts",
     "40_Develop/coordinator/tests/unit/provider-home-coverage.contract.test.ts",
   ]);

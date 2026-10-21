@@ -7,7 +7,7 @@
 import { randomBytes } from "node:crypto";
 import { performance } from "node:perf_hooks";
 import { verifyOwnedOperationManagementMountBinding } from "./operation.ts";
-import { readBorrowedWorkspaceBinding } from "../workspace/borrowed-tree.ts";
+import { readBorrowedExecutionBinding } from "./borrowed-tree.ts";
 import { consumeRuntimeOwnedDelegationSelectionGrant } from "./delegation-selection-grant.ts";
 import {
   issueRuntimeOwnedProviderAuthority,
@@ -19,7 +19,7 @@ import {
   completeRuntimeOwnedProviderHomeMount,
 } from "./provider-home-mount-authorization.ts";
 import { consumeRuntimeOwnedProviderTaskPacket } from "./task-packet.ts";
-import { consumeRuntimeOwnedWorkbenchAiAdvicePacket } from "../workbench-ai/advice-packet.ts";
+import { consumeRuntimeOwnedProviderAdvicePacket } from "./provider-packet.ts";
 import type {
   ProviderDockerPreparedPlan,
   ProviderDockerRuntimeDependencies,
@@ -74,7 +74,7 @@ export function createProviderDockerRuntimeDependencies() {
         management,
         mount,
       );
-      const borrowed = readBorrowedWorkspaceBinding(management as object, true);
+      const borrowed = readBorrowedExecutionBinding(management as object, true);
       return borrowed
         ? {
             ...binding,
@@ -94,7 +94,7 @@ export function createProviderDockerRuntimeDependencies() {
     randomBytes,
     consumeModelSelection: consumeRuntimeOwnedDelegationSelectionGrant,
     consumeTaskPacket: consumeRuntimeOwnedProviderTaskPacket,
-    consumeAdvicePacket: consumeRuntimeOwnedWorkbenchAiAdvicePacket,
+    consumeAdvicePacket: consumeRuntimeOwnedProviderAdvicePacket,
     issueProviderAuthority: issueRuntimeOwnedProviderAuthority,
     revokeProviderAuthority: revokeRuntimeOwnedProviderAuthority,
   });

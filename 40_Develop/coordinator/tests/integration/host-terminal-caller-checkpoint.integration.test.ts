@@ -37,14 +37,14 @@ import {
   readKnownFileHostTerminalRecoveryCheckpoint,
   saveHostTerminalCallerCheckpoint,
   saveKnownFileHostTerminalCallerCheckpoint,
-} from "../../src/storage/terminal-caller-checkpoint.ts";
+} from "../../src/execution/terminal-caller-checkpoint.ts";
 import { acquireHostTerminalCallerLease } from "../../src/execution/terminal-caller-lease.ts";
 import {
   type EncodedKnownFixtureHostTerminalIntent,
   encodeHostTerminalIntent,
   encodeKnownFixtureHostTerminalIntent,
   resolveHostTerminalLegacyGeneration,
-} from "../../src/storage/terminal-record.ts";
+} from "../../src/execution/terminal-record.ts";
 import {
   createHostTerminalReadRequest,
   createHostTerminalSaveRequest,
@@ -67,7 +67,10 @@ const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
  */
 test("Host Windows: caller接続は前後のreader終了未確認理由を保持する", async (context) => {
   const source = fs.readFileSync(
-    new URL("../../src/storage/terminal-caller-checkpoint.ts", import.meta.url),
+    new URL(
+      "../../src/execution/terminal-caller-checkpoint.ts",
+      import.meta.url,
+    ),
     "utf8",
   );
   const start = source.indexOf(
@@ -593,7 +596,10 @@ test("Host Windows: 既知file callerは十二実体を保持し旧形式と混�
   const canonical = path.join(directory, `${encoded.intent.reference}.json`);
   const bytes = fs.readFileSync(canonical);
   const source = fs.readFileSync(
-    new URL("../../src/storage/terminal-caller-checkpoint.ts", import.meta.url),
+    new URL(
+      "../../src/execution/terminal-caller-checkpoint.ts",
+      import.meta.url,
+    ),
     "utf8",
   );
   const start = source.indexOf(
@@ -1110,7 +1116,7 @@ test("Host Windows: caller checkpointは同参照と独立bytesを保持する",
   const readerUrl = pathToFileURL(
     path.resolve(
       import.meta.dirname,
-      "../../src/storage/terminal-caller-checkpoint.ts",
+      "../../src/execution/terminal-caller-checkpoint.ts",
     ),
   ).href;
   const rootUrl = pathToFileURL(

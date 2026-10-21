@@ -26,7 +26,7 @@ import {
   recoverRuntimeOwnedDockerTaskForCurrentConsumer,
   resolveRuntimeOwnedDockerTaskCurrentCorrelations,
 } from "../../../coordinator/src/index.ts";
-import { inspectRepositoryIdentityCandidate } from "../../../coordinator/src/workspace/binding.ts";
+import { inspectRepositoryIdentityCandidate } from "../../../version-control/src/index.ts";
 import {
   resolveVerifiedRepositoryRootFromWorkingDirectory,
   verifyRepositoryRoot,

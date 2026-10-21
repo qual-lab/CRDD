@@ -61,7 +61,7 @@ function fixture(
     sourceOverride ??
     fs
       .readFileSync(
-        new URL("../../src/diagnostics/isolation-probe.ts", import.meta.url),
+        new URL("../../src/execution/isolation-probe.ts", import.meta.url),
         "utf8",
       )
       .replace(/\r\n/g, "\n");
@@ -362,7 +362,7 @@ test("上位Probe inspectとcleanupは現行候補と三mountだけを固定す�
  */
 test("旧record採用だけが明示legacy profileで固定六候補を照合する", () => {
   const source = fs.readFileSync(
-    new URL("../../src/diagnostics/isolation-probe.ts", import.meta.url),
+    new URL("../../src/execution/isolation-probe.ts", import.meta.url),
     "utf8",
   );
   assert.equal(source.split('profile: "legacy_recovery",').length, 2);

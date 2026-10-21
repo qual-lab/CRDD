@@ -10,12 +10,12 @@ import fs from "node:fs";
 import path from "node:path";
 import { StringDecoder } from "node:string_decoder";
 import { snapshotPlainRecord } from "../../domain-model/src/index.ts";
-import { isSupportedCrddRuntimeGitObjectId } from "../src/diagnostics/release-identity-grammar.ts";
+import { isSupportedCrddRuntimeGitObjectId } from "./verification-safety.ts";
 import { inspectMcpOrchestratorObjectiveResult } from "../../mcp-server/src/index.ts";
 import { inspectOrchestratorStateQueryResult } from "../../orchestrator/src/state/query-contract.ts";
 import { startWindowsChildTreeTermination } from "../../platform-access/src/index.ts";
 import { dockerProcessControllerPublicCompletionReasons } from "../src/execution/provider-result-reasons.ts";
-import { inspectRepositoryIdentityCandidate } from "../src/workspace/binding.ts";
+import { inspectRepositoryIdentityCandidate } from "../../version-control/src/index.ts";
 
 /**
  * orchestrator-real-provider-contractで使用するJson 記録の値契約を定義する。

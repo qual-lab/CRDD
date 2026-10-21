@@ -9,7 +9,7 @@ import path from "node:path";
 import { performance } from "node:perf_hooks";
 import { fileURLToPath } from "node:url";
 import { types as utilTypes } from "node:util";
-import { createDevelopmentExecutionTiming } from "../diagnostics/development-execution-timing.ts";
+import { createDevelopmentExecutionTiming } from "./development-execution-timing.ts";
 
 import { isRuntimeProcessEffectBlocked } from "./process-safety-state.ts";
 import { snapshotCoordinatorTaskRequest } from "./request.ts";
@@ -21,10 +21,8 @@ import {
 } from "../../../domain-model/src/index.ts";
 import { observeNativeArtifact } from "../../../platform-access/src/index.ts";
 import { observeRuntimeOwnedDevelopmentSource } from "./development-source-observation.ts";
-import {
-  borrowRuntimeOwnedRepositorySource,
-  inspectRepositoryIdentityCandidate,
-} from "../workspace/binding.ts";
+import { borrowRuntimeOwnedRepositorySource } from "./repository-binding.ts";
+import { inspectRepositoryIdentityCandidate } from "../../../version-control/src/index.ts";
 
 const CONFIG_KEYS = new Set([
   "repositoryRoot",

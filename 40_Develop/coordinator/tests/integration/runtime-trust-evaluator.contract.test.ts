@@ -12,7 +12,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { evaluateRuntimeTrust } from "../../src/authority/runtime-trust.ts";
+import { evaluateRuntimeTrust } from "../../src/execution/runtime-trust.ts";
 
 /**
  * Trust評価用の同一Artifact入力を構築する。

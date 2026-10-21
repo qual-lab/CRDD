@@ -22,7 +22,7 @@ import {
   formatHostRecoveryToken,
   loadHostRecoveryRecordByToken,
   parseHostRecoveryToken,
-} from "../storage/recovery-record.ts";
+} from "./host-recovery-record.ts";
 
 /**
  * Host 回復 状態を状態遷移させる。

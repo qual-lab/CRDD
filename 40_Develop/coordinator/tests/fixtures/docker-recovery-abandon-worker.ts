@@ -120,7 +120,7 @@ function captureCoordinatorFiles() {
 if (mode !== "recovery") {
   const domain = await import("../../../domain-model/src/index.ts");
   const host = await import("../../src/execution/operation.ts");
-  const repository = await import("../../src/workspace/binding.ts");
+  const repository = await import("../../src/execution/repository-binding.ts");
   const store = await import("../../src/storage/settlement-store.ts");
   const model = await import("../../src/storage/model.ts");
   const homes = await import(

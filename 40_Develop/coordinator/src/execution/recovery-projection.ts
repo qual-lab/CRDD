@@ -4,10 +4,7 @@
  * @responsibility 入場可否・回復ID・公開理由を検査し内部情報の搬送を制限する。
  * @trace ARCH-000008
  */
-import {
-  isSha256Hex,
-  parseDockerTaskRecoveryId,
-} from "../storage/recovery-identity.ts";
+import { parseDockerTaskRecoveryId } from "../../../docker-isolation/src/index.ts";
 import {
   snapshotPlainArray,
   snapshotPlainRecord,
@@ -307,4 +304,22 @@ export function projectDockerRecoveryAdmission(rawObservation: unknown) {
     dockerRecoveryId: ids.length === 1 ? (ids[0] ?? null) : null,
     dockerRecoveryIds: Object.freeze(ids),
   });
+}
+/**
+ * 回復投影のHash候補が小文字64桁であるか確認する。
+ * @responsibility 投影値の文法だけを確認し、回復資格を発行しない。
+ * @trace ARCH-000008
+ * @input value: 未信頼の投影候補。
+ * @returns 小文字64桁hexだけtrue。
+ * @precondition 任意の値を受け取り、ObjectのPropertyを読まない。
+ * @postcondition trueの場合だけ元の値を文字列として扱える。
+ * @effect N/A: 共有状態と外部資源を変更しない。
+ * @failure 不正文法・非文字列はfalse。強制変換や例外を使わない。
+ * @invariant 大小文字・空白・桁数を補正しない。
+ * @boundary N/A: 同一回復投影の値検査だけ。
+ * @security 文法一致を実資源の存在・回復資格へ昇格しない。
+ * @concurrency N/A: 同期局所処理で共有状態を持たない。
+ */
+function isSha256Hex(value: unknown): value is string {
+  return typeof value === "string" && /^[a-f0-9]{64}$/u.test(value);
 }

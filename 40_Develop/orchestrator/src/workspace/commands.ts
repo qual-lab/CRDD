@@ -29,7 +29,7 @@ import { deriveOrchestratorRepositoryBindingId } from "../identity/repository-bi
 import { readOrchestratorSnapshot } from "../storage/current-state.ts";
 import { manageOrchestratorWorkspace } from "./operations.ts";
 import type { OrchestratorWorkspace } from "./record.ts";
-import { containsRecognizedSecretText } from "../../../coordinator/src/authority/secret-material-policy.ts";
+import { containsRecognizedSecretText } from "../../../coordinator/src/execution/secret-validation.ts";
 
 /**
  * 公開入力の閉じた操作集合。

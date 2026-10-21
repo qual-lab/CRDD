@@ -21,9 +21,9 @@ const repositoryRoot = path.resolve(coordinatorRoot, "../..");
 
 export const PROVIDER_AUTHORITY_COVERAGE_SOURCES = Object.freeze([
   "40_Develop/coordinator/src/execution/isolation-profile.ts",
-  "40_Develop/coordinator/src/authority/grant-verifier.ts",
-  "40_Develop/coordinator/src/authority/prelaunch-verifier.ts",
-  "40_Develop/coordinator/src/authority/local-personal-grant.ts",
+  "40_Develop/coordinator/src/execution/authority-validation.ts",
+  "40_Develop/coordinator/src/execution/prelaunch-validation.ts",
+  "40_Develop/coordinator/src/execution/local-authority.ts",
   "40_Develop/coordinator/src/execution/authority-grant.ts",
   "40_Develop/domain-model/src/plain-data/snapshot.ts",
 ]);
@@ -31,12 +31,12 @@ export const PROVIDER_AUTHORITY_COVERAGE_SOURCES = Object.freeze([
 export const PROVIDER_AUTHORITY_COVERAGE_TESTS = Object.freeze([
   "40_Develop/coordinator/tests/unit/plain-data-snapshot.contract.test.ts",
   "40_Develop/coordinator/tests/unit/execution/isolation-profile.contract.test.ts",
-  "40_Develop/coordinator/tests/unit/authority/grant-verifier.contract.test.ts",
-  "40_Develop/coordinator/tests/unit/authority/trust-loader.contract.test.ts",
-  "40_Develop/coordinator/tests/unit/authority/file-bundle.contract.test.ts",
-  "40_Develop/coordinator/tests/unit/authority/prelaunch-verifier.contract.test.ts",
+  "40_Develop/coordinator/tests/unit/execution/authority-validation.contract.test.ts",
+  "40_Develop/coordinator/tests/unit/execution/authority-policy.contract.test.ts",
+  "40_Develop/coordinator/tests/unit/execution/authority-bundle.contract.test.ts",
+  "40_Develop/coordinator/tests/unit/execution/prelaunch-validation.contract.test.ts",
   "40_Develop/coordinator/tests/unit/egress-proxy-policy.contract.test.ts",
-  "40_Develop/coordinator/tests/unit/authority/local-personal-grant.contract.test.ts",
+  "40_Develop/coordinator/tests/unit/execution/local-authority.contract.test.ts",
   "40_Develop/coordinator/tests/unit/execution/authority-grant.contract.test.ts",
 ]);
 
@@ -88,13 +88,13 @@ const coverageObligations = Object.freeze({
     "Profile revision 3、旧revision、namespace、Provider・Profile・Operation結合、上限および動的入力の正負・境界試験",
     "Profile Schema、専用Homeマウント許可またはplain-data境界変更時",
   ),
-  "40_Develop/coordinator/src/authority/grant-verifier.ts": obligation(
+  "40_Develop/coordinator/src/execution/authority-validation.ts": obligation(
     "複合fail-closed述語の全短絡順序と防御的catchを同一runで到達していない",
     "Registry、Grant、contextまたは四者結合の稀な不正形を同じ固定reasonへ閉じる分岐の退行",
     "Registry revision 3、参照重複、時刻、Provider・Profile・Operation・Scope・mount参照結合および上限試験",
     "Registry Schema、Authority context、Grant評価またはplain-data境界変更時",
   ),
-  "40_Develop/coordinator/src/authority/prelaunch-verifier.ts": obligation(
+  "40_Develop/coordinator/src/execution/prelaunch-validation.ts": obligation(
     "Runtime時計failure、全Bundle failureおよび全context短絡を同一runで到達していない",
     "起動直前のAuthority contextまたはBundle結合の稀なfailureを誤分類する可能性",
     "Provider・Profile・Operation・Scope・mount参照の正負・境界、Bundle不一致、失効Grantおよび動的入力試験",
@@ -106,7 +106,7 @@ const coverageObligations = Object.freeze({
     "発行・一回消費・失効、5秒境界、時計後退、Authority差替え、Mount失効、binding不一致およびproduction停止試験",
     "Runtime Authority lifetime、Authority source loader、Mount inspectionまたはProvider Effect結合変更時",
   ),
-  "40_Develop/coordinator/src/authority/local-personal-grant.ts": obligation(
+  "40_Develop/coordinator/src/execution/local-authority.ts": obligation(
     "正規化JSONのundefined防御と、固定6 Profileから生成するProfile／Registry／Policy／Bundleの不成立分岐が未到達。production照合は別ITと同じ確認本文の反証へ接続する",
     "現在Operationの失効または短命Local Personal Bundle生成の稀なfailureを誤分類する可能性",
     "現在Operationのstrict確認、固定6 Profile、source期限、Grant期限、Provider差、時計差と本番確認本文の開発Context反証。実管理参照の結合・清掃後失効は別のTask Runtime ITで確認する",

@@ -20,8 +20,8 @@ import { createDockerRestartMachineForVerification } from "../../../docker-isola
 import {
   decodeDockerRestartCheckpoint,
   validateDockerRestartCheckpointTransition,
-} from "../../src/storage/restart-checkpoint.ts";
-import { restartRuntimeOwnedDockerForRecovery } from "../../src/diagnostics/runtime-restart.ts";
+} from "../../src/execution/restart-checkpoint.ts";
+import { restartRuntimeOwnedDockerForRecovery } from "../../src/execution/runtime-restart.ts";
 /**
  * production facadeとpackage exportsはcaller Root／observer／runner seamを閉じるを検証する。
  *
@@ -44,7 +44,7 @@ test("production facadeとpackage exportsはcaller Root／observer／runner seam
   });
   const hostFacade = fs.readFileSync(path.resolve("src/index.ts"), "utf8");
   const composition = fs.readFileSync(
-    path.resolve("src/diagnostics/runtime-restart.ts"),
+    path.resolve("src/execution/runtime-restart.ts"),
     "utf8",
   );
   const expectedOperations = [
@@ -81,7 +81,7 @@ test("production facadeとpackage exportsはcaller Root／observer／runner seam
     );
     const imports = [
       ...callerSource.matchAll(
-        /import\s*\{([^{}]+)\}\s*from\s*["']\.\.\/execution\/recovery\.ts["']/gu,
+        /import\s*\{([^{}]+)\}\s*from\s*["']\.\/recovery\.ts["']/gu,
       ),
     ];
     assert.equal(imports.length, 1);
@@ -107,7 +107,7 @@ test("production facadeとpackage exportsはcaller Root／observer／runner seam
     );
     assert.match(
       callerSource,
-      /import type \{ DockerRestartCheckpoint \} from ["']\.\.\/storage\/restart-checkpoint\.ts["']/u,
+      /import type \{ DockerRestartCheckpoint \} from ["']\.\/restart-checkpoint\.ts["']/u,
     );
     assert.doesNotMatch(
       callerSource,
@@ -163,7 +163,7 @@ test("production facadeとpackage exportsはcaller Root／observer／runner seam
 });
 
 const source = fs.readFileSync(
-  new URL("../../src/diagnostics/runtime-restart.ts", import.meta.url),
+  new URL("../../src/execution/runtime-restart.ts", import.meta.url),
   "utf8",
 );
 const body = stripTypeScriptTypes(

@@ -36,7 +36,7 @@ test("Workbench助言の本番入口は署名発行を注入しない", () => {
   const runtime = readFileSync(
     path.join(
       repositoryRoot,
-      "40_Develop/coordinator/src/workbench-ai/advice-execution.ts",
+      "40_Develop/coordinator/src/execution/provider-execution.ts",
     ),
     "utf8",
   );
@@ -54,7 +54,7 @@ test("Workbench助言の本番入口は署名発行を注入しない", () => {
   );
   assert.match(
     runtime,
-    /function createRuntimeOwnedWorkbenchAiAdviceProductionRuntime\(\s*repositoryRootCapability: VerifiedRepositoryRoot,/,
+    /function createRuntimeOwnedProviderAdviceRuntime\(\s*repositoryRootCapability: VerifiedRepositoryRoot,/,
   );
 });
 

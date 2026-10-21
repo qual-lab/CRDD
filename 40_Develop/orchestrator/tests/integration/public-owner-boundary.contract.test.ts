@@ -254,9 +254,11 @@ test("業務公開操作はOrchestratorが所有しCoordinatorから再公開し
     "observeRuntimeOwnedTransientTaskCompletion",
     "poisonRuntimeProcessAfterCleanupUnknown",
     "readRepositoryNetworkPolicies",
+    "recoverProviderAdviceHostOperation",
     "recoverRuntimeOwnedDockerTaskForCurrentConsumer",
     "resolveRuntimeOwnedDockerTaskCurrentCorrelations",
     "runCoordinatorTaskAttempt",
+    "runRepositoryAdvice",
     "snapshotCoordinatorWorkspaceResult",
   ]);
   const metadata = JSON.parse(

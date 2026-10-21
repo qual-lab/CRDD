@@ -757,7 +757,7 @@ export async function simulateAuthCreateClosure(
     isolationUrl,
     moduleUrl("../../src/storage/settlement-store.ts"),
     `${lifecycleUrl}?auth-create-parent`,
-    moduleUrl("../../src/diagnostics/runtime-restart.ts?auth-create-parent"),
+    moduleUrl("../../src/execution/runtime-restart.ts?auth-create-parent"),
   ];
   /**
    * 明示したmodule順だけを解決する。

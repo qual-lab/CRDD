@@ -17,15 +17,10 @@ import {
   startRuntimeOwnedCoordinatorTask,
   cancelRuntimeOwnedCoordinatorTask,
 } from "../../../coordinator/src/execution/task.ts";
-import { createRepositoryReadOnlyAdviceExecutor } from "../../../coordinator/src/workbench-ai/repository-composition.ts";
-import { createWorkbenchAiAdviceDispatchRuntime } from "../../../coordinator/src/workbench-ai/advice-dispatch.ts";
-import type { WorkbenchAiAdviceRuntimeResult } from "../../../coordinator/src/workbench-ai/provider-adapter.ts";
 import {
-  createRuntimeOwnedWorkbenchAiAdviceProductionRuntime,
-  classifyWorkbenchAiAdviceHostFailure,
-  recoverWorkbenchAdviceHostOperation,
-} from "../../../coordinator/src/workbench-ai/advice-execution.ts";
-import { createWorkbenchAiProviderAdapter } from "../../../coordinator/src/workbench-ai/provider-adapter.ts";
+  runRepositoryAdvice,
+  recoverProviderAdviceHostOperation,
+} from "../../../coordinator/src/index.ts";
 import {
   createOrchestratorTaskRequests,
   type SingleTaskOutcome,
@@ -122,7 +117,7 @@ export function createRepositoryTaskRequests(
         record.adviceOperation?.hostRecoveryId ??
         record.recoveryIds.find((id) => id.startsWith("host."));
       if (hostId) {
-        const host = recoverWorkbenchAdviceHostOperation(hostId);
+        const host = recoverProviderAdviceHostOperation(hostId);
         if (!host.cleanupConfirmed) {
           unresolved.add(hostId);
           return {
@@ -191,22 +186,7 @@ export function createRepositoryTaskRequests(
           status: "cancelled",
         };
       if (command.mode === "read_only_advice") {
-        let runtimeResult: WorkbenchAiAdviceRuntimeResult | null = null;
-        const runtime = createRuntimeOwnedWorkbenchAiAdviceProductionRuntime(
-          rootCapability,
-          {
-            recoveryCorrelationId: execution.record.operationId,
-            observeOperation: operationCreated,
-            observeStarted: started,
-          },
-        );
-        const dispatch = createWorkbenchAiAdviceDispatchRuntime(
-          createWorkbenchAiProviderAdapter(async (plan, cancellation) => {
-            runtimeResult = await runtime(plan, cancellation);
-            return runtimeResult;
-          }),
-        );
-        const execute = createRepositoryReadOnlyAdviceExecutor(
+        const executed = await runRepositoryAdvice(
           rootCapability,
           {
             ...profiles,
@@ -217,15 +197,15 @@ export function createRepositoryTaskRequests(
                 error: null,
               }),
           },
-          dispatch,
-        );
-        const result = await execute(
           { ...command, mode: "read_only_advice" },
           signal,
+          {
+            recoveryCorrelationId: execution.record.operationId,
+            observeOperation: operationCreated,
+            observeStarted: started,
+          },
         );
-        const observed = runtimeResult as WorkbenchAiAdviceRuntimeResult | null;
-        const host = classifyWorkbenchAiAdviceHostFailure(observed);
-        const cleanupConfirmed = observed?.cleanupConfirmed ?? true;
+        const { result, cleanupConfirmed } = executed;
         return {
           mode: command.mode,
           status: !cleanupConfirmed
@@ -237,7 +217,7 @@ export function createRepositoryTaskRequests(
                 : result.status,
           reason: result.reason,
           cleanupConfirmed,
-          recoveryIds: host?.hostRecoveryId ? [host.hostRecoveryId] : [],
+          recoveryIds: executed.hostRecoveryId ? [executed.hostRecoveryId] : [],
           advice:
             result.status === "completed"
               ? {

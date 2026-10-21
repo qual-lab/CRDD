@@ -274,7 +274,19 @@ Host終端専用環境の`PRL-UT-006`では、同じ本番関数bodyに対する
 
 Provider別の薄い準備中継撤去では`PRL-UT-014`の両Provider試験を共通実体へ接続し、別Store・一回消費・期限・管理一致・Authority失効とMount終了を維持する。Host通知の`PRL-UT-006`はPA内の`in-process-lifecycle`試験へ実移管し、共有Directory・Host activation・診断判断の三CaseはCoordinatorへ残す。固定namespace外の拒否を追加し、既存`ERB-IT-003`の上位実pipe競合・Process喪失後再取得・caller保存と解放相関を維持する。低層通知試験を保存・回復全体の成立へ拡張しない。
 
-C前の最終配置は`execution`／`storage`／`workspace`を基本とし、同じQA Local Item・Symbol IDのままSourceとUT Pathを追従する。再入場分類UTは`storage/model-reentry`から純粋値モデルを直接検査し、実Writer・Journal・Host callerの確定順はそれぞれ既存ITで検査する。未接続の旧PR03候補は退役し、descriptor CaseだけRootObservationへ移す。旧wire五Caseを現在PAの保証へ転用せず、[退役軸と現行試験の対応](../../../99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#142-未接続platform-access候補の退役)を保持する。
+C前の現在配置は`execution`／`storage`／`external-send`／`cli`とし、同じQA Local Item・Symbol IDのままSourceとUT Pathを追従する。再入場分類UTは`storage/model-reentry`から純粋値モデルを直接検査し、実Writer・Journal・Host callerの確定順はそれぞれ既存ITで検査する。未接続の旧PR03候補は退役し、descriptor CaseだけRootObservationへ移す。旧wire五Caseを現在PAの保証へ転用せず、[退役軸と現行試験の対応](../../../99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#142-未接続platform-access候補の退役)を保持する。
+
+## Workspace・診断Folderの解体に伴う検証
+
+Source配置の変更からWorkspace管理・診断の成立条件を変更しない。既存のRepository結合・借用Tree・変更Snapshot試験で、別Operation／偽Capability、Revision変化、Git実体差替え、保護マスク改変、dirtyを含む差分、Reviewer投影と容量・秘密検査を維持する。通常結合とSettlementの再検証条件差を消さず、借用Treeを自己生成一時物として清掃しない。Root観測候補の非Authority・未実装・観測不能を保持する。
+
+Git観測の移管では、Version Controlの現在改訂・HEAD／Tree・前後差替え・欠測とLinked Worktreeを実Gitで確認し、Orchestratorの受付・状態・採用が同じ公開操作へ接続されることを閉包検査する。Coordinatorの実行制限を汎用観測の権限へ昇格しない。
+
+doctor、修復Owner／結果、再起動、Probeの要求・完了・取消・exact回復、計測と検証用Grammarは既存Suite／Local ItemのOracleを維持しPathを追従する。Probeの私有Mapは一実体とし、検証専用操作のConsumerはscripts／試験に限定する。要求前unknown保存・同じ参照・取消join・二保存・Lease解放と終了確定は別々に観測する。今回の有限代役・実Git／Filesystem／Processの成功から、実Docker・外部AI・全体QAの成功は主張しない。②のAI再試行・保持物操作は検証範囲外。
+
+Authority Folderの解体では、Grant・Bundle・Policy・開始直前確認・Local PersonalのUTと既存Authority coverageを維持する。Root字句・観測・保護候補は実行前の非Authority条件として評価し、候補を実装済み保護へ昇格しない。秘密情報検査は入力・結果双方の利用側へ追従する。Runtime Trustのmandatory試験と独立評価義務は維持し、通常実行へ未接続であることを変えない。Symbolの全Path実在・参照解決と、Version Control新二操作の正確な利用側集合・欠測・余剰・迂回import拒否を同じ固定候補で確認する。
+
+Docker固有記録の移管では、DI Rootから回復ID・Probe記録を利用する既存Callerと、Coordinatorに残すHost／終端／再起動要求相関を分けて照合する。記録Hash、nonce、元参照、同じRoot・子実体、部分欠測、link・置換・不正文法の拒否、書込み・読戻し・状態遷移のOracleは維持する。汎用JSON確定・同意保存・上位判断保存・現在状態の原子単位を変更しない。通常回帰とWindows保存Case、実Docker確認を区別し、先行runの結果を移管後の固定候補へ転記しない。
 
 ## Checklist
 

@@ -33,7 +33,7 @@ import {
   inspectRepositoryObjectFormatCandidate,
   verifyRuntimeOwnedRepositoryBindingCapability,
   verifyRuntimeOwnedRepositoryOperation,
-} from "../../src/workspace/binding.ts";
+} from "../../src/execution/repository-binding.ts";
 
 const firstRevision = "1".repeat(40);
 const secondRevision = "2".repeat(40);

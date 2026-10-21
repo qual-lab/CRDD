@@ -21,18 +21,18 @@ import {
   type DockerRuntimeRepairDisposalCheckpoint,
 } from "../../../docker-isolation/src/index.ts";
 import { dockerProcessControllerPublicCompletionReasons } from "../execution/provider-result-reasons.ts";
-import { isSha256Hex, parseDockerTaskRecoveryId } from "./recovery-identity.ts";
+import { parseDockerTaskRecoveryId } from "../../../docker-isolation/src/index.ts";
 import {
   parseHostRecoveryToken,
   validateHostRecoveryTransitionLineage,
-} from "./recovery-record.ts";
+} from "../execution/host-recovery-record.ts";
 import {
   createDockerRestartRequestId,
   decodeDockerRestartCheckpoint,
   isDockerRestartCheckpointSettled,
   type DockerRestartCheckpoint,
   validateDockerRestartCheckpointTransition,
-} from "./restart-checkpoint.ts";
+} from "../execution/restart-checkpoint.ts";
 
 /**
  * 記録 Keysが完全一致するか判定する。
@@ -60,6 +60,25 @@ function exactRecordKeys(value: unknown, keys: readonly string[]) {
       .sort()
       .join("\0") === [...keys].sort().join("\0")
   );
+}
+
+/**
+ * この保存モデルが受け取るSHA-256文字列を検査する。
+ * @responsibility 一般Helperを公開せず、保存値の固定文法だけを検査する。
+ * @trace ARCH-000008
+ * @input value: 未信頼値。
+ * @returns 小文字64桁hexの場合だけtrue。
+ * @precondition 任意の値を受け取り、ObjectのPropertyを読まない。
+ * @postcondition trueの場合だけ元の値を文字列として扱える。
+ * @effect N/A: 共有状態や外部資源を変更しない。
+ * @failure 不正文法・非文字列はfalse。強制変換や例外を使わない。
+ * @invariant 大小文字・空白・桁数を補正しない。
+ * @boundary N/A: 同一モデル内の値検査だけ。
+ * @security Hash文法の一致から回復資格や真正性を推定しない。
+ * @concurrency N/A: 同期局所処理で共有状態を持たない。
+ */
+function isSha256Hex(value: unknown): value is string {
+  return typeof value === "string" && /^[a-f0-9]{64}$/u.test(value);
 }
 
 /**

@@ -57,12 +57,12 @@ import {
   createOwnedOperationManagementCapability,
   recoverOwnedOperationDirectories,
 } from "../../src/execution/operation.ts";
-import { loadHostRecoveryRecordByToken } from "../../src/storage/recovery-record.ts";
+import { loadHostRecoveryRecordByToken } from "../../src/execution/host-recovery-record.ts";
 import {
   bindRuntimeOwnedRepositoryOperation,
   borrowRuntimeOwnedCoordinatorRecoveryRepository,
   borrowRuntimeOwnedCoordinatorStateRepository,
-} from "../../src/workspace/binding.ts";
+} from "../../src/execution/repository-binding.ts";
 import {
   COORDINATOR_STATE_SCHEMA,
   coordinatorTaskResourcesAreSettled,
@@ -90,7 +90,7 @@ import { observeRuntimeOwnedTransientTaskCompletion } from "../../src/storage/se
 import {
   createDockerRestartRequestId,
   type DockerRestartCheckpoint,
-} from "../../src/storage/restart-checkpoint.ts";
+} from "../../src/execution/restart-checkpoint.ts";
 import {
   checkpointRuntimeOwnedCoordinatorCleanup,
   checkpointRuntimeOwnedCoordinatorHost,
@@ -577,7 +577,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     import.meta.url,
   ).href;
   const probeModule = new URL(
-    "../../src/diagnostics/isolation-probe.ts",
+    "../../src/execution/isolation-probe.ts",
     import.meta.url,
   ).href;
   for (const [bytes, recoveryId, expectedKind, workingDirectory = root] of [

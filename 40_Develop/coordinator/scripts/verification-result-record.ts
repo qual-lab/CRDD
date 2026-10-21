@@ -18,10 +18,10 @@ import {
   resolveVerifiedRepositoryRootFromWorkingDirectory,
   verifyRepositoryRoot,
 } from "../../version-control/src/index.ts";
-import { isDockerIsolationRecoveryIdCandidate } from "../src/storage/recovery-record.ts";
+import { isDockerIsolationRecoveryIdCandidate } from "../../docker-isolation/src/index.ts";
 import { snapshotPlainArray } from "../../domain-model/src/index.ts";
 import { coordinatorTaskPublicReasons } from "../src/execution/result-reasons.ts";
-import { inspectRepositoryRevisionCandidate } from "../src/workspace/binding.ts";
+import { inspectRepositoryRevisionCandidate } from "../../version-control/src/index.ts";
 import { isCanonicalVerificationRecoveryId } from "./verification-safety.ts";
 import { isSupportedCoordinatorNodeRuntime } from "../src/cli/node-runtime-version.ts";
 import {

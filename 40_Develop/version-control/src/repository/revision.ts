@@ -5,6 +5,7 @@
  */
 import {
   resolveVerifiedRepositoryRoot,
+  verifyRepositoryRoot,
   type VerifiedRepositoryRoot,
 } from "./location.ts";
 import { createHash } from "node:crypto";
@@ -444,4 +445,115 @@ export function inspectRepositoryFormat(
   adapter: RepositoryFormatAdapter,
 ) {
   return typeof repositoryRoot === "string" ? adapter(repositoryRoot) : null;
+}
+
+/**
+ * Repository実体と現在HEADの候補を観測する。
+ * @responsibility Git読取りからIdentity候補を作り、観測不能と相関差を拒否する。
+ * @trace ARCH-000002
+ * @input repositoryRoot: 通常またはLinked WorktreeのRoot。
+ * @returns Logical／Instance／Revisionの候補値。
+ * @precondition 入力を信頼済みPathと仮定しない。
+ * @postcondition 観測だけで書込み許可または実行Authorityを与えない。
+ * @effect 固定Git管理情報・Commit・TreeをFilesystemから読取る。外部Git CLIを起動しない。
+ * @failure 不正Root、欠測、破損、観測不能または読取り間の差はnull（内部helperは例外）となる。
+ * @invariant 異なるRepository実体や改訂の観測を一つのIdentityへ補完しない。
+ * @boundary Git管理情報とProcess内の読取り候補の境界。
+ * @security Rootの絶対Pathを返却せず、Hook・外部Diff・書込み操作を発行しない。
+ * @concurrency 同期読取り。呼出し側のLockや実行排他を新設しない。
+ */
+function observeRepositoryCandidateIdentity(repositoryRoot: string) {
+  const verified = verifyRepositoryRoot(repositoryRoot);
+  if (verified.status !== "completed")
+    throw new Error("repository_root_invalid");
+  const observed = observeRepositoryRevision(
+    verified.capability,
+    gitRepositoryRevisionAdapter,
+  );
+  if (!observed) throw new Error("repository_revision_invalid");
+  return Object.freeze({
+    repositoryKind: observed.repositoryForm,
+    logicalRepositoryIdentity: observed.repositoryIdentity,
+    repositoryInstanceIdentity: observed.repositoryInstanceIdentity,
+    revision: observed.revisionIdentity,
+  });
+}
+
+/**
+ * 現在HEADとCommit Treeを読取り専用候補として観測する。
+ * @responsibility Git読取りからIdentity候補を作り、観測不能と相関差を拒否する。
+ * @trace ARCH-000002
+ * @input repositoryRoot: 未検証のRoot候補。
+ * @returns 固定HEAD／Tree候補。不正または観測不能時はnull。
+ * @precondition 入力を信頼済みPathと仮定しない。
+ * @postcondition 観測だけで書込み許可または実行Authorityを与えない。
+ * @effect 固定Git管理情報・Commit・TreeをFilesystemから読取る。外部Git CLIを起動しない。
+ * @failure 不正Root、欠測、破損、観測不能または読取り間の差はnull（内部helperは例外）となる。
+ * @invariant 異なるRepository実体や改訂の観測を一つのIdentityへ補完しない。
+ * @boundary Git管理情報とProcess内の読取り候補の境界。
+ * @security Rootの絶対Pathを返却せず、Hook・外部Diff・書込み操作を発行しない。
+ * @concurrency 同期読取り。呼出し側のLockや実行排他を新設しない。
+ */
+export function inspectRepositoryRevisionCandidate(repositoryRoot: unknown) {
+  try {
+    if (
+      typeof repositoryRoot !== "string" ||
+      !path.isAbsolute(repositoryRoot) ||
+      repositoryRoot.length > 4_096 ||
+      /[\0-\x1f\x7f]/u.test(repositoryRoot)
+    ) {
+      return null;
+    }
+    const verified = verifyRepositoryRoot(repositoryRoot);
+    if (verified.status !== "completed") return null;
+    const identity = observeFixedRevisionIdentity(
+      verified.capability,
+      gitFixedRevisionIdentityAdapter,
+    );
+    return identity
+      ? Object.freeze({
+          status: "candidate" as const,
+          commit: identity.revisionIdentity,
+          tree: identity.snapshotIdentity,
+          repositoryKind: identity.repositoryForm,
+          externalGitCliUsed: false,
+          repositoryPathReported: false,
+        })
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 前後のRepository実体とHEAD／Treeが一致するIdentity候補を返す。
+ * @responsibility Git読取りからIdentity候補を作り、観測不能と相関差を拒否する。
+ * @trace ARCH-000002
+ * @input repositoryRoot: 未検証のRoot候補。
+ * @returns 同じ実体・改訂に結合した候補、またはnull。
+ * @precondition 入力を信頼済みPathと仮定しない。
+ * @postcondition 観測だけで書込み許可または実行Authorityを与えない。
+ * @effect 固定Git管理情報・Commit・TreeをFilesystemから読取る。外部Git CLIを起動しない。
+ * @failure 不正Root、欠測、破損、観測不能または読取り間の差はnull（内部helperは例外）となる。
+ * @invariant 異なるRepository実体や改訂の観測を一つのIdentityへ補完しない。
+ * @boundary Git管理情報とProcess内の読取り候補の境界。
+ * @security Rootの絶対Pathを返却せず、Hook・外部Diff・書込み操作を発行しない。
+ * @concurrency 同期読取り。呼出し側のLockや実行排他を新設しない。
+ */
+export function inspectRepositoryIdentityCandidate(repositoryRoot: unknown) {
+  try {
+    if (typeof repositoryRoot !== "string") return null;
+    const before = observeRepositoryCandidateIdentity(repositoryRoot);
+    const revision = inspectRepositoryRevisionCandidate(repositoryRoot);
+    const after = observeRepositoryCandidateIdentity(repositoryRoot);
+    if (
+      !revision ||
+      revision.commit !== before.revision ||
+      JSON.stringify(before) !== JSON.stringify(after)
+    )
+      return null;
+    return Object.freeze({ ...before, ...revision });
+  } catch {
+    return null;
+  }
 }

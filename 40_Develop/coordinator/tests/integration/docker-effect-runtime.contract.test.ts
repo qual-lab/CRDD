@@ -10,7 +10,7 @@
  */
 import { createProviderDockerRuntimeAdapterCandidate } from "../../src/execution/provider-adapter.ts";
 import { planProviderExecution } from "../../../ai-adapter/src/index.ts";
-import { hashWorkbenchAiProviderCommand } from "../../src/workbench-ai/advice-packet.ts";
+import { hashProviderAdviceCommand } from "../../src/execution/provider-packet.ts";
 import assert from "node:assert/strict";
 import { prepareDockerNetworkPolicy } from "../../../docker-isolation/src/index.ts";
 import fs from "node:fs";
@@ -37,7 +37,7 @@ import {
 import {
   parseHostRecoveryToken,
   loadHostRecoveryRecordByToken,
-} from "../../src/storage/recovery-record.ts";
+} from "../../src/execution/host-recovery-record.ts";
 import {
   planDockerIsolationCommands,
   startDockerCommandSessionCandidate,
@@ -49,9 +49,9 @@ import {
   describeDockerEffectRuntimeContract,
   verifyRuntimeOwnedDockerCleanupOutcome,
 } from "../../src/execution/isolation-execution.ts";
-import { describeWorkbenchAiAdviceResultSchema } from "../../src/workbench-ai/advice-result.ts";
+import { describeAdviceResultSchema } from "../../src/execution/task-structured-result.ts";
 import { describeDockerProviderExecutionLocations } from "../../../docker-isolation/src/index.ts";
-import { bindWorkbenchAiProviderCommand } from "../../src/workbench-ai/advice-execution-plan.ts";
+import { bindProviderAdviceCommand } from "../../src/execution/provider-plan.ts";
 
 /**
  * createPlanFixtureのTest準備責務を実行する。
@@ -187,7 +187,7 @@ function createPlanFixture(
         promptTransport: "provider_stdin_only" as const,
       }),
     consumeAdvicePacket: () => {
-      const providerCommand = bindWorkbenchAiProviderCommand(
+      const providerCommand = bindProviderAdviceCommand(
         planProviderExecution(
           {
             provider: {
@@ -201,7 +201,7 @@ function createPlanFixture(
               exactModelId: model,
               reasoningEffort: "low",
             },
-            resultSchema: describeWorkbenchAiAdviceResultSchema(),
+            resultSchema: describeAdviceResultSchema(),
           },
           describeDockerProviderExecutionLocations(
             {
@@ -223,7 +223,7 @@ function createPlanFixture(
         taskHash: "2".repeat(64),
         projectionHash: "3".repeat(64),
         commandHash:
-          hashWorkbenchAiProviderCommand(providerCommand) ??
+          hashProviderAdviceCommand(providerCommand) ??
           assert.fail("invalid_command_fixture"),
         packetHash: "5".repeat(64),
         providerCommand,
