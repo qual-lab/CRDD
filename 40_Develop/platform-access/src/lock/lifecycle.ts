@@ -5,7 +5,6 @@
  * @trace ARCH-000015
  */
 import type { ChildProcess } from "node:child_process";
-import { createHash } from "node:crypto";
 
 const HOST_SUPERVISOR_ACQUIRE_TIMEOUT_MS = 1_000;
 const INTERACTIVE_LOCK_CLEANUP_TIMEOUT_MS = 1_000;
@@ -114,12 +113,12 @@ export type InteractiveConsoleKernelLockOutcome = Readonly<{
  * @returns waitForStateの計算結果を返す。
  * @precondition 「state: Int32Array、expected: number、timeoutMs: number」がwaitForStateの入力契約を満たす。
  * @postcondition waitForStateの責務を完了した結果だけを返す。
- * @effect N/A: waitForStateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @effect 共有Atomicsを観測し、有界の同期待機を行う。
  * @failure N/A: waitForStateは独自の失敗分岐を所有しない。
- * @invariant waitForStateは入力から導いた結果以外の共有状態を変更しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
+ * @invariant 上位の同意・poison・保存判断を追加せず、既存の結果と終了不明を保持する。
+ * @boundary OS端末・Process／Worker・IPCまたは共有状態の技術境界。
  * @security waitForStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: waitForStateは共有非同期状態を持たない同期処理である。
+ * @concurrency 所有する待機・通知・終了条件を維持し、要求と完了観測を同一視しない。
  */
 function waitForState(state: Int32Array, expected: number, timeoutMs: number) {
   const deadline = Date.now() + timeoutMs;
@@ -140,12 +139,12 @@ function waitForState(state: Int32Array, expected: number, timeoutMs: number) {
  * @returns boundedWorkerExitの計算結果を返す。
  * @precondition 「worker: InteractiveConsoleLockWorker」がboundedWorkerExitの入力契約を満たす。
  * @postcondition boundedWorkerExitの責務を完了した結果だけを返す。
- * @effect N/A: boundedWorkerExitは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @effect Workerのerror／exit listenerを登録して終了を観測する。
  * @failure N/A: boundedWorkerExitは独自の失敗分岐を所有しない。
- * @invariant boundedWorkerExitは入力から導いた結果以外の共有状態を変更しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
+ * @invariant 上位の同意・poison・保存判断を追加せず、既存の結果と終了不明を保持する。
+ * @boundary OS端末・Process／Worker・IPCまたは共有状態の技術境界。
  * @security boundedWorkerExitはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency boundedWorkerExitは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ * @concurrency 所有する待機・通知・終了条件を維持し、要求と完了観測を同一視しない。
  */
 function boundedWorkerExit(worker: InteractiveConsoleLockWorker) {
   return new Promise<"exited" | "error">((resolve) => {
@@ -169,12 +168,12 @@ function boundedWorkerExit(worker: InteractiveConsoleLockWorker) {
  * @returns withinTimeoutの計算結果を返す。
  * @precondition 「promise: Promise<T>、timeoutMs: number」がwithinTimeoutの入力契約を満たす。
  * @postcondition withinTimeoutの責務を完了した結果だけを返す。
- * @effect N/A: withinTimeoutは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @effect 有界Timerを登録・解除し、非同期完了とtimeoutを区別する。
  * @failure N/A: withinTimeoutは独自の失敗分岐を所有しない。
- * @invariant withinTimeoutは入力から導いた結果以外の共有状態を変更しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
+ * @invariant 上位の同意・poison・保存判断を追加せず、既存の結果と終了不明を保持する。
+ * @boundary OS端末・Process／Worker・IPCまたは共有状態の技術境界。
  * @security withinTimeoutはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency withinTimeoutは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ * @concurrency 所有する待機・通知・終了条件を維持し、要求と完了観測を同一視しない。
  */
 async function withinTimeout<T>(promise: Promise<T>, timeoutMs: number) {
   return new Promise<Readonly<{ completed: boolean; value: T | null }>>(
@@ -213,12 +212,12 @@ async function withinTimeout<T>(promise: Promise<T>, timeoutMs: number) {
  * @returns terminateAndConfirmInteractiveConsoleLockWorkerの計算結果を返す。
  * @precondition 「worker: InteractiveConsoleLockWorker、exit: Promise<"exited" | "error">」がterminateAndConfirmInteractiveConsoleLockWorkerの入力契約を満たす。
  * @postcondition terminateAndConfirmInteractiveConsoleLockWorkerの責務を完了した結果だけを返す。
- * @effect N/A: terminateAndConfirmInteractiveConsoleLockWorkerは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @effect 同じWorkerへの終了要求と終了観測を分離し、有界で確認する。
  * @failure N/A: terminateAndConfirmInteractiveConsoleLockWorkerは独自の失敗分岐を所有しない。
- * @invariant terminateAndConfirmInteractiveConsoleLockWorkerは入力から導いた結果以外の共有状態を変更しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
+ * @invariant 上位の同意・poison・保存判断を追加せず、既存の結果と終了不明を保持する。
+ * @boundary OS端末・Process／Worker・IPCまたは共有状態の技術境界。
  * @security terminateAndConfirmInteractiveConsoleLockWorkerはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency terminateAndConfirmInteractiveConsoleLockWorkerは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ * @concurrency 所有する待機・通知・終了条件を維持し、要求と完了観測を同一視しない。
  */
 async function terminateAndConfirmInteractiveConsoleLockWorker(
   worker: InteractiveConsoleLockWorker,
@@ -240,35 +239,6 @@ async function terminateAndConfirmInteractiveConsoleLockWorker(
 }
 
 /**
- * Interactive Console Kernel Lock Requestを実行前候補として準備する。
- *
- * @responsibility Interactive Console Kernel Lock Requestの準備条件、候補Identity、Effect前の拒否境界を所有する。
- * @trace ARCH-000015
- * @input N/A: 実行時引数を受け取らない。
- * @returns prepareInteractiveConsoleKernelLockRequestの計算結果を返す。
- * @precondition 「N/A: 実行時引数を受け取らない。」がprepareInteractiveConsoleKernelLockRequestの入力契約を満たす。
- * @postcondition prepareInteractiveConsoleKernelLockRequestの責務を完了した結果だけを返す。
- * @effect prepareInteractiveConsoleKernelLockRequestは外部ProcessまたはRuntime境界の操作を呼び出す。
- * @failure N/A: prepareInteractiveConsoleKernelLockRequestは独自の失敗分岐を所有しない。
- * @invariant prepareInteractiveConsoleKernelLockRequestは宣言した境界以外へEffectを拡張しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
- * @security prepareInteractiveConsoleKernelLockRequestはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: prepareInteractiveConsoleKernelLockRequestは共有非同期状態を持たない同期処理である。
- */
-export function prepareInteractiveConsoleKernelLockRequest() {
-  if (process.platform !== "win32") return null;
-  const lockIdentity = createHash("sha256")
-    .update("crdd-interactive-console-kernel-lock-v1\0")
-    .digest("hex")
-    .slice(0, 32);
-  const sharedState = new SharedArrayBuffer(4);
-  return Object.freeze({
-    pipeName: `\\\\.\\pipe\\CRDD.Coordinator.InteractiveConsole.${lockIdentity}`,
-    sharedState,
-  });
-}
-
-/**
  * Interactive Console Kernel Lock Lifecycleを実行する。
  *
  * @responsibility Interactive Console Kernel Lock Lifecycleの実行条件、Effect範囲、終了結果の境界を所有する。
@@ -277,12 +247,12 @@ export function prepareInteractiveConsoleKernelLockRequest() {
  * @returns Promise<InteractiveConsoleKernelLockOutcome>を返す。
  * @precondition 「worker: InteractiveConsoleLockWorker、sharedState: SharedArrayBuffer」がrunInteractiveConsoleKernelLockLifecycleの入力契約を満たす。
  * @postcondition runInteractiveConsoleKernelLockLifecycleの責務を完了した結果だけを返す。
- * @effect N/A: runInteractiveConsoleKernelLockLifecycleは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @effect Worker・共有状態・解放通知と終了確認を所有する。
  * @failure runInteractiveConsoleKernelLockLifecycleは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant runInteractiveConsoleKernelLockLifecycleは入力から導いた結果以外の共有状態を変更しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
+ * @invariant 上位の同意・poison・保存判断を追加せず、既存の結果と終了不明を保持する。
+ * @boundary OS端末・Process／Worker・IPCまたは共有状態の技術境界。
  * @security runInteractiveConsoleKernelLockLifecycleはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency runInteractiveConsoleKernelLockLifecycleは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ * @concurrency 所有する待機・通知・終了条件を維持し、要求と完了観測を同一視しない。
  */
 export async function runInteractiveConsoleKernelLockLifecycle(
   worker: InteractiveConsoleLockWorker,
@@ -412,12 +382,12 @@ function exactSupervisorStatus(message: unknown) {
  * @returns waitForSupervisorStatusの計算結果を返す。
  * @precondition 「child: SupervisorChild、expected: "acquired" | "ready" | "release-ready" | "released"、timeoutMs: number」がwaitForSupervisorStatusの入力契約を満たす。
  * @postcondition waitForSupervisorStatusの責務を完了した結果だけを返す。
- * @effect N/A: waitForSupervisorStatusは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @effect IPCとerror／exit／disconnect listenerおよびTimerで固定状態を観測する。
  * @failure N/A: waitForSupervisorStatusは独自の失敗分岐を所有しない。
- * @invariant waitForSupervisorStatusは入力から導いた結果以外の共有状態を変更しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
+ * @invariant 上位の同意・poison・保存判断を追加せず、既存の結果と終了不明を保持する。
+ * @boundary OS端末・Process／Worker・IPCまたは共有状態の技術境界。
  * @security waitForSupervisorStatusはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency waitForSupervisorStatusは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ * @concurrency 所有する待機・通知・終了条件を維持し、要求と完了観測を同一視しない。
  */
 function waitForSupervisorStatus(
   child: SupervisorChild,
@@ -461,12 +431,12 @@ function waitForSupervisorStatus(
  * @returns N/A: releaseSupervisorHandlesは戻り値を返さない。
  * @precondition 「child: SupervisorChild」がreleaseSupervisorHandlesの入力契約を満たす。
  * @postcondition releaseSupervisorHandlesの責務を完了して呼出し元へ制御を戻す。
- * @effect N/A: releaseSupervisorHandlesは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @effect 子Processとchannelをunrefし、所有する通知を整理する。資源不存在の証明とはしない。
  * @failure N/A: releaseSupervisorHandlesは独自の失敗分岐を所有しない。
- * @invariant releaseSupervisorHandlesは入力から導いた結果以外の共有状態を変更しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
+ * @invariant 上位の同意・poison・保存判断を追加せず、既存の結果と終了不明を保持する。
+ * @boundary OS端末・Process／Worker・IPCまたは共有状態の技術境界。
  * @security releaseSupervisorHandlesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: releaseSupervisorHandlesは共有非同期状態を持たない同期処理である。
+ * @concurrency 所有する待機・通知・終了条件を維持し、要求と完了観測を同一視しない。
  */
 function releaseSupervisorHandles(child: SupervisorChild) {
   child.removeAllListeners();
@@ -483,12 +453,12 @@ function releaseSupervisorHandles(child: SupervisorChild) {
  * @returns terminateSupervisorの計算結果を返す。
  * @precondition 「child: SupervisorChild、timeoutMs: number」がterminateSupervisorの入力契約を満たす。
  * @postcondition terminateSupervisorの責務を完了した結果だけを返す。
- * @effect N/A: terminateSupervisorは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @effect 同じ子へkillを要求し、終了通知を有界で観測する。
  * @failure terminateSupervisorは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant terminateSupervisorは入力から導いた結果以外の共有状態を変更しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
+ * @invariant 上位の同意・poison・保存判断を追加せず、既存の結果と終了不明を保持する。
+ * @boundary OS端末・Process／Worker・IPCまたは共有状態の技術境界。
  * @security terminateSupervisorはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency terminateSupervisorは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ * @concurrency 所有する待機・通知・終了条件を維持し、要求と完了観測を同一視しない。
  */
 async function terminateSupervisor(child: SupervisorChild, timeoutMs: number) {
   if (child.exitCode !== null || child.signalCode !== null) {
@@ -523,12 +493,12 @@ async function terminateSupervisor(child: SupervisorChild, timeoutMs: number) {
  * @returns unresolvedSupervisorLockの計算結果を返す。
  * @precondition 「child: SupervisorChild」がunresolvedSupervisorLockの入力契約を満たす。
  * @postcondition unresolvedSupervisorLockの責務を完了した結果だけを返す。
- * @effect N/A: unresolvedSupervisorLockは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @effect 解放不能の子／channelをunrefし、終了不明を保持する。
  * @failure N/A: unresolvedSupervisorLockは独自の失敗分岐を所有しない。
- * @invariant unresolvedSupervisorLockは入力から導いた結果以外の共有状態を変更しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
+ * @invariant 上位の同意・poison・保存判断を追加せず、既存の結果と終了不明を保持する。
+ * @boundary OS端末・Process／Worker・IPCまたは共有状態の技術境界。
  * @security unresolvedSupervisorLockはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency unresolvedSupervisorLockは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ * @concurrency 所有する待機・通知・終了条件を維持し、要求と完了観測を同一視しない。
  */
 function unresolvedSupervisorLock(child: SupervisorChild) {
   releaseSupervisorHandles(child);
@@ -554,12 +524,12 @@ function unresolvedSupervisorLock(child: SupervisorChild) {
  * @returns Promise<HostOperationSupervisorLockOutcome>を返す。
  * @precondition 「request: Readonly<{ pipeName: string; environment: NodeJS.ProcessEnv; timing: Readonly<{ acquireTimeoutMs: number; releaseTimeoutMs: number }>; }>、child: SupervisorChild」がrunHostOperationSupervisorLifecycleの入力契約を満たす。
  * @postcondition runHostOperationSupervisorLifecycleの責務を完了した結果だけを返す。
- * @effect N/A: runHostOperationSupervisorLifecycleは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @effect 固定子のIPC、ready、release、終了要求と終了観測を所有する。
  * @failure runHostOperationSupervisorLifecycleは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant runHostOperationSupervisorLifecycleは入力から導いた結果以外の共有状態を変更しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
+ * @invariant 上位の同意・poison・保存判断を追加せず、既存の結果と終了不明を保持する。
+ * @boundary OS端末・Process／Worker・IPCまたは共有状態の技術境界。
  * @security runHostOperationSupervisorLifecycleはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency runHostOperationSupervisorLifecycleは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ * @concurrency 所有する待機・通知・終了条件を維持し、要求と完了観測を同一視しない。
  */
 export async function runHostOperationSupervisorLifecycle(
   request: Readonly<{

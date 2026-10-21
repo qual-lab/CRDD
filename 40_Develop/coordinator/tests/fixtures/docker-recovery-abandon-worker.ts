@@ -1217,7 +1217,7 @@ if (mode !== "recovery") {
   );
   const supervisor = fileURLToPath(
     new URL(
-      "../../src/host-execution/operation-lock-supervisor.ts",
+      "../../../platform-access/src/lock/supervisor.ts",
       import.meta.url,
     ),
   );

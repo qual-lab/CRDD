@@ -305,7 +305,7 @@ Orchestratorの純粋判定はOS固有のPath、principal、Filesystem保護、L
 
 全69 Fileを重複なく照合し、新File・欠測・純粋集合の空集合を拒否する。宣言全体の型専用import／exportは実行時閉包へ数えない。通常宣言のinline type要素は型辺へ分けるが、値要素がなくても型除去後に空import／exportが残るため実行時ロード辺を維持する。型の所有境界は純粋集合内、または他Packageの実在する公開`src/index.ts`に限定し、自Packageの公開entry・業務操作・保存・Adapterへの型依存も純粋集合へ混入させない。Node組込みは型専用でも上表のexact module／symbolだけを許可する。`task/executor.ts`の結果配送型はOrchestratorが受領する三状態と結果参照・終了観測の最小構造を所有し、Coordinator実装の戻り型から逆算しない。Adapterはcastで押し込まず構造適合を型検査する。
 
-状態判定のSnapshot検査は既存`input/plain-data-snapshot.ts`を利用し、保存APIも再exportする外部Package Rootを純粋閉包へ追加しない。現在のWindows保証選択は`src/platform/windows-adapter.ts`が所有し、OS生存観測と子Process環境導出はCoordinatorの`src/host-execution/windows-platform-observation.ts`へ委譲する。これは移管途中の現接続であり、Coordinator／Orchestratorを環境非依存へ閉じる最終状態とは区別する。未分類の領域を検査から無言で除外せず、部分保証を全Platform対応へ昇格しない。
+状態判定のSnapshot検査は既存`input/plain-data-snapshot.ts`を利用し、保存APIも再exportする外部Package Rootを純粋閉包へ追加しない。現在のWindows保証選択は`src/platform/windows-adapter.ts`が所有し、PID生存・Platform観測はPA Rootの`observeProcessLiveness`／`observePlatformFamily`、環境構築はPAの既存用途別APIへ直接接続する。Lease入力・世代結合・Profile選択は上位に保持する。これは移管途中の現接続であり、Coordinator／Orchestratorを環境非依存へ閉じる最終状態とは区別する。未分類の領域を検査から無言で除外せず、部分保証を全Platform対応へ昇格しない。
 
 | 境界 | Coreが要求する保証 | Adapterの責務 |
 |---|---|---|

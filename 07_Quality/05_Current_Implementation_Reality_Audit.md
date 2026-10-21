@@ -1,5 +1,7 @@
 # 現行実装との照合
 
+B2の端末出力移管に伴う補助Unit項目`EST-UT-016`の追加を反映し、現在の設計集合は199項目とする。通常回帰の成功を正式項目全数の再評価へ換算せず、以下の198項目等の実測記録は当時の対象に限定する。
+
 確定誤検知236件の検査側是正を局所・QA Header全数3/3、関係16/16、静的確認と限定独立確認で照合した。生診断1,836→1,600、追加0。Checker全回帰386件は385成功／既知1失敗（残1,600診断）で完走し、全体不合格を維持する。残1,600の是正、Browser再確認、正式QA再評価は未実施。Browserの再読込み境界不足は元generic失敗の原因確定と区別する。[今回の是正範囲](../99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#naming-false-positive-remediation)と[分類の根拠と限界](../99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#naming-browser-triage)を参照する。
 
 2026-10-19の限定是正では、検証Tool3 Suiteの分類、Test Header全数Gate、現行文書43診断を是正した。現在の構造診断0は正式198項目の実測成立を意味しない。関連回帰・限定独立再確認は成功。Checker全回帰383成功／1失敗後、前提不整合で隠れていた既存Source命名・責務Headerの未達を別範囲として確認した。Browser接続1場面も元失敗の原因未確定を維持する。歴史CHG旧参照3,353・②のunknownと同じ回復参照・保持物は不変更。[現在の限定結果と残件](../99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#verification-tool-document-closure)を参照する。以下の日付付き結果はそれぞれ当時の対象に限定する。
@@ -22,15 +24,15 @@ Workspace方式のArchitecture／Quality反映後は13定義・198 Local Item。
 
 成果物種別: Quality現実照合
 状態: Blocked — Quality Design Review Pending
-進捗: 現行198項目の構造・関係投影を同期し、限定レビューを完了。未観測・OPEN・正式Not Runを残し、全体の現実照合は確定しない
-現在範囲: 現行198 Local Item。過去の197項目・18 Architecture詳細設計領域の照合は履歴として区別する
+進捗: 現行199項目の構造・関係投影を同期し、限定レビューを完了。未観測・OPEN・正式Not Runを残し、全体の現実照合は確定しない
+現在範囲: 現行199 Local Item。過去の197項目・18 Architecture詳細設計領域の照合は履歴として区別する
 維持責任者: Qual-Lab
 
 ## 設計集合
 
 | 項目 | 件数 |
 |---|---:|
-| Local Item数 | 198 |
+| Local Item数 | 199 |
 | 内訳 | 現行13 Quality Definitionの正式項目を再計数。167工程入力・172項目は先行版の集合であり、現在の母集合へ流用しない。Source／Test／Evidenceの現在適用は段階6／7で再照合する |
 
 ## 1. 目的

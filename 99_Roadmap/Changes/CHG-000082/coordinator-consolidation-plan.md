@@ -404,3 +404,108 @@ Sourceとしての全撤去は今回は確定しない。維持対象の保証�
 | 変更文書4件の照会 | 4件自身の診断は0。参照先展開では3,248診断が残り、文書検査全体はexit1。不合格をB1の局所成功へ畳まない |
 
 機械contract／reason・回復参照・内部子role・永続Schema・既存の判定本文を維持した。実ETW、Docker、認証、外部AI、②の保持物操作は実行していない。今回のB1局所整理をB全体・実環境・全体QAの完了としない。次はB2として、OS観測・端末I/O・排他技術を既存PA APIと照合し、上位の許可・保存・回復判断を混ぜずに移管する。
+
+## 10. B2：OS観測・端末・排他の技術境界
+
+着手基準はB1をCommit／Pushした`e36882d6c`。実装詳細の責務移管として、Coordinator／Orchestrator／PAの設計、既存公開API、固定子入口とQAを着手前に照合した。SourceとQualityの読取り専用確認を併用する。今回の目的は技術Ownerの移管であり、許可・実行可否・保存・回復の意味、準拠基準、Release判断は変えない。独立技術レビュー、関連回帰と文書・利用側伝播を行い、新しい外部依存や基準版変更の監査、実AI／Docker／認証の実操作は行わない。
+
+| 実施単位 | PAの配置／操作 | 上位へ残す処理と確認 |
+|---|---|---|
+| OS観測・環境導出（最初の実装単位） | `process/observation.ts`にPIDだけの`observeProcessLiveness`と`observePlatformFamily`。環境構築は既存`process/environment.ts`の用途別APIを直接使う | Lease入力・世代結合、二つのProfile選択、対応保証の判断はOrchestratorの既存Windows Adapterへ戻す。現在の入力形、Signal 0、ESRCHだけabsent・他失敗unknown、非対応Platformのblockedを維持する |
+| 既知の曖昧File名 | `docker-desktop/helper.ts`→`docker-desktop/native-process.ts` | 修復／再起動／公式shutdown／補助子終端を所有。公開関数・型名、Protocol・Native実体は変えない。Docker実操作は実施しない |
+| 端末I/O（後続） | Console取得・読書き・Reader子・終了確認をPAへ | 表示内容・同意・Grantとcleanup不明後のRuntime停止は上位。64byte入力上限、親喪失failsafe、stdio／IPC、取消join、部分書込みの扱いを維持する |
+| OS排他（後続） | Named Pipe Worker・Supervisor・実handle lifecycleをPAへ | 用途別Hash prefix、Pipe名、切詰め長、取得順、Operationと保存・回復判断は上位。取得不能・既知失敗・終端不明を混ぜない |
+
+最初の単位ではPA Rootへ既存処理から抽出した二つの観測関数だけを公開し、Coordinatorの観測専用Fileを撤去する。Orchestratorの既存operation propertyは`observeLeaseOwner`／`deriveChildEnvironment`のまま、その用途処理は既存Windows Adapterが所有する。Taskの組立ても同じLease観測へ接続する。Platform familyの利用側はPA Rootへ直接接続し、単なる再export中継を増やさない。検証は既存のWindows Adapter UT、Platform独立性IT、PA環境・公開集合、Task request組立て、Symbol／Catalogと命名・Headerへ接続する。
+
+現在PIDのaliveは記録した世代と同一Processの証明ではない。再利用されたPIDは保守的にaliveへ残し、取得後の再検証や上位の回復許可を代替しない。観測不能を不存在へ畳まない。入力検査と返却field・reasonは不変更とし、新しい世代台帳・監視・再試行を追加しない。
+
+端末・排他の移管では、PAからCoordinatorの固定子Registryをimportしない。Reader／Worker／SupervisorはPA内の用途固定起動へ移し、Recovery Matrix子は検証Tool側に残す。`process.execPath`、eval禁止、shell禁止、環境、cwd、stdioとIPC、Workerのstdout／stderr回収を起動地点で照合してから実装する。既存Host試験は合成の自己所有資源だけを使い、実端末・AI／Dockerを必要とする場面は無断実行しない。
+
+File一括移動は上位の許可・poison判断を逆流させるため採らず、汎用Process起動API・新Frameworkも作らない。現行の重複中継を残す案より、既存PAの技術責務と上位の判断を直結する案を採る。技術移管に新しい永続State、Lock、許可や終了保証の緩和が必要と判明した場合は、その単位を止めて差と代替を提示する。現在追加の人間判断は必要ない。
+
+### 10.1. 最初の単位の結果と残件
+
+OS観測の二操作をPA Rootへ接続し、Lease入力・世代結合と二つの用途Profile選択はOrchestratorの既存Windows Adapterへ戻した。旧Coordinatorの観測専用Fileは撤去した。Coordinator製品Sourceは105→104 File、Root公開19宣言は不変更。`native-process.ts`は旧`helper.ts`と本文一致で、所在参照だけを追従した。安定Symbol IDは意味の追跡用に保持し、移管先の実体と上位の検査Ownerへ接続した。新State・Lock・監視・再試行は追加していない。
+
+| 確認 | 結果と限界 |
+|---|---|
+| 静的確認 | PAのformat・型・lint、CoordinatorとOrchestratorの型、変更対象のformat／lint、差分検査が成功。Lintの既存infoはWarning／Errorと区別する |
+| PA通常回帰 | 公開集合の2操作追加追従後91件成功。PID三状態・OS要求前拒否の新UT3件を含む。Host専用の実Docker処置は実行しない |
+| Orchestrator／Coordinator | Orchestrator UT67件成功。Coordinator関連4 Suiteは92件中90成功、symlink／hardlink制限の2件は同じ2件を通常権限で再実行して成功。独立した実行結果を一回の全成功へ書き換えない |
+| Catalog・閉包 | Catalog384件valid、Domain Catalog25件成功、Runtime／Orchestrator対応表検査成功。公開入口・明示Module・旧Path・動的参照を照合 |
+| 命名／Header | Checker22件中18成功。symlink制限3件は同じ3件の通常権限再確認で成功。helper曖昧名解消後、基準版にあるRust試験`tests/integration/host-record.rs`の旧命名が次の不合格として現れた。本単位でRust実装・Cargoを変えず、命名検査全体は未合格とする |
+| 文書 | 変更4文書自身の診断0、参照先展開3,245診断で全体exit1を維持する |
+| 独立確認 | SourceとQuality／Architecture接続の確認後、B2説明段落の所属1件を意味不変で訂正。限定再確認の残指摘0 |
+
+端末I/O・Readerの実生涯、Named Pipe排他・Worker／Supervisor、固定子3役のPA内起動は未移管である。これらは§10の保持条件と既存自己生成試験へ接続してから閉じる。初期単位の成功をB2全体・外部AI E2E・実Docker回復・全体QAの完成とはしない。②のAI再試行、既存保持物の削除・回復参照変更は行っていない。
+
+### 10.2. 端末出力の移管単位
+
+端末全体は、六桁の確認コード文法と上位の停止判断を含むため、一括移動しない。まずWindows出力のstream処理を`platform-access/src/terminal/output.ts`へ移す。固定`process.stdout`へ書く`writeWindowsTerminalTextOutcome`、既存結果型、1000msの定数だけをPA Rootへ公開し、任意stream、UsingStream、Boolean便利操作を公開しない。Coordinatorの既存`writeInteractiveConsoleTextOutcome`は、その結果がcleanup_unknownの場合に従来と同じthen内でpoisonしてから返す。
+
+TTY／destroyed／writableの拒否、callback後の遅延確定、同期throw、stream error、backpressure、Timeout後の遅延error受けのlistenerを本文不変で維持する。返却時のlistener残存0を新条件にせず、Timeout後の遅延callbackで再完了しない反証を残す。上位の契約説明は現在の値を保ち、同じ公開Timeout定数を参照する。
+
+低層の二CaseはCoordinatorの混在System SuiteからPA内のUnit Suiteへ実移動する。既存EST-ST-003との補助関係は維持するが、Unit成功をSystem義務全体の成功へ換算しない。試験専用Boolean変換はPA試験内へ移し、実装RootのAPIへ増やさない。全Oracleを維持し、上位のpoison／次Task拒否は既存Coordinatorの実子fixtureで確認する。追加の端末入力・外部AI・Docker・認証は行わない。Reader・固定子配送・Lockは本単位で変更しない。
+
+### 10.3. Windows端末出力の結果
+
+writerの判定本文はTimeout定数名以外を維持し、固定stdout入口から同じ処理へ接続した。Coordinatorの既存then内のpoisonと契約説明は維持し、同じ公開Timeout定数を参照する。任意streamの公開、上位へのcallback注入、追加State／Lock／回復は導入していない。
+
+移動した低層二Caseは、QA-000009の`EST-UT-016`としてUnitの技術補助へ接続した。台帳の試験段階に合わせ、既存`EST-ST-003`の完成を代替しない。試験段階不一致を検査側で許容せず、Quality定義と実体を揃えた。新しい保持義務や製品操作を追加する項目ではない。
+
+PAの静的確認・通常93件と局所8件が成功した。上位の関連3 Suite初回は84件中83成功、残1件はProbeのPA型専用importに対するexact期待一覧の未追従だった。型専用assertとexact一覧を追従し、上位2 Suite37件、その後の関連3 Suite全84件が成功した。判定・poison・終了条件は緩めていない。Catalog385件valid、Header・公開Root・全TestのQA接続は成功した。Checkerの既存Rust命名不合格とsandboxのlink拒否3件は別分類し、後者は同じ3件の通常権限確認が成功している。全体Checker／QAをPassとはしない。
+
+文書検査で補助Unit追加の集約漏れを検出し、QAの外部境界段階を規定の`N/A`へ、検証項目の閉包と現在件数を199へ同期した。過去の198項目等の実測、正式Pass数、歴史Evidenceは変更しない。
+
+再検査では今回追加した項目の段階・閉包・件数診断が解消した。参照先展開込み3,026診断でexit1を維持し、非リンク診断は既存の設計単位処置4件と設計単位・Goal関係1件が残る。品質集約の移管先へPAを追記し、限定独立再確認は残指摘0。全体文書合格とはしない。
+
+SourceとQuality／Architectureの独立確認で、writerの旧Header誤記、QA集約表、Probe期待一覧を是正し、限定再確認の残指摘0。Reader／六桁の搬送文法、端末取得と残る四つのpoison地点、OS排他・固定子入口の移管は後続に残す。実TTY入力・AI・Docker・認証・既存保持物操作は行っていない。
+
+### 10.4. 固定OS端末の取得・回収の移管単位
+
+Readerの前に、固定device選択、TTY検査、sync／async callbackを囲むopen／closeをPAの`terminal/console.ts`へ移す。PA Rootは固定OS Adapterを使用する二つのOutcome操作と必要な値型だけを公開する。任意Path・任意OS Adapter・Boolean便利操作は公開しない。Coordinatorは既存入口を維持し、cleanup_unknown後のpoison、非completedのvalue非開示、同意と表示内容の判断を所有する。
+
+発火は既存の端末利用入口に限る。検査拒否・open失敗ではcallbackを開始せず、開始後のthrow／rejectと回収不明を区別する。片方のclose失敗でも他方のcloseを試行し、async callback完了前には閉じない。実TTYの存在や終端を合成Adapter成功から推定せず、判定情報不足は既存unavailable／cleanup_unknownのまま扱う。Reader、六桁文法、子Process、IPC、排他と永続記録は変更しない。
+
+移管する低層OracleはPA同PackageのUnitへ接続し、上位poisonと次回拒否の実子fixtureを維持する。Source・公開Root・利用側・Catalog・Symbol・ArchitectureとQA補助項目を同期し、静的確認・PA通常回帰・Coordinator関連結合と限定独立レビューで確認する。非自明な技術責務移管として既存B2の変更経路を継続し、準拠基準・外部依存・採用判断の監査は発火させない。外部AI、認証、実TTY操作、Docker操作、②保持物の操作は行わない。
+
+取得・検査・callback待機・回収の判定本文とclose順を維持してPAへ移し、上位三入口のpoisonと非成功値の非開示を維持した。低層四CaseはPA内Unitへ移し、上位ProcessSafetyを直接参照するassertionだけを外した。上位の停止義務は既存の実子poison fixtureで確認する。Probeの合成Systemだけを局所fakeへ切り替え、実fixtureの本番接続は維持した。
+
+PAの書式・型・Lintと通常97件、Coordinatorの型・変更範囲の書式／Lint、関連三Suite39件、Domain Catalog25件、Header・Root公開集合・全Test QA接続の三件、Runtime／Orchestratorの両対応表検査が成功した。Catalogは386件valid。初回の関連二Suiteでは型専用importのexact期待が未追従で失敗し、期待だけを現行の二型へ追従してから上記三Suiteを再実行した。成功を過去の失敗記録へ上書きしない。
+
+SourceとQuality／Architectureの独立確認では、移管したHeaderの古い効果・Owner表記と上位poison説明を訂正し、限定再レビューは両観点とも残指摘0。API・本文・結果・close順は再レビュー修正で変更していない。Reader・六桁文法・子Process・排他は未移管であり、B2全体や実端末・外部AI・全体QAの完成は主張しない。
+
+変更対象四文書の直接診断は0。参照先展開込み3,239診断で全体exit1を維持し、非リンク診断は既存の設計単位処置4件・設計単位とGoal関係1件だった。既存全体不合格を今回の局所成立で解消済みにはしない。②のAI再試行・保持物操作は行っていない。
+
+### 10.5. B2残境界の完結
+
+Readerは汎用入力へ変更せず、確認コード専用の技術搬送としてPAへ移す。先行する「六桁文法は上位」という配置説明を訂正し、六桁・UTF-8・改行・64byte上限と結果frameは搬送文法としてPA、コード生成・期待値一致・同意・許可・poisonは上位とする。文法を汎用化して子の終了値や早期拒否を変える案は採らない。既存contract／revision、512byte結果上限、110秒親待機・120秒孤児期限・500ms取消猶予は維持する。
+
+Named PipeのWorker、Supervisor、共有状態・IPC・終了観測をPAへ移す。用途別Hash、Pipe namespace、対象と世代の検査、取得順と上位状態判断は既存Ownerに残す。PAの技術入口は既存のWindows Pipe用途と固定子だけを扱い、任意Pathや任意実行物を起動しない。Coordinatorの固定子RegistryをPAへ丸ごと移さず、三つの技術子はPA内部、回復行列の試験子は既存Scriptの自己起動へ分離する。新Registry・Lock・State・回復は追加しない。
+
+本番はPackage Rootで接続する。低層故障注入はPA内の試験専用Adapterへ移し、既存の上位試験はその合成境界と本番入口を区別する。技術起動・取消・終了・stdout完了・親喪失と上位poison、Named Pipe競合・Worker喪失・ready往復・解放・再取得の既存Oracleを維持する。実行は外部AI・Docker・認証・対話入力を使わない自己生成試験に限定する。
+
+### 10.6. B2完結結果と確認範囲
+
+| 境界 | 実装Ownerと利用側 | 保持した確認 |
+|---|---|---|
+| OS生存・Platform観測 | PA `process/observation.ts`、Orchestratorの既存Windows Adapter | ESRCHだけ不存在、観測不能とPID世代を区別。Lease入力とProfile選択は上位 |
+| Windows出力・固定端末取得 | PA `terminal/output.ts`・`console.ts`、Coordinatorの既存三入口 | callback・error・期限、全close試行・非同期保持、回収不明後のpoisonと非成功値の非開示 |
+| 確認コード搬送・Reader子 | PA `terminal/input.ts`・`confirmation-reader.ts`・`reader-lifecycle.ts` | 既存の文法・入力／結果上限・孤児期限・取消と子／stdout終了。期待値一致・同意・poisonは上位 |
+| 排他・固定子 | PA `lock/pipe.ts`・`lifecycle.ts`・`worker.ts`・`supervisor.ts`・`process/child.ts` | 競合、取得失敗、共有状態、IPC往復、終了不明、親喪失・解放後の再取得。用途別Hash・namespace・世代・取得順は上位 |
+| 検証Tool自己起動 | 既存 `scripts/verify-recovery-matrix.ts` | 固定execPath・自己File・引数と環境を維持し、PAに試験Toolを登録しない |
+
+Coordinator SourceはB1後105Fileから98Fileとなり、Root公開19項目は維持した。旧Reader二File・排他技術三File・固定子RegistryとOS観測Fileは撤去し、PAから上位Sourceへの依存を追加していない。共有メモリと子環境生成もPAへ閉じ、上位には対象と要求の導出だけを残した。新しい永続State・Registry・Lock・回復は作っていない。
+
+独立確認で試験用再exportが私有境界を迂回していた点を検出し、bridgeは削除した。Reader低層五Caseとfixture／harness、Lock低層十五Caseと技術fixtureをPA内へ実移管した。上位の入力拒否Caseは要求生成の直接assertへ、受理した境界待機値のready／releaseはPAの追加一Caseへ分担し、故障Oracleを削減していない。上位のnamespace・世代・poison・本番Root接続は既存試験へ残す。Recovery fixture内のSupervisor Pathは既存exact argv監視用であり、私有起動入口ではない。
+
+固定候補のPA静的確認・通常121件、Orchestrator型・Unit67件、台帳25件、Header／公開Root／全Test QA接続三件、両設計対応表検査は成功。Catalog388件valid、移管Symbolの重複・実Path欠落・新規参照未解決は0だった。上位の最終関連八Suiteは125件中124成功・symlink作成EPERM一件で、同一一件の通常権限再実行は成功した。単一runの全成功へ書き換えない。
+
+Sourceの独立確認は移管本文と上位判断の保持を照合し、Headerの誤ったEffect説明を訂正後に残指摘0。Quality側は試験実移管と、実検証対象へのSymbol接続を訂正し残指摘0。低層の登録から上位全体の完成や正式QA全項目Passを推定しない。
+
+追加のCoordinator通常全回帰は最後まで実行し、exit 1だった。検証環境のsymlink作成拒否、保護された一時記録のrename拒否、Host選択ユーザー観測不能を含む失敗を確認した。安全検査を緩めず、関連する保存・Repository操作・Workspace・Catalog接続・検証結果保存の五Suiteを通常権限で再実行し46件すべて成功、coverage出力境界・doctor・Operation生成の三Suiteも18件すべて成功した。別途同じalias一件の通常権限確認も成功した。元の広域runを全成功へ書き換えず、B2の最終関連125件とこれらの環境切分けを区別する。広域run開始後の試験配置・Header訂正を含む単一固定版の全回帰成功とは主張しない。
+
+今回変更した文書の直接診断は0。参照先展開込みの文書検査は3,269診断でexit 1を維持し、非リンク診断は既存の設計単位処置四件・設計単位とGoal関係一件だった。完結記録と現在投影の二文書を最終更新後に再検査し、直接診断0、参照展開25診断・同じ非リンク五件を確認した。検査範囲の異なる件数を削減効果とは扱わない。歴史Evidenceの改名、全体QAのPass化は行わない。
+
+B2の予定範囲は、技術Owner・本番Root接続・既存Oracleの移管・関連回帰・独立確認まで完了した。残るB3はAI AdapterとDIの計画・実行境界、B4はGit／Repository観測と借用Treeの接続、B5はWorkbench助言の共通Task接続と全利用側の閉包であり、B2へ拡張しない。外部AI・Docker操作・認証・対話入力・②保持物の削除や回復参照変更は行っていない。作業ブランチへのCommit・Pushは、採用・最終統合・Release判断とは区別する。

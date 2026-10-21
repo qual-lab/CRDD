@@ -1484,6 +1484,63 @@
   ],
   "tests": [
     {
+      "id": "platform-access:unit:terminal-console",
+      "owner": "platform-access",
+      "path": "40_Develop/platform-access/tests/unit/terminal/console.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "terminal",
+        "console",
+        "cleanup"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "platform-access:unit:terminal-output",
+      "owner": "platform-access",
+      "path": "40_Develop/platform-access/tests/unit/terminal/output.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "terminal",
+        "output",
+        "cleanup"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "platform-access:unit:process-observation",
+      "owner": "platform-access",
+      "path": "40_Develop/platform-access/tests/unit/process/observation.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": [
+        "process",
+        "observation",
+        "platform"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
       "id": "docker-isolation:unit:network-proxy",
       "owner": "docker-isolation",
       "path": "40_Develop/docker-isolation/tests/unit/network/proxy.contract.test.ts",
@@ -4464,9 +4521,9 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "coordinator:integration:typescript-child-entrypoints",
-      "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/typescript-child-entrypoints.contract.test.ts",
+      "id": "platform-access:integration:typescript-child-entrypoints",
+      "owner": "platform-access",
+      "path": "40_Develop/platform-access/tests/integration/typescript-child-entrypoints.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -10277,6 +10334,44 @@
       "postconditions": [
         "result_observed",
         "source_unchanged"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "platform-access:integration:lock-lifecycle",
+      "owner": "platform-access",
+      "path": "40_Develop/platform-access/tests/integration/lock-lifecycle.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": [
+        "terminal",
+        "lock",
+        "cleanup"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
+      ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "platform-access:system:terminal-reader",
+      "owner": "platform-access",
+      "path": "40_Develop/platform-access/tests/system/terminal-reader.contract.test.ts",
+      "level": "system",
+      "kind": "contract",
+      "semanticTags": [
+        "terminal",
+        "lock",
+        "cleanup"
+      ],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": [
+        "result_observed"
       ],
       "mandatoryByDefault": true
     }

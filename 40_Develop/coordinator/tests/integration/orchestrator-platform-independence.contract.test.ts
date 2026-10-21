@@ -691,7 +691,7 @@ test("Windows AdapterはCore閉集合の外にあり、CoreはAdapterを参照�
   const windowsAdapterSource = readRuntimeSource(windowsAdapterPath);
   assert.equal(
     windowsAdapterSource.includes(
-      'from "../../../coordinator/src/host-execution/windows-platform-observation.ts"',
+      'from "../../../platform-access/src/index.ts"',
     ),
     true,
   );
@@ -699,7 +699,7 @@ test("Windows AdapterはCore閉集合の外にあり、CoreはAdapterを参照�
   assert.equal(
     /process\.platform/u.test(
       readRuntimeSource(
-        "40_Develop/coordinator/src/host-execution/windows-platform-observation.ts",
+        "40_Develop/platform-access/src/process/observation.ts",
       ),
     ),
     true,

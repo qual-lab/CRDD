@@ -16,8 +16,8 @@ import { stripTypeScriptTypes } from "node:module";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
 import { describeDockerRuntimeArtifactTrustContract } from "../../../docker-isolation/src/index.ts";
-import { describeDockerDesktopRepairNativeHelperContract } from "../../src/docker-desktop/helper.ts";
-import { startDockerDesktopRepairHelper } from "../../src/docker-desktop/helper.ts";
+import { describeDockerDesktopRepairNativeHelperContract } from "../../src/docker-desktop/native-process.ts";
+import { startDockerDesktopRepairHelper } from "../../src/docker-desktop/native-process.ts";
 import { observePlatformAccessArtifactCandidate } from "../../src/index.ts";
 import { createDockerDesktopRepairNativeHelperLifecycle } from "../../src/docker-desktop/protocol.ts";
 
@@ -605,7 +605,7 @@ test("現在の障害修復と再起動はDocker更新を許容し操作中の�
   assert.equal(contract.exactHashRequiredAcrossOperations, false);
   assert.equal(contract.sameIdentityAndHashRequiredWithinOperation, true);
   const adapter = fs.readFileSync(
-    new URL("../../src/docker-desktop/helper.ts", import.meta.url),
+    new URL("../../src/docker-desktop/native-process.ts", import.meta.url),
     "utf8",
   );
   assert.equal(adapter.includes("docker-desktop-repair-policy.ts"), false);
@@ -1091,7 +1091,7 @@ test("C確認後のstdout／stderr errorもprotocol Evidence不明として失�
  */
 test("公式停止は既存session一回だけを使い分類を維持する", async () => {
   const source = fs.readFileSync(
-    new URL("../../src/docker-desktop/helper.ts", import.meta.url),
+    new URL("../../src/docker-desktop/native-process.ts", import.meta.url),
     "utf8",
   );
   const start = source.indexOf(

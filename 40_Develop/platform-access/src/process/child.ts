@@ -10,7 +10,7 @@ import { fileURLToPath } from "node:url";
 import { Worker, type WorkerOptions } from "node:worker_threads";
 
 const DISTRIBUTION_MODULE_PATH =
-  "40_Develop/coordinator/src/host-execution/typescript-child-entrypoints.ts";
+  "40_Develop/platform-access/src/process/child.ts";
 
 /**
  * runtime-local-typescript-child-entrypointsで使用するRuntime Local Type Script Child Roleの値契約を定義する。
@@ -26,8 +26,7 @@ const DISTRIBUTION_MODULE_PATH =
 export type RuntimeLocalTypeScriptChildRole =
   | "interactive_console_reader"
   | "kernel_lock_worker"
-  | "host_operation_lock_supervisor"
-  | "signed_recovery_matrix_child";
+  | "host_operation_lock_supervisor";
 
 /**
  * runtime-local-typescript-child-entrypointsで使用するRuntime Local Type Script Child Kindの値契約を定義する。
@@ -100,25 +99,19 @@ const runtimeLocalTypeScriptChildEntrypoints = Object.freeze([
   declareLocalTypeScriptChildEntrypoint(
     "interactive_console_reader",
     "spawn",
-    "../cli/interactive-console-reader.ts",
+    "../terminal/confirmation-reader.ts",
     import.meta.url,
   ),
   declareLocalTypeScriptChildEntrypoint(
     "kernel_lock_worker",
     "worker",
-    "./kernel-lock-worker.ts",
+    "../lock/worker.ts",
     import.meta.url,
   ),
   declareLocalTypeScriptChildEntrypoint(
     "host_operation_lock_supervisor",
     "spawn",
-    "./operation-lock-supervisor.ts",
-    import.meta.url,
-  ),
-  declareLocalTypeScriptChildEntrypoint(
-    "signed_recovery_matrix_child",
-    "spawn",
-    "../../scripts/verify-recovery-matrix.ts",
+    "../lock/supervisor.ts",
     import.meta.url,
   ),
 ]);
@@ -174,12 +167,12 @@ function entrypointFor(
  * @returns createRuntimeLocalTypeScriptWorkerの計算結果を返す。
  * @precondition 「role: RuntimeLocalTypeScriptChildRole、options: WorkerOptions」がcreateRuntimeLocalTypeScriptWorkerの入力契約を満たす。
  * @postcondition createRuntimeLocalTypeScriptWorkerの責務を完了した結果だけを返す。
- * @effect N/A: createRuntimeLocalTypeScriptWorkerは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @effect 固定Workerを生成し、stdout／stderrを排出してerror／exit通知を保持する。
  * @failure createRuntimeLocalTypeScriptWorkerは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant createRuntimeLocalTypeScriptWorkerは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: createRuntimeLocalTypeScriptWorkerはProcess内の同一Subsystemで完結する。
+ * @invariant 上位の同意・poison・保存判断を追加せず、既存の結果と終了不明を保持する。
+ * @boundary OS端末・Process／Worker・IPCまたは共有状態の技術境界。
  * @security N/A: createRuntimeLocalTypeScriptWorkerはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: createRuntimeLocalTypeScriptWorkerは共有非同期状態を持たない同期処理である。
+ * @concurrency 所有する待機・通知・終了条件を維持し、要求と完了観測を同一視しない。
  */
 export function createRuntimeLocalTypeScriptWorker(
   role: RuntimeLocalTypeScriptChildRole,

@@ -8,7 +8,7 @@
  * @scope 所有対話Readerの取消
  * @boundary 試験Adapter→Reader制御。実端末の秘密値は取得しない。
  */
-import { readOwnedInteractiveConsoleLineOutcomeUsingAdapter } from "../../src/cli/interactive-console-reader.ts";
+import { readOwnedInteractiveConsoleLineOutcomeUsingAdapter } from "../../src/terminal/confirmation-reader.ts";
 
 let readBuffer: Buffer | null = null;
 let readCallback:

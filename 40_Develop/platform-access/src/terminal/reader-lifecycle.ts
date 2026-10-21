@@ -9,7 +9,7 @@ import type { ChildProcess } from "node:child_process";
 import {
   INTERACTIVE_CONSOLE_READER_CONTRACT,
   INTERACTIVE_CONSOLE_READER_CONTRACT_REVISION,
-} from "./interactive-console-reader.ts";
+} from "./confirmation-reader.ts";
 
 const READER_MAXIMUM_OUTPUT_BYTES = 512;
 const READER_CANCEL_GRACE_MS = 500;
@@ -127,12 +127,12 @@ function parseReaderResult(source: Buffer) {
  * @returns Promise<InteractiveConsoleReaderLifecycleOutcome>を返す。
  * @precondition 「snapshot: InteractiveConsoleReaderLifecycleSnapshot、cancellationSignal: AbortSignal、child: ChildProcess、adapter: InteractiveConsoleReaderLifecycleAdapter」がrunInteractiveConsoleReaderLifecycleの入力契約を満たす。
  * @postcondition runInteractiveConsoleReaderLifecycleの責務を完了した結果だけを返す。
- * @effect N/A: runInteractiveConsoleReaderLifecycleは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @effect 子とstdout、IPC、取消、kill要求、Timerと終了観測を同じlifecycleへ結合する。
  * @failure runInteractiveConsoleReaderLifecycleは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant runInteractiveConsoleReaderLifecycleは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: runInteractiveConsoleReaderLifecycleはProcess内の同一Subsystemで完結する。
+ * @invariant 上位の同意・poison・保存判断を追加せず、既存の結果と終了不明を保持する。
+ * @boundary OS端末・Process／Worker・IPCまたは共有状態の技術境界。
  * @security N/A: runInteractiveConsoleReaderLifecycleはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency runInteractiveConsoleReaderLifecycleは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ * @concurrency 所有する待機・通知・終了条件を維持し、要求と完了観測を同一視しない。
  */
 export function runInteractiveConsoleReaderLifecycle(
   snapshot: InteractiveConsoleReaderLifecycleSnapshot,

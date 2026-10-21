@@ -8,16 +8,14 @@
  * @scope project、runtime、windows、platform、adapter
  * @boundary PRL-UT-014=N/A: Orchestrator Application Portは外部実行境界を持たない。
  */
+import { observePlatformFamily } from "../../../platform-access/src/index.ts";
 import assert from "node:assert/strict";
 import path from "node:path";
 import test from "node:test";
 
 import { createWindowsNativeHelperEnvironment } from "../../../platform-access/src/index.ts";
 import { resolveOrchestratorPlatformAdapter } from "../../../orchestrator/src/index.ts";
-import {
-  createOrchestratorWindowsPlatformAdapter,
-  observeOrchestratorPlatformFamily,
-} from "../../../orchestrator/src/platform/windows-adapter.ts";
+import { createOrchestratorWindowsPlatformAdapter } from "../../../orchestrator/src/platform/windows-adapter.ts";
 import { inspectRuntimeOwnedWindowsProviderHomeCandidate } from "../../src/provider/home-windows-adapter.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
 import { compileWindowsRootObservationCandidate } from "../../src/repository-operation/root-observation.ts";
@@ -147,7 +145,7 @@ test("Windows AdapterはPlatform契約の宣言と実操作を一致させる", 
  * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
 test("現在ProcessのPlatform familyは閉じた観測として返る", () => {
-  assert.deepEqual(observeOrchestratorPlatformFamily(), {
+  assert.deepEqual(observePlatformFamily(), {
     status: "observed",
     platformFamily: "windows",
   });

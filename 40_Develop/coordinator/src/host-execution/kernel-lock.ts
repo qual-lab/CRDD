@@ -4,19 +4,14 @@
  * @responsibility HostOperationSupervisorCleanupを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000015
  */
-import type { ChildProcess } from "node:child_process";
 import { createHash } from "node:crypto";
-import { fileURLToPath } from "node:url";
 import {
-  createRuntimeLocalTypeScriptWorker,
-  spawnRuntimeLocalTypeScriptChild,
-} from "./typescript-child-entrypoints.ts";
-import { createWindowsHostOperationSupervisorEnvironment } from "../../../platform-access/src/index.ts";
-import {
-  prepareInteractiveConsoleKernelLockRequest,
-  runHostOperationSupervisorLifecycle,
-  runInteractiveConsoleKernelLockLifecycle,
-} from "./kernel-lock-lifecycle.ts";
+  acquireNamedPipeKernelLock,
+  acquireNamedPipeKernelLockOutcome,
+  acquireNamedPipeSupervisorLock,
+  type HostOperationSupervisorLockOutcome,
+  type InteractiveConsoleKernelLockOutcome,
+} from "../../../platform-access/src/index.ts";
 
 /**
  * Orchestrator保存用の専用OS排他を取得する。
@@ -92,185 +87,6 @@ const HOST_SUPERVISOR_ACQUIRE_TIMEOUT_MS = 1_000;
 const LOCK_RELEASE_TIMEOUT_MS = 5_000;
 const INTERACTIVE_LOCK_CLEANUP_TIMEOUT_MS = 1_000;
 const HOST_SUPERVISOR_RELEASE_TIMEOUT_MS = 1_000;
-/**
- * kernel-lockで使用するHost Operation Supervisor 清掃の値契約を定義する。
- *
- * @responsibility Host Operation Supervisor 清掃のProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000015
- * @shape HostOperationSupervisorCleanupが表すProperty、識別子およびRelationを型として固定する。
- * @invariant HostOperationSupervisorCleanupで宣言した値と責務の対応を維持する。
- * @boundary N/A: HostOperationSupervisorCleanupの宣言は外部境界を開かない。
- * @security HostOperationSupervisorCleanupはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility HostOperationSupervisorCleanupの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-type HostOperationSupervisorCleanup =
-  | "released"
-  | "cleanup_confirmed_failure"
-  | "cleanup_unknown";
-/**
- * kernel-lockで使用するHost Operation Lock Supervisorの値契約を定義する。
- *
- * @responsibility Host Operation Lock SupervisorのProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000015
- * @shape HostOperationLockSupervisorが表すProperty、識別子およびRelationを型として固定する。
- * @invariant HostOperationLockSupervisorで宣言した値と責務の対応を維持する。
- * @boundary N/A: HostOperationLockSupervisorの宣言は外部境界を開かない。
- * @security HostOperationLockSupervisorはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility HostOperationLockSupervisorの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-export type HostOperationLockSupervisor = Readonly<{
-  assertLive: () => boolean;
-  onFailureDetected: (listener: () => void) => () => void;
-  failureDetected: Promise<void>;
-  loss: Promise<Exclude<HostOperationSupervisorCleanup, "released">>;
-  confirmReady: () => Promise<
-    "ready" | "cleanup_confirmed_failure" | "cleanup_unknown"
-  >;
-  release: () => Promise<HostOperationSupervisorCleanup>;
-}>;
-/**
- * kernel-lockで使用するHost Operation Supervisor Lock Outcomeの値契約を定義する。
- *
- * @responsibility Host Operation Supervisor Lock OutcomeのProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000015
- * @shape HostOperationSupervisorLockOutcomeが表すProperty、識別子およびRelationを型として固定する。
- * @invariant HostOperationSupervisorLockOutcomeで宣言した値と責務の対応を維持する。
- * @boundary N/A: HostOperationSupervisorLockOutcomeの宣言は外部境界を開かない。
- * @security HostOperationSupervisorLockOutcomeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility HostOperationSupervisorLockOutcomeの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-export type HostOperationSupervisorLockOutcome = Readonly<{
-  status:
-    | "acquired"
-    | "unavailable"
-    | "cleanup_confirmed_failure"
-    | "cleanup_unknown";
-  lock: HostOperationLockSupervisor | null;
-}>;
-
-/**
- * kernel-lockで使用するInteractive Console Lock Workerの値契約を定義する。
- *
- * @responsibility Interactive Console Lock WorkerのProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000015
- * @shape InteractiveConsoleLockWorkerが表すProperty、識別子およびRelationを型として固定する。
- * @invariant InteractiveConsoleLockWorkerで宣言した値と責務の対応を維持する。
- * @boundary N/A: InteractiveConsoleLockWorkerの宣言は外部境界を開かない。
- * @security InteractiveConsoleLockWorkerはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility InteractiveConsoleLockWorkerの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-type InteractiveConsoleLockWorker = Readonly<{
-  unref: () => void;
-  postMessage: (value: string) => void;
-  terminate: () => Promise<number>;
-  once: (
-    event: "error" | "exit",
-    listener: ((error: Error) => void) | ((code: number) => void),
-  ) => unknown;
-}>;
-
-/**
- * kernel-lockで使用するInteractive Console Kernel Lock Outcomeの値契約を定義する。
- *
- * @responsibility Interactive Console Kernel Lock OutcomeのProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000015
- * @shape InteractiveConsoleKernelLockOutcomeが表すProperty、識別子およびRelationを型として固定する。
- * @invariant InteractiveConsoleKernelLockOutcomeで宣言した値と責務の対応を維持する。
- * @boundary N/A: InteractiveConsoleKernelLockOutcomeの宣言は外部境界を開かない。
- * @security InteractiveConsoleKernelLockOutcomeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility InteractiveConsoleKernelLockOutcomeの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-export type InteractiveConsoleKernelLockOutcome = Readonly<{
-  status: "acquired" | "unavailable" | "cleanup_unknown";
-  lock: Readonly<{
-    release: () => Promise<"released" | "cleanup_unknown">;
-  }> | null;
-}>;
-
-/**
- * For 状態を完了まで待機する。
- *
- * @responsibility For 状態の待機条件、完了観測、Timeout境界を所有する。
- * @trace ARCH-000015
- * @input state: Int32Array、expected: number、timeoutMs: number
- * @returns waitForStateの計算結果を返す。
- * @precondition 「state: Int32Array、expected: number、timeoutMs: number」がwaitForStateの入力契約を満たす。
- * @postcondition waitForStateの責務を完了した結果だけを返す。
- * @effect N/A: waitForStateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: waitForStateは独自の失敗分岐を所有しない。
- * @invariant waitForStateは入力から導いた結果以外の共有状態を変更しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
- * @security waitForStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: waitForStateは共有非同期状態を持たない同期処理である。
- */
-function waitForState(state: Int32Array, expected: number, timeoutMs: number) {
-  const deadline = Date.now() + timeoutMs;
-  while (Atomics.load(state, 0) === expected) {
-    const remaining = deadline - Date.now();
-    if (remaining <= 0) return false;
-    Atomics.wait(state, 0, expected, remaining);
-  }
-  return true;
-}
-
-/**
- * Named Pipe Kernel Lockを取得する。
- *
- * @responsibility Named Pipe Kernel Lockの取得条件、所有権、失敗時の非取得境界を所有する。
- * @trace ARCH-000015
- * @input pipeName: string
- * @returns acquireNamedPipeKernelLockの計算結果を返す。
- * @precondition 「pipeName: string」がacquireNamedPipeKernelLockの入力契約を満たす。
- * @postcondition acquireNamedPipeKernelLockの責務を完了した結果だけを返す。
- * @effect N/A: acquireNamedPipeKernelLockは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: acquireNamedPipeKernelLockは独自の失敗分岐を所有しない。
- * @invariant acquireNamedPipeKernelLockは入力から導いた結果以外の共有状態を変更しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
- * @security acquireNamedPipeKernelLockはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: acquireNamedPipeKernelLockは共有非同期状態を持たない同期処理である。
- */
-function acquireNamedPipeKernelLock(pipeName: string) {
-  const sharedState = new SharedArrayBuffer(4);
-  const state = new Int32Array(sharedState);
-  const worker = createRuntimeLocalTypeScriptWorker("kernel_lock_worker", {
-    env: {},
-    workerData: Object.freeze({ pipeName, state: sharedState }),
-  });
-  worker.unref();
-  let isWorkerLost = false;
-  worker.once("error", () => {
-    isWorkerLost = true;
-  });
-  worker.once("exit", () => {
-    isWorkerLost = true;
-  });
-  if (!waitForState(state, 0, SYNCHRONOUS_LOCK_ACQUIRE_TIMEOUT_MS)) {
-    void worker.terminate();
-    return null;
-  }
-  if (Atomics.load(state, 0) !== 1) {
-    void worker.terminate();
-    return null;
-  }
-  let isReleased = false;
-  return Object.freeze({
-    assertLive: () =>
-      !isReleased &&
-      !isWorkerLost &&
-      worker.threadId > 0 &&
-      Atomics.load(state, 0) === 1,
-    release: () => {
-      if (isReleased) return false;
-      isReleased = true;
-      worker.postMessage("release");
-      if (!waitForState(state, 1, LOCK_RELEASE_TIMEOUT_MS)) {
-        void worker.terminate();
-        return false;
-      }
-      return Atomics.load(state, 0) === 2;
-    },
-  });
-}
 
 /**
  * Runtime 所有 Logical Provider Home Kernel Lockを取得する。
@@ -339,51 +155,6 @@ export function acquireRuntimeOwnedDockerRuntimeStateKernelLock(
     .slice(0, 32);
   const pipeName = `\\\\.\\pipe\\CRDD.Coordinator.DockerRuntimeState.${lockIdentity}`;
   return acquireNamedPipeKernelLock(pipeName);
-}
-
-/**
- * Runtime 所有 Interactive Console Kernel Lock Outcomeを取得する。
- *
- * @responsibility Runtime 所有 Interactive Console Kernel Lock Outcomeの取得条件、所有権、失敗時の非取得境界を所有する。
- * @trace ARCH-000015
- * @input N/A: 実行時引数を受け取らない。
- * @returns acquireRuntimeOwnedInteractiveConsoleKernelLockOutcomeの計算結果を返す。
- * @precondition 「N/A: 実行時引数を受け取らない。」がacquireRuntimeOwnedInteractiveConsoleKernelLockOutcomeの入力契約を満たす。
- * @postcondition acquireRuntimeOwnedInteractiveConsoleKernelLockOutcomeの責務を完了した結果だけを返す。
- * @effect N/A: acquireRuntimeOwnedInteractiveConsoleKernelLockOutcomeは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure acquireRuntimeOwnedInteractiveConsoleKernelLockOutcomeは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant acquireRuntimeOwnedInteractiveConsoleKernelLockOutcomeは入力から導いた結果以外の共有状態を変更しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
- * @security acquireRuntimeOwnedInteractiveConsoleKernelLockOutcomeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency acquireRuntimeOwnedInteractiveConsoleKernelLockOutcomeは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
- */
-export function acquireRuntimeOwnedInteractiveConsoleKernelLockOutcome() {
-  const request = prepareInteractiveConsoleKernelLockRequest();
-  if (!request)
-    return Promise.resolve(
-      Object.freeze({
-        status: "unavailable",
-        lock: null,
-      }) as InteractiveConsoleKernelLockOutcome,
-    );
-  let worker: InteractiveConsoleLockWorker;
-  try {
-    worker = createRuntimeLocalTypeScriptWorker("kernel_lock_worker", {
-      env: {},
-      workerData: Object.freeze({
-        pipeName: request.pipeName,
-        state: request.sharedState,
-      }),
-    });
-  } catch {
-    return Promise.resolve(
-      Object.freeze({
-        status: "cleanup_unknown",
-        lock: null,
-      }) as InteractiveConsoleKernelLockOutcome,
-    );
-  }
-  return runInteractiveConsoleKernelLockLifecycle(worker, request.sharedState);
 }
 
 /**
@@ -457,7 +228,7 @@ export function acquireRuntimeOwnedHostOperationKernelLock(
  * @returns Readonly<{ pipeName: string; environment: NodeJS.ProcessEnv; timing: Readonly<{ acquireTimeoutMs: number; releaseTimeoutMs: number }>; }> | nullを返す。
  * @precondition 「rootName: unknown、nonce: unknown、timing: Readonly<{ acquireTimeoutMs: number; releaseTimeoutMs: number; }>」がprepareHostOperationSupervisorLockRequestの入力契約を満たす。
  * @postcondition prepareHostOperationSupervisorLockRequestの責務を完了した結果だけを返す。
- * @effect prepareHostOperationSupervisorLockRequestは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @effect 対象・世代・待機値を検査し、HashとPipe名を局所的に導出する。OS要求は行わない。
  * @failure N/A: prepareHostOperationSupervisorLockRequestは独自の失敗分岐を所有しない。
  * @invariant prepareHostOperationSupervisorLockRequestは宣言した境界以外へEffectを拡張しない。
  * @boundary FilesystemとProcess内Domain処理の境界。
@@ -476,7 +247,6 @@ export function prepareHostOperationSupervisorLockRequest(
   }),
 ): Readonly<{
   pipeName: string;
-  environment: NodeJS.ProcessEnv;
   timing: Readonly<{ acquireTimeoutMs: number; releaseTimeoutMs: number }>;
 }> | null {
   if (process.platform !== "win32") return null;
@@ -490,62 +260,9 @@ export function prepareHostOperationSupervisorLockRequest(
   )
     return null;
   const bindingHash = hostOperationGenerationBindingHash(rootName, nonce);
-  const environment = createWindowsHostOperationSupervisorEnvironment();
-  if (!bindingHash || !environment) return null;
+  if (!bindingHash) return null;
   const pipeName = `\\\\.\\pipe\\CRDD.Coordinator.HostOperation.${bindingHash.slice(0, 32)}`;
-  return Object.freeze({ pipeName, environment, timing });
-}
-
-/**
- * Runtime 所有 Host Operation Supervisor Lockを取得する。
- *
- * @responsibility Runtime 所有 Host Operation Supervisor Lockの取得条件、所有権、失敗時の非取得境界を所有する。
- * @trace ARCH-000015
- * @input rootName: unknown、nonce: unknown
- * @returns acquireRuntimeOwnedHostOperationSupervisorLockの計算結果を返す。
- * @precondition 「rootName: unknown、nonce: unknown」がacquireRuntimeOwnedHostOperationSupervisorLockの入力契約を満たす。
- * @postcondition acquireRuntimeOwnedHostOperationSupervisorLockの責務を完了した結果だけを返す。
- * @effect acquireRuntimeOwnedHostOperationSupervisorLockは外部ProcessまたはRuntime境界の操作を呼び出す。
- * @failure acquireRuntimeOwnedHostOperationSupervisorLockは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant acquireRuntimeOwnedHostOperationSupervisorLockは宣言した境界以外へEffectを拡張しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
- * @security acquireRuntimeOwnedHostOperationSupervisorLockはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency acquireRuntimeOwnedHostOperationSupervisorLockは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
- */
-export function acquireRuntimeOwnedHostOperationSupervisorLock(
-  rootName: unknown,
-  nonce: unknown,
-) {
-  const request = prepareHostOperationSupervisorLockRequest(rootName, nonce);
-  if (!request)
-    return Promise.resolve(
-      Object.freeze({
-        status: "unavailable",
-        lock: null,
-      }) as HostOperationSupervisorLockOutcome,
-    );
-  let child: ChildProcess;
-  try {
-    child = spawnRuntimeLocalTypeScriptChild(
-      "host_operation_lock_supervisor",
-      [request.pipeName],
-      {
-        cwd: fileURLToPath(new URL(".", import.meta.url)),
-        env: request.environment,
-        shell: false,
-        windowsHide: true,
-        stdio: ["ignore", "ignore", "ignore", "ipc"],
-      },
-    );
-  } catch {
-    return Promise.resolve(
-      Object.freeze({
-        status: "cleanup_confirmed_failure",
-        lock: null,
-      }) as HostOperationSupervisorLockOutcome,
-    );
-  }
-  return runHostOperationSupervisorLifecycle(request, child);
+  return Object.freeze({ pipeName, timing });
 }
 
 /**
@@ -597,4 +314,87 @@ export function describeKernelLockContract() {
       "cleanup_unknown_process_restart_required",
     ]),
   });
+}
+
+/**
+ * Interactive Console Kernel Lock Requestを実行前候補として準備する。
+ *
+ * @responsibility Interactive Console Kernel Lock Requestの準備条件、候補Identity、Effect前の拒否境界を所有する。
+ * @trace ARCH-000015
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns prepareInteractiveConsoleKernelLockRequestの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がprepareInteractiveConsoleKernelLockRequestの入力契約を満たす。
+ * @postcondition prepareInteractiveConsoleKernelLockRequestの責務を完了した結果だけを返す。
+ * @effect 固定用途のHashとPipe名を局所的に導出する。OS要求・共有状態生成は行わない。
+ * @failure N/A: prepareInteractiveConsoleKernelLockRequestは独自の失敗分岐を所有しない。
+ * @invariant prepareInteractiveConsoleKernelLockRequestは宣言した境界以外へEffectを拡張しない。
+ * @boundary FilesystemとProcess内Domain処理の境界。
+ * @security prepareInteractiveConsoleKernelLockRequestはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: prepareInteractiveConsoleKernelLockRequestは共有非同期状態を持たない同期処理である。
+ */
+export function prepareInteractiveConsoleKernelLockRequest() {
+  if (process.platform !== "win32") return null;
+  const lockIdentity = createHash("sha256")
+    .update("crdd-interactive-console-kernel-lock-v1\0")
+    .digest("hex")
+    .slice(0, 32);
+  return Object.freeze({
+    pipeName: `\\\\.\\pipe\\CRDD.Coordinator.InteractiveConsole.${lockIdentity}`,
+  });
+}
+
+/**
+ * 既存の対話端末namespaceを技術排他へ接続する。
+ * @responsibility 用途別Hashと取得結果を上位に保つ。
+ * @trace ARCH-000015
+ * @input N/A: 入力なし。
+ * @returns 対話排他の取得・回収状態。
+ * @precondition 実行許可と取得順は呼出し側が所有する。
+ * @postcondition PAの結果を変更せず返す。
+ * @effect PAの固定Worker起動。
+ * @failure 不正対象・非対応環境は非取得とする。
+ * @invariant 取得は同意・回復許可ではない。
+ * @boundary 用途別IdentityとOS排他。
+ * @security 任意Pathを受け取らない。
+ * @concurrency 保持と解放は返したhandleが所有する。
+ */
+export function acquireRuntimeOwnedInteractiveConsoleKernelLockOutcome() {
+  const request = prepareInteractiveConsoleKernelLockRequest();
+  return request
+    ? acquireNamedPipeKernelLockOutcome(request.pipeName)
+    : Promise.resolve(
+        Object.freeze({
+          status: "unavailable",
+          lock: null,
+        }) as InteractiveConsoleKernelLockOutcome,
+      );
+}
+/**
+ * Host操作の検査済み要求を技術Supervisorへ接続する。
+ * @responsibility 世代・namespaceを上位に保ち、起動・終了をPAへ委譲する。
+ * @trace ARCH-000015
+ * @input rootName: 対象Root名。nonce: 世代。
+ * @returns Supervisorの取得・回収結果。
+ * @precondition Rootの実体確認は上位が行う。
+ * @postcondition PAの結果を変更せず返す。
+ * @effect 固定Supervisor子をPAで起動する。
+ * @failure 検査不成立は取得しない。
+ * @invariant 同意・永続状態の判断を追加しない。
+ * @boundary 用途別要求とOS排他。
+ * @security 既存namespaceと環境契約を維持する。
+ * @concurrency ready・解放・子終了はPAが所有する。
+ */
+export function acquireRuntimeOwnedHostOperationSupervisorLock(
+  rootName: unknown,
+  nonce: unknown,
+) {
+  const request = prepareHostOperationSupervisorLockRequest(rootName, nonce);
+  return request
+    ? acquireNamedPipeSupervisorLock(request)
+    : Promise.resolve(
+        Object.freeze({
+          status: "unavailable",
+          lock: null,
+        }) as HostOperationSupervisorLockOutcome,
+      );
 }

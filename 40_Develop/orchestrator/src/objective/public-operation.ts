@@ -3,6 +3,7 @@
  * @responsibility Objective公開実行と本番依存・開発用構築を所有する。
  * @trace ARCH-000004
  */
+import { observePlatformFamily } from "../../../platform-access/src/index.ts";
 import {
   cancelRuntimeOwnedCoordinatorTask,
   captureRuntimeOwnedCoordinatorTaskResultDelivery,
@@ -44,10 +45,7 @@ import {
   createProjectResultAcceptanceReader,
 } from "../task/settle-docker-recovery.ts";
 import { runOrchestratorObjective } from "./intake-dependencies.ts";
-import {
-  createOrchestratorWindowsPlatformAdapter,
-  observeOrchestratorPlatformFamily,
-} from "../platform/windows-adapter.ts";
+import { createOrchestratorWindowsPlatformAdapter } from "../platform/windows-adapter.ts";
 import { RepositoryRuntimeDataAreaBlockedError } from "../../../domain-model/src/index.ts";
 import { executeOrchestratorPublicDecision } from "../decision/public-operation.ts";
 import { executeOrchestratorPublicStateQuery } from "../state/public-query.ts";
@@ -242,7 +240,7 @@ async function executeOrchestratorPublicObjective(
       manualRecoveryRequired: false,
       effectState: "no_effect" as const,
     });
-  const observedPlatform = observeOrchestratorPlatformFamily();
+  const observedPlatform = observePlatformFamily();
   const platform =
     observedPlatform.status === "observed" &&
     observedPlatform.platformFamily === "windows"

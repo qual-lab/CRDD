@@ -1,5 +1,7 @@
 # QA-000006 外部実行境界の検証定義
 
+B2の排他移管では、`ERB-IT-003`のWorker／Supervisor故障・ready往復・解放・終了観測をPA内の`lock-lifecycle`結合試験へ移す。Coordinator側は用途別対象・世代・namespaceの検査と、本番Root APIを使った実排他・取得順・回復判断を維持する。入力拒否と技術lifecycleを別Oracleとして対応付け、試験用再exportや公開APIの追加で私有依存を迂回しない。項目の正式結果と歴史Evidenceは移管だけでは変更しない。
+
 ## 追加通信条件の純粋構成（2026-10-21）
 
 接続確認では、`ERB-UT-023`の搬送設定再検査・Proxy引数への固定搬送・通信なしPython実Source確認、`EST-IT-004`の同意Hash差、既存Workbench／Orchestratorの公開受付を使う。画面期待Hashの欠落・不正・別Provider・設定変更、同意の非再利用、実行中Snapshotの不変性、ログインへの追加設定0を反証する。Provider／Docker要求0と、既存のFile読取り・操作準備を区別する。

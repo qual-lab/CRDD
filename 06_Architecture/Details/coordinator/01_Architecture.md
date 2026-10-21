@@ -124,6 +124,12 @@ B棚卸し基準版のSource108 Fileと公開19宣言の再編候補は、[統�
 
 B1で、Native Trace解析、Native単体のGit出所確認、検証結果の安全性判定を既存検証Toolのscripts補助へ移し、現在の製品Sourceは105 Fileとなった。通常Runtimeの公開API・許可・実行・保存は変えない。Doctorが使うLifecycle説明、独立したTrust読取り評価、開発Taskの時間計測は実Consumer／検証義務があるため維持する。旧`verify-signed-*`は署名不要の実責務に合わせFile名を整理するが、既存の結果識別子・理由・CLI引数を改変せず、署名Gateを追加しない。[B1の処置と検証範囲](../../../99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#9-b1不要候補と検証専用処理の処置)を参照する。
 
+OS生存・Platform観測はPAの`process/observation.ts`が所有し、Lease入力・世代結合・用途別環境選択はOrchestratorの既存Windows Adapterが所有する。OSのaliveは世代同一性の証明ではない。[B2の対応と保持条件](../../../99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#10-b2os観測端末排他の技術境界)を参照する。
+
+固定OS端末のopen・TTY検査・callback完了待ち・全close試行はPAの`terminal/console.ts`が所有する。Coordinatorの同期／非同期Outcomeとavailability入口はPA Rootの固定操作を使い、cleanup_unknown時のpoisonと非completedのvalue:nullを従来時点で維持する。上位は任意Path・Adapterを注入せず、借用descriptorをcallback完了後に保持しない。
+
+B2の完結では、確認コードの技術搬送、固定Reader、Named Pipe Worker／Supervisorと終了観測をPAへ移す。六桁・UTF-8・改行・byte上限は搬送文法であり、コード生成・期待値一致・同意・送信許可はCoordinatorに残す。`host-execution/kernel-lock.ts`は対象と世代、用途別HashとPipe名の導出だけを保持し、PA Rootの技術取得へ接続する。Worker・SharedArrayBuffer・IPC・子終了は所有しない。旧固定子Registryは撤去し、試験Toolの回復行列子はそのScript内の固定自己起動とする。新しい許可・永続State・監視・回復機構は追加しない。
+
 ### 修復専用保存Ownerの接続契約（CLI候補・全体未完了）
 
 修復Ownerは既存領域がreadyで現在Ownerが有効な場合、通常Readerの前に既存の出版marker清掃を一回だけ呼ぶ。status completed・storageConfirmed・markerAbsentConfirmed・lockReleasedとOwner再確認が共同成立してから通常Readerで本文を再取得する。清掃結果は非秘密の診断事実として返し、保存本文・修復成功・実資源不存在の代替根拠にしない。pending・不正marker・未知Fileの処置前拒否では除去0、除去後の観測や解放不明では既発生事実を保持して停止する。取消はmetadata清掃を妨げないが技術Session開始前の拒否は維持する。これは出版済みcurrentのmarkerだけの処置であり、未出版pendingの確定は後述の専用Reader／publisherで別に判断する。

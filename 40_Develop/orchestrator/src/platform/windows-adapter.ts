@@ -12,15 +12,155 @@ import {
 } from "./contract.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
 import {
-  deriveChildEnvironment,
-  observeLeaseOwner,
-  observeOrchestratorPlatformFamily,
-  ORCHESTRATOR_WINDOWS_PLATFORM_FAMILY,
-} from "../../../coordinator/src/host-execution/windows-platform-observation.ts";
+  createWindowsHostOperationSupervisorEnvironment,
+  createWindowsNativeHelperEnvironment,
+  observeProcessLiveness,
+} from "../../../platform-access/src/index.ts";
 import { inspectRuntimeOwnedWindowsProviderHomeCandidate } from "../../../coordinator/src/provider/home-windows-adapter.ts";
 import { compileWindowsRootObservationCandidate } from "../../../coordinator/src/repository-operation/root-observation.ts";
 
-export { observeOrchestratorPlatformFamily };
+const ORCHESTRATOR_WINDOWS_PLATFORM_FAMILY = "windows" as const;
+
+const CHILD_ENVIRONMENT_PROFILES = new Set([
+  "native_helper",
+  "host_operation_supervisor",
+]);
+
+/**
+ * orchestrator-windows-platform-adapterで使用するOrchestrator Windows Child Environment 結果の値契約を定義する。
+ *
+ * @responsibility Orchestrator Windows Child Environment 結果のProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape OrchestratorWindowsChildEnvironmentResultが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant OrchestratorWindowsChildEnvironmentResultで宣言した値と責務の対応を維持する。
+ * @boundary N/A: OrchestratorWindowsChildEnvironmentResultの宣言は外部境界を開かない。
+ * @security OrchestratorWindowsChildEnvironmentResultはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility OrchestratorWindowsChildEnvironmentResultの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
+export type OrchestratorWindowsChildEnvironmentResult =
+  | Readonly<{
+      status: "derived";
+      profile: string;
+      environment: Readonly<Record<string, string>>;
+    }>
+  | Readonly<{ status: "blocked"; reason: string }>;
+
+/**
+ * orchestrator-windows-platform-adapterで使用するOrchestrator Windows Lease 所有者 Observationの値契約を定義する。
+ *
+ * @responsibility Orchestrator Windows Lease 所有者 ObservationのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape OrchestratorWindowsLeaseOwnerObservationが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant OrchestratorWindowsLeaseOwnerObservationで宣言した値と責務の対応を維持する。
+ * @boundary N/A: OrchestratorWindowsLeaseOwnerObservationの宣言は外部境界を開かない。
+ * @security OrchestratorWindowsLeaseOwnerObservationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility OrchestratorWindowsLeaseOwnerObservationの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
+export type OrchestratorWindowsLeaseOwnerObservation = Readonly<{
+  status: "alive" | "absent" | "unknown";
+  ownerProcessId: number;
+  ownerGeneration: string;
+}>;
+
+/**
+ * Lease 所有者を観測する。
+ *
+ * @responsibility Lease 所有者の観測対象、取得根拠、観測不能結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input rawOwner: unknown
+ * @returns OrchestratorWindowsLeaseOwnerObservationを返す。
+ * @precondition 「rawOwner: unknown」がobserveLeaseOwnerの入力契約を満たす。
+ * @postcondition observeLeaseOwnerの責務を完了した結果だけを返す。
+ * @effect observeLeaseOwnerは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure observeLeaseOwnerは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant observeLeaseOwnerは宣言した境界以外へEffectを拡張しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security observeLeaseOwnerはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: observeLeaseOwnerは共有非同期状態を持たない同期処理である。
+ */
+export function observeLeaseOwner(
+  rawOwner: unknown,
+): OrchestratorWindowsLeaseOwnerObservation {
+  const invalid = Object.freeze({
+    status: "unknown" as const,
+    ownerProcessId: 0,
+    ownerGeneration: "invalid",
+  });
+  if (
+    !rawOwner ||
+    typeof rawOwner !== "object" ||
+    Array.isArray(rawOwner) ||
+    Object.getPrototypeOf(rawOwner) !== Object.prototype
+  )
+    return invalid;
+  const owner = rawOwner as Readonly<Record<string, unknown>>;
+  if (
+    Object.keys(owner).sort().join("\0") !==
+      ["ownerGeneration", "ownerProcessId"].sort().join("\0") ||
+    !Number.isSafeInteger(owner.ownerProcessId) ||
+    Number(owner.ownerProcessId) < 1 ||
+    typeof owner.ownerGeneration !== "string" ||
+    !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(owner.ownerGeneration)
+  )
+    return invalid;
+  const ownerProcessId = Number(owner.ownerProcessId);
+  const ownerGeneration = owner.ownerGeneration;
+  return Object.freeze({
+    status: observeProcessLiveness(ownerProcessId),
+    ownerProcessId,
+    ownerGeneration,
+  });
+}
+
+/**
+ * derive Child Environmentを決定する。
+ *
+ * @responsibility derive Child Environmentの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input rawRequest: unknown
+ * @returns OrchestratorWindowsChildEnvironmentResultを返す。
+ * @precondition 「rawRequest: unknown」がderiveChildEnvironmentの入力契約を満たす。
+ * @postcondition deriveChildEnvironmentの責務を完了した結果だけを返す。
+ * @effect N/A: deriveChildEnvironmentは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: deriveChildEnvironmentは独自の失敗分岐を所有しない。
+ * @invariant deriveChildEnvironmentは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security deriveChildEnvironmentはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: deriveChildEnvironmentは共有非同期状態を持たない同期処理である。
+ */
+function deriveChildEnvironment(
+  rawRequest: unknown,
+): OrchestratorWindowsChildEnvironmentResult {
+  const blocked = (reason: string) =>
+    Object.freeze({ status: "blocked" as const, reason });
+  if (
+    !rawRequest ||
+    typeof rawRequest !== "object" ||
+    Array.isArray(rawRequest)
+  )
+    return blocked("windows_child_environment_request_invalid");
+  const request = rawRequest as Readonly<Record<string, unknown>>;
+  const profile = request.profile;
+  if (typeof profile !== "string" || !CHILD_ENVIRONMENT_PROFILES.has(profile))
+    return blocked("windows_child_environment_request_invalid");
+  let environment: Readonly<Record<string, string>> | null = null;
+  if (profile === "native_helper") {
+    if (Object.keys(request).length !== 1)
+      return blocked("windows_child_environment_request_invalid");
+    environment = createWindowsNativeHelperEnvironment();
+  } else if (profile === "host_operation_supervisor") {
+    if (Object.keys(request).length !== 1)
+      return blocked("windows_child_environment_request_invalid");
+    environment = createWindowsHostOperationSupervisorEnvironment();
+  }
+  if (environment === null)
+    return blocked("windows_child_environment_unavailable");
+  return Object.freeze({
+    status: "derived" as const,
+    profile,
+    environment,
+  });
+}
 
 /**
  * Project lease acquisition remains owned by the durable foundation.  This

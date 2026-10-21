@@ -11,13 +11,14 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { runInteractiveConsoleReaderLifecycle } from "../../src/cli/interactive-console-reader-lifecycle.ts";
-import { spawnRuntimeLocalTypeScriptChild } from "../../src/host-execution/typescript-child-entrypoints.ts";
-import { createInteractiveConsoleReaderEnvironment } from "../../../platform-access/src/index.ts";
-import { acquireRuntimeOwnedInteractiveConsoleKernelLockOutcome } from "../../src/host-execution/kernel-lock.ts";
+import { runInteractiveConsoleReaderLifecycle } from "../../src/terminal/reader-lifecycle.ts";
+import { spawnRuntimeLocalTypeScriptChild } from "../../src/process/child.ts";
+import { createInteractiveConsoleReaderEnvironment } from "../../src/index.ts";
+import { acquireNamedPipeKernelLockOutcome } from "../../src/index.ts";
 
-const lockOutcome =
-  await acquireRuntimeOwnedInteractiveConsoleKernelLockOutcome();
+const lockOutcome = await acquireNamedPipeKernelLockOutcome(
+  "\\\\.\\pipe\\CRDD.Coordinator.InteractiveConsole.35c9e1deadacbe764ea5d49063605059",
+);
 if (lockOutcome.status !== "acquired" || !lockOutcome.lock) process.exit(3);
 const lock = lockOutcome.lock;
 

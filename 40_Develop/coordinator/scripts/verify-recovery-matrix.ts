@@ -5,7 +5,7 @@
  * @trace ARCH-000008
  */
 import type { ChildProcess } from "node:child_process";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -14,7 +14,6 @@ import {
   isSupportedCoordinatorNodeRuntime,
   MINIMUM_COORDINATOR_NODE_VERSION,
 } from "../src/host-execution/node-runtime-version.ts";
-import { spawnRuntimeLocalTypeScriptChild } from "../src/host-execution/typescript-child-entrypoints.ts";
 import {
   displayVerificationRecording,
   runRecordedVerification,
@@ -280,9 +279,9 @@ async function verifyParentLossThenRecover() {
   const childEnvironment = createRecoveryMatrixChildEnvironment();
   if (!childEnvironment)
     throw new Error("signed_recovery_matrix_child_environment_unavailable");
-  const child: ChildProcess = spawnRuntimeLocalTypeScriptChild(
-    "signed_recovery_matrix_child",
-    [INTERNAL_CHILD_ARGUMENT],
+  const child: ChildProcess = spawn(
+    process.execPath,
+    [fileURLToPath(import.meta.url), INTERNAL_CHILD_ARGUMENT],
     {
       cwd: process.cwd(),
       env: childEnvironment,
@@ -377,9 +376,9 @@ async function verifyCleanupUnknownThenRecover() {
     throw new RecoveryMatrixFailure(
       "signed_recovery_matrix_child_environment_unavailable",
     );
-  const child: ChildProcess = spawnRuntimeLocalTypeScriptChild(
-    "signed_recovery_matrix_child",
-    [INTERNAL_CLEANUP_UNKNOWN_CHILD_ARGUMENT],
+  const child: ChildProcess = spawn(
+    process.execPath,
+    [fileURLToPath(import.meta.url), INTERNAL_CLEANUP_UNKNOWN_CHILD_ARGUMENT],
     {
       cwd: process.cwd(),
       env: childEnvironment,

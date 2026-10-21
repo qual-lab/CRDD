@@ -14,10 +14,7 @@ import fs from "node:fs";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
-import {
-  type InteractiveConsoleReadOutcome,
-  withInteractiveConsoleAsyncOutcomeUsingAdapter,
-} from "../../src/cli/interactive-console.ts";
+import type { InteractiveConsoleReadOutcome } from "../../src/cli/interactive-console.ts";
 import {
   runTerminalInteractionProbeUsingAdapter,
   type TerminalInteractionProbeAdapter,
@@ -51,25 +48,24 @@ function createProbeFixture(
   let abortCallback: (() => void) | null = null;
   let timerActive = false;
   const adapter: TerminalInteractionProbeAdapter = {
-    withConsole: (operation) =>
-      withInteractiveConsoleAsyncOutcomeUsingAdapter(
-        "win32",
-        {
-          open: () => {
-            const descriptor = descriptors.size + 10;
-            descriptors.add(descriptor);
-            events.push(`open:${descriptor}`);
-            return descriptor;
-          },
-          close: (descriptor) => {
-            events.push(`close:${descriptor}`);
-            descriptors.delete(descriptor);
-            if (options.closeFailure) throw new Error("close-failed");
-          },
-          validate: () => true,
-        },
-        operation,
-      ),
+    withConsole: async (operation) => {
+      // 合成の進行通知。OS取得・回収のOracleはPA内Unitが所有する。
+      descriptors.add(10);
+      descriptors.add(11);
+      events.push("open:10", "open:11");
+      let value = null;
+      let status: "completed" | "operation_failed" | "cleanup_unknown" =
+        "completed";
+      try {
+        value = await operation({ input: 10, output: 11 });
+      } catch {
+        status = "operation_failed";
+      }
+      descriptors.clear();
+      events.push("close:10", "close:11");
+      if (options.closeFailure) status = "cleanup_unknown";
+      return { status, value };
+    },
     writeText: async (_descriptor, text) => {
       texts.push(text);
       events.push("write");
@@ -466,8 +462,17 @@ test("実子の不正引数入口は非対話でJSONを返し、追加Enterを�
   assert.ok(source.includes("withConsole: withInteractiveConsoleAsyncOutcome"));
   assert.ok(source.includes("writeText: writeInteractiveConsoleTextOutcome"));
   assert.ok(source.includes("readLine: readInteractiveConsoleLineOutcome"));
+  assert.match(
+    source,
+    /import type \{\s+InteractiveConsoleTextWriteOutcome,\s+TerminalOperationOutcome as InteractiveConsoleOperationOutcome,\s+\} from "\.\.\/\.\.\/\.\.\/platform-access\/src\/index\.ts";/u,
+  );
   assert.deepEqual(
     [...source.matchAll(/from "([^"]+)"/g)].map((match) => match[1]),
-    ["node:path", "node:url", "../../src/cli/interactive-console.ts"],
+    [
+      "../../../platform-access/src/index.ts",
+      "node:path",
+      "node:url",
+      "../../src/cli/interactive-console.ts",
+    ],
   );
 });

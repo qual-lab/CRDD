@@ -1,5 +1,7 @@
 # CRDD内部ツールの品質の現在状態
 
+B2の端末出力移管では、低層stream反証を補助Unit項目`EST-UT-016`へ接続し、現設計集合を13定義・199 Local Itemへ更新した。集約表の件数更新は全体Passの増加ではない。以下の198項目等の記述は追加前の対象に限り、現在の全数再評価は未完了である。
+
 確定誤検知236件を検査側で是正した。生診断1,836→1,600、追加0、残る命名1,045は全件維持。局所・QA Header全数3/3、関係16/16・静的確認成功。Checker全回帰386件は385成功／既知1失敗（残1,600診断）で完走した。残1,600は現行規則上の是正対象1,444・適用先／解釈待ち156である。Browser原因未確定、正式未評価、②保持の扱いは維持する。[236件の是正と確認](../99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#naming-false-positive-remediation)と[原因別分類・Browser調査](../99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#naming-browser-triage)を参照する。以下の回帰結果は各固定候補に限定する。
 
 検証Tool自身の3 Suiteと4 Toolを接続し、Test Header全数Gate成功、現行文書43→0診断を確認した。歴史CHG旧リンク／アンカー3,353診断は不変更で全体Exit 1を保持する。型・静的検査と関連Package回帰は成功。Checker全回帰383成功／1失敗後、前提不整合で隠れていた既存Source命名・責務Headerの未達を別範囲として確認した。Browser接続1場面も元失敗の原因未確定を維持する。正式198項目・実Provider全E2E・全体Passへ換算しない。②のAI再試行・保持物削除と先行合成7領域の削除は行っていない。[原因別是正・確認範囲・残件](../99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#verification-tool-document-closure)を参照する。先行Coordinator通常回帰1,833成功・失敗0・対象外5は当該先行差分の結果として保持する。
@@ -134,7 +136,7 @@ Workbenchの参照文書一覧・表示試験の既知2失敗は是正し、固�
 |---|---:|
 | Canonical入力 | 167 |
 | Quality検証目標 | 13 |
-| Local Item数 | 198 |
+| Local Item数 | 199 |
 
 ## 集計の履歴と現在への適用
 

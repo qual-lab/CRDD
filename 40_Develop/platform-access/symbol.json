@@ -3,6 +3,76 @@
   "contractRevision": 1,
   "subsystem": "platform-access",
   "symbols": [
+    { "symbolId": "platform-access.source.lock-lifecycle", "kind": "file", "path": "src/lock/lifecycle.ts", "archIds": ["ARCH-000015"] },
+    { "symbolId": "platform-access.source.lock-worker", "kind": "file", "path": "src/lock/worker.ts", "archIds": ["ARCH-000015"] },
+    { "symbolId": "platform-access.source.lock-supervisor", "kind": "file", "path": "src/lock/supervisor.ts", "archIds": ["ARCH-000004"] },
+    { "symbolId": "platform-access.source.reader-lifecycle", "kind": "file", "path": "src/terminal/reader-lifecycle.ts", "archIds": ["ARCH-000008"] },
+    {
+      "symbolId": "platform-access.source.terminal-console",
+      "kind": "file",
+      "path": "src/terminal/console.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "platform-access.test.unit.terminal-console",
+      "kind": "test-suite",
+      "path": "tests/unit/terminal/console.contract.test.ts",
+      "qaIds": [
+        "QA-000009"
+      ],
+      "localTestIds": [
+        "EST-UT-016"
+      ],
+      "verifies": [
+        "platform-access.source.terminal-console"
+      ]
+    },
+    {
+      "symbolId": "platform-access.source.terminal-output",
+      "kind": "file",
+      "path": "src/terminal/output.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "platform-access.test.unit.terminal-output",
+      "kind": "test-suite",
+      "path": "tests/unit/terminal/output.contract.test.ts",
+      "qaIds": [
+        "QA-000009"
+      ],
+      "localTestIds": [
+        "EST-UT-016"
+      ],
+      "verifies": [
+        "platform-access.source.terminal-output"
+      ]
+    },
+    {
+      "symbolId": "platform-access.test.unit.process-observation",
+      "kind": "test-suite",
+      "path": "tests/unit/process/observation.contract.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-UT-014"
+      ],
+      "verifies": [
+        "coordinator.source.src.security.orchestrator.windows.platform.adapter"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.security.orchestrator.windows.platform.adapter",
+      "kind": "file",
+      "path": "src/process/observation.ts",
+      "archIds": [
+        "ARCH-000004"
+      ]
+    },
     {
       "symbolId": "platform-access.source.protected-root-protocol",
       "kind": "module",
@@ -626,7 +696,7 @@
     {
       "symbolId": "platform-access.source.desktop-helper",
       "kind": "module",
-      "path": "src/docker-desktop/helper.ts",
+      "path": "src/docker-desktop/native-process.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -692,6 +762,84 @@
       ],
       "verifies": [
         "platform-access.source.host-record"
+      ]
+    },
+    {
+      "symbolId": "coordinator.test.integration.typescript-child-entrypoints",
+      "kind": "test-suite",
+      "path": "tests/integration/typescript-child-entrypoints.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-002"
+      ],
+      "verifies": [
+        "coordinator.source.src.core.runtime.local.typescript.child.entrypoints"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.core.runtime.local.typescript.child.entrypoints",
+      "kind": "file",
+      "path": "src/process/child.ts",
+      "archIds": [
+        "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.core.interactive.console.reader",
+      "kind": "file",
+      "path": "src/terminal/confirmation-reader.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "platform-access.source.input",
+      "kind": "file",
+      "path": "src/terminal/input.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "platform-access.source.pipe",
+      "kind": "file",
+      "path": "src/lock/pipe.ts",
+      "archIds": [
+        "ARCH-000015"
+      ]
+    },
+    {
+      "symbolId": "platform-access.test.integration.lock-lifecycle",
+      "kind": "test-suite",
+      "path": "tests/integration/lock-lifecycle.contract.test.ts",
+      "qaIds": [
+        "QA-000006"
+      ],
+      "localTestIds": [
+        "ERB-IT-003"
+      ],
+      "verifies": [
+        "platform-access.source.pipe",
+        "platform-access.source.lock-lifecycle",
+        "platform-access.source.lock-worker",
+        "platform-access.source.lock-supervisor"
+      ]
+    },
+    {
+      "symbolId": "platform-access.test.system.terminal-reader",
+      "kind": "test-suite",
+      "path": "tests/system/terminal-reader.contract.test.ts",
+      "qaIds": [
+        "QA-000009"
+      ],
+      "localTestIds": [
+        "EST-ST-003"
+      ],
+      "verifies": [
+        "coordinator.source.src.core.interactive.console.reader",
+        "platform-access.source.reader-lifecycle"
       ]
     }
   ]

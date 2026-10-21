@@ -1,5 +1,7 @@
 # QA-000009 外部送信と公開Transportの検証定義
 
+B2のReader移管では、`EST-ST-003`の技術入力・子Process・取消と終了観測をPA内の`terminal-reader`System試験へ移す。Coordinator側はRoot APIへの本番接続、Task標準入力との分離、上位poisonと送信許可を確認する。六桁は搬送文法であり、コード生成・期待値一致・同意をPAの責務へ移さない。過去の試験結果を移管先の現在Passへ流用しない。
+
 成果物種別: Quality定義
 Quality ID: `QA-000009`
 検証目標: 入口に依存せず同じApplication Contractを搬送し、許可された目的と最小情報だけを外部へ送り、結果を同じ依頼へ戻すこと
@@ -8,6 +10,8 @@ Quality ID: `QA-000009`
 維持責任者: Qual-Lab
 
 ## 1. 情報源と網羅条件
+
+Windows端末出力の低層二Caseと、固定OS端末の取得・回収の低層四CaseはPA内のUnit Suiteへ移管し、`EST-UT-016`として`EST-ST-003`の技術部分を支援する。ARCH-000008の完了・観測不能の区別と既存writer／取得処理の反証を導出元とする。callback・stream error・Timeout・遅延error受け・二重完了、部分openと全close試行・非同期所有期間の反証を維持するが、Unit成功だけで外部送信・同意・上位poison・System義務全体を成立としない。上位の停止判断と次Task拒否はCoordinatorの既存System試験・実子fixtureが引き続き確認する。
 
 共有Git操作の直接接続候補は`RFD-IT-014`／`EST-IT-002`／`EST-IT-010`へ接続する。自己生成二Repositoryとlocal bare Remoteで、選択先だけのStage／Unstage／Commit、現在公開先・Branch・Revisionと明示確認を伴う通常Push、一回処置と要求専用結果を確認する。重複・余剰・越境・非許可対象・確認欠落・古いRevision・任意Remoteは配送0とし、処置後失効は固定未確認通知、blockedの発行済みEffectとOwner unknownは保持する。注入したProcess errorの試験を実timeoutやProcess tree不存在の証明にしない。実行中切断・Browser操作・公開CLIと正式項目全体の成立は別途確認する。
 
@@ -53,7 +57,7 @@ Quality ID: `QA-000009`
 
 | 試験段階 | 適用 | 確認する範囲 | 外部境界の到達範囲 | 判断理由 |
 | --- | --- | --- | --- | --- |
-| UT | Conditional | Schema変換、Policy判定、相関の純粋規則 | N/A | Transport起動前に局所判断を反証できる場合に必要 |
+| UT | Conditional | Schema変換、Policy判定、相関の純粋規則、合成streamによる端末出力の故障・終了分類 | N/A | Transport起動前の局所判断または技術的な失敗分類を反証できる場合に必要。実TTY・System完成の代替にしない |
 | IT | Required | CLI／MCP Adapter、Application Contract、Provider境界 | Related 2 Blocks | 搬送差、切断、許可、結果帰還を局所化するため |
 | ST | Required | 公開入口から外部送信、結果帰還、終了後まで | System/E2E | 実Providerを含む利用経路の完成を確認するため |
 | UAT | Required | 利用者が送信範囲と結果を理解して判断する場面 | User Acceptance | 同意範囲と帰還結果を理解して送信・停止を選べる利用者成果を確認するため |
@@ -65,13 +69,14 @@ Quality ID: `QA-000009`
 | 正常 | Required | EST-IT-001、EST-ST-003 | 通常の成立経路を独立して確認する。 |
 | 境界 | Required | EST-ST-015、EST-IT-004、EST-UAT-006、EST-UAT-007、EST-UAT-008、EST-UAT-009、EST-IT-010、EST-ST-011、EST-IT-014 | 値、Authority、情報、責務または利用者判断の境界を確認する。 |
 | 準正常 | N/A | - | 継続可能な分岐または保留状態を持たない。 |
-| 異常 | Required | EST-IT-002、EST-ST-012、EST-ST-013 | 不正入力、故障または拒否経路を通常成功へ畳まない。 |
+| 異常 | Required | EST-IT-002、EST-ST-012、EST-ST-013、EST-UT-016 | 不正入力、故障または拒否経路を通常成功へ畳まない。 |
 | 回復 | Required | EST-ST-005 | 失敗・取消後に同じIdentityと義務で安全に再入場できることを確認する。 |
 
 ## 3. 検証項目
 
 | Local ID | 条件区分 | 試験段階 | 試験種別 | 対象／境界 | 外部境界の段階 | 事前状態／入力 | 操作／刺激 | 観測 | Oracle | Evidence | 終了後条件 | 実行形態 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `EST-UT-016` | 異常 | UT | Terminal I/O／Fault | 固定端末writerと取得・回収（合成stream／Adapter。実TTY・同意・外部送信は対象外） | N/A | TTY／redirect、不正stream、open／validate／callback／close失敗、遅延通知 | 既存writer・取得処理へ合成stream／Adapterを渡す | 結果、書込み値、完了回数、listener状態、callback開始、close順序と保持期間 | writerは1000msと遅延error sinkを維持し再完了しない。取得は未検査時callback非開始、非同期完了後に全closeを試行し回収不明を優先する | 固定版と非秘密assertion結果。System成立の代替にしない | timerと合成資源を回収し、意図した遅延error後にsinkが解放される | Automated |
 | `EST-IT-001` | 正常 | IT | Transport Contract | CLI／MCP Adapter→Application Contract | Direct Boundary | 同義Application入力とCLI・MCP stdio・MCP HTTPの各入口 | 各Transportから同じ要求を送り結果を比較する | EST-IT-001として、「各Transportから同じ要求を送り結果を比較する」前後のCLI／MCP Adapter→Application Contractについて、Identity、phase／state遷移、結果field、Effect発行回数、資源残存数および失敗理由を記録する | decode後のApplication入力とencode前の結果が同一で、Transport固有のAuthorityを発行しない | EST-IT-001、固定した改訂版・環境・入力Identity、phase／state遷移、結果field、Effect／資源件数、Oracle判定「decode後のApplication入力とencode前の結果が同一で、Transport固有のAuthorityを発行しない」および終了後条件「入口ごとのProcess／streamが終了」を保存する。Secret、鍵bytes、passphrase、生Provider出力および絶対Pathは保存しない | 入口ごとのProcess／streamが終了 | Automated |
 | `EST-IT-002` | 異常 | IT | Contract／Fault | Transport stream→Adapter→Application入口 | Adjacent 1 Block | Schema差、必須field欠落、stderr混入、切断後遅延結果の各反例 | 各Transportへ反例を入力する | EST-IT-002として、「各Transportへ反例を入力する」前後のTransport stream→Adapter→Application入口について、Identity、phase／state遷移、結果field、Effect発行回数、資源残存数および失敗理由を記録する | 意味差を拒否し、重複実行やstdout汚染を発生させない | EST-IT-002、固定した改訂版・環境・入力Identity、phase／state遷移、結果field、Effect／資源件数、Oracle判定「意味差を拒否し、重複実行やstdout汚染を発生させない」および終了後条件「追加Application Effect 0」を保存する。Secret、鍵bytes、passphrase、生Provider出力および絶対Pathは保存しない | 追加Application Effect 0 | Automated |
 | `EST-ST-003` | 正常 | ST | External Send／Scenario | 公開入口→同意Gate→Provider→結果帰還 | System/E2E | 送信先・目的・情報分類・同意・Request Identityが明示された要求 | 許可範囲内の外部送信を一回実行する | EST-ST-003として、「許可範囲内の外部送信を一回実行する」前後の公開入口→同意Gate→Provider→結果帰還について、Identity、phase／state遷移、結果field、Effect発行回数、資源残存数および失敗理由を記録する | 許可範囲の最小情報だけを送り、同じRequest Identityへ結果を戻す | EST-ST-003、固定した改訂版・環境・入力Identity、phase／state遷移、結果field、Effect／資源件数、Oracle判定「許可範囲の最小情報だけを送り、同じRequest Identityへ結果を戻す」および終了後条件「同意の使用範囲と送信結果を相関」を保存する。Secret、鍵bytes、passphrase、生Provider出力および絶対Pathは保存しない | 同意の使用範囲と送信結果を相関 | Automated |

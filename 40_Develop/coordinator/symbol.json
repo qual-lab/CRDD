@@ -28,20 +28,6 @@
       ]
     },
     {
-      "symbolId": "coordinator.test.integration.typescript-child-entrypoints",
-      "kind": "test-suite",
-      "path": "tests/integration/typescript-child-entrypoints.contract.test.ts",
-      "qaIds": [
-        "QA-000006"
-      ],
-      "localTestIds": [
-        "ERB-IT-002"
-      ],
-      "verifies": [
-        "coordinator.source.src.core.runtime.local.typescript.child.entrypoints"
-      ]
-    },
-    {
       "symbolId": "coordinator.scripts.prepare-codex-advice-image",
       "kind": "file",
       "path": "scripts/prepare-codex-advice-image.ts",
@@ -1128,6 +1114,7 @@
       ],
       "verifies": [
         "coordinator.source.src.security.orchestrator.windows.platform.adapter",
+        "orchestrator.task.windows-platform-adapter",
         "orchestrator.public-api"
       ]
     },
@@ -2116,6 +2103,7 @@
         "docker-isolation.execution.cli-environment",
         "coordinator.source.src.security.docker.recovery.runtime",
         "coordinator.source.src.security.orchestrator.windows.platform.adapter",
+        "orchestrator.task.windows-platform-adapter",
         "coordinator.source.src.security.provider.home.windows.adapter",
         "coordinator.source.src.security.root.observation",
         "orchestrator.source.src.ports.platform.contract",
@@ -2928,14 +2916,6 @@
       ]
     },
     {
-      "symbolId": "coordinator.source.src.core.runtime.local.typescript.child.entrypoints",
-      "kind": "file",
-      "path": "src/host-execution/typescript-child-entrypoints.ts",
-      "archIds": [
-        "ARCH-000004"
-      ]
-    },
-    {
       "symbolId": "coordinator.source.src.core.orchestrator.design.traceability",
       "kind": "file",
       "path": "scripts/orchestrator-design-traceability.ts",
@@ -3132,14 +3112,6 @@
       "symbolId": "coordinator.source.src.core.interactive.console",
       "kind": "file",
       "path": "src/cli/interactive-console.ts",
-      "archIds": [
-        "ARCH-000008"
-      ]
-    },
-    {
-      "symbolId": "coordinator.source.src.core.interactive.console.reader",
-      "kind": "file",
-      "path": "src/cli/interactive-console-reader.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -3342,14 +3314,6 @@
       "path": "src/authority/runtime-trust.ts",
       "archIds": [
         "ARCH-000014"
-      ]
-    },
-    {
-      "symbolId": "coordinator.source.src.security.orchestrator.windows.platform.adapter",
-      "kind": "file",
-      "path": "src/host-execution/windows-platform-observation.ts",
-      "archIds": [
-        "ARCH-000004"
       ]
     },
     {

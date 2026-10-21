@@ -22,7 +22,7 @@ Version ControlのWorktree管理に続き、名前付きCandidateの明示固定
 
 | 対象 | 現在の状態 | Owner Relation |
 |---|---|---|
-| 残る実行系の再編 | AとB棚卸しを`077b38b7d`までCommit／Push。B1は検証補助3件をscriptsへ移し、検証Script4件の旧名・利用側・試験・台帳を整理。型・選択回帰・限定独立再レビューを確認し、公開19宣言と既存保証は維持。PA既存命名不合格はB2へ残す。B2以降・C〜D・実境界・全体QAは未完了で、保持中試験物は不操作 | [B1の結果と次の境界](99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#91-b1の実施結果と残る境界) |
+| 残る実行系の再編 | B1を`e36882d6c`でCommit／Push。B2はOS観測・端末I/O・Reader・排他技術・固定子入口をPAへ移管し完了。用途・世代・同意・poison判断は上位に維持。PA121件成功、上位関連125件中124成功と権限拒否一件の別途成功、限定独立レビュー残指摘0を確認。広域回帰exit 1と通常権限での関連64件成功は区別する。残るB系列はB3〜B5。C〜D・実境界・全体QAと②保持物は別に残る | [B2の完結結果と確認範囲](99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#106-b2完結結果と確認範囲) |
 | Docker Isolationの構造・追加通信先 | 配置・設定・同意・Workbench・Proxy接続と旧定義整理、限定実通信・回帰・独立レビューを確認。DNS上限不足を是正した固定Imageでnpm／pip取得、未許可・直接通信拒否、取得後待機取消・今回資源回収が成功。広回帰の追従漏れ1件は是正後再確認済み。製品全体E2E・Releaseとは区別し、既存②と先行2Rootのunknownは別に保持する | [対応表・集約結果・保持参照](99_Roadmap/Changes/CHG-000082/docker-isolation-source-structure.md) |
 | Platform Accessの構造・Native接続再編 | ①〜⑤の移管・配置・公開API整理は完了。Host記録・Desktop補助子の技術処理をPAへ移し、上位の許可・回復判断は維持。PA88件・DI293件・Rust55件等の通常回帰、静的検査、台帳378件valid、限定独立レビュー残指摘0。明示Docker試験・配布更新・外部AI E2Eは対象外。全体文書検査の既存不合格は未解消 | [対応表・結果と残る検証境界](99_Roadmap/Changes/CHG-000082/platform-access-source-structure.md#11-①⑤の最終照合) |
 | WorkbenchのFramework・構造移行 | Express／Router／Query、画面分割・共有契約・全Client TSXの通常検査を接続。対象1〜5は最終通常78件・全Browser15件・表示検証・静的確認と限定独立再レビュー指摘0で完了。先行Browser失敗はreload応答境界まで特定して試験観測を是正したが、CDP内部原因の完全特定とは扱わない。実AI・実Hostの人間確認・全体QA・Releaseは別途 | [現在の結果と限界](99_Roadmap/Changes/CHG-000082/workbench-framework-structure.md#14-query画面分割共有配置と通常検査) |
@@ -48,7 +48,7 @@ Version ControlのWorktree管理に続き、名前付きCandidateの明示固定
 | 整理後の実境界接続 | 上位接続の限定整理は確認済み。自動破棄保存前の中断から明示保持し、同じstateで新Taskへ接続する限定Caseと同File全16件が成功。新しい共有State・Registry・Lock・Recovery Frameworkは追加しない | [隔離設計](06_Architecture/Details/docker-isolation/01_Architecture.md)、[保存設計](06_Architecture/Details/domain-model/03_Repository_Storage.md) |
 | 実境界 | 実Docker五資源・未起動認証構成・fresh回収・認証create不明の限定終了・公式Imageの版／三Hash／隔離を確認。009はWSL保守後に同ID正式終了。030は実Ctrl+Cとreviewer準備中の親喪失を元IDの回収・待ち0まで確認。Windows自動削除・汎用WSL fallback・executor実行中の親喪失・実Provider全E2Eは主張しない | [検証計画](99_Roadmap/Changes/CHG-000082/second-stage-plan.md)、[実行手順](19_Workflows/01_Coordinator_Runtime.md) |
 | 限定終了の実試験 | 診断付き新品一回が成功。Docker再起動1回、認証create結果不明の限定Classで不存在2回・終了保存・正式回収・履歴・操作除去・専用Root不存在を確認。以前の起動未確認Failと原因未確定は保持し、汎用unknown終了やDI全体完成へ換算しない | [実測と清掃記録](99_Roadmap/Changes/CHG-000082/second-stage-plan.md) |
-| 全体評価・収束 | DIの基準範囲完成照合は保持。現在の198項目の正式再評価・全体Checker不合格・後続E2Eは残る。未実施・不明・部分成立をPassへ畳まない | [Quality Center](07_Quality/01_Quality_Center.md)、[Reality Audit](07_Quality/05_Current_Implementation_Reality_Audit.md) |
+| 全体評価・収束 | DIの基準範囲完成照合は保持。補助Unit追加後の現在199項目の正式再評価・全体Checker不合格・後続E2Eは残る。未実施・不明・部分成立をPassへ畳まない | [Quality Center](07_Quality/01_Quality_Center.md)、[Reality Audit](07_Quality/05_Current_Implementation_Reality_Audit.md) |
 
 ## 3. 今、人間が決めることは何か
 

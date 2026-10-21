@@ -36,7 +36,7 @@ import {
 import { deriveOrchestratorRepositoryBindingId } from "../identity/repository-binding.ts";
 import { runOrchestratorSingleTaskAttempt } from "./execute-attempt.ts";
 import { initializeOrchestratorSnapshot } from "../storage/current-state.ts";
-import { observeLeaseOwner } from "../../../coordinator/src/host-execution/windows-platform-observation.ts";
+import { observeLeaseOwner } from "../platform/windows-adapter.ts";
 import {
   recoverRuntimeOwnedDockerTaskForCurrentConsumer,
   resolveRuntimeOwnedDockerTaskCurrentCorrelations,

@@ -36,12 +36,12 @@ const server = net.createServer((socket) => socket.destroy());
  * @returns N/A: finishは戻り値を返さない。
  * @precondition 「value: number」がfinishの入力契約を満たす。
  * @postcondition finishの責務を完了して呼出し元へ制御を戻す。
- * @effect N/A: finishは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @effect 共有Atomicsへ状態を書き込み、待機側へnotifyする。
  * @failure N/A: finishは独自の失敗分岐を所有しない。
- * @invariant finishは入力から導いた結果以外の共有状態を変更しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
+ * @invariant 上位の同意・poison・保存判断を追加せず、既存の結果と終了不明を保持する。
+ * @boundary OS端末・Process／Worker・IPCまたは共有状態の技術境界。
  * @security finishはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: finishは共有非同期状態を持たない同期処理である。
+ * @concurrency 所有する待機・通知・終了条件を維持し、要求と完了観測を同一視しない。
  */
 function finish(value: number) {
   Atomics.store(state, 0, value);

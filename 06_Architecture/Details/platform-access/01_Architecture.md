@@ -84,6 +84,12 @@ Docker修復の新しいMachineは、旧RuntimeState Rootを逆算してOS所在
 | `src/filesystem/system-directory.ts` | 固定Nativeの`--system-windows-directory`、CRDDWD01の有界・厳密decode | 固定Hashと前後同一性、閉じたargv・環境・cwd・待機上限を維持。不明・不正・非Windowsは取得不能。これは資源不存在の観測ではない |
 | `src/filesystem/local-app-data.ts` | 固定Known Folderの`--local-app-data-directory`、CRDDLA01の厳密decodeと安定Directory確認 | 引数なし・非Authorityの所在観測。旧RuntimeState・環境fallbackなし。意図した利用者・Root Authority・処置許可は別確認 |
 | `src/process/environment.ts` | OS由来Directory／Profile検証、中立環境、Console／Supervisor／Native／Host終端／固定PowerShell初期化環境、純粋Drive検査 | 既存用途固定の操作だけを公開。任意additions builderはprivate。親環境をAuthorityにせず、Host終端だけTMP／TEMPを導出する。Docker用Home・config・Hints・修復用Drive付与とPublisher判断は所有しない |
+| `src/process/observation.ts` | `observeProcessLiveness(processId)`と`observePlatformFamily()` | PIDだけをSignal 0で観測し、ESRCHだけabsent、EPERM等はunknown。不正PIDではOS照会0。世代結合・Lease入力・回復判断は上位。Platform familyは既存Windows対応だけを返し、未対応OSへfallbackしない |
+| `src/terminal/output.ts` | 固定stdoutへの`writeWindowsTerminalTextOutcome`、`InteractiveConsoleTextWriteOutcome`、`WINDOWS_TERMINAL_WRITE_TIMEOUT_MS` | 既存TTY拒否・1000ms・callback／stream error・遅延確定を維持する。Timeout後のerror sinkは意図的に保持し、cleanup_unknownからのRuntime停止判断は上位。任意stream・Boolean便利操作はRootへ公開しない |
+| `src/terminal/console.ts` | 固定OS端末の`withTerminalOutcome`／`withTerminalAsyncOutcome`、`TerminalHandles`／`TerminalOperationOutcome` | 固定deviceのopen・TTY検査、callback完了待ち、全close試行を所有する。任意Path・OS AdapterはRootへ公開しない。descriptorはcallback中だけ借用する。上位のpoison・同意判断は所有しない |
+| `src/terminal/input.ts`、`confirmation-reader.ts`、`reader-lifecycle.ts` | `readConfirmationCodeOutcome`と既存孤児期限定数。固定確認コード子、技術文法、IPC、取消・子／stdout終了観測 | 六桁・改行・UTF-8・64byte入力と512byte結果frameを維持する。コード生成・期待値一致・送信許可・poisonは上位。任意子・実行引数・環境は公開しない |
+| `src/lock/pipe.ts`、`lifecycle.ts`、`worker.ts`、`supervisor.ts` | `acquireNamedPipeKernelLock`、`acquireNamedPipeKernelLockOutcome`、`acquireNamedPipeSupervisorLock`と結果型 | 既存Windows用途のPipeだけを取得し、Worker／共有状態・Supervisor／IPCと終了を所有する。用途別Hash・namespace導出・取得順・上位状態判断は呼出しOwner。Supervisor環境はPA自身が構築し、任意環境は受け付けない |
+| `src/process/child.ts` | PA内部の固定Reader・Worker・Supervisorの起動 | Package Rootへ汎用spawn／Worker factoryを公開しない。eval・shell拒否、固定execPath、Workerのstdout／stderr回収を維持する。試験Toolの自己起動は所有しない |
 | `src/process/termination.ts` | 所有ChildProcessを対象とする固定taskkillの開始、有界結果待機、補助子の終了とclose観測 | 生存元子だけを対象とし、観測後も未終了を再確認する。任意PID・実行物・引数・環境builderは公開しない。補助開始／終了値／closeと元子closeは別の事実。Consumerが一度発行と元子closeを所有する |
 | `src/index.ts` | 上記の必要な意味操作を明示export | Coordinator／Docker Isolation等はRoot APIを使い、下位から上位import 0、旧Path／shim 0 |
 

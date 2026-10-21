@@ -12,9 +12,56 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { randomUUID } from "node:crypto";
 import {
+  acquireNamedPipeKernelLock,
+  acquireNamedPipeKernelLockOutcome,
+  acquireNamedPipeSupervisorLock,
+} from "../../src/index.ts";
+import {
   createRuntimeLocalTypeScriptWorker,
   spawnRuntimeLocalTypeScriptChild,
-} from "../../src/host-execution/typescript-child-entrypoints.ts";
+} from "../../src/process/child.ts";
+
+/**
+ * 公開Pipe入口は既存用途外と不正待機値を子生成前に拒否する。
+ * @responsibility 任意Path・用途外Pipe・無制限待機を公開技術入口へ持ち込まない。
+ * @trace ERB-IT-002
+ * @precondition 不正入力だけを使用し、正常な資源生成要求は発行しない。
+ * @stimulus 同期・非同期・Supervisorの公開入口へ不正値を渡す。
+ * @observation nullまたはunavailable、lock:nullを取得する。
+ * @oracle 各公開入口が生成前に非取得を返す。
+ * @cleanup N/A: 取得要求は拒否される。
+ * @boundary ERB-IT-002=Direct Boundary: Package Root→固定用途の起動前検査。
+ */
+test("公開Pipe入口は任意Path・用途外Pipe・不正待機値を生成前に拒否する", async () => {
+  for (const pipeName of [
+    "C:\\data",
+    "",
+    "\\\\.\\pipe\\Other.Product.test",
+    "\\\\.\\pipe\\CRDD.Coordinator.HostOperation.bad",
+  ]) {
+    assert.equal(acquireNamedPipeKernelLock(pipeName), null);
+    assert.deepEqual(await acquireNamedPipeKernelLockOutcome(pipeName), {
+      status: "unavailable",
+      lock: null,
+    });
+    assert.deepEqual(
+      await acquireNamedPipeSupervisorLock({
+        pipeName,
+        timing: { acquireTimeoutMs: 1_000, releaseTimeoutMs: 1_000 },
+      }),
+      { status: "unavailable", lock: null },
+    );
+  }
+  for (const acquireTimeoutMs of [0, -1, 1_001, NaN, Infinity]) {
+    assert.deepEqual(
+      await acquireNamedPipeSupervisorLock({
+        pipeName: `\\\\.\\pipe\\CRDD.Coordinator.HostOperation.${"a".repeat(32)}`,
+        timing: { acquireTimeoutMs, releaseTimeoutMs: 1_000 },
+      }),
+      { status: "unavailable", lock: null },
+    );
+  }
+});
 
 /**
  * Lock Workerのstdio分離はerror／exit通知を失わない。

@@ -8,13 +8,15 @@
  * @scope 対話端末の入出力・取消
  * @boundary 固定Probe→対話端末API。秘密値を検証出力へ含めない。
  */
+import type {
+  InteractiveConsoleTextWriteOutcome,
+  TerminalOperationOutcome as InteractiveConsoleOperationOutcome,
+} from "../../../platform-access/src/index.ts";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
-  type InteractiveConsoleOperationOutcome,
   type InteractiveConsoleReadOutcome,
-  type InteractiveConsoleTextWriteOutcome,
   readInteractiveConsoleLineOutcome,
   withInteractiveConsoleAsyncOutcome,
   writeInteractiveConsoleTextOutcome,

@@ -87,12 +87,12 @@ function disconnectAndExit(exitCode: number) {
  * @returns scheduleFinalExitの計算結果を返す。
  * @precondition 「N/A: 実行時引数を受け取らない。」がscheduleFinalExitの入力契約を満たす。
  * @postcondition scheduleFinalExitの責務を完了した結果だけを返す。
- * @effect N/A: scheduleFinalExitは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @effect Immediateで終了確定を予約し、IPC切断とProcess終了を実行する。
  * @failure N/A: scheduleFinalExitは独自の失敗分岐を所有しない。
- * @invariant scheduleFinalExitは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: scheduleFinalExitはProcess内の同一Subsystemで完結する。
+ * @invariant 上位の同意・poison・保存判断を追加せず、既存の結果と終了不明を保持する。
+ * @boundary OS端末・Process／Worker・IPCまたは共有状態の技術境界。
  * @security scheduleFinalExitはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: scheduleFinalExitは共有非同期状態を持たない同期処理である。
+ * @concurrency 所有する待機・通知・終了条件を維持し、要求と完了観測を同一視しない。
  */
 function scheduleFinalExit() {
   if (isFinishScheduled) return;
@@ -120,12 +120,12 @@ function scheduleFinalExit() {
  * @returns closeAndExitの計算結果を返す。
  * @precondition 「isReportRelease: boolean、exitCode: number」がcloseAndExitの入力契約を満たす。
  * @postcondition closeAndExitの責務を完了した結果だけを返す。
- * @effect N/A: closeAndExitは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @effect Named Pipeのclose完了を待ち、IPC・切断と終了へ収束させる。
  * @failure N/A: closeAndExitは独自の失敗分岐を所有しない。
- * @invariant closeAndExitは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: closeAndExitはProcess内の同一Subsystemで完結する。
+ * @invariant 上位の同意・poison・保存判断を追加せず、既存の結果と終了不明を保持する。
+ * @boundary OS端末・Process／Worker・IPCまたは共有状態の技術境界。
  * @security closeAndExitはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: closeAndExitは共有非同期状態を持たない同期処理である。
+ * @concurrency 所有する待機・通知・終了条件を維持し、要求と完了観測を同一視しない。
  */
 function closeAndExit(isReportRelease: boolean, exitCode: number) {
   if (exitCode !== 0) {
@@ -156,12 +156,12 @@ function closeAndExit(isReportRelease: boolean, exitCode: number) {
  * @returns beginReleaseの計算結果を返す。
  * @precondition 「N/A: 実行時引数を受け取らない。」がbeginReleaseの入力契約を満たす。
  * @postcondition beginReleaseの責務を完了した結果だけを返す。
- * @effect N/A: beginReleaseは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @effect 解放状態へ遷移し、Pipeのclose、IPCと終了確認を開始する。
  * @failure N/A: beginReleaseは独自の失敗分岐を所有しない。
- * @invariant beginReleaseは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: beginReleaseはProcess内の同一Subsystemで完結する。
+ * @invariant 上位の同意・poison・保存判断を追加せず、既存の結果と終了不明を保持する。
+ * @boundary OS端末・Process／Worker・IPCまたは共有状態の技術境界。
  * @security beginReleaseはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: beginReleaseは共有非同期状態を持たない同期処理である。
+ * @concurrency 所有する待機・通知・終了条件を維持し、要求と完了観測を同一視しない。
  */
 function beginRelease() {
   if (closeStarted) return closeAndExit(false, 65);

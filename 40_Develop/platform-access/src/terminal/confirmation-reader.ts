@@ -133,12 +133,12 @@ export function parseInteractiveConsoleLine(bytes: Uint8Array) {
  * @returns Promise<string | null>を返す。
  * @precondition 「stream: ReaderInput、cancellationSignal: AbortSignal」がreadInteractiveConsoleLineFromStreamの入力契約を満たす。
  * @postcondition readInteractiveConsoleLineFromStreamの責務を完了した結果だけを返す。
- * @effect N/A: readInteractiveConsoleLineFromStreamは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @effect streamのdata／error／end・取消listenerを所有し、入力を読みpauseとlistener回収を行う。
  * @failure readInteractiveConsoleLineFromStreamは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant readInteractiveConsoleLineFromStreamは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: readInteractiveConsoleLineFromStreamはProcess内の同一Subsystemで完結する。
+ * @invariant 上位の同意・poison・保存判断を追加せず、既存の結果と終了不明を保持する。
+ * @boundary OS端末・Process／Worker・IPCまたは共有状態の技術境界。
  * @security N/A: readInteractiveConsoleLineFromStreamはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency readInteractiveConsoleLineFromStreamは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ * @concurrency 所有する待機・通知・終了条件を維持し、要求と完了観測を同一視しない。
  */
 export function readInteractiveConsoleLineFromStream(
   stream: ReaderInput,
@@ -235,12 +235,12 @@ export function readInteractiveConsoleLineFromStream(
  * @returns Promise<OwnedInteractiveConsoleReadOutcome>を返す。
  * @precondition 「platform: NodeJS.Platform、cancellationSignal: AbortSignal、adapter: OwnedReaderAdapter」がreadOwnedInteractiveConsoleLineOutcomeUsingAdapterの入力契約を満たす。
  * @postcondition readOwnedInteractiveConsoleLineOutcomeUsingAdapterの責務を完了した結果だけを返す。
- * @effect N/A: readOwnedInteractiveConsoleLineOutcomeUsingAdapterは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @effect 固定OS端末をopen／read／closeし、descriptorのclose確認を分離する。
  * @failure readOwnedInteractiveConsoleLineOutcomeUsingAdapterは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant readOwnedInteractiveConsoleLineOutcomeUsingAdapterは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: readOwnedInteractiveConsoleLineOutcomeUsingAdapterはProcess内の同一Subsystemで完結する。
+ * @invariant 上位の同意・poison・保存判断を追加せず、既存の結果と終了不明を保持する。
+ * @boundary OS端末・Process／Worker・IPCまたは共有状態の技術境界。
  * @security N/A: readOwnedInteractiveConsoleLineOutcomeUsingAdapterはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency readOwnedInteractiveConsoleLineOutcomeUsingAdapterは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ * @concurrency 所有する待機・通知・終了条件を維持し、要求と完了観測を同一視しない。
  */
 export async function readOwnedInteractiveConsoleLineOutcomeUsingAdapter(
   platform: NodeJS.Platform,
@@ -404,12 +404,12 @@ function writeResult(
  * @returns mainの計算結果を返す。
  * @precondition 「N/A: 実行時引数を受け取らない。」がmainの入力契約を満たす。
  * @postcondition mainの責務を完了した結果だけを返す。
- * @effect mainはFilesystemの読取りまたは書込みを実行する。
+ * @effect 固定端末Reader、Timer、IPCと親切断通知を所有し、取消・親喪失時は自Processを終了する。
  * @failure N/A: mainは独自の失敗分岐を所有しない。
- * @invariant mainは宣言した境界以外へEffectを拡張しない。
- * @boundary FilesystemとProcess内Domain処理の境界。
+ * @invariant 上位の同意・poison・保存判断を追加せず、既存の結果と終了不明を保持する。
+ * @boundary OS端末・Process／Worker・IPCまたは共有状態の技術境界。
  * @security N/A: mainはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency mainは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ * @concurrency 所有する待機・通知・終了条件を維持し、要求と完了観測を同一視しない。
  */
 async function main() {
   process.exitCode = 2;
