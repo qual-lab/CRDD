@@ -28,7 +28,7 @@ import test, { mock } from "node:test";
 import { fileURLToPath } from "node:url";
 import { runInNewContext } from "node:vm";
 import { createRepositoryTestDirectory } from "../support/repository-test-directory.ts";
-import { observeRuntimeOwnedDevelopmentSource } from "../../src/task/development-source-observation.ts";
+import { observeRuntimeOwnedDevelopmentSource } from "../../src/execution/development-source-observation.ts";
 
 /**
  * 実Source観測本文をRepository内の自己生成Fixtureへ結合する。
@@ -48,7 +48,7 @@ async function createSourceObservationFixture(readMutation = "") {
   try {
     const source = readFileSync(
       new URL(
-        "../../src/task/development-source-observation.ts",
+        "../../src/execution/development-source-observation.ts",
         import.meta.url,
       ),
       "utf8",
@@ -340,7 +340,7 @@ if (process.argv[2] !== "--probe") {
     const source = stripTypeScriptTypes(
       readFileSync(
         new URL(
-          "../../src/task/development-source-observation.ts",
+          "../../src/execution/development-source-observation.ts",
           import.meta.url,
         ),
         "utf8",
@@ -418,7 +418,7 @@ if (process.argv[2] !== "--probe") {
     const source = stripTypeScriptTypes(
       readFileSync(
         new URL(
-          "../../src/task/development-measurement-session.ts",
+          "../../src/execution/development-measurement-session.ts",
           import.meta.url,
         ),
         "utf8",
@@ -775,9 +775,9 @@ const scenarios = [
  */
 async function runProbe(target: string, scenario: string) {
   for (const relative of [
-    "task/development-measurement-session.ts",
-    "provider/home-windows-adapter.ts",
-    "platform-access/protected-root-windows-adapter.ts",
+    "execution/development-measurement-session.ts",
+    "execution/provider-home-windows-adapter.ts",
+    "execution/protected-root.ts",
   ]) {
     const current = readFileSync(
       new URL(`../../src/${relative}`, import.meta.url),
@@ -836,11 +836,10 @@ async function runProbe(target: string, scenario: string) {
       return new URL("../../../platform-access/src/index.ts", import.meta.url)
         .href;
     const sources: Record<string, string> = {
-      "repository-operation-runtime": "repository-operation/binding.ts",
-      "execution-environment":
-        "host-execution/operation-workspace-lifecycle.ts",
+      "repository-operation-runtime": "workspace/binding.ts",
+      "execution-environment": "execution/operation.ts",
       "development-source-observation":
-        "task/development-source-observation.ts",
+        "execution/development-source-observation.ts",
     };
     assert.ok(sources[name], name);
     return new URL(`../../src/${sources[name]}`, import.meta.url).href;
@@ -1119,12 +1118,12 @@ async function runProbe(target: string, scenario: string) {
     },
   });
   const session = await import(
-    "../../src/task/development-measurement-session.ts"
+    "../../src/execution/development-measurement-session.ts"
   );
-  const provider = await import("../../src/provider/home-windows-adapter.ts");
-  const store = await import(
-    "../../src/platform-access/protected-root-windows-adapter.ts"
+  const provider = await import(
+    "../../src/execution/provider-home-windows-adapter.ts"
   );
+  const store = await import("../../src/execution/protected-root.ts");
   const tasks = ["codex", "claude"].map((executor) => ({
     frontProvider: executor === "codex" ? "claude" : "codex",
     requestedExecutorProvider: executor,

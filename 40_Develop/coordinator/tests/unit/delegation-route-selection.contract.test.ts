@@ -15,7 +15,7 @@ import {
   describeDelegationRouteSelectionContract,
   selectDelegationExecutionSlateCandidate,
   selectDelegationRouteCandidate,
-} from "../../src/provider/delegation-route-selection.ts";
+} from "../../src/execution/delegation-route-selection.ts";
 
 /**
  * createRequestのTest準備責務を実行する。

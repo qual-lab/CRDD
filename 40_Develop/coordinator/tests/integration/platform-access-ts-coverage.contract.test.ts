@@ -82,10 +82,10 @@ function exactLcov() {
  * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("TypeScript coverageは固定sourceとtest母集団を所有する", () => {
-  assert.equal(PLATFORM_ACCESS_TS_COVERAGE_SOURCES.length, 8);
-  assert.equal(PLATFORM_ACCESS_TS_COVERAGE_TESTS.length, 8);
-  assert.equal(new Set(PLATFORM_ACCESS_TS_COVERAGE_SOURCES).size, 8);
-  assert.equal(new Set(PLATFORM_ACCESS_TS_COVERAGE_TESTS).size, 8);
+  assert.equal(PLATFORM_ACCESS_TS_COVERAGE_SOURCES.length, 7);
+  assert.equal(PLATFORM_ACCESS_TS_COVERAGE_TESTS.length, 7);
+  assert.equal(new Set(PLATFORM_ACCESS_TS_COVERAGE_SOURCES).size, 7);
+  assert.equal(new Set(PLATFORM_ACCESS_TS_COVERAGE_TESTS).size, 7);
   assert.ok(
     PLATFORM_ACCESS_TS_COVERAGE_SOURCES.includes(
       "40_Develop/coordinator/scripts/native-git-provenance.ts",
@@ -112,7 +112,7 @@ test("TypeScript coverageは固定sourceとtest母集団を所有する", () => 
     PLATFORM_ACCESS_TS_COVERAGE_SOURCES.includes(
       "40_Develop/coordinator/src/platform-access/adapter.ts",
     ),
-    true,
+    false,
   );
   assert.equal(
     PLATFORM_ACCESS_TS_COVERAGE_TESTS.includes(
@@ -172,9 +172,9 @@ test("TypeScript coverageは固定sourceとtest母集団を所有する", () => 
 test("LCOV parserは分母分子と未到達branchを割合へ縮約しない", () => {
   const result = parsePlatformAccessTsCoverageLcov(exactLcov());
   assert.deepEqual(result.totals, {
-    lines: { covered: 8, total: 8 },
-    functions: { covered: 8, total: 8 },
-    branches: { covered: 7, total: 8 },
+    lines: { covered: 7, total: 7 },
+    functions: { covered: 7, total: 7 },
+    branches: { covered: 6, total: 7 },
   });
   assert.deepEqual(result.sources[0]?.uncoveredBranches, [
     { line: 1, block: 0, branch: 0, taken: null },

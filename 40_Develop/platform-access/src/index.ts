@@ -102,3 +102,5 @@ export type {
   HostOperationSupervisorLockOutcome,
   InteractiveConsoleKernelLockOutcome,
 } from "./lock/lifecycle.ts";
+export { acquireHostTerminalCallerPipeLease } from "./lock/in-process.ts";
+export type { InProcessPipeLease } from "./lock/in-process-lifecycle.ts";

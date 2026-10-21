@@ -13,7 +13,7 @@ import { fileURLToPath } from "node:url";
 import {
   isSupportedCoordinatorNodeRuntime,
   MINIMUM_COORDINATOR_NODE_VERSION,
-} from "../src/host-execution/node-runtime-version.ts";
+} from "../src/cli/node-runtime-version.ts";
 import {
   displayVerificationRecording,
   runRecordedVerification,
@@ -23,7 +23,7 @@ import {
   createDynamicFakeProviderRecoverableResidue,
   recoverDockerIsolationProbe,
 } from "../src/diagnostics/isolation-probe.ts";
-import { createOwnedOperationDirectories } from "../src/host-execution/operation-workspace-lifecycle.ts";
+import { createOwnedOperationDirectories } from "../src/execution/operation.ts";
 import { verifyDynamicFakeProviderCancellation } from "./verify-dynamic-fake-provider-cancellation.ts";
 import { verifyDynamicFakeProviderFailures } from "./verify-dynamic-fake-provider-failures.ts";
 

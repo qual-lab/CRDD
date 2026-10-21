@@ -23,9 +23,9 @@ const repositoryRoot = path.resolve(coordinatorRoot, "../..");
 export const PROVIDER_HOME_COVERAGE_SOURCES = Object.freeze([
   "40_Develop/coordinator/src/authority/root-path-lexical.ts",
   "40_Develop/domain-model/src/plain-data/snapshot.ts",
-  "40_Develop/coordinator/src/provider/home.ts",
-  "40_Develop/coordinator/src/provider/home-mount-grant.ts",
-  "40_Develop/coordinator/src/provider/lifecycle.ts",
+  "40_Develop/coordinator/src/execution/provider-home.ts",
+  "40_Develop/coordinator/src/execution/provider-home-mount-grant.ts",
+  "40_Develop/coordinator/src/execution/provider-lifecycle.ts",
   "40_Develop/coordinator/src/diagnostics/doctor.ts",
   "40_Develop/coordinator/scripts/check-platform-access-ts-coverage.ts",
   "40_Develop/coordinator/scripts/check-provider-home-coverage.ts",
@@ -34,9 +34,9 @@ export const PROVIDER_HOME_COVERAGE_SOURCES = Object.freeze([
 export const PROVIDER_HOME_COVERAGE_TESTS = Object.freeze([
   "40_Develop/coordinator/tests/unit/authority/root-path-lexical.contract.test.ts",
   "40_Develop/coordinator/tests/unit/plain-data-snapshot.contract.test.ts",
-  "40_Develop/coordinator/tests/unit/provider/home.contract.test.ts",
-  "40_Develop/coordinator/tests/unit/provider/home-mount-grant.contract.test.ts",
-  "40_Develop/coordinator/tests/unit/provider/lifecycle.contract.test.ts",
+  "40_Develop/coordinator/tests/unit/execution/provider-home.contract.test.ts",
+  "40_Develop/coordinator/tests/unit/execution/provider-home-mount-grant.contract.test.ts",
+  "40_Develop/coordinator/tests/unit/execution/provider-lifecycle.contract.test.ts",
   "40_Develop/coordinator/tests/unit/doctor.contract.test.ts",
   "40_Develop/coordinator/tests/integration/platform-access-ts-coverage.contract.test.ts",
   "40_Develop/coordinator/tests/unit/provider-home-coverage.contract.test.ts",
@@ -96,19 +96,20 @@ const coverageObligations = Object.freeze({
     "record／arrayのshape、accessor、Proxy、reflection failureおよび上限試験",
     "plain-data snapshot実装変更時",
   ),
-  "40_Develop/coordinator/src/provider/home.ts": obligation(
+  "40_Develop/coordinator/src/execution/provider-home.ts": obligation(
     "未到達分岐なし",
     "現固定版のpure配置候補には追加残存riskなし",
     "Codex／Claude、Root境界、Path非出力、長さ、動的入力および非昇格試験",
     "Provider Home layout、Root source、Provider集合または保護Effect着手時",
   ),
-  "40_Develop/coordinator/src/provider/home-mount-grant.ts": obligation(
-    "未到達分岐なしを目標に専用coverageで別途確認する",
-    "一回限り遷移、bindingまたは期限判定の退行",
-    "全状態、正規遷移、再利用拒否、binding差、期限境界、動的入力および非Effect試験",
-    "Mount Grant record、遷移、利用判定またはEffect Adapter変更時",
-  ),
-  "40_Develop/coordinator/src/provider/lifecycle.ts": obligation(
+  "40_Develop/coordinator/src/execution/provider-home-mount-grant.ts":
+    obligation(
+      "未到達分岐なしを目標に専用coverageで別途確認する",
+      "一回限り遷移、bindingまたは期限判定の退行",
+      "全状態、正規遷移、再利用拒否、binding差、期限境界、動的入力および非Effect試験",
+      "Mount Grant record、遷移、利用判定またはEffect Adapter変更時",
+    ),
+  "40_Develop/coordinator/src/execution/provider-lifecycle.ts": obligation(
     "合成候補の複合fail-closed述語の全短絡順序を同一runで到達していない",
     "入力shapeまたは上限の稀な不正形を同じ固定reasonへ閉じる分岐の退行",
     "Provider、mode、状態、入出力、deadline、cancel、結果、quotaおよび専用Home投影試験",

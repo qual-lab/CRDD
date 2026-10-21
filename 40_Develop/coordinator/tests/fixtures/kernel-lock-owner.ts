@@ -12,7 +12,7 @@ import {
   acquireRuntimeOwnedCoordinatorStateKernelLock,
   acquireRuntimeOwnedHostOperationKernelLock,
   acquireRuntimeOwnedHostOperationSupervisorLock,
-} from "../../src/host-execution/kernel-lock.ts";
+} from "../../src/execution/kernel-lock.ts";
 
 const mode = process.argv[2];
 const supervisorOutcome =

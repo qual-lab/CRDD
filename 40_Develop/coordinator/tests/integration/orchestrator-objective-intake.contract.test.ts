@@ -26,7 +26,7 @@ import { consumeProjectSettledDockerRecoveryWithRuntimeBoundary } from "../../..
 import {
   dockerRecoveryCommitName,
   writeCommittedDockerRecoveryJson,
-} from "../../src/state-storage/docker-recovery-journal.ts";
+} from "../../src/storage/docker-recovery-journal.ts";
 
 import {
   acquireOrchestratorLease,

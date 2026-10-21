@@ -18,9 +18,9 @@ import {
   isRuntimeProcessEffectBlocked,
   isRuntimeProcessPoisoned,
   poisonRuntimeProcessAfterInteractiveCleanupUnknown,
-} from "../host-execution/process-safety-state.ts";
-import { acquireRuntimeOwnedInteractiveConsoleKernelLockOutcome } from "../host-execution/kernel-lock.ts";
-import { verifyOwnedOperationManagementCapability } from "../host-execution/operation-workspace-lifecycle.ts";
+} from "../execution/process-safety-state.ts";
+import { acquireRuntimeOwnedInteractiveConsoleKernelLockOutcome } from "../execution/kernel-lock.ts";
+import { verifyOwnedOperationManagementCapability } from "../execution/operation.ts";
 import {
   EXTERNAL_SEND_RUNTIME_SEMANTICS_ID,
   persistRuntimeOwnedExternalSendConsent,
@@ -32,7 +32,7 @@ import {
   snapshotPlainArray,
   snapshotPlainRecord,
 } from "../../../domain-model/src/index.ts";
-import { verifyRuntimeOwnedRepositoryBindingCapability } from "../repository-operation/binding.ts";
+import { verifyRuntimeOwnedRepositoryBindingCapability } from "../workspace/binding.ts";
 import { containsRecognizedSecretScope } from "../authority/secret-material-policy.ts";
 
 export const EXTERNAL_SEND_GRANT_RUNTIME_CONTRACT =

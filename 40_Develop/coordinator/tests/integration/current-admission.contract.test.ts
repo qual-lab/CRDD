@@ -18,12 +18,12 @@ import { stripTypeScriptTypes } from "node:module";
 import * as domain from "../../../domain-model/src/index.ts";
 import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
 import { resolveVerifiedRepositoryRoot } from "../../../version-control/src/index.ts";
-import * as locks from "../../src/host-execution/kernel-lock.ts";
-import { borrowRuntimeOwnedCoordinatorRecoveryRepository } from "../../src/repository-operation/binding.ts";
+import * as locks from "../../src/execution/kernel-lock.ts";
+import { borrowRuntimeOwnedCoordinatorRecoveryRepository } from "../../src/workspace/binding.ts";
 import {
   COORDINATOR_STATE_SCHEMA,
   encodeCoordinatorStateValue,
-} from "../../src/state-storage/model.ts";
+} from "../../src/storage/model.ts";
 
 /**
  * 現在Readerの初回・部分保存・排他終了と入場投影を検証する。
@@ -103,7 +103,7 @@ test("現在入場: 実Readerの初回不存在・本文・故障と全域拒否
       },
     );
     kernelMock = mock.module(
-      new URL("../../src/host-execution/kernel-lock.ts", import.meta.url).href,
+      new URL("../../src/execution/kernel-lock.ts", import.meta.url).href,
       {
         namedExports: {
           ...locks,
@@ -123,18 +123,19 @@ test("現在入場: 実Readerの初回不存在・本文・故障と全域拒否
     );
     const store = await import(
       new URL(
-        "../../src/state-storage/settlement-store.ts?current-admission",
+        "../../src/storage/settlement-store.ts?current-admission",
         import.meta.url,
       ).href
     );
     storeMock = mock.module(
-      new URL("../../src/state-storage/settlement-store.ts", import.meta.url)
-        .href,
+      new URL("../../src/storage/settlement-store.ts", import.meta.url).href,
       { namedExports: { ...store } },
     );
     const owner = await import(
-      new URL("../../src/task/recovery.ts?current-admission", import.meta.url)
-        .href
+      new URL(
+        "../../src/execution/recovery.ts?current-admission",
+        import.meta.url,
+      ).href
     );
     const inspect = owner.inspectRuntimeOwnedDockerTaskAdmission as (
       root: unknown,
@@ -195,7 +196,7 @@ test("現在入場: 実Readerの初回不存在・本文・故障と全域拒否
     assert.equal(fs.existsSync(current), false);
     live = true;
     const readerSource = fs.readFileSync(
-      new URL("../../src/state-storage/settlement-store.ts", import.meta.url),
+      new URL("../../src/storage/settlement-store.ts", import.meta.url),
       "utf8",
     );
     const branchStart = readerSource.indexOf(
@@ -209,7 +210,7 @@ test("現在入場: 実Readerの初回不存在・本文・故障と全域拒否
     const branch = readerSource.slice(branchStart, branchEnd);
     assert.equal(branch.split("lock.assertLive()").length, 2);
     const ownerSource = fs.readFileSync(
-      new URL("../../src/task/recovery.ts", import.meta.url),
+      new URL("../../src/execution/recovery.ts", import.meta.url),
       "utf8",
     );
     const inspectorStart = ownerSource.indexOf(
@@ -340,7 +341,7 @@ test("現在入場: 実Readerの初回不存在・本文・故障と全域拒否
  */
 test("現在入場: Task通常・開発・CLIの本番構成式はexact Rootを搬送する", () => {
   const task = fs.readFileSync(
-    new URL("../../src/task/execution.ts", import.meta.url),
+    new URL("../../src/execution/task.ts", import.meta.url),
     "utf8",
   );
   const cli = fs.readFileSync(
@@ -369,7 +370,7 @@ test("現在入場: Task通常・開発・CLIの本番構成式はexact Rootを�
   assert.ok(start > 0 && end > start);
   const development = task.slice(start, end);
   const cliStart = cli.indexOf(": (() => {");
-  const cliEnd = cli.indexOf("\n              })();", cliStart);
+  const cliEnd = cli.indexOf("})();", cliStart);
   assert.ok(cliStart > 0 && cliEnd > cliStart);
   const doctor = `${cli.slice(cliStart + 2, cliEnd)}\n})()`;
   const expected = "C:\\fixture-root";
@@ -497,9 +498,9 @@ test("現在入場: Task通常・開発・CLIの本番構成式はexact Rootを�
         )?.path,
     ),
     [
-      "src/task/recovery.ts",
-      "src/state-storage/settlement-store.ts",
-      "src/task/recovery-projection.ts",
+      "src/execution/recovery.ts",
+      "src/storage/settlement-store.ts",
+      "src/execution/recovery-projection.ts",
     ],
   );
 });
@@ -516,16 +517,15 @@ test("現在入場: Task通常・開発・CLIの本番構成式はexact Rootを�
  * @boundary 入場Inspector→Reader。本文codecの成立は前Caseと既存保存試験が所有する。
  */
 test("現在入場: 安定本文の部分義務を全域拒否せず固定DTOだけを搬送する", async () => {
-  const store = await import("../../src/state-storage/settlement-store.ts");
-  const projection = await import("../../src/task/recovery-projection.ts");
+  const store = await import("../../src/storage/settlement-store.ts");
+  const projection = await import("../../src/execution/recovery-projection.ts");
   const repositoryRoot = fs.realpathSync(
     path.resolve(import.meta.dirname, "../../../.."),
   );
   let observed: unknown;
   const roots: (string | null)[] = [];
   const mocked = mock.module(
-    new URL("../../src/state-storage/settlement-store.ts", import.meta.url)
-      .href,
+    new URL("../../src/storage/settlement-store.ts", import.meta.url).href,
     {
       namedExports: {
         ...store,
@@ -541,7 +541,7 @@ test("現在入場: 安定本文の部分義務を全域拒否せず固定DTOだ
   try {
     const owner = await import(
       new URL(
-        "../../src/task/recovery.ts?current-admission-values",
+        "../../src/execution/recovery.ts?current-admission-values",
         import.meta.url,
       ).href
     );

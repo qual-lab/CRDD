@@ -27,7 +27,7 @@ import { fileURLToPath } from "node:url";
 import type {
   CoordinatorStateSnapshot,
   CoordinatorStateTaskOperation,
-} from "../../src/state-storage/model.ts";
+} from "../../src/storage/model.ts";
 
 const fixedImage =
   "sha256:d67a7b66b989ad6b6d6b10d428dcc5e0bfc3e5f88906e67d490c4d3daac57047";
@@ -377,7 +377,7 @@ async function executeApprovedAuthCreateClosure() {
   const cancel = () => abort.abort();
   process.on("SIGINT", cancel);
   const isolation = await import("../../../docker-isolation/src/index.ts");
-  const store = await import("../../src/state-storage/settlement-store.ts");
+  const store = await import("../../src/storage/settlement-store.ts");
   let isolationMock: { restore(): void } | null = null;
   let lifecycleMock: { restore(): void } | null = null;
   let storeMock: { restore(): void } | null = null;
@@ -844,8 +844,7 @@ async function executeApprovedAuthCreateClosure() {
     );
     if (absentAuth)
       storeMock = mock.module(
-        new URL("../../src/state-storage/settlement-store.ts", import.meta.url)
-          .href,
+        new URL("../../src/storage/settlement-store.ts", import.meta.url).href,
         {
           namedExports: {
             ...store,
@@ -880,11 +879,13 @@ async function executeApprovedAuthCreateClosure() {
         },
       );
     const lifecycle = (await import(
-      new URL("../../src/task/recovery.ts?auth-create-parent", import.meta.url)
-        .href
-    )) as typeof import("../../src/task/recovery.ts");
+      new URL(
+        "../../src/execution/recovery.ts?auth-create-parent",
+        import.meta.url,
+      ).href
+    )) as typeof import("../../src/execution/recovery.ts");
     lifecycleMock = mock.module(
-      new URL("../../src/task/recovery.ts", import.meta.url).href,
+      new URL("../../src/execution/recovery.ts", import.meta.url).href,
       { namedExports: { ...lifecycle } },
     );
     const expectation = lifecycle

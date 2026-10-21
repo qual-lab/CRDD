@@ -260,6 +260,22 @@ Host終端専用環境の`PRL-UT-006`では、同じ本番関数bodyに対する
 
 認証作成の手動親では、実本文の一意抽出と閉じた境界代役で、正常時の全spy接続、入口・各baseline時点・通知・再起動・削除前保存・実rm省略・不存在の各軸・最終清掃の単独故障を確認する。故障到達一回と後続処置0を共同条件とし、最初のReader不明では参照を推測せず、確定後だけ同exact IDを保持する。named bindingとimport接続の省略、identified確認省略は同じOracleの変異で反証する。毎回新品の評価閉包・登録表・Process代役を用い、実Node module mockや実Dockerへ接続しない。合成Reader／Writer／Runtimeの成功値は実codec・保存・Kernel・Nativeの成立根拠にせず、既存実境界と後続限定実証を別に評価する。
 
+## C前のCoordinator受付整理の検証条件
+
+`PRL-ST-001`の`coordinator-launch`と`PRL-IT-012`のCLI検証は、受付一本化後も通常Commandと起動用途の違いを確認する。対象は[Coordinator設計の利用者入口](../../../06_Architecture/Details/coordinator/01_Architecture.md)と[事前整理対応表](../../../99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#13-c前のcoordinator事前整理)。
+
+- importだけでは通常操作・固定Script・入力待ちを開始しない。
+- bin直Taskの拒否と、templateの上位Task／project配送を区別する。
+- Node、TTY、NUL、機械出力、help、旧mode拒否と終了値を維持する。
+- 固定Script配送と通常handler配送を分け、同一PID、argv1、空文字・Unicode・引用符等のliteral引数、stdin bytes、cwd、終了値と例外秘匿を実子で確認する。合成handlerは搬送の観測だけに用い、製品へ試験用公開APIを追加しない。
+- 既存回復CLIの取消待機、同じexact回復参照と結果表示を維持する。合成試験の成功から実Docker・認証・外部AIの成立を推定しない。
+
+保存・Host・Providerの残る整理はこの受付試験の成功へ含めず、既存の保存・回復・所有者再入場の検証へ別途接続する。過去Evidenceや正式QA全体の結果を受付整理だけで更新しない。
+
+Provider別の薄い準備中継撤去では`PRL-UT-014`の両Provider試験を共通実体へ接続し、別Store・一回消費・期限・管理一致・Authority失効とMount終了を維持する。Host通知の`PRL-UT-006`はPA内の`in-process-lifecycle`試験へ実移管し、共有Directory・Host activation・診断判断の三CaseはCoordinatorへ残す。固定namespace外の拒否を追加し、既存`ERB-IT-003`の上位実pipe競合・Process喪失後再取得・caller保存と解放相関を維持する。低層通知試験を保存・回復全体の成立へ拡張しない。
+
+C前の最終配置は`execution`／`storage`／`workspace`を基本とし、同じQA Local Item・Symbol IDのままSourceとUT Pathを追従する。再入場分類UTは`storage/model-reentry`から純粋値モデルを直接検査し、実Writer・Journal・Host callerの確定順はそれぞれ既存ITで検査する。未接続の旧PR03候補は退役し、descriptor CaseだけRootObservationへ移す。旧wire五Caseを現在PAの保証へ転用せず、[退役軸と現行試験の対応](../../../99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#142-未接続platform-access候補の退役)を保持する。
+
 ## Checklist
 
 - [x] Quality ID、検証目標およびSource固有条件を自己完結して示した

@@ -27,12 +27,12 @@ import {
   projectDockerProcessControllerStartResult,
   startRuntimeOwnedDockerProcessController,
   verifyRuntimeOwnedDockerUnissuedNotice,
-} from "../../src/provider/execution-controller.ts";
+} from "../../src/execution/provider-controller.ts";
 import {
   orchestratorOwnedDockerProcessCompletionForTask,
   orchestratorOwnedDockerProcessStartForTask,
-} from "../../src/task/execution.ts";
-import { createDevelopmentMeasurementConstraints } from "../../src/task/development-measurement-constraints.ts";
+} from "../../src/execution/task.ts";
+import { createDevelopmentMeasurementConstraints } from "../../src/execution/development-measurement-constraints.ts";
 import { createOwnedProcessTreeFixture } from "../fixtures/docker-owned-process-test-support.ts";
 import { describeDockerProviderExecutionLocations } from "../../../docker-isolation/src/index.ts";
 import { bindWorkbenchAiProviderCommand } from "../../src/workbench-ai/advice-execution-plan.ts";

@@ -10,7 +10,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { types as utilTypes } from "node:util";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../version-control/src/index.ts";
-import type { BorrowedWorkspaceTarget } from "../src/repository-operation/borrowed-workspace.ts";
+import type { BorrowedWorkspaceTarget } from "../src/workspace/borrowed-tree.ts";
 import {
   prepareVerificationWorkspace,
   readVerificationWorkspaceOutput,
@@ -20,7 +20,7 @@ import {
 import {
   isSupportedCoordinatorNodeRuntime,
   MINIMUM_COORDINATOR_NODE_VERSION,
-} from "../src/host-execution/node-runtime-version.ts";
+} from "../src/cli/node-runtime-version.ts";
 import {
   SIGNED_GENERAL_TASK_PUBLIC_REASONS,
   type SignedGeneralTaskPublicReason,
@@ -28,22 +28,22 @@ import {
 import {
   isRuntimeProcessPoisoned,
   poisonRuntimeProcessAfterCleanupUnknown,
-} from "../src/host-execution/process-safety-state.ts";
+} from "../src/execution/process-safety-state.ts";
 import {
   cancelRuntimeOwnedCoordinatorTask,
   startRuntimeOwnedCoordinatorTask,
-} from "../src/task/execution.ts";
+} from "../src/execution/task.ts";
 import {
   coordinatorTaskPublicReasons,
   type CoordinatorTaskPublicReason,
-} from "../src/task/result-reasons.ts";
+} from "../src/execution/result-reasons.ts";
 import { snapshotPlainArray } from "../../domain-model/src/index.ts";
-import { observeRuntimeOwnedDevelopmentSource } from "../src/task/development-source-observation.ts";
+import { observeRuntimeOwnedDevelopmentSource } from "../src/execution/development-source-observation.ts";
 import {
   isCanonicalCrddGitObjectId,
   isSupportedCrddRuntimeGitObjectId,
 } from "../src/diagnostics/release-identity-grammar.ts";
-import { inspectRepositoryRevisionCandidate } from "../src/repository-operation/binding.ts";
+import { inspectRepositoryRevisionCandidate } from "../src/workspace/binding.ts";
 import {
   evaluateVerificationSafetyObservation,
   salvageVerificationNullableRecovery,

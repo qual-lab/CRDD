@@ -109,9 +109,9 @@ export const currentAuthenticationRecoveryCliSource = `(async () => {
         }};
       },
     }});
-    const storeUrl = ${JSON.stringify(new URL("../../src/state-storage/settlement-store.ts", import.meta.url).href)};
+    const storeUrl = ${JSON.stringify(new URL("../../src/storage/settlement-store.ts", import.meta.url).href)};
     const store = await import(storeUrl);
-    const model = await import(${JSON.stringify(new URL("../../src/state-storage/model.ts", import.meta.url).href)});
+    const model = await import(${JSON.stringify(new URL("../../src/storage/model.ts", import.meta.url).href)});
     storeMock = mock.module(storeUrl,{namedExports:{...store,
       writeRuntimeOwnedCoordinatorAuthenticationUnknownClosure: (...args) => {
         assert.equal(++saves,1); assert.equal(args[1],id); assert.equal(discoveries,1); assert.equal(rounds,2); assert.equal(calls,6);
@@ -136,8 +136,8 @@ export const currentAuthenticationRecoveryCliSource = `(async () => {
         return result;
       },
     }});
-    const lifecycle = await import(${JSON.stringify(new URL("../../src/task/recovery.ts?auth-unknown-cli-fixture", import.meta.url).href)});
-    lifecycleMock = mock.module(${JSON.stringify(new URL("../../src/task/recovery.ts", import.meta.url).href)},{namedExports:{...lifecycle}});
+    const lifecycle = await import(${JSON.stringify(new URL("../../src/execution/recovery.ts?auth-unknown-cli-fixture", import.meta.url).href)});
+    lifecycleMock = mock.module(${JSON.stringify(new URL("../../src/execution/recovery.ts", import.meta.url).href)},{namedExports:{...lifecycle}});
     const vc = await import(${JSON.stringify(new URL("../../../version-control/src/index.ts", import.meta.url).href)});
     const verified = vc.verifyRepositoryRoot(process.cwd()); assert.equal(verified.status,'completed'); assert.ok(verified.capability);
     const read = store.readRuntimeOwnedCoordinatorRecoverySnapshot(verified.capability);

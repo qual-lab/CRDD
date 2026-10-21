@@ -28,16 +28,16 @@ import {
   createOwnedOperationContextCapability,
   createOwnedOperationDirectories,
   createOwnedOperationManagementCapability,
-} from "../../src/host-execution/operation-workspace-lifecycle.ts";
-import { loadHostRecoveryRecordByToken } from "../../src/host-execution/recovery-record.ts";
+} from "../../src/execution/operation.ts";
+import { loadHostRecoveryRecordByToken } from "../../src/storage/recovery-record.ts";
 import {
   bindRuntimeOwnedRepositoryOperation,
   borrowRuntimeOwnedCoordinatorStateRepository,
-} from "../../src/repository-operation/binding.ts";
+} from "../../src/workspace/binding.ts";
 import {
   COORDINATOR_STATE_SCHEMA,
   encodeCoordinatorStateValue,
-} from "../../src/state-storage/model.ts";
+} from "../../src/storage/model.ts";
 import {
   beginRuntimeOwnedCoordinatorHostSubmission,
   checkpointRuntimeOwnedCoordinatorLifecycle,
@@ -46,7 +46,7 @@ import {
   readRuntimeOwnedCoordinatorStateSnapshot,
   saveRuntimeOwnedCoordinatorOperationStart,
   writeRuntimeOwnedCoordinatorStateSnapshot,
-} from "../../src/state-storage/settlement-store.ts";
+} from "../../src/storage/settlement-store.ts";
 import { currentHostTransitionWorkerSource } from "../fixtures/current-host-transition-worker.ts";
 
 /**

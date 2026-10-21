@@ -19,11 +19,11 @@ import {
   resolveVerifiedRepositoryRootFromWorkingDirectory,
   verifyRepositoryRoot,
 } from "../../version-control/src/index.ts";
-import { observeRuntimeOwnedDevelopmentSource } from "../src/task/development-source-observation.ts";
+import { observeRuntimeOwnedDevelopmentSource } from "../src/execution/development-source-observation.ts";
 import {
   inspectRepositoryIdentityCandidate,
   inspectRepositoryRevisionCandidate,
-} from "../src/repository-operation/binding.ts";
+} from "../src/workspace/binding.ts";
 import {
   buildOrchestratorRealProviderReport,
   captureCanonicalRepositorySnapshot,

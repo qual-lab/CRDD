@@ -18,12 +18,12 @@ import {
   resolveVerifiedRepositoryRootFromWorkingDirectory,
   verifyRepositoryRoot,
 } from "../../version-control/src/index.ts";
-import { isDockerIsolationRecoveryIdCandidate } from "../src/host-execution/recovery-record.ts";
+import { isDockerIsolationRecoveryIdCandidate } from "../src/storage/recovery-record.ts";
 import { snapshotPlainArray } from "../../domain-model/src/index.ts";
-import { coordinatorTaskPublicReasons } from "../src/task/result-reasons.ts";
-import { inspectRepositoryRevisionCandidate } from "../src/repository-operation/binding.ts";
+import { coordinatorTaskPublicReasons } from "../src/execution/result-reasons.ts";
+import { inspectRepositoryRevisionCandidate } from "../src/workspace/binding.ts";
 import { isCanonicalVerificationRecoveryId } from "./verification-safety.ts";
-import { isSupportedCoordinatorNodeRuntime } from "../src/host-execution/node-runtime-version.ts";
+import { isSupportedCoordinatorNodeRuntime } from "../src/cli/node-runtime-version.ts";
 import {
   SIGNED_GENERAL_TASK_PUBLIC_REASONS,
   SIGNED_ROUTE_MATRIX_REASONS,

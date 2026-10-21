@@ -13,11 +13,11 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import {
   COORDINATOR_LAUNCH_ENTRIES,
   resolveCoordinatorLaunch,
-} from "../../src/cli/launch.ts";
+} from "../../src/cli/command.ts";
 
 const packageRoot = fileURLToPath(new URL("../../", import.meta.url));
 const repositoryRoot = path.resolve(packageRoot, "../..");
@@ -380,14 +380,25 @@ test("実子で同一PID・引数・stdin byte・cwd・終了コードを保持�
   try {
     for (const relative of [
       "bin/coordinator.ts",
-      "src/cli/launch.ts",
-      "src/host-execution/node-runtime-version.ts",
+      "src/cli/command.ts",
+      "src/cli/node-runtime-version.ts",
     ]) {
       const target = path.join(root, relative);
       fs.mkdirSync(path.dirname(target), { recursive: true });
       fs.copyFileSync(path.join(packageRoot, relative), target);
     }
-    const entry = path.join(root, "src/cli/command.ts");
+    // 実受付を使い、固定配送先だけを合成Scriptへ置き換える。
+    const commandFile = path.join(root, "src/cli/command.ts");
+    const commandSource = fs
+      .readFileSync(commandFile, "utf8")
+      .replace(
+        /from "(\.[^"]+)"/g,
+        (_match, relative: string) =>
+          `from "${pathToFileURL(path.resolve(packageRoot, "src/cli", relative)).href}"`,
+      );
+    fs.writeFileSync(commandFile, commandSource);
+    const entry = path.join(root, "scripts/verify-recovery-matrix.ts");
+    fs.mkdirSync(path.dirname(entry), { recursive: true });
     fs.writeFileSync(
       entry,
       `import { fileURLToPath } from 'node:url';
@@ -395,18 +406,11 @@ const chunks=[]; for await (const chunk of process.stdin) chunks.push(chunk);
 console.log(JSON.stringify({pid:process.pid, args:process.argv.slice(2), entryMatched:process.argv[1]===fileURLToPath(import.meta.url), cwd:process.cwd(), input:Buffer.concat(chunks).toString('hex')}));
 process.stderr.write('FIXTURE_STDERR'); process.exitCode=37;`,
     );
-    const args = [
-      "task",
-      "",
-      "日本語 空白",
-      '"quoted"',
-      "$HOME;echo",
-      "--json",
-    ];
+    const args: string[] = [];
     const input = Buffer.from('{"text":"日本語"}\n', "utf8");
     const result = spawnSync(
       process.execPath,
-      [path.join(root, "bin/coordinator.ts"), "automation", ...args],
+      [path.join(root, "bin/coordinator.ts"), "verify-recovery", ...args],
       {
         cwd: root,
         input,
@@ -427,7 +431,7 @@ process.stderr.write('FIXTURE_STDERR'); process.exitCode=37;`,
     fs.writeFileSync(entry, "throw new Error('PRIVATE_FIXTURE_DETAIL');");
     const failure = spawnSync(
       process.execPath,
-      [path.join(root, "bin/coordinator.ts"), "automation", "--json"],
+      [path.join(root, "bin/coordinator.ts"), "verify-recovery"],
       { cwd: root, encoding: "utf8", timeout: 30_000, windowsHide: true },
     );
     assert.equal(failure.status, 2);
@@ -437,6 +441,75 @@ process.stderr.write('FIXTURE_STDERR'); process.exitCode=37;`,
       failure.stderr,
       /PRIVATE_FIXTURE_DETAIL|cleanupConfirmed|at file:/,
     );
+
+    // 起動受付は実本文のまま、通常操作の本体だけを合成観測へ替える。
+    // 製品へ注入hookを追加せず、実子でliteral argvの搬送を反証する。
+    const handlerStart = commandSource.indexOf(
+      "async function runRuntimeCommand(",
+    );
+    assert.ok(handlerStart > 0);
+    fs.writeFileSync(
+      commandFile,
+      `${commandSource.slice(0, handlerStart)}
+/**
+ * 実子内で通常handlerへの配送値を観測する。
+ * @responsibility 製品受付を変えず、受取値とProcess情報だけを結果へ出す。
+ * @trace PRL-ST-001
+ * @precondition 自己生成したCLIコピーでだけ使用する。
+ * @stimulus automationから非自明argvとstdinを渡す。
+ * @observation 引数、argv1、PID、cwd、入力bytesと終了値。
+ * @oracle 親試験が期待値の完全一致を確認する。
+ * @cleanup 親試験のfinallyで自己生成Rootを削除する。
+ * @boundary 合成の通常handler。Provider・Docker・回復を実行しない。
+ */
+async function runRuntimeCommand(arguments_) {
+const chunks=[]; for await (const chunk of process.stdin) chunks.push(chunk);
+console.log(JSON.stringify({pid:process.pid, args:arguments_, argv:process.argv.slice(2), entryMatched:process.argv[1]===fileURLToPath(import.meta.url), cwd:process.cwd(), input:Buffer.concat(chunks).toString('hex')}));
+process.stderr.write('FIXTURE_STDERR'); process.exitCode=37;
+}`,
+    );
+    const forwarded = [
+      "task",
+      "",
+      "日本語 空白",
+      '"quoted"',
+      "$HOME;echo",
+      "--json",
+    ];
+    const routed = spawnSync(
+      process.execPath,
+      [path.join(root, "bin/coordinator.ts"), "automation", ...forwarded],
+      {
+        cwd: root,
+        input,
+        encoding: "utf8",
+        timeout: 30_000,
+        windowsHide: true,
+      },
+    );
+    assert.equal(routed.status, 37, routed.stderr);
+    assert.equal(routed.stderr, "FIXTURE_STDERR");
+    assert.deepEqual(JSON.parse(routed.stdout), {
+      pid: routed.pid,
+      args: forwarded,
+      argv: forwarded,
+      entryMatched: true,
+      cwd: root,
+      input: input.toString("hex"),
+    });
+
+    const imported = spawnSync(
+      process.execPath,
+      [
+        "--input-type=module",
+        "-e",
+        `await import(${JSON.stringify(pathToFileURL(commandFile).href)}); process.stdout.write('IMPORT_ONLY');`,
+      ],
+      { cwd: root, encoding: "utf8", timeout: 30_000, windowsHide: true },
+    );
+    assert.equal(imported.status, 0, imported.stderr);
+    assert.equal(imported.stdout, "IMPORT_ONLY");
+    assert.equal(imported.stderr, "");
   } finally {
     assert.ok(root.startsWith(`${tempParent}${path.sep}`));
     fs.rmSync(root, { recursive: true, force: true });

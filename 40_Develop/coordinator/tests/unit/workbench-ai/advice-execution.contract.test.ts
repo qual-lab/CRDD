@@ -15,7 +15,7 @@ import {
   beginRuntimeProcessEffectDrain,
   endRuntimeProcessEffectDrain,
   poisonRuntimeProcessAfterCleanupUnknown,
-} from "../../../src/host-execution/process-safety-state.ts";
+} from "../../../src/execution/process-safety-state.ts";
 
 import {
   defaultAiProfileCatalog,
@@ -29,8 +29,8 @@ import {
   classifyWorkbenchAiAdviceHostFailure,
   type WorkbenchAiAdviceRuntimeDependencies,
 } from "../../../src/workbench-ai/advice-execution.ts";
-import { createIsolatedDelegationSelectionGrantRuntimeCandidate } from "../../../src/provider/delegation-selection-grant.ts";
-import { createIsolatedCoordinatorOperationCreationCandidate } from "../../../src/repository-operation/create.ts";
+import { createIsolatedDelegationSelectionGrantRuntimeCandidate } from "../../../src/execution/delegation-selection-grant.ts";
+import { createIsolatedCoordinatorOperationCreationCandidate } from "../../../src/workspace/create.ts";
 
 const profile = resolveAiProfileById(
   defaultAiProfileCatalog,

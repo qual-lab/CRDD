@@ -16,7 +16,7 @@ import {
   type DockerRuntimeRepairCheckpoint,
   dockerRuntimeRepairCheckpointIsSettled,
 } from "../../../docker-isolation/src/index.ts";
-import { borrowRuntimeOwnedCoordinatorRecoveryRepository } from "../repository-operation/binding.ts";
+import { borrowRuntimeOwnedCoordinatorRecoveryRepository } from "../workspace/binding.ts";
 import {
   decodeCoordinatorStateSnapshot,
   encodeCoordinatorStateValue,
@@ -28,7 +28,7 @@ import {
   prepareCoordinatorStateRepairDisposalProgressSnapshot,
   prepareCoordinatorRepairHistorySummary,
   type CoordinatorStateRepairOperation,
-} from "../state-storage/model.ts";
+} from "../storage/model.ts";
 import {
   cleanupRuntimeOwnedCoordinatorStateMarker,
   resumeRuntimeOwnedCoordinatorRepairPublication,
@@ -38,7 +38,7 @@ import {
   advanceRuntimeOwnedCoordinatorRepairHistory,
   readRuntimeOwnedCoordinatorRepairCompletionSnapshot,
   completeRuntimeOwnedCoordinatorRepair,
-} from "../state-storage/settlement-store.ts";
+} from "../storage/settlement-store.ts";
 
 /**
  * 同じRoot・Revision・修復Identityで技術処置と保存を直列化する。

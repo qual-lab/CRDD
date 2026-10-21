@@ -15,8 +15,10 @@ import { describeProviderHomeObservationContract } from "../../../platform-acces
 let spawnCalls = 0;
 
 await mock.module(
-  new URL("../../src/task/development-measurement-session.ts", import.meta.url)
-    .href,
+  new URL(
+    "../../src/execution/development-measurement-session.ts",
+    import.meta.url,
+  ).href,
   {
     namedExports: {
       borrowRuntimeOwnedDevelopmentNativeObservation: () => null,
@@ -55,11 +57,9 @@ await mock.module(
 );
 
 const providerAdapter = await import(
-  "../../src/provider/home-windows-adapter.ts"
+  "../../src/execution/provider-home-windows-adapter.ts"
 );
-const candidateAdapter = await import(
-  "../../src/platform-access/protected-root-windows-adapter.ts"
-);
+const candidateAdapter = await import("../../src/execution/protected-root.ts");
 const providerOutcome =
   providerAdapter.inspectRuntimeOwnedWindowsProviderHomeCandidate("codex");
 const candidateOutcomes = [

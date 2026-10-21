@@ -49,7 +49,7 @@ import {
   writeOrchestratorSnapshotState,
 } from "../../../orchestrator/src/storage/current-state.ts";
 import { createProjectResultAcceptanceReader } from "../../../orchestrator/src/task/settle-docker-recovery.ts";
-import { acquireRuntimeOwnedOrchestratorStateKernelLock } from "../../src/host-execution/kernel-lock.ts";
+import { acquireRuntimeOwnedOrchestratorStateKernelLock } from "../../src/execution/kernel-lock.ts";
 
 const MAX_RECORD_BYTES = 16 * 1024 * 1024;
 

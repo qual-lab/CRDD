@@ -14,7 +14,7 @@ import { describeAuthorityTrustLoaderContract } from "../authority/trust-loader.
 import {
   classifyOwnedCoordinatorOperationCreationFailure,
   createRuntimeOwnedCoordinatorOperation,
-} from "../repository-operation/create.ts";
+} from "../workspace/create.ts";
 import {
   DOCKER_ISOLATION_PROFILE,
   runDockerIsolationProbe,
@@ -25,14 +25,14 @@ import {
   createProviderEnvironment,
   credentialEnvironmentNamesPresent,
   describeFilesystemPolicy,
-} from "../host-execution/operation-workspace-lifecycle.ts";
+} from "../execution/operation.ts";
 import { snapshotPlainArray } from "../../../domain-model/src/index.ts";
-import { describeProviderIsolationContract } from "../provider/isolation-profile.ts";
-import { describeProviderLifecycleContract } from "../provider/lifecycle.ts";
+import { describeProviderIsolationContract } from "../execution/isolation-profile.ts";
+import { describeProviderLifecycleContract } from "../execution/provider-lifecycle.ts";
 import { describeRepositoryLocationContract } from "../../../version-control/src/index.ts";
-import { inspectRepositoryRevisionCandidate } from "../repository-operation/binding.ts";
-import { describeRootProtectionPolicyContract } from "../repository-operation/root-protection-policy.ts";
-import { isSupportedCoordinatorNodeRuntime } from "../host-execution/node-runtime-version.ts";
+import { inspectRepositoryRevisionCandidate } from "../workspace/binding.ts";
+import { describeRootProtectionPolicyContract } from "../workspace/root-protection-policy.ts";
+import { isSupportedCoordinatorNodeRuntime } from "../cli/node-runtime-version.ts";
 
 export const CHECK_STATUS = Object.freeze([
   "confirmed",

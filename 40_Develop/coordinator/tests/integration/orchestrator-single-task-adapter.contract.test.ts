@@ -19,9 +19,9 @@ import {
   type OrchestratorSingleTaskDependencies,
   runOrchestratorSingleTaskAttempt,
 } from "../../../orchestrator/src/index.ts";
-import { startRuntimeOwnedCoordinatorTask } from "../../src/task/execution.ts";
-import { observeCoordinatorTaskCompletion } from "../../src/task/completion-observation.ts";
-import { snapshotCoordinatorWorkspaceResult } from "../../src/task/attempt.ts";
+import { startRuntimeOwnedCoordinatorTask } from "../../src/execution/task.ts";
+import { observeCoordinatorTaskCompletion } from "../../src/execution/completion-observation.ts";
+import { snapshotCoordinatorWorkspaceResult } from "../../src/execution/attempt.ts";
 
 /**
  * 変更観測の意味と閉じた形を固定する。
@@ -70,7 +70,7 @@ test("Workspace観測snapshotは方式と変更情報の相関を保持する", 
 import {
   beginRuntimeProcessEffectDrain,
   endRuntimeProcessEffectDrain,
-} from "../../src/host-execution/process-safety-state.ts";
+} from "../../src/execution/process-safety-state.ts";
 
 const CONTRACT = "crdd-coordinator/orchestrator-single-task-adapter";
 const ATTEMPT_ID = "attempt-0001";
@@ -1361,7 +1361,7 @@ test("Effect前拒否母集団は現在Runtimeの実throw経路と一致する",
     "coordinator_task_workspace_target_invalid",
   ]);
   const runtimeSource = fs.readFileSync(
-    path.resolve(import.meta.dirname, "../../src/task/execution.ts"),
+    path.resolve(import.meta.dirname, "../../src/execution/task.ts"),
     "utf8",
   );
   for (const rejection of ORCHESTRATOR_SINGLE_TASK_PRE_EFFECT_REJECTIONS)

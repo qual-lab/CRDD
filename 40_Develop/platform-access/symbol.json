@@ -3,6 +3,9 @@
   "contractRevision": 1,
   "subsystem": "platform-access",
   "symbols": [
+    { "symbolId": "platform-access.source.in-process-pipe-lease", "kind": "file", "path": "src/lock/in-process.ts", "archIds": ["ARCH-000008"] },
+    { "symbolId": "platform-access.source.in-process-pipe-lifecycle", "kind": "file", "path": "src/lock/in-process-lifecycle.ts", "archIds": ["ARCH-000008"] },
+    { "symbolId": "platform-access.test.unit.in-process-pipe-lifecycle", "kind": "test-suite", "path": "tests/unit/lock/in-process-lifecycle.contract.test.ts", "qaIds": ["QA-000003"], "localTestIds": ["PRL-UT-006"], "verifies": ["platform-access.source.in-process-pipe-lifecycle", "platform-access.source.in-process-pipe-lease"] },
     { "symbolId": "platform-access.source.lock-lifecycle", "kind": "file", "path": "src/lock/lifecycle.ts", "archIds": ["ARCH-000015"] },
     { "symbolId": "platform-access.source.lock-worker", "kind": "file", "path": "src/lock/worker.ts", "archIds": ["ARCH-000015"] },
     { "symbolId": "platform-access.source.lock-supervisor", "kind": "file", "path": "src/lock/supervisor.ts", "archIds": ["ARCH-000004"] },

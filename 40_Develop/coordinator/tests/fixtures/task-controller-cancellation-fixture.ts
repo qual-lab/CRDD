@@ -14,8 +14,8 @@ import assert from "node:assert/strict";
 import {
   orchestratorOwnedDockerProcessCompletionForTask,
   orchestratorOwnedDockerProcessStartForTask,
-} from "../../src/task/execution.ts";
-import { createIsolatedDockerProcessControllerCandidate } from "../../src/provider/execution-controller.ts";
+} from "../../src/execution/task.ts";
+import { createIsolatedDockerProcessControllerCandidate } from "../../src/execution/provider-controller.ts";
 import type { OwnedCommandHandle } from "../../../docker-isolation/src/index.ts";
 import { createOwnedProcessTreeFixture } from "./docker-owned-process-test-support.ts";
 

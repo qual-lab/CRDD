@@ -14,8 +14,8 @@ import { isSupportedCrddRuntimeGitObjectId } from "../src/diagnostics/release-id
 import { inspectMcpOrchestratorObjectiveResult } from "../../mcp-server/src/index.ts";
 import { inspectOrchestratorStateQueryResult } from "../../orchestrator/src/state/query-contract.ts";
 import { startWindowsChildTreeTermination } from "../../platform-access/src/index.ts";
-import { dockerProcessControllerPublicCompletionReasons } from "../src/provider/execution-result-reasons.ts";
-import { inspectRepositoryIdentityCandidate } from "../src/repository-operation/binding.ts";
+import { dockerProcessControllerPublicCompletionReasons } from "../src/execution/provider-result-reasons.ts";
+import { inspectRepositoryIdentityCandidate } from "../src/workspace/binding.ts";
 
 /**
  * orchestrator-real-provider-contractで使用するJson 記録の値契約を定義する。

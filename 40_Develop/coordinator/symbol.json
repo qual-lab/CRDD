@@ -6,7 +6,7 @@
     {
       "symbolId": "coordinator.source.repository-operation.borrowed-workspace",
       "kind": "file",
-      "path": "src/repository-operation/borrowed-workspace.ts",
+      "path": "src/workspace/borrowed-tree.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000008"
@@ -23,7 +23,7 @@
         "ERB-IT-004"
       ],
       "verifies": [
-        "coordinator.source.src.core.coordinator.launch",
+        "coordinator.source.src.cli.command",
         "coordinator.source.src.security.docker.recovery.runtime"
       ]
     },
@@ -202,7 +202,7 @@
     {
       "symbolId": "coordinator.test.unit.repair-state-model",
       "kind": "test-suite",
-      "path": "tests/unit/state-storage/repair-model.contract.test.ts",
+      "path": "tests/unit/storage/repair-model.contract.test.ts",
       "qaIds": [
         "QA-000006"
       ],
@@ -238,7 +238,7 @@
     {
       "symbolId": "coordinator.state-storage.restart-checkpoint",
       "kind": "file",
-      "path": "src/state-storage/restart-checkpoint.ts",
+      "path": "src/storage/restart-checkpoint.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -246,7 +246,7 @@
     {
       "symbolId": "coordinator.test.unit.restart-checkpoint",
       "kind": "test-suite",
-      "path": "tests/unit/state-storage/restart-checkpoint.contract.test.ts",
+      "path": "tests/unit/storage/restart-checkpoint.contract.test.ts",
       "qaIds": [
         "QA-000003"
       ],
@@ -333,7 +333,7 @@
     {
       "symbolId": "coordinator.state-storage.coordinator-state-runtime",
       "kind": "file",
-      "path": "src/state-storage/settlement-store.ts",
+      "path": "src/storage/settlement-store.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -358,7 +358,7 @@
     {
       "symbolId": "coordinator.state-storage.coordinator-state-model",
       "kind": "file",
-      "path": "src/state-storage/model.ts",
+      "path": "src/storage/model.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -366,7 +366,7 @@
     {
       "symbolId": "coordinator.test.unit.coordinator-state-model",
       "kind": "test-suite",
-      "path": "tests/unit/state-storage/model.contract.test.ts",
+      "path": "tests/unit/storage/model.contract.test.ts",
       "qaIds": [
         "QA-000003"
       ],
@@ -406,7 +406,7 @@
     {
       "symbolId": "coordinator.task.task-attempt-runtime",
       "kind": "file",
-      "path": "src/task/attempt.ts",
+      "path": "src/execution/attempt.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -414,7 +414,7 @@
     {
       "symbolId": "coordinator.task.task-completion-observation",
       "kind": "file",
-      "path": "src/task/completion-observation.ts",
+      "path": "src/execution/completion-observation.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -422,7 +422,7 @@
     {
       "symbolId": "coordinator.task.types",
       "kind": "file",
-      "path": "src/task/types.ts",
+      "path": "src/execution/types.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -430,7 +430,7 @@
     {
       "symbolId": "coordinator.provider.execution-plan",
       "kind": "file",
-      "path": "src/provider/execution-plan.ts",
+      "path": "src/execution/provider-plan.ts",
       "archIds": [
         "ARCH-000015"
       ]
@@ -438,7 +438,7 @@
     {
       "symbolId": "coordinator.provider.execution-composition",
       "kind": "file",
-      "path": "src/provider/execution-composition.ts",
+      "path": "src/execution/provider-composition.ts",
       "archIds": [
         "ARCH-000015"
       ]
@@ -446,7 +446,7 @@
     {
       "symbolId": "coordinator.provider.execution-adapter",
       "kind": "file",
-      "path": "src/provider/execution-adapter.ts",
+      "path": "src/execution/provider-adapter.ts",
       "archIds": [
         "ARCH-000015"
       ]
@@ -454,7 +454,7 @@
     {
       "symbolId": "coordinator.provider.preparation",
       "kind": "file",
-      "path": "src/provider/preparation.ts",
+      "path": "src/execution/provider-preparation.ts",
       "archIds": [
         "ARCH-000015"
       ]
@@ -462,7 +462,7 @@
     {
       "symbolId": "coordinator.provider.preparation-lifecycle",
       "kind": "file",
-      "path": "src/provider/preparation-lifecycle.ts",
+      "path": "src/execution/provider-preparation-lifecycle.ts",
       "archIds": [
         "ARCH-000015"
       ]
@@ -470,7 +470,7 @@
     {
       "symbolId": "coordinator.provider.execution-types",
       "kind": "file",
-      "path": "src/provider/execution-types.ts",
+      "path": "src/execution/provider-types.ts",
       "archIds": [
         "ARCH-000015"
       ]
@@ -507,7 +507,7 @@
     {
       "symbolId": "coordinator.task-runtime",
       "kind": "file",
-      "path": "src/task/execution.ts",
+      "path": "src/execution/task.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000008",
@@ -524,7 +524,7 @@
     {
       "symbolId": "coordinator.provider-authority-runtime",
       "kind": "file",
-      "path": "src/provider/authority-grant.ts",
+      "path": "src/execution/authority-grant.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000015"
@@ -536,7 +536,7 @@
     {
       "symbolId": "coordinator.provider-model-selection-runtime",
       "kind": "file",
-      "path": "src/provider/model-selection.ts",
+      "path": "src/execution/model-selection.ts",
       "archIds": [
         "ARCH-000010"
       ],
@@ -671,7 +671,7 @@
       ],
       "verifies": [
         "coordinator.provider-authority-runtime",
-        "coordinator.source.src.security.claude.docker.runtime.adapter",
+        "coordinator.provider.execution-adapter",
         "coordinator.provider.preparation-lifecycle",
         "coordinator.provider.execution-types",
         "coordinator.source.src.security.delegation.selection.grant.runtime",
@@ -768,7 +768,7 @@
         "ERB-IT-004"
       ],
       "verifies": [
-        "coordinator.source.src.security.claude.docker.runtime.adapter",
+        "coordinator.provider.execution-adapter",
         "coordinator.source.src.security.docker.effect.runtime",
         "coordinator.source.src.security.execution.environment",
         "docker-isolation.execution.cli-environment"
@@ -1350,7 +1350,7 @@
         "PRL-ST-001"
       ],
       "verifies": [
-        "coordinator.source.src.core.coordinator.launch"
+        "coordinator.source.src.cli.command"
       ]
     },
     {
@@ -1654,7 +1654,7 @@
     {
       "symbolId": "coordinator.test.unit.candidate-store-windows-adapter",
       "kind": "test-suite",
-      "path": "tests/unit/platform-access/protected-root-windows-adapter.contract.test.ts",
+      "path": "tests/unit/execution/protected-root.contract.test.ts",
       "qaIds": [
         "QA-000004"
       ],
@@ -1669,7 +1669,7 @@
     {
       "symbolId": "coordinator.test.unit.claude-docker-runtime-adapter",
       "kind": "test-suite",
-      "path": "tests/unit/provider/claude-docker-adapter.contract.test.ts",
+      "path": "tests/unit/execution/claude-preparation.contract.test.ts",
       "qaIds": [
         "QA-000003"
       ],
@@ -1677,9 +1677,8 @@
         "PRL-UT-014"
       ],
       "verifies": [
-        "coordinator.source.src.security.claude.docker.runtime.adapter",
-        "coordinator.provider.execution-composition",
         "coordinator.provider.execution-adapter",
+        "coordinator.provider.execution-composition",
         "coordinator.provider.preparation",
         "coordinator.provider.execution-plan",
         "coordinator.docker-runtime.provider-docker-command-plan",
@@ -1721,7 +1720,7 @@
     {
       "symbolId": "coordinator.test.unit.codex-docker-runtime-adapter",
       "kind": "test-suite",
-      "path": "tests/unit/provider/codex-docker-adapter.contract.test.ts",
+      "path": "tests/unit/execution/codex-preparation.contract.test.ts",
       "qaIds": [
         "QA-000003"
       ],
@@ -1729,9 +1728,8 @@
         "PRL-UT-014"
       ],
       "verifies": [
-        "coordinator.source.src.security.codex.docker.runtime.adapter",
-        "coordinator.provider.execution-composition",
         "coordinator.provider.execution-adapter",
+        "coordinator.provider.execution-composition",
         "coordinator.provider.preparation",
         "coordinator.provider.execution-plan",
         "coordinator.docker-runtime.provider-docker-command-plan",
@@ -1759,7 +1757,7 @@
     {
       "symbolId": "coordinator.test.unit.coordinator-operation-creation-internal",
       "kind": "test-suite",
-      "path": "tests/unit/repository-operation/create.contract.test.ts",
+      "path": "tests/unit/workspace/create.contract.test.ts",
       "qaIds": [
         "QA-000003"
       ],
@@ -1804,7 +1802,7 @@
     {
       "symbolId": "coordinator.test.unit.delegation-selection-grant-runtime",
       "kind": "test-suite",
-      "path": "tests/unit/provider/delegation-selection-grant.contract.test.ts",
+      "path": "tests/unit/execution/delegation-selection-grant.contract.test.ts",
       "qaIds": [
         "QA-000003"
       ],
@@ -1865,7 +1863,7 @@
     {
       "symbolId": "coordinator.test.unit.task.cleanup-eligibility",
       "kind": "test-suite",
-      "path": "tests/unit/task/cleanup-eligibility.contract.test.ts",
+      "path": "tests/unit/execution/cleanup-eligibility.contract.test.ts",
       "qaIds": [
         "QA-000008"
       ],
@@ -1879,7 +1877,7 @@
     {
       "symbolId": "coordinator.test.unit.host-execution.recovery-record",
       "kind": "test-suite",
-      "path": "tests/unit/host-execution/recovery-record.contract.test.ts",
+      "path": "tests/unit/storage/recovery-record.contract.test.ts",
       "qaIds": [
         "QA-000003"
       ],
@@ -1893,7 +1891,7 @@
     {
       "symbolId": "coordinator.test.unit.task.recovery-projection",
       "kind": "test-suite",
-      "path": "tests/unit/task/recovery-projection.contract.test.ts",
+      "path": "tests/unit/execution/recovery-projection.contract.test.ts",
       "qaIds": [
         "QA-000003"
       ],
@@ -1913,7 +1911,7 @@
       "localTestIds": [
         "PRL-UT-006"
       ],
-      "path": "tests/unit/state-storage/docker-recovery-journal.contract.test.ts",
+      "path": "tests/unit/storage/docker-recovery-journal.contract.test.ts",
       "verifies": [
         "coordinator.source.src.security.docker.recovery.journal"
       ]
@@ -1927,9 +1925,9 @@
       "localTestIds": [
         "PRL-UT-006"
       ],
-      "path": "tests/unit/state-storage/settlement-store.contract.test.ts",
+      "path": "tests/unit/storage/model-reentry.contract.test.ts",
       "verifies": [
-        "coordinator.state-storage.coordinator-state-runtime"
+        "coordinator.state-storage.coordinator-state-model"
       ]
     },
     {
@@ -1992,7 +1990,7 @@
     {
       "symbolId": "coordinator.test.unit.host-generation-loss-transition",
       "kind": "test-suite",
-      "path": "tests/unit/host-execution/generation-loss-transition.contract.test.ts",
+      "path": "tests/unit/execution/generation-loss-transition.contract.test.ts",
       "qaIds": [
         "QA-000003"
       ],
@@ -2021,7 +2019,7 @@
     {
       "symbolId": "coordinator.test.unit.node-runtime-version",
       "kind": "test-suite",
-      "path": "tests/unit/host-execution/node-runtime-version.contract.test.ts",
+      "path": "tests/unit/cli/node-runtime-version.contract.test.ts",
       "qaIds": [
         "QA-000003"
       ],
@@ -2044,20 +2042,6 @@
       ],
       "verifies": [
         "coordinator.source.src.security.plain.data.snapshot"
-      ]
-    },
-    {
-      "symbolId": "coordinator.test.unit.platform-access-adapter",
-      "kind": "test-suite",
-      "path": "tests/unit/platform-access/adapter.contract.test.ts",
-      "qaIds": [
-        "QA-000003"
-      ],
-      "localTestIds": [
-        "PRL-UT-014"
-      ],
-      "verifies": [
-        "coordinator.source.src.security.platform.access.adapter"
       ]
     },
     {
@@ -2114,7 +2098,7 @@
     {
       "symbolId": "coordinator.test.unit.provider-authority-runtime",
       "kind": "test-suite",
-      "path": "tests/unit/provider/authority-grant.contract.test.ts",
+      "path": "tests/unit/execution/authority-grant.contract.test.ts",
       "qaIds": [
         "QA-000003"
       ],
@@ -2128,7 +2112,7 @@
     {
       "symbolId": "coordinator.test.unit.provider-eligibility-runtime",
       "kind": "test-suite",
-      "path": "tests/unit/provider/eligibility-observation.contract.test.ts",
+      "path": "tests/unit/execution/eligibility-observation.contract.test.ts",
       "qaIds": [
         "QA-000010"
       ],
@@ -2158,7 +2142,7 @@
     {
       "symbolId": "coordinator.test.unit.provider-home-mount-grant-runtime",
       "kind": "test-suite",
-      "path": "tests/unit/provider/home-mount-authorization.contract.test.ts",
+      "path": "tests/unit/execution/provider-home-mount-authorization.contract.test.ts",
       "qaIds": [
         "QA-000010"
       ],
@@ -2174,7 +2158,7 @@
     {
       "symbolId": "coordinator.test.unit.provider-home-mount-grant",
       "kind": "test-suite",
-      "path": "tests/unit/provider/home-mount-grant.contract.test.ts",
+      "path": "tests/unit/execution/provider-home-mount-grant.contract.test.ts",
       "qaIds": [
         "QA-000010"
       ],
@@ -2188,7 +2172,7 @@
     {
       "symbolId": "coordinator.test.unit.provider-home-observation",
       "kind": "test-suite",
-      "path": "tests/unit/platform-access/protected-root-protocol.contract.test.ts",
+      "path": "tests/unit/execution/provider-home-observation.contract.test.ts",
       "qaIds": [
         "QA-000010"
       ],
@@ -2204,7 +2188,7 @@
     {
       "symbolId": "coordinator.test.unit.provider-home",
       "kind": "test-suite",
-      "path": "tests/unit/provider/home.contract.test.ts",
+      "path": "tests/unit/execution/provider-home.contract.test.ts",
       "qaIds": [
         "QA-000010"
       ],
@@ -2218,7 +2202,7 @@
     {
       "symbolId": "coordinator.test.unit.provider-isolation-profile",
       "kind": "test-suite",
-      "path": "tests/unit/provider/isolation-profile.contract.test.ts",
+      "path": "tests/unit/execution/isolation-profile.contract.test.ts",
       "qaIds": [
         "QA-000010"
       ],
@@ -2232,7 +2216,7 @@
     {
       "symbolId": "coordinator.test.unit.provider-lifecycle",
       "kind": "test-suite",
-      "path": "tests/unit/provider/lifecycle.contract.test.ts",
+      "path": "tests/unit/execution/provider-lifecycle.contract.test.ts",
       "qaIds": [
         "QA-000003"
       ],
@@ -2262,7 +2246,7 @@
     {
       "symbolId": "coordinator.test.unit.provider-model-selection-runtime",
       "kind": "test-suite",
-      "path": "tests/unit/provider/model-selection.contract.test.ts",
+      "path": "tests/unit/execution/model-selection.contract.test.ts",
       "qaIds": [
         "QA-000003"
       ],
@@ -2416,7 +2400,7 @@
     {
       "symbolId": "coordinator.test.unit.provider-task-packet-runtime",
       "kind": "test-suite",
-      "path": "tests/unit/provider/task-packet.contract.test.ts",
+      "path": "tests/unit/execution/task-packet.contract.test.ts",
       "qaIds": [
         "QA-000003"
       ],
@@ -2435,7 +2419,7 @@
     {
       "symbolId": "coordinator.test.unit.provider-task-structured-result",
       "kind": "test-suite",
-      "path": "tests/unit/provider/task-structured-result.contract.test.ts",
+      "path": "tests/unit/execution/task-structured-result.contract.test.ts",
       "qaIds": [
         "QA-000001"
       ],
@@ -2467,9 +2451,11 @@
       "kind": "test-suite",
       "path": "tests/unit/root-observation.contract.test.ts",
       "qaIds": [
+        "QA-000003",
         "QA-000007"
       ],
       "localTestIds": [
+        "PRL-UT-014",
         "RFD-UT-006"
       ],
       "verifies": [
@@ -2626,7 +2612,7 @@
     {
       "symbolId": "coordinator.host-execution.kernel-lock",
       "kind": "file",
-      "path": "src/host-execution/kernel-lock.ts",
+      "path": "src/execution/kernel-lock.ts",
       "archIds": [
         "ARCH-000015"
       ]
@@ -2634,7 +2620,7 @@
     {
       "symbolId": "coordinator.source.src.security.claude.subscription.authentication",
       "kind": "file",
-      "path": "src/provider/claude-subscription-authentication.ts",
+      "path": "src/execution/claude-subscription-authentication.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000008",
@@ -2673,17 +2659,9 @@
       ]
     },
     {
-      "symbolId": "coordinator.source.src.security.claude.docker.runtime.adapter",
-      "kind": "file",
-      "path": "src/provider/claude-docker-adapter.ts",
-      "archIds": [
-        "ARCH-000015"
-      ]
-    },
-    {
       "symbolId": "coordinator.source.src.security.delegation.selection.grant.runtime",
       "kind": "file",
-      "path": "src/provider/delegation-selection-grant.ts",
+      "path": "src/execution/delegation-selection-grant.ts",
       "archIds": [
         "ARCH-000010"
       ]
@@ -2691,7 +2669,7 @@
     {
       "symbolId": "coordinator.source.src.security.docker.process.controller",
       "kind": "file",
-      "path": "src/provider/execution-controller.ts",
+      "path": "src/execution/provider-controller.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -2715,7 +2693,7 @@
     {
       "symbolId": "coordinator.source.src.security.execution.environment",
       "kind": "file",
-      "path": "src/host-execution/operation-workspace-lifecycle.ts",
+      "path": "src/execution/operation.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -2731,7 +2709,7 @@
     {
       "symbolId": "coordinator.source.src.core.runtime.process.safety.state",
       "kind": "file",
-      "path": "src/host-execution/process-safety-state.ts",
+      "path": "src/execution/process-safety-state.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -2739,7 +2717,7 @@
     {
       "symbolId": "coordinator.source.src.security.delegation.route.selection",
       "kind": "file",
-      "path": "src/provider/delegation-route-selection.ts",
+      "path": "src/execution/delegation-route-selection.ts",
       "archIds": [
         "ARCH-000010"
       ]
@@ -2747,7 +2725,7 @@
     {
       "symbolId": "coordinator.source.src.security.repository.operation.runtime",
       "kind": "file",
-      "path": "src/repository-operation/binding.ts",
+      "path": "src/workspace/binding.ts",
       "archIds": [
         "ARCH-000009"
       ]
@@ -2755,7 +2733,7 @@
     {
       "symbolId": "coordinator.source.src.security.development.measurement.session",
       "kind": "file",
-      "path": "src/task/development-measurement-session.ts",
+      "path": "src/execution/development-measurement-session.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -2763,7 +2741,7 @@
     {
       "symbolId": "coordinator.source.task.development-source-observation",
       "kind": "file",
-      "path": "src/task/development-source-observation.ts",
+      "path": "src/execution/development-source-observation.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -2771,7 +2749,7 @@
     {
       "symbolId": "coordinator.source.src.security.provider.home.windows.adapter",
       "kind": "file",
-      "path": "src/provider/home-windows-adapter.ts",
+      "path": "src/execution/provider-home-windows-adapter.ts",
       "archIds": [
         "ARCH-000010"
       ]
@@ -2779,7 +2757,7 @@
     {
       "symbolId": "coordinator.platform-access.protected-root-windows-adapter",
       "kind": "file",
-      "path": "src/platform-access/protected-root-windows-adapter.ts",
+      "path": "src/execution/protected-root.ts",
       "archIds": [
         "ARCH-000015"
       ]
@@ -2787,7 +2765,7 @@
     {
       "symbolId": "coordinator.source.src.security.docker.recovery.runtime.internal",
       "kind": "file",
-      "path": "src/task/recovery.ts",
+      "path": "src/execution/recovery.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -2795,7 +2773,7 @@
     {
       "symbolId": "coordinator.source.src.security.docker.effect.runtime",
       "kind": "file",
-      "path": "src/provider/isolation-execution.ts",
+      "path": "src/execution/isolation-execution.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -2803,7 +2781,7 @@
     {
       "symbolId": "coordinator.source.src.security.development.measurement.constraints",
       "kind": "file",
-      "path": "src/task/development-measurement-constraints.ts",
+      "path": "src/execution/development-measurement-constraints.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -2811,7 +2789,7 @@
     {
       "symbolId": "coordinator.source.src.security.docker.recovery.journal",
       "kind": "file",
-      "path": "src/state-storage/docker-recovery-journal.ts",
+      "path": "src/storage/docker-recovery-journal.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -2819,7 +2797,7 @@
     {
       "symbolId": "coordinator.source.src.security.docker.recovery.runtime",
       "kind": "file",
-      "path": "src/task/recovery.ts",
+      "path": "src/execution/recovery.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -2827,7 +2805,7 @@
     {
       "symbolId": "coordinator.source.src.security.host.recovery.record",
       "kind": "file",
-      "path": "src/host-execution/recovery-record.ts",
+      "path": "src/storage/recovery-record.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -3034,7 +3012,7 @@
     {
       "symbolId": "coordinator.source.src.security.repository.workspace.runtime",
       "kind": "file",
-      "path": "src/repository-operation/workspace.ts",
+      "path": "src/workspace/execution-target.ts",
       "archIds": [
         "ARCH-000013"
       ]
@@ -3066,14 +3044,6 @@
       ],
       "implements": [
         "coordinator.provider-effect-authority"
-      ]
-    },
-    {
-      "symbolId": "coordinator.source.src.core.coordinator.launch",
-      "kind": "file",
-      "path": "src/cli/launch.ts",
-      "archIds": [
-        "ARCH-000004"
       ]
     },
     {
@@ -3111,7 +3081,7 @@
     {
       "symbolId": "coordinator.source.src.core.node.runtime.version",
       "kind": "file",
-      "path": "src/host-execution/node-runtime-version.ts",
+      "path": "src/cli/node-runtime-version.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -3191,7 +3161,7 @@
     {
       "symbolId": "coordinator.source.src.security.provider.isolation.profile",
       "kind": "file",
-      "path": "src/provider/isolation-profile.ts",
+      "path": "src/execution/isolation-profile.ts",
       "archIds": [
         "ARCH-000010"
       ]
@@ -3213,17 +3183,9 @@
       ]
     },
     {
-      "symbolId": "coordinator.source.src.security.codex.docker.runtime.adapter",
-      "kind": "file",
-      "path": "src/provider/codex-docker-adapter.ts",
-      "archIds": [
-        "ARCH-000015"
-      ]
-    },
-    {
       "symbolId": "coordinator.source.src.security.coordinator.operation.creation.internal",
       "kind": "file",
-      "path": "src/repository-operation/create.ts",
+      "path": "src/workspace/create.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -3239,7 +3201,7 @@
     {
       "symbolId": "coordinator.source.src.security.coordinator.task.request",
       "kind": "file",
-      "path": "src/task/request.ts",
+      "path": "src/execution/request.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -3247,7 +3209,7 @@
     {
       "symbolId": "coordinator.task.cleanup-eligibility",
       "kind": "file",
-      "path": "src/task/cleanup-eligibility.ts",
+      "path": "src/execution/cleanup-eligibility.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -3255,7 +3217,7 @@
     {
       "symbolId": "coordinator.task.recovery-projection",
       "kind": "file",
-      "path": "src/task/recovery-projection.ts",
+      "path": "src/execution/recovery-projection.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -3279,7 +3241,7 @@
     {
       "symbolId": "coordinator.source.src.core.host.generation.loss.transition",
       "kind": "file",
-      "path": "src/host-execution/generation-loss-transition.ts",
+      "path": "src/execution/generation-loss-transition.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -3293,14 +3255,6 @@
       ]
     },
     {
-      "symbolId": "coordinator.source.src.security.platform.access.adapter",
-      "kind": "file",
-      "path": "src/platform-access/adapter.ts",
-      "archIds": [
-        "ARCH-000008"
-      ]
-    },
-    {
       "symbolId": "coordinator.source.src.security.runtime.trust.evaluator",
       "kind": "file",
       "path": "src/authority/runtime-trust.ts",
@@ -3311,7 +3265,7 @@
     {
       "symbolId": "coordinator.source.src.security.root.observation",
       "kind": "file",
-      "path": "src/repository-operation/root-observation.ts",
+      "path": "src/workspace/root-observation.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -3319,7 +3273,7 @@
     {
       "symbolId": "coordinator.source.src.security.provider.eligibility.runtime",
       "kind": "file",
-      "path": "src/provider/eligibility-observation.ts",
+      "path": "src/execution/eligibility-observation.ts",
       "archIds": [
         "ARCH-000010"
       ]
@@ -3335,7 +3289,7 @@
     {
       "symbolId": "coordinator.source.src.security.provider.home.mount.grant.runtime",
       "kind": "file",
-      "path": "src/provider/home-mount-authorization.ts",
+      "path": "src/execution/provider-home-mount-authorization.ts",
       "archIds": [
         "ARCH-000010"
       ]
@@ -3343,7 +3297,7 @@
     {
       "symbolId": "coordinator.source.src.security.provider.home.mount.grant",
       "kind": "file",
-      "path": "src/provider/home-mount-grant.ts",
+      "path": "src/execution/provider-home-mount-grant.ts",
       "archIds": [
         "ARCH-000010"
       ]
@@ -3351,7 +3305,7 @@
     {
       "symbolId": "coordinator.source.src.security.provider.home",
       "kind": "file",
-      "path": "src/provider/home.ts",
+      "path": "src/execution/provider-home.ts",
       "archIds": [
         "ARCH-000010"
       ]
@@ -3359,7 +3313,7 @@
     {
       "symbolId": "coordinator.source.src.security.provider.lifecycle",
       "kind": "file",
-      "path": "src/provider/lifecycle.ts",
+      "path": "src/execution/provider-lifecycle.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -3367,7 +3321,7 @@
     {
       "symbolId": "coordinator.source.src.security.provider.task.packet.runtime",
       "kind": "file",
-      "path": "src/provider/task-packet.ts",
+      "path": "src/execution/task-packet.ts",
       "archIds": [
         "ARCH-000015"
       ]
@@ -3375,7 +3329,7 @@
     {
       "symbolId": "coordinator.source.src.security.provider.task.structured.result",
       "kind": "file",
-      "path": "src/provider/task-structured-result.ts",
+      "path": "src/execution/task-structured-result.ts",
       "archIds": [
         "ARCH-000015"
       ]
@@ -3391,7 +3345,7 @@
     {
       "symbolId": "coordinator.source.src.security.root.protection.policy",
       "kind": "file",
-      "path": "src/repository-operation/root-protection-policy.ts",
+      "path": "src/workspace/root-protection-policy.ts",
       "archIds": [
         "ARCH-000014"
       ]
@@ -3438,15 +3392,7 @@
     {
       "symbolId": "coordinator.source.src.security.host.orphan.recovery.policy",
       "kind": "file",
-      "path": "src/host-execution/orphan-recovery-policy.ts",
-      "archIds": [
-        "ARCH-000008"
-      ]
-    },
-    {
-      "symbolId": "coordinator.source.src.security.host.operation.inprocess.lease.internal",
-      "kind": "file",
-      "path": "src/host-execution/operation-lease-lifecycle.ts",
+      "path": "src/execution/orphan-recovery-policy.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -3462,14 +3408,13 @@
         "PRL-UT-006"
       ],
       "verifies": [
-        "coordinator.source.src.security.execution.environment",
-        "coordinator.source.src.security.host.operation.inprocess.lease.internal"
+        "coordinator.source.src.security.execution.environment"
       ]
     },
     {
       "symbolId": "coordinator.source.src.security.host.terminal.record",
       "kind": "file",
-      "path": "src/host-execution/terminal-record.ts",
+      "path": "src/storage/terminal-record.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -3477,7 +3422,7 @@
     {
       "symbolId": "coordinator.source.src.security.host.terminal.caller.lease",
       "kind": "file",
-      "path": "src/host-execution/terminal-caller-lease.ts",
+      "path": "src/execution/terminal-caller-lease.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -3485,7 +3430,7 @@
     {
       "symbolId": "coordinator.source.src.security.host.terminal.caller.checkpoint",
       "kind": "file",
-      "path": "src/host-execution/terminal-caller-checkpoint.ts",
+      "path": "src/storage/terminal-caller-checkpoint.ts",
       "archIds": [
         "ARCH-000008",
         "ARCH-000011"
@@ -3512,7 +3457,7 @@
     {
       "symbolId": "coordinator.test.unit.host-terminal-record",
       "kind": "test-suite",
-      "path": "tests/unit/host-execution/terminal-record.contract.test.ts",
+      "path": "tests/unit/storage/terminal-record.contract.test.ts",
       "qaIds": [
         "QA-000003"
       ],
@@ -3527,7 +3472,7 @@
     {
       "symbolId": "coordinator.test.unit.host-orphan-recovery-policy",
       "kind": "test-suite",
-      "path": "tests/unit/host-execution/orphan-recovery-policy.contract.test.ts",
+      "path": "tests/unit/execution/orphan-recovery-policy.contract.test.ts",
       "qaIds": [
         "QA-000003"
       ],

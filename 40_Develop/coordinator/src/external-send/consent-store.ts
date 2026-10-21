@@ -8,18 +8,18 @@ import { createHash, randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
-import { acquireRuntimeOwnedDockerRuntimeStateKernelLock } from "../host-execution/kernel-lock.ts";
+import { acquireRuntimeOwnedDockerRuntimeStateKernelLock } from "../execution/kernel-lock.ts";
 import {
   consumeRuntimeOwnedRuntimeStateRootCapability,
   inspectRuntimeOwnedWindowsRuntimeState,
-} from "../platform-access/protected-root-windows-adapter.ts";
-import { inspectRuntimeOwnedDevelopmentOperationContext } from "../task/development-measurement-session.ts";
+} from "../execution/protected-root.ts";
+import { inspectRuntimeOwnedDevelopmentOperationContext } from "../execution/development-measurement-session.ts";
 import {
   dockerRecoveryCommitName,
   readCommittedDockerRecoveryJson,
   removeCommittedDockerRecoveryJson,
   writeCommittedDockerRecoveryJson,
-} from "../state-storage/docker-recovery-journal.ts";
+} from "../storage/docker-recovery-journal.ts";
 import {
   EXTERNAL_SEND_CONSENT_LIFETIME_MS,
   EXTERNAL_SEND_CONSENT_SCHEMA,

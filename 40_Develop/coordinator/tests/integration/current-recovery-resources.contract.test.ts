@@ -18,11 +18,11 @@ import test, { mock, type TestContext } from "node:test";
 import { fileURLToPath } from "node:url";
 import { types as utilTypes } from "node:util";
 import { runInNewContext } from "node:vm";
-import { isDockerRestartCheckpointSettled } from "../../src/state-storage/restart-checkpoint.ts";
+import { isDockerRestartCheckpointSettled } from "../../src/storage/restart-checkpoint.ts";
 import {
   coordinatorTaskResourcesAreSettled,
   coordinatorAuthenticationUnknownCanClose,
-} from "../../src/state-storage/model.ts";
+} from "../../src/storage/model.ts";
 import {
   createDockerOperationRecoveryExecutor,
   createDockerResourceRecoveryExecutor,
@@ -49,7 +49,7 @@ import {
  */
 test("修復Writerの二重scope guardは他操作と参照の変更・除去を拒否する", () => {
   const text = fs.readFileSync(
-    new URL("../../src/state-storage/settlement-store.ts", import.meta.url),
+    new URL("../../src/storage/settlement-store.ts", import.meta.url),
     "utf8",
   );
   const start = text.indexOf(
@@ -222,7 +222,7 @@ test("修復Writerの二重scope guardは他操作と参照の変更・除去を
  */
 test("認証限定Writerの二重対象相関は別操作Ownerを拒否する", () => {
   const text = fs.readFileSync(
-    new URL("../../src/state-storage/settlement-store.ts", import.meta.url),
+    new URL("../../src/storage/settlement-store.ts", import.meta.url),
     "utf8",
   );
   const start = text.indexOf(
@@ -406,7 +406,7 @@ test("修復Writer wrapperは初期化Effectを後続拒否・例外から保全
       fs.rmdirSync(area.directory);
   });
   const text = fs.readFileSync(
-    new URL("../../src/state-storage/settlement-store.ts", import.meta.url),
+    new URL("../../src/storage/settlement-store.ts", import.meta.url),
     "utf8",
   );
   const start = text.indexOf(
@@ -553,7 +553,7 @@ test("修復Writer wrapperは初期化Effectを後続拒否・例外から保全
  */
 test("Task Writerの修復保全guardは新規・変更・除去を拒否する", () => {
   const text = fs.readFileSync(
-    new URL("../../src/state-storage/settlement-store.ts", import.meta.url),
+    new URL("../../src/storage/settlement-store.ts", import.meta.url),
     "utf8",
   );
   const functionStart = text.indexOf("function writeCoordinatorStateSnapshot(");
@@ -684,7 +684,7 @@ test("Task Writerの修復保全guardは新規・変更・除去を拒否する"
 });
 
 const source = fs.readFileSync(
-  new URL("../../src/task/recovery.ts", import.meta.url),
+  new URL("../../src/execution/recovery.ts", import.meta.url),
   "utf8",
 );
 const start = source.indexOf(
@@ -3020,7 +3020,7 @@ test("ACK直前のガード負対照は処置ゼロOracleに拒否される", ()
  */
 test("現在transient終了: genuine Owner・一回性・借用失効", () => {
   const storeSource = fs.readFileSync(
-    new URL("../../src/state-storage/settlement-store.ts", import.meta.url),
+    new URL("../../src/storage/settlement-store.ts", import.meta.url),
     "utf8",
   );
   const storeStart = storeSource.indexOf(
@@ -3284,7 +3284,7 @@ test("現在transient終了: genuine Owner・一回性・借用失効", () => {
  */
 test("現在回収終端Writer: 五資源・Host・元版の拒否と結果保持", () => {
   const storeSource = fs.readFileSync(
-    new URL("../../src/state-storage/settlement-store.ts", import.meta.url),
+    new URL("../../src/storage/settlement-store.ts", import.meta.url),
     "utf8",
   );
   const writerStart = storeSource.indexOf(

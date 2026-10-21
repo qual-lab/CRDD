@@ -23,7 +23,7 @@ import {
   describeExternalSendConsentRuntimeContract,
   EXTERNAL_SEND_ACTIVE_CONSENT_PREFIX,
 } from "../../src/external-send/consent-store.ts";
-import { dockerRecoveryCommitName } from "../../src/state-storage/docker-recovery-journal.ts";
+import { dockerRecoveryCommitName } from "../../src/storage/docker-recovery-journal.ts";
 import type { ResolvedExternalSendPolicy } from "../../src/external-send/policy.ts";
 import { prepareDockerNetworkPolicy } from "../../../docker-isolation/src/index.ts";
 

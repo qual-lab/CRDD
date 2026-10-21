@@ -121,7 +121,7 @@ test("回復結果の受領・終了は固定Repositoryと保存済みACKだけ�
       },
     },
   });
-  t.mock.module("../../../coordinator/src/state-storage/settlement-store.ts", {
+  t.mock.module("../../../coordinator/src/storage/settlement-store.ts", {
     namedExports: {
       readRuntimeOwnedCoordinatorRecoveryResult: (
         root: unknown,

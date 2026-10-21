@@ -8,7 +8,7 @@ import {
   cancelRuntimeOwnedCoordinatorTask,
   captureRuntimeOwnedCoordinatorTaskResultDelivery,
   startRuntimeOwnedCoordinatorTask,
-} from "../../../coordinator/src/task/execution.ts";
+} from "../../../coordinator/src/execution/task.ts";
 import type { OrchestratorExecutionPublicationObservation } from "../task/execution-contract.ts";
 import { recordOrchestratorExecutionEvent } from "../task/intelligence-adapter.ts";
 import { openRuntimeOwnedWindowsProjectDecisionStore } from "../storage/protected-decision.ts";
@@ -26,7 +26,7 @@ import {
   recoverRuntimeOwnedDockerTaskForCurrentConsumer,
   resolveRuntimeOwnedDockerTaskCurrentCorrelations,
 } from "../../../coordinator/src/index.ts";
-import { inspectRepositoryIdentityCandidate } from "../../../coordinator/src/repository-operation/binding.ts";
+import { inspectRepositoryIdentityCandidate } from "../../../coordinator/src/workspace/binding.ts";
 import {
   resolveVerifiedRepositoryRootFromWorkingDirectory,
   verifyRepositoryRoot,

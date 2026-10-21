@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 /**
- * coordinatorに属する責務をまとめる。
+ * Coordinatorの起動用途・通常Commandの受付と結果表示を所有する。
  *
- * @responsibility UsageErrorを中心とする実装、型および境界を同じModuleで所有する。
+ * @responsibility import時には操作せず、明示受付から検査済みの既存操作・固定Scriptへ配送する。
  * @trace ARCH-000004
  */
 
+import { fileURLToPath } from "node:url";
 import { types as utilTypes } from "node:util";
 import path from "node:path";
 import { UsageError } from "./request-input.ts";
@@ -20,17 +21,17 @@ import {
   renderDoctorCommandFailure,
   runDoctor,
 } from "../diagnostics/doctor.ts";
-import { isSupportedCoordinatorNodeRuntime } from "../host-execution/node-runtime-version.ts";
+import { isSupportedCoordinatorNodeRuntime } from "./node-runtime-version.ts";
 import { bindTaskCliCancellationSignals } from "./task-cancellation.ts";
 import { repairRuntimeOwnedDockerRuntime } from "../diagnostics/runtime-repair.ts";
 import { recoverDockerIsolationProbe } from "../diagnostics/isolation-probe.ts";
 import {
   inspectRuntimeOwnedDockerTaskAdmission,
   recoverRuntimeOwnedDockerTaskForCurrentConsumer,
-} from "../task/recovery.ts";
+} from "../execution/recovery.ts";
 import { restartRuntimeOwnedDockerForRecovery } from "../diagnostics/runtime-restart.ts";
-import { recoverOwnedOperationDirectories } from "../host-execution/operation-workspace-lifecycle.ts";
-import { readRuntimeOwnedCoordinatorRecoverySnapshot } from "../state-storage/settlement-store.ts";
+import { recoverOwnedOperationDirectories } from "../execution/operation.ts";
+import { readRuntimeOwnedCoordinatorRecoverySnapshot } from "../storage/settlement-store.ts";
 
 /**
  * 現在Repositoryの単一操作から回復読取りのRootを解決する。
@@ -366,253 +367,522 @@ async function runRuntimeRepairDoctorCommand(
   process.exitCode = rendered.exitCode;
 }
 
-const [, , command, ...args] = process.argv;
+export const COORDINATOR_LAUNCH_ENTRIES = Object.freeze({
+  task: "../src/cli/command.ts",
+  interactive: "../src/cli/command.ts",
+  automation: "../src/cli/command.ts",
+  "verify-routes": "../scripts/verify-route-matrix.ts",
+  "verify-recovery": "../scripts/verify-recovery-matrix.ts",
+  "authenticate-claude": "../scripts/authenticate-claude-subscription.ts",
+});
 
-if (!isSupportedCoordinatorNodeRuntime(process.versions.node)) {
-  const report = Object.freeze({
-    status: "blocked" as const,
-    reason: "coordinator_node_version_unsupported",
-  });
-  if (args.includes("--json")) {
-    process.stdout.write(`${JSON.stringify(report)}\n`);
-  } else {
-    process.stderr.write(
-      "Coordinator Runtime requires a preverified Node.js 24.12.0 or newer executable.\n",
-    );
-  }
-  process.exitCode = 2;
-} else if (
-  !command ||
-  command === "help" ||
-  command === "--help" ||
-  command === "-h"
+/**
+ * coordinator-launchで使用するLaunch Modeの値契約を定義する。
+ *
+ * @responsibility Launch ModeのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape LaunchModeが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant LaunchModeで宣言した値と責務の対応を維持する。
+ * @boundary N/A: LaunchModeの宣言は外部境界を開かない。
+ * @security N/A: LaunchModeはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility LaunchModeの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
+type LaunchMode = keyof typeof COORDINATOR_LAUNCH_ENTRIES;
+/**
+ * coordinator-launchで使用するLaunch Observationの値契約を定義する。
+ *
+ * @responsibility Launch ObservationのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape LaunchObservationが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant LaunchObservationで宣言した値と責務の対応を維持する。
+ * @boundary N/A: LaunchObservationの宣言は外部境界を開かない。
+ * @security N/A: LaunchObservationはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility LaunchObservationの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
+type LaunchObservation = Readonly<{
+  nodeVersion: string;
+  stdinIsTty: boolean;
+  stdoutIsTty: boolean;
+  stdoutWritable: boolean;
+}>;
+
+// A routing plan, not execution authority. Each target retains its own gates.
+/**
+ * Coordinator Launchを一意に解決する。
+ *
+ * @responsibility Coordinator Launchの候補集合、解決規則、曖昧時の拒否境界を所有する。
+ * @trace ARCH-000004
+ * @input args: readonly string[]、observation: LaunchObservation
+ * @returns resolveCoordinatorLaunchの計算結果を返す。
+ * @precondition 「args: readonly string[]、observation: LaunchObservation」がresolveCoordinatorLaunchの入力契約を満たす。
+ * @postcondition resolveCoordinatorLaunchの責務を完了した結果だけを返す。
+ * @effect N/A: resolveCoordinatorLaunchは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: resolveCoordinatorLaunchは独自の失敗分岐を所有しない。
+ * @invariant resolveCoordinatorLaunchは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: resolveCoordinatorLaunchはProcess内の同一Subsystemで完結する。
+ * @security N/A: resolveCoordinatorLaunchはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: resolveCoordinatorLaunchは共有非同期状態を持たない同期処理である。
+ */
+export function resolveCoordinatorLaunch(
+  args: readonly string[],
+  observation: LaunchObservation,
 ) {
-  printHelp();
-  process.exitCode = 0;
-} else if (command === "task") {
-  printCommandReport(
-    Object.freeze({
-      command: "task",
-      status: "blocked",
-      reason: "task_use_orchestrator_entry",
-    }),
-    args.includes("--json"),
-  );
-  process.exitCode = 64;
-} else if (command === "capabilities") {
-  runCapabilitiesCommand(args);
-} else if (command === "doctor") {
-  try {
-    const parsed = parseDoctorArguments(
-      args,
-      process.env.CRDD_COORDINATOR_ROOT,
+  const blocked = (reason: string) =>
+    Object.freeze({ status: "blocked" as const, reason });
+  if (!isSupportedCoordinatorNodeRuntime(observation.nodeVersion)) {
+    return blocked("coordinator_node_version_unsupported");
+  }
+  const mode = args[0];
+  if (!mode || !Object.hasOwn(COORDINATOR_LAUNCH_ENTRIES, mode)) {
+    return blocked("coordinator_launch_mode_invalid");
+  }
+  const suppliedArgs = args.slice(1);
+  const forwardedArgs =
+    mode === "task" ? ["task", ...suppliedArgs] : suppliedArgs;
+  if (
+    forwardedArgs.some((arg) => arg.includes("\0")) ||
+    ((mode === "verify-routes" || mode === "verify-recovery") &&
+      forwardedArgs.length !== 0) ||
+    (mode === "authenticate-claude" && forwardedArgs.length !== 0) ||
+    (mode === "automation" && !forwardedArgs.includes("--json")) ||
+    (mode === "task" &&
+      (!suppliedArgs.includes("--request-stdin") ||
+        !suppliedArgs.includes("--json")))
+  ) {
+    return blocked("coordinator_launch_arguments_invalid");
+  }
+  if (
+    (mode === "interactive" ||
+      mode === "verify-routes" ||
+      mode === "authenticate-claude") &&
+    (!observation.stdoutIsTty || !observation.stdoutWritable)
+  ) {
+    return blocked("coordinator_launch_terminal_output_required");
+  }
+  if (mode === "authenticate-claude" && !observation.stdinIsTty) {
+    return blocked("coordinator_launch_terminal_input_required");
+  }
+  if ((mode === "automation" || mode === "task") && observation.stdoutIsTty) {
+    return blocked("coordinator_launch_machine_output_required");
+  }
+  return Object.freeze({
+    status: "ready" as const,
+    mode: mode as LaunchMode,
+    entryRelativePath: COORDINATOR_LAUNCH_ENTRIES[mode as LaunchMode],
+    forwardedArgs: Object.freeze(forwardedArgs),
+  });
+}
+
+/**
+ * coordinator Launch 失敗 Messageを決定する。
+ *
+ * @responsibility coordinator Launch 失敗 Messageの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input reason: string
+ * @returns coordinatorLaunchFailureMessageの計算結果を返す。
+ * @precondition 「reason: string」がcoordinatorLaunchFailureMessageの入力契約を満たす。
+ * @postcondition coordinatorLaunchFailureMessageの責務を完了した結果だけを返す。
+ * @effect N/A: coordinatorLaunchFailureMessageは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: coordinatorLaunchFailureMessageは独自の失敗分岐を所有しない。
+ * @invariant coordinatorLaunchFailureMessageは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: coordinatorLaunchFailureMessageはProcess内の同一Subsystemで完結する。
+ * @security N/A: coordinatorLaunchFailureMessageはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: coordinatorLaunchFailureMessageは共有非同期状態を持たない同期処理である。
+ */
+export function coordinatorLaunchFailureMessage(reason: string) {
+  switch (reason) {
+    case "coordinator_node_version_unsupported":
+      return "対応するNode.jsで起動してください。実処理は開始していません。";
+    case "coordinator_launch_mode_invalid":
+      return "起動用途を確認してください。--helpで一覧を表示できます。";
+    case "coordinator_launch_arguments_invalid":
+      return "起動用途と引数が一致しません。実処理は開始していません。";
+    case "coordinator_launch_terminal_output_required":
+      return "画面へ表示できる端末から直接起動してください。出力のファイル転送やパイプ接続は使えません。実処理は開始していません。";
+    case "coordinator_launch_terminal_input_required":
+      return "秘密入力を受け付ける端末から直接起動してください。実処理は開始していません。";
+    case "coordinator_launch_machine_output_required":
+      return "自動処理の結果は機械向けの接続へ渡してください。端末で操作する場合はinteractiveを使ってください。実処理は開始していません。";
+    default:
+      return "実行入口で予期しない失敗が発生しました。実行状態と資源回収は未確認です。自動再試行せず、対象の記録を確認してください。";
+  }
+}
+
+/**
+ * Coordinatorの起動用途と通常Commandを一つの受付で分配する。
+ * @responsibility binと配布入口が共有する用途判定・固定配送を所有する。
+ * @trace ARCH-000004
+ * @input arguments_: Process引数。省略時は現在のargvを使用する。
+ * @returns 配送した既存入口の完了。
+ * @precondition 一回のCLI起動として呼び出し、配送後のargvを再利用しない。
+ * @postcondition 拒否時は対象操作を開始せず、受理時は選択した既存入口を待機する。
+ * @effect 同じProcess内で通常Commandまたは固定Scriptを実行する。
+ * @failure 起動拒否は64、開始後の例外は実行・回収未確認の2を返す。
+ * @invariant shell・子Process・env・cwd・stdinの差替えを行わない。
+ * @boundary TTYと機械出力の用途境界を実処理前に検査する。
+ * @security 起動用途はAuthorityを与えず、引数や秘密値を失敗表示へ複製しない。
+ * @concurrency 一回のCLI受付をawaitし、専門操作の取消契約を維持する。
+ */
+export async function runCoordinatorCommand(
+  arguments_: readonly string[] = process.argv.slice(2),
+): Promise<void> {
+  const args = arguments_;
+  if (
+    args.length === 0 ||
+    (args[0] &&
+      ["task", "doctor", "capabilities", "candidate", "help", "-h"].includes(
+        args[0],
+      ))
+  ) {
+    // Preserve the existing direct command contract, including optional JSON output.
+    await runRuntimeCommand(args);
+  } else if (args.length === 1 && args[0] === "--help") {
+    process.stdout.write(
+      [
+        "Coordinatorの共通起動入口",
+        "task --request-stdin --json : 採用Repositoryで一般Taskを実行する推奨入口。有効化操作は不要",
+        "interactive <CLI引数> : 人向け操作。出力は端末へ直接表示",
+        "automation <CLI引数と--json> : 自動処理。既存同意が必要な操作で同意がなければ停止",
+        "verify-routes : 固定Taskの4経路E2E。出力は端末へ直接表示",
+        "verify-recovery : 固定Workerの復旧検証。端末不要",
+        "authenticate-claude : 人がClaude Maxの専用Provider Homeを再認証。Repositoryは接続しない",
+        "同じCheckoutの既存入口へ接続します。起動用途の選択は実行許可を与えません。",
+        "通常Taskは必要な実行条件をOperationごとに検証します。",
+        "入出力・環境・作業Directoryは変更しません。秘密入力の記録や自動入力は行いません。",
+        "",
+      ].join("\n"),
     );
-    if (parsed.status !== "ok") {
-      throw new UsageError(
-        typeof parsed.reason === "string"
-          ? parsed.reason
-          : "doctor_arguments_invalid",
+  } else {
+    const plan = resolveCoordinatorLaunch(args, {
+      nodeVersion: process.versions.node,
+      stdinIsTty: process.stdin.isTTY === true,
+      stdoutIsTty: process.stdout.isTTY === true,
+      stdoutWritable: !process.stdout.destroyed && process.stdout.writable,
+    });
+    if (plan.status === "blocked") {
+      if (plan.reason === "coordinator_launch_mode_invalid")
+        process.stderr.write("Unknown command\n");
+      process.stderr.write(
+        `${coordinatorLaunchFailureMessage(plan.reason)}\n${plan.reason}\n`,
       );
-    }
-    const options = plainRecord(parsed.value);
-    const recoveryIdValue = options?.recoveryId;
-    if (
-      !options ||
-      typeof options.json !== "boolean" ||
-      typeof options.activeIsolation !== "boolean" ||
-      typeof options.repairDockerDesktopRuntime !== "boolean"
-    ) {
-      throw new UsageError("doctor_arguments_invalid");
-    }
-    let recoveryId: string | null;
-    if (recoveryIdValue === null) recoveryId = null;
-    else if (typeof recoveryIdValue === "string") recoveryId = recoveryIdValue;
-    else throw new UsageError("doctor_arguments_invalid");
-    const isCurrentRuntimeRepair =
-      options.repairDockerDesktopRuntime ||
-      recoveryId?.startsWith("docker-runtime-repair.") === true ||
-      typeof options.retainDockerRuntimeRepairId === "string";
-    if (isCurrentRuntimeRepair) {
-      await runRuntimeRepairDoctorCommand(
-        options.json,
-        typeof options.retainDockerRuntimeRepairId === "string"
-          ? options.retainDockerRuntimeRepairId
-          : recoveryId,
-        typeof options.retainDockerRuntimeRepairId === "string"
-          ? "retain"
-          : "repair",
+      process.exitCode = 64;
+    } else {
+      // One-shot CLI only: preserve the target's existing main guard and argv.
+      // No shell, child process, output interception, env or cwd mutation.
+      const target = new URL(
+        plan.entryRelativePath,
+        new URL("../../bin/coordinator.ts", import.meta.url),
       );
-    } else if (typeof options.restartDockerForRecoveryId === "string") {
-      const controller = new AbortController();
-      const binding = bindTaskCliCancellationSignals(async () =>
-        controller.abort(),
-      );
-      let restart: unknown;
-      let released: ReturnType<typeof binding.unbind>;
+      process.argv = [
+        process.execPath,
+        fileURLToPath(target),
+        ...plan.forwardedArgs,
+      ];
       try {
-        const currentRoot = verifyRepositoryRoot(
-          resolveVerifiedRepositoryRootFromWorkingDirectory(process.cwd()),
+        switch (plan.mode) {
+          case "task":
+          case "interactive":
+          case "automation":
+            await runRuntimeCommand(plan.forwardedArgs);
+            break;
+          case "verify-routes":
+            await import("../../scripts/verify-route-matrix.ts");
+            break;
+          case "verify-recovery":
+            await import("../../scripts/verify-recovery-matrix.ts");
+            break;
+          case "authenticate-claude":
+            await import("../../scripts/authenticate-claude-subscription.ts");
+            break;
+        }
+      } catch {
+        // The target may already have issued effects. Do not invent cleanup.
+        process.stderr.write(
+          `${coordinatorLaunchFailureMessage("entry_failed")}\ncoordinator_launch_entry_failed\n`,
         );
-        restart =
-          binding.status === "bound" && currentRoot.status === "completed"
-            ? await restartRuntimeOwnedDockerForRecovery(
-                options.restartDockerForRecoveryId,
-                controller.signal,
-                currentRoot.capability,
-              )
-            : {
-                status: "blocked",
-                reason: "docker_restart_cancellation_binding_failed",
-                cleanupConfirmed: true,
-                restartCompleted: false,
-                taskRecoveryCompleted: false,
-              };
-      } finally {
-        released = binding.unbind();
+        process.exitCode = 2;
       }
-      const result = plainRecord(restart);
-      const report =
-        released.status === "released" && result
-          ? result
-          : {
-              status: "blocked",
-              reason: "docker_restart_cancellation_cleanup_unconfirmed",
-              cleanupConfirmed: false,
-              restartCompleted: false,
-              taskRecoveryCompleted: false,
-            };
-      const rendered = renderDockerRecoveryDoctorReport(
-        { ...report, contract: "crdd-coordinator/docker-restart-for-recovery" },
-        options.json,
+    }
+  }
+}
+
+// 既存の直接受付を維持する。importだけでは操作を開始しない。
+if (
+  process.argv[1] &&
+  path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+) {
+  await runRuntimeCommand(process.argv.slice(2));
+}
+
+/**
+ * 起動用途判定後の通常Commandを実行する。
+ * @responsibility 既存Commandの検査、専門操作への接続と結果表示を所有する。
+ * @trace ARCH-000004
+ * @input arguments_: 通常Commandと引数。
+ * @returns 操作と既存の結果表示の完了。
+ * @precondition 明示受付または既存の直接実行から呼び出す。
+ * @postcondition 選択した処理の結果・取消・回収確認に対応する終了値を設定する。
+ * @effect 選択した既存診断・回復処理だけを実行する。
+ * @failure 既存の拒否理由・終了値・回収不明を維持する。
+ * @invariant 直Taskから実行対象を推測せず、上位入口への案内だけを返す。
+ * @boundary 通常Command受付と診断・回復の専門操作。
+ * @security 専門操作の許可検査を省略しない。
+ * @concurrency 既存分岐の取消待機とSignal解除を維持する。
+ */
+async function runRuntimeCommand(arguments_: readonly string[]): Promise<void> {
+  const [command, ...args] = arguments_;
+
+  if (!isSupportedCoordinatorNodeRuntime(process.versions.node)) {
+    const report = Object.freeze({
+      status: "blocked" as const,
+      reason: "coordinator_node_version_unsupported",
+    });
+    if (args.includes("--json")) {
+      process.stdout.write(`${JSON.stringify(report)}\n`);
+    } else {
+      process.stderr.write(
+        "Coordinator Runtime requires a preverified Node.js 24.12.0 or newer executable.\n",
       );
-      process.stdout.write(rendered.stdout);
-      process.exitCode = rendered.exitCode;
-    } else if (recoveryId?.startsWith("docker-task.")) {
-      const controller = new AbortController();
-      const binding = bindTaskCliCancellationSignals(async () =>
-        controller.abort(),
-      );
-      let result: Awaited<
-        ReturnType<typeof recoverRuntimeOwnedDockerTaskForCurrentConsumer>
-      > = {
-        contract: "crdd-coordinator/current-task-recovery",
+    }
+    process.exitCode = 2;
+  } else if (
+    !command ||
+    command === "help" ||
+    command === "--help" ||
+    command === "-h"
+  ) {
+    printHelp();
+    process.exitCode = 0;
+  } else if (command === "task") {
+    printCommandReport(
+      Object.freeze({
+        command: "task",
         status: "blocked",
-        reason: "docker_task_recovery_cancellation_binding_failed",
-        recoveryId,
-        dockerCleanupConfirmed: false,
-        hostCleanupConfirmed: false,
-        locksReleased: true,
-        historyConfirmed: false,
-        deliveryPending: false,
-        operationRetained: null,
-        operationRemovalConfirmed: false,
-        taskRecoveryCompleted: false,
-        cleanupReason: null,
-      };
-      let cliCleanupConfirmed = false;
-      try {
-        if (binding.status === "bound" && controller.signal.aborted) {
-          result = { ...result, reason: "docker_task_recovery_cancelled" };
-        } else if (binding.status === "bound") {
+        reason: "task_use_orchestrator_entry",
+      }),
+      args.includes("--json"),
+    );
+    process.exitCode = 64;
+  } else if (command === "capabilities") {
+    runCapabilitiesCommand(args);
+  } else if (command === "doctor") {
+    try {
+      const parsed = parseDoctorArguments(
+        args,
+        process.env.CRDD_COORDINATOR_ROOT,
+      );
+      if (parsed.status !== "ok") {
+        throw new UsageError(
+          typeof parsed.reason === "string"
+            ? parsed.reason
+            : "doctor_arguments_invalid",
+        );
+      }
+      const options = plainRecord(parsed.value);
+      const recoveryIdValue = options?.recoveryId;
+      if (
+        !options ||
+        typeof options.json !== "boolean" ||
+        typeof options.activeIsolation !== "boolean" ||
+        typeof options.repairDockerDesktopRuntime !== "boolean"
+      ) {
+        throw new UsageError("doctor_arguments_invalid");
+      }
+      let recoveryId: string | null;
+      if (recoveryIdValue === null) recoveryId = null;
+      else if (typeof recoveryIdValue === "string")
+        recoveryId = recoveryIdValue;
+      else throw new UsageError("doctor_arguments_invalid");
+      const isCurrentRuntimeRepair =
+        options.repairDockerDesktopRuntime ||
+        recoveryId?.startsWith("docker-runtime-repair.") === true ||
+        typeof options.retainDockerRuntimeRepairId === "string";
+      if (isCurrentRuntimeRepair) {
+        await runRuntimeRepairDoctorCommand(
+          options.json,
+          typeof options.retainDockerRuntimeRepairId === "string"
+            ? options.retainDockerRuntimeRepairId
+            : recoveryId,
+          typeof options.retainDockerRuntimeRepairId === "string"
+            ? "retain"
+            : "repair",
+        );
+      } else if (typeof options.restartDockerForRecoveryId === "string") {
+        const controller = new AbortController();
+        const binding = bindTaskCliCancellationSignals(async () =>
+          controller.abort(),
+        );
+        let restart: unknown;
+        let released: ReturnType<typeof binding.unbind>;
+        try {
           const currentRoot = verifyRepositoryRoot(
             resolveVerifiedRepositoryRootFromWorkingDirectory(process.cwd()),
           );
-          result =
-            currentRoot.status === "completed"
-              ? await recoverRuntimeOwnedDockerTaskForCurrentConsumer(
-                  recoveryId,
-                  currentRoot.capability,
+          restart =
+            binding.status === "bound" && currentRoot.status === "completed"
+              ? await restartRuntimeOwnedDockerForRecovery(
+                  options.restartDockerForRecoveryId,
                   controller.signal,
+                  currentRoot.capability,
                 )
               : {
-                  ...result,
-                  reason: "coordinator_recovery_current_repository_unconfirmed",
+                  status: "blocked",
+                  reason: "docker_restart_cancellation_binding_failed",
+                  cleanupConfirmed: true,
+                  restartCompleted: false,
+                  taskRecoveryCompleted: false,
                 };
+        } finally {
+          released = binding.unbind();
         }
-      } finally {
+        const result = plainRecord(restart);
+        const report =
+          released.status === "released" && result
+            ? result
+            : {
+                status: "blocked",
+                reason: "docker_restart_cancellation_cleanup_unconfirmed",
+                cleanupConfirmed: false,
+                restartCompleted: false,
+                taskRecoveryCompleted: false,
+              };
+        const rendered = renderDockerRecoveryDoctorReport(
+          {
+            ...report,
+            contract: "crdd-coordinator/docker-restart-for-recovery",
+          },
+          options.json,
+        );
+        process.stdout.write(rendered.stdout);
+        process.exitCode = rendered.exitCode;
+      } else if (recoveryId?.startsWith("docker-task.")) {
+        const controller = new AbortController();
+        const binding = bindTaskCliCancellationSignals(async () =>
+          controller.abort(),
+        );
+        let result: Awaited<
+          ReturnType<typeof recoverRuntimeOwnedDockerTaskForCurrentConsumer>
+        > = {
+          contract: "crdd-coordinator/current-task-recovery",
+          status: "blocked",
+          reason: "docker_task_recovery_cancellation_binding_failed",
+          recoveryId,
+          dockerCleanupConfirmed: false,
+          hostCleanupConfirmed: false,
+          locksReleased: true,
+          historyConfirmed: false,
+          deliveryPending: false,
+          operationRetained: null,
+          operationRemovalConfirmed: false,
+          taskRecoveryCompleted: false,
+          cleanupReason: null,
+        };
+        let cliCleanupConfirmed = false;
         try {
-          cliCleanupConfirmed = binding.unbind().status === "released";
-        } catch {
-          cliCleanupConfirmed = false;
+          if (binding.status === "bound" && controller.signal.aborted) {
+            result = { ...result, reason: "docker_task_recovery_cancelled" };
+          } else if (binding.status === "bound") {
+            const currentRoot = verifyRepositoryRoot(
+              resolveVerifiedRepositoryRootFromWorkingDirectory(process.cwd()),
+            );
+            result =
+              currentRoot.status === "completed"
+                ? await recoverRuntimeOwnedDockerTaskForCurrentConsumer(
+                    recoveryId,
+                    currentRoot.capability,
+                    controller.signal,
+                  )
+                : {
+                    ...result,
+                    reason:
+                      "coordinator_recovery_current_repository_unconfirmed",
+                  };
+          }
+        } finally {
+          try {
+            cliCleanupConfirmed = binding.unbind().status === "released";
+          } catch {
+            cliCleanupConfirmed = false;
+          }
         }
+        const rendered = renderDockerRecoveryDoctorReport(
+          {
+            contract: result.contract,
+            status: result.status,
+            reason: result.reason,
+            recoveryId: result.recoveryId,
+            dockerCleanupConfirmed: result.dockerCleanupConfirmed,
+            hostCleanupConfirmed: result.hostCleanupConfirmed,
+            locksReleased: result.locksReleased,
+            historyConfirmed: result.historyConfirmed,
+            deliveryPending: result.deliveryPending,
+            operationRetained: result.operationRetained,
+            operationRemovalConfirmed: result.operationRemovalConfirmed,
+            taskRecoveryCompleted: result.taskRecoveryCompleted,
+            cleanupReason: result.cleanupReason,
+            cliCleanupConfirmed,
+            cliCleanupReason: cliCleanupConfirmed
+              ? null
+              : "docker_task_recovery_cli_cleanup_unconfirmed",
+          },
+          options.json,
+        );
+        process.stdout.write(rendered.stdout);
+        process.exitCode = rendered.exitCode;
+      } else {
+        const operationRoot =
+          recoveryId !== null && !recoveryId.startsWith("docker-task.")
+            ? currentRecoveryOperationRoot(recoveryId)
+            : null;
+        const report: unknown =
+          recoveryId !== null &&
+          !recoveryId.startsWith("docker-task.") &&
+          operationRoot === null
+            ? Object.freeze({
+                status: "blocked",
+                reason: "coordinator_recovery_current_operation_unconfirmed",
+                recoveryId,
+                hostCleanupCompleted: false,
+              })
+            : recoveryId !== null
+              ? recoveryId.startsWith("host.")
+                ? recoverOwnedOperationDirectories(
+                    recoveryId,
+                    null,
+                    operationRoot,
+                  )
+                : recoverDockerIsolationProbe(recoveryId, operationRoot)
+              : (() => {
+                  const currentRoot =
+                    resolveVerifiedRepositoryRootFromWorkingDirectory(
+                      process.cwd(),
+                    );
+                  return Object.freeze({
+                    ...runDoctor({
+                      activeIsolation: options.activeIsolation,
+                      cwd: currentRoot,
+                    }),
+                    dockerTaskRecovery:
+                      inspectRuntimeOwnedDockerTaskAdmission(currentRoot),
+                  });
+                })();
+        const rendered = renderDockerRecoveryDoctorReport(report, options.json);
+        process.stdout.write(rendered.stdout);
+        process.exitCode = rendered.exitCode;
       }
-      const rendered = renderDockerRecoveryDoctorReport(
-        {
-          contract: result.contract,
-          status: result.status,
-          reason: result.reason,
-          recoveryId: result.recoveryId,
-          dockerCleanupConfirmed: result.dockerCleanupConfirmed,
-          hostCleanupConfirmed: result.hostCleanupConfirmed,
-          locksReleased: result.locksReleased,
-          historyConfirmed: result.historyConfirmed,
-          deliveryPending: result.deliveryPending,
-          operationRetained: result.operationRetained,
-          operationRemovalConfirmed: result.operationRemovalConfirmed,
-          taskRecoveryCompleted: result.taskRecoveryCompleted,
-          cleanupReason: result.cleanupReason,
-          cliCleanupConfirmed,
-          cliCleanupReason: cliCleanupConfirmed
-            ? null
-            : "docker_task_recovery_cli_cleanup_unconfirmed",
-        },
-        options.json,
-      );
-      process.stdout.write(rendered.stdout);
-      process.exitCode = rendered.exitCode;
-    } else {
-      const operationRoot =
-        recoveryId !== null && !recoveryId.startsWith("docker-task.")
-          ? currentRecoveryOperationRoot(recoveryId)
-          : null;
-      const report: unknown =
-        recoveryId !== null &&
-        !recoveryId.startsWith("docker-task.") &&
-        operationRoot === null
-          ? Object.freeze({
-              status: "blocked",
-              reason: "coordinator_recovery_current_operation_unconfirmed",
-              recoveryId,
-              hostCleanupCompleted: false,
-            })
-          : recoveryId !== null
-            ? recoveryId.startsWith("host.")
-              ? recoverOwnedOperationDirectories(
-                  recoveryId,
-                  null,
-                  operationRoot,
-                )
-              : recoverDockerIsolationProbe(recoveryId, operationRoot)
-            : (() => {
-                const currentRoot =
-                  resolveVerifiedRepositoryRootFromWorkingDirectory(
-                    process.cwd(),
-                  );
-                return Object.freeze({
-                  ...runDoctor({
-                    activeIsolation: options.activeIsolation,
-                    cwd: currentRoot,
-                  }),
-                  dockerTaskRecovery:
-                    inspectRuntimeOwnedDockerTaskAdmission(currentRoot),
-                });
-              })();
-      const rendered = renderDockerRecoveryDoctorReport(report, options.json);
-      process.stdout.write(rendered.stdout);
-      process.exitCode = rendered.exitCode;
+    } catch (rawError) {
+      const doctorFailure = renderDoctorCommandFailure(rawError);
+      if (args.includes("--json")) {
+        process.stdout.write(doctorFailure.json);
+      } else {
+        process.stderr.write(doctorFailure.human);
+      }
+      process.exitCode =
+        rawError instanceof UsageError ? 64 : doctorFailure.exitCode;
     }
-  } catch (rawError) {
-    const doctorFailure = renderDoctorCommandFailure(rawError);
-    if (args.includes("--json")) {
-      process.stdout.write(doctorFailure.json);
-    } else {
-      process.stderr.write(doctorFailure.human);
-    }
-    process.exitCode =
-      rawError instanceof UsageError ? 64 : doctorFailure.exitCode;
+  } else {
+    process.stderr.write(`Unknown command\n`);
+    printHelp();
+    process.exitCode = 64;
   }
-} else {
-  process.stderr.write(`Unknown command\n`);
-  printHelp();
-  process.exitCode = 64;
 }

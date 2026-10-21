@@ -42,7 +42,7 @@ import {
 import {
   describeCoordinatorNodeRuntimeVersionContract,
   MINIMUM_COORDINATOR_NODE_VERSION,
-} from "../../src/host-execution/node-runtime-version.ts";
+} from "../../src/cli/node-runtime-version.ts";
 import {
   createInteractiveConsoleReaderEnvironment,
   createWindowsHostOperationSupervisorEnvironment,
@@ -58,7 +58,7 @@ import {
   createDockerCliEnvironment,
   createDockerDesktopRepairHelperEnvironment,
 } from "../../../docker-isolation/src/index.ts";
-import { acquireRuntimeOwnedInteractiveConsoleKernelLockOutcome } from "../../src/host-execution/kernel-lock.ts";
+import { acquireRuntimeOwnedInteractiveConsoleKernelLockOutcome } from "../../src/execution/kernel-lock.ts";
 
 const coordinatorRoot = path.resolve(import.meta.dirname, "../..");
 
@@ -1452,7 +1452,7 @@ test("Executable sourceとpackage commandへShell依存のJSON搬送を再導入
   const developmentE2e = packageDocument.scripts?.["development-e2e:verify"];
   assert.equal(
     developmentE2e,
-    "node --test --test-concurrency=1 ./tests/system/coordinator-launch.contract.test.ts ./tests/system/verification-result-record.contract.test.ts ./tests/system/interaction-boundary-regression.contract.test.ts ./tests/integration/claude-execution-plan.contract.test.ts ./tests/unit/provider/claude-docker-adapter.contract.test.ts ./tests/unit/claude-subscription-authentication.contract.test.ts ./tests/integration/claude-subscription-authentication-recovery.integration.test.ts ./tests/integration/codex-execution-plan.contract.test.ts ./tests/unit/provider/codex-docker-adapter.contract.test.ts ./tests/integration/coordinator-task-runtime.contract.test.ts ./tests/integration/coordinator-task-process.integration.test.ts ./tests/system/signed-general-task-verification.contract.test.ts ./tests/system/signed-reviewer-boundary-verification.contract.test.ts ./tests/system/signed-route-matrix-verification.contract.test.ts ./tests/system/signed-recovery-matrix-verification.contract.test.ts",
+    "node --test --test-concurrency=1 ./tests/system/coordinator-launch.contract.test.ts ./tests/system/verification-result-record.contract.test.ts ./tests/system/interaction-boundary-regression.contract.test.ts ./tests/integration/claude-execution-plan.contract.test.ts ./tests/unit/execution/claude-preparation.contract.test.ts ./tests/unit/claude-subscription-authentication.contract.test.ts ./tests/integration/claude-subscription-authentication-recovery.integration.test.ts ./tests/integration/codex-execution-plan.contract.test.ts ./tests/unit/execution/codex-preparation.contract.test.ts ./tests/integration/coordinator-task-runtime.contract.test.ts ./tests/integration/coordinator-task-process.integration.test.ts ./tests/system/signed-general-task-verification.contract.test.ts ./tests/system/signed-reviewer-boundary-verification.contract.test.ts ./tests/system/signed-route-matrix-verification.contract.test.ts ./tests/system/signed-recovery-matrix-verification.contract.test.ts",
   );
   assert.equal(
     /sign-release|release-key|passphrase/u.test(developmentE2e),

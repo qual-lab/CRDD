@@ -22,7 +22,7 @@ import type { TestContext } from "node:test";
 import test from "node:test";
 import { types as utilTypes } from "node:util";
 import { createDevelopmentExecutionTiming } from "../../src/diagnostics/development-execution-timing.ts";
-import { dockerProcessControllerPublicCompletionReasons } from "../../src/provider/execution-result-reasons.ts";
+import { dockerProcessControllerPublicCompletionReasons } from "../../src/execution/provider-result-reasons.ts";
 import {
   cleanupOwnedOperationDirectories,
   createIsolatedOwnedOperationDirectoryCreationFailureCandidate,
@@ -32,12 +32,12 @@ import {
   createOwnedOperationManagementCapability,
   getOwnedHostRecoveryId,
   verifyOwnedOperationManagementCapability,
-} from "../../src/host-execution/operation-workspace-lifecycle.ts";
-import { createIsolatedRuntimeProcessSafetyStateCandidate } from "../../src/host-execution/process-safety-state.ts";
+} from "../../src/execution/operation.ts";
+import { createIsolatedRuntimeProcessSafetyStateCandidate } from "../../src/execution/process-safety-state.ts";
 import { loadRuntimeOwnedLocalPersonalAuthority } from "../../src/authority/local-personal-grant.ts";
-import { selectDelegationRouteCandidate } from "../../src/provider/delegation-route-selection.ts";
-import { inspectRepositoryObjectFormatCandidate } from "../../src/repository-operation/binding.ts";
-import { coordinatorTaskPublicReasons } from "../../src/task/result-reasons.ts";
+import { selectDelegationRouteCandidate } from "../../src/execution/delegation-route-selection.ts";
+import { inspectRepositoryObjectFormatCandidate } from "../../src/workspace/binding.ts";
+import { coordinatorTaskPublicReasons } from "../../src/execution/result-reasons.ts";
 import {
   classifyCoordinatorTaskTerminalLifecycleState,
   createIsolatedCoordinatorTaskOperationCreationCandidate,
@@ -45,7 +45,7 @@ import {
   describeCoordinatorTaskRuntimeContract,
   projectDevelopmentTaskResultAfterOuterCleanup,
   startRuntimeOwnedCoordinatorTask,
-} from "../../src/task/execution.ts";
+} from "../../src/execution/task.ts";
 import {
   assertRuntimeTraceCase,
   assertRuntimeTraceExecutionCoverage,

@@ -12,15 +12,15 @@ import type {
   OrchestratorDecisionStore,
 } from "../decision/records.ts";
 import { isOrchestratorDecisionRecord } from "../decision/records.ts";
-import { acquireRuntimeOwnedDockerRuntimeStateKernelLock } from "../../../coordinator/src/host-execution/kernel-lock.ts";
+import { acquireRuntimeOwnedDockerRuntimeStateKernelLock } from "../../../coordinator/src/execution/kernel-lock.ts";
 import {
   consumeRuntimeOwnedRuntimeStateRootCapability,
   inspectRuntimeOwnedWindowsRuntimeState,
-} from "../../../coordinator/src/platform-access/protected-root-windows-adapter.ts";
+} from "../../../coordinator/src/execution/protected-root.ts";
 import {
   readCommittedDockerRecoveryJson,
   writeCommittedDockerRecoveryJson,
-} from "../../../coordinator/src/state-storage/docker-recovery-journal.ts";
+} from "../../../coordinator/src/storage/docker-recovery-journal.ts";
 
 export const ORCHESTRATOR_WINDOWS_DECISION_STORE_CONTRACT =
   "crdd-coordinator/orchestrator-windows-decision-store/v1" as const;

@@ -13,7 +13,7 @@ import test from "node:test";
 import {
   beginRuntimeOwnedDockerRecovery,
   createIsolatedDockerRecoveryRuntimeCandidate,
-} from "../../src/task/recovery.ts";
+} from "../../src/execution/recovery.ts";
 
 const FIRST_RECOVERY =
   "host.crdd-coordinator-doctor-abcdef.00000000-0000-0000-0000-000000000001.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
@@ -349,7 +349,7 @@ test("Production Docker Recoveryは不正Consumerを環境観測前に拒否す�
     throw new Error("unexpected_environment_observation");
   };
   const providerMock = t.mock.module(
-    "../../src/provider/home-windows-adapter.ts",
+    "../../src/execution/provider-home-windows-adapter.ts",
     {
       namedExports: {
         inspectRuntimeOwnedWindowsProviderHomeCandidate: observe,
@@ -357,19 +357,18 @@ test("Production Docker Recoveryは不正Consumerを環境観測前に拒否す�
       },
     },
   );
-  const stateMock = t.mock.module(
-    "../../src/platform-access/protected-root-windows-adapter.ts",
-    {
-      namedExports: {
-        inspectRuntimeOwnedWindowsRuntimeState: observe,
-        consumeRuntimeOwnedRuntimeStateRootCapability: observe,
-      },
+  const stateMock = t.mock.module("../../src/execution/protected-root.ts", {
+    namedExports: {
+      inspectRuntimeOwnedWindowsRuntimeState: observe,
+      consumeRuntimeOwnedRuntimeStateRootCapability: observe,
     },
-  );
+  });
   try {
     const runtime = await import(
-      new URL("../../src/task/recovery.ts?consumer-preflight", import.meta.url)
-        .href
+      new URL(
+        "../../src/execution/recovery.ts?consumer-preflight",
+        import.meta.url,
+      ).href
     );
     const valid = productionPlan("OP-123456", "5".repeat(64));
     for (const consumer of [undefined, null, "unknown", 1, {}, true]) {

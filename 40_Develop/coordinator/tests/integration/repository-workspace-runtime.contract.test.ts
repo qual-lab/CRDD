@@ -26,8 +26,8 @@ import {
   createOwnedOperationDirectories,
   createOwnedOperationManagementCapability,
   verifyOwnedOperationManagementMountBinding,
-} from "../../src/host-execution/operation-workspace-lifecycle.ts";
-import { bindRuntimeOwnedRepositoryOperation } from "../../src/repository-operation/binding.ts";
+} from "../../src/execution/operation.ts";
+import { bindRuntimeOwnedRepositoryOperation } from "../../src/workspace/binding.ts";
 import {
   captureRuntimeOwnedCandidateRevision,
   describeRepositoryWorkspaceRuntimeContract,
@@ -36,16 +36,16 @@ import {
   verifyRuntimeOwnedCandidateRevision,
   observeBorrowedWorkspaceChanges,
   projectBorrowedWorkspaceResult,
-} from "../../src/repository-operation/workspace.ts";
+} from "../../src/workspace/execution-target.ts";
 import {
   inspectBorrowedWorkspaceTarget,
   readBorrowedWorkspaceBinding,
-} from "../../src/repository-operation/borrowed-workspace.ts";
+} from "../../src/workspace/borrowed-tree.ts";
 import {
   createRepositoryWorktree,
   verifyRepositoryRoot,
 } from "../../../version-control/src/index.ts";
-import { createProviderDockerRuntimeDependencies } from "../../src/provider/execution-composition.ts";
+import { createProviderDockerRuntimeDependencies } from "../../src/execution/provider-composition.ts";
 import { runOrchestratorSingleTaskAttempt } from "../../../orchestrator/src/index.ts";
 import {
   prepareVerificationWorkspace,

@@ -7,8 +7,8 @@
 import { loadAuthorityFileBundleCandidate } from "./file-bundle.ts";
 import { evaluateAuthorityGrantCandidate } from "./grant-verifier.ts";
 import { snapshotPlainRecord } from "../../../domain-model/src/index.ts";
-import { isProviderHomeMountGrantRef } from "../provider/home-mount-grant.ts";
-import { PROVIDER_INPUT_LIMITS } from "../provider/isolation-profile.ts";
+import { isProviderHomeMountGrantRef } from "../execution/provider-home-mount-grant.ts";
+import { PROVIDER_INPUT_LIMITS } from "../execution/isolation-profile.ts";
 
 const OPERATION_ID = /^OP-[0-9]{6,}$/u;
 const PROFILE_ID = /^PROFILE-[0-9]{6,}$/u;

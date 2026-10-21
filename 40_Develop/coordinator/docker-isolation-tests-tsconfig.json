@@ -10,7 +10,7 @@
     "tests/integration/codex-executor-sandbox.integration.test.ts",
     "tests/system/dynamic-fake-provider-cancellation-verification.contract.test.ts",
     "tests/unit/claude-subscription-authentication.contract.test.ts",
-    "tests/unit/provider/codex-docker-adapter.contract.test.ts"
+    "tests/unit/execution/codex-preparation.contract.test.ts"
   ],
   "include": []
 }

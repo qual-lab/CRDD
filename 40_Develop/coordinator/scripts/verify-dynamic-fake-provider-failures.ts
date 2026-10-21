@@ -13,7 +13,7 @@ import {
   expectedDynamicFakeProviderFailureReason,
   runDynamicFakeProviderFailureScenario,
 } from "../src/diagnostics/isolation-probe.ts";
-import { createOwnedOperationDirectories } from "../src/host-execution/operation-workspace-lifecycle.ts";
+import { createOwnedOperationDirectories } from "../src/execution/operation.ts";
 
 /**
  * Dynamic Fake Provider Failuresを検証する。

@@ -16,8 +16,8 @@ import {
   createWindowsNativeHelperEnvironment,
   observeProcessLiveness,
 } from "../../../platform-access/src/index.ts";
-import { inspectRuntimeOwnedWindowsProviderHomeCandidate } from "../../../coordinator/src/provider/home-windows-adapter.ts";
-import { compileWindowsRootObservationCandidate } from "../../../coordinator/src/repository-operation/root-observation.ts";
+import { inspectRuntimeOwnedWindowsProviderHomeCandidate } from "../../../coordinator/src/execution/provider-home-windows-adapter.ts";
+import { compileWindowsRootObservationCandidate } from "../../../coordinator/src/workspace/root-observation.ts";
 
 const ORCHESTRATOR_WINDOWS_PLATFORM_FAMILY = "windows" as const;
 

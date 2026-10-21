@@ -22,8 +22,8 @@ import {
   endRuntimeProcessEffectDrain,
   getRuntimeProcessInstanceIdentity,
   inspectRuntimeProcessRecoveryIdentity,
-} from "../../src/host-execution/process-safety-state.ts";
-import { startRuntimeOwnedCoordinatorTask } from "../../src/task/execution.ts";
+} from "../../src/execution/process-safety-state.ts";
+import { startRuntimeOwnedCoordinatorTask } from "../../src/execution/task.ts";
 import { requestRuntimeOwnedExternalSendGrant } from "../../src/external-send/grant.ts";
 
 /**
@@ -88,7 +88,7 @@ test("runtime_process回復Identityはattemptとoperationへ結合されfresh Pr
       "..",
       "..",
       "src",
-      "host-execution",
+      "execution",
       "process-safety-state.ts",
     ),
   ).href;

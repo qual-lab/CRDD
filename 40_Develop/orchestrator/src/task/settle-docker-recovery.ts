@@ -10,7 +10,7 @@ import {
   observeRuntimeOwnedCoordinatorCompletedDelivery,
   prepareRuntimeOwnedCoordinatorRecoveredSettlement,
   readRuntimeOwnedCoordinatorRecoveryResult,
-} from "../../../coordinator/src/state-storage/settlement-store.ts";
+} from "../../../coordinator/src/storage/settlement-store.ts";
 import { snapshotPlainRecord } from "../../../domain-model/src/index.ts";
 import {
   resolveVerifiedRepositoryRootFromWorkingDirectory,

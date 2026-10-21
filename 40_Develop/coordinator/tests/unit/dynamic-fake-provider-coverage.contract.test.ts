@@ -32,9 +32,9 @@ import {
 test("動的Fake coverageは生成器と共有LCOV parserを含むexact母集団を所有する", () => {
   assert.deepEqual(DYNAMIC_FAKE_PROVIDER_COVERAGE_SOURCES, [
     "40_Develop/coordinator/src/diagnostics/isolation-probe.ts",
-    "40_Develop/coordinator/src/provider/lifecycle.ts",
-    "40_Develop/coordinator/src/host-execution/operation-workspace-lifecycle.ts",
-    "40_Develop/coordinator/src/host-execution/recovery-record.ts",
+    "40_Develop/coordinator/src/execution/provider-lifecycle.ts",
+    "40_Develop/coordinator/src/execution/operation.ts",
+    "40_Develop/coordinator/src/storage/recovery-record.ts",
     "40_Develop/domain-model/src/plain-data/snapshot.ts",
     "40_Develop/coordinator/src/diagnostics/doctor.ts",
     "40_Develop/coordinator/scripts/verify-dynamic-fake-provider-failures.ts",
@@ -46,7 +46,7 @@ test("動的Fake coverageは生成器と共有LCOV parserを含むexact母集団
     "40_Develop/coordinator/tests/unit/doctor.contract.test.ts",
     "40_Develop/coordinator/tests/system/dynamic-fake-provider-failure-verification.contract.test.ts",
     "40_Develop/coordinator/tests/system/dynamic-fake-provider-cancellation-verification.contract.test.ts",
-    "40_Develop/coordinator/tests/unit/provider/lifecycle.contract.test.ts",
+    "40_Develop/coordinator/tests/unit/execution/provider-lifecycle.contract.test.ts",
     "40_Develop/coordinator/tests/unit/plain-data-snapshot.contract.test.ts",
     "40_Develop/coordinator/tests/integration/platform-access-ts-coverage.contract.test.ts",
     "40_Develop/coordinator/tests/unit/dynamic-fake-provider-coverage.contract.test.ts",

@@ -88,9 +88,9 @@ export async function simulateAuthCreateClosure(
     );
   } else if (mutation === "wrong_lifecycle_import") {
     const original = body;
-    const target = "task/recovery.ts?auth-create-parent";
+    const target = "execution/recovery.ts?auth-create-parent";
     assert.equal(body.split(target).length, 2);
-    body = body.replace(target, "task/recovery.ts?unregistered");
+    body = body.replace(target, "execution/recovery.ts?unregistered");
     assert.notEqual(body, original);
   } else if (mutation === "omit_identified_guards") {
     const guards =
@@ -749,13 +749,13 @@ export async function simulateAuthCreateClosure(
   const cp = { spawnSync: spawn };
   const moduleUrl = (relative: string) => new URL(relative, fixtureUrl).href;
   const isolationUrl = moduleUrl("../../../docker-isolation/src/index.ts");
-  const lifecycleUrl = moduleUrl("../../src/task/recovery.ts");
+  const lifecycleUrl = moduleUrl("../../src/execution/recovery.ts");
   const loads: string[] = [];
   const expectedLoads = [
     moduleUrl("../../../version-control/src/index.ts"),
     moduleUrl("../../../domain-model/src/index.ts"),
     isolationUrl,
-    moduleUrl("../../src/state-storage/settlement-store.ts"),
+    moduleUrl("../../src/storage/settlement-store.ts"),
     `${lifecycleUrl}?auth-create-parent`,
     moduleUrl("../../src/diagnostics/runtime-restart.ts?auth-create-parent"),
   ];
@@ -1119,7 +1119,7 @@ export async function simulateAuthCreateClosure(
                 return { status: "blocked" };
             }
             const writer = mocks.get(
-              moduleUrl("../../src/state-storage/settlement-store.ts"),
+              moduleUrl("../../src/storage/settlement-store.ts"),
             )?.writeRuntimeOwnedCoordinatorAuthenticationUnknownClosure as (
               ...args: unknown[]
             ) => {
@@ -1268,7 +1268,7 @@ export async function simulateAuthCreateClosure(
         [
           isolationUrl,
           lifecycleUrl,
-          moduleUrl("../../src/state-storage/settlement-store.ts"),
+          moduleUrl("../../src/storage/settlement-store.ts"),
         ].includes(url),
       );
       assert.equal(mocks.has(url), false);

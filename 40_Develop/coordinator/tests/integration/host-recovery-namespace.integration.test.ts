@@ -28,7 +28,7 @@ import { runInNewContext } from "node:vm";
  */
 test("通常producerはWindows保護検証をRoot・marker生成より先に行う", () => {
   const source = readFileSync(
-    new URL("../../src/repository-operation/create.ts", import.meta.url),
+    new URL("../../src/workspace/create.ts", import.meta.url),
     "utf8",
   );
   assert.match(

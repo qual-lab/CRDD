@@ -4,7 +4,7 @@
  * @trace ARCH-000004
  */
 import { deriveOrchestratorRepositoryBindingId } from "../identity/repository-binding.ts";
-import { inspectRepositoryIdentityCandidate } from "../../../coordinator/src/repository-operation/binding.ts";
+import { inspectRepositoryIdentityCandidate } from "../../../coordinator/src/workspace/binding.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
 import {
   inspectOrchestratorStateQuery,

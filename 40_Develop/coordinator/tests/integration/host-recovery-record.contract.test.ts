@@ -33,7 +33,7 @@ import {
   requireDockerProbeRecoveryMounts,
   formatDockerIsolationRecoveryToken,
   isDockerIsolationRecoveryIdCandidate,
-} from "../../src/host-execution/recovery-record.ts";
+} from "../../src/storage/recovery-record.ts";
 import {
   createOwnedOperationDirectories,
   classifyOwnedOperationDirectoryCreationFailure,
@@ -54,7 +54,7 @@ import {
   transitionHostRecoveryState,
   getOwnedHostRecoveryId,
   getOwnedHostRecoveryIdByManagementCapability,
-} from "../../src/host-execution/operation-workspace-lifecycle.ts";
+} from "../../src/execution/operation.ts";
 
 /**
  * 移管したHost遷移の三分岐とmarker確定・adopt順を実本文で確認する。
@@ -69,10 +69,7 @@ import {
  */
 test("Host状態遷移の移管本文は三分岐と保存・adopt順を維持する", () => {
   const source = fs.readFileSync(
-    new URL(
-      "../../src/host-execution/operation-workspace-lifecycle.ts",
-      import.meta.url,
-    ),
+    new URL("../../src/execution/operation.ts", import.meta.url),
     "utf8",
   );
   const begin = source.indexOf("export function transitionHostRecoveryState("),
@@ -840,10 +837,7 @@ test("Host Windows: Operation初期化中のProcess消失は耐久Intentから�
   const parentIdentity = fs.lstatSync(parent, { bigint: true });
 
   const moduleUrl = pathToFileURL(
-    path.resolve(
-      import.meta.dirname,
-      "../../src/host-execution/operation-workspace-lifecycle.ts",
-    ),
+    path.resolve(import.meta.dirname, "../../src/execution/operation.ts"),
   ).href;
   /**
    * runCrashのTest準備責務を実行する。
@@ -1759,15 +1753,12 @@ test("Host Windows: absent遷移の再入場は事前計算したexact tokenへ�
         }
       })().catch(() => { process.stderr.write('host_transition_unconfirmed'); process.exitCode = 1; });`,
         pathToFileURL(
-          path.resolve(
-            import.meta.dirname,
-            "../../src/host-execution/operation-workspace-lifecycle.ts",
-          ),
+          path.resolve(import.meta.dirname, "../../src/execution/operation.ts"),
         ).href,
         pathToFileURL(
           path.resolve(
             import.meta.dirname,
-            "../../src/host-execution/recovery-record.ts",
+            "../../src/storage/recovery-record.ts",
           ),
         ).href,
         owned.root,

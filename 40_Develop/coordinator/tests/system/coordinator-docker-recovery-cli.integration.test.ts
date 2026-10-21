@@ -40,7 +40,7 @@ test("現在修復CLIはRootと取消を結合し内部状態を公開しない"
     "utf8",
   );
   const start = source.indexOf("async function runRuntimeRepairDoctorCommand(");
-  const end = source.indexOf("const [, , command, ...args]", start);
+  const end = source.indexOf("export const COORDINATOR_LAUNCH_ENTRIES", start);
   assert.ok(start > 0 && end > start);
   assert.equal(
     source.includes("repairRuntimeOwnedWindowsDockerDesktopRuntime"),
@@ -537,7 +537,7 @@ test("doctorの実parserと分岐は新修復だけを現在compositionへ渡す
   );
   const branch = source.indexOf('} else if (command === "doctor") {');
   const start = source.indexOf("  try {", branch);
-  const end = source.indexOf("\n} else {", start);
+  const end = source.indexOf("\n  } else {", start);
   assert.ok(branch > 0 && start > branch && end > start);
   const body = stripTypeScriptTypes(source.slice(start, end));
   const id = `docker-runtime-repair.${"a".repeat(64)}.${"b".repeat(64)}`;

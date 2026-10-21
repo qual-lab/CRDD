@@ -556,7 +556,7 @@ test("import走査は解釈できない取り込み構文をFail Closedで検出
     'const x = require("./module.ts");',
     'import x = require("./module.ts");',
     'import { snapshotPlainRecord } from "../../../domain-model/src/index.ts";',
-    'import type { T } from "../../../coordinator/src/task/execution.ts";',
+    'import type { T } from "../../src/execution/task.ts";',
     'import type { VerifiedRepositoryRoot } from "../../../version-control/src/index.ts";',
     'import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";',
     'import { randomUUID as random } from "node:crypto";',

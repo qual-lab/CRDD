@@ -17,13 +17,12 @@ import { createHash } from "node:crypto";
 import { stripTypeScriptTypes } from "node:module";
 import { runInThisContext } from "node:vm";
 import { types } from "node:util";
-import * as model from "../../src/state-storage/model.ts";
+import * as model from "../../src/storage/model.ts";
 import * as domain from "../../../domain-model/src/index.ts";
 import * as versionControl from "../../../version-control/src/index.ts";
-import * as bindings from "../../src/repository-operation/binding.ts";
-import * as kernel from "../../src/host-execution/kernel-lock.ts";
-import { classifyCoordinatorSnapshotReentry } from "../../src/state-storage/settlement-store.ts";
-import * as stateStore from "../../src/state-storage/settlement-store.ts";
+import * as bindings from "../../src/workspace/binding.ts";
+import * as kernel from "../../src/execution/kernel-lock.ts";
+import * as stateStore from "../../src/storage/settlement-store.ts";
 import * as isolation from "../../../docker-isolation/src/index.ts";
 import { runDockerRuntimeRepairSessionUsing } from "../../../docker-isolation/src/docker-desktop/repair-session.ts";
 import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
@@ -62,7 +61,7 @@ let pauseBeforeDisposal = true;
 let retentionReads = 0;
 let refuseDisposalProgress = false;
 const disposalCalls: string[] = [];
-mock.module("../../src/state-storage/settlement-store.ts", {
+mock.module("../../src/storage/settlement-store.ts", {
   namedExports: {
     ...stateStore,
     completeRuntimeOwnedCoordinatorRepair: (
@@ -726,7 +725,7 @@ function stateStoreSource(
 ) {
   const source = stripTypeScriptTypes(
     fs.readFileSync(
-      new URL("../../src/state-storage/settlement-store.ts", import.meta.url),
+      new URL("../../src/storage/settlement-store.ts", import.meta.url),
       "utf8",
     ),
   )
@@ -735,7 +734,6 @@ function stateStoreSource(
   const body = transform(source);
   const dependencies = {
     createHash,
-    classifyCoordinatorSnapshotReentry,
     fs,
     path,
     types,

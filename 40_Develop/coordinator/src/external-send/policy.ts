@@ -18,7 +18,7 @@ import {
 } from "../../../docker-isolation/src/index.ts";
 
 import { parseUnambiguousJsonDocument } from "../../../ai-adapter/src/index.ts";
-import { verifyOwnedOperationManagementCapability } from "../host-execution/operation-workspace-lifecycle.ts";
+import { verifyOwnedOperationManagementCapability } from "../execution/operation.ts";
 import {
   snapshotPlainArray,
   snapshotPlainRecord,
@@ -26,7 +26,7 @@ import {
 import {
   borrowRuntimeOwnedRepositorySource,
   verifyRuntimeOwnedRepositoryBindingCapability,
-} from "../repository-operation/binding.ts";
+} from "../workspace/binding.ts";
 
 export const EXTERNAL_SEND_POLICY_RUNTIME_CONTRACT =
   "crdd-coordinator/external-send-policy-runtime";

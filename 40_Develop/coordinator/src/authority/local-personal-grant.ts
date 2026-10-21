@@ -16,12 +16,12 @@ import {
   AUTHORITY_TRUST_POLICY_CONTRACT,
   decodeCanonicalAuthorityTrustPolicyBytes,
 } from "./trust-loader.ts";
-import { inspectRuntimeOwnedDevelopmentOperationContext } from "../task/development-measurement-session.ts";
-import { verifyOwnedOperationManagementCapability } from "../host-execution/operation-workspace-lifecycle.ts";
+import { inspectRuntimeOwnedDevelopmentOperationContext } from "../execution/development-measurement-session.ts";
+import { verifyOwnedOperationManagementCapability } from "../execution/operation.ts";
 import {
   PROVIDER_ISOLATION_CONTRACT,
   validateProviderIsolationProfile,
-} from "../provider/isolation-profile.ts";
+} from "../execution/isolation-profile.ts";
 
 export const LOCAL_PERSONAL_AUTHORITY_RUNTIME_CONTRACT =
   "crdd-coordinator/local-personal-authority-runtime";

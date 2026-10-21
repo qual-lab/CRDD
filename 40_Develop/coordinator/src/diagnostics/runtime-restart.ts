@@ -14,8 +14,8 @@ import {
   persistRuntimeOwnedDockerRestartCheckpoint,
   releaseRuntimeOwnedDockerRestartPreparation,
   finalizeRuntimeOwnedDockerRestartPreparation,
-} from "../task/recovery.ts";
-import type { DockerRestartCheckpoint } from "../state-storage/restart-checkpoint.ts";
+} from "../execution/recovery.ts";
+import type { DockerRestartCheckpoint } from "../storage/restart-checkpoint.ts";
 
 /**
  * exact回復対象の一要求だけを下位の公開固定操作へ渡す。

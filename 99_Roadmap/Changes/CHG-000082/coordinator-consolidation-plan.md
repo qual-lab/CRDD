@@ -1,7 +1,7 @@
 # Orchestrator／Coordinator統合とDomain Model最終整理
 
 成果物種別: 変更計画・着手前対応表
-状態: A・B1〜B5完了。C〜Dは未完了
+状態: A・B1〜B5とC前のCoordinator事前整理は完了。C〜Dは未着手
 対象変更: [CHG-000082](change.md)
 責任者・採用決定権限: Qual-Lab
 最終更新日: 2026-10-21
@@ -561,3 +561,347 @@ B3〜B5は予定した責務移管・本番利用側・合成反証回帰・独�
 | `cli`・`diagnostics`・Root | 7＋7＋1 | 公開受付・非秘密表示・専門診断の集約と公開API。単一bin・現行入力・利用側・起動Pathを統合先へ追従 |
 
 CのPackage統合・改名、DのDomain Model最終整理、正式QA・未実施実境界は本節の局所回帰とは別である。保持中②のunknownを成功化せず、再試行・削除は別判断を維持する。
+
+
+## 13. C前のCoordinator事前整理
+
+基準版は`923743ba1d0a8533b1a21c397416bbcfdab9ae5c`。人間提示の事前リファクタリング方針を採用し、Cの改名・統合より先に、既存97 Sourceの不要中継・技術Owner・保存保証を確認する。目標Treeは配置の結論ではなく責務上の目安とし、保存・回復を無理に`execution/`または`external-send/`へ押し込まない。
+
+| 順序 | 変更と確認 | 保持する境界 |
+|---|---|---|
+| P0 CLI | `bin/coordinator.ts`を薄い入口とし、`cli/command.ts`へ起動用途と通常Commandの受付を統合、`cli/launch.ts`を撤去 | importだけでは起動しない。直Taskとtemplateの上位Task、Node拒否、二種類のhelp、TTY、argv・stdin・同一Process、固定Script配送と例外秘匿を維持 |
+| 実行・助言 | Provider／Task／Workbenchの実際のConsumerと共通実行境界を確認し、重複のみ削減 | 助言固有Context・Schemaと編集／レビューの順序、取消join、一次失敗とcleanup不明、同じ回復参照を維持 |
+| P0 保存・回復 | Writer／Reader、保存確定単位、Lease取得順、再入場と配送を対応付けてから配置判断 | 原子的保存・poison・unknown・受付世代・一回Grantを維持。Orchestrator進行状態と技術Settlementを同じ情報とみなさない |
+| Authority・Host・Repository・診断 | 既存専門APIへの委譲と上位意味を区別 | 技術搬送は専門Owner、用途Hash・namespace・許可・失効・次回拒否は上位。新State／Lock／Frameworkを作らない |
+| 固定候補 | 97 File全数のKeep／Merge／Move／Delete／Pendingと利用側・試験を確定 | Cへ影響するPendingは解消してからCへ進む。過去Evidenceは改名しない |
+
+変更分類は既存Capabilityの責務整理であり、新しい実行許可・公開契約・永続Schemaは追加しない。Source、設計、台帳、配布入口と利用側を同期し、限定回帰と独立Source／Quality確認を行う。準拠基準・Release・外部依存の有効化は変更しないため今回の監査対象外。着手前のSourceとQuality二観点は統合済みで、現時点で追加の人間判断は不要。保存形式または既存unknownの終了条件変更が必要なら実装前に停止する。
+
+外部AI、実Docker操作、認証、②の再試行・保持物操作は対象外。Cの新Coordinator構成は将来の移管先として参照するだけで、この整理の途中成立をC完了と表示しない。
+
+
+### 13.1. 基準版97 Sourceの全数処置対応
+
+基準版の全数を固定する。Keepは現在の保証Ownerを維持する判断であり、C後も旧Folder名を残す判断ではない。初回照合時点ではPending三件を未削除で保持した。その後の処置は13.4節以降へ記録し、基準表を現在Treeと混同しない。Consumer欄は初回照合Treeの相対import／dynamic importを読取り抽出した直接参照であり、Root経由・文字列参照・実行時注入の完全性証明ではない。これらは既存のCatalog、Symbol、実子試験と固定候補前に再照合する。試験数はSuite数の主張ではなく直接参照File数。
+
+| 基準Source | 処置 | 保持する責務・保証または未確定理由 | 直接利用側（`40_Develop/`を省略） |
+|---|---|---|---|
+| `authority/file-bundle.ts` | Keep | 許可・失効・秘密投影の上位判断。汎用PAへ移さない | `coordinator/src/authority/local-personal-grant.ts`<br>`coordinator/src/authority/prelaunch-verifier.ts`<br>`coordinator/src/diagnostics/doctor.ts`（直接試験 2） |
+| `authority/grant-verifier.ts` | Keep | 許可・失効・秘密投影の上位判断。汎用PAへ移さない | `coordinator/src/authority/local-personal-grant.ts`<br>`coordinator/src/authority/prelaunch-verifier.ts`<br>`coordinator/src/authority/trust-loader.ts`<br>`coordinator/src/diagnostics/doctor.ts`（直接試験 4） |
+| `authority/local-personal-grant.ts` | Keep | 許可・失効・秘密投影の上位判断。汎用PAへ移さない | `coordinator/src/provider/authority-grant.ts`（直接試験 2） |
+| `authority/prelaunch-verifier.ts` | Keep | 許可・失効・秘密投影の上位判断。汎用PAへ移さない | `coordinator/src/diagnostics/doctor.ts`<br>`coordinator/src/provider/authority-grant.ts`（直接試験 2） |
+| `authority/root-path-lexical.ts` | Keep | 許可・失効・秘密投影の上位判断。汎用PAへ移さない | `coordinator/src/platform-access/protected-root-windows-adapter.ts`<br>`coordinator/src/provider/home-windows-adapter.ts`<br>`coordinator/src/provider/home.ts`（直接試験 2） |
+| `authority/runtime-trust.ts` | Keep | 許可・失効・秘密投影の上位判断。汎用PAへ移さない | 本番の直接importなし（直接試験 1） |
+| `authority/secret-material-policy.ts` | Keep | 許可・失効・秘密投影の上位判断。汎用PAへ移さない | `coordinator/src/external-send/grant.ts`<br>`coordinator/src/provider/task-packet.ts`<br>`coordinator/src/repository-operation/workspace.ts`<br>`coordinator/src/task/request.ts`<br>`coordinator/src/workbench-ai/advice-task.ts`<br>`orchestrator/src/workspace/commands.ts`（直接試験 3） |
+| `authority/trust-loader.ts` | Keep | 許可・失効・秘密投影の上位判断。汎用PAへ移さない | `coordinator/src/authority/file-bundle.ts`<br>`coordinator/src/authority/local-personal-grant.ts`<br>`coordinator/src/diagnostics/doctor.ts`（直接試験 3） |
+| `cli/command-report.ts` | Keep | 受付・引数・取消・表示。CLI内で意味ごとに維持 | `coordinator/src/cli/command.ts`<br>`orchestrator/src/cli/command.ts`（直接試験 3） |
+| `cli/command.ts` | Keep | 受付・引数・取消・表示。CLI内で意味ごとに維持 | `coordinator/bin/coordinator.ts`<br>`template/tools/crdd-coordinator.ts`（直接試験 1） |
+| `cli/interactive-console.ts` | Keep | 受付・引数・取消・表示。CLI内で意味ごとに維持 | `coordinator/src/external-send/grant.ts`（直接試験 4） |
+| `cli/launch.ts` | Merge → cli/command.ts | 起動判定と固定配送の正本を統合（今回実装） | 本番の直接importなし（直接試験 0） |
+| `cli/options.ts` | Keep | 受付・引数・取消・表示。CLI内で意味ごとに維持 | `coordinator/src/cli/command.ts`（直接試験 3） |
+| `cli/request-input.ts` | Keep | 受付・引数・取消・表示。CLI内で意味ごとに維持 | `coordinator/src/cli/command.ts`<br>`orchestrator/src/cli/command.ts`（直接試験 1） |
+| `cli/task-cancellation.ts` | Keep | 受付・引数・取消・表示。CLI内で意味ごとに維持 | `coordinator/src/cli/command.ts`<br>`orchestrator/src/cli/command.ts`（直接試験 4） |
+| `diagnostics/development-execution-timing.ts` | Keep | 明示診断・回復の公開結果と許可接続 | `coordinator/src/task/development-measurement-session.ts`<br>`coordinator/src/task/execution.ts`（直接試験 2） |
+| `diagnostics/docker-recovery-command-report.ts` | Keep | 明示診断・回復の公開結果と許可接続 | `coordinator/src/cli/command.ts`（直接試験 3） |
+| `diagnostics/doctor.ts` | Keep | 明示診断・回復の公開結果と許可接続 | `coordinator/src/cli/command.ts`（直接試験 1） |
+| `diagnostics/isolation-probe.ts` | Keep | 明示診断・回復の公開結果と許可接続 | `coordinator/scripts/verify-dynamic-fake-provider-cancellation.ts`<br>`coordinator/scripts/verify-dynamic-fake-provider-failures.ts`<br>`coordinator/scripts/verify-recovery-matrix.ts`<br>`coordinator/src/cli/command.ts`<br>`coordinator/src/diagnostics/doctor.ts`（直接試験 3） |
+| `diagnostics/release-identity-grammar.ts` | Keep | 明示診断・回復の公開結果と許可接続 | `coordinator/scripts/orchestrator-real-provider-contract.ts`<br>`coordinator/scripts/verify-general-task.ts`<br>`coordinator/scripts/verify-reviewer-boundary.ts`<br>`coordinator/scripts/verify-route-matrix.ts`<br>`coordinator/src/repository-operation/binding.ts`（直接試験 1） |
+| `diagnostics/runtime-repair.ts` | Keep | 明示診断・回復の公開結果と許可接続 | `coordinator/src/cli/command.ts`（直接試験 3） |
+| `diagnostics/runtime-restart.ts` | Keep | 明示診断・回復の公開結果と許可接続 | `coordinator/src/cli/command.ts`（直接試験 2） |
+| `external-send/consent-record.ts` | Keep | 同意・scope・一回Grant。Cではdecisionへ直接移す | `coordinator/src/external-send/consent-store.ts`（直接試験 0） |
+| `external-send/consent-store.ts` | Keep | 同意・scope・一回Grant。Cではdecisionへ直接移す | `coordinator/scripts/revoke-external-send-consent.ts`<br>`coordinator/src/external-send/grant.ts`（直接試験 1） |
+| `external-send/grant.ts` | Keep | 同意・scope・一回Grant。Cではdecisionへ直接移す | `coordinator/src/provider/task-packet.ts`<br>`coordinator/src/task/execution.ts`（直接試験 6） |
+| `external-send/policy.ts` | Keep | 同意・scope・一回Grant。Cではdecisionへ直接移す | `coordinator/src/external-send/consent-store.ts`<br>`coordinator/src/external-send/grant.ts`<br>`coordinator/src/index.ts`<br>`coordinator/src/task/execution.ts`<br>`coordinator/src/workbench-ai/repository-composition.ts`（直接試験 2） |
+| `host-execution/generation-loss-transition.ts` | Keep | 上位の世代・所有権・poisonと再入場 | `coordinator/src/host-execution/operation-workspace-lifecycle.ts`（直接試験 1） |
+| `host-execution/kernel-lock.ts` | Keep | 上位の世代・所有権・poisonと再入場 | `coordinator/src/external-send/consent-store.ts`<br>`coordinator/src/external-send/grant.ts`<br>`coordinator/src/host-execution/operation-workspace-lifecycle.ts`<br>`coordinator/src/index.ts`<br>`coordinator/src/provider/claude-subscription-authentication.ts`<br>`coordinator/src/state-storage/settlement-store.ts`<br>`coordinator/src/task/recovery.ts`<br>`orchestrator/src/storage/protected-decision.ts`（直接試験 17） |
+| `host-execution/node-runtime-version.ts` | Keep | 上位の世代・所有権・poisonと再入場 | `coordinator/scripts/measure-development-providers.ts`<br>`coordinator/scripts/verification-result-record.ts`<br>`coordinator/scripts/verify-general-task.ts`<br>`coordinator/scripts/verify-recovery-matrix.ts`<br>`coordinator/src/cli/command.ts`<br>`coordinator/src/diagnostics/doctor.ts`<br>`coordinator/src/index.ts`<br>`template/tools/crdd-coordinator.ts`（直接試験 2） |
+| `host-execution/operation-lease-lifecycle.ts` | Keep | 上位の世代・所有権・poisonと再入場 | `coordinator/src/host-execution/terminal-caller-lease.ts`（直接試験 1） |
+| `host-execution/operation-workspace-lifecycle.ts` | Keep | 上位の世代・所有権・poisonと再入場 | `coordinator/scripts/verify-dynamic-fake-provider-cancellation.ts`<br>`coordinator/scripts/verify-dynamic-fake-provider-failures.ts`<br>`coordinator/scripts/verify-recovery-matrix.ts`<br>`coordinator/src/authority/local-personal-grant.ts`<br>`coordinator/src/cli/command.ts`<br>`coordinator/src/diagnostics/doctor.ts`<br>`coordinator/src/diagnostics/isolation-probe.ts`<br>`coordinator/src/external-send/grant.ts`<br>`coordinator/src/external-send/policy.ts`<br>`coordinator/src/provider/authority-grant.ts`<br>`coordinator/src/provider/delegation-selection-grant.ts`<br>`coordinator/src/provider/execution-composition.ts`<br>`coordinator/src/provider/execution-types.ts`<br>`coordinator/src/provider/home-mount-authorization.ts`<br>`coordinator/src/provider/isolation-execution.ts`<br>`coordinator/src/provider/task-packet.ts`<br>`coordinator/src/repository-operation/binding.ts`<br>`coordinator/src/repository-operation/borrowed-workspace.ts`<br>`coordinator/src/repository-operation/create.ts`<br>`coordinator/src/repository-operation/workspace.ts`<br>`coordinator/src/state-storage/settlement-store.ts`<br>`coordinator/src/task/development-measurement-session.ts`<br>`coordinator/src/task/execution.ts`<br>`coordinator/src/task/recovery.ts`<br>`coordinator/src/workbench-ai/advice-execution.ts`（直接試験 16） |
+| `host-execution/orphan-recovery-policy.ts` | Keep | 上位の世代・所有権・poisonと再入場 | 本番の直接importなし（直接試験 1） |
+| `host-execution/process-safety-state.ts` | Keep | 上位の世代・所有権・poisonと再入場 | `coordinator/scripts/verify-general-task.ts`<br>`coordinator/scripts/verify-reviewer-boundary.ts`<br>`coordinator/scripts/verify-route-matrix.ts`<br>`coordinator/src/cli/interactive-console.ts`<br>`coordinator/src/external-send/grant.ts`<br>`coordinator/src/host-execution/operation-workspace-lifecycle.ts`<br>`coordinator/src/index.ts`<br>`coordinator/src/task/development-measurement-session.ts`<br>`coordinator/src/task/execution.ts`<br>`coordinator/src/workbench-ai/advice-execution.ts`（直接試験 8） |
+| `host-execution/recovery-record.ts` | Keep | 上位の世代・所有権・poisonと再入場 | `coordinator/scripts/verification-result-record.ts`<br>`coordinator/src/diagnostics/isolation-probe.ts`<br>`coordinator/src/host-execution/operation-workspace-lifecycle.ts`<br>`coordinator/src/state-storage/model.ts`<br>`coordinator/src/state-storage/settlement-store.ts`<br>`coordinator/src/task/recovery.ts`<br>`coordinator/src/workbench-ai/advice-execution.ts`（直接試験 8） |
+| `host-execution/terminal-caller-checkpoint.ts` | Keep | 上位の世代・所有権・poisonと再入場 | 本番の直接importなし（直接試験 2） |
+| `host-execution/terminal-caller-lease.ts` | Pending | 用途Hashは上位、実named pipeの搬送はPA移管候補。Leaseの後着・解放不明を分断しない | `coordinator/src/host-execution/terminal-caller-checkpoint.ts`（直接試験 1） |
+| `host-execution/terminal-record.ts` | Keep | 上位の世代・所有権・poisonと再入場 | `coordinator/src/host-execution/terminal-caller-checkpoint.ts`（直接試験 2） |
+| `index.ts` | Keep | Package公開Root。内部Fileの一括公開は追加しない | `orchestrator/src/objective/plan.ts`<br>`orchestrator/src/objective/public-operation.ts`<br>`orchestrator/src/storage/current-state.ts`<br>`orchestrator/src/task/dispatch.ts`<br>`orchestrator/src/task/execute-attempt.ts`<br>`orchestrator/src/task/execution-contract.ts`<br>`orchestrator/src/task/executor.ts`<br>`orchestrator/src/task/host-adapter.ts`<br>`orchestrator/src/task/request-composition.ts`<br>`orchestrator/src/task/requests.ts`<br>`workbench-server/scripts/verify-readonly-ai.ts`<br>`workbench-server/scripts/verify-workspace-ai.ts`<br>`workbench-server/src/client/components/ai-request-panel.tsx`<br>`workbench-server/src/server/ai-request/types.ts`<br>`workbench-server/src/server/routes/repository-view.ts`<br>`workbench-server/src/server/routes/shared-view.ts`<br>`workbench-server/src/shared/view/types.ts`<br>`template/tools/crdd-mcp-server.ts`（直接試験 3） |
+| `platform-access/adapter.ts` | Keep | 専門PAを呼ぶ用途限定の上位Adapter | `coordinator/src/repository-operation/root-observation.ts`（直接試験 1） |
+| `platform-access/protected-root-windows-adapter.ts` | Keep | 専門PAを呼ぶ用途限定の上位Adapter | `coordinator/src/external-send/consent-store.ts`<br>`orchestrator/src/storage/protected-decision.ts`（直接試験 4） |
+| `provider/authority-grant.ts` | Keep | 共通AI／DI APIを結合する許可・実行調整 | `coordinator/src/provider/execution-composition.ts`<br>`coordinator/src/provider/execution-controller.ts`（直接試験 2） |
+| `provider/claude-docker-adapter.ts` | Pending | 固定Provider中継。共通Adapterの本番・試験Consumerと契約値を照合後、削減可否を確定 | `coordinator/src/provider/execution-controller.ts`<br>`coordinator/src/workbench-ai/advice-execution.ts`（直接試験 3） |
+| `provider/claude-subscription-authentication.ts` | Keep | 共通AI／DI APIを結合する許可・実行調整 | `coordinator/scripts/authenticate-claude-subscription.ts`（直接試験 6） |
+| `provider/codex-docker-adapter.ts` | Pending | 固定Provider中継。共通Adapterの本番・試験Consumerと契約値を照合後、削減可否を確定 | `coordinator/src/provider/execution-controller.ts`<br>`coordinator/src/workbench-ai/advice-execution.ts`（直接試験 2） |
+| `provider/delegation-route-selection.ts` | Keep | 共通AI／DI APIを結合する許可・実行調整 | `coordinator/src/provider/delegation-selection-grant.ts`（直接試験 3） |
+| `provider/delegation-selection-grant.ts` | Keep | 共通AI／DI APIを結合する許可・実行調整 | `coordinator/src/provider/execution-composition.ts`<br>`coordinator/src/task/execution.ts`<br>`coordinator/src/workbench-ai/advice-execution.ts`（直接試験 6） |
+| `provider/eligibility-observation.ts` | Keep | 共通AI／DI APIを結合する許可・実行調整 | `coordinator/src/provider/delegation-selection-grant.ts`（直接試験 1） |
+| `provider/execution-adapter.ts` | Keep | 共通AI／DI APIを結合する許可・実行調整 | `coordinator/src/provider/claude-docker-adapter.ts`<br>`coordinator/src/provider/codex-docker-adapter.ts`<br>`coordinator/src/task/execution.ts`（直接試験 1） |
+| `provider/execution-composition.ts` | Keep | 共通AI／DI APIを結合する許可・実行調整 | `coordinator/src/provider/execution-adapter.ts`（直接試験 2） |
+| `provider/execution-controller.ts` | Keep | 共通AI／DI APIを結合する許可・実行調整 | `coordinator/src/state-storage/settlement-store.ts`<br>`coordinator/src/task/attempt.ts`<br>`coordinator/src/task/execution.ts`<br>`coordinator/src/task/recovery.ts`<br>`coordinator/src/workbench-ai/advice-execution.ts`（直接試験 5） |
+| `provider/execution-plan.ts` | Keep | 共通AI／DI APIを結合する許可・実行調整 | `coordinator/src/provider/execution-adapter.ts`（直接試験 0） |
+| `provider/execution-result-reasons.ts` | Keep | 共通AI／DI APIを結合する許可・実行調整 | `coordinator/scripts/orchestrator-real-provider-contract.ts`<br>`coordinator/src/provider/execution-controller.ts`<br>`coordinator/src/state-storage/model.ts`<br>`coordinator/src/task/result-reasons.ts`（直接試験 2） |
+| `provider/execution-types.ts` | Keep | 共通AI／DI APIを結合する許可・実行調整 | `coordinator/src/provider/claude-docker-adapter.ts`<br>`coordinator/src/provider/codex-docker-adapter.ts`<br>`coordinator/src/provider/execution-adapter.ts`<br>`coordinator/src/provider/execution-composition.ts`<br>`coordinator/src/provider/execution-plan.ts`<br>`coordinator/src/provider/preparation-lifecycle.ts`<br>`coordinator/src/provider/preparation.ts`（直接試験 0） |
+| `provider/home-mount-authorization.ts` | Keep | 共通AI／DI APIを結合する許可・実行調整 | `coordinator/src/provider/authority-grant.ts`<br>`coordinator/src/provider/execution-composition.ts`<br>`coordinator/src/provider/execution-controller.ts`<br>`coordinator/src/provider/home.ts`<br>`coordinator/src/state-storage/settlement-store.ts`<br>`coordinator/src/task/execution.ts`<br>`coordinator/src/workbench-ai/advice-execution.ts`（直接試験 3） |
+| `provider/home-mount-grant.ts` | Keep | 共通AI／DI APIを結合する許可・実行調整 | `coordinator/src/authority/grant-verifier.ts`<br>`coordinator/src/authority/prelaunch-verifier.ts`<br>`coordinator/src/provider/home-mount-authorization.ts`<br>`coordinator/src/provider/home.ts`<br>`coordinator/src/provider/lifecycle.ts`（直接試験 2） |
+| `provider/home-windows-adapter.ts` | Keep | 共通AI／DI APIを結合する許可・実行調整 | `coordinator/scripts/authenticate-claude-subscription.ts`<br>`coordinator/src/provider/home-mount-authorization.ts`<br>`coordinator/src/provider/home.ts`<br>`coordinator/src/task/execution.ts`<br>`coordinator/src/task/recovery.ts`<br>`coordinator/src/workbench-ai/advice-execution.ts`<br>`orchestrator/src/platform/windows-adapter.ts`（直接試験 7） |
+| `provider/home.ts` | Keep | 共通AI／DI APIを結合する許可・実行調整 | `coordinator/src/provider/lifecycle.ts`（直接試験 1） |
+| `provider/isolation-execution.ts` | Keep | 共通AI／DI APIを結合する許可・実行調整 | `coordinator/src/provider/execution-controller.ts`<br>`coordinator/src/state-storage/settlement-store.ts`（直接試験 4） |
+| `provider/isolation-profile.ts` | Keep | 共通AI／DI APIを結合する許可・実行調整 | `coordinator/src/authority/file-bundle.ts`<br>`coordinator/src/authority/grant-verifier.ts`<br>`coordinator/src/authority/local-personal-grant.ts`<br>`coordinator/src/authority/prelaunch-verifier.ts`<br>`coordinator/src/authority/trust-loader.ts`<br>`coordinator/src/diagnostics/doctor.ts`（直接試験 7） |
+| `provider/lifecycle.ts` | Keep | 共通AI／DI APIを結合する許可・実行調整 | `coordinator/src/diagnostics/doctor.ts`（直接試験 1） |
+| `provider/model-selection.ts` | Keep | 共通AI／DI APIを結合する許可・実行調整 | `coordinator/src/provider/delegation-route-selection.ts`<br>`coordinator/src/provider/execution-plan.ts`（直接試験 1） |
+| `provider/preparation-lifecycle.ts` | Keep | 共通AI／DI APIを結合する許可・実行調整 | `coordinator/src/provider/claude-docker-adapter.ts`<br>`coordinator/src/provider/codex-docker-adapter.ts`<br>`coordinator/src/provider/execution-adapter.ts`（直接試験 1） |
+| `provider/preparation.ts` | Keep | 共通AI／DI APIを結合する許可・実行調整 | `coordinator/src/provider/execution-adapter.ts`（直接試験 1） |
+| `provider/task-packet.ts` | Keep | 共通AI／DI APIを結合する許可・実行調整 | `coordinator/src/provider/execution-composition.ts`<br>`coordinator/src/task/execution.ts`（直接試験 1） |
+| `provider/task-structured-result.ts` | Keep | 共通AI／DI APIを結合する許可・実行調整 | `coordinator/src/provider/execution-controller.ts`<br>`coordinator/src/provider/task-packet.ts`（直接試験 2） |
+| `repository-operation/binding.ts` | Keep | 借用・dirty・許可範囲・Operation生成の上位意味 | `coordinator/scripts/orchestrator-real-provider-contract.ts`<br>`coordinator/scripts/verification-result-record.ts`<br>`coordinator/scripts/verify-general-task.ts`<br>`coordinator/scripts/verify-orchestrator-real-providers.ts`<br>`coordinator/src/diagnostics/doctor.ts`<br>`coordinator/src/diagnostics/runtime-repair.ts`<br>`coordinator/src/external-send/grant.ts`<br>`coordinator/src/external-send/policy.ts`<br>`coordinator/src/provider/delegation-selection-grant.ts`<br>`coordinator/src/provider/execution-controller.ts`<br>`coordinator/src/repository-operation/borrowed-workspace.ts`<br>`coordinator/src/repository-operation/workspace.ts`<br>`coordinator/src/state-storage/settlement-store.ts`<br>`coordinator/src/task/development-measurement-session.ts`<br>`coordinator/src/task/execution.ts`<br>`coordinator/src/task/recovery.ts`<br>`coordinator/src/workbench-ai/advice-execution.ts`<br>`orchestrator/src/decision/public-acceptance.ts`<br>`orchestrator/src/objective/public-operation.ts`<br>`orchestrator/src/state/public-query.ts`（直接試験 13） |
+| `repository-operation/borrowed-workspace.ts` | Keep | 借用・dirty・許可範囲・Operation生成の上位意味 | `coordinator/scripts/verify-general-task.ts`<br>`coordinator/scripts/workspace-task-fixture.ts`<br>`coordinator/src/provider/execution-composition.ts`<br>`coordinator/src/repository-operation/workspace.ts`<br>`coordinator/src/task/attempt.ts`<br>`coordinator/src/task/execution.ts`<br>`coordinator/src/task/types.ts`（直接試験 1） |
+| `repository-operation/create.ts` | Keep | 借用・dirty・許可範囲・Operation生成の上位意味 | `coordinator/src/diagnostics/doctor.ts`<br>`coordinator/src/task/execution.ts`<br>`coordinator/src/workbench-ai/advice-execution.ts`（直接試験 2） |
+| `repository-operation/root-observation.ts` | Keep | 借用・dirty・許可範囲・Operation生成の上位意味 | `coordinator/src/repository-operation/root-protection-policy.ts`<br>`orchestrator/src/platform/windows-adapter.ts`（直接試験 2） |
+| `repository-operation/root-protection-policy.ts` | Keep | 借用・dirty・許可範囲・Operation生成の上位意味 | `coordinator/src/authority/file-bundle.ts`<br>`coordinator/src/diagnostics/doctor.ts`（直接試験 1） |
+| `repository-operation/workspace.ts` | Keep | 借用・dirty・許可範囲・Operation生成の上位意味 | `coordinator/src/task/execution.ts`（直接試験 1） |
+| `state-storage/docker-recovery-journal.ts` | Keep | 技術Settlementの保存契約。確定単位を保ちstorageへ配置候補 | `coordinator/src/external-send/consent-store.ts`<br>`orchestrator/src/storage/protected-decision.ts`（直接試験 4） |
+| `state-storage/model.ts` | Keep | 技術Settlementの保存契約。確定単位を保ちstorageへ配置候補 | `coordinator/src/diagnostics/runtime-repair.ts`<br>`coordinator/src/state-storage/settlement-store.ts`<br>`coordinator/src/task/recovery.ts`（直接試験 14） |
+| `state-storage/recovery-identity.ts` | Keep | 技術Settlementの保存契約。確定単位を保ちstorageへ配置候補 | `coordinator/src/cli/options.ts`<br>`coordinator/src/provider/execution-controller.ts`<br>`coordinator/src/state-storage/model.ts`<br>`coordinator/src/state-storage/restart-checkpoint.ts`<br>`coordinator/src/state-storage/settlement-store.ts`<br>`coordinator/src/task/recovery-projection.ts`<br>`coordinator/src/task/recovery.ts`（直接試験 1） |
+| `state-storage/restart-checkpoint.ts` | Keep | 技術Settlementの保存契約。確定単位を保ちstorageへ配置候補 | `coordinator/src/diagnostics/runtime-restart.ts`<br>`coordinator/src/state-storage/model.ts`<br>`coordinator/src/state-storage/settlement-store.ts`<br>`coordinator/src/task/recovery.ts`（直接試験 7） |
+| `state-storage/settlement-store.ts` | Keep | 技術Settlementの保存契約。確定単位を保ちstorageへ配置候補 | `coordinator/src/cli/command.ts`<br>`coordinator/src/diagnostics/runtime-repair.ts`<br>`coordinator/src/index.ts`<br>`coordinator/src/task/recovery.ts`<br>`orchestrator/src/task/settle-docker-recovery.ts`（直接試験 9） |
+| `task/attempt.ts` | Keep | 単発実行・結果・回復の上位調整 | `coordinator/src/index.ts`（直接試験 1） |
+| `task/cleanup-eligibility.ts` | Keep | 単発実行・結果・回復の上位調整 | `coordinator/src/task/execution.ts`（直接試験 1） |
+| `task/completion-observation.ts` | Keep | 単発実行・結果・回復の上位調整 | `coordinator/src/task/attempt.ts`（直接試験 1） |
+| `task/development-measurement-constraints.ts` | Keep | 単発実行・結果・回復の上位調整 | `coordinator/src/task/development-measurement-session.ts`（直接試験 2） |
+| `task/development-measurement-session.ts` | Keep | 単発実行・結果・回復の上位調整 | `coordinator/scripts/measure-development-providers.ts`<br>`coordinator/src/authority/local-personal-grant.ts`<br>`coordinator/src/external-send/consent-store.ts`<br>`coordinator/src/host-execution/terminal-caller-checkpoint.ts`<br>`coordinator/src/platform-access/protected-root-windows-adapter.ts`<br>`coordinator/src/provider/home-windows-adapter.ts`<br>`coordinator/src/task/execution.ts`<br>`coordinator/src/task/recovery.ts`（直接試験 3） |
+| `task/development-source-observation.ts` | Keep | 単発実行・結果・回復の上位調整 | `coordinator/scripts/measure-development-providers.ts`<br>`coordinator/scripts/verify-general-task.ts`<br>`coordinator/scripts/verify-orchestrator-real-providers.ts`<br>`coordinator/src/task/development-measurement-session.ts`<br>`workbench-server/scripts/verify-workspace-ai.ts`（直接試験 2） |
+| `task/execution.ts` | Keep | 単発実行・結果・回復の上位調整 | `coordinator/scripts/measure-development-providers.ts`<br>`coordinator/scripts/verify-general-task.ts`<br>`orchestrator/src/objective/public-operation.ts`<br>`orchestrator/src/task/request-composition.ts`（直接試験 11） |
+| `task/recovery-projection.ts` | Keep | 単発実行・結果・回復の上位調整 | `coordinator/src/provider/execution-controller.ts`<br>`coordinator/src/task/execution.ts`（直接試験 2） |
+| `task/recovery.ts` | Keep | 単発実行・結果・回復の上位調整 | `coordinator/src/cli/command.ts`<br>`coordinator/src/diagnostics/runtime-restart.ts`<br>`coordinator/src/index.ts`<br>`coordinator/src/provider/execution-controller.ts`<br>`coordinator/src/provider/isolation-execution.ts`<br>`coordinator/src/task/execution.ts`<br>`coordinator/src/workbench-ai/advice-execution.ts`（直接試験 6） |
+| `task/request.ts` | Keep | 単発実行・結果・回復の上位調整 | `coordinator/src/task/development-measurement-session.ts`<br>`coordinator/src/task/execution.ts`（直接試験 2） |
+| `task/result-reasons.ts` | Keep | 単発実行・結果・回復の上位調整 | `coordinator/scripts/verification-result-record.ts`<br>`coordinator/scripts/verify-general-task.ts`<br>`coordinator/src/task/execution.ts`（直接試験 3） |
+| `task/types.ts` | Keep | 単発実行・結果・回復の上位調整 | `coordinator/src/index.ts`<br>`coordinator/src/repository-operation/workspace.ts`<br>`coordinator/src/task/attempt.ts`<br>`coordinator/src/task/completion-observation.ts`（直接試験 0） |
+| `workbench-ai/advice-contract.ts` | Keep | 助言固有Contextと共通実行の接続 | `coordinator/src/workbench-ai/advice-dispatch.ts`<br>`coordinator/src/workbench-ai/repository-composition.ts`（直接試験 0） |
+| `workbench-ai/advice-dispatch.ts` | Keep | 助言固有Contextと共通実行の接続 | `coordinator/src/workbench-ai/provider-adapter.ts`<br>`orchestrator/src/task/request-composition.ts`（直接試験 3） |
+| `workbench-ai/advice-execution-plan.ts` | Keep | 助言固有Contextと共通実行の接続 | `coordinator/src/provider/isolation-execution.ts`<br>`coordinator/src/workbench-ai/advice-execution.ts`<br>`coordinator/src/workbench-ai/advice-packet.ts`<br>`coordinator/src/workbench-ai/provider-adapter.ts`（直接試験 10） |
+| `workbench-ai/advice-execution.ts` | Keep | 助言固有Contextと共通実行の接続 | `orchestrator/src/task/request-composition.ts`（直接試験 1） |
+| `workbench-ai/advice-packet.ts` | Keep | 助言固有Contextと共通実行の接続 | `coordinator/src/provider/execution-adapter.ts`<br>`coordinator/src/provider/execution-composition.ts`<br>`coordinator/src/provider/execution-plan.ts`<br>`coordinator/src/provider/execution-types.ts`<br>`coordinator/src/provider/isolation-execution.ts`<br>`coordinator/src/workbench-ai/advice-execution.ts`（直接試験 2） |
+| `workbench-ai/advice-result.ts` | Keep | 助言固有Contextと共通実行の接続 | `coordinator/src/provider/isolation-execution.ts`<br>`coordinator/src/workbench-ai/advice-dispatch.ts`<br>`coordinator/src/workbench-ai/advice-execution-plan.ts`<br>`coordinator/src/workbench-ai/advice-task.ts`（直接試験 6） |
+| `workbench-ai/advice-task.ts` | Keep | 助言固有Contextと共通実行の接続 | `coordinator/src/workbench-ai/advice-dispatch.ts`<br>`coordinator/src/workbench-ai/repository-composition.ts`（直接試験 4） |
+| `workbench-ai/provider-adapter.ts` | Keep | 助言固有Contextと共通実行の接続 | `coordinator/src/workbench-ai/advice-execution.ts`<br>`orchestrator/src/task/request-composition.ts`（直接試験 3） |
+| `workbench-ai/repository-composition.ts` | Keep | 助言固有Contextと共通実行の接続 | `coordinator/src/workbench-ai/advice-dispatch.ts`<br>`orchestrator/src/task/request-composition.ts`（直接試験 2） |
+
+### 13.2. 保存・回復の配置を決める前の保証単位
+
+| 保証単位 | 現在Owner／Consumer | 処置と反証先 |
+|---|---|---|
+| 技術Settlementの現在値と配送 | `state-storage/settlement-store.ts`・`model.ts`、Task／回復／Host Writer | Keep。Orchestrator進行状態とは別正本。配送受付をcleanup完了へ混同しない。`orchestrator-durable-foundation`／`current-recovery-resources` |
+| Journalの確定と再入場 | `docker-recovery-journal.ts`、Orchestrator `storage/protected-decision.ts`も直接Consumer | Keep。commit側car、pending／move／delete intent、fsync→rename順を一組で維持。`docker-recovery-journal`／`docker-recovery-owner-reentry` |
+| Recovery IDと再起動値 | `recovery-identity.ts`・`restart-checkpoint.ts` | Keep。受付・Effect不明・一次結果・cleanupの相関と永続ID文法を維持 |
+| Host記録とcaller保存 | `host-execution/recovery-record.ts`・`terminal-record.ts`・`terminal-caller-checkpoint.ts` | Keep。対象・世代・正規bytes・同参照・caller側確定を一組で確認。`host-terminal-caller-checkpoint` |
+| Leaseと世代失効 | `terminal-caller-lease.ts`・`operation-lease-lifecycle.ts`・`generation-loss-transition.ts`・`process-safety-state.ts` | 用途namespace・取得順・poisonは上位。搬送移管で後着取得・socket終端・解放不明を削減しない |
+
+新しい保存単位、State、Registry、Lockは追加しない。今回の表は処置の追跡であり、未実施の故障注入・実境界確認を完了とは扱わない。
+
+### 13.3. CLI受付整理の実装・確認
+
+`bin/coordinator.ts`は`runCoordinatorCommand`を一回待機する入口へ縮小した。`cli/command.ts`が起動用途・通常Command・固定Script配送を所有し、`cli/launch.ts`を撤去した。Sourceは97→96 File。Package Rootの公開19項目、通信・永続Schema・回復Identity・専門処理の本文は変更していない。
+
+templateは同じ受付の純粋判定を参照し、Task／projectの既存上位接続を維持する。実装Moduleのimportだけでは通常操作を開始しない。直Commandのmain guardと、特殊配送先のargv1を維持した。試験の合成handlerは配送値の観測だけに使い、製品へ試験用hookを追加していない。
+
+| 確認 | 結果・限界 |
+|---|---|
+| 起動、CLI引数、旧署名退役、回復CLI、対話境界の五Suite | 最終固定版56件成功。実子のliteral argv・PID・stdin・cwd・終了値、import-only、既存回復結果・取消の合成反証を維持。実Docker／認証／外部AIの成功ではない |
+| 初回拡張回帰と是正 | 56件中54成功・本文抽出境界の追従漏れ二件。関数化後の位置へ試験だけを追従し、上記五Suiteを再実行。元の失敗を成功へ上書きしない |
+| 型・Lint・書式 | CoordinatorのSource／Test型、変更したCLI六FileのLintと書式一致を確認。BiomeのFile直接書込みはWindowsのmapped section拒否となったため、同じformatterの標準入力出力をapply_patchで適用して一致確認 |
+| Header・公開Root・全Test QA接続 | 三項目成功。先行B4のVC公開`workspace/observation.ts`が期待集合に未反映だったため一行追従。新API追加や検査条件緩和はしていない |
+| 台帳・Symbol | Catalog388件valid。全Package SymbolのID重複・Path欠落・verifies参照未解決0。launch検証の対象はcommandへ移した |
+| 文書検査 | 変更四文書の直接診断0。参照先展開込み3,278診断でexit 1。既存のリンク／アンカー不整合と設計単位処置の不合格を含み、全体文書Passは主張しない。検査後の本節追記は結果の記録のみ |
+| 独立確認 | Sourceは実argv観測の不足一件を指摘・是正後に残指摘0。計画97件の全数、設計・QA・現在投影・Symbolの限定確認も残指摘0。正式QA全体のPassではない |
+
+事前整理全体は未完了。次はPending三件の実Consumerに基づく処置確定、実行・助言・Authority／Hostの残存責務の整理と、保存／回復の確定単位を保った配置の確定へ進む。Keepの表だけで詳細移管・故障検証を完了とはしない。Cは未着手のままであり、②のAI再試行・保持物操作は行っていない。
+
+### 13.4. Provider中継とHost IPCの着手前照合
+
+読取り専用のSource／Quality両確認を統合した。Provider別二Fileは独自Stateを持たず、既存共通Adapterへの準備・取消・消費の中継と契約説明だけである。実Consumerを同じ本番Singletonと共通Factoryへ直接接続し、契約説明は共通OwnerへProvider差だけを残して集約する。契約文字列・版・fieldの存在／不存在、別Store、Claude→Codexの消費順、一回消費・期限・AuthorityとMount終了順を保持する。Root公開APIへ追加しない。
+
+Host caller排他は、Root検証・用途Hash・固定namespace生成を上位に残し、Server／Socket／Timerと既存の通知状態機械をPAの既存lock責務へ一体で移管する。PA公開は固定namespaceと64桁Hashを検査する用途限定操作と必要結果型だけとし、任意pipe・依存注入Factoryは公開しない。遅延取得、事前／待機中取消、解放Promiseの一回性、全Socket終端、観測不能とpoisonの意味を維持する。技術UTはPAへ、Host保存・実pipe結合は上位に残す。
+
+発火は既存のProvider準備・消費とcaller保存だけ。未発行・管理不一致・期限切れ・Provider違いは既存拒否、途中取消・通知欠測・解放不明は既存非成功を維持する。新State／Registry／Lock／Frameworkを作らず、実AI・Docker・保持物を操作しない。静的・既存UT／IT・利用側回帰と独立レビューで同値性を確認する。準拠基準・Release監査は変更がないため対象外。保存形式や許可条件の変更が必要なら停止し、現在追加の人間判断は不要。
+
+### 13.5. Provider中継撤去・Host IPC移管の結果
+
+| 初回Pending | 確定した処置と利用側 | 維持した保証 |
+|---|---|---|
+| Codex／Claudeの二Adapter | Delete。助言とControllerは既存共通本番Adapter、各Provider試験は共通Factoryへ直接接続。契約説明は共通Ownerの一関数へ集約 | 二Provider別Singleton・独立Store、Claude→Codex消費順、一回消費・期限・管理一致・取消を保持。全descriptor fieldを削除前の旧実装とdeepEqualし、Codex専用fieldの有無・契約文字列・版・凍結の一致を確認 |
+| caller Lease | 上位FileはKeepし、Root検証・同じHash・namespaceからPA公開操作を呼ぶ。実Server／Socket／TimerはPA `lock/in-process.ts`、既存通知状態機械は`lock/in-process-lifecycle.ts`へMove | 固定namespaceと64桁小文字Hashだけを受理。取消・後着取得・Socketごとの終端・解放一回性・観測不能を保持。状態機械に上位意味・逆依存を追加しない |
+
+Coordinator Sourceは96→93 File。PA Rootの追加は用途限定の`acquireHostTerminalCallerPipeLease`と結果型`InProcessPipeLease`のみ。Coordinator Root19項目、永続形式・同じ回復参照・Node／Native Protocol・Native成果物は不変。新State／Lock／Registry／監視Processはない。
+
+| 確認 | 結果と限界 |
+|---|---|
+| PA通常全回帰 | 137件成功。移管した通知15Caseと用途名拒否1Caseを含む。初回は公開期待集合の追加一件が未追従で不合格、期待だけを追従して全回帰を再実行 |
+| 上位の実行・助言・Host判断 | 関連八Suite224件成功。外部AI・Dockerは有限の代役であり、実Provider成功の主張ではない |
+| Windows保存・取消の実境界 | 制限環境ではcaller保存6件と子孫終了2件が不成立。同じ10件を通常権限で実行し全成功。既存実pipe競合・Process喪失後の再取得、caller保存・読戻し・取消の相関を確認。初回の失敗を上書きしない |
+| 追加Task・Provider計画・助言回帰 | 四Suite177件中176成功・junction作成EPERM一件。通常権限で同じ一件を再実行し成功。複数runの結果を単一run全成功とは表示しない。Orchestrator／Workbench／MCPの型とRuntime／Orchestrator両設計対応表検査も成功 |
+| 静的・公開・台帳 | PA型／Lint／書式、Coordinator型と変更九File Lint、Header・Root公開・全Test QA接続三件成功。Catalog389件valid。Symbol重複・Path欠落・参照未解決0。旧三Sourceへの現行コード・設定参照0 |
+| 文書検査 | 変更五文書の直接診断0。参照先展開込み3,278診断でexit 1を維持。既存全体不合格は今回の局所移管で解消済みとしない。検査後の結果記録追記は設計変更ではない |
+| 独立確認 | Sourceは残指摘0。Qualityは計画の時点表現一件を検出し、初回基準と現在結果を区別して訂正。限定再確認も残指摘0。試験実移管・設計・台帳接続を確認したが、独立した試験再実行ではない |
+
+初回Pending三件の処置は完了したが、事前整理全体の完了ではない。次は保存／回復のWriter・Reader・原子的確定・Lease取得順と再入場の詳細対応、および残る実行・Authority・Host責務の配置確定を進める。大きなFileの一括移動や、表のKeepを根拠にした未検証の削除は行わない。Cは未着手。②のAI再試行・保持物の変更・削除は行っていない。
+
+## 14. C前事前整理の最終配置と保証対応
+
+基準は13.5節の93 Source。残件1〜3をまとめて実施する人間の指示に従い、Source／Qualityの読取り確認を統合した。変更分類は既存責務の内部再編と未接続候補の退役。独立Source／Qualityレビュー・関連回帰・文書検査を実施し、準拠基準・Release・依存有効化の監査は変更がないため対象外とする。現在追加の人間判断は不要。
+
+| 確定配置 | 実際の責務とKeep／移管理由 |
+|---|---|
+| `execution/` | Provider準備・単発Task・取消・結果・技術回復接続、Host世代・所有・poison。相関する上位実行調整でありAI／DIへ丸移管しない。衝突するbasenameだけ用途名へ変更 |
+| `storage/` | 現在状態・Settlement・Journal・Host記録とcaller確定。異なるWriter／Lock／原子単位は統合しない。再入場の純粋分類だけ既存modelへ本文不変で移管 |
+| `workspace/` | Root観測・私有Binding・借用Tree・dirty・レビュー投影。Git技術操作でなく実行対象の上位意味。新しいWorkspace管理機構は作らない |
+| `cli/` | 単一受付・引数・結果表示・Node版。実行環境の版判定をHost資源管理から受付へ移す |
+| `authority/` | 実行許可・Secret投影・Root条件。人間同意とは異なり外部送信へ統合しない |
+| `external-send/` | Policy・Consent・一回Grantと要求直前Gate。Cでdecisionへ移すまで独立維持 |
+| `workbench-ai/` | 固定Context・助言Schema／Packet・非共有・結果公開。編集Taskへの変換による追加送信やReviewer追加はしない |
+| `diagnostics/` | CLI以外の開発計測・検証Tool・回復の利用側もある。一次失敗・保存・許可相関を持ち単純中継ではないため維持 |
+
+初期の三Folder目標へ形式的に詰める代替は採用しない。保存の原子単位と、Authority・助言・診断固有の意味を見えなくするためである。実Runtimeの保存先・Schema・ID・Hash入力・拒否理由・公開Root集合は変更しない。技術Writerを分割せず、現在の保存確定順を維持する。
+
+### 14.1. 保存・回復の詳細保証単位
+
+| 系統 | Writer／Readerと直接利用側 | 確定順・排他・再入場 | 検証接続 |
+|---|---|---|---|
+| 現在状態・Settlement | `settlement-store.ts`の単一物理Writer／Snapshot Reader。Task・Controller・CLI・診断、Orchestratorの回復確定が利用 | Repository Kernel Writer Lock内でfresh読取り→全Snapshot decode・元版CAS・遷移検査→pending／history／stateの既存出版順→読戻し→marker回収→Lock解放。marker回収と解放は別事実 | `coordinator-state-runtime`、`runtime-repair-owner`、`current-state-marker-cleanup`、再入場model UT |
+| Journal | `docker-recovery-journal.ts`。回復・同意Store・Orchestrator `storage/protected-decision.ts`が利用 | 本体・commit・intentを同じexact対象へ結合。完全書込み・fsync・rename、move／deleteの途中段階を同じintentで再入場。DI専用Writerへ変えない | `docker-recovery-journal`、`docker-recovery-owner-reentry`、外部送信Store、Orchestrator保護判断 |
+| Host caller記録 | `terminal-caller-checkpoint.ts`のsave／read、`terminal-record.ts`の正規bytes。回復保存とNative公開が利用 | 用途限定Pipe Lease取得→signal／isHeldの保存直前確認→stage完全書込み・fsync・読戻し→hardlink非置換公開→stage除去→canonical読戻し→Lease終端。Snapshotとの共通transactionを作らない | `host-terminal-caller-checkpoint`、`terminal-record`、実pipe競合／親喪失・保存故障 |
+| Host／Probe記録 | `recovery-record.ts`と実行世代Owner | 同じtoken・producer・Root／子実体・記録bytes・lineageを維持。保存・借用・世代失効・Host回収のAuthorityを分離 | `host-recovery-record`、`current-host-transition`、`docker-recovery-owner-reentry` |
+| 値モデル | `model.ts`、`recovery-identity.ts`、`restart-checkpoint.ts` | 値の構造・相関・状態遷移とexact ID文法のみ。純粋な再入場分類は処置候補であって保存・削除Authorityではない | model／repair-model／restart-checkpoint／再入場UT、Snapshot Writer結合 |
+
+### 14.2. 未接続Platform Access候補の退役
+
+旧`platform-access/adapter.ts`の`CRDDPR03` decoderと常時not_implementedの起動stubは本番Consumerがなく、成立済みのNative境界ではないため撤去する。RootObservationが使う契約説明は同じ値のままRoot観測Ownerへ統合する。旧専用六Caseのうちdescriptor検証をRootObservation試験へ移し、残る旧wire／未実装stub五Caseを退役する。
+
+| 旧確認軸 | 現在の実装と評価境界 |
+|---|---|
+| 要約・非開示 | PA `tests/integration/root-observation.contract.test.ts`の「RootとHomeはtokenを返さずNative確認と開発Readerの順序を閉じる」と、上位`protected-root`／`provider-home-observation`で現在の結果を検査。旧PR03の結果fieldと同値とは扱わない |
+| nonce・長さ・未知bit・role | PA `tests/unit/filesystem/protection.contract.test.ts`の「Provider Home responseはnonce、Provider、全観測bitと四つのdomain hashを検証する」「Provider Home responseは旧版、余分byte、未知bit、zero／重複hashを拒否する」で現行frameを検査。`tests/integration/native-cli.rs`は実CLIの固定要求・nonce・旧版拒否を検証する。旧PR03固有role・mask写像は退役し互換decoderを作らない |
+| 主体・アクセス観測 | 現在のNative Root／Homeと上記の公開結果・上位Capability結合試験を維持。旧PR03の各access bit写像は現在frameの試験ではなく退役対象である。旧候補codecの成功から実主体・アクセス観測の保証を推定しない |
+| 常時拒否stub | 本番未接続のため入口ごと撤去。現在の保護Root Adapter・開発観測・Authorityの拒否条件は変更しない |
+
+Source／専用Suite／Compiler／Catalog／Symbol／coverage固定母集団を同期する。これは未実装候補の退役であり、現在のPA／Native保障の代替実装や互換性追加ではない。外部AI・実Docker・②保持物は操作しない。
+
+
+### 14.3. 基準97 Sourceの最終対応
+
+基準Commitの全97 Fileを再照合した。最終Coordinator Source92 Fileへの対応漏れ・余剰は0。初回のKeep／Pending表を現在の完了判定へ流用せず、以下を現在の処置正本とする。MoveはSource配置のみで、Runtimeデータの移動ではない。内部Symbol IDは歴史との接続を保持し、File名だけを理由にSchema／Contract／Reasonへ変更を波及させない。
+
+| 基準Source（旧coordinator/src） | 最終処置 | 現在のOwner（40_Develop配下） | 保持・移管・退役の理由 |
+|---|---|---|---|
+| `authority/file-bundle.ts` | Keep | `coordinator/src/authority/file-bundle.ts` | 実行許可と信頼判断 |
+| `authority/grant-verifier.ts` | Keep | `coordinator/src/authority/grant-verifier.ts` | 実行許可と信頼判断 |
+| `authority/local-personal-grant.ts` | Keep | `coordinator/src/authority/local-personal-grant.ts` | 実行許可と信頼判断 |
+| `authority/prelaunch-verifier.ts` | Keep | `coordinator/src/authority/prelaunch-verifier.ts` | 実行許可と信頼判断 |
+| `authority/root-path-lexical.ts` | Keep | `coordinator/src/authority/root-path-lexical.ts` | 実行許可と信頼判断 |
+| `authority/runtime-trust.ts` | Keep | `coordinator/src/authority/runtime-trust.ts` | 実行許可と信頼判断 |
+| `authority/secret-material-policy.ts` | Keep | `coordinator/src/authority/secret-material-policy.ts` | 実行許可と信頼判断 |
+| `authority/trust-loader.ts` | Keep | `coordinator/src/authority/trust-loader.ts` | 実行許可と信頼判断 |
+| `cli/command-report.ts` | Keep | `coordinator/src/cli/command-report.ts` | 現在の操作Ownerと保証を維持 |
+| `cli/command.ts` | Keep | `coordinator/src/cli/command.ts` | 現在の操作Ownerと保証を維持 |
+| `cli/interactive-console.ts` | Keep | `coordinator/src/cli/interactive-console.ts` | 現在の操作Ownerと保証を維持 |
+| `cli/launch.ts` | Merge | `coordinator/src/cli/command.ts` | 単一CLI受付 |
+| `cli/options.ts` | Keep | `coordinator/src/cli/options.ts` | 現在の操作Ownerと保証を維持 |
+| `cli/request-input.ts` | Keep | `coordinator/src/cli/request-input.ts` | 現在の操作Ownerと保証を維持 |
+| `cli/task-cancellation.ts` | Keep | `coordinator/src/cli/task-cancellation.ts` | 現在の操作Ownerと保証を維持 |
+| `diagnostics/development-execution-timing.ts` | Keep | `coordinator/src/diagnostics/development-execution-timing.ts` | 明示診断・回復と非秘密結果 |
+| `diagnostics/docker-recovery-command-report.ts` | Keep | `coordinator/src/diagnostics/docker-recovery-command-report.ts` | 明示診断・回復と非秘密結果 |
+| `diagnostics/doctor.ts` | Keep | `coordinator/src/diagnostics/doctor.ts` | 明示診断・回復と非秘密結果 |
+| `diagnostics/isolation-probe.ts` | Keep | `coordinator/src/diagnostics/isolation-probe.ts` | 明示診断・回復と非秘密結果 |
+| `diagnostics/release-identity-grammar.ts` | Keep | `coordinator/src/diagnostics/release-identity-grammar.ts` | 明示診断・回復と非秘密結果 |
+| `diagnostics/runtime-repair.ts` | Keep | `coordinator/src/diagnostics/runtime-repair.ts` | 明示診断・回復と非秘密結果 |
+| `diagnostics/runtime-restart.ts` | Keep | `coordinator/src/diagnostics/runtime-restart.ts` | 明示診断・回復と非秘密結果 |
+| `external-send/consent-record.ts` | Keep | `coordinator/src/external-send/consent-record.ts` | 送信同意・scope・一回Grant |
+| `external-send/consent-store.ts` | Keep | `coordinator/src/external-send/consent-store.ts` | 送信同意・scope・一回Grant |
+| `external-send/grant.ts` | Keep | `coordinator/src/external-send/grant.ts` | 送信同意・scope・一回Grant |
+| `external-send/policy.ts` | Keep | `coordinator/src/external-send/policy.ts` | 送信同意・scope・一回Grant |
+| `host-execution/generation-loss-transition.ts` | Move | `coordinator/src/execution/generation-loss-transition.ts` | 現在の操作Ownerと保証を維持 |
+| `host-execution/kernel-lock.ts` | Move | `coordinator/src/execution/kernel-lock.ts` | 現在の操作Ownerと保証を維持 |
+| `host-execution/node-runtime-version.ts` | Move | `coordinator/src/cli/node-runtime-version.ts` | 現在の操作Ownerと保証を維持 |
+| `host-execution/operation-lease-lifecycle.ts` | Move | `platform-access/src/lock/in-process-lifecycle.ts` | PAの用途限定IPC通知Owner |
+| `host-execution/operation-workspace-lifecycle.ts` | Move | `coordinator/src/execution/operation.ts` | 現在の操作Ownerと保証を維持 |
+| `host-execution/orphan-recovery-policy.ts` | Move | `coordinator/src/execution/orphan-recovery-policy.ts` | 現在の操作Ownerと保証を維持 |
+| `host-execution/process-safety-state.ts` | Move | `coordinator/src/execution/process-safety-state.ts` | 現在の操作Ownerと保証を維持 |
+| `host-execution/recovery-record.ts` | Move | `coordinator/src/storage/recovery-record.ts` | 記録・正規bytes・caller保存のOwner |
+| `host-execution/terminal-caller-checkpoint.ts` | Move | `coordinator/src/storage/terminal-caller-checkpoint.ts` | 記録・正規bytes・caller保存のOwner |
+| `host-execution/terminal-caller-lease.ts` | Move | `coordinator/src/execution/terminal-caller-lease.ts` | 現在の操作Ownerと保証を維持 |
+| `host-execution/terminal-record.ts` | Move | `coordinator/src/storage/terminal-record.ts` | 記録・正規bytes・caller保存のOwner |
+| `index.ts` | Keep | `coordinator/src/index.ts` | 現在の操作Ownerと保証を維持 |
+| `platform-access/adapter.ts` | Delete／Merge | `coordinator/src/workspace/root-observation.ts` | 未接続PR03候補を退役。契約説明だけ統合 |
+| `platform-access/protected-root-windows-adapter.ts` | Move | `coordinator/src/execution/protected-root.ts` | 現在の操作Ownerと保証を維持 |
+| `provider/authority-grant.ts` | Move | `coordinator/src/execution/authority-grant.ts` | 現在の操作Ownerと保証を維持 |
+| `provider/claude-docker-adapter.ts` | Merge | `coordinator/src/execution/provider-adapter.ts` | 共通本番Adapterと説明値へ集約 |
+| `provider/claude-subscription-authentication.ts` | Move | `coordinator/src/execution/claude-subscription-authentication.ts` | 現在の操作Ownerと保証を維持 |
+| `provider/codex-docker-adapter.ts` | Merge | `coordinator/src/execution/provider-adapter.ts` | 共通本番Adapterと説明値へ集約 |
+| `provider/delegation-route-selection.ts` | Move | `coordinator/src/execution/delegation-route-selection.ts` | 現在の操作Ownerと保証を維持 |
+| `provider/delegation-selection-grant.ts` | Move | `coordinator/src/execution/delegation-selection-grant.ts` | 現在の操作Ownerと保証を維持 |
+| `provider/eligibility-observation.ts` | Move | `coordinator/src/execution/eligibility-observation.ts` | 現在の操作Ownerと保証を維持 |
+| `provider/execution-adapter.ts` | Move | `coordinator/src/execution/provider-adapter.ts` | 現在の操作Ownerと保証を維持 |
+| `provider/execution-composition.ts` | Move | `coordinator/src/execution/provider-composition.ts` | 現在の操作Ownerと保証を維持 |
+| `provider/execution-controller.ts` | Move | `coordinator/src/execution/provider-controller.ts` | 現在の操作Ownerと保証を維持 |
+| `provider/execution-plan.ts` | Move | `coordinator/src/execution/provider-plan.ts` | 現在の操作Ownerと保証を維持 |
+| `provider/execution-result-reasons.ts` | Move | `coordinator/src/execution/provider-result-reasons.ts` | 現在の操作Ownerと保証を維持 |
+| `provider/execution-types.ts` | Move | `coordinator/src/execution/provider-types.ts` | 現在の操作Ownerと保証を維持 |
+| `provider/home-mount-authorization.ts` | Move | `coordinator/src/execution/provider-home-mount-authorization.ts` | 現在の操作Ownerと保証を維持 |
+| `provider/home-mount-grant.ts` | Move | `coordinator/src/execution/provider-home-mount-grant.ts` | 現在の操作Ownerと保証を維持 |
+| `provider/home-windows-adapter.ts` | Move | `coordinator/src/execution/provider-home-windows-adapter.ts` | 現在の操作Ownerと保証を維持 |
+| `provider/home.ts` | Move | `coordinator/src/execution/provider-home.ts` | 現在の操作Ownerと保証を維持 |
+| `provider/isolation-execution.ts` | Move | `coordinator/src/execution/isolation-execution.ts` | 現在の操作Ownerと保証を維持 |
+| `provider/isolation-profile.ts` | Move | `coordinator/src/execution/isolation-profile.ts` | 現在の操作Ownerと保証を維持 |
+| `provider/lifecycle.ts` | Move | `coordinator/src/execution/provider-lifecycle.ts` | 現在の操作Ownerと保証を維持 |
+| `provider/model-selection.ts` | Move | `coordinator/src/execution/model-selection.ts` | 現在の操作Ownerと保証を維持 |
+| `provider/preparation-lifecycle.ts` | Move | `coordinator/src/execution/provider-preparation-lifecycle.ts` | 現在の操作Ownerと保証を維持 |
+| `provider/preparation.ts` | Move | `coordinator/src/execution/provider-preparation.ts` | 現在の操作Ownerと保証を維持 |
+| `provider/task-packet.ts` | Move | `coordinator/src/execution/task-packet.ts` | 現在の操作Ownerと保証を維持 |
+| `provider/task-structured-result.ts` | Move | `coordinator/src/execution/task-structured-result.ts` | 現在の操作Ownerと保証を維持 |
+| `repository-operation/binding.ts` | Move | `coordinator/src/workspace/binding.ts` | 現在の操作Ownerと保証を維持 |
+| `repository-operation/borrowed-workspace.ts` | Move | `coordinator/src/workspace/borrowed-tree.ts` | 現在の操作Ownerと保証を維持 |
+| `repository-operation/create.ts` | Move | `coordinator/src/workspace/create.ts` | 現在の操作Ownerと保証を維持 |
+| `repository-operation/root-observation.ts` | Move | `coordinator/src/workspace/root-observation.ts` | 現在の操作Ownerと保証を維持 |
+| `repository-operation/root-protection-policy.ts` | Move | `coordinator/src/workspace/root-protection-policy.ts` | 現在の操作Ownerと保証を維持 |
+| `repository-operation/workspace.ts` | Move | `coordinator/src/workspace/execution-target.ts` | 現在の操作Ownerと保証を維持 |
+| `state-storage/docker-recovery-journal.ts` | Move | `coordinator/src/storage/docker-recovery-journal.ts` | 保存確定単位を維持 |
+| `state-storage/model.ts` | Move | `coordinator/src/storage/model.ts` | 保存確定単位を維持 |
+| `state-storage/recovery-identity.ts` | Move | `coordinator/src/storage/recovery-identity.ts` | 保存確定単位を維持 |
+| `state-storage/restart-checkpoint.ts` | Move | `coordinator/src/storage/restart-checkpoint.ts` | 保存確定単位を維持 |
+| `state-storage/settlement-store.ts` | Move | `coordinator/src/storage/settlement-store.ts` | 保存確定単位を維持 |
+| `task/attempt.ts` | Move | `coordinator/src/execution/attempt.ts` | 現在の操作Ownerと保証を維持 |
+| `task/cleanup-eligibility.ts` | Move | `coordinator/src/execution/cleanup-eligibility.ts` | 現在の操作Ownerと保証を維持 |
+| `task/completion-observation.ts` | Move | `coordinator/src/execution/completion-observation.ts` | 現在の操作Ownerと保証を維持 |
+| `task/development-measurement-constraints.ts` | Move | `coordinator/src/execution/development-measurement-constraints.ts` | 現在の操作Ownerと保証を維持 |
+| `task/development-measurement-session.ts` | Move | `coordinator/src/execution/development-measurement-session.ts` | 現在の操作Ownerと保証を維持 |
+| `task/development-source-observation.ts` | Move | `coordinator/src/execution/development-source-observation.ts` | 現在の操作Ownerと保証を維持 |
+| `task/execution.ts` | Move | `coordinator/src/execution/task.ts` | 現在の操作Ownerと保証を維持 |
+| `task/recovery-projection.ts` | Move | `coordinator/src/execution/recovery-projection.ts` | 現在の操作Ownerと保証を維持 |
+| `task/recovery.ts` | Move | `coordinator/src/execution/recovery.ts` | 現在の操作Ownerと保証を維持 |
+| `task/request.ts` | Move | `coordinator/src/execution/request.ts` | 現在の操作Ownerと保証を維持 |
+| `task/result-reasons.ts` | Move | `coordinator/src/execution/result-reasons.ts` | 現在の操作Ownerと保証を維持 |
+| `task/types.ts` | Move | `coordinator/src/execution/types.ts` | 現在の操作Ownerと保証を維持 |
+| `workbench-ai/advice-contract.ts` | Keep | `coordinator/src/workbench-ai/advice-contract.ts` | 助言固有のContext・Packet・公開結果 |
+| `workbench-ai/advice-dispatch.ts` | Keep | `coordinator/src/workbench-ai/advice-dispatch.ts` | 助言固有のContext・Packet・公開結果 |
+| `workbench-ai/advice-execution-plan.ts` | Keep | `coordinator/src/workbench-ai/advice-execution-plan.ts` | 助言固有のContext・Packet・公開結果 |
+| `workbench-ai/advice-execution.ts` | Keep | `coordinator/src/workbench-ai/advice-execution.ts` | 助言固有のContext・Packet・公開結果 |
+| `workbench-ai/advice-packet.ts` | Keep | `coordinator/src/workbench-ai/advice-packet.ts` | 助言固有のContext・Packet・公開結果 |
+| `workbench-ai/advice-result.ts` | Keep | `coordinator/src/workbench-ai/advice-result.ts` | 助言固有のContext・Packet・公開結果 |
+| `workbench-ai/advice-task.ts` | Keep | `coordinator/src/workbench-ai/advice-task.ts` | 助言固有のContext・Packet・公開結果 |
+| `workbench-ai/provider-adapter.ts` | Keep | `coordinator/src/workbench-ai/provider-adapter.ts` | 助言固有のContext・Packet・公開結果 |
+| `workbench-ai/repository-composition.ts` | Keep | `coordinator/src/workbench-ai/repository-composition.ts` | 助言固有のContext・Packet・公開結果 |
+
+### 14.4. 残件1〜3の検証結果と終了境界
+
+保存・回復の保証対応、残存責務の最終配置、基準97件と現在92件の全数対応、Architecture／Quality／本番Consumer／台帳の追従を実施した。公開Root19宣言、永続形式、実保存先、回復参照、Authorityと終了条件は維持する。SourceとQualityの独立レビューは、文書参照五箇所および追加の試験追従を是正・再確認し、残指摘0である。
+
+| 確認 | 結果と限界 |
+|---|---|
+| 最終単体回帰 | 現在配置の全571件成功。移動中に旧Pathで失敗した二Suiteを成功へ書き換えず、移動後12件と全単体の別runで再確認した |
+| 動的接続と故障注入 | 検証Toolの動的Source配列・module map・変異対象を新配置へ追従し141件成功。入場・Process・保護Rootの三Suite12件、stdinの実importと不正変異検査一件も成功。Source本文・拒否条件を緩和しない |
+| 本番利用側 | Workbench結合6件、Orchestrator公開境界4件、MCP観測接続2件成功。四Packageの型検査とRuntime／Orchestrator設計対応検査も成功 |
+| 初回通常全体回帰 | 1,747件中1,613成功・129失敗・5skipで不合格。旧動的Path、Source抽出の字下げ依存、stdin検査の旧import、実行中のUT移動を検出して追従。多数が同原因でも全129件の原因確定とは表示しない |
+| Git試験の単発失敗 | `repository-workspace-runtime`の一件で`worktree_create_failed`を観測。単独再実行と最終全体回帰では成功したが元原因は未確定。安全条件の緩和・自動再試行・回復機構追加はしない |
+| Windows実保存 | Host記録・caller確定・現在Host遷移の三Suite全51件成功。故障後の同参照、原子的確定、読戻し、実pipe競合とProcess喪失後の解放を確認。実Dockerの検証ではない |
+| 最終通常全体回帰 | 現在配置の全1,757件を完走し1,752成功・失敗0・5skip。明示実環境試験の対象外は成功へ換算しない。初回不合格とは別runであり、当時の失敗を上書きしない |
+| 静的・公開・台帳 | 型検査成功。Lintはerror／warningなし（既存infoは別）。書式・差分空白検査成功。Catalog388件valid。基準全数対応に欠落・余剰0、公開宣言19件は不変 |
+| 文書検査 | 変更六文書の直接診断0。参照展開134文書では3,285診断で不合格。全体文書品質の解消や正式QAのPassへ換算しない |
+
+残件1〜3を含むC前の事前整理は完了。Cの統合・改名とDは未着手。今回の回帰は既存の代役・自己生成Git／Process／Filesystem試験であり、実Provider・実Dockerの成立根拠ではない。②のAI再試行・保持物の変更／削除は行っていない。新しい状態管理、Registry、LockまたはRecovery Frameworkは追加していない。

@@ -40,9 +40,12 @@ Cargo rootとtarget位置を維持し、Buildは`src/native/build.rs`、実行�
 | `host-record` | `observeKnownFileHostTerminalWindowsCandidate`、`readKnownFileHostTerminalWindowsRecord`、`saveKnownFileHostTerminalWindowsRecord` | 既知File専用の同じ技術相関。Recovery完了・削除許可を返さない |
 | `docker-desktop` | `startDockerDesktopRepairHelper`、`startDockerDesktopRestartHelper`、`requestDockerDesktopOfficialShutdown` | 固定補助子・Protocol・stdio・終了処理。操作許可、Policy、Engine判断、CheckpointはDocker Isolation |
 | `process` | `startWindowsChildTreeTermination` | 所有子の終了結果。Process番号だけで別対象を停止しない |
+| `lock` | `acquireHostTerminalCallerPipeLease`、`InProcessPipeLease` | 固定caller namespace＋64桁小文字Hashだけを取得する。同一Processの取得・取消・後着通知・全Socket終端を待機し、保持中観測を削除Authorityへ昇格しない |
 | `process` | `createInteractiveConsoleReaderEnvironment`、`createWindowsNodeConsoleReaderEnvironment`、`createWindowsHostOperationSupervisorEnvironment`、`createWindowsNativeHelperEnvironment`、`createWindowsHostTerminalHelperEnvironment`、`createWindowsPowerShellAuthenticodeEnvironment`、`deriveWindowsSystemDrive`、`describeWindowsChildEnvironmentContract` | 用途固定の環境値・契約。任意環境builderを公開しない |
 
 固定target・Protocol・Toolchain・容量・環境契約の定数と、各操作の型もRootから明示exportする。正確なexport集合は公開契約試験で固定し、用途内のdecoder・wire・内部Artifact tokenは含めない。
+
+caller保存の`lock/in-process.ts`はServer・Socket・二秒期限を所有し、`in-process-lifecycle.ts`は既存の通知・取消・解放一回性を所有する。CoordinatorがRepository検証・用途Hash・namespaceを決定し、PAはRootや保存内容を知らない。Factory／注入依存／通知型はRootへ公開しない。上位は取得後・保存直前のsignal／保持中確認と、保存結果・解放結果の相関を維持する。close callbackと実close event、destroy要求と各Socket終端、未確認と明示終端を区別し、解放不明を後着通知で成功へ上書きしない。
 
 ## v0.22 Node境界の追加（移管候補）
 
@@ -500,9 +503,9 @@ Docker復旧helperは固定mutexとartifact handleを保持し、検証済み対
 
 | 対象 | 確認先 |
 |---|---|
-| 要求・応答とCLI | [Rust CLI試験](../../../40_Develop/platform-access/tests/integration/native-cli.rs)、protocol内試験、[TS Adapter試験](../../../40_Develop/coordinator/tests/unit/platform-access/adapter.contract.test.ts) |
+| 要求・応答とCLI | [Rust CLI試験](../../../40_Develop/platform-access/tests/integration/native-cli.rs)、protocol内試験。旧PR03専用TS試験は未接続候補の撤去とともに退役し、現行Protocolの同値保証には使わない。契約説明の確認だけ[Root観測試験](../../../40_Develop/coordinator/tests/unit/root-observation.contract.test.ts)へ移管する |
 | 成果物同一性 | [成果物同一性試験](../../../40_Develop/platform-access/tests/integration/artifact-identity-observation.contract.test.ts)。固定Artifact／Bootstrapと実Filesystemの相関を確認する。Coordinator専用Trust Core／Release Identity試験は専用方式とともに退役し、この試験を配布元真正性・旧配布閉包保証の代替にしない |
-| Provider Home／Runtime State | `filesystem/root_observation.rs`内試験、[Home／Runtime State観測試験](../../../40_Develop/coordinator/tests/unit/platform-access/protected-root-protocol.contract.test.ts)、[Runtime State Adapter試験](../../../40_Develop/coordinator/tests/unit/platform-access/protected-root-windows-adapter.contract.test.ts) |
+| Provider Home／Runtime State | `filesystem/root_observation.rs`内試験、[Home／Runtime State観測試験](../../../40_Develop/platform-access/tests/unit/filesystem/protection.contract.test.ts)、[Runtime State Adapter試験](../../../40_Develop/coordinator/tests/unit/execution/protected-root.contract.test.ts) |
 | Docker復旧 | docker-desktop/repair.rs内試験、[DI Machine・技術接続試験](../../../40_Develop/docker-isolation/tests/integration/repair-runtime.contract.test.ts)、[Coordinatorの現在Writer・履歴・保持／終了接続試験](../../../40_Develop/coordinator/tests/integration/runtime-repair-owner.contract.test.ts) |
 
 単体試験の合格から、実Native・Docker Desktop復旧、配布元真正性または終了後資源0を推定しない。本番同等入口のE2Eと回復行列を別に実測する。退役した署名方式の実行を現在の通常完成条件へ戻さない。

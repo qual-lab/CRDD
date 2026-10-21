@@ -21,7 +21,7 @@ import {
   dockerRuntimeRepairDisposalIsSettled,
   type DockerRuntimeRepairDisposalInput,
 } from "../../../docker-isolation/src/index.ts";
-import * as model from "../../src/state-storage/model.ts";
+import * as model from "../../src/storage/model.ts";
 import { renderDockerRecoveryDoctorReport } from "../../src/diagnostics/docker-recovery-command-report.ts";
 
 /**

@@ -9,8 +9,8 @@
  * @boundary 模擬操作→Route検証Tool。実Provider依頼や署名を発行するFixtureではない。
  */
 import { requestRuntimeOwnedExternalSendGrant } from "../../src/external-send/grant.ts";
-import { startRuntimeOwnedCoordinatorTask } from "../../src/task/execution.ts";
-import { isRuntimeProcessPoisoned } from "../../src/host-execution/process-safety-state.ts";
+import { startRuntimeOwnedCoordinatorTask } from "../../src/execution/task.ts";
+import { isRuntimeProcessPoisoned } from "../../src/execution/process-safety-state.ts";
 import { runSignedRouteMatrixVerification } from "../../scripts/verify-route-matrix.ts";
 import {
   SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT,

@@ -1,0 +1,144 @@
+/**
+ * 保護Rootの観測と上位Capability結合を検証する。
+ *
+ * @packageDocumentation
+ * @responsibility Root観測・開発Reader・上位Capabilityの拒否と結合を確認する。
+ * @trace PPR-UT-014
+ * @level UT
+ * @scope protected-root、windows、adapter
+ * @boundary PPR-UT-014=N/A: 事実／評価候補分類規則は外部実行境界を持たない。
+ */
+import assert from "node:assert/strict";
+import test from "node:test";
+import { spawnSync } from "node:child_process";
+import path from "node:path";
+import { pathToFileURL } from "node:url";
+import { withUnsignedRuntimeFixture } from "../../support/unsigned-runtime-fixture.ts";
+
+import {
+  describeRuntimeStateWindowsAdapterContract,
+  inspectRuntimeOwnedWindowsRuntimeState,
+} from "../../../src/execution/protected-root.ts";
+import { WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE } from "../../../../platform-access/src/index.ts";
+
+/**
+ * 固定Bootstrapを確認できない配布はRuntime State Effectを開始しないを検証する。
+ *
+ * @responsibility 固定Bootstrapを確認できない配布はRuntime State Effectを開始しないの合否判定を所有する。
+ * @trace PPR-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus 固定Bootstrapを確認できない配布はRuntime State Effectを開始しないの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PPR-UT-014=Direct Boundary: coordinator Test Source→対象契約
+ */
+test("固定Bootstrapを確認できない配布はRuntime State Effectを開始しない", () => {
+  withUnsignedRuntimeFixture((root) => {
+    const moduleUrl = pathToFileURL(
+      path.join(
+        root,
+        "40_Develop",
+        "coordinator",
+        "src",
+        "execution",
+        "protected-root.ts",
+      ),
+    ).href;
+    const source = `import assert from "node:assert/strict";
+import { inspectRuntimeOwnedWindowsRuntimeState, consumeRuntimeOwnedRuntimeStateRootCapability } from ${JSON.stringify(moduleUrl)};
+const result = inspectRuntimeOwnedWindowsRuntimeState(
+    true,
+  );
+  assert.equal(result.status, "blocked");
+  assert.equal(result.reason, "runtime_state_windows_adapter_artifact_bootstrap_unavailable");
+  assert.equal(result.filesystemEffectIssued, false);
+  assert.equal(result.processEffectIssued, false);
+  assert.equal(result.pathReported, false);
+  assert.equal(result.principalReported, false);
+  assert.equal(result.aclReported, false);
+  assert.equal(
+    consumeRuntimeOwnedRuntimeStateRootCapability(result.rootCapability),
+    null,
+  );
+process.stdout.write("verified");`;
+    const result = spawnSync(
+      process.execPath,
+      ["--input-type=module", "-e", source],
+      { cwd: root, encoding: "utf8", windowsHide: true, timeout: 15_000 },
+    );
+    assert.equal(result.error, undefined);
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stdout, "verified");
+  });
+});
+/**
+ * Runtime State adapterは環境由来の相対Rootをnative照合前に拒否するを検証する。
+ *
+ * @responsibility Runtime State adapterは環境由来の相対Rootをnative照合前に拒否するの合否判定を所有する。
+ * @trace PPR-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Runtime State adapterは環境由来の相対Rootをnative照合前に拒否するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PPR-UT-014=Direct Boundary: coordinator Test Source→対象契約
+ */
+test("Runtime State adapterは環境由来の相対Rootをnative照合前に拒否する", () => {
+  const original = process.env.LOCALAPPDATA;
+  try {
+    process.env.LOCALAPPDATA = "relative-root";
+    const result = inspectRuntimeOwnedWindowsRuntimeState(false);
+    assert.equal(result.status, "blocked");
+    assert.equal(result.reason, "runtime_state_windows_adapter_root_invalid");
+    assert.equal(result.processEffectIssued, false);
+    assert.equal(result.filesystemEffectIssued, false);
+  } finally {
+    if (original === undefined) delete process.env.LOCALAPPDATA;
+    else process.env.LOCALAPPDATA = original;
+  }
+});
+
+/**
+ * Runtime State adapterは固定Known Folderとexact保護観測だけをAuthority候補にするを検証する。
+ *
+ * @responsibility Runtime State adapterは固定Known Folderとexact保護観測だけをAuthority候補にするの合否判定を所有する。
+ * @trace PPR-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Runtime State adapterは固定Known Folderとexact保護観測だけをAuthority候補にするの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PPR-UT-014=Direct Boundary: coordinator Test Source→対象契約
+ */
+test("Runtime State adapterは固定Known Folderとexact保護観測だけをAuthority候補にする", () => {
+  const contract = describeRuntimeStateWindowsAdapterContract();
+  assert.deepEqual(contract.artifactVerification, {
+    normal: "fixed_bootstrap_hash_and_artifact_identity_before_and_after",
+    development:
+      "fixed_development_borrowed_native_observation_and_artifact_identity_before_and_after",
+  });
+  assert.equal(Object.isFrozen(contract.artifactVerification), true);
+  assert.deepEqual(contract.fixedSegments, [
+    "Qual-Lab",
+    "CRDD",
+    "RuntimeState",
+  ]);
+  assert.match(contract.initialization, /without_repair/u);
+  assert.match(contract.observation, /fixed_volume_non_reparse/u);
+  assert.equal(contract.callerSuppliedPathAccepted, false);
+  assert.equal(contract.inheritedEnvironmentTrustedDirectly, false);
+  assert.equal(
+    contract.environment,
+    WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE,
+  );
+  assert.deepEqual(contract.environmentUnavailable, {
+    helperSpawnAttempts: 0,
+    filesystemEffectIssued: false,
+    networkEffectIssued: false,
+    rootCapabilityIssued: false,
+    runtimeAuthorityIssued: false,
+  });
+  assert.equal(contract.rawPathReported, false);
+  assert.equal(contract.networkEffectIssued, false);
+});

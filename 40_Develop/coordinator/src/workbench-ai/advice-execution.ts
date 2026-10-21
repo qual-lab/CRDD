@@ -10,37 +10,36 @@
  * @effect 明示確認済み依頼ごとに選択Providerを最大一回実行し、所有する一時資源を清掃する。
  * @security Repository／WorkspaceをProviderへ共有せず、抽出済み助言JSONだけを返す。
  */
+import { getRuntimeOwnedProviderDockerAdapter } from "../execution/provider-adapter.ts";
 import {
   isRuntimeProcessEffectBlocked,
   isRuntimeProcessPoisoned,
   poisonRuntimeProcessAfterCleanupUnknown,
-} from "../host-execution/process-safety-state.ts";
+} from "../execution/process-safety-state.ts";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { recoverOwnedOperationDirectories } from "../host-execution/operation-workspace-lifecycle.ts";
-import { observeHostRecoveryCleanup } from "../host-execution/recovery-record.ts";
-import { prepareRuntimeOwnedClaudeDockerAdviceCandidate } from "../provider/claude-docker-adapter.ts";
-import { prepareRuntimeOwnedCodexDockerAdviceCandidate } from "../provider/codex-docker-adapter.ts";
+import { recoverOwnedOperationDirectories } from "../execution/operation.ts";
+import { observeHostRecoveryCleanup } from "../storage/recovery-record.ts";
 import {
   classifyOwnedCoordinatorOperationCreationFailure,
   createRuntimeOwnedCoordinatorOperation,
-} from "../repository-operation/create.ts";
+} from "../workspace/create.ts";
 import {
   issueRuntimeOwnedDelegationSelectionGrant,
   revokeRuntimeOwnedDelegationSelectionGrant,
-} from "../provider/delegation-selection-grant.ts";
-import { bindRuntimeOwnedRepositoryOperation } from "../repository-operation/binding.ts";
+} from "../execution/delegation-selection-grant.ts";
+import { bindRuntimeOwnedRepositoryOperation } from "../workspace/binding.ts";
 import {
   cancelRuntimeOwnedDockerProcessController,
   startRuntimeOwnedDockerProcessController,
-} from "../provider/execution-controller.ts";
+} from "../execution/provider-controller.ts";
 import {
   abandonRuntimeOwnedDockerRecovery,
   finalizeRuntimeOwnedDockerRecovery,
   prepareRuntimeOwnedDockerHostCleanup,
   recordRuntimeOwnedDockerHostCleanupReceipt,
-} from "../task/recovery.ts";
+} from "../execution/recovery.ts";
 import {
   abandonOwnedHostOperationGenerationLock,
   activateOwnedHostOperationGenerationLock,
@@ -49,13 +48,13 @@ import {
   confirmOwnedHostOperationGenerationLockReadiness,
   observeOwnedHostOperationGenerationLoss,
   verifyOwnedOperationCleanupOutcome,
-} from "../host-execution/operation-workspace-lifecycle.ts";
+} from "../execution/operation.ts";
 import {
   consumeRuntimeOwnedProviderHomeMountGrant,
   issueRuntimeOwnedProviderHomeMountGrant,
   revokeRuntimeOwnedProviderHomeMountGrant,
-} from "../provider/home-mount-authorization.ts";
-import { inspectRuntimeOwnedWindowsProviderHomeCandidate } from "../provider/home-windows-adapter.ts";
+} from "../execution/provider-home-mount-authorization.ts";
+import { inspectRuntimeOwnedWindowsProviderHomeCandidate } from "../execution/provider-home-windows-adapter.ts";
 import type { WorkbenchAiAdviceExecutionPlan } from "./advice-execution-plan.ts";
 import type {
   WorkbenchAiAdviceRuntimePort,
@@ -230,8 +229,12 @@ export type WorkbenchAiAdviceRuntimeDependencies = Readonly<{
   revokeSelection: typeof revokeRuntimeOwnedDelegationSelectionGrant;
   issuePacket: typeof issueRuntimeOwnedWorkbenchAiAdvicePacket;
   revokePacket: typeof revokeRuntimeOwnedWorkbenchAiAdvicePacket;
-  prepareCodex: typeof prepareRuntimeOwnedCodexDockerAdviceCandidate;
-  prepareClaude: typeof prepareRuntimeOwnedClaudeDockerAdviceCandidate;
+  prepareCodex: ReturnType<
+    typeof getRuntimeOwnedProviderDockerAdapter<"codex">
+  >["prepareAdvice"];
+  prepareClaude: ReturnType<
+    typeof getRuntimeOwnedProviderDockerAdapter<"claude">
+  >["prepareAdvice"];
   startProcess: typeof startRuntimeOwnedDockerProcessController;
   cancelProcess: typeof cancelRuntimeOwnedDockerProcessController;
   prepareDockerHostCleanup: typeof prepareRuntimeOwnedDockerHostCleanup;
@@ -1077,8 +1080,8 @@ function createProductionDependencies(
     revokeSelection: revokeRuntimeOwnedDelegationSelectionGrant,
     issuePacket: issueRuntimeOwnedWorkbenchAiAdvicePacket,
     revokePacket: revokeRuntimeOwnedWorkbenchAiAdvicePacket,
-    prepareCodex: prepareRuntimeOwnedCodexDockerAdviceCandidate,
-    prepareClaude: prepareRuntimeOwnedClaudeDockerAdviceCandidate,
+    prepareCodex: getRuntimeOwnedProviderDockerAdapter("codex").prepareAdvice,
+    prepareClaude: getRuntimeOwnedProviderDockerAdapter("claude").prepareAdvice,
     startProcess: startRuntimeOwnedDockerProcessController,
     cancelProcess: cancelRuntimeOwnedDockerProcessController,
     prepareDockerHostCleanup: prepareRuntimeOwnedDockerHostCleanup,

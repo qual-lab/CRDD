@@ -4,7 +4,7 @@
  * @responsibility responseを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000004
  */
-import { parseDockerTaskRecoveryId } from "../state-storage/recovery-identity.ts";
+import { parseDockerTaskRecoveryId } from "../storage/recovery-identity.ts";
 import { snapshotPlainArray } from "../../../domain-model/src/index.ts";
 
 const MAXIMUM_ARGUMENTS = 16;

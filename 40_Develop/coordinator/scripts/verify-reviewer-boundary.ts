@@ -10,7 +10,7 @@ import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../version
 import {
   isRuntimeProcessPoisoned,
   poisonRuntimeProcessAfterCleanupUnknown,
-} from "../src/host-execution/process-safety-state.ts";
+} from "../src/execution/process-safety-state.ts";
 import {
   displayVerificationRecording,
   runRecordedVerification,

@@ -20,11 +20,11 @@ import {
   planDockerRecoveryResourceExpectations,
   isDockerResourcePurpose,
 } from "../../../docker-isolation/src/index.ts";
-import { parseDockerTaskRecoveryId } from "../../src/state-storage/recovery-identity.ts";
+import { parseDockerTaskRecoveryId } from "../../src/storage/recovery-identity.ts";
 import {
   parseHostRecoveryToken,
   validateHostRecoveryTransitionLineage,
-} from "../../src/host-execution/recovery-record.ts";
+} from "../../src/storage/recovery-record.ts";
 import {
   coordinatorTaskResourcesAreSettled,
   coordinatorAuthenticationUnknownCanClose,
@@ -33,17 +33,17 @@ import {
   decodeCoordinatorStateSnapshot,
   encodeCoordinatorStateValue,
   type CoordinatorStateOperation,
-} from "../../src/state-storage/model.ts";
+} from "../../src/storage/model.ts";
 import {
   createDockerRestartRequestId,
   isDockerRestartCheckpointSettled,
-} from "../../src/state-storage/restart-checkpoint.ts";
+} from "../../src/storage/restart-checkpoint.ts";
 import {
   persistRuntimeOwnedDockerRestartCheckpoint,
   prepareRuntimeOwnedDockerRestart,
   releaseRuntimeOwnedDockerRestartPreparation,
   verifyRuntimeOwnedDockerRestartPreparation,
-} from "../../src/task/recovery.ts";
+} from "../../src/execution/recovery.ts";
 /**
  * restart preparation rejects arbitrary capability and invalid task before publicationを検証する。
  *
@@ -80,7 +80,7 @@ test("restart preparation rejects arbitrary capability and invalid task before p
 });
 
 const source = fs.readFileSync(
-  new URL("../../src/task/recovery.ts", import.meta.url),
+  new URL("../../src/execution/recovery.ts", import.meta.url),
   "utf8",
 );
 const start = source.indexOf("function restartScopeIncludes(");
@@ -105,7 +105,7 @@ const recoveryBody = stripTypeScriptTypes(
     .replaceAll("export async function", "async function"),
 );
 const storeSource = fs.readFileSync(
-  new URL("../../src/state-storage/settlement-store.ts", import.meta.url),
+  new URL("../../src/storage/settlement-store.ts", import.meta.url),
   "utf8",
 );
 const storeStart = storeSource.indexOf(

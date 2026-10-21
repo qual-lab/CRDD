@@ -12,13 +12,13 @@ import assert from "node:assert/strict";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { inspectRuntimeOwnedWindowsRuntimeState } from "../../src/platform-access/protected-root-windows-adapter.ts";
-import { startRuntimeOwnedDevelopmentCoordinatorTask } from "../../src/task/execution.ts";
+import { inspectRuntimeOwnedWindowsRuntimeState } from "../../src/execution/protected-root.ts";
+import { startRuntimeOwnedDevelopmentCoordinatorTask } from "../../src/execution/task.ts";
 import {
   createIsolatedDevelopmentMeasurementSessionCandidate,
   inspectRuntimeOwnedDevelopmentMeasurementSession,
-} from "../../src/task/development-measurement-session.ts";
-import { inspectRuntimeOwnedWindowsProviderHomeCandidate } from "../../src/provider/home-windows-adapter.ts";
+} from "../../src/execution/development-measurement-session.ts";
+import { inspectRuntimeOwnedWindowsProviderHomeCandidate } from "../../src/execution/provider-home-windows-adapter.ts";
 import { assertPresent } from "../support/contract-assertions.ts";
 
 const repositoryRoot = path.resolve(

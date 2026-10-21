@@ -37,7 +37,7 @@ import {
 } from "./ai-verification-http.ts";
 import type { WorkbenchAiRequestSnapshot } from "../src/server/ai-request/types.ts";
 import { verifyWorkspaceOutputBytes } from "./workspace-output-verification.ts";
-import { observeRuntimeOwnedDevelopmentSource } from "../../coordinator/src/task/development-source-observation.ts";
+import { observeRuntimeOwnedDevelopmentSource } from "../../coordinator/src/execution/development-source-observation.ts";
 
 const projectId = "project.workspace-verification";
 const empty = process.platform === "win32" ? "NUL" : devNull;

@@ -71,12 +71,12 @@ test("旧Runtime署名方式の十八入口は現在Treeに存在しない", () 
 test("現在の通常入口・Task回復・Nativeは旧署名資格と履歴loaderへ依存しない", () => {
   for (const relative of [
     "bin/coordinator.ts",
+    "src/cli/command.ts",
     "src/index.ts",
-    "src/cli/launch.ts",
-    "src/task/recovery.ts",
-    "src/task/development-measurement-session.ts",
-    "src/provider/home-windows-adapter.ts",
-    "src/platform-access/protected-root-windows-adapter.ts",
+    "src/execution/recovery.ts",
+    "src/execution/development-measurement-session.ts",
+    "src/execution/provider-home-windows-adapter.ts",
+    "src/execution/protected-root.ts",
   ]) {
     const source = fs.readFileSync(
       new URL(["../../", relative].join(""), import.meta.url),

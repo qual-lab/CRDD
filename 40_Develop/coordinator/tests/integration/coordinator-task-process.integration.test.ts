@@ -21,7 +21,7 @@ import {
 } from "../../../domain-model/src/index.ts";
 import { renderSafeHumanCommandReport } from "../../src/cli/command-report.ts";
 import { bindTaskCliCancellationSignals } from "../../src/cli/task-cancellation.ts";
-import { createIsolatedCoordinatorTaskRuntimeCandidate } from "../../src/task/execution.ts";
+import { createIsolatedCoordinatorTaskRuntimeCandidate } from "../../src/execution/task.ts";
 import {
   cleanupOwnedOperationDirectoriesAsync,
   captureOwnedOperationCleanupVerification,
@@ -32,7 +32,7 @@ import {
   getOwnedHostRecoveryId,
   verifyOwnedOperationCleanupOutcome,
   verifyOwnedOperationManagementCapability,
-} from "../../src/host-execution/operation-workspace-lifecycle.ts";
+} from "../../src/execution/operation.ts";
 import { createTaskControllerCancellationFixture } from "../fixtures/task-controller-cancellation-fixture.ts";
 
 // This is an isolated Task orchestration test, not a signed CLI, Docker,

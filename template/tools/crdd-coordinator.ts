@@ -12,8 +12,8 @@
 import {
   coordinatorLaunchFailureMessage,
   resolveCoordinatorLaunch,
-} from "../../40_Develop/coordinator/src/cli/launch.ts";
-import { isSupportedCoordinatorNodeRuntime } from "../../40_Develop/coordinator/src/host-execution/node-runtime-version.ts";
+} from "../../40_Develop/coordinator/src/cli/command.ts";
+import { isSupportedCoordinatorNodeRuntime } from "../../40_Develop/coordinator/src/cli/node-runtime-version.ts";
 
 const args = process.argv.slice(2);
 const isDirectProject = args[0] === "project" || args[0] === "task";

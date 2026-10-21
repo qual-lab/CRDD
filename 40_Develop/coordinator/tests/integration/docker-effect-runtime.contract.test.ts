@@ -8,6 +8,7 @@
  * @scope 実Adapter・本番binderと実Host Owner失効。Docker開始は記録代役とし実Dockerは別試験で確認する。
  * @boundary Adapter→Coordinator投影→Docker Isolation Root API、および実Host世代・Kernel排他。
  */
+import { createProviderDockerRuntimeAdapterCandidate } from "../../src/execution/provider-adapter.ts";
 import { planProviderExecution } from "../../../ai-adapter/src/index.ts";
 import { hashWorkbenchAiProviderCommand } from "../../src/workbench-ai/advice-packet.ts";
 import assert from "node:assert/strict";
@@ -32,11 +33,11 @@ import {
   releaseHostOperationRecoveryGeneration,
   verifyOwnedOperationManagementMountBinding,
   verifyOwnedOperationCleanupOutcome,
-} from "../../src/host-execution/operation-workspace-lifecycle.ts";
+} from "../../src/execution/operation.ts";
 import {
   parseHostRecoveryToken,
   loadHostRecoveryRecordByToken,
-} from "../../src/host-execution/recovery-record.ts";
+} from "../../src/storage/recovery-record.ts";
 import {
   planDockerIsolationCommands,
   startDockerCommandSessionCandidate,
@@ -47,9 +48,7 @@ import {
   bindDockerIsolationRuntime,
   describeDockerEffectRuntimeContract,
   verifyRuntimeOwnedDockerCleanupOutcome,
-} from "../../src/provider/isolation-execution.ts";
-import { createIsolatedClaudeDockerRuntimeAdapterCandidate } from "../../src/provider/claude-docker-adapter.ts";
-import { createIsolatedCodexDockerRuntimeAdapterCandidate } from "../../src/provider/codex-docker-adapter.ts";
+} from "../../src/execution/isolation-execution.ts";
 import { describeWorkbenchAiAdviceResultSchema } from "../../src/workbench-ai/advice-result.ts";
 import { describeDockerProviderExecutionLocations } from "../../../docker-isolation/src/index.ts";
 import { bindWorkbenchAiProviderCommand } from "../../src/workbench-ai/advice-execution-plan.ts";
@@ -98,11 +97,7 @@ function createPlanFixture(
   const authorityUseCapability = Object.freeze({});
   const authorityControlCapability = Object.freeze({});
   let randomValue = 0;
-  const createAdapter =
-    provider === "codex"
-      ? createIsolatedCodexDockerRuntimeAdapterCandidate
-      : createIsolatedClaudeDockerRuntimeAdapterCandidate;
-  const adapter = createAdapter({
+  const adapter = createProviderDockerRuntimeAdapterCandidate(provider, {
     verifyOperationMount: () =>
       Object.freeze({
         operationId,
@@ -781,7 +776,7 @@ test("Host Windows: 清掃後の旧Ownerは認証createとstartを再生成し�
  */
 test("Host Windows: Root存続中の世代失効は旧Ownerを復活させない", async () => {
   const kernelUrl = new URL(
-    "../../src/host-execution/kernel-lock.ts",
+    "../../src/execution/kernel-lock.ts",
     import.meta.url,
   );
   const kernel = await import(kernelUrl.href);
@@ -809,10 +804,10 @@ test("Host Windows: Root存続中の世代失効は旧Ownerを復活させない
   try {
     const host = (await import(
       new URL(
-        "../../src/host-execution/operation-workspace-lifecycle.ts?generation-loss-test",
+        "../../src/execution/operation.ts?generation-loss-test",
         import.meta.url,
       ).href
-    )) as typeof import("../../src/host-execution/operation-workspace-lifecycle.ts");
+    )) as typeof import("../../src/execution/operation.ts");
     const area = requireReadyRepositoryRuntimeDataArea(
       ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
         import.meta.dirname,

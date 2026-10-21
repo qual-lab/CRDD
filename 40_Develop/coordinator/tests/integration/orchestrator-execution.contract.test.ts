@@ -28,7 +28,7 @@ import {
   initializeOrchestratorSnapshot,
 } from "../../../orchestrator/src/storage/current-state.ts";
 import { createProjectResultAcceptanceReader } from "../../../orchestrator/src/task/settle-docker-recovery.ts";
-import { createRuntimeProcessRecoveryIdentity } from "../../src/host-execution/process-safety-state.ts";
+import { createRuntimeProcessRecoveryIdentity } from "../../src/execution/process-safety-state.ts";
 import {
   enqueueProjectOperation,
   readProjectOperationQueueState,

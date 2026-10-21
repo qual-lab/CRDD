@@ -4,9 +4,11 @@
  * @packageDocumentation
  * @responsibility coordinator:unit:root-observationが所有する検証責務を実行する。
  * @trace RFD-UT-006
+ * @trace PRL-UT-014
  * @level UT
  * @scope root、observation
  * @boundary RFD-UT-006=N/A: Project・Repository・Binding・Grant・Exposure・改訂版要否の判定規則は外部実行境界を持たない。
+ * @boundary PRL-UT-014=Direct Boundary: Root観測契約の固定説明値。
  */
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -14,8 +16,9 @@ import test from "node:test";
 import {
   compileWindowsRootObservationCandidate,
   describeRootObservationContract,
+  describePlatformAccessAdapterContract,
   inspectWindowsRootObservationCandidate,
-} from "../../src/repository-operation/root-observation.ts";
+} from "../../src/workspace/root-observation.ts";
 
 /**
  * observationのTest準備責務を実行する。
@@ -239,4 +242,54 @@ test("Root観測契約はWindows候補とPOSIX未実装を分離する", () => {
     runtimeAuthorityConferred: false,
     runtimeCapabilityIssued: false,
   });
+});
+
+/**
+ * Rust componentとproduction停止境界を同時に投影するを検証する。
+ *
+ * @responsibility Rust componentとproduction停止境界を同時に投影するの合否判定を所有する。
+ * @trace PRL-UT-014
+ * @precondition Test Fileが構築するfixtureと入力を使用する。
+ * @stimulus Rust componentとproduction停止境界を同時に投影するの対象操作を実行する。
+ * @observation 結果、状態、Effectおよび終了後条件を観測する。
+ * @oracle Test本文のassertionが期待条件を満たす。
+ * @cleanup Test本文または登録済みhookが作成資源を清掃する。
+ * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
+ */
+test("Rust componentとproduction停止境界を同時に投影する", () => {
+  const contract = describePlatformAccessAdapterContract();
+  assert.equal(contract.implementationLanguage, "rust");
+  assert.equal(contract.rustCrate, "crdd-platform-access");
+  assert.equal(
+    contract.windowsCurrentProcessAccessCore,
+    "implemented_candidate_component_only",
+  );
+  assert.equal(
+    contract.binaryReleaseIdentityBinding,
+    "implemented_candidate_signed_manifest",
+  );
+  assert.equal(
+    contract.productionInvocation,
+    "signed_exact_artifact_spawn_with_minimal_environment_and_bounded_io",
+  );
+  assert.equal(contract.contractRevision, 3);
+  assert.equal(contract.maximumWorkerSpawnAttemptsPerInvocation, 1);
+  assert.equal(contract.shellInvocation, false);
+  assert.equal(contract.pathEnvironmentLookup, false);
+  assert.equal(contract.cargoRuntimeInvocation, false);
+  assert.equal(contract.windowsPermissionMutation, "not_implemented");
+  assert.equal(contract.posixAdapter, "not_implemented");
+  assert.equal(contract.wireProtocol, "fixed_bounded_binary_revision_3");
+  assert.equal(
+    contract.principalObservation,
+    "implemented_signed_supervisor_token_classification_fail_closed_candidate",
+  );
+  assert.equal(
+    contract.selectedUserBinding,
+    "implemented_native_current_process_primary_token_and_login_session_observation",
+  );
+  assert.equal(contract.serviceAccountMode, "not_implemented_blocked");
+  assert.equal(contract.filesystemEffectIssued, false);
+  assert.equal(contract.runtimeAuthorityConferred, false);
+  assert.equal(contract.runtimeCapabilityIssued, false);
 });

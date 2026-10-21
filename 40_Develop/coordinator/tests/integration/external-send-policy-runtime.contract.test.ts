@@ -29,8 +29,8 @@ import {
   createOwnedOperationContextCapability,
   createOwnedOperationDirectories,
   createOwnedOperationManagementCapability,
-} from "../../src/host-execution/operation-workspace-lifecycle.ts";
-import { bindRuntimeOwnedRepositoryOperation } from "../../src/repository-operation/binding.ts";
+} from "../../src/execution/operation.ts";
+import { bindRuntimeOwnedRepositoryOperation } from "../../src/workspace/binding.ts";
 
 const revision = "1".repeat(40);
 const fileHash = "2".repeat(64);

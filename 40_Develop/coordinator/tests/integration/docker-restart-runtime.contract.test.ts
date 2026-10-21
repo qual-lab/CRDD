@@ -20,7 +20,7 @@ import { createDockerRestartMachineForVerification } from "../../../docker-isola
 import {
   decodeDockerRestartCheckpoint,
   validateDockerRestartCheckpointTransition,
-} from "../../src/state-storage/restart-checkpoint.ts";
+} from "../../src/storage/restart-checkpoint.ts";
 import { restartRuntimeOwnedDockerForRecovery } from "../../src/diagnostics/runtime-restart.ts";
 /**
  * production facadeとpackage exportsはcaller Root／observer／runner seamを閉じるを検証する。
@@ -77,11 +77,11 @@ test("production facadeとpackage exportsはcaller Root／observer／runner seam
     );
     assert.doesNotMatch(
       rootSource,
-      /export\s*\*(?:\s+as\s+[A-Za-z_$][\w$]*)?\s+from\s*["']\.\/task\/recovery\.ts["']/u,
+      /export\s*\*(?:\s+as\s+[A-Za-z_$][\w$]*)?\s+from\s*["']\.\/execution\/recovery\.ts["']/u,
     );
     const imports = [
       ...callerSource.matchAll(
-        /import\s*\{([^{}]+)\}\s*from\s*["']\.\.\/task\/recovery\.ts["']/gu,
+        /import\s*\{([^{}]+)\}\s*from\s*["']\.\.\/execution\/recovery\.ts["']/gu,
       ),
     ];
     assert.equal(imports.length, 1);
@@ -107,7 +107,7 @@ test("production facadeとpackage exportsはcaller Root／observer／runner seam
     );
     assert.match(
       callerSource,
-      /import type \{ DockerRestartCheckpoint \} from ["']\.\.\/state-storage\/restart-checkpoint\.ts["']/u,
+      /import type \{ DockerRestartCheckpoint \} from ["']\.\.\/storage\/restart-checkpoint\.ts["']/u,
     );
     assert.doesNotMatch(
       callerSource,
@@ -131,14 +131,14 @@ test("production facadeとpackage exportsはcaller Root／observer／runner seam
   assert.throws(() => assertCurrentRestartBoundary(hostFacade, privateDriver));
   assert.throws(() =>
     assertCurrentRestartBoundary(
-      `${hostFacade}\nexport { prepareRuntimeOwnedDockerRestart } from "./task/recovery.ts";`,
+      `${hostFacade}\nexport { prepareRuntimeOwnedDockerRestart } from "./execution/recovery.ts";`,
       composition,
     ),
   );
   for (const suffix of ["", " as privateRecovery"]) {
     assert.throws(() =>
       assertCurrentRestartBoundary(
-        `${hostFacade}\nexport *${suffix} from "./task/recovery.ts";`,
+        `${hostFacade}\nexport *${suffix} from "./execution/recovery.ts";`,
         composition,
       ),
     );
@@ -154,7 +154,7 @@ test("production facadeとpackage exportsはcaller Root／observer／runner seam
     [
       "--input-type=module",
       "-e",
-      'await import("@qual-lab/crdd-coordinator/src/task/recovery.ts")',
+      'await import("@qual-lab/crdd-coordinator/src/execution/recovery.ts")',
     ],
     { cwd: path.resolve("."), encoding: "utf8", windowsHide: true },
   );

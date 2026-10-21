@@ -9,11 +9,11 @@ import {
   snapshotPlainArray,
   snapshotPlainRecord,
 } from "../../../domain-model/src/index.ts";
-import { isProviderHomeMountGrantRef } from "../provider/home-mount-grant.ts";
+import { isProviderHomeMountGrantRef } from "../execution/provider-home-mount-grant.ts";
 import {
   PROVIDER_INPUT_LIMITS,
   validateProviderIsolationProfile,
-} from "../provider/isolation-profile.ts";
+} from "../execution/isolation-profile.ts";
 
 export const AUTHORITY_REGISTRY_CONTRACT =
   "crdd-coordinator/authority-registry";

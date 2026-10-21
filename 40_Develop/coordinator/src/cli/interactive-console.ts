@@ -16,7 +16,7 @@ import {
   INTERACTIVE_CONSOLE_READER_ORPHAN_FAILSAFE_MS,
 } from "../../../platform-access/src/index.ts";
 import fs from "node:fs";
-import { poisonRuntimeProcessAfterInteractiveCleanupUnknown } from "../host-execution/process-safety-state.ts";
+import { poisonRuntimeProcessAfterInteractiveCleanupUnknown } from "../execution/process-safety-state.ts";
 
 export const INTERACTIVE_CONSOLE_CONTRACT =
   "crdd-coordinator/interactive-console";

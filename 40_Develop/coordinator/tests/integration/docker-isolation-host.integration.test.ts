@@ -27,7 +27,7 @@ import {
   createClaudeSubscriptionAuthenticationPlan,
   createClaudeSubscriptionAuthenticationRecoveryRecord,
   readClaudeSubscriptionAuthenticationResources,
-} from "../../src/provider/claude-subscription-authentication.ts";
+} from "../../src/execution/claude-subscription-authentication.ts";
 import {
   createDockerIsolationRuntime,
   createDockerAuthenticationRuntimeFactory,

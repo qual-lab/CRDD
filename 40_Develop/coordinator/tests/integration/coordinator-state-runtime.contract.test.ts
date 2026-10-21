@@ -27,7 +27,7 @@ import {
 } from "../../../domain-model/src/index.ts";
 import * as projectStorage from "../../../orchestrator/src/index.ts";
 import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
-import * as dockerController from "../../src/provider/execution-controller.ts";
+import * as dockerController from "../../src/execution/provider-controller.ts";
 import {
   finalizeRuntimeOwnedDockerRestartPreparation,
   persistRuntimeOwnedDockerRestartCheckpoint,
@@ -40,9 +40,9 @@ import {
   releaseRuntimeOwnedDockerRestartPreparation,
   releaseRuntimeOwnedDockerTaskRecoveryPreparation,
   verifyRuntimeOwnedDockerRestartPreparation,
-} from "../../src/task/recovery.ts";
-import * as stateKernelLocks from "../../src/host-execution/kernel-lock.ts";
-import * as executionEnvironment from "../../src/host-execution/operation-workspace-lifecycle.ts";
+} from "../../src/execution/recovery.ts";
+import * as stateKernelLocks from "../../src/execution/kernel-lock.ts";
+import * as executionEnvironment from "../../src/execution/operation.ts";
 import {
   abandonOwnedHostOperationGenerationLock,
   activateOwnedHostOperationGenerationLock,
@@ -56,13 +56,13 @@ import {
   createOwnedOperationDirectories,
   createOwnedOperationManagementCapability,
   recoverOwnedOperationDirectories,
-} from "../../src/host-execution/operation-workspace-lifecycle.ts";
-import { loadHostRecoveryRecordByToken } from "../../src/host-execution/recovery-record.ts";
+} from "../../src/execution/operation.ts";
+import { loadHostRecoveryRecordByToken } from "../../src/storage/recovery-record.ts";
 import {
   bindRuntimeOwnedRepositoryOperation,
   borrowRuntimeOwnedCoordinatorRecoveryRepository,
   borrowRuntimeOwnedCoordinatorStateRepository,
-} from "../../src/repository-operation/binding.ts";
+} from "../../src/workspace/binding.ts";
 import {
   COORDINATOR_STATE_SCHEMA,
   coordinatorTaskResourcesAreSettled,
@@ -85,12 +85,12 @@ import {
   prepareCoordinatorStateRepairSessionSnapshot,
   prepareCoordinatorStateRepairSnapshot,
   prepareCoordinatorStateResourceSnapshot,
-} from "../../src/state-storage/model.ts";
-import { observeRuntimeOwnedTransientTaskCompletion } from "../../src/state-storage/settlement-store.ts";
+} from "../../src/storage/model.ts";
+import { observeRuntimeOwnedTransientTaskCompletion } from "../../src/storage/settlement-store.ts";
 import {
   createDockerRestartRequestId,
   type DockerRestartCheckpoint,
-} from "../../src/state-storage/restart-checkpoint.ts";
+} from "../../src/storage/restart-checkpoint.ts";
 import {
   checkpointRuntimeOwnedCoordinatorCleanup,
   checkpointRuntimeOwnedCoordinatorHost,
@@ -120,7 +120,7 @@ import {
   writeRuntimeOwnedCoordinatorRestartCheckpoint,
   writeRuntimeOwnedCoordinatorSettlement,
   writeRuntimeOwnedCoordinatorStateSnapshot,
-} from "../../src/state-storage/settlement-store.ts";
+} from "../../src/storage/settlement-store.ts";
 
 /**
  * 固定二File保存と同じ更新の再入場、保全停止を確認する。
@@ -264,7 +264,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
         "-e",
         `(async () => {
      const { verifyRepositoryRoot } = await import(${JSON.stringify(new URL("../../../version-control/src/index.ts", import.meta.url).href)});
-     const { readRuntimeOwnedCoordinatorRecoverySnapshot } = await import(${JSON.stringify(new URL("../../src/state-storage/settlement-store.ts", import.meta.url).href)});
+     const { readRuntimeOwnedCoordinatorRecoverySnapshot } = await import(${JSON.stringify(new URL("../../src/storage/settlement-store.ts", import.meta.url).href)});
      const root = verifyRepositoryRoot(process.argv[1]);
      const result = readRuntimeOwnedCoordinatorRecoverySnapshot(root.capability);
      process.stdout.write(JSON.stringify({status: result.status, lockReleased: result.lockReleased, hash: result.value?.payloadSha256 ?? null}));
@@ -573,7 +573,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
   const probeToken = `docker.crdd-coordinator-doctor-fixture.12345678-1234-4234-8234-123456789abc.12345678-1234-4234-8234-123456789abc.${"f".repeat(64)}`;
   const cliModule = new URL("../../src/cli/command.ts", import.meta.url).href;
   const hostModule = new URL(
-    "../../src/host-execution/operation-workspace-lifecycle.ts",
+    "../../src/execution/operation.ts",
     import.meta.url,
   ).href;
   const probeModule = new URL(
@@ -615,7 +615,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
          const { createHash } = await import("node:crypto");
          const calls = [];
          const vc = await import(${JSON.stringify(new URL("../../../version-control/src/index.ts", import.meta.url).href)});
-         const store = await import(${JSON.stringify(new URL("../../src/state-storage/settlement-store.ts", import.meta.url).href)});
+         const store = await import(${JSON.stringify(new URL("../../src/storage/settlement-store.ts", import.meta.url).href)});
          const verified = vc.verifyRepositoryRoot(process.cwd());
          const before = store.readRuntimeOwnedCoordinatorRecoverySnapshot(verified.capability);
          const host = await import(${JSON.stringify(hostModule)});
@@ -1297,7 +1297,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
   let actualLockReleased = false;
   let releaseObservationThrows = false;
   const lockObservationMock = t.mock.module(
-    "../../src/host-execution/kernel-lock.ts",
+    "../../src/execution/kernel-lock.ts",
     {
       namedExports: {
         ...stateKernelLocks,
@@ -1324,10 +1324,10 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
   );
   try {
     const missingReleaseModuleUrl = new URL(
-      "../../src/state-storage/settlement-store.ts?reader-release-observation",
+      "../../src/storage/settlement-store.ts?reader-release-observation",
       import.meta.url,
     ).href;
-    const missingReleaseRuntime: typeof import("../../src/state-storage/settlement-store.ts") =
+    const missingReleaseRuntime: typeof import("../../src/storage/settlement-store.ts") =
       await import(missingReleaseModuleUrl);
     const stopped =
       missingReleaseRuntime.saveRuntimeOwnedCoordinatorOperationStart(
@@ -1874,7 +1874,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
   const notIssuedRecovery = Object.freeze({});
   let notIssuedActive = true;
   const notIssuedMock = t.mock.module(
-    "../../src/provider/execution-controller.ts",
+    "../../src/execution/provider-controller.ts",
     {
       namedExports: {
         ...dockerController,
@@ -1897,10 +1897,10 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     },
   );
   try {
-    const unissuedRuntime: typeof import("../../src/state-storage/settlement-store.ts") =
+    const unissuedRuntime: typeof import("../../src/storage/settlement-store.ts") =
       await import(
         new URL(
-          "../../src/state-storage/settlement-store.ts?unissued-proof",
+          "../../src/storage/settlement-store.ts?unissued-proof",
           import.meta.url,
         ).href
       );
@@ -2460,7 +2460,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
   let observedProviderId: string | null = null;
   let observedProviderObservation = "absent";
   const transientRecoveryIds = new Set<string>();
-  t.mock.module("../../src/provider/execution-controller.ts", {
+  t.mock.module("../../src/execution/provider-controller.ts", {
     namedExports: {
       ...dockerController,
       /**
@@ -2514,7 +2514,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
   let completionReleaseCount = 0;
   let completionActualReleaseConfirmed = false;
   const completionLockObservationMock = t.mock.module(
-    "../../src/host-execution/kernel-lock.ts",
+    "../../src/execution/kernel-lock.ts",
     {
       namedExports: {
         ...stateKernelLocks,
@@ -2545,12 +2545,12 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
   );
   t.after(() => completionLockObservationMock.restore());
   const isolatedModuleUrl = new URL(
-    "../../src/state-storage/settlement-store.ts?history-filesystem-fixture",
+    "../../src/storage/settlement-store.ts?history-filesystem-fixture",
     import.meta.url,
   );
   const historyRuntime = (await import(
     isolatedModuleUrl.href
-  )) as typeof import("../../src/state-storage/settlement-store.ts");
+  )) as typeof import("../../src/storage/settlement-store.ts");
   let projectAcceptanceValue: unknown = null;
   let projectAcceptanceReads = 0;
   let projectAcceptanceThrow = false;
@@ -3263,7 +3263,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
         "-e",
         `(async () => {
           const { verifyRepositoryRoot } = await import(${JSON.stringify(new URL("../../../version-control/src/index.ts", import.meta.url).href)});
-          const { readRuntimeOwnedCoordinatorRecoveryResult } = await import(${JSON.stringify(new URL("../../src/state-storage/settlement-store.ts", import.meta.url).href)});
+          const { readRuntimeOwnedCoordinatorRecoveryResult } = await import(${JSON.stringify(new URL("../../src/storage/settlement-store.ts", import.meta.url).href)});
           const root = verifyRepositoryRoot(process.argv[1]);
           process.stdout.write(JSON.stringify(readRuntimeOwnedCoordinatorRecoveryResult(root.capability, process.argv[2])));
         })().catch(() => { process.exitCode = 1; });`,
@@ -3631,7 +3631,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
         "--experimental-strip-types",
         "-e",
         `(async () => { const { verifyRepositoryRoot } = await import(${JSON.stringify(new URL("../../../version-control/src/index.ts", import.meta.url).href)});
-     const runtime = await import(${JSON.stringify(new URL("../../src/state-storage/settlement-store.ts", import.meta.url).href)});
+     const runtime = await import(${JSON.stringify(new URL("../../src/storage/settlement-store.ts", import.meta.url).href)});
      const root = verifyRepositoryRoot(process.argv[1]);
      const context = runtime.prepareRuntimeOwnedCoordinatorRecoveredSettlement(root.capability, process.argv[2], () => null);
      const refused = runtime.completeRuntimeOwnedCoordinatorSettlement(context, null, null);
@@ -3718,7 +3718,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
           "-e",
           `(async () => {
         const { verifyRepositoryRoot } = await import(${JSON.stringify(new URL("../../../version-control/src/index.ts", import.meta.url).href)});
-        const runtime = await import(${JSON.stringify(new URL("../../src/state-storage/settlement-store.ts", import.meta.url).href)});
+        const runtime = await import(${JSON.stringify(new URL("../../src/storage/settlement-store.ts", import.meta.url).href)});
         const root = verifyRepositoryRoot(process.argv[1]);
         const ack = JSON.parse(process.argv[3]);
         const context = runtime.prepareRuntimeOwnedCoordinatorRecoveredSettlement(root.capability, process.argv[2], () => ack);
@@ -3793,7 +3793,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     fs.writeFileSync(stateFile, removed);
     const absentScript = `(async () => {
       const { verifyRepositoryRoot } = await import(${JSON.stringify(new URL("../../../version-control/src/index.ts", import.meta.url).href)});
-      const runtime = await import(${JSON.stringify(new URL("../../src/state-storage/settlement-store.ts", import.meta.url).href)});
+      const runtime = await import(${JSON.stringify(new URL("../../src/storage/settlement-store.ts", import.meta.url).href)});
       const root = verifyRepositoryRoot(process.argv[1]);
       const ack = JSON.parse(process.argv[3]);
       process.stdout.write(JSON.stringify(runtime.observeRuntimeOwnedCoordinatorCompletedDelivery(root.capability, process.argv[2], () => ack)));
@@ -3934,7 +3934,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     fs.writeFileSync(pendingFile, pendingAck);
     const pendingReentryScript = `(async () => {
       const { verifyRepositoryRoot } = await import(${JSON.stringify(new URL("../../../version-control/src/index.ts", import.meta.url).href)});
-      const runtime = await import(${JSON.stringify(new URL("../../src/state-storage/settlement-store.ts", import.meta.url).href)});
+      const runtime = await import(${JSON.stringify(new URL("../../src/storage/settlement-store.ts", import.meta.url).href)});
       const root = verifyRepositoryRoot(process.argv[1]);
       const ack = JSON.parse(process.argv[3]);
       let reads = 0;
@@ -5199,7 +5199,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       ...startPlan,
       activeMountCapability: Object.freeze({}),
     } as unknown as Parameters<
-      typeof import("../../src/state-storage/settlement-store.ts").completeRuntimeOwnedCoordinatorHostSubmission
+      typeof import("../../src/storage/settlement-store.ts").completeRuntimeOwnedCoordinatorHostSubmission
     >[2];
     const cleanupObservations = (
       [
@@ -5216,13 +5216,13 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       observation: "not_requested",
     }));
     const dockerEffects = await import(
-      "../../src/provider/isolation-execution.ts"
+      "../../src/execution/isolation-execution.ts"
     );
     const mountRuntime = await import(
-      "../../src/provider/home-mount-authorization.ts"
+      "../../src/execution/provider-home-mount-authorization.ts"
     );
     const cleanupMock = t.mock.module(
-      "../../src/provider/isolation-execution.ts",
+      "../../src/execution/isolation-execution.ts",
       {
         namedExports: {
           ...dockerEffects,
@@ -5243,7 +5243,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       },
     );
     const mountMock = t.mock.module(
-      "../../src/provider/home-mount-authorization.ts",
+      "../../src/execution/provider-home-mount-authorization.ts",
       {
         namedExports: {
           ...mountRuntime,
@@ -5265,55 +5265,48 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
         },
       },
     );
-    const hostStartMock = t.mock.module(
-      "../../src/host-execution/operation-workspace-lifecycle.ts",
-      {
-        namedExports: {
-          ...executionEnvironment,
-          borrowOwnedHostRecoverySnapshot(owner: unknown) {
-            if (isFailHostObservation && ++hostObservationCalls === 2)
-              throw new Error("host_observation_missing");
-            return executionEnvironment.borrowOwnedHostRecoverySnapshot(owner);
-          },
-          beginOwnedDockerSubmissionRecovery(
-            owner: unknown,
-            operationId: unknown,
-          ) {
-            beginCalls += 1;
-            if (beginCalls === 1) throw new Error("host_start_before_write");
-            const token =
-              executionEnvironment.beginOwnedDockerSubmissionRecovery(
-                owner,
-                operationId,
-              );
-            if (beginCalls === 2) throw new Error("host_start_response_lost");
-            return token;
-          },
-          completeOwnedDockerSubmissionRecovery(
-            owner: unknown,
-            token: unknown,
-          ) {
-            completeCalls += 1;
-            if (completeCalls === 1)
-              throw new Error("host_complete_before_write");
-            const next =
-              executionEnvironment.completeOwnedDockerSubmissionRecovery(
-                owner,
-                token,
-              );
-            if (completeCalls === 2)
-              throw new Error("host_complete_response_lost");
-            return next;
-          },
+    const hostStartMock = t.mock.module("../../src/execution/operation.ts", {
+      namedExports: {
+        ...executionEnvironment,
+        borrowOwnedHostRecoverySnapshot(owner: unknown) {
+          if (isFailHostObservation && ++hostObservationCalls === 2)
+            throw new Error("host_observation_missing");
+          return executionEnvironment.borrowOwnedHostRecoverySnapshot(owner);
+        },
+        beginOwnedDockerSubmissionRecovery(
+          owner: unknown,
+          operationId: unknown,
+        ) {
+          beginCalls += 1;
+          if (beginCalls === 1) throw new Error("host_start_before_write");
+          const token = executionEnvironment.beginOwnedDockerSubmissionRecovery(
+            owner,
+            operationId,
+          );
+          if (beginCalls === 2) throw new Error("host_start_response_lost");
+          return token;
+        },
+        completeOwnedDockerSubmissionRecovery(owner: unknown, token: unknown) {
+          completeCalls += 1;
+          if (completeCalls === 1)
+            throw new Error("host_complete_before_write");
+          const next =
+            executionEnvironment.completeOwnedDockerSubmissionRecovery(
+              owner,
+              token,
+            );
+          if (completeCalls === 2)
+            throw new Error("host_complete_response_lost");
+          return next;
         },
       },
-    );
+    });
     try {
       const hostStartModule = new URL(
-        "../../src/state-storage/settlement-store.ts?host-start-reentry",
+        "../../src/storage/settlement-store.ts?host-start-reentry",
         import.meta.url,
       ).href;
-      const hostStartRuntime: typeof import("../../src/state-storage/settlement-store.ts") =
+      const hostStartRuntime: typeof import("../../src/storage/settlement-store.ts") =
         await import(hostStartModule);
       const beforeHostRequest = fs.readFileSync(freshStateFile);
       const wrongOwner =
@@ -5822,7 +5815,7 @@ for (const issuedFailure of [false, true]) {
     const checkpoint = saved.value.snapshot.operations.find(
       (
         x,
-      ): x is import("../../src/state-storage/model.ts").CoordinatorStateTaskOperation =>
+      ): x is import("../../src/storage/model.ts").CoordinatorStateTaskOperation =>
         x.kind === "docker_task" && x.recoveryId === start.recoveryId,
     )?.dockerRestart;
     assert.deepEqual(checkpoint, {
@@ -6139,33 +6132,30 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
     assert.deepEqual(fs.readdirSync(directory), ["state.json"]);
     let ownerLive = true,
       kernelAcquisitions = 0;
-    const kernelLoss = t.mock.module(
-      "../../src/host-execution/kernel-lock.ts",
-      {
-        namedExports: {
-          ...stateKernelLocks,
-          acquireRuntimeOwnedCoordinatorStateKernelLock: (
-            ...args: Parameters<
-              typeof stateKernelLocks.acquireRuntimeOwnedCoordinatorStateKernelLock
-            >
-          ) => {
-            const acquired =
-              stateKernelLocks.acquireRuntimeOwnedCoordinatorStateKernelLock(
-                ...args,
-              );
-            assert.ok(acquired);
-            kernelAcquisitions++;
-            ownerLive = false;
-            return acquired;
-          },
+    const kernelLoss = t.mock.module("../../src/execution/kernel-lock.ts", {
+      namedExports: {
+        ...stateKernelLocks,
+        acquireRuntimeOwnedCoordinatorStateKernelLock: (
+          ...args: Parameters<
+            typeof stateKernelLocks.acquireRuntimeOwnedCoordinatorStateKernelLock
+          >
+        ) => {
+          const acquired =
+            stateKernelLocks.acquireRuntimeOwnedCoordinatorStateKernelLock(
+              ...args,
+            );
+          assert.ok(acquired);
+          kernelAcquisitions++;
+          ownerLive = false;
+          return acquired;
         },
       },
-    );
+    });
     try {
-      const lostOwnerRuntime: typeof import("../../src/state-storage/settlement-store.ts") =
+      const lostOwnerRuntime: typeof import("../../src/storage/settlement-store.ts") =
         await import(
           new URL(
-            `../../src/state-storage/settlement-store.ts?authentication-owner-lost-after-lock-${consumer}`,
+            `../../src/storage/settlement-store.ts?authentication-owner-lost-after-lock-${consumer}`,
             import.meta.url,
           ).href
         );
@@ -6339,7 +6329,7 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
     );
     assert.deepEqual(fs.readdirSync(directory), ["state.json"]);
     const recoverySource = fs.readFileSync(
-      new URL("../../src/task/recovery.ts", import.meta.url),
+      new URL("../../src/execution/recovery.ts", import.meta.url),
       "utf8",
     );
     const driverBody = [
@@ -6880,7 +6870,7 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
  */
 test("一次失敗のCommand観測は閉じた数値契約と応答相関を検査する", () => {
   const source = fs.readFileSync(
-    new URL("../../src/state-storage/model.ts", import.meta.url),
+    new URL("../../src/storage/model.ts", import.meta.url),
     "utf8",
   );
   /**

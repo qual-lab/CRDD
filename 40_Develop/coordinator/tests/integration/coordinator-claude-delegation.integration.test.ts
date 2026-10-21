@@ -8,13 +8,13 @@
  * @scope coordinator、claude、delegation
  * @boundary PRL-IT-005=Related 2 Blocks: Task Authority→Provider Authority Gate→Provider Effect
  */
+import { createProviderDockerRuntimeAdapterCandidate } from "../../src/execution/provider-adapter.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createIsolatedClaudeDockerRuntimeAdapterCandidate } from "../../src/provider/claude-docker-adapter.ts";
-import { createIsolatedDelegationSelectionGrantRuntimeCandidate } from "../../src/provider/delegation-selection-grant.ts";
-import { createIsolatedDockerProcessControllerCandidate } from "../../src/provider/execution-controller.ts";
-import { createIsolatedProviderAuthorityRuntimeCandidate } from "../../src/provider/authority-grant.ts";
+import { createIsolatedDelegationSelectionGrantRuntimeCandidate } from "../../src/execution/delegation-selection-grant.ts";
+import { createIsolatedDockerProcessControllerCandidate } from "../../src/execution/provider-controller.ts";
+import { createIsolatedProviderAuthorityRuntimeCandidate } from "../../src/execution/authority-grant.ts";
 
 /**
  * Codex frontから選定理由付きClaude委譲をcleanup済みResultまで接続するを検証する。
@@ -189,7 +189,7 @@ test("Codex frontから選定理由付きClaude委譲をcleanup済みResultま�
     mountCompletionCount += 1;
     return Object.freeze({ status: "completed" });
   };
-  const adapter = createIsolatedClaudeDockerRuntimeAdapterCandidate({
+  const adapter = createProviderDockerRuntimeAdapterCandidate("claude", {
     verifyOperationMount: (management: unknown, mount: unknown) => {
       assert.equal(management, managementCapability);
       assert.equal(mount, mountCapability);

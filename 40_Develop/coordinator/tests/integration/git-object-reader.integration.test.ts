@@ -32,12 +32,12 @@ import {
   createOwnedOperationDirectories,
   createOwnedOperationManagementCapability,
   verifyOwnedOperationManagementMountBinding,
-} from "../../src/host-execution/operation-workspace-lifecycle.ts";
+} from "../../src/execution/operation.ts";
 import {
   bindRuntimeOwnedRepositoryOperation,
   borrowRuntimeOwnedRepositorySource,
   inspectRepositoryRevisionCandidate,
-} from "../../src/repository-operation/binding.ts";
+} from "../../src/workspace/binding.ts";
 import { containsRecognizedSecretMaterial } from "../../src/authority/secret-material-policy.ts";
 import {
   createGitPackedObjectFixture,

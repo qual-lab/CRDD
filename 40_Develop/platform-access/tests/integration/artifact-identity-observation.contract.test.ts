@@ -279,6 +279,7 @@ test("Artifact公開契約は固定target・Protocol・用途固定公開集合�
       "readConfirmationCodeOutcome",
       "INTERACTIVE_CONSOLE_READER_ORPHAN_FAILSAFE_MS",
       "acquireNamedPipeKernelLock",
+      "acquireHostTerminalCallerPipeLease",
       "acquireNamedPipeKernelLockOutcome",
       "acquireNamedPipeSupervisorLock",
       "withTerminalAsyncOutcome",

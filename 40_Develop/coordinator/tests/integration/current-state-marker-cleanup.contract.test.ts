@@ -20,15 +20,15 @@ import {
   sameStableFileIdentity,
 } from "../../../domain-model/src/index.ts";
 import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
-import { acquireRuntimeOwnedCoordinatorStateKernelLock } from "../../src/host-execution/kernel-lock.ts";
-import { borrowRuntimeOwnedCoordinatorRecoveryRepository } from "../../src/repository-operation/binding.ts";
+import { acquireRuntimeOwnedCoordinatorStateKernelLock } from "../../src/execution/kernel-lock.ts";
+import { borrowRuntimeOwnedCoordinatorRecoveryRepository } from "../../src/workspace/binding.ts";
 import {
   COORDINATOR_STATE_SCHEMA,
   decodeCoordinatorStateSnapshot,
   encodeCoordinatorStateValue,
   MAX_COORDINATOR_STATE_BYTES,
-} from "../../src/state-storage/model.ts";
-import { cleanupRuntimeOwnedCoordinatorStateMarker } from "../../src/state-storage/settlement-store.ts";
+} from "../../src/storage/model.ts";
+import { cleanupRuntimeOwnedCoordinatorStateMarker } from "../../src/storage/settlement-store.ts";
 
 /**
  * markerだけの清掃を、保存本文・実体・取得／解放の全停止点で確認する。
@@ -43,7 +43,7 @@ import { cleanupRuntimeOwnedCoordinatorStateMarker } from "../../src/state-stora
  */
 test("現在保存marker: exact処置・全文保全・停止と解放の相関", () => {
   const source = fs.readFileSync(
-    new URL("../../src/state-storage/settlement-store.ts", import.meta.url),
+    new URL("../../src/storage/settlement-store.ts", import.meta.url),
     "utf8",
   );
   const start = source.indexOf(

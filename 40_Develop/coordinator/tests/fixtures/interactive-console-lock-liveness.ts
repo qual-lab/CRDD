@@ -9,7 +9,7 @@
  * @scope 対話Lockの生存・解放
  * @boundary 試験Process→Native Kernel Lock。取得不能を正常終了へ丸めない。
  */
-import { acquireRuntimeOwnedInteractiveConsoleKernelLockOutcome } from "../../src/host-execution/kernel-lock.ts";
+import { acquireRuntimeOwnedInteractiveConsoleKernelLockOutcome } from "../../src/execution/kernel-lock.ts";
 
 let outcome = await acquireRuntimeOwnedInteractiveConsoleKernelLockOutcome();
 for (

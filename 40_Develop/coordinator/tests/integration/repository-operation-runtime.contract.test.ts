@@ -25,7 +25,7 @@ import {
   createOwnedOperationContextCapability,
   createOwnedOperationDirectories,
   createOwnedOperationManagementCapability,
-} from "../../src/host-execution/operation-workspace-lifecycle.ts";
+} from "../../src/execution/operation.ts";
 import {
   bindRuntimeOwnedRepositoryOperation,
   borrowRuntimeOwnedCoordinatorStateRepository,
@@ -33,7 +33,7 @@ import {
   inspectRepositoryObjectFormatCandidate,
   verifyRuntimeOwnedRepositoryBindingCapability,
   verifyRuntimeOwnedRepositoryOperation,
-} from "../../src/repository-operation/binding.ts";
+} from "../../src/workspace/binding.ts";
 
 const firstRevision = "1".repeat(40);
 const secondRevision = "2".repeat(40);
@@ -58,7 +58,7 @@ test("実体IDの5取得点はWindowsだけ符号を補正し他の拒否条件�
       ["identity"],
     ],
     [
-      "../../src/host-execution/operation-workspace-lifecycle.ts",
+      "../../src/execution/operation.ts",
       ["readFilesystemIdentity", "readFileIdentity", "readOpenFileIdentity"],
     ],
   ] as const) {

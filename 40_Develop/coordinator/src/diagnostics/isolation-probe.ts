@@ -34,7 +34,7 @@ import {
   releaseHostOperationRecoveryGeneration,
   transitionHostRecoveryState,
   verifyOwnedMountCapability,
-} from "../host-execution/operation-workspace-lifecycle.ts";
+} from "../execution/operation.ts";
 import {
   parseHostRecoveryToken,
   type DockerMounts,
@@ -42,7 +42,7 @@ import {
   loadDockerProbeRecoveryRecord,
   parseDockerProbeRecoveryToken,
   requireDockerProbeRecoveryMounts,
-} from "../host-execution/recovery-record.ts";
+} from "../storage/recovery-record.ts";
 
 /**
  * 下位が所有する同操作のProbe技術構成を参照する。

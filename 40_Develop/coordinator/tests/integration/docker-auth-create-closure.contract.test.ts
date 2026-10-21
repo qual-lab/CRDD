@@ -23,7 +23,7 @@ import { fileURLToPath } from "node:url";
 import type {
   CoordinatorStateSnapshot,
   CoordinatorStateTaskOperation,
-} from "../../src/state-storage/model.ts";
+} from "../../src/storage/model.ts";
 import {
   captureAuthCreateCleanupTree,
   projectAuthCreateDefaultBridge,

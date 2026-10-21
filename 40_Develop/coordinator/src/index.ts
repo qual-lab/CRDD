@@ -12,26 +12,26 @@ export {
   snapshotCoordinatorWorkspaceResult,
   COORDINATOR_TASK_PRE_EFFECT_REJECTIONS,
   type CoordinatorTaskDependencies,
-} from "./task/attempt.ts";
+} from "./execution/attempt.ts";
 export type {
   CoordinatorTaskAttemptInput,
   CoordinatorTaskAttemptResult,
   CoordinatorWorkspaceResult,
   CoordinatorTaskRecoveryObligation,
-} from "./task/types.ts";
-export { isSupportedCoordinatorNodeRuntime } from "./host-execution/node-runtime-version.ts";
+} from "./execution/types.ts";
+export { isSupportedCoordinatorNodeRuntime } from "./cli/node-runtime-version.ts";
 export {
   createRuntimeProcessRecoveryIdentity,
   getRuntimeProcessInstanceIdentity,
   inspectRuntimeProcessRecoveryIdentity,
   poisonRuntimeProcessAfterCleanupUnknown,
-} from "./host-execution/process-safety-state.ts";
-export { acquireRuntimeOwnedOrchestratorStateKernelLock } from "./host-execution/kernel-lock.ts";
+} from "./execution/process-safety-state.ts";
+export { acquireRuntimeOwnedOrchestratorStateKernelLock } from "./execution/kernel-lock.ts";
 export {
   recoverRuntimeOwnedDockerTaskForCurrentConsumer,
   resolveRuntimeOwnedDockerTaskCurrentCorrelations,
-} from "./task/recovery.ts";
-export { observeRuntimeOwnedTransientTaskCompletion } from "./state-storage/settlement-store.ts";
+} from "./execution/recovery.ts";
+export { observeRuntimeOwnedTransientTaskCompletion } from "./storage/settlement-store.ts";
 export {
   readRepositoryNetworkPolicies,
   type RepositoryNetworkPolicies,

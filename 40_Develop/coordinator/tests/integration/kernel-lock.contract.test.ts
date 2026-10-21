@@ -25,7 +25,7 @@ import {
   acquireRuntimeOwnedOrchestratorStateKernelLock,
   describeKernelLockContract,
   prepareHostOperationSupervisorLockRequest,
-} from "../../src/host-execution/kernel-lock.ts";
+} from "../../src/execution/kernel-lock.ts";
 
 const FAST_SUPERVISOR_TIMING = Object.freeze({
   acquireTimeoutMs: 10,

@@ -11,8 +11,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { dockerProcessControllerPublicCompletionReasons } from "../../src/provider/execution-result-reasons.ts";
-import { coordinatorTaskPublicReasons } from "../../src/task/result-reasons.ts";
+import { dockerProcessControllerPublicCompletionReasons } from "../../src/execution/provider-result-reasons.ts";
+import { coordinatorTaskPublicReasons } from "../../src/execution/result-reasons.ts";
 import {
   parseProviderResult,
   WORKBENCH_AI_ADVICE_PROVIDER_OUTPUT_REASONS,

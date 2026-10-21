@@ -23,17 +23,15 @@ export const PLATFORM_ACCESS_TS_COVERAGE_SOURCES = Object.freeze([
   "40_Develop/coordinator/src/diagnostics/doctor.ts",
   "40_Develop/coordinator/src/authority/root-path-lexical.ts",
   "40_Develop/domain-model/src/storage/bounded-file-snapshot.ts",
-  "40_Develop/coordinator/src/platform-access/adapter.ts",
   "40_Develop/platform-access/src/artifact/identity.ts",
   "40_Develop/coordinator/scripts/native-git-provenance.ts",
-  "40_Develop/coordinator/src/repository-operation/root-observation.ts",
+  "40_Develop/coordinator/src/workspace/root-observation.ts",
 ]);
 
 export const PLATFORM_ACCESS_TS_COVERAGE_TESTS = Object.freeze([
   "40_Develop/coordinator/tests/unit/authority/root-path-lexical.contract.test.ts",
   "40_Develop/coordinator/tests/integration/bounded-file-snapshot.contract.test.ts",
   "40_Develop/coordinator/tests/unit/doctor.contract.test.ts",
-  "40_Develop/coordinator/tests/unit/platform-access/adapter.contract.test.ts",
   "40_Develop/platform-access/tests/integration/artifact-identity-observation.contract.test.ts",
   "40_Develop/coordinator/tests/integration/platform-access-ts-coverage.contract.test.ts",
   "40_Develop/coordinator/tests/integration/native-git-provenance.contract.test.ts",
@@ -144,12 +142,6 @@ const sourceCoverageObligations: Readonly<Record<string, CoverageObligation>> =
       "上限exact／+1、growth、truncate、同長leaf／parent replacement契約試験とproduction caller試験",
       "読取り上限、Filesystem API、Identity fieldまたはcaller変更時",
     ),
-    "40_Develop/coordinator/src/platform-access/adapter.ts": obligation(
-      "入力正規化の全failure形を同一runで到達していない",
-      "wire不正値の誤受理",
-      "revision、nonce、role、全bit、主体HashおよびProxy負例",
-      "wire protocolまたはproduction process再導入時",
-    ),
     "40_Develop/platform-access/src/artifact/identity.ts": obligation(
       "成果物観測の全OS例外とIdentity failureを同一runで到達していない",
       "Release artifact差替えの検出漏れ",
@@ -162,13 +154,12 @@ const sourceCoverageObligations: Readonly<Record<string, CoverageObligation>> =
       "実Git Blob・Root・Native差と読取り中差替えの契約試験",
       "固定Native観測またはGit出所照合の変更時",
     ),
-    "40_Develop/coordinator/src/repository-operation/root-observation.ts":
-      obligation(
-        "Rust結果からRoot観測へのproduction写像は未実装である",
-        "未確認主体またはProtection値の補完",
-        "selected-user binding必須、exact inputおよび固定blocked契約試験",
-        "Root観測mapping実装時",
-      ),
+    "40_Develop/coordinator/src/workspace/root-observation.ts": obligation(
+      "Rust結果からRoot観測へのproduction写像は未実装である",
+      "未確認主体またはProtection値の補完",
+      "selected-user binding必須、exact inputおよび固定blocked契約試験",
+      "Root観測mapping実装時",
+    ),
   });
 
 /**

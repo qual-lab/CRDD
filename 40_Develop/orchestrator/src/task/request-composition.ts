@@ -16,7 +16,7 @@ import {
 import {
   startRuntimeOwnedCoordinatorTask,
   cancelRuntimeOwnedCoordinatorTask,
-} from "../../../coordinator/src/task/execution.ts";
+} from "../../../coordinator/src/execution/task.ts";
 import { createRepositoryReadOnlyAdviceExecutor } from "../../../coordinator/src/workbench-ai/repository-composition.ts";
 import { createWorkbenchAiAdviceDispatchRuntime } from "../../../coordinator/src/workbench-ai/advice-dispatch.ts";
 import type { WorkbenchAiAdviceRuntimeResult } from "../../../coordinator/src/workbench-ai/provider-adapter.ts";
