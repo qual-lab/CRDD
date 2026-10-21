@@ -1,7 +1,7 @@
 # Orchestrator／Coordinator統合とDomain Model最終整理
 
 成果物種別: 変更計画・着手前対応表
-状態: A・B1〜B5とC前整理、助言・Workspace・診断・Authorityの解体、Docker固有記録の所有者移管は限定完了。先行Windows保存runは未確定。C〜Dは未着手
+状態: A・B1〜B5とC前整理、助言・Workspace・診断・Authorityの解体、Docker固有記録の所有者移管は限定完了。CLI入力・表示の移管はOrchestrator全回帰129件成功・独立レビュー指摘0で限定完了。先行Windows保存runは終了し§18.1へ結果接続。C〜Dは未着手
 対象変更: [CHG-000082](change.md)
 責任者・採用決定権限: Qual-Lab
 最終更新日: 2026-10-22
@@ -1037,4 +1037,30 @@ DIへ既存八操作・二型を移管し、CoordinatorはDI Rootへ接続した
 | 独立確認 | SourceとQualityの全結果を統合し、coverage母集団漏れ・codec表記・UT配置を是正・再確認。残指摘0。移管対象関数の本文同値と、保存原子単位の不変更を確認 |
 | 文書確認 | 変更四文書自身の診断0。参照展開した集合は3,303診断で不合格。§16の別Scope・別runの3,600件と件数差を改善効果へ換算せず、正式文書／QA全体のPassは主張しない |
 
-先行Windows保存run `58760`は、今回の移管開始前から動作している別runであり、依然終端未確定である。`runtime-repair-owner`に含む15 Windows Caseの試験領域更新を観測しているが、進捗を完了・成功へ換算しない。停止・Root削除・強制的な記録整理は行っていない。今回成功した保存44件を、先行runや実Dockerの代替成功にはしない。実AI・Docker・認証・②保持物の操作、コミット・プッシュは行っていない。
+§17.1の固定時点では、先行Windows保存run `58760`は移管開始前から動作していた別runで、終端未確定だった。`runtime-repair-owner`に含む15 Windows Caseの試験領域更新を観測しているが、進捗を完了・成功へ換算しない。停止・Root削除・強制的な記録整理は行っていない。今回成功した保存44件を、先行runや実Dockerの代替成功にはしない。実AI・Docker・認証・②保持物の操作、コミット・プッシュは行っていない。 終端結果は[§18.1](#181-検証状態)を参照する。
+
+## 18. CLIと保存処理の所有者再照合
+
+基準Commitは`48f927ce0`。変更分類は既存能力の責務・配置リファクタリングとする。着手前にSourceの直接利用側とArchitectureを照合し、読み取り専用の独立確認を行った。Task入力、表示、取消、保存の順序・失敗条件を維持する。新しい公開API、Framework、State、Registry、Lock、互換re-exportは追加しない。②のAI再試行・保持物操作と実Docker・認証は対象外。
+
+| 対象 | 今回の処置 | 保持する能力・後続条件 |
+|---|---|---|
+| `cli/request-input.ts` | Orchestratorの同名Moduleへ移管 | 実利用側はTask／Projectの上位CLI。128KiB、厳格UTF-8、一意JSON、既存理由を維持。Coordinator doctorの引数Errorは自分の受付内へ局所化 |
+| `cli/command-report.ts` | Orchestratorの同名Moduleへ移管。UTも`tests/unit/cli/`へ | Task／Projectの表示・JSON・情報秘匿を維持。Coordinatorの旧Task入口は同じ固定拒否表示だけを局所出力し、上位をimportしない |
+| `cli/options.ts`の旧Task Parser | 本番利用0の`parseTaskArguments`と専用の結果Helperを撤去 | 古いParserの試験を本番Orchestrator受付の不正引数拒否へ置換。実際の現在CLI文法を緩めない |
+| `cli/task-cancellation.ts` | 現Ownerを維持 | 両CLIが実利用するsignal結合・一回取消・join・解除。丸ごと上位へ動かすと逆依存となるためCのCLI統合と同時に移す |
+| Console／Node版／doctor／回復表示 | 現Ownerを維持 | OS本体はPlatform Accessに移管済み。上位の確認・実行停止・診断構成は汎用OS処理へ渡さない。Task受付・表示の移管だけを理由に複製しない |
+| `storage/docker-recovery-journal.ts` | 今回は移管せず、分割条件待ち | 汎用4操作（commit名／読取／保存／削除）と残17操作が約18の内部処理を共有。回復ID・Docker schema・binding判断が残るため全体Domain移管は不可。Helper複製・大量公開・新しい注入Frameworkで解かない |
+| `storage/model.ts`、`settlement-store.ts` | 現Ownerを維持 | 現在操作・回復・配送・終了条件の相関と保存原子単位。物理保存だけと見なしてDomainへ移さない |
+
+Journalは前節の「汎用」という要約だけでは説明不足だった。回復専用17操作は本番の直接利用が見つからないが、試験だけを根拠に既存能力を削除しない。後続Cで必要集合・過去の検証義務・再入場の利用側を確定し、専用処理の退役可否または少数の共通保存契約を決めた後に分割する。今回のDomain Root追加は0。保存形式、旧記録の扱い、unknown分類は変更しない。
+
+検証対象は実stdinの上限一致／超過・UTF-8・重複key、実CLIの不正引数拒否、移管した閉じた表示、旧Task入口の同じ拒否、signal取消／解除、Catalogの利用側選択とSymbol／型・書式である。Source／Qualityの独立確認、変更文書と直接伝播の確認を行う。準拠規則・外部依存・Releaseを変えないため準拠監査・Release監査は行わない。現在、人間による追加判断は必要ない。
+
+### 18.1. 検証状態
+
+実装・配置追従は完了し、CoordinatorのSourceは81 File（cli7、execution66、storage3、external-send4、Root1）となった。局所48件（Orchestrator17、Coordinator31）、Coordinator関連40件、Domain Model台帳26件が成功。三Packageの型検査、変更Sourceの書式・Lint、Catalog388件valid、両PackageのSymbol欠落Path0・ID重複0を確認した。最終文書四件（両Architecture・本計画・PROJECT_CONTEXT）自身の診断0、参照展開集合は3,320診断で不合格。別Scope・別runとの件数差を改善・悪化の根拠へ使わない。
+
+Source／Qualityの初回独立確認で、旧Task拒否表示のexact-byte試験不足、Architectureの旧CLI経路、移管UTの旧Owner表記を検出した。両レビューへ統合是正案を再提示し、合意した範囲だけを修正。human全文・三fieldの整形JSON・末尾改行・exit64・stderr空の実CLI確認を含む局所三件が成功した。再レビューで指摘された§17の時点表現も両確認者へ照合して修正し、独立確認の残指摘は0。取消、Journal、現在モデル、Settlementは基準版との差分0。Orchestrator全回帰は既存の実Git Workspace結合試験を含む129件すべて成功して終了した。CLI入力・表示移管の限定範囲は完了とし、保存処理の保留、C全体、実AI／Docker、全体QAの成立とは区別する。
+
+先行Windows保存run `58760`は223件中222成功・一件失敗で終端した。唯一の失敗は、開始時に読み込まれた旧試験が`../execution/recovery.ts`を要求し、途中で同階層へ移管されたSourceの`./recovery.ts`に一致しなかった静的Oracleである。これは§17.1の配置追従漏れと同じ境界であり、現行試験の再実行15件は成功した。旧run全体を成功へ書き換えず、Windowsを含む222件の観測と現在版の15件を別結果として保持する。今回、追加のDocker・AI・認証・②保持物操作や先行試験Rootの削除は行っていない。C全体・実境界・Releaseは未完了である。

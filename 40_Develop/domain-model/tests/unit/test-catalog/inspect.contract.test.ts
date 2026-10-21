@@ -491,11 +491,38 @@ test("変更した意味に対応する試験を選び、未分類の実装変�
  */
 test("直接変更した試験だけはその試験に限定する", () => {
   const target =
-    "40_Develop/coordinator/tests/unit/command-report.contract.test.ts";
+    "40_Develop/orchestrator/tests/unit/cli/command-report.contract.test.ts";
   assert.deepEqual(
     selectRegressionTests(catalog, [target]).map((entry) => entry.path),
     [target],
   );
+});
+
+/**
+ * CLI移管後も登録された下位試験の利用側閉包を維持する。
+ * @responsibility Orchestrator入力・表示の変更でCoordinator側の接続試験を落とさない。
+ * @trace CQS-UT-010
+ * @precondition 現行Catalogを使用する。
+ * @stimulus 移管先の入力・表示Sourceを変更対象として選択する。
+ * @observation 回帰として選択された試験Path。
+ * @oracle 実Process・取消・stdin分離の三試験を含む。
+ * @cleanup N/A: 純粋な選択のみ。
+ * @boundary Catalogと選択処理。試験自体は実行しない。
+ */
+test("OrchestratorのCLI移管は既存のProcess・取消・入力接続試験へ閉じる", () => {
+  for (const file of ["request-input.ts", "command-report.ts"]) {
+    const selected = new Set(
+      selectRegressionTests(catalog, [
+        `40_Develop/orchestrator/src/cli/${file}`,
+      ]).map((entry) => entry.path),
+    );
+    for (const target of [
+      "integration/coordinator-task-process.integration.test.ts",
+      "integration/task-cli-cancellation.contract.test.ts",
+      "system/interaction-boundary-regression.contract.test.ts",
+    ])
+      assert.ok(selected.has(`40_Develop/coordinator/tests/${target}`), target);
+  }
 });
 
 /**
@@ -741,7 +768,7 @@ test("production・support・fixture変更はownerのUT／IT／ST全件へ閉じ
       ["unit", "integration", "system"].includes(entry.level),
   ).length;
   for (const changedPath of [
-    "40_Develop/coordinator/src/cli/command-report.ts",
+    "40_Develop/coordinator/src/cli/command.ts",
     "40_Develop/coordinator/tests/support/contract-assertions.ts",
     "40_Develop/coordinator/tests/fixtures/example.ts",
   ])

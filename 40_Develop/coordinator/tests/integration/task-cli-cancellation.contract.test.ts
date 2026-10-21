@@ -38,7 +38,7 @@ import {
 import type { Project } from "typescript/unstable/sync";
 import { API } from "typescript/unstable/sync";
 
-import { renderSafeHumanCommandReport } from "../../src/cli/command-report.ts";
+import { renderSafeHumanCommandReport } from "../../../orchestrator/src/cli/command-report.ts";
 import {
   bindTaskCliCancellationSignalsForTesting,
   createTaskCliCancellationLatch,

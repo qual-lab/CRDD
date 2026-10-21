@@ -303,7 +303,7 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 
 `authority/`の許可Bundle・Registry・Policy・開始直前再検査・Local Personal許可元は、`execution/`内の単発実行に閉じた構成要素である。ユーザー／Role認可を新たに所有せず、既存の失効・Scope・Operation相関を保持する。Root字句検査・観測変換・保護候補にはDocker操作がないため、Docker IsolationへAPIを追加する理由にはしない。秘密情報検査は入力投影と結果取込の双方で使用するため`execution/secret-validation.ts`が所有する。Runtime Trustの独立評価は既存QA義務を保持するが、本番未接続・Root非公開のままとし、通常実行のGateへ追加しない。Docker固有の隔離・起動・終了・資源回収はDocker Isolationが所有する。
 
-Docker Task回復IDの解析とProbe記録の保存・読戻し・Root／子実体の照合はDocker Isolationの公開APIを使う。Coordinatorの`execution/host-recovery-record.ts`はHost記録だけを所有する。Host終端intentとcaller checkpoint、元Repository／操作／Scopeへ結合する再起動要求checkpointも`execution/`へ置く。これらはDIの技術的な再起動状態とは異なり、処置許可・保存・通知の上位相関を所有する。現在状態の保存Schema、保存先、同じ回復参照と確定順序は変えない。`storage/docker-recovery-journal.ts`は名称に反して外部同意と採用判断にも使う汎用の確定処理であり、Docker Isolationへ移さない。
+Docker Task回復IDの解析とProbe記録の保存・読戻し・Root／子実体の照合はDocker Isolationの公開APIを使う。Coordinatorの`execution/host-recovery-record.ts`はHost記録だけを所有する。Host終端intentとcaller checkpoint、元Repository／操作／Scopeへ結合する再起動要求checkpointも`execution/`へ置く。これらはDIの技術的な再起動状態とは異なり、処置許可・保存・通知の上位相関を所有する。現在状態の保存Schema、保存先、同じ回復参照と確定順序は変えない。`storage/docker-recovery-journal.ts`には外部同意・採用判断の共通保存と、Docker回復ID／binding解釈・再開処理が混在する。共通保存4操作と残る17操作が内部処理を共有するため、全体をDomain Modelへ移さず、内部処理の複製や多数のHelper公開も行わない。既存形式・失敗分類を維持し、後続で回復専用操作の必要集合と所有者を確定してから分割する。Task入力と結果表示はOrchestratorへ移管し、単体Coordinatorはdoctor等の受付・診断と旧Task入口の固定拒否だけを保持する。
 
 診断記録はOrchestratorのTask進行状態ではなく単発の技術実行記録である。上位へ移すためだけのWrapperや私有APIの大量公開を作らず、CoordinatorからOrchestratorへ依存しない。Probeの本番回復と故障／取消検証は同じ相関Mapを一実体で維持し、検証用操作のConsumerだけをscripts／試験に限定する。passive doctorにも一時Operation作成があるため読取り専用・Effect 0とは表示しない。処置対応と検証義務は[解体計画](../../../99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#16-workspace診断folderの解体と実責務への分配)を参照する。
 

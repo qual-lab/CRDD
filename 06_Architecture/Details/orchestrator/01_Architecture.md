@@ -394,14 +394,14 @@ Owner型・閉じた検査・実Store Readerは候補実装済み・Owner局所�
 
 ## 8. 構成Root
 
-`template/tools/crdd-coordinator.ts`の既存Project操作のコマンドは保持し、薄い配送入口がOrchestratorの公開APIへ振り分ける。個別TaskはCoordinator自身の入口へ送る。配送だけのためにCoordinatorのlibraryへOrchestrator依存を入れない。MCP ServerはOrchestratorの公開APIを直接利用し、Coordinatorから上位Applicationを取得しない。
+`template/tools/crdd-coordinator.ts`の既存Project操作のコマンドは保持する。Projectと単一Taskの業務CLIはOrchestratorの受付へ配送し、単一Task実行はそこからCoordinatorの公開Task APIへ接続する。配送だけのためにCoordinatorのlibraryへOrchestrator依存を入れない。MCP ServerはOrchestratorの公開APIを直接利用し、Coordinatorから上位Applicationを取得しない。
 
-業務CLIの入力・新品初期化・Objective受付・取消解除と公開結果は`src/cli/project-command.ts`が所有する。配布入口は直接Project操作と`interactive`／`automation`のProject配送を選び、後二者の端末・機械出力条件を既存Launcher判定へ照合してから渡す。単体Coordinatorの`bin/coordinator.ts`と内部CLIはProject操作を実行せず、上位依存を持たない。標準入力の128KiB上限、厳格UTF-8・一意JSON、入力理由と終了コードはCoordinatorの副作用なしでimportできる`cli/request-input.ts`を共用し、業務固有の初期化を下位へ戻さない。新しいOrchestrator用Launcherや常駐Processは追加しない。
+業務CLIの入力・新品初期化・Objective受付・取消解除と公開結果は`src/cli/command.ts`が所有する。配布入口は直接Project操作と`interactive`／`automation`のProject配送を選び、後二者の端末・機械出力条件を既存Launcher判定へ照合してから渡す。単体Coordinatorの`bin/coordinator.ts`と内部CLIはProject操作を実行せず、上位依存を持たない。標準入力の128KiB上限、厳格UTF-8・一意JSON、Task用入力エラーはOrchestratorの`cli/request-input.ts`が所有する。Task／Projectの結果表示は`cli/command-report.ts`が所有し、Coordinatorの非公開入力・表示Moduleへ依存しない。Coordinator自身のdoctor引数エラーと旧Task入口の固定拒否表示は下位の受付内に閉じる。両CLIが使う取消signalの結合・joinは、CLI統合まで現Coordinator実装を利用し、新しい共通Frameworkや逆依存を作らない。新しいOrchestrator用Launcherや常駐Processは追加しない。
 
 ```text
 配布CLIの薄い配送
   ├ Project操作 → Orchestrator公開API → Coordinator公開API
-  └ 単一Task操作 → Coordinator公開API
+  └ 単一Task操作 → Orchestrator CLI → Coordinator公開Task API
 MCP Server → Orchestrator公開API
 Workbench Server → Orchestrator公開API（候補採用・状態参照）
 ```

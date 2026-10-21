@@ -41,38 +41,6 @@ function response<const S extends string, T>(
 }
 
 /**
- * command Responseを決定する。
- *
- * @responsibility command Responseの導出に必要な入力、判定規則、返却結果の境界を所有する。
- * @trace ARCH-000004
- * @input status: S、reason: string | null、value: T | null、isJsonRequested、hasUsageError
- * @returns commandResponseの計算結果を返す。
- * @precondition 「status: S、reason: string | null、value: T | null、isJsonRequested、hasUsageError」がcommandResponseの入力契約を満たす。
- * @postcondition commandResponseの責務を完了した結果だけを返す。
- * @effect N/A: commandResponseは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: commandResponseは独自の失敗分岐を所有しない。
- * @invariant commandResponseは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: commandResponseはProcess内の同一Subsystemで完結する。
- * @security N/A: commandResponseはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: commandResponseは共有非同期状態を持たない同期処理である。
- */
-function commandResponse<const S extends string, T>(
-  status: S,
-  reason: string | null,
-  value: T | null = null,
-  isJsonRequested = false,
-  hasUsageError = false,
-) {
-  return Object.freeze({
-    status,
-    reason,
-    value,
-    jsonRequested: isJsonRequested,
-    usageError: hasUsageError,
-  });
-}
-
-/**
  * Tokenが有効か判定する。
  *
  * @responsibility Tokenの有効条件、拒否条件、判定結果境界を所有する。
@@ -94,60 +62,6 @@ function validToken(value: unknown): value is string {
     value.length > 0 &&
     value.length <= MAXIMUM_ARGUMENT_LENGTH &&
     !/[\u0000-\u001f\u007f]/u.test(value)
-  );
-}
-
-/**
- * Task Argumentsを構造化値へ解析する。
- *
- * @responsibility Task Argumentsの入力文法、解析結果、不正文法の拒否境界を所有する。
- * @trace ARCH-000004
- * @input rawArguments: unknown
- * @returns parseTaskArgumentsの計算結果を返す。
- * @precondition 「rawArguments: unknown」がparseTaskArgumentsの入力契約を満たす。
- * @postcondition parseTaskArgumentsの責務を完了した結果だけを返す。
- * @effect N/A: parseTaskArgumentsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: parseTaskArgumentsは独自の失敗分岐を所有しない。
- * @invariant parseTaskArgumentsは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: parseTaskArgumentsはProcess内の同一Subsystemで完結する。
- * @security N/A: parseTaskArgumentsはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: parseTaskArgumentsは共有非同期状態を持たない同期処理である。
- */
-export function parseTaskArguments(rawArguments: unknown) {
-  const snapshot = snapshotPlainArray<string>(rawArguments, MAXIMUM_ARGUMENTS);
-  if (
-    snapshot.status !== "ok" ||
-    snapshot.value.some((value) => !validToken(value))
-  ) {
-    return commandResponse(
-      "blocked",
-      "task_arguments_invalid",
-      null,
-      false,
-      true,
-    );
-  }
-  const isJsonRequested = snapshot.value.includes("--json");
-  const expected = new Set(["--request-stdin", "--json"]);
-  if (
-    !snapshot.value.includes("--request-stdin") ||
-    snapshot.value.some((value) => !expected.has(value)) ||
-    new Set(snapshot.value).size !== snapshot.value.length
-  ) {
-    return commandResponse(
-      "blocked",
-      "task_arguments_invalid",
-      null,
-      isJsonRequested,
-      true,
-    );
-  }
-  return commandResponse(
-    "ok",
-    null,
-    Object.freeze({ json: isJsonRequested, requestFromStdin: true as const }),
-    isJsonRequested,
-    false,
   );
 }
 

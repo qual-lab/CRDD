@@ -218,13 +218,10 @@ test("対話Consoleは一つのRuntime契約だけがOS deviceを所有する", 
   assert.equal(readerSource.includes("process.stdin"), false);
   assert.equal(readerSource.includes('"\\\\\\\\.\\\\CONIN$"'), true);
   const requestInputSource = fs.readFileSync(
-    path.join(coordinatorRoot, "src", "cli", "request-input.ts"),
+    path.join(coordinatorRoot, "../orchestrator/src/cli/request-input.ts"),
     "utf8",
   );
-  assert.equal(
-    cliSource.includes('from "../../../coordinator/src/cli/request-input.ts"'),
-    true,
-  );
+  assert.equal(cliSource.includes('from "./request-input.ts"'), true);
   assert.equal(
     cliSource.includes(
       "inspectSingleTaskCommand(readBoundedTaskRequestFromStdin())",
@@ -236,7 +233,7 @@ test("対話Consoleは一つのRuntime契約だけがOS deviceを所有する", 
     .join(coordinatorRoot, "../orchestrator/src/cli/command.ts")
     .replaceAll("\\", "/");
   const inputPath = path
-    .join(coordinatorRoot, "src/cli/request-input.ts")
+    .join(coordinatorRoot, "../orchestrator/src/cli/request-input.ts")
     .replaceAll("\\", "/");
   const config = path
     .join(coordinatorRoot, ".crdd-stdin-oracle.json")
@@ -252,7 +249,9 @@ test("対話Consoleは一つのRuntime契約だけがOS deviceを所有する", 
       ].map((name) =>
         name === "interactive-console-reader"
           ? "../platform-access/src/terminal/confirmation-reader.ts"
-          : `src/cli/${name}.ts`,
+          : name === "request-input"
+            ? "../orchestrator/src/cli/request-input.ts"
+            : `src/cli/${name}.ts`,
       ),
     ],
     include: [],
@@ -260,7 +259,7 @@ test("対話Consoleは一つのRuntime契約だけがOS deviceを所有する", 
   const alternatives = [
     cliSource,
     cliSource.replace(
-      'from "../../../coordinator/src/cli/request-input.ts"',
+      'from "./request-input.ts"',
       'from "../../../coordinator/src/cli/options.ts"',
     ),
     cliSource.replace(
@@ -362,7 +361,9 @@ function inspectTaskStdinWiring(project: Project, root: string) {
           ? "../orchestrator/src/cli/command.ts"
           : name === "interactive-console-reader"
             ? "../platform-access/src/terminal/confirmation-reader.ts"
-            : `src/cli/${name}.ts`,
+            : name === "request-input"
+              ? "../orchestrator/src/cli/request-input.ts"
+              : `src/cli/${name}.ts`,
       )
       .replaceAll("\\", "/");
     const source = project.program.getSourceFile(file);
@@ -377,8 +378,7 @@ function inspectTaskStdinWiring(project: Project, root: string) {
     .filter(
       (item) =>
         isStringLiteral(item.moduleSpecifier) &&
-        item.moduleSpecifier.text ===
-          "../../../coordinator/src/cli/request-input.ts",
+        item.moduleSpecifier.text === "./request-input.ts",
     )
     .flatMap((item) => {
       const bindings = item.importClause?.namedBindings;

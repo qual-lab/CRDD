@@ -4,6 +4,36 @@
   "subsystem": "orchestrator",
   "symbols": [
     {
+      "symbolId": "orchestrator.cli.request-input",
+      "kind": "file",
+      "path": "src/cli/request-input.ts",
+      "archIds": [
+        "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "orchestrator.cli.command-report",
+      "kind": "file",
+      "path": "src/cli/command-report.ts",
+      "archIds": [
+        "ARCH-000003"
+      ]
+    },
+    {
+      "symbolId": "orchestrator.test.unit.cli.command-report",
+      "kind": "test-suite",
+      "path": "tests/unit/cli/command-report.contract.test.ts",
+      "qaIds": [
+        "QA-000001"
+      ],
+      "localTestIds": [
+        "RCM-UT-016"
+      ],
+      "verifies": [
+        "orchestrator.cli.command-report"
+      ]
+    },
+    {
       "symbolId": "orchestrator.test.workspace-acceptance-record",
       "kind": "test-suite",
       "path": "tests/unit/workspace/acceptance-record.contract.test.ts",
@@ -185,7 +215,7 @@
       ],
       "verifies": [
         "orchestrator.cli.project-command",
-        "coordinator.cli.request-input",
+        "orchestrator.cli.request-input",
         "orchestrator.application.public",
         "coordinator.public-api"
       ]

@@ -1,7 +1,7 @@
 /**
  * CLI標準入力の上限付きJSON読取りと入力エラーを所有する。
  *
- * @responsibility 単一Taskと上位業務CLIに同じ入力上限・UTF-8・JSON拒否を提供する。
+ * @responsibility OrchestratorのTask・Project受付に入力上限・UTF-8・JSON拒否を提供する。
  * @trace ARCH-000004
  */
 import fs from "node:fs";

@@ -19,10 +19,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { runInNewContext } from "node:vm";
 
-import {
-  parseDoctorArguments,
-  parseTaskArguments,
-} from "../../src/cli/options.ts";
+import { parseDoctorArguments } from "../../src/cli/options.ts";
 import { renderDockerRecoveryDoctorReport } from "../../src/cli/recovery-report.ts";
 import { assertPresent } from "../support/contract-assertions.ts";
 import { withUnsignedRuntimeFixture } from "../support/unsigned-runtime-fixture.ts";
@@ -556,33 +553,6 @@ await import(${JSON.stringify(new URL("../../bin/coordinator.ts", import.meta.ur
 });
 
 /**
- * taskは明示stdin入力だけを受理しrequestをargvへ置かないを検証する。
- *
- * @responsibility taskは明示stdin入力だけを受理しrequestをargvへ置かないの合否判定を所有する。
- * @trace PRL-IT-012
- * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus taskは明示stdin入力だけを受理しrequestをargvへ置かないの対象操作を実行する。
- * @observation 結果、状態、Effectおよび終了後条件を観測する。
- * @oracle Test本文のassertionが期待条件を満たす。
- * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
- */
-test("taskは明示stdin入力だけを受理しrequestをargvへ置かない", () => {
-  const parsed = parseTaskArguments(["--request-stdin", "--json"]);
-  assert.equal(parsed.status, "ok");
-  assertPresent(parsed.value);
-  assert.equal(parsed.value.requestFromStdin, true);
-  for (const argumentValues of [
-    [],
-    ["--json"],
-    ["--request-stdin", "--request-stdin"],
-    ["--request", "secret-like-content"],
-  ]) {
-    assert.equal(parseTaskArguments(argumentValues).status, "blocked");
-  }
-});
-
-/**
  * 公開Capability表示はLocal Personalの成立済み入口だけを返すを検証する。
  *
  * @responsibility 公開Capability表示はLocal Personalの成立済み入口だけを返すの合否判定を所有する。
@@ -768,9 +738,21 @@ test("通常Taskは上位で入力を拒否し下位入口は対象を推測し�
   );
   assert.equal(invalidRepository.error, undefined);
   assert.equal(invalidRepository.status, 64);
-  assert.equal(JSON.parse(invalidRepository.stdout).status, "blocked");
+  assert.equal(invalidRepository.stderr, "");
   assert.equal(
-    JSON.parse(invalidRepository.stdout).reason,
-    "task_use_orchestrator_entry",
+    invalidRepository.stdout,
+    '{\n  "command": "task",\n  "status": "blocked",\n  "reason": "task_use_orchestrator_entry"\n}\n',
+  );
+  const human = spawnSync(process.execPath, [coordinatorExecutable, "task"], {
+    input: "synthetic-input-not-to-be-reported",
+    encoding: "utf8",
+    windowsHide: true,
+  });
+  assert.equal(human.error, undefined);
+  assert.equal(human.status, 64);
+  assert.equal(human.stderr, "");
+  assert.equal(
+    human.stdout,
+    "Coordinator：依頼の実行 — 停止\n詳しい原因はこの表示から確定できません。実行担当者が機械向け結果を確認してください。\nファイル操作の発行: 未確認\n資源回収: 未確認\n手動回復の必要性: 未確認\nProcess再起動の必要性: 未確認\n",
   );
 });

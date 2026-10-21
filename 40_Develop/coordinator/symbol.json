@@ -379,14 +379,7 @@
         "coordinator.source.src.security.docker.recovery.runtime.internal"
       ]
     },
-    {
-      "symbolId": "coordinator.cli.request-input",
-      "kind": "file",
-      "path": "src/cli/request-input.ts",
-      "archIds": [
-        "ARCH-000004"
-      ]
-    },
+
     {
       "symbolId": "coordinator.host-runtime.public",
       "kind": "file",
@@ -692,7 +685,7 @@
         "ERB-IT-003"
       ],
       "verifies": [
-        "coordinator.source.src.core.command.report",
+        "orchestrator.cli.command-report",
         "coordinator.source.src.core.task.cli.cancellation",
         "coordinator.source.src.security.execution.environment",
         "coordinator.task-runtime"
@@ -1305,7 +1298,7 @@
         "ERB-IT-003"
       ],
       "verifies": [
-        "coordinator.source.src.core.command.report",
+        "orchestrator.cli.command-report",
         "coordinator.source.src.core.task.cli.cancellation"
       ]
     },
@@ -1741,20 +1734,7 @@
         "coordinator.source.src.security.docker.effect.runtime"
       ]
     },
-    {
-      "symbolId": "coordinator.test.unit.command-report",
-      "kind": "test-suite",
-      "path": "tests/unit/command-report.contract.test.ts",
-      "qaIds": [
-        "QA-000001"
-      ],
-      "localTestIds": [
-        "RCM-UT-016"
-      ],
-      "verifies": [
-        "coordinator.source.src.core.command.report"
-      ]
-    },
+
     {
       "symbolId": "coordinator.test.unit.coordinator-operation-creation-internal",
       "kind": "test-suite",
@@ -2675,14 +2655,7 @@
         "ARCH-000008"
       ]
     },
-    {
-      "symbolId": "coordinator.source.src.core.command.report",
-      "kind": "file",
-      "path": "src/cli/command-report.ts",
-      "archIds": [
-        "ARCH-000003"
-      ]
-    },
+
     {
       "symbolId": "coordinator.source.src.core.task.cli.cancellation",
       "kind": "file",

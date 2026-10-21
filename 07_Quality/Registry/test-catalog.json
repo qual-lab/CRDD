@@ -1372,7 +1372,10 @@
         "coordinator:integration:orchestrator-objective-intake",
         "coordinator:integration:orchestrator-replanning-and-decision",
         "coordinator:integration:orchestrator-single-task-adapter",
-        "coordinator:unit:orchestrator-windows-platform-adapter"
+        "coordinator:unit:orchestrator-windows-platform-adapter",
+        "coordinator:integration:coordinator-task-process",
+        "coordinator:integration:task-cli-cancellation",
+        "coordinator:system:interaction-boundary-regression"
       ]
     },
     {
@@ -6069,9 +6072,9 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "coordinator:unit:command-report",
-      "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/command-report.contract.test.ts",
+      "id": "orchestrator:unit:cli:command-report",
+      "owner": "orchestrator",
+      "path": "40_Develop/orchestrator/tests/unit/cli/command-report.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [

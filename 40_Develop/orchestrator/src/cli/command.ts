@@ -20,8 +20,8 @@ import { initializeOrchestratorSnapshot } from "../storage/current-state.ts";
 import {
   UsageError,
   readBoundedTaskRequestFromStdin,
-} from "../../../coordinator/src/cli/request-input.ts";
-import { printCommandReport } from "../../../coordinator/src/cli/command-report.ts";
+} from "./request-input.ts";
+import { printCommandReport } from "./command-report.ts";
 import { bindTaskCliCancellationSignals } from "../../../coordinator/src/cli/task-cancellation.ts";
 
 /**

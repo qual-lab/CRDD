@@ -19,7 +19,7 @@ import {
   ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
   requireReadyRepositoryRuntimeDataArea,
 } from "../../../domain-model/src/index.ts";
-import { renderSafeHumanCommandReport } from "../../src/cli/command-report.ts";
+import { renderSafeHumanCommandReport } from "../../../orchestrator/src/cli/command-report.ts";
 import { bindTaskCliCancellationSignals } from "../../src/cli/task-cancellation.ts";
 import { createIsolatedCoordinatorTaskRuntimeCandidate } from "../../src/execution/task.ts";
 import {

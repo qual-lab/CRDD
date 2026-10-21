@@ -20,6 +20,87 @@ import * as orchestrator from "../../src/index.ts";
 const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
 
 /**
+ * Task引数の拒否を廃止したParserでなく本番受付から確認する。
+ * @responsibility 不正引数ではstdin読取り・Task開始前に終了することを確認する。
+ * @trace PRL-IT-012
+ * @precondition 実CLI関数と空の標準入力。
+ * @stimulus 省略、重複、旧形式と順序違いを渡す。
+ * @observation 終了値と一件の固定JSON。
+ * @oracle exit64、task_arguments_invalid。stdinが空でも入力解析へ進まない。
+ * @cleanup 子Processの終了を待つ。Filesystem生成なし。
+ * @boundary 実CLI受付。Docker・認証・外部AIは使わない。
+ */
+test("Taskの不正引数は本番入口で標準入力を読む前に拒否する", () => {
+  const commandUrl = pathToFileURL(
+    path.join(repositoryRoot, "40_Develop/orchestrator/src/cli/command.ts"),
+  ).href;
+  for (const args of [
+    [],
+    ["--json"],
+    ["--request-stdin"],
+    ["--request-stdin", "--request-stdin"],
+    ["--request", "synthetic"],
+    ["--json", "--request-stdin"],
+  ]) {
+    const result = spawnSync(
+      process.execPath,
+      [
+        "--input-type=module",
+        "-e",
+        `const {runSingleTaskCommand}=await import(${JSON.stringify(commandUrl)}); await runSingleTaskCommand(${JSON.stringify(args)});`,
+      ],
+      { cwd: repositoryRoot, input: "", encoding: "utf8", timeout: 10000 },
+    );
+    assert.equal(result.status, 64, result.stderr);
+    assert.deepEqual(JSON.parse(result.stdout), {
+      command: "task",
+      status: "blocked",
+      reason: "task_arguments_invalid",
+    });
+  }
+});
+
+/**
+ * 移管したReaderの上限・UTF-8・重複JSON拒否を実stdinで確認する。
+ * @responsibility 128KiB境界と不正入力の同じ拒否理由を維持する。
+ * @trace PRL-IT-012
+ * @precondition 単独Readerを子Processで読み込み、合成内容だけを渡す。
+ * @stimulus 上限一致、上限超過、不正UTF-8、重複keyを渡す。
+ * @observation 固定結果と子Process終了。
+ * @oracle 上限一致はok、他は既存の入力失敗理由。
+ * @cleanup 子Process終了。保存物なし。
+ * @boundary OS標準入力とReader。AI・Docker・認証なし。
+ */
+test("移管したTask Readerは128KiBと厳格な入力拒否を維持する", () => {
+  const readerUrl = pathToFileURL(
+    path.join(
+      repositoryRoot,
+      "40_Develop/orchestrator/src/cli/request-input.ts",
+    ),
+  ).href;
+  const exact = JSON.stringify({ value: "x".repeat(128 * 1024 - 12) });
+  assert.equal(Buffer.byteLength(exact), 128 * 1024);
+  for (const [input, expected] of [
+    [exact, "ok"],
+    [`${exact} `, "task_request_too_large"],
+    [Buffer.from([255]), "task_request_invalid_utf8"],
+    ['{"value":1,"value":2}', "task_request_invalid_json"],
+  ] as const) {
+    const result = spawnSync(
+      process.execPath,
+      [
+        "--input-type=module",
+        "-e",
+        `const {readBoundedTaskRequestFromStdin}=await import(${JSON.stringify(readerUrl)});try {readBoundedTaskRequestFromStdin();process.stdout.write("ok")}catch(error){process.stdout.write(error.message)}`,
+      ],
+      { cwd: repositoryRoot, input, encoding: "utf8", timeout: 10000 },
+    );
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stdout, expected);
+  }
+});
+
+/**
  * 受付後の例外でも元の再観測参照と終了失敗を保持する。
  * @responsibility CLI実関数のwait／close拒否を有限Ownerで反証する。
  * @trace PRL-IT-012
@@ -62,7 +143,7 @@ test("単発CLIは受付後の待機・終了例外でも元依頼IDを保持す
       mock.module(url, { exports: { ...actual, ...exports } });
     };
     let starts = 0, waits = 0, closes = 0;
-    await replace(${JSON.stringify(url("40_Develop/coordinator/src/cli/request-input.ts"))}, {
+    await replace(${JSON.stringify(url("40_Develop/orchestrator/src/cli/request-input.ts"))}, {
       readBoundedTaskRequestFromStdin: () => ({ mode: "workspace_edit", profileId: "PROFILE-100001", prompt: "synthetic", contextReferences: ["PROJECT_CONTEXT.md"], allowedPaths: ["source.txt"], externalSendConfirmed: true, expectedNetworkPolicyHash: "a".repeat(64), workspaceId: null })
     });
     await replace(${JSON.stringify(url("40_Develop/version-control/src/index.ts"))}, {

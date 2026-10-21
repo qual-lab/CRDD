@@ -1,5 +1,5 @@
 /**
- * command-reportに属する責務をまとめる。
+ * OrchestratorのTask受付・実行結果を人向け表示とJSONへ投影する。
  *
  * @responsibility SafeCommandReportを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000003

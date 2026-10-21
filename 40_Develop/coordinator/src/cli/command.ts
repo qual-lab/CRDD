@@ -9,13 +9,11 @@
 import { fileURLToPath } from "node:url";
 import { types as utilTypes } from "node:util";
 import path from "node:path";
-import { UsageError } from "./request-input.ts";
 import {
   resolveVerifiedRepositoryRootFromWorkingDirectory,
   verifyRepositoryRoot,
 } from "../../../version-control/src/index.ts";
 import { parseDoctorArguments } from "./options.ts";
-import { printCommandReport } from "./command-report.ts";
 import { renderDockerRecoveryDoctorReport } from "./recovery-report.ts";
 import { renderDoctorCommandFailure, runDoctor } from "./doctor.ts";
 import { isSupportedCoordinatorNodeRuntime } from "./node-runtime-version.ts";
@@ -29,6 +27,23 @@ import {
 import { restartRuntimeOwnedDockerForRecovery } from "../execution/runtime-restart.ts";
 import { recoverOwnedOperationDirectories } from "../execution/operation.ts";
 import { readRuntimeOwnedCoordinatorRecoverySnapshot } from "../storage/settlement-store.ts";
+
+/**
+ * Coordinator CLI自身の引数エラーを区別する。
+ * @responsibility 業務CLIの入力型へ依存せず、doctor等の受付失敗を終了コード64へ分類する。
+ * @trace ARCH-000004
+ * @construction メッセージは既存の有限理由を受け取る。
+ * @lifecycle 一回のCLI受付に閉じる。
+ * @effect N/A: Error値の生成だけ。
+ * @failure N/A: 独自資源を取得しない。
+ * @invariant 入力失敗から実行成功を導かない。
+ * @boundary Coordinator CLI内。
+ * @security 秘密入力を保持しない。
+ * @concurrency N/A: 共有状態なし。
+ */
+class UsageError extends Error {
+  readonly usage = true;
+}
 
 /**
  * 現在Repositoryの単一操作から回復読取りのRootを解決する。
@@ -651,13 +666,16 @@ async function runRuntimeCommand(arguments_: readonly string[]): Promise<void> {
     printHelp();
     process.exitCode = 0;
   } else if (command === "task") {
-    printCommandReport(
-      Object.freeze({
-        command: "task",
-        status: "blocked",
-        reason: "task_use_orchestrator_entry",
-      }),
-      args.includes("--json"),
+    // この入口は実行せず、既存の固定拒否結果だけを返す。
+    const report = Object.freeze({
+      command: "task",
+      status: "blocked",
+      reason: "task_use_orchestrator_entry",
+    });
+    process.stdout.write(
+      args.includes("--json")
+        ? `${JSON.stringify(report, null, 2)}\n`
+        : "Coordinator：依頼の実行 — 停止\n詳しい原因はこの表示から確定できません。実行担当者が機械向け結果を確認してください。\nファイル操作の発行: 未確認\n資源回収: 未確認\n手動回復の必要性: 未確認\nProcess再起動の必要性: 未確認\n",
     );
     process.exitCode = 64;
   } else if (command === "capabilities") {
