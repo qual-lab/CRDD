@@ -6,10 +6,10 @@
  */
 import {
   applyOrchestratorPartialReplan,
-  requestOrchestratorHumanDecision,
   retryOrchestratorTask,
-  type ProjectTaskDefinition,
-} from "../state/transitions.ts";
+} from "./replan-transitions.ts";
+import { requestOrchestratorHumanDecision } from "../decision/transitions.ts";
+import type { ProjectTaskDefinition } from "../state/model.ts";
 import type { OrchestratorStatePort } from "../state/persistence.ts";
 import {
   snapshotPlainArray,

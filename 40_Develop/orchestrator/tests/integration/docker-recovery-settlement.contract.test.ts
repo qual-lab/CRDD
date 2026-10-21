@@ -254,7 +254,7 @@ test("回復結果の受領・終了は固定Repositoryと保存済みACKだけ�
       receiptContentIdentity: "1:2:3",
     };
     const { decodeProjectResultAcceptance } = await import(
-      "../../src/state/transitions.ts"
+      "../../src/state/model.ts"
     );
     assert.equal(decodeProjectResultAcceptance(legacy), null);
     assert.deepEqual(

@@ -25,7 +25,7 @@ import {
   verifyRepositoryRootFromWorkingDirectory,
 } from "../../../version-control/src/index.ts";
 import { normalizeRepositoryRelativePath } from "../input/repository-relative-path.ts";
-import { decodeProjectResultAcceptance } from "../state/transitions.ts";
+import { decodeProjectResultAcceptance } from "../state/model.ts";
 import type { ProjectQueueEntry, ProjectQueueState } from "../queue/types.ts";
 import {
   inspectSingleTaskRecord,
@@ -52,7 +52,7 @@ import type { OrchestratorPortResult } from "../operation-result.ts";
 import type {
   OrchestratorState,
   ProjectTaskRecoveryObligation,
-} from "../state/transitions.ts";
+} from "../state/model.ts";
 import type {
   IntegrationRecordBinding,
   OrchestratorResultRecord,

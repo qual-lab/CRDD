@@ -51,10 +51,8 @@ import { deriveOrchestratorRepositoryBindingId } from "../../src/identity/reposi
 import type { OrchestratorWorkspaceRequest } from "../../src/index.ts";
 import { inspectMcpOrchestratorObjectiveResult } from "../../../mcp-server/src/index.ts";
 import { workspacePlanReadyForAcceptance } from "../../src/workspace/operations.ts";
-import {
-  executeOrchestratorPublicAcceptanceDecision,
-  executeOrchestratorPublicStateQuery,
-} from "../../src/operation-composition.ts";
+import { executeOrchestratorPublicAcceptanceDecision } from "../../src/decision/public-acceptance.ts";
+import { executeOrchestratorPublicStateQuery } from "../../src/state/public-query.ts";
 
 const testsRoot = path.resolve(import.meta.dirname, "../../../../.crdd/tests");
 const empty = process.platform === "win32" ? "NUL" : devNull;
@@ -359,10 +357,7 @@ test("計画の独立二Taskは同じWorkspaceで直列実行し明示採用後�
             { principalId: "principal-a" },
           );
         const entry = pathToFileURL(
-          path.resolve(
-            import.meta.dirname,
-            "../../src/operation-composition.ts",
-          ),
+          path.resolve(import.meta.dirname, "../../src/index.ts"),
         ).href;
         return JSON.parse(
           (

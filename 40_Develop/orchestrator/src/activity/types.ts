@@ -4,7 +4,7 @@
  * @trace ARCH-000004
  */
 import type { VerifiedRepositoryRoot } from "../../../version-control/src/index.ts";
-import type { OrchestratorProjection } from "../state/transitions.ts";
+import type { OrchestratorProjection } from "../state/projection.ts";
 
 /**
  * 一Repositoryの読取り入力。

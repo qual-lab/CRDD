@@ -32,7 +32,7 @@ import {
 import {
   executeOrchestratorPublicAcceptanceDecision,
   executeOrchestratorPublicStateQuery,
-} from "../../../orchestrator/src/operation-composition.ts";
+} from "../../../orchestrator/src/index.ts";
 import {
   createCurrentOrchestratorPersistencePorts,
   createOrchestratorSnapshotAcceptanceDecisionStore,

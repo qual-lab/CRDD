@@ -10,10 +10,12 @@ import {
 } from "../input/plain-data-snapshot.ts";
 import {
   isOrchestratorProjectionSemanticallyValid,
+  type OrchestratorProjection,
+} from "./projection.ts";
+import {
   ORCHESTRATOR_MAXIMUM_OBJECTIVES,
   ORCHESTRATOR_MAXIMUM_TASKS,
-  type OrchestratorProjection,
-} from "./transitions.ts";
+} from "./model.ts";
 
 export const ORCHESTRATOR_STATE_QUERY_CONTRACT =
   "crdd-coordinator/orchestrator-state-query/v1" as const;

@@ -376,7 +376,7 @@
         ],
         "verificationMode": "automated",
         "testSymbolIds": [
-          "coordinator.test.integration.orchestrator-composition-root",
+          "orchestrator.test.integration.public-operation",
           "coordinator.test.integration.orchestrator-full-flow",
           "coordinator.test.system.orchestrator-acceptance-decision",
           "orchestrator.test.integration.acceptance-decision-application",
@@ -476,7 +476,7 @@
         ],
         "verificationMode": "automated",
         "testSymbolIds": [
-          "coordinator.test.integration.orchestrator-composition-root",
+          "orchestrator.test.integration.public-operation",
           "coordinator.test.integration.orchestrator-full-flow"
         ],
         "testObservation": "observed"

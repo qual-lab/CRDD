@@ -5,24 +5,24 @@
  * @trace ARCH-000004
  */
 import type { OrchestratorPersistencePorts } from "../state/persistence.ts";
-import {
-  runOrchestratorOperation,
-  type OrchestratorExecutionDependencies,
-} from "../task/dispatch.ts";
+import { runOrchestratorOperation } from "../task/dispatch.ts";
+import type { OrchestratorExecutionDependencies } from "../task/execution-contract.ts";
 import type { OrchestratorClockIdentityPort } from "../identity/clock-and-hash.ts";
 import type { OrchestratorProcessSafetyPort } from "../process/safety-contract.ts";
 import type { OrchestratorTaskRecoveryPort } from "../task/recovery.ts";
 import {
   createOrchestratorState,
+  type ProjectTaskRecoveryObligation,
+  type OrchestratorState,
+} from "../state/model.ts";
+import {
   acknowledgeProjectDockerRecoveryObligation,
   markProjectTaskRecoveryObligationRecovering,
-  projectOrchestratorState,
   recordProjectTaskOwnerLossRecoveries,
   retrySettledProjectTaskRecoveries,
   settleProjectTaskRecoveryObligation,
-  type ProjectTaskRecoveryObligation,
-  type OrchestratorState,
-} from "../state/transitions.ts";
+} from "../task/recovery-transitions.ts";
+import { projectOrchestratorState } from "../state/projection.ts";
 import { snapshotPlainRecord } from "../input/plain-data-snapshot.ts";
 import {
   createOrchestratorObjectiveResult,

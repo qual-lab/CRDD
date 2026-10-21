@@ -14,7 +14,7 @@ import test from "node:test";
 import {
   createOrchestratorState,
   type OrchestratorState,
-} from "../../../src/state/transitions.ts";
+} from "../../../src/state/model.ts";
 import {
   inspectOrchestratorStateQuery,
   inspectOrchestratorStateQueryResult,

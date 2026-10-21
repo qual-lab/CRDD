@@ -16,15 +16,17 @@ import {
   recordOrchestratorAcceptanceDecision,
   type OrchestratorAcceptanceDecisionRequest,
 } from "../../src/decision/record-acceptance.ts";
+import { applyOrchestratorAcceptanceDecision } from "../../src/decision/transitions.ts";
 import {
-  applyOrchestratorAcceptanceDecision,
   createOrchestratorState,
+  type OrchestratorState,
+} from "../../src/state/model.ts";
+import {
   observeProjectTaskStarted,
   prepareProjectTaskHandoff,
   reserveProjectTaskStart,
   settleProjectTask,
-  type OrchestratorState,
-} from "../../src/state/transitions.ts";
+} from "../../src/task/lifecycle.ts";
 import { createOrchestratorAcceptanceAuthorityAdapter } from "../../src/decision/authority-adapter.ts";
 import type {
   OrchestratorAcceptanceDecisionRecord,

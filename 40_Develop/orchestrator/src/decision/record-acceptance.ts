@@ -4,11 +4,11 @@
  * @responsibility SPEC-000002由来の明示判断だけをAuthority検証し、一つのDecision Recordと対応状態へ適用する。
  * @trace ARCH-000005
  */
-import { applyOrchestratorAcceptanceDecision } from "../state/transitions.ts";
+import { applyOrchestratorAcceptanceDecision } from "./transitions.ts";
 import type {
   OrchestratorAcceptanceDecision,
   OrchestratorAcceptanceTarget,
-} from "../state/transitions.ts";
+} from "../state/model.ts";
 import type {
   OrchestratorAcceptanceDecisionAuthorityBinding,
   OrchestratorAcceptanceDecisionAuthorityPort,

@@ -212,7 +212,7 @@
     {
       "symbolId": "coordinator.source.src.composition.orchestrator.composition.root",
       "kind": "file",
-      "path": "src/operation-composition.ts",
+      "path": "src/objective/public-operation.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -383,18 +383,56 @@
     {
       "symbolId": "orchestrator.state-core",
       "kind": "file",
-      "path": "src/state/transitions.ts",
+      "path": "src/state/model.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000005"
       ],
       "implements": [
-        "orchestrator.objective-task-lifecycle",
-        "orchestrator.project-state-projection",
-        "orchestrator.acceptance-decision-authority",
-        "orchestrator.queue-lease-lifecycle",
-        "orchestrator.recovery-obligation"
+        "orchestrator.objective-task-lifecycle"
       ]
+    },
+    {
+      "symbolId": "orchestrator.state-projection",
+      "kind": "file",
+      "path": "src/state/projection.ts",
+      "archIds": ["ARCH-000004", "ARCH-000005"],
+      "implements": ["orchestrator.project-state-projection"]
+    },
+    {
+      "symbolId": "orchestrator.task-scheduling",
+      "kind": "file",
+      "path": "src/task/scheduling.ts",
+      "archIds": ["ARCH-000004"],
+      "implements": ["orchestrator.queue-lease-lifecycle"]
+    },
+    {
+      "symbolId": "orchestrator.task-state-lifecycle",
+      "kind": "file",
+      "path": "src/task/lifecycle.ts",
+      "archIds": ["ARCH-000004"],
+      "implements": ["orchestrator.objective-task-lifecycle"]
+    },
+    {
+      "symbolId": "orchestrator.task-recovery-transitions",
+      "kind": "file",
+      "path": "src/task/recovery-transitions.ts",
+      "archIds": ["ARCH-000004"],
+      "implements": ["orchestrator.recovery-obligation"]
+    },
+    {
+      "symbolId": "orchestrator.objective-replan-transitions",
+      "kind": "file",
+      "path": "src/objective/replan-transitions.ts",
+      "archIds": ["ARCH-000004"],
+      "implements": ["orchestrator.objective-task-lifecycle"]
+    },
+    {
+      "symbolId": "orchestrator.decision-transitions",
+      "kind": "file",
+      "path": "src/decision/transitions.ts",
+      "archIds": ["ARCH-000004", "ARCH-000005"],
+      "implements": ["orchestrator.acceptance-decision-authority"]
     },
     {
       "symbolId": "orchestrator.human-decision-application",
@@ -513,7 +551,8 @@
       "verifies": [
         "orchestrator.acceptance-decision-application",
         "coordinator.orchestrator.acceptance-authority-adapter",
-        "orchestrator.state-core"
+        "orchestrator.state-core",
+        "orchestrator.decision-transitions"
       ]
     },
     {
@@ -609,7 +648,13 @@
         "PRL-UT-007"
       ],
       "verifies": [
-        "orchestrator.state-core"
+        "orchestrator.state-core",
+        "orchestrator.state-projection",
+        "orchestrator.task-scheduling",
+        "orchestrator.task-state-lifecycle",
+        "orchestrator.task-recovery-transitions",
+        "orchestrator.objective-replan-transitions",
+        "orchestrator.decision-transitions"
       ]
     },
     {
@@ -733,6 +778,91 @@
       "verifies": [
         "orchestrator.task.single-task-record",
         "orchestrator.task.requests"
+      ]
+    },
+    {
+      "symbolId": "orchestrator.decision-public-operation",
+      "kind": "file",
+      "path": "src/decision/public-operation.ts",
+      "archIds": [
+        "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "orchestrator.decision-public-acceptance",
+      "kind": "file",
+      "path": "src/decision/public-acceptance.ts",
+      "archIds": [
+        "ARCH-000005"
+      ]
+    },
+    {
+      "symbolId": "orchestrator.state-public-query",
+      "kind": "file",
+      "path": "src/state/public-query.ts",
+      "archIds": [
+        "ARCH-000005"
+      ]
+    },
+    {
+      "symbolId": "orchestrator.execution-diagnostics",
+      "kind": "file",
+      "path": "src/task/execution-diagnostics.ts",
+      "archIds": [
+        "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "orchestrator.execution-contract",
+      "kind": "file",
+      "path": "src/task/execution-contract.ts",
+      "archIds": [
+        "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "orchestrator.test.integration.public-operation",
+      "kind": "test-suite",
+      "path": "tests/integration/public-operation.integration.test.ts",
+      "qaIds": [
+        "QA-000003",
+        "QA-000004"
+      ],
+      "localTestIds": [
+        "PPR-IT-001",
+        "PRL-IT-005",
+        "PRL-IT-008"
+      ],
+      "verifies": [
+        "coordinator.source.src.composition.orchestrator.composition.root",
+        "coordinator.source.src.security.execution.intelligence.adapter",
+        "coordinator.source.src.security.orchestrator.windows.decision.store",
+        "execution-intelligence.source.src.store.execution.intelligence.store",
+        "execution-intelligence.source.src.store.verified.repository.root",
+        "orchestrator.objective-application",
+        "orchestrator.public-api",
+        "orchestrator.state-core",
+        "orchestrator.state-query-application",
+        "domain-model.runtime-area-result",
+        "orchestrator.decision-public-operation",
+        "orchestrator.decision-public-acceptance",
+        "orchestrator.state-public-query",
+        "orchestrator.execution-diagnostics"
+      ]
+    },
+    {
+      "symbolId": "orchestrator.test.unit.objective-profile-transport",
+      "kind": "test-suite",
+      "path": "tests/unit/objective/profile-transport.contract.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-UT-014"
+      ],
+      "verifies": [
+        "coordinator.source.src.composition.orchestrator.composition.root",
+        "orchestrator.source.src.public.contract.objective.request"
       ]
     }
   ]

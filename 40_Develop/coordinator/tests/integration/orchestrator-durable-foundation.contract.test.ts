@@ -21,14 +21,11 @@ import { requireReadyRepositoryRuntimeDataArea } from "../../../domain-model/src
 import { ensureRepositoryRuntimeDataAreaFromWorkingDirectory } from "../../../domain-model/src/index.ts";
 import {
   applyOrchestratorPartialReplan,
+  createOrchestratorState,
   observeProjectTaskStarted,
   prepareProjectTaskHandoff,
-  recordProjectTaskResultAcceptances,
   reserveProjectTaskStart,
   settleProjectTask,
-} from "../../../orchestrator/src/state/transitions.ts";
-import {
-  createOrchestratorState,
   type OrchestratorAcceptanceDecisionRecord,
   type OrchestratorDecisionRecoveryIntent,
   type OrchestratorState,
@@ -1816,24 +1813,31 @@ test("Host Windows: 通常Task受領は終端と同じSnapshotへ保存する", 
     resultId: "b".repeat(64),
     consumer: "orchestrator" as const,
   };
-  const groups = [
-    acceptance,
-    { ...acceptance, recoveryId: "recovery-b", resultId: "c".repeat(64) },
-  ];
-  const accepted = recordProjectTaskResultAcceptances(
-    settled.state,
-    state.generation,
-    "task-a",
-    groups,
-  );
-  assert.equal(accepted.status, "completed");
-  assert.ok(accepted.state);
-  assert.equal(accepted.state.generation, settled.state.generation);
+  const groups: OrchestratorState["tasks"][number]["resultAcceptances"] =
+    Object.freeze([
+      Object.freeze(acceptance),
+      Object.freeze({
+        ...acceptance,
+        recoveryId: "recovery-b",
+        resultId: "c".repeat(64),
+      }),
+    ]);
+  const acceptedState: OrchestratorState = Object.freeze({
+    ...settled.state,
+    tasks: Object.freeze(
+      settled.state.tasks.map((task) =>
+        task.definition.id === "task-a"
+          ? Object.freeze({ ...task, resultAcceptances: groups })
+          : task,
+      ),
+    ),
+  });
+  assert.equal(acceptedState.generation, settled.state.generation);
   assert.equal(
     writeOrchestratorSnapshotState(
       root,
       "binding-a",
-      JSON.stringify(accepted.state),
+      JSON.stringify(acceptedState),
       state.generation,
     ).status,
     "completed",
@@ -1866,7 +1870,7 @@ test("Host Windows: 通常Task受領は終端と同じSnapshotへ保存する", 
     ],
     [{ ...acceptance, attemptId: "old-attempt" }],
     [{ ...acceptance, operationId: "other-operation" }],
-    [{ ...acceptance, settlementGeneration: accepted.state.generation + 2 }],
+    [{ ...acceptance, settlementGeneration: acceptedState.generation + 2 }],
     [{ ...acceptance, resultId: "invalid" }],
     [{ ...acceptance, extra: true }],
     [{ ...acceptance, resultId: "a".repeat(64) }, groups[1]],
@@ -1879,8 +1883,8 @@ test("Host Windows: 通常Task受領は終端と同じSnapshotへ保存する", 
   ]) {
     const candidate = JSON.parse(
       JSON.stringify({
-        ...accepted.state,
-        generation: accepted.state.generation + 1,
+        ...acceptedState,
+        generation: acceptedState.generation + 1,
       }),
     );
     if (invalid === undefined) delete candidate.tasks[0].resultAcceptances;
@@ -1890,7 +1894,7 @@ test("Host Windows: 通常Task受領は終端と同じSnapshotへ保存する", 
         root,
         "binding-a",
         JSON.stringify(candidate),
-        accepted.state.generation,
+        acceptedState.generation,
       ).status,
       "blocked",
     );
@@ -1903,8 +1907,8 @@ test("Host Windows: 通常Task受領は終端と同じSnapshotへ保存する", 
   ]) {
     const candidate = JSON.parse(
       JSON.stringify({
-        ...accepted.state,
-        generation: accepted.state.generation + 1,
+        ...acceptedState,
+        generation: acceptedState.generation + 1,
       }),
     );
     Object.assign(candidate.tasks[0], invalidTask);
@@ -1913,7 +1917,7 @@ test("Host Windows: 通常Task受領は終端と同じSnapshotへ保存する", 
         root,
         "binding-a",
         JSON.stringify(candidate),
-        accepted.state.generation,
+        acceptedState.generation,
       ).status,
       "blocked",
     );
@@ -1921,9 +1925,9 @@ test("Host Windows: 通常Task受領は終端と同じSnapshotへ保存する", 
   }
   assert.deepEqual({ ...reader() }, acceptance);
   const unchanged = {
-    ...accepted.state,
-    generation: accepted.state.generation + 1,
-    tasks: accepted.state.tasks.map((task) => ({
+    ...acceptedState,
+    generation: acceptedState.generation + 1,
+    tasks: acceptedState.tasks.map((task) => ({
       ...task,
       resultAcceptances: [...task.resultAcceptances].reverse(),
     })),
@@ -1933,7 +1937,7 @@ test("Host Windows: 通常Task受領は終端と同じSnapshotへ保存する", 
       root,
       "binding-a",
       JSON.stringify(unchanged),
-      accepted.state.generation,
+      acceptedState.generation,
     ).status,
     "completed",
   );
@@ -1944,9 +1948,9 @@ test("Host Windows: 通常Task受領は終端と同じSnapshotへ保存する", 
     "completed",
   );
   const initialWithAck = {
-    ...accepted.state,
+    ...acceptedState,
     generation: 1,
-    tasks: accepted.state.tasks.map((task) => ({
+    tasks: acceptedState.tasks.map((task) => ({
       ...task,
       resultAcceptances: task.resultAcceptances.map((item) => ({
         ...item,

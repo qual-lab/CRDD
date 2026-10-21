@@ -32,6 +32,164 @@ const META = Object.freeze({
   "io.modelcontextprotocol/protocolVersion": MCP_ORCHESTRATOR_PROTOCOL_VERSION,
   "io.modelcontextprotocol/clientCapabilities": Object.freeze({}),
 });
+
+/**
+ * 品質判断待ちと受入済み状態のTransport変換を検証する。
+ * @responsibility 旧組立て試験のMCP変換OracleをProtocol Ownerへ移す。
+ * @trace PRL-UT-014
+ * @precondition 公開契約に一致する合成結果と認証主体を使用する。
+ * @stimulus ObjectiveとStateの実Adapter入口へ要求する。
+ * @observation 認証Context、固定text、structuredContentとisErrorを確認する。
+ * @oracle 品質判断待ちはblockedのまま、受入済み読取りは観測済み・no_effectのまま返る。
+ * @cleanup N/A: 保存・外部Process・Providerを使用しない。
+ * @boundary PRL-UT-014=Direct Boundary: 公開DTO→MCP Adapterの結果変換。
+ */
+test("MCPは品質判断待ちと受入済み読取りの結果を保持する", async () => {
+  const input = objective();
+  const blocked = await handleMcpOrchestratorRequest(
+    request("tools/call", {
+      _meta: META,
+      name: MCP_ORCHESTRATOR_OBJECTIVE_TOOL,
+      arguments: input,
+    }),
+    dependencies({
+      runObjective: async (observed, _signal, authentication) => {
+        assert.deepEqual(observed, input);
+        assert.notEqual(observed, input);
+        assert.ok(Object.isFrozen(observed));
+        assert.deepEqual(authentication, { principalId: "principal-a" });
+        return {
+          contract: "crdd-coordinator/orchestrator-objective-intake/v1",
+          status: "blocked",
+          reason: "orchestrator_quality_acceptance_required",
+          requestId: observed.requestId,
+          projectId: observed.projectId,
+          milestoneId: observed.milestoneId,
+          queueId: "queue-a",
+          projection: null,
+          cleanupConfirmed: true,
+          manualRecoveryRequired: false,
+          processRestartRequired: false,
+          effectState: "settled",
+          recoveryIds: [],
+          recoveryObligations: [],
+        };
+      },
+    }),
+  );
+  const result = blocked.result as {
+    isError: boolean;
+    content: readonly { type: string; text: string }[];
+    structuredContent: {
+      status: string;
+      reason: string;
+      recoveryIds: readonly string[];
+    };
+  };
+  assert.equal(result.isError, true);
+  assert.equal(result.structuredContent.status, "blocked");
+  assert.equal(
+    result.structuredContent.reason,
+    "orchestrator_quality_acceptance_required",
+  );
+  assert.deepEqual(result.structuredContent.recoveryIds, []);
+  assert.equal(result.content[0]?.type, "text");
+  assert.equal(
+    result.content[0]?.text,
+    "処理は完了していません。構造化された理由を確認してください。",
+  );
+
+  const taskCounts = {
+    planned: 0,
+    waiting_dependency: 0,
+    ready: 0,
+    starting: 0,
+    running: 0,
+    cleanup_pending: 0,
+    completed: 1,
+    failed: 0,
+    cancelled: 0,
+    recovery_required: 0,
+    superseded: 0,
+  };
+  const projection = {
+    projectId: "project-a",
+    milestoneId: "milestone-a",
+    generation: 5,
+    milestoneState: "accepted",
+    objectiveCounts: {
+      planned: 0,
+      executing: 0,
+      integration_pending: 0,
+      accepted: 1,
+      returned: 0,
+      blocked: 0,
+      cancelled: 0,
+    },
+    taskCounts,
+    objectiveTaskSummaries: [
+      {
+        objectiveId: "objective-a",
+        objectiveState: "accepted",
+        taskCounts: { ...taskCounts },
+      },
+    ],
+    workProgress: "tasks_complete",
+    qualityState: "accepted",
+    humanDecisionRequired: false,
+    recoveryRequired: false,
+    nextAction: "complete",
+  };
+  const state = await handleMcpOrchestratorRequest(
+    request("tools/call", {
+      _meta: META,
+      name: MCP_ORCHESTRATOR_STATE_TOOL,
+      arguments: {
+        requestId: "state-a",
+        projectId: "project-a",
+        repositoryRevision: revision,
+      },
+    }),
+    dependencies({
+      getProjectState: async (observed, authentication) => {
+        assert.deepEqual(authentication, { principalId: "principal-a" });
+        assert.ok(Object.isFrozen(observed));
+        return {
+          contract: "crdd-coordinator/orchestrator-state-query/v1",
+          status: "completed",
+          reason: "orchestrator_state_observed",
+          requestId: observed.requestId,
+          projectId: observed.projectId,
+          repositoryRevision: observed.repositoryRevision,
+          intakeEpoch: "epoch-a",
+          observationState: "observed",
+          projection,
+          cleanupConfirmed: true,
+          manualRecoveryRequired: false,
+          effectState: "no_effect",
+        };
+      },
+    }),
+  );
+  const observed = state.result as {
+    isError: boolean;
+    content: readonly { type: string; text: string }[];
+    structuredContent: {
+      observationState: string;
+      projection: { milestoneState: string };
+      effectState: string;
+    };
+  };
+  assert.equal(observed.isError, false);
+  assert.equal(observed.structuredContent.observationState, "observed");
+  assert.equal(
+    observed.structuredContent.projection.milestoneState,
+    "accepted",
+  );
+  assert.equal(observed.structuredContent.effectState, "no_effect");
+  assert.equal(observed.content[0]?.type, "text");
+  assert.equal(observed.content[0]?.text, "処理が完了しました。");
+});
 /**
  * requestのTest準備責務を実行する。
  *

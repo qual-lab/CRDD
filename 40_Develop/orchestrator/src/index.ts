@@ -45,12 +45,14 @@ export {
 } from "./objective/replan.ts";
 export {
   ORCHESTRATOR_EXECUTION_CONTRACT,
-  describeOrchestratorExecutionContract,
-  runOrchestratorOperation,
   type OrchestratorExecutionDependencies,
   type OrchestratorExecutionPublicationObservation,
   type OrchestratorExecutionResult,
   type OrchestratorTaskExecution,
+} from "./task/execution-contract.ts";
+export {
+  describeOrchestratorExecutionContract,
+  runOrchestratorOperation,
 } from "./task/dispatch.ts";
 export {
   invalidateOrchestratorHumanDecision,
@@ -66,35 +68,15 @@ export {
   ORCHESTRATOR_MAXIMUM_OBJECTIVES,
   ORCHESTRATOR_MAXIMUM_TASKS,
   ORCHESTRATOR_STATE_CONTRACT,
-  acknowledgeProjectDockerRecoveryObligation,
-  applyOrchestratorAcceptanceDecision,
-  applyOrchestratorHumanDecision,
-  applyOrchestratorPartialReplan,
   createOrchestratorState,
   describeOrchestratorStateContract,
-  isOrchestratorObjectiveProjectionCorrelationValid,
-  isOrchestratorProjectionSemanticallyValid,
   isOrchestratorRecoveryIdentity,
-  markProjectTaskRecoveryObligationRecovering,
-  observeProjectTaskStarted,
-  prepareProjectTaskHandoff,
-  projectOrchestratorState,
-  recordProjectTaskOwnerLossRecoveries,
-  requestOrchestratorHumanDecision,
-  reserveProjectTaskStart,
-  retryOrchestratorTask,
-  retrySettledProjectTaskRecoveries,
-  selectSchedulableProjectTasks,
-  settleProjectTask,
-  settleProjectTaskBeforeEffect,
-  settleProjectTaskRecoveryObligation,
   type ProjectDockerRecoveryAcknowledgement,
   type ProjectMilestoneRecord,
   type ProjectMilestoneState,
   type ProjectObjectiveDefinition,
   type ProjectObjectiveRecord,
   type ProjectObjectiveState,
-  type OrchestratorProjection,
   type OrchestratorAcceptanceDecision,
   type OrchestratorAcceptanceDecisionInput,
   type OrchestratorAcceptanceTarget,
@@ -105,7 +87,37 @@ export {
   type ProjectTaskRecoveryObligation,
   type ProjectTaskStartPhase,
   type ProjectTaskState,
-} from "./state/transitions.ts";
+} from "./state/model.ts";
+export {
+  acknowledgeProjectDockerRecoveryObligation,
+  markProjectTaskRecoveryObligationRecovering,
+  recordProjectTaskOwnerLossRecoveries,
+  retrySettledProjectTaskRecoveries,
+  settleProjectTaskRecoveryObligation,
+} from "./task/recovery-transitions.ts";
+export {
+  applyOrchestratorAcceptanceDecision,
+  applyOrchestratorHumanDecision,
+  requestOrchestratorHumanDecision,
+} from "./decision/transitions.ts";
+export {
+  applyOrchestratorPartialReplan,
+  retryOrchestratorTask,
+} from "./objective/replan-transitions.ts";
+export {
+  isOrchestratorObjectiveProjectionCorrelationValid,
+  isOrchestratorProjectionSemanticallyValid,
+  projectOrchestratorState,
+  type OrchestratorProjection,
+} from "./state/projection.ts";
+export {
+  observeProjectTaskStarted,
+  prepareProjectTaskHandoff,
+  reserveProjectTaskStart,
+  settleProjectTask,
+  settleProjectTaskBeforeEffect,
+} from "./task/lifecycle.ts";
+export { selectSchedulableProjectTasks } from "./task/scheduling.ts";
 export type {
   ProjectQueueEntry,
   ProjectQueueState,
@@ -246,12 +258,14 @@ export {
 } from "./storage/current-state.ts";
 export {
   executeOrchestratorPublicAcceptanceDecision,
-  executeOrchestratorPublicStateQuery,
   runOrchestratorPublicAcceptanceDecision,
-  runOrchestratorPublicDecision,
-  runOrchestratorPublicObjective,
+} from "./decision/public-acceptance.ts";
+export {
+  executeOrchestratorPublicStateQuery,
   runOrchestratorPublicStateQuery,
-} from "./operation-composition.ts";
+} from "./state/public-query.ts";
+export { runOrchestratorPublicDecision } from "./decision/public-operation.ts";
+export { runOrchestratorPublicObjective } from "./objective/public-operation.ts";
 export { observeRuntimeOwnedProjectClientPrincipal } from "./identity/observe-principal.ts";
 export { readAuthorizedRuntimeActivity } from "./activity/read.ts";
 export {

@@ -4,6 +4,47 @@
  * @responsibility このFileに属する実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000004
  */
+import type { RepositoryRuntimeDataAreaBlockedError } from "../../domain-model/src/index.ts";
+
 /** Transport-neutral result envelope produced by the Orchestrator application. */
 export const ORCHESTRATOR_PUBLIC_RUNTIME_CONTRACT =
   "crdd-coordinator/orchestrator-public-runtime/v1" as const;
+
+/**
+ * Runtime Data Boundary Blockedを公開結果へ投影する。
+ *
+ * @responsibility Runtime Data Boundary Blockedの公開field、秘匿境界、投影不能時の結果境界を所有する。
+ * @trace ARCH-000004
+ * @input error: RepositoryRuntimeDataAreaBlockedError
+ * @returns orchestratorDataBoundaryBlockedの計算結果を返す。
+ * @precondition 「error: RepositoryRuntimeDataAreaBlockedError」がorchestratorDataBoundaryBlockedの入力契約を満たす。
+ * @postcondition orchestratorDataBoundaryBlockedの責務を完了した結果だけを返す。
+ * @effect N/A: orchestratorDataBoundaryBlockedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: orchestratorDataBoundaryBlockedは独自の失敗分岐を所有しない。
+ * @invariant orchestratorDataBoundaryBlockedは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: orchestratorDataBoundaryBlockedはProcess内の同一Subsystemで完結する。
+ * @security N/A: orchestratorDataBoundaryBlockedはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: orchestratorDataBoundaryBlockedは共有非同期状態を持たない同期処理である。
+ */
+export function orchestratorDataBoundaryBlocked(
+  error: RepositoryRuntimeDataAreaBlockedError,
+) {
+  return Object.freeze({
+    contract: ORCHESTRATOR_PUBLIC_RUNTIME_CONTRACT,
+    status: "blocked" as const,
+    reason: error.reason,
+    cleanupConfirmed: error.cleanupConfirmed,
+    manualRecoveryRequired: error.effectStateUnknown || !error.cleanupConfirmed,
+    effectState: error.effectStateUnknown
+      ? ("unknown" as const)
+      : error.effectIssued
+        ? ("settled" as const)
+        : ("no_effect" as const),
+    effectIssued: error.effectIssued,
+    effectStateUnknown: error.effectStateUnknown,
+    retryAllowed: error.retryAllowed,
+    recoveryIds: Object.freeze(
+      error.recoveryReference === null ? [] : [error.recoveryReference],
+    ),
+  });
+}

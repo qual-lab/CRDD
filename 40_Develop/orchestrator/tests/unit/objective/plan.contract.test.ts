@@ -12,7 +12,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createOrchestratorState } from "../../../src/state/transitions.ts";
+import { createOrchestratorState } from "../../../src/state/model.ts";
 import {
   createOrchestratorObjectiveResult,
   createOrchestratorTaskExecutionSet,

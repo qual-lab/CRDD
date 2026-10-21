@@ -5,7 +5,7 @@
  * @trace ARCH-000004
  */
 import type { ProjectQueueEntry, ProjectQueueState } from "../queue/types.ts";
-import type { OrchestratorState } from "./transitions.ts";
+import type { OrchestratorState } from "./model.ts";
 import type {
   OrchestratorLease,
   OrchestratorLeasePort,

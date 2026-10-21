@@ -54,8 +54,14 @@ const expectedAreaConsumers = [
   "40_Develop/orchestrator/src/storage/history.ts",
   "40_Develop/visual-preview/src/browser/verify.ts",
 ] as const;
-const PUBLIC_ORCHESTRATOR_BOUNDARY =
-  "40_Develop/orchestrator/src/operation-composition.ts";
+const PUBLIC_ORCHESTRATOR_BOUNDARIES = [
+  "40_Develop/orchestrator/src/objective/public-operation.ts",
+  "40_Develop/orchestrator/src/decision/public-operation.ts",
+  "40_Develop/orchestrator/src/decision/public-acceptance.ts",
+  "40_Develop/orchestrator/src/state/public-query.ts",
+] as const;
+const ORCHESTRATOR_BLOCKED_PROJECTION =
+  "40_Develop/orchestrator/src/operation-result-contract.ts";
 const orchestratorStoreFactoryNames = [
   "createOrchestratorPersistencePorts",
   "createOrchestratorDecisionRecoveryStore",
@@ -315,15 +321,22 @@ function violations(sources: SourceSet): string[] {
     if (!doesPreserveBlockedResult)
       findings.push(`runtime-area-blocked-result:${item}`);
   }
-  const orchestratorBoundary = sources.get(PUBLIC_ORCHESTRATOR_BOUNDARY) ?? "";
+  const boundarySources = PUBLIC_ORCHESTRATOR_BOUNDARIES.map(
+    (file) => sources.get(file) ?? "",
+  );
+  const orchestratorBoundary = boundarySources.join("\n");
+  const blockedProjection = sources.get(ORCHESTRATOR_BLOCKED_PROJECTION) ?? "";
   if (
-    !orchestratorBoundary.includes("RepositoryRuntimeDataAreaBlockedError") ||
-    !orchestratorBoundary.includes("orchestratorDataBoundaryBlocked") ||
+    !boundarySources.every(
+      (source) =>
+        source.includes("RepositoryRuntimeDataAreaBlockedError") &&
+        source.includes("orchestratorDataBoundaryBlocked"),
+    ) ||
     !orchestratorStoreFactoryNames.every((symbol) =>
       orchestratorBoundary.includes(symbol),
     ) ||
     !blockedMeaningFields.every((field) =>
-      orchestratorBoundary.includes(
+      blockedProjection.includes(
         field === "recoveryReference" ? "recoveryIds" : field,
       ),
     )

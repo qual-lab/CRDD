@@ -16,8 +16,8 @@ import {
   inspectOrchestratorObjectiveRequest,
   type OrchestratorObjectiveRequest,
 } from "./request.ts";
-import type { OrchestratorExecutionDependencies } from "../task/dispatch.ts";
-import type { OrchestratorState } from "../state/transitions.ts";
+import type { OrchestratorExecutionDependencies } from "../task/execution-contract.ts";
+import type { OrchestratorState } from "../state/model.ts";
 import { snapshotPlainRecord } from "../../../domain-model/src/index.ts";
 import {
   createOrchestratorSnapshotPersistencePorts,

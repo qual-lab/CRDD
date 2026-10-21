@@ -1,8 +1,8 @@
 /**
- * 公開ObjectiveのProfile IDを既存Task入力へ搬送する責務を検証する。
+ * 既定Task入力のProfileと通信Hashを閉じたConsumer契約で検査する。
  *
  * @packageDocumentation
- * @responsibility 純粋builderが明示IDを保持し、自動選択と権限を変更しないことを確認する。
+ * @responsibility 合成の期待入力をConsumerが正規化し、Profile・Provider・通信Hashを保持することを確認する。
  * @trace PRL-UT-014
  * @level UT
  * @scope Objective SnapshotからCoordinator Task Requestまで。
@@ -11,7 +11,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { inspectOrchestratorObjectiveRequest } from "../../../orchestrator/src/index.ts";
-import { buildOrchestratorCoordinatorTaskRequest } from "../../../orchestrator/src/operation-composition.ts";
 import { snapshotCoordinatorTaskRequest } from "../../src/task/request.ts";
 
 const objective = Object.freeze({
@@ -33,10 +32,10 @@ const objective = Object.freeze({
 /**
  * 明示Profileの全入力組合せをTaskの閉じた検査へ接続する。
  *
- * @responsibility Public SnapshotとTask Snapshotで同じProfile IDが保持されることを検証する。
+ * @responsibility 合成Task要求を実Consumerが正規化しProfile・Provider・Front・通信Hashを保持することを検証する。
  * @trace PRL-UT-014
  * @precondition 正常Objectiveと三つの任意項目、二つのFront Providerを使用する。
- * @stimulus 全八組合せをbuilderと実Task入力検査へ渡す。
+ * @stimulus 全八組合せと二種類のFrontを持つ合成Task要求を実Task入力検査へ渡す。
  * @observation Profile、Provider、Front Provider、複製配列と固定分類を確認する。
  * @oracle 明示IDはexact、省略はnullとして既存自動選択へ接続し、権限を追加しない。
  * @cleanup N/A: メモリ内の純粋関数だけを実行する。
@@ -64,10 +63,23 @@ test("Objective Profileは全八組合せで既存Task契約へexactに搬送す
         ),
       );
       assert.ok(request);
-      const task = buildOrchestratorCoordinatorTaskRequest(
-        request,
+      const task = {
         frontProvider,
-      );
+        requestedExecutorProvider: mask & 2 ? "codex" : "auto",
+        ...(mask & 4 ? { requestedProfileId: "PROFILE-100001" } : {}),
+        objective: request.objective,
+        acceptanceCriteria: [...request.acceptanceCriteria],
+        allowedPaths: [...request.allowedPaths],
+        readPaths: [...request.readPaths],
+        workClass: "bounded_implementation",
+        planState: "complete",
+        risk: "low",
+        difficulty: "low",
+        decisionImpact: "limited",
+        isLocalCandidateOnly: true,
+        hasUnresolvedDirection: false,
+        requiresCrossContextAlignment: false,
+      };
       const inspected = snapshotCoordinatorTaskRequest(task);
       const networkHash = "c".repeat(64);
       const withNetwork = snapshotCoordinatorTaskRequest({
@@ -99,7 +111,7 @@ test("Objective Profileは全八組合せで既存Task契約へexactに搬送す
       assert.equal(Object.hasOwn(task, "requestedProfileId"), (mask & 4) !== 0);
       assert.notEqual(task.acceptanceCriteria, request.acceptanceCriteria);
       assert.deepEqual(task.allowedPaths, request.allowedPaths);
-      assert.ok(Object.isFrozen(task));
+      assert.ok(Object.isFrozen(snapshot));
       assert.equal(Object.hasOwn(task, "selectionGrant"), false);
       assert.equal(Object.hasOwn(task, "decisionCapabilityReplacement"), false);
     }

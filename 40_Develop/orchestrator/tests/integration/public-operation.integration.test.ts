@@ -1,13 +1,13 @@
 /**
- * coordinator:integration:orchestrator-composition-rootの検証範囲を定義する。
+ * orchestrator:integration:public-operationの検証範囲を定義する。
  *
  * @packageDocumentation
- * @responsibility coordinator:integration:orchestrator-composition-rootが所有する検証責務を実行する。
+ * @responsibility orchestrator:integration:public-operationが所有する検証責務を実行する。
  * @trace PPR-IT-001
  * @trace PRL-IT-005
  * @trace PRL-IT-008
  * @level IT
- * @scope project、runtime、public、state、mcp
+ * @scope project、runtime、public、state
  * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 import assert from "node:assert/strict";
@@ -26,23 +26,17 @@ import {
   readExecutionIntelligence,
   verifyExecutionIntelligenceRepositoryRoot,
 } from "../../../execution-intelligence/src/index.ts";
+import { recordOrchestratorExecutionEvent } from "../../src/index.ts";
+import { initializeOrchestratorSnapshot } from "../../src/index.ts";
+import { createOrchestratorWindowsDecisionStoreTestingAdapter } from "../../src/storage/protected-decision.ts";
+import { createDevelopmentOrchestratorPublicObjectiveCandidate } from "../../src/objective/public-operation.ts";
 import {
-  handleMcpOrchestratorRequest,
-  MCP_ORCHESTRATOR_OBJECTIVE_TOOL,
-  MCP_ORCHESTRATOR_PROTOCOL_VERSION,
-  MCP_ORCHESTRATOR_STATE_TOOL,
-} from "../../../mcp-server/src/index.ts";
-import { recordOrchestratorExecutionEvent } from "../../../orchestrator/src/index.ts";
-import { initializeOrchestratorSnapshot } from "../../../orchestrator/src/storage/current-state.ts";
-import { createOrchestratorWindowsDecisionStoreTestingAdapter } from "../../../orchestrator/src/storage/protected-decision.ts";
-import {
-  createDevelopmentOrchestratorPublicObjectiveCandidate,
   createOrchestratorExecutionIntelligenceDiagnosticReporter,
   createOrchestratorRecoveryDiagnosticReporter,
-  executeOrchestratorPublicAcceptanceDecision,
   ORCHESTRATOR_EXECUTION_INTELLIGENCE_PREFIX,
-  orchestratorDataBoundaryBlocked,
-} from "../../../orchestrator/src/operation-composition.ts";
+} from "../../src/task/execution-diagnostics.ts";
+import { executeOrchestratorPublicAcceptanceDecision } from "../../src/decision/public-acceptance.ts";
+import { orchestratorDataBoundaryBlocked } from "../../src/operation-result-contract.ts";
 
 /**
  * Runtime Data失敗を公開Orchestrator結果まで意味変更せず投影するを検証する。
@@ -54,7 +48,7 @@ import {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-005=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary PRL-IT-005=Direct Boundary: orchestrator Test Source→対象契約
  */
 test("Runtime Data失敗を公開Orchestrator結果まで意味変更せず投影する", () => {
   const error = new RepositoryRuntimeDataAreaBlockedError({
@@ -92,7 +86,7 @@ test("Runtime Data失敗を公開Orchestrator結果まで意味変更せず投�
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary PPR-IT-001=Direct Boundary: orchestrator Test Source→対象契約
  */
 test("開発用構成はTask終了後に明示品質受入を要求し再入場で再送しない", async (t) => {
   const root = fs.mkdtempSync(
@@ -154,7 +148,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
         },
       }),
     startTask: (
-      _request,
+      taskRequest,
       _root,
       _correlation,
       notifyStarted,
@@ -162,6 +156,10 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
       workspaceTarget,
     ) => {
       taskStarts += 1;
+      const delivered = taskRequest as Readonly<Record<string, unknown>>;
+      assert.equal(delivered.requestedProfileId, "PROFILE-100001");
+      assert.equal(delivered.requestedExecutorProvider, "codex");
+      assert.equal(delivered.frontProvider, "codex");
       assert.equal(consumer, "orchestrator");
       assert.deepEqual(workspaceTarget, {
         workspaceId: null,
@@ -273,6 +271,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
       maximumReplans: 0,
       originLane: "interactive",
       requestedExecutorProvider: "codex",
+      requestedProfileId: "PROFILE-100001",
       adoptResult: false,
       intakeEpoch,
     },
@@ -296,6 +295,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
       maximumReplans: 0,
       originLane: "interactive",
       requestedExecutorProvider: "codex",
+      requestedProfileId: "PROFILE-100001",
       adoptResult: false,
       intakeEpoch,
     },
@@ -335,7 +335,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
    * @observation completed状態とPrincipal IDを返す。
    * @oracle 未認証または別Principalへ置き換えない。
    * @cleanup N/A: 認証状態を永続化しない。
-   * @boundary PRL-IT-008=Direct Boundary: coordinator Test Source→対象契約
+   * @boundary PRL-IT-008=Direct Boundary: orchestrator Test Source→対象契約
    */
   const authenticate = () =>
     Object.freeze({
@@ -447,6 +447,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
       maximumReplans: 0,
       originLane: "interactive",
       requestedExecutorProvider: "codex",
+      requestedProfileId: "PROFILE-100001",
       adoptResult: true,
       intakeEpoch,
     },
@@ -487,116 +488,6 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
     value: "codex",
     source: "single_task_verified_completion",
   });
-  const mcp = await handleMcpOrchestratorRequest(
-    {
-      jsonrpc: "2.0",
-      id: 1,
-      method: "tools/call",
-      params: {
-        _meta: {
-          "io.modelcontextprotocol/protocolVersion":
-            MCP_ORCHESTRATOR_PROTOCOL_VERSION,
-          "io.modelcontextprotocol/clientCapabilities": {},
-        },
-        name: MCP_ORCHESTRATOR_OBJECTIVE_TOOL,
-        arguments: {
-          requestId: "request-public-runtime",
-          projectId: "project-public-runtime",
-          milestoneId: "milestone-public-runtime",
-          repositoryRevision: revision,
-          objective: "Create the bounded result.",
-          acceptanceCriteria: ["result accepted"],
-          allowedPaths: ["result.txt"],
-          readPaths: ["result.txt"],
-          maximumConcurrency: 1,
-          maximumReplans: 0,
-          originLane: "interactive",
-          requestedExecutorProvider: "codex",
-          adoptResult: false,
-          intakeEpoch,
-        },
-      },
-    },
-    {
-      authenticateClient: () => ({
-        status: "verified",
-        principalId: "local-user-test-user",
-      }),
-      runObjective: async () => result,
-      submitDecision: async () => {
-        throw new Error("decision_not_expected");
-      },
-      getProjectState: async () => {
-        throw new Error("state_query_not_expected");
-      },
-    },
-  );
-  const mcpResult = mcp.result as {
-    structuredContent: {
-      status: string;
-      reason: string;
-      recoveryIds: string[];
-    };
-    isError: boolean;
-  };
-  assert.equal(mcpResult.isError, true);
-  assert.equal(mcpResult.structuredContent.status, "blocked");
-  assert.equal(
-    mcpResult.structuredContent.reason,
-    "orchestrator_quality_acceptance_required",
-  );
-  assert.deepEqual(mcpResult.structuredContent.recoveryIds, []);
-
-  const mcpState = await handleMcpOrchestratorRequest(
-    {
-      jsonrpc: "2.0",
-      id: "state-after-objective",
-      method: "tools/call",
-      params: {
-        _meta: {
-          "io.modelcontextprotocol/protocolVersion":
-            MCP_ORCHESTRATOR_PROTOCOL_VERSION,
-          "io.modelcontextprotocol/clientCapabilities": {},
-        },
-        name: MCP_ORCHESTRATOR_STATE_TOOL,
-        arguments: {
-          requestId: "query-through-mcp",
-          projectId: "project-public-runtime",
-          repositoryRevision: revision,
-        },
-      },
-    },
-    {
-      authenticateClient: () => ({
-        status: "verified",
-        principalId: "local-user-test-user",
-      }),
-      runObjective: async () => {
-        throw new Error("objective_not_expected");
-      },
-      submitDecision: async () => {
-        throw new Error("decision_not_expected");
-      },
-      getProjectState: async (request, authentication) =>
-        runtime.runStateQuery(request, root, authentication),
-    },
-  );
-  const mcpStateResult = mcpState.result as {
-    structuredContent: {
-      observationState: string;
-      projection: { milestoneState: string } | null;
-      effectState: string;
-    };
-    isError: boolean;
-  };
-  assert.equal(mcpStateResult.isError, false);
-  assert.equal(mcpStateResult.structuredContent.observationState, "observed");
-  assert.equal(
-    mcpStateResult.structuredContent.projection?.milestoneState,
-    "accepted",
-  );
-  assert.equal(mcpStateResult.structuredContent.effectState, "no_effect");
-
   const replay = await runtime.run(
     {
       requestId: "request-public-runtime",
@@ -611,6 +502,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
       maximumReplans: 0,
       originLane: "interactive",
       requestedExecutorProvider: "codex",
+      requestedProfileId: "PROFILE-100001",
       adoptResult: false,
       intakeEpoch,
     },
@@ -637,6 +529,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
       maximumReplans: 0,
       originLane: "interactive",
       requestedExecutorProvider: "codex",
+      requestedProfileId: "PROFILE-100001",
       adoptResult: false,
       intakeEpoch,
     },
@@ -670,6 +563,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
       maximumReplans: 0,
       originLane: "interactive",
       requestedExecutorProvider: "codex",
+      requestedProfileId: "PROFILE-100001",
       adoptResult: false,
       intakeEpoch,
     },
@@ -711,7 +605,7 @@ class ControlledDiagnosticStream extends Writable {
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-005=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary PRL-IT-005=Direct Boundary: orchestrator Test Source→対象契約
  */
 test("回復診断を直列化しcallback成功だけを成功として扱う", async () => {
   const stream = new ControlledDiagnosticStream({ highWaterMark: 1 });
@@ -740,7 +634,7 @@ test("回復診断を直列化しcallback成功だけを成功として扱う", 
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-005=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary PRL-IT-005=Direct Boundary: orchestrator Test Source→対象契約
  */
 test("実行Event発行診断は回復診断と別の閉じた識別子で出力する", async () => {
   const stream = new ControlledDiagnosticStream();
@@ -777,7 +671,7 @@ test("実行Event発行診断は回復診断と別の閉じた識別子で出力
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-005=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary PRL-IT-005=Direct Boundary: orchestrator Test Source→対象契約
  */
 test("回復診断の各終端を区別し失敗後の書込みを停止する", async (t) => {
   const cases = [
@@ -831,7 +725,7 @@ test("回復診断の各終端を区別し失敗後の書込みを停止する",
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-005=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary PRL-IT-005=Direct Boundary: orchestrator Test Source→対象契約
  */
 test("回復診断timeout後の遅延callbackとerrorを二重完了にしない", async () => {
   const stream = new ControlledDiagnosticStream();
@@ -854,7 +748,7 @@ test("回復診断timeout後の遅延callbackとerrorを二重完了にしない
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-005=Direct Boundary: coordinator Test Source→対象契約
+ * @boundary PRL-IT-005=Direct Boundary: orchestrator Test Source→対象契約
  */
 test("回復診断の同期throwと明示disposeを閉じた結果へ変換する", async () => {
   class ThrowingDiagnosticStream extends Writable {

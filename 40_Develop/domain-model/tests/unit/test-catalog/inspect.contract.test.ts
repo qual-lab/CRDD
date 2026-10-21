@@ -526,7 +526,7 @@ test("実行知の実装変更は共通試験と登録済み利用側契約を�
     ],
     [
       "40_Develop/execution-intelligence/src/storage/store.ts",
-      "40_Develop/coordinator/tests/integration/orchestrator-composition-root.integration.test.ts",
+      "40_Develop/orchestrator/tests/integration/public-operation.integration.test.ts",
     ],
     [
       "40_Develop/execution-intelligence/src/index.ts",
@@ -540,7 +540,7 @@ test("実行知の実装変更は共通試験と登録済み利用側契約を�
     assert.ok(selectedPaths.includes(consumerPath));
     assert.ok(
       selectedPaths.some((entry) =>
-        entry.includes("orchestrator-composition-root"),
+        entry.includes("orchestrator/tests/integration/public-operation"),
       ) || changedPath.includes("core"),
     );
   }
@@ -570,7 +570,7 @@ test("利用側静的検査は試験levelの絞込みと独立して選ぶ", () 
   assert.ok(selectedEntries.every((entry) => entry.level === "unit"));
   assert.deepEqual(
     selectRegressionStaticOwners(catalog, changedPaths, selectedEntries),
-    ["coordinator", "execution-intelligence"],
+    ["coordinator", "execution-intelligence", "orchestrator"],
   );
 });
 

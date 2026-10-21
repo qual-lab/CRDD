@@ -138,7 +138,13 @@ const SOURCE_ROLES = {
     "queue/types.ts",
     "state/persistence.ts",
     "state/query-contract.ts",
-    "state/transitions.ts",
+    "state/model.ts",
+    "state/projection.ts",
+    "task/scheduling.ts",
+    "task/lifecycle.ts",
+    "task/recovery-transitions.ts",
+    "objective/replan-transitions.ts",
+    "decision/transitions.ts",
     "storage/result-record.ts",
     "storage/validate-result-record.ts",
     "task/executor.ts",
@@ -155,6 +161,7 @@ const SOURCE_ROLES = {
     "objective/replan.ts",
     "state/query.ts",
     "task/dispatch.ts",
+    "task/execution-contract.ts",
     "task/settle-docker-recovery.ts",
     "workspace/record.ts",
   ],
@@ -163,7 +170,11 @@ const SOURCE_ROLES = {
     "decision/capability-adapter.ts",
     "identity/observe-principal.ts",
     "objective/intake-dependencies.ts",
-    "operation-composition.ts",
+    "objective/public-operation.ts",
+    "decision/public-operation.ts",
+    "decision/public-acceptance.ts",
+    "state/public-query.ts",
+    "task/execution-diagnostics.ts",
     "platform/windows-adapter.ts",
     "task/execute-attempt.ts",
     "task/host-adapter.ts",
@@ -621,7 +632,7 @@ test("import走査は解釈できない取り込み構文をFail Closedで検出
            * 変異した依存辺を純粋状態Moduleの境界へ照合する。
            * @responsibility 変異した依存辺を純粋状態Moduleの境界へ照合する。
            * @trace PRL-IT-012
-           * @precondition state/transitionsのscanと有限変異。
+           * @precondition state/modelのscanと有限変異。
            * @stimulus 既存assertPureImportEdgesを同じ対象へ実行する。
            * @observation 禁止依存に対応する固定診断。
            * @oracle 型だけを含む禁止辺も拒否し正常対照は通る。
@@ -629,7 +640,7 @@ test("import走査は解釈できない取り込み構文をFail Closedで検出
            * @boundary 静的Import境界。実ModuleのEffectは起動しない。
            */
           const check = () =>
-            assertPureImportEdges(`${SOURCE_PREFIX}state/transitions.ts`, scan);
+            assertPureImportEdges(`${SOURCE_PREFIX}state/model.ts`, scan);
           if (expected === null) check();
           else {
             assert.ok(expected);

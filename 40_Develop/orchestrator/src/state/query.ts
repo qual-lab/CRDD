@@ -4,7 +4,7 @@
  * @responsibility queryOrchestratorStateを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000005
  */
-import { projectOrchestratorState } from "./transitions.ts";
+import { projectOrchestratorState } from "./projection.ts";
 import type { OrchestratorStatePort } from "./persistence.ts";
 import {
   ORCHESTRATOR_STATE_QUERY_CONTRACT,

@@ -3,11 +3,17 @@
 成果物種別: 変更計画
 状態: In Progress（Docker Isolation完成後、Workspace方式とCoordinator再編の棚卸し・詳細設計へ）
 対象変更: [CHG-000082](change.md)
-基準改訂版: `98cab6e3278a61684c557a6499cfb602e2d19111`
+初期基準改訂版: `98cab6e3278a61684c557a6499cfb602e2d19111`（各作業の現在基準は該当節で指定）
 維持責任者・採用決定権限: Qual-Lab
 最終更新日: 2026-10-21
 
 ## 1. 結論と実行境界
+
+### 残る実行系の統合順序 — 2026-10-21（AのSource整理を完了・B〜Dは未完了）
+
+人間の添付計画により、A：OrchestratorのSource整理、B：旧Coordinatorから専門Packageへの移管、C：残存実行調整を統合して旧Orchestratorを新Coordinatorへ改名、D：Domain Model最終整理の順序を採用する。従来の二Package維持は最終目標ではなくなるが、現在のSource所有関係は切替完了まで維持する。実作業基準は最新の`1afbc6df4`とし、具体的な対応表・永続契約・検証条件は[統合計画](coordinator-consolidation-plan.md)を正本とする。`application.ts`の機械的追加、Atomic保存境界の分断、新しい互換Readerや回復Frameworkは行わない。保持中②・先行unknown・外部AI・Dockerは今回操作しない。
+
+状態責務分割に続いて公開操作・診断・結果検査を実Ownerへ移し、旧組立てFileを撤去した。Root196宣言・永続契約・実行順序を維持し、Orchestrator単体67件・結合49件成功、Coordinator接続159件中157成功と隔離制約二件の通常環境での成功を確認した。台帳・利用側・設計Trace・限定独立レビューも閉じ、AのSource整理を完了とする。全体文書検査は履歴旧参照と未変更の品質集約5診断で不合格のまま。system集合・実AI／Docker・全体QA・ReleaseとB〜Dは別途であり、保持物には触れない。[集約結果](coordinator-consolidation-plan.md#7-公開操作結果検査の移管とaの区切り)を参照する。
 
 ### 既存Package六観点の再確認 — 2026-10-21
 

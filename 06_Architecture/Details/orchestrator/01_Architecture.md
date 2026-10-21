@@ -1,6 +1,41 @@
 # Orchestratorの詳細アーキテクチャ
 
+## A段階の状態責務整理（2026-10-21）
+
+実作業基準`1afbc6df4`から、[統合計画](../../../99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md)のAを実施する。今回の対象は旧`state/transitions.ts`の純粋な値契約と状態遷移であり、業務操作の組立て・Task配送・保存基盤の変更は後続単位とする。以下は配置契約であり、回帰・独立レビュー前に移管成立を主張しない。
+
+| 配置 | 所有する責務 |
+|---|---|
+| `state/model.ts` | 状態・Definition・Record・結果の値契約、初期状態、共有入力検査、immutableな状態構築 |
+| `state/projection.ts` | 公開投影型、投影生成、状態間相関・意味の検査 |
+| `task/scheduling.ts` | 容量・競合Path・依存から次のTaskを選択 |
+| `task/lifecycle.ts` | 予約・handoff・開始・終了・Effect前終了の純粋遷移 |
+| `task/recovery-transitions.ts` | 回復義務・結果受領・ACK・Owner喪失・再試行可能化の純粋遷移 |
+| `objective/replan-transitions.ts` | 部分再計画・Task再試行の状態更新 |
+| `decision/transitions.ts` | 人間判断・Objective／Milestone受入判断の状態更新 |
+
+依存はModel→選択→投影の利用方向とし、Modelから選択・投影・遷移へ逆参照しない。各遷移はModelの値契約を利用するが、Filesystem・Lease・Docker処置を所有しない。共有検査は内部exportとして必要な利用側だけが参照し、Package Rootの公開集合を増やさない。旧Fileは再export中継として残さない。既存の公開Symbol名・型Shape・状態／reason・Contract・永続形式・保存先と、予約保存／開始確定／結果受領／ACKの順序は変更しない。
+
 Workspace再編の現在目標は[作業領域・責務契約](03_Workspace.md)。通常AI入口、Workspace寿命、Task／Queue、コード候補の固定要求・採否、Promotion統制を本領域が所有する。Git・認可・隔離・Domain技術を所有しない。以下のBundle依存・Workspace未識別Queue等は基準実装の移行元であり、新方式の本番接続済みとは扱わない。
+
+### A段階の公開操作と実行結果の配置
+
+状態責務分割に続き、旧`operation-composition.ts`を次の実Ownerへ分配し、旧Fileを撤去した。Aの対象回帰・限定独立レビューは完了したが、実行系全体の統合と全体QAは未完了である。[今回の結果と限界](../../../99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#7-公開操作結果検査の移管とaの区切り)を参照する。
+
+| 配置 | 所有する責務 |
+|---|---|
+| `objective/public-operation.ts` | Objective公開実行、単発Task入力変換、開発用構築、本番実行依存の既存Singleton |
+| `decision/public-operation.ts` | 人間判断の本番依存組立て・公開実行 |
+| `decision/public-acceptance.ts` | 明示受入判断の認証・Repository検証・保存への接続 |
+| `state/public-query.ts` | 状態照会の認証・現在Snapshot確認・読取りへの接続 |
+| `task/execution-diagnostics.ts` | 直列診断Reporter、二つの既存本番Reporter、失敗・timeout・disposeの終了契約 |
+| `operation-result-contract.ts` | 公開結果のContractとRuntime Data失敗の純粋な結果投影 |
+| `task/execution-contract.ts` | 実行型・固定Contract・単発結果の閉形式とRuntime発行回復参照の相関検査 |
+| `task/dispatch.ts` | 予約・handoff・開始・保存・結果受領・配送・Queue終了の既存順序 |
+
+Objectiveの開発用構築だけがDecision／Stateの実行関数を一方向に利用し、逆依存は作らない。診断は上位公開操作へ依存せず、本番Reporterは各一つを維持する。既存と同じIdentity検査をModelの内部関数へ統合し、戻り値の型判定注釈だけ補う。結果検査には元のRuntime発行回復ID集合を渡し、単なるDTO形式検査へ縮小しない。旧組立てFileやCapability別barrelは残さず、Rootの公開196宣言、公開引数・結果、永続契約・認証順・同意Hash・取消と回復の順序は変えない。
+
+非公開実装の検証はOrchestrator所有試験へ移す。Profile搬送の旧直結UTは、Producerの入力変換とConsumerの要求検査へ分け、公開Objectiveの実Task開始入力でProfile／Executor／Front Providerの相関を補完する。公開APIの追加、試験専用の製品中継、偽の直結成立主張は行わない。
 
 Workspaceの内部操作は`manageOrchestratorWorkspace`、Taskごとの対象観測は`resolveOrchestratorWorkspaceTaskTarget`、値契約は`OrchestratorWorkspaceRequest`／`OrchestratorWorkspace`としてPackage Rootから公開する。具体保存・Lease・VC接続と、実Provider／Surface・採用取込の未接続は[状態・資源詳細の接続表](02_Detailed_Design.md#workspace接続の実装順序と移管先)に従う。内部のHost Path投影を外部Surfaceへ直接返さない。
 
@@ -20,7 +55,7 @@ Docker回復は同じ必須AbortSignalを下位へ渡して完了を待つ。固
 
 この接続はSource実装済みの候補であり、固定Repositoryの本番組立て・現在相関解決・上位の非同期待機へ接続している。局所試験だけでは完成を主張せず、待機中の取消・状態／Queue変更・拒否とACK各段階の回帰および独立レビューを完了条件に含める。限定unknown終了Class、実Dockerおよび全体E2Eは別の未成立条件として保持する。
 
-2026-10-14の人間判断により、通常実行は[Coordinatorの実行・追跡・配布の三分離](../coordinator/01_Architecture.md#9-通常実行追跡正式配布の分離)へ接続する。CRDD署名済みRuntimeを一回起動するCapabilityの発行・消費・失効は不要とし、現在の要求認可、Repository／用途、元Task／Attemptと取消・結果・回復の相関を保持する。Commit／Hashを新しい実行Capabilityにしない。`operation-composition.ts`の旧issuer／revokerと署名専用Port／Adapterは撤去済みであり、以下に残る署名閉包・署名実境界の旧記述は現在の通常実行Gateへ使用しない。未署名固定入口・必要Artifact・現在許可と必要な実Provider境界の本番接続・検証は、現在の未完了条件として維持する。
+2026-10-14の人間判断により、通常実行は[Coordinatorの実行・追跡・配布の三分離](../coordinator/01_Architecture.md#9-通常実行追跡正式配布の分離)へ接続する。CRDD署名済みRuntimeを一回起動するCapabilityの発行・消費・失効は不要とし、現在の要求認可、Repository／用途、元Task／Attemptと取消・結果・回復の相関を保持する。Commit／Hashを新しい実行Capabilityにしない。旧公開組立てのissuer／revokerと署名専用Port／Adapterは撤去済みであり、以下に残る署名閉包・署名実境界の旧記述は現在の通常実行Gateへ使用しない。未署名固定入口・必要Artifact・現在許可と必要な実Provider境界の本番接続・検証は、現在の未完了条件として維持する。
 
 本候補はOrchestratorの意味・公開操作をOrchestratorへ移す詳細設計である。物理的な詳細設計領域は`orchestrator`へ統一する。既存Semantic Keyと通信契約のIdentityは、物理配置とは分けて保持する。旧版のCoveredや保存切替の検証結果を、新配置の実装接続・実境界の成立証明には用いない。
 
@@ -28,15 +63,15 @@ Docker回復は同じ必須AbortSignalを下位へ渡して完了を待つ。固
 
 旧State／Queue／Leaseの移行入力Readerは本番Sourceへ残さない。旧形式の抽出・移行はフロントAIの手順が所有する。現行Snapshot Readerは真正不存在と観測不能を区別し、読取り途中のRepository内領域置換では停止する。未解決Leaseの保存結合は新版Portが取得した意図・証拠を単一状態内で保持し、旧形式からの抽出値を正常状態の根拠にしない。未使用の試行部分形式codecと旧個別Writerは撤去済みで、保存基盤の物理移管は済んでおり、保存Root参照と設定名はOrchestratorへ切替済みで、旧実Runtime Rootの処置と残る実行接続は継続中である。Queueの許可遷移は現行保存でも同じ定義を使い、保存方式変更だけで進行・判断・終了条件を変更しない。
 
-本番の上位組立ては`src/operation-composition.ts`、公開業務操作は`src/index.ts`、受付と現在保存の接続は`src/objective/intake-dependencies.ts`が所有する。Principal観測は`src/identity/observe-principal.ts`、Workspace利用・固定・採否は`src/workspace/operations.ts`、保護された判断世代の保存は`src/storage/protected-decision.ts`へ接続する。Coordinatorには同じ業務Sourceを残さず、個別実行・保護Root等の下位能力を呼ぶ。Coordinator Rootによる上位操作の再公開は撤去済みで、MCP配布入口・Workbench状態観測を本領域へ直接接続した。CLI内部の上位呼出しは撤去済みで、全公開利用側と旧実Runtime Rootの処置は後続確認の対象であり、File移管だけを依存方向の最終完成としない。
+本番の上位組立ては`src/objective/public-operation.ts`、`src/decision/{public-operation,public-acceptance}.ts`、`src/state/public-query.ts`、公開業務操作は`src/index.ts`、受付と現在保存の接続は`src/objective/intake-dependencies.ts`が所有する。Principal観測は`src/identity/observe-principal.ts`、Workspace利用・固定・採否は`src/workspace/operations.ts`、保護された判断世代の保存は`src/storage/protected-decision.ts`へ接続する。Coordinatorには同じ業務Sourceを残さず、個別実行・保護Root等の下位能力を呼ぶ。Coordinator Rootによる上位操作の再公開は撤去済みで、MCP配布入口・Workbench状態観測を本領域へ直接接続した。CLI内部の上位呼出しは撤去済みで、全公開利用側と旧実Runtime Rootの処置は後続確認の対象であり、File移管だけを依存方向の最終完成としない。
 
 ## 基本設計との関係
 
-業務操作の公開面はPackage Rootの`src/index.ts`へ統一する。Objective受付、判断、受入判断、状態照会の六操作は`src/operation-composition.ts`から、既存のPrincipal観測は`src/identity/observe-principal.ts`から明示的に公開する。純再exportの業務中継Fileと`./application` subpathは廃止し、MCP配布入口・WorkbenchはRootへ直接接続する。これはSource公開Pathの互換性変更であり、操作名、通信契約、保存形式、Authorityを変更しない。具象組立てはRootを逆参照せず、必要な実体へ依存する。開発用構築関数や診断内部関数を追加公開しない。Coordinator Rootは上位業務操作を再公開しない。CLIと親Directory・保存Root参照は切替済みだが、旧実Runtime Rootの処置と残る実行接続は未完了のため、公開面の接続だけを全移管完成とは扱わない。
+業務操作の公開面はPackage Rootの`src/index.ts`へ統一する。Objective受付、判断、受入判断、状態照会の六操作は各用途の`objective/public-operation.ts`、`decision/{public-operation,public-acceptance}.ts`、`state/public-query.ts`から、既存のPrincipal観測は`src/identity/observe-principal.ts`から明示的に公開する。純再exportの業務中継Fileと`./application` subpathは廃止し、MCP配布入口・WorkbenchはRootへ直接接続する。これはSource公開Pathの互換性変更であり、操作名、通信契約、保存形式、Authorityを変更しない。具象組立てはRootを逆参照せず、必要な実体へ依存する。開発用構築関数や診断内部関数を追加公開しない。Coordinator Rootは上位業務操作を再公開しない。CLIと親Directory・保存Root参照は切替済みだが、旧実Runtime Rootの処置と残る実行接続は未完了のため、公開面の接続だけを全移管完成とは扱わない。
 
 現在状態・Queue・Leaseは`src/storage/current-state-store.ts`、終了要約と保持処置は`src/storage/history-store.ts`が所有する。本番利用側は`src/storage/index.ts`から現在の保存操作だけを呼ぶ。OSの実効排他はCoordinatorの`src/host-runtime/index.ts`を利用し、業務保存を下位へ再exportしない。上位Taskの回復終了確定は`src/task/docker-recovery-settlement.ts`が所有し、exact保存世代・Task・Attempt・Operation・回復義務と耐久応答を照合して既存のCoordinator内部資源処置へ委譲する。安定Symbol IDと既存QAへのRelationは配置変更だけで改名しない。物理移管と、Repositoryの保存Root・設定名の切替は区別し、後者の未完了を前者の成立から推定しない。
 
-上位のProject／Task／Attempt／Revision相関は`src/task/dispatch.ts`と`src/task/execute-attempt.ts`が所有し、本番組立ては`src/operation-composition.ts`が接続する。通常実行の旧署名資格引数・発行・消費と専用Port／Adapterは撤去済みである。現在のTask・用途別許可と相関入力をCoordinatorへ渡し、上位Adapterに下位Authorityの生成・保存を移さない。Git／Artifact追跡は同一性と相関だけに用いる。上位本番組立ての物理移管は確認済みだが、旧資格3 API・専用静的検査・任意署名Toolの再接続と、共通実行・通知の最終検証は未完了である。
+上位のProject／Task／Attempt／Revision相関は`src/task/dispatch.ts`と`src/task/execute-attempt.ts`が所有し、本番組立ては`src/objective/public-operation.ts`が接続する。通常実行の旧署名資格引数・発行・消費と専用Port／Adapterは撤去済みである。現在のTask・用途別許可と相関入力をCoordinatorへ渡し、上位Adapterに下位Authorityの生成・保存を移さない。Git／Artifact追跡は同一性と相関だけに用いる。上位本番組立ての物理移管は確認済みだが、旧資格3 API・専用静的検査・任意署名Toolの再接続と、共通実行・通知の最終検証は未完了である。
 
 人間判断の一回利用秘密値と照合Hashは`src/decision/decision-capability-adapter.ts`が生成する。上位判断の発行・置換・失効契約が利用し、Provider認証やCoordinatorの実行Capabilityへ転用しない。秘密値の保存・公開範囲は既存判断契約を維持する。
 
@@ -262,13 +297,13 @@ Orchestratorの純粋判定はOS固有のPath、principal、Filesystem保護、L
 
 | 主責務 | File集合 | 境界 |
 |---|---|---|
-| 純粋判定・値契約（30） | `activity/{cursor,types,validate}.ts`; `decision/{acceptance-authority,acceptance-record,authority-adapter,capability,records,recovery-record,request}.ts`; `identity/{clock-and-hash,repository-binding}.ts`; `input/{plain-data-snapshot,repository-relative-path}.ts`; `lease/controller.ts`; `objective/request.ts`; `operation-result-contract.ts`; `operation-result.ts`; `platform/contract.ts`; `process/safety-contract.ts`; `queue/types.ts`; `state/{persistence,query-contract,transitions}.ts`; `storage/{result-record,validate-result-record}.ts`; `task/{executor,observer,recovery,single-task-record}.ts` | 実行時の依存閉包はこの集合内と、決定論的Hashの`node:crypto.createHash`・Proxy検査等の`node:util.types`に限定する。入力日時の`Date.parse`は許可し、現在時刻・乱数・外部待機は取得しない |
-| 業務操作（10） | `activity/read.ts`; `decision/{lifecycle,record-acceptance}.ts`; `objective/{execute,plan,replan}.ts`; `state/query.ts`; `task/{dispatch,settle-docker-recovery}.ts`; `workspace/record.ts` | 読取り、実行、保存、受理等を調停する。`objective/plan.ts`はClock Identity操作を呼ぶため、File全体を純粋とは分類しない |
-| 接続・組立て・Transport（14） | `cli/command.ts`; `decision/capability-adapter.ts`; `identity/observe-principal.ts`; `objective/intake-dependencies.ts`; `operation-composition.ts`; `platform/windows-adapter.ts`; `task/{execute-attempt,host-adapter,intelligence-adapter,recovery-adapter,request-composition,requests}.ts`; `workspace/{commands,operations}.ts` | 下位・Host・公開入口を接続する。名前にAdapterがあることだけを分類根拠にしない |
+| 純粋判定・値契約（36） | `activity/{cursor,types,validate}.ts`; `decision/{acceptance-authority,acceptance-record,authority-adapter,capability,records,recovery-record,request,transitions}.ts`; `identity/{clock-and-hash,repository-binding}.ts`; `input/{plain-data-snapshot,repository-relative-path}.ts`; `lease/controller.ts`; `objective/{request,replan-transitions}.ts`; `operation-result-contract.ts`; `operation-result.ts`; `platform/contract.ts`; `process/safety-contract.ts`; `queue/types.ts`; `state/{model,persistence,projection,query-contract}.ts`; `storage/{result-record,validate-result-record}.ts`; `task/{executor,lifecycle,observer,recovery,recovery-transitions,scheduling,single-task-record}.ts` | 実行時の依存閉包はこの集合内と、決定論的Hashの`node:crypto.createHash`・Proxy検査等の`node:util.types`に限定する。入力日時の`Date.parse`は許可し、現在時刻・乱数・外部待機は取得しない |
+| 業務操作（11） | `activity/read.ts`; `decision/{lifecycle,record-acceptance}.ts`; `objective/{execute,plan,replan}.ts`; `state/query.ts`; `task/{dispatch,execution-contract,settle-docker-recovery}.ts`; `workspace/record.ts` | 読取り、実行、保存、受理等を調停する。`objective/plan.ts`はClock Identity操作を呼ぶため、File全体を純粋とは分類しない |
+| 接続・組立て・Transport（18） | `cli/command.ts`; `decision/capability-adapter.ts`; `identity/observe-principal.ts`; `objective/{intake-dependencies,public-operation}.ts`; `decision/{public-operation,public-acceptance}.ts`; `state/public-query.ts`; `platform/windows-adapter.ts`; `task/{execute-attempt,execution-diagnostics,host-adapter,intelligence-adapter,recovery-adapter,request-composition,requests}.ts`; `workspace/{commands,operations}.ts` | 下位・Host・公開入口を接続する。名前にAdapterがあることだけを分類根拠にしない |
 | 保存（3） | `storage/{current-state,history,protected-decision}.ts` | 現在状態、履歴、判断記録の保存と排他を所有する |
 | 公開入口（1） | `index.ts` | Package公開APIの明示export |
 
-全58 Fileを重複なく照合し、新File・欠測・純粋集合の空集合を拒否する。宣言全体の型専用import／exportは実行時閉包へ数えない。通常宣言のinline type要素は型辺へ分けるが、値要素がなくても型除去後に空import／exportが残るため実行時ロード辺を維持する。型の所有境界は純粋集合内、または他Packageの実在する公開`src/index.ts`に限定し、自Packageの公開entry・業務操作・保存・Adapterへの型依存も純粋集合へ混入させない。Node組込みは型専用でも上表のexact module／symbolだけを許可する。`task/executor.ts`の結果配送型はOrchestratorが受領する三状態と結果参照・終了観測の最小構造を所有し、Coordinator実装の戻り型から逆算しない。Adapterはcastで押し込まず構造適合を型検査する。
+全69 Fileを重複なく照合し、新File・欠測・純粋集合の空集合を拒否する。宣言全体の型専用import／exportは実行時閉包へ数えない。通常宣言のinline type要素は型辺へ分けるが、値要素がなくても型除去後に空import／exportが残るため実行時ロード辺を維持する。型の所有境界は純粋集合内、または他Packageの実在する公開`src/index.ts`に限定し、自Packageの公開entry・業務操作・保存・Adapterへの型依存も純粋集合へ混入させない。Node組込みは型専用でも上表のexact module／symbolだけを許可する。`task/executor.ts`の結果配送型はOrchestratorが受領する三状態と結果参照・終了観測の最小構造を所有し、Coordinator実装の戻り型から逆算しない。Adapterはcastで押し込まず構造適合を型検査する。
 
 状態判定のSnapshot検査は既存`input/plain-data-snapshot.ts`を利用し、保存APIも再exportする外部Package Rootを純粋閉包へ追加しない。現在のWindows保証選択は`src/platform/windows-adapter.ts`が所有し、OS生存観測と子Process環境導出はCoordinatorの`src/host-execution/windows-platform-observation.ts`へ委譲する。これは移管途中の現接続であり、Coordinator／Orchestratorを環境非依存へ閉じる最終状態とは区別する。未分類の領域を検査から無言で除外せず、部分保証を全Platform対応へ昇格しない。
 

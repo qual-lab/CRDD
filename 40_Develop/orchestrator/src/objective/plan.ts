@@ -9,14 +9,14 @@ import type {
   ProjectTaskDefinition,
   ProjectTaskRecoveryObligation,
   OrchestratorState,
-  projectOrchestratorState,
-} from "../state/transitions.ts";
+} from "../state/model.ts";
+import type { projectOrchestratorState } from "../state/projection.ts";
 import type { OrchestratorClockIdentityPort } from "../identity/clock-and-hash.ts";
 import type {
   OrchestratorTaskExecution,
   OrchestratorExecutionResult,
-} from "../task/dispatch.ts";
-import { ORCHESTRATOR_MAXIMUM_TASKS } from "../state/transitions.ts";
+} from "../task/execution-contract.ts";
+import { ORCHESTRATOR_MAXIMUM_TASKS } from "../state/model.ts";
 import { snapshotCoordinatorWorkspaceResult } from "../../../coordinator/src/index.ts";
 import {
   inspectOrchestratorObjectiveRequest,

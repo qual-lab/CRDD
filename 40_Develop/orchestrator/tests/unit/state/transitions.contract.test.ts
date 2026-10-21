@@ -15,29 +15,31 @@ import { stripTypeScriptTypes } from "node:module";
 import { types as utilTypes } from "node:util";
 import vm from "node:vm";
 import { describe, it } from "node:test";
-import {
-  decodeProjectResultAcceptance,
-  recordProjectTaskResultAcceptances,
-} from "../../../src/state/transitions.ts";
+import { decodeProjectResultAcceptance } from "../../../src/state/model.ts";
+import { recordProjectTaskResultAcceptances } from "../../../src/task/recovery-transitions.ts";
 import {
   acknowledgeProjectDockerRecoveryObligation,
-  applyOrchestratorAcceptanceDecision,
-  applyOrchestratorPartialReplan,
+  markProjectTaskRecoveryObligationRecovering,
+  recordProjectTaskOwnerLossRecoveries,
+  retrySettledProjectTaskRecoveries,
+  settleProjectTaskRecoveryObligation,
+} from "../../../src/task/recovery-transitions.ts";
+import { applyOrchestratorAcceptanceDecision } from "../../../src/decision/transitions.ts";
+import { applyOrchestratorPartialReplan } from "../../../src/objective/replan-transitions.ts";
+import {
   createOrchestratorState,
   describeOrchestratorStateContract,
-  markProjectTaskRecoveryObligationRecovering,
-  observeProjectTaskStarted,
   type OrchestratorState,
   type ProjectTaskDefinition,
+} from "../../../src/state/model.ts";
+import {
+  observeProjectTaskStarted,
   prepareProjectTaskHandoff,
-  projectOrchestratorState,
-  recordProjectTaskOwnerLossRecoveries,
   reserveProjectTaskStart,
-  retrySettledProjectTaskRecoveries,
-  selectSchedulableProjectTasks,
   settleProjectTask,
-  settleProjectTaskRecoveryObligation,
-} from "../../../src/state/transitions.ts";
+} from "../../../src/task/lifecycle.ts";
+import { projectOrchestratorState } from "../../../src/state/projection.ts";
+import { selectSchedulableProjectTasks } from "../../../src/task/scheduling.ts";
 
 const revision = "a".repeat(40);
 

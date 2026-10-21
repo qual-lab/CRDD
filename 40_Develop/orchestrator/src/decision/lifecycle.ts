@@ -4,7 +4,7 @@
  * @responsibility Commonを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000005
  */
-import { applyOrchestratorHumanDecision } from "../state/transitions.ts";
+import { applyOrchestratorHumanDecision } from "./transitions.ts";
 import {
   isOrchestratorDecisionRecord,
   type OrchestratorDecisionRecord,

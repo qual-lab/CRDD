@@ -1132,34 +1132,6 @@
       ]
     },
     {
-      "symbolId": "coordinator.test.integration.orchestrator-composition-root",
-      "kind": "test-suite",
-      "path": "tests/integration/orchestrator-composition-root.integration.test.ts",
-      "qaIds": [
-        "QA-000003",
-        "QA-000004"
-      ],
-      "localTestIds": [
-        "PPR-IT-001",
-        "PRL-IT-005",
-        "PRL-IT-008"
-      ],
-      "verifies": [
-        "coordinator.source.src.composition.orchestrator.composition.root",
-        "coordinator.source.src.security.execution.intelligence.adapter",
-        "coordinator.source.src.security.orchestrator.windows.decision.store",
-        "execution-intelligence.source.src.store.execution.intelligence.store",
-        "execution-intelligence.source.src.store.verified.repository.root",
-        "mcp.source.src.adapters.orchestrator.adapter",
-        "mcp.source.src.protocol.orchestrator.protocol",
-        "orchestrator.objective-application",
-        "orchestrator.public-api",
-        "orchestrator.state-core",
-        "orchestrator.state-query-application",
-        "domain-model.runtime-area-result"
-      ]
-    },
-    {
       "symbolId": "coordinator.test.integration.orchestrator-queue-priority",
       "kind": "test-suite",
       "path": "tests/integration/orchestrator-queue-priority.contract.test.ts",
@@ -3503,7 +3475,6 @@
         "PRL-UT-014"
       ],
       "verifies": [
-        "coordinator.source.src.composition.orchestrator.composition.root",
         "coordinator.source.src.security.coordinator.task.request",
         "orchestrator.source.src.public.contract.objective.request"
       ]

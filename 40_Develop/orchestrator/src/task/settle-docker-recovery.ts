@@ -16,7 +16,7 @@ import {
   resolveVerifiedRepositoryRootFromWorkingDirectory,
   verifyRepositoryRoot,
 } from "../../../version-control/src/index.ts";
-import { decodeProjectResultAcceptance } from "../state/transitions.ts";
+import { decodeProjectResultAcceptance } from "../state/model.ts";
 import { readCurrentOrchestratorState as readOrchestratorState } from "../storage/current-state.ts";
 
 /**

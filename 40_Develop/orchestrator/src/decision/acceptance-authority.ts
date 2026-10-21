@@ -7,7 +7,7 @@
 import type {
   OrchestratorAcceptanceDecision,
   OrchestratorAcceptanceTarget,
-} from "../state/transitions.ts";
+} from "../state/model.ts";
 import type { OrchestratorPortResult } from "../operation-result.ts";
 
 /**
