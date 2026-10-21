@@ -1,11 +1,12 @@
 # Orchestrator／Coordinator統合とDomain Model最終整理
 
 成果物種別: 変更計画・着手前対応表
-状態: AのSource整理・対象回帰・独立レビューを完了。B〜Dは未完了
+状態: A完了。Bの棚卸し候補を作成、Source移管は未着手。C〜Dは未完了
 対象変更: [CHG-000082](change.md)
 責任者・採用決定権限: Qual-Lab
 最終更新日: 2026-10-21
-実作業基準: `1afbc6df4a76cd6800e20a5fa98a0c994577a42f`
+統合計画の初期基準（A着手前）: `1afbc6df4a76cd6800e20a5fa98a0c994577a42f`
+B調査のSource基準（A完了）: `f8f7a9986d47220a160fc141af09c6c51561e1e7`
 設計正本: [Orchestrator](../../../06_Architecture/Details/orchestrator/01_Architecture.md)、[Coordinator](../../../06_Architecture/Details/coordinator/01_Architecture.md)、[Domain Model](../../../06_Architecture/Details/domain-model/01_Architecture.md)
 
 ## 1. 今回の判断と境界
@@ -53,6 +54,8 @@ Rootの`src/index.ts`で現在の公開集合を維持し、内部は実Ownerを
 
 各移管前にSource・公開API・Consumer・既存試験・過去Evidenceを列挙し、能力ごとの対応表を固定する。Ownerが未確定のHost Lease／記録をまとめて移動しない。
 
+Bの現在版棚卸し・移管単位・検証接続は[§8](#8-bの棚卸しと責務移管対応表)で具体化する。下表のPackage名を理由にFolder全体を移動する指示ではない。
+
 ## 4. 永続契約と保持する意図
 
 - 現在受理するSnapshot形式、Schema版、状態・reason、保存先、Lock名、Root BindingのHash入力、IDと回復参照を維持する。
@@ -93,7 +96,7 @@ Rootの`src/index.ts`で現在の公開集合を維持し、内部は実Ownerを
 
 現時点は計画変更であり、準拠基準・決定権限を変えないため準拠監査・Release監査は実施しない。実AI依頼、Docker起動／再起動、Image更新、保持物の清掃は今回の計画整理に含めない。必要になった実操作は対象・回数・情報・回収条件を示して別途承認を得る。
 
-現在、人間による追加判断は必要ない。AのSource整理・対象回帰・独立レビューを完了した。次はBの旧Coordinator能力を専門Packageへ対応付け、移管単位と利用側・失敗検証を具体化する。公開契約と順序を変える必要が判明した場合だけ、影響と最小代替案を提示して停止する。
+現在、人間による追加判断は必要ない。AのSource整理・対象回帰・独立レビューを完了し、Bの旧Coordinator能力を専門Packageへ対応付けた。BのSource移管は未着手であり、次は§8のB1から詳細化する。公開契約と順序を変える必要が判明した場合だけ、影響と最小代替案を提示して停止する。
 
 ## 6. 状態責務分割の実装と確認
 
@@ -123,3 +126,240 @@ Rootの`src/index.ts`で現在の公開集合を維持し、内部は実Ownerを
 | 全体文書検査 | 不合格。履歴内旧参照3,515件と、今回未変更の`07_Quality/04_Quality_Integration.md`の5診断を検出。今回のSource整理を全体文書品質の成立へ拡張しない |
 
 AのSource整理を完了とする。今回の移管用一時Scriptは専用Directoryごと回収し、不存在を確認した。system集合・実AI／Dockerの再確認、全体QA・ReleaseおよびB〜Dは完了に含めない。保持中②と先行unknown、認証情報は操作していない。
+
+## 8. Bの棚卸しと責務移管対応表
+
+### 8.1. 基準・範囲・読み方
+
+Bの調査基準は、AをCommit／Pushした`f8f7a9986`である。`coordinator/src/`は108 File（Root `index.ts`と11 Folderの107 File）、`bin/`は1 File、`scripts/`は29 File、`tests/`はfixture等を含め200 TypeScript Fileであった。行数やHeaderの申告だけでなく、公開宣言、import、実呼出し、WeakMap、保存とEffect発生点を照合した。以下は移管計画であり、Source移管・削除・新API追加が実施済みという意味ではない。
+
+| 区分 | 今回の意味 |
+|---|---|
+| 専門Packageへ分離 | 指定した技術部分だけを既存Ownerへ寄せる。混在する上位判断を一緒に渡さない |
+| Cまで保持 | 旧Coordinatorが現在の意味・状態・許可を保持し、Cで新Coordinatorへ統合する。恒久的な二Package維持ではない |
+| 統合／撤去候補 | 現Consumer・検証義務・過去判断を照合してから処置を確定する。未接続だけで採用済み能力を削除しない |
+
+ProviderのCLI計画・出力・認証仕様は、多くが既にAI Adapterへ接続されている。`provider/`を丸ごとAI Adapterへ、実行Controllerを丸ごとDocker Isolationへ移す案は採らない。下位への上位Grant／Task／保存の逆流を避け、上位で確定した値を既存APIへ渡す。技術処理の移管と、上位の完了判断・通知受理・耐久受領は分離する。
+
+変更経路はArchitecture上の責務移管計画である。現在の正本・公開入口・利用側・Qualityを照合し、複数Owner間の誤移管を防ぐ設計／品質の読み取り専用着手前確認と、成果物完成後の独立確認を行う。今回はSource・規範・準拠基準・権限・保存形式を変更しないため、実環境試験・準拠監査・Release監査は行わない。§4の保持条件、Repository内だけの文書編集、②の再試行と保持物操作禁止を維持する。
+
+### 8.2. `provider/` 25 File
+
+以下と後続表の現Fileは、特記しない限り`40_Develop/coordinator/src/`からの相対Pathである。移管先は確定済みのPackage責務を示し、必要のない空File・barrel・中継を先に作らない。
+
+| 現File | Bの処置・移管先 | 上位に維持する意味／条件 |
+|---|---|---|
+| `provider/authority-grant.ts` | Cまで保持 | Operation・Home・起動直前許可の発行／一回消費／失効 |
+| `provider/delegation-route-selection.ts` | Cまで保持 | Executor／Reviewerの組合せ・委譲判断。Provider名だけでAI側へ移さない |
+| `provider/delegation-selection-grant.ts` | Cまで保持 | 選定結果・Operation・期限・supersedeと一回消費 |
+| `provider/model-selection.ts` | AI Adapterの既存選択APIへ寄せられる純粋語彙だけ分離 | 費用・必要性・選定理由・通知はCまで保持 |
+| `provider/eligibility-observation.ts` | 既存Availabilityへの観測入力接続として整理 | 固定候補を実測済み利用可否と表示しない。実行許可と観測を分離 |
+| `provider/home.ts` | Provider仕様は既存AI認証APIを使用 | Home保存配置・選択・観測・利用許可は上位 |
+| `provider/home-windows-adapter.ts` | 既存PA観測への薄い接続へ縮小 | 対象Home選択・鮮度・Capability発行／消費／失効は保持 |
+| `provider/home-mount-grant.ts` | Cまで保持 | Home貸出しの条件・期限・状態遷移 |
+| `provider/home-mount-authorization.ts` | 実Mountの技術値だけDIへ分離 | Home認可・Lease・一回消費・終了確認は上位 |
+| `provider/isolation-profile.ts` | Docker純技術条件はDIへ | Authority・Home Grant・Operation・Profile相関は上位 |
+| `provider/lifecycle.ts` | 未接続候補として統合／撤去を評価 | `planProviderLifecycle`の未実装拒否と試験・設計上の義務を照合してから確定 |
+| `provider/task-packet.ts` | CLIへの表現は既存AI計画へ接続 | Prompt・送信Grant・TaskRole・Schema・通信条件・Operationの結合は上位 |
+| `provider/task-structured-result.ts` | Provider Envelope／turn抽出を既存AI結果APIへ統一 | Executor／Reviewer業務Schema、Findings、Path、是正の一回消費は保持 |
+| `provider/execution-types.ts` | 技術型はDI、CLI型はAI Adapterの既存型を参照 | Operation／Grant／Packet／短命Capabilityの混合型を下位公開しない |
+| `provider/execution-plan.ts` | Image・Seccomp・Mount・Proxy・資源名の技術計画をDIへ | 選定・Packet・Home Grantの照合は上位。AI CLI計画をDIが再生成しない |
+| `provider/isolation-execution.ts` | 純技術計画・構成Hash照合をDIへ | `resolveIsolationCommandInput`のAI計画・業務Schema・選定再照合は上位で分離 |
+| `provider/execution-controller.ts` | Docker技術観測を既存DI実行APIへ集約 | Submission／Receipt保存、開始通知受理、結果意味、Authority／Home終了、上位回復完了は保持 |
+| `provider/execution-result-reasons.ts` | 技術理由はDI／AI結果の既存語彙を使用 | 上位公開理由への変換は上位 |
+| `provider/execution-composition.ts` | 技術依存の組立てと上位依存注入を分離 | Mount許可・Packet消費・Authority・借用Treeの相関を維持 |
+| `provider/preparation.ts` | Provider固有条件は既存AI APIへ | 選定・許可・Packet・Home Lease・Authorityの準備順は保持 |
+| `provider/preparation-lifecycle.ts` | Cまで保持 | 準備期限・取消・一回消費・失効・Lease解放をDI資源回収と混同しない |
+| `provider/execution-adapter.ts` | 共通準備Ownerへの統合候補 | private WeakMapと準備／消費の単一Ownerを維持 |
+| `provider/codex-docker-adapter.ts` | 共通Factoryへの薄い入口を統合候補とする | Provider別の私有準備状態を誤共有しない |
+| `provider/claude-docker-adapter.ts` | 同上 | CLI実装の重複新設なし |
+| `provider/claude-subscription-authentication.ts` | login/status仕様→既存AI API、Image／Container／Proxy／Process／技術回収→DI | Home選択・排他・開始許可・記録・元相関・未確認状態は上位。OAuth成立とcleanup成立を別々に要求 |
+
+### 8.3. `workbench-ai/` 10 File
+
+| 現File | Bの処置・移管先 | 保持する保証 |
+|---|---|---|
+| `workbench-ai/advice-contract.ts` | Cまで保持し共通Taskとの対応を固定 | 助言依頼・業務結果の契約はProvider仕様ではない |
+| `workbench-ai/advice-task.ts` | Cまで保持 | 許可Context、Task／Profile、期待Schema、秘密区分の固定 |
+| `workbench-ai/advice-result.ts` | Cまで保持 | facts／sharedAnalysis／additionalInferences／nextOptionsと許可参照の意味 |
+| `workbench-ai/advice-dispatch.ts` | 共通Task接続後に統合候補 | 明示確認・一回送信・取消・cleanup・業務結果受理 |
+| `workbench-ai/advice-packet.ts` | Cまで保持 | Operation／Profile／Command Hashと一回使用許可 |
+| `workbench-ai/repository-composition.ts` | 上位の共通Task組立てへ整理 | 固定Project Context・Profile Snapshot・送信範囲 |
+| `workbench-ai/advice-execution.ts` | 技術実行はDIへ集約し、共通Taskへの接続へ縮小 | Operation・Home・回復・通知・結果返却は上位 |
+| `workbench-ai/advice-execution-plan.ts` | CLI計画はAI、Image／Mount条件はDI | TaskHash・projectionHash・Profile整合は上位 |
+| `workbench-ai/provider-adapter.ts` | 不要中継の統合候補 | Profile検査と計画受理を統合先へ接続してから撤去 |
+| `workbench-ai/advice-provider-executor.ts` | 共通実行入口への統合候補 | 開始前取消、例外時Effect不明、cleanup未確認拒否を維持 |
+
+現在のOrchestrator本番組立ては、Codex／Claudeの助言に同じexecutorを渡している。二つの関数表の維持理由は再評価するが、許可・計画検査・結果相関まで消してよい根拠にはしない。Workbench固有の表示結果をAI Adapterへ移さず、Task完了だけで採用・Commitを追加しない。
+
+### 8.4. Host・Platform・Repositoryの24 File
+
+| 現File | Bの処置・移管先 | 移管しない意味／保証 |
+|---|---|---|
+| `host-execution/generation-loss-transition.ts` | Cまで保持 | Host世代喪失時の上位遷移 |
+| `host-execution/kernel-lock.ts` | Named Pipe取得・保持確認・解放の技術部分をPAへ。用途別名前空間・Hash入力・利用判断は上位 | 既存排他の実体・名前・取得順を変更せず、新Lock Frameworkにしない |
+| `host-execution/kernel-lock-lifecycle.ts` | OS搬送の終端部分をPAへ分離 | 呼出し側Owner・回復判断を技術handleへ混入させない |
+| `host-execution/kernel-lock-worker.ts` | 既存Worker本体をPAのProcess領域へ移す候補 | 起動先・共有状態・error／close・実解放の確認を一体追従 |
+| `host-execution/operation-lock-supervisor.ts` | OS排他保持と子監視の技術部分をPAへ | Coordinator固有のOperation／Capability許可は移さない |
+| `host-execution/node-runtime-version.ts` | Cまで保持し最終Package入口へ統合 | 全Package共通の新Runtime Registryは作らない |
+| `host-execution/operation-lease-lifecycle.ts` | Cまで保持 | 取得・取消・後着通知と上位Lease所有 |
+| `host-execution/operation-workspace-lifecycle.ts` | 混在。OS固有Identity／保護観測はPA、DI所有Mount／一時資源の技術処置はDIへ限定分離 | Operation所有・世代・管理Capability・Host回復・保存判断は上位。約5千行を丸ごと移さず、取得から失敗時の保持まで保証単位で切る |
+| `host-execution/orphan-recovery-policy.ts` | Cまで保持、実Consumerと現行許容条件を再照合 | 汎用orphan強制削除へ一般化しない |
+| `host-execution/process-safety-state.ts` | Cまで保持 | Process再利用可否・Effect drain・poisonは上位。Docker技術回収と別 |
+| `host-execution/recovery-record.ts` | ProbeのDocker固有値はDI、Native記録I/Oは既存PAを利用 | Hostのexact参照、bytes、Root相関、lineageは上位。保存正本を二重化しない |
+| `host-execution/terminal-caller-checkpoint.ts` | Native呼出しの技術重複だけPA既存APIへ集約 | 呼出し側の耐久intent・公開・再入場は上位 |
+| `host-execution/terminal-caller-lease.ts` | OS排他実処理はPAへ接続 | exact対象選択とLease利用判断は上位 |
+| `host-execution/terminal-record.ts` | Cまで保持 | Host終端intentの意味・Schema・Hash・旧世代判定。新しい互換Readerを作らない |
+| `host-execution/typescript-child-entrypoints.ts` | Worker／子Processの入口表を実Ownerへ分配 | 任意子Process起動APIを新設しない。検証専用子はscripts側へ |
+| `host-execution/windows-platform-observation.ts` | `process.kill(pid, 0)`の三状態観測・OS識別・環境導出の技術部分をPAへ | 必要保証の選択は上位。ESRCH以外を不存在へ丸めない |
+| `platform-access/adapter.ts` | Native応答のdecode・固定Protocol検査は既存PAへ統合 | runtime／authority用途とPrincipal受理・利用許可の判断は上位 |
+| `platform-access/protected-root-windows-adapter.ts` | 既存PA観測へ薄く接続 | Root用途・開発観測借用・上位Capabilityの発行／消費は保持 |
+| `repository-operation/binding.ts` | Git形式／改訂／Root観測の重複は既存VC公開APIへ寄せる | OperationとRepositoryの私有Binding／Capabilityは上位 |
+| `repository-operation/borrowed-workspace.ts` | Cまで保持 | 上位で解決した実行対象だけを借り、Workspace寿命を所有しない |
+| `repository-operation/create.ts` | Cまで保持。下位技術呼出しだけ既存Ownerへ | Operation作成順と最初の失敗・残存分類 |
+| `repository-operation/root-observation.ts` | OS応答正規化はPA、上位用途別Hash／受理は上位に切り分け | 現Hash入力・用途・鮮度・確認不能を維持 |
+| `repository-operation/root-protection-policy.ts` | Cまで保持 | 観測事実から必要な保護を受理する判断。観測そのものではない |
+| `repository-operation/workspace.ts` | Git変更／改訂観測はVC、技術Mount材料はDIへ接続 | 既存dirtyのInput、借用Tree、許可範囲、review用内容投影、帰属不明、削除未発行は上位 |
+
+`repository-operation/workspace.ts`の`captureRuntimeOwnedCandidateRevision`等は、現在もTaskの終了観測とレビュー用内容確認へ接続されている。Gitで明示固定するCandidateや撤去済みBundle Storeと同一視しない。旧名の整理は、実Task入力と結果の意味を確認して行い、読み取り投影を不要なRepository全複製へ戻さない。
+
+### 8.5. 状態・Task・外部送信の21 File
+
+| 現File | Bの処置・移管先 | 保持条件 |
+|---|---|---|
+| `state-storage/model.ts` | Cまで保持 | 操作・回復・配送・修復の閉じた現在状態。DI checkpointの型を参照しても保存Ownerは移さない |
+| `state-storage/settlement-store.ts` | Cまで保持 | 単一Writer、保存／読戻し、短命物、再入場、History、consumer ACK。Atomic境界を分断しない |
+| `state-storage/docker-recovery-journal.ts` | Cまで保持して実Consumerに応じ改名・分割を評価 | Docker専用ではなくOrchestratorの判断保存も使う。PAへ汎用保存Frameworkとして移さない |
+| `state-storage/recovery-identity.ts` | DI型との一元化を評価。現保存受理条件は上位 | 同じexact参照と文法・長さ・種類相関を維持 |
+| `state-storage/restart-checkpoint.ts` | 技術checkpoint定義はDIとの重複を評価 | 要求・記録・回収・保存遷移相関は上位 |
+| `task/attempt.ts` | Cまで保持 | 上位へ返す単発Task・開始・取消・結果・Workspace観測 |
+| `task/cleanup-eligibility.ts` | 上位判断を保持しDI技術事実だけ受け取る | 回収候補と確定参照・対象集合の相関。判定緩和は今回行わない |
+| `task/completion-observation.ts` | Cまで保持 | 同じTaskの完了を観測し、上位Attempt Stateを新たに所有しない |
+| `task/development-measurement-constraints.ts` | 開発観測専用として利用境界を整理 | 上限・固定対象・送信範囲の契約を通常実行へ混ぜない |
+| `task/development-measurement-session.ts` | 同上。必要な製品接続と試験専用補助を分ける候補 | Session・予約・Capability・元観測の相関を維持 |
+| `task/development-source-observation.ts` | 開発観測専用のSource読取りとして整理 | 安全な固定Inputを通常Repository全体の複製へ拡張しない |
+| `task/execution.ts` | Cまで保持し専門APIの薄い実行調整へ縮小 | TaskRoleの順序・許可・取消・開始通知・配送・上位結果。技術callbackだけDIへ |
+| `task/recovery-projection.ts` | Cまで保持 | 非秘密の理由・参照を許可した利用側へだけ投影 |
+| `task/recovery.ts` | 技術観測・回収は既存DIへ、残る保存／Host／Home相関は上位 | unknown、同じ参照、Primary Failure、consumerごとの終了を維持。全体をDIへ移さない |
+| `task/request.ts` | Cまで保持 | 公開Task入力の閉形式・対象確認 |
+| `task/result-reasons.ts` | 上位公開理由を保持、下位の技術語彙は既存APIを参照 | 未知理由を成功・回収済みにしない |
+| `task/types.ts` | Cまで保持しRoot契約を追従 | 欠測と観測済み、元Task／Attempt／Operation相関 |
+| `external-send/consent-record.ts` | Cまで保持 | 同意の意味・期限・正規形 |
+| `external-send/consent-store.ts` | Cまで保持 | 同意のexact境界Hash・保存・失効。汎用共有Stateを追加しない |
+| `external-send/grant.ts` | 同意／一回送信GrantはCまで保持、端末技術だけPAへ | Secret入力をPrompt／logへ出さず、未承認送信・自動再送を追加しない |
+| `external-send/policy.ts` | Repository設定の読取り正本は既存Domain、技術通信はDI | 追加通信条件を実行同意Hashへ結合する判断は上位。認証時はProvider固定、AI実行時は役割共通のRepository別条件 |
+
+実行判断をAccess Managementへ集約しない。同Packageは認証・認可のOwnerであり、Task／Home／外部送信の短命な実行Grantとは別である。Dで共有モデルを最終整理する前に、これらをDomainへまとめて移すこともしない。
+
+### 8.6. Authority・CLI・診断の27 FileとRoot
+
+| 現File | Bの処置・移管先 | 条件 |
+|---|---|---|
+| `authority/file-bundle.ts` | Cまで保持 | 現起動許可のInputとDoctorの説明にConsumerあり。旧署名名だけで廃止しない |
+| `authority/grant-verifier.ts` | Cまで保持 | 現在の実行許可と対象の評価。Access Managementの利用者認可とは別 |
+| `authority/local-personal-grant.ts` | Cまで保持 | Operation／Profile結合と短命cache。署名資格へ戻さない |
+| `authority/prelaunch-verifier.ts` | Cまで保持 | Effect直前の再確認を、準備済みだからという理由で削除しない |
+| `authority/root-path-lexical.ts` | OS Pathの字句検査だけPA既存Filesystem領域への統合候補 | 字句一致を実体Identityの証明にしない。DI試験のprivate参照も追従 |
+| `authority/runtime-trust.ts` | 本番未接続の統合／撤去候補 | 静的importは現状試験一箇所。設計・QA・動的入口の確認後に確定し、通常実行のGateへ追加しない |
+| `authority/secret-material-policy.ts` | Cまで保持、Dで共有必要性を再評価 | 外部送信内容・scope検査。独自Secret Managerや完全不存在証明にしない |
+| `authority/trust-loader.ts` | Cまで保持 | 現起動許可データの読取り・正規形・署名との区別を維持 |
+| `cli/command-report.ts` | CLI表示としてCまで保持 | 下位の理由・回復・非秘密結果の閉じた表示 |
+| `cli/command.ts` | 単一binの受付先としてCまで保持 | 既存Task／診断／認証等の操作を混同しない |
+| `cli/interactive-console-reader-lifecycle.ts` | 端末I/Oの技術lifecycleをPAへ分離 | 同意内容の判断は外部送信Owner |
+| `cli/interactive-console-reader.ts` | 既存の固定端末Readerと有界InputをPAの技術領域へ移す候補 | EOF・取消・所有handle・部分結果を一体で維持 |
+| `cli/interactive-console.ts` | OS Consoleの取得・読書き・解放をPAへ分離 | 人間に何を確認するか・同意成立は上位。新Console Frameworkにしない |
+| `cli/launch.ts` | Cまで保持 | 公開起動modeと固定配送先。scriptsの文字列Pathも追従 |
+| `cli/options.ts` | Cまで保持 | CLI入力契約 |
+| `cli/request-input.ts` | Cまで保持 | 共通のstdin上限・UTF-8・JSON拒否 |
+| `cli/task-cancellation.ts` | Cまで保持 | 利用者SignalとTask取消の一回伝播・終了結果 |
+| `diagnostics/development-execution-timing.ts` | 開発計測専用の配置へ整理候補 | 実行知の分析正本とは別。計測出力を製品Stateへ追加しない |
+| `diagnostics/docker-recovery-command-report.ts` | CLI表示としてCまで保持 | 技術観測そのものはDI。表示だけで回復成功を作らない |
+| `diagnostics/doctor.ts` | CLIの集約を保持、専門技術確認は各既存APIへ | 発見・認証・Probe・修復を単なる読取り診断と扱わない |
+| `diagnostics/isolation-probe.ts` | 技術Probeは既存DIへ寄せ、上位の保存・相関接続だけ残す | 試験用と製品入口を区別。Host二保存をDIへ押し込まない |
+| `diagnostics/native-git-provenance.ts` | Artifact観測はPA、Git由来確認はVC、接続は開発Toolへ整理候補 | Git Commit／Hashを実行資格にしない |
+| `diagnostics/native-runtime-trace.ts` | Native検証用のscripts補助へ移す候補 | 欠測Event・Lost Buffer・対象Process母集団の検査を維持 |
+| `diagnostics/release-identity-grammar.ts` | Git IDはVC既存文法との統合、Version／日時は実Consumerに応じ整理 | `release`名だけでRuntimeに署名を再導入しない |
+| `diagnostics/runtime-repair.ts` | DI技術処置へ接続する上位Callerとして保持 | 同じ操作・許可・保存・回収判断・保持引渡し。技術修復と耐久終端を分離 |
+| `diagnostics/runtime-restart.ts` | 同上 | 再起動の承認・Scope・記録は上位、実処理はDI／PA |
+| `diagnostics/signed-runner-safety-observation.ts` | 検証scriptsの結果安全検査へ整理・改名候補 | 現在は署名必須の根拠ではない。exact回復参照と共同終了条件は維持 |
+| `index.ts` | 下記公開契約を利用側と一緒に追従 | 便宜的な再export中継や試験専用APIを追加しない |
+
+### 8.7. 公開APIと既知の利用側
+
+基準Rootは19宣言を公開する。Bで削除・移動する場合は、対応する現利用側を同じ単位で切り替える。以下は現在の公開集合の整理であり、新APIの一括新設ではない。
+
+| 現Root宣言 | B／CでのOwner |
+|---|---|
+| `runCoordinatorTaskAttempt`、`snapshotCoordinatorWorkspaceResult`、`COORDINATOR_TASK_PRE_EFFECT_REJECTIONS`、`CoordinatorTaskDependencies` | Cまで単発実行Owner。結果相関をDIへ移さない |
+| `CoordinatorTaskAttemptInput`、`CoordinatorTaskAttemptResult`、`CoordinatorWorkspaceResult`、`CoordinatorTaskRecoveryObligation` | 上位が利用する単発実行契約。Cで新Coordinatorへ |
+| `isSupportedCoordinatorNodeRuntime` | 最終Package起動入口の基準確認 |
+| `createRuntimeProcessRecoveryIdentity`、`getRuntimeProcessInstanceIdentity`、`inspectRuntimeProcessRecoveryIdentity`、`poisonRuntimeProcessAfterCleanupUnknown` | Process再利用可否と上位相関。Cまで保持 |
+| `acquireRuntimeOwnedOrchestratorStateKernelLock` | PAのOS排他技術へ接続し、上位の用途・名前空間は保持 |
+| `recoverRuntimeOwnedDockerTaskForCurrentConsumer`、`resolveRuntimeOwnedDockerTaskCurrentCorrelations`、`observeRuntimeOwnedTransientTaskCompletion` | 上位の回復相関・受領・終了。技術回収だけDIへ |
+| `readRepositoryNetworkPolicies`、`RepositoryNetworkPolicies` | 設定正本はDomain、用途別の同意境界への接続は上位 |
+
+| 現利用側 | 必要な追従 |
+|---|---|
+| OrchestratorのObjective／Decision／Query、Task、保存、Platform、CLI、Workspace | Rootへの接続に加え、Repository Binding、Task実行、助言組立て、OS観測、Kernel Lock、保護Root、保存Journal、Secret検査のprivate importを解消する。技術は専門Rootへ、残る意味はCの統合先へ |
+| WorkbenchのAI request型・接続・route、Browser型、検証scripts | 単発契約と非秘密結果を維持し、下位型をBrowserへ露出しない。開発観測のprivate importも移管単位へ含める |
+| `template/tools/crdd-coordinator.ts` | 起動mode・Node基準・配送先・対話条件の同時追従 |
+| `template/tools/crdd-mcp-server.ts` | 現Coordinator Root参照を移管先へ。MCP製品Sourceは上位業務Owner接続を維持 |
+| DIの`repair-host-operations`試験 | `root-path-lexical.ts`のprivate参照を適切なOwnerの試験へ移す。試験専用Root APIを足さない |
+| Checker／Domain／VCの閉包検査、Symbol、Catalog、設計Trace | 現在のConsumer全数期待・試験Owner・品質Relation・起動Pathを同時更新 |
+
+静的import走査では、Orchestrator18 File、Workbench7 File、DI試験1 File、template2 FileからCoordinator `src/`への参照を観測した。この数は文字列Path、動的入口、同Package内の利用側を含む完全性の主張ではない。各実装単位でbin／scripts／workerの固定Pathと実公開入力搬送を別途確認する。
+
+### 8.8. bin・scripts・npm・試験・既存根拠の対応
+
+`bin/coordinator.ts`は現在唯一のbinである。`cli/launch.ts`が`verify-signed-route-matrix.ts`、`verify-signed-recovery-matrix.ts`、`authenticate-claude-subscription.ts`へも配送するため、Sourceだけを移して起動先を残さない。
+
+| 現`coordinator/scripts/`（29 Fileを全数分類） | 移管・保持先の方針 |
+|---|---|
+| `authenticate-claude-subscription.ts` | 認証の上位許可入口を保持。仕様AI／技術DIへ接続し、実認証は今回起動しない |
+| `check-platform-access-coverage.ts`、`check-platform-access-ts-coverage.ts`、`platform-access-coverage-path.ts`、`check-native-runtime-trace.ts`、`verify-native-protection.ts`、`verify-native-terminal-fixtures.ts`、`verify-native-terminal-namespace.ts` | PAの技術検証・Build用scriptsへ整理。上位許可を試すCaseは上位に残し、製品Native APIを検証用に拡張しない |
+| `prepare-codex-advice-image.ts` | Image構成とBuildはDI。Provider公式取得検証の既存境界を維持 |
+| `check-dynamic-fake-provider-coverage.ts`、`verify-dynamic-fake-provider-cancellation.ts`、`verify-dynamic-fake-provider-failures.ts` | 技術試験はDI、上位状態／通知の試験は上位。モック成功を実取消・資源不存在へ換算しない |
+| `check-provider-authority-coverage.ts`、`check-provider-home-coverage.ts`、`revoke-external-send-consent.ts` | 上位許可・Home利用・送信同意のOwnerに保持 |
+| `measure-development-providers.ts`、`orchestrator-real-provider-contract.ts`、`verify-orchestrator-real-providers.ts`、`verify-signed-general-task.ts`、`verify-signed-reviewer-boundary.ts`、`verify-signed-route-matrix.ts`、`verify-signed-recovery-matrix.ts`、`workspace-task-fixture.ts` | 現在の上位Task／Workspace／実境界確認Toolとして保持・改名を評価。`signed`名から通常署名Gateを復活させない |
+| `check-orchestrator-design-traceability.ts`、`orchestrator-design-traceability.ts`、`check-runtime-traceability.ts`、`runtime-traceability.ts`、`verification-result-reasons.ts`、`verification-result-record.ts` | 設計と検証のOwnerに追従。Source配置変更で旧根拠を新版Passへ書き換えない |
+
+CoordinatorのnpmにあるPA Build／Clippy／Rust試験／coverage、Provider別coverage、Native診断、Image準備、実Provider検証、開発計測は、実装Ownerと一緒に入口を整理する。通常`test`から明示Host／Docker／認証／実Provider／Image更新用入口を一括起動しない。
+
+| 能力／意味 | 代表的な既存検証（Coordinator tests、短縮名） | 移管後に保持する反証・実境界 |
+|---|---|---|
+| Provider CLI・結果 | `provider-execution-boundary-matrix`、`provider/model-selection`、`provider/task-structured-result`、Claude／Codex execution plan | Provider・用途・Model差、getter／Proxy、不正Envelope、非秘密投影。argv／stdio／結果意味を変えるなら公式CLIの限定確認を計画 |
+| Docker構成・Process・回収 | `docker-effect-runtime`、`docker-process-controller`、`coordinator-task-process`、`docker-probe-*` | spawn前拒否、開始後throw、取消join、一次失敗、部分資源、unknownと元参照。資源所有を変えるなら限定Docker確認を別承認 |
+| Root・Home・OS技術 | PAのRoot／Host試験、上位`development-native-observation`、`provider/home`、`native-protection-entry` | 前後Identity差、観測不能、部分Effect、許可未発行。Native搬送変更なら実Windows確認 |
+| Lease・Host記録 | `kernel-lock`、`host-terminal-caller-checkpoint`、`host-recovery-record`、`docker-recovery-owner-reentry` | Owner喪失、同参照での再入場、ACK前後、未知≠不存在。Worker／handle移管は実排他取得・解放まで確認 |
+| Git・借用Tree | `repository-git-layout`、`repository-operation-runtime`、`repository-workspace-runtime`、VC閉包、Orchestrator Workspace結合 | 実Tree拒否、範囲外変更、dirty保持、帰属不明、削除未発行。Git技術変更は合成Repositoryで確認 |
+| Workbench助言 | `workbench-ai/*`、`workbench-ai-profile-catalog-flow`、Workbench HTTP結合 | 古い画面Hash、失効後Reader零回、二重送信、Schema、取消後通知と資源。全保証対応前に旧経路を削除しない |
+| 起動・検証Tool | `coordinator-launch`、`development-package-scripts`、`interaction-boundary-regression`、各Tool契約 | mode／余剰引数／TTY／実操作Gate／結果Envelope。文字列配送と相対Rootも確認 |
+
+試験名は能力の確認先であり、全200 Fileの実行許可ではない。各移管時に、旧Case→新Ownerの試験→上位Consumerの試験を固定する。既存の[PA成立範囲](platform-access-source-structure.md#11-①⑤の最終照合)、[DI通信の成立範囲](docker-isolation-source-structure.md#13-dns境界の是正と限定通信の成立--2026-10-21)、[Workspaceの結果・保持判断](workspace-runtime-inventory.md)は基準能力を特定する根拠であり、B移管後の新しい検証結果の代替ではない。
+
+### 8.9. 実施順序・代替案・停止条件
+
+| 順序 | 移管単位 | 終了条件 |
+|---|---|---|
+| B1 | 本番未接続候補・検証専用補助・起動／npm入口の整理範囲を確定 | `provider/lifecycle.ts`、`authority/runtime-trust.ts`、Native／署名旧名Tool等のConsumerと採用済み義務を照合。不要部分は撤去、試験専用は試験へ。未評価をdead codeと断定しない |
+| B2 | PAへOS観測・端末I/O・排他技術を移管 | OS技術と上位用途・許可・回復の分離、Worker／子Process Path、三状態観測、取消・遅延・実解放、上位Consumerまで確認 |
+| B3 | AI仕様とDI技術計画・実行の境界整理 | 既存AI APIへCLI・結果抽出を統一し、DIは確定済み入力から技術実行。保存hook・Grant・業務Schemaが下位へ逆流しない |
+| B4 | Git／Repository観測・借用Treeの接続整理 | 重複技術は既存VC APIへ。上位Binding・選択Tree・レビュー投影・dirtyと未選択変更を保持 |
+| B5 | Workbench助言の共通Task接続と旧中継の撤去、全利用側の閉包 | 既存助言保証を全数対応し、Task／CLI／MCP／WorkbenchとRoot・試験・台帳・設計を同期。Cへ渡す残存責務を実数で再棚卸し |
+
+専門Package単位の丸ごと移動案は、上位の許可・保存が逆流するため不採用とする。現状をすべて維持する案は、OS／Docker分岐と重複技術を残してCの統合を肥大化させるため最終案にしない。推奨は既存APIを使う責務単位の分離であり、移管後に一つしか使われない薄い中継は統合を優先する。用途が異なるからという理由だけで新しいRegistry、Port、Lock、Storage、監視Processを作らない。
+
+移管前に残る不確実性は、巨大なHost／State FileのどこでAtomic境界と短命Capabilityが閉じるか、技術Planの二重生成がfresh観測か重複実装か、助言と編集の共通化で何の保証を共有できるかである。今回の棚卸しで概略Ownerは定まったが、各単位の具体的な公開型・関数・File配置はSource編集前の詳細化で固定する。新APIやFile数を先に確定しない。
+
+次の場合は当該単位を停止して再整理する。
+
+- WeakMapの発行・消費・失効がOwnerをまたいで割れ、既存境界で閉じられない。
+- 下位PackageからCoordinatorへの逆import、新共有State／Lock／回復管理が必要になる。
+- 原因・結果・unknown・同じ回復参照・外部送信同意・Home許可の意味を変える必要がある。
+- argv・環境・stdio・Process所有・資源Identity・cleanup順の変更に必要な実境界確認が、現在の承認範囲では実施できない。
+
+この場合は保証できない内容、既存機能で足りない理由、影響と最小代替案を人間へ返す。保持中②の再試行・削除・参照変更、認証・Docker操作は今回実施しない。今回のB棚卸しは実装着手・技術移管完了・全体QAの成立を示さない。
+
+### 8.10. 今回の棚卸し確認
+
+108 Sourceと表108行は欠落・余剰・重複なし、29 Scriptも全件に処置候補があることを照合した。設計・品質の独立確認では、初期基準とBの現在基準の表記を時点限定して是正した。今回は移管計画の確認であり、公開API・Source・実環境・保持物は変更していない。文書の基準・参照を確認してから、B1の具体的な撤去／保持判断と編集計画へ進む。

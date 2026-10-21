@@ -11,9 +11,11 @@
 
 ### 残る実行系の統合順序 — 2026-10-21（AのSource整理を完了・B〜Dは未完了）
 
-人間の添付計画により、A：OrchestratorのSource整理、B：旧Coordinatorから専門Packageへの移管、C：残存実行調整を統合して旧Orchestratorを新Coordinatorへ改名、D：Domain Model最終整理の順序を採用する。従来の二Package維持は最終目標ではなくなるが、現在のSource所有関係は切替完了まで維持する。実作業基準は最新の`1afbc6df4`とし、具体的な対応表・永続契約・検証条件は[統合計画](coordinator-consolidation-plan.md)を正本とする。`application.ts`の機械的追加、Atomic保存境界の分断、新しい互換Readerや回復Frameworkは行わない。保持中②・先行unknown・外部AI・Dockerは今回操作しない。
+人間の添付計画により、A：OrchestratorのSource整理、B：旧Coordinatorから専門Packageへの移管、C：残存実行調整を統合して旧Orchestratorを新Coordinatorへ改名、D：Domain Model最終整理の順序を採用する。従来の二Package維持は最終目標ではなくなるが、現在のSource所有関係は切替完了まで維持する。A着手前の初期基準は`1afbc6df4`、現在のB調査Source基準はA完了の`f8f7a9986`とし、具体的な対応表・永続契約・検証条件は[統合計画](coordinator-consolidation-plan.md)を正本とする。`application.ts`の機械的追加、Atomic保存境界の分断、新しい互換Readerや回復Frameworkは行わない。保持中②・先行unknown・外部AI・Dockerは今回操作しない。
 
 状態責務分割に続いて公開操作・診断・結果検査を実Ownerへ移し、旧組立てFileを撤去した。Root196宣言・永続契約・実行順序を維持し、Orchestrator単体67件・結合49件成功、Coordinator接続159件中157成功と隔離制約二件の通常環境での成功を確認した。台帳・利用側・設計Trace・限定独立レビューも閉じ、AのSource整理を完了とする。全体文書検査は履歴旧参照と未変更の品質集約5診断で不合格のまま。system集合・実AI／Docker・全体QA・ReleaseとB〜Dは別途であり、保持物には触れない。[集約結果](coordinator-consolidation-plan.md#7-公開操作結果検査の移管とaの区切り)を参照する。
+
+BはA完了Commit `f8f7a9986`を基準に、Source108 File・bin1・scripts29・試験Source200 Fileを棚卸しした。Provider Folderを丸ごとAI Adapterへ移さず、既存AI仕様、DI技術、PAのOS処理、VCのGit観測と、Cまで上位に残す許可・保存・実行判断を分離する。[全Source対応・公開API・Consumer・検証・順序](coordinator-consolidation-plan.md#8-bの棚卸しと責務移管対応表)を参照する。今回は計画候補のみで、Source移管・②再試行・保持物操作・Docker／認証操作は未実施。
 
 ### 既存Package六観点の再確認 — 2026-10-21
 

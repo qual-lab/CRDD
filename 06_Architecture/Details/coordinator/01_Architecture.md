@@ -118,6 +118,10 @@ Task起動前とCLI診断は、検査対象Repository Rootを明示して同じ�
 
 ## 基本設計との関係
 
+### B段階の責務移管計画との接続
+
+現在のSource108 Fileと公開19宣言の再編候補は、[統合計画のB棚卸し](../../../99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#8-bの棚卸しと責務移管対応表)に対応付けた。これは実Ownerの切替済みを表さない。Provider仕様は既存AI Adapter、Docker技術はDI、OS技術はPA、Git技術はVCへ寄せ、選定・同意・Home利用許可・Operation相関・耐久受領と終了判断はCまで上位が所有する。巨大なHost／State Fileを名前だけで下位へ丸ごと移さず、具体的な公開型とAtomic境界は移管単位のSource編集前に本設計へ反映する。
+
 ### 修復専用保存Ownerの接続契約（CLI候補・全体未完了）
 
 修復Ownerは既存領域がreadyで現在Ownerが有効な場合、通常Readerの前に既存の出版marker清掃を一回だけ呼ぶ。status completed・storageConfirmed・markerAbsentConfirmed・lockReleasedとOwner再確認が共同成立してから通常Readerで本文を再取得する。清掃結果は非秘密の診断事実として返し、保存本文・修復成功・実資源不存在の代替根拠にしない。pending・不正marker・未知Fileの処置前拒否では除去0、除去後の観測や解放不明では既発生事実を保持して停止する。取消はmetadata清掃を妨げないが技術Session開始前の拒否は維持する。これは出版済みcurrentのmarkerだけの処置であり、未出版pendingの確定は後述の専用Reader／publisherで別に判断する。
