@@ -13,12 +13,12 @@ import {
   verifyRepositoryRootFromWorkingDirectory,
   observeRepositoryRevision,
   gitRepositoryRevisionAdapter,
-} from "../../../version-control/src/index.ts";
+} from "../../version-control/src/index.ts";
 import {
   observeNativeArtifact,
   PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH,
   PLATFORM_ACCESS_EXECUTABLE_MAXIMUM_BYTES,
-} from "../../../platform-access/src/index.ts";
+} from "../../platform-access/src/index.ts";
 
 /**
  * 選択Checkoutの固定Nativeだけを現在RevisionのGit Blobへ照合する。

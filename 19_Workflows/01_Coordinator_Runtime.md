@@ -166,11 +166,11 @@ CRDDを`00_CRDD`へ配置した採用Repositoryでは、Project Rootを現在Dir
 この固定検証では、上記の汎用stdin入口へShellからJSONを組み立てて渡さない。対象Repositoryを現在Directoryにした対話端末から、選択したCheckout内の固定Runnerを直接起動する。実Providerへの依頼には、その対象・送信について別途許可が必要である。
 
 ```powershell
-& "<absolute-preverified-node-24.12+-executable>" "<selected-verified-checkout-root>\40_Develop\coordinator\scripts\verify-signed-general-task.ts"
-& "<absolute-preverified-node-24.12+-executable>" "<selected-verified-checkout-root>\40_Develop\coordinator\scripts\verify-signed-general-task.ts" --route reverse
-& "<absolute-preverified-node-24.12+-executable>" "<selected-verified-checkout-root>\40_Develop\coordinator\scripts\verify-signed-general-task.ts" --route same-codex
-& "<absolute-preverified-node-24.12+-executable>" "<selected-verified-checkout-root>\40_Develop\coordinator\scripts\verify-signed-general-task.ts" --route same-claude
-& "<absolute-preverified-node-24.12+-executable>" "<selected-verified-checkout-root>\40_Develop\coordinator\scripts\verify-signed-route-matrix.ts"
+& "<absolute-preverified-node-24.12+-executable>" "<selected-verified-checkout-root>\40_Develop\coordinator\scripts\verify-general-task.ts"
+& "<absolute-preverified-node-24.12+-executable>" "<selected-verified-checkout-root>\40_Develop\coordinator\scripts\verify-general-task.ts" --route reverse
+& "<absolute-preverified-node-24.12+-executable>" "<selected-verified-checkout-root>\40_Develop\coordinator\scripts\verify-general-task.ts" --route same-codex
+& "<absolute-preverified-node-24.12+-executable>" "<selected-verified-checkout-root>\40_Develop\coordinator\scripts\verify-general-task.ts" --route same-claude
+& "<absolute-preverified-node-24.12+-executable>" "<selected-verified-checkout-root>\40_Develop\coordinator\scripts\verify-route-matrix.ts"
 & "<absolute-preverified-node-24.12+-executable>" "<selected-verified-checkout-root>\40_Develop\coordinator\scripts\revoke-external-send-consent.ts"
 ```
 
@@ -179,10 +179,10 @@ CRDDを`00_CRDD`へ配置した採用Repositoryでは、Project Rootを現在Dir
 
 ### 固定Workerの回復Matrix検証
 
-固定Workerの復旧検証であり、実Providerの認証・通信を使う試験ではない。CRDD署名は不要で、選択したCheckoutの既存Node／隔離・Host境界を使う。期待結果は全要求シナリオの成立と回収確認。未達・回収不明なら残るIDと影響を保持し、回復成立と扱わない。結果改訂2は署名不要を明示する。Script名と公開識別子の` signed `は残るTool群と合わせて移行する暫定名であり、署名検証済みの意味ではない。
+固定Workerの復旧検証であり、実Providerの認証・通信を使う試験ではない。CRDD署名は不要で、選択したCheckoutの既存Node／隔離・Host境界を使う。期待結果は全要求シナリオの成立と回収確認。未達・回収不明なら残るIDと影響を保持し、回復成立と扱わない。結果改訂2は署名不要を明示する。Script名は`verify-recovery-matrix.ts`へ整理した。既存の結果識別子・内部子のroleに残る` signed `は機械契約として維持し、署名検証済みの意味には使わない。
 
 ```powershell
-& "<absolute-preverified-node-24.12+-executable>" "<selected-verified-checkout-root>\40_Develop\coordinator\scripts\verify-signed-recovery-matrix.ts"
+& "<absolute-preverified-node-24.12+-executable>" "<selected-verified-checkout-root>\40_Develop\coordinator\scripts\verify-recovery-matrix.ts"
 ```
 
 

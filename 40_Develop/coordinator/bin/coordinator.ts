@@ -67,10 +67,10 @@ if (
           await import("../src/cli/command.ts");
           break;
         case "verify-routes":
-          await import("../scripts/verify-signed-route-matrix.ts");
+          await import("../scripts/verify-route-matrix.ts");
           break;
         case "verify-recovery":
-          await import("../scripts/verify-signed-recovery-matrix.ts");
+          await import("../scripts/verify-recovery-matrix.ts");
           break;
         case "authenticate-claude":
           await import("../scripts/authenticate-claude-subscription.ts");

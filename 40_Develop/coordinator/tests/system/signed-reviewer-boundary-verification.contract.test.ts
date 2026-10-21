@@ -14,8 +14,8 @@ import test from "node:test";
 import {
   describeSignedReviewerBoundaryVerificationContract,
   runSignedReviewerBoundaryVerification,
-} from "../../scripts/verify-signed-reviewer-boundary.ts";
-import { SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION } from "../../scripts/verify-signed-general-task.ts";
+} from "../../scripts/verify-reviewer-boundary.ts";
+import { SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION } from "../../scripts/verify-general-task.ts";
 
 /**
  * completedのTest準備責務を実行する。

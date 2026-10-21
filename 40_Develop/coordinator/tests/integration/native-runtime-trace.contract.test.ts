@@ -14,7 +14,7 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { createWindowsHostOperationSupervisorEnvironment } from "../../../platform-access/src/index.ts";
-import { inspectNativeRuntimeTrace } from "../../src/diagnostics/native-runtime-trace.ts";
+import { inspectNativeRuntimeTrace } from "../../scripts/native-runtime-trace.ts";
 
 const OPTIONS = Object.freeze({
   targetProcessName: "crdd-platform-access.exe",

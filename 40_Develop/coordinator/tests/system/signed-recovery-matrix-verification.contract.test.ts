@@ -20,7 +20,7 @@ import {
   describeSignedRecoveryMatrixContract,
   SIGNED_RECOVERY_MATRIX_CONTRACT,
   SIGNED_RECOVERY_MATRIX_CONTRACT_REVISION,
-} from "../../scripts/verify-signed-recovery-matrix.ts";
+} from "../../scripts/verify-recovery-matrix.ts";
 
 /**
  * 固定Worker回復Matrixは通常Task入力へFault注入面を追加しないことを検証する。
@@ -78,7 +78,7 @@ test("固定Worker回復Matrixは通常Task入力へFault注入面を追加し�
  */
 test("回復Matrixは署名資格を要求せずNode境界と七形を保持する", async () => {
   const source = fs.readFileSync(
-    new URL("../../scripts/verify-signed-recovery-matrix.ts", import.meta.url),
+    new URL("../../scripts/verify-recovery-matrix.ts", import.meta.url),
     "utf8",
   );
   assert.doesNotMatch(
@@ -264,7 +264,7 @@ test("回復Matrixは署名資格を要求せずNode境界と七形を保持す�
  */
 test("回復Matrixの両子モードはRoot生成前にNodeを拒否する", async () => {
   const source = fs.readFileSync(
-    new URL("../../scripts/verify-signed-recovery-matrix.ts", import.meta.url),
+    new URL("../../scripts/verify-recovery-matrix.ts", import.meta.url),
     "utf8",
   );
   const start = source.indexOf("async function runInternalResidueChild(");
@@ -407,7 +407,7 @@ test("公開CLIは引数なし以外を固定JSONでEffect前に拒否する", (
   const result = spawnSync(
     process.execPath,
     [
-      path.resolve("scripts/verify-signed-recovery-matrix.ts"),
+      path.resolve("scripts/verify-recovery-matrix.ts"),
       "--scenario",
       "timeout",
     ],

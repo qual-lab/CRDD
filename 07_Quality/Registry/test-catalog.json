@@ -7380,13 +7380,13 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "coordinator:unit:signed-runner-safety-observation",
+      "id": "coordinator:unit:verification-safety",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/signed-runner-safety-observation.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/verification-safety.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
-        "signed",
+        "verification",
         "runner",
         "safety",
         "observation"

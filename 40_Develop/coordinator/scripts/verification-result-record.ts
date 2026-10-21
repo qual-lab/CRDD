@@ -22,7 +22,7 @@ import { isDockerIsolationRecoveryIdCandidate } from "../src/host-execution/reco
 import { snapshotPlainArray } from "../../domain-model/src/index.ts";
 import { coordinatorTaskPublicReasons } from "../src/task/result-reasons.ts";
 import { inspectRepositoryRevisionCandidate } from "../src/repository-operation/binding.ts";
-import { isCanonicalSignedRunnerRecoveryId } from "../src/diagnostics/signed-runner-safety-observation.ts";
+import { isCanonicalVerificationRecoveryId } from "./verification-safety.ts";
 import { isSupportedCoordinatorNodeRuntime } from "../src/host-execution/node-runtime-version.ts";
 import {
   SIGNED_GENERAL_TASK_PUBLIC_REASONS,
@@ -270,11 +270,11 @@ export function projectVerificationResult(
     const id = ownValue(value, single);
     const ids = snapshotPlainArray<unknown>(ownValue(value, plural), 16);
     const collected = new Set<string>();
-    if (isCanonicalSignedRunnerRecoveryId(id, kind)) collected.add(id);
+    if (isCanonicalVerificationRecoveryId(id, kind)) collected.add(id);
     else if (id !== null && id !== undefined) recoveryFieldsComplete = false;
     if (ids.status === "ok") {
       for (const item of ids.value) {
-        if (isCanonicalSignedRunnerRecoveryId(item, kind)) collected.add(item);
+        if (isCanonicalVerificationRecoveryId(item, kind)) collected.add(item);
         else recoveryFieldsComplete = false;
       }
     } else if (ownValue(value, plural) !== undefined)
@@ -283,8 +283,8 @@ export function projectVerificationResult(
   }
   const recoveryId = ownValue(value, "recoveryId");
   summary.recoveryId =
-    isCanonicalSignedRunnerRecoveryId(recoveryId, "docker") ||
-    isCanonicalSignedRunnerRecoveryId(recoveryId, "host") ||
+    isCanonicalVerificationRecoveryId(recoveryId, "docker") ||
+    isCanonicalVerificationRecoveryId(recoveryId, "host") ||
     isDockerIsolationRecoveryIdCandidate(recoveryId)
       ? recoveryId
       : null;

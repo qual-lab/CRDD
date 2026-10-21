@@ -72,7 +72,7 @@
     {
       "symbolId": "coordinator.diagnostics.native-git-provenance",
       "kind": "file",
-      "path": "src/diagnostics/native-git-provenance.ts",
+      "path": "scripts/native-git-provenance.ts",
       "archIds": [
         "ARCH-000014"
       ]
@@ -561,7 +561,7 @@
     {
       "symbolId": "coordinator.native-runtime-trace",
       "kind": "file",
-      "path": "src/diagnostics/native-runtime-trace.ts",
+      "path": "scripts/native-runtime-trace.ts",
       "archIds": [
         "ARCH-000008"
       ],
@@ -2532,7 +2532,7 @@
     {
       "symbolId": "coordinator.test.unit.signed-runner-safety-observation",
       "kind": "test-suite",
-      "path": "tests/unit/signed-runner-safety-observation.contract.test.ts",
+      "path": "tests/unit/verification-safety.contract.test.ts",
       "qaIds": [
         "QA-000010"
       ],
@@ -3155,7 +3155,7 @@
     {
       "symbolId": "coordinator.source.scripts.verify.signed.reviewer.boundary",
       "kind": "module",
-      "path": "scripts/verify-signed-reviewer-boundary.ts",
+      "path": "scripts/verify-reviewer-boundary.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -3171,7 +3171,7 @@
     {
       "symbolId": "coordinator.source.scripts.verify.signed.general.task",
       "kind": "module",
-      "path": "scripts/verify-signed-general-task.ts",
+      "path": "scripts/verify-general-task.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -3179,7 +3179,7 @@
     {
       "symbolId": "coordinator.source.scripts.verify.signed.recovery.matrix",
       "kind": "module",
-      "path": "scripts/verify-signed-recovery-matrix.ts",
+      "path": "scripts/verify-recovery-matrix.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -3187,7 +3187,7 @@
     {
       "symbolId": "coordinator.source.scripts.verify.signed.route.matrix",
       "kind": "module",
-      "path": "scripts/verify-signed-route-matrix.ts",
+      "path": "scripts/verify-route-matrix.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -3443,7 +3443,7 @@
     {
       "symbolId": "coordinator.source.src.security.signed.runner.safety.observation",
       "kind": "file",
-      "path": "src/diagnostics/signed-runner-safety-observation.ts",
+      "path": "scripts/verification-safety.ts",
       "archIds": [
         "ARCH-000014"
       ]

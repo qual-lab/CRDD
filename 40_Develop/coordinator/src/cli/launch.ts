@@ -10,8 +10,8 @@ export const COORDINATOR_LAUNCH_ENTRIES = Object.freeze({
   task: "../src/cli/command.ts",
   interactive: "../src/cli/command.ts",
   automation: "../src/cli/command.ts",
-  "verify-routes": "../scripts/verify-signed-route-matrix.ts",
-  "verify-recovery": "../scripts/verify-signed-recovery-matrix.ts",
+  "verify-routes": "../scripts/verify-route-matrix.ts",
+  "verify-recovery": "../scripts/verify-recovery-matrix.ts",
   "authenticate-claude": "../scripts/authenticate-claude-subscription.ts",
 });
 

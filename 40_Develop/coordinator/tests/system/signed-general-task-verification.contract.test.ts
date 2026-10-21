@@ -42,7 +42,7 @@ import {
   createSignedGeneralTaskVerificationRequest,
   describeSignedGeneralTaskVerificationContract,
   runSignedGeneralTaskVerification,
-} from "../../scripts/verify-signed-general-task.ts";
+} from "../../scripts/verify-general-task.ts";
 
 const TARGET_PATH =
   "40_Develop/coordinator/tests/fixtures/general-task-verification.txt";
@@ -687,7 +687,7 @@ test("固定公開Taskをprocess内で構成しShell搬送を契約から除外�
   );
   const runnerPath = path.join(
     coordinatorRoot,
-    "scripts/verify-signed-general-task.ts",
+    "scripts/verify-general-task.ts",
   );
   const source = fs.readFileSync(runnerPath, "utf8");
   const forbiddenConsoleModule = "../src/cli/interactive-console.ts";
@@ -753,10 +753,7 @@ test("固定公開Taskをprocess内で構成しShell搬送を契約から除外�
  * @boundary PRL-ST-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("CLIは余分argvを単一JSONとexit 2でEffect前に拒否する", () => {
-  const script = path.join(
-    coordinatorRoot,
-    "scripts/verify-signed-general-task.ts",
-  );
+  const script = path.join(coordinatorRoot, "scripts/verify-general-task.ts");
   const result = spawnSync(process.execPath, [script, "unexpected"], {
     cwd: coordinatorRoot,
     encoding: "utf8",
@@ -788,10 +785,7 @@ test("CLIは余分argvを単一JSONとexit 2でEffect前に拒否する", () => 
  * @boundary PRL-ST-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("CLIのRoute grammarは引数なしと三つのexact profileだけを許可する", () => {
-  const script = path.join(
-    coordinatorRoot,
-    "scripts/verify-signed-general-task.ts",
-  );
+  const script = path.join(coordinatorRoot, "scripts/verify-general-task.ts");
   for (const args of [
     ["--route"],
     ["--route", "forward"],
@@ -975,7 +969,7 @@ test("Source初回観測の欠測・例外・不正値はTask開始0で閉じる
  */
 test("Source本番観測は固定module RootとGit前後照合を使用する", () => {
   const scriptUrl = new URL(
-    "../../scripts/verify-signed-general-task.ts",
+    "../../scripts/verify-general-task.ts",
     import.meta.url,
   );
   const text = fs.readFileSync(scriptUrl, "utf8");

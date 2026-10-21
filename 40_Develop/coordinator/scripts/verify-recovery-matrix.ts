@@ -1,5 +1,5 @@
 /**
- * verify-signed-recovery-matrixに属する責務をまとめる。
+ * verify-recovery-matrixに属する責務をまとめる。
  *
  * @responsibility RuntimeRecordを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000008
@@ -41,7 +41,7 @@ const CHILD_READY_TIMEOUT_MS = 60_000;
 const CHILD_EXIT_TIMEOUT_MS = 10_000;
 
 /**
- * verify-signed-recovery-matrixで使用するRuntime 記録の値契約を定義する。
+ * verify-recovery-matrixで使用するRuntime 記録の値契約を定義する。
  *
  * @responsibility Runtime 記録のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
@@ -83,9 +83,9 @@ class RecoveryMatrixFailure extends Error {
 }
 
 /**
- * verify-signed-recovery-matrixを停止結果として構築する。
+ * verify-recovery-matrixを停止結果として構築する。
  *
- * @responsibility verify-signed-recovery-matrixの停止理由、未発行Effect、公開結果境界を所有する。
+ * @responsibility verify-recovery-matrixの停止理由、未発行Effect、公開結果境界を所有する。
  * @trace ARCH-000008
  * @input reason: string、extra: RuntimeRecord
  * @returns blockedの計算結果を返す。
@@ -595,9 +595,9 @@ export function describeSignedRecoveryMatrixContract() {
 }
 
 /**
- * verify-signed-recovery-matrixのCommand処理を開始する。
+ * verify-recovery-matrixのCommand処理を開始する。
  *
- * @responsibility verify-signed-recovery-matrixの引数受付、終了Code、診断出力境界を所有する。
+ * @responsibility verify-recovery-matrixの引数受付、終了Code、診断出力境界を所有する。
  * @trace ARCH-000008
  * @input N/A: 実行時引数を受け取らない。
  * @returns mainの計算結果を返す。

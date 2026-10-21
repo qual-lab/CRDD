@@ -14,7 +14,7 @@
  */
 import { createHash } from "node:crypto";
 
-import { runSignedGeneralTaskVerification } from "../../scripts/verify-signed-general-task.ts";
+import { runSignedGeneralTaskVerification } from "../../scripts/verify-general-task.ts";
 import { isRuntimeProcessPoisoned } from "../../src/host-execution/process-safety-state.ts";
 import { requestRuntimeOwnedExternalSendGrant } from "../../src/external-send/grant.ts";
 import { startRuntimeOwnedCoordinatorTask } from "../../src/task/execution.ts";

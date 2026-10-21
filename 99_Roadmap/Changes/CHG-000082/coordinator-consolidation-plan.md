@@ -363,3 +363,44 @@ CoordinatorのnpmにあるPA Build／Clippy／Rust試験／coverage、Provider�
 ### 8.10. 今回の棚卸し確認
 
 108 Sourceと表108行は欠落・余剰・重複なし、29 Scriptも全件に処置候補があることを照合した。設計・品質の独立確認では、初期基準とBの現在基準の表記を時点限定して是正した。今回は移管計画の確認であり、公開API・Source・実環境・保持物は変更していない。文書の基準・参照を確認してから、B1の具体的な撤去／保持判断と編集計画へ進む。
+
+## 9. B1：不要候補と検証専用処理の処置
+
+B1着手基準は、棚卸しをCommit／Pushした`077b38b7d`である。Source削除の判断を、静的な製品Consumerの有無だけで行わず、現公開診断・Canonical義務・検証Toolと動的読込みへ照合した。
+
+| 対象 | 今回の処置 | 保持するもの／理由 |
+|---|---|---|
+| `src/provider/lifecycle.ts` | 維持 | `describeProviderLifecycleContract`はDoctor結果の現Consumer。未実装の計画stubと合成Fake評価は別であり、全Fileを不要とは扱わない。今回は分割だけのための新File／APIを増やさない |
+| `src/authority/runtime-trust.ts` | 維持 | ARCH-000014／SPEC-000018／QA-000010の独立読取り評価とAIT-IT-001／003を保持。署名必須の旧実行Gateとは別。通常実行へ新接続しない |
+| `src/diagnostics/development-execution-timing.ts` | 維持 | 開発Taskと計測Sessionが使用し、executionTimingへ接続。通常Task全体の常時計測を意味しないが、単なるfixtureではない |
+| `src/diagnostics/native-runtime-trace.ts` | `scripts/native-runtime-trace.ts`へ移管 | 既存check入口・Native Trace ITの解析補助。Lost Event／Buffer、対象Process／Module／Network条件を本文不変で維持 |
+| `src/diagnostics/native-git-provenance.ts` | `scripts/native-git-provenance.ts`へ移管 | 実Git／Blob／差替え／junctionと開発Native観測の動的URLを維持。PAとVCの既存公開APIを使い、通常起動の新Gateにしない |
+| `src/diagnostics/signed-runner-safety-observation.ts` | `scripts/verification-safety.ts`へ移管・内部Symbolも実責務名へ | 検証結果のBoolean・回復参照の相関検査であり、署名検証ではない。判定本文と既存reason／結果形式は維持 |
+| `scripts/verify-signed-general-task.ts` | `scripts/verify-general-task.ts`へ改名 | 固定Taskの検証、同意、取消、回収と元結果Envelopeを維持 |
+| `scripts/verify-signed-reviewer-boundary.ts` | `scripts/verify-reviewer-boundary.ts`へ改名 | Reviewer／Provider境界の限定検証を維持 |
+| `scripts/verify-signed-route-matrix.ts` | `scripts/verify-route-matrix.ts`へ改名 | 4経路の検証を維持し、Launcherの`verify-routes`引数は変更しない |
+| `scripts/verify-signed-recovery-matrix.ts` | `scripts/verify-recovery-matrix.ts`へ改名 | 親／子の固定配送と回復Matrixを維持し、`verify-recovery`引数と既存内部role・結果識別子は変更しない |
+
+既存Schema／contract文字列、結果理由、回復ID、永続bytes、過去EvidenceのPathとHashは不変更とする。安全補助の専用UTは`verification-safety.contract.test.ts`へ実体と同時改名し、既存QA IDとSymbolの意味Identityは維持する。製品Rootの公開19宣言は増減させない。
+
+実施順は、設計の処置固定→移管／改名とimport・動的URL・Launcher／npm／tsconfig追従→Symbol・Catalog・閉包・coverage期待一覧の追従→局所・静的回帰と独立レビューとする。CallerのSource、型、試験だけを変更し、検証Tool本体のmain／同意／Docker／外部送信を実行しない。Toolのimport時非実行条件と固定配送を確認する。
+
+検証は既存Native Trace／Native Git／開発Native観測、安全結果、検証記録、起動・子入口、coverage母集団、DI/VC閉包、Header／Catalog／Traceabilityを対象とする。実ETW採取・Docker・AI・認証・保持物操作は対象外。配置と名前だけの変更を実環境の再成立へ拡張しない。
+
+Sourceとしての全撤去は今回は確定しない。維持対象の保証を消す案と、使われない同等fixtureを増やして実装撤去に見せる案は採らない。B2以降の技術移管・Cの統合と独立に処置できる検証専用補助だけを先に整理する。
+
+### 9.1. B1の実施結果と残る境界
+
+上表の補助3件をscriptsへ移管し、検証Script4件と安全補助UTを改名した。利用側のimport・動的URL、Launcher／固定子配送、npm入口、strict対象、Symbol・Catalog・coverage期待一覧を追従した。Sourceは108→105 File、scriptsは29→32 Fileとなった。製品Rootの19公開宣言は基準版と同一で、bin1件・試験200 Fileも増減なし。旧Pathは§8の基準版棚卸しと過去Evidenceに残るが、現在の実体とは区別する。
+
+| 確認 | 結果と限界 |
+|---|---|
+| Coordinatorの型・変更32 Fileのformat／lint | 成功。Biomeの一括checkが追加するimport整列補助は既存のformat／lint義務と区別し、今回無関係な全import再整列は行わない |
+| 配置変更の選択回帰 | 302件中301成功。保存先linkの1件はsandboxのsymlink拒否で停止し、同じ1件を通常権限で再実行して成功。安全判定条件は変更していない |
+| 維持したTrust評価／VC Consumer閉包 | それぞれ2件／12件成功。Lifecycle10件は選択回帰に含む |
+| 台帳・実体・対応表 | Catalog383件valid、Coordinator Symbol291件の全Path実在、Runtime／Orchestrator設計対応表の検査成功。Root公開入口は不変更 |
+| Checkerの命名・Header・Catalog関連 | 29件中25成功。symlink制限3件は同じ3件の通常権限再確認で成功。残1件は基準版にも存在するPAの`src/docker-desktop/helper.ts`曖昧名で、B2のOwner・名称整理対象として残す。全体命名検査Passとはしない |
+| 独立レビュー | SourceとQuality／Architecture接続を確認。Symbol Pathの誤追従と不要なURL表記差の2件を是正し、両再確認の残指摘0 |
+| 変更文書4件の照会 | 4件自身の診断は0。参照先展開では3,248診断が残り、文書検査全体はexit1。不合格をB1の局所成功へ畳まない |
+
+機械contract／reason・回復参照・内部子role・永続Schema・既存の判定本文を維持した。実ETW、Docker、認証、外部AI、②の保持物操作は実行していない。今回のB1局所整理をB全体・実環境・全体QAの完了としない。次はB2として、OS観測・端末I/O・排他技術を既存PA APIと照合し、上位の許可・保存・回復判断を混ぜずに移管する。

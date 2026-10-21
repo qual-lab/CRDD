@@ -118,7 +118,7 @@ const runtimeLocalTypeScriptChildEntrypoints = Object.freeze([
   declareLocalTypeScriptChildEntrypoint(
     "signed_recovery_matrix_child",
     "spawn",
-    "../../scripts/verify-signed-recovery-matrix.ts",
+    "../../scripts/verify-recovery-matrix.ts",
     import.meta.url,
   ),
 ]);

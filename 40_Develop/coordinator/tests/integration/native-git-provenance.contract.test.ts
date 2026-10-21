@@ -19,7 +19,7 @@ import {
   verifyRepositoryRoot,
 } from "../../../version-control/src/index.ts";
 import { PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH } from "../../../platform-access/src/index.ts";
-import { inspectPlatformAccessNativeGitProvenanceCandidate } from "../../src/diagnostics/native-git-provenance.ts";
+import { inspectPlatformAccessNativeGitProvenanceCandidate } from "../../scripts/native-git-provenance.ts";
 
 /**
  * 単一Nativeの未署名Git試験入力をRepository内へ作成する。

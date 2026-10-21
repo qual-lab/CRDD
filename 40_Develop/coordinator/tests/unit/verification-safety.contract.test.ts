@@ -1,20 +1,20 @@
 /**
- * coordinator:unit:signed-runner-safety-observationの検証範囲を定義する。
+ * coordinator:unit:verification-safetyの検証範囲を定義する。
  *
  * @packageDocumentation
- * @responsibility coordinator:unit:signed-runner-safety-observationが所有する検証責務を実行する。
+ * @responsibility coordinator:unit:verification-safetyが所有する検証責務を実行する。
  * @trace AIT-UT-005
  * @level UT
- * @scope signed、runner、safety、observation
+ * @scope verification、result、safety
  * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
  */
 import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  evaluateSignedRunnerSafetyObservation,
-  salvageSignedRunnerRecoveryPair,
-} from "../../src/diagnostics/signed-runner-safety-observation.ts";
+  evaluateVerificationSafetyObservation,
+  salvageVerificationRecoveryPair,
+} from "../../scripts/verification-safety.ts";
 
 const hostA = `host.crdd-coordinator-doctor-a.12345678-1234-4234-8234-123456789abc.${"a".repeat(64)}`;
 const hostB = `host.crdd-coordinator-doctor-b.12345678-1234-4234-8234-123456789abc.${"b".repeat(64)}`;
@@ -82,11 +82,11 @@ function exact(overrides: Readonly<Record<string, unknown>> = {}) {
  * @boundary AIT-UT-005=Direct Boundary: coordinator Test Source→対象契約
  */
 test("安全観測はexact booleanとRecovery集合だけを確定する", () => {
-  const none = evaluateSignedRunnerSafetyObservation(exact(), SCHEMA);
+  const none = evaluateVerificationSafetyObservation(exact(), SCHEMA);
   assert.equal(none.status, "exact");
   assert.deepEqual(none.recoveryIds, []);
 
-  const recovery = evaluateSignedRunnerSafetyObservation(
+  const recovery = evaluateVerificationSafetyObservation(
     exact({
       cleanupConfirmed: false,
       manualRecoveryRequired: true,
@@ -123,7 +123,7 @@ test("booleanの欠落・null・文字列は安全状態不明に閉じる", () 
       { ...exact(), [field]: "false" },
     ]) {
       assert.equal(
-        evaluateSignedRunnerSafetyObservation(candidate, SCHEMA).status,
+        evaluateVerificationSafetyObservation(candidate, SCHEMA).status,
         "unknown",
         field,
       );
@@ -151,12 +151,12 @@ test("cleanup・manual recovery・effect unknownの相関矛盾を拒否する",
     exact({ effectStateUnknown: true, manualRecoveryRequired: true }),
   ]) {
     assert.equal(
-      evaluateSignedRunnerSafetyObservation(candidate, SCHEMA).status,
+      evaluateVerificationSafetyObservation(candidate, SCHEMA).status,
       "unknown",
     );
   }
 
-  const childPoison = evaluateSignedRunnerSafetyObservation(
+  const childPoison = evaluateVerificationSafetyObservation(
     exact({ processRestartRequired: true }),
     SCHEMA,
   );
@@ -194,7 +194,7 @@ test("Recovery配列の疎・accessor・Proxy・重複・非文字列を拒否�
     [1],
   ]) {
     assert.equal(
-      evaluateSignedRunnerSafetyObservation(
+      evaluateVerificationSafetyObservation(
         exact({
           cleanupConfirmed: false,
           manualRecoveryRequired: true,
@@ -236,7 +236,7 @@ test("Recovery pairは0件・1件・N件のcanonical関係だけを受理する"
     }),
   ]) {
     assert.equal(
-      evaluateSignedRunnerSafetyObservation(
+      evaluateVerificationSafetyObservation(
         Object.freeze({
           ...candidate,
           cleanupConfirmed: false,
@@ -273,7 +273,7 @@ test("Recordのgetter・Proxy・独自prototypeを観測済みにしない", () 
     Object.assign(Object.create({ inherited: true }), exact()),
   ]) {
     assert.equal(
-      evaluateSignedRunnerSafetyObservation(candidate, SCHEMA).status,
+      evaluateVerificationSafetyObservation(candidate, SCHEMA).status,
       "unknown",
     );
   }
@@ -292,7 +292,7 @@ test("Recordのgetter・Proxy・独自prototypeを観測済みにしない", () 
  * @boundary AIT-UT-005=Direct Boundary: coordinator Test Source→対象契約
  */
 test("partial salvageはown-dataのcanonical IDだけをboundedに保持する", () => {
-  const mixed = salvageSignedRunnerRecoveryPair(
+  const mixed = salvageVerificationRecoveryPair(
     Object.freeze({
       hostRecoveryId: hostA,
       hostRecoveryIds: Object.freeze([hostA, "x".repeat(1_025)]),
@@ -316,7 +316,7 @@ test("partial salvageはown-dataのcanonical IDだけをboundedに保持する",
     enumerable: true,
     value: Object.freeze([hostB]),
   });
-  const partial = salvageSignedRunnerRecoveryPair(accessor, {
+  const partial = salvageVerificationRecoveryPair(accessor, {
     singularField: "hostRecoveryId",
     pluralField: "hostRecoveryIds",
     kind: "host",

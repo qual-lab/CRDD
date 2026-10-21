@@ -1,5 +1,5 @@
 /**
- * verify-signed-general-taskに属する責務をまとめる。
+ * verify-general-taskに属する責務をまとめる。
  *
  * @responsibility RuntimeRecordを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000004
@@ -45,10 +45,10 @@ import {
 } from "../src/diagnostics/release-identity-grammar.ts";
 import { inspectRepositoryRevisionCandidate } from "../src/repository-operation/binding.ts";
 import {
-  evaluateSignedRunnerSafetyObservation,
-  salvageSignedRunnerNullableRecovery,
-  salvageSignedRunnerRecoveryPair,
-} from "../src/diagnostics/signed-runner-safety-observation.ts";
+  evaluateVerificationSafetyObservation,
+  salvageVerificationNullableRecovery,
+  salvageVerificationRecoveryPair,
+} from "./verification-safety.ts";
 
 export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT =
   "crdd-coordinator/signed-general-task-verification";
@@ -99,7 +99,7 @@ const TASK_SAFETY_SCHEMA = Object.freeze({
 });
 
 /**
- * verify-signed-general-taskで使用するRuntime 記録の値契約を定義する。
+ * verify-general-taskで使用するRuntime 記録の値契約を定義する。
  *
  * @responsibility Runtime 記録のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
@@ -129,7 +129,7 @@ const signedGeneralTaskResultReasonSet = new Set<string>([
   ...coordinatorTaskPublicReasons,
 ]);
 /**
- * verify-signed-general-taskで使用する一般Task検証 結果の値契約を定義する。
+ * verify-general-taskで使用する一般Task検証 結果の値契約を定義する。
  *
  * @responsibility 一般Task検証 結果のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
@@ -190,7 +190,7 @@ export type SignedGeneralTaskVerificationResult = RuntimeRecord &
       | null;
   }>;
 /**
- * verify-signed-general-taskで使用するSigned General Task Route Profileの値契約を定義する。
+ * verify-general-taskで使用するSigned General Task Route Profileの値契約を定義する。
  *
  * @responsibility Signed General Task Route ProfileのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
@@ -206,7 +206,7 @@ export type SignedGeneralTaskRouteProfile =
   | "same-codex"
   | "same-claude";
 /**
- * verify-signed-general-taskで使用するRoute Expectationの値契約を定義する。
+ * verify-general-taskで使用するRoute Expectationの値契約を定義する。
  *
  * @responsibility Route ExpectationのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
@@ -224,7 +224,7 @@ type RouteExpectation = Readonly<{
   route: string;
 }>;
 /**
- * verify-signed-general-taskで使用するSource Identityの値契約を定義する。
+ * verify-general-taskで使用するSource Identityの値契約を定義する。
  *
  * @responsibility Source IdentityのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
@@ -243,7 +243,7 @@ type SourceIdentity = RuntimeRecord &
     crddTree: string;
   }>;
 /**
- * verify-signed-general-taskで使用するExecution Revisionの値契約を定義する。
+ * verify-general-taskで使用するExecution Revisionの値契約を定義する。
  *
  * @responsibility Execution RevisionのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
@@ -258,7 +258,7 @@ type ExecutionRevision = Readonly<{
   tree: string;
 }>;
 /**
- * verify-signed-general-taskで使用するCancellation Bindingの値契約を定義する。
+ * verify-general-taskで使用するCancellation Bindingの値契約を定義する。
  *
  * @responsibility Cancellation BindingのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
@@ -274,7 +274,7 @@ type CancellationBinding = Readonly<{
   requestedPromise: Promise<void>;
 }>;
 /**
- * verify-signed-general-taskで使用するCancellation Signal Sourceの値契約を定義する。
+ * verify-general-taskで使用するCancellation Signal Sourceの値契約を定義する。
  *
  * @responsibility Cancellation Signal SourceのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
@@ -292,7 +292,7 @@ type CancellationSignalSource = Readonly<{
   ) => unknown;
 }>;
 /**
- * verify-signed-general-taskで使用するVerification Dependenciesの値契約を定義する。
+ * verify-general-taskで使用するVerification Dependenciesの値契約を定義する。
  *
  * @responsibility Verification DependenciesのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
@@ -894,7 +894,7 @@ function boundedRecoveryIds(
       : null;
     if (!hasSingular && !hasPlural) continue;
     if (pluralField) {
-      const recovered = salvageSignedRunnerRecoveryPair(result, {
+      const recovered = salvageVerificationRecoveryPair(result, {
         singularField,
         pluralField,
         kind,
@@ -902,7 +902,7 @@ function boundedRecoveryIds(
       ids.push(...recovered.plural);
       if (recovered.ambiguous) isAmbiguous = true;
     } else {
-      const recovered = salvageSignedRunnerNullableRecovery(
+      const recovered = salvageVerificationNullableRecovery(
         result,
         singularField,
         kind,
@@ -1001,9 +1001,9 @@ function recoveryProjection(...results: readonly (RuntimeRecord | null)[]) {
 }
 
 /**
- * verify-signed-general-taskを停止結果として構築する。
+ * verify-general-taskを停止結果として構築する。
  *
- * @responsibility verify-signed-general-taskの停止理由、未発行Effect、公開結果境界を所有する。
+ * @responsibility verify-general-taskの停止理由、未発行Effect、公開結果境界を所有する。
  * @trace ARCH-000004
  * @input reason: string、source: RuntimeRecord | null、extra: RuntimeRecord、additionalRecoverySources: readonly (RuntimeRecord | null)[]
  * @returns blockedの計算結果を返す。
@@ -1833,7 +1833,7 @@ export async function runSignedGeneralTaskVerification(
         throw new Error(postStartUnknownReason);
       }
 
-      const safety = evaluateSignedRunnerSafetyObservation(
+      const safety = evaluateVerificationSafetyObservation(
         taskResult,
         TASK_SAFETY_SCHEMA,
       );
@@ -2117,7 +2117,7 @@ export async function runSignedGeneralTaskVerification(
       }
     }
     if (taskResult && (isPostStartUnknown || cancellationRequested)) {
-      const safety = evaluateSignedRunnerSafetyObservation(
+      const safety = evaluateVerificationSafetyObservation(
         taskResult,
         TASK_SAFETY_SCHEMA,
       );
@@ -2290,9 +2290,9 @@ export function describeSignedGeneralTaskVerificationContract() {
 }
 
 /**
- * verify-signed-general-taskのCommand処理を開始する。
+ * verify-general-taskのCommand処理を開始する。
  *
- * @responsibility verify-signed-general-taskの引数受付、終了Code、診断出力境界を所有する。
+ * @responsibility verify-general-taskの引数受付、終了Code、診断出力境界を所有する。
  * @trace ARCH-000004
  * @input N/A: 実行時引数を受け取らない。
  * @returns N/A: mainは戻り値を返さない。

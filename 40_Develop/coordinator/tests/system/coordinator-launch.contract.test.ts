@@ -46,8 +46,8 @@ test("共通Launcherの実行入口を一つの正本から解決する", () => 
     task: "../src/cli/command.ts",
     interactive: "../src/cli/command.ts",
     automation: "../src/cli/command.ts",
-    "verify-routes": "../scripts/verify-signed-route-matrix.ts",
-    "verify-recovery": "../scripts/verify-signed-recovery-matrix.ts",
+    "verify-routes": "../scripts/verify-route-matrix.ts",
+    "verify-recovery": "../scripts/verify-recovery-matrix.ts",
     "authenticate-claude": "../scripts/authenticate-claude-subscription.ts",
   });
   assert.equal(Object.isFrozen(COORDINATOR_LAUNCH_ENTRIES), true);

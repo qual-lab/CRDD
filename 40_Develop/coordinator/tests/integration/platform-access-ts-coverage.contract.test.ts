@@ -88,7 +88,7 @@ test("TypeScript coverageは固定sourceとtest母集団を所有する", () => 
   assert.equal(new Set(PLATFORM_ACCESS_TS_COVERAGE_TESTS).size, 8);
   assert.ok(
     PLATFORM_ACCESS_TS_COVERAGE_SOURCES.includes(
-      "40_Develop/coordinator/src/diagnostics/native-git-provenance.ts",
+      "40_Develop/coordinator/scripts/native-git-provenance.ts",
     ),
   );
   assert.ok(
@@ -104,7 +104,7 @@ test("TypeScript coverageは固定sourceとtest母集団を所有する", () => 
   );
   assert.equal(
     PLATFORM_ACCESS_TS_COVERAGE_SOURCES.includes(
-      "40_Develop/coordinator/src/diagnostics/native-git-provenance.ts",
+      "40_Develop/coordinator/scripts/native-git-provenance.ts",
     ),
     true,
   );

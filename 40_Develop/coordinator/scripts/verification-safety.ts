@@ -1,67 +1,67 @@
 /**
- * signed-runner-safety-observationに属する責務をまとめる。
+ * verification-safetyに属する責務をまとめる。
  *
- * @responsibility SignedRunnerSafetySchemaを中心とする実装、型および境界を同じModuleで所有する。
+ * @responsibility VerificationSafetySchemaを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000014
  */
 import { types as utilTypes } from "node:util";
 
-import { snapshotPlainArray } from "../../../domain-model/src/index.ts";
+import { snapshotPlainArray } from "../../domain-model/src/index.ts";
 
 /**
- * signed-runner-safety-observationで使用するSigned Runner Safety Schemaの値契約を定義する。
+ * verification-safetyで使用する検証結果 Safety Schemaの値契約を定義する。
  *
- * @responsibility Signed Runner Safety SchemaのProperty、Identity、状態制約を型境界として所有する。
+ * @responsibility 検証結果 Safety SchemaのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000014
- * @shape SignedRunnerSafetySchemaが表すProperty、識別子およびRelationを型として固定する。
- * @invariant SignedRunnerSafetySchemaで宣言した値と責務の対応を維持する。
- * @boundary N/A: SignedRunnerSafetySchemaの宣言は外部境界を開かない。
- * @security SignedRunnerSafetySchemaはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility SignedRunnerSafetySchemaの利用側は宣言済みPropertyと型制約だけへ依存する。
+ * @shape VerificationSafetySchemaが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant VerificationSafetySchemaで宣言した値と責務の対応を維持する。
+ * @boundary N/A: VerificationSafetySchemaの宣言は外部境界を開かない。
+ * @security VerificationSafetySchemaはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility VerificationSafetySchemaの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type SignedRunnerSafetySchema = Readonly<{
+export type VerificationSafetySchema = Readonly<{
   booleanFields: readonly string[];
   nullableRecoveryFields: readonly Readonly<{
     field: string;
-    kind: SignedRunnerRecoveryKind;
+    kind: VerificationRecoveryKind;
   }>[];
   recoveryPairs: readonly Readonly<{
     singularField: string;
     pluralField: string;
-    kind: SignedRunnerRecoveryKind;
+    kind: VerificationRecoveryKind;
   }>[];
   effectUnknownField?: string;
 }>;
 
 /**
- * signed-runner-safety-observationで使用するSigned Runner 回復 Kindの値契約を定義する。
+ * verification-safetyで使用する検証結果 回復 Kindの値契約を定義する。
  *
- * @responsibility Signed Runner 回復 KindのProperty、Identity、状態制約を型境界として所有する。
+ * @responsibility 検証結果 回復 KindのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000014
- * @shape SignedRunnerRecoveryKindが表すProperty、識別子およびRelationを型として固定する。
- * @invariant SignedRunnerRecoveryKindで宣言した値と責務の対応を維持する。
- * @boundary N/A: SignedRunnerRecoveryKindの宣言は外部境界を開かない。
- * @security SignedRunnerRecoveryKindはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility SignedRunnerRecoveryKindの利用側は宣言済みPropertyと型制約だけへ依存する。
+ * @shape VerificationRecoveryKindが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant VerificationRecoveryKindで宣言した値と責務の対応を維持する。
+ * @boundary N/A: VerificationRecoveryKindの宣言は外部境界を開かない。
+ * @security VerificationRecoveryKindはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility VerificationRecoveryKindの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type SignedRunnerRecoveryKind =
+export type VerificationRecoveryKind =
   | "host"
   | "docker"
   | "candidate"
   | "candidate_store";
 
 /**
- * signed-runner-safety-observationで使用するSigned Runner Safety Observationの値契約を定義する。
+ * verification-safetyで使用する検証結果 Safety Observationの値契約を定義する。
  *
- * @responsibility Signed Runner Safety ObservationのProperty、Identity、状態制約を型境界として所有する。
+ * @responsibility 検証結果 Safety ObservationのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000014
- * @shape SignedRunnerSafetyObservationが表すProperty、識別子およびRelationを型として固定する。
- * @invariant SignedRunnerSafetyObservationで宣言した値と責務の対応を維持する。
- * @boundary N/A: SignedRunnerSafetyObservationの宣言は外部境界を開かない。
- * @security SignedRunnerSafetyObservationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility SignedRunnerSafetyObservationの利用側は宣言済みPropertyと型制約だけへ依存する。
+ * @shape VerificationSafetyObservationが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant VerificationSafetyObservationで宣言した値と責務の対応を維持する。
+ * @boundary N/A: VerificationSafetyObservationの宣言は外部境界を開かない。
+ * @security VerificationSafetyObservationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility VerificationSafetyObservationの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type SignedRunnerSafetyObservation = Readonly<{
+export type VerificationSafetyObservation = Readonly<{
   status: "exact" | "unknown";
   booleans: Readonly<Record<string, boolean>> | null;
   recoveryIds: readonly string[];
@@ -69,7 +69,7 @@ export type SignedRunnerSafetyObservation = Readonly<{
 
 const MAXIMUM_RECOVERY_IDS = 128;
 const MAXIMUM_RECOVERY_ID_LENGTH = 1024;
-const RECOVERY_ID_PATTERNS: Readonly<Record<SignedRunnerRecoveryKind, RegExp>> =
+const RECOVERY_ID_PATTERNS: Readonly<Record<VerificationRecoveryKind, RegExp>> =
   Object.freeze({
     host: /^host\.[A-Za-z0-9_-]{1,128}\.[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.[0-9a-f]{64}$/u,
     docker: /^docker-task\.[0-9a-f]{64}\.[0-9a-f]{64}\.[0-9a-f]{64}$/u,
@@ -78,24 +78,24 @@ const RECOVERY_ID_PATTERNS: Readonly<Record<SignedRunnerRecoveryKind, RegExp>> =
   });
 
 /**
- * Canonical Signed Runner 回復 Idかを判定する。
+ * Canonical 検証結果 回復 Idかを判定する。
  *
- * @responsibility Canonical Signed Runner 回復 Idの判定条件とtrue／false境界を所有する。
+ * @responsibility Canonical 検証結果 回復 Idの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000014
- * @input value: unknown、kind: SignedRunnerRecoveryKind
+ * @input value: unknown、kind: VerificationRecoveryKind
  * @returns value is stringを返す。
- * @precondition 「value: unknown、kind: SignedRunnerRecoveryKind」がisCanonicalSignedRunnerRecoveryIdの入力契約を満たす。
- * @postcondition isCanonicalSignedRunnerRecoveryIdの責務を完了した結果だけを返す。
- * @effect N/A: isCanonicalSignedRunnerRecoveryIdは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: isCanonicalSignedRunnerRecoveryIdは独自の失敗分岐を所有しない。
- * @invariant isCanonicalSignedRunnerRecoveryIdは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: isCanonicalSignedRunnerRecoveryIdはProcess内の同一Subsystemで完結する。
- * @security isCanonicalSignedRunnerRecoveryIdはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: isCanonicalSignedRunnerRecoveryIdは共有非同期状態を持たない同期処理である。
+ * @precondition 「value: unknown、kind: VerificationRecoveryKind」がisCanonicalVerificationRecoveryIdの入力契約を満たす。
+ * @postcondition isCanonicalVerificationRecoveryIdの責務を完了した結果だけを返す。
+ * @effect N/A: isCanonicalVerificationRecoveryIdは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isCanonicalVerificationRecoveryIdは独自の失敗分岐を所有しない。
+ * @invariant isCanonicalVerificationRecoveryIdは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: isCanonicalVerificationRecoveryIdはProcess内の同一Subsystemで完結する。
+ * @security isCanonicalVerificationRecoveryIdはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: isCanonicalVerificationRecoveryIdは共有非同期状態を持たない同期処理である。
  */
-export function isCanonicalSignedRunnerRecoveryId(
+export function isCanonicalVerificationRecoveryId(
   value: unknown,
-  kind: SignedRunnerRecoveryKind,
+  kind: VerificationRecoveryKind,
 ): value is string {
   return (
     typeof value === "string" &&
@@ -133,25 +133,25 @@ function ownDataValue(record: object, field: string) {
 }
 
 /**
- * salvage Signed Runner Nullable 回復を決定する。
+ * salvage 検証結果 Nullable 回復を決定する。
  *
- * @responsibility salvage Signed Runner Nullable 回復の導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @responsibility salvage 検証結果 Nullable 回復の導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
- * @input value: unknown、field: string、kind: SignedRunnerRecoveryKind
- * @returns salvageSignedRunnerNullableRecoveryの計算結果を返す。
- * @precondition 「value: unknown、field: string、kind: SignedRunnerRecoveryKind」がsalvageSignedRunnerNullableRecoveryの入力契約を満たす。
- * @postcondition salvageSignedRunnerNullableRecoveryの責務を完了した結果だけを返す。
- * @effect N/A: salvageSignedRunnerNullableRecoveryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure salvageSignedRunnerNullableRecoveryは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant salvageSignedRunnerNullableRecoveryは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: salvageSignedRunnerNullableRecoveryはProcess内の同一Subsystemで完結する。
- * @security salvageSignedRunnerNullableRecoveryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: salvageSignedRunnerNullableRecoveryは共有非同期状態を持たない同期処理である。
+ * @input value: unknown、field: string、kind: VerificationRecoveryKind
+ * @returns salvageVerificationNullableRecoveryの計算結果を返す。
+ * @precondition 「value: unknown、field: string、kind: VerificationRecoveryKind」がsalvageVerificationNullableRecoveryの入力契約を満たす。
+ * @postcondition salvageVerificationNullableRecoveryの責務を完了した結果だけを返す。
+ * @effect N/A: salvageVerificationNullableRecoveryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure salvageVerificationNullableRecoveryは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant salvageVerificationNullableRecoveryは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: salvageVerificationNullableRecoveryはProcess内の同一Subsystemで完結する。
+ * @security salvageVerificationNullableRecoveryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: salvageVerificationNullableRecoveryは共有非同期状態を持たない同期処理である。
  */
-export function salvageSignedRunnerNullableRecovery(
+export function salvageVerificationNullableRecovery(
   value: unknown,
   field: string,
-  kind: SignedRunnerRecoveryKind,
+  kind: VerificationRecoveryKind,
 ) {
   try {
     if (
@@ -169,7 +169,7 @@ export function salvageSignedRunnerNullableRecovery(
       return Object.freeze({ id: null, ambiguous: true });
     if (observed.value === null)
       return Object.freeze({ id: null, ambiguous: false });
-    if (isCanonicalSignedRunnerRecoveryId(observed.value, kind))
+    if (isCanonicalVerificationRecoveryId(observed.value, kind))
       return Object.freeze({ id: observed.value, ambiguous: false });
     return Object.freeze({ id: null, ambiguous: true });
   } catch {
@@ -178,27 +178,27 @@ export function salvageSignedRunnerNullableRecovery(
 }
 
 /**
- * salvage Signed Runner 回復 Pairを決定する。
+ * salvage 検証結果 回復 Pairを決定する。
  *
- * @responsibility salvage Signed Runner 回復 Pairの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @responsibility salvage 検証結果 回復 Pairの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000014
- * @input value: unknown、pair: Readonly<{ singularField: string; pluralField: string; kind: SignedRunnerRecoveryKind; }>
- * @returns salvageSignedRunnerRecoveryPairの計算結果を返す。
- * @precondition 「value: unknown、pair: Readonly<{ singularField: string; pluralField: string; kind: SignedRunnerRecoveryKind; }>」がsalvageSignedRunnerRecoveryPairの入力契約を満たす。
- * @postcondition salvageSignedRunnerRecoveryPairの責務を完了した結果だけを返す。
- * @effect N/A: salvageSignedRunnerRecoveryPairは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure salvageSignedRunnerRecoveryPairは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant salvageSignedRunnerRecoveryPairは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: salvageSignedRunnerRecoveryPairはProcess内の同一Subsystemで完結する。
- * @security salvageSignedRunnerRecoveryPairはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: salvageSignedRunnerRecoveryPairは共有非同期状態を持たない同期処理である。
+ * @input value: unknown、pair: Readonly<{ singularField: string; pluralField: string; kind: VerificationRecoveryKind; }>
+ * @returns salvageVerificationRecoveryPairの計算結果を返す。
+ * @precondition 「value: unknown、pair: Readonly<{ singularField: string; pluralField: string; kind: VerificationRecoveryKind; }>」がsalvageVerificationRecoveryPairの入力契約を満たす。
+ * @postcondition salvageVerificationRecoveryPairの責務を完了した結果だけを返す。
+ * @effect N/A: salvageVerificationRecoveryPairは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure salvageVerificationRecoveryPairは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant salvageVerificationRecoveryPairは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: salvageVerificationRecoveryPairはProcess内の同一Subsystemで完結する。
+ * @security salvageVerificationRecoveryPairはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: salvageVerificationRecoveryPairは共有非同期状態を持たない同期処理である。
  */
-export function salvageSignedRunnerRecoveryPair(
+export function salvageVerificationRecoveryPair(
   value: unknown,
   pair: Readonly<{
     singularField: string;
     pluralField: string;
-    kind: SignedRunnerRecoveryKind;
+    kind: VerificationRecoveryKind;
   }>,
 ) {
   try {
@@ -218,7 +218,7 @@ export function salvageSignedRunnerRecoveryPair(
       singular.status !== "exact" || pluralObserved.status !== "exact";
     const ids: string[] = [];
     if (singular.status === "exact") {
-      if (isCanonicalSignedRunnerRecoveryId(singular.value, pair.kind))
+      if (isCanonicalVerificationRecoveryId(singular.value, pair.kind))
         ids.push(singular.value);
       else if (singular.value !== null) isAmbiguous = true;
     }
@@ -230,7 +230,7 @@ export function salvageSignedRunnerRecoveryPair(
       if (plural.status !== "ok") isAmbiguous = true;
       else {
         for (const item of plural.value) {
-          if (isCanonicalSignedRunnerRecoveryId(item, pair.kind))
+          if (isCanonicalVerificationRecoveryId(item, pair.kind))
             ids.push(item);
           else isAmbiguous = true;
         }
@@ -266,25 +266,25 @@ export function salvageSignedRunnerRecoveryPair(
 }
 
 /**
- * Signed Runner Safety Observationを評価する。
+ * 検証結果 Safety Observationを評価する。
  *
- * @responsibility Signed Runner Safety Observationの評価入力、判定規則、判断不能結果の境界を所有する。
+ * @responsibility 検証結果 Safety Observationの評価入力、判定規則、判断不能結果の境界を所有する。
  * @trace ARCH-000014
- * @input value: unknown、schema: SignedRunnerSafetySchema
- * @returns SignedRunnerSafetyObservationを返す。
- * @precondition 「value: unknown、schema: SignedRunnerSafetySchema」がevaluateSignedRunnerSafetyObservationの入力契約を満たす。
- * @postcondition evaluateSignedRunnerSafetyObservationの責務を完了した結果だけを返す。
- * @effect N/A: evaluateSignedRunnerSafetyObservationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure evaluateSignedRunnerSafetyObservationは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant evaluateSignedRunnerSafetyObservationは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: evaluateSignedRunnerSafetyObservationはProcess内の同一Subsystemで完結する。
- * @security evaluateSignedRunnerSafetyObservationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: evaluateSignedRunnerSafetyObservationは共有非同期状態を持たない同期処理である。
+ * @input value: unknown、schema: VerificationSafetySchema
+ * @returns VerificationSafetyObservationを返す。
+ * @precondition 「value: unknown、schema: VerificationSafetySchema」がevaluateVerificationSafetyObservationの入力契約を満たす。
+ * @postcondition evaluateVerificationSafetyObservationの責務を完了した結果だけを返す。
+ * @effect N/A: evaluateVerificationSafetyObservationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure evaluateVerificationSafetyObservationは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant evaluateVerificationSafetyObservationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: evaluateVerificationSafetyObservationはProcess内の同一Subsystemで完結する。
+ * @security evaluateVerificationSafetyObservationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: evaluateVerificationSafetyObservationは共有非同期状態を持たない同期処理である。
  */
-export function evaluateSignedRunnerSafetyObservation(
+export function evaluateVerificationSafetyObservation(
   value: unknown,
-  schema: SignedRunnerSafetySchema,
-): SignedRunnerSafetyObservation {
+  schema: VerificationSafetySchema,
+): VerificationSafetyObservation {
   try {
     if (
       !value ||
@@ -311,7 +311,7 @@ export function evaluateSignedRunnerSafetyObservation(
       if (
         observed.status !== "exact" ||
         (observed.value !== null &&
-          !isCanonicalSignedRunnerRecoveryId(observed.value, field.kind))
+          !isCanonicalVerificationRecoveryId(observed.value, field.kind))
       )
         throw new Error("safety_observation_recovery_unknown");
       if (typeof observed.value === "string") ids.push(observed.value);
@@ -322,7 +322,7 @@ export function evaluateSignedRunnerSafetyObservation(
       if (
         singular.status !== "exact" ||
         (singular.value !== null &&
-          !isCanonicalSignedRunnerRecoveryId(singular.value, pair.kind)) ||
+          !isCanonicalVerificationRecoveryId(singular.value, pair.kind)) ||
         pluralObserved.status !== "exact"
       )
         throw new Error("safety_observation_recovery_unknown");
@@ -333,7 +333,7 @@ export function evaluateSignedRunnerSafetyObservation(
       if (
         plural.status !== "ok" ||
         plural.value.some(
-          (item) => !isCanonicalSignedRunnerRecoveryId(item, pair.kind),
+          (item) => !isCanonicalVerificationRecoveryId(item, pair.kind),
         ) ||
         new Set(plural.value).size !== plural.value.length
       )

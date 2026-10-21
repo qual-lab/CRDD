@@ -16,7 +16,7 @@ import { syncBuiltinESMExports } from "node:module";
 import tty from "node:tty";
 import workerThreads from "node:worker_threads";
 
-import { runSignedGeneralTaskVerification } from "../../scripts/verify-signed-general-task.ts";
+import { runSignedGeneralTaskVerification } from "../../scripts/verify-general-task.ts";
 import {
   interactiveConsoleAvailabilityOutcome,
   readInteractiveConsoleLine,

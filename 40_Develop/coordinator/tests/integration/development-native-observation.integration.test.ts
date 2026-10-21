@@ -846,8 +846,7 @@ async function runProbe(target: string, scenario: string) {
     return new URL(`../../src/${sources[name]}`, import.meta.url).href;
   };
   await mock.module(
-    new URL("../../src/diagnostics/native-git-provenance.ts", import.meta.url)
-      .href,
+    new URL("../../scripts/native-git-provenance.ts", import.meta.url).href,
     {
       namedExports: {
         inspectPlatformAccessNativeGitProvenanceCandidate: () => {

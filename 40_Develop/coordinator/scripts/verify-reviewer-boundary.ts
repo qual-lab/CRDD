@@ -1,5 +1,5 @@
 /**
- * verify-signed-reviewer-boundaryに属する責務をまとめる。
+ * verify-reviewer-boundaryに属する責務をまとめる。
  *
  * @responsibility RuntimeRecordを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000004
@@ -22,7 +22,7 @@ import {
   SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT,
   SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION,
   type SignedGeneralTaskRouteProfile,
-} from "./verify-signed-general-task.ts";
+} from "./verify-general-task.ts";
 
 export const SIGNED_REVIEWER_BOUNDARY_VERIFICATION_CONTRACT =
   "crdd-coordinator/signed-reviewer-boundary-verification";
@@ -33,7 +33,7 @@ const ROUTES: readonly SignedGeneralTaskRouteProfile[] = Object.freeze([
   "reverse",
 ]);
 /**
- * verify-signed-reviewer-boundaryで使用するRuntime 記録の値契約を定義する。
+ * verify-reviewer-boundaryで使用するRuntime 記録の値契約を定義する。
  *
  * @responsibility Runtime 記録のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
@@ -304,9 +304,9 @@ export function describeSignedReviewerBoundaryVerificationContract() {
 }
 
 /**
- * verify-signed-reviewer-boundaryのCommand処理を開始する。
+ * verify-reviewer-boundaryのCommand処理を開始する。
  *
- * @responsibility verify-signed-reviewer-boundaryの引数受付、終了Code、診断出力境界を所有する。
+ * @responsibility verify-reviewer-boundaryの引数受付、終了Code、診断出力境界を所有する。
  * @trace ARCH-000004
  * @input N/A: 実行時引数を受け取らない。
  * @returns mainの計算結果を返す。

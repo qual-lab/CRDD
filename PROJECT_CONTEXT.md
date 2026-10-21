@@ -22,7 +22,7 @@ Version ControlのWorktree管理に続き、名前付きCandidateの明示固定
 
 | 対象 | 現在の状態 | Owner Relation |
 |---|---|---|
-| 残る実行系の再編 | Aを`f8f7a9986`でCommit／Push。BはSource108 File・公開19宣言・bin／scripts／試験の移管対応表を候補化。技術処理と上位の許可・保存・実行判断を分離し、Folder丸ごとの移管はしない。B実装・C〜D、system・実境界・全体QAは未完了。全体文書検査は不合格、保持中試験物は不操作 | [Aの結果・Bの棚卸しと順序](99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#8-bの棚卸しと責務移管対応表) |
+| 残る実行系の再編 | AとB棚卸しを`077b38b7d`までCommit／Push。B1は検証補助3件をscriptsへ移し、検証Script4件の旧名・利用側・試験・台帳を整理。型・選択回帰・限定独立再レビューを確認し、公開19宣言と既存保証は維持。PA既存命名不合格はB2へ残す。B2以降・C〜D・実境界・全体QAは未完了で、保持中試験物は不操作 | [B1の結果と次の境界](99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#91-b1の実施結果と残る境界) |
 | Docker Isolationの構造・追加通信先 | 配置・設定・同意・Workbench・Proxy接続と旧定義整理、限定実通信・回帰・独立レビューを確認。DNS上限不足を是正した固定Imageでnpm／pip取得、未許可・直接通信拒否、取得後待機取消・今回資源回収が成功。広回帰の追従漏れ1件は是正後再確認済み。製品全体E2E・Releaseとは区別し、既存②と先行2Rootのunknownは別に保持する | [対応表・集約結果・保持参照](99_Roadmap/Changes/CHG-000082/docker-isolation-source-structure.md) |
 | Platform Accessの構造・Native接続再編 | ①〜⑤の移管・配置・公開API整理は完了。Host記録・Desktop補助子の技術処理をPAへ移し、上位の許可・回復判断は維持。PA88件・DI293件・Rust55件等の通常回帰、静的検査、台帳378件valid、限定独立レビュー残指摘0。明示Docker試験・配布更新・外部AI E2Eは対象外。全体文書検査の既存不合格は未解消 | [対応表・結果と残る検証境界](99_Roadmap/Changes/CHG-000082/platform-access-source-structure.md#11-①⑤の最終照合) |
 | WorkbenchのFramework・構造移行 | Express／Router／Query、画面分割・共有契約・全Client TSXの通常検査を接続。対象1〜5は最終通常78件・全Browser15件・表示検証・静的確認と限定独立再レビュー指摘0で完了。先行Browser失敗はreload応答境界まで特定して試験観測を是正したが、CDP内部原因の完全特定とは扱わない。実AI・実Hostの人間確認・全体QA・Releaseは別途 | [現在の結果と限界](99_Roadmap/Changes/CHG-000082/workbench-framework-structure.md#14-query画面分割共有配置と通常検査) |

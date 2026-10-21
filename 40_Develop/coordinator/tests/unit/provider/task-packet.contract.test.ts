@@ -14,7 +14,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import test from "node:test";
 import { createRepositoryTestDirectory } from "../../support/repository-test-directory.ts";
-import { createSignedGeneralTaskVerificationRequest } from "../../../scripts/verify-signed-general-task.ts";
+import { createSignedGeneralTaskVerificationRequest } from "../../../scripts/verify-general-task.ts";
 
 import {
   cleanupOwnedOperationDirectories,

@@ -11,12 +11,12 @@
 import { requestRuntimeOwnedExternalSendGrant } from "../../src/external-send/grant.ts";
 import { startRuntimeOwnedCoordinatorTask } from "../../src/task/execution.ts";
 import { isRuntimeProcessPoisoned } from "../../src/host-execution/process-safety-state.ts";
-import { runSignedRouteMatrixVerification } from "../../scripts/verify-signed-route-matrix.ts";
+import { runSignedRouteMatrixVerification } from "../../scripts/verify-route-matrix.ts";
 import {
   SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT,
   SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION,
   type SignedGeneralTaskRouteProfile,
-} from "../../scripts/verify-signed-general-task.ts";
+} from "../../scripts/verify-general-task.ts";
 
 const scenario = process.argv[2] ?? "runner_exception";
 const routes = {
@@ -151,7 +151,7 @@ const result = await runSignedRouteMatrixVerification(process.cwd(), (async (
       },
     });
   return Object.freeze(value);
-}) as typeof import("../../scripts/verify-signed-general-task.ts").runSignedGeneralTaskVerification);
+}) as typeof import("../../scripts/verify-general-task.ts").runSignedGeneralTaskVerification);
 const secondMatrix = await runSignedRouteMatrixVerification(process.cwd());
 
 let taskReads = 0;

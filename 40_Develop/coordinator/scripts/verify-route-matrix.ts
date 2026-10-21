@@ -1,5 +1,5 @@
 /**
- * verify-signed-route-matrixに属する責務をまとめる。
+ * verify-route-matrixに属する責務をまとめる。
  *
  * @responsibility emptyArrayを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000004
@@ -20,15 +20,15 @@ import { SIGNED_ROUTE_MATRIX_REASONS } from "./verification-result-reasons.ts";
 import { snapshotPlainArray } from "../../domain-model/src/index.ts";
 import { isSupportedCrddRuntimeGitObjectId } from "../src/diagnostics/release-identity-grammar.ts";
 import {
-  evaluateSignedRunnerSafetyObservation,
-  salvageSignedRunnerRecoveryPair,
-} from "../src/diagnostics/signed-runner-safety-observation.ts";
+  evaluateVerificationSafetyObservation,
+  salvageVerificationRecoveryPair,
+} from "./verification-safety.ts";
 import {
   runSignedGeneralTaskVerification,
   SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT,
   SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION,
   type SignedGeneralTaskRouteProfile,
-} from "./verify-signed-general-task.ts";
+} from "./verify-general-task.ts";
 
 export const SIGNED_ROUTE_MATRIX_VERIFICATION_CONTRACT =
   "crdd-coordinator/signed-route-matrix-verification";
@@ -369,7 +369,7 @@ function sanitizedRouteRecovery(
   const projection: Record<string, unknown> = Object.create(null);
   let isAmbiguous = false;
   for (const pair of RECOVERY_PAIRS) {
-    const recovered = salvageSignedRunnerRecoveryPair(result, {
+    const recovered = salvageVerificationRecoveryPair(result, {
       singularField: pair.singular,
       pluralField: pair.plural,
       kind: pair.kind,
@@ -692,7 +692,7 @@ export async function runSignedRouteMatrixVerification(
         const result = snapshotRouteRecord(outcome);
         if (!result) throw new Error("route_result_snapshot_unknown");
         routeSnapshot = result;
-        const safety = evaluateSignedRunnerSafetyObservation(
+        const safety = evaluateVerificationSafetyObservation(
           result,
           ROUTE_SAFETY_SCHEMA,
         );
@@ -911,9 +911,9 @@ export function createSignedRouteMatrixCliFailureResult(
 }
 
 /**
- * verify-signed-route-matrixのCommand処理を開始する。
+ * verify-route-matrixのCommand処理を開始する。
  *
- * @responsibility verify-signed-route-matrixの引数受付、終了Code、診断出力境界を所有する。
+ * @responsibility verify-route-matrixの引数受付、終了Code、診断出力境界を所有する。
  * @trace ARCH-000004
  * @input N/A: 実行時引数を受け取らない。
  * @returns mainの計算結果を返す。

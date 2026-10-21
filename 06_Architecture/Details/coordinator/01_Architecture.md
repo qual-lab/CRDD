@@ -120,7 +120,9 @@ Task起動前とCLI診断は、検査対象Repository Rootを明示して同じ�
 
 ### B段階の責務移管計画との接続
 
-現在のSource108 Fileと公開19宣言の再編候補は、[統合計画のB棚卸し](../../../99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#8-bの棚卸しと責務移管対応表)に対応付けた。これは実Ownerの切替済みを表さない。Provider仕様は既存AI Adapter、Docker技術はDI、OS技術はPA、Git技術はVCへ寄せ、選定・同意・Home利用許可・Operation相関・耐久受領と終了判断はCまで上位が所有する。巨大なHost／State Fileを名前だけで下位へ丸ごと移さず、具体的な公開型とAtomic境界は移管単位のSource編集前に本設計へ反映する。
+B棚卸し基準版のSource108 Fileと公開19宣言の再編候補は、[統合計画のB棚卸し](../../../99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#8-bの棚卸しと責務移管対応表)に対応付けた。これは実Ownerの切替済みを表さない。Provider仕様は既存AI Adapter、Docker技術はDI、OS技術はPA、Git技術はVCへ寄せ、選定・同意・Home利用許可・Operation相関・耐久受領と終了判断はCまで上位が所有する。巨大なHost／State Fileを名前だけで下位へ丸ごと移さず、具体的な公開型とAtomic境界は移管単位のSource編集前に本設計へ反映する。
+
+B1で、Native Trace解析、Native単体のGit出所確認、検証結果の安全性判定を既存検証Toolのscripts補助へ移し、現在の製品Sourceは105 Fileとなった。通常Runtimeの公開API・許可・実行・保存は変えない。Doctorが使うLifecycle説明、独立したTrust読取り評価、開発Taskの時間計測は実Consumer／検証義務があるため維持する。旧`verify-signed-*`は署名不要の実責務に合わせFile名を整理するが、既存の結果識別子・理由・CLI引数を改変せず、署名Gateを追加しない。[B1の処置と検証範囲](../../../99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#9-b1不要候補と検証専用処理の処置)を参照する。
 
 ### 修復専用保存Ownerの接続契約（CLI候補・全体未完了）
 
@@ -379,7 +381,7 @@ Taskの既存型契約は`startRuntimeOwnedCoordinatorTask`の引数・戻り値
 | `cli/coordinator-command.ts`のTask処理 | CoordinatorのCLIから下位公開Task操作へ接続 | Runtime検証とRoot確認、開始拒否、Signal登録、完了待機、Signal解除、最終結果を保持する。単体利用にOrchestratorを要求しない。 |
 | `workbench-ai/workbench-ai-change-candidate-runtime.ts` | Coordinatorの候補実行処理から同じTask操作へ接続 | Workbench受付は上位へ分離しても、候補生成時のTask開始・取消・回収は重複実装しない。正本採用・Commit・Pushを発行しない。 |
 | `orchestrator/orchestrator-composition-root.ts`の`productionExecutionDependencies.startTask/cancelTask` | Orchestratorの本番構成からCoordinator公開入口をimport | 下位から上位へのimportと旧署名実行Capabilityの発行・失効を撤去する。現在の実行許可、Task取消、上位結果保存、slot解除の責務を混ぜない。 |
-| `scripts/verify-signed-general-task.ts` | Coordinatorの検証スクリプトから同じ公開Task操作へ接続 | 本番と同じ開始・取消・完了境界を検証する。開発factoryだけの成功を公開入口の成功にしない。 |
+| `scripts/verify-general-task.ts` | Coordinatorの検証スクリプトから同じ公開Task操作へ接続 | 本番と同じ開始・取消・完了境界を検証する。開発factoryだけの成功を公開入口の成功にしない。 |
 | `tests/fixtures/*poison-probe.ts`等の拒否試験とTask契約試験 | Coordinatorの試験から新公開入口または用途限定の試験入口へ接続 | 無効Capability、終了後control、Process利用不能状態の拒否を保持する。開発用Task factoryを本番公開入口へ追加しない。 |
 | `platform-access/platform-provisioner-package-filesystem.ts`のTask Symbol照合 | Coordinator配布閉包の照合として維持し、Native OS処理と混同しない | Symbol文字列・実行入口・配布物の対応を更新する。名前が一致するだけで本番接続済みとはしない。 |
 
@@ -695,7 +697,7 @@ Windowsの共有回復領域初期化も、通常署名やGit HEAD一致を前�
 
 署名済みReleaseを未署名として表示したり、未確認Publisherを真正と表示したりしない。必要な公式CLI／Imageの出所確認と実体検査は維持するが、CRDD独自署名Frameworkとは別の専門Ownerの責務であり、新しい組織Trust Policy Frameworkを追加しない。Coordinator専用機構に続き、2026-10-19に一般の`artifact-signing`も廃止した。正式配布の将来判断と現在の通常実行を分ける。
 
-固定Workerの回復MatrixはCRDD署名を実行前提にしない。親の直接呼出しと内部子の両入口はRoot生成・シナリオ開始前に既存Node対応版を確認し、その後は既存の隔離・Host境界で処理する。代替資格は発行しない。結果改訂2は`packageVerification: not_required`、`signatureRequired: false`を宣言する。残るTool群の移行中は`verify-signed-recovery-matrix.ts`と既存の公開識別子を維持するが、署名成立の主張には使わない。七シナリオの呼出し接続確認と、実回復成立の検証を区別する。
+固定Workerの回復MatrixはCRDD署名を実行前提にしない。親の直接呼出しと内部子の両入口はRoot生成・シナリオ開始前に既存Node対応版を確認し、その後は既存の隔離・Host境界で処理する。代替資格は発行しない。結果改訂2は`packageVerification: not_required`、`signatureRequired: false`を宣言する。残るTool群の移行中は`verify-recovery-matrix.ts`と既存の公開識別子を維持するが、署名成立の主張には使わない。七シナリオの呼出し接続確認と、実回復成立の検証を区別する。
 
 一般Taskと経路別検証も署名資格を要求しない。検証Runnerの固定module Rootで既存10Package Source観測とGit改訂を取得し、開始前と全Task settlement後でScope・内容Hash・内部実体Hash・Commit／Treeを比較する。公開するのは`sourceScope`、`sourceSha256`、`crddCommit`、`crddTree`と固定語彙の検証状態だけで、内部実体Hashや絶対Rootを公開しない。これはロード済みModuleの原子的固定、配布元真正性または実行Authorityの証明ではない。初回の欠測はTask開始前に停止する。終了時のSource不成立でも候補破棄・取消・終了待機を省略せず、既存の一次失敗を保持する。Source変更と作業対象Repositoryの変更、検証不成立とProvider Effect不明を分離する。四経路の全試行および二経路の結合は同じ公開Source tupleを要求し、対象Repositoryの改訂比較は別に維持する。
 
@@ -723,7 +725,7 @@ Orchestrator実Provider検証Toolは、公開MCPの起動要求前と発行後�
 
 Coordinator固有の署名・準備コピー・Manifest昇格・巨大閉包検査は退役対象とし、2026-10-19に汎用`artifact-signing`も廃止した。正式配布署名の将来採用は具体的Consumerから別途判断する。Nativeの単一Git出所観測、必要Artifact Hash、公式CLI／Image、現在認可、Docker隔離・取消・回収はこの退役へ含めない。先行して共通Launcherの`sign-release`／`promote-release`をmode集合・dispatch・help・端末条件から削除し、旧modeは引数・端末条件を問わず既存`coordinator_launch_mode_invalid`／exit64で対象Tool読込み前に拒否する。通常Task・対話・自動処理・経路検証・回復検証・Claude認証の入口は維持する。旧Script本体・graph・配布Identity・専用試験と設定の物理撤去は別に閉じ、Launcher撤去だけでFramework全体の退役完了としない。
 
-単一NativeのGit出所照合は`diagnostics/native-git-provenance.ts`が所有し、旧配布全体の`platform-access/release-identity.ts`から分離する。対応する実Git・Blob差・読取り中差替え・Windows junctionのITも同名の専用Suiteへ移し、処理本文と試験本文は変更しない。旧配布Tree／署名閉包の試験をNative観測の根拠へ混在させず、Source／Test Symbol・台帳・Host Profile・coverage対象も同じOwnerへ接続する。これはGit出所観測を通常Nativeの必須Gateへ戻すものではなく、固定Bootstrap Hashと同じtokenの要求前後確認は現行方式を維持する。
+単一NativeのGit出所照合は`scripts/native-git-provenance.ts`が所有し、旧配布全体の`platform-access/release-identity.ts`から分離する。対応する実Git・Blob差・読取り中差替え・Windows junctionのITも同名の専用Suiteへ移し、処理本文と試験本文は変更しない。旧配布Tree／署名閉包の試験をNative観測の根拠へ混在させず、Source／Test Symbol・台帳・Host Profile・coverage対象も同じOwnerへ接続する。これはGit出所観測を通常Nativeの必須Gateへ戻すものではなく、固定Bootstrap Hashと同じtokenの要求前後確認は現行方式を維持する。
 
 現行のレシピ・Provider設定・助言Image準備の入力搬送は、署名配布graphと独立した資産相関として維持する。専用の`runtime-assets.contract.test.ts`で既存の三つの検査本文を保持し、公式CLIの未改造利用と資産Owner間の接続を確認する。この局所検査を未知状態のEffect拒否、公式実行物検証、実Buildまたは実Docker隔離の証明へ拡張しない。検証義務の限定範囲はQA-000006を正本とする。
 

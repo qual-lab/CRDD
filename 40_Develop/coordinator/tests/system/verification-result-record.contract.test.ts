@@ -17,7 +17,7 @@ import type { TestContext } from "node:test";
 import test from "node:test";
 import { pathToFileURL } from "node:url";
 import { deflateSync } from "node:zlib";
-import { createSignedRouteMatrixCliFailureResult } from "../../scripts/verify-signed-route-matrix.ts";
+import { createSignedRouteMatrixCliFailureResult } from "../../scripts/verify-route-matrix.ts";
 import {
   projectVerificationResult,
   runRecordedVerification,

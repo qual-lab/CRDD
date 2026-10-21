@@ -25,7 +25,7 @@ export const PLATFORM_ACCESS_TS_COVERAGE_SOURCES = Object.freeze([
   "40_Develop/domain-model/src/storage/bounded-file-snapshot.ts",
   "40_Develop/coordinator/src/platform-access/adapter.ts",
   "40_Develop/platform-access/src/artifact/identity.ts",
-  "40_Develop/coordinator/src/diagnostics/native-git-provenance.ts",
+  "40_Develop/coordinator/scripts/native-git-provenance.ts",
   "40_Develop/coordinator/src/repository-operation/root-observation.ts",
 ]);
 
@@ -156,13 +156,12 @@ const sourceCoverageObligations: Readonly<Record<string, CoverageObligation>> =
       "同一handle観測、同長上書き、短縮、追記およびRoot差試験",
       "Release artifactまたはFilesystem API変更時",
     ),
-    "40_Develop/coordinator/src/diagnostics/native-git-provenance.ts":
-      obligation(
-        "全Git・Root・Native観測不能の分岐を同一runで到達していない",
-        "単一Nativeの出所または途中実体差の見落とし",
-        "実Git Blob・Root・Native差と読取り中差替えの契約試験",
-        "固定Native観測またはGit出所照合の変更時",
-      ),
+    "40_Develop/coordinator/scripts/native-git-provenance.ts": obligation(
+      "全Git・Root・Native観測不能の分岐を同一runで到達していない",
+      "単一Nativeの出所または途中実体差の見落とし",
+      "実Git Blob・Root・Native差と読取り中差替えの契約試験",
+      "固定Native観測またはGit出所照合の変更時",
+    ),
     "40_Develop/coordinator/src/repository-operation/root-observation.ts":
       obligation(
         "Rust結果からRoot観測へのproduction写像は未実装である",

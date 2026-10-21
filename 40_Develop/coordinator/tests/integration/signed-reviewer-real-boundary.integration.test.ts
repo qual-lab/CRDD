@@ -11,7 +11,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { runSignedReviewerBoundaryVerification } from "../../scripts/verify-signed-reviewer-boundary.ts";
+import { runSignedReviewerBoundaryVerification } from "../../scripts/verify-reviewer-boundary.ts";
 
 const isExplicitlyEnabled =
   process.env.CRDD_SIGNED_REVIEWER_BOUNDARY_INTEGRATION === "1";

@@ -376,7 +376,7 @@ test("実Provider結合はCodex／ClaudeをExecutorとReviewerの双方で一回
     { route: "reverse", executor: "codex", reviewer: "claude" },
   ]);
   const source = fs.readFileSync(
-    path.join(repositoryRoot, "scripts/verify-signed-reviewer-boundary.ts"),
+    path.join(repositoryRoot, "scripts/verify-reviewer-boundary.ts"),
     "utf8",
   );
   assert.match(source, /"forward"/u);
