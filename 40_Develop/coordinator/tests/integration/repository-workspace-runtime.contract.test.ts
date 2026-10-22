@@ -46,7 +46,7 @@ import {
   verifyRepositoryRoot,
 } from "../../../version-control/src/index.ts";
 import { createProviderDockerRuntimeDependencies } from "../../src/execution/provider-adapter.ts";
-import { runOrchestratorSingleTaskAttempt } from "../../src/index.ts";
+import { runCoordinatorSingleTaskAttempt } from "../../src/index.ts";
 import {
   prepareVerificationWorkspace,
   readVerificationWorkspaceOutput,
@@ -335,7 +335,7 @@ test("借用Workspaceは開始時dirtyを保持し二Task後も同Treeを残す"
       );
     }
     let receivedTarget: unknown;
-    const adapted = await runOrchestratorSingleTaskAttempt(
+    const adapted = await runCoordinatorSingleTaskAttempt(
       {
         startTask: (_request, owner, _id, _observer, selected) => {
           assert.equal(owner, root);
@@ -416,7 +416,7 @@ test("借用Workspaceは開始時dirtyを保持し二Task後も同Treeを残す"
             capability,
             target,
           );
-          const delivered = await runOrchestratorSingleTaskAttempt(
+          const delivered = await runCoordinatorSingleTaskAttempt(
             {
               startTask: () => ({
                 status: "started",

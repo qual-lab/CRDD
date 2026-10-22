@@ -1,23 +1,23 @@
 /**
- * orchestrator-human-decisionに属する責務をまとめる。
+ * human-decisionに属する責務をまとめる。
  *
  * @responsibility Commonを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000005
  */
-import { applyOrchestratorHumanDecision } from "./transitions.ts";
+import { applyCoordinatorHumanDecision } from "./transitions.ts";
 import {
-  isOrchestratorDecisionRecord,
-  type OrchestratorDecisionRecord,
-  type OrchestratorDecisionRecoveryIntent,
-  type OrchestratorDecisionRecoveryStore,
-  type OrchestratorDecisionStore,
+  isCoordinatorDecisionRecord,
+  type CoordinatorDecisionRecord,
+  type CoordinatorDecisionRecoveryIntent,
+  type CoordinatorDecisionRecoveryStore,
+  type CoordinatorDecisionStore,
 } from "./records.ts";
-import type { OrchestratorDecisionCapabilityPort } from "./capability.ts";
-import type { OrchestratorPersistencePorts } from "../state/persistence.ts";
-import { ORCHESTRATOR_HUMAN_DECISION_CONTRACT } from "./request.ts";
+import type { CoordinatorDecisionCapabilityPort } from "./capability.ts";
+import type { CoordinatorPersistencePorts } from "../state/persistence.ts";
+import { COORDINATOR_HUMAN_DECISION_CONTRACT } from "./request.ts";
 
 /**
- * orchestrator-human-decisionで使用するCommonの値契約を定義する。
+ * human-decisionで使用するCommonの値契約を定義する。
  *
  * @responsibility CommonのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000005
@@ -32,10 +32,10 @@ type Common = Readonly<{
   milestoneId: string;
   queueId: string;
   principalId: string;
-  store: OrchestratorDecisionStore;
-  recoveryStore?: OrchestratorDecisionRecoveryStore;
-  capability: OrchestratorDecisionCapabilityPort;
-  persistence: OrchestratorPersistencePorts;
+  store: CoordinatorDecisionStore;
+  recoveryStore?: CoordinatorDecisionRecoveryStore;
+  capability: CoordinatorDecisionCapabilityPort;
+  persistence: CoordinatorPersistencePorts;
 }>;
 
 const ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u;
@@ -46,19 +46,19 @@ const REVISION = /^[0-9a-f]{40,64}$/u;
  *
  * @responsibility Runtime Decision 記録 Idの公開field、秘匿境界、投影不能時の結果境界を所有する。
  * @trace ARCH-000005
- * @input capability: OrchestratorDecisionCapabilityPort、projectId: string、milestoneId: string、decisionId: string
- * @returns orchestratorDecisionRecordIdの計算結果を返す。
- * @precondition 「capability: OrchestratorDecisionCapabilityPort、projectId: string、milestoneId: string、decisionId: string」がorchestratorDecisionRecordIdの入力契約を満たす。
- * @postcondition orchestratorDecisionRecordIdの責務を完了した結果だけを返す。
- * @effect N/A: orchestratorDecisionRecordIdは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: orchestratorDecisionRecordIdは独自の失敗分岐を所有しない。
- * @invariant orchestratorDecisionRecordIdは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: orchestratorDecisionRecordIdはProcess内の同一Subsystemで完結する。
- * @security orchestratorDecisionRecordIdはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: orchestratorDecisionRecordIdは共有非同期状態を持たない同期処理である。
+ * @input capability: CoordinatorDecisionCapabilityPort、projectId: string、milestoneId: string、decisionId: string
+ * @returns coordinatorDecisionRecordIdの計算結果を返す。
+ * @precondition 「capability: CoordinatorDecisionCapabilityPort、projectId: string、milestoneId: string、decisionId: string」がcoordinatorDecisionRecordIdの入力契約を満たす。
+ * @postcondition coordinatorDecisionRecordIdの責務を完了した結果だけを返す。
+ * @effect N/A: coordinatorDecisionRecordIdは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: coordinatorDecisionRecordIdは独自の失敗分岐を所有しない。
+ * @invariant coordinatorDecisionRecordIdは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: coordinatorDecisionRecordIdはProcess内の同一Subsystemで完結する。
+ * @security coordinatorDecisionRecordIdはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: coordinatorDecisionRecordIdは共有非同期状態を持たない同期処理である。
  */
-export function orchestratorDecisionRecordId(
-  capability: OrchestratorDecisionCapabilityPort,
+export function coordinatorDecisionRecordId(
+  capability: CoordinatorDecisionCapabilityPort,
   projectId: string,
   milestoneId: string,
   decisionId: string,
@@ -91,9 +91,9 @@ function validId(value: unknown): value is string {
  *
  * @responsibility storedの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000005
- * @input raw: unknown、expected: OrchestratorDecisionRecord
+ * @input raw: unknown、expected: CoordinatorDecisionRecord
  * @returns storedの計算結果を返す。
- * @precondition 「raw: unknown、expected: OrchestratorDecisionRecord」がstoredの入力契約を満たす。
+ * @precondition 「raw: unknown、expected: CoordinatorDecisionRecord」がstoredの入力契約を満たす。
  * @postcondition storedの責務を完了した結果だけを返す。
  * @effect N/A: storedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: storedは独自の失敗分岐を所有しない。
@@ -102,19 +102,19 @@ function validId(value: unknown): value is string {
  * @security N/A: storedはAuthority、秘密値または信頼判断を扱わない。
  * @concurrency N/A: storedは共有非同期状態を持たない同期処理である。
  */
-function stored(raw: unknown, expected?: OrchestratorDecisionRecord) {
+function stored(raw: unknown, expected?: CoordinatorDecisionRecord) {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return false;
   const value = raw as Record<string, unknown>;
   return (
     value.status === "completed" &&
-    isOrchestratorDecisionRecord(value.value) &&
+    isCoordinatorDecisionRecord(value.value) &&
     (!expected || JSON.stringify(value.value) === JSON.stringify(expected))
   );
 }
 /**
- * orchestrator-human-decisionを停止結果として構築する。
+ * human-decisionを停止結果として構築する。
  *
- * @responsibility orchestrator-human-decisionの停止理由、未発行Effect、公開結果境界を所有する。
+ * @responsibility human-decisionの停止理由、未発行Effect、公開結果境界を所有する。
  * @trace ARCH-000005
  * @input reason: string、isRecovery
  * @returns blockedの計算結果を返す。
@@ -129,7 +129,7 @@ function stored(raw: unknown, expected?: OrchestratorDecisionRecord) {
  */
 function blocked(reason: string, isRecovery = false) {
   return Object.freeze({
-    contract: ORCHESTRATOR_HUMAN_DECISION_CONTRACT,
+    contract: COORDINATOR_HUMAN_DECISION_CONTRACT,
     status: "blocked" as const,
     reason,
     cleanupConfirmed: !isRecovery,
@@ -143,9 +143,9 @@ function blocked(reason: string, isRecovery = false) {
  *
  * @responsibility recovery Identityの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000005
- * @input capability: OrchestratorDecisionCapabilityPort、record: OrchestratorDecisionRecord
+ * @input capability: CoordinatorDecisionCapabilityPort、record: CoordinatorDecisionRecord
  * @returns recoveryIdentityの計算結果を返す。
- * @precondition 「capability: OrchestratorDecisionCapabilityPort、record: OrchestratorDecisionRecord」がrecoveryIdentityの入力契約を満たす。
+ * @precondition 「capability: CoordinatorDecisionCapabilityPort、record: CoordinatorDecisionRecord」がrecoveryIdentityの入力契約を満たす。
  * @postcondition recoveryIdentityの責務を完了した結果だけを返す。
  * @effect N/A: recoveryIdentityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: recoveryIdentityは独自の失敗分岐を所有しない。
@@ -155,8 +155,8 @@ function blocked(reason: string, isRecovery = false) {
  * @concurrency N/A: recoveryIdentityは共有非同期状態を持たない同期処理である。
  */
 function recoveryIdentity(
-  capability: OrchestratorDecisionCapabilityPort,
-  record: OrchestratorDecisionRecord,
+  capability: CoordinatorDecisionCapabilityPort,
+  record: CoordinatorDecisionRecord,
 ) {
   return `decision-recovery-${capability
     .hash(
@@ -175,9 +175,9 @@ function recoveryIdentity(
  *
  * @responsibility recovery Storedの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000005
- * @input raw: unknown、expected: OrchestratorDecisionRecoveryIntent
+ * @input raw: unknown、expected: CoordinatorDecisionRecoveryIntent
  * @returns recoveryStoredの計算結果を返す。
- * @precondition 「raw: unknown、expected: OrchestratorDecisionRecoveryIntent」がrecoveryStoredの入力契約を満たす。
+ * @precondition 「raw: unknown、expected: CoordinatorDecisionRecoveryIntent」がrecoveryStoredの入力契約を満たす。
  * @postcondition recoveryStoredの責務を完了した結果だけを返す。
  * @effect N/A: recoveryStoredは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: recoveryStoredは独自の失敗分岐を所有しない。
@@ -188,7 +188,7 @@ function recoveryIdentity(
  */
 function recoveryStored(
   raw: unknown,
-  expected?: OrchestratorDecisionRecoveryIntent,
+  expected?: CoordinatorDecisionRecoveryIntent,
 ) {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return false;
   const value = (raw as Record<string, unknown>).value;
@@ -204,9 +204,9 @@ function recoveryStored(
  *
  * @responsibility 回復 Intentの保存Identity、確定条件、部分書込みの失敗境界を所有する。
  * @trace ARCH-000005
- * @input commonFields: Common、record: OrchestratorDecisionRecord、unknownBoundary: string
+ * @input commonFields: Common、record: CoordinatorDecisionRecord、unknownBoundary: string
  * @returns persistRecoveryIntentの計算結果を返す。
- * @precondition 「commonFields: Common、record: OrchestratorDecisionRecord、unknownBoundary: string」がpersistRecoveryIntentの入力契約を満たす。
+ * @precondition 「commonFields: Common、record: CoordinatorDecisionRecord、unknownBoundary: string」がpersistRecoveryIntentの入力契約を満たす。
  * @postcondition persistRecoveryIntentの責務を完了した結果だけを返す。
  * @effect N/A: persistRecoveryIntentは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure persistRecoveryIntentは入力不正または下位処理の失敗を呼出し側へ返す。
@@ -217,12 +217,12 @@ function recoveryStored(
  */
 function persistRecoveryIntent(
   commonFields: Common,
-  record: OrchestratorDecisionRecord,
+  record: CoordinatorDecisionRecord,
   unknownBoundary: string,
 ) {
   const recoveryId = recoveryIdentity(commonFields.capability, record);
   if (!commonFields.recoveryStore) return null;
-  const intent: OrchestratorDecisionRecoveryIntent = Object.freeze({
+  const intent: CoordinatorDecisionRecoveryIntent = Object.freeze({
     recoveryId,
     recordId: record.recordId,
     projectId: record.projectId,
@@ -238,7 +238,7 @@ function persistRecoveryIntent(
   try {
     const observed = commonFields.recoveryStore.read(recoveryId) as Readonly<{
       status: string;
-      value: OrchestratorDecisionRecoveryIntent | null;
+      value: CoordinatorDecisionRecoveryIntent | null;
     }> | null;
     if (
       observed?.status === "completed" &&
@@ -258,9 +258,9 @@ function persistRecoveryIntent(
  *
  * @responsibility recovery Blockedの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000005
- * @input commonFields: Common、record: OrchestratorDecisionRecord、unknownBoundary: string
+ * @input commonFields: Common、record: CoordinatorDecisionRecord、unknownBoundary: string
  * @returns recoveryBlockedの計算結果を返す。
- * @precondition 「commonFields: Common、record: OrchestratorDecisionRecord、unknownBoundary: string」がrecoveryBlockedの入力契約を満たす。
+ * @precondition 「commonFields: Common、record: CoordinatorDecisionRecord、unknownBoundary: string」がrecoveryBlockedの入力契約を満たす。
  * @postcondition recoveryBlockedの責務を完了した結果だけを返す。
  * @effect N/A: recoveryBlockedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: recoveryBlockedは独自の失敗分岐を所有しない。
@@ -271,7 +271,7 @@ function persistRecoveryIntent(
  */
 function recoveryBlocked(
   commonFields: Common,
-  record: OrchestratorDecisionRecord,
+  record: CoordinatorDecisionRecord,
   unknownBoundary: string,
 ) {
   const intent = persistRecoveryIntent(commonFields, record, unknownBoundary);
@@ -287,9 +287,9 @@ function recoveryBlocked(
  *
  * @responsibility 回復 Intentの確定条件、最終状態、未解決義務の境界を所有する。
  * @trace ARCH-000005
- * @input commonFields: Common、record: OrchestratorDecisionRecord
+ * @input commonFields: Common、record: CoordinatorDecisionRecord
  * @returns settleRecoveryIntentの計算結果を返す。
- * @precondition 「commonFields: Common、record: OrchestratorDecisionRecord」がsettleRecoveryIntentの入力契約を満たす。
+ * @precondition 「commonFields: Common、record: CoordinatorDecisionRecord」がsettleRecoveryIntentの入力契約を満たす。
  * @postcondition settleRecoveryIntentの責務を完了した結果だけを返す。
  * @effect N/A: settleRecoveryIntentは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure settleRecoveryIntentは入力不正または下位処理の失敗を呼出し側へ返す。
@@ -300,14 +300,14 @@ function recoveryBlocked(
  */
 function settleRecoveryIntent(
   commonFields: Common,
-  record: OrchestratorDecisionRecord,
+  record: CoordinatorDecisionRecord,
 ) {
   if (!commonFields.recoveryStore) return true;
   const recoveryId = recoveryIdentity(commonFields.capability, record);
   try {
     const observed = commonFields.recoveryStore.read(recoveryId) as Readonly<{
       status: string;
-      value: OrchestratorDecisionRecoveryIntent | null;
+      value: CoordinatorDecisionRecoveryIntent | null;
     }> | null;
     if (observed?.status !== "completed" || !observed.value) return true;
     if (observed.value.disposition === "settled") return true;
@@ -327,20 +327,20 @@ function settleRecoveryIntent(
 /**
  * Issue a one-time continuation capability. Only its hash enters the protected store.
  *
- * @responsibility Orchestrator Human Decisionの発行条件、Identity、非発行時のEffect 0境界を所有する。
+ * @responsibility Coordinator Human Decisionの発行条件、Identity、非発行時のEffect 0境界を所有する。
  * @trace ARCH-000005
  * @input commonFields: Common、input: Readonly<{ decisionId: string; repositoryRevision: string; expectedGeneration: number; allowedOptions: readonly ("resume" | "cancel")[]; lifetimeMs: number; nowEpochMs?: number; }>
- * @returns issueOrchestratorHumanDecisionの計算結果を返す。
- * @precondition 「commonFields: Common、input: Readonly<{ decisionId: string; repositoryRevision: string; expectedGeneration: number; allowedOptions: readonly ("resume" | "cancel")[]; lifetimeMs: number; nowEpochMs?: number; }>」がissueOrchestratorHumanDecisionの入力契約を満たす。
- * @postcondition issueOrchestratorHumanDecisionの責務を完了した結果だけを返す。
- * @effect N/A: issueOrchestratorHumanDecisionは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure issueOrchestratorHumanDecisionは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant issueOrchestratorHumanDecisionは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: issueOrchestratorHumanDecisionはProcess内の同一Subsystemで完結する。
- * @security N/A: issueOrchestratorHumanDecisionはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: issueOrchestratorHumanDecisionは共有非同期状態を持たない同期処理である。
+ * @returns issueCoordinatorHumanDecisionの計算結果を返す。
+ * @precondition 「commonFields: Common、input: Readonly<{ decisionId: string; repositoryRevision: string; expectedGeneration: number; allowedOptions: readonly ("resume" | "cancel")[]; lifetimeMs: number; nowEpochMs?: number; }>」がissueCoordinatorHumanDecisionの入力契約を満たす。
+ * @postcondition issueCoordinatorHumanDecisionの責務を完了した結果だけを返す。
+ * @effect N/A: issueCoordinatorHumanDecisionは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure issueCoordinatorHumanDecisionは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant issueCoordinatorHumanDecisionは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: issueCoordinatorHumanDecisionはProcess内の同一Subsystemで完結する。
+ * @security N/A: issueCoordinatorHumanDecisionはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: issueCoordinatorHumanDecisionは共有非同期状態を持たない同期処理である。
  */
-export function issueOrchestratorHumanDecision(
+export function issueCoordinatorHumanDecision(
   commonFields: Common,
   input: Readonly<{
     decisionId: string;
@@ -374,13 +374,13 @@ export function issueOrchestratorHumanDecision(
     return blocked("orchestrator_decision_request_invalid");
   const now = input.nowEpochMs ?? Date.now();
   const capability = commonFields.capability.issue();
-  const recordId = orchestratorDecisionRecordId(
+  const recordId = coordinatorDecisionRecordId(
     commonFields.capability,
     commonFields.projectId,
     commonFields.milestoneId,
     input.decisionId,
   );
-  const record: OrchestratorDecisionRecord = Object.freeze({
+  const record: CoordinatorDecisionRecord = Object.freeze({
     recordId,
     decisionId: input.decisionId,
     projectId: commonFields.projectId,
@@ -405,7 +405,7 @@ export function issueOrchestratorHumanDecision(
     return recoveryBlocked(commonFields, record, "continuation_issue");
   }
   return Object.freeze({
-    contract: ORCHESTRATOR_HUMAN_DECISION_CONTRACT,
+    contract: COORDINATOR_HUMAN_DECISION_CONTRACT,
     status: "completed" as const,
     reason: "orchestrator_human_decision_issued",
     decisionId: input.decisionId,
@@ -422,20 +422,20 @@ export function issueOrchestratorHumanDecision(
 /**
  * Apply a decision by protected-store prepare -> repository generation -> protected-store finalize.
  *
- * @responsibility orchestrator-human-decisionの入力からsubmit Orchestrator Human Decisionを導く規則と結果境界を所有する。
+ * @responsibility human-decisionの入力からsubmit Coordinator Human Decisionを導く規則と結果境界を所有する。
  * @trace ARCH-000005
  * @input commonFields: Common、input: Readonly<{ decisionId: string; recordId: string; repositoryRevision: string; generation: number; selectedOption: "resume" | "cancel"; continuationCapability: string; nowEpochMs?: number; }>
- * @returns submitOrchestratorHumanDecisionの計算結果を返す。
- * @precondition 「commonFields: Common、input: Readonly<{ decisionId: string; recordId: string; repositoryRevision: string; generation: number; selectedOption: "resume" | "cancel"; continuationCapability: string; nowEpochMs?: number; }>」がsubmitOrchestratorHumanDecisionの入力契約を満たす。
- * @postcondition submitOrchestratorHumanDecisionの責務を完了した結果だけを返す。
- * @effect N/A: submitOrchestratorHumanDecisionは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure submitOrchestratorHumanDecisionは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant submitOrchestratorHumanDecisionは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: submitOrchestratorHumanDecisionはProcess内の同一Subsystemで完結する。
- * @security N/A: submitOrchestratorHumanDecisionはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: submitOrchestratorHumanDecisionは共有非同期状態を持たない同期処理である。
+ * @returns submitCoordinatorHumanDecisionの計算結果を返す。
+ * @precondition 「commonFields: Common、input: Readonly<{ decisionId: string; recordId: string; repositoryRevision: string; generation: number; selectedOption: "resume" | "cancel"; continuationCapability: string; nowEpochMs?: number; }>」がsubmitCoordinatorHumanDecisionの入力契約を満たす。
+ * @postcondition submitCoordinatorHumanDecisionの責務を完了した結果だけを返す。
+ * @effect N/A: submitCoordinatorHumanDecisionは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure submitCoordinatorHumanDecisionは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant submitCoordinatorHumanDecisionは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: submitCoordinatorHumanDecisionはProcess内の同一Subsystemで完結する。
+ * @security N/A: submitCoordinatorHumanDecisionはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: submitCoordinatorHumanDecisionは共有非同期状態を持たない同期処理である。
  */
-export function submitOrchestratorHumanDecision(
+export function submitCoordinatorHumanDecision(
   commonFields: Common,
   input: Readonly<{
     decisionId: string;
@@ -464,16 +464,16 @@ export function submitOrchestratorHumanDecision(
     input.continuationCapability.length > 512
   )
     return blocked("orchestrator_decision_input_invalid");
-  let record: OrchestratorDecisionRecord;
+  let record: CoordinatorDecisionRecord;
   try {
     const observed = commonFields.store.read(input.recordId);
     if (
       !observed ||
       typeof observed !== "object" ||
-      !isOrchestratorDecisionRecord((observed as Record<string, unknown>).value)
+      !isCoordinatorDecisionRecord((observed as Record<string, unknown>).value)
     )
       return blocked("orchestrator_decision_not_observed");
-    record = (observed as { value: OrchestratorDecisionRecord }).value;
+    record = (observed as { value: CoordinatorDecisionRecord }).value;
   } catch {
     return blocked("orchestrator_decision_store_observation_unknown", true);
   }
@@ -550,7 +550,7 @@ export function submitOrchestratorHumanDecision(
   } catch {
     return recoveryBlocked(commonFields, record, "continuation_prepare");
   }
-  const transition = applyOrchestratorHumanDecision(
+  const transition = applyCoordinatorHumanDecision(
     stateRead.value,
     input.generation,
     input.selectedOption,
@@ -603,7 +603,7 @@ export function submitOrchestratorHumanDecision(
   if (queueUpdate.status !== "completed")
     return recoveryBlocked(commonFields, finalized, "queue_update");
   return Object.freeze({
-    contract: ORCHESTRATOR_HUMAN_DECISION_CONTRACT,
+    contract: COORDINATOR_HUMAN_DECISION_CONTRACT,
     status: "completed" as const,
     reason:
       input.selectedOption === "resume"
@@ -621,20 +621,20 @@ export function submitOrchestratorHumanDecision(
 /**
  * Replace a capability only after the former hash is durably invalidated.
  *
- * @responsibility orchestrator-human-decisionの入力からreplace Orchestrator Human Decisionを導く規則と結果境界を所有する。
+ * @responsibility human-decisionの入力からreplace Coordinator Human Decisionを導く規則と結果境界を所有する。
  * @trace ARCH-000005
  * @input commonFields: Common、input: Readonly<{ recordId: string; replacementRequestId: string; lifetimeMs: number; nowEpochMs?: number; }>
- * @returns replaceOrchestratorHumanDecisionの計算結果を返す。
- * @precondition 「commonFields: Common、input: Readonly<{ recordId: string; replacementRequestId: string; lifetimeMs: number; nowEpochMs?: number; }>」がreplaceOrchestratorHumanDecisionの入力契約を満たす。
- * @postcondition replaceOrchestratorHumanDecisionの責務を完了した結果だけを返す。
- * @effect N/A: replaceOrchestratorHumanDecisionは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure replaceOrchestratorHumanDecisionは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant replaceOrchestratorHumanDecisionは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: replaceOrchestratorHumanDecisionはProcess内の同一Subsystemで完結する。
- * @security N/A: replaceOrchestratorHumanDecisionはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: replaceOrchestratorHumanDecisionは共有非同期状態を持たない同期処理である。
+ * @returns replaceCoordinatorHumanDecisionの計算結果を返す。
+ * @precondition 「commonFields: Common、input: Readonly<{ recordId: string; replacementRequestId: string; lifetimeMs: number; nowEpochMs?: number; }>」がreplaceCoordinatorHumanDecisionの入力契約を満たす。
+ * @postcondition replaceCoordinatorHumanDecisionの責務を完了した結果だけを返す。
+ * @effect N/A: replaceCoordinatorHumanDecisionは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure replaceCoordinatorHumanDecisionは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant replaceCoordinatorHumanDecisionは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: replaceCoordinatorHumanDecisionはProcess内の同一Subsystemで完結する。
+ * @security N/A: replaceCoordinatorHumanDecisionはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: replaceCoordinatorHumanDecisionは共有非同期状態を持たない同期処理である。
  */
-export function replaceOrchestratorHumanDecision(
+export function replaceCoordinatorHumanDecision(
   commonFields: Common,
   input: Readonly<{
     recordId: string;
@@ -651,11 +651,11 @@ export function replaceOrchestratorHumanDecision(
     input.lifetimeMs > 86_400_000
   )
     return blocked("orchestrator_decision_replacement_input_invalid");
-  let record: OrchestratorDecisionRecord;
+  let record: CoordinatorDecisionRecord;
   try {
     const observed = commonFields.store.read(input.recordId) as Readonly<{
       status: string;
-      value: OrchestratorDecisionRecord | null;
+      value: CoordinatorDecisionRecord | null;
     }> | null;
     if (observed?.status !== "completed" || !observed.value)
       return blocked("orchestrator_decision_not_observed");
@@ -694,7 +694,7 @@ export function replaceOrchestratorHumanDecision(
     return recoveryBlocked(commonFields, record, "replacement_invalidation");
   }
   const capability = commonFields.capability.issue();
-  const replacement: OrchestratorDecisionRecord = Object.freeze({
+  const replacement: CoordinatorDecisionRecord = Object.freeze({
     ...invalidated,
     capabilityHash: capability.hash,
     expiresAtEpochMs: (input.nowEpochMs ?? Date.now()) + input.lifetimeMs,
@@ -715,7 +715,7 @@ export function replaceOrchestratorHumanDecision(
     return recoveryBlocked(commonFields, invalidated, "replacement_issue");
   }
   return Object.freeze({
-    contract: ORCHESTRATOR_HUMAN_DECISION_CONTRACT,
+    contract: COORDINATOR_HUMAN_DECISION_CONTRACT,
     status: "completed" as const,
     reason: "orchestrator_human_decision_replaced",
     decisionId: replacement.decisionId,
@@ -733,20 +733,20 @@ export function replaceOrchestratorHumanDecision(
 /**
  * Invalidate an unused capability after a fresh parent lifecycle observation.
  *
- * @responsibility orchestrator-human-decisionの入力からinvalidate Orchestrator Human Decisionを導く規則と結果境界を所有する。
+ * @responsibility human-decisionの入力からinvalidate Coordinator Human Decisionを導く規則と結果境界を所有する。
  * @trace ARCH-000005
  * @input commonFields: Common、input: Readonly<{ recordId: string; reason: "project_advanced" | "milestone_accepted" | "milestone_cancelled"; }>
- * @returns invalidateOrchestratorHumanDecisionの計算結果を返す。
- * @precondition 「commonFields: Common、input: Readonly<{ recordId: string; reason: "project_advanced" | "milestone_accepted" | "milestone_cancelled"; }>」がinvalidateOrchestratorHumanDecisionの入力契約を満たす。
- * @postcondition invalidateOrchestratorHumanDecisionの責務を完了した結果だけを返す。
- * @effect N/A: invalidateOrchestratorHumanDecisionは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure invalidateOrchestratorHumanDecisionは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant invalidateOrchestratorHumanDecisionは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: invalidateOrchestratorHumanDecisionはProcess内の同一Subsystemで完結する。
- * @security N/A: invalidateOrchestratorHumanDecisionはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: invalidateOrchestratorHumanDecisionは共有非同期状態を持たない同期処理である。
+ * @returns invalidateCoordinatorHumanDecisionの計算結果を返す。
+ * @precondition 「commonFields: Common、input: Readonly<{ recordId: string; reason: "project_advanced" | "milestone_accepted" | "milestone_cancelled"; }>」がinvalidateCoordinatorHumanDecisionの入力契約を満たす。
+ * @postcondition invalidateCoordinatorHumanDecisionの責務を完了した結果だけを返す。
+ * @effect N/A: invalidateCoordinatorHumanDecisionは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure invalidateCoordinatorHumanDecisionは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant invalidateCoordinatorHumanDecisionは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: invalidateCoordinatorHumanDecisionはProcess内の同一Subsystemで完結する。
+ * @security N/A: invalidateCoordinatorHumanDecisionはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: invalidateCoordinatorHumanDecisionは共有非同期状態を持たない同期処理である。
  */
-export function invalidateOrchestratorHumanDecision(
+export function invalidateCoordinatorHumanDecision(
   commonFields: Common,
   input: Readonly<{
     recordId: string;
@@ -755,11 +755,11 @@ export function invalidateOrchestratorHumanDecision(
 ) {
   if (!validId(input.recordId))
     return blocked("orchestrator_decision_invalidation_input_invalid");
-  let record: OrchestratorDecisionRecord;
+  let record: CoordinatorDecisionRecord;
   try {
     const observed = commonFields.store.read(input.recordId) as Readonly<{
       status: string;
-      value: OrchestratorDecisionRecord | null;
+      value: CoordinatorDecisionRecord | null;
     }> | null;
     if (observed?.status !== "completed" || !observed.value)
       return blocked("orchestrator_decision_not_observed");
@@ -768,12 +768,12 @@ export function invalidateOrchestratorHumanDecision(
     return blocked("orchestrator_decision_store_observation_unknown", true);
   }
   if (record.disposition === "prepared")
-    return recoverOrchestratorHumanDecision(commonFields, {
+    return recoverCoordinatorHumanDecision(commonFields, {
       recordId: input.recordId,
     });
   if (["invalidated", "expired", "finalized"].includes(record.disposition))
     return Object.freeze({
-      contract: ORCHESTRATOR_HUMAN_DECISION_CONTRACT,
+      contract: COORDINATOR_HUMAN_DECISION_CONTRACT,
       status: "completed" as const,
       reason: "orchestrator_decision_already_settled",
       cleanupConfirmed: true,
@@ -815,7 +815,7 @@ export function invalidateOrchestratorHumanDecision(
     return recoveryBlocked(commonFields, record, "invalidation_update");
   }
   return Object.freeze({
-    contract: ORCHESTRATOR_HUMAN_DECISION_CONTRACT,
+    contract: COORDINATOR_HUMAN_DECISION_CONTRACT,
     status: "completed" as const,
     reason: "orchestrator_decision_invalidated",
     cleanupConfirmed: true,
@@ -827,41 +827,41 @@ export function invalidateOrchestratorHumanDecision(
 /**
  * Reconcile a prepared decision after process loss without replaying its authority.
  *
- * @responsibility orchestrator-human-decisionの入力からrecover Orchestrator Human Decisionを導く規則と結果境界を所有する。
+ * @responsibility human-decisionの入力からrecover Coordinator Human Decisionを導く規則と結果境界を所有する。
  * @trace ARCH-000005
  * @input commonFields: Common、input: Readonly<{ recordId: string }>
- * @returns recoverOrchestratorHumanDecisionの計算結果を返す。
- * @precondition 「commonFields: Common、input: Readonly<{ recordId: string }>」がrecoverOrchestratorHumanDecisionの入力契約を満たす。
- * @postcondition recoverOrchestratorHumanDecisionの責務を完了した結果だけを返す。
- * @effect N/A: recoverOrchestratorHumanDecisionは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure recoverOrchestratorHumanDecisionは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant recoverOrchestratorHumanDecisionは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: recoverOrchestratorHumanDecisionはProcess内の同一Subsystemで完結する。
- * @security N/A: recoverOrchestratorHumanDecisionはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: recoverOrchestratorHumanDecisionは共有非同期状態を持たない同期処理である。
+ * @returns recoverCoordinatorHumanDecisionの計算結果を返す。
+ * @precondition 「commonFields: Common、input: Readonly<{ recordId: string }>」がrecoverCoordinatorHumanDecisionの入力契約を満たす。
+ * @postcondition recoverCoordinatorHumanDecisionの責務を完了した結果だけを返す。
+ * @effect N/A: recoverCoordinatorHumanDecisionは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure recoverCoordinatorHumanDecisionは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant recoverCoordinatorHumanDecisionは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: recoverCoordinatorHumanDecisionはProcess内の同一Subsystemで完結する。
+ * @security N/A: recoverCoordinatorHumanDecisionはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: recoverCoordinatorHumanDecisionは共有非同期状態を持たない同期処理である。
  */
-export function recoverOrchestratorHumanDecision(
+export function recoverCoordinatorHumanDecision(
   commonFields: Common,
   input: Readonly<{ recordId: string }>,
 ) {
   if (!validId(input.recordId))
     return blocked("orchestrator_decision_recovery_input_invalid");
-  let record: OrchestratorDecisionRecord;
+  let record: CoordinatorDecisionRecord;
   try {
     const observed = commonFields.store.read(input.recordId);
     if (
       !observed ||
       typeof observed !== "object" ||
-      !isOrchestratorDecisionRecord((observed as Record<string, unknown>).value)
+      !isCoordinatorDecisionRecord((observed as Record<string, unknown>).value)
     )
       return blocked("orchestrator_decision_not_observed");
-    record = (observed as { value: OrchestratorDecisionRecord }).value;
+    record = (observed as { value: CoordinatorDecisionRecord }).value;
   } catch {
     return blocked("orchestrator_decision_store_observation_unknown", true);
   }
   if (record.disposition === "finalized")
     return Object.freeze({
-      contract: ORCHESTRATOR_HUMAN_DECISION_CONTRACT,
+      contract: COORDINATOR_HUMAN_DECISION_CONTRACT,
       status: "completed" as const,
       reason: "orchestrator_decision_recovery_already_finalized",
       decisionId: record.decisionId,
@@ -890,7 +890,7 @@ export function recoverOrchestratorHumanDecision(
       record,
       "recovery_project_observation",
     );
-  let next: OrchestratorDecisionRecord;
+  let next: CoordinatorDecisionRecord;
   if (
     state.value.generation === record.newGeneration &&
     state.value.decisionApplicationId === record.applicationId &&
@@ -947,7 +947,7 @@ export function recoverOrchestratorHumanDecision(
   if (!settleRecoveryIntent(commonFields, next))
     return recoveryBlocked(commonFields, next, "recovery_intent_settlement");
   return Object.freeze({
-    contract: ORCHESTRATOR_HUMAN_DECISION_CONTRACT,
+    contract: COORDINATOR_HUMAN_DECISION_CONTRACT,
     status: "completed" as const,
     reason: "orchestrator_decision_recovery_finalized",
     decisionId: record.decisionId,

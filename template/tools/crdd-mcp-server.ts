@@ -3,21 +3,21 @@
 /**
  * 配布RepositoryからCROS MCP接続を起動する。
  *
- * @responsibility CLI引数に応じてMCP TransportとOrchestrator公開境界を構成する。
+ * @responsibility CLI引数に応じてMCP TransportとCoordinator公開境界を構成する。
  * @trace ARCH-000012
  */
 
 import {
   closeMcpHttpOnProcessSignal,
   createMcpServerFactory,
-  MCP_ORCHESTRATOR_PROTOCOL_VERSION,
+  MCP_COORDINATOR_PROTOCOL_VERSION,
   runMcpStdio,
   startMcpStreamableHttp,
   startMcpAuthenticatedStreamableHttp,
   readMcpServerConfiguration,
   createAccessMcpResolver,
   type McpServerDependencies,
-  type McpOrchestratorDependencies,
+  type McpCoordinatorDependencies,
 } from "../../40_Develop/mcp-server/src/index.ts";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
@@ -36,9 +36,9 @@ import { parseRepositoryProjectContextMarkdown } from "../../40_Develop/domain-m
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../40_Develop/version-control/src/index.ts";
 import {
   observeRuntimeOwnedProjectClientPrincipal,
-  runOrchestratorPublicDecision,
-  runOrchestratorPublicObjective,
-  runOrchestratorPublicStateQuery,
+  runCoordinatorPublicDecision,
+  runCoordinatorPublicObjective,
+  runCoordinatorPublicStateQuery,
 } from "../../40_Develop/coordinator/src/index.ts";
 import { isSupportedCoordinatorNodeRuntime } from "../../40_Develop/coordinator/src/index.ts";
 import {
@@ -62,7 +62,7 @@ import {
  * @postcondition 利用方法だけを標準出力へ一回書き込む。
  * @effect 標準出力へHelp文を出力する。
  * @failure 標準出力の書込み失敗をNode.js Processへ返す。
- * @invariant Orchestrator、AuthorityおよびRepository状態を変更しない。
+ * @invariant Coordinator、AuthorityおよびRepository状態を変更しない。
  * @boundary CLI Processと利用者の端末表示の境界。
  * @security 秘密値やBearer Tokenの実値を表示しない。
  * @concurrency N/A: 同期した単一出力である。
@@ -77,7 +77,7 @@ function printHelp(): void {
       "  crdd-mcp-server --http --port <port>",
       "  crdd-mcp-server --cros --http --port <port>",
       "",
-      `MCP Protocol: ${MCP_ORCHESTRATOR_PROTOCOL_VERSION}`,
+      `MCP Protocol: ${MCP_COORDINATOR_PROTOCOL_VERSION}`,
       "HTTPは127.0.0.1だけで待ち受け、CRDD_MCP_HTTP_BEARER_TOKENが必要です。",
       "--crosでは既存Host設定を使用し、各HTTP要求のユーザー資格を検証します。固定Transport Tokenとの混在とstdioは利用できません。",
       "MCPは外部ClientからOrchestratorへ接続する入口であり、Coordinatorの子機能ではありません。",
@@ -87,35 +87,35 @@ function printHelp(): void {
 }
 
 /**
- * MCP TransportからOrchestratorへ渡す依存を構成する。
+ * MCP TransportからCoordinatorへ渡す依存を構成する。
  *
  * @responsibility 認証、目的受付、判断適用および状態照会を正式な公開入口へだけ接続する。
  * @trace ARCH-000012
  * @input N/A: Processへ固定された公開入口を使用する。
- * @returns MCP Orchestratorが利用する依存集合を返す。
- * @precondition CoordinatorとOrchestratorの公開入口が読込み済みである。
+ * @returns MCP Coordinatorが利用する依存集合を返す。
+ * @precondition CoordinatorとCoordinatorの公開入口が読込み済みである。
  * @postcondition 各MCP操作が対応する一つの公開入口へ接続される。
  * @effect N/A: 依存関数を構成するだけで操作を実行しない。
  * @failure N/A: 局所Objectの構成に独自の失敗分岐を持たない。
  * @invariant MCP入口から内部実装へ直接接続しない。
- * @boundary MCP TransportとOrchestrator公開契約の境界。
+ * @boundary MCP TransportとCoordinator公開契約の境界。
  * @security Client認証を省略せず、認証結果を各操作へ渡す。
  * @concurrency 各要求のSignalと認証Contextを要求単位で保持する。
  */
-function orchestratorDependencies(): McpOrchestratorDependencies {
+function coordinatorDependencies(): McpCoordinatorDependencies {
   return {
     authenticateClient: observeRuntimeOwnedProjectClientPrincipal,
     runObjective: (request, signal, authentication) =>
-      runOrchestratorPublicObjective(
+      runCoordinatorPublicObjective(
         request,
         signal,
         process.cwd(),
         authentication,
       ),
     submitDecision: async (request, authentication) =>
-      runOrchestratorPublicDecision(request, process.cwd(), authentication),
+      runCoordinatorPublicDecision(request, process.cwd(), authentication),
     getProjectState: async (request, authentication) =>
-      runOrchestratorPublicStateQuery(request, process.cwd(), authentication),
+      runCoordinatorPublicStateQuery(request, process.cwd(), authentication),
   };
 }
 
@@ -165,16 +165,16 @@ async function readRepositoryPortfolio(workingDirectory: string) {
 /**
  * MCP Application全体の依存を構成する。
  *
- * @responsibility OrchestratorとRepository Project Contextの依存を分離して合成する。
+ * @responsibility CoordinatorとRepository Project Contextの依存を分離して合成する。
  * @trace ARCH-000005
  * @trace ARCH-000012
  * @input N/A: Processの現在Repositoryを使用する。
  * @returns 合成MCP Applicationの依存集合を返す。
- * @precondition Orchestrator公開入口とProject Context Readerが読込み済みである。
+ * @precondition Coordinator公開入口とProject Context Readerが読込み済みである。
  * @postcondition Runtime操作とContext読取りが別の専門依存に保持される。
  * @effect N/A: 依存関数を構成するだけで操作を実行しない。
  * @failure N/A: 局所Objectの構成に独自の失敗分岐を持たない。
- * @invariant Project ContextをOrchestrator状態へ変換しない。
+ * @invariant Project ContextをCoordinator状態へ変換しない。
  * @boundary MCP CLI Composition Rootと専門Adapter群の境界。
  * @security Repository単体利用ではCredentialを要求せず、現在Repositoryだけを読む。
  * @concurrency 各呼出しが独立したSnapshotを取得する。
@@ -184,7 +184,7 @@ function createRequestRoutingDependencies(): McpServerDependencies {
     process.cwd(),
   );
   return {
-    orchestrator: orchestratorDependencies(),
+    orchestrator: coordinatorDependencies(),
     workspace: (repositoryId) => {
       const verified = verifyRepositoryRoot(repositoryRoot);
       if (verified.status !== "completed") return null;
@@ -233,7 +233,7 @@ function createRequestRoutingDependencies(): McpServerDependencies {
  * @effect stdio通信またはlocalhost HTTP listenerを開始し、終了時に閉じる。
  * @failure 不正なRuntime、引数、認証入力またはcleanup不成立を非0終了値へ閉じる。
  * @invariant 一回の起動でstdioとHTTPを同時に開始しない。
- * @boundary CLI Process、stdio、localhost NetworkおよびOrchestratorの境界。
+ * @boundary CLI Process、stdio、localhost NetworkおよびCoordinatorの境界。
  * @security HTTPはBearer Tokenを必須とし、127.0.0.1以外へ公開しない。
  * @concurrency Signal終了とTransport処理を同じServer Lifecycleへ収束させる。
  */

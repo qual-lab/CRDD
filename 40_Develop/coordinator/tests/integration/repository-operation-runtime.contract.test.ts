@@ -6,7 +6,7 @@
  * @trace PRL-IT-012
  * @level IT
  * @scope repository、operation、runtime
- * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Orchestrator Application Port→Core
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Coordinator Application Port→Core
  */
 import assert from "node:assert/strict";
 import fs from "node:fs";

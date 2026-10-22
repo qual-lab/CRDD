@@ -504,8 +504,8 @@ test("Fixed SnapshotとFixed Revisionの既知Consumer集合が宣言と一致�
 
   const candidateConsumers = {
     inspectRepositoryIdentityCandidate: [
-      "40_Develop/coordinator/scripts/orchestrator-real-provider-contract.ts",
-      "40_Develop/coordinator/scripts/verify-orchestrator-real-providers.ts",
+      "40_Develop/coordinator/scripts/task-real-provider-contract.ts",
+      "40_Develop/coordinator/scripts/verify-task-real-providers.ts",
       "40_Develop/coordinator/src/execution/borrowed-tree.ts",
       "40_Develop/coordinator/src/execution/development-measurement-session.ts",
       "40_Develop/coordinator/src/decision/public-acceptance.ts",
@@ -515,7 +515,7 @@ test("Fixed SnapshotとFixed Revisionの既知Consumer集合が宣言と一致�
     inspectRepositoryRevisionCandidate: [
       "40_Develop/coordinator/scripts/verification-result-record.ts",
       "40_Develop/coordinator/scripts/verify-general-task.ts",
-      "40_Develop/coordinator/scripts/verify-orchestrator-real-providers.ts",
+      "40_Develop/coordinator/scripts/verify-task-real-providers.ts",
       "40_Develop/coordinator/src/execution/diagnostics.ts",
     ],
   };
@@ -659,7 +659,7 @@ test("Repository LocationとRepository-local Ignoreの既知Consumer集合が宣
       "40_Develop/coordinator/scripts/verify-native-protection.ts",
       "40_Develop/coordinator/scripts/verify-native-terminal-fixtures.ts",
       "40_Develop/coordinator/scripts/verify-native-terminal-namespace.ts",
-      "40_Develop/coordinator/scripts/verify-orchestrator-real-providers.ts",
+      "40_Develop/coordinator/scripts/verify-task-real-providers.ts",
       "40_Develop/coordinator/scripts/verify-general-task.ts",
       "40_Develop/coordinator/scripts/verify-reviewer-boundary.ts",
       "40_Develop/coordinator/scripts/verify-route-matrix.ts",
@@ -934,7 +934,7 @@ test("Local Change Setと用途別Named SymbolのConsumer集合が宣言と一�
       "40_Develop/coordinator/scripts/verify-native-protection.ts",
       "40_Develop/coordinator/scripts/verify-native-terminal-fixtures.ts",
       "40_Develop/coordinator/scripts/verify-native-terminal-namespace.ts",
-      "40_Develop/coordinator/scripts/verify-orchestrator-real-providers.ts",
+      "40_Develop/coordinator/scripts/verify-task-real-providers.ts",
       "40_Develop/coordinator/scripts/verify-general-task.ts",
       "40_Develop/coordinator/scripts/verify-reviewer-boundary.ts",
       "40_Develop/coordinator/scripts/verify-route-matrix.ts",

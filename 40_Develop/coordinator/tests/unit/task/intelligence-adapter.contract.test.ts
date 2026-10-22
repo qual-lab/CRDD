@@ -10,15 +10,15 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createOrchestratorTaskAttemptEvent } from "../../../src/task/intelligence-adapter.ts";
+import { createCoordinatorTaskAttemptEvent } from "../../../src/task/intelligence-adapter.ts";
 
 import type {
-  OrchestratorExecutionObservationPort,
-  OrchestratorExecutionObservationPublication,
-  OrchestratorTaskAttemptObservation,
+  CoordinatorExecutionObservationPort,
+  CoordinatorExecutionObservationPublication,
+  CoordinatorTaskAttemptObservation,
 } from "../../../src/task/observer.ts";
 
-const OBSERVATION: OrchestratorTaskAttemptObservation = Object.freeze({
+const OBSERVATION: CoordinatorTaskAttemptObservation = Object.freeze({
   occurredAt: "2026-09-05T00:00:01.000Z",
   startedAtMs: 10,
   endedAtMs: 25,
@@ -42,21 +42,21 @@ const OBSERVATION: OrchestratorTaskAttemptObservation = Object.freeze({
 });
 
 /**
- * 実行観測PortはOrchestratorの意味だけをAdapterへ渡すを検証する。
+ * 実行観測PortはCoordinatorの意味だけをAdapterへ渡すを検証する。
  *
- * @responsibility 実行観測PortはOrchestratorの意味だけをAdapterへ渡すの合否判定を所有する。
+ * @responsibility 実行観測PortはCoordinatorの意味だけをAdapterへ渡すの合否判定を所有する。
  * @trace PPR-UT-011
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 実行観測PortはOrchestratorの意味だけをAdapterへ渡すの対象操作を実行する。
+ * @stimulus 実行観測PortはCoordinatorの意味だけをAdapterへ渡すの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PPR-UT-011=Direct Boundary: orchestrator Test Source→対象契約
  */
 test("実行観測PortはOrchestratorの意味だけをAdapterへ渡す", () => {
-  const receivedObservations: OrchestratorTaskAttemptObservation[] = [];
-  const publication: OrchestratorExecutionObservationPublication =
-    Object.freeze({
+  const receivedObservations: CoordinatorTaskAttemptObservation[] = [];
+  const publication: CoordinatorExecutionObservationPublication = Object.freeze(
+    {
       status: "blocked",
       reason: "observation_store_unavailable",
       effectState: "unknown",
@@ -64,8 +64,9 @@ test("実行観測PortはOrchestratorの意味だけをAdapterへ渡す", () => 
       retryAllowed: false,
       manualRecoveryRequired: true,
       residualArtifactIds: Object.freeze(["observation-residual"]),
-    });
-  const port: OrchestratorExecutionObservationPort = Object.freeze({
+    },
+  );
+  const port: CoordinatorExecutionObservationPort = Object.freeze({
     recordTaskAttempt: (value) => {
       receivedObservations.push(value);
       return publication;
@@ -89,9 +90,8 @@ test("実行観測PortはOrchestratorの意味だけをAdapterへ渡す", () => 
  * @boundary PPR-UT-011=Direct Boundary: orchestrator Test Source→対象契約
  */
 test("観測未設定と観測不能を成功へ丸めない", () => {
-  const observedPublications: OrchestratorExecutionObservationPublication[] =
-    [];
-  const port: OrchestratorExecutionObservationPort = Object.freeze({
+  const observedPublications: CoordinatorExecutionObservationPublication[] = [];
+  const port: CoordinatorExecutionObservationPort = Object.freeze({
     observePublication: (publication) => observedPublications.push(publication),
   });
   const unavailable = Object.freeze({
@@ -110,7 +110,7 @@ test("観測未設定と観測不能を成功へ丸めない", () => {
  * @responsibility 上位観測のIdentity、時間、Providerと未観測値の保存を確認する。
  * @trace PPR-UT-011
  * @precondition 固定された正常Attempt観測を使用する。
- * @stimulus Orchestrator公開入口から共通Eventを構築する。
+ * @stimulus Coordinator公開入口から共通Eventを構築する。
  * @observation EventのIdentity、実行時間、Provider、Model、Usageと入力不変性を読む。
  * @oracle 実測時間15msだけを観測済みとし、未取得ModelとUsageを補完しない。
  * @cleanup N/A: 値変換だけで外部資源を取得しない。
@@ -118,7 +118,7 @@ test("観測未設定と観測不能を成功へ丸めない", () => {
  */
 test("公開Attempt変換は実測時間とProviderだけを観測済みとして保持する", () => {
   const before = structuredClone(OBSERVATION);
-  const event = createOrchestratorTaskAttemptEvent(OBSERVATION);
+  const event = createCoordinatorTaskAttemptEvent(OBSERVATION);
   assert.deepEqual(event.identity, OBSERVATION.identity);
   assert.deepEqual(event.outcome, OBSERVATION.outcome);
   assert.deepEqual(event.execution.durationMs, {
@@ -156,7 +156,7 @@ test("公開Attempt変換はProvider欠測と不正Clockを補完しない", () 
     [Number.NaN, 25],
     [10, Number.POSITIVE_INFINITY],
   ] as const) {
-    const event = createOrchestratorTaskAttemptEvent({
+    const event = createCoordinatorTaskAttemptEvent({
       ...withoutProvider,
       startedAtMs,
       endedAtMs,

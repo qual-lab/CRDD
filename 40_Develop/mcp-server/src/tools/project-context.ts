@@ -194,7 +194,7 @@ export const MCP_PROJECT_CONTEXT_GET_TOOL = "crdd.get_project_context" as const;
  * @postcondition 一覧と取得の二Toolを固定順で返す。
  * @effect N/A: 入力、FilesystemまたはNetworkを変更しない。
  * @failure N/A: 固定値の構築に独自の失敗分岐を持たない。
- * @invariant Orchestrator状態ToolとProject Context Toolを同一名にしない。
+ * @invariant Coordinator状態ToolとProject Context Toolを同一名にしない。
  * @boundary MCP Clientへ公開するTool Schema境界。
  * @security Project ID以外のRepository IdentityやAuthority入力を要求しない。
  * @concurrency N/A: 同期的な純粋構築である。

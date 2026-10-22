@@ -8,14 +8,14 @@
  */
 import assert from "node:assert/strict";
 import {
-  createOrchestratorState,
-  initializeOrchestratorSnapshot,
+  createCoordinatorState,
+  initializeCoordinatorSnapshot,
 } from "../../src/index.ts";
 import {
-  writeOrchestratorSnapshotState,
-  createOrchestratorSnapshotPersistencePorts,
+  writeCoordinatorSnapshotState,
+  createCoordinatorSnapshotPersistencePorts,
 } from "../../src/storage/current-state.ts";
-import { deriveOrchestratorRepositoryBindingId } from "../../src/state/binding.ts";
+import { deriveCoordinatorRepositoryBindingId } from "../../src/state/binding.ts";
 
 /**
  * 既存Projectと二Queueを実保存する。
@@ -33,12 +33,12 @@ export function prepareWorkspaceSurface(
   projectId: string,
   base: string,
 ) {
-  const binding = deriveOrchestratorRepositoryBindingId(root);
-  const initialized = initializeOrchestratorSnapshot(root, binding);
+  const binding = deriveCoordinatorRepositoryBindingId(root);
+  const initialized = initializeCoordinatorSnapshot(root, binding);
   assert.equal(initialized.status, "completed");
   if (initialized.status !== "completed")
     throw new Error("fixture_init_failed");
-  const created = createOrchestratorState({
+  const created = createCoordinatorState({
     projectId,
     milestoneId: "milestone-a",
     repositoryRevision: base,
@@ -58,7 +58,7 @@ export function prepareWorkspaceSurface(
   });
   assert.ok(created.state);
   assert.equal(
-    writeOrchestratorSnapshotState(
+    writeCoordinatorSnapshotState(
       root,
       binding,
       JSON.stringify(created.state),
@@ -66,7 +66,7 @@ export function prepareWorkspaceSurface(
     ).status,
     "completed",
   );
-  const ports = createOrchestratorSnapshotPersistencePorts(
+  const ports = createCoordinatorSnapshotPersistencePorts(
     root,
     binding,
     initialized.value,

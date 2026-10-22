@@ -36,10 +36,10 @@ import {
   type WorkspaceAccessResolver,
 } from "../tools/workspace.ts";
 import {
-  getMcpOrchestratorToolDefinitions,
-  handleMcpOrchestratorRequest,
-  type McpOrchestratorDependencies,
-} from "../tools/orchestrator.ts";
+  getMcpCoordinatorToolDefinitions,
+  handleMcpCoordinatorRequest,
+  type McpCoordinatorDependencies,
+} from "../tools/task.ts";
 import {
   getMcpProjectContextToolDefinitions,
   handleMcpProjectContextRequest,
@@ -80,7 +80,7 @@ import {
  */
 export type McpServerDependencies = Readonly<{
   initialConnection?: McpRequestHandler;
-  orchestrator?: McpOrchestratorDependencies;
+  orchestrator?: McpCoordinatorDependencies;
   workspace?: WorkspaceAccessResolver;
   projectContext?: McpProjectContextDependencies;
   runtimeActivity?: McpExecutionStatusDependencies;
@@ -176,9 +176,9 @@ export function createMcpServerFactory(
         });
       if (orchestrator)
         bindings.push({
-          definitions: getMcpOrchestratorToolDefinitions(),
+          definitions: getMcpCoordinatorToolDefinitions(),
           invoke: (raw, current) =>
-            handleMcpOrchestratorRequest(raw, orchestrator, current),
+            handleMcpCoordinatorRequest(raw, orchestrator, current),
         });
       if (projectContext)
         bindings.push({
@@ -285,7 +285,7 @@ export function createMcpServerFactory(
           binding?.invoke ??
           (orchestrator
             ? (raw: unknown, current: AbortSignal) =>
-                handleMcpOrchestratorRequest(raw, orchestrator, current)
+                handleMcpCoordinatorRequest(raw, orchestrator, current)
             : null);
         if (!invoke) throw new ProtocolError(-32601, "Method not found");
         const combined = AbortSignal.any([signal, context.mcpReq.signal]);

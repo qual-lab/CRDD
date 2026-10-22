@@ -9,19 +9,19 @@ import {
   captureRuntimeOwnedCoordinatorTaskResultDelivery,
   startRuntimeOwnedCoordinatorTask,
 } from "../execution/task.ts";
-import type { OrchestratorExecutionPublicationObservation } from "../task/execution-contract.ts";
-import { recordOrchestratorExecutionEvent } from "../task/intelligence-adapter.ts";
+import type { CoordinatorExecutionPublicationObservation } from "../task/execution-contract.ts";
+import { recordCoordinatorExecutionEvent } from "../task/intelligence-adapter.ts";
 import { openRuntimeOwnedWindowsProjectDecisionStore } from "../storage/protected-decision.ts";
 import {
-  writeOrchestratorExecutionIntelligenceDiagnostic,
-  writeOrchestratorRecoveryDiagnostic,
+  writeCoordinatorExecutionIntelligenceDiagnostic,
+  writeCoordinatorRecoveryDiagnostic,
 } from "../task/execution-diagnostics.ts";
 import { createHash } from "node:crypto";
 import {
-  type OrchestratorObjectiveRequest,
-  inspectOrchestratorObjectiveRequest,
+  type CoordinatorObjectiveRequest,
+  inspectCoordinatorObjectiveRequest,
 } from "./request.ts";
-import { deriveOrchestratorRepositoryBindingId } from "../state/binding.ts";
+import { deriveCoordinatorRepositoryBindingId } from "../state/binding.ts";
 import {
   recoverRuntimeOwnedDockerTaskForCurrentConsumer,
   resolveRuntimeOwnedDockerTaskCurrentCorrelations,
@@ -31,24 +31,24 @@ import {
   resolveVerifiedRepositoryRootFromWorkingDirectory,
   verifyRepositoryRoot,
 } from "../../../version-control/src/index.ts";
-import { createOrchestratorObjectiveResult } from "./plan.ts";
+import { createCoordinatorObjectiveResult } from "./plan.ts";
 import { workspacePlanReadyForAcceptance } from "../workspace/operations.ts";
 import {
-  ORCHESTRATOR_PUBLIC_RUNTIME_CONTRACT,
-  orchestratorDataBoundaryBlocked,
+  COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
+  coordinatorDataBoundaryBlocked,
 } from "../operation-result-contract.ts";
-import { runOrchestratorSingleTaskAttempt } from "../task/execute-attempt.ts";
-import { readOrchestratorSnapshot } from "../storage/current-state.ts";
+import { runCoordinatorSingleTaskAttempt } from "../task/execute-attempt.ts";
+import { readCoordinatorSnapshot } from "../storage/current-state.ts";
 import {
   collectDockerRecoveryAcknowledgementAfterProjectRecord,
   consumeDockerRecoveryReceiptAfterProjectSettlement,
   createProjectResultAcceptanceReader,
 } from "../task/settle-docker-recovery.ts";
-import { runOrchestratorObjective } from "./intake-dependencies.ts";
-import { createOrchestratorWindowsPlatformAdapter } from "../platform/windows-adapter.ts";
+import { runCoordinatorObjective } from "./intake-dependencies.ts";
+import { createCoordinatorWindowsPlatformAdapter } from "../platform/windows-adapter.ts";
 import { RepositoryRuntimeDataAreaBlockedError } from "../../../domain-model/src/index.ts";
-import { executeOrchestratorPublicDecision } from "../decision/public-operation.ts";
-import { executeOrchestratorPublicStateQuery } from "../state/public-query.ts";
+import { executeCoordinatorPublicDecision } from "../decision/public-operation.ts";
+import { executeCoordinatorPublicStateQuery } from "../state/public-query.ts";
 
 /**
  * 公開Objective実行が利用する依存契約を定義する。
@@ -72,24 +72,24 @@ type PublicExecutionDependencies = Readonly<{
   resolveTaskRecoveryCorrelations?: (
     correlationIds: readonly string[],
   ) => unknown;
-  recordExecutionEvent: typeof recordOrchestratorExecutionEvent;
+  recordExecutionEvent: typeof recordCoordinatorExecutionEvent;
   observeExecutionEventPublication: (
-    observation: OrchestratorExecutionPublicationObservation,
+    observation: CoordinatorExecutionPublicationObservation,
   ) => void;
 }>;
 
 /**
  * 開発用Objective構成が差し替える依存契約を定義する。
  *
- * @responsibility Orchestrator Public Development DependenciesのProperty、Identity、状態制約を型境界として所有する。
+ * @responsibility Coordinator Public Development DependenciesのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
- * @shape OrchestratorPublicDevelopmentDependenciesが表すProperty、識別子およびRelationを型として固定する。
- * @invariant OrchestratorPublicDevelopmentDependenciesで宣言した値と責務の対応を維持する。
- * @boundary N/A: OrchestratorPublicDevelopmentDependenciesの宣言は外部境界を開かない。
- * @security N/A: OrchestratorPublicDevelopmentDependenciesはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility OrchestratorPublicDevelopmentDependenciesの利用側は宣言済みPropertyと型制約だけへ依存する。
+ * @shape CoordinatorPublicDevelopmentDependenciesが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CoordinatorPublicDevelopmentDependenciesで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CoordinatorPublicDevelopmentDependenciesの宣言は外部境界を開かない。
+ * @security N/A: CoordinatorPublicDevelopmentDependenciesはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility CoordinatorPublicDevelopmentDependenciesの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type OrchestratorPublicDevelopmentDependencies = Omit<
+export type CoordinatorPublicDevelopmentDependencies = Omit<
   PublicExecutionDependencies,
   "recordExecutionEvent" | "observeExecutionEventPublication"
 > &
@@ -107,9 +107,9 @@ const productionExecutionDependencies: PublicExecutionDependencies =
     captureResultDelivery: captureRuntimeOwnedCoordinatorTaskResultDelivery,
     frontProviderForTask: () => "codex",
     openDecisionStore: openRuntimeOwnedWindowsProjectDecisionStore,
-    recordExecutionEvent: recordOrchestratorExecutionEvent,
+    recordExecutionEvent: recordCoordinatorExecutionEvent,
     observeExecutionEventPublication:
-      writeOrchestratorExecutionIntelligenceDiagnostic,
+      writeCoordinatorExecutionIntelligenceDiagnostic,
   });
 
 /**
@@ -135,21 +135,21 @@ function stable(prefix: string, ...parts: readonly string[]) {
 /**
  * 公開Objectiveを既存のSingle Task入力へ変換する。
  *
- * @responsibility Orchestrator Coordinator Task Requestの構築入力、生成結果、不正入力の拒否境界を所有する。
+ * @responsibility Coordinator Coordinator Task Requestの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000004
- * @input request: OrchestratorObjectiveRequest、frontProvider: "codex" | "claude"
- * @returns buildOrchestratorCoordinatorTaskRequestの計算結果を返す。
- * @precondition 「request: OrchestratorObjectiveRequest、frontProvider: "codex" | "claude"」がbuildOrchestratorCoordinatorTaskRequestの入力契約を満たす。
+ * @input request: CoordinatorObjectiveRequest、frontProvider: "codex" | "claude"
+ * @returns buildObjectiveTaskRequestの計算結果を返す。
+ * @precondition 「request: CoordinatorObjectiveRequest、frontProvider: "codex" | "claude"」がbuildObjectiveTaskRequestの入力契約を満たす。
  * @postcondition 明示Profile IDをexactに搬送し、省略時は既存の自動選択を維持する。
- * @effect N/A: buildOrchestratorCoordinatorTaskRequestは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: buildOrchestratorCoordinatorTaskRequestは独自の失敗分岐を所有しない。
- * @invariant buildOrchestratorCoordinatorTaskRequestは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: buildOrchestratorCoordinatorTaskRequestはProcess内の同一Subsystemで完結する。
+ * @effect N/A: buildObjectiveTaskRequestは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: buildObjectiveTaskRequestは独自の失敗分岐を所有しない。
+ * @invariant buildObjectiveTaskRequestは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: buildObjectiveTaskRequestはProcess内の同一Subsystemで完結する。
  * @security Profile IDは選択希望だけを表し、Resolver／Grantの適合性検証または実行Authorityを代替しない。
- * @concurrency N/A: buildOrchestratorCoordinatorTaskRequestは共有非同期状態を持たない同期処理である。
+ * @concurrency N/A: buildObjectiveTaskRequestは共有非同期状態を持たない同期処理である。
  */
-export function buildOrchestratorCoordinatorTaskRequest(
-  request: OrchestratorObjectiveRequest,
+export function buildObjectiveTaskRequest(
+  request: CoordinatorObjectiveRequest,
   frontProvider: "codex" | "claude",
 ) {
   return Object.freeze({
@@ -176,30 +176,30 @@ export function buildOrchestratorCoordinatorTaskRequest(
 /**
  * Production composition shared by the CLI and MCP transports.
  *
- * @responsibility Orchestrator Public Objectiveの実行条件、Effect範囲、終了結果の境界を所有する。
+ * @responsibility Coordinator Public Objectiveの実行条件、Effect範囲、終了結果の境界を所有する。
  * @trace ARCH-000004
  * @input runtimeDependencies: PublicExecutionDependencies、rawRequest: unknown、cancellationSignal: AbortSignal、workingDirectory、authenticationContext: Readonly<{ principalId: string }>
- * @returns executeOrchestratorPublicObjectiveの計算結果を返す。
- * @precondition 「runtimeDependencies: PublicExecutionDependencies、rawRequest: unknown、cancellationSignal: AbortSignal、workingDirectory、authenticationContext: Readonly<{ principalId: string }>」がexecuteOrchestratorPublicObjectiveの入力契約を満たす。
- * @postcondition executeOrchestratorPublicObjectiveの責務を完了した結果だけを返す。
+ * @returns executeCoordinatorPublicObjectiveの計算結果を返す。
+ * @precondition 「runtimeDependencies: PublicExecutionDependencies、rawRequest: unknown、cancellationSignal: AbortSignal、workingDirectory、authenticationContext: Readonly<{ principalId: string }>」がexecuteCoordinatorPublicObjectiveの入力契約を満たす。
+ * @postcondition executeCoordinatorPublicObjectiveの責務を完了した結果だけを返す。
  * @effect Repository・判断記録を観測し、受付状態の保存と認可済みTask実行を既存Ownerへ委譲する。
- * @failure executeOrchestratorPublicObjectiveは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @failure executeCoordinatorPublicObjectiveは入力不正または下位処理の失敗を呼出し側へ返す。
  * @invariant 予約・開始・結果保存・配送の順序と同じ要求Identityを維持する。
  * @boundary 公開Objective入力→認証・保存・実行依存の境界を接続する。
  * @security 認証済み主体・Repository・要求範囲を既存境界で検証し、現在の許可外へ実行を拡張しない。
  * @concurrency 取消Signalと実行・保存・結果搬送の非同期完了を既存Lifecycleへ接続する。
  */
-async function executeOrchestratorPublicObjective(
+async function executeCoordinatorPublicObjective(
   runtimeDependencies: PublicExecutionDependencies,
   rawRequest: unknown,
   cancellationSignal: AbortSignal,
   workingDirectory = process.cwd(),
   authenticationContext?: Readonly<{ principalId: string }>,
 ) {
-  const request = inspectOrchestratorObjectiveRequest(rawRequest);
+  const request = inspectCoordinatorObjectiveRequest(rawRequest);
   if (!request)
     return Object.freeze({
-      contract: ORCHESTRATOR_PUBLIC_RUNTIME_CONTRACT,
+      contract: COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
       status: "blocked" as const,
       reason: "orchestrator_objective_request_invalid",
       cleanupConfirmed: true,
@@ -207,7 +207,7 @@ async function executeOrchestratorPublicObjective(
       effectState: "no_effect" as const,
     });
   if (request.adoptResult)
-    return createOrchestratorObjectiveResult(request, {
+    return createCoordinatorObjectiveResult(request, {
       status: "blocked",
       reason: "orchestrator_explicit_workspace_adoption_required",
     });
@@ -217,7 +217,7 @@ async function executeOrchestratorPublicObjective(
       resolveVerifiedRepositoryRootFromWorkingDirectory(workingDirectory);
   } catch {
     return Object.freeze({
-      contract: ORCHESTRATOR_PUBLIC_RUNTIME_CONTRACT,
+      contract: COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
       status: "blocked" as const,
       reason: "orchestrator_repository_root_not_verified",
       cleanupConfirmed: true,
@@ -233,7 +233,7 @@ async function executeOrchestratorPublicObjective(
       authenticationContext.principalId !== authenticated.principalId)
   )
     return Object.freeze({
-      contract: ORCHESTRATOR_PUBLIC_RUNTIME_CONTRACT,
+      contract: COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
       status: "blocked" as const,
       reason: "orchestrator_authenticated_principal_not_verified",
       cleanupConfirmed: true,
@@ -244,7 +244,7 @@ async function executeOrchestratorPublicObjective(
   const platform =
     observedPlatform.status === "observed" &&
     observedPlatform.platformFamily === "windows"
-      ? createOrchestratorWindowsPlatformAdapter()
+      ? createCoordinatorWindowsPlatformAdapter()
       : null;
   const observeLeaseOwner = (
     owner: Readonly<{
@@ -264,7 +264,7 @@ async function executeOrchestratorPublicObjective(
       })
     );
   };
-  const execution = await runOrchestratorObjective(
+  const execution = await runCoordinatorObjective(
     {
       authenticatedPrincipalId: authenticated.principalId,
       /**
@@ -289,7 +289,7 @@ async function executeOrchestratorPublicObjective(
           (identity.commit !== input.repositoryRevision &&
             !workspacePlanReadyForAcceptance(
               repositoryRoot,
-              deriveOrchestratorRepositoryBindingId(repositoryRoot),
+              deriveCoordinatorRepositoryBindingId(repositoryRoot),
               input.projectId,
               input.milestoneId,
               input.repositoryRevision,
@@ -303,7 +303,7 @@ async function executeOrchestratorPublicObjective(
         return Object.freeze({
           status: "verified",
           repositoryBindingId:
-            deriveOrchestratorRepositoryBindingId(repositoryRoot),
+            deriveCoordinatorRepositoryBindingId(repositoryRoot),
           repositoryRevision: input.repositoryRevision,
           workingDirectory: repositoryRoot,
           repositoryRoot,
@@ -315,9 +315,9 @@ async function executeOrchestratorPublicObjective(
        *
        * @responsibility plan Objectiveの導出に必要な入力、判定規則、返却結果の境界を所有する。
        * @trace ARCH-000004
-       * @input request: OrchestratorObjectiveRequest
+       * @input request: CoordinatorObjectiveRequest
        * @returns planObjectiveの計算結果を返す。
-       * @precondition 「request: OrchestratorObjectiveRequest」がplanObjectiveの入力契約を満たす。
+       * @precondition 「request: CoordinatorObjectiveRequest」がplanObjectiveの入力契約を満たす。
        * @postcondition planObjectiveの責務を完了した結果だけを返す。
        * @effect N/A: planObjectiveは入力と局所値だけを扱い、外部または共有Effectを発行しない。
        * @failure N/A: planObjectiveは独自の失敗分岐を所有しない。
@@ -326,7 +326,7 @@ async function executeOrchestratorPublicObjective(
        * @security N/A: planObjectiveはAuthority、秘密値または信頼判断を扱わない。
        * @concurrency N/A: planObjectiveは共有非同期状態を持たない同期処理である。
        */
-      planObjective(request: OrchestratorObjectiveRequest) {
+      planObjective(request: CoordinatorObjectiveRequest) {
         const objectiveId = stable(
           "objective",
           request.projectId,
@@ -384,7 +384,7 @@ async function executeOrchestratorPublicObjective(
             return Object.freeze({
               taskId: task.definition.id,
               repositoryRoot,
-              taskRequest: buildOrchestratorCoordinatorTaskRequest(
+              taskRequest: buildObjectiveTaskRequest(
                 Object.freeze({
                   ...request,
                   acceptanceCriteria: Object.freeze([
@@ -415,14 +415,14 @@ async function executeOrchestratorPublicObjective(
           workingDirectory,
           repositoryRoot,
           repositoryBindingId:
-            deriveOrchestratorRepositoryBindingId(repositoryRoot),
+            deriveCoordinatorRepositoryBindingId(repositoryRoot),
         }),
       finalizeTaskRecoveryAcknowledgement: (settlement) =>
         collectDockerRecoveryAcknowledgementAfterProjectRecord(settlement, {
           workingDirectory,
           repositoryRoot,
           repositoryBindingId:
-            deriveOrchestratorRepositoryBindingId(repositoryRoot),
+            deriveCoordinatorRepositoryBindingId(repositoryRoot),
         }),
       resolveTaskRecoveryCorrelations:
         runtimeDependencies.resolveTaskRecoveryCorrelations ??
@@ -433,11 +433,11 @@ async function executeOrchestratorPublicObjective(
             root.status === "completed" ? root.capability : null,
           );
         }),
-      observeRecoveryTransition: writeOrchestratorRecoveryDiagnostic,
+      observeRecoveryTransition: writeCoordinatorRecoveryDiagnostic,
       execution: {
         resultDelivery: {
           repositoryBindingId:
-            deriveOrchestratorRepositoryBindingId(repositoryRoot),
+            deriveCoordinatorRepositoryBindingId(repositoryRoot),
           createAcceptanceReader: (acceptance) =>
             createProjectResultAcceptanceReader({
               workingDirectory: repositoryRoot,
@@ -451,7 +451,7 @@ async function executeOrchestratorPublicObjective(
             }),
         },
         runSingleTaskAttempt: (input) =>
-          runOrchestratorSingleTaskAttempt(
+          runCoordinatorSingleTaskAttempt(
             {
               startTask: (
                 taskRequest,
@@ -491,7 +491,7 @@ async function executeOrchestratorPublicObjective(
     execution.projection?.milestoneState === "accepted" &&
     execution.reason === "orchestrator_tasks_already_integration_pending"
   )
-    return createOrchestratorObjectiveResult(request, {
+    return createCoordinatorObjectiveResult(request, {
       ...execution,
       status: "completed",
       reason: "orchestrator_objective_already_accepted",
@@ -504,9 +504,9 @@ async function executeOrchestratorPublicObjective(
       "orchestrator_tasks_already_integration_pending",
     ].includes(execution.reason)
   ) {
-    const snapshot = readOrchestratorSnapshot(
+    const snapshot = readCoordinatorSnapshot(
       repositoryRoot,
-      deriveOrchestratorRepositoryBindingId(repositoryRoot),
+      deriveCoordinatorRepositoryBindingId(repositoryRoot),
     );
     const queue =
       snapshot.status === "completed"
@@ -522,7 +522,7 @@ async function executeOrchestratorPublicObjective(
       (queue.workspaceId !== request.workspaceId &&
         !(queue.workspaceId == null && request.workspaceId === undefined))
     )
-      return createOrchestratorObjectiveResult(request, {
+      return createCoordinatorObjectiveResult(request, {
         ...execution,
         status: "blocked",
         reason: "orchestrator_workspace_target_unconfirmed",
@@ -530,13 +530,13 @@ async function executeOrchestratorPublicObjective(
       });
     const ready = workspacePlanReadyForAcceptance(
       repositoryRoot,
-      deriveOrchestratorRepositoryBindingId(repositoryRoot),
+      deriveCoordinatorRepositoryBindingId(repositoryRoot),
       request.projectId,
       request.milestoneId,
       request.repositoryRevision,
       identity?.commit ?? "",
     );
-    return createOrchestratorObjectiveResult(request, {
+    return createCoordinatorObjectiveResult(request, {
       ...execution,
       status: "blocked",
       reason:
@@ -549,22 +549,22 @@ async function executeOrchestratorPublicObjective(
 }
 
 /**
- * Orchestrator Public Objectiveを実行する。
+ * Coordinator Public Objectiveを実行する。
  *
- * @responsibility Orchestrator Public Objectiveの実行条件、Effect範囲、終了結果の境界を所有する。
+ * @responsibility Coordinator Public Objectiveの実行条件、Effect範囲、終了結果の境界を所有する。
  * @trace ARCH-000004
  * @input rawRequest: unknown、cancellationSignal: AbortSignal、workingDirectory、authenticationContext: Readonly<{ principalId: string }>
- * @returns runOrchestratorPublicObjectiveの計算結果を返す。
- * @precondition 「rawRequest: unknown、cancellationSignal: AbortSignal、workingDirectory、authenticationContext: Readonly<{ principalId: string }>」がrunOrchestratorPublicObjectiveの入力契約を満たす。
- * @postcondition runOrchestratorPublicObjectiveの責務を完了した結果だけを返す。
+ * @returns runCoordinatorPublicObjectiveの計算結果を返す。
+ * @precondition 「rawRequest: unknown、cancellationSignal: AbortSignal、workingDirectory、authenticationContext: Readonly<{ principalId: string }>」がrunCoordinatorPublicObjectiveの入力契約を満たす。
+ * @postcondition runCoordinatorPublicObjectiveの責務を完了した結果だけを返す。
  * @effect Repository・判断記録を観測し、受付状態の保存と認可済みTask実行を既存Ownerへ委譲する。
- * @failure runOrchestratorPublicObjectiveは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @failure runCoordinatorPublicObjectiveは入力不正または下位処理の失敗を呼出し側へ返す。
  * @invariant 予約・開始・結果保存・配送の順序と同じ要求Identityを維持する。
  * @boundary 公開Objective入力→認証・保存・実行依存の境界を接続する。
  * @security 認証済み主体・Repository・要求範囲を既存境界で検証し、現在の許可外へ実行を拡張しない。
  * @concurrency 取消Signalと実行・保存・結果搬送の非同期完了を既存Lifecycleへ接続する。
  */
-export function runOrchestratorPublicObjective(
+export function runCoordinatorPublicObjective(
   rawRequest: unknown,
   cancellationSignal: AbortSignal,
   workingDirectory = process.cwd(),
@@ -572,7 +572,7 @@ export function runOrchestratorPublicObjective(
 ) {
   try {
     return Promise.resolve(
-      executeOrchestratorPublicObjective(
+      executeCoordinatorPublicObjective(
         productionExecutionDependencies,
         rawRequest,
         cancellationSignal,
@@ -581,12 +581,12 @@ export function runOrchestratorPublicObjective(
       ),
     ).catch((error: unknown) => {
       if (error instanceof RepositoryRuntimeDataAreaBlockedError)
-        return orchestratorDataBoundaryBlocked(error);
+        return coordinatorDataBoundaryBlocked(error);
       throw error;
     });
   } catch (error) {
     if (error instanceof RepositoryRuntimeDataAreaBlockedError)
-      return Promise.resolve(orchestratorDataBoundaryBlocked(error));
+      return Promise.resolve(coordinatorDataBoundaryBlocked(error));
     throw error;
   }
 }
@@ -594,29 +594,29 @@ export function runOrchestratorPublicObjective(
 /**
  * Development-only composition. The supplied starter still needs its own admitted capability.
  *
- * @responsibility Development Orchestrator Public Objective 候補の構築入力、生成結果、不正入力の拒否境界を所有する。
+ * @responsibility Development Coordinator Public Objective 候補の構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000004
- * @input dependencies: OrchestratorPublicDevelopmentDependencies
- * @returns createDevelopmentOrchestratorPublicObjectiveCandidateの計算結果を返す。
- * @precondition 「dependencies: OrchestratorPublicDevelopmentDependencies」がcreateDevelopmentOrchestratorPublicObjectiveCandidateの入力契約を満たす。
- * @postcondition createDevelopmentOrchestratorPublicObjectiveCandidateの責務を完了した結果だけを返す。
- * @effect N/A: createDevelopmentOrchestratorPublicObjectiveCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: createDevelopmentOrchestratorPublicObjectiveCandidateは独自の失敗分岐を所有しない。
- * @invariant createDevelopmentOrchestratorPublicObjectiveCandidateは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: createDevelopmentOrchestratorPublicObjectiveCandidateはProcess内の同一Subsystemで完結する。
- * @security N/A: createDevelopmentOrchestratorPublicObjectiveCandidateはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: createDevelopmentOrchestratorPublicObjectiveCandidateは共有非同期状態を持たない同期処理である。
+ * @input dependencies: CoordinatorPublicDevelopmentDependencies
+ * @returns createDevelopmentCoordinatorPublicObjectiveCandidateの計算結果を返す。
+ * @precondition 「dependencies: CoordinatorPublicDevelopmentDependencies」がcreateDevelopmentCoordinatorPublicObjectiveCandidateの入力契約を満たす。
+ * @postcondition createDevelopmentCoordinatorPublicObjectiveCandidateの責務を完了した結果だけを返す。
+ * @effect N/A: createDevelopmentCoordinatorPublicObjectiveCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: createDevelopmentCoordinatorPublicObjectiveCandidateは独自の失敗分岐を所有しない。
+ * @invariant createDevelopmentCoordinatorPublicObjectiveCandidateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: createDevelopmentCoordinatorPublicObjectiveCandidateはProcess内の同一Subsystemで完結する。
+ * @security N/A: createDevelopmentCoordinatorPublicObjectiveCandidateはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: createDevelopmentCoordinatorPublicObjectiveCandidateは共有非同期状態を持たない同期処理である。
  */
-export function createDevelopmentOrchestratorPublicObjectiveCandidate(
-  dependencies: OrchestratorPublicDevelopmentDependencies,
+export function createDevelopmentCoordinatorPublicObjectiveCandidate(
+  dependencies: CoordinatorPublicDevelopmentDependencies,
 ) {
   const fixed = Object.freeze({
     ...dependencies,
     recordExecutionEvent:
-      dependencies.recordExecutionEvent ?? recordOrchestratorExecutionEvent,
+      dependencies.recordExecutionEvent ?? recordCoordinatorExecutionEvent,
     observeExecutionEventPublication:
       dependencies.observeExecutionEventPublication ??
-      writeOrchestratorExecutionIntelligenceDiagnostic,
+      writeCoordinatorExecutionIntelligenceDiagnostic,
   });
   return Object.freeze({
     productionAuthority: false,
@@ -626,7 +626,7 @@ export function createDevelopmentOrchestratorPublicObjectiveCandidate(
       workingDirectory: string,
       authenticationContext?: Readonly<{ principalId: string }>,
     ) =>
-      executeOrchestratorPublicObjective(
+      executeCoordinatorPublicObjective(
         fixed,
         rawRequest,
         cancellationSignal,
@@ -638,7 +638,7 @@ export function createDevelopmentOrchestratorPublicObjectiveCandidate(
       workingDirectory: string,
       authenticationContext?: Readonly<{ principalId: string }>,
     ) =>
-      executeOrchestratorPublicDecision(
+      executeCoordinatorPublicDecision(
         fixed.openDecisionStore,
         rawRequest,
         workingDirectory,
@@ -649,7 +649,7 @@ export function createDevelopmentOrchestratorPublicObjectiveCandidate(
       workingDirectory: string,
       authenticationContext?: Readonly<{ principalId: string }>,
     ) =>
-      executeOrchestratorPublicStateQuery(
+      executeCoordinatorPublicStateQuery(
         fixed.openDecisionStore,
         rawRequest,
         workingDirectory,

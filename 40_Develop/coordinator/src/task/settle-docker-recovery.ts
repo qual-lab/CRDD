@@ -1,7 +1,7 @@
 /**
  * 上位Taskの耐久状態とDocker回復の終了確定を照合する。
  *
- * @responsibility Orchestratorのexact世代・Task・回復義務を確認し、資源処置をCoordinatorへ委譲する。
+ * @responsibility Coordinatorのexact世代・Task・回復義務を確認し、資源処置をCoordinatorへ委譲する。
  * @trace ARCH-000008
  */
 
@@ -17,7 +17,7 @@ import {
   verifyRepositoryRoot,
 } from "../../../version-control/src/index.ts";
 import { decodeProjectResultAcceptance } from "../state/model.ts";
-import { readCurrentOrchestratorState as readOrchestratorState } from "../storage/current-state.ts";
+import { readCurrentCoordinatorState as readCoordinatorState } from "../storage/current-state.ts";
 
 /**
  * 同じ上位Attemptの保存済み受理だけを返す読取り閉包を固定する。
@@ -30,7 +30,7 @@ import { readCurrentOrchestratorState as readOrchestratorState } from "../storag
  * @effect 構築時はN/A。Readerは既存上位現在状態を短期排他で読む。
  * @failure 不正結合、保存・排他解放未確認、別Attempt、ACK欠落・旧形式はnull。
  * @invariant 読取りから処置Authorityや新しい受理を発行しない。
- * @boundary Orchestratorの上位耐久保存とCoordinatorの内部終端Context。
+ * @boundary Coordinatorの上位耐久保存とCoordinatorの内部終端Context。
  * @security Pathは本番組立ての固定値だけを使い、返却本文に含めない。
  * @concurrency 上位保存Lock解放後に使用し、ReaderからCoordinatorへ再入場しない。
  */
@@ -57,7 +57,7 @@ export function createProjectResultAcceptanceReader(rawBinding: unknown) {
     return null;
   return () => {
     try {
-      const observed = readOrchestratorState(
+      const observed = readCoordinatorState(
         String(binding.workingDirectory),
         String(binding.repositoryBindingId),
         String(binding.projectId),
@@ -200,7 +200,7 @@ export function consumeProjectSettledDockerRecoveryWithRuntimeBoundary<T>(
       status: "blocked" as const,
       reason: "docker_task_recovery_settlement_authority_invalid",
     });
-  const observed = readOrchestratorState(
+  const observed = readCoordinatorState(
     String(settlement.workingDirectory),
     String(settlement.repositoryBindingId),
     String(settlement.projectId),
@@ -240,7 +240,7 @@ export function consumeProjectSettledDockerRecoveryWithRuntimeBoundary<T>(
  * @effect 固定RepositoryのFilesystem・Git配置を読み取る。
  * @failure 不正形式、固定値不一致、Rootの観測不能はnull。
  * @invariant 入力のworkingDirectoryをRoot選択の根拠にしない。
- * @boundary Orchestrator本番組立てとRepository結合。
+ * @boundary Coordinator本番組立てとRepository結合。
  * @security 秘密値・処置Authorityを返さない。
  * @concurrency Root実体の再確認後も下位ReaderとWriterが保存時に再確認する。
  */
@@ -283,7 +283,7 @@ function verifyRecoverySettlementRepository(
  * @effect 上位現在状態と下位現在状態を既存短期排他で読み取る。
  * @failure Root・上位世代・結果相関・読取り・排他解放不明はblocked。
  * @invariant 読取りから受理・清掃・Provider実行の成功を合成しない。
- * @boundary Orchestrator現在状態とCoordinator結果投影。
+ * @boundary Coordinator現在状態とCoordinator結果投影。
  * @security 旧AppData領収書や入力Pathを保存先選択へ使わない。
  * @concurrency 上位読取りの排他解放後に下位を読み取る。
  */
@@ -453,7 +453,7 @@ export function collectDockerRecoveryAcknowledgementAfterProjectRecord(
       status: "blocked" as const,
       reason: "docker_task_recovery_repository_not_verified",
     });
-  const observed = readOrchestratorState(
+  const observed = readCoordinatorState(
     String(settlement.workingDirectory),
     String(settlement.repositoryBindingId),
     String(settlement.projectId),

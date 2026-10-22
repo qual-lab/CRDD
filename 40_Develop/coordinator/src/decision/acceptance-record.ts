@@ -4,9 +4,9 @@
  * @responsibility RecordとEnvelopeの意味検査を所有し、保存先やFilesystem操作を所有しない。
  * @trace ARCH-000005
  */
-import type { OrchestratorAcceptanceDecisionRecord } from "./acceptance-authority.ts";
+import type { CoordinatorAcceptanceDecisionRecord } from "./acceptance-authority.ts";
 
-export const ORCHESTRATOR_ACCEPTANCE_DECISION_STORE_CONTRACT =
+export const COORDINATOR_ACCEPTANCE_DECISION_STORE_CONTRACT =
   "crdd-coordinator/orchestrator-acceptance-decision-store/v1" as const;
 
 /**
@@ -16,23 +16,23 @@ export const ORCHESTRATOR_ACCEPTANCE_DECISION_STORE_CONTRACT =
  * @trace ARCH-000005
  * @shape generation 1のprepared Recordまたはgeneration 2のfinalized Recordと、その前世代参照を表す。
  * @invariant generation 1はpreviousHashを持たず、generation 2はgeneration 1のHashを持つ。
- * @boundary Orchestrator Acceptance Decision StoreとRepository-local JSONの型境界。
+ * @boundary Coordinator Acceptance Decision StoreとRepository-local JSONの型境界。
  * @security 秘密値、CapabilityまたはHost絶対Pathを保持しない。
  * @compatibility contract値とgeneration意味を変更せず、利用側は宣言済みPropertyだけへ依存する。
  */
 type Envelope = Readonly<{
-  contract: typeof ORCHESTRATOR_ACCEPTANCE_DECISION_STORE_CONTRACT;
+  contract: typeof COORDINATOR_ACCEPTANCE_DECISION_STORE_CONTRACT;
   repositoryBindingId: string;
   recordId: string;
   generation: 1 | 2;
   previousHash: string | null;
-  record: OrchestratorAcceptanceDecisionRecord;
+  record: CoordinatorAcceptanceDecisionRecord;
 }>;
 
 export {
-  type Envelope as OrchestratorAcceptanceDecisionEnvelope,
-  validRecord as validOrchestratorAcceptanceDecisionRecord,
-  validEnvelope as validOrchestratorAcceptanceDecisionEnvelope,
+  type Envelope as CoordinatorAcceptanceDecisionEnvelope,
+  validRecord as validCoordinatorAcceptanceDecisionRecord,
+  validEnvelope as validCoordinatorAcceptanceDecisionEnvelope,
 };
 
 const ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u;
@@ -50,16 +50,16 @@ const HASH = /^[0-9a-f]{64}$/u;
  * @effect N/A: 入力値だけを検査する。
  * @failure 不正値は例外でなくfalseへ閉じる。
  * @invariant SPEC-000002以外を受入判断Sourceとして許可しない。
- * @boundary Filesystem JSONとOrchestrator Port型の境界。
+ * @boundary Filesystem JSONとCoordinator Port型の境界。
  * @security Capabilityや秘密値Propertyを許可しない。
  * @concurrency N/A: 局所値だけを扱う。
  */
 function validRecord(
   value: unknown,
-): value is OrchestratorAcceptanceDecisionRecord {
+): value is CoordinatorAcceptanceDecisionRecord {
   if (value === null || typeof value !== "object" || Array.isArray(value))
     return false;
-  const record = value as Partial<OrchestratorAcceptanceDecisionRecord>;
+  const record = value as Partial<CoordinatorAcceptanceDecisionRecord>;
   return (
     [
       record.recordId,
@@ -116,7 +116,7 @@ function validEnvelope(
     return false;
   const envelope = value as Partial<Envelope>;
   return (
-    envelope.contract === ORCHESTRATOR_ACCEPTANCE_DECISION_STORE_CONTRACT &&
+    envelope.contract === COORDINATOR_ACCEPTANCE_DECISION_STORE_CONTRACT &&
     envelope.repositoryBindingId === repositoryBindingId &&
     envelope.recordId === recordId &&
     (envelope.generation === 1 || envelope.generation === 2) &&

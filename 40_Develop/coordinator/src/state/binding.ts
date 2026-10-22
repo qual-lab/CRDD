@@ -1,5 +1,5 @@
 /**
- * Orchestratorの保存Bindingを導出する。
+ * Coordinatorの保存Bindingを導出する。
  * @responsibility 既存Compositionと活動Readerの導出式を一つにする。
  * @trace ARCH-000004
  */
@@ -16,10 +16,10 @@ import { createHash } from "node:crypto";
  * @effect N/A: 純粋計算だけ。
  * @failure N/A: 固定文字列をHash化する。
  * @invariant 現在状態と履歴の観測を独立保持する。
- * @boundary Orchestrator活動Ownerと内部Consumer。
+ * @boundary Coordinator活動Ownerと内部Consumer。
  * @security 資格、内部Pathと保存Bindingを公開しない。
  * @concurrency 一回の要求を同期観測し、共有Cacheを持たない。
  */
-export function deriveOrchestratorRepositoryBindingId(root: string): string {
+export function deriveCoordinatorRepositoryBindingId(root: string): string {
   return `binding-${createHash("sha256").update(root).digest("hex").slice(0, 40)}`;
 }

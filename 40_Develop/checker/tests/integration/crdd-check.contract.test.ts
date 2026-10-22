@@ -7920,7 +7920,7 @@ test("Architecture Readyは全Canonical IDのQuality Mappingと検証定義の�
   for (const fileName of [
     "test-catalog.json",
     "coordinator-runtime-traceability.json",
-    "orchestrator-design-traceability.json",
+    "coordinator-task-design-traceability.json",
   ])
     write(path.join(root, "07_Quality", "Registry", fileName), "{}\n");
   const mappingPath = path.join(

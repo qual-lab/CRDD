@@ -1,23 +1,23 @@
 /**
  * platform-contractに属する責務をまとめる。
  *
- * @responsibility OrchestratorPlatformBoundaryを中心とする実装、型および境界を同じModuleで所有する。
+ * @responsibility CoordinatorPlatformBoundaryを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000004
  */
 import { types as utilTypes } from "node:util";
 
-export const ORCHESTRATOR_PLATFORM_CONTRACT =
+export const COORDINATOR_PLATFORM_CONTRACT =
   "crdd-coordinator/orchestrator-platform-contract" as const;
-export const ORCHESTRATOR_PLATFORM_CONTRACT_REVISION = 1;
+export const COORDINATOR_PLATFORM_CONTRACT_REVISION = 1;
 
 /**
- * OrchestratorのIF-PLATFORM境界群。
+ * CoordinatorのIF-PLATFORM境界群。
  * The lock_lease family is declared here because
  * the contract owns the closed family population. The Windows adapter now
  * supplies owner-liveness observation; resolution still fails closed for
  * unsupported families instead of narrowing the population.
  */
-export const ORCHESTRATOR_PLATFORM_BOUNDARIES = Object.freeze([
+export const COORDINATOR_PLATFORM_BOUNDARIES = Object.freeze([
   "principal_provider_home",
   "filesystem_repository",
   "lock_lease",
@@ -27,18 +27,18 @@ export const ORCHESTRATOR_PLATFORM_BOUNDARIES = Object.freeze([
 ] as const);
 
 /**
- * platform-contractで使用するOrchestrator Platform Boundaryの値契約を定義する。
+ * platform-contractで使用するCoordinator Platform Boundaryの値契約を定義する。
  *
- * @responsibility Orchestrator Platform BoundaryのProperty、Identity、状態制約を型境界として所有する。
+ * @responsibility Coordinator Platform BoundaryのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
- * @shape OrchestratorPlatformBoundaryが表すProperty、識別子およびRelationを型として固定する。
- * @invariant OrchestratorPlatformBoundaryで宣言した値と責務の対応を維持する。
- * @boundary N/A: OrchestratorPlatformBoundaryの宣言は外部境界を開かない。
- * @security N/A: OrchestratorPlatformBoundaryはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility OrchestratorPlatformBoundaryの利用側は宣言済みPropertyと型制約だけへ依存する。
+ * @shape CoordinatorPlatformBoundaryが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CoordinatorPlatformBoundaryで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CoordinatorPlatformBoundaryの宣言は外部境界を開かない。
+ * @security N/A: CoordinatorPlatformBoundaryはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility CoordinatorPlatformBoundaryの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type OrchestratorPlatformBoundary =
-  (typeof ORCHESTRATOR_PLATFORM_BOUNDARIES)[number];
+export type CoordinatorPlatformBoundary =
+  (typeof COORDINATOR_PLATFORM_BOUNDARIES)[number];
 
 /**
  * Closed operation-name population per boundary for contract revision 1.
@@ -48,7 +48,7 @@ export type OrchestratorPlatformBoundary =
  * operations to a family is a contract-revision decision of the implementing
  * stage.
  */
-export const ORCHESTRATOR_PLATFORM_BOUNDARY_OPERATIONS = Object.freeze({
+export const COORDINATOR_PLATFORM_BOUNDARY_OPERATIONS = Object.freeze({
   principal_provider_home: Object.freeze(["observeProviderHomeCandidate"]),
   filesystem_repository: Object.freeze(["resolveRepositoryRoot"]),
   lock_lease: Object.freeze(["observeLeaseOwner"]),
@@ -56,16 +56,16 @@ export const ORCHESTRATOR_PLATFORM_BOUNDARY_OPERATIONS = Object.freeze({
   container_host: Object.freeze(["observeContainerHostRecoveryState"]),
   runtime_root_recovery: Object.freeze(["compileRootObservationCandidate"]),
 } as const satisfies Readonly<
-  Record<OrchestratorPlatformBoundary, readonly string[]>
+  Record<CoordinatorPlatformBoundary, readonly string[]>
 >);
 
 /**
  * Architecture-owned guarantees for each IF-PLATFORM boundary.  These are
  * deliberately broader than the currently extracted operation population:
  * an adapter may expose a useful operation candidate without claiming that
- * the whole boundary is ready for Orchestrator effects.
+ * the whole boundary is ready for Coordinator effects.
  */
-export const ORCHESTRATOR_PLATFORM_BOUNDARY_GUARANTEES = Object.freeze({
+export const COORDINATOR_PLATFORM_BOUNDARY_GUARANTEES = Object.freeze({
   principal_provider_home: Object.freeze([
     "selected_principal_identity",
     "stable_provider_home_identity",
@@ -107,44 +107,44 @@ export const ORCHESTRATOR_PLATFORM_BOUNDARY_GUARANTEES = Object.freeze({
     "recovery_absence",
   ]),
 } as const satisfies Readonly<
-  Record<OrchestratorPlatformBoundary, readonly string[]>
+  Record<CoordinatorPlatformBoundary, readonly string[]>
 >);
 
 /**
- * platform-contractで使用するOrchestrator Platform Guaranteeの値契約を定義する。
+ * platform-contractで使用するCoordinator Platform Guaranteeの値契約を定義する。
  *
- * @responsibility Orchestrator Platform GuaranteeのProperty、Identity、状態制約を型境界として所有する。
+ * @responsibility Coordinator Platform GuaranteeのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
- * @shape OrchestratorPlatformGuaranteeが表すProperty、識別子およびRelationを型として固定する。
- * @invariant OrchestratorPlatformGuaranteeで宣言した値と責務の対応を維持する。
- * @boundary N/A: OrchestratorPlatformGuaranteeの宣言は外部境界を開かない。
- * @security N/A: OrchestratorPlatformGuaranteeはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility OrchestratorPlatformGuaranteeの利用側は宣言済みPropertyと型制約だけへ依存する。
+ * @shape CoordinatorPlatformGuaranteeが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CoordinatorPlatformGuaranteeで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CoordinatorPlatformGuaranteeの宣言は外部境界を開かない。
+ * @security N/A: CoordinatorPlatformGuaranteeはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility CoordinatorPlatformGuaranteeの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type OrchestratorPlatformGuarantee =
-  (typeof ORCHESTRATOR_PLATFORM_BOUNDARY_GUARANTEES)[OrchestratorPlatformBoundary][number];
+export type CoordinatorPlatformGuarantee =
+  (typeof COORDINATOR_PLATFORM_BOUNDARY_GUARANTEES)[CoordinatorPlatformBoundary][number];
 
 /**
- * platform-contractで使用するOrchestrator Platform Adapter Descriptionの値契約を定義する。
+ * platform-contractで使用するCoordinator Platform Adapter Descriptionの値契約を定義する。
  *
- * @responsibility Orchestrator Platform Adapter DescriptionのProperty、Identity、状態制約を型境界として所有する。
+ * @responsibility Coordinator Platform Adapter DescriptionのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
- * @shape OrchestratorPlatformAdapterDescriptionが表すProperty、識別子およびRelationを型として固定する。
- * @invariant OrchestratorPlatformAdapterDescriptionで宣言した値と責務の対応を維持する。
- * @boundary N/A: OrchestratorPlatformAdapterDescriptionの宣言は外部境界を開かない。
- * @security N/A: OrchestratorPlatformAdapterDescriptionはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility OrchestratorPlatformAdapterDescriptionの利用側は宣言済みPropertyと型制約だけへ依存する。
+ * @shape CoordinatorPlatformAdapterDescriptionが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CoordinatorPlatformAdapterDescriptionで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CoordinatorPlatformAdapterDescriptionの宣言は外部境界を開かない。
+ * @security N/A: CoordinatorPlatformAdapterDescriptionはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility CoordinatorPlatformAdapterDescriptionの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type OrchestratorPlatformAdapterDescription = Readonly<{
-  contract: typeof ORCHESTRATOR_PLATFORM_CONTRACT;
+export type CoordinatorPlatformAdapterDescription = Readonly<{
+  contract: typeof COORDINATOR_PLATFORM_CONTRACT;
   contractRevision: number;
   platformFamily: string;
-  supportedBoundaries: readonly OrchestratorPlatformBoundary[];
+  supportedBoundaries: readonly CoordinatorPlatformBoundary[];
   satisfiedGuarantees: Readonly<
     Partial<
       Record<
-        OrchestratorPlatformBoundary,
-        readonly OrchestratorPlatformGuarantee[]
+        CoordinatorPlatformBoundary,
+        readonly CoordinatorPlatformGuarantee[]
       >
     >
   >;
@@ -153,36 +153,36 @@ export type OrchestratorPlatformAdapterDescription = Readonly<{
 }>;
 
 /**
- * platform-contractで使用するOrchestrator Platform Adapterの値契約を定義する。
+ * platform-contractで使用するCoordinator Platform Adapterの値契約を定義する。
  *
- * @responsibility Orchestrator Platform AdapterのProperty、Identity、状態制約を型境界として所有する。
+ * @responsibility Coordinator Platform AdapterのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
- * @shape OrchestratorPlatformAdapterが表すProperty、識別子およびRelationを型として固定する。
- * @invariant OrchestratorPlatformAdapterで宣言した値と責務の対応を維持する。
- * @boundary N/A: OrchestratorPlatformAdapterの宣言は外部境界を開かない。
- * @security N/A: OrchestratorPlatformAdapterはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility OrchestratorPlatformAdapterの利用側は宣言済みPropertyと型制約だけへ依存する。
+ * @shape CoordinatorPlatformAdapterが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CoordinatorPlatformAdapterで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CoordinatorPlatformAdapterの宣言は外部境界を開かない。
+ * @security N/A: CoordinatorPlatformAdapterはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility CoordinatorPlatformAdapterの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type OrchestratorPlatformAdapter = Readonly<{
-  describe: () => OrchestratorPlatformAdapterDescription;
+export type CoordinatorPlatformAdapter = Readonly<{
+  describe: () => CoordinatorPlatformAdapterDescription;
   operations: Readonly<
-    Partial<Record<OrchestratorPlatformBoundary, Readonly<object>>>
+    Partial<Record<CoordinatorPlatformBoundary, Readonly<object>>>
   >;
 }>;
 
 /**
- * platform-contractで使用するOrchestrator Platform Resolutionの値契約を定義する。
+ * platform-contractで使用するCoordinator Platform Resolutionの値契約を定義する。
  *
- * @responsibility Orchestrator Platform ResolutionのProperty、Identity、状態制約を型境界として所有する。
+ * @responsibility Coordinator Platform ResolutionのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
- * @shape OrchestratorPlatformResolutionが表すProperty、識別子およびRelationを型として固定する。
- * @invariant OrchestratorPlatformResolutionで宣言した値と責務の対応を維持する。
- * @boundary N/A: OrchestratorPlatformResolutionの宣言は外部境界を開かない。
- * @security N/A: OrchestratorPlatformResolutionはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility OrchestratorPlatformResolutionの利用側は宣言済みPropertyと型制約だけへ依存する。
+ * @shape CoordinatorPlatformResolutionが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CoordinatorPlatformResolutionで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CoordinatorPlatformResolutionの宣言は外部境界を開かない。
+ * @security N/A: CoordinatorPlatformResolutionはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility CoordinatorPlatformResolutionの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type OrchestratorPlatformResolution =
-  | Readonly<{ status: "resolved"; adapter: OrchestratorPlatformAdapter }>
+export type CoordinatorPlatformResolution =
+  | Readonly<{ status: "resolved"; adapter: CoordinatorPlatformAdapter }>
   | Readonly<{
       status: "blocked";
       reason:
@@ -191,13 +191,13 @@ export type OrchestratorPlatformResolution =
         | "platform_adapter_unavailable"
         | "platform_adapter_conflict"
         | "platform_boundary_unsupported";
-      unsupportedBoundaries: readonly OrchestratorPlatformBoundary[];
+      unsupportedBoundaries: readonly CoordinatorPlatformBoundary[];
     }>;
 
 const MAXIMUM_PLATFORM_FAMILY_LENGTH = 128;
 
 const boundarySet: ReadonlySet<string> = new Set(
-  ORCHESTRATOR_PLATFORM_BOUNDARIES,
+  COORDINATOR_PLATFORM_BOUNDARIES,
 );
 
 /**
@@ -213,10 +213,10 @@ const boundarySet: ReadonlySet<string> = new Set(
  */
 type AdapterSnapshot = Readonly<{
   platformFamily: string;
-  supportedBoundaries: ReadonlySet<OrchestratorPlatformBoundary>;
+  supportedBoundaries: ReadonlySet<CoordinatorPlatformBoundary>;
   satisfiedGuarantees: ReadonlyMap<
-    OrchestratorPlatformBoundary,
-    ReadonlySet<OrchestratorPlatformGuarantee>
+    CoordinatorPlatformBoundary,
+    ReadonlySet<CoordinatorPlatformGuarantee>
   >;
 }>;
 
@@ -225,9 +225,9 @@ type AdapterSnapshot = Readonly<{
  *
  * @responsibility platform-contractの停止理由、未発行Effect、公開結果境界を所有する。
  * @trace ARCH-000004
- * @input reason: | "platform_request_invalid" | "platform_identity_unknown" | "platform_adapter_unavailable" | "platform_adapter_conflict" | "platform_boundary_unsupported"、unsupportedBoundaries: readonly OrchestratorPlatformBoundary[]
- * @returns OrchestratorPlatformResolutionを返す。
- * @precondition 「reason: | "platform_request_invalid" | "platform_identity_unknown" | "platform_adapter_unavailable" | "platform_adapter_conflict" | "platform_boundary_unsupported"、unsupportedBoundaries: readonly OrchestratorPlatformBoundary[]」がblockedの入力契約を満たす。
+ * @input reason: | "platform_request_invalid" | "platform_identity_unknown" | "platform_adapter_unavailable" | "platform_adapter_conflict" | "platform_boundary_unsupported"、unsupportedBoundaries: readonly CoordinatorPlatformBoundary[]
+ * @returns CoordinatorPlatformResolutionを返す。
+ * @precondition 「reason: | "platform_request_invalid" | "platform_identity_unknown" | "platform_adapter_unavailable" | "platform_adapter_conflict" | "platform_boundary_unsupported"、unsupportedBoundaries: readonly CoordinatorPlatformBoundary[]」がblockedの入力契約を満たす。
  * @postcondition blockedの責務を完了した結果だけを返す。
  * @effect N/A: blockedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: blockedは独自の失敗分岐を所有しない。
@@ -243,10 +243,10 @@ function blocked(
     | "platform_adapter_unavailable"
     | "platform_adapter_conflict"
     | "platform_boundary_unsupported",
-  unsupportedBoundaries: readonly OrchestratorPlatformBoundary[] = Object.freeze(
+  unsupportedBoundaries: readonly CoordinatorPlatformBoundary[] = Object.freeze(
     [],
   ),
-): OrchestratorPlatformResolution {
+): CoordinatorPlatformResolution {
   return Object.freeze({
     status: "blocked" as const,
     reason,
@@ -373,9 +373,9 @@ function describedAdapterSnapshot(candidate: unknown): AdapterSnapshot | null {
     );
     if (
       ownDataProperty(description, "contract") !==
-        ORCHESTRATOR_PLATFORM_CONTRACT ||
+        COORDINATOR_PLATFORM_CONTRACT ||
       ownDataProperty(description, "contractRevision") !==
-        ORCHESTRATOR_PLATFORM_CONTRACT_REVISION ||
+        COORDINATOR_PLATFORM_CONTRACT_REVISION ||
       ownDataProperty(description, "authorityGeneration") !== "none" ||
       ownDataProperty(description, "unsupportedPlatformFallback") !== "none" ||
       !validPlatformFamily(platformFamily) ||
@@ -384,39 +384,39 @@ function describedAdapterSnapshot(candidate: unknown): AdapterSnapshot | null {
       !isPlainContainer(satisfiedGuarantees)
     )
       return null;
-    const boundaries = new Set<OrchestratorPlatformBoundary>();
+    const boundaries = new Set<CoordinatorPlatformBoundary>();
     for (let index = 0; index < supportedBoundaries.length; index += 1) {
       const boundary = ownDataProperty(supportedBoundaries, String(index));
       if (
         typeof boundary !== "string" ||
         !boundarySet.has(boundary) ||
-        boundaries.has(boundary as OrchestratorPlatformBoundary)
+        boundaries.has(boundary as CoordinatorPlatformBoundary)
       )
         return null;
-      boundaries.add(boundary as OrchestratorPlatformBoundary);
+      boundaries.add(boundary as CoordinatorPlatformBoundary);
     }
     const guaranteeSnapshot = new Map<
-      OrchestratorPlatformBoundary,
-      ReadonlySet<OrchestratorPlatformGuarantee>
+      CoordinatorPlatformBoundary,
+      ReadonlySet<CoordinatorPlatformGuarantee>
     >();
-    for (const boundary of ORCHESTRATOR_PLATFORM_BOUNDARIES) {
+    for (const boundary of COORDINATOR_PLATFORM_BOUNDARIES) {
       const rawGuarantees = ownDataProperty(satisfiedGuarantees, boundary);
       if (rawGuarantees === undefined) continue;
       if (!Array.isArray(rawGuarantees) || utilTypes.isProxy(rawGuarantees))
         return null;
       const allowed = new Set<string>(
-        ORCHESTRATOR_PLATFORM_BOUNDARY_GUARANTEES[boundary],
+        COORDINATOR_PLATFORM_BOUNDARY_GUARANTEES[boundary],
       );
-      const observed = new Set<OrchestratorPlatformGuarantee>();
+      const observed = new Set<CoordinatorPlatformGuarantee>();
       for (let index = 0; index < rawGuarantees.length; index += 1) {
         const guarantee = ownDataProperty(rawGuarantees, String(index));
         if (
           typeof guarantee !== "string" ||
           !allowed.has(guarantee) ||
-          observed.has(guarantee as OrchestratorPlatformGuarantee)
+          observed.has(guarantee as CoordinatorPlatformGuarantee)
         )
           return null;
-        observed.add(guarantee as OrchestratorPlatformGuarantee);
+        observed.add(guarantee as CoordinatorPlatformGuarantee);
       }
       guaranteeSnapshot.set(boundary, observed);
     }
@@ -435,9 +435,9 @@ function describedAdapterSnapshot(candidate: unknown): AdapterSnapshot | null {
  *
  * @responsibility platform-contractの入力からsupports Boundaryを導く規則と結果境界を所有する。
  * @trace ARCH-000004
- * @input adapter: OrchestratorPlatformAdapter、snapshot: AdapterSnapshot、boundary: OrchestratorPlatformBoundary
+ * @input adapter: CoordinatorPlatformAdapter、snapshot: AdapterSnapshot、boundary: CoordinatorPlatformBoundary
  * @returns booleanを返す。
- * @precondition 「adapter: OrchestratorPlatformAdapter、snapshot: AdapterSnapshot、boundary: OrchestratorPlatformBoundary」がsupportsBoundaryの入力契約を満たす。
+ * @precondition 「adapter: CoordinatorPlatformAdapter、snapshot: AdapterSnapshot、boundary: CoordinatorPlatformBoundary」がsupportsBoundaryの入力契約を満たす。
  * @postcondition supportsBoundaryの責務を完了した結果だけを返す。
  * @effect N/A: supportsBoundaryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure supportsBoundaryは入力不正または下位処理の失敗を呼出し側へ返す。
@@ -447,13 +447,13 @@ function describedAdapterSnapshot(candidate: unknown): AdapterSnapshot | null {
  * @concurrency N/A: supportsBoundaryは共有非同期状態を持たない同期処理である。
  */
 function supportsBoundary(
-  adapter: OrchestratorPlatformAdapter,
+  adapter: CoordinatorPlatformAdapter,
   snapshot: AdapterSnapshot,
-  boundary: OrchestratorPlatformBoundary,
+  boundary: CoordinatorPlatformBoundary,
 ): boolean {
   try {
     const requiredOperations =
-      ORCHESTRATOR_PLATFORM_BOUNDARY_OPERATIONS[boundary];
+      COORDINATOR_PLATFORM_BOUNDARY_OPERATIONS[boundary];
     if (
       requiredOperations.length === 0 ||
       !snapshot.supportedBoundaries.has(boundary)
@@ -461,7 +461,7 @@ function supportsBoundary(
       return false;
     const satisfiedGuarantees = snapshot.satisfiedGuarantees.get(boundary);
     const requiredGuarantees =
-      ORCHESTRATOR_PLATFORM_BOUNDARY_GUARANTEES[boundary];
+      COORDINATOR_PLATFORM_BOUNDARY_GUARANTEES[boundary];
     if (
       satisfiedGuarantees === undefined ||
       requiredGuarantees.some(
@@ -491,9 +491,9 @@ function supportsBoundary(
  *
  * @responsibility resolved Adapter Snapshotの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
- * @input adapter: OrchestratorPlatformAdapter、snapshot: AdapterSnapshot、resolvedBoundaries: readonly OrchestratorPlatformBoundary[]
- * @returns OrchestratorPlatformAdapter | nullを返す。
- * @precondition 「adapter: OrchestratorPlatformAdapter、snapshot: AdapterSnapshot、resolvedBoundaries: readonly OrchestratorPlatformBoundary[]」がresolvedAdapterSnapshotの入力契約を満たす。
+ * @input adapter: CoordinatorPlatformAdapter、snapshot: AdapterSnapshot、resolvedBoundaries: readonly CoordinatorPlatformBoundary[]
+ * @returns CoordinatorPlatformAdapter | nullを返す。
+ * @precondition 「adapter: CoordinatorPlatformAdapter、snapshot: AdapterSnapshot、resolvedBoundaries: readonly CoordinatorPlatformBoundary[]」がresolvedAdapterSnapshotの入力契約を満たす。
  * @postcondition resolvedAdapterSnapshotの責務を完了した結果だけを返す。
  * @effect N/A: resolvedAdapterSnapshotは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure resolvedAdapterSnapshotは入力不正または下位処理の失敗を呼出し側へ返す。
@@ -503,27 +503,27 @@ function supportsBoundary(
  * @concurrency N/A: resolvedAdapterSnapshotは共有非同期状態を持たない同期処理である。
  */
 function resolvedAdapterSnapshot(
-  adapter: OrchestratorPlatformAdapter,
+  adapter: CoordinatorPlatformAdapter,
   snapshot: AdapterSnapshot,
-  resolvedBoundaries: readonly OrchestratorPlatformBoundary[],
-): OrchestratorPlatformAdapter | null {
+  resolvedBoundaries: readonly CoordinatorPlatformBoundary[],
+): CoordinatorPlatformAdapter | null {
   try {
     const rawOperations = ownDataProperty(adapter, "operations");
     if (!isPlainContainer(rawOperations)) return null;
     const operations: Partial<
-      Record<OrchestratorPlatformBoundary, Readonly<object>>
+      Record<CoordinatorPlatformBoundary, Readonly<object>>
     > = {};
     const satisfiedGuarantees: Partial<
       Record<
-        OrchestratorPlatformBoundary,
-        readonly OrchestratorPlatformGuarantee[]
+        CoordinatorPlatformBoundary,
+        readonly CoordinatorPlatformGuarantee[]
       >
     > = {};
     for (const boundary of resolvedBoundaries) {
       const rawGroup = ownDataProperty(rawOperations, boundary);
       if (!isPlainContainer(rawGroup)) return null;
       const group: Record<string, unknown> = {};
-      for (const operationName of ORCHESTRATOR_PLATFORM_BOUNDARY_OPERATIONS[
+      for (const operationName of COORDINATOR_PLATFORM_BOUNDARY_OPERATIONS[
         boundary
       ]) {
         const operation = ownDataProperty(rawGroup, operationName);
@@ -532,11 +532,11 @@ function resolvedAdapterSnapshot(
       }
       operations[boundary] = Object.freeze(group);
       satisfiedGuarantees[boundary] =
-        ORCHESTRATOR_PLATFORM_BOUNDARY_GUARANTEES[boundary];
+        COORDINATOR_PLATFORM_BOUNDARY_GUARANTEES[boundary];
     }
     const description = Object.freeze({
-      contract: ORCHESTRATOR_PLATFORM_CONTRACT,
-      contractRevision: ORCHESTRATOR_PLATFORM_CONTRACT_REVISION,
+      contract: COORDINATOR_PLATFORM_CONTRACT,
+      contractRevision: COORDINATOR_PLATFORM_CONTRACT_REVISION,
       platformFamily: snapshot.platformFamily,
       supportedBoundaries: Object.freeze([...resolvedBoundaries]),
       satisfiedGuarantees: Object.freeze(satisfiedGuarantees),
@@ -555,24 +555,24 @@ function resolvedAdapterSnapshot(
 /**
  * Fail-closed adapter resolution for IF-PLATFORM. There is no fallback path:
  *
- * @responsibility Orchestrator Platform Adapterの候補集合、解決規則、曖昧時の拒否境界を所有する。
+ * @responsibility Coordinator Platform Adapterの候補集合、解決規則、曖昧時の拒否境界を所有する。
  * @trace ARCH-000004
- * @input observedPlatformFamily: unknown、registeredAdapters: readonly OrchestratorPlatformAdapter[]、requiredBoundaries: readonly OrchestratorPlatformBoundary[]
- * @returns OrchestratorPlatformResolutionを返す。
- * @precondition 「observedPlatformFamily: unknown、registeredAdapters: readonly OrchestratorPlatformAdapter[]、requiredBoundaries: readonly OrchestratorPlatformBoundary[]」がresolveOrchestratorPlatformAdapterの入力契約を満たす。
- * @postcondition resolveOrchestratorPlatformAdapterの責務を完了した結果だけを返す。
- * @effect N/A: resolveOrchestratorPlatformAdapterは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: resolveOrchestratorPlatformAdapterは独自の失敗分岐を所有しない。
- * @invariant resolveOrchestratorPlatformAdapterは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: resolveOrchestratorPlatformAdapterはProcess内の同一Subsystemで完結する。
- * @security N/A: resolveOrchestratorPlatformAdapterはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: resolveOrchestratorPlatformAdapterは共有非同期状態を持たない同期処理である。
+ * @input observedPlatformFamily: unknown、registeredAdapters: readonly CoordinatorPlatformAdapter[]、requiredBoundaries: readonly CoordinatorPlatformBoundary[]
+ * @returns CoordinatorPlatformResolutionを返す。
+ * @precondition 「observedPlatformFamily: unknown、registeredAdapters: readonly CoordinatorPlatformAdapter[]、requiredBoundaries: readonly CoordinatorPlatformBoundary[]」がresolveCoordinatorPlatformAdapterの入力契約を満たす。
+ * @postcondition resolveCoordinatorPlatformAdapterの責務を完了した結果だけを返す。
+ * @effect N/A: resolveCoordinatorPlatformAdapterは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: resolveCoordinatorPlatformAdapterは独自の失敗分岐を所有しない。
+ * @invariant resolveCoordinatorPlatformAdapterは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: resolveCoordinatorPlatformAdapterはProcess内の同一Subsystemで完結する。
+ * @security N/A: resolveCoordinatorPlatformAdapterはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: resolveCoordinatorPlatformAdapterは共有非同期状態を持たない同期処理である。
  */
-export function resolveOrchestratorPlatformAdapter(
+export function resolveCoordinatorPlatformAdapter(
   observedPlatformFamily: unknown,
-  registeredAdapters: readonly OrchestratorPlatformAdapter[],
-  requiredBoundaries: readonly OrchestratorPlatformBoundary[],
-): OrchestratorPlatformResolution {
+  registeredAdapters: readonly CoordinatorPlatformAdapter[],
+  requiredBoundaries: readonly CoordinatorPlatformBoundary[],
+): CoordinatorPlatformResolution {
   if (
     !Array.isArray(registeredAdapters) ||
     !Array.isArray(requiredBoundaries) ||
@@ -584,7 +584,7 @@ export function resolveOrchestratorPlatformAdapter(
   if (!validPlatformFamily(observedPlatformFamily))
     return blocked("platform_identity_unknown");
   const matches: Readonly<{
-    adapter: OrchestratorPlatformAdapter;
+    adapter: CoordinatorPlatformAdapter;
     snapshot: AdapterSnapshot;
   }>[] = [];
   for (const candidate of registeredAdapters) {
@@ -610,28 +610,28 @@ export function resolveOrchestratorPlatformAdapter(
 }
 
 /**
- * Orchestrator Platform 契約の公開契約を記述する。
+ * Coordinator Platform 契約の公開契約を記述する。
  *
- * @responsibility Orchestrator Platform 契約の公開field、非公開境界、互換性を所有する。
+ * @responsibility Coordinator Platform 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000004
  * @input N/A: 実行時引数を受け取らない。
- * @returns describeOrchestratorPlatformContractの計算結果を返す。
- * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeOrchestratorPlatformContractの入力契約を満たす。
- * @postcondition describeOrchestratorPlatformContractの責務を完了した結果だけを返す。
- * @effect N/A: describeOrchestratorPlatformContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: describeOrchestratorPlatformContractは独自の失敗分岐を所有しない。
- * @invariant describeOrchestratorPlatformContractは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: describeOrchestratorPlatformContractはProcess内の同一Subsystemで完結する。
- * @security N/A: describeOrchestratorPlatformContractはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: describeOrchestratorPlatformContractは共有非同期状態を持たない同期処理である。
+ * @returns describeCoordinatorPlatformContractの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeCoordinatorPlatformContractの入力契約を満たす。
+ * @postcondition describeCoordinatorPlatformContractの責務を完了した結果だけを返す。
+ * @effect N/A: describeCoordinatorPlatformContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describeCoordinatorPlatformContractは独自の失敗分岐を所有しない。
+ * @invariant describeCoordinatorPlatformContractは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: describeCoordinatorPlatformContractはProcess内の同一Subsystemで完結する。
+ * @security N/A: describeCoordinatorPlatformContractはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: describeCoordinatorPlatformContractは共有非同期状態を持たない同期処理である。
  */
-export function describeOrchestratorPlatformContract() {
+export function describeCoordinatorPlatformContract() {
   return Object.freeze({
-    contract: ORCHESTRATOR_PLATFORM_CONTRACT,
-    contractRevision: ORCHESTRATOR_PLATFORM_CONTRACT_REVISION,
-    boundaries: ORCHESTRATOR_PLATFORM_BOUNDARIES,
-    boundaryOperations: ORCHESTRATOR_PLATFORM_BOUNDARY_OPERATIONS,
-    boundaryGuarantees: ORCHESTRATOR_PLATFORM_BOUNDARY_GUARANTEES,
+    contract: COORDINATOR_PLATFORM_CONTRACT,
+    contractRevision: COORDINATOR_PLATFORM_CONTRACT_REVISION,
+    boundaries: COORDINATOR_PLATFORM_BOUNDARIES,
+    boundaryOperations: COORDINATOR_PLATFORM_BOUNDARY_OPERATIONS,
+    boundaryGuarantees: COORDINATOR_PLATFORM_BOUNDARY_GUARANTEES,
     boundarySupport:
       "declared_boundary_and_all_architecture_guarantees_and_exact_operation_name_match",
     emptyOperationPopulation: "unresolvable_never_trivially_satisfied",

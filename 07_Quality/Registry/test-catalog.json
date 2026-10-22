@@ -4893,7 +4893,7 @@
     {
       "id": "coordinator:integration:orchestrator-decision-recovery-store",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/orchestrator-decision-recovery-store.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/integration/task-decision-recovery-store.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -4915,7 +4915,7 @@
     {
       "id": "coordinator:integration:orchestrator-design-traceability",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/orchestrator-design-traceability.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/integration/task-design-traceability.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -4936,7 +4936,7 @@
     {
       "id": "coordinator:integration:orchestrator-history",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/orchestrator-history.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/integration/task-history.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -4960,7 +4960,7 @@
     {
       "id": "coordinator:integration:orchestrator-durable-foundation",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/orchestrator-durable-foundation.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/integration/task-durable-foundation.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -4985,7 +4985,7 @@
     {
       "id": "coordinator:integration:orchestrator-execution",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/orchestrator-execution.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/integration/task-execution.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -5005,7 +5005,7 @@
     {
       "id": "coordinator:integration:orchestrator-full-flow",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/orchestrator-full-flow.integration.test.ts",
+      "path": "40_Develop/coordinator/tests/integration/task-full-flow.integration.test.ts",
       "level": "integration",
       "kind": "integration",
       "semanticTags": [
@@ -5029,7 +5029,7 @@
     {
       "id": "coordinator:integration:orchestrator-objective-intake",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/orchestrator-objective-intake.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/integration/task-objective-intake.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -5050,7 +5050,7 @@
     {
       "id": "coordinator:integration:orchestrator-platform-independence",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/orchestrator-platform-independence.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/integration/task-platform-independence.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -5092,7 +5092,7 @@
     {
       "id": "coordinator:integration:orchestrator-queue-priority",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/orchestrator-queue-priority.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/integration/task-queue-priority.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -5113,7 +5113,7 @@
     {
       "id": "coordinator:integration:orchestrator-replanning-and-decision",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/orchestrator-replanning-and-decision.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/integration/task-replanning-and-decision.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -5135,7 +5135,7 @@
     {
       "id": "coordinator:integration:orchestrator-single-task-adapter",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/orchestrator-single-task-adapter.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/integration/task-single-task-adapter.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -5157,7 +5157,7 @@
     {
       "id": "coordinator:integration:orchestrator-windows-decision-store",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/orchestrator-windows-decision-store.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/integration/task-windows-decision-store.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -5641,7 +5641,7 @@
     {
       "id": "coordinator:system:orchestrator-real-provider-verification-script",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/system/orchestrator-real-provider-verification-script.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/system/task-real-provider-verification-script.contract.test.ts",
       "level": "system",
       "kind": "contract",
       "semanticTags": [
@@ -5666,7 +5666,7 @@
     {
       "id": "coordinator:system:orchestrator-recovery",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/system/orchestrator-recovery.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/system/task-recovery.contract.test.ts",
       "level": "system",
       "kind": "contract",
       "semanticTags": [
@@ -6148,7 +6148,7 @@
     {
       "id": "coordinator:integration:orchestrator-integration-record-adapter",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/orchestrator-integration-record-adapter.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/integration/task-integration-record-adapter.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
@@ -6170,7 +6170,7 @@
     {
       "id": "coordinator:system:orchestrator-acceptance-decision",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/system/orchestrator-acceptance-decision.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/system/task-acceptance-decision.contract.test.ts",
       "level": "system",
       "kind": "contract",
       "semanticTags": [
@@ -6663,7 +6663,7 @@
     {
       "id": "mcp:unit:orchestrator",
       "owner": "mcp-server",
-      "path": "40_Develop/mcp-server/tests/unit/orchestrator-adapter.contract.test.ts",
+      "path": "40_Develop/mcp-server/tests/unit/task-adapter.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -6875,7 +6875,7 @@
     {
       "id": "coordinator:unit:orchestrator-execution-host-adapter",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/orchestrator-execution-host-adapter.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/task-execution-host-adapter.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -6897,7 +6897,7 @@
     {
       "id": "coordinator:unit:orchestrator-decision-capability-adapter",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/orchestrator-decision-capability-adapter.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/task-decision-capability-adapter.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -6918,7 +6918,7 @@
     {
       "id": "coordinator:unit:orchestrator-windows-platform-adapter",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/orchestrator-windows-platform-adapter.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/task-windows-platform-adapter.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -7150,7 +7150,7 @@
     {
       "id": "coordinator:unit:orchestrator-profile-transport",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/orchestrator-profile-transport.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/task-profile-transport.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [

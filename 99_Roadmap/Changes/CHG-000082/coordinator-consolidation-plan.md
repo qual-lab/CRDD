@@ -1870,3 +1870,35 @@ Coordinator Rootの明示exportには該当名157件（実行値88、型69）が
 | 安定ID・履歴 | Symbol ID、Test ID、Semantic Key、過去Evidence・日付付き結果 | 現行Owner／Path説明と、歴史的なIdentityを分ける。過去Evidence本文・署名・Hashを改名しない。本候補で新規追加したfile Symbol六件にも旧Orchestrator／ports／public.contract語彙があるが、これを既存の歴史的IDと同列に固定せず、採用前の名称整合確認に含める |
 
 本調査では名称変更を実装していない。名称の機械置換、現在の契約名を正当化するための論理概念の新設、保存凍結解除、②の再試行・保持物操作は行わない。次の名称整理は、内部名、公開API、通信、保存を影響別に提示し、現在の保証と移行条件を確認してから適用する。
+
+## 34. 統合後の識別子整理 — 着手範囲、2026-10-22
+
+人間の「名称変更を進めて」に従い、基準`53f945b78`の識別子・Header・現行案内を整理する。変更分類は公開TypeScript APIを含む内部構造変更であり、互換aliasを追加せず本番Consumer、試験、公開集合、Source文字列Oracleを同時に追従する。通信・永続形式の変更は本単位に含めない。
+
+| 対象 | 処置と不変条件 |
+|---|---|
+| 関数・型・定数・局所変数 | 現在のPackage Ownerを示す名前はCoordinatorへ統一し、重複・衝突する名前は実責務で区別する。同一関数・Map・Control・初期化順を維持する |
+| 衝突する既存名 | 業務状態の排他は`acquireRuntimeOwnedProjectStateKernelLock`、Objective配下の開発Taskは`startRuntimeOwnedDevelopmentObjectiveTask`、業務履歴設定Readerは`readTaskHistoryConfig`とする。技術状態の既存Lock・単発Task・設定Readerと混同しない |
+| 保存七Source | 識別子・import binding・コメントに限りbytes凍結を解除。文字列／template literal、property key、Schema、Path、Hash domain、consumer、呼出順・条件・Writer・CAS・ACK・返却shapeは不変とする。旧`orchestrator.json`の読取りは維持する |
+| 通信・実行値 | MCP Tool名、protocol、reason、event、環境変数、discriminatorと保存済み値は維持。object property／shorthandも個別に確認し、改名によって通信・保存shapeを変えない |
+| 文書・履歴 | 現行Ownerと公開名の説明を同期。過去Evidence、署名・Hash、既存安定Symbol IDは不変。過去の検証結果を新版の成功へ読み替えない |
+
+着手前照合は親Agentと読取り専用確認者で実施した。Taskだけに見えるLock名はProject状態全体を表す名称へ修正した。Source／公開APIの独立レビューと文書・直接影響の確認、型・静的検査、Root集合、保存不変性および影響結合回帰を行う。準拠基準・Release判断は変更せず、実AI・Docker操作・②保持物操作は実施しない。新しいState／Registry／Lock／移行Readerは追加しない。
+
+### 34.1. 識別子・実ファイル・利用側の切替結果
+
+旧名称を含む識別子の候補270名を照合し、関数・型・定数・局所名と全利用側を同じ候補で切り替えた。Coordinator Rootの実行値120名という公開集合の規模は維持し、旧名aliasは追加しない。衝突しないPackage Owner名はCoordinator、衝突する用途はProject State／Objective Task／Task Historyという実責務で区別した。Objective用の開始と取消は`startRuntimeOwnedDevelopmentObjectiveTask`／`cancelRuntimeOwnedDevelopmentObjectiveTask`で対称化する。
+
+| 変更単位 | 実施内容 |
+|---|---|
+| Source・試験・反復Script | 旧名を含む33実ファイルをTask責務名へ改名。MCPの本番Tool実体は`40_Develop/mcp-server/src/tools/task.ts`。import・Script argv・npm・型検査・試験Fixture・Symbol Path・Catalog・現行文書の参照を追従 |
+| 設計Trace | `07_Quality/Registry/coordinator-task-design-traceability.json`と`check-task-design-traceability.ts`へ改名。npm入口は`task-design-traceability:check`。安定IDとSchema実値は維持 |
+| Header・表示 | Sourceの旧実装ラベルを現責務へ同期。MCPの説明三箇所、Workbenchの未接続表示、CLIのhelp・受領待ち表示の六箇所も更新。未接続・受領待ち・読取り専用の意味を強めない |
+| 現行Architecture | 別PackageというMCP案内・Workbench依存列挙・Canonical表・図・Sequence・Checklistを、同じCoordinator内のTask／Objective→Executionへ同期。図だけ更新して残った統合前説明二文も是正。旧詳細文書の配置と明示的な移行元本文は別扱い |
+| 保存不変性 | 七Sourceを基準からの許可された識別子・コメント変更とFormatter出力へ照合し、全七件一致。独立確認も同じ結果。返却shape・literal・Schema・Path・Hash・consumer・Writer／CAS／Lock／ACKは不変 |
+
+静的check（format、Source／testsの型、lint、二Trace）は成功。既存lint info 64件は維持。MCP／Workbench／Domainの型検査も成功した。MCP通常全101件、Domain公開境界・設定・Consumer・Catalogの四Suite44件、Workbench接続二件が成功。表示六箇所の追従後はMCP Tool単体21件、CLI十三件を追加確認した。CoordinatorのTask・判断・状態・回復等の影響回帰は完走exit 1で、Rootの明示期待一覧に旧辞書順が残った失敗を検出した。集合を実Rootから自動生成せず、明示120名の順序だけを是正し、該当Rootと開発Sessionの二Suite26件が成功した。Domain側の公開値・型と、基準版にも残った移管後Consumer九Pathの旧順序も、明示集合を保って是正・四Suite再確認した。初回の不合格を全体Passへ読み替えない。
+
+Source／公開契約と文書・直接影響の独立再レビューは残指摘0。全体文書検査は3,697診断・exit 1を維持。変更した現行十七文書からの参照展開では3,454診断・exit 1で、歴史CHG以外は基準から不変のPlatform Access試験リンク一件とQuality Integration五件だけだった。従来の全体QA不合格を解消したとは表示しない。巨大な実行ログや実行別Evidence Directoryは追加せず、今回の変換補助五ファイルは使用後に回収した。
+
+残る旧名は次の別契約である。`.crdd/orchestrator`、`orchestrator.json`、Schema・Hash domain・`consumer: "orchestrator"`、MCPの`crdd.get_orchestrator_state`等のwire実値、診断prefix、`upperOrchestratorCapabilityComplete`の公開property、設計詳細の移行元Directory、安定IDと歴史Evidenceは本単位で改変しない。通信改名はClientの同時切替、保存改名は②の同じ回復参照・旧状態の移行条件を先に確定する。名称整理全体・保存統合・C全体・実境界・全体QA・Releaseの完了とは区別する。

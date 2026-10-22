@@ -27,7 +27,7 @@ Canonical責務を実行時に分離する論理単位、Resource、並行性お
                           ▼
 ┌─ Application Runtime ─────────────────────────────────────────┐
 │ Public Application Contract                                  │
-│ Orchestrator / Projection / Acceptance Decision / Federation│
+│ Coordinator内Task／Objective / Projection / Acceptance Decision│
 └──────────────┬──────────────────────┬─────────────────────────┘
                ▼                      ▼
 ┌─ Execution Boundary ────────┐  ┌─ Data Boundary ──────────────┐
@@ -40,7 +40,7 @@ Canonical責務を実行時に分離する論理単位、Resource、並行性お
 └───────────────────────────────────────────────────────────────┘
 ```
 
-各箱は別Processを意味しない。別Process化の要否は、Trust境界、Failure Isolation、並行性、Resource Owner、資格情報、配置先または独立更新の必要性から決める。図のWorkbench候補は採用済みWorkbench Serverへ、Orchestratorの実装OwnerはOrchestratorへ具体化する。公開SurfaceはWorkbench ServerとMCP Serverの二系統であり、CLIは運用入口として維持するが第三のServer Runtimeを新設しない。
+各箱は別Processを意味しない。別Process化の要否は、Trust境界、Failure Isolation、並行性、Resource Owner、資格情報、配置先または独立更新の必要性から決める。図のWorkbench候補は採用済みWorkbench Serverへ、Task／ObjectiveとExecutionの実装Ownerは単一Coordinatorへ具体化する。公開SurfaceはWorkbench ServerとMCP Serverの二系統であり、CLIは運用入口として維持するが第三のServer Runtimeを新設しない。
 
 ### Localと共有配置
 
@@ -57,7 +57,7 @@ Shared Server、CROS REST、Gatewayを独立Runtimeとして残さない。既�
 
 単体／CROSは起動時に明示選択し、設定済みであることだけで自動切替しない。単体は起動Repository一つ・資格不要、CROSは現在認可された集合を扱う。初回Host設定はローカルHostの明示操作だけで開始し、通常鍵交換と混ぜない。`--cros`や設定Fileの存在を開始許可・Host Authority・自動初期化の根拠にしない。Access Managementは認証・認可の論理Ownerであり、独立Process／Serverの追加を意味しない。保存Root・秘密保護は既存契約を維持する。
 
-Coordinatorは単体の実行Runtimeとして利用でき、Orchestratorはその公開APIを呼ぶ。Provider差はAI Adapter、実Docker資源はCoordinator、OS固有保証はPlatform Accessが所有する。Docker CLIを使うことだけで全処理をNativeへ移管せず、署名するCoordinator実行閉包と、各Toolの実行・試験環境を区別する。
+現行CoordinatorはTask／Objective管理と単発Executionを同じPackageへ統合する。Provider差はAI Adapter、実Docker資源の技術操作・回収はDocker Isolation、OS固有保証はPlatform Accessが所有する。Docker CLIを使うことだけで全処理をNativeへ移管しない。通常実行の署名依存は撤去済みであり、必要な成果物同一性の確認と各Toolの実行・試験環境を区別する。
 
 ### 初回Host設定の配置制約
 
@@ -120,8 +120,7 @@ Canonical Architectureが独立レビューで閉じた後に、次を照合す�
 
 | 照合対象 | 確認すること | 参照先 |
 |---|---|---|
-| Coordinator | Execution Port実装、Provider編成、取消・回復 | [Coordinator](Details/coordinator/01_Architecture.md) |
-| Orchestrator | Application Contract、Task状態、Recovery | [Orchestrator](Details/orchestrator/01_Architecture.md) |
+| Coordinator | Task／ObjectiveのApplication Contract・状態・回復と、ExecutionのProvider編成・取消・技術回復を責務分離して照合 | [Execution](Details/coordinator/01_Architecture.md)、[Task／Objective](Details/orchestrator/01_Architecture.md) |
 | MCP／CLI | Transport parity、接続Lifecycle | [MCP](./Details/mcp-server/01_Architecture.md) |
 | Execution Intelligence | 実行事実の生成・保存と読取りPort | [実行知](Details/execution-intelligence/01_Architecture.md) |
 | Platform Access | OS／Process／Containerの意味、診断、回復 | [Platform Access](Details/platform-access/01_Architecture.md) |

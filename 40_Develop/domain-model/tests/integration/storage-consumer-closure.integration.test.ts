@@ -49,23 +49,23 @@ const expectedAreaConsumers = [
   "40_Develop/coordinator/scripts/prepare-codex-advice-image.ts",
   "40_Develop/coordinator/scripts/verification-result-record.ts",
   "40_Develop/coordinator/src/execution/terminal-caller-checkpoint.ts",
-  "40_Develop/execution-intelligence/src/storage/store.ts",
   "40_Develop/coordinator/src/storage/current-state.ts",
   "40_Develop/coordinator/src/storage/history.ts",
+  "40_Develop/execution-intelligence/src/storage/store.ts",
   "40_Develop/visual-preview/src/browser/verify.ts",
 ] as const;
-const PUBLIC_ORCHESTRATOR_BOUNDARIES = [
+const PUBLIC_COORDINATOR_BOUNDARIES = [
   "40_Develop/coordinator/src/objective/public-operation.ts",
   "40_Develop/coordinator/src/decision/public-operation.ts",
   "40_Develop/coordinator/src/decision/public-acceptance.ts",
   "40_Develop/coordinator/src/state/public-query.ts",
 ] as const;
-const ORCHESTRATOR_BLOCKED_PROJECTION =
+const COORDINATOR_BLOCKED_PROJECTION =
   "40_Develop/coordinator/src/operation-result-contract.ts";
-const orchestratorStoreFactoryNames = [
-  "createOrchestratorPersistencePorts",
-  "createOrchestratorDecisionRecoveryStore",
-  "createOrchestratorAcceptanceDecisionStore",
+const coordinatorStoreFactoryNames = [
+  "createCoordinatorPersistencePorts",
+  "createCoordinatorDecisionRecoveryStore",
+  "createCoordinatorAcceptanceDecisionStore",
 ] as const;
 const EXECUTION_INTELLIGENCE_CONSUMER =
   "40_Develop/execution-intelligence/src/storage/store.ts";
@@ -78,7 +78,7 @@ const blockedMeaningFields = [
 ] as const;
 const SEMANTIC_ROOT_LITERAL_OWNERS = new Set([
   RESOLVER_PATH,
-  "40_Develop/coordinator/scripts/orchestrator-real-provider-contract.ts",
+  "40_Develop/coordinator/scripts/task-real-provider-contract.ts",
 ]);
 const ALLOWED_TOP_LEVEL_AREAS = new Set([
   "config",
@@ -321,19 +321,19 @@ function violations(sources: SourceSet): string[] {
     if (!doesPreserveBlockedResult)
       findings.push(`runtime-area-blocked-result:${item}`);
   }
-  const boundarySources = PUBLIC_ORCHESTRATOR_BOUNDARIES.map(
+  const boundarySources = PUBLIC_COORDINATOR_BOUNDARIES.map(
     (file) => sources.get(file) ?? "",
   );
-  const orchestratorBoundary = boundarySources.join("\n");
-  const blockedProjection = sources.get(ORCHESTRATOR_BLOCKED_PROJECTION) ?? "";
+  const coordinatorBoundary = boundarySources.join("\n");
+  const blockedProjection = sources.get(COORDINATOR_BLOCKED_PROJECTION) ?? "";
   if (
     !boundarySources.every(
       (source) =>
         source.includes("RepositoryRuntimeDataAreaBlockedError") &&
-        source.includes("orchestratorDataBoundaryBlocked"),
+        source.includes("coordinatorDataBoundaryBlocked"),
     ) ||
-    !orchestratorStoreFactoryNames.every((symbol) =>
-      orchestratorBoundary.includes(symbol),
+    !coordinatorStoreFactoryNames.every((symbol) =>
+      coordinatorBoundary.includes(symbol),
     ) ||
     !blockedMeaningFields.every((field) =>
       blockedProjection.includes(

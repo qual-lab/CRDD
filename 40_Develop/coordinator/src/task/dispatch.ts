@@ -4,17 +4,17 @@
  * @trace ARCH-000004
  */
 import {
-  type OrchestratorExecutionDependencies,
-  ORCHESTRATOR_EXECUTION_CONTRACT,
-  type OrchestratorExecutionResult,
+  type CoordinatorExecutionDependencies,
+  COORDINATOR_EXECUTION_CONTRACT,
+  type CoordinatorExecutionResult,
   type ExecutionInput,
-  type OrchestratorTaskExecution,
-  type OrchestratorExecutionPublicationObservation,
+  type CoordinatorTaskExecution,
+  type CoordinatorExecutionPublicationObservation,
   validSingleTaskResult,
 } from "./execution-contract.ts";
 import {
   type ProjectTaskRecoveryKind,
-  type OrchestratorState,
+  type CoordinatorState,
   decodeProjectResultAcceptance,
   type ProjectResultAcceptance,
   validIdentity,
@@ -30,17 +30,17 @@ import {
 } from "./lifecycle.ts";
 import { recordProjectTaskResultAcceptances } from "./recovery-transitions.ts";
 import { selectSchedulableProjectTasks } from "./scheduling.ts";
-import type { OrchestratorTaskAttemptObservation } from "./observer.ts";
-import type { OrchestratorTaskResultDelivery } from "./executor.ts";
+import type { CoordinatorTaskAttemptObservation } from "./observer.ts";
+import type { CoordinatorTaskResultDelivery } from "./executor.ts";
 
 /**
  * Idを安定Identityへ変換する。
  *
  * @responsibility Idの正規化条件、一意性、変換不能時の拒否境界を所有する。
  * @trace ARCH-000004
- * @input dependencies: OrchestratorExecutionDependencies、prefix: string、parts: readonly string[]
+ * @input dependencies: CoordinatorExecutionDependencies、prefix: string、parts: readonly string[]
  * @returns stableIdの計算結果を返す。
- * @precondition 「dependencies: OrchestratorExecutionDependencies、prefix: string、parts: readonly string[]」がstableIdの入力契約を満たす。
+ * @precondition 「dependencies: CoordinatorExecutionDependencies、prefix: string、parts: readonly string[]」がstableIdの入力契約を満たす。
  * @postcondition stableIdの責務を完了した結果だけを返す。
  * @effect N/A: stableIdは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: stableIdは独自の失敗分岐を所有しない。
@@ -50,7 +50,7 @@ import type { OrchestratorTaskResultDelivery } from "./executor.ts";
  * @concurrency N/A: stableIdは共有非同期状態を持たない同期処理である。
  */
 function stableId(
-  dependencies: OrchestratorExecutionDependencies,
+  dependencies: CoordinatorExecutionDependencies,
   prefix: string,
   ...parts: readonly string[]
 ) {
@@ -62,9 +62,9 @@ function stableId(
  *
  * @responsibility resultの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
- * @input input: ExecutionInput、fields: Omit< OrchestratorExecutionResult, | "contract" | "projectId" | "queueId" | "processRestartRequired" | "recoveryIds" | "recoveryObligations" > & Readonly<{ processRestartRequired?: boolean; recoveryIds?: readonly string[]; recoveryObligations?: readonly Readonly<{ kind: ProjectTaskRecoveryKind; recoveryId: string; }>[]; }>
- * @returns OrchestratorExecutionResultを返す。
- * @precondition 「input: ExecutionInput、fields: Omit< OrchestratorExecutionResult, | "contract" | "projectId" | "queueId" | "processRestartRequired" | "recoveryIds" | "recoveryObligations" > & Readonly<{ processRestartRequired?: boolean; recoveryIds?: readonly string[]; recoveryObligations?: readonly Readonly<{ kind: ProjectTaskRecoveryKind; recoveryId: string; }>[]; }>」がresultの入力契約を満たす。
+ * @input input: ExecutionInput、fields: Omit< CoordinatorExecutionResult, | "contract" | "projectId" | "queueId" | "processRestartRequired" | "recoveryIds" | "recoveryObligations" > & Readonly<{ processRestartRequired?: boolean; recoveryIds?: readonly string[]; recoveryObligations?: readonly Readonly<{ kind: ProjectTaskRecoveryKind; recoveryId: string; }>[]; }>
+ * @returns CoordinatorExecutionResultを返す。
+ * @precondition 「input: ExecutionInput、fields: Omit< CoordinatorExecutionResult, | "contract" | "projectId" | "queueId" | "processRestartRequired" | "recoveryIds" | "recoveryObligations" > & Readonly<{ processRestartRequired?: boolean; recoveryIds?: readonly string[]; recoveryObligations?: readonly Readonly<{ kind: ProjectTaskRecoveryKind; recoveryId: string; }>[]; }>」がresultの入力契約を満たす。
  * @postcondition resultの責務を完了した結果だけを返す。
  * @effect N/A: resultは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: resultは独自の失敗分岐を所有しない。
@@ -76,7 +76,7 @@ function stableId(
 function result(
   input: ExecutionInput,
   fields: Omit<
-    OrchestratorExecutionResult,
+    CoordinatorExecutionResult,
     | "contract"
     | "projectId"
     | "queueId"
@@ -92,9 +92,9 @@ function result(
         recoveryId: string;
       }>[];
     }>,
-): OrchestratorExecutionResult {
+): CoordinatorExecutionResult {
   return Object.freeze({
-    contract: ORCHESTRATOR_EXECUTION_CONTRACT,
+    contract: COORDINATOR_EXECUTION_CONTRACT,
     projectId: input.projectId,
     queueId: input.queueId,
     ...fields,
@@ -106,13 +106,13 @@ function result(
 }
 
 /**
- * orchestrator-executionを停止結果として構築する。
+ * executionを停止結果として構築する。
  *
- * @responsibility orchestrator-executionの停止理由、未発行Effect、公開結果境界を所有する。
+ * @responsibility executionの停止理由、未発行Effect、公開結果境界を所有する。
  * @trace ARCH-000004
- * @input input: ExecutionInput、reason: string、options: Readonly<{ state?: OrchestratorState | null; completedTaskIds?: readonly string[]; cleanupConfirmed?: boolean; manualRecoveryRequired?: boolean; processRestartRequired?: boolean; effectState?: "no_effect" | "settled" | "unknown"; recoveryIds?: readonly string[]; recoveryObligations?: readonly Readonly<{ kind: ProjectTaskRecoveryKind; recoveryId: string; }>[]; }>
+ * @input input: ExecutionInput、reason: string、options: Readonly<{ state?: CoordinatorState | null; completedTaskIds?: readonly string[]; cleanupConfirmed?: boolean; manualRecoveryRequired?: boolean; processRestartRequired?: boolean; effectState?: "no_effect" | "settled" | "unknown"; recoveryIds?: readonly string[]; recoveryObligations?: readonly Readonly<{ kind: ProjectTaskRecoveryKind; recoveryId: string; }>[]; }>
  * @returns blockedの計算結果を返す。
- * @precondition 「input: ExecutionInput、reason: string、options: Readonly<{ state?: OrchestratorState | null; completedTaskIds?: readonly string[]; cleanupConfirmed?: boolean; manualRecoveryRequired?: boolean; processRestartRequired?: boolean; effectState?: "no_effect" | "settled" | "unknown"; recoveryIds?: readonly string[]; recoveryObligations?: readonly Readonly<{ kind: ProjectTaskRecoveryKind; recoveryId: string; }>[]; }>」がblockedの入力契約を満たす。
+ * @precondition 「input: ExecutionInput、reason: string、options: Readonly<{ state?: CoordinatorState | null; completedTaskIds?: readonly string[]; cleanupConfirmed?: boolean; manualRecoveryRequired?: boolean; processRestartRequired?: boolean; effectState?: "no_effect" | "settled" | "unknown"; recoveryIds?: readonly string[]; recoveryObligations?: readonly Readonly<{ kind: ProjectTaskRecoveryKind; recoveryId: string; }>[]; }>」がblockedの入力契約を満たす。
  * @postcondition blockedの責務を完了した結果だけを返す。
  * @effect N/A: blockedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: blockedは独自の失敗分岐を所有しない。
@@ -125,7 +125,7 @@ function blocked(
   input: ExecutionInput,
   reason: string,
   options: Readonly<{
-    state?: OrchestratorState | null;
+    state?: CoordinatorState | null;
     completedTaskIds?: readonly string[];
     cleanupConfirmed?: boolean;
     manualRecoveryRequired?: boolean;
@@ -157,9 +157,9 @@ function blocked(
  *
  * @responsibility task Execution Mapの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
- * @input state: OrchestratorState、executions: readonly OrchestratorTaskExecution[]
+ * @input state: CoordinatorState、executions: readonly CoordinatorTaskExecution[]
  * @returns taskExecutionMapの計算結果を返す。
- * @precondition 「state: OrchestratorState、executions: readonly OrchestratorTaskExecution[]」がtaskExecutionMapの入力契約を満たす。
+ * @precondition 「state: CoordinatorState、executions: readonly CoordinatorTaskExecution[]」がtaskExecutionMapの入力契約を満たす。
  * @postcondition taskExecutionMapの責務を完了した結果だけを返す。
  * @effect N/A: taskExecutionMapは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: taskExecutionMapは独自の失敗分岐を所有しない。
@@ -169,8 +169,8 @@ function blocked(
  * @concurrency N/A: taskExecutionMapは共有非同期状態を持たない同期処理である。
  */
 function taskExecutionMap(
-  state: OrchestratorState,
-  executions: readonly OrchestratorTaskExecution[],
+  state: CoordinatorState,
+  executions: readonly CoordinatorTaskExecution[],
 ) {
   if (
     !Array.isArray(executions) ||
@@ -179,7 +179,7 @@ function taskExecutionMap(
     new Set(executions.map((entry) => entry.taskId)).size !== executions.length
   )
     return null;
-  const result = new Map<string, OrchestratorTaskExecution>();
+  const result = new Map<string, CoordinatorTaskExecution>();
   for (const entry of executions) {
     if (
       !entry ||
@@ -201,9 +201,9 @@ function taskExecutionMap(
  *
  * @responsibility persisted 状態の導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
- * @input dependencies: OrchestratorExecutionDependencies、state: OrchestratorState、expectedGeneration: number
+ * @input dependencies: CoordinatorExecutionDependencies、state: CoordinatorState、expectedGeneration: number
  * @returns persistedStateの計算結果を返す。
- * @precondition 「dependencies: OrchestratorExecutionDependencies、state: OrchestratorState、expectedGeneration: number」がpersistedStateの入力契約を満たす。
+ * @precondition 「dependencies: CoordinatorExecutionDependencies、state: CoordinatorState、expectedGeneration: number」がpersistedStateの入力契約を満たす。
  * @postcondition persistedStateの責務を完了した結果だけを返す。
  * @effect N/A: persistedStateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: persistedStateは独自の失敗分岐を所有しない。
@@ -213,8 +213,8 @@ function taskExecutionMap(
  * @concurrency N/A: persistedStateは共有非同期状態を持たない同期処理である。
  */
 function persistedState(
-  dependencies: OrchestratorExecutionDependencies,
-  state: OrchestratorState,
+  dependencies: CoordinatorExecutionDependencies,
+  state: CoordinatorState,
   expectedGeneration: number,
 ) {
   return dependencies.persistence.state.writeState(state, expectedGeneration);
@@ -223,23 +223,23 @@ function persistedState(
 /**
  * Own one durable Project operation from a queued request through all currently
  *
- * @responsibility Orchestrator Operationの実行条件、Effect範囲、終了結果の境界を所有する。
+ * @responsibility Coordinator Operationの実行条件、Effect範囲、終了結果の境界を所有する。
  * @trace ARCH-000004
- * @input dependencies: OrchestratorExecutionDependencies、input: ExecutionInput
- * @returns Promise<OrchestratorExecutionResult>を返す。
- * @precondition 「dependencies: OrchestratorExecutionDependencies、input: ExecutionInput」がrunOrchestratorOperationの入力契約を満たす。
- * @postcondition runOrchestratorOperationの責務を完了した結果だけを返す。
+ * @input dependencies: CoordinatorExecutionDependencies、input: ExecutionInput
+ * @returns Promise<CoordinatorExecutionResult>を返す。
+ * @precondition 「dependencies: CoordinatorExecutionDependencies、input: ExecutionInput」がrunCoordinatorOperationの入力契約を満たす。
+ * @postcondition runCoordinatorOperationの責務を完了した結果だけを返す。
  * @effect 検証済みRepositoryのState／Queueを保存し、許可されたTaskと結果受理・整理を既存Ownerへ委譲する。
- * @failure runOrchestratorOperationは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant runOrchestratorOperationは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: runOrchestratorOperationはProcess内の同一Subsystemで完結する。
- * @security N/A: runOrchestratorOperationはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency runOrchestratorOperationは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ * @failure runCoordinatorOperationは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant runCoordinatorOperationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: runCoordinatorOperationはProcess内の同一Subsystemで完結する。
+ * @security N/A: runCoordinatorOperationはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency runCoordinatorOperationは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
  */
-export async function runOrchestratorOperation(
-  dependencies: OrchestratorExecutionDependencies,
+export async function runCoordinatorOperation(
+  dependencies: CoordinatorExecutionDependencies,
   input: ExecutionInput,
-): Promise<OrchestratorExecutionResult> {
+): Promise<CoordinatorExecutionResult> {
   if (!(input.cancellationSignal instanceof AbortSignal))
     return blocked(input, "orchestrator_execution_input_invalid");
   const stateRead = dependencies.persistence.state.readState(input.projectId);
@@ -313,9 +313,9 @@ export async function runOrchestratorOperation(
     });
   const lease = leaseResult.value;
   const workspaceResults: NonNullable<
-    OrchestratorExecutionResult["workspaceResults"]
+    CoordinatorExecutionResult["workspaceResults"]
   >[number][] = [];
-  const withWorkspaceResults = (value: OrchestratorExecutionResult) =>
+  const withWorkspaceResults = (value: CoordinatorExecutionResult) =>
     workspaceResults.length === 0
       ? value
       : Object.freeze({
@@ -323,8 +323,8 @@ export async function runOrchestratorOperation(
           workspaceResults: Object.freeze([...workspaceResults]),
         });
   const completeWithoutOwnedQueue = (
-    terminal: OrchestratorExecutionResult,
-  ): OrchestratorExecutionResult => {
+    terminal: CoordinatorExecutionResult,
+  ): CoordinatorExecutionResult => {
     const released = lease.release();
     return withWorkspaceResults(
       released.status === "completed"
@@ -342,9 +342,9 @@ export async function runOrchestratorOperation(
     );
   };
   const completeOwnedQueue = (
-    terminal: OrchestratorExecutionResult,
+    terminal: CoordinatorExecutionResult,
     terminalQueue: typeof queue,
-  ): OrchestratorExecutionResult => {
+  ): CoordinatorExecutionResult => {
     const released = lease.release();
     if (released.status !== "completed")
       return withWorkspaceResults(
@@ -382,11 +382,11 @@ export async function runOrchestratorOperation(
   const finalizeOwnedFailure = (
     reason: string,
     options: Readonly<{
-      state: OrchestratorState;
+      state: CoordinatorState;
       completedTaskIds?: readonly string[];
       processRestartRequired?: boolean;
     }>,
-  ): OrchestratorExecutionResult => {
+  ): CoordinatorExecutionResult => {
     const terminal = blocked(input, reason, {
       state: options.state,
       completedTaskIds: options.completedTaskIds ?? [],
@@ -524,7 +524,7 @@ export async function runOrchestratorOperation(
       taskId: string;
       attemptId: string;
       operationId: string;
-      execution: OrchestratorTaskExecution;
+      execution: CoordinatorTaskExecution;
     }> = [];
     for (const taskId of selectedItems) {
       const execution = executions.get(taskId);
@@ -641,7 +641,7 @@ export async function runOrchestratorOperation(
     const attemptStartedAt = new Map<string, number>();
     const outcomes = await Promise.all(
       attempts.map(async (attempt) => {
-        let delivery: OrchestratorTaskResultDelivery | null = null;
+        let delivery: CoordinatorTaskResultDelivery | null = null;
         let hasDeliveryNotification = false;
         let isDeliveryInvalid = false;
         let isNotificationClosed = false;
@@ -719,7 +719,7 @@ export async function runOrchestratorOperation(
               ...(dependencies.resultDelivery
                 ? {
                     observeResultDelivery: (
-                      captured: OrchestratorTaskResultDelivery | null,
+                      captured: CoordinatorTaskResultDelivery | null,
                     ) => {
                       if (
                         isNotificationClosed ||
@@ -742,7 +742,7 @@ export async function runOrchestratorOperation(
         isNotificationClosed = true;
         return Object.freeze({
           outcome,
-          delivery: delivery as OrchestratorTaskResultDelivery | null,
+          delivery: delivery as CoordinatorTaskResultDelivery | null,
           deliveryNotified: hasDeliveryNotification,
           deliveryInvalid: isDeliveryInvalid,
         });
@@ -842,8 +842,8 @@ export async function runOrchestratorOperation(
           validatedOutcome.executorProvider !== undefined
             ? { provider: validatedOutcome.executorProvider }
             : {}),
-        } satisfies OrchestratorTaskAttemptObservation);
-        let publicationObservation: OrchestratorExecutionPublicationObservation;
+        } satisfies CoordinatorTaskAttemptObservation);
+        let publicationObservation: CoordinatorExecutionPublicationObservation;
         try {
           publicationObservation = dependencies.executionObservation
             ?.recordTaskAttempt
@@ -1015,7 +1015,7 @@ export async function runOrchestratorOperation(
           );
         if (delivery) {
           let observed: ReturnType<
-            OrchestratorTaskResultDelivery["readResults"]
+            CoordinatorTaskResultDelivery["readResults"]
           >;
           try {
             observed = delivery.readResults();
@@ -1119,7 +1119,7 @@ export async function runOrchestratorOperation(
         });
       state = settlementState;
       for (const pending of pendingDeliveries) {
-        let completed: ReturnType<OrchestratorTaskResultDelivery["complete"]>;
+        let completed: ReturnType<CoordinatorTaskResultDelivery["complete"]>;
         try {
           if (!delivery) throw new Error("result_delivery_absent");
           completed = delivery.complete(
@@ -1302,24 +1302,24 @@ export async function runOrchestratorOperation(
 }
 
 /**
- * Orchestrator Execution 契約の公開契約を記述する。
+ * Coordinator Execution 契約の公開契約を記述する。
  *
- * @responsibility Orchestrator Execution 契約の公開field、非公開境界、互換性を所有する。
+ * @responsibility Coordinator Execution 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000004
  * @input N/A: 実行時引数を受け取らない。
- * @returns describeOrchestratorExecutionContractの計算結果を返す。
- * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeOrchestratorExecutionContractの入力契約を満たす。
- * @postcondition describeOrchestratorExecutionContractの責務を完了した結果だけを返す。
- * @effect N/A: describeOrchestratorExecutionContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: describeOrchestratorExecutionContractは独自の失敗分岐を所有しない。
- * @invariant describeOrchestratorExecutionContractは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: describeOrchestratorExecutionContractはProcess内の同一Subsystemで完結する。
- * @security N/A: describeOrchestratorExecutionContractはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: describeOrchestratorExecutionContractは共有非同期状態を持たない同期処理である。
+ * @returns describeCoordinatorExecutionContractの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeCoordinatorExecutionContractの入力契約を満たす。
+ * @postcondition describeCoordinatorExecutionContractの責務を完了した結果だけを返す。
+ * @effect N/A: describeCoordinatorExecutionContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describeCoordinatorExecutionContractは独自の失敗分岐を所有しない。
+ * @invariant describeCoordinatorExecutionContractは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: describeCoordinatorExecutionContractはProcess内の同一Subsystemで完結する。
+ * @security N/A: describeCoordinatorExecutionContractはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: describeCoordinatorExecutionContractは共有非同期状態を持たない同期処理である。
  */
-export function describeOrchestratorExecutionContract() {
+export function describeCoordinatorExecutionContract() {
   return Object.freeze({
-    contract: ORCHESTRATOR_EXECUTION_CONTRACT,
+    contract: COORDINATOR_EXECUTION_CONTRACT,
     maximumConcurrency: 5,
     externalWaitWhileMutationLockHeld: false,
     cleanupUnknownDisposition: "durable_recovery_and_reservation_retained",

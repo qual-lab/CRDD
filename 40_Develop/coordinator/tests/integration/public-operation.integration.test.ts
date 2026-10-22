@@ -26,25 +26,25 @@ import {
   readExecutionIntelligence,
   verifyExecutionIntelligenceRepositoryRoot,
 } from "../../../execution-intelligence/src/index.ts";
-import { recordOrchestratorExecutionEvent } from "../../src/index.ts";
-import { initializeOrchestratorSnapshot } from "../../src/index.ts";
-import { createOrchestratorWindowsDecisionStoreTestingAdapter } from "../../src/storage/protected-decision.ts";
-import { createDevelopmentOrchestratorPublicObjectiveCandidate } from "../../src/objective/public-operation.ts";
+import { recordCoordinatorExecutionEvent } from "../../src/index.ts";
+import { initializeCoordinatorSnapshot } from "../../src/index.ts";
+import { createCoordinatorWindowsDecisionStoreTestingAdapter } from "../../src/storage/protected-decision.ts";
+import { createDevelopmentCoordinatorPublicObjectiveCandidate } from "../../src/objective/public-operation.ts";
 import {
-  createOrchestratorExecutionIntelligenceDiagnosticReporter,
-  createOrchestratorRecoveryDiagnosticReporter,
-  ORCHESTRATOR_EXECUTION_INTELLIGENCE_PREFIX,
+  createCoordinatorExecutionIntelligenceDiagnosticReporter,
+  createCoordinatorRecoveryDiagnosticReporter,
+  COORDINATOR_EXECUTION_INTELLIGENCE_PREFIX,
 } from "../../src/task/execution-diagnostics.ts";
-import { executeOrchestratorPublicAcceptanceDecision } from "../../src/decision/public-acceptance.ts";
-import { orchestratorDataBoundaryBlocked } from "../../src/operation-result-contract.ts";
+import { executeCoordinatorPublicAcceptanceDecision } from "../../src/decision/public-acceptance.ts";
+import { coordinatorDataBoundaryBlocked } from "../../src/operation-result-contract.ts";
 
 /**
- * Runtime Data失敗を公開Orchestrator結果まで意味変更せず投影するを検証する。
+ * Runtime Data失敗を公開Coordinator結果まで意味変更せず投影するを検証する。
  *
- * @responsibility Runtime Data失敗を公開Orchestrator結果まで意味変更せず投影するの合否判定を所有する。
+ * @responsibility Runtime Data失敗を公開Coordinator結果まで意味変更せず投影するの合否判定を所有する。
  * @trace PRL-IT-005
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Runtime Data失敗を公開Orchestrator結果まで意味変更せず投影するの対象操作を実行する。
+ * @stimulus Runtime Data失敗を公開Coordinator結果まで意味変更せず投影するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
@@ -62,7 +62,7 @@ test("Runtime Data失敗を公開Orchestrator結果まで意味変更せず投�
     recoveryReference: "repository-local-ignore.test-reference",
     repositoryPathReported: false,
   });
-  assert.deepEqual(orchestratorDataBoundaryBlocked(error), {
+  assert.deepEqual(coordinatorDataBoundaryBlocked(error), {
     contract: "crdd-coordinator/orchestrator-public-runtime/v1",
     status: "blocked",
     reason: "repository_runtime_data_ignore_registration_blocked",
@@ -125,7 +125,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
     windowsHide: true,
   }).trim();
   const decisionRoot = path.join(root, ".decision-store");
-  const initialized = initializeOrchestratorSnapshot(
+  const initialized = initializeCoordinatorSnapshot(
     root,
     `binding-${createHash("sha256").update(root).digest("hex").slice(0, 40)}`,
   );
@@ -133,12 +133,12 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
   let intakeEpoch = initialized.value as string;
   fs.mkdirSync(decisionRoot);
   const decisionStore =
-    createOrchestratorWindowsDecisionStoreTestingAdapter(decisionRoot);
+    createCoordinatorWindowsDecisionStoreTestingAdapter(decisionRoot);
   let taskStarts = 0;
   let shouldBlockExecutionPublication = false;
   let shouldThrowFromPublicationObserver = false;
   const publicationObservations: object[] = [];
-  const runtime = createDevelopmentOrchestratorPublicObjectiveCandidate({
+  const runtime = createDevelopmentCoordinatorPublicObjectiveCandidate({
     captureResultDelivery: () =>
       Object.freeze({
         readResults: () =>
@@ -233,7 +233,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
             manualRecoveryRequired: true,
             residualArtifactIds: Object.freeze(["test-residual"]),
           })
-        : recordOrchestratorExecutionEvent(repositoryRoot, event),
+        : recordCoordinatorExecutionEvent(repositoryRoot, event),
     observeExecutionEventPublication: (observation) => {
       publicationObservations.push(observation);
       if (shouldThrowFromPublicationObserver)
@@ -360,7 +360,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
     decisionId: string,
     evidenceId: string,
   ) =>
-    executeOrchestratorPublicAcceptanceDecision(
+    executeCoordinatorPublicAcceptanceDecision(
       authenticate,
       {
         contract: "crdd-coordinator/orchestrator-acceptance-decision/v1",
@@ -609,7 +609,7 @@ class ControlledDiagnosticStream extends Writable {
  */
 test("回復診断を直列化しcallback成功だけを成功として扱う", async () => {
   const stream = new ControlledDiagnosticStream({ highWaterMark: 1 });
-  const reporter = createOrchestratorRecoveryDiagnosticReporter(stream, 200);
+  const reporter = createCoordinatorRecoveryDiagnosticReporter(stream, 200);
   const first = reporter.report({ phase: "required" });
   const second = reporter.report({ phase: "recovering" });
   await new Promise((resolve) => setImmediate(resolve));
@@ -638,7 +638,7 @@ test("回復診断を直列化しcallback成功だけを成功として扱う", 
  */
 test("実行Event発行診断は回復診断と別の閉じた識別子で出力する", async () => {
   const stream = new ControlledDiagnosticStream();
-  const reporter = createOrchestratorExecutionIntelligenceDiagnosticReporter(
+  const reporter = createCoordinatorExecutionIntelligenceDiagnosticReporter(
     stream,
     200,
   );
@@ -651,7 +651,7 @@ test("実行Event発行診断は回復診断と別の閉じた識別子で出力
   stream.callbacks[0]?.(null);
   assert.equal(await result, "success");
   assert.ok(
-    stream.writes[0]?.startsWith(ORCHESTRATOR_EXECUTION_INTELLIGENCE_PREFIX),
+    stream.writes[0]?.startsWith(COORDINATOR_EXECUTION_INTELLIGENCE_PREFIX),
   );
   assert.match(
     stream.writes[0] ?? "",
@@ -695,10 +695,7 @@ test("回復診断の各終端を区別し失敗後の書込みを停止する",
       const stream = new ControlledDiagnosticStream();
       const baselineErrorListeners = stream.listenerCount("error");
       const baselineCloseListeners = stream.listenerCount("close");
-      const reporter = createOrchestratorRecoveryDiagnosticReporter(
-        stream,
-        200,
-      );
+      const reporter = createCoordinatorRecoveryDiagnosticReporter(stream, 200);
       const result = reporter.report({ phase: "required" });
       await new Promise((resolve) => setImmediate(resolve));
       item.settle(stream);
@@ -729,7 +726,7 @@ test("回復診断の各終端を区別し失敗後の書込みを停止する",
  */
 test("回復診断timeout後の遅延callbackとerrorを二重完了にしない", async () => {
   const stream = new ControlledDiagnosticStream();
-  const reporter = createOrchestratorRecoveryDiagnosticReporter(stream, 10);
+  const reporter = createCoordinatorRecoveryDiagnosticReporter(stream, 10);
   const result = reporter.report({ phase: "required" });
   assert.equal(await result, "timeout");
   stream.callbacks[0]?.(null);
@@ -757,7 +754,7 @@ test("回復診断の同期throwと明示disposeを閉じた結果へ変換す�
     }
   }
   const throwing = new ThrowingDiagnosticStream();
-  const throwingReporter = createOrchestratorRecoveryDiagnosticReporter(
+  const throwingReporter = createCoordinatorRecoveryDiagnosticReporter(
     throwing,
     200,
   );
@@ -765,7 +762,7 @@ test("回復診断の同期throwと明示disposeを閉じた結果へ変換す�
   throwingReporter.dispose();
 
   const pending = new ControlledDiagnosticStream();
-  const reporter = createOrchestratorRecoveryDiagnosticReporter(pending, 200);
+  const reporter = createCoordinatorRecoveryDiagnosticReporter(pending, 200);
   const result = reporter.report({ phase: "required" });
   await new Promise((resolve) => setImmediate(resolve));
   reporter.dispose();

@@ -4,7 +4,7 @@
  * @responsibility 模擬Readerを使わず状態保存とEI履歴の読取りを反証する。
  * @trace PPR-IT-012
  * @level IT
- * @scope Orchestrator活動Owner、実Filesystem、Git、状態保存、EI
+ * @scope Coordinator活動Owner、実Filesystem、Git、状態保存、EI
  * @boundary PPR-IT-012=Adjacent 1 Block: 実Store Reader→活動投影。
  */
 import assert from "node:assert/strict";
@@ -16,11 +16,11 @@ import test from "node:test";
 import {
   readAuthorizedRuntimeActivity,
   parseRuntimeActivityObservation,
-  createOrchestratorState,
-  initializeOrchestratorSnapshot,
+  createCoordinatorState,
+  initializeCoordinatorSnapshot,
 } from "../../src/index.ts";
-import { writeOrchestratorSnapshotState } from "../../src/storage/current-state.ts";
-import { deriveOrchestratorRepositoryBindingId } from "../../src/state/binding.ts";
+import { writeCoordinatorSnapshotState } from "../../src/storage/current-state.ts";
+import { deriveCoordinatorRepositoryBindingId } from "../../src/state/binding.ts";
 import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
 import {
   ensureRepositoryRuntimeDataArea,
@@ -118,10 +118,10 @@ function state(root: string, revision: string) {
   // 旧Composition式で保存し、新Reader側だけ新helperを使う片方向互換。
   const binding = `binding-${createHash("sha256").update(root).digest("hex").slice(0, 40)}`;
   assert.equal(
-    initializeOrchestratorSnapshot(root, binding).status,
+    initializeCoordinatorSnapshot(root, binding).status,
     "completed",
   );
-  const created = createOrchestratorState({
+  const created = createCoordinatorState({
     projectId,
     milestoneId: "milestone-a",
     repositoryRevision: revision,
@@ -141,7 +141,7 @@ function state(root: string, revision: string) {
   });
   assert.ok(created.state);
   assert.equal(
-    writeOrchestratorSnapshotState(
+    writeCoordinatorSnapshotState(
       root,
       binding,
       JSON.stringify(created.state),
@@ -647,7 +647,7 @@ test("公開活動結果はProject・Source・Event・Cursor相関を閉じる",
  */
 test("保存Bindingは既存の固定byte契約を維持する", () => {
   assert.equal(
-    deriveOrchestratorRepositoryBindingId("C:/fixture/repository"),
+    deriveCoordinatorRepositoryBindingId("C:/fixture/repository"),
     "binding-d5a79868193da147c72219dac4a616eb24f197c3",
   );
 });

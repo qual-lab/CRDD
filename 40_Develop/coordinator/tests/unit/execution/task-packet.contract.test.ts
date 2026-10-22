@@ -6,7 +6,7 @@
  * @trace PRL-UT-014
  * @level UT
  * @scope provider、task、packet、runtime
- * @boundary PRL-UT-014=N/A: Orchestrator Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=N/A: Coordinator Application Portは外部実行境界を持たない。
  */
 import { planProviderExecution } from "../../../../ai-adapter/src/index.ts";
 import { prepareDockerNetworkPolicy } from "../../../../docker-isolation/src/index.ts";

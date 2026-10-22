@@ -286,7 +286,7 @@
     {
       "symbolId": "mcp.test.unit.orchestrator",
       "kind": "test-suite",
-      "path": "tests/unit/orchestrator-adapter.contract.test.ts",
+      "path": "tests/unit/task-adapter.contract.test.ts",
       "qaIds": [
         "QA-000003",
         "QA-000004"
@@ -321,7 +321,7 @@
     {
       "symbolId": "mcp.source.src.adapters.orchestrator.adapter",
       "kind": "file",
-      "path": "src/tools/orchestrator.ts",
+      "path": "src/tools/task.ts",
       "archIds": [
         "ARCH-000012"
       ]

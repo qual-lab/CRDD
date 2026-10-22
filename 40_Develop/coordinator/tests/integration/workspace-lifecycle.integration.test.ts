@@ -10,7 +10,7 @@
  * @trace PRL-IT-012
  * @trace RFD-IT-029
  * @level IT
- * @scope OrchestratorとVersion Control。AIは合成作業のみ。
+ * @scope CoordinatorとVersion Control。AIは合成作業のみ。
  * @boundary 実Filesystem／Git／既存操作Lease。Provider・Dockerなし。
  */
 import assert from "node:assert/strict";
@@ -24,35 +24,35 @@ import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import test, { type TestContext } from "node:test";
 import {
-  createOrchestratorState,
-  initializeOrchestratorSnapshot,
-  manageOrchestratorWorkspace,
-  resolveOrchestratorWorkspaceTaskTarget,
+  createCoordinatorState,
+  initializeCoordinatorSnapshot,
+  manageCoordinatorWorkspace,
+  resolveCoordinatorWorkspaceTaskTarget,
   reserveProjectTaskStart,
   prepareProjectTaskHandoff,
   observeProjectTaskStarted,
   settleProjectTask,
-  runOrchestratorOperation,
-  createOrchestratorExecutionHostPorts,
-  executeOrchestratorObjective,
-  runOrchestratorSingleTaskAttempt,
+  runCoordinatorOperation,
+  createCoordinatorExecutionHostPorts,
+  executeCoordinatorObjective,
+  runCoordinatorSingleTaskAttempt,
   executeWorkspaceCommand,
   inspectWorkspaceCommand,
   type WorkspaceView,
 } from "../../src/index.ts";
 import {
-  readOrchestratorSnapshot,
-  writeOrchestratorSnapshotState,
-  createOrchestratorSnapshotPersistencePorts,
-  acquireOrchestratorSnapshotLease,
-  writeOrchestratorSnapshot,
+  readCoordinatorSnapshot,
+  writeCoordinatorSnapshotState,
+  createCoordinatorSnapshotPersistencePorts,
+  acquireCoordinatorSnapshotLease,
+  writeCoordinatorSnapshot,
 } from "../../src/storage/current-state.ts";
-import { deriveOrchestratorRepositoryBindingId } from "../../src/state/binding.ts";
-import type { OrchestratorWorkspaceRequest } from "../../src/index.ts";
-import { inspectMcpOrchestratorObjectiveResult } from "../../../mcp-server/src/index.ts";
+import { deriveCoordinatorRepositoryBindingId } from "../../src/state/binding.ts";
+import type { CoordinatorWorkspaceRequest } from "../../src/index.ts";
+import { inspectMcpCoordinatorObjectiveResult } from "../../../mcp-server/src/index.ts";
 import { workspacePlanReadyForAcceptance } from "../../src/workspace/operations.ts";
-import { executeOrchestratorPublicAcceptanceDecision } from "../../src/decision/public-acceptance.ts";
-import { executeOrchestratorPublicStateQuery } from "../../src/state/public-query.ts";
+import { executeCoordinatorPublicAcceptanceDecision } from "../../src/decision/public-acceptance.ts";
+import { executeCoordinatorPublicStateQuery } from "../../src/state/public-query.ts";
 
 const testsRoot = path.resolve(import.meta.dirname, "../../../../.crdd/tests");
 const empty = process.platform === "win32" ? "NUL" : devNull;
@@ -127,12 +127,12 @@ function fixture(t: TestContext, independent = false) {
   git(root, ["add", "."]);
   git(root, ["commit", "-m", "base"]);
   const base = git(root, ["rev-parse", "HEAD"]);
-  const binding = deriveOrchestratorRepositoryBindingId(root);
-  const initialized = initializeOrchestratorSnapshot(root, binding);
+  const binding = deriveCoordinatorRepositoryBindingId(root);
+  const initialized = initializeCoordinatorSnapshot(root, binding);
   assert.equal(initialized.status, "completed", JSON.stringify(initialized));
   if (initialized.status !== "completed")
     throw new Error("fixture_init_failed");
-  const created = createOrchestratorState({
+  const created = createCoordinatorState({
     projectId: "project-a",
     milestoneId: "milestone-a",
     repositoryRevision: base,
@@ -150,7 +150,7 @@ function fixture(t: TestContext, independent = false) {
   });
   assert.ok(created.state);
   assert.equal(
-    writeOrchestratorSnapshotState(
+    writeCoordinatorSnapshotState(
       root,
       binding,
       JSON.stringify(created.state),
@@ -158,7 +158,7 @@ function fixture(t: TestContext, independent = false) {
     ).status,
     "completed",
   );
-  const ports = createOrchestratorSnapshotPersistencePorts(
+  const ports = createCoordinatorSnapshotPersistencePorts(
     root,
     binding,
     initialized.value,
@@ -182,26 +182,26 @@ function fixture(t: TestContext, independent = false) {
     workspaceId,
   };
   const operate = (
-    operation: Omit<OrchestratorWorkspaceRequest, keyof typeof common> &
+    operation: Omit<CoordinatorWorkspaceRequest, keyof typeof common> &
       Record<string, unknown>,
   ) =>
-    manageOrchestratorWorkspace({
+    manageCoordinatorWorkspace({
       ...common,
       ...operation,
-    } as OrchestratorWorkspaceRequest);
+    } as CoordinatorWorkspaceRequest);
   /**
    * 同じWorkspace fixtureの保存Snapshotを実Readerから取得する。
    * @responsibility 同じWorkspace fixtureの保存Snapshotを実Readerから取得する。
    * @trace PRL-IT-013
    * @precondition 実Writerで初期化したRootとbinding。
-   * @stimulus readOrchestratorSnapshotを呼びcompleted/valueを検査する。
+   * @stimulus readCoordinatorSnapshotを呼びcompleted/valueを検査する。
    * @observation 世代、Queue、Workspaceと保存結果。
    * @oracle 読取り拒否やvalue欠測は即時試験失敗とする。
    * @cleanup 自己生成Rootはfixtureのafterで回収する。
    * @boundary 既存Snapshot読取りと実Filesystem。別台帳なし。
    */
   const snapshot = () => {
-    const read = readOrchestratorSnapshot(root, binding);
+    const read = readCoordinatorSnapshot(root, binding);
     assert.equal(read.status, "completed", JSON.stringify(read));
     if (read.status !== "completed" || !read.value)
       throw new Error("fixture_read_failed");
@@ -247,9 +247,9 @@ test("計画の独立二Taskは同じWorkspaceで直列実行し明示採用後�
       let calls = 0,
         active = 0,
         maximum = 0;
-      const result = await runOrchestratorOperation(
+      const result = await runCoordinatorOperation(
         {
-          ...createOrchestratorExecutionHostPorts(),
+          ...createCoordinatorExecutionHostPorts(),
           persistence: f.ports,
           runSingleTaskAttempt: async (input) => {
             const call = ++calls;
@@ -350,7 +350,7 @@ test("計画の独立二Taskは同じWorkspaceで直列実行し明示採用後�
           principalId: "principal-a",
         };
         if (!separate)
-          return executeOrchestratorPublicAcceptanceDecision(
+          return executeCoordinatorPublicAcceptanceDecision(
             () => ({ status: "completed", principalId: "principal-a" }),
             input,
             f.root,
@@ -365,7 +365,7 @@ test("計画の独立二Taskは同じWorkspaceで直列実行し明示採用後�
               process.execPath,
               [
                 "-e",
-                `import {executeOrchestratorPublicAcceptanceDecision as run} from ${JSON.stringify(entry)}; console.log(JSON.stringify(run(()=>({status:'completed',principalId:'principal-a'}),${JSON.stringify(input)},${JSON.stringify(f.root)},{principalId:'principal-a'})));`,
+                `import {executeCoordinatorPublicAcceptanceDecision as run} from ${JSON.stringify(entry)}; console.log(JSON.stringify(run(()=>({status:'completed',principalId:'principal-a'}),${JSON.stringify(input)},${JSON.stringify(f.root)},{principalId:'principal-a'})));`,
               ],
               { encoding: "utf8", windowsHide: true, timeout: 30_000 },
             )
@@ -511,7 +511,7 @@ test("計画の独立二Taskは同じWorkspaceで直列実行し明示採用後�
       );
       const accepted = await decide(isolated);
       assert.equal(accepted.status, "completed", JSON.stringify(accepted));
-      const query = executeOrchestratorPublicStateQuery(
+      const query = executeCoordinatorPublicStateQuery(
         () => ({ status: "completed", principalId: "principal-a" }) as never,
         {
           requestId: "query-after-adoption",
@@ -898,7 +898,7 @@ test("未完了Mergeは拒否・応答喪失後も同操作でCommitだけを継
     const module = pathToFileURL(
       path.resolve(import.meta.dirname, "../../src/index.ts"),
     ).href;
-    const script = `import(${JSON.stringify(module)}).then(({manageOrchestratorWorkspace})=>process.stdout.write(JSON.stringify(manageOrchestratorWorkspace({...JSON.parse(process.argv[1]),authorize:()=>true}))));`;
+    const script = `import(${JSON.stringify(module)}).then(({manageCoordinatorWorkspace})=>process.stdout.write(JSON.stringify(manageCoordinatorWorkspace({...JSON.parse(process.argv[1]),authorize:()=>true}))));`;
     const resumed = JSON.parse(
       execFileSync(
         process.execPath,
@@ -1006,7 +1006,7 @@ test("採否後のRef回収失敗は不変記録を保ち別Processで同候補�
     const module = pathToFileURL(
       path.resolve(import.meta.dirname, "../../src/index.ts"),
     ).href;
-    const script = `import(${JSON.stringify(module)}).then(({manageOrchestratorWorkspace})=>process.stdout.write(JSON.stringify(manageOrchestratorWorkspace({...JSON.parse(process.argv[1]),authorize:()=>true}))));`;
+    const script = `import(${JSON.stringify(module)}).then(({manageCoordinatorWorkspace})=>process.stdout.write(JSON.stringify(manageCoordinatorWorkspace({...JSON.parse(process.argv[1]),authorize:()=>true}))));`;
     const resumed = JSON.parse(
       execFileSync(
         process.execPath,
@@ -1119,7 +1119,7 @@ test("回収終端保存後の解除失敗と後発欠測でも固定本文を�
   const module = pathToFileURL(
     path.resolve(import.meta.dirname, "../../src/index.ts"),
   ).href;
-  const diagnostic = `Promise.all([import(${JSON.stringify(module)}),import('node:child_process'),import('node:module')]).then(([m,cp,modules])=>{const original=cp.default.spawnSync;cp.default.spawnSync=(...args)=>Array.isArray(args[1])&&args[1].includes('rev-parse')&&args[1].includes(${JSON.stringify(ref)})?{pid:0,status:1,signal:null,stdout:'synthetic',stderr:'',output:[null,'synthetic','']}:Reflect.apply(original,cp.default,args);modules.syncBuiltinESMExports();process.stdout.write(JSON.stringify(m.manageOrchestratorWorkspace({...JSON.parse(process.argv[1]),authorize:()=>true})));});`;
+  const diagnostic = `Promise.all([import(${JSON.stringify(module)}),import('node:child_process'),import('node:module')]).then(([m,cp,modules])=>{const original=cp.default.spawnSync;cp.default.spawnSync=(...args)=>Array.isArray(args[1])&&args[1].includes('rev-parse')&&args[1].includes(${JSON.stringify(ref)})?{pid:0,status:1,signal:null,stdout:'synthetic',stderr:'',output:[null,'synthetic','']}:Reflect.apply(original,cp.default,args);modules.syncBuiltinESMExports();process.stdout.write(JSON.stringify(m.manageCoordinatorWorkspace({...JSON.parse(process.argv[1]),authorize:()=>true})));});`;
   /**
    * 保存済みCandidateのcloseを別Node Processから再入場する。
    * @responsibility 保存済みCandidateのcloseを別Node Processから再入場する。
@@ -1146,7 +1146,7 @@ test("回収終端保存後の解除失敗と後発欠測でも固定本文を�
     "candidate_ref_mismatch",
   );
   assert.equal(JSON.stringify(f.snapshot().results), original);
-  const script = `import(${JSON.stringify(module)}).then(({manageOrchestratorWorkspace})=>process.stdout.write(JSON.stringify(manageOrchestratorWorkspace({...JSON.parse(process.argv[1]),authorize:()=>true}))));`;
+  const script = `import(${JSON.stringify(module)}).then(({manageCoordinatorWorkspace})=>process.stdout.write(JSON.stringify(manageCoordinatorWorkspace({...JSON.parse(process.argv[1]),authorize:()=>true}))));`;
   const resumed = run(script);
   assert.equal(resumed.status, "completed", JSON.stringify(resumed));
   assert.equal(f.snapshot().workspaces[0]?.candidate, null);
@@ -1164,7 +1164,7 @@ test("回収終端保存後の解除失敗と後発欠測でも固定本文を�
  * @observation 親関係、Message、結果記録と元Tree。
  * @oracle 固定名が履歴へ残り、別承認なしMerge0、対象Refだけ回収。
  * @cleanup fixtureのafter。
- * @boundary 本番Orchestrator／VC／保存。Providerなし。
+ * @boundary 本番Coordinator／VC／保存。Providerなし。
  */
 test("名前付きCandidateを明示固定・採用し結果を保存してRefだけ回収する", (t) => {
   const f = fixture(t);
@@ -1356,7 +1356,7 @@ test("Merge成功後の保存失敗は別Process再入場で二重Mergeせず閉
   const module = pathToFileURL(
     path.resolve(import.meta.dirname, "../../src/index.ts"),
   ).href;
-  const script = `import(${JSON.stringify(module)}).then(({manageOrchestratorWorkspace})=>process.stdout.write(JSON.stringify(manageOrchestratorWorkspace({...JSON.parse(process.argv[1]),authorize:()=>true}))));`;
+  const script = `import(${JSON.stringify(module)}).then(({manageCoordinatorWorkspace})=>process.stdout.write(JSON.stringify(manageCoordinatorWorkspace({...JSON.parse(process.argv[1]),authorize:()=>true}))));`;
   const resumed = JSON.parse(
     execFileSync(
       process.execPath,
@@ -1398,7 +1398,7 @@ function reenter(
   const module = pathToFileURL(
     path.resolve(import.meta.dirname, "../../src/index.ts"),
   ).href;
-  const script = `import(${JSON.stringify(module)}).then(({manageOrchestratorWorkspace})=>process.stdout.write(JSON.stringify(manageOrchestratorWorkspace(JSON.parse(process.argv[1])))));`;
+  const script = `import(${JSON.stringify(module)}).then(({manageCoordinatorWorkspace})=>process.stdout.write(JSON.stringify(manageCoordinatorWorkspace(JSON.parse(process.argv[1])))));`;
   return JSON.parse(
     execFileSync(
       process.execPath,
@@ -1440,7 +1440,7 @@ test("同Workspaceを二Taskで継続し保存Rootを分けて不採用後に回
   const created = f.operate({ operation: "create", baseCommit: f.base });
   assert.equal(created.status, "completed", JSON.stringify(created));
   for (const taskId of ["task-a", "task-b"]) {
-    const target = resolveOrchestratorWorkspaceTaskTarget(
+    const target = resolveCoordinatorWorkspaceTaskTarget(
       f.root,
       f.binding,
       "queue-a",
@@ -1467,7 +1467,7 @@ test("同Workspaceを二Taskで継続し保存Rootを分けて不採用後に回
       assert.equal(next.status, "completed", JSON.stringify(next));
       assert.ok(next.state);
       assert.equal(
-        writeOrchestratorSnapshotState(
+        writeCoordinatorSnapshotState(
           f.root,
           f.binding,
           JSON.stringify(next.state),
@@ -1584,7 +1584,7 @@ test("Branchだけ残る失敗を同対象で回収し既存Leaseで二重操作
     f.operate({ operation: "create", baseCommit: f.base }).status,
     "completed",
   );
-  const lease = acquireOrchestratorSnapshotLease(
+  const lease = acquireCoordinatorSnapshotLease(
     f.root,
     f.binding,
     "project-a",
@@ -1660,7 +1660,7 @@ test("旧SnapshotとWorkspace集合欠落を補完しない", (t) => {
     snapshotRevision: before.snapshotRevision + 1,
   };
   assert.equal(
-    writeOrchestratorSnapshot(
+    writeCoordinatorSnapshot(
       f.root,
       f.binding,
       JSON.stringify(old),
@@ -1671,7 +1671,7 @@ test("旧SnapshotとWorkspace集合欠落を補完しない", (t) => {
   assert.deepEqual(f.snapshot(), before);
   const { workspaces: _removed, ...missing } = before;
   assert.equal(
-    writeOrchestratorSnapshot(
+    writeCoordinatorSnapshot(
       f.root,
       f.binding,
       JSON.stringify({
@@ -1739,7 +1739,7 @@ test("Candidate codecは矛盾した成功を拒否し正当な途中意図を�
       workspaces: [{ ...workspace, candidate: invalid }],
     };
     assert.equal(
-      writeOrchestratorSnapshot(
+      writeCoordinatorSnapshot(
         f.root,
         f.binding,
         JSON.stringify(attempted),
@@ -1757,7 +1757,7 @@ test("Candidate codecは矛盾した成功を拒否し正当な途中意図を�
     ],
   };
   assert.equal(
-    writeOrchestratorSnapshot(
+    writeCoordinatorSnapshot(
       f.root,
       f.binding,
       JSON.stringify(pending),
@@ -1786,9 +1786,9 @@ test("本番Task搬送は所属Rootと選択Treeを分離し不正入力ではPr
     "completed",
   );
   let calls = 0;
-  const outcome = await runOrchestratorOperation(
+  const outcome = await runCoordinatorOperation(
     {
-      ...createOrchestratorExecutionHostPorts(),
+      ...createCoordinatorExecutionHostPorts(),
       persistence: f.ports,
       runSingleTaskAttempt: async (input) => {
         calls++;
@@ -1859,8 +1859,8 @@ test("本番Task搬送は所属Rootと選択Treeを分離し不正入力ではPr
     fs.existsSync(path.join(f.tree, ".crdd", "orchestrator")),
     false,
   );
-  const unavailable = await runOrchestratorSingleTaskAttempt(
-    new Proxy({} as Parameters<typeof runOrchestratorSingleTaskAttempt>[0], {
+  const unavailable = await runCoordinatorSingleTaskAttempt(
+    new Proxy({} as Parameters<typeof runCoordinatorSingleTaskAttempt>[0], {
       get() {
         throw new Error("provider_dependency_touched");
       },
@@ -1887,7 +1887,7 @@ test("本番Task搬送は所属Rootと選択Treeを分離し不正入力ではPr
     state,
   }));
   assert.equal(
-    writeOrchestratorSnapshot(
+    writeCoordinatorSnapshot(
       f.root,
       f.binding,
       JSON.stringify({
@@ -1941,9 +1941,9 @@ test("DirectのTask搬送はID省略と途中失敗でも変更観測を保持�
   for (const failSecond of [false, true]) {
     const f = fixture(t);
     let calls = 0;
-    const outcome = await runOrchestratorOperation(
+    const outcome = await runCoordinatorOperation(
       {
-        ...createOrchestratorExecutionHostPorts(),
+        ...createCoordinatorExecutionHostPorts(),
         persistence: f.ports,
         runSingleTaskAttempt: async (input) => {
           calls++;
@@ -2140,9 +2140,9 @@ test("Workspace対象拒否はProvider委譲も架空の回復も発行しない
       git(f.tree, ["commit", "--allow-empty", "-m", "changed"]);
     if (mode === "missing") fs.renameSync(f.tree, `${f.tree}-missing`);
     let calls = 0;
-    const outcome = await runOrchestratorOperation(
+    const outcome = await runCoordinatorOperation(
       {
-        ...createOrchestratorExecutionHostPorts(),
+        ...createCoordinatorExecutionHostPorts(),
         persistence:
           mode === "reader"
             ? {
@@ -2208,9 +2208,9 @@ test("Workspaceの保存失敗と解放失敗は元理由と両回復参照を�
       "utf8",
     ),
   );
-  const start = source.indexOf("export function manageOrchestratorWorkspace(");
+  const start = source.indexOf("export function manageCoordinatorWorkspace(");
   const end = source.indexOf(
-    "export function resolveOrchestratorWorkspaceTaskTarget(",
+    "export function resolveCoordinatorWorkspaceTaskTarget(",
     start,
   );
   assert.ok(start >= 0 && end > start);
@@ -2238,10 +2238,10 @@ test("Workspaceの保存失敗と解放失敗は元理由と両回復参照を�
     const execute = new Function(
       "verifyRepositoryRoot",
       "inspectGitRepositoryLayoutCandidate",
-      "readOrchestratorSnapshot",
-      "acquireOrchestratorSnapshotLease",
-      "writeOrchestratorWorkspaceRecord",
-      `${body}\nreturn manageOrchestratorWorkspace;`,
+      "readCoordinatorSnapshot",
+      "acquireCoordinatorSnapshotLease",
+      "writeCoordinatorWorkspaceRecord",
+      `${body}\nreturn manageCoordinatorWorkspace;`,
     )(
       () => ({ status: "completed", capability: {} }),
       () => ({ status: "candidate", layout: { kind: "main" } }),
@@ -2318,8 +2318,8 @@ test("実Objective受付はWorkspace観測をMCPまで欠落なく渡す", async
   git(root, ["add", "."]);
   git(root, ["commit", "-m", "base"]);
   const base = git(root, ["rev-parse", "HEAD"]);
-  const binding = deriveOrchestratorRepositoryBindingId(root);
-  const initialized = initializeOrchestratorSnapshot(root, binding);
+  const binding = deriveCoordinatorRepositoryBindingId(root);
+  const initialized = initializeCoordinatorSnapshot(root, binding);
   assert.equal(initialized.status, "completed", JSON.stringify(initialized));
   if (initialized.status !== "completed")
     throw new Error("fixture_init_failed");
@@ -2327,13 +2327,13 @@ test("実Objective受付はWorkspace観測をMCPまで欠落なく渡す", async
     root,
     binding,
     base,
-    ports: createOrchestratorSnapshotPersistencePorts(
+    ports: createCoordinatorSnapshotPersistencePorts(
       root,
       binding,
       initialized.value,
     ),
     snapshot: () => {
-      const read = readOrchestratorSnapshot(root, binding);
+      const read = readCoordinatorSnapshot(root, binding);
       if (read.status !== "completed" || !read.value)
         throw new Error("fixture_read_failed");
       return read.value;
@@ -2343,7 +2343,7 @@ test("実Objective受付はWorkspace観測をMCPまで欠落なく渡す", async
   const state = owner.snapshot().projects[0];
   assert.ok(state);
   let calls = 0;
-  const result = await executeOrchestratorObjective(
+  const result = await executeCoordinatorObjective(
     {
       authenticatedPrincipalId: "principal-a",
       repositoryBindingId: f.binding,
@@ -2354,7 +2354,7 @@ test("実Objective受付はWorkspace観測をMCPまで欠落なく渡す", async
         tasks: state.tasks.map((entry) => entry.definition),
       },
       persistence: f.ports,
-      ...createOrchestratorExecutionHostPorts(),
+      ...createCoordinatorExecutionHostPorts(),
       taskRecovery: {
         resolveCorrelations: () => null,
         recover: () => {
@@ -2429,7 +2429,7 @@ test("実Objective受付はWorkspace観測をMCPまで欠落なく渡す", async
   assert.equal(result.status, "completed", JSON.stringify(result));
   assert.equal(calls, 2);
   assert.equal(result.workspaceResults?.length, 2);
-  const projected = inspectMcpOrchestratorObjectiveResult(result);
+  const projected = inspectMcpCoordinatorObjectiveResult(result);
   assert.ok(projected, JSON.stringify(result));
   assert.equal(projected.status, "blocked");
   assert.equal(projected.reason, result.reason);

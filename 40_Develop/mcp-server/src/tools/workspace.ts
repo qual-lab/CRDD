@@ -1,5 +1,5 @@
 /**
- * Workspaceの二つの明示ToolをOrchestratorへ直接接続する。
+ * Workspaceの二つの明示ToolをCoordinatorへ直接接続する。
  * @responsibility 閉入力・遅延認可解決・取消とOwner結果の搬送。
  * @trace ARCH-000012
  * @trace ARCH-000013
@@ -196,7 +196,7 @@ function workspaceCommandSchema(readOnly: boolean) {
  * @effect 明示されたOwner操作だけ。
  * @failure 不正は-32602、非開示拒否・Owner不明は-32603、開始前取消は-32800。
  * @invariant 発行後エラーをEffect 0へ補完しない。
- * @boundary MCP→Orchestrator。
+ * @boundary MCP→Coordinator。
  * @security 生例外・Root・内部Snapshotを返さない。
  * @concurrency 同期Owner終了後に応答し自動再送しない。
  */

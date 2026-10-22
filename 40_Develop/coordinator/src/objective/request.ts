@@ -1,7 +1,7 @@
 /**
  * objective-requestに属する責務をまとめる。
  *
- * @responsibility OrchestratorObjectiveRequestを中心とする実装、型および境界を同じModuleで所有する。
+ * @responsibility CoordinatorObjectiveRequestを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000004
  */
 import {
@@ -11,17 +11,17 @@ import {
 import { normalizeRepositoryRelativePath } from "../input/repository-relative-path.ts";
 
 /**
- * objective-requestで使用するOrchestrator Objective Requestの値契約を定義する。
+ * objective-requestで使用するCoordinator Objective Requestの値契約を定義する。
  *
- * @responsibility Orchestrator Objective RequestのProperty、Identity、状態制約を型境界として所有する。
+ * @responsibility Coordinator Objective RequestのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
- * @shape OrchestratorObjectiveRequestが表すProperty、識別子およびRelationを型として固定する。
- * @invariant OrchestratorObjectiveRequestで宣言した値と責務の対応を維持する。
- * @boundary N/A: OrchestratorObjectiveRequestの宣言は外部境界を開かない。
+ * @shape CoordinatorObjectiveRequestが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CoordinatorObjectiveRequestで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CoordinatorObjectiveRequestの宣言は外部境界を開かない。
  * @security Profile IDはExecutor選択の希望であり、実行Authorityまたは利用可能性を付与しない。
  * @compatibility Profile ID省略時は既存の自動選択を維持し、指定時はIDを変更せず搬送する。
  */
-export type OrchestratorObjectiveRequest = Readonly<{
+export type CoordinatorObjectiveRequest = Readonly<{
   intakeEpoch: string;
   requestId: string;
   projectId: string;
@@ -187,24 +187,24 @@ const requestKeySets = Object.freeze(
 );
 
 /**
- * Orchestrator Objective Requestを観測する。
+ * Coordinator Objective Requestを観測する。
  *
  * @responsibility 閉じたObjective入力を所有Snapshotへ変換し、明示Profileの形式を検査する。
  * @trace ARCH-000004
  * @input value: unknown
- * @returns OrchestratorObjectiveRequest | nullを返す。
- * @precondition 「value: unknown」がinspectOrchestratorObjectiveRequestの入力契約を満たす。
+ * @returns CoordinatorObjectiveRequest | nullを返す。
+ * @precondition 「value: unknown」がinspectCoordinatorObjectiveRequestの入力契約を満たす。
  * @postcondition 受理したProfile IDをexactに保持し、省略されたIDを生成しない。
- * @effect N/A: inspectOrchestratorObjectiveRequestは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: inspectOrchestratorObjectiveRequestは独自の失敗分岐を所有しない。
- * @invariant inspectOrchestratorObjectiveRequestは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: inspectOrchestratorObjectiveRequestはProcess内の同一Subsystemで完結する。
+ * @effect N/A: inspectCoordinatorObjectiveRequestは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: inspectCoordinatorObjectiveRequestは独自の失敗分岐を所有しない。
+ * @invariant inspectCoordinatorObjectiveRequestは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: inspectCoordinatorObjectiveRequestはProcess内の同一Subsystemで完結する。
  * @security 未知field、Accessor、Proxyと不正Profile形式を拒否する。登録・適合性は既存Resolverが別に検証する。
- * @concurrency N/A: inspectOrchestratorObjectiveRequestは共有非同期状態を持たない同期処理である。
+ * @concurrency N/A: inspectCoordinatorObjectiveRequestは共有非同期状態を持たない同期処理である。
  */
-export function inspectOrchestratorObjectiveRequest(
+export function inspectCoordinatorObjectiveRequest(
   value: unknown,
-): OrchestratorObjectiveRequest | null {
+): CoordinatorObjectiveRequest | null {
   const requestSnapshot = requestKeySets.reduce<Readonly<
     Record<string, unknown>
   > | null>(

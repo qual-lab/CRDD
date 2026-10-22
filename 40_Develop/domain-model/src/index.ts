@@ -133,7 +133,7 @@ export {
   TESTS_RELATIVE_PATH,
 } from "./configuration/storage-paths.ts";
 export {
-  readOrchestratorConfig,
+  readTaskHistoryConfig,
   readExecutionIntelligenceConfig,
   readCoordinatorConfig,
 } from "./configuration/read-tool-config.ts";

@@ -1,5 +1,5 @@
 /**
- * Orchestratorの終了要約を設定期間保持する。
+ * Coordinatorの終了要約を設定期間保持する。
  *
  * @responsibility 現在状態を変更せず履歴の検証、置換、再入場を行う。
  * @trace ARCH-000004
@@ -8,7 +8,7 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { ensureRepositoryRuntimeDataAreaFromWorkingDirectory } from "../../../domain-model/src/index.ts";
-import { readOrchestratorConfig } from "../../../domain-model/src/index.ts";
+import { readTaskHistoryConfig } from "../../../domain-model/src/index.ts";
 import {
   observeRepositoryRuntimeDataArea,
   requireReadyRepositoryRuntimeDataArea,
@@ -16,9 +16,9 @@ import {
 } from "../../../domain-model/src/index.ts";
 import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
 import {
-  acquireOrchestratorSnapshotPilotLock,
-  isLiveOrchestratorSnapshotOwner,
-  type OrchestratorSnapshotOwner,
+  acquireCoordinatorSnapshotPilotLock,
+  isLiveCoordinatorSnapshotOwner,
+  type CoordinatorSnapshotOwner,
 } from "./current-state.ts";
 
 const CONTRACT = "crdd-coordinator/orchestrator-history-pilot/v2";
@@ -382,12 +382,12 @@ function flushRecoveredFile(file: string): void {
  * @security 期限だけで由来不明Fileを削除しない。
  * @concurrency 同Rootの既存Named Pipe排他を借用し、自身では取得・解放しない。
  */
-export function updateOrchestratorHistoryOwned(
-  lock: OrchestratorSnapshotOwner,
+export function updateCoordinatorHistoryOwned(
+  lock: CoordinatorSnapshotOwner,
   recordJson: string | null,
   now = Date.now(),
 ) {
-  if (!isLiveOrchestratorSnapshotOwner(lock))
+  if (!isLiveCoordinatorSnapshotOwner(lock))
     return {
       status: "blocked" as const,
       reason: "orchestrator_history_owner_invalid",
@@ -399,7 +399,7 @@ export function updateOrchestratorHistoryOwned(
   try {
     const verified = verifyRepositoryRoot(lock.repositoryRoot);
     if (verified.status !== "completed") throw new Error("root");
-    const policy = readOrchestratorConfig(verified.capability);
+    const policy = readTaskHistoryConfig(verified.capability);
     if (policy.status !== "ready") throw new Error("config");
     const retentionDays = policy.config.historyRetentionDays;
     const retentionMs = retentionDays * DAY_MS;
@@ -589,19 +589,15 @@ export function updateOrchestratorHistoryOwned(
  * @security 偽造Ownerへ保存を委譲しない。
  * @concurrency 同Rootの一Writerを保持する。
  */
-export function updateOrchestratorHistoryPilot(
+export function updateCoordinatorHistoryPilot(
   workingDirectory: string,
   recordJson: string | null,
   now = Date.now(),
 ) {
-  const acquired = acquireOrchestratorSnapshotPilotLock(workingDirectory);
+  const acquired = acquireCoordinatorSnapshotPilotLock(workingDirectory);
   if (acquired.status !== "completed")
     return { status: "blocked" as const, reason: acquired.reason };
-  const result = updateOrchestratorHistoryOwned(
-    acquired.value,
-    recordJson,
-    now,
-  );
+  const result = updateCoordinatorHistoryOwned(acquired.value, recordJson, now);
   return acquired.value.release()
     ? result
     : {
@@ -625,19 +621,19 @@ export function updateOrchestratorHistoryPilot(
  * @security 要約IDだけでは搬送済みとしない。
  * @concurrency 同じ発行済みOwnerを借用する。
  */
-export function inspectOrchestratorHistorySettlement(
-  lock: OrchestratorSnapshotOwner,
+export function inspectCoordinatorHistorySettlement(
+  lock: CoordinatorSnapshotOwner,
   row: HistoryRow,
   now = Date.now(),
 ): "recorded" | "expired" | null {
-  if (!isLiveOrchestratorSnapshotOwner(lock)) return null;
+  if (!isLiveCoordinatorSnapshotOwner(lock)) return null;
   if (!Number.isSafeInteger(now) || now < 0 || now > 8_640_000_000_000_000)
     return null;
   try {
     const verified = verifyRepositoryRoot(lock.repositoryRoot);
     if (
       verified.status !== "completed" ||
-      readOrchestratorConfig(verified.capability).status !== "ready"
+      readTaskHistoryConfig(verified.capability).status !== "ready"
     )
       return null;
     const observedArea = observeRepositoryRuntimeDataArea(
@@ -672,7 +668,7 @@ export function inspectOrchestratorHistorySettlement(
     if (
       finalArea.status !== "ready" ||
       finalArea.boundaryIdentity !== observedArea.boundaryIdentity ||
-      !isLiveOrchestratorSnapshotOwner(lock)
+      !isLiveCoordinatorSnapshotOwner(lock)
     )
       return null;
     if (isMatched) return "recorded";

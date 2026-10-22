@@ -1,5 +1,11 @@
 # Coordinator Runtimeの実行アーキテクチャ
 
+## 現行APIと名称整理 — 2026-10-22
+
+現行の単一CoordinatorがTask／Objective管理と単発Executionを所有する。旧`Orchestrator*`のTypeScript公開名は`Coordinator*`又は実責務名へ切り替え、全利用側を同時に追従する。業務状態の排他は`acquireRuntimeOwnedProjectStateKernelLock`、Objective配下の開発用実行は`startRuntimeOwnedDevelopmentObjectiveTask`を使い、技術状態の排他・単発開発用実行と区別する。旧名aliasや別の状態管理は追加しない。
+
+保存七Sourceは今回の識別子・コメントと必要な整形だけを変更する。保存Path、Schema、Hash domain、consumer、Writer・CAS・Lock・ACK・返却shapeは不変である。MCP通信名、reason、event等の実値もこの単位では変更しない。本文の統合前記述と現行の物理Ownerを混同しない。名称整理の範囲と検証は[統合計画§34](../../../99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#34-統合後の識別子整理--着手範囲2026-10-22)を参照する。
+
 ## Cの物理統合 — 実装候補、検証中
 
 単発実行と旧Orchestratorの業務進行を`40_Develop/coordinator`、公開名`@qual-lab/crdd-coordinator`へ物理統合した。業務進行の設計正本は[Task／Objectiveの設計](../orchestrator/01_Architecture.md)に維持し、本書は単発Executionと技術相関を所有する。以下の「統合前」は基準構成の説明であり、現行の独立Packageを要求しない。現在Sourceは150 File、両旧Rootの120実行値と既存型を明示公開し、内部利用は同じ実Ownerへ接続する。物理移動・型検査の成功をC全体・実AI／Dockerの成立とはしない。
@@ -400,7 +406,7 @@ C前の事前整理では、Provider別の薄い準備Adapter二Fileを撤去し
 | Workspace成果の確認 | 上位が解決した作業Treeと一時Review投影 | Coordinatorは変更範囲とReview結果を返す。候補固定・Git統合・領域終了は上位操作であり、旧Store APIは公開しない。 |
 | 診断／exact回復 | 既存doctor・Task回復の意味操作 | 現在Repository・Runtime結合、exact参照、必要な介入承認 → 診断・資源終端または未解決。新しいProvider依頼を発行しない。 |
 | 配布物の読取り検査 | 既存Manifest・閉包・Native検証は分解対象 | 必要なArtifact同一性確認は専門Ownerへ、正式配布の真正性は必要時のRelease検査へ分ける。検査結果から通常Runtime用の一回Capabilityを発行しない。 |
-| 保存用Host排他 | `host-runtime/index.ts`から既存`acquireRuntimeOwnedOrchestratorStateKernelLock`を公開 | 上位が確認したRootのHash → 保持確認・解放handleまたはnull。既存OS名前空間と取消・終了確認を維持し、Project状態・履歴・業務Writerは読み込まない。HashをRoot確認やAuthorityへ昇格しない。 |
+| 保存用Host排他 | `host-runtime/index.ts`から既存`acquireRuntimeOwnedProjectStateKernelLock`を公開 | 上位が確認したRootのHash → 保持確認・解放handleまたはnull。既存OS名前空間と取消・終了確認を維持し、Project状態・履歴・業務Writerは読み込まない。HashをRoot確認やAuthorityへ昇格しない。 |
 
 APIの具体的な型・呼出し点・利用側全数は棚卸しの関数単位対応へ接続する。通常入口の旧署名Gate引数・発行・消費は撤去済みだが、専用静的検査・任意署名Toolは物理撤去済みで、必要Artifact同一性の全体回帰とQA全数照合・実Provider境界はOPENであり、現在の内部関数が存在するだけで公開能力の完成としない。
 

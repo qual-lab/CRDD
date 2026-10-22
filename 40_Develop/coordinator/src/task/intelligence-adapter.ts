@@ -1,7 +1,7 @@
 /**
  * 上位Task Attemptの観測を共通実行記録へ接続する。
  *
- * @responsibility Orchestratorが観測したAttemptの事実と欠測を共通Eventへ写し、Execution Intelligenceの公開保存操作へ渡す。
+ * @responsibility Coordinatorが観測したAttemptの事実と欠測を共通Eventへ写し、Execution Intelligenceの公開保存操作へ渡す。
  * @trace ARCH-000007
  */
 import {
@@ -14,28 +14,28 @@ import {
   writeExecutionIntelligenceEvent,
 } from "../../../execution-intelligence/src/index.ts";
 import type {
-  OrchestratorExecutionObservationPublication,
-  OrchestratorTaskAttemptObservation,
+  CoordinatorExecutionObservationPublication,
+  CoordinatorTaskAttemptObservation,
 } from "./observer.ts";
 
 /**
  * Task Attemptの観測を欠測付きの共通Eventへ写す。
  *
- * @responsibility Orchestrator Task Attempt Eventの構築入力、生成結果、不正入力の拒否境界を所有する。
+ * @responsibility Coordinator Task Attempt Eventの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000007
- * @input input: OrchestratorTaskAttemptObservation
+ * @input input: CoordinatorTaskAttemptObservation
  * @returns TaskAttemptExecutionIntelligenceEventを返す。
- * @precondition 「input: OrchestratorTaskAttemptObservation」がcreateOrchestratorTaskAttemptEventの入力契約を満たす。
- * @postcondition createOrchestratorTaskAttemptEventの責務を完了した結果だけを返す。
- * @effect N/A: createOrchestratorTaskAttemptEventは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: createOrchestratorTaskAttemptEventは独自の失敗分岐を所有しない。
- * @invariant createOrchestratorTaskAttemptEventは入力から導いた結果以外の共有状態を変更しない。
+ * @precondition 「input: CoordinatorTaskAttemptObservation」がcreateCoordinatorTaskAttemptEventの入力契約を満たす。
+ * @postcondition createCoordinatorTaskAttemptEventの責務を完了した結果だけを返す。
+ * @effect N/A: createCoordinatorTaskAttemptEventは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: createCoordinatorTaskAttemptEventは独自の失敗分岐を所有しない。
+ * @invariant createCoordinatorTaskAttemptEventは入力から導いた結果以外の共有状態を変更しない。
  * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
- * @security createOrchestratorTaskAttemptEventはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: createOrchestratorTaskAttemptEventは共有非同期状態を持たない同期処理である。
+ * @security createCoordinatorTaskAttemptEventはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: createCoordinatorTaskAttemptEventは共有非同期状態を持たない同期処理である。
  */
-export function createOrchestratorTaskAttemptEvent(
-  input: OrchestratorTaskAttemptObservation,
+export function createCoordinatorTaskAttemptEvent(
+  input: CoordinatorTaskAttemptObservation,
 ): TaskAttemptExecutionIntelligenceEvent {
   return createTaskAttemptSettledEvent({
     occurredAt: input.occurredAt,
@@ -96,21 +96,21 @@ export function createOrchestratorTaskAttemptEvent(
  *
  * @responsibility Repository検証後だけ共通Writerを呼び、保存結果のEffect・回収・再試行条件を変更せず返す。
  * @trace ARCH-000007
- * @input repositoryRoot: string、observation: OrchestratorTaskAttemptObservation
- * @returns OrchestratorExecutionObservationPublicationを返す。
+ * @input repositoryRoot: string、observation: CoordinatorTaskAttemptObservation
+ * @returns CoordinatorExecutionObservationPublicationを返す。
  * @precondition 観測値は上位Attemptの実測値であり、保存対象Rootを呼出側が指定する。
  * @postcondition Root拒否ではEffect 0、公開後は共通Writerの結果をそのまま保持する。
  * @effect 検証済みRepositoryの実行履歴へ共通Writerが記録を保存する。
  * @failure Root検証失敗をblockedとして返し、Event生成例外やWriterの契約外例外を入力不正へ偽装しない。
  * @invariant 欠測を補完せず、記録結果からTask受入や新しいAuthorityを導出しない。
- * @boundary Orchestratorの上位観測とExecution Intelligenceの公開保存境界。
+ * @boundary Coordinatorの上位観測とExecution Intelligenceの公開保存境界。
  * @security Root検証が成功する前に保存Effectを発行せず、Provider出力本文や秘密値を新たに収集しない。
  * @concurrency 保存の排他・重複・回収は共通Writerが所有し、利用側で自動再発行しない。
  */
-export function recordOrchestratorExecutionEvent(
+export function recordCoordinatorExecutionEvent(
   repositoryRoot: string,
-  observation: OrchestratorTaskAttemptObservation,
-): OrchestratorExecutionObservationPublication {
+  observation: CoordinatorTaskAttemptObservation,
+): CoordinatorExecutionObservationPublication {
   const verifiedRoot =
     verifyExecutionIntelligenceRepositoryRoot(repositoryRoot);
   if (verifiedRoot.status !== "completed")
@@ -125,7 +125,7 @@ export function recordOrchestratorExecutionEvent(
     });
   return writeExecutionIntelligenceEvent(
     verifiedRoot.root,
-    createOrchestratorTaskAttemptEvent(observation),
+    createCoordinatorTaskAttemptEvent(observation),
   );
 }
 

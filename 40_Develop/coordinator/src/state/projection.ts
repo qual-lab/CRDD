@@ -8,26 +8,26 @@ import {
   type ProjectTaskState,
   type ProjectObjectiveState,
   type ProjectMilestoneState,
-  ORCHESTRATOR_MAXIMUM_OBJECTIVES,
-  ORCHESTRATOR_MAXIMUM_TASKS,
+  COORDINATOR_MAXIMUM_OBJECTIVES,
+  COORDINATOR_MAXIMUM_TASKS,
   PROJECT_OBJECTIVE_STATES,
   PROJECT_TASK_STATES,
-  type OrchestratorState,
+  type CoordinatorState,
 } from "./model.ts";
 import { selectSchedulableProjectTasks } from "../task/scheduling.ts";
 
 /**
- * orchestrator-stateで使用するOrchestrator Projectionの値契約を定義する。
+ * stateで使用するCoordinator Projectionの値契約を定義する。
  *
- * @responsibility Orchestrator ProjectionのProperty、Identity、状態制約を型境界として所有する。
+ * @responsibility Coordinator ProjectionのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
- * @shape OrchestratorProjectionが表すProperty、識別子およびRelationを型として固定する。
- * @invariant OrchestratorProjectionで宣言した値と責務の対応を維持する。
- * @boundary N/A: OrchestratorProjectionの宣言は外部境界を開かない。
- * @security N/A: OrchestratorProjectionはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility OrchestratorProjectionの利用側は宣言済みPropertyと型制約だけへ依存する。
+ * @shape CoordinatorProjectionが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CoordinatorProjectionで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CoordinatorProjectionの宣言は外部境界を開かない。
+ * @security N/A: CoordinatorProjectionはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility CoordinatorProjectionの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type OrchestratorProjection = Readonly<{
+export type CoordinatorProjection = Readonly<{
   projectId: string;
   milestoneId: string;
   generation: number;
@@ -60,21 +60,21 @@ export type OrchestratorProjection = Readonly<{
 /**
  * Validate only semantic relations carried by the public projection itself.
  *
- * @responsibility Orchestrator Projection Semantically Validの判定条件とtrue／false境界を所有する。
+ * @responsibility Coordinator Projection Semantically Validの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000004
- * @input projection: OrchestratorProjection
- * @returns isOrchestratorProjectionSemanticallyValidの計算結果を返す。
- * @precondition 「projection: OrchestratorProjection」がisOrchestratorProjectionSemanticallyValidの入力契約を満たす。
- * @postcondition isOrchestratorProjectionSemanticallyValidの責務を完了した結果だけを返す。
- * @effect N/A: isOrchestratorProjectionSemanticallyValidは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: isOrchestratorProjectionSemanticallyValidは独自の失敗分岐を所有しない。
- * @invariant isOrchestratorProjectionSemanticallyValidは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: isOrchestratorProjectionSemanticallyValidはProcess内の同一Subsystemで完結する。
- * @security N/A: isOrchestratorProjectionSemanticallyValidはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: isOrchestratorProjectionSemanticallyValidは共有非同期状態を持たない同期処理である。
+ * @input projection: CoordinatorProjection
+ * @returns isCoordinatorProjectionSemanticallyValidの計算結果を返す。
+ * @precondition 「projection: CoordinatorProjection」がisCoordinatorProjectionSemanticallyValidの入力契約を満たす。
+ * @postcondition isCoordinatorProjectionSemanticallyValidの責務を完了した結果だけを返す。
+ * @effect N/A: isCoordinatorProjectionSemanticallyValidは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isCoordinatorProjectionSemanticallyValidは独自の失敗分岐を所有しない。
+ * @invariant isCoordinatorProjectionSemanticallyValidは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: isCoordinatorProjectionSemanticallyValidはProcess内の同一Subsystemで完結する。
+ * @security N/A: isCoordinatorProjectionSemanticallyValidはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: isCoordinatorProjectionSemanticallyValidは共有非同期状態を持たない同期処理である。
  */
-export function isOrchestratorProjectionSemanticallyValid(
-  projection: OrchestratorProjection,
+export function isCoordinatorProjectionSemanticallyValid(
+  projection: CoordinatorProjection,
 ) {
   const boundedTotal = <T extends string>(
     counts: Readonly<Record<T, number>>,
@@ -94,12 +94,12 @@ export function isOrchestratorProjectionSemanticallyValid(
   const objectiveTotal = boundedTotal(
     projection.objectiveCounts,
     PROJECT_OBJECTIVE_STATES,
-    ORCHESTRATOR_MAXIMUM_OBJECTIVES,
+    COORDINATOR_MAXIMUM_OBJECTIVES,
   );
   const taskTotal = boundedTotal(
     projection.taskCounts,
     PROJECT_TASK_STATES,
-    ORCHESTRATOR_MAXIMUM_TASKS,
+    COORDINATOR_MAXIMUM_TASKS,
   );
   if (objectiveTotal === null || taskTotal === null) return false;
   if (objectiveTotal < 1 || taskTotal < 1) return false;
@@ -120,13 +120,13 @@ export function isOrchestratorProjectionSemanticallyValid(
     const summaryTotal = boundedTotal(
       summary.taskCounts,
       PROJECT_TASK_STATES,
-      ORCHESTRATOR_MAXIMUM_TASKS,
+      COORDINATOR_MAXIMUM_TASKS,
     );
     if (summaryTotal === null || summaryTotal < 1) return false;
     for (const state of PROJECT_TASK_STATES) {
       const next =
         mutableSummarizedTaskCounts[state] + summary.taskCounts[state];
-      if (!Number.isSafeInteger(next) || next > ORCHESTRATOR_MAXIMUM_TASKS)
+      if (!Number.isSafeInteger(next) || next > COORDINATOR_MAXIMUM_TASKS)
         return false;
       mutableSummarizedTaskCounts[state] = next;
     }
@@ -266,20 +266,20 @@ export function isOrchestratorProjectionSemanticallyValid(
 /**
  * Validate the relation between the public Objective result and its already
  *
- * @responsibility Orchestrator Objective Projection Correlation Validの判定条件とtrue／false境界を所有する。
+ * @responsibility Coordinator Objective Projection Correlation Validの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000004
- * @input outer: Readonly<{ status: "completed" | "blocked" | "cancelled"; cleanupConfirmed: boolean; manualRecoveryRequired: boolean; processRestartRequired: boolean; effectState: "no_effect" | "settled" | "unknown"; recoveryCount: number; }>、projection: OrchestratorProjection | null
- * @returns isOrchestratorObjectiveProjectionCorrelationValidの計算結果を返す。
- * @precondition 「outer: Readonly<{ status: "completed" | "blocked" | "cancelled"; cleanupConfirmed: boolean; manualRecoveryRequired: boolean; processRestartRequired: boolean; effectState: "no_effect" | "settled" | "unknown"; recoveryCount: number; }>、projection: OrchestratorProjection | null」がisOrchestratorObjectiveProjectionCorrelationValidの入力契約を満たす。
- * @postcondition isOrchestratorObjectiveProjectionCorrelationValidの責務を完了した結果だけを返す。
- * @effect N/A: isOrchestratorObjectiveProjectionCorrelationValidは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: isOrchestratorObjectiveProjectionCorrelationValidは独自の失敗分岐を所有しない。
- * @invariant isOrchestratorObjectiveProjectionCorrelationValidは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: isOrchestratorObjectiveProjectionCorrelationValidはProcess内の同一Subsystemで完結する。
- * @security N/A: isOrchestratorObjectiveProjectionCorrelationValidはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: isOrchestratorObjectiveProjectionCorrelationValidは共有非同期状態を持たない同期処理である。
+ * @input outer: Readonly<{ status: "completed" | "blocked" | "cancelled"; cleanupConfirmed: boolean; manualRecoveryRequired: boolean; processRestartRequired: boolean; effectState: "no_effect" | "settled" | "unknown"; recoveryCount: number; }>、projection: CoordinatorProjection | null
+ * @returns isCoordinatorObjectiveProjectionCorrelationValidの計算結果を返す。
+ * @precondition 「outer: Readonly<{ status: "completed" | "blocked" | "cancelled"; cleanupConfirmed: boolean; manualRecoveryRequired: boolean; processRestartRequired: boolean; effectState: "no_effect" | "settled" | "unknown"; recoveryCount: number; }>、projection: CoordinatorProjection | null」がisCoordinatorObjectiveProjectionCorrelationValidの入力契約を満たす。
+ * @postcondition isCoordinatorObjectiveProjectionCorrelationValidの責務を完了した結果だけを返す。
+ * @effect N/A: isCoordinatorObjectiveProjectionCorrelationValidは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isCoordinatorObjectiveProjectionCorrelationValidは独自の失敗分岐を所有しない。
+ * @invariant isCoordinatorObjectiveProjectionCorrelationValidは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: isCoordinatorObjectiveProjectionCorrelationValidはProcess内の同一Subsystemで完結する。
+ * @security N/A: isCoordinatorObjectiveProjectionCorrelationValidはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: isCoordinatorObjectiveProjectionCorrelationValidは共有非同期状態を持たない同期処理である。
  */
-export function isOrchestratorObjectiveProjectionCorrelationValid(
+export function isCoordinatorObjectiveProjectionCorrelationValid(
   outer: Readonly<{
     status: "completed" | "blocked" | "cancelled";
     cleanupConfirmed: boolean;
@@ -288,7 +288,7 @@ export function isOrchestratorObjectiveProjectionCorrelationValid(
     effectState: "no_effect" | "settled" | "unknown";
     recoveryCount: number;
   }>,
-  projection: OrchestratorProjection | null,
+  projection: CoordinatorProjection | null,
 ) {
   if (!projection) return true;
   if (outer.status === "completed" && projection.milestoneState !== "accepted")
@@ -348,24 +348,24 @@ function countStates<T extends string>(
 }
 
 /**
- * Orchestrator 状態を公開結果へ投影する。
+ * Coordinator 状態を公開結果へ投影する。
  *
- * @responsibility Orchestrator 状態の公開field、秘匿境界、投影不能時の結果境界を所有する。
+ * @responsibility Coordinator 状態の公開field、秘匿境界、投影不能時の結果境界を所有する。
  * @trace ARCH-000004
- * @input state: OrchestratorState
- * @returns OrchestratorProjectionを返す。
- * @precondition 「state: OrchestratorState」がprojectOrchestratorStateの入力契約を満たす。
- * @postcondition projectOrchestratorStateの責務を完了した結果だけを返す。
- * @effect N/A: projectOrchestratorStateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure projectOrchestratorStateは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant projectOrchestratorStateは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: projectOrchestratorStateはProcess内の同一Subsystemで完結する。
- * @security N/A: projectOrchestratorStateはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: projectOrchestratorStateは共有非同期状態を持たない同期処理である。
+ * @input state: CoordinatorState
+ * @returns CoordinatorProjectionを返す。
+ * @precondition 「state: CoordinatorState」がprojectCoordinatorStateの入力契約を満たす。
+ * @postcondition projectCoordinatorStateの責務を完了した結果だけを返す。
+ * @effect N/A: projectCoordinatorStateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure projectCoordinatorStateは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant projectCoordinatorStateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: projectCoordinatorStateはProcess内の同一Subsystemで完結する。
+ * @security N/A: projectCoordinatorStateはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: projectCoordinatorStateは共有非同期状態を持たない同期処理である。
  */
-export function projectOrchestratorState(
-  state: OrchestratorState,
-): OrchestratorProjection {
+export function projectCoordinatorState(
+  state: CoordinatorState,
+): CoordinatorProjection {
   const objectiveCounts = countStates(
     state.objectives.map((objective) => objective.state),
     PROJECT_OBJECTIVE_STATES,
@@ -440,7 +440,7 @@ export function projectOrchestratorState(
     recoveryRequired,
     nextAction,
   });
-  if (!isOrchestratorProjectionSemanticallyValid(projection))
+  if (!isCoordinatorProjectionSemanticallyValid(projection))
     throw new Error("orchestrator_projection_semantics_invalid");
   return projection;
 }

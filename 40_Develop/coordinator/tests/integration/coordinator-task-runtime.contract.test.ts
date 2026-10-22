@@ -11,7 +11,7 @@
  * @trace PRL-IT-013
  * @level IT
  * @scope coordinator、task、runtime
- * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store / PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Orchestrator Application Port→Core
+ * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store / PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Coordinator Application Port→Core
  */
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";

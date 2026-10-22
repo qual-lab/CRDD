@@ -4,10 +4,10 @@
  * @responsibility Identity、世代、判断状態と回復処置の値条件を所有し、保存や資源回復を発行しない。
  * @trace ARCH-000008
  */
-import type { OrchestratorDecisionRecoveryIntent } from "./records.ts";
+import type { CoordinatorDecisionRecoveryIntent } from "./records.ts";
 
 const ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u;
-export { validIntent as validOrchestratorDecisionRecoveryIntent };
+export { validIntent as validCoordinatorDecisionRecoveryIntent };
 
 /**
  * Intentが有効か判定する。
@@ -15,7 +15,7 @@ export { validIntent as validOrchestratorDecisionRecoveryIntent };
  * @responsibility Intentの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000008
  * @input value: unknown
- * @returns value is OrchestratorDecisionRecoveryIntentを返す。
+ * @returns value is CoordinatorDecisionRecoveryIntentを返す。
  * @precondition 「value: unknown」がvalidIntentの入力契約を満たす。
  * @postcondition validIntentの責務を完了した結果だけを返す。
  * @effect N/A: validIntentは入力と局所値だけを扱い、外部または共有Effectを発行しない。
@@ -27,9 +27,9 @@ export { validIntent as validOrchestratorDecisionRecoveryIntent };
  */
 function validIntent(
   value: unknown,
-): value is OrchestratorDecisionRecoveryIntent {
+): value is CoordinatorDecisionRecoveryIntent {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
-  const candidate = value as OrchestratorDecisionRecoveryIntent;
+  const candidate = value as CoordinatorDecisionRecoveryIntent;
   return (
     [
       candidate.recoveryId,

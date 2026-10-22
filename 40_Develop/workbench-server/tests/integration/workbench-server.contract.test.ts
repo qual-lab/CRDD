@@ -2993,7 +2993,7 @@ test("Workbenchの単発依頼は助言四分類とWorkspace編集を分け旧Bu
 });
 
 /**
- * WorkbenchがOrchestratorの現在投影を独立した実行状況面へ表示することを検証する。
+ * WorkbenchがCoordinatorの現在投影を独立した実行状況面へ表示することを検証する。
  *
  * @responsibility Objective／Task、判断待ち、Recoveryおよび次処置を未接続や空状態へ畳まない合否判定を所有する。
  * @trace ERB-IT-021

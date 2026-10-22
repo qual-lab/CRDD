@@ -1,26 +1,26 @@
 /**
- * orchestrator-objective-intakeに属する責務をまとめる。
+ * objective-intakeに属する責務をまとめる。
  *
- * @responsibility OrchestratorObjectivePlanを中心とする実装、型および境界を同じModuleで所有する。
+ * @responsibility CoordinatorObjectivePlanを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000004
  */
 import type {
   ProjectObjectiveDefinition,
   ProjectTaskDefinition,
   ProjectTaskRecoveryObligation,
-  OrchestratorState,
+  CoordinatorState,
 } from "../state/model.ts";
-import type { projectOrchestratorState } from "../state/projection.ts";
-import type { OrchestratorClockIdentityPort } from "../identity/clock-and-hash.ts";
+import type { projectCoordinatorState } from "../state/projection.ts";
+import type { CoordinatorClockIdentityPort } from "../identity/clock-and-hash.ts";
 import type {
-  OrchestratorTaskExecution,
-  OrchestratorExecutionResult,
+  CoordinatorTaskExecution,
+  CoordinatorExecutionResult,
 } from "../task/execution-contract.ts";
-import { ORCHESTRATOR_MAXIMUM_TASKS } from "../state/model.ts";
+import { COORDINATOR_MAXIMUM_TASKS } from "../state/model.ts";
 import { snapshotCoordinatorWorkspaceResult } from "../execution/attempt.ts";
 import {
-  inspectOrchestratorObjectiveRequest,
-  type OrchestratorObjectiveRequest,
+  inspectCoordinatorObjectiveRequest,
+  type CoordinatorObjectiveRequest,
 } from "./request.ts";
 import {
   snapshotPlainArray,
@@ -28,21 +28,21 @@ import {
 } from "../input/plain-data-snapshot.ts";
 import { repositoryPathWithin } from "../input/repository-relative-path.ts";
 
-export const ORCHESTRATOR_OBJECTIVE_INTAKE_CONTRACT =
+export const COORDINATOR_OBJECTIVE_INTAKE_CONTRACT =
   "crdd-coordinator/orchestrator-objective-intake/v1" as const;
 
 /**
- * orchestrator-objective-intakeで使用するOrchestrator Objective Planの値契約を定義する。
+ * objective-intakeで使用するCoordinator Objective Planの値契約を定義する。
  *
- * @responsibility Orchestrator Objective PlanのProperty、Identity、状態制約を型境界として所有する。
+ * @responsibility Coordinator Objective PlanのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
- * @shape OrchestratorObjectivePlanが表すProperty、識別子およびRelationを型として固定する。
- * @invariant OrchestratorObjectivePlanで宣言した値と責務の対応を維持する。
- * @boundary N/A: OrchestratorObjectivePlanの宣言は外部境界を開かない。
- * @security N/A: OrchestratorObjectivePlanはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility OrchestratorObjectivePlanの利用側は宣言済みPropertyと型制約だけへ依存する。
+ * @shape CoordinatorObjectivePlanが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CoordinatorObjectivePlanで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CoordinatorObjectivePlanの宣言は外部境界を開かない。
+ * @security N/A: CoordinatorObjectivePlanはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility CoordinatorObjectivePlanの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type OrchestratorObjectivePlan = Readonly<{
+export type CoordinatorObjectivePlan = Readonly<{
   milestoneAcceptanceCriteria: readonly string[];
   objectives: readonly ProjectObjectiveDefinition[];
   tasks: readonly ProjectTaskDefinition[];
@@ -156,26 +156,26 @@ function pathWithin(candidate: string, roots: readonly string[]) {
 }
 
 /**
- * Validate an untrusted Planner result as a bounded Orchestrator plan.
+ * Validate an untrusted Planner result as a bounded Coordinator plan.
  *
- * @responsibility Orchestrator Objective Planの観測対象、取得根拠、観測不能結果の境界を所有する。
+ * @responsibility Coordinator Objective Planの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000004
- * @input raw: unknown、request: OrchestratorObjectiveRequest
- * @returns OrchestratorObjectivePlan | nullを返す。
- * @precondition 「raw: unknown、request: OrchestratorObjectiveRequest」がinspectOrchestratorObjectivePlanの入力契約を満たす。
- * @postcondition inspectOrchestratorObjectivePlanの責務を完了した結果だけを返す。
- * @effect N/A: inspectOrchestratorObjectivePlanは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: inspectOrchestratorObjectivePlanは独自の失敗分岐を所有しない。
- * @invariant inspectOrchestratorObjectivePlanは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: inspectOrchestratorObjectivePlanはProcess内の同一Subsystemで完結する。
- * @security N/A: inspectOrchestratorObjectivePlanはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: inspectOrchestratorObjectivePlanは共有非同期状態を持たない同期処理である。
+ * @input raw: unknown、request: CoordinatorObjectiveRequest
+ * @returns CoordinatorObjectivePlan | nullを返す。
+ * @precondition 「raw: unknown、request: CoordinatorObjectiveRequest」がinspectCoordinatorObjectivePlanの入力契約を満たす。
+ * @postcondition inspectCoordinatorObjectivePlanの責務を完了した結果だけを返す。
+ * @effect N/A: inspectCoordinatorObjectivePlanは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: inspectCoordinatorObjectivePlanは独自の失敗分岐を所有しない。
+ * @invariant inspectCoordinatorObjectivePlanは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: inspectCoordinatorObjectivePlanはProcess内の同一Subsystemで完結する。
+ * @security N/A: inspectCoordinatorObjectivePlanはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: inspectCoordinatorObjectivePlanは共有非同期状態を持たない同期処理である。
  */
-export function inspectOrchestratorObjectivePlan(
+export function inspectCoordinatorObjectivePlan(
   raw: unknown,
-  request: OrchestratorObjectiveRequest,
-): OrchestratorObjectivePlan | null {
-  if (!inspectOrchestratorObjectiveRequest(request)) return null;
+  request: CoordinatorObjectiveRequest,
+): CoordinatorObjectivePlan | null {
+  if (!inspectCoordinatorObjectiveRequest(request)) return null;
   const plan = snapshotPlainRecord(
     raw,
     new Set(["milestoneAcceptanceCriteria", "objectives", "tasks"] as const),
@@ -256,24 +256,24 @@ export function inspectOrchestratorObjectivePlan(
 /**
  * Bind Host-prepared Task payloads to the exact current Task scope. The Host
  *
- * @responsibility Orchestrator Task Execution Setの構築入力、生成結果、不正入力の拒否境界を所有する。
+ * @responsibility Coordinator Task Execution Setの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000004
- * @input raw: unknown、state: OrchestratorState、clockIdentity: OrchestratorClockIdentityPort
- * @returns readonly OrchestratorTaskExecution[] | nullを返す。
- * @precondition 「raw: unknown、state: OrchestratorState、clockIdentity: OrchestratorClockIdentityPort」がcreateOrchestratorTaskExecutionSetの入力契約を満たす。
- * @postcondition createOrchestratorTaskExecutionSetの責務を完了した結果だけを返す。
- * @effect N/A: createOrchestratorTaskExecutionSetは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure createOrchestratorTaskExecutionSetは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant createOrchestratorTaskExecutionSetは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: createOrchestratorTaskExecutionSetはProcess内の同一Subsystemで完結する。
- * @security N/A: createOrchestratorTaskExecutionSetはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: createOrchestratorTaskExecutionSetは共有非同期状態を持たない同期処理である。
+ * @input raw: unknown、state: CoordinatorState、clockIdentity: CoordinatorClockIdentityPort
+ * @returns readonly CoordinatorTaskExecution[] | nullを返す。
+ * @precondition 「raw: unknown、state: CoordinatorState、clockIdentity: CoordinatorClockIdentityPort」がcreateCoordinatorTaskExecutionSetの入力契約を満たす。
+ * @postcondition createCoordinatorTaskExecutionSetの責務を完了した結果だけを返す。
+ * @effect N/A: createCoordinatorTaskExecutionSetは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure createCoordinatorTaskExecutionSetは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant createCoordinatorTaskExecutionSetは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: createCoordinatorTaskExecutionSetはProcess内の同一Subsystemで完結する。
+ * @security N/A: createCoordinatorTaskExecutionSetはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: createCoordinatorTaskExecutionSetは共有非同期状態を持たない同期処理である。
  */
-export function createOrchestratorTaskExecutionSet(
+export function createCoordinatorTaskExecutionSet(
   raw: unknown,
-  state: OrchestratorState,
-  clockIdentity: OrchestratorClockIdentityPort,
-): readonly OrchestratorTaskExecution[] | null {
+  state: CoordinatorState,
+  clockIdentity: CoordinatorClockIdentityPort,
+): readonly CoordinatorTaskExecution[] | null {
   const activeTasks = state.tasks.filter((task) => task.state !== "superseded");
   const rawExecutions = snapshotPlainArray(raw, activeTasks.length);
   if (
@@ -281,7 +281,7 @@ export function createOrchestratorTaskExecutionSet(
     rawExecutions.value.length !== activeTasks.length
   )
     return null;
-  const executions: OrchestratorTaskExecution[] = [];
+  const executions: CoordinatorTaskExecution[] = [];
   for (const rawExecution of rawExecutions.value) {
     const execution = snapshotPlainRecord(
       rawExecution,
@@ -321,28 +321,28 @@ export function createOrchestratorTaskExecutionSet(
 }
 
 /**
- * Canonical public result envelope for one Orchestrator objective request.
+ * Canonical public result envelope for one Coordinator objective request.
  *
- * @responsibility Orchestrator Objective 結果の構築入力、生成結果、不正入力の拒否境界を所有する。
+ * @responsibility Coordinator Objective 結果の構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000004
- * @input request: OrchestratorObjectiveRequest、options: Readonly<{ status: "completed" | "blocked" | "cancelled"; reason: string; queueId?: string | null; projection?: ReturnType<typeof projectOrchestratorState> | null; cleanupConfirmed?: boolean; manualRecoveryRequired?: boolean; processRestartRequired?: boolean; recoveryIds?: readonly string[]; recoveryObligations?: readonly Readonly<{ kind: ProjectTaskRecoveryObligation["kind"]; recoveryId: string; }>[]; effectState?: "no_effect" | "settled" | "unknown"; }>
- * @returns createOrchestratorObjectiveResultの計算結果を返す。
- * @precondition 「request: OrchestratorObjectiveRequest、options: Readonly<{ status: "completed" | "blocked" | "cancelled"; reason: string; queueId?: string | null; projection?: ReturnType<typeof projectOrchestratorState> | null; cleanupConfirmed?: boolean; manualRecoveryRequired?: boolean; processRestartRequired?: boolean; recoveryIds?: readonly string[]; recoveryObligations?: readonly Readonly<{ kind: ProjectTaskRecoveryObligation["kind"]; recoveryId: string; }>[]; effectState?: "no_effect" | "settled" | "unknown"; }>」がcreateOrchestratorObjectiveResultの入力契約を満たす。
- * @postcondition createOrchestratorObjectiveResultの責務を完了した結果だけを返す。
- * @effect N/A: createOrchestratorObjectiveResultは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: createOrchestratorObjectiveResultは独自の失敗分岐を所有しない。
- * @invariant createOrchestratorObjectiveResultは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: createOrchestratorObjectiveResultはProcess内の同一Subsystemで完結する。
- * @security N/A: createOrchestratorObjectiveResultはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: createOrchestratorObjectiveResultは共有非同期状態を持たない同期処理である。
+ * @input request: CoordinatorObjectiveRequest、options: Readonly<{ status: "completed" | "blocked" | "cancelled"; reason: string; queueId?: string | null; projection?: ReturnType<typeof projectCoordinatorState> | null; cleanupConfirmed?: boolean; manualRecoveryRequired?: boolean; processRestartRequired?: boolean; recoveryIds?: readonly string[]; recoveryObligations?: readonly Readonly<{ kind: ProjectTaskRecoveryObligation["kind"]; recoveryId: string; }>[]; effectState?: "no_effect" | "settled" | "unknown"; }>
+ * @returns createCoordinatorObjectiveResultの計算結果を返す。
+ * @precondition 「request: CoordinatorObjectiveRequest、options: Readonly<{ status: "completed" | "blocked" | "cancelled"; reason: string; queueId?: string | null; projection?: ReturnType<typeof projectCoordinatorState> | null; cleanupConfirmed?: boolean; manualRecoveryRequired?: boolean; processRestartRequired?: boolean; recoveryIds?: readonly string[]; recoveryObligations?: readonly Readonly<{ kind: ProjectTaskRecoveryObligation["kind"]; recoveryId: string; }>[]; effectState?: "no_effect" | "settled" | "unknown"; }>」がcreateCoordinatorObjectiveResultの入力契約を満たす。
+ * @postcondition createCoordinatorObjectiveResultの責務を完了した結果だけを返す。
+ * @effect N/A: createCoordinatorObjectiveResultは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: createCoordinatorObjectiveResultは独自の失敗分岐を所有しない。
+ * @invariant createCoordinatorObjectiveResultは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: createCoordinatorObjectiveResultはProcess内の同一Subsystemで完結する。
+ * @security N/A: createCoordinatorObjectiveResultはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: createCoordinatorObjectiveResultは共有非同期状態を持たない同期処理である。
  */
-export function createOrchestratorObjectiveResult(
-  request: OrchestratorObjectiveRequest,
+export function createCoordinatorObjectiveResult(
+  request: CoordinatorObjectiveRequest,
   options: Readonly<{
     status: "completed" | "blocked" | "cancelled";
     reason: string;
     queueId?: string | null;
-    projection?: ReturnType<typeof projectOrchestratorState> | null;
+    projection?: ReturnType<typeof projectCoordinatorState> | null;
     cleanupConfirmed?: boolean;
     manualRecoveryRequired?: boolean;
     processRestartRequired?: boolean;
@@ -352,18 +352,18 @@ export function createOrchestratorObjectiveResult(
       recoveryId: string;
     }>[];
     effectState?: "no_effect" | "settled" | "unknown";
-    workspaceResults?: OrchestratorExecutionResult["workspaceResults"] | null;
+    workspaceResults?: CoordinatorExecutionResult["workspaceResults"] | null;
   }>,
 ) {
   const workspaceResults =
     options.workspaceResults === undefined
       ? undefined
-      : inspectOrchestratorWorkspaceResults(
+      : inspectCoordinatorWorkspaceResults(
           options.workspaceResults,
           request.workspaceId ?? null,
         );
   return Object.freeze({
-    contract: ORCHESTRATOR_OBJECTIVE_INTAKE_CONTRACT,
+    contract: COORDINATOR_OBJECTIVE_INTAKE_CONTRACT,
     status: options.status,
     reason: options.reason,
     requestId: request.requestId,
@@ -394,18 +394,18 @@ export function createOrchestratorObjectiveResult(
  * @effect N/A: 値検査と複製だけ。
  * @failure getter・Proxy・別対象・不明を空配列へ変換しない。
  * @invariant 変更観測は採用・Commit・Mergeの完了ではない。
- * @boundary Orchestrator結果とWorkbench／MCPの公開投影。
+ * @boundary Coordinator結果とWorkbench／MCPの公開投影。
  * @security 本文・絶対Path・Authorityを追加しない。
  * @concurrency 同期処理で共有状態を持たない。
  */
-export function inspectOrchestratorWorkspaceResults(
+export function inspectCoordinatorWorkspaceResults(
   raw: unknown,
   expectedWorkspaceId?: string | null,
-): NonNullable<OrchestratorExecutionResult["workspaceResults"]> | null {
-  const array = snapshotPlainArray(raw, ORCHESTRATOR_MAXIMUM_TASKS);
+): NonNullable<CoordinatorExecutionResult["workspaceResults"]> | null {
+  const array = snapshotPlainArray(raw, COORDINATOR_MAXIMUM_TASKS);
   if (array.status !== "ok" || array.value.length === 0) return null;
   const entries: NonNullable<
-    OrchestratorExecutionResult["workspaceResults"]
+    CoordinatorExecutionResult["workspaceResults"]
   >[number][] = [];
   const attempts = new Set<string>();
   const operations = new Set<string>();

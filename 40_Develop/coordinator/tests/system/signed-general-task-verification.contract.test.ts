@@ -10,7 +10,7 @@
  * @trace PRL-ST-004
  * @level ST
  * @scope signed、general、task、verification
- * @boundary EST-ST-003=System/E2E: 公開入口→同意Gate→Provider→結果帰還 / PRL-ST-001=System/E2E: 公開入口→Orchestrator→Execution→受入
+ * @boundary EST-ST-003=System/E2E: 公開入口→同意Gate→Provider→結果帰還 / PRL-ST-001=System/E2E: 公開入口→Coordinator→Execution→受入
  */
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";

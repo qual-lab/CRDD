@@ -7,14 +7,14 @@
 import { snapshotPlainRecord } from "../input/plain-data-snapshot.ts";
 import { normalizeRepositoryRelativePath } from "../input/repository-relative-path.ts";
 
-export const ORCHESTRATOR_STATE_CONTRACT =
+export const COORDINATOR_STATE_CONTRACT =
   "crdd-coordinator/orchestrator-state/v1" as const;
 
-export const ORCHESTRATOR_MAXIMUM_CONCURRENCY = 5;
+export const COORDINATOR_MAXIMUM_CONCURRENCY = 5;
 
-export const ORCHESTRATOR_MAXIMUM_OBJECTIVES = 128;
+export const COORDINATOR_MAXIMUM_OBJECTIVES = 128;
 
-export const ORCHESTRATOR_MAXIMUM_TASKS = 1024;
+export const COORDINATOR_MAXIMUM_TASKS = 1024;
 
 /**
  * 同じ結果に対する上位の耐久受理本文を定義する。
@@ -22,7 +22,7 @@ export const ORCHESTRATOR_MAXIMUM_TASKS = 1024;
  * @trace ARCH-000004
  * @shape 十一項目の固定本文。consumerはorchestratorだけ。
  * @invariant 実行操作IDで上位論理操作IDを代用しない。
- * @boundary Coordinatorの結果投影とOrchestratorの耐久保存。
+ * @boundary Coordinatorの結果投影とCoordinatorの耐久保存。
  * @security Path・秘密値・処置Authorityを含めない。
  * @compatibility 旧Runtime領収書を新本文へ読み替えない。
  */
@@ -102,7 +102,7 @@ export function decodeProjectResultAcceptance(
 }
 
 /**
- * orchestrator-stateで使用するProject Task 状態の値契約を定義する。
+ * stateで使用するProject Task 状態の値契約を定義する。
  *
  * @responsibility Project Task 状態のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
@@ -126,7 +126,7 @@ export type ProjectTaskState =
   | "superseded";
 
 /**
- * orchestrator-stateで使用するProject Objective 状態の値契約を定義する。
+ * stateで使用するProject Objective 状態の値契約を定義する。
  *
  * @responsibility Project Objective 状態のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
@@ -146,7 +146,7 @@ export type ProjectObjectiveState =
   | "cancelled";
 
 /**
- * orchestrator-stateで使用するProject Milestone 状態の値契約を定義する。
+ * stateで使用するProject Milestone 状態の値契約を定義する。
  *
  * @responsibility Project Milestone 状態のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
@@ -167,7 +167,7 @@ export type ProjectMilestoneState =
   | "cancelled";
 
 /**
- * Orchestratorの受入判断対象を定義する。
+ * Coordinatorの受入判断対象を定義する。
  *
  * @responsibility Objective判断とMilestone判断を混同しない対象区分を所有する。
  * @trace ARCH-000005
@@ -177,10 +177,10 @@ export type ProjectMilestoneState =
  * @security N/A: 型宣言はAuthorityや秘密値を保持しない。
  * @compatibility 利用側は宣言済みの二つの対象区分だけへ依存する。
  */
-export type OrchestratorAcceptanceTarget = "objective" | "milestone";
+export type CoordinatorAcceptanceTarget = "objective" | "milestone";
 
 /**
- * Orchestratorの明示的な受入判断を定義する。
+ * Coordinatorの明示的な受入判断を定義する。
  *
  * @responsibility 受入、差戻し、判断待ちを別の判断値として所有する。
  * @trace ARCH-000005
@@ -190,10 +190,10 @@ export type OrchestratorAcceptanceTarget = "objective" | "milestone";
  * @security N/A: 型宣言はAuthorityや秘密値を保持しない。
  * @compatibility 利用側は宣言済みの三つの判断値だけへ依存する。
  */
-export type OrchestratorAcceptanceDecision = "accept" | "return" | "wait";
+export type CoordinatorAcceptanceDecision = "accept" | "return" | "wait";
 
 /**
- * Orchestrator受入判断の状態遷移入力を定義する。
+ * Coordinator受入判断の状態遷移入力を定義する。
  *
  * @responsibility exactな対象、判断および判断根拠の組を型境界として所有する。
  * @trace ARCH-000005
@@ -203,10 +203,10 @@ export type OrchestratorAcceptanceDecision = "accept" | "return" | "wait";
  * @security N/A: Authority検証はApplication境界が所有し、本型は秘密値を保持しない。
  * @compatibility 利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type OrchestratorAcceptanceDecisionInput = Readonly<{
-  target: OrchestratorAcceptanceTarget;
+export type CoordinatorAcceptanceDecisionInput = Readonly<{
+  target: CoordinatorAcceptanceTarget;
   targetId: string;
-  decision: OrchestratorAcceptanceDecision;
+  decision: CoordinatorAcceptanceDecision;
   criterionEvidenceIds: readonly string[];
 }>;
 
@@ -235,7 +235,7 @@ export const PROJECT_TASK_STATES = Object.freeze([
 ] as const);
 
 /**
- * orchestrator-stateで使用するProject Objective Definitionの値契約を定義する。
+ * stateで使用するProject Objective Definitionの値契約を定義する。
  *
  * @responsibility Project Objective DefinitionのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
@@ -251,7 +251,7 @@ export type ProjectObjectiveDefinition = Readonly<{
 }>;
 
 /**
- * orchestrator-stateで使用するProject Objective 記録の値契約を定義する。
+ * stateで使用するProject Objective 記録の値契約を定義する。
  *
  * @responsibility Project Objective 記録のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
@@ -268,7 +268,7 @@ export type ProjectObjectiveRecord = Readonly<{
 }>;
 
 /**
- * orchestrator-stateで使用するProject Milestone 記録の値契約を定義する。
+ * stateで使用するProject Milestone 記録の値契約を定義する。
  *
  * @responsibility Project Milestone 記録のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
@@ -286,7 +286,7 @@ export type ProjectMilestoneRecord = Readonly<{
 }>;
 
 /**
- * orchestrator-stateで使用するProject Task Definitionの値契約を定義する。
+ * stateで使用するProject Task Definitionの値契約を定義する。
  *
  * @responsibility Project Task DefinitionのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
@@ -305,7 +305,7 @@ export type ProjectTaskDefinition = Readonly<{
 }>;
 
 /**
- * orchestrator-stateで使用するProject Task 回復 Kindの値契約を定義する。
+ * stateで使用するProject Task 回復 Kindの値契約を定義する。
  *
  * @responsibility Project Task 回復 KindのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
@@ -323,7 +323,7 @@ export type ProjectTaskRecoveryKind =
   | "runtime_process";
 
 /**
- * orchestrator-stateで使用するProject Task 回復 Obligationの値契約を定義する。
+ * stateで使用するProject Task 回復 Obligationの値契約を定義する。
  *
  * @responsibility Project Task 回復 ObligationのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
@@ -341,7 +341,7 @@ export type ProjectTaskRecoveryObligation = Readonly<{
 }>;
 
 /**
- * orchestrator-stateで使用するProject Docker 回復 Acknowledgementの値契約を定義する。
+ * stateで使用するProject Docker 回復 Acknowledgementの値契約を定義する。
  *
  * @responsibility Project Docker 回復 AcknowledgementのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
@@ -354,7 +354,7 @@ export type ProjectTaskRecoveryObligation = Readonly<{
 export type ProjectDockerRecoveryAcknowledgement = ProjectResultAcceptance;
 
 /**
- * orchestrator-stateで使用するProject Task Start Phaseの値契約を定義する。
+ * stateで使用するProject Task Start Phaseの値契約を定義する。
  *
  * @responsibility Project Task Start PhaseのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
@@ -372,7 +372,7 @@ export type ProjectTaskStartPhase =
   | "settled";
 
 /**
- * orchestrator-stateで使用するProject Task 記録の値契約を定義する。
+ * stateで使用するProject Task 記録の値契約を定義する。
  *
  * @responsibility Project Task 記録のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
@@ -399,18 +399,18 @@ export type ProjectTaskRecord = Readonly<{
 }>;
 
 /**
- * orchestrator-stateで使用するOrchestrator 状態の値契約を定義する。
+ * stateで使用するCoordinator 状態の値契約を定義する。
  *
- * @responsibility Orchestrator 状態のProperty、Identity、状態制約を型境界として所有する。
+ * @responsibility Coordinator 状態のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
- * @shape OrchestratorStateが表すProperty、識別子およびRelationを型として固定する。
- * @invariant OrchestratorStateで宣言した値と責務の対応を維持する。
- * @boundary N/A: OrchestratorStateの宣言は外部境界を開かない。
- * @security N/A: OrchestratorStateはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility OrchestratorStateの利用側は宣言済みPropertyと型制約だけへ依存する。
+ * @shape CoordinatorStateが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CoordinatorStateで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CoordinatorStateの宣言は外部境界を開かない。
+ * @security N/A: CoordinatorStateはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility CoordinatorStateの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type OrchestratorState = Readonly<{
-  contract: typeof ORCHESTRATOR_STATE_CONTRACT;
+export type CoordinatorState = Readonly<{
+  contract: typeof COORDINATOR_STATE_CONTRACT;
   projectId: string;
   milestoneId: string;
   repositoryRevision: string;
@@ -424,7 +424,7 @@ export type OrchestratorState = Readonly<{
 }>;
 
 /**
- * orchestrator-stateで使用する状態 結果の値契約を定義する。
+ * stateで使用する状態 結果の値契約を定義する。
  *
  * @responsibility 状態 結果のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
@@ -438,13 +438,13 @@ export type StateResult =
   | Readonly<{
       status: "completed";
       reason: string;
-      state: OrchestratorState;
+      state: CoordinatorState;
       taskIds: readonly string[];
     }>
   | Readonly<{
       status: "blocked";
       reason: string;
-      state: OrchestratorState | null;
+      state: CoordinatorState | null;
       taskIds: readonly string[];
     }>;
 
@@ -494,24 +494,22 @@ function validRevision(value: unknown) {
 }
 
 /**
- * Orchestrator 回復 Identityかを判定する。
+ * Coordinator 回復 Identityかを判定する。
  *
- * @responsibility Orchestrator 回復 Identityの判定条件とtrue／false境界を所有する。
+ * @responsibility Coordinator 回復 Identityの判定条件とtrue／false境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown
  * @returns value is stringを返す。
- * @precondition 「value: unknown」がisOrchestratorRecoveryIdentityの入力契約を満たす。
- * @postcondition isOrchestratorRecoveryIdentityの責務を完了した結果だけを返す。
- * @effect N/A: isOrchestratorRecoveryIdentityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: isOrchestratorRecoveryIdentityは独自の失敗分岐を所有しない。
- * @invariant isOrchestratorRecoveryIdentityは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: isOrchestratorRecoveryIdentityはProcess内の同一Subsystemで完結する。
- * @security N/A: isOrchestratorRecoveryIdentityはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: isOrchestratorRecoveryIdentityは共有非同期状態を持たない同期処理である。
+ * @precondition 「value: unknown」がisCoordinatorRecoveryIdentityの入力契約を満たす。
+ * @postcondition isCoordinatorRecoveryIdentityの責務を完了した結果だけを返す。
+ * @effect N/A: isCoordinatorRecoveryIdentityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: isCoordinatorRecoveryIdentityは独自の失敗分岐を所有しない。
+ * @invariant isCoordinatorRecoveryIdentityは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: isCoordinatorRecoveryIdentityはProcess内の同一Subsystemで完結する。
+ * @security N/A: isCoordinatorRecoveryIdentityはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: isCoordinatorRecoveryIdentityは共有非同期状態を持たない同期処理である。
  */
-export function isOrchestratorRecoveryIdentity(
-  value: unknown,
-): value is string {
+export function isCoordinatorRecoveryIdentity(value: unknown): value is string {
   return (
     typeof value === "string" &&
     value.length > 0 &&
@@ -684,9 +682,9 @@ export function hasCycle(definitions: readonly ProjectTaskDefinition[]) {
  *
  * @responsibility 状態の公開field、秘匿境界、投影不能時の結果境界を所有する。
  * @trace ARCH-000004
- * @input state: Omit<OrchestratorState, "contract">
- * @returns OrchestratorStateを返す。
- * @precondition 「state: Omit<OrchestratorState, "contract">」がprojectStateの入力契約を満たす。
+ * @input state: Omit<CoordinatorState, "contract">
+ * @returns CoordinatorStateを返す。
+ * @precondition 「state: Omit<CoordinatorState, "contract">」がprojectStateの入力契約を満たす。
  * @postcondition projectStateの責務を完了した結果だけを返す。
  * @effect N/A: projectStateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: projectStateは独自の失敗分岐を所有しない。
@@ -696,10 +694,10 @@ export function hasCycle(definitions: readonly ProjectTaskDefinition[]) {
  * @concurrency N/A: projectStateは共有非同期状態を持たない同期処理である。
  */
 export function projectState(
-  state: Omit<OrchestratorState, "contract">,
-): OrchestratorState {
+  state: Omit<CoordinatorState, "contract">,
+): CoordinatorState {
   return Object.freeze({
-    contract: ORCHESTRATOR_STATE_CONTRACT,
+    contract: COORDINATOR_STATE_CONTRACT,
     ...state,
     milestone: Object.freeze({ ...state.milestone }),
     objectives: Object.freeze([...state.objectives]),
@@ -708,22 +706,22 @@ export function projectState(
 }
 
 /**
- * Orchestrator 状態を構築する。
+ * Coordinator 状態を構築する。
  *
- * @responsibility Orchestrator 状態の構築入力、生成結果、不正入力の拒否境界を所有する。
+ * @responsibility Coordinator 状態の構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000004
  * @input input: Readonly<{ projectId: string; milestoneId: string; repositoryRevision: string; maximumConcurrency: number; milestoneAcceptanceCriteria: readonly string[]; objectives: readonly ProjectObjectiveDefinition[]; tasks: readonly ProjectTaskDefinition[]; ownerGeneration: string; }>
  * @returns StateResultを返す。
- * @precondition 「input: Readonly<{ projectId: string; milestoneId: string; repositoryRevision: string; maximumConcurrency: number; milestoneAcceptanceCriteria: readonly string[]; objectives: readonly ProjectObjectiveDefinition[]; tasks: readonly ProjectTaskDefinition[]; ownerGeneration: string; }>」がcreateOrchestratorStateの入力契約を満たす。
- * @postcondition createOrchestratorStateの責務を完了した結果だけを返す。
- * @effect N/A: createOrchestratorStateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: createOrchestratorStateは独自の失敗分岐を所有しない。
- * @invariant createOrchestratorStateは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: createOrchestratorStateはProcess内の同一Subsystemで完結する。
- * @security N/A: createOrchestratorStateはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: createOrchestratorStateは共有非同期状態を持たない同期処理である。
+ * @precondition 「input: Readonly<{ projectId: string; milestoneId: string; repositoryRevision: string; maximumConcurrency: number; milestoneAcceptanceCriteria: readonly string[]; objectives: readonly ProjectObjectiveDefinition[]; tasks: readonly ProjectTaskDefinition[]; ownerGeneration: string; }>」がcreateCoordinatorStateの入力契約を満たす。
+ * @postcondition createCoordinatorStateの責務を完了した結果だけを返す。
+ * @effect N/A: createCoordinatorStateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: createCoordinatorStateは独自の失敗分岐を所有しない。
+ * @invariant createCoordinatorStateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: createCoordinatorStateはProcess内の同一Subsystemで完結する。
+ * @security N/A: createCoordinatorStateはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: createCoordinatorStateは共有非同期状態を持たない同期処理である。
  */
-export function createOrchestratorState(
+export function createCoordinatorState(
   input: Readonly<{
     projectId: string;
     milestoneId: string;
@@ -742,11 +740,11 @@ export function createOrchestratorState(
     !validRevision(input.repositoryRevision) ||
     !Number.isSafeInteger(input.maximumConcurrency) ||
     input.maximumConcurrency < 1 ||
-    input.maximumConcurrency > ORCHESTRATOR_MAXIMUM_CONCURRENCY ||
+    input.maximumConcurrency > COORDINATOR_MAXIMUM_CONCURRENCY ||
     input.tasks.length === 0 ||
-    input.tasks.length > ORCHESTRATOR_MAXIMUM_TASKS ||
+    input.tasks.length > COORDINATOR_MAXIMUM_TASKS ||
     input.objectives.length === 0 ||
-    input.objectives.length > ORCHESTRATOR_MAXIMUM_OBJECTIVES
+    input.objectives.length > COORDINATOR_MAXIMUM_OBJECTIVES
   ) {
     return Object.freeze({
       status: "blocked",
@@ -873,9 +871,9 @@ export function createOrchestratorState(
  *
  * @responsibility replace Taskの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
- * @input state: OrchestratorState、taskId: string、update: (task: ProjectTaskRecord) => ProjectTaskRecord
+ * @input state: CoordinatorState、taskId: string、update: (task: ProjectTaskRecord) => ProjectTaskRecord
  * @returns replaceTaskの計算結果を返す。
- * @precondition 「state: OrchestratorState、taskId: string、update: (task: ProjectTaskRecord) => ProjectTaskRecord」がreplaceTaskの入力契約を満たす。
+ * @precondition 「state: CoordinatorState、taskId: string、update: (task: ProjectTaskRecord) => ProjectTaskRecord」がreplaceTaskの入力契約を満たす。
  * @postcondition replaceTaskの責務を完了した結果だけを返す。
  * @effect N/A: replaceTaskは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: replaceTaskは独自の失敗分岐を所有しない。
@@ -885,7 +883,7 @@ export function createOrchestratorState(
  * @concurrency N/A: replaceTaskは共有非同期状態を持たない同期処理である。
  */
 export function replaceTask(
-  state: OrchestratorState,
+  state: CoordinatorState,
   taskId: string,
   update: (task: ProjectTaskRecord) => ProjectTaskRecord,
 ) {
@@ -895,25 +893,25 @@ export function replaceTask(
 }
 
 /**
- * Orchestrator 状態 契約の公開契約を記述する。
+ * Coordinator 状態 契約の公開契約を記述する。
  *
- * @responsibility Orchestrator 状態 契約の公開field、非公開境界、互換性を所有する。
+ * @responsibility Coordinator 状態 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000004
  * @input N/A: 実行時引数を受け取らない。
- * @returns describeOrchestratorStateContractの計算結果を返す。
- * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeOrchestratorStateContractの入力契約を満たす。
- * @postcondition describeOrchestratorStateContractの責務を完了した結果だけを返す。
- * @effect N/A: describeOrchestratorStateContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: describeOrchestratorStateContractは独自の失敗分岐を所有しない。
- * @invariant describeOrchestratorStateContractは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: describeOrchestratorStateContractはProcess内の同一Subsystemで完結する。
- * @security N/A: describeOrchestratorStateContractはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: describeOrchestratorStateContractは共有非同期状態を持たない同期処理である。
+ * @returns describeCoordinatorStateContractの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeCoordinatorStateContractの入力契約を満たす。
+ * @postcondition describeCoordinatorStateContractの責務を完了した結果だけを返す。
+ * @effect N/A: describeCoordinatorStateContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describeCoordinatorStateContractは独自の失敗分岐を所有しない。
+ * @invariant describeCoordinatorStateContractは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: describeCoordinatorStateContractはProcess内の同一Subsystemで完結する。
+ * @security N/A: describeCoordinatorStateContractはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: describeCoordinatorStateContractは共有非同期状態を持たない同期処理である。
  */
-export function describeOrchestratorStateContract() {
+export function describeCoordinatorStateContract() {
   return Object.freeze({
-    contract: ORCHESTRATOR_STATE_CONTRACT,
-    maximumConcurrency: ORCHESTRATOR_MAXIMUM_CONCURRENCY,
+    contract: COORDINATOR_STATE_CONTRACT,
+    maximumConcurrency: COORDINATOR_MAXIMUM_CONCURRENCY,
     capacityStates: Object.freeze([
       "starting",
       "running",

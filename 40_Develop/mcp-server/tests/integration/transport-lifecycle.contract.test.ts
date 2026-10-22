@@ -16,12 +16,12 @@ import { PassThrough, Readable, Writable } from "node:stream";
 import test from "node:test";
 
 import {
-  runMcpOrchestratorStdio,
+  runMcpCoordinatorStdio,
   runMcpStdio,
   createMcpServerFactory,
-  startMcpOrchestratorStreamableHttp,
+  startMcpCoordinatorStreamableHttp,
   startMcpStreamableHttp,
-  type McpOrchestratorDependencies,
+  type McpCoordinatorDependencies,
 } from "../../src/index.ts";
 import {
   protocolComplete,
@@ -500,8 +500,8 @@ const TOKEN = "integration-boundary-token-0123456789abcdef";
  * @boundary EST-IT-001=Direct Boundary: mcp Test Source→対象契約
  */
 function dependencies(
-  overrides: Partial<McpOrchestratorDependencies> = {},
-): McpOrchestratorDependencies {
+  overrides: Partial<McpCoordinatorDependencies> = {},
+): McpCoordinatorDependencies {
   return {
     authenticateClient: () => ({
       status: "verified",
@@ -557,7 +557,7 @@ test("stdio blockはparent EOFで進行要求を取消してjoin後に終了す�
   const started = new Promise<void>((resolve) => {
     markStarted = resolve;
   });
-  const running = runMcpOrchestratorStdio(
+  const running = runMcpCoordinatorStdio(
     dependencies({
       runObjective: async (_request, signal) =>
         new Promise((resolve) => {
@@ -650,7 +650,7 @@ test("stdio blockはparent EOFで進行要求を取消してjoin後に終了す�
  * @boundary EST-IT-002=Direct Boundary: mcp Test Source→対象契約
  */
 test("HTTP blockはidle接続とlistenerをcloseで回収し、再接続を拒否する", async () => {
-  const server = await startMcpOrchestratorStreamableHttp(dependencies(), {
+  const server = await startMcpCoordinatorStreamableHttp(dependencies(), {
     port: 0,
     bearerToken: TOKEN,
   });

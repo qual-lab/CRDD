@@ -485,7 +485,7 @@ Consumer集合は手書き一覧だけを正本としない。実Sourceからraw
 
 責務再編後は、共通設定ReaderをDomain Modelの設定部品へ移管し、各履歴Ownerが自分の設定だけを利用する。新配置は`.crdd/config/orchestrator.json`、`.crdd/config/execution-intelligence.json`、`.crdd/config/coordinator.json`である。Coordinatorの現在状態・回復・終了要約の条件は[Coordinator詳細の縮小設計](../coordinator/01_Architecture.md#現在状態と履歴を分ける縮小設計)を正本とし、本節で再定義しない。以下のOrchestrator Reader名とPathは切替前の基準であり、新Runtimeへ旧設定探索を残す指示ではない。対応する配布例・SchemaもTool名に揃え、Source・設定実物の切替は段階5で行う。
 
-履歴所有者が通常履歴を整理するときは、`readOrchestratorConfig`、`readExecutionIntelligenceConfig`または`readCoordinatorConfig`から自分のTool設定を読み取る。Runtime Dataは設定の検証と読取りだけを所有し、記録の削除判断は各履歴所有者が行う。他Toolの設定は読取り条件にしない。
+履歴所有者が通常履歴を整理するときは、`readTaskHistoryConfig`、`readExecutionIntelligenceConfig`または`readCoordinatorConfig`から自分のTool設定を読み取る。Runtime Dataは設定の検証と読取りだけを所有し、記録の削除判断は各履歴所有者が行う。他Toolの設定は読取り条件にしない。
 
 | 項目 | 契約 |
 |---|---|

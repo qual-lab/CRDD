@@ -1,36 +1,36 @@
 /**
- * orchestrator-replanningに属する責務をまとめる。
+ * replanningに属する責務をまとめる。
  *
- * @responsibility OrchestratorReplanDecisionを中心とする実装、型および境界を同じModuleで所有する。
+ * @responsibility CoordinatorReplanDecisionを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000004
  */
 import {
-  applyOrchestratorPartialReplan,
-  retryOrchestratorTask,
+  applyCoordinatorPartialReplan,
+  retryCoordinatorTask,
 } from "./replan-transitions.ts";
-import { requestOrchestratorHumanDecision } from "../decision/transitions.ts";
+import { requestCoordinatorHumanDecision } from "../decision/transitions.ts";
 import type { ProjectTaskDefinition } from "../state/model.ts";
-import type { OrchestratorStatePort } from "../state/persistence.ts";
+import type { CoordinatorStatePort } from "../state/persistence.ts";
 import {
   snapshotPlainArray,
   snapshotPlainRecord,
 } from "../input/plain-data-snapshot.ts";
 
-export const ORCHESTRATOR_REPLANNING_CONTRACT =
+export const COORDINATOR_REPLANNING_CONTRACT =
   "crdd-coordinator/orchestrator-replanning/v1" as const;
 
 /**
- * orchestrator-replanningで使用するOrchestrator Replan Decisionの値契約を定義する。
+ * replanningで使用するCoordinator Replan Decisionの値契約を定義する。
  *
- * @responsibility Orchestrator Replan DecisionのProperty、Identity、状態制約を型境界として所有する。
+ * @responsibility Coordinator Replan DecisionのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
- * @shape OrchestratorReplanDecisionが表すProperty、識別子およびRelationを型として固定する。
- * @invariant OrchestratorReplanDecisionで宣言した値と責務の対応を維持する。
- * @boundary N/A: OrchestratorReplanDecisionの宣言は外部境界を開かない。
- * @security N/A: OrchestratorReplanDecisionはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility OrchestratorReplanDecisionの利用側は宣言済みPropertyと型制約だけへ依存する。
+ * @shape CoordinatorReplanDecisionが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CoordinatorReplanDecisionで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CoordinatorReplanDecisionの宣言は外部境界を開かない。
+ * @security N/A: CoordinatorReplanDecisionはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility CoordinatorReplanDecisionの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type OrchestratorReplanDecision =
+export type CoordinatorReplanDecision =
   | Readonly<{
       disposition: "partial_replan";
       failedTaskId: string;
@@ -44,17 +44,17 @@ export type OrchestratorReplanDecision =
   | Readonly<{ disposition: "maintain_plan"; reason: string }>;
 
 /**
- * orchestrator-replanningで使用するOrchestrator Replan 入力の値契約を定義する。
+ * replanningで使用するCoordinator Replan 入力の値契約を定義する。
  *
- * @responsibility Orchestrator Replan 入力のProperty、Identity、状態制約を型境界として所有する。
+ * @responsibility Coordinator Replan 入力のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
- * @shape OrchestratorReplanInputが表すProperty、識別子およびRelationを型として固定する。
- * @invariant OrchestratorReplanInputで宣言した値と責務の対応を維持する。
- * @boundary N/A: OrchestratorReplanInputの宣言は外部境界を開かない。
- * @security N/A: OrchestratorReplanInputはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility OrchestratorReplanInputの利用側は宣言済みPropertyと型制約だけへ依存する。
+ * @shape CoordinatorReplanInputが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CoordinatorReplanInputで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CoordinatorReplanInputの宣言は外部境界を開かない。
+ * @security N/A: CoordinatorReplanInputはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility CoordinatorReplanInputの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type OrchestratorReplanInput = Readonly<{
+export type CoordinatorReplanInput = Readonly<{
   projectId: string;
   milestoneId: string;
   queueId: string;
@@ -62,17 +62,17 @@ export type OrchestratorReplanInput = Readonly<{
 }>;
 
 /**
- * orchestrator-replanningで使用するOrchestrator Replan Classifierの値契約を定義する。
+ * replanningで使用するCoordinator Replan Classifierの値契約を定義する。
  *
- * @responsibility Orchestrator Replan ClassifierのProperty、Identity、状態制約を型境界として所有する。
+ * @responsibility Coordinator Replan ClassifierのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
- * @shape OrchestratorReplanClassifierが表すProperty、識別子およびRelationを型として固定する。
- * @invariant OrchestratorReplanClassifierで宣言した値と責務の対応を維持する。
- * @boundary N/A: OrchestratorReplanClassifierの宣言は外部境界を開かない。
- * @security N/A: OrchestratorReplanClassifierはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility OrchestratorReplanClassifierの利用側は宣言済みPropertyと型制約だけへ依存する。
+ * @shape CoordinatorReplanClassifierが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CoordinatorReplanClassifierで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CoordinatorReplanClassifierの宣言は外部境界を開かない。
+ * @security N/A: CoordinatorReplanClassifierはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility CoordinatorReplanClassifierの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type OrchestratorReplanClassifier = (
+export type CoordinatorReplanClassifier = (
   context: Readonly<{
     failedTaskIds: readonly string[];
     generation: number;
@@ -208,7 +208,7 @@ function inspectTaskDefinition(value: unknown): ProjectTaskDefinition | null {
  * @responsibility Decisionの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000004
  * @input raw: unknown
- * @returns OrchestratorReplanDecision | nullを返す。
+ * @returns CoordinatorReplanDecision | nullを返す。
  * @precondition 「raw: unknown」がinspectDecisionの入力契約を満たす。
  * @postcondition inspectDecisionの責務を完了した結果だけを返す。
  * @effect N/A: inspectDecisionは入力と局所値だけを扱い、外部または共有Effectを発行しない。
@@ -218,7 +218,7 @@ function inspectTaskDefinition(value: unknown): ProjectTaskDefinition | null {
  * @security N/A: inspectDecisionはAuthority、秘密値または信頼判断を扱わない。
  * @concurrency N/A: inspectDecisionは共有非同期状態を持たない同期処理である。
  */
-function inspectDecision(raw: unknown): OrchestratorReplanDecision | null {
+function inspectDecision(raw: unknown): CoordinatorReplanDecision | null {
   const maintain = snapshotPlainRecord(
     raw,
     new Set(["disposition", "reason"] as const),
@@ -265,9 +265,9 @@ function inspectDecision(raw: unknown): OrchestratorReplanDecision | null {
 }
 
 /**
- * orchestrator-replanningを停止結果として構築する。
+ * replanningを停止結果として構築する。
  *
- * @responsibility orchestrator-replanningの停止理由、未発行Effect、公開結果境界を所有する。
+ * @responsibility replanningの停止理由、未発行Effect、公開結果境界を所有する。
  * @trace ARCH-000004
  * @input reason: string、isRecovery
  * @returns blockedの計算結果を返す。
@@ -282,7 +282,7 @@ function inspectDecision(raw: unknown): OrchestratorReplanDecision | null {
  */
 function blocked(reason: string, isRecovery = false) {
   return Object.freeze({
-    contract: ORCHESTRATOR_REPLANNING_CONTRACT,
+    contract: COORDINATOR_REPLANNING_CONTRACT,
     status: "blocked" as const,
     reason,
     cleanupConfirmed: !isRecovery,
@@ -294,23 +294,23 @@ function blocked(reason: string, isRecovery = false) {
 /**
  * Resolve one durable replan boundary without widening Milestone scope or authority.
  *
- * @responsibility Orchestrator Replanの候補集合、解決規則、曖昧時の拒否境界を所有する。
+ * @responsibility Coordinator Replanの候補集合、解決規則、曖昧時の拒否境界を所有する。
  * @trace ARCH-000004
- * @input statePort: OrchestratorStatePort、input: OrchestratorReplanInput、classify: OrchestratorReplanClassifier
- * @returns resolveOrchestratorReplanの計算結果を返す。
- * @precondition 「statePort: OrchestratorStatePort、input: OrchestratorReplanInput、classify: OrchestratorReplanClassifier」がresolveOrchestratorReplanの入力契約を満たす。
- * @postcondition resolveOrchestratorReplanの責務を完了した結果だけを返す。
- * @effect N/A: resolveOrchestratorReplanは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure resolveOrchestratorReplanは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant resolveOrchestratorReplanは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: resolveOrchestratorReplanはProcess内の同一Subsystemで完結する。
- * @security N/A: resolveOrchestratorReplanはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: resolveOrchestratorReplanは共有非同期状態を持たない同期処理である。
+ * @input statePort: CoordinatorStatePort、input: CoordinatorReplanInput、classify: CoordinatorReplanClassifier
+ * @returns resolveCoordinatorReplanの計算結果を返す。
+ * @precondition 「statePort: CoordinatorStatePort、input: CoordinatorReplanInput、classify: CoordinatorReplanClassifier」がresolveCoordinatorReplanの入力契約を満たす。
+ * @postcondition resolveCoordinatorReplanの責務を完了した結果だけを返す。
+ * @effect N/A: resolveCoordinatorReplanは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure resolveCoordinatorReplanは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant resolveCoordinatorReplanは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: resolveCoordinatorReplanはProcess内の同一Subsystemで完結する。
+ * @security N/A: resolveCoordinatorReplanはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: resolveCoordinatorReplanは共有非同期状態を持たない同期処理である。
  */
-export function resolveOrchestratorReplan(
-  statePort: OrchestratorStatePort,
-  input: OrchestratorReplanInput,
-  classify: OrchestratorReplanClassifier,
+export function resolveCoordinatorReplan(
+  statePort: CoordinatorStatePort,
+  input: CoordinatorReplanInput,
+  classify: CoordinatorReplanClassifier,
 ) {
   const stateRead = statePort.readState(input.projectId);
   const queueRead = statePort.readQueue(input.queueId);
@@ -335,7 +335,7 @@ export function resolveOrchestratorReplan(
     .map((task) => task.definition.id);
   if (failedTaskIds.length === 0)
     return blocked("orchestrator_replan_failed_task_missing", true);
-  let decision: OrchestratorReplanDecision | null;
+  let decision: CoordinatorReplanDecision | null;
   try {
     decision = inspectDecision(
       classify(
@@ -352,19 +352,19 @@ export function resolveOrchestratorReplan(
   if (!decision) return blocked("orchestrator_replan_decision_invalid");
   const transition =
     decision.disposition === "maintain_plan"
-      ? retryOrchestratorTask(
+      ? retryCoordinatorTask(
           state,
           state.generation,
           failedTaskIds[0] ?? "",
           input.maximumReplans,
         )
       : decision.disposition === "partial_replan"
-        ? applyOrchestratorPartialReplan(state, state.generation, {
+        ? applyCoordinatorPartialReplan(state, state.generation, {
             failedTaskId: decision.failedTaskId,
             replacements: decision.replacements,
             maximumReplans: input.maximumReplans,
           })
-        : requestOrchestratorHumanDecision(
+        : requestCoordinatorHumanDecision(
             state,
             state.generation,
             decision.objectiveId,
@@ -396,7 +396,7 @@ export function resolveOrchestratorReplan(
   if (queueUpdate.status !== "completed")
     return blocked(queueUpdate.reason, true);
   return Object.freeze({
-    contract: ORCHESTRATOR_REPLANNING_CONTRACT,
+    contract: COORDINATOR_REPLANNING_CONTRACT,
     status:
       decision.disposition === "human_decision"
         ? ("blocked" as const)

@@ -5,8 +5,8 @@
  * @trace ERB-IT-003
  * @trace PRL-IT-013
  * @level IT
- * @scope Orchestratorの回復結果受領・終了接続。Filesystemと下位Writerは別試験で検証する。
- * @boundary ERB-IT-003=Orchestrator現在状態Reader→Coordinator終了限定Writer。
+ * @scope Coordinatorの回復結果受領・終了接続。Filesystemと下位Writerは別試験で検証する。
+ * @boundary ERB-IT-003=Coordinator現在状態Reader→Coordinator終了限定Writer。
  */
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
@@ -115,7 +115,7 @@ test("回復結果の受領・終了は固定Repositoryと保存済みACKだけ�
   });
   t.mock.module("../../src/storage/current-state.ts", {
     namedExports: {
-      readCurrentOrchestratorState: () => {
+      readCurrentCoordinatorState: () => {
         upperReads += 1;
         return { status: "completed", value: state };
       },

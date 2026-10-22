@@ -1,5 +1,5 @@
 /**
- * Orchestratorの保護された判断記録と世代照合を保存する。
+ * Coordinatorの保護された判断記録と世代照合を保存する。
  *
  * @responsibility VerifiedRootを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000004
@@ -8,10 +8,10 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import type {
-  OrchestratorDecisionRecord,
-  OrchestratorDecisionStore,
+  CoordinatorDecisionRecord,
+  CoordinatorDecisionStore,
 } from "../decision/records.ts";
-import { isOrchestratorDecisionRecord } from "../decision/records.ts";
+import { isCoordinatorDecisionRecord } from "../decision/records.ts";
 import { acquireRuntimeOwnedDockerRuntimeStateKernelLock } from "../execution/kernel-lock.ts";
 import {
   consumeRuntimeOwnedRuntimeStateRootCapability,
@@ -22,13 +22,13 @@ import {
   writeCommittedJson,
 } from "../../../domain-model/src/index.ts";
 
-export const ORCHESTRATOR_WINDOWS_DECISION_STORE_CONTRACT =
+export const COORDINATOR_WINDOWS_DECISION_STORE_CONTRACT =
   "crdd-coordinator/orchestrator-windows-decision-store/v1" as const;
 
 const ENTRY = /^project-decision-([0-9a-f]{40})-([0-9]{8})\.json$/u;
 
 /**
- * orchestrator-windows-decision-storeで使用するVerified Rootの値契約を定義する。
+ * windows-decision-storeで使用するVerified Rootの値契約を定義する。
  *
  * @responsibility Verified RootのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
@@ -42,7 +42,7 @@ type VerifiedRoot = NonNullable<
   ReturnType<typeof consumeRuntimeOwnedRuntimeStateRootCapability>
 >;
 /**
- * orchestrator-windows-decision-storeで使用するEnvelopeの値契約を定義する。
+ * windows-decision-storeで使用するEnvelopeの値契約を定義する。
  *
  * @responsibility EnvelopeのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
@@ -53,11 +53,11 @@ type VerifiedRoot = NonNullable<
  * @compatibility Envelopeの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
 type Envelope = Readonly<{
-  contract: typeof ORCHESTRATOR_WINDOWS_DECISION_STORE_CONTRACT;
+  contract: typeof COORDINATOR_WINDOWS_DECISION_STORE_CONTRACT;
   recordId: string;
   generation: number;
   previousHash: string | null;
-  value: OrchestratorDecisionRecord;
+  value: CoordinatorDecisionRecord;
 }>;
 
 /**
@@ -130,14 +130,14 @@ function envelope(value: unknown): value is Envelope {
       ["contract", "generation", "previousHash", "recordId", "value"]
         .sort()
         .join("\0") &&
-    record.contract === ORCHESTRATOR_WINDOWS_DECISION_STORE_CONTRACT &&
+    record.contract === COORDINATOR_WINDOWS_DECISION_STORE_CONTRACT &&
     typeof record.recordId === "string" &&
     Number.isSafeInteger(record.generation) &&
     Number(record.generation) >= 1 &&
     (record.previousHash === null ||
       (typeof record.previousHash === "string" &&
         /^[0-9a-f]{64}$/u.test(record.previousHash))) &&
-    isOrchestratorDecisionRecord(record.value)
+    isCoordinatorDecisionRecord(record.value)
   );
 }
 
@@ -256,9 +256,9 @@ function current(root: VerifiedRoot, recordId: string) {
  *
  * @responsibility resultの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
- * @input value: OrchestratorDecisionRecord | null
+ * @input value: CoordinatorDecisionRecord | null
  * @returns resultの計算結果を返す。
- * @precondition 「value: OrchestratorDecisionRecord | null」がresultの入力契約を満たす。
+ * @precondition 「value: CoordinatorDecisionRecord | null」がresultの入力契約を満たす。
  * @postcondition resultの責務を完了した結果だけを返す。
  * @effect N/A: resultは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: resultは独自の失敗分岐を所有しない。
@@ -267,7 +267,7 @@ function current(root: VerifiedRoot, recordId: string) {
  * @security resultはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: resultは共有非同期状態を持たない同期処理である。
  */
-function result(value: OrchestratorDecisionRecord | null) {
+function result(value: CoordinatorDecisionRecord | null) {
   return Object.freeze({ status: "completed" as const, value });
 }
 /**
@@ -353,11 +353,11 @@ function createStore(
   acquire: (bindingHash: string) => Readonly<{ release: () => boolean }> | null,
   reobserve: () => VerifiedRoot | null,
 ) {
-  const store: OrchestratorDecisionStore = Object.freeze({
+  const store: CoordinatorDecisionStore = Object.freeze({
     /**
-     * orchestrator-windows-decision-storeを構築する。
+     * windows-decision-storeを構築する。
      *
-     * @responsibility orchestrator-windows-decision-storeの構築入力、生成結果、不正入力の拒否境界を所有する。
+     * @responsibility windows-decision-storeの構築入力、生成結果、不正入力の拒否境界を所有する。
      * @trace ARCH-000004
      * @input record
      * @returns createの計算結果を返す。
@@ -371,12 +371,12 @@ function createStore(
      * @concurrency N/A: createは共有非同期状態を持たない同期処理である。
      */
     create(record) {
-      if (!isOrchestratorDecisionRecord(record)) return unknown();
+      if (!isCoordinatorDecisionRecord(record)) return unknown();
       return (
         withLock(root, acquire, reobserve, (lockedRoot) => {
           if (current(lockedRoot, record.recordId)) return unknown();
           const value: Envelope = Object.freeze({
-            contract: ORCHESTRATOR_WINDOWS_DECISION_STORE_CONTRACT,
+            contract: COORDINATOR_WINDOWS_DECISION_STORE_CONTRACT,
             recordId: record.recordId,
             generation: 1,
             previousHash: null,
@@ -392,9 +392,9 @@ function createStore(
       );
     },
     /**
-     * orchestrator-windows-decision-storeを読み取る。
+     * windows-decision-storeを読み取る。
      *
-     * @responsibility orchestrator-windows-decision-storeの読取り元、上限、読取不能時の結果境界を所有する。
+     * @responsibility windows-decision-storeの読取り元、上限、読取不能時の結果境界を所有する。
      * @trace ARCH-000004
      * @input recordId
      * @returns readの計算結果を返す。
@@ -433,8 +433,8 @@ function createStore(
      */
     compareAndSet(expected, next) {
       if (
-        !isOrchestratorDecisionRecord(expected) ||
-        !isOrchestratorDecisionRecord(next) ||
+        !isCoordinatorDecisionRecord(expected) ||
+        !isCoordinatorDecisionRecord(next) ||
         expected.recordId !== next.recordId
       )
         return unknown();
@@ -448,7 +448,7 @@ function createStore(
             return unknown();
           const generation = observed.envelope.generation + 1;
           const value: Envelope = Object.freeze({
-            contract: ORCHESTRATOR_WINDOWS_DECISION_STORE_CONTRACT,
+            contract: COORDINATOR_WINDOWS_DECISION_STORE_CONTRACT,
             recordId: expected.recordId,
             generation,
             previousHash: observed.contentHash,
@@ -473,7 +473,7 @@ function createStore(
  * @responsibility Runtime 所有 Windows Project Decision Storeの開始条件、所有Resource、開始失敗境界を所有する。
  * @trace ARCH-000004
  * @input options: Readonly<{ developmentContext?: object; initializeIfMissing?: boolean; }>
- * @returns | Readonly<{ status: "completed"; store: OrchestratorDecisionStore; principalId: string; }> | Readonly<{ status: "blocked"; store: null; principalId: null }>を返す。
+ * @returns | Readonly<{ status: "completed"; store: CoordinatorDecisionStore; principalId: string; }> | Readonly<{ status: "blocked"; store: null; principalId: null }>を返す。
  * @precondition 「options: Readonly<{ developmentContext?: object; initializeIfMissing?: boolean; }>」がopenRuntimeOwnedWindowsProjectDecisionStoreの入力契約を満たす。
  * @postcondition openRuntimeOwnedWindowsProjectDecisionStoreの責務を完了した結果だけを返す。
  * @effect N/A: openRuntimeOwnedWindowsProjectDecisionStoreは入力と局所値だけを扱い、外部または共有Effectを発行しない。
@@ -491,7 +491,7 @@ export function openRuntimeOwnedWindowsProjectDecisionStore(
 ):
   | Readonly<{
       status: "completed";
-      store: OrchestratorDecisionStore;
+      store: CoordinatorDecisionStore;
       principalId: string;
     }>
   | Readonly<{ status: "blocked"; store: null; principalId: null }> {
@@ -514,22 +514,22 @@ export function openRuntimeOwnedWindowsProjectDecisionStore(
 }
 
 /**
- * Orchestrator Windows Decision Store Testing Adapterを構築する。
+ * Coordinator Windows Decision Store Testing Adapterを構築する。
  *
- * @responsibility Orchestrator Windows Decision Store Testing Adapterの構築入力、生成結果、不正入力の拒否境界を所有する。
+ * @responsibility Coordinator Windows Decision Store Testing Adapterの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000004
  * @input directory: string
- * @returns createOrchestratorWindowsDecisionStoreTestingAdapterの計算結果を返す。
- * @precondition 「directory: string」がcreateOrchestratorWindowsDecisionStoreTestingAdapterの入力契約を満たす。
- * @postcondition createOrchestratorWindowsDecisionStoreTestingAdapterの責務を完了した結果だけを返す。
- * @effect createOrchestratorWindowsDecisionStoreTestingAdapterはFilesystemの読取りまたは書込みを実行する。
- * @failure createOrchestratorWindowsDecisionStoreTestingAdapterは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant createOrchestratorWindowsDecisionStoreTestingAdapterは宣言した境界以外へEffectを拡張しない。
+ * @returns createCoordinatorWindowsDecisionStoreTestingAdapterの計算結果を返す。
+ * @precondition 「directory: string」がcreateCoordinatorWindowsDecisionStoreTestingAdapterの入力契約を満たす。
+ * @postcondition createCoordinatorWindowsDecisionStoreTestingAdapterの責務を完了した結果だけを返す。
+ * @effect createCoordinatorWindowsDecisionStoreTestingAdapterはFilesystemの読取りまたは書込みを実行する。
+ * @failure createCoordinatorWindowsDecisionStoreTestingAdapterは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant createCoordinatorWindowsDecisionStoreTestingAdapterは宣言した境界以外へEffectを拡張しない。
  * @boundary FilesystemとProcess内Domain処理の境界。
- * @security createOrchestratorWindowsDecisionStoreTestingAdapterはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: createOrchestratorWindowsDecisionStoreTestingAdapterは共有非同期状態を持たない同期処理である。
+ * @security createCoordinatorWindowsDecisionStoreTestingAdapterはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: createCoordinatorWindowsDecisionStoreTestingAdapterは共有非同期状態を持たない同期処理である。
  */
-export function createOrchestratorWindowsDecisionStoreTestingAdapter(
+export function createCoordinatorWindowsDecisionStoreTestingAdapter(
   directory: string,
 ) {
   const resolved = fs.realpathSync.native(directory);
@@ -551,24 +551,24 @@ export function createOrchestratorWindowsDecisionStoreTestingAdapter(
 }
 
 /**
- * Orchestrator Windows Decision Store 契約の公開契約を記述する。
+ * Coordinator Windows Decision Store 契約の公開契約を記述する。
  *
- * @responsibility Orchestrator Windows Decision Store 契約の公開field、非公開境界、互換性を所有する。
+ * @responsibility Coordinator Windows Decision Store 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000004
  * @input N/A: 実行時引数を受け取らない。
- * @returns describeOrchestratorWindowsDecisionStoreContractの計算結果を返す。
- * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeOrchestratorWindowsDecisionStoreContractの入力契約を満たす。
- * @postcondition describeOrchestratorWindowsDecisionStoreContractの責務を完了した結果だけを返す。
- * @effect N/A: describeOrchestratorWindowsDecisionStoreContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: describeOrchestratorWindowsDecisionStoreContractは独自の失敗分岐を所有しない。
- * @invariant describeOrchestratorWindowsDecisionStoreContractは入力から導いた結果以外の共有状態を変更しない。
+ * @returns describeCoordinatorWindowsDecisionStoreContractの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeCoordinatorWindowsDecisionStoreContractの入力契約を満たす。
+ * @postcondition describeCoordinatorWindowsDecisionStoreContractの責務を完了した結果だけを返す。
+ * @effect N/A: describeCoordinatorWindowsDecisionStoreContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describeCoordinatorWindowsDecisionStoreContractは独自の失敗分岐を所有しない。
+ * @invariant describeCoordinatorWindowsDecisionStoreContractは入力から導いた結果以外の共有状態を変更しない。
  * @boundary FilesystemとProcess内Domain処理の境界。
- * @security describeOrchestratorWindowsDecisionStoreContractはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: describeOrchestratorWindowsDecisionStoreContractは共有非同期状態を持たない同期処理である。
+ * @security describeCoordinatorWindowsDecisionStoreContractはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: describeCoordinatorWindowsDecisionStoreContractは共有非同期状態を持たない同期処理である。
  */
-export function describeOrchestratorWindowsDecisionStoreContract() {
+export function describeCoordinatorWindowsDecisionStoreContract() {
   return Object.freeze({
-    contract: ORCHESTRATOR_WINDOWS_DECISION_STORE_CONTRACT,
+    contract: COORDINATOR_WINDOWS_DECISION_STORE_CONTRACT,
     root: "runtime_owned_os_managed_protected_runtime_state",
     mutation: "immutable_generation_chain_under_kernel_lock",
     rawCapabilityPersisted: false,

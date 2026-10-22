@@ -13,7 +13,7 @@ import test from "node:test";
 import {
   getMcpExecutionStatusToolDefinitions,
   MCP_EXECUTION_STATUS_TOOL,
-  MCP_ORCHESTRATOR_PROTOCOL_VERSION,
+  MCP_COORDINATOR_PROTOCOL_VERSION,
 } from "../../src/index.ts";
 
 /**
@@ -25,7 +25,7 @@ import {
  * @observation 公開名、旧名拒否、Reader呼出し数と新名の結果を観測する。
  * @oracle 新名だけを公開し、旧名は-32601かつReader零回、新名は一回呼ぶ。
  * @cleanup N/A: 永続状態・外部資源を生成しない。
- * @boundary MCP公開名とOrchestrator Readerの境界。
+ * @boundary MCP公開名とCoordinator Readerの境界。
  */
 test("実行状況MCPは新Tool名だけを公開・受付する", async () => {
   assert.equal(MCP_EXECUTION_STATUS_TOOL, "crdd.get_execution_status");
@@ -68,7 +68,7 @@ test("実行状況MCPは新Tool名だけを公開・受付する", async () => {
       arguments: { projectId: "PRJ-MCP" },
       _meta: {
         "io.modelcontextprotocol/protocolVersion":
-          MCP_ORCHESTRATOR_PROTOCOL_VERSION,
+          MCP_COORDINATOR_PROTOCOL_VERSION,
         "io.modelcontextprotocol/clientCapabilities": {},
       },
     },
@@ -125,7 +125,7 @@ test("Runtime活動MCPは開始済みReaderをjoinしてから取消を返す", 
       arguments: { projectId: "PRJ-MCP" },
       _meta: {
         "io.modelcontextprotocol/protocolVersion":
-          MCP_ORCHESTRATOR_PROTOCOL_VERSION,
+          MCP_COORDINATOR_PROTOCOL_VERSION,
         "io.modelcontextprotocol/clientCapabilities": {},
       },
     },

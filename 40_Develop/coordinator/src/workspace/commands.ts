@@ -25,10 +25,10 @@ import {
   snapshotPlainRecord,
   snapshotPlainArray,
 } from "../input/plain-data-snapshot.ts";
-import { deriveOrchestratorRepositoryBindingId } from "../state/binding.ts";
-import { readOrchestratorSnapshot } from "../storage/current-state.ts";
-import { manageOrchestratorWorkspace } from "./operations.ts";
-import type { OrchestratorWorkspace } from "./record.ts";
+import { deriveCoordinatorRepositoryBindingId } from "../state/binding.ts";
+import { readCoordinatorSnapshot } from "../storage/current-state.ts";
+import { manageCoordinatorWorkspace } from "./operations.ts";
+import type { CoordinatorWorkspace } from "./record.ts";
 import { containsRecognizedSecretText } from "../execution/secret-validation.ts";
 
 /**
@@ -313,11 +313,11 @@ export function inspectWorkspaceCommand(
  * @effect N/A: 値投影。
  * @failure N/A: 型検査済み入力。
  * @invariant 未実施・不明を成功にしない。
- * @boundary Orchestrator→Surface。
+ * @boundary Coordinator→Surface。
  * @security 本文・資格を複製しない。
  * @concurrency 取得した一Snapshotだけを投影する。
  */
-function workspaceView(record: OrchestratorWorkspace) {
+function workspaceView(record: CoordinatorWorkspace) {
   const c = record.candidate;
   return {
     workspaceId: record.workspaceId,
@@ -381,7 +381,7 @@ export type WorkspaceView = ReturnType<typeof workspaceView>;
  * @effect N/A: 値検査のみ。
  * @failure 検出時は呼出し元が固定拒否へ閉じる。
  * @invariant 検査成功は未知秘密不存在の保証ではない。
- * @boundary 公開前のOrchestrator投影。
+ * @boundary 公開前のCoordinator投影。
  * @security patchは元値とhunkの検査用本文を両方確認する。
  * @concurrency N/A: 局所値のみ。
  */
@@ -415,7 +415,7 @@ function containsWorkspaceOutputSecret(value: unknown): boolean {
  * @effect 読取り又は明示された既存Git／Snapshot操作。
  * @failure 不明・不一致は固定理由で停止。発行後取消はrollbackしない。
  * @invariant 新State・Lock・自動再送なし。
- * @boundary Surface→Orchestrator→VC。
+ * @boundary Surface→Coordinator→VC。
  * @security 保存BindingとHost Pathを返さない。
  * @concurrency 同期Ownerの終了を待ち、操作内でも現在許可を再検査する。
  */
@@ -439,8 +439,8 @@ export function executeWorkspaceCommand(
     resolveVerifiedRepositoryRoot(root.capability) !== ownerRoot
   )
     throw new Error("workspace_access_unavailable");
-  const binding = deriveOrchestratorRepositoryBindingId(ownerRoot);
-  const snapshot = readOrchestratorSnapshot(ownerRoot, binding);
+  const binding = deriveCoordinatorRepositoryBindingId(ownerRoot);
+  const snapshot = readCoordinatorSnapshot(ownerRoot, binding);
   if (snapshot.status !== "completed" || !snapshot.value)
     throw new Error("workspace_state_unavailable");
   const current = snapshot.value;
@@ -502,7 +502,7 @@ export function executeWorkspaceCommand(
           ? workspaceView(
               current.workspaces.find(
                 (w) => w.workspaceId === q.workspaceId,
-              ) as OrchestratorWorkspace,
+              ) as CoordinatorWorkspace,
             )
           : null,
       })),
@@ -579,7 +579,7 @@ export function executeWorkspaceCommand(
           };
   } else {
     const { operation, ...input } = command;
-    const result = manageOrchestratorWorkspace({
+    const result = manageCoordinatorWorkspace({
       ...input,
       operation: operation === "select" ? "observe" : operation,
       ...(operation === "create" && command.name === null
@@ -600,7 +600,7 @@ export function executeWorkspaceCommand(
       ownerRepositoryRoot: ownerRoot,
       repositoryBindingId: binding,
       authorize: allowed,
-    } as Parameters<typeof manageOrchestratorWorkspace>[0]);
+    } as Parameters<typeof manageCoordinatorWorkspace>[0]);
     data = {
       status: result.status,
       reason: result.reason,

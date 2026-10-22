@@ -134,9 +134,9 @@ const preEffectRejectionSet: ReadonlySet<string> = new Set(
 );
 
 /**
- * task-attempt-runtimeで使用するOrchestrator Single Task Dependenciesの値契約を定義する。
+ * task-attempt-runtimeで使用するCoordinator Single Task Dependenciesの値契約を定義する。
  *
- * @responsibility Orchestrator Single Task DependenciesのProperty、Identity、状態制約を型境界として所有する。
+ * @responsibility Coordinator Single Task DependenciesのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
  * @shape CoordinatorTaskDependenciesが表すProperty、識別子およびRelationを型として固定する。
  * @invariant CoordinatorTaskDependenciesで宣言した値と責務の対応を維持する。
@@ -590,7 +590,7 @@ const SETTLED_RUNTIME_CANCELLATION_REASONS = new Set([
 /**
  * 一つのTask試行を開始し、完了と取消を同じ制御参照へ接続する。
  *
- * @responsibility Orchestrator Single Task Attemptの実行条件、Effect範囲、終了結果の境界を所有する。
+ * @responsibility Coordinator Single Task Attemptの実行条件、Effect範囲、終了結果の境界を所有する。
  * @trace ARCH-000004
  * @input dependencies: CoordinatorTaskDependencies、input: CoordinatorTaskAttemptInput
  * @returns Promise<CoordinatorTaskAttemptResult>を返す。

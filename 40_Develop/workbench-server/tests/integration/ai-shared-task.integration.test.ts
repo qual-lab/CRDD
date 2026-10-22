@@ -471,7 +471,7 @@ test("共有Task入口は主体とRepositoryを分離し毎要求の認可を使
  * @observation 実HTTPの応答・表示Snapshotと呼出し件数。
  * @oracle 新規開始0、元ID一致、別IDへの処置0。
  * @cleanup 両Serverをcloseしてlistenerをjoinする。
- * @boundary 単体HTTPから既存Task Owner。永続WriterはOrchestrator試験が所有する。
+ * @boundary 単体HTTPから既存Task Owner。永続WriterはCoordinator試験が所有する。
  */
 test("単体Task入口は再構成後の元IDを観測・取消へ接続する", async (t) => {
   let cancels = 0;

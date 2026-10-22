@@ -18,11 +18,11 @@ import {
   handleMcpProjectContextRequest,
   MCP_PROJECT_CONTEXT_GET_TOOL,
   MCP_PROJECT_CONTEXT_LIST_TOOL,
-  MCP_ORCHESTRATOR_PROTOCOL_VERSION,
+  MCP_COORDINATOR_PROTOCOL_VERSION,
 } from "../../src/index.ts";
 
 const META = Object.freeze({
-  "io.modelcontextprotocol/protocolVersion": MCP_ORCHESTRATOR_PROTOCOL_VERSION,
+  "io.modelcontextprotocol/protocolVersion": MCP_COORDINATOR_PROTOCOL_VERSION,
   "io.modelcontextprotocol/clientCapabilities": Object.freeze({}),
 });
 
@@ -204,7 +204,7 @@ test("Project Context MCP lists only the supplied portfolio", async () => {
  * @precondition Runtime依存はTool一覧では呼び出されない。
  * @stimulus tools/listを合成Adapterへ渡す。
  * @observation 公開Tool名を取得する。
- * @oracle Project Context二ToolとOrchestrator三Toolが一度ずつ存在する。
+ * @oracle Project Context二ToolとCoordinator三Toolが一度ずつ存在する。
  * @cleanup N/A: 外部資源を作成しない。
  * @boundary PPR-UT-006=Direct Boundary: mcp Test Source→対象契約
  */

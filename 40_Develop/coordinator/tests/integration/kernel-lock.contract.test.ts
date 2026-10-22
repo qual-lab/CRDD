@@ -22,7 +22,7 @@ import {
   acquireRuntimeOwnedHostOperationSupervisorLock,
   acquireRuntimeOwnedInteractiveConsoleKernelLockOutcome,
   acquireRuntimeOwnedLogicalProviderHomeKernelLock,
-  acquireRuntimeOwnedOrchestratorStateKernelLock,
+  acquireRuntimeOwnedProjectStateKernelLock,
   describeKernelLockContract,
   prepareHostOperationSupervisorLockRequest,
 } from "../../src/execution/kernel-lock.ts";
@@ -55,7 +55,7 @@ test("Host Windows: Coordinator Snapshot排他はRootとOwnerを分離し解放�
   const other = acquireRuntimeOwnedCoordinatorStateKernelLock(
     randomBytes(32).toString("hex"),
   );
-  const project = acquireRuntimeOwnedOrchestratorStateKernelLock(hash);
+  const project = acquireRuntimeOwnedProjectStateKernelLock(hash);
   try {
     assert.equal(first.assertLive(), true);
     assert.equal(acquireRuntimeOwnedCoordinatorStateKernelLock(hash), null);

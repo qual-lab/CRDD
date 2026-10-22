@@ -5,8 +5,8 @@
  * @trace ARCH-000005
  */
 import { createHash } from "node:crypto";
-import { ORCHESTRATOR_INTEGRATION_CONTRACT } from "./result-record.ts";
-import type { OrchestratorResultRecord } from "./result-record.ts";
+import { COORDINATOR_INTEGRATION_CONTRACT } from "./result-record.ts";
+import type { CoordinatorResultRecord } from "./result-record.ts";
 
 const RECORD_IDENTITY = /^[A-Za-z0-9][A-Za-z0-9._-]{0,511}$/u;
 const BINDING_IDENTITY = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,511}$/u;
@@ -26,9 +26,9 @@ const BINDING_IDENTITY = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,511}$/u;
  * @security Authorityを生成しない。
  * @concurrency N/A: 同期の純粋検証。
  */
-export function validOrchestratorResultRecord(
+export function validCoordinatorResultRecord(
   value: unknown,
-): value is OrchestratorResultRecord {
+): value is CoordinatorResultRecord {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const record = value as Record<string, unknown>;
   return (
@@ -46,7 +46,7 @@ export function validOrchestratorResultRecord(
           "value",
         ].sort(),
       ) &&
-    record.contract === ORCHESTRATOR_INTEGRATION_CONTRACT &&
+    record.contract === COORDINATOR_INTEGRATION_CONTRACT &&
     (record.kind === "integration" || record.kind === "adoption") &&
     typeof record.identity === "string" &&
     RECORD_IDENTITY.test(record.identity) &&

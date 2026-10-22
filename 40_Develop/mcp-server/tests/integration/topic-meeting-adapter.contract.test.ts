@@ -36,7 +36,7 @@ import {
   MCP_MEETING_CREATE_TOOL,
   MCP_MEETING_TREAT_OUTCOME_TOOL,
   MCP_MEETING_UPDATE_TOOL,
-  MCP_ORCHESTRATOR_PROTOCOL_VERSION,
+  MCP_COORDINATOR_PROTOCOL_VERSION,
   MCP_TOPIC_CREATE_TOOL,
   MCP_TOPIC_GET_TOOL,
   MCP_TOPIC_LIST_TOOL,
@@ -46,7 +46,7 @@ import {
 } from "../../src/index.ts";
 
 const META = Object.freeze({
-  "io.modelcontextprotocol/protocolVersion": MCP_ORCHESTRATOR_PROTOCOL_VERSION,
+  "io.modelcontextprotocol/protocolVersion": MCP_COORDINATOR_PROTOCOL_VERSION,
   "io.modelcontextprotocol/clientCapabilities": Object.freeze({}),
 });
 

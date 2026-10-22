@@ -1,6 +1,6 @@
 # CRDD参照Toolのアーキテクチャ
 
-2026-10-17のWorkspace再編は[作業領域と実行基盤の責務設計](Details/orchestrator/03_Workspace.md)を横断契約とする。Direct／Isolated、Repository所有、通常AI実行のOrchestrator経由、Coordinatorの単発実行への縮小を目標へ反映した。基準実装と未決事項を分け、Source・公開Schema・移行・新方式検証は未完了。以下の基準版Readyは本変更へ継承しない。
+2026-10-17のWorkspace再編は[作業領域と実行基盤の責務設計](Details/orchestrator/03_Workspace.md)を横断契約とする。2026-10-22の物理統合後は単一Coordinator内で、Task／Objectiveが仕事を進行し、Executionが単発AIを実行する。Direct／IsolatedとRepository所有の境界を維持する。以下の二Package図と基準版Readyは統合前の比較対象であり、現行構成又は新版の品質根拠として扱わない。保存統合・実境界・全体QAは未完了である。
 
 Status: Candidate (v0.22.0, 責務再編の基本設計を更新中)
 Owner: Qual-Lab
@@ -53,7 +53,7 @@ REQ、UXおよびIAは由来確認に限って参照する。現行Architecture�
 | [機械検査と文書検査](Definitions/ARCH-000001/architecture_definition.md) | 決定論的なRepository検査、文書構造検査、意味レビューへの案内 | UI-000001、UI-000018 | SPEC-000001、SPEC-000023 | Checker CoreとCRDD現行Profile |
 | [契約移行と利用側閉包](Definitions/ARCH-000002/architecture_definition.md) | 責務移動時のProducer、Consumer、派生物、署名・Release経路の閉包 | UI-000014 | SPEC-000019 | 変更影響分析とConsumer Closure契約 |
 | [変更・監査・試験・品質の閉包](Definitions/ARCH-000003/architecture_definition.md) | 同じ改訂版に対する指摘、是正、Evidence、未確認範囲、現在Gateの統合 | UI-000015 | SPEC-000020 | Quality Centerと変更追跡 |
-| [Project実行](Definitions/ARCH-000004/architecture_definition.md) | Objective／Task受付、Project状態、判断待ち、取消、Recovery、再入場、結果 | UI-000002、UI-000003、UI-000012 | SPEC-000002、SPEC-000003、SPEC-000004、SPEC-000005、SPEC-000017、SPEC-000028、SPEC-000029 | Orchestrator |
+| [Project実行](Definitions/ARCH-000004/architecture_definition.md) | Objective／Task受付、Project状態、判断待ち、取消、Recovery、再入場、結果 | UI-000002、UI-000003、UI-000012 | SPEC-000002、SPEC-000003、SPEC-000004、SPEC-000005、SPEC-000017、SPEC-000028、SPEC-000029 | Coordinator内Task／Objective |
 | [Project・Portfolio状態投影と受入判断記録](Definitions/ARCH-000005/architecture_definition.md) | Project Contextを含むProject／Milestone／Objective／Task状態と複数Project比較の読取り投影、およびObjective／Milestoneの受入・差戻し・判断待ちの限定記録 | UI-000004、UI-000007 | SPEC-000002、SPEC-000006、SPEC-000007、SPEC-000011 | Project Management Projection／Objective・Milestone Acceptance Decision Record |
 | [Topic・Meeting Lifecycleと正本への引渡し](Definitions/ARCH-000006/architecture_definition.md) | Topic／Meetingの日常操作、Outcome処置、Action移管、Relation整合および安全な削除を成立させる | UI-000009 | SPEC-000013 | Project Operation Context |
 | [実行事実と評価候補の取得](Definitions/ARCH-000007/architecture_definition.md) | 実行記録の解決、欠測を保つ読取り集約、非Authority評価候補 | UI-000005 | SPEC-000008 | 実行記録読取りProjection |
@@ -78,8 +78,8 @@ REQ、UXおよびIAは由来確認に限って参照する。現行Architecture�
 | ARCH-000001 | Checker | 機械確認から意味採否・独立レビューを生成しない。 |
 | ARCH-000002 | 移行手順と各Consumer Owner | 全利用側・配布・署名経路を処置する。旧形式の移行はFront AIへ渡す。 |
 | ARCH-000003 | Quality／変更追跡と検証Runner | 試験登録と実行集合の一致を確認し、部分Passを全体Readyとしない。 |
-| ARCH-000004 | Orchestrator → Coordinator → AI Adapter | 上位Task、単一実行・資源、AI固有差を分離する。 |
-| ARCH-000005 | Domain Modelの読取り投影、Orchestratorの限定受入判断 | 読取りから書込みAuthorityを生成しない。 |
+| ARCH-000004 | Coordinator内のTask／Objective → Execution → AI Adapter | 仕事の進行、単発実行、AI固有差を分離する。隔離・資源回収の技術処置はDocker Isolationが所有する。 |
+| ARCH-000005 | Domain Modelの読取り投影、Coordinator内のObjective／Milestone Acceptance Decision Recordによる限定受入判断 | 読取りから書込みAuthorityを生成しない。 |
 | ARCH-000006 | Domain ModelのTopic／Meeting API | 業務状態と人間の採否を共通保存へ吸収しない。 |
 | ARCH-000007 | Execution Intelligence Reader | 観測・欠測と評価候補を分ける。 |
 | ARCH-000008 | Coordinator診断、AI Adapter分類、Platform AccessのOS保証 | 診断から修復Authorityを発行しない。 |
@@ -89,10 +89,10 @@ REQ、UXおよびIAは由来確認に限って参照する。現行Architecture�
 | ARCH-000012 | MCP Server、運用CLI、Workbench表示API | 入力意味を保持し、SPEC-000011のlocalhost範囲を無断拡張しない。 |
 | ARCH-000013 | Access Management、Domain Model、MCP／Workbench利用側 | 初回Host設定の状態・非秘密元試行相関・個別事実はAccess Managementが所有し、Host明示操作で開始する。Workbenchは案内のみ、MCPは初期化・状態照会とも非公開。通常Host回復は交換2操作だけで初回と分離する。Domain Modelは認可済みContext集約・中立部品だけを担当する。基本設計・AM詳細の前回限定Passは履歴。旧横断・Surface限定レビューは当時の固定版の履歴。今回の最小鍵提示候補は限定再レビュー済み（最小鍵提示方式の伝播差分、全重大度0）で、具体API・物理保存・本番公開入口・Sourceは未接続。 |
 | ARCH-000014 | 各実行境界の独立評価とArtifact Signing | 独立評価軸を保持する。汎用Trust Policy Frameworkは今回採用しない。 |
-| ARCH-000015 | Coordinatorの候補本体、Orchestratorの採用、AI Adapterの搬送差 | 同意・送信・受領・採用のAuthorityを相互流用しない。 |
+| ARCH-000015 | Coordinator内Executionの候補本体、Task／Objectiveの採用、AI Adapterの搬送差 | 同意・送信・受領・採用のAuthorityを相互流用しない。 |
 | ARCH-000016 | Domain ModelのContext／Artifact由来解決 | 履歴から現在方針を自動採用しない。 |
 | ARCH-000017 | 公式素材管理と利用側 | 権利・用途・対象版の根拠を維持する。 |
-| ARCH-000018 | Execution Intelligence Writer、Coordinator／Orchestratorの観測作成 | Event不変性と通常履歴の保持期間を区別する。 |
+| ARCH-000018 | Execution Intelligence Writer、Coordinator内Execution／Taskの観測作成 | Event不変性と通常履歴の保持期間を区別する。 |
 
 Workbench ServerとMCP Serverを二つの公開Serverとし、Browser向けRESTは維持する。独立CROS REST／Gateway／Shared Server Runtimeは能力・認可・終了保証を新Ownerへ移管してから撤去する。Linux等のShared利用は配置形態であり、今回新しいDeploy／Backup製品を追加しない。
 
@@ -151,7 +151,7 @@ ARCH-IDは全体の基本設計Identityであり、詳細設計領域のIdentity
 
 ## 6. 保持する意図と対象外
 
-- OrchestratorはProject-levelの意味と状態を所有し、Provider選定、Transport、OS操作を所有しない。
+- Coordinator内Task／ObjectiveはProject-levelの意味と状態を所有し、Provider選定、Transport、OS操作を所有しない。
 - Transport、Execution編成、観測、Platform、Trust、Qualityを独立責務として保つ。
 - Workbenchは正本を複製せず、同じApplication Contractを使う薄い操作面とする。
 - Sourceや既存DirectoryからCanonical Componentを逆算しない。

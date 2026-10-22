@@ -14,7 +14,7 @@ import {
 } from "../../../platform-access/src/index.ts";
 
 /**
- * Orchestrator保存用の専用OS排他を取得する。
+ * Coordinator保存用の専用OS排他を取得する。
  *
  * @responsibility 他のRuntime排他から分離した名前空間を所有する。
  * @trace ARCH-000004
@@ -29,7 +29,7 @@ import {
  * @security Hash自体をRepository実体やAuthorityとみなさない。
  * @concurrency 同じRootのWriterを排除し、保持中はassertLiveで確認する。
  */
-export function acquireRuntimeOwnedOrchestratorStateKernelLock(
+export function acquireRuntimeOwnedProjectStateKernelLock(
   repositoryRootHash: unknown,
 ) {
   if (
@@ -44,7 +44,7 @@ export function acquireRuntimeOwnedOrchestratorStateKernelLock(
     .digest("hex")
     .slice(0, 32);
   return acquireNamedPipeKernelLock(
-    `\\\\.\\pipe\\CRDD.Coordinator.OrchestratorState.${identity}`,
+    `\\\\.\\pipe\\CRDD.Coordinator.CoordinatorState.${identity}`,
   );
 }
 

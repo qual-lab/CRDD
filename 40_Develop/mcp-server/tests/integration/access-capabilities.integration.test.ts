@@ -57,18 +57,18 @@ import {
   writeExecutionIntelligenceEvent,
 } from "../../../execution-intelligence/src/index.ts";
 import {
-  createOrchestratorState,
+  createCoordinatorState,
   executeWorkspaceCommand,
-  initializeOrchestratorSnapshot,
+  initializeCoordinatorSnapshot,
 } from "../../../coordinator/src/index.ts";
-import { writeOrchestratorSnapshotState } from "../../../coordinator/src/storage/current-state.ts";
+import { writeCoordinatorSnapshotState } from "../../../coordinator/src/storage/current-state.ts";
 import { prepareWorkspaceSurface } from "../../../coordinator/tests/fixtures/workspace-surface.ts";
 import { startWorkbench } from "../../../workbench-server/src/index.ts";
 import {
   createAccessMcpResolver,
   MCP_AI_PROFILE_TOOLS,
   MCP_CURRENT_ACCESS_TOOL,
-  MCP_ORCHESTRATOR_PROTOCOL_VERSION,
+  MCP_COORDINATOR_PROTOCOL_VERSION,
   MCP_PROJECT_CONTEXT_GET_TOOL,
   MCP_PROJECT_CONTEXT_LIST_TOOL,
   MCP_EXECUTION_STATUS_TOOL,
@@ -704,7 +704,7 @@ test("非鍵管理MCPは保存後のClient切断を取消として観測する",
         accept: "application/json, text/event-stream",
         "content-type": "application/json",
         "content-length": Buffer.byteLength(body),
-        "mcp-protocol-version": MCP_ORCHESTRATOR_PROTOCOL_VERSION,
+        "mcp-protocol-version": MCP_COORDINATOR_PROTOCOL_VERSION,
         "mcp-method": "tools/call",
         "mcp-name": "crdd.update_user_name",
       },
@@ -940,7 +940,7 @@ test("AM Profile MCPは現在Roleの四操作と非開示を実保存へ接続�
  * @observation 実HTTP応答、全Sourceと実Git改訂、現在Owner、状態・履歴の値と非秘密結果。
  * @oracle 不存在はabsent、Aの状態とBの履歴を同時搬送し、A解除後はB履歴だけ保持、空認可はunavailable、失効は401である。
  * @cleanup Listener終了後にFixture所有Rootを回収する。
- * @boundary 実HTTP→現在AM認可→実Orchestrator保存Reader。
+ * @boundary 実HTTP→現在AM認可→実Coordinator保存Reader。
  */
 test("AM活動MCPは実保存観測と現在Exposure・失効を接続する", async (t) => {
   const f = fixture(t);
@@ -1002,10 +1002,10 @@ test("AM活動MCPは実保存観測と現在Exposure・失効を接続する", a
     assert.ok(a && b && sourceA);
     const binding = `binding-${createHash("sha256").update(a.target).digest("hex").slice(0, 40)}`;
     assert.equal(
-      initializeOrchestratorSnapshot(a.target, binding).status,
+      initializeCoordinatorSnapshot(a.target, binding).status,
       "completed",
     );
-    const saved = createOrchestratorState({
+    const saved = createCoordinatorState({
       projectId: "project.fixture",
       milestoneId: "milestone.fixture",
       repositoryRevision: sourceA.revision,
@@ -1027,7 +1027,7 @@ test("AM活動MCPは実保存観測と現在Exposure・失効を接続する", a
     });
     assert.ok(saved.state);
     assert.equal(
-      writeOrchestratorSnapshotState(
+      writeCoordinatorSnapshotState(
         a.target,
         binding,
         JSON.stringify(saved.state),
@@ -1837,7 +1837,7 @@ function packet(
           : { projectId: "project.fixture" }),
       _meta: {
         "io.modelcontextprotocol/protocolVersion":
-          MCP_ORCHESTRATOR_PROTOCOL_VERSION,
+          MCP_COORDINATOR_PROTOCOL_VERSION,
         "io.modelcontextprotocol/clientCapabilities": {},
       },
     },
@@ -1872,7 +1872,7 @@ function call(
       authorization: `Bearer ${token}`,
       accept: "application/json, text/event-stream",
       "content-type": "application/json",
-      "mcp-protocol-version": MCP_ORCHESTRATOR_PROTOCOL_VERSION,
+      "mcp-protocol-version": MCP_COORDINATOR_PROTOCOL_VERSION,
       "mcp-method": "tools/call",
       "mcp-name": tool,
     },
@@ -2019,7 +2019,7 @@ test("AM内容MCPの全12操作は指定Repositoryの実保存へ到達する", 
         authorization: `Bearer ${f.token}`,
         accept: "application/json, text/event-stream",
         "content-type": "application/json",
-        "mcp-protocol-version": MCP_ORCHESTRATOR_PROTOCOL_VERSION,
+        "mcp-protocol-version": MCP_COORDINATOR_PROTOCOL_VERSION,
         "mcp-method": "tools/list",
       },
       body: JSON.stringify({
@@ -2770,7 +2770,7 @@ test("本文待機中のExposure解除と失効は内容Callへ反映", {
               authorization: `Bearer ${f.token}`,
               accept: "application/json, text/event-stream",
               "content-type": "application/json",
-              "mcp-protocol-version": MCP_ORCHESTRATOR_PROTOCOL_VERSION,
+              "mcp-protocol-version": MCP_COORDINATOR_PROTOCOL_VERSION,
               "mcp-method": "tools/call",
               "mcp-name": tool,
             },

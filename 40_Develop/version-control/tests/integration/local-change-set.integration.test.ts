@@ -7,7 +7,7 @@
  * @trace RFD-IT-008
  * @level IT
  * @scope version-control、change-set、regression
- * @boundary RFD-IT-005=Direct Boundary: Orchestrator Port→Version Control Adapter / RFD-IT-008=Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
+ * @boundary RFD-IT-005=Direct Boundary: Coordinator Port→Version Control Adapter / RFD-IT-008=Direct Boundary: Version Control Port→working tree・revision Observer→単一Snapshot
  */
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";

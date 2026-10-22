@@ -64,7 +64,7 @@ try {
   // MCPをmock登録前にimportしてはいけない。未適用は呼出し数で必ず失敗する。
   const {
     createAccessMcpResolver,
-    MCP_ORCHESTRATOR_PROTOCOL_VERSION,
+    MCP_COORDINATOR_PROTOCOL_VERSION,
     MCP_CURRENT_ACCESS_TOOL,
   } = await import("../../src/index.ts");
   const { invokeMcpSource } = await import("./sdk-request.ts");
@@ -82,7 +82,7 @@ try {
       arguments: { operationId, expectedRevision: 7, userId, username: "test" },
       _meta: {
         "io.modelcontextprotocol/protocolVersion":
-          MCP_ORCHESTRATOR_PROTOCOL_VERSION,
+          MCP_COORDINATOR_PROTOCOL_VERSION,
         "io.modelcontextprotocol/clientCapabilities": {},
       },
     },

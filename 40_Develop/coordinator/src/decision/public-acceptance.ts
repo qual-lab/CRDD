@@ -4,20 +4,20 @@
  * @trace ARCH-000004
  */
 import {
-  orchestratorDataBoundaryBlocked,
-  ORCHESTRATOR_PUBLIC_RUNTIME_CONTRACT,
+  coordinatorDataBoundaryBlocked,
+  COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
 } from "../operation-result-contract.ts";
-import { deriveOrchestratorRepositoryBindingId } from "../state/binding.ts";
+import { deriveCoordinatorRepositoryBindingId } from "../state/binding.ts";
 import { inspectRepositoryIdentityCandidate } from "../../../version-control/src/index.ts";
 import { RepositoryRuntimeDataAreaBlockedError } from "../../../domain-model/src/index.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
-import { createOrchestratorAcceptanceAuthorityAdapter } from "./authority-adapter.ts";
+import { createCoordinatorAcceptanceAuthorityAdapter } from "./authority-adapter.ts";
 import { workspacePlanReadyForAcceptance } from "../workspace/operations.ts";
-import { recordOrchestratorAcceptanceDecision } from "./record-acceptance.ts";
+import { recordCoordinatorAcceptanceDecision } from "./record-acceptance.ts";
 import {
-  createOrchestratorSnapshotAcceptanceDecisionStore as createOrchestratorAcceptanceDecisionStore,
-  createCurrentOrchestratorPersistencePorts as createOrchestratorPersistencePorts,
-  maintainOrchestratorSnapshot,
+  createCoordinatorSnapshotAcceptanceDecisionStore as createCoordinatorAcceptanceDecisionStore,
+  createCurrentCoordinatorPersistencePorts as createCoordinatorPersistencePorts,
+  maintainCoordinatorSnapshot,
 } from "../storage/current-state.ts";
 import { openRuntimeOwnedWindowsProjectDecisionStore } from "../storage/protected-decision.ts";
 
@@ -30,14 +30,14 @@ import { openRuntimeOwnedWindowsProjectDecisionStore } from "../storage/protecte
  * @returns Acceptance Decision Applicationの公開結果を返す。
  * @precondition 認証ContextはRuntime-owned認証境界で構築される。
  * @postcondition 成功時は一つのDecision Recordと必要な状態更新だけを確定する。
- * @effect Repository-local Acceptance Decision StoreとOrchestrator Stateだけを更新する。
+ * @effect Repository-local Acceptance Decision StoreとCoordinator Stateだけを更新する。
  * @failure Root、Revision、Principal、AuthorityまたはStoreを確認できない場合はEffectを拡張せず停止する。
  * @invariant Task作成、Provider EffectおよびProjection由来Authorityを発行しない。
- * @boundary 公開Transport→Orchestratorの受入判断→Repository-local Storeの境界。
+ * @boundary 公開Transport→Coordinatorの受入判断→Repository-local Storeの境界。
  * @security 認証Principalをexact比較し、非公開Store Pathや秘密値を結果へ含めない。
  * @concurrency State世代とDecision Recordの排他的世代作成で競合を拒否する。
  */
-export function executeOrchestratorPublicAcceptanceDecision(
+export function executeCoordinatorPublicAcceptanceDecision(
   authenticate: () =>
     | Readonly<{ status: "completed"; principalId: string }>
     | Readonly<{ status: "blocked"; principalId: null }>,
@@ -52,7 +52,7 @@ export function executeOrchestratorPublicAcceptanceDecision(
         resolveVerifiedRepositoryRootFromWorkingDirectory(workingDirectory);
     } catch {
       return Object.freeze({
-        contract: ORCHESTRATOR_PUBLIC_RUNTIME_CONTRACT,
+        contract: COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
         status: "blocked" as const,
         reason: "orchestrator_repository_root_not_verified",
         cleanupConfirmed: true,
@@ -81,7 +81,7 @@ export function executeOrchestratorPublicAcceptanceDecision(
           identity.commit === candidate.repositoryRevision) ||
         workspacePlanReadyForAcceptance(
           repositoryRoot,
-          deriveOrchestratorRepositoryBindingId(repositoryRoot),
+          deriveCoordinatorRepositoryBindingId(repositoryRoot),
           candidate.projectId,
           candidate.milestoneId,
           candidate.repositoryRevision,
@@ -90,7 +90,7 @@ export function executeOrchestratorPublicAcceptanceDecision(
       )
     )
       return Object.freeze({
-        contract: ORCHESTRATOR_PUBLIC_RUNTIME_CONTRACT,
+        contract: COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
         status: "blocked" as const,
         reason: "orchestrator_acceptance_revision_mismatch",
         cleanupConfirmed: true,
@@ -106,7 +106,7 @@ export function executeOrchestratorPublicAcceptanceDecision(
       typeof candidate.projectId !== "string"
     )
       return Object.freeze({
-        contract: ORCHESTRATOR_PUBLIC_RUNTIME_CONTRACT,
+        contract: COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
         status: "blocked" as const,
         reason: "orchestrator_authenticated_principal_not_verified",
         cleanupConfirmed: true,
@@ -114,17 +114,17 @@ export function executeOrchestratorPublicAcceptanceDecision(
         effectState: "no_effect" as const,
       });
     const repositoryBindingId =
-      deriveOrchestratorRepositoryBindingId(repositoryRoot);
-    const result = recordOrchestratorAcceptanceDecision(
+      deriveCoordinatorRepositoryBindingId(repositoryRoot);
+    const result = recordCoordinatorAcceptanceDecision(
       Object.freeze({
-        state: createOrchestratorPersistencePorts(
+        state: createCoordinatorPersistencePorts(
           repositoryRoot,
           repositoryBindingId,
         ).state,
-        authority: createOrchestratorAcceptanceAuthorityAdapter(
+        authority: createCoordinatorAcceptanceAuthorityAdapter(
           authenticated.principalId,
         ),
-        store: createOrchestratorAcceptanceDecisionStore(
+        store: createCoordinatorAcceptanceDecisionStore(
           repositoryRoot,
           repositoryBindingId,
         ),
@@ -132,7 +132,7 @@ export function executeOrchestratorPublicAcceptanceDecision(
       rawRequest,
     );
     if (result.status === "completed") {
-      const maintenance = maintainOrchestratorSnapshot(
+      const maintenance = maintainCoordinatorSnapshot(
         repositoryRoot,
         repositoryBindingId,
       );
@@ -148,9 +148,9 @@ export function executeOrchestratorPublicAcceptanceDecision(
     return result;
   } catch (error) {
     if (error instanceof RepositoryRuntimeDataAreaBlockedError)
-      return orchestratorDataBoundaryBlocked(error);
+      return coordinatorDataBoundaryBlocked(error);
     return Object.freeze({
-      contract: ORCHESTRATOR_PUBLIC_RUNTIME_CONTRACT,
+      contract: COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
       status: "blocked" as const,
       reason: "orchestrator_acceptance_boundary_unknown",
       cleanupConfirmed: false,
@@ -166,22 +166,22 @@ export function executeOrchestratorPublicAcceptanceDecision(
  * @responsibility Runtime-owned Principal観測を公開Acceptance Decision入口へ固定する。
  * @trace ARCH-000005
  * @input rawRequest: 未信頼要求、workingDirectory: Repository内Path、authenticationContext: 認証済みPrincipal。
- * @returns executeOrchestratorPublicAcceptanceDecisionの結果を返す。
+ * @returns executeCoordinatorPublicAcceptanceDecisionの結果を返す。
  * @precondition Runtime-owned Windows Decision StoreがLocal Principalを検証できる。
  * @postcondition Production入口は検証済みPrincipalだけをCoreへ渡す。
- * @effect Acceptance Decision Recordと必要なOrchestrator Stateだけを更新する。
+ * @effect Acceptance Decision Recordと必要なCoordinator Stateだけを更新する。
  * @failure 認証またはRuntime Data観測不能を理由付き停止へ変換する。
  * @invariant Test専用認証をProduction入口へ使用しない。
  * @boundary Local TransportとProduction Composition Rootの境界。
  * @security Store自体を公開せずPrincipal観測結果だけをAuthorityへ渡す。
  * @concurrency 下位Storeの世代制御を維持する。
  */
-export function runOrchestratorPublicAcceptanceDecision(
+export function runCoordinatorPublicAcceptanceDecision(
   rawRequest: unknown,
   workingDirectory = process.cwd(),
   authenticationContext?: Readonly<{ principalId: string }>,
 ) {
-  return executeOrchestratorPublicAcceptanceDecision(
+  return executeCoordinatorPublicAcceptanceDecision(
     () => {
       const observed = openRuntimeOwnedWindowsProjectDecisionStore();
       return observed.status === "completed"

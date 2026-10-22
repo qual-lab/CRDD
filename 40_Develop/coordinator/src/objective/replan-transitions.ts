@@ -6,7 +6,7 @@
 
 import {
   type ProjectTaskDefinition,
-  type OrchestratorState,
+  type CoordinatorState,
   type StateResult,
   snapshotDefinition,
   hasCycle,
@@ -17,21 +17,21 @@ import {
 /**
  * Replace only a failed task inside the already-authorized milestone scope.
  *
- * @responsibility Orchestrator Partial Replanの適用条件、変更結果、拒否境界を所有する。
+ * @responsibility Coordinator Partial Replanの適用条件、変更結果、拒否境界を所有する。
  * @trace ARCH-000004
- * @input state: OrchestratorState、expectedGeneration: number、input: Readonly<{ failedTaskId: string; replacements: readonly ProjectTaskDefinition[]; maximumReplans: number; }>
+ * @input state: CoordinatorState、expectedGeneration: number、input: Readonly<{ failedTaskId: string; replacements: readonly ProjectTaskDefinition[]; maximumReplans: number; }>
  * @returns StateResultを返す。
- * @precondition 「state: OrchestratorState、expectedGeneration: number、input: Readonly<{ failedTaskId: string; replacements: readonly ProjectTaskDefinition[]; maximumReplans: number; }>」がapplyOrchestratorPartialReplanの入力契約を満たす。
- * @postcondition applyOrchestratorPartialReplanの責務を完了した結果だけを返す。
- * @effect N/A: applyOrchestratorPartialReplanは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: applyOrchestratorPartialReplanは独自の失敗分岐を所有しない。
- * @invariant applyOrchestratorPartialReplanは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: applyOrchestratorPartialReplanはProcess内の同一Subsystemで完結する。
- * @security N/A: applyOrchestratorPartialReplanはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: applyOrchestratorPartialReplanは共有非同期状態を持たない同期処理である。
+ * @precondition 「state: CoordinatorState、expectedGeneration: number、input: Readonly<{ failedTaskId: string; replacements: readonly ProjectTaskDefinition[]; maximumReplans: number; }>」がapplyCoordinatorPartialReplanの入力契約を満たす。
+ * @postcondition applyCoordinatorPartialReplanの責務を完了した結果だけを返す。
+ * @effect N/A: applyCoordinatorPartialReplanは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: applyCoordinatorPartialReplanは独自の失敗分岐を所有しない。
+ * @invariant applyCoordinatorPartialReplanは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: applyCoordinatorPartialReplanはProcess内の同一Subsystemで完結する。
+ * @security N/A: applyCoordinatorPartialReplanはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: applyCoordinatorPartialReplanは共有非同期状態を持たない同期処理である。
  */
-export function applyOrchestratorPartialReplan(
-  state: OrchestratorState,
+export function applyCoordinatorPartialReplan(
+  state: CoordinatorState,
   expectedGeneration: number,
   input: Readonly<{
     failedTaskId: string;
@@ -166,21 +166,21 @@ export function applyOrchestratorPartialReplan(
 /**
  * Retry the same bounded task definition without reusing its prior attempt or
  *
- * @responsibility orchestrator-stateの入力からretry Orchestrator Taskを導く規則と結果境界を所有する。
+ * @responsibility stateの入力からretry Coordinator Taskを導く規則と結果境界を所有する。
  * @trace ARCH-000004
- * @input state: OrchestratorState、expectedGeneration: number、taskId: string、maximumReplans: number
+ * @input state: CoordinatorState、expectedGeneration: number、taskId: string、maximumReplans: number
  * @returns StateResultを返す。
- * @precondition 「state: OrchestratorState、expectedGeneration: number、taskId: string、maximumReplans: number」がretryOrchestratorTaskの入力契約を満たす。
- * @postcondition retryOrchestratorTaskの責務を完了した結果だけを返す。
- * @effect N/A: retryOrchestratorTaskは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: retryOrchestratorTaskは独自の失敗分岐を所有しない。
- * @invariant retryOrchestratorTaskは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: retryOrchestratorTaskはProcess内の同一Subsystemで完結する。
- * @security N/A: retryOrchestratorTaskはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: retryOrchestratorTaskは共有非同期状態を持たない同期処理である。
+ * @precondition 「state: CoordinatorState、expectedGeneration: number、taskId: string、maximumReplans: number」がretryCoordinatorTaskの入力契約を満たす。
+ * @postcondition retryCoordinatorTaskの責務を完了した結果だけを返す。
+ * @effect N/A: retryCoordinatorTaskは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: retryCoordinatorTaskは独自の失敗分岐を所有しない。
+ * @invariant retryCoordinatorTaskは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: retryCoordinatorTaskはProcess内の同一Subsystemで完結する。
+ * @security N/A: retryCoordinatorTaskはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: retryCoordinatorTaskは共有非同期状態を持たない同期処理である。
  */
-export function retryOrchestratorTask(
-  state: OrchestratorState,
+export function retryCoordinatorTask(
+  state: CoordinatorState,
   expectedGeneration: number,
   taskId: string,
   maximumReplans: number,

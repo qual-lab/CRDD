@@ -24,7 +24,7 @@ import {
 import {
   MCP_AI_PROFILE_TOOLS,
   handleMcpAiProfileRequest,
-  MCP_ORCHESTRATOR_PROTOCOL_VERSION,
+  MCP_COORDINATOR_PROTOCOL_VERSION,
 } from "../../src/index.ts";
 
 /**
@@ -74,7 +74,7 @@ test("Profile遅延認可は現在判定と二依存拒否を分離する", asyn
       arguments: {},
       _meta: {
         "io.modelcontextprotocol/protocolVersion":
-          MCP_ORCHESTRATOR_PROTOCOL_VERSION,
+          MCP_COORDINATOR_PROTOCOL_VERSION,
         "io.modelcontextprotocol/clientCapabilities": {},
       },
     },
@@ -168,7 +168,7 @@ test("Profile管理MCPは保存後故障と取消で自動再実行しない", a
       arguments: { expectedRevision: 1, profile },
       _meta: {
         "io.modelcontextprotocol/protocolVersion":
-          MCP_ORCHESTRATOR_PROTOCOL_VERSION,
+          MCP_COORDINATOR_PROTOCOL_VERSION,
         "io.modelcontextprotocol/clientCapabilities": {},
       },
     },
@@ -388,7 +388,7 @@ test("Profile管理MCPは結果相関の矛盾と実行可能Propertyを拒否�
           arguments: args,
           _meta: {
             "io.modelcontextprotocol/protocolVersion":
-              MCP_ORCHESTRATOR_PROTOCOL_VERSION,
+              MCP_COORDINATOR_PROTOCOL_VERSION,
             "io.modelcontextprotocol/clientCapabilities": {},
           },
         },
@@ -419,7 +419,7 @@ test("Profile管理MCPは結果相関の矛盾と実行可能Propertyを拒否�
         arguments: { expectedRevision: 1, profile },
         _meta: {
           "io.modelcontextprotocol/protocolVersion":
-            MCP_ORCHESTRATOR_PROTOCOL_VERSION,
+            MCP_COORDINATOR_PROTOCOL_VERSION,
           "io.modelcontextprotocol/clientCapabilities": {},
         },
       },

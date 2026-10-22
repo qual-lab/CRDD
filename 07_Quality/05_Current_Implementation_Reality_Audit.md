@@ -215,7 +215,7 @@ Sandbox内ではProcess列挙が`Access denied`となり、取消試験も子Pro
 対象は次の2ファイルである。
 
 - `07_Quality/Registry/coordinator-runtime-traceability.json`
-- `07_Quality/Registry/orchestrator-design-traceability.json`
+- `07_Quality/Registry/coordinator-task-design-traceability.json`
 
 移行判定の結果は、**Retained — Migration Required**である。現形式を全Subsystemへ増殖させず、現時点では削除もしない。両ファイルは現在もCoordinatorの静的検査、契約試験、Architecture参照およびSemantic Coverage移行棚卸しの入力である。一方、現在の正本責務では複数Ownerの情報を一つに重複保持しており、恒久的な手編集正本にはしない。
 

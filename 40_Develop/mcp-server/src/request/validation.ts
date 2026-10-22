@@ -9,11 +9,11 @@ import {
   snapshotPlainRecord,
 } from "../request/snapshot.ts";
 
-export const MCP_ORCHESTRATOR_PROTOCOL_VERSION = "2026-07-28" as const;
+export const MCP_COORDINATOR_PROTOCOL_VERSION = "2026-07-28" as const;
 export const MCP_SERVER_NAME = "crdd-mcp" as const;
 
 /**
- * orchestrator-protocolで使用するJson Rpc Idの値契約を定義する。
+ * protocolで使用するJson Rpc Idの値契約を定義する。
  *
  * @responsibility Json Rpc IdのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000012
@@ -25,7 +25,7 @@ export const MCP_SERVER_NAME = "crdd-mcp" as const;
  */
 export type JsonRpcId = string | number;
 /**
- * orchestrator-protocolで使用するMcp Responseの値契約を定義する。
+ * protocolで使用するMcp Responseの値契約を定義する。
  *
  * @responsibility Mcp ResponseのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000012
@@ -108,7 +108,7 @@ export function inspectMcpEnvelope(value: unknown) {
   const envelopeRecord: Readonly<Record<string, unknown>> = envelope;
   return (
     envelope["io.modelcontextprotocol/protocolVersion"] ===
-      MCP_ORCHESTRATOR_PROTOCOL_VERSION &&
+      MCP_COORDINATOR_PROTOCOL_VERSION &&
     snapshotOpenPlainRecord(
       envelope["io.modelcontextprotocol/clientCapabilities"],
     ) !== null &&

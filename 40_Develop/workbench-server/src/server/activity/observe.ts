@@ -2,11 +2,11 @@
  * WorkbenchのRuntime Activity Application Port。
  *
  * @packageDocumentation
- * @responsibility Orchestratorの現在投影を、未接続・状態なし・観測不能と区別して取得する。
+ * @responsibility Coordinatorの現在投影を、未接続・状態なし・観測不能と区別して取得する。
  * @trace ARCH-000004
  * @trace ARCH-000007
  * @trace ARCH-000012
- * @boundary Workbench Client ModelとOrchestrator状態Query Adapterの境界。
+ * @boundary Workbench Client ModelとCoordinator状態Query Adapterの境界。
  * @effect Read Model生成はEffect 0。観測は注入されたApplicationへだけ委譲する。
  * @security Recovery Authority、Credential、Host Pathまたは非開示Task内容を入力契約へ含めない。
  */
@@ -18,16 +18,16 @@ import type { RepositoryProjectContext } from "../../../../domain-model/src/inde
 import { verifyRepositoryRoot } from "../../../../version-control/src/index.ts";
 
 /**
- * Workbenchが表示するOrchestrator現在投影の値契約。
+ * Workbenchが表示するCoordinator現在投影の値契約。
  *
  * @responsibility 実行状況画面に必要なMilestone、Objective／Task、判断、Recoveryおよび次処置を閉じる。
  * @trace ARCH-000004
  * @trace ARCH-000012
- * @shape Orchestrator公開投影の表示Propertyだけを表す。
+ * @shape Coordinator公開投影の表示Propertyだけを表す。
  * @invariant Runtime正本、Authorityまたは状態遷移操作を所有しない。
- * @boundary Orchestrator State Query AdapterとWorkbench表示の型境界。
+ * @boundary Coordinator State Query AdapterとWorkbench表示の型境界。
  * @security 非開示Task本文、Credential、Host PathおよびRecovery Authorityを含まない。
- * @compatibility Orchestrator公開契約変更時はAdapterと表示試験を再評価する。
+ * @compatibility Coordinator公開契約変更時はAdapterと表示試験を再評価する。
  */
 export type WorkbenchRuntimeActivityProjection = Readonly<{
   projectId: string;
@@ -120,7 +120,7 @@ export type WorkbenchRuntimeActivityObservation = Readonly<{
  * @trace ARCH-000012
  * @shape observe操作だけを持つ読取り専用Portを表す。
  * @invariant WorkbenchへRuntime書込み、判断返却またはRecovery Authorityを公開しない。
- * @boundary WorkbenchとRepository／CROS Orchestrator Adapterの型境界。
+ * @boundary WorkbenchとRepository／CROS Coordinator Adapterの型境界。
  * @security Project ID以外の任意Path、Credentialまたは内部Runtime引数を受け取らない。
  * @compatibility 書込み操作は本Portへ追加せず、別Authority境界で設計する。
  */
@@ -139,7 +139,7 @@ const DEFAULT_EVENT_LIMIT = 20;
  * @trace ARCH-000004
  * @trace ARCH-000007
  * @trace ARCH-000012
- * @input Orchestratorの検査済み活動観測。
+ * @input Coordinatorの検査済み活動観測。
  * @returns 現行Workbench表示Propertyだけを持つ新Object。
  * @precondition 利用側が既存OwnerのSchemaと要求Projectの一致を確認済み。通信経路の有無を認可証明にしない。
  * @postcondition 現在状態・履歴・Continuationの意味を保持する。
@@ -185,7 +185,7 @@ export function projectRuntimeActivityForWorkbench(
 /**
  * 起動時のRepository Identityへ固定した活動Readerを構築する。
  *
- * @responsibility 現在状態と履歴の観測・ページングを既存Orchestratorへ委譲する。
+ * @responsibility 現在状態と履歴の観測・ページングを既存Coordinatorへ委譲する。
  * @trace ARCH-000004
  * @trace ARCH-000007
  * @trace ARCH-000012
@@ -196,7 +196,7 @@ export function projectRuntimeActivityForWorkbench(
  * @effect 現在Revision、Runtime状態と履歴を読む。初期化や保存はしない。
  * @failure RootまたはIdentity不成立はunknown。不正Cursorや上限はOwnerが拒否する。
  * @invariant 要求Projectの自己申告でRootの所属を変更しない。
- * @boundary Workbench表示とOrchestrator活動Readerの直接境界。
+ * @boundary Workbench表示とCoordinator活動Readerの直接境界。
  * @security 資格・Role・任意Pathを要求へ追加せず、Rootを表示しない。
  * @concurrency Identityの二値をコピーし、共有Cacheを持たない。
  */

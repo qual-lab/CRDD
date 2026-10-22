@@ -27,7 +27,7 @@ export {
   inspectRuntimeProcessRecoveryIdentity,
   poisonRuntimeProcessAfterCleanupUnknown,
 } from "./execution/process-safety-state.ts";
-export { acquireRuntimeOwnedOrchestratorStateKernelLock } from "./execution/kernel-lock.ts";
+export { acquireRuntimeOwnedProjectStateKernelLock } from "./execution/kernel-lock.ts";
 export {
   recoverRuntimeOwnedDockerTaskForCurrentConsumer,
   resolveRuntimeOwnedDockerTaskCurrentCorrelations,
@@ -40,79 +40,79 @@ export {
   type RepositoryNetworkPolicies,
 } from "./decision/external-send-policy.ts";
 
-export { createOrchestratorAcceptanceAuthorityAdapter } from "./decision/authority-adapter.ts";
+export { createCoordinatorAcceptanceAuthorityAdapter } from "./decision/authority-adapter.ts";
 export {
-  manageOrchestratorWorkspace,
-  resolveOrchestratorWorkspaceTaskTarget,
-  type OrchestratorWorkspaceRequest,
+  manageCoordinatorWorkspace,
+  resolveCoordinatorWorkspaceTaskTarget,
+  type CoordinatorWorkspaceRequest,
 } from "./workspace/operations.ts";
-export type { OrchestratorWorkspace } from "./workspace/record.ts";
-export { createOrchestratorDecisionCapabilityAdapter } from "./decision/capability-adapter.ts";
+export type { CoordinatorWorkspace } from "./workspace/record.ts";
+export { createCoordinatorDecisionCapabilityAdapter } from "./decision/capability-adapter.ts";
 export {
-  ORCHESTRATOR_ACCEPTANCE_DECISION_CONTRACT,
-  recordOrchestratorAcceptanceDecision,
-  type OrchestratorAcceptanceDecisionDependencies,
-  type OrchestratorAcceptanceDecisionRequest,
-  type OrchestratorAcceptanceDecisionResult,
+  COORDINATOR_ACCEPTANCE_DECISION_CONTRACT,
+  recordCoordinatorAcceptanceDecision,
+  type CoordinatorAcceptanceDecisionDependencies,
+  type CoordinatorAcceptanceDecisionRequest,
+  type CoordinatorAcceptanceDecisionResult,
 } from "./decision/record-acceptance.ts";
 export {
-  ORCHESTRATOR_OBJECTIVE_INTAKE_CONTRACT,
-  createOrchestratorObjectiveResult,
-  createOrchestratorTaskExecutionSet,
-  inspectOrchestratorObjectivePlan,
-  inspectOrchestratorWorkspaceResults,
-  type OrchestratorObjectivePlan,
+  COORDINATOR_OBJECTIVE_INTAKE_CONTRACT,
+  createCoordinatorObjectiveResult,
+  createCoordinatorTaskExecutionSet,
+  inspectCoordinatorObjectivePlan,
+  inspectCoordinatorWorkspaceResults,
+  type CoordinatorObjectivePlan,
 } from "./objective/plan.ts";
 export {
-  describeOrchestratorObjectiveIntakeContract,
-  executeOrchestratorObjective,
-  type OrchestratorObjectiveExecutionDependencies,
+  describeCoordinatorObjectiveIntakeContract,
+  executeCoordinatorObjective,
+  type CoordinatorObjectiveExecutionDependencies,
 } from "./objective/execute.ts";
 export {
-  ORCHESTRATOR_REPLANNING_CONTRACT,
-  resolveOrchestratorReplan,
-  type OrchestratorReplanClassifier,
-  type OrchestratorReplanDecision,
-  type OrchestratorReplanInput,
+  COORDINATOR_REPLANNING_CONTRACT,
+  resolveCoordinatorReplan,
+  type CoordinatorReplanClassifier,
+  type CoordinatorReplanDecision,
+  type CoordinatorReplanInput,
 } from "./objective/replan.ts";
 export {
-  ORCHESTRATOR_EXECUTION_CONTRACT,
-  type OrchestratorExecutionDependencies,
-  type OrchestratorExecutionPublicationObservation,
-  type OrchestratorExecutionResult,
-  type OrchestratorTaskExecution,
+  COORDINATOR_EXECUTION_CONTRACT,
+  type CoordinatorExecutionDependencies,
+  type CoordinatorExecutionPublicationObservation,
+  type CoordinatorExecutionResult,
+  type CoordinatorTaskExecution,
 } from "./task/execution-contract.ts";
 export {
-  describeOrchestratorExecutionContract,
-  runOrchestratorOperation,
+  describeCoordinatorExecutionContract,
+  runCoordinatorOperation,
 } from "./task/dispatch.ts";
 export {
-  invalidateOrchestratorHumanDecision,
-  issueOrchestratorHumanDecision,
-  orchestratorDecisionRecordId,
-  recoverOrchestratorHumanDecision,
-  replaceOrchestratorHumanDecision,
-  submitOrchestratorHumanDecision,
+  invalidateCoordinatorHumanDecision,
+  issueCoordinatorHumanDecision,
+  coordinatorDecisionRecordId,
+  recoverCoordinatorHumanDecision,
+  replaceCoordinatorHumanDecision,
+  submitCoordinatorHumanDecision,
 } from "./decision/lifecycle.ts";
-export { queryOrchestratorState } from "./state/query.ts";
+export { queryCoordinatorState } from "./state/query.ts";
 export {
-  ORCHESTRATOR_MAXIMUM_CONCURRENCY,
-  ORCHESTRATOR_MAXIMUM_OBJECTIVES,
-  ORCHESTRATOR_MAXIMUM_TASKS,
-  ORCHESTRATOR_STATE_CONTRACT,
-  createOrchestratorState,
-  describeOrchestratorStateContract,
-  isOrchestratorRecoveryIdentity,
+  COORDINATOR_MAXIMUM_CONCURRENCY,
+  COORDINATOR_MAXIMUM_OBJECTIVES,
+  COORDINATOR_MAXIMUM_TASKS,
+  COORDINATOR_STATE_CONTRACT,
+  createCoordinatorState,
+  describeCoordinatorStateContract,
+  isCoordinatorRecoveryIdentity,
   type ProjectDockerRecoveryAcknowledgement,
   type ProjectMilestoneRecord,
   type ProjectMilestoneState,
   type ProjectObjectiveDefinition,
   type ProjectObjectiveRecord,
   type ProjectObjectiveState,
-  type OrchestratorAcceptanceDecision,
-  type OrchestratorAcceptanceDecisionInput,
-  type OrchestratorAcceptanceTarget,
-  type OrchestratorState,
+  type CoordinatorAcceptanceDecision,
+  type CoordinatorAcceptanceDecisionInput,
+  type CoordinatorAcceptanceTarget,
+  type CoordinatorState,
   type ProjectTaskDefinition,
   type ProjectTaskRecord,
   type ProjectTaskRecoveryKind,
@@ -128,19 +128,19 @@ export {
   settleProjectTaskRecoveryObligation,
 } from "./task/recovery-transitions.ts";
 export {
-  applyOrchestratorAcceptanceDecision,
-  applyOrchestratorHumanDecision,
-  requestOrchestratorHumanDecision,
+  applyCoordinatorAcceptanceDecision,
+  applyCoordinatorHumanDecision,
+  requestCoordinatorHumanDecision,
 } from "./decision/transitions.ts";
 export {
-  applyOrchestratorPartialReplan,
-  retryOrchestratorTask,
+  applyCoordinatorPartialReplan,
+  retryCoordinatorTask,
 } from "./objective/replan-transitions.ts";
 export {
-  isOrchestratorObjectiveProjectionCorrelationValid,
-  isOrchestratorProjectionSemanticallyValid,
-  projectOrchestratorState,
-  type OrchestratorProjection,
+  isCoordinatorObjectiveProjectionCorrelationValid,
+  isCoordinatorProjectionSemanticallyValid,
+  projectCoordinatorState,
+  type CoordinatorProjection,
 } from "./state/projection.ts";
 export {
   observeProjectTaskStarted,
@@ -155,149 +155,149 @@ export type {
   ProjectQueueState,
 } from "./queue/types.ts";
 export {
-  ORCHESTRATOR_PLATFORM_BOUNDARIES,
-  ORCHESTRATOR_PLATFORM_BOUNDARY_GUARANTEES,
-  ORCHESTRATOR_PLATFORM_BOUNDARY_OPERATIONS,
-  ORCHESTRATOR_PLATFORM_CONTRACT,
-  ORCHESTRATOR_PLATFORM_CONTRACT_REVISION,
-  describeOrchestratorPlatformContract,
-  resolveOrchestratorPlatformAdapter,
-  type OrchestratorPlatformAdapter,
-  type OrchestratorPlatformAdapterDescription,
-  type OrchestratorPlatformBoundary,
-  type OrchestratorPlatformGuarantee,
-  type OrchestratorPlatformResolution,
+  COORDINATOR_PLATFORM_BOUNDARIES,
+  COORDINATOR_PLATFORM_BOUNDARY_GUARANTEES,
+  COORDINATOR_PLATFORM_BOUNDARY_OPERATIONS,
+  COORDINATOR_PLATFORM_CONTRACT,
+  COORDINATOR_PLATFORM_CONTRACT_REVISION,
+  describeCoordinatorPlatformContract,
+  resolveCoordinatorPlatformAdapter,
+  type CoordinatorPlatformAdapter,
+  type CoordinatorPlatformAdapterDescription,
+  type CoordinatorPlatformBoundary,
+  type CoordinatorPlatformGuarantee,
+  type CoordinatorPlatformResolution,
 } from "./platform/contract.ts";
 export {
-  ORCHESTRATOR_SINGLE_TASK_ADAPTER_CONTRACT,
-  ORCHESTRATOR_SINGLE_TASK_ADAPTER_CONTRACT_REVISION,
-  type OrchestratorExecutionPort,
-  type OrchestratorSingleTaskAttemptInput,
-  type OrchestratorSingleTaskRecoveryObligation,
-  type OrchestratorSingleTaskResult,
+  COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT,
+  COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT_REVISION,
+  type CoordinatorExecutionPort,
+  type CoordinatorSingleTaskAttemptInput,
+  type CoordinatorSingleTaskRecoveryObligation,
+  type CoordinatorSingleTaskResult,
 } from "./task/executor.ts";
 export type {
-  OrchestratorAcceptanceDecisionAuthorityBinding,
-  OrchestratorAcceptanceDecisionAuthorityPort,
-  OrchestratorAcceptanceDecisionRecord,
-  OrchestratorAcceptanceDecisionStore,
+  CoordinatorAcceptanceDecisionAuthorityBinding,
+  CoordinatorAcceptanceDecisionAuthorityPort,
+  CoordinatorAcceptanceDecisionRecord,
+  CoordinatorAcceptanceDecisionStore,
 } from "./decision/acceptance-authority.ts";
 export type {
-  OrchestratorExecutionObservationPort,
-  OrchestratorExecutionObservationPublication,
-  OrchestratorTaskAttemptObservation,
+  CoordinatorExecutionObservationPort,
+  CoordinatorExecutionObservationPublication,
+  CoordinatorTaskAttemptObservation,
 } from "./task/observer.ts";
 export {
-  createOrchestratorTaskAttemptEvent,
-  recordOrchestratorExecutionEvent,
+  createCoordinatorTaskAttemptEvent,
+  recordCoordinatorExecutionEvent,
 } from "./task/intelligence-adapter.ts";
 export type {
-  OrchestratorIntegrationRecord,
-  OrchestratorIntegrationRecordPort,
+  CoordinatorIntegrationRecord,
+  CoordinatorIntegrationRecordPort,
 } from "./storage/result-record.ts";
 export type {
-  OrchestratorClockIdentityPort,
-  OrchestratorClockReading,
+  CoordinatorClockIdentityPort,
+  CoordinatorClockReading,
 } from "./identity/clock-and-hash.ts";
 export {
-  isOrchestratorDecisionRecord,
-  type OrchestratorDecisionPort,
-  type OrchestratorDecisionRecord,
-  type OrchestratorDecisionRecoveryIntent,
-  type OrchestratorDecisionRecoveryStore,
-  type OrchestratorDecisionStore,
+  isCoordinatorDecisionRecord,
+  type CoordinatorDecisionPort,
+  type CoordinatorDecisionRecord,
+  type CoordinatorDecisionRecoveryIntent,
+  type CoordinatorDecisionRecoveryStore,
+  type CoordinatorDecisionStore,
 } from "./decision/records.ts";
 export type {
-  OrchestratorDecisionCapability,
-  OrchestratorDecisionCapabilityPort,
+  CoordinatorDecisionCapability,
+  CoordinatorDecisionCapabilityPort,
 } from "./decision/capability.ts";
 export type {
-  OrchestratorLease,
-  OrchestratorLeaseAcquisitionResolution,
-  OrchestratorLeaseKind,
-  OrchestratorLeaseOwnerObservation,
-  OrchestratorLeasePort,
+  CoordinatorLease,
+  CoordinatorLeaseAcquisitionResolution,
+  CoordinatorLeaseKind,
+  CoordinatorLeaseOwnerObservation,
+  CoordinatorLeasePort,
 } from "./lease/controller.ts";
-export type { OrchestratorPortResult } from "./operation-result.ts";
-export type { OrchestratorProcessSafetyPort } from "./process/safety-contract.ts";
+export type { CoordinatorPortResult } from "./operation-result.ts";
+export type { CoordinatorProcessSafetyPort } from "./process/safety-contract.ts";
 export type {
-  OrchestratorPersistencePorts,
-  OrchestratorQueueEnqueueInput,
-  OrchestratorQueueUpdate,
-  OrchestratorStatePort,
+  CoordinatorPersistencePorts,
+  CoordinatorQueueEnqueueInput,
+  CoordinatorQueueUpdate,
+  CoordinatorStatePort,
 } from "./state/persistence.ts";
 export type {
-  OrchestratorDockerRecoveryIdentity,
-  OrchestratorRecoveryTransition,
-  OrchestratorTaskRecoveryPort,
+  CoordinatorDockerRecoveryIdentity,
+  CoordinatorRecoveryTransition,
+  CoordinatorTaskRecoveryPort,
 } from "./task/recovery.ts";
-export { ORCHESTRATOR_INTEGRATION_CONTRACT } from "./storage/result-record.ts";
+export { COORDINATOR_INTEGRATION_CONTRACT } from "./storage/result-record.ts";
 export {
-  inspectOrchestratorObjectiveRequest,
-  type OrchestratorObjectiveRequest,
+  inspectCoordinatorObjectiveRequest,
+  type CoordinatorObjectiveRequest,
 } from "./objective/request.ts";
 export {
-  ORCHESTRATOR_HUMAN_DECISION_CONTRACT,
-  inspectOrchestratorDecisionRequest,
-  type OrchestratorDecisionRequest,
+  COORDINATOR_HUMAN_DECISION_CONTRACT,
+  inspectCoordinatorDecisionRequest,
+  type CoordinatorDecisionRequest,
 } from "./decision/request.ts";
-export { ORCHESTRATOR_PUBLIC_RUNTIME_CONTRACT } from "./operation-result-contract.ts";
+export { COORDINATOR_PUBLIC_RUNTIME_CONTRACT } from "./operation-result-contract.ts";
 export {
-  runOrchestratorSingleTaskAttempt,
-  describeOrchestratorSingleTaskAdapterContract,
-  ORCHESTRATOR_SINGLE_TASK_PRE_EFFECT_REJECTIONS,
-  type OrchestratorSingleTaskDependencies,
+  runCoordinatorSingleTaskAttempt,
+  describeCoordinatorSingleTaskAdapterContract,
+  COORDINATOR_SINGLE_TASK_PRE_EFFECT_REJECTIONS,
+  type CoordinatorSingleTaskDependencies,
 } from "./task/execute-attempt.ts";
 export {
-  createOrchestratorExecutionHostPorts,
-  type OrchestratorExecutionHostAdapterOptions,
+  createCoordinatorExecutionHostPorts,
+  type CoordinatorExecutionHostAdapterOptions,
 } from "./task/host-adapter.ts";
 export {
-  createOrchestratorTaskRecoveryAdapter,
-  type OrchestratorTaskRecoveryHostDependencies,
+  createCoordinatorTaskRecoveryAdapter,
+  type CoordinatorTaskRecoveryHostDependencies,
 } from "./task/recovery-adapter.ts";
 export {
-  ORCHESTRATOR_STATE_QUERY_CONTRACT,
-  inspectOrchestratorProjection,
-  inspectOrchestratorStateQuery,
-  inspectOrchestratorStateQueryResult,
-  type OrchestratorStateQuery,
-  type OrchestratorStateQueryResult,
+  COORDINATOR_STATE_QUERY_CONTRACT,
+  inspectCoordinatorProjection,
+  inspectCoordinatorStateQuery,
+  inspectCoordinatorStateQueryResult,
+  type CoordinatorStateQuery,
+  type CoordinatorStateQueryResult,
 } from "./state/query-contract.ts";
 export {
-  ORCHESTRATOR_ACCEPTANCE_DECISION_STORE_CONTRACT,
-  validOrchestratorAcceptanceDecisionRecord,
-  validOrchestratorAcceptanceDecisionEnvelope,
-  type OrchestratorAcceptanceDecisionEnvelope,
+  COORDINATOR_ACCEPTANCE_DECISION_STORE_CONTRACT,
+  validCoordinatorAcceptanceDecisionRecord,
+  validCoordinatorAcceptanceDecisionEnvelope,
+  type CoordinatorAcceptanceDecisionEnvelope,
 } from "./decision/acceptance-record.ts";
-export { validOrchestratorDecisionRecoveryIntent } from "./decision/recovery-record.ts";
-export { validOrchestratorResultRecord } from "./storage/validate-result-record.ts";
+export { validCoordinatorDecisionRecoveryIntent } from "./decision/recovery-record.ts";
+export { validCoordinatorResultRecord } from "./storage/validate-result-record.ts";
 export type {
   IntegrationRecordBinding,
-  OrchestratorResultRecord,
+  CoordinatorResultRecord,
 } from "./storage/result-record.ts";
 export {
-  createCurrentOrchestratorPersistencePorts,
-  createOrchestratorSnapshotPersistencePorts,
-  inspectOrchestratorSnapshotIntake,
-  readCurrentOrchestratorState,
-  readOrchestratorSnapshot,
-  initializeOrchestratorSnapshot,
-  maintainOrchestratorSnapshot,
-  createOrchestratorSnapshotAcceptanceDecisionStore,
-  createOrchestratorSnapshotDecisionRecoveryStore,
-  createOrchestratorSnapshotIntegrationRecordPort,
+  createCurrentCoordinatorPersistencePorts,
+  createCoordinatorSnapshotPersistencePorts,
+  inspectCoordinatorSnapshotIntake,
+  readCurrentCoordinatorState,
+  readCoordinatorSnapshot,
+  initializeCoordinatorSnapshot,
+  maintainCoordinatorSnapshot,
+  createCoordinatorSnapshotAcceptanceDecisionStore,
+  createCoordinatorSnapshotDecisionRecoveryStore,
+  createCoordinatorSnapshotIntegrationRecordPort,
 } from "./storage/current-state.ts";
 export {
-  executeOrchestratorPublicAcceptanceDecision,
-  runOrchestratorPublicAcceptanceDecision,
+  executeCoordinatorPublicAcceptanceDecision,
+  runCoordinatorPublicAcceptanceDecision,
 } from "./decision/public-acceptance.ts";
 export {
-  executeOrchestratorPublicStateQuery,
-  runOrchestratorPublicStateQuery,
+  executeCoordinatorPublicStateQuery,
+  runCoordinatorPublicStateQuery,
 } from "./state/public-query.ts";
-export { runOrchestratorPublicDecision } from "./decision/public-operation.ts";
-export { runOrchestratorPublicObjective } from "./objective/public-operation.ts";
+export { runCoordinatorPublicDecision } from "./decision/public-operation.ts";
+export { runCoordinatorPublicObjective } from "./objective/public-operation.ts";
 export { observeRuntimeOwnedProjectClientPrincipal } from "./decision/public-operation.ts";
 export { readAuthorizedRuntimeActivity } from "./state/activity.ts";
 export {

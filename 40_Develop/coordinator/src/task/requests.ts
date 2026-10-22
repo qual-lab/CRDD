@@ -11,21 +11,21 @@ import {
   snapshotPlainArray,
 } from "../input/plain-data-snapshot.ts";
 import {
-  readOrchestratorSnapshot,
-  enqueueOrchestratorSingleTask,
-  updateOrchestratorSingleTask,
-  closeUnstartedOrchestratorSingleTask,
-  reconcileOrchestratorSnapshotLeaseOwnerLoss,
-  acquireOrchestratorSnapshotLease,
-  createOrchestratorSnapshotStatePort,
+  readCoordinatorSnapshot,
+  enqueueCoordinatorSingleTask,
+  updateCoordinatorSingleTask,
+  closeUnstartedCoordinatorSingleTask,
+  reconcileCoordinatorSnapshotLeaseOwnerLoss,
+  acquireCoordinatorSnapshotLease,
+  createCoordinatorSnapshotStatePort,
 } from "../storage/current-state.ts";
 import {
   inspectSingleTaskRecord,
   type SingleTaskRecord,
 } from "./single-task-record.ts";
 import type { ProjectQueueEntry } from "../queue/types.ts";
-import type { OrchestratorLeaseOwnerObservation } from "../lease/controller.ts";
-import { resolveOrchestratorWorkspaceTaskTarget } from "../workspace/operations.ts";
+import type { CoordinatorLeaseOwnerObservation } from "../lease/controller.ts";
+import { resolveCoordinatorWorkspaceTaskTarget } from "../workspace/operations.ts";
 import { snapshotCoordinatorWorkspaceResult } from "../execution/attempt.ts";
 import type { CoordinatorWorkspaceResult } from "../execution/types.ts";
 
@@ -81,7 +81,7 @@ export type SingleTaskOutcome = Readonly<{
  * @trace ARCH-000004
  * @shape Task参照、Revision、読戻したWorkspace対象。
  * @invariant 任意絶対Pathを公開入力から受けない。
- * @boundary Orchestratorから下位実行。
+ * @boundary Coordinatorから下位実行。
  * @security 認可関数や資格を保存しない。
  * @compatibility 既存Single Task Adapterへの最小結合。
  */
@@ -184,7 +184,7 @@ export function inspectSingleTaskCommand(
  * @security 主体を固定し観測・取消時も現在認可する。
  * @concurrency 同時実行は既存Lease、取消・closeは元Promiseをjoinする。
  */
-export function createOrchestratorTaskRequests(
+export function createCoordinatorTaskRequests(
   deps: Readonly<{
     root: string;
     binding: string;
@@ -196,7 +196,7 @@ export function createOrchestratorTaskRequests(
       mode: SingleTaskRecord["mode"],
     ) => Readonly<{ catalogRevision: number }> | null;
     observeRevision: () => string | null;
-    observeLeaseOwner?: OrchestratorLeaseOwnerObservation;
+    observeLeaseOwner?: CoordinatorLeaseOwnerObservation;
     recover?: (record: SingleTaskRecord) => Promise<
       Readonly<{
         cleanupConfirmed: boolean;
@@ -232,9 +232,9 @@ export function createOrchestratorTaskRequests(
     }
   };
   const ports = (epoch: string) =>
-    createOrchestratorSnapshotStatePort(deps.root, deps.binding, epoch);
+    createCoordinatorSnapshotStatePort(deps.root, deps.binding, epoch);
   const recoverRecord = async (requestId: string) => {
-    const current = readOrchestratorSnapshot(deps.root, deps.binding);
+    const current = readCoordinatorSnapshot(deps.root, deps.binding);
     const queue =
       current.status === "completed"
         ? current.value?.queueEntries.find(
@@ -269,7 +269,7 @@ export function createOrchestratorTaskRequests(
         "unknown",
         "orchestrator_task_body_unavailable",
       );
-    const reconciled = reconcileOrchestratorSnapshotLeaseOwnerLoss(
+    const reconciled = reconcileCoordinatorSnapshotLeaseOwnerLoss(
       deps.root,
       deps.binding,
       deps.projectId,
@@ -311,7 +311,7 @@ export function createOrchestratorTaskRequests(
         "orchestrator_task_body_unavailable",
       );
     if (observed.singleTask?.phase === "accepted") {
-      const closed = closeUnstartedOrchestratorSingleTask(
+      const closed = closeUnstartedCoordinatorSingleTask(
         deps.root,
         deps.binding,
         requestId,
@@ -339,7 +339,7 @@ export function createOrchestratorTaskRequests(
             secondaryFailures: [closed.reason],
           };
     }
-    const acquired = acquireOrchestratorSnapshotLease(
+    const acquired = acquireCoordinatorSnapshotLease(
       deps.root,
       deps.binding,
       deps.projectId,
@@ -385,7 +385,7 @@ export function createOrchestratorTaskRequests(
         cleanupConfirmed: recovery.cleanupConfirmed,
         recoveryIds: recovery.recoveryIds,
       };
-      const saved = updateOrchestratorSingleTask(
+      const saved = updateCoordinatorSingleTask(
         deps.root,
         deps.binding,
         requestId,
@@ -489,7 +489,7 @@ export function createOrchestratorTaskRequests(
           requestId: null,
           reason: "orchestrator_task_session_capacity",
         };
-      let current = readOrchestratorSnapshot(deps.root, deps.binding);
+      let current = readCoordinatorSnapshot(deps.root, deps.binding);
       if (
         current.status === "completed" &&
         current.value &&
@@ -530,7 +530,7 @@ export function createOrchestratorTaskRequests(
               reason: "orchestrator_task_previous_cleanup_unconfirmed",
             };
         }
-        current = readOrchestratorSnapshot(deps.root, deps.binding);
+        current = readCoordinatorSnapshot(deps.root, deps.binding);
       }
       const profile = deps.resolveProfile(command.profileId, command.mode);
       const revision = deps.observeRevision();
@@ -595,7 +595,7 @@ export function createOrchestratorTaskRequests(
         workspaceId: command.workspaceId,
         singleTask: record,
       };
-      const saved = enqueueOrchestratorSingleTask(
+      const saved = enqueueCoordinatorSingleTask(
         deps.root,
         deps.binding,
         current.value.intakeEpoch,
@@ -618,7 +618,7 @@ export function createOrchestratorTaskRequests(
       };
       requests.set(requestId, item);
       item.pending = (async () => {
-        const acquired = acquireOrchestratorSnapshotLease(
+        const acquired = acquireCoordinatorSnapshotLease(
           deps.root,
           deps.binding,
           deps.projectId,
@@ -626,7 +626,7 @@ export function createOrchestratorTaskRequests(
           "project-operation",
         );
         if (acquired.status !== "completed") {
-          const closed = closeUnstartedOrchestratorSingleTask(
+          const closed = closeUnstartedCoordinatorSingleTask(
             deps.root,
             deps.binding,
             requestId,
@@ -665,7 +665,7 @@ export function createOrchestratorTaskRequests(
         const secondaryFailures: string[] = [];
         const storeRecoveryIds = new Set<string>();
         const save = (next: SingleTaskRecord) => {
-          const result = updateOrchestratorSingleTask(
+          const result = updateCoordinatorSingleTask(
             deps.root,
             deps.binding,
             requestId,
@@ -692,7 +692,7 @@ export function createOrchestratorTaskRequests(
             );
             return;
           }
-          const target = resolveOrchestratorWorkspaceTaskTarget(
+          const target = resolveCoordinatorWorkspaceTaskTarget(
             deps.root,
             deps.binding,
             requestId,
@@ -850,7 +850,7 @@ export function createOrchestratorTaskRequests(
         );
       const item = requests.get(requestId);
       if (item) return item.snapshot;
-      const current = readOrchestratorSnapshot(deps.root, deps.binding);
+      const current = readCoordinatorSnapshot(deps.root, deps.binding);
       const record =
         current.status === "completed"
           ? current.value?.queueEntries.find(

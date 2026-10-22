@@ -6,7 +6,7 @@
  * @trace PRL-ST-001
  * @level ST
  * @scope coordinator、launch
- * @boundary PRL-ST-001=System/E2E: 公開入口→Orchestrator→Execution→受入
+ * @boundary PRL-ST-001=System/E2E: 公開入口→Coordinator→Execution→受入
  */
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";

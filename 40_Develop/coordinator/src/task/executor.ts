@@ -1,7 +1,7 @@
 /**
  * execution-portに属する責務をまとめる。
  *
- * @responsibility OrchestratorSingleTaskAttemptInputを中心とする実装、型および境界を同じModuleで所有する。
+ * @responsibility CoordinatorSingleTaskAttemptInputを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000004
  */
 import type { CoordinatorWorkspaceResult } from "../execution/types.ts";
@@ -12,11 +12,11 @@ import type { CoordinatorWorkspaceResult } from "../execution/types.ts";
  * @trace ARCH-000004
  * @shape 元Task閉包の読取りと終了操作。公開値ではない。
  * @invariant 開始・取消権限や新しいOwnerを追加しない。
- * @boundary OrchestratorからCoordinatorへの内部呼出し。
+ * @boundary CoordinatorからCoordinatorへの内部呼出し。
  * @security JSON要求・公開結果・永続Stateに格納しない。
  * @compatibility 現行の同Process配送契約だけを利用する。
  */
-export type OrchestratorTaskResultDelivery = Readonly<{
+export type CoordinatorTaskResultDelivery = Readonly<{
   readResults: () =>
     | Readonly<{ status: "blocked" | "not_required"; results: null }>
     | Readonly<{
@@ -41,22 +41,22 @@ export type OrchestratorTaskResultDelivery = Readonly<{
   }>;
 }>;
 
-export const ORCHESTRATOR_SINGLE_TASK_ADAPTER_CONTRACT =
+export const COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT =
   "crdd-coordinator/orchestrator-single-task-adapter" as const;
-export const ORCHESTRATOR_SINGLE_TASK_ADAPTER_CONTRACT_REVISION = 3;
+export const COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT_REVISION = 3;
 
 /**
- * execution-portで使用するOrchestrator Single Task Attempt 入力の値契約を定義する。
+ * execution-portで使用するCoordinator Single Task Attempt 入力の値契約を定義する。
  *
- * @responsibility Orchestrator Single Task Attempt 入力のProperty、Identity、状態制約を型境界として所有する。
+ * @responsibility Coordinator Single Task Attempt 入力のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
- * @shape OrchestratorSingleTaskAttemptInputが表すProperty、識別子およびRelationを型として固定する。
- * @invariant OrchestratorSingleTaskAttemptInputで宣言した値と責務の対応を維持する。
- * @boundary N/A: OrchestratorSingleTaskAttemptInputの宣言は外部境界を開かない。
- * @security N/A: OrchestratorSingleTaskAttemptInputはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility OrchestratorSingleTaskAttemptInputの利用側は宣言済みPropertyと型制約だけへ依存する。
+ * @shape CoordinatorSingleTaskAttemptInputが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CoordinatorSingleTaskAttemptInputで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CoordinatorSingleTaskAttemptInputの宣言は外部境界を開かない。
+ * @security N/A: CoordinatorSingleTaskAttemptInputはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility CoordinatorSingleTaskAttemptInputの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type OrchestratorSingleTaskAttemptInput = Readonly<{
+export type CoordinatorSingleTaskAttemptInput = Readonly<{
   workspaceId?: string | null;
   ownerRepositoryRoot?: string;
   executionTree?: string;
@@ -71,39 +71,39 @@ export type OrchestratorSingleTaskAttemptInput = Readonly<{
   cancellationSignal: AbortSignal;
   observeStarted?: () => Promise<boolean>;
   observeResultDelivery?: (
-    delivery: OrchestratorTaskResultDelivery | null,
+    delivery: CoordinatorTaskResultDelivery | null,
   ) => void;
 }>;
 
 /**
- * execution-portで使用するOrchestrator Single Task 回復 Obligationの値契約を定義する。
+ * execution-portで使用するCoordinator Single Task 回復 Obligationの値契約を定義する。
  *
- * @responsibility Orchestrator Single Task 回復 ObligationのProperty、Identity、状態制約を型境界として所有する。
+ * @responsibility Coordinator Single Task 回復 ObligationのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
- * @shape OrchestratorSingleTaskRecoveryObligationが表すProperty、識別子およびRelationを型として固定する。
- * @invariant OrchestratorSingleTaskRecoveryObligationで宣言した値と責務の対応を維持する。
- * @boundary N/A: OrchestratorSingleTaskRecoveryObligationの宣言は外部境界を開かない。
- * @security N/A: OrchestratorSingleTaskRecoveryObligationはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility OrchestratorSingleTaskRecoveryObligationの利用側は宣言済みPropertyと型制約だけへ依存する。
+ * @shape CoordinatorSingleTaskRecoveryObligationが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CoordinatorSingleTaskRecoveryObligationで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CoordinatorSingleTaskRecoveryObligationの宣言は外部境界を開かない。
+ * @security N/A: CoordinatorSingleTaskRecoveryObligationはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility CoordinatorSingleTaskRecoveryObligationの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type OrchestratorSingleTaskRecoveryObligation = Readonly<{
+export type CoordinatorSingleTaskRecoveryObligation = Readonly<{
   kind: "host" | "docker" | "candidate" | "candidate_store";
   recoveryId: string;
 }>;
 
 /**
- * execution-portで使用するOrchestrator Single Task 結果の値契約を定義する。
+ * execution-portで使用するCoordinator Single Task 結果の値契約を定義する。
  *
- * @responsibility Orchestrator Single Task 結果のProperty、Identity、状態制約を型境界として所有する。
+ * @responsibility Coordinator Single Task 結果のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
- * @shape OrchestratorSingleTaskResultが表すProperty、識別子およびRelationを型として固定する。
- * @invariant OrchestratorSingleTaskResultで宣言した値と責務の対応を維持する。
- * @boundary N/A: OrchestratorSingleTaskResultの宣言は外部境界を開かない。
- * @security N/A: OrchestratorSingleTaskResultはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility OrchestratorSingleTaskResultの利用側は宣言済みPropertyと型制約だけへ依存する。
+ * @shape CoordinatorSingleTaskResultが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CoordinatorSingleTaskResultで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CoordinatorSingleTaskResultの宣言は外部境界を開かない。
+ * @security N/A: CoordinatorSingleTaskResultはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility CoordinatorSingleTaskResultの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type OrchestratorSingleTaskResult = Readonly<{
-  contract: typeof ORCHESTRATOR_SINGLE_TASK_ADAPTER_CONTRACT;
+export type CoordinatorSingleTaskResult = Readonly<{
+  contract: typeof COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT;
   attemptId: string | null;
   operationId: string | null;
   authorityBindingId: string | null;
@@ -116,24 +116,24 @@ export type OrchestratorSingleTaskResult = Readonly<{
   processRestartRequired: boolean;
   candidateId: string | null;
   recoveryIds: readonly string[];
-  recoveryObligations?: readonly OrchestratorSingleTaskRecoveryObligation[];
+  recoveryObligations?: readonly CoordinatorSingleTaskRecoveryObligation[];
   executorProvider?: "codex" | "claude";
   workspaceResult?: CoordinatorWorkspaceResult;
 }>;
 
 /**
- * execution-portで使用するOrchestrator Execution Portの値契約を定義する。
+ * execution-portで使用するCoordinator Execution Portの値契約を定義する。
  *
- * @responsibility Orchestrator Execution PortのProperty、Identity、状態制約を型境界として所有する。
+ * @responsibility Coordinator Execution PortのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
- * @shape OrchestratorExecutionPortが表すProperty、識別子およびRelationを型として固定する。
- * @invariant OrchestratorExecutionPortで宣言した値と責務の対応を維持する。
- * @boundary N/A: OrchestratorExecutionPortの宣言は外部境界を開かない。
- * @security N/A: OrchestratorExecutionPortはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility OrchestratorExecutionPortの利用側は宣言済みPropertyと型制約だけへ依存する。
+ * @shape CoordinatorExecutionPortが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CoordinatorExecutionPortで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CoordinatorExecutionPortの宣言は外部境界を開かない。
+ * @security N/A: CoordinatorExecutionPortはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility CoordinatorExecutionPortの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type OrchestratorExecutionPort = Readonly<{
+export type CoordinatorExecutionPort = Readonly<{
   runSingleTaskAttempt: (
-    input: OrchestratorSingleTaskAttemptInput,
-  ) => Promise<OrchestratorSingleTaskResult>;
+    input: CoordinatorSingleTaskAttemptInput,
+  ) => Promise<CoordinatorSingleTaskResult>;
 }>;

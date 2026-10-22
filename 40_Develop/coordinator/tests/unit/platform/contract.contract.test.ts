@@ -6,27 +6,26 @@
  * @trace PRL-UT-014
  * @level UT
  * @scope project、runtime、platform
- * @boundary PRL-UT-014=N/A: Orchestrator Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=N/A: Coordinator Application Portは外部実行境界を持たない。
  */
 import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  describeOrchestratorPlatformContract,
-  ORCHESTRATOR_PLATFORM_BOUNDARIES,
-  ORCHESTRATOR_PLATFORM_BOUNDARY_GUARANTEES,
-  ORCHESTRATOR_PLATFORM_BOUNDARY_OPERATIONS,
-  ORCHESTRATOR_PLATFORM_CONTRACT,
-  ORCHESTRATOR_PLATFORM_CONTRACT_REVISION,
-  type OrchestratorPlatformAdapter,
-  type OrchestratorPlatformBoundary,
-  resolveOrchestratorPlatformAdapter,
+  describeCoordinatorPlatformContract,
+  COORDINATOR_PLATFORM_BOUNDARIES,
+  COORDINATOR_PLATFORM_BOUNDARY_GUARANTEES,
+  COORDINATOR_PLATFORM_BOUNDARY_OPERATIONS,
+  COORDINATOR_PLATFORM_CONTRACT,
+  COORDINATOR_PLATFORM_CONTRACT_REVISION,
+  type CoordinatorPlatformAdapter,
+  type CoordinatorPlatformBoundary,
+  resolveCoordinatorPlatformAdapter,
 } from "../../../src/platform/contract.ts";
 
 const resolvableBoundaries = Object.freeze(
-  ORCHESTRATOR_PLATFORM_BOUNDARIES.filter(
-    (boundary) =>
-      ORCHESTRATOR_PLATFORM_BOUNDARY_OPERATIONS[boundary].length > 0,
+  COORDINATOR_PLATFORM_BOUNDARIES.filter(
+    (boundary) => COORDINATOR_PLATFORM_BOUNDARY_OPERATIONS[boundary].length > 0,
   ),
 );
 
@@ -43,10 +42,10 @@ const resolvableBoundaries = Object.freeze(
  * @boundary PRL-UT-014=Direct Boundary: orchestrator Test Source→対象契約
  */
 function canonicalOperations(
-  boundary: OrchestratorPlatformBoundary,
+  boundary: CoordinatorPlatformBoundary,
 ): Readonly<object> {
   const group: Record<string, unknown> = {};
-  for (const operationName of ORCHESTRATOR_PLATFORM_BOUNDARY_OPERATIONS[
+  for (const operationName of COORDINATOR_PLATFORM_BOUNDARY_OPERATIONS[
     boundary
   ])
     group[operationName] = () => Object.freeze({ status: "blocked" });
@@ -67,13 +66,13 @@ function canonicalOperations(
  */
 function syntheticAdapter(
   platformFamily: string,
-  supportedBoundaries: readonly OrchestratorPlatformBoundary[],
+  supportedBoundaries: readonly CoordinatorPlatformBoundary[],
   operationOverrides: Readonly<
-    Partial<Record<OrchestratorPlatformBoundary, Readonly<object>>>
+    Partial<Record<CoordinatorPlatformBoundary, Readonly<object>>>
   > = Object.freeze({}),
-): OrchestratorPlatformAdapter {
+): CoordinatorPlatformAdapter {
   const operations: Partial<
-    Record<OrchestratorPlatformBoundary, Readonly<object>>
+    Record<CoordinatorPlatformBoundary, Readonly<object>>
   > = {};
   for (const boundary of supportedBoundaries) {
     operations[boundary] =
@@ -82,15 +81,15 @@ function syntheticAdapter(
   return Object.freeze({
     describe: () =>
       Object.freeze({
-        contract: ORCHESTRATOR_PLATFORM_CONTRACT,
-        contractRevision: ORCHESTRATOR_PLATFORM_CONTRACT_REVISION,
+        contract: COORDINATOR_PLATFORM_CONTRACT,
+        contractRevision: COORDINATOR_PLATFORM_CONTRACT_REVISION,
         platformFamily,
         supportedBoundaries,
         satisfiedGuarantees: Object.freeze(
           Object.fromEntries(
             supportedBoundaries.map((boundary) => [
               boundary,
-              ORCHESTRATOR_PLATFORM_BOUNDARY_GUARANTEES[boundary],
+              COORDINATOR_PLATFORM_BOUNDARY_GUARANTEES[boundary],
             ]),
           ),
         ),
@@ -114,7 +113,7 @@ function syntheticAdapter(
  * @boundary PRL-UT-014=Direct Boundary: orchestrator Test Source→対象契約
  */
 test("Platform契約は境界母集団・操作名対応・非fallbackを閉集合で公開する", () => {
-  assert.deepEqual(describeOrchestratorPlatformContract(), {
+  assert.deepEqual(describeCoordinatorPlatformContract(), {
     contract: "crdd-coordinator/orchestrator-platform-contract",
     contractRevision: 1,
     boundaries: [
@@ -203,7 +202,7 @@ test("Platform Identity不明はfallbackなしのEffect 0で停止する", () =>
     "win\0dows",
   ])
     assert.deepEqual(
-      resolveOrchestratorPlatformAdapter(
+      resolveCoordinatorPlatformAdapter(
         observedFamily,
         [windows],
         ["filesystem_repository"],
@@ -230,7 +229,7 @@ test("Platform Identity不明はfallbackなしのEffect 0で停止する", () =>
  */
 test("Adapter不在の既知Platformは別PlatformへfallbackせずEffect 0で停止する", () => {
   const windows = syntheticAdapter("windows", resolvableBoundaries);
-  const resolution = resolveOrchestratorPlatformAdapter(
+  const resolution = resolveCoordinatorPlatformAdapter(
     "linux",
     [windows],
     ["filesystem_repository"],
@@ -259,7 +258,7 @@ test("必要境界の保証未成立はEffect 0で停止し未成立境界を返
     "filesystem_repository",
     "container_host",
   ]);
-  const resolution = resolveOrchestratorPlatformAdapter(
+  const resolution = resolveCoordinatorPlatformAdapter(
     "windows",
     [partial],
     ["filesystem_repository", "lock_lease", "process_cancellation"],
@@ -292,7 +291,7 @@ test("lock_leaseはowner観測のexact operationと全保証が揃った場合�
     }),
   );
   assert.equal(
-    resolveOrchestratorPlatformAdapter(
+    resolveCoordinatorPlatformAdapter(
       "windows",
       [claimingLockLease],
       ["lock_lease"],
@@ -345,7 +344,7 @@ test("宣言済み境界でも操作名がexact一致しない場合は保証未
           Object.freeze({ resolveRepositoryRoot: () => null }) as object,
       }),
     ),
-  }) as unknown as OrchestratorPlatformAdapter;
+  }) as unknown as CoordinatorPlatformAdapter;
   for (const adapter of [
     missingOperation,
     renamedOperation,
@@ -353,7 +352,7 @@ test("宣言済み境界でも操作名がexact一致しない場合は保証未
     accessorOperation,
   ])
     assert.deepEqual(
-      resolveOrchestratorPlatformAdapter(
+      resolveCoordinatorPlatformAdapter(
         "windows",
         [adapter],
         ["filesystem_repository"],
@@ -382,7 +381,7 @@ test("同一Platformの複数Adapterは競合としてEffect 0で停止する", 
   const first = syntheticAdapter("windows", resolvableBoundaries);
   const second = syntheticAdapter("windows", resolvableBoundaries);
   assert.deepEqual(
-    resolveOrchestratorPlatformAdapter(
+    resolveCoordinatorPlatformAdapter(
       "windows",
       [first, second],
       ["filesystem_repository"],
@@ -418,10 +417,10 @@ test("不正なresolve要求は入力拒否としてEffect 0で停止する", ()
   ];
   for (const [adapters, boundaries] of invalidRequests)
     assert.deepEqual(
-      resolveOrchestratorPlatformAdapter(
+      resolveCoordinatorPlatformAdapter(
         "windows",
-        adapters as readonly OrchestratorPlatformAdapter[],
-        boundaries as readonly OrchestratorPlatformBoundary[],
+        adapters as readonly CoordinatorPlatformAdapter[],
+        boundaries as readonly CoordinatorPlatformBoundary[],
       ),
       {
         status: "blocked",
@@ -444,18 +443,18 @@ test("不正なresolve要求は入力拒否としてEffect 0で停止する", ()
  * @boundary PRL-UT-014=Direct Boundary: orchestrator Test Source→対象契約
  */
 test("契約・改訂・Authority宣言が異なるAdapterへは解決しない", () => {
-  const foreignContract: OrchestratorPlatformAdapter = Object.freeze({
+  const foreignContract: CoordinatorPlatformAdapter = Object.freeze({
     describe: () =>
       Object.freeze({
-        contract: ORCHESTRATOR_PLATFORM_CONTRACT,
-        contractRevision: ORCHESTRATOR_PLATFORM_CONTRACT_REVISION + 1,
+        contract: COORDINATOR_PLATFORM_CONTRACT,
+        contractRevision: COORDINATOR_PLATFORM_CONTRACT_REVISION + 1,
         platformFamily: "windows",
         supportedBoundaries: resolvableBoundaries,
         satisfiedGuarantees: Object.freeze(
           Object.fromEntries(
             resolvableBoundaries.map((boundary) => [
               boundary,
-              ORCHESTRATOR_PLATFORM_BOUNDARY_GUARANTEES[boundary],
+              COORDINATOR_PLATFORM_BOUNDARY_GUARANTEES[boundary],
             ]),
           ),
         ),
@@ -467,15 +466,15 @@ test("契約・改訂・Authority宣言が異なるAdapterへは解決しない"
   const authorityClaiming = Object.freeze({
     describe: () =>
       Object.freeze({
-        contract: ORCHESTRATOR_PLATFORM_CONTRACT,
-        contractRevision: ORCHESTRATOR_PLATFORM_CONTRACT_REVISION,
+        contract: COORDINATOR_PLATFORM_CONTRACT,
+        contractRevision: COORDINATOR_PLATFORM_CONTRACT_REVISION,
         platformFamily: "windows",
         supportedBoundaries: resolvableBoundaries,
         satisfiedGuarantees: Object.freeze(
           Object.fromEntries(
             resolvableBoundaries.map((boundary) => [
               boundary,
-              ORCHESTRATOR_PLATFORM_BOUNDARY_GUARANTEES[boundary],
+              COORDINATOR_PLATFORM_BOUNDARY_GUARANTEES[boundary],
             ]),
           ),
         ),
@@ -483,19 +482,19 @@ test("契約・改訂・Authority宣言が異なるAdapterへは解決しない"
         unsupportedPlatformFallback: "none" as const,
       }),
     operations: Object.freeze({}),
-  }) as unknown as OrchestratorPlatformAdapter;
+  }) as unknown as CoordinatorPlatformAdapter;
   const throwingDescribe = Object.freeze({
     describe: () => {
       throw new Error("describe_failed");
     },
     operations: Object.freeze({}),
-  }) as unknown as OrchestratorPlatformAdapter;
+  }) as unknown as CoordinatorPlatformAdapter;
   const accessorFamily = Object.freeze({
     describe: () =>
       Object.defineProperty(
         {
-          contract: ORCHESTRATOR_PLATFORM_CONTRACT,
-          contractRevision: ORCHESTRATOR_PLATFORM_CONTRACT_REVISION,
+          contract: COORDINATOR_PLATFORM_CONTRACT,
+          contractRevision: COORDINATOR_PLATFORM_CONTRACT_REVISION,
           supportedBoundaries: resolvableBoundaries,
           satisfiedGuarantees: Object.freeze({}),
           authorityGeneration: "none",
@@ -505,7 +504,7 @@ test("契約・改訂・Authority宣言が異なるAdapterへは解決しない"
         { enumerable: true, get: () => "windows" },
       ),
     operations: Object.freeze({}),
-  }) as unknown as OrchestratorPlatformAdapter;
+  }) as unknown as CoordinatorPlatformAdapter;
   for (const adapter of [
     foreignContract,
     authorityClaiming,
@@ -513,7 +512,7 @@ test("契約・改訂・Authority宣言が異なるAdapterへは解決しない"
     accessorFamily,
   ])
     assert.deepEqual(
-      resolveOrchestratorPlatformAdapter(
+      resolveCoordinatorPlatformAdapter(
         "windows",
         [adapter],
         ["filesystem_repository"],
@@ -540,19 +539,19 @@ test("契約・改訂・Authority宣言が異なるAdapterへは解決しない"
  */
 test("describeは候補ごとに一度だけ呼ばれ、解決は検証済みsnapshotだけを使う", () => {
   let describeCallCount = 0;
-  const counting: OrchestratorPlatformAdapter = Object.freeze({
+  const counting: CoordinatorPlatformAdapter = Object.freeze({
     describe: () => {
       describeCallCount += 1;
       return Object.freeze({
-        contract: ORCHESTRATOR_PLATFORM_CONTRACT,
-        contractRevision: ORCHESTRATOR_PLATFORM_CONTRACT_REVISION,
+        contract: COORDINATOR_PLATFORM_CONTRACT,
+        contractRevision: COORDINATOR_PLATFORM_CONTRACT_REVISION,
         platformFamily: "windows",
         supportedBoundaries: resolvableBoundaries,
         satisfiedGuarantees: Object.freeze(
           Object.fromEntries(
             resolvableBoundaries.map((boundary) => [
               boundary,
-              ORCHESTRATOR_PLATFORM_BOUNDARY_GUARANTEES[boundary],
+              COORDINATOR_PLATFORM_BOUNDARY_GUARANTEES[boundary],
             ]),
           ),
         ),
@@ -569,7 +568,7 @@ test("describeは候補ごとに一度だけ呼ばれ、解決は検証済みsna
       runtime_root_recovery: canonicalOperations("runtime_root_recovery"),
     }),
   });
-  const resolution = resolveOrchestratorPlatformAdapter(
+  const resolution = resolveCoordinatorPlatformAdapter(
     "windows",
     [counting],
     [...resolvableBoundaries],
@@ -593,7 +592,7 @@ test("describeは候補ごとに一度だけ呼ばれ、解決は検証済みsna
 test("解決結果は登録済みAdapterのexact一致だけを返す", () => {
   const windows = syntheticAdapter("windows", resolvableBoundaries);
   const linux = syntheticAdapter("linux", resolvableBoundaries);
-  const resolution = resolveOrchestratorPlatformAdapter(
+  const resolution = resolveCoordinatorPlatformAdapter(
     "windows",
     [linux, windows],
     [...resolvableBoundaries],
@@ -659,20 +658,20 @@ test("解決後は検証済みoperation参照を固定し元Adapterの差替え�
   const operations = { filesystem_repository: group };
   const mutable = {
     describe: () => ({
-      contract: ORCHESTRATOR_PLATFORM_CONTRACT,
-      contractRevision: ORCHESTRATOR_PLATFORM_CONTRACT_REVISION,
+      contract: COORDINATOR_PLATFORM_CONTRACT,
+      contractRevision: COORDINATOR_PLATFORM_CONTRACT_REVISION,
       platformFamily: "windows",
       supportedBoundaries: ["filesystem_repository"],
       satisfiedGuarantees: {
         filesystem_repository:
-          ORCHESTRATOR_PLATFORM_BOUNDARY_GUARANTEES.filesystem_repository,
+          COORDINATOR_PLATFORM_BOUNDARY_GUARANTEES.filesystem_repository,
       },
       authorityGeneration: "none" as const,
       unsupportedPlatformFallback: "none" as const,
     }),
     operations,
-  } as unknown as OrchestratorPlatformAdapter;
-  const resolution = resolveOrchestratorPlatformAdapter(
+  } as unknown as CoordinatorPlatformAdapter;
+  const resolution = resolveCoordinatorPlatformAdapter(
     "windows",
     [mutable],
     ["filesystem_repository"],

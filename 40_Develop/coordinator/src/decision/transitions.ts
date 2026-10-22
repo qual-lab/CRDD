@@ -5,31 +5,31 @@
  */
 
 import {
-  type OrchestratorState,
+  type CoordinatorState,
   type StateResult,
   projectState,
   validIdentity,
-  type OrchestratorAcceptanceDecisionInput,
+  type CoordinatorAcceptanceDecisionInput,
 } from "../state/model.ts";
 
 /**
- * Orchestrator Human Decisionを要求する。
+ * Coordinator Human Decisionを要求する。
  *
- * @responsibility Orchestrator Human Decisionの要求条件、受理結果、Effect未成立との分離境界を所有する。
+ * @responsibility Coordinator Human Decisionの要求条件、受理結果、Effect未成立との分離境界を所有する。
  * @trace ARCH-000004
- * @input state: OrchestratorState、expectedGeneration: number、objectiveId: string
+ * @input state: CoordinatorState、expectedGeneration: number、objectiveId: string
  * @returns StateResultを返す。
- * @precondition 「state: OrchestratorState、expectedGeneration: number、objectiveId: string」がrequestOrchestratorHumanDecisionの入力契約を満たす。
- * @postcondition requestOrchestratorHumanDecisionの責務を完了した結果だけを返す。
- * @effect N/A: requestOrchestratorHumanDecisionは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: requestOrchestratorHumanDecisionは独自の失敗分岐を所有しない。
- * @invariant requestOrchestratorHumanDecisionは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: requestOrchestratorHumanDecisionはProcess内の同一Subsystemで完結する。
- * @security N/A: requestOrchestratorHumanDecisionはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: requestOrchestratorHumanDecisionは共有非同期状態を持たない同期処理である。
+ * @precondition 「state: CoordinatorState、expectedGeneration: number、objectiveId: string」がrequestCoordinatorHumanDecisionの入力契約を満たす。
+ * @postcondition requestCoordinatorHumanDecisionの責務を完了した結果だけを返す。
+ * @effect N/A: requestCoordinatorHumanDecisionは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: requestCoordinatorHumanDecisionは独自の失敗分岐を所有しない。
+ * @invariant requestCoordinatorHumanDecisionは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: requestCoordinatorHumanDecisionはProcess内の同一Subsystemで完結する。
+ * @security N/A: requestCoordinatorHumanDecisionはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: requestCoordinatorHumanDecisionは共有非同期状態を持たない同期処理である。
  */
-export function requestOrchestratorHumanDecision(
-  state: OrchestratorState,
+export function requestCoordinatorHumanDecision(
+  state: CoordinatorState,
   expectedGeneration: number,
   objectiveId: string,
 ): StateResult {
@@ -70,23 +70,23 @@ export function requestOrchestratorHumanDecision(
 }
 
 /**
- * Orchestrator Human Decisionを適用する。
+ * Coordinator Human Decisionを適用する。
  *
- * @responsibility Orchestrator Human Decisionの適用条件、変更結果、拒否境界を所有する。
+ * @responsibility Coordinator Human Decisionの適用条件、変更結果、拒否境界を所有する。
  * @trace ARCH-000004
- * @input state: OrchestratorState、expectedGeneration: number、action: "resume" | "cancel"、applicationId: string
+ * @input state: CoordinatorState、expectedGeneration: number、action: "resume" | "cancel"、applicationId: string
  * @returns StateResultを返す。
- * @precondition 「state: OrchestratorState、expectedGeneration: number、action: "resume" | "cancel"、applicationId: string」がapplyOrchestratorHumanDecisionの入力契約を満たす。
- * @postcondition applyOrchestratorHumanDecisionの責務を完了した結果だけを返す。
- * @effect N/A: applyOrchestratorHumanDecisionは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: applyOrchestratorHumanDecisionは独自の失敗分岐を所有しない。
- * @invariant applyOrchestratorHumanDecisionは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: applyOrchestratorHumanDecisionはProcess内の同一Subsystemで完結する。
- * @security N/A: applyOrchestratorHumanDecisionはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: applyOrchestratorHumanDecisionは共有非同期状態を持たない同期処理である。
+ * @precondition 「state: CoordinatorState、expectedGeneration: number、action: "resume" | "cancel"、applicationId: string」がapplyCoordinatorHumanDecisionの入力契約を満たす。
+ * @postcondition applyCoordinatorHumanDecisionの責務を完了した結果だけを返す。
+ * @effect N/A: applyCoordinatorHumanDecisionは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: applyCoordinatorHumanDecisionは独自の失敗分岐を所有しない。
+ * @invariant applyCoordinatorHumanDecisionは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: applyCoordinatorHumanDecisionはProcess内の同一Subsystemで完結する。
+ * @security N/A: applyCoordinatorHumanDecisionはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: applyCoordinatorHumanDecisionは共有非同期状態を持たない同期処理である。
  */
-export function applyOrchestratorHumanDecision(
-  state: OrchestratorState,
+export function applyCoordinatorHumanDecision(
+  state: CoordinatorState,
   expectedGeneration: number,
   action: "resume" | "cancel",
   applicationId?: string,
@@ -127,7 +127,7 @@ export function applyOrchestratorHumanDecision(
  *
  * @responsibility 検証済みObjective判断を状態値へ変換する内部遷移を所有する。
  * @trace ARCH-000005
- * @input state: OrchestratorState、expectedGeneration: number、objectiveId: string、input: Readonly<{ accepted: boolean; criterionEvidenceIds: readonly string[]; }>
+ * @input state: CoordinatorState、expectedGeneration: number、objectiveId: string、input: Readonly<{ accepted: boolean; criterionEvidenceIds: readonly string[]; }>
  * @returns StateResultを返す。
  * @precondition 呼出し元が受入判断対象、Authority、世代および根拠を検証済みである。
  * @postcondition 対象Objectiveだけを受入済みまたは差戻しへ遷移させる。
@@ -139,7 +139,7 @@ export function applyOrchestratorHumanDecision(
  * @concurrency expectedGenerationが一致するSnapshotだけを処置する。
  */
 function applyObjectiveAcceptance(
-  state: OrchestratorState,
+  state: CoordinatorState,
   expectedGeneration: number,
   objectiveId: string,
   input: Readonly<{
@@ -204,7 +204,7 @@ function applyObjectiveAcceptance(
  *
  * @responsibility 検証済みMilestone受入を状態値へ変換する内部遷移を所有する。
  * @trace ARCH-000005
- * @input state: OrchestratorState、expectedGeneration: number、criterionEvidenceIds: readonly string[]
+ * @input state: CoordinatorState、expectedGeneration: number、criterionEvidenceIds: readonly string[]
  * @returns StateResultを返す。
  * @precondition 呼出し元が全Objective受入、Authority、世代および根拠を検証済みである。
  * @postcondition 対象Milestoneだけを受入済みへ遷移させる。
@@ -216,7 +216,7 @@ function applyObjectiveAcceptance(
  * @concurrency expectedGenerationが一致するSnapshotだけを処置する。
  */
 function applyMilestoneAcceptance(
-  state: OrchestratorState,
+  state: CoordinatorState,
   expectedGeneration: number,
   criterionEvidenceIds: readonly string[],
 ): StateResult {
@@ -255,21 +255,21 @@ function applyMilestoneAcceptance(
  *
  * @responsibility 受入・差戻し・判断待ちを対象別に判定し、下位完了から上位受入を推定しない状態機械を所有する。
  * @trace ARCH-000005
- * @input state: OrchestratorState、expectedGeneration: number、input: OrchestratorAcceptanceDecisionInput
+ * @input state: CoordinatorState、expectedGeneration: number、input: CoordinatorAcceptanceDecisionInput
  * @returns 許可した遷移または理由付き停止を`StateResult`として返す。
  * @precondition 呼出し側がProject運営者Authorityを別境界で検証し、exactなProject状態と世代を渡す。
  * @postcondition `accept`と`return`は許可した状態だけを更新し、`wait`は状態を変更しない。
  * @effect N/A: 本関数は入力から新しい状態値を導くだけで、Store、TaskまたはProvider Effectを発行しない。
  * @failure 対象、世代、状態、根拠または前提Objectiveが一致しない場合は元状態を保持して停止する。
  * @invariant Task完了だけでObjectiveを受け入れず、全Objective受入前にMilestone判断へ進めない。
- * @boundary Orchestrator Applicationと状態機械の境界。
+ * @boundary Coordinator Applicationと状態機械の境界。
  * @security Authority値を受理・生成せず、検証済み判断だけを適用する。
  * @concurrency expectedGenerationが一致する一つの状態Snapshotだけを処置する。
  */
-export function applyOrchestratorAcceptanceDecision(
-  state: OrchestratorState,
+export function applyCoordinatorAcceptanceDecision(
+  state: CoordinatorState,
   expectedGeneration: number,
-  input: OrchestratorAcceptanceDecisionInput,
+  input: CoordinatorAcceptanceDecisionInput,
 ): StateResult {
   const isEvidenceValid =
     input.criterionEvidenceIds.every((value) => validIdentity(value)) &&

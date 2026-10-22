@@ -1,5 +1,5 @@
 /**
- * Orchestrator Runtime活動の閉じた公開結果を検査する。
+ * Coordinator Runtime活動の閉じた公開結果を検査する。
  *
  * @responsibility 現在状態とEventの相関・Property境界をTransport間で共用する。
  * @trace ARCH-000004
@@ -16,7 +16,7 @@ import {
   snapshotPlainRecord,
   snapshotPlainArray,
 } from "../input/plain-data-snapshot.ts";
-import { inspectOrchestratorProjection } from "./query-contract.ts";
+import { inspectCoordinatorProjection } from "./query-contract.ts";
 import type {
   RuntimeActivityObservation,
   RuntimeActivityEvent,
@@ -36,7 +36,7 @@ import type {
  * @effect N/A: 値を観測するだけである。
  * @failure 不正値はfalseで拒否する。
  * @invariant observedとprojectionの相関を崩さない。
- * @boundary Runtime Activity Reader／HTTP JSONとOrchestrator公開契約の境界。
+ * @boundary Runtime Activity Reader／HTTP JSONとCoordinator公開契約の境界。
  * @security 余剰Propertyを受理して秘密値を透過しない。
  * @concurrency N/A: 共有状態を持たない同期処理である。
  */
@@ -194,7 +194,7 @@ export function parseRuntimeActivityObservation(
       !sourceIds.has(record.currentSourceRepositoryId))
   )
     return null;
-  const projection = inspectOrchestratorProjection(record.projection);
+  const projection = inspectCoordinatorProjection(record.projection);
   if (
     record.state === "observed"
       ? projection === null || projection.projectId !== record.projectId
@@ -286,7 +286,7 @@ export function parseRuntimeActivityObservation(
  * @effect N/A: 値を観測するだけである。
  * @failure 不正値はnullで拒否する。
  * @invariant Event時刻と結果を補正しない。
- * @boundary Remote JSONとOrchestrator Event投影の境界。
+ * @boundary Remote JSONとCoordinator Event投影の境界。
  * @security 任意Objectまたは生Provider情報を透過しない。
  * @concurrency N/A: 共有状態を持たない同期処理である。
  */

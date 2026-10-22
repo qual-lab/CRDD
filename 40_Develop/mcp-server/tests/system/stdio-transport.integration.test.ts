@@ -15,7 +15,7 @@ import { PassThrough, Readable, Writable } from "node:stream";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { runMcpOrchestratorStdio } from "../../src/index.ts";
+import { runMcpCoordinatorStdio } from "../../src/index.ts";
 import { Client } from "@modelcontextprotocol/client";
 import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
 
@@ -106,7 +106,7 @@ test("stdio process transports one bounded MCP request and closes on parent EOF"
       },
     },
   };
-  const result = await runMcpOrchestratorStdio(
+  const result = await runMcpCoordinatorStdio(
     {
       authenticateClient: () => ({
         status: "verified",
@@ -203,12 +203,12 @@ test("stdio process rejects trailing and oversized frames without semantic effec
       effects += 1;
     },
   };
-  const trailing = await runMcpOrchestratorStdio(
+  const trailing = await runMcpCoordinatorStdio(
     dependencies,
     Readable.from(["{}"]),
     output().stream,
   );
-  const oversized = await runMcpOrchestratorStdio(
+  const oversized = await runMcpCoordinatorStdio(
     dependencies,
     Readable.from(["x".repeat(128 * 1024 + 1)]),
     output().stream,
@@ -393,7 +393,7 @@ test("parent EOF aborts and joins an active semantic request before stdio closes
   const input = new PassThrough();
   const sink = output();
   let isCancellationObserved = false;
-  const running = runMcpOrchestratorStdio(
+  const running = runMcpCoordinatorStdio(
     {
       authenticateClient: () => ({
         status: "verified",
@@ -519,7 +519,7 @@ test("stdio preserves semantic cleanup uncertainty after transport cleanup", asy
       },
     },
   };
-  const result = await runMcpOrchestratorStdio(
+  const result = await runMcpCoordinatorStdio(
     {
       authenticateClient: () => ({
         status: "verified",

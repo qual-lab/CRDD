@@ -2,7 +2,7 @@
 
 Workspace新方式の情報境界は[DI共通隔離方針](Details/docker-isolation/01_Architecture.md#workspace-isolation-policy)へ接続する。開発用`.env`の読取りリスクを受容し、本番Secretは通常開発環境へ置かない。Direct／Candidateで同じ安全原則を使うが、用途別RW・Git／内部状態書込み禁止・認証保護・外部送信同意を維持する。全秘密fileの隠蔽や独自Secret管理は要求しない。
 
-Workspace再編では[対象と権限の契約](Details/orchestrator/03_Workspace.md#2-方式識別所有境界)を適用する。RepositoryとWorkspaceを相関し、既存の内容領域workspaceId(s)はcontentAreaId(s)へ意味を維持して改名する。閲覧許可をWorkspace操作許可へ転用しない。Workbench／MCPは専門APIへ直接接続する対等な入口で、通常AI実行はOrchestratorへ搬送する。具体API・保存Schemaは未決であり、既存通信の変更は未実施。
+Workspace再編では[対象と権限の契約](Details/orchestrator/03_Workspace.md#2-方式識別所有境界)を適用する。RepositoryとWorkspaceを相関し、既存の内容領域workspaceId(s)はcontentAreaId(s)へ意味を維持して改名する。閲覧許可をWorkspace操作許可へ転用しない。Workbench／MCPは専門APIへ直接接続する対等な入口で、通常AI実行はCoordinator内Task／Objectiveへ搬送する。具体API・保存Schemaは未決であり、既存通信の変更は未実施。
 
 Status: Candidate (v0.22 responsibility reorganization)
 Owner: Qual-Lab
@@ -27,10 +27,10 @@ Component間、外部System、Platform、Repository、Trust境界と、境界を
 | 新規資格発行 | 同一Process Workbenchの現行administrator | Access Management | 既存対象userId、固定の鍵操作権限、発行結果 | 旧資格失効、Roleによる鍵権限ON／OFF、Host／MCPからの操作、交換Recoveryの生成 | 発行の既知結果と観測不能を分ける |
 | 独立失効 | 同一Process Workbenchの現行administrator | Access Management | 対象資格Identityと既存userIdへの結合、固定の鍵操作権限、失効結果 | 対象以外の資格失効、新発行・Secret・交換再入場、Host／MCPからの操作 | 失効の既知結果と観測不能を分ける |
 | 鍵交換 | 同一Process Workbenchの現行administrator、またはHostのログイン済みローカル操作者 | Access Management | 指定ユーザー／全員の2操作、対象／既存発行先、旧失効前に結合した同じRecovery参照 | Role初期化、認可破損修復、秘密再表示、Task取消の保証、MCP公開 | 処置前停止と失効後の部分結果を分離 |
-| Project Execution | Application Contract | Orchestrator | Objective、Task操作、Human Input、取消 | Provider選択、OS操作 | 同じTaskを保持して停止 |
+| Project Execution | Application Contract | Coordinator内Task／Objective | Objective、Task操作、Human Input、取消 | Provider選択、OS操作 | 同じTaskを保持して停止 |
 | Project Projection | 許可されたProject Source | Project Management Projection Port | Source、Currentness、Coverage、状態 | 正本変更Authority、受入判断Authority | unknown／partialのまま返す |
 | Acceptance Decision | Project運営者の明示判断 | Objective／Milestone Acceptance Decision Port | 対象Identity、受入／差戻し／判断待ち | Task作成、Provider Effect、下位完了からの上位受入推定 | Effect 0で判断待ちを保持 |
-| Execution Port | Orchestrator | 実行編成Adapter | exact Task、Capability、取消要求、結果 | Project状態の所有権 | Effect不明ならRecovery |
+| Execution Port | Coordinator内Task／Objective | Coordinator内Execution Adapter | exact Task、Capability、取消要求、結果 | Project状態の所有権 | Effect不明ならRecovery |
 | Repository Binding | Runtime／Tool | Version Control Port | 開始Path、検証済みRoot、Repository Identity | commit必須性、別Root Authority | Effect 0 |
 | Runtime Data | 各Runtime Component | Runtime Data Contract | Owner、用途、耐久性、Retention、Cleanup条件 | 任意Path、由来不明削除 | 保持して人間判断 |
 | External Information | 内部候補 | 外部Provider／外部結果 | 許可済み最小情報、Request Identity、未信頼結果 | Secret、採用Authority | 送信0／候補隔離 |
@@ -51,23 +51,23 @@ Component間、外部System、Platform、Repository、Trust境界と、境界を
 └──────────────────┬─────────────────────┘
                    │ 意味を保持
                    ▼
-┌─ Orchestrator ───────────────────────────────────────────────┐
+┌─ Coordinator内Task／Objective ───────────────────────────────┐
 │ Project／Task状態・判断待ち・上位再入場・限定受入判断記録     │
 └───────┬─────────────────────────────┬────────────────────────┘
-        │ 公開API直接呼出し          │ 上位状態の保存／照会
+        │ 同Package内Execution呼出し          │ 上位状態の保存／照会
         ▼                            ▼
-  Coordinator                     Domain API／Store
+  Coordinator内Execution           Domain API／Store
   実行・Review・取消・資源終了      各Ownerの意味を維持
         │                            ▲
         │ Provider固有契約           │ 明示判断だけを記録
         ▼                            │
   AI Adapter                      Project運営者
 
-Coordinatorの通知関数をOrchestratorが登録する。
+Executionが定義する通知関数をTask／Objectiveが登録する。
 下位の通知から上位判断・状態確定・cleanup成立を推定しない。
 ```
 
-`implements`は交換契約の実装候補を示すが、Adapter名や既存FolderをCanonical Componentの根拠にしない。図のOrchestratorの実装OwnerはOrchestrator、Execution Portの実装OwnerはCoordinatorである。実装ではOrchestratorがCoordinator公開APIを直接呼び出し、Coordinatorが定義する通知関数を登録する。CoordinatorからOrchestratorへのimportや、上位が所有するPort型を下位へ注入するFrameworkは追加しない。
+`implements`は交換契約の実装候補を示すが、Adapter名や既存FolderをCanonical Componentの根拠にしない。図は現行の責務境界を示し、実装Ownerは単一Coordinatorである。Task／Objectiveが同PackageのExecutionを直接呼び出し、Executionが定義する通知関数を登録する。ExecutionからTask／Objectiveへの逆依存や、上位が所有するPort型を下位へ注入するFrameworkは追加しない。
 
 ### 公開SurfaceとCROS境界
 
@@ -115,7 +115,7 @@ Coordinatorの通知関数をOrchestratorが登録する。
 ### Task受付から完了または回復まで
 
 ```text
-利用者        Transport       Orchestrator      Execution Port      Runtime Data
+利用者        Transport       Coordinator Task／Objective   Coordinator Execution   Runtime Data
   │               │                 │                    │                  │
   │ Objective     │                 │                    │                  │
   ├──────────────>│ decode/validate │                    │                  │
@@ -147,9 +147,9 @@ Coordinatorの通知関数をOrchestratorが登録する。
 
 | 情報 | Canonical Owner | Writer | Reader | 所有禁止 |
 |---|---|---|---|---|
-| Project／Task状態 | Orchestrator | Orchestrator | Projection、Transport | Adapterによる状態生成 |
-| Objective／Milestone受入判断 | Objective／Milestone Acceptance Decision Record | Acceptance Decision Port | Orchestrator、Projection | Projectionからの書込み、Task作成、Provider Effect、下位完了からの推定 |
-| Public Result | Public Application Contract | Orchestratorの結果変換 | Transport、Client | Transport固有意味の追加 |
+| Project／Task状態 | Coordinator内Task／Objective | Coordinator内Task／Objective | Projection、Transport | Adapterによる状態生成 |
+| Objective／Milestone受入判断 | Objective／Milestone Acceptance Decision Record | Acceptance Decision Port | Coordinator内Task／Objective、Projection | Projectionからの書込み、Task作成、Provider Effect、下位完了からの推定 |
+| Public Result | Public Application Contract | Coordinator内Task／Objectiveの結果変換 | Transport、Client | Transport固有意味の追加 |
 | ユーザー・Role内容・Repository登録・Exposure | Access Management | 9 Role分担行で現在許可された主体 | 現在管理認可／内容認可を別判定 | 鍵操作による変更、登録からの公開、管理からの内容取得、解除によるProduct Data削除、固定分担の設定委譲 |
 | 資格Lifecycle | Access Management | 同一Process Workbenchの固定administratorによる通常鍵3操作、Hostの交換2操作だけ | 現在認可 | Credentialの旧権限固定、鍵交換によるuserId・表示名・Role・詳細権限・Repository登録・Product Dataの変更 |
 | 要求毎の認可済みRepository集合 | Access Managementの認可Query | 非該当（現在状態から要求毎に解決） | Domain Model | 永続Grant化、旧権限固定、DomainによるCredential／Grant解釈と権限再生成 |

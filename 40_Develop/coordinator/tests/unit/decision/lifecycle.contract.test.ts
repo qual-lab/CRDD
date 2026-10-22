@@ -11,8 +11,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { issueOrchestratorHumanDecision } from "../../../src/decision/lifecycle.ts";
-import type { OrchestratorPortResult } from "../../../src/operation-result.ts";
+import { issueCoordinatorHumanDecision } from "../../../src/decision/lifecycle.ts";
+import type { CoordinatorPortResult } from "../../../src/operation-result.ts";
 
 /**
  * unavailableのTest準備責務を実行する。
@@ -26,7 +26,7 @@ import type { OrchestratorPortResult } from "../../../src/operation-result.ts";
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
  * @boundary PRL-UT-006=Direct Boundary: orchestrator Test Source→対象契約
  */
-function unavailable<T>(): OrchestratorPortResult<T> {
+function unavailable<T>(): CoordinatorPortResult<T> {
   return Object.freeze({
     status: "blocked",
     reason: "not_used",
@@ -51,7 +51,7 @@ function unavailable<T>(): OrchestratorPortResult<T> {
 test("判断Applicationは秘密値をStoreへ保存せず一回限りCapabilityを発行する", () => {
   let storedHash: string | null = null;
   let storedJson = "";
-  const result = issueOrchestratorHumanDecision(
+  const result = issueCoordinatorHumanDecision(
     {
       projectId: "project-a",
       milestoneId: "milestone-a",

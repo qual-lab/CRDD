@@ -1,14 +1,14 @@
 /**
- * Orchestrator向けのWindows保証選択とHost接続を組み立てる。
+ * Coordinator向けのWindows保証選択とHost接続を組み立てる。
  *
  * @responsibility 上位Platform契約の対応範囲を固定し、部分保証を全体完成へ昇格しない。
  * @trace ARCH-000004
  */
 import {
-  ORCHESTRATOR_PLATFORM_CONTRACT,
-  ORCHESTRATOR_PLATFORM_CONTRACT_REVISION,
-  type OrchestratorPlatformAdapter,
-  type OrchestratorPlatformBoundary,
+  COORDINATOR_PLATFORM_CONTRACT,
+  COORDINATOR_PLATFORM_CONTRACT_REVISION,
+  type CoordinatorPlatformAdapter,
+  type CoordinatorPlatformBoundary,
 } from "./contract.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
 import {
@@ -19,7 +19,7 @@ import {
 import { inspectRuntimeOwnedWindowsProviderHomeCandidate } from "../execution/provider-home-windows-adapter.ts";
 import { compileWindowsRootObservationCandidate } from "../execution/root-observation.ts";
 
-const ORCHESTRATOR_WINDOWS_PLATFORM_FAMILY = "windows" as const;
+const COORDINATOR_WINDOWS_PLATFORM_FAMILY = "windows" as const;
 
 const CHILD_ENVIRONMENT_PROFILES = new Set([
   "native_helper",
@@ -27,17 +27,17 @@ const CHILD_ENVIRONMENT_PROFILES = new Set([
 ]);
 
 /**
- * orchestrator-windows-platform-adapterで使用するOrchestrator Windows Child Environment 結果の値契約を定義する。
+ * windows-platform-adapterで使用するCoordinator Windows Child Environment 結果の値契約を定義する。
  *
- * @responsibility Orchestrator Windows Child Environment 結果のProperty、Identity、状態制約を型境界として所有する。
+ * @responsibility Coordinator Windows Child Environment 結果のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
- * @shape OrchestratorWindowsChildEnvironmentResultが表すProperty、識別子およびRelationを型として固定する。
- * @invariant OrchestratorWindowsChildEnvironmentResultで宣言した値と責務の対応を維持する。
- * @boundary N/A: OrchestratorWindowsChildEnvironmentResultの宣言は外部境界を開かない。
- * @security OrchestratorWindowsChildEnvironmentResultはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility OrchestratorWindowsChildEnvironmentResultの利用側は宣言済みPropertyと型制約だけへ依存する。
+ * @shape CoordinatorWindowsChildEnvironmentResultが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CoordinatorWindowsChildEnvironmentResultで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CoordinatorWindowsChildEnvironmentResultの宣言は外部境界を開かない。
+ * @security CoordinatorWindowsChildEnvironmentResultはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility CoordinatorWindowsChildEnvironmentResultの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type OrchestratorWindowsChildEnvironmentResult =
+export type CoordinatorWindowsChildEnvironmentResult =
   | Readonly<{
       status: "derived";
       profile: string;
@@ -46,17 +46,17 @@ export type OrchestratorWindowsChildEnvironmentResult =
   | Readonly<{ status: "blocked"; reason: string }>;
 
 /**
- * orchestrator-windows-platform-adapterで使用するOrchestrator Windows Lease 所有者 Observationの値契約を定義する。
+ * windows-platform-adapterで使用するCoordinator Windows Lease 所有者 Observationの値契約を定義する。
  *
- * @responsibility Orchestrator Windows Lease 所有者 ObservationのProperty、Identity、状態制約を型境界として所有する。
+ * @responsibility Coordinator Windows Lease 所有者 ObservationのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
- * @shape OrchestratorWindowsLeaseOwnerObservationが表すProperty、識別子およびRelationを型として固定する。
- * @invariant OrchestratorWindowsLeaseOwnerObservationで宣言した値と責務の対応を維持する。
- * @boundary N/A: OrchestratorWindowsLeaseOwnerObservationの宣言は外部境界を開かない。
- * @security OrchestratorWindowsLeaseOwnerObservationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility OrchestratorWindowsLeaseOwnerObservationの利用側は宣言済みPropertyと型制約だけへ依存する。
+ * @shape CoordinatorWindowsLeaseOwnerObservationが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CoordinatorWindowsLeaseOwnerObservationで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CoordinatorWindowsLeaseOwnerObservationの宣言は外部境界を開かない。
+ * @security CoordinatorWindowsLeaseOwnerObservationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility CoordinatorWindowsLeaseOwnerObservationの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type OrchestratorWindowsLeaseOwnerObservation = Readonly<{
+export type CoordinatorWindowsLeaseOwnerObservation = Readonly<{
   status: "alive" | "absent" | "unknown";
   ownerProcessId: number;
   ownerGeneration: string;
@@ -68,7 +68,7 @@ export type OrchestratorWindowsLeaseOwnerObservation = Readonly<{
  * @responsibility Lease 所有者の観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000004
  * @input rawOwner: unknown
- * @returns OrchestratorWindowsLeaseOwnerObservationを返す。
+ * @returns CoordinatorWindowsLeaseOwnerObservationを返す。
  * @precondition 「rawOwner: unknown」がobserveLeaseOwnerの入力契約を満たす。
  * @postcondition observeLeaseOwnerの責務を完了した結果だけを返す。
  * @effect observeLeaseOwnerは外部ProcessまたはRuntime境界の操作を呼び出す。
@@ -80,7 +80,7 @@ export type OrchestratorWindowsLeaseOwnerObservation = Readonly<{
  */
 export function observeLeaseOwner(
   rawOwner: unknown,
-): OrchestratorWindowsLeaseOwnerObservation {
+): CoordinatorWindowsLeaseOwnerObservation {
   const invalid = Object.freeze({
     status: "unknown" as const,
     ownerProcessId: 0,
@@ -118,7 +118,7 @@ export function observeLeaseOwner(
  * @responsibility derive Child Environmentの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
  * @input rawRequest: unknown
- * @returns OrchestratorWindowsChildEnvironmentResultを返す。
+ * @returns CoordinatorWindowsChildEnvironmentResultを返す。
  * @precondition 「rawRequest: unknown」がderiveChildEnvironmentの入力契約を満たす。
  * @postcondition deriveChildEnvironmentの責務を完了した結果だけを返す。
  * @effect N/A: deriveChildEnvironmentは入力と局所値だけを扱い、外部または共有Effectを発行しない。
@@ -130,7 +130,7 @@ export function observeLeaseOwner(
  */
 function deriveChildEnvironment(
   rawRequest: unknown,
-): OrchestratorWindowsChildEnvironmentResult {
+): CoordinatorWindowsChildEnvironmentResult {
   const blocked = (reason: string) =>
     Object.freeze({ status: "blocked" as const, reason });
   if (
@@ -175,7 +175,7 @@ function deriveChildEnvironment(
 const SUPPORTED_BOUNDARIES = Object.freeze([
   "principal_provider_home",
   "lock_lease",
-] as const satisfies readonly OrchestratorPlatformBoundary[]);
+] as const satisfies readonly CoordinatorPlatformBoundary[]);
 
 const SATISFIED_GUARANTEES = Object.freeze({
   principal_provider_home: Object.freeze([
@@ -211,17 +211,17 @@ const REPOSITORY_ROOT_BLOCKED_REASONS = new Set([
 ]);
 
 /**
- * orchestrator-windows-platform-adapterで使用するOrchestrator Windows Repository Root 結果の値契約を定義する。
+ * windows-platform-adapterで使用するCoordinator Windows Repository Root 結果の値契約を定義する。
  *
- * @responsibility Orchestrator Windows Repository Root 結果のProperty、Identity、状態制約を型境界として所有する。
+ * @responsibility Coordinator Windows Repository Root 結果のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
- * @shape OrchestratorWindowsRepositoryRootResultが表すProperty、識別子およびRelationを型として固定する。
- * @invariant OrchestratorWindowsRepositoryRootResultで宣言した値と責務の対応を維持する。
- * @boundary N/A: OrchestratorWindowsRepositoryRootResultの宣言は外部境界を開かない。
- * @security OrchestratorWindowsRepositoryRootResultはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility OrchestratorWindowsRepositoryRootResultの利用側は宣言済みPropertyと型制約だけへ依存する。
+ * @shape CoordinatorWindowsRepositoryRootResultが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CoordinatorWindowsRepositoryRootResultで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CoordinatorWindowsRepositoryRootResultの宣言は外部境界を開かない。
+ * @security CoordinatorWindowsRepositoryRootResultはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility CoordinatorWindowsRepositoryRootResultの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type OrchestratorWindowsRepositoryRootResult =
+export type CoordinatorWindowsRepositoryRootResult =
   | Readonly<{ status: "resolved"; repositoryRoot: string }>
   | Readonly<{ status: "blocked"; reason: string }>;
 
@@ -231,7 +231,7 @@ export type OrchestratorWindowsRepositoryRootResult =
  * @responsibility Repository Rootの候補集合、解決規則、曖昧時の拒否境界を所有する。
  * @trace ARCH-000004
  * @input workingDirectory: unknown
- * @returns OrchestratorWindowsRepositoryRootResultを返す。
+ * @returns CoordinatorWindowsRepositoryRootResultを返す。
  * @precondition 「workingDirectory: unknown」がresolveRepositoryRootの入力契約を満たす。
  * @postcondition resolveRepositoryRootの責務を完了した結果だけを返す。
  * @effect N/A: resolveRepositoryRootは入力と局所値だけを扱い、外部または共有Effectを発行しない。
@@ -243,7 +243,7 @@ export type OrchestratorWindowsRepositoryRootResult =
  */
 function resolveRepositoryRoot(
   workingDirectory: unknown,
-): OrchestratorWindowsRepositoryRootResult {
+): CoordinatorWindowsRepositoryRootResult {
   try {
     return Object.freeze({
       status: "resolved" as const,
@@ -264,26 +264,26 @@ function resolveRepositoryRoot(
 /**
  * IF-PLATFORM Windows adapter. Every operation routes a closed request to an
  *
- * @responsibility Orchestrator Windows Platform Adapterの構築入力、生成結果、不正入力の拒否境界を所有する。
+ * @responsibility Coordinator Windows Platform Adapterの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000004
  * @input N/A: 実行時引数を受け取らない。
- * @returns OrchestratorPlatformAdapterを返す。
- * @precondition 「N/A: 実行時引数を受け取らない。」がcreateOrchestratorWindowsPlatformAdapterの入力契約を満たす。
- * @postcondition createOrchestratorWindowsPlatformAdapterの責務を完了した結果だけを返す。
- * @effect N/A: createOrchestratorWindowsPlatformAdapterは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: createOrchestratorWindowsPlatformAdapterは独自の失敗分岐を所有しない。
- * @invariant createOrchestratorWindowsPlatformAdapterは入力から導いた結果以外の共有状態を変更しない。
+ * @returns CoordinatorPlatformAdapterを返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がcreateCoordinatorWindowsPlatformAdapterの入力契約を満たす。
+ * @postcondition createCoordinatorWindowsPlatformAdapterの責務を完了した結果だけを返す。
+ * @effect N/A: createCoordinatorWindowsPlatformAdapterは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: createCoordinatorWindowsPlatformAdapterは独自の失敗分岐を所有しない。
+ * @invariant createCoordinatorWindowsPlatformAdapterは入力から導いた結果以外の共有状態を変更しない。
  * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
- * @security createOrchestratorWindowsPlatformAdapterはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: createOrchestratorWindowsPlatformAdapterは共有非同期状態を持たない同期処理である。
+ * @security createCoordinatorWindowsPlatformAdapterはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: createCoordinatorWindowsPlatformAdapterは共有非同期状態を持たない同期処理である。
  */
-export function createOrchestratorWindowsPlatformAdapter(): OrchestratorPlatformAdapter {
+export function createCoordinatorWindowsPlatformAdapter(): CoordinatorPlatformAdapter {
   return Object.freeze({
     describe: () =>
       Object.freeze({
-        contract: ORCHESTRATOR_PLATFORM_CONTRACT,
-        contractRevision: ORCHESTRATOR_PLATFORM_CONTRACT_REVISION,
-        platformFamily: ORCHESTRATOR_WINDOWS_PLATFORM_FAMILY,
+        contract: COORDINATOR_PLATFORM_CONTRACT,
+        contractRevision: COORDINATOR_PLATFORM_CONTRACT_REVISION,
+        platformFamily: COORDINATOR_WINDOWS_PLATFORM_FAMILY,
         supportedBoundaries: SUPPORTED_BOUNDARIES,
         satisfiedGuarantees: SATISFIED_GUARANTEES,
         authorityGeneration: "none" as const,

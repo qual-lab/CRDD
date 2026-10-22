@@ -1,54 +1,54 @@
 /**
  * lease-portに属する責務をまとめる。
  *
- * @responsibility OrchestratorLeaseKindを中心とする実装、型および境界を同じModuleで所有する。
+ * @responsibility CoordinatorLeaseKindを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000004
  */
 import type { ProjectQueueEntry } from "../queue/types.ts";
-import type { OrchestratorPortResult } from "../operation-result.ts";
+import type { CoordinatorPortResult } from "../operation-result.ts";
 
 /**
- * lease-portで使用するOrchestrator Lease Kindの値契約を定義する。
+ * lease-portで使用するCoordinator Lease Kindの値契約を定義する。
  *
- * @responsibility Orchestrator Lease KindのProperty、Identity、状態制約を型境界として所有する。
+ * @responsibility Coordinator Lease KindのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
- * @shape OrchestratorLeaseKindが表すProperty、識別子およびRelationを型として固定する。
- * @invariant OrchestratorLeaseKindで宣言した値と責務の対応を維持する。
- * @boundary N/A: OrchestratorLeaseKindの宣言は外部境界を開かない。
- * @security N/A: OrchestratorLeaseKindはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility OrchestratorLeaseKindの利用側は宣言済みPropertyと型制約だけへ依存する。
+ * @shape CoordinatorLeaseKindが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CoordinatorLeaseKindで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CoordinatorLeaseKindの宣言は外部境界を開かない。
+ * @security N/A: CoordinatorLeaseKindはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility CoordinatorLeaseKindの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type OrchestratorLeaseKind = "project-operation" | "canonical-adoption";
+export type CoordinatorLeaseKind = "project-operation" | "canonical-adoption";
 
 /**
- * lease-portで使用するOrchestrator Leaseの値契約を定義する。
+ * lease-portで使用するCoordinator Leaseの値契約を定義する。
  *
- * @responsibility Orchestrator LeaseのProperty、Identity、状態制約を型境界として所有する。
+ * @responsibility Coordinator LeaseのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
- * @shape OrchestratorLeaseが表すProperty、識別子およびRelationを型として固定する。
- * @invariant OrchestratorLeaseで宣言した値と責務の対応を維持する。
- * @boundary N/A: OrchestratorLeaseの宣言は外部境界を開かない。
- * @security N/A: OrchestratorLeaseはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility OrchestratorLeaseの利用側は宣言済みPropertyと型制約だけへ依存する。
+ * @shape CoordinatorLeaseが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CoordinatorLeaseで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CoordinatorLeaseの宣言は外部境界を開かない。
+ * @security N/A: CoordinatorLeaseはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility CoordinatorLeaseの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type OrchestratorLease = Readonly<{
-  kind: OrchestratorLeaseKind;
+export type CoordinatorLease = Readonly<{
+  kind: CoordinatorLeaseKind;
   ownerGeneration: string;
-  release: () => OrchestratorPortResult<Readonly<{ released: true }>>;
+  release: () => CoordinatorPortResult<Readonly<{ released: true }>>;
 }>;
 
 /**
- * lease-portで使用するOrchestrator Lease Acquisition Resolutionの値契約を定義する。
+ * lease-portで使用するCoordinator Lease Acquisition Resolutionの値契約を定義する。
  *
- * @responsibility Orchestrator Lease Acquisition ResolutionのProperty、Identity、状態制約を型境界として所有する。
+ * @responsibility Coordinator Lease Acquisition ResolutionのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
- * @shape OrchestratorLeaseAcquisitionResolutionが表すProperty、識別子およびRelationを型として固定する。
- * @invariant OrchestratorLeaseAcquisitionResolutionで宣言した値と責務の対応を維持する。
- * @boundary N/A: OrchestratorLeaseAcquisitionResolutionの宣言は外部境界を開かない。
- * @security N/A: OrchestratorLeaseAcquisitionResolutionはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility OrchestratorLeaseAcquisitionResolutionの利用側は宣言済みPropertyと型制約だけへ依存する。
+ * @shape CoordinatorLeaseAcquisitionResolutionが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CoordinatorLeaseAcquisitionResolutionで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CoordinatorLeaseAcquisitionResolutionの宣言は外部境界を開かない。
+ * @security N/A: CoordinatorLeaseAcquisitionResolutionはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility CoordinatorLeaseAcquisitionResolutionの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type OrchestratorLeaseAcquisitionResolution = Readonly<{
+export type CoordinatorLeaseAcquisitionResolution = Readonly<{
   repositoryBindingId: string;
   projectId: string;
   queueId: string;
@@ -58,17 +58,17 @@ export type OrchestratorLeaseAcquisitionResolution = Readonly<{
 }>;
 
 /**
- * lease-portで使用するOrchestrator Lease 所有者 Observationの値契約を定義する。
+ * lease-portで使用するCoordinator Lease 所有者 Observationの値契約を定義する。
  *
- * @responsibility Orchestrator Lease 所有者 ObservationのProperty、Identity、状態制約を型境界として所有する。
+ * @responsibility Coordinator Lease 所有者 ObservationのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
- * @shape OrchestratorLeaseOwnerObservationが表すProperty、識別子およびRelationを型として固定する。
- * @invariant OrchestratorLeaseOwnerObservationで宣言した値と責務の対応を維持する。
- * @boundary N/A: OrchestratorLeaseOwnerObservationの宣言は外部境界を開かない。
- * @security N/A: OrchestratorLeaseOwnerObservationはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility OrchestratorLeaseOwnerObservationの利用側は宣言済みPropertyと型制約だけへ依存する。
+ * @shape CoordinatorLeaseOwnerObservationが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CoordinatorLeaseOwnerObservationで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CoordinatorLeaseOwnerObservationの宣言は外部境界を開かない。
+ * @security N/A: CoordinatorLeaseOwnerObservationはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility CoordinatorLeaseOwnerObservationの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type OrchestratorLeaseOwnerObservation = (
+export type CoordinatorLeaseOwnerObservation = (
   owner: Readonly<{
     ownerProcessId: number;
     ownerGeneration: string;
@@ -76,32 +76,32 @@ export type OrchestratorLeaseOwnerObservation = (
 ) => unknown;
 
 /**
- * lease-portで使用するOrchestrator Lease Portの値契約を定義する。
+ * lease-portで使用するCoordinator Lease Portの値契約を定義する。
  *
- * @responsibility Orchestrator Lease PortのProperty、Identity、状態制約を型境界として所有する。
+ * @responsibility Coordinator Lease PortのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
- * @shape OrchestratorLeasePortが表すProperty、識別子およびRelationを型として固定する。
- * @invariant OrchestratorLeasePortで宣言した値と責務の対応を維持する。
- * @boundary N/A: OrchestratorLeasePortの宣言は外部境界を開かない。
- * @security N/A: OrchestratorLeasePortはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility OrchestratorLeasePortの利用側は宣言済みPropertyと型制約だけへ依存する。
+ * @shape CoordinatorLeasePortが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CoordinatorLeasePortで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CoordinatorLeasePortの宣言は外部境界を開かない。
+ * @security N/A: CoordinatorLeasePortはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility CoordinatorLeasePortの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type OrchestratorLeasePort = Readonly<{
+export type CoordinatorLeasePort = Readonly<{
   acquire: (
     projectId: string,
     queueId: string,
-    kind: OrchestratorLeaseKind,
-  ) => OrchestratorPortResult<OrchestratorLease>;
-  inspectAcquisitionOwner: () => OrchestratorPortResult<
-    Readonly<{ acquisition: OrchestratorLeaseAcquisitionResolution | null }>
+    kind: CoordinatorLeaseKind,
+  ) => CoordinatorPortResult<CoordinatorLease>;
+  inspectAcquisitionOwner: () => CoordinatorPortResult<
+    Readonly<{ acquisition: CoordinatorLeaseAcquisitionResolution | null }>
   >;
   reconcileOperationOwnerLoss: (
     projectId: string,
     queueId: string,
-    observeOwner: OrchestratorLeaseOwnerObservation,
-  ) => OrchestratorPortResult<ProjectQueueEntry>;
+    observeOwner: CoordinatorLeaseOwnerObservation,
+  ) => CoordinatorPortResult<ProjectQueueEntry>;
   reconcileAdoptionOwnerLoss: (
     projectId: string,
-    observeOwner: OrchestratorLeaseOwnerObservation,
-  ) => OrchestratorPortResult<Readonly<{ recoveryId: string | null }>>;
+    observeOwner: CoordinatorLeaseOwnerObservation,
+  ) => CoordinatorPortResult<Readonly<{ recoveryId: string | null }>>;
 }>;

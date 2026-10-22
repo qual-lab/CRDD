@@ -610,12 +610,12 @@ export function prepareRuntimeOwnedCoordinatorSettlement(
  * @trace ARCH-000008
  * @input context: 元の私有Context、recoveryId: 同じexact参照、readProjectAcceptance: 固定組立ての同期Reader。
  * @returns 同じ結合が確定している場合だけtrue。
- * @precondition RequestからReaderを受け取らず、Orchestrator組立てが保持する関数を渡す。
+ * @precondition RequestからReaderを受け取らず、Coordinator組立てが保持する関数を渡す。
  * @postcondition 一度結合したReaderを別関数で置換しない。
  * @effect 既存Context内のReader参照保持のみ。保存、Docker、上位Reader呼出しは行わない。
  * @failure 偽Context、別参照、一時返却Consumer、非関数とReader差替えを拒否する。
  * @invariant 結合成功はACK受理、清掃成功または操作除去の証明ではない。
- * @boundary Orchestrator組立てと同じ操作の終端限定Context。
+ * @boundary Coordinator組立てと同じ操作の終端限定Context。
  * @security Contextは既存WeakMapで確認し、任意Path・結果Hash・新Authorityを受け付けない。
  * @concurrency 同期で一度だけ固定し、同じ関数の再入場だけを許可する。
  */
@@ -1219,7 +1219,7 @@ function advanceCoordinatorCurrentHistory(
  * @responsibility 現在回収Ownerとexact登録候補を既存Writerへ短命に結合する。
  * @trace ARCH-000008
  * @input repository、recoveryId: 固定回収対象。assertOwner: 同じ解放済みOwnerの同期確認。
- * @returns 保存確認、排他解放、EffectとOrchestrator配送待ちを分けた結果。
+ * @returns 保存確認、排他解放、EffectとCoordinator配送待ちを分けた結果。
  * @precondition 資源・Host終端と履歴確認済みで旧OwnerのEffectは無効。
  * @postcondition CLI／Workbenchの操作は除去せず、耐久ACKを合成しない。
  * @effect 同じstate.jsonと既存短命保存物だけ。履歴の更新は行わない。

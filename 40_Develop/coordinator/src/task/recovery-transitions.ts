@@ -6,9 +6,9 @@
 
 import {
   type ProjectTaskRecoveryKind,
-  type OrchestratorState,
+  type CoordinatorState,
   type StateResult,
-  isOrchestratorRecoveryIdentity,
+  isCoordinatorRecoveryIdentity,
   projectState,
   replaceTask,
   type ProjectResultAcceptance,
@@ -22,9 +22,9 @@ import {
  *
  * @responsibility mark Project Task 回復 Obligation Recoveringの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
- * @input state: OrchestratorState、expectedGeneration: number、taskId: string、kind: ProjectTaskRecoveryKind、recoveryId: string
+ * @input state: CoordinatorState、expectedGeneration: number、taskId: string、kind: ProjectTaskRecoveryKind、recoveryId: string
  * @returns StateResultを返す。
- * @precondition 「state: OrchestratorState、expectedGeneration: number、taskId: string、kind: ProjectTaskRecoveryKind、recoveryId: string」がmarkProjectTaskRecoveryObligationRecoveringの入力契約を満たす。
+ * @precondition 「state: CoordinatorState、expectedGeneration: number、taskId: string、kind: ProjectTaskRecoveryKind、recoveryId: string」がmarkProjectTaskRecoveryObligationRecoveringの入力契約を満たす。
  * @postcondition markProjectTaskRecoveryObligationRecoveringの責務を完了した結果だけを返す。
  * @effect N/A: markProjectTaskRecoveryObligationRecoveringは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: markProjectTaskRecoveryObligationRecoveringは独自の失敗分岐を所有しない。
@@ -34,7 +34,7 @@ import {
  * @concurrency N/A: markProjectTaskRecoveryObligationRecoveringは共有非同期状態を持たない同期処理である。
  */
 export function markProjectTaskRecoveryObligationRecovering(
-  state: OrchestratorState,
+  state: CoordinatorState,
   expectedGeneration: number,
   taskId: string,
   kind: ProjectTaskRecoveryKind,
@@ -54,7 +54,7 @@ export function markProjectTaskRecoveryObligationRecovering(
         entry.recoveryId === recoveryId &&
         entry.phase === "required",
     ) ||
-    !isOrchestratorRecoveryIdentity(recoveryId)
+    !isCoordinatorRecoveryIdentity(recoveryId)
   )
     return Object.freeze({
       status: "blocked",
@@ -87,9 +87,9 @@ export function markProjectTaskRecoveryObligationRecovering(
  *
  * @responsibility Project Task 回復 Obligationの確定条件、最終状態、未解決義務の境界を所有する。
  * @trace ARCH-000004
- * @input state: OrchestratorState、expectedGeneration: number、taskId: string、kind: ProjectTaskRecoveryKind、recoveryId: string
+ * @input state: CoordinatorState、expectedGeneration: number、taskId: string、kind: ProjectTaskRecoveryKind、recoveryId: string
  * @returns StateResultを返す。
- * @precondition 「state: OrchestratorState、expectedGeneration: number、taskId: string、kind: ProjectTaskRecoveryKind、recoveryId: string」がsettleProjectTaskRecoveryObligationの入力契約を満たす。
+ * @precondition 「state: CoordinatorState、expectedGeneration: number、taskId: string、kind: ProjectTaskRecoveryKind、recoveryId: string」がsettleProjectTaskRecoveryObligationの入力契約を満たす。
  * @postcondition settleProjectTaskRecoveryObligationの責務を完了した結果だけを返す。
  * @effect N/A: settleProjectTaskRecoveryObligationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: settleProjectTaskRecoveryObligationは独自の失敗分岐を所有しない。
@@ -99,7 +99,7 @@ export function markProjectTaskRecoveryObligationRecovering(
  * @concurrency N/A: settleProjectTaskRecoveryObligationは共有非同期状態を持たない同期処理である。
  */
 export function settleProjectTaskRecoveryObligation(
-  state: OrchestratorState,
+  state: CoordinatorState,
   expectedGeneration: number,
   taskId: string,
   kind: ProjectTaskRecoveryKind,
@@ -119,7 +119,7 @@ export function settleProjectTaskRecoveryObligation(
         entry.recoveryId === recoveryId &&
         entry.phase === "recovering",
     ) ||
-    !isOrchestratorRecoveryIdentity(recoveryId)
+    !isCoordinatorRecoveryIdentity(recoveryId)
   )
     return Object.freeze({
       status: "blocked",
@@ -163,7 +163,7 @@ export function settleProjectTaskRecoveryObligation(
  * @concurrency 次世代候補へ全件を固定し、終端とACKで保存世代を二度進めない。
  */
 export function recordProjectTaskResultAcceptances(
-  state: OrchestratorState,
+  state: CoordinatorState,
   expectedGeneration: number,
   taskId: string,
   acceptances: readonly unknown[],
@@ -199,7 +199,7 @@ export function recordProjectTaskResultAcceptances(
       (entry) =>
         !entry ||
         !validIdentity(entry.repositoryBindingId) ||
-        !isOrchestratorRecoveryIdentity(entry.recoveryId) ||
+        !isCoordinatorRecoveryIdentity(entry.recoveryId) ||
         entry.projectId !== state.projectId ||
         entry.milestoneId !== state.milestoneId ||
         entry.taskId !== taskId ||
@@ -274,9 +274,9 @@ export function recordProjectTaskResultAcceptances(
  *
  * @responsibility Project Docker 回復 Obligationの確認入力、状態遷移、重複処理境界を所有する。
  * @trace ARCH-000004
- * @input state: OrchestratorState、expectedGeneration: number、acknowledgement: ProjectDockerRecoveryAcknowledgement
+ * @input state: CoordinatorState、expectedGeneration: number、acknowledgement: ProjectDockerRecoveryAcknowledgement
  * @returns StateResultを返す。
- * @precondition 「state: OrchestratorState、expectedGeneration: number、acknowledgement: ProjectDockerRecoveryAcknowledgement」がacknowledgeProjectDockerRecoveryObligationの入力契約を満たす。
+ * @precondition 「state: CoordinatorState、expectedGeneration: number、acknowledgement: ProjectDockerRecoveryAcknowledgement」がacknowledgeProjectDockerRecoveryObligationの入力契約を満たす。
  * @postcondition acknowledgeProjectDockerRecoveryObligationの責務を完了した結果だけを返す。
  * @effect N/A: acknowledgeProjectDockerRecoveryObligationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: acknowledgeProjectDockerRecoveryObligationは独自の失敗分岐を所有しない。
@@ -286,7 +286,7 @@ export function recordProjectTaskResultAcceptances(
  * @concurrency N/A: acknowledgeProjectDockerRecoveryObligationは共有非同期状態を持たない同期処理である。
  */
 export function acknowledgeProjectDockerRecoveryObligation(
-  state: OrchestratorState,
+  state: CoordinatorState,
   expectedGeneration: number,
   acknowledgement: ProjectDockerRecoveryAcknowledgement,
 ): StateResult {
@@ -317,7 +317,7 @@ export function acknowledgeProjectDockerRecoveryObligation(
         entry.recoveryId === acceptance.recoveryId &&
         entry.phase === "settled",
     ) ||
-    !isOrchestratorRecoveryIdentity(acceptance.recoveryId)
+    !isCoordinatorRecoveryIdentity(acceptance.recoveryId)
   )
     return Object.freeze({
       status: "blocked",
@@ -355,9 +355,9 @@ export function acknowledgeProjectDockerRecoveryObligation(
  *
  * @responsibility retry Settled Project Task Recoveriesの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
- * @input state: OrchestratorState、expectedGeneration: number、taskIds: readonly string[]
+ * @input state: CoordinatorState、expectedGeneration: number、taskIds: readonly string[]
  * @returns StateResultを返す。
- * @precondition 「state: OrchestratorState、expectedGeneration: number、taskIds: readonly string[]」がretrySettledProjectTaskRecoveriesの入力契約を満たす。
+ * @precondition 「state: CoordinatorState、expectedGeneration: number、taskIds: readonly string[]」がretrySettledProjectTaskRecoveriesの入力契約を満たす。
  * @postcondition retrySettledProjectTaskRecoveriesの責務を完了した結果だけを返す。
  * @effect N/A: retrySettledProjectTaskRecoveriesは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: retrySettledProjectTaskRecoveriesは独自の失敗分岐を所有しない。
@@ -367,7 +367,7 @@ export function acknowledgeProjectDockerRecoveryObligation(
  * @concurrency N/A: retrySettledProjectTaskRecoveriesは共有非同期状態を持たない同期処理である。
  */
 export function retrySettledProjectTaskRecoveries(
-  state: OrchestratorState,
+  state: CoordinatorState,
   expectedGeneration: number,
   taskIds: readonly string[],
 ): StateResult {
@@ -453,11 +453,11 @@ export function retrySettledProjectTaskRecoveries(
 /**
  * Bind owner-loss observations to the exact Runtime-owned Task recoveries.
  *
- * @responsibility orchestrator-stateの入力からrecord Project Task 所有者 Loss Recoveriesを導く規則と結果境界を所有する。
+ * @responsibility stateの入力からrecord Project Task 所有者 Loss Recoveriesを導く規則と結果境界を所有する。
  * @trace ARCH-000004
- * @input state: OrchestratorState、expectedGeneration: number、bindings: readonly Readonly<{ operationId: string; status: "matched" | "verified_absent"; recoveryId: string | null; }>[]
+ * @input state: CoordinatorState、expectedGeneration: number、bindings: readonly Readonly<{ operationId: string; status: "matched" | "verified_absent"; recoveryId: string | null; }>[]
  * @returns StateResultを返す。
- * @precondition 「state: OrchestratorState、expectedGeneration: number、bindings: readonly Readonly<{ operationId: string; status: "matched" | "verified_absent"; recoveryId: string | null; }>[]」がrecordProjectTaskOwnerLossRecoveriesの入力契約を満たす。
+ * @precondition 「state: CoordinatorState、expectedGeneration: number、bindings: readonly Readonly<{ operationId: string; status: "matched" | "verified_absent"; recoveryId: string | null; }>[]」がrecordProjectTaskOwnerLossRecoveriesの入力契約を満たす。
  * @postcondition recordProjectTaskOwnerLossRecoveriesの責務を完了した結果だけを返す。
  * @effect N/A: recordProjectTaskOwnerLossRecoveriesは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: recordProjectTaskOwnerLossRecoveriesは独自の失敗分岐を所有しない。
@@ -467,7 +467,7 @@ export function retrySettledProjectTaskRecoveries(
  * @concurrency N/A: recordProjectTaskOwnerLossRecoveriesは共有非同期状態を持たない同期処理である。
  */
 export function recordProjectTaskOwnerLossRecoveries(
-  state: OrchestratorState,
+  state: CoordinatorState,
   expectedGeneration: number,
   bindings: readonly Readonly<{
     operationId: string;
@@ -492,7 +492,7 @@ export function recordProjectTaskOwnerLossRecoveries(
         !validIdentity(entry.operationId) ||
         !["matched", "verified_absent"].includes(entry.status) ||
         (entry.status === "matched" &&
-          !isOrchestratorRecoveryIdentity(entry.recoveryId)) ||
+          !isCoordinatorRecoveryIdentity(entry.recoveryId)) ||
         (entry.status === "verified_absent" && entry.recoveryId !== null),
     )
   )

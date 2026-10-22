@@ -6,7 +6,7 @@
  * @trace PRL-UT-014
  * @level UT
  * @scope claude、docker、runtime、adapter
- * @boundary PRL-UT-014=N/A: Orchestrator Application Portは外部実行境界を持たない。
+ * @boundary PRL-UT-014=N/A: Coordinator Application Portは外部実行境界を持たない。
  */
 import {
   getRuntimeOwnedProviderDockerAdapter,

@@ -890,16 +890,16 @@ function projectSourceFile(project: Project, fileName: string) {
  * @boundary ERB-IT-003=Direct Boundary: coordinator Test Source→対象契約
  */
 test("公開CLIはproduction helperの単一bindingとfinally解除をAST・symbolで固定する", () => {
-  const orchestratorRoot = path.resolve(
+  const coordinatorRoot = path.resolve(
     import.meta.dirname,
     "..",
     "..",
     "..",
     "coordinator",
   );
-  const api = new API({ cwd: orchestratorRoot });
+  const api = new API({ cwd: coordinatorRoot });
   try {
-    const configFile = path.join(orchestratorRoot, "tsconfig.strict.json");
+    const configFile = path.join(coordinatorRoot, "tsconfig.strict.json");
     const snapshot = api.updateSnapshot({ openProjects: [configFile] });
     try {
       const project =
@@ -907,7 +907,7 @@ test("公開CLIはproduction helperの単一bindingとfinally解除をAST・symb
       assert.ok(project);
       const sourceFile = projectSourceFile(
         project,
-        path.join(orchestratorRoot, "src", "cli", "request.ts"),
+        path.join(coordinatorRoot, "src", "cli", "request.ts"),
       );
       assert.deepEqual(
         inspectTaskCliCancellationWiring(project, sourceFile),
@@ -934,7 +934,7 @@ test("公開CLIはproduction helperの単一bindingとfinally解除をAST・symb
  * @boundary ERB-IT-003=Direct Boundary: coordinator Test Source→対象契約
  */
 test("CLI AST契約はshadow・二重binding・直接signal・非await join・finally外終了・signal差替え・解放順序違反を拒否する", () => {
-  const orchestratorRoot = path.resolve(
+  const coordinatorRoot = path.resolve(
     import.meta.dirname,
     "..",
     "..",
@@ -942,7 +942,7 @@ test("CLI AST契約はshadow・二重binding・直接signal・非await join・fi
     "coordinator",
   );
   const original = fs.readFileSync(
-    path.join(orchestratorRoot, "src", "cli", "request.ts"),
+    path.join(coordinatorRoot, "src", "cli", "request.ts"),
     "utf8",
   );
   const mutations = [
@@ -1002,13 +1002,13 @@ test("CLI AST契約はshadow・二重binding・直接signal・非await join・fi
   const virtualFiles: Record<string, string> = {};
   const fileNames = [original, ...mutations].map((source, index) => {
     const fileName = path
-      .join(orchestratorRoot, "src/cli", `.crdd-cli-mutation-${index}.ts`)
+      .join(coordinatorRoot, "src/cli", `.crdd-cli-mutation-${index}.ts`)
       .replaceAll("\\", "/");
     virtualFiles[fileName] = source;
     return fileName;
   });
   const configFile = path
-    .join(orchestratorRoot, ".crdd-cli-mutation.json")
+    .join(coordinatorRoot, ".crdd-cli-mutation.json")
     .replaceAll("\\", "/");
   virtualFiles[configFile] = JSON.stringify({
     extends: "./tsconfig.strict.json",
@@ -1016,7 +1016,7 @@ test("CLI AST契約はshadow・二重binding・直接signal・非await join・fi
     include: [],
   });
   const api = new API({
-    cwd: orchestratorRoot,
+    cwd: coordinatorRoot,
     fs: {
       readFile: (name) => virtualFiles[name],
       fileExists: (name) => (name in virtualFiles ? true : undefined),

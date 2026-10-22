@@ -5,7 +5,7 @@
  * @trace ERB-IT-014
  * @trace PRL-IT-005
  * @level IT
- * @scope 本番回収・Orchestrator待機本文、模擬現在状態、実空configとspawnSync差替え。
+ * @scope 本番回収・Coordinator待機本文、模擬現在状態、実空configとspawnSync差替え。
  * @boundary ERB-IT-014=Related 2 Blocks: 現在回収Owner→Docker Isolation。
  */
 import assert from "node:assert/strict";

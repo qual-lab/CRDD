@@ -1,0 +1,1145 @@
+/**
+ * CoordinatorのTool定義と要求・結果の搬送を所有する。
+ *
+ * @responsibility McpCoordinatorDependenciesを中心とする実装、型および境界を同じModuleで所有する。
+ * @trace ARCH-000012
+ */
+import {
+  snapshotPlainArray,
+  snapshotPlainRecord,
+} from "../request/snapshot.ts";
+import {
+  inspectCoordinatorDecisionRequest,
+  inspectCoordinatorObjectiveRequest,
+  inspectCoordinatorWorkspaceResults,
+  inspectCoordinatorStateQuery,
+  inspectCoordinatorStateQueryResult,
+  isCoordinatorObjectiveProjectionCorrelationValid,
+  isCoordinatorProjectionSemanticallyValid,
+  COORDINATOR_HUMAN_DECISION_CONTRACT,
+  COORDINATOR_MAXIMUM_OBJECTIVES,
+  COORDINATOR_MAXIMUM_TASKS,
+  COORDINATOR_OBJECTIVE_INTAKE_CONTRACT,
+  COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
+  type CoordinatorProjection,
+} from "../../../coordinator/src/index.ts";
+import {
+  callKeys,
+  discoverKeys,
+  inspectMcpEnvelope,
+  inspectProtocolRequest,
+  listKeys,
+  listKeysNoCursor,
+  MCP_COORDINATOR_PROTOCOL_VERSION,
+  protocolComplete,
+  protocolError,
+  type McpResponse,
+} from "../request/validation.ts";
+
+export const MCP_COORDINATOR_ADAPTER_CONTRACT =
+  "crdd-mcp/orchestrator-adapter/v2" as const;
+/**
+ * adapterで使用するMcp Coordinator Dependenciesの値契約を定義する。
+ *
+ * @responsibility Mcp Coordinator DependenciesのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000012
+ * @shape McpCoordinatorDependenciesが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant McpCoordinatorDependenciesで宣言した値と責務の対応を維持する。
+ * @boundary N/A: McpCoordinatorDependenciesの宣言は外部境界を開かない。
+ * @security N/A: McpCoordinatorDependenciesはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility McpCoordinatorDependenciesの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
+export type McpCoordinatorDependencies = Readonly<{
+  authenticateClient: () => unknown;
+  runObjective: (
+    request: Readonly<Record<string, unknown>>,
+    signal: AbortSignal,
+    authentication: Readonly<{ principalId: string }>,
+  ) => Promise<unknown>;
+  submitDecision: (
+    request: Readonly<Record<string, unknown>>,
+    authentication: Readonly<{ principalId: string }>,
+  ) => Promise<unknown>;
+  getProjectState: (
+    request: Readonly<Record<string, unknown>>,
+    authentication: Readonly<{ principalId: string }>,
+  ) => Promise<unknown>;
+}>;
+
+const OBJECTIVE_RESULT_KEYS = new Set([
+  "contract",
+  "status",
+  "reason",
+  "requestId",
+  "projectId",
+  "milestoneId",
+  "queueId",
+  "projection",
+  "cleanupConfirmed",
+  "manualRecoveryRequired",
+  "processRestartRequired",
+  "recoveryIds",
+  "recoveryObligations",
+  "effectState",
+]);
+const PUBLIC_BLOCKED_RESULT_KEYS = new Set([
+  "contract",
+  "status",
+  "reason",
+  "cleanupConfirmed",
+  "manualRecoveryRequired",
+  "effectState",
+]);
+const decisionBlockedRestartKeys = new Set([
+  ...PUBLIC_BLOCKED_RESULT_KEYS,
+  "processRestartRequired",
+  "recoveryId",
+]);
+const decisionAppliedResultKeys = new Set([
+  "contract",
+  "status",
+  "reason",
+  "decisionId",
+  "applicationId",
+  "generation",
+  "cleanupConfirmed",
+  "manualRecoveryRequired",
+  "effectState",
+] as const);
+const decisionIssuedResultKeys = new Set([
+  "contract",
+  "status",
+  "reason",
+  "decisionId",
+  "recordId",
+  "continuationCapability",
+  "allowedOptions",
+  "expiresAtEpochMs",
+  "cleanupConfirmed",
+  "manualRecoveryRequired",
+  "effectState",
+] as const);
+const decisionReplacedResultKeys = new Set([
+  ...decisionIssuedResultKeys,
+  "replacementRequestId",
+]);
+const decisionRecoveredResultKeys = new Set([
+  "contract",
+  "status",
+  "reason",
+  "decisionId",
+  "applicationId",
+  "cleanupConfirmed",
+  "manualRecoveryRequired",
+  "effectState",
+] as const);
+
+/**
+ * adapterを安定Identityへ変換する。
+ *
+ * @responsibility adapterの正規化条件、一意性、変換不能時の拒否境界を所有する。
+ * @trace ARCH-000012
+ * @input value: unknown
+ * @returns value is stringを返す。
+ * @precondition 「value: unknown」がstableの入力契約を満たす。
+ * @postcondition stableの責務を完了した結果だけを返す。
+ * @effect N/A: stableは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: stableは独自の失敗分岐を所有しない。
+ * @invariant stableは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: stableはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: stableは共有非同期状態を持たない同期処理である。
+ */
+function stable(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(value)
+  );
+}
+/**
+ * adapterを表示文字列へ変換する。
+ *
+ * @responsibility adapterの入力値、文字列表現、機密を含めない結果境界を所有する。
+ * @trace ARCH-000012
+ * @input value: unknown、maximum: number
+ * @returns value is stringを返す。
+ * @precondition 「value: unknown、maximum: number」がtextの入力契約を満たす。
+ * @postcondition textの責務を完了した結果だけを返す。
+ * @effect N/A: textは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: textは独自の失敗分岐を所有しない。
+ * @invariant textは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: textはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: textは共有非同期状態を持たない同期処理である。
+ */
+function text(value: unknown, maximum: number): value is string {
+  return (
+    typeof value === "string" &&
+    value.length > 0 &&
+    value.length <= maximum &&
+    !/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u.test(value)
+  );
+}
+/**
+ * objectiveを決定する。
+ *
+ * @responsibility objectiveの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000012
+ * @input value: unknown
+ * @returns Readonly<Record<string, unknown>> | nullを返す。
+ * @precondition 「value: unknown」がobjectiveの入力契約を満たす。
+ * @postcondition objectiveの責務を完了した結果だけを返す。
+ * @effect N/A: objectiveは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: objectiveは独自の失敗分岐を所有しない。
+ * @invariant objectiveは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: objectiveはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: objectiveは共有非同期状態を持たない同期処理である。
+ */
+function objective(value: unknown): Readonly<Record<string, unknown>> | null {
+  return inspectCoordinatorObjectiveRequest(value);
+}
+const objectiveCountKeys = new Set([
+  "planned",
+  "executing",
+  "integration_pending",
+  "accepted",
+  "returned",
+  "blocked",
+  "cancelled",
+] as const);
+const taskCountKeys = new Set([
+  "planned",
+  "waiting_dependency",
+  "ready",
+  "starting",
+  "running",
+  "cleanup_pending",
+  "completed",
+  "failed",
+  "cancelled",
+  "recovery_required",
+  "superseded",
+] as const);
+const projectionKeys = new Set([
+  "projectId",
+  "milestoneId",
+  "generation",
+  "milestoneState",
+  "objectiveCounts",
+  "taskCounts",
+  "objectiveTaskSummaries",
+  "workProgress",
+  "qualityState",
+  "humanDecisionRequired",
+  "recoveryRequired",
+  "nextAction",
+] as const);
+
+/**
+ * Snapshotの件数を算出する。
+ *
+ * @responsibility Snapshotの計数対象、集計規則、件数結果境界を所有する。
+ * @trace ARCH-000012
+ * @input value: unknown、keys: ReadonlySet<string>、maximumTotal: number
+ * @returns countSnapshotの計算結果を返す。
+ * @precondition 「value: unknown、keys: ReadonlySet<string>、maximumTotal: number」がcountSnapshotの入力契約を満たす。
+ * @postcondition countSnapshotの責務を完了した結果だけを返す。
+ * @effect N/A: countSnapshotは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: countSnapshotは独自の失敗分岐を所有しない。
+ * @invariant countSnapshotは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: countSnapshotはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: countSnapshotは共有非同期状態を持たない同期処理である。
+ */
+function countSnapshot(
+  value: unknown,
+  keys: ReadonlySet<string>,
+  maximumTotal: number,
+) {
+  const record = snapshotPlainRecord(value, keys);
+  if (
+    !record ||
+    [...keys].some(
+      (key) => !Number.isSafeInteger(record[key]) || Number(record[key]) < 0,
+    )
+  )
+    return null;
+  let total = 0;
+  for (const key of keys) {
+    total += Number(record[key]);
+    if (!Number.isSafeInteger(total) || total > maximumTotal) return null;
+  }
+  return Object.freeze(
+    Object.fromEntries([...keys].map((key) => [key, Number(record[key])])),
+  );
+}
+
+/**
+ * projection Snapshotを決定する。
+ *
+ * @responsibility projection Snapshotの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000012
+ * @input value: unknown
+ * @returns projectionSnapshotの計算結果を返す。
+ * @precondition 「value: unknown」がprojectionSnapshotの入力契約を満たす。
+ * @postcondition projectionSnapshotの責務を完了した結果だけを返す。
+ * @effect N/A: projectionSnapshotは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: projectionSnapshotは独自の失敗分岐を所有しない。
+ * @invariant projectionSnapshotは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: projectionSnapshotはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: projectionSnapshotは共有非同期状態を持たない同期処理である。
+ */
+function projectionSnapshot(value: unknown) {
+  const record = snapshotPlainRecord(value, projectionKeys);
+  if (!record) return null;
+  const objectiveCounts = countSnapshot(
+    record.objectiveCounts,
+    objectiveCountKeys,
+    COORDINATOR_MAXIMUM_OBJECTIVES,
+  );
+  const taskCounts = countSnapshot(
+    record.taskCounts,
+    taskCountKeys,
+    COORDINATOR_MAXIMUM_TASKS,
+  );
+  const rawSummaries = snapshotPlainArray(
+    record.objectiveTaskSummaries,
+    COORDINATOR_MAXIMUM_OBJECTIVES,
+  );
+  const objectiveTaskSummaries: Array<
+    CoordinatorProjection["objectiveTaskSummaries"][number]
+  > = [];
+  if (rawSummaries.status !== "ok") return null;
+  for (const rawSummary of rawSummaries.value) {
+    const summary = snapshotPlainRecord(
+      rawSummary,
+      new Set(["objectiveId", "objectiveState", "taskCounts"]),
+    );
+    const summaryTaskCounts = countSnapshot(
+      summary?.taskCounts,
+      taskCountKeys,
+      COORDINATOR_MAXIMUM_TASKS,
+    );
+    if (
+      !summary ||
+      !stable(summary.objectiveId) ||
+      !objectiveCountKeys.has(summary.objectiveState as never) ||
+      !summaryTaskCounts
+    )
+      return null;
+    objectiveTaskSummaries.push(
+      Object.freeze({
+        objectiveId: String(summary.objectiveId),
+        objectiveState: summary.objectiveState as never,
+        taskCounts: summaryTaskCounts as never,
+      }),
+    );
+  }
+  if (
+    !stable(record.projectId) ||
+    !stable(record.milestoneId) ||
+    !Number.isSafeInteger(record.generation) ||
+    Number(record.generation) < 1 ||
+    ![
+      "planned",
+      "executing",
+      "integrating",
+      "human_decision_required",
+      "recovery_required",
+      "accepted",
+      "cancelled",
+    ].includes(String(record.milestoneState)) ||
+    !objectiveCounts ||
+    !taskCounts ||
+    !["not_started", "in_progress", "tasks_complete"].includes(
+      String(record.workProgress),
+    ) ||
+    !["not_evaluated", "integration_pending", "accepted", "blocked"].includes(
+      String(record.qualityState),
+    ) ||
+    typeof record.humanDecisionRequired !== "boolean" ||
+    typeof record.recoveryRequired !== "boolean" ||
+    ![
+      "schedule_task",
+      "wait_for_task",
+      "verify_objective_integration",
+      "verify_milestone_integration",
+      "human_decision",
+      "recover",
+      "complete",
+    ].includes(String(record.nextAction))
+  )
+    return null;
+  const projection = Object.freeze({
+    projectId: record.projectId,
+    milestoneId: record.milestoneId,
+    generation: record.generation,
+    milestoneState: record.milestoneState,
+    objectiveCounts,
+    taskCounts,
+    objectiveTaskSummaries: Object.freeze(objectiveTaskSummaries),
+    workProgress: record.workProgress,
+    qualityState: record.qualityState,
+    humanDecisionRequired: record.humanDecisionRequired,
+    recoveryRequired: record.recoveryRequired,
+    nextAction: record.nextAction,
+  }) as CoordinatorProjection;
+  return isCoordinatorProjectionSemanticallyValid(projection)
+    ? projection
+    : null;
+}
+
+/**
+ * recovery Snapshotを決定する。
+ *
+ * @responsibility recovery Snapshotの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000012
+ * @input rawIds: unknown、rawObligations: unknown
+ * @returns recoverySnapshotの計算結果を返す。
+ * @precondition 「rawIds: unknown、rawObligations: unknown」がrecoverySnapshotの入力契約を満たす。
+ * @postcondition recoverySnapshotの責務を完了した結果だけを返す。
+ * @effect N/A: recoverySnapshotは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: recoverySnapshotは独自の失敗分岐を所有しない。
+ * @invariant recoverySnapshotは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: recoverySnapshotはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: recoverySnapshotは共有非同期状態を持たない同期処理である。
+ */
+function recoverySnapshot(rawIds: unknown, rawObligations: unknown) {
+  const ids = snapshotPlainArray(rawIds, 128);
+  const obligations = snapshotPlainArray(rawObligations, 128);
+  if (ids.status !== "ok" || obligations.status !== "ok") return null;
+  const copiedIds: string[] = [];
+  for (const id of ids.value) {
+    if (!text(id, 512) || !/^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(id))
+      return null;
+    copiedIds.push(id);
+  }
+  const copiedObligations: Readonly<{ kind: string; recoveryId: string }>[] =
+    [];
+  for (const raw of obligations.value) {
+    const entry = snapshotPlainRecord(raw, new Set(["kind", "recoveryId"]));
+    if (
+      !entry ||
+      ![
+        "host",
+        "docker",
+        "candidate",
+        "candidate_store",
+        "runtime_process",
+      ].includes(String(entry.kind)) ||
+      !text(entry.recoveryId, 512) ||
+      !/^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(String(entry.recoveryId))
+    )
+      return null;
+    copiedObligations.push(
+      Object.freeze({
+        kind: String(entry.kind),
+        recoveryId: String(entry.recoveryId),
+      }),
+    );
+  }
+  if (
+    new Set(copiedIds).size !== copiedIds.length ||
+    new Set(
+      copiedObligations.map((entry) => `${entry.kind}\0${entry.recoveryId}`),
+    ).size !== copiedObligations.length ||
+    copiedIds.length !==
+      new Set(copiedObligations.map((entry) => entry.recoveryId)).size ||
+    copiedIds.some(
+      (id) => !copiedObligations.some((entry) => entry.recoveryId === id),
+    )
+  )
+    return null;
+  return Object.freeze({
+    recoveryIds: Object.freeze(copiedIds),
+    recoveryObligations: Object.freeze(copiedObligations),
+  });
+}
+
+/**
+ * public Blocked Snapshotを決定する。
+ *
+ * @responsibility public Blocked Snapshotの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000012
+ * @input raw: unknown、expectedContracts: ReadonlySet<string>
+ * @returns publicBlockedSnapshotの計算結果を返す。
+ * @precondition 「raw: unknown、expectedContracts: ReadonlySet<string>」がpublicBlockedSnapshotの入力契約を満たす。
+ * @postcondition publicBlockedSnapshotの責務を完了した結果だけを返す。
+ * @effect N/A: publicBlockedSnapshotは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: publicBlockedSnapshotは独自の失敗分岐を所有しない。
+ * @invariant publicBlockedSnapshotは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: publicBlockedSnapshotはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: publicBlockedSnapshotは共有非同期状態を持たない同期処理である。
+ */
+function publicBlockedSnapshot(
+  raw: unknown,
+  expectedContracts: ReadonlySet<string>,
+) {
+  const record = snapshotPlainRecord(raw, PUBLIC_BLOCKED_RESULT_KEYS);
+  if (
+    !record ||
+    !expectedContracts.has(String(record.contract)) ||
+    record.status !== "blocked" ||
+    !text(record.reason, 256) ||
+    typeof record.cleanupConfirmed !== "boolean" ||
+    typeof record.manualRecoveryRequired !== "boolean" ||
+    !["no_effect", "settled", "unknown"].includes(String(record.effectState)) ||
+    (record.effectState === "unknown" &&
+      (record.cleanupConfirmed !== false ||
+        record.manualRecoveryRequired !== true)) ||
+    (record.effectState !== "unknown" &&
+      (record.cleanupConfirmed !== true ||
+        record.manualRecoveryRequired !== false))
+  )
+    return null;
+  return Object.freeze({ ...record });
+}
+
+/**
+ * decision Snapshotを決定する。
+ *
+ * @responsibility decision Snapshotの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000012
+ * @input raw: unknown
+ * @returns Readonly<Record<string, unknown>> | nullを返す。
+ * @precondition 「raw: unknown」がdecisionSnapshotの入力契約を満たす。
+ * @postcondition decisionSnapshotの責務を完了した結果だけを返す。
+ * @effect N/A: decisionSnapshotは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: decisionSnapshotは独自の失敗分岐を所有しない。
+ * @invariant decisionSnapshotは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: decisionSnapshotはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: decisionSnapshotは共有非同期状態を持たない同期処理である。
+ */
+function decisionSnapshot(
+  raw: unknown,
+): Readonly<Record<string, unknown>> | null {
+  const simple = publicBlockedSnapshot(
+    raw,
+    new Set([
+      COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
+      COORDINATOR_HUMAN_DECISION_CONTRACT,
+    ]),
+  );
+  if (simple) return simple;
+  const restart = snapshotPlainRecord(raw, decisionBlockedRestartKeys);
+  if (
+    restart &&
+    restart.status === "blocked" &&
+    restart.contract === COORDINATOR_HUMAN_DECISION_CONTRACT &&
+    text(restart.reason, 256) &&
+    restart.cleanupConfirmed === false &&
+    restart.manualRecoveryRequired === true &&
+    restart.effectState === "unknown" &&
+    restart.processRestartRequired === true &&
+    (restart.recoveryId === null || stable(restart.recoveryId))
+  )
+    return Object.freeze({ ...restart });
+  const applied = snapshotPlainRecord(raw, decisionAppliedResultKeys);
+  if (
+    applied &&
+    applied.contract === COORDINATOR_HUMAN_DECISION_CONTRACT &&
+    applied.status === "completed" &&
+    text(applied.reason, 256) &&
+    stable(applied.decisionId) &&
+    stable(applied.applicationId) &&
+    Number.isSafeInteger(applied.generation) &&
+    Number(applied.generation) > 0 &&
+    applied.cleanupConfirmed === true &&
+    applied.manualRecoveryRequired === false &&
+    applied.effectState === "settled"
+  )
+    return Object.freeze({ ...applied });
+  const issued =
+    snapshotPlainRecord(raw, decisionIssuedResultKeys) ??
+    snapshotPlainRecord(raw, decisionReplacedResultKeys);
+  if (issued) {
+    const allowed = snapshotPlainArray(issued.allowedOptions, 2);
+    if (
+      issued.contract !== COORDINATOR_HUMAN_DECISION_CONTRACT ||
+      issued.status !== "completed" ||
+      !text(issued.reason, 256) ||
+      !stable(issued.decisionId) ||
+      !stable(issued.recordId) ||
+      !text(issued.continuationCapability, 512) ||
+      allowed.status !== "ok" ||
+      allowed.value.length === 0 ||
+      new Set(allowed.value).size !== allowed.value.length ||
+      !allowed.value.every(
+        (value) => value === "resume" || value === "cancel",
+      ) ||
+      !Number.isSafeInteger(issued.expiresAtEpochMs) ||
+      Number(issued.expiresAtEpochMs) < 1 ||
+      issued.cleanupConfirmed !== true ||
+      issued.manualRecoveryRequired !== false ||
+      issued.effectState !== "settled" ||
+      (Object.hasOwn(issued, "replacementRequestId") &&
+        !stable((issued as Record<string, unknown>).replacementRequestId))
+    )
+      return null;
+    return Object.freeze({
+      ...issued,
+      allowedOptions: Object.freeze([...allowed.value]),
+    });
+  }
+  const recovered = snapshotPlainRecord(raw, decisionRecoveredResultKeys);
+  if (
+    recovered &&
+    recovered.contract === COORDINATOR_HUMAN_DECISION_CONTRACT &&
+    recovered.status === "completed" &&
+    text(recovered.reason, 256) &&
+    stable(recovered.decisionId) &&
+    (recovered.applicationId === null || stable(recovered.applicationId)) &&
+    recovered.cleanupConfirmed === true &&
+    recovered.manualRecoveryRequired === false &&
+    recovered.effectState === "settled"
+  )
+    return Object.freeze({ ...recovered });
+  return null;
+}
+
+/**
+ * objective Snapshotを決定する。
+ *
+ * @responsibility objective Snapshotの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000012
+ * @input raw: unknown
+ * @returns Readonly<Record<string, unknown>> | nullを返す。
+ * @precondition 「raw: unknown」がobjectiveSnapshotの入力契約を満たす。
+ * @postcondition objectiveSnapshotの責務を完了した結果だけを返す。
+ * @effect N/A: objectiveSnapshotは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: objectiveSnapshotは独自の失敗分岐を所有しない。
+ * @invariant objectiveSnapshotは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: objectiveSnapshotはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: objectiveSnapshotは共有非同期状態を持たない同期処理である。
+ */
+function objectiveSnapshot(
+  raw: unknown,
+  expectedWorkspaceId?: string | null,
+): Readonly<Record<string, unknown>> | null {
+  const simple = publicBlockedSnapshot(
+    raw,
+    new Set([COORDINATOR_PUBLIC_RUNTIME_CONTRACT]),
+  );
+  if (simple) return simple;
+  const objective =
+    snapshotPlainRecord(raw, OBJECTIVE_RESULT_KEYS) ??
+    snapshotPlainRecord(
+      raw,
+      new Set([...OBJECTIVE_RESULT_KEYS, "workspaceResults"]),
+    );
+  if (objective) {
+    const workspaceResults = Object.hasOwn(objective, "workspaceResults")
+      ? inspectCoordinatorWorkspaceResults(
+          objective.workspaceResults,
+          expectedWorkspaceId,
+        )
+      : undefined;
+    const recoveries = recoverySnapshot(
+      objective.recoveryIds,
+      objective.recoveryObligations,
+    );
+    const projection =
+      objective.projection === null
+        ? null
+        : projectionSnapshot(objective.projection);
+    // Task処理の完了と、Objective全体の採用完了は異なる。
+    // 内部進行値は変更せず、公開値だけを既存の採用相関へ合わせる。
+    const status =
+      objective.status === "completed" &&
+      projection !== null &&
+      projection.milestoneState !== "accepted"
+        ? "blocked"
+        : objective.status;
+    const hasRecovery = Boolean(recoveries?.recoveryIds.length);
+    const hasRuntimeProcessRecovery = Boolean(
+      recoveries?.recoveryObligations.some(
+        (entry) => entry.kind === "runtime_process",
+      ),
+    );
+    const isCorrelationValid =
+      projection === null ||
+      isCoordinatorObjectiveProjectionCorrelationValid(
+        {
+          status: status as "completed" | "blocked" | "cancelled",
+          cleanupConfirmed: Boolean(objective.cleanupConfirmed),
+          manualRecoveryRequired: Boolean(objective.manualRecoveryRequired),
+          processRestartRequired: Boolean(objective.processRestartRequired),
+          effectState: objective.effectState as
+            | "no_effect"
+            | "settled"
+            | "unknown",
+          recoveryCount: recoveries?.recoveryIds.length ?? 0,
+        },
+        projection,
+      );
+    if (
+      objective.contract !== COORDINATOR_OBJECTIVE_INTAKE_CONTRACT ||
+      (workspaceResults === null && objective.status === "completed") ||
+      !["completed", "blocked", "cancelled"].includes(
+        String(objective.status),
+      ) ||
+      !text(objective.reason, 256) ||
+      !stable(objective.requestId) ||
+      !stable(objective.projectId) ||
+      !stable(objective.milestoneId) ||
+      (objective.queueId !== null && !stable(objective.queueId)) ||
+      (objective.projection !== null && !projection) ||
+      (projection !== null &&
+        (projection.projectId !== objective.projectId ||
+          projection.milestoneId !== objective.milestoneId)) ||
+      typeof objective.cleanupConfirmed !== "boolean" ||
+      typeof objective.manualRecoveryRequired !== "boolean" ||
+      typeof objective.processRestartRequired !== "boolean" ||
+      !recoveries ||
+      !isCorrelationValid ||
+      !["no_effect", "settled", "unknown"].includes(
+        String(objective.effectState),
+      ) ||
+      (objective.status === "completed" &&
+        (objective.cleanupConfirmed !== true ||
+          objective.manualRecoveryRequired !== false ||
+          objective.processRestartRequired !== false ||
+          recoveries.recoveryIds.length !== 0 ||
+          objective.effectState === "unknown")) ||
+      (objective.effectState === "unknown" &&
+        (objective.cleanupConfirmed !== false ||
+          objective.manualRecoveryRequired !== true)) ||
+      (objective.effectState !== "unknown" &&
+        (objective.cleanupConfirmed !== true ||
+          objective.manualRecoveryRequired !== false)) ||
+      (hasRecovery &&
+        (objective.status !== "blocked" ||
+          objective.effectState !== "unknown" ||
+          objective.cleanupConfirmed !== false ||
+          objective.manualRecoveryRequired !== true)) ||
+      (objective.status === "cancelled" &&
+        (objective.cleanupConfirmed !== true ||
+          objective.manualRecoveryRequired !== false ||
+          objective.processRestartRequired !== false ||
+          hasRecovery ||
+          !["no_effect", "settled"].includes(String(objective.effectState)))) ||
+      objective.processRestartRequired !== hasRuntimeProcessRecovery ||
+      (objective.processRestartRequired === true &&
+        (objective.status !== "blocked" ||
+          objective.cleanupConfirmed !== false ||
+          objective.manualRecoveryRequired !== true ||
+          objective.effectState !== "unknown"))
+    )
+      return null;
+    return Object.freeze({
+      ...objective,
+      status,
+      projection,
+      ...recoveries,
+      ...(workspaceResults === undefined ? {} : { workspaceResults }),
+    });
+  }
+  return null;
+}
+
+/**
+ * Closed public result validator shared with release E2E verification.
+ *
+ * @responsibility Mcp Coordinator Objective 結果の観測対象、取得根拠、観測不能結果の境界を所有する。
+ * @trace ARCH-000012
+ * @input raw: unknown
+ * @returns inspectMcpCoordinatorObjectiveResultの計算結果を返す。
+ * @precondition 「raw: unknown」がinspectMcpCoordinatorObjectiveResultの入力契約を満たす。
+ * @postcondition inspectMcpCoordinatorObjectiveResultの責務を完了した結果だけを返す。
+ * @effect N/A: inspectMcpCoordinatorObjectiveResultは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: inspectMcpCoordinatorObjectiveResultは独自の失敗分岐を所有しない。
+ * @invariant inspectMcpCoordinatorObjectiveResultは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: inspectMcpCoordinatorObjectiveResultはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: inspectMcpCoordinatorObjectiveResultは共有非同期状態を持たない同期処理である。
+ */
+export function inspectMcpCoordinatorObjectiveResult(raw: unknown) {
+  return objectiveSnapshot(raw);
+}
+
+/**
+ * Mcp Coordinator Requestを処理する。
+ *
+ * @responsibility Mcp Coordinator Requestの受付条件、処理結果、失敗時の戻り境界を所有する。
+ * @trace ARCH-000012
+ * @input rawRequest: unknown、dependencies: McpCoordinatorDependencies、signal: AbortSignal
+ * @returns Promise<McpResponse>を返す。
+ * @precondition 「rawRequest: unknown、dependencies: McpCoordinatorDependencies、signal: AbortSignal」がhandleMcpCoordinatorRequestの入力契約を満たす。
+ * @postcondition handleMcpCoordinatorRequestの責務を完了した結果だけを返す。
+ * @effect N/A: handleMcpCoordinatorRequestは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure handleMcpCoordinatorRequestは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant handleMcpCoordinatorRequestは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: handleMcpCoordinatorRequestはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency handleMcpCoordinatorRequestは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
+export async function handleMcpCoordinatorRequest(
+  rawRequest: unknown,
+  dependencies: McpCoordinatorDependencies,
+  signal: AbortSignal = new AbortController().signal,
+): Promise<McpResponse> {
+  const request = inspectProtocolRequest(rawRequest);
+  if (!request) return protocolError(null, -32600, "Invalid Request");
+  if (request.method === "server/discover") {
+    const params = snapshotPlainRecord(request.params, discoverKeys);
+    return !params || !inspectMcpEnvelope(params._meta)
+      ? protocolError(request.id, -32602, "Invalid params")
+      : protocolComplete(request.id, {
+          supportedVersions: Object.freeze([MCP_COORDINATOR_PROTOCOL_VERSION]),
+          capabilities: Object.freeze({ tools: Object.freeze({}) }),
+          ttlMs: 0,
+          cacheScope: "private",
+        });
+  }
+  if (request.method === "tools/list") {
+    const params =
+      snapshotPlainRecord(request.params, listKeysNoCursor) ??
+      snapshotPlainRecord(request.params, listKeys);
+    const paramsRecord: Readonly<Record<string, unknown>> | null = params;
+    return !params ||
+      !inspectMcpEnvelope(params._meta) ||
+      (Object.hasOwn(params, "cursor") && paramsRecord?.cursor !== null)
+      ? protocolError(request.id, -32602, "Invalid params")
+      : protocolComplete(request.id, {
+          tools: getMcpCoordinatorToolDefinitions(),
+          ttlMs: 0,
+          cacheScope: "private",
+        });
+  }
+  if (request.method !== "tools/call")
+    return protocolError(request.id, -32601, "Method not found");
+  const params = snapshotPlainRecord(request.params, callKeys);
+  if (
+    !params ||
+    !inspectMcpEnvelope(params._meta) ||
+    (params.name !== MCP_COORDINATOR_OBJECTIVE_TOOL &&
+      params.name !== MCP_COORDINATOR_DECISION_TOOL &&
+      params.name !== MCP_COORDINATOR_STATE_TOOL)
+  )
+    return protocolError(request.id, -32602, "Invalid params");
+  const args =
+    params.name === MCP_COORDINATOR_OBJECTIVE_TOOL
+      ? objective(params.arguments)
+      : params.name === MCP_COORDINATOR_DECISION_TOOL
+        ? inspectCoordinatorDecisionRequest(params.arguments)
+        : inspectCoordinatorStateQuery(params.arguments);
+  if (!args) return protocolError(request.id, -32602, "Invalid params");
+  let authentication: unknown;
+  try {
+    authentication = dependencies.authenticateClient();
+  } catch {
+    authentication = null;
+  }
+  const authenticationSnapshot = snapshotPlainRecord(
+    authentication,
+    new Set(["principalId", "status"] as const),
+  );
+  if (
+    authenticationSnapshot?.status !== "verified" ||
+    !stable(authenticationSnapshot.principalId)
+  )
+    return protocolComplete(request.id, {
+      content: Object.freeze([
+        Object.freeze({
+          type: "text",
+          text: "利用者を確認できないため、処理を開始していません。",
+        }),
+      ]),
+      structuredContent: Object.freeze({
+        status: "blocked",
+        reason: "orchestrator_mcp_client_not_authenticated",
+        cleanupConfirmed: true,
+        manualRecoveryRequired: false,
+        effectState: "no_effect",
+      }),
+      isError: true,
+    });
+  let raw: unknown;
+  const authenticatedContext = Object.freeze({
+    principalId: authenticationSnapshot.principalId,
+  });
+  try {
+    raw =
+      params.name === MCP_COORDINATOR_OBJECTIVE_TOOL
+        ? await dependencies.runObjective(args, signal, authenticatedContext)
+        : params.name === MCP_COORDINATOR_DECISION_TOOL
+          ? await dependencies.submitDecision(args, authenticatedContext)
+          : await dependencies.getProjectState(args, authenticatedContext);
+  } catch {
+    raw = null;
+  }
+  let snapshot: ReturnType<typeof objectiveSnapshot> | null = null;
+  try {
+    snapshot =
+      params.name === MCP_COORDINATOR_OBJECTIVE_TOOL
+        ? objectiveSnapshot(
+            raw,
+            "workspaceId" in args && typeof args.workspaceId === "string"
+              ? args.workspaceId
+              : null,
+          )
+        : params.name === MCP_COORDINATOR_DECISION_TOOL
+          ? decisionSnapshot(raw)
+          : inspectCoordinatorStateQueryResult(raw);
+  } catch {
+    snapshot = null;
+  }
+  const result =
+    snapshot ??
+    Object.freeze({
+      status: "blocked",
+      reason: "orchestrator_adapter_result_invalid",
+      cleanupConfirmed: false,
+      manualRecoveryRequired: true,
+      effectState: "unknown",
+    });
+  const isFailed = result.status !== "completed";
+  return protocolComplete(request.id, {
+    content: Object.freeze([
+      Object.freeze({
+        type: "text",
+        text: isFailed
+          ? "処理は完了していません。構造化された理由を確認してください。"
+          : "処理が完了しました。",
+      }),
+    ]),
+    structuredContent: result,
+    isError: isFailed,
+  });
+}
+
+/**
+ * Mcp Coordinator Adapter 契約の公開契約を記述する。
+ *
+ * @responsibility Mcp Coordinator Adapter 契約の公開field、非公開境界、互換性を所有する。
+ * @trace ARCH-000012
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns describeMcpCoordinatorAdapterContractの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeMcpCoordinatorAdapterContractの入力契約を満たす。
+ * @postcondition describeMcpCoordinatorAdapterContractの責務を完了した結果だけを返す。
+ * @effect N/A: describeMcpCoordinatorAdapterContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describeMcpCoordinatorAdapterContractは独自の失敗分岐を所有しない。
+ * @invariant describeMcpCoordinatorAdapterContractは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security N/A: describeMcpCoordinatorAdapterContractはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: describeMcpCoordinatorAdapterContractは共有非同期状態を持たない同期処理である。
+ */
+export function describeMcpCoordinatorAdapterContract() {
+  return Object.freeze({
+    contract: MCP_COORDINATOR_ADAPTER_CONTRACT,
+    protocolVersion: MCP_COORDINATOR_PROTOCOL_VERSION,
+    tools: Object.freeze([
+      MCP_COORDINATOR_OBJECTIVE_TOOL,
+      MCP_COORDINATOR_DECISION_TOOL,
+      MCP_COORDINATOR_STATE_TOOL,
+    ]),
+    transportState: "stateless_per_request",
+    clientMetadataAuthority: "none",
+    projectModelOwnership: "orchestrator",
+  });
+}
+
+export const MCP_COORDINATOR_OBJECTIVE_TOOL = "crdd.run_objective" as const;
+export const MCP_COORDINATOR_DECISION_TOOL = "crdd.submit_decision" as const;
+export const MCP_COORDINATOR_STATE_TOOL =
+  "crdd.get_orchestrator_state" as const;
+
+export const objectiveKeys = new Set([
+  "intakeEpoch",
+  "requestId",
+  "projectId",
+  "milestoneId",
+  "repositoryRevision",
+  "objective",
+  "acceptanceCriteria",
+  "allowedPaths",
+  "readPaths",
+  "maximumConcurrency",
+  "maximumReplans",
+  "originLane",
+  "adoptResult",
+  "decisionCapabilityReplacement",
+  "requestedExecutorProvider",
+  "requestedProfileId",
+  "workspaceId",
+] as const);
+export const decisionKeys = new Set([
+  "decisionId",
+  "projectId",
+  "milestoneId",
+  "generation",
+  "repositoryRevision",
+  "selectedOption",
+  "continuationCapability",
+  "comment",
+] as const);
+export const decisionKeysNoComment = new Set(
+  [...decisionKeys].filter((key) => key !== "comment"),
+);
+export const stateQueryKeys = new Set([
+  "requestId",
+  "projectId",
+  "repositoryRevision",
+] as const);
+
+/**
+ * toolを決定する。
+ *
+ * @responsibility toolの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000012
+ * @input name: string、title: string、description: string、properties: object、requiredItems: readonly string[]
+ * @returns toolの計算結果を返す。
+ * @precondition 「name: string、title: string、description: string、properties: object、requiredItems: readonly string[]」がtoolの入力契約を満たす。
+ * @postcondition toolの責務を完了した結果だけを返す。
+ * @effect N/A: toolは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: toolは独自の失敗分岐を所有しない。
+ * @invariant toolは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: toolはProcess内の同一Subsystemで完結する。
+ * @security N/A: toolはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: toolは共有非同期状態を持たない同期処理である。
+ */
+function tool(
+  name: string,
+  title: string,
+  description: string,
+  properties: object,
+  requiredItems: readonly string[],
+) {
+  return Object.freeze({
+    name,
+    title,
+    description,
+    inputSchema: Object.freeze({
+      type: "object",
+      additionalProperties: false,
+      required: Object.freeze([...requiredItems]),
+      properties: Object.freeze(properties),
+    }),
+  });
+}
+
+/**
+ * Mcp Coordinator Tool Definitionsを取得する。
+ *
+ * @responsibility Mcp Coordinator Tool Definitionsの参照条件、返却値、未検出結果の境界を所有する。
+ * @trace ARCH-000012
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns getMcpCoordinatorToolDefinitionsの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がgetMcpCoordinatorToolDefinitionsの入力契約を満たす。
+ * @postcondition getMcpCoordinatorToolDefinitionsの責務を完了した結果だけを返す。
+ * @effect N/A: getMcpCoordinatorToolDefinitionsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: getMcpCoordinatorToolDefinitionsは独自の失敗分岐を所有しない。
+ * @invariant getMcpCoordinatorToolDefinitionsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: getMcpCoordinatorToolDefinitionsはProcess内の同一Subsystemで完結する。
+ * @security N/A: getMcpCoordinatorToolDefinitionsはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: getMcpCoordinatorToolDefinitionsは共有非同期状態を持たない同期処理である。
+ */
+export function getMcpCoordinatorToolDefinitions() {
+  const id = Object.freeze({
+    type: "string",
+    pattern: "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+  });
+  const rev = Object.freeze({ type: "string", pattern: "^[0-9a-f]{40,64}$" });
+  const list = (maximum: number) =>
+    Object.freeze({
+      type: "array",
+      minItems: 1,
+      maxItems: maximum,
+      items: Object.freeze({ type: "string" }),
+    });
+  return Object.freeze([
+    tool(
+      MCP_COORDINATOR_OBJECTIVE_TOOL,
+      "CRDD Objectiveを実行",
+      "検証済みProjectへObjectiveを登録し、Coordinatorで実行します。",
+      {
+        intakeEpoch: id,
+        requestId: id,
+        projectId: id,
+        milestoneId: id,
+        repositoryRevision: rev,
+        objective: Object.freeze({ type: "string", maxLength: 16_384 }),
+        acceptanceCriteria: list(128),
+        allowedPaths: list(128),
+        readPaths: list(128),
+        maximumConcurrency: Object.freeze({
+          type: "integer",
+          minimum: 1,
+          maximum: 5,
+        }),
+        maximumReplans: Object.freeze({
+          type: "integer",
+          minimum: 0,
+          maximum: 32,
+        }),
+        originLane: Object.freeze({
+          enum: Object.freeze(["interactive", "scheduled"]),
+        }),
+        adoptResult: Object.freeze({ type: "boolean" }),
+        decisionCapabilityReplacement: Object.freeze({
+          type: "object",
+          additionalProperties: false,
+          required: Object.freeze(["decisionId", "replacementRequestId"]),
+          properties: Object.freeze({
+            decisionId: id,
+            replacementRequestId: id,
+          }),
+        }),
+        requestedExecutorProvider: Object.freeze({
+          enum: Object.freeze(["auto", "codex", "claude"]),
+        }),
+        requestedProfileId: Object.freeze({
+          type: "string",
+          pattern: "^PROFILE-[0-9]{6,}$",
+        }),
+        workspaceId: Object.freeze({
+          type: "string",
+          pattern: "^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$",
+        }),
+      },
+      [...objectiveKeys].filter(
+        (key) =>
+          key !== "decisionCapabilityReplacement" &&
+          key !== "requestedExecutorProvider" &&
+          key !== "requestedProfileId" &&
+          key !== "workspaceId",
+      ),
+    ),
+    tool(
+      MCP_COORDINATOR_DECISION_TOOL,
+      "CRDDの判断を送信",
+      "現在の判断要求へ、一回限りの継続権限を使って選択を返します。",
+      {
+        decisionId: id,
+        projectId: id,
+        milestoneId: id,
+        generation: Object.freeze({ type: "integer", minimum: 1 }),
+        repositoryRevision: rev,
+        selectedOption: id,
+        continuationCapability: Object.freeze({
+          type: "string",
+          maxLength: 512,
+        }),
+        comment: Object.freeze({ type: "string", maxLength: 1024 }),
+      },
+      [...decisionKeysNoComment],
+    ),
+    tool(
+      MCP_COORDINATOR_STATE_TOOL,
+      "CRDDのTask実行状態を取得",
+      "Taskの実行状態を、Project Contextとは別の読取り専用投影として取得します。",
+      {
+        requestId: id,
+        projectId: id,
+        repositoryRevision: rev,
+      },
+      [...stateQueryKeys],
+    ),
+  ]);
+}

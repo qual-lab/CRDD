@@ -202,12 +202,12 @@ test("耐久受領wrapper: 部分保存後の再入場と候補Buffer分離", ()
 
 /**
  * 結果受領方式を固定利用側からだけ導出する。
- * @responsibility Orchestratorの耐久ACKを任意指定で省略させない。
+ * @responsibility Coordinatorの耐久ACKを任意指定で省略させない。
  * @trace PRL-UT-006
  * @precondition メモリ内の自己生成値だけを使う。
  * @stimulus 既知三利用側、未知文字列、方式指定objectとhostile値を渡す。
  * @observation 返却方式とObject変換・getterの呼出し数。
- * @oracle CLIとWorkbenchだけtransient、Orchestratorはdurable、不正値はnull。
+ * @oracle CLIとWorkbenchだけtransient、Coordinatorはdurable、不正値はnull。
  * @cleanup N/A: 外部資源を作成しない。
  * @boundary 利用側識別子と保存モデルの値契約。
  */

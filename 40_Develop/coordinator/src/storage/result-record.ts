@@ -4,9 +4,9 @@
  * @responsibility Repository・Queue結合と候補公開／採用結果の形を固定する。
  * @trace ARCH-000005
  */
-import type { OrchestratorPortResult } from "../operation-result.ts";
+import type { CoordinatorPortResult } from "../operation-result.ts";
 
-export const ORCHESTRATOR_INTEGRATION_CONTRACT =
+export const COORDINATOR_INTEGRATION_CONTRACT =
   "crdd-coordinator/orchestrator-integration/v1" as const;
 
 /**
@@ -39,8 +39,8 @@ export type IntegrationRecordBinding = Readonly<{
  * @security 保護DecisionやAuthorityを追加しない。
  * @compatibility valueは既存PortのJSON値をそのまま保持する。
  */
-export type OrchestratorResultRecord = Readonly<{
-  contract: typeof ORCHESTRATOR_INTEGRATION_CONTRACT;
+export type CoordinatorResultRecord = Readonly<{
+  contract: typeof COORDINATOR_INTEGRATION_CONTRACT;
   kind: "integration" | "adoption";
   repositoryBindingId: string;
   projectId: string;
@@ -52,17 +52,17 @@ export type OrchestratorResultRecord = Readonly<{
 }>;
 
 /**
- * integration-record-portで使用するOrchestrator Integration 記録の値契約を定義する。
+ * integration-record-portで使用するCoordinator Integration 記録の値契約を定義する。
  *
- * @responsibility Orchestrator Integration 記録のProperty、Identity、状態制約を型境界として所有する。
+ * @responsibility Coordinator Integration 記録のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
- * @shape OrchestratorIntegrationRecordが表すProperty、識別子およびRelationを型として固定する。
- * @invariant OrchestratorIntegrationRecordで宣言した値と責務の対応を維持する。
- * @boundary N/A: OrchestratorIntegrationRecordの宣言は外部境界を開かない。
- * @security N/A: OrchestratorIntegrationRecordはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility OrchestratorIntegrationRecordの利用側は宣言済みPropertyと型制約だけへ依存する。
+ * @shape CoordinatorIntegrationRecordが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CoordinatorIntegrationRecordで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CoordinatorIntegrationRecordの宣言は外部境界を開かない。
+ * @security N/A: CoordinatorIntegrationRecordはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility CoordinatorIntegrationRecordの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type OrchestratorIntegrationRecord = Readonly<{
+export type CoordinatorIntegrationRecord = Readonly<{
   kind: "integration" | "adoption";
   identity: string;
   value: unknown;
@@ -71,16 +71,16 @@ export type OrchestratorIntegrationRecord = Readonly<{
 /**
  * Durable, immutable publication requested by the integration application.
  *
- * @responsibility Orchestrator Integration 記録 PortのProperty、Identity、状態制約を型境界として所有する。
+ * @responsibility Coordinator Integration 記録 PortのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
- * @shape OrchestratorIntegrationRecordPortが表すProperty、識別子およびRelationを型として固定する。
- * @invariant OrchestratorIntegrationRecordPortで宣言した値と責務の対応を維持する。
- * @boundary N/A: OrchestratorIntegrationRecordPortの宣言は外部境界を開かない。
- * @security N/A: OrchestratorIntegrationRecordPortはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility OrchestratorIntegrationRecordPortの利用側は宣言済みPropertyと型制約だけへ依存する。
+ * @shape CoordinatorIntegrationRecordPortが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CoordinatorIntegrationRecordPortで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CoordinatorIntegrationRecordPortの宣言は外部境界を開かない。
+ * @security N/A: CoordinatorIntegrationRecordPortはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility CoordinatorIntegrationRecordPortの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type OrchestratorIntegrationRecordPort = Readonly<{
+export type CoordinatorIntegrationRecordPort = Readonly<{
   write: (
-    record: OrchestratorIntegrationRecord,
-  ) => OrchestratorPortResult<Readonly<{ written: true }>>;
+    record: CoordinatorIntegrationRecord,
+  ) => CoordinatorPortResult<Readonly<{ written: true }>>;
 }>;

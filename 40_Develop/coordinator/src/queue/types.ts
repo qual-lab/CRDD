@@ -1,11 +1,11 @@
 /**
- * orchestrator-queueに属する責務をまとめる。
+ * queueに属する責務をまとめる。
  *
  * @responsibility ProjectQueueStateを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000004
  */
 /**
- * orchestrator-queueで使用するProject Queue 状態の値契約を定義する。
+ * queueで使用するProject Queue 状態の値契約を定義する。
  *
  * @responsibility Project Queue 状態のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
@@ -28,7 +28,7 @@ export type ProjectQueueState =
   | "cancelled";
 
 /**
- * orchestrator-queueで使用するProject Queue Entryの値契約を定義する。
+ * queueで使用するProject Queue Entryの値契約を定義する。
  *
  * @responsibility Project Queue EntryのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004

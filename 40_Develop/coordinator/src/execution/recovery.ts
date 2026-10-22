@@ -1356,7 +1356,7 @@ export function currentDockerRecoveryResourceExpectations(
  * @returns 保存確認・排他終了・Effectと耐久配送待ちを区別した結果。
  * @precondition 外側排他は全解放済みでHost両不存在を確認できる。
  * @postcondition 操作を除去せず、Provider再実行や上位ACKを発行しない。
- * @effect Orchestrator配送の現在状態保存だけ。CLI／Workbenchは書込み0。
+ * @effect Coordinator配送の現在状態保存だけ。CLI／Workbenchは書込み0。
  * @failure Owner失効、Host再出現、履歴未確認、保存不明は同IDを保持する。
  * @invariant 一次失敗と実資源回収を利用側の保存方針で書き換えない。
  * @boundary 現在回収Ownerと用途別結果搬送。
@@ -3755,12 +3755,12 @@ export function readRuntimeOwnedDockerProjectResult(
  * @trace ARCH-000008
  * @input recoveryFinalizationCapability: 元終了Owner、readProjectAcceptance: 固定組立ての同期Reader。
  * @returns 受理と整理の保存・排他解放・Effect別の元結果。
- * @precondition Orchestratorは同じAttemptのACKを保存し、上位Lockを解放済みである。
+ * @precondition Coordinatorは同じAttemptのACKを保存し、上位Lockを解放済みである。
  * @postcondition 同じReaderの再入場だけを許可し、整理を毎回fresh照合する。
  * @effect 既存上位読取りとCoordinator現在状態の終了限定更新だけ。
  * @failure 偽Owner、別Consumer、Reader差替え、未受理、保存・排他不明を拒否する。
  * @invariant 受理保存確認と操作除去を分け、キャッシュから完了を生成しない。
- * @boundary Orchestratorの耐久受領と元Docker終了Owner。
+ * @boundary Coordinatorの耐久受領と元Docker終了Owner。
  * @security 外部RequestからReader、Path、結果Hashや成功booleanを受け付けない。
  * @concurrency 受理確認後の再入場でも元入力で既存Writerのfresh照合を行う。
  */

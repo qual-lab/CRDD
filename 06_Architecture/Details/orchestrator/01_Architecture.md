@@ -1,4 +1,8 @@
-# Orchestratorの詳細アーキテクチャ
+# CoordinatorのTask・Objective管理アーキテクチャ
+
+## 統合後の名称 — 2026-10-22
+
+現行Packageと公開TypeScript APIはCoordinatorへ統一する。仕事の進行はTask／Objective、単発AI実行はExecutionと責務で区別し、Orchestratorを独立Package又は恒久的な論理Subsystem名として残さない。本書の物理Directory名と下記の統合前説明、保存・通信の既存実値は移行元を識別するため残る。公開関数・型は`Coordinator*`を基本とし、業務状態の排他は`acquireRuntimeOwnedProjectStateKernelLock`とする。技術状態用の既存排他とは別実体である。旧公開名の互換aliasは提供しない。
 
 ## Cの現在の物理Owner — 実装候補、検証中
 
@@ -22,7 +26,7 @@ Cで現Orchestratorへ単発Executionを吸収し、PackageをCoordinatorへ改�
 | Storage | 対応する永続Schema、Writer、CAS、履歴、受領確定。技術Settlementを含む単一State／Writer化は未採用 | 技術回収の実処置、保存値だけからのAuthority発行 |
 | 専門Package | AI AdapterのProvider計画・結果解釈、Docker Isolationの隔離・回収、Platform AccessのOS技術、Version ControlのGit操作 | 上位の業務進行・採否・外部送信同意の代行 |
 
-C統合後も本節のOrchestratorはTask／Objectiveの論理責務、Coordinatorは単発Executionの論理責務を表す。物理Packageは一つで、以下の逆依存禁止はExecutionからTask／Objectiveへの依存禁止として適用する。
+統合前の二Packageに関する本節の説明は、現在は同一Coordinator内のTask／ObjectiveとExecutionの責務境界として読む。以下の逆依存禁止はExecutionからTask／Objectiveへの依存禁止として適用し、同一Package化を逆依存の許可としない。
 
 ```text
 coordinator/                  # Cで現Orchestratorを改名した後の目標
@@ -40,7 +44,7 @@ coordinator/                  # Cで現Orchestratorを改名した後の目標
   └ index.ts
 ```
 
-現Orchestratorに空の`execution/`、Facade、汎用Port Frameworkを先行作成しない。既存`OrchestratorExecutionPort`等を今回の接続契約として再利用し、最終的な統合では不要なPackage間中継だけを除く。TaskはAttemptを管理し、Executionは解決済みの作業対象で単発実行する。開始通知・取消join・結果正規化を削除条件へ含め、型だけのPortを重複実装と同一視しない。
+現Orchestratorに空の`execution/`、Facade、汎用Port Frameworkを先行作成しない。既存`CoordinatorExecutionPort`等を今回の接続契約として再利用し、最終的な統合では不要なPackage間中継だけを除く。TaskはAttemptを管理し、Executionは解決済みの作業対象で単発実行する。開始通知・取消join・結果正規化を削除条件へ含め、型だけのPortを重複実装と同一視しない。
 
 RecoveryはTaskとしての次の処置、Executionの元結果・資源・回復参照の確定、DI／PAの技術回収を分離する。Host資源はExecutionの許可・相関、DI／PAの技術処置、Storageの耐久参照を一つの巨大Ownerへ集約しない。外部送信同意はCで`external-send/`からDecisionへ直接移管する目標だが、現行の強制Gateと同意Store／Grantを未接続のまま撤去しない。
 
@@ -62,7 +66,7 @@ Taskの開始通知と耐久受領は別の事実である。元Controlからの
 
 Workbench／CLIの一時的な結果返却と、Objectiveの耐久受領ACKは同じ利用方針へ統一しない。`request-composition.ts`内で組み立てるTask依存`startTask`コールバックの第5引数は実行対象、本番`startRuntimeOwnedCoordinatorTask`の第5引数はconsumer・第6引数は実行対象である。単なる関数参照への置換は意味を変えるため不可とする。助言と編集の権限・入力・終了結果も維持する。
 
-上位の`task/recovery-adapter.ts`は具体組立ての同居候補であるが、公開Factory・依存型・専用UT・本番受付が利用しているため、削除確定ではない。既存`OrchestratorTaskRecoveryPort`の注入契約、固定Root／Binding、依存欠測のnull、観測callback例外を結果へ混ぜない動作を維持し、利用側・公開API・試験の追従後にだけFactoryの削除可否を確定する。別名Facadeや新Portは作らない。
+上位の`task/recovery-adapter.ts`は具体組立ての同居候補であるが、公開Factory・依存型・専用UT・本番受付が利用しているため、削除確定ではない。既存`CoordinatorTaskRecoveryPort`の注入契約、固定Root／Binding、依存欠測のnull、観測callback例外を結果へ混ぜない動作を維持し、利用側・公開API・試験の追従後にだけFactoryの削除可否を確定する。別名Facadeや新Portは作らない。
 
 通常実行中のControl由来配送と、Process喪失後の耐久記録による再入場は別入口として残す。私有Map・CapabilityをIDやPathから復元せず、`productionRuntime`・元Error対応・Provider別準備Mapを複製しない。技術回収の完了だけで上位義務をsettled／acknowledgedへ進めず、ACK保存後の配送終了失敗は同じ記録から終了処置だけへ戻る。
 
@@ -117,7 +121,7 @@ Objectiveの開発用構築だけがDecision／Stateの実行関数を一方向�
 
 非公開実装の検証はOrchestrator所有試験へ移す。Profile搬送の旧直結UTは、Producerの入力変換とConsumerの要求検査へ分け、公開Objectiveの実Task開始入力でProfile／Executor／Front Providerの相関を補完する。公開APIの追加、試験専用の製品中継、偽の直結成立主張は行わない。
 
-Workspaceの内部操作は`manageOrchestratorWorkspace`、Taskごとの対象観測は`resolveOrchestratorWorkspaceTaskTarget`、値契約は`OrchestratorWorkspaceRequest`／`OrchestratorWorkspace`としてPackage Rootから公開する。具体保存・Lease・VC接続と、実Provider／Surface・採用取込の未接続は[状態・資源詳細の接続表](02_Detailed_Design.md#workspace接続の実装順序と移管先)に従う。内部のHost Path投影を外部Surfaceへ直接返さない。
+Workspaceの内部操作は`manageCoordinatorWorkspace`、Taskごとの対象観測は`resolveCoordinatorWorkspaceTaskTarget`、値契約は`CoordinatorWorkspaceRequest`／`CoordinatorWorkspace`としてPackage Rootから公開する。具体保存・Lease・VC接続と、実Provider／Surface・採用取込の未接続は[状態・資源詳細の接続表](02_Detailed_Design.md#workspace接続の実装順序と移管先)に従う。内部のHost Path投影を外部Surfaceへ直接返さない。
 
 成果物種別: Architecture詳細設計
 詳細設計領域: orchestrator
@@ -345,7 +349,7 @@ Coordinator ─×→ Orchestrator
 
 ## 6. 状態、Authority、資源
 
-Task、Objective、Milestone、QueueおよびDecisionの状態と遷移は本書が上位の意味を、[詳細設計](02_Detailed_Design.md)がexactなID、不変条件、Lock、Authority、Effectおよび失敗注入点を所有する。[機械可読な設計対応](../../../07_Quality/Registry/orchestrator-design-traceability.json)は設計正本ではなく、設計とCoordinator実装・試験の対応切れを検出する検証用投影である。物理配置の変更を理由に状態名、成功条件、IdentityまたはRecovery義務を簡略化しない。Project Stateを所有するProcess世代はCoreが乱数や時刻から生成せず、Hostが有効な`ownerGeneration`として明示入力する。Coreは欠落または不正な世代を状態生成前に拒否する。
+Task、Objective、Milestone、QueueおよびDecisionの状態と遷移は本書が上位の意味を、[詳細設計](02_Detailed_Design.md)がexactなID、不変条件、Lock、Authority、Effectおよび失敗注入点を所有する。[機械可読な設計対応](../../../07_Quality/Registry/coordinator-task-design-traceability.json)は設計正本ではなく、設計とCoordinator実装・試験の対応切れを検出する検証用投影である。物理配置の変更を理由に状態名、成功条件、IdentityまたはRecovery義務を簡略化しない。Project Stateを所有するProcess世代はCoreが乱数や時刻から生成せず、Hostが有効な`ownerGeneration`として明示入力する。Coreは欠落または不正な世代を状態生成前に拒否する。
 
 OrchestratorはAuthorityを生成しない。人間または上位Runtimeから受け取ったProject／Milestone AuthorityをTask単位へ縮小し、Task要求と`authorityBindingId`へ結合してCoordinatorへ渡す。別のRuntime package実行資格は発行しない。耐久Handoff後に取消と現在許可を確認して委譲し、Task Authority、Task内容および許可Pathは既存の縮小Bindingへ結合する。Transport metadata、Provider出力、Project State、実行知EventまたはAdapterの存在からAuthorityを導出しない。
 
@@ -429,13 +433,13 @@ unknown   Store、Identityまたは改訂版を現在値として確認不能
 
 | 操作／現在Symbol | 入力と結果 | 主な利用側 | Authority／Effect |
 |---|---|---|---|
-| `runOrchestratorPublicObjective`／`executeOrchestratorObjective` | 固定Objective、Repository・Revision、縮小Authority、選択Profile、取消 → 相関検査済み結果 | CLI、MCP Server | 許可済み範囲のTaskをCoordinatorへ依頼し、Project Stateを保存する。Task完了から受入を生成しない。 |
-| `runOrchestratorOperation` | Queue・Task・Attempt・Operationの結合 → 各Task結果と未解決義務 | Objective操作 | 待機前のIntent保存、待機後の再検査、下位実行だけ。Provider差を実装しない。 |
-| `manageOrchestratorWorkspace`／`executeWorkspaceCommand` | Workspace、Base、選択差分、固定Commit、取込先HEADと現在認可 → Git結果と保存結果 | Workbench Server、許可済みMCP操作 | 固定と採用を別操作にし、採用時は原則二親Merge。自動Commit／採用なし。 |
-| `recordOrchestratorAcceptanceDecision` | 対象Objective／Milestone、根拠Revision、人間判断 → 一回の判断記録 | CLI、MCP Server | 受入・差戻し・判断待ちのみ。Task作成0、Provider Effect 0。 |
-| `issueOrchestratorHumanDecision`／`submitOrchestratorHumanDecision` | exact判断要求・許可選択肢・一回Capability → 継続状態と適用結果 | 判断操作 | 保護保存とProject Stateの別境界を再照合し、跨る一括確定を主張しない。 |
-| `replaceOrchestratorHumanDecision`／`invalidateOrchestratorHumanDecision`／`recoverOrchestratorHumanDecision` | 現在判断・適用世代・exact回復参照 → 置換／失効／回復結果 | 判断操作 | 旧Capabilityと現在適用を検査する。応答喪失から自動再発行しない。 |
-| `queryOrchestratorState`／`runOrchestratorPublicStateQuery` | request・project・Revision → observed／absent／unknown | CLI、MCP Server、Workbench Server | 読取りのみ。不存在を未開始・成功へ読み替えない。 |
+| `runCoordinatorPublicObjective`／`executeCoordinatorObjective` | 固定Objective、Repository・Revision、縮小Authority、選択Profile、取消 → 相関検査済み結果 | CLI、MCP Server | 許可済み範囲のTaskをCoordinatorへ依頼し、Project Stateを保存する。Task完了から受入を生成しない。 |
+| `runCoordinatorOperation` | Queue・Task・Attempt・Operationの結合 → 各Task結果と未解決義務 | Objective操作 | 待機前のIntent保存、待機後の再検査、下位実行だけ。Provider差を実装しない。 |
+| `manageCoordinatorWorkspace`／`executeWorkspaceCommand` | Workspace、Base、選択差分、固定Commit、取込先HEADと現在認可 → Git結果と保存結果 | Workbench Server、許可済みMCP操作 | 固定と採用を別操作にし、採用時は原則二親Merge。自動Commit／採用なし。 |
+| `recordCoordinatorAcceptanceDecision` | 対象Objective／Milestone、根拠Revision、人間判断 → 一回の判断記録 | CLI、MCP Server | 受入・差戻し・判断待ちのみ。Task作成0、Provider Effect 0。 |
+| `issueCoordinatorHumanDecision`／`submitCoordinatorHumanDecision` | exact判断要求・許可選択肢・一回Capability → 継続状態と適用結果 | 判断操作 | 保護保存とProject Stateの別境界を再照合し、跨る一括確定を主張しない。 |
+| `replaceCoordinatorHumanDecision`／`invalidateCoordinatorHumanDecision`／`recoverCoordinatorHumanDecision` | 現在判断・適用世代・exact回復参照 → 置換／失効／回復結果 | 判断操作 | 旧Capabilityと現在適用を検査する。応答喪失から自動再発行しない。 |
+| `queryCoordinatorState`／`runCoordinatorPublicStateQuery` | request・project・Revision → observed／absent／unknown | CLI、MCP Server、Workbench Server | 読取りのみ。不存在を未開始・成功へ読み替えない。 |
 
 公開入口は上位操作と検査関数を公開し、保存部品やOS補助の内部関数全数をexportしない。開発用依存注入・Fixtureはtestsへ閉じ、本番入口に任意Adapterを差し込むAPIを新設しない。
 

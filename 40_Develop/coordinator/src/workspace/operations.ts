@@ -25,13 +25,13 @@ import {
   verifyRepositoryRoot,
 } from "../../../version-control/src/index.ts";
 import {
-  acquireOrchestratorSnapshotLease,
-  readOrchestratorSnapshot,
-  writeOrchestratorWorkspaceRecord,
-  createOrchestratorSnapshotIntegrationRecordPort,
+  acquireCoordinatorSnapshotLease,
+  readCoordinatorSnapshot,
+  writeCoordinatorWorkspaceRecord,
+  createCoordinatorSnapshotIntegrationRecordPort,
 } from "../storage/current-state.ts";
-import type { OrchestratorWorkspace } from "./record.ts";
-import type { OrchestratorLease } from "../lease/controller.ts";
+import type { CoordinatorWorkspace } from "./record.ts";
+import type { CoordinatorLease } from "../lease/controller.ts";
 
 /**
  * 計画の品質受入に必要な既存Git採用記録を再観測する。
@@ -51,7 +51,7 @@ export function workspacePlanReadyForAcceptance(
   planRevision: string,
   currentHead: string,
 ): boolean {
-  const read = readOrchestratorSnapshot(root, binding);
+  const read = readCoordinatorSnapshot(root, binding);
   if (read.status !== "completed" || !read.value) return false;
   const plan = read.value.projects.find(
     (p) => p.projectId === projectId && p.milestoneId === milestoneId,
@@ -118,7 +118,7 @@ export function workspacePlanReadyForAcceptance(
  * @security Root文字列は検証後にだけ使用する。
  * @compatibility 新しい独立Serverや入口は追加しない。
  */
-export type OrchestratorWorkspaceRequest = Readonly<{
+export type CoordinatorWorkspaceRequest = Readonly<{
   ownerRepositoryRoot: string;
   repositoryBindingId: string;
   projectId: string;
@@ -171,18 +171,18 @@ export type OrchestratorWorkspaceRequest = Readonly<{
  * @effect 既存stateと専用Worktree／Refの更新。
  * @failure 採用証拠未接続・使用中・保留・不明は停止。
  * @invariant 新Lock／台帳なし、Git中は短期Snapshot排他を解放する。
- * @boundary Orchestrator→VC公開APIと既存Writer。
+ * @boundary Coordinator→VC公開APIと既存Writer。
  * @security Directの通常Treeを削除しない。
  * @concurrency 既存binding-wide操作Leaseを維持する。
  */
-export function manageOrchestratorWorkspace(
-  request: OrchestratorWorkspaceRequest,
+export function manageCoordinatorWorkspace(
+  request: CoordinatorWorkspaceRequest,
 ) {
   const result = {
     status: "blocked" as "completed" | "blocked",
     reason: "orchestrator_workspace_input_invalid",
     workspaceId: request.workspaceId,
-    workspace: null as OrchestratorWorkspace | null,
+    workspace: null as CoordinatorWorkspace | null,
     gitResult: null as RepositoryWorktreeResult | null,
     candidateResult: null as WorkspaceCandidateResult | null,
     leaseReleased: null as boolean | null,
@@ -193,7 +193,7 @@ export function manageOrchestratorWorkspace(
     adoptionReleaseFailure: null as string | null,
     adoptionReleaseRecoveryId: null as string | null,
   };
-  let adoptionLease: OrchestratorLease | null = null;
+  let adoptionLease: CoordinatorLease | null = null;
   if (request.operation === "adopted")
     return {
       ...result,
@@ -209,7 +209,7 @@ export function manageOrchestratorWorkspace(
     layout.layout?.kind === "linked_worktree"
   )
     return result;
-  const initial = readOrchestratorSnapshot(
+  const initial = readCoordinatorSnapshot(
     request.ownerRepositoryRoot,
     request.repositoryBindingId,
   );
@@ -221,7 +221,7 @@ export function manageOrchestratorWorkspace(
         initial.status === "blocked" && initial.manualRecoveryRequired,
       recoveryId: initial.status === "blocked" ? initial.recoveryId : null,
     };
-  const lease = acquireOrchestratorSnapshotLease(
+  const lease = acquireCoordinatorSnapshotLease(
     request.ownerRepositoryRoot,
     request.repositoryBindingId,
     request.projectId,
@@ -236,7 +236,7 @@ export function manageOrchestratorWorkspace(
       recoveryId: lease.recoveryId,
     };
   try {
-    const observed = readOrchestratorSnapshot(
+    const observed = readCoordinatorSnapshot(
       request.ownerRepositoryRoot,
       request.repositoryBindingId,
     );
@@ -258,8 +258,8 @@ export function manageOrchestratorWorkspace(
       throw new Error("orchestrator_workspace_generation_conflict");
     if (request.authorize && !request.authorize())
       throw new Error("orchestrator_candidate_not_authorized");
-    const save = (next: OrchestratorWorkspace | null) => {
-      const saved = writeOrchestratorWorkspaceRecord(
+    const save = (next: CoordinatorWorkspace | null) => {
+      const saved = writeCoordinatorWorkspaceRecord(
         request.ownerRepositoryRoot,
         request.repositoryBindingId,
         request.projectId,
@@ -308,12 +308,12 @@ export function manageOrchestratorWorkspace(
      * @concurrency 新しい排他を追加しない。
      */
     const recordDisposition = (
-      candidate: NonNullable<OrchestratorWorkspace["candidate"]>,
+      candidate: NonNullable<CoordinatorWorkspace["candidate"]>,
     ) => {
       const queue = operationQueue;
       if (!queue || candidate.disposition === null)
         throw new Error("orchestrator_candidate_disposition_invalid");
-      const recorded = createOrchestratorSnapshotIntegrationRecordPort({
+      const recorded = createCoordinatorSnapshotIntegrationRecordPort({
         workingDirectory: request.ownerRepositoryRoot,
         repositoryBindingId: request.repositoryBindingId,
         projectId: request.projectId,
@@ -351,7 +351,7 @@ export function manageOrchestratorWorkspace(
      * @concurrency 既存操作Lease下。
      */
     const recordCandidateClosure = (
-      candidate: NonNullable<OrchestratorWorkspace["candidate"]>,
+      candidate: NonNullable<CoordinatorWorkspace["candidate"]>,
     ) => {
       if (!operationQueue)
         throw new Error("orchestrator_candidate_disposition_invalid");
@@ -394,7 +394,7 @@ export function manageOrchestratorWorkspace(
           throw new Error("orchestrator_candidate_closure_mismatch");
         value = existing.value;
       }
-      const saved = createOrchestratorSnapshotIntegrationRecordPort({
+      const saved = createCoordinatorSnapshotIntegrationRecordPort({
         workingDirectory: request.ownerRepositoryRoot,
         repositoryBindingId: request.repositoryBindingId,
         projectId: request.projectId,
@@ -532,7 +532,7 @@ export function manageOrchestratorWorkspace(
             throw new Error("orchestrator_candidate_target_mismatch");
           if (!request.authorize())
             throw new Error("orchestrator_candidate_not_authorized");
-          const acquired = acquireOrchestratorSnapshotLease(
+          const acquired = acquireCoordinatorSnapshotLease(
             request.ownerRepositoryRoot,
             request.repositoryBindingId,
             request.projectId,
@@ -804,7 +804,7 @@ export function manageOrchestratorWorkspace(
  * @security Host Pathは内部入力専用、Surfaceへ直接公開しない。
  * @concurrency 結果は再利用せずTaskごとに観測する。
  */
-export function resolveOrchestratorWorkspaceTaskTarget(
+export function resolveCoordinatorWorkspaceTaskTarget(
   ownerRepositoryRoot: string,
   binding: string,
   queueId: string,
@@ -816,7 +816,7 @@ export function resolveOrchestratorWorkspaceTaskTarget(
     manualRecoveryRequired: false,
     recoveryId: null,
   });
-  const snapshot = readOrchestratorSnapshot(ownerRepositoryRoot, binding);
+  const snapshot = readCoordinatorSnapshot(ownerRepositoryRoot, binding);
   if (snapshot.status !== "completed" || !snapshot.value)
     return failed(snapshot.reason);
   const queue = snapshot.value.queueEntries.find(

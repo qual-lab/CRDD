@@ -1,7 +1,7 @@
 /**
  * project-state-queryに属する責務をまとめる。
  *
- * @responsibility OrchestratorStateQueryを中心とする実装、型および境界を同じModuleで所有する。
+ * @responsibility CoordinatorStateQueryを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000004
  */
 import {
@@ -9,55 +9,55 @@ import {
   snapshotPlainRecord,
 } from "../input/plain-data-snapshot.ts";
 import {
-  isOrchestratorProjectionSemanticallyValid,
-  type OrchestratorProjection,
+  isCoordinatorProjectionSemanticallyValid,
+  type CoordinatorProjection,
 } from "./projection.ts";
 import {
-  ORCHESTRATOR_MAXIMUM_OBJECTIVES,
-  ORCHESTRATOR_MAXIMUM_TASKS,
+  COORDINATOR_MAXIMUM_OBJECTIVES,
+  COORDINATOR_MAXIMUM_TASKS,
 } from "./model.ts";
 
-export const ORCHESTRATOR_STATE_QUERY_CONTRACT =
+export const COORDINATOR_STATE_QUERY_CONTRACT =
   "crdd-coordinator/orchestrator-state-query/v1" as const;
 
 /**
- * project-state-queryで使用するOrchestrator 状態 Queryの値契約を定義する。
+ * project-state-queryで使用するCoordinator 状態 Queryの値契約を定義する。
  *
- * @responsibility Orchestrator 状態 QueryのProperty、Identity、状態制約を型境界として所有する。
+ * @responsibility Coordinator 状態 QueryのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
- * @shape OrchestratorStateQueryが表すProperty、識別子およびRelationを型として固定する。
- * @invariant OrchestratorStateQueryで宣言した値と責務の対応を維持する。
- * @boundary N/A: OrchestratorStateQueryの宣言は外部境界を開かない。
- * @security N/A: OrchestratorStateQueryはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility OrchestratorStateQueryの利用側は宣言済みPropertyと型制約だけへ依存する。
+ * @shape CoordinatorStateQueryが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CoordinatorStateQueryで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CoordinatorStateQueryの宣言は外部境界を開かない。
+ * @security N/A: CoordinatorStateQueryはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility CoordinatorStateQueryの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type OrchestratorStateQuery = Readonly<{
+export type CoordinatorStateQuery = Readonly<{
   requestId: string;
   projectId: string;
   repositoryRevision: string;
 }>;
 
 /**
- * project-state-queryで使用するOrchestrator 状態 Query 結果の値契約を定義する。
+ * project-state-queryで使用するCoordinator 状態 Query 結果の値契約を定義する。
  *
- * @responsibility Orchestrator 状態 Query 結果のProperty、Identity、状態制約を型境界として所有する。
+ * @responsibility Coordinator 状態 Query 結果のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
- * @shape OrchestratorStateQueryResultが表すProperty、識別子およびRelationを型として固定する。
- * @invariant OrchestratorStateQueryResultで宣言した値と責務の対応を維持する。
- * @boundary N/A: OrchestratorStateQueryResultの宣言は外部境界を開かない。
- * @security N/A: OrchestratorStateQueryResultはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility OrchestratorStateQueryResultの利用側は宣言済みPropertyと型制約だけへ依存する。
+ * @shape CoordinatorStateQueryResultが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CoordinatorStateQueryResultで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CoordinatorStateQueryResultの宣言は外部境界を開かない。
+ * @security N/A: CoordinatorStateQueryResultはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility CoordinatorStateQueryResultの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type OrchestratorStateQueryResult = Readonly<{
+export type CoordinatorStateQueryResult = Readonly<{
   intakeEpoch: string | null;
-  contract: typeof ORCHESTRATOR_STATE_QUERY_CONTRACT;
+  contract: typeof COORDINATOR_STATE_QUERY_CONTRACT;
   status: "completed" | "blocked";
   reason: string;
   requestId: string;
   projectId: string;
   repositoryRevision: string;
   observationState: "observed" | "absent" | "unknown";
-  projection: OrchestratorProjection | null;
+  projection: CoordinatorProjection | null;
   cleanupConfirmed: true;
   manualRecoveryRequired: boolean;
   effectState: "no_effect";
@@ -227,41 +227,41 @@ function countSnapshot<T extends string>(
 /**
  * Snapshot and validate the canonical public projection at trust boundaries.
  *
- * @responsibility Orchestrator Projectionの観測対象、取得根拠、観測不能結果の境界を所有する。
+ * @responsibility Coordinator Projectionの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown
- * @returns OrchestratorProjection | nullを返す。
- * @precondition 「value: unknown」がinspectOrchestratorProjectionの入力契約を満たす。
- * @postcondition inspectOrchestratorProjectionの責務を完了した結果だけを返す。
- * @effect N/A: inspectOrchestratorProjectionは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: inspectOrchestratorProjectionは独自の失敗分岐を所有しない。
- * @invariant inspectOrchestratorProjectionは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: inspectOrchestratorProjectionはProcess内の同一Subsystemで完結する。
- * @security N/A: inspectOrchestratorProjectionはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: inspectOrchestratorProjectionは共有非同期状態を持たない同期処理である。
+ * @returns CoordinatorProjection | nullを返す。
+ * @precondition 「value: unknown」がinspectCoordinatorProjectionの入力契約を満たす。
+ * @postcondition inspectCoordinatorProjectionの責務を完了した結果だけを返す。
+ * @effect N/A: inspectCoordinatorProjectionは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: inspectCoordinatorProjectionは独自の失敗分岐を所有しない。
+ * @invariant inspectCoordinatorProjectionは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: inspectCoordinatorProjectionはProcess内の同一Subsystemで完結する。
+ * @security N/A: inspectCoordinatorProjectionはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: inspectCoordinatorProjectionは共有非同期状態を持たない同期処理である。
  */
-export function inspectOrchestratorProjection(
+export function inspectCoordinatorProjection(
   value: unknown,
-): OrchestratorProjection | null {
+): CoordinatorProjection | null {
   const record = snapshotPlainRecord(value, projectionKeys);
   if (!record) return null;
   const objectiveCounts = countSnapshot(
     record.objectiveCounts,
     OBJECTIVE_STATES,
-    ORCHESTRATOR_MAXIMUM_OBJECTIVES,
+    COORDINATOR_MAXIMUM_OBJECTIVES,
   );
   const taskCounts = countSnapshot(
     record.taskCounts,
     TASK_STATES,
-    ORCHESTRATOR_MAXIMUM_TASKS,
+    COORDINATOR_MAXIMUM_TASKS,
   );
   const rawSummaries = snapshotPlainArray(
     record.objectiveTaskSummaries,
-    ORCHESTRATOR_MAXIMUM_OBJECTIVES,
+    COORDINATOR_MAXIMUM_OBJECTIVES,
   );
   if (!objectiveCounts || !taskCounts || rawSummaries.status !== "ok")
     return null;
-  const summaries: OrchestratorProjection["objectiveTaskSummaries"][number][] =
+  const summaries: CoordinatorProjection["objectiveTaskSummaries"][number][] =
     [];
   for (const raw of rawSummaries.value) {
     const summary = snapshotPlainRecord(
@@ -271,7 +271,7 @@ export function inspectOrchestratorProjection(
     const counts = countSnapshot(
       summary?.taskCounts,
       TASK_STATES,
-      ORCHESTRATOR_MAXIMUM_TASKS,
+      COORDINATOR_MAXIMUM_TASKS,
     );
     if (
       !summary ||
@@ -336,31 +336,31 @@ export function inspectOrchestratorProjection(
     humanDecisionRequired: record.humanDecisionRequired,
     recoveryRequired: record.recoveryRequired,
     nextAction: record.nextAction,
-  }) as OrchestratorProjection;
-  return isOrchestratorProjectionSemanticallyValid(projection)
+  }) as CoordinatorProjection;
+  return isCoordinatorProjectionSemanticallyValid(projection)
     ? projection
     : null;
 }
 
 /**
- * Orchestrator 状態 Queryを観測する。
+ * Coordinator 状態 Queryを観測する。
  *
- * @responsibility Orchestrator 状態 Queryの観測対象、取得根拠、観測不能結果の境界を所有する。
+ * @responsibility Coordinator 状態 Queryの観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown
- * @returns OrchestratorStateQuery | nullを返す。
- * @precondition 「value: unknown」がinspectOrchestratorStateQueryの入力契約を満たす。
- * @postcondition inspectOrchestratorStateQueryの責務を完了した結果だけを返す。
- * @effect N/A: inspectOrchestratorStateQueryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: inspectOrchestratorStateQueryは独自の失敗分岐を所有しない。
- * @invariant inspectOrchestratorStateQueryは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: inspectOrchestratorStateQueryはProcess内の同一Subsystemで完結する。
- * @security N/A: inspectOrchestratorStateQueryはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: inspectOrchestratorStateQueryは共有非同期状態を持たない同期処理である。
+ * @returns CoordinatorStateQuery | nullを返す。
+ * @precondition 「value: unknown」がinspectCoordinatorStateQueryの入力契約を満たす。
+ * @postcondition inspectCoordinatorStateQueryの責務を完了した結果だけを返す。
+ * @effect N/A: inspectCoordinatorStateQueryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: inspectCoordinatorStateQueryは独自の失敗分岐を所有しない。
+ * @invariant inspectCoordinatorStateQueryは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: inspectCoordinatorStateQueryはProcess内の同一Subsystemで完結する。
+ * @security N/A: inspectCoordinatorStateQueryはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: inspectCoordinatorStateQueryは共有非同期状態を持たない同期処理である。
  */
-export function inspectOrchestratorStateQuery(
+export function inspectCoordinatorStateQuery(
   value: unknown,
-): OrchestratorStateQuery | null {
+): CoordinatorStateQuery | null {
   const request = snapshotPlainRecord(value, queryKeys);
   if (
     !request ||
@@ -369,35 +369,35 @@ export function inspectOrchestratorStateQuery(
     !validRevision(request.repositoryRevision)
   )
     return null;
-  return Object.freeze({ ...request }) as OrchestratorStateQuery;
+  return Object.freeze({ ...request }) as CoordinatorStateQuery;
 }
 
 /**
- * Orchestrator 状態 Query 結果を観測する。
+ * Coordinator 状態 Query 結果を観測する。
  *
- * @responsibility Orchestrator 状態 Query 結果の観測対象、取得根拠、観測不能結果の境界を所有する。
+ * @responsibility Coordinator 状態 Query 結果の観測対象、取得根拠、観測不能結果の境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown
- * @returns OrchestratorStateQueryResult | nullを返す。
- * @precondition 「value: unknown」がinspectOrchestratorStateQueryResultの入力契約を満たす。
- * @postcondition inspectOrchestratorStateQueryResultの責務を完了した結果だけを返す。
- * @effect N/A: inspectOrchestratorStateQueryResultは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: inspectOrchestratorStateQueryResultは独自の失敗分岐を所有しない。
- * @invariant inspectOrchestratorStateQueryResultは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: inspectOrchestratorStateQueryResultはProcess内の同一Subsystemで完結する。
- * @security N/A: inspectOrchestratorStateQueryResultはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: inspectOrchestratorStateQueryResultは共有非同期状態を持たない同期処理である。
+ * @returns CoordinatorStateQueryResult | nullを返す。
+ * @precondition 「value: unknown」がinspectCoordinatorStateQueryResultの入力契約を満たす。
+ * @postcondition inspectCoordinatorStateQueryResultの責務を完了した結果だけを返す。
+ * @effect N/A: inspectCoordinatorStateQueryResultは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: inspectCoordinatorStateQueryResultは独自の失敗分岐を所有しない。
+ * @invariant inspectCoordinatorStateQueryResultは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: inspectCoordinatorStateQueryResultはProcess内の同一Subsystemで完結する。
+ * @security N/A: inspectCoordinatorStateQueryResultはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: inspectCoordinatorStateQueryResultは共有非同期状態を持たない同期処理である。
  */
-export function inspectOrchestratorStateQueryResult(
+export function inspectCoordinatorStateQueryResult(
   value: unknown,
-): OrchestratorStateQueryResult | null {
+): CoordinatorStateQueryResult | null {
   const result = snapshotPlainRecord(value, resultKeys);
   if (
     !result ||
     (result.status === "completed"
       ? !validId(result.intakeEpoch)
       : result.intakeEpoch !== null) ||
-    result.contract !== ORCHESTRATOR_STATE_QUERY_CONTRACT ||
+    result.contract !== COORDINATOR_STATE_QUERY_CONTRACT ||
     !["completed", "blocked"].includes(String(result.status)) ||
     !validReason(result.reason) ||
     !validId(result.requestId) ||
@@ -414,7 +414,7 @@ export function inspectOrchestratorStateQueryResult(
   const projection =
     result.projection === null
       ? null
-      : inspectOrchestratorProjection(result.projection);
+      : inspectCoordinatorProjection(result.projection);
   if (
     (result.projection !== null && !projection) ||
     (result.observationState === "observed" &&
@@ -428,5 +428,5 @@ export function inspectOrchestratorStateQueryResult(
   return Object.freeze({
     ...result,
     projection,
-  }) as OrchestratorStateQueryResult;
+  }) as CoordinatorStateQueryResult;
 }

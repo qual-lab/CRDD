@@ -1,5 +1,5 @@
 /**
- * Orchestrator Acceptance Decision Direct Boundaryの検証範囲を定義する。
+ * Coordinator Acceptance Decision Direct Boundaryの検証範囲を定義する。
  *
  * @packageDocumentation
  * @responsibility SPEC入力→Authority Port→Acceptance Decision Store→State Storeの結合境界を検証する。
@@ -12,14 +12,14 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  ORCHESTRATOR_ACCEPTANCE_DECISION_CONTRACT,
-  recordOrchestratorAcceptanceDecision,
-  type OrchestratorAcceptanceDecisionRequest,
+  COORDINATOR_ACCEPTANCE_DECISION_CONTRACT,
+  recordCoordinatorAcceptanceDecision,
+  type CoordinatorAcceptanceDecisionRequest,
 } from "../../src/decision/record-acceptance.ts";
-import { applyOrchestratorAcceptanceDecision } from "../../src/decision/transitions.ts";
+import { applyCoordinatorAcceptanceDecision } from "../../src/decision/transitions.ts";
 import {
-  createOrchestratorState,
-  type OrchestratorState,
+  createCoordinatorState,
+  type CoordinatorState,
 } from "../../src/state/model.ts";
 import {
   observeProjectTaskStarted,
@@ -27,13 +27,13 @@ import {
   reserveProjectTaskStart,
   settleProjectTask,
 } from "../../src/task/lifecycle.ts";
-import { createOrchestratorAcceptanceAuthorityAdapter } from "../../src/decision/authority-adapter.ts";
+import { createCoordinatorAcceptanceAuthorityAdapter } from "../../src/decision/authority-adapter.ts";
 import type {
-  OrchestratorAcceptanceDecisionRecord,
-  OrchestratorAcceptanceDecisionStore,
+  CoordinatorAcceptanceDecisionRecord,
+  CoordinatorAcceptanceDecisionStore,
 } from "../../src/decision/acceptance-authority.ts";
-import type { OrchestratorPortResult } from "../../src/operation-result.ts";
-import type { OrchestratorStatePort } from "../../src/state/persistence.ts";
+import type { CoordinatorPortResult } from "../../src/operation-result.ts";
+import type { CoordinatorStatePort } from "../../src/state/persistence.ts";
 
 const revision = "a".repeat(40);
 
@@ -50,7 +50,7 @@ const revision = "a".repeat(40);
  * @boundary PRL-IT-008=Direct Boundary: 公開入口→受入判断Authority。
  */
 test("移管した受入判断Authorityは認証済みPrincipalと対象を限定する", () => {
-  const authority = createOrchestratorAcceptanceAuthorityAdapter("operator-a");
+  const authority = createCoordinatorAcceptanceAuthorityAdapter("operator-a");
   const binding = { ...request(1), sourceSpecId: "SPEC-000002" as const };
   assert.equal(Object.isFrozen(authority), true);
   assert.equal(authority.verify(binding), true);
@@ -73,7 +73,7 @@ test("移管した受入判断Authorityは認証済みPrincipalと対象を限�
     }),
     false,
   );
-  assert.throws(() => createOrchestratorAcceptanceAuthorityAdapter(""), {
+  assert.throws(() => createCoordinatorAcceptanceAuthorityAdapter(""), {
     message: "orchestrator_acceptance_principal_invalid",
   });
 });
@@ -90,7 +90,7 @@ test("移管した受入判断Authorityは認証済みPrincipalと対象を限�
  * @cleanup N/A: Process内の不変値だけを使用する。
  * @boundary PRL-IT-008=Direct Boundary: orchestrator Test Source→対象契約
  */
-function completed<T>(value: T): OrchestratorPortResult<T> {
+function completed<T>(value: T): CoordinatorPortResult<T> {
   return Object.freeze({ status: "completed", reason: "completed", value });
 }
 
@@ -106,7 +106,7 @@ function completed<T>(value: T): OrchestratorPortResult<T> {
  * @cleanup N/A: Process内の不変値だけを使用する。
  * @boundary PRL-IT-008=Direct Boundary: orchestrator Test Source→対象契約
  */
-function blocked<T>(reason: string): OrchestratorPortResult<T> {
+function blocked<T>(reason: string): CoordinatorPortResult<T> {
   return Object.freeze({
     status: "blocked",
     reason,
@@ -128,8 +128,8 @@ function blocked<T>(reason: string): OrchestratorPortResult<T> {
  * @cleanup N/A: Process内の不変値だけを使用する。
  * @boundary PRL-IT-008=Direct Boundary: orchestrator Test Source→対象契約
  */
-function acceptancePendingState(): OrchestratorState {
-  const created = createOrchestratorState({
+function acceptancePendingState(): CoordinatorState {
+  const created = createCoordinatorState({
     projectId: "project-a",
     milestoneId: "milestone-a",
     repositoryRevision: revision,
@@ -193,20 +193,20 @@ function acceptancePendingState(): OrchestratorState {
  *
  * @responsibility State、Authority、Decision Storeの観測回数と現在値を同じHarnessで管理する。
  * @trace PRL-IT-008
- * @precondition 初期状態が有効なOrchestrator Stateである。
+ * @precondition 初期状態が有効なCoordinator Stateである。
  * @stimulus Applicationへ渡す限定Portを構築する。
  * @observation stateWrites、creates、finalizesおよびrecordsを公開する。
  * @oracle 未使用のQueue操作は停止し、Task／Provider操作を一切提供しない。
  * @cleanup N/A: Process内Mapだけを使用する。
  * @boundary PRL-IT-008=Direct Boundary: orchestrator Test Source→対象契約
  */
-function harness(initial: OrchestratorState) {
+function harness(initial: CoordinatorState) {
   let state = initial;
   let stateWrites = 0;
   let creates = 0;
   let finalizes = 0;
-  const records = new Map<string, OrchestratorAcceptanceDecisionRecord>();
-  const statePort: OrchestratorStatePort = {
+  const records = new Map<string, CoordinatorAcceptanceDecisionRecord>();
+  const statePort: CoordinatorStatePort = {
     readState: () => completed(state),
     writeState: (next, expectedGeneration) => {
       if (state.generation !== expectedGeneration)
@@ -234,7 +234,7 @@ function harness(initial: OrchestratorState) {
       throw new Error("unused");
     },
   };
-  const store: OrchestratorAcceptanceDecisionStore = Object.freeze({
+  const store: CoordinatorAcceptanceDecisionStore = Object.freeze({
     read: (recordId) => completed(records.get(recordId) ?? null),
     create: (record) => {
       if (records.has(record.recordId)) return blocked("record_exists");
@@ -288,9 +288,9 @@ function harness(initial: OrchestratorState) {
  */
 function request(
   expectedGeneration: number,
-): OrchestratorAcceptanceDecisionRequest {
+): CoordinatorAcceptanceDecisionRequest {
   return Object.freeze({
-    contract: ORCHESTRATOR_ACCEPTANCE_DECISION_CONTRACT,
+    contract: COORDINATOR_ACCEPTANCE_DECISION_CONTRACT,
     decisionId: "decision-a",
     sourceSpecId: "SPEC-000002",
     projectId: "project-a",
@@ -318,8 +318,8 @@ function request(
  * @boundary PRL-IT-008=Direct Boundary: orchestrator Test Source→対象契約
  */
 function preparedRecord(
-  input: OrchestratorAcceptanceDecisionRequest,
-): OrchestratorAcceptanceDecisionRecord {
+  input: CoordinatorAcceptanceDecisionRequest,
+): CoordinatorAcceptanceDecisionRecord {
   return Object.freeze({
     recordId: `acceptance-${input.decisionId}`,
     decisionId: input.decisionId,
@@ -352,7 +352,7 @@ function preparedRecord(
  */
 test("SPEC-000002のexactな対象・世代・Authorityだけを一度記録する", () => {
   const fixture = harness(acceptancePendingState());
-  const result = recordOrchestratorAcceptanceDecision(
+  const result = recordCoordinatorAcceptanceDecision(
     fixture.dependencies,
     request(fixture.current().state.generation),
   );
@@ -382,21 +382,21 @@ test("SPEC-000002のexactな対象・世代・Authorityだけを一度記録す�
  */
 test("Projection Source、古い世代、権限不一致および重複判断をEffect 0で拒否する", () => {
   for (const mutate of [
-    (value: OrchestratorAcceptanceDecisionRequest) => ({
+    (value: CoordinatorAcceptanceDecisionRequest) => ({
       ...value,
       sourceSpecId: "SPEC-000006",
     }),
-    (value: OrchestratorAcceptanceDecisionRequest) => ({
+    (value: CoordinatorAcceptanceDecisionRequest) => ({
       ...value,
       expectedGeneration: value.expectedGeneration - 1,
     }),
-    (value: OrchestratorAcceptanceDecisionRequest) => ({
+    (value: CoordinatorAcceptanceDecisionRequest) => ({
       ...value,
       principalId: "operator-b",
     }),
   ]) {
     const fixture = harness(acceptancePendingState());
-    const result = recordOrchestratorAcceptanceDecision(
+    const result = recordCoordinatorAcceptanceDecision(
       fixture.dependencies,
       mutate(request(fixture.current().state.generation)),
     );
@@ -409,10 +409,10 @@ test("Projection Source、古い世代、権限不一致および重複判断を
   const fixture = harness(acceptancePendingState());
   const exact = request(fixture.current().state.generation);
   assert.equal(
-    recordOrchestratorAcceptanceDecision(fixture.dependencies, exact).status,
+    recordCoordinatorAcceptanceDecision(fixture.dependencies, exact).status,
     "completed",
   );
-  const duplicate = recordOrchestratorAcceptanceDecision(
+  const duplicate = recordCoordinatorAcceptanceDecision(
     fixture.dependencies,
     exact,
   );
@@ -439,7 +439,7 @@ test("状態Effect前に停止した同一判断をexact再入場で一度だけ
   const exact = request(fixture.current().state.generation);
   fixture.current().records.set("acceptance-decision-a", preparedRecord(exact));
 
-  const recovered = recordOrchestratorAcceptanceDecision(
+  const recovered = recordCoordinatorAcceptanceDecision(
     fixture.dependencies,
     exact,
   );
@@ -470,7 +470,7 @@ test("状態Effect前に停止した同一判断をexact再入場で一度だけ
 test("状態Effect後に停止した同一判断を再発行せず確定する", () => {
   const pending = acceptancePendingState();
   const exact = request(pending.generation);
-  const applied = applyOrchestratorAcceptanceDecision(
+  const applied = applyCoordinatorAcceptanceDecision(
     pending,
     exact.expectedGeneration,
     exact,
@@ -479,7 +479,7 @@ test("状態Effect後に停止した同一判断を再発行せず確定する",
   const fixture = harness(applied.state);
   fixture.current().records.set("acceptance-decision-a", preparedRecord(exact));
 
-  const recovered = recordOrchestratorAcceptanceDecision(
+  const recovered = recordCoordinatorAcceptanceDecision(
     fixture.dependencies,
     exact,
   );
@@ -508,7 +508,7 @@ test("別判断による準備Recordの横取りをEffect 0で拒否する", () 
   const exact = request(fixture.current().state.generation);
   fixture.current().records.set("acceptance-decision-a", preparedRecord(exact));
 
-  const rejected = recordOrchestratorAcceptanceDecision(
+  const rejected = recordCoordinatorAcceptanceDecision(
     fixture.dependencies,
     Object.freeze({
       ...exact,

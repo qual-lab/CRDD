@@ -15,20 +15,20 @@ import path from "node:path";
 import test from "node:test";
 import { devNull } from "node:os";
 import {
-  initializeOrchestratorSnapshot,
-  readOrchestratorSnapshot,
-  enqueueOrchestratorSingleTask,
-  updateOrchestratorSingleTask,
-  acquireOrchestratorSnapshotLease,
-  createOrchestratorSnapshotStatePort,
+  initializeCoordinatorSnapshot,
+  readCoordinatorSnapshot,
+  enqueueCoordinatorSingleTask,
+  updateCoordinatorSingleTask,
+  acquireCoordinatorSnapshotLease,
+  createCoordinatorSnapshotStatePort,
 } from "../../src/storage/current-state.ts";
-import { deriveOrchestratorRepositoryBindingId } from "../../src/state/binding.ts";
+import { deriveCoordinatorRepositoryBindingId } from "../../src/state/binding.ts";
 import {
   inspectSingleTaskRecord,
   type SingleTaskRecord,
 } from "../../src/task/single-task-record.ts";
 import type { ProjectQueueEntry } from "../../src/queue/types.ts";
-import { createOrchestratorTaskRequests } from "../../src/task/requests.ts";
+import { createCoordinatorTaskRequests } from "../../src/task/requests.ts";
 
 /**
  * 計画なしの新品Rootで二回の実行受付と終端を確認する。
@@ -67,8 +67,8 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
   fs.writeFileSync(path.join(root, ".gitignore"), ".crdd/\n");
   fs.mkdirSync(path.join(root, ".git", "info"));
   fs.writeFileSync(path.join(root, ".git", "info", "exclude"), "");
-  const binding = deriveOrchestratorRepositoryBindingId(root);
-  const initialized = initializeOrchestratorSnapshot(root, binding);
+  const binding = deriveCoordinatorRepositoryBindingId(root);
+  const initialized = initializeCoordinatorSnapshot(root, binding);
   assert.equal(initialized.status, "completed", JSON.stringify(initialized));
   if (initialized.status !== "completed") throw new Error("init_failed");
   const record: SingleTaskRecord = {
@@ -101,7 +101,7 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
     workspaceId: null,
     singleTask: record,
   };
-  const first = enqueueOrchestratorSingleTask(
+  const first = enqueueCoordinatorSingleTask(
     root,
     binding,
     initialized.value,
@@ -109,25 +109,25 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
   );
   assert.equal(first.status, "completed", JSON.stringify(first));
   assert.equal(
-    enqueueOrchestratorSingleTask(root, binding, initialized.value, entry)
+    enqueueCoordinatorSingleTask(root, binding, initialized.value, entry)
       .status,
     "completed",
   );
   assert.equal(
-    enqueueOrchestratorSingleTask(root, binding, initialized.value, {
+    enqueueCoordinatorSingleTask(root, binding, initialized.value, {
       ...entry,
       requestHash: "d".repeat(64),
     }).status,
     "blocked",
   );
   assert.equal(
-    enqueueOrchestratorSingleTask(root, binding, "retired", {
+    enqueueCoordinatorSingleTask(root, binding, "retired", {
       ...entry,
       queueId: "request-retired",
     }).status,
     "blocked",
   );
-  const acquired = acquireOrchestratorSnapshotLease(
+  const acquired = acquireCoordinatorSnapshotLease(
     root,
     binding,
     entry.projectId,
@@ -138,7 +138,7 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
   if (acquired.status !== "completed") throw new Error("lease_failed");
   const lease = acquired.value;
   try {
-    const invalid = updateOrchestratorSingleTask(
+    const invalid = updateCoordinatorSingleTask(
       root,
       binding,
       entry.queueId,
@@ -147,7 +147,7 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
       { ...record, phase: "starting", operationId: "other" },
     );
     assert.equal(invalid.status, "blocked");
-    const started = updateOrchestratorSingleTask(
+    const started = updateCoordinatorSingleTask(
       root,
       binding,
       entry.queueId,
@@ -156,7 +156,7 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
       { ...record, phase: "starting" },
     );
     assert.equal(started.status, "completed", JSON.stringify(started));
-    const port = createOrchestratorSnapshotStatePort(
+    const port = createCoordinatorSnapshotStatePort(
       root,
       binding,
       initialized.value,
@@ -170,7 +170,7 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
       }).status,
       "blocked",
     );
-    const done = updateOrchestratorSingleTask(
+    const done = updateCoordinatorSingleTask(
       root,
       binding,
       entry.queueId,
@@ -184,7 +184,7 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
       },
     );
     assert.equal(done.status, "completed", JSON.stringify(done));
-    const repeated = updateOrchestratorSingleTask(
+    const repeated = updateCoordinatorSingleTask(
       root,
       binding,
       entry.queueId,
@@ -201,7 +201,7 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
     if (repeated.status === "completed")
       assert.equal(repeated.value.generation, 3);
     assert.equal(
-      updateOrchestratorSingleTask(root, binding, entry.queueId, 3, lease, {
+      updateCoordinatorSingleTask(root, binding, entry.queueId, 3, lease, {
         ...record,
         phase: "settled",
         status: "blocked",
@@ -213,7 +213,7 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
     const released = lease.release();
     assert.equal(released.status, "completed", JSON.stringify(released));
     // 物理解放後・Queue解放保存前の中断を残し、次の入口で再入場する。
-    const interrupted = readOrchestratorSnapshot(root, binding);
+    const interrupted = readCoordinatorSnapshot(root, binding);
     assert.equal(interrupted.status, "completed");
     if (interrupted.status === "completed")
       assert.equal(
@@ -236,11 +236,11 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
     },
   };
   assert.equal(
-    enqueueOrchestratorSingleTask(root, binding, initialized.value, second)
+    enqueueCoordinatorSingleTask(root, binding, initialized.value, second)
       .status,
     "completed",
   );
-  const read = readOrchestratorSnapshot(root, binding);
+  const read = readCoordinatorSnapshot(root, binding);
   assert.equal(read.status, "completed");
   if (read.status !== "completed" || !read.value)
     throw new Error("read_failed");
@@ -255,7 +255,7 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
   let revokeDuringJoin = false;
   let failedExecution = false;
   let sameOwnerRecoveries = 0;
-  const owner = createOrchestratorTaskRequests({
+  const owner = createCoordinatorTaskRequests({
     root,
     binding,
     projectId: entry.projectId,
@@ -396,7 +396,7 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
   assert.equal(withheld.reason, "orchestrator_task_not_available");
   assert.deepEqual(withheld.facts, []);
   assert.equal(withheld.taskId, null);
-  const after = readOrchestratorSnapshot(root, binding);
+  const after = readCoordinatorSnapshot(root, binding);
   assert.equal(after.status, "completed");
   if (after.status !== "completed" || !after.value)
     throw new Error("read_failed");
@@ -441,7 +441,7 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
   assert.equal(sameOwnerRecoveries, 1);
   await owner.close();
   let recoveries = 0;
-  const reentry = createOrchestratorTaskRequests({
+  const reentry = createCoordinatorTaskRequests({
     root,
     binding,
     projectId: entry.projectId,
@@ -483,7 +483,7 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
     },
   };
   assert.equal(
-    enqueueOrchestratorSingleTask(
+    enqueueCoordinatorSingleTask(
       root,
       binding,
       initialized.value,
@@ -491,7 +491,7 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
     ).status,
     "completed",
   );
-  const recoveryLease = acquireOrchestratorSnapshotLease(
+  const recoveryLease = acquireCoordinatorSnapshotLease(
     root,
     binding,
     entry.projectId,
@@ -503,7 +503,7 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
     throw new Error("fixture_lease_required");
   try {
     assert.equal(
-      updateOrchestratorSingleTask(
+      updateCoordinatorSingleTask(
         root,
         binding,
         recoveryEntry.queueId,
@@ -514,7 +514,7 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
       "completed",
     );
     assert.equal(
-      updateOrchestratorSingleTask(
+      updateCoordinatorSingleTask(
         root,
         binding,
         recoveryEntry.queueId,
@@ -532,7 +532,7 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
     );
     assert.equal(recoveryLease.value.release().status, "completed");
     assert.equal(
-      createOrchestratorSnapshotStatePort(
+      createCoordinatorSnapshotStatePort(
         root,
         binding,
         initialized.value,

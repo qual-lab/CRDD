@@ -1,53 +1,53 @@
 /**
- * OrchestratorのObjective受付を現在状態保存とTask実行へ接続する。
+ * CoordinatorのObjective受付を現在状態保存とTask実行へ接続する。
  *
- * @responsibility OrchestratorObjectiveIntakeDependenciesを中心とする実装、型および境界を同じModuleで所有する。
+ * @responsibility CoordinatorObjectiveIntakeDependenciesを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000004
  */
 import {
-  createOrchestratorObjectiveResult,
-  inspectOrchestratorObjectivePlan,
+  createCoordinatorObjectiveResult,
+  inspectCoordinatorObjectivePlan,
 } from "./plan.ts";
 import {
-  describeOrchestratorObjectiveIntakeContract,
-  executeOrchestratorObjective,
+  describeCoordinatorObjectiveIntakeContract,
+  executeCoordinatorObjective,
 } from "./execute.ts";
 import {
-  inspectOrchestratorObjectiveRequest,
-  type OrchestratorObjectiveRequest,
+  inspectCoordinatorObjectiveRequest,
+  type CoordinatorObjectiveRequest,
 } from "./request.ts";
-import type { OrchestratorExecutionDependencies } from "../task/execution-contract.ts";
-import type { OrchestratorState } from "../state/model.ts";
+import type { CoordinatorExecutionDependencies } from "../task/execution-contract.ts";
+import type { CoordinatorState } from "../state/model.ts";
 import { snapshotPlainRecord } from "../../../domain-model/src/index.ts";
 import {
-  createOrchestratorSnapshotPersistencePorts,
-  inspectOrchestratorSnapshotIntake,
-  maintainOrchestratorSnapshot,
+  createCoordinatorSnapshotPersistencePorts,
+  inspectCoordinatorSnapshotIntake,
+  maintainCoordinatorSnapshot,
 } from "../storage/current-state.ts";
-import { createOrchestratorExecutionHostPorts } from "../task/host-adapter.ts";
+import { createCoordinatorExecutionHostPorts } from "../task/host-adapter.ts";
 import {
-  createOrchestratorTaskRecoveryAdapter,
-  type OrchestratorTaskRecoveryHostDependencies,
+  createCoordinatorTaskRecoveryAdapter,
+  type CoordinatorTaskRecoveryHostDependencies,
 } from "../task/recovery-adapter.ts";
 
 export {
-  describeOrchestratorObjectiveIntakeContract,
-  inspectOrchestratorObjectiveRequest,
-  type OrchestratorObjectiveRequest,
+  describeCoordinatorObjectiveIntakeContract,
+  inspectCoordinatorObjectiveRequest,
+  type CoordinatorObjectiveRequest,
 };
 
 /**
- * orchestrator-objective-intakeで使用するOrchestrator Objective Intake Dependenciesの値契約を定義する。
+ * objective-intakeで使用するCoordinator Objective Intake Dependenciesの値契約を定義する。
  *
- * @responsibility Orchestrator Objective Intake DependenciesのProperty、Identity、状態制約を型境界として所有する。
+ * @responsibility Coordinator Objective Intake DependenciesのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
- * @shape OrchestratorObjectiveIntakeDependenciesが表すProperty、識別子およびRelationを型として固定する。
- * @invariant OrchestratorObjectiveIntakeDependenciesで宣言した値と責務の対応を維持する。
- * @boundary N/A: OrchestratorObjectiveIntakeDependenciesの宣言は外部境界を開かない。
- * @security OrchestratorObjectiveIntakeDependenciesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility OrchestratorObjectiveIntakeDependenciesの利用側は宣言済みPropertyと型制約だけへ依存する。
+ * @shape CoordinatorObjectiveIntakeDependenciesが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CoordinatorObjectiveIntakeDependenciesで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CoordinatorObjectiveIntakeDependenciesの宣言は外部境界を開かない。
+ * @security CoordinatorObjectiveIntakeDependenciesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility CoordinatorObjectiveIntakeDependenciesの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type OrchestratorObjectiveIntakeDependencies = Readonly<{
+export type CoordinatorObjectiveIntakeDependencies = Readonly<{
   authenticatedPrincipalId: string;
   verifyProjectBinding: (
     input: Readonly<{
@@ -57,13 +57,13 @@ export type OrchestratorObjectiveIntakeDependencies = Readonly<{
     }>,
   ) => unknown;
   planObjective: (
-    request: OrchestratorObjectiveRequest,
+    request: CoordinatorObjectiveRequest,
     bindingCapability: object,
   ) => unknown;
   createTaskExecutions: (
-    request: OrchestratorObjectiveRequest,
+    request: CoordinatorObjectiveRequest,
     bindingCapability: object,
-    state: OrchestratorState,
+    state: CoordinatorState,
   ) => unknown;
   observeLeaseOwner: (
     owner: Readonly<{
@@ -72,11 +72,11 @@ export type OrchestratorObjectiveIntakeDependencies = Readonly<{
     }>,
   ) => unknown;
   execution: Omit<
-    OrchestratorExecutionDependencies,
+    CoordinatorExecutionDependencies,
     "persistence" | "clockIdentity" | "processSafety"
   >;
 }> &
-  OrchestratorTaskRecoveryHostDependencies;
+  CoordinatorTaskRecoveryHostDependencies;
 
 /**
  * Idが有効か判定する。
@@ -153,13 +153,13 @@ function inspectBinding(raw: unknown, revision: string) {
 }
 
 /**
- * orchestrator-objective-intakeを停止結果として構築する。
+ * objective-intakeを停止結果として構築する。
  *
- * @responsibility orchestrator-objective-intakeの停止理由、未発行Effect、公開結果境界を所有する。
+ * @responsibility objective-intakeの停止理由、未発行Effect、公開結果境界を所有する。
  * @trace ARCH-000004
- * @input request: OrchestratorObjectiveRequest、reason: string
+ * @input request: CoordinatorObjectiveRequest、reason: string
  * @returns blockedの計算結果を返す。
- * @precondition 「request: OrchestratorObjectiveRequest、reason: string」がblockedの入力契約を満たす。
+ * @precondition 「request: CoordinatorObjectiveRequest、reason: string」がblockedの入力契約を満たす。
  * @postcondition blockedの責務を完了した結果だけを返す。
  * @effect N/A: blockedは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: blockedは独自の失敗分岐を所有しない。
@@ -168,35 +168,35 @@ function inspectBinding(raw: unknown, revision: string) {
  * @security blockedはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: blockedは共有非同期状態を持たない同期処理である。
  */
-function blocked(request: OrchestratorObjectiveRequest, reason: string) {
-  return createOrchestratorObjectiveResult(request, {
+function blocked(request: CoordinatorObjectiveRequest, reason: string) {
+  return createCoordinatorObjectiveResult(request, {
     status: "blocked",
     reason,
   });
 }
 
 /**
- * Verify Host inputs and compose the transport-independent Orchestrator.
+ * Verify Host inputs and compose the transport-independent Coordinator.
  *
- * @responsibility Orchestrator Objectiveの実行条件、Effect範囲、終了結果の境界を所有する。
+ * @responsibility Coordinator Objectiveの実行条件、Effect範囲、終了結果の境界を所有する。
  * @trace ARCH-000004
- * @input dependencies: OrchestratorObjectiveIntakeDependencies、rawRequest: unknown、cancellationSignal: AbortSignal
- * @returns runOrchestratorObjectiveの計算結果を返す。
- * @precondition 「dependencies: OrchestratorObjectiveIntakeDependencies、rawRequest: unknown、cancellationSignal: AbortSignal」がrunOrchestratorObjectiveの入力契約を満たす。
- * @postcondition runOrchestratorObjectiveの責務を完了した結果だけを返す。
- * @effect N/A: runOrchestratorObjectiveは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure runOrchestratorObjectiveは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant runOrchestratorObjectiveは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: runOrchestratorObjectiveはProcess内の同一Subsystemで完結する。
- * @security runOrchestratorObjectiveはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency runOrchestratorObjectiveは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ * @input dependencies: CoordinatorObjectiveIntakeDependencies、rawRequest: unknown、cancellationSignal: AbortSignal
+ * @returns runCoordinatorObjectiveの計算結果を返す。
+ * @precondition 「dependencies: CoordinatorObjectiveIntakeDependencies、rawRequest: unknown、cancellationSignal: AbortSignal」がrunCoordinatorObjectiveの入力契約を満たす。
+ * @postcondition runCoordinatorObjectiveの責務を完了した結果だけを返す。
+ * @effect N/A: runCoordinatorObjectiveは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure runCoordinatorObjectiveは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant runCoordinatorObjectiveは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: runCoordinatorObjectiveはProcess内の同一Subsystemで完結する。
+ * @security runCoordinatorObjectiveはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency runCoordinatorObjectiveは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
  */
-export async function runOrchestratorObjective(
-  dependencies: OrchestratorObjectiveIntakeDependencies,
+export async function runCoordinatorObjective(
+  dependencies: CoordinatorObjectiveIntakeDependencies,
   rawRequest: unknown,
   cancellationSignal: AbortSignal,
 ) {
-  const request = inspectOrchestratorObjectiveRequest(rawRequest);
+  const request = inspectCoordinatorObjectiveRequest(rawRequest);
   if (
     !request ||
     !(cancellationSignal instanceof AbortSignal) ||
@@ -207,7 +207,7 @@ export async function runOrchestratorObjective(
         requestId: "invalid",
         projectId: "invalid",
         milestoneId: "invalid",
-      }) as OrchestratorObjectiveRequest,
+      }) as CoordinatorObjectiveRequest,
       "orchestrator_objective_request_invalid",
     );
 
@@ -230,11 +230,11 @@ export async function runOrchestratorObjective(
   } catch {
     rawPlan = null;
   }
-  const plan = inspectOrchestratorObjectivePlan(rawPlan, request);
+  const plan = inspectCoordinatorObjectivePlan(rawPlan, request);
   if (!plan)
     return blocked(request, "orchestrator_plan_invalid_or_out_of_scope");
 
-  const hostPorts = createOrchestratorExecutionHostPorts();
+  const hostPorts = createCoordinatorExecutionHostPorts();
   const intake = {
     epoch: request.intakeEpoch,
     projectId: request.projectId,
@@ -256,13 +256,13 @@ export async function runOrchestratorObjective(
       }),
     ),
   };
-  const admitted = inspectOrchestratorSnapshotIntake(
+  const admitted = inspectCoordinatorSnapshotIntake(
     binding.workingDirectory,
     binding.repositoryBindingId,
     intake,
   );
   if (admitted.status !== "completed")
-    return createOrchestratorObjectiveResult(request, {
+    return createCoordinatorObjectiveResult(request, {
       status: "blocked",
       reason: admitted.reason,
       cleanupConfirmed: !admitted.manualRecoveryRequired,
@@ -270,13 +270,13 @@ export async function runOrchestratorObjective(
       recoveryIds: admitted.recoveryId ? [admitted.recoveryId] : [],
       effectState: admitted.manualRecoveryRequired ? "unknown" : "no_effect",
     });
-  const result = await executeOrchestratorObjective(
+  const result = await executeCoordinatorObjective(
     {
       authenticatedPrincipalId: dependencies.authenticatedPrincipalId,
       repositoryBindingId: binding.repositoryBindingId,
       repositoryRoot: binding.repositoryRoot,
       plan,
-      persistence: createOrchestratorSnapshotPersistencePorts(
+      persistence: createCoordinatorSnapshotPersistencePorts(
         binding.workingDirectory,
         binding.repositoryBindingId,
         request.intakeEpoch,
@@ -284,7 +284,7 @@ export async function runOrchestratorObjective(
       ),
       clockIdentity: hostPorts.clockIdentity,
       processSafety: hostPorts.processSafety,
-      taskRecovery: createOrchestratorTaskRecoveryAdapter(
+      taskRecovery: createCoordinatorTaskRecoveryAdapter(
         binding.workingDirectory,
         binding.repositoryBindingId,
         dependencies,
@@ -302,12 +302,12 @@ export async function runOrchestratorObjective(
     cancellationSignal,
   );
   if (result.status === "blocked") return result;
-  const maintenance = maintainOrchestratorSnapshot(
+  const maintenance = maintainCoordinatorSnapshot(
     binding.workingDirectory,
     binding.repositoryBindingId,
   );
   if (maintenance.status !== "completed")
-    return createOrchestratorObjectiveResult(request, {
+    return createCoordinatorObjectiveResult(request, {
       ...result,
       status: "blocked",
       projection:

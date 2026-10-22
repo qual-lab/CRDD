@@ -347,7 +347,7 @@ export function renderDockerRecoveryDoctorReport(
       stdout: shouldOutputJson
         ? `${JSON.stringify(safe, null, 2)}\n`
         : [
-            `Coordinator Task回復: ${recovered ? "完了" : pending ? "技術回収済み・Orchestrator受領待ち" : "停止"}`,
+            `Coordinator Task回復: ${recovered ? "完了" : pending ? "技術回収済み・Task側の受領待ち" : "停止"}`,
             `- 理由: ${safe.reason}`,
             ...(safe.recoveryId === null
               ? []

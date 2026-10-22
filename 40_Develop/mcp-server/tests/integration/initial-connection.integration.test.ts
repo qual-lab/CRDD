@@ -25,7 +25,7 @@ import type { AccessManagementState } from "../../../access-management/src/stora
 import { createFilesystemStoreRoot } from "../../../domain-model/src/index.ts";
 import {
   createAccessMcpResolver,
-  MCP_ORCHESTRATOR_PROTOCOL_VERSION,
+  MCP_COORDINATOR_PROTOCOL_VERSION,
   startMcpAuthenticatedStreamableHttp,
 } from "../../src/index.ts";
 import { handleMcpDiscoverRequest } from "../../src/request/discover.ts";
@@ -114,7 +114,7 @@ function packet() {
     params: {
       _meta: {
         "io.modelcontextprotocol/protocolVersion":
-          MCP_ORCHESTRATOR_PROTOCOL_VERSION,
+          MCP_COORDINATOR_PROTOCOL_VERSION,
         "io.modelcontextprotocol/clientCapabilities": {},
       },
     },
@@ -137,7 +137,7 @@ function headers(token: string, method = "server/discover") {
     authorization: `Bearer ${token}`,
     accept: "application/json, text/event-stream",
     "content-type": "application/json",
-    "mcp-protocol-version": MCP_ORCHESTRATOR_PROTOCOL_VERSION,
+    "mcp-protocol-version": MCP_COORDINATOR_PROTOCOL_VERSION,
     "mcp-method": method,
   };
 }

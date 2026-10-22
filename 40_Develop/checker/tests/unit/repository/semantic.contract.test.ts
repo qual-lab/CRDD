@@ -182,12 +182,12 @@ const qualitySources = [
 ] as const;
 
 /**
- * CoordinatorとOrchestratorの可視表からPilot IRを決定論的に生成するを検証する。
+ * CoordinatorとCoordinatorの可視表からPilot IRを決定論的に生成するを検証する。
  *
- * @responsibility CoordinatorとOrchestratorの可視表からPilot IRを決定論的に生成するの合否判定を所有する。
+ * @responsibility CoordinatorとCoordinatorの可視表からPilot IRを決定論的に生成するの合否判定を所有する。
  * @trace PPR-UT-016
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus CoordinatorとOrchestratorの可視表からPilot IRを決定論的に生成するの対象操作を実行する。
+ * @stimulus CoordinatorとCoordinatorの可視表からPilot IRを決定論的に生成するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。

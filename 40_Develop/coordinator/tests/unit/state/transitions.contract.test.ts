@@ -24,12 +24,12 @@ import {
   retrySettledProjectTaskRecoveries,
   settleProjectTaskRecoveryObligation,
 } from "../../../src/task/recovery-transitions.ts";
-import { applyOrchestratorAcceptanceDecision } from "../../../src/decision/transitions.ts";
-import { applyOrchestratorPartialReplan } from "../../../src/objective/replan-transitions.ts";
+import { applyCoordinatorAcceptanceDecision } from "../../../src/decision/transitions.ts";
+import { applyCoordinatorPartialReplan } from "../../../src/objective/replan-transitions.ts";
 import {
-  createOrchestratorState,
-  describeOrchestratorStateContract,
-  type OrchestratorState,
+  createCoordinatorState,
+  describeCoordinatorStateContract,
+  type CoordinatorState,
   type ProjectTaskDefinition,
 } from "../../../src/state/model.ts";
 import {
@@ -38,7 +38,7 @@ import {
   reserveProjectTaskStart,
   settleProjectTask,
 } from "../../../src/task/lifecycle.ts";
-import { projectOrchestratorState } from "../../../src/state/projection.ts";
+import { projectCoordinatorState } from "../../../src/state/projection.ts";
 import { selectSchedulableProjectTasks } from "../../../src/task/scheduling.ts";
 
 const revision = "a".repeat(40);
@@ -242,7 +242,7 @@ function stateFor(
   tasks: readonly ProjectTaskDefinition[],
   maximumConcurrency = 5,
 ) {
-  const result = createOrchestratorState({
+  const result = createCoordinatorState({
     projectId: "crdd",
     milestoneId: "v0.19",
     repositoryRevision: revision,
@@ -275,7 +275,7 @@ function stateFor(
  * @boundary PRL-UT-006=Direct Boundary: orchestrator Test Source→対象契約
  */
 function start(
-  state: OrchestratorState,
+  state: CoordinatorState,
   taskId: string,
   attemptId = `attempt-${taskId}`,
 ) {
@@ -518,7 +518,7 @@ describe("Orchestrator state contract", () => {
    * @boundary PRL-UT-006=Direct Boundary: orchestrator Test Source→対象契約
    */
   it("Hostが有効なowner generationを供給しない場合は状態を作らない", () => {
-    const state = createOrchestratorState({
+    const state = createCoordinatorState({
       projectId: "crdd",
       milestoneId: "v0.20",
       repositoryRevision: revision,
@@ -549,7 +549,7 @@ describe("Orchestrator state contract", () => {
    * @boundary PRL-UT-006=Direct Boundary: orchestrator Test Source→対象契約
    */
   it("受入条件の説明文をPathとして正規化しない", () => {
-    const state = createOrchestratorState({
+    const state = createCoordinatorState({
       projectId: "crdd",
       milestoneId: "v0.19",
       repositoryRevision: revision,
@@ -590,7 +590,7 @@ describe("Orchestrator state contract", () => {
    */
   it("Task定義のRepository外Pathを状態へ取り込まない", () => {
     for (const pathValue of ["C:\\outside", "/outside", "../outside"]) {
-      const state = createOrchestratorState({
+      const state = createCoordinatorState({
         projectId: "crdd",
         milestoneId: "v0.20",
         repositoryRevision: revision,
@@ -770,7 +770,7 @@ describe("Orchestrator state contract", () => {
     });
     assert.equal(settled.status, "completed");
     assert.ok(settled.state);
-    const projection = projectOrchestratorState(settled.state);
+    const projection = projectCoordinatorState(settled.state);
     assert.equal(projection.milestoneState, "cancelled");
     assert.equal(projection.objectiveCounts.cancelled, 1);
     assert.equal(projection.taskCounts.cancelled, 1);
@@ -864,7 +864,7 @@ describe("Orchestrator state contract", () => {
       [task("task-a", ["task-b"]), task("task-b", ["task-a"])],
       [task("task-a", ["missing"])],
     ]) {
-      const result = createOrchestratorState({
+      const result = createCoordinatorState({
         projectId: "crdd",
         milestoneId: "v0.19",
         repositoryRevision: revision,
@@ -914,7 +914,7 @@ describe("Orchestrator state contract", () => {
     assert.ok(settled.state);
     assert.equal(settled.state.objectives[0]?.state, "integration_pending");
     assert.equal(settled.state.milestone.state, "executing");
-    assert.deepEqual(projectOrchestratorState(settled.state), {
+    assert.deepEqual(projectCoordinatorState(settled.state), {
       projectId: "crdd",
       milestoneId: "v0.19",
       generation: 5,
@@ -994,7 +994,7 @@ describe("Orchestrator state contract", () => {
       recoveryUnresolved: false,
     });
     assert.ok(settled.state);
-    const waitingObjective = applyOrchestratorAcceptanceDecision(
+    const waitingObjective = applyCoordinatorAcceptanceDecision(
       settled.state,
       settled.state.generation,
       {
@@ -1006,7 +1006,7 @@ describe("Orchestrator state contract", () => {
     );
     assert.equal(waitingObjective.status, "completed");
     assert.equal(waitingObjective.state, settled.state);
-    const returnedObjective = applyOrchestratorAcceptanceDecision(
+    const returnedObjective = applyCoordinatorAcceptanceDecision(
       settled.state,
       settled.state.generation,
       {
@@ -1018,7 +1018,7 @@ describe("Orchestrator state contract", () => {
     );
     assert.equal(returnedObjective.status, "completed");
     assert.equal(returnedObjective.state.objectives[0]?.state, "returned");
-    const objective = applyOrchestratorAcceptanceDecision(
+    const objective = applyCoordinatorAcceptanceDecision(
       settled.state,
       settled.state.generation,
       {
@@ -1033,10 +1033,10 @@ describe("Orchestrator state contract", () => {
     assert.equal(objective.state.objectives[0]?.state, "accepted");
     assert.equal(objective.state.milestone.state, "integrating");
     assert.equal(
-      projectOrchestratorState(objective.state).nextAction,
+      projectCoordinatorState(objective.state).nextAction,
       "verify_milestone_integration",
     );
-    const waitingMilestone = applyOrchestratorAcceptanceDecision(
+    const waitingMilestone = applyCoordinatorAcceptanceDecision(
       objective.state,
       objective.state.generation,
       {
@@ -1048,7 +1048,7 @@ describe("Orchestrator state contract", () => {
     );
     assert.equal(waitingMilestone.status, "completed");
     assert.equal(waitingMilestone.state, objective.state);
-    const returnedMilestone = applyOrchestratorAcceptanceDecision(
+    const returnedMilestone = applyCoordinatorAcceptanceDecision(
       objective.state,
       objective.state.generation,
       {
@@ -1061,10 +1061,10 @@ describe("Orchestrator state contract", () => {
     assert.equal(returnedMilestone.status, "completed");
     assert.equal(returnedMilestone.state.milestone.state, "returned");
     assert.equal(
-      projectOrchestratorState(returnedMilestone.state).nextAction,
+      projectCoordinatorState(returnedMilestone.state).nextAction,
       "human_decision",
     );
-    const milestone = applyOrchestratorAcceptanceDecision(
+    const milestone = applyCoordinatorAcceptanceDecision(
       objective.state,
       objective.state.generation,
       {
@@ -1078,7 +1078,7 @@ describe("Orchestrator state contract", () => {
     assert.ok(milestone.state);
     assert.equal(milestone.state.milestone.state, "accepted");
     assert.equal(
-      projectOrchestratorState(milestone.state).qualityState,
+      projectCoordinatorState(milestone.state).qualityState,
       "accepted",
     );
   });
@@ -1109,7 +1109,7 @@ describe("Orchestrator state contract", () => {
       recoveryUnresolved: false,
     });
     assert.ok(settled.state);
-    const milestone = applyOrchestratorAcceptanceDecision(
+    const milestone = applyCoordinatorAcceptanceDecision(
       settled.state,
       settled.state.generation,
       {
@@ -1121,7 +1121,7 @@ describe("Orchestrator state contract", () => {
     );
     assert.equal(milestone.reason, "orchestrator_acceptance_decision_mismatch");
     assert.equal(milestone.state, settled.state);
-    const staleObjective = applyOrchestratorAcceptanceDecision(
+    const staleObjective = applyCoordinatorAcceptanceDecision(
       settled.state,
       settled.state.generation - 1,
       {
@@ -1165,7 +1165,7 @@ describe("Orchestrator state contract", () => {
       recoveryUnresolved: false,
     });
     assert.ok(failed.state);
-    const replanned = applyOrchestratorPartialReplan(
+    const replanned = applyCoordinatorPartialReplan(
       failed.state,
       failed.state.generation,
       {
@@ -1197,10 +1197,10 @@ describe("Orchestrator state contract", () => {
     );
     assert.equal(completed.state.objectives[0]?.state, "integration_pending");
     assert.equal(
-      projectOrchestratorState(completed.state).workProgress,
+      projectCoordinatorState(completed.state).workProgress,
       "tasks_complete",
     );
-    const objective = applyOrchestratorAcceptanceDecision(
+    const objective = applyCoordinatorAcceptanceDecision(
       completed.state,
       completed.state.generation,
       {
@@ -1211,7 +1211,7 @@ describe("Orchestrator state contract", () => {
       },
     );
     assert.ok(objective.state);
-    const milestone = applyOrchestratorAcceptanceDecision(
+    const milestone = applyCoordinatorAcceptanceDecision(
       objective.state,
       objective.state.generation,
       {
@@ -1222,7 +1222,7 @@ describe("Orchestrator state contract", () => {
       },
     );
     assert.ok(milestone.state);
-    const projection = projectOrchestratorState(milestone.state);
+    const projection = projectCoordinatorState(milestone.state);
     assert.equal(projection.milestoneState, "accepted");
     assert.equal(projection.workProgress, "tasks_complete");
     assert.equal(projection.qualityState, "accepted");
@@ -1255,7 +1255,7 @@ describe("Orchestrator state contract", () => {
     });
     assert.ok(failed.state);
     const before = JSON.stringify(failed.state);
-    const rejected = applyOrchestratorPartialReplan(
+    const rejected = applyCoordinatorPartialReplan(
       failed.state,
       failed.state.generation,
       {
@@ -1288,7 +1288,7 @@ describe("Orchestrator state contract", () => {
   it("古い世代と統合待ち前の受入を拒否する", () => {
     const state = stateFor([task("task-a")]);
     assert.equal(
-      applyOrchestratorAcceptanceDecision(state, state.generation, {
+      applyCoordinatorAcceptanceDecision(state, state.generation, {
         target: "objective",
         targetId: "objective-1",
         decision: "accept",
@@ -1297,7 +1297,7 @@ describe("Orchestrator state contract", () => {
       "orchestrator_acceptance_decision_mismatch",
     );
     assert.equal(
-      applyOrchestratorAcceptanceDecision(state, state.generation - 1, {
+      applyCoordinatorAcceptanceDecision(state, state.generation - 1, {
         target: "milestone",
         targetId: "v0.19",
         decision: "accept",
@@ -1320,7 +1320,7 @@ describe("Orchestrator state contract", () => {
    * @boundary PRL-UT-006=Direct Boundary: orchestrator Test Source→対象契約
    */
   it("受入条件ごとのEvidenceが不足する場合は受入を拒否する", () => {
-    const created = createOrchestratorState({
+    const created = createCoordinatorState({
       projectId: "crdd",
       milestoneId: "v0.19",
       repositoryRevision: revision,
@@ -1349,7 +1349,7 @@ describe("Orchestrator state contract", () => {
     });
     assert.ok(settled.state);
     assert.equal(
-      applyOrchestratorAcceptanceDecision(
+      applyCoordinatorAcceptanceDecision(
         settled.state,
         settled.state.generation,
         {
@@ -1395,7 +1395,7 @@ describe("Orchestrator state contract", () => {
       recoveryUnresolved: false,
     });
     assert.ok(settled.state);
-    const projection = projectOrchestratorState(settled.state);
+    const projection = projectCoordinatorState(settled.state);
     assert.equal(projection.workProgress, "in_progress");
     assert.equal(projection.qualityState, "blocked");
     assert.equal(projection.recoveryRequired, true);
@@ -1771,7 +1771,7 @@ describe("Orchestrator state contract", () => {
    * @boundary PRL-UT-006=Direct Boundary: orchestrator Test Source→対象契約
    */
   it("Lockとstale resultの保持条件を説明する", () => {
-    assert.deepEqual(describeOrchestratorStateContract(), {
+    assert.deepEqual(describeCoordinatorStateContract(), {
       contract: "crdd-coordinator/orchestrator-state/v1",
       maximumConcurrency: 5,
       capacityStates: [

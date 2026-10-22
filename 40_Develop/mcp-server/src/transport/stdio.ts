@@ -15,7 +15,7 @@ import {
   createMcpServerFactory,
 } from "../request/server.ts";
 
-import type { McpOrchestratorDependencies } from "../tools/orchestrator.ts";
+import type { McpCoordinatorDependencies } from "../tools/task.ts";
 import {
   protocolError,
   inspectProtocolRequest,
@@ -25,7 +25,7 @@ import {
 import { parseUnambiguousJsonDocument } from "../request/parse-json.ts";
 import type { McpRequestSource } from "./types.ts";
 
-export const MCP_ORCHESTRATOR_STDIO_CONTRACT =
+export const MCP_COORDINATOR_STDIO_CONTRACT =
   "crdd-mcp/stdio-transport/v1" as const;
 const MAXIMUM_REQUEST_BYTES = 128 * 1024;
 
@@ -342,7 +342,7 @@ async function runMcpStdioWithHandler(
     output.removeListener("close", failOutput);
   }
   return Object.freeze({
-    contract: MCP_ORCHESTRATOR_STDIO_CONTRACT,
+    contract: MCP_COORDINATOR_STDIO_CONTRACT,
     status: isFailed ? ("blocked" as const) : ("completed" as const),
     reason: isFailed
       ? "orchestrator_mcp_stdio_failed"
@@ -380,23 +380,23 @@ export async function runMcpStdio(
 }
 
 /**
- * Orchestrator互換入口でMCP stdioを実行する。
+ * Coordinator互換入口でMCP stdioを実行する。
  *
- * @responsibility 既存利用側をOrchestrator Adapterへ接続する互換入口を維持する。
+ * @responsibility 既存利用側をCoordinator Adapterへ接続する互換入口を維持する。
  * @trace ARCH-000012
  * @input dependencies、inputおよびoutputを受け取る。
  * @returns Transportの終了結果を返す。
- * @precondition dependenciesはOrchestrator公開契約を満たす。
- * @postcondition 全RequestをOrchestrator Adapterへだけ渡す。
+ * @precondition dependenciesはCoordinator公開契約を満たす。
+ * @postcondition 全RequestをCoordinator Adapterへだけ渡す。
  * @effect stdioを読取り、応答を書き込む。
  * @failure TransportまたはAdapter失敗をblockedへ閉じる。
  * @invariant 既存公開関数の意味を変更しない。
- * @boundary stdioとOrchestrator Adapterの互換境界。
- * @security Orchestrator Adapterの認証契約を維持する。
+ * @boundary stdioとCoordinator Adapterの互換境界。
+ * @security Coordinator Adapterの認証契約を維持する。
  * @concurrency 一つの入力Queueを順序保持して処理する。
  */
-export async function runMcpOrchestratorStdio(
-  dependencies: McpOrchestratorDependencies,
+export async function runMcpCoordinatorStdio(
+  dependencies: McpCoordinatorDependencies,
   input: Readable,
   output: Writable,
 ) {
@@ -408,24 +408,24 @@ export async function runMcpOrchestratorStdio(
 }
 
 /**
- * Mcp Orchestrator Stdio 契約の公開契約を記述する。
+ * Mcp Coordinator Stdio 契約の公開契約を記述する。
  *
- * @responsibility Mcp Orchestrator Stdio 契約の公開field、非公開境界、互換性を所有する。
+ * @responsibility Mcp Coordinator Stdio 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000012
  * @input N/A: 実行時引数を受け取らない。
- * @returns describeMcpOrchestratorStdioContractの計算結果を返す。
- * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeMcpOrchestratorStdioContractの入力契約を満たす。
- * @postcondition describeMcpOrchestratorStdioContractの責務を完了した結果だけを返す。
- * @effect N/A: describeMcpOrchestratorStdioContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: describeMcpOrchestratorStdioContractは独自の失敗分岐を所有しない。
- * @invariant describeMcpOrchestratorStdioContractは入力から導いた結果以外の共有状態を変更しない。
+ * @returns describeMcpCoordinatorStdioContractの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeMcpCoordinatorStdioContractの入力契約を満たす。
+ * @postcondition describeMcpCoordinatorStdioContractの責務を完了した結果だけを返す。
+ * @effect N/A: describeMcpCoordinatorStdioContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describeMcpCoordinatorStdioContractは独自の失敗分岐を所有しない。
+ * @invariant describeMcpCoordinatorStdioContractは入力から導いた結果以外の共有状態を変更しない。
  * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
- * @security N/A: describeMcpOrchestratorStdioContractはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: describeMcpOrchestratorStdioContractは共有非同期状態を持たない同期処理である。
+ * @security N/A: describeMcpCoordinatorStdioContractはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: describeMcpCoordinatorStdioContractは共有非同期状態を持たない同期処理である。
  */
-export function describeMcpOrchestratorStdioContract() {
+export function describeMcpCoordinatorStdioContract() {
   return Object.freeze({
-    contract: MCP_ORCHESTRATOR_STDIO_CONTRACT,
+    contract: MCP_COORDINATOR_STDIO_CONTRACT,
     framing: "one_bounded_json_rpc_document_per_line",
     requestConcurrency: 1,
     parentLoss: "stdin_eof_cancels_and_joins_active_request",

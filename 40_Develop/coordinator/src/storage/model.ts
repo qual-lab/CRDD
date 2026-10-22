@@ -174,7 +174,7 @@ const OPERATION_IDENTITY_SCHEMA = "crdd-coordinator/operation-identity/v1";
  * @input consumer: 固定組立てが選択した利用側識別子。
  * @returns transient、durable、または未知利用側のnull。
  * @precondition N/A: 未知値も受け取り拒否する。
- * @postcondition Orchestratorの耐久受領を入力指定で降格しない。
+ * @postcondition Coordinatorの耐久受領を入力指定で降格しない。
  * @effect N/A: 値の同期判定だけで保存や配送を行わない。
  * @failure 未知識別子・非文字列ではnull。
  * @invariant 受領方式は資源回収やCandidate保全の証明ではない。

@@ -2,7 +2,7 @@
  * Workspaceの現在記録とQueue対象参照を定義する。
  * @responsibility 継続作業と短命のGit処置を既存Snapshotへ閉じる。
  * @trace ARCH-000004
- * @boundary Orchestratorの保存値。Task一覧やGit技術操作は所有しない。
+ * @boundary Coordinatorの保存値。Task一覧やGit技術操作は所有しない。
  */
 
 import type {
@@ -25,7 +25,7 @@ import {
  * @security 現在認可への再結合なしでEffectを許可しない。
  * @compatibility 新形式のみ、旧記録を補完しない。
  */
-export type OrchestratorWorkspaceCandidate = Readonly<{
+export type CoordinatorWorkspaceCandidate = Readonly<{
   request: WorkspaceCandidateRequest;
   phase: "freezing" | "fixed" | "merging" | "merged" | "removing";
   candidateCommit: string | null;
@@ -47,10 +47,10 @@ export type OrchestratorWorkspaceCandidate = Readonly<{
  * @security この記録だけで実行・削除を許可しない。
  * @compatibility 新Snapshot専用。旧形式の補完なし。
  */
-export type OrchestratorWorkspace = Readonly<{
+export type CoordinatorWorkspace = Readonly<{
   workspaceId: string;
   name: string | null;
-  candidate: OrchestratorWorkspaceCandidate | null;
+  candidate: CoordinatorWorkspaceCandidate | null;
   generation: number;
   baseCommit: string;
   head: string;
@@ -81,9 +81,9 @@ export type OrchestratorWorkspace = Readonly<{
  * @security 外部Authorityを作らない。
  * @concurrency N/A: 局所処理。
  */
-export function validOrchestratorWorkspace(
+export function validCoordinatorWorkspace(
   value: unknown,
-): value is OrchestratorWorkspace {
+): value is CoordinatorWorkspace {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const record = value as Record<string, unknown>;
   if (

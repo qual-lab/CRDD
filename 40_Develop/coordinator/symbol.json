@@ -1006,7 +1006,7 @@
     {
       "symbolId": "coordinator.test.integration.orchestrator-decision-recovery-store",
       "kind": "test-suite",
-      "path": "tests/integration/orchestrator-decision-recovery-store.contract.test.ts",
+      "path": "tests/integration/task-decision-recovery-store.contract.test.ts",
       "qaIds": [
         "QA-000003"
       ],
@@ -1022,7 +1022,7 @@
     {
       "symbolId": "coordinator.test.integration.orchestrator-design-traceability",
       "kind": "test-suite",
-      "path": "tests/integration/orchestrator-design-traceability.contract.test.ts",
+      "path": "tests/integration/task-design-traceability.contract.test.ts",
       "qaIds": [
         "QA-000010"
       ],
@@ -1036,7 +1036,7 @@
     {
       "symbolId": "coordinator.test.integration.orchestrator-durable-foundation",
       "kind": "test-suite",
-      "path": "tests/integration/orchestrator-durable-foundation.contract.test.ts",
+      "path": "tests/integration/task-durable-foundation.contract.test.ts",
       "qaIds": [
         "QA-000003"
       ],
@@ -1052,7 +1052,7 @@
     {
       "symbolId": "coordinator.test.integration.orchestrator-execution",
       "kind": "test-suite",
-      "path": "tests/integration/orchestrator-execution.contract.test.ts",
+      "path": "tests/integration/task-execution.contract.test.ts",
       "qaIds": [
         "QA-000003"
       ],
@@ -1072,7 +1072,7 @@
     {
       "symbolId": "coordinator.test.integration.orchestrator-full-flow",
       "kind": "test-suite",
-      "path": "tests/integration/orchestrator-full-flow.integration.test.ts",
+      "path": "tests/integration/task-full-flow.integration.test.ts",
       "qaIds": [
         "QA-000003",
         "QA-000004"
@@ -1100,7 +1100,7 @@
     {
       "symbolId": "coordinator.test.integration.orchestrator-objective-intake",
       "kind": "test-suite",
-      "path": "tests/integration/orchestrator-objective-intake.contract.test.ts",
+      "path": "tests/integration/task-objective-intake.contract.test.ts",
       "qaIds": [
         "QA-000003"
       ],
@@ -1123,7 +1123,7 @@
     {
       "symbolId": "coordinator.test.integration.orchestrator-platform-independence",
       "kind": "test-suite",
-      "path": "tests/integration/orchestrator-platform-independence.contract.test.ts",
+      "path": "tests/integration/task-platform-independence.contract.test.ts",
       "qaIds": [
         "QA-000003"
       ],
@@ -1139,7 +1139,7 @@
     {
       "symbolId": "coordinator.test.integration.orchestrator-queue-priority",
       "kind": "test-suite",
-      "path": "tests/integration/orchestrator-queue-priority.contract.test.ts",
+      "path": "tests/integration/task-queue-priority.contract.test.ts",
       "qaIds": [
         "QA-000003"
       ],
@@ -1153,7 +1153,7 @@
     {
       "symbolId": "coordinator.test.integration.orchestrator-replanning-and-decision",
       "kind": "test-suite",
-      "path": "tests/integration/orchestrator-replanning-and-decision.contract.test.ts",
+      "path": "tests/integration/task-replanning-and-decision.contract.test.ts",
       "qaIds": [
         "QA-000003"
       ],
@@ -1174,7 +1174,7 @@
     {
       "symbolId": "coordinator.test.integration.orchestrator-single-task-adapter",
       "kind": "test-suite",
-      "path": "tests/integration/orchestrator-single-task-adapter.contract.test.ts",
+      "path": "tests/integration/task-single-task-adapter.contract.test.ts",
       "qaIds": [
         "QA-000003"
       ],
@@ -1191,7 +1191,7 @@
     {
       "symbolId": "coordinator.test.integration.orchestrator-windows-decision-store",
       "kind": "test-suite",
-      "path": "tests/integration/orchestrator-windows-decision-store.contract.test.ts",
+      "path": "tests/integration/task-windows-decision-store.contract.test.ts",
       "qaIds": [
         "QA-000003"
       ],
@@ -1457,7 +1457,7 @@
     {
       "symbolId": "coordinator.test.system.orchestrator-real-provider-verification-script",
       "kind": "test-suite",
-      "path": "tests/system/orchestrator-real-provider-verification-script.contract.test.ts",
+      "path": "tests/system/task-real-provider-verification-script.contract.test.ts",
       "qaIds": [
         "QA-000003"
       ],
@@ -1476,7 +1476,7 @@
     {
       "symbolId": "coordinator.test.system.orchestrator-recovery",
       "kind": "test-suite",
-      "path": "tests/system/orchestrator-recovery.contract.test.ts",
+      "path": "tests/system/task-recovery.contract.test.ts",
       "qaIds": [
         "QA-000003"
       ],
@@ -1773,7 +1773,7 @@
     {
       "symbolId": "coordinator.test.integration.orchestrator-integration-record-adapter",
       "kind": "test-suite",
-      "path": "tests/integration/orchestrator-integration-record-adapter.contract.test.ts",
+      "path": "tests/integration/task-integration-record-adapter.contract.test.ts",
       "qaIds": [
         "QA-000003"
       ],
@@ -2034,7 +2034,7 @@
     {
       "symbolId": "coordinator.test.unit.orchestrator-execution-host-adapter",
       "kind": "test-suite",
-      "path": "tests/unit/orchestrator-execution-host-adapter.contract.test.ts",
+      "path": "tests/unit/task-execution-host-adapter.contract.test.ts",
       "qaIds": [
         "QA-000003"
       ],
@@ -2049,7 +2049,7 @@
     {
       "symbolId": "coordinator.test.unit.orchestrator-decision-capability-adapter",
       "kind": "test-suite",
-      "path": "tests/unit/orchestrator-decision-capability-adapter.contract.test.ts",
+      "path": "tests/unit/task-decision-capability-adapter.contract.test.ts",
       "qaIds": [
         "QA-000003"
       ],
@@ -2063,7 +2063,7 @@
     {
       "symbolId": "coordinator.test.unit.orchestrator-windows-platform-adapter",
       "kind": "test-suite",
-      "path": "tests/unit/orchestrator-windows-platform-adapter.contract.test.ts",
+      "path": "tests/unit/task-windows-platform-adapter.contract.test.ts",
       "qaIds": [
         "QA-000003"
       ],
@@ -2871,7 +2871,7 @@
     {
       "symbolId": "coordinator.source.src.core.orchestrator.design.traceability",
       "kind": "file",
-      "path": "scripts/orchestrator-design-traceability.ts",
+      "path": "scripts/task-design-traceability.ts",
       "archIds": [
         "ARCH-000002"
       ]
@@ -2959,7 +2959,7 @@
     {
       "symbolId": "coordinator.test.system.orchestrator-acceptance-decision",
       "kind": "test-suite",
-      "path": "tests/system/orchestrator-acceptance-decision.contract.test.ts",
+      "path": "tests/system/task-acceptance-decision.contract.test.ts",
       "qaIds": [
         "QA-000003"
       ],
@@ -3071,7 +3071,7 @@
     {
       "symbolId": "coordinator.source.scripts.orchestrator.real.provider.contract",
       "kind": "module",
-      "path": "scripts/orchestrator-real-provider-contract.ts",
+      "path": "scripts/task-real-provider-contract.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -3343,7 +3343,7 @@
     {
       "symbolId": "coordinator.test.unit.orchestrator-profile-transport",
       "kind": "test-suite",
-      "path": "tests/unit/orchestrator-profile-transport.contract.test.ts",
+      "path": "tests/unit/task-profile-transport.contract.test.ts",
       "qaIds": [
         "QA-000003"
       ],
@@ -3452,7 +3452,7 @@
     {
       "symbolId": "coordinator.test.integration.orchestrator-history",
       "kind": "test-suite",
-      "path": "tests/integration/orchestrator-history.contract.test.ts",
+      "path": "tests/integration/task-history.contract.test.ts",
       "qaIds": [
         "QA-000003"
       ],

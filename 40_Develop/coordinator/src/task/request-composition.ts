@@ -20,12 +20,12 @@ import {
 import { runRepositoryAdvice } from "../execution/advice.ts";
 import { recoverProviderAdviceHostOperation } from "../execution/provider-execution.ts";
 import {
-  createOrchestratorTaskRequests,
+  createCoordinatorTaskRequests,
   type SingleTaskOutcome,
 } from "./requests.ts";
-import { deriveOrchestratorRepositoryBindingId } from "../state/binding.ts";
-import { runOrchestratorSingleTaskAttempt } from "./execute-attempt.ts";
-import { initializeOrchestratorSnapshot } from "../storage/current-state.ts";
+import { deriveCoordinatorRepositoryBindingId } from "../state/binding.ts";
+import { runCoordinatorSingleTaskAttempt } from "./execute-attempt.ts";
+import { initializeCoordinatorSnapshot } from "../storage/current-state.ts";
 import { observeLeaseOwner } from "../platform/windows-adapter.ts";
 import {
   recoverRuntimeOwnedDockerTaskForCurrentConsumer,
@@ -58,15 +58,15 @@ export function createRepositoryTaskRequests(
 ) {
   const root = resolveVerifiedRepositoryRoot(rootCapability);
   if (root === null) throw new Error("orchestrator_task_root_invalid");
-  const initialized = initializeOrchestratorSnapshot(
+  const initialized = initializeCoordinatorSnapshot(
     root,
-    deriveOrchestratorRepositoryBindingId(root),
+    deriveCoordinatorRepositoryBindingId(root),
   );
   if (initialized.status !== "completed")
     throw new Error("orchestrator_task_state_initialization_blocked");
-  return createOrchestratorTaskRequests({
+  return createCoordinatorTaskRequests({
     root,
-    binding: deriveOrchestratorRepositoryBindingId(root),
+    binding: deriveCoordinatorRepositoryBindingId(root),
     projectId,
     principalId,
     authorize,
@@ -228,7 +228,7 @@ export function createRepositoryTaskRequests(
           workspaceResult: null,
         };
       }
-      const result = await runOrchestratorSingleTaskAttempt(
+      const result = await runCoordinatorSingleTaskAttempt(
         {
           startTask: (request, capability, correlation, observer, target) =>
             startRuntimeOwnedCoordinatorTask(

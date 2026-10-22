@@ -1,21 +1,21 @@
 /**
  * execution-observation-portに属する責務をまとめる。
  *
- * @responsibility OrchestratorTaskAttemptObservationを中心とする実装、型および境界を同じModuleで所有する。
+ * @responsibility CoordinatorTaskAttemptObservationを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000007
  */
 /**
- * execution-observation-portで使用するOrchestrator Task Attempt Observationの値契約を定義する。
+ * execution-observation-portで使用するCoordinator Task Attempt Observationの値契約を定義する。
  *
- * @responsibility Orchestrator Task Attempt ObservationのProperty、Identity、状態制約を型境界として所有する。
+ * @responsibility Coordinator Task Attempt ObservationのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000007
- * @shape OrchestratorTaskAttemptObservationが表すProperty、識別子およびRelationを型として固定する。
- * @invariant OrchestratorTaskAttemptObservationで宣言した値と責務の対応を維持する。
- * @boundary N/A: OrchestratorTaskAttemptObservationの宣言は外部境界を開かない。
- * @security N/A: OrchestratorTaskAttemptObservationはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility OrchestratorTaskAttemptObservationの利用側は宣言済みPropertyと型制約だけへ依存する。
+ * @shape CoordinatorTaskAttemptObservationが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CoordinatorTaskAttemptObservationで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CoordinatorTaskAttemptObservationの宣言は外部境界を開かない。
+ * @security N/A: CoordinatorTaskAttemptObservationはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility CoordinatorTaskAttemptObservationの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type OrchestratorTaskAttemptObservation = Readonly<{
+export type CoordinatorTaskAttemptObservation = Readonly<{
   occurredAt: string;
   startedAtMs: number;
   endedAtMs: number;
@@ -39,17 +39,17 @@ export type OrchestratorTaskAttemptObservation = Readonly<{
 }>;
 
 /**
- * execution-observation-portで使用するOrchestrator Execution Observation Publicationの値契約を定義する。
+ * execution-observation-portで使用するCoordinator Execution Observation Publicationの値契約を定義する。
  *
- * @responsibility Orchestrator Execution Observation PublicationのProperty、Identity、状態制約を型境界として所有する。
+ * @responsibility Coordinator Execution Observation PublicationのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000007
- * @shape OrchestratorExecutionObservationPublicationが表すProperty、識別子およびRelationを型として固定する。
- * @invariant OrchestratorExecutionObservationPublicationで宣言した値と責務の対応を維持する。
- * @boundary N/A: OrchestratorExecutionObservationPublicationの宣言は外部境界を開かない。
- * @security N/A: OrchestratorExecutionObservationPublicationはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility OrchestratorExecutionObservationPublicationの利用側は宣言済みPropertyと型制約だけへ依存する。
+ * @shape CoordinatorExecutionObservationPublicationが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CoordinatorExecutionObservationPublicationで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CoordinatorExecutionObservationPublicationの宣言は外部境界を開かない。
+ * @security N/A: CoordinatorExecutionObservationPublicationはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility CoordinatorExecutionObservationPublicationの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type OrchestratorExecutionObservationPublication =
+export type CoordinatorExecutionObservationPublication =
   | Readonly<{
       status: "completed";
       reason: string;
@@ -79,19 +79,19 @@ export type OrchestratorExecutionObservationPublication =
 /**
  * Non-authority observation boundary. Publication failure must remain visible,
  *
- * @responsibility Orchestrator Execution Observation PortのProperty、Identity、状態制約を型境界として所有する。
+ * @responsibility Coordinator Execution Observation PortのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000007
- * @shape OrchestratorExecutionObservationPortが表すProperty、識別子およびRelationを型として固定する。
- * @invariant OrchestratorExecutionObservationPortで宣言した値と責務の対応を維持する。
- * @boundary N/A: OrchestratorExecutionObservationPortの宣言は外部境界を開かない。
- * @security N/A: OrchestratorExecutionObservationPortはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility OrchestratorExecutionObservationPortの利用側は宣言済みPropertyと型制約だけへ依存する。
+ * @shape CoordinatorExecutionObservationPortが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CoordinatorExecutionObservationPortで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CoordinatorExecutionObservationPortの宣言は外部境界を開かない。
+ * @security N/A: CoordinatorExecutionObservationPortはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility CoordinatorExecutionObservationPortの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type OrchestratorExecutionObservationPort = Readonly<{
+export type CoordinatorExecutionObservationPort = Readonly<{
   recordTaskAttempt?: (
-    observation: OrchestratorTaskAttemptObservation,
-  ) => OrchestratorExecutionObservationPublication;
+    observation: CoordinatorTaskAttemptObservation,
+  ) => CoordinatorExecutionObservationPublication;
   observePublication?: (
-    publication: OrchestratorExecutionObservationPublication,
+    publication: CoordinatorExecutionObservationPublication,
   ) => void;
 }>;

@@ -3790,7 +3790,7 @@ function createRuntime(dependencies: RuntimeDependencies) {
  * @effect completeだけが既存Ownerの受理保存・終了整理を呼ぶ。
  * @failure 終端前、相関不一致、部分読取り、排他未解放、ACK不明を拒否する。
  * @invariant IDからOwnerを再生成せず、元capabilityと回復IDの一意な対を保持する。
- * @boundary 同ProcessのTaskとOrchestrator耐久受領。
+ * @boundary 同ProcessのTaskとCoordinator耐久受領。
  * @security 閉包を公開Requestや永続Stateへ格納しない。
  * @concurrency Control削除後も捕捉済み参照だけを使い、各利用時に現在条件を再確認する。
  */
@@ -3983,7 +3983,7 @@ export function cancelRuntimeOwnedCoordinatorTask(controlCapability: unknown) {
 }
 
 /** 開発用の限定受付は通常Taskの公開入口と分離する。 */
-const developmentOrchestratorCancellations = new WeakMap<
+const developmentObjectiveCancellations = new WeakMap<
   object,
   () => Promise<unknown>
 >();
@@ -4188,10 +4188,10 @@ function startRuntimeOwnedDevelopmentTask(
       timing.finish();
       clearTimeout(timer);
       boundary.signal.removeEventListener("abort", requestCancellation);
-      developmentOrchestratorCancellations.delete(started.controlCapability);
+      developmentObjectiveCancellations.delete(started.controlCapability);
     });
   if (candidateDisposition === "orchestrator_owned")
-    developmentOrchestratorCancellations.set(started.controlCapability, cancel);
+    developmentObjectiveCancellations.set(started.controlCapability, cancel);
   return Object.freeze({
     ...started,
     completion,
@@ -4235,22 +4235,22 @@ export function startRuntimeOwnedDevelopmentCoordinatorTask(
 }
 
 /**
- * Orchestrator owns candidate integration and cleanup after Task completion.
+ * Coordinator owns candidate integration and cleanup after Task completion.
  *
- * @responsibility Runtime 所有 Development Orchestrator Taskの開始条件、Effect発行、開始失敗時の終了境界を所有する。
+ * @responsibility Runtime 所有 Development Coordinator Taskの開始条件、Effect発行、開始失敗時の終了境界を所有する。
  * @trace ARCH-000004
  * @input Task要求、Repository Root、開発Session、回復相関IDと任意のProvider接続用Host Process開始確認。
- * @returns startRuntimeOwnedDevelopmentOrchestratorTaskの計算結果を返す。
- * @precondition 「rawRequest: unknown、repositoryRoot: unknown、sessionCapability: object、recoveryCorrelationId: unknown」がstartRuntimeOwnedDevelopmentOrchestratorTaskの入力契約を満たす。
- * @postcondition startRuntimeOwnedDevelopmentOrchestratorTaskの責務を完了した結果だけを返す。
- * @effect N/A: startRuntimeOwnedDevelopmentOrchestratorTaskは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: startRuntimeOwnedDevelopmentOrchestratorTaskは独自の失敗分岐を所有しない。
- * @invariant startRuntimeOwnedDevelopmentOrchestratorTaskは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: startRuntimeOwnedDevelopmentOrchestratorTaskはProcess内の同一Subsystemで完結する。
- * @security startRuntimeOwnedDevelopmentOrchestratorTaskはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: startRuntimeOwnedDevelopmentOrchestratorTaskは共有非同期状態を持たない同期処理である。
+ * @returns startRuntimeOwnedDevelopmentObjectiveTaskの計算結果を返す。
+ * @precondition 「rawRequest: unknown、repositoryRoot: unknown、sessionCapability: object、recoveryCorrelationId: unknown」がstartRuntimeOwnedDevelopmentObjectiveTaskの入力契約を満たす。
+ * @postcondition startRuntimeOwnedDevelopmentObjectiveTaskの責務を完了した結果だけを返す。
+ * @effect N/A: startRuntimeOwnedDevelopmentObjectiveTaskは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: startRuntimeOwnedDevelopmentObjectiveTaskは独自の失敗分岐を所有しない。
+ * @invariant startRuntimeOwnedDevelopmentObjectiveTaskは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: startRuntimeOwnedDevelopmentObjectiveTaskはProcess内の同一Subsystemで完結する。
+ * @security startRuntimeOwnedDevelopmentObjectiveTaskはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: startRuntimeOwnedDevelopmentObjectiveTaskは共有非同期状態を持たない同期処理である。
  */
-export function startRuntimeOwnedDevelopmentOrchestratorTask(
+export function startRuntimeOwnedDevelopmentObjectiveTask(
   rawRequest: unknown,
   repositoryRoot: unknown,
   sessionCapability: object,
@@ -4276,25 +4276,25 @@ export function startRuntimeOwnedDevelopmentOrchestratorTask(
 }
 
 /**
- * Runtime 所有 Development Orchestrator Taskを取り消す。
+ * Runtime 所有 Development Coordinator Taskを取り消す。
  *
- * @responsibility Runtime 所有 Development Orchestrator Taskの取消条件、終了状態、残存Effectの境界を所有する。
+ * @responsibility Runtime 所有 Development Coordinator Taskの取消条件、終了状態、残存Effectの境界を所有する。
  * @trace ARCH-000004
  * @input controlCapability: object
- * @returns cancelRuntimeOwnedDevelopmentOrchestratorTaskの計算結果を返す。
- * @precondition 「controlCapability: object」がcancelRuntimeOwnedDevelopmentOrchestratorTaskの入力契約を満たす。
- * @postcondition cancelRuntimeOwnedDevelopmentOrchestratorTaskの責務を完了した結果だけを返す。
- * @effect N/A: cancelRuntimeOwnedDevelopmentOrchestratorTaskは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: cancelRuntimeOwnedDevelopmentOrchestratorTaskは独自の失敗分岐を所有しない。
- * @invariant cancelRuntimeOwnedDevelopmentOrchestratorTaskは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: cancelRuntimeOwnedDevelopmentOrchestratorTaskはProcess内の同一Subsystemで完結する。
- * @security cancelRuntimeOwnedDevelopmentOrchestratorTaskはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency cancelRuntimeOwnedDevelopmentOrchestratorTaskは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ * @returns cancelRuntimeOwnedDevelopmentObjectiveTaskの計算結果を返す。
+ * @precondition 「controlCapability: object」がcancelRuntimeOwnedDevelopmentObjectiveTaskの入力契約を満たす。
+ * @postcondition cancelRuntimeOwnedDevelopmentObjectiveTaskの責務を完了した結果だけを返す。
+ * @effect N/A: cancelRuntimeOwnedDevelopmentObjectiveTaskは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: cancelRuntimeOwnedDevelopmentObjectiveTaskは独自の失敗分岐を所有しない。
+ * @invariant cancelRuntimeOwnedDevelopmentObjectiveTaskは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: cancelRuntimeOwnedDevelopmentObjectiveTaskはProcess内の同一Subsystemで完結する。
+ * @security cancelRuntimeOwnedDevelopmentObjectiveTaskはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency cancelRuntimeOwnedDevelopmentObjectiveTaskは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
  */
-export function cancelRuntimeOwnedDevelopmentOrchestratorTask(
+export function cancelRuntimeOwnedDevelopmentObjectiveTask(
   controlCapability: object,
 ) {
-  const cancel = developmentOrchestratorCancellations.get(controlCapability);
+  const cancel = developmentObjectiveCancellations.get(controlCapability);
   return cancel ? cancel() : Promise.resolve(false);
 }
 

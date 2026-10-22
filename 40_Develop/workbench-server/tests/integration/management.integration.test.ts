@@ -12,7 +12,7 @@
  * @trace CPR-IT-010
  * @trace CPR-IT-012
  * @level IT
- * @scope Workbench Server→AM→選択RootのDomain／Git／Orchestrator活動読取り。MCPは使用しない。
+ * @scope Workbench Server→AM→選択RootのDomain／Git／Coordinator活動読取り。MCPは使用しない。
  * @boundary 自己生成AM／登録Repositoryだけ。公開Launcherと実Browserは別評価。
  */
 import assert from "node:assert/strict";

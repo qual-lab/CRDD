@@ -39,7 +39,7 @@ test("採用記録はexactなCommit長と計画相関を要求し過去失敗を
   );
   let snapshot: unknown;
   const ready = new Function(
-    "readOrchestratorSnapshot",
+    "readCoordinatorSnapshot",
     "validWorkspaceCandidateRequest",
     `${code}; return workspacePlanReadyForAcceptance;`,
   )(

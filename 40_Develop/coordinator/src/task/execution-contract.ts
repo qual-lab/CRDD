@@ -4,40 +4,40 @@
  * @trace ARCH-000004
  */
 import type {
-  OrchestratorExecutionObservationPublication,
-  OrchestratorExecutionObservationPort,
+  CoordinatorExecutionObservationPublication,
+  CoordinatorExecutionObservationPort,
 } from "./observer.ts";
 import {
   type ProjectResultAcceptance,
   type ProjectTaskRecoveryKind,
-  isOrchestratorRecoveryIdentity,
+  isCoordinatorRecoveryIdentity,
   validIdentity,
 } from "../state/model.ts";
-import type { OrchestratorClockIdentityPort } from "../identity/clock-and-hash.ts";
+import type { CoordinatorClockIdentityPort } from "../identity/clock-and-hash.ts";
 import type {
-  OrchestratorSingleTaskAttemptInput,
-  OrchestratorSingleTaskResult,
+  CoordinatorSingleTaskAttemptInput,
+  CoordinatorSingleTaskResult,
 } from "./executor.ts";
-import type { OrchestratorProcessSafetyPort } from "../process/safety-contract.ts";
-import type { OrchestratorPersistencePorts } from "../state/persistence.ts";
+import type { CoordinatorProcessSafetyPort } from "../process/safety-contract.ts";
+import type { CoordinatorPersistencePorts } from "../state/persistence.ts";
 import { types as utilTypes } from "node:util";
 import { snapshotCoordinatorWorkspaceResult } from "../execution/attempt.ts";
 
-export const ORCHESTRATOR_EXECUTION_CONTRACT =
+export const COORDINATOR_EXECUTION_CONTRACT =
   "crdd-coordinator/orchestrator-execution/v1" as const;
 
 /**
- * orchestrator-executionで使用するOrchestrator Task Executionの値契約を定義する。
+ * executionで使用するCoordinator Task Executionの値契約を定義する。
  *
- * @responsibility Orchestrator Task ExecutionのProperty、Identity、状態制約を型境界として所有する。
+ * @responsibility Coordinator Task ExecutionのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
- * @shape OrchestratorTaskExecutionが表すProperty、識別子およびRelationを型として固定する。
- * @invariant OrchestratorTaskExecutionで宣言した値と責務の対応を維持する。
- * @boundary N/A: OrchestratorTaskExecutionの宣言は外部境界を開かない。
- * @security N/A: OrchestratorTaskExecutionはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility OrchestratorTaskExecutionの利用側は宣言済みPropertyと型制約だけへ依存する。
+ * @shape CoordinatorTaskExecutionが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CoordinatorTaskExecutionで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CoordinatorTaskExecutionの宣言は外部境界を開かない。
+ * @security N/A: CoordinatorTaskExecutionはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility CoordinatorTaskExecutionの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type OrchestratorTaskExecution = Readonly<{
+export type CoordinatorTaskExecution = Readonly<{
   taskId: string;
   authorityBindingId: string;
   taskRequest: unknown;
@@ -45,38 +45,38 @@ export type OrchestratorTaskExecution = Readonly<{
 }>;
 
 /**
- * orchestrator-executionで使用するOrchestrator Execution Publication Observationの値契約を定義する。
+ * executionで使用するCoordinator Execution Publication Observationの値契約を定義する。
  *
- * @responsibility Orchestrator Execution Publication ObservationのProperty、Identity、状態制約を型境界として所有する。
+ * @responsibility Coordinator Execution Publication ObservationのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
- * @shape OrchestratorExecutionPublicationObservationが表すProperty、識別子およびRelationを型として固定する。
- * @invariant OrchestratorExecutionPublicationObservationで宣言した値と責務の対応を維持する。
- * @boundary N/A: OrchestratorExecutionPublicationObservationの宣言は外部境界を開かない。
- * @security N/A: OrchestratorExecutionPublicationObservationはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility OrchestratorExecutionPublicationObservationの利用側は宣言済みPropertyと型制約だけへ依存する。
+ * @shape CoordinatorExecutionPublicationObservationが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CoordinatorExecutionPublicationObservationで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CoordinatorExecutionPublicationObservationの宣言は外部境界を開かない。
+ * @security N/A: CoordinatorExecutionPublicationObservationはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility CoordinatorExecutionPublicationObservationの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type OrchestratorExecutionPublicationObservation =
-  OrchestratorExecutionObservationPublication;
+export type CoordinatorExecutionPublicationObservation =
+  CoordinatorExecutionObservationPublication;
 
 /**
- * orchestrator-executionで使用するOrchestrator Execution Dependenciesの値契約を定義する。
+ * executionで使用するCoordinator Execution Dependenciesの値契約を定義する。
  *
- * @responsibility Orchestrator Execution DependenciesのProperty、Identity、状態制約を型境界として所有する。
+ * @responsibility Coordinator Execution DependenciesのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
- * @shape OrchestratorExecutionDependenciesが表すProperty、識別子およびRelationを型として固定する。
- * @invariant OrchestratorExecutionDependenciesで宣言した値と責務の対応を維持する。
- * @boundary N/A: OrchestratorExecutionDependenciesの宣言は外部境界を開かない。
- * @security N/A: OrchestratorExecutionDependenciesはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility OrchestratorExecutionDependenciesの利用側は宣言済みPropertyと型制約だけへ依存する。
+ * @shape CoordinatorExecutionDependenciesが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CoordinatorExecutionDependenciesで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CoordinatorExecutionDependenciesの宣言は外部境界を開かない。
+ * @security N/A: CoordinatorExecutionDependenciesはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility CoordinatorExecutionDependenciesの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type OrchestratorExecutionDependencies = Readonly<{
-  persistence: OrchestratorPersistencePorts;
-  clockIdentity: OrchestratorClockIdentityPort;
-  processSafety: OrchestratorProcessSafetyPort;
+export type CoordinatorExecutionDependencies = Readonly<{
+  persistence: CoordinatorPersistencePorts;
+  clockIdentity: CoordinatorClockIdentityPort;
+  processSafety: CoordinatorProcessSafetyPort;
   runSingleTaskAttempt: (
-    input: OrchestratorSingleTaskAttemptInput,
-  ) => Promise<OrchestratorSingleTaskResult>;
-  executionObservation?: OrchestratorExecutionObservationPort;
+    input: CoordinatorSingleTaskAttemptInput,
+  ) => Promise<CoordinatorSingleTaskResult>;
+  executionObservation?: CoordinatorExecutionObservationPort;
   resultDelivery?: Readonly<{
     repositoryBindingId: string;
     createAcceptanceReader: (
@@ -86,18 +86,18 @@ export type OrchestratorExecutionDependencies = Readonly<{
 }>;
 
 /**
- * orchestrator-executionで使用するOrchestrator Execution 結果の値契約を定義する。
+ * executionで使用するCoordinator Execution 結果の値契約を定義する。
  *
- * @responsibility Orchestrator Execution 結果のProperty、Identity、状態制約を型境界として所有する。
+ * @responsibility Coordinator Execution 結果のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
- * @shape OrchestratorExecutionResultが表すProperty、識別子およびRelationを型として固定する。
- * @invariant OrchestratorExecutionResultで宣言した値と責務の対応を維持する。
- * @boundary N/A: OrchestratorExecutionResultの宣言は外部境界を開かない。
- * @security N/A: OrchestratorExecutionResultはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility OrchestratorExecutionResultの利用側は宣言済みPropertyと型制約だけへ依存する。
+ * @shape CoordinatorExecutionResultが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CoordinatorExecutionResultで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CoordinatorExecutionResultの宣言は外部境界を開かない。
+ * @security N/A: CoordinatorExecutionResultはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility CoordinatorExecutionResultの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type OrchestratorExecutionResult = Readonly<{
-  contract: typeof ORCHESTRATOR_EXECUTION_CONTRACT;
+export type CoordinatorExecutionResult = Readonly<{
+  contract: typeof COORDINATOR_EXECUTION_CONTRACT;
   status: "completed" | "blocked" | "cancelled";
   reason: string;
   projectId: string;
@@ -117,12 +117,12 @@ export type OrchestratorExecutionResult = Readonly<{
     taskId: string;
     attemptId: string;
     operationId: string;
-    result: NonNullable<OrchestratorSingleTaskResult["workspaceResult"]>;
+    result: NonNullable<CoordinatorSingleTaskResult["workspaceResult"]>;
   }>[];
 }>;
 
 /**
- * orchestrator-executionで使用するExecution 入力の値契約を定義する。
+ * executionで使用するExecution 入力の値契約を定義する。
  *
  * @responsibility Execution 入力のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
@@ -136,7 +136,7 @@ export type ExecutionInput = Readonly<{
   projectId: string;
   milestoneId: string;
   queueId: string;
-  taskExecutions: readonly OrchestratorTaskExecution[];
+  taskExecutions: readonly CoordinatorTaskExecution[];
   cancellationSignal: AbortSignal;
 }>;
 
@@ -146,7 +146,7 @@ export type ExecutionInput = Readonly<{
  * @responsibility Single Task 結果の有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown、runtimeIssuedRecoveryIds: ReadonlyMap< string, Readonly<{ attemptId: string; operationId: string }> >
- * @returns value is OrchestratorSingleTaskResultを返す。
+ * @returns value is CoordinatorSingleTaskResultを返す。
  * @precondition 「value: unknown、runtimeIssuedRecoveryIds: ReadonlyMap< string, Readonly<{ attemptId: string; operationId: string }> >」がvalidSingleTaskResultの入力契約を満たす。
  * @postcondition validSingleTaskResultの責務を完了した結果だけを返す。
  * @effect N/A: validSingleTaskResultは入力と局所値だけを扱い、外部または共有Effectを発行しない。
@@ -162,7 +162,7 @@ export function validSingleTaskResult(
     string,
     Readonly<{ attemptId: string; operationId: string }>
   >,
-): value is OrchestratorSingleTaskResult {
+): value is CoordinatorSingleTaskResult {
   try {
     if (
       !value ||
@@ -265,7 +265,7 @@ export function validSingleTaskResult(
       if (
         !descriptor ||
         !("value" in descriptor) ||
-        !isOrchestratorRecoveryIdentity(descriptor.value)
+        !isCoordinatorRecoveryIdentity(descriptor.value)
       )
         return false;
     }
@@ -311,7 +311,7 @@ export function validSingleTaskResult(
             "candidate_store",
             "runtime_process",
           ].includes(String(kind)) ||
-          !isOrchestratorRecoveryIdentity(recoveryId) ||
+          !isCoordinatorRecoveryIdentity(recoveryId) ||
           (kind === "runtime_process" &&
             (runtimeIssuedRecoveryIds.get(String(recoveryId))?.attemptId !==
               record.attemptId ||

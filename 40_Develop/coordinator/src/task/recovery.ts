@@ -1,23 +1,23 @@
 /**
  * task-recovery-portに属する責務をまとめる。
  *
- * @responsibility OrchestratorDockerRecoveryIdentityを中心とする実装、型および境界を同じModuleで所有する。
+ * @responsibility CoordinatorDockerRecoveryIdentityを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000004
  */
 import type { ProjectDockerRecoveryAcknowledgement } from "../state/model.ts";
 
 /**
- * task-recovery-portで使用するOrchestrator Docker 回復 Identityの値契約を定義する。
+ * task-recovery-portで使用するCoordinator Docker 回復 Identityの値契約を定義する。
  *
- * @responsibility Orchestrator Docker 回復 IdentityのProperty、Identity、状態制約を型境界として所有する。
+ * @responsibility Coordinator Docker 回復 IdentityのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
- * @shape OrchestratorDockerRecoveryIdentityが表すProperty、識別子およびRelationを型として固定する。
- * @invariant OrchestratorDockerRecoveryIdentityで宣言した値と責務の対応を維持する。
- * @boundary N/A: OrchestratorDockerRecoveryIdentityの宣言は外部境界を開かない。
- * @security N/A: OrchestratorDockerRecoveryIdentityはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility OrchestratorDockerRecoveryIdentityの利用側は宣言済みPropertyと型制約だけへ依存する。
+ * @shape CoordinatorDockerRecoveryIdentityが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CoordinatorDockerRecoveryIdentityで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CoordinatorDockerRecoveryIdentityの宣言は外部境界を開かない。
+ * @security N/A: CoordinatorDockerRecoveryIdentityはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility CoordinatorDockerRecoveryIdentityの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type OrchestratorDockerRecoveryIdentity = Readonly<{
+export type CoordinatorDockerRecoveryIdentity = Readonly<{
   projectId: string;
   milestoneId: string;
   stateGeneration: number;
@@ -29,17 +29,17 @@ export type OrchestratorDockerRecoveryIdentity = Readonly<{
 }>;
 
 /**
- * task-recovery-portで使用するOrchestrator 回復 Transitionの値契約を定義する。
+ * task-recovery-portで使用するCoordinator 回復 Transitionの値契約を定義する。
  *
- * @responsibility Orchestrator 回復 TransitionのProperty、Identity、状態制約を型境界として所有する。
+ * @responsibility Coordinator 回復 TransitionのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
- * @shape OrchestratorRecoveryTransitionが表すProperty、識別子およびRelationを型として固定する。
- * @invariant OrchestratorRecoveryTransitionで宣言した値と責務の対応を維持する。
- * @boundary N/A: OrchestratorRecoveryTransitionの宣言は外部境界を開かない。
- * @security N/A: OrchestratorRecoveryTransitionはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility OrchestratorRecoveryTransitionの利用側は宣言済みPropertyと型制約だけへ依存する。
+ * @shape CoordinatorRecoveryTransitionが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CoordinatorRecoveryTransitionで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CoordinatorRecoveryTransitionの宣言は外部境界を開かない。
+ * @security N/A: CoordinatorRecoveryTransitionはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility CoordinatorRecoveryTransitionの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type OrchestratorRecoveryTransition = Readonly<{
+export type CoordinatorRecoveryTransition = Readonly<{
   phase:
     | "required"
     | "recovering"
@@ -60,23 +60,23 @@ export type OrchestratorRecoveryTransition = Readonly<{
 /**
  * Host capabilities required to resolve and settle Task recovery obligations.
  *
- * @responsibility Orchestrator Task 回復 PortのProperty、Identity、状態制約を型境界として所有する。
+ * @responsibility Coordinator Task 回復 PortのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
- * @shape OrchestratorTaskRecoveryPortが表すProperty、識別子およびRelationを型として固定する。
- * @invariant OrchestratorTaskRecoveryPortで宣言した値と責務の対応を維持する。
- * @boundary N/A: OrchestratorTaskRecoveryPortの宣言は外部境界を開かない。
- * @security N/A: OrchestratorTaskRecoveryPortはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility OrchestratorTaskRecoveryPortの利用側は宣言済みPropertyと型制約だけへ依存する。
+ * @shape CoordinatorTaskRecoveryPortが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CoordinatorTaskRecoveryPortで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CoordinatorTaskRecoveryPortの宣言は外部境界を開かない。
+ * @security N/A: CoordinatorTaskRecoveryPortはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility CoordinatorTaskRecoveryPortの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type OrchestratorTaskRecoveryPort = Readonly<{
+export type CoordinatorTaskRecoveryPort = Readonly<{
   resolveCorrelations: (correlationIds: readonly string[]) => unknown;
   recover: (recoveryId: string, signal: AbortSignal) => unknown;
-  acknowledgeDocker: (identity: OrchestratorDockerRecoveryIdentity) => unknown;
+  acknowledgeDocker: (identity: CoordinatorDockerRecoveryIdentity) => unknown;
   finalizeDockerAcknowledgement: (
-    identity: OrchestratorDockerRecoveryIdentity,
+    identity: CoordinatorDockerRecoveryIdentity,
     acknowledgement: ProjectDockerRecoveryAcknowledgement,
   ) => unknown;
   observeTransition: (
-    event: OrchestratorRecoveryTransition,
+    event: CoordinatorRecoveryTransition,
   ) => void | Promise<void>;
 }>;

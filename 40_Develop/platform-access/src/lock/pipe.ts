@@ -63,7 +63,7 @@ function waitForState(state: Int32Array, expected: number, timeoutMs: number) {
 export function acquireNamedPipeKernelLock(pipeName: string) {
   if (
     process.platform !== "win32" ||
-    !/^\\\\\.\\pipe\\CRDD\.Coordinator\.(?:OrchestratorState|CurrentState|ProviderHome|DockerRuntimeState|HostOperation|InteractiveConsole)\.[0-9a-f]{32}$/u.test(
+    !/^\\\\\.\\pipe\\CRDD\.Coordinator\.(?:CoordinatorState|CurrentState|ProviderHome|DockerRuntimeState|HostOperation|InteractiveConsole)\.[0-9a-f]{32}$/u.test(
       pipeName,
     )
   )
@@ -152,7 +152,7 @@ export function acquireNamedPipeKernelLockOutcome(
 ): Promise<InteractiveConsoleKernelLockOutcome> {
   if (
     process.platform !== "win32" ||
-    !/^\\\\\.\\pipe\\CRDD\.Coordinator\.(?:OrchestratorState|CurrentState|ProviderHome|DockerRuntimeState|HostOperation|InteractiveConsole)\.[0-9a-f]{32}$/u.test(
+    !/^\\\\\.\\pipe\\CRDD\.Coordinator\.(?:CoordinatorState|CurrentState|ProviderHome|DockerRuntimeState|HostOperation|InteractiveConsole)\.[0-9a-f]{32}$/u.test(
       pipeName,
     )
   )

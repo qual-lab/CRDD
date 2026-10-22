@@ -201,13 +201,13 @@ function readToolRuntimeConfig(
 }
 
 /**
- * Orchestrator専用の設定を取得する。
- * @responsibility 他ツールの不正設定でOrchestratorを停止させない。
+ * Task／Objectiveの業務履歴保持設定を取得する。
+ * @responsibility 他ツールの不正設定で業務履歴を停止させない。
  * @trace ARCH-000011
  * @input 検証済みRoot Capability。
  * @returns 自ツールの設定Snapshotまたはblocked。
- * @precondition Orchestrator所有者が必要な排他を保持する。
- * @postcondition orchestrator.jsonだけを読取り済み。
+ * @precondition 業務履歴の所有者が必要な排他を保持する。
+ * @postcondition 保存構成の移行前であり、既存のorchestrator.jsonだけを読取り済み。
  * @effect 読取りのみ。設定を作成・修正しない。
  * @failure 不正設定・観測不能はblocked。
  * @invariant 他ツールの設定を読まない。
@@ -215,7 +215,7 @@ function readToolRuntimeConfig(
  * @security 秘密値とAuthorityを扱わない。
  * @concurrency Snapshotを一処理内で固定する。
  */
-export function readOrchestratorConfig(
+export function readTaskHistoryConfig(
   capability: VerifiedRepositoryRoot,
 ): ToolRuntimeConfigResult {
   return readToolRuntimeConfig(capability, "orchestrator");

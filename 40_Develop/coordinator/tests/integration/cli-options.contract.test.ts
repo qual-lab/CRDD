@@ -7,7 +7,7 @@
  * @trace ERB-IT-003
  * @level IT
  * @scope cli、options
- * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Orchestrator Application Port→Core
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Coordinator Application Port→Core
  * @boundary ERB-IT-003=Direct Boundary: CLIの実private読取り本文→Reader故障注入。実Kernel・実CLI搬送は現在状態ITで別確認する。
  */
 import assert from "node:assert/strict";

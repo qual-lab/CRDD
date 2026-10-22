@@ -10,9 +10,9 @@ import {
   snapshotPlainRecord,
   snapshotPlainArray,
 } from "../input/plain-data-snapshot.ts";
-import { readOrchestratorSnapshot } from "../storage/current-state.ts";
-import { deriveOrchestratorRepositoryBindingId } from "./binding.ts";
-import { queryOrchestratorState } from "./query.ts";
+import { readCoordinatorSnapshot } from "../storage/current-state.ts";
+import { deriveCoordinatorRepositoryBindingId } from "./binding.ts";
+import { queryCoordinatorState } from "./query.ts";
 import {
   readExecutionIntelligence,
   verifyExecutionIntelligenceRepositoryRoot,
@@ -224,9 +224,9 @@ export async function readAuthorizedRuntimeActivity(
     }
     if (revision === null) stateUnknown = true;
     else {
-      const snapshot = readOrchestratorSnapshot(
+      const snapshot = readCoordinatorSnapshot(
         root,
-        deriveOrchestratorRepositoryBindingId(root),
+        deriveCoordinatorRepositoryBindingId(root),
       );
       if (snapshot.status !== "completed") stateUnknown = true;
       else if (snapshot.value !== null) {
@@ -244,7 +244,7 @@ export async function readAuthorizedRuntimeActivity(
               recoveryRequired: queue.state === "recovery_required",
             });
         }
-        const result = queryOrchestratorState(
+        const result = queryCoordinatorState(
           {
             readState: (projectId) =>
               Object.freeze({

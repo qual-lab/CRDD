@@ -2,7 +2,7 @@
  * 所属Repositoryと借用する実行Treeを照合する。
  * @responsibility 短命な操作結合と固定保護Mountの材料だけを保持する。
  * @trace ARCH-000004 ARCH-000008
- * @boundary 永続WorkspaceのOwnerはOrchestrator。削除・Git更新は行わない。
+ * @boundary 永続WorkspaceのOwnerはCoordinator。削除・Git更新は行わない。
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -21,7 +21,7 @@ import { verifyOwnedOperationManagementMountBinding } from "./operation.ts";
  * @trace ARCH-000004
  * @shape workspaceIdは上位の非Authority相関値。実行先は実PathとGit同一性で検査する。
  * @invariant PathやIDだけでは実行許可にならない。
- * @boundary Orchestratorから単発実行への内部入力。
+ * @boundary Coordinatorから単発実行への内部入力。
  * @security 外部SurfaceへHost Pathを返さない。
  * @compatibility 旧複製入口とは明示的に区別する。
  */

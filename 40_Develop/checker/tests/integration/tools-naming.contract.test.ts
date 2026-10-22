@@ -551,7 +551,7 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
       "./tools/access-management.ts",
       "./tools/ai-profile.ts",
       "./tools/execution-status.ts",
-      "./tools/orchestrator.ts",
+      "./tools/task.ts",
       "./tools/workspace.ts",
       "./tools/project-context.ts",
       "./request/server.ts",

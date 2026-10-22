@@ -12,15 +12,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createOrchestratorState } from "../../../src/state/model.ts";
+import { createCoordinatorState } from "../../../src/state/model.ts";
 import {
-  createOrchestratorObjectiveResult,
-  createOrchestratorTaskExecutionSet,
-  inspectOrchestratorObjectivePlan,
-  inspectOrchestratorWorkspaceResults,
-  ORCHESTRATOR_OBJECTIVE_INTAKE_CONTRACT,
+  createCoordinatorObjectiveResult,
+  createCoordinatorTaskExecutionSet,
+  inspectCoordinatorObjectivePlan,
+  inspectCoordinatorWorkspaceResults,
+  COORDINATOR_OBJECTIVE_INTAKE_CONTRACT,
 } from "../../../src/objective/plan.ts";
-import { inspectOrchestratorObjectiveRequest } from "../../../src/objective/request.ts";
+import { inspectCoordinatorObjectiveRequest } from "../../../src/objective/request.ts";
 
 const objectiveRequest = Object.freeze({
   requestId: "request-a",
@@ -38,7 +38,7 @@ const objectiveRequest = Object.freeze({
   intakeEpoch: "fixture-epoch",
 });
 
-const ORCHESTRATOR_OBJECTIVE_PLAN = Object.freeze({
+const COORDINATOR_OBJECTIVE_PLAN = Object.freeze({
   milestoneAcceptanceCriteria: Object.freeze(["全Taskを統合できる"]),
   objectives: Object.freeze([
     Object.freeze({
@@ -70,32 +70,32 @@ const ORCHESTRATOR_OBJECTIVE_PLAN = Object.freeze({
  * @boundary PPR-UT-006=Direct Boundary: orchestrator Test Source→対象契約
  */
 test("Objective Planは許可Path内の閉じた値だけを受理する", () => {
-  const request = inspectOrchestratorObjectiveRequest(objectiveRequest);
+  const request = inspectCoordinatorObjectiveRequest(objectiveRequest);
   assert.ok(request);
   const workspaceId = "11111111-1111-1111-1111-111111111111";
   assert.equal(
-    inspectOrchestratorObjectiveRequest({ ...objectiveRequest, workspaceId })
+    inspectCoordinatorObjectiveRequest({ ...objectiveRequest, workspaceId })
       ?.workspaceId,
     workspaceId,
   );
   assert.equal(
-    inspectOrchestratorObjectiveRequest({
+    inspectCoordinatorObjectiveRequest({
       ...objectiveRequest,
       workspaceId: "../other",
     }),
     null,
   );
   assert.deepEqual(
-    inspectOrchestratorObjectivePlan(ORCHESTRATOR_OBJECTIVE_PLAN, request),
-    ORCHESTRATOR_OBJECTIVE_PLAN,
+    inspectCoordinatorObjectivePlan(COORDINATOR_OBJECTIVE_PLAN, request),
+    COORDINATOR_OBJECTIVE_PLAN,
   );
   assert.equal(
-    inspectOrchestratorObjectivePlan(
+    inspectCoordinatorObjectivePlan(
       {
-        ...ORCHESTRATOR_OBJECTIVE_PLAN,
+        ...COORDINATOR_OBJECTIVE_PLAN,
         tasks: [
           {
-            ...ORCHESTRATOR_OBJECTIVE_PLAN.tasks[0],
+            ...COORDINATOR_OBJECTIVE_PLAN.tasks[0],
             allowedPaths: ["90_Release"],
           },
         ],
@@ -107,30 +107,30 @@ test("Objective Planは許可Path内の閉じた値だけを受理する", () =>
 });
 
 /**
- * Task実行集合はOrchestratorがTask範囲へAuthority bindingを縮小するを検証する。
+ * Task実行集合はCoordinatorがTask範囲へAuthority bindingを縮小するを検証する。
  *
- * @responsibility Task実行集合はOrchestratorがTask範囲へAuthority bindingを縮小するの合否判定を所有する。
+ * @responsibility Task実行集合はCoordinatorがTask範囲へAuthority bindingを縮小するの合否判定を所有する。
  * @trace PRL-UT-006
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Task実行集合はOrchestratorがTask範囲へAuthority bindingを縮小するの対象操作を実行する。
+ * @stimulus Task実行集合はCoordinatorがTask範囲へAuthority bindingを縮小するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-UT-006=Direct Boundary: orchestrator Test Source→対象契約
  */
 test("Task実行集合はOrchestratorがTask範囲へAuthority bindingを縮小する", () => {
-  const created = createOrchestratorState({
+  const created = createCoordinatorState({
     projectId: "project-a",
     milestoneId: "milestone-a",
     repositoryRevision: "a".repeat(40),
     maximumConcurrency: 1,
     milestoneAcceptanceCriteria: ["全Taskを統合できる"],
-    objectives: ORCHESTRATOR_OBJECTIVE_PLAN.objectives,
-    tasks: ORCHESTRATOR_OBJECTIVE_PLAN.tasks,
+    objectives: COORDINATOR_OBJECTIVE_PLAN.objectives,
+    tasks: COORDINATOR_OBJECTIVE_PLAN.tasks,
     ownerGeneration: "owner-a",
   });
   assert.ok(created.state);
-  const taskExecutions = createOrchestratorTaskExecutionSet(
+  const taskExecutions = createCoordinatorTaskExecutionSet(
     [{ taskId: "task-a", taskRequest: {}, repositoryRoot: {} }],
     created.state,
     {
@@ -146,7 +146,7 @@ test("Task実行集合はOrchestratorがTask範囲へAuthority bindingを縮小�
     `authority-project-a-milestone-a-${"a".repeat(40)}-objective-a-task-a-0`,
   );
   assert.equal(
-    createOrchestratorTaskExecutionSet(
+    createCoordinatorTaskExecutionSet(
       [
         {
           taskId: "task-a",
@@ -179,10 +179,10 @@ test("Task実行集合はOrchestratorがTask範囲へAuthority bindingを縮小�
  * @boundary PRL-UT-006=Direct Boundary: orchestrator Test Source→対象契約
  */
 test("Objective結果は入力Identityと終了条件を同じ公開契約へ固定する", () => {
-  const request = inspectOrchestratorObjectiveRequest(objectiveRequest);
+  const request = inspectCoordinatorObjectiveRequest(objectiveRequest);
   assert.ok(request);
   assert.deepEqual(
-    createOrchestratorObjectiveResult(request, {
+    createCoordinatorObjectiveResult(request, {
       status: "blocked",
       reason: "orchestrator_waiting",
       recoveryIds: ["recovery-a"],
@@ -190,7 +190,7 @@ test("Objective結果は入力Identityと終了条件を同じ公開契約へ固
       effectState: "unknown",
     }),
     {
-      contract: ORCHESTRATOR_OBJECTIVE_INTAKE_CONTRACT,
+      contract: COORDINATOR_OBJECTIVE_INTAKE_CONTRACT,
       status: "blocked",
       reason: "orchestrator_waiting",
       requestId: "request-a",
@@ -234,7 +234,7 @@ test("ObjectiveはWorkspace観測をsnapshotし一次失敗を上書きしない
     },
   };
   const request = { ...objectiveRequest, workspaceId: id };
-  const result = createOrchestratorObjectiveResult(request, {
+  const result = createCoordinatorObjectiveResult(request, {
     status: "blocked",
     reason: "primary_failure",
     cleanupConfirmed: false,
@@ -253,7 +253,7 @@ test("ObjectiveはWorkspace観測をsnapshotし一次失敗を上書きしない
     Object.isFrozen(result.workspaceResults?.[0]?.result.changedPaths),
     true,
   );
-  assert.equal(inspectOrchestratorWorkspaceResults([entry], null), null);
+  assert.equal(inspectCoordinatorWorkspaceResults([entry], null), null);
   const direct = {
     ...entry,
     result: {
@@ -262,10 +262,10 @@ test("ObjectiveはWorkspace観測をsnapshotし一次失敗を上書きしない
       canonicalRepositoryChanged: true,
     },
   };
-  assert.ok(inspectOrchestratorWorkspaceResults([direct], null));
-  assert.equal(inspectOrchestratorWorkspaceResults([direct], id), null);
+  assert.ok(inspectCoordinatorWorkspaceResults([direct], null));
+  assert.equal(inspectCoordinatorWorkspaceResults([direct], id), null);
   assert.equal(
-    inspectOrchestratorWorkspaceResults([
+    inspectCoordinatorWorkspaceResults([
       entry,
       { ...direct, attemptId: "attempt-b", operationId: "operation-b" },
     ]),
@@ -285,7 +285,7 @@ test("ObjectiveはWorkspace観測をsnapshotし一次失敗を上書きしない
       }),
     ],
   ])
-    assert.equal(inspectOrchestratorWorkspaceResults(invalid), null);
+    assert.equal(inspectCoordinatorWorkspaceResults(invalid), null);
   let getters = 0;
   const accessor = Object.defineProperty({ ...entry }, "result", {
     enumerable: true,
@@ -294,9 +294,9 @@ test("ObjectiveはWorkspace観測をsnapshotし一次失敗を上書きしない
       return entry.result;
     },
   });
-  assert.equal(inspectOrchestratorWorkspaceResults([accessor]), null);
+  assert.equal(inspectCoordinatorWorkspaceResults([accessor]), null);
   assert.equal(getters, 0);
-  const unknown = createOrchestratorObjectiveResult(objectiveRequest, {
+  const unknown = createCoordinatorObjectiveResult(objectiveRequest, {
     status: "blocked",
     reason: "original_cleanup_failure",
     cleanupConfirmed: false,

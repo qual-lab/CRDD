@@ -503,7 +503,7 @@ test("直接変更した試験だけはその試験に限定する", () => {
 
 /**
  * CLI移管後も登録された下位試験の利用側閉包を維持する。
- * @responsibility Orchestrator入力・受付の変更でCoordinator側の接続試験を落とさない。
+ * @responsibility Coordinator入力・受付の変更でCoordinator側の接続試験を落とさない。
  * @trace CQS-UT-010
  * @precondition 現行Catalogを使用する。
  * @stimulus 移管先の入力・受付Sourceを変更対象として選択する。
@@ -552,7 +552,7 @@ test("実行知の実装変更は共通試験と登録済み利用側契約を�
   for (const [changedPath, consumerPath] of [
     [
       "40_Develop/execution-intelligence/src/record/event.ts",
-      "40_Develop/coordinator/tests/integration/orchestrator-execution.contract.test.ts",
+      "40_Develop/coordinator/tests/integration/task-execution.contract.test.ts",
     ],
     [
       "40_Develop/execution-intelligence/src/storage/store.ts",
@@ -560,7 +560,7 @@ test("実行知の実装変更は共通試験と登録済み利用側契約を�
     ],
     [
       "40_Develop/execution-intelligence/src/index.ts",
-      "40_Develop/coordinator/tests/integration/orchestrator-execution.contract.test.ts",
+      "40_Develop/coordinator/tests/integration/task-execution.contract.test.ts",
     ],
   ] as const) {
     const selectedPaths = selectRegressionTests(catalog, [changedPath]).map(

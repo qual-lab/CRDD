@@ -1,6 +1,6 @@
 # Runtime／Data Flowモデル
 
-新方式の流れは[Workspace契約§3〜5](Details/orchestrator/03_Workspace.md#3-packageの責務と依存方向)を正本とする。明示対象→現在認可→OrchestratorのTask→Coordinator→AI Adapter／DI→結果・必要なGit成果→人間判断であり、CRUDはDomainへ直接接続できる。コード成果の固定と提案一般の保存を分ける。旧Bundle Storeを通る以下の経路は基準実装の移行元で、新方式の接続済み根拠にしない。
+新方式の流れは[Workspace契約§3〜5](Details/orchestrator/03_Workspace.md#3-packageの責務と依存方向)を正本とする。明示対象→現在認可→Coordinator内のTask／Objective→Execution→AI Adapter／DI→結果・必要なGit成果→人間判断であり、CRUDはDomainへ直接接続できる。コード成果の固定と提案一般の保存を分ける。旧Bundle Storeや二Packageを通る以下の経路は統合前の比較対象で、新方式の接続済み根拠にしない。
 
 Status: Candidate (v0.22 responsibility reorganization)
 Owner: Qual-Lab
@@ -60,7 +60,7 @@ Projectの入力から状態、実行、観測、投影および候補採用ま�
         │
         │ {internal} Canonical Request
         ▼
-(P2: Orchestratorの上位状態・実行判断)
+(P2: Coordinator内Task／Objectiveの上位状態・実行判断)
         │                         │
         │ {internal}             │ {internal}
         │ Execution Request      │ Project／Task State
@@ -71,14 +71,14 @@ Projectの入力から状態、実行、観測、投影および候補採用ま�
         └───────────────────────────────> (P2)
 ```
 
-`P2`の実装OwnerはOrchestrator、`P3`はCoordinator公開APIである。`P2`がProject／Task状態を所有し、実行委譲の結果または不明状態を同じTask Identityへ戻す。Coordinatorは実行観測をExecution Intelligenceの共通Writerへ渡し、Orchestratorは上位Attemptの観測を用途を分けて渡す。`P3`の結果を受けただけで上位受入判断やcleanup成立を生成しない。
+現在の`P2`と`P3`の実装Ownerは単一Coordinatorで、`P2`はTask／Objective、`P3`はExecutionに対応する。`P2`がProject／Task状態を所有し、実行結果または不明状態を同じTask Identityへ戻す。Executionの技術観測とTask側のAttempt観測は、用途を分けてExecution Intelligenceの共通Writerへ渡す。`P3`の結果を受けただけで上位受入判断やcleanup成立を生成しない。
 
 | データ・状態 | 業務Owner | 保存・利用の境界 |
 |---|---|---|
-| Project／Task、判断点、受付世代、上位Attempt | Orchestrator | 現在状態と終了履歴を分離し、解決済み項目を現在状態へ蓄積しない。 |
+| Project／Task、判断点、受付世代、上位Attempt | Coordinator内Task／Objective | 現在状態と終了履歴を分離し、解決済み項目を現在状態へ蓄積しない。 |
 | 単一実行、Docker資源、未解決回復、未搬送結果 | Coordinator | 現在状態の閉集合を単一Writerで保存する。記録の存在だけで実資源の存在・不存在を推定しない。 |
-| 候補本体 | Coordinator | 隔離・read／discardを扱う。採用・Repository反映はOrchestratorの別操作である。 |
-| 実行観測と履歴 | Execution Intelligence | Coordinator／Orchestratorの観測を区別する。Readerから事実を生成しない。 |
+| 候補本体 | Coordinator内Workspace | 作業領域とCandidateの寿命・明示採否を扱う。Git操作はVersion Controlへ委譲し、Execution完了だけで採用・統合しない。 |
+| 実行観測と履歴 | Execution Intelligence | Coordinator内Execution／Taskの観測を区別する。Readerから事実を生成しない。 |
 | 共通Root観測・保存・設定 | Domain Model | 各業務Ownerの意味とAuthorityを持たず、CRUDからGit確定を発行しない。 |
 
 以下のRuntime Dataはデータ分類の総称であり、独立Packageや単一の業務状態Ownerではない。上位再入場と下位資源終了を分け、回復完了からProviderの再実行を自動発行しない。現在状態、通常履歴、候補本体、正式Evidence、短命な保存途中ファイルは、同じ永続記録へまとめない。

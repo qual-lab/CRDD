@@ -1,6 +1,6 @@
 # Component／責務モデル
 
-Workspace再編の状態Owner・所有禁止・依存方向は[横断契約§3](Details/orchestrator/03_Workspace.md#3-packageの責務と依存方向)を現在の目標とする。Workspace利用・Task・採用判断はOrchestrator、Git操作はVersion Control、単発AI実行はCoordinator、隔離資源はDocker Isolation。以下の旧構成のCandidate Store・Workbench専用AI処理は移行元であり、存続要件ではない。新方式は未実装。
+Workspace再編の状態Owner・所有禁止・依存方向は[横断契約§3](Details/orchestrator/03_Workspace.md#3-packageの責務と依存方向)へ接続する。物理統合後は単一CoordinatorがWorkspace・Task・採用判断と単発Executionを別責務として所有する。Git操作はVersion Control、隔離資源の技術操作はDocker Isolationが所有する。以下の旧構成のCandidate Store・Workbench専用AI処理・二Package図は移行元の比較対象であり、現行構成や新版の検証根拠ではない。
 
 Status: Candidate (v0.22 responsibility reorganization)
 Owner: Qual-Lab
@@ -56,7 +56,7 @@ Last Updated: 2026-10-11
 | 公開入口 | [公開Transportの意味同一性](Definitions/ARCH-000012/architecture_definition.md) | MCP／CLI Transport Adapter | decode／encode、接続、Application Contractへの搬送 | 業務意味、Provider実行、Authority追加 |
 | 利用範囲・接続管理 | [接続主体・Role権限・資格とRepository Federation](Definitions/ARCH-000013/architecture_definition.md) | Access Management: ユーザー／Role詳細権限／資格／認可／鍵交換状態。Domain Model: 認可済みContext集約 | 9 Role分担行の管理認可、Role内容とExposureによる内容認可、最小ユーザー・接続登録管理、資格・独立失効・鍵交換2操作、Exposureと取得可能性の別判定、許可集合を入力にしたFederation | 一般IAM、個別追加権限、認可設定破損修復、Repository内部ACL、Transport Lifecycle、Task取消 |
 | 利用能力 | [Tool CapabilityとAIモデル構成](Definitions/ARCH-000010/architecture_definition.md) | Capability Registry、Model Configuration Resolver | Tool候補、構成検証、選択理由 | Tool実行、利用可能性の捏造 |
-| Project Application | [Project実行](Definitions/ARCH-000004/architecture_definition.md) | Orchestrator | Objective／Task、判断待ち、取消、Recovery、結果 | Provider選定、Transport、OS操作、人間判断 |
+| Project Application | [Project実行](Definitions/ARCH-000004/architecture_definition.md) | Coordinator内Task／Objective | Objective／Task、判断待ち、取消、Recovery、結果 | Provider選定、Transport、OS操作、人間判断 |
 | Project状態投影／受入判断記録 | [Project・Portfolio状態投影と受入判断記録](Definitions/ARCH-000005/architecture_definition.md) | Project Management Projection<br>Objective／Milestone Acceptance Decision Record | 投影: 正本を変えない現在状態・比較View<br>判断記録: Project運営者が明示したObjective／Milestoneの受入・差戻し・判断待ちの限定記録 | 投影: 受入判断の記録、その他の正本更新、優先順位の自動決定<br>判断記録: Task作成、Provider Effect、下位完了からの上位受入推定、読取りProjectionからのAuthority生成 |
 | 実行観測 | [実行事実と評価候補の取得](Definitions/ARCH-000007/architecture_definition.md)<br>[実行境界の診断](Definitions/ARCH-000008/architecture_definition.md)<br>[実行事実の記録](Definitions/ARCH-000018/architecture_definition.md) | 実行記録Writer／Store、読取りProjection、Platform Access診断Port | Canonical記録、不変公開、欠測を保つ事実取得、境界別診断 | Task更新、Provider実行、修復、評価採用 |
 | 運用Context | [Topic・Meeting Lifecycleと正本への引渡し](Definitions/ARCH-000006/architecture_definition.md) | Project Operation Context | Topic／Meeting CRUD、Outcome処置、Action移管、Relation整合、安全な削除 | Meeting本文の意味決定、自動採用、正当な履歴の物理削除 |
@@ -75,10 +75,11 @@ Last Updated: 2026-10-11
       │               │
       │ 編成要求      └── 認可済みCROS能力・Domain API
       ▼
-  Orchestrator
-      │ Coordinator公開APIを直接呼出し
+  Coordinator（単一Package）
+    Task／Objective
+      │ 同Package内の実行呼出し
       ▼
-  Coordinator ◀── 単体実行の入口
+    Execution ◀── 単発実行の入口
       │ Provider固有契約
       ▼
   AI Adapter
@@ -89,7 +90,7 @@ Last Updated: 2026-10-11
   Platform Access       OS固有のProcess／Filesystem保証
   Execution Intelligence 実行観測の記録・読取り
 
-禁止: Coordinator → Orchestratorのimport
+禁止: Coordinator内Execution → Task／Objectiveの値依存・業務状態の所有
 禁止: Domain CRUD → Git Commit／Pushの自動発行
 禁止: 評価・読取り → 業務Authorityの新規発行
 ```
@@ -98,22 +99,21 @@ Last Updated: 2026-10-11
 
 ### v0.22で採用する実装Ownerと直接依存
 
-次の表は上記の論理責務を実装Ownerへ割り当てる。18 ARCH-IDの統合・増設や、一つのPackageへの全業務状態の集約を意味しない。Sourceの移管は未実施であり、詳細APIと配置は段階3、実装は段階5で確定・検証する。
+次の表は論理責務を現行実装Ownerへ割り当てる。18 ARCH-IDの統合・増設や、一つのPackageへの全業務状態の集約を意味しない。Task／ObjectiveとExecutionは単一Coordinatorへ物理移管済みだが、保存統合・実境界・全体QAの完成は別に評価する。
 
 | 実装Owner | 担当する論理責務 | 境界・所有禁止 |
 |---|---|---|
 | `workbench-server` | Browserの表示API、純粋CSR用データ、利用者操作と明示確認 | Browser向けRESTは維持する。独立したCROS REST／Gatewayを所有しない。 |
 | `mcp-server` | Machine向け搬送、Repository単体stdio／localhost HTTP、認可された共有CROS操作 | SPEC-000011の入力範囲を無断拡張しない。共有認可はARCH-000013との共同契約である。 |
-| `orchestrator` | Objective／Taskの編成、状態、判断記録、候補採用、再入場 | 人間の採否判断を自動生成しない。Provider実行・Docker資源のOwnerではない。 |
-| `coordinator` | 単一の実行・Review・取消、Docker資源、候補本体の隔離・読取り・破棄 | 単体利用できる。Orchestratorをimportせず、上位状態・候補採用を所有しない。 |
+| `coordinator` | Task／Objectiveの編成・状態・判断記録・候補採用・再入場と、単発Execution・Review・取消 | 人間判断を自動生成しない。ExecutionはTask／Objective状態・候補採用を所有せず、Task／ObjectiveはProvider固有CLI・Docker資源の技術処置を所有しない。 |
 | `ai-adapter` | Profile解決・管理、Provider別CLI／入力／出力／認証差 | 実行Authority、Docker資源、共通実行履歴Writerを所有しない。 |
 | `domain-model` | Artifact／Context／Topic／Meeting／品質変更の意味とCRUD、Repository観測・保存・設定の共通部品 | 業務状態のOwnerは各用途に残す。CRUDからGit Commit／PushやProvider Effectを発行しない。 |
 | `access-management` | 最小ユーザー・Role詳細権限・Credential、要求毎認可、接続／公開情報、限定鍵交換 | Domain情報やTransport／Taskを所有せず、管理能力から内容閲覧を生成しない。新IAM／汎用Registryを作らない。Source移管・公開入口は未接続。 |
-| `execution-intelligence` | 実行記録の保存・読取り・評価候補 | Coordinatorの実行観測とOrchestratorのAttempt観測を区別する。Event内容の不変性を永久保持と解釈しない。 |
+| `execution-intelligence` | 実行記録の保存・読取り・評価候補 | Coordinator内Executionの実行観測とTaskのAttempt観測を区別する。Event内容の不変性を永久保持と解釈しない。 |
 | `version-control` | Root／Revisionの検証と明示されたGit操作 | Domainの保存をCommitへ自動変換しない。 |
 | `platform-access` | OS固有のProcess・Filesystem・ACL・Protocol保証 | Nodeで成立する共通処理やCoordinatorの業務状態を移管しない。 |
 
-実行の直接依存は `orchestrator → coordinator公開API → ai-adapter` とする。OrchestratorはCoordinatorが定義した通知関数を登録し、Coordinatorが実行事実を通知する。通知は上位状態の更新完了や資源回収完了そのものではなく、各Ownerが確定した結果へ接続する。新しいEvent Bus、DIまたは汎用Port Frameworkは追加しない。
+現行実行の直接依存は、単一Coordinator内の `Task／Objective → Execution → AI Adapter` とする。Task側はExecutionが定義した通知関数を登録し、Executionが実行事実を通知する。通知は上位状態の更新完了や資源回収完了そのものではなく、各Ownerが確定した結果へ接続する。新しいEvent Bus、DIまたは汎用Port Frameworkは追加しない。
 
 Workbench／MCPは必要な内部Capabilityを利用する。同一ProcessのCROS利用は認可を維持した直接呼出し、別Processは同じHostでもMCPを利用する。ただし鍵操作はこの一般経路から除外し、MCPの一覧・Schema・登録・dispatchへ置かない。通常鍵3操作は同一Process Workbenchの固定administrator、通常Host回復はログイン済み操作者の対話CLI交換2操作だけとし、初回Host設定とは分離する。詳細な入口境界は[境界モデル](03_Boundary_and_Interface_Model.md#管理と鍵交換の公開境界)を参照する。Shared Serverは配置形態であり、第三の公開Runtimeではない。CROS REST／Gatewayの既存能力は移管・検証後に撤去し、名前の削除だけを置換完了としない。
 
@@ -147,7 +147,7 @@ MCP                  → 初期化・状態照会を公開しない
 | Component内部契約 | 状態Owner、判定、変換、不変条件 | 隣接責務やAuthorityの混入 | UT／Component |
 | Port契約 | Coreと外部実装の交換値 | Canonical値の再解釈、unknownの正常化 | Contract／IT |
 | 横断評価 | Trust、Provenance、Closure、Quality | 評価から業務Authorityが生えること | Component／IT |
-| Public Application | TransportからOrchestrator | Transportごとの意味差、未接続操作 | IT／ST |
+| Public Application | TransportからCoordinator内Task／Objective | Transportごとの意味差、未接続操作 | IT／ST |
 | Repository／Runtime基盤 | Root、Binding、Data Lifecycle | 別Root書込み、残存誤削除 | 実境界IT |
 
 Qualityはこの表を試験ID台帳として使わず、各検証設計で対象ARCH定義、境界、状態および終了条件へ接続する。
@@ -155,7 +155,7 @@ Qualityはこの表を試験ID台帳として使わず、各検証設計で対�
 ## Checklist
 
 - [x] 18 ARCH-IDの意味を維持し、論理責務と実装Ownerを区別した。
-- [x] OrchestratorからCoordinatorへの直接依存とCoordinator単体利用を明示した。
+- [x] Coordinator内Task／ObjectiveからExecutionへの直接依存とExecution責務の単独利用を明示した。
 - [x] Provider差、実行Authority、業務状態、記録Writerを分離した。
 - [x] Browser RESTの維持とCROS REST／Gatewayの撤去目標を区別した。
 - [ ] OPEN: 詳細API・全利用側への伝播は段階3、固定設計の独立レビューは段階4で確認する。Source移管・実境界成立は未評価である。

@@ -189,7 +189,7 @@ Git標準操作の代わりになる独自Merge Engine、Conflict Resolver、新
 
 | 対象 | 現在の実装契約 |
 |---|---|
-| 公開Package入口 | 内部`manageOrchestratorWorkspace`に加え、公開入力・投影の`inspectWorkspaceCommand`／`executeWorkspaceCommand`とWorkbench／MCPの直接接続が候補実装済み。実Git・HTTP・Browserの限定確認と、実Provider E2E・移行・旧専用経路撤去の未完了範囲を分ける |
+| 公開Package入口 | 内部`manageCoordinatorWorkspace`に加え、公開入力・投影の`inspectWorkspaceCommand`／`executeWorkspaceCommand`とWorkbench／MCPの直接接続が候補実装済み。実Git・HTTP・Browserの限定確認と、実Provider E2E・移行・旧専用経路撤去の未完了範囲を分ける |
 | 名前・状態 | 既存Workspace現在記録へ`name`と単一の現在`candidate`を追加する。候補は固定要求、`freezing`／`fixed`／`merging`／`merged`／`removing`、候補OID、取込先、Merge OID、採否、一次失敗、最終技術結果を持つ。履歴台帳を増やさず、採否は既存の不変結果Portへ記録する |
 | 選択 | 一Pathは一file全体。Path・mode・確認したraw bytesのGit Blob IDを渡す。削除はmode／Blob IDが両方nullかつ実fileの真正不存在を確認する。Directory・glob・部分行・管理領域・重複を拒否。filter・改行変換を適用せず、確認したbytesを固定する |
 | Ref・一時物 | VCは`refs/heads/crdd/candidate/<workspace-id>/<operation-id>`へ固定する。Workspace Branch／HEAD／通常indexを変更せず、既存Workspace Directory内の自己生成短命indexでBaseから選択だけを作る。成功・拒否・例外の全経路で一時index回収を試みる。回収失敗時は既存候補結果に限定相対Path・実体照合値を保持し、同じ対象・親・限定内容を再照合後にだけ回収する。作成直後に実体取得が失敗した場合はPathと`identity:null`・清掃未確認を保持し、自動削除しない。不在と観測不能を分け、兄弟探索・新台帳は作らない |

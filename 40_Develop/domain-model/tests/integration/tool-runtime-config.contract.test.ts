@@ -14,7 +14,7 @@ import test from "node:test";
 import { ensureRepositoryRuntimeDataAreaFromWorkingDirectory } from "../../src/storage/ensure-area.ts";
 import { requireReadyRepositoryRuntimeDataArea } from "../../src/repository/require-storage-area.ts";
 import {
-  readOrchestratorConfig,
+  readTaskHistoryConfig,
   readExecutionIntelligenceConfig,
   readCoordinatorConfig,
 } from "../../src/configuration/read-tool-config.ts";
@@ -83,7 +83,7 @@ test("Coordinator設定の実ファイルと配布例とSchemaは同じ契約を
  * @boundary RDL-IT-001=Direct Boundary: 設定Reader→Filesystem。
  */
 test("保持設定は読取り専用で閉じたSchemaと真正不存在を区別する", (t) => {
-  const readConfig = readOrchestratorConfig;
+  const readConfig = readTaskHistoryConfig;
   const temporary = requireReadyRepositoryRuntimeDataArea(
     ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
       path.resolve(import.meta.dirname, "../../../.."),

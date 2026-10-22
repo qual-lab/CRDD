@@ -7029,7 +7029,7 @@ test("上位受理Readerは保存済みの同じAttemptだけを返す", async (
   t.mock.module("../../src/storage/current-state.ts", {
     namedExports: {
       ...projectStorage,
-      readCurrentOrchestratorState: (...args: unknown[]) => {
+      readCurrentCoordinatorState: (...args: unknown[]) => {
         calls.push(args);
         if (shouldThrow) throw new Error("fixture_read_failure");
         return observation;

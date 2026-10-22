@@ -4,20 +4,20 @@
  * @responsibility SPEC-000002由来の明示判断だけをAuthority検証し、一つのDecision Recordと対応状態へ適用する。
  * @trace ARCH-000005
  */
-import { applyOrchestratorAcceptanceDecision } from "./transitions.ts";
+import { applyCoordinatorAcceptanceDecision } from "./transitions.ts";
 import type {
-  OrchestratorAcceptanceDecision,
-  OrchestratorAcceptanceTarget,
+  CoordinatorAcceptanceDecision,
+  CoordinatorAcceptanceTarget,
 } from "../state/model.ts";
 import type {
-  OrchestratorAcceptanceDecisionAuthorityBinding,
-  OrchestratorAcceptanceDecisionAuthorityPort,
-  OrchestratorAcceptanceDecisionRecord,
-  OrchestratorAcceptanceDecisionStore,
+  CoordinatorAcceptanceDecisionAuthorityBinding,
+  CoordinatorAcceptanceDecisionAuthorityPort,
+  CoordinatorAcceptanceDecisionRecord,
+  CoordinatorAcceptanceDecisionStore,
 } from "./acceptance-authority.ts";
-import type { OrchestratorStatePort } from "../state/persistence.ts";
+import type { CoordinatorStatePort } from "../state/persistence.ts";
 
-export const ORCHESTRATOR_ACCEPTANCE_DECISION_CONTRACT =
+export const COORDINATOR_ACCEPTANCE_DECISION_CONTRACT =
   "crdd-coordinator/orchestrator-acceptance-decision/v1" as const;
 
 const ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u;
@@ -30,21 +30,21 @@ const REVISION = /^[0-9a-f]{40,64}$/u;
  * @trace ARCH-000005
  * @shape 受入判断に必要な入力Propertyを表す。
  * @invariant `SPEC-000002`だけをSourceとして許可し、Projection由来Sourceを受理しない。
- * @boundary Public Application入力とOrchestrator Coreの境界。
+ * @boundary Public Application入力とCoordinator Coreの境界。
  * @security 秘密値を入力として受けず、認証済みPrincipalのIdentityだけをAuthority検証へ渡す。
  * @compatibility 利用側はContract Revision 1の宣言済みPropertyだけへ依存する。
  */
-export type OrchestratorAcceptanceDecisionRequest = Readonly<{
-  contract: typeof ORCHESTRATOR_ACCEPTANCE_DECISION_CONTRACT;
+export type CoordinatorAcceptanceDecisionRequest = Readonly<{
+  contract: typeof COORDINATOR_ACCEPTANCE_DECISION_CONTRACT;
   decisionId: string;
   sourceSpecId: string;
   projectId: string;
   milestoneId: string;
   repositoryRevision: string;
   expectedGeneration: number;
-  target: OrchestratorAcceptanceTarget;
+  target: CoordinatorAcceptanceTarget;
   targetId: string;
-  decision: OrchestratorAcceptanceDecision;
+  decision: CoordinatorAcceptanceDecision;
   criterionEvidenceIds: readonly string[];
   principalId: string;
 }>;
@@ -56,14 +56,14 @@ export type OrchestratorAcceptanceDecisionRequest = Readonly<{
  * @trace ARCH-000005
  * @shape 三つの限定Portを表す。
  * @invariant Task作成またはProvider Effectを発行できる依存を追加しない。
- * @boundary Orchestrator CoreとHost Adapterの境界。
+ * @boundary Coordinator CoreとHost Adapterの境界。
  * @security Authority検証はHost Portだけが所有する。
  * @compatibility 利用側は宣言済みPort契約だけを実装する。
  */
-export type OrchestratorAcceptanceDecisionDependencies = Readonly<{
-  state: OrchestratorStatePort;
-  authority: OrchestratorAcceptanceDecisionAuthorityPort;
-  store: OrchestratorAcceptanceDecisionStore;
+export type CoordinatorAcceptanceDecisionDependencies = Readonly<{
+  state: CoordinatorStatePort;
+  authority: CoordinatorAcceptanceDecisionAuthorityPort;
+  store: CoordinatorAcceptanceDecisionStore;
 }>;
 
 /**
@@ -73,12 +73,12 @@ export type OrchestratorAcceptanceDecisionDependencies = Readonly<{
  * @trace ARCH-000005
  * @shape 利用側が次の処置を選ぶための非秘密結果を表す。
  * @invariant Authority秘密値や生Store内容を公開しない。
- * @boundary Orchestrator CoreとTransportの結果境界。
+ * @boundary Coordinator CoreとTransportの結果境界。
  * @security 秘密値、絶対Pathまたは非公開Store情報を含めない。
  * @compatibility 利用側は宣言済み結果Fieldだけへ依存する。
  */
-export type OrchestratorAcceptanceDecisionResult = Readonly<{
-  contract: typeof ORCHESTRATOR_ACCEPTANCE_DECISION_CONTRACT;
+export type CoordinatorAcceptanceDecisionResult = Readonly<{
+  contract: typeof COORDINATOR_ACCEPTANCE_DECISION_CONTRACT;
   status: "completed" | "blocked";
   reason: string;
   recordId: string | null;
@@ -93,7 +93,7 @@ export type OrchestratorAcceptanceDecisionResult = Readonly<{
  * @responsibility 停止理由、Record Identityおよび回復要否の公開境界を所有する。
  * @trace ARCH-000005
  * @input reason: string、recordId: string | null、manualRecoveryRequired: boolean
- * @returns OrchestratorAcceptanceDecisionResultを返す。
+ * @returns CoordinatorAcceptanceDecisionResultを返す。
  * @precondition 呼出し元が失敗境界と回復要否を確定済みである。
  * @postcondition 秘密値を含まない一つの停止結果を返す。
  * @effect N/A: 入力から結果値を構築するだけで外部Effectを発行しない。
@@ -107,9 +107,9 @@ function blocked(
   reason: string,
   recordId: string | null = null,
   manualRecoveryRequired = false,
-): OrchestratorAcceptanceDecisionResult {
+): CoordinatorAcceptanceDecisionResult {
   return Object.freeze({
-    contract: ORCHESTRATOR_ACCEPTANCE_DECISION_CONTRACT,
+    contract: COORDINATOR_ACCEPTANCE_DECISION_CONTRACT,
     status: "blocked",
     reason,
     recordId,
@@ -124,25 +124,25 @@ function blocked(
  *
  * @responsibility 不正Source、Identity、世代、判断、根拠およびPrincipalをEffect前に拒否する。
  * @trace ARCH-000005
- * @input input: OrchestratorAcceptanceDecisionRequest
+ * @input input: CoordinatorAcceptanceDecisionRequest
  * @returns 有効な要求なら`true`、それ以外は`false`を返す。
  * @precondition 未信頼のTransport入力を型境界の内側で再検証する。
  * @postcondition 検証結果以外の状態を変更しない。
  * @effect N/A: 入力値だけを検証する。
  * @failure 不正入力は例外へ変えず`false`へ閉じる。
  * @invariant Projection用SPEC-000006／000007を受入判断Sourceへ昇格しない。
- * @boundary Transport入力とOrchestrator Applicationの境界。
+ * @boundary Transport入力とCoordinator Applicationの境界。
  * @security 認証済みPrincipalのIdentity以外のAuthority情報を出力または記録しない。
  * @concurrency N/A: 共有状態を持たない同期処理である。
  */
 function validRequest(
   input: unknown,
-): input is OrchestratorAcceptanceDecisionRequest {
+): input is CoordinatorAcceptanceDecisionRequest {
   if (input === null || typeof input !== "object" || Array.isArray(input))
     return false;
-  const candidate = input as Partial<OrchestratorAcceptanceDecisionRequest>;
+  const candidate = input as Partial<CoordinatorAcceptanceDecisionRequest>;
   return (
-    candidate.contract === ORCHESTRATOR_ACCEPTANCE_DECISION_CONTRACT &&
+    candidate.contract === COORDINATOR_ACCEPTANCE_DECISION_CONTRACT &&
     candidate.sourceSpecId === "SPEC-000002" &&
     [
       candidate.decisionId,
@@ -185,8 +185,8 @@ function validRequest(
  * @concurrency N/A: 不変値の同期比較だけを行う。
  */
 function samePreparedDecision(
-  record: OrchestratorAcceptanceDecisionRecord,
-  input: OrchestratorAcceptanceDecisionRequest,
+  record: CoordinatorAcceptanceDecisionRecord,
+  input: CoordinatorAcceptanceDecisionRequest,
 ): boolean {
   return (
     record.disposition === "prepared" &&
@@ -217,7 +217,7 @@ function samePreparedDecision(
  * @effect N/A: 現在状態を読むだけである。
  * @failure N/A: 不一致または対象不存在はfalseへ閉じる。
  * @invariant accept／returnは次世代、waitは元世代だけを適用済みとみなす。
- * @boundary 耐久RecordとOrchestrator Stateの相関境界。
+ * @boundary 耐久RecordとCoordinator Stateの相関境界。
  * @security Authorityを生成せず、検証済みRecordの意味だけを照合する。
  * @concurrency 世代一致を必須として競合更新を適用済みへ誤認しない。
  */
@@ -230,7 +230,7 @@ function decisionAlreadyApplied(
       state: string;
     }>[];
   }>,
-  record: OrchestratorAcceptanceDecisionRecord,
+  record: CoordinatorAcceptanceDecisionRecord,
 ): boolean {
   if (record.target === "objective") {
     const objective = state.objectives.find(
@@ -268,21 +268,21 @@ function decisionAlreadyApplied(
  *
  * @responsibility exactなProject、対象、世代、SourceおよびAuthorityだけを処置し、Decision Recordを状態Effectより先に耐久化する。
  * @trace ARCH-000005
- * @input dependencies: OrchestratorAcceptanceDecisionDependencies、input: OrchestratorAcceptanceDecisionRequest
- * @returns OrchestratorAcceptanceDecisionResultを返す。
+ * @input dependencies: CoordinatorAcceptanceDecisionDependencies、input: CoordinatorAcceptanceDecisionRequest
+ * @returns CoordinatorAcceptanceDecisionResultを返す。
  * @precondition Composition Rootが検証済みRepositoryに結合したState、AuthorityおよびStore Portを供給する。
  * @postcondition 成功時は一つのRecordが`finalized`となり、受入・差戻しだけが対応状態を更新する。
- * @effect Decision Storeへ一つの論理Recordを作成し、必要な場合だけOrchestrator Stateを一度更新する。
+ * @effect Decision Storeへ一つの論理Recordを作成し、必要な場合だけCoordinator Stateを一度更新する。
  * @failure 不正入力、Authority不一致、重複、古い世代またはStore／State観測不能を理由別に停止する。
  * @invariant Task作成、Provider Effect、Projection Authority生成および下位完了からの自動受入を行わない。
  * @boundary Project運営者Authority→Acceptance Decision Port→Decision Store／State StoreのDirect Boundary。
  * @security 認証済みPrincipalのIdentityだけを検証Portへ渡し、Authority秘密値をRecordや結果へ保存しない。
  * @concurrency State世代とRecord IDの比較交換により重複・競合判断を拒否する。
  */
-export function recordOrchestratorAcceptanceDecision(
-  dependencies: OrchestratorAcceptanceDecisionDependencies,
+export function recordCoordinatorAcceptanceDecision(
+  dependencies: CoordinatorAcceptanceDecisionDependencies,
   input: unknown,
-): OrchestratorAcceptanceDecisionResult {
+): CoordinatorAcceptanceDecisionResult {
   if (!validRequest(input))
     return blocked("orchestrator_acceptance_decision_request_invalid");
   const recordId = `acceptance-${input.decisionId}`;
@@ -312,19 +312,17 @@ export function recordOrchestratorAcceptanceDecision(
     return blocked("orchestrator_acceptance_decision_target_mismatch");
   if (preparedRecord && !samePreparedDecision(preparedRecord, input))
     return blocked("orchestrator_acceptance_decision_duplicate", recordId);
-  const binding: OrchestratorAcceptanceDecisionAuthorityBinding = Object.freeze(
-    {
-      sourceSpecId: "SPEC-000002",
-      projectId: input.projectId,
-      milestoneId: input.milestoneId,
-      repositoryRevision: input.repositoryRevision,
-      expectedGeneration: input.expectedGeneration,
-      target: input.target,
-      targetId: input.targetId,
-      decision: input.decision,
-      principalId: input.principalId,
-    },
-  );
+  const binding: CoordinatorAcceptanceDecisionAuthorityBinding = Object.freeze({
+    sourceSpecId: "SPEC-000002",
+    projectId: input.projectId,
+    milestoneId: input.milestoneId,
+    repositoryRevision: input.repositoryRevision,
+    expectedGeneration: input.expectedGeneration,
+    target: input.target,
+    targetId: input.targetId,
+    decision: input.decision,
+    principalId: input.principalId,
+  });
   let isAuthorized = false;
   try {
     isAuthorized = dependencies.authority.verify(binding);
@@ -333,7 +331,7 @@ export function recordOrchestratorAcceptanceDecision(
   }
   if (!isAuthorized)
     return blocked("orchestrator_acceptance_decision_authority_invalid");
-  const prepared: OrchestratorAcceptanceDecisionRecord =
+  const prepared: CoordinatorAcceptanceDecisionRecord =
     preparedRecord ??
     Object.freeze({
       recordId,
@@ -370,7 +368,7 @@ export function recordOrchestratorAcceptanceDecision(
         recordId,
         true,
       );
-    const transition = applyOrchestratorAcceptanceDecision(
+    const transition = applyCoordinatorAcceptanceDecision(
       state,
       input.expectedGeneration,
       input,
@@ -390,7 +388,7 @@ export function recordOrchestratorAcceptanceDecision(
         true,
       );
   }
-  const finalized: OrchestratorAcceptanceDecisionRecord = Object.freeze({
+  const finalized: CoordinatorAcceptanceDecisionRecord = Object.freeze({
     ...prepared,
     disposition: "finalized",
     newGeneration: nextState.generation,
@@ -403,7 +401,7 @@ export function recordOrchestratorAcceptanceDecision(
       true,
     );
   return Object.freeze({
-    contract: ORCHESTRATOR_ACCEPTANCE_DECISION_CONTRACT,
+    contract: COORDINATOR_ACCEPTANCE_DECISION_CONTRACT,
     status: "completed",
     reason: "orchestrator_acceptance_decision_recorded",
     recordId,

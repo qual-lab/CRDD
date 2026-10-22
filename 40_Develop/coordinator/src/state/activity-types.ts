@@ -4,7 +4,7 @@
  * @trace ARCH-000004
  */
 import type { VerifiedRepositoryRoot } from "../../../version-control/src/index.ts";
-import type { OrchestratorProjection } from "./projection.ts";
+import type { CoordinatorProjection } from "./projection.ts";
 
 /**
  * 一Repositoryの読取り入力。
@@ -75,7 +75,7 @@ export type RuntimeActivityObservation = Readonly<{
   projectId: string;
   state: "observed" | "absent" | "unknown";
   reason: string;
-  projection: OrchestratorProjection | null;
+  projection: CoordinatorProjection | null;
   currentSourceRepositoryId: string | null;
   sources: readonly ActivitySource[];
   eventState: "observed" | "unknown";

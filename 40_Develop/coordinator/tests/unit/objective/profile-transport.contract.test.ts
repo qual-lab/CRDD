@@ -10,8 +10,8 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-import { inspectOrchestratorObjectiveRequest } from "../../../src/index.ts";
-import { buildOrchestratorCoordinatorTaskRequest } from "../../../src/objective/public-operation.ts";
+import { inspectCoordinatorObjectiveRequest } from "../../../src/index.ts";
+import { buildObjectiveTaskRequest } from "../../../src/objective/public-operation.ts";
 
 const objective = Object.freeze({
   requestId: "request-1",
@@ -54,7 +54,7 @@ test("Objective Profileは全八組合せで既存Task契約へexactに搬送す
   ];
   for (const frontProvider of ["codex", "claude"] as const) {
     for (let mask = 0; mask < 8; mask += 1) {
-      const request = inspectOrchestratorObjectiveRequest(
+      const request = inspectCoordinatorObjectiveRequest(
         Object.assign(
           { ...objective },
           ...optionalFieldNames.filter(
@@ -63,10 +63,7 @@ test("Objective Profileは全八組合せで既存Task契約へexactに搬送す
         ),
       );
       assert.ok(request);
-      const task = buildOrchestratorCoordinatorTaskRequest(
-        request,
-        frontProvider,
-      );
+      const task = buildObjectiveTaskRequest(request, frontProvider);
       const snapshot = task;
       assert.equal(
         snapshot.requestedProfileId,

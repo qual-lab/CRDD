@@ -1,5 +1,5 @@
 /**
- * Orchestratorの現在状態・Queue・Leaseを単一Snapshotへ保存する。
+ * Coordinatorの現在状態・Queue・Leaseを単一Snapshotへ保存する。
  *
  * @responsibility 受付世代、保存比較交換、排他意図・根拠、終了整理と再入場を同じ保存Ownerへ結合する。
  * @trace ARCH-000004
@@ -7,7 +7,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { acquireRuntimeOwnedOrchestratorStateKernelLock } from "../execution/kernel-lock.ts";
+import { acquireRuntimeOwnedProjectStateKernelLock } from "../execution/kernel-lock.ts";
 import {
   observeRepositoryRuntimeDataArea,
   RepositoryRuntimeDataAreaBlockedError,
@@ -32,51 +32,51 @@ import {
   singleTaskQueueIsConsistent,
   type SingleTaskRecord,
 } from "../task/single-task-record.ts";
-import type { OrchestratorAcceptanceDecisionStore } from "../decision/acceptance-authority.ts";
+import type { CoordinatorAcceptanceDecisionStore } from "../decision/acceptance-authority.ts";
 import type {
-  OrchestratorDecisionRecoveryIntent,
-  OrchestratorDecisionRecoveryStore,
+  CoordinatorDecisionRecoveryIntent,
+  CoordinatorDecisionRecoveryStore,
 } from "../decision/records.ts";
 import type {
-  OrchestratorLease,
-  OrchestratorLeaseAcquisitionResolution,
-  OrchestratorLeaseKind,
-  OrchestratorLeaseOwnerObservation,
-  OrchestratorLeasePort,
+  CoordinatorLease,
+  CoordinatorLeaseAcquisitionResolution,
+  CoordinatorLeaseKind,
+  CoordinatorLeaseOwnerObservation,
+  CoordinatorLeasePort,
 } from "../lease/controller.ts";
 import type {
-  OrchestratorPersistencePorts,
-  OrchestratorStatePort,
+  CoordinatorPersistencePorts,
+  CoordinatorStatePort,
 } from "../state/persistence.ts";
-import type { OrchestratorPortResult } from "../operation-result.ts";
+import type { CoordinatorPortResult } from "../operation-result.ts";
 import type {
-  OrchestratorState,
+  CoordinatorState,
   ProjectTaskRecoveryObligation,
 } from "../state/model.ts";
 import type {
   IntegrationRecordBinding,
-  OrchestratorResultRecord,
+  CoordinatorResultRecord,
 } from "./result-record.ts";
 import {
-  ORCHESTRATOR_ACCEPTANCE_DECISION_STORE_CONTRACT,
-  type OrchestratorAcceptanceDecisionEnvelope,
-  validOrchestratorAcceptanceDecisionEnvelope,
-  validOrchestratorAcceptanceDecisionRecord,
+  COORDINATOR_ACCEPTANCE_DECISION_STORE_CONTRACT,
+  type CoordinatorAcceptanceDecisionEnvelope,
+  validCoordinatorAcceptanceDecisionEnvelope,
+  validCoordinatorAcceptanceDecisionRecord,
 } from "../decision/acceptance-record.ts";
-import { ORCHESTRATOR_INTEGRATION_CONTRACT } from "./result-record.ts";
-import type { OrchestratorIntegrationRecordPort } from "./result-record.ts";
-import { validOrchestratorDecisionRecoveryIntent } from "../decision/recovery-record.ts";
-import { validOrchestratorResultRecord } from "./validate-result-record.ts";
+import { COORDINATOR_INTEGRATION_CONTRACT } from "./result-record.ts";
+import type { CoordinatorIntegrationRecordPort } from "./result-record.ts";
+import { validCoordinatorDecisionRecoveryIntent } from "../decision/recovery-record.ts";
+import { validCoordinatorResultRecord } from "./validate-result-record.ts";
 import {
-  validOrchestratorWorkspace,
-  type OrchestratorWorkspace,
+  validCoordinatorWorkspace,
+  type CoordinatorWorkspace,
 } from "../workspace/record.ts";
-import { resolveOrchestratorWorkspaceTaskTarget } from "../workspace/operations.ts";
+import { resolveCoordinatorWorkspaceTaskTarget } from "../workspace/operations.ts";
 import {
   type HistoryRow,
   historyRow,
-  inspectOrchestratorHistorySettlement,
-  updateOrchestratorHistoryOwned,
+  inspectCoordinatorHistorySettlement,
+  updateCoordinatorHistoryOwned,
 } from "./history.ts";
 
 /**
@@ -94,7 +94,7 @@ import {
  * @security 名前付きPathはAuthorityではなくI/O前の観測を必要とする。
  * @concurrency 観測した現在境界だけを返す。
  */
-function resolveOrchestratorNamedPaths(workingDirectory: string) {
+function resolveCoordinatorNamedPaths(workingDirectory: string) {
   const verified = verifyRepositoryRootFromWorkingDirectory(workingDirectory);
   return verified.status === "completed"
     ? resolveRepositoryRuntimeDataPaths(verified.capability)
@@ -116,7 +116,7 @@ function resolveOrchestratorNamedPaths(workingDirectory: string) {
  * @security 名前付きPathはAuthorityではなくI/O前の観測を必要とする。
  * @concurrency 観測した現在境界だけを返す。
  */
-function observeOrchestratorArea(
+function observeCoordinatorArea(
   repositoryRoot: string,
   area: "orchestrator" | "tmp",
 ) {
@@ -151,12 +151,12 @@ function observeOrchestratorArea(
  * @security 名前付きPathはAuthorityではなくI/O前の観測を必要とする。
  * @concurrency 観測した現在境界だけを返す。
  */
-function assertOrchestratorArea(
+function assertCoordinatorArea(
   repositoryRoot: string,
   area: "orchestrator" | "tmp",
   directory: string,
 ) {
-  const observation = observeOrchestratorArea(repositoryRoot, area);
+  const observation = observeCoordinatorArea(repositoryRoot, area);
   if (observation.status !== "ready" || observation.directory !== directory)
     throw new Error("orchestrator_storage_boundary_invalid");
   return observation;
@@ -177,12 +177,12 @@ function assertOrchestratorArea(
  * @security 名前付きPathはAuthorityではなくI/O前の観測を必要とする。
  * @concurrency 観測した現在境界だけを返す。
  */
-function assertOrchestratorAreaUnchanged(
+function assertCoordinatorAreaUnchanged(
   repositoryRoot: string,
   area: "orchestrator" | "tmp",
   initial: Exclude<RepositoryRuntimeDataAreaObservation, { status: "blocked" }>,
 ) {
-  const current = observeOrchestratorArea(repositoryRoot, area);
+  const current = observeCoordinatorArea(repositoryRoot, area);
   if (
     initial.status !== current.status ||
     (initial.status === "ready" &&
@@ -237,11 +237,11 @@ const QUEUE_TRANSITIONS = Object.freeze({
   cancelled: Object.freeze([]),
 } satisfies Record<ProjectQueueState, readonly ProjectQueueState[]>);
 
-export const ORCHESTRATOR_DURABLE_FOUNDATION_CONTRACT =
+export const COORDINATOR_DURABLE_FOUNDATION_CONTRACT =
   "crdd-coordinator/orchestrator-durable-foundation/v1" as const;
 
 /**
- * orchestrator-durable-foundationで使用するStore 結果の値契約を定義する。
+ * durable-foundationで使用するStore 結果の値契約を定義する。
  *
  * @responsibility Store 結果のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
@@ -251,9 +251,9 @@ export const ORCHESTRATOR_DURABLE_FOUNDATION_CONTRACT =
  * @security StoreResultはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @compatibility StoreResultの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-type StoreResult<T> = OrchestratorPortResult<T>;
+type StoreResult<T> = CoordinatorPortResult<T>;
 /**
- * orchestrator-durable-foundationで使用するLease Kindの値契約を定義する。
+ * durable-foundationで使用するLease Kindの値契約を定義する。
  *
  * @responsibility Lease KindのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
@@ -263,10 +263,10 @@ type StoreResult<T> = OrchestratorPortResult<T>;
  * @security LeaseKindはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @compatibility LeaseKindの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-type LeaseKind = OrchestratorLeaseKind;
+type LeaseKind = CoordinatorLeaseKind;
 
 /**
- * orchestrator-durable-foundationで使用するActive Leaseの値契約を定義する。
+ * durable-foundationで使用するActive Leaseの値契約を定義する。
  *
  * @responsibility Active LeaseのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
@@ -292,11 +292,11 @@ type ActiveLease = Readonly<{
   snapshotPhysicalIdentity?: string;
 }>;
 
-const activeLeases = new WeakMap<OrchestratorLease, ActiveLease>();
+const activeLeases = new WeakMap<CoordinatorLease, ActiveLease>();
 const snapshotOwners = new WeakSet<object>();
 
 /**
- * orchestrator-durable-foundationで使用するEnvelopeの値契約を定義する。
+ * durable-foundationで使用するEnvelopeの値契約を定義する。
  *
  * @responsibility EnvelopeのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
@@ -307,7 +307,7 @@ const snapshotOwners = new WeakSet<object>();
  * @compatibility Envelopeの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
 type Envelope = Readonly<{
-  schema: typeof ORCHESTRATOR_DURABLE_FOUNDATION_CONTRACT;
+  schema: typeof COORDINATOR_DURABLE_FOUNDATION_CONTRACT;
   schemaRevision: 1;
   recordKind: "project-state" | "queue-entry" | "lease-evidence";
   repositoryBindingId: string;
@@ -334,12 +334,10 @@ type Envelope = Readonly<{
  * @security 呼出し元から任意のRoot Hashを受け取らない。
  * @concurrency 同Rootのcase差と配下起動を同じ排他へ結合する。
  */
-export function acquireOrchestratorSnapshotPilotLock(
+export function acquireCoordinatorSnapshotPilotLock(
   workingDirectory: string,
 ): StoreResult<
-  NonNullable<
-    ReturnType<typeof acquireRuntimeOwnedOrchestratorStateKernelLock>
-  > &
+  NonNullable<ReturnType<typeof acquireRuntimeOwnedProjectStateKernelLock>> &
     Readonly<{ repositoryRoot: string; repositoryRootHash: string }>
 > {
   try {
@@ -355,7 +353,7 @@ export function acquireOrchestratorSnapshotPilotLock(
     const identity = digest(
       `crdd-orchestrator-verified-root-v1\0${root.toLowerCase()}`,
     );
-    const lock = acquireRuntimeOwnedOrchestratorStateKernelLock(identity);
+    const lock = acquireRuntimeOwnedProjectStateKernelLock(identity);
     if (!lock) return blocked("orchestrator_snapshot_lock_unavailable", false);
     const owner = Object.freeze({
       ...lock,
@@ -662,7 +660,7 @@ function resultAcceptances(
     projectId: string;
     milestoneId: string;
     generation: number;
-    task: OrchestratorState["tasks"][number];
+    task: CoordinatorState["tasks"][number];
   }>,
 ): boolean {
   if (!Array.isArray(value) || value.length > 128) return false;
@@ -776,9 +774,9 @@ function nullableResultReference(value: unknown) {
  *
  * @responsibility Task Lifecycle Tupleの有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000004
- * @input task: OrchestratorState["tasks"][number]
+ * @input task: CoordinatorState["tasks"][number]
  * @returns validTaskLifecycleTupleの計算結果を返す。
- * @precondition 「task: OrchestratorState["tasks"][number]」がvalidTaskLifecycleTupleの入力契約を満たす。
+ * @precondition 「task: CoordinatorState["tasks"][number]」がvalidTaskLifecycleTupleの入力契約を満たす。
  * @postcondition validTaskLifecycleTupleの責務を完了した結果だけを返す。
  * @effect N/A: validTaskLifecycleTupleは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: validTaskLifecycleTupleは独自の失敗分岐を所有しない。
@@ -787,7 +785,7 @@ function nullableResultReference(value: unknown) {
  * @security validTaskLifecycleTupleはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
  * @concurrency N/A: validTaskLifecycleTupleは共有非同期状態を持たない同期処理である。
  */
-function validTaskLifecycleTuple(task: OrchestratorState["tasks"][number]) {
+function validTaskLifecycleTuple(task: CoordinatorState["tasks"][number]) {
   const isAttempt = task.attemptId !== null;
   const isOperation = task.operationId !== null;
   const isAuthority = task.authorityBindingId !== null;
@@ -820,22 +818,22 @@ function validTaskLifecycleTuple(task: OrchestratorState["tasks"][number]) {
 }
 
 /**
- * Orchestrator 状態が有効か判定する。
+ * Coordinator 状態が有効か判定する。
  *
- * @responsibility Orchestrator 状態の有効条件、拒否条件、判定結果境界を所有する。
+ * @responsibility Coordinator 状態の有効条件、拒否条件、判定結果境界を所有する。
  * @trace ARCH-000004
  * @input value: unknown
- * @returns value is OrchestratorStateを返す。
- * @precondition 「value: unknown」がvalidOrchestratorStateの入力契約を満たす。
- * @postcondition validOrchestratorStateの責務を完了した結果だけを返す。
- * @effect N/A: validOrchestratorStateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: validOrchestratorStateは独自の失敗分岐を所有しない。
- * @invariant validOrchestratorStateは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: validOrchestratorStateはProcess内の同一Subsystemで完結する。
- * @security validOrchestratorStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: validOrchestratorStateは共有非同期状態を持たない同期処理である。
+ * @returns value is CoordinatorStateを返す。
+ * @precondition 「value: unknown」がvalidCoordinatorStateの入力契約を満たす。
+ * @postcondition validCoordinatorStateの責務を完了した結果だけを返す。
+ * @effect N/A: validCoordinatorStateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: validCoordinatorStateは独自の失敗分岐を所有しない。
+ * @invariant validCoordinatorStateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: validCoordinatorStateはProcess内の同一Subsystemで完結する。
+ * @security validCoordinatorStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: validCoordinatorStateは共有非同期状態を持たない同期処理である。
  */
-function validOrchestratorState(value: unknown): value is OrchestratorState {
+function validCoordinatorState(value: unknown): value is CoordinatorState {
   if (
     !plainObject(value) ||
     !exactKeys(value, [
@@ -1007,10 +1005,10 @@ function validOrchestratorState(value: unknown): value is OrchestratorState {
         projectId: String(value.projectId),
         milestoneId: String(value.milestoneId),
         generation: Number(value.generation),
-        task: task as unknown as OrchestratorState["tasks"][number],
+        task: task as unknown as CoordinatorState["tasks"][number],
       }) ||
       !validTaskLifecycleTuple(
-        task as unknown as OrchestratorState["tasks"][number],
+        task as unknown as CoordinatorState["tasks"][number],
       ) ||
       !nullableCandidateId(task.candidateId) ||
       !Number.isSafeInteger(task.retryCount) ||
@@ -1150,9 +1148,9 @@ function completed<T>(reason: string, value: T): StoreResult<T> {
 }
 
 /**
- * orchestrator-durable-foundationを停止結果として構築する。
+ * durable-foundationを停止結果として構築する。
  *
- * @responsibility orchestrator-durable-foundationの停止理由、未発行Effect、公開結果境界を所有する。
+ * @responsibility durable-foundationの停止理由、未発行Effect、公開結果境界を所有する。
  * @trace ARCH-000004
  * @input reason: string、manualRecoveryRequired、recoveryId: string | null
  * @returns StoreResult<T>を返す。
@@ -1340,9 +1338,9 @@ function leaseAcquisitionFootprintAbsent(
 }
 
 /**
- * orchestrator-durable-foundationのHashを算出する。
+ * durable-foundationのHashを算出する。
  *
- * @responsibility orchestrator-durable-foundationの入力byte列、Hash algorithm、算出結果の境界を所有する。
+ * @responsibility durable-foundationの入力byte列、Hash algorithm、算出結果の境界を所有する。
  * @trace ARCH-000004
  * @input value: string
  * @returns digestの計算結果を返す。
@@ -1496,9 +1494,9 @@ function activeLeaseIsObserved(activeLease: ActiveLease) {
   try {
     assertDirectory(activeLease.lock);
     if (activeLease.snapshotPhysicalIdentity !== undefined) {
-      const paths = resolveOrchestratorNamedPaths(activeLease.repositoryRoot);
+      const paths = resolveCoordinatorNamedPaths(activeLease.repositoryRoot);
       if (!paths) return false;
-      const boundary = assertOrchestratorArea(
+      const boundary = assertCoordinatorArea(
         activeLease.repositoryRoot,
         "tmp",
         paths.temporary,
@@ -1512,7 +1510,7 @@ function activeLeaseIsObserved(activeLease: ActiveLease) {
         if (fs.realpathSync.native(directory) !== directory) return false;
       }
       const metadata = fs.lstatSync(activeLease.lock);
-      assertOrchestratorAreaUnchanged(
+      assertCoordinatorAreaUnchanged(
         activeLease.repositoryRoot,
         "tmp",
         boundary,
@@ -1554,14 +1552,14 @@ function envelope(
   content: unknown,
 ): Envelope {
   if (
-    (recordKind === "project-state" && !validOrchestratorState(content)) ||
+    (recordKind === "project-state" && !validCoordinatorState(content)) ||
     (recordKind === "queue-entry" && !validQueueEntry(content)) ||
     (recordKind === "lease-evidence" && !validLeaseEvidence(content))
   )
     throw new Error("orchestrator_record_content_invalid");
   const serialized = JSON.stringify(content);
   const record = Object.freeze({
-    schema: ORCHESTRATOR_DURABLE_FOUNDATION_CONTRACT,
+    schema: COORDINATOR_DURABLE_FOUNDATION_CONTRACT,
     schemaRevision: 1 as const,
     recordKind,
     repositoryBindingId,
@@ -1620,7 +1618,7 @@ function readEnvelopeFile(directory: string, name: string): Envelope {
     throw new Error("orchestrator_record_envelope_invalid");
   const parsed = candidate as unknown as Envelope;
   if (
-    parsed.schema !== ORCHESTRATOR_DURABLE_FOUNDATION_CONTRACT ||
+    parsed.schema !== COORDINATOR_DURABLE_FOUNDATION_CONTRACT ||
     parsed.schemaRevision !== 1 ||
     !validId(parsed.repositoryBindingId) ||
     !validId(parsed.projectId) ||
@@ -1633,7 +1631,7 @@ function readEnvelopeFile(directory: string, name: string): Envelope {
     throw new Error("orchestrator_record_invalid");
   if (
     (parsed.recordKind === "project-state" &&
-      !validOrchestratorState(parsed.content)) ||
+      !validCoordinatorState(parsed.content)) ||
     (parsed.recordKind === "queue-entry" && !validQueueEntry(parsed.content)) ||
     (parsed.recordKind === "lease-evidence" &&
       !validLeaseEvidence(parsed.content))
@@ -1650,7 +1648,7 @@ function readEnvelopeFile(directory: string, name: string): Envelope {
 }
 
 /**
- * orchestrator-durable-foundationで使用するLease Evidence Contentの値契約を定義する。
+ * durable-foundationで使用するLease Evidence Contentの値契約を定義する。
  *
  * @responsibility Lease Evidence ContentのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
@@ -1673,7 +1671,7 @@ type LeaseEvidenceContent = Readonly<{
 }>;
 
 /**
- * orchestrator-durable-foundationで使用するLease Evidence Envelopeの値契約を定義する。
+ * durable-foundationで使用するLease Evidence Envelopeの値契約を定義する。
  *
  * @responsibility Lease Evidence EnvelopeのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
@@ -1794,14 +1792,14 @@ function readExactLeaseEvidence(
  * @security Hashや状態名をAuthorityへ昇格しない。
  * @compatibility 既存Portの値を維持し、実データ切替は別処置とする。
  */
-type OrchestratorSnapshot = Readonly<{
-  workspaces: readonly OrchestratorWorkspace[];
+type CoordinatorSnapshot = Readonly<{
+  workspaces: readonly CoordinatorWorkspace[];
   repositoryRootHash: string;
   repositoryBindingId: string;
   snapshotRevision: number;
   intakeEpoch: string;
   intakeBindings: readonly Readonly<{ queueId: string; epoch: string }>[];
-  projects: readonly OrchestratorState[];
+  projects: readonly CoordinatorState[];
   queueEntries: readonly ProjectQueueEntry[];
   leaseEvidence: readonly LeaseEvidenceEnvelope[];
   leaseIntents: readonly Readonly<{
@@ -1819,16 +1817,16 @@ type OrchestratorSnapshot = Readonly<{
       | "recovery_pending";
     physicalIdentity?: string | null;
   }>[];
-  results: readonly OrchestratorResultRecord[];
+  results: readonly CoordinatorResultRecord[];
   historyPending: readonly HistoryRow[];
 }> &
   Readonly<{
     schema: typeof SNAPSHOT_SCHEMA_V3;
     schemaRevision: 3;
-    acceptanceDecisions: readonly OrchestratorAcceptanceDecisionEnvelope[];
+    acceptanceDecisions: readonly CoordinatorAcceptanceDecisionEnvelope[];
     decisionRecoveries: readonly Readonly<{
       generation: number;
-      value: OrchestratorDecisionRecoveryIntent;
+      value: CoordinatorDecisionRecoveryIntent;
     }>[];
   }>;
 
@@ -1847,11 +1845,11 @@ type OrchestratorSnapshot = Readonly<{
  * @security 既存保護情報を新規発行しない。
  * @concurrency N/A: 同期検証。
  */
-function validOrchestratorSnapshot(
+function validCoordinatorSnapshot(
   value: unknown,
   binding: string,
   rootHash: string,
-): value is OrchestratorSnapshot {
+): value is CoordinatorSnapshot {
   try {
     if (
       !plainObject(value) ||
@@ -1895,14 +1893,14 @@ function validOrchestratorSnapshot(
     ])
       if (!Array.isArray(value[key])) return false;
     if (
-      !(value.projects as unknown[]).every(validOrchestratorState) ||
+      !(value.projects as unknown[]).every(validCoordinatorState) ||
       !(value.queueEntries as unknown[]).every(validQueueEntry)
     )
       return false;
-    const snapshot = value as unknown as OrchestratorSnapshot;
+    const snapshot = value as unknown as CoordinatorSnapshot;
     if (
       !Array.isArray(snapshot.workspaces) ||
-      !snapshot.workspaces.every(validOrchestratorWorkspace) ||
+      !snapshot.workspaces.every(validCoordinatorWorkspace) ||
       new Set(snapshot.workspaces.map((item) => item.workspaceId)).size !==
         snapshot.workspaces.length
     )
@@ -1957,7 +1955,7 @@ function validOrchestratorSnapshot(
           "contentHash",
           "content",
         ]) ||
-        record.schema !== ORCHESTRATOR_DURABLE_FOUNDATION_CONTRACT ||
+        record.schema !== COORDINATOR_DURABLE_FOUNDATION_CONTRACT ||
         record.schemaRevision !== 1 ||
         record.recordKind !== "lease-evidence" ||
         record.repositoryBindingId !== binding ||
@@ -2087,7 +2085,7 @@ function validOrchestratorSnapshot(
     const results = new Set<string>();
     for (const item of snapshot.results) {
       if (
-        !validOrchestratorResultRecord(item) ||
+        !validCoordinatorResultRecord(item) ||
         item.repositoryBindingId !== binding ||
         (queues.has(item.queueId) &&
           (queues.get(item.queueId)?.projectId !== item.projectId ||
@@ -2131,7 +2129,7 @@ function validOrchestratorSnapshot(
         return false;
       const decisions = new Map<
         string,
-        OrchestratorAcceptanceDecisionEnvelope[]
+        CoordinatorAcceptanceDecisionEnvelope[]
       >();
       for (const item of snapshot.acceptanceDecisions) {
         if (
@@ -2145,7 +2143,7 @@ function validOrchestratorSnapshot(
             "record",
           ]) ||
           !validId(item.recordId) ||
-          !validOrchestratorAcceptanceDecisionEnvelope(
+          !validCoordinatorAcceptanceDecisionEnvelope(
             item,
             binding,
             item.recordId,
@@ -2193,7 +2191,7 @@ function validOrchestratorSnapshot(
           !exactKeys(item, ["generation", "value"]) ||
           !Number.isSafeInteger(item.generation) ||
           Number(item.generation) < 1 ||
-          !validOrchestratorDecisionRecoveryIntent(item.value) ||
+          !validCoordinatorDecisionRecoveryIntent(item.value) ||
           !plainObject(item.value) ||
           !exactKeys(item.value, [
             "recoveryId",
@@ -2238,11 +2236,11 @@ function validOrchestratorSnapshot(
  * @security Authorityを生成しない。
  * @concurrency N/A: 純粋復号。
  */
-function decodeOrchestratorSnapshot(
+function decodeCoordinatorSnapshot(
   bytes: string,
   binding: string,
   rootHash: string,
-): OrchestratorSnapshot {
+): CoordinatorSnapshot {
   if (
     typeof bytes !== "string" ||
     Buffer.byteLength(bytes, "utf8") > MAX_RECORD_BYTES
@@ -2252,7 +2250,7 @@ function decodeOrchestratorSnapshot(
   if (
     !plainObject(value) ||
     !exactKeys(value, ["payload", "contentHash", "baseRevision", "baseHash"]) ||
-    !validOrchestratorSnapshot(value.payload, binding, rootHash) ||
+    !validCoordinatorSnapshot(value.payload, binding, rootHash) ||
     value.contentHash !== digest(JSON.stringify(value.payload)) ||
     value.baseRevision !== value.payload.snapshotRevision - 1 ||
     (value.baseRevision === 0
@@ -2278,15 +2276,15 @@ function decodeOrchestratorSnapshot(
  * @security 読取りだけでAuthorityや手動Recovery義務を発行しない。
  * @concurrency 同Rootの短期OS排他を取得し解放確認まで成功を保留する。
  */
-export function readOrchestratorSnapshot(
+export function readCoordinatorSnapshot(
   workingDirectory: string,
   binding: string,
-): StoreResult<OrchestratorSnapshot | null> {
+): StoreResult<CoordinatorSnapshot | null> {
   if (!validId(binding)) return blocked("orchestrator_snapshot_input_invalid");
-  const acquired = acquireOrchestratorSnapshotPilotLock(workingDirectory);
+  const acquired = acquireCoordinatorSnapshotPilotLock(workingDirectory);
   if (acquired.status !== "completed") return blocked(acquired.reason);
   const lock = acquired.value;
-  const outcome = readOrchestratorSnapshotOwned(lock, binding);
+  const outcome = readCoordinatorSnapshotOwned(lock, binding);
   if (!lock.release())
     return blocked("orchestrator_snapshot_lock_release_unconfirmed", true);
   return outcome;
@@ -2307,17 +2305,17 @@ export function readOrchestratorSnapshot(
  * @security 候補、認証、保護Decision、Evidenceを削除しない。
  * @concurrency 同Rootの短期Ownerで検査と保存を直列化する。
  */
-export function initializeOrchestratorSnapshot(
+export function initializeCoordinatorSnapshot(
   workingDirectory: string,
   binding: string,
 ): StoreResult<string> {
   if (!validId(binding)) return blocked("orchestrator_snapshot_input_invalid");
-  const acquired = acquireOrchestratorSnapshotPilotLock(workingDirectory);
+  const acquired = acquireCoordinatorSnapshotPilotLock(workingDirectory);
   if (acquired.status !== "completed") return blocked(acquired.reason);
   const owner = acquired.value;
   let result: StoreResult<string>;
   try {
-    const observed = readOrchestratorSnapshotOwned(owner, binding);
+    const observed = readCoordinatorSnapshotOwned(owner, binding);
     if (observed.status !== "completed") result = observed;
     else if (observed.value !== null)
       result =
@@ -2332,7 +2330,7 @@ export function initializeOrchestratorSnapshot(
       if (fs.readdirSync(runtime).some((name) => name !== "state.lock"))
         result = blocked("orchestrator_snapshot_fresh_area_required");
       else {
-        const payload: OrchestratorSnapshot = {
+        const payload: CoordinatorSnapshot = {
           schema: SNAPSHOT_SCHEMA_V3,
           schemaRevision: 3,
           repositoryRootHash: owner.repositoryRootHash,
@@ -2350,7 +2348,7 @@ export function initializeOrchestratorSnapshot(
           acceptanceDecisions: [],
           decisionRecoveries: [],
         };
-        const saved = writeOrchestratorSnapshotOwned(
+        const saved = writeCoordinatorSnapshotOwned(
           owner,
           binding,
           JSON.stringify(payload),
@@ -2391,8 +2389,8 @@ export function initializeOrchestratorSnapshot(
  * @security JSONから構築せず検証済み取得結果だけを用いる。
  * @compatibility 既存の短期排他取得結果と同じ値契約。
  */
-export type OrchestratorSnapshotOwner = NonNullable<
-  ReturnType<typeof acquireRuntimeOwnedOrchestratorStateKernelLock>
+export type CoordinatorSnapshotOwner = NonNullable<
+  ReturnType<typeof acquireRuntimeOwnedProjectStateKernelLock>
 > &
   Readonly<{ repositoryRoot: string; repositoryRootHash: string }>;
 
@@ -2411,12 +2409,12 @@ export type OrchestratorSnapshotOwner = NonNullable<
  * @security Root以外の書込み許可を与えない。
  * @concurrency 取得・解放は呼出し側が所有する。
  */
-export function isLiveOrchestratorSnapshotOwner(
+export function isLiveCoordinatorSnapshotOwner(
   owner: unknown,
-): owner is OrchestratorSnapshotOwner {
+): owner is CoordinatorSnapshotOwner {
   if (!owner || typeof owner !== "object" || !snapshotOwners.has(owner))
     return false;
-  const issued = owner as OrchestratorSnapshotOwner;
+  const issued = owner as CoordinatorSnapshotOwner;
   try {
     return (
       issued.assertLive() &&
@@ -2443,7 +2441,7 @@ export function isLiveOrchestratorSnapshotOwner(
  * @security 旧形式Fallback、初期化、Authority発行と旧記録削除を行わない。
  * @concurrency 読取り・比較・保存まで一つの短期Ownerを保持し外部待機しない。
  */
-export function writeOrchestratorSnapshotState(
+export function writeCoordinatorSnapshotState(
   workingDirectory: string,
   binding: string,
   stateJson: string,
@@ -2455,8 +2453,8 @@ export function writeOrchestratorSnapshotState(
     projectId: string;
     milestoneId: string;
   }>,
-): StoreResult<OrchestratorState> {
-  let state: OrchestratorState;
+): StoreResult<CoordinatorState> {
+  let state: CoordinatorState;
   try {
     if (
       !validId(binding) ||
@@ -2468,7 +2466,7 @@ export function writeOrchestratorSnapshotState(
       throw new Error("snapshot_state_input_invalid");
     const parsed: unknown = JSON.parse(stateJson);
     if (
-      !validOrchestratorState(parsed) ||
+      !validCoordinatorState(parsed) ||
       parsed.generation !== expectedGeneration + 1
     )
       throw new Error("snapshot_state_input_invalid");
@@ -2476,18 +2474,18 @@ export function writeOrchestratorSnapshotState(
   } catch {
     return blocked("orchestrator_state_generation_mismatch");
   }
-  const acquired = acquireOrchestratorSnapshotPilotLock(workingDirectory);
+  const acquired = acquireCoordinatorSnapshotPilotLock(workingDirectory);
   if (acquired.status !== "completed") return blocked(acquired.reason);
   const lock = acquired.value;
-  let outcome: StoreResult<OrchestratorState>;
+  let outcome: StoreResult<CoordinatorState>;
   try {
-    const observed = readOrchestratorSnapshotOwned(lock, binding);
+    const observed = readCoordinatorSnapshotOwned(lock, binding);
     if (observed.status !== "completed") outcome = blocked(observed.reason);
     else if (observed.value === null)
       outcome = blocked("orchestrator_snapshot_absent");
     else {
       const current = observed.value;
-      if (intake && !orchestratorSnapshotIntakeMatches(current, intake))
+      if (intake && !coordinatorSnapshotIntakeMatches(current, intake))
         throw new Error("orchestrator_intake_epoch_retired");
       const previous = current.projects.find(
         (item) => item.projectId === state.projectId,
@@ -2550,7 +2548,7 @@ export function writeOrchestratorSnapshotState(
               item.projectId === state.projectId ? state : item,
             )
           : [...current.projects, state];
-        const saved = writeOrchestratorSnapshotOwned(
+        const saved = writeCoordinatorSnapshotOwned(
           lock,
           binding,
           JSON.stringify({
@@ -2589,13 +2587,13 @@ export function writeOrchestratorSnapshotState(
  * @security 旧形式への自動Fallbackをしない。
  * @concurrency 取得済み短期排他の保持を呼出し側が管理する。
  */
-function readOrchestratorSnapshotOwned(
-  lock: OrchestratorSnapshotOwner,
+function readCoordinatorSnapshotOwned(
+  lock: CoordinatorSnapshotOwner,
   binding: string,
-): StoreResult<OrchestratorSnapshot | null> {
-  let outcome: StoreResult<OrchestratorSnapshot | null>;
+): StoreResult<CoordinatorSnapshot | null> {
+  let outcome: StoreResult<CoordinatorSnapshot | null>;
   try {
-    const resolved = resolveOrchestratorNamedPaths(lock.repositoryRoot);
+    const resolved = resolveCoordinatorNamedPaths(lock.repositoryRoot);
     if (
       !resolved ||
       resolved.repositoryRoot !== lock.repositoryRoot ||
@@ -2603,7 +2601,7 @@ function readOrchestratorSnapshotOwned(
     )
       throw new Error("snapshot_root_changed");
     const root = lock.repositoryRoot;
-    const boundary = observeOrchestratorArea(root, "orchestrator");
+    const boundary = observeCoordinatorArea(root, "orchestrator");
     const parents = [root, resolved.orchestrator];
     const isAbsent = boundary.status === "not_observed";
     if (isAbsent) outcome = completed("orchestrator_snapshot_absent", null);
@@ -2643,11 +2641,11 @@ function readOrchestratorSnapshotOwned(
         );
         outcome = completed(
           "orchestrator_snapshot_observed",
-          decodeOrchestratorSnapshot(bytes, binding, lock.repositoryRootHash),
+          decodeCoordinatorSnapshot(bytes, binding, lock.repositoryRootHash),
         );
       }
     }
-    assertOrchestratorAreaUnchanged(root, "orchestrator", boundary);
+    assertCoordinatorAreaUnchanged(root, "orchestrator", boundary);
   } catch {
     outcome = blocked("orchestrator_snapshot_invalid_or_unconfirmed", true);
   }
@@ -2669,16 +2667,16 @@ function readOrchestratorSnapshotOwned(
  * @security 保護Decisionと任意Pathを受け取らない。
  * @concurrency 同Rootの短期OS排他だけを保持し外部待機しない。
  */
-export function writeOrchestratorSnapshot(
+export function writeCoordinatorSnapshot(
   workingDirectory: string,
   binding: string,
   payloadJson: string,
   expectedRevision: number,
-): StoreResult<OrchestratorSnapshot> {
-  const acquired = acquireOrchestratorSnapshotPilotLock(workingDirectory);
+): StoreResult<CoordinatorSnapshot> {
+  const acquired = acquireCoordinatorSnapshotPilotLock(workingDirectory);
   if (acquired.status !== "completed") return blocked(acquired.reason);
   const lock = acquired.value;
-  const outcome = writeOrchestratorSnapshotOwned(
+  const outcome = writeCoordinatorSnapshotOwned(
     lock,
     binding,
     payloadJson,
@@ -2704,13 +2702,13 @@ export function writeOrchestratorSnapshot(
  * @security 旧Writerの自動切替や記録削除を発行しない。
  * @concurrency 外部待機を行わず短期排他の保持範囲で保存する。
  */
-function writeOrchestratorSnapshotOwned(
-  lock: OrchestratorSnapshotOwner,
+function writeCoordinatorSnapshotOwned(
+  lock: CoordinatorSnapshotOwner,
   binding: string,
   payloadJson: string,
   expectedRevision: number,
-): StoreResult<OrchestratorSnapshot> {
-  let outcome: StoreResult<OrchestratorSnapshot>;
+): StoreResult<CoordinatorSnapshot> {
+  let outcome: StoreResult<CoordinatorSnapshot>;
   let filesystemEffectIssued = false;
   try {
     if (
@@ -2723,11 +2721,11 @@ function writeOrchestratorSnapshotOwned(
       throw new Error("snapshot_input_invalid");
     const payload: unknown = JSON.parse(payloadJson);
     if (
-      !validOrchestratorSnapshot(payload, binding, lock.repositoryRootHash) ||
+      !validCoordinatorSnapshot(payload, binding, lock.repositoryRootHash) ||
       payload.snapshotRevision !== expectedRevision + 1
     )
       throw new Error("snapshot_input_invalid");
-    const resolved = resolveOrchestratorNamedPaths(lock.repositoryRoot);
+    const resolved = resolveCoordinatorNamedPaths(lock.repositoryRoot);
     if (
       !resolved ||
       resolved.repositoryRoot !== lock.repositoryRoot ||
@@ -2737,7 +2735,7 @@ function writeOrchestratorSnapshotOwned(
     const { runtime, repositoryRoot: root } = storageRoot(lock.repositoryRoot);
     if (root !== lock.repositoryRoot || !lock.assertLive())
       throw new Error("snapshot_root_changed");
-    const boundary = assertOrchestratorArea(root, "orchestrator", runtime);
+    const boundary = assertCoordinatorArea(root, "orchestrator", runtime);
     const currentPath = path.join(runtime, "state.json");
     const pendingPath = path.join(runtime, "state.pending.json");
     const markerPath = path.join(runtime, "state.lock");
@@ -2764,7 +2762,7 @@ function writeOrchestratorSnapshotOwned(
       } catch (error) {
         if (errorCode(error) !== "ENOENT") throw error;
         assertDirectory(lock.repositoryRoot);
-        assertOrchestratorAreaUnchanged(root, "orchestrator", boundary);
+        assertCoordinatorAreaUnchanged(root, "orchestrator", boundary);
         return null;
       }
       if (!stat.isFile() || stat.isSymbolicLink() || stat.nlink !== 1)
@@ -2774,7 +2772,7 @@ function writeOrchestratorSnapshotOwned(
         MAX_RECORD_BYTES,
       );
       assertDirectory(root);
-      assertOrchestratorAreaUnchanged(root, "orchestrator", boundary);
+      assertCoordinatorAreaUnchanged(root, "orchestrator", boundary);
       if (fs.lstatSync(location).nlink !== 1)
         throw new Error("snapshot_link_changed");
       return new TextDecoder("utf-8", { fatal: true }).decode(observed.bytes);
@@ -2813,7 +2811,7 @@ function writeOrchestratorSnapshotOwned(
     let current =
       currentBytes === null
         ? null
-        : decodeOrchestratorSnapshot(
+        : decodeCoordinatorSnapshot(
             currentBytes,
             binding,
             lock.repositoryRootHash,
@@ -2821,7 +2819,7 @@ function writeOrchestratorSnapshotOwned(
     const pendingBytes = read(pendingPath);
     if (pendingBytes !== null) {
       filesystemEffectIssued = true;
-      const candidate = decodeOrchestratorSnapshot(
+      const candidate = decodeCoordinatorSnapshot(
         pendingBytes,
         binding,
         lock.repositoryRootHash,
@@ -2835,7 +2833,7 @@ function writeOrchestratorSnapshotOwned(
         hash === pending.baseHash &&
         (current?.snapshotRevision ?? 0) === pending.baseRevision
       ) {
-        assertOrchestratorSnapshotTransition(current, candidate, lock);
+        assertCoordinatorSnapshotTransition(current, candidate, lock);
         const fd = fs.openSync(pendingPath, "r+");
         try {
           fs.fsyncSync(fd);
@@ -2876,7 +2874,7 @@ function writeOrchestratorSnapshotOwned(
     else {
       if ((current?.snapshotRevision ?? 0) !== expectedRevision)
         throw new Error("snapshot_revision_conflict");
-      assertOrchestratorSnapshotTransition(current, payload, lock);
+      assertCoordinatorSnapshotTransition(current, payload, lock);
       create(pendingPath, candidateBytes);
       if (!lock.assertLive()) throw new Error("snapshot_lock_lost");
       const pending = read(pendingPath);
@@ -2912,10 +2910,10 @@ function writeOrchestratorSnapshotOwned(
  * @security Hash一致を遷移許可と同一視しない。
  * @concurrency N/A: 排他を所有する呼出し側で実行する。
  */
-function assertOrchestratorSnapshotTransition(
-  current: OrchestratorSnapshot | null,
-  payload: OrchestratorSnapshot,
-  owner: OrchestratorSnapshotOwner,
+function assertCoordinatorSnapshotTransition(
+  current: CoordinatorSnapshot | null,
+  payload: CoordinatorSnapshot,
+  owner: CoordinatorSnapshotOwner,
 ): void {
   if (payload.snapshotRevision !== (current?.snapshotRevision ?? 0) + 1)
     throw new Error("snapshot_revision_conflict");
@@ -2954,7 +2952,7 @@ function assertOrchestratorSnapshotTransition(
             item.kind,
           ) === identity,
       ) ||
-      !orchestratorSnapshotLeaseResourcesAbsent(owner.repositoryRoot, identity)
+      !coordinatorSnapshotLeaseResourcesAbsent(owner.repositoryRoot, identity)
     )
       throw new Error("snapshot_acquisition_reservation_invalid");
   }
@@ -2995,9 +2993,9 @@ function assertOrchestratorSnapshotTransition(
     for (const queueId of retired) {
       const row = current.historyPending.find((item) => item.id === queueId);
       if (
-        !orchestratorQueueIsClosed(current, queueId, owner) ||
+        !coordinatorQueueIsClosed(current, queueId, owner) ||
         !row ||
-        inspectOrchestratorHistorySettlement(owner, row) === null
+        inspectCoordinatorHistorySettlement(owner, row) === null
       )
         throw new Error("snapshot_retirement_unconfirmed");
     }
@@ -3054,10 +3052,8 @@ function assertOrchestratorSnapshotTransition(
                 "expectedGeneration",
               ].some(
                 (key) =>
-                  next.value[
-                    key as keyof OrchestratorDecisionRecoveryIntent
-                  ] !==
-                  old.value[key as keyof OrchestratorDecisionRecoveryIntent],
+                  next.value[key as keyof CoordinatorDecisionRecoveryIntent] !==
+                  old.value[key as keyof CoordinatorDecisionRecoveryIntent],
               )))
         )
           throw new Error("snapshot_decision_recovery_transition_invalid");
@@ -3076,28 +3072,28 @@ function assertOrchestratorSnapshotTransition(
                   (queue) =>
                     retired.has(queue.queueId) &&
                     queue.queueId ===
-                      (old as OrchestratorResultRecord).queueId &&
+                      (old as CoordinatorResultRecord).queueId &&
                     queue.projectId === old.projectId &&
                     queue.milestoneId ===
-                      (old as OrchestratorResultRecord).milestoneId,
+                      (old as CoordinatorResultRecord).milestoneId,
                 ) &&
                   !current.historyPending.some(
                     (row) =>
-                      row.id === (old as OrchestratorResultRecord).identity &&
-                      orchestratorStandaloneAdoptionIsClosed(
+                      row.id === (old as CoordinatorResultRecord).identity &&
+                      coordinatorStandaloneAdoptionIsClosed(
                         current,
                         row.id,
                         owner,
                       ) &&
-                      inspectOrchestratorHistorySettlement(owner, row) !== null,
+                      inspectCoordinatorHistorySettlement(owner, row) !== null,
                   )) ||
                 currentEvidenceIds.has(
-                  (old as OrchestratorResultRecord).identity,
+                  (old as CoordinatorResultRecord).identity,
                 ) ||
                 payload.queueEntries.some(
                   (item) =>
                     item.resultReference ===
-                    (old as OrchestratorResultRecord).identity,
+                    (old as CoordinatorResultRecord).identity,
                 )
               : !current.queueEntries.some(
                   (queue) =>
@@ -3108,7 +3104,7 @@ function assertOrchestratorSnapshotTransition(
                       (old as LeaseEvidenceEnvelope).content.queueId &&
                     queue.projectId === old.projectId,
                 ) &&
-                !orchestratorRejectedAdoptionEvidenceCanRetire(
+                !coordinatorRejectedAdoptionEvidenceCanRetire(
                   current,
                   payload,
                   old as LeaseEvidenceEnvelope,
@@ -3139,14 +3135,14 @@ function assertOrchestratorSnapshotTransition(
                           (record) =>
                             record.identity === row.id &&
                             record.projectId === old.projectId &&
-                            !orchestratorAdoptionWasRejected(record) &&
-                            orchestratorStandaloneAdoptionIsClosed(
+                            !coordinatorAdoptionWasRejected(record) &&
+                            coordinatorStandaloneAdoptionIsClosed(
                               current,
                               row.id,
                               owner,
                             ),
                         )) &&
-                      inspectOrchestratorHistorySettlement(owner, row) !== null,
+                      inspectCoordinatorHistorySettlement(owner, row) !== null,
                   )
                 )
           )
@@ -3157,7 +3153,7 @@ function assertOrchestratorSnapshotTransition(
         !payload.historyPending.some(
           (item) => JSON.stringify(item) === JSON.stringify(old),
         ) &&
-        inspectOrchestratorHistorySettlement(owner, old) === null
+        inspectCoordinatorHistorySettlement(owner, old) === null
       )
         throw new Error("snapshot_history_transfer_unconfirmed");
     }
@@ -3222,10 +3218,7 @@ function assertOrchestratorSnapshotTransition(
       if (
         current.schema !== SNAPSHOT_SCHEMA_V3 ||
         !end ||
-        !orchestratorSnapshotLeaseResourcesAbsent(
-          owner.repositoryRoot,
-          identity,
-        )
+        !coordinatorSnapshotLeaseResourcesAbsent(owner.repositoryRoot, identity)
       )
         throw new Error("snapshot_unsettled_lease_intent_removed");
     }
@@ -3364,21 +3357,21 @@ function assertOrchestratorSnapshotTransition(
  * @security Ownerを呼出し側へ公開せず、Authorityを新規発行しない。
  * @concurrency 一回取得し、全処置結果から一回の解放確認へ戻す。
  */
-function withOrchestratorSnapshotOperation<T>(
+function withCoordinatorSnapshotOperation<T>(
   workingDirectory: string,
   binding: string,
   operation: (
-    current: OrchestratorSnapshot,
-    owner: OrchestratorSnapshotOwner,
-  ) => StoreResult<Readonly<{ next: OrchestratorSnapshot | null; value: T }>>,
+    current: CoordinatorSnapshot,
+    owner: CoordinatorSnapshotOwner,
+  ) => StoreResult<Readonly<{ next: CoordinatorSnapshot | null; value: T }>>,
 ): StoreResult<T> {
   if (!validId(binding)) return blocked("orchestrator_snapshot_input_invalid");
-  const acquired = acquireOrchestratorSnapshotPilotLock(workingDirectory);
+  const acquired = acquireCoordinatorSnapshotPilotLock(workingDirectory);
   if (acquired.status !== "completed") return blocked(acquired.reason);
   const owner = acquired.value;
   let result: StoreResult<T>;
   try {
-    const observed = readOrchestratorSnapshotOwned(owner, binding);
+    const observed = readCoordinatorSnapshotOwned(owner, binding);
     if (observed.status !== "completed") result = observed;
     else if (observed.value === null)
       result = blocked("orchestrator_snapshot_absent");
@@ -3388,7 +3381,7 @@ function withOrchestratorSnapshotOperation<T>(
       else if (applied.value.next === null)
         result = completed(applied.reason, applied.value.value);
       else {
-        const saved = writeOrchestratorSnapshotOwned(
+        const saved = writeCoordinatorSnapshotOwned(
           owner,
           binding,
           JSON.stringify({
@@ -3430,10 +3423,10 @@ function withOrchestratorSnapshotOperation<T>(
  * @security 終了済みを認証・採用許可にしない。
  * @concurrency 同じ短期Ownerで評価する。
  */
-function orchestratorQueueIsClosed(
-  current: OrchestratorSnapshot,
+function coordinatorQueueIsClosed(
+  current: CoordinatorSnapshot,
   queueId: string,
-  owner: OrchestratorSnapshotOwner,
+  owner: CoordinatorSnapshotOwner,
 ): boolean {
   try {
     if (current.schema !== SNAPSHOT_SCHEMA_V3) return false;
@@ -3451,7 +3444,7 @@ function orchestratorQueueIsClosed(
         queue.singleTask.cleanupConfirmed &&
         queue.singleTask.recoveryIds.length === 0 &&
         !current.leaseIntents.some((item) => item.queueId === queueId) &&
-        orchestratorSnapshotLeaseResourcesAbsent(
+        coordinatorSnapshotLeaseResourcesAbsent(
           owner.repositoryRoot,
           leaseIdentity(
             current.repositoryBindingId,
@@ -3533,7 +3526,7 @@ function orchestratorQueueIsClosed(
       return false;
     for (const kind of ["project-operation", "canonical-adoption"] as const)
       if (
-        !orchestratorSnapshotLeaseResourcesAbsent(
+        !coordinatorSnapshotLeaseResourcesAbsent(
           owner.repositoryRoot,
           leaseIdentity(
             current.repositoryBindingId,
@@ -3565,8 +3558,8 @@ function orchestratorQueueIsClosed(
  * @security Callerの追加fieldを採用しない。
  * @concurrency N/A: 同期純粋処理。
  */
-function orchestratorAdoptionWasRejected(
-  record: OrchestratorResultRecord,
+function coordinatorAdoptionWasRejected(
+  record: CoordinatorResultRecord,
 ): boolean {
   return (
     record.kind === "adoption" &&
@@ -3602,18 +3595,18 @@ function orchestratorAdoptionWasRejected(
  * @security 履歴は再実行Authorityを持たない。
  * @concurrency 同じ保存Owner内で評価する。
  */
-function orchestratorRejectedAdoptionEvidenceCanRetire(
-  current: OrchestratorSnapshot,
-  payload: OrchestratorSnapshot,
+function coordinatorRejectedAdoptionEvidenceCanRetire(
+  current: CoordinatorSnapshot,
+  payload: CoordinatorSnapshot,
   evidence: LeaseEvidenceEnvelope,
-  owner: OrchestratorSnapshotOwner,
+  owner: CoordinatorSnapshotOwner,
 ): boolean {
   if (evidence.content.kind !== "canonical-adoption") return false;
   const record = current.results.find(
     (item) =>
       item.projectId === evidence.projectId &&
       item.identity === evidence.content.ownerGeneration &&
-      orchestratorAdoptionWasRejected(item),
+      coordinatorAdoptionWasRejected(item),
   );
   const row =
     record &&
@@ -3624,8 +3617,8 @@ function orchestratorRejectedAdoptionEvidenceCanRetire(
       row.outcome === "failed" &&
       row.primaryFailure === "execution" &&
       !payload.results.some((item) => item.identity === record.identity) &&
-      orchestratorStandaloneAdoptionIsClosed(current, record.identity, owner) &&
-      inspectOrchestratorHistorySettlement(owner, row) !== null,
+      coordinatorStandaloneAdoptionIsClosed(current, record.identity, owner) &&
+      inspectCoordinatorHistorySettlement(owner, row) !== null,
   );
 }
 
@@ -3644,10 +3637,10 @@ function orchestratorRejectedAdoptionEvidenceCanRetire(
  * @security Candidate本文や秘密値を履歴へ複製しない。
  * @concurrency 同じ短期Owner内で評価する。
  */
-function orchestratorStandaloneAdoptionIsClosed(
-  current: OrchestratorSnapshot,
+function coordinatorStandaloneAdoptionIsClosed(
+  current: CoordinatorSnapshot,
   identity: string,
-  owner: OrchestratorSnapshotOwner,
+  owner: CoordinatorSnapshotOwner,
 ): boolean {
   try {
     if (current.schema !== SNAPSHOT_SCHEMA_V3) return false;
@@ -3655,7 +3648,7 @@ function orchestratorStandaloneAdoptionIsClosed(
       (item) => item.identity === identity && item.kind === "adoption",
     );
     const isRejected =
-      record !== undefined && orchestratorAdoptionWasRejected(record);
+      record !== undefined && coordinatorAdoptionWasRejected(record);
     if (
       !record ||
       !plainObject(record.value) ||
@@ -3693,7 +3686,7 @@ function orchestratorStandaloneAdoptionIsClosed(
           (other) =>
             other.projectId === record.projectId &&
             other.kind === "adoption" &&
-            !orchestratorAdoptionWasRejected(other),
+            !coordinatorAdoptionWasRejected(other),
         )) ||
       current.decisionRecoveries.some(
         (item) =>
@@ -3728,7 +3721,7 @@ function orchestratorStandaloneAdoptionIsClosed(
       )
     )
       return false;
-    return orchestratorSnapshotLeaseResourcesAbsent(
+    return coordinatorSnapshotLeaseResourcesAbsent(
       owner.repositoryRoot,
       leaseIdentity(
         current.repositoryBindingId,
@@ -3757,12 +3750,12 @@ function orchestratorStandaloneAdoptionIsClosed(
  * @security 未解決状態を期間だけで退役しない。
  * @concurrency 各段階を同Rootの短期Ownerで直列化する。
  */
-export function maintainOrchestratorSnapshot(
+export function maintainCoordinatorSnapshot(
   workingDirectory: string,
   binding: string,
   now = Date.now(),
 ): StoreResult<number> {
-  const prepared = withOrchestratorSnapshotOperation(
+  const prepared = withCoordinatorSnapshotOperation(
     workingDirectory,
     binding,
     (current, owner) => {
@@ -3776,7 +3769,7 @@ export function maintainOrchestratorSnapshot(
         .filter(
           (queue) =>
             !current.historyPending.some((row) => row.id === queue.queueId) &&
-            orchestratorQueueIsClosed(current, queue.queueId, owner),
+            coordinatorQueueIsClosed(current, queue.queueId, owner),
         )
         .map(
           (queue): HistoryRow => ({
@@ -3790,7 +3783,7 @@ export function maintainOrchestratorSnapshot(
       for (const record of current.results) {
         if (
           current.historyPending.some((row) => row.id === record.identity) ||
-          !orchestratorStandaloneAdoptionIsClosed(
+          !coordinatorStandaloneAdoptionIsClosed(
             current,
             record.identity,
             owner,
@@ -3800,10 +3793,10 @@ export function maintainOrchestratorSnapshot(
         rows.push({
           id: record.identity,
           occurredAt: new Date(now).toISOString(),
-          outcome: orchestratorAdoptionWasRejected(record)
+          outcome: coordinatorAdoptionWasRejected(record)
             ? "failed"
             : "completed",
-          primaryFailure: orchestratorAdoptionWasRejected(record)
+          primaryFailure: coordinatorAdoptionWasRejected(record)
             ? "execution"
             : null,
           cleanup: "confirmed",
@@ -3818,29 +3811,29 @@ export function maintainOrchestratorSnapshot(
     },
   );
   if (prepared.status !== "completed") return prepared;
-  return withOrchestratorSnapshotOperation(
+  return withCoordinatorSnapshotOperation(
     workingDirectory,
     binding,
     (current, owner) => {
       if (current.schema !== SNAPSHOT_SCHEMA_V3)
         return blocked("orchestrator_snapshot_schema_invalid");
-      const trimmed = updateOrchestratorHistoryOwned(owner, null, now);
+      const trimmed = updateCoordinatorHistoryOwned(owner, null, now);
       if (trimmed.status !== "completed") return blocked(trimmed.reason, true);
       const retired = new Set<string>();
       for (const row of current.historyPending) {
         if (
-          !orchestratorQueueIsClosed(current, row.id, owner) &&
-          !orchestratorStandaloneAdoptionIsClosed(current, row.id, owner)
+          !coordinatorQueueIsClosed(current, row.id, owner) &&
+          !coordinatorStandaloneAdoptionIsClosed(current, row.id, owner)
         )
           continue;
-        const saved = updateOrchestratorHistoryOwned(
+        const saved = updateCoordinatorHistoryOwned(
           owner,
           JSON.stringify(row),
           now,
         );
         if (
           saved.status !== "completed" ||
-          inspectOrchestratorHistorySettlement(owner, row, now) === null
+          inspectCoordinatorHistorySettlement(owner, row, now) === null
         )
           return blocked("orchestrator_history_transfer_unconfirmed", true);
         retired.add(row.id);
@@ -3869,7 +3862,7 @@ export function maintainOrchestratorSnapshot(
                       queue.queueId === item.content.queueId &&
                       queue.projectId === item.projectId,
                   ) &&
-                  !orchestratorRejectedAdoptionEvidenceCanRetire(
+                  !coordinatorRejectedAdoptionEvidenceCanRetire(
                     current,
                     {
                       ...current,
@@ -3928,7 +3921,7 @@ export function maintainOrchestratorSnapshot(
                             (record) =>
                               record.identity === row.id &&
                               record.projectId === item.projectId &&
-                              !orchestratorAdoptionWasRejected(record),
+                              !coordinatorAdoptionWasRejected(record),
                           )),
                     )
                   ),
@@ -4002,25 +3995,25 @@ export function maintainOrchestratorSnapshot(
  * @security 期限超過を未解決状態の削除へ広げない。
  * @concurrency 同じ実発行Ownerを借用し自己再取得しない。
  */
-export function transferOrchestratorSnapshotHistory(
+export function transferCoordinatorSnapshotHistory(
   workingDirectory: string,
   binding: string,
   now = Date.now(),
 ): StoreResult<Readonly<{ recorded: number; expired: number }>> {
-  return withOrchestratorSnapshotOperation(
+  return withCoordinatorSnapshotOperation(
     workingDirectory,
     binding,
     (current, owner) => {
       let recorded = 0;
       let expired = 0;
       for (const row of current.historyPending) {
-        const saved = updateOrchestratorHistoryOwned(
+        const saved = updateCoordinatorHistoryOwned(
           owner,
           JSON.stringify(row),
           now,
         );
         if (saved.status !== "completed") return blocked(saved.reason, true);
-        const disposition = inspectOrchestratorHistorySettlement(
+        const disposition = inspectCoordinatorHistorySettlement(
           owner,
           row,
           now,
@@ -4055,10 +4048,10 @@ export function transferOrchestratorSnapshotHistory(
  * @security 保護Authorityや秘密値を移さない。
  * @concurrency 読取りと比較交換を同じ保存Ownerへ閉じる。
  */
-export function createOrchestratorSnapshotAcceptanceDecisionStore(
+export function createCoordinatorSnapshotAcceptanceDecisionStore(
   workingDirectory: string,
   binding: string,
-): OrchestratorAcceptanceDecisionStore {
+): CoordinatorAcceptanceDecisionStore {
   return Object.freeze({
     /**
      * 受入判断の初回記録を作成する。
@@ -4076,13 +4069,13 @@ export function createOrchestratorSnapshotAcceptanceDecisionStore(
      * @concurrency 同じ保存Ownerで処置する。
      */
     create(record) {
-      return withOrchestratorSnapshotOperation(
+      return withCoordinatorSnapshotOperation(
         workingDirectory,
         binding,
         (current) => {
           if (
             current.schema !== SNAPSHOT_SCHEMA_V3 ||
-            !validOrchestratorAcceptanceDecisionRecord(record) ||
+            !validCoordinatorAcceptanceDecisionRecord(record) ||
             record.disposition !== "prepared"
           )
             return blocked("orchestrator_acceptance_record_invalid");
@@ -4092,8 +4085,8 @@ export function createOrchestratorSnapshotAcceptanceDecisionStore(
             )
           )
             return blocked("orchestrator_acceptance_record_exists");
-          const entry: OrchestratorAcceptanceDecisionEnvelope = {
-            contract: ORCHESTRATOR_ACCEPTANCE_DECISION_STORE_CONTRACT,
+          const entry: CoordinatorAcceptanceDecisionEnvelope = {
+            contract: COORDINATOR_ACCEPTANCE_DECISION_STORE_CONTRACT,
             repositoryBindingId: binding,
             recordId: record.recordId,
             generation: 1,
@@ -4126,7 +4119,7 @@ export function createOrchestratorSnapshotAcceptanceDecisionStore(
      * @concurrency 短期保存Ownerを保持する。
      */
     read(recordId) {
-      return withOrchestratorSnapshotOperation(
+      return withCoordinatorSnapshotOperation(
         workingDirectory,
         binding,
         (current) => {
@@ -4161,14 +4154,14 @@ export function createOrchestratorSnapshotAcceptanceDecisionStore(
      * @concurrency 比較と確定を同じOwnerで行う。
      */
     compareAndSet(expected, next) {
-      return withOrchestratorSnapshotOperation(
+      return withCoordinatorSnapshotOperation(
         workingDirectory,
         binding,
         (current) => {
           if (
             current.schema !== SNAPSHOT_SCHEMA_V3 ||
-            !validOrchestratorAcceptanceDecisionRecord(expected) ||
-            !validOrchestratorAcceptanceDecisionRecord(next) ||
+            !validCoordinatorAcceptanceDecisionRecord(expected) ||
+            !validCoordinatorAcceptanceDecisionRecord(next) ||
             expected.recordId !== next.recordId ||
             expected.disposition !== "prepared" ||
             next.disposition !== "finalized"
@@ -4192,8 +4185,8 @@ export function createOrchestratorSnapshotAcceptanceDecisionStore(
             )
           )
             return blocked("orchestrator_acceptance_record_exists");
-          const entry: OrchestratorAcceptanceDecisionEnvelope = {
-            contract: ORCHESTRATOR_ACCEPTANCE_DECISION_STORE_CONTRACT,
+          const entry: CoordinatorAcceptanceDecisionEnvelope = {
+            contract: COORDINATOR_ACCEPTANCE_DECISION_STORE_CONTRACT,
             repositoryBindingId: binding,
             recordId: expected.recordId,
             generation: 2,
@@ -4228,10 +4221,10 @@ export function createOrchestratorSnapshotAcceptanceDecisionStore(
  * @security 保存状態から回復Authorityを新設しない。
  * @concurrency 現在値の確認と確定を同じOwnerで行う。
  */
-export function createOrchestratorSnapshotDecisionRecoveryStore(
+export function createCoordinatorSnapshotDecisionRecoveryStore(
   workingDirectory: string,
   binding: string,
-): OrchestratorDecisionRecoveryStore {
+): CoordinatorDecisionRecoveryStore {
   return Object.freeze({
     /**
      * 判断回復の初回意図を保存する。
@@ -4249,13 +4242,13 @@ export function createOrchestratorSnapshotDecisionRecoveryStore(
      * @concurrency 同じ保存Ownerで処置する。
      */
     create(intent) {
-      return withOrchestratorSnapshotOperation(
+      return withCoordinatorSnapshotOperation(
         workingDirectory,
         binding,
         (current) => {
           if (
             current.schema !== SNAPSHOT_SCHEMA_V3 ||
-            !validOrchestratorDecisionRecoveryIntent(intent)
+            !validCoordinatorDecisionRecoveryIntent(intent)
           )
             return blocked("orchestrator_decision_recovery_invalid");
           if (
@@ -4293,7 +4286,7 @@ export function createOrchestratorSnapshotDecisionRecoveryStore(
      * @concurrency 短期保存Ownerを保持する。
      */
     read(recoveryId) {
-      return withOrchestratorSnapshotOperation(
+      return withCoordinatorSnapshotOperation(
         workingDirectory,
         binding,
         (current) => {
@@ -4325,14 +4318,14 @@ export function createOrchestratorSnapshotDecisionRecoveryStore(
      * @concurrency 比較と確定を同じOwnerで行う。
      */
     compareAndSet(expected, next) {
-      return withOrchestratorSnapshotOperation(
+      return withCoordinatorSnapshotOperation(
         workingDirectory,
         binding,
         (current) => {
           if (
             current.schema !== SNAPSHOT_SCHEMA_V3 ||
-            !validOrchestratorDecisionRecoveryIntent(expected) ||
-            !validOrchestratorDecisionRecoveryIntent(next) ||
+            !validCoordinatorDecisionRecoveryIntent(expected) ||
+            !validCoordinatorDecisionRecoveryIntent(next) ||
             expected.recoveryId !== next.recoveryId
           )
             return blocked("orchestrator_decision_recovery_invalid");
@@ -4378,9 +4371,9 @@ export function createOrchestratorSnapshotDecisionRecoveryStore(
  * @security 新しいAuthorityや既読状態を作成しない。
  * @concurrency 読取り、同Identity照合、更新を同じOwnerで行う。
  */
-export function createOrchestratorSnapshotIntegrationRecordPort(
+export function createCoordinatorSnapshotIntegrationRecordPort(
   binding: IntegrationRecordBinding,
-): OrchestratorIntegrationRecordPort {
+): CoordinatorIntegrationRecordPort {
   return Object.freeze({
     /**
      * 同Identity・同内容に限定して結果を保存する。
@@ -4398,12 +4391,12 @@ export function createOrchestratorSnapshotIntegrationRecordPort(
      * @concurrency 照合と更新を同じOwnerで行う。
      */
     write(record) {
-      return withOrchestratorSnapshotOperation(
+      return withCoordinatorSnapshotOperation(
         binding.workingDirectory,
         binding.repositoryBindingId,
         (current) => {
-          const value: OrchestratorResultRecord = {
-            contract: ORCHESTRATOR_INTEGRATION_CONTRACT,
+          const value: CoordinatorResultRecord = {
+            contract: COORDINATOR_INTEGRATION_CONTRACT,
             kind: record.kind,
             repositoryBindingId: binding.repositoryBindingId,
             projectId: binding.projectId,
@@ -4413,7 +4406,7 @@ export function createOrchestratorSnapshotIntegrationRecordPort(
             contentHash: digest(JSON.stringify(record.value)),
             value: record.value,
           };
-          if (!validOrchestratorResultRecord(value))
+          if (!validCoordinatorResultRecord(value))
             return blocked("orchestrator_result_invalid");
           const queue = current.queueEntries.find(
             (item) => item.queueId === binding.queueId,
@@ -4461,13 +4454,13 @@ export function createOrchestratorSnapshotIntegrationRecordPort(
  * @security JSONから実行用opaque LeaseやAuthorityを復元しない。
  * @concurrency 同じ短期Owner内でQueueと取得意図を照合し、解放確認後に返す。
  */
-export function inspectOrchestratorSnapshotLeaseAcquisitionOwner(
+export function inspectCoordinatorSnapshotLeaseAcquisitionOwner(
   workingDirectory: string,
   binding: string,
 ): StoreResult<
-  Readonly<{ acquisition: OrchestratorLeaseAcquisitionResolution | null }>
+  Readonly<{ acquisition: CoordinatorLeaseAcquisitionResolution | null }>
 > {
-  return withOrchestratorSnapshotOperation(
+  return withCoordinatorSnapshotOperation(
     workingDirectory,
     binding,
     (current) => {
@@ -4536,13 +4529,13 @@ export function inspectOrchestratorSnapshotLeaseAcquisitionOwner(
  * @security JSONからLeaseを復元しない。
  * @concurrency Repository単位／Project単位の既存Lease Identityを維持する。
  */
-export function acquireOrchestratorSnapshotLease(
+export function acquireCoordinatorSnapshotLease(
   workingDirectory: string,
   binding: string,
   projectId: string,
   queueId: string,
   kind: LeaseKind,
-): StoreResult<OrchestratorLease> {
+): StoreResult<CoordinatorLease> {
   if (
     ![binding, projectId, queueId].every(validId) ||
     (kind !== "project-operation" && kind !== "canonical-adoption")
@@ -4567,7 +4560,7 @@ export function acquireOrchestratorSnapshotLease(
     physicalIdentity: null,
   };
   let intentSaveRequested = false;
-  const reserved = withOrchestratorSnapshotOperation(
+  const reserved = withCoordinatorSnapshotOperation(
     workingDirectory,
     binding,
     (current, owner) => {
@@ -4591,10 +4584,7 @@ export function acquireOrchestratorSnapshotLease(
       )
         return blocked("orchestrator_lease_unavailable");
       if (
-        !orchestratorSnapshotLeaseResourcesAbsent(
-          owner.repositoryRoot,
-          identity,
-        )
+        !coordinatorSnapshotLeaseResourcesAbsent(owner.repositoryRoot, identity)
       )
         return blocked("orchestrator_lease_preexisting_resource");
       const metadata = fs.lstatSync(owner.repositoryRoot);
@@ -4615,7 +4605,7 @@ export function acquireOrchestratorSnapshotLease(
       ? blocked(reserved.reason, true, recoveryId)
       : reserved;
   const { repositoryRoot, rootIdentity } = reserved.value;
-  const leasePaths = resolveOrchestratorNamedPaths(repositoryRoot);
+  const leasePaths = resolveCoordinatorNamedPaths(repositoryRoot);
   if (!leasePaths || leasePaths.repositoryRoot !== repositoryRoot)
     return blocked(
       "orchestrator_lease_acquisition_recovery_required",
@@ -4629,7 +4619,7 @@ export function acquireOrchestratorSnapshotLease(
   );
   let physicalIdentity: string;
   try {
-    const resolved = resolveOrchestratorNamedPaths(workingDirectory);
+    const resolved = resolveCoordinatorNamedPaths(workingDirectory);
     const rootMetadata = fs.lstatSync(repositoryRoot);
     if (
       !resolved ||
@@ -4653,7 +4643,7 @@ export function acquireOrchestratorSnapshotLease(
       ),
       "orchestrator_repository_root_invalid",
     ).directory;
-    const boundary = assertOrchestratorArea(repositoryRoot, "tmp", temporary);
+    const boundary = assertCoordinatorArea(repositoryRoot, "tmp", temporary);
     const locks = ensureDirectory(temporary, "orchestrator-leases");
     assertDirectory(locks);
     fs.mkdirSync(lock, { mode: 0o700 });
@@ -4663,7 +4653,7 @@ export function acquireOrchestratorSnapshotLease(
     physicalIdentity = digest(
       JSON.stringify([metadata.dev, metadata.ino, metadata.birthtimeMs]),
     );
-    assertOrchestratorAreaUnchanged(repositoryRoot, "tmp", boundary);
+    assertCoordinatorAreaUnchanged(repositoryRoot, "tmp", boundary);
   } catch {
     return blocked(
       "orchestrator_lease_acquisition_recovery_required",
@@ -4671,7 +4661,7 @@ export function acquireOrchestratorSnapshotLease(
       recoveryId,
     );
   }
-  const acquired = withOrchestratorSnapshotOperation(
+  const acquired = withCoordinatorSnapshotOperation(
     workingDirectory,
     binding,
     (current) => {
@@ -4722,7 +4712,7 @@ export function acquireOrchestratorSnapshotLease(
       recoveryId,
     );
   let released = false;
-  let lease!: OrchestratorLease;
+  let lease!: CoordinatorLease;
   lease = Object.freeze({
     kind,
     ownerGeneration,
@@ -4746,7 +4736,7 @@ export function acquireOrchestratorSnapshotLease(
       const active = activeLeases.get(lease);
       if (!active || !activeLeaseIsObserved(active))
         return blocked("orchestrator_lease_release_unknown", true, recoveryId);
-      const pending = withOrchestratorSnapshotOperation(
+      const pending = withCoordinatorSnapshotOperation(
         workingDirectory,
         binding,
         (current) => {
@@ -4787,21 +4777,21 @@ export function acquireOrchestratorSnapshotLease(
       try {
         if (!activeLeaseIsObserved(active))
           throw new Error("lease_identity_changed");
-        const boundary = assertOrchestratorArea(
+        const boundary = assertCoordinatorArea(
           repositoryRoot,
           "tmp",
           leasePaths.temporary,
         );
         fs.rmdirSync(lock);
-        assertOrchestratorAreaUnchanged(repositoryRoot, "tmp", boundary);
-        if (!orchestratorSnapshotLeaseResourcesAbsent(repositoryRoot, identity))
+        assertCoordinatorAreaUnchanged(repositoryRoot, "tmp", boundary);
+        if (!coordinatorSnapshotLeaseResourcesAbsent(repositoryRoot, identity))
           throw new Error("lease_release_unconfirmed");
       } catch {
         activeLeases.delete(lease);
         return blocked("orchestrator_lease_release_unknown", true, recoveryId);
       }
       activeLeases.delete(lease);
-      const settled = withOrchestratorSnapshotOperation(
+      const settled = withCoordinatorSnapshotOperation(
         workingDirectory,
         binding,
         (current) => {
@@ -4890,19 +4880,19 @@ export function acquireOrchestratorSnapshotLease(
  * @security Root外の実体へ辿らない。
  * @concurrency Rootと最後の既知親を不存在判定前に再確認する。
  */
-function orchestratorSnapshotLeaseResourcesAbsent(
+function coordinatorSnapshotLeaseResourcesAbsent(
   repositoryRoot: string,
   identity: string,
 ): boolean {
   assertDirectory(repositoryRoot);
-  const boundary = observeOrchestratorArea(repositoryRoot, "tmp");
+  const boundary = observeCoordinatorArea(repositoryRoot, "tmp");
   if (boundary.status === "not_observed") {
-    assertOrchestratorAreaUnchanged(repositoryRoot, "tmp", boundary);
+    assertCoordinatorAreaUnchanged(repositoryRoot, "tmp", boundary);
     return true;
   }
   const parent = path.join(boundary.directory, "orchestrator-leases");
   if (pathConfirmedAbsent(parent)) {
-    assertOrchestratorAreaUnchanged(repositoryRoot, "tmp", boundary);
+    assertCoordinatorAreaUnchanged(repositoryRoot, "tmp", boundary);
     return true;
   }
   assertDirectory(parent);
@@ -4911,7 +4901,7 @@ function orchestratorSnapshotLeaseResourcesAbsent(
   ]);
   assertDirectory(repositoryRoot);
   assertDirectory(parent);
-  assertOrchestratorAreaUnchanged(repositoryRoot, "tmp", boundary);
+  assertCoordinatorAreaUnchanged(repositoryRoot, "tmp", boundary);
   return isAbsent;
 }
 
@@ -4930,13 +4920,13 @@ function orchestratorSnapshotLeaseResourcesAbsent(
  * @security 他Owner、他Root、候補と保護判断へ処置を広げない。
  * @concurrency 外部観測を短期排他の外で行い、対象を再照合する。
  */
-export function reconcileOrchestratorSnapshotLeaseOwnerLoss(
+export function reconcileCoordinatorSnapshotLeaseOwnerLoss(
   workingDirectory: string,
   binding: string,
   projectId: string,
   queueId: string,
   kind: LeaseKind,
-  observeOwner: OrchestratorLeaseOwnerObservation,
+  observeOwner: CoordinatorLeaseOwnerObservation,
 ): StoreResult<
   Readonly<{ queue: ProjectQueueEntry | null; recoveryId: string | null }>
 > {
@@ -4953,7 +4943,7 @@ export function reconcileOrchestratorSnapshotLeaseOwnerLoss(
     kind,
   );
   const identity = leaseIdentity(binding, projectId, queueId, kind);
-  const inspected = withOrchestratorSnapshotOperation(
+  const inspected = withCoordinatorSnapshotOperation(
     workingDirectory,
     binding,
     (current, owner) => {
@@ -4995,7 +4985,7 @@ export function reconcileOrchestratorSnapshotLeaseOwnerLoss(
   if (inspected.status !== "completed")
     return blocked(inspected.reason, true, recoveryId);
   const initial = inspected.value;
-  const leasePaths = resolveOrchestratorNamedPaths(initial.repositoryRoot);
+  const leasePaths = resolveCoordinatorNamedPaths(initial.repositoryRoot);
   if (!leasePaths || leasePaths.repositoryRoot !== initial.repositoryRoot)
     return blocked(
       "orchestrator_lease_recovery_observation_unknown",
@@ -5011,7 +5001,7 @@ export function reconcileOrchestratorSnapshotLeaseOwnerLoss(
   if (!first) {
     if (initial.queue?.ownerGeneration) {
       if (!["leased", "running"].includes(initial.queue.state)) {
-        const settled = createOrchestratorSnapshotPersistencePorts(
+        const settled = createCoordinatorSnapshotPersistencePorts(
           workingDirectory,
           binding,
           initial.intakeEpoch,
@@ -5027,7 +5017,7 @@ export function reconcileOrchestratorSnapshotLeaseOwnerLoss(
             })
           : blocked(settled.reason, true, recoveryId);
       }
-      return withOrchestratorSnapshotOperation(
+      return withCoordinatorSnapshotOperation(
         workingDirectory,
         binding,
         (current, owner) => {
@@ -5054,7 +5044,7 @@ export function reconcileOrchestratorSnapshotLeaseOwnerLoss(
                 item.queueId === queueId &&
                 item.kind === kind,
             ) ||
-            !orchestratorSnapshotLeaseResourcesAbsent(
+            !coordinatorSnapshotLeaseResourcesAbsent(
               owner.repositoryRoot,
               identity,
             )
@@ -5086,7 +5076,7 @@ export function reconcileOrchestratorSnapshotLeaseOwnerLoss(
     }
     try {
       if (
-        !orchestratorSnapshotLeaseResourcesAbsent(
+        !coordinatorSnapshotLeaseResourcesAbsent(
           initial.repositoryRoot,
           identity,
         ) ||
@@ -5166,7 +5156,7 @@ export function reconcileOrchestratorSnapshotLeaseOwnerLoss(
   if (physicalIdentity === null) {
     try {
       if (
-        !orchestratorSnapshotLeaseResourcesAbsent(
+        !coordinatorSnapshotLeaseResourcesAbsent(
           initial.repositoryRoot,
           identity,
         )
@@ -5177,7 +5167,7 @@ export function reconcileOrchestratorSnapshotLeaseOwnerLoss(
             true,
             recoveryId,
           );
-        const boundary = assertOrchestratorArea(
+        const boundary = assertCoordinatorArea(
           initial.repositoryRoot,
           "tmp",
           leasePaths.temporary,
@@ -5194,11 +5184,7 @@ export function reconcileOrchestratorSnapshotLeaseOwnerLoss(
         physicalIdentity = digest(
           JSON.stringify([metadata.dev, metadata.ino, metadata.birthtimeMs]),
         );
-        assertOrchestratorAreaUnchanged(
-          initial.repositoryRoot,
-          "tmp",
-          boundary,
-        );
+        assertCoordinatorAreaUnchanged(initial.repositoryRoot, "tmp", boundary);
       }
     } catch {
       return blocked(
@@ -5213,7 +5199,7 @@ export function reconcileOrchestratorSnapshotLeaseOwnerLoss(
     phase: "recovery_pending" as const,
     physicalIdentity,
   };
-  const reserved = withOrchestratorSnapshotOperation(
+  const reserved = withCoordinatorSnapshotOperation(
     workingDirectory,
     binding,
     (current, owner) => {
@@ -5260,7 +5246,7 @@ export function reconcileOrchestratorSnapshotLeaseOwnerLoss(
   if (reserved.status !== "completed")
     return blocked(reserved.reason, true, recoveryId);
   try {
-    const resolved = resolveOrchestratorNamedPaths(workingDirectory);
+    const resolved = resolveCoordinatorNamedPaths(workingDirectory);
     const rootMetadata = fs.lstatSync(initial.repositoryRoot);
     if (
       !resolved ||
@@ -5280,12 +5266,9 @@ export function reconcileOrchestratorSnapshotLeaseOwnerLoss(
       throw new Error("lease_root_changed");
     // 不存在と観測不能を区別し、親にaliasがある場合も処置しない。
     if (
-      !orchestratorSnapshotLeaseResourcesAbsent(
-        initial.repositoryRoot,
-        identity,
-      )
+      !coordinatorSnapshotLeaseResourcesAbsent(initial.repositoryRoot, identity)
     ) {
-      const boundary = assertOrchestratorArea(
+      const boundary = assertCoordinatorArea(
         initial.repositoryRoot,
         "tmp",
         leasePaths.temporary,
@@ -5306,13 +5289,10 @@ export function reconcileOrchestratorSnapshotLeaseOwnerLoss(
           recoveryId,
         );
       fs.rmdirSync(lock);
-      assertOrchestratorAreaUnchanged(initial.repositoryRoot, "tmp", boundary);
+      assertCoordinatorAreaUnchanged(initial.repositoryRoot, "tmp", boundary);
     }
     if (
-      !orchestratorSnapshotLeaseResourcesAbsent(
-        initial.repositoryRoot,
-        identity,
-      )
+      !coordinatorSnapshotLeaseResourcesAbsent(initial.repositoryRoot, identity)
     )
       throw new Error("lease_release_unconfirmed");
   } catch {
@@ -5322,7 +5302,7 @@ export function reconcileOrchestratorSnapshotLeaseOwnerLoss(
       recoveryId,
     );
   }
-  const settled = withOrchestratorSnapshotOperation(
+  const settled = withCoordinatorSnapshotOperation(
     workingDirectory,
     binding,
     (current, owner) => {
@@ -5352,7 +5332,7 @@ export function reconcileOrchestratorSnapshotLeaseOwnerLoss(
               ? ownIntents
               : [...ownIntents, pending],
           ) ||
-        !orchestratorSnapshotLeaseResourcesAbsent(
+        !coordinatorSnapshotLeaseResourcesAbsent(
           initial.repositoryRoot,
           identity,
         )
@@ -5452,8 +5432,8 @@ export function reconcileOrchestratorSnapshotLeaseOwnerLoss(
  * @security 受付世代は実行Authorityではない。
  * @concurrency 同Ownerで保存直前にも使用する。
  */
-function orchestratorSnapshotIntakeMatches(
-  current: OrchestratorSnapshot,
+function coordinatorSnapshotIntakeMatches(
+  current: CoordinatorSnapshot,
   intake: Readonly<{
     epoch: string;
     queueId: string;
@@ -5499,7 +5479,7 @@ function orchestratorSnapshotIntakeMatches(
  * @security 認証または権限を発行しない。
  * @concurrency 保存時も同じ判定を再実行する。
  */
-export function inspectOrchestratorSnapshotIntake(
+export function inspectCoordinatorSnapshotIntake(
   workingDirectory: string,
   binding: string,
   intake: Readonly<{
@@ -5510,11 +5490,11 @@ export function inspectOrchestratorSnapshotIntake(
     milestoneId: string;
   }>,
 ): StoreResult<true> {
-  return withOrchestratorSnapshotOperation(
+  return withCoordinatorSnapshotOperation(
     workingDirectory,
     binding,
     (current) =>
-      orchestratorSnapshotIntakeMatches(current, intake)
+      coordinatorSnapshotIntakeMatches(current, intake)
         ? completed("orchestrator_intake_verified", {
             next: null,
             value: true as const,
@@ -5538,7 +5518,7 @@ export function inspectOrchestratorSnapshotIntake(
  * @security 過去Requestを現在世代へ自動付替えしない。
  * @concurrency 選択から待機Queue更新まで自己再取得せず一つの短期Ownerに閉じる。
  */
-export function createOrchestratorSnapshotStatePort(
+export function createCoordinatorSnapshotStatePort(
   workingDirectory: string,
   binding: string,
   intakeEpoch: string,
@@ -5549,18 +5529,14 @@ export function createOrchestratorSnapshotStatePort(
     projectId: string;
     milestoneId: string;
   }>,
-): OrchestratorStatePort {
+): CoordinatorStatePort {
   if (!validId(binding) || !validId(intakeEpoch))
     throw new Error("snapshot_port_binding_invalid");
   return Object.freeze({
     readWorkspaceTaskTarget: (queueId: string) =>
-      resolveOrchestratorWorkspaceTaskTarget(
-        workingDirectory,
-        binding,
-        queueId,
-      ),
+      resolveCoordinatorWorkspaceTaskTarget(workingDirectory, binding, queueId),
     writeState: (state, expectedGeneration) =>
-      writeOrchestratorSnapshotState(
+      writeCoordinatorSnapshotState(
         workingDirectory,
         binding,
         JSON.stringify(state),
@@ -5568,191 +5544,175 @@ export function createOrchestratorSnapshotStatePort(
         intake,
       ),
     readState: (projectId) =>
-      withOrchestratorSnapshotOperation(
-        workingDirectory,
-        binding,
-        (current) => {
-          if (!validId(projectId))
-            return blocked("orchestrator_state_identity_invalid");
-          return completed("orchestrator_state_observed", {
-            next: null,
-            value:
-              current.projects.find((item) => item.projectId === projectId) ??
-              null,
-          });
-        },
-      ),
+      withCoordinatorSnapshotOperation(workingDirectory, binding, (current) => {
+        if (!validId(projectId))
+          return blocked("orchestrator_state_identity_invalid");
+        return completed("orchestrator_state_observed", {
+          next: null,
+          value:
+            current.projects.find((item) => item.projectId === projectId) ??
+            null,
+        });
+      }),
     enqueueOperation: (input) =>
-      withOrchestratorSnapshotOperation(
-        workingDirectory,
-        binding,
-        (current) => {
-          const existing = current.queueEntries.find(
+      withCoordinatorSnapshotOperation(workingDirectory, binding, (current) => {
+        const existing = current.queueEntries.find(
+          (item) => item.queueId === input.queueId,
+        );
+        if (existing) {
+          const epoch = current.intakeBindings.find(
             (item) => item.queueId === input.queueId,
+          )?.epoch;
+          return epoch === intakeEpoch &&
+            existing.requestHash === input.requestHash &&
+            existing.projectId === input.projectId &&
+            existing.milestoneId === input.milestoneId
+            ? completed("orchestrator_queue_request_reused", {
+                next: null,
+                value: existing,
+              })
+            : blocked("orchestrator_queue_identity_conflict");
+        }
+        if (current.intakeEpoch !== intakeEpoch)
+          return blocked("orchestrator_intake_epoch_retired");
+        const value: ProjectQueueEntry = {
+          ...input,
+          workspaceId: input.workspaceId ?? null,
+          state: "queued",
+          generation: 1,
+          ownerGeneration: null,
+          resumeCondition: null,
+          resultReference: null,
+        };
+        if (
+          !validQueueEntry(value) ||
+          value.singleTask !== undefined ||
+          !current.projects.some((item) => item.projectId === value.projectId)
+        )
+          return blocked("orchestrator_queue_input_invalid");
+        if (
+          value.workspaceId != null &&
+          (!current.queueEntries.some(
+            (entry) =>
+              entry.projectId === value.projectId &&
+              entry.workspaceId === value.workspaceId,
+          ) ||
+            !current.workspaces.some(
+              (entry) =>
+                entry.workspaceId === value.workspaceId &&
+                entry.phase === "ready" &&
+                entry.holdUntil === null,
+            ))
+        )
+          return blocked("orchestrator_workspace_not_ready");
+        return completed("orchestrator_queue_entry_durable", {
+          next: {
+            ...current,
+            queueEntries: [...current.queueEntries, value],
+            intakeBindings: [
+              ...current.intakeBindings,
+              { queueId: value.queueId, epoch: intakeEpoch },
+            ],
+          },
+          value,
+        });
+      }),
+    readQueue: (queueId) =>
+      withCoordinatorSnapshotOperation(workingDirectory, binding, (current) => {
+        if (!validId(queueId))
+          return blocked("orchestrator_queue_input_invalid");
+        const value = current.queueEntries.find(
+          (item) => item.queueId === queueId,
+        );
+        return value
+          ? completed("orchestrator_queue_observed", { next: null, value })
+          : blocked("orchestrator_queue_observation_unknown");
+      }),
+    selectNextOperation: () =>
+      withCoordinatorSnapshotOperation(workingDirectory, binding, (current) => {
+        const orderedTasks = [...current.queueEntries].sort((a, b) =>
+          a.queueId < b.queueId ? -1 : a.queueId > b.queueId ? 1 : 0,
+        );
+        const isActive = orderedTasks.some(
+          (item) => item.ownerGeneration !== null,
+        );
+        const interactive = orderedTasks.find(
+          (item) =>
+            item.originLane === "interactive" &&
+            item.state === "queued" &&
+            item.ownerGeneration === null,
+        );
+        if (isActive || interactive) {
+          const reason = isActive
+            ? "active_operation_pending"
+            : "interactive_queue_pending";
+          let hasChanged = false;
+          const queueEntries = current.queueEntries.map((item) => {
+            if (
+              item.originLane !== "scheduled" ||
+              item.state !== "queued" ||
+              item.ownerGeneration !== null
+            )
+              return item;
+            hasChanged = true;
+            return {
+              ...item,
+              state: "waiting_foreground" as const,
+              generation: item.generation + 1,
+              resumeCondition: reason,
+              resultReference: null,
+            };
+          });
+          return completed(
+            isActive
+              ? "orchestrator_active_operation_retained"
+              : "orchestrator_interactive_queue_selected",
+            {
+              next: hasChanged ? { ...current, queueEntries } : null,
+              value: isActive ? null : (interactive ?? null),
+            },
           );
-          if (existing) {
-            const epoch = current.intakeBindings.find(
-              (item) => item.queueId === input.queueId,
-            )?.epoch;
-            return epoch === intakeEpoch &&
-              existing.requestHash === input.requestHash &&
-              existing.projectId === input.projectId &&
-              existing.milestoneId === input.milestoneId
-              ? completed("orchestrator_queue_request_reused", {
-                  next: null,
-                  value: existing,
-                })
-              : blocked("orchestrator_queue_identity_conflict");
-          }
-          if (current.intakeEpoch !== intakeEpoch)
-            return blocked("orchestrator_intake_epoch_retired");
-          const value: ProjectQueueEntry = {
-            ...input,
-            workspaceId: input.workspaceId ?? null,
-            state: "queued",
-            generation: 1,
-            ownerGeneration: null,
+        }
+        const waiting = orderedTasks.find(
+          (item) =>
+            item.originLane === "scheduled" &&
+            item.state === "waiting_foreground" &&
+            item.ownerGeneration === null,
+        );
+        if (waiting) {
+          const value = {
+            ...waiting,
+            state: "queued" as const,
+            generation: waiting.generation + 1,
             resumeCondition: null,
             resultReference: null,
           };
-          if (
-            !validQueueEntry(value) ||
-            value.singleTask !== undefined ||
-            !current.projects.some((item) => item.projectId === value.projectId)
-          )
-            return blocked("orchestrator_queue_input_invalid");
-          if (
-            value.workspaceId != null &&
-            (!current.queueEntries.some(
-              (entry) =>
-                entry.projectId === value.projectId &&
-                entry.workspaceId === value.workspaceId,
-            ) ||
-              !current.workspaces.some(
-                (entry) =>
-                  entry.workspaceId === value.workspaceId &&
-                  entry.phase === "ready" &&
-                  entry.holdUntil === null,
-              ))
-          )
-            return blocked("orchestrator_workspace_not_ready");
-          return completed("orchestrator_queue_entry_durable", {
+          return completed("orchestrator_scheduled_queue_selected", {
             next: {
               ...current,
-              queueEntries: [...current.queueEntries, value],
-              intakeBindings: [
-                ...current.intakeBindings,
-                { queueId: value.queueId, epoch: intakeEpoch },
-              ],
+              queueEntries: current.queueEntries.map((item) =>
+                item.queueId === value.queueId ? value : item,
+              ),
             },
             value,
           });
-        },
-      ),
-    readQueue: (queueId) =>
-      withOrchestratorSnapshotOperation(
-        workingDirectory,
-        binding,
-        (current) => {
-          if (!validId(queueId))
-            return blocked("orchestrator_queue_input_invalid");
-          const value = current.queueEntries.find(
-            (item) => item.queueId === queueId,
-          );
-          return value
-            ? completed("orchestrator_queue_observed", { next: null, value })
-            : blocked("orchestrator_queue_observation_unknown");
-        },
-      ),
-    selectNextOperation: () =>
-      withOrchestratorSnapshotOperation(
-        workingDirectory,
-        binding,
-        (current) => {
-          const orderedTasks = [...current.queueEntries].sort((a, b) =>
-            a.queueId < b.queueId ? -1 : a.queueId > b.queueId ? 1 : 0,
-          );
-          const isActive = orderedTasks.some(
-            (item) => item.ownerGeneration !== null,
-          );
-          const interactive = orderedTasks.find(
-            (item) =>
-              item.originLane === "interactive" &&
-              item.state === "queued" &&
-              item.ownerGeneration === null,
-          );
-          if (isActive || interactive) {
-            const reason = isActive
-              ? "active_operation_pending"
-              : "interactive_queue_pending";
-            let hasChanged = false;
-            const queueEntries = current.queueEntries.map((item) => {
-              if (
-                item.originLane !== "scheduled" ||
-                item.state !== "queued" ||
-                item.ownerGeneration !== null
-              )
-                return item;
-              hasChanged = true;
-              return {
-                ...item,
-                state: "waiting_foreground" as const,
-                generation: item.generation + 1,
-                resumeCondition: reason,
-                resultReference: null,
-              };
-            });
-            return completed(
-              isActive
-                ? "orchestrator_active_operation_retained"
-                : "orchestrator_interactive_queue_selected",
-              {
-                next: hasChanged ? { ...current, queueEntries } : null,
-                value: isActive ? null : (interactive ?? null),
-              },
-            );
-          }
-          const waiting = orderedTasks.find(
+        }
+        const value =
+          orderedTasks.find(
             (item) =>
               item.originLane === "scheduled" &&
-              item.state === "waiting_foreground" &&
+              item.state === "queued" &&
               item.ownerGeneration === null,
-          );
-          if (waiting) {
-            const value = {
-              ...waiting,
-              state: "queued" as const,
-              generation: waiting.generation + 1,
-              resumeCondition: null,
-              resultReference: null,
-            };
-            return completed("orchestrator_scheduled_queue_selected", {
-              next: {
-                ...current,
-                queueEntries: current.queueEntries.map((item) =>
-                  item.queueId === value.queueId ? value : item,
-                ),
-              },
-              value,
-            });
-          }
-          const value =
-            orderedTasks.find(
-              (item) =>
-                item.originLane === "scheduled" &&
-                item.state === "queued" &&
-                item.ownerGeneration === null,
-            ) ?? null;
-          return completed(
-            value
-              ? "orchestrator_scheduled_queue_selected"
-              : "orchestrator_queue_empty",
-            { next: null, value },
-          );
-        },
-      ),
+          ) ?? null;
+        return completed(
+          value
+            ? "orchestrator_scheduled_queue_selected"
+            : "orchestrator_queue_empty",
+          { next: null, value },
+        );
+      }),
     updateQueue: (queueId, expectedGeneration, next) =>
-      withOrchestratorSnapshotOperation(
+      withCoordinatorSnapshotOperation(
         workingDirectory,
         binding,
         (current, owner) => {
@@ -5856,50 +5816,46 @@ export function createOrchestratorSnapshotStatePort(
         },
       ),
     settleQueueRecovery: (queueId, expectedGeneration, recoveryId) =>
-      withOrchestratorSnapshotOperation(
-        workingDirectory,
-        binding,
-        (current) => {
-          const previous = current.queueEntries.find(
-            (item) => item.queueId === queueId,
-          );
-          if (
-            !validId(queueId) ||
-            !validResultReference(recoveryId) ||
-            !Number.isSafeInteger(expectedGeneration) ||
-            expectedGeneration < 1 ||
-            !previous ||
-            previous.generation !== expectedGeneration
-          )
-            return blocked("orchestrator_queue_recovery_generation_conflict");
-          if (
-            previous.state !== "recovery_required" ||
-            previous.ownerGeneration !== null ||
-            previous.resumeCondition !== "exact_recovery" ||
-            previous.resultReference !== recoveryId
-          )
-            return blocked("orchestrator_queue_recovery_identity_mismatch");
-          const value: ProjectQueueEntry = {
-            ...previous,
-            state: "queued",
-            generation: previous.generation + 1,
-            ownerGeneration: null,
-            resumeCondition: "exact_recovery_settled",
-            resultReference: recoveryId,
-          };
-          return completed("orchestrator_queue_recovery_settled", {
-            next: {
-              ...current,
-              queueEntries: current.queueEntries.map((item) =>
-                item.queueId === queueId ? value : item,
-              ),
-            },
-            value,
-          });
-        },
-      ),
+      withCoordinatorSnapshotOperation(workingDirectory, binding, (current) => {
+        const previous = current.queueEntries.find(
+          (item) => item.queueId === queueId,
+        );
+        if (
+          !validId(queueId) ||
+          !validResultReference(recoveryId) ||
+          !Number.isSafeInteger(expectedGeneration) ||
+          expectedGeneration < 1 ||
+          !previous ||
+          previous.generation !== expectedGeneration
+        )
+          return blocked("orchestrator_queue_recovery_generation_conflict");
+        if (
+          previous.state !== "recovery_required" ||
+          previous.ownerGeneration !== null ||
+          previous.resumeCondition !== "exact_recovery" ||
+          previous.resultReference !== recoveryId
+        )
+          return blocked("orchestrator_queue_recovery_identity_mismatch");
+        const value: ProjectQueueEntry = {
+          ...previous,
+          state: "queued",
+          generation: previous.generation + 1,
+          ownerGeneration: null,
+          resumeCondition: "exact_recovery_settled",
+          resultReference: recoveryId,
+        };
+        return completed("orchestrator_queue_recovery_settled", {
+          next: {
+            ...current,
+            queueEntries: current.queueEntries.map((item) =>
+              item.queueId === queueId ? value : item,
+            ),
+          },
+          value,
+        });
+      }),
     settleQueueLeaseRelease: (queueId, expectedGeneration, ownerGeneration) =>
-      withOrchestratorSnapshotOperation(
+      withCoordinatorSnapshotOperation(
         workingDirectory,
         binding,
         (current, owner) => {
@@ -5921,10 +5877,10 @@ export function createOrchestratorSnapshotStatePort(
               "orchestrator_queue_release_settlement_state_mismatch",
               true,
             );
-          const paths = resolveOrchestratorNamedPaths(owner.repositoryRoot);
+          const paths = resolveCoordinatorNamedPaths(owner.repositoryRoot);
           if (!paths) throw new Error("orchestrator_repository_root_invalid");
           const runtime = paths.orchestrator;
-          const boundary = assertOrchestratorArea(
+          const boundary = assertCoordinatorArea(
             owner.repositoryRoot,
             "orchestrator",
             runtime,
@@ -5941,7 +5897,7 @@ export function createOrchestratorSnapshotStatePort(
               : path.join(runtime, "work", "locks");
           if (
             !(current.schema === SNAPSHOT_SCHEMA_V3
-              ? orchestratorSnapshotLeaseResourcesAbsent(
+              ? coordinatorSnapshotLeaseResourcesAbsent(
                   owner.repositoryRoot,
                   identity,
                 )
@@ -5960,7 +5916,7 @@ export function createOrchestratorSnapshotStatePort(
               "orchestrator_queue_release_settlement_resource_present",
               true,
             );
-          assertOrchestratorAreaUnchanged(
+          assertCoordinatorAreaUnchanged(
             owner.repositoryRoot,
             "orchestrator",
             boundary,
@@ -6042,13 +5998,13 @@ export function createOrchestratorSnapshotStatePort(
  * @security 本文・資格を保存しない。
  * @concurrency 既存Snapshot排他だけを使用する。
  */
-export function enqueueOrchestratorSingleTask(
+export function enqueueCoordinatorSingleTask(
   workingDirectory: string,
   binding: string,
   intakeEpoch: string,
   input: ProjectQueueEntry,
 ): StoreResult<ProjectQueueEntry> {
-  return withOrchestratorSnapshotOperation(
+  return withCoordinatorSnapshotOperation(
     workingDirectory,
     binding,
     (current) => {
@@ -6147,17 +6103,17 @@ export function enqueueOrchestratorSingleTask(
  * @security 保存値から実Leaseを復元しない。
  * @concurrency 既存operation LeaseとSnapshot短期排他。
  */
-export function updateOrchestratorSingleTask(
+export function updateCoordinatorSingleTask(
   workingDirectory: string,
   binding: string,
   queueId: string,
   expectedGeneration: number,
-  lease: OrchestratorLease,
+  lease: CoordinatorLease,
   raw: unknown,
 ): StoreResult<ProjectQueueEntry> {
   const record = inspectSingleTaskRecord(raw);
   if (!record) return blocked("orchestrator_single_task_record_invalid");
-  return withOrchestratorSnapshotOperation(
+  return withCoordinatorSnapshotOperation(
     workingDirectory,
     binding,
     (current, owner) => {
@@ -6289,14 +6245,14 @@ export function updateOrchestratorSingleTask(
  * @security 本文を保存しない。
  * @concurrency 既存Snapshotの短期排他で照合する。
  */
-export function closeUnstartedOrchestratorSingleTask(
+export function closeUnstartedCoordinatorSingleTask(
   workingDirectory: string,
   binding: string,
   queueId: string,
   expectedGeneration: number,
   reason: string,
 ): StoreResult<ProjectQueueEntry> {
-  return withOrchestratorSnapshotOperation(
+  return withCoordinatorSnapshotOperation(
     workingDirectory,
     binding,
     (current) => {
@@ -6367,18 +6323,18 @@ export function closeUnstartedOrchestratorSingleTask(
  * @security 認証・採用Authorityを生成しない。
  * @concurrency 構築時の世代を固定し、各変更時に再確認する。
  */
-export function createCurrentOrchestratorPersistencePorts(
+export function createCurrentCoordinatorPersistencePorts(
   workingDirectory: string,
   binding: string,
-): OrchestratorPersistencePorts {
-  const observed = readOrchestratorSnapshot(workingDirectory, binding);
+): CoordinatorPersistencePorts {
+  const observed = readCoordinatorSnapshot(workingDirectory, binding);
   if (
     observed.status !== "completed" ||
     !observed.value ||
     observed.value.schema !== SNAPSHOT_SCHEMA_V3
   )
     throw new Error("orchestrator_snapshot_not_initialized");
-  return createOrchestratorSnapshotPersistencePorts(
+  return createCoordinatorSnapshotPersistencePorts(
     workingDirectory,
     binding,
     observed.value.intakeEpoch,
@@ -6400,12 +6356,12 @@ export function createCurrentOrchestratorPersistencePorts(
  * @security 保存値はAuthorityではない。
  * @concurrency 同Owner下でProject値を確定する。
  */
-export function readCurrentOrchestratorState(
+export function readCurrentCoordinatorState(
   workingDirectory: string,
   binding: string,
   projectId: string,
-): StoreResult<OrchestratorState | null> {
-  return withOrchestratorSnapshotOperation(
+): StoreResult<CoordinatorState | null> {
+  return withCoordinatorSnapshotOperation(
     workingDirectory,
     binding,
     (current) =>
@@ -6436,7 +6392,7 @@ export function readCurrentOrchestratorState(
  * @security 旧形式Fallback、暗黙初期化、受付世代の自動付替えを行わない。
  * @concurrency 各操作が既存の短期保存Ownerと実行Leaseの分離を維持する。
  */
-export function createOrchestratorSnapshotPersistencePorts(
+export function createCoordinatorSnapshotPersistencePorts(
   workingDirectory: string,
   repositoryBindingId: string,
   intakeEpoch: string,
@@ -6447,16 +6403,16 @@ export function createOrchestratorSnapshotPersistencePorts(
     projectId: string;
     milestoneId: string;
   }>,
-): OrchestratorPersistencePorts {
-  const state = createOrchestratorSnapshotStatePort(
+): CoordinatorPersistencePorts {
+  const state = createCoordinatorSnapshotStatePort(
     workingDirectory,
     repositoryBindingId,
     intakeEpoch,
     intake,
   );
-  const lease: OrchestratorLeasePort = Object.freeze({
+  const lease: CoordinatorLeasePort = Object.freeze({
     acquire: (projectId, queueId, kind) =>
-      acquireOrchestratorSnapshotLease(
+      acquireCoordinatorSnapshotLease(
         workingDirectory,
         repositoryBindingId,
         projectId,
@@ -6464,12 +6420,12 @@ export function createOrchestratorSnapshotPersistencePorts(
         kind,
       ),
     inspectAcquisitionOwner: () =>
-      inspectOrchestratorSnapshotLeaseAcquisitionOwner(
+      inspectCoordinatorSnapshotLeaseAcquisitionOwner(
         workingDirectory,
         repositoryBindingId,
       ),
     reconcileOperationOwnerLoss: (projectId, queueId, observeOwner) => {
-      const result = reconcileOrchestratorSnapshotLeaseOwnerLoss(
+      const result = reconcileCoordinatorSnapshotLeaseOwnerLoss(
         workingDirectory,
         repositoryBindingId,
         projectId,
@@ -6488,7 +6444,7 @@ export function createOrchestratorSnapshotPersistencePorts(
       return completed(result.reason, queue);
     },
     reconcileAdoptionOwnerLoss: (projectId, observeOwner) => {
-      const result = reconcileOrchestratorSnapshotLeaseOwnerLoss(
+      const result = reconcileCoordinatorSnapshotLeaseOwnerLoss(
         workingDirectory,
         repositoryBindingId,
         projectId,
@@ -6518,7 +6474,7 @@ export function createOrchestratorSnapshotPersistencePorts(
  * @security 状態名だけを削除許可としない。
  * @concurrency 既存短期Snapshot排他だけを保持する。
  */
-export function writeOrchestratorWorkspaceRecord(
+export function writeCoordinatorWorkspaceRecord(
   workingDirectory: string,
   binding: string,
   projectId: string,
@@ -6526,9 +6482,9 @@ export function writeOrchestratorWorkspaceRecord(
   ownerGeneration: string,
   workspaceId: string,
   expectedGeneration: number,
-  nextRecord: OrchestratorWorkspace | null,
-): StoreResult<OrchestratorWorkspace | null> {
-  return withOrchestratorSnapshotOperation(
+  nextRecord: CoordinatorWorkspace | null,
+): StoreResult<CoordinatorWorkspace | null> {
+  return withCoordinatorSnapshotOperation(
     workingDirectory,
     binding,
     (current) => {
@@ -6555,7 +6511,7 @@ export function writeOrchestratorWorkspaceRecord(
         return blocked("orchestrator_workspace_target_mismatch");
       if (
         nextRecord &&
-        (!validOrchestratorWorkspace(nextRecord) ||
+        (!validCoordinatorWorkspace(nextRecord) ||
           nextRecord.workspaceId !== workspaceId ||
           nextRecord.generation !== expectedGeneration + 1)
       )
@@ -6667,24 +6623,24 @@ export function writeOrchestratorWorkspaceRecord(
 }
 
 /**
- * Orchestrator Durable Foundationの公開契約を記述する。
+ * Coordinator Durable Foundationの公開契約を記述する。
  *
- * @responsibility Orchestrator Durable Foundationの公開field、非公開境界、互換性を所有する。
+ * @responsibility Coordinator Durable Foundationの公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000004
  * @input N/A: 実行時引数を受け取らない。
- * @returns describeOrchestratorDurableFoundationの計算結果を返す。
- * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeOrchestratorDurableFoundationの入力契約を満たす。
- * @postcondition describeOrchestratorDurableFoundationの責務を完了した結果だけを返す。
- * @effect N/A: describeOrchestratorDurableFoundationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: describeOrchestratorDurableFoundationは独自の失敗分岐を所有しない。
- * @invariant describeOrchestratorDurableFoundationは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: describeOrchestratorDurableFoundationはProcess内の同一Subsystemで完結する。
- * @security describeOrchestratorDurableFoundationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: describeOrchestratorDurableFoundationは共有非同期状態を持たない同期処理である。
+ * @returns describeCoordinatorDurableFoundationの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeCoordinatorDurableFoundationの入力契約を満たす。
+ * @postcondition describeCoordinatorDurableFoundationの責務を完了した結果だけを返す。
+ * @effect N/A: describeCoordinatorDurableFoundationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describeCoordinatorDurableFoundationは独自の失敗分岐を所有しない。
+ * @invariant describeCoordinatorDurableFoundationは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: describeCoordinatorDurableFoundationはProcess内の同一Subsystemで完結する。
+ * @security describeCoordinatorDurableFoundationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: describeCoordinatorDurableFoundationは共有非同期状態を持たない同期処理である。
  */
-export function describeOrchestratorDurableFoundation() {
+export function describeCoordinatorDurableFoundation() {
   return Object.freeze({
-    contract: ORCHESTRATOR_DURABLE_FOUNDATION_CONTRACT,
+    contract: COORDINATOR_DURABLE_FOUNDATION_CONTRACT,
     recordStrategy:
       "single_current_snapshot_with_pending_atomic_replace_and_exact_readback",
     queueMutation: "short_exclusive_repository_local_lock",

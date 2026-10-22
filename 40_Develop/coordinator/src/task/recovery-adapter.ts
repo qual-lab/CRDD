@@ -1,32 +1,32 @@
 /**
- * orchestrator-task-recovery-adapterに属する責務をまとめる。
+ * task-recovery-adapterに属する責務をまとめる。
  *
- * @responsibility OrchestratorTaskRecoveryHostDependenciesを中心とする実装、型および境界を同じModuleで所有する。
+ * @responsibility CoordinatorTaskRecoveryHostDependenciesを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000008
  */
 import type { ProjectDockerRecoveryAcknowledgement } from "../state/model.ts";
 import type {
-  OrchestratorDockerRecoveryIdentity,
-  OrchestratorRecoveryTransition,
-  OrchestratorTaskRecoveryPort,
+  CoordinatorDockerRecoveryIdentity,
+  CoordinatorRecoveryTransition,
+  CoordinatorTaskRecoveryPort,
 } from "./recovery.ts";
 
 /**
- * orchestrator-task-recovery-adapterで使用するOrchestrator Task 回復 Host Dependenciesの値契約を定義する。
+ * task-recovery-adapterで使用するCoordinator Task 回復 Host Dependenciesの値契約を定義する。
  *
- * @responsibility Orchestrator Task 回復 Host DependenciesのProperty、Identity、状態制約を型境界として所有する。
+ * @responsibility Coordinator Task 回復 Host DependenciesのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000008
- * @shape OrchestratorTaskRecoveryHostDependenciesが表すProperty、識別子およびRelationを型として固定する。
- * @invariant OrchestratorTaskRecoveryHostDependenciesで宣言した値と責務の対応を維持する。
- * @boundary N/A: OrchestratorTaskRecoveryHostDependenciesの宣言は外部境界を開かない。
- * @security OrchestratorTaskRecoveryHostDependenciesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility OrchestratorTaskRecoveryHostDependenciesの利用側は宣言済みPropertyと型制約だけへ依存する。
+ * @shape CoordinatorTaskRecoveryHostDependenciesが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CoordinatorTaskRecoveryHostDependenciesで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CoordinatorTaskRecoveryHostDependenciesの宣言は外部境界を開かない。
+ * @security CoordinatorTaskRecoveryHostDependenciesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility CoordinatorTaskRecoveryHostDependenciesの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type OrchestratorTaskRecoveryHostDependencies = Readonly<{
+export type CoordinatorTaskRecoveryHostDependencies = Readonly<{
   recoverTaskRecovery?: (recoveryId: string, signal: AbortSignal) => unknown;
   acknowledgeTaskRecovery?: (
     settlement: Readonly<
-      OrchestratorDockerRecoveryIdentity & {
+      CoordinatorDockerRecoveryIdentity & {
         workingDirectory: string;
         repositoryBindingId: string;
       }
@@ -34,7 +34,7 @@ export type OrchestratorTaskRecoveryHostDependencies = Readonly<{
   ) => unknown;
   finalizeTaskRecoveryAcknowledgement?: (
     settlement: Readonly<
-      OrchestratorDockerRecoveryIdentity & {
+      CoordinatorDockerRecoveryIdentity & {
         workingDirectory: string;
         repositoryBindingId: string;
         acknowledgement: ProjectDockerRecoveryAcknowledgement;
@@ -45,37 +45,37 @@ export type OrchestratorTaskRecoveryHostDependencies = Readonly<{
     correlationIds: readonly string[],
   ) => unknown;
   observeRecoveryTransition?: (
-    event: OrchestratorRecoveryTransition,
+    event: CoordinatorRecoveryTransition,
   ) => void | Promise<void>;
 }>;
 
 /**
  * Bind Coordinator recovery implementations to one verified Repository.
  *
- * @responsibility Orchestrator Task 回復 Adapterの構築入力、生成結果、不正入力の拒否境界を所有する。
+ * @responsibility Coordinator Task 回復 Adapterの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000008
- * @input workingDirectory: string、repositoryBindingId: string、dependencies: OrchestratorTaskRecoveryHostDependencies
- * @returns OrchestratorTaskRecoveryPortを返す。
- * @precondition 「workingDirectory: string、repositoryBindingId: string、dependencies: OrchestratorTaskRecoveryHostDependencies」がcreateOrchestratorTaskRecoveryAdapterの入力契約を満たす。
- * @postcondition createOrchestratorTaskRecoveryAdapterの責務を完了した結果だけを返す。
- * @effect N/A: createOrchestratorTaskRecoveryAdapterは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure createOrchestratorTaskRecoveryAdapterは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant createOrchestratorTaskRecoveryAdapterは入力から導いた結果以外の共有状態を変更しない。
+ * @input workingDirectory: string、repositoryBindingId: string、dependencies: CoordinatorTaskRecoveryHostDependencies
+ * @returns CoordinatorTaskRecoveryPortを返す。
+ * @precondition 「workingDirectory: string、repositoryBindingId: string、dependencies: CoordinatorTaskRecoveryHostDependencies」がcreateCoordinatorTaskRecoveryAdapterの入力契約を満たす。
+ * @postcondition createCoordinatorTaskRecoveryAdapterの責務を完了した結果だけを返す。
+ * @effect N/A: createCoordinatorTaskRecoveryAdapterは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure createCoordinatorTaskRecoveryAdapterは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant createCoordinatorTaskRecoveryAdapterは入力から導いた結果以外の共有状態を変更しない。
  * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
- * @security createOrchestratorTaskRecoveryAdapterはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency createOrchestratorTaskRecoveryAdapterは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ * @security createCoordinatorTaskRecoveryAdapterはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency createCoordinatorTaskRecoveryAdapterは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
  */
-export function createOrchestratorTaskRecoveryAdapter(
+export function createCoordinatorTaskRecoveryAdapter(
   workingDirectory: string,
   repositoryBindingId: string,
-  dependencies: OrchestratorTaskRecoveryHostDependencies,
-): OrchestratorTaskRecoveryPort {
+  dependencies: CoordinatorTaskRecoveryHostDependencies,
+): CoordinatorTaskRecoveryPort {
   return Object.freeze({
     resolveCorrelations: (correlationIds: readonly string[]) =>
       dependencies.resolveTaskRecoveryCorrelations?.(correlationIds) ?? null,
     recover: (recoveryId: string, signal: AbortSignal) =>
       dependencies.recoverTaskRecovery?.(recoveryId, signal) ?? null,
-    acknowledgeDocker: (identity: OrchestratorDockerRecoveryIdentity) =>
+    acknowledgeDocker: (identity: CoordinatorDockerRecoveryIdentity) =>
       dependencies.acknowledgeTaskRecovery?.(
         Object.freeze({
           workingDirectory,
@@ -84,7 +84,7 @@ export function createOrchestratorTaskRecoveryAdapter(
         }),
       ) ?? null,
     finalizeDockerAcknowledgement: (
-      identity: OrchestratorDockerRecoveryIdentity,
+      identity: CoordinatorDockerRecoveryIdentity,
       acknowledgement: ProjectDockerRecoveryAcknowledgement,
     ) =>
       dependencies.finalizeTaskRecoveryAcknowledgement?.(
@@ -95,7 +95,7 @@ export function createOrchestratorTaskRecoveryAdapter(
           acknowledgement,
         }),
       ) ?? null,
-    observeTransition: async (event: OrchestratorRecoveryTransition) => {
+    observeTransition: async (event: CoordinatorRecoveryTransition) => {
       try {
         await dependencies.observeRecoveryTransition?.(
           Object.freeze({ ...event }),

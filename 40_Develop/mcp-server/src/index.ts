@@ -1,9 +1,9 @@
 /**
- * MCP経由でOrchestratorを利用する公開境界。
+ * MCP経由でCoordinatorを利用する公開境界。
  * @packageDocumentation
- * @responsibility MCP Protocol、Transport、Orchestrator Adapterを明示的に公開する。
+ * @responsibility MCP Protocol、Transport、Coordinator Adapterを明示的に公開する。
  * @trace ARCH-000012
- * @boundary MCP ClientとOrchestratorの境界。
+ * @boundary MCP ClientとCoordinatorの境界。
  * @effect stdioまたはlocalhost HTTPの接続、応答、終了処理を発行し得る。
  * @concurrency 複数RequestとServer終了を独立管理し、終了時に取消とjoinを行う。
  * @security 認証済みClient Principalを持つ要求だけを意味処理へ渡す。
@@ -19,18 +19,18 @@ export {
   MCP_AI_PROFILE_TOOLS,
 } from "./tools/ai-profile.ts";
 export {
-  describeMcpOrchestratorAdapterContract,
-  handleMcpOrchestratorRequest,
-  inspectMcpOrchestratorObjectiveResult,
-  MCP_ORCHESTRATOR_ADAPTER_CONTRACT,
-  type McpOrchestratorDependencies,
-  getMcpOrchestratorToolDefinitions,
-  MCP_ORCHESTRATOR_DECISION_TOOL,
-  MCP_ORCHESTRATOR_OBJECTIVE_TOOL,
-  MCP_ORCHESTRATOR_STATE_TOOL,
-} from "./tools/orchestrator.ts";
+  describeMcpCoordinatorAdapterContract,
+  handleMcpCoordinatorRequest,
+  inspectMcpCoordinatorObjectiveResult,
+  MCP_COORDINATOR_ADAPTER_CONTRACT,
+  type McpCoordinatorDependencies,
+  getMcpCoordinatorToolDefinitions,
+  MCP_COORDINATOR_DECISION_TOOL,
+  MCP_COORDINATOR_OBJECTIVE_TOOL,
+  MCP_COORDINATOR_STATE_TOOL,
+} from "./tools/task.ts";
 export {
-  MCP_ORCHESTRATOR_PROTOCOL_VERSION,
+  MCP_COORDINATOR_PROTOCOL_VERSION,
   type McpResponse,
 } from "./request/validation.ts";
 export {
@@ -75,18 +75,18 @@ export {
   type McpProcessSignalSource,
 } from "./transport/shutdown.ts";
 export {
-  describeMcpOrchestratorStdioContract,
-  MCP_ORCHESTRATOR_STDIO_CONTRACT,
-  runMcpOrchestratorStdio,
+  describeMcpCoordinatorStdioContract,
+  MCP_COORDINATOR_STDIO_CONTRACT,
+  runMcpCoordinatorStdio,
   runMcpStdio,
 } from "./transport/stdio.ts";
 export {
-  describeMcpOrchestratorStreamableHttpContract,
-  MCP_ORCHESTRATOR_STREAMABLE_HTTP_CONTRACT,
+  describeMcpCoordinatorStreamableHttpContract,
+  MCP_COORDINATOR_STREAMABLE_HTTP_CONTRACT,
   type McpAuthenticatedHttpOptions,
-  type McpOrchestratorHttpOptions,
+  type McpCoordinatorHttpOptions,
   startMcpAuthenticatedStreamableHttp,
-  startMcpOrchestratorStreamableHttp,
+  startMcpCoordinatorStreamableHttp,
   startMcpStreamableHttp,
 } from "./transport/http.ts";
 export type {

@@ -36,7 +36,7 @@ import { observeRuntimeOwnedDevelopmentSource } from "../../src/execution/develo
  * @responsibility 公開Root注入口を増やさず、実Filesystemの反例を確認する。
  * @trace ERB-IT-004
  * @precondition 現行Source本文を読める。
- * @stimulus 固定9対象Packageと対象外の旧Orchestrator一Directoryを最小Sourceで構成し、試験コピーのRoot定数だけを置き換える。
+ * @stimulus 固定9対象Packageと対象外の旧Coordinator一Directoryを最小Sourceで構成し、試験コピーのRoot定数だけを置き換える。
  * @observation 実本文の観測結果と自己生成Root。
  * @oracle 呼出し元が内容Hash・実体Hash・拒否を比較できる。
  * @cleanup 呼出し元のfinallyで自己生成Rootだけを削除する。
@@ -113,7 +113,7 @@ if (process.argv[2] !== "--probe") {
    *
    * @responsibility Snapshotをコピー署名やRoot実体Hashと混同しないことを検証する。
    * @trace ERB-IT-004
-   * @precondition 固定9対象Packageと対象外の旧Orchestrator一Directoryの通常Fileが存在する。
+   * @precondition 固定9対象Packageと対象外の旧Coordinator一Directoryの通常Fileが存在する。
    * @stimulus 対象外更新、config／schemasの追加・内容変更・削除、任意Scope追加、同内容File交換を行う。
    * @observation 各観測の内容Hashと実体Hash。
    * @oracle 対象外は不変、対象内追加・内容変更は内容差、同内容交換は実体差となる。
@@ -271,7 +271,7 @@ if (process.argv[2] !== "--probe") {
    *
    * @responsibility 個別File上限だけで全体有界性を推定しない。
    * @trace ERB-IT-004
-   * @precondition 9対象Package・18通常File（別に対象外の旧Orchestrator一Directory）の最小Fixtureが存在する。
+   * @precondition 9対象Package・18通常File（別に対象外の旧Coordinator一Directory）の最小Fixtureが存在する。
    * @stimulus File数2048、Directory数2048、64MiBの境界と各超過を作る。
    * @observation 各Snapshotの件数・byte数と拒否。
    * @oracle 各上限を受理し、一つでも超えたらnullとする。

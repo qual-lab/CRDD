@@ -19,7 +19,7 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { ensureRepositoryRuntimeDataArea } from "../../../domain-model/src/index.ts";
-import { recordOrchestratorExecutionEvent } from "../../../coordinator/src/task/intelligence-adapter.ts";
+import { recordCoordinatorExecutionEvent } from "../../../coordinator/src/task/intelligence-adapter.ts";
 
 import {
   createExecutionIntelligenceRecorder,
@@ -899,14 +899,14 @@ test("an embedded TypeScript application can record and read through one public 
 /**
  * 二つの現在Producerを同じCanonical Event保存契約へ接続する。
  *
- * @responsibility Orchestratorと組込みアプリの保存・再送・読戻しで事実と欠測が変わらないことを判定する。
+ * @responsibility Coordinatorと組込みアプリの保存・再送・読戻しで事実と欠測が変わらないことを判定する。
  * @trace ERP-IT-001
  * @precondition 空の自己生成Repositoryと代役の実行観測を用い、Providerは実行しない。
- * @stimulus 実Orchestrator記録入口と公開Recorderから各一件を保存し、同じ入力を再送する。
+ * @stimulus 実Coordinator記録入口と公開Recorderから各一件を保存し、同じ入力を再送する。
  * @observation 公開ReaderのEvent全文、実JSONL本文、保存結果と残存entryを読む。
  * @oracle 独立した期待値に一致し、再送・読取りは本文を変更せずLock・一時物が残らない。
  * @cleanup fixtureのhookで自己生成Repositoryを清掃する。
- * @boundary ERP-IT-001=Related 2 Blocks: Orchestrator／組込みアプリ→公開Writer→実Store→公開Reader
+ * @boundary ERP-IT-001=Related 2 Blocks: Coordinator／組込みアプリ→公開Writer→実Store→公開Reader
  */
 test("Orchestratorと組込みアプリは同じStoreで二つの実行事実と欠測を保つ", (t) => {
   const root = fixture(t);
@@ -1085,7 +1085,7 @@ test("Orchestratorと組込みアプリは同じStoreで二つの実行事実と
   assert.notStrictEqual(firstEmbeddedInput.execution, embedded.execution);
   assert.notStrictEqual(firstEmbeddedInput.outcome, embedded.outcome);
   assert.notStrictEqual(firstEmbeddedInput.quality, embedded.quality);
-  const first = recordOrchestratorExecutionEvent(root, firstObservation);
+  const first = recordCoordinatorExecutionEvent(root, firstObservation);
   const second = created.recorder.recordTaskAttempt(firstEmbeddedInput);
   assert.deepEqual(firstObservation, observation);
   assert.deepEqual(firstEmbeddedInput, embeddedInput);
@@ -1120,7 +1120,7 @@ test("Orchestratorと組込みアプリは同じStoreで二つの実行事実と
     firstEmbeddedInput.quality,
   );
   assert.equal(
-    recordOrchestratorExecutionEvent(root, repeatedObservation).status,
+    recordCoordinatorExecutionEvent(root, repeatedObservation).status,
     "completed",
   );
   assert.equal(

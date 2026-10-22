@@ -19,9 +19,9 @@ import {
 } from "@modelcontextprotocol/server";
 import { toNodeHandler } from "@modelcontextprotocol/node";
 
-import type { McpOrchestratorDependencies } from "../tools/orchestrator.ts";
+import type { McpCoordinatorDependencies } from "../tools/task.ts";
 import {
-  MCP_ORCHESTRATOR_PROTOCOL_VERSION,
+  MCP_COORDINATOR_PROTOCOL_VERSION,
   protocolError,
   inspectProtocolRequest,
   type McpResponse,
@@ -36,23 +36,23 @@ import type {
   McpRequestSource,
 } from "./types.ts";
 
-export const MCP_ORCHESTRATOR_STREAMABLE_HTTP_CONTRACT =
+export const MCP_COORDINATOR_STREAMABLE_HTTP_CONTRACT =
   "crdd-mcp/streamable-http-transport/v1" as const;
 const ENDPOINT = "/mcp";
 const MAXIMUM_REQUEST_BYTES = 128 * 1024;
 
 /**
- * streamable-http-transportで使用するMcp Orchestrator Http Optionsの値契約を定義する。
+ * streamable-http-transportで使用するMcp Coordinator Http Optionsの値契約を定義する。
  *
- * @responsibility Mcp Orchestrator Http OptionsのProperty、Identity、状態制約を型境界として所有する。
+ * @responsibility Mcp Coordinator Http OptionsのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000012
- * @shape McpOrchestratorHttpOptionsが表すProperty、識別子およびRelationを型として固定する。
- * @invariant McpOrchestratorHttpOptionsで宣言した値と責務の対応を維持する。
- * @boundary N/A: McpOrchestratorHttpOptionsの宣言は外部境界を開かない。
- * @security N/A: McpOrchestratorHttpOptionsはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility McpOrchestratorHttpOptionsの利用側は宣言済みPropertyと型制約だけへ依存する。
+ * @shape McpCoordinatorHttpOptionsが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant McpCoordinatorHttpOptionsで宣言した値と責務の対応を維持する。
+ * @boundary N/A: McpCoordinatorHttpOptionsの宣言は外部境界を開かない。
+ * @security N/A: McpCoordinatorHttpOptionsはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility McpCoordinatorHttpOptionsの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type McpOrchestratorHttpOptions = Readonly<{
+export type McpCoordinatorHttpOptions = Readonly<{
   port: number;
   bearerToken: string;
   allowedOrigins?: readonly string[];
@@ -258,7 +258,7 @@ function headersMatch(headers: IncomingHttpHeaders, body: unknown) {
   if (!metadata) return false;
   if (
     headers["mcp-protocol-version"] !== metadata.protocol ||
-    metadata.protocol !== MCP_ORCHESTRATOR_PROTOCOL_VERSION ||
+    metadata.protocol !== MCP_COORDINATOR_PROTOCOL_VERSION ||
     headers["mcp-method"] !== metadata.method
   )
     return false;
@@ -428,18 +428,18 @@ async function handleSdkHttpRequest(
 /**
  * Start the stateless 2026-07-28 Streamable HTTP binding. Authentication is
  *
- * @responsibility Mcp Orchestrator Streamable Httpの開始条件、Effect発行、開始失敗時の終了境界を所有する。
+ * @responsibility Mcp Coordinator Streamable Httpの開始条件、Effect発行、開始失敗時の終了境界を所有する。
  * @trace ARCH-000012
- * @input dependencies: McpOrchestratorDependencies、options: McpOrchestratorHttpOptions
- * @returns startMcpOrchestratorStreamableHttpの計算結果を返す。
- * @precondition 「dependencies: McpOrchestratorDependencies、options: McpOrchestratorHttpOptions」がstartMcpOrchestratorStreamableHttpの入力契約を満たす。
- * @postcondition startMcpOrchestratorStreamableHttpの責務を完了した結果だけを返す。
- * @effect N/A: startMcpOrchestratorStreamableHttpは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure startMcpOrchestratorStreamableHttpは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant startMcpOrchestratorStreamableHttpは入力から導いた結果以外の共有状態を変更しない。
+ * @input dependencies: McpCoordinatorDependencies、options: McpCoordinatorHttpOptions
+ * @returns startMcpCoordinatorStreamableHttpの計算結果を返す。
+ * @precondition 「dependencies: McpCoordinatorDependencies、options: McpCoordinatorHttpOptions」がstartMcpCoordinatorStreamableHttpの入力契約を満たす。
+ * @postcondition startMcpCoordinatorStreamableHttpの責務を完了した結果だけを返す。
+ * @effect N/A: startMcpCoordinatorStreamableHttpは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure startMcpCoordinatorStreamableHttpは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant startMcpCoordinatorStreamableHttpは入力から導いた結果以外の共有状態を変更しない。
  * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
- * @security N/A: startMcpOrchestratorStreamableHttpはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency startMcpOrchestratorStreamableHttpは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ * @security N/A: startMcpCoordinatorStreamableHttpはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency startMcpCoordinatorStreamableHttpは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
  */
 async function startMcpStreamableHttpWithHandler(
   resolveHandler: McpAuthenticatedRequestHandlerResolver,
@@ -671,7 +671,7 @@ async function startMcpStreamableHttpWithHandler(
     return closePromise;
   };
   return Object.freeze({
-    contract: MCP_ORCHESTRATOR_STREAMABLE_HTTP_CONTRACT,
+    contract: MCP_COORDINATOR_STREAMABLE_HTTP_CONTRACT,
     host: "127.0.0.1" as const,
     port: address.port,
     endpoint: ENDPOINT,
@@ -697,7 +697,7 @@ async function startMcpStreamableHttpWithHandler(
  */
 export async function startMcpStreamableHttp(
   handler: McpRequestSource,
-  options: McpOrchestratorHttpOptions,
+  options: McpCoordinatorHttpOptions,
 ) {
   if (!validToken(options.bearerToken))
     throw new Error("orchestrator_mcp_http_configuration_invalid");
@@ -735,24 +735,24 @@ export async function startMcpAuthenticatedStreamableHttp(
 }
 
 /**
- * Orchestrator互換入口でStreamable HTTPを開始する。
+ * Coordinator互換入口でStreamable HTTPを開始する。
  *
- * @responsibility 既存利用側をOrchestrator Adapterへ接続する互換入口を維持する。
+ * @responsibility 既存利用側をCoordinator Adapterへ接続する互換入口を維持する。
  * @trace ARCH-000012
  * @input dependenciesとHTTP optionsを受け取る。
  * @returns 待受情報と終了操作を持つServer Handleを返す。
- * @precondition dependenciesはOrchestrator公開契約を満たす。
- * @postcondition 全RequestをOrchestrator Adapterへだけ渡す。
+ * @precondition dependenciesはCoordinator公開契約を満たす。
+ * @postcondition 全RequestをCoordinator Adapterへだけ渡す。
  * @effect localhost listenerを開始し、HTTP応答を返す。
  * @failure TransportまたはAdapter失敗を安全に拒否する。
  * @invariant 既存公開関数の意味を変更しない。
- * @boundary localhost HTTPとOrchestrator Adapterの互換境界。
- * @security HTTP認証とOrchestrator Client認証を両方維持する。
+ * @boundary localhost HTTPとCoordinator Adapterの互換境界。
+ * @security HTTP認証とCoordinator Client認証を両方維持する。
  * @concurrency Requestごとの取消とServer全体のjoinを管理する。
  */
-export async function startMcpOrchestratorStreamableHttp(
-  dependencies: McpOrchestratorDependencies,
-  options: McpOrchestratorHttpOptions,
+export async function startMcpCoordinatorStreamableHttp(
+  dependencies: McpCoordinatorDependencies,
+  options: McpCoordinatorHttpOptions,
 ) {
   if (!validToken(options.bearerToken))
     throw new Error("orchestrator_mcp_http_configuration_invalid");
@@ -765,25 +765,25 @@ export async function startMcpOrchestratorStreamableHttp(
 }
 
 /**
- * Mcp Orchestrator Streamable Http 契約の公開契約を記述する。
+ * Mcp Coordinator Streamable Http 契約の公開契約を記述する。
  *
- * @responsibility Mcp Orchestrator Streamable Http 契約の公開field、非公開境界、互換性を所有する。
+ * @responsibility Mcp Coordinator Streamable Http 契約の公開field、非公開境界、互換性を所有する。
  * @trace ARCH-000012
  * @input N/A: 実行時引数を受け取らない。
- * @returns describeMcpOrchestratorStreamableHttpContractの計算結果を返す。
- * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeMcpOrchestratorStreamableHttpContractの入力契約を満たす。
- * @postcondition describeMcpOrchestratorStreamableHttpContractの責務を完了した結果だけを返す。
- * @effect N/A: describeMcpOrchestratorStreamableHttpContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: describeMcpOrchestratorStreamableHttpContractは独自の失敗分岐を所有しない。
- * @invariant describeMcpOrchestratorStreamableHttpContractは入力から導いた結果以外の共有状態を変更しない。
+ * @returns describeMcpCoordinatorStreamableHttpContractの計算結果を返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がdescribeMcpCoordinatorStreamableHttpContractの入力契約を満たす。
+ * @postcondition describeMcpCoordinatorStreamableHttpContractの責務を完了した結果だけを返す。
+ * @effect N/A: describeMcpCoordinatorStreamableHttpContractは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: describeMcpCoordinatorStreamableHttpContractは独自の失敗分岐を所有しない。
+ * @invariant describeMcpCoordinatorStreamableHttpContractは入力から導いた結果以外の共有状態を変更しない。
  * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
- * @security N/A: describeMcpOrchestratorStreamableHttpContractはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: describeMcpOrchestratorStreamableHttpContractは共有非同期状態を持たない同期処理である。
+ * @security N/A: describeMcpCoordinatorStreamableHttpContractはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: describeMcpCoordinatorStreamableHttpContractは共有非同期状態を持たない同期処理である。
  */
-export function describeMcpOrchestratorStreamableHttpContract() {
+export function describeMcpCoordinatorStreamableHttpContract() {
   return Object.freeze({
-    contract: MCP_ORCHESTRATOR_STREAMABLE_HTTP_CONTRACT,
-    protocolVersion: MCP_ORCHESTRATOR_PROTOCOL_VERSION,
+    contract: MCP_COORDINATOR_STREAMABLE_HTTP_CONTRACT,
+    protocolVersion: MCP_COORDINATOR_PROTOCOL_VERSION,
     endpoint: ENDPOINT,
     binding: "127.0.0.1_only",
     authentication: "mandatory_bearer",

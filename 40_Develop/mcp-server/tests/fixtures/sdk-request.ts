@@ -16,7 +16,7 @@ import {
 import {
   inspectProtocolRequest,
   protocolError,
-  MCP_ORCHESTRATOR_PROTOCOL_VERSION,
+  MCP_COORDINATOR_PROTOCOL_VERSION,
   type McpResponse,
 } from "../../src/request/validation.ts";
 import { snapshotOpenPlainRecord } from "../../src/request/snapshot.ts";
@@ -60,7 +60,7 @@ export async function invokeMcpSource(
       params: {
         _meta: {
           "io.modelcontextprotocol/protocolVersion":
-            MCP_ORCHESTRATOR_PROTOCOL_VERSION,
+            MCP_COORDINATOR_PROTOCOL_VERSION,
           "io.modelcontextprotocol/clientCapabilities": {},
         },
         ...(request?.method === "tools/call"
@@ -77,7 +77,7 @@ export async function invokeMcpSource(
         headers: {
           "content-type": "application/json",
           accept: "application/json, text/event-stream",
-          "mcp-protocol-version": MCP_ORCHESTRATOR_PROTOCOL_VERSION,
+          "mcp-protocol-version": MCP_COORDINATOR_PROTOCOL_VERSION,
           "mcp-method": request?.method ?? "",
           ...(request?.method === "tools/call"
             ? {

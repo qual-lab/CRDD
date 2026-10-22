@@ -4,7 +4,7 @@
  * @trace ARCH-000004
  */
 
-import type { ProjectTaskRecord, OrchestratorState } from "../state/model.ts";
+import type { ProjectTaskRecord, CoordinatorState } from "../state/model.ts";
 
 /**
  * For Capacityが有効な状態か判定する。
@@ -118,9 +118,9 @@ function conflicts(left: ProjectTaskRecord, right: ProjectTaskRecord) {
  *
  * @responsibility Schedulable Project Tasksの候補集合、選択理由、選択不能時の境界を所有する。
  * @trace ARCH-000004
- * @input state: OrchestratorState
+ * @input state: CoordinatorState
  * @returns readonly string[]を返す。
- * @precondition 「state: OrchestratorState」がselectSchedulableProjectTasksの入力契約を満たす。
+ * @precondition 「state: CoordinatorState」がselectSchedulableProjectTasksの入力契約を満たす。
  * @postcondition selectSchedulableProjectTasksの責務を完了した結果だけを返す。
  * @effect N/A: selectSchedulableProjectTasksは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: selectSchedulableProjectTasksは独自の失敗分岐を所有しない。
@@ -130,7 +130,7 @@ function conflicts(left: ProjectTaskRecord, right: ProjectTaskRecord) {
  * @concurrency N/A: selectSchedulableProjectTasksは共有非同期状態を持たない同期処理である。
  */
 export function selectSchedulableProjectTasks(
-  state: OrchestratorState,
+  state: CoordinatorState,
 ): readonly string[] {
   const available = Math.max(
     0,

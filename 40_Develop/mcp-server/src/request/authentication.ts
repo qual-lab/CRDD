@@ -148,7 +148,7 @@ export function createAccessMcpResolver(
              * @effect 現在認可、Root観測、実保存読取り。書込みは行わない。
              * @failure 集合・Root不明は固定例外、Owner故障はAdapterが非開示にする。
              * @invariant 各Callで再認可し、認証を観測型の正しさで代替しない。
-             * @boundary AM現在集合からOrchestrator活動Owner。
+             * @boundary AM現在集合からCoordinator活動Owner。
              * @security Token・AM Binding・RoleをOwnerや応答へ渡さない。
              * @concurrency 開始したReaderを待ち、Adapterが取消後の公開を止める。
              */

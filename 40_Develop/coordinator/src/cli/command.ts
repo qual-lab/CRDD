@@ -111,7 +111,7 @@ function printHelp() {
   process.stdout.write(`Coordinator Runtime 1.0\n\n`);
   process.stdout.write(`Usage:\n`);
   process.stdout.write(
-    `  node template/tools/crdd-coordinator.ts task --request-stdin --json  # Orchestratorが明示Workspaceを解決\n`,
+    `  node template/tools/crdd-coordinator.ts task --request-stdin --json  # Task受付が明示Workspaceを解決\n`,
   );
   process.stdout.write(`  coordinator capabilities --json\n`);
   process.stdout.write(`  coordinator doctor [--json] [--isolation]\n`);

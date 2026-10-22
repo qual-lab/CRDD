@@ -12,15 +12,15 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  createOrchestratorState,
-  type OrchestratorState,
+  createCoordinatorState,
+  type CoordinatorState,
 } from "../../../src/state/model.ts";
 import {
-  inspectOrchestratorStateQuery,
-  inspectOrchestratorStateQueryResult,
+  inspectCoordinatorStateQuery,
+  inspectCoordinatorStateQueryResult,
 } from "../../../src/state/query-contract.ts";
-import { queryOrchestratorState } from "../../../src/state/query.ts";
-import type { OrchestratorStatePort } from "../../../src/state/persistence.ts";
+import { queryCoordinatorState } from "../../../src/state/query.ts";
+import type { CoordinatorStatePort } from "../../../src/state/persistence.ts";
 
 const revision = "a".repeat(40);
 const request = Object.freeze({
@@ -41,8 +41,8 @@ const request = Object.freeze({
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
  * @boundary PPR-UT-006=Direct Boundary: orchestrator Test Source→対象契約
  */
-function runtimeState(): OrchestratorState {
-  const created = createOrchestratorState({
+function runtimeState(): CoordinatorState {
+  const created = createCoordinatorState({
     projectId: request.projectId,
     milestoneId: "milestone-a",
     repositoryRevision: revision,
@@ -78,8 +78,8 @@ function runtimeState(): OrchestratorState {
  * @boundary PPR-UT-006=Direct Boundary: orchestrator Test Source→対象契約
  */
 function reader(
-  result: ReturnType<OrchestratorStatePort["readState"]>,
-): Pick<OrchestratorStatePort, "readState"> {
+  result: ReturnType<CoordinatorStatePort["readState"]>,
+): Pick<CoordinatorStatePort, "readState"> {
   return Object.freeze({ readState: () => result });
 }
 
@@ -96,27 +96,27 @@ function reader(
  * @boundary PPR-UT-006=Direct Boundary: orchestrator Test Source→対象契約
  */
 test("状態参照は閉じた要求だけを受け入れる", () => {
-  assert.deepEqual(inspectOrchestratorStateQuery(request), request);
+  assert.deepEqual(inspectCoordinatorStateQuery(request), request);
   assert.equal(
-    inspectOrchestratorStateQuery({ ...request, unexpected: true }),
+    inspectCoordinatorStateQuery({ ...request, unexpected: true }),
     null,
   );
 });
 
 /**
- * 状態参照はOrchestratorのcanonical投影だけを返すを検証する。
+ * 状態参照はCoordinatorのcanonical投影だけを返すを検証する。
  *
- * @responsibility 状態参照はOrchestratorのcanonical投影だけを返すの合否判定を所有する。
+ * @responsibility 状態参照はCoordinatorのcanonical投影だけを返すの合否判定を所有する。
  * @trace PPR-UT-006
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 状態参照はOrchestratorのcanonical投影だけを返すの対象操作を実行する。
+ * @stimulus 状態参照はCoordinatorのcanonical投影だけを返すの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PPR-UT-006=Direct Boundary: orchestrator Test Source→対象契約
  */
 test("状態参照はOrchestratorのcanonical投影だけを返す", () => {
-  const result = queryOrchestratorState(
+  const result = queryCoordinatorState(
     reader({ status: "completed", reason: "observed", value: runtimeState() }),
     request,
     "fixture-epoch",
@@ -125,7 +125,7 @@ test("状態参照はOrchestratorのcanonical投影だけを返す", () => {
   assert.equal(result.observationState, "observed");
   assert.equal(result.projection?.projectId, request.projectId);
   assert.equal(result.effectState, "no_effect");
-  assert.deepEqual(inspectOrchestratorStateQueryResult(result), result);
+  assert.deepEqual(inspectCoordinatorStateQueryResult(result), result);
 });
 
 /**
@@ -141,7 +141,7 @@ test("状態参照はOrchestratorのcanonical投影だけを返す", () => {
  * @boundary PPR-UT-006=Direct Boundary: orchestrator Test Source→対象契約
  */
 test("状態不存在は失敗や成功推定ではなくabsent観測として返す", () => {
-  const result = queryOrchestratorState(
+  const result = queryCoordinatorState(
     reader({ status: "completed", reason: "absent", value: null }),
     request,
     "fixture-epoch",
@@ -164,7 +164,7 @@ test("状態不存在は失敗や成功推定ではなくabsent観測として�
  * @boundary PPR-UT-006=Direct Boundary: orchestrator Test Source→対象契約
  */
 test("異なるRepository改訂版の状態を現在値として返さない", () => {
-  const result = queryOrchestratorState(
+  const result = queryCoordinatorState(
     reader({
       status: "completed",
       reason: "observed",
@@ -192,7 +192,7 @@ test("異なるRepository改訂版の状態を現在値として返さない", (
  * @boundary PPR-UT-006=Direct Boundary: orchestrator Test Source→対象契約
  */
 test("観測不能と既存Recovery義務をEffect発行と混同しない", () => {
-  const result = queryOrchestratorState(
+  const result = queryCoordinatorState(
     reader({
       status: "blocked",
       reason: "store_unavailable",

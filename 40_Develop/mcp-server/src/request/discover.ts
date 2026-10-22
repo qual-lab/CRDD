@@ -9,7 +9,7 @@ import {
   discoverKeys,
   inspectMcpEnvelope,
   inspectProtocolRequest,
-  MCP_ORCHESTRATOR_PROTOCOL_VERSION,
+  MCP_COORDINATOR_PROTOCOL_VERSION,
   protocolComplete,
   protocolError,
   type McpResponse,
@@ -40,7 +40,7 @@ export function handleMcpDiscoverRequest(rawRequest: unknown): McpResponse {
   return !params || !inspectMcpEnvelope(params._meta)
     ? protocolError(request.id, -32602, "Invalid params")
     : protocolComplete(request.id, {
-        supportedVersions: Object.freeze([MCP_ORCHESTRATOR_PROTOCOL_VERSION]),
+        supportedVersions: Object.freeze([MCP_COORDINATOR_PROTOCOL_VERSION]),
         capabilities: Object.freeze({ tools: Object.freeze({}) }),
         ttlMs: 0,
         cacheScope: "private",

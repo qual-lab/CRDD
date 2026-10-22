@@ -11,7 +11,7 @@ import { EmptyState, WorkbenchPanel } from "./elements.ts";
 import type { WorkbenchMainViewModel } from "../../shared/view/types.ts";
 
 /**
- * Orchestratorの現在状態とEventを成功・不在・不明の区別付きで表示する。
+ * Coordinatorの現在状態とEventを成功・不在・不明の区別付きで表示する。
  * @responsibility Runtime Activityの状態、Eventと回復参照を一貫表示する。
  * @trace ARCH-000012
  * @input modelにRuntime Activity Snapshotを受け取る。
@@ -54,7 +54,7 @@ export function RuntimeActivity({
         </section>
       ) : null}
       {observation === null ? (
-        <EmptyState>Orchestrator観測は未接続です。</EmptyState>
+        <EmptyState>Task状態の観測は未接続です。</EmptyState>
       ) : observation.state !== "observed" ||
         observation.projection === null ? (
         <EmptyState>

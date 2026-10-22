@@ -1,29 +1,29 @@
 /**
  * state-portに属する責務をまとめる。
  *
- * @responsibility OrchestratorQueueEnqueueInputを中心とする実装、型および境界を同じModuleで所有する。
+ * @responsibility CoordinatorQueueEnqueueInputを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000004
  */
 import type { ProjectQueueEntry, ProjectQueueState } from "../queue/types.ts";
-import type { OrchestratorState } from "./model.ts";
+import type { CoordinatorState } from "./model.ts";
 import type {
-  OrchestratorLease,
-  OrchestratorLeasePort,
+  CoordinatorLease,
+  CoordinatorLeasePort,
 } from "../lease/controller.ts";
-import type { OrchestratorPortResult } from "../operation-result.ts";
+import type { CoordinatorPortResult } from "../operation-result.ts";
 
 /**
- * state-portで使用するOrchestrator Queue Enqueue 入力の値契約を定義する。
+ * state-portで使用するCoordinator Queue Enqueue 入力の値契約を定義する。
  *
- * @responsibility Orchestrator Queue Enqueue 入力のProperty、Identity、状態制約を型境界として所有する。
+ * @responsibility Coordinator Queue Enqueue 入力のProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
- * @shape OrchestratorQueueEnqueueInputが表すProperty、識別子およびRelationを型として固定する。
- * @invariant OrchestratorQueueEnqueueInputで宣言した値と責務の対応を維持する。
- * @boundary N/A: OrchestratorQueueEnqueueInputの宣言は外部境界を開かない。
- * @security N/A: OrchestratorQueueEnqueueInputはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility OrchestratorQueueEnqueueInputの利用側は宣言済みPropertyと型制約だけへ依存する。
+ * @shape CoordinatorQueueEnqueueInputが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CoordinatorQueueEnqueueInputで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CoordinatorQueueEnqueueInputの宣言は外部境界を開かない。
+ * @security N/A: CoordinatorQueueEnqueueInputはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility CoordinatorQueueEnqueueInputの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type OrchestratorQueueEnqueueInput = Omit<
+export type CoordinatorQueueEnqueueInput = Omit<
   ProjectQueueEntry,
   | "state"
   | "generation"
@@ -36,19 +36,19 @@ export type OrchestratorQueueEnqueueInput = Omit<
   Readonly<{ milestoneId: string }>;
 
 /**
- * state-portで使用するOrchestrator Queue Updateの値契約を定義する。
+ * state-portで使用するCoordinator Queue Updateの値契約を定義する。
  *
- * @responsibility Orchestrator Queue UpdateのProperty、Identity、状態制約を型境界として所有する。
+ * @responsibility Coordinator Queue UpdateのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
- * @shape OrchestratorQueueUpdateが表すProperty、識別子およびRelationを型として固定する。
- * @invariant OrchestratorQueueUpdateで宣言した値と責務の対応を維持する。
- * @boundary N/A: OrchestratorQueueUpdateの宣言は外部境界を開かない。
- * @security N/A: OrchestratorQueueUpdateはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility OrchestratorQueueUpdateの利用側は宣言済みPropertyと型制約だけへ依存する。
+ * @shape CoordinatorQueueUpdateが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CoordinatorQueueUpdateで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CoordinatorQueueUpdateの宣言は外部境界を開かない。
+ * @security N/A: CoordinatorQueueUpdateはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility CoordinatorQueueUpdateの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type OrchestratorQueueUpdate = Readonly<{
+export type CoordinatorQueueUpdate = Readonly<{
   state: ProjectQueueState;
-  lease: OrchestratorLease | null;
+  lease: CoordinatorLease | null;
   resumeCondition: string | null;
   resultReference: string | null;
 }>;
@@ -56,16 +56,16 @@ export type OrchestratorQueueUpdate = Readonly<{
 /**
  * Repository-bound durable state capability supplied by a composition root.
  *
- * @responsibility Orchestrator 状態 PortのProperty、Identity、状態制約を型境界として所有する。
+ * @responsibility Coordinator 状態 PortのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
- * @shape OrchestratorStatePortが表すProperty、識別子およびRelationを型として固定する。
- * @invariant OrchestratorStatePortで宣言した値と責務の対応を維持する。
- * @boundary N/A: OrchestratorStatePortの宣言は外部境界を開かない。
- * @security N/A: OrchestratorStatePortはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility OrchestratorStatePortの利用側は宣言済みPropertyと型制約だけへ依存する。
+ * @shape CoordinatorStatePortが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CoordinatorStatePortで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CoordinatorStatePortの宣言は外部境界を開かない。
+ * @security N/A: CoordinatorStatePortはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility CoordinatorStatePortの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type OrchestratorStatePort = Readonly<{
-  readWorkspaceTaskTarget?: (queueId: string) => OrchestratorPortResult<
+export type CoordinatorStatePort = Readonly<{
+  readWorkspaceTaskTarget?: (queueId: string) => CoordinatorPortResult<
     Readonly<{
       workspaceId: string | null;
       ownerRepositoryRoot: string;
@@ -75,46 +75,46 @@ export type OrchestratorStatePort = Readonly<{
     }>
   >;
   writeState: (
-    state: OrchestratorState,
+    state: CoordinatorState,
     expectedGeneration: number,
-  ) => OrchestratorPortResult<OrchestratorState>;
+  ) => CoordinatorPortResult<CoordinatorState>;
   readState: (
     projectId: string,
-  ) => OrchestratorPortResult<OrchestratorState | null>;
+  ) => CoordinatorPortResult<CoordinatorState | null>;
   enqueueOperation: (
-    input: OrchestratorQueueEnqueueInput,
-  ) => OrchestratorPortResult<ProjectQueueEntry>;
-  readQueue: (queueId: string) => OrchestratorPortResult<ProjectQueueEntry>;
-  selectNextOperation: () => OrchestratorPortResult<ProjectQueueEntry | null>;
+    input: CoordinatorQueueEnqueueInput,
+  ) => CoordinatorPortResult<ProjectQueueEntry>;
+  readQueue: (queueId: string) => CoordinatorPortResult<ProjectQueueEntry>;
+  selectNextOperation: () => CoordinatorPortResult<ProjectQueueEntry | null>;
   updateQueue: (
     queueId: string,
     expectedGeneration: number,
-    next: OrchestratorQueueUpdate,
-  ) => OrchestratorPortResult<ProjectQueueEntry>;
+    next: CoordinatorQueueUpdate,
+  ) => CoordinatorPortResult<ProjectQueueEntry>;
   settleQueueRecovery: (
     queueId: string,
     expectedGeneration: number,
     recoveryId: string,
-  ) => OrchestratorPortResult<ProjectQueueEntry>;
+  ) => CoordinatorPortResult<ProjectQueueEntry>;
   settleQueueLeaseRelease: (
     queueId: string,
     expectedGeneration: number,
     ownerGeneration: string,
-  ) => OrchestratorPortResult<ProjectQueueEntry>;
+  ) => CoordinatorPortResult<ProjectQueueEntry>;
 }>;
 
 /**
- * state-portで使用するOrchestrator Persistence Portsの値契約を定義する。
+ * state-portで使用するCoordinator Persistence Portsの値契約を定義する。
  *
- * @responsibility Orchestrator Persistence PortsのProperty、Identity、状態制約を型境界として所有する。
+ * @responsibility Coordinator Persistence PortsのProperty、Identity、状態制約を型境界として所有する。
  * @trace ARCH-000004
- * @shape OrchestratorPersistencePortsが表すProperty、識別子およびRelationを型として固定する。
- * @invariant OrchestratorPersistencePortsで宣言した値と責務の対応を維持する。
- * @boundary N/A: OrchestratorPersistencePortsの宣言は外部境界を開かない。
- * @security N/A: OrchestratorPersistencePortsはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility OrchestratorPersistencePortsの利用側は宣言済みPropertyと型制約だけへ依存する。
+ * @shape CoordinatorPersistencePortsが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CoordinatorPersistencePortsで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CoordinatorPersistencePortsの宣言は外部境界を開かない。
+ * @security N/A: CoordinatorPersistencePortsはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility CoordinatorPersistencePortsの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
-export type OrchestratorPersistencePorts = Readonly<{
-  state: OrchestratorStatePort;
-  lease: OrchestratorLeasePort;
+export type CoordinatorPersistencePorts = Readonly<{
+  state: CoordinatorStatePort;
+  lease: CoordinatorLeasePort;
 }>;
