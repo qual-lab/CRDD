@@ -1,5 +1,5 @@
 /**
- * node-runtime-versionに属する責務をまとめる。
+ * CoordinatorのNode実行条件とEffect前拒否の版文法を所有する。
  *
  * @responsibility isSupportedCoordinatorNodeRuntimeを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000008

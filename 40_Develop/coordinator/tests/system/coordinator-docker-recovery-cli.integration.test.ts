@@ -552,7 +552,7 @@ test("doctorの実parserと分岐は新修復だけを現在compositionへ渡す
    * @cleanup N/A: VMのみ。
    * @boundary 実parserと用途別CLI入口。
    */
-  const route = async (text: string, args: string[]) => {
+  const route = async (text: string, args: string[], rootReady = true) => {
     const events: string[] = [];
     const run = runInNewContext(`(async function(){${text}})`, {
       args,
@@ -588,7 +588,7 @@ test("doctorの実parserと分岐は新修復だけを現在compositionへ渡す
       },
       verifyRepositoryRoot: () => {
         events.push("verify");
-        return { status: "completed", capability: {} };
+        return { status: rootReady ? "completed" : "blocked", capability: {} };
       },
       recoverRuntimeOwnedDockerTaskForCurrentConsumer: async (
         exact: string,
@@ -609,7 +609,10 @@ test("doctorの実parserと分岐は新修復だけを現在compositionへ渡す
         assert.equal(root, "root");
         return {};
       },
-      currentRecoveryOperationRoot: () => null,
+      resolveRuntimeOwnedCurrentRecoveryOperationRoot: () => {
+        events.push("recovery-root");
+        return null;
+      },
       renderDoctorCommandFailure: (error: unknown) => {
         if (
           error instanceof Error &&
@@ -638,6 +641,15 @@ test("doctorの実parserと分岐は新修復だけを現在compositionへ渡す
   ];
   for (const [args, expected] of cases)
     assert.deepEqual(await route(body, args), expected);
+  const hostId = `host.crdd-coordinator-doctor-fixture.12345678-1234-4234-8234-123456789abc.${"a".repeat(64)}`;
+  assert.deepEqual(
+    await route(body, ["--recover-isolation", hostId, "--json"], false),
+    ["root", "verify"],
+  );
+  assert.deepEqual(
+    await route(body, ["--recover-isolation", hostId, "--json"]),
+    ["root", "verify", "recovery-root"],
+  );
   const old = `docker-desktop-repair.${"c".repeat(32)}`;
   const releaseRoot = path.resolve("historical-release-not-used");
   for (const args of [

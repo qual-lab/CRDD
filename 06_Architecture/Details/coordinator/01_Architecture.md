@@ -1,5 +1,13 @@
 # Coordinator Runtimeの実行アーキテクチャ
 
+## CLIの責務限定 — 2026-10-22
+
+`cli/`は`command.ts`（受付・既存操作への配送）、`options.ts`（引数検査）、`recovery-report.ts`（非秘密のJSON／人向け表示）、`cancellation.ts`（Signalと取消の一回接続）とする。現在Repositoryの解決・検証は受付が行い、保存記録とexact Host／Probe参照の照合は既存`execution/recovery.ts`へ検証済みRoot Capabilityを渡す。所在Pathを処置Authorityへ昇格しない。
+
+診断のOperation生成・下位観測・readiness・回収は`execution/diagnostics.ts`、Node版の実行条件は`execution/runtime-version.ts`が所有する。診断初期化の元Error登録と分類は同じ私有WeakMapへ結合し、CLI失敗表示がその分類だけを使用する。診断からCLI表示を逆参照せず、表示の都合で結果や回復参照を再生成しない。Report版・固定理由・表示byte・未実施／不明の意味は配置変更で変えない。
+
+送信同意の端末接続は`external-send/console.ts`から既存PAの技術操作を使い、回収不明を観測した時点で既存Process状態へpoisonを反映する。Reader期限・取消・元Promise・端末回収・値非開示の保証を維持し、CLI専用の端末Ownerを残さない。Signal接続はOrchestratorも同じ`cli/cancellation.ts`を使い、Task完了待機とは別責務として保つ。これはC統合前の配置であり、後続のCLI入力・Task表示の合流を実装済みと扱わない。
+
 Task依頼の入力取込みは`execution/task-request.ts`、読取り助言のContext／Profile／同意・配送・結果受理は`execution/advice.ts`が所有する。Provider助言の実行型は既存`provider-types.ts`へ置き、実行順序を型Ownerへ移さない。助言受付、Provider計画、Operation／cleanup、Process制御は異なる境界であり、中継削減のためにそれぞれの検証を省略しない。公開関数名、入力Schema、送信回数と取消・回復参照はこの配置変更で変えない。
 
 元結果・短命通知の照合は`execution/provider-observation.ts`が所有する。既存二WeakMapを私有に保ち、本番と各候補のOwnerを分離する。Controllerだけが元の位置で登録・finally失効し、Store／Recoveryは照合する。外側確認とWriter排他内のfresh照合を維持し、コピーDTOや事前計算boolで代替しない。Process再入場で観測を復元せず、Root公開・永続状態・新Authorityは追加しない。失敗理由の意味はControllerに残す。今回の分離は観測照合の値依存だけを外し、全循環の解消とは扱わない。

@@ -13,7 +13,7 @@ import {
   coordinatorLaunchFailureMessage,
   resolveCoordinatorLaunch,
 } from "../../40_Develop/coordinator/src/cli/command.ts";
-import { isSupportedCoordinatorNodeRuntime } from "../../40_Develop/coordinator/src/cli/node-runtime-version.ts";
+import { isSupportedCoordinatorNodeRuntime } from "../../40_Develop/coordinator/src/index.ts";
 
 const args = process.argv.slice(2);
 const isDirectProject = args[0] === "project" || args[0] === "task";

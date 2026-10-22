@@ -1,5 +1,5 @@
 /**
- * task-cli-cancellationに属する責務をまとめる。
+ * CLIのSignal登録・一回取消・Listener解除を所有する。
  *
  * @responsibility TaskCliSignalを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000004

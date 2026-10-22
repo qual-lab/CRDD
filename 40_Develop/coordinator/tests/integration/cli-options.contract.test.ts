@@ -150,7 +150,7 @@ process.exitCode=0;`,
  * @responsibility 実CLIのprivate関数本文へ読取り故障だけを注入して停止条件を反証する。
  * @trace ERB-IT-003
  * @precondition 実入口の正常搬送は現在状態Filesystem試験で別確認する。
- * @stimulus Readerのblocked、本文欠測、排他解放不明、例外とRoot検証失敗を与える。
+ * @stimulus Reader欠測・解放不明・複数一致・ID差・Host／Probe用途差を与える。Root拒否はCLI分岐試験で確認する。
  * @observation Root返却値と読取り回数。
  * @oracle 正常だけexact Rootを返し、故障はいずれもnull。Reader成功だけを処置Authorityにしない。
  * @cleanup N/A: VM内の局所値とSource読取りだけで資源を生成しない。
@@ -158,10 +158,12 @@ process.exitCode=0;`,
  */
 test("CLI回復先は読取り欠測と排他解放不明を拒否する", () => {
   const source = fs.readFileSync(
-    new URL("../../src/cli/command.ts", import.meta.url),
+    new URL("../../src/execution/recovery.ts", import.meta.url),
     "utf8",
   );
-  const start = source.indexOf("function currentRecoveryOperationRoot(");
+  const start = source.indexOf(
+    "function resolveRuntimeOwnedCurrentRecoveryOperationRoot(",
+  );
   assert.ok(start >= 0);
   const end = source.indexOf("\n/**", start);
   assert.ok(end > start);
@@ -192,28 +194,84 @@ test("CLI回復先は読取り欠測と排他解放不明を拒否する", () =>
     "unreleased",
     "missing",
     "throw",
-    "repository",
+    "multiple",
+    "wrong_token",
+    "probe",
+    "probe_wrong_mode",
+    "bad_id",
   ]) {
     let reads = 0;
-    const resolve = runInNewContext(`${body}\ncurrentRecoveryOperationRoot`, {
-      path,
-      process: { cwd: () => "fixture" },
-      resolveVerifiedRepositoryRootFromWorkingDirectory: () => "fixture",
-      verifyRepositoryRoot: () => ({
-        status: fault === "repository" ? "blocked" : "completed",
-        capability: {},
-      }),
-      readRuntimeOwnedCoordinatorRecoverySnapshot: () => {
-        reads += 1;
-        if (fault === "throw") throw new Error("reader observation failed");
-        if (fault === "blocked") return { ...valid, status: "blocked" };
-        if (fault === "unreleased") return { ...valid, lockReleased: false };
-        if (fault === "missing") return { ...valid, value: null };
-        return valid;
+    const capability = Object.freeze({});
+    const resolve = runInNewContext(
+      `${body}\nresolveRuntimeOwnedCurrentRecoveryOperationRoot`,
+      {
+        path,
+        readRuntimeOwnedCoordinatorRecoverySnapshot: (received: unknown) => {
+          assert.equal(received, capability);
+          reads += 1;
+          if (fault === "throw") throw new Error("reader observation failed");
+          if (fault === "blocked") return { ...valid, status: "blocked" };
+          if (fault === "unreleased") return { ...valid, lockReleased: false };
+          if (fault === "missing") return { ...valid, value: null };
+          if (fault === "multiple")
+            return {
+              ...valid,
+              value: {
+                snapshot: {
+                  operations: [
+                    ...valid.value.snapshot.operations,
+                    ...valid.value.snapshot.operations,
+                  ],
+                },
+              },
+            };
+          if (fault === "wrong_token")
+            return {
+              ...valid,
+              value: {
+                snapshot: {
+                  operations: [
+                    {
+                      ...valid.value.snapshot.operations[0],
+                      host: { currentToken: `${id}-other` },
+                    },
+                  ],
+                },
+              },
+            };
+          if (fault === "probe")
+            return {
+              ...valid,
+              value: {
+                snapshot: {
+                  operations: [
+                    {
+                      ...valid.value.snapshot.operations[0],
+                      identityJson: JSON.stringify({
+                        hostPaths: { root: expectedRoot },
+                        operationMode: "boolean_probe",
+                      }),
+                    },
+                  ],
+                },
+              },
+            };
+          return valid;
+        },
       },
-    });
-    assert.equal(resolve(id), fault === "none" ? expectedRoot : null);
-    assert.equal(reads, fault === "repository" ? 0 : 1);
+    );
+    assert.equal(
+      resolve(
+        fault === "bad_id"
+          ? "host.invalid"
+          : fault.startsWith("probe")
+            ? id.replace(/^host\./u, "docker.")
+            : id,
+        capability,
+      ),
+      fault === "none" || fault === "probe" ? expectedRoot : null,
+    );
+    assert.equal(reads, fault === "bad_id" ? 0 : 1);
   }
 });
 

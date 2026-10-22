@@ -381,7 +381,7 @@ test("実子で同一PID・引数・stdin byte・cwd・終了コードを保持�
     for (const relative of [
       "bin/coordinator.ts",
       "src/cli/command.ts",
-      "src/cli/node-runtime-version.ts",
+      "src/execution/runtime-version.ts",
     ]) {
       const target = path.join(root, relative);
       fs.mkdirSync(path.dirname(target), { recursive: true });

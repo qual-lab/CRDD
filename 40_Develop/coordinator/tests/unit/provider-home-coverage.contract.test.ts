@@ -68,7 +68,7 @@ test("Provider Home coverageはrunnerと共有parserを含むexact母集団を�
     "40_Develop/coordinator/src/execution/provider-home.ts",
     "40_Develop/coordinator/src/execution/provider-home-mount-grant.ts",
     "40_Develop/coordinator/src/execution/provider-lifecycle.ts",
-    "40_Develop/coordinator/src/cli/doctor.ts",
+    "40_Develop/coordinator/src/execution/diagnostics.ts",
     "40_Develop/coordinator/scripts/check-platform-access-ts-coverage.ts",
     "40_Develop/coordinator/scripts/check-provider-home-coverage.ts",
   ]);
@@ -78,7 +78,7 @@ test("Provider Home coverageはrunnerと共有parserを含むexact母集団を�
     "40_Develop/coordinator/tests/unit/execution/provider-home.contract.test.ts",
     "40_Develop/coordinator/tests/unit/execution/provider-home-mount-grant.contract.test.ts",
     "40_Develop/coordinator/tests/unit/execution/provider-lifecycle.contract.test.ts",
-    "40_Develop/coordinator/tests/unit/cli/doctor.contract.test.ts",
+    "40_Develop/coordinator/tests/unit/execution/diagnostics.contract.test.ts",
     "40_Develop/coordinator/tests/integration/platform-access-ts-coverage.contract.test.ts",
     "40_Develop/coordinator/tests/unit/provider-home-coverage.contract.test.ts",
   ]);

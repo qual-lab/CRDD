@@ -5,6 +5,43 @@
  * @trace ARCH-000003
  */
 import { types as utilTypes } from "node:util";
+import { classifyDoctorOperationInitializationFailure } from "../execution/diagnostics.ts";
+
+/**
+ * Doctor Command 失敗を人間向け表示へ整形する。
+ *
+ * @responsibility Doctor Command 失敗の入力値、表示規則、機密を含めない出力境界を所有する。
+ * @trace ARCH-000004
+ * @input error: unknown
+ * @returns renderDoctorCommandFailureの計算結果を返す。
+ * @precondition 「error: unknown」がrenderDoctorCommandFailureの入力契約を満たす。
+ * @postcondition renderDoctorCommandFailureの責務を完了した結果だけを返す。
+ * @effect N/A: renderDoctorCommandFailureは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: renderDoctorCommandFailureは独自の失敗分岐を所有しない。
+ * @invariant renderDoctorCommandFailureは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: renderDoctorCommandFailureはProcess内の同一Subsystemで完結する。
+ * @security N/A: renderDoctorCommandFailureはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: renderDoctorCommandFailureは共有非同期状態を持たない同期処理である。
+ */
+export function renderDoctorCommandFailure(error: unknown) {
+  const doctorCreation = classifyDoctorOperationInitializationFailure(error);
+  const message = error instanceof Error ? error.message : null;
+  const reason =
+    typeof message === "string" && /^[a-z0-9_]+$/u.test(message)
+      ? message
+      : "diagnostic_failed";
+  return Object.freeze({
+    exitCode: 2,
+    json: `${JSON.stringify(
+      doctorCreation
+        ? { status: "blocked", ...doctorCreation }
+        : { status: "blocked", reason },
+    )}\n`,
+    human: doctorCreation
+      ? `Coordinator診断は停止しました: ${doctorCreation.reason}; 手動回復が必要です; ホスト回復ID: ${doctorCreation.hostRecoveryId ?? "取得できません"}\n`
+      : `Coordinator診断に失敗しました: ${reason}\n`,
+  });
+}
 
 /**
  * 記録をPlain Dataとして検証する。

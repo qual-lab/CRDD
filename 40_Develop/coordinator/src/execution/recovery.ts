@@ -111,6 +111,57 @@ import { verifyRuntimeOwnedDockerProviderSubmissionNotice } from "./provider-obs
 import { parseDockerTaskRecoveryId } from "../../../docker-isolation/src/index.ts";
 
 /**
+ * 検証済みRepositoryの現在記録からHost／Probe回復先を解決する。
+ * @responsibility exact参照、単一一致、Readerの排他解放を照合する。
+ * @trace ARCH-000008
+ * @input recoveryId: 明示回復参照、repositoryRoot: 呼出し元が検証したRoot Capability。
+ * @returns 対応する操作Root、またはnull。
+ * @precondition 現在Repositoryの検証済みCapabilityを渡す。
+ * @postcondition 欠測・複数一致・読取り不明ではRootを返さない。
+ * @effect 既存の現在状態Readerと短期排他だけを使用する。
+ * @failure 不正参照・Reader拒否・例外・解放不明ではnull。
+ * @invariant Pathは処置Authorityではなく、下位が元世代と実体を再照合する。
+ * @boundary 現在状態とHost／Probe回復対象の解決。
+ * @security cwd再解決・広域探索・新しい回復Authorityを行わない。
+ * @concurrency fresh Readerの排他解放後に所在を返す。
+ */
+export function resolveRuntimeOwnedCurrentRecoveryOperationRoot(
+  recoveryId: string,
+  repositoryRoot: unknown,
+): string | null {
+  try {
+    const match =
+      /^(host|docker)\.(crdd-coordinator-doctor-[A-Za-z0-9_-]+)\./u.exec(
+        recoveryId,
+      );
+    if (!match?.[2]) return null;
+    const current = readRuntimeOwnedCoordinatorRecoverySnapshot(repositoryRoot);
+    if (
+      current.status !== "completed" ||
+      !current.lockReleased ||
+      !current.value
+    )
+      return null;
+    const matches = current.value.snapshot.operations.filter((operation) => {
+      if (operation.kind !== "docker_task") return false;
+      const identity = JSON.parse(operation.identityJson);
+      return (
+        typeof identity.hostPaths.root === "string" &&
+        path.isAbsolute(identity.hostPaths.root) &&
+        path.basename(identity.hostPaths.root) === match[2] &&
+        (match[1] === "host"
+          ? operation.host.currentToken === recoveryId
+          : identity.operationMode === "boolean_probe")
+      );
+    });
+    if (matches.length !== 1 || !matches[0]) return null;
+    return JSON.parse(matches[0].identityJson).hostPaths.root;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * 現在Repositoryの状態をTask入場前に観測する。
  * @responsibility 安定した読取りと初回不存在だけを入場可へ投影する。
  * @trace ARCH-000008

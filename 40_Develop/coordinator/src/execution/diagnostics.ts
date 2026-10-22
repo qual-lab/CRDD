@@ -1,5 +1,5 @@
 /**
- * 単発診断の受付結果と非秘密Reportを構成する。
+ * 単発診断のOperation・観測・回収とreadiness結果を構成する。
  *
  * @responsibility 単発Operationの取得・下位観測・必要な隔離Probeを編成し、受付失敗と非秘密の診断結果を投影する。
  * @trace ARCH-000004
@@ -7,32 +7,32 @@
 import fs from "node:fs";
 import path from "node:path";
 import { types as utilTypes } from "node:util";
-import { describeAuthorityFileBundleContract } from "../execution/authority-bundle.ts";
-import { describeAuthorityGrantVerifierContract } from "../execution/authority-validation.ts";
-import { describeAuthorityPrelaunchVerifierContract } from "../execution/prelaunch-validation.ts";
-import { describeAuthorityTrustLoaderContract } from "../execution/authority-policy.ts";
+import { describeAuthorityFileBundleContract } from "./authority-bundle.ts";
+import { describeAuthorityGrantVerifierContract } from "./authority-validation.ts";
+import { describeAuthorityPrelaunchVerifierContract } from "./prelaunch-validation.ts";
+import { describeAuthorityTrustLoaderContract } from "./authority-policy.ts";
 import {
   classifyOwnedCoordinatorOperationCreationFailure,
   createRuntimeOwnedCoordinatorOperation,
-} from "../execution/operation-creation.ts";
+} from "./operation-creation.ts";
 import {
   DOCKER_ISOLATION_PROFILE,
   runDockerIsolationProbe,
-} from "../execution/isolation-probe.ts";
+} from "./isolation-probe.ts";
 import { describeDockerProxyTopology } from "../../../docker-isolation/src/index.ts";
 import {
   cleanupOwnedOperationDirectories,
   createProviderEnvironment,
   credentialEnvironmentNamesPresent,
   describeFilesystemPolicy,
-} from "../execution/operation.ts";
+} from "./operation.ts";
 import { snapshotPlainArray } from "../../../domain-model/src/index.ts";
-import { describeProviderIsolationContract } from "../execution/isolation-profile.ts";
-import { describeProviderLifecycleContract } from "../execution/provider-lifecycle.ts";
+import { describeProviderIsolationContract } from "./isolation-profile.ts";
+import { describeProviderLifecycleContract } from "./provider-lifecycle.ts";
 import { describeRepositoryLocationContract } from "../../../version-control/src/index.ts";
 import { inspectRepositoryRevisionCandidate } from "../../../version-control/src/index.ts";
-import { describeRootProtectionPolicyContract } from "../execution/root-protection-policy.ts";
-import { isSupportedCoordinatorNodeRuntime } from "./node-runtime-version.ts";
+import { describeRootProtectionPolicyContract } from "./root-protection-policy.ts";
+import { isSupportedCoordinatorNodeRuntime } from "./runtime-version.ts";
 
 export const CHECK_STATUS = Object.freeze([
   "confirmed",
@@ -82,42 +82,6 @@ export function classifyDoctorOperationInitializationFailure(error: unknown) {
   return error && typeof error === "object"
     ? (doctorOperationInitializationFailures.get(error) ?? null)
     : null;
-}
-
-/**
- * Doctor Command 失敗を人間向け表示へ整形する。
- *
- * @responsibility Doctor Command 失敗の入力値、表示規則、機密を含めない出力境界を所有する。
- * @trace ARCH-000004
- * @input error: unknown
- * @returns renderDoctorCommandFailureの計算結果を返す。
- * @precondition 「error: unknown」がrenderDoctorCommandFailureの入力契約を満たす。
- * @postcondition renderDoctorCommandFailureの責務を完了した結果だけを返す。
- * @effect N/A: renderDoctorCommandFailureは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: renderDoctorCommandFailureは独自の失敗分岐を所有しない。
- * @invariant renderDoctorCommandFailureは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: renderDoctorCommandFailureはProcess内の同一Subsystemで完結する。
- * @security N/A: renderDoctorCommandFailureはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: renderDoctorCommandFailureは共有非同期状態を持たない同期処理である。
- */
-export function renderDoctorCommandFailure(error: unknown) {
-  const doctorCreation = classifyDoctorOperationInitializationFailure(error);
-  const message = errorMessage(error);
-  const reason =
-    typeof message === "string" && /^[a-z0-9_]+$/u.test(message)
-      ? message
-      : "diagnostic_failed";
-  return Object.freeze({
-    exitCode: 2,
-    json: `${JSON.stringify(
-      doctorCreation
-        ? { status: "blocked", ...doctorCreation }
-        : { status: "blocked", reason },
-    )}\n`,
-    human: doctorCreation
-      ? `Coordinator診断は停止しました: ${doctorCreation.reason}; 手動回復が必要です; ホスト回復ID: ${doctorCreation.hostRecoveryId ?? "取得できません"}\n`
-      : `Coordinator診断に失敗しました: ${reason}\n`,
-  });
 }
 
 /**
@@ -324,6 +288,31 @@ function errorCode(error: unknown): string | null {
 }
 
 /**
+ * doctorを検査する。
+ *
+ * @responsibility doctorの検査条件、違反分類、検査結果境界を所有する。
+ * @trace ARCH-000004
+ * @input id: string、status: CheckStatus、reason: string | null、followUp: string | null
+ * @returns DiagnosticCheckを返す。
+ * @precondition 「id: string、status: CheckStatus、reason: string | null、followUp: string | null」がcheckの入力契約を満たす。
+ * @postcondition checkの責務を完了した結果だけを返す。
+ * @effect N/A: checkは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: checkは独自の失敗分岐を所有しない。
+ * @invariant checkは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: checkはProcess内の同一Subsystemで完結する。
+ * @security N/A: checkはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: checkは共有非同期状態を持たない同期処理である。
+ */
+function check(
+  id: string,
+  status: CheckStatus,
+  reason: string | null,
+  followUp: string | null = null,
+): DiagnosticCheck {
+  return { id, status, reason, followUp };
+}
+
+/**
  * error Messageを決定する。
  *
  * @responsibility error Messageの導出に必要な入力、判定規則、返却結果の境界を所有する。
@@ -371,31 +360,6 @@ export const REQUIRED_CHECK_IDS = Object.freeze([
   "provider.claude.cancel",
   "provider.claude.process_tree_termination",
 ]);
-
-/**
- * doctorを検査する。
- *
- * @responsibility doctorの検査条件、違反分類、検査結果境界を所有する。
- * @trace ARCH-000004
- * @input id: string、status: CheckStatus、reason: string | null、followUp: string | null
- * @returns DiagnosticCheckを返す。
- * @precondition 「id: string、status: CheckStatus、reason: string | null、followUp: string | null」がcheckの入力契約を満たす。
- * @postcondition checkの責務を完了した結果だけを返す。
- * @effect N/A: checkは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: checkは独自の失敗分岐を所有しない。
- * @invariant checkは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: checkはProcess内の同一Subsystemで完結する。
- * @security N/A: checkはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: checkは共有非同期状態を持たない同期処理である。
- */
-function check(
-  id: string,
-  status: CheckStatus,
-  reason: string | null,
-  followUp: string | null = null,
-): DiagnosticCheck {
-  return { id, status, reason, followUp };
-}
 
 /**
  * Readinessを評価する。
@@ -622,26 +586,6 @@ function probeGitRepository(cwd: string) {
     workingState: "not_observed",
     externalGitCliUsed: false,
   };
-}
-
-/**
- * node Supportedを決定する。
- *
- * @responsibility node Supportedの導出に必要な入力、判定規則、返却結果の境界を所有する。
- * @trace ARCH-000004
- * @input N/A: 実行時引数を受け取らない。
- * @returns booleanを返す。
- * @precondition 「N/A: 実行時引数を受け取らない。」がnodeSupportedの入力契約を満たす。
- * @postcondition nodeSupportedの責務を完了した結果だけを返す。
- * @effect nodeSupportedは外部ProcessまたはRuntime境界の操作を呼び出す。
- * @failure N/A: nodeSupportedは独自の失敗分岐を所有しない。
- * @invariant nodeSupportedは宣言した境界以外へEffectを拡張しない。
- * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
- * @security N/A: nodeSupportedはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: nodeSupportedは共有非同期状態を持たない同期処理である。
- */
-function nodeSupported(): boolean {
-  return isSupportedCoordinatorNodeRuntime(process.versions.node);
 }
 
 /**
@@ -912,8 +856,12 @@ export function runDoctor(options: unknown = {}) {
     const checks = [
       check(
         "runtime.node",
-        nodeSupported() ? "confirmed" : "blocked",
-        nodeSupported() ? null : "node_24_12_or_newer_required",
+        isSupportedCoordinatorNodeRuntime(process.versions.node)
+          ? "confirmed"
+          : "blocked",
+        isSupportedCoordinatorNodeRuntime(process.versions.node)
+          ? null
+          : "node_24_12_or_newer_required",
       ),
       check(
         "repository.git",
@@ -968,7 +916,10 @@ export function runDoctor(options: unknown = {}) {
         : "passive_preflight",
       status: readiness.status,
       platform: process.platform,
-      node: { version: process.version, supported: nodeSupported() },
+      node: {
+        version: process.version,
+        supported: isSupportedCoordinatorNodeRuntime(process.versions.node),
+      },
       repository,
       credentials: {
         detectedNames: credentialNames,

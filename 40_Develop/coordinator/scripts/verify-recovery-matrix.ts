@@ -13,7 +13,7 @@ import { fileURLToPath } from "node:url";
 import {
   isSupportedCoordinatorNodeRuntime,
   MINIMUM_COORDINATOR_NODE_VERSION,
-} from "../src/cli/node-runtime-version.ts";
+} from "../src/execution/runtime-version.ts";
 import {
   displayVerificationRecording,
   runRecordedVerification,

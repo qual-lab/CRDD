@@ -13,7 +13,7 @@ import {
   readInteractiveConsoleLineOutcome,
   withInteractiveConsoleAsyncOutcome,
   writeInteractiveConsoleTextOutcome,
-} from "../cli/interactive-console.ts";
+} from "./console.ts";
 import {
   isRuntimeProcessEffectBlocked,
   isRuntimeProcessPoisoned,

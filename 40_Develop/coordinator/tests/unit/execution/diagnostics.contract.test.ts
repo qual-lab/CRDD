@@ -1,5 +1,5 @@
 /**
- * coordinator:unit:doctorの検証範囲を定義する。
+ * 単発診断の実行結果とreadinessの検証範囲を定義する。
  *
  * @packageDocumentation
  * @responsibility coordinator:unit:doctorが所有する検証責務を実行する。
@@ -9,18 +9,19 @@
  * @boundary PRL-UT-014=N/A: Orchestrator Application Portは外部実行境界を持たない。
  */
 import assert from "node:assert/strict";
-import { isSupportedCoordinatorNodeRuntime } from "../../../src/cli/node-runtime-version.ts";
+import { spawnSync } from "node:child_process";
+import { isSupportedCoordinatorNodeRuntime } from "../../../src/execution/runtime-version.ts";
 import test from "node:test";
 
-import type { DiagnosticCheck } from "../../../src/cli/doctor.ts";
+import type { DiagnosticCheck } from "../../../src/execution/diagnostics.ts";
 import {
   CHECK_STATUS,
   discoverCommand,
   evaluateReadiness,
   REQUIRED_CHECK_IDS,
-  renderDoctorCommandFailure,
   runDoctor,
-} from "../../../src/cli/doctor.ts";
+} from "../../../src/execution/diagnostics.ts";
+import { renderDoctorCommandFailure } from "../../../src/cli/recovery-report.ts";
 
 /**
  * Node基準は24.12.0以上だけを受理するを検証する。
@@ -218,4 +219,66 @@ test("Doctor診断失敗は理由コードだけを公開する", () => {
     reason: "provider_discovery_failed",
   });
   assert.equal(rendered.human.includes("provider_discovery_failed"), true);
+});
+
+/**
+ * 診断の元ErrorとCLI表示が同じ私有分類を共有する。
+ * @responsibility 移管によるWeakMap複製・元回復参照欠落を検出する。
+ * @trace PRL-UT-014
+ * @precondition 新しいNode子で作成失敗分類だけを模擬する。
+ * @stimulus 元失敗を診断へ渡し、投影ErrorをCLIで表示する。
+ * @observation JSON・人向け表示とコピーErrorの分類。
+ * @oracle 元Errorだけにexact回復参照を保持し、原因本文を出力しない。
+ * @cleanup spawnSyncが同じ子の終了を待つ。外部資源は取得しない。
+ * @boundary PRL-UT-014=Related 2 Blocks: 診断失敗Owner→CLI表示。
+ */
+test("診断とCLI表示は元Errorの回復参照を共有しコピーを拒否する", () => {
+  const creation = new URL(
+    "../../../src/execution/operation-creation.ts",
+    import.meta.url,
+  ).href;
+  const diagnostics = new URL(
+    "../../../src/execution/diagnostics.ts",
+    import.meta.url,
+  ).href;
+  const report = new URL("../../../src/cli/recovery-report.ts", import.meta.url)
+    .href;
+  const result = spawnSync(
+    process.execPath,
+    [
+      "--experimental-test-module-mocks",
+      "--input-type=module",
+      "-e",
+      `
+import assert from "node:assert/strict";
+import { mock } from "node:test";
+const actual = await import(${JSON.stringify(creation)});
+const original = new Error("private failure detail");
+const recoveryId = "host.synthetic-doctor-original";
+mock.module(${JSON.stringify(creation)}, { namedExports: {
+  ...actual,
+  classifyOwnedCoordinatorOperationCreationFailure: error => error === original
+    ? { cleanupConfirmed: false, hostRecoveryId: recoveryId } : null,
+} });
+const diagnostics = await import(${JSON.stringify(diagnostics)});
+const report = await import(${JSON.stringify(report)});
+let projected;
+try { diagnostics.projectDoctorOperationCreationFailure(original); }
+catch (error) { projected = error; }
+assert.ok(projected instanceof Error);
+const rendered = report.renderDoctorCommandFailure(projected);
+assert.deepEqual(JSON.parse(rendered.json), { status: "blocked",
+  reason: "doctor_operation_initialization_cleanup_unknown",
+  manualRecoveryRequired: true, hostRecoveryId: recoveryId });
+assert.ok(rendered.human.includes(recoveryId));
+assert.equal(rendered.json.includes(original.message), false);
+const copy = report.renderDoctorCommandFailure(new Error(projected.message));
+assert.equal(Object.hasOwn(JSON.parse(copy.json), "hostRecoveryId"), false);
+`,
+    ],
+    { encoding: "utf8", windowsHide: true, timeout: 15_000 },
+  );
+  assert.equal(result.error, undefined);
+  assert.equal(result.signal, null);
+  assert.equal(result.status, 0, result.stderr);
 });

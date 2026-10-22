@@ -14,19 +14,22 @@ import {
   verifyRepositoryRoot,
 } from "../../../version-control/src/index.ts";
 import { parseDoctorArguments } from "./options.ts";
-import { renderDockerRecoveryDoctorReport } from "./recovery-report.ts";
-import { renderDoctorCommandFailure, runDoctor } from "./doctor.ts";
-import { isSupportedCoordinatorNodeRuntime } from "./node-runtime-version.ts";
-import { bindTaskCliCancellationSignals } from "./task-cancellation.ts";
+import {
+  renderDockerRecoveryDoctorReport,
+  renderDoctorCommandFailure,
+} from "./recovery-report.ts";
+import { runDoctor } from "../execution/diagnostics.ts";
+import { isSupportedCoordinatorNodeRuntime } from "../execution/runtime-version.ts";
+import { bindTaskCliCancellationSignals } from "./cancellation.ts";
 import { repairRuntimeOwnedDockerRuntime } from "../execution/runtime-repair.ts";
 import { recoverDockerIsolationProbe } from "../execution/isolation-probe.ts";
 import {
   inspectRuntimeOwnedDockerTaskAdmission,
   recoverRuntimeOwnedDockerTaskForCurrentConsumer,
+  resolveRuntimeOwnedCurrentRecoveryOperationRoot,
 } from "../execution/recovery.ts";
 import { restartRuntimeOwnedDockerForRecovery } from "../execution/runtime-restart.ts";
 import { recoverOwnedOperationDirectories } from "../execution/operation.ts";
-import { readRuntimeOwnedCoordinatorRecoverySnapshot } from "../storage/settlement-store.ts";
 
 /**
  * Coordinator CLI自身の引数エラーを区別する。
@@ -43,60 +46,6 @@ import { readRuntimeOwnedCoordinatorRecoverySnapshot } from "../storage/settleme
  */
 class UsageError extends Error {
   readonly usage = true;
-}
-
-/**
- * 現在Repositoryの単一操作から回復読取りのRootを解決する。
- * @responsibility tokenだけのOS tmp探索を廃止し、現在操作に結合した所在だけを返す。
- * @trace ARCH-000008
- * @input recoveryId: 明示指定されたHostまたはProbeのexact参照。
- * @returns 対応する単一操作のRoot、またはnull。
- * @precondition CLIの現在Repositoryを検証し、現在SchemaのReaderだけを使用する。
- * @postcondition 欠測・複数・不正値からRootを推測しない。
- * @effect Git Rootと現在stateの読取り、既存短期排他のみ。
- * @failure 未登録・不正参照・読取り／解放不明はnull。
- * @invariant Root値は処置Authorityではなく、下位が実世代・記録・実体を照合する。
- * @boundary CLIの現在RepositoryとHost／Probeの固定読取りscope。
- * @security Rootや内部記録を公開出力へ含めず、旧世代の広域探索を行わない。
- * @concurrency fresh Readerの排他解放後に所在を返す。
- */
-function currentRecoveryOperationRoot(recoveryId: string): string | null {
-  try {
-    const match =
-      /^(host|docker)\.(crdd-coordinator-doctor-[A-Za-z0-9_-]+)\./u.exec(
-        recoveryId,
-      );
-    if (!match?.[2]) return null;
-    const root = verifyRepositoryRoot(
-      resolveVerifiedRepositoryRootFromWorkingDirectory(process.cwd()),
-    );
-    if (root.status !== "completed") return null;
-    const current = readRuntimeOwnedCoordinatorRecoverySnapshot(
-      root.capability,
-    );
-    if (
-      current.status !== "completed" ||
-      !current.lockReleased ||
-      !current.value
-    )
-      return null;
-    const matches = current.value.snapshot.operations.filter((operation) => {
-      if (operation.kind !== "docker_task") return false;
-      const identity = JSON.parse(operation.identityJson);
-      return (
-        typeof identity.hostPaths.root === "string" &&
-        path.isAbsolute(identity.hostPaths.root) &&
-        path.basename(identity.hostPaths.root) === match[2] &&
-        (match[1] === "host"
-          ? operation.host.currentToken === recoveryId
-          : identity.operationMode === "boolean_probe")
-      );
-    });
-    if (matches.length !== 1 || !matches[0]) return null;
-    return JSON.parse(matches[0].identityJson).hostPaths.root;
-  } catch {
-    return null;
-  }
 }
 
 /**
@@ -845,10 +794,22 @@ async function runRuntimeCommand(arguments_: readonly string[]): Promise<void> {
         process.stdout.write(rendered.stdout);
         process.exitCode = rendered.exitCode;
       } else {
-        const operationRoot =
-          recoveryId !== null && !recoveryId.startsWith("docker-task.")
-            ? currentRecoveryOperationRoot(recoveryId)
-            : null;
+        let operationRoot: string | null = null;
+        if (recoveryId !== null && !recoveryId.startsWith("docker-task.")) {
+          try {
+            const currentRoot = verifyRepositoryRoot(
+              resolveVerifiedRepositoryRootFromWorkingDirectory(process.cwd()),
+            );
+            if (currentRoot.status === "completed") {
+              operationRoot = resolveRuntimeOwnedCurrentRecoveryOperationRoot(
+                recoveryId,
+                currentRoot.capability,
+              );
+            }
+          } catch {
+            operationRoot = null;
+          }
+        }
         const report: unknown =
           recoveryId !== null &&
           !recoveryId.startsWith("docker-task.") &&

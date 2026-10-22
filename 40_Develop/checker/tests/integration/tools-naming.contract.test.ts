@@ -371,7 +371,7 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
       "./external-send/policy.ts",
       "./execution/attempt.ts",
       "./execution/types.ts",
-      "./cli/node-runtime-version.ts",
+      "./execution/runtime-version.ts",
       "./execution/process-safety-state.ts",
       "./execution/kernel-lock.ts",
       "./storage/settlement-store.ts",

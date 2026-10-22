@@ -16,7 +16,7 @@ import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
 import { Writable } from "node:stream";
 import test from "node:test";
-import { bindTaskCliCancellationSignals } from "../../src/cli/task-cancellation.ts";
+import { bindTaskCliCancellationSignals } from "../../src/cli/cancellation.ts";
 import type { OwnedCommandHandle } from "../../../docker-isolation/src/index.ts";
 import { planDockerIsolationCommands } from "../../../docker-isolation/src/index.ts";
 import {

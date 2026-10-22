@@ -43,7 +43,7 @@ import {
   bindTaskCliCancellationSignalsForTesting,
   createTaskCliCancellationLatch,
   projectTaskCliCancellationFailure,
-} from "../../src/cli/task-cancellation.ts";
+} from "../../src/cli/cancellation.ts";
 
 /**
  * CLI取消latchは重複signalを同じPromiseと一つのobserverへ収束するを検証する。
@@ -572,7 +572,7 @@ function inspectTaskCliCancellationWiring(
   const helperImports = namedImportIdentifier(
     sourceFile,
     "bindTaskCliCancellationSignals",
-    "../../../coordinator/src/cli/task-cancellation.ts",
+    "../../../coordinator/src/cli/cancellation.ts",
   );
   const ownerImports = namedImportIdentifier(
     sourceFile,

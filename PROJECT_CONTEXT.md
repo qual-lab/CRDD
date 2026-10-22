@@ -22,6 +22,7 @@ Version ControlのWorktree管理に続き、名前付きCandidateの明示固定
 
 | 対象 | 現在の状態 | Owner Relation |
 |---|---|---|
+| C前のCLI責務整理 | CLIを受付・引数・回復表示・取消の四Fileへ限定し、診断・版判定・同意端末を既存責務へ移管。通常全回帰1,717成功・失敗0・5 skip、局所120件・端末18件・直接利用側の試験と静的検査は成功、独立レビュー残指摘0で限定完了。関連Dynamic Fake coverageの連続二回出力不一致と既存命名検査3件は別件として維持し、全体QAのPassとはしない。C統合・②再試行・保持物操作は未実施 | [CLI整理の結果と計測課題](99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#231-cli整理の確認結果と残る計測課題) |
 | 残る実行系の再編 | 元観測の照合、Task入力と助言を分離し、Source83 File・公開API・利用側のC前対応表を確定。残す三Fileの循環と二Stateの保証単位を明確化。局所221件・Windows正常Owner結合1件成功、Source／文書の独立レビュー残指摘0。失敗合成試験Rootは清掃済み。Orchestrator回帰129件成功。Coordinator全回帰は1,714成功・追従漏れ1失敗・5 skipで完走し、責務分類二行の是正後に該当4件成功。C前を限定完了として直前で停止。C本体・D・実境界・全体QAは未実施で、②の再試行・保持物操作なし | [C前の処置と検証結果](99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#22-c直前までの残存整理) |
 | Docker Isolationの構造・追加通信先 | 配置・設定・同意・Workbench・Proxy接続と旧定義整理、限定実通信・回帰・独立レビューを確認。DNS上限不足を是正した固定Imageでnpm／pip取得、未許可・直接通信拒否、取得後待機取消・今回資源回収が成功。広回帰の追従漏れ1件は是正後再確認済み。製品全体E2E・Releaseとは区別し、既存②と先行2Rootのunknownは別に保持する | [対応表・集約結果・保持参照](99_Roadmap/Changes/CHG-000082/docker-isolation-source-structure.md) |
 | Platform Accessの構造・Native接続再編 | ①〜⑤の移管・配置・公開API整理は完了。Host記録・Desktop補助子の技術処理をPAへ移し、上位の許可・回復判断は維持。PA88件・DI293件・Rust55件等の通常回帰、静的検査、台帳378件valid、限定独立レビュー残指摘0。明示Docker試験・配布更新・外部AI E2Eは対象外。全体文書検査の既存不合格は未解消 | [対応表・結果と残る検証境界](99_Roadmap/Changes/CHG-000082/platform-access-source-structure.md#11-①⑤の最終照合) |

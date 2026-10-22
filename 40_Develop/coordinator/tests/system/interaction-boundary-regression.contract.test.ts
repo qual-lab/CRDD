@@ -38,11 +38,11 @@ import {
   INTERACTIVE_CONSOLE_CONTRACT,
   readInteractiveConsoleLine,
   writeInteractiveConsoleTextUsingAdapter,
-} from "../../src/cli/interactive-console.ts";
+} from "../../src/external-send/console.ts";
 import {
   describeCoordinatorNodeRuntimeVersionContract,
   MINIMUM_COORDINATOR_NODE_VERSION,
-} from "../../src/cli/node-runtime-version.ts";
+} from "../../src/execution/runtime-version.ts";
 import {
   createInteractiveConsoleReaderEnvironment,
   createWindowsHostOperationSupervisorEnvironment,
@@ -191,8 +191,8 @@ test("対話Consoleは一つのRuntime契約だけがOS deviceを所有する", 
     .flatMap((directory) => sourceFiles(path.join(coordinatorRoot, directory)))
     .filter(
       (file) =>
-        !file.endsWith("interactive-console.ts") &&
-        !file.endsWith("interactive-console-reader.ts"),
+        file !==
+        path.join(coordinatorRoot, "src", "external-send", "console.ts"),
     );
   for (const file of executableSources) {
     const source = fs.readFileSync(file, "utf8");
@@ -200,7 +200,7 @@ test("対話Consoleは一つのRuntime契約だけがOS deviceを所有する", 
   }
 
   const parentConsoleSource = fs.readFileSync(
-    path.join(coordinatorRoot, "src", "cli", "interactive-console.ts"),
+    path.join(coordinatorRoot, "src", "external-send", "console.ts"),
     "utf8",
   );
   const readerSource = fs.readFileSync(
@@ -251,7 +251,7 @@ test("対話Consoleは一つのRuntime契約だけがOS deviceを所有する", 
           ? "../platform-access/src/terminal/confirmation-reader.ts"
           : name === "request-input"
             ? "../orchestrator/src/cli/request-input.ts"
-            : `src/cli/${name}.ts`,
+            : "src/external-send/console.ts",
       ),
     ],
     include: [],
@@ -363,7 +363,7 @@ function inspectTaskStdinWiring(project: Project, root: string) {
             ? "../platform-access/src/terminal/confirmation-reader.ts"
             : name === "request-input"
               ? "../orchestrator/src/cli/request-input.ts"
-              : `src/cli/${name}.ts`,
+              : "src/external-send/console.ts",
       )
       .replaceAll("\\", "/");
     const source = project.program.getSourceFile(file);
@@ -1264,7 +1264,7 @@ test("Windows実ProcessでTask stdin pipeと固定Console readerを分離する"
   try {
     assert.equal(tty.isatty(outputDescriptor), true);
     const moduleUrl = pathToFileURL(
-      path.join(coordinatorRoot, "src", "cli", "interactive-console.ts"),
+      path.join(coordinatorRoot, "src", "external-send", "console.ts"),
     ).href;
     const taskBytes = Buffer.from('{"task":"transport-only"}\n', "utf8");
     const inlineScript = `
@@ -1459,7 +1459,7 @@ test("Executable sourceとpackage commandへShell依存のJSON搬送を再導入
     false,
   );
 
-  for (const relative of ["src/cli/doctor.ts"]) {
+  for (const relative of ["src/execution/diagnostics.ts"]) {
     const source = fs.readFileSync(
       path.join(coordinatorRoot, relative),
       "utf8",

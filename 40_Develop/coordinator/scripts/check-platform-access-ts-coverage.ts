@@ -20,7 +20,7 @@ const repositoryRoot = path.resolve(coordinatorRoot, "../..");
 
 export const PLATFORM_ACCESS_TS_COVERAGE_SOURCES = Object.freeze([
   "40_Develop/coordinator/scripts/check-platform-access-ts-coverage.ts",
-  "40_Develop/coordinator/src/cli/doctor.ts",
+  "40_Develop/coordinator/src/execution/diagnostics.ts",
   "40_Develop/coordinator/src/execution/root-path.ts",
   "40_Develop/domain-model/src/storage/bounded-file-snapshot.ts",
   "40_Develop/platform-access/src/artifact/identity.ts",
@@ -31,7 +31,7 @@ export const PLATFORM_ACCESS_TS_COVERAGE_SOURCES = Object.freeze([
 export const PLATFORM_ACCESS_TS_COVERAGE_TESTS = Object.freeze([
   "40_Develop/coordinator/tests/unit/execution/root-path.contract.test.ts",
   "40_Develop/coordinator/tests/integration/bounded-file-snapshot.contract.test.ts",
-  "40_Develop/coordinator/tests/unit/cli/doctor.contract.test.ts",
+  "40_Develop/coordinator/tests/unit/execution/diagnostics.contract.test.ts",
   "40_Develop/platform-access/tests/integration/artifact-identity-observation.contract.test.ts",
   "40_Develop/coordinator/tests/integration/platform-access-ts-coverage.contract.test.ts",
   "40_Develop/coordinator/tests/integration/native-git-provenance.contract.test.ts",
@@ -124,7 +124,7 @@ const sourceCoverageObligations: Readonly<Record<string, CoverageObligation>> =
         "exact source/test母集団、LCOV grammar負例および連続出力一致",
         "LCOV grammar、Node coverageまたは固定母集団の変更時",
       ),
-    "40_Develop/coordinator/src/cli/doctor.ts": obligation(
+    "40_Develop/coordinator/src/execution/diagnostics.ts": obligation(
       "既存doctor全分岐を本変更専用coverage母集団で再到達していない",
       "状態投影の稀なblocked理由の回帰",
       "doctor契約試験、公開情報最小化試験および全Coordinator test",

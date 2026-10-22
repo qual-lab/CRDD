@@ -24,7 +24,7 @@ import {
   withInteractiveConsoleAsync,
   withInteractiveConsoleAsyncOutcome,
   withInteractiveConsoleOutcome,
-} from "../../src/cli/interactive-console.ts";
+} from "../../src/external-send/console.ts";
 import { isRuntimeProcessPoisoned } from "../../src/execution/process-safety-state.ts";
 import { startRuntimeOwnedCoordinatorTask } from "../../src/execution/task.ts";
 import {

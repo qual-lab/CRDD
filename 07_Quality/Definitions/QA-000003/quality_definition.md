@@ -1,5 +1,7 @@
 # QA-000003 Project実行と回復の検証定義
 
+CLIの責務整理では、元Errorを実行側で登録してCLI表示で同じ回復参照を取得でき、コピーErrorから参照を復元しないことを確認する。現在Rootの検証失敗は回復対象Readerへ進まず、Reader欠測・解放不明・単一一致不成立は停止する。端末のcleanup unknown→同じProcess poison、Signalの一回取消・登録Rollback・解放結果、Node版のEffect前拒否、旧Path中継なしと公開Root集合不変を、移設先の既存単体・結合・操作境界試験へ接続する。実行中の処理がないことやSource配置だけを、実Docker回収・実Provider成功の証明にしない。
+
 C前のTask入力／助言分離では、既存入力Snapshot、助言受付・Profile／配送／結果、Provider実行、Task／開発Taskの試験を移設先へ接続する。Task入力が助言Moduleの実行依存を読み込まないこと、公開Rootの関数名集合が不変であること、既存の拒否・取消・一回送信・cleanup／unknownを保持することを確認する。入力検査成功を実AI・実Dockerの成立へ昇格しない。
 
 元観測の限定分離は既存ERB-IT-002／ERB-IT-004とPRL-IT-013の検証面へ接続する。本番・候補Ownerの交差、コピー結果、別Owner／操作／回復参照、同期callbackの正常・false・throw後失効を反証する。外側確認後に失効した通知はWriter排他内で再確認して拒否し、本文を変更しない。照合Ownerは既存の非耐久二WeakMapだけを持ち、Root公開・Map公開・再入場時の復元を追加しない。限定試験を実Dockerや実AIの成立へ昇格しない。過去Evidenceと全体品質評価は維持する。

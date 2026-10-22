@@ -26,7 +26,7 @@ export const DYNAMIC_FAKE_PROVIDER_COVERAGE_SOURCES = Object.freeze([
   "40_Develop/coordinator/src/execution/host-recovery-record.ts",
   "40_Develop/docker-isolation/src/cleanup/probe-record.ts",
   "40_Develop/domain-model/src/plain-data/snapshot.ts",
-  "40_Develop/coordinator/src/cli/doctor.ts",
+  "40_Develop/coordinator/src/execution/diagnostics.ts",
   "40_Develop/coordinator/scripts/verify-dynamic-fake-provider-failures.ts",
   "40_Develop/coordinator/scripts/verify-dynamic-fake-provider-cancellation.ts",
   "40_Develop/coordinator/scripts/check-platform-access-ts-coverage.ts",
@@ -34,7 +34,7 @@ export const DYNAMIC_FAKE_PROVIDER_COVERAGE_SOURCES = Object.freeze([
 ]);
 
 export const DYNAMIC_FAKE_PROVIDER_COVERAGE_TESTS = Object.freeze([
-  "40_Develop/coordinator/tests/unit/cli/doctor.contract.test.ts",
+  "40_Develop/coordinator/tests/unit/execution/diagnostics.contract.test.ts",
   "40_Develop/coordinator/tests/system/dynamic-fake-provider-failure-verification.contract.test.ts",
   "40_Develop/coordinator/tests/system/dynamic-fake-provider-cancellation-verification.contract.test.ts",
   "40_Develop/coordinator/tests/unit/execution/provider-lifecycle.contract.test.ts",
@@ -121,7 +121,7 @@ const coverageObligations = Object.freeze({
     "record／arrayのshape、accessor、Proxy、reflection failureおよび上限試験",
     "plain-data snapshot実装変更時",
   ),
-  "40_Develop/coordinator/src/cli/doctor.ts": obligation(
+  "40_Develop/coordinator/src/execution/diagnostics.ts": obligation(
     "実Docker成功、全Git／Provider discovery形式および全cleanup failureを同一runで到達していない",
     "private reportの状態またはreason投影が稀な環境で不一致になる可能性",
     "passive／isolation、CLI discovery、readiness、runtime request、Fake lifecycleおよびexact report contract試験",

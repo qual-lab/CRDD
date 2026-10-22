@@ -516,7 +516,7 @@ test("Fixed SnapshotとFixed Revisionの既知Consumer集合が宣言と一致�
       "40_Develop/coordinator/scripts/verification-result-record.ts",
       "40_Develop/coordinator/scripts/verify-general-task.ts",
       "40_Develop/coordinator/scripts/verify-orchestrator-real-providers.ts",
-      "40_Develop/coordinator/src/cli/doctor.ts",
+      "40_Develop/coordinator/src/execution/diagnostics.ts",
     ],
   };
   /**
@@ -669,7 +669,7 @@ test("Repository LocationとRepository-local Ignoreの既知Consumer集合が宣
       "40_Develop/orchestrator/src/decision/public-acceptance.ts",
       "40_Develop/orchestrator/src/state/public-query.ts",
       "40_Develop/coordinator/src/cli/command.ts",
-      "40_Develop/coordinator/src/cli/doctor.ts",
+      "40_Develop/coordinator/src/execution/diagnostics.ts",
       "40_Develop/coordinator/src/execution/runtime-repair.ts",
       "40_Develop/coordinator/scripts/verification-result-record.ts",
       "40_Develop/coordinator/scripts/native-git-provenance.ts",
@@ -940,7 +940,7 @@ test("Local Change Setと用途別Named SymbolのConsumer集合が宣言と一�
       "40_Develop/coordinator/scripts/verify-route-matrix.ts",
       "40_Develop/coordinator/scripts/workspace-task-fixture.ts",
       "40_Develop/coordinator/src/cli/command.ts",
-      "40_Develop/coordinator/src/cli/doctor.ts",
+      "40_Develop/coordinator/src/execution/diagnostics.ts",
       "40_Develop/coordinator/src/execution/runtime-repair.ts",
       "40_Develop/coordinator/scripts/native-git-provenance.ts",
       "40_Develop/coordinator/src/external-send/policy.ts",

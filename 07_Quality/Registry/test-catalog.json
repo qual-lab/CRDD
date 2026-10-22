@@ -6563,7 +6563,7 @@
     {
       "id": "coordinator:unit:doctor",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/cli/doctor.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/execution/diagnostics.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -6755,7 +6755,7 @@
     {
       "id": "coordinator:unit:node-runtime-version",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/cli/node-runtime-version.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/execution/runtime-version.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [

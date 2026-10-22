@@ -22,7 +22,7 @@ import {
   readBoundedTaskRequestFromStdin,
 } from "./request-input.ts";
 import { printCommandReport } from "./command-report.ts";
-import { bindTaskCliCancellationSignals } from "../../../coordinator/src/cli/task-cancellation.ts";
+import { bindTaskCliCancellationSignals } from "../../../coordinator/src/cli/cancellation.ts";
 
 /**
  * Project Commandを実行する。

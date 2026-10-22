@@ -1,7 +1,7 @@
 # Orchestrator／Coordinator統合とDomain Model最終整理
 
 成果物種別: 変更計画・着手前対応表
-状態: A・B1〜B5とC前整理は限定完了。全Source棚卸し・限定レビュー・Orchestrator回帰129件・Coordinator全回帰の唯一の追従漏れ是正を確認し、C直前で停止。C〜Dは未着手。先行移管・Windows保存の結果は各節へ接続し、今回の固定Source評価と区別する
+状態: A・B1〜B5とC前整理・CLI責務整理は限定完了。CLI整理後のCoordinator通常全回帰は1,717成功・失敗0・5 skip、独立レビュー残指摘0。別件のcoverage計測再現性と既存検査不合格は維持し、C直前で停止。C〜Dは未着手。先行移管・Windows保存の結果は各節へ接続し、今回の固定Source評価と区別する
 対象変更: [CHG-000082](change.md)
 責任者・採用決定権限: Qual-Lab
 最終更新日: 2026-10-22
@@ -1375,3 +1375,40 @@ Source／試験の基準は`99eb0106de2fa31188456f298816de7fcdfd15df`からの�
 各部分試験は重複するため件数を合算しない。二State・三File循環・Task／Attemptの実Owner切替はC本体の対象であり、今回の先行実装で仮接続しない。全回帰の失敗は試験分類二行に限定され、製品Sourceの追加変更はない。該当四件と静的検査・独立再レビューで是正を照合し、同一製品候補の長時間全回帰を反復せず収束する。
 
 C前の許可範囲は上表の結果で限定完了とし、指定どおりC直前で停止する。現在、人間による追加判断は必要ない。C本体、D、実AI／実Dockerの最終境界、全体QA、統合・Releaseは未実施のまま区別する。②のAI再試行・保持物操作は行っていない。
+
+## 23. CLIの受付責務への限定整理
+
+人間が§22後のCLI整理を承認した。基準は`7f4f4bc1d`、変更分類は実装責務・配置の整理であり、C本体の統合を先行しない。書込みは当Repository内、実AI・Docker操作・②保持物操作・保存移行は対象外とする。現行SourceとConsumer・過去の取消／端末／診断試験を照合し、読取り専用の着手前確認で次の配置と不変条件を確定した。
+
+| 編集単位 | 処置・利用側 | 不変条件と確認 |
+|---|---|---|
+| 診断の編成と表示 | `cli/doctor.ts`の実行・回収・readinessを`execution/diagnostics.ts`へ、失敗表示は`cli/recovery-report.ts`へ。既存VC／DIへの委譲を維持する | 元ErrorのWeakMap登録・分類は同じdiagnostics実体。表示byte・reason・Report版・受理条件・初期化失敗後の回復参照を変更しない |
+| 回復対象の解決 | CLIが検証済みRootを取得し、既存`execution/recovery.ts`が現在Snapshotとexact IDを照合する | Reader排他解放・単一一致・Host／Probe区分を維持。cwdの再解決やplain PathからAuthorityを生成しない |
+| 同意の端末接続 | `cli/interactive-console.ts`を`external-send/console.ts`へ移し、grantが直接使う。OS技術処理は既存PAに残す | 同じProcess poison、元のReader期限・取消・handle回収・未完了値非開示を維持。保証のある入口を本番未使用だけで削除しない |
+| Runtime版条件 | `cli/node-runtime-version.ts`を`execution/runtime-version.ts`へ移す | Root公開名、CLI／scriptsのEffect前拒否、有限版文法を維持 |
+| Signal接続 | `cli/task-cancellation.ts`を`cli/cancellation.ts`へ改名し、Orchestratorも同じ実装を使う | 一回取消・元Promise・登録Rollback・unbind・失敗表示を維持。Task完了待機とは統合しない |
+| 参照と検証対応 | 現行import、scripts、Source集合、Symbol、Catalog、Architecture・Qualityを追従する | 歴史Evidenceは不変。旧Path互換中継・新しいFramework／Registry／Lock／Recoveryを作らない |
+
+正常・初期化失敗・回収不明・開始前／待機中取消・遅延通知は既存SuiteのOracleを移設先で再使用する。元Error／別Error、Root未確認／現在記録欠測／複数一致、Signal登録・解除失敗、unsupported Nodeの拒否を確認する。CLI内の同名plain-record検査は契約が異なるため機械共通化しない。
+
+Source独立レビュー、文書監査と直接利用側の影響確認を実施する。準拠基準・工程規範・公開範囲・Releaseを変更しないため、準拠監査とRelease監査は行わない。初回編集前の確認は完成後の独立レビューへ換算しない。四Fileは現CoordinatorのCLIの目標であり、Cで合流する上位の入力・Task表示を無理に混ぜる完成条件ではない。
+
+### 23.1. CLI整理の確認結果と残る計測課題
+
+CLIは`command.ts`、`options.ts`、`recovery-report.ts`、`cancellation.ts`の四Fileに整理した。診断・版判定・同意端末は上表のOwnerへ移管し、CLIによる現在状態Storeの直接読取りを除去した。Root公開名・通信／保存Schema・固定理由・表示結果は維持した。Source83 FileとSymbol集合、UT配置、Test Catalog、Template、検証scripts、上位Consumerと現行UI参照を追従した。旧Pathの互換中継は追加していない。
+
+| 確認範囲 | 観測結果と限界 |
+|---|---|
+| 静的検査 | format、Source／試験の型検査、lint、Runtime／Orchestrator設計Traceが成功。既存lint info63件は維持 |
+| CLI関連十Suite | 120件成功。元Errorと別Error、Root未確認・欠測・複数一致・異なるtoken、取消とNode拒否、公開入口とSource集合を確認 |
+| 端末・Process境界 | 18件成功。独立レビューで指摘された仮想tsconfigのConsole Path一行を同期し、同じ18件を再実行して成功。製品Source・Oracle・許可集合は不変 |
+| 直接利用側 | Orchestrator公開境界6件、Version Control利用側閉包12件が成功。Test Catalog388件validは実行件数へ換算しない |
+| Coordinator通常全回帰 | 1,722件中1,717成功・失敗0・5 skipで完走（約35分49秒）。製品Sourceは開始後不変。端末試験のPath同期は回帰実行中に是正したため、同Suite18件の最終再実行結果も別途照合した。skipは未実施のまま扱い、実AI・実Dockerの成立へ換算しない |
+| 文書検査 | PROJECT_CONTEXTを含む変更五文書の診断0。参照展開された歴史文書等を含む全体3,333診断によるexit1は維持し、全体文書Passとは表示しない |
+| 独立確認 | Sourceと文書／利用側を別の読取り専用確認者が確認。Template、coverage母集団Path、現行UI参照と端末試験の追従漏れを是正。過去の試験失敗を成功へ書き換えず、影響Suiteの再実行で確認 |
+| 関連coverage | Platform Access TSとProvider Homeの既存検査は成功。Dynamic Fake Providerの連続二回出力一致は非決定性で不合格のため、CLI整理の成功根拠から除外しOPENを維持 |
+| Checker命名・公開集合 | Windowsリンクを利用できる環境で22件中19成功・3失敗。失敗はPAの`host-record.rs`命名、DI公開集合の二module未登録、既存Controller試験のHeader不足。対象Source／該当Headerが基準Commitから不変であることを照合し、今回のNode版Gate参照追従とは分離する。制約環境の初回6失敗のうち3件は同環境で解消。全体命名検査のPassは主張しない |
+
+Dynamic Fake Provider計測では、同じ母集団の連続二回で、今回未変更の`execution/operation.ts`に関する未網羅branchのline／block等に差を観測した。CLI移管が原因とも、基準版から存在した問題とも確定していない。責任者はQual-Labとし、coverage計測またはその観測形式を次に変更する前に、元LCOVのSource集合・集計・branch tuple集合と順序を比較する。閾値・母集団・検証義務・連続二回条件を緩めず、同じ保証を測れる根拠が得られるまで再現可能coverageの成立を主張しない。新しいRuntime管理機構や製品Sourceの拡張は行わない。
+
+部分試験の件数は重複するため合算しない。CLI整理は上記の範囲で限定完了とし、全体QA・Release可能を主張しない。現在、人間による追加判断は必要ない。実AI・実Docker・C統合・②再試行と保持物操作は実施していない。

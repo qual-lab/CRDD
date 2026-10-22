@@ -690,8 +690,8 @@ test("固定公開Taskをprocess内で構成しShell搬送を契約から除外�
     "scripts/verify-general-task.ts",
   );
   const source = fs.readFileSync(runnerPath, "utf8");
-  const forbiddenConsoleModule = "../src/cli/interactive-console.ts";
-  const equivalentConsoleModule = "../src/cli/./INTERACTIVE-console.ts";
+  const forbiddenConsoleModule = "../src/external-send/console.ts";
+  const equivalentConsoleModule = "../src/external-send/./CONSOLE.ts";
   const mutationImports = importedModuleSpecifiers(
     `import { interactiveConsoleAvailable as renamed } from ${JSON.stringify(forbiddenConsoleModule)};\n` +
       `export { interactiveConsoleAvailabilityOutcome } from ${JSON.stringify(forbiddenConsoleModule)};\n` +

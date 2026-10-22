@@ -20,7 +20,7 @@ import {
   requireReadyRepositoryRuntimeDataArea,
 } from "../../../domain-model/src/index.ts";
 import { renderSafeHumanCommandReport } from "../../../orchestrator/src/cli/command-report.ts";
-import { bindTaskCliCancellationSignals } from "../../src/cli/task-cancellation.ts";
+import { bindTaskCliCancellationSignals } from "../../src/cli/cancellation.ts";
 import { createIsolatedCoordinatorTaskRuntimeCandidate } from "../../src/execution/task.ts";
 import {
   cleanupOwnedOperationDirectoriesAsync,

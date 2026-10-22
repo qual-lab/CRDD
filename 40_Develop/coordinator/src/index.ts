@@ -19,7 +19,7 @@ export type {
   CoordinatorWorkspaceResult,
   CoordinatorTaskRecoveryObligation,
 } from "./execution/types.ts";
-export { isSupportedCoordinatorNodeRuntime } from "./cli/node-runtime-version.ts";
+export { isSupportedCoordinatorNodeRuntime } from "./execution/runtime-version.ts";
 export {
   createRuntimeProcessRecoveryIdentity,
   getRuntimeProcessInstanceIdentity,

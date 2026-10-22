@@ -1,5 +1,5 @@
 /**
- * coordinator:unit:node-runtime-versionの検証範囲を定義する。
+ * CoordinatorのNode版条件とEffect前拒否の検証範囲を定義する。
  *
  * @packageDocumentation
  * @responsibility coordinator:unit:node-runtime-versionが所有する検証責務を実行する。
@@ -15,7 +15,7 @@ import {
   assertSupportedCoordinatorNodeRuntime,
   describeCoordinatorNodeRuntimeVersionContract,
   isSupportedCoordinatorNodeRuntime,
-} from "../../../src/cli/node-runtime-version.ts";
+} from "../../../src/execution/runtime-version.ts";
 
 /**
  * Node 24.12.0以上だけをCoordinator保守Runtime候補にするを検証する。

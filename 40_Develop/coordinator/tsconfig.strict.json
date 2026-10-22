@@ -49,7 +49,7 @@
     "scripts/verify-orchestrator-real-providers.ts",
     "scripts/verify-reviewer-boundary.ts",
     "src/cli/options.ts",
-    "src/cli/doctor.ts",
+    "src/execution/diagnostics.ts",
     "src/execution/runtime-repair.ts",
     "scripts/runtime-traceability.ts",
     "src/execution/prelaunch-validation.ts",

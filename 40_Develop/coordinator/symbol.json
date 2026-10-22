@@ -1926,7 +1926,7 @@
     {
       "symbolId": "coordinator.test.unit.doctor",
       "kind": "test-suite",
-      "path": "tests/unit/cli/doctor.contract.test.ts",
+      "path": "tests/unit/execution/diagnostics.contract.test.ts",
       "qaIds": [
         "QA-000003"
       ],
@@ -2012,7 +2012,7 @@
     {
       "symbolId": "coordinator.test.unit.node-runtime-version",
       "kind": "test-suite",
-      "path": "tests/unit/cli/node-runtime-version.contract.test.ts",
+      "path": "tests/unit/execution/runtime-version.contract.test.ts",
       "qaIds": [
         "QA-000003"
       ],
@@ -2673,7 +2673,7 @@
     {
       "symbolId": "coordinator.source.src.core.task.cli.cancellation",
       "kind": "file",
-      "path": "src/cli/task-cancellation.ts",
+      "path": "src/cli/cancellation.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -3054,7 +3054,7 @@
     {
       "symbolId": "coordinator.source.src.core.interactive.console",
       "kind": "file",
-      "path": "src/cli/interactive-console.ts",
+      "path": "src/external-send/console.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -3062,7 +3062,7 @@
     {
       "symbolId": "coordinator.source.src.core.node.runtime.version",
       "kind": "file",
-      "path": "src/cli/node-runtime-version.ts",
+      "path": "src/execution/runtime-version.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -3206,7 +3206,7 @@
     {
       "symbolId": "coordinator.source.src.core.doctor",
       "kind": "file",
-      "path": "src/cli/doctor.ts",
+      "path": "src/execution/diagnostics.ts",
       "archIds": [
         "ARCH-000004"
       ]

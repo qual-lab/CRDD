@@ -26,7 +26,7 @@ export const PROVIDER_HOME_COVERAGE_SOURCES = Object.freeze([
   "40_Develop/coordinator/src/execution/provider-home.ts",
   "40_Develop/coordinator/src/execution/provider-home-mount-grant.ts",
   "40_Develop/coordinator/src/execution/provider-lifecycle.ts",
-  "40_Develop/coordinator/src/cli/doctor.ts",
+  "40_Develop/coordinator/src/execution/diagnostics.ts",
   "40_Develop/coordinator/scripts/check-platform-access-ts-coverage.ts",
   "40_Develop/coordinator/scripts/check-provider-home-coverage.ts",
 ]);
@@ -37,7 +37,7 @@ export const PROVIDER_HOME_COVERAGE_TESTS = Object.freeze([
   "40_Develop/coordinator/tests/unit/execution/provider-home.contract.test.ts",
   "40_Develop/coordinator/tests/unit/execution/provider-home-mount-grant.contract.test.ts",
   "40_Develop/coordinator/tests/unit/execution/provider-lifecycle.contract.test.ts",
-  "40_Develop/coordinator/tests/unit/cli/doctor.contract.test.ts",
+  "40_Develop/coordinator/tests/unit/execution/diagnostics.contract.test.ts",
   "40_Develop/coordinator/tests/integration/platform-access-ts-coverage.contract.test.ts",
   "40_Develop/coordinator/tests/unit/provider-home-coverage.contract.test.ts",
 ]);
@@ -115,7 +115,7 @@ const coverageObligations = Object.freeze({
     "Provider、mode、状態、入出力、deadline、cancel、結果、quotaおよび専用Home投影試験",
     "Provider lifecycle、Provider Homeまたは実Provider binding変更時",
   ),
-  "40_Develop/coordinator/src/cli/doctor.ts": obligation(
+  "40_Develop/coordinator/src/execution/diagnostics.ts": obligation(
     "実Docker、全Git／Provider discovery形式および全cleanup failureを同一runで到達していない",
     "private reportのProvider Home状態またはreason投影が稀な環境で不一致になる可能性",
     "passive／isolation、discovery、readiness、runtime request、Fake lifecycleおよびexact report contract試験",

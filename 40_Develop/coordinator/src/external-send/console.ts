@@ -1,5 +1,5 @@
 /**
- * interactive-consoleに属する責務をまとめる。
+ * 送信同意の端末接続と回収不明時のProcess停止を所有する。
  *
  * @responsibility InteractiveConsoleHandlesを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000008
