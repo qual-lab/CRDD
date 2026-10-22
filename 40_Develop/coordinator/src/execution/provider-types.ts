@@ -2,8 +2,10 @@
  * Provider実行準備の相関・短期状態・結果の値契約を定義する。
  *
  * @responsibility Provider固有計画を再定義せず、短期準備状態と回収操作の型を保持する。
+ * @trace ARCH-000010
  * @trace ARCH-000015
  */
+import type { ProviderAdviceExecutionPlan } from "./provider-plan.ts";
 import type { OwnedMountPaths } from "./operation.ts";
 import type {
   DockerIsolationCommand,
@@ -498,3 +500,49 @@ export type ProviderDockerPreparationCallbacks<
     }>,
   ) => R;
 }>;
+
+/**
+ * 読取り助言Provider ExecutorのRuntime接続境界で使用するProviderAdviceRuntimeResultの構造を固定する。
+ *
+ * @responsibility 読取り助言Provider ExecutorのRuntime接続境界が受け渡す値、状態および制約を一つの型契約として保持する。
+ * @trace ARCH-000010
+ * @shape 宣言されたPropertyだけを持つ閉じた型として扱う。
+ * @invariant Identity、状態およびAuthorityを暗黙に読み替えない。
+ * @boundary 本ModuleとConsumerの型境界。
+ * @security 秘密値または未許可のPathを公開値へ追加しない。
+ * @compatibility 変更時は全Consumer、Schemaおよび契約試験を同時更新する。
+ */
+
+export type ProviderAdviceRuntimeResult = Readonly<
+  | {
+      status: "completed";
+      reason: null;
+      adviceJson: string;
+      providerEffectIssued: true;
+      cleanupConfirmed: true;
+    }
+  | {
+      status: "blocked";
+      reason: string;
+      adviceJson: null;
+      providerEffectIssued: boolean;
+      cleanupConfirmed: boolean;
+    }
+>;
+
+/**
+ * 読取り助言Provider ExecutorのRuntime接続境界で使用するProviderAdviceRuntimeの構造を固定する。
+ *
+ * @responsibility 読取り助言Provider ExecutorのRuntime接続境界が受け渡す値、状態および制約を一つの型契約として保持する。
+ * @trace ARCH-000010
+ * @shape 宣言されたPropertyだけを持つ閉じた型として扱う。
+ * @invariant Identity、状態およびAuthorityを暗黙に読み替えない。
+ * @boundary 本ModuleとConsumerの型境界。
+ * @security 秘密値または未許可のPathを公開値へ追加しない。
+ * @compatibility 変更時は全Consumer、Schemaおよび契約試験を同時更新する。
+ */
+
+export type ProviderAdviceRuntime = (
+  executionPlan: ProviderAdviceExecutionPlan,
+  cancellationSignal: AbortSignal,
+) => Promise<ProviderAdviceRuntimeResult>;

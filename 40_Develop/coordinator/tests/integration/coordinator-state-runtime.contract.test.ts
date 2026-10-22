@@ -27,7 +27,7 @@ import {
 } from "../../../domain-model/src/index.ts";
 import * as projectStorage from "../../../orchestrator/src/index.ts";
 import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
-import * as dockerController from "../../src/execution/provider-controller.ts";
+import * as dockerController from "../../src/execution/provider-observation.ts";
 import {
   finalizeRuntimeOwnedDockerRestartPreparation,
   persistRuntimeOwnedDockerRestartCheckpoint,
@@ -1873,8 +1873,10 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
   const notIssuedNotice = Object.freeze({});
   const notIssuedRecovery = Object.freeze({});
   let notIssuedActive = true;
+  let notIssuedChecks = 0;
+  let expireAfterPrecheck = false;
   const notIssuedMock = t.mock.module(
-    "../../src/execution/provider-controller.ts",
+    "../../src/execution/provider-observation.ts",
     {
       namedExports: {
         ...dockerController,
@@ -1885,14 +1887,19 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
           purpose: unknown,
           actualOperation: unknown,
           recoveryId: unknown,
-        ) =>
-          notIssuedActive &&
-          notice === notIssuedNotice &&
-          recovery === notIssuedRecovery &&
-          owner === management &&
-          purpose === resource.purpose &&
-          actualOperation === repository.operationId &&
-          recoveryId === operation.recoveryId,
+        ) => {
+          notIssuedChecks++;
+          return (
+            notIssuedActive &&
+            (!expireAfterPrecheck || notIssuedChecks === 1) &&
+            notice === notIssuedNotice &&
+            recovery === notIssuedRecovery &&
+            owner === management &&
+            purpose === resource.purpose &&
+            actualOperation === repository.operationId &&
+            recoveryId === operation.recoveryId
+          );
+        },
       },
     },
   );
@@ -1957,6 +1964,24 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       fs.readFileSync(path.join(area.directory, "state.json")),
       intentBytes,
     );
+    notIssuedChecks = 0;
+    expireAfterPrecheck = true;
+    const expired =
+      unissuedRuntime.checkpointRuntimeOwnedCoordinatorResourceNotIssued(
+        management,
+        operation.recoveryId,
+        resource.purpose,
+        notIssuedNotice,
+        notIssuedRecovery,
+      );
+    assert.equal(expired.filesystemEffectIssued, false);
+    assert.equal(notIssuedChecks, 2);
+    assert.deepEqual(
+      fs.readFileSync(path.join(area.directory, "state.json")),
+      intentBytes,
+    );
+    expireAfterPrecheck = false;
+    notIssuedChecks = 0;
     const saved =
       unissuedRuntime.checkpointRuntimeOwnedCoordinatorResourceNotIssued(
         management,
@@ -2460,7 +2485,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
   let observedProviderId: string | null = null;
   let observedProviderObservation = "absent";
   const transientRecoveryIds = new Set<string>();
-  t.mock.module("../../src/execution/provider-controller.ts", {
+  t.mock.module("../../src/execution/provider-observation.ts", {
     namedExports: {
       ...dockerController,
       /**

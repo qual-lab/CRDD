@@ -16,7 +16,7 @@ import {
   defaultAiProfileCatalog,
   type AiProfileCatalogStore,
 } from "../../../../ai-adapter/src/index.ts";
-import { createRepositoryAdviceExecutor } from "../../../src/execution/request.ts";
+import { createRepositoryAdviceExecutor } from "../../../src/execution/advice.ts";
 import {
   resolveVerifiedRepositoryRootFromWorkingDirectory,
   verifyRepositoryRoot,

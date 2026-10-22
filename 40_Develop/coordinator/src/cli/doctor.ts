@@ -624,8 +624,6 @@ function probeGitRepository(cwd: string) {
   };
 }
 
-export const isSupportedNodeVersion = isSupportedCoordinatorNodeRuntime;
-
 /**
  * node Supportedを決定する。
  *
@@ -643,7 +641,7 @@ export const isSupportedNodeVersion = isSupportedCoordinatorNodeRuntime;
  * @concurrency N/A: nodeSupportedは共有非同期状態を持たない同期処理である。
  */
 function nodeSupported(): boolean {
-  return isSupportedNodeVersion(process.versions.node);
+  return isSupportedCoordinatorNodeRuntime(process.versions.node);
 }
 
 /**

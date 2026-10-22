@@ -12,7 +12,7 @@ import { types as utilTypes } from "node:util";
 import { createDevelopmentExecutionTiming } from "./development-execution-timing.ts";
 
 import { isRuntimeProcessEffectBlocked } from "./process-safety-state.ts";
-import { snapshotCoordinatorTaskRequest } from "./request.ts";
+import { snapshotCoordinatorTaskRequest } from "./task-request.ts";
 import { createDevelopmentMeasurementConstraints } from "./development-measurement-constraints.ts";
 import { verifyOwnedOperationManagementCapability } from "./operation.ts";
 import {

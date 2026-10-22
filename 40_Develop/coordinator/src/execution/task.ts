@@ -86,7 +86,7 @@ import {
   inspectBorrowedExecutionTarget,
   type BorrowedExecutionTarget,
 } from "./borrowed-tree.ts";
-import { snapshotCoordinatorTaskRequest } from "./request.ts";
+import { snapshotCoordinatorTaskRequest } from "./task-request.ts";
 import {
   COORDINATOR_TASK_PROVIDER_PREPARATION_REASONS,
   type CoordinatorTaskPublicReason,

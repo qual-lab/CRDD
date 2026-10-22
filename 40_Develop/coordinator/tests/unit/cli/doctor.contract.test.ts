@@ -9,6 +9,7 @@
  * @boundary PRL-UT-014=N/A: Orchestrator Application Portは外部実行境界を持たない。
  */
 import assert from "node:assert/strict";
+import { isSupportedCoordinatorNodeRuntime } from "../../../src/cli/node-runtime-version.ts";
 import test from "node:test";
 
 import type { DiagnosticCheck } from "../../../src/cli/doctor.ts";
@@ -16,7 +17,6 @@ import {
   CHECK_STATUS,
   discoverCommand,
   evaluateReadiness,
-  isSupportedNodeVersion,
   REQUIRED_CHECK_IDS,
   renderDoctorCommandFailure,
   runDoctor,
@@ -36,10 +36,10 @@ import {
  */
 test("Node基準は24.12.0以上だけを受理する", () => {
   for (const version of ["24.12.0", "24.19.0", "25.0.0"]) {
-    assert.equal(isSupportedNodeVersion(version), true);
+    assert.equal(isSupportedCoordinatorNodeRuntime(version), true);
   }
   for (const version of ["24.11.9", "23.99.0", "v24.12.0", "bad"]) {
-    assert.equal(isSupportedNodeVersion(version), false);
+    assert.equal(isSupportedCoordinatorNodeRuntime(version), false);
   }
 });
 

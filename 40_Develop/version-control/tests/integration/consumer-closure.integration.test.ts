@@ -952,7 +952,7 @@ test("Local Change Setと用途別Named SymbolのConsumer集合が宣言と一�
       "40_Develop/coordinator/src/storage/settlement-store.ts",
       "40_Develop/coordinator/src/execution/recovery.ts",
       "40_Develop/coordinator/src/execution/provider-execution.ts",
-      "40_Develop/coordinator/src/execution/request.ts",
+      "40_Develop/coordinator/src/execution/advice.ts",
       "40_Develop/execution-intelligence/src/storage/store.ts",
       "40_Develop/orchestrator/src/cli/command.ts",
       "40_Develop/orchestrator/src/objective/public-operation.ts",

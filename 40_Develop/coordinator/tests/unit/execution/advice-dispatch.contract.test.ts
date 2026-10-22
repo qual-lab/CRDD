@@ -19,7 +19,7 @@ import {
 import {
   createAdviceDispatch,
   describeAdviceDispatchContract,
-} from "../../../src/execution/request.ts";
+} from "../../../src/execution/advice.ts";
 import { prepareAdviceTask } from "../../../src/execution/task-packet.ts";
 
 const resolvedProfile = resolveAiProfileById(

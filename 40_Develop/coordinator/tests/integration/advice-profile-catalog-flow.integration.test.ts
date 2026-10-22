@@ -8,7 +8,7 @@
  * @scope ai-profile-catalog、repository-store、workbench-ai-advice
  * @boundary RCM-IT-005=Direct Boundary: Repository Catalog Store→Workbench AI Application→Advice Dispatch
  */
-import type { AdviceProviderOutcome } from "../../src/execution/request.ts";
+import type { AdviceProviderOutcome } from "../../src/execution/advice.ts";
 import assert from "node:assert/strict";
 import { fixtureNetworkPolicy } from "../fixtures/network-policy.ts";
 import { execFileSync } from "node:child_process";
@@ -22,10 +22,10 @@ import {
   createRepositoryAiProfileCatalogStore,
 } from "../../../ai-adapter/src/index.ts";
 import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
-import { createRepositoryAdviceExecutor } from "../../src/execution/request.ts";
-import { createAdviceDispatch } from "../../src/execution/request.ts";
+import { createRepositoryAdviceExecutor } from "../../src/execution/advice.ts";
+import { createAdviceDispatch } from "../../src/execution/advice.ts";
 import type { ProviderAdviceExecutionPlan } from "../../src/execution/provider-plan.ts";
-import { createProviderAdviceAdapter } from "../../src/execution/request.ts";
+import { createProviderAdviceAdapter } from "../../src/execution/advice.ts";
 import { readRepositoryNetworkPolicies } from "../../src/index.ts";
 
 const canonicalRepositoryRoot = path.resolve(

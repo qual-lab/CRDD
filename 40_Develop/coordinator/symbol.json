@@ -4,6 +4,30 @@
   "subsystem": "coordinator",
   "symbols": [
     {
+      "symbolId": "coordinator.execution.provider-result-reasons",
+      "kind": "file",
+      "path": "src/execution/provider-result-reasons.ts",
+      "archIds": ["ARCH-000008"]
+    },
+    {
+      "symbolId": "coordinator.execution.result-reasons",
+      "kind": "file",
+      "path": "src/execution/result-reasons.ts",
+      "archIds": ["ARCH-000004"]
+    },
+    {
+      "symbolId": "coordinator.external-send.consent-record",
+      "kind": "file",
+      "path": "src/external-send/consent-record.ts",
+      "archIds": ["ARCH-000015"]
+    },
+    {
+      "symbolId": "coordinator.execution.provider-observation",
+      "kind": "file",
+      "path": "src/execution/provider-observation.ts",
+      "archIds": ["ARCH-000008"]
+    },
+    {
       "symbolId": "coordinator.execution.host-submission",
       "kind": "file",
       "path": "src/execution/host-submission.ts",
@@ -308,6 +332,7 @@
         "PRL-IT-013"
       ],
       "verifies": [
+        "coordinator.execution.provider-observation",
         "coordinator.source.src.security.docker.recovery.runtime.internal",
         "coordinator.state-storage.coordinator-state-runtime",
         "platform-access.source.child-tree-termination",
@@ -359,6 +384,7 @@
         "ERB-IT-014"
       ],
       "verifies": [
+        "coordinator.execution.provider-observation",
         "coordinator.state-storage.coordinator-state-runtime",
         "coordinator.state-storage.coordinator-state-model",
         "coordinator.source.src.security.docker.recovery.runtime.internal"
@@ -474,6 +500,7 @@
       "kind": "file",
       "path": "src/execution/provider-types.ts",
       "archIds": [
+        "ARCH-000010",
         "ARCH-000015"
       ]
     },
@@ -717,6 +744,8 @@
         "PRL-IT-013"
       ],
       "verifies": [
+        "coordinator.execution.provider-result-reasons",
+        "coordinator.execution.result-reasons",
         "coordinator.provider-model-selection-runtime",
         "coordinator.source.src.core.development.execution.timing",
         "coordinator.source.src.core.runtime.process.safety.state",
@@ -802,6 +831,7 @@
         "ERB-IT-004"
       ],
       "verifies": [
+        "coordinator.execution.provider-observation",
         "ai-adapter.profile.subscription-status",
         "ai-adapter.output.provider-error",
         "coordinator.source.src.core.task.cli.cancellation",
@@ -843,6 +873,7 @@
         "EST-IT-004"
       ],
       "verifies": [
+        "coordinator.external-send.consent-record",
         "coordinator.source.scripts.revoke.external.send.consent"
       ]
     },
@@ -857,6 +888,7 @@
         "EST-IT-004"
       ],
       "verifies": [
+        "coordinator.external-send.consent-record",
         "domain-model.storage.committed-json",
         "coordinator.source.src.security.external.send.consent.runtime",
         "coordinator.source.src.security.external.send.policy.runtime"
@@ -2279,6 +2311,8 @@
         "ERB-UT-023"
       ],
       "verifies": [
+        "coordinator.execution.provider-result-reasons",
+        "coordinator.execution.result-reasons",
         "coordinator.source.src.security.workbench.ai.advice.provider.output"
       ]
     },
@@ -2861,7 +2895,7 @@
     {
       "symbolId": "coordinator.source.src.composition.workbench.ai.repository.composition",
       "kind": "file",
-      "path": "src/execution/request.ts",
+      "path": "src/execution/advice.ts",
       "archIds": [
         "ARCH-000009",
         "ARCH-000015"
@@ -2906,7 +2940,7 @@
     {
       "symbolId": "coordinator.source.src.security.workbench.ai.advice.dispatch.runtime",
       "kind": "file",
-      "path": "src/execution/request.ts",
+      "path": "src/execution/advice.ts",
       "archIds": [
         "ARCH-000015"
       ]
@@ -2914,7 +2948,7 @@
     {
       "symbolId": "coordinator.source.src.security.workbench.ai.provider.adapter",
       "kind": "file",
-      "path": "src/execution/request.ts",
+      "path": "src/execution/advice.ts",
       "archIds": [
         "ARCH-000010",
         "ARCH-000015"
@@ -3148,7 +3182,7 @@
     {
       "symbolId": "coordinator.source.src.security.coordinator.task.request",
       "kind": "file",
-      "path": "src/execution/request.ts",
+      "path": "src/execution/task-request.ts",
       "archIds": [
         "ARCH-000004"
       ]

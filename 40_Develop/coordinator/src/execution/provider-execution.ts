@@ -52,7 +52,7 @@ import type { ProviderAdviceExecutionPlan } from "./provider-plan.ts";
 import type {
   ProviderAdviceRuntime,
   ProviderAdviceRuntimeResult,
-} from "./request.ts";
+} from "./provider-types.ts";
 import {
   issueRuntimeOwnedProviderAdvicePacket,
   revokeRuntimeOwnedProviderAdvicePacket,

@@ -508,3 +508,35 @@ test("operation terminalからの遷移と非terminalからのRecovery invocatio
     );
   }
 });
+
+/**
+ * 現行Sourceの検証対応登録を実File集合へ照合する。
+ * @responsibility 未登録・消失したSource Pathを検出する。
+ * @trace PPR-IT-018
+ * @precondition 現在のSourceとSymbol Manifestを読取り可能である。
+ * @stimulus Sourceを再帰列挙しManifestのsrc集合と比較する。
+ * @observation 両集合の実Pathを重複除去・整列した値。
+ * @oracle 件数だけでなくPath集合が完全一致する。
+ * @cleanup N/A: Filesystemへの書込みを行わない。
+ * @boundary PPR-IT-018=Direct Boundary: Source実体→検証対応登録
+ */
+test("Coordinator SourceのSymbol登録は実File集合と一致する", () => {
+  const moduleRoot = path.join(repositoryRoot, "40_Develop/coordinator");
+  const sourcePaths = fs
+    .readdirSync(path.join(moduleRoot, "src"), { recursive: true })
+    .map((entry) => `src/${String(entry).replaceAll("\\", "/")}`)
+    .filter((name) => name.endsWith(".ts"));
+  const manifest = JSON.parse(
+    fs.readFileSync(path.join(moduleRoot, "symbol.json"), "utf8"),
+  ) as { symbols: readonly { path: string }[] };
+  assert.deepEqual(
+    [
+      ...new Set(
+        manifest.symbols
+          .map((item) => item.path)
+          .filter((name) => name.startsWith("src/")),
+      ),
+    ].sort(),
+    sourcePaths.sort(),
+  );
+});

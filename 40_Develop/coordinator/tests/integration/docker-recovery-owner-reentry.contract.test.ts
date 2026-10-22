@@ -24,7 +24,7 @@ import {
   requireReadyRepositoryRuntimeDataArea,
 } from "../../../domain-model/src/index.ts";
 import { startWindowsChildTreeTermination } from "../../../platform-access/src/index.ts";
-import * as controller from "../../src/execution/provider-controller.ts";
+import * as controller from "../../src/execution/provider-observation.ts";
 import * as locks from "../../src/execution/kernel-lock.ts";
 import * as hostRuntime from "../../src/execution/operation.ts";
 import { loadHostRecoveryRecordByToken } from "../../src/execution/host-recovery-record.ts";
@@ -2995,8 +2995,10 @@ for (const { repeatCount, retained } of [
       );
       substitutions.push(
         mock.module(
-          new URL("../../src/execution/provider-controller.ts", import.meta.url)
-            .href,
+          new URL(
+            "../../src/execution/provider-observation.ts",
+            import.meta.url,
+          ).href,
           {
             namedExports: {
               ...controller,
@@ -3056,6 +3058,19 @@ for (const { repeatCount, retained } of [
           new URL("../../src/storage/settlement-store.ts", import.meta.url)
             .href,
           { namedExports: { ...actualStore } },
+        ),
+      );
+      const actualHostSubmission = await import(
+        new URL(
+          `../../src/execution/host-submission.ts?normal-owner-physical-${repeatCount}-${retained}`,
+          import.meta.url,
+        ).href
+      );
+      substitutions.push(
+        mock.module(
+          new URL("../../src/execution/host-submission.ts", import.meta.url)
+            .href,
+          { namedExports: { ...actualHostSubmission } },
         ),
       );
       ownerRuntime = await import(
@@ -3781,7 +3796,7 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
       },
     ),
     mock.module(
-      new URL("../../src/execution/provider-controller.ts", import.meta.url)
+      new URL("../../src/execution/provider-observation.ts", import.meta.url)
         .href,
       {
         namedExports: {

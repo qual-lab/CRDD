@@ -1,5 +1,9 @@
 # QA-000003 Project実行と回復の検証定義
 
+C前のTask入力／助言分離では、既存入力Snapshot、助言受付・Profile／配送／結果、Provider実行、Task／開発Taskの試験を移設先へ接続する。Task入力が助言Moduleの実行依存を読み込まないこと、公開Rootの関数名集合が不変であること、既存の拒否・取消・一回送信・cleanup／unknownを保持することを確認する。入力検査成功を実AI・実Dockerの成立へ昇格しない。
+
+元観測の限定分離は既存ERB-IT-002／ERB-IT-004とPRL-IT-013の検証面へ接続する。本番・候補Ownerの交差、コピー結果、別Owner／操作／回復参照、同期callbackの正常・false・throw後失効を反証する。外側確認後に失効した通知はWriter排他内で再確認して拒否し、本文を変更しない。照合Ownerは既存の非耐久二WeakMapだけを持ち、Root公開・Map公開・再入場時の復元を追加しない。限定試験を実Dockerや実AIの成立へ昇格しない。過去Evidenceと全体品質評価は維持する。
+
 ## Workspace方式の追加検証条件（2026-10-17）
 
 2026-10-18の公開結果搬送では、`PRL-UT-006`／`PRL-IT-012`とMCPの`PRL-UT-014`へ、同Task／Attempt／Operationの変更観測をObjective結果まで保持する検証を接続する。DirectのnullとIsolatedのUUID、対象相違・混在・重複・Accessor／Proxy、入力後のnested値変更を確認する。観測がない応答と観測不正のnullを空の変更一覧へ丸めず、既存失敗の一次理由・回復・cleanupを保持する。

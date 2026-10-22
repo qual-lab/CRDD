@@ -17,7 +17,7 @@ import {
   resolveAiProfileById,
 } from "../../../../ai-adapter/src/index.ts";
 import { prepareProviderAdvicePlan } from "../../../src/execution/provider-plan.ts";
-import { createProviderAdviceAdapter } from "../../../src/execution/request.ts";
+import { createProviderAdviceAdapter } from "../../../src/execution/advice.ts";
 import { prepareAdviceTask } from "../../../src/execution/task-packet.ts";
 
 const profile = resolveAiProfileById(

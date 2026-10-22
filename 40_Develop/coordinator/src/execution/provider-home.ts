@@ -12,10 +12,7 @@ import { snapshotPlainRecord } from "../../../domain-model/src/index.ts";
 import { describeProviderHomeMountGrantContract } from "./provider-home-mount-grant.ts";
 import { describeProviderHomeMountGrantRuntimeContract } from "./provider-home-mount-authorization.ts";
 import { describeProviderHomeObservationContract } from "../../../platform-access/src/index.ts";
-import {
-  describeProviderHomeWindowsAdapterContract,
-  inspectRuntimeOwnedWindowsProviderHomeCandidate,
-} from "./provider-home-windows-adapter.ts";
+import { describeProviderHomeWindowsAdapterContract } from "./provider-home-windows-adapter.ts";
 
 export const PROVIDER_HOME_CONTRACT = "crdd-coordinator/provider-home";
 export const PROVIDER_HOME_CONTRACT_REVISION = 5;
@@ -177,28 +174,6 @@ export function evaluateWindowsProviderHomeLayoutCandidate(raw: unknown) {
     operationCapabilityIssued: false,
     pathReported: false,
   });
-}
-
-/**
- * Runtime 所有 Windows Provider Home 候補を観測する。
- *
- * @responsibility Runtime 所有 Windows Provider Home 候補の観測対象、取得根拠、観測不能結果の境界を所有する。
- * @trace ARCH-000010
- * @input provider: unknown
- * @returns observeRuntimeOwnedWindowsProviderHomeCandidateの計算結果を返す。
- * @precondition 「provider: unknown」がobserveRuntimeOwnedWindowsProviderHomeCandidateの入力契約を満たす。
- * @postcondition observeRuntimeOwnedWindowsProviderHomeCandidateの責務を完了した結果だけを返す。
- * @effect N/A: observeRuntimeOwnedWindowsProviderHomeCandidateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: observeRuntimeOwnedWindowsProviderHomeCandidateは独自の失敗分岐を所有しない。
- * @invariant observeRuntimeOwnedWindowsProviderHomeCandidateは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: observeRuntimeOwnedWindowsProviderHomeCandidateはProcess内の同一Subsystemで完結する。
- * @security observeRuntimeOwnedWindowsProviderHomeCandidateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: observeRuntimeOwnedWindowsProviderHomeCandidateは共有非同期状態を持たない同期処理である。
- */
-export function observeRuntimeOwnedWindowsProviderHomeCandidate(
-  provider: unknown,
-) {
-  return inspectRuntimeOwnedWindowsProviderHomeCandidate(provider);
 }
 
 /**

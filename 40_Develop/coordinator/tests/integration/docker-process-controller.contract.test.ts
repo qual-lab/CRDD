@@ -12,13 +12,14 @@
 import { planProviderExecution } from "../../../ai-adapter/src/index.ts";
 import assert from "node:assert/strict";
 import path from "node:path";
+import fs from "node:fs";
+import { stripTypeScriptTypes } from "node:module";
 import { Writable } from "node:stream";
 import test from "node:test";
 import { bindTaskCliCancellationSignals } from "../../src/cli/task-cancellation.ts";
 import type { OwnedCommandHandle } from "../../../docker-isolation/src/index.ts";
 import { planDockerIsolationCommands } from "../../../docker-isolation/src/index.ts";
 import {
-  borrowRuntimeOwnedDockerTerminalObservations,
   cancelRuntimeOwnedDockerProcessController,
   createIsolatedDockerProcessControllerCandidate,
   createRuntimeOwnedLifecycleNoticeReporter,
@@ -26,8 +27,13 @@ import {
   projectDockerProcessControllerCompletionResult,
   projectDockerProcessControllerStartResult,
   startRuntimeOwnedDockerProcessController,
-  verifyRuntimeOwnedDockerUnissuedNotice,
 } from "../../src/execution/provider-controller.ts";
+import {
+  createProviderObservationOwner,
+  verifyRuntimeOwnedDockerProviderSubmissionNotice,
+  borrowRuntimeOwnedDockerTerminalObservations,
+  verifyRuntimeOwnedDockerUnissuedNotice,
+} from "../../src/execution/provider-observation.ts";
 import {
   orchestratorOwnedDockerProcessCompletionForTask,
   orchestratorOwnedDockerProcessStartForTask,
@@ -36,6 +42,166 @@ import { createDevelopmentMeasurementConstraints } from "../../src/execution/dev
 import { createOwnedProcessTreeFixture } from "../fixtures/docker-owned-process-test-support.ts";
 import { describeDockerProviderExecutionLocations } from "../../../docker-isolation/src/index.ts";
 import { bindProviderAdviceCommand } from "../../src/execution/provider-plan.ts";
+
+/**
+ * 観測Ownerの交差と元object・通知寿命を反証する。
+ * @responsibility Ownerと元objectの相関を検査する。
+ * @trace ERB-IT-002
+ * @trace ERB-IT-004
+ * @precondition 本番とは別の候補Owner二つを生成する。
+ * @stimulus 元通知の登録・照合・失効と終端結果の借用を行う。
+ * @observation 元object、コピー、別Ownerと本番Readerの返値。
+ * @oracle 同じOwnerの元objectだけを受理し、失効後は拒否する。
+ * @cleanup N/A: 外部資源なし。局所Ownerは試験後に到達不能となる。
+ * @boundary ERB-IT-002=Adjacent 1 Block: 候補Controller→観測Owner→本番Reader
+ */
+test("観測Ownerは候補間・本番間の流用と失効後の通知を拒否する", () => {
+  const first = createProviderObservationOwner();
+  const second = createProviderObservationOwner();
+  const owner = Object.freeze({});
+  const recovery = Object.freeze({});
+  const notice = Object.freeze({});
+  const result = Object.freeze({});
+  const args = [
+    notice,
+    recovery,
+    owner,
+    "start_provider_attached",
+    "op",
+    "recovery",
+    "provider_submission",
+  ] as const;
+  first.registerSubmission(
+    notice,
+    Object.freeze({
+      recoveryCapability: recovery,
+      managementCapability: owner,
+      purpose: "start_provider_attached",
+      operationId: "op",
+      recoveryId: "recovery",
+      kind: "provider_submission",
+    }),
+  );
+  assert.equal(first.verifyUnissuedNotice(...args), true);
+  assert.equal(second.verifyUnissuedNotice(...args), false);
+  assert.equal(
+    first.verifyUnissuedNotice(
+      { ...notice },
+      recovery,
+      owner,
+      "start_provider_attached",
+      "op",
+      "recovery",
+      "provider_submission",
+    ),
+    false,
+  );
+  assert.equal(
+    verifyRuntimeOwnedDockerProviderSubmissionNotice(
+      notice,
+      recovery,
+      owner,
+      "op",
+      "recovery",
+    ),
+    false,
+  );
+  first.revokeSubmission(notice);
+  assert.equal(first.verifyUnissuedNotice(...args), false);
+  first.registerTerminal(
+    result,
+    Object.freeze({
+      managementCapability: owner,
+      operationId: "op",
+      recoveryId: "recovery",
+      resources: [],
+      primaryFailure: null,
+      mountLeaseReleased: true,
+      recoveryCompleted: true,
+      homeLeaseReleased: true,
+    }),
+  );
+  assert.ok(first.borrowTerminalObservations(result, owner, "op", "recovery"));
+  assert.equal(
+    second.borrowTerminalObservations(result, owner, "op", "recovery"),
+    null,
+  );
+  assert.equal(
+    first.borrowTerminalObservations({ ...result }, owner, "op", "recovery"),
+    null,
+  );
+  assert.equal(
+    borrowRuntimeOwnedDockerTerminalObservations(
+      result,
+      owner,
+      "op",
+      "recovery",
+    ),
+    null,
+  );
+});
+
+/**
+ * 実行調整への値依存を照合Ownerへ戻さない。
+ * @responsibility 本番Sourceの書込み利用側と値依存の限定を検査する。
+ * @trace ERB-IT-002
+ * @trace ERB-IT-004
+ * @precondition 現在のCoordinator Sourceを読取り可能である。
+ * @stimulus 型を消去したSourceの依存と内部writer参照を調べる。
+ * @observation Store／Recoveryのimport、writer利用側、Root公開集合。
+ * @oracle Controllerだけが登録・失効し、保存Ownerは照合へ直接接続する。
+ * @cleanup N/A: 読取りだけを行う。
+ * @boundary ERB-IT-004=Direct Boundary: Source利用側→内部観測Owner
+ */
+test("StoreとRecoveryの観測照合はControllerの値importを持たない", () => {
+  const source = (name: string) =>
+    fs.readFileSync(new URL(`../../src/${name}`, import.meta.url), "utf8");
+  const runtime = (name: string) => stripTypeScriptTypes(source(name));
+  for (const name of ["storage/settlement-store.ts", "execution/recovery.ts"]) {
+    assert.doesNotMatch(
+      runtime(name),
+      /from\s+["'][^"']*provider-controller\.ts["']/,
+    );
+    assert.match(
+      runtime(name),
+      /from\s+["'][^"']*provider-observation\.ts["']/,
+    );
+  }
+  assert.doesNotMatch(
+    runtime("execution/provider-observation.ts"),
+    /from\s+["'][^"']*(?:provider-controller|recovery|settlement-store)\.ts["']/,
+  );
+  assert.doesNotMatch(
+    runtime("execution/task-request.ts"),
+    /from\s+["'][^"']*(?:advice|provider-execution|provider-controller|recovery)\.ts["']/,
+  );
+  assert.doesNotMatch(
+    source("index.ts"),
+    /provider-observation|createProviderObservationOwner/,
+  );
+  const observationSource = source("execution/provider-observation.ts");
+  assert.doesNotMatch(
+    observationSource,
+    /export const runtimeOwnedProviderObservationOwner/,
+  );
+  const writers = [
+    "registerRuntimeOwnedProviderTerminalObservation",
+    "registerRuntimeOwnedProviderSubmissionNotice",
+    "revokeRuntimeOwnedProviderSubmissionNotice",
+  ];
+  const root = new URL("../../src/", import.meta.url);
+  for (const entry of fs.readdirSync(root, { recursive: true })) {
+    const name = String(entry).replaceAll("\\", "/");
+    if (!name.endsWith(".ts") || name === "execution/provider-observation.ts")
+      continue;
+    const text = runtime(name);
+    assert.doesNotMatch(text, /runtimeOwnedProviderObservationOwner/);
+    if (name !== "execution/provider-controller.ts") {
+      for (const writer of writers)
+        assert.equal(text.includes(writer), false, `${name}: ${writer}`);
+    }
+  }
+});
 
 /**
  * createPlanのTest準備責務を実行する。

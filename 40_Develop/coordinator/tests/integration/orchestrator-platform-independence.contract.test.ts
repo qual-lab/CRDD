@@ -166,7 +166,9 @@ const SOURCE_ROLES = {
     "workspace/record.ts",
   ],
   adapter: [
+    "cli/command-report.ts",
     "cli/command.ts",
+    "cli/request-input.ts",
     "decision/capability-adapter.ts",
     "identity/observe-principal.ts",
     "objective/intake-dependencies.ts",

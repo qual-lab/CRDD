@@ -107,7 +107,7 @@ import {
   beginRuntimeOwnedCoordinatorHostSubmission,
   completeRuntimeOwnedCoordinatorHostSubmission,
 } from "./host-submission.ts";
-import { verifyRuntimeOwnedDockerProviderSubmissionNotice } from "./provider-controller.ts";
+import { verifyRuntimeOwnedDockerProviderSubmissionNotice } from "./provider-observation.ts";
 import { parseDockerTaskRecoveryId } from "../../../docker-isolation/src/index.ts";
 
 /**

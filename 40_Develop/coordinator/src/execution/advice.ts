@@ -1,15 +1,15 @@
 /**
- * coordinator-task-requestに属する責務をまとめる。
+ * 読取り助言の受付・送信同意・Provider配送・結果受理を所有する。
  *
- * @responsibility Providerを中心とする実装、型および境界を同じModuleで所有する。
- * @trace ARCH-000004
+ * @responsibility ContextとProfileを今回の一回送信へ結合し、元結果・cleanup・回復参照を保持する。
+ * @trace ARCH-000010
+ * @trace ARCH-000015
  */
-import {
-  snapshotPlainArray,
-  snapshotPlainRecord,
-  createFilesystemRepositoryObservationPort,
-} from "../../../domain-model/src/index.ts";
-import { containsRecognizedSecretScope } from "./secret-validation.ts";
+import { createFilesystemRepositoryObservationPort } from "../../../domain-model/src/index.ts";
+import type {
+  ProviderAdviceRuntime,
+  ProviderAdviceRuntimeResult,
+} from "./provider-types.ts";
 import {
   createRuntimeOwnedProviderAdviceRuntime,
   classifyProviderAdviceHostFailure,
@@ -42,172 +42,6 @@ import {
   prepareProviderAdvicePlan,
   type ProviderAdviceExecutionPlan,
 } from "./provider-plan.ts";
-/**
- * coordinator-task-requestで使用するProviderの値契約を定義する。
- *
- * @responsibility ProviderのProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000004
- * @shape Providerが表すProperty、識別子およびRelationを型として固定する。
- * @invariant Providerで宣言した値と責務の対応を維持する。
- * @boundary N/A: Providerの宣言は外部境界を開かない。
- * @security ProviderはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility Providerの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-type Provider = "codex" | "claude";
-
-const REQUEST_KEYS = new Set([
-  "frontProvider",
-  "requestedExecutorProvider",
-  "requestedProfileId",
-  "objective",
-  "acceptanceCriteria",
-  "allowedPaths",
-  "readPaths",
-  "workClass",
-  "planState",
-  "risk",
-  "difficulty",
-  "decisionImpact",
-  "isLocalCandidateOnly",
-  "hasUnresolvedDirection",
-  "requiresCrossContextAlignment",
-]);
-const AUTOMATIC_REQUEST_KEYS = new Set([
-  "frontProvider",
-  "requestedExecutorProvider",
-  "objective",
-  "acceptanceCriteria",
-  "allowedPaths",
-  "readPaths",
-  "workClass",
-  "planState",
-  "risk",
-  "difficulty",
-  "decisionImpact",
-  "isLocalCandidateOnly",
-  "hasUnresolvedDirection",
-  "requiresCrossContextAlignment",
-]);
-const REQUEST_KEYS_WITH_NETWORK_POLICY = new Set([
-  ...REQUEST_KEYS,
-  "expectedNetworkPolicyHash",
-]);
-const AUTOMATIC_REQUEST_KEYS_WITH_NETWORK_POLICY = new Set([
-  ...AUTOMATIC_REQUEST_KEYS,
-  "expectedNetworkPolicyHash",
-]);
-/**
- * Coordinator Task Requestを所有Snapshotへ変換する。
- *
- * @responsibility Coordinator Task Requestの取得範囲、plain-data制約、拒否境界を所有する。
- * @trace ARCH-000004
- * @input rawRequest: unknown
- * @returns snapshotCoordinatorTaskRequestの計算結果を返す。
- * @precondition 「rawRequest: unknown」がsnapshotCoordinatorTaskRequestの入力契約を満たす。
- * @postcondition snapshotCoordinatorTaskRequestの責務を完了した結果だけを返す。
- * @effect N/A: snapshotCoordinatorTaskRequestは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: snapshotCoordinatorTaskRequestは独自の失敗分岐を所有しない。
- * @invariant snapshotCoordinatorTaskRequestは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: snapshotCoordinatorTaskRequestはProcess内の同一Subsystemで完結する。
- * @security snapshotCoordinatorTaskRequestはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: snapshotCoordinatorTaskRequestは共有非同期状態を持たない同期処理である。
- */
-export function snapshotCoordinatorTaskRequest(rawRequest: unknown) {
-  const request =
-    snapshotPlainRecord(rawRequest, REQUEST_KEYS_WITH_NETWORK_POLICY) ??
-    snapshotPlainRecord(
-      rawRequest,
-      AUTOMATIC_REQUEST_KEYS_WITH_NETWORK_POLICY,
-    ) ??
-    snapshotPlainRecord(rawRequest, REQUEST_KEYS) ??
-    snapshotPlainRecord(rawRequest, AUTOMATIC_REQUEST_KEYS);
-  const acceptance = request
-    ? snapshotPlainArray<string>(request.acceptanceCriteria, 16)
-    : null;
-  const paths = request
-    ? snapshotPlainArray<string>(request.allowedPaths, 64)
-    : null;
-  const requestedReadPaths =
-    request && request.readPaths !== undefined
-      ? snapshotPlainArray<string>(request.readPaths, 64)
-      : paths;
-  if (
-    !request ||
-    (request.frontProvider !== "codex" && request.frontProvider !== "claude") ||
-    (request.requestedExecutorProvider !== undefined &&
-      request.requestedExecutorProvider !== "auto" &&
-      request.requestedExecutorProvider !== "codex" &&
-      request.requestedExecutorProvider !== "claude") ||
-    (request.requestedProfileId !== undefined &&
-      (typeof request.requestedProfileId !== "string" ||
-        !/^PROFILE-[0-9]{6,}$/u.test(request.requestedProfileId))) ||
-    (request.expectedNetworkPolicyHash !== undefined &&
-      (typeof request.expectedNetworkPolicyHash !== "string" ||
-        !/^[a-f0-9]{64}$/u.test(request.expectedNetworkPolicyHash))) ||
-    typeof request.objective !== "string" ||
-    request.objective.length === 0 ||
-    acceptance?.status !== "ok" ||
-    paths?.status !== "ok" ||
-    requestedReadPaths?.status !== "ok" ||
-    acceptance.value.length === 0 ||
-    paths.value.length === 0 ||
-    !acceptance.value.every((value) => typeof value === "string") ||
-    !paths.value.every((value) => typeof value === "string") ||
-    !requestedReadPaths.value.every((value) => typeof value === "string")
-  ) {
-    return null;
-  }
-  const readPaths = [
-    ...new Map(
-      [...requestedReadPaths.value, ...paths.value].map((value) => [
-        value.toUpperCase(),
-        value,
-      ]),
-    ).values(),
-  ];
-  if (readPaths.length > 64) return null;
-  const normalized = Object.freeze({
-    ...request,
-    frontProvider: request.frontProvider as Provider,
-    requestedExecutorProvider:
-      request.requestedExecutorProvider === "codex" ||
-      request.requestedExecutorProvider === "claude"
-        ? request.requestedExecutorProvider
-        : "auto",
-    requestedProfileId:
-      typeof request.requestedProfileId === "string"
-        ? request.requestedProfileId
-        : null,
-    expectedNetworkPolicyHash:
-      typeof request.expectedNetworkPolicyHash === "string"
-        ? request.expectedNetworkPolicyHash
-        : null,
-    objective: request.objective,
-    acceptanceCriteria: acceptance.value,
-    allowedPaths: paths.value,
-    readPaths: Object.freeze(readPaths),
-    workClass: request.workClass,
-    planState: request.planState,
-    risk: request.risk,
-    difficulty: request.difficulty,
-    decisionImpact: request.decisionImpact,
-    isLocalCandidateOnly: request.isLocalCandidateOnly,
-    hasUnresolvedDirection: request.hasUnresolvedDirection,
-    requiresCrossContextAlignment: request.requiresCrossContextAlignment,
-  });
-  return containsRecognizedSecretScope(
-    normalized.objective,
-    normalized.acceptanceCriteria,
-    normalized.allowedPaths,
-    normalized.readPaths,
-  )
-    ? Object.freeze({
-        status: "blocked" as const,
-        reason: "coordinator_task_scope_recognized_secret_rejected" as const,
-      })
-    : Object.freeze({ status: "accepted" as const, request: normalized });
-}
-
 const PROJECT_CONTEXT_REFERENCE = "PROJECT_CONTEXT.md";
 
 /**
@@ -1053,52 +887,6 @@ function profileExecutionIsValid(input: AdviceProviderInput) {
     providerProfileSupportsExecution(input.profile, "coordinator")
   );
 }
-/**
- * 読取り助言Provider ExecutorのRuntime接続境界で使用するProviderAdviceRuntimeResultの構造を固定する。
- *
- * @responsibility 読取り助言Provider ExecutorのRuntime接続境界が受け渡す値、状態および制約を一つの型契約として保持する。
- * @trace ARCH-000010
- * @shape 宣言されたPropertyだけを持つ閉じた型として扱う。
- * @invariant Identity、状態およびAuthorityを暗黙に読み替えない。
- * @boundary 本ModuleとConsumerの型境界。
- * @security 秘密値または未許可のPathを公開値へ追加しない。
- * @compatibility 変更時は全Consumer、Schemaおよび契約試験を同時更新する。
- */
-
-export type ProviderAdviceRuntimeResult = Readonly<
-  | {
-      status: "completed";
-      reason: null;
-      adviceJson: string;
-      providerEffectIssued: true;
-      cleanupConfirmed: true;
-    }
-  | {
-      status: "blocked";
-      reason: string;
-      adviceJson: null;
-      providerEffectIssued: boolean;
-      cleanupConfirmed: boolean;
-    }
->;
-
-/**
- * 読取り助言Provider ExecutorのRuntime接続境界で使用するProviderAdviceRuntimeの構造を固定する。
- *
- * @responsibility 読取り助言Provider ExecutorのRuntime接続境界が受け渡す値、状態および制約を一つの型契約として保持する。
- * @trace ARCH-000010
- * @shape 宣言されたPropertyだけを持つ閉じた型として扱う。
- * @invariant Identity、状態およびAuthorityを暗黙に読み替えない。
- * @boundary 本ModuleとConsumerの型境界。
- * @security 秘密値または未許可のPathを公開値へ追加しない。
- * @compatibility 変更時は全Consumer、Schemaおよび契約試験を同時更新する。
- */
-
-export type ProviderAdviceRuntime = (
-  executionPlan: ProviderAdviceExecutionPlan,
-  cancellationSignal: AbortSignal,
-) => Promise<ProviderAdviceRuntimeResult>;
-
 /**
  * 検証した助言計画を同じ単発Runtimeへ一度だけ渡す。
  *

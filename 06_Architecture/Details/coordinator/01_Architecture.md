@@ -1,5 +1,9 @@
 # Coordinator Runtimeの実行アーキテクチャ
 
+Task依頼の入力取込みは`execution/task-request.ts`、読取り助言のContext／Profile／同意・配送・結果受理は`execution/advice.ts`が所有する。Provider助言の実行型は既存`provider-types.ts`へ置き、実行順序を型Ownerへ移さない。助言受付、Provider計画、Operation／cleanup、Process制御は異なる境界であり、中継削減のためにそれぞれの検証を省略しない。公開関数名、入力Schema、送信回数と取消・回復参照はこの配置変更で変えない。
+
+元結果・短命通知の照合は`execution/provider-observation.ts`が所有する。既存二WeakMapを私有に保ち、本番と各候補のOwnerを分離する。Controllerだけが元の位置で登録・finally失効し、Store／Recoveryは照合する。外側確認とWriter排他内のfresh照合を維持し、コピーDTOや事前計算boolで代替しない。Process再入場で観測を復元せず、Root公開・永続状態・新Authorityは追加しない。失敗理由の意味はControllerに残す。今回の分離は観測照合の値依存だけを外し、全循環の解消とは扱わない。
+
 ## B3〜B5の責務境界 — 2026-10-21
 
 Provider CLI生成・結果Envelope抽出は既存AI Adapter API、Docker構成生成・固定command一致照合はDocker Isolation、借用Treeの安定File読取り・inventoryはVersion Controlが所有する。上位はModel／Offering・Operation／Packet相関、実行許可、dirty基準、許可Path、Secret判定、レビュー投影と元Capabilityの生涯を維持する。上位計画Hashには業務相関を含むため、DIの技術Hashへ統合しない。

@@ -21,7 +21,7 @@ import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
 import {
   borrowRuntimeOwnedDockerTerminalObservations,
   verifyRuntimeOwnedDockerUnissuedNotice,
-} from "../execution/provider-controller.ts";
+} from "../execution/provider-observation.ts";
 import { parseDockerTaskRecoveryId } from "../../../docker-isolation/src/index.ts";
 import { acquireRuntimeOwnedCoordinatorStateKernelLock } from "../execution/kernel-lock.ts";
 import { isDockerRestartCheckpointSettled } from "../execution/restart-checkpoint.ts";
