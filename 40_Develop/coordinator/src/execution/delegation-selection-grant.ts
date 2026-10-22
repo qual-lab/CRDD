@@ -17,9 +17,9 @@ import { observeRuntimeOwnedProviderEligibility } from "./eligibility-observatio
 import { resolveRuntimeOwnedProviderModelProfile } from "../../../ai-adapter/src/index.ts";
 import { verifyRuntimeOwnedRepositoryOperation } from "./repository-binding.ts";
 
-export const DELEGATION_SELECTION_GRANT_RUNTIME_CONTRACT =
+const DELEGATION_SELECTION_GRANT_RUNTIME_CONTRACT =
   "crdd-coordinator/delegation-selection-grant-runtime";
-export const DELEGATION_SELECTION_GRANT_RUNTIME_CONTRACT_REVISION = 4;
+const DELEGATION_SELECTION_GRANT_RUNTIME_CONTRACT_REVISION = 4;
 
 const SELECTION_LIFETIME_MS = 30_000;
 const PROFILE_ID = /^PROFILE-[0-9]{6,}$/u;

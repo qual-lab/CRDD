@@ -12,7 +12,7 @@ import { selectProviderModelCandidate } from "./model-selection.ts";
 
 export const DELEGATION_ROUTE_SELECTION_CONTRACT =
   "crdd-coordinator/delegation-route-selection";
-export const DELEGATION_ROUTE_SELECTION_CONTRACT_REVISION = 3;
+const DELEGATION_ROUTE_SELECTION_CONTRACT_REVISION = 3;
 
 const MAXIMUM_DELEGATION_DEPTH = 2;
 const MAXIMUM_ANCESTOR_OPERATIONS = 2;

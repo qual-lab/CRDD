@@ -70,9 +70,9 @@ import {
   STDERR_LIMIT_BYTES,
 } from "../../../docker-isolation/src/index.ts";
 
-export const DOCKER_PROCESS_CONTROLLER_CONTRACT =
+const DOCKER_PROCESS_CONTROLLER_CONTRACT =
   "crdd-coordinator/docker-process-controller";
-export const DOCKER_PROCESS_CONTROLLER_CONTRACT_REVISION = 31;
+const DOCKER_PROCESS_CONTROLLER_CONTRACT_REVISION = 31;
 
 const {
   setupTimeoutMs: SETUP_TIMEOUT_MS,

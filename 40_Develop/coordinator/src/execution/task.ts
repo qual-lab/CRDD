@@ -1,7 +1,7 @@
 /**
  * coordinator-task-runtimeに属する責務をまとめる。
  *
- * @responsibility orchestratorOwnedDockerProcessStartForTaskを中心とする実装、型および境界を同じModuleで所有する。
+ * @responsibility 単発TaskのExecutor／Reviewer実行、Controller結果の利用、取消と結果返却を所有する。
  * @trace ARCH-000004
  */
 import { types as utilTypes } from "node:util";
@@ -93,62 +93,6 @@ import {
   projectCoordinatorTaskPublicReason,
 } from "./result-reasons.ts";
 import { reserveRuntimeOwnedDevelopmentMeasurementTask } from "./development-measurement-session.ts";
-
-/**
- * Runtime 所有 Docker Process Start For Taskを公開結果へ投影する。
- *
- * @responsibility Runtime 所有 Docker Process Start For Taskの公開field、秘匿境界、投影不能時の結果境界を所有する。
- * @trace ARCH-000004
- * @input value: unknown、recoveryId: unknown、operationId: unknown
- * @returns orchestratorOwnedDockerProcessStartForTaskの計算結果を返す。
- * @precondition 「value: unknown、recoveryId: unknown、operationId: unknown」がorchestratorOwnedDockerProcessStartForTaskの入力契約を満たす。
- * @postcondition orchestratorOwnedDockerProcessStartForTaskの責務を完了した結果だけを返す。
- * @effect N/A: orchestratorOwnedDockerProcessStartForTaskは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: orchestratorOwnedDockerProcessStartForTaskは独自の失敗分岐を所有しない。
- * @invariant orchestratorOwnedDockerProcessStartForTaskは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: orchestratorOwnedDockerProcessStartForTaskはProcess内の同一Subsystemで完結する。
- * @security orchestratorOwnedDockerProcessStartForTaskはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: orchestratorOwnedDockerProcessStartForTaskは共有非同期状態を持たない同期処理である。
- */
-export function orchestratorOwnedDockerProcessStartForTask(
-  value: unknown,
-  recoveryId: unknown,
-  operationId: unknown,
-) {
-  return projectDockerProcessControllerStartResult(
-    value,
-    recoveryId,
-    operationId,
-  );
-}
-
-/**
- * Runtime 所有 Docker Process Completion For Taskを公開結果へ投影する。
- *
- * @responsibility Runtime 所有 Docker Process Completion For Taskの公開field、秘匿境界、投影不能時の結果境界を所有する。
- * @trace ARCH-000004
- * @input value: unknown、recoveryId: unknown、operationId: unknown
- * @returns orchestratorOwnedDockerProcessCompletionForTaskの計算結果を返す。
- * @precondition 「value: unknown、recoveryId: unknown、operationId: unknown」がorchestratorOwnedDockerProcessCompletionForTaskの入力契約を満たす。
- * @postcondition orchestratorOwnedDockerProcessCompletionForTaskの責務を完了した結果だけを返す。
- * @effect N/A: orchestratorOwnedDockerProcessCompletionForTaskは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: orchestratorOwnedDockerProcessCompletionForTaskは独自の失敗分岐を所有しない。
- * @invariant orchestratorOwnedDockerProcessCompletionForTaskは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: orchestratorOwnedDockerProcessCompletionForTaskはProcess内の同一Subsystemで完結する。
- * @security orchestratorOwnedDockerProcessCompletionForTaskはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: orchestratorOwnedDockerProcessCompletionForTaskは共有非同期状態を持たない同期処理である。
- */
-export function orchestratorOwnedDockerProcessCompletionForTask(
-  value: unknown,
-  recoveryId: unknown,
-  operationId: unknown,
-) {
-  return projectDockerProcessControllerCompletionResult(
-    value,
-    recoveryId,
-    operationId,
-  );
-}
 
 export const COORDINATOR_TASK_RUNTIME_CONTRACT =
   "crdd-coordinator/task-runtime";
@@ -2179,7 +2123,7 @@ async function executeStageBody(
       startRuntimeOwnedDockerProcessController;
     const process = (
       isProductionProcessContract
-        ? orchestratorOwnedDockerProcessStartForTask(
+        ? projectDockerProcessControllerStartResult(
             rawProcess,
             control.dockerHandoffs.at(-1)?.recoveryId ?? null,
             operation.operationId,
@@ -2233,7 +2177,7 @@ async function executeStageBody(
     }
     const rawResult = await completion;
     const result = isProductionProcessContract
-      ? orchestratorOwnedDockerProcessCompletionForTask(
+      ? projectDockerProcessControllerCompletionResult(
           rawResult,
           startedDockerRecoveryId,
           operation.operationId,

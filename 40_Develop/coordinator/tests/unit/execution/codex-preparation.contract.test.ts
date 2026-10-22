@@ -10,6 +10,8 @@
  */
 import {
   getRuntimeOwnedProviderDockerAdapter,
+  createProviderDockerRuntimeDependencies,
+  createProviderDockerRuntimeState,
   createProviderDockerRuntimeAdapterCandidate,
   describeProviderDockerRuntimeAdapterContract,
 } from "../../../src/execution/provider-adapter.ts";
@@ -19,10 +21,6 @@ import assert from "node:assert/strict";
 import { prepareDockerNetworkPolicy } from "../../../../docker-isolation/src/index.ts";
 import test, { mock } from "node:test";
 import fs from "node:fs";
-import {
-  createProviderDockerRuntimeDependencies,
-  createProviderDockerRuntimeState,
-} from "../../../src/execution/provider-composition.ts";
 import { createProviderDockerBlockedResult } from "../../../src/execution/provider-preparation.ts";
 import {
   cancelProviderDockerPreparation,

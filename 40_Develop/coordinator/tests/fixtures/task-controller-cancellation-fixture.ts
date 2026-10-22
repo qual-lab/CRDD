@@ -12,10 +12,10 @@
  */
 import assert from "node:assert/strict";
 import {
-  orchestratorOwnedDockerProcessCompletionForTask,
-  orchestratorOwnedDockerProcessStartForTask,
-} from "../../src/execution/task.ts";
-import { createIsolatedDockerProcessControllerCandidate } from "../../src/execution/provider-controller.ts";
+  createIsolatedDockerProcessControllerCandidate,
+  projectDockerProcessControllerStartResult,
+  projectDockerProcessControllerCompletionResult,
+} from "../../src/execution/provider-controller.ts";
 import type { OwnedCommandHandle } from "../../../docker-isolation/src/index.ts";
 import { createOwnedProcessTreeFixture } from "./docker-owned-process-test-support.ts";
 
@@ -219,7 +219,7 @@ export function createTaskControllerCancellationFixture(
         registerHandoff,
         restriction,
       );
-      const projected = orchestratorOwnedDockerProcessStartForTask(
+      const projected = projectDockerProcessControllerStartResult(
         raw,
         recoveryId,
         operationId,
@@ -232,7 +232,7 @@ export function createTaskControllerCancellationFixture(
       return {
         ...projected,
         completion: projected.completion.then((result: unknown) => {
-          const completion = orchestratorOwnedDockerProcessCompletionForTask(
+          const completion = projectDockerProcessControllerCompletionResult(
             result,
             recoveryId,
             operationId,

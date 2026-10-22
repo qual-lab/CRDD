@@ -1,5 +1,17 @@
 # Coordinator Runtimeの実行アーキテクチャ
 
+<a id="pre-consolidation-execution"></a>
+
+## 統合前の単発実行責務と目標 — 2026-10-22
+
+現Coordinatorは単発AI実行の実装を所有し、現Orchestratorは仕事の進行を所有する。Cの採用済み目標は、旧Coordinatorの単発実行を旧Orchestratorへ吸収し、旧Coordinatorを撤去して旧OrchestratorをCoordinatorへ改名することである。以下は統合前の目標責務であり、Source移管・削除の成立を示さない。移行対応、順序と停止条件は[統合前の構造整理計画](../../../99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#24-両packageのafterを基準にした統合前整理)が所有する。
+
+統合前は現在の`cli/`、`execution/`、`external-send/`、`storage/`とRoot入口を維持する。単発実行は開始・取消・元結果・技術的回復との相関を所有し、Task Graph、予約、再試行・再計画、Workspace寿命や採否を判断しない。Provider／Modelの最終選択戦略は統合後のObjective／Task側、Provider固有の計画・結果解釈はAI Adapter、Docker隔離と所有資源の技術回収はDocker Isolation、OS技術はPlatform Accessが所有する。ExecutionはそれらのAPI、選択結果、元操作と一回Grantを結合する。
+
+助言と編集の共通化は、開始・取消・返却の同じ意味に限定する。助言の読取り範囲と一回送信、編集の書込み対象・レビューを、名称を揃える目的で混合しない。Provider別の短期状態とAuthority等を束縛する二Factoryは、唯一の本番Consumerである`provider-adapter.ts`へ実体を同居し、旧`provider-composition.ts`を撤去する。無判断中継の削除ではなく、同じ準備Ownerの集約であり、本文・二Map・本番初期化順を維持する。`provider-observation.ts`の私有Map、本番／候補の独立性、登録位置、`finally`失効、外側とWriter内のfresh照合を維持する。Controllerへの再統合は採用していない。
+
+StorageはC前の構造整理で凍結する。対象は二Sourceの配置・本文だけでなく、Schema bytes、Hash、短期排他、CAS、pending／marker、履歴の行・時刻、配送・ACK・終了と操作除去の条件を含む。物理保存と実行の終了条件を分ける評価はCの実行入口統合後に行い、二つの永続正本を統合必須とはしない。将来の目標構成は[統合後の責務境界](../orchestrator/01_Architecture.md#consolidated-source-target)を参照する。
+
 ## CLIの責務限定 — 2026-10-22
 
 `cli/`は`command.ts`（受付・既存操作への配送）、`options.ts`（引数検査）、`recovery-report.ts`（非秘密のJSON／人向け表示）、`cancellation.ts`（Signalと取消の一回接続）とする。現在Repositoryの解決・検証は受付が行い、保存記録とexact Host／Probe参照の照合は既存`execution/recovery.ts`へ検証済みRoot Capabilityを渡す。所在Pathを処置Authorityへ昇格しない。
@@ -671,7 +683,7 @@ Docker準備候補の取消・期限確認・一回消費は`src/execution/provi
 
 選定・操作・Mountと固定CLI計画の相関、Home／tmp／Workspace、資源名、Proxy環境、認証確認と九commandの組立ては`src/execution/provider-plan.ts`へまとめる。AI Adapterから取得した二Providerの固定記述を利用し、CodexだけのExecutor Seccomp、追加Proxy変数・認証Home環境・init要求と、ClaudeのModel／effort引数・仕事量を区別して保持する。Taskと助言の同時入力、異なる操作・Profile・Provider、取得不能なSeccompや不正Mountを拒否し、取得例外は既存準備Ownerの失効・Mount回収へ返す。公開候補の成功表示やAuthority発行はこの組立ての責務ではない。
 
-本番準備の共通依存は`src/execution/provider-composition.ts`で組み立てる。Mount照合・有効化・解放、Packet消費、選定消費、Authority発行・失効、乱数と二時計を同じ既存Ownerへ結合し、組立て自体は取得・消費・外部要求を実行しない。同じFileの状態FactoryはOwnerごとに独立した二WeakMapを生成し、準備Storeと管理対応をProvider間または同じProviderの別Owner間で共有しない。具体計画、消費済み選定・Task、準備状態の型は既存の`execution/provider-types.ts`が所有する。Providerと購読種別、Claudeだけの作業量を型でも区別する。Codex ExecutorのSeccomp適用要否と期待IdentityをDI計画へ渡し、Claudeへ暗黙適用しない。上位状態と依存型へSeccompのPathや検証関数を保持しない。Effect前の拒否結果は共通準備Fileが一つだけ構築し、既存field、null、falseとProvider別理由値を維持する。両Providerの計画型と成功結果の差をこの整理だけで統一しない。
+本番準備の共通依存は`src/execution/provider-adapter.ts`で組み立てる。Mount照合・有効化・解放、Packet消費、選定消費、Authority発行・失効、乱数と二時計を同じ既存Ownerへ結合し、組立て自体は取得・消費・外部要求を実行しない。同じFileの状態FactoryはOwnerごとに独立した二WeakMapを生成し、準備Storeと管理対応をProvider間または同じProviderの別Owner間で共有しない。具体計画、消費済み選定・Task、準備状態の型は既存の`execution/provider-types.ts`が所有する。Providerと購読種別、Claudeだけの作業量を型でも区別する。Codex ExecutorのSeccomp適用要否と期待IdentityをDI計画へ渡し、Claudeへ暗黙適用しない。上位状態と依存型へSeccompのPathや検証関数を保持しない。Effect前の拒否結果は共通準備Fileが一つだけ構築し、既存field、null、falseとProvider別理由値を維持する。両Providerの計画型と成功結果の差をこの整理だけで統一しない。
 
 固定呼出し側の共通組立ては`src/execution/provider-adapter.ts`へ接続済みである。準備・取消・一回消費を同じOwnerで組み立て、本番AdapterはProviderごとに一度だけ生成する。二Providerの既存入口とTask本番利用側は同じ固定Ownerを取得し、取得のたびにStoreを作り直さない。局所試験の独立Factoryは本番Storeと分離する。Claudeの作業量検査と公開結果field、CodexのSeccomp接続は区別したまま保持する。Taskの回復相関も同じ計画へ搬送する。これは準備組立ての移管であり、Snapshot本番保存・回収・搬送の完了を意味しない。
 

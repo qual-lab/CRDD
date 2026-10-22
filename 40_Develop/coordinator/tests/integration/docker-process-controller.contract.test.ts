@@ -34,10 +34,6 @@ import {
   borrowRuntimeOwnedDockerTerminalObservations,
   verifyRuntimeOwnedDockerUnissuedNotice,
 } from "../../src/execution/provider-observation.ts";
-import {
-  orchestratorOwnedDockerProcessCompletionForTask,
-  orchestratorOwnedDockerProcessStartForTask,
-} from "../../src/execution/task.ts";
 import { createDevelopmentMeasurementConstraints } from "../../src/execution/development-measurement-constraints.ts";
 import { createOwnedProcessTreeFixture } from "../fixtures/docker-owned-process-test-support.ts";
 import { describeDockerProviderExecutionLocations } from "../../../docker-isolation/src/index.ts";
@@ -491,14 +487,14 @@ test("実Controller出力のstart・handoff・completion相関をproducer所有p
   assert.equal(projectedStart.status, "started");
   const completion = await (projectedStart.completion as Promise<unknown>);
   assert.ok(
-    orchestratorOwnedDockerProcessStartForTask(
+    projectDockerProcessControllerStartResult(
       started,
       handedOffRecoveryId,
       "OP-123456",
     ),
   );
   assert.ok(
-    orchestratorOwnedDockerProcessCompletionForTask(
+    projectDockerProcessControllerCompletionResult(
       completion,
       handedOffRecoveryId,
       "OP-123456",
@@ -604,7 +600,6 @@ test("実Controller出力のstart・handoff・completion相関をproducer所有p
     });
     for (const projectCompletion of [
       projectDockerProcessControllerCompletionResult,
-      orchestratorOwnedDockerProcessCompletionForTask,
     ])
       assert.equal(
         projectCompletion(malformed, handedOffRecoveryId, "OP-123456"),
@@ -757,7 +752,6 @@ function createSubscriptionAuthOutput(subscriptionType = "max") {
 
 const completionProjectors = [
   projectDockerProcessControllerCompletionResult,
-  orchestratorOwnedDockerProcessCompletionForTask,
 ] as const;
 
 /**
@@ -2613,7 +2607,6 @@ for (const deniedPurpose of createPlan({}, {}).commands.map(
     assert.equal(fixture.getRecoveryCompletionCount(), 1);
     for (const projectCompletion of [
       projectDockerProcessControllerCompletionResult,
-      orchestratorOwnedDockerProcessCompletionForTask,
     ])
       assert.ok(projectCompletion(result, started.recoveryId, "OP-123456"));
   });
@@ -2947,7 +2940,7 @@ test("固定command planを完了後に全resource不存在とlease解放へ閉�
   assert.equal(fixture.getCommandCount(), 9);
   assert.equal(result.subscriptionAuthConfirmed, true);
   assert.ok(
-    orchestratorOwnedDockerProcessCompletionForTask(
+    projectDockerProcessControllerCompletionResult(
       result,
       started.recoveryId,
       "OP-123456",
@@ -4011,7 +4004,7 @@ test("取消はactive processへ一度だけ伝えcleanup後にcancelledにな�
     ),
   );
   assert.ok(
-    orchestratorOwnedDockerProcessCompletionForTask(
+    projectDockerProcessControllerCompletionResult(
       result,
       started.recoveryId,
       "OP-123456",
@@ -4019,7 +4012,6 @@ test("取消はactive processへ一度だけ伝えcleanup後にcancelledにな�
   );
   for (const projectCompletion of [
     projectDockerProcessControllerCompletionResult,
-    orchestratorOwnedDockerProcessCompletionForTask,
   ])
     assert.equal(
       projectCompletion(
@@ -4211,7 +4203,7 @@ test("cleanup不明なら成功出力を破棄しmanual Recoveryへ閉じる", a
     ),
   );
   assert.ok(
-    orchestratorOwnedDockerProcessCompletionForTask(
+    projectDockerProcessControllerCompletionResult(
       result,
       started.recoveryId,
       "OP-123456",
@@ -4276,7 +4268,7 @@ test("Provider Result不正時もcleanupし正規化Resultを公開しない", a
     ),
   );
   assert.ok(
-    orchestratorOwnedDockerProcessCompletionForTask(
+    projectDockerProcessControllerCompletionResult(
       result,
       started.recoveryId,
       "OP-123456",

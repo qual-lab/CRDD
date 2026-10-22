@@ -45,7 +45,7 @@ import {
   createRepositoryWorktree,
   verifyRepositoryRoot,
 } from "../../../version-control/src/index.ts";
-import { createProviderDockerRuntimeDependencies } from "../../src/execution/provider-composition.ts";
+import { createProviderDockerRuntimeDependencies } from "../../src/execution/provider-adapter.ts";
 import { runOrchestratorSingleTaskAttempt } from "../../../orchestrator/src/index.ts";
 import {
   prepareVerificationWorkspace,

@@ -285,8 +285,7 @@ export function createRuntimeOwnedProviderAdviceRuntime(
     ...createProductionDependencies(repositoryRoot),
     ...observation,
   });
-  return (executionPlan, cancellationSignal) =>
-    runtime(executionPlan, cancellationSignal);
+  return runtime;
 }
 
 /**

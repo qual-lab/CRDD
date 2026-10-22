@@ -7,9 +7,9 @@
 import { selectProviderFamilyPreference } from "../../../ai-adapter/src/index.ts";
 import { snapshotPlainRecord } from "../../../domain-model/src/index.ts";
 
-export const PROVIDER_MODEL_SELECTION_RUNTIME_CONTRACT =
+const PROVIDER_MODEL_SELECTION_RUNTIME_CONTRACT =
   "crdd-coordinator/provider-model-selection-runtime";
-export const PROVIDER_MODEL_SELECTION_RUNTIME_CONTRACT_REVISION = 2;
+const PROVIDER_MODEL_SELECTION_RUNTIME_CONTRACT_REVISION = 2;
 
 const SELECTION_KEYS = new Set([
   "provider",

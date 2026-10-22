@@ -349,9 +349,9 @@ export function buildProviderDockerExecutionPlan(
       });
 }
 
-export const PROVIDER_ADVICE_EXECUTION_PLAN_CONTRACT =
+const PROVIDER_ADVICE_EXECUTION_PLAN_CONTRACT =
   "crdd-coordinator/workbench-ai-advice-execution-plan";
-export const PROVIDER_ADVICE_EXECUTION_PLAN_CONTRACT_REVISION = 1;
+const PROVIDER_ADVICE_EXECUTION_PLAN_CONTRACT_REVISION = 1;
 
 const SHA256 = /^[a-f0-9]{64}$/u;
 const EXECUTION_INPUT_KEYS = Object.freeze([
@@ -439,7 +439,7 @@ export type ProviderAdviceExecutionPlan = Readonly<{
  * @compatibility 変更時は全Consumer、Schemaおよび契約試験を同時更新する。
  */
 
-export type ProviderAdvicePlanPreparation = Readonly<
+type ProviderAdvicePlanPreparation = Readonly<
   | {
       status: "prepared";
       reason: null;

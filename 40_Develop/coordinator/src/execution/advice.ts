@@ -191,41 +191,43 @@ async function executeAdviceRequest(
     cancellationSignal,
   );
   if (packet === null)
-    return adviceRequestRejected(
+    return createAdviceRejectedResult(
       "coordinator_ai_advice_projection_unavailable",
     );
   if (cancellationSignal.aborted)
-    return adviceRequestRejected("coordinator_ai_request_cancelled");
+    return createAdviceRejectedResult("coordinator_ai_request_cancelled");
   let catalogSnapshot: AiProfileCatalogSnapshot;
   try {
     const read = profileCatalogStore.snapshot();
     if (read.status !== "read")
-      return adviceRequestRejected(
+      return createAdviceRejectedResult(
         "coordinator_ai_profile_snapshot_unavailable",
       );
     catalogSnapshot = read.value;
   } catch {
-    return adviceRequestRejected("coordinator_ai_profile_snapshot_unavailable");
+    return createAdviceRejectedResult(
+      "coordinator_ai_profile_snapshot_unavailable",
+    );
   }
   const profile = resolveAiProfileById(
     catalogSnapshot.catalog,
     packet.profileId,
   ).value;
   if (profile === null || !profile.selectionRoles.includes("coordinator"))
-    return adviceRequestRejected(
+    return createAdviceRejectedResult(
       "coordinator_ai_profile_not_available_for_advice",
     );
   if (cancellationSignal.aborted)
-    return adviceRequestRejected("coordinator_ai_request_cancelled");
+    return createAdviceRejectedResult("coordinator_ai_request_cancelled");
   const network = readRepositoryNetworkPolicies(repositoryRootCapability);
   if (
     network.status !== "ready" ||
     network.policies[profile.provider].policyHash !==
       request.expectedNetworkPolicyHash
   )
-    return adviceRequestRejected("coordinator_ai_network_policy_changed");
+    return createAdviceRejectedResult("coordinator_ai_network_policy_changed");
   if (cancellationSignal.aborted)
-    return adviceRequestRejected("coordinator_ai_request_cancelled");
+    return createAdviceRejectedResult("coordinator_ai_request_cancelled");
   return dispatchReadOnlyAdvice(
     Object.freeze({
       networkPolicy: network.policies[profile.provider],
@@ -320,12 +322,12 @@ async function fileContentSha256(content: string): Promise<string> {
 }
 
 /**
- * Repository AI Compositionの拒否結果を生成する。
+ * Request／Dispatchの拒否結果を共通形式で生成する。
  *
- * @responsibility 理由と空結果区分を閉じたCoordinator結果へ変換する。
+ * @responsibility Request／Dispatchの拒否理由と空結果区分を同じCoordinator結果へ変換する。
  * @trace ARCH-000015
  * @input reason: 固定された公開理由。
- * @returns adviceRequestRejected Coordinator AI結果を返す。
+ * @returns blocked状態で内容区分が空のCoordinator AI結果。
  * @precondition reasonはPromptまたはFilesystem情報を含まない。
  * @postcondition 全結果区分を空にし、事実や推論を捏造しない。
  * @effect N/A: 固定Objectを生成するだけである。
@@ -335,7 +337,9 @@ async function fileContentSha256(content: string): Promise<string> {
  * @security 入力内容を結果へ複製しない。
  * @concurrency N/A: 共有状態を持たない同期処理である。
  */
-function adviceRequestRejected(reason: string): CoordinatorAiRequestResult {
+function createAdviceRejectedResult(
+  reason: string,
+): CoordinatorAiRequestResult {
   return result("blocked", reason);
 }
 
@@ -467,17 +471,19 @@ async function dispatchAdviceRequest(
   cancellationSignal: AbortSignal,
 ): Promise<CoordinatorAiRequestResult> {
   if (!isValidDispatchInput(input))
-    return adviceDispatchRejected("workbench_ai_advice_dispatch_input_invalid");
+    return createAdviceRejectedResult(
+      "workbench_ai_advice_dispatch_input_invalid",
+    );
   if (!input.externalSendConfirmed)
-    return adviceDispatchRejected(
+    return createAdviceRejectedResult(
       "workbench_ai_external_send_confirmation_required",
     );
   if (cancellationSignal.aborted)
-    return adviceDispatchRejected("coordinator_ai_request_cancelled");
+    return createAdviceRejectedResult("coordinator_ai_request_cancelled");
 
   const grant = issueGrant(input);
   if (!consumeGrant(grant, input, consumedGrants))
-    return adviceDispatchRejected(
+    return createAdviceRejectedResult(
       "workbench_ai_external_send_authority_invalid",
     );
 
@@ -505,7 +511,7 @@ async function dispatchAdviceRequest(
   if (outcome.status !== "completed") {
     return outcome.status === "unknown"
       ? unknown(outcome.reason ?? "workbench_ai_provider_state_unknown")
-      : adviceDispatchRejected(
+      : createAdviceRejectedResult(
           outcome.reason ?? "workbench_ai_provider_blocked",
         );
   }
@@ -517,7 +523,7 @@ async function dispatchAdviceRequest(
     input.taskPacket.allowedReferences,
   );
   if (normalized.status !== "confirmed" || normalized.normalizedResult === null)
-    return adviceDispatchRejected(normalized.reason);
+    return createAdviceRejectedResult(normalized.reason);
   return Object.freeze({
     status: "completed" as const,
     reason: null,
@@ -683,26 +689,6 @@ function isValidProviderOutcome(outcome: AdviceProviderOutcome): boolean {
 }
 
 /**
- * Effectを成功扱いできない確定拒否結果を生成する。
- *
- * @responsibility adviceDispatchRejected結果の空Payload契約を一意に保つ。
- * @trace ARCH-000015
- * @input reason: 機械可読な拒否理由。
- * @returns adviceDispatchRejected状態のAI依頼結果。
- * @precondition reasonは空でない固定理由である。
- * @postcondition 結果は根拠なしの助言内容を含まない。
- * @effect N/A: 固定結果を生成するだけである。
- * @failure N/A: resultへ委譲するだけである。
- * @invariant adviceDispatchRejectedをcompletedへ変換しない。
- * @boundary Dispatch判定とApplication結果の境界。
- * @security 生入力、生出力およびCredentialを含めない。
- * @concurrency N/A: 共有状態を持たない同期処理である。
- */
-function adviceDispatchRejected(reason: string): CoordinatorAiRequestResult {
-  return result("blocked", reason);
-}
-
-/**
  * Effectまたはcleanupを確定できない結果を生成する。
  *
  * @responsibility 観測不能を拒否や成功へ畳まずunknownとして返す。
@@ -713,7 +699,7 @@ function adviceDispatchRejected(reason: string): CoordinatorAiRequestResult {
  * @postcondition 結果は根拠なしの助言内容を含まない。
  * @effect N/A: 固定結果を生成するだけである。
  * @failure N/A: resultへ委譲するだけである。
- * @invariant unknownをadviceDispatchRejectedまたはcompletedへ変換しない。
+ * @invariant unknownをblockedまたはcompletedへ変換しない。
  * @boundary Dispatch観測とApplication結果の境界。
  * @security 生入力、生出力およびCredentialを含めない。
  * @concurrency N/A: 共有状態を持たない同期処理である。
@@ -725,11 +711,11 @@ function unknown(reason: string): CoordinatorAiRequestResult {
 /**
  * 非完了のAI依頼結果を共通形式で生成する。
  *
- * @responsibility adviceDispatchRejected/unknownのPayloadを空の読取り専用配列へ固定する。
+ * @responsibility blocked／unknownのPayloadを空の読取り専用配列へ固定する。
  * @trace ARCH-000015
  * @input status: 非完了状態、reason: 機械可読理由。
  * @returns 指定状態のCoordinator AI依頼結果。
- * @precondition statusはadviceDispatchRejectedまたはunknownで、reasonは空でない。
+ * @precondition statusはblockedまたはunknownで、reasonは空でない。
  * @postcondition すべての内容区分は空で固定される。
  * @effect N/A: 固定結果を生成するだけである。
  * @failure N/A: 分岐や外部処理を持たない。
@@ -752,10 +738,6 @@ function result(
     candidate: null,
   });
 }
-
-export const PROVIDER_ADVICE_ADAPTER_CONTRACT =
-  "crdd-coordinator/workbench-ai-provider-adapter";
-export const PROVIDER_ADVICE_ADAPTER_CONTRACT_REVISION = 1;
 
 /**
  * 助言のProfileを共通計画へ結合するAdapterを生成する。
@@ -832,36 +814,6 @@ async function executeAdviceProviderInput(
       cleanupConfirmed: true,
     });
   return executeAdvicePlan(runtime, prepared.executionPlan, cancellationSignal);
-}
-
-/**
- * Provider Adapterの公開契約を返す。
- *
- * @responsibility Provider選択、Profile伝播、fallback禁止およびExecutor責務を利用側へ示す。
- * @trace ARCH-000010
- * @trace ARCH-000015
- * @input N/A: 実行時引数を受け取らない。
- * @returns revision 1の固定契約。
- * @precondition N/A: 定数だけを参照する。
- * @postcondition 実装と試験が同じProvider選択条件を参照できる。
- * @effect N/A: 固定値を返すだけである。
- * @failure N/A: 失敗分岐を持たない。
- * @invariant Profile外のProvider、Modelおよび推論強度を選ばない。
- * @boundary 公開契約と利用側の境界。
- * @security API Key fallbackと自動Provider切替を許可しない。
- * @concurrency N/A: 共有状態を持たない同期処理である。
- */
-export function describeProviderAdviceAdapterContract() {
-  return Object.freeze({
-    contract: PROVIDER_ADVICE_ADAPTER_CONTRACT,
-    contractRevision: PROVIDER_ADVICE_ADAPTER_CONTRACT_REVISION,
-    providers: Object.freeze(["codex", "claude"] as const),
-    exactProfilePropagationRequired: true,
-    automaticProviderFallbackAllowed: false,
-    automaticModelFallbackAllowed: false,
-    apiKeyFallbackAllowed: false,
-    providerExecutorOwnsRuntimeLifecycle: true,
-  });
 }
 
 /**

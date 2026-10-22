@@ -1,5 +1,43 @@
 # Orchestratorの詳細アーキテクチャ
 
+<a id="consolidated-source-target"></a>
+
+## 統合後の責務境界とSource構成 — 2026-10-22
+
+Cで現Orchestratorへ単発Executionを吸収し、PackageをCoordinatorへ改名する採用済み目標を維持する。以下は統合後の責務とSourceの目標であり、現行Owner、公開契約、保存正本が切替済みであるとは表示しない。現在の二Packageを同じ形へ揃えることや、File数削減を完成条件にしない。[統合前整理の移行表](../../../99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#24-両packageのafterを基準にした統合前整理)に従い、実Consumerと保持保証を閉じてから切り替える。
+
+| 最終責務Owner | 所有する判断・処理 | 所有しないもの |
+|---|---|---|
+| Objective／Task | 目標、計画、Task Graph、予約、Attemptの進行、再試行・再計画、Provider／Model選択戦略 | Provider固有CLI、隔離基盤の技術処置 |
+| Execution | 単発AIの開始・取消join・結果返却、元操作・選択Grant・Authority相関、技術回復結果の接続 | 目標やTask Graphの進行、Workspaceの採否 |
+| Decision | 人間判断、Acceptance、外部送信同意とGrantの意味・寿命 | Dockerの通信強制、Providerの技術Catalog |
+| Workspace | 作業対象と継続寿命、Candidateの明示固定・採否・取込要求 | Git実操作、AI完了だけによる自動Commit／Merge |
+| State | 意味上の現在状態、投影、照会 | 物理保存・技術回収の実処置 |
+| Storage | 対応する永続Schema、Writer、CAS、履歴、受領確定。技術Settlementを含む単一State／Writer化は未採用 | 技術回収の実処置、保存値だけからのAuthority発行 |
+| 専門Package | AI AdapterのProvider計画・結果解釈、Docker Isolationの隔離・回収、Platform AccessのOS技術、Version ControlのGit操作 | 上位の業務進行・採否・外部送信同意の代行 |
+
+```text
+coordinator/                  # Cで現Orchestratorを改名した後の目標
+├ bin/
+│ └ coordinator.ts
+└ src/
+  ├ cli/
+  ├ objective/
+  ├ task/
+  ├ decision/
+  ├ workspace/
+  ├ execution/
+  ├ state/
+  ├ storage/
+  └ index.ts
+```
+
+現Orchestratorに空の`execution/`、Facade、汎用Port Frameworkを先行作成しない。既存`OrchestratorExecutionPort`等を今回の接続契約として再利用し、最終的な統合では不要なPackage間中継だけを除く。TaskはAttemptを管理し、Executionは解決済みの作業対象で単発実行する。開始通知・取消join・結果正規化を削除条件へ含め、型だけのPortを重複実装と同一視しない。
+
+RecoveryはTaskとしての次の処置、Executionの元結果・資源・回復参照の確定、DI／PAの技術回収を分離する。Host資源はExecutionの許可・相関、DI／PAの技術処置、Storageの耐久参照を一つの巨大Ownerへ集約しない。外部送信同意はCで`external-send/`からDecisionへ直接移管する目標だが、現行の強制Gateと同意Store／Grantを未接続のまま撤去しない。
+
+現`activity/`は現在状態とExecution Intelligence履歴の公開複合Readerであり、出所・Cursor・ページングを持つ。目標では既存の状態照会責務への配置を評価するが、履歴を現在stateの正本へ混入しない。技術的なPlatform処理と、上位の用途別保証・依存注入は区別して評価する。二State／Writerの統合は別の可否評価であり、同一Schema・保存寿命・確定単位を証明できなければ別Ownerを維持する。
+
 ## A段階の状態責務整理（2026-10-21）
 
 実作業基準`1afbc6df4`から、[統合計画](../../../99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md)のAを実施する。今回の対象は旧`state/transitions.ts`の純粋な値契約と状態遷移であり、業務操作の組立て・Task配送・保存基盤の変更は後続単位とする。以下は配置契約であり、回帰・独立レビュー前に移管成立を主張しない。

@@ -1,7 +1,7 @@
 # Orchestrator／Coordinator統合とDomain Model最終整理
 
 成果物種別: 変更計画・着手前対応表
-状態: A・B1〜B5とC前整理・CLI責務整理は限定完了。CLI整理後のCoordinator通常全回帰は1,717成功・失敗0・5 skip、独立レビュー残指摘0。別件のcoverage計測再現性と既存検査不合格は維持し、C直前で停止。C〜Dは未着手。先行移管・Windows保存の結果は各節へ接続し、今回の固定Source評価と区別する
+状態: A・B1〜B5と先行C前整理・CLI責務整理は限定完了。基準b2b603c10から両Afterを文書化し、旧Coordinatorの統合前縮小六単位を実装・局所回帰・独立確認まで限定完了。現Source82／71、影響22 Suite455件と利用側18件成功。Orchestrator小Folder整理とC〜Dは未着手。基準版の通常全回帰、別件の計測再現性・既存検査不合格は区別して維持
 対象変更: [CHG-000082](change.md)
 責任者・採用決定権限: Qual-Lab
 最終更新日: 2026-10-22
@@ -1412,3 +1412,145 @@ CLIは`command.ts`、`options.ts`、`recovery-report.ts`、`cancellation.ts`の�
 Dynamic Fake Provider計測では、同じ母集団の連続二回で、今回未変更の`execution/operation.ts`に関する未網羅branchのline／block等に差を観測した。CLI移管が原因とも、基準版から存在した問題とも確定していない。責任者はQual-Labとし、coverage計測またはその観測形式を次に変更する前に、元LCOVのSource集合・集計・branch tuple集合と順序を比較する。閾値・母集団・検証義務・連続二回条件を緩めず、同じ保証を測れる根拠が得られるまで再現可能coverageの成立を主張しない。新しいRuntime管理機構や製品Sourceの拡張は行わない。
 
 部分試験の件数は重複するため合算しない。CLI整理は上記の範囲で限定完了とし、全体QA・Release可能を主張しない。現在、人間による追加判断は必要ない。実AI・実Docker・C統合・②再試行と保持物操作は実施していない。
+
+## 24. 両PackageのAfterを基準にした統合前整理
+
+### 24.1. 基準、今回の範囲と正本
+
+人間から提示された「Coordinator／Orchestrator統合前の構造整理」を設計入力とし、基準`b2b603c10fb9eaef3d02d430334c9c449516b262`のSource一覧、入口、主要import、§22のCoordinator83 File対応、先行の保存責務調査を照合した。最終責務と目標構成は[Coordinator](../../../06_Architecture/Details/coordinator/01_Architecture.md#pre-consolidation-execution)と[Orchestrator](../../../06_Architecture/Details/orchestrator/01_Architecture.md#consolidated-source-target)、検証義務は[QA-000003](../../../07_Quality/Definitions/QA-000003/quality_definition.md)が所有する。本節は基準から目標への処置候補、実施順、停止条件を所有し、Source移管や全体QA成立を宣言しない。
+
+今回固定するのは目標と順序であり、全154 Fileの関数単位のConsumer・故障経路を網羅済みとはしない。名称・File数だけの統合を行わず、各実装単位で既存検証・公開API・消費元を照合してから処置する。以前のC前整理完了は§22〜23の範囲で維持し、本節の追加整理を実施済みへ読み替えない。CのPackage統合・旧Coordinator撤去・旧Orchestrator改名は採用済み目標のまま、後述の切替条件を満たすまで実行しない。
+
+### 24.2. 基準Treeと添付との差
+
+```text
+40_Develop/
+├ coordinator/src/        83 File
+│ ├ cli/                  4
+│ ├ execution/           71
+│ ├ external-send/        5
+│ ├ storage/              2
+│ └ index.ts              1
+└ orchestrator/src/      71 File
+  ├ activity/             4
+  ├ cli/                  3
+  ├ decision/            13
+  ├ identity/             3
+  ├ input/                2
+  ├ lease/                1
+  ├ objective/            7
+  ├ platform/             2
+  ├ process/              1
+  ├ queue/                1
+  ├ state/                6
+  ├ storage/              5
+  ├ task/                17
+  ├ workspace/            3
+  └ Root                  3  # index.ts、operation-result.ts、operation-result-contract.ts
+```
+
+添付のOrchestrator Beforeには`workspace/`三Fileの記載がないが、総数71には含まれるため上図で補う。数は基準の実測であり、削減目標ではない。旧CoordinatorはC前に既存四FolderとRootを維持し、Orchestratorは最終構成の`execution/`を空作成しない。目標Treeの正本はOrchestrator Architectureに一度だけ置く。
+
+### 24.3. 旧Coordinatorの処置候補
+
+§22の全83 File対応を基礎に、次の対象を先に評価する。表にない必要保証を削除候補へ補完しない。
+
+| 現行Source（`coordinator/src/`内） | 今回の整理とCでの扱い | 削減前に保持を確認すること |
+|---|---|---|
+| `execution/task.ts`、`task-request.ts` | 単発実行と入力取込みのOwnerを維持 | 開始前拒否、取消join、入力Snapshot、元結果／回復参照 |
+| `execution/attempt.ts` | Cで上位`task/execute-attempt.ts`と接続Adapterの統廃合を評価。C前に作り直さない | 開始通知、相関、結果正規化、取消、配送捕捉と対象検査 |
+| `execution/provider-controller.ts`、`provider-observation.ts` | 実行制御と元観測照合を分離した現在Ownerを維持。Controller再統合は未採用 | 私有二Map、本番／候補の独立性、元object、登録位置、finally失効、Writer内fresh照合 |
+| `execution/provider-plan.ts`、`provider-adapter.ts` | AI Adapter／DIと上位相関の重複を確認し、固有判断のない変換だけ削減候補 | Provider技術PlanとOperation／Packet／許可相関の違い |
+| `execution/provider-preparation.ts`、`provider-preparation-lifecycle.ts`、`provider-composition.ts` | 実Consumerから準備・一回消費・短期状態・依存束縛を照合。単なる中継と判定した部分だけ統合 | Ownerごとの短期状態、Grant／Mount／Packet、失効・取消・一回消費。Factoryであることだけを削除理由にしない |
+| `execution/delegation-route-selection.ts`、`model-selection.ts`、`delegation-selection-grant.ts` | 戦略・技術候補・今回の一回許可を区別。戦略の最終OwnerはObjective／Task、Cで切替 | 現在の選択Consumer、Profile／Provider／役割／回数とGrant発行・消費の対応 |
+| `execution/advice.ts`、`provider-execution.ts` | 共通化できる実行・取消・結果処理と用途固有検査を分けて評価 | 読取り範囲、固定Context、Profile／通信Hash、一回送信、元Host参照。編集経路への置換はしない |
+| `execution/recovery.ts`、`diagnostics.ts` | 単発実行の回復接続と診断の編成を維持し、下位Ownerとの重複だけ確認 | 元失敗、unknown、exact参照、観測不能と不存在、許可と回収の順序 |
+| `execution/development-*` | Scripts専用処理だけ移管候補。現在Taskが使う制限・観測・Session結合は名前だけで外さない | Runtimeの直接／動的Consumer、計測予約・回数／期限・取消、Source／Native同一性 |
+| `external-send/` | C前維持。CでDecisionへ直接吸収し、不要な公開中継を残さない | 同意Store、Policy、Grant、Scope／通信Hash、失効、Process poison。下位の技術強制と同意を混同しない |
+| `storage/` | 今回凍結。Cの入口統合後に二State／Writerの統合可否を評価 | §24.6の全保存保証。現Owner維持も正式な結果とする |
+
+§22.2の元観測についての「Cで登録と照合を同時移管」は当時の移行候補であり、現在判断は本表を優先する。同じ私有寿命と照合時点を再現できる場合だけCの配置変更を評価し、Controller再統合を予定処置にしない。
+
+### 24.4. Orchestratorの処置候補
+
+| 現行範囲（`orchestrator/src/`内） | 目標責務への対応候補 | 維持する境界・確認待ち |
+|---|---|---|
+| `objective/`、`task/`、`decision/`、`workspace/` | 現Ownerを基礎に維持 | Objective受付と計画、Taskの進行、人間判断、作業対象・Candidate寿命。似たRequest／Attempt名だけで統合しない |
+| `task/execute-attempt.ts`、`executor.ts`、`host-adapter.ts`、`request-composition.ts` | Cで旧CoordinatorのAttempt／本番組立てと一本化候補 | 開始通知、取消join、結果正規化、元Capability／配送と本番Singletonを全Consumerで照合。廃止予定Adapterを先行再実装しない |
+| `activity/{read,validate,cursor,types}.ts` | 既存の状態照会への配置候補 | Root公開、MCP／Workbench、EI履歴、出所、Cursor・全体paging、欠測／競合。単純getterへ縮小せず、履歴をstate正本へ混入しない |
+| `identity/clock-and-hash.ts`、`repository-binding.ts`、`observe-principal.ts` | 実利用元への統合候補 | 時計・Identity・Hash／Bindingのbytes、Principal観測の保護Store、共有Consumerと型契約を確認するまで削除しない |
+| `input/plain-data-snapshot.ts`、`repository-relative-path.ts` | 既存Domain APIか実利用元へ統合候補 | Proxy／Accessor拒否、閉じたSnapshot、Path文法と境界判定が同等かを先に比較。類似名だけで置換しない |
+| `lease/controller.ts` | 保存に結合するLease型・利用契約として配置を評価 | 実OS排他の再実装ではない。現在State／Writerと利用側の契約を維持し、Storage本文の凍結に触れる変更はCへ保留 |
+| `queue/types.ts` | Taskへ移す候補 | Queue受付世代、優先・予約とTask参照、公開型・全Consumer |
+| `platform/windows-adapter.ts`の技術部分 | 既存PA／DIのAPIで代替可能か評価 | 新たなOS技術やDocker管理を上位に作らない。元観測と上位用途保証を一括移管しない |
+| `platform/contract.ts`と上位用途の組立て | 実利用元の用途別契約として配置を評価 | Objective／Taskの必要保証と注入契約は技術Ownerへ押し付けない。部分対応と未対応の拒否を維持 |
+| `process/safety-contract.ts` | C時のExecution利用契約へ同居候補 | 現在は型Port。重複実装とみなさず、Process相関・poisonの寿命を保持 |
+| `state/`、`storage/` | 現在のモデル／投影／保存保証を維持 | 物理Writer・Schema・CAS／ACKは凍結。State内の純粋操作を動かす場合も保存形式や遷移条件を変えない |
+| Rootの`operation-result.ts`、`operation-result-contract.ts` | 共通公開結果として実Consumerを確認し、利用元へ同居可能か評価 | Domain／Transportへの逆依存を作らず、公開結果・reasonを保つ。Rootを空にするための移動はしない |
+
+小Folderの廃止は目標Treeだけを根拠に実行しない。共有型・値文法・読取り境界を失う、依存閉包が広がる、Source相関を再導出できない場合は現Ownerを維持し、必要な修正を次の固定候補へ含める。
+
+### 24.5. 実施順と各出口
+
+| 順序 | 実施単位 | 完了・停止の条件 |
+|---|---|---|
+| 1 | 両After・責務境界・移行候補の固定 | 今回の文書単位。基準Tree、添付との差、Ownerと候補、保持条件を独立確認。Source整理済みとはしない |
+| 2 | 旧Coordinatorの単発Execution整理 | 表の候補をConsumer・実保証で絞り、不要な中継・重複だけ削減。利用側・公開API・Symbol／Catalog・試験・設計を同じ候補へ接続し、回帰・独立レビューを完了 |
+| 3 | Orchestratorの小Folder・接続整理 | 上位の進行を変えず責務配置を明確化。EI／Surfaceを含む公開Reader閉包を確認。Cで不要になるAdapterの再実装や空Executionを追加しない |
+| 4 | Cの実行入口・Package統合 | 単発Executionと上位Taskを接続し、旧Package参照を撤去してCoordinatorへ改名。公開入口・全Consumer・正常／失敗／取消／回復・元観測／配送まで閉じる前に旧処理を削除しない |
+| 5 | 永続化関係の最終評価 | Schema、寿命、原子性、Recovery、ACKを比較し、統合又は別Owner維持を根拠付きで決める。単一state／Writerを既定解にしない |
+
+各実装単位は固定候補を独立レビューへ渡し、是正の具体化で新しい境界が生じたら着手前に再照合する。C前は公開集合・契約・永続意味を維持する。Cの公開入口切替は採用済み目標に従うが、Authority・同意・ACK・unknown終了・Schema bytesの意味変更が必要なら実装前に影響と代替を人間へ返す。AI再試行・実Docker操作・保持物削除の承認をこの文書から推定しない。
+
+### 24.6. 凍結と検証の境界
+
+Storage凍結はCoordinatorの二SourceとOrchestratorの物理保存基盤、Schema bytes／Hash、Lock・CAS、pending／marker、履歴の行・時刻、耐久受領ACK、操作除去・unknown・回復参照の条件を対象とする。移動のために新しい共有State、Registry、Lock、汎用Writer、Recovery Framework又は互換barrelを作らない。元の私有WeakMap・Singletonを複製せず、Writer内確認を外側の事前計算boolへ変更しない。
+
+専門検討では、単なる同名Fileの一括統合、全領域の現状維持、今回の順序付き整理を比較した。一括統合はTask進行と単発実行、現在状態と履歴、元観測と保存の別保証を混合する。現状維持だけでは最終構成への移行と人間の探索性改善が進まない。既存の責務別配置、具体Owner、Consumer閉包とlifecycleの原則を用い、保証を維持できる単位だけを順に整理する方針とした。残る不確実性は関数単位の重複・移管可能範囲であり、各候補の実装前調査を再評価契機とする。
+
+今回は文書のみを検査し、Source・試験・設定・保存データは変更しない。§23の実行結果は基準版のEvidenceであり、将来の移管後の成功根拠には流用しない。既存のDynamic Fake coverage OPEN、命名検査三件、全体文書検査の不合格、実境界・全体QA未完了を維持する。人間による追加判断は現時点では不要である。
+
+### 24.7. 文書単位の確認結果
+
+変更分類はArchitectureの目標・移行計画の更新とし、契約・安全境界の独立レビュー、文書構造と直接利用側への影響確認を別の読取り専用確認者が実施した。State／Storage表の単一Writer化への誤読一件を、両確認者が合意した二行分離で是正し、最終再レビュー残指摘0。準拠基準・Releaseを変更しないため、準拠監査・Release監査は実施していない。
+
+Checkerは今回五文書の診断0、参照展開された歴史文書等の全体3,340診断によりexit1。全体文書Passとは表示しない。`git diff --check`は成功し、差分は五文書だけでSource・試験・設定は不変。目標・順序を定める文書単位を限定完了とし、次は§24.3の旧Coordinator候補の関数・Consumer・保証照合から着手する。新しいSource整理・C切替・永続化関係の最終評価は未実施である。
+
+## 25. 旧Coordinatorの統合前縮小
+
+### 25.1. 着手前照合と編集単位
+
+基準Sourceは`b2b603c10`、§24の承認済み文書変更を保持して順序2へ進む。変更分類は内部の具体Factory配置・純転送・重複拒否生成・未使用module公開の縮小である。Architectureと直接利用側・既存試験を照合し、独立した読取り専用確認の結果を次の六単位へ統合した。初回編集前にStorage七SourceとCoordinator RootのHashを捕捉し、保存意味・Root公開集合の不変を確認する。
+
+| 編集の一次対象 | 実施処置 | 保持条件・確認面 |
+|---|---|---|
+| `provider-composition.ts`の二Factory | 本番Consumer一つである`provider-adapter.ts`へ実体を同居し、旧FileとFile Symbolを撤去。直接UT／ITのimportを追従 | 関数本文、名前、Ownerごとの二WeakMap、依存参照、本番Codex→Claude生成順・生成位置を維持。Map／依存の共有やhoistをしない |
+| `task.ts`のStart／Completion投影二alias | Controllerの実体を同じ引数・同じ位置で直接呼ぶ。取消fixture／Controller ITも実体へ接続 | `isProductionProcessContract`分岐、相関、不正値母集団、元観測を維持。同じ実体を二度試すだけの配列重複は除く |
+| `advice.ts`のRequest／Dispatch拒否二関数 | 同じ`result("blocked", reason)`を返す私有生成一つへ統一 | reason、結果field・空配列、unknownとの区別、ProviderのEffect／cleanup付き結果を変更しない |
+| `provider-execution.ts`の本番Factory末尾 | 作成したRuntimeへの純転送closureだけを除き、同じRuntimeを返す | 不正Root分岐、依存生成時点、元Signal、観測callback、呼出し回数と取消joinを維持 |
+| `advice.ts`の未使用固定説明 | Root／本番／試験Consumerがない`describeProviderAdviceAdapterContract`と専用定数二つだけを撤去 | 実選択・Profile検査・送信Gateは維持。近似する安定test ID・過去Evidenceは変更せず、代替descriptorを作らない |
+| Controller／Plan／選択三Fileの外部参照0宣言 | module内だけで使う定数九件と結果型一件から`export`だけを外す | 値・型本体・契約bytes・describe関数は維持。grantが参照するrouteのContract本体はexport維持 |
+
+編集依存はFactory実体同居→直接import／Symbol、投影alias撤去→Task／fixture／IT、私有拒否統一→同じFileの全呼出し、独立した公開修飾縮小の順とする。挿入や置換は具体宣言を一次対象とし、同名の別責務・歴史資料へ機械置換を広げない。
+
+診断をCLIへ戻す案は採用しない。診断の実行・Operation・回収は§23の採用済みExecution Ownerであり、CLIだけが直接呼ぶことは受付責務へ戻す理由にならない。`development-*`はScript起点でも本番Task／Recovery／Native観測と同じSession・Capabilityを使うため維持する。選択戦略の上位移管とAttempt接続はC時とし、準備Lifecycle、元観測、助言・編集の異なる処理順を共通Frameworkへ統合しない。
+
+回帰はCodex／Claude準備、借用Workspace、Controller投影・取消・元通知、Task本番／取消、Advice入力・Dispatch・Provider実行・公開入口、選択三契約、Root／Source／Symbol／Consumer閉包へ導出する。移管二関数の本文同一性とStorage／Root Hashを併せて確認し、固定候補の技術独立レビューと文書・直接影響確認を行う。今回の内部実装で準拠基準・Releaseを変えないため、準拠監査・Release監査は行わない。実AI・Docker・②保持物操作は対象外である。
+
+### 25.2. 実装と限定回帰の結果
+
+六単位を適用し、Coordinator Sourceは83→82（Execution71→70）、Orchestratorは71で不変となった。旧compositionの実体はAdapterが引き取り、旧File／File Symbol一件と重複する二つのverifies辺を撤去した。両試験Suiteは既存Adapter Symbolで移管後の同じ責務を検証する。候補二Factoryの本文は改行を正規化したSHA-256で移管前後一致、準備SingletonのCodex→Claude生成位置と各依存Factory呼出しはSource差分で不変を確認した。
+
+| 確認範囲 | 今回の結果・根拠 |
+|---|---|
+| 静的・Trace | format、Source／試験の型検査、lint、Runtime／Orchestrator設計Trace成功。既存lint info63件は維持 |
+| 影響回帰22 Suite | 455件成功、失敗0・skip0。Provider両準備、助言・選択・Packet・結果、Controller、借用Workspace、Task実行・取消、公開Catalog結合、Source／Symbol集合を確認。実AI／Dockerの成功ではない |
+| 直接利用側 | Orchestrator公開境界6件とVersion Control利用側閉包12件、全18件成功 |
+| 凍結対象 | Coordinator Storage二File、Orchestrator Storage五FileとCoordinator RootのHashが着手前から不変。Hash比較だけで実資源や全体品質の成立を推定しない |
+| 参照とOwner | 旧composition Path／Symbol、Task二alias、削除した助言descriptor三宣言の現行Source・試験・台帳参照0。二Factoryへの直接UT／ITと同じProvider別Map非共有・本番Owner参照のOracleを維持 |
+| 文書 | 変更五文書の診断0、参照展開された歴史文書等の全体3,340診断によるexit1を維持。全体文書Passではない |
+| 独立確認 | Factory／契約、Task／助言、文書／直接影響の読取り専用確認を実施。QA一文の根拠を静的照合と動的試験へ分離し、最終再レビュー残指摘0 |
+
+部分件数は重複するため合算しない。今回の変更意味から上記回帰面を選び、本文同一性・凍結Hash・直接利用側と組み合わせて確認した。基準版で実行した全1,722件を移管後の全回帰として流用せず、同じ長時間全回帰を機械的に反復しない。Dynamic Fake coverage OPEN、既存命名検査三件、実境界・全体QA未完了は未解消のまま維持する。
+
+準備Lifecycleと元観測は独立した保証Ownerとして保持する。Adviceと編集のLifecycle／Schemaを一つにせず、Development Sessionは本番Task／Recoveryと同じ私有状態を用いるためScriptsへ分断しない。選択戦略、Attempt接続、Recovery／Storageとの相関はCの切替単位へ留保する。六単位の統合前縮小を限定完了とし、次は§24.4のOrchestrator小FolderのConsumer照合へ進む。C・永続化統合・実AI再試行・Docker操作・②保持物操作は行っていない。

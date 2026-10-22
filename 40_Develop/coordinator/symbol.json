@@ -464,14 +464,6 @@
       ]
     },
     {
-      "symbolId": "coordinator.provider.execution-composition",
-      "kind": "file",
-      "path": "src/execution/provider-composition.ts",
-      "archIds": [
-        "ARCH-000015"
-      ]
-    },
-    {
       "symbolId": "coordinator.provider.execution-adapter",
       "kind": "file",
       "path": "src/execution/provider-adapter.ts",
@@ -1698,7 +1690,6 @@
       ],
       "verifies": [
         "coordinator.provider.execution-adapter",
-        "coordinator.provider.execution-composition",
         "coordinator.provider.preparation",
         "coordinator.provider.execution-plan",
         "coordinator.docker-runtime.provider-docker-command-plan",
@@ -1749,7 +1740,6 @@
       ],
       "verifies": [
         "coordinator.provider.execution-adapter",
-        "coordinator.provider.execution-composition",
         "coordinator.provider.preparation",
         "coordinator.provider.execution-plan",
         "coordinator.docker-runtime.provider-docker-command-plan",
