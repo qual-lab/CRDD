@@ -115,9 +115,9 @@ const allModules = discoverOrchestratorModules();
 // Folder名ではなく現行ArchitectureのFile責務を全数固定する。
 const SOURCE_ROLES = {
   pure: [
-    "activity/cursor.ts",
-    "activity/types.ts",
-    "activity/validate.ts",
+    "state/activity-cursor.ts",
+    "state/activity-types.ts",
+    "state/activity-validation.ts",
     "decision/acceptance-authority.ts",
     "decision/acceptance-record.ts",
     "decision/authority-adapter.ts",
@@ -126,7 +126,7 @@ const SOURCE_ROLES = {
     "decision/recovery-record.ts",
     "decision/request.ts",
     "identity/clock-and-hash.ts",
-    "identity/repository-binding.ts",
+    "state/binding.ts",
     "input/plain-data-snapshot.ts",
     "input/repository-relative-path.ts",
     "lease/controller.ts",
@@ -153,7 +153,7 @@ const SOURCE_ROLES = {
     "task/single-task-record.ts",
   ],
   workflow: [
-    "activity/read.ts",
+    "state/activity.ts",
     "decision/lifecycle.ts",
     "decision/record-acceptance.ts",
     "objective/execute.ts",

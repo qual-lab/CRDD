@@ -25,7 +25,7 @@ import {
   snapshotPlainRecord,
   snapshotPlainArray,
 } from "../input/plain-data-snapshot.ts";
-import { deriveOrchestratorRepositoryBindingId } from "../identity/repository-binding.ts";
+import { deriveOrchestratorRepositoryBindingId } from "../state/binding.ts";
 import { readOrchestratorSnapshot } from "../storage/current-state.ts";
 import { manageOrchestratorWorkspace } from "./operations.ts";
 import type { OrchestratorWorkspace } from "./record.ts";

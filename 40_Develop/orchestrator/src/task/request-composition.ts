@@ -25,7 +25,7 @@ import {
   createOrchestratorTaskRequests,
   type SingleTaskOutcome,
 } from "./requests.ts";
-import { deriveOrchestratorRepositoryBindingId } from "../identity/repository-binding.ts";
+import { deriveOrchestratorRepositoryBindingId } from "../state/binding.ts";
 import { runOrchestratorSingleTaskAttempt } from "./execute-attempt.ts";
 import { initializeOrchestratorSnapshot } from "../storage/current-state.ts";
 import { observeLeaseOwner } from "../platform/windows-adapter.ts";

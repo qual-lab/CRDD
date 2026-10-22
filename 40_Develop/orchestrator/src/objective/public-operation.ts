@@ -21,7 +21,7 @@ import {
   type OrchestratorObjectiveRequest,
   inspectOrchestratorObjectiveRequest,
 } from "./request.ts";
-import { deriveOrchestratorRepositoryBindingId } from "../identity/repository-binding.ts";
+import { deriveOrchestratorRepositoryBindingId } from "../state/binding.ts";
 import {
   recoverRuntimeOwnedDockerTaskForCurrentConsumer,
   resolveRuntimeOwnedDockerTaskCurrentCorrelations,

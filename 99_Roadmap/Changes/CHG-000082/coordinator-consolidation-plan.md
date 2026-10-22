@@ -1584,3 +1584,43 @@ Principal観測を既存の判断入口へ同居し、Sourceは71→70 File。�
 | 独立確認 | Source契約と文書・直接影響の確認を分離し、QA追従も再確認。残指摘0。実StoreやAuthorityについて新しい保証の成立は主張しない |
 
 今回の一単位を限定完了とする。活動Reader／Binding／共通結果の配置評価は継続し、Queue／Lease／Path・時計／Process・PlatformのC時評価、C統合と永続化関係の最終評価は未完了である。既存OPEN、実境界・全体QA未完了を維持し、②の再試行・保持物操作は行っていない。
+
+## 27. 活動照会と保存Bindingの配置整理
+
+### 27.1. 着手前照合と編集対応
+
+基準は`0dade058d`。内部Source配置の変更とし、状態照会と保存Bindingの具体Consumer、純粋閉包、公開Readerの本番接続を照合した。Source契約とArchitecture・直接影響の読取り専用確認を分離して実施し、次の五File移管へ収束した。公開契約・Schema・Authority・保存七Sourceは変更しない。File数削減は目的とせず、新たな中継・共有状態・Lock・Registryを作らない。
+
+| 一次対象（Orchestrator src相対） | 配置先 | 保持する意味 |
+|---|---|---|
+| `activity/read.ts` | `state/activity.ts` | 現在状態とEI履歴の複合照会。履歴の正本はEIのままで、State Writer・履歴Storeにはしない |
+| `activity/types.ts` | `state/activity-types.ts` | 公開観測・要求・出所の値契約。Root公開名・型Shapeを維持 |
+| `activity/validate.ts` | `state/activity-validation.ts` | 観測の閉じた検査、Proxy／Accessor拒否、unknownと欠測・競合 |
+| `activity/cursor.ts` | `state/activity-cursor.ts` | Source相関、日時順・全体ページング、Cursor bytes。認可やSnapshotへ昇格させない |
+| `identity/repository-binding.ts` | `state/binding.ts` | 同じexact Rootの保存Binding導出。認証・認可IdentityやRoot能力ではない |
+
+五Fileはimport以外の本文を維持し、各Consumerの参照先、Root再公開元、SymbolのPath、全数分類・公開Module一覧、VC Consumer閉包を同じ候補で追従する。安定Symbol ID・公開関数名・Hash入力・実行順・開始前取消と読取り終了の契約を変えず、旧Path wrapperは残さない。共通結果二FileはStorageの直接参照があるため現Ownerを維持する。時計・Process・Platform用途組立てとQueue／Lease／PathはC時の接続又は凍結解除後の評価へ留保する。
+
+編集は五Fileの実体移動→全直接参照と機械集合→Architecture／QAの順とする。移管本文の一致、Storage七Source不変、Root exact公開集合・Module一覧、型・format・lint・Trace、Orchestrator通常回帰、VC Consumer閉包、MCP／Workbenchの活動接続を検証する。Sourceと文書・直接影響の独立レビューを行う。準拠基準・Release変更がないため準拠監査・Release監査は実施しない。実AI・Docker・②保持物操作は対象外で、追加の人間判断は現時点では不要である。
+
+### 27.2. 残る小Folder・共通結果の維持判断
+
+`operation-result.ts`は保存・Lease・判断等が受け取る`value`付きの共通結果型、`operation-result-contract.ts`は公開操作のContractと保存境界エラーの非秘密投影を所有する。前者の内部受領と後者の公開応答は同じ結果Shapeではなく、同名の責務重複ではない。Rootを空にするための移管や、型だけのFileへの公開投影の混入は行わず、二Fileを維持する。
+
+残る`identity/clock-and-hash.ts`はObjectiveとTaskへHost時計・決定論的IDを渡す型契約、`process/safety-contract.ts`は元Process相関とpoisonの型契約である。OS実装の重複と扱わず、Cの実行接続と同じ単位で配置を評価する。`platform/`には既存PA呼出しに加えて上位の必要保証・注入契約があるため、Folderごとの下位移管はしない。Queue・Lease・Pathは保存の型・文法にも直接結合し、SnapshotはDomain版との契約差と純粋閉包の理由で維持する。これらは未調査の放置ではなく、現在の利用責務又は明示した凍結による維持判断とし、Cの接続変更を再評価契機とする。
+
+### 27.3. 移管と回帰の結果
+
+五Fileを同じ実体のまま移管し、旧`activity/`を撤去した。Sourceは70 Fileのまま、`state/`は既存六Fileと移管五File、`identity/`は時計型契約一Fileとなった。冒頭File説明とimportを除く本文は五Fileとも基準と一致し、Rootは再公開元以外不変、明示公開Module54件の集合も一致した。Storage七Sourceはbytes不変、現行Source・配布入口・手順の旧Path参照は0である。安定Symbol IDと検証の辺は維持し、Pathだけを更新した。
+
+| 確認範囲 | 結果・限界 |
+|---|---|
+| Orchestrator通常回帰 | 単体78・結合51、全129件成功、失敗・skip0。現在状態・EI・Cursor・Binding・Objective／判断／Workspace・公開入口を確認。実AI・Dockerの成立ではない |
+| 利用側6 Suite | Platform閉集合、VC Consumer閉包、MCP活動Adapter・認可接続、Workbench管理接続・Server契約の74件成功。開始前／開始後取消、Reader終了、Exposure・失効と公開結果を含む。上記129件との件数を品質量として合算しない |
+| 静的検査 | Orchestrator・Coordinator・MCP・VCのcheck成功。Runtime／Orchestrator設計Trace accepted。Workbenchのformat／型検査は成功、lintは下記二件で失敗 |
+| 既存の横断検査 | 命名・Header等22件は19成功・3失敗。PAの`host-record.rs`、DIの公開二Module一覧、既存Test Header不足を維持。検査の母集団や安全条件は緩和していない |
+| 文書・独立確認 | 現在状況を含む変更四文書の最終診断0、関連展開94文書の313診断によりexit1。Source契約と文書・直接影響の独立レビュー残指摘0。全体文書・全体QAの合格ではない |
+
+Workbenchの二lint指摘は`src/client/components/project-context.tsx`の行・セルの配列番号Keyであり、そのFileは基準`0dade058d`とbytes一致する。今回の移管で導入した故障ではなく、Workbenchの表示Keyを再評価する際にOwner側で是正する残件として記録する。今回の型接続・活動回帰の成功を、Workbench全体checkの成功へ読み替えない。
+
+§24.5の順序3をC前の内部配置整理として限定完了とする。維持対象は§27.2の根拠に従い、Cの入口・Package統合と同時に必要な接続を評価する。C本体・保存の最終可否評価・既存OPEN・実境界と全体QAは未完了であり、実AI・Docker・②保持物操作は行っていない。現在、人間による追加判断は必要ない。

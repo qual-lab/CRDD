@@ -1,5 +1,6 @@
 /**
  * 認可済みRepository集合の現在状態と実行履歴を観測する。
+ * 状態照会を編成するが、EI履歴の正本やState Writerは所有しない。
  * @responsibility 既存保存Readerを構成し、出所・競合・欠測と全体ページングを固定する。
  * @trace ARCH-000004
  * @trace ARCH-000007
@@ -10,8 +11,8 @@ import {
   snapshotPlainArray,
 } from "../input/plain-data-snapshot.ts";
 import { readOrchestratorSnapshot } from "../storage/current-state.ts";
-import { deriveOrchestratorRepositoryBindingId } from "../identity/repository-binding.ts";
-import { queryOrchestratorState } from "../state/query.ts";
+import { deriveOrchestratorRepositoryBindingId } from "./binding.ts";
+import { queryOrchestratorState } from "./query.ts";
 import {
   readExecutionIntelligence,
   verifyExecutionIntelligenceRepositoryRoot,
@@ -28,14 +29,14 @@ import type {
   RuntimeActivityEvent,
   RuntimeActivityObservation,
   RuntimeActivityRequest,
-} from "./types.ts";
-import { parseRuntimeActivityObservation } from "./validate.ts";
+} from "./activity-types.ts";
+import { parseRuntimeActivityObservation } from "./activity-validation.ts";
 import {
   deriveActivitySourceCorrelation,
   compareActivityEventPositions,
   decodeActivityCursor,
   encodeActivityCursor,
-} from "./cursor.ts";
+} from "./activity-cursor.ts";
 
 /**
  * 今回要求をI/O前に固定する。

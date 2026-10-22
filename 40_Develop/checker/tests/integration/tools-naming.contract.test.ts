@@ -514,9 +514,9 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
     expectedTrace: "ARCH-000004",
     requiredTags: ["boundary", "concurrency", "effect", "security"],
     exportedModules: [
-      "./activity/read.ts",
-      "./activity/validate.ts",
-      "./activity/types.ts",
+      "./state/activity.ts",
+      "./state/activity-validation.ts",
+      "./state/activity-types.ts",
       "./decision/authority-adapter.ts",
       "./decision/capability-adapter.ts",
       "./decision/record-acceptance.ts",

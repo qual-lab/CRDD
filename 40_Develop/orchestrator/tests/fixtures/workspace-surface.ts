@@ -15,7 +15,7 @@ import {
   writeOrchestratorSnapshotState,
   createOrchestratorSnapshotPersistencePorts,
 } from "../../src/storage/current-state.ts";
-import { deriveOrchestratorRepositoryBindingId } from "../../src/identity/repository-binding.ts";
+import { deriveOrchestratorRepositoryBindingId } from "../../src/state/binding.ts";
 
 /**
  * 既存Projectと二Queueを実保存する。

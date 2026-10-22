@@ -3,7 +3,7 @@
  * @responsibility 公開状態照会を現在の認証・Snapshot Readerへ接続する。
  * @trace ARCH-000004
  */
-import { deriveOrchestratorRepositoryBindingId } from "../identity/repository-binding.ts";
+import { deriveOrchestratorRepositoryBindingId } from "./binding.ts";
 import { inspectRepositoryIdentityCandidate } from "../../../version-control/src/index.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
 import {

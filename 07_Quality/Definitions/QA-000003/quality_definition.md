@@ -6,7 +6,7 @@
 
 統合前の構造整理では[両Packageの移行計画](../../../99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#24-両packageのafterを基準にした統合前整理)を既存の単発実行・上位Task・元観測・状態保存の検証面へ接続する。基準83／71 Sourceの処置対応を確認し、削除前に全Consumerと保持Capabilityを照合する。統合前はRoot公開集合・値契約・拒否理由を維持し、開始通知、取消join、元結果・exact回復参照、観測失効、Writer内fresh再確認、本番／候補の独立性を確認する。Cの公開切替は新入口から全利用側までの閉包を別途確認する。
 
-活動Readerの移管では、Workbench／MCPとExecution Intelligence接続、Source・Cursor・ページ境界・欠測・競合の意味を維持する。三層RecoveryとStorage凍結を確認し、Schema bytes・Hash・Lock／CAS・pending／marker・履歴時刻・ACK・操作除去を配置変更で変えない。新しいRegistry、永続State、Lock、互換中継、重複Writerを増やさず、旧Path不存在だけから移管完了を推定しない。文書計画の確認はSource接続・実境界の成功へ換算せず、将来の削除候補を既存の検証義務から除外しない。
+活動Readerの移管では、`state/activity.ts`と値契約・検査・Cursor三Fileへの本文移管を照合し、Workbench／MCPとExecution Intelligence接続、Source・Cursor・ページ境界・欠測・競合の意味を維持する。履歴はEIの正本に残し、状態照会への配置をState Writerの統合と扱わない。共有保存Bindingは`state/binding.ts`で同じRoot bytesから導出し、Objective／Decision／Task／Workspace／状態照会の直接Consumerを接続する。三層RecoveryとStorage凍結を確認し、Schema bytes・Hash・Lock／CAS・pending／marker・履歴時刻・ACK・操作除去を配置変更で変えない。新しいRegistry、永続State、Lock、互換中継、重複Writerを増やさず、旧Path不存在だけから移管完了を推定しない。文書計画の確認はSource接続・実境界の成功へ換算せず、将来の削除候補を既存の検証義務から除外しない。
 
 CLIの責務整理では、元Errorを実行側で登録してCLI表示で同じ回復参照を取得でき、コピーErrorから参照を復元しないことを確認する。現在Rootの検証失敗は回復対象Readerへ進まず、Reader欠測・解放不明・単一一致不成立は停止する。端末のcleanup unknown→同じProcess poison、Signalの一回取消・登録Rollback・解放結果、Node版のEffect前拒否、旧Path中継なしと公開Root集合不変を、移設先の既存単体・結合・操作境界試験へ接続する。実行中の処理がないことやSource配置だけを、実Docker回収・実Provider成功の証明にしない。
 

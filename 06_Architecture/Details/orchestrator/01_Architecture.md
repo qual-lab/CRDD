@@ -36,7 +36,7 @@ coordinator/                  # Cで現Orchestratorを改名した後の目標
 
 RecoveryはTaskとしての次の処置、Executionの元結果・資源・回復参照の確定、DI／PAの技術回収を分離する。Host資源はExecutionの許可・相関、DI／PAの技術処置、Storageの耐久参照を一つの巨大Ownerへ集約しない。外部送信同意はCで`external-send/`からDecisionへ直接移管する目標だが、現行の強制Gateと同意Store／Grantを未接続のまま撤去しない。
 
-現`activity/`は現在状態とExecution Intelligence履歴の公開複合Readerであり、出所・Cursor・ページングを持つ。目標では既存の状態照会責務への配置を評価するが、履歴を現在stateの正本へ混入しない。技術的なPlatform処理と、上位の用途別保証・依存注入は区別して評価する。二State／Writerの統合は別の可否評価であり、同一Schema・保存寿命・確定単位を証明できなければ別Ownerを維持する。
+活動の公開複合Readerは`state/activity.ts`、値契約・検査・Cursorは`state/activity-{types,validation,cursor}.ts`に配置する。`state/`は現在状態モデルと状態照会面を所有し、活動照会では現在状態とExecution Intelligence履歴を独立して観測する。履歴の正本はEIのままであり、State Writerや履歴Storeへ統合しない。出所・Cursor・ページングと、Rootを介したWorkbench／MCPの共通利用を維持する。共有の保存Binding導出は`state/binding.ts`が所有し、認証・認可IdentityやRoot能力として扱わない。技術的なPlatform処理と上位の用途別保証・依存注入は区別して評価する。二State／Writerの統合は別の可否評価であり、同一Schema・保存寿命・確定単位を証明できなければ別Ownerを維持する。
 
 ## A段階の状態責務整理（2026-10-21）
 
@@ -335,8 +335,8 @@ Orchestratorの純粋判定はOS固有のPath、principal、Filesystem保護、L
 
 | 主責務 | File集合 | 境界 |
 |---|---|---|
-| 純粋判定・値契約（36） | `activity/{cursor,types,validate}.ts`; `decision/{acceptance-authority,acceptance-record,authority-adapter,capability,records,recovery-record,request,transitions}.ts`; `identity/{clock-and-hash,repository-binding}.ts`; `input/{plain-data-snapshot,repository-relative-path}.ts`; `lease/controller.ts`; `objective/{request,replan-transitions}.ts`; `operation-result-contract.ts`; `operation-result.ts`; `platform/contract.ts`; `process/safety-contract.ts`; `queue/types.ts`; `state/{model,persistence,projection,query-contract}.ts`; `storage/{result-record,validate-result-record}.ts`; `task/{executor,lifecycle,observer,recovery,recovery-transitions,scheduling,single-task-record}.ts` | 実行時の依存閉包はこの集合内と、決定論的Hashの`node:crypto.createHash`・Proxy検査等の`node:util.types`に限定する。入力日時の`Date.parse`は許可し、現在時刻・乱数・外部待機は取得しない |
-| 業務操作（11） | `activity/read.ts`; `decision/{lifecycle,record-acceptance}.ts`; `objective/{execute,plan,replan}.ts`; `state/query.ts`; `task/{dispatch,execution-contract,settle-docker-recovery}.ts`; `workspace/record.ts` | 読取り、実行、保存、受理等を調停する。`objective/plan.ts`はClock Identity操作を呼ぶため、File全体を純粋とは分類しない |
+| 純粋判定・値契約（36） | `decision/{acceptance-authority,acceptance-record,authority-adapter,capability,records,recovery-record,request,transitions}.ts`; `identity/clock-and-hash.ts`; `input/{plain-data-snapshot,repository-relative-path}.ts`; `lease/controller.ts`; `objective/{request,replan-transitions}.ts`; `operation-result-contract.ts`; `operation-result.ts`; `platform/contract.ts`; `process/safety-contract.ts`; `queue/types.ts`; `state/{activity-cursor,activity-types,activity-validation,binding,model,persistence,projection,query-contract}.ts`; `storage/{result-record,validate-result-record}.ts`; `task/{executor,lifecycle,observer,recovery,recovery-transitions,scheduling,single-task-record}.ts` | 実行時の依存閉包はこの集合内と、決定論的Hashの`node:crypto.createHash`・Proxy検査等の`node:util.types`に限定する。入力日時の`Date.parse`は許可し、現在時刻・乱数・外部待機は取得しない |
+| 業務操作（11） | `decision/{lifecycle,record-acceptance}.ts`; `objective/{execute,plan,replan}.ts`; `state/{activity,query}.ts`; `task/{dispatch,execution-contract,settle-docker-recovery}.ts`; `workspace/record.ts` | 読取り、実行、保存、受理等を調停する。`objective/plan.ts`はClock Identity操作を呼ぶため、File全体を純粋とは分類しない |
 | 接続・組立て・Transport（19） | `cli/{command,command-report,request-input}.ts`; `decision/capability-adapter.ts`; `objective/{intake-dependencies,public-operation}.ts`; `decision/{public-operation,public-acceptance}.ts`; `state/public-query.ts`; `platform/windows-adapter.ts`; `task/{execute-attempt,execution-diagnostics,host-adapter,intelligence-adapter,recovery-adapter,request-composition,requests}.ts`; `workspace/{commands,operations}.ts` | 下位・Host・公開入口を接続する。名前にAdapterがあることだけを分類根拠にしない |
 | 保存（3） | `storage/{current-state,history,protected-decision}.ts` | 現在状態、履歴、判断記録の保存と排他を所有する |
 | 公開入口（1） | `index.ts` | Package公開APIの明示export |

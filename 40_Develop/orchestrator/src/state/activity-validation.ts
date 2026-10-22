@@ -11,17 +11,17 @@ import {
   compareActivityEventPositions,
   decodeActivityCursor,
   encodeActivityCursor,
-} from "./cursor.ts";
+} from "./activity-cursor.ts";
 import {
   snapshotPlainRecord,
   snapshotPlainArray,
 } from "../input/plain-data-snapshot.ts";
-import { inspectOrchestratorProjection } from "../state/query-contract.ts";
+import { inspectOrchestratorProjection } from "./query-contract.ts";
 import type {
   RuntimeActivityObservation,
   RuntimeActivityEvent,
   ActivitySource,
-} from "./types.ts";
+} from "./activity-types.ts";
 
 /**
  * Remote Runtime Activity観測の閉じた構造を検証する。

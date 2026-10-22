@@ -267,7 +267,7 @@ export {
 export { runOrchestratorPublicDecision } from "./decision/public-operation.ts";
 export { runOrchestratorPublicObjective } from "./objective/public-operation.ts";
 export { observeRuntimeOwnedProjectClientPrincipal } from "./decision/public-operation.ts";
-export { readAuthorizedRuntimeActivity } from "./activity/read.ts";
+export { readAuthorizedRuntimeActivity } from "./state/activity.ts";
 export {
   inspectWorkspaceCommand,
   executeWorkspaceCommand,
@@ -277,7 +277,7 @@ export {
 export {
   parseRuntimeActivityObservation,
   inspectRuntimeActivityObservation,
-} from "./activity/validate.ts";
+} from "./state/activity-validation.ts";
 export { createRepositoryTaskRequests } from "./task/request-composition.ts";
 export type {
   ActivityRepository,
@@ -285,4 +285,4 @@ export type {
   RuntimeActivityEvent,
   RuntimeActivityObservation,
   RuntimeActivityRequest,
-} from "./activity/types.ts";
+} from "./state/activity-types.ts";

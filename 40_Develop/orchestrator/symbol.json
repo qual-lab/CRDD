@@ -112,7 +112,7 @@
     {
       "symbolId": "orchestrator.activity.types",
       "kind": "file",
-      "path": "src/activity/types.ts",
+      "path": "src/state/activity-types.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000007"
@@ -121,7 +121,7 @@
     {
       "symbolId": "orchestrator.activity.cursor",
       "kind": "file",
-      "path": "src/activity/cursor.ts",
+      "path": "src/state/activity-cursor.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000007"
@@ -130,7 +130,7 @@
     {
       "symbolId": "orchestrator.activity.validate",
       "kind": "file",
-      "path": "src/activity/validate.ts",
+      "path": "src/state/activity-validation.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000007"
@@ -139,7 +139,7 @@
     {
       "symbolId": "orchestrator.activity.read",
       "kind": "file",
-      "path": "src/activity/read.ts",
+      "path": "src/state/activity.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000007"
@@ -148,7 +148,7 @@
     {
       "symbolId": "orchestrator.identity.repository-binding",
       "kind": "file",
-      "path": "src/identity/repository-binding.ts",
+      "path": "src/state/binding.ts",
       "archIds": [
         "ARCH-000004"
       ]

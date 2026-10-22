@@ -5,7 +5,7 @@
  */
 import { createHash } from "node:crypto";
 import { snapshotPlainArray } from "../input/plain-data-snapshot.ts";
-import type { ActivitySource, RuntimeActivityEvent } from "./types.ts";
+import type { ActivitySource, RuntimeActivityEvent } from "./activity-types.ts";
 
 /**
  * Projectと正規Sourceの相関Hashを導出する。

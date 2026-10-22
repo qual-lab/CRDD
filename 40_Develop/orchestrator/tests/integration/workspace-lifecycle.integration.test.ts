@@ -47,7 +47,7 @@ import {
   acquireOrchestratorSnapshotLease,
   writeOrchestratorSnapshot,
 } from "../../src/storage/current-state.ts";
-import { deriveOrchestratorRepositoryBindingId } from "../../src/identity/repository-binding.ts";
+import { deriveOrchestratorRepositoryBindingId } from "../../src/state/binding.ts";
 import type { OrchestratorWorkspaceRequest } from "../../src/index.ts";
 import { inspectMcpOrchestratorObjectiveResult } from "../../../mcp-server/src/index.ts";
 import { workspacePlanReadyForAcceptance } from "../../src/workspace/operations.ts";

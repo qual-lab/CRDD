@@ -20,7 +20,7 @@ import {
   initializeOrchestratorSnapshot,
 } from "../../src/index.ts";
 import { writeOrchestratorSnapshotState } from "../../src/storage/current-state.ts";
-import { deriveOrchestratorRepositoryBindingId } from "../../src/identity/repository-binding.ts";
+import { deriveOrchestratorRepositoryBindingId } from "../../src/state/binding.ts";
 import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
 import {
   ensureRepositoryRuntimeDataArea,

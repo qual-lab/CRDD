@@ -3,7 +3,7 @@
  * @responsibility 人間判断の公開実行を現在の認証・保存へ接続する。
  * @trace ARCH-000004
  */
-import { deriveOrchestratorRepositoryBindingId } from "../identity/repository-binding.ts";
+import { deriveOrchestratorRepositoryBindingId } from "../state/binding.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
 import { createOrchestratorDecisionCapabilityAdapter } from "./capability-adapter.ts";
 import { inspectOrchestratorDecisionRequest } from "./request.ts";
