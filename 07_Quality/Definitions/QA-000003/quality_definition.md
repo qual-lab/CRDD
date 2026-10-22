@@ -1,12 +1,26 @@
 # QA-000003 Project実行と回復の検証定義
 
+## 保存統合B案の検証条件 — 2026-10-22
+
+[単一保存Lifecycle](../../../06_Architecture/Details/coordinator/04_Task_Detailed_Design.md#unified-storage-lifecycle)の採用により、保存七Sourceの旧bytes凍結は移管元保証の照合へ位置付け直す。新方式の検証はNot Runであり、以下の既存結果や旧ACKの試験成功を流用しない。追加条件は既存Local Itemへ接続し、新しいRunner・Registry・Lock Frameworkを作らない。
+
+| 既存項目 | 新方式で確認する条件 |
+|---|---|
+| `PRL-UT-006`、`PRL-IT-012` | 同Repository／Task／Attempt／論理操作／実行操作／回復参照／結果の相関。別結果・別Attempt・同じ回復参照への異なる結果を拒否し、初回受理世代を維持する |
+| `PRL-IT-011` | Task更新・Operation終端・結果受理・履歴更新の競合を単一保存改訂と短期排他で直列化。同じOwnerからのReader再入場・保存Lock再取得0。実行Lease／Home／Host排他の寿命は維持する |
+| `PRL-IT-012`、`PRL-IT-013` | 履歴確認前の耐久受領保存を拒否する。確認後、耐久Consumerの受領事実を一度保存し、Task反映とProducer内部配送待ち解消を同じ更新で確定。結果保存済み未受領は搬送・受領だけを再開し、受領保存済み応答喪失は同じ確定を再観測する。二重適用・再配送・再受領と受領前のOperation整理を拒否する |
+| `PRL-IT-013`、`PRL-ST-003`、`PRL-ST-004` | 開始前／開始後取消と親喪失を分け、実合成子Processのjoinを観測。元Identity・unknown・一次失敗・未解決義務を保持し、保存値から実行Capabilityを再生成しない |
+| `PRL-ST-001`、`PRL-IT-012` | 公開入口から同じWriterへ到達。CLI／Workbenchへ表示・既読ACKを追加せず、一時返却失敗を技術回収未完了やAI再送へ変換しない。Task完了をWorkspace終了・Commit／Merge／採用にしない |
+
+これらのSTは、実AIなしの合成Process／依存でも接続と中断を確認できる範囲を先に実施する。実Provider・Docker隔離の全体成立へ昇格しない。②のAI再試行・保持物操作は許可範囲外である。
+
 C物理統合候補は単一Coordinatorの150 Sourceと元両Rootの120実行値・型の保持、全Consumer・Catalog／Symbolの新Path、単一bin／template／Package入口の同じ受付を検証する。Taskの純粋閉包へExecutionを混入させず、指定値型だけの型専用辺を確認する。外部送信四Decisionと一端末実体の移管では、同意Hash・Grant・一回性・元Process poisonを保持する。保存は二Fileの三specifierだけを許可し、残る五Fileのbytesと保存意味を維持する。Source観測Scope v2は旧配置のv1と同値と扱わず、旧Packetの移行はフロントAIが再生成する。以降のC前のbytes一致・二Packageという検証記述は基準時点の義務であり、C後の物理構成を要求しない。
 
-Cの入口切替は[公開入口と同意の境界](../../../06_Architecture/Details/orchestrator/01_Architecture.md#c-integration-entry-boundary)へ接続する。direct／interactive／automation各Project／Taskの六経路、元stdin・PID・cwd・環境、128KiB／EOF／UTF-8／JSON拒否、Node・TTY・JSON条件、取消一回搬送・join・公開終了値を既存CLI結合項目で確認する。未使用Human表示の撤去では、取消・回復参照・cleanup・機密非公開の義務を実JSONへ移し、doctor表示は維持する。Root検査は値と型、namespace・inline type・dynamic importを含め、外部保持と内部直接接続を分ける。試験専用公開名も、公開保証か内部検査かを確定する前に義務を削除しない。同意と端末の移管では同じHash・Grant・Map・Process安全状態、期限・一回性・失効・端末終了不明の反証を維持する。文書棚卸しはSource接続や実送信成功の証拠ではない。
+Cの入口切替は[公開入口と同意の境界](../../../06_Architecture/Details/coordinator/03_Task_Architecture.md#c-integration-entry-boundary)へ接続する。direct／interactive／automation各Project／Taskの六経路、元stdin・PID・cwd・環境、128KiB／EOF／UTF-8／JSON拒否、Node・TTY・JSON条件、取消一回搬送・join・公開終了値を既存CLI結合項目で確認する。未使用Human表示の撤去では、取消・回復参照・cleanup・機密非公開の義務を実JSONへ移し、doctor表示は維持する。Root検査は値と型、namespace・inline type・dynamic importを含め、外部保持と内部直接接続を分ける。試験専用公開名も、公開保証か内部検査かを確定する前に義務を削除しない。同意と端末の移管では同じHash・Grant・Map・Process安全状態、期限・一回性・失効・端末終了不明の反証を維持する。文書棚卸しはSource接続や実送信成功の証拠ではない。
 
 先行CLI整理では`PRL-IT-012`に対し、`request.ts`のimport-only無出力とProject拒否JSON bytes・終了値を実Processで確認する。`ERB-IT-003`の取消接続検査では、引数拒否の先頭guard内出力とfinally後の終端出力を別に照合し、拒否return欠落と終了前追加出力を反証する。Human表示の専用試験撤去を、Domain共通結果の`RCM-UT-016`廃止とは扱わない。元結果・回復参照・機密非公開の既存義務は実JSONと元結果の検査に残す。
 
-Cの三接続は[接続設計](../../../06_Architecture/Details/orchestrator/01_Architecture.md#c-integration-three-connections)に対し、既存`PRL-IT-012`・`PRL-IT-013`等の検証を移管先へ接続する。Task Identity検査と単発実行の値検査を混同せず、元Controlの同期配送捕捉、Executor初回開始とReviewer通知、重複・終端後通知、通知false／throw／欠測、開始前後取消・取消例外と元完了joinを確認する。第5／第6引数の実行対象・consumer束縛、助言と編集、Workbench／CLIの一時返却とObjectiveの耐久ACKを別母集団として扱う。
+Cの三接続は[接続設計](../../../06_Architecture/Details/coordinator/03_Task_Architecture.md#c-integration-three-connections)に対し、既存`PRL-IT-012`・`PRL-IT-013`等の検証を移管先へ接続する。Task Identity検査と単発実行の値検査を混同せず、元Controlの同期配送捕捉、Executor初回開始とReviewer通知、重複・終端後通知、通知false／throw／欠測、開始前後取消・取消例外と元完了joinを確認する。第5／第6引数の実行対象・consumer束縛、助言と編集、Workbench／CLIの一時返却とObjectiveの耐久ACKを別母集団として扱う。
 
 回復では、技術回収済みでも解放・履歴・配送又は上位保存が不明な場合の停止、受領前の保存失敗、ACK保存後の終了失敗と同じ参照での再入場を確認する。Resource回収・Provider再実行を不用意に繰り返さず、私有CapabilityをIDから再生成しない。元Map・Singleton・Writer・取得順を移管で複製せず、既存の不正入力・相関差・失敗Oracleを減らさない。
 
@@ -32,7 +46,7 @@ C前のTask入力／助言分離では、既存入力Snapshot、助言受付・P
 
 実受付・実Writer・DispatcherからMCPの最終公開まで、内部Task完了／公開採用待ちを区別して観測する。raw完了の安全条件を緩めず、内部結果の意味・旧Bundle Consumerをこの表示是正で変更しない。有限Provider代役の結果搬送成功から、旧Bundle統合停止・読取り助言・Workbench切替・実Providerの成立を推定しない。
 
-Orchestratorへの接続では[保存・搬送・終了の実装順序](../../../06_Architecture/Details/orchestrator/02_Detailed_Design.md#workspace接続の実装順序と移管先)を対象に、実Git・実state Writer・既存利用調停を組み合わせる。AI実行は有限の代役にできるが、Git・保存・利用調停を一括mockで代替しない。
+Orchestratorへの接続では[保存・搬送・終了の実装順序](../../../06_Architecture/Details/coordinator/04_Task_Detailed_Design.md#workspace接続の実装順序と移管先)を対象に、実Git・実state Writer・既存利用調停を組み合わせる。AI実行は有限の代役にできるが、Git・保存・利用調停を一括mockで代替しない。
 
 | 既存項目 | 追加する反証と観測 |
 |---|---|
@@ -46,7 +60,7 @@ VC単独の実Git試験はこの上位結合試験の代替ではない。本表
 
 Merge後分析は既存`PRL-ST-001`／`PRL-IT-013`へ追加する。Merge成功後の分析成功・失敗・取消・保存中断後再入場を分け、対象Workspace・取込Commit・Task・分析資料の相関、元Merge結果とRefの保持、分析段階からの自動Rollback／追加修正／Merge再発行0を観測する。先行する明示MergeのEffectを0とは主張しない。資料保存が失敗してもMerge未実施へ巻戻さず、分析未完了と必要な再分析・人間判断を返す。古いCommitへの分析を現在の完了へ昇格しない。
 
-[Workspace詳細](../../../06_Architecture/Details/orchestrator/03_Workspace.md)の`orchestrator.workspace-task-target`（ARCH-000004／000012）を追加条件として導出する。`PRL-UT-006`は対象結合・方式・状態判定、`PRL-IT-011`は同Workspace競合／別Workspace並行と共有資源制限・複数Process取得、`PRL-IT-012`はWorkbench／MCP／CLIの共通Task搬送、`PRL-IT-013`は元Attemptの再入場を確認する。`PRL-ST-001`／003／004は通常実行・取消・親喪失の公開経路で、Repository／Workspaceと開始・結果・保存・終了後資源を相関する。`PRL-UAT-002`は対象・判断待ち・再開を利用者が区別できるか評価する。取消時のContainer／Process回収を継続Workspaceの削除・resetへ変換せず、既存dirty・他Task成果の前後不変を観測する。旧Queue／Lease試験から新方式の並行・再入場成功を推定しない。
+[Workspace詳細](../../../06_Architecture/Details/coordinator/05_Workspace.md)の`orchestrator.workspace-task-target`（ARCH-000004／000012）を追加条件として導出する。`PRL-UT-006`は対象結合・方式・状態判定、`PRL-IT-011`は同Workspace競合／別Workspace並行と共有資源制限・複数Process取得、`PRL-IT-012`はWorkbench／MCP／CLIの共通Task搬送、`PRL-IT-013`は元Attemptの再入場を確認する。`PRL-ST-001`／003／004は通常実行・取消・親喪失の公開経路で、Repository／Workspaceと開始・結果・保存・終了後資源を相関する。`PRL-UAT-002`は対象・判断待ち・再開を利用者が区別できるか評価する。取消時のContainer／Process回収を継続Workspaceの削除・resetへ変換せず、既存dirty・他Task成果の前後不変を観測する。旧Queue／Lease試験から新方式の並行・再入場成功を推定しない。
 
 本節の全体評価はNot Run。限定結合は実Git・実Writer・既存Lease、二Task継続、保存Rootと実行Tree分離、別Processの競合・再入場、保存前open失敗とRef削除失敗を対象とする。再観測時の別HEAD／dirty／locked／prunable、破棄時の既終端Queue結果保持、委譲前拒否の回復非発行も反証する。保存失敗の一地点を全保存障害・実Process強制終了の実証へ一般化しない。回復／配送未解決、retry／Replan、履歴整理後継続、実Provider・公開Surface・Git採用・Merge・利用者受入は未確認として残す。既存Local Itemの元結果・旧方式のEvidenceは維持し、新方式へ継承しない。UT、IT、公開ST、利用者UATを相互代替しない。実施結果は[変更記録](../../../99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md)へ接続する。
 
@@ -96,9 +110,8 @@ Snapshot検査の既存ヘルパーへ接続する際は、Descriptor自身の`v
 
 | 詳細設計領域 | 受け取る成立条件 |
 |---|---|
-| [coordinator](../../../06_Architecture/Details/coordinator/01_Architecture.md) | 実行編成、Authority、外部Effect、候補、回収・回復 |
+| [coordinator](../../../06_Architecture/Details/coordinator/01_Architecture.md) | 実行編成、Authority、外部Effect、候補、回収・回復と[Task詳細](../../../06_Architecture/Details/coordinator/03_Task_Architecture.md)のObjective／Task、Objective／Milestone受入判断、Task内判断、取消、公開結果 |
 | [platform-access](../../../06_Architecture/Details/platform-access/01_Architecture.md) | OS資源、Process Effect、観測、cleanup、回復 |
-| [orchestrator](../../../06_Architecture/Details/orchestrator/01_Architecture.md) | Objective、Task、Objective／Milestone受入判断、Task内判断、取消、回復、公開結果 |
 
 ## 2. Lifecycle
 

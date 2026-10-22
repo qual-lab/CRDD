@@ -80,7 +80,7 @@ function printHelp(): void {
       `MCP Protocol: ${MCP_COORDINATOR_PROTOCOL_VERSION}`,
       "HTTPは127.0.0.1だけで待ち受け、CRDD_MCP_HTTP_BEARER_TOKENが必要です。",
       "--crosでは既存Host設定を使用し、各HTTP要求のユーザー資格を検証します。固定Transport Tokenとの混在とstdioは利用できません。",
-      "MCPは外部ClientからOrchestratorへ接続する入口であり、Coordinatorの子機能ではありません。",
+      "MCPは外部ClientからCoordinatorの公開APIへ接続する独立した入口です。",
       "",
     ].join("\n"),
   );
@@ -184,7 +184,7 @@ function createRequestRoutingDependencies(): McpServerDependencies {
     process.cwd(),
   );
   return {
-    orchestrator: coordinatorDependencies(),
+    coordinator: coordinatorDependencies(),
     workspace: (repositoryId) => {
       const verified = verifyRepositoryRoot(repositoryRoot);
       if (verified.status !== "completed") return null;

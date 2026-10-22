@@ -1,8 +1,12 @@
 # CoordinatorのTask・Objective管理アーキテクチャ
 
+## 保存統合B案の採用 — 2026-10-22
+
+Task／Objectiveと単発Executionの保存は[単一保存Lifecycle](04_Task_Detailed_Design.md#unified-storage-lifecycle)へ統合する目標を採用した。業務世代と保存改訂を区別し、Task側へ技術cleanup・回復義務・受領Hashを重複保存せず、元事実の参照又は同じ更新での反映へ整理する。以下の二保存Lock・Reader再入場とSchema凍結は移管元実装の記述であり、Bの新設計を制限するものではない。実装完了・旧記録の移行済みは主張しない。
+
 ## 統合後の名称 — 2026-10-22
 
-現行Packageと公開TypeScript APIはCoordinatorへ統一する。仕事の進行はTask／Objective、単発AI実行はExecutionと責務で区別し、Orchestratorを独立Package又は恒久的な論理Subsystem名として残さない。本書の物理Directory名と下記の統合前説明、保存・通信の既存実値は移行元を識別するため残る。公開関数・型は`Coordinator*`を基本とし、業務状態の排他は`acquireRuntimeOwnedProjectStateKernelLock`とする。技術状態用の既存排他とは別実体である。旧公開名の互換aliasは提供しない。
+現行Packageと公開TypeScript APIはCoordinatorへ統一する。仕事の進行はTask／Objective、単発AI実行はExecutionと責務で区別し、Orchestratorを独立Package又は恒久的な論理Subsystem名として残さない。本書はCoordinator詳細へ移管済みであり、下記の統合前説明と保存の既存実値は移行元を識別するため残る。公開関数・型は`Coordinator*`を基本とし、業務状態の排他は`acquireRuntimeOwnedProjectStateKernelLock`とする。技術状態用の既存排他とは別実体である。旧公開名の互換aliasは提供しない。
 
 ## Cの現在の物理Owner — 実装候補、検証中
 
@@ -100,7 +104,7 @@ Package Rootは外部利用側が必要とする操作・検査・値契約を�
 
 依存はModel→選択→投影の利用方向とし、Modelから選択・投影・遷移へ逆参照しない。各遷移はModelの値契約を利用するが、Filesystem・Lease・Docker処置を所有しない。共有検査は内部exportとして必要な利用側だけが参照し、Package Rootの公開集合を増やさない。旧Fileは再export中継として残さない。既存の公開Symbol名・型Shape・状態／reason・Contract・永続形式・保存先と、予約保存／開始確定／結果受領／ACKの順序は変更しない。
 
-Workspace再編の現在目標は[作業領域・責務契約](03_Workspace.md)。通常AI入口、Workspace寿命、Task／Queue、コード候補の固定要求・採否、Promotion統制を本領域が所有する。Git・認可・隔離・Domain技術を所有しない。以下のBundle依存・Workspace未識別Queue等は基準実装の移行元であり、新方式の本番接続済みとは扱わない。
+Workspace再編の現在目標は[作業領域・責務契約](05_Workspace.md)。通常AI入口、Workspace寿命、Task／Queue、コード候補の固定要求・採否、Promotion統制を本領域が所有する。Git・認可・隔離・Domain技術を所有しない。以下のBundle依存・Workspace未識別Queue等は基準実装の移行元であり、新方式の本番接続済みとは扱わない。
 
 ### A段階の公開操作と実行結果の配置
 
@@ -121,10 +125,10 @@ Objectiveの開発用構築だけがDecision／Stateの実行関数を一方向�
 
 非公開実装の検証はOrchestrator所有試験へ移す。Profile搬送の旧直結UTは、Producerの入力変換とConsumerの要求検査へ分け、公開Objectiveの実Task開始入力でProfile／Executor／Front Providerの相関を補完する。公開APIの追加、試験専用の製品中継、偽の直結成立主張は行わない。
 
-Workspaceの内部操作は`manageCoordinatorWorkspace`、Taskごとの対象観測は`resolveCoordinatorWorkspaceTaskTarget`、値契約は`CoordinatorWorkspaceRequest`／`CoordinatorWorkspace`としてPackage Rootから公開する。具体保存・Lease・VC接続と、実Provider／Surface・採用取込の未接続は[状態・資源詳細の接続表](02_Detailed_Design.md#workspace接続の実装順序と移管先)に従う。内部のHost Path投影を外部Surfaceへ直接返さない。
+Workspaceの内部操作は`manageCoordinatorWorkspace`、Taskごとの対象観測は`resolveCoordinatorWorkspaceTaskTarget`、値契約は`CoordinatorWorkspaceRequest`／`CoordinatorWorkspace`としてPackage Rootから公開する。具体保存・Lease・VC接続と、実Provider／Surface・採用取込の未接続は[状態・資源詳細の接続表](04_Task_Detailed_Design.md#workspace接続の実装順序と移管先)に従う。内部のHost Path投影を外部Surfaceへ直接返さない。
 
 成果物種別: Architecture詳細設計
-詳細設計領域: orchestrator
+詳細設計領域: coordinator
 状態: Candidate
 
 Windows adapterの未使用な`observeContainerHostRecoveryState`と、それだけに依存したcleanup部分保証を撤去する。旧AppDataの全域在庫をOrchestratorへ公開せず、現在Task／回復の本番接続はCoordinatorの固定Repository APIを用いる。正本の`container_host`境界とfixed_image／network／mount／process／cleanupの必要保証は維持する。候補operationの撤去を、必要保証の免除や境界全体の完成へ読み替えない。
@@ -141,7 +145,7 @@ Docker回復は同じ必須AbortSignalを下位へ渡して完了を待つ。固
 
 2026-10-14の人間判断により、通常実行は[Coordinatorの実行・追跡・配布の三分離](../coordinator/01_Architecture.md#9-通常実行追跡正式配布の分離)へ接続する。CRDD署名済みRuntimeを一回起動するCapabilityの発行・消費・失効は不要とし、現在の要求認可、Repository／用途、元Task／Attemptと取消・結果・回復の相関を保持する。Commit／Hashを新しい実行Capabilityにしない。旧公開組立てのissuer／revokerと署名専用Port／Adapterは撤去済みであり、以下に残る署名閉包・署名実境界の旧記述は現在の通常実行Gateへ使用しない。未署名固定入口・必要Artifact・現在許可と必要な実Provider境界の本番接続・検証は、現在の未完了条件として維持する。
 
-本候補はOrchestratorの意味・公開操作をOrchestratorへ移す詳細設計である。物理的な詳細設計領域は`orchestrator`へ統一する。既存Semantic Keyと通信契約のIdentityは、物理配置とは分けて保持する。旧版のCoveredや保存切替の検証結果を、新配置の実装接続・実境界の成立証明には用いない。
+統合前候補ではOrchestratorの意味・公開操作を同名領域へ移す計画だった。現在の物理的な詳細設計領域は`coordinator`へ統一している。既存Semantic Keyと保存契約のIdentityは、物理配置とは分けて保持する。旧版のCoveredや保存切替の検証結果を、新配置の実装接続・実境界の成立証明には用いない。
 
 段階5Cでは上位Attemptの記録変換を本領域の`src/task/execution-intelligence-adapter.ts`へ移し、公開入口から利用する。認証済みPrincipalと受入判断の一致検査も`src/decision/acceptance-authority-adapter.ts`で所有し、本領域の本番組立ては同じ公開入口を利用する。物理親Directoryは`40_Develop/coordinator`、Package名は`@qual-lab/crdd-coordinator`へ切替済みである。共通実行・通知と全利用側の接続確認は未完了である。下位Coordinatorの共通Operation記録と上位Attempt記録を重複発行しない責務は維持する。
 
@@ -242,7 +246,7 @@ Orchestratorは、人間が許可したObjectiveをProject-level execution state
 
 純粋な状態・遷移判定はI/Oから独立させる。業務操作はCoordinator等の公開APIを直接呼び、Orchestratorが望む通知をCoordinator定義のハンドラーへ登録する。下位が上位型をimportする逆依存、Port注入Framework、汎用Event Busは追加しない。
 
-現在状態、待機中の仕事、採否待ち候補への参照、未確定の結果保存・採用後処理と未解決回復は、一連の仕事のつながりを失わず管理する。新しい受領・既読管理は追加しない。保存の具体契約は[詳細設計の一体保存](02_Detailed_Design.md#compact-runtime-storage)が所有する。保存方式刷新②の成立済み保証を保持して移管し、旧形式の清掃はフロントAIの移行手順で扱う。Runtimeへ恒久的な旧形式Readerを残さない。
+現在状態、待機中の仕事、採否待ち候補への参照、未確定の結果保存・採用後処理と未解決回復は、一連の仕事のつながりを失わず管理する。新しい受領・既読管理は追加しない。保存の具体契約は[詳細設計の一体保存](04_Task_Detailed_Design.md#compact-runtime-storage)が所有する。保存方式刷新②の成立済み保証を保持して移管し、旧形式の清掃はフロントAIの移行手順で扱う。Runtimeへ恒久的な旧形式Readerを残さない。
 
 Objective／Milestone Acceptance Decision PortはProject運営者の明示判断だけを受け付ける。Project Management Projection、Task完了またはObjective受入から次段階のAuthorityを生成せず、受入判断記録からTask作成やProvider Effectを発行しない。
 
@@ -349,7 +353,7 @@ Coordinator ─×→ Orchestrator
 
 ## 6. 状態、Authority、資源
 
-Task、Objective、Milestone、QueueおよびDecisionの状態と遷移は本書が上位の意味を、[詳細設計](02_Detailed_Design.md)がexactなID、不変条件、Lock、Authority、Effectおよび失敗注入点を所有する。[機械可読な設計対応](../../../07_Quality/Registry/coordinator-task-design-traceability.json)は設計正本ではなく、設計とCoordinator実装・試験の対応切れを検出する検証用投影である。物理配置の変更を理由に状態名、成功条件、IdentityまたはRecovery義務を簡略化しない。Project Stateを所有するProcess世代はCoreが乱数や時刻から生成せず、Hostが有効な`ownerGeneration`として明示入力する。Coreは欠落または不正な世代を状態生成前に拒否する。
+Task、Objective、Milestone、QueueおよびDecisionの状態と遷移は本書が上位の意味を、[詳細設計](04_Task_Detailed_Design.md)がexactなID、不変条件、Lock、Authority、Effectおよび失敗注入点を所有する。[機械可読な設計対応](../../../07_Quality/Registry/coordinator-task-design-traceability.json)は設計正本ではなく、設計とCoordinator実装・試験の対応切れを検出する検証用投影である。物理配置の変更を理由に状態名、成功条件、IdentityまたはRecovery義務を簡略化しない。Project Stateを所有するProcess世代はCoreが乱数や時刻から生成せず、Hostが有効な`ownerGeneration`として明示入力する。Coreは欠落または不正な世代を状態生成前に拒否する。
 
 OrchestratorはAuthorityを生成しない。人間または上位Runtimeから受け取ったProject／Milestone AuthorityをTask単位へ縮小し、Task要求と`authorityBindingId`へ結合してCoordinatorへ渡す。別のRuntime package実行資格は発行しない。耐久Handoff後に取消と現在許可を確認して委譲し、Task Authority、Task内容および許可Pathは既存の縮小Bindingへ結合する。Transport metadata、Provider出力、Project State、実行知EventまたはAdapterの存在からAuthorityを導出しない。
 
@@ -359,7 +363,7 @@ OrchestratorはAuthorityを生成しない。人間または上位Runtimeから�
 
 ### ブロック状態遷移
 
-詳細な個別状態名と遷移IDは、[詳細設計](02_Detailed_Design.md)から解決する。次表はPackageをまたぐ結合ブロックのLifecycleを示し、個別状態の第二正本にはしない。
+詳細な個別状態名と遷移IDは、[詳細設計](04_Task_Detailed_Design.md)から解決する。次表はPackageをまたぐ結合ブロックのLifecycleを示し、個別状態の第二正本にはしない。
 
 | ブロック状態 | 契機／事前条件 | Portとの結合 | 次状態 | 終了後条件 |
 |---|---|---|---|---|

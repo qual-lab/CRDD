@@ -267,7 +267,7 @@ test("MCP semantic operations require a runtime-observed client principal before
   assert.equal(
     (result.result as { structuredContent: { reason: string } })
       .structuredContent.reason,
-    "orchestrator_mcp_client_not_authenticated",
+    "mcp_client_not_authenticated",
   );
 });
 
@@ -363,7 +363,7 @@ test("MCP envelope and authentication reject accessors and proxies without invok
   assert.equal(
     (authenticationResult.result as { structuredContent: { reason: string } })
       .structuredContent.reason,
-    "orchestrator_mcp_client_not_authenticated",
+    "mcp_client_not_authenticated",
   );
   assert.equal(getterCalls, 0);
   assert.equal(effects, 0);
@@ -867,7 +867,7 @@ test("MCP fails closed when a semantic result is malformed", async () => {
   assert.equal(result.isError, true);
   assert.equal(
     result.structuredContent.reason,
-    "orchestrator_adapter_result_invalid",
+    "mcp_coordinator_result_invalid",
   );
 });
 
@@ -921,7 +921,7 @@ test("MCPは内部Task fieldを公開結果へ透過しない", async () => {
     assert.equal(result.isError, true);
     assert.equal(
       result.structuredContent.reason,
-      "orchestrator_adapter_result_invalid",
+      "mcp_coordinator_result_invalid",
     );
   }
 });
@@ -1360,7 +1360,7 @@ test("MCP公開結果は入れ子、相関、操作別fieldを閉じたDTOへ再
     assert.equal(
       (response.result as { structuredContent: { reason: string } })
         .structuredContent.reason,
-      "orchestrator_adapter_result_invalid",
+      "mcp_coordinator_result_invalid",
       `malformed projection case ${index}`,
     );
   }
@@ -1409,7 +1409,7 @@ test("MCP Integration結果はblocked時のcleanupとmanual recoveryを相関検
     assert.equal(
       (response.result as { structuredContent: { reason: string } })
         .structuredContent.reason,
-      "orchestrator_adapter_result_invalid",
+      "mcp_coordinator_result_invalid",
     );
   }
 });
@@ -1546,7 +1546,7 @@ test("MCPは旧Integration契約を成功や回復参照の有無にかかわら
     };
     assert.equal(
       result.structuredContent.reason,
-      "orchestrator_adapter_result_invalid",
+      "mcp_coordinator_result_invalid",
     );
     assert.equal(result.isError, true);
     void isExpectedError;
@@ -1631,7 +1631,7 @@ test("MCPは旧Integration契約をDecision付きでも拒否する", async () =
     };
     assert.equal(
       result.structuredContent.reason,
-      "orchestrator_adapter_result_invalid",
+      "mcp_coordinator_result_invalid",
     );
     assert.equal(Object.hasOwn(result.structuredContent, "decision"), false);
   }
@@ -1674,7 +1674,7 @@ test("MCP DecisionはObjective専用fieldを拒否する", async () => {
   assert.equal(
     (response.result as { structuredContent: { reason: string } })
       .structuredContent.reason,
-    "orchestrator_adapter_result_invalid",
+    "mcp_coordinator_result_invalid",
   );
 });
 
@@ -1692,7 +1692,7 @@ test("MCP DecisionはObjective専用fieldを拒否する", async () => {
  */
 test("MCP contract reports stateless transport and the exact public tools", () => {
   assert.deepEqual(describeMcpCoordinatorAdapterContract(), {
-    contract: "crdd-mcp/orchestrator-adapter/v2",
+    contract: "crdd-mcp/coordinator-adapter/v3",
     protocolVersion: MCP_COORDINATOR_PROTOCOL_VERSION,
     tools: [
       MCP_COORDINATOR_OBJECTIVE_TOOL,
@@ -1701,7 +1701,7 @@ test("MCP contract reports stateless transport and the exact public tools", () =
     ],
     transportState: "stateless_per_request",
     clientMetadataAuthority: "none",
-    projectModelOwnership: "orchestrator",
+    projectModelOwnership: "coordinator",
   });
 });
 
@@ -1795,7 +1795,7 @@ test("MCPはWorkspace観測を要求対象へ結合し失敗理由を維持す�
         unknown
       >
     ).reason,
-    "orchestrator_adapter_result_invalid",
+    "mcp_coordinator_result_invalid",
   );
   assert.equal(
     inspectMcpCoordinatorObjectiveResult({

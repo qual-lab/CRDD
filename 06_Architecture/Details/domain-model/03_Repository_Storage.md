@@ -1,6 +1,6 @@
 # `.crdd` Runtime Dataの目標Architecture
 
-[Workspace配置契約](../orchestrator/03_Workspace.md#4-配置とroot解決)に従い、Repository Identity／Manifestと共通の名前付き領域は本領域、Workspace利用・寿命はOrchestrator、Git Worktreeの物理配置はVersion Controlが所有する。`workspaces`を既存の名前付き領域集合へ含める。上位はVC観測のWorkspace ID・relativePath・登録・実体・HEADを照合し、配置文字列を再定義しない。Tool RuntimeやWorktree内へRuntime正本を重複生成しない。以下の一般候補の配置は維持するが、コード変更候補の独自Bundle Storeは置換対象であり新しい常設Storeを作る指示ではない。旧データ移行・全体実境界の完了は別に判定する。
+[Workspace配置契約](../coordinator/05_Workspace.md#4-配置とroot解決)に従い、Repository Identity／Manifestと共通の名前付き領域は本領域、Workspace利用・寿命はOrchestrator、Git Worktreeの物理配置はVersion Controlが所有する。`workspaces`を既存の名前付き領域集合へ含める。上位はVC観測のWorkspace ID・relativePath・登録・実体・HEADを照合し、配置文字列を再定義しない。Tool RuntimeやWorktree内へRuntime正本を重複生成しない。以下の一般候補の配置は維持するが、コード変更候補の独自Bundle Storeは置換対象であり新しい常設Storeを作る指示ではない。旧データ移行・全体実境界の完了は別に判定する。
 
 借用実行Treeの内部Directory保護は、既存`storage/ensure-area.ts`の`checkRepositoryRuntimeDataProtectionDirectory`へ委譲する。検証Root能力とobserve／prepareを受け、ready／absent／blockedだけを返しraw Rootは公開しない。observeは作成0、prepareは真正不存在の場合だけ空Directory一件を作り、既存内容・子領域・状態・Ignore・台帳・Lockを変更しない。link・File・観測不能は停止する。この空Mount先をWorktree内へのRuntime正本保存許可と扱わない。
 
@@ -179,7 +179,7 @@ Related:
 | orchestrator設定例・Schema | orchestrator設定例・Schema | 配布側と実Reader、Checker、回帰Runnerを同時更新する。別の共通期間設定へ統合しない。 |
 | `.crdd/coordinator/`、`.crdd/execution-intelligence/` | 同名を維持 | 下位実行、上位編成、実行知の現在状態・履歴Ownerを混同しない。 |
 
-最新のOrchestrator保存・設定契約は[詳細設計](../orchestrator/02_Detailed_Design.md#compact-runtime-storage)が所有する。以下の基準ツリーと旧設定名を新構成の配置指示として使用しない。配布例・Schema・実物の切替は段階5以降の対応対象である。
+最新のOrchestrator保存・設定契約は[詳細設計](../coordinator/04_Task_Detailed_Design.md#compact-runtime-storage)が所有する。以下の基準ツリーと旧設定名を新構成の配置指示として使用しない。配布例・Schema・実物の切替は段階5以降の対応対象である。
 
 Orchestratorは、このRepositoryで旧試験記録の清掃と新形式への初期化を実施した。Coordinatorおよびその他Ownerの残る物理切替は未実施である。実施範囲と保全対象は[実切替結果](../../../99_Roadmap/Changes/CHG-000082/Evidence/261005_project-runtime-phase2.md#29-repositoryの実切替結果)を参照し、両Ownerの切替完了へ拡張しない。
 
@@ -201,7 +201,7 @@ Orchestratorは、このRepositoryで旧試験記録の清掃と新形式への�
 
 `state.pending.json`は保存更新中だけ必要な短命ファイル、`tmp/.../work/`は処理の中間物であり、用途と再入場Ownerを混同しない。新しい保存用子フォルダは作らない。Coordinator固有署名方式の撤去に伴い、署名専用の`tmp/signature/`プロファイルをSourceから除去した。通常の一時操作v3は維持する。旧入力拒否・通常保存・再入場を含むDomain全122件と限定独立確認を通過した。初回の競合試験1件Timeoutは原因未確定として変更計画に保持し、再実行成功で初回記録を置換しない。Docker現在状態の切替は別に処置する。
 
-状態のSchema、保存確定、履歴搬送と移行は[Orchestrator詳細設計](../orchestrator/02_Detailed_Design.md#compact-runtime-storage)および[Coordinator縮小設計](../coordinator/01_Architecture.md#現在状態と履歴を分ける縮小設計)が所有する。秘密、保護Decision、署名鍵、専用Provider Homeは保護境界を維持し、普通のRepository-local JSONへまとめない。既存のRepository外Candidate Storeも、Identity・保護・全利用側の移行確認前に移動・回収しない。
+状態のSchema、保存確定、履歴搬送と移行は[Orchestrator詳細設計](../coordinator/04_Task_Detailed_Design.md#compact-runtime-storage)および[Coordinator縮小設計](../coordinator/01_Architecture.md#現在状態と履歴を分ける縮小設計)が所有する。秘密、保護Decision、署名鍵、専用Provider Homeは保護境界を維持し、普通のRepository-local JSONへまとめない。既存のRepository外Candidate Storeも、Identity・保護・全利用側の移行確認前に移動・回収しない。
 
 ## 3. 各領域の意味
 

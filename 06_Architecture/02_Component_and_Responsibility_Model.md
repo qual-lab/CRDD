@@ -1,6 +1,6 @@
 # Component／責務モデル
 
-Workspace再編の状態Owner・所有禁止・依存方向は[横断契約§3](Details/orchestrator/03_Workspace.md#3-packageの責務と依存方向)へ接続する。物理統合後は単一CoordinatorがWorkspace・Task・採用判断と単発Executionを別責務として所有する。Git操作はVersion Control、隔離資源の技術操作はDocker Isolationが所有する。以下の旧構成のCandidate Store・Workbench専用AI処理・二Package図は移行元の比較対象であり、現行構成や新版の検証根拠ではない。
+Workspace再編の状態Owner・所有禁止・依存方向は[横断契約§3](Details/coordinator/05_Workspace.md#3-packageの責務と依存方向)へ接続する。物理統合後は単一CoordinatorがWorkspace・Task・採用判断と単発Executionを別責務として所有する。Git操作はVersion Control、隔離資源の技術操作はDocker Isolationが所有する。以下の旧構成のCandidate Store・Workbench専用AI処理・二Package図は移行元の比較対象であり、現行構成や新版の検証根拠ではない。
 
 Status: Candidate (v0.22 responsibility reorganization)
 Owner: Qual-Lab

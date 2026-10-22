@@ -460,7 +460,7 @@ async function startMcpStreamableHttpWithHandler(
             )),
     )
   )
-    throw new Error("orchestrator_mcp_http_configuration_invalid");
+    throw new Error("mcp_http_configuration_invalid");
   const allowedOrigins = new Set(
     options.allowedOrigins ?? (publicOrigin ? [publicOrigin.origin] : []),
   );
@@ -628,7 +628,7 @@ async function startMcpStreamableHttpWithHandler(
   const address = server.address();
   if (!address || typeof address === "string") {
     server.close();
-    throw new Error("orchestrator_mcp_http_address_unavailable");
+    throw new Error("mcp_http_address_unavailable");
   }
   let closePromise: Promise<
     Readonly<{ status: "completed"; cleanupConfirmed: true }>
@@ -662,7 +662,7 @@ async function startMcpStreamableHttpWithHandler(
         requests.size !== 0 ||
         sockets.size !== 0
       )
-        throw new Error("orchestrator_mcp_http_cleanup_unconfirmed");
+        throw new Error("mcp_http_cleanup_unconfirmed");
       return Object.freeze({
         status: "completed" as const,
         cleanupConfirmed: true as const,
@@ -700,7 +700,7 @@ export async function startMcpStreamableHttp(
   options: McpCoordinatorHttpOptions,
 ) {
   if (!validToken(options.bearerToken))
-    throw new Error("orchestrator_mcp_http_configuration_invalid");
+    throw new Error("mcp_http_configuration_invalid");
   const expectedToken = Buffer.from(options.bearerToken, "utf8");
   return startMcpStreamableHttpWithHandler(
     (token) =>
@@ -755,11 +755,11 @@ export async function startMcpCoordinatorStreamableHttp(
   options: McpCoordinatorHttpOptions,
 ) {
   if (!validToken(options.bearerToken))
-    throw new Error("orchestrator_mcp_http_configuration_invalid");
+    throw new Error("mcp_http_configuration_invalid");
   const expected = Buffer.from(options.bearerToken, "utf8");
   return startMcpStreamableHttpWithHandler((token) => {
     return authorized({ authorization: `Bearer ${token}` }, expected)
-      ? createMcpServerFactory({ orchestrator: dependencies })
+      ? createMcpServerFactory({ coordinator: dependencies })
       : null;
   }, options);
 }

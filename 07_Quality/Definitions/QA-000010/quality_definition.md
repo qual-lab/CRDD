@@ -40,6 +40,7 @@ Quality ID: `QA-000010`
 | [artifact-signing](../../../06_Architecture/Details/artifact-signing/01_Architecture.md) | 署名前検査、署名対象、鍵境界、配置後の検証 |
 | [coordinator](../../../06_Architecture/Details/coordinator/01_Architecture.md) | 実行編成、Authority、外部Effect、候補、回収・回復 |
 | [domain-model](../../../06_Architecture/Details/domain-model/01_Architecture.md) | 任意の正式配布でlauncher、Release Manifest、実装正本およびNative Artifactを配布Identityへ結合する境界。通常Runtimeの許可発行を所有せず、旧署名閉包は比較基準として扱う |
+| [platform-access](../../../06_Architecture/Details/platform-access/01_Architecture.md) | 既存`AIT-IT-002`／`AIT-UT-005`に関係するNative実行物の内部同一性確認、Root／Home技術搬送と前後観測の境界。通常Runtimeの実行許可や配布元真正性をこの観測だけから生成しない |
 | [runtime-trust](../../../06_Architecture/Details/runtime-trust/01_Architecture.md) | 準拠、Integrity、Publisher、利用者所有Trust Policy |
 
 ## 2. 評価軸

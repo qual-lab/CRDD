@@ -1,7 +1,7 @@
 # 作業領域と実行基盤の責務設計
 
 成果物種別: Architecture詳細設計（横断契約）
-詳細設計領域: orchestrator
+詳細設計領域: coordinator
 状態: Candidate（採用済み目標を具体化。Source・Schema・実境界は未実装／未検証）
 維持責任者・決定権限: Qual-Lab
 最終更新日: 2026-10-17

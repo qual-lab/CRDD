@@ -1,6 +1,6 @@
 # 故障／回復／耐障害モデル
 
-Workspace方式の失敗・取消・親喪失・Merge途中失敗・採用後保存失敗は[状態と終了条件](Details/orchestrator/03_Workspace.md#5-状態競合終了条件)へ接続する。実行資源cleanupと継続Workspace破棄は別であり、取消で既存dirty・他Task成果を削除／resetしない。Git部分成立・元失敗・同対象参照を保持し、観測不能を不存在や再実行許可にしない。以下の旧方式の成功は新方式へ継承しない。
+Workspace方式の失敗・取消・親喪失・Merge途中失敗・採用後保存失敗は[状態と終了条件](Details/coordinator/05_Workspace.md#5-状態競合終了条件)へ接続する。実行資源cleanupと継続Workspace破棄は別であり、取消で既存dirty・他Task成果を削除／resetしない。Git部分成立・元失敗・同対象参照を保持し、観測不能を不存在や再実行許可にしない。以下の旧方式の成功は新方式へ継承しない。
 
 Status: Candidate (v0.22 responsibility reorganization)
 Owner: Qual-Lab

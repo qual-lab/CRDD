@@ -44,7 +44,7 @@ export function inspectMcpPublicOrigin(value: string | undefined): URL | null {
       throw new Error("invalid");
     return parsed;
   } catch {
-    throw new Error("orchestrator_mcp_http_configuration_invalid");
+    throw new Error("mcp_http_configuration_invalid");
   }
 }
 

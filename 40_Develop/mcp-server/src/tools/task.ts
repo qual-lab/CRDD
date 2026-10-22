@@ -37,7 +37,7 @@ import {
 } from "../request/validation.ts";
 
 export const MCP_COORDINATOR_ADAPTER_CONTRACT =
-  "crdd-mcp/orchestrator-adapter/v2" as const;
+  "crdd-mcp/coordinator-adapter/v3" as const;
 /**
  * adapterで使用するMcp Coordinator Dependenciesの値契約を定義する。
  *
@@ -853,7 +853,7 @@ export async function handleMcpCoordinatorRequest(
       ]),
       structuredContent: Object.freeze({
         status: "blocked",
-        reason: "orchestrator_mcp_client_not_authenticated",
+        reason: "mcp_client_not_authenticated",
         cleanupConfirmed: true,
         manualRecoveryRequired: false,
         effectState: "no_effect",
@@ -894,7 +894,7 @@ export async function handleMcpCoordinatorRequest(
     snapshot ??
     Object.freeze({
       status: "blocked",
-      reason: "orchestrator_adapter_result_invalid",
+      reason: "mcp_coordinator_result_invalid",
       cleanupConfirmed: false,
       manualRecoveryRequired: true,
       effectState: "unknown",
@@ -941,14 +941,13 @@ export function describeMcpCoordinatorAdapterContract() {
     ]),
     transportState: "stateless_per_request",
     clientMetadataAuthority: "none",
-    projectModelOwnership: "orchestrator",
+    projectModelOwnership: "coordinator",
   });
 }
 
 export const MCP_COORDINATOR_OBJECTIVE_TOOL = "crdd.run_objective" as const;
 export const MCP_COORDINATOR_DECISION_TOOL = "crdd.submit_decision" as const;
-export const MCP_COORDINATOR_STATE_TOOL =
-  "crdd.get_orchestrator_state" as const;
+export const MCP_COORDINATOR_STATE_TOOL = "crdd.get_coordinator_state" as const;
 
 export const objectiveKeys = new Set([
   "intakeEpoch",

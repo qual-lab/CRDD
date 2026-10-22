@@ -80,7 +80,7 @@ import {
  */
 export type McpServerDependencies = Readonly<{
   initialConnection?: McpRequestHandler;
-  orchestrator?: McpCoordinatorDependencies;
+  coordinator?: McpCoordinatorDependencies;
   workspace?: WorkspaceAccessResolver;
   projectContext?: McpProjectContextDependencies;
   runtimeActivity?: McpExecutionStatusDependencies;
@@ -109,9 +109,11 @@ export type McpServerDependencies = Readonly<{
 export function createMcpServerFactory(
   dependencies: McpServerDependencies,
 ): McpServerFactory {
+  if (Object.hasOwn(dependencies, "orchestrator"))
+    throw new Error("mcp_retired_dependency_key");
   const {
     workspace,
-    orchestrator,
+    coordinator,
     projectContext,
     accessManagement,
     runtimeActivity,
@@ -174,11 +176,11 @@ export function createMcpServerFactory(
           invoke: (raw, current) =>
             handleMcpWorkspaceRequest(raw, workspace, current),
         });
-      if (orchestrator)
+      if (coordinator)
         bindings.push({
           definitions: getMcpCoordinatorToolDefinitions(),
           invoke: (raw, current) =>
-            handleMcpCoordinatorRequest(raw, orchestrator, current),
+            handleMcpCoordinatorRequest(raw, coordinator, current),
         });
       if (projectContext)
         bindings.push({
@@ -283,9 +285,9 @@ export function createMcpServerFactory(
         );
         const invoke =
           binding?.invoke ??
-          (orchestrator
+          (coordinator
             ? (raw: unknown, current: AbortSignal) =>
-                handleMcpCoordinatorRequest(raw, orchestrator, current)
+                handleMcpCoordinatorRequest(raw, coordinator, current)
             : null);
         if (!invoke) throw new ProtocolError(-32601, "Method not found");
         const combined = AbortSignal.any([signal, context.mcpReq.signal]);

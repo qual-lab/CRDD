@@ -1,5 +1,9 @@
 # Coordinator Runtimeの実行アーキテクチャ
 
+## 単一保存方式の目標採用 — 2026-10-22
+
+人間は重複情報と保存排他を整理するB案を採用した。[Task状態・資源詳細の単一保存Lifecycle](04_Task_Detailed_Design.md#unified-storage-lifecycle)を新方式の設計正本とする。現在状態・保存改訂・短期排他を一つにし、内部の二段ACKリレーを同じSnapshotの受理へ統合する。実行Lease・Home／Hostの排他、実資源観測と一時返却／耐久受領の区別は維持する。以下の旧保存凍結・二保存系統は移管元の基準であり、新方式は実装・検証前である。
+
 ## 現行APIと名称整理 — 2026-10-22
 
 現行の単一CoordinatorがTask／Objective管理と単発Executionを所有する。旧`Orchestrator*`のTypeScript公開名は`Coordinator*`又は実責務名へ切り替え、全利用側を同時に追従する。業務状態の排他は`acquireRuntimeOwnedProjectStateKernelLock`、Objective配下の開発用実行は`startRuntimeOwnedDevelopmentObjectiveTask`を使い、技術状態の排他・単発開発用実行と区別する。旧名aliasや別の状態管理は追加しない。
@@ -8,7 +12,7 @@
 
 ## Cの物理統合 — 実装候補、検証中
 
-単発実行と旧Orchestratorの業務進行を`40_Develop/coordinator`、公開名`@qual-lab/crdd-coordinator`へ物理統合した。業務進行の設計正本は[Task／Objectiveの設計](../orchestrator/01_Architecture.md)に維持し、本書は単発Executionと技術相関を所有する。以下の「統合前」は基準構成の説明であり、現行の独立Packageを要求しない。現在Sourceは150 File、両旧Rootの120実行値と既存型を明示公開し、内部利用は同じ実Ownerへ接続する。物理移動・型検査の成功をC全体・実AI／Dockerの成立とはしない。
+単発実行と旧Orchestratorの業務進行を`40_Develop/coordinator`、公開名`@qual-lab/crdd-coordinator`へ物理統合した。業務進行の設計正本は[Task／Objectiveの設計](../coordinator/03_Task_Architecture.md)に維持し、本書は単発Executionと技術相関を所有する。以下の「統合前」は基準構成の説明であり、現行の独立Packageを要求しない。現在Sourceは150 File、両旧Rootの120実行値と既存型を明示公開し、内部利用は同じ実Ownerへ接続する。物理移動・型検査の成功をC全体・実AI／Dockerの成立とはしない。
 
 現CLIは`command.ts`、`request.ts`、`request-input.ts`、`options.ts`、`recovery-report.ts`、`cancellation.ts`の六File。`command.ts`が直接／対話／自動のProject・Task受付を分配し、templateは単一binへ接続する。Decisionが外部送信同意四File、Executionが端末I/Oを所有する。保存七Sourceは三specifier以外を維持し、Schema・Writer・CAS・Lock・Root・状態・ACKを変えない。現在の切替と検証状態は[統合計画](../../../99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#32-cの物理移管候補と検証状況)へ接続する。
 
@@ -20,11 +24,11 @@
 
 統合前は現在の`cli/`、`execution/`、`external-send/`、`storage/`とRoot入口を維持する。単発実行は開始・取消・元結果・技術的回復との相関を所有し、Task Graph、予約、再試行・再計画、Workspace寿命や採否を判断しない。Provider／Modelの最終選択戦略は統合後のObjective／Task側、Provider固有の計画・結果解釈はAI Adapter、Docker隔離と所有資源の技術回収はDocker Isolation、OS技術はPlatform Accessが所有する。ExecutionはそれらのAPI、選択結果、元操作と一回Grantを結合する。
 
-Cの[三接続契約](../orchestrator/01_Architecture.md#c-integration-three-connections)に従い、単発Attempt・実行・回復の実体と私有寿命を移管し、上位Taskの相関・受領保存を別責務として残す。旧Rootを介した内部接続は撤去対象だが、開始通知・元Control由来配送・取消join・回復参照は中継として削らない。Storageは保存意味と関数本文を凍結し、統合に必要な同一実体へのimportだけを固定差分で追従する。この段落はCの三接続設計時点の境界を記録する。現在の物理移管候補と未完了範囲は冒頭および統合計画§32に従う。
+Cの[三接続契約](../coordinator/03_Task_Architecture.md#c-integration-three-connections)に従い、単発Attempt・実行・回復の実体と私有寿命を移管し、上位Taskの相関・受領保存を別責務として残す。旧Rootを介した内部接続は撤去対象だが、開始通知・元Control由来配送・取消join・回復参照は中継として削らない。Storageは保存意味と関数本文を凍結し、統合に必要な同一実体へのimportだけを固定差分で追従する。この段落はCの三接続設計時点の境界を記録する。現在の物理移管候補と未完了範囲は冒頭および統合計画§32に従う。
 
 助言と編集の共通化は、開始・取消・返却の同じ意味に限定する。助言の読取り範囲と一回送信、編集の書込み対象・レビューを、名称を揃える目的で混合しない。Provider別の短期状態とAuthority等を束縛する二Factoryは、唯一の本番Consumerである`provider-adapter.ts`へ実体を同居し、旧`provider-composition.ts`を撤去する。無判断中継の削除ではなく、同じ準備Ownerの集約であり、本文・二Map・本番初期化順を維持する。`provider-observation.ts`の私有Map、本番／候補の独立性、登録位置、`finally`失効、外側とWriter内のfresh照合を維持する。Controllerへの再統合は採用していない。
 
-StorageはC前の構造整理で凍結する。対象は二Sourceの配置・本文だけでなく、Schema bytes、Hash、短期排他、CAS、pending／marker、履歴の行・時刻、配送・ACK・終了と操作除去の条件を含む。物理保存と実行の終了条件を分ける評価はCの実行入口統合後に行い、二つの永続正本を統合必須とはしない。将来の目標構成は[統合後の責務境界](../orchestrator/01_Architecture.md#consolidated-source-target)を参照する。
+StorageはC前の構造整理で凍結する。対象は二Sourceの配置・本文だけでなく、Schema bytes、Hash、短期排他、CAS、pending／marker、履歴の行・時刻、配送・ACK・終了と操作除去の条件を含む。物理保存と実行の終了条件を分ける評価はCの実行入口統合後に行い、二つの永続正本を統合必須とはしない。将来の目標構成は[統合後の責務境界](../coordinator/03_Task_Architecture.md#consolidated-source-target)を参照する。
 
 ## CLIの責務限定 — 2026-10-22
 
@@ -54,9 +58,9 @@ CLIの既存送信確認にProvider別の実効Host・443 CONNECT・通信Hash�
 
 Host操作領域のDirectory・File・descriptor識別は、WindowsのNode BigInt statが返す`-2^63 ≤ ino < 0`だけを同じ64bit列の符号なし値へ揃えてから比較・保存する。ゼロ・型不正・範囲外・POSIX負値・型・link・dev・birthtimeの既存拒否と、元操作の作成・再検証・回収条件は維持する。保存済み正値・履歴・回復参照は読み替えず、補正のための新状態・回復経路を追加しない。
 
-[Workspace再編の目標責務](../orchestrator/03_Workspace.md#3-packageの責務と依存方向)により、本領域は単発AIの調整・取消・通知・結果返却へ縮小する。通常実行はOrchestrator経由とし、業務永続状態・Workspace／Candidate寿命・採用・Promotionを所有しない。以下の現行state・Bundle Store・workbench-ai・Host相関は移行元であり、対応能力の接続前に撤去しない。DI完成を新Workspace借用の検証済み根拠にしない。具体切替・API・Schemaは未完了。
+[Workspace再編の目標責務](../coordinator/05_Workspace.md#3-packageの責務と依存方向)により、本領域は単発AIの調整・取消・通知・結果返却へ縮小する。通常実行はOrchestrator経由とし、業務永続状態・Workspace／Candidate寿命・採用・Promotionを所有しない。以下の現行state・Bundle Store・workbench-ai・Host相関は移行元であり、対応能力の接続前に撤去しない。DI完成を新Workspace借用の検証済み根拠にしない。具体切替・API・Schemaは未完了。
 
-[実行対象の引渡しとCLIの責務](../orchestrator/03_Workspace.md#実行対象の引渡しとcliの責務2026-10-18人間確認済み)に従い、Workspace選択・ID解決・Direct／Isolated選択は上位が所有する。Coordinatorは解決済み作業対象の同一性・Repository境界・Git保護・実体・Mount材料を確認して単発実行するだけで、Workspaceの検索・配置再構築・台帳読取りを所有しない。現行`BorrowedWorkspaceTarget`がWorkspace情報を含むことを、その管理責務の根拠にしない。既存のID依存照合と必要な安全確認の分離は今後のSource切替対象であり、未指定時の旧Bundle経路又は自動Direct化を残す方針ではない。
+[実行対象の引渡しとCLIの責務](../coordinator/05_Workspace.md#実行対象の引渡しとcliの責務2026-10-18人間確認済み)に従い、Workspace選択・ID解決・Direct／Isolated選択は上位が所有する。Coordinatorは解決済み作業対象の同一性・Repository境界・Git保護・実体・Mount材料を確認して単発実行するだけで、Workspaceの検索・配置再構築・台帳読取りを所有しない。現行`BorrowedWorkspaceTarget`がWorkspace情報を含むことを、その管理責務の根拠にしない。既存のID依存照合と必要な安全確認の分離は今後のSource切替対象であり、未指定時の旧Bundle経路又は自動Direct化を残す方針ではない。
 
 ## 単発Workbench依頼の終了相関（2026-10-18、実装・検証中）
 
@@ -156,7 +160,7 @@ Task起動前とCLI診断は、検査対象Repository Rootを明示して同じ�
 
 2026-10-14の人間判断で、CRDD独自署名を通常Runtimeの必須条件から外した。現在の契約は[§9の三分離](#9-通常実行追跡正式配布の分離)とする。通常Task・CLI・Workbench・Orchestratorの旧Gate、専用署名Tool・配布Manifest・固定AST graphはSourceから物理撤去した。本文の旧署名方式は明示した移管前比較基準に限り、現行の完成条件へ再利用しない。撤去後の全体回帰・実境界・実Provider／E2Eは未完了であり、局所接続を全体完成の根拠にしない。
 
-本候補は責務再編後のCoordinator詳細設計である。公開API・依存は本書、Provider固有差は[AI Adapter詳細](../ai-adapter/01_Architecture.md)、上位状態と採用は[Orchestrator詳細](../orchestrator/01_Architecture.md)が所有する。旧回復・署名方式の記述は移管前の保証と利用側を照合する基準として区別し、新配置・縮小方式の実装済み根拠にしない。未移管の保証を削除・置換済みとは扱わない。
+本候補は責務再編後のCoordinator詳細設計である。公開API・依存は本書、Provider固有差は[AI Adapter詳細](../ai-adapter/01_Architecture.md)、上位状態と採用は[Orchestrator詳細](../coordinator/03_Task_Architecture.md)が所有する。旧回復・署名方式の記述は移管前の保証と利用側を照合する基準として区別し、新配置・縮小方式の実装済み根拠にしない。未移管の保証を削除・置換済みとは扱わない。
 
 2026-10-14に独立した[Docker隔離の技術Owner](../docker-isolation/01_Architecture.md)への分離を採用し、追加指示でDocker固有の技術処理と環境依存を下位へ集約する方針に訂正した。CoordinatorはTask／助言、選定・送信許可、Home利用許可、運用介入の承認、正本状態・結果との相関を保持する。下位の共通APIへ依頼し、閉じた事実通知から状態を更新し、必要な通知だけをOrchestratorへ伝播する。Docker開始・所有Process・exact資源回収・診断・Desktop実処理を重複実装せず、DockerのOS・配置形態を選択／判定しない。現SourceにはWindows／Desktopの型・分岐・技術実処理が残るため未移管として扱い、本番全接続・環境依存の除去を完成済みとは表示しない。
 
@@ -254,8 +258,11 @@ summaryHashは末尾LF付き要約本文、lineHashは初回の正規UTC時刻�
 | Architecture定義 | この領域が具体化する責務 | Relation状態 |
 |---|---|---|
 | [ARCH-000004](../../Definitions/ARCH-000004/architecture_definition.md) | Orchestratorまたは単体利用側から公開APIでTaskを受け、Provider・Process・Containerの実行lifecycleとexactな結果を返す。 | Partial |
+| [ARCH-000005](../../Definitions/ARCH-000005/architecture_definition.md) | Task／Objectiveの状態投影と明示受入判断。[Task設計の対応表](03_Task_Architecture.md)を参照する。 | Covered |
+| [ARCH-000007](../../Definitions/ARCH-000007/architecture_definition.md) | 実行事実と評価候補の読取り。[Task設計の対応表](03_Task_Architecture.md)を参照する。 | Partial |
 | [ARCH-000008](../../Definitions/ARCH-000008/architecture_definition.md) | Provider、Process、Docker、結果搬送の各phaseを診断可能にし、推測せず故障境界を返す。 | Covered |
 | [ARCH-000010](../../Definitions/ARCH-000010/architecture_definition.md) | AI Adapterの適格性・計画を利用し、選定根拠、短命Grant、実行許可と再選定条件をEffect前に固定する。 | Partial |
+| [ARCH-000012](../../Definitions/ARCH-000012/architecture_definition.md) | Transport非依存のTask公開契約。[Task設計の対応表](03_Task_Architecture.md)を参照する。 | Covered |
 | [ARCH-000014](../../Definitions/ARCH-000014/architecture_definition.md) | 独立した読取り評価との責務境界を保持する。v0.22では利用者Trust Policyの有効化・Provider起動接続を要求しない。 | Partial |
 | [ARCH-000015](../../Definitions/ARCH-000015/architecture_definition.md) | 外部送信同意、Provider Effect、結果帰還、Review、Candidate dispositionを別Authorityとして処理する。 | Covered |
 
@@ -300,6 +307,8 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 
 ## Qualityへの引渡し
 
+Task側の四unitは[Task詳細のQuality引渡し](03_Task_Architecture.md#qualityへの引渡し)を意味正本とし、ここには物理領域の機械検査入口としてキー・段階・境界だけを投影する。検証条件や完成判断を別定義しない。
+
 | 導出キー | 設計項目種別 | 対象 | 正常条件 | 反証する失敗 | 主な試験段階 | 外部境界の段階 | 観測 | 終了後条件 | 未確認 |
 |---|---|---|---|---|---|---|---|---|---|
 | `coord.advice-code-mode-host` | Interface／Sequence／Failure-Recovery | §7.5.1の公式CLI・Host、stdin入力、Docker隔離 | 未改造の公式配布と公開設定で助言結果を搬送し終了後確認まで到達 | 実行物欠落・差替え、起動失敗、不正通知・複数結果、取消・親Process喪失後の残存 | IT／ST | IT: Related 2 Blocks<br>ST: System/E2E | 配布Hash、構成、通知分類、結果、終了後の資源観測 | 所有資源不存在またはexact回復義務保持。観測不能は成功にしない | 公式CLIの公開経路、失敗・取消反証および実Provider E2E |
@@ -308,6 +317,10 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 | `coord.signed-promotion` | Data Flow／Sequence | 任意正式配布のDistribution Root、Manifest、署名結果、staging（通常Runtimeの必須条件ではない） | 採用した配布範囲を一つの固定Snapshotとして署名し、競合なくpromotion | Root差、対象漏れ、別Snapshot混入、配置途中失敗 | IT／ST | IT: Adjacent 1 Block<br>ST: System/E2E | Manifest hash、Snapshot Identity、staging／promotion状態 | 失敗候補は正式配布不可、staging義務を保持。通常実行の許可とは独立 | 任意正式配布として適用した場合のRelease署名とpromotion |
 | `coord.task-recovery` | State Transition／Failure-Recovery | exact Task／Attempt／Recovery Identity | 取消要求後の終了状態を観測し、同じIdentityへ再入場 | Effect不明の再発行、別Task混入、要求受理だけの完了化 | IT／ST | IT: Related 2 Blocks<br>ST: System/E2E | 状態、資源、Recovery Identity | 不存在確認または義務保持 | 実Processの取消・競合完了・再入場 |
 | `coord.docker-repair-handoff` | Sequence／Failure-Recovery | repair／restart／handoff IdentityとHost資源 | 旧Effectを再発行せず、現在状態をfresh観測して同じ義務を継続 | stale socket残存、旧Runtime Effect再発行、別Session混入 | IT／ST | IT: Related 2 Blocks<br>ST: System/E2E | Operation状態、Process／socket、Engine readiness、handoff chain | 不存在またはexact義務保持 | 実機停止・修復・再起動・別Runtime引継ぎの正式E2E |
+| `orchestrator.task-lifecycle` | Task詳細への投影 | Objective／Task | Task詳細参照 | Task詳細参照 | UT／IT | UT: Direct Boundary<br>IT: Adjacent 1 Block | Task詳細参照 | Task詳細参照 | Task詳細参照 |
+| `orchestrator.candidate-adoption` | Task詳細への投影 | Workspace／候補採用 | Task詳細参照 | Task詳細参照 | UT／IT | Related 2 Blocks | Task詳細参照 | Task詳細参照 | Task詳細参照 |
+| `orchestrator.acceptance-decision` | Task詳細への投影 | 明示受入判断 | Task詳細参照 | Task詳細参照 | UT／IT | Direct Boundary | Task詳細参照 | Task詳細参照 | Task詳細参照 |
+| `orchestrator.public-application` | Task詳細への投影 | 公開DTO | Task詳細参照 | Task詳細参照 | UT／IT | Adjacent 1 Block | Task詳細参照 | Task詳細参照 | Task詳細参照 |
 
 ## 現行実装との照合
 
@@ -1563,7 +1576,7 @@ Docker Task Recoveryは元のRecovery IDと発行時Sessionの証拠を保持し
 
 ### 現在状態と履歴を分ける縮小設計
 
-切替前の設計として、Repository Rootを検証した`.crdd/coordinator/`へ`state.json`、`state.lock`、`state.pending.json`、`history.jsonl`を置く。配置の共通責務は[Runtime Data](../domain-model/03_Repository_Storage.md#compact-owner-layout)、Project側の仕事の保存は[Orchestrator詳細設計](../orchestrator/02_Detailed_Design.md#compact-runtime-storage)が所有する。既存の回復記録とcaller接続を置換済みとは扱わない。
+切替前の設計として、Repository Rootを検証した`.crdd/coordinator/`へ`state.json`、`state.lock`、`state.pending.json`、`history.jsonl`を置く。配置の共通責務は[Runtime Data](../domain-model/03_Repository_Storage.md#compact-owner-layout)、Project側の仕事の保存は[Orchestrator詳細設計](../coordinator/04_Task_Detailed_Design.md#compact-runtime-storage)が所有する。既存の回復記録とcaller接続を置換済みとは扱わない。
 
 | 情報 | 所有・終了条件 |
 |---|---|
@@ -2079,7 +2092,7 @@ Provider境界のLifecycle診断は、`coordinator_provider_boundary_configured`
 
 ## 14. Orchestratorとの接続
 
-この見出しは既存参照の解決用に保持する。再編後はOrchestratorがCoordinator公開APIを直接呼び、Coordinatorは単体利用も成立させる。Provider選定の実行Gate、単一Task、候補生成、Review、exact回復情報とcleanup結果を下位の責務として返す。Project、Milestone、Objective、Task Graph、統合、受入とProject状態は[Orchestrator詳細](../orchestrator/01_Architecture.md)が所有する。
+この見出しは既存参照の解決用に保持する。再編後はOrchestratorがCoordinator公開APIを直接呼び、Coordinatorは単体利用も成立させる。Provider選定の実行Gate、単一Task、候補生成、Review、exact回復情報とcleanup結果を下位の責務として返す。Project、Milestone、Objective、Task Graph、統合、受入とProject状態は[Orchestrator詳細](../coordinator/03_Task_Architecture.md)が所有する。
 
 ```text
 Orchestrator / 単体利用側
@@ -2103,7 +2116,7 @@ Coordinator
 | Recovery | Project／Taskとの相関を保持する | 実行資源のexact Recovery情報を返す |
 | 完成 | 明示Authorityと根拠からObjective／Milestoneの判断を記録する | Task結果とcleanupを別軸で報告する |
 
-CoordinatorはProject状態を再定義せず、Orchestratorをimport・構成・再exportしない。OrchestratorはProvider、OS、Containerや退役した候補Storeの内部実装へ依存せず、公開APIから必要な結果を受ける。通知型はCoordinatorが定義し、Orchestratorがハンドラーを登録する。意味契約は[状態・資源詳細](../orchestrator/02_Detailed_Design.md)、実装・試験接続は既存の機械投影と契約試験で照合する。旧上位Adapterに存在する結果検査を捨てず、下位共通結果検査と上位結合検査へ分けて移す。
+CoordinatorはProject状態を再定義せず、Orchestratorをimport・構成・再exportしない。OrchestratorはProvider、OS、Containerや退役した候補Storeの内部実装へ依存せず、公開APIから必要な結果を受ける。通知型はCoordinatorが定義し、Orchestratorがハンドラーを登録する。意味契約は[状態・資源詳細](../coordinator/04_Task_Detailed_Design.md)、実装・試験接続は既存の機械投影と契約試験で照合する。旧上位Adapterに存在する結果検査を捨てず、下位共通結果検査と上位結合検査へ分けて移す。
 
 単一Taskの拒否結果では、実効Executor Providerが未選択の場合の`executorProvider: null`を正当な未選択として受け取る。上位の省略可能なProvider項目へは投影せず、元の拒否理由、cleanup、再起動要否およびexact回復参照を保持する。未選択だけからEffect 0や資源不存在を推定しない。成功結果のnull、未知Provider、ProxyまたはAccessorは拒否し、欠測・data `undefined`の既存互換は維持する。Accessorを欠測へ読み替えず、Getterを実行しない。
 
@@ -2141,9 +2154,9 @@ CodexとClaudeの計画・出力変換はAI Adapter内の共通契約へ揃え�
 
 | Detail Source | UI／SPEC Definition | この領域が担当するSCR／PRT／Interaction／BHV | Relation状態 | 未解決Gap／戻し先 |
 |---|---|---|---|---|
-| [UI／SPEC Detail Architecture Traceability](../../08_UI_SPEC_Detail_Traceability.md) | ARCH-000004、ARCH-000008、ARCH-000010、ARCH-000014、ARCH-000015のSource Definition | 同Traceability表で上記ARCH-IDへ接続された全Detail ID | Covered | Detailの意味変更はUI／SPECへ、配置責務の変更は該当ARCH定義へ戻す |
+| [UI／SPEC Detail Architecture Traceability](../../08_UI_SPEC_Detail_Traceability.md) | ARCH-000004、ARCH-000005、ARCH-000007、ARCH-000008、ARCH-000010、ARCH-000012、ARCH-000014、ARCH-000015のSource Definition | 同Traceability表で上記ARCH-IDへ接続された全Detail ID。[Task詳細](03_Task_Architecture.md)の担当も同じ領域へ統合 | Covered | Detailの意味変更はUI／SPECへ、配置責務の変更は該当ARCH定義へ戻す |
 
-担当Interaction Relation: `PRT-000002.spec-000002`、`PRT-000002.spec-000003`、`PRT-000002.spec-000028`、`PRT-000002.spec-000029`、`PRT-000003.spec-000004`、`PRT-000003.spec-000005`、`PRT-000005.spec-000009`、`PRT-000010.spec-000014`、`PRT-000010.spec-000015`、`PRT-000011.spec-000005`、`PRT-000012.spec-000017`、`PRT-000013.spec-000018`、`PRT-000016.spec-000021`、`PRT-000016.spec-000026`、`PRT-000016.spec-000027`
+担当Interaction Relation: `PRT-000002.spec-000002`、`PRT-000002.spec-000003`、`PRT-000002.spec-000028`、`PRT-000002.spec-000029`、`PRT-000003.spec-000004`、`PRT-000003.spec-000005`、`PRT-000004.spec-000002`、`PRT-000004.spec-000006`、`PRT-000004.spec-000007`、`PRT-000005.spec-000008`、`PRT-000005.spec-000009`、`PRT-000007.spec-000011`、`PRT-000010.spec-000014`、`PRT-000010.spec-000015`、`PRT-000011.spec-000005`、`PRT-000012.spec-000017`、`PRT-000013.spec-000018`、`PRT-000016.spec-000021`、`PRT-000016.spec-000026`、`PRT-000016.spec-000027`
 
 本領域は上記Relationの配置責務を局所所有する。Detailを新しい要求として解釈せず、対応ARCH-IDが所有する配置・境界・状態・観測の制約として実現する。
 

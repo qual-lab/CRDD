@@ -292,7 +292,7 @@ export function inspectPublishedCoordinatorIntakeEpoch(
 }
 
 const LIFECYCLE_PREFIX = "[Coordinator lifecycle] ";
-const RECOVERY_PREFIX = "[Orchestrator recovery] ";
+const RECOVERY_PREFIX = "[Coordinator recovery] ";
 const KNOWN_PREFIXES = Object.freeze([
   SELECTION_PREFIX,
   LIFECYCLE_PREFIX,
@@ -731,7 +731,7 @@ function parseKnownDiagnosticLine(
   }
   if (
     !exactKeys(parsed, RECOVERY_KEYS) ||
-    parsed.event !== "orchestrator_recovery_transition" ||
+    parsed.event !== "coordinator_recovery_transition" ||
     typeof parsed.phase !== "string" ||
     !RECOVERY_PHASES.has(parsed.phase as RecoveryEvent["phase"]) ||
     !closedId(parsed.projectId, 128) ||

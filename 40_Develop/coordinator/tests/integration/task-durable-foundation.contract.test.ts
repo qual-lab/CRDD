@@ -5249,13 +5249,16 @@ test("PR-D-A-01 enforces the exact stored-record byte boundary", (t) => {
  */
 test("describes the durable foundation without claiming the upper Runtime complete", () => {
   const contract = describeCoordinatorDurableFoundation();
-  assert.equal(
-    contract.recordStrategy,
-    "single_current_snapshot_with_pending_atomic_replace_and_exact_readback",
-  );
-  assert.equal(contract.upperOrchestratorCapabilityComplete, false);
-  assert.equal(
-    contract.staleLockDisposition,
-    "blocked_manual_reconciliation_required_before_reuse",
-  );
+  assert.deepEqual(contract, {
+    contract: "crdd-coordinator/orchestrator-durable-foundation/v1",
+    recordStrategy:
+      "single_current_snapshot_with_pending_atomic_replace_and_exact_readback",
+    queueMutation: "short_exclusive_repository_local_lock",
+    operationLease:
+      "exclusive_lock_with_owner_generation_and_no_stale_takeover",
+    adoptionLease: "separate_exclusive_lock_with_no_stale_takeover",
+    staleLockDisposition: "blocked_manual_reconciliation_required_before_reuse",
+    externalWaitWhileMutationLockHeld: false,
+    taskManagementCapabilityComplete: false,
+  });
 });

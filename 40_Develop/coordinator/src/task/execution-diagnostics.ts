@@ -7,10 +7,10 @@ import type { Writable } from "node:stream";
 import type { CoordinatorExecutionPublicationObservation } from "./execution-contract.ts";
 
 export const COORDINATOR_RECOVERY_LIFECYCLE_PREFIX =
-  "[Orchestrator recovery] " as const;
+  "[Coordinator recovery] " as const;
 
 export const COORDINATOR_EXECUTION_INTELLIGENCE_PREFIX =
-  "[Orchestrator execution intelligence] " as const;
+  "[Coordinator execution intelligence] " as const;
 
 const COORDINATOR_RECOVERY_DIAGNOSTIC_TIMEOUT_MS = 5_000;
 
@@ -154,7 +154,7 @@ export function createCoordinatorRecoveryDiagnosticReporter(
 ) {
   return createCoordinatorInternalDiagnosticReporter(stream, {
     prefix: COORDINATOR_RECOVERY_LIFECYCLE_PREFIX,
-    event: "orchestrator_recovery_transition",
+    event: "coordinator_recovery_transition",
     timeoutMs,
   });
 }
@@ -181,7 +181,7 @@ export function createCoordinatorExecutionIntelligenceDiagnosticReporter(
 ) {
   return createCoordinatorInternalDiagnosticReporter(stream, {
     prefix: COORDINATOR_EXECUTION_INTELLIGENCE_PREFIX,
-    event: "orchestrator_execution_intelligence_publication",
+    event: "coordinator_execution_intelligence_publication",
     timeoutMs,
   });
 }

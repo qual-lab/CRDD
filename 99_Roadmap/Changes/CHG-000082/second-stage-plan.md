@@ -687,7 +687,7 @@ Direct／Candidate方針訂正の現物照合（2026-10-17）: 人間は現在Tr
 
 Workspace設計伝播の確認結果（2026-10-17）: 文書／ArchitectureとGap影響／Qualityの固定候補確認を一つの監査集合として実施し、全結果後に3指摘を統合した。ARCH-000015の旧Owner説明と目標の衝突、現在品質集合197／198の不一致、Merge後分析・資料保存のQA導出欠落を、両確認者との事前照合後に是正した。対象再レビューは両者残指摘0。構造Checkerは既知3341 errors／0 warningsから増分0、既存Runtime／Orchestrator Trace検査はaccepted、Semantic Registry二文書Hash一致、Local Item全数再計数198。新方式の試験結果ではなく設計伝播と参照整合の確認であり、実装／移行／新方式の実測は未実施。Direct AI書込み・共有Git許可・Commit時点／dirty・API／Schemaの未決が該当実装前の停止条件であることを維持する。
 
-Workspace契約のArchitecture／Quality反映（2026-10-17）: 人間指示により[OrchestratorのWorkspace横断契約](../../../06_Architecture/Details/orchestrator/03_Workspace.md)を新設し、中央モデル・責務定義・担当Package詳細へ伝播する。QualityはARCH分析→統合→既存QA-000003／005／006／007／008の方式別追加条件と新実Git項目RFD-IT-029へ接続する。新設はQA-IDでなくLocal Item一件で、設計集合13定義・198項目、新方式結果は全件Not Run。旧Candidateの正本Effect 0・採用時Commit／Push 0を新Git操作へ機械的に流用せず、コード候補・Direct編集・固定・取込とContext提案を分ける。今回の変更分類は複数正本・Package・Qualityへ及ぶ設計伝播で、着手前の契約・品質確認により意味の衝突を整理した。完成時は文書／不足影響の独立確認と差分・リンク・構造Checkerを実施する。準拠基準や公開Release判断を変えないため準拠監査は実施しない。Source・実データ・Ref・Docker・外部AIは変更／実行しない。Direct AI書込み・共有Git許可・Commit時点・dirty・API／Schema・実移行は該当実装前の停止条件として保持する。旧形式はフロントAIの確認・保全・清掃で切り替え、新Runtimeへ互換Readerを追加しない。
+Workspace契約のArchitecture／Quality反映（2026-10-17）: 人間指示により[OrchestratorのWorkspace横断契約](../../../06_Architecture/Details/coordinator/05_Workspace.md)を新設し、中央モデル・責務定義・担当Package詳細へ伝播する。QualityはARCH分析→統合→既存QA-000003／005／006／007／008の方式別追加条件と新実Git項目RFD-IT-029へ接続する。新設はQA-IDでなくLocal Item一件で、設計集合13定義・198項目、新方式結果は全件Not Run。旧Candidateの正本Effect 0・採用時Commit／Push 0を新Git操作へ機械的に流用せず、コード候補・Direct編集・固定・取込とContext提案を分ける。今回の変更分類は複数正本・Package・Qualityへ及ぶ設計伝播で、着手前の契約・品質確認により意味の衝突を整理した。完成時は文書／不足影響の独立確認と差分・リンク・構造Checkerを実施する。準拠基準や公開Release判断を変えないため準拠監査は実施しない。Source・実データ・Ref・Docker・外部AIは変更／実行しない。Direct AI書込み・共有Git許可・Commit時点・dirty・API／Schema・実移行は該当実装前の停止条件として保持する。旧形式はフロントAIの確認・保全・清掃で切り替え、新Runtimeへ互換Readerを追加しない。
 
 次の再編範囲（2026-10-17）: 人間はCandidateをWorkspace方式へ変更する方針を提示し、まず現行保存先・能力・利用側・Queue／排他の棚卸しと対応表作成を指示した。[Workspace方式の棚卸しと移管対応](workspace-runtime-inventory.md)へ現物根拠、移管先候補、撤去条件、既存試験、必要な新検証、未決事項を整理する。新設WorkspaceはDirect／Isolatedの継続作業領域であり、既存の閲覧範囲や短命実行領域のworkspace表記は意味別の改名対象とする。今回は計画更新だけで、Source・Schema・実保存データ・Dockerは変更しない。次はArchitecture／Qualityの契約具体化であり、旧Candidate Storeを先に撤去しない。
 
@@ -3057,7 +3057,7 @@ REST試験は機械的に削除せず、認可、管理、ページング、結�
 
 Related:
 - [現行の責務対応と第一段階結果](Evidence/261007_develop-responsibility-mapping.md)
-- [Orchestrator詳細設計](../../../06_Architecture/Details/orchestrator/01_Architecture.md)
+- [Orchestrator詳細設計](../../../06_Architecture/Details/coordinator/03_Task_Architecture.md)
 - [コーディング規約](../../../06_Architecture/99_Coding_Standards.md)
 - [変更管理](../../../19_Maintenance.md)
 

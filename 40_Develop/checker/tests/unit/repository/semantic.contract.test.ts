@@ -203,7 +203,7 @@ test("CoordinatorとOrchestratorの可視表からPilot IRを決定論的に生�
     {
       subsystem: "orchestrator",
       sourceDocument:
-        "06_Architecture/Details/orchestrator/02_Detailed_Design.md",
+        "06_Architecture/Details/coordinator/04_Task_Detailed_Design.md",
       expectedMeaningCount: 10,
     },
   ] as const;
@@ -241,7 +241,7 @@ test("CoordinatorとOrchestratorの可視表からPilot IRを決定論的に生�
 test("Pilot IRは自由文推測をせず構造欠落を拒否する", () => {
   const missingTable = compileSemanticIrPilot(
     repositoryRoot,
-    "06_Architecture/Details/orchestrator/01_Architecture.md",
+    "06_Architecture/Details/coordinator/03_Task_Architecture.md",
     "orchestrator",
   );
   assert.equal(missingTable.ir, null);
@@ -272,7 +272,7 @@ test("Pilot Semantic Keyを実装Symbol側のimplementsから解決する", () =
     ).ir,
     compileSemanticIrPilot(
       repositoryRoot,
-      "06_Architecture/Details/orchestrator/02_Detailed_Design.md",
+      "06_Architecture/Details/coordinator/04_Task_Detailed_Design.md",
       "orchestrator",
     ).ir,
   ];
@@ -690,7 +690,7 @@ test("Quality Local Itemが全Pilot Semantic Keyの正方向Relationを所有す
     ).ir,
     compileSemanticIrPilot(
       repositoryRoot,
-      "06_Architecture/Details/orchestrator/02_Detailed_Design.md",
+      "06_Architecture/Details/coordinator/04_Task_Detailed_Design.md",
       "orchestrator",
     ).ir,
   ].filter((ir) => ir !== null);

@@ -497,7 +497,7 @@
     {
       "id": "orchestrator:objective-task-lifecycle",
       "owner": "coordinator",
-      "architectureAnchor": "06_Architecture/Details/orchestrator/01_Architecture.md#6-状態authority資源",
+      "architectureAnchor": "06_Architecture/Details/coordinator/03_Task_Architecture.md#6-状態authority資源",
       "responsibilities": [
         "objective_intake",
         "task_state_transition",
@@ -525,7 +525,7 @@
     {
       "id": "orchestrator:decision-recovery",
       "owner": "coordinator",
-      "architectureAnchor": "06_Architecture/Details/orchestrator/01_Architecture.md#9-移行と検証",
+      "architectureAnchor": "06_Architecture/Details/coordinator/03_Task_Architecture.md#9-移行と検証",
       "responsibilities": [
         "human_decision_wait",
         "acceptance_decision",
@@ -878,7 +878,7 @@
     },
     {
       "id": "orchestrator:workspace-to-git",
-      "architectureAnchor": "06_Architecture/Details/orchestrator/02_Detailed_Design.md#workspace接続の実装順序と移管先",
+      "architectureAnchor": "06_Architecture/Details/coordinator/04_Task_Detailed_Design.md#workspace接続の実装順序と移管先",
       "blockPath": [
         "orchestrator:objective-task-lifecycle",
         "version-control:worktree-management"

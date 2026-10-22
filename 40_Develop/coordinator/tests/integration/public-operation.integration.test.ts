@@ -655,7 +655,7 @@ test("実行Event発行診断は回復診断と別の閉じた識別子で出力
   );
   assert.match(
     stream.writes[0] ?? "",
-    /"event":"orchestrator_execution_intelligence_publication"/u,
+    /"event":"coordinator_execution_intelligence_publication"/u,
   );
   assert.doesNotMatch(stream.writes[0] ?? "", /untrusted_override/u);
   reporter.dispose();

@@ -47,10 +47,9 @@ Windows端末出力の低層二Caseと、固定OS端末の取得・回収の低�
 
 | 詳細設計領域 | 受け取る成立条件 |
 |---|---|
-| [coordinator](../../../06_Architecture/Details/coordinator/01_Architecture.md) | 実行編成、Authority、外部Effect、候補、回収・回復 |
+| [coordinator](../../../06_Architecture/Details/coordinator/01_Architecture.md) | 実行編成、Authority、外部Effect、候補、回収・回復と[Task詳細](../../../06_Architecture/Details/coordinator/03_Task_Architecture.md)のObjective、Task、判断、取消、公開結果 |
 | [cros](../../../06_Architecture/Details/cros/01_Architecture.md) | Repository横断解決、Grant、投影、外部接続、候補処置 |
 | [mcp-server](../../../06_Architecture/Details/mcp-server/01_Architecture.md) | Transport変換、公開Schema、Session、結果搬送 |
-| [orchestrator](../../../06_Architecture/Details/orchestrator/01_Architecture.md) | Objective、Task、判断、取消、回復、公開結果 |
 | [workbench-server](../../../06_Architecture/Details/workbench-server/01_Architecture.md) | Repository単体／Local CROS／Remote CROSの入口差とAI依頼の外部送信境界 |
 
 ## 2. 試験段階と外部境界の適用

@@ -10,7 +10,7 @@ Last Updated: 2026-10-19
 
 | 観点 | v0.22の現在投影 | 正本 |
 |---|---|---|
-| Workspaceと候補の寿命 | OrchestratorがWorkspaceの現在状態、候補操作、明示採用Authorityおよび終了を所有する。旧Candidate Storeを現在の保存Ownerとして使用しない | [Workspace横断契約](../06_Architecture/Details/orchestrator/03_Workspace.md)、[Orchestrator詳細](../06_Architecture/Details/orchestrator/02_Detailed_Design.md#21-既存候補の採用境界) |
+| Workspaceと候補の寿命 | OrchestratorがWorkspaceの現在状態、候補操作、明示採用Authorityおよび終了を所有する。旧Candidate Storeを現在の保存Ownerとして使用しない | [Workspace横断契約](../06_Architecture/Details/coordinator/05_Workspace.md)、[Orchestrator詳細](../06_Architecture/Details/coordinator/04_Task_Detailed_Design.md#21-既存候補の採用境界) |
 | 単発AI実行 | Coordinatorは上位が解決したDirect TreeまたはIsolated Worktreeを借用する。候補固定、採用、Merge、Workspace削除を所有せず、Task完了からそれらを推定しない | [Coordinator詳細](../06_Architecture/Details/coordinator/01_Architecture.md#借用実行の具体接続) |
 | 候補固定と採用 | Version Controlが明示Baseと選択内容からCandidate Commitを固定し、採用時だけ期待HEADを再確認して二親Mergeを行う。固定だけでMergeせず、採用でもPushしない | [Version Control詳細](../06_Architecture/Details/version-control/01_Architecture.md)、[候補Behavior](Details/BHV-000027/behavior.md) |
 | 検証と通常利用 | 検証Toolは専用Worktreeで原本不変などを確認する。通常のWorkspace候補処理は旧署名済みCandidate Storeを前提にせず、任意配布物の署名検証は別の適用範囲として保持する | [Coordinatorの現在境界](../06_Architecture/Details/coordinator/01_Architecture.md#24-候補診断配布検証と旧署名gateの公開境界) |

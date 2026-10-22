@@ -1583,14 +1583,14 @@ test("開始準備保存後の取消はTaskを委譲せず終了する", async (
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
-test("contract remains a partial Orchestrator capability", () => {
+test("contract remains a partial Coordinator task-management capability", () => {
   assert.deepEqual(describeCoordinatorExecutionContract(), {
     contract: "crdd-coordinator/orchestrator-execution/v1",
     maximumConcurrency: 5,
     externalWaitWhileMutationLockHeld: false,
     cleanupUnknownDisposition: "durable_recovery_and_reservation_retained",
     staleOrOwnedQueueDisposition: "effect_zero_manual_reconciliation",
-    upperOrchestratorCapabilityComplete: false,
+    taskManagementCapabilityComplete: false,
   });
 });
 

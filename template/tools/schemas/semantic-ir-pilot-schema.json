@@ -22,7 +22,7 @@
     },
     "sourceDocument": {
       "type": "string",
-      "pattern": "^06_Architecture/Details/(?:coordinator|orchestrator)/[^/]+\\.md$"
+      "pattern": "^06_Architecture/Details/coordinator/[^/]+\\.md$"
     },
     "sourceSha256": {
       "type": "string",

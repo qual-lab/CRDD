@@ -2,6 +2,12 @@
 
 ## 公式SDK移行の実装境界 — 2026-10-20
 
+### Coordinator統合後の通信名 — 2026-10-22
+
+Task状態のTool名は`crdd.get_coordinator_state`、起動構成の依存keyは`coordinator`とする。旧Tool名は一覧・Call受付から除き、旧構成keyは値が未定義でも拒否する。互換aliasを追加しない。Adapterの説明契約は`crdd-mcp/coordinator-adapter/v3`、`projectModelOwnership`は`coordinator`へ切り替える。Protocol版`2026-07-28`、認証・取消・終了の意味は変更しない。
+
+MCP内部の診断reasonは`mcp_*`へ統一する。ただし、Coordinatorから返る保存契約・Task結果reasonは別の移行単位として維持する。旧通信名の撤去は、保存Schemaや保持中の回復参照を変更する根拠にはしない。
+
 [移行対応表](../../../99_Roadmap/Changes/CHG-000082/mcp-server-sdk-structure.md)に従い、ProtocolとTransportを公式SDK v2へ移す。固定依存はServer `2.3.1`、Node HTTP接続`2.1.1`。AMのSource・公開API・保存・認証・ACLは変更しない。AM内部結果の投影検証はAM自身のUnit、MCPは型付き公開Outcomeの搬送を検査し、内部関数へPackage間deep importしない。
 
 HTTPは公式SDKへ接続する。要求別の既存認証、byte／重複キー／Header一致検査、初回discoverの確認保存を公式entry前に維持し、同じ検査済みbodyをSDK Node接続へ渡す。SDKがJSON-RPCの受付・dispatch・応答生成を所有し、Tool callbackには既存のTool結果だけを返す。既存Handlerが返すProtocol errorはSDKの`ProtocolError`へ変換し、JSON-RPC応答全体をTool結果へ二重格納しない。初回保存成功後のSDK失敗・切断を未保存へ戻さず、自動再確認しない。
@@ -18,7 +24,7 @@ Tool定義と処理は`tools/access-management.ts`、`tools/project-context.ts`�
 
 本番の共通境界は`createMcpServerFactory`が返す要求別SDK Server生成とする。HTTP要求とstdioの一要求ごとの内部SDK接続へ、検査済みの元入力・現在取消・開始したOwner Promiseの観測先を結合する。一要求で作ったServerや認可結果を後続要求へ再利用しない。Tool定義とOwnerの対応を要求内の固定構成としてSDKへ登録し、旧`routeMcpRequest`を本番入口に残さない。標準McpServerのTool errorへの変換は既存Protocol errorと異なるため、公式の低水準Server登録を使い、入力拒否と業務上の`isError`を区別する。CRDD固有の閉入力・重複キー・getter拒否は内部`request/validation.ts`等へ残すが、汎用Protocol補助をPackage Rootから公開しない。直接試験も同じFactoryを公式SDK接続で呼び、試験専用の別dispatchを作らない。
 
-Workspace再編のMachine入口は[横断契約](../orchestrator/03_Workspace.md)へ接続する。`crdd.get_workspace`は一覧・状態・現在file・固定差分、`crdd.manage_workspace`は作成・選択・改名・保持・固定・別採用・終了を扱う。入力はRepository IDと操作別の閉じたcommandで、Root・認可関数・参照解放の自己申告を受けない。通常Launcherは固定RepositoryのManifest、共有HTTPは要求毎のAM現在development許可から同じCoordinatorのTask／Objective公開Ownerを解決する。内容領域のworkspaceIdsをGit Workspace UUIDへ流用せず、鍵操作非公開・Repository登録Workbench限定の既存境界を変更しない。通常Objectiveには任意の`workspaceId`を搬送できるが、既存Queueの同Project所属・ready・保持なしを実Writerが再確認し、不明時にDirectへfallbackしない。公開接続の実装・検証中であり、実Provider全体の完成主張ではない。
+Workspace再編のMachine入口は[横断契約](../coordinator/05_Workspace.md)へ接続する。`crdd.get_workspace`は一覧・状態・現在file・固定差分、`crdd.manage_workspace`は作成・選択・改名・保持・固定・別採用・終了を扱う。入力はRepository IDと操作別の閉じたcommandで、Root・認可関数・参照解放の自己申告を受けない。通常Launcherは固定RepositoryのManifest、共有HTTPは要求毎のAM現在development許可から同じCoordinatorのTask／Objective公開Ownerを解決する。内容領域のworkspaceIdsをGit Workspace UUIDへ流用せず、鍵操作非公開・Repository登録Workbench限定の既存境界を変更しない。通常Objectiveには任意の`workspaceId`を搬送できるが、既存Queueの同Project所属・ready・保持なしを実Writerが再確認し、不明時にDirectへfallbackしない。公開接続の実装・検証中であり、実Provider全体の完成主張ではない。
 
 Topic／Meetingの横断Relationでは、構成が認可済み同Project集合を選び、Domainの`federateTopicMeetingRelations`へRepository ID・Project ID・既存操作だけを渡す。MCPは所有者の0／1／複数判定を再実装せず、認可とProtocolを所有する。AM本番Resolver・公開Launcherは接続済み、旧CROS／REST／Shared Hostは撤去済みである。正式品質評価と後続E2Eの完成は別に確認する。
 
@@ -147,7 +153,7 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 
 Related:
 - [Runtime責務分離](../../../99_Roadmap/Changes/CHG-000063/change.md)
-- [Task／Objective管理](../orchestrator/01_Architecture.md)
+- [Task／Objective管理](../coordinator/03_Task_Architecture.md)
 - [MCP Serverの利用手順](../../../19_Workflows/04_MCP_Server.md)
 - [Project状態参照とローカルMCP HTTP](../../../99_Roadmap/Changes/CHG-000064/change.md)
 
@@ -239,7 +245,7 @@ Remote CROSではMCP専用の固定Bearerを別に発行しない。HTTP Transpo
 
 本段落は公開入口切替前の局所確認履歴である。現在の公開入口接続と旧MCP Resolver／Shared Host撤去は§3を参照する。この接続は`createAccessMcpResolver`の実HTTP搬送契約で段階確認する。現在はContext二操作、Topic／Meeting十二操作と活動一操作に、Catalog構成時のProfile四操作を加えた局所候補であり、現在Role／Exposure／失効、固定拒否、manifest Project拘束と同Project Relationへ接続する。先行段階のContext専用・十四Tool・活動を含む十五Tool構成と、現在の条件付き十五／十九Tool候補を区別する。Catalog依存を構成した局所候補ではmanager／administratorが19 Tool、developerが15 Tool、Catalog未構成時は15 Toolとする。旧Resolver／Shared Hostは公開Launcher／Workbenchを含む全能力の本番代替が成立するまで撤去せず、新旧認証のfallback合成は行わない。鍵は非公開、Profileは現在AM認可と実HTTPの局所候補に接続済み。本番Launcher／Workbenchへの切替は未完了。Root能力・Token・内部Path・管理改訂を公開結果へ追加せず、同期Reader開始後の取消をI/O中断やEffect 0と表示しない。要求前の取消は内容読取りを開始せず、開始後は同期処理の終了を待って結果公開を停止する。本段落は本番切替済み・AM全体完成の表示ではない。
 
-Coordinatorの実行状態を返すToolは`crdd.get_orchestrator_state`とする。旧名`crdd.get_project_state`はProject全体のCurrent Projectionと誤認し得るため、v0.22の公開候補へ残さない。Project Contextは`crdd.list_projects`と`crdd.get_project_context`で取得し、Runtime DTOを再利用しない。
+Coordinatorの実行状態を返すToolは`crdd.get_coordinator_state`とする。旧名`crdd.get_project_state`はProject全体のCurrent Projectionと誤認し得るため、v0.22の公開候補へ残さない。Project Contextは`crdd.list_projects`と`crdd.get_project_context`で取得し、Runtime DTOを再利用しない。
 
 Repository単体MCPでは、Topic／Meetingの一覧、取得、登録、編集、削除およびMeeting Outcome処置ToolをProject Operationの共通Application契約へ接続する。一覧は同契約の検索、状態、Owner、期間、Relation、未処置Outcome、並び順およびID Cursor Paginationをそのまま搬送する。削除は誤登録理由、期待Revision、Relation影響0件および明示確認をすべて満たす場合だけEffectを発行する。Outcome処置は完了・移管・昇格・理由付き不採用を区別し、全件処置済みの場合だけ同じCommandでMeetingを閉じられる。
 
@@ -280,7 +286,7 @@ Remote CROSのTopic／Meeting取得結果は、本文に記録された安定ID 
 
 Project一覧・Context取得とTopic／Meetingの既存Tool名・安定IDは維持する。Hostの指定ユーザー／全員鍵交換をRemote Toolにしない。新しい管理操作を一部登録しただけでCROS管理Surface全体を完成としない。
 
-活動接続では、`tools/execution-status.ts`が`crdd.get_execution_status`のSchema・入力搬送を所有し、活動結果の意味・検査は[Coordinatorの認可済み活動読取り](../orchestrator/01_Architecture.md#73-認可済みrepositoryの活動読取り--新owner接続候補)へ委譲する。`request/server.ts`は実Readerを接続した場合だけ一覧とCallへ同時登録する。Access Managementの現在認可集合を今回要求のRoot・Project・Repositoryへ射影して渡し、資格・Role・AM Bindingを活動Ownerへ渡さない。実Storeと複数Repository合成が未確認の注入Readerだけでは公開Toolを完成としない。旧`readCrosRuntimeActivity`は歴史的な移管比較対象で、現行Ownerではない。Readerに取消APIを捏造せず、開始前取消は呼出し零回、開始後取消はReader完了をjoinしてから取消結果を返す。公開Launcher・Profile管理は接続済み、Workbenchは独立した直接経路を利用し、旧RESTは撤去済みである。正式評価と後続E2Eから全体完成を判定する。
+活動接続では、`tools/execution-status.ts`が`crdd.get_execution_status`のSchema・入力搬送を所有し、活動結果の意味・検査は[Coordinatorの認可済み活動読取り](../coordinator/03_Task_Architecture.md#73-認可済みrepositoryの活動読取り--新owner接続候補)へ委譲する。`request/server.ts`は実Readerを接続した場合だけ一覧とCallへ同時登録する。Access Managementの現在認可集合を今回要求のRoot・Project・Repositoryへ射影して渡し、資格・Role・AM Bindingを活動Ownerへ渡さない。実Storeと複数Repository合成が未確認の注入Readerだけでは公開Toolを完成としない。旧`readCrosRuntimeActivity`は歴史的な移管比較対象で、現行Ownerではない。Readerに取消APIを捏造せず、開始前取消は呼出し零回、開始後取消はReader完了をjoinしてから取消結果を返す。公開Launcher・Profile管理は接続済み、Workbenchは独立した直接経路を利用し、旧RESTは撤去済みである。正式評価と後続E2Eから全体完成を判定する。
 
 ### 3.2. Portfolioの一覧・詳細契約
 

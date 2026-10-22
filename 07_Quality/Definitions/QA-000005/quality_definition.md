@@ -2,7 +2,7 @@
 
 ## 複数Task計画の旧Bundle撤去に必要な確認（2026-10-18、外部AIなしの接続確認済み・全面撤去未完了）
 
-[採用済みの計画集約方針](../../../06_Architecture/Details/orchestrator/03_Workspace.md#複数task計画のworkspace集約2026-10-18採用済み切替未完了)から、既存の`CPR-IT-001`／004／006へ次を接続する。単発Workspace又は合成Gitの成功を、計画全体の置換成功へ流用しない。
+[採用済みの計画集約方針](../../../06_Architecture/Details/coordinator/05_Workspace.md#複数task計画のworkspace集約2026-10-18採用済み切替未完了)から、既存の`CPR-IT-001`／004／006へ次を接続する。単発Workspace又は合成Gitの成功を、計画全体の置換成功へ流用しない。
 
 - 同じWorkspaceの二Taskが、依存関係の有無にかかわらず順番に開始され、後続が前の変更を読み、Task完了時のCommit・Merge・旧Bundle生成が0である。
 - Directでは既存dirty／stage／未追跡fileを保全し、Git採用を必須とせず既存の明示品質受入へ進む。Isolatedでは選択した候補の明示固定・別採用を経ても、品質受入までは全体完成と表示しない。
@@ -21,7 +21,7 @@
 
 再入場の反証は、同Ownerのunknown回収後の再観測、回復待機中の二重開始、Task clean後のLease終了保存失敗、正式回収後の上位保存失敗、Server再構成後の元ID観測・取消を含む。元実行のstatus／reasonと本文欠測を分け、保存／Leaseの副次失敗参照を保持する。終了履歴の別ID・consumer差・上位相関差・旧要約・欠測・重複・現在操作残存では終了を表示しない。これらの設計条件は実行済み結果とは区別する。
 
-Workspace Taskの完了を旧Bundle候補の生成・採用へ流さず、既存の`CPR-IT-001`／004／006で変更確認→明示固定→別採用を検証する。以下は[置換契約](../../../06_Architecture/Details/orchestrator/03_Workspace.md#旧workbench-ai経路の置換契約2026-10-18移行中)から導く設計条件であり、実行済み結果ではない。
+Workspace Taskの完了を旧Bundle候補の生成・採用へ流さず、既存の`CPR-IT-001`／004／006で変更確認→明示固定→別採用を検証する。以下は[置換契約](../../../06_Architecture/Details/coordinator/05_Workspace.md#旧workbench-ai経路の置換契約2026-10-18移行中)から導く設計条件であり、実行済み結果ではない。
 
 - 単体と同Host共有の公開入口から、対象Repository／Workspace、明示Profile、送信同意と依頼種別を本番Dispatcherの入力まで照合する。助言は固定Context一件の読取り専用構成を観測し、空の許可Pathだけで保証しない。
 - Task完了、結果配送の受領、Workspace終了だけでは候補固定・Commit・Merge・Promotion・旧Bundle統合が発行されないことを確認する。
@@ -37,7 +37,7 @@ Workspace Taskの完了を旧Bundle候補の生成・採用へ流さず、既存
 
 公開接続では`CPR-IT-001`／004／006へ、両入口からの変更確認→選択固定→別採用→明示終了、現在世代／HEAD／Blob不一致時の新Effect 0、外部の参照解放Booleanを用いない非使用確認、応答喪失・保存後失敗後の同対象再入場を追加する。MCPのFront AI代行を許容するが、Task完了から自動固定／採用0を維持する。公開結合は実Git・実Writerを観測し、内部APIの成功や型検査で代替しない。
 
-[Workspace詳細](../../../06_Architecture/Details/orchestrator/03_Workspace.md#採用git統合の採用方針2026-10-18実装未完了)の採用済み方針に対し、既存Local Itemへ次を追加する。設計条件であり実行結果ではない。
+[Workspace詳細](../../../06_Architecture/Details/coordinator/05_Workspace.md#採用git統合の採用方針2026-10-18実装未完了)の採用済み方針に対し、既存Local Itemへ次を追加する。設計条件であり実行結果ではない。
 
 | Local Item | 追加するOracle・観測 |
 |---|---|
@@ -51,7 +51,7 @@ Workspace Taskの完了を旧Bundle候補の生成・採用へ流さず、既存
 
 ## Workspace方式の追加検証条件（2026-10-17）
 
-[Workspace詳細](../../../06_Architecture/Details/orchestrator/03_Workspace.md)の`orchestrator.workspace-code-candidate`（ARCH-000015）をコード変更候補に限って追加する。`CPR-UT-009`はRepository・Workspace・固定Commit・レビュー・正本Revisionの相関、`CPR-IT-001`はGit成果と必要なTask／判断参照の保持、`CPR-IT-004`／006は権限・採用排他・変更後差分・適用後記録失敗・再入場時二重適用拒否を確認する。`CPR-UAT-002`／003／007はDirect編集、候補固定、Merge、Promotionの違いと明示判断を評価する。旧項目の候補生成時の正本Effect 0と採用時Commit／Push 0は旧Bundle／Context採用の対象へ維持する。Directの許可された編集、別Branchへの候補固定Commit、明示Merge／Promotionは別Effectとして新しいfixture・Oracleを確定するまで実行しない。Git方式へ旧Oracleを無条件適用せず、逆に通常CRUD・Topic／Meetingの提案をGit候補へ強制変換しない。旧Store撤去前に内容・許可Path・情報分類・期限・未解決参照の保全を確認する。
+[Workspace詳細](../../../06_Architecture/Details/coordinator/05_Workspace.md)の`orchestrator.workspace-code-candidate`（ARCH-000015）をコード変更候補に限って追加する。`CPR-UT-009`はRepository・Workspace・固定Commit・レビュー・正本Revisionの相関、`CPR-IT-001`はGit成果と必要なTask／判断参照の保持、`CPR-IT-004`／006は権限・採用排他・変更後差分・適用後記録失敗・再入場時二重適用拒否を確認する。`CPR-UAT-002`／003／007はDirect編集、候補固定、Merge、Promotionの違いと明示判断を評価する。旧項目の候補生成時の正本Effect 0と採用時Commit／Push 0は旧Bundle／Context採用の対象へ維持する。Directの許可された編集、別Branchへの候補固定Commit、明示Merge／Promotionは別Effectとして新しいfixture・Oracleを確定するまで実行しない。Git方式へ旧Oracleを無条件適用せず、逆に通常CRUD・Topic／Meetingの提案をGit候補へ強制変換しない。旧Store撤去前に内容・許可Path・情報分類・期限・未解決参照の保全を確認する。
 
 本節の初回定義時点はすべてNot Runであり、既存Local Itemの元結果・旧方式のEvidenceを新方式へ継承しない。以後のPackage接続・実Gitの部分結果は冒頭の現在結果参照で区別し、未確認の公開ST・利用者UATやLocal Item全体をPassへ更新しない。詳細Schema・操作許可・dirty／Commit処理に未決がある対象は該当実装前に停止する。条件区分は正常・境界・準正常・異常・回復を扱い、UTの値判定、ITの実保存／実Git／実Mount、公開ST、利用者UATを相互代替しない。
 
@@ -96,10 +96,9 @@ CPR-IT-010／011では、期待Projectを指定したTopic／Meeting両種別の
 
 | 詳細設計領域 | 受け取る成立条件 |
 |---|---|
-| [coordinator](../../../06_Architecture/Details/coordinator/01_Architecture.md) | 実行編成、Authority、外部Effect、候補、回収・回復 |
+| [coordinator](../../../06_Architecture/Details/coordinator/01_Architecture.md) | 実行編成、Authority、外部Effect、候補、回収・回復と[Task詳細](../../../06_Architecture/Details/coordinator/03_Task_Architecture.md)の公開済み候補の明示採用、Lease、Revision／Scope再観測、Receiptおよび回復義務 |
 | [mcp-server](../../../06_Architecture/Details/mcp-server/01_Architecture.md) | Transport変換、公開Schema、Session、結果搬送 |
 | [project-operation](../../../06_Architecture/Details/domain-model/02_Activity_Context.md) | Project運営状態、Meeting／Topic候補、正本への引渡し |
-| [orchestrator](../../../06_Architecture/Details/orchestrator/01_Architecture.md) | 公開済み候補の明示採用、Lease、Revision／Scope再観測、Receiptおよび回復義務 |
 | [workbench-server](../../../06_Architecture/Details/workbench-server/01_Architecture.md) | Topic／Meeting操作、候補採否、競合・部分成功・結果不明からの再入場 |
 
 ## 2. 成立の流れ

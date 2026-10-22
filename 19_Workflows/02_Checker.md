@@ -45,7 +45,7 @@ CRDD公式Repositoryの開発に限り、各Packageの`npm run check`、`npm run
 CRDD自身の従来二領域を検査する例を示す。これは適用先製品の既定対象ではない。
 
 ```powershell
-$semanticInputs = @('--architecture', 'coordinator=06_Architecture/Details/coordinator/01_Architecture.md', '--architecture', 'orchestrator=06_Architecture/Details/orchestrator/02_Detailed_Design.md')
+$semanticInputs = @('--architecture', 'coordinator=06_Architecture/Details/coordinator/01_Architecture.md', '--architecture', 'orchestrator=06_Architecture/Details/coordinator/04_Task_Detailed_Design.md')
 $qualityIds = @('QA-000003', 'QA-000004', 'QA-000005', 'QA-000006', 'QA-000010')
 foreach ($id in $qualityIds) { $semanticInputs += @('--quality', "07_Quality/Definitions/$id/quality_definition.md") }
 node 40_Develop/checker/bin/checker.ts --semantic --root . @semanticInputs

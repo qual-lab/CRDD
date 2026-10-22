@@ -38,11 +38,11 @@ src/
 
 Git配置の実体識別では、WindowsのNode BigInt statが返す`-2^63 ≤ ino < 0`を、同じ64bit列の符号なし値へ正規化する。`repository/layout.ts`のPath・descriptor両観測を同じ表現で比較し、別ID・ゼロ・型不正・範囲外・POSIX負値・link・型・dev・birthtime・途中変更の拒否を維持する。既存の正値、Git配置契約、公開結果や保存済みIdentityは変更しない。
 
-Workspace再編で追加するGit操作は[Workspace詳細](../orchestrator/03_Workspace.md)を入力に設計する。明示要求のWorktree／Branch作成・除去、固定Commit、3-way競合計算、Merge取込と共有Git整合を本領域が技術的に担当し、寿命・採否・操作許可はOrchestratorへ残す。以下の既存worktree-viewはTree／Diff読取りであり新操作の実装根拠ではない。作成・観測・除去に加え、候補固定・MergeとOrchestratorの内部Package接続を実装した。公開Surface・実Provider E2E・実データ移行を含む全体完成とは区別する。
+Workspace再編で追加するGit操作は[Workspace詳細](../coordinator/05_Workspace.md)を入力に設計する。明示要求のWorktree／Branch作成・除去、固定Commit、3-way競合計算、Merge取込と共有Git整合を本領域が技術的に担当し、寿命・採否・操作許可はOrchestratorへ残す。以下の既存worktree-viewはTree／Diff読取りであり新操作の実装根拠ではない。作成・観測・除去に加え、候補固定・MergeとOrchestratorの内部Package接続を実装した。公開Surface・実Provider E2E・実データ移行を含む全体完成とは区別する。
 
 ### 固定Candidate・二親Mergeの追加契約（2026-10-18、実装未完了）
 
-[Workspace詳細](../orchestrator/03_Workspace.md#採用git統合の採用方針2026-10-18実装未完了)が採用判断と表示名を所有し、Version Controlは選択された内容のCommit固定、取込前評価、明示Mergeと親・Tree・Refの読戻しを所有する。
+[Workspace詳細](../coordinator/05_Workspace.md#採用git統合の採用方針2026-10-18実装未完了)が採用判断と表示名を所有し、Version Controlは選択された内容のCommit固定、取込前評価、明示Mergeと親・Tree・Refの読戻しを所有する。
 
 | 技術境界 | 必要な保証 |
 |---|---|

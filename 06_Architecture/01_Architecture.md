@@ -1,6 +1,6 @@
 # CRDD参照Toolのアーキテクチャ
 
-2026-10-17のWorkspace再編は[作業領域と実行基盤の責務設計](Details/orchestrator/03_Workspace.md)を横断契約とする。2026-10-22の物理統合後は単一Coordinator内で、Task／Objectiveが仕事を進行し、Executionが単発AIを実行する。Direct／IsolatedとRepository所有の境界を維持する。以下の二Package図と基準版Readyは統合前の比較対象であり、現行構成又は新版の品質根拠として扱わない。保存統合・実境界・全体QAは未完了である。
+2026-10-17のWorkspace再編は[作業領域と実行基盤の責務設計](Details/coordinator/05_Workspace.md)を横断契約とする。2026-10-22の物理統合後は単一Coordinator内で、Task／Objectiveが仕事を進行し、Executionが単発AIを実行する。Direct／IsolatedとRepository所有の境界を維持する。以下の二Package図と基準版Readyは統合前の比較対象であり、現行構成又は新版の品質根拠として扱わない。保存統合・実境界・全体QAは未完了である。
 
 Status: Candidate (v0.22.0, 責務再編の基本設計を更新中)
 Owner: Qual-Lab

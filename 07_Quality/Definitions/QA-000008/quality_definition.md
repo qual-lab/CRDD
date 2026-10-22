@@ -1,5 +1,20 @@
 # QA-000008 Runtime Dataと資源Lifecycleの検証定義
 
+## Coordinatorの単一保存・履歴移送 — 2026-10-22
+
+[単一保存Lifecycle](../../../06_Architecture/Details/coordinator/04_Task_Detailed_Design.md#unified-storage-lifecycle)へ既存`RDL-IT-001`／003／004、`RDL-ST-002`、`RDL-UT-005`の条件を追加する。新方式はNot Runで、旧二Stateの成功結果を継承しない。
+
+- 一つの検証済みRoot、保存改訂、変更前Hash、短期排他から全区画を更新する。Taskの業務世代・Owner世代・受付世代を保存CASと混同しない。
+- state／historyそれぞれのcreate・write・flush・rename・読戻し・解放を実Filesystemで中断させ、Effect未発行と発行後不明を区別する。状態候補・元版の不一致、Root／実体差、観測不能を空状態へ畳まない。
+- history出版済み・state未確認の再入場は、同じIdentity・時刻・行Hashで確認し重複appendしない。履歴確定前に元結果を消さず、未確定移送・未解決回復を30日期限整理へ含めない。
+- 履歴確認前の耐久Consumer受領保存を拒否する。結果保存済み未受領と、受領・内部配送待ち解消の同一更新後の応答喪失を別の中断窓として実保存で確認し、Provider再実行・二重適用・再受領を起こさない。
+- 同じ結果、回復義務、技術cleanupと受理事実が二つの正本に保存されないことをSchema・実保存・再入場で確認する。参照・業務状態の導出・履歴要約・短命置換候補を、別の実行結果や二重Authorityへ読み替えない。
+- 保存Lock保持中の外部待機・通知・Docker処置・再取得を拒否し、解放不明は成功にしない。`state.lock` marker削除をOS排他の解放証明にしない。
+- Task／Operationを整理してもWorkspace、統合・採用結果、必要な受理と回復参照が失われないことを確認する。Host保護判断は別正本のまま、通常履歴期限対象外とする。
+- 旧二保存形式と未知Schemaは拒否し、互換Readerや二重書込みを残さない。フロントAIによる移行手順の検証と、今回禁止されている②保持物の処置を分ける。
+
+通常保存・読戻しと実子Processの中断観測を用い、突然の電源断・任意OS・実Docker／Providerの未観測保証を試験件数から生成しない。
+
 ## Repository追加通信設定の読取り（2026-10-21）
 
 `RDL-IT-001`の`network-policy.integration.test.ts`は公開Readerを検証済みRootと自己生成Fileへ接続し、親・File不存在だけの既定値、明示空、未Commitの現在値、深い不変Snapshot、別Repository非共有、重複／escape重複Key、型・版・件数・文字数・16KiB・UTF-8の境界を確認する。File以外・hardlink・File／親Identity差・読取り不能・不在再確認前の出現はunavailableとし、値を返さない。read故障でも取得済みdescriptorを閉じる。設定の取得成功を追加通信の許可・実強制成立へ拡張しない。
@@ -8,7 +23,7 @@
 
 Merge分析資料は既存`RDL-IT-001`／003へ追加する。最初のMergeでの`merge-result.md`生成と後続Mergeでの更新、対象Workspace・取込Commit・分析Taskとの相関、要点・未解決事項・Decision参照の保存と読戻しを確認する。保存拒否・読戻し不明・中断・対象更新時は資料の未確定／古さを表示し、分析完了と誤認しない。保存失敗を先行Mergeの未実施・自動Rollback・成果削除へ変換せず、同じ対象の未完了保存へ戻る。Task／Decision本文や全ログを重複した正本として蓄積しない。
 
-[Workspace詳細](../../../06_Architecture/Details/orchestrator/03_Workspace.md)の`domain-model.workspace-placement`（ARCH-000011／000009）を導出する。`RDL-UT-005`はDirect／Isolated・一時資源／継続成果・参照中／清掃可能の分類、`RDL-IT-001`／004はTool Runtimeと対象Repository、linked worktreeから所属Rootへの解決、一般再帰／AI収集／Build入力の除外と明示読取りを確認する。`RDL-IT-003`／`RDL-ST-002`は実行失敗・取消・途中破棄で既存成果と参照を保全し、許可された実行資源だけを回収する。`RDL-UAT-006`は継続Workspaceの保持・破棄と未解決資料を利用者が区別できるか評価する。旧Candidateの168時間や通常履歴の30日をWorkspace一律削除へ転用しない。共通Tool Runtimeのログ／Cache／一時物へ他Repositoryの本文・秘密値を混在させず、確認不能を不存在にしない。
+[Workspace詳細](../../../06_Architecture/Details/coordinator/05_Workspace.md)の`domain-model.workspace-placement`（ARCH-000011／000009）を導出する。`RDL-UT-005`はDirect／Isolated・一時資源／継続成果・参照中／清掃可能の分類、`RDL-IT-001`／004はTool Runtimeと対象Repository、linked worktreeから所属Rootへの解決、一般再帰／AI収集／Build入力の除外と明示読取りを確認する。`RDL-IT-003`／`RDL-ST-002`は実行失敗・取消・途中破棄で既存成果と参照を保全し、許可された実行資源だけを回収する。`RDL-UAT-006`は継続Workspaceの保持・破棄と未解決資料を利用者が区別できるか評価する。旧Candidateの168時間や通常履歴の30日をWorkspace一律削除へ転用しない。共通Tool Runtimeのログ／Cache／一時物へ他Repositoryの本文・秘密値を混在させず、確認不能を不存在にしない。
 
 本節の新方式はすべてNot Run。既存Local Itemの元結果・旧方式のEvidenceは維持し、新方式の実装／接続／実測へ継承しない。詳細Schema・操作許可・dirty／Commit処理の未決は該当実装前の停止条件とする。条件区分は正常・境界・準正常・異常・回復を扱い、UTの値判定、ITの実保存／実Git／実Mount、公開ST、利用者UATを相互代替しない。
 

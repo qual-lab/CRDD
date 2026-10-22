@@ -16,7 +16,7 @@ Architecture ID: `ARCH-000004`
 | 所有しない責務 | Provider選定、OS操作、Transport、人間の採用判断 |
 | 主な外部境界 | Coordinator公開API、状態Store、人間判断 |
 
-目標Ownerは上位編成・WorkspaceのOrchestrator、単発AI実行調整のCoordinator、AI固有接続のAI Adapter、Docker技術資源のDocker Isolationへ分ける。Orchestratorは通常AI実行を受け付け、Coordinator公開APIを直接呼ぶ。Coordinatorは実行・Review・取消・通知・結果相関を調整し、Docker資源の技術的終了はDIが所有する。直接入口は開発／試験・単発診断に限定し、認可・隔離を迂回しない。Provider別CLI・認証・入出力・ProfileはAI Adapterへ閉じる。Direct／Isolatedの意味と永続責務の移管は[Workspace詳細](../../Details/orchestrator/03_Workspace.md)へ接続し、目標の伝播をSource切替済みと表示しない。
+目標Ownerは上位編成・WorkspaceのOrchestrator、単発AI実行調整のCoordinator、AI固有接続のAI Adapter、Docker技術資源のDocker Isolationへ分ける。Orchestratorは通常AI実行を受け付け、Coordinator公開APIを直接呼ぶ。Coordinatorは実行・Review・取消・通知・結果相関を調整し、Docker資源の技術的終了はDIが所有する。直接入口は開発／試験・単発診断に限定し、認可・隔離を迂回しない。Provider別CLI・認証・入出力・ProfileはAI Adapterへ閉じる。Direct／Isolatedの意味と永続責務の移管は[Workspace詳細](../../Details/coordinator/05_Workspace.md)へ接続し、目標の伝播をSource切替済みと表示しない。
 
 通知はCoordinatorが定義する関数をOrchestratorが登録する。CoordinatorからOrchestratorへのimport、上位型の注入Frameworkや汎用Event Busを追加しない。取消の受付、Process終了、資源回収、上位Taskの確定は別の結果であり、通知一件だけで全体完了としない。以下の入力表に残るOrchestratorは上流の論理状態責務を表し、旧Packageの存続を要求する名称ではない。
 
@@ -194,7 +194,7 @@ Detailは第2・3節のDefinition入力を置き換えず、その意味を実�
 
 正式入力は第2・3節のArchitecture分析だけである。次は成立済み能力とGapを照合するためにだけ参照する。
 
-- [現行照合先](../../Details/orchestrator/01_Architecture.md)
+- [現行照合先](../../Details/coordinator/03_Task_Architecture.md)
 - [現行照合先](../../Details/coordinator/01_Architecture.md)
 - [現行照合先](../../Details/platform-access/01_Architecture.md)
 

@@ -47,7 +47,7 @@ MCPは同じ能力をAIへ公開する境界、Workbenchは人間がそれらを
 | 対象 | 読取り能力 | 操作能力の候補 | 現在の判断 |
 |---|---|---|---|
 | Project Context | Repositoryの固定Projectionを読む | N/A: Project Contextを直接編集する業務操作は持たない | MCP Resource候補 |
-| Orchestrator State | 実行中Runtimeの現在状態を問い合わせる | Objective開始、判断送信 | 既存状態取得名を`crdd.get_orchestrator_state`へ明確化する。移行契約はArchitectureで決める |
+| Orchestrator State | 実行中Runtimeの現在状態を問い合わせる | Objective開始、判断送信 | 既存状態取得名を`crdd.get_coordinator_state`へ明確化する。移行契約はArchitectureで決める |
 | Topic | 一覧、詳細、Relation、現在状態を読む | 登録、編集、削除、終了、正式成果物への昇格候補 | 登録・編集・削除・一覧・取得を完成候補へ含め、削除の意味とAuthorityをDiscoveryで確認する |
 | Meeting | 一覧、詳細、参加主体、Decision／Action／Topic候補を読む | 登録、編集、削除、訂正、候補化、Owner Artifactへの反映候補 | 登録・編集・削除・一覧・取得を完成候補へ含め、時点記録を壊さない訂正・撤回境界を確認する |
 | Roadmap／Quality／Documentation | 一覧、詳細、Relationを読む | 各Ownerが許可する更新 | Project Context固有APIへ複製しない |

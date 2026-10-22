@@ -7,7 +7,7 @@ Architecture ID: `ARCH-000015`
 
 ## 1. 責務と境界
 
-[Workspace方式](../../Details/orchestrator/03_Workspace.md)では、コード変更のCandidateは対象Workspaceの固定Git成果とし、採否・Decision・許可はOrchestratorに保持する。Topic／Meetingの提案や判断候補一般までCommitへ変換しない。Direct編集・候補固定・Isolatedからの取込は異なるEffectであり、送信同意をいずれの書込み許可へも流用しない。旧Bundle保持・公開・破棄・採用・回復の本番利用側が置換されるまで旧Storeを撤去しない。
+[Workspace方式](../../Details/coordinator/05_Workspace.md)では、コード変更のCandidateは対象Workspaceの固定Git成果とし、採否・Decision・許可はOrchestratorに保持する。Topic／Meetingの提案や判断候補一般までCommitへ変換しない。Direct編集・候補固定・Isolatedからの取込は異なるEffectであり、送信同意をいずれの書込み許可へも流用しない。旧Bundle保持・公開・破棄・採用・回復の本番利用側が置換されるまで旧Storeを撤去しない。
 
 not_authorized→authorized→sent→returned→candidate→adoptedを別AuthorityとEffectにし、送信、受領、採用を相互流用しない。
 

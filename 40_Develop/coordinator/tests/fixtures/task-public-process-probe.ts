@@ -209,8 +209,8 @@ process.stdin.on("data", (chunk) => {
         "retry_ready",
       ].entries())
         process.stderr.write(
-          `[Orchestrator recovery] ${JSON.stringify({
-            event: "orchestrator_recovery_transition",
+          `[Coordinator recovery] ${JSON.stringify({
+            event: "coordinator_recovery_transition",
             phase,
             projectId: "project-a",
             milestoneId: "milestone-a",

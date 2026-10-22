@@ -322,7 +322,7 @@ async function readPublishedIntakeEpoch(
         projectId: request.projectId,
         repositoryRevision: request.repositoryRevision,
       },
-      "crdd.get_orchestrator_state",
+      "crdd.get_coordinator_state",
     ),
   );
   const observation = await observed;
@@ -424,7 +424,7 @@ async function main() {
     allowedPaths: Object.freeze([MARKER]),
     readPaths: Object.freeze([
       MARKER,
-      "06_Architecture/Details/orchestrator/02_Detailed_Design.md",
+      "06_Architecture/Details/coordinator/04_Task_Detailed_Design.md",
     ]),
     maximumConcurrency: 1,
     maximumReplans: 0,
@@ -505,7 +505,7 @@ async function main() {
     allowedPaths: Object.freeze([CANCELLATION_MARKER]),
     readPaths: Object.freeze([
       CANCELLATION_MARKER,
-      "06_Architecture/Details/orchestrator/02_Detailed_Design.md",
+      "06_Architecture/Details/coordinator/04_Task_Detailed_Design.md",
     ]),
     adoptResult: false,
   });
@@ -552,7 +552,7 @@ async function main() {
     allowedPaths: Object.freeze([CANCELLATION_MARKER]),
     readPaths: Object.freeze([
       CANCELLATION_MARKER,
-      "06_Architecture/Details/orchestrator/02_Detailed_Design.md",
+      "06_Architecture/Details/coordinator/04_Task_Detailed_Design.md",
     ]),
     adoptResult: false,
   });

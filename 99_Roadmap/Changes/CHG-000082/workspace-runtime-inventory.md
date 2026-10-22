@@ -18,7 +18,7 @@ Coordinatorだけを先に縮小せず、Version ControlのGit操作、Orchestra
 ### 変更経路と着手前照合
 
 - 分類: 複数Package・保存・認可・公開入口へ及ぶ再編の調査／計画更新。同じCHGの途中見直しとし、工程別CHGを作らない。
-- 正本: [現在計画](second-stage-plan.md)、[Coordinator設計](../../../06_Architecture/Details/coordinator/01_Architecture.md)、[Orchestrator設計](../../../06_Architecture/Details/orchestrator/02_Detailed_Design.md)、[Version Control設計](../../../06_Architecture/Details/version-control/01_Architecture.md)、[Docker隔離設計](../../../06_Architecture/Details/docker-isolation/01_Architecture.md)。今回の表でこれらの現行契約を書き換えない。
+- 正本: [現在計画](second-stage-plan.md)、[Coordinator設計](../../../06_Architecture/Details/coordinator/01_Architecture.md)、[Orchestrator設計](../../../06_Architecture/Details/coordinator/04_Task_Detailed_Design.md)、[Version Control設計](../../../06_Architecture/Details/version-control/01_Architecture.md)、[Docker隔離設計](../../../06_Architecture/Details/docker-isolation/01_Architecture.md)。今回の表でこれらの現行契約を書き換えない。
 - 着手前確認: 保存先の宣言と本番接続、既存能力の利用側、用語衝突、既存試験、移行前の保全を照合。読み取り専用の契約観点確認を実施。
 - 今回の確認: 対応表の独立レビュー、文書リンク・差分確認。正式Architectureの更新段階で必要な文書／不足影響監査を行う。
 - 今回は行わない確認: Source不変更のため実行回帰・実Docker／Provider試験は行わない。CRDD準拠基準・準拠表明を変えないため準拠監査は行わない。
@@ -332,7 +332,7 @@ VCの`git/worktree-management.ts`に作成・観測・明示削除の三APIを�
 
 人間の指示で前段を`9c462a2e`へコミットした（プッシュなし）。次段の着手前調査で、現在のSnapshotにはWorkspace集合がなく、同じRepository Rootを保存・実行・回復へ搬送していること、旧候補採用はBundle適用でGit取込の証拠ではないことを確認した。単純なVC呼出し追加・Root置換・採用成功からの即削除は行わない。
 
-両専門観点を統合し、[Orchestrator詳細の対応表](../../../06_Architecture/Details/orchestrator/02_Detailed_Design.md#workspace接続の実装順序と移管先)とQA-000003の上位結合条件へ反映する。まず既存state内の保存・遷移とVC接続、次に受付・Task搬送と保存Root／実行Tree分離を同じ実行切替で閉じる。採用後の片付けは後続の実Git取込確認と一体で完成させ、①だけで全終了能力を完成としない。新しい台帳・Lock・互換Readerは追加しない。現在は設計具体化までで、この段階のSource実装・実データ変更は未着手。
+両専門観点を統合し、[Orchestrator詳細の対応表](../../../06_Architecture/Details/coordinator/04_Task_Detailed_Design.md#workspace接続の実装順序と移管先)とQA-000003の上位結合条件へ反映する。まず既存state内の保存・遷移とVC接続、次に受付・Task搬送と保存Root／実行Tree分離を同じ実行切替で閉じる。採用後の片付けは後続の実Git取込確認と一体で完成させ、①だけで全終了能力を完成としない。新しい台帳・Lock・互換Readerは追加しない。現在は設計具体化までで、この段階のSource実装・実データ変更は未着手。
 
 ### Orchestratorの実装・限定結合結果（2026-10-17）
 
@@ -452,7 +452,7 @@ W3の二必須独立再レビューはともに指摘0。確認した最終Sourc
 
 以下のSource不足・未実施は設計着手前の観測である。実装後の現在結果は次節へ集約する。
 
-Workspace名は継続作業、Candidate名は固定成果を説明する任意の表示値とする。現SourceのWorkspace記録はUUIDのみで、表示名・固定Candidate・Merge段階の保存型はまだない。既存記録・codec・Reader・利用側・試験を同じ切替単位で更新し、新Registryは作らない。候補固定時の両表示名を保持し、後の改名を過去の固定情報へ遡及させない。省略時はUUID／Commitを表示する。Merge Messageの内容と名前の入力制約は[Workspace詳細の採用方針](../../../06_Architecture/Details/orchestrator/03_Workspace.md#採用git統合の採用方針2026-10-18実装未完了)を正本とする。
+Workspace名は継続作業、Candidate名は固定成果を説明する任意の表示値とする。現SourceのWorkspace記録はUUIDのみで、表示名・固定Candidate・Merge段階の保存型はまだない。既存記録・codec・Reader・利用側・試験を同じ切替単位で更新し、新Registryは作らない。候補固定時の両表示名を保持し、後の改名を過去の固定情報へ遡及させない。省略時はUUID／Commitを表示する。Merge Messageの内容と名前の入力制約は[Workspace詳細の採用方針](../../../06_Architecture/Details/coordinator/05_Workspace.md#採用git統合の採用方針2026-10-18実装未完了)を正本とする。
 
 着手前の読取り専用技術確認では、Git標準機能で成立する方向だが、`--no-ff`だけでは過去Commit混入を防げないこと、既取込では二親Commitを新規生成しないこと、通常index全体のCommitは代用できないことを確認した。候補固定・Git統合・命名搬送の実装／実Git試験は未実施。今回の文書更新を能力完成やQuality Passとしない。
 
@@ -558,7 +558,7 @@ W4の技術・Qualityの独立再レビューは両者とも残指摘0。最終S
 | Workbenchの現在依頼ID・Snapshotは単一Processの共有変数 | 共有利用では主体／Repository／Workspaceの対象照合と既存Queue／Task参照へ接続する。新Session台帳や全利用者共有の現在依頼を作らない |
 | `/candidate/action`は旧Bundle用 | 新Workspace管理へ同名で読み替えない。変更確認・固定・別採用の代替能力と利用側を検証してから旧入口を撤去する |
 
-置換の正本は[Workspace詳細の置換契約](../../../06_Architecture/Details/orchestrator/03_Workspace.md#旧workbench-ai経路の置換契約2026-10-18移行中)。共通Taskの明示種別と結果→既存実行・保存→Workbenchの開始・照会・取消→旧利用側撤去の順とする。Prompt・投影・回答本文の非永続を維持し、別名の要求・計画・採用基準・Eventへの本文コピーも確認する。再起動後の本文は欠測であり、自動再送せず、資源回収は既存参照から独立して行う。新Frameworkと保存先は増やさない。追加の人間判断は現在不要である。
+置換の正本は[Workspace詳細の置換契約](../../../06_Architecture/Details/coordinator/05_Workspace.md#旧workbench-ai経路の置換契約2026-10-18移行中)。共通Taskの明示種別と結果→既存実行・保存→Workbenchの開始・照会・取消→旧利用側撤去の順とする。Prompt・投影・回答本文の非永続を維持し、別名の要求・計画・採用基準・Eventへの本文コピーも確認する。再起動後の本文は欠測であり、自動再送せず、資源回収は既存参照から独立して行う。新Frameworkと保存先は増やさない。追加の人間判断は現在不要である。
 
 発火例は現在development許可・対象所属一致・exact Profile・種別別の送信同意、非発火例は同意なし／管理内容だけ／別Repository、境界例は待機後失効・Workspace変更・結果と取消の競合、情報不足例は対象・本文・回収・配送の観測不能。後三者を完了・空結果・処置なしへ丸めず、元Taskと取得済み参照を保持する。局所試験、実Writer／実Git／HTTPの有限代役結合、実Browser、固定候補の独立レビューを予定する。実Provider／Docker／実データ移行は別の実境界として扱う。
 
@@ -602,7 +602,7 @@ W4の技術・Qualityの独立再レビューは両者とも残指摘0。最終S
 | 独立レビュー | 初回是正後も、Task cleanとLease終端の分離、回収後の保存失敗、同Owner回復、待機中の同時開始、Server再構成後の再入場、副次失敗参照、本文欠測とprimaryの区別を追加指摘。両確認者へ統合是正方針を戻して整合済み。是正後の再レビューは未完了 |
 | 再入場の限定確認 | 同Owner回復・元ID再観測を含むOrchestrator実保存2件、共有HTTPのServer再構成1件、Coordinator既存履歴によるexact終了再照合1件が成功。最後の試験の初回起動は必要なmodule mock実行オプション不足で停止し、packageのオプションを付けた実行で成功した。これをDocker実境界の成功とは扱わない |
 
-正式回収後に上位保存が失敗した場合の再入場には、既存Coordinator履歴の限定契約改訂を使用する。新しいworkbench相関付き要約だけv4とし、元の利用元と上位操作相関を保存する。旧固定要約は本文・Hash不変で、新保証の根拠に補完しない。処置は[Coordinatorの終了相関](../../../06_Architecture/Details/coordinator/01_Architecture.md#単発workbench依頼の終了相関2026-10-18実装検証中)と[Workspaceの置換契約](../../../06_Architecture/Details/orchestrator/03_Workspace.md#旧workbench-ai経路の置換契約2026-10-18移行中)を正本とする。
+正式回収後に上位保存が失敗した場合の再入場には、既存Coordinator履歴の限定契約改訂を使用する。新しいworkbench相関付き要約だけv4とし、元の利用元と上位操作相関を保存する。旧固定要約は本文・Hash不変で、新保証の根拠に補完しない。処置は[Coordinatorの終了相関](../../../06_Architecture/Details/coordinator/01_Architecture.md#単発workbench依頼の終了相関2026-10-18実装検証中)と[Workspaceの置換契約](../../../06_Architecture/Details/coordinator/05_Workspace.md#旧workbench-ai経路の置換契約2026-10-18移行中)を正本とする。
 
 全置換完成・Release可能はまだ主張しない。残る再検証、固定候補再レビュー、既知Workbench失敗、実Provider E2E・人間UAT・実データ移行を区別する。実行別Evidence書庫は作らず、上記要約と試験Sourceを保持する。現在の差分は未コミット・未プッシュである。
 
@@ -902,7 +902,7 @@ Isolatedの品質判断と状態取得は、元計画Revision、Project／Milest
 
 #### 撤去前の責務再確認（2026-10-18）
 
-利用者は「上位が作業対象を決め、Coordinatorは受け取って実行するだけ」を確認した。先の「CoordinatorのCLIでWorkspace指定必須」という説明は受付と実行の責務を混同していたため、[横断Architectureの引渡し契約](../../../06_Architecture/Details/orchestrator/03_Workspace.md#実行対象の引渡しとcliの責務2026-10-18人間確認済み)へ整理し直した。Workspaceの選択・ID解決・利用調停は上位、受領対象の安全検証・一回のExecutor／Reviewer調整はCoordinator、隔離・技術資源回収はDocker Isolationとする。
+利用者は「上位が作業対象を決め、Coordinatorは受け取って実行するだけ」を確認した。先の「CoordinatorのCLIでWorkspace指定必須」という説明は受付と実行の責務を混同していたため、[横断Architectureの引渡し契約](../../../06_Architecture/Details/coordinator/05_Workspace.md#実行対象の引渡しとcliの責務2026-10-18人間確認済み)へ整理し直した。Workspaceの選択・ID解決・利用調停は上位、受領対象の安全検証・一回のExecutor／Reviewer調整はCoordinator、隔離・技術資源回収はDocker Isolationとする。
 
 | 撤去の順序 | 対応する場所・守る条件 |
 |---|---|

@@ -1,6 +1,6 @@
 # 配置／実行モデル
 
-[Workspaceの配置契約](Details/orchestrator/03_Workspace.md#4-配置とroot解決)によりTool Runtimeと製品Repositoryを分離する。単体起動は共有資格初期化を必須にせず、共有配置では各操作を現在認可する。WorkbenchとMCPは独立Processで同じPackage APIを使い、共通Memory QueueやMCP常時起動を仮定しない。製品固有状態は対象Repositoryへ保持。linked worktreeからも所属Repositoryを検証し、Tool Runtimeやnested worktree配下へ暗黙保存しない。Multi-host共有排他は対象外。
+[Workspaceの配置契約](Details/coordinator/05_Workspace.md#4-配置とroot解決)によりTool Runtimeと製品Repositoryを分離する。単体起動は共有資格初期化を必須にせず、共有配置では各操作を現在認可する。WorkbenchとMCPは独立Processで同じPackage APIを使い、共通Memory QueueやMCP常時起動を仮定しない。製品固有状態は対象Repositoryへ保持。linked worktreeからも所属Repositoryを検証し、Tool Runtimeやnested worktree配下へ暗黙保存しない。Multi-host共有排他は対象外。
 
 Status: Candidate (v0.22 responsibility reorganization)
 Owner: Qual-Lab
@@ -120,7 +120,7 @@ Canonical Architectureが独立レビューで閉じた後に、次を照合す�
 
 | 照合対象 | 確認すること | 参照先 |
 |---|---|---|
-| Coordinator | Task／ObjectiveのApplication Contract・状態・回復と、ExecutionのProvider編成・取消・技術回復を責務分離して照合 | [Execution](Details/coordinator/01_Architecture.md)、[Task／Objective](Details/orchestrator/01_Architecture.md) |
+| Coordinator | Task／ObjectiveのApplication Contract・状態・回復と、ExecutionのProvider編成・取消・技術回復を責務分離して照合 | [Execution](Details/coordinator/01_Architecture.md)、[Task／Objective](Details/coordinator/03_Task_Architecture.md) |
 | MCP／CLI | Transport parity、接続Lifecycle | [MCP](./Details/mcp-server/01_Architecture.md) |
 | Execution Intelligence | 実行事実の生成・保存と読取りPort | [実行知](Details/execution-intelligence/01_Architecture.md) |
 | Platform Access | OS／Process／Containerの意味、診断、回復 | [Platform Access](Details/platform-access/01_Architecture.md) |

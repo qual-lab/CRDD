@@ -25,7 +25,7 @@ B4の借用Tree読取りはVCの`workspace/observation.ts`へ移管する。`RFD
 
 clean／process filterは実Gitの発火対照を置き、新経路では設定存在時にdiffを発行しない拒否を確認する。標準設定観測の正規の不存在と異常・不正出力を区別し、拒否・不明で後続diff0をProcess差替えでも確認する。filter無効化による意味の違う差分は返さず、LFS等の未対応と設定観測の非原子性を限界として保持する。
 
-[Workspace詳細](../../../06_Architecture/Details/orchestrator/03_Workspace.md)のRepository／Workspace識別と内容領域分離（ARCH-000009／000013）を導出する。`RFD-UT-006`はID所属・操作・認可の純粋条件、`RFD-IT-001`／002／008は通常Root・linked worktree・submodule・入れ子・差替え・観測不能、`RFD-IT-009`は単体と共有入口の対象一致、`RFD-IT-013`は要求ごとの現在認可を確認する。`RFD-ST-003`／004は両Surfaceから許可外Repository・Workspace・内容の存在／Pathを開示しないこと、`RFD-UAT-007`は内容領域と作業対象の違いを評価する。既存workspaceId(s)の改名は通信・保存・Role／Exposure・全Consumerを同一切替対象とし、旧閲覧許可から新操作許可を自動発行しない。`RFD-IT-005`のAdapter読取り等だけではGit Worktreeの生成・取込を証明できないため、新規`RFD-IT-029`で実Gitの全Lifecycleを別に確認する。
+[Workspace詳細](../../../06_Architecture/Details/coordinator/05_Workspace.md)のRepository／Workspace識別と内容領域分離（ARCH-000009／000013）を導出する。`RFD-UT-006`はID所属・操作・認可の純粋条件、`RFD-IT-001`／002／008は通常Root・linked worktree・submodule・入れ子・差替え・観測不能、`RFD-IT-009`は単体と共有入口の対象一致、`RFD-IT-013`は要求ごとの現在認可を確認する。`RFD-ST-003`／004は両Surfaceから許可外Repository・Workspace・内容の存在／Pathを開示しないこと、`RFD-UAT-007`は内容領域と作業対象の違いを評価する。既存workspaceId(s)の改名は通信・保存・Role／Exposure・全Consumerを同一切替対象とし、旧閲覧許可から新操作許可を自動発行しない。`RFD-IT-005`のAdapter読取り等だけではGit Worktreeの生成・取込を証明できないため、新規`RFD-IT-029`で実Gitの全Lifecycleを別に確認する。
 
 本節の新方式はすべてNot Run。既存Local Itemの元結果・旧方式のEvidenceは維持し、新方式の実装／接続／実測へ継承しない。詳細Schema・操作許可・dirty／Commit処理の未決は該当実装前の停止条件とする。条件区分は正常・境界・準正常・異常・回復を扱い、UTの値判定、ITの実保存／実Git／実Mount、公開ST、利用者UATを相互代替しない。
 
@@ -197,7 +197,7 @@ TTY／HTTP／Browserの提示観測、保存・資源終了、ユーザー理解
 
 ### Workspaceの実Git Lifecycle
 
-導出元: Canonical ID `ARCH-000009`、Meaning／Obligation Key `version-control.git-workspace-lifecycle`、Source Model [Workspace詳細§5・§7](../../../06_Architecture/Details/orchestrator/03_Workspace.md#5-状態競合終了条件)、Model Item「Git作成・Merge・終了」。既存のTree／Diff読取りとは別のEffect境界のためNewとする。作成・観測・明示削除の部分Source／TestはVersion Controlの`git/worktree-management.ts`と`worktree-management.integration.test.ts`へ接続する。上位Task・採否・Mergeを含む本項目全体はNot Run。UUIDと固定Branch／配置はWorkspace正本に従う。
+導出元: Canonical ID `ARCH-000009`、Meaning／Obligation Key `version-control.git-workspace-lifecycle`、Source Model [Workspace詳細§5・§7](../../../06_Architecture/Details/coordinator/05_Workspace.md#5-状態競合終了条件)、Model Item「Git作成・Merge・終了」。既存のTree／Diff読取りとは別のEffect境界のためNewとする。作成・観測・明示削除の部分Source／TestはVersion Controlの`git/worktree-management.ts`と`worktree-management.integration.test.ts`へ接続する。上位Task・採否・Mergeを含む本項目全体はNot Run。UUIDと固定Branch／配置はWorkspace正本に従う。
 
 `RFD-IT-029`の終了試験は、採用・取込済み又は不採用・破棄が確定した不要なWorktreeと専用Branchの削除まで確認する。採用時の取込成果・採用記録と未取込残差の処置、未merge不採用Branch、dirty／未追跡／ignoredを含む明示破棄を肯定例に含める。継続・期限付き明示保留・実行中・Gitのlock・対象不一致・期待HEAD変更・観測不能は拒否例とし、未Commit変更の存在だけを対象不明としない。Worktree実体／登録の不存在、続く専用Refの不存在、必要判断資料・他Workspaceの保全を別々に観測する。Worktreeだけ削除された後のBranch削除失敗と同対象再入場も反証し、部分成功を全体成功にしない。明示破棄範囲外の未保全成果は保護するが、確定した不採用成果の保持を要求しない。Commit Objectの即時消去はOracleに含めない。作成・観測・削除の部分試験だけでMerge・上位接続を含む項目全体をPassとしない。
 

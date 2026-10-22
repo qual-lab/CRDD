@@ -7,7 +7,7 @@
 最終更新日: 2026-10-22
 統合計画の初期基準（A着手前）: `1afbc6df4a76cd6800e20a5fa98a0c994577a42f`
 B調査のSource基準（A完了）: `f8f7a9986d47220a160fc141af09c6c51561e1e7`
-設計正本: [Orchestrator](../../../06_Architecture/Details/orchestrator/01_Architecture.md)、[Coordinator](../../../06_Architecture/Details/coordinator/01_Architecture.md)、[Domain Model](../../../06_Architecture/Details/domain-model/01_Architecture.md)
+設計正本: [Orchestrator](../../../06_Architecture/Details/coordinator/03_Task_Architecture.md)、[Coordinator](../../../06_Architecture/Details/coordinator/01_Architecture.md)、[Domain Model](../../../06_Architecture/Details/domain-model/01_Architecture.md)
 
 ## 1. 今回の判断と境界
 
@@ -1417,7 +1417,7 @@ Dynamic Fake Provider計測では、同じ母集団の連続二回で、今回�
 
 ### 24.1. 基準、今回の範囲と正本
 
-人間から提示された「Coordinator／Orchestrator統合前の構造整理」を設計入力とし、基準`b2b603c10fb9eaef3d02d430334c9c449516b262`のSource一覧、入口、主要import、§22のCoordinator83 File対応、先行の保存責務調査を照合した。最終責務と目標構成は[Coordinator](../../../06_Architecture/Details/coordinator/01_Architecture.md#pre-consolidation-execution)と[Orchestrator](../../../06_Architecture/Details/orchestrator/01_Architecture.md#consolidated-source-target)、検証義務は[QA-000003](../../../07_Quality/Definitions/QA-000003/quality_definition.md)が所有する。本節は基準から目標への処置候補、実施順、停止条件を所有し、Source移管や全体QA成立を宣言しない。
+人間から提示された「Coordinator／Orchestrator統合前の構造整理」を設計入力とし、基準`b2b603c10fb9eaef3d02d430334c9c449516b262`のSource一覧、入口、主要import、§22のCoordinator83 File対応、先行の保存責務調査を照合した。最終責務と目標構成は[Coordinator](../../../06_Architecture/Details/coordinator/01_Architecture.md#pre-consolidation-execution)と[Orchestrator](../../../06_Architecture/Details/coordinator/03_Task_Architecture.md#consolidated-source-target)、検証義務は[QA-000003](../../../07_Quality/Definitions/QA-000003/quality_definition.md)が所有する。本節は基準から目標への処置候補、実施順、停止条件を所有し、Source移管や全体QA成立を宣言しない。
 
 今回固定するのは目標と順序であり、全154 Fileの関数単位のConsumer・故障経路を網羅済みとはしない。名称・File数だけの統合を行わず、各実装単位で既存検証・公開API・消費元を照合してから処置する。以前のC前整理完了は§22〜23の範囲で維持し、本節の追加整理を実施済みへ読み替えない。CのPackage統合・旧Coordinator撤去・旧Orchestrator改名は採用済み目標のまま、後述の切替条件を満たすまで実行しない。
 
@@ -1635,7 +1635,7 @@ Workbenchの二lint指摘は`src/client/components/project-context.tsx`の行・
 
 ### 28.2. 三組の処置対応
 
-以下のPathは現Package内の`src/`相対。最終Ownerと契約は[Architectureの三接続契約](../../../06_Architecture/Details/orchestrator/01_Architecture.md#c-integration-three-connections)が所有する。
+以下のPathは現Package内の`src/`相対。最終Ownerと契約は[Architectureの三接続契約](../../../06_Architecture/Details/coordinator/03_Task_Architecture.md#c-integration-three-connections)が所有する。
 
 | 現在の組 | 残す実体・統合後Owner | 削減対象・削除条件 |
 |---|---|---|
@@ -1902,3 +1902,126 @@ Coordinator Rootの明示exportには該当名157件（実行値88、型69）が
 Source／公開契約と文書・直接影響の独立再レビューは残指摘0。全体文書検査は3,697診断・exit 1を維持。変更した現行十七文書からの参照展開では3,454診断・exit 1で、歴史CHG以外は基準から不変のPlatform Access試験リンク一件とQuality Integration五件だけだった。従来の全体QA不合格を解消したとは表示しない。巨大な実行ログや実行別Evidence Directoryは追加せず、今回の変換補助五ファイルは使用後に回収した。
 
 残る旧名は次の別契約である。`.crdd/orchestrator`、`orchestrator.json`、Schema・Hash domain・`consumer: "orchestrator"`、MCPの`crdd.get_orchestrator_state`等のwire実値、診断prefix、`upperOrchestratorCapabilityComplete`の公開property、設計詳細の移行元Directory、安定IDと歴史Evidenceは本単位で改変しない。通信改名はClientの同時切替、保存改名は②の同じ回復参照・旧状態の移行条件を先に確定する。名称整理全体・保存統合・C全体・実境界・全体QA・Releaseの完了とは区別する。
+
+## 35. 通信・診断と設計文書の切替 — 2026-10-22
+
+基準`13124159f`から、人間が承認した順序で通信名・API key・診断名と現行設計文書の配置を変更する。公開契約の破壊的変更として扱い、旧名alias・二重受付・保存互換Readerは追加しない。旧名の拒否、新名の認証・取消・結果搬送、全Consumerの同時切替を確認する。保存側は読取り比較と統合案の提示だけとし、②のAI再試行・保持物操作・実Docker操作を行わない。
+
+| 編集の一次キー | 切替先と影響 |
+|---|---|
+| MCP Tool `crdd.get_orchestrator_state` | `crdd.get_coordinator_state`。一覧・Call・公式SDK Client・配布入口・Schema説明と試験を同時切替。旧名CallはOwner未呼出しで拒否 |
+| MCP構成key `orchestrator` | `coordinator`。起動構成・Factory・fixture・直接Consumerを追従。旧own keyは値undefinedでも明示拒否し、getterを評価しない。無関係な未知keyの扱いは変更しない |
+| MCP Adapter metadata | `crdd-mcp/orchestrator-adapter/v2`→`crdd-mcp/coordinator-adapter/v3`、`projectModelOwnership`の値は`coordinator`。MCP protocol dateは不変 |
+| MCPローカルreason | `orchestrator_mcp_client_not_authenticated`→`mcp_client_not_authenticated`、`orchestrator_adapter_result_invalid`→`mcp_coordinator_result_invalid`、HTTP configuration／address／cleanupとstdio failed／closedは各`orchestrator_mcp_*`→`mcp_*`。上流Task結果から搬送するreasonは変更しない |
+| 純粋診断 | `[Orchestrator recovery] `／`[Orchestrator execution intelligence] `→対応する`[Coordinator ...] `。`orchestrator_recovery_transition`／`orchestrator_execution_intelligence_publication`→同じsuffixの`coordinator_*`。Producer、Parser、Process fixtureとstdout Oracleを同時切替 |
+| Capability説明DTO | `upperOrchestratorCapabilityComplete`→`taskManagementCapabilityComplete`。値falseを維持し旧keyを除く。`storage/current-state.ts`のdescribe結果一fieldだけを保存七Sourceの追加例外とし、Writer・保存本文・他fieldを変えない |
+| 設計文書 | 旧`Details/orchestrator/01_Architecture.md`→`Details/coordinator/03_Task_Architecture.md`、旧`02_Detailed_Design.md`→`04_Task_Detailed_Design.md`、旧`03_Workspace.md`→`05_Workspace.md`。現在の正本・利用側・台帳・SchemaのPath参照を追従し、本文の複製や新しい設計Subsystemは作らない |
+
+着手前に親Agentと読取り専用確認者で契約を照合した。Source／公開契約、文書構造・直接利用側の独立レビューと文書／影響確認を行い、準拠基準・Release判断の監査は今回変更しないため実施しない。保持済みの保存Schema・Path・Hash domain・consumer・area・設定名・共有Task reasonと`orchestrator_owned`、過去Evidence・安定IDは変更禁止である。保存七Sourceは記述DTO一項目を除き基準不変とする。現在、人間による追加判断は必要ない。
+
+### 35.1. 切替と検証結果
+
+新Tool、構成key、Adapter v3、MCPローカルreason、診断Producer／Parser／Process fixture、説明DTOを同時切替した。旧Toolは一覧から除き、Callは既存の`-32602`で拒否して認証・三操作のOwner呼出し全0を確認した。旧own構成keyはundefined／getterとも値の読取り前に拒否し、新しい汎用未知key検査は追加しない。保存七Sourceの差分は、説明DTOの一propertyだけである。
+
+設計三文書の移管、現在の正本・台帳・Schema・Checker・検証Tool・作業計画の参照を追従した。現行CHG内の実リンク11件は接続先だけを更新し、過去Evidence・安定ID・移管表の旧Pathは維持した。Architecture MapとCoordinatorのARCH Relationを統合し、UI／SPECの領域列と担当Relationも和集合へ同期した。20 Relationに重複はなく、Task側の欠落は0である。
+
+MCP静的checkと通常全回帰102件、CoordinatorのTask実行・合成Processの二Suite89件、Checker Semantic九件、二つの説明DTO二件が成功した。診断の合成Process単独41件、HTTP／stdioの追加限定七件も成功した。89件runはCase名だけの最終追従前に開始しており、同じ説明DTOの最終Caseは別の二件で再確認した。通常権限の初回MCP全回帰はlocalhostの`connect EACCES`後に終了待ちとなったため中止し、ID・起動引数を再確認した今回の試験Process二件だけを終了した。この中止runは成功根拠に含めず、localhost接続が許可された環境の完走102件を根拠とする。RootからのFormatter呼出し一回は未配置のコマンドをnpmが取得しようとして通信制限で失敗したため、Package内の既存固定Formatterで再確認し、新しい依存は追加していない。
+
+Coordinator静的check（format／型／lint／二Trace）は成功し、既存lint info 64件を維持した。Sourceの独立レビュー三指摘と文書の二指摘を統合是正し、再レビューの残指摘0を確認した。文書検査で今回追加されたARCH Relation／UI-SPEC二診断は解消した。中央二文書からの参照展開は123診断・exit 1で、現行の残りは基準から不変のPlatform Accessリンク一件とQuality Integration五件。既存の文書全体不合格を今回解消したとは表示しない。実AI・Docker・認証情報・②の保持物は使用・操作していない。
+
+### 35.2. 既知の現行文書六指摘の是正範囲
+
+人間が今回の是正を追加承認した。対象はPlatform Accessの移動済みRoot観測試験リンク一件、Quality Integrationの旧Runner四行の状態語彙、同表とQA-000010の`platform-access`入力Relation一件である。公開API・保存・実行許可を変更しない文書／直接影響の是正として扱う。
+
+四行の`Partial`／`Superseded`は検証結果ではなく旧実装・廃止状態の説明へ残し、表の処置は`OPEN`へ正規化する。既存の未完了条件とRunner廃止判断を維持し、`Covered`へ昇格しない。QA-000010には、同表が既に要求し既存AIT項目・PA試験が所有するNative技術境界の入力だけを追加する。新しい検証義務・保証・Frameworkは作らない。文書検査、既存Quality意味モデルの回帰と独立レビューで確認する。保存統合・②のAI再試行・保持物処置は追加範囲に含めない。
+
+六件を上記の範囲で是正した。実Domain Parserの分析／定義Relationは49対49・双方差分0、処置語彙Issue 0。Quality意味モデル八件と参照先Root観測六件が成功し、追加差分の独立再レビューは残指摘0。Quality Integration・Platform Access・PROJECT_CONTEXTからの文書検査は3,071診断・exit 1で、現行文書の診断0、残りは過去CHG内だけである。§35.1で記録した既知六件はこの後続是正で解消しており、未処置のままではない。
+
+移管後の機械検査が`01_Architecture.md`を領域入口にするため、Task詳細の四Quality unitをCoordinator 01へ参照投影し、Quality IntegrationとQA-000003／004／005／009の物理Ownerも同入口へ同期した。安定unit key、段階、境界、未完了条件を維持し、物理unit十件にTask側四件の欠落0を確認した。検査件数だけが同じでもunitが脱落し得る反例として、移管先の本文だけでなく領域入口からの解析集合を照合した。機械検査の緩和・新しいReader・意味の第二正本は追加しない。
+
+## 36. 保存方式の比較と統合候補 — 実装未承認
+
+本節はB採用前の比較を保持する。2026-10-22に人間が「同じ情報を重複して持たず、排他制御を整理する」条件でBを採用した。現在の着手範囲は§37を参照する。目標採用を実装済みと扱わない。実Runtimeデータや保持物は読まず、SourceのWriter・Schema・終了条件を比較した。
+
+| 現在の保存系統 | 物理配置 | 意味・確定境界 |
+|---|---|---|
+| Task／Objectiveの現在状態 | `.crdd/orchestrator/state.json`、短命の`state.pending.json`と`state.lock` | Workspace、Queue、Task、Lease、結果、判断、未配送履歴。Snapshot全体の改訂／元Hashで比較交換 |
+| Task終了要約 | `.crdd/orchestrator/history.jsonl` | 通常終了・一次失敗・cleanupの要約。独自Headerを持ち、実行側履歴と同じ形式ではない |
+| 単発実行・技術回復の現在状態 | `.crdd/coordinator/state.json`、短命の`state.pending.json`と`state.lock` | Operation、資源、Host世代、回復義務、配送待ち、受領Hash。実資源終端・上位受領・操作除去は別の事実 |
+| 単発実行の終了要約 | `.crdd/coordinator/history.jsonl` | exact回復参照、終了要約と履歴確定・資源回収の相関 |
+| 保護された人間判断 | Host管理領域の`project-decision-<hash>-<generation>.json` | Host主体に結合した世代チェーン。通常履歴と同じ期限削除を適用できない |
+
+根拠は`storage/current-state.ts`、`history.ts`、`model.ts`、`settlement-store.ts`、`protected-decision.ts`、`state/model.ts`である。`result-record.ts`／`validate-result-record.ts`はTask Snapshot内の結果契約であり、別の保存ファイルを増やすOwnerではない。Execution Intelligenceは実績観測であり、Task判断・結果受領・回収完了の正本へ昇格させない。
+
+両Repository-local状態は同じPackage内にあるが、現行Schema、改訂単位、Kernel Lockの結合、結果受領の確認点が異なる。同名ファイルの上書きやJSONLの連結では統合できない。通常履歴の既定保持は双方30日で、保存・整理操作に伴って期限処理する。未解決回復と必要な配送・参照を期限だけで削除しない。
+
+### 36.1. 比較する二案
+
+| 候補 | 変える内容 | 利点 | 残る問題・費用 |
+|---|---|---|---|
+| A: 配置・設定だけを統合 | `.crdd/coordinator/`へ二State・二履歴を用途別名で集約。既存二Writerを維持 | 保存意味を変える範囲が小さい | 旧名は消せるが、二重の改訂・排他・受領結合と保守負担は残る。完成形ではなく中間構造になり得る |
+| B: 現在状態と履歴の実統合 | 単一`state.json`／Writerと一つの`history.jsonl`へ統合し、Task進行と技術実行を内容の責務で区別 | Packageの統合と保存構造が一致し、中継・重複状態を削減できる | 改訂・排他・ACK・回復再入場の確定境界を設計し直す必要があり、名称変更より大きい |
+
+縮小目的に対する推奨目標はBとする。ただし安全性の成立は未確認で、保存凍結を解除する人間判断後に具体化する。Aを先行実装して二度移行することは既定にしない。既存二Writerの上へ第三の統合Writer、新Registry、Lock FrameworkまたはRecovery Frameworkを重ねない。
+
+目標配置の候補は以下である。
+
+```text
+.crdd/
+├ config/
+│  └ coordinator.json       Coordinator単位の運用設定
+└ coordinator/
+   ├ state.json            Task／Queue／Workspaceと実行・回復・配送の現在状態
+   ├ history.jsonl         種別と相関を持つ終了要約。実績詳細を重複複製しない
+   ├ state.lock            更新中marker。実効排他は既存Kernel Lockを利用
+   ├ state.pending.json    更新時だけ存在
+   └ history.pending.jsonl 履歴確定時だけ存在
+```
+
+保持期間はCoordinator設定一つへ整理する候補とし、既定30日を維持する。未解決義務を通常履歴へ落として期限切れにしない。Host保護判断の場所・世代チェーン縮小はこの比較だけで変更せず、現在のチェーンに通常履歴のローテーションを流用しない。
+
+### 36.2. 実装前の確認条件
+
+- Task／Operation／RecoveryのIdentity・unknown・一次失敗を保持し、同じ参照で再入場できること。
+- 実資源cleanupとConsumerの受領は別の事実として維持し、CLI／Workbenchのtransient返却をdurable ACK待ちへ変えないこと。
+- 既存Writerと保存更新用の短期排他を一本化対象とする。Taskの実行Lease、Host世代、Provider Home等の別寿命の排他を重複扱いで撤去しない。二Stateと第三の同期層を併存させないこと。
+- Task結果・技術回復・履歴確定の中断点と、保存後の通知／配送失敗を具体化し、不要になる重複ACK・中継だけを確認して除くこと。
+- 旧形式の整理・移行はフロントAIの明示手順とし、本番へ互換Readerを追加しないこと。②保持物は別の既存判断が変更されるまで処置しないこと。
+
+比較時点で必要だった判断は、Aの配置整理に留めるか、Bの単一State／Writerを目標に保存凍結を解除して設計へ進むかであり、当時はBを推奨した。この比較記録自体は採用・実装許可ではなかった。現在の採用と着手範囲は§37を参照する。
+
+## 37. B採用後の保存統合着手 — 2026-10-22
+
+### 37.1. 判断・経路と変更禁止範囲
+
+人間はBを採用した。§36末尾の選択待ちは解消し、同じ情報を二正本で保持せず、保存更新の排他を一本化する設計・実装へ進む。新方式の意味正本は[単一保存Lifecycle](../../../06_Architecture/Details/coordinator/04_Task_Detailed_Design.md#unified-storage-lifecycle)であり、計画本文でSchemaや終了条件を第二定義しない。
+
+基準は`13124159f`と前回通信・診断・設計移管の未コミット候補。保存形式・改訂・排他・中断後再入場と直接Consumerへ影響する非自明な置換として扱う。過去の七Source bytes凍結は移管元保証の比較基準へ移し、採用した統合の範囲だけ解除する。過去Evidence、安定ID、認可、外部送信、Docker隔離、Git採用判断、Host保護判断は変更しない。②のAI再試行と保持物の読取り・削除、実Docker操作は許可されていない。
+
+親と保存・排他／Lifecycleの読取り専用確認者で、正本と現行Sourceを照合した。保存Schema・Writerの専門独立レビュー、Architecture／Qualityの文書・直接影響確認を行う。複数正本・利用側・移行に関する不足／影響を確認し、準拠基準・外部公開・Release判断の変更はないため、その判断用の監査は実施しない。追加のRisk受容や新しい管理基盤が必要なら、その箇所で人間判断へ戻す。
+
+### 37.2. 初回照合で確定した条件
+
+- 保存改訂・変更前Hash・Root結合は一組にする。Taskの業務世代、Owner世代、受付世代を同じ保存改訂へ混同しない。
+- 技術cleanup・一次失敗はOperationを正本にし、Taskは参照／導出する。exact回復義務は発生元に一度だけ保存し、Task関連付けは参照とする。
+- 統合／採用の`results`はAI単発結果とは別契約であるため、名前が同じ「結果」というだけで統合しない。
+- 現行の技術保存Lock内からTask受理Readerを呼びTask保存Lockを取る接続を除去する。二Lock名だけの同一化は禁止し、同じOwner・Snapshotから受理を照合する。
+- 履歴確認後、耐久Consumerの受領事実を同じSnapshotへ一度保存し、Task反映とProducer内部配送待ちの解消を同じ更新で確定する。その場合だけ受理Hash転記・二段ACKリレーを撤去する。受領自体、開始通知、実終端・回収・履歴確認は維持し、結果保存済み未受領と受領保存済み応答喪失を別窓として反証する。
+- stateとhistoryは二ファイルであり同時に原子確定しない。固定行・時刻・Hashと元終端記録を使う既存の二段確定を一つの再入場手順へ整理する。未確定元記録と未解決義務は通常期限で消さない。
+- Task実行Lease、Provider Home、Host世代・回復排他は別寿命として維持する。`state.lock` markerを実効Kernel Lockと混同しない。
+
+### 37.3. 実装単位と検証
+
+| 順序 | 処置 | 完了の確認 |
+|---|---|---|
+| 1 | Architecture／Qualityに一意な情報配置、寿命、保存排他と中断を具体化 | 正常・取消・親喪失・通知喪失・履歴中断の対応と専門独立レビュー |
+| 2 | 統一Schemaと遷移を既存意味から構成 | 二正本の同一事実0、孤立参照・別Identity・旧Schema・異なる結果の拒否 |
+| 3 | 既存Writerと短期排他を一本化 | 単一CAS、競合拒否、同Owner再取得0、pending／rename／読戻し／解放失敗と再入場の実Filesystem検証 |
+| 4 | Task／Operation／受領／履歴と全Consumerを新Ownerへ接続 | 履歴確認後の耐久Consumer受領と同更新の内部配送待ち解消、二重反映0、CLI／WorkbenchへACK追加0、正常・取消・親喪失の合成結合 |
+| 5 | 旧Writer・旧ACKリレー・旧Root／設定Readerを撤去 | 二重書込み0、旧形式拒否、公開API・CLI・MCP／Workbenchと静的／通常回帰の整合 |
+
+既知の使い捨て中間状態を本番の完成形にしない。純粋Schema等の局所確認はできるが、二Writerを並走させる互換接続や第三Writerは作らない。旧記録の移行・清掃はフロントAI手順へ接続し、②の保持物は別承認なしで処置しない。
+
+順序1のArchitecture／Quality具体化は、保存・排他専門、Lifecycle契約、文書・直接影響の限定独立レビューと是正後再確認を終え、残指摘0である。初回の契約指摘は、履歴確認後の耐久受領という既存順序の維持、受領事実を別の内部受理へ増やさない用語、結果保存済み未受領と受領保存済み応答喪失の二窓分離だった。時点表示も採用前比較と現在の採用へ同期した。
+
+最終の04詳細・QA-000003／008・PROJECT_CONTEXTからの文書検査は277診断・exit 1、参照展開された現行文書の診断0で、残りは歴史CHG内だけである。差分形式検査は成功した。保存Sourceには今回の変更を加えておらず、基準HEADとの差分は前単位の説明DTO一fieldだけである。実保存先・保持物は未操作。次は順序2の統一Schema・遷移とSourceの具体化であり、新方式のSource・実Filesystem／Process・品質項目の評価はNot Runである。

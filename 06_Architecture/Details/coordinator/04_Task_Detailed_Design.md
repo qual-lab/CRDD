@@ -1,8 +1,69 @@
-# Orchestratorの状態・資源詳細設計
+# CoordinatorのTask状態・資源詳細設計
 
-Cの物理統合により、本書が所有するTask・Objective・状態保存の実装は`40_Develop/coordinator`へ配置する。独立Orchestrator Packageを必要とせず、単発Executionと同Package内で責務を分ける。本文の保存Schema・Path・状態語彙・Lock・CAS・ACKは今回変更しない。実装移管は検証中で、過去の試験結果や下記の移行元説明を統合後の全体成立へ流用しない。
+Cの物理統合により、本書が所有するTask・Objective・状態保存の実装は`40_Develop/coordinator`へ配置する。独立Orchestrator Packageを必要とせず、単発Executionと同Package内で責務を分ける。以下の単一保存方式を2026-10-22に目標として採用した。旧二保存方式の本文・Schema・Lock・CAS・ACKは移管元の保証を照合する基準であり、新方式の実装済み契約とは扱わない。過去の試験結果を統合後の全体成立へ流用しない。
 
-Workspace方式の目標は[作業領域の横断契約](03_Workspace.md)に従う。現行のTask／Attempt／Queue／保存・判断を再利用し、RepositoryとWorkspaceの対象結合、Workspace単位の競合変更と共有Git／正本／Provider資源の排他を分ける。下記の現Schema、Bundle参照、binding-wide Lease、同Process配送閉包は移行元の能力であり、新方式の確定API・保存形式ではない。旧状態を機械コピーせず、元Effect・未解決・結果参照を失わない切替契約を設計する。実装・移行・新方式検証は未完了。
+<a id="unified-storage-lifecycle"></a>
+
+## 単一保存方式の採用とLifecycle — 2026-10-22
+
+状態: 目標採用・実装前。人間は同一情報を重複保持せず排他を整理するB案を採用した。現在状態はRepository-localの`.crdd/coordinator/state.json`、通常終了要約は同じ領域の`history.jsonl`、運用設定は`.crdd/config/coordinator.json`へ統合する。旧二Writerの上へ第三の同期層を追加せず、旧保存形式の移行はフロントAI手順が所有する。
+
+### 保存する事実と寿命
+
+| 事実 | 一意な所有先 | 終了・参照の扱い |
+|---|---|---|
+| 保存改訂・変更前Hash・検証済みRoot結合 | Snapshot全体に一組 | 保存の比較交換は一つ。Taskの業務世代、Owner世代、受付世代は別意味なので維持する |
+| Task／Objectiveの進行、Queue、Workspace | 既存業務モデルの各記録 | Operation終了と別寿命。WorkspaceをTask完了で削除せず、Taskも後続判断・参照がある間は残す |
+| Process・Container等の観測、一次失敗、cleanup | 元Operationの技術記録 | Task側の技術状態は参照から導出する。同じcleanup真偽を別の正本へ保存しない |
+| exact回復義務 | 発生元のOperation又は既存Lease／判断記録に一度だけ保持 | Taskは参照と再開判断を持つ。Task失敗・試験終了や履歴期限を義務解消にしない |
+| Taskへの結果反映・耐久Consumerの初回受領 | 同じSnapshot内の一つの受領事実 | Task／Attempt／論理操作／実行操作／回復参照／結果を照合。異なるIdentityを同一視せず、初回受理世代を上書きしない |
+| 統合・採用の成果 | 既存のintegration／adoption結果契約 | AI単発実行結果と同じものではない。`results`区画を機械統合しない |
+| 履歴移送 | 元の終端記録と小さな確定checkpoint | 要約本文の正本を二つ作らず、固定Identity・行Hash・段階で相関。未確定の元記録は履歴確定まで保持する |
+
+Taskが後から必要とする結果・受理・未解決義務を、期限で消える履歴だけへの参照にしない。Operationから技術資源情報を整理できるのは、必要な耐久結果・受理と未解決義務が失われず、履歴確定も確認できた場合だけである。Host保護判断は現行の別保存・世代チェーンを維持し、通常履歴の30日期限処理へ混ぜない。
+
+### 保存排他と結果受理
+
+単一Writerは一つの保存改訂、短期排他、比較交換、保存途中の再入場手順を意味し、常駐Writer Processの新設ではない。二ファイルを同時に原子保存できるという意味でもない。
+
+1. 検証済みRepositoryへ結合した既存Kernel Lock一つを取得する。
+2. 同じOwnerから一つのSnapshotを読み、期待保存改訂と現在Identity・許可された遷移を照合する。
+3. 履歴確認済みの同じ結果について、Task／Objectiveによる耐久Consumerの受領事実を同じSnapshotへ一度保存し、その同じ更新でProducer側の内部配送待ちを解消する。内部受理という別事実を作らない。
+4. 短命な`state.pending.json`から確定し、exact内容の読戻しを確認する。
+5. 排他解放を確認してから呼出し元へ結果を返す。保存成功と解放成功は別に観測する。
+
+現行の「技術保存Lock→上位受理Reader→Task保存Lock」は撤去対象である。Lock名だけを同一化して自己再取得させず、受理照合を同じOwner・同じSnapshot内へ移す。短期排他を保持した外部Reader呼出し、Provider／子Process待機、Docker回収、外部通知を禁止する。履歴の更新も同じ排他を利用し、保持済みOwnerを借りる内部処理が再取得しない構成とする。
+
+保存用短期排他だけを一本化する。Task実行Lease、Provider Home、Host世代・実行環境回復等の別寿命の排他は維持する。`state.lock`は保存途中markerであり実効排他の代替ではない。これらの取得・解放失敗をFile削除で解除しない。
+
+同時保存が成立した内部経路では、現行の上位受理Reader再読取りと`pendingDeliveries.acceptanceSha256`への転記、同じ受領を二度確定するACKリレーを削除する。耐久Consumerが受領した事実自体やIdentity照合を削除しない。履歴の確定・確認前には耐久受領を保存しない。CLI／Workbenchの返却は一時返却のままとし、画面表示・既読・任意保存のACKを追加しない。実在する別保存先のConsumer受領は、この内部統合だけで完了扱いにしない。
+
+### 正常・中断・整理
+
+| 経路 | 残す情報と次の処置 | 禁止する短絡 |
+|---|---|---|
+| 正常 | Effect前の意図→開始観測→固定結果・必要成果保全→実終端・回収観測→履歴確定・確認→必要な耐久Consumer受領→不要な現在記録の整理 | AI終了だけでTask、Workspace、採用を一括完了にしない |
+| 開始前取消 | 未発行を確認し、取得済みの今回資源だけを解放する | 取消通知だけから未発行や解放成功を生成しない |
+| 開始後取消・親喪失 | 元Identityと発行済み／unknownを保持。新OwnerでRoot・実資源・排他をfresh確認し同じ義務へ再入場する | WeakMap／実行Capabilityの復元、別Task生成、自動AI再実行をしない |
+| 結果保存済み・耐久Consumer未受領 | 固定結果と履歴確認を再観測し、未完了の搬送・受領だけを再開する | 未受領を受領済みにせず、元Provider又は回収を自動再発行しない |
+| 受領保存済み・Producer完了応答喪失 | 同じ受領事実と同更新の内部配送待ち解消を再観測し、必要な終端応答・整理だけを再開する | 再配送・再受領しない。受領だけが別更新で保存される新しい部分状態を作らない |
+| 受理済み・cleanup不明 | 受理と未解決回収を別事実として保持する | 受理済みをcleanup完了へ読み替えない |
+| 履歴保存中断 | 元終端記録から固定した同じ行・時刻・Hashを使い、同一行の出版だけを再開する | 重複append、時刻再生成、未確認の元記録削除をしない |
+| 通常期限整理 | 既定30日を超えた終了要約を設定に従って整理する | 未解決義務・未確定移送・後続参照中の結果を期限削除しない |
+
+`state.json`と`history.jsonl`の確定は別更新である。元結果を残して行Identity・Hash・段階を固定し、短命`history.pending.jsonl`の出版・読戻し後にstateの確定段階を進める。既に同じ行があれば再appendせず確認する。state更新がその後失敗しても、履歴確定前へ巻き戻したりProviderを再実行したりしない。現在値／候補／履歴の相関が不明なら同じ参照を保持して停止する。通常の保存・読戻し確認を、突然の電源断に対する無条件保証へ強めない。
+
+### 実装の切替単位と成立確認
+
+- 統一Schemaと一意な情報配置を固定し、保存モデル・遷移を純粋試験で確認する。
+- 既存の保存処理を一つのWriterと保存排他へ実移管する。並行した二重書込み・第三Writerを本番へ接続しない。
+- OperationとTask／Queue／Workspaceを同じ保存へ接続し、履歴確認後の耐久Consumer受領を一度だけ保存する。内部ACKリレー・受理Readerの保存再入場を撤去する。
+- 履歴出版と期限整理を同じOwnerの再入場へ接続し、旧Writer・旧保存Root／設定Readerを撤去する。
+- 実Filesystemでwrite／flush／rename／読戻しの各中断、保存済み／応答喪失、履歴出版済み／state未確認、同時更新を反証する。取消・親喪失は合成子Processでjoinと残存を観測する。
+
+今回の条件で追加保証を成立させられない場合は、管理機構を増築する前に不足する保証と代替案を人間へ返す。実AI・実Docker・②の保持物を使用した検証は本設計から許可されない。旧設計の機械対応と過去Evidenceは移管元保証として維持し、新方式のSource・本番接続・新しい観測が揃うまで完成を表示しない。
+
+Workspace方式の目標は[作業領域の横断契約](05_Workspace.md)に従う。現行のTask／Attempt／Queue／保存・判断を再利用し、RepositoryとWorkspaceの対象結合、Workspace単位の競合変更と共有Git／正本／Provider資源の排他を分ける。下記の現Schema、Bundle参照、binding-wide Lease、同Process配送閉包は移行元の能力であり、新方式の確定API・保存形式ではない。旧状態を機械コピーせず、元Effect・未解決・結果参照を失わない切替契約を設計する。実装・移行・新方式検証は未完了。
 
 状態: 設計候補
 担当責任者: Qual-Lab
@@ -10,7 +71,7 @@ Workspace方式の目標は[作業領域の横断契約](03_Workspace.md)に従�
 
 ## Related
 
-- [Orchestratorアーキテクチャ](01_Architecture.md)
+- [Orchestratorアーキテクチャ](03_Task_Architecture.md)
 - [責務再編の計画](../../../99_Roadmap/Changes/CHG-000082/Evidence/261007_develop-responsibility-mapping.md)
 - [Orchestrator責務分離](../../../99_Roadmap/Changes/CHG-000063/change.md)
 - [検証設計](../../../07_Quality/03_Verification_Design.md)
@@ -56,7 +117,7 @@ VCのWorktree技術APIは`9c462a2e`で実装・実Git試験済み。これはOrc
 
 本書はOrchestratorの現在有効なInterface、永続Record、資源、Lock、Authority、Effect、状態遷移、不変条件および失敗注入点を所有する。版ごとの旧設計文書は現行Treeへ累積せず、当時の内容は対応するGit tagで保持する。
 
-[上位アーキテクチャ](01_Architecture.md)は責務、依存方向、公開APIと通知、Platform境界を所有する。[機械可読な設計対応](../../../07_Quality/Registry/coordinator-task-design-traceability.json)は本書を再定義せず、設計と実装・試験の対応切れを検出する検証用投影である。現行Symbol・旧実装Pathの対応表は移管前の基準であり、新配置の成立済み根拠ではない。Interface、Record、遷移とSemantic KeyはFolder改名だけで再採番しない。
+[上位アーキテクチャ](03_Task_Architecture.md)は責務、依存方向、公開APIと通知、Platform境界を所有する。[機械可読な設計対応](../../../07_Quality/Registry/coordinator-task-design-traceability.json)は本書を再定義せず、設計と実装・試験の対応切れを検出する検証用投影である。現行Symbol・旧実装Pathの対応表は移管前の基準であり、新配置の成立済み根拠ではない。Interface、Record、遷移とSemantic KeyはFolder改名だけで再採番しない。
 
 <a id="detailed-design-contract"></a>
 ## 2. Interface
@@ -87,11 +148,11 @@ VCのWorktree技術APIは`9c462a2e`で実装・実Git試験済み。これはOrc
 | `IF-DECISION` | Orchestrator | 判断の意味と適用世代を所有する。保護保存原語はPlatform Access、非秘密の現在適用は状態Snapshotへ保存する。 |
 | `IF-PLATFORM` | Platform Access、Coordinator | OS原語はNative、実行・回復意味はCoordinator、上位再入場と判断相関はOrchestrator。Nativeへ業務状態を移さない。 |
 
-Coordinatorの開始・終了通知を受けるだけでは、`REC-TASK-ATTEMPT`やQueueの保存確定は成立しない。Orchestratorが通知Identityと現在世代を検査し、状態保存を読戻しした後だけ上位状態を投影する。取消とPrimary Failure／cleanupの扱いは[公開操作の通知契約](01_Architecture.md#72-通知取消と保存確定)へ接続する。
+Coordinatorの開始・終了通知を受けるだけでは、`REC-TASK-ATTEMPT`やQueueの保存確定は成立しない。Orchestratorが通知Identityと現在世代を検査し、状態保存を読戻しした後だけ上位状態を投影する。取消とPrimary Failure／cleanupの扱いは[公開操作の通知契約](03_Task_Architecture.md#72-通知取消と保存確定)へ接続する。
 
 ### 2.1. 既存候補の採用境界
 
-`IF-INTEGRATION`は[候補採用の引渡し契約](01_Architecture.md#qualityへの引渡し)に従い、Workspaceの現在状態とVersion Controlの固定Ref／Commitから同じ候補を再観測し、明示採用Authority、Workspace／Candidate Identity、取込先HEAD、現在Revision、dirty Pathおよび許可Scopeを確認してから二親Mergeへ接続する。候補IdentityをIntegration Record、公開結果および既存結果Writerへ完全に保持する。処置前の拒否では正本Effect 0とし、Merge発行後のCommit失敗等では拒否結果だけからEffect 0を推定せず、元Effect・HEAD／Indexの観測・結果・回復参照を保持する。settlement不明時は同じRecovery義務を保持する。候補固定と候補採用を同じ成功状態へ畳まず、採用でもPushを発行しない。
+`IF-INTEGRATION`は[候補採用の引渡し契約](03_Task_Architecture.md#qualityへの引渡し)に従い、Workspaceの現在状態とVersion Controlの固定Ref／Commitから同じ候補を再観測し、明示採用Authority、Workspace／Candidate Identity、取込先HEAD、現在Revision、dirty Pathおよび許可Scopeを確認してから二親Mergeへ接続する。候補IdentityをIntegration Record、公開結果および既存結果Writerへ完全に保持する。処置前の拒否では正本Effect 0とし、Merge発行後のCommit失敗等では拒否結果だけからEffect 0を推定せず、元Effect・HEAD／Indexの観測・結果・回復参照を保持する。settlement不明時は同じRecovery義務を保持する。候補固定と候補採用を同じ成功状態へ畳まず、採用でもPushを発行しない。
 
 ## 3. 永続Record
 

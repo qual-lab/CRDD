@@ -6649,6 +6649,6 @@ export function describeCoordinatorDurableFoundation() {
     adoptionLease: "separate_exclusive_lock_with_no_stale_takeover",
     staleLockDisposition: "blocked_manual_reconciliation_required_before_reuse",
     externalWaitWhileMutationLockHeld: false,
-    upperOrchestratorCapabilityComplete: false,
+    taskManagementCapabilityComplete: false,
   });
 }

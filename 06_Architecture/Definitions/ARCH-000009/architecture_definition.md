@@ -7,7 +7,7 @@ Architecture ID: `ARCH-000009`
 
 ## 1. 責務と境界
 
-Workspace追加分のOwner・停止条件は[詳細設計](../../Details/orchestrator/03_Workspace.md)を参照する。従来対象外だったBranch／Mergeを限定的な明示操作として設計対象へ戻すが、具体API・書込み許可・実Git接続は未完成である。既存worktree読取りを新しい生成／取込の成立根拠にしない。
+Workspace追加分のOwner・停止条件は[詳細設計](../../Details/coordinator/05_Workspace.md)を参照する。従来対象外だったBranch／Mergeを限定的な明示操作として設計対象へ戻すが、具体API・書込み許可・実Git接続は未完成である。既存worktree読取りを新しい生成／取込の成立根拠にしない。
 
 verified／unverified／ambiguous／unavailableを分け、local／cross-sourceの対象範囲を明示する。GitはAdapterの一実装であり、未Commitを理由に通常利用を拒否しない。
 

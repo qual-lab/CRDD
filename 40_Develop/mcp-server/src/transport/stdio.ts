@@ -344,9 +344,7 @@ async function runMcpStdioWithHandler(
   return Object.freeze({
     contract: MCP_COORDINATOR_STDIO_CONTRACT,
     status: isFailed ? ("blocked" as const) : ("completed" as const),
-    reason: isFailed
-      ? "orchestrator_mcp_stdio_failed"
-      : "orchestrator_mcp_stdio_closed",
+    reason: isFailed ? "mcp_stdio_failed" : "mcp_stdio_closed",
     transportCleanupConfirmed: true,
     semanticResultObserved: isSemanticResultObserved,
     semanticCleanupConfirmed,
@@ -401,7 +399,7 @@ export async function runMcpCoordinatorStdio(
   output: Writable,
 ) {
   return runMcpStdioWithHandler(
-    createMcpServerFactory({ orchestrator: dependencies }),
+    createMcpServerFactory({ coordinator: dependencies }),
     input,
     output,
   );

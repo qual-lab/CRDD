@@ -120,6 +120,7 @@ test("stdio process transports one bounded MCP request and closes on parent EOF"
     sink.stream,
   );
   assert.equal(result.status, "completed");
+  assert.equal(result.reason, "mcp_stdio_closed");
   const response = JSON.parse(sink.read());
   assert.equal(response.id, 1);
   assert.equal(response.result.resultType, "complete");
@@ -215,6 +216,8 @@ test("stdio process rejects trailing and oversized frames without semantic effec
   );
   assert.equal(trailing.status, "blocked");
   assert.equal(oversized.status, "blocked");
+  assert.equal(trailing.reason, "mcp_stdio_failed");
+  assert.equal(oversized.reason, "mcp_stdio_failed");
   assert.equal(effects, 0);
 });
 

@@ -32,7 +32,7 @@ Coordinator借用接続の追加断面は、`ERB-IT-006`の通常二役割・一
 
 現在のSecret区分は[DI共通方針](../../../06_Architecture/Details/docker-isolation/01_Architecture.md#workspace-isolation-policy)を正本とする。Direct／Candidateに同じ技術方針を適用し、開発用`.env`のdummy内容が読めること自体をFailにしない。`ERB-IT-001`〜004の追加条件は、Repository外・Git実管理領域・`.crdd`の書込み境界、Provider認証等の保護、用途別RW、取消／回収とする。本番SecretをGit・通常開発環境へ置かないこと、開発資格の本番権限なし・限定権限・期限は既存管理の構成・運用確認で評価し、模擬値やDIの成功を実Cloud権限検証へ流用しない。未確認は未評価として残し、自動Cloud検査や新しいRuntime Gateを捏造しない。旧隠蔽試験のFailは歴史として保持するが、新方針の不合格へ流用しない。Source共通化・新条件の実境界はNot Run。
 
-[Workspace詳細](../../../06_Architecture/Details/orchestrator/03_Workspace.md)の`docker-isolation.workspace-borrowing`（ARCH-000008）を追加する。`ERB-UT-023`は読取り助言／許可された変更依頼の分類と最小投影、`ERB-IT-001`〜004は新対象からの実Mount・Process開始／終了・取消・一次失敗とcleanup・観測不能を確認する。`ERB-ST-005`／030は通常公開Taskの結果と、実取消・親喪失後の同対象再入場を相関する。Git Worktreeの分離をSandboxとみなさず、未許可Repositoryへのアクセスと、共有Git管理情報への書込みを拒否する。Direct AI書込み／共有Gitの許可が未決なら新Effect前に停止し、継続Workspace・元変更・他Task成果の保全と実行資源の回収を別に観測する。基準DI完成は新方式の実Mount・全Provider経路の成功証拠にしない。
+[Workspace詳細](../../../06_Architecture/Details/coordinator/05_Workspace.md)の`docker-isolation.workspace-borrowing`（ARCH-000008）を追加する。`ERB-UT-023`は読取り助言／許可された変更依頼の分類と最小投影、`ERB-IT-001`〜004は新対象からの実Mount・Process開始／終了・取消・一次失敗とcleanup・観測不能を確認する。`ERB-ST-005`／030は通常公開Taskの結果と、実取消・親喪失後の同対象再入場を相関する。Git Worktreeの分離をSandboxとみなさず、未許可Repositoryへのアクセスと、共有Git管理情報への書込みを拒否する。Direct AI書込み／共有Gitの許可が未決なら新Effect前に停止し、継続Workspace・元変更・他Task成果の保全と実行資源の回収を別に観測する。基準DI完成は新方式の実Mount・全Provider経路の成功証拠にしない。
 
 本節の新方式全体はNot Run。以下の限定実測だけを区別し、既存Local Itemの元結果・旧方式のEvidenceを新方式へ継承しない。詳細Schema・操作許可・dirty／Commit処理の未決は該当実装前の停止条件とする。条件区分は正常・境界・準正常・異常・回復を扱い、UTの値判定、ITの実保存／実Git／実Mount、公開ST、利用者UATを相互代替しない。
 

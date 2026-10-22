@@ -99,7 +99,7 @@
       "contractRevision": 0,
       "stability": "pilot",
       "subsystem": "orchestrator",
-      "sourceDocument": "06_Architecture/Details/orchestrator/02_Detailed_Design.md",
+      "sourceDocument": "06_Architecture/Details/coordinator/04_Task_Detailed_Design.md",
       "sourceSha256": "8ffc726d96e5456530d216c5e3d83a68e31fca1df0ff227f99942fb870269104",
       "meanings": [
         {

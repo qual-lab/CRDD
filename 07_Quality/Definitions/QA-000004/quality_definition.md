@@ -48,7 +48,7 @@ Quality ID: `QA-000004`
 | [execution-intelligence](../../../06_Architecture/Details/execution-intelligence/01_Architecture.md) | Canonical記録、不変公開、並行Writer、実行事実、観測不能、出所と評価候補の分離 |
 | [mcp-server](../../../06_Architecture/Details/mcp-server/01_Architecture.md) | Transport変換、公開Schema、Session、結果搬送 |
 | [project-operation](../../../06_Architecture/Details/domain-model/02_Activity_Context.md) | Project運営状態、Meeting／Topic候補、正本への引渡し |
-| [orchestrator](../../../06_Architecture/Details/orchestrator/01_Architecture.md) | Objective、Task、判断、取消、回復、公開結果 |
+| [coordinator](../../../06_Architecture/Details/coordinator/01_Architecture.md) | [Task詳細](../../../06_Architecture/Details/coordinator/03_Task_Architecture.md)のObjective、Task、判断、取消、回復、公開結果 |
 | [runtime-data](../../../06_Architecture/Details/domain-model/03_Repository_Storage.md) | Repository-local／OS管理Root、用途、保持、清掃、回復 |
 | [semantic-coverage](../../../06_Architecture/Details/semantic-coverage/01_Architecture.md) | Architectureの意味単位、実装Symbol、Quality Local Itemおよび試験Symbolの対応関係を決定論的に投影する |
 | [version-control](../../../06_Architecture/Details/version-control/01_Architecture.md) | Repository境界、Revision、差し替え可能な履歴管理Adapter |
@@ -112,9 +112,9 @@ Quality ID: `QA-000004`
 
 ### 二Surface再編のActivity観測条件
 
-活動の新Owner接続では`PPR-IT-012`として[Orchestrator活動契約](../../../06_Architecture/Details/orchestrator/01_Architecture.md#73-認可済みrepositoryの活動読取り--新owner接続候補)を実保存Readerへ接続し、単一Source、観測済み1件＋他は状態なし、全件状態なし、複数現在投影の競合、unknown混在を確認する。現在状態と履歴は独立し、履歴の一件不明から部分Eventを正常公開しない。出所Repository／Git改訂と各EventのRepositoryを保持し、同一Event IDの複数出所は競合として扱う。全SourceのEventを時刻／ID降順で合成した後のlimit・Cursor、現在Source集合／改訂変更後の明示拒否を反証する。いずれかのGit改訂がnullの第一Pageでは観測結果とnull出所を保持してcontinuationを発行せず、Cursor付き再要求では同じ観測不能を明示拒否する。null同士を改訂不変へ変換する反例も検査する。公開結果のProject差、Source重複／逆順、現在Owner不整合、Eventの集合外出所・重複／逆順、欠測と継続の不整合、Cursor相関Hashと返却Page末尾の差、Proxy／accessorを直接反証する。保存Bindingは独立Goldenと旧式で保存した値の新Reader読取りでbyte互換を確認する。offset表現で文字列順と実時刻順が逆転する反例、limit=1の二Pageで欠落・重複なし、同じ実時刻のEvent ID順を確認し、EI保存文字列は変更しない。新しい追記・期間整理を含む現在観測であり、固定Snapshot保証を作らない。合成Readerだけでは実状態・履歴・出所の成立を証明せず、正式結果はNot Runを維持する。
+活動の新Owner接続では`PPR-IT-012`として[Orchestrator活動契約](../../../06_Architecture/Details/coordinator/03_Task_Architecture.md#73-認可済みrepositoryの活動読取り--新owner接続候補)を実保存Readerへ接続し、単一Source、観測済み1件＋他は状態なし、全件状態なし、複数現在投影の競合、unknown混在を確認する。現在状態と履歴は独立し、履歴の一件不明から部分Eventを正常公開しない。出所Repository／Git改訂と各EventのRepositoryを保持し、同一Event IDの複数出所は競合として扱う。全SourceのEventを時刻／ID降順で合成した後のlimit・Cursor、現在Source集合／改訂変更後の明示拒否を反証する。いずれかのGit改訂がnullの第一Pageでは観測結果とnull出所を保持してcontinuationを発行せず、Cursor付き再要求では同じ観測不能を明示拒否する。null同士を改訂不変へ変換する反例も検査する。公開結果のProject差、Source重複／逆順、現在Owner不整合、Eventの集合外出所・重複／逆順、欠測と継続の不整合、Cursor相関Hashと返却Page末尾の差、Proxy／accessorを直接反証する。保存Bindingは独立Goldenと旧式で保存した値の新Reader読取りでbyte互換を確認する。offset表現で文字列順と実時刻順が逆転する反例、limit=1の二Pageで欠落・重複なし、同じ実時刻のEvent ID順を確認し、EI保存文字列は変更しない。新しい追記・期間整理を含む現在観測であり、固定Snapshot保証を作らない。合成Readerだけでは実状態・履歴・出所の成立を証明せず、正式結果はNot Runを維持する。
 
-導出元は[Orchestratorの認可済み活動読取り](../../../06_Architecture/Details/orchestrator/01_Architecture.md#73-認可済みrepositoryの活動読取り--新owner接続候補)と[MCPのActivity操作](../../../06_Architecture/Details/mcp-server/01_Architecture.md)である。`PPR-IT-012`では本番の現在状態Readerと履歴Readerを分け、observed／absent／unknown、eventState／eventReason、現在値とeventContinuationを独立に観測する。状態を読めても履歴が観測不能なら、空の正常履歴へ変えない。
+導出元は[Orchestratorの認可済み活動読取り](../../../06_Architecture/Details/coordinator/03_Task_Architecture.md#73-認可済みrepositoryの活動読取り--新owner接続候補)と[MCPのActivity操作](../../../06_Architecture/Details/mcp-server/01_Architecture.md)である。`PPR-IT-012`では本番の現在状態Readerと履歴Readerを分け、observed／absent／unknown、eventState／eventReason、現在値とeventContinuationを独立に観測する。状態を読めても履歴が観測不能なら、空の正常履歴へ変えない。
 
 直接利用側の移管では、MCP Adapterと旧REST Clientが共有Parserの検査に加えて要求Projectと応答Projectをexact照合する。Workbench旧Remote表示は検査済み結果から表示Propertyだけを再構成し、結果直下のProject／Source／現在OwnerとEventのRepositoryを暗黙転記しない。現在状態・履歴状態・Continuationを保持し、履歴理由だけを画面語彙へ写す。旧Local Reader表示も回帰する。この直接追従は新AM本番Launcher／Workbench MCP切替、出所表示の採用、PPR-IT-012全体正式Passの根拠へ拡張しない。
 

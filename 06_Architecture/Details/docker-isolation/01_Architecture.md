@@ -61,7 +61,7 @@ Coordinatorが同じ配置でCLI計画を準備時とEffect直前に再生成し
 
 今回の移管はSourceと構成結合の回帰対象であり、実Docker／実AIの再実行や保持中の②試験物の処置は含まない。
 
-新Workspace方式への接続は[借用・終了契約](../orchestrator/03_Workspace.md#5-状態競合終了条件)を目標とする。DIは上位が検証・許可した作業対象だけを借用し、実行資源を回収する。継続Workspace／Branchを削除・resetせず、上位Task・採否を知らない。Direct／Candidateの共通方針は本書の採用済み契約に従うが、具体的Mount・書込み保護の本番接続は未完了で、現完成範囲には含めない。以下の実装・検証完了は基準のDI技術分離に限り、新方式の実Mount／取消／成果保全はNot Run。
+新Workspace方式への接続は[借用・終了契約](../coordinator/05_Workspace.md#5-状態競合終了条件)を目標とする。DIは上位が検証・許可した作業対象だけを借用し、実行資源を回収する。継続Workspace／Branchを削除・resetせず、上位Task・採否を知らない。Direct／Candidateの共通方針は本書の採用済み契約に従うが、具体的Mount・書込み保護の本番接続は未完了で、現完成範囲には含めない。以下の実装・検証完了は基準のDI技術分離に限り、新方式の実Mount／取消／成果保全はNot Run。
 
 成果物種別: Architecture詳細設計
 詳細設計領域: docker-isolation

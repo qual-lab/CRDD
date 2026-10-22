@@ -1324,6 +1324,6 @@ export function describeCoordinatorExecutionContract() {
     externalWaitWhileMutationLockHeld: false,
     cleanupUnknownDisposition: "durable_recovery_and_reservation_retained",
     staleOrOwnedQueueDisposition: "effect_zero_manual_reconciliation",
-    upperOrchestratorCapabilityComplete: false,
+    taskManagementCapabilityComplete: false,
   });
 }

@@ -11,6 +11,7 @@
 import assert from "node:assert/strict";
 import { invokeMcpRequest } from "../fixtures/sdk-request.ts";
 import type { McpServerDependencies } from "../../src/request/server.ts";
+import { createMcpServerFactory } from "../../src/request/server.ts";
 import test from "node:test";
 
 import type { PortfolioProjection } from "../../../domain-model/src/index.ts";
@@ -209,12 +210,25 @@ test("Project Context MCP lists only the supplied portfolio", async () => {
  * @boundary PPR-UT-006=Direct Boundary: mcp Test Source→対象契約
  */
 test("MCP application publishes runtime and context tools without conflating them", async () => {
+  const calls = { authentication: 0, objective: 0, decision: 0, state: 0 };
   const dependencies = {
-    orchestrator: {
-      authenticateClient: () => ({ status: "unknown" as const }),
-      runObjective: async () => ({}),
-      submitDecision: async () => ({}),
-      getProjectState: async () => ({}),
+    coordinator: {
+      authenticateClient: () => {
+        calls.authentication += 1;
+        return { status: "unknown" as const };
+      },
+      runObjective: async () => {
+        calls.objective += 1;
+        return {};
+      },
+      submitDecision: async () => {
+        calls.decision += 1;
+        return {};
+      },
+      getProjectState: async () => {
+        calls.state += 1;
+        return {};
+      },
     },
     projectContext: { readPortfolio: async () => portfolio() },
   } satisfies McpServerDependencies;
@@ -232,6 +246,54 @@ test("MCP application publishes runtime and context tools without conflating the
   assert.equal(new Set(tools.map(({ name }) => name)).size, 5);
   assert.ok(tools.some(({ name }) => name === MCP_PROJECT_CONTEXT_LIST_TOOL));
   assert.ok(tools.some(({ name }) => name === MCP_PROJECT_CONTEXT_GET_TOOL));
+  assert.equal(
+    tools.filter(({ name }) => name === "crdd.get_coordinator_state").length,
+    1,
+  );
+  assert.equal(
+    tools.some(({ name }) => name === "crdd.get_orchestrator_state"),
+    false,
+  );
+  const retired = await invokeMcpRequest(
+    call("crdd.get_orchestrator_state", {}),
+    dependencies,
+  );
+  assert.ok(retired.error);
+  assert.equal(retired.error.code, -32602);
+  assert.deepEqual(calls, {
+    authentication: 0,
+    objective: 0,
+    decision: 0,
+    state: 0,
+  });
+});
+
+/**
+ * 廃止した依存名を、値の読取りやOwner呼出し前に拒否する。
+ * @responsibility 旧名の黙示的な無視とgetterの実行を防ぐ。
+ * @trace PPR-UT-006
+ * @precondition 旧構成名をown propertyとして与える。
+ * @stimulus 未定義値とgetterを持つ依存でFactoryを作成する。
+ * @observation 例外理由とgetter呼出し数を取得する。
+ * @oracle 両方を同じ理由で拒否し、getterは呼ばない。
+ * @cleanup N/A: 外部資源を作成しない。
+ * @boundary PPR-UT-006=Direct Boundary: 起動構成→SDK Factory。
+ */
+test("MCP rejects the retired dependency key without reading it", () => {
+  let reads = 0;
+  const retired = Object.defineProperty({}, "orchestrator", {
+    get() {
+      reads += 1;
+      return undefined;
+    },
+  });
+  for (const dependencies of [{ orchestrator: undefined }, retired]) {
+    assert.throws(
+      () => createMcpServerFactory(dependencies as McpServerDependencies),
+      { message: "mcp_retired_dependency_key" },
+    );
+  }
+  assert.equal(reads, 0);
 });
 
 /**

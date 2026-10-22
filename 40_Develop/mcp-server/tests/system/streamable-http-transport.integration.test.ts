@@ -256,6 +256,13 @@ test("共有MCP設定Readerは当該Repositoryの閉設定だけを受理する"
  * @boundary 配置契約の局所検査。実TLS終端の証明ではない。
  */
 test("共有MCPはHTTPS Origin以外の構成を拒否する", async () => {
+  const source = fs.readFileSync(
+    new URL("../../src/transport/http.ts", import.meta.url),
+    "utf8",
+  );
+  assert.doesNotMatch(source, /orchestrator_mcp_http_/u);
+  assert.ok(source.includes('throw new Error("mcp_http_address_unavailable")'));
+  assert.ok(source.includes('throw new Error("mcp_http_cleanup_unconfirmed")'));
   let calls = 0;
   for (const publicOrigin of [
     "",
@@ -279,7 +286,7 @@ test("共有MCPはHTTPS Origin以外の構成を拒否する", async () => {
         },
         { port: 0, publicOrigin },
       ),
-      /configuration_invalid/u,
+      { message: "mcp_http_configuration_invalid" },
     );
   }
   assert.equal(calls, 0);
@@ -1456,7 +1463,7 @@ test("localhost HTTPは認証済み状態参照を同じ公開契約へ搬送す
       method: "tools/call",
       params: {
         _meta: META,
-        name: "crdd.get_orchestrator_state",
+        name: "crdd.get_coordinator_state",
         arguments: {
           requestId: "query-a",
           projectId: "project-a",
@@ -1582,7 +1589,7 @@ test("HTTPは認証・Origin・mirror header不一致をApplication前で拒否�
     method: "tools/call",
     params: {
       _meta: META,
-      name: "crdd.get_orchestrator_state",
+      name: "crdd.get_coordinator_state",
       arguments: {
         requestId: "query-a",
         projectId: "project-a",
@@ -1646,14 +1653,14 @@ test("HTTPは不正UTF-8・重複key・容量超過を意味処理前に拒否�
     { port: 0, bearerToken: TOKEN },
   );
   const url = new URL(`http://${server.host}:${server.port}${server.endpoint}`);
-  const requestHeaders = headers("tools/call", "crdd.get_orchestrator_state");
+  const requestHeaders = headers("tools/call", "crdd.get_coordinator_state");
   try {
     assert.equal(
       await sendRaw(url, requestHeaders, Buffer.from([0xc3, 0x28])),
       400,
     );
     const duplicate = Buffer.from(
-      `{"jsonrpc":"2.0","id":1,"id":2,"method":"tools/call","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"${MCP_COORDINATOR_PROTOCOL_VERSION}","io.modelcontextprotocol/clientCapabilities":{}},"name":"crdd.get_orchestrator_state","arguments":{}}}`,
+      `{"jsonrpc":"2.0","id":1,"id":2,"method":"tools/call","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"${MCP_COORDINATOR_PROTOCOL_VERSION}","io.modelcontextprotocol/clientCapabilities":{}},"name":"crdd.get_coordinator_state","arguments":{}}}`,
       "utf8",
     );
     assert.equal(await sendRaw(url, requestHeaders, duplicate), 400);

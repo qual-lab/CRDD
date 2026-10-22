@@ -10,7 +10,7 @@ Coordinatorは計画時とEffect直前で同じDocker側配置を使ってAI計�
 
 Source・利用側・試験の移管を行い、現在の回帰と独立レビューで確認する。今回の局所確認を実AI・実Dockerの再検証成立とは扱わない。
 
-Workspace再編後も[Package責務](../orchestrator/03_Workspace.md#3-packageの責務と依存方向)に従いProvider CLI・Profile・認証手順・入出力差を所有する。Workspace寿命・Queue・Git採用は引き取らない。既存の短命作業Directory表記を新設Workspaceと区別して命名し、外部CLIの予約語・認証保存先は無断変更しない。Package内のSource配置変更と未完了範囲は[現在の構造](#71-責務別配置と公開操作)で区別する。
+Workspace再編後も[Package責務](../coordinator/05_Workspace.md#3-packageの責務と依存方向)に従いProvider CLI・Profile・認証手順・入出力差を所有する。Workspace寿命・Queue・Git採用は引き取らない。既存の短命作業Directory表記を新設Workspaceと区別して命名し、外部CLIの予約語・認証保存先は無断変更しない。Package内のSource配置変更と未完了範囲は[現在の構造](#71-責務別配置と公開操作)で区別する。
 
 成果物種別: Architecture詳細設計
 詳細設計領域: ai-adapter

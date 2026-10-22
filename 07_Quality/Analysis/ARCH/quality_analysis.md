@@ -9,7 +9,7 @@
 
 秘密区分の人間判断は[DI共通方針](../../../06_Architecture/Details/docker-isolation/01_Architecture.md#workspace-isolation-policy)へ反映する。`docker-isolation.workspace-borrowing`からQA-000006へ導くのはDirect／Candidate共通のHost／Git／内部状態／認証境界と用途別RW・終了後確認であり、開発用`.env`の全隠蔽ではない。本番資格の外部既存管理と開発資格の権限・期限は運用確認とし、値の試験で実権限を証明しない。既存Local Item集合を増やさず追加条件を更新し、実装・実境界未実施をPassへ変更しない。
 
-入力は[Workspace横断契約](../../../06_Architecture/Details/orchestrator/03_Workspace.md#7-qualityへの引渡し)。旧Sourceから要求を逆生成せず、人間の採用方針を具体化したARCH責務・状態・外部境界から導出する。以下は新方式の義務であり、既存試験の再利用可否や実行Passは未確定。
+入力は[Workspace横断契約](../../../06_Architecture/Details/coordinator/05_Workspace.md#7-qualityへの引渡し)。旧Sourceから要求を逆生成せず、人間の採用方針を具体化したARCH責務・状態・外部境界から導出する。以下は新方式の義務であり、既存試験の再利用可否や実行Passは未確定。
 
 | Source／導出キー | 成功の意味と反証する失敗 | 統合先・処置 | 必要段階 |
 |---|---|---|---|

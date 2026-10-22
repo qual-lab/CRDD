@@ -2,7 +2,7 @@
 
 移管途中の履歴記録（旧Package撤去後の現在Source配置ではない）：Topic／Meetingの既存MCP Consumerは、共通Adapterの完全入力検査と取消確認後だけ現在Repository解決を行う遅延接続へ変更する。Resolver一回の後にも取消を確認し、観測中の取消から保存へ進まない。旧認証・Scope・Relationの意味は維持する。この順序是正はAM置換や旧CROS廃止の完成ではない。詳細は[MCP設計](../mcp-server/01_Architecture.md#topicmeetingの現在認可前の入力境界--2026-10-12)を参照する。
 
-移管途中の履歴記録（旧Package撤去後の現在Source配置ではない）：2026-10-12の活動移管候補は[Orchestratorの認可済み活動読取り](../orchestrator/01_Architecture.md#73-認可済みrepositoryの活動読取り--新owner接続候補)を新Ownerとする。現候補では重複した`activity/types.ts`と`activity/validate.ts`を撤去し、旧認可集合を受けるReader接続だけを`activity/read.ts`へ保持する。HTTP・MCPはOrchestrator型とParserを直接使用し、要求Projectとの一致も確認する。現行AM型を旧CROS型へcastしない。本文の旧CROS活動合成・型配置は当時の比較資料であり、現在配置ではない。実Store ReaderのAM接続と全Consumer移行・旧REST撤去の完成を区別する。
+移管途中の履歴記録（旧Package撤去後の現在Source配置ではない）：2026-10-12の活動移管候補は[Orchestratorの認可済み活動読取り](../coordinator/03_Task_Architecture.md#73-認可済みrepositoryの活動読取り--新owner接続候補)を新Ownerとする。現候補では重複した`activity/types.ts`と`activity/validate.ts`を撤去し、旧認可集合を受けるReader接続だけを`activity/read.ts`へ保持する。HTTP・MCPはOrchestrator型とParserを直接使用し、要求Projectとの一致も確認する。現行AM型を旧CROS型へcastしない。本文の旧CROS活動合成・型配置は当時の比較資料であり、現在配置ではない。実Store ReaderのAM接続と全Consumer移行・旧REST撤去の完成を区別する。
 
 成果物種別: Architecture詳細設計
 詳細設計領域: cros

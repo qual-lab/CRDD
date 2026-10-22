@@ -166,7 +166,7 @@ Detailは第2・3節のDefinition入力を置き換えず、その意味を実�
 
 - [現行照合先](../../Details/domain-model/02_Activity_Context.md)
 - [現行認可の照合先](../../Details/access-management/01_Architecture.md)
-- [現行照合先](../../Details/orchestrator/01_Architecture.md)
+- [現行照合先](../../Details/coordinator/03_Task_Architecture.md)
 - [現行照合先](../../Details/mcp-server/01_Architecture.md)
 
 ## Checklist

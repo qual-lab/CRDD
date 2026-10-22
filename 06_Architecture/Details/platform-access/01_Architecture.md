@@ -503,7 +503,7 @@ Docker復旧helperは固定mutexとartifact handleを保持し、検証済み対
 
 | 対象 | 確認先 |
 |---|---|
-| 要求・応答とCLI | [Rust CLI試験](../../../40_Develop/platform-access/tests/integration/native-cli.rs)、protocol内試験。旧PR03専用TS試験は未接続候補の撤去とともに退役し、現行Protocolの同値保証には使わない。契約説明の確認だけ[Root観測試験](../../../40_Develop/coordinator/tests/unit/root-observation.contract.test.ts)へ移管する |
+| 要求・応答とCLI | [Rust CLI試験](../../../40_Develop/platform-access/tests/integration/native-cli.rs)、protocol内試験。旧PR03専用TS試験は未接続候補の撤去とともに退役し、現行Protocolの同値保証には使わない。契約説明の確認だけ[Root観測試験](../../../40_Develop/coordinator/tests/unit/execution/root-observation.contract.test.ts)へ移管する |
 | 成果物同一性 | [成果物同一性試験](../../../40_Develop/platform-access/tests/integration/artifact-identity-observation.contract.test.ts)。固定Artifact／Bootstrapと実Filesystemの相関を確認する。Coordinator専用Trust Core／Release Identity試験は専用方式とともに退役し、この試験を配布元真正性・旧配布閉包保証の代替にしない |
 | Provider Home／Runtime State | `filesystem/root_observation.rs`内試験、[Home／Runtime State観測試験](../../../40_Develop/platform-access/tests/unit/filesystem/protection.contract.test.ts)、[Runtime State Adapter試験](../../../40_Develop/coordinator/tests/unit/execution/protected-root.contract.test.ts) |
 | Docker復旧 | docker-desktop/repair.rs内試験、[DI Machine・技術接続試験](../../../40_Develop/docker-isolation/tests/integration/repair-runtime.contract.test.ts)、[Coordinatorの現在Writer・履歴・保持／終了接続試験](../../../40_Develop/coordinator/tests/integration/runtime-repair-owner.contract.test.ts) |
