@@ -13,7 +13,7 @@
 import {
   readAuthorizedRuntimeActivity,
   type RuntimeActivityObservation,
-} from "../../../../orchestrator/src/index.ts";
+} from "../../../../coordinator/src/index.ts";
 import type { RepositoryProjectContext } from "../../../../domain-model/src/index.ts";
 import { verifyRepositoryRoot } from "../../../../version-control/src/index.ts";
 

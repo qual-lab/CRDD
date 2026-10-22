@@ -10,7 +10,7 @@ import { useEffect, useRef, useState, type ReactElement } from "react";
 import type {
   WorkspaceCommand,
   WorkspaceView,
-} from "../../../../orchestrator/src/index.ts";
+} from "../../../../coordinator/src/index.ts";
 import type { WorkspaceCandidateSelection } from "../../../../version-control/src/index.ts";
 import { requestWorkbenchMutation } from "../api/mutations.ts";
 import { WorkbenchPanel } from "./elements.ts";

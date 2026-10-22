@@ -421,7 +421,7 @@ test("保護対象Runtimeは正式公開契約を使いGit内部実装へ直接�
   const mockConsumer = fs.readFileSync(
     path.join(
       developRoot,
-      "orchestrator/tests/integration/docker-recovery-settlement.contract.test.ts",
+      "coordinator/tests/integration/docker-recovery-settlement.contract.test.ts",
     ),
     "utf8",
   );
@@ -486,7 +486,7 @@ test("Fixed SnapshotとFixed Revisionの既知Consumer集合が宣言と一致�
     ),
     [
       "40_Develop/coordinator/scripts/native-git-provenance.ts",
-      "40_Develop/coordinator/src/external-send/policy.ts",
+      "40_Develop/coordinator/src/decision/external-send-policy.ts",
     ],
   );
   assert.deepEqual(
@@ -496,8 +496,8 @@ test("Fixed SnapshotとFixed Revisionの既知Consumer集合が宣言と一致�
     [
       "40_Develop/coordinator/scripts/native-git-provenance.ts",
       "40_Develop/coordinator/src/execution/repository-binding.ts",
-      "40_Develop/orchestrator/src/state/activity.ts",
-      "40_Develop/orchestrator/src/task/request-composition.ts",
+      "40_Develop/coordinator/src/state/activity.ts",
+      "40_Develop/coordinator/src/task/request-composition.ts",
       "40_Develop/workbench-server/scripts/verify-readonly-ai.ts",
     ],
   );
@@ -508,9 +508,9 @@ test("Fixed SnapshotとFixed Revisionの既知Consumer集合が宣言と一致�
       "40_Develop/coordinator/scripts/verify-orchestrator-real-providers.ts",
       "40_Develop/coordinator/src/execution/borrowed-tree.ts",
       "40_Develop/coordinator/src/execution/development-measurement-session.ts",
-      "40_Develop/orchestrator/src/decision/public-acceptance.ts",
-      "40_Develop/orchestrator/src/objective/public-operation.ts",
-      "40_Develop/orchestrator/src/state/public-query.ts",
+      "40_Develop/coordinator/src/decision/public-acceptance.ts",
+      "40_Develop/coordinator/src/objective/public-operation.ts",
+      "40_Develop/coordinator/src/state/public-query.ts",
     ],
     inspectRepositoryRevisionCandidate: [
       "40_Develop/coordinator/scripts/verification-result-record.ts",
@@ -544,7 +544,7 @@ test("Fixed SnapshotとFixed Revisionの既知Consumer集合が宣言と一致�
         })
         .map(({ relativePath }) => relativePath)
         .sort();
-      assert.deepEqual(actual, expected);
+      assert.deepEqual(actual, [...expected].sort());
     }
   };
   verifyCandidateConsumers(sources);
@@ -664,23 +664,23 @@ test("Repository LocationとRepository-local Ignoreの既知Consumer集合が宣
       "40_Develop/coordinator/scripts/verify-reviewer-boundary.ts",
       "40_Develop/coordinator/scripts/verify-route-matrix.ts",
       "40_Develop/coordinator/scripts/workspace-task-fixture.ts",
-      "40_Develop/orchestrator/src/objective/public-operation.ts",
-      "40_Develop/orchestrator/src/decision/public-operation.ts",
-      "40_Develop/orchestrator/src/decision/public-acceptance.ts",
-      "40_Develop/orchestrator/src/state/public-query.ts",
+      "40_Develop/coordinator/src/objective/public-operation.ts",
+      "40_Develop/coordinator/src/decision/public-operation.ts",
+      "40_Develop/coordinator/src/decision/public-acceptance.ts",
+      "40_Develop/coordinator/src/state/public-query.ts",
       "40_Develop/coordinator/src/cli/command.ts",
       "40_Develop/coordinator/src/execution/diagnostics.ts",
       "40_Develop/coordinator/src/execution/runtime-repair.ts",
       "40_Develop/coordinator/scripts/verification-result-record.ts",
       "40_Develop/coordinator/scripts/native-git-provenance.ts",
-      "40_Develop/coordinator/src/external-send/policy.ts",
-      "40_Develop/orchestrator/src/cli/command.ts",
-      "40_Develop/orchestrator/src/storage/current-state.ts",
-      "40_Develop/orchestrator/src/storage/history.ts",
-      "40_Develop/orchestrator/src/workspace/commands.ts",
-      "40_Develop/orchestrator/src/workspace/operations.ts",
-      "40_Develop/orchestrator/src/task/settle-docker-recovery.ts",
-      "40_Develop/orchestrator/src/platform/windows-adapter.ts",
+      "40_Develop/coordinator/src/decision/external-send-policy.ts",
+      "40_Develop/coordinator/src/cli/request.ts",
+      "40_Develop/coordinator/src/storage/current-state.ts",
+      "40_Develop/coordinator/src/storage/history.ts",
+      "40_Develop/coordinator/src/workspace/commands.ts",
+      "40_Develop/coordinator/src/workspace/operations.ts",
+      "40_Develop/coordinator/src/task/settle-docker-recovery.ts",
+      "40_Develop/coordinator/src/platform/windows-adapter.ts",
       "40_Develop/coordinator/src/execution/repository-binding.ts",
       "40_Develop/coordinator/src/execution/borrowed-tree.ts",
       "40_Develop/coordinator/src/execution/change-snapshot.ts",
@@ -871,7 +871,7 @@ test("Local Change Setと用途別Named SymbolのConsumer集合が宣言と一�
     .sort();
   assert.deepEqual(localChangeSetConsumers, [
     "40_Develop/checker/src/cli/test-catalog.ts",
-    "40_Develop/orchestrator/src/workspace/commands.ts",
+    "40_Develop/coordinator/src/workspace/commands.ts",
     "40_Develop/workbench-server/src/server/project/surface.ts",
   ]);
 
@@ -923,8 +923,8 @@ test("Local Change Setと用途別Named SymbolのConsumer集合が宣言と一�
       "40_Develop/domain-model/src/project-context/read-context.ts",
       "40_Develop/mcp-server/src/request/authentication.ts",
       "40_Develop/mcp-server/src/transport/configuration.ts",
-      "40_Develop/orchestrator/src/state/activity.ts",
-      "40_Develop/orchestrator/src/state/activity-types.ts",
+      "40_Develop/coordinator/src/state/activity.ts",
+      "40_Develop/coordinator/src/state/activity-types.ts",
       "40_Develop/workbench-server/src/server/connection/configuration.ts",
       "40_Develop/workbench-server/src/server/topic-meeting/access-resolver.ts",
       "40_Develop/coordinator/scripts/check-platform-access-coverage.ts",
@@ -943,7 +943,7 @@ test("Local Change Setと用途別Named SymbolのConsumer集合が宣言と一�
       "40_Develop/coordinator/src/execution/diagnostics.ts",
       "40_Develop/coordinator/src/execution/runtime-repair.ts",
       "40_Develop/coordinator/scripts/native-git-provenance.ts",
-      "40_Develop/coordinator/src/external-send/policy.ts",
+      "40_Develop/coordinator/src/decision/external-send-policy.ts",
       "40_Develop/coordinator/src/execution/terminal-caller-checkpoint.ts",
       "40_Develop/coordinator/src/execution/terminal-caller-lease.ts",
       "40_Develop/coordinator/src/execution/repository-binding.ts",
@@ -954,19 +954,19 @@ test("Local Change Setと用途別Named SymbolのConsumer集合が宣言と一�
       "40_Develop/coordinator/src/execution/provider-execution.ts",
       "40_Develop/coordinator/src/execution/advice.ts",
       "40_Develop/execution-intelligence/src/storage/store.ts",
-      "40_Develop/orchestrator/src/cli/command.ts",
-      "40_Develop/orchestrator/src/objective/public-operation.ts",
-      "40_Develop/orchestrator/src/decision/public-operation.ts",
-      "40_Develop/orchestrator/src/decision/public-acceptance.ts",
-      "40_Develop/orchestrator/src/state/public-query.ts",
-      "40_Develop/orchestrator/src/platform/windows-adapter.ts",
-      "40_Develop/orchestrator/src/storage/current-state.ts",
-      "40_Develop/orchestrator/src/storage/history.ts",
-      "40_Develop/orchestrator/src/workspace/operations.ts",
-      "40_Develop/orchestrator/src/task/settle-docker-recovery.ts",
-      "40_Develop/orchestrator/src/task/request-composition.ts",
+      "40_Develop/coordinator/src/cli/request.ts",
+      "40_Develop/coordinator/src/objective/public-operation.ts",
+      "40_Develop/coordinator/src/decision/public-operation.ts",
+      "40_Develop/coordinator/src/decision/public-acceptance.ts",
+      "40_Develop/coordinator/src/state/public-query.ts",
+      "40_Develop/coordinator/src/platform/windows-adapter.ts",
+      "40_Develop/coordinator/src/storage/current-state.ts",
+      "40_Develop/coordinator/src/storage/history.ts",
+      "40_Develop/coordinator/src/workspace/operations.ts",
+      "40_Develop/coordinator/src/task/settle-docker-recovery.ts",
+      "40_Develop/coordinator/src/task/request-composition.ts",
       "40_Develop/visual-preview/src/preview/server.ts",
-      "40_Develop/orchestrator/src/workspace/commands.ts",
+      "40_Develop/coordinator/src/workspace/commands.ts",
       "40_Develop/workbench-server/bin/workbench-server.ts",
       "40_Develop/workbench-server/scripts/verify-readonly-ai.ts",
       "40_Develop/workbench-server/scripts/verify-workspace-ai.ts",
@@ -1016,9 +1016,9 @@ test("Local Change Setと用途別Named SymbolのConsumer集合が宣言と一�
     .sort();
   assert.deepEqual(candidateConsumers, [
     "40_Develop/coordinator/scripts/workspace-task-fixture.ts",
-    "40_Develop/orchestrator/src/workspace/commands.ts",
-    "40_Develop/orchestrator/src/workspace/operations.ts",
-    "40_Develop/orchestrator/src/workspace/record.ts",
+    "40_Develop/coordinator/src/workspace/commands.ts",
+    "40_Develop/coordinator/src/workspace/operations.ts",
+    "40_Develop/coordinator/src/workspace/record.ts",
   ]);
 });
 

@@ -22,7 +22,7 @@ import {
   describeExternalSendPolicyRuntimeContract,
   EXTERNAL_SEND_POLICY_FILE,
   resolveRuntimeOwnedExternalSendPolicy,
-} from "../../src/external-send/policy.ts";
+} from "../../src/decision/external-send-policy.ts";
 import {
   cleanupOwnedOperationDirectories,
   createOwnedMountCapability,

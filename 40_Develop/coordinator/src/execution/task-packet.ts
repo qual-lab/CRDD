@@ -9,7 +9,7 @@ import { verifyOwnedOperationManagementCapability } from "./operation.ts";
 import {
   compileExternalSendScopeHash,
   consumeRuntimeOwnedExternalSendGrant,
-} from "../external-send/grant.ts";
+} from "../decision/external-send-grant.ts";
 import {
   snapshotPlainArray,
   snapshotPlainRecord,

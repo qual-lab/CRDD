@@ -25,12 +25,15 @@ import type {
 } from "typescript/unstable/ast";
 import {
   isAwaitExpression,
+  isBlock,
   isCallExpression,
   isFunctionDeclaration,
   isIdentifier,
+  isIfStatement,
   isImportDeclaration,
   isNamedImports,
   isPropertyAccessExpression,
+  isReturnStatement,
   isStringLiteral,
   isTryStatement,
   isVariableDeclaration,
@@ -38,7 +41,6 @@ import {
 import type { Project } from "typescript/unstable/sync";
 import { API } from "typescript/unstable/sync";
 
-import { renderSafeHumanCommandReport } from "../../../orchestrator/src/cli/command-report.ts";
 import {
   bindTaskCliCancellationSignalsForTesting,
   createTaskCliCancellationLatch,
@@ -367,15 +369,12 @@ test("CLI signal failure投影はRuntimeの全安全観測とRecovery Evidence�
       assert.strictEqual(projectedRecord[key], runtimeRecord[key]);
     }
     assert.equal(Object.isFrozen(projected), true);
-    const human = renderSafeHumanCommandReport(projected);
-    assert.match(human, /候補ID/u);
-    assert.doesNotMatch(human, /coordinator candidate export/u);
-    assert.match(human, /Host回復ID/u);
-    assert.equal(human.match(/Docker回復ID:/gu)?.length, 2);
-    assert.match(human, /候補回復ID/u);
-    assert.match(human, /候補保存領域の回復ID/u);
-    assert.match(human, /Coordinator Runtimeを再起動/u);
-    assert.match(human, /手動回復の必要性: あり/u);
+    const json = JSON.parse(JSON.stringify(projected));
+    assert.deepEqual(json, projected);
+    assert.equal(json.manualRecoveryRequired, true);
+    assert.equal(json.processRestartRequired, true);
+    assert.deepEqual(json.hostRecoveryIds, runtimeResult.hostRecoveryIds);
+    assert.deepEqual(json.dockerRecoveryIds, runtimeResult.dockerRecoveryIds);
   }
 });
 
@@ -414,9 +413,12 @@ test("CLI signal failure投影はcleanup確認済み対照へRecoveryを捏造�
   assert.equal(projected.processRestartRequired, false);
   assert.equal(projected.candidateId, null);
   assert.deepEqual(projected.dockerRecoveryIds, []);
-  const human = renderSafeHumanCommandReport(projected);
-  assert.doesNotMatch(human, /回復ID|実行担当者へ引き渡して/u);
-  assert.match(human, /手動回復の必要性: なし/u);
+  const json = JSON.parse(JSON.stringify(projected));
+  assert.equal(json.hostRecoveryId, null);
+  assert.equal(json.dockerRecoveryId, null);
+  assert.equal(json.candidateRecoveryId, null);
+  assert.equal(json.candidateStoreRecoveryId, null);
+  assert.equal(json.manualRecoveryRequired, false);
 });
 
 /**
@@ -572,7 +574,7 @@ function inspectTaskCliCancellationWiring(
   const helperImports = namedImportIdentifier(
     sourceFile,
     "bindTaskCliCancellationSignals",
-    "../../../coordinator/src/cli/cancellation.ts",
+    "./cancellation.ts",
   );
   const ownerImports = namedImportIdentifier(
     sourceFile,
@@ -825,9 +827,29 @@ function inspectTaskCliCancellationWiring(
       isPropertyAccessExpression(call.expression.expression) &&
       call.expression.expression.name.text === "stdout",
   );
-  const outputCall = outputCalls[0];
+  const guard = taskBody.statements[0];
+  const guardBlock =
+    guard && isIfStatement(guard) && isBlock(guard.thenStatement)
+      ? guard.thenStatement
+      : null;
+  const guardReturn = guardBlock?.statements.at(-1);
+  const rejectionOutputs = outputCalls.filter(
+    (call) =>
+      guardBlock && call.pos >= guardBlock.pos && call.end <= guardBlock.end,
+  );
   if (
-    outputCalls.length !== 1 ||
+    !guardBlock ||
+    !guardReturn ||
+    !isReturnStatement(guardReturn) ||
+    rejectionOutputs.length !== 1
+  )
+    failures.push("argument_rejection_output_not_guarded");
+  const terminalOutputs = outputCalls.filter(
+    (call) => !rejectionOutputs.includes(call),
+  );
+  const outputCall = terminalOutputs[0];
+  if (
+    terminalOutputs.length !== 1 ||
     !outputCall ||
     !lifecycleTry ||
     outputCall.pos < lifecycleTry.end
@@ -873,11 +895,11 @@ test("公開CLIはproduction helperの単一bindingとfinally解除をAST・symb
     "..",
     "..",
     "..",
-    "orchestrator",
+    "coordinator",
   );
   const api = new API({ cwd: orchestratorRoot });
   try {
-    const configFile = path.join(orchestratorRoot, "tsconfig.json");
+    const configFile = path.join(orchestratorRoot, "tsconfig.strict.json");
     const snapshot = api.updateSnapshot({ openProjects: [configFile] });
     try {
       const project =
@@ -885,7 +907,7 @@ test("公開CLIはproduction helperの単一bindingとfinally解除をAST・symb
       assert.ok(project);
       const sourceFile = projectSourceFile(
         project,
-        path.join(orchestratorRoot, "src", "cli", "command.ts"),
+        path.join(orchestratorRoot, "src", "cli", "request.ts"),
       );
       assert.deepEqual(
         inspectTaskCliCancellationWiring(project, sourceFile),
@@ -917,10 +939,10 @@ test("CLI AST契約はshadow・二重binding・直接signal・非await join・fi
     "..",
     "..",
     "..",
-    "orchestrator",
+    "coordinator",
   );
   const original = fs.readFileSync(
-    path.join(orchestratorRoot, "src", "cli", "command.ts"),
+    path.join(orchestratorRoot, "src", "cli", "request.ts"),
     "utf8",
   );
   const mutations = [
@@ -967,6 +989,14 @@ test("CLI AST契約はshadow・二重binding・直接signal・非await join・fi
         '    if (cancellation && cancellation.unbind().status !== "released") {',
         "    if (false) {",
       ),
+    original.replace(
+      "      await owner?.close();",
+      '      process.stdout.write("early-result");\n      await owner?.close();',
+    ),
+    original.replace(
+      "    process.exitCode = 64;\n    return;\n  }\n  let owner:",
+      "    process.exitCode = 64;\n  }\n  let owner:",
+    ),
   ];
   for (const mutation of mutations) assert.notEqual(mutation, original);
   const virtualFiles: Record<string, string> = {};
@@ -981,7 +1011,7 @@ test("CLI AST契約はshadow・二重binding・直接signal・非await join・fi
     .join(orchestratorRoot, ".crdd-cli-mutation.json")
     .replaceAll("\\", "/");
   virtualFiles[configFile] = JSON.stringify({
-    extends: "./tsconfig.json",
+    extends: "./tsconfig.strict.json",
     files: fileNames,
     include: [],
   });
@@ -1010,6 +1040,8 @@ test("CLI AST契約はshadow・二重binding・直接signal・非await join・fi
         "owner_wait_not_awaited",
         "owner_close_not_awaited",
         "lifecycle_order_invalid",
+        "report_not_after_lifecycle_finally",
+        "argument_rejection_output_not_guarded",
       ];
       for (const [index, fileName] of fileNames.entries()) {
         assert.equal(

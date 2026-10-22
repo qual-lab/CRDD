@@ -45,7 +45,7 @@ const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
  * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 function discoverOrchestratorModules(): readonly string[] {
-  const sourceRoot = path.join(repositoryRoot, "40_Develop/orchestrator/src");
+  const sourceRoot = path.join(repositoryRoot, "40_Develop/coordinator/src");
   const modules: string[] = [];
   const pendingDirectories = [sourceRoot];
   while (pendingDirectories.length > 0) {
@@ -166,8 +166,7 @@ const SOURCE_ROLES = {
     "workspace/record.ts",
   ],
   adapter: [
-    "cli/command-report.ts",
-    "cli/command.ts",
+    "cli/request.ts",
     "cli/request-input.ts",
     "decision/capability-adapter.ts",
     "objective/intake-dependencies.ts",
@@ -191,10 +190,151 @@ const SOURCE_ROLES = {
     "storage/history.ts",
     "storage/protected-decision.ts",
   ],
+  technicalExecution: [
+    "execution/advice.ts",
+    "execution/attempt.ts",
+    "execution/authority-bundle.ts",
+    "execution/authority-grant.ts",
+    "execution/authority-policy.ts",
+    "execution/authority-validation.ts",
+    "execution/borrowed-tree.ts",
+    "execution/change-snapshot.ts",
+    "execution/claude-subscription-authentication.ts",
+    "execution/cleanup-eligibility.ts",
+    "execution/completion-observation.ts",
+    "execution/delegation-route-selection.ts",
+    "execution/delegation-selection-grant.ts",
+    "execution/development-execution-timing.ts",
+    "execution/development-measurement-constraints.ts",
+    "execution/development-measurement-session.ts",
+    "execution/development-source-observation.ts",
+    "execution/diagnostics.ts",
+    "execution/eligibility-observation.ts",
+    "execution/generation-loss-transition.ts",
+    "execution/host-recovery-record.ts",
+    "execution/host-submission.ts",
+    "execution/interactive-console.ts",
+    "execution/isolation-execution.ts",
+    "execution/isolation-probe.ts",
+    "execution/isolation-profile.ts",
+    "execution/kernel-lock.ts",
+    "execution/local-authority.ts",
+    "execution/model-selection.ts",
+    "execution/operation-creation.ts",
+    "execution/operation.ts",
+    "execution/orphan-recovery-policy.ts",
+    "execution/prelaunch-validation.ts",
+    "execution/process-safety-state.ts",
+    "execution/protected-root.ts",
+    "execution/provider-adapter.ts",
+    "execution/provider-controller.ts",
+    "execution/provider-execution.ts",
+    "execution/provider-home-mount-authorization.ts",
+    "execution/provider-home-mount-grant.ts",
+    "execution/provider-home-windows-adapter.ts",
+    "execution/provider-home.ts",
+    "execution/provider-lifecycle.ts",
+    "execution/provider-observation.ts",
+    "execution/provider-packet.ts",
+    "execution/provider-plan.ts",
+    "execution/provider-preparation-lifecycle.ts",
+    "execution/provider-preparation.ts",
+    "execution/provider-result-reasons.ts",
+    "execution/provider-types.ts",
+    "execution/recovery-projection.ts",
+    "execution/recovery.ts",
+    "execution/repository-binding.ts",
+    "execution/restart-checkpoint.ts",
+    "execution/result-reasons.ts",
+    "execution/root-observation.ts",
+    "execution/root-path.ts",
+    "execution/root-protection-policy.ts",
+    "execution/runtime-repair.ts",
+    "execution/runtime-restart.ts",
+    "execution/runtime-trust.ts",
+    "execution/runtime-version.ts",
+    "execution/secret-validation.ts",
+    "execution/task-packet.ts",
+    "execution/task-request.ts",
+    "execution/task-structured-result.ts",
+    "execution/task.ts",
+    "execution/terminal-caller-checkpoint.ts",
+    "execution/terminal-caller-lease.ts",
+    "execution/terminal-record.ts",
+    "execution/types.ts",
+  ],
+  runtimeCli: [
+    "cli/command.ts",
+    "cli/options.ts",
+    "cli/recovery-report.ts",
+    "cli/cancellation.ts",
+  ],
+  technicalStorage: ["storage/model.ts", "storage/settlement-store.ts"],
+  externalSendDecision: [
+    "decision/external-send-consent-record.ts",
+    "decision/external-send-consent-store.ts",
+    "decision/external-send-grant.ts",
+    "decision/external-send-policy.ts",
+  ],
   entry: ["index.ts"],
 } as const;
-const SOURCE_PREFIX = "40_Develop/orchestrator/src/";
+const SOURCE_PREFIX = "40_Develop/coordinator/src/";
 const coreModules = SOURCE_ROLES.pure.map((file) => `${SOURCE_PREFIX}${file}`);
+
+/**
+ * 統合後のExecution値契約だけを型専用辺として許可する。
+ * @responsibility 技術実装や別Symbolを純粋な実行時閉包へ混入させない。
+ * @trace PRL-IT-012
+ * @precondition Task実行型の実Pathと明示した型Symbol。
+ * @stimulus 正しい型専用辺、値import、別Symbolを検査する。
+ * @observation 依存検査の受理又は拒否。
+ * @oracle 指定型だけ受理し、値importと別型は従来の閉包規則で拒否する。
+ * @cleanup N/A: 局所データの同期検査のみ。
+ * @boundary 同Package内TaskとExecutionの型依存。
+ */
+test("Taskの純粋契約はExecutionの指定型だけを型専用で参照する", () => {
+  const module = `${SOURCE_PREFIX}task/executor.ts`;
+  assert.doesNotThrow(() =>
+    assertPureImportEdges(module, {
+      isConsistent: true,
+      edges: [
+        {
+          specifier: "../execution/types.ts",
+          typeOnly: true,
+          names: ["CoordinatorWorkspaceResult"],
+        },
+      ],
+    }),
+  );
+  assert.throws(
+    () =>
+      assertPureImportEdges(module, {
+        isConsistent: true,
+        edges: [
+          {
+            specifier: "../execution/types.ts",
+            typeOnly: false,
+            names: ["CoordinatorWorkspaceResult"],
+          },
+        ],
+      }),
+    /outside pure runtime closure/,
+  );
+  assert.throws(
+    () =>
+      assertPureImportEdges(module, {
+        isConsistent: true,
+        edges: [
+          {
+            specifier: "../execution/types.ts",
+            typeOnly: true,
+            names: ["UnapprovedExecutionType"],
+          },
+        ],
+      }),
+    /private type dependency/,
+  );
+});
 
 /**
  * File責務表を現Source集合へ完全一致で照合する。
@@ -268,7 +408,10 @@ function assertPureImportEdges(
     if (typeOnly) {
       assert.ok(
         coreModules.includes(resolved) ||
-          (/^40_Develop\/(?!orchestrator\/)[^/]+\/src\/index\.ts$/u.test(
+          (resolved === "40_Develop/coordinator/src/execution/types.ts" &&
+            names.length > 0 &&
+            names.every((name) => name === "CoordinatorWorkspaceResult")) ||
+          (/^40_Develop\/(?!coordinator\/)[^/]+\/src\/index\.ts$/u.test(
             resolved,
           ) &&
             fs.existsSync(path.join(repositoryRoot, resolved))),
@@ -453,12 +596,12 @@ test("Orchestrator CoreのimportはPlatform非依存の閉集合に一致する"
     () => assertSourcePopulation({ ...SOURCE_ROLES, pure: [] }, allModules),
     /pure population empty/u,
   );
-  const root = path.join(repositoryRoot, "40_Develop/orchestrator");
+  const root = path.join(repositoryRoot, "40_Develop/coordinator");
   const config = path
     .join(root, ".crdd-pure-oracle.json")
     .replaceAll("\\", "/");
   const configText = JSON.stringify({
-    extends: "./tsconfig.json",
+    extends: "./tsconfig.strict.json",
     files: allModules.map((file) =>
       path.join(repositoryRoot, file).replaceAll("\\", "/"),
     ),
@@ -676,7 +819,7 @@ test("import走査は解釈できない取り込み構文をFail Closedで検出
  */
 test("Windows AdapterはCore閉集合の外にあり、CoreはAdapterを参照しない", () => {
   const windowsAdapterPath =
-    "40_Develop/orchestrator/src/platform/windows-adapter.ts";
+    "40_Develop/coordinator/src/platform/windows-adapter.ts";
   assert.ok(
     fs.existsSync(path.join(repositoryRoot, windowsAdapterPath)),
     "windows adapter module must exist",

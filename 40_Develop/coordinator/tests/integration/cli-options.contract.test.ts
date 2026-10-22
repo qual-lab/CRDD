@@ -687,13 +687,7 @@ test("template toolsの安定入口はCoordinator共通Launcherへ同一Process�
  * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("削除したcommandは互換処理へ入らず未知commandとして拒否される", () => {
-  for (const command of [
-    "activate",
-    "disable",
-    "provision",
-    "mcp",
-    "project",
-  ]) {
+  for (const command of ["activate", "disable", "provision", "mcp"]) {
     const result = spawnSync(
       process.execPath,
       [coordinatorExecutable, command, "--json"],
@@ -706,6 +700,18 @@ test("削除したcommandは互換処理へ入らず未知commandとして拒否
     assert.equal(result.stderr.includes("Unknown command"), true);
     assert.equal(result.stdout.includes(`"command":"${command}"`), false);
   }
+  const project = spawnSync(
+    process.execPath,
+    [coordinatorExecutable, "project", "--json"],
+    { encoding: "utf8", windowsHide: true },
+  );
+  assert.equal(project.status, 64);
+  assert.equal(project.stderr, "");
+  assert.deepEqual(JSON.parse(project.stdout), {
+    command: "project",
+    status: "blocked",
+    reason: "project_arguments_invalid",
+  });
 });
 
 /**
@@ -750,7 +756,7 @@ test("helpは通常Taskと現在利用可能なcommandだけを案内する", ()
 });
 
 /**
- * 通常Taskは上位で入力を拒否し下位入口は対象を推測しない。
+ * 通常Taskは統一受付で入力を拒否し対象を推測しない。
  *
  * @responsibility 通常Taskの入力検査を配布署名から独立して確認する。
  * @trace PRL-IT-012
@@ -761,21 +767,24 @@ test("helpは通常Taskと現在利用可能なcommandだけを案内する", ()
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
-test("通常Taskは上位で入力を拒否し下位入口は対象を推測しない", () => {
-  const ambiguous = spawnSync(
-    process.execPath,
-    [publicCoordinatorLauncher, "task", "--request-stdin", "--json"],
-    {
-      input: '{"frontProvider":"codex","frontProvider":"claude"}',
-      encoding: "utf8",
-      windowsHide: true,
-    },
-  );
-  assert.equal(ambiguous.status, 2);
-  assert.equal(
-    JSON.parse(ambiguous.stdout).reason,
-    "task_request_invalid_json",
-  );
+test("通常Taskは統一受付で入力を拒否し対象を推測しない", () => {
+  for (const entry of [coordinatorExecutable, publicCoordinatorLauncher]) {
+    const ambiguous = spawnSync(
+      process.execPath,
+      [entry, "task", "--request-stdin", "--json"],
+      {
+        input: '{"frontProvider":"codex","frontProvider":"claude"}',
+        encoding: "utf8",
+        windowsHide: true,
+      },
+    );
+    assert.equal(ambiguous.status, 2);
+    assert.equal(ambiguous.stderr, "");
+    assert.equal(
+      JSON.parse(ambiguous.stdout).reason,
+      "task_request_invalid_json",
+    );
+  }
 
   const invalidRepository = withUnsignedRuntimeFixture((root) =>
     spawnSync(
@@ -795,22 +804,32 @@ test("通常Taskは上位で入力を拒否し下位入口は対象を推測し�
     ),
   );
   assert.equal(invalidRepository.error, undefined);
-  assert.equal(invalidRepository.status, 64);
+  assert.equal(invalidRepository.status, 2);
   assert.equal(invalidRepository.stderr, "");
-  assert.equal(
-    invalidRepository.stdout,
-    '{\n  "command": "task",\n  "status": "blocked",\n  "reason": "task_use_orchestrator_entry"\n}\n',
+  const rejected = JSON.parse(invalidRepository.stdout);
+  assert.equal(rejected.command, "task");
+  assert.equal(rejected.status, "blocked");
+  assert.equal(rejected.reason, "task_workspace_request_required");
+  assert.equal(rejected.cleanupConfirmed, false);
+  assert.equal("requestId" in rejected, false);
+  const missingArguments = spawnSync(
+    process.execPath,
+    [coordinatorExecutable, "task"],
+    {
+      input: "synthetic-input-not-to-be-reported",
+      encoding: "utf8",
+      windowsHide: true,
+    },
   );
-  const human = spawnSync(process.execPath, [coordinatorExecutable, "task"], {
-    input: "synthetic-input-not-to-be-reported",
-    encoding: "utf8",
-    windowsHide: true,
-  });
-  assert.equal(human.error, undefined);
-  assert.equal(human.status, 64);
-  assert.equal(human.stderr, "");
+  assert.equal(missingArguments.error, undefined);
+  assert.equal(missingArguments.status, 64);
+  assert.equal(missingArguments.stderr, "");
   assert.equal(
-    human.stdout,
-    "Coordinator：依頼の実行 — 停止\n詳しい原因はこの表示から確定できません。実行担当者が機械向け結果を確認してください。\nファイル操作の発行: 未確認\n資源回収: 未確認\n手動回復の必要性: 未確認\nProcess再起動の必要性: 未確認\n",
+    missingArguments.stdout,
+    `${JSON.stringify({ command: "task", status: "blocked", reason: "task_arguments_invalid" }, null, 2)}\n`,
+  );
+  assert.equal(
+    missingArguments.stdout.includes("synthetic-input-not-to-be-reported"),
+    false,
   );
 });

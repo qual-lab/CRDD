@@ -295,7 +295,6 @@ test("全Toolの結合ブロックはArchitecture、Lifecycle、実在ITへ閉�
       "domain-model",
       "execution-intelligence",
       "mcp-server",
-      "orchestrator",
       "platform-access",
       "version-control",
       "visual-preview",
@@ -461,19 +460,23 @@ test("変更した意味に対応する試験を選び、未分類の実装変�
       entry.owner === "coordinator" &&
       ["unit", "integration", "system"].includes(entry.level),
   );
-  assert.equal(focusedEntries.length, coordinatorEntries.length);
-  assert.ok(focusedEntries.every((entry) => entry.owner === "coordinator"));
+  const consumerIds = [
+    "mcp:unit:orchestrator",
+    "mcp:system:stdio",
+    "mcp:system:streamable-http",
+  ];
+  const expectedIds = [
+    ...coordinatorEntries.map((entry) => entry.id),
+    ...consumerIds,
+  ].sort();
+  assert.deepEqual(focusedEntries.map((entry) => entry.id).sort(), expectedIds);
 
   const conservativeEntries = selectRegressionTests(catalog, [
     "40_Develop/coordinator/src/security/novelquux.ts",
   ]);
-  assert.equal(
-    conservativeEntries.length,
-    catalog.tests.filter(
-      (entry) =>
-        entry.owner === "coordinator" &&
-        ["unit", "integration", "system"].includes(entry.level),
-    ).length,
+  assert.deepEqual(
+    conservativeEntries.map((entry) => entry.id).sort(),
+    expectedIds,
   );
 });
 
@@ -491,7 +494,7 @@ test("変更した意味に対応する試験を選び、未分類の実装変�
  */
 test("直接変更した試験だけはその試験に限定する", () => {
   const target =
-    "40_Develop/orchestrator/tests/unit/cli/command-report.contract.test.ts";
+    "40_Develop/coordinator/tests/unit/workspace/acceptance-record.contract.test.ts";
   assert.deepEqual(
     selectRegressionTests(catalog, [target]).map((entry) => entry.path),
     [target],
@@ -500,20 +503,20 @@ test("直接変更した試験だけはその試験に限定する", () => {
 
 /**
  * CLI移管後も登録された下位試験の利用側閉包を維持する。
- * @responsibility Orchestrator入力・表示の変更でCoordinator側の接続試験を落とさない。
+ * @responsibility Orchestrator入力・受付の変更でCoordinator側の接続試験を落とさない。
  * @trace CQS-UT-010
  * @precondition 現行Catalogを使用する。
- * @stimulus 移管先の入力・表示Sourceを変更対象として選択する。
+ * @stimulus 移管先の入力・受付Sourceを変更対象として選択する。
  * @observation 回帰として選択された試験Path。
  * @oracle 実Process・取消・stdin分離の三試験を含む。
  * @cleanup N/A: 純粋な選択のみ。
  * @boundary Catalogと選択処理。試験自体は実行しない。
  */
 test("OrchestratorのCLI移管は既存のProcess・取消・入力接続試験へ閉じる", () => {
-  for (const file of ["request-input.ts", "command-report.ts"]) {
+  for (const file of ["request-input.ts", "request.ts"]) {
     const selected = new Set(
       selectRegressionTests(catalog, [
-        `40_Develop/orchestrator/src/cli/${file}`,
+        `40_Develop/coordinator/src/cli/${file}`,
       ]).map((entry) => entry.path),
     );
     for (const target of [
@@ -553,7 +556,7 @@ test("実行知の実装変更は共通試験と登録済み利用側契約を�
     ],
     [
       "40_Develop/execution-intelligence/src/storage/store.ts",
-      "40_Develop/orchestrator/tests/integration/public-operation.integration.test.ts",
+      "40_Develop/coordinator/tests/integration/public-operation.integration.test.ts",
     ],
     [
       "40_Develop/execution-intelligence/src/index.ts",
@@ -567,7 +570,7 @@ test("実行知の実装変更は共通試験と登録済み利用側契約を�
     assert.ok(selectedPaths.includes(consumerPath));
     assert.ok(
       selectedPaths.some((entry) =>
-        entry.includes("orchestrator/tests/integration/public-operation"),
+        entry.includes("coordinator/tests/integration/public-operation"),
       ) || changedPath.includes("core"),
     );
   }
@@ -597,7 +600,7 @@ test("利用側静的検査は試験levelの絞込みと独立して選ぶ", () 
   assert.ok(selectedEntries.every((entry) => entry.level === "unit"));
   assert.deepEqual(
     selectRegressionStaticOwners(catalog, changedPaths, selectedEntries),
-    ["coordinator", "execution-intelligence", "orchestrator"],
+    ["coordinator", "execution-intelligence"],
   );
 });
 
@@ -762,18 +765,28 @@ test("利用側契約の未分類Producer変更は登録済み利用側全件へ
  * @boundary CQS-UT-010=Direct Boundary: Domain Test Source→対象契約
  */
 test("production・support・fixture変更はownerのUT／IT／ST全件へ閉じる", () => {
-  const expected = catalog.tests.filter(
-    (entry) =>
-      entry.owner === "coordinator" &&
-      ["unit", "integration", "system"].includes(entry.level),
-  ).length;
+  const expected = catalog.tests
+    .filter(
+      (entry) =>
+        entry.owner === "coordinator" &&
+        ["unit", "integration", "system"].includes(entry.level),
+    )
+    .map((entry) => entry.id)
+    .concat([
+      "mcp:unit:orchestrator",
+      "mcp:system:stdio",
+      "mcp:system:streamable-http",
+    ])
+    .sort();
   for (const changedPath of [
     "40_Develop/coordinator/src/cli/command.ts",
     "40_Develop/coordinator/tests/support/contract-assertions.ts",
     "40_Develop/coordinator/tests/fixtures/example.ts",
   ])
-    assert.equal(
-      selectRegressionTests(catalog, [changedPath]).length,
+    assert.deepEqual(
+      selectRegressionTests(catalog, [changedPath])
+        .map((entry) => entry.id)
+        .sort(),
       expected,
     );
 });

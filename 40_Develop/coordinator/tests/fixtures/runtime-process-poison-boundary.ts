@@ -24,13 +24,13 @@ import {
   withInteractiveConsoleAsync,
   withInteractiveConsoleAsyncOutcome,
   withInteractiveConsoleOutcome,
-} from "../../src/external-send/console.ts";
+} from "../../src/execution/interactive-console.ts";
 import { isRuntimeProcessPoisoned } from "../../src/execution/process-safety-state.ts";
 import { startRuntimeOwnedCoordinatorTask } from "../../src/execution/task.ts";
 import {
   confirmRuntimeOwnedExternalSendUsingConsole,
   requestRuntimeOwnedExternalSendGrant,
-} from "../../src/external-send/grant.ts";
+} from "../../src/decision/external-send-grant.ts";
 
 const MODES = new Set([
   "descriptor_close",

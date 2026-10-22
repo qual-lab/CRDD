@@ -7,8 +7,8 @@
  * @scope 新版保存の試験接続。
  * @boundary PRL-IT-005=Direct Boundary: 試験から統合保存。
  */
-import { createCurrentOrchestratorPersistencePorts } from "../../../orchestrator/src/storage/current-state.ts";
-import { createOrchestratorState } from "../../../orchestrator/src/index.ts";
+import { createCurrentOrchestratorPersistencePorts } from "../../src/storage/current-state.ts";
+import { createOrchestratorState } from "../../src/index.ts";
 /**
  * 新版PortのwriteStateを試験から呼ぶ。
  * @responsibility 旧保存方式を使わず既存の検証入力を搬送する。

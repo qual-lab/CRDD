@@ -1,5 +1,17 @@
 # QA-000003 Project実行と回復の検証定義
 
+C物理統合候補は単一Coordinatorの150 Sourceと元両Rootの120実行値・型の保持、全Consumer・Catalog／Symbolの新Path、単一bin／template／Package入口の同じ受付を検証する。Taskの純粋閉包へExecutionを混入させず、指定値型だけの型専用辺を確認する。外部送信四Decisionと一端末実体の移管では、同意Hash・Grant・一回性・元Process poisonを保持する。保存は二Fileの三specifierだけを許可し、残る五Fileのbytesと保存意味を維持する。Source観測Scope v2は旧配置のv1と同値と扱わず、旧Packetの移行はフロントAIが再生成する。以降のC前のbytes一致・二Packageという検証記述は基準時点の義務であり、C後の物理構成を要求しない。
+
+Cの入口切替は[公開入口と同意の境界](../../../06_Architecture/Details/orchestrator/01_Architecture.md#c-integration-entry-boundary)へ接続する。direct／interactive／automation各Project／Taskの六経路、元stdin・PID・cwd・環境、128KiB／EOF／UTF-8／JSON拒否、Node・TTY・JSON条件、取消一回搬送・join・公開終了値を既存CLI結合項目で確認する。未使用Human表示の撤去では、取消・回復参照・cleanup・機密非公開の義務を実JSONへ移し、doctor表示は維持する。Root検査は値と型、namespace・inline type・dynamic importを含め、外部保持と内部直接接続を分ける。試験専用公開名も、公開保証か内部検査かを確定する前に義務を削除しない。同意と端末の移管では同じHash・Grant・Map・Process安全状態、期限・一回性・失効・端末終了不明の反証を維持する。文書棚卸しはSource接続や実送信成功の証拠ではない。
+
+先行CLI整理では`PRL-IT-012`に対し、`request.ts`のimport-only無出力とProject拒否JSON bytes・終了値を実Processで確認する。`ERB-IT-003`の取消接続検査では、引数拒否の先頭guard内出力とfinally後の終端出力を別に照合し、拒否return欠落と終了前追加出力を反証する。Human表示の専用試験撤去を、Domain共通結果の`RCM-UT-016`廃止とは扱わない。元結果・回復参照・機密非公開の既存義務は実JSONと元結果の検査に残す。
+
+Cの三接続は[接続設計](../../../06_Architecture/Details/orchestrator/01_Architecture.md#c-integration-three-connections)に対し、既存`PRL-IT-012`・`PRL-IT-013`等の検証を移管先へ接続する。Task Identity検査と単発実行の値検査を混同せず、元Controlの同期配送捕捉、Executor初回開始とReviewer通知、重複・終端後通知、通知false／throw／欠測、開始前後取消・取消例外と元完了joinを確認する。第5／第6引数の実行対象・consumer束縛、助言と編集、Workbench／CLIの一時返却とObjectiveの耐久ACKを別母集団として扱う。
+
+回復では、技術回収済みでも解放・履歴・配送又は上位保存が不明な場合の停止、受領前の保存失敗、ACK保存後の終了失敗と同じ参照での再入場を確認する。Resource回収・Provider再実行を不用意に繰り返さず、私有CapabilityをIDから再生成しない。元Map・Singleton・Writer・取得順を移管で複製せず、既存の不正入力・相関差・失敗Oracleを減らさない。
+
+StorageはSchema bytes・Writer・CAS・保存先・語彙・関数本文を凍結し、CのPackage統合に不可避なimport specifierだけを同一Symbol・同一実体へ追従できる。固定候補では全七Sourceの差分を取得し、許可specifier以外不変、自Root逆参照0、実体一つ、既存の競合Lock・世代差・読戻し・解放不明の反証を確認する。設計の確認、C前のbytes一致、過去試験の成功を、C後の回帰・再入場・実境界成功へ流用しない。
+
 判断入口へのPrincipal観測の同居では、関数本文・Headerの移管前後一致とRootの公開集合を静的に照合し、既存の公開Owner境界・判断操作の回帰を実施する。呼出しごとの保護Store観測、completed以外のunknown、未作成Storeの初期化可能性を変更しない。配置の同居を認証・Authority拡張や実Storeの新しい保証成立と扱わず、保存七Sourceは変更しない。
 
 統合前のExecution縮小では、二Factoryの本文同一性と本番Codex→Claudeの生成位置・順序はSource差分で、本番準備Ownerの参照同一性と同Provider別候補／Provider間の二WeakMap非共有は既存準備試験で確認する。Taskの開始／終端投影はController実体へ接続し、aliasによる重複評価だけを除いて相関・不正入力の母集団を維持する。助言のRequest／Dispatch拒否は同じblocked結果、unknownは別状態として確認し、Runtime純転送の撤去で元Signal・一回実行・元Host参照・cleanupを失わないことを確認する。内部export縮小は値・型本体とRoot公開集合を変更せず、未使用説明の撤去を既存の実検査や安定test IDの削除へ拡張しない。Storageの本文Hashを維持する。

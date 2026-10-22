@@ -16,7 +16,7 @@ import { createHash } from "node:crypto";
 
 import { runSignedGeneralTaskVerification } from "../../scripts/verify-general-task.ts";
 import { isRuntimeProcessPoisoned } from "../../src/execution/process-safety-state.ts";
-import { requestRuntimeOwnedExternalSendGrant } from "../../src/external-send/grant.ts";
+import { requestRuntimeOwnedExternalSendGrant } from "../../src/decision/external-send-grant.ts";
 import { startRuntimeOwnedCoordinatorTask } from "../../src/execution/task.ts";
 
 const scenario = process.argv[2] ?? "completed_true";
@@ -49,7 +49,7 @@ const patchHash = createHash("sha256")
   .digest("hex");
 
 const source = Object.freeze({
-  scope: "crdd-development-source-snapshot/v1",
+  scope: "crdd-development-source-snapshot/v2",
   sourceSha256: "0".repeat(64),
   sourceIdentitySha256: "9".repeat(64),
   crddCommit: baseCommit,

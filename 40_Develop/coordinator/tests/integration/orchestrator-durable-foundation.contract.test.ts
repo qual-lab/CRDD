@@ -29,7 +29,7 @@ import {
   type OrchestratorAcceptanceDecisionRecord,
   type OrchestratorDecisionRecoveryIntent,
   type OrchestratorState,
-} from "../../../orchestrator/src/index.ts";
+} from "../../src/index.ts";
 import {
   acquireOrchestratorSnapshotLease,
   acquireOrchestratorSnapshotPilotLock,
@@ -47,8 +47,8 @@ import {
   reconcileOrchestratorSnapshotLeaseOwnerLoss,
   writeOrchestratorSnapshot,
   writeOrchestratorSnapshotState,
-} from "../../../orchestrator/src/storage/current-state.ts";
-import { createProjectResultAcceptanceReader } from "../../../orchestrator/src/task/settle-docker-recovery.ts";
+} from "../../src/storage/current-state.ts";
+import { createProjectResultAcceptanceReader } from "../../src/task/settle-docker-recovery.ts";
 import { acquireRuntimeOwnedOrchestratorStateKernelLock } from "../../src/execution/kernel-lock.ts";
 
 const MAX_RECORD_BYTES = 16 * 1024 * 1024;
@@ -3911,7 +3911,7 @@ test("PR-D-A-01 Lease終了保存失敗は回復参照を保全して再取得�
 test("PR-A-04 reconciles an exited lease owner without starting new work", (t) => {
   const { root, ports } = currentQueueFixture(t);
   const moduleUrl = new URL(
-    "../../../orchestrator/src/storage/current-state.ts",
+    "../../src/storage/current-state.ts",
     import.meta.url,
   ).href;
   execFileSync(
@@ -3981,7 +3981,7 @@ if (queued.status !== "completed") process.exit(21);`,
 test("PR-A-04 recovers a lease acquisition interrupted before Queue ownership", (t) => {
   const { root, ports } = currentQueueFixture(t);
   const moduleUrl = new URL(
-    "../../../orchestrator/src/storage/current-state.ts",
+    "../../src/storage/current-state.ts",
     import.meta.url,
   ).href;
   execFileSync(
@@ -4063,7 +4063,7 @@ if (lease.status !== "completed") { process.stdout.write(JSON.stringify({status:
 test("PR-A-04 recovers canonical-adoption acquisition across Queue callers", (t) => {
   const { root, ports } = currentQueueFixture(t);
   const moduleUrl = new URL(
-    "../../../orchestrator/src/storage/current-state.ts",
+    "../../src/storage/current-state.ts",
     import.meta.url,
   ).href;
   execFileSync(
@@ -4426,7 +4426,7 @@ test("PR-A-04 実排他の清掃失敗は現行解放意図と回復参照を保
 test("PR-A-04 reconciles release intent created before Queue ownership", (t) => {
   const { root, ports } = currentQueueFixture(t);
   const moduleUrl = new URL(
-    "../../../orchestrator/src/storage/current-state.ts",
+    "../../src/storage/current-state.ts",
     import.meta.url,
   ).href;
   execFileSync(

@@ -39,7 +39,7 @@ import {
   runOrchestratorPublicDecision,
   runOrchestratorPublicObjective,
   runOrchestratorPublicStateQuery,
-} from "../../40_Develop/orchestrator/src/index.ts";
+} from "../../40_Develop/coordinator/src/index.ts";
 import { isSupportedCoordinatorNodeRuntime } from "../../40_Develop/coordinator/src/index.ts";
 import {
   resolveHostRootInput,

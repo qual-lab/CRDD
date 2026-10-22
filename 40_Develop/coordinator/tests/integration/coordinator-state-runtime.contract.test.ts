@@ -25,7 +25,7 @@ import {
   ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
   requireReadyRepositoryRuntimeDataArea,
 } from "../../../domain-model/src/index.ts";
-import * as projectStorage from "../../../orchestrator/src/index.ts";
+import * as projectStorage from "../../src/index.ts";
 import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
 import * as dockerController from "../../src/execution/provider-observation.ts";
 import {
@@ -7026,7 +7026,7 @@ test("上位受理Readerは保存済みの同じAttemptだけを返す", async (
   let observation: unknown = { status: "completed", value: state };
   let shouldThrow = false;
   const calls: unknown[][] = [];
-  t.mock.module("../../../orchestrator/src/storage/current-state.ts", {
+  t.mock.module("../../src/storage/current-state.ts", {
     namedExports: {
       ...projectStorage,
       readCurrentOrchestratorState: (...args: unknown[]) => {
@@ -7037,12 +7037,12 @@ test("上位受理Readerは保存済みの同じAttemptだけを返す", async (
     },
   });
   const moduleUrl = new URL(
-    "../../../orchestrator/src/task/settle-docker-recovery.ts?acceptance-reader-contract",
+    "../../../coordinator/src/task/settle-docker-recovery.ts?acceptance-reader-contract",
     import.meta.url,
   ).href;
   const { createProjectResultAcceptanceReader } = (await import(
     moduleUrl
-  )) as typeof import("../../../orchestrator/src/task/settle-docker-recovery.ts");
+  )) as typeof import("../../src/task/settle-docker-recovery.ts");
   const task = state.tasks[0];
   assert.ok(task);
   const obligation = task.recoveryObligations[0];

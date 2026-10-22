@@ -204,7 +204,7 @@ function resolvesToForbiddenWindowsAsciiModule(
  */
 function source(overrides: Record<string, unknown> = {}) {
   return Object.freeze({
-    scope: "crdd-development-source-snapshot/v1",
+    scope: "crdd-development-source-snapshot/v2",
     sourceSha256: "0".repeat(64),
     sourceIdentitySha256: "9".repeat(64),
     crddCommit: baseCommit,
@@ -690,8 +690,8 @@ test("固定公開Taskをprocess内で構成しShell搬送を契約から除外�
     "scripts/verify-general-task.ts",
   );
   const source = fs.readFileSync(runnerPath, "utf8");
-  const forbiddenConsoleModule = "../src/external-send/console.ts";
-  const equivalentConsoleModule = "../src/external-send/./CONSOLE.ts";
+  const forbiddenConsoleModule = "../src/execution/interactive-console.ts";
+  const equivalentConsoleModule = "../src/execution/./INTERACTIVE-CONSOLE.ts";
   const mutationImports = importedModuleSpecifiers(
     `import { interactiveConsoleAvailable as renamed } from ${JSON.stringify(forbiddenConsoleModule)};\n` +
       `export { interactiveConsoleAvailabilityOutcome } from ${JSON.stringify(forbiddenConsoleModule)};\n` +
@@ -917,7 +917,7 @@ test("Source初回観測の欠測・例外・不正値はTask開始0で閉じる
   const getter = {
     get scope() {
       getterCalls += 1;
-      return "crdd-development-source-snapshot/v1";
+      return "crdd-development-source-snapshot/v2";
     },
   };
   for (const observed of [
@@ -1075,7 +1075,7 @@ test("Source終了観測は破棄・解除後に五値を照合し内部値を�
     assert.equal(result.cleanupConfirmed, true);
     assert.equal(result.effectStateUnknown, false);
     assert.equal(result.canonicalRepositoryChanged, false);
-    assert.equal(result.sourceScope, "crdd-development-source-snapshot/v1");
+    assert.equal(result.sourceScope, "crdd-development-source-snapshot/v2");
     assert.equal(result.sourceSha256, "0".repeat(64));
     assert.equal(result.signatureRequired, false);
     for (const key of [

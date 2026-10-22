@@ -38,7 +38,7 @@ import {
   INTERACTIVE_CONSOLE_CONTRACT,
   readInteractiveConsoleLine,
   writeInteractiveConsoleTextUsingAdapter,
-} from "../../src/external-send/console.ts";
+} from "../../src/execution/interactive-console.ts";
 import {
   describeCoordinatorNodeRuntimeVersionContract,
   MINIMUM_COORDINATOR_NODE_VERSION,
@@ -192,7 +192,12 @@ test("対話Consoleは一つのRuntime契約だけがOS deviceを所有する", 
     .filter(
       (file) =>
         file !==
-        path.join(coordinatorRoot, "src", "external-send", "console.ts"),
+        path.join(
+          coordinatorRoot,
+          "src",
+          "execution",
+          "interactive-console.ts",
+        ),
     );
   for (const file of executableSources) {
     const source = fs.readFileSync(file, "utf8");
@@ -200,7 +205,7 @@ test("対話Consoleは一つのRuntime契約だけがOS deviceを所有する", 
   }
 
   const parentConsoleSource = fs.readFileSync(
-    path.join(coordinatorRoot, "src", "external-send", "console.ts"),
+    path.join(coordinatorRoot, "src", "execution", "interactive-console.ts"),
     "utf8",
   );
   const readerSource = fs.readFileSync(
@@ -211,14 +216,14 @@ test("対話Consoleは一つのRuntime契約だけがOS deviceを所有する", 
     "utf8",
   );
   const cliSource = fs.readFileSync(
-    path.join(coordinatorRoot, "../orchestrator/src/cli/command.ts"),
+    path.join(coordinatorRoot, "../coordinator/src/cli/request.ts"),
     "utf8",
   );
   assert.equal(parentConsoleSource.includes("process.stdin"), false);
   assert.equal(readerSource.includes("process.stdin"), false);
   assert.equal(readerSource.includes('"\\\\\\\\.\\\\CONIN$"'), true);
   const requestInputSource = fs.readFileSync(
-    path.join(coordinatorRoot, "../orchestrator/src/cli/request-input.ts"),
+    path.join(coordinatorRoot, "../coordinator/src/cli/request-input.ts"),
     "utf8",
   );
   assert.equal(cliSource.includes('from "./request-input.ts"'), true);
@@ -230,10 +235,10 @@ test("対話Consoleは一つのRuntime契約だけがOS deviceを所有する", 
   );
   assert.equal(requestInputSource.includes("fs.readSync(0"), true);
   const commandPath = path
-    .join(coordinatorRoot, "../orchestrator/src/cli/command.ts")
+    .join(coordinatorRoot, "../coordinator/src/cli/request.ts")
     .replaceAll("\\", "/");
   const inputPath = path
-    .join(coordinatorRoot, "../orchestrator/src/cli/request-input.ts")
+    .join(coordinatorRoot, "../coordinator/src/cli/request-input.ts")
     .replaceAll("\\", "/");
   const config = path
     .join(coordinatorRoot, ".crdd-stdin-oracle.json")
@@ -250,8 +255,8 @@ test("対話Consoleは一つのRuntime契約だけがOS deviceを所有する", 
         name === "interactive-console-reader"
           ? "../platform-access/src/terminal/confirmation-reader.ts"
           : name === "request-input"
-            ? "../orchestrator/src/cli/request-input.ts"
-            : "src/external-send/console.ts",
+            ? "../coordinator/src/cli/request-input.ts"
+            : "src/execution/interactive-console.ts",
       ),
     ],
     include: [],
@@ -358,12 +363,12 @@ function inspectTaskStdinWiring(project: Project, root: string) {
       .join(
         root,
         name === "command"
-          ? "../orchestrator/src/cli/command.ts"
+          ? "../coordinator/src/cli/request.ts"
           : name === "interactive-console-reader"
             ? "../platform-access/src/terminal/confirmation-reader.ts"
             : name === "request-input"
-              ? "../orchestrator/src/cli/request-input.ts"
-              : "src/external-send/console.ts",
+              ? "../coordinator/src/cli/request-input.ts"
+              : "src/execution/interactive-console.ts",
       )
       .replaceAll("\\", "/");
     const source = project.program.getSourceFile(file);
@@ -1264,7 +1269,7 @@ test("Windows実ProcessでTask stdin pipeと固定Console readerを分離する"
   try {
     assert.equal(tty.isatty(outputDescriptor), true);
     const moduleUrl = pathToFileURL(
-      path.join(coordinatorRoot, "src", "external-send", "console.ts"),
+      path.join(coordinatorRoot, "src", "execution", "interactive-console.ts"),
     ).href;
     const taskBytes = Buffer.from('{"task":"transport-only"}\n', "utf8");
     const inlineScript = `

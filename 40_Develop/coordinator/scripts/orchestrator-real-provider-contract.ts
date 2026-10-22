@@ -12,7 +12,7 @@ import { StringDecoder } from "node:string_decoder";
 import { snapshotPlainRecord } from "../../domain-model/src/index.ts";
 import { isSupportedCrddRuntimeGitObjectId } from "./verification-safety.ts";
 import { inspectMcpOrchestratorObjectiveResult } from "../../mcp-server/src/index.ts";
-import { inspectOrchestratorStateQueryResult } from "../../orchestrator/src/state/query-contract.ts";
+import { inspectOrchestratorStateQueryResult } from "../src/state/query-contract.ts";
 import { startWindowsChildTreeTermination } from "../../platform-access/src/index.ts";
 import { dockerProcessControllerPublicCompletionReasons } from "../src/execution/provider-result-reasons.ts";
 import { inspectRepositoryIdentityCandidate } from "../../version-control/src/index.ts";
@@ -1511,7 +1511,7 @@ export function buildOrchestratorRealProviderReport(
   );
   const runtimeSource =
     source &&
-    source.scope === "crdd-development-source-snapshot/v1" &&
+    source.scope === "crdd-development-source-snapshot/v2" &&
     typeof source.sourceSha256 === "string" &&
     /^[a-f0-9]{64}$/u.test(source.sourceSha256) &&
     typeof source.mcpEntrySourceSha256 === "string" &&

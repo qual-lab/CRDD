@@ -50,18 +50,18 @@ const expectedAreaConsumers = [
   "40_Develop/coordinator/scripts/verification-result-record.ts",
   "40_Develop/coordinator/src/execution/terminal-caller-checkpoint.ts",
   "40_Develop/execution-intelligence/src/storage/store.ts",
-  "40_Develop/orchestrator/src/storage/current-state.ts",
-  "40_Develop/orchestrator/src/storage/history.ts",
+  "40_Develop/coordinator/src/storage/current-state.ts",
+  "40_Develop/coordinator/src/storage/history.ts",
   "40_Develop/visual-preview/src/browser/verify.ts",
 ] as const;
 const PUBLIC_ORCHESTRATOR_BOUNDARIES = [
-  "40_Develop/orchestrator/src/objective/public-operation.ts",
-  "40_Develop/orchestrator/src/decision/public-operation.ts",
-  "40_Develop/orchestrator/src/decision/public-acceptance.ts",
-  "40_Develop/orchestrator/src/state/public-query.ts",
+  "40_Develop/coordinator/src/objective/public-operation.ts",
+  "40_Develop/coordinator/src/decision/public-operation.ts",
+  "40_Develop/coordinator/src/decision/public-acceptance.ts",
+  "40_Develop/coordinator/src/state/public-query.ts",
 ] as const;
 const ORCHESTRATOR_BLOCKED_PROJECTION =
-  "40_Develop/orchestrator/src/operation-result-contract.ts";
+  "40_Develop/coordinator/src/operation-result-contract.ts";
 const orchestratorStoreFactoryNames = [
   "createOrchestratorPersistencePorts",
   "createOrchestratorDecisionRecoveryStore",
@@ -382,7 +382,7 @@ test("新規Componentのraw Root構築と名前付きPathの親再解釈を拒�
   );
   assert.ok(violations(sources).includes(`raw-root:${workspaceOwner}`));
   assert.ok(violations(sources).includes(`root-literal:${workspaceOwner}`));
-  const upper = "40_Develop/orchestrator/src/workspace/commands.ts";
+  const upper = "40_Develop/coordinator/src/workspace/commands.ts";
   sources.set(
     upper,
     `${sources.get(upper)}\nconst duplicated = path.join(root, ".crdd", "workspaces");`,

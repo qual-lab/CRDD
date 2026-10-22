@@ -35,7 +35,7 @@ function completed(route: "forward" | "reverse") {
     contractRevision: SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION,
     status: "completed",
     reason: "signed_general_task_verification_completed",
-    sourceScope: "crdd-development-source-snapshot/v1",
+    sourceScope: "crdd-development-source-snapshot/v2",
     sourceSha256: "b".repeat(64),
     crddCommit: "c".repeat(40),
     crddTree: "d".repeat(40),

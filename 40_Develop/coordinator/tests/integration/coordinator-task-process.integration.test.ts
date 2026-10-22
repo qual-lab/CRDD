@@ -19,7 +19,6 @@ import {
   ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
   requireReadyRepositoryRuntimeDataArea,
 } from "../../../domain-model/src/index.ts";
-import { renderSafeHumanCommandReport } from "../../../orchestrator/src/cli/command-report.ts";
 import { bindTaskCliCancellationSignals } from "../../src/cli/cancellation.ts";
 import { createIsolatedCoordinatorTaskRuntimeCandidate } from "../../src/execution/task.ts";
 import {
@@ -796,23 +795,15 @@ for (const scenario of [
     const json = JSON.stringify({ command: "task", ...result });
     assert.equal(json.includes(harness.owned.root), false);
     assert.equal(json.includes("TASK_PROCESS_OK"), false);
-    const human = renderSafeHumanCommandReport({ command: "task", ...result });
-    assert.match(human, scenario === "normal" ? /処理完了/u : /停止/u);
-    assert.match(
-      human,
-      isRecoveryRequired ? /資源回収: 未確認/u : /資源回収: 確認済み/u,
+    const report = JSON.parse(json);
+    assert.equal(
+      report.status,
+      scenario === "normal" ? "completed" : "blocked",
     );
-    assert.match(
-      human,
-      isRecoveryRequired
-        ? /手動回復の必要性: あり/u
-        : /手動回復の必要性: なし/u,
-    );
-    assert.equal(human.includes(harness.owned.root), false);
-    assert.equal(human.includes("TASK_PROCESS_OK"), false);
+    assert.equal(report.cleanupConfirmed, !isRecoveryRequired);
+    assert.equal(report.manualRecoveryRequired, isRecoveryRequired);
     if (isRecoveryRequired) {
-      assert.ok(human.includes(harness.hostRecoveryId));
-      assert.doesNotMatch(human, /coordinator candidate export/u);
+      assert.equal(report.hostRecoveryId, harness.hostRecoveryId);
     }
   });
 }

@@ -40,7 +40,7 @@ import {
   sameAccessCollection,
 } from "../../../../access-management/src/index.ts";
 import type { PortfolioProjection } from "../../../../domain-model/src/index.ts";
-import { readAuthorizedRuntimeActivity } from "../../../../orchestrator/src/index.ts";
+import { readAuthorizedRuntimeActivity } from "../../../../coordinator/src/index.ts";
 import {
   resolveVerifiedRepositoryRoot,
   gitRepositoryWorktreeViewAdapter,

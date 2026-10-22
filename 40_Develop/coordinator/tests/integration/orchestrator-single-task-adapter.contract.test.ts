@@ -18,7 +18,7 @@ import {
   ORCHESTRATOR_SINGLE_TASK_PRE_EFFECT_REJECTIONS,
   type OrchestratorSingleTaskDependencies,
   runOrchestratorSingleTaskAttempt,
-} from "../../../orchestrator/src/index.ts";
+} from "../../src/index.ts";
 import { startRuntimeOwnedCoordinatorTask } from "../../src/execution/task.ts";
 import { observeCoordinatorTaskCompletion } from "../../src/execution/completion-observation.ts";
 import { snapshotCoordinatorWorkspaceResult } from "../../src/execution/attempt.ts";

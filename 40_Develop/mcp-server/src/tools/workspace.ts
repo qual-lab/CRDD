@@ -8,7 +8,7 @@
 import {
   executeWorkspaceCommand,
   inspectWorkspaceCommand,
-} from "../../../orchestrator/src/index.ts";
+} from "../../../coordinator/src/index.ts";
 import { snapshotPlainRecord } from "../request/snapshot.ts";
 import {
   callKeys,

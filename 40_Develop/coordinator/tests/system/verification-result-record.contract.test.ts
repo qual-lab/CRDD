@@ -282,7 +282,7 @@ test("既知値だけ保存し、自由文・秘密風文字列・getter・proxy
  */
 test("Source観測は固定語彙とHashで投影し旧Producerの配布情報を保つ", () => {
   const valid = {
-    sourceScope: "crdd-development-source-snapshot/v1",
+    sourceScope: "crdd-development-source-snapshot/v2",
     sourceSha256: "a".repeat(64),
     crddCommit: "b".repeat(40),
     crddTree: "c".repeat(40),

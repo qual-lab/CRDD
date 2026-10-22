@@ -441,7 +441,7 @@ test("Workspace試験mainは作成前のRoot検査と元結果を失わない清
           if (sourceReads > 1 && scenario === "source-unknown")
             throw new Error("synthetic_observation_unknown");
           return {
-            scope: "crdd-development-source-snapshot/v1",
+            scope: "crdd-development-source-snapshot/v2",
             sourceSha256:
               sourceReads > 1 && scenario === "source-changed"
                 ? "different"

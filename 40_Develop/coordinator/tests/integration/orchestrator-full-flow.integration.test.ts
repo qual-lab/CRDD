@@ -30,8 +30,8 @@ import {
   readCurrentOrchestratorState as readOrchestratorState,
   initializeOrchestratorSnapshot,
   createOrchestratorSnapshotAcceptanceDecisionStore as createOrchestratorAcceptanceDecisionStore,
-} from "../../../orchestrator/src/storage/current-state.ts";
-import { recordOrchestratorExecutionEvent } from "../../../orchestrator/src/index.ts";
+} from "../../src/storage/current-state.ts";
+import { recordOrchestratorExecutionEvent } from "../../src/index.ts";
 import {
   resolveOrchestratorReplan as resolveOrchestratorReplanWithPort,
   createOrchestratorAcceptanceAuthorityAdapter,
@@ -42,9 +42,9 @@ import {
   type OrchestratorDecisionRecord,
   type OrchestratorReplanClassifier,
   type OrchestratorReplanInput,
-} from "../../../orchestrator/src/index.ts";
-import { runOrchestratorObjective } from "../../../orchestrator/src/objective/intake-dependencies.ts";
-import { createOrchestratorDecisionCapabilityAdapter } from "../../../orchestrator/src/index.ts";
+} from "../../src/index.ts";
+import { runOrchestratorObjective } from "../../src/objective/intake-dependencies.ts";
+import { createOrchestratorDecisionCapabilityAdapter } from "../../src/index.ts";
 
 const revision = "a".repeat(40);
 

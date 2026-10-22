@@ -24,8 +24,8 @@ import { createRepositoryAiProfileCatalogStore } from "../../ai-adapter/src/inde
 import {
   createRepositoryTaskRequests,
   type WorkspaceView,
-} from "../../orchestrator/src/index.ts";
-import { prepareWorkspaceSurface } from "../../orchestrator/tests/fixtures/workspace-surface.ts";
+} from "../../coordinator/src/index.ts";
+import { prepareWorkspaceSurface } from "../../coordinator/tests/fixtures/workspace-surface.ts";
 import { startWorkbench, readWorkbenchProjectSurface } from "../src/index.ts";
 import {
   createWorkbenchAiVerificationHttpClient,

@@ -23,12 +23,12 @@ import {
   readOrchestratorSnapshot,
   transferOrchestratorSnapshotHistory,
   writeOrchestratorSnapshot,
-} from "../../../orchestrator/src/storage/current-state.ts";
+} from "../../src/storage/current-state.ts";
 import {
   inspectOrchestratorHistorySettlement,
   updateOrchestratorHistoryOwned,
   updateOrchestratorHistoryPilot,
-} from "../../../orchestrator/src/storage/history.ts";
+} from "../../src/storage/history.ts";
 
 const DAY = 24 * 60 * 60 * 1000;
 const referenceTime = Date.parse("2026-10-05T00:00:00.000Z");

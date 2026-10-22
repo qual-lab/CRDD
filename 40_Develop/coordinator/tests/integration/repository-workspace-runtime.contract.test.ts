@@ -46,7 +46,7 @@ import {
   verifyRepositoryRoot,
 } from "../../../version-control/src/index.ts";
 import { createProviderDockerRuntimeDependencies } from "../../src/execution/provider-adapter.ts";
-import { runOrchestratorSingleTaskAttempt } from "../../../orchestrator/src/index.ts";
+import { runOrchestratorSingleTaskAttempt } from "../../src/index.ts";
 import {
   prepareVerificationWorkspace,
   readVerificationWorkspaceOutput,

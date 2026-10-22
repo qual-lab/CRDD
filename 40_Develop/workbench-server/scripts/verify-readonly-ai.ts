@@ -15,7 +15,7 @@ import {
   gitRepositoryRevisionAdapter,
 } from "../../version-control/src/index.ts";
 import { createRepositoryAiProfileCatalogStore } from "../../ai-adapter/src/index.ts";
-import { createRepositoryTaskRequests } from "../../orchestrator/src/index.ts";
+import { createRepositoryTaskRequests } from "../../coordinator/src/index.ts";
 import { startWorkbench, readWorkbenchProjectSurface } from "../src/index.ts";
 import {
   createWorkbenchAiVerificationHttpClient,

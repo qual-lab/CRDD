@@ -22,7 +22,7 @@ import {
   ORCHESTRATOR_OBJECTIVE_INTAKE_CONTRACT,
   ORCHESTRATOR_PUBLIC_RUNTIME_CONTRACT,
   type OrchestratorProjection,
-} from "../../../orchestrator/src/index.ts";
+} from "../../../coordinator/src/index.ts";
 import {
   callKeys,
   discoverKeys,

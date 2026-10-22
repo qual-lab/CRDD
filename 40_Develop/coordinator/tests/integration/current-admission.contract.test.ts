@@ -349,10 +349,7 @@ test("現在入場: Task通常・開発・CLIの本番構成式はexact Rootを�
     "utf8",
   );
   const adapter = fs.readFileSync(
-    new URL(
-      "../../../orchestrator/src/platform/windows-adapter.ts",
-      import.meta.url,
-    ),
+    new URL("../../src/platform/windows-adapter.ts", import.meta.url),
     "utf8",
   );
   for (const source of [task, cli, adapter]) {

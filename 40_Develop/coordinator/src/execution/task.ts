@@ -36,8 +36,8 @@ import {
   recordRuntimeOwnedDockerHostCleanupReceipt,
 } from "./recovery.ts";
 import { getRuntimeOwnedProviderDockerAdapter } from "./provider-adapter.ts";
-import { requestRuntimeOwnedExternalSendGrant } from "../external-send/grant.ts";
-import { resolveRuntimeOwnedExternalSendPolicy } from "../external-send/policy.ts";
+import { requestRuntimeOwnedExternalSendGrant } from "../decision/external-send-grant.ts";
+import { resolveRuntimeOwnedExternalSendPolicy } from "../decision/external-send-policy.ts";
 import {
   abandonOwnedHostOperationGenerationLock,
   activateOwnedHostOperationGenerationLock,

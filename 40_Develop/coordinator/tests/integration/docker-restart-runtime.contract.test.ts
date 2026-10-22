@@ -71,10 +71,14 @@ test("production facadeとpackage exportsはcaller Root／observer／runner seam
   ) => {
     for (const symbol of expectedOperations)
       assert.equal(rootSource.includes(symbol), false, symbol);
-    assert.doesNotMatch(
-      rootSource,
-      /WithObserver|WithRunner|RecoveryAcknowledgement/u,
-    );
+    assert.doesNotMatch(rootSource, /WithObserver|WithRunner/u);
+    const restartOwnerExports = [
+      ...rootSource.matchAll(
+        /export\s+(?:type\s+)?\{([^{}]+)\}\s*from\s*["']\.\/execution\/(?:recovery|runtime-restart)\.ts["']/gu,
+      ),
+    ];
+    for (const declaration of restartOwnerExports)
+      assert.doesNotMatch(declaration[1] ?? "", /RecoveryAcknowledgement/u);
     assert.doesNotMatch(
       rootSource,
       /export\s*\*(?:\s+as\s+[A-Za-z_$][\w$]*)?\s+from\s*["']\.\/execution\/recovery\.ts["']/u,
@@ -135,6 +139,14 @@ test("production facadeとpackage exportsはcaller Root／observer／runner seam
       composition,
     ),
   );
+  for (const owner of ["recovery", "runtime-restart"]) {
+    assert.throws(() =>
+      assertCurrentRestartBoundary(
+        `${hostFacade}\nexport type { RecoveryAcknowledgement } from "./execution/${owner}.ts";`,
+        composition,
+      ),
+    );
+  }
   for (const suffix of ["", " as privateRecovery"]) {
     assert.throws(() =>
       assertCurrentRestartBoundary(

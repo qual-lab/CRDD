@@ -53,9 +53,7 @@ if (mode === "pause-before-publish") {
   }) as typeof fs.mkdirSync;
 }
 
-const foundation = await import(
-  "../../../orchestrator/src/storage/current-state.ts"
-);
+const foundation = await import("../../src/storage/current-state.ts");
 const result = foundation.acquireOrchestratorSnapshotLease(
   workingDirectory,
   "binding-a",

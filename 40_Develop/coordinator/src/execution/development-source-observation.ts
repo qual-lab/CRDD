@@ -19,7 +19,7 @@ import {
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const SOURCE_SCOPE = "crdd-development-source-snapshot/v1";
+const SOURCE_SCOPE = "crdd-development-source-snapshot/v2";
 const PACKAGES = [
   "access-management",
   "ai-adapter",
@@ -28,7 +28,6 @@ const PACKAGES = [
   "domain-model",
   "execution-intelligence",
   "mcp-server",
-  "orchestrator",
   "platform-access",
   "version-control",
 ] as const;
@@ -373,7 +372,7 @@ function captureDevelopmentSource(root: string): SourceObservation | null {
  * @trace ARCH-000004
  * @input N/A: RootとScopeはModuleから固定し、呼出し元に選ばせない。
  * @returns 有界Snapshotの観測値。不完全な観測はnull。
- * @precondition 固定11Packageと必要Sourceが読取り可能である。
+ * @precondition 固定9Packageと必要Sourceが読取り可能である。
  * @postcondition 成功値は二読取りで内容・実体が一致する。
  * @effect Sourceを同期読取りする。永続状態を作らない。
  * @failure 欠落、不正実体、途中変更、上限超過はnull。

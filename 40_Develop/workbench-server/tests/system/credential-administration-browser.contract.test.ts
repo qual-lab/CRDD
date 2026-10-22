@@ -38,7 +38,7 @@ import {
   createHostAiProfileCatalogStore,
 } from "../../../ai-adapter/src/index.ts";
 import { createFilesystemStoreRoot } from "../../../domain-model/src/index.ts";
-import { prepareWorkspaceSurface } from "../../../orchestrator/tests/fixtures/workspace-surface.ts";
+import { prepareWorkspaceSurface } from "../../../coordinator/tests/fixtures/workspace-surface.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
 import {
   closeOwnedBrowserProcessTree,

@@ -469,7 +469,7 @@ process.stderr.write('FIXTURE_STDERR'); process.exitCode=37;
 }`,
     );
     const forwarded = [
-      "task",
+      "capabilities",
       "",
       "日本語 空白",
       '"quoted"',

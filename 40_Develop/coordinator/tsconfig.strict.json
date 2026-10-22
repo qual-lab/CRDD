@@ -71,5 +71,8 @@
     "src/execution/isolation-profile.ts",
     "src/execution/provider-lifecycle.ts",
     "src/execution/root-protection-policy.ts"
+  ],
+  "include": [
+    "src/**/*.ts"
   ]
 }

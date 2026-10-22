@@ -69,7 +69,6 @@ export type TestCatalogEntry = Readonly<{
     | "domain-model"
     | "execution-intelligence"
     | "mcp-server"
-    | "orchestrator"
     | "version-control"
     | "platform-access"
     | "visual-preview"
@@ -112,7 +111,6 @@ export type TestCatalog = Readonly<{
     "domain-model": "node_test";
     "execution-intelligence": "node_test";
     "mcp-server": "node_test";
-    orchestrator: "node_test";
     "version-control": "node_test";
     "platform-access": "node_and_cargo_test";
     "visual-preview": "node_test";
@@ -158,7 +156,6 @@ const RUNNER_SUPPORTED_OWNERS = new Set([
   "domain-model",
   "execution-intelligence",
   "mcp-server",
-  "orchestrator",
   "version-control",
   "platform-access",
   "visual-preview",
@@ -173,7 +170,6 @@ const RUNNER_PROFILES = Object.freeze({
   "domain-model": "node_test",
   "execution-intelligence": "node_test",
   "mcp-server": "node_test",
-  orchestrator: "node_test",
   "version-control": "node_test",
   "platform-access": "node_and_cargo_test",
   "visual-preview": "node_test",
@@ -338,7 +334,6 @@ export function discoverRepositoryTestFiles(repositoryRoot: string): string[] {
     "domain-model",
     "execution-intelligence",
     "mcp-server",
-    "orchestrator",
     "version-control",
     "visual-preview",
     "workbench-server",
@@ -348,13 +343,11 @@ export function discoverRepositoryTestFiles(repositoryRoot: string): string[] {
       path.join(
         repositoryRoot,
         "40_Develop",
-        owner === "orchestrator"
-          ? "orchestrator"
-          : owner === "mcp-server"
-            ? "mcp-server"
-            : owner === "workbench-server"
-              ? "workbench-server"
-              : owner,
+        owner === "mcp-server"
+          ? "mcp-server"
+          : owner === "workbench-server"
+            ? "workbench-server"
+            : owner,
         "tests",
       ),
     )
@@ -412,7 +405,7 @@ function isTestLevel(value: unknown): value is TestLevel {
 function expectedNodeLevel(entryPath: string): string | null {
   if (!entryPath.endsWith(".test.ts")) return null;
   return (
-    /^40_Develop\/(?:access-management|ai-adapter|checker|coordinator|docker-isolation|domain-model|execution-intelligence|mcp-server|orchestrator|platform-access|version-control|visual-preview|workbench-server)\/tests\/([^/]+)\//u.exec(
+    /^40_Develop\/(?:access-management|ai-adapter|checker|coordinator|docker-isolation|domain-model|execution-intelligence|mcp-server|platform-access|version-control|visual-preview|workbench-server)\/tests\/([^/]+)\//u.exec(
       entryPath,
     )?.[1] ?? null
   );
@@ -764,7 +757,7 @@ export function inspectTestCatalog(
         (entry) =>
           !isSafeRepositoryPath(entry) ||
           !entry.startsWith(
-            `40_Develop/${binding.producerOwner === "orchestrator" ? "orchestrator" : binding.producerOwner === "mcp-server" ? "mcp-server" : binding.producerOwner === "workbench-server" ? "workbench-server" : binding.producerOwner}/`,
+            `40_Develop/${binding.producerOwner === "mcp-server" ? "mcp-server" : binding.producerOwner === "workbench-server" ? "workbench-server" : binding.producerOwner}/`,
           ),
       )
     )
@@ -1051,7 +1044,6 @@ function ownerForPath(changedPath: string): TestCatalogEntry["owner"] | null {
   if (changedPath.startsWith("40_Develop/execution-intelligence/"))
     return "execution-intelligence";
   if (changedPath.startsWith("40_Develop/mcp-server/")) return "mcp-server";
-  if (changedPath.startsWith("40_Develop/orchestrator/")) return "orchestrator";
   if (changedPath.startsWith("40_Develop/version-control/"))
     return "version-control";
   if (changedPath.startsWith("40_Develop/platform-access/"))

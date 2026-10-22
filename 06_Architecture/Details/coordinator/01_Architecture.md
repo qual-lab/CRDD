@@ -1,5 +1,11 @@
 # Coordinator Runtimeの実行アーキテクチャ
 
+## Cの物理統合 — 実装候補、検証中
+
+単発実行と旧Orchestratorの業務進行を`40_Develop/coordinator`、公開名`@qual-lab/crdd-coordinator`へ物理統合した。業務進行の設計正本は[Task／Objectiveの設計](../orchestrator/01_Architecture.md)に維持し、本書は単発Executionと技術相関を所有する。以下の「統合前」は基準構成の説明であり、現行の独立Packageを要求しない。現在Sourceは150 File、両旧Rootの120実行値と既存型を明示公開し、内部利用は同じ実Ownerへ接続する。物理移動・型検査の成功をC全体・実AI／Dockerの成立とはしない。
+
+現CLIは`command.ts`、`request.ts`、`request-input.ts`、`options.ts`、`recovery-report.ts`、`cancellation.ts`の六File。`command.ts`が直接／対話／自動のProject・Task受付を分配し、templateは単一binへ接続する。Decisionが外部送信同意四File、Executionが端末I/Oを所有する。保存七Sourceは三specifier以外を維持し、Schema・Writer・CAS・Lock・Root・状態・ACKを変えない。現在の切替と検証状態は[統合計画](../../../99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#32-cの物理移管候補と検証状況)へ接続する。
+
 <a id="pre-consolidation-execution"></a>
 
 ## 統合前の単発実行責務と目標 — 2026-10-22
@@ -7,6 +13,8 @@
 現Coordinatorは単発AI実行の実装を所有し、現Orchestratorは仕事の進行を所有する。Cの採用済み目標は、旧Coordinatorの単発実行を旧Orchestratorへ吸収し、旧Coordinatorを撤去して旧OrchestratorをCoordinatorへ改名することである。以下は統合前の目標責務であり、Source移管・削除の成立を示さない。移行対応、順序と停止条件は[統合前の構造整理計画](../../../99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#24-両packageのafterを基準にした統合前整理)が所有する。
 
 統合前は現在の`cli/`、`execution/`、`external-send/`、`storage/`とRoot入口を維持する。単発実行は開始・取消・元結果・技術的回復との相関を所有し、Task Graph、予約、再試行・再計画、Workspace寿命や採否を判断しない。Provider／Modelの最終選択戦略は統合後のObjective／Task側、Provider固有の計画・結果解釈はAI Adapter、Docker隔離と所有資源の技術回収はDocker Isolation、OS技術はPlatform Accessが所有する。ExecutionはそれらのAPI、選択結果、元操作と一回Grantを結合する。
+
+Cの[三接続契約](../orchestrator/01_Architecture.md#c-integration-three-connections)に従い、単発Attempt・実行・回復の実体と私有寿命を移管し、上位Taskの相関・受領保存を別責務として残す。旧Rootを介した内部接続は撤去対象だが、開始通知・元Control由来配送・取消join・回復参照は中継として削らない。Storageは保存意味と関数本文を凍結し、統合に必要な同一実体へのimportだけを固定差分で追従する。この段落はCの三接続設計時点の境界を記録する。現在の物理移管候補と未完了範囲は冒頭および統合計画§32に従う。
 
 助言と編集の共通化は、開始・取消・返却の同じ意味に限定する。助言の読取り範囲と一回送信、編集の書込み対象・レビューを、名称を揃える目的で混合しない。Provider別の短期状態とAuthority等を束縛する二Factoryは、唯一の本番Consumerである`provider-adapter.ts`へ実体を同居し、旧`provider-composition.ts`を撤去する。無判断中継の削除ではなく、同じ準備Ownerの集約であり、本文・二Map・本番初期化順を維持する。`provider-observation.ts`の私有Map、本番／候補の独立性、登録位置、`finally`失効、外側とWriter内のfresh照合を維持する。Controllerへの再統合は採用していない。
 
@@ -18,7 +26,7 @@ StorageはC前の構造整理で凍結する。対象は二Sourceの配置・本
 
 診断のOperation生成・下位観測・readiness・回収は`execution/diagnostics.ts`、Node版の実行条件は`execution/runtime-version.ts`が所有する。診断初期化の元Error登録と分類は同じ私有WeakMapへ結合し、CLI失敗表示がその分類だけを使用する。診断からCLI表示を逆参照せず、表示の都合で結果や回復参照を再生成しない。Report版・固定理由・表示byte・未実施／不明の意味は配置変更で変えない。
 
-送信同意の端末接続は`external-send/console.ts`から既存PAの技術操作を使い、回収不明を観測した時点で既存Process状態へpoisonを反映する。Reader期限・取消・元Promise・端末回収・値非開示の保証を維持し、CLI専用の端末Ownerを残さない。Signal接続はOrchestratorも同じ`cli/cancellation.ts`を使い、Task完了待機とは別責務として保つ。これはC統合前の配置であり、後続のCLI入力・Task表示の合流を実装済みと扱わない。
+送信同意の端末接続は`execution/interactive-console.ts`から既存PAの技術操作を使い、回収不明を観測した時点で既存Process状態へpoisonを反映する。Reader期限・取消・元Promise・端末回収・値非開示の保証を維持し、CLI専用の端末Ownerを残さない。Signal接続はOrchestratorも同じ`cli/cancellation.ts`を使い、Task完了待機とは別責務として保つ。これはC物理移管候補の配置であり、C全体・実境界の完了を意味しない。
 
 Task依頼の入力取込みは`execution/task-request.ts`、読取り助言のContext／Profile／同意・配送・結果受理は`execution/advice.ts`が所有する。Provider助言の実行型は既存`provider-types.ts`へ置き、実行順序を型Ownerへ移さない。助言受付、Provider計画、Operation／cleanup、Process制御は異なる境界であり、中継削減のためにそれぞれの検証を省略しない。公開関数名、入力Schema、送信回数と取消・回復参照はこの配置変更で変えない。
 
@@ -339,7 +347,7 @@ Docker Task回復IDの解析とProbe記録の保存・読戻し・Root／子実�
 
 `execution/attempt.ts`は単一Taskの開始・完了結果の形、既知のEffect前拒否、取消・回収結果を検証し、Operationに対応する閉結果を返す。Workbenchと上位実行Adapterはこの同じ処理を利用する。共通処理はProject、Attempt、上位判断権限またはRevisionを所有せず、Orchestratorをimportしない。上位Adapterはこれらの相関入力をEffect前に検証し、共通結果へ上位Identityを結合する。
 
-Taskの公開入口はPackage Rootの`src/index.ts`だけで、Capability内のindexや再export中継を作らない。上位の進行・判断はOrchestratorが所有し、MCP／Workbenchはその公開業務入口を利用する。Project業務CLIはOrchestratorの`src/cli/command.ts`へ配布入口から配送する。Coordinator単体binと内部CLIは上位業務Moduleをimportしない。Cでは両Packageの受付・実行調整を統合するが、今回のSource再配置はCの完了を意味しない。
+公開入口は単一CoordinatorのPackage Root `src/index.ts`と`bin/coordinator.ts`で、Capability内のindexや再export中継を作らない。業務進行・判断と単発Executionは同Package内の別責務であり、MCP／Workbenchは共通公開APIへ接続する。Project・Task業務CLIは`cli/command.ts`から`cli/request.ts`へ配送する。ExecutionからTask／Objectiveへ逆参照せず、単一Package化を全体検証・実境界の完了とはしない。
 
 同入口は既存のProcess世代参照、回復参照の生成・照合、終了不明時の実行停止操作も公開する。Process安全状態は従来のHost Ownerが一つだけ保持する。Orchestrator向けの時刻・識別子組立てとRepository結合の回復Adapterは上位へ移し、CoordinatorにProject固有のPort型を残さない。これらの公開を新しい外部Transportや回復Authorityの発行へ拡張しない。
 
@@ -742,7 +750,7 @@ Windowsの共有回復領域初期化も、通常署名やGit HEAD一致を前�
 
 固定Workerの回復MatrixはCRDD署名を実行前提にしない。親の直接呼出しと内部子の両入口はRoot生成・シナリオ開始前に既存Node対応版を確認し、その後は既存の隔離・Host境界で処理する。代替資格は発行しない。結果改訂2は`packageVerification: not_required`、`signatureRequired: false`を宣言する。残るTool群の移行中は`verify-recovery-matrix.ts`と既存の公開識別子を維持するが、署名成立の主張には使わない。七シナリオの呼出し接続確認と、実回復成立の検証を区別する。
 
-一般Taskと経路別検証も署名資格を要求しない。検証Runnerの固定module Rootで既存10Package Source観測とGit改訂を取得し、開始前と全Task settlement後でScope・内容Hash・内部実体Hash・Commit／Treeを比較する。公開するのは`sourceScope`、`sourceSha256`、`crddCommit`、`crddTree`と固定語彙の検証状態だけで、内部実体Hashや絶対Rootを公開しない。これはロード済みModuleの原子的固定、配布元真正性または実行Authorityの証明ではない。初回の欠測はTask開始前に停止する。終了時のSource不成立でも候補破棄・取消・終了待機を省略せず、既存の一次失敗を保持する。Source変更と作業対象Repositoryの変更、検証不成立とProvider Effect不明を分離する。四経路の全試行および二経路の結合は同じ公開Source tupleを要求し、対象Repositoryの改訂比較は別に維持する。
+一般Taskと経路別検証も署名資格を要求しない。検証Runnerの固定module Rootで現行9Package Source観測とGit改訂を取得し、開始前と全Task settlement後でScope・内容Hash・内部実体Hash・Commit／Treeを比較する。公開するのは`sourceScope`、`sourceSha256`、`crddCommit`、`crddTree`と固定語彙の検証状態だけで、内部実体Hashや絶対Rootを公開しない。これはロード済みModuleの原子的固定、配布元真正性または実行Authorityの証明ではない。初回の欠測はTask開始前に停止する。終了時のSource不成立でも候補破棄・取消・終了待機を省略せず、既存の一次失敗を保持する。Source変更と作業対象Repositoryの変更、検証不成立とProvider Effect不明を分離する。四経路の全試行および二経路の結合は同じ公開Source tupleを要求し、対象Repositoryの改訂比較は別に維持する。
 
 Workbench助言、Task、CLI、Workbench候補実行およびOrchestratorから旧署名Gateの引数・発行・消費を外し、Orchestratorの署名専用Execution Authorization PortとAdapterを撤去した。Task公開契約は改訂36で通常実行に署名資格を要求しない。Processの片付け中・再利用禁止、現在の送信許可、Root／Revision、隔離・取消・回収は維持する。旧資格三APIと専用Script・固定AST graph・配布Identity・専用試験／設定は物理撤去した。`package-verification.ts`の通常保証は維持する各Ownerの試験へ対応付け、旧Fileを削除した。撤去後の全体回帰・実境界・実Provider／E2Eは未完了である。署名Capabilityの改名、常時trueの代替Gate、巨大閉包・全体コピー・署名準備状態を通常実行へ残さない。
 
@@ -760,7 +768,7 @@ Git改訂の単一Native出所照合は、追跡／任意配布の読取りと�
 
 Orchestrator実Provider検証Toolは、公開MCPの起動要求前と発行後の不明を区別する。起動引数の構築を終えてspawn要求を発行する直前に、当該Process内だけの発行状態を固定する。未発行で停止した場合は`verification_not_started`と`no_effect`を標準出力だけへ返し、回復・再起動・結果保存・fixture書戻しを要求しない。ここでのjoin／清掃成立は子資源を生成せず回収義務がない意味であり、実子の終了観測を意味しない。発行後の例外は、同期spawn例外も含め既存の不明結果と保存を維持する。通常の試験Directory作成は結果保存直前まで遅らせる。これは署名依存切替の前段是正であり、同Toolの旧署名依存撤去や実Provider E2Eの成立を示さない。
 
-同Toolの現在方式は、引数で別配布Rootを受け取らず、module自身のCheckoutにある公開MCP入口を起動する。既存10Package Source観測に加え、固定`template/tools/crdd-mcp-server.ts`を既存Domain Readerの64KiB上限で読み、通常File・非Link・単一Linkと前後の実体一致を確認する。`mcpEntrySourceSha256`はReaderが返したUTF8文字列のHashであり、生byteの完全性Hashではない。開始前と全経路終了後のSource・内部実体・Git・入口を照合し、最終欠測は`unavailable`、差分は`changed`として検証完成だけを拒否する。既知の回収結果・一次問題をSource不成立で上書きしない。
+同Toolの現在方式は、引数で別配布Rootを受け取らず、module自身のCheckoutにある公開MCP入口を起動する。現行9Package Source観測に加え、固定`template/tools/crdd-mcp-server.ts`を既存Domain Readerの64KiB上限で読み、通常File・非Link・単一Linkと前後の実体一致を確認する。`mcpEntrySourceSha256`はReaderが返したUTF8文字列のHashであり、生byteの完全性Hashではない。開始前と全経路終了後のSource・内部実体・Git・入口を照合し、最終欠測は`unavailable`、差分は`changed`として検証完成だけを拒否する。既知の回収結果・一次問題をSource不成立で上書きしない。
 
 結果改訂12は作業対象の`executionIdentity`と実行Sourceの`runtimeSource`を分離する。後者はScope・内容Hash・Commit／Tree・入口文字列Hash・固定観測状態・署名不要の七項目だけを再構築し、実体Hash・時刻・絶対Root・未知fieldを公開しない。旧`distributionIdentity`や署名Manifestを新版の根拠へ流用せず、歴史Evidenceは不変更。正常二経路・取消・親喪失・同じRequestの再入場・公開受付世代取得・fixture復元を維持し、Source観測の成功だけをそれらの実成立と表示しない。
 

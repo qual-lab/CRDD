@@ -710,7 +710,7 @@ const buildInput = (overrides: Record<string, unknown> = {}) =>
     runId: "run",
     executionIdentity: { commit: "a".repeat(40), tree: "b".repeat(40) },
     runtimeSource: {
-      scope: "crdd-development-source-snapshot/v1",
+      scope: "crdd-development-source-snapshot/v2",
       sourceSha256: "c".repeat(64),
       crddCommit: "d".repeat(40),
       crddTree: "e".repeat(40),
@@ -870,7 +870,7 @@ test("Orchestrator検証の固定Source観測は入口欠測と途中差を拒�
         scenario === "source_missing"
           ? null
           : {
-              scope: "crdd-development-source-snapshot/v1",
+              scope: "crdd-development-source-snapshot/v2",
               sourceSha256: "c".repeat(64),
               sourceIdentitySha256: "d".repeat(64),
             },

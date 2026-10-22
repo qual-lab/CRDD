@@ -28,17 +28,17 @@ import {
   type OrchestratorAcceptanceDecision,
   type OrchestratorAcceptanceDecisionRecord,
   type OrchestratorState,
-} from "../../../orchestrator/src/index.ts";
+} from "../../src/index.ts";
 import {
   executeOrchestratorPublicAcceptanceDecision,
   executeOrchestratorPublicStateQuery,
-} from "../../../orchestrator/src/index.ts";
+} from "../../src/index.ts";
 import {
   createCurrentOrchestratorPersistencePorts,
   createOrchestratorSnapshotAcceptanceDecisionStore,
   initializeOrchestratorSnapshot,
-} from "../../../orchestrator/src/storage/current-state.ts";
-import { createOrchestratorWindowsDecisionStoreTestingAdapter } from "../../../orchestrator/src/storage/protected-decision.ts";
+} from "../../src/storage/current-state.ts";
+import { createOrchestratorWindowsDecisionStoreTestingAdapter } from "../../src/storage/protected-decision.ts";
 
 /**
  * Git管理された固定Repositoryを構築する。

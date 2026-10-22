@@ -25,7 +25,7 @@ import {
   readExistingHostRoot,
   readHostInitializationState,
 } from "../../access-management/src/index.ts";
-import { createRepositoryTaskRequests } from "../../orchestrator/src/index.ts";
+import { createRepositoryTaskRequests } from "../../coordinator/src/index.ts";
 import {
   resolveVerifiedRepositoryRootFromWorkingDirectory,
   verifyRepositoryRoot,

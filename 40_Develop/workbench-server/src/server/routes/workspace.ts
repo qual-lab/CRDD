@@ -21,7 +21,7 @@ import {
 import {
   executeWorkspaceCommand,
   inspectWorkspaceCommand,
-} from "../../../../orchestrator/src/index.ts";
+} from "../../../../coordinator/src/index.ts";
 import {
   resolveVerifiedRepositoryRoot,
   verifyRepositoryRoot,

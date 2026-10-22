@@ -24,7 +24,7 @@ import {
   inspectRuntimeProcessRecoveryIdentity,
 } from "../../src/execution/process-safety-state.ts";
 import { startRuntimeOwnedCoordinatorTask } from "../../src/execution/task.ts";
-import { requestRuntimeOwnedExternalSendGrant } from "../../src/external-send/grant.ts";
+import { requestRuntimeOwnedExternalSendGrant } from "../../src/decision/external-send-grant.ts";
 
 /**
  * 対話cleanup不明は同一Process stateを不可逆にpoisonするを検証する。

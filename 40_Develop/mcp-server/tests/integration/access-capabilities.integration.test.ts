@@ -60,9 +60,9 @@ import {
   createOrchestratorState,
   executeWorkspaceCommand,
   initializeOrchestratorSnapshot,
-} from "../../../orchestrator/src/index.ts";
-import { writeOrchestratorSnapshotState } from "../../../orchestrator/src/storage/current-state.ts";
-import { prepareWorkspaceSurface } from "../../../orchestrator/tests/fixtures/workspace-surface.ts";
+} from "../../../coordinator/src/index.ts";
+import { writeOrchestratorSnapshotState } from "../../../coordinator/src/storage/current-state.ts";
+import { prepareWorkspaceSurface } from "../../../coordinator/tests/fixtures/workspace-surface.ts";
 import { startWorkbench } from "../../../workbench-server/src/index.ts";
 import {
   createAccessMcpResolver,

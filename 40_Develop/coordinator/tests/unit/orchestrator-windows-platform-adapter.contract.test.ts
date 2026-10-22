@@ -14,8 +14,8 @@ import path from "node:path";
 import test from "node:test";
 
 import { createWindowsNativeHelperEnvironment } from "../../../platform-access/src/index.ts";
-import { resolveOrchestratorPlatformAdapter } from "../../../orchestrator/src/index.ts";
-import { createOrchestratorWindowsPlatformAdapter } from "../../../orchestrator/src/platform/windows-adapter.ts";
+import { resolveOrchestratorPlatformAdapter } from "../../src/index.ts";
+import { createOrchestratorWindowsPlatformAdapter } from "../../src/platform/windows-adapter.ts";
 import { inspectRuntimeOwnedWindowsProviderHomeCandidate } from "../../src/execution/provider-home-windows-adapter.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
 import { compileWindowsRootObservationCandidate } from "../../src/execution/root-observation.ts";

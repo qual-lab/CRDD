@@ -11,8 +11,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createOrchestratorExecutionHostPorts } from "../../../orchestrator/src/index.ts";
-import { createOrchestratorTaskRecoveryAdapter } from "../../../orchestrator/src/index.ts";
+import { createOrchestratorExecutionHostPorts } from "../../src/index.ts";
+import { createOrchestratorTaskRecoveryAdapter } from "../../src/index.ts";
 
 /**
  * Host Adapterは時刻と安定IdentityをOrchestrator Portへ閉じるを検証する。

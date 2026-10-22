@@ -18,16 +18,16 @@ import test from "node:test";
 import {
   createCurrentOrchestratorPersistencePorts as createOrchestratorPersistencePorts,
   initializeOrchestratorSnapshot,
-} from "../../../orchestrator/src/storage/current-state.ts";
+} from "../../src/storage/current-state.ts";
 import {
   enqueueProjectOperation,
   readProjectOperationQueueState,
   readOrchestratorState,
   writeOrchestratorState,
 } from "../fixtures/orchestrator-persistence-fixture.ts";
-import { createOrchestratorDecisionCapabilityAdapter } from "../../../orchestrator/src/index.ts";
-import { runOrchestratorOperation as runOrchestratorOperationWithPorts } from "../../../orchestrator/src/index.ts";
-import { createOrchestratorExecutionHostPorts } from "../../../orchestrator/src/index.ts";
+import { createOrchestratorDecisionCapabilityAdapter } from "../../src/index.ts";
+import { runOrchestratorOperation as runOrchestratorOperationWithPorts } from "../../src/index.ts";
+import { createOrchestratorExecutionHostPorts } from "../../src/index.ts";
 import {
   applyOrchestratorHumanDecision,
   invalidateOrchestratorHumanDecision,
@@ -41,7 +41,7 @@ import {
   type OrchestratorDecisionRecoveryIntent,
   type OrchestratorReplanClassifier,
   type OrchestratorReplanInput,
-} from "../../../orchestrator/src/index.ts";
+} from "../../src/index.ts";
 
 const revision = "a".repeat(40);
 

@@ -20,9 +20,9 @@ import { fileURLToPath } from "node:url";
 import {
   initializeOrchestratorSnapshot,
   createCurrentOrchestratorPersistencePorts,
-} from "../../../orchestrator/src/storage/current-state.ts";
+} from "../../src/storage/current-state.ts";
 
-import { createOrchestratorState } from "../../../orchestrator/src/index.ts";
+import { createOrchestratorState } from "../../src/index.ts";
 import { ensureRepositoryRuntimeDataAreaFromWorkingDirectory } from "../../../domain-model/src/index.ts";
 import { requireReadyRepositoryRuntimeDataArea } from "../../../domain-model/src/index.ts";
 

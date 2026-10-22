@@ -20,7 +20,7 @@ import {
   readInteractiveConsoleLineOutcome,
   withInteractiveConsoleAsyncOutcome,
   writeInteractiveConsoleTextOutcome,
-} from "../../src/external-send/console.ts";
+} from "../../src/execution/interactive-console.ts";
 
 const PROBE_VALUE = "123456";
 const INPUT_TIMEOUT_MS = 60_000;

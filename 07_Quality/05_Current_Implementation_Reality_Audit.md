@@ -1,5 +1,7 @@
 # 現行実装との照合
 
+2026-10-22のC物理統合では、旧OrchestratorのSource・試験・公開APIをCoordinatorへ移管した候補を検証中である。独立したOrchestrator Package行は過去の母集団を示し、現行物理Ownerは`40_Develop/coordinator`。正式199項目の再評価を実施した記録ではなく、移管・型検査から品質成立を推定しない。現在の対象と確認は[統合計画](../99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#31-cの物理統合の着手前照合)へ接続する。
+
 B2の端末出力移管に伴う補助Unit項目`EST-UT-016`の追加を反映し、現在の設計集合は199項目とする。通常回帰の成功を正式項目全数の再評価へ換算せず、以下の198項目等の実測記録は当時の対象に限定する。
 
 確定誤検知236件の検査側是正を局所・QA Header全数3/3、関係16/16、静的確認と限定独立確認で照合した。生診断1,836→1,600、追加0。Checker全回帰386件は385成功／既知1失敗（残1,600診断）で完走し、全体不合格を維持する。残1,600の是正、Browser再確認、正式QA再評価は未実施。Browserの再読込み境界不足は元generic失敗の原因確定と区別する。[今回の是正範囲](../99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#naming-false-positive-remediation)と[分類の根拠と限界](../99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#naming-browser-triage)を参照する。
@@ -185,7 +187,7 @@ Sandbox内ではProcess列挙が`Access denied`となり、取消試験も子Pro
 | official-asset-governance（廃止） | Package撤去 | 旧11／11は過去結果 | Legacy | 専用判断・保存機能を撤去。素材の権利確認・公開判断と未評価の上流義務は維持 |
 | platform-access | `40_Develop/platform-access` | Rust 29 Pass、8 Explicit Ignore | Partial | Process／Docker境界試験は存在するが、`PRL-ST-003`、`ERB-IT-002`のRelationを確認して接続する。Ignore 8件は明示実環境試験として別扱い |
 | project-operation | `40_Develop/project-operation` | 7／7 Pass | Partial | Project ContextとTopic／Meetingの固定Readerは成立した。永続CRUD、Outcome移管、Authorityおよび安全な削除は後続Phaseで継続する |
-| orchestrator | `40_Develop/orchestrator` | 66／66 Pass | Partial | 14期待Local Itemのうち9件を接続。Transport同等性、取消、判断待ち再開、受入Scenario／UATが残る |
+| orchestrator | `40_Develop/coordinator` | 66／66 Pass | Partial | 14期待Local Itemのうち9件を接続。Transport同等性、取消、判断待ち再開、受入Scenario／UATが残る |
 | quality-change-control | 保守／監査工程 | 専用Runnerなし | Process-owned Partial | 独立Runtimeは要求しない。監査集合統合、是正再入場と3 Local Itemを実レビュー／監査Evidenceへ接続する |
 | runtime-data | `40_Develop/runtime-data` | 35／35 Pass | Partial | 6期待Local Itemのうち4件を接続。Project View分類とCredential→Session Grantを伴うCROS Root利用は別Ownerの成立が必要 |
 | runtime-trust | なし | v0.21対象外 | Deferred to v0.22 | 利用者所有Trust Policy、Policy activationおよびProvider launch結合はGroup Cとしてv0.22へ移管した |

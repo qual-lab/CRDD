@@ -2770,7 +2770,7 @@ test("現在回復の公開組立て: 固定consumer・共同成立・内部値�
  */
 test("Orchestrator回復はexact耐久待ちと待機後の同じ境界を要求する", () => {
   const source = fs.readFileSync(
-    new URL("../../../orchestrator/src/objective/execute.ts", import.meta.url),
+    new URL("../../src/objective/execute.ts", import.meta.url),
     "utf8",
   );
   const start = source.indexOf("function exactRecoveryCompleted(");
@@ -2931,7 +2931,7 @@ test("Orchestrator回復はexact耐久待ちと待機後の同じ境界を要求
  */
 test("ACK直前のガード負対照は処置ゼロOracleに拒否される", () => {
   const source = fs.readFileSync(
-    new URL("../../../orchestrator/src/objective/execute.ts", import.meta.url),
+    new URL("../../src/objective/execute.ts", import.meta.url),
     "utf8",
   );
   for (const stage of ["ack", "finalize"] as const) {

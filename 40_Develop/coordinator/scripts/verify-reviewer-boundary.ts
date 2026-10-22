@@ -88,7 +88,7 @@ function exactCompletedRoute(result: RuntimeRecord, route: string) {
     result.contractRevision ===
       SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION &&
     result.status === "completed" &&
-    result.sourceScope === "crdd-development-source-snapshot/v1" &&
+    result.sourceScope === "crdd-development-source-snapshot/v2" &&
     typeof result.sourceSha256 === "string" &&
     /^[a-f0-9]{64}$/u.test(result.sourceSha256) &&
     result.sourceObservationStatus === "matched" &&

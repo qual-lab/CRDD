@@ -21,8 +21,8 @@ import {
   createOrchestratorSnapshotIntegrationRecordPort,
   readOrchestratorSnapshot,
   writeOrchestratorSnapshot,
-} from "../../../orchestrator/src/storage/current-state.ts";
-import { createOrchestratorState } from "../../../orchestrator/src/index.ts";
+} from "../../src/storage/current-state.ts";
+import { createOrchestratorState } from "../../src/index.ts";
 import { ensureRepositoryRuntimeDataAreaFromWorkingDirectory } from "../../../domain-model/src/index.ts";
 import { requireReadyRepositoryRuntimeDataArea } from "../../../domain-model/src/index.ts";
 

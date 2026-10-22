@@ -10,7 +10,7 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-import { inspectOrchestratorObjectiveRequest } from "../../../orchestrator/src/index.ts";
+import { inspectOrchestratorObjectiveRequest } from "../../src/index.ts";
 import { snapshotCoordinatorTaskRequest } from "../../src/execution/task-request.ts";
 
 const objective = Object.freeze({

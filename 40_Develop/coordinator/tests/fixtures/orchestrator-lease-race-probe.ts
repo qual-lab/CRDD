@@ -10,7 +10,7 @@
  */
 import fs from "node:fs";
 
-import { acquireOrchestratorSnapshotLease } from "../../../orchestrator/src/storage/current-state.ts";
+import { acquireOrchestratorSnapshotLease } from "../../src/storage/current-state.ts";
 
 const [workingDirectory, barrier, projectId, queueId] = process.argv.slice(2);
 if (!workingDirectory || !barrier || !projectId || !queueId)

@@ -213,8 +213,8 @@ export function projectVerificationResult(
       ? "verification_workspace_retained"
       : null;
   summary.sourceScope =
-    ownValue(value, "sourceScope") === "crdd-development-source-snapshot/v1"
-      ? "crdd-development-source-snapshot/v1"
+    ownValue(value, "sourceScope") === "crdd-development-source-snapshot/v2"
+      ? "crdd-development-source-snapshot/v2"
       : null;
   summary.sourceObservationStatus = known(
     ownValue(value, "sourceObservationStatus"),

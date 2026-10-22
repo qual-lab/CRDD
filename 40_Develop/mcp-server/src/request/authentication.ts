@@ -27,7 +27,7 @@ import {
   type ProjectContextSource,
 } from "../../../domain-model/src/index.ts";
 import { resolveVerifiedRepositoryRoot } from "../../../version-control/src/index.ts";
-import { readAuthorizedRuntimeActivity } from "../../../orchestrator/src/index.ts";
+import { readAuthorizedRuntimeActivity } from "../../../coordinator/src/index.ts";
 import { createMcpServerFactory } from "./server.ts";
 import { createInitialConnectionHandler } from "./initial-connection.ts";
 import type { McpAuthenticatedRequestHandlerResolver } from "../transport/types.ts";

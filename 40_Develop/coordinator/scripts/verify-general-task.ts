@@ -236,7 +236,7 @@ type RouteExpectation = Readonly<{
  */
 type SourceIdentity = RuntimeRecord &
   Readonly<{
-    scope: "crdd-development-source-snapshot/v1";
+    scope: "crdd-development-source-snapshot/v2";
     sourceSha256: string;
     sourceIdentitySha256: string;
     crddCommit: string;
@@ -1350,7 +1350,7 @@ function validSourceIdentity(
   source: RuntimeRecord | null,
 ): source is SourceIdentity {
   return (
-    source?.scope === "crdd-development-source-snapshot/v1" &&
+    source?.scope === "crdd-development-source-snapshot/v2" &&
     sha256(source.sourceSha256) &&
     sha256(source.sourceIdentitySha256) &&
     isCanonicalCrddGitObjectId(source.crddCommit) &&

@@ -20,11 +20,11 @@ import {
   acquireOrchestratorSnapshotPilotLock,
   createOrchestratorSnapshotDecisionRecoveryStore,
   writeOrchestratorSnapshot,
-} from "../../../orchestrator/src/storage/current-state.ts";
+} from "../../src/storage/current-state.ts";
 import {
   createOrchestratorState,
   type OrchestratorDecisionRecoveryIntent,
-} from "../../../orchestrator/src/index.ts";
+} from "../../src/index.ts";
 import { ensureRepositoryRuntimeDataAreaFromWorkingDirectory } from "../../../domain-model/src/index.ts";
 import { requireReadyRepositoryRuntimeDataArea } from "../../../domain-model/src/index.ts";
 

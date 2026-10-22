@@ -21,8 +21,8 @@ import {
   requireReadyRepositoryRuntimeDataArea,
 } from "../../../domain-model/src/index.ts";
 
-import { consumeDockerRecoveryReceiptAfterProjectSettlement } from "../../../orchestrator/src/task/settle-docker-recovery.ts";
-import { consumeProjectSettledDockerRecoveryWithRuntimeBoundary } from "../../../orchestrator/src/task/settle-docker-recovery.ts";
+import { consumeDockerRecoveryReceiptAfterProjectSettlement } from "../../src/task/settle-docker-recovery.ts";
+import { consumeProjectSettledDockerRecoveryWithRuntimeBoundary } from "../../src/task/settle-docker-recovery.ts";
 import {
   getJsonCommitName,
   writeCommittedJson,
@@ -38,18 +38,18 @@ import {
   updateProjectOperationQueueState,
   writeOrchestratorState,
 } from "../fixtures/orchestrator-persistence-fixture.ts";
-import { initializeOrchestratorSnapshot } from "../../../orchestrator/src/storage/current-state.ts";
+import { initializeOrchestratorSnapshot } from "../../src/storage/current-state.ts";
 import {
   inspectOrchestratorObjectiveRequest,
   runOrchestratorObjective as runOrchestratorObjectiveWithPorts,
-} from "../../../orchestrator/src/objective/intake-dependencies.ts";
+} from "../../src/objective/intake-dependencies.ts";
 import {
   markProjectTaskRecoveryObligationRecovering,
   type OrchestratorSingleTaskAttemptInput,
   type OrchestratorSingleTaskResult,
   reserveProjectTaskStart,
   settleProjectTaskRecoveryObligation,
-} from "../../../orchestrator/src/index.ts";
+} from "../../src/index.ts";
 
 const revision = "a".repeat(40);
 /**

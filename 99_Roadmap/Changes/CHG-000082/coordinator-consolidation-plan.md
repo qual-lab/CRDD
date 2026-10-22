@@ -1,7 +1,7 @@
 # Orchestrator／Coordinator統合とDomain Model最終整理
 
 成果物種別: 変更計画・着手前対応表
-状態: A・B1〜B5と先行C前整理・CLI責務整理は限定完了。基準b2b603c10から両Afterを文書化し、旧Coordinatorの統合前縮小六単位を実装・局所回帰・独立確認まで限定完了。現Source82／71、影響22 Suite455件と利用側18件成功。Orchestrator小Folder整理とC〜Dは未着手。基準版の通常全回帰、別件の計測再現性・既存検査不合格は区別して維持
+状態: A・B1〜B5とC前の整理は限定完了。基準664820ba1からCの物理移管候補（150 Source・公開120実行値）を実装し、静的検査は成功。最終portable回帰は1,838成功・失敗0・5 skip、限定独立レビュー残指摘0。現在の結果は§32を正本とし、過去の単位別結果と区別する。C全体・保存統合・D・実境界・全体QAは未完了。既存の計測OPEN・横断検査・Workbench lintを維持
 対象変更: [CHG-000082](change.md)
 責任者・採用決定権限: Qual-Lab
 最終更新日: 2026-10-22
@@ -11,7 +11,7 @@ B調査のSource基準（A完了）: `f8f7a9986d47220a160fc141af09c6c51561e1e7`
 
 ## 1. 今回の判断と境界
 
-人間から提示された統合計画を、第二段階の残る実行順序として採用する。従来の二Packageを維持する目標を変更し、専門Packageへ技術責務を戻した後、旧Orchestratorを新Coordinatorへ再編する。現行Sourceの所有関係は切替完了まで変更済みと扱わない。
+人間から提示された統合計画を、第二段階の残る実行順序として採用する。従来の二Packageを維持する目標を変更し、専門Packageへ技術責務を戻した後、旧Orchestratorを新Coordinatorへ再編する。この採用時点では現行Sourceの所有関係を切替完了まで変更済みと扱わなかった。現在の物理移管候補と検証中の範囲は§32に従う。
 
 添付の調査基準`3e5bd91`から実作業基準までは3Commit進んでいる。Platform Access移管、Docker IsolationとRepository別通信条件、SDK境界と明示的Semantic対象指定を含む現在版を基準とする。過去Evidenceは当時の根拠として保持し、新構造の成立根拠へ流用しない。
 
@@ -1624,3 +1624,249 @@ Principal観測を既存の判断入口へ同居し、Sourceは71→70 File。�
 Workbenchの二lint指摘は`src/client/components/project-context.tsx`の行・セルの配列番号Keyであり、そのFileは基準`0dade058d`とbytes一致する。今回の移管で導入した故障ではなく、Workbenchの表示Keyを再評価する際にOwner側で是正する残件として記録する。今回の型接続・活動回帰の成功を、Workbench全体checkの成功へ読み替えない。
 
 §24.5の順序3をC前の内部配置整理として限定完了とする。維持対象は§27.2の根拠に従い、Cの入口・Package統合と同時に必要な接続を評価する。C本体・保存の最終可否評価・既存OPEN・実境界と全体QAは未完了であり、実AI・Docker・②保持物操作は行っていない。現在、人間による追加判断は必要ない。
+
+## 28. C統合の三接続対応と切替条件
+
+### 28.1. 基準・変更経路・収束範囲
+
+基準`664820ba1e6dc3cefb62ce163dc89821deee10ae`のSourceと公開入口、既存のCapability対応と検証先を照合する。今回はArchitecture・Quality・計画の設計更新で、Source・試験・設定・Runtime状態は変更しない。単発実行、上位Taskと耐久受領の専門観点を読取り専用確認者へ分担し、結果を本表へ統合した。設計契約・文書構造・直接影響の独立確認を行い、準拠基準・決定権限・Releaseは変えないため準拠監査・Release監査は行わない。
+
+比較した案は、名前の似た二実体を一つへ潰す案、二Packageを維持する案、責務を維持してPackage境界だけを除く案である。第一案はTask相関と単発Lifecycle、ACKと技術回収を混合し、第二案は採用済みC目標を達成しない。第三案を基礎とし、実際に無判断な参照だけを除く。File数減少や将来の一般化を完成条件にしない。
+
+### 28.2. 三組の処置対応
+
+以下のPathは現Package内の`src/`相対。最終Ownerと契約は[Architectureの三接続契約](../../../06_Architecture/Details/orchestrator/01_Architecture.md#c-integration-three-connections)が所有する。
+
+| 現在の組 | 残す実体・統合後Owner | 削減対象・削除条件 |
+|---|---|---|
+| 上位`task/execute-attempt.ts`／旧下位`execution/attempt.ts` | TaskのIdentity・対象変換・同期配送捕捉・上位結果と、Executionの開始／完了検査・初回通知・取消join・cleanup正規化を両方維持 | Taskから旧Root経由のimportを統合後のExecution実体へ直結。Task入力・結果契約は保持し、二Fileの片方を丸ごと削除しない |
+| 上位`task/request-composition.ts`／旧下位`execution/task.ts` | Task受付は`requests.ts`、実行方針・Profile／Root／認可の再観測はTask組立て、元OperationとProvider順序・回収はExecution | consumerと実行対象を束縛するclosureは維持。旧Package依存だけ切替。単なる`startTask`関数参照への置換は禁止 |
+| 上位`task/settle-docker-recovery.ts`／旧下位`execution/recovery.ts` | Task義務・世代・受領ACK・次処置と、Executionのexact技術回復・元参照・解放・履歴・配送を別Ownerで維持 | 上位からの既存Settlement操作は同Package内の同実体へ直結。正常Controlの配送とProcess喪失後の耐久入口は統合しない |
+| 関連`task/recovery-adapter.ts` | 既存Port型と欠測／観測例外の意味を維持。具体Root／Binding束縛は既存Objective組立てへ同居できるか評価 | Factory・依存型は公開Root、本番受付・専用UTのConsumerあり。実Consumer・公開API・試験の移行後に削除可否を確定。削除済み／不要とは扱わない |
+| 関連`task/host-adapter.ts`、`execution/provider-execution.ts` | 時計／IDと元Process／poisonの用途組立て、Providerの固定依存と元観測を維持 | Package境界だからという理由だけで削除しない。Map・依存・生成順の共有化や再生成を行わない |
+
+現物には旧名`provider-execution-recovery.ts`は存在しない。実体は`execution/recovery.ts`、依存組立ては`provider-execution.ts`、通常Taskの配送閉包は`execution/task.ts`にあり、調査上の旧名をSourceへ復活させない。
+
+### 28.3. 値・通知・配送と失敗の対応
+
+| 段階 | 保持する接続と反例 | 検証の既存Owner |
+|---|---|---|
+| 受付前 | Task Identity／Revision不正では開始0。Profile改訂・Root・認可・Signalを実行前に再確認 | 上位`tests/integration/single-task-state.integration.test.ts`、旧下位`tests/integration/orchestrator-objective-intake.contract.test.ts` |
+| 開始 | 元Control存続中に配送参照を捕捉。欠測・null・throw・Accessor／Proxy、通知例外を開始前Effect 0へ読み替えない | 旧下位`tests/integration/orchestrator-execution.contract.test.ts`とTask／Controller契約 |
+| Provider通知 | Executor初回と重複・Reviewer先行／後続・欠測・false・throw・終端後を区別。同じ保存Promiseへ結合し、開始通知を受領ACKと扱わない | 同Execution試験と既存Controller／Task試験 |
+| 取消・終端 | 開始前／開始直後／完了競合、一回取消、cancel throw／reject、completion reject。監視解除と元完了joinを維持 | 旧下位の単発Attempt・Task取消試験、移管後の公開CLI／Surface試験 |
+| 結果 | cleanup不明・回復参照・Workspace ID差・余剰field／Accessorを反証し、同じAttempt／Operationと相関。consumer第5／対象第6引数の誤接続を拒否 | 上位Workspace結合、旧下位Execution試験、Workbench／MCP Task試験 |
+| 回復 | 重複相関・別consumer・Root／Binding／世代／Attempt差、観測不能と不存在を区別。技術回収済みでも上位保存不明は義務を閉じない | 上位`docker-recovery-settlement.contract.test.ts`、旧下位`current-recovery-resources.contract.test.ts`・`docker-recovery-owner-reentry.contract.test.ts` |
+| 受領・再入場 | 受領保存失敗は配送pending維持。ACK保存後の終了失敗は同じ記録で終了だけを継続。Provider・資源回収を再実行せず、CapabilityをIDから復元しない | 旧下位`tests/system/orchestrator-recovery.contract.test.ts`、上位Objective・回復・保存試験 |
+
+既存の過去試験結果は母集団と保証の把握にだけ使い、C後の実測へ流用しない。必要な実境界試験は固定した接続候補から選び、実AI・Docker操作は対象・回数・送信・回収条件を示して別途承認を得る。②の再試行・保持物操作をCの承認へ含めない。
+
+### 28.4. Storage凍結と実装の順序
+
+C前の七Source完全bytes一致は当時の検証根拠であり、物理Package統合後まで同一specifierを残す命令ではない。Cでは保存処理・関数本文・Schema・Writer・CAS・Lock名／順序・保存Root・状態語彙・回復参照を凍結し、同一実体へ解決するmodule specifierだけを追従する。これは採用済みPackage統合に必要な一意の変更であり、新しい保存方式・移行Reader・互換層は作らない。
+
+| 現在の参照 | Cで必要な追従 | 禁止する変更 |
+|---|---|---|
+| 上位`storage/current-state.ts`→旧下位RootのKernel Lock | 同一Symbolを統合先`execution/kernel-lock.ts`へ直接import。旧文字列維持による自Root逆参照を避ける | Lock実体のコピー、初期化順変更、boolの事前計算でfresh検査を置換 |
+| 上位`storage/protected-decision.ts`→旧下位のKernel Lock・Protected Root | 同Package内の同じ技術実体へ相対参照を追従 | 保護Root・Principal・Writerの契約変更 |
+| 残る保存Source | 具体移管候補でspecifierの解決を全数照合。変更不要ならexact bytes維持 | 本文・Schema／Hash・読戻し・履歴・ACK条件の変更 |
+
+実装は、(1) Executionと本番Singletonの移管先・全公開Consumerを固定、(2) Source実体と全参照・配布入口・npm／試験／台帳を同じ切替候補へ移管、(3) 上位組立てのRoot経由参照を実体へ直結、(4) 公開API・試験を追従して削除条件を満たした中継だけ撤去、(5) 旧Package撤去・改名と全入口／再入場を確認、の順とする。未接続の中間Treeを完成と表示せず、新しい恒久Facade・空Package・互換Serverを追加しない。
+
+Source初回編集前には残るCLI・公開Root・外部送信同意・Package設定の全数切替表を固定する。今回の三組だけでC全体の設計・実装完了とはしない。Runtime Rootの読取り実測では旧下位15名・上位105名で同名0だが、型export、内部限定化の可否、外部Consumerの閉包は別途確認する。数の単純合算を最終公開APIへしない。活動の名称もCの公開照会契約と併せて評価し、今回`execution-history`へ改名しない。
+
+今回は五文書だけを更新し、Source・試験・設定・Runtime状態とStorage七Sourceは不変である。現在、人間による追加判断は必要ない。保存意味・Authority・同意・公開結果・完了条件を変える必要が判明した場合は、その変更前に影響と最小代替を示して停止する。
+
+### 28.5. 文書単位の確認結果
+
+三観点の独立確認を完了し、引数説明の対象を内部`startTask`コールバックと本番関数へ限定する軽微指摘一件を、全確認者が整合確認した一文修正で是正した。三接続の責務・回復／受領・文書／直接影響の残指摘0。Source・試験・設定の差分0、Storage七Sourceは基準とexact bytes一致、`git diff --check`成功である。
+
+Checkerは変更五文書の診断0、関連展開137文書の3,340診断によりexit1。これは異なるScopeでの実行であり、§27の94文書・313件との差を新たな劣化量として扱わない。今回は文書単位のため実行系回帰を再実行せず、既存の129件・74件等をCの成立根拠にしない。Cの三接続設計だけを限定完了とし、次は§28.4のCLI・公開Root・同意・Package設定と保存specifierのexact全数表を固定する。CのSource実装、実境界、E2E、全体QA・Releaseは未完了である。
+
+## 29. Cの入口・公開API・同意・設定の切替表
+
+### 29.1. 基準と編集境界
+
+基準は§28と同じ`664820ba1`。CLI、公開API、同意と設定の三観点を読取り専用で照合した。以下はSource切替の編集表であり、実装済み・検証済みの表示ではない。変更分類は採用済みPackage統合の具体化で、既存の意味・保存・権限・終了条件を維持する。Architectureは責務と接続、QAは検証義務、本表は編集順と追従先を所有する。文書・契約と直接影響の独立確認を行い、準拠基準・Releaseを変更しないため準拠監査・Release監査は行わない。
+
+CLIを旧下位四Fileへ無理に集約する案は採らない。上位の受付を取り込むため、六Fileと単一binを目標にする。APIも二Rootの単純合算や未使用名の一括削除を行わない。新しい互換中継、Registry、Lock、State、起動Processは作らない。②のAI再試行・保持物操作、実Docker・認証・外部送信は今回の文書更新に含めない。
+
+### 29.2. CLIの編集対応
+
+| 一次対象 | 統合後の処置 | 保持条件・検証先 |
+|---|---|---|
+| 旧下位`bin/coordinator.ts` | 単一入口として維持 | `runCoordinatorCommand`をtop-levelで一回awaitする実行入口。import-only Effect 0は処理Moduleに要求し、bin自身には要求しない |
+| 旧下位`cli/command.ts` | 起動用途の選択・固定Script振分け・Project／Task受付の唯一のDispatcher | 下位binの現`task_use_orchestrator_entry`拒否を、本番上位受付への接続に置換してからtemplateを薄くする |
+| 上位`cli/command.ts` | 実受付を`cli/request.ts`へ移管 | `runProjectCommand`／`runSingleTaskCommand`の業務呼出しを維持。新しい転送だけのFileにはしない |
+| 上位`cli/request-input.ts` | 同名で維持 | 128KiB、EOF、UTF-8不正、曖昧JSONの拒否。stdinを別Readerへ複製しない |
+| 旧下位`cli/{options,recovery-report,cancellation}.ts` | 三Fileを維持 | doctor引数・非秘密回復表示・Signal一回取消と登録Rollback／解除を保持 |
+| 上位`cli/command-report.ts` | 旧Human表示・descriptor・専用型を撤去する候補 | 本番四呼出しは全てJSON指定。`request.ts`で同じJSON bytesと終了値を直接出力し、旧Candidate export／discard案内を復活させない |
+| `template/tools/crdd-coordinator.ts` | 実Dispatcher接続後に同じ単一binへ委譲 | 現状はtemplateだけがProject／Taskを上位へ振り分ける。先に薄くすると機能を失う。旧署名対象という説明も現責務へ追従 |
+
+目標CLIは`command.ts`、`request.ts`、`request-input.ts`、`options.ts`、`recovery-report.ts`、`cancellation.ts`。doctorのHuman表示は維持し、Project／Taskの未使用Human表示と混同しない。
+
+| 受付経路 | 切替後に維持する条件 |
+|---|---|
+| direct／interactive／automation × project／task | 六経路とも同じ受付へ到達。Node版、TTY、automationのJSON条件、元stdin・cwd・環境・PIDを維持。Workspace未指定を暗黙Directへ変換しない |
+| doctor／capabilities | 既存の技術診断・回復・取消と回復参照を維持。観測不能を正常へしない |
+| verify-routes／verify-recovery／authenticate-claude | 現在の固定Scriptと引数・TTY条件へ接続。同Processの`argv`とmain guardを維持。署名・Release用途を追加しない |
+| 処理Moduleのimportのみ／不正用途／受付後例外 | `cli/command.ts`・`cli/request.ts`等はimport時Effect 0。binは一回起動するため対象外。用途拒否64、受付後例外2。Project引数拒否64、blocked／unknown2、成功0を保持 |
+
+旧Human専用UTは、その表示契約が不要になったことを確認して撤去する。取消ITとTask Process ITは、Human文字列assertだけを外し、元結果・回復参照・cleanup・機密非公開のassertを実JSONへ接続する。`coordinator-launch`、`interaction-boundary-regression`、`cli-options`、公開Owner境界、耐久基盤、VC利用側閉包の試験を移管し、Catalog／Symbol／QAの分類も同じ候補で追従する。
+
+### 29.3. Root公開集合と内部直結
+
+現Rootは旧下位15実行値＋6型、上位105実行値＋91型。実行値の同名は0だが、型と公開義務を別に照合する。現在の外部本番利用から確認した最低保持集合は次の23実行値＋6型であり、これだけを最終公開集合と決めたものではない。
+
+| 出所 | 統合Rootへ保持する名前 |
+|---|---|
+| 旧下位・実行値2 | `isSupportedCoordinatorNodeRuntime`、`readRepositoryNetworkPolicies` |
+| 旧下位・型2 | `CoordinatorWorkspaceResult`、`RepositoryNetworkPolicies` |
+| 上位・公開操作／検査11 | `observeRuntimeOwnedProjectClientPrincipal`、`runOrchestratorPublicDecision`、`runOrchestratorPublicObjective`、`runOrchestratorPublicStateQuery`、`inspectOrchestratorDecisionRequest`、`inspectOrchestratorObjectiveRequest`、`inspectOrchestratorWorkspaceResults`、`inspectOrchestratorStateQuery`、`inspectOrchestratorStateQueryResult`、`isOrchestratorObjectiveProjectionCorrelationValid`、`isOrchestratorProjectionSemanticallyValid` |
+| 上位・Workspace／照会／受付5 | `inspectWorkspaceCommand`、`executeWorkspaceCommand`、`readAuthorizedRuntimeActivity`、`parseRuntimeActivityObservation`、`createRepositoryTaskRequests` |
+| 上位・Contract／上限5 | `ORCHESTRATOR_HUMAN_DECISION_CONTRACT`、`ORCHESTRATOR_MAXIMUM_OBJECTIVES`、`ORCHESTRATOR_MAXIMUM_TASKS`、`ORCHESTRATOR_OBJECTIVE_INTAKE_CONTRACT`、`ORCHESTRATOR_PUBLIC_RUNTIME_CONTRACT` |
+| 上位・型4 | `OrchestratorProjection`、`RuntimeActivityObservation`、`WorkspaceCommand`、`WorkspaceView` |
+
+旧下位の残る13実行値と`CoordinatorTaskDependencies`はTask／Objective／Storageの内部Consumerを同じ実Ownerへ直接接続できる。`CoordinatorTaskAttemptInput`／`Result`／`RecoveryObligation`のRoot公開撤去は条件付きであり、定義本体の削除ではない。上位のTask遷移・実行、State／Storage、Clock、Lease、Process、判断・回復Adapter等も、同Package内の利用側は実Ownerへ直接接続する。
+
+外部本番Consumerがない公開名でも、Acceptance・Replan・Human Decision・Platform保証・Execution／Queue／Recovery等のContractと専用試験は直ちに不要としない。Cの最初の接続候補では既存公開名を保持し、各宣言について「外部公開保証の試験」又は「内部実体の試験」を照合し、後者を実Ownerへ追従できたものだけRootから外す。保証の廃止判断が必要なものは保持して報告し、利用0だけで廃止しない。名称だけを理由とする全Symbol改名は本切替へ混ぜない。
+
+閉包確認はnamed importだけでなく、`coordinator-state-runtime.contract.test.ts`のnamespace展開、Workbenchのinline type import、templateのdynamic import、Root全キー固定試験を含める。MCP、Workbench、template、scripts、testsの利用側を新Root又は内部Ownerへ対応させ、外部保持と内部非公開の両集合を検査する。既存二Rootの集合を単に足した期待値は使わない。
+
+### 29.4. 外部送信同意と端末Owner
+
+| 旧下位の一次対象 | 統合後の配置 | 保持する意味 |
+|---|---|---|
+| `external-send/consent-record.ts` | `decision/external-send-consent-record.ts` | 同意Recordの値・検査、Hash入力 |
+| `external-send/consent-store.ts` | `decision/external-send-consent-store.ts` | 同意保存・読戻し・失効、既存Lockと保護Rootの順序 |
+| `external-send/grant.ts` | `decision/external-send-grant.ts` | 元Task／role／attempt／operationへ結合したGrant・期限・一回性 |
+| `external-send/policy.ts` | `decision/external-send-policy.ts` | Repository追加通信先と送信範囲の方針。同じ公開APIをRootへ明示export |
+| `external-send/console.ts` | `execution/interactive-console.ts` | PA端末I/O・timeout・取消・終了確認。cleanup不明時に同じProcessをpoison |
+
+`decision/`既存のAcceptance／Recovery Recordと区別するため意味のある接頭辞を維持する。端末技術は同意判断そのものではなく、Grantから既存実体をprivate importする。policyHash・Task scopeHash・consent boundaryHashを統合せず、sourceFileHashを同意Hashへ混ぜない。同じGrant WeakMapとProcess安全状態を保持し、役割間共用やIDからの再生成をしない。
+
+`execution/task.ts`・`task-packet.ts`・`advice.ts`、失効Script、WorkbenchのRoot利用、同意／Packet／端末／poison試験を同じ切替候補へ追従する。配置変更を同意省略・認証情報の送信許可・自動再送へ拡張しない。
+
+### 29.5. Package・試験・保存参照
+
+| 一次対象 | 処置・終了条件 |
+|---|---|
+| package.json二件・lock二件 | 最終名`@qual-lab/crdd-coordinator`、`.`と`./cli`の明示公開を維持する単一Manifest／lockへ。Node下限・TypeScript・Biome版は変更しない。各scripts keyの目的・対象・許可条件を照合して統合し、単純なglob和集合でHost試験を通常回帰へ混ぜない |
+| tsconfig四件 | production strict・全tests・Docker Host専用の三用途へ統合。上位src／testsとbin／scriptsの型検査漏れを独立に確認。旧strictの明示filesと上位includeを照合し、checkerのtemplate用extendsも追従 |
+| 共通Biome・ignore | Root `biome.json`の`40_Develop/**/*`適用とRoot `.gitignore`の`.crdd/config`明示allowlist／`**/node_modules/`を本文不変で維持。旧下位Package-local `.gitignore`は`node_modules/`一行だけでRoot規則と重複するため、旧Package撤去時に同時削除し、最終Packageへ複製しない。保存先・Schema名・Git追跡対象を同時変更しない |
+| symbol.json二件 | 安定ID・意味と検証辺を保持し、実PathとOwnerを更新。欠落・重複・旧Pathを照合し、単なるJSON連結にしない |
+| tests・scripts | testsは190＋19の計209 TS File、相対Path完全衝突0を基準に移管。Script実File32件は現用途を保持し、相対参照・入口・固定argv・Trace／coverage母集団を追従。npm scripts key数とは別集合で扱う |
+| Native接続 | Rust実体はPlatform Accessに維持。Cargo manifest・target・固定実行物と試験Fixture参照を再解決し、Package移動をRust複製・再Build許可としない |
+| Storage七Source | 下記三specifier以外のbytesと意味を維持。設定・State統合・互換Reader・記録移行を本単位へ追加しない |
+
+保存の許可変更は上位`storage/current-state.ts`の`../../../coordinator/src/index.ts`→`../execution/kernel-lock.ts`一件、`storage/protected-decision.ts`の`../../../coordinator/src/execution/kernel-lock.ts`→`../execution/kernel-lock.ts`と`../../../coordinator/src/execution/protected-root.ts`→`../execution/protected-root.ts`の二件だけである。全て同じ既存Symbol・実体へ解決する。残る五Sourceは完全bytes一致を要求し、二Fileもspecifier以外不変を検査する。今回の文書更新では七Source全て不変である。
+
+### 29.6. 実装単位と停止条件
+
+1. 上記CLI・同意の実体配置と入口を同じSource候補へ切り替える。本文維持、六受付経路、機密非公開・取消・joinを先に確認する。
+2. 二PackageのSource／tests／scripts／設定／台帳と全Consumerを単一Coordinatorへ移管し、三接続を実Ownerへ直結する。元Singleton・Mapの一実体性とStorage許可差分を照合する。
+3. 各公開宣言の義務を照合し、実体又は公開保証が移管済みの中継・旧表示・旧Root exportだけを撤去する。旧Package参照と未接続Consumerを全数確認する。
+4. 型・format・lint・Trace、公開集合、CLI六経路、Task／Objective／Workspace／回復／保存、MCP／Workbenchの影響回帰と独立レビューを実施する。実AI・Dockerの未実施を別に残し、Source接続だけでC全体完成としない。
+
+初回のSource候補では条件付き公開名を保持できるため、不要API削除の判断待ちで物理統合を止めない。一方、保存意味・認可・同意・公開結果・取消や受領条件の変更、新たなRuntime資源が必要なら編集前に影響と最小代替を報告する。現在、人間による追加判断は必要ない。これは設計棚卸しであり、C実装・回帰・全体QAの完了記録ではない。
+
+## 30. Cの先行実装 — 上位CLI受付と旧表示の整理
+
+§29の初回実装を、現在の依存方向を変えない上位CLI整理へ限定した。単一Dispatcher・物理Package統合を一度に先行すると、旧下位から上位への新しい依存を中間状態に追加するため、まず既存Owner内の実体と検証を整える。これは同じCの途中単位であり、別の完成形・互換層を採用したものではない。着手前に読取り専用確認者と、元関数・入力・取消・JSON bytes・利用側・検証義務の保持を照合した。
+
+| 一次対象 | 実施内容 | 不変範囲 |
+|---|---|---|
+| 上位`cli/command.ts` | 実受付を`cli/request.ts`へ移動。配布入口、結合試験、AST検査、VC利用側閉包、Symbol Path、Source分類を追従 | 関数名・引数・UsageError・Workspace解決・Owner終了待機・Signal解除・終了値。本番Root公開集合は変更しない |
+| `cli/command-report.ts` | 本番四呼出しのJSON出力を受付へ直接配置し、未使用Human表示と旧Candidate操作案内、専用型・descriptorを撤去 | 四出力の`JSON.stringify(value, null, 2)`＋改行。他のコンパクトJSONは変更しない |
+| 旧Human専用UT十一Case | 不要になった表示契約とCatalog／Symbolを撤去 | Domain共通結果の`RCM-UT-016`自体は維持。旧Human試験をDomainの現行義務へ誤接続しない |
+| 取消・Task Process IT | 元field・exact回復参照・cleanup・機密非公開をJSON又は元結果のassertで確認 | 一次失敗、回復非捏造、取消回数、listener解除・join、Host Path／生Provider出力非公開 |
+| 受付出力の試験 | import-only出力0、Project拒否のJSON bytes・exit64を本番関数で追加確認 | Docker・認証・外部AI・保存物を使わない |
+
+初回回帰では旧Pathを読むAST検査二箇所を検出し、Pathを追従した。その後、従来の「Task本文にstdoutが一つ」という検査が、直接JSON化した引数拒否出力も数えることを確認した。取消後の終端出力とEffect前の引数拒否出力を区別し、後者は先頭guard内・return付き一件、前者はfinally後一件を要求する。単に出力数制限を外さず、終了前の追加出力と拒否return欠落の負例二件を追加した。
+
+### 30.1. 限定確認の結果
+
+| 確認範囲 | 結果と限界 |
+|---|---|
+| 静的検査 | Coordinator・Orchestrator・Domain Model・Version Controlのformat／型／lintと既存Trace検査が成功。既存lint infoは変更せず、広い全体QAの成功とはしない |
+| CLI影響六Suite | 56件成功、失敗・skip0。入力・出力bytes、実Process、取消ASTと負例、固定配送・環境・元PID／stdin、公開Ownerと分類を確認。初回失敗二件は旧Path追従後、出力二種を区別する検査へ是正して全六Suiteを再実行 |
+| 台帳・利用側 | Domain台帳選択とVersion Control利用側閉包の二Suite、38件成功。旧Human試験の登録撤去、実体の新Pathと本番Consumerを照合 |
+| 上位単体回帰 | 67件成功、失敗・skip0。旧Human専用十一Caseの撤去に伴う78→67で、十一件を新方式へPass継承したものではない |
+| 凍結・参照 | Storage七Sourceと両Rootが基準HEADとbytes一致。現行Source・試験・配布入口・Registryの旧受付Path／旧renderer参照0。過去Evidenceは未変更 |
+| 独立確認 | Source・文書／直接影響を分離。Source残指摘0、文書の旧受付Path一件を同意した一語修正で是正し、Sourceの再変更はなし |
+
+実行は本差分の2026-10-22の限定確認で、巨大な生ログや実行ごとのEvidence書庫は追加しない。再実行入口は各四Packageの`npm run check`、Orchestratorの`npm run test:run`、CLI六Suiteと台帳・VC二Suiteの既存File集合である。件数は品質義務の成立数へ換算しない。文書検査は変更五文書の診断0、参照展開137文書の既存3,340診断で全体exit1を維持する。
+
+物理Package統合、単一CLI Dispatcher、同意・端末の移管、条件付きRoot縮小は未実施。Storage七Fileと実行Mapは変更せず、②の再試行・保持物操作、実AI・Docker操作は行っていない。既存の全体QA・計測・命名検査残件も維持する。本CLI単位だけを限定完了とし、次は§29の単一Package切替へ進む。
+
+## 31. Cの物理統合の着手前照合
+
+Source・公開契約／台帳・文書／保存の三観点を読取り専用で照合した。現OrchestratorはRootを含む69 Source、18試験File（登録17とFixture1）で、Source衝突はRootだけ、試験Path・Symbol IDの衝突は0である。旧Coordinator82 Sourceと併合した初回母集団は150 Sourceとなる。初回候補は両Rootの全公開値・型を明示exportで保持する。不要API削除は別の確認単位とする。
+
+| 照合で具体化した対象 | 今回の処置・保持条件 |
+|---|---|
+| Package内参照 | 旧下位Rootへの依存は同じ実Ownerへ直結。受付の自Root依存もObjective実体へ直結し、Singleton・私有Mapを複製しない |
+| 型と純粋閉包 | 旧Orchestratorの論理Source母集団をstable Symbolとexact Pathで識別し、移管後も同じ純粋規則を適用する。Executionの値契約を型専用で読む辺は実行時依存と分け、Execution全体を純粋集合へ追加しない |
+| 保存 | 二File・三specifierだけを同一実体へ追従。残り五Fileはbytes一致、変更二Fileもspecifier以外不変 |
+| 台帳 | 安定test ID・Symbol ID・意味を維持し、物理PathとPackage Ownerだけ更新。同Ownerになった利用側Bindingを撤去し、他の利用側と検証義務は維持 |
+| 実装観測 | 旧Packageを含む固定Source対象を新配置へ更新し、Path込みHashのScopeを`crdd-development-source-snapshot/v2`へ改訂する。旧v1と同値扱いせず、旧Packet再生成はフロントAIの移行対象。保存Schemaや既存回復記録は変更しない |
+| 型検査・入口 | productionに全移管Sourceを含め、portable／Host専用試験の境界を維持。CLIの直接・対話・自動受付を既存Dispatcherへ実移管してからtemplateを薄くする |
+| 正本・利用側 | Taskの設計文書を歴史化せず、現行物理OwnerをCoordinatorへ同期。MCP／Workbench／VC／Domain／Checker／Trace／Catalogの実Consumerを同じ候補で追従 |
+
+変更分類・決定権限・保存意味・権限・通知／取消・回復の保証は§28〜29のまま。Source／契約と文書／直接影響の独立レビューを行い、変更対象の意味から回帰を選ぶ。実AI・Docker・②保持物操作・全体QA／Releaseは対象外で、追加の人間判断は現在不要である。表は着手条件であり、統合成立の結果ではない。
+
+## 32. Cの物理移管候補と検証状況
+
+旧Orchestratorの実Source・試験をCoordinatorへ移し、150 Sourceの単一Treeへ接続した。旧Package Manifest／lock／tsconfig／Symbolを撤去し、同じ依存版・Node下限を持つCoordinatorを正本にする。旧Orchestrator Directoryに残ったGit管理外の開発依存cacheは、回帰終端後にexact Root・内容・非Linkを再確認して清掃し、Directory不存在を確認した。実行・状態・回復のOwnerとして使用しない。履歴・保存設定・State名はPackage改名だけで変更しない。
+
+| 実装した切替 | 確認済みの事実・現在の限界 |
+|---|---|
+| 旧両Root | 全120実行値と既存型を単一Rootから明示export。旧公開名を削減せず、Task側の旧下位Root利用は同Package内の実Ownerへ直結 |
+| Task／Objective実体 | CLI先行整理とRootを除く67 Sourceは、import文以外の本文が基準HEADと一致。Callback束縛、受領ACK、元Control、私有Mapを再構築していない |
+| 外部送信 | Decision四FileとExecutionの端末一Fileへ実体移管。Grant・Hash・一回性とProcess poisonは同じ実体を利用し、役割・送信許可は変えない |
+| CLI | 配布入口の直接・対話・自動Project／Task分配を共通Dispatcherへ実移管し、templateを単一binの一回importへ限定。旧単体Task案内拒否を撤去。公開三入口×六経路を実Processの非Effect試験へ接続 |
+| 保存 | 七Sourceを基準から照合し、二Fileの三specifierだけ変更、他五Sourceは完全一致。Schema・Writer・CAS・Lock・Path・受領／終了条件は不変 |
+| 検査閉包 | 全150 Sourceを重複なく分類。純粋Taskは指定値型だけをExecutionから型専用で読む。値import・別型は拒否する負例を追加。旧Owner語彙・探索Root・同Owner化したCatalog Bindingを整理 |
+| Source観測 | 九Packageの新配置とScope v2へ更新。旧v1のPacketは同値扱いせず再生成対象。Runtimeの署名Gateや互換Readerは追加しない |
+| 静的確認 | Coordinatorのformat／全Source・tests型検査／lint／両Traceが成功。MCP／Workbench／Domainの型検査も成功。最終portable回帰は1,838成功・失敗0・5 skip、限定独立レビュー残指摘0。名称・保存統合・実境界を含むC全体の成立とはしない |
+
+初回の限定結合で見つかった旧Path・旧Owner集合・旧並び順・旧handlerを前提とする試験は、正しい移管先と現在の公開境界へ追従する。拒否条件、機密非公開、取消・join、回復参照、型の純粋閉包を緩和しない。旧成功結果の流用、②のAI再試行、Docker操作、保持物清掃は行っていない。保存正本の統合・C全体・D・実境界・全体QA・Releaseは未完了である。
+
+### 32.1. 是正と限定再確認
+
+初回portable回帰はexit 1で完走した。旧Path／Owner／CLI受付／公開Rootの検査前提、Source観測の対象数、Symbol登録と、制限実行環境によるFilesystem保護・link作成拒否を区別した。回帰不合格を成功へ読み替えず、該当ケースを通常権限で再確認した。実AI・実Docker・②保持物は使用していない。
+
+| 確認・是正 | 観測結果 |
+|---|---|
+| 公開Root | 57specifierを同一実体のPackage内相対へ正規化。二namespaceの恒真比較を廃止し、120実行値exact集合・旧入口不存在・利用側接続・自己迂回の負例を確認 |
+| Source観測 | v2／9対象を維持。Fixtureの対象外旧Packageの内容変更はSnapshot全文不変、対象Packageの変更は差分となる。File／Directory上限の境界を18初期File／9対象に追従し、上限自体は維持。対象6件成功 |
+| CLI・private seam | Project／Taskの現行受付と固定結果へ試験を追従。合法な上位の受領型とExecution私有型を分け、私有型再公開の負例を維持。二Suite28件成功、独立再確認指摘0 |
+| Root・純粋境界 | 二Suite13件成功。CLI三入口六経路、120実行値、型専用の指定辺と実行時依存拒否を確認 |
+| 台帳・利用側 | Domain CatalogとVersion Controlの38件成功。MCP全101件成功。Workbench共有Task／Projectの5件成功 |
+| 制限環境の失敗 | 対象29件が通常権限で成功。含まれる公開Root一件は自己迂回是正後の確認であり、全29件を環境原因件数と数えない。Workbenchの別HTTP一件は最小loopback通信でもEACCESを再現し、通常権限で成功 |
+| Symbol | 未登録7 Sourceのfile登録を追加し、既存の全Source照合Oracleを維持。初回追加の一IDがDomain既存IDと重複したため、新File登録だけを一意なIDへ是正。既存Domain IDと既存UTのverifiesは維持。全986 Symbolで重複0、Source150／登録Path150、Trace11件と独立再確認が成功 |
+| 保存 | 最終Source候補でも七Fileを再照合し、許可済み三specifier以外は基準と完全一致 |
+| 現行文書検査 | 全体3,697診断・exit1。歴史CHG以外の6診断は基準から不変のPA試験リンク一件とQuality Integration五件。今回の旧Package欠測・Symbol重複は解消。名称・意味上の説明残件は§33で別に保持 |
+| 最終portable回帰 | 是正後の製品Sourceを固定し、通常権限で全1,843件を実行。1,838成功・失敗0・取消0・5 skip。5件のskip、別ProfileのHost専用試験未実施、実AI・実Docker・全体QAは別に残る |
+
+Root・Symbol・試験是正、文書の限定独立再確認は残指摘0。物理移管と今回の受付・参照追従は限定確認を完了した。保存統合、名称統一、C全体、実境界・全体QAの完了とは区別する。
+
+## 33. Orchestrator名称の残存棚卸し — 未改名、2026-10-22
+
+物理Package統合と名称の統一は別の変更である。利用者の追加依頼により、関数Header、関数・型・変数、公開IF、設定・通信・保存実値、文書を読み取り調査した。現行TypeScript／TSXのProduction Sourceでは6 Package・103 Fileに大小文字を含む一致がある（Coordinator80、MCP12、Workbench5、Domain4、Checker1、Platform Access1）。これはコメント・宣言・参照・契約実値を含む検索母集団であり、欠陥件数や一括置換件数ではない。
+
+Rustも別途確認し、Platform Accessの`src/native/main.rs`にOrchestrator Application PortというHeader一件が残る。npm script・tsconfig・反復検証script名にも旧名があり、開発用入口の改名と参照追従の対象として区別する。
+
+Coordinator Rootの明示exportには該当名157件（実行値88、型69）が残る。Cの初回候補が公開120実行値と既存型を保持した結果であり、旧Package撤去だけで名称統一まで完了したとは扱わない。
+
+| 対象 | 確認した残存例・現状 | 次の処置と影響 |
+|---|---|---|
+| Header・局所名 | CLI受付の旧Owner説明、`orchestratorDecisionRecordKeys`、`developmentOrchestratorCancellations`等 | 実責務に応じたTask／Objective／Decision等の名前を候補化する。コメントだけ、同Module内改名、公開改名を区別し、同じWeakMap実体・生成位置・寿命を維持する |
+| 公開TypeScript IF | `runOrchestratorPublicObjective`、`runOrchestratorSingleTaskAttempt`、`createOrchestratorExecutionHostPorts`、`Orchestrator*`型・定数 | 名称ごとに実責務と衝突を確認し、Root・Consumer・試験を同時切替する単位が必要。互換aliasや新中継を自動追加しない。今回は公開名を変更していない |
+| 現在文書の物理Owner | MCP詳細の「Orchestrator【別package】」とCoordinator import禁止、Workbenchの別公開Package列挙、Overview・DI・VC・MCP手順の別実体と読める説明 | 単一Coordinator内のTask／ObjectiveとExecutionの責務へ説明を同期する。現在の別Package案内は修正対象であり、過去Evidenceの名称維持とは区別する |
+| 論理責務の用語 | Task／Objective／判断をOrchestratorと呼ぶ設計・QA・UI | 旧名を恒久的な論理名として残す判断は本調査から推定しない。責務別名称へ統一する範囲を次の名称整理で確定する |
+| MCP・公開結果 | `crdd.get_orchestrator_state`、Adapter契約、公開reason／event | 内部Symbolと異なり通信契約の変更となる。Client、discover、Schema、変換、公開結果試験の一斉追従が必要 |
+| 保存・設定・Hash・相関 | `.crdd/orchestrator`、`orchestrator.json`、`consumer: "orchestrator"`、State／履歴／Lease契約とHash domain | 保存七Sourceの凍結と保持中②の再入場へ影響するため現単位では変更しない。形式・旧状態の処置を含む別の移行判断が必要。自動移行Readerや新Registryを追加しない |
+| 安定ID・履歴 | Symbol ID、Test ID、Semantic Key、過去Evidence・日付付き結果 | 現行Owner／Path説明と、歴史的なIdentityを分ける。過去Evidence本文・署名・Hashを改名しない。本候補で新規追加したfile Symbol六件にも旧Orchestrator／ports／public.contract語彙があるが、これを既存の歴史的IDと同列に固定せず、採用前の名称整合確認に含める |
+
+本調査では名称変更を実装していない。名称の機械置換、現在の契約名を正当化するための論理概念の新設、保存凍結解除、②の再試行・保持物操作は行わない。次の名称整理は、内部名、公開API、通信、保存を影響別に提示し、現在の保証と移行条件を確認してから適用する。

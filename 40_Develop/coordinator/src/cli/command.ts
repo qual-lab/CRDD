@@ -488,12 +488,64 @@ export async function runCoordinatorCommand(
   arguments_: readonly string[] = process.argv.slice(2),
 ): Promise<void> {
   const args = arguments_;
-  if (
+  const isDirectProject = args[0] === "project" || args[0] === "task";
+  const isRoutedProject =
+    (args[0] === "interactive" || args[0] === "automation") &&
+    (args[1] === "project" || args[1] === "task");
+  if (isDirectProject || isRoutedProject) {
+    if (
+      isDirectProject &&
+      !isSupportedCoordinatorNodeRuntime(process.versions.node)
+    ) {
+      if (args.includes("--json")) {
+        process.stdout.write(
+          `${JSON.stringify({ status: "blocked", reason: "coordinator_node_version_unsupported" })}\n`,
+        );
+      } else {
+        process.stderr.write(
+          "Coordinator Runtime requires a preverified Node.js 24.12.0 or newer executable.\n",
+        );
+      }
+      process.exitCode = 2;
+    } else {
+      const plan = isRoutedProject
+        ? resolveCoordinatorLaunch(args, {
+            nodeVersion: process.versions.node,
+            stdinIsTty: process.stdin.isTTY === true,
+            stdoutIsTty: process.stdout.isTTY === true,
+            stdoutWritable:
+              !process.stdout.destroyed && process.stdout.writable,
+          })
+        : null;
+      if (plan?.status === "blocked") {
+        process.stderr.write(
+          `${coordinatorLaunchFailureMessage(plan.reason)}\n${plan.reason}\n`,
+        );
+        process.exitCode = 64;
+      } else {
+        const forwardedArgs =
+          plan?.status === "ready" ? plan.forwardedArgs : args;
+        try {
+          const { runProjectCommand, runSingleTaskCommand } = await import(
+            "./request.ts"
+          );
+          if (forwardedArgs[0] === "task") {
+            await runSingleTaskCommand(forwardedArgs.slice(1));
+          } else {
+            await runProjectCommand(forwardedArgs.slice(1));
+          }
+        } catch {
+          process.stderr.write(
+            `${coordinatorLaunchFailureMessage("entry_failed")}\ncoordinator_launch_entry_failed\n`,
+          );
+          process.exitCode = 2;
+        }
+      }
+    }
+  } else if (
     args.length === 0 ||
     (args[0] &&
-      ["task", "doctor", "capabilities", "candidate", "help", "-h"].includes(
-        args[0],
-      ))
+      ["doctor", "capabilities", "candidate", "help", "-h"].includes(args[0]))
   ) {
     // Preserve the existing direct command contract, including optional JSON output.
     await runRuntimeCommand(args);
@@ -572,7 +624,7 @@ if (
   process.argv[1] &&
   path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
 ) {
-  await runRuntimeCommand(process.argv.slice(2));
+  await runCoordinatorCommand(process.argv.slice(2));
 }
 
 /**
@@ -614,19 +666,6 @@ async function runRuntimeCommand(arguments_: readonly string[]): Promise<void> {
   ) {
     printHelp();
     process.exitCode = 0;
-  } else if (command === "task") {
-    // この入口は実行せず、既存の固定拒否結果だけを返す。
-    const report = Object.freeze({
-      command: "task",
-      status: "blocked",
-      reason: "task_use_orchestrator_entry",
-    });
-    process.stdout.write(
-      args.includes("--json")
-        ? `${JSON.stringify(report, null, 2)}\n`
-        : "Coordinator：依頼の実行 — 停止\n詳しい原因はこの表示から確定できません。実行担当者が機械向け結果を確認してください。\nファイル操作の発行: 未確認\n資源回収: 未確認\n手動回復の必要性: 未確認\nProcess再起動の必要性: 未確認\n",
-    );
-    process.exitCode = 64;
   } else if (command === "capabilities") {
     runCapabilitiesCommand(args);
   } else if (command === "doctor") {

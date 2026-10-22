@@ -21,10 +21,10 @@ import {
   markProjectTaskRecoveryObligationRecovering,
   type OrchestratorSingleTaskResult,
   settleProjectTaskRecoveryObligation,
-} from "../../../orchestrator/src/index.ts";
-import { runOrchestratorObjective as runOrchestratorObjectiveWithPorts } from "../../../orchestrator/src/objective/intake-dependencies.ts";
-import { initializeOrchestratorSnapshot } from "../../../orchestrator/src/storage/current-state.ts";
-import { consumeDockerRecoveryReceiptAfterProjectSettlement } from "../../../orchestrator/src/task/settle-docker-recovery.ts";
+} from "../../src/index.ts";
+import { runOrchestratorObjective as runOrchestratorObjectiveWithPorts } from "../../src/objective/intake-dependencies.ts";
+import { initializeOrchestratorSnapshot } from "../../src/storage/current-state.ts";
+import { consumeDockerRecoveryReceiptAfterProjectSettlement } from "../../src/task/settle-docker-recovery.ts";
 import {
   readOrchestratorState,
   writeOrchestratorState,

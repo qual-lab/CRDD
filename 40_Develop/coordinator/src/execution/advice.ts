@@ -32,7 +32,7 @@ import type {
   CoordinatorAiRequestResult,
 } from "./types.ts";
 import { prepareAdviceTask, type AdviceTaskPacket } from "./task-packet.ts";
-import { readRepositoryNetworkPolicies } from "../external-send/policy.ts";
+import { readRepositoryNetworkPolicies } from "../decision/external-send-policy.ts";
 import {
   type DockerNetworkPolicy,
   parseDockerNetworkPolicy,
