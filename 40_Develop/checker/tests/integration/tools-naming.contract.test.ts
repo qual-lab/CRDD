@@ -568,7 +568,6 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
       "./decision/public-operation.ts",
       "./decision/public-acceptance.ts",
       "./state/public-query.ts",
-      "./identity/observe-principal.ts",
     ],
   },
   {

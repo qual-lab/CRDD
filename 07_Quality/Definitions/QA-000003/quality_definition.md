@@ -1,5 +1,7 @@
 # QA-000003 Project実行と回復の検証定義
 
+判断入口へのPrincipal観測の同居では、関数本文・Headerの移管前後一致とRootの公開集合を静的に照合し、既存の公開Owner境界・判断操作の回帰を実施する。呼出しごとの保護Store観測、completed以外のunknown、未作成Storeの初期化可能性を変更しない。配置の同居を認証・Authority拡張や実Storeの新しい保証成立と扱わず、保存七Sourceは変更しない。
+
 統合前のExecution縮小では、二Factoryの本文同一性と本番Codex→Claudeの生成位置・順序はSource差分で、本番準備Ownerの参照同一性と同Provider別候補／Provider間の二WeakMap非共有は既存準備試験で確認する。Taskの開始／終端投影はController実体へ接続し、aliasによる重複評価だけを除いて相関・不正入力の母集団を維持する。助言のRequest／Dispatch拒否は同じblocked結果、unknownは別状態として確認し、Runtime純転送の撤去で元Signal・一回実行・元Host参照・cleanupを失わないことを確認する。内部export縮小は値・型本体とRoot公開集合を変更せず、未使用説明の撤去を既存の実検査や安定test IDの削除へ拡張しない。Storageの本文Hashを維持する。
 
 統合前の構造整理では[両Packageの移行計画](../../../99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#24-両packageのafterを基準にした統合前整理)を既存の単発実行・上位Task・元観測・状態保存の検証面へ接続する。基準83／71 Sourceの処置対応を確認し、削除前に全Consumerと保持Capabilityを照合する。統合前はRoot公開集合・値契約・拒否理由を維持し、開始通知、取消join、元結果・exact回復参照、観測失効、Writer内fresh再確認、本番／候補の独立性を確認する。Cの公開切替は新入口から全利用側までの閉包を別途確認する。

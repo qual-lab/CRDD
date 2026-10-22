@@ -266,7 +266,7 @@ export {
 } from "./state/public-query.ts";
 export { runOrchestratorPublicDecision } from "./decision/public-operation.ts";
 export { runOrchestratorPublicObjective } from "./objective/public-operation.ts";
-export { observeRuntimeOwnedProjectClientPrincipal } from "./identity/observe-principal.ts";
+export { observeRuntimeOwnedProjectClientPrincipal } from "./decision/public-operation.ts";
 export { readAuthorizedRuntimeActivity } from "./activity/read.ts";
 export {
   inspectWorkspaceCommand,

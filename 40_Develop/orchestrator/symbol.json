@@ -172,14 +172,6 @@
       ]
     },
     {
-      "symbolId": "orchestrator.identity.principal-observation",
-      "kind": "file",
-      "path": "src/identity/observe-principal.ts",
-      "archIds": [
-        "ARCH-000004"
-      ]
-    },
-    {
       "symbolId": "orchestrator.test.docker-recovery-settlement",
       "kind": "test-suite",
       "path": "tests/integration/docker-recovery-settlement.contract.test.ts",

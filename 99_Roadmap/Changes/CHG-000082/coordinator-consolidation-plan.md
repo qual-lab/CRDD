@@ -1554,3 +1554,33 @@ Checkerは今回五文書の診断0、参照展開された歴史文書等の全
 部分件数は重複するため合算しない。今回の変更意味から上記回帰面を選び、本文同一性・凍結Hash・直接利用側と組み合わせて確認した。基準版で実行した全1,722件を移管後の全回帰として流用せず、同じ長時間全回帰を機械的に反復しない。Dynamic Fake coverage OPEN、既存命名検査三件、実境界・全体QA未完了は未解消のまま維持する。
 
 準備Lifecycleと元観測は独立した保証Ownerとして保持する。Adviceと編集のLifecycle／Schemaを一つにせず、Development Sessionは本番Task／Recoveryと同じ私有状態を用いるためScriptsへ分断しない。選択戦略、Attempt接続、Recovery／Storageとの相関はCの切替単位へ留保する。六単位の統合前縮小を限定完了とし、次は§24.4のOrchestrator小FolderのConsumer照合へ進む。C・永続化統合・実AI再試行・Docker操作・②保持物操作は行っていない。
+
+## 26. Orchestratorの小Folder照合と判断入口の整理
+
+### 26.1. 着手前照合
+
+基準は `badfae46a`。変更分類は判断入口への内部配置統合とし、公開名・結果・永続形式は維持する。Source契約と依存閉包の読取り専用確認を分離して実施し、次の処置へ統合した。Storage七SourceはHashを捕捉して凍結する。文書・直接影響とSourceの独立レビューを行い、準拠基準・Releaseを変更しないため準拠監査・Release監査は行わない。
+
+| 一次対象 | 今回の処置 | 保持条件・再評価契機 |
+|---|---|---|
+| `identity/observe-principal.ts` | 同じ保護判断Storeを使用する既存 `decision/public-operation.ts`へ関数とHeaderを同居し、旧Fileを撤去 | Root公開名・本文・呼出しごとのStore観測・unknown・初期化可能性を維持。CacheやAuthorityを追加しない。Root再公開元、Symbol、現在形の責務表を追従 |
+| `input/plain-data-snapshot.ts` | 現Ownerを維持 | Recordは意味同等だが、ArrayはDomain版のreason追加と不正上限受理に差がある。保存APIも含むDomain Rootを純粋閉包へ追加せず互換中継も作らない。Cの依存閉包見直し又はDomain契約統一を採用した時に再評価 |
+| Queue／Lease／相対Path | Cへ留保 | 保存Sourceが直接参照しており、配置だけでもStorage本文の凍結に触れる |
+| Clock／Process契約、Platform用途組立て | 現Ownerを維持してCで接続評価 | 型Portを重複実装と扱わず、Cで消えるAdapterを先行再実装しない |
+| 活動Reader／Repository Binding／共通結果 | 具体Consumerと依存閉包の追加照合を継続 | 出所・EI履歴・Cursor・ページング、同じBinding bytesを維持。今回の一File同居を小Folder整理全体の完了とはしない |
+
+編集順は関数の同居とRoot再公開元切替、旧File／Symbol／検査集合撤去、現在形Architectureの同期とする。元関数本文の同一性、Root exact公開集合、純粋・接続Source母集団、静的検査とOrchestrator回帰を確認する。実AI・Docker・②保持物操作は行わない。追加の人間判断は現時点では不要である。
+
+### 26.2. 判断入口の整理結果
+
+Principal観測を既存の判断入口へ同居し、Sourceは71→70 File。関数本文とHeaderは移管前後一致、Rootの公開元54 Moduleは更新済みの明示集合と一致し、既存の公開関数集合検査も成功した。旧Path／旧File Symbolの現行参照は0、Storage七Sourceのbytesは基準から不変である。接続分類表は先行CLI二Fileの記載漏れも補正し、実在する純粋36・業務11・接続19・保存3・Root1の全70 Fileと照合した。
+
+| 確認 | 今回の結果と限界 |
+|---|---|
+| 通常回帰 | Orchestrator単体78・結合51、全129件成功、失敗・skip0。実Git・保存・別Process再入場を含むが、実AI・Dockerの成功ではない |
+| 静的・依存 | OrchestratorとCoordinatorのcheck成功。既存lint infoはそれぞれ2／63件。Platform閉集合4件成功、Runtime／Orchestrator設計Trace accepted |
+| 公開index横断検査 | Docker Isolationの既知二Module一覧不一致で失敗。検査を緩和せず未解消として維持。Orchestrator公開元54 Moduleの個別照合は一致 |
+| 文書 | 変更三文書の診断0。関連展開78文書に303診断でexit1、全体実行も3,687診断でexit1。以前の別Scopeの3,340件と同一母集団の増減比較はしていない |
+| 独立確認 | Source契約と文書・直接影響の確認を分離し、QA追従も再確認。残指摘0。実StoreやAuthorityについて新しい保証の成立は主張しない |
+
+今回の一単位を限定完了とする。活動Reader／Binding／共通結果の配置評価は継続し、Queue／Lease／Path・時計／Process・PlatformのC時評価、C統合と永続化関係の最終評価は未完了である。既存OPEN、実境界・全体QA未完了を維持し、②の再試行・保持物操作は行っていない。
