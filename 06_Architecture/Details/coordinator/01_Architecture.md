@@ -295,7 +295,7 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 | `cli/` | 引数、対話入力、表示、CLI取消と用途の振り分け。単発環境診断のReport組立てと回復結果表示 |
 | `execution/` | 単発Taskと読取り助言の受付・計画・Packet・結果検査・取消・回収、Provider選定Grant・Home・Mount、Host世代・poison、専門AI／DI APIへの接続。呼出し元ではなく処理の責務でOwnerを分ける |
 | `external-send/` | 外部送信の同意、許可、一回消費と出口制御 |
-| `storage/` | 現在状態のmodel、Settlementと汎用JSON確定Journal。Writer・排他・原子単位を維持し、再入場の純粋分類はmodelが所有する |
+| `storage/` | 現在状態のmodelと単一Settlement Writer・排他・原子単位。共通JSON確定保存はDomain Model、Host実遷移と終了根拠の照合はexecutionが所有する |
 
 純粋な値取込みはDomain Modelの既存公開APIを使う。公開Symbolは必要操作と検査へ限定して`src/index.ts`に明示集約する。通常Runtimeから実装依存を持たない検査・E2E補助は`scripts/`、試験と試験専用支援は`tests/`が所有する。保存方式・Protocol・Runtime所在はSource再配置から変更しない。
 
@@ -303,7 +303,7 @@ Relation状態は、この領域が担当する責務断面に対する状態で
 
 `authority/`の許可Bundle・Registry・Policy・開始直前再検査・Local Personal許可元は、`execution/`内の単発実行に閉じた構成要素である。ユーザー／Role認可を新たに所有せず、既存の失効・Scope・Operation相関を保持する。Root字句検査・観測変換・保護候補にはDocker操作がないため、Docker IsolationへAPIを追加する理由にはしない。秘密情報検査は入力投影と結果取込の双方で使用するため`execution/secret-validation.ts`が所有する。Runtime Trustの独立評価は既存QA義務を保持するが、本番未接続・Root非公開のままとし、通常実行のGateへ追加しない。Docker固有の隔離・起動・終了・資源回収はDocker Isolationが所有する。
 
-Docker Task回復IDの解析とProbe記録の保存・読戻し・Root／子実体の照合はDocker Isolationの公開APIを使う。Coordinatorの`execution/host-recovery-record.ts`はHost記録だけを所有する。Host終端intentとcaller checkpoint、元Repository／操作／Scopeへ結合する再起動要求checkpointも`execution/`へ置く。これらはDIの技術的な再起動状態とは異なり、処置許可・保存・通知の上位相関を所有する。現在状態の保存Schema、保存先、同じ回復参照と確定順序は変えない。`storage/docker-recovery-journal.ts`には外部同意・採用判断の共通保存と、Docker回復ID／binding解釈・再開処理が混在する。共通保存4操作と残る17操作が内部処理を共有するため、全体をDomain Modelへ移さず、内部処理の複製や多数のHelper公開も行わない。既存形式・失敗分類を維持し、後続で回復専用操作の必要集合と所有者を確定してから分割する。Task入力と結果表示はOrchestratorへ移管し、単体Coordinatorはdoctor等の受付・診断と旧Task入口の固定拒否だけを保持する。
+Docker Task回復IDの解析とProbe記録の保存・読戻し・Root／子実体の照合はDocker Isolationの公開APIを使う。Coordinatorの`execution/host-recovery-record.ts`はHost記録だけを所有する。Host終端intentとcaller checkpoint、元Repository／操作／Scopeへ結合する再起動要求checkpointも`execution/`へ置く。これらはDIの技術的な再起動状態とは異なり、処置許可・保存・通知の上位相関を所有する。現在状態の保存Schema、保存先、同じ回復参照と確定順序は変えない。同意Storeと保護判断Storeが実利用する共通JSON確定保存4操作はDomain Modelの`storage/committed-json.ts`を利用する。旧Journalの残る17操作は、唯一の本番Consumerが`a04ecb703`で撤去済みであり、旧回復Directoryへfallbackしない既存方針に従って退役する。現在の回復は`execution/recovery.ts`と現在状態checkpoint、Docker Isolationの実資源回収へ対応付け、旧方式の試験を現方式の保証と混同しない。`execution/host-submission.ts`は開始前予定保存、Host実遷移、清掃・Mount終了根拠の照合と後続checkpointを所有する。保存Schema・失敗分類・確定順序は維持し、StoreはReaderと既存Writer操作だけを提供する。Task入力と結果表示はOrchestratorへ移管し、単体Coordinatorはdoctor等の受付・診断と旧Task入口の固定拒否だけを保持する。
 
 診断記録はOrchestratorのTask進行状態ではなく単発の技術実行記録である。上位へ移すためだけのWrapperや私有APIの大量公開を作らず、CoordinatorからOrchestratorへ依存しない。Probeの本番回復と故障／取消検証は同じ相関Mapを一実体で維持し、検証用操作のConsumerだけをscripts／試験に限定する。passive doctorにも一時Operation作成があるため読取り専用・Effect 0とは表示しない。処置対応と検証義務は[解体計画](../../../99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#16-workspace診断folderの解体と実責務への分配)を参照する。
 
@@ -507,7 +507,7 @@ Host Operation
 
 逆順取得、待機中の未知lock削除、別OperationのRecovery ID流用を禁止する。取消は新規取得を止め、既に所有する内側資源から順に回収し、最後にHost Operation lockを解放する。
 
-旧同期排他controllerと解放集約は本番Consumerの撤去に伴い退役した。現在の回収OwnerはHost／Home／Runtimeの三長期排他と短期State排他を既存Kernel／Writerで所有し、取得済み排他の解放を全て試行する。解放不明では後続処置を進めず、最初の失敗と解放失敗を分けて保持する。Journalの削除・移動・清掃分類はJournal本体、Snapshot保存再入場の分類はsettlement-storeが所有する。純粋判定の成功だけから実資源回収や全Recovery成立を推定しない。
+旧同期排他controllerと解放集約は本番Consumerの撤去に伴い退役した。現在の回収OwnerはHost／Home／Runtimeの三長期排他と短期State排他を既存Kernel／Writerで所有し、取得済み排他の解放を全て試行する。解放不明では後続処置を進めず、最初の失敗と解放失敗を分けて保持する。共通JSONの削除4状態の純粋分類はDomain Modelの非公開処理、Snapshot保存再入場の分類はsettlement-storeが所有する。旧Journalの移動・Directory清掃分類は本番Consumerとともに退役し、現在の資源回収はDocker Isolationへ接続する。純粋判定の成功だけから実資源回収や全Recovery成立を推定しない。
 
 ## 7. Authorityと外部送信
 

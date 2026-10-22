@@ -1064,3 +1064,52 @@ Journalは前節の「汎用」という要約だけでは説明不足だった�
 Source／Qualityの初回独立確認で、旧Task拒否表示のexact-byte試験不足、Architectureの旧CLI経路、移管UTの旧Owner表記を検出した。両レビューへ統合是正案を再提示し、合意した範囲だけを修正。human全文・三fieldの整形JSON・末尾改行・exit64・stderr空の実CLI確認を含む局所三件が成功した。再レビューで指摘された§17の時点表現も両確認者へ照合して修正し、独立確認の残指摘は0。取消、Journal、現在モデル、Settlementは基準版との差分0。Orchestrator全回帰は既存の実Git Workspace結合試験を含む129件すべて成功して終了した。CLI入力・表示移管の限定範囲は完了とし、保存処理の保留、C全体、実AI／Docker、全体QAの成立とは区別する。
 
 先行Windows保存run `58760`は223件中222成功・一件失敗で終端した。唯一の失敗は、開始時に読み込まれた旧試験が`../execution/recovery.ts`を要求し、途中で同階層へ移管されたSourceの`./recovery.ts`に一致しなかった静的Oracleである。これは§17.1の配置追従漏れと同じ境界であり、現行試験の再実行15件は成功した。旧run全体を成功へ書き換えず、Windowsを含む222件の観測と現在版の15件を別結果として保持する。今回、追加のDocker・AI・認証・②保持物操作や先行試験Rootの削除は行っていない。C全体・実境界・Releaseは未完了である。
+
+
+## 19. 保存責務の縮小と共通JSON保存の移管
+
+基準Commitは`82364da9b`。対象は現行storage三Fileとその直接利用側・試験・Architecture／Qualityである。変更分類は既存能力の責務整理と旧未使用実装の退役。Repository内だけを書込み範囲とし、②のAI再試行・保持物操作、実Docker・認証・旧データ移行・Releaseは行わない。Source／Qualityの着手前確認を分離して実施した。
+
+### 19.1. 能力対応と採用理由
+
+| 基準版の能力 | 移管・処置 | 現在の保証と検証Owner |
+|---|---|---|
+| Journalの確定名／保存／読取／削除 | Domain Model `storage/committed-json.ts`へ必要な私有依存だけを移管。Rootは`getJsonCommitName`、`writeCommittedJson`、`readCommittedJson`、`removeCommittedJson`の四操作のみ | 新Domain UT／ITが同じSchema・byte・Identity・Hash・上限・symlink／hardlink・観測不能・中断を検査。外部同意Storeと保護判断StoreはDomain Rootへ接続 |
+| 削除の四状態分類 | 共通保存の私有実装として維持。Rootへ公開しない | `PRL-UT-006`の削除四状態と共通保存IT。純粋判定を実回収成立とは扱わない |
+| 旧directoryのtemporary／intent判定、resume、discover、inspect、move、cleanup、exact rollback、回復ID／binding限定処理、説明descriptorとmove／cleanup分類 | 旧本番Consumer `docker-execution/recovery-lifecycle.ts`が`a04ecb703`で撤去されたこと、現行Source・bin・scripts・Rootに到達元がないこと、旧Journal fallback禁止を照合して退役 | 現在のTask回復はCoordinatorのstate checkpoint／再入場とDI cleanupが担当。旧move／per-directory回復を現在能力として主張しない。PR-A-04とQAの旧試験参照を共通保存・現在Writer・DI回収へ付け替えてから削除 |
+| Store内のHost開始／復帰とDI終了照合 | 実処理を`execution/host-submission.ts`へ移す。本番Consumerは既存recoveryのみ | begin／私有transition／completeの本文・予定保存→実Host遷移→後継観測→確定順序を維持。現在Host遷移／Owner再入場の試験と故障代役も新Ownerへ接続 |
+| 現在状態モデル・単一Writer | 今回は同Ownerを維持 | 型・相関・Lock／CAS・元版・state／history出版・consumer ACK・修復purposeを機械的に分散しない。保存と履歴のさらなる分割はCで必要な境界を評価 |
+
+判断を変え得た不確実性は、旧17操作が現在の回復入口や移行に必要か、及び保存coreの抽出が判定・原子性を変えるかである。現在の直接／動的参照、Git履歴、QA／Trace、現行state・DI経路を母集団として確認した。全Journalの移動はDomainへDocker ID解釈を混入させ、helper共有だけの分割は大量公開・複製を生むため不採用。実Consumer撤去と現行保証への対応を確認して旧処理を退役し、到達する保存coreだけを移す。過去Evidence、旧記録のSchema／suffix／reason／bytesは変更しない。秘密・Path・Role・処置許可の判断は各Callerが所有し、共通保存から新しいAuthorityを発行しない。
+
+### 19.2. 固定前の照合と停止条件
+
+- Source／Qualityの独立レビュー、文書・直接影響伝播確認、型・書式・Lint・Catalog／Symbol・Traceを実施する。準拠規則・外部依存・Releaseを変えないため準拠／Release監査は行わない。
+- 共通保存の正負例、確定前後の子Process中断、観測不能、同意・判断の実Consumer、現行回復とHost遷移を確認する。実Docker・外部AIを使わず、試験用自己生成Rootだけを既存手順で回収する。
+- 四操作の本文・保存形式と失敗分類の同値、旧17操作の本番参照0、旧Journalを現行根拠とするTrace参照0、Domain Root追加が四操作だけ、Coordinator Root集合不変を確認する。
+- 移管前に未確認の本番／移行Consumer、必要な保証欠落、形式の非同値または新しい回復機構が必要と判明した場合はSource削除を停止する。現在、人間による追加判断は必要ない。
+- 旧17操作の退役を現在state／DI回復全体の完成へ昇格させない。C・実境界・全体QAと②保持物は別に残る。
+
+### 19.3. 実施結果と検証範囲
+
+共通JSON保存四操作をDomain Rootへ接続し、旧Journal本体・旧専用IT／UTを撤去した。Host開始・復帰・内部遷移の三関数は実体をexecutionへ移し、既存recoveryと故障代役を追従させた。Coordinatorのstorageは`model.ts`と`settlement-store.ts`の二Fileとし、現在状態Schema、単一Writer、Lock／CAS、状態と履歴の確定順序を維持する。モデル・保存のさらなる分割は、後続Cで本当に必要な境界を確認する。
+
+Source／Qualityの二独立レビューを集約し、公開集合の追従漏れ、試験支援の逆依存、Catalog／QAの現在Owner記述、試験CLI入口と書式を是正した。試験支援はDomainのtests/supportへ一実体で移し、既存Coordinator四利用側も追従した。再レビューの残指摘は0。四公開関数と必要な私有依存、Host三関数、試験支援の関数本文は、改名・配置・書式以外で基準版と同値である。
+
+基準実装はHardlink別名の全探索・拒否・完全消去を保証しない。新ITは指定本文とsidecarの削除、別名のbyte・dev／ino保全とSymlink拒否を分けて検証する。既存にない強化を今回追加せず、成功結果を全alias不存在や秘密値の完全消去へ昇格させない。
+
+| 確認範囲 | 結果と限界 |
+|---|---|
+| Domain通常全回帰 | 266／266成功。公開集合12件、実Filesystem・子Process中断・試験領域境界を含む |
+| 共通保存・Host記録・DI Probe記録のCoverage | 27／27成功。行99.52％・分岐83.07％・関数100％。既存閾値90／70／80を維持 |
+| 移管した試験支援の既存四利用側 | 169／169成功。Task Packet、外部送信Policy・同意、開発用Native観測。模擬応答の成功を実Docker成立へ拡張しない |
+| Coordinator関連六Suite | Sandbox runは60件中59成功・Symlink作成EPERM一件。許可環境の同意Suiteは26／26成功し、同じ拒否Oracleを維持。旧失敗を成功へ書換えない |
+| Windows現在WriterとHost pending再入場 | 主Case一件成功。旧試験が受付moduleをimportするだけで未実行だった追従漏れを、現行bin参照一行だけで是正 |
+| Host遷移の別Process故障条件 | 30／30成功。28条件と二つの純粋Oracleで履歴・配送・公開CLI・模擬再起動結果への接続を確認。実Docker再起動の成立ではない |
+| Owner終了とunknown保存後の故障代役 | 保存直後・Host開始直後・認証create unknown保存後の三Case成功。実Owner／Writer／KernelとDocker代役を区別する |
+| Orchestrator | 単体78／78、Docker受領と状態遷移の関連30／30成功。重複母集団を加算しない |
+| 設計トレースと対話境界 | 関連41／41成功。Runtime／Orchestrator Trace検査accepted、Catalog388件valid |
+| 静的確認 | Coordinator／Domain checkとOrchestrator型検査成功。変更範囲Lint診断0。全体の既存style info63件とDomain既存info二件を今回の新規指摘へ混同しない |
+| 文書検査 | 今回の五文書の診断0。拡張範囲3330件（歴史CHG3324、既存PA参照一件、既存Quality Integration五件）により全体Exit1を維持し、全体文書Passとはしない |
+
+Host遷移の別Process故障条件とOwner境界の追加確認は終端成功した。自己生成Rootのcleanupと不存在確認が成功し、最終再観測でも今回試験Root残存0。今回の保存責務整理は限定完了とする。実Docker・外部AI・認証情報・②保持物の操作は行っていない。過去Evidence・正式QAの評価・C／D全体・実データ移行・Releaseは更新しない。現在、人間による追加判断は必要ない。

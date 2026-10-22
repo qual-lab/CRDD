@@ -4639,22 +4639,25 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "coordinator:integration:docker-recovery-journal",
-      "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/docker-recovery-journal.integration.test.ts",
+      "id": "domain-model:integration:committed-json",
+      "owner": "domain-model",
+      "path": "40_Develop/domain-model/tests/integration/committed-json.integration.test.ts",
       "level": "integration",
       "kind": "integration",
       "semanticTags": [
-        "docker",
-        "recovery",
-        "journal"
+        "storage",
+        "committed-json"
       ],
       "environment": "local_component_boundary",
       "externalProviderEffect": false,
       "humanInput": false,
       "postconditions": [
         "boundary_result_observed",
-        "owned_resources_settled_or_reported"
+        "owned_resources_settled_or_reported",
+        "symlink_alias_rejected_without_pair_mutation",
+        "named_pair_removal_preserves_hardlink_alias_bytes",
+        "hardlink_alias_absence_not_guaranteed",
+        "incomplete_pair_not_completed"
       ],
       "mandatoryByDefault": true
     },
@@ -6521,20 +6524,21 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "coordinator:unit:state-storage:docker-recovery-journal",
-      "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/storage/docker-recovery-journal.contract.test.ts",
+      "id": "domain-model:unit:storage:committed-json",
+      "owner": "domain-model",
+      "path": "40_Develop/domain-model/tests/unit/storage/committed-json.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
-        "state-storage",
-        "docker-recovery-journal"
+        "storage",
+        "committed-json"
       ],
       "environment": "node_process",
       "externalProviderEffect": false,
       "humanInput": false,
       "postconditions": [
-        "result_observed"
+        "result_observed",
+        "delete_pair_four_states_classified_without_effect"
       ],
       "mandatoryByDefault": true
     },

@@ -24,9 +24,9 @@ import {
 import { consumeDockerRecoveryReceiptAfterProjectSettlement } from "../../../orchestrator/src/task/settle-docker-recovery.ts";
 import { consumeProjectSettledDockerRecoveryWithRuntimeBoundary } from "../../../orchestrator/src/task/settle-docker-recovery.ts";
 import {
-  dockerRecoveryCommitName,
-  writeCommittedDockerRecoveryJson,
-} from "../../src/storage/docker-recovery-journal.ts";
+  getJsonCommitName,
+  writeCommittedJson,
+} from "../../../domain-model/src/index.ts";
 
 import {
   acquireOrchestratorLease,
@@ -1717,7 +1717,7 @@ test("exact Runtime-owned recovery settles and retries without client recovery a
   const receiptName = `completed-docker-recovery-${createHash("sha256")
     .update(recoveryId)
     .digest("hex")}.json`;
-  writeCommittedDockerRecoveryJson(runtimeDirectory, receiptName, receiptName, {
+  writeCommittedJson(runtimeDirectory, receiptName, receiptName, {
     schema: "crdd-coordinator-docker-recovery-completion/v1",
     recoveryId,
     runtimeStateBinding: {
@@ -1737,7 +1737,7 @@ test("exact Runtime-owned recovery settles and retries without client recovery a
     path.join(runtimeDirectory, receiptName),
   );
   const receiptCommitBefore = fs.readFileSync(
-    path.join(runtimeDirectory, dockerRecoveryCommitName(receiptName)),
+    path.join(runtimeDirectory, getJsonCommitName(receiptName)),
   );
   let runtimeAcknowledgementEffects = 0;
   const staleSettlement = {
@@ -1785,7 +1785,7 @@ test("exact Runtime-owned recovery settles and retries without client recovery a
   );
   assert.deepEqual(
     fs.readFileSync(
-      path.join(runtimeDirectory, dockerRecoveryCommitName(receiptName)),
+      path.join(runtimeDirectory, getJsonCommitName(receiptName)),
     ),
     receiptCommitBefore,
   );

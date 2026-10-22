@@ -27,7 +27,7 @@ import path from "node:path";
 import test, { mock } from "node:test";
 import { fileURLToPath } from "node:url";
 import { runInNewContext } from "node:vm";
-import { createRepositoryTestDirectory } from "../support/repository-test-directory.ts";
+import { createRepositoryTestDirectory } from "../../../domain-model/tests/support/repository-test-directory.ts";
 import { observeRuntimeOwnedDevelopmentSource } from "../../src/execution/development-source-observation.ts";
 
 /**

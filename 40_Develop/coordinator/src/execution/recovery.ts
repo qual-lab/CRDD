@@ -66,14 +66,12 @@ import {
 } from "../storage/model.ts";
 import {
   acceptRuntimeOwnedCoordinatorProjectResult,
-  beginRuntimeOwnedCoordinatorHostSubmission,
   bindRuntimeOwnedCoordinatorProjectAcceptanceReader,
   captureRuntimeOwnedCoordinatorSettlementInputs,
   checkpointRuntimeOwnedCoordinatorCleanup,
   checkpointRuntimeOwnedCoordinatorLifecycle,
   checkpointRuntimeOwnedCoordinatorResource,
   checkpointRuntimeOwnedCoordinatorResourceNotIssued,
-  completeRuntimeOwnedCoordinatorHostSubmission,
   completeRuntimeOwnedCoordinatorSettlement,
   completeRuntimeOwnedCoordinatorCurrentRecovery,
   readRuntimeOwnedCoordinatorCurrentCompletionSnapshot,
@@ -105,6 +103,10 @@ import {
   isDockerRestartCheckpointSettled,
 } from "./restart-checkpoint.ts";
 import { inspectRuntimeOwnedDevelopmentOperationContext } from "./development-measurement-session.ts";
+import {
+  beginRuntimeOwnedCoordinatorHostSubmission,
+  completeRuntimeOwnedCoordinatorHostSubmission,
+} from "./host-submission.ts";
 import { verifyRuntimeOwnedDockerProviderSubmissionNotice } from "./provider-controller.ts";
 import { parseDockerTaskRecoveryId } from "../../../docker-isolation/src/index.ts";
 

@@ -39,7 +39,6 @@ import {
   encodeCoordinatorStateValue,
 } from "../../src/storage/model.ts";
 import {
-  beginRuntimeOwnedCoordinatorHostSubmission,
   checkpointRuntimeOwnedCoordinatorLifecycle,
   checkpointRuntimeOwnedCoordinatorResource,
   prepareRuntimeOwnedCoordinatorStateInitialization,
@@ -48,6 +47,7 @@ import {
   writeRuntimeOwnedCoordinatorStateSnapshot,
 } from "../../src/storage/settlement-store.ts";
 import { currentHostTransitionWorkerSource } from "../fixtures/current-host-transition-worker.ts";
+import { beginRuntimeOwnedCoordinatorHostSubmission } from "../../src/execution/host-submission.ts";
 
 /**
  * 実Hostを現在Repositoryへ結合して非秘密の試験Identityを構成する。

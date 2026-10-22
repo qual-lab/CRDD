@@ -510,6 +510,12 @@ export {
 
 export { parseCanonicalReleaseHeader } from "./artifact/document-header.ts";
 export { parseChangeTraceHeader } from "./artifact/change.ts";
+export {
+  getJsonCommitName,
+  readCommittedJson,
+  writeCommittedJson,
+  removeCommittedJson,
+} from "./storage/committed-json.ts";
 export type { NetworkPolicy } from "./configuration/network-policy.ts";
 export {
   readNetworkPolicy,

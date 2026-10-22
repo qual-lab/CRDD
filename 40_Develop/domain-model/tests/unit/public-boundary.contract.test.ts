@@ -123,6 +123,7 @@ test("Package Rootは宣言済みの公開集合だけを公開する", () => {
     "ensureRepositoryRuntimeDataAreaFromWorkingDirectory",
     "federateTopicMeetingRelations",
     "fixQualityCandidate",
+    "getJsonCommitName",
     "hasQualityOpenChecklist",
     "hasSkippedTestDeclaration",
     "inspectArchitectureAnalysis",
@@ -258,6 +259,7 @@ test("Package Rootは宣言済みの公開集合だけを公開する", () => {
     "projectProjectOperationSources",
     "publishSemanticCoverage",
     "readCanonicalDocumentHeader",
+    "readCommittedJson",
     "readCoordinatorConfig",
     "readExecutionIntelligenceConfig",
     "readNetworkPolicy",
@@ -268,6 +270,7 @@ test("Package Rootは宣言済みの公開集合だけを公開する", () => {
     "recoverFilesystemStoreLock",
     "reenterQualityReview",
     "regressionStageOrder",
+    "removeCommittedJson",
     "requireReadyRepositoryRuntimeDataArea",
     "resolveCrosRuntimeRoots",
     "resolveFilesystemStorePath",
@@ -287,6 +290,7 @@ test("Package Rootは宣言済みの公開集合だけを公開する", () => {
     "validateTopicMeetingListInput",
     "verifyTemporaryOperationEvidencePromotion",
     "withFilesystemStoreLock",
+    "writeCommittedJson",
   ]);
   assert.deepEqual(exportedNames("../../src/index.ts"), [
     "ArchitectureAnalysisCoverageRequest",
@@ -471,6 +475,7 @@ test("Package Rootは宣言済みの公開集合だけを公開する", () => {
     "ensureRepositoryRuntimeDataAreaFromWorkingDirectory",
     "federateTopicMeetingRelations",
     "fixQualityCandidate",
+    "getJsonCommitName",
     "hasQualityOpenChecklist",
     "hasSkippedTestDeclaration",
     "inspectArchitectureAnalysis",
@@ -606,6 +611,7 @@ test("Package Rootは宣言済みの公開集合だけを公開する", () => {
     "projectProjectOperationSources",
     "publishSemanticCoverage",
     "readCanonicalDocumentHeader",
+    "readCommittedJson",
     "readCoordinatorConfig",
     "readExecutionIntelligenceConfig",
     "readNetworkPolicy",
@@ -616,6 +622,7 @@ test("Package Rootは宣言済みの公開集合だけを公開する", () => {
     "recoverFilesystemStoreLock",
     "reenterQualityReview",
     "regressionStageOrder",
+    "removeCommittedJson",
     "requireReadyRepositoryRuntimeDataArea",
     "resolveCrosRuntimeRoots",
     "resolveFilesystemStorePath",
@@ -635,6 +642,7 @@ test("Package Rootは宣言済みの公開集合だけを公開する", () => {
     "validateTopicMeetingListInput",
     "verifyTemporaryOperationEvidencePromotion",
     "withFilesystemStoreLock",
+    "writeCommittedJson",
   ]);
   const metadata = JSON.parse(
     fs.readFileSync(

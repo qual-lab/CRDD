@@ -1,5 +1,5 @@
 /**
- * 回復試験の一時Directoryを現在Repositoryへ限定する。
+ * Repository-local試験Directoryの作成・清掃を現在Repositoryへ限定する。
  *
  * @packageDocumentation
  * @responsibility 自己生成Rootの作成・清掃を同じ実体へ結合する。
@@ -7,7 +7,7 @@
  * @trace ERP-IT-001
  * @trace EST-IT-004
  * @level IT
- * @scope 回復試験のFilesystem準備と清掃
+ * @scope Repository-local試験のFilesystem準備と清掃
  * @boundary 検証済みRepositoryの.crdd/tests直下だけ。
  */
 import fs from "node:fs";

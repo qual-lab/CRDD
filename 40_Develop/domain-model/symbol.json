@@ -4,6 +4,42 @@
   "subsystem": "domain-model",
   "symbols": [
     {
+      "symbolId": "domain-model.storage.committed-json",
+      "kind": "file",
+      "path": "src/storage/committed-json.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "domain-model.test.integration.committed-json",
+      "kind": "test-suite",
+      "path": "tests/integration/committed-json.integration.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-IT-013"
+      ],
+      "verifies": [
+        "domain-model.storage.committed-json"
+      ]
+    },
+    {
+      "symbolId": "domain-model.test.unit.storage.committed-json",
+      "kind": "test-suite",
+      "path": "tests/unit/storage/committed-json.contract.test.ts",
+      "qaIds": [
+        "QA-000003"
+      ],
+      "localTestIds": [
+        "PRL-UT-006"
+      ],
+      "verifies": [
+        "domain-model.storage.committed-json"
+      ]
+    },
+    {
       "symbolId": "domain-model.configuration.network-policy",
       "kind": "file",
       "path": "src/configuration/network-policy.ts",

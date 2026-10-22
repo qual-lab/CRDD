@@ -15,7 +15,7 @@ import { stripTypeScriptTypes } from "node:module";
 import path from "node:path";
 import test from "node:test";
 import vm from "node:vm";
-import { createRepositoryTestDirectory } from "../support/repository-test-directory.ts";
+import { createRepositoryTestDirectory } from "../../../domain-model/tests/support/repository-test-directory.ts";
 
 import {
   compileExternalSendConsentBoundaryHash,
@@ -23,7 +23,7 @@ import {
   describeExternalSendConsentRuntimeContract,
   EXTERNAL_SEND_ACTIVE_CONSENT_PREFIX,
 } from "../../src/external-send/consent-store.ts";
-import { dockerRecoveryCommitName } from "../../src/storage/docker-recovery-journal.ts";
+import { getJsonCommitName } from "../../../domain-model/src/index.ts";
 import type { ResolvedExternalSendPolicy } from "../../src/external-send/policy.ts";
 import { prepareDockerNetworkPolicy } from "../../../docker-isolation/src/index.ts";
 
@@ -543,7 +543,7 @@ test("部分pairと破損pairは固定Authorityを安全に失効し、明示rev
       );
     assert.ok(active);
     fs.writeFileSync(
-      path.join(fixture.rootPath, dockerRecoveryCommitName(active)),
+      path.join(fixture.rootPath, getJsonCommitName(active)),
       "{}\n",
       "utf8",
     );

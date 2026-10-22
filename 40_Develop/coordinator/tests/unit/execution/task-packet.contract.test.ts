@@ -13,7 +13,7 @@ import { prepareDockerNetworkPolicy } from "../../../../docker-isolation/src/ind
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import test from "node:test";
-import { createRepositoryTestDirectory } from "../../support/repository-test-directory.ts";
+import { createRepositoryTestDirectory } from "../../../../domain-model/tests/support/repository-test-directory.ts";
 import { createSignedGeneralTaskVerificationRequest } from "../../../scripts/verify-general-task.ts";
 
 import {

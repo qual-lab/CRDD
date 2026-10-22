@@ -571,7 +571,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
   );
   assert.ok(probeCliBytes);
   const probeToken = `docker.crdd-coordinator-doctor-fixture.12345678-1234-4234-8234-123456789abc.12345678-1234-4234-8234-123456789abc.${"f".repeat(64)}`;
-  const cliModule = new URL("../../src/cli/command.ts", import.meta.url).href;
+  const cliModule = new URL("../../bin/coordinator.ts", import.meta.url).href;
   const hostModule = new URL(
     "../../src/execution/operation.ts",
     import.meta.url,
@@ -5199,7 +5199,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       ...startPlan,
       activeMountCapability: Object.freeze({}),
     } as unknown as Parameters<
-      typeof import("../../src/storage/settlement-store.ts").completeRuntimeOwnedCoordinatorHostSubmission
+      typeof import("../../src/execution/host-submission.ts").completeRuntimeOwnedCoordinatorHostSubmission
     >[2];
     const cleanupObservations = (
       [
@@ -5303,10 +5303,10 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     });
     try {
       const hostStartModule = new URL(
-        "../../src/storage/settlement-store.ts?host-start-reentry",
+        "../../src/execution/host-submission.ts?host-start-reentry",
         import.meta.url,
       ).href;
-      const hostStartRuntime: typeof import("../../src/storage/settlement-store.ts") =
+      const hostStartRuntime: typeof import("../../src/execution/host-submission.ts") =
         await import(hostStartModule);
       const beforeHostRequest = fs.readFileSync(freshStateFile);
       const wrongOwner =

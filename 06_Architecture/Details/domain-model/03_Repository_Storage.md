@@ -547,6 +547,16 @@ Consumer集合は手書き一覧だけを正本としない。実Sourceからraw
 
 OPEN: 各Ownerの保持上限値・自動循環・旧形式の清掃は未完了。CHG-000082の後続段階で具体化し、実装・実切替・独立確認の結果が揃うまで、設計記載だけを実装済みとしない。
 
+## 共通JSONの確定保存
+
+同意Storeと保護判断Storeが実利用するJSON本文と確定sidecarの保存は、`storage/committed-json.ts`が所有する。公開操作は`getJsonCommitName`、`writeCommittedJson`、`readCommittedJson`、`removeCommittedJson`の4つに限定する。Task、Docker回復ID、認可、旧回復Directoryの探索・移動は所有しない。
+
+既存の形式、suffix、Schema、Hash・Identity・byte照合、失敗分類を維持する。呼出し側はOwner Rootと対象名を検証し、必要な排他と業務Schema・認可を所有する。保存途中の不完全な組は成功へ丸めず、削除は同じIdentityの本文・確定記録・削除intentだけを対象にする。新しいAuthorityやLock Frameworkは作らない。
+
+Symlink、同じPathの実体差替え、観測不能は拒否する。ただし別名Hardlinkの全探索・拒否・消去や秘密値の完全消去は保証しない。確認範囲は通常の保存・読戻しと同じ組の照合であり、電源断耐久性やDocker回復全体の完成を意味しない。
+
+検証は削除4状態、正常・不正な確定組、実子Processのfsync／rename境界での中断、不存在と観測不能の区別、別名と対象外Fileの保全を含む。旧Evidenceを移管後の実測根拠として再利用しない。
+
 ## Checklist
 
 - [x] 関連するARCH-IDと担当する責務断面を明示した

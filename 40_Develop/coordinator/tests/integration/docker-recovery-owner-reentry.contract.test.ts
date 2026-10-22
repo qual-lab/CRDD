@@ -3750,7 +3750,36 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
     acceptanceReaderCalls++;
     return upperAcceptancePresent ? projectResult : null;
   };
+  const hostSubmission = await import("../../src/execution/host-submission.ts");
   const mocks = [
+    mock.module(
+      new URL("../../src/execution/host-submission.ts", import.meta.url).href,
+      {
+        namedExports: {
+          ...hostSubmission,
+          beginRuntimeOwnedCoordinatorHostSubmission: () => {
+            startCalls++;
+            if (hostBeginFails)
+              return {
+                status: "blocked",
+                reason: "host_begin_save_failed",
+                hostTransitionConfirmed: false,
+              };
+            hostState = "docker_submission_started";
+            return { status: "completed", hostTransitionConfirmed: true };
+          },
+          completeRuntimeOwnedCoordinatorHostSubmission: () => {
+            if (hostCompleteFails) {
+              rejectedHostCompletions++;
+              return { status: "blocked", hostTransitionConfirmed: false };
+            }
+            restoreCalls++;
+            hostState = "host_only";
+            return { status: "completed", hostTransitionConfirmed: true };
+          },
+        },
+      },
+    ),
     mock.module(
       new URL("../../src/execution/provider-controller.ts", import.meta.url)
         .href,
@@ -3979,26 +4008,6 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
               lockReleased: true,
               filesystemEffectIssued: true,
             };
-          },
-          beginRuntimeOwnedCoordinatorHostSubmission: () => {
-            startCalls++;
-            if (hostBeginFails)
-              return {
-                status: "blocked",
-                reason: "host_begin_save_failed",
-                hostTransitionConfirmed: false,
-              };
-            hostState = "docker_submission_started";
-            return { status: "completed", hostTransitionConfirmed: true };
-          },
-          completeRuntimeOwnedCoordinatorHostSubmission: () => {
-            if (hostCompleteFails) {
-              rejectedHostCompletions++;
-              return { status: "blocked", hostTransitionConfirmed: false };
-            }
-            restoreCalls++;
-            hostState = "host_only";
-            return { status: "completed", hostTransitionConfirmed: true };
           },
           checkpointRuntimeOwnedCoordinatorLifecycle: (
             _owner: unknown,

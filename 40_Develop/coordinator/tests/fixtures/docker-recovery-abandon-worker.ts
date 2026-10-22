@@ -319,6 +319,30 @@ if (mode !== "recovery") {
         import.meta.url,
       ).href
     );
+    const actualSubmission = await import(
+      new URL(
+        "../../src/execution/host-submission.ts?abandon-producer",
+        import.meta.url,
+      ).href
+    );
+    const submissionMock = mock.module(
+      new URL("../../src/execution/host-submission.ts", import.meta.url).href,
+      {
+        namedExports: {
+          ...actualSubmission,
+          beginRuntimeOwnedCoordinatorHostSubmission: (
+            ...args: Parameters<
+              typeof actualSubmission.beginRuntimeOwnedCoordinatorHostSubmission
+            >
+          ) => {
+            hostStarts++;
+            return actualSubmission.beginRuntimeOwnedCoordinatorHostSubmission(
+              ...args,
+            );
+          },
+        },
+      },
+    );
     const authCheckpointResults: ReturnType<
       typeof actualStore.checkpointRuntimeOwnedCoordinatorResource
     >[] = [];
@@ -382,16 +406,6 @@ if (mode !== "recovery") {
               terminateAtBoundary(result.recoveryId);
             }
             return result;
-          },
-          beginRuntimeOwnedCoordinatorHostSubmission: (
-            ...args: Parameters<
-              typeof store.beginRuntimeOwnedCoordinatorHostSubmission
-            >
-          ) => {
-            hostStarts++;
-            return actualStore.beginRuntimeOwnedCoordinatorHostSubmission(
-              ...args,
-            );
           },
         },
       },
@@ -1093,6 +1107,7 @@ if (mode !== "recovery") {
       );
     } finally {
       storeMock.restore();
+      submissionMock.restore();
     }
   } catch (error) {
     if (mode !== "auth_create_failure") throw error;
@@ -1235,6 +1250,7 @@ if (mode !== "recovery") {
   let recoveryStoreMock: { restore(): void } | null = null;
   let recoveryHostMock: { restore(): void } | null = null;
   let admissionStoreMock: { restore(): void } | null = null;
+  let admissionSubmissionMock: { restore(): void } | null = null;
   let admissionHostMock: { restore(): void } | null = null;
   const recoveryAdmissionChecks: string[] = [];
   const admissionMutations: string[] = [];
@@ -1358,12 +1374,10 @@ if (mode !== "recovery") {
       // 公開回復が呼び得る保存・出版入口を明示する。安全なRepository借用と実Readerは代役にしない。
       const mutationNames = [
         "acceptRuntimeOwnedCoordinatorProjectResult",
-        "beginRuntimeOwnedCoordinatorHostSubmission",
         "checkpointRuntimeOwnedCoordinatorCleanup",
         "checkpointRuntimeOwnedCoordinatorLifecycle",
         "checkpointRuntimeOwnedCoordinatorResource",
         "checkpointRuntimeOwnedCoordinatorResourceNotIssued",
-        "completeRuntimeOwnedCoordinatorHostSubmission",
         "completeRuntimeOwnedCoordinatorSettlement",
         "completeRuntimeOwnedCoordinatorCurrentRecovery",
         "registerRuntimeOwnedCoordinatorRecoveryResultDelivery",
@@ -1393,6 +1407,31 @@ if (mode !== "recovery") {
                   },
                 ];
               }),
+            ),
+          },
+        },
+      );
+      const actualSubmission = await import(
+        "../../src/execution/host-submission.ts"
+      );
+      admissionSubmissionMock = mock.module(
+        new URL("../../src/execution/host-submission.ts", import.meta.url).href,
+        {
+          namedExports: {
+            ...actualSubmission,
+            ...Object.fromEntries(
+              (
+                [
+                  "beginRuntimeOwnedCoordinatorHostSubmission",
+                  "completeRuntimeOwnedCoordinatorHostSubmission",
+                ] as const
+              ).map((name) => [
+                name,
+                (...args: unknown[]) => {
+                  admissionMutations.push(name);
+                  return Reflect.apply(actualSubmission[name], undefined, args);
+                },
+              ]),
             ),
           },
         },
@@ -1793,6 +1832,7 @@ if (mode !== "recovery") {
     recoveryStoreMock?.restore();
     recoveryHostMock?.restore();
     admissionStoreMock?.restore();
+    admissionSubmissionMock?.restore();
     admissionHostMock?.restore();
     for (const [name, original] of originals)
       processApi[name] = original as (...args: unknown[]) => unknown;

@@ -15,11 +15,11 @@ import {
 } from "../execution/protected-root.ts";
 import { inspectRuntimeOwnedDevelopmentOperationContext } from "../execution/development-measurement-session.ts";
 import {
-  dockerRecoveryCommitName,
-  readCommittedDockerRecoveryJson,
-  removeCommittedDockerRecoveryJson,
-  writeCommittedDockerRecoveryJson,
-} from "../storage/docker-recovery-journal.ts";
+  getJsonCommitName,
+  readCommittedJson,
+  removeCommittedJson,
+  writeCommittedJson,
+} from "../../../domain-model/src/index.ts";
 import {
   EXTERNAL_SEND_CONSENT_LIFETIME_MS,
   EXTERNAL_SEND_CONSENT_SCHEMA,
@@ -349,7 +349,7 @@ function consentPaths(root: VerifiedRoot, name: string) {
   const file = path.join(root.rootPath, name);
   return Object.freeze({
     file,
-    commit: path.join(root.rootPath, dockerRecoveryCommitName(name)),
+    commit: path.join(root.rootPath, getJsonCommitName(name)),
   });
 }
 
@@ -469,7 +469,7 @@ function revokePair(root: VerifiedRoot) {
     return false;
   if (!pathMissing(target.file) && !pathMissing(target.commit)) {
     try {
-      removeCommittedDockerRecoveryJson(target.file, name);
+      removeCommittedJson(target.file, name);
       return pathMissing(target.file) && pathMissing(target.commit);
     } catch {
       // Invalid fixed-pair data is not authority. Fall through to bounded
@@ -596,10 +596,7 @@ function createRuntime(dependencies: ConsentDependencies) {
           }
           let record: unknown;
           try {
-            record = readCommittedDockerRecoveryJson(
-              target.file,
-              currentName,
-            ).value;
+            record = readCommittedJson(target.file, currentName).value;
           } catch {
             return revokePair(root)
               ? Object.freeze({ status: "absent" as const, boundaryHash })
@@ -689,14 +686,11 @@ function createRuntime(dependencies: ConsentDependencies) {
           if (!/^[a-f0-9]{16}$/u.test(record.generation))
             return Object.freeze({ status: "recovery_required" as const });
           const name = consentName(boundaryHash, record.generation);
-          writeCommittedDockerRecoveryJson(root.rootPath, name, name, record);
+          writeCommittedJson(root.rootPath, name, name, record);
           const rebound = dependencies.observeRoot(false);
           if (!rebound || !sameRoot(root, rebound))
             return Object.freeze({ status: "recovery_required" as const });
-          const stored = readCommittedDockerRecoveryJson(
-            consentPaths(root, name).file,
-            name,
-          );
+          const stored = readCommittedJson(consentPaths(root, name).file, name);
           return validRecord(
             stored.value,
             expectedBoundary(policy, boundaryHash, root),

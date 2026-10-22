@@ -199,7 +199,7 @@ Source Definition由来の検証義務を維持し、Detailは具体的な観測
 
 `PRL-IT-013`の現行保存方式への移行では、旧AppData pointerの専用刺激と、維持するfresh再入場義務を分ける。`current-host-transition.integration.test.ts`のA／B／Cは現在stateと実Hostの途中保存・別Process再入場、`current-state-marker-cleanup.contract.test.ts`は保存markerの実体確認・清掃を担当する。引渡し前失敗は同じHost試験の`handoff_failure`で、親が既に知るexact ID、全五Docker資源未要求、準備Owner解放、別PIDの本番CLI、元例外の非0終了／stdout空、元結果・一次失敗の履歴保持、非対象操作不変、Host／marker／短命物の不存在を確認する。throw省略変異は同じ捕捉Oracleの反証に限り、物理回収の根拠にしない。この対応は実Docker資源の回復、未伝達IDの自動発見、実Provider E2Eまたは旧Suite全体の移行完了を意味しない。
 
-`PRL-UT-006`の旧同期排他controllerと未使用解放集約の局所試験は退役した。現在はJournalの削除4組・移動16組・清掃分類と、Snapshot再入場の元版／次版Hash・Repository結合・初回Root・unknown・不正版を責務別UTで確認する。現行の全解放・一次失敗保持・解放不明停止はKernel／現在Writerの試験へ接続し、純粋分類の成功を実OS回収の証明にしない。
+`PRL-UT-006`の旧同期排他controllerと未使用解放集約の局所試験は退役した。共通JSON保存の削除四状態はDomain Modelの私有分類UTで維持し、現在のSnapshot再入場は元版／次版Hash・Repository結合・初回Root・unknown・不正版を既存UTで確認する。旧Journalのmove十六組・directory清掃分類は旧本番Consumer撤去に伴い退役し、現行回復の根拠にしない。現行の全解放・一次失敗保持・解放不明停止はKernel／現在WriterとDI回収試験へ接続し、純粋分類の成功を実OS回収の証明にしない。
 
 `PRL-UT-006`には[Coordinator詳細設計§11](../../../06_Architecture/Details/coordinator/01_Architecture.md#元の回復参照を確定できないhost残存の保守候補)の内部候補判定を含める。十一の必須条件を一件ずつ不成立、unknown、欠落へ変え、対象外資源クラス、不正Hash、未知field、AccessorおよびProxyを拒否する。全条件の局所fixtureが成立してもAuthority非発行、清掃未確認、本番未接続を返すことをOracleとする。
 
@@ -217,7 +217,7 @@ Source Definition由来の検証義務を維持し、Detailは具体的な観測
 
 同じ`PRL-UT-006`でDocker診断回復のHost排他接続順を確認する。現在の本番関数bodyを変更せず局所依存へ接続し、正常、Token／Host世代／親の不正、取得null／例外、取得後の記録不明、Docker依存失敗、解放不明、Host Root名差およびHost nonce差の十一経路を与える。Probe nonceとHost nonceは異なる値にする。未取得では対象Rootの記録読取り0・Docker利用0、取得後の対象差・記録不明ではDocker利用0を確認する。同じ排他ObjectをHost清掃へ渡し、取得後の失敗でも一回解放する。解放不明では成功・清掃確認を返さず、現在のexact回復参照、手動回復の必要性と清掃未確認を保持する。これは本番bodyの呼出順・結果相関のUTであり、実排他、Docker回収、実フォルダ不存在、旧三Rootの非使用または全Recoveryの成立を証明しない。
 
-旧AppData回復一覧に依存したHost排他省略と、旧controllerによる外側観測中の一時解放・再取得の試験は退役する。現在の`PRL-IT-013`は、Host／Home／Runtimeの三長期排他と短期State排他、観測後の元版全文・exact回復ID・現在Ownerの再確認、部分取得失敗時の全解放と解放不明時の後続処置拒否を確認する。実Kernelの競合・待機中の所有・解放後失効とProcess終了後の再取得は既存Kernel Lock試験、現在の資源／Owner・再起動準備の故障処理は各現行Suiteへ対応付ける。Journal本体のIdentity・Schemaと移管した分類の検証は維持する。Host記録の遷移相関は既存recovery-recordへ統合し、旧専用UT2件を同Ownerへ移す。Journal＋Host記録全体と既存Host ITを含むcoverageの閾値90/70/80を維持し、Snapshot分類は別のUT3件と実Writer回帰で確認する。旧coverageと同一母集団とは表示しない。値保存・Lock取得・局所fixtureの成功を、実資源不存在、旧Owner終端または全Recovery成立の証明にしない。
+旧AppData回復一覧に依存したHost排他省略と、旧controllerによる外側観測中の一時解放・再取得の試験は退役する。現在の`PRL-IT-013`は、Host／Home／Runtimeの三長期排他と短期State排他、観測後の元版全文・exact回復ID・現在Ownerの再確認、部分取得失敗時の全解放と解放不明時の後続処置拒否を確認する。実Kernelの競合・待機中の所有・解放後失効とProcess終了後の再取得は既存Kernel Lock試験、現在の資源／Owner・再起動準備の故障処理は各現行Suiteへ対応付ける。共通JSON保存のIdentity・Schema・Hash・byte・不完全組拒否・削除分類の検証はDomain Modelのcommitted-json UT／ITへ移す。旧directory回復の試験を現在state／DI回復の根拠へ使わず、PR-A-04は現在WriterとDI回収の試験へ接続する。Host記録の遷移相関は既存recovery-recordへ統合し、旧専用UT2件を同Ownerへ移す。移管した共通JSON保存＋Host記録＋DI Probe記録と既存Host ITを含むcoverageの閾値90/70/80を維持し、Snapshot分類は別のUT3件と実Writer回帰で確認する。旧coverageと同一母集団とは表示しない。値保存・Lock取得・局所fixtureの成功を、実資源不存在、旧Owner終端または全Recovery成立の証明にしない。
 
 同じ`PRL-UT-006`と`PRL-IT-013`で、再起動最終観測の要求状態・Effect不明を既存finalizeから保存する契約を確認する。上位unknown・回収confirmed・結果blocked・最終not_issued・Effect不明falseだけを新しい終了許容形とし、上位の未発行化や再起動成功へ変換しない。上位issued／confirmedとの矛盾、最終unknown／issued、Effect不明true、回収不明、欠測・余分field・Proxy／getter、旧result、確定後の全field変更と二要求目を拒否する。completed側の最終confirmed・Effect不明falseも共同要求する。実finalize→Writer読戻し→終端／履歴へ接続し、両利用側が同じ純粋判定を使うこと、Task資源終了・Owner退役・Host不存在・Lease・排他・履歴の各条件を壊した反例とEffect条件省略変異を確認する。通知／保存／解放不明は未発行確定へ補完しない。現在保持する旧形式の実証結果を推測移行せず、本契約の実装・検証は未完了として追跡する。
 
@@ -274,7 +274,7 @@ Host終端専用環境の`PRL-UT-006`では、同じ本番関数bodyに対する
 
 Provider別の薄い準備中継撤去では`PRL-UT-014`の両Provider試験を共通実体へ接続し、別Store・一回消費・期限・管理一致・Authority失効とMount終了を維持する。Host通知の`PRL-UT-006`はPA内の`in-process-lifecycle`試験へ実移管し、共有Directory・Host activation・診断判断の三CaseはCoordinatorへ残す。固定namespace外の拒否を追加し、既存`ERB-IT-003`の上位実pipe競合・Process喪失後再取得・caller保存と解放相関を維持する。低層通知試験を保存・回復全体の成立へ拡張しない。
 
-C前の現在配置は`execution`／`storage`／`external-send`／`cli`とし、同じQA Local Item・Symbol IDのままSourceとUT Pathを追従する。再入場分類UTは`storage/model-reentry`から純粋値モデルを直接検査し、実Writer・Journal・Host callerの確定順はそれぞれ既存ITで検査する。未接続の旧PR03候補は退役し、descriptor CaseだけRootObservationへ移す。旧wire五Caseを現在PAの保証へ転用せず、[退役軸と現行試験の対応](../../../99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#142-未接続platform-access候補の退役)を保持する。
+C前の現在配置は`execution`／`storage`／`external-send`／`cli`とし、同じQA Local Item・Symbol IDのままSourceとUT Pathを追従する。再入場分類UTは`storage/model-reentry`から純粋値モデルを直接検査し、現在stateのSettlement Writer、共通JSONのDomain committed-json、Host callerのhost-submissionの確定順はそれぞれ現行ITで検査し、退役した旧Journal試験を新版の根拠へ流用しない。未接続の旧PR03候補は退役し、descriptor CaseだけRootObservationへ移す。旧wire五Caseを現在PAの保証へ転用せず、[退役軸と現行試験の対応](../../../99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#142-未接続platform-access候補の退役)を保持する。
 
 ## Workspace・診断Folderの解体に伴う検証
 

@@ -18,9 +18,9 @@ import {
   inspectRuntimeOwnedWindowsRuntimeState,
 } from "../../../coordinator/src/execution/protected-root.ts";
 import {
-  readCommittedDockerRecoveryJson,
-  writeCommittedDockerRecoveryJson,
-} from "../../../coordinator/src/storage/docker-recovery-journal.ts";
+  readCommittedJson,
+  writeCommittedJson,
+} from "../../../domain-model/src/index.ts";
 
 export const ORCHESTRATOR_WINDOWS_DECISION_STORE_CONTRACT =
   "crdd-coordinator/orchestrator-windows-decision-store/v1" as const;
@@ -231,7 +231,7 @@ function current(root: VerifiedRoot, recordId: string) {
     const generation = Number(candidate.match?.[2]);
     if (generation !== index + 1)
       throw new Error("decision_store_generation_gap");
-    const committed = readCommittedDockerRecoveryJson(
+    const committed = readCommittedJson(
       path.join(root.rootPath, candidate.name),
       candidate.name,
     );
@@ -383,12 +383,7 @@ function createStore(
             value: record,
           });
           const name = entryName(record.recordId, 1);
-          writeCommittedDockerRecoveryJson(
-            lockedRoot.rootPath,
-            name,
-            name,
-            value,
-          );
+          writeCommittedJson(lockedRoot.rootPath, name, name, value);
           const observed = current(lockedRoot, record.recordId);
           return observed && observed.envelope.generation === 1
             ? result(observed.envelope.value)
@@ -460,12 +455,7 @@ function createStore(
             value: next,
           });
           const name = entryName(expected.recordId, generation);
-          writeCommittedDockerRecoveryJson(
-            lockedRoot.rootPath,
-            name,
-            name,
-            value,
-          );
+          writeCommittedJson(lockedRoot.rootPath, name, name, value);
           const readback = current(lockedRoot, expected.recordId);
           return readback && readback.envelope.generation === generation
             ? result(readback.envelope.value)

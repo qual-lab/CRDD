@@ -4,6 +4,14 @@
   "subsystem": "coordinator",
   "symbols": [
     {
+      "symbolId": "coordinator.execution.host-submission",
+      "kind": "file",
+      "path": "src/execution/host-submission.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
       "symbolId": "coordinator.source.repository-operation.borrowed-workspace",
       "kind": "file",
       "path": "src/execution/borrowed-tree.ts",
@@ -804,20 +812,6 @@
       ]
     },
     {
-      "symbolId": "coordinator.test.integration.docker-recovery-journal",
-      "kind": "test-suite",
-      "path": "tests/integration/docker-recovery-journal.integration.test.ts",
-      "qaIds": [
-        "QA-000003"
-      ],
-      "localTestIds": [
-        "PRL-IT-013"
-      ],
-      "verifies": [
-        "coordinator.source.src.security.docker.recovery.journal"
-      ]
-    },
-    {
       "symbolId": "coordinator.test.integration.docker-recovery-runtime",
       "kind": "test-suite",
       "path": "tests/integration/docker-recovery-runtime.contract.test.ts",
@@ -830,12 +824,12 @@
       "verifies": [
         "coordinator.source.src.core.docker.recovery.command.report",
         "coordinator.host-execution.kernel-lock",
-        "coordinator.source.src.security.docker.recovery.journal",
         "coordinator.source.src.security.docker.recovery.runtime",
         "coordinator.source.src.security.docker.recovery.runtime.internal",
         "coordinator.source.src.security.docker.project.recovery.settlement",
         "coordinator.source.src.security.execution.environment",
-        "coordinator.source.src.security.host.recovery.record"
+        "coordinator.source.src.security.host.recovery.record",
+        "coordinator.execution.host-submission"
       ]
     },
     {
@@ -863,7 +857,7 @@
         "EST-IT-004"
       ],
       "verifies": [
-        "coordinator.source.src.security.docker.recovery.journal",
+        "domain-model.storage.committed-json",
         "coordinator.source.src.security.external.send.consent.runtime",
         "coordinator.source.src.security.external.send.policy.runtime"
       ]
@@ -1086,7 +1080,7 @@
       ],
       "verifies": [
         "coordinator.source.src.security.docker.project.recovery.settlement",
-        "coordinator.source.src.security.docker.recovery.journal",
+        "domain-model.storage.committed-json",
         "coordinator.source.src.security.docker.recovery.runtime",
         "coordinator.source.src.security.docker.recovery.runtime.internal",
         "coordinator.source.src.security.orchestrator.durable.foundation",
@@ -1881,20 +1875,6 @@
       ],
       "verifies": [
         "coordinator.task.recovery-projection"
-      ]
-    },
-    {
-      "symbolId": "coordinator.test.unit.state-storage.journal-classification",
-      "kind": "test-suite",
-      "qaIds": [
-        "QA-000003"
-      ],
-      "localTestIds": [
-        "PRL-UT-006"
-      ],
-      "path": "tests/unit/storage/docker-recovery-journal.contract.test.ts",
-      "verifies": [
-        "coordinator.source.src.security.docker.recovery.journal"
       ]
     },
     {
@@ -2758,14 +2738,6 @@
       "path": "src/execution/development-measurement-constraints.ts",
       "archIds": [
         "ARCH-000004"
-      ]
-    },
-    {
-      "symbolId": "coordinator.source.src.security.docker.recovery.journal",
-      "kind": "file",
-      "path": "src/storage/docker-recovery-journal.ts",
-      "archIds": [
-        "ARCH-000008"
       ]
     },
     {
