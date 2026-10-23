@@ -139,7 +139,7 @@ Workspace再編の現在目標は[作業領域・責務契約](05_Workspace.md)�
 
 Objectiveの開発用構築だけがDecision／Stateの実行関数を一方向に利用し、逆依存は作らない。診断は上位公開操作へ依存せず、本番Reporterは各一つを維持する。既存と同じIdentity検査をModelの内部関数へ統合し、戻り値の型判定注釈だけ補う。結果検査には元のRuntime発行回復ID集合を渡し、単なるDTO形式検査へ縮小しない。旧組立てFileやCapability別barrelは残さず、Rootの公開196宣言、公開引数・結果、永続契約・認証順・同意Hash・取消と回復の順序は変えない。
 
-非公開実装の検証はOrchestrator所有試験へ移す。Profile搬送の旧直結UTは、Producerの入力変換とConsumerの要求検査へ分け、公開Objectiveの実Task開始入力でProfile／Executor／Front Providerの相関を補完する。公開APIの追加、試験専用の製品中継、偽の直結成立主張は行わない。
+非公開実装の検証はCoordinator所有試験へ置く。Objectiveの選定搬送は、Producerの入力変換とConsumerの要求検査へ分け、同じ設定由来のExecutor／Reviewer組を照合する。Home利用許可はoperation・provider・Home実体／保護へ限定し、下位Model Grant／Packetに段階的に残る旧Profileとは分離する。モデル側との相関はoperationとproviderで行い、[Home許可の契約](01_Architecture.md#74-provider-homeマウント許可)に従う。公開APIの追加、試験専用の製品中継、純粋な搬送だけによる下位実行成立の主張は行わない。
 
 Workspaceの内部操作は`manageCoordinatorWorkspace`、Taskごとの対象観測は`resolveCoordinatorWorkspaceTaskTarget`、値契約は`CoordinatorWorkspaceRequest`／`CoordinatorWorkspace`としてPackage Rootから公開する。具体保存・Lease・VC接続と、実Provider／Surface・採用取込の未接続は[状態・資源詳細の接続表](04_Task_Detailed_Design.md#workspace接続の実装順序と移管先)に従う。内部のHost Path投影を外部Surfaceへ直接返さない。
 

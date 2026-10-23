@@ -21,7 +21,6 @@ import {
 type ProfileFixture = Record<string, unknown> & {
   contract: string;
   contractRevision: number;
-  profileId: string;
   provider: string;
   operationId: string;
   authMethod: string;
@@ -45,8 +44,7 @@ type ProfileFixture = Record<string, unknown> & {
 function candidate(overrides: Record<string, unknown> = {}): ProfileFixture {
   return {
     contract: PROVIDER_ISOLATION_CONTRACT,
-    contractRevision: 3,
-    profileId: "PROFILE-000001",
+    contractRevision: 4,
     provider: "codex",
     operationId: "OP-000001",
     authMethod: "subscription_oauth",
@@ -56,7 +54,6 @@ function candidate(overrides: Record<string, unknown> = {}): ProfileFixture {
     },
     providerHomeMountGrant: {
       provider: "codex",
-      profileId: "PROFILE-000001",
       operationId: "OP-000001",
       issuer: "runtime_owned",
       requiredState: "active",
@@ -121,7 +118,7 @@ test("Profile契約はCRDD版ごとに分岐しない", () => {
   assert.equal(contract.crddVersionSpecific, false);
   assert.equal(contract.supportedWriteBackend, "docker");
   assert.equal(contract.localFallbackAllowed, false);
-  assert.equal(contract.contractRevision, 3);
+  assert.equal(contract.contractRevision, 4);
   assert.equal(contract.authMethod, "subscription_oauth");
   assert.equal(
     contract.subscriptionOauthProviderHomeMountGrant.implementationState,
@@ -174,7 +171,6 @@ test("秘密値らしいfieldをProfileへ混入できない", () => {
  */
 test("Profile入力budgetの境界と超過をfail closedにする", () => {
   const maximum = candidate({
-    profileId: `PROFILE-${"1".repeat(PROVIDER_INPUT_LIMITS.identifierLength - "PROFILE-".length)}`,
     egress: {
       origins: Array.from(
         { length: PROVIDER_INPUT_LIMITS.originCount },
@@ -185,7 +181,6 @@ test("Profile入力budgetの境界と超過をfail closedにする", () => {
       ),
     },
   });
-  maximum.providerHomeMountGrant.profileId = maximum.profileId;
   assert.equal(validateProviderIsolationProfile(maximum).status, "candidate");
   const tooMany = candidate();
   tooMany.egress.origins = Array.from(
@@ -212,7 +207,7 @@ test("Profile入力budgetの境界と超過をfail closedにする", () => {
   });
   assert.equal(
     validateProviderIsolationProfile(tooLongId).reason,
-    "profile_id_invalid",
+    "profile_shape_invalid",
   );
   const cyclic = candidate();
   cyclic.authority = cyclic;
@@ -391,18 +386,18 @@ test("旧revisionとgeneric Credential fieldをOAuth Profileへ混在できな�
 });
 
 /**
- * Mount GrantはProvider、ProfileおよびOperationへ完全結合するを検証する。
+ * Mount GrantはProviderとOperationへ完全結合し旧Profileを拒否するを検証する。
  *
- * @responsibility Mount GrantはProvider、ProfileおよびOperationへ完全結合するの合否判定を所有する。
+ * @responsibility Mount GrantはProviderとOperationへ完全結合し旧Profileを拒否するの合否判定を所有する。
  * @trace AIT-UT-005
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Mount GrantはProvider、ProfileおよびOperationへ完全結合するの対象操作を実行する。
+ * @stimulus Mount GrantはProviderとOperationへ完全結合し旧Profileを拒否するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary AIT-UT-005=Direct Boundary: coordinator Test Source→対象契約
  */
-test("Mount GrantはProvider、ProfileおよびOperationへ完全結合する", () => {
+test("Mount GrantはProviderとOperationへ完全結合し旧Profileを拒否する", () => {
   for (const [field, value] of [
     ["provider", "claude"],
     ["profileId", "PROFILE-000002"],
@@ -412,7 +407,9 @@ test("Mount GrantはProvider、ProfileおよびOperationへ完全結合する", 
     changed.providerHomeMountGrant[field] = value;
     assert.equal(
       validateProviderIsolationProfile(changed).reason,
-      "provider_home_mount_grant_reference_invalid",
+      field === "profileId"
+        ? "provider_home_mount_grant_shape_invalid"
+        : "provider_home_mount_grant_reference_invalid",
       field,
     );
   }

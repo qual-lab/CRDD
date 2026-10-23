@@ -46,7 +46,6 @@ function record(overrides: Record<string, unknown> = {}) {
     contractRevision: PROVIDER_HOME_MOUNT_GRANT_CONTRACT_REVISION,
     grantRef: "PHMGRANT-000001",
     provider: "claude",
-    profileId: "PROFILE-000001",
     operationId: "OP-000001",
     providerHomeIdentityHash: homeIdentityHash,
     providerHomeProtectionHash: homeProtectionHash,
@@ -79,7 +78,6 @@ function useInput(overrides: Record<string, unknown> = {}) {
   return {
     grant: record(),
     provider: "claude",
-    profileId: "PROFILE-000001",
     operationId: "OP-000001",
     providerHomeMountGrantRef: "PHMGRANT-000001",
     observedProviderHomeIdentityHash: homeIdentityHash,
@@ -154,7 +152,7 @@ test("Mount Grant契約は一回限り・短命・三者bindingと非Effect境�
     PROVIDER_HOME_MOUNT_GRANT_MAXIMUM_LIFETIME_MS,
   );
   assert.equal(contract.usageLimit, 1);
-  assert.equal(contract.providerProfileOperationBindingRequired, true);
+  assert.equal(contract.providerOperationBindingRequired, true);
   assert.equal(contract.providerHomeIdentityAndProtectionBindingRequired, true);
   assert.equal(contract.selectedLocalUserBindingRequired, true);
   assert.equal(
@@ -253,6 +251,7 @@ test("recordのshape、Identity、時刻、回数および状態矛盾を拒否�
     { grantRef: "PHMGRANT-x" },
     { provider: "other" },
     { profileId: "PROFILE-x" },
+    { profileId: "PROFILE-000001" },
     { operationId: "OP-x" },
     { providerHomeIdentityHash: "x" },
     { providerHomeProtectionHash: "x" },
@@ -468,7 +467,9 @@ test("use候補はissued状態、三者binding、canonical Runtime時刻と有�
     });
     assert.equal(
       bindingFailure.reason,
-      "provider_home_mount_grant_use_binding_mismatch",
+      Object.hasOwn(changed, "profileId")
+        ? "provider_home_mount_grant_use_input_invalid"
+        : "provider_home_mount_grant_use_binding_mismatch",
     );
     assertNoMountEffects(bindingFailure);
   }

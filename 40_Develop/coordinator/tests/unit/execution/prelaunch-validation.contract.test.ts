@@ -45,15 +45,13 @@ import { canonicalJson } from "../../support/contract-assertions.ts";
 function profile() {
   return {
     contract: PROVIDER_ISOLATION_CONTRACT,
-    contractRevision: 3,
-    profileId: "PROFILE-000001",
+    contractRevision: 4,
     provider: "codex",
     operationId: "OP-000001",
     authMethod: "subscription_oauth",
     authority: { registryId: "AUTHREG-000001", grantRef: "AUTH-000001" },
     providerHomeMountGrant: {
       provider: "codex",
-      profileId: "PROFILE-000001",
       operationId: "OP-000001",
       issuer: "runtime_owned",
       requiredState: "active",
@@ -80,7 +78,7 @@ function fixture(grantOverrides = {}, policyOverrides = {}) {
   const now = Date.now();
   const registry = {
     contract: AUTHORITY_REGISTRY_CONTRACT,
-    contractRevision: 3,
+    contractRevision: 4,
     registryId: "AUTHREG-000001",
     registryRevision: 3,
     observedAt: new Date(now - 60_000).toISOString(),
@@ -92,11 +90,9 @@ function fixture(grantOverrides = {}, policyOverrides = {}) {
         validFrom: new Date(now - 86_400_000).toISOString(),
         expiresAt: new Date(now + 86_400_000).toISOString(),
         provider: "codex",
-        profileId: "PROFILE-000001",
         origins: ["https://api.example.test"],
         providerHomeMountGrant: {
           provider: "codex",
-          profileId: "PROFILE-000001",
           operationId: "OP-000001",
           issuer: "runtime_owned",
           requiredState: "active",
@@ -147,7 +143,6 @@ function fixture(grantOverrides = {}, policyOverrides = {}) {
 
 const CONTEXT = Object.freeze({
   provider: "codex",
-  profileId: "PROFILE-000001",
   operationId: "OP-000001",
   scopeId: "SCOPE-000001",
   providerHomeMountGrantRef: "PHMGRANT-000001",

@@ -19,7 +19,7 @@ import {
 } from "../../../src/execution/authority.ts";
 
 /**
- * 署名資格なしで全6 Profileを現在Operationへ結合する。
+ * 署名資格なしで両Providerを現在Operationへ結合する。
  *
  * @responsibility 現在Operationと許可元生成の境界を検証する。
  * @trace PRL-UT-006
@@ -30,7 +30,7 @@ import {
  * @cleanup N/A: Process内の値だけを使用し外部資源を作成しない。
  * @boundary PRL-UT-006=Direct Boundary: Operation確認→許可元生成。
  */
-test("署名資格なしで全6 Profileを現在Operationへ結合する", () => {
+test("署名資格なしで両Providerを現在Operationへ結合する", () => {
   const management = Object.freeze({});
   let calls = 0;
   const runtime = createIsolatedLocalPersonalAuthorityRuntimeCandidate({
@@ -40,13 +40,11 @@ test("署名資格なしで全6 Profileを現在Operationへ結合する", () =>
       return capability === management && binding.operationId === "OP-123456";
     },
   });
-  for (const profileId of describeLocalPersonalAuthorityRuntimeContract()
-    .profiles) {
-    const provider = profileId.startsWith("PROFILE-1") ? "codex" : "claude";
+  for (const provider of describeLocalPersonalAuthorityRuntimeContract()
+    .providers) {
     const binding = Object.freeze({
       operationId: "OP-123456",
       provider,
-      profileId,
     });
     const source = runtime.load(binding, management);
     assert.ok(source);
@@ -55,17 +53,17 @@ test("署名資格なしで全6 Profileを現在Operationへ結合する", () =>
       source.bundle,
       {
         ...binding,
-        scopeId: `SCOPE-${profileId.slice("PROFILE-".length)}`,
+        scopeId: source.scopeId,
         providerHomeMountGrantRef: "PHMGRANT-123456",
       },
     );
     assert.equal(verified.status, "candidate");
     assert.equal(verified.verification.provider, provider);
-    assert.equal(verified.verification.profileId, profileId);
+    assert.equal(Object.hasOwn(verified.verification, "profileId"), false);
     assert.equal(verified.verification.operationId, binding.operationId);
     assert.equal(runtime.load(binding, management), source);
   }
-  assert.equal(calls, 12);
+  assert.equal(calls, 4);
 });
 
 /**
@@ -85,7 +83,6 @@ test("期限内cacheでも偽管理参照・別Operation・失効を拒否する
   const binding = Object.freeze({
     operationId: "OP-123456",
     provider: "claude",
-    profileId: "PROFILE-200001",
   });
   let current = true;
   let calls = 0;
@@ -128,7 +125,6 @@ test("Operation確認はstrict trueだけを受理する", () => {
   const binding = {
     operationId: "OP-123456",
     provider: "claude",
-    profileId: "PROFILE-200001",
   };
   for (const result of [false, undefined, null, 1, "true", Object.freeze({})]) {
     let calls = 0;
@@ -157,7 +153,7 @@ test("Operation確認はstrict trueだけを受理する", () => {
  * @responsibility 現在Operationと許可元生成の境界を検証する。
  * @trace PRL-UT-006
  * @precondition 固定したBindingと局所依存を使用する。
- * @stimulus Provider差・未知Profile・不正Operationと時計不正を与える。
+ * @stimulus 未対応Provider・余分な旧Profile・不正Operationと時計不正を与える。
  * @observation 返却Source、Operation確認回数と値の相関を観測する。
  * @oracle Sourceを返さず時計不正ではOperation確認も発行しない。
  * @cleanup N/A: Process内の値だけを使用し外部資源を作成しない。
@@ -171,15 +167,14 @@ test("不正Bindingと時計は許可元を生成しない", () => {
   for (const binding of [
     {
       operationId: "OP-123456",
-      provider: "codex",
-      profileId: "PROFILE-200001",
+      provider: "unsupported",
     },
     {
       operationId: "OP-123456",
       provider: "claude",
       profileId: "PROFILE-999999",
     },
-    { operationId: "invalid", provider: "claude", profileId: "PROFILE-200001" },
+    { operationId: "invalid", provider: "claude" },
   ])
     assert.equal(runtime.load(binding, {}), null);
   for (const clock of [
@@ -203,7 +198,6 @@ test("不正Bindingと時計は許可元を生成しない", () => {
         {
           operationId: "OP-123456",
           provider: "claude",
-          profileId: "PROFILE-200001",
         },
         {},
       ),
@@ -238,7 +232,6 @@ test("許可元cacheは30秒境界で再生成する", () => {
   const binding = {
     operationId: "OP-123456",
     provider: "codex",
-    profileId: "PROFILE-100002",
   };
   const first = runtime.load(binding, {});
   assert.ok(first);
@@ -278,7 +271,6 @@ test("本番確認はOperation一致の後だけ開発Contextを照合する", (
   const binding = {
     operationId: "OP-123456",
     provider: "claude",
-    profileId: "PROFILE-200001",
   };
   let currentOperationId = binding.operationId;
   let mode:
@@ -357,12 +349,12 @@ test("本番確認はOperation一致の後だけ開発Contextを照合する", (
  */
 test("現在契約は署名非必須と既存許可範囲を固定する", () => {
   const contract = describeLocalPersonalAuthorityRuntimeContract();
-  assert.equal(contract.contractRevision, 2);
+  assert.equal(contract.contractRevision, 3);
   assert.equal(contract.trustProfile, "local_personal_t1_t2");
   assert.equal(contract.releaseTrust, "not_required_for_runtime_authority");
   assert.equal(
     contract.operationBinding,
-    "runtime_owned_exact_operation_profile_provider",
+    "runtime_owned_exact_operation_provider",
   );
   assert.equal(contract.externalAuthorityRootRequired, false);
   assert.equal(contract.managedAuthorityProfileSupported, false);

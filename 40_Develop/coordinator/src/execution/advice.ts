@@ -1420,7 +1420,6 @@ function createProviderAdviceRuntime(
       const mount = dependencies.issueMountGrant(
         operation.managementCapability,
         observationCapability,
-        plan.profileId,
       ) as RuntimeRecord;
       mountControl = objectValue(mount.controlCapability);
       const mountUse = objectValue(mount.useCapability);

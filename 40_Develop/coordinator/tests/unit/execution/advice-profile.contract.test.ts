@@ -236,7 +236,8 @@ test("exact Codex Profileを変更せず一つのExecutorへ渡す", async () =>
   assert.deepEqual(
     {
       provider: (providerCommand as { provider: unknown }).provider,
-      exactModelId: (providerCommand as { exactModelId: unknown }).exactModelId,
+      modelIdentifier: (providerCommand as { modelIdentifier: unknown })
+        .modelIdentifier,
       reasoningEffort: (providerCommand as { reasoningEffort: unknown })
         .reasoningEffort,
       repositoryMounted: (providerCommand as { repositoryMounted: unknown })
@@ -248,7 +249,7 @@ test("exact Codex Profileを変更せず一つのExecutorへ渡す", async () =>
     },
     {
       provider: "codex",
-      exactModelId: profile.exactModelId,
+      modelIdentifier: profile.exactModelId,
       reasoningEffort: profile.defaultReasoningEffort,
       repositoryMounted: false,
       workspaceMountRequired: false,

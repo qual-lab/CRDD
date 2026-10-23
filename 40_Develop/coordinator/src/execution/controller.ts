@@ -1599,7 +1599,6 @@ type RuntimeDependencies = Readonly<{
   ) => Readonly<{
     operationId: string;
     provider: string;
-    profileId: string;
     providerHomeMountGrantRef: string;
     runtimeAuthorityIssued: true;
     providerEffectAllowed: true;
@@ -3045,7 +3044,6 @@ function start(
     !authority ||
     authority.operationId !== plan.operationId ||
     authority.provider !== plan.provider ||
-    authority.profileId !== plan.profileId ||
     authority.providerHomeMountGrantRef !== plan.grantRef ||
     authority.runtimeAuthorityIssued !== true ||
     authority.providerEffectAllowed !== true
@@ -3987,7 +3985,6 @@ type taskRuntimeDependencies = Readonly<{
   issueMountGrant: (
     managementCapability: object,
     observationCapability: object,
-    profileId: string,
   ) => RuntimeRecord;
   consumeMountGrant: (
     useCapability: object,
@@ -5372,7 +5369,6 @@ async function executeStageBody(
     const mount = state.dependencies.issueMountGrant(
       operation.managementCapability,
       firstObservation,
-      profileId,
     );
     mountControl = objectCapability(mount.controlCapability);
     const mountUse = objectCapability(mount.useCapability);

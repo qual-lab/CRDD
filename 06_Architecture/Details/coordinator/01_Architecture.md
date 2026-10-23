@@ -633,7 +633,9 @@ observerはHome作成またはDACL修復を行わない。明示bootstrap Effect
 
 Runtime所有Provider Homeマウント許可（Runtime-owned Provider Home Mount Grant）は、同じOperation世代のopaque management Capabilityと、一回限りのRuntime所有Provider Home観測Capabilityからだけ発行しなければならない（MUST）。呼出し元が渡したOperation ID、観測Hash、時刻、Path、SID、ACLまたはCredential値を発行Authorityとして受理してはならない（MUST NOT）。
 
-Grantは、Process-local atomic store、Runtime所有の壁時計と単調時計、暗号学的乱数参照、最長5分、使用上限1回へ固定する。Provider、Profile、Operation、Provider Home Identity／保護状態およびselected local user bindingを結合する。
+Grantは、Process-local atomic store、Runtime所有の壁時計と単調時計、暗号学的乱数参照、最長5分、使用上限1回へ固定する。Provider、Operation、Provider Home Identity／保護状態およびselected local user bindingを結合する。
+
+Home Grant・Provider Authority・Local Personal Authority・Isolation・prelaunchは、Model Profile ID、Tier、Catalog Revision又はモデル選定を保持・入力・再検査しない。Provider固有のOffering・OriginはAI Adapterの`describeProviderAuthentication`を正本とする。モデル側とはoperationとproviderで相関する。段階切替中の旧Model Grant／Packet／モデル準備に残るProfileは、このHome利用許可へ搬送しない。モデル側の全面切替が未完了の間は、選定全体の本番接続完了とは扱わない。
 
 発行control、使用useおよび消費後mount authorizationのaliasは分離する。use時には、Grant発行に使用して消費済みとなった観測Capabilityを再利用せず、Provider Homeを再観測して得たfreshなRuntime所有観測Capabilityを再結合する。再観測が不成立、Provider不一致またはCapability未発行なら、Mount Grantを消費せずProvider Effect 0で停止する。Operation終了時またはmount完了後の取消では、全aliasとrecordを失効しなければならない（MUST）。Process restartではGrantを永続復元せず、全て失ってFail Closedとする。active mount、ContainerおよびOperation Filesystemの回復は、別のDocker／Host Recovery契約が所有する。
 

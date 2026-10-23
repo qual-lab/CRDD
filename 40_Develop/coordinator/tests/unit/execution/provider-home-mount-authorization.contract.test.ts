@@ -2,11 +2,13 @@
  * coordinator:unit:provider-home-mount-grant-runtimeの検証範囲を定義する。
  *
  * @packageDocumentation
- * @responsibility coordinator:unit:provider-home-mount-grant-runtimeが所有する検証責務を実行する。
+ * @responsibility Home利用許可の純粋判定とOperation相関・一回消費の検証責務を実行する。
  * @trace AIT-UT-005
+ * @trace PRL-UT-006
  * @level UT
  * @scope provider、home、mount、grant、runtime
  * @boundary AIT-UT-005=N/A: Trust各軸の純粋判定規則は外部実行境界を持たない。
+ * @boundary PRL-UT-006=N/A: Process内のOperation相関と一回消費を合成Capabilityで検査する。
  */
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -56,6 +58,7 @@ type Observation = Readonly<{
 function harness() {
   const managementCapability = Object.freeze({});
   const otherManagementCapability = Object.freeze({});
+  const secondManagementCapability = Object.freeze({});
   const observations = new WeakMap<object, Observation>();
   const mountSources = new WeakMap<object, string>();
   let latestMountSourceCapability: object | null = null;
@@ -103,9 +106,14 @@ function harness() {
 
   const runtime = createIsolatedProviderHomeMountGrantRuntimeCandidate({
     verifyOperation(capability: unknown): OwnedOperationManagementBinding {
-      if (capability !== managementCapability) throw new Error("not_owned");
+      if (
+        capability !== managementCapability &&
+        capability !== secondManagementCapability
+      )
+        throw new Error("not_owned");
       return Object.freeze({
-        operationId: "OP-123456",
+        operationId:
+          capability === managementCapability ? "OP-123456" : "OP-234567",
         createdAt: "2026-08-24T00:00:00.000Z",
         managementScopeBound: true,
       });
@@ -152,6 +160,7 @@ function harness() {
     runtime,
     managementCapability,
     otherManagementCapability,
+    secondManagementCapability,
     observe,
     setTime(wall: number, monotonic: number) {
       wallClockMs = wall;
@@ -184,11 +193,7 @@ function harness() {
  * @boundary AIT-UT-005=Direct Boundary: coordinator Test Source→対象契約
  */
 function issue(h: ReturnType<typeof harness>) {
-  const result = h.runtime.issue(
-    h.managementCapability,
-    h.observe(),
-    "PROFILE-123456",
-  );
+  const result = h.runtime.issue(h.managementCapability, h.observe());
   assert.equal(result.status, "issued");
   assert.ok(result.controlCapability);
   assert.ok(result.useCapability);
@@ -214,7 +219,7 @@ test("Runtime-owned Mount Grantはopaque Operationと観測を一回限りの別
   assert.equal(h.runtime.productionAuthority, false);
   assert.match(result.grantRef as string, /^PHMGRANT-[0-9]{18}$/u);
   assert.equal(result.grant?.provider, "claude");
-  assert.equal(result.grant?.profileId, "PROFILE-123456");
+  assert.equal(Object.hasOwn(result.grant ?? {}, "profileId"), false);
   assert.equal(result.grant?.operationId, "OP-123456");
   assert.equal(result.grant?.usageLimit, 1);
   assert.equal(result.grant?.consumptionCount, 0);
@@ -232,6 +237,59 @@ test("Runtime-owned Mount Grantはopaque Operationと観測を一回限りの別
     Date.parse(result.grant?.expiresAt as string) -
       Date.parse(result.grant?.issuedAt as string),
     PROVIDER_HOME_MOUNT_GRANT_MAXIMUM_LIFETIME_MS,
+  );
+});
+
+/**
+ * 同Provider・同Homeでも別OperationのGrantを流用できないことを確認する。
+ * @responsibility Profileに依存しないexact Operation相関と拒否後の一回消費を検証する。
+ * @trace PRL-UT-006
+ * @precondition 二つの正規management参照と同じHome観測を同じRuntimeへ用意する。
+ * @stimulus AのGrantをBで消費した後、Aで正規消費し、もう一度消費する。
+ * @observation 消費結果、Operation、Effectフラグ、重複拒否と失効を確認する。
+ * @oracle Bは拒否、Aは一回だけ成功し、いずれもProvider Effectを発行しない。
+ * @cleanup 発行した両controlを各々の元Operationで失効する。外部資源は作らない。
+ * @boundary PRL-UT-006=N/A: Process内のOperation相関と一回消費を合成Capabilityで検査する。
+ */
+test("同Provider・同Homeの別OperationへGrantを差し替えず拒否後も元操作で一回だけ消費する", () => {
+  const h = harness();
+  const a = issue(h);
+  const b = h.runtime.issue(h.secondManagementCapability, h.observe());
+  assert.equal(b.status, "issued");
+  assert.equal(b.grant?.operationId, "OP-234567");
+  assert.equal(
+    a.grant?.providerHomeIdentityHash,
+    b.grant?.providerHomeIdentityHash,
+  );
+  const swapped = h.runtime.consume(
+    a.useCapability,
+    h.secondManagementCapability,
+    h.observe(),
+  );
+  assert.equal(swapped.status, "blocked");
+  assert.equal(swapped.reason, "provider_home_mount_grant_runtime_use_invalid");
+  assert.equal(swapped.processEffectIssued, false);
+  const accepted = h.runtime.consume(
+    a.useCapability,
+    h.managementCapability,
+    h.observe(),
+  );
+  assert.equal(accepted.status, "consumed");
+  assert.equal(accepted.grant?.operationId, "OP-123456");
+  assert.equal(accepted.grant?.consumptionCount, 1);
+  assert.equal(accepted.processEffectIssued, false);
+  assert.equal(
+    h.runtime.consume(a.useCapability, h.managementCapability, h.observe())
+      .status,
+    "blocked",
+  );
+  assert.equal(
+    h.runtime.revoke(a.controlCapability, h.managementCapability).status,
+    "revoked",
+  );
+  assert.equal(
+    h.runtime.revoke(b.controlCapability, h.secondManagementCapability).status,
+    "revoked",
   );
 });
 
@@ -301,7 +359,7 @@ test("fresh観測でconsumeし、productionから隔離されたMount Authorizat
   assert.equal(inspected.status, "active");
   assert.equal(inspected.grantRef, issued.grantRef);
   assert.equal(inspected.provider, "claude");
-  assert.equal(inspected.profileId, "PROFILE-123456");
+  assert.equal(Object.hasOwn(inspected, "profileId"), false);
   assert.equal(inspected.operationId, "OP-123456");
   assert.equal(inspected.providerHomeMountGrantIssued, true);
   assert.equal(inspected.providerHomeMounted, true);
@@ -583,42 +641,30 @@ test("古いGrantのrevokeは同じlogical Homeの現active ownerを解除しな
 });
 
 /**
- * profile、Operation、観測bindingの不一致をEffect前に拒否するを検証する。
+ * Operationと観測bindingの不一致をEffect前に拒否するを検証する。
  *
- * @responsibility profile、Operation、観測bindingの不一致をEffect前に拒否するの合否判定を所有する。
+ * @responsibility Operationと観測bindingの不一致をEffect前に拒否するの合否判定を所有する。
  * @trace AIT-UT-005
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus profile、Operation、観測bindingの不一致をEffect前に拒否するの対象操作を実行する。
+ * @stimulus Operationと観測bindingの不一致をEffect前に拒否するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary AIT-UT-005=Direct Boundary: coordinator Test Source→対象契約
  */
-test("profile、Operation、観測bindingの不一致をEffect前に拒否する", () => {
+test("Operationと観測bindingの不一致をEffect前に拒否する", () => {
   const h = harness();
   const reusableObservation = h.observe();
   assert.equal(
-    h.runtime.issue(
-      h.managementCapability,
-      reusableObservation,
-      "PROFILE-invalid",
-    ).reason,
-    "provider_home_mount_grant_runtime_profile_invalid",
+    h.runtime.issue(h.otherManagementCapability, reusableObservation).reason,
+    "provider_home_mount_grant_runtime_operation_invalid",
   );
   assert.equal(
-    h.runtime.issue(
-      h.managementCapability,
-      reusableObservation,
-      "PROFILE-123456",
-    ).status,
+    h.runtime.issue(h.managementCapability, reusableObservation).status,
     "issued",
   );
   assert.equal(
-    h.runtime.issue(
-      h.managementCapability,
-      reusableObservation,
-      "PROFILE-123456",
-    ).reason,
+    h.runtime.issue(h.managementCapability, reusableObservation).reason,
     "provider_home_mount_grant_runtime_observation_invalid",
   );
 
@@ -685,11 +731,7 @@ test("wall／monotonic期限、rollback、依存例外を固定blockedへ閉じ�
   for (const dependency of ["clock", "random", "observation"] as const) {
     const h = harness();
     h.fail(dependency);
-    const result = h.runtime.issue(
-      h.managementCapability,
-      h.observe(),
-      "PROFILE-123456",
-    );
+    const result = h.runtime.issue(h.managementCapability, h.observe());
     assert.equal(result.status, "blocked");
     assert.match(result.reason, /failed_closed$/u);
   }
@@ -703,8 +745,7 @@ test("wall／monotonic期限、rollback、依存例外を固定blockedへ閉じ�
     const h = harness();
     h.setTime(time.wall, time.mono);
     assert.equal(
-      h.runtime.issue(h.managementCapability, h.observe(), "PROFILE-123456")
-        .reason,
+      h.runtime.issue(h.managementCapability, h.observe()).reason,
       "provider_home_mount_grant_runtime_clock_invalid",
     );
   }
@@ -724,23 +765,18 @@ test("wall／monotonic期限、rollback、依存例外を固定blockedへ閉じ�
  */
 test("不正capability、全観測hash差分、参照衝突とproduction入口をfail closedにする", () => {
   const invalid = harness();
-  for (const profileId of [null, 1, "PROFILE-x", `PROFILE-${"1".repeat(65)}`]) {
+  for (const capability of [null, 1, "not-a-capability", {}]) {
     assert.equal(
-      invalid.runtime.issue(
-        invalid.managementCapability,
-        invalid.observe(),
-        profileId,
-      ).reason,
-      "provider_home_mount_grant_runtime_profile_invalid",
+      invalid.runtime.issue(capability, invalid.observe()).reason,
+      "provider_home_mount_grant_runtime_operation_invalid",
     );
   }
   assert.equal(
-    invalid.runtime.issue({}, invalid.observe(), "PROFILE-123456").reason,
+    invalid.runtime.issue({}, invalid.observe()).reason,
     "provider_home_mount_grant_runtime_operation_invalid",
   );
   assert.equal(
-    invalid.runtime.issue(invalid.managementCapability, {}, "PROFILE-123456")
-      .reason,
+    invalid.runtime.issue(invalid.managementCapability, {}).reason,
     "provider_home_mount_grant_runtime_observation_invalid",
   );
   assert.equal(
@@ -836,21 +872,16 @@ test("不正capability、全観測hash差分、参照衝突とproduction入口�
     });
     return capability;
   }
-  const firstResult = collision.issue(
-    management,
-    collisionObservation(),
-    "PROFILE-123456",
-  );
+  const firstResult = collision.issue(management, collisionObservation());
   isFirstGrantIssued = firstResult.status === "issued";
   assert.equal(isFirstGrantIssued, true);
   assert.equal(
-    collision.issue(management, collisionObservation(), "PROFILE-123457")
-      .reason,
+    collision.issue(management, collisionObservation()).reason,
     "provider_home_mount_grant_runtime_reference_unavailable",
   );
 
   assert.equal(
-    issueRuntimeOwnedProviderHomeMountGrant({}, {}, "bad").status,
+    issueRuntimeOwnedProviderHomeMountGrant({}, {}).status,
     "blocked",
   );
   assert.equal(

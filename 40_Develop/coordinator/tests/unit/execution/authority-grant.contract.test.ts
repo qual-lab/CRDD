@@ -63,7 +63,6 @@ function createFixture() {
         status: mountIsActive ? "active" : "blocked",
         grantRef: "PHMGRANT-123456",
         provider: "claude",
-        profileId: "PROFILE-123456",
         operationId: "OP-123456",
         providerHomeMountGrantIssued: mountIsActive,
         providerHomeMounted: mountIsActive,
@@ -74,7 +73,6 @@ function createFixture() {
       assert.deepEqual(binding, {
         operationId: "OP-123456",
         provider: "claude",
-        profileId: "PROFILE-123456",
       });
       return sourceIsAvailable
         ? Object.freeze({
@@ -106,7 +104,6 @@ function createFixture() {
           grantRef: "AUTH-123456",
           grantRevision: 1,
           provider: contextRecord.provider as string,
-          profileId: contextRecord.profileId as string,
           operationId: contextRecord.operationId as string,
           scopeId: contextRecord.scopeId as string,
           providerHomeMountGrantRef:
@@ -195,7 +192,7 @@ test("active MountとAuthority identityを5秒一回限りCapabilityへ結合す
   assert.match(issued.authorityRecordId ?? "", /^PROVAUTH-[A-F0-9]{24}$/u);
   assert.equal(issued.operationId, "OP-123456");
   assert.equal(issued.provider, "claude");
-  assert.equal(issued.profileId, "PROFILE-123456");
+  assert.equal(Object.hasOwn(issued, "profileId"), false);
   assert.equal(issued.scopeId, "SCOPE-123456");
   assert.equal(issued.providerHomeMountGrantRef, "PHMGRANT-123456");
   assert.equal(issued.runtimeAuthorityIssued, true);
@@ -475,7 +472,7 @@ test("偽造production Capabilityと公開契約はProvider Effect前に閉じ�
   assert.equal(contract.maximumUses, 1);
   assert.equal(contract.providerEffectAllowedBeforeConsume, false);
   assert.equal(contract.rawAuthoritySourceReported, false);
-  assert.equal(contract.contractRevision, 2);
+  assert.equal(contract.contractRevision, 3);
   assert.equal(
     contract.productionActivatedAuthoritySourceLoader,
     "signed_release_bound_local_personal_connected",

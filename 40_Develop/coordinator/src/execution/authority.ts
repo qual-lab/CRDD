@@ -16,6 +16,7 @@ import {
   selectDelegationExecutionSlateCandidate,
   DELEGATION_ROUTE_SELECTION_CONTRACT,
   PROVIDER_ISOLATION_CONTRACT,
+  PROVIDER_ISOLATION_CONTRACT_REVISION,
 } from "./preparation.ts";
 import { createHash, randomBytes } from "node:crypto";
 import { types as utilTypes } from "node:util";
@@ -324,7 +325,7 @@ export function describeAuthorityFileBundleContract() {
 export const PROVIDER_AUTHORITY_RUNTIME_CONTRACT =
   "crdd-coordinator/provider-authority-runtime";
 
-export const PROVIDER_AUTHORITY_RUNTIME_CONTRACT_REVISION = 2;
+export const PROVIDER_AUTHORITY_RUNTIME_CONTRACT_REVISION = 3;
 
 const AUTHORITY_LIFETIME_MS = 5_000;
 
@@ -363,7 +364,6 @@ type ActiveMount = Readonly<{
   status: string;
   grantRef: string | null;
   provider?: string;
-  profileId?: string;
   operationId?: string;
   providerHomeMountGrantIssued: boolean;
   providerHomeMounted: boolean;
@@ -405,7 +405,6 @@ type Verification = Readonly<{
   grantRef: string;
   grantRevision: number;
   provider: string;
-  profileId: string;
   operationId: string;
   scopeId: string;
   providerHomeMountGrantRef: string;
@@ -466,7 +465,6 @@ type RuntimeState = Readonly<{
     binding: Readonly<{
       operationId: string;
       provider: string;
-      profileId: string;
     }>,
     managementCapability: unknown,
   ) => ActivatedAuthoritySource | null;
@@ -541,7 +539,6 @@ function authorityGrantBlocked(reason: string) {
     useCapability: null,
     operationId: null,
     provider: null,
-    profileId: null,
     scopeId: null,
     providerHomeMountGrantRef: null,
     runtimeAuthorityIssued: false,
@@ -621,7 +618,6 @@ function isMountValid(mount: ActiveMount, operation: OperationBinding) {
     mount.providerHomeMounted === true &&
     typeof mount.grantRef === "string" &&
     (mount.provider === "codex" || mount.provider === "claude") &&
-    typeof mount.profileId === "string" &&
     typeof mount.operationId === "string" &&
     mount.operationId === operation.operationId
   );
@@ -646,13 +642,13 @@ function isMountValid(mount: ActiveMount, operation: OperationBinding) {
 function normalizeVerification(candidate: unknown): Verification | null {
   if (!candidate || typeof candidate !== "object") return null;
   const value = candidate as Record<string, unknown>;
+  if (Object.hasOwn(value, "profileId")) return null;
   const stringKeys = [
     "profileHash",
     "registryId",
     "registryHash",
     "grantRef",
     "provider",
-    "profileId",
     "operationId",
     "scopeId",
     "providerHomeMountGrantRef",
@@ -720,14 +716,12 @@ function reverifyCurrentAuthority(
     {
       operationId: operation.operationId,
       provider: mount.provider as string,
-      profileId: mount.profileId as string,
     },
     managementCapability,
   );
   if (!source || !SCOPE_ID.test(source.scopeId)) return null;
   const result = state.reverify(source.profile, source.bundle, {
     provider: mount.provider,
-    profileId: mount.profileId,
     operationId: operation.operationId,
     scopeId: source.scopeId,
     providerHomeMountGrantRef: mount.grantRef,
@@ -737,7 +731,6 @@ function reverifyCurrentAuthority(
   if (
     !verification ||
     verification.provider !== mount.provider ||
-    verification.profileId !== mount.profileId ||
     verification.operationId !== operation.operationId ||
     verification.scopeId !== source.scopeId ||
     verification.providerHomeMountGrantRef !== mount.grantRef
@@ -772,7 +765,6 @@ function verificationIdentity(verification: Verification) {
     grantRef: verification.grantRef,
     grantRevision: verification.grantRevision,
     provider: verification.provider,
-    profileId: verification.profileId,
     operationId: verification.operationId,
     scopeId: verification.scopeId,
     providerHomeMountGrantRef: verification.providerHomeMountGrantRef,
@@ -900,7 +892,6 @@ function issueAuthority(
     useCapability,
     operationId: verification.operationId,
     provider: verification.provider,
-    profileId: verification.profileId,
     scopeId: verification.scopeId,
     providerHomeMountGrantRef: verification.providerHomeMountGrantRef,
     runtimeAuthorityIssued: true,
@@ -995,7 +986,6 @@ function consumeAuthority(
     authorityRecordId: record.authorityRecordId,
     operationId: verification.operationId,
     provider: verification.provider,
-    profileId: verification.profileId,
     scopeId: verification.scopeId,
     providerHomeMountGrantRef: verification.providerHomeMountGrantRef,
     runtimeAuthorityIssued: true as const,
@@ -1509,13 +1499,11 @@ export function describeAuthorityTrustLoaderContract() {
 export const AUTHORITY_REGISTRY_CONTRACT =
   "crdd-coordinator/authority-registry";
 
-export const AUTHORITY_REGISTRY_CONTRACT_REVISION = 3;
+export const AUTHORITY_REGISTRY_CONTRACT_REVISION = 4;
 
 const authorityValidationREGISTRY_ID = /^AUTHREG-[0-9]{6,}$/u;
 
 const GRANT_REF = /^AUTH-[0-9]{6,}$/u;
-
-const PROFILE_ID = /^PROFILE-[0-9]{6,}$/u;
 
 const OPERATION_ID = /^OP-[0-9]{6,}$/u;
 
@@ -1553,7 +1541,6 @@ const GRANT_KEYS = new Set([
   "validFrom",
   "expiresAt",
   "provider",
-  "profileId",
   "origins",
   "providerHomeMountGrant",
   "operationId",
@@ -1579,11 +1566,9 @@ type AuthorityGrant = {
   validFrom: string;
   expiresAt: string;
   provider: string;
-  profileId: string;
   origins: readonly string[];
   providerHomeMountGrant: Readonly<{
     provider: string;
-    profileId: string;
     operationId: string;
     issuer: "runtime_owned";
     requiredState: "active";
@@ -1795,7 +1780,6 @@ function normalizeGrant(grant: unknown): Readonly<AuthorityGrant> | null {
     snapshot.providerHomeMountGrant,
     new Set([
       "provider",
-      "profileId",
       "operationId",
       "issuer",
       "requiredState",
@@ -1816,9 +1800,6 @@ function normalizeGrant(grant: unknown): Readonly<AuthorityGrant> | null {
     !["active", "revoked", "replaced"].includes(snapshot.status) ||
     typeof snapshot.provider !== "string" ||
     !["codex", "claude"].includes(snapshot.provider) ||
-    typeof snapshot.profileId !== "string" ||
-    snapshot.profileId.length > PROVIDER_INPUT_LIMITS.identifierLength ||
-    !PROFILE_ID.test(snapshot.profileId) ||
     typeof snapshot.operationId !== "string" ||
     snapshot.operationId.length > PROVIDER_INPUT_LIMITS.identifierLength ||
     !OPERATION_ID.test(snapshot.operationId) ||
@@ -1834,7 +1815,6 @@ function normalizeGrant(grant: unknown): Readonly<AuthorityGrant> | null {
   if (!validFrom || !expiresAt || validFrom >= expiresAt) return null;
   if (
     providerHomeMountGrant.provider !== snapshot.provider ||
-    providerHomeMountGrant.profileId !== snapshot.profileId ||
     providerHomeMountGrant.operationId !== snapshot.operationId ||
     providerHomeMountGrant.issuer !== "runtime_owned" ||
     providerHomeMountGrant.requiredState !== "active" ||
@@ -1848,11 +1828,9 @@ function normalizeGrant(grant: unknown): Readonly<AuthorityGrant> | null {
     validFrom,
     expiresAt,
     provider: snapshot.provider,
-    profileId: snapshot.profileId,
     origins: Object.freeze(origins),
     providerHomeMountGrant: Object.freeze({
       provider: providerHomeMountGrant.provider,
-      profileId: providerHomeMountGrant.profileId,
       operationId: providerHomeMountGrant.operationId,
       issuer: "runtime_owned",
       requiredState: "active",
@@ -2067,7 +2045,6 @@ function evaluateAuthorityGrantCandidateInternal(
     context,
     new Set([
       "provider",
-      "profileId",
       "operationId",
       "scopeId",
       "providerHomeMountGrantRef",
@@ -2078,9 +2055,6 @@ function evaluateAuthorityGrantCandidateInternal(
     !contextSnapshot ||
     typeof contextSnapshot.provider !== "string" ||
     !["codex", "claude"].includes(contextSnapshot.provider) ||
-    typeof contextSnapshot.profileId !== "string" ||
-    contextSnapshot.profileId.length > PROVIDER_INPUT_LIMITS.identifierLength ||
-    !PROFILE_ID.test(contextSnapshot.profileId) ||
     typeof contextSnapshot.operationId !== "string" ||
     contextSnapshot.operationId.length >
       PROVIDER_INPUT_LIMITS.identifierLength ||
@@ -2118,14 +2092,10 @@ function evaluateAuthorityGrantCandidateInternal(
     return authorityValidationBlocked("authority_provider_mismatch");
   if (
     contextSnapshot.provider !== profileResult.profile.provider ||
-    contextSnapshot.profileId !== profileResult.profile.profileId ||
     contextSnapshot.operationId !== profileResult.profile.operationId ||
-    grant.profileId !== profileResult.profile.profileId ||
     grant.operationId !== profileResult.profile.operationId
   )
-    return authorityValidationBlocked(
-      "authority_provider_profile_operation_mismatch",
-    );
+    return authorityValidationBlocked("authority_provider_operation_mismatch");
   if (
     authorityValidationCanonicalJson(grant.origins) !==
     authorityValidationCanonicalJson(profileResult.profile.egress.origins)
@@ -2164,7 +2134,6 @@ function evaluateAuthorityGrantCandidateInternal(
     grantRef: grant.grantRef,
     grantRevision: grant.grantRevision,
     provider: contextSnapshot.provider,
-    profileId: contextSnapshot.profileId,
     operationId: contextSnapshot.operationId,
     scopeId: contextSnapshot.scopeId,
     providerHomeMountGrantRef: contextSnapshot.providerHomeMountGrantRef,
@@ -3266,44 +3235,11 @@ export function describeDelegationSelectionGrantRuntimeContract() {
 export const LOCAL_PERSONAL_AUTHORITY_RUNTIME_CONTRACT =
   "crdd-coordinator/local-personal-authority-runtime";
 
-export const LOCAL_PERSONAL_AUTHORITY_RUNTIME_CONTRACT_REVISION = 2;
+export const LOCAL_PERSONAL_AUTHORITY_RUNTIME_CONTRACT_REVISION = 3;
 
 const SOURCE_LIFETIME_MS = 30_000;
 
 const GRANT_LIFETIME_MS = 300_000;
-
-const PROFILE = Object.freeze({
-  "PROFILE-100001": Object.freeze({
-    provider: "codex",
-    origin: "https://chatgpt.com",
-    suffix: "100001",
-  }),
-  "PROFILE-100002": Object.freeze({
-    provider: "codex",
-    origin: "https://chatgpt.com",
-    suffix: "100002",
-  }),
-  "PROFILE-100003": Object.freeze({
-    provider: "codex",
-    origin: "https://chatgpt.com",
-    suffix: "100003",
-  }),
-  "PROFILE-100004": Object.freeze({
-    provider: "codex",
-    origin: "https://chatgpt.com",
-    suffix: "100004",
-  }),
-  "PROFILE-200001": Object.freeze({
-    provider: "claude",
-    origin: "https://claude.ai",
-    suffix: "200001",
-  }),
-  "PROFILE-200002": Object.freeze({
-    provider: "claude",
-    origin: "https://claude.ai",
-    suffix: "200002",
-  }),
-});
 
 /**
  * local-personal-authority-runtimeで使用するBindingの値契約を定義する。
@@ -3319,7 +3255,6 @@ const PROFILE = Object.freeze({
 type Binding = Readonly<{
   operationId: string;
   provider: string;
-  profileId: string;
 }>;
 
 /**
@@ -3423,20 +3358,22 @@ function localAuthorityCanonicalJson(value: unknown): string {
  * @concurrency N/A: createSourceは共有非同期状態を持たない同期処理である。
  */
 function createSource(binding: Binding, now: number): Source | null {
-  const specification = PROFILE[binding.profileId as keyof typeof PROFILE];
   if (
-    !specification ||
-    specification.provider !== binding.provider ||
+    (binding.provider !== "codex" && binding.provider !== "claude") ||
     !/^OP-[0-9]{6,}$/u.test(binding.operationId)
-  ) {
+  )
     return null;
-  }
+  const authentication = describeProviderAuthentication(binding.provider);
+  const specification = Object.freeze({
+    provider: authentication.provider,
+    origin: authentication.authorityOrigin,
+    suffix: binding.provider === "codex" ? "100001" : "200001",
+  });
   const registryId = `AUTHREG-${specification.suffix}`;
   const grantRef = `AUTH-${specification.suffix}`;
   const scopeId = `SCOPE-${specification.suffix}`;
   const mountRequirement = Object.freeze({
     provider: specification.provider,
-    profileId: binding.profileId,
     operationId: binding.operationId,
     issuer: "runtime_owned" as const,
     requiredState: "active" as const,
@@ -3444,8 +3381,7 @@ function createSource(binding: Binding, now: number): Source | null {
   });
   const profile = Object.freeze({
     contract: PROVIDER_ISOLATION_CONTRACT,
-    contractRevision: 3,
-    profileId: binding.profileId,
+    contractRevision: PROVIDER_ISOLATION_CONTRACT_REVISION,
     provider: specification.provider,
     operationId: binding.operationId,
     authMethod: "subscription_oauth",
@@ -3457,7 +3393,7 @@ function createSource(binding: Binding, now: number): Source | null {
   if (validatedProfile.status !== "candidate") return null;
   const registryCandidate = validateAuthorityRegistryCandidate({
     contract: AUTHORITY_REGISTRY_CONTRACT,
-    contractRevision: 3,
+    contractRevision: AUTHORITY_REGISTRY_CONTRACT_REVISION,
     registryId,
     registryRevision: 1,
     observedAt: new Date(now).toISOString(),
@@ -3469,7 +3405,6 @@ function createSource(binding: Binding, now: number): Source | null {
         validFrom: new Date(now - 60_000).toISOString(),
         expiresAt: new Date(now + GRANT_LIFETIME_MS).toISOString(),
         provider: specification.provider,
-        profileId: binding.profileId,
         origins: [specification.origin],
         providerHomeMountGrant: mountRequirement,
         operationId: binding.operationId,
@@ -3557,16 +3492,32 @@ function createRuntime(dependencies: RuntimeDependencies) {
      */
     load(binding: Binding, managementCapability: unknown) {
       try {
+        const value = snapshotPlainRecord(
+          binding,
+          new Set(["operationId", "provider"]),
+        );
+        if (
+          !value ||
+          Object.keys(value).length !== 2 ||
+          typeof value.operationId !== "string" ||
+          typeof value.provider !== "string"
+        )
+          return null;
+        const fixedBinding = Object.freeze({
+          operationId: value.operationId,
+          provider: value.provider,
+        });
         const now = dependencies.wallNow();
         if (!Number.isFinite(now) || now < 0) return null;
         if (
-          dependencies.verifyOperation(binding, managementCapability) !== true
+          dependencies.verifyOperation(fixedBinding, managementCapability) !==
+          true
         )
           return null;
-        const key = `${binding.operationId}\0${binding.provider}\0${binding.profileId}`;
+        const key = `${fixedBinding.operationId}\0${fixedBinding.provider}`;
         const current = sources.get(key);
         if (current && now < current.expiresAtMs) return current.source;
-        const source = createSource(binding, now);
+        const source = createSource(fixedBinding, now);
         if (!source) return null;
         sources.set(
           key,
@@ -3601,7 +3552,7 @@ const productionRuntime = createRuntime(
  * @trace ARCH-000014
  * @input binding: Binding、managementCapability: unknown
  * @returns loadRuntimeOwnedLocalPersonalAuthorityの計算結果を返す。
- * @precondition 呼出し側は現在Operationの管理参照と同じOperation／Provider／ProfileのBindingを渡す。
+ * @precondition 呼出し側は現在Operationの管理参照と同じOperation／ProviderのBindingを渡す。
  * @postcondition loadRuntimeOwnedLocalPersonalAuthorityの責務を完了した結果だけを返す。
  * @effect 既存Ownerが管理参照の現在実体を読取り確認し、Process内cacheだけを更新し得る。
  * @failure N/A: loadRuntimeOwnedLocalPersonalAuthorityは独自の失敗分岐を所有しない。
@@ -3665,9 +3616,8 @@ export function describeLocalPersonalAuthorityRuntimeContract() {
     contractRevision: LOCAL_PERSONAL_AUTHORITY_RUNTIME_CONTRACT_REVISION,
     trustProfile: "local_personal_t1_t2",
     providers: Object.freeze(["codex", "claude"]),
-    profiles: Object.freeze(Object.keys(PROFILE)),
     releaseTrust: "not_required_for_runtime_authority",
-    operationBinding: "runtime_owned_exact_operation_profile_provider",
+    operationBinding: "runtime_owned_exact_operation_provider",
     externalAuthorityRootRequired: false,
     managedAuthorityProfileSupported: false,
     providerEffectAllowed: false,
@@ -3676,13 +3626,10 @@ export function describeLocalPersonalAuthorityRuntimeContract() {
 
 const prelaunchValidationOPERATION_ID = /^OP-[0-9]{6,}$/u;
 
-const prelaunchValidationPROFILE_ID = /^PROFILE-[0-9]{6,}$/u;
-
 const prelaunchValidationSCOPE_ID = /^SCOPE-[0-9]{6,}$/u;
 
 const CONTEXT_KEYS = new Set([
   "provider",
-  "profileId",
   "operationId",
   "scopeId",
   "providerHomeMountGrantRef",
@@ -3764,9 +3711,6 @@ function normalizeContext(rawContext: unknown) {
     !context ||
     typeof context.provider !== "string" ||
     !["codex", "claude"].includes(context.provider) ||
-    typeof context.profileId !== "string" ||
-    context.profileId.length > PROVIDER_INPUT_LIMITS.identifierLength ||
-    !prelaunchValidationPROFILE_ID.test(context.profileId) ||
     typeof context.operationId !== "string" ||
     context.operationId.length > PROVIDER_INPUT_LIMITS.identifierLength ||
     !prelaunchValidationOPERATION_ID.test(context.operationId) ||
@@ -3778,7 +3722,6 @@ function normalizeContext(rawContext: unknown) {
     return null;
   return Object.freeze({
     provider: context.provider,
-    profileId: context.profileId,
     operationId: context.operationId,
     scopeId: context.scopeId,
     providerHomeMountGrantRef: context.providerHomeMountGrantRef,
@@ -3825,7 +3768,6 @@ export function reverifyAuthorityBeforeProviderLaunch(
       bundle.registry,
       {
         provider: context.provider,
-        profileId: context.profileId,
         operationId: context.operationId,
         scopeId: context.scopeId,
         providerHomeMountGrantRef: context.providerHomeMountGrantRef,
@@ -4189,11 +4131,7 @@ export function describeRuntimeStateWindowsAdapterContract() {
 export const PROVIDER_HOME_MOUNT_GRANT_RUNTIME_CONTRACT =
   "crdd-coordinator/provider-home-mount-grant-runtime";
 
-export const PROVIDER_HOME_MOUNT_GRANT_RUNTIME_CONTRACT_REVISION = 3;
-
-const providerHomeMountAuthorizationPROFILE_ID = /^PROFILE-[0-9]{6,}$/u;
-
-const MAXIMUM_IDENTIFIER_LENGTH = 64;
+export const PROVIDER_HOME_MOUNT_GRANT_RUNTIME_CONTRACT_REVISION = 4;
 
 const GRANT_REFERENCE_DIGITS = 18;
 
@@ -4215,7 +4153,6 @@ type Grant = Readonly<{
   contractRevision: typeof PROVIDER_HOME_MOUNT_GRANT_CONTRACT_REVISION;
   grantRef: string;
   provider: string;
-  profileId: string;
   operationId: string;
   providerHomeIdentityHash: string;
   providerHomeProtectionHash: string;
@@ -4431,30 +4368,6 @@ function failClosed<T>(reason: string, action: () => T) {
 }
 
 /**
- * Profile Idが有効か判定する。
- *
- * @responsibility Profile Idの有効条件、拒否条件、判定結果境界を所有する。
- * @trace ARCH-000010
- * @input value: unknown
- * @returns value is stringを返す。
- * @precondition 「value: unknown」がvalidProfileIdの入力契約を満たす。
- * @postcondition validProfileIdの責務を完了した結果だけを返す。
- * @effect N/A: validProfileIdは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: validProfileIdは独自の失敗分岐を所有しない。
- * @invariant validProfileIdは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: validProfileIdはProcess内の同一Subsystemで完結する。
- * @security validProfileIdはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: validProfileIdは共有非同期状態を持たない同期処理である。
- */
-function validProfileId(value: unknown): value is string {
-  return (
-    typeof value === "string" &&
-    value.length <= MAXIMUM_IDENTIFIER_LENGTH &&
-    providerHomeMountAuthorizationPROFILE_ID.test(value)
-  );
-}
-
-/**
  * runtime Grant Refを決定する。
  *
  * @responsibility runtime Grant Refの導出に必要な入力、判定規則、返却結果の境界を所有する。
@@ -4567,9 +4480,9 @@ function operationBinding(
  *
  * @responsibility grant 記録の導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000010
- * @input binding: Readonly<{ operationId: string }>、profileId: string、observation: Observation、grantRef: string、issuedWallClockMs: number
+ * @input binding: Readonly<{ operationId: string }>、observation: Observation、grantRef: string、issuedWallClockMs: number
  * @returns Grant | nullを返す。
- * @precondition 「binding: Readonly<{ operationId: string }>、profileId: string、observation: Observation、grantRef: string、issuedWallClockMs: number」がgrantRecordの入力契約を満たす。
+ * @precondition 「binding: Readonly<{ operationId: string }>、observation: Observation、grantRef: string、issuedWallClockMs: number」がgrantRecordの入力契約を満たす。
  * @postcondition grantRecordの責務を完了した結果だけを返す。
  * @effect N/A: grantRecordは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: grantRecordは独自の失敗分岐を所有しない。
@@ -4580,7 +4493,6 @@ function operationBinding(
  */
 function grantRecord(
   binding: Readonly<{ operationId: string }>,
-  profileId: string,
   observation: Observation,
   grantRef: string,
   issuedWallClockMs: number,
@@ -4590,7 +4502,6 @@ function grantRecord(
     contractRevision: PROVIDER_HOME_MOUNT_GRANT_CONTRACT_REVISION,
     grantRef,
     provider: observation.provider,
-    profileId,
     operationId: binding.operationId,
     providerHomeIdentityHash: observation.providerHomeIdentityHash,
     providerHomeProtectionHash: observation.providerHomeProtectionHash,
@@ -4775,9 +4686,9 @@ function revokeMountSource(
  *
  * @responsibility provider-home-mount-grant-runtimeの発行条件、Identity、非発行時のEffect 0境界を所有する。
  * @trace ARCH-000010
- * @input state: RuntimeState、managementCapability: unknown、observationCapability: unknown、profileId: unknown
+ * @input state: RuntimeState、managementCapability: unknown、observationCapability: unknown
  * @returns issueの計算結果を返す。
- * @precondition 「state: RuntimeState、managementCapability: unknown、observationCapability: unknown、profileId: unknown」がissueの入力契約を満たす。
+ * @precondition 「state: RuntimeState、managementCapability: unknown、observationCapability: unknown」がissueの入力契約を満たす。
  * @postcondition issueの責務を完了した結果だけを返す。
  * @effect N/A: issueは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: issueは独自の失敗分岐を所有しない。
@@ -4790,13 +4701,7 @@ function issue(
   state: providerHomeMountAuthorizationRuntimeState,
   managementCapability: unknown,
   observationCapability: unknown,
-  profileId: unknown,
 ) {
-  if (!validProfileId(profileId)) {
-    return providerHomeMountAuthorizationBlocked(
-      "provider_home_mount_grant_runtime_profile_invalid",
-    );
-  }
   const binding = operationBinding(state, managementCapability);
   if (
     !binding ||
@@ -4833,13 +4738,7 @@ function issue(
       "provider_home_mount_grant_runtime_clock_invalid",
     );
   }
-  const grant = grantRecord(
-    binding,
-    profileId,
-    observation,
-    grantRef,
-    issuedWallClockMs,
-  );
+  const grant = grantRecord(binding, observation, grantRef, issuedWallClockMs);
   if (!grant) {
     state.revokeMountSource(observation.providerHomeMountSourceCapability);
     return providerHomeMountAuthorizationBlocked(
@@ -5146,7 +5045,6 @@ function inspectActiveMount(
     grant,
     grantRef: grant.grantRef,
     provider: grant.provider,
-    profileId: grant.profileId,
     operationId: grant.operationId,
     providerHomeMountGrantIssued: true,
     providerHomeMounted: true,
@@ -5388,9 +5286,9 @@ function revoke(
  *
  * @responsibility Runtime 所有 Provider Home Mount Grantの発行条件、Identity、非発行時のEffect 0境界を所有する。
  * @trace ARCH-000010
- * @input managementCapability: unknown、observationCapability: unknown、profileId: unknown
+ * @input managementCapability: unknown、observationCapability: unknown
  * @returns issueRuntimeOwnedProviderHomeMountGrantの計算結果を返す。
- * @precondition 「managementCapability: unknown、observationCapability: unknown、profileId: unknown」がissueRuntimeOwnedProviderHomeMountGrantの入力契約を満たす。
+ * @precondition 「managementCapability: unknown、observationCapability: unknown」がissueRuntimeOwnedProviderHomeMountGrantの入力契約を満たす。
  * @postcondition issueRuntimeOwnedProviderHomeMountGrantの責務を完了した結果だけを返す。
  * @effect N/A: issueRuntimeOwnedProviderHomeMountGrantは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: issueRuntimeOwnedProviderHomeMountGrantは独自の失敗分岐を所有しない。
@@ -5402,7 +5300,6 @@ function revoke(
 export function issueRuntimeOwnedProviderHomeMountGrant(
   managementCapability: unknown,
   observationCapability: unknown,
-  profileId: unknown,
 ) {
   return failClosed(
     "provider_home_mount_grant_runtime_issuance_failed_closed",
@@ -5411,7 +5308,6 @@ export function issueRuntimeOwnedProviderHomeMountGrant(
         providerHomeMountAuthorizationProductionState,
         managementCapability,
         observationCapability,
-        profileId,
       ),
   );
 }
@@ -5695,15 +5591,10 @@ export function createIsolatedProviderHomeMountGrantRuntimeCandidate(
   });
   return Object.freeze({
     productionAuthority: false as const,
-    issue: (
-      managementCapability: unknown,
-      observationCapability: unknown,
-      profileId: unknown,
-    ) =>
+    issue: (managementCapability: unknown, observationCapability: unknown) =>
       failClosed(
         "provider_home_mount_grant_runtime_issuance_failed_closed",
-        () =>
-          issue(state, managementCapability, observationCapability, profileId),
+        () => issue(state, managementCapability, observationCapability),
       ),
     consume: (
       useCapability: unknown,
@@ -5855,7 +5746,7 @@ export function describeProviderHomeMountGrantRuntimeContract() {
 export const PROVIDER_HOME_MOUNT_GRANT_CONTRACT =
   "crdd-coordinator/provider-home-mount-grant";
 
-export const PROVIDER_HOME_MOUNT_GRANT_CONTRACT_REVISION = 3;
+export const PROVIDER_HOME_MOUNT_GRANT_CONTRACT_REVISION = 4;
 
 export const PROVIDER_HOME_MOUNT_GRANT_MAXIMUM_LIFETIME_MS = 300_000;
 
@@ -5864,8 +5755,6 @@ const PROVIDERS = new Set(["codex", "claude"]);
 const STATES = new Set(["prepared", "issued", "consumed", "revoked"]);
 
 const providerHomeMountGrantGRANT_REF = /^PHMGRANT-[0-9]{6,}$/u;
-
-const providerHomeMountGrantPROFILE_ID = /^PROFILE-[0-9]{6,}$/u;
 
 const providerHomeMountGrantOPERATION_ID = /^OP-[0-9]{6,}$/u;
 
@@ -5876,7 +5765,6 @@ const RECORD_KEYS = new Set([
   "contractRevision",
   "grantRef",
   "provider",
-  "profileId",
   "operationId",
   "providerHomeIdentityHash",
   "providerHomeProtectionHash",
@@ -5894,7 +5782,6 @@ const RECORD_KEYS = new Set([
 const USE_KEYS = new Set([
   "grant",
   "provider",
-  "profileId",
   "operationId",
   "providerHomeMountGrantRef",
   "observedProviderHomeIdentityHash",
@@ -6048,7 +5935,6 @@ function compileInternal(raw: unknown) {
     !isProviderHomeMountGrantRef(value.grantRef) ||
     typeof value.provider !== "string" ||
     !PROVIDERS.has(value.provider) ||
-    !identifier(value.profileId, providerHomeMountGrantPROFILE_ID) ||
     !identifier(value.operationId, providerHomeMountGrantOPERATION_ID) ||
     typeof value.providerHomeIdentityHash !== "string" ||
     !HEX64.test(value.providerHomeIdentityHash) ||
@@ -6117,7 +6003,6 @@ function compileInternal(raw: unknown) {
     contractRevision: PROVIDER_HOME_MOUNT_GRANT_CONTRACT_REVISION,
     grantRef: value.grantRef as string,
     provider: value.provider as string,
-    profileId: value.profileId as string,
     operationId: value.operationId as string,
     providerHomeIdentityHash: value.providerHomeIdentityHash as string,
     providerHomeProtectionHash: value.providerHomeProtectionHash as string,
@@ -6195,7 +6080,6 @@ function sameBinding(
     "contractRevision",
     "grantRef",
     "provider",
-    "profileId",
     "operationId",
     "providerHomeIdentityHash",
     "providerHomeProtectionHash",
@@ -6306,7 +6190,6 @@ export function evaluateProviderHomeMountGrantUseCandidate(raw: unknown) {
       );
     if (
       input.provider !== grant.provider ||
-      input.profileId !== grant.profileId ||
       input.operationId !== grant.operationId ||
       !isProviderHomeMountGrantRef(input.providerHomeMountGrantRef) ||
       input.providerHomeMountGrantRef !== grant.grantRef
@@ -6393,7 +6276,7 @@ export function describeProviderHomeMountGrantContract() {
     states: Object.freeze([...STATES]),
     usageLimit: 1,
     maximumLifetimeMs: PROVIDER_HOME_MOUNT_GRANT_MAXIMUM_LIFETIME_MS,
-    providerProfileOperationBindingRequired: true,
+    providerOperationBindingRequired: true,
     providerHomeIdentityAndProtectionBindingRequired: true,
     selectedLocalUserBindingRequired: true,
     useTimeInterval: "issued_at_inclusive_expires_at_exclusive",

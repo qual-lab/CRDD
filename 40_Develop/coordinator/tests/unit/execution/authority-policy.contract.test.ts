@@ -47,15 +47,13 @@ import {
 function profile() {
   return {
     contract: PROVIDER_ISOLATION_CONTRACT,
-    contractRevision: 3,
-    profileId: "PROFILE-000001",
+    contractRevision: 4,
     provider: "codex",
     operationId: "OP-000001",
     authMethod: "subscription_oauth",
     authority: { registryId: "AUTHREG-000001", grantRef: "AUTH-000001" },
     providerHomeMountGrant: {
       provider: "codex",
-      profileId: "PROFILE-000001",
       operationId: "OP-000001",
       issuer: "runtime_owned",
       requiredState: "active",
@@ -80,7 +78,7 @@ function profile() {
 function registry() {
   return {
     contract: AUTHORITY_REGISTRY_CONTRACT,
-    contractRevision: 3,
+    contractRevision: 4,
     registryId: "AUTHREG-000001",
     registryRevision: 3,
     observedAt: "2026-08-11T00:00:00.000Z",
@@ -92,11 +90,9 @@ function registry() {
         validFrom: "2026-08-10T00:00:00.000Z",
         expiresAt: "2026-08-12T00:00:00.000Z",
         provider: "codex",
-        profileId: "PROFILE-000001",
         origins: ["https://api.example.test"],
         providerHomeMountGrant: {
           provider: "codex",
-          profileId: "PROFILE-000001",
           operationId: "OP-000001",
           issuer: "runtime_owned",
           requiredState: "active",

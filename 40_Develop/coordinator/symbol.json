@@ -2158,15 +2158,18 @@
       "kind": "test-suite",
       "path": "tests/unit/execution/provider-home-mount-authorization.contract.test.ts",
       "qaIds": [
-        "QA-000010"
+        "QA-000010",
+        "QA-000003"
       ],
       "localTestIds": [
-        "AIT-UT-005"
+        "AIT-UT-005",
+        "PRL-UT-006"
       ],
       "verifies": [
         "coordinator.source.src.security.execution.environment",
         "coordinator.source.src.security.provider.home.mount.grant",
-        "coordinator.source.src.security.provider.home.mount.grant.runtime"
+        "coordinator.source.src.security.provider.home.mount.grant.runtime",
+        "coordinator.provider-authority-runtime"
       ]
     },
     {

@@ -39,15 +39,13 @@ import {
 function profile(overrides = {}) {
   return {
     contract: PROVIDER_ISOLATION_CONTRACT,
-    contractRevision: 3,
-    profileId: "PROFILE-000001",
+    contractRevision: 4,
     provider: "codex",
     operationId: "OP-000001",
     authMethod: "subscription_oauth",
     authority: { registryId: "AUTHREG-000001", grantRef: "AUTH-000001" },
     providerHomeMountGrant: {
       provider: "codex",
-      profileId: "PROFILE-000001",
       operationId: "OP-000001",
       issuer: "runtime_owned",
       requiredState: "active",
@@ -78,7 +76,7 @@ function registry(
   const profileHash = validateProviderIsolationProfile(rawProfile).profileHash;
   return {
     contract: AUTHORITY_REGISTRY_CONTRACT,
-    contractRevision: 3,
+    contractRevision: 4,
     registryId: "AUTHREG-000001",
     registryRevision: 3,
     observedAt: "2026-08-11T00:00:00.000Z",
@@ -90,11 +88,9 @@ function registry(
         validFrom: "2026-08-10T00:00:00.000Z",
         expiresAt: "2026-08-12T00:00:00.000Z",
         provider: "codex",
-        profileId: "PROFILE-000001",
         origins: ["https://api.example.test"],
         providerHomeMountGrant: {
           provider: "codex",
-          profileId: "PROFILE-000001",
           operationId: "OP-000001",
           issuer: "runtime_owned",
           requiredState: "active",
@@ -112,7 +108,6 @@ function registry(
 
 const context = {
   provider: "codex",
-  profileId: "PROFILE-000001",
   operationId: "OP-000001",
   scopeId: "SCOPE-000001",
   providerHomeMountGrantRef: "PHMGRANT-000001",
@@ -301,7 +296,6 @@ test("Provider、Origin、Mount Grant、Operation、Scope、Profile Hashの差�
         provider: "claude",
         providerHomeMountGrant: {
           provider: "claude",
-          profileId: "PROFILE-000001",
           operationId: "OP-000001",
           issuer: "runtime_owned",
           requiredState: "active",
@@ -321,7 +315,6 @@ test("Provider、Origin、Mount Grant、Operation、Scope、Profile Hashの差�
         operationId: "OP-000002",
         providerHomeMountGrant: {
           provider: "codex",
-          profileId: "PROFILE-000001",
           operationId: "OP-000002",
           issuer: "runtime_owned",
           requiredState: "active",
@@ -329,7 +322,7 @@ test("Provider、Origin、Mount Grant、Operation、Scope、Profile Hashの差�
         },
       }),
       context,
-      "authority_provider_profile_operation_mismatch",
+      "authority_provider_operation_mismatch",
     ],
     [
       registry(profile(), { scopeId: "SCOPE-000002" }),
@@ -344,12 +337,12 @@ test("Provider、Origin、Mount Grant、Operation、Scope、Profile Hashの差�
     [
       registry(),
       { ...context, provider: "claude" },
-      "authority_provider_profile_operation_mismatch",
+      "authority_provider_operation_mismatch",
     ],
     [
       registry(),
       { ...context, profileId: "PROFILE-000002" },
-      "authority_provider_profile_operation_mismatch",
+      "authority_context_invalid",
     ],
   ];
   for (const [rawRegistry, rawContext, reason] of cases) {

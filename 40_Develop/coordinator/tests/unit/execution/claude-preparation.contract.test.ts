@@ -104,7 +104,6 @@ function createFixture(
         grant: Object.freeze({
           grantRef: "PHMGRANT-123456",
           provider: "claude",
-          profileId: "PROFILE-123456",
           operationId: "OP-123456",
           providerHomeIdentityHash: "a".repeat(64),
           providerHomeProtectionHash: "e".repeat(64),
@@ -165,7 +164,6 @@ function createFixture(
         controlCapability: authorityControlCapability,
         operationId: "OP-123456",
         provider: "claude",
-        profileId: "PROFILE-123456",
         providerHomeMountGrantRef: "PHMGRANT-123456",
         runtimeAuthorityIssued: true,
       });
@@ -846,23 +844,23 @@ test("期限切れprepared planはProvider EffectなしでMount leaseを回収�
 });
 
 /**
- * Profile不一致または高コスト根拠不正ではplanを作らずleaseを回収するを検証する。
+ * Operation不一致または高コスト根拠不正ではplanを作らずleaseを回収するを検証する。
  *
- * @responsibility Profile不一致または高コスト根拠不正ではplanを作らずleaseを回収するの合否判定を所有する。
+ * @responsibility Operation不一致または高コスト根拠不正ではplanを作らずleaseを回収するの合否判定を所有する。
  * @trace PRL-UT-014
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Profile不一致または高コスト根拠不正ではplanを作らずleaseを回収するの対象操作を実行する。
+ * @stimulus Operation不一致または高コスト根拠不正ではplanを作らずleaseを回収するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-UT-014=Direct Boundary: coordinator Test Source→対象契約
  */
-test("Profile不一致または高コスト根拠不正ではplanを作らずleaseを回収する", () => {
+test("Operation不一致または高コスト根拠不正ではplanを作らずleaseを回収する", () => {
   const fixture = createFixture({
     consumeModelSelection: () =>
       Object.freeze({
         ...MODEL_SELECTION,
-        profileId: "PROFILE-DIFFERENT",
+        operationId: "OP-654321",
       }),
   });
   const prepared = fixture.adapter.prepare(
@@ -1026,7 +1024,6 @@ test("Provider Authorityを発行できなければMount leaseを返しPlanを�
         controlCapability: null,
         operationId: null,
         provider: null,
-        profileId: null,
         providerHomeMountGrantRef: null,
         runtimeAuthorityIssued: false,
       }),
@@ -1062,9 +1059,8 @@ test("不一致の発行済みProvider Authorityは失効してMount leaseを返
         status: "issued",
         useCapability: Object.freeze({}),
         controlCapability: Object.freeze({}),
-        operationId: "OP-123456",
+        operationId: "OP-654321",
         provider: "claude",
-        profileId: "PROFILE-DIFFERENT",
         providerHomeMountGrantRef: "PHMGRANT-123456",
         runtimeAuthorityIssued: true,
       }),

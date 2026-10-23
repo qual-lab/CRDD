@@ -52,7 +52,6 @@ test("Codex frontから選定理由付きClaude委譲をcleanup済みResultま�
         status: "active",
         grantRef: "PHMGRANT-123456",
         provider: "claude",
-        profileId: "PROFILE-123456",
         operationId: "OP-123456",
         providerHomeMountGrantIssued: true,
         providerHomeMounted: true,
@@ -77,7 +76,6 @@ test("Codex frontから選定理由付きClaude委譲をcleanup済みResultま�
           grantRef: "AUTH-123456",
           grantRevision: 1,
           provider: current.provider as string,
-          profileId: current.profileId as string,
           operationId: current.operationId as string,
           scopeId: current.scopeId as string,
           providerHomeMountGrantRef:
@@ -214,7 +212,6 @@ test("Codex frontから選定理由付きClaude委譲をcleanup済みResultま�
         grant: Object.freeze({
           grantRef: "PHMGRANT-123456",
           provider: "claude",
-          profileId: "PROFILE-123456",
           operationId: "OP-123456",
           providerHomeIdentityHash: "c".repeat(64),
           providerHomeProtectionHash: "e".repeat(64),

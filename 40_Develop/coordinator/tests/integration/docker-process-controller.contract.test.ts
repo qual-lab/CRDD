@@ -355,7 +355,7 @@ test("実plannerのProbe・Task・助言設定は通知全文へ接続しClaude�
         purpose: "advice",
         modelSelection: {
           provider: "codex",
-          modelIdentifier: "gpt-5.5",
+          modelIdentifier: "gpt-5.6-sol",
           reasoningEffort: "low",
           identifierKind: "exact",
         },

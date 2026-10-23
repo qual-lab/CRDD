@@ -4952,7 +4952,6 @@ test("本番許可元は実Operationに結合し清掃後のcacheを拒否する
     const binding = {
       operationId: operation.operationId,
       provider: "claude",
-      profileId: "PROFILE-200001",
     };
     const source = loadRuntimeOwnedLocalPersonalAuthority(binding, management);
     assert.ok(source);

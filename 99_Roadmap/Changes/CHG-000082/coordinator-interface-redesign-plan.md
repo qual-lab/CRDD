@@ -332,6 +332,10 @@ Sourceと保存設計の読取り専用再照合は、この保存時点で整�
 
 Home分離は、Model Grantの全面切替より先に閉じられる独立単位とする。Home Grant本体、Provider Authorityの発行・再検査、Local Personal Authority、Isolation・prelaunch、Task／助言の発行側と診断投影からModel Profileを除去する。Provider固有のOffering・OriginはAI Adapterの`describeProviderAuthentication`だけから得る。旧Model Grant／PacketのProfileは次単位までモデル経路にだけ残し、Home利用許可へ戻さない。同Provider・同Homeでも別OperationのGrant消費・prelaunchを拒否し、拒否後に元Operationだけが一回消費できる反証を必須とする。TTL、fresh観測、失効、保護Hash、取消・回収は維持し、新しい管理状態は追加しない。
 
+Home分離のSourceは段階実装し、権限・Home・Isolation・prelaunchの十一Suiteは114件成功（5,311.06ms）、Task・助言・Provider準備等の直接利用側十二Suiteは354件成功（10,866.0749ms）を確認した。後者の初回は旧Profile結合等の試験追従と先行APIの取り残し七件、制限付きWindowsのLink／保存公開二件で不合格。七件は新契約へ追従し、二件は検査条件を変えず通常Windowsで同じ集合を再実行して成功した。最初の不合格を成功へ読み替えない。旧Model GrantのSuiteは処理を変えず回帰に含めた。Home GrantはProcess-localのままで保存Schema・本体設定・実行記録・保持②を変更していない。
+
+Home分離の限定独立Source確認は残指摘0。文書側の新反証Caseにある境界区分と失効対象の二表現を、QA3のPRL-UT-006と各々の元Operationへ同期し、本文・判定条件を変えず是正した。File Header・Symbolは既存AIT-UT-005を維持してPRL-UT-006を追加し、この成功でQA10の独立Trust未成立を閉じない。是正後のHome Runtime十一件は成功（518.1907ms）、Catalog386件は不整合0、Semanticの局所・CLI結合十一件も成功（3,069.5927ms）。静的検査は成功。これはHome分離だけの限定成立であり、旧Model Grant／Packet／単発受付の切替、全体回帰、実Docker・実AI・実認証は未完了である。
+
 公開Runtimeのv2は正式APIと現行Consumerの一斉切替時に適用し、定数の実体Ownerは`state/result.ts`、正式公開は`api.ts`とする。現在の同文字列は保存Schema・Recovery Identityには含まれないため保存移行を追加しない。v1 alias・dual acceptは作らず、過去Evidenceは変更しない。これは公開契約の改訂であり、結果DTOのfield・status・reasonの意味変更とは分ける。
 
 Schemaは意味を上書きせず、単一現在Stateを`crdd-coordinator/current-state/v4`へ更新する。Project状態にも新しい必須選定組が加わるため、状態値の契約と内部Snapshot codecの版も同時に更新する。旧v3／旧Profile fieldは本番Readerで受理しない。既存CAS・Writer・Lock・履歴・終端の順序は維持し、Task個別へrootの二役選定を複製しない。初回受付・通常遷移・再計画・再試行・Owner喪失の各例、旧形／相関不正／保存不能の拒否を同じ変更単位で反証する。

@@ -514,7 +514,7 @@ export function planIdentity(plan: PreparedPlan) {
 export const PROVIDER_ISOLATION_CONTRACT =
   "crdd-coordinator/provider-isolation-profile";
 
-export const PROVIDER_ISOLATION_CONTRACT_REVISION = 3;
+export const PROVIDER_ISOLATION_CONTRACT_REVISION = 4;
 
 const SUPPORTED_PROVIDERS = new Set(["codex", "claude"]);
 
@@ -523,8 +523,6 @@ export const PROVIDER_INPUT_LIMITS = Object.freeze({
   originCount: 16,
   originLength: 256,
 });
-
-const isolationProfilePROFILE_ID = /^PROFILE-[0-9]{6,}$/u;
 
 const AUTHORITY_REGISTRY_ID = /^AUTHREG-[0-9]{6,}$/u;
 
@@ -535,7 +533,6 @@ const isolationProfileOPERATION_ID = /^OP-[0-9]{6,}$/u;
 const TOP_LEVEL_KEYS = new Set([
   "contract",
   "contractRevision",
-  "profileId",
   "provider",
   "operationId",
   "authMethod",
@@ -694,7 +691,6 @@ function validateProviderIsolationProfileInternal(candidate: unknown) {
   if (!authority) return blocked("authority_shape_invalid");
   const mountGrantKeys = new Set([
     "provider",
-    "profileId",
     "operationId",
     "issuer",
     "requiredState",
@@ -726,8 +722,6 @@ function validateProviderIsolationProfileInternal(candidate: unknown) {
     top.contractRevision !== PROVIDER_ISOLATION_CONTRACT_REVISION
   )
     return blocked("profile_contract_mismatch");
-  if (!matches(top.profileId, isolationProfilePROFILE_ID))
-    return blocked("profile_id_invalid");
   if (
     typeof top.provider !== "string" ||
     !SUPPORTED_PROVIDERS.has(top.provider)
@@ -747,7 +741,6 @@ function validateProviderIsolationProfileInternal(candidate: unknown) {
 
   if (
     providerHomeMountGrant.provider !== top.provider ||
-    providerHomeMountGrant.profileId !== top.profileId ||
     providerHomeMountGrant.operationId !== top.operationId ||
     providerHomeMountGrant.issuer !== "runtime_owned" ||
     providerHomeMountGrant.requiredState !== "active" ||
@@ -780,7 +773,6 @@ function validateProviderIsolationProfileInternal(candidate: unknown) {
   const profile = Object.freeze({
     contract: PROVIDER_ISOLATION_CONTRACT,
     contractRevision: PROVIDER_ISOLATION_CONTRACT_REVISION,
-    profileId: top.profileId,
     provider: top.provider,
     operationId: top.operationId,
     authMethod: "subscription_oauth",
@@ -790,7 +782,6 @@ function validateProviderIsolationProfileInternal(candidate: unknown) {
     }),
     providerHomeMountGrant: Object.freeze({
       provider: providerHomeMountGrant.provider,
-      profileId: providerHomeMountGrant.profileId,
       operationId: providerHomeMountGrant.operationId,
       issuer: "runtime_owned",
       requiredState: "active",
@@ -1993,7 +1984,8 @@ export function buildProviderDockerExecutionPlan(
     !selection.selectionNotice ||
     consumedModelSelection.executorProvider !== provider ||
     consumedModelSelection.operationId !== binding.operationId ||
-    consumedModelSelection.profileId !== activation.grant.profileId ||
+    activation.grant.provider !== provider ||
+    activation.grant.operationId !== binding.operationId ||
     consumedModelSelection.effort !== selection.effort ||
     consumedModelSelection.modelTier !== selection.modelTier ||
     consumedModelSelection.speedMode !== selection.speedMode ||
@@ -2015,7 +2007,7 @@ export function buildProviderDockerExecutionPlan(
         taskPacket.promptTransport !== "provider_stdin_only")) ||
     (advicePacket !== null &&
       (advicePacket.operationId !== binding.operationId ||
-        advicePacket.profileId !== activation.grant.profileId ||
+        advicePacket.profileId !== consumedModelSelection.profileId ||
         advicePacket.provider !== provider ||
         advicePacket.providerCommand.provider !== provider ||
         (provider === "claude" &&
@@ -2145,7 +2137,7 @@ export function buildProviderDockerExecutionPlan(
     recoveryCorrelationId,
     consumer,
     grantRef: activation.grant.grantRef,
-    profileId: activation.grant.profileId,
+    profileId: consumedModelSelection.profileId,
     activeMountCapability: activation.activeMountCapability,
     providerHomeSourcePath,
     providerHomeIdentityHash: activation.grant.providerHomeIdentityHash,
@@ -3036,7 +3028,6 @@ export function prepareProviderDockerCandidate<M, T, A, P extends object, B, R>(
       !authority.controlCapability ||
       authority.operationId !== binding.operationId ||
       authority.provider !== provider ||
-      authority.profileId !== activation.grant.profileId ||
       authority.providerHomeMountGrantRef !== activation.grant.grantRef ||
       authority.runtimeAuthorityIssued !== true
     ) {
@@ -5968,9 +5959,9 @@ export type ProviderDockerOperationBinding = Readonly<{
 /**
  * 有効化したProvider Home Grantの値契約。
  *
- * @responsibility 操作・Profile・Homeとローカル主体の固定対応を保持する。
+ * @responsibility 操作・Provider・Homeとローカル主体の固定対応を保持する。
  * @trace ARCH-000015
- * @shape Grant参照、Provider・Profile・操作Identityと四Hash。
+ * @shape Grant参照、Provider・操作Identityと四Hash。
  * @invariant 取得済みGrantを再発行・補完しない。
  * @boundary Home Mount Ownerと共通準備の間。
  * @security ローカル主体とHomeの結合を省略しない。
@@ -5979,7 +5970,6 @@ export type ProviderDockerOperationBinding = Readonly<{
 export type ProviderDockerMountGrant = Readonly<{
   grantRef: string;
   provider: string;
-  profileId: string;
   operationId: string;
   providerHomeIdentityHash: string;
   providerHomeProtectionHash: string;
@@ -6065,7 +6055,6 @@ export type ProviderDockerPreparationState<
     controlCapability: object | null;
     operationId: string | null;
     provider: string | null;
-    profileId: string | null;
     providerHomeMountGrantRef: string | null;
     runtimeAuthorityIssued: boolean;
   }>;

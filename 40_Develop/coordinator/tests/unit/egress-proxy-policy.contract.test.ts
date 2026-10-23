@@ -42,15 +42,13 @@ import {
 function rawProfile(overrides = {}) {
   return {
     contract: PROVIDER_ISOLATION_CONTRACT,
-    contractRevision: 3,
-    profileId: "PROFILE-000001",
+    contractRevision: 4,
     provider: "codex",
     operationId: "OP-000001",
     authMethod: "subscription_oauth",
     authority: { registryId: "AUTHREG-000001", grantRef: "AUTH-000001" },
     providerHomeMountGrant: {
       provider: "codex",
-      profileId: "PROFILE-000001",
       operationId: "OP-000001",
       issuer: "runtime_owned",
       requiredState: "active",
