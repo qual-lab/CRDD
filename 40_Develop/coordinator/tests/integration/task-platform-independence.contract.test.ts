@@ -153,6 +153,7 @@ const SOURCE_ROLES = {
     "selection/resolve.ts",
   ],
   storage: [
+    "storage/ai-selection.ts",
     "storage/current-state.ts",
     "storage/history.ts",
     "storage/protected-decision.ts",

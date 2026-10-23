@@ -4,7 +4,9 @@
 
 `RCM-UT-001/002`へ、新しい技術Catalogと選択設定の純粋検査を接続する。AI AdapterのCatalog検査・選定と、Coordinatorの`selection/resolve`は、未知field・Getter／Proxy・重複・役割／分類参照不整合、用途／Effort不対応、aliasをexactと誤認する結果、暗黙fallbackを反証する。五役割と任意分類、明示指定→分類上書き→役割既定値、内容Identityと元入力からの分離を確認する。
 
-この単位は値検査であり、Repository別保存・CAS・設定編集認可・Task／Grant／回復の固定選定・Workbench／MCP／CLI本番切替は未接続として残す。旧Profile試験の成功を新方式の保存や実行の成功へ換算しない。[実施段階と結果](../../../99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md)へ接続し、技術Catalogの追加を新Model採用や実Provider確認と扱わない。
+`RCM-IT-005`へ新しい`ai-selection-store`の合成Repository試験を接続する。読取り非作成、閉形式・UTF-8・全体1MiB、Link／hardlink／読取り中の置換拒否、内容HashによるCAS、通常保存と読戻し、公開前後の認可失効、短命Fileと既存排他の回収不明を分けて観測する。保存後認可失効では本文を返さず、既存排他の回復参照は同じまま保持する。通常Fileのfsync・rename・読戻しを超える電源断耐久性は主張しない。
+
+設定Storeは内部接続の段階実装であり、管理画面の認可・Task／Grant／回復の固定選定・Workbench／MCP／CLI本番切替は未接続として残す。旧Profile試験の成功を新方式の保存や実行の成功へ換算しない。[実施段階と結果](../../../99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md)へ接続し、技術Catalogの追加を新Model採用や実Provider確認と扱わない。
 
 成果物種別: Quality定義
 Quality ID: `QA-000001`

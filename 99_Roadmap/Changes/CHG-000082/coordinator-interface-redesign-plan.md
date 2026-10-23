@@ -1,6 +1,6 @@
 # Coordinatorの公開操作・認証・AI選択の再設計計画
 
-状態: Objective六Sourceと本番`public-*`撤去を実装済み。直接回帰と独立確認を終え、長い結合回帰を継続。正式API／CLI／認証／設定は未実装。
+状態: Objective六Sourceと本番`public-*`撤去、技術CatalogとAI選択の値検査・選定を実装済み。限定回帰・独立確認を終え、長い結合回帰と設定保存接続を継続。正式API／CLI／共通認証／新設定の本番切替は未完了。
 更新日: 2026-10-24
 基準版: `5ccdc54a0998113d757c0eebce3ae8f06bfa932d`
 変更: CHG-000082の責務整理を継続する。新しいCHG・実行Registryは追加しない。
@@ -158,7 +158,7 @@ Sourceは55 File。純粋集合18と業務操作8は不変で、Adapter集合だ
 | Source独立確認 | 移管七関数と既存関数の本文一致、公開・保存・値依存を確認し指摘0 |
 | 文書・登録独立確認 | 現Owner説明一件を是正。55 Fileの和集合、純粋集合・業務集合不変、Registry／Symbol実在、旧Path現在参照0を確認 |
 
-受入判断・公開受付・Workspace・品質受入の四Suiteは実行中。先行Objective連続回帰64件は上記のとおり完走したが、後続の未終端を成功へ換算しない。実AI・実Docker・実認証・保持②の観測／操作は行っていない。
+受入判断・公開受付・Workspace・品質受入の四Suiteは36件成功、失敗／取消／skip／todo 0、3,272,949.5515ms、Exit 0で完走した。Workspace内の直列Task、固定・採否・二親Merge・Ref回収、保存失敗後の別Process再入場、元理由と回復参照の維持、Objective受入後のMilestone明示三判断と改ざん拒否を確認した。先行Objective連続回帰64件とは別の実行集合であり、QA正式項目数に合算しない。実AI・実Docker・実認証・保持②の観測／操作は行っていない。
 
 ## 11. 後続の具体化で確認した境界
 
@@ -215,4 +215,45 @@ Modelの用途・Effort・識別方式は§11の確認済み集合だけを継�
 | Repository選定独立Source確認 | 優先順位、不正明示値のfallbackなし、全設定検査、未知分類拒否、継承Propertyを参照しない辞書照合、正規化Hash・不変結果を確認し指摘0 |
 | 文書・登録の独立確認 | 新Source／Suiteの登録、採用済み三組の固定Oracle、Test Catalogの意味追従を是正。是正の重複適用も除去し、新候補の再確認は両確認者とも残指摘0。Symbol全ID重複0、実Source57＝登録Path一意57。Test Catalogは385件valid、実行開始なし／Effectなし |
 
-これは値処理の段階実装であり、本番切替の完了ではない。旧Profile本番Consumerを新設定の並行正本として維持する方針ではなく、保存・Task／Grant／回復・Workbench／MCP／CLIを新形式へ接続後に撤去する。現時点では新設定Fileの作成・移行・本体実行設定の変更は行っていない。設定Storeのbyte境界・Root・既存排他・CAS・原子的保存・読戻し、開始済み選定の耐久固定、公開入口の切替と全体回帰は残る。人間の実認証・新Model採用・実AI試験は最後に分離する。②と保持物は操作していない。
+本節の結果は値処理完了時点の記録であり、本番切替の完了ではない。後続の内部Store実装は§13を参照する。旧Profile本番Consumerを新設定の並行正本として維持する方針ではなく、保存・Task／Grant／回復・Workbench／MCP／CLIを新形式へ接続後に撤去する。この値処理完了時点では新設定Fileの作成・移行・本体実行設定の変更は行っていない。設定Storeのbyte境界・Root・既存排他・CAS・原子的保存・読戻し、開始済み選定の耐久固定、公開入口の切替と全体回帰は残る。人間の実認証・新Model採用・実AI試験は最後に分離する。②と保持物は操作していない。
+
+## 13. Repository設定Storeの段階実装と検証境界
+
+用途限定の保存をCoordinatorの`storage/ai-selection.ts`へ置く。Domain Modelは既存の検証済みRoot・安定読取り・排他だけを提供し、AI選択の意味を引き取らない。保存B六Sourceの本文・Schema・CAS・順序は変更しない。設定は`.crdd/config/ai-selection.json`一つであり、世代別のSnapshot列や新しいRegistryを作らない。
+
+Readerは領域を作成しない。Writerの初回作成だけ、最初の管理認可成功後に既存`ensureRepositoryRuntimeDataArea(root, "config")`を利用する。独自mkdirやGit Ignore編集は持たず、既存APIの拒否・不明は停止する。書込みではFileのfsyncを行うがDirectory fsyncや電源断・Process crash後の耐久確定は主張しない。
+
+| 段階 | 所有者・成立条件 | 失敗時 |
+|---|---|---|
+| 読取り | 発行済みRepository Root、親chain・実Path・通常File・単一Link・読取り前後の同一性。全体1MiBまでを安定読取りし、厳密UTF-8・JSON重複拒否・新Schemaを検査 | 真正不存在、内容不正、容量超過、観測不能を区別。旧ProfileやHost設定へfallbackしない |
+| 書込み受付 | 同じRoot、閉じた`expectedIdentity / config`、同じbyte上限、現在の管理認可。期待Identityはnull又は正規化本文SHA-256 | 不正要求・認可未確認では公開Effect 0 |
+| 排他・CAS | 既存Filesystem Store排他を同じ`ai-selection.lock`に利用し、現在設定を再読して期待Identityを比較 | 競合は上書きしない。既存排他の観測不能・回復参照はそのまま保持する |
+| 準備・公開 | 同階層の短命UUID Fileへ排他的に作成・書込み・close。Root・現在Hash・認可を再確認し、旧正本を削除せずrenameで置換 | 不明をsavedにせず、自動再保存・旧値への自動Rollbackをしない |
+| 読戻し・終了 | 同じReaderで期待する設定Identityと一致し、一時Fileと既存排他のcleanupを確認 | 公開確定不能とcleanup不明を区別する。同じ既存回復ID又は今回の短命Fileの非Authority参照を返す |
+
+成功は公開・読戻し・cleanupが全て確認できた場合だけとする。短命Fileは今回作成した実Identityに一致するものだけを回収し、由来不明や置換後のFileを削除しない。設定Fileと通常の応答以外の新State・履歴列・監視・Recovery Frameworkは作らない。File単位の原子的置換は通常保存の意味であり、電源断の耐久保証ではない。
+
+短命Fileの回収が不明なら、非正本・非Authorityである相対名と観測済み実Identity、公開前／公開確定不能／読戻し確定後の区別を、既存フロントAI／運用手順へ引き渡す。自動再送・自動発見・新しい清掃APIは設けない。介入では同じ検証済みRoot、親chain、非正本名、通常File、単一Link、exact Identityを再確認した一件だけを対象とし、不一致・不存在・観測不能を清掃完了へ畳まない。応答喪失・Process crashで参照も失われた場合に必ず回収可能、無人で残存0、という追加保証は置かない。作成時Identity自体が観測不能ならその不足も明示し、削除根拠を補完しない。残存は通常Reader・AI実行から参照しない。
+
+読戻し後に管理認可が失効した場合は保存前の拒否と区別し、保存Effect成立後の非成功・本文非公開結果へする。既存排他のoperation完了後cleanup不明も成功へ変換せず、元のreasonと回復Identityを保持する。未認可時の作成0と、認可後の準備File作成・設定公開・回収を異なる事実として扱う。
+
+このCASは同じ既存排他に参加するWriter間を直列化する。手編集は引き続き可能だが、排他に参加しないEditorが最終Hash確認とrenameの間に同時書込みすることまで、OS横断で原子的に拒否できるとは主張しない。手編集との直前差は再読Hashで検出し、同時編集を保護するための新しい常駐監視・Lock Frameworkは追加しない。
+
+### 合成Repositoryでの段階確認結果
+
+設定Store十件と、既存の選定・純粋閉包・Domain／Version Control利用側を合わせて35件成功、失敗・取消・skip・todo 0（最終確認9,847.0299ms）。静的検査も成功し、既存Lint情報64件は変更していない。Test Catalogは386件validで、Catalog検査自体の試験開始・Effectはない。初回の利用側検査三件は、型専用Consumerと値Consumerの登録を分け、領域確保失敗の元fieldを明示保持して是正した。検査条件の例外は追加していない。
+
+| 反証した条件 | 実際の観測 |
+|---|---|
+| 受付・読取り | 未認可・不正閉形式・不正期待Hash・Getter／Proxyは作成0。偽Root、旧形式、重複JSON、不正UTF-8を拒否 |
+| 容量・File実体 | Unicodeを含む1MiB丁度を保存・読戻しし、1byte超過を拒否。Symlink／hardlink・読取り中の置換を拒否 |
+| 通常保存・認可 | 初回保存、整形によらない内容CAS、競合保全、更新後読戻しを確認。公開前失効では正本なし、公開後失効では本文なしunknown |
+| 保存・回収故障 | temp作成、rename、公開後読取り、temp削除、Lock回収を個別故障。temp置換・hardlink化では対象を削除せず、通常Readerも代用しない |
+| 複合故障 | temp削除不明にLock close失敗を重ね、Lock回収成功／不明の両方で同じtemp参照・公開段階を保持。後者は同じLock回復IDも保持 |
+| 下位失敗の搬送 | 領域確保APIを元契約の有限代役にし、Effect・cleanup・retry・exact回復参照等の全fieldが失われないことを確認。実Ignore障害の再現とは扱わない |
+
+独立確認では、temp回収不明の後にLock終了が失敗すると参照を失う一件を検出した。新記録を作らず、関数内の公開段階とtemp観測を最後まで保持する最小是正を行い、上記複合故障で反証した。是正後候補のSource・文書／登録の独立再確認は両者とも残指摘0。参照はRepository Rootから直接解決できる`.crdd/config/<temp>`へ統一し、実Identity・削除条件を維持した。Symbol全IDの重複0、新Source58の登録欠測0、Manifest検査complete／issues 0も確認した。
+
+本番管理画面・Access Management認可への接続、Task／Grant／回復への選定固定は未完了。手動temp介入そのもの、Process crash・応答喪失後の回収は未実証であり、無人で残存0を保証しない。通常Store試験のdescriptor close故障は実close後に失敗観測を注入する代役で、OSで実際に閉じられないHandleを生成した証明ではない。本体設定の初期化・移行、実AI・認証・Docker・保持②は操作していない。
+
+合成Repositoryで、読取りだけでは作成0、別Root／Link／hardlink／読取り置換拒否、byte境界とUnicode、重複JSON拒否、期待Hash競合、通常保存と読戻し、保存失敗・公開不明・一時File cleanup不明・既存排他cleanup不明を試験した。試験は外部AI・認証・Docker・保持②を利用しない。本体設定の移行・初期Model採用はこの単位に含めない。

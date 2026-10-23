@@ -3292,6 +3292,19 @@
       "mandatoryByDefault": true
     },
     {
+      "id": "coordinator:integration:ai-selection-store",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/ai-selection-store.contract.test.ts",
+      "level": "integration",
+      "kind": "contract",
+      "semanticTags": ["ai-selection", "configuration", "filesystem", "cas"],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["read_without_creation", "content_identity_cas", "publication_cleanup_distinguished", "provider_effect_zero"],
+      "mandatoryByDefault": true
+    },
+    {
       "id": "coordinator:unit:selection:resolve",
       "owner": "coordinator",
       "path": "40_Develop/coordinator/tests/unit/selection/resolve.contract.test.ts",

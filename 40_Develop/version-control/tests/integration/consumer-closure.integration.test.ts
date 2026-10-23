@@ -938,6 +938,7 @@ test("Local Change Setと用途別Named SymbolのConsumer集合が宣言と一�
       "40_Develop/coordinator/src/state/observation.ts",
       "40_Develop/coordinator/src/state/query.ts",
       "40_Develop/coordinator/src/state/types.ts",
+      "40_Develop/coordinator/src/storage/ai-selection.ts",
       "40_Develop/coordinator/src/storage/current-state.ts",
       "40_Develop/coordinator/src/storage/history.ts",
       "40_Develop/coordinator/src/storage/settlement-store.ts",

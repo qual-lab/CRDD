@@ -2,7 +2,7 @@
 
 ## 公開操作とObjectiveの再設計方針 — 2026-10-24
 
-状態: 六Sourceへの責務分配と本番public-*撤去を実装済み。Objective連続回帰64件は成功し、Workspace／品質受入の後続結合は継続中。基準Sourceは`5ccdc54a0`であり、以下の目標全体を実装済みとは表示しない。実施段階・利用側・移行は[再設計計画](../../../99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md)が追跡する。共有型を`types.ts`、進行とTask入力変換を`execute.ts`、本番構成を`composition.ts`へ分配した。`plan.ts`は計画検査に限定する。残る公開契約の切替は未完了である。
+状態: 六Sourceへの責務分配と本番public-*撤去を実装済み。Objective連続回帰64件は成功し、Workspace／品質受入の後続結合36件も成功。基準Sourceは`5ccdc54a0`であり、以下の目標全体を実装済みとは表示しない。実施段階・利用側・移行は[再設計計画](../../../99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md)が追跡する。共有型を`types.ts`、進行とTask入力変換を`execute.ts`、本番構成を`composition.ts`へ分配した。`plan.ts`は計画検査に限定する。残る公開契約の切替は未完了である。
 
 Objectiveは次の六Sourceを目標とする。要求固有の型・検査は`request.ts`、共有するObjective型・依存契約は型専用`types.ts`、計画の構築・検査は`plan.ts`、進行・Task委譲と実行結果の引渡しは`execute.ts`、再計画判断は`replan.ts`、既存の具体依存と受付接続は`composition.ts`が所有する。実行集合・Objective結果・Workspace結果の検査を計画に同居させない。Task再試行や技術RecoveryをObjectiveへ再実装せず、同名検査の統合は文法・拒否条件の同一性を確認してから行う。
 
@@ -404,14 +404,14 @@ Orchestratorの純粋判定はOS固有のPath、principal、Filesystem保護、L
 | 純粋判定・値契約（19） | `state/projection.ts`; `state/types.ts`; `decision/types.ts`; `decision/records.ts`; `decision/request.ts`; `state/persistence.ts`; `state/model.ts`; `objective/request.ts`; `objective/types.ts`; `objective/plan.ts`; `state/result.ts`; `task/types.ts`; `state/request.ts`; `task/scheduling.ts`; `task/lifecycle.ts`; `task/acceptance.ts`; `storage/result-record.ts`; `task/recovery.ts`; `selection/types.ts` | 実行時の依存閉包はこの集合と決定論的Hash・Proxy検査の許可済みNode組込みへ限定し、現在時刻・乱数・I/Oを取得しない。 |
 | 業務操作（8） | `state/observation.ts`; `decision/lifecycle.ts`; `decision/acceptance.ts`; `objective/execute.ts`; `objective/replan.ts`; `state/query.ts`; `task/dispatch.ts`; `workspace/record.ts` | 受付・進行・読取り・受理を調停し、技術実行と保存のOwnerへ委譲する。 |
 | 接続・組立て・Transport（5） | `objective/composition.ts`; `task/requests.ts`; `workspace/commands.ts`; `workspace/operations.ts`; `selection/resolve.ts` | 上位公開操作と専門Packageを接続する。AI選定は保存・実行を行わないが、DomainのSnapshot検査とAI Adapterの技術Catalogへ値依存するため、閉じた状態Coreとは別集合にする。 |
-| 保存（3） | `storage/current-state.ts`; `storage/history.ts`; `storage/protected-decision.ts` | 現在状態・履歴・判断の既存Writerと排他を所有する。 |
+| 保存（4） | `storage/ai-selection.ts`; `storage/current-state.ts`; `storage/history.ts`; `storage/protected-decision.ts` | 現在状態・履歴・判断の既存Writerと排他を所有する。AI選択設定は単一Fileの通常保存・内容CASと読戻しを行い、同じ既存排他を利用する。 |
 | 単発実行・技術接続（12） | `execution/controller.ts`; `execution/authority.ts`; `execution/operation.ts`; `execution/result.ts`; `execution/recovery.ts`; `execution/observation.ts`; `execution/diagnostics.ts`; `execution/preparation.ts`; `execution/advice.ts`; `execution/request.ts`; `execution/kernel-lock.ts`; `execution/process-safety-state.ts` | 元の私有状態とLifecycleを保持し、隔離・OS技術は既存の専門Packageへ委譲する。 |
 | CLI（4） | `cli/command.ts`; `cli/options.ts`; `cli/recovery-report.ts`; `cli/cancellation.ts` | 引数・入力搬送・取消・出力を所有する。 |
 | 技術保存モデル・終了保存（2） | `storage/model.ts`; `storage/settlement-store.ts` | 保存統合Bの既存Schema・Writer・CAS・順序は凍結する。 |
 | 外部送信判断（3） | `decision/external-send-consent.ts`; `decision/external-send-grant.ts`; `decision/external-send-policy.ts` | Repository内の同意・Policyと一回Grantを保持する。 |
 | 公開入口（1） | `index.ts` | Package Rootの公開名・型／値区分を維持する。 |
 
-現行Source全57 Fileを重複なく照合し、新File・欠測・純粋集合の空集合を拒否する。宣言全体の型専用import／exportは実行時閉包へ数えない。通常宣言のinline type要素は型辺へ分けるが、値要素がなくても型除去後に空import／exportが残るため実行時ロード辺を維持する。型の所有境界は純粋集合内、または他Packageの実在する公開`src/index.ts`に限定し、自Packageの公開entry・業務操作・保存・Adapterへの型依存も純粋集合へ混入させない。Node組込みは型専用でも上表のexact module／symbolだけを許可する。`task/types.ts`からだけ、`execution/result.ts`の`CoordinatorWorkspaceResult`一型と、`task/dispatch.ts`の`COORDINATOR_EXECUTION_CONTRACT / COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT`二定数の型専用参照をexact集合で許可する。値import、別Symbol、欠測・重複・追加は拒否し、実行時閉包を拡張しない。`task/types.ts`の結果配送型はOrchestratorが受領する三状態と結果参照・終了観測の最小構造を所有し、Coordinator実装の戻り型から逆算しない。Adapterはcastで押し込まず構造適合を型検査する。
+現行Source全58 Fileを重複なく照合し、新File・欠測・純粋集合の空集合を拒否する。宣言全体の型専用import／exportは実行時閉包へ数えない。通常宣言のinline type要素は型辺へ分けるが、値要素がなくても型除去後に空import／exportが残るため実行時ロード辺を維持する。型の所有境界は純粋集合内、または他Packageの実在する公開`src/index.ts`に限定し、自Packageの公開entry・業務操作・保存・Adapterへの型依存も純粋集合へ混入させない。Node組込みは型専用でも上表のexact module／symbolだけを許可する。`task/types.ts`からだけ、`execution/result.ts`の`CoordinatorWorkspaceResult`一型と、`task/dispatch.ts`の`COORDINATOR_EXECUTION_CONTRACT / COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT`二定数の型専用参照をexact集合で許可する。値import、別Symbol、欠測・重複・追加は拒否し、実行時閉包を拡張しない。`task/types.ts`の結果配送型はOrchestratorが受領する三状態と結果参照・終了観測の最小構造を所有し、Coordinator実装の戻り型から逆算しない。Adapterはcastで押し込まず構造適合を型検査する。
 
 `objective/types.ts`は具体依存の署名を共有するため、`execution/controller.ts`の`startRuntimeOwnedCoordinatorTask / cancelRuntimeOwnedCoordinatorTask / captureRuntimeOwnedCoordinatorTaskResultDelivery`、`storage/protected-decision.ts`の`openRuntimeOwnedWindowsProjectDecisionStore`、`task/dispatch.ts`の`recordCoordinatorExecutionEvent`だけを型専用で参照できる。各辺は一つの名前を持つ型専用辺として検査し、値import・別Symbol・別Pathは拒否する。これらの実行値を型Moduleで生成・取得しない。
 

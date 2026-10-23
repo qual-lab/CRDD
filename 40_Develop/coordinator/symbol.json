@@ -4,6 +4,20 @@
   "subsystem": "coordinator",
   "symbols": [
     {
+      "symbolId": "coordinator.storage.ai-selection",
+      "kind": "file",
+      "path": "src/storage/ai-selection.ts",
+      "archIds": ["ARCH-000004"]
+    },
+    {
+      "symbolId": "coordinator.test.integration.ai-selection-store",
+      "kind": "test-suite",
+      "path": "tests/integration/ai-selection-store.contract.test.ts",
+      "qaIds": ["QA-000001"],
+      "localTestIds": ["RCM-IT-005"],
+      "verifies": ["coordinator.storage.ai-selection", "coordinator.selection.resolve"]
+    },
+    {
       "symbolId": "coordinator.selection.types",
       "kind": "file",
       "path": "src/selection/types.ts",
