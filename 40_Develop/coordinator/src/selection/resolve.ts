@@ -16,7 +16,7 @@ import type {
   AiSelectionRole,
   AiSelectionSnapshot,
   ExecutionSelection,
-} from "./types.ts";
+} from "./model.ts";
 
 const ROLES = Object.freeze([
   "coordinator",

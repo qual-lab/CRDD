@@ -133,7 +133,7 @@ const SOURCE_ROLES = {
     "task/acceptance.ts",
     "storage/result-record.ts",
     "task/recovery.ts",
-    "selection/types.ts",
+    "selection/model.ts",
   ],
   workflow: [
     "state/observation.ts",

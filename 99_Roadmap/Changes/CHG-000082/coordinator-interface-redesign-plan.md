@@ -1,6 +1,6 @@
 # Coordinatorの公開操作・認証・AI選択の再設計計画
 
-状態: Objective六Sourceと本番`public-*`撤去、技術CatalogとAI選択の値検査・選定を実装済み。限定回帰・独立確認を終え、長い結合回帰と設定保存接続を継続。正式API／CLI／共通認証／新設定の本番切替は未完了。
+状態: Objective六Sourceと本番`public-*`撤去、技術Catalog・AI選択の値検査／選定・内部設定Storeを段階実装し、対象回帰・限定独立確認を完了。正式API／CLI／共通認証／新設定の本番切替は未完了。
 更新日: 2026-10-24
 基準版: `5ccdc54a0998113d757c0eebce3ae8f06bfa932d`
 変更: CHG-000082の責務整理を継続する。新しいCHG・実行Registryは追加しない。
@@ -255,5 +255,33 @@ Readerは領域を作成しない。Writerの初回作成だけ、最初の管�
 独立確認では、temp回収不明の後にLock終了が失敗すると参照を失う一件を検出した。新記録を作らず、関数内の公開段階とtemp観測を最後まで保持する最小是正を行い、上記複合故障で反証した。是正後候補のSource・文書／登録の独立再確認は両者とも残指摘0。参照はRepository Rootから直接解決できる`.crdd/config/<temp>`へ統一し、実Identity・削除条件を維持した。Symbol全IDの重複0、新Source58の登録欠測0、Manifest検査complete／issues 0も確認した。
 
 本番管理画面・Access Management認可への接続、Task／Grant／回復への選定固定は未完了。手動temp介入そのもの、Process crash・応答喪失後の回収は未実証であり、無人で残存0を保証しない。通常Store試験のdescriptor close故障は実close後に失敗観測を注入する代役で、OSで実際に閉じられないHandleを生成した証明ではない。本体設定の初期化・移行、実AI・認証・Docker・保持②は操作していない。
+
+## 14. 選定の本番接続と保存形式の変更境界
+
+設定Storeの段階Commitは`5ce75c12c`。次は、旧Profile IDが兼務していたモデル選定と実行Policyを分離する。添付の固定五役割から、一般の読取り助言は`advice`、Objective整理・計画は`coordinator`、複数結果の統合は`result_integration`へ一意に対応する。Workbench等の入口名から役割を決めず、Roleを権限にしない。現在、この対応に人間判断は必要ない。
+
+| 現行の所有者・参照 | 新方式の処置 | 保持する条件 |
+|---|---|---|
+| AI Adapter `provider/plan.ts`とCodex／Claude計画の`exactModelId` | `modelIdentifier / identifierKind`として明示。技術Catalogで新規実行可否を確認 | `opus`をexactへ偽装しない。Model追加・fallbackを同時に採用しない |
+| `task/requests.ts`のProfile解決・受付、CLIの旧Store生成 | 選択Repositoryの設定から一度解決し、選定結果を受付へ固定 | 設定不存在・不正は実行前停止。進行中は新設定で再解釈しない |
+| `execution/advice.ts`、`execution/preparation.ts`のPacket・送信Grant | 同じ選定tupleを搬送・照合 | 送信同意・一回消費・取消・外部送信範囲を維持 |
+| `execution/authority.ts`、`execution/controller.ts`のProfileとHome／Grant結合 | 選定IdentityとProvider Home／操作Identityを区別 | 認証Offeringは既存Provider固定対応、隔離と資源はDocker Isolation、進行はCoordinator。選定だけで実行許可を作らない |
+| `state/model.ts`のSingleTask、`storage/model.ts`等の実行Identity | 単一のnested `executionSelection`へ置換する別Schema単位として扱う | 保存Bの構造整理時の凍結を黙って解除しない。変更field・Reader・Writer・回復・フロントAI移行を対応付けてから変更 |
+| `execution/recovery.ts`のProfile再利用 | 保存済みtupleをそのまま再観測へ搬送 | 回復時に新設定Store／現在Catalogで過去の選定を解き直さない。unknownとexact回復参照は保持 |
+| Workbench設定画面／MCP／Root API | 選択Repositoryの設定へ接続し、旧Profile Consumerがなくなった後に旧Store／公開API撤去 | Workbenchのmanager／administrator認可を維持。MCPへ新しい設定変更Toolを自動追加しない |
+
+保存tupleは`provider / modelIdentifier / identifierKind / reasoningEffort / purpose / catalogIdentity / configIdentity / role / workType / source`の十項目だけとする。raw設定、旧Profile ID、Catalog改訂番号、Tier、認証情報やAuthorityは複製しない。これは今回実行の値であり、認証済み・実行許可済みという意味ではない。
+
+既存`selection/types.ts`は、型と保存用の純粋なclosed codecを同居させる`selection/model.ts`へ置換する。`selection/resolve.ts`は現在Catalogによる新規選定を所有し、codecは現在Catalog・設定Store・I/Oへ依存しない。これにより、保存復元時に過去の選定を現在のカタログへ合わせる誤りを避ける。新しいvalidation層やRegistryは作らない。型群をTask状態Ownerへ丸ごと移すこともしない。
+
+旧ProfileとTierがOffering・operationMode・隔離条件を暗黙に表した判定は、一括削除しない。各拒否条件を上表の既存Ownerへ一対一で接続し、同じ反例がEffect前に拒否されることを確認する。内部認証probeはRepositoryのRole選定と切り離し、Providerの固定技術仕様を使用する。通常実行の選定条件をprobeへ流用しない。
+
+実装は、純粋codec、AI Adapterの識別方式、Packet／Grant、実行調整、保存Schemaと回復、公開利用側、旧Store撤去の順に安全な単位で接続する。Schema切替前には、旧Profileと保存済み実行参照の移行対応をフロントAI向けに確定する。未移行の旧形式は新Readerで受理せず、保持②と歴史Evidenceは移行・清掃対象外とする。
+
+### 保存選定の値モデル — 段階実装
+
+`selection/types.ts`を`selection/model.ts`へ置換し、既存型と`inspectExecutionSelection`を同居させた。十項目の閉形式・primitive値・Hash・役割／用途の相関を検査し、独立して凍結する。現在Catalog・設定Store・I/Oを利用しないため、後のCatalog変更で保存済みalias・Model・Effort・選定元を変えない。現在実行可能かどうかは新規選定の検査と区別する。
+
+保存codec二件を既存の選定Suiteへ加え、内部Store・純粋閉包・利用側を合わせ37件成功、失敗／取消／skip／todo 0（最終確認9,521.2636ms）。静的検査も成功。Catalog外の合成`retired-model / max`は保存codecで値を維持し、新規Resolverでは拒否される。これは当該Modelを採用する操作ではない。Getter／Proxy／暗黙変換のhook実行0と、過剰・不足・相関不正の拒否を確認した。既存保存B六Sourceの本文・Schema、現在State、Packet、実行・回復経路はこの段階では変更していない。Sourceと文書・登録の独立確認は、Suite HeaderとCatalogの検証範囲表示を是正して両者とも残指摘0。新SuiteやQA IDは追加していない。本番接続は後続であり、四添付全体の完了ではない。
 
 合成Repositoryで、読取りだけでは作成0、別Root／Link／hardlink／読取り置換拒否、byte境界とUnicode、重複JSON拒否、期待Hash競合、通常保存と読戻し、保存失敗・公開不明・一時File cleanup不明・既存排他cleanup不明を試験した。試験は外部AI・認証・Docker・保持②を利用しない。本体設定の移行・初期Model採用はこの単位に含めない。

@@ -20,7 +20,7 @@ import {
 import { parseUnambiguousJsonDocument } from "../../../ai-adapter/src/index.ts";
 import type { VerifiedRepositoryRoot } from "../../../version-control/src/index.ts";
 import { validateAiSelectionConfig } from "../selection/resolve.ts";
-import type { AiSelectionSnapshot } from "../selection/types.ts";
+import type { AiSelectionSnapshot } from "../selection/model.ts";
 
 export const AI_SELECTION_MAXIMUM_BYTES = 1024 * 1024;
 const CONFIG_FILE = "ai-selection.json";

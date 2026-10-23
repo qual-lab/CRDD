@@ -401,7 +401,7 @@ Orchestratorの純粋判定はOS固有のPath、principal、Filesystem保護、L
 
 | 主責務 | File集合 | 境界 |
 |---|---|---|
-| 純粋判定・値契約（19） | `state/projection.ts`; `state/types.ts`; `decision/types.ts`; `decision/records.ts`; `decision/request.ts`; `state/persistence.ts`; `state/model.ts`; `objective/request.ts`; `objective/types.ts`; `objective/plan.ts`; `state/result.ts`; `task/types.ts`; `state/request.ts`; `task/scheduling.ts`; `task/lifecycle.ts`; `task/acceptance.ts`; `storage/result-record.ts`; `task/recovery.ts`; `selection/types.ts` | 実行時の依存閉包はこの集合と決定論的Hash・Proxy検査の許可済みNode組込みへ限定し、現在時刻・乱数・I/Oを取得しない。 |
+| 純粋判定・値契約（19） | `state/projection.ts`; `state/types.ts`; `decision/types.ts`; `decision/records.ts`; `decision/request.ts`; `state/persistence.ts`; `state/model.ts`; `objective/request.ts`; `objective/types.ts`; `objective/plan.ts`; `state/result.ts`; `task/types.ts`; `state/request.ts`; `task/scheduling.ts`; `task/lifecycle.ts`; `task/acceptance.ts`; `storage/result-record.ts`; `task/recovery.ts`; `selection/model.ts` | 実行時の依存閉包はこの集合と決定論的Hash・Proxy検査の許可済みNode組込みへ限定し、現在時刻・乱数・I/Oを取得しない。 |
 | 業務操作（8） | `state/observation.ts`; `decision/lifecycle.ts`; `decision/acceptance.ts`; `objective/execute.ts`; `objective/replan.ts`; `state/query.ts`; `task/dispatch.ts`; `workspace/record.ts` | 受付・進行・読取り・受理を調停し、技術実行と保存のOwnerへ委譲する。 |
 | 接続・組立て・Transport（5） | `objective/composition.ts`; `task/requests.ts`; `workspace/commands.ts`; `workspace/operations.ts`; `selection/resolve.ts` | 上位公開操作と専門Packageを接続する。AI選定は保存・実行を行わないが、DomainのSnapshot検査とAI Adapterの技術Catalogへ値依存するため、閉じた状態Coreとは別集合にする。 |
 | 保存（4） | `storage/ai-selection.ts`; `storage/current-state.ts`; `storage/history.ts`; `storage/protected-decision.ts` | 現在状態・履歴・判断の既存Writerと排他を所有する。AI選択設定は単一Fileの通常保存・内容CASと読戻しを行い、同じ既存排他を利用する。 |
@@ -410,6 +410,8 @@ Orchestratorの純粋判定はOS固有のPath、principal、Filesystem保護、L
 | 技術保存モデル・終了保存（2） | `storage/model.ts`; `storage/settlement-store.ts` | 保存統合Bの既存Schema・Writer・CAS・順序は凍結する。 |
 | 外部送信判断（3） | `decision/external-send-consent.ts`; `decision/external-send-grant.ts`; `decision/external-send-policy.ts` | Repository内の同意・Policyと一回Grantを保持する。 |
 | 公開入口（1） | `index.ts` | Package Rootの公開名・型／値区分を維持する。 |
+
+`selection/model.ts`は設定の型と保存選定の純粋codecを所有する。復元は当時の十項目の閉形式を検査するだけで、現在Catalogによる新規選定・認証・実行許可と区別する。`selection/resolve.ts`は現在Catalogとの技術照合を所有し、状態復元から呼ばない。Task保存と回復への実接続は再設計計画の別Schema単位であり、codec追加だけで成立したとは表示しない。
 
 現行Source全58 Fileを重複なく照合し、新File・欠測・純粋集合の空集合を拒否する。宣言全体の型専用import／exportは実行時閉包へ数えない。通常宣言のinline type要素は型辺へ分けるが、値要素がなくても型除去後に空import／exportが残るため実行時ロード辺を維持する。型の所有境界は純粋集合内、または他Packageの実在する公開`src/index.ts`に限定し、自Packageの公開entry・業務操作・保存・Adapterへの型依存も純粋集合へ混入させない。Node組込みは型専用でも上表のexact module／symbolだけを許可する。`task/types.ts`からだけ、`execution/result.ts`の`CoordinatorWorkspaceResult`一型と、`task/dispatch.ts`の`COORDINATOR_EXECUTION_CONTRACT / COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT`二定数の型専用参照をexact集合で許可する。値import、別Symbol、欠測・重複・追加は拒否し、実行時閉包を拡張しない。`task/types.ts`の結果配送型はOrchestratorが受領する三状態と結果参照・終了観測の最小構造を所有し、Coordinator実装の戻り型から逆算しない。Adapterはcastで押し込まず構造適合を型検査する。
 

@@ -3310,11 +3310,11 @@
       "path": "40_Develop/coordinator/tests/unit/selection/resolve.contract.test.ts",
       "level": "unit",
       "kind": "contract",
-      "semanticTags": ["ai-selection", "model", "configuration"],
+      "semanticTags": ["ai-selection", "model", "configuration", "stored-selection"],
       "environment": "node_process",
       "externalProviderEffect": false,
       "humanInput": false,
-      "postconditions": ["selection_priority_deterministic", "unknown_configuration_rejected", "provider_effect_zero"],
+      "postconditions": ["selection_priority_deterministic", "unknown_configuration_rejected", "stored_selection_restored_without_current_catalog", "invalid_stored_selection_rejected", "provider_effect_zero"],
       "mandatoryByDefault": true
     },
     {

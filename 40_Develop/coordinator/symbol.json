@@ -18,9 +18,9 @@
       "verifies": ["coordinator.storage.ai-selection", "coordinator.selection.resolve"]
     },
     {
-      "symbolId": "coordinator.selection.types",
+      "symbolId": "coordinator.selection.model",
       "kind": "file",
-      "path": "src/selection/types.ts",
+      "path": "src/selection/model.ts",
       "archIds": ["ARCH-000004"]
     },
     {
@@ -35,7 +35,7 @@
       "path": "tests/unit/selection/resolve.contract.test.ts",
       "qaIds": ["QA-000001"],
       "localTestIds": ["RCM-UT-001"],
-      "verifies": ["coordinator.selection.types", "coordinator.selection.resolve"]
+      "verifies": ["coordinator.selection.model", "coordinator.selection.resolve"]
     },
     {
       "symbolId": "coordinator.execution.provider-result-reasons",
