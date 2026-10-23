@@ -2220,7 +2220,7 @@ B六Fileは現在の意味を保持する。現物のimport照合では、`curre
 | `decision` | `public-acceptance.ts`、`public-operation.ts` | `decision/public-operation` |
 | `decision` | `record-acceptance.ts` | `decision/acceptance (要求検査はrequest)` |
 | `decision` | `transitions.ts` | `state/model` |
-| `execution` | `advice.ts`、`provider-execution.ts` | `execution/advice (Host回復はrecovery、保持Mapは単一Owner)` |
+| `execution` | `advice.ts`、`provider-execution.ts` | `execution/advice（助言のHost失敗Mapと回復関数は同一Ownerへ保持）` |
 | `execution` | `attempt.ts`、`claude-subscription-authentication.ts`、`isolation-execution.ts`、`provider-controller.ts`、`task.ts` | `execution/controller + result/authority/recovery/preparation (所有状態ごとに分配)` |
 | `execution` | `authority-bundle.ts`、`authority-grant.ts`、`authority-policy.ts`、`authority-validation.ts`、`delegation-selection-grant.ts`、`local-authority.ts`、`prelaunch-validation.ts`、`protected-root.ts`、`provider-home-mount-authorization.ts`、`provider-home-mount-grant.ts`、`provider-home-windows-adapter.ts`、`root-protection-policy.ts` | `execution/authority (OS原語はplatform-access)` |
 | `execution` | `borrowed-tree.ts`、`generation-loss-transition.ts`、`operation-creation.ts`、`operation.ts`、`repository-binding.ts` | `execution/operation` |
@@ -2388,3 +2388,65 @@ StateはArchitecture §16.1の九Fileへ整理する。次の表は全宣言を�
 `execution/provider-lifecycle.ts`は、`describeProviderLifecycleContract`を本番diagnosticsが使用することを確認した。現行の計画・合成評価も既存QA／coverageの対象であり、今回の四実装廃止へ追加しない。まず既存全宣言をdiagnosticsのOwnerへ保持する方針で対応し、単に試験専用と仮定して削除・試験側コピーを行わない。Provider仕様の移管と、全Executionの私有状態・型の分配は引き続き照合する。
 
 この具体化だけではPhase 1全体を完了としない。State／入力の利用側・保存の純粋閉包と、残る混在元の全宣言を固定候補で確認してからSource移管へ進む。
+
+### 38.15. Task・判断の混在宣言の割当
+
+§38.7の全宣言単位の配置を基本とし、混在する元Fileだけ次の例外を適用する。実行順序・値契約の変更ではなく、既存宣言の所有者の確定である。
+
+| 元File・宣言 | 移管先 | 維持する責務と利用側 |
+|---|---|---|
+| `task/execution-contract.ts`の全型 | `task/types.ts` | Task入力・結果・依存・公開観測の同じShape。実行やSnapshot取得の値依存を型Fileへ入れない |
+| 同Fileの`COORDINATOR_EXECUTION_CONTRACT / validSingleTaskResult` | `task/dispatch.ts` | 元Attempt／Operationへ結合した回復参照と結果fieldの相関検査。回復参照Mapは呼出し元から受ける同じ引数のままとし、共有Mapを新設しない |
+| `task/host-adapter.ts`の`CoordinatorExecutionHostAdapterOptions`、`task/recovery-adapter.ts`の`CoordinatorTaskRecoveryHostDependencies` | `task/types.ts` | Clock・Process安全操作と回復実装の入力Port。生成実体を型と同居させない |
+| 上記二Fileの型以外、`task/intelligence-adapter.ts`の全宣言、既存`task/dispatch.ts` | `task/dispatch.ts` | 既存Clock／Hashの生成と元Process安全状態への接続、認可済みRootに束縛した回復、EIへの記録呼出しを維持。EIの履歴保存を引き取らない |
+| `task/recovery-transitions.ts`の`recordProjectTaskResultAcceptances / acknowledgeProjectDockerRecoveryObligation` | `task/acceptance.ts` | 原子受領に渡す純粋遷移。Bの保存実装・確定順序・同じ回復参照を変えない |
+| 同Fileの残る全宣言 | `task/recovery.ts` | mark／settle／retry／Owner喪失の純粋遷移。技術回収を実行しない |
+| `decision/records.ts`の`CoordinatorDecisionStore / CoordinatorDecisionRecoveryStore / CoordinatorDecisionPort`、`decision/acceptance-authority.ts`の`CoordinatorAcceptanceDecisionRecord`以外の全型、`decision/capability.ts`の全型 | `decision/types.ts` | 保存・認可・CapabilityのPort型。乱数・I/O・秘密値の発行を含めない |
+| `decision/records.ts`の残る全宣言、`decision/acceptance-record.ts / recovery-record.ts`の全宣言、`CoordinatorAcceptanceDecisionRecord` | `decision/records.ts` | 耐久値とEnvelope、意味検査を純粋な閉集合にする。`Envelope`等の内部名は実責務を表す名前へ追従し、既存の公開aliasは同じ型へ維持 |
+| `decision/record-acceptance.ts`の`COORDINATOR_ACCEPTANCE_DECISION_CONTRACT / ID / REVISION / CoordinatorAcceptanceDecisionRequest / validRequest` | `decision/request.ts` | 受入判断の入力と検査。既存の人間判断入力と条件の違うID検査を無理に共通化せず、内部名は用途で区別する |
+| 同Fileの`CoordinatorAcceptanceDecisionDependencies / CoordinatorAcceptanceDecisionResult` | `decision/types.ts` | 入力・保存Port・結果の型参照だけを使用する。型参照の循環と実行時の循環を区別する |
+| 同Fileの残る全宣言 | `decision/acceptance.ts` | 準備Record→状態適用→最終Recordの順序、同一要求への再入場、重複拒否を維持。入力検査はrequestの同じ実体を内部参照する |
+
+`task/requests.ts`のFactory内requests Mapは、その生成・参照・取消・結果保持のclosureを分割しない。`decision/lifecycle.ts`と`capability-adapter.ts`は同じLifecycle Ownerに同居させるが、Capability発行の乱数取得は従来の明示呼出し時だけとし、Module import時には行わない。`decision/authority-adapter.ts`の認証済みPrincipal照合はrequestへ置き、Access Managementのロール判定やCredential保存を引き取らない。
+
+直接の公開Root、Objective本番組立て、Task進行・回復・DecisionのUT／IT／ST、Bの純粋値importを同じ実装単位で追従する。旧File内の再exportだけを新たな中継Fileとして残さず、Rootが元の実宣言を明示公開する。Source移管・回帰完了の記録ではない。
+
+### 38.16. Executionの私有状態を保持する割当
+
+着手前の読み取り専用確認により、§38.7の混在候補を次の単位へ具体化する。全宣言の基本Ownerと、そこから外す宣言を分ける。単に「回復」という名前を持つことを理由に私有Mapから処理だけを切り離さない。
+
+| 元File | 基本Owner・例外 | 私有状態と直接利用側 |
+|---|---|---|
+| `execution/task.ts` | 基本は`execution/controller.ts`。`ProductionOperationFailure / productionOperationFailures / productionOperationFailure / throwProductionOperationFailure / createProductionOperationRoot / createIsolatedCoordinatorTaskOperationCreationCandidate`は一体で`execution/operation.ts`。`classifyCoordinatorTaskTerminalLifecycleState / projectDevelopmentTaskResultAfterOuterCleanup`は`execution/result.ts` | Control・Runtime・開発用取消Map、開始／取消／配送captureはcontroller内に保持。Task受付とObjectiveの本番組立てが同じ実体を呼ぶ。結果関数からのControl関連型は型専用参照に限定 |
+| `execution/attempt.ts` | 全宣言を`execution/controller.ts` | 開始通知、完了観測、取消join、Effect前拒否と結果Snapshotの一体性を保持。上位Task／Objectiveの直接呼出しを追従 |
+| `execution/provider-controller.ts` | 基本は`execution/controller.ts`。`ProviderProcessStartedNotice / ProviderBoundaryDiagnosticNotice / createRuntimeOwnedLifecycleNoticeReporter`は`execution/observation.ts`。`PrimaryFailureDiagnostic / BLOCKED_START_KEYS / STARTED_KEYS / COMPLETION_KEYS / ownDataValue / exactPlainRecord / projectDockerProcessControllerStartResult / projectDockerProcessControllerCompletionResult`と、`PURPOSES / DockerCommandPurpose / DockerSetupCommandPurpose / SETUP_COMMAND_FAILURE_REASONS / isDockerSetupCommandPurpose / blockedCompletionReasons / DockerProcessControllerFinalReason / isDockerProcessControllerPublicCompletionReason`は`execution/result.ts` | production／candidate state、ExecutionRecord、Control Map、start／cancel／executePlanを一体保持。Resultに固定Purpose・理由検査までの値依存閉包を置き、`controller→result／observation`の一方向とする。Observationの一次失敗型はResultから型専用参照。理由実値・配列順・条件を複製・緩和しない |
+| `execution/isolation-execution.ts` | `Command / PreparedPlan / resolveIsolationCommandInput / validatePlan / planIdentity`は`execution/preparation.ts`。残る全宣言は`execution/controller.ts` | Docker Isolationへのruntime束縛、start／command／cleanup／verifyは同じruntime closureを維持。技術実装自体は既存Docker Isolationを呼ぶ |
+| `execution/provider-execution.ts` | 全宣言を`execution/advice.ts` | Host失敗と初期化失敗の二WeakMap、Operation／Runtime生成、取消・回収・結果を一体保持。Host回復関数だけをrecoveryへ移す候補は採らない。助言とTask受付は同じOwnerを使用 |
+| `execution/provider-types.ts` | `ProviderAdviceRuntimeResult / ProviderAdviceRuntime`は`execution/advice.ts`。残る全宣言は`execution/preparation.ts` | prepared／management WeakMap、Authority失効・Mount完了callbackの型は準備Lifecycleの一部。名前にRuntime又はDockerが含まれるだけで別Packageへ移さない |
+| `execution/types.ts` | `TaskCompletionObservation`→`execution/observation.ts`、`CoordinatorTaskAttemptInput`→`execution/request.ts`、`CoordinatorTaskRecoveryObligation`→`execution/recovery.ts`、`CoordinatorWorkspaceResult / CoordinatorTaskAttemptResult`→`execution/result.ts`、残る`CoordinatorAi*`五型→`execution/advice.ts` | Root公開・Attempt・結果検査・助言・上位Taskの型参照を各実Ownerへ追従。汎用types置場へ再集約しない |
+| `execution/claude-subscription-authentication.ts` | 全宣言を`execution/authority.ts` | 認証計画とRuntimeのWeakMap、回復Record、Home排他、認証実行・回収を一体保持。運用scriptと専用試験を追従し、AI Adapterへ認証状態管理を移さない |
+
+同じ移管先に存在する複数のproduction stateは、別の現在用途を持つ既存実体として保持する。変数名の衝突は用途別の名前で解消し、SingletonやMapを共通化しない。新しい登録API、回復bridge、汎用callback frameworkは追加しない。B六Fileの参照は同じSymbolの移管先だけへ追従する。
+
+この割当の確認は実行部分の着手前整合であり、移管後の独立レビュー・回帰を代替しない。OS／Platform／Root／Homeの境界は、残る配置照合を終えてPhase 1へ統合する。
+
+### 38.17. 専門境界の最終割当
+
+§38.7の未確定候補を、実装と利用側の照合により次のとおり修正する。目標のExecution十二File・Decision九Fileに収容し、新しいFile・公開API・中継を増やさない。
+
+| 元File・宣言 | 確定Owner | 理由・保持条件 |
+|---|---|---|
+| `platform/contract.ts`の全宣言 | `execution/diagnostics.ts` | 実行技術の必要保証・利用可否の照合であり、状態照会の入力契約ではない。Stateのrequest／typesへ移す候補は採らない。Root公開名と保証集合・unknownを維持 |
+| `platform/windows-adapter.ts`の`CoordinatorWindowsLeaseOwnerObservation / observeLeaseOwner` | `execution/kernel-lock.ts` | PAの生存観測を元Owner世代とunknownへ対応づける。生存観測を独自実装しない |
+| 同Fileの残る全宣言 | `execution/diagnostics.ts` | 既存PA／VCとauthority／kernel-lockの具体操作を束ねるFactoryを維持。総合Adapterの公開契約を今回は廃止しない |
+| `execution/root-observation.ts / root-path.ts / provider-home.ts`の全宣言 | `execution/authority.ts` | 生OS操作ではなく、Root／Homeの値検査と保護・認証・Mountの上位候補契約。PAへ移すと上位Policyを逆流させるため採らない。既存PA／AI Adapter APIへの委譲を維持 |
+| `execution/interactive-console.ts`の全宣言 | `decision/external-send-grant.ts` | PAが端末技術を所有済み。ここでは送信同意・期限・取消・cleanup unknown後のpoisonを維持する |
+| `execution/model-selection.ts / delegation-route-selection.ts`の全宣言 | `execution/preparation.ts` | risk・作業種別・独立レビュー・委譲chainはCoordinatorの実行方針。Provider固有のfamily選択等は既存AI Adapter APIを使い、上位の方針まで移管しない |
+
+Root候補の`inspectWindowsRootObservationCandidate`は現在常に未実装理由で拒否する。今回もそのまま保持し、新しいOS観測や保護の成立を主張しない。`describePlatformAccessAdapterContract`もauthority内の既存説明として保持する。diagnosticsへ分割するとFactory経由の値循環を作るため、重複説明の縮小は実在するPA説明APIで置換できる場合だけ別途評価する。名前だけで技術Ownerへ移すことを優先しない。
+
+Model／Delegationの候補選択と、authorityのGrant発行・消費・失効は分けたままとする。同名の`Provider / PROVIDERS / ROLES / createBlockedResult`等は用途別に改名し、異なる条件・結果を共通化しない。これにより`diagnostics→authority／kernel-lock／PA／VC`、`authority→PA／AI Adapter`、`preparation→AI Adapter`の依存を保持し、専門PackageからCoordinatorへの逆依存を作らない。
+
+現在145 Sourceの処置は、§38.7の全宣言単位の基本配置から、§38.11の四廃止、§38.14〜38.17の具体割当へ上書きして一意に照合する。旧一次表の候補を現行の確定Ownerとして流用しない。公開Root・本番組立て・scripts・試験・登録の追従と私有状態の保持を移管単位ごとに確認する。Phase 1固定候補の確認後、Objectiveの受付依存とTask純粋遷移からSource移管を開始する。保存統合Bの本文、実AI②・保持物・実Dockerは変更対象外である。
+
+Phase 1固定候補の独立着手前確認は残指摘0で完了した。確認で見つかったResultの固定理由検査の閉包不足と、助言回復Ownerの旧注記を修正し、再確認した。これにより配置確定から小さなSource移管単位へ進む。これは移管後のレビュー・回帰や構造再設計全体の完了ではない。

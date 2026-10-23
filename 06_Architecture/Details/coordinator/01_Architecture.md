@@ -2083,11 +2083,13 @@ Coordinatorの最上位責務は`cli / objective / task / decision / workspace /
 | `state/` | `model / types / request / projection / query / public-query / observation / persistence / result`。現在状態の値、公開観測の値型、照会入力、純粋な投影と検査、単一状態照会、認証付き公開照会、認可済み集合の観測、保存Port型、公開結果を区別する。保存・実行を純粋な依存閉包へ取り込まない |
 | `storage/` | Bの`current-state / history / model / protected-decision / result-record / settlement-store`六Fileの本文・意味を凍結基準とする。同一Symbolの移管に伴うimport declarationの参照先だけは人間承認により追従できる。旧`validate-result-record.ts`は復活させず、Schema・Root・CAS・Lock・marker／pending・履歴・原子受領を変更しない |
 
-AI AdapterはProvider・Modelの仕様、純粋な候補選定、CLI計画と結果解釈を所有する。Coordinatorはその結果を今回のProfile・作業対象・送信許可・短命Capabilityへ結合する。Dockerコマンド・Image・Network・Mountの技術構成はDocker Isolation、OS原語と技術観測はPlatform Accessが所有する。上位のPort型やCapabilityの一回性を、技術名だけを理由に下位へ移さない。
+AI AdapterはProvider・Modelの仕様、その仕様に基づく候補解決、CLI計画と結果解釈を所有する。Coordinatorの`preparation`は、作業のRisk・難度・独立レビュー・委譲chainに基づく実行方針を決め、既存AI Adapter APIの結果を今回のProfile・作業対象・送信許可・短命Capabilityへ結合する。純粋計算であることだけを理由に上位方針をAI Adapterへ移さない。Dockerコマンド・Image・Network・Mountの技術構成はDocker Isolation、OS原語と技術観測はPlatform Accessが所有する。上位のPort型やCapabilityの一回性を、技術名だけを理由に下位へ移さない。
 
 Domain Modelの既存`plain-data/`は、承認済みの例外として既知秘密情報の純粋検査を引き受ける。Workspace・Decision・Executionで同じ検査を利用し、秘密保管や新しい秘密管理機構は所有しない。移管前後の条件・Symbol・返却値を維持する。
 
 Fileの統合では、私有WeakMap／Set、元Control・通知、期限時計、失効・解放順序を所有状態の単位として扱う。名前が似たMapを統合したり、同じMapを移管先で生成し直したりしない。純粋な状態遷移を保存・Process起動と同じ実行時依存閉包へ合流させる統合も行わない。
+
+Platformの必要保証と総合Adapter構成は`execution/diagnostics`、Lease Owner観測は`execution/kernel-lock`へ置く。Root／Homeの保護候補・Path検査は`execution/authority`、送信同意の端末調停は`decision/external-send-grant`が所有し、OS原語は既存PA APIを利用する。未実装のRoot観測は未実装のまま拒否し、今回の配置で保証を追加しない。助言のHost失敗Mapと回復関数は`execution/advice`、認証計画と回復Mapは`execution/authority`に一体保持する。回復という名前だけを理由にMapから処理を切り離さない。
 
 Stateの`model`は既存モデルに加え、Queue／単発記録、Repository BindingとCoordinator内のplain data／相対Pathの純粋検査を所有する。Domainの似た名前のAPIは結果形式が異なるため差し替えない。`types`は公開観測・照会の共有値型であり、Stateモデルや全Packageの型を集める汎用置場にはしない。`request`は照会入力と契約定数、`projection`は公開投影・結果検査・履歴Cursorの純粋計算を所有する。両者で使う字句検査は入力Ownerから同じ実体を参照し、`request`から`projection`へ値依存を戻さない。
 
