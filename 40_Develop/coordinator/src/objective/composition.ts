@@ -26,7 +26,6 @@ const productionExecutionDependencies: PublicExecutionDependencies =
     startTask: startRuntimeOwnedCoordinatorTask,
     cancelTask: cancelRuntimeOwnedCoordinatorTask,
     captureResultDelivery: captureRuntimeOwnedCoordinatorTaskResultDelivery,
-    frontProviderForTask: () => "codex",
     openDecisionStore: openRuntimeOwnedWindowsProjectDecisionStore,
     recordExecutionEvent: recordCoordinatorExecutionEvent,
     observeExecutionEventPublication:

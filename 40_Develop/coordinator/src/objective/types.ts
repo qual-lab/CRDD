@@ -20,6 +20,7 @@ import type {
   CoordinatorTaskRecoveryPort,
 } from "../task/types.ts";
 import type { CoordinatorObjectiveRequest } from "./request.ts";
+import type { resolveTaskExecutionSelections } from "../selection/resolve.ts";
 import type {
   startRuntimeOwnedCoordinatorTask,
   cancelRuntimeOwnedCoordinatorTask,
@@ -61,6 +62,11 @@ export type CoordinatorObjectivePlan = Readonly<{
  * @compatibility CoordinatorObjectiveExecutionDependenciesの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
 export type CoordinatorObjectiveExecutionDependencies = Readonly<{
+  resolveTaskSelections: (
+    request: CoordinatorObjectiveRequest,
+  ) =>
+    | ReturnType<typeof resolveTaskExecutionSelections>
+    | Readonly<{ status: "blocked"; value: null; reason: string }>;
   authenticatedPrincipalId: string;
   repositoryBindingId: string;
   repositoryRoot: object | string;
@@ -100,9 +106,6 @@ export type PublicExecutionDependencies = Readonly<{
   startTask: typeof startRuntimeOwnedCoordinatorTask;
   cancelTask: typeof cancelRuntimeOwnedCoordinatorTask;
   captureResultDelivery: typeof captureRuntimeOwnedCoordinatorTaskResultDelivery;
-  frontProviderForTask: (
-    requestedExecutorProvider: "auto" | "codex" | "claude",
-  ) => "codex" | "claude";
   openDecisionStore: typeof openRuntimeOwnedWindowsProjectDecisionStore;
   resolveTaskRecoveryCorrelations?: (
     correlationIds: readonly string[],
@@ -147,6 +150,11 @@ export type CoordinatorPublicDevelopmentDependencies = Omit<
  * @compatibility CoordinatorObjectiveIntakeDependenciesの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
 export type CoordinatorObjectiveIntakeDependencies = Readonly<{
+  resolveTaskSelections: (
+    request: CoordinatorObjectiveRequest,
+  ) =>
+    | ReturnType<typeof resolveTaskExecutionSelections>
+    | Readonly<{ status: "blocked"; value: null; reason: string }>;
   authenticatedPrincipalId: string;
   verifyProjectBinding: (
     input: Readonly<{

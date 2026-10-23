@@ -6,6 +6,12 @@
  */
 import { isDeepStrictEqual } from "node:util";
 import { runCoordinatorOperation } from "../task/dispatch.ts";
+import { readRepositoryAiSelection } from "../storage/ai-selection.ts";
+import { resolveTaskExecutionSelections } from "../selection/resolve.ts";
+import {
+  inspectTaskExecutionSelections,
+  type TaskExecutionSelections,
+} from "../selection/model.ts";
 import type { CoordinatorClockIdentityPort } from "../state/persistence.ts";
 import {
   createCoordinatorState,
@@ -64,6 +70,42 @@ import type {
   PublicExecutionDependencies,
   CoordinatorObjectiveIntakeDependencies,
 } from "./types.ts";
+
+/**
+ * 初回の選定要求又は保存値の継承と明示要求を照合する。
+ * @responsibility 新しい選択希望を保存済みの別選定へ黙って畳まない。
+ * @trace ARCH-000004
+ * @input request: 検査済み要求、selections: 検査済み選定組、initial: 初回保存前。
+ * @returns 今回明示された条件を満たす場合だけtrue。
+ * @precondition 初回はcodec通過後、再受付は保存Reader通過後の組を使う。
+ * @postcondition 省略は初回なら既定選定、再受付なら保存値の継承とする。
+ * @effect N/A: 同期比較だけ。
+ * @failure 明示値・選定元・分類不一致をfalseで拒否する。
+ * @invariant 現在設定・Catalogを再読せず、保存値を再構成しない。
+ * @boundary Objective受付とenqueue前の固定選定。
+ * @security 真偽を実行Authorityにしない。
+ * @concurrency 既存CASと実行Leaseは別に維持する。
+ */
+function objectiveSelectionsMatch(
+  request: CoordinatorObjectiveRequest,
+  selections: TaskExecutionSelections,
+  initial: boolean,
+): boolean {
+  if (
+    (initial || request.workType !== undefined) &&
+    (selections.executor.workType !== (request.workType ?? null) ||
+      selections.reviewer.workType !== (request.workType ?? null))
+  )
+    return false;
+  if (!request.choice)
+    return !initial || selections.executor.source !== "explicit";
+  return (
+    selections.executor.source === "explicit" &&
+    selections.executor.provider === request.choice.provider &&
+    selections.executor.modelIdentifier === request.choice.model &&
+    selections.executor.reasoningEffort === request.choice.effort
+  );
+}
 
 /**
  * recovery Application Idを決定する。
@@ -392,7 +434,18 @@ export async function executeCoordinatorObjective(
       effectState: "unknown",
     });
   if (state.value === null) {
+    let selected: ReturnType<
+      CoordinatorObjectiveExecutionDependencies["resolveTaskSelections"]
+    >;
+    try {
+      selected = dependencies.resolveTaskSelections(request);
+    } catch {
+      return blocked(request, "ai_selection_observation_failed");
+    }
+    if (selected.status !== "resolved")
+      return blocked(request, selected.reason);
     const created = createCoordinatorState({
+      taskExecutionSelections: selected.value,
       projectId: request.projectId,
       milestoneId: request.milestoneId,
       repositoryRevision: request.repositoryRevision,
@@ -403,6 +456,14 @@ export async function executeCoordinatorObjective(
       ownerGeneration: dependencies.processSafety.getProcessInstanceIdentity(),
     });
     if (created.status !== "completed") return blocked(request, created.reason);
+    if (
+      !objectiveSelectionsMatch(
+        request,
+        created.state.taskExecutionSelections,
+        true,
+      )
+    )
+      return blocked(request, "coordinator_objective_selection_mismatch");
     const written = persistence.state.writeState(created.state, 0);
     if (written.status !== "completed")
       return blocked(request, written.reason, {
@@ -421,6 +482,15 @@ export async function executeCoordinatorObjective(
   ) {
     return blocked(request, "orchestrator_existing_state_identity_mismatch");
   }
+  if (
+    state.value &&
+    !objectiveSelectionsMatch(
+      request,
+      state.value.taskExecutionSelections,
+      false,
+    )
+  )
+    return blocked(request, "coordinator_objective_selection_mismatch");
   const queued = persistence.state.enqueueOperation({
     queueId,
     ...(request.workspaceId === undefined
@@ -1670,27 +1740,25 @@ function stable(prefix: string, ...parts: readonly string[]) {
  *
  * @responsibility Coordinator Coordinator Task Requestの構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000004
- * @input request: CoordinatorObjectiveRequest、frontProvider: "codex" | "claude"
+ * @input request: CoordinatorObjectiveRequest、taskExecutionSelections: 保存済みの役割選定組。
  * @returns buildObjectiveTaskRequestの計算結果を返す。
- * @precondition 「request: CoordinatorObjectiveRequest、frontProvider: "codex" | "claude"」がbuildObjectiveTaskRequestの入力契約を満たす。
- * @postcondition 明示Profile IDをexactに搬送し、省略時は既存の自動選択を維持する。
+ * @precondition 選定組は同じObjective受付の不変値である。
+ * @postcondition 完全な選定組を搬送し、現在設定・Catalogによる再選定を行わない。
  * @effect N/A: buildObjectiveTaskRequestは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: buildObjectiveTaskRequestは独自の失敗分岐を所有しない。
  * @invariant buildObjectiveTaskRequestは入力から導いた結果以外の共有状態を変更しない。
  * @boundary N/A: buildObjectiveTaskRequestはProcess内の同一Subsystemで完結する。
- * @security Profile IDは選択希望だけを表し、Resolver／Grantの適合性検証または実行Authorityを代替しない。
+ * @security 選定値はGrant、送信同意、現在の利用可能性または隔離を代替しない。
  * @concurrency N/A: buildObjectiveTaskRequestは共有非同期状態を持たない同期処理である。
  */
 export function buildObjectiveTaskRequest(
   request: CoordinatorObjectiveRequest,
-  frontProvider: "codex" | "claude",
+  taskExecutionSelections: TaskExecutionSelections,
 ) {
+  const selections = inspectTaskExecutionSelections(taskExecutionSelections);
+  if (!selections) throw new Error("coordinator_task_selection_invalid");
   return Object.freeze({
-    frontProvider,
-    requestedExecutorProvider: request.requestedExecutorProvider ?? "auto",
-    ...(request.requestedProfileId !== undefined
-      ? { requestedProfileId: request.requestedProfileId }
-      : {}),
+    taskExecutionSelections: selections,
     objective: request.objective,
     acceptanceCriteria: Object.freeze([...request.acceptanceCriteria]),
     allowedPaths: Object.freeze([...request.allowedPaths]),
@@ -1800,6 +1868,26 @@ export async function executeCoordinatorPublicObjective(
   const execution = await runCoordinatorObjective(
     {
       authenticatedPrincipalId: authenticated.principalId,
+      resolveTaskSelections(request) {
+        const root = verifyRepositoryRoot(repositoryRoot);
+        if (root.status !== "completed")
+          return Object.freeze({
+            status: "blocked" as const,
+            value: null,
+            reason: root.reason,
+          });
+        const configured = readRepositoryAiSelection(root.capability);
+        if (configured.status !== "available")
+          return Object.freeze({
+            status: "blocked" as const,
+            value: null,
+            reason: configured.reason,
+          });
+        return resolveTaskExecutionSelections(configured.snapshot.config, {
+          workType: request.workType ?? null,
+          ...(request.choice ? { choice: request.choice } : {}),
+        });
+      },
       /**
        * Project Bindingを検証する。
        *
@@ -1927,9 +2015,7 @@ export async function executeCoordinatorPublicObjective(
                     ...task.definition.allowedPaths,
                   ]),
                 }),
-                runtimeDependencies.frontProviderForTask(
-                  request.requestedExecutorProvider ?? "auto",
-                ),
+                state.taskExecutionSelections,
               ),
             });
           });
@@ -2213,6 +2299,7 @@ export async function runCoordinatorObjective(
       repositoryBindingId: binding.repositoryBindingId,
       repositoryRoot: binding.repositoryRoot,
       plan,
+      resolveTaskSelections: dependencies.resolveTaskSelections,
       persistence: createCoordinatorSnapshotPersistencePorts(
         binding.workingDirectory,
         binding.repositoryBindingId,

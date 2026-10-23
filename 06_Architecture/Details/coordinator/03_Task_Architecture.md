@@ -439,9 +439,9 @@ Orchestratorの純粋判定はOS固有のPath、principal、Filesystem保護、L
 - 同じrequest identityの現在結果を再取得する。
 - 採用済みのProject Stateを読み取り専用で投影する。
 
-Objectiveは任意の`requestedProfileId`でExecutorのProfileを明示選択できる。入力は既存の`PROFILE-`形式を検査して所有Snapshotへ固定し、CLIとMCP stdio／HTTPの同じObjective操作からCoordinator Task、Route Candidate、Selection Grantへ同じIDを搬送する。省略時は既存の自動選択を維持する。形式が正しくても登録、Provider／Role／Tierとの適合性または利用可能性を保証せず、既存Resolverと実行Gateで検証する。Reviewerへ指定を継承せず、入力やMCP metadataからAuthorityを生成しない。
+Objectiveは任意の作業分類`workType`と編集担当の明示選択`choice`（Provider／Model／Effort）を受ける。初回だけRepository設定から編集担当・独立レビュー担当の組を固定し、Project rootへ保存する。レビューへ明示選択を継承しない。同じMilestoneへの再受付では、明示された分類・選択を保存値と照合し、不一致はenqueue前に拒否する。省略された項目は保存値を継承し、現在設定やCatalogを読み直さない。旧`requestedProfileId`／Provider自動選択入力は受理しない。入力やMCP metadataからAuthorityを生成しない。
 
-WorkbenchのPromptから変更候補を作る操作は別のSingle Task操作であり、公開Objectiveと同じ操作には統合しない。両操作のProfile搬送はそれぞれ検証し、一方の合格を他方の全経路成立へ流用しない。
+WorkbenchのPromptから変更を作る操作は別のSingle Task操作であり、公開Objectiveと同じ操作には統合しない。現在はObjectiveの入力・保存選定・Taskへの組搬送までを先行接続している。下位のGrant／Packet／Home、単発Task、旧Profile Store撤去は未接続であり、純粋な選定搬送試験を本番実行の完成へ換算しない。
 
 Project State参照は`requestId`、`projectId`および`repositoryRevision`だけを受け取る。状態参照の処理は読取りAPIだけを呼び、書込み、Queue更新、Lease、Task実行または判断Capabilityを構成しない。結果は次を区別する。
 
@@ -461,7 +461,7 @@ unknown   Store、Identityまたは改訂版を現在値として確認不能
 
 | 操作／現在Symbol | 入力と結果 | 主な利用側 | Authority／Effect |
 |---|---|---|---|
-| `runCoordinatorPublicObjective`／`executeCoordinatorObjective` | 固定Objective、Repository・Revision、縮小Authority、選択Profile、取消 → 相関検査済み結果 | CLI、MCP Server | 許可済み範囲のTaskをCoordinatorへ依頼し、Project Stateを保存する。Task完了から受入を生成しない。 |
+| `runCoordinatorPublicObjective`／`executeCoordinatorObjective` | 固定Objective、Repository・Revision、縮小Authority、分類・明示選択と保存済み選定組、取消 → 相関検査済み結果 | CLI、MCP Server | 初回選定と継承を区別し、Project Stateを保存する。下位の新選定接続は未完了。Task完了から受入を生成しない。 |
 | `runCoordinatorOperation` | Queue・Task・Attempt・Operationの結合 → 各Task結果と未解決義務 | Objective操作 | 待機前のIntent保存、待機後の再検査、下位実行だけ。Provider差を実装しない。 |
 | `manageCoordinatorWorkspace`／`executeWorkspaceCommand` | Workspace、Base、選択差分、固定Commit、取込先HEADと現在認可 → Git結果と保存結果 | Workbench Server、許可済みMCP操作 | 固定と採用を別操作にし、採用時は原則二親Merge。自動Commit／採用なし。 |
 | `recordCoordinatorAcceptanceDecision` | 対象Objective／Milestone、根拠Revision、人間判断 → 一回の判断記録 | CLI、MCP Server | 受入・差戻し・判断待ちのみ。Task作成0、Provider Effect 0。 |
@@ -536,7 +536,7 @@ Package作成、純粋な判定の試験合格または安全な拒否だけで�
 |---|---|---|---|---|---|---|
 | Variation | Required | 公開入口と実行、保存、OS観測の違いが存在する。 | Transport差は各Server、Provider差はAI Adapter、OS差はPlatform Accessへ閉じる。Orchestratorは公開結果を解釈する。 | 純粋な判定は具象Runtime、Transport、OS、保存方式を知らない。 | 個別入口だけがAuthorityや結果意味を変更する。 | `orchestrator.public-application` |
 | Common Contract | Required | 複数入口が同じObjective・判断・状態操作を利用する。 | 公開DTOと検査関数、Identity・結果・回復義務を共通化し、同じOrchestrator APIへ配送する。 | 共通契約をPort注入Frameworkの採用理由にしない。 | 新入口だけが異なるAuthority、完了、RetryまたはRecovery意味を持つ。 | `orchestrator.public-application`<br>`orchestrator.task-lifecycle`<br>`orchestrator.acceptance-decision` |
-| Creation／Selection | Required | Objective要求ごとのRole・Profile・Authority・現在状態の選択が必要である。 | Orchestratorは固定入力をCoordinatorへ渡し、下位Ownerが自分の選択を実行する。 | 任意Adapterを本番から注入せず、読取り操作から実行能力を構成しない。 | 入口ごとに異なるProfileや権限が選ばれる。 | `orchestrator.public-application` |
+| Creation／Selection | Required | Objective要求の分類・明示選択、Authorityと現在状態の照合が必要である。 | Coordinatorは初回だけRepository設定から役割別選定を固定し、再受付は保存値との相関を検査する。下位のGrant接続は別単位で評価する。 | 任意Adapterを本番から注入せず、読取り操作から実行能力を構成しない。 | 入力が黙って別選定へ畳まれるか、設定再読で既存選定が変わる。 | `orchestrator.public-application` |
 | State-dependent Behavior | Required | この観点を成立させる構造と責務が存在するため。 | Task、Decision、Lease、Recovery、Effect状態が許可する遷移をCoreが所有する。 | 下位完了やProjectionから上位Authorityを生成しない。 | 分散した状態分岐が二重実行や受入推定を起こす。 | `orchestrator.task-lifecycle`、`orchestrator.acceptance-decision` |
 | Composition／Recursion | Required | この観点を成立させる構造と責務が存在するため。 | Objective、Milestone、Task Graphを明示した親子関係と停止条件で構成する。 | 子の完了を親の受入へ自動昇格せず、循環依存を作らない。 | Graphの部分成立がProject全体の完成へ畳まれる。 | `orchestrator.task-lifecycle`、`orchestrator.acceptance-decision` |
 | Lifecycle Ownership | Required | この観点を成立させる構造と責務が存在するため。 | Task、Attempt、Lease、Queue、Decision、Recovery義務をOrchestratorのIdentityへ結ぶ。 | Owner移送、失効またはcleanup確認まで状態を完了にしない。 | LeaseやRecovery義務を失い、同じTaskへ再入場できない。 | `orchestrator.task-lifecycle` |

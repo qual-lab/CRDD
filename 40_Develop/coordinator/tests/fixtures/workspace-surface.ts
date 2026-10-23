@@ -6,6 +6,7 @@
  * @scope 呼出し側が生成・清掃する試験Rootのみ。
  * @boundary 外部AI・Docker・通信なし。
  */
+import { taskExecutionSelections } from "./ai-selection.ts";
 import assert from "node:assert/strict";
 import {
   createCoordinatorState,
@@ -39,6 +40,7 @@ export function prepareWorkspaceSurface(
   if (initialized.status !== "completed")
     throw new Error("fixture_init_failed");
   const created = createCoordinatorState({
+    taskExecutionSelections: taskExecutionSelections(),
     projectId,
     milestoneId: "milestone-a",
     repositoryRevision: base,

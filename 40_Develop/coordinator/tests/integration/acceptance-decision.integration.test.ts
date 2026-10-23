@@ -8,6 +8,7 @@
  * @scope orchestrator、acceptance-decision、authority、store、state
  * @boundary PRL-IT-008=Direct Boundary: SPEC入力→Acceptance Decision Port→Decision Store
  */
+import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -128,6 +129,7 @@ function blocked<T>(reason: string): CoordinatorPortResult<T> {
  */
 function acceptancePendingState(): CoordinatorState {
   const created = createCoordinatorState({
+    taskExecutionSelections: taskExecutionSelections(),
     projectId: "project-a",
     milestoneId: "milestone-a",
     repositoryRevision: revision,

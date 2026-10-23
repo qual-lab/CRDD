@@ -196,12 +196,12 @@ test("Objective要求は閉じた公開契約へsnapshotする", () => {
 /**
  * Objectiveの任意四項目を全組合せで固定する。
  *
- * @responsibility 明示Profile／Workspaceのexact搬送と省略時の非生成を全十六組合せで検証する。
+ * @responsibility 明示選択・分類／Workspaceのexact搬送と省略時の非生成を全十六組合せで検証する。
  * @trace PRL-UT-014
  * @precondition 正常なObjectiveと四つの任意入力を使用する。
  * @stimulus 四項目の有無を全十六組合せで入力検査へ渡す。
- * @observation Snapshot全体、Profile ID、所有Propertyと不変性を確認する。
- * @oracle 同じ入力だけが固定され、省略したProfileを補完しない。
+ * @observation Snapshot全体、選択の三項目、所有Propertyと不変性を確認する。
+ * @oracle 同じ入力だけが固定され、省略した選択を補完しない。
  * @cleanup N/A: 外部資源を作成しない。
  * @boundary N/A: 純粋な入力検査。
  */
@@ -213,8 +213,8 @@ test("Objectiveの任意四項目は全十六組合せでexactにsnapshotする"
         replacementRequestId: "request-2",
       },
     },
-    { requestedExecutorProvider: "codex" },
-    { requestedProfileId: "PROFILE-100001" },
+    { workType: "coding" },
+    { choice: { provider: "codex", model: "gpt-5.5", effort: "high" } },
     { workspaceId: "11111111-1111-1111-1111-111111111111" },
   ];
   for (let mask = 0; mask < 16; mask += 1) {
@@ -227,26 +227,23 @@ test("Objectiveの任意四項目は全十六組合せでexactにsnapshotする"
     const inspected = inspectCoordinatorObjectiveRequest(source);
     assert.ok(inspected, `mask=${mask}`);
     assert.deepEqual(inspected, source);
-    assert.equal(
-      Object.hasOwn(inspected, "requestedProfileId"),
-      (mask & 4) !== 0,
-    );
+    assert.equal(Object.hasOwn(inspected, "choice"), (mask & 4) !== 0);
     assert.ok(Object.isFrozen(inspected));
   }
   const source = {
     ...objectiveRequest(),
-    requestedProfileId: "PROFILE-999999",
+    choice: { provider: "codex", model: "unknown-model", effort: "high" },
   };
   const inspected = inspectCoordinatorObjectiveRequest(source);
   assert.ok(inspected); // 形式受理は登録済み・利用可能の証明ではない。
-  source.requestedProfileId = "PROFILE-100002";
-  assert.equal(inspected.requestedProfileId, "PROFILE-999999");
+  source.choice.model = "changed-model";
+  assert.equal(inspected.choice?.model, "unknown-model");
 });
 
 /**
- * 不正Profileと動的入力を評価前に拒否する。
+ * 不正な明示選択と動的入力を評価前に拒否する。
  *
- * @responsibility Profileの型・形式・閉じた形と非実行拒否を検証する。
+ * @responsibility 明示選択の型・形式・閉じた形と非実行拒否を検証する。
  * @trace PRL-UT-014
  * @precondition 不正値、getterとProxy trapを持つ合成入力を使用する。
  * @stimulus Objective入力検査へ各入力を渡す。
@@ -255,8 +252,8 @@ test("Objectiveの任意四項目は全十六組合せでexactにsnapshotする"
  * @cleanup N/A: メモリ内の入力だけを使用する。
  * @boundary N/A: 純粋な入力検査。
  */
-test("ObjectiveのProfileは不正形式・Accessor・Proxyを実行せず拒否する", () => {
-  for (const requestedProfileId of [
+test("Objectiveの明示選択は不正形式・Accessor・Proxyを実行せず拒否する", () => {
+  for (const choice of [
     undefined,
     null,
     1,
@@ -266,29 +263,36 @@ test("ObjectiveのProfileは不正形式・Accessor・Proxyを実行せず拒否
     "profile-100001",
     "PROFILE-100001\n",
     "PROFILE-100001/other",
+    { provider: "unknown", model: "gpt-5.5", effort: "high" },
+    { provider: "codex", model: "gpt-5.5", effort: "automatic" },
+    {
+      provider: "codex",
+      model: "gpt-5.5",
+      effort: "high",
+      credential: "forbidden",
+    },
   ]) {
     assert.equal(
       inspectCoordinatorObjectiveRequest({
         ...objectiveRequest(),
-        requestedProfileId,
+        choice,
       }),
       null,
     );
   }
   let calls = 0;
-  const accessor = Object.defineProperty(
-    { ...objectiveRequest() },
-    "requestedProfileId",
-    {
-      enumerable: true,
-      get: () => {
-        calls += 1;
-        return "PROFILE-100001";
-      },
+  const accessor = Object.defineProperty({ ...objectiveRequest() }, "choice", {
+    enumerable: true,
+    get: () => {
+      calls += 1;
+      return { provider: "codex", model: "gpt-5.5", effort: "high" };
     },
-  );
+  });
   const proxy = new Proxy(
-    { ...objectiveRequest(), requestedProfileId: "PROFILE-100001" },
+    {
+      ...objectiveRequest(),
+      choice: { provider: "codex", model: "gpt-5.5", effort: "high" },
+    },
     {
       ownKeys: () => {
         calls += 1;
@@ -302,6 +306,39 @@ test("ObjectiveのProfileは不正形式・Accessor・Proxyを実行せず拒否
   );
   assert.equal(inspectCoordinatorObjectiveRequest(accessor), null);
   assert.equal(inspectCoordinatorObjectiveRequest(proxy), null);
+  const nestedAccessor = Object.defineProperty(
+    { provider: "codex", effort: "high" },
+    "model",
+    {
+      enumerable: true,
+      get() {
+        calls += 1;
+        return "gpt-5.5";
+      },
+    },
+  );
+  assert.equal(
+    inspectCoordinatorObjectiveRequest({
+      ...objectiveRequest(),
+      choice: nestedAccessor,
+    }),
+    null,
+  );
+  assert.equal(
+    inspectCoordinatorObjectiveRequest({
+      ...objectiveRequest(),
+      choice: new Proxy(
+        {},
+        {
+          ownKeys() {
+            calls += 1;
+            throw Error("must_not_execute");
+          },
+        },
+      ),
+    }),
+    null,
+  );
   assert.equal(calls, 0);
   assert.equal(
     inspectCoordinatorObjectiveRequest({

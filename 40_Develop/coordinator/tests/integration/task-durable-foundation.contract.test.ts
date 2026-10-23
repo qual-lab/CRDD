@@ -9,6 +9,7 @@
  * @scope project、runtime、durable、foundation
  * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Coordinator Application Port→Core
  */
+import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -372,7 +373,7 @@ for (const fault of ["unobservable", "alias"] as const) {
     if (acquired.status !== "completed")
       throw new Error("fixture_lease_failed");
     const beforeSnapshot = readCoordinatorSnapshot(root, "binding-a").value;
-    assert.ok(beforeSnapshot?.schemaRevision === 3);
+    assert.ok(beforeSnapshot?.schemaRevision === 4);
     const recoveryId = beforeSnapshot.leaseIntents[0]?.recoveryId;
     assert.ok(recoveryId);
     const temporary = path.join(root, ".crdd", "tmp");
@@ -871,8 +872,8 @@ test("Host Windows: 新版Owner喪失は現在観測と同じ取得へ結合す�
     assert.equal(held.value.release(), true);
     assert.equal(
       seedSnapshot(root, {
-        schema: "crdd-coordinator/orchestrator-snapshot/v3",
-        schemaRevision: 3,
+        schema: "crdd-coordinator/project-snapshot/v4",
+        schemaRevision: 4,
         workspaces: [],
         repositoryRootHash: rootHash,
         repositoryBindingId: "binding-a",
@@ -1262,8 +1263,8 @@ test("Host Windows: 統合Leaseは取得・解放途中の記録を保全する"
     const rootHash = held.value.repositoryRootHash;
     assert.equal(held.value.release(), true);
     const payload = {
-      schema: "crdd-coordinator/orchestrator-snapshot/v3",
-      schemaRevision: 3,
+      schema: "crdd-coordinator/project-snapshot/v4",
+      schemaRevision: 4,
       workspaces: [],
       repositoryRootHash: rootHash,
       repositoryBindingId: "binding-a",
@@ -1539,8 +1540,8 @@ test("Host Windows: 統合判断Storeは二世代とexact回復CASを保存す�
     resultReference: null,
   };
   const payload = {
-    schema: "crdd-coordinator/orchestrator-snapshot/v3",
-    schemaRevision: 3,
+    schema: "crdd-coordinator/project-snapshot/v4",
+    schemaRevision: 4,
     workspaces: [],
     repositoryRootHash: rootHash,
     repositoryBindingId: "binding-a",
@@ -1652,7 +1653,7 @@ test("Host Windows: 統合判断Storeは二世代とexact回復CASを保存す�
   if (
     observed.status !== "completed" ||
     !observed.value ||
-    observed.value.schemaRevision !== 3
+    observed.value.schemaRevision !== 4
   )
     throw new Error("snapshot_fixture_failed");
   assert.equal(observed.value.decisionRecoveries[0]?.generation, 2);
@@ -2088,8 +2089,8 @@ test("Host Windows: 統合Snapshot読取りは不存在と未確定を区別す�
   const rootHash = held.value.repositoryRootHash;
   assert.equal(held.value.release(), true);
   const payload = {
-    schema: "crdd-coordinator/orchestrator-snapshot/v3",
-    schemaRevision: 3,
+    schema: "crdd-coordinator/project-snapshot/v4",
+    schemaRevision: 4,
     workspaces: [],
     repositoryRootHash: rootHash,
     repositoryBindingId: "binding-a",
@@ -2202,8 +2203,8 @@ test("Host Windows: 統合State PortはQueue全操作と優先順位を保存す
   const repositoryRootHash = held.value.repositoryRootHash;
   assert.equal(held.value.release(), true);
   const payload = {
-    schema: "crdd-coordinator/orchestrator-snapshot/v3",
-    schemaRevision: 3,
+    schema: "crdd-coordinator/project-snapshot/v4",
+    schemaRevision: 4,
     workspaces: [],
     repositoryRootHash,
     repositoryBindingId: "binding-a",
@@ -2409,7 +2410,7 @@ test("Host Windows: 統合Snapshotは受付結合と未解決記録を保持す�
     const observed = readCoordinatorSnapshot(root, "binding-a");
     assert.equal(observed.status, "completed");
     assert.ok(observed.value);
-    if (observed.value.schema !== "crdd-coordinator/orchestrator-snapshot/v3")
+    if (observed.value.schema !== "crdd-coordinator/project-snapshot/v4")
       throw new Error("fixture_schema_invalid");
     const rootHash = observed.value.repositoryRootHash;
     const resultValue = {
@@ -2643,8 +2644,8 @@ test("Host Windows: 統合Snapshotは固定pendingから一重確定する", {
   const rootHash = held.value.repositoryRootHash;
   assert.equal(held.value.release(), true);
   const payload = {
-    schema: "crdd-coordinator/orchestrator-snapshot/v3",
-    schemaRevision: 3,
+    schema: "crdd-coordinator/project-snapshot/v4",
+    schemaRevision: 4,
     workspaces: [],
     repositoryRootHash: rootHash,
     repositoryBindingId: "binding-a",
@@ -2758,8 +2759,8 @@ test("Host Windows: 統合Snapshotは部分形式と結合不明を保存しな�
   const rootHash = held.value.repositoryRootHash;
   assert.equal(held.value.release(), true);
   const payload = {
-    schema: "crdd-coordinator/orchestrator-snapshot/v3",
-    schemaRevision: 3,
+    schema: "crdd-coordinator/project-snapshot/v4",
+    schemaRevision: 4,
     workspaces: [],
     repositoryRootHash: rootHash,
     repositoryBindingId: "binding-a",
@@ -3119,6 +3120,7 @@ function fixture(t: test.TestContext) {
     assert.equal(fs.existsSync(root), false);
   });
   const created = createCoordinatorState({
+    taskExecutionSelections: taskExecutionSelections(),
     projectId: "project-a",
     milestoneId: "milestone-a",
     repositoryRevision: "a".repeat(40),
@@ -3286,7 +3288,7 @@ test("PR-D-A-01 rejects corrupt or semantically invalid durable state", (t) => {
   const rewritten = { ...original };
   const payload = rewritten as { projects: unknown[] };
   payload.projects[0] = {
-    contract: "crdd-coordinator/orchestrator-state/v1",
+    contract: "crdd-coordinator/project-state/v2",
   };
   fs.writeFileSync(
     record,

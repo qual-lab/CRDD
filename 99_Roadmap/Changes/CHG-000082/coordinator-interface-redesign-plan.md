@@ -306,13 +306,13 @@ Sourceと文書の独立確認では、新Schemaの改訂値、結果Schema文�
 |---|---|---|
 | 選定・保存 | 受付で設定を一回解決し、Task・Objective・Operationへ必要な役割別の値を固定。旧Profile／Tier／改訂番号の選定枝を撤去 | 設定編集後も開始済みTask・再試行・再計画・訂正が同じ値。回復は再選定・本文再送なし |
 | 公開利用側 | Workbench設定画面をRepository設定へ、Task入力を分類／明示指定へ移行。MCPの旧Profile CRUDとHost Catalogを撤去 | manager／administrator認可、選択Repository、競合・unknown・待機後認可・取消を維持 |
-| 正式入口 | `src/api.ts`へ実在する操作を接続し、Root公開を限定。CLIは対象→操作で統一 | 未実装stub・旧API互換wrapperなし。CLI／Workbench／MCPの型・受付・終了条件が一致 |
+| 正式入口 | `src/api.ts`へ実在する操作を接続し、Root公開を限定。CLIは対象→操作で統一。公開結果Envelopeは`crdd-coordinator/public-runtime/v2`へ一斉切替 | 未実装stub・旧API互換wrapperなし。CLI／Workbench／MCPの型・受付・終了条件が一致。旧`orchestrator-public-runtime/v1`を拒否し、結果fieldの意味は維持 |
 | Provider認証 | Claude専用LifecycleをProvider共通のstatus／loginへ置換。旧専用入口を撤去 | Provider固定通信、専用Home、対話非捕捉、exact回復参照、一次失敗と清掃結果を分離 |
 | 最終固定 | Architecture・Quality・設定例・移行手順・Header・登録を現Sourceへ同期 | 外部AIなしの全体回帰、必要なWindows試験、独立レビュー、残参照、Commit／Push |
 
 ### 選定の保存比較と再入場
 
-着手前のSource照合で、一つのOperationがexecutor・reviewer・訂正の各stageを共有していることを確認した。Operationへ単一選定を保存する案は使わず、同一設定Snapshot由来の役割別選定を固定する。Objectiveは回復後のTask再試行があるため、受付時の選定をProcess内だけに置かない。
+着手前のSource照合で、論理Operationはexecutor・reviewer・訂正の各stageにまたがる一方、Docker Operation Identityはstageごとに保存されることを確認した。受付Processでは同一設定Snapshot由来の役割別選定を固定し、Objectiveは再試行・再計画のためRootへその組を保存する。論理Operationへ同じ組を重複保存せず、各stageの既存Docker Identityへは、その役割・Attemptに対応する単一選定を保存し、読戻し確認後だけProvider Effectへ進む。作業ツリーのv4はObjective保存の基礎変更であり、SingleTask・Operationの旧Profile項目とReader／Writerの全面切替は未完了である。
 
 | 所有する記録 | 旧値 | 新値と保存時点 | 読取り・回復 |
 |---|---|---|---|
@@ -320,11 +320,39 @@ Sourceと文書の独立確認では、新Schemaの改訂値、結果Schema文�
 | SingleTask | `profileId / catalogRevision` | 主担当の`executionSelection`十項目。受付CAS前に固定 | 本文は従来どおり非永続。Owner喪失時に未発行stageを再作成しない |
 | Objective状態 | 選定保持なし | 同じ`configIdentity`由来のexecutor／独立reviewer選定を初期状態へ固定 | 全Task・再試行・再計画が継承し、現在設定を読み直さない |
 | ProjectTask | 旧Task属性から再構築 | Objectiveの選定組への相関を作成・予約時に固定 | 再試行／handoffで元の組へ照合。別の設定組へ差替えない |
-| Operation Identity | Provider／Profile等 | 助言は一選定、編集はexecutor／独立reviewerの完全値をEffect前に保存 | stageの役割・試行番号へ照合し、訂正も元の役割選定を使用 |
+| Operation Identity | Provider／Profile等 | 各stageで使う一選定だけをProvider／Container Effect前に保存 | stageの役割・試行番号へ照合し、訂正も元の役割選定を使用。受付の組全体は複製しない |
 | Model Grant／Packet | Profile／Tier等 | `operationId / role / taskAttempt / selection Hash`を既存発行Ownerで結合 | 一回消費・更新前後の完全一致を維持。Model選定を権限にしない |
 | Home Grant | Profileを含む結合 | `operationId / provider / Home実体`だけへ分離 | Model Grantと独立に必要なHome利用権限を照合 |
 
 保存形式は上記Reader／Writer／相関検査を同時に切り替える別Schema単位で変更する。旧形式のReaderや旧Profileを新しい値へ読み替える実行APIを追加しない。フロントAIは、現在の旧設定・未終了参照を確認し、新形式へ移せない実行値を捏造せず、実行前に停止・処置を説明する。過去Evidenceと保持②を移行しない。
+
+着手前の再照合では、SingleTaskの本文は非永続で、Owner喪失後は元IDの相関・回収と終了だけを行い、未発行stageを再開しないことを確認した。このためSingleTask正本へ二役の組を重ねて保存しない。受付Processでは同じ設定Snapshot由来の二役選定を凍結し、主担当をSingleTaskの一選定と完全一致させる。Model GrantはProcess内の一回消費値であり、その発行前に別の耐久保存を追加しない。Model Grant／Packet／PreparedPlanへ対象stageの完全な選定をexactに搬送する。Home Grantはoperation・provider・Home実体と保護条件だけに限定し、選定側とはoperationとproviderで相関させる。既存の`beginRecovery`がstageの一選定をOperation Identityへ保存・読戻しした後にだけProvider／Container Effectへ進む。保存前のOwner喪失は再発行0、保存後の喪失も現在設定で補完せず回収だけ。明示的な再実行は新Task Identityと新しいSnapshotとして扱う。
+
+Sourceと保存設計の読取り専用再照合は、この保存時点で整合した。現行のHost領域作成とModel GrantはDocker identity生成より先にあるため、あらゆるI/Oより前の保存とは主張しない。Operation identityはexact-keyの`v1`へfieldを追加せず`v2`へ改訂する。Grant後・identity保存前の失敗、読戻し後・Effect前のOwner喪失、role／attempt／Hash差替え、旧版拒否、回復時の設定／Catalog読取り0を反証対象とする。新State／Registry／Lockは不要で、追加の人間判断はない。
+
+Home分離は、Model Grantの全面切替より先に閉じられる独立単位とする。Home Grant本体、Provider Authorityの発行・再検査、Local Personal Authority、Isolation・prelaunch、Task／助言の発行側と診断投影からModel Profileを除去する。Provider固有のOffering・OriginはAI Adapterの`describeProviderAuthentication`だけから得る。旧Model Grant／PacketのProfileは次単位までモデル経路にだけ残し、Home利用許可へ戻さない。同Provider・同Homeでも別OperationのGrant消費・prelaunchを拒否し、拒否後に元Operationだけが一回消費できる反証を必須とする。TTL、fresh観測、失効、保護Hash、取消・回収は維持し、新しい管理状態は追加しない。
+
+公開Runtimeのv2は正式APIと現行Consumerの一斉切替時に適用し、定数の実体Ownerは`state/result.ts`、正式公開は`api.ts`とする。現在の同文字列は保存Schema・Recovery Identityには含まれないため保存移行を追加しない。v1 alias・dual acceptは作らず、過去Evidenceは変更しない。これは公開契約の改訂であり、結果DTOのfield・status・reasonの意味変更とは分ける。
+
+Schemaは意味を上書きせず、単一現在Stateを`crdd-coordinator/current-state/v4`へ更新する。Project状態にも新しい必須選定組が加わるため、状態値の契約と内部Snapshot codecの版も同時に更新する。旧v3／旧Profile fieldは本番Readerで受理しない。既存CAS・Writer・Lock・履歴・終端の順序は維持し、Task個別へrootの二役選定を複製しない。初回受付・通常遷移・再計画・再試行・Owner喪失の各例、旧形／相関不正／保存不能の拒否を同じ変更単位で反証する。
+
+### Objective選定・保存の現在確認
+
+受付のworkType／choice、同一設定由来のExecutor／Reviewer組、Objective Rootへの一回保存、同じMilestone内の差替え拒否、省略時の継承と明示値不一致の拒否を接続した。純粋な搬送確認を実Provider起動の成立へ拡張しない。下位の旧Task入力・Model Grant・Home・Operation Identity、単発受付と公開設定画面は未切替であり、Objectiveが作る新Task要求の実行接続は未完了である。
+
+| 確認範囲 | 現在の観測 |
+|---|---|
+| Objective・保存・選定の局所五Suite | 55件成功。現在Catalogを読まないcodec、旧形拒否、保存値不変、明示要求の搬送 |
+| Objective実保存・再入場 | 21件成功、885,413.5841ms。取消・状態変更・回復中断と再入場で本文を再送しない |
+| 公開Objective・品質受入 | 10件成功、84,279.5463ms。実Providerは代役で、下位新入力codecの成立証明ではない |
+| 利用側 | MCP全102件成功、330,321.0383ms。AI Adapter全37件成功、5,963.4934ms。MCP試験名・Headerのみ新語彙へ追従後、該当21件も成功 |
+| 静的・登録・独立確認 | Coordinator／MCP静的検査、Workbench型検査、Catalog386件の値検査が成功。Source／文書の限定再レビュー残指摘0。通常全体回帰は中断・全体結果未確定。後続切替後の最終固定候補で再実行 |
+
+制限付きWindows環境のAI Adapter試験はLink・保存公開の三件で不合格となった。同じ合成Root範囲の通常Windows実行では検査条件を変えず全37件成功した。先行のObjective試験中断は成功へ読み替えず、上表は後の完走結果だけを示す。実AI・実認証・実Docker、本体設定・現在データの移行、保持②の観測・操作は行っていない。
+
+通常全回帰は2026-10-24 05:54:34 JSTに`40_Develop/coordinator`から`npm run test:portable`（session `29777`）で開始し、06:51 JSTに検証順序の変更で中断した。基準HEADは`3d99dae91`、中断前の全作業差分Hashは`16ba4244572f792e356ef52f733d4c67d291033e`。最後の表示済み成功は同Workspaceの七Task直列実行で、進行中Fileは`task-execution.contract.test.ts`。表示範囲に失敗はなかったが、全件結果も終了集計も得ておらず、成功／失敗のどちらにも換算しない。
+
+exact親Process `14948`と自己所有子`44532`の起動時刻・Commandを確認して終了し、双方とその子の不存在を確認した。残った今回の合成Root `project-execution-6YKx3j`は作成時刻・`binding-a / project-a / milestone-a`・Git初期化物だけの内容・リンク不存在を確認し、この一領域だけを清掃して不存在を確認した。共通親・他の試験物・保持②には触れていない。限定基礎の局所根拠を残し、Home→Model Grant→Task→公開利用側の各単位は局所回帰と独立確認を維持する。Source／文書の両確認者と、最終固定候補で通常全回帰を最初から完走する方針を照合した。全体Gateの省略や製品接続完了の表示ではない。
 
 ### 共通認証のLifecycle
 

@@ -8,6 +8,7 @@
  * @scope project、runtime、state、query、public
  * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
  */
+import { taskExecutionSelections } from "../../fixtures/ai-selection.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -41,6 +42,7 @@ const request = Object.freeze({
  */
 function runtimeState(): CoordinatorState {
   const created = createCoordinatorState({
+    taskExecutionSelections: taskExecutionSelections(),
     projectId: request.projectId,
     milestoneId: "milestone-a",
     repositoryRevision: revision,

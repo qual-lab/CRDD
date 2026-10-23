@@ -964,8 +964,8 @@ export const objectiveKeys = new Set([
   "originLane",
   "adoptResult",
   "decisionCapabilityReplacement",
-  "requestedExecutorProvider",
-  "requestedProfileId",
+  "workType",
+  "choice",
   "workspaceId",
 ] as const);
 export const decisionKeys = new Set([
@@ -1090,12 +1090,27 @@ export function getMcpCoordinatorToolDefinitions() {
             replacementRequestId: id,
           }),
         }),
-        requestedExecutorProvider: Object.freeze({
-          enum: Object.freeze(["auto", "codex", "claude"]),
-        }),
-        requestedProfileId: Object.freeze({
+        workType: Object.freeze({
           type: "string",
-          pattern: "^PROFILE-[0-9]{6,}$",
+          pattern: "^[a-z0-9][a-z0-9._-]*$",
+        }),
+        choice: Object.freeze({
+          type: "object",
+          additionalProperties: false,
+          required: Object.freeze(["provider", "model", "effort"]),
+          properties: Object.freeze({
+            provider: Object.freeze({
+              enum: Object.freeze(["codex", "claude"]),
+            }),
+            model: Object.freeze({
+              type: "string",
+              maxLength: 128,
+              pattern: "^[a-z0-9][a-z0-9._-]{0,127}$",
+            }),
+            effort: Object.freeze({
+              enum: Object.freeze(["low", "medium", "high", "xhigh", "max"]),
+            }),
+          }),
         }),
         workspaceId: Object.freeze({
           type: "string",
@@ -1105,8 +1120,8 @@ export function getMcpCoordinatorToolDefinitions() {
       [...objectiveKeys].filter(
         (key) =>
           key !== "decisionCapabilityReplacement" &&
-          key !== "requestedExecutorProvider" &&
-          key !== "requestedProfileId" &&
+          key !== "workType" &&
+          key !== "choice" &&
           key !== "workspaceId",
       ),
     ),

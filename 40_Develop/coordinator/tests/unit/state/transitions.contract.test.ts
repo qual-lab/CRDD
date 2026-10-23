@@ -9,6 +9,7 @@
  * @scope project、runtime、state
  * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。 / PRL-UT-007=N/A: Objective／Milestone Acceptance Decision状態遷移は外部実行境界を持たない。
  */
+import { taskExecutionSelections } from "../../fixtures/ai-selection.ts";
 import assert from "node:assert/strict";
 import { sourceDeclaration } from "../../support/source-declaration.ts";
 import fs from "node:fs";
@@ -248,6 +249,7 @@ function stateFor(
   maximumConcurrency = 5,
 ) {
   const result = createCoordinatorState({
+    taskExecutionSelections: taskExecutionSelections(),
     projectId: "crdd",
     milestoneId: "v0.19",
     repositoryRevision: revision,
@@ -524,6 +526,7 @@ describe("Orchestrator state contract", () => {
    */
   it("Hostが有効なowner generationを供給しない場合は状態を作らない", () => {
     const state = createCoordinatorState({
+      taskExecutionSelections: taskExecutionSelections(),
       projectId: "crdd",
       milestoneId: "v0.20",
       repositoryRevision: revision,
@@ -555,6 +558,7 @@ describe("Orchestrator state contract", () => {
    */
   it("受入条件の説明文をPathとして正規化しない", () => {
     const state = createCoordinatorState({
+      taskExecutionSelections: taskExecutionSelections(),
       projectId: "crdd",
       milestoneId: "v0.19",
       repositoryRevision: revision,
@@ -596,6 +600,7 @@ describe("Orchestrator state contract", () => {
   it("Task定義のRepository外Pathを状態へ取り込まない", () => {
     for (const pathValue of ["C:\\outside", "/outside", "../outside"]) {
       const state = createCoordinatorState({
+        taskExecutionSelections: taskExecutionSelections(),
         projectId: "crdd",
         milestoneId: "v0.20",
         repositoryRevision: revision,
@@ -870,6 +875,7 @@ describe("Orchestrator state contract", () => {
       [task("task-a", ["missing"])],
     ]) {
       const result = createCoordinatorState({
+        taskExecutionSelections: taskExecutionSelections(),
         projectId: "crdd",
         milestoneId: "v0.19",
         repositoryRevision: revision,
@@ -1326,6 +1332,7 @@ describe("Orchestrator state contract", () => {
    */
   it("受入条件ごとのEvidenceが不足する場合は受入を拒否する", () => {
     const created = createCoordinatorState({
+      taskExecutionSelections: taskExecutionSelections(),
       projectId: "crdd",
       milestoneId: "v0.19",
       repositoryRevision: revision,
@@ -1786,7 +1793,7 @@ describe("Orchestrator state contract", () => {
    */
   it("Lockとstale resultの保持条件を説明する", () => {
     assert.deepEqual(describeCoordinatorStateContract(), {
-      contract: "crdd-coordinator/orchestrator-state/v1",
+      contract: "crdd-coordinator/project-state/v2",
       maximumConcurrency: 5,
       capacityStates: [
         "starting",

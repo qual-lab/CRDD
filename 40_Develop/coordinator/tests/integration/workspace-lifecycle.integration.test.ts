@@ -13,6 +13,7 @@
  * @scope CoordinatorとVersion Control。AIは合成作業のみ。
  * @boundary 実Filesystem／Git／既存操作Lease。Provider・Dockerなし。
  */
+import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 import assert from "node:assert/strict";
 import childProcess, { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
@@ -133,6 +134,7 @@ function fixture(t: TestContext, independent = false) {
   if (initialized.status !== "completed")
     throw new Error("fixture_init_failed");
   const created = createCoordinatorState({
+    taskExecutionSelections: taskExecutionSelections(),
     projectId: "project-a",
     milestoneId: "milestone-a",
     repositoryRevision: base,
@@ -2352,6 +2354,11 @@ test("実Objective受付はWorkspace観測をMCPまで欠落なく渡す", async
   const result = await executeCoordinatorObjective(
     {
       authenticatedPrincipalId: "principal-a",
+      resolveTaskSelections: () => ({
+        status: "resolved" as const,
+        value: taskExecutionSelections(),
+        reason: null,
+      }),
       repositoryBindingId: f.binding,
       repositoryRoot: f.root,
       plan: {

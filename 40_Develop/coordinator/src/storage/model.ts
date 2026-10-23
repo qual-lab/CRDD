@@ -5,6 +5,7 @@
  */
 import { createHash } from "node:crypto";
 import { types } from "node:util";
+import { inspectTaskExecutionSelections } from "../selection/model.ts";
 import {
   createDockerRuntimeRepairDisposalCheckpoint,
   type DockerRuntimeRepairCheckpoint,
@@ -192,7 +193,7 @@ function validateHostSnapshot(value: unknown, initialToken: string) {
   );
 }
 
-export const COORDINATOR_STATE_SCHEMA = "crdd-coordinator/current-state/v3";
+export const COORDINATOR_STATE_SCHEMA = "crdd-coordinator/current-state/v4";
 const OPERATION_IDENTITY_SCHEMA = "crdd-coordinator/operation-identity/v1";
 
 /**
@@ -1358,7 +1359,7 @@ export type CoordinatorUnifiedSnapshot = Omit<
     | "projects"
   > &
   Readonly<{
-    schema: "crdd-coordinator/current-state/v3";
+    schema: "crdd-coordinator/current-state/v4";
     repositoryBindingId: string | null;
     intakeEpoch: string | null;
     projects: readonly (Omit<CoordinatorState, "tasks"> &
@@ -4875,7 +4876,7 @@ export function decodeCoordinatorUnifiedSnapshot(
       return null;
     const snapshot = value as CoordinatorUnifiedSnapshot;
     if (
-      snapshot.schema !== "crdd-coordinator/current-state/v3" ||
+      snapshot.schema !== "crdd-coordinator/current-state/v4" ||
       snapshot.repositoryBinding !== repositoryBinding ||
       !Number.isSafeInteger(snapshot.revision) ||
       snapshot.revision < 1 ||
@@ -5159,6 +5160,18 @@ export function validateCoordinatorUnifiedTransition(
           current.snapshot.repositoryBindingId)
     )
       return false;
+    for (const old of current.snapshot.projects) {
+      const replacement = next.snapshot.projects.find(
+        (project) => project.projectId === old.projectId,
+      );
+      if (
+        replacement &&
+        replacement.milestoneId === old.milestoneId &&
+        encodeCoordinatorStateValue(replacement.taskExecutionSelections) !==
+          encodeCoordinatorStateValue(old.taskExecutionSelections)
+      )
+        return false;
+    }
     const receipts = new Map(
       next.snapshot.resultReceipts.map((receipt) => [
         receipt.recoveryId,
@@ -5637,8 +5650,8 @@ export function projectCoordinatorTaskSnapshot(
   const s = decoded.snapshot;
   if (s.repositoryBindingId === null || s.intakeEpoch === null) return null;
   return {
-    schema: SNAPSHOT_SCHEMA_V3,
-    schemaRevision: 3,
+    schema: COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
+    schemaRevision: 4,
     repositoryRootHash,
     repositoryBindingId: s.repositoryBindingId,
     intakeEpoch: s.intakeEpoch,
@@ -6602,7 +6615,8 @@ export const REVISION = /^[0-9a-f]{40,64}$/u;
 
 export const MAX_RECORD_BYTES = 16 * 1024 * 1024;
 
-export const SNAPSHOT_SCHEMA_V3 = "crdd-coordinator/orchestrator-snapshot/v3";
+export const COORDINATOR_PROJECT_SNAPSHOT_SCHEMA =
+  "crdd-coordinator/project-snapshot/v4";
 
 export const PROJECT_QUEUE_STATES = new Set<ProjectQueueState>([
   "queued",
@@ -7052,6 +7066,7 @@ export function validCoordinatorState(
     !plainObject(value) ||
     !exactKeys(value, [
       "contract",
+      "taskExecutionSelections",
       "projectId",
       "milestoneId",
       "repositoryRevision",
@@ -7063,7 +7078,8 @@ export function validCoordinatorState(
       "objectives",
       "tasks",
     ]) ||
-    value.contract !== "crdd-coordinator/orchestrator-state/v1" ||
+    value.contract !== "crdd-coordinator/project-state/v2" ||
+    !inspectTaskExecutionSelections(value.taskExecutionSelections) ||
     !validId(value.projectId) ||
     !validId(value.milestoneId) ||
     typeof value.repositoryRevision !== "string" ||
@@ -7517,8 +7533,8 @@ export type CoordinatorSnapshot = Readonly<{
   historyPending: readonly HistoryRow[];
 }> &
   Readonly<{
-    schema: typeof SNAPSHOT_SCHEMA_V3;
-    schemaRevision: 3;
+    schema: typeof COORDINATOR_PROJECT_SNAPSHOT_SCHEMA;
+    schemaRevision: 4;
     acceptanceDecisions: readonly CoordinatorAcceptanceDecisionEnvelope[];
     decisionRecoveries: readonly Readonly<{
       generation: number;
@@ -7919,8 +7935,8 @@ export function validCoordinatorSnapshot(
         "decisionRecoveries",
         "workspaces",
       ]) ||
-      value.schema !== SNAPSHOT_SCHEMA_V3 ||
-      value.schemaRevision !== 3 ||
+      value.schema !== COORDINATOR_PROJECT_SNAPSHOT_SCHEMA ||
+      value.schemaRevision !== 4 ||
       value.repositoryBindingId !== binding ||
       value.repositoryRootHash !== rootHash ||
       !validId(binding) ||

@@ -16,7 +16,9 @@ import type {
   AiSelectionRole,
   AiSelectionSnapshot,
   ExecutionSelection,
+  TaskExecutionSelections,
 } from "./model.ts";
+import { inspectTaskExecutionSelections } from "./model.ts";
 
 const ROLES = Object.freeze([
   "coordinator",
@@ -298,6 +300,74 @@ export function resolveExecutionSelection(
           : "role_default",
     }),
   });
+}
+
+/**
+ * 一回のTask受付に使う二役割を同じ設定から固定する。
+ * @responsibility 明示指定は編集担当だけへ適用し、レビュー担当は同じ設定の役割選定を使う。
+ * @trace ARCH-000004
+ * @input candidateConfig: 一回読んだ設定、candidateRequest: workTypeと任意choice。
+ * @returns 二役割の不変選定、又は固定拒否。
+ * @precondition 呼出し元が設定を一回だけ読み、返却後は再選定しない。
+ * @postcondition Provider違いでの自動fallbackを行わない。
+ * @effect N/A: 純粋な選定だけ。
+ * @failure 一方でも不正なら組全体を返さない。
+ * @invariant 役割選定と実行Authority・認証・送信同意を分離する。
+ * @boundary Repository設定とTask受付。
+ * @security 実行・保存・外部送信を開始しない。
+ * @concurrency 同期的に同じ不変設定Snapshotから導く。
+ */
+export function resolveTaskExecutionSelections(
+  candidateConfig: unknown,
+  candidateRequest: unknown,
+): Readonly<
+  | { status: "resolved"; value: TaskExecutionSelections; reason: null }
+  | {
+      status: "blocked";
+      value: null;
+      reason:
+        | Exclude<ExecutionSelectionResult["reason"], null>
+        | "ai_selection_pair_invalid";
+    }
+> {
+  const request =
+    snapshotPlainRecord(candidateRequest, new Set(["workType", "choice"])) ??
+    snapshotPlainRecord(candidateRequest, new Set(["workType"]));
+  if (!request)
+    return Object.freeze({
+      status: "blocked",
+      value: null,
+      reason: "ai_selection_request_invalid",
+    });
+  const checked = validateAiSelectionConfig(candidateConfig);
+  if (checked.status !== "valid")
+    return Object.freeze({
+      status: "blocked",
+      value: null,
+      reason: checked.reason,
+    });
+  const executor = resolveExecutionSelection(checked.value.config, {
+    role: "executor",
+    workType: request.workType,
+    ...(Object.hasOwn(request, "choice") ? { choice: request.choice } : {}),
+  });
+  if (executor.status !== "resolved") return executor;
+  const reviewer = resolveExecutionSelection(checked.value.config, {
+    role: "independent_reviewer",
+    workType: request.workType,
+  });
+  if (reviewer.status !== "resolved") return reviewer;
+  const value = inspectTaskExecutionSelections({
+    executor: executor.value,
+    reviewer: reviewer.value,
+  });
+  return value
+    ? Object.freeze({ status: "resolved", value, reason: null })
+    : Object.freeze({
+        status: "blocked",
+        value: null,
+        reason: "ai_selection_pair_invalid",
+      });
 }
 
 /**

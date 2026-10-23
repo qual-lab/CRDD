@@ -10280,21 +10280,21 @@
     {
       "id": "orchestrator:unit:objective-profile-transport",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/objective/profile-transport.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/objective/selection-transport.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
         "project",
         "runtime",
-        "profile",
+        "selection",
         "transport"
       ],
       "environment": "node_process",
       "externalProviderEffect": false,
       "humanInput": false,
       "postconditions": [
-        "result_observed",
-        "source_unchanged"
+        "frozen_selection_pair_preserved",
+        "no_reselection_or_authority_issued"
       ],
       "mandatoryByDefault": true
     },

@@ -8,6 +8,7 @@
  * @scope project、runtime、queue、priority
  * @boundary PRL-IT-011=Related 2 Blocks: Queue→Project Operation Lease→Scheduler Slot→Task開始
  */
+import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { execFileSync, spawn } from "node:child_process";
@@ -75,6 +76,7 @@ function fixture(
   const ports = createCurrentCoordinatorPersistencePorts(root, binding);
   for (const projectId of projectIds) {
     const created = createCoordinatorState({
+      taskExecutionSelections: taskExecutionSelections(),
       projectId,
       milestoneId: "milestone-a",
       repositoryRevision: revision,

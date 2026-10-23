@@ -12,7 +12,7 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
-Repository別AI選択は、値検査・内部設定StoreとAI Adapterの型付き実行計画まで接続した。本番Task／Grant／保存／Workbench／MCPへの新選定固定と旧Profile撤去は未完了。共通認証はCodex／Claudeのstatus一資源・login五資源、Provider-onlyのAPI二操作、共通CLIと旧専用入口撤去を段階確認した。認証と周辺四Suite54件、JSON契約を加えたLauncher 11件、DI通常300件成功／明示対象外5件。Source・文書の限定独立確認は是正後残指摘0。実認証・実Docker・正式API全体縮小・新選定の本番切替は別に残る。本体設定・保持②は操作していない。[現在の単位と確認範囲](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#15-残る本番切替の実施単位と終了条件)を参照する。
+Repository別AI選択は、値検査・内部設定Store・AI Adapterの型付き計画に加え、Objectiveの初回選定固定と現在状態への保存・再入場照合まで段階実装した。Objective結合21件、公開操作10件、MCP全102件とAI Adapter全37件は成功し、限定Source／文書レビューは残指摘0。通常全体回帰は検証順序の見直しで中断し、全体結果は未確定。今回の試験Process・専用Rootだけを終了・清掃し、全回帰は後続切替後の最終固定候補へ集約する。下位Task／Grant／Home／Operation Identityと旧Profile撤去、Workbench設定画面、正式API／CLI全体への切替は未完了で、新しいObjective Task入力も下位実行には未接続。保存v4はこの基礎変更であり実データ移行済みとは扱わない。共通認証の合成検証済み範囲と、最後に行う実認証・実AI・人間確認を区別する。本体設定・保持②は操作していない。[現在の単位と確認範囲](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#15-残る本番切替の実施単位と終了条件)を参照する。
 
 現在は、利用者の四添付に基づく[Coordinator公開操作・認証・AI選択の再設計](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md)を進行中。Objective六Sourceへの分配と本番`public-*`撤去を行い、受入判断・人間判断・照会を既存Ownerへ統合した。公開217項目と保存契約は維持。Objective連続回帰64件、短回帰29件、公開受付10件、移管後の境界24件、利用側閉包16件と静的・限定独立確認は成功／残指摘0。Workspace・品質受入を含む後続結合36件も成功。これは構造単位の回帰であり、新設定の本番切替の全体完了ではない。次は技術カタログとRepository別選択を本番接続してから正式Task APIを確定し、旧Storeを新APIへ一時露出させる二度変更を避ける。旧形式Readerは追加せず移行はフロントAIが担当する。正式API／CLI全体・新設定の全体切替と共通認証の実境界確認は未完了。②のAI再試行と保持物操作は行わない。
 

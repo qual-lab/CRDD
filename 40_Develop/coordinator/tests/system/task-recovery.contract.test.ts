@@ -8,6 +8,7 @@
  * @scope Coordinator Objective、Durable State、Recovery、Retry
  * @boundary PRL-ST-004=System/E2E: Public Objective→Durable Runtime→Recovery→Retry
  */
+import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
@@ -276,6 +277,11 @@ test("外部Effect不明後もexact Recovery Identityで再入場してretryす�
       workingDirectory,
       repositoryRoot: workingDirectory,
       bindingCapability: {},
+    }),
+    resolveTaskSelections: () => ({
+      status: "resolved" as const,
+      value: taskExecutionSelections(),
+      reason: null,
     }),
     planObjective: () => ({
       milestoneAcceptanceCriteria: ["Result exists."],

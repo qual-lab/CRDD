@@ -8,6 +8,7 @@
  * @scope coordinator、orchestrator、runtime-data、repository-local-store
  * @boundary PRL-ST-009=System/E2E: 公開入口→Coordinator→Acceptance Decision Store→状態投影
  */
+import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -117,6 +118,7 @@ function persistAcceptancePendingState(
   revision: string,
 ) {
   const state = createCoordinatorState({
+    taskExecutionSelections: taskExecutionSelections(),
     projectId,
     milestoneId: `milestone-${projectId}`,
     repositoryRevision: revision,
@@ -425,6 +427,7 @@ test("Acceptance Decisionの前世代Hash改ざんを拒否する", (t) => {
     "completed",
   );
   const created = createCoordinatorState({
+    taskExecutionSelections: taskExecutionSelections(),
     projectId: "project-hash-chain",
     milestoneId: "milestone-hash-chain",
     repositoryRevision: repository.revision,

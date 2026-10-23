@@ -6,6 +6,10 @@
  */
 import { snapshotPlainArray, snapshotPlainRecord } from "../state/model.ts";
 import { normalizeRepositoryRelativePath } from "../state/model.ts";
+import {
+  inspectAiSelectionChoice,
+  type AiSelectionChoice,
+} from "../selection/model.ts";
 
 /**
  * objective-requestで使用するCoordinator Objective Requestの値契約を定義する。
@@ -15,8 +19,8 @@ import { normalizeRepositoryRelativePath } from "../state/model.ts";
  * @shape CoordinatorObjectiveRequestが表すProperty、識別子およびRelationを型として固定する。
  * @invariant CoordinatorObjectiveRequestで宣言した値と責務の対応を維持する。
  * @boundary N/A: CoordinatorObjectiveRequestの宣言は外部境界を開かない。
- * @security Profile IDはExecutor選択の希望であり、実行Authorityまたは利用可能性を付与しない。
- * @compatibility Profile ID省略時は既存の自動選択を維持し、指定時はIDを変更せず搬送する。
+ * @security 明示選択は編集担当の希望であり、実行Authorityまたは利用可能性を付与しない。
+ * @compatibility 新形式だけを受け、旧Profile ID／Provider自動選択入力を拒否する。
  */
 export type CoordinatorObjectiveRequest = Readonly<{
   intakeEpoch: string;
@@ -32,8 +36,8 @@ export type CoordinatorObjectiveRequest = Readonly<{
   maximumReplans: number;
   originLane: "interactive" | "scheduled";
   adoptResult: boolean;
-  requestedExecutorProvider?: "auto" | "codex" | "claude";
-  requestedProfileId?: string;
+  workType?: string;
+  choice?: AiSelectionChoice;
   workspaceId?: string;
   decisionCapabilityReplacement?: Readonly<{
     decisionId: string;
@@ -164,8 +168,8 @@ const REQUIRED_REQUEST_KEYS = Object.freeze([
 ] as const);
 const OPTIONAL_REQUEST_KEYS = Object.freeze([
   "decisionCapabilityReplacement",
-  "requestedExecutorProvider",
-  "requestedProfileId",
+  "workType",
+  "choice",
   "workspaceId",
 ] as const);
 const requestKeySets = Object.freeze(
@@ -186,17 +190,17 @@ const requestKeySets = Object.freeze(
 /**
  * Coordinator Objective Requestを観測する。
  *
- * @responsibility 閉じたObjective入力を所有Snapshotへ変換し、明示Profileの形式を検査する。
+ * @responsibility 閉じたObjective入力を所有Snapshotへ変換し、分類と明示選択の形式を検査する。
  * @trace ARCH-000004
  * @input value: unknown
  * @returns CoordinatorObjectiveRequest | nullを返す。
  * @precondition 「value: unknown」がinspectCoordinatorObjectiveRequestの入力契約を満たす。
- * @postcondition 受理したProfile IDをexactに保持し、省略されたIDを生成しない。
+ * @postcondition 受理した三項目を独立Snapshotにし、省略された希望を生成しない。
  * @effect N/A: inspectCoordinatorObjectiveRequestは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: inspectCoordinatorObjectiveRequestは独自の失敗分岐を所有しない。
  * @invariant inspectCoordinatorObjectiveRequestは入力から導いた結果以外の共有状態を変更しない。
  * @boundary N/A: inspectCoordinatorObjectiveRequestはProcess内の同一Subsystemで完結する。
- * @security 未知field、Accessor、Proxyと不正Profile形式を拒否する。登録・適合性は既存Resolverが別に検証する。
+ * @security 未知field、Accessor、Proxyと不正形式を拒否する。分類参照・技術適合性は選定Resolverが別に検証する。
  * @concurrency N/A: inspectCoordinatorObjectiveRequestは共有非同期状態を持たない同期処理である。
  */
 export function inspectCoordinatorObjectiveRequest(
@@ -210,6 +214,9 @@ export function inspectCoordinatorObjectiveRequest(
   );
   if (!requestSnapshot) return null;
   const request: Readonly<Record<string, unknown>> = requestSnapshot;
+  const choice = Object.hasOwn(request, "choice")
+    ? inspectAiSelectionChoice(request.choice)
+    : undefined;
   const acceptanceCriteria = inspectStrings(
     request.acceptanceCriteria,
     128,
@@ -249,13 +256,10 @@ export function inspectCoordinatorObjectiveRequest(
     (request.originLane !== "interactive" &&
       request.originLane !== "scheduled") ||
     typeof request.adoptResult !== "boolean" ||
-    (request.requestedExecutorProvider !== undefined &&
-      request.requestedExecutorProvider !== "auto" &&
-      request.requestedExecutorProvider !== "codex" &&
-      request.requestedExecutorProvider !== "claude") ||
-    (Object.hasOwn(request, "requestedProfileId") &&
-      (typeof request.requestedProfileId !== "string" ||
-        !/^PROFILE-[0-9]{6,}$/u.test(request.requestedProfileId))) ||
+    (Object.hasOwn(request, "workType") &&
+      (typeof request.workType !== "string" ||
+        !/^[a-z0-9][a-z0-9._-]*$/u.test(request.workType))) ||
+    choice === null ||
     (Object.hasOwn(request, "workspaceId") &&
       (typeof request.workspaceId !== "string" ||
         !/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/u.test(
@@ -281,17 +285,10 @@ export function inspectCoordinatorObjectiveRequest(
     maximumReplans: request.maximumReplans as number,
     originLane: request.originLane,
     adoptResult: request.adoptResult,
-    ...(request.requestedExecutorProvider
-      ? {
-          requestedExecutorProvider: request.requestedExecutorProvider as
-            | "auto"
-            | "codex"
-            | "claude",
-        }
+    ...(typeof request.workType === "string"
+      ? { workType: request.workType }
       : {}),
-    ...(typeof request.requestedProfileId === "string"
-      ? { requestedProfileId: request.requestedProfileId }
-      : {}),
+    ...(choice ? { choice } : {}),
     ...(typeof request.workspaceId === "string"
       ? { workspaceId: request.workspaceId }
       : {}),

@@ -8,6 +8,7 @@
  * @scope project、runtime、decision、recovery、store
  * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
  */
+import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
@@ -57,6 +58,7 @@ function fixture(t: test.TestContext) {
     assert.equal(fs.existsSync(root), false);
   });
   const state = createCoordinatorState({
+    taskExecutionSelections: taskExecutionSelections(),
     projectId: "project-a",
     milestoneId: "milestone-a",
     repositoryRevision: "a".repeat(40),

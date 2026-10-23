@@ -7,6 +7,7 @@
  * @scope 新版保存の試験接続。
  * @boundary PRL-IT-005=Direct Boundary: 試験から統合保存。
  */
+import { taskExecutionSelections } from "./ai-selection.ts";
 import { createCurrentCoordinatorPersistencePorts } from "../../src/storage/current-state.ts";
 import { createCoordinatorState } from "../../src/index.ts";
 /**
@@ -108,6 +109,7 @@ export function enqueueProjectOperation(
   const input = args[0];
   if (ports.state.readState(input.projectId).value === null) {
     const created = createCoordinatorState({
+      taskExecutionSelections: taskExecutionSelections(),
       projectId: input.projectId,
       milestoneId: input.milestoneId,
       repositoryRevision: input.repositoryRevision,

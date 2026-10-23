@@ -1247,7 +1247,7 @@ test("修復終了: 退避物不存在と履歴確認後だけ対象を除去す
     assert.ok(source);
     return {
       ...source.snapshot,
-      schema: "crdd-coordinator/current-state/v3",
+      schema: "crdd-coordinator/current-state/v4",
       repositoryBindingId: null,
       intakeEpoch: null,
       intakeBindings: [],

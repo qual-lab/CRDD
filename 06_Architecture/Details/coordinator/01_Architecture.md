@@ -1528,7 +1528,7 @@ Docker Task Recoveryは元のRecovery IDと発行時Sessionの証拠を保持し
 
 修復の回復結果には、九処置すべての確認済み／明示不要をDIの純粋終端判定で要求する。Engine準備完了・現在安全・退避状態既知・補助Process清掃確認との共同成立を必要とし、未観測を不要へ読み替えない。結果確定後は一次失敗のnullを含む全文と九処置を固定し、後続の清掃確認・安全性観測で過去の失敗を消さない。Task専用の未解決回復参照へ修復variantを混入させない。
 
-現在のSource候補は平坦な`crdd-coordinator/current-state/v3`だけを受理する。全体のfield集合・Task参照・一意な受領本文は[単一保存の値モデル](04_Task_Detailed_Design.md#unified-storage-lifecycle)に従う。`operations`は`docker_task`と`runtime_repair`の判別unionとし、前者は固定Task Identity・五資源・Host・Lease・実行状態、後者は修復専用Identity・exact回復ID・修復phase・DI技術checkpoint・保持判断・一次失敗・結果を保持する。修復へTask fieldを架空値で補完せず、Task回復ID parserへ渡さない。
+現在のSource候補は平坦な`crdd-coordinator/current-state/v4`だけを受理する。全体のfield集合・Task参照・一意な受領本文は[単一保存の値モデル](04_Task_Detailed_Design.md#unified-storage-lifecycle)に従う。`operations`は`docker_task`と`runtime_repair`の判別unionとし、前者は固定Task Identity・五資源・Host・Lease・実行状態、後者は修復専用Identity・exact回復ID・修復phase・DI技術checkpoint・保持判断・一次失敗・結果を保持する。修復へTask fieldを架空値で補完せず、Task回復ID parserへ渡さない。
 
 DI checkpointのkey・技術順序は下位Root codecで検証し、CoordinatorはIdentity・改訂・対象外全文・人間の保持判断との相関を検証する。Task専用利用側はkindを確認してからTask fieldへ触れ、同じSnapshot内の修復を保全する。Task Writerは修復の新規作成・更新を拒否し、技術checkpointと保持判断は修復専用Writer・真正Ownerへ接続する。修復のsummary／historyは専用値契約で検査し、通常修復Writerはその更新を外側と排他内で拒否する。専用履歴出版・除去が未接続の間はTask履歴・配送から修復を終端化せず、値候補の成立を実保存・本番再入場の成立にしない。旧v1や旧Journalの移行はフロントAIが行い、Runtimeのfallback Readerは作らない。
 

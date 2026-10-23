@@ -502,11 +502,11 @@ test("MCP discovery and tool list expose the three public operations", async () 
  * @precondition 既存の三操作と正常metadataを使用する。
  * @stimulus tools/listで公開Schemaを取得する。
  * @observation Objectiveのproperties、requiredと未知field拒否を確認する。
- * @oracle Profileは固定形式の任意項目で、Decision／Stateへ追加しない。
+ * @oracle 分類と三項目の選択は任意項目で、Decision／Stateへ追加しない。
  * @cleanup N/A: 外部資源を生成しない。
  * @boundary N/A: Protocol handlerの局所試験。
  */
-test("MCP SchemaはProfileをObjectiveだけの任意項目として公開する", async () => {
+test("MCP Schemaは分類と明示選択をObjectiveだけの任意項目として公開する", async () => {
   const response = await handleMcpCoordinatorRequest(
     request("tools/list", { _meta: META }),
     dependencies(),
@@ -527,41 +527,59 @@ test("MCP SchemaはProfileをObjectiveだけの任意項目として公開する
     (tool) => tool.name === MCP_COORDINATOR_OBJECTIVE_TOOL,
   )?.inputSchema;
   assert.ok(schema);
-  assert.deepEqual(schema.properties.requestedProfileId, {
+  assert.deepEqual(schema.properties.workType, {
     type: "string",
-    pattern: "^PROFILE-[0-9]{6,}$",
+    pattern: "^[a-z0-9][a-z0-9._-]*$",
   });
-  assert.equal(schema.required.includes("requestedProfileId"), false);
+  assert.deepEqual(schema.properties.choice, {
+    type: "object",
+    additionalProperties: false,
+    required: ["provider", "model", "effort"],
+    properties: {
+      provider: { enum: ["codex", "claude"] },
+      model: {
+        type: "string",
+        maxLength: 128,
+        pattern: "^[a-z0-9][a-z0-9._-]{0,127}$",
+      },
+      effort: { enum: ["low", "medium", "high", "xhigh", "max"] },
+    },
+  });
+  assert.equal(Object.hasOwn(schema.properties, "requestedProfileId"), false);
+  assert.equal(
+    Object.hasOwn(schema.properties, "requestedExecutorProvider"),
+    false,
+  );
+  assert.equal(schema.required.includes("choice"), false);
   assert.equal(schema.required.includes("intakeEpoch"), true);
   assert.equal(schema.required.length, 13);
   assert.equal(schema.additionalProperties, false);
   for (const tool of tools.filter(
     (tool) => tool.name !== MCP_COORDINATOR_OBJECTIVE_TOOL,
   ))
-    assert.equal(
-      Object.hasOwn(tool.inputSchema.properties, "requestedProfileId"),
-      false,
-    );
+    assert.equal(Object.hasOwn(tool.inputSchema.properties, "choice"), false);
 });
 
 /**
- * MCPからCoreへ明示Profileを入力だけから搬送する。
+ * MCPからCoreへ明示選択を入力だけから搬送する。
  *
- * @responsibility 明示選択と省略を区別し、認証からProfileを補完しないことを検証する。
+ * @responsibility 明示選択と省略を区別し、認証からModel希望を補完しないことを検証する。
  * @trace PRL-UT-014
  * @precondition 認証済みの合成入力とメモリ内のCore観測Portを使用する。
- * @stimulus 同じObjectiveをProfile有無とProvider有無の四組合せで渡す。
+ * @stimulus 同じObjectiveを明示選択と分類の有無の四組合せで渡す。
  * @observation Core入力、認証Context、取消Signalと結果を確認する。
- * @oracle Profile IDはexact、省略は省略、Authorityと結果意味は既存契約のまま。
+ * @oracle 三項目はexact、省略は省略、Authorityと結果意味は既存契約のまま。
  * @cleanup N/A: 外部Process、Providerと永続状態を生成しない。
  * @boundary N/A: 実Transportや実Application全体を起動しない。
  */
-test("MCP Objectiveは明示Profileをexactに保持し省略時に生成しない", async () => {
+test("MCP Objectiveは明示選択をexactに保持し省略時に生成しない", async () => {
   for (let mask = 0; mask < 4; mask += 1) {
     const input = {
       ...objective(),
-      ...(mask & 1 ? { requestedProfileId: "PROFILE-100001" } : {}),
-      ...(mask & 2 ? { requestedExecutorProvider: "codex" } : {}),
+      ...(mask & 1
+        ? { choice: { provider: "codex", model: "gpt-5.5", effort: "high" } }
+        : {}),
+      ...(mask & 2 ? { workType: "coding" } : {}),
     };
     const controller = new AbortController();
     let calls = 0;
@@ -591,9 +609,9 @@ test("MCP Objectiveは明示Profileをexactに保持し省略時に生成しな�
 });
 
 /**
- * 不正Profileを認証・Core処理より前に拒否する。
+ * 不正なAI選択と旧形式入力を認証・Core処理より前に拒否する。
  *
- * @responsibility Profile入力の不正が下位呼出しや動的入力実行を生じないことを検証する。
+ * @responsibility 不正な明示選択・廃止fieldが下位呼出しや動的入力実行を生じないことを検証する。
  * @trace PRL-UT-014
  * @precondition 不正形式、未知field、getterとProxyを持つ合成入力。
  * @stimulus 各入力をMCP Objective handlerへ渡す。
@@ -602,9 +620,22 @@ test("MCP Objectiveは明示Profileをexactに保持し省略時に生成しな�
  * @cleanup N/A: メモリ内の入力だけを使用する。
  * @boundary N/A: 実Transportを起動しない局所試験。
  */
-test("MCP Objectiveは不正Profileを認証・Core呼出し前に拒否する", async () => {
+test("MCP Objectiveは不正選択と旧形式を認証・Core呼出し前に拒否する", async () => {
   let calls = 0;
   const invalidArguments = [
+    {
+      ...objective(),
+      choice: { provider: "codex", model: "gpt-5.5", effort: "automatic" },
+    },
+    {
+      ...objective(),
+      choice: {
+        provider: "codex",
+        model: "gpt-5.5",
+        effort: "high",
+        credential: "forbidden",
+      },
+    },
     ...[null, undefined, "PROFILE-12345", "profile-100001"].map(
       (requestedProfileId) => ({ ...objective(), requestedProfileId }),
     ),

@@ -37,6 +37,12 @@ import {
 } from "../../src/execution/diagnostics.ts";
 import { executeCoordinatorPublicAcceptanceDecision } from "../../src/decision/acceptance.ts";
 import { coordinatorDataBoundaryBlocked } from "../../src/state/result.ts";
+import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
+import { saveRepositoryAiSelection } from "../../src/storage/ai-selection.ts";
+import {
+  selectionConfig,
+  executionSelection,
+} from "../fixtures/ai-selection.ts";
 
 /**
  * Runtime Data失敗を公開Coordinator結果まで意味変更せず投影するを検証する。
@@ -125,6 +131,18 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
     windowsHide: true,
   }).trim();
   const decisionRoot = path.join(root, ".decision-store");
+  const verified = verifyRepositoryRoot(root);
+  assert.equal(verified.status, "completed");
+  if (verified.status !== "completed")
+    throw new Error("fixture_root_not_verified");
+  assert.equal(
+    saveRepositoryAiSelection(
+      verified.capability,
+      { expectedIdentity: null, config: selectionConfig() },
+      () => true,
+    ).status,
+    "saved",
+  );
   const initialized = initializeCoordinatorSnapshot(
     root,
     `binding-${createHash("sha256").update(root).digest("hex").slice(0, 40)}`,
@@ -157,9 +175,20 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
     ) => {
       taskStarts += 1;
       const delivered = taskRequest as Readonly<Record<string, unknown>>;
-      assert.equal(delivered.requestedProfileId, "PROFILE-100001");
-      assert.equal(delivered.requestedExecutorProvider, "codex");
-      assert.equal(delivered.frontProvider, "codex");
+      const selections = delivered.taskExecutionSelections as {
+        executor: unknown;
+        reviewer: unknown;
+      };
+      assert.deepEqual(
+        selections.executor,
+        executionSelection("executor", {
+          provider: "codex",
+          model: "gpt-5.5",
+          effort: "medium",
+        }),
+      );
+      assert.equal(Object.hasOwn(delivered, "requestedProfileId"), false);
+      assert.equal(Object.hasOwn(delivered, "frontProvider"), false);
       assert.equal(consumer, "orchestrator");
       assert.deepEqual(workspaceTarget, {
         workspaceId: null,
@@ -221,7 +250,6 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
           reason: "coordinator_task_control_invalid" as const,
         }),
       ),
-    frontProviderForTask: () => "codex",
     recordExecutionEvent: (repositoryRoot, event) =>
       shouldBlockExecutionPublication
         ? Object.freeze({
@@ -270,8 +298,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
       maximumConcurrency: 1,
       maximumReplans: 0,
       originLane: "interactive",
-      requestedExecutorProvider: "codex",
-      requestedProfileId: "PROFILE-100001",
+      choice: { provider: "codex", model: "gpt-5.5", effort: "medium" },
       adoptResult: false,
       intakeEpoch,
     },
@@ -294,8 +321,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
       maximumConcurrency: 1,
       maximumReplans: 0,
       originLane: "interactive",
-      requestedExecutorProvider: "codex",
-      requestedProfileId: "PROFILE-100001",
+      choice: { provider: "codex", model: "gpt-5.5", effort: "medium" },
       adoptResult: false,
       intakeEpoch,
     },
@@ -446,8 +472,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
       maximumConcurrency: 1,
       maximumReplans: 0,
       originLane: "interactive",
-      requestedExecutorProvider: "codex",
-      requestedProfileId: "PROFILE-100001",
+      choice: { provider: "codex", model: "gpt-5.5", effort: "medium" },
       adoptResult: true,
       intakeEpoch,
     },
@@ -501,8 +526,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
       maximumConcurrency: 1,
       maximumReplans: 0,
       originLane: "interactive",
-      requestedExecutorProvider: "codex",
-      requestedProfileId: "PROFILE-100001",
+      choice: { provider: "codex", model: "gpt-5.5", effort: "medium" },
       adoptResult: false,
       intakeEpoch,
     },
@@ -528,8 +552,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
       maximumConcurrency: 1,
       maximumReplans: 0,
       originLane: "interactive",
-      requestedExecutorProvider: "codex",
-      requestedProfileId: "PROFILE-100001",
+      choice: { provider: "codex", model: "gpt-5.5", effort: "medium" },
       adoptResult: false,
       intakeEpoch,
     },
@@ -562,8 +585,7 @@ test("開発用構成はTask終了後に明示品質受入を要求し再入場�
       maximumConcurrency: 1,
       maximumReplans: 0,
       originLane: "interactive",
-      requestedExecutorProvider: "codex",
-      requestedProfileId: "PROFILE-100001",
+      choice: { provider: "codex", model: "gpt-5.5", effort: "medium" },
       adoptResult: false,
       intakeEpoch,
     },

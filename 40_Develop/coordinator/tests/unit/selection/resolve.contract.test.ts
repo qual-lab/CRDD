@@ -12,11 +12,116 @@ import test from "node:test";
 import {
   validateAiSelectionConfig,
   resolveExecutionSelection,
+  resolveTaskExecutionSelections,
 } from "../../../src/selection/resolve.ts";
 import {
   inspectExecutionSelection,
   hashExecutionSelection,
+  inspectTaskExecutionSelections,
 } from "../../../src/selection/model.ts";
+
+/**
+ * 編集と独立レビューを同じ受付時設定へ固定する。
+ * @responsibility 後の設定編集・再選定が返却済みの組へ波及しないことを反証する。
+ * @trace RCM-UT-001
+ * @precondition 技術対応済みの合成設定だけを利用する。
+ * @stimulus 分類・明示choiceと、返却後の設定変更を与える。
+ * @observation 役割、選定元、内容Identityと旧値の独立性。
+ * @oracle 明示choiceは編集担当だけ、レビューは同じ設定から導き、未設定・未知分類でfallbackしない。
+ * @cleanup N/A: 値だけを生成する。
+ * @boundary Task受付の同期選定。
+ */
+test("Task選定組は同じ設定から二役割を固定し明示指定を編集担当だけへ適用する", () => {
+  const source = config();
+  const result = resolveTaskExecutionSelections(source, {
+    workType: "coding",
+    choice: { provider: "codex", model: "gpt-5.5", effort: "high" },
+  });
+  assert.equal(result.status, "resolved");
+  assert.ok(result.value);
+  const { executor, reviewer } = result.value;
+  assert.equal(executor.role, "executor");
+  assert.equal(executor.source, "explicit");
+  assert.equal(executor.reasoningEffort, "high");
+  assert.equal(reviewer.role, "independent_reviewer");
+  assert.equal(reviewer.source, "role_default");
+  assert.equal(reviewer.reasoningEffort, "medium");
+  assert.equal(executor.configIdentity, reviewer.configIdentity);
+  assert.equal(executor.catalogIdentity, reviewer.catalogIdentity);
+  source.roleDefaults.independent_reviewer.model = "changed";
+  assert.equal(reviewer.modelIdentifier, "gpt-5.5");
+  assert.equal(
+    resolveTaskExecutionSelections(source, { workType: "coding" }).status,
+    "blocked",
+  );
+  assert.equal(
+    resolveTaskExecutionSelections(config(), { workType: "unknown" }).status,
+    "blocked",
+  );
+  assert.equal(
+    resolveTaskExecutionSelections(null, { workType: null }).status,
+    "blocked",
+  );
+});
+
+/**
+ * 保存された選定組の役割と設定相関を検査する。
+ * @responsibility 別受付の選定や現在Catalogを役割組へ混入させない。
+ * @trace RCM-UT-001
+ * @precondition 解決済みの二役割と局所変更値。
+ * @stimulus role・設定・Catalog・分類の差、過剰key、getter、Proxyを与える。
+ * @observation 復元値又はnull、hook実行数。
+ * @oracle 同じ過去値だけ独立復元し、混在と実行Propertyをhook 0で拒否する。
+ * @cleanup N/A: I/Oなし。
+ * @boundary Task・Objective・Operationの保存値codec。
+ */
+test("保存選定組は別設定・役割・分類の混在を拒否し過去値を再選定しない", () => {
+  const original = resolveTaskExecutionSelections(config(), {
+    workType: "coding",
+  }).value;
+  assert.ok(original);
+  const past = {
+    ...original,
+    executor: { ...original.executor, modelIdentifier: "retired-model" },
+  };
+  const recovered = inspectTaskExecutionSelections(past);
+  assert.ok(recovered);
+  assert.equal(recovered.executor.modelIdentifier, "retired-model");
+  let hooks = 0;
+  for (const invalid of [
+    { ...original, reviewer: { ...original.reviewer, source: "explicit" } },
+    {
+      ...original,
+      reviewer: { ...original.reviewer, configIdentity: "a".repeat(64) },
+    },
+    {
+      ...original,
+      reviewer: { ...original.reviewer, catalogIdentity: "b".repeat(64) },
+    },
+    { ...original, reviewer: { ...original.reviewer, workType: null } },
+    { executor: original.reviewer, reviewer: original.executor },
+    { ...original, authority: true },
+    {
+      get executor() {
+        hooks += 1;
+        return original.executor;
+      },
+      reviewer: original.reviewer,
+    },
+    new Proxy(original, {
+      ownKeys() {
+        hooks += 1;
+        return [];
+      },
+    }),
+  ])
+    assert.equal(inspectTaskExecutionSelections(invalid), null);
+  assert.equal(hooks, 0);
+  assert.notEqual(recovered, past);
+  assert.ok(
+    Object.isFrozen(recovered.executor) && Object.isFrozen(recovered.reviewer),
+  );
+});
 
 /**
  * 選定全項目を同じ決定論的Identityへ結合する。

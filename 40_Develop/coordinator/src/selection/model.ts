@@ -8,6 +8,7 @@
  */
 import { types as utilTypes } from "node:util";
 import { createHash } from "node:crypto";
+import { snapshotPlainRecord } from "../../../domain-model/src/index.ts";
 import type {
   AiModelSelection,
   AiProvider,
@@ -46,6 +47,44 @@ export type AiSelectionChoice = Readonly<{
   model: string;
   effort: AiReasoningEffort;
 }>;
+
+/**
+ * 明示選択の三項目を独立した値へ固定する。
+ * @responsibility 公開入力の構造検査を現在Catalogによる用途検査から分離する。
+ * @trace ARCH-000004
+ * @input candidate: 未信頼のProvider・Model・Effort。
+ * @returns 不変の三項目、又はnull。
+ * @precondition 技術対応は新規選定時に別途検査する。
+ * @postcondition 既定値・fallback・Authorityを作らない。
+ * @effect N/A: 同期の値検査のみ。
+ * @failure 欠落・過剰・Proxy・getter・不正文字列はnull。
+ * @invariant 保存済み選定を現在Catalogで再解釈しない。
+ * @boundary 公開Task／Objective入力と選定Owner。
+ * @security CLI引数・Path・秘密値のfieldを受けない。
+ * @concurrency 元入力の変更から分離する。
+ */
+export function inspectAiSelectionChoice(
+  candidate: unknown,
+): AiSelectionChoice | null {
+  const value = snapshotPlainRecord(
+    candidate,
+    new Set(["provider", "model", "effort"]),
+  );
+  if (
+    !value ||
+    (value.provider !== "codex" && value.provider !== "claude") ||
+    typeof value.model !== "string" ||
+    !/^[a-z0-9][a-z0-9._-]{0,127}$/u.test(value.model) ||
+    typeof value.effort !== "string" ||
+    !["low", "medium", "high", "xhigh", "max"].includes(value.effort)
+  )
+    return null;
+  return Object.freeze({
+    provider: value.provider,
+    model: value.model,
+    effort: value.effort as AiReasoningEffort,
+  });
+}
 
 /**
  * 五役割の既定値と任意分類・分類別上書きを保持する。
@@ -102,6 +141,70 @@ export type ExecutionSelection = AiModelSelection &
     workType: string | null;
     source: "explicit" | "work_type_override" | "role_default";
   }>;
+
+/**
+ * 一つのTaskが使う編集担当と独立レビュー担当の固定選定。
+ * @responsibility 複数stageが同じ受付時設定を共有する相関を所有する。
+ * @trace ARCH-000004
+ * @shape executorとreviewerの完全な選定値。
+ * @invariant 設定・Catalog・作業分類が同じ組だけを受理する。
+ * @boundary Objective・Task・Operationの値搬送と保存。
+ * @security 同じProviderでも実行Contextの独立性は実行Ownerが別に保証する。
+ * @compatibility 旧Profileや再選定を含めない。
+ */
+export type TaskExecutionSelections = Readonly<{
+  executor: ExecutionSelection;
+  reviewer: ExecutionSelection;
+}>;
+
+/**
+ * 保存済みの役割別選定を現在設定で解き直さず検査する。
+ * @responsibility stage間で選定組を混ぜない閉形式codecを所有する。
+ * @trace ARCH-000004
+ * @input candidate: 未信頼の二役割選定。
+ * @returns 独立した不変値、不正時null。
+ * @precondition 実行可否と認可は別のOwnerが確認する。
+ * @postcondition 元のModel・alias・分類・選定元を維持する。
+ * @effect N/A: 局所値検査だけ。
+ * @failure 不足・過剰・Proxy・accessor・相関不正はnull。
+ * @invariant 現在Catalog・設定Store・I/Oを参照しない。
+ * @boundary 保存codecと実行Owner。
+ * @security 選定の復元を実行許可にしない。
+ * @concurrency 同期処理で元入力へ書き込まない。
+ */
+export function inspectTaskExecutionSelections(
+  candidate: unknown,
+): TaskExecutionSelections | null {
+  if (
+    !candidate ||
+    typeof candidate !== "object" ||
+    utilTypes.isProxy(candidate)
+  )
+    return null;
+  const prototype = Object.getPrototypeOf(candidate);
+  if (prototype !== Object.prototype && prototype !== null) return null;
+  const descriptors = Object.getOwnPropertyDescriptors(candidate);
+  if (Reflect.ownKeys(descriptors).length !== 2) return null;
+  const values = ["executor", "reviewer"].map((key) => {
+    const descriptor = descriptors[key];
+    return descriptor && "value" in descriptor && descriptor.enumerable
+      ? inspectExecutionSelection(descriptor.value)
+      : null;
+  });
+  const [executor, reviewer] = values;
+  if (
+    !executor ||
+    !reviewer ||
+    executor.role !== "executor" ||
+    reviewer.role !== "independent_reviewer" ||
+    reviewer.source === "explicit" ||
+    executor.configIdentity !== reviewer.configIdentity ||
+    executor.catalogIdentity !== reviewer.catalogIdentity ||
+    executor.workType !== reviewer.workType
+  )
+    return null;
+  return Object.freeze({ executor, reviewer });
+}
 
 /**
  * 保存された選定を現在Catalogで解き直さず独立値へ取り出す。
@@ -203,7 +306,7 @@ export function inspectExecutionSelection(
           : "advice")
     )
       return null;
-    return Object.freeze(value) as ExecutionSelection;
+    return Object.freeze({ ...value }) as ExecutionSelection;
   } catch {
     return null;
   }

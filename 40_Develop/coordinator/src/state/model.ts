@@ -6,6 +6,10 @@
 
 import { types as utilTypes } from "node:util";
 import { createHash } from "node:crypto";
+import {
+  inspectTaskExecutionSelections,
+  type TaskExecutionSelections,
+} from "../selection/model.ts";
 
 /**
  * Coordinator Human Decisionを要求する。
@@ -354,7 +358,7 @@ export function applyCoordinatorAcceptanceDecision(
 }
 
 export const COORDINATOR_STATE_CONTRACT =
-  "crdd-coordinator/orchestrator-state/v1" as const;
+  "crdd-coordinator/project-state/v2" as const;
 
 export const COORDINATOR_MAXIMUM_CONCURRENCY = 5;
 
@@ -757,6 +761,7 @@ export type ProjectTaskRecord = Readonly<{
  */
 export type CoordinatorState = Readonly<{
   contract: typeof COORDINATOR_STATE_CONTRACT;
+  taskExecutionSelections: TaskExecutionSelections;
   projectId: string;
   milestoneId: string;
   repositoryRevision: string;
@@ -1033,7 +1038,7 @@ export function hasCycle(definitions: readonly ProjectTaskDefinition[]) {
  * @precondition 「state: Omit<CoordinatorState, "contract">」がprojectStateの入力契約を満たす。
  * @postcondition projectStateの責務を完了した結果だけを返す。
  * @effect N/A: projectStateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: projectStateは独自の失敗分岐を所有しない。
+ * @failure 選定組が閉形式・役割相関を満たさない場合は例外で停止する。
  * @invariant projectStateは入力から導いた結果以外の共有状態を変更しない。
  * @boundary N/A: projectStateはProcess内の同一Subsystemで完結する。
  * @security N/A: projectStateはAuthority、秘密値または信頼判断を扱わない。
@@ -1042,9 +1047,14 @@ export function hasCycle(definitions: readonly ProjectTaskDefinition[]) {
 export function projectState(
   state: Omit<CoordinatorState, "contract">,
 ): CoordinatorState {
+  const selections = inspectTaskExecutionSelections(
+    state.taskExecutionSelections,
+  );
+  if (!selections) throw new Error("coordinator_state_selection_invalid");
   return Object.freeze({
     contract: COORDINATOR_STATE_CONTRACT,
     ...state,
+    taskExecutionSelections: selections,
     milestone: Object.freeze({ ...state.milestone }),
     objectives: Object.freeze([...state.objectives]),
     tasks: Object.freeze([...state.tasks]),
@@ -1056,12 +1066,12 @@ export function projectState(
  *
  * @responsibility Coordinator 状態の構築入力、生成結果、不正入力の拒否境界を所有する。
  * @trace ARCH-000004
- * @input input: Readonly<{ projectId: string; milestoneId: string; repositoryRevision: string; maximumConcurrency: number; milestoneAcceptanceCriteria: readonly string[]; objectives: readonly ProjectObjectiveDefinition[]; tasks: readonly ProjectTaskDefinition[]; ownerGeneration: string; }>
+ * @input input: Project・Milestone・改訂、上限・受入条件・Task定義・Owner世代と固定二役選定。
  * @returns StateResultを返す。
- * @precondition 「input: Readonly<{ projectId: string; milestoneId: string; repositoryRevision: string; maximumConcurrency: number; milestoneAcceptanceCriteria: readonly string[]; objectives: readonly ProjectObjectiveDefinition[]; tasks: readonly ProjectTaskDefinition[]; ownerGeneration: string; }>」がcreateCoordinatorStateの入力契約を満たす。
+ * @precondition 新規選定は受付Ownerが解決済みで、既定値をこの関数から補完しない。
  * @postcondition createCoordinatorStateの責務を完了した結果だけを返す。
  * @effect N/A: createCoordinatorStateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: createCoordinatorStateは独自の失敗分岐を所有しない。
+ * @failure 選定組・Identity・定義・依存関係の不正をblockedとして返し、Stateを生成しない。
  * @invariant createCoordinatorStateは入力から導いた結果以外の共有状態を変更しない。
  * @boundary N/A: createCoordinatorStateはProcess内の同一Subsystemで完結する。
  * @security N/A: createCoordinatorStateはAuthority、秘密値または信頼判断を扱わない。
@@ -1069,6 +1079,7 @@ export function projectState(
  */
 export function createCoordinatorState(
   input: Readonly<{
+    taskExecutionSelections: TaskExecutionSelections;
     projectId: string;
     milestoneId: string;
     repositoryRevision: string;
@@ -1079,7 +1090,11 @@ export function createCoordinatorState(
     ownerGeneration: string;
   }>,
 ): StateResult {
+  const selections = inspectTaskExecutionSelections(
+    input.taskExecutionSelections,
+  );
   if (
+    !selections ||
     !validIdentity(input.projectId) ||
     !validIdentity(input.milestoneId) ||
     !validIdentity(input.ownerGeneration) ||
@@ -1182,6 +1197,7 @@ export function createCoordinatorState(
     }),
   );
   const state = projectState({
+    taskExecutionSelections: selections,
     projectId: input.projectId,
     milestoneId: input.milestoneId,
     repositoryRevision: input.repositoryRevision,

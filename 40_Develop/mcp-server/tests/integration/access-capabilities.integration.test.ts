@@ -21,6 +21,7 @@
  * @boundary 自己生成Store／Repositoryから既存HTTP Transportまで。公開Launcherの完成ではない。
  */
 import assert from "node:assert/strict";
+import { taskExecutionSelections } from "../../../coordinator/tests/fixtures/ai-selection.ts";
 import { invokeMcpSource } from "../fixtures/sdk-request.ts";
 import { spawnSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
@@ -1006,6 +1007,7 @@ test("AM活動MCPは実保存観測と現在Exposure・失効を接続する", a
       "completed",
     );
     const saved = createCoordinatorState({
+      taskExecutionSelections: taskExecutionSelections(),
       projectId: "project.fixture",
       milestoneId: "milestone.fixture",
       repositoryRevision: sourceA.revision,

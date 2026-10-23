@@ -8,6 +8,7 @@
  * @scope project、runtime、integration、record、adapter
  * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
+import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
@@ -59,6 +60,7 @@ function fixture(t: test.TestContext) {
     assert.equal(fs.existsSync(root), false);
   });
   const created = createCoordinatorState({
+    taskExecutionSelections: taskExecutionSelections(),
     projectId: "project-a",
     milestoneId: "milestone-a",
     repositoryRevision: "a".repeat(40),

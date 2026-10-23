@@ -19,7 +19,7 @@ import {
   leaseIdentity,
   MAX_RECORD_BYTES,
   plainObject,
-  SNAPSHOT_SCHEMA_V3,
+  COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
   validCoordinatorSnapshot,
   validCoordinatorState,
   validId,
@@ -910,8 +910,8 @@ export function initializeCoordinatorSnapshot(
     else {
       const revision = observed.value?.snapshot.revision ?? 0;
       const payload: CoordinatorSnapshot = {
-        schema: SNAPSHOT_SCHEMA_V3,
-        schemaRevision: 3,
+        schema: COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
+        schemaRevision: 4,
         repositoryRootHash: owner.repositoryRootHash,
         repositoryBindingId: binding,
         snapshotRevision: revision + 1,
@@ -1465,8 +1465,8 @@ function assertCoordinatorSnapshotTransition(
     if (retired.size > 0 !== (payload.intakeEpoch !== current.intakeEpoch))
       throw new Error("snapshot_intake_epoch_transition_invalid");
     if (
-      current.schema === SNAPSHOT_SCHEMA_V3 &&
-      payload.schema === SNAPSHOT_SCHEMA_V3
+      current.schema === COORDINATOR_PROJECT_SNAPSHOT_SCHEMA &&
+      payload.schema === COORDINATOR_PROJECT_SNAPSHOT_SCHEMA
     ) {
       for (const old of current.acceptanceDecisions) {
         if (
@@ -1691,7 +1691,7 @@ function assertCoordinatorSnapshotTransition(
           throw new Error("snapshot_recovery_intent_unconfirmed");
       }
       if (
-        current.schema !== SNAPSHOT_SCHEMA_V3 ||
+        current.schema !== COORDINATOR_PROJECT_SNAPSHOT_SCHEMA ||
         !end ||
         !coordinatorSnapshotLeaseResourcesAbsent(owner.repositoryRoot, identity)
       )
@@ -1798,6 +1798,13 @@ function assertCoordinatorSnapshotTransition(
       const next = payload.projects.find(
         (item) => item.projectId === old.projectId,
       );
+      if (
+        next &&
+        next.milestoneId === old.milestoneId &&
+        encodeCoordinatorStateValue(next.taskExecutionSelections) !==
+          encodeCoordinatorStateValue(old.taskExecutionSelections)
+      )
+        throw new Error("snapshot_project_selection_changed");
       if (
         next &&
         next.milestoneId !== old.milestoneId &&
@@ -1908,7 +1915,7 @@ function coordinatorQueueIsClosed(
   owner: CoordinatorSnapshotOwner,
 ): boolean {
   try {
-    if (current.schema !== SNAPSHOT_SCHEMA_V3) return false;
+    if (current.schema !== COORDINATOR_PROJECT_SNAPSHOT_SCHEMA) return false;
     const queue = current.queueEntries.find((item) => item.queueId === queueId);
     if (
       !queue ||
@@ -2122,7 +2129,7 @@ function coordinatorStandaloneAdoptionIsClosed(
   owner: CoordinatorSnapshotOwner,
 ): boolean {
   try {
-    if (current.schema !== SNAPSHOT_SCHEMA_V3) return false;
+    if (current.schema !== COORDINATOR_PROJECT_SNAPSHOT_SCHEMA) return false;
     const record = current.results.find(
       (item) => item.identity === identity && item.kind === "adoption",
     );
@@ -2241,7 +2248,7 @@ export function maintainCoordinatorSnapshot(
       if (
         !Number.isSafeInteger(now) ||
         now < 0 ||
-        current.schema !== SNAPSHOT_SCHEMA_V3
+        current.schema !== COORDINATOR_PROJECT_SNAPSHOT_SCHEMA
       )
         return blocked("orchestrator_history_time_invalid");
       const rows = current.queueEntries
@@ -2295,7 +2302,7 @@ export function maintainCoordinatorSnapshot(
     workingDirectory,
     binding,
     (current, owner) => {
-      if (current.schema !== SNAPSHOT_SCHEMA_V3)
+      if (current.schema !== COORDINATOR_PROJECT_SNAPSHOT_SCHEMA)
         return blocked("orchestrator_snapshot_schema_invalid");
       const trimmed = updateCoordinatorHistoryOwned(
         owner,
@@ -2556,7 +2563,7 @@ export function createCoordinatorSnapshotAcceptanceDecisionStore(
         binding,
         (current) => {
           if (
-            current.schema !== SNAPSHOT_SCHEMA_V3 ||
+            current.schema !== COORDINATOR_PROJECT_SNAPSHOT_SCHEMA ||
             !validCoordinatorAcceptanceDecisionRecord(record) ||
             record.disposition !== "prepared"
           )
@@ -2605,7 +2612,10 @@ export function createCoordinatorSnapshotAcceptanceDecisionStore(
         workingDirectory,
         binding,
         (current) => {
-          if (current.schema !== SNAPSHOT_SCHEMA_V3 || !validId(recordId))
+          if (
+            current.schema !== COORDINATOR_PROJECT_SNAPSHOT_SCHEMA ||
+            !validId(recordId)
+          )
             return blocked("orchestrator_acceptance_record_identity_invalid");
           const groups = current.acceptanceDecisions.filter(
             (item) => item.recordId === recordId,
@@ -2641,7 +2651,7 @@ export function createCoordinatorSnapshotAcceptanceDecisionStore(
         binding,
         (current) => {
           if (
-            current.schema !== SNAPSHOT_SCHEMA_V3 ||
+            current.schema !== COORDINATOR_PROJECT_SNAPSHOT_SCHEMA ||
             !validCoordinatorAcceptanceDecisionRecord(expected) ||
             !validCoordinatorAcceptanceDecisionRecord(next) ||
             expected.recordId !== next.recordId ||
@@ -2730,7 +2740,7 @@ export function createCoordinatorSnapshotDecisionRecoveryStore(
         binding,
         (current) => {
           if (
-            current.schema !== SNAPSHOT_SCHEMA_V3 ||
+            current.schema !== COORDINATOR_PROJECT_SNAPSHOT_SCHEMA ||
             !validCoordinatorDecisionRecoveryIntent(intent)
           )
             return blocked("orchestrator_decision_recovery_invalid");
@@ -2773,7 +2783,10 @@ export function createCoordinatorSnapshotDecisionRecoveryStore(
         workingDirectory,
         binding,
         (current) => {
-          if (current.schema !== SNAPSHOT_SCHEMA_V3 || !validId(recoveryId))
+          if (
+            current.schema !== COORDINATOR_PROJECT_SNAPSHOT_SCHEMA ||
+            !validId(recoveryId)
+          )
             return blocked("orchestrator_decision_recovery_invalid");
           return completed("orchestrator_decision_recovery_observed", {
             next: null,
@@ -2806,7 +2819,7 @@ export function createCoordinatorSnapshotDecisionRecoveryStore(
         binding,
         (current) => {
           if (
-            current.schema !== SNAPSHOT_SCHEMA_V3 ||
+            current.schema !== COORDINATOR_PROJECT_SNAPSHOT_SCHEMA ||
             !validCoordinatorDecisionRecoveryIntent(expected) ||
             !validCoordinatorDecisionRecoveryIntent(next) ||
             expected.recoveryId !== next.recoveryId
@@ -2952,7 +2965,7 @@ export function inspectCoordinatorSnapshotLeaseAcquisitionOwner(
     workingDirectory,
     binding,
     (current) => {
-      if (current.schema !== SNAPSHOT_SCHEMA_V3)
+      if (current.schema !== COORDINATOR_PROJECT_SNAPSHOT_SCHEMA)
         return blocked("orchestrator_snapshot_schema_invalid");
       const intents = current.leaseIntents.filter(
         (item) => item.kind === "project-operation",
@@ -3053,7 +3066,7 @@ export function acquireCoordinatorSnapshotLease(
     binding,
     (current, owner) => {
       if (
-        current.schema !== SNAPSHOT_SCHEMA_V3 ||
+        current.schema !== COORDINATOR_PROJECT_SNAPSHOT_SCHEMA ||
         !validId(projectId) ||
         (kind === "project-operation"
           ? !current.queueEntries.some(
@@ -3154,7 +3167,7 @@ export function acquireCoordinatorSnapshotLease(
     binding,
     (current) => {
       if (
-        current.schema !== SNAPSHOT_SCHEMA_V3 ||
+        current.schema !== COORDINATOR_PROJECT_SNAPSHOT_SCHEMA ||
         !current.leaseIntents.some(
           (item) =>
             encodeCoordinatorStateValue(item) ===
@@ -3231,7 +3244,7 @@ export function acquireCoordinatorSnapshotLease(
         binding,
         (current) => {
           if (
-            current.schema !== SNAPSHOT_SCHEMA_V3 ||
+            current.schema !== COORDINATOR_PROJECT_SNAPSHOT_SCHEMA ||
             !current.leaseIntents.some(
               (item) =>
                 item.ownerGeneration === ownerGeneration &&
@@ -3286,7 +3299,7 @@ export function acquireCoordinatorSnapshotLease(
         binding,
         (current) => {
           if (
-            current.schema !== SNAPSHOT_SCHEMA_V3 ||
+            current.schema !== COORDINATOR_PROJECT_SNAPSHOT_SCHEMA ||
             !current.leaseIntents.some(
               (item) =>
                 item.ownerGeneration === ownerGeneration &&
@@ -3437,7 +3450,7 @@ export function reconcileCoordinatorSnapshotLeaseOwnerLoss(
     workingDirectory,
     binding,
     (current, owner) => {
-      if (current.schema !== SNAPSHOT_SCHEMA_V3)
+      if (current.schema !== COORDINATOR_PROJECT_SNAPSHOT_SCHEMA)
         return blocked("orchestrator_snapshot_schema_invalid");
       const queue =
         kind === "project-operation"
@@ -3695,7 +3708,7 @@ export function reconcileCoordinatorSnapshotLeaseOwnerLoss(
     (current, owner) => {
       const metadata = fs.lstatSync(owner.repositoryRoot);
       if (
-        current.schema !== SNAPSHOT_SCHEMA_V3 ||
+        current.schema !== COORDINATOR_PROJECT_SNAPSHOT_SCHEMA ||
         owner.repositoryRoot !== initial.repositoryRoot ||
         digest(
           JSON.stringify([metadata.dev, metadata.ino, metadata.birthtimeMs]),
@@ -3802,7 +3815,7 @@ export function reconcileCoordinatorSnapshotLeaseOwnerLoss(
     (current, owner) => {
       const metadata = fs.lstatSync(owner.repositoryRoot);
       if (
-        current.schema !== SNAPSHOT_SCHEMA_V3 ||
+        current.schema !== COORDINATOR_PROJECT_SNAPSHOT_SCHEMA ||
         owner.repositoryRoot !== initial.repositoryRoot ||
         digest(
           JSON.stringify([metadata.dev, metadata.ino, metadata.birthtimeMs]),
@@ -4387,11 +4400,11 @@ export function createCoordinatorSnapshotStatePort(
             "project-operation",
           );
           const locks =
-            current.schema === SNAPSHOT_SCHEMA_V3
+            current.schema === COORDINATOR_PROJECT_SNAPSHOT_SCHEMA
               ? path.join(paths.temporary, "orchestrator-leases")
               : path.join(runtime, "work", "locks");
           if (
-            !(current.schema === SNAPSHOT_SCHEMA_V3
+            !(current.schema === COORDINATOR_PROJECT_SNAPSHOT_SCHEMA
               ? coordinatorSnapshotLeaseResourcesAbsent(
                   owner.repositoryRoot,
                   identity,
@@ -4417,7 +4430,7 @@ export function createCoordinatorSnapshotStatePort(
             boundary,
           );
           const evidence =
-            current.schema === SNAPSHOT_SCHEMA_V3
+            current.schema === COORDINATOR_PROJECT_SNAPSHOT_SCHEMA
               ? {
                   released: current.leaseEvidence.find(
                     (item) =>
@@ -4448,7 +4461,7 @@ export function createCoordinatorSnapshotStatePort(
                   },
                 );
           if (
-            current.schema === SNAPSHOT_SCHEMA_V3 &&
+            current.schema === COORDINATOR_PROJECT_SNAPSHOT_SCHEMA &&
             current.leaseIntents.some(
               (item) => item.ownerGeneration === ownerGeneration,
             )
@@ -4834,7 +4847,7 @@ export function createCurrentCoordinatorPersistencePorts(
   if (
     observed.status !== "completed" ||
     !observed.value ||
-    observed.value.schema !== SNAPSHOT_SCHEMA_V3
+    observed.value.schema !== COORDINATOR_PROJECT_SNAPSHOT_SCHEMA
   )
     throw new Error("orchestrator_snapshot_not_initialized");
   return createCoordinatorSnapshotPersistencePorts(
@@ -4868,7 +4881,8 @@ export function readCurrentCoordinatorState(
     workingDirectory,
     binding,
     (current) =>
-      current.schema === SNAPSHOT_SCHEMA_V3 && validId(projectId)
+      current.schema === COORDINATOR_PROJECT_SNAPSHOT_SCHEMA &&
+      validId(projectId)
         ? completed("orchestrator_state_observed", {
             next: null,
             value:

@@ -9,6 +9,7 @@
  * @scope project、runtime、objective、intake
  * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
+import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -446,6 +447,20 @@ function settleRuntimeProcessAsFreshProcess(
 test("public Objective intake binds, plans, executes and deduplicates the same request", async (t) => {
   const workingDirectory = root(t);
   let effects = 0;
+  let selectionReads = 0;
+  const defaults = taskExecutionSelections();
+  const selected = {
+    ...defaults,
+    executor: {
+      ...defaults.executor,
+      source: "explicit",
+      reasoningEffort: "high",
+    },
+  } as const;
+  const explicitRequest = {
+    ...request(),
+    choice: { provider: "codex", model: "gpt-5.5", effort: "high" },
+  };
   const dependencies = {
     authenticatedPrincipalId: "principal-a",
     verifyProjectBinding: () => ({
@@ -456,6 +471,12 @@ test("public Objective intake binds, plans, executes and deduplicates the same r
       repositoryRoot: workingDirectory,
       bindingCapability: {},
     }),
+    resolveTaskSelections: () => {
+      selectionReads += 1;
+      if (selectionReads > 1)
+        throw new Error("config_must_not_be_read_on_reentry");
+      return { status: "resolved" as const, value: selected, reason: null };
+    },
     planObjective: () => ({
       milestoneAcceptanceCriteria: ["Result exists."],
       objectives: [
@@ -491,20 +512,79 @@ test("public Objective intake binds, plans, executes and deduplicates the same r
       },
     },
   };
+  const untouched = runtimeSnapshot(workingDirectory);
+  for (const [input, pair] of [
+    [{ ...request(), workType: "coding" }, defaults],
+    [explicitRequest, defaults],
+    [request(), selected],
+    [
+      request(),
+      {
+        ...defaults,
+        executor: { ...defaults.executor, workType: "coding" },
+        reviewer: { ...defaults.reviewer, workType: "coding" },
+      },
+    ],
+  ] as const) {
+    const rejected = await runCoordinatorObjective(
+      {
+        ...dependencies,
+        resolveTaskSelections: () => ({
+          status: "resolved",
+          value: pair,
+          reason: null,
+        }),
+      },
+      input,
+      new AbortController().signal,
+    );
+    assert.equal(rejected.reason, "coordinator_objective_selection_mismatch");
+    assert.equal(rejected.effectState, "no_effect");
+    assert.deepEqual(runtimeSnapshot(workingDirectory), untouched);
+    assert.equal(effects, 0);
+  }
   const first = await runCoordinatorObjective(
     dependencies,
-    request(),
+    explicitRequest,
     new AbortController().signal,
   );
   assert.equal(first.status, "completed");
   assert.equal(first.projection?.nextAction, "verify_objective_integration");
   assert.equal(effects, 1);
+  assert.equal(selectionReads, 1);
   const second = await runCoordinatorObjective(
     dependencies,
-    request(),
+    explicitRequest,
     new AbortController().signal,
   );
   assert.equal(second.status, "completed", JSON.stringify(second));
+  assert.equal(effects, 1);
+  assert.equal(selectionReads, 1);
+  const savedBytes = runtimeSnapshot(workingDirectory);
+  for (const change of [
+    { workType: "coding" },
+    { choice: { provider: "claude", model: "gpt-5.5", effort: "high" } },
+    { choice: { provider: "codex", model: "different-model", effort: "high" } },
+    { choice: { provider: "codex", model: "gpt-5.5", effort: "medium" } },
+  ]) {
+    const rejected = await runCoordinatorObjective(
+      dependencies,
+      { ...explicitRequest, requestId: "request-changed", ...change },
+      new AbortController().signal,
+    );
+    assert.equal(rejected.reason, "coordinator_objective_selection_mismatch");
+    assert.equal(rejected.effectState, "no_effect");
+    assert.deepEqual(runtimeSnapshot(workingDirectory), savedBytes);
+    assert.equal(selectionReads, 1);
+    assert.equal(effects, 1);
+  }
+  const inherited = await runCoordinatorObjective(
+    dependencies,
+    { ...request(), requestId: "request-inherited" },
+    new AbortController().signal,
+  );
+  assert.equal(inherited.status, "completed", JSON.stringify(inherited));
+  assert.equal(selectionReads, 1);
   assert.equal(effects, 1);
   const state = readCoordinatorState(
     workingDirectory,
@@ -519,6 +599,10 @@ test("public Objective intake binds, plans, executes and deduplicates the same r
   assert.equal(
     state.status === "completed" && state.value?.tasks[0]?.state,
     "completed",
+  );
+  assert.deepEqual(
+    state.status === "completed" && state.value?.taskExecutionSelections,
+    selected,
   );
   assert.equal(
     queue.status === "completed" && queue.value.state,
@@ -621,6 +705,11 @@ test("public Objective re-entry reconciles a pre-publication owner loss before e
         repositoryRoot: workingDirectory,
         bindingCapability: {},
       }),
+      resolveTaskSelections: () => ({
+        status: "resolved" as const,
+        value: taskExecutionSelections(),
+        reason: null,
+      }),
       planObjective: () => ({
         milestoneAcceptanceCriteria: ["Result exists."],
         objectives: [
@@ -695,6 +784,11 @@ test("public Objective re-entry preserves malformed snapshot without inventing a
           workingDirectory,
           repositoryRoot: workingDirectory,
           bindingCapability: {},
+        }),
+        resolveTaskSelections: () => ({
+          status: "resolved" as const,
+          value: taskExecutionSelections(),
+          reason: null,
         }),
         planObjective: () => ({
           milestoneAcceptanceCriteria: ["Result exists."],
@@ -803,6 +897,11 @@ test("public Objective classifies foreign, missing, and mismatched acquisition q
           repositoryRoot: workingDirectory,
           bindingCapability: {},
         }),
+        resolveTaskSelections: () => ({
+          status: "resolved" as const,
+          value: taskExecutionSelections(),
+          reason: null,
+        }),
         planObjective: () => ({
           milestoneAcceptanceCriteria: ["Result exists."],
           objectives: [
@@ -883,6 +982,11 @@ test("a scheduled Objective arriving during interactive execution waits without 
       workingDirectory,
       repositoryRoot: workingDirectory,
       bindingCapability: {},
+    }),
+    resolveTaskSelections: () => ({
+      status: "resolved" as const,
+      value: taskExecutionSelections(),
+      reason: null,
     }),
     planObjective: () => ({
       milestoneAcceptanceCriteria: ["Result exists."],
@@ -971,6 +1075,11 @@ test("binding or planner scope failure creates no Project State or Task effect",
       repositoryRoot: workingDirectory,
       bindingCapability: {},
     }),
+    resolveTaskSelections: () => ({
+      status: "resolved" as const,
+      value: taskExecutionSelections(),
+      reason: null,
+    }),
     planObjective: () => ({
       milestoneAcceptanceCriteria: ["Result exists."],
       objectives: [
@@ -1045,6 +1154,11 @@ test("public Objective intake rejects unknown fields, accessors, proxies, and no
         bindingCapability: {},
       };
     },
+    resolveTaskSelections: () => ({
+      status: "resolved" as const,
+      value: taskExecutionSelections(),
+      reason: null,
+    }),
     planObjective: () => ({
       milestoneAcceptanceCriteria: ["Result exists."],
       objectives: [
@@ -1216,6 +1330,11 @@ test("async recovery interruption does not settle or acknowledge", async (t) => 
           workingDirectory,
           repositoryRoot: workingDirectory,
           bindingCapability: {},
+        }),
+        resolveTaskSelections: () => ({
+          status: "resolved" as const,
+          value: taskExecutionSelections(),
+          reason: null,
         }),
         planObjective: () => ({
           milestoneAcceptanceCriteria: ["Result exists."],
@@ -1474,6 +1593,11 @@ test("exact Runtime-owned recovery settles and retries without client recovery a
       workingDirectory,
       repositoryRoot: workingDirectory,
       bindingCapability: {},
+    }),
+    resolveTaskSelections: () => ({
+      status: "resolved" as const,
+      value: taskExecutionSelections(),
+      reason: null,
     }),
     planObjective: () => ({
       milestoneAcceptanceCriteria: ["Result exists."],
@@ -1816,6 +1940,11 @@ test("混在RecoveryはDockerをsettleして外部義務を型付きで返す", 
         repositoryRoot: workingDirectory,
         bindingCapability: {},
       }),
+      resolveTaskSelections: () => ({
+        status: "resolved" as const,
+        value: taskExecutionSelections(),
+        reason: null,
+      }),
       planObjective: () => ({
         milestoneAcceptanceCriteria: ["Result exists."],
         objectives: [
@@ -2039,6 +2168,11 @@ test("owner lossはAuthority発行前の予約をEffect 0で戻して同じObjec
       repositoryRoot: workingDirectory,
       bindingCapability: {},
     }),
+    resolveTaskSelections: () => ({
+      status: "resolved" as const,
+      value: taskExecutionSelections(),
+      reason: null,
+    }),
     planObjective: () => ({
       milestoneAcceptanceCriteria: ["Result exists."],
       objectives: [
@@ -2177,6 +2311,11 @@ for (const interruption of [
         workingDirectory,
         repositoryRoot: workingDirectory,
         bindingCapability: {},
+      }),
+      resolveTaskSelections: () => ({
+        status: "resolved" as const,
+        value: taskExecutionSelections(),
+        reason: null,
       }),
       planObjective: () => ({
         milestoneAcceptanceCriteria: ["Result exists."],

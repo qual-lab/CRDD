@@ -8,6 +8,7 @@
  * @scope project、runtime、execution
  * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Coordinator Application Port→Core
  */
+import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -492,6 +493,7 @@ function fixture(
   const initialized = initializeCoordinatorSnapshot(root, "binding-a");
   assert.equal(initialized.status, "completed", initialized.reason);
   const created = createCoordinatorState({
+    taskExecutionSelections: taskExecutionSelections(),
     projectId: "project-a",
     milestoneId: "milestone-a",
     repositoryRevision: revision,

@@ -9,6 +9,7 @@
  * @scope project、runtime、objective、intake、public
  * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。 / PRL-UT-006=N/A: Task Authority縮小と結果状態の規則は外部実行境界を持たない。
  */
+import { taskExecutionSelections } from "../../fixtures/ai-selection.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -122,6 +123,7 @@ test("Objective Planは許可Path内の閉じた値だけを受理する", () =>
  */
 test("Task実行集合はOrchestratorがTask範囲へAuthority bindingを縮小する", () => {
   const created = createCoordinatorState({
+    taskExecutionSelections: taskExecutionSelections(),
     projectId: "project-a",
     milestoneId: "milestone-a",
     repositoryRevision: "a".repeat(40),

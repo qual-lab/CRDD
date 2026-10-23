@@ -9,6 +9,7 @@
  * @scope project、runtime、full、flow、bounded、integration、execution-intelligence
  * @boundary PPR-IT-001=Adjacent 1 Block: 複数Source Reader→Projector
  */
+import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
@@ -198,6 +199,11 @@ function fixture(t: test.TestContext) {
       workingDirectory: root,
       repositoryRoot: root,
       bindingCapability: {},
+    }),
+    resolveTaskSelections: () => ({
+      status: "resolved" as const,
+      value: taskExecutionSelections(),
+      reason: null,
     }),
     planObjective: () => ({
       milestoneAcceptanceCriteria: ["milestone accepted"],
@@ -395,6 +401,11 @@ test("同じWorkspaceの二Taskを順番に実行し明示品質受入へ接続�
       workingDirectory: root,
       repositoryRoot: root,
       bindingCapability: {},
+    }),
+    resolveTaskSelections: () => ({
+      status: "resolved" as const,
+      value: taskExecutionSelections(),
+      reason: null,
     }),
     planObjective: () => ({
       milestoneAcceptanceCriteria: ["both results accepted"],

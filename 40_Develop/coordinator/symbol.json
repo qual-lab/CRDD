@@ -4443,7 +4443,7 @@
     {
       "symbolId": "orchestrator.test.unit.objective-profile-transport",
       "kind": "test-suite",
-      "path": "tests/unit/objective/profile-transport.contract.test.ts",
+      "path": "tests/unit/objective/selection-transport.contract.test.ts",
       "qaIds": [
         "QA-000003"
       ],
@@ -4451,8 +4451,10 @@
         "PRL-UT-014"
       ],
       "verifies": [
-        "coordinator.source.src.composition.orchestrator.composition.root",
-        "orchestrator.source.src.public.contract.objective.request"
+        "coordinator.source.src.security.orchestrator.objective.intake",
+        "orchestrator.source.src.public.contract.objective.request",
+        "coordinator.selection.model",
+        "coordinator.selection.resolve"
       ]
     },
     {

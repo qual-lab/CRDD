@@ -7,6 +7,7 @@
  * @scope Coordinator活動Owner、実Filesystem、Git、状態保存、EI
  * @boundary PPR-IT-012=Adjacent 1 Block: 実Store Reader→活動投影。
  */
+import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -122,6 +123,7 @@ function state(root: string, revision: string) {
     "completed",
   );
   const created = createCoordinatorState({
+    taskExecutionSelections: taskExecutionSelections(),
     projectId,
     milestoneId: "milestone-a",
     repositoryRevision: revision,

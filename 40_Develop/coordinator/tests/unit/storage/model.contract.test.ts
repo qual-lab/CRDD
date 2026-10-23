@@ -7,6 +7,7 @@
  * @scope coordinator-state-model
  * @boundary PRL-UT-006=Direct Boundary: メモリ内の保存本文。
  */
+import { taskExecutionSelections } from "../../fixtures/ai-selection.ts";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
@@ -43,7 +44,7 @@ import {
   prepareCoordinatorStateResultDeliverySnapshot,
   validateCoordinatorStateTransition,
   classifyCoordinatorResourcePublication,
-  SNAPSHOT_SCHEMA_V3,
+  COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
   validCoordinatorSnapshot,
   projectCoordinatorTaskSettlement,
   decodeCoordinatorUnifiedSnapshot,
@@ -68,7 +69,7 @@ const binding = "a".repeat(64);
  */
 function emptyUnifiedSnapshot(): CoordinatorUnifiedSnapshot {
   return {
-    schema: "crdd-coordinator/current-state/v3",
+    schema: "crdd-coordinator/current-state/v4",
     revision: 1,
     previous: null,
     repositoryBinding: binding,
@@ -265,6 +266,7 @@ test("Task終端投影: 空の技術集合と明示未発行を区別する", ()
  */
 test("Task保存codec: 非空回復の値キーとexact参照を保持する", () => {
   const created = createCoordinatorState({
+    taskExecutionSelections: taskExecutionSelections(),
     projectId: "project-a",
     milestoneId: "milestone-a",
     repositoryRevision: "a".repeat(40),
@@ -298,8 +300,8 @@ test("Task保存codec: 非空回復の値キーとexact参照を保持する", (
     disposition: "required",
   };
   const snapshot = {
-    schema: SNAPSHOT_SCHEMA_V3,
-    schemaRevision: 3,
+    schema: COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
+    schemaRevision: 4,
     repositoryRootHash: binding,
     repositoryBindingId: "binding-a",
     snapshotRevision: 1,
@@ -404,6 +406,33 @@ test("Task保存codec: 非空回復の値キーとexact参照を保持する", (
     binding,
   );
   assert.ok(stateCandidate);
+  const changed = {
+    ...stateUpdate,
+    taskExecutionSelections: {
+      ...stateUpdate.taskExecutionSelections,
+      executor: {
+        ...stateUpdate.taskExecutionSelections.executor,
+        modelIdentifier: "another-model",
+      },
+    },
+  };
+  assert.equal(
+    prepareCoordinatorUnifiedTaskSnapshot(unifiedBytes, changed, 1, binding),
+    null,
+  );
+  assert.equal(
+    decodeUnified({ ...unified, schema: "crdd-coordinator/current-state/v3" }),
+    null,
+  );
+  assert.equal(
+    decodeUnified({
+      ...unified,
+      projects: storedProjects.map(
+        ({ taskExecutionSelections: _old, ...rest }) => rest,
+      ),
+    }),
+    null,
+  );
   assert.deepEqual(
     decodeCoordinatorUnifiedSnapshot(stateCandidate, binding)?.projects,
     [stateUpdate],
@@ -2791,6 +2820,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
   assert.ok(terminalOperation.outcome);
   {
     const projectFixture = createCoordinatorState({
+      taskExecutionSelections: taskExecutionSelections(),
       projectId: "project-a",
       milestoneId: "milestone-a",
       repositoryRevision: "a".repeat(40),
