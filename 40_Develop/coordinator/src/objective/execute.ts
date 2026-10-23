@@ -10,19 +10,19 @@ import { runCoordinatorOperation } from "../task/dispatch.ts";
 import type { CoordinatorExecutionDependencies } from "../task/execution-contract.ts";
 import type { CoordinatorClockIdentityPort } from "../identity/clock-and-hash.ts";
 import type { CoordinatorProcessSafetyPort } from "../process/safety-contract.ts";
-import type { CoordinatorTaskRecoveryPort } from "../task/recovery.ts";
+import type { CoordinatorTaskRecoveryPort } from "../task/types.ts";
 import {
   createCoordinatorState,
   type ProjectTaskRecoveryObligation,
   type CoordinatorState,
 } from "../state/model.ts";
 import {
-  acknowledgeProjectDockerRecoveryObligation,
   markProjectTaskRecoveryObligationRecovering,
   recordProjectTaskOwnerLossRecoveries,
   retrySettledProjectTaskRecoveries,
   settleProjectTaskRecoveryObligation,
-} from "../task/recovery-transitions.ts";
+} from "../task/recovery.ts";
+import { acknowledgeProjectDockerRecoveryObligation } from "../task/acceptance.ts";
 import { projectCoordinatorState } from "../state/projection.ts";
 import { snapshotPlainRecord } from "../input/plain-data-snapshot.ts";
 import {

@@ -2481,3 +2481,20 @@ Package Rootの公開集合とB六Fileは基準版から不変である。実行
 固定した検証入力は基準版からの`git diff --binary 9ba6a7873 -- 40_Develop 07_Quality/Registry/coordinator-task-design-traceability.json`、SHA-256は`043428e0aa394124c1d02fef8c7fd0db854a99b52f623d74cf1cde7db75eac0e`である。大量の実行logを正式Evidenceへ複製せず、再実行可能な試験と対象・結果を保持する。
 
 今回の範囲でObjective配置の移管を区切り、次は§38.15のTask・Decisionの実装へ進む。構造再設計全体・全体Checker・実境界E2Eの完了ではない。②のAI再試行、保持物の観測／操作、実Docker・認証は行っていない。
+
+### 38.20. Taskの回復遷移と結果受領の責務分離
+
+基準版`30c802b1`から、`task/recovery-transitions.ts`の回復遷移四関数を`task/recovery.ts`へ、通常結果受領とDocker回復受領の二関数を`task/acceptance.ts`へ移した。旧`task/recovery.ts`の三つの型は`task/types.ts`へ配置し、旧混在Fileを撤去した。六関数の実装本文と三型のShapeは基準版から維持し、拒否条件を持つ関数のHeaderで誤って失敗なしと説明していた箇所だけを訂正した。
+
+Rootの公開名・型／値区分、理由実値、判定・状態更新順、回復参照と保存B六Fileは不変である。Objective・Task実行・回復Adapter・試験・Checkerの公開Module集合・Symbol・設計Traceabilityを同じ実体へ追従した。純粋Sourceの全数分類は34→35、Coordinator Sourceは143→144 Fileであり、File数削減ではなく合意した責務配置への移管である。Symbolは359登録、欠測Path・重複IDは0である。新しい公開API・中継・Lock・状態は追加していない。
+
+| 確認範囲 | 結果と限界 |
+|---|---|
+| 純粋遷移と依存閉包 | Coordinatorから`node --test ./tests/unit/state/transitions.contract.test.ts ./tests/integration/task-platform-independence.contract.test.ts`を実行。最終Header訂正後も34成功、失敗・取消・skip各0、636.7309ms |
+| 静的確認 | Coordinatorの`npm run check`成功。整形・型・lint・Runtime／Task Traceabilityが通過。既存lint情報64件は維持。公開Module集合64件はChecker宣言と一致、`git diff --check`成功 |
+| 直接利用側の結合 | Coordinatorから`node --test ./tests/integration/task-execution.contract.test.ts ./tests/integration/public-owner-boundary.contract.test.ts`を通常Windows権限で実行。71成功、失敗・取消・skip各0、2,492,800.7977ms、Exit 0。結果受領・欠測／重複／不一致・再入場、直列実行・予約、回復相関・未知の引渡し、取消・排他解放、公開Rootと入口のOwner接続を確認。実AI・実Dockerは使用していない |
+| 限定独立レビュー | Source・利用側・公開契約・保存境界・登録・設計を確認。Headerの一指摘を是正後、残指摘0。確認記録も確定済み結果と試験入力時点の区別を維持する |
+
+Sourceの最終差分は`git diff --binary 30c802b1 -- 40_Develop 07_Quality/Registry/coordinator-task-design-traceability.json`、SHA-256は`69371f5c4fd48a0ac0fa7a9c6bcf1efa7cf48dd113c3f77fc0bec1a70cd4cd72`である。長い結合試験はHeader訂正前に開始したため、実装本文同一の確認と、訂正後の局所試験・静的確認・独立レビューを区別する。
+
+今回のTask回復遷移・結果受領の責務分離を限定完了とし、次はTaskの共有契約と本番組立て、Decision等の§38.15以降の移管へ進む。構造再設計全体・全体Checker・実境界E2Eの完了ではない。②のAI再試行・保持物の観測／操作、実Docker・認証は行っていない。

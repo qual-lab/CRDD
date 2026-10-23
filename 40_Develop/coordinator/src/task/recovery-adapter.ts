@@ -8,7 +8,7 @@ import type {
   CoordinatorDockerRecoveryIdentity,
   CoordinatorRecoveryTransition,
   CoordinatorTaskRecoveryPort,
-} from "./recovery.ts";
+} from "./types.ts";
 
 /**
  * task-recovery-adapterで使用するCoordinator Task 回復 Host Dependenciesの値契約を定義する。

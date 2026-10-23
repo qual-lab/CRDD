@@ -28,7 +28,7 @@ import {
   settleProjectTask,
   settleProjectTaskBeforeEffect,
 } from "./lifecycle.ts";
-import { recordProjectTaskResultAcceptances } from "./recovery-transitions.ts";
+import { recordProjectTaskResultAcceptances } from "./acceptance.ts";
 import { selectSchedulableProjectTasks } from "./scheduling.ts";
 import type { CoordinatorTaskAttemptObservation } from "./observer.ts";
 import type { CoordinatorTaskResultDelivery } from "./executor.ts";

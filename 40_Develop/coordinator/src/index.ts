@@ -121,12 +121,12 @@ export {
   type ProjectTaskState,
 } from "./state/model.ts";
 export {
-  acknowledgeProjectDockerRecoveryObligation,
   markProjectTaskRecoveryObligationRecovering,
   recordProjectTaskOwnerLossRecoveries,
   retrySettledProjectTaskRecoveries,
   settleProjectTaskRecoveryObligation,
-} from "./task/recovery-transitions.ts";
+} from "./task/recovery.ts";
+export { acknowledgeProjectDockerRecoveryObligation } from "./task/acceptance.ts";
 export {
   applyCoordinatorAcceptanceDecision,
   applyCoordinatorHumanDecision,
@@ -230,7 +230,7 @@ export type {
   CoordinatorDockerRecoveryIdentity,
   CoordinatorRecoveryTransition,
   CoordinatorTaskRecoveryPort,
-} from "./task/recovery.ts";
+} from "./task/types.ts";
 export { COORDINATOR_INTEGRATION_CONTRACT } from "./storage/result-record.ts";
 export {
   inspectCoordinatorObjectiveRequest,

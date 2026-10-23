@@ -16,14 +16,16 @@ import { types as utilTypes } from "node:util";
 import vm from "node:vm";
 import { describe, it } from "node:test";
 import { decodeProjectResultAcceptance } from "../../../src/state/model.ts";
-import { recordProjectTaskResultAcceptances } from "../../../src/task/recovery-transitions.ts";
 import {
   acknowledgeProjectDockerRecoveryObligation,
+  recordProjectTaskResultAcceptances,
+} from "../../../src/task/acceptance.ts";
+import {
   markProjectTaskRecoveryObligationRecovering,
   recordProjectTaskOwnerLossRecoveries,
   retrySettledProjectTaskRecoveries,
   settleProjectTaskRecoveryObligation,
-} from "../../../src/task/recovery-transitions.ts";
+} from "../../../src/task/recovery.ts";
 import { applyCoordinatorAcceptanceDecision } from "../../../src/decision/transitions.ts";
 import {
   createCoordinatorState,

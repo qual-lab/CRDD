@@ -12,7 +12,7 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
-Coordinator構造再設計では、部分再計画・Task再試行の統合に続き、Objective受付依存を公開操作のOwnerへ統合した。旧中継を撤去し、Objectiveは合意した五File、Coordinator Sourceは143 Fileとなった。今回の四Suite30件と静的確認が成功、限定独立レビュー残指摘0。公開Rootと保存B六Fileは不変、横断命名Suiteの別件六失敗は維持する。次はTask・Decisionの責務統合であり、構造再設計全体は未完了。[今回の移管と確認範囲](99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#3819-objective受付依存の統合結果)を参照する。
+Coordinator構造再設計では、Objective五Fileへの統合に続き、Taskの回復遷移・結果受領・共有型を合意したOwnerへ分離した。六関数の本文と三型のShape、公開Rootと保存B六Fileは不変。今回の局所34件・直接利用側の結合71件と静的確認が成功、限定独立レビュー残指摘0。Coordinator Sourceは責務分離により143→144 Fileとなった。横断命名Suiteの別件六失敗は維持する。次はTaskの共有契約・本番組立てとDecision等の移管であり、構造再設計全体は未完了。[今回の移管と確認範囲](99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#3820-taskの回復遷移と結果受領の責務分離)を参照する。
 
 Coordinator構造整理では、承認済みの本番未接続Trust評価と旧terminal codec／caller保存候補を廃止した。旧4 Source・専用試験3本、登録・設定と設計／QAを追従し、直接利用側24件と共通排他・回復・保存・履歴96件が成功、限定独立確認の残指摘0。Native共通処理・通常回復・保存統合Bを維持する。独立Trustの上流意図は代替未接続のまま残し、廃止を品質成立へ換算しない。通常回帰全体・構造再設計全体は未完了。[対象と確認範囲](99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#3812-限定廃止の確認結果--2026-10-23)を参照する。
 

@@ -3930,7 +3930,18 @@
     {
       "symbolId": "orchestrator.task-recovery-transitions",
       "kind": "file",
-      "path": "src/task/recovery-transitions.ts",
+      "path": "src/task/recovery.ts",
+      "archIds": [
+        "ARCH-000004"
+      ],
+      "implements": [
+        "orchestrator.recovery-obligation"
+      ]
+    },
+    {
+      "symbolId": "coordinator.task.acceptance",
+      "kind": "file",
+      "path": "src/task/acceptance.ts",
       "archIds": [
         "ARCH-000004"
       ],
@@ -4180,6 +4191,7 @@
         "orchestrator.task-scheduling",
         "orchestrator.task-state-lifecycle",
         "orchestrator.task-recovery-transitions",
+        "coordinator.task.acceptance",
         "orchestrator.objective-replan-transitions",
         "orchestrator.decision-transitions"
       ]
@@ -4443,7 +4455,7 @@
     {
       "symbolId": "orchestrator.source.src.ports.task.recovery.port",
       "kind": "file",
-      "path": "src/task/recovery.ts",
+      "path": "src/task/types.ts",
       "archIds": [
         "ARCH-000004"
       ]
