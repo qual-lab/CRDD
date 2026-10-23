@@ -8,7 +8,7 @@
 
 `RCM-IT-005`へ新しい`ai-selection-store`の合成Repository試験を接続する。読取り非作成、閉形式・UTF-8・全体1MiB、Link／hardlink／読取り中の置換拒否、内容HashによるCAS、通常保存と読戻し、公開前後の認可失効、短命Fileと既存排他の回収不明を分けて観測する。保存後認可失効では本文を返さず、既存排他の回復参照は同じまま保持する。通常Fileのfsync・rename・読戻しを超える電源断耐久性は主張しない。
 
-設定StoreはTask／Grant／回復の固定選定とWorkbenchのRepository設定画面へ接続した。正式API／CLI全体・旧Profile全面撤去・新構成全体回帰は後続として残す。旧Profile試験の成功を新方式の保存や実行の成功へ換算しない。[実施段階と結果](../../../99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md)へ接続し、技術Catalogの追加を新Model採用や実Provider確認と扱わない。
+設定StoreはTask／Grant／回復の固定選定とWorkbenchのRepository設定画面へ接続した。旧Profile本体の撤去・試験移管を現在候補として照合し、正式API／CLI全体・新構成全体回帰は後続として残す。旧Profile試験の成功を新方式の保存や実行の成功へ換算しない。[実施段階と結果](../../../99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md)へ接続し、技術Catalogの追加を新Model採用や実Provider確認と扱わない。
 
 成果物種別: Quality定義
 Quality ID: `QA-000001`
@@ -125,7 +125,7 @@ Browserは五役割の既定値・作業分類・分類別上書きをRepository
 
 Browserは二重submitのPOST一回・自動再送0・fresh GET、同じ対象の全体更新中のdraftと保留要求の維持、対象変更／unmountの取消と遅延応答非採用を確認する。旧Host設定画面とMCP設定CRUDは提供しない。実AI・実認証・人間確認と本体設定移行は別の未完了Gateとして残し、局所確認を全体完成へ換算しない。AM現在認可はQA-000007の`RFD-IT-013`へ接続する。
 
-[AI Adapter](../../../06_Architecture/Details/ai-adapter/01_Architecture.md)と[MCP公開操作](../../../06_Architecture/Details/mcp-server/01_Architecture.md)から、次の条件を既存義務へ導く。新構成の局所Source・実HTTP／実Catalog反証は候補接続済みであり、旧経路のPassを継承しない。正式結果・本番Launcher／Workbench・全Consumer閉包は未成立である。
+[AI Adapter](../../../06_Architecture/Details/ai-adapter/01_Architecture.md)と[MCP公開操作](../../../06_Architecture/Details/mcp-server/01_Architecture.md)から、次の条件を既存義務へ導く。新構成の局所Source・実HTTP／実Catalog反証は候補接続済みであり、旧経路のPassを継承しない。Workbenchの新設定管理とMCPの旧四Tool拒否は現在の限定回帰へ接続済みだが、正式API／CLI全体と全Consumer閉包の最終評価は未完了である。
 
 | Local Item | 入力・反証 | 観測・終了後条件 |
 |---|---|---|
@@ -173,9 +173,9 @@ RCM-IT-010の旧CROS汎用Tool Registry専用試験は、本番Consumer未接続
 
 ## 呼出し元別助言経路の解体に伴う検証
 
-`RCM-IT-005`の現行入口はCoordinator公開`runRepositoryAdvice`とする。実Domain Readerと自己生成Repositoryを接続し、用途固定Runtime構築・Host失敗分類を有限代役にして、正常本文、65,536／65,537 bytes、欠測、Link、読取り前後・Catalog後の取消を確認する。拒否・取消ではRuntime代役呼出し0、正常では一回かつ計画のRepository／Workspace Mountなしを観測する。Runtime応答不明と清掃不明は成功へ丸めず、cleanup未確認と合成分類された元Host参照の投影を確認する。応答未観測からcleanup済みを推定しない。Operation／Home／一回Packet／Controller／Host終端の実接続は既存別Suiteで評価し、この代役Caseの成立へ含めない。既存Catalog採用・不連続版・破損版拒否は維持する。
+`RCM-IT-005`の現行入口はCoordinator公開`runRepositoryAdvice`とする。実Domain Readerと自己生成Repositoryを接続し、用途固定Runtime構築・Host失敗分類を有限代役にして、正常本文、65,536／65,537 bytes、欠測、Link、読取り前後・Catalog後の取消を確認する。拒否・取消ではRuntime代役呼出し0、正常では一回かつ計画のRepository／Workspace Mountなしを観測する。Runtime応答不明と清掃不明は成功へ丸めず、cleanup未確認と合成分類された元Host参照の投影を確認する。応答未観測からcleanup済みを推定しない。Operation／Home／一回Packet／Controller／Host終端の実接続は既存別Suiteで評価し、この代役Caseの成立へ含めない。旧Profile Storeの採用・Revision列は退役し、Repository設定の競合・破損・観測不能・公開後不明の拒否は現行設定Storeで確認する。技術Catalogの同梱JSON欠落・構文不正・Schema不正ではModule起動停止を維持する。
 
-旧`workbench-ai/`の試験は`execution/`へ追従し、Schema・Hash入力・Profile／通信方針固定・一回消費・取消join・結果参照検査を維持する。内部Symbolの呼出し元名除去は通信上のcontract／revision／reason／modeを変更する根拠にしない。実Provider・実Dockerの再試行と②保持物の操作はこの整理の検証範囲へ含めない。
+旧`workbench-ai/`の試験は`execution/`へ追従し、Schema・Hash入力・完全選定／通信方針固定・一回消費・取消join・結果参照検査を維持する。内部Symbolの呼出し元名除去は通信上のcontract／revision／reason／modeを変更する根拠にしない。実Provider・実Dockerの再試行と②保持物の操作はこの整理の検証範囲へ含めない。
 
 ## Checklist
 

@@ -327,3 +327,46 @@ export function prepareProviderEnvironment(
     });
   return Object.freeze({ status: "ready", entries });
 }
+
+/**
+ * exact Model IDが固定CLIへ搬送できる構文か確認する。
+ *
+ * @responsibility 小文字識別子と128文字以内の既存構文を変更せず検証する。
+ * @trace ARCH-000010
+ * @input model: 解決済みModel ID。
+ * @returns validの入力文字列又はblockedの固定拒否理由。
+ * @precondition 入力は文字列であり、Catalog対応の確認は呼出し側が所有する。
+ * @postcondition trim、大小文字変換および別Modelへの置換を行わない。
+ * @effect N/A: 文字列検査だけを行う。
+ * @failure 不正文字、空値または上限超過をblockedで拒否する。
+ * @invariant 構文受理をModel提供・実行権限の成立としない。
+ * @boundary Model選定とProvider CLI計画の間。
+ * @security 空白、制御文字およびCLI引数区切りを受理しない。
+ * @concurrency N/A: 共有状態を持たない同期検査である。
+ */
+export function validateProviderModelId(
+  model: string,
+): ProviderModelIdValidationResult {
+  return /^[a-z0-9][a-z0-9._-]{0,127}$/.test(model)
+    ? Object.freeze({ status: "valid", value: model, error: null })
+    : Object.freeze({
+        status: "blocked",
+        value: null,
+        error: "provider_model_id_invalid",
+      });
+}
+
+/**
+ * Model ID構文の確認値と拒否理由を表す。
+ * @responsibility 無変換の構文検査を登録・提供・認証の確認と区別する。
+ * @trace ARCH-000010
+ * @shape validは入力文字列、blockedは値欠測と固定理由を持つ直和型。
+ * @invariant 大小文字補正、空白除去、別Modelへの置換をしない。
+ * @boundary Model構文検査とProvider計画の値契約。
+ * @security Path、秘密値、任意引数、Authorityを発行しない。
+ * @compatibility 旧構文の受理集合を維持し、内部結果形だけを変更する。
+ */
+export type ProviderModelIdValidationResult = Readonly<
+  | { status: "valid"; value: string; error: null }
+  | { status: "blocked"; value: null; error: "provider_model_id_invalid" }
+>;

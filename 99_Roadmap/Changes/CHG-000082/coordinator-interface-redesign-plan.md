@@ -403,3 +403,20 @@ Workbenchは旧Repository／Host Profile管理を撤去し、選択Repositoryの
 先行通常回帰79件の成功後、是正を含む通常回帰80件も成功（249,412.0927ms、失敗・取消・skip 0）。実Browserの新設定操作・未設定非補完、通常接続、Git操作の各限定Caseは成功し、公開CLI8件と15画面Visualの一件も成功した。Git Caseの初回は試験の10秒窓で実作成要求が未着だったが、別の有界測定で正式HTTP200と作成11,470ms／終了12,633msを確認した。製品のTimeout・拒否・cleanup条件は変更せず、該当試験の観測窓だけ30秒にする。最初のBrowser全体不合格を全体Passへ読み替えない。
 
 固定System集合は24件成功（375,797.3295ms、失敗・取消・skip 0）。実Browserの11場面、公開CLI、15 Logical Screenの表示を確認し、Browser終了最大1,614ms・Process観測最大737ms・子孫終了fallback 0を観測した。Source・文書／Header／登録の限定再レビューは残指摘0。先行変更の試験補助Header不足とQA配列順・退役したMCP責務の登録を本文・判定条件を変えず追従し、Test SourceのQuality Local Item全数Gateも成功した。これはWorkbench切替単位の完了であり、旧Profile本体・正式API／CLI・全体QAの完了ではない。実AI・実認証・人間確認、本体設定移行と保持②の観測・操作は行わない。
+
+### 旧Profile本体の撤去単位
+
+着手前の本番Consumer照合と独立読取り確認で、旧Profile CRUD・Host／Repository Catalog Store・Family／Tier候補探索は退役可能と確認した。実物の旧設定、実行記録と保持②は変更しない。移行はフロントAIが行い、製品は新形式だけを扱う。
+
+| 旧責務 | 新Owner／維持する保証 | 処置と確認 |
+|---|---|---|
+| Profileの登録・選択・既定fallback | AI Adapterの技術Catalog、CoordinatorのRepository別選定 | 旧CRUD／Store／既定Catalogを撤去。新Catalogの閉形式・不変値、設定CAS、優先順位と旧値拒否を検証 |
+| Model ID構文 | 既存Provider validation | 関数本文と結果型を移管し、128文字境界・無変換・不正引数拒否を保持 |
+| Family／Tier／経路候補探索 | 受付時に固定する完全選定、既存Authority／preflight | 非接続の候補探索を撤去。元Operation・Role・Attempt・選定Hash、一回消費、失効、独立Reviewer、利用可否を現役契約へ対応付ける |
+| Profile表示・管理のConsumer試験 | Workbench選択Repository、MCP旧入口拒否、Coordinator選定→計画 | 旧出力の再現試験を退役し、現在のCapability・公開API不存在を検証。旧SuiteとSourceのRelationを放置しない |
+
+認証・Subscription・Home・外部同意・Network・Docker isolation profileは別責務であり変更しない。技術対応を現在利用可能や実行Authorityへ昇格しない。新しい費用制御・自動Fallback・保存・排他・回復機構は追加しない。Source・利用側・登録・現行設計を一斉追従し、局所回帰・独立レビュー後に固定する。現在、追加の人間判断は必要ない。
+
+旧Profile本体・Store・既定JSON・未接続のFamily／Tier候補探索を撤去し、Model構文検査は既存Provider validationへ本文と型を移管した。退役三Suiteを登録から除き、移管した現役Suiteは安定IDと新Pathを接続した。AI Adapter全22件成功（3,191.7199ms）と静的検査、Coordinatorの固定選定・Grant・可用性・搬送32件、直接結合18件、追加Codex／助言13件が成功した。Workbench直接利用側21件も通常環境で成功（37,600.6773ms）。初回の制限環境ではlocalhost EACCES由来の三件不合格を保持し、Oracleを変えず再確認した。Header全数GateとCatalog383件の値検査は成功。Source・文書／登録の限定独立再確認は、Header・表記追従後の全重大度残指摘0。死んだ未計測カウンタの0 assertを撤去し、実Context観測・Runtime一回／拒否0・元回復参照の確認を維持した。
+
+この単位で設定保存・現在選定・Provider技術対応のOwnerを分離した。通常実行・現行設定・保持②を実操作していない。正式API／CLIの公開縮小・本番Consumer一斉切替・新構成固定全体回帰と最後の実AI／認証／人間確認は別途残る。

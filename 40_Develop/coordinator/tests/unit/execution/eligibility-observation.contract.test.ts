@@ -12,7 +12,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { evaluateProviderAvailability } from "../../../../ai-adapter/src/index.ts";
 
-import { selectDelegationRouteCandidate } from "../../../src/execution/preparation.ts";
 import {
   createIsolatedProviderEligibilityRuntimeCandidate,
   describeProviderEligibilityRuntimeContract,
@@ -46,43 +45,6 @@ function createObservation(overrides: Record<string, unknown> = {}) {
     officialDistribution: "confirmed",
     policy: "confirmed",
     ...overrides,
-  };
-}
-
-/**
- * createRequestのTest準備責務を実行する。
- *
- * @responsibility createRequestがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
- * @trace AIT-UT-005
- * @precondition 呼出し元Test Caseが必要な入力を渡す。
- * @stimulus createRequestを呼び出す。
- * @observation 返却値、生成fixtureまたは観測値を取得する。
- * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
- * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary AIT-UT-005=Direct Boundary: coordinator Test Source→対象契約
- */
-function createRequest() {
-  return {
-    frontProvider: "codex",
-    delegationNeed: "beneficial",
-    delegationReason: "specialized_executor_benefit",
-    requestedExecutorProvider: "auto",
-    requestedProfileId: null,
-    subjectProvider: null,
-    requiresIndependentProvider: false,
-    role: "executor",
-    workClass: "bounded_implementation",
-    planState: "complete",
-    risk: "low",
-    difficulty: "low",
-    decisionImpact: "limited",
-    isLocalCandidateOnly: true,
-    hasUnresolvedDirection: false,
-    requiresCrossContextAlignment: false,
-    operationId: "OP-123456",
-    parentOperationId: null,
-    ancestorOperationIds: [],
-    delegationDepth: 0,
   };
 }
 
@@ -209,11 +171,14 @@ test("unknownを同一Providerへの推測fallback根拠にしない", () => {
     providerEligibilityResults[1]?.reason,
     "observation_unavailable",
   );
-  const selected = selectDelegationRouteCandidate(createRequest(), {
-    providerEligibility: providerEligibilityResults,
-  });
-  assert.equal(selected.status, "blocked");
-  assert.equal(selected.reason, "delegation_route_executor_unavailable");
+  assert.equal(providerEligibilityResults[1]?.status, "ineligible");
+  assert.equal(
+    evaluateProviderAvailability(
+      "claude",
+      createObservation({ subscriptionQuota: "unknown" }),
+    ).status,
+    "unknown",
+  );
 });
 
 /**
@@ -241,11 +206,16 @@ test("認証preflightとquotaのbounded request確認を区別する", () => {
     status: "eligible",
     reason: "runtime_preflight_required",
   });
-  const selected = selectDelegationRouteCandidate(createRequest(), {
-    providerEligibility: runtime.observe(),
-  });
-  assert.equal(selected.status, "candidate");
-  assert.equal(selected.executorProvider, "claude");
+  assert.equal(
+    evaluateProviderAvailability(
+      "codex",
+      createObservation({
+        subscriptionAuth: "runtime_preflight_required",
+        subscriptionQuota: "bounded_request_check",
+      }),
+    ).status,
+    "preflight_required",
+  );
 });
 
 /**

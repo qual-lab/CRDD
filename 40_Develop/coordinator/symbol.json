@@ -582,7 +582,7 @@
     {
       "symbolId": "coordinator.test.integration.workbench-ai-profile-catalog-flow",
       "kind": "test-suite",
-      "path": "tests/integration/advice-profile-catalog-flow.integration.test.ts",
+      "path": "tests/integration/advice-selection-flow.integration.test.ts",
       "qaIds": [
         "QA-000001"
       ],
@@ -626,8 +626,9 @@
     {
       "symbolId": "coordinator.provider-model-selection-runtime",
       "kind": "file",
-      "path": "src/execution/preparation.ts",
+      "path": "src/selection/resolve.ts",
       "archIds": [
+        "ARCH-000004",
         "ARCH-000010"
       ],
       "implements": [
@@ -809,7 +810,6 @@
         "coordinator.provider-model-selection-runtime",
         "coordinator.source.src.core.development.execution.timing",
         "coordinator.source.src.core.runtime.process.safety.state",
-        "coordinator.source.src.security.delegation.route.selection",
         "coordinator.source.src.security.execution.environment",
         "coordinator.source.src.security.local.personal.authority.runtime",
         "coordinator.source.src.security.repository.operation.runtime",
@@ -1834,20 +1834,6 @@
       ]
     },
     {
-      "symbolId": "coordinator.test.unit.delegation-route-selection",
-      "kind": "test-suite",
-      "path": "tests/unit/delegation-route-selection.contract.test.ts",
-      "qaIds": [
-        "QA-000003"
-      ],
-      "localTestIds": [
-        "PRL-UT-014"
-      ],
-      "verifies": [
-        "coordinator.source.src.security.delegation.route.selection"
-      ]
-    },
-    {
       "symbolId": "coordinator.test.unit.delegation-selection-grant-runtime",
       "kind": "test-suite",
       "path": "tests/unit/execution/delegation-selection-grant.contract.test.ts",
@@ -2154,7 +2140,6 @@
         "AIT-UT-005"
       ],
       "verifies": [
-        "coordinator.source.src.security.delegation.route.selection",
         "coordinator.source.src.security.provider.eligibility.runtime",
         "ai-adapter.profile.eligibility"
       ]
@@ -2268,7 +2253,7 @@
     {
       "symbolId": "coordinator.test.unit.provider-model-profile-runtime",
       "kind": "test-suite",
-      "path": "tests/unit/provider-model-profile-runtime.contract.test.ts",
+      "path": "tests/unit/fixed-selection-runtime.contract.test.ts",
       "qaIds": [
         "QA-000003"
       ],
@@ -2276,22 +2261,7 @@
         "PRL-UT-014"
       ],
       "verifies": [
-        "coordinator.source.src.security.provider.model.profile.runtime",
         "coordinator.source.src.security.delegation.selection.grant.runtime"
-      ]
-    },
-    {
-      "symbolId": "coordinator.test.unit.provider-model-selection-runtime",
-      "kind": "test-suite",
-      "path": "tests/unit/execution/model-selection.contract.test.ts",
-      "qaIds": [
-        "QA-000003"
-      ],
-      "localTestIds": [
-        "PRL-UT-014"
-      ],
-      "verifies": [
-        "coordinator.provider-model-selection-runtime"
       ]
     },
     {
@@ -2322,8 +2292,7 @@
         "ERB-UT-023"
       ],
       "verifies": [
-        "coordinator.source.src.security.workbench.ai.advice.execution.plan",
-        "ai-adapter.profile.profile-execution"
+        "coordinator.source.src.security.workbench.ai.advice.execution.plan"
       ]
     },
     {
@@ -2423,7 +2392,7 @@
     {
       "symbolId": "coordinator.test.unit.workbench-ai-provider-adapter",
       "kind": "test-suite",
-      "path": "tests/unit/execution/advice-profile.contract.test.ts",
+      "path": "tests/unit/execution/advice-selection.contract.test.ts",
       "qaIds": [
         "QA-000006"
       ],
@@ -2432,7 +2401,6 @@
       ],
       "verifies": [
         "coordinator.source.src.security.workbench.ai.provider.adapter",
-        "ai-adapter.profile.profile-execution",
         "ai-adapter.profile.provider-environment"
       ]
     },
@@ -2745,14 +2713,6 @@
       "path": "src/execution/process-safety-state.ts",
       "archIds": [
         "ARCH-000008"
-      ]
-    },
-    {
-      "symbolId": "coordinator.source.src.security.delegation.route.selection",
-      "kind": "file",
-      "path": "src/execution/preparation.ts",
-      "archIds": [
-        "ARCH-000010"
       ]
     },
     {
@@ -3379,7 +3339,7 @@
     {
       "symbolId": "coordinator.test.unit.orchestrator-profile-transport",
       "kind": "test-suite",
-      "path": "tests/unit/task-profile-transport.contract.test.ts",
+      "path": "tests/unit/task-selection-transport.contract.test.ts",
       "qaIds": [
         "QA-000003"
       ],

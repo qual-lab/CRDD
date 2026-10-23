@@ -5,7 +5,7 @@
  * @responsibility 新形式の設定保存・選定と、Context読取り・一回配送・取消・失敗を接続する。
  * @trace RCM-IT-005
  * @level IT
- * @scope ai-profile-catalog、repository-store、workbench-ai-advice
+ * @scope Repository別選定、Context読取り、助言の一回実行境界。
  * @boundary RCM-IT-005=Direct Boundary: Repository Catalog Store→Workbench AI Application→Advice Dispatch
  */
 import assert from "node:assert/strict";
@@ -38,9 +38,9 @@ const canonicalRepositoryRoot = path.resolve(
  * 公開助言入口のReader・取消・元回復参照を実接続で検査する。
  * @responsibility Root APIと実Context観測を接続し、用途固定Runtime構築・Host失敗分類を有限代役へ置換する。
  * @trace RCM-IT-005
- * @precondition 自己生成Git Repositoryと合成Context、固定Profileがある。
+ * @precondition 自己生成Git Repository、合成ContextとRepository設定に基づく固定選定がある。
  * @stimulus 正常、欠測、Link、容量境界、取消、Runtime不明を新Processで実行する。
- * @observation 公開結果、Reader／Catalog／Runtime代役の呼出し数と計画、合成Host参照の投影を取得する。
+ * @observation 公開結果、Context Reader／Runtime代役の呼出し数と計画、合成Host参照の投影を取得する。
  * @oracle 正常だけ一回実行し、拒否・取消は送信0。不明はcleanup未確認と元参照を保持する。
  * @cleanup 自己生成Repositoryを既存のtests Root内だけで回収する。
  * @boundary RCM-IT-005=Direct Boundary: Package Root→実Domain Reader／用途固定Runtime・Host分類代役。Operation／Home／Packet／Controllerの終端は既存別Suiteで確認する。
@@ -84,7 +84,7 @@ fs.writeFileSync(target, scenario === "limit" ? "x".repeat(65536) : scenario ===
 if (scenario === "missing") fs.unlinkSync(target);
 if (scenario === "link") { fs.renameSync(target, path.join(fixture, "context.md")); fs.symlinkSync(path.join(fixture,"context.md"), target, "file"); }
 const controller = new AbortController();
-let reads = 0, catalogs = 0, calls = 0;
+let reads = 0, calls = 0;
 const domainUrl = ${JSON.stringify(moduleUrl("40_Develop/domain-model/src/index.ts"))};
 const domain = await import(domainUrl);
 mock.module(domainUrl, { namedExports: { ...domain, createFilesystemRepositoryObservationPort: (...args) => {
@@ -120,8 +120,7 @@ const response=await runRepositoryAdvice(verified.capability,{mode:"read_only_ad
 const success=scenario === "normal" || scenario === "limit";
 assert.equal(response.result.status,success?"completed":scenario === "cleanup_unknown" || scenario === "runtime_throw" ? "unknown":"blocked");
 assert.equal(calls,success || scenario === "cleanup_unknown" || scenario === "runtime_throw" ? 1:0);
-if(scenario === "cancel_before"){assert.equal(reads,0);assert.equal(catalogs,0)}
-if(scenario === "cancel_after_read")assert.equal(catalogs,0);
+if(scenario === "cancel_before")assert.equal(reads,0);
 assert.equal(response.cleanupConfirmed,scenario !== "cleanup_unknown" && scenario !== "runtime_throw");
 assert.equal(response.hostRecoveryId,scenario === "cleanup_unknown"?host:null);
 assert.equal(Object.hasOwn(response,"rawOutput"),false);

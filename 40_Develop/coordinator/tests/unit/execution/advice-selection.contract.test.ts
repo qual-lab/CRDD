@@ -2,7 +2,7 @@
  * Workbench AI Provider Adapterの固定選択契約を検証する。
  *
  * @packageDocumentation
- * @responsibility exact Profile伝播、Provider分岐、Effect前拒否およびfallback禁止を検証する。
+ * @responsibility exact 選定伝播、Provider分岐、Effect前拒否およびfallback禁止を検証する。
  * @trace ERB-UT-023
  * @level UT
  * @scope coordinator、contract、node_process
@@ -15,25 +15,13 @@ import { executionSelection } from "../../fixtures/ai-selection.ts";
 import { fixtureNetworkPolicy } from "../../fixtures/network-policy.ts";
 import test from "node:test";
 import {
-  providerProfileMatchesExecutionIdentity,
-  providerProfileSupportsExecution,
   validateProviderModelId,
   prepareProviderEnvironment,
 } from "../../../../ai-adapter/src/index.ts";
-import type { ResolvedAiProfileIdentity } from "../../../../ai-adapter/src/index.ts";
 
-import {
-  defaultAiProfileCatalog,
-  resolveAiProfileById,
-} from "../../../../ai-adapter/src/index.ts";
 import { prepareAdviceTask } from "../../../src/execution/preparation.ts";
 import { createProviderAdviceAdapter } from "../../../src/execution/advice.ts";
 
-const profile = resolveAiProfileById(
-  defaultAiProfileCatalog,
-  "PROFILE-100001",
-).value;
-if (profile === null) throw new Error("test_profile_required");
 const selection = executionSelection("advice");
 const prepared = prepareAdviceTask({
   executionSelection: selection,
@@ -51,115 +39,18 @@ if (prepared.status !== "prepared" || prepared.taskPacket === null)
   throw new Error("test_task_packet_required");
 
 /**
- * 移管後のProfile検査が両Providerの正常値と単項目反例を保持する。
+ * exact Codex 選定を変更せず一つのExecutorへ渡すを検証する。
  *
- * @responsibility Provider／Offering、Role、Model、推論強度とexact Identityの検査を独立に反証する。
- * @trace ERB-UT-023
- * @precondition 既定CatalogのCodexとClaude coordinator Profileを解決する。
- * @stimulus 正常Profileと一項目だけが異なる候補をAI Adapterへ渡す。
- * @observation 純粋な二検査の真偽値と入力の不変性を取得する。
- * @oracle 正常値だけを受理し、各不一致を拒否して入力を変更しない。
- * @cleanup N/A: Processや外部資源を生成しない。
- * @boundary ERB-UT-023=Direct Boundary: Coordinator Consumer→AI Adapter Profile照合
- */
-test("Profile照合の移管は両Providerの正常値と全五項目反例を保持する", () => {
-  for (const profileId of ["PROFILE-100001", "PROFILE-200001"]) {
-    const resolved = resolveAiProfileById(
-      defaultAiProfileCatalog,
-      profileId,
-    ).value;
-    assert.notEqual(resolved, null);
-    const candidate = resolved as ResolvedAiProfileIdentity;
-    const identity = Object.freeze({
-      profileId: candidate.profileId,
-      provider: candidate.provider,
-      exactModelId: candidate.exactModelId,
-      reasoningEffort: candidate.defaultReasoningEffort,
-      offering: candidate.offering,
-    });
-    assert.equal(
-      providerProfileSupportsExecution(candidate, "coordinator"),
-      true,
-    );
-    assert.equal(
-      providerProfileMatchesExecutionIdentity(candidate, identity),
-      true,
-    );
-    for (const mutation of [
-      { selectionRoles: [] },
-      { exactModelId: "" },
-      { allowedReasoningEfforts: [] },
-      {
-        offering:
-          candidate.provider === "codex"
-            ? "claude_max"
-            : "chatgpt_subscription_oauth",
-      },
-    ]) {
-      assert.equal(
-        providerProfileSupportsExecution(
-          Object.freeze({
-            ...candidate,
-            ...mutation,
-          }) as ResolvedAiProfileIdentity,
-          "coordinator",
-        ),
-        false,
-      );
-    }
-    for (const mutation of [
-      { profileId: "PROFILE-999999" },
-      {
-        provider:
-          candidate.provider === "codex"
-            ? ("claude" as const)
-            : ("codex" as const),
-      },
-      { exactModelId: "different-model" },
-      {
-        reasoningEffort:
-          "different-effort" as typeof candidate.defaultReasoningEffort,
-      },
-      {
-        offering:
-          candidate.provider === "codex"
-            ? ("claude_max" as const)
-            : ("chatgpt_subscription_oauth" as const),
-      },
-    ]) {
-      assert.equal(
-        providerProfileMatchesExecutionIdentity(candidate, {
-          ...identity,
-          ...mutation,
-        }),
-        false,
-      );
-    }
-    assert.equal(
-      providerProfileMatchesExecutionIdentity(
-        { ...candidate, allowedReasoningEfforts: [] },
-        identity,
-      ),
-      false,
-    );
-    assert.equal(candidate.profileId, profileId);
-    assert.ok(Object.isFrozen(candidate));
-  }
-});
-
-/**
- * exact Codex Profileを変更せず一つのExecutorへ渡すを検証する。
- *
- * @responsibility exact Codex Profileを変更せず一つのExecutorへ渡すを検証するの検証責務を所有する。
+ * @responsibility exact Codex 選定を変更せず一つのExecutorへ渡すを検証するの検証責務を所有する。
  * @trace ERB-UT-023
  * @precondition 対象契約を再現できる固定入力と依存を用意する。
- * @stimulus exact Codex Profileを変更せず一つのExecutorへ渡すの対象操作を実行する。
+ * @stimulus exact Codex 選定を変更せず一つのExecutorへ渡すの対象操作を実行する。
  * @observation 返却値、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionがSummaryの期待条件を満たす。
  * @cleanup N/A: Process外資源を生成しない局所検証である。
  * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
  */
-test("exact Codex Profileを変更せず一つのExecutorへ渡す", async () => {
+test("exact Codex 選定を変更せず一つのExecutorへ渡す", async () => {
   let codexInput: unknown = null;
   let claudeCalls = 0;
   const adapter = createProviderAdviceAdapter(async (plan) => {
@@ -201,7 +92,7 @@ test("exact Codex Profileを変更せず一つのExecutorへ渡す", async () =>
   });
   const result = await adapter(
     Object.freeze({
-      networkPolicy: fixtureNetworkPolicy(profile.provider),
+      networkPolicy: fixtureNetworkPolicy(selection.provider),
       taskPacket: prepared.taskPacket,
       executionSelection: selection,
     }),
@@ -217,14 +108,14 @@ test("exact Codex Profileを変更せず一つのExecutorへ渡す", async () =>
     contract: "crdd-coordinator/workbench-ai-advice-execution-plan",
     contractRevision: 2,
     mode: "workbench_advice",
-    provider: profile.provider,
+    provider: selection.provider,
     providerPrompt: prepared.taskPacket.providerPrompt,
     taskHash: prepared.taskPacket.taskHash,
     projectionHash: prepared.taskPacket.projectionHash,
     executionSelection: selection,
-    exactModelId: profile.exactModelId,
-    reasoningEffort: profile.defaultReasoningEffort,
-    offering: profile.offering,
+    exactModelId: selection.modelIdentifier,
+    reasoningEffort: selection.reasoningEffort,
+    offering: "chatgpt_subscription_oauth",
     promptTransport: "stdin",
     repositoryMounted: false,
     workspaceMounted: false,
@@ -249,8 +140,8 @@ test("exact Codex Profileを変更せず一つのExecutorへ渡す", async () =>
     },
     {
       provider: "codex",
-      modelIdentifier: profile.exactModelId,
-      reasoningEffort: profile.defaultReasoningEffort,
+      modelIdentifier: selection.modelIdentifier,
+      reasoningEffort: selection.reasoningEffort,
       repositoryMounted: false,
       workspaceMountRequired: false,
       toolsAllowed: false,
@@ -260,18 +151,18 @@ test("exact Codex Profileを変更せず一つのExecutorへ渡す", async () =>
 });
 
 /**
- * Profile契約不整合を全Executor Effect前に拒否するを検証する。
+ * 選定契約不整合を全Executor Effect前に拒否するを検証する。
  *
- * @responsibility Profile契約不整合を全Executor Effect前に拒否するを検証するの検証責務を所有する。
+ * @responsibility 選定契約不整合を全Executor Effect前に拒否するを検証するの検証責務を所有する。
  * @trace ERB-UT-023
  * @precondition 対象契約を再現できる固定入力と依存を用意する。
- * @stimulus Profile契約不整合を全Executor Effect前に拒否するの対象操作を実行する。
+ * @stimulus 選定契約不整合を全Executor Effect前に拒否するの対象操作を実行する。
  * @observation 返却値、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionがSummaryの期待条件を満たす。
  * @cleanup N/A: Process外資源を生成しない局所検証である。
  * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
  */
-test("Profile契約不整合を全Executor Effect前に拒否する", async () => {
+test("選定契約不整合を全Executor Effect前に拒否する", async () => {
   let calls = 0;
   const adapter = createProviderAdviceAdapter(async (plan) => {
     const executors: Record<
@@ -306,7 +197,7 @@ test("Profile契約不整合を全Executor Effect前に拒否する", async () =
   });
   const result = await adapter(
     Object.freeze({
-      networkPolicy: fixtureNetworkPolicy(profile.provider),
+      networkPolicy: fixtureNetworkPolicy(selection.provider),
       taskPacket: prepared.taskPacket,
       executionSelection: Object.freeze({
         ...selection,
@@ -322,18 +213,18 @@ test("Profile契約不整合を全Executor Effect前に拒否する", async () =
 });
 
 /**
- * TaskのProfile不一致はCoordinatorで停止する。
+ * Taskの選定不一致はCoordinatorで停止する。
  *
- * @responsibility Profile検査の移管後もTask対応をCoordinatorが所有することを確認する。
+ * @responsibility 選定検査の移管後もTask対応をCoordinatorが所有することを確認する。
  * @trace ERB-UT-023
- * @precondition 正常Profileと異なるProfile IDのTaskを用意する。
+ * @precondition 正常選定と異なる選定 IDのTaskを用意する。
  * @stimulus Provider Adapterへ不一致Taskを渡す。
  * @observation 公開拒否結果と両Executorの呼出し数を取得する。
- * @oracle Profile検査が正常でもTask不一致を拒否し、Executorを呼ばない。
+ * @oracle 選定検査が正常でもTask不一致を拒否し、Executorを呼ばない。
  * @cleanup N/A: 外部資源を生成しない。
  * @boundary ERB-UT-023=Direct Boundary: Task Identity→Coordinator Provider Adapter
  */
-test("Task Profile不一致はAI Adapter移管後もExecutor Effect前に拒否する", async () => {
+test("Task 選定不一致はAI Adapter移管後もExecutor Effect前に拒否する", async () => {
   let calls = 0;
   const adapter = createProviderAdviceAdapter(async (plan) => {
     const executors: Record<
@@ -368,7 +259,7 @@ test("Task Profile不一致はAI Adapter移管後もExecutor Effect前に拒否�
   });
   const result = await adapter(
     {
-      networkPolicy: fixtureNetworkPolicy(profile.provider),
+      networkPolicy: fixtureNetworkPolicy(selection.provider),
       taskPacket: {
         ...prepared.taskPacket,
         executionSelection: { ...selection, configIdentity: "f".repeat(64) },

@@ -1122,7 +1122,7 @@ export async function runProjectCommand(args: readonly string[]) {
 
 /**
  * 通常Task CLIを共通の単発Ownerと上位の対象解決へ接続する。
- * @responsibility 明示Workspace、既存Profile、取消joinと結果公開。
+ * @responsibility 明示Workspace、Repository別の固定選定、取消joinと結果公開。
  * @trace ARCH-000004 ARCH-000012
  * @input --request-stdin --jsonと共通SingleTaskCommand。
  * @returns 終端を一回出力する。

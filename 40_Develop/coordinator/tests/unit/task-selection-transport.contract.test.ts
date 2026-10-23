@@ -35,12 +35,12 @@ const objective = Object.freeze({
 /**
  * 明示固定選定の全入力組合せをTaskの閉じた検査へ接続する。
  *
- * @responsibility 合成Task要求を実Consumerが正規化し固定選定・Provider・Front・通信Hashを保持することを検証する。
+ * @responsibility 合成Task要求を実Consumerが正規化し、完全選定・Provider・通信Hashを保持することを検証する。
  * @trace PRL-UT-014
- * @precondition 正常Objectiveと三つの任意項目、二つの起点Providerを使用する。
- * @stimulus 全八組合せと二種類のFrontを持つ合成Task要求を実Task入力検査へ渡す。
- * @observation 固定選定、Provider、起点Provider、複製配列と固定分類を確認する。
- * @oracle 明示IDはexact、省略はnullとして既存自動選択へ接続し、権限を追加しない。
+ * @precondition 正常Objectiveと分類・明示choice・判断差替えの三任意項目を使用する。
+ * @stimulus 三任意項目の全八組合せを実Task入力検査へ渡す。
+ * @observation 完全選定、Provider、通信Hashと複製配列を確認する。
+ * @oracle 受付で固定した選定と通信HashがTaskへ無変換で搬送され、権限を追加しない。
  * @cleanup N/A: メモリ内の純粋関数だけを実行する。
  * @boundary N/A: 実Task、ProviderとHost資源を起動しない。
  */

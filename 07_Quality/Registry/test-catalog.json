@@ -93,32 +93,25 @@
       "owner": "ai-adapter",
       "architectureAnchor": "06_Architecture/Details/ai-adapter/01_Architecture.md#3-公開入口と依存方向",
       "responsibilities": [
-        "profile_catalog_validation",
-        "profile_catalog_limited_administration",
-        "owner_separated_catalog_storage",
-        "deterministic_profile_resolution",
-        "availability_projection"
+        "technical_catalog_validation",
+        "exact_model_purpose_effort_resolution",
+        "provider_plan_conversion"
       ],
       "externalBoundaries": [
-        "repository_or_server_configuration",
-        "repository_and_cros_configuration_filesystem",
+        "bundled_json_loader",
         "coordinator_selection_consumer",
-        "workbench_display_consumer"
+        "provider_plan_consumer"
       ],
-      "lifecycleProfile": "durable_operation",
+      "lifecycleProfile": "read_only_boundary",
       "testIds": [
         "ai-runtime:unit:profile-catalog",
         "ai-runtime:integration:catalog-store",
         "ai-runtime:integration:profile-consumers"
       ],
       "postconditions": [
-        "unknown_configuration_rejected",
-        "repository_and_cros_catalog_owner_separated",
-        "catalog_revision_conflict_effect_zero",
-        "profile_delete_confirmation_effect_zero",
-        "profile_resolution_exact",
-        "availability_unknown_not_available",
-        "model_id_validation_returns_unmodified_value_or_typed_rejection",
+        "technical_catalog_closed_set",
+        "invalid_catalog_no_fallback",
+        "selection_identity_preserved_to_provider_plan",
         "provider_effect_zero"
       ]
     },
@@ -962,8 +955,8 @@
         "workbench:integration:production-shell"
       ],
       "postconditions": [
-        "profile_identity_exact_across_consumers",
-        "availability_unknown_not_available",
+        "technical_catalog_identity_shared",
+        "repository_selection_owned_by_coordinator",
         "execution_authority_not_conferred"
       ]
     },
@@ -3271,18 +3264,17 @@
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
-        "ai-profile",
-        "adapter",
+        "technical-catalog",
         "model",
-        "technical-catalog"
+        "closed-input"
       ],
       "environment": "node_process",
       "externalProviderEffect": false,
       "humanInput": false,
       "postconditions": [
-        "profile_resolution_deterministic",
         "unknown_configuration_rejected",
         "technical_catalog_closed_set",
+        "input_hooks_not_executed",
         "provider_effect_zero"
       ],
       "mandatoryByDefault": true
@@ -3341,21 +3333,19 @@
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
-        "ai-profile",
-        "adapter",
-        "model",
         "technical-catalog",
-        "model-alias"
+        "model",
+        "model-alias",
+        "public-api"
       ],
       "environment": "node_process",
       "externalProviderEffect": false,
       "humanInput": false,
       "postconditions": [
-        "profile_resolution_deterministic",
-        "unknown_configuration_rejected",
         "technical_catalog_closed_set",
         "alias_identity_preserved",
         "unsupported_purpose_effort_rejected",
+        "retired_profile_api_absent",
         "provider_effect_zero"
       ],
       "mandatoryByDefault": true
@@ -3363,65 +3353,40 @@
     {
       "id": "ai-adapter:unit:profile:resolver",
       "owner": "ai-adapter",
-      "path": "40_Develop/ai-adapter/tests/unit/profile/validation.contract.test.ts",
+      "path": "40_Develop/ai-adapter/tests/unit/provider/model-id.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
-        "ai-profile",
-        "availability"
+        "model-id",
+        "syntax",
+        "provider"
       ],
       "environment": "node_process",
       "externalProviderEffect": false,
       "humanInput": false,
       "postconditions": [
-        "availability_unknown_not_available",
+        "model_id_validation_returns_unmodified_value_or_typed_rejection",
         "provider_effect_zero"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
-      "id": "ai-adapter:unit:profile:crud",
-      "owner": "ai-adapter",
-      "path": "40_Develop/ai-adapter/tests/unit/profile/crud.contract.test.ts",
-      "level": "unit",
-      "kind": "contract",
-      "semanticTags": [
-        "ai-profile",
-        "profile-administration"
-      ],
-      "environment": "node_process",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "provider_effect_zero",
-        "profile_delete_confirmation_effect_zero",
-        "catalog_read_failure_prevents_adoption",
-        "unknown_adoption_has_no_current_snapshot_or_automatic_retry"
       ],
       "mandatoryByDefault": true
     },
     {
       "id": "ai-runtime:integration:catalog-store",
       "owner": "ai-adapter",
-      "path": "40_Develop/ai-adapter/tests/integration/catalog-storage.contract.test.ts",
+      "path": "40_Develop/ai-adapter/tests/integration/catalog-loading.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
-        "ai-profile",
-        "repository-config",
-        "cros-config",
-        "immutable-snapshot"
+        "technical-catalog",
+        "module-loader",
+        "initialization-failure"
       ],
       "environment": "local_component_boundary",
       "externalProviderEffect": false,
       "humanInput": false,
       "postconditions": [
-        "repository_and_cros_catalog_owner_separated",
-        "catalog_snapshot_durable",
-        "catalog_revision_conflict_effect_zero",
-        "invalid_catalog_storage_effect_zero",
-        "read_write_verify_cleanup_failures_remain_observable",
-        "postpublication_failure_is_not_reported_as_unsaved",
+        "bundled_json_missing_syntax_schema_rejected",
+        "invalid_catalog_no_fallback",
         "provider_effect_zero"
       ],
       "mandatoryByDefault": true
@@ -3429,21 +3394,22 @@
     {
       "id": "ai-runtime:integration:profile-consumers",
       "owner": "ai-adapter",
-      "path": "40_Develop/ai-adapter/tests/integration/profile-consumers.contract.test.ts",
+      "path": "40_Develop/ai-adapter/tests/integration/selection-consumers.contract.test.ts",
       "level": "integration",
       "kind": "integration",
       "semanticTags": [
-        "profile-catalog",
+        "technical-catalog",
         "coordinator-consumer",
-        "workbench-consumer",
-        "availability"
+        "provider-plan",
+        "model-alias"
       ],
       "environment": "node_process",
       "externalProviderEffect": false,
       "humanInput": false,
       "postconditions": [
-        "profile_identity_exact_across_consumers",
-        "availability_unknown_not_available",
+        "selection_identity_preserved_to_provider_plan",
+        "alias_identity_preserved",
+        "missing_configuration_not_defaulted",
         "provider_effect_zero"
       ],
       "mandatoryByDefault": true
@@ -6344,25 +6310,6 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "coordinator:unit:delegation-route-selection",
-      "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/delegation-route-selection.contract.test.ts",
-      "level": "unit",
-      "kind": "contract",
-      "semanticTags": [
-        "delegation",
-        "route",
-        "selection"
-      ],
-      "environment": "node_process",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "result_observed"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
       "id": "coordinator:unit:delegation-selection-grant-runtime",
       "owner": "coordinator",
       "path": "40_Develop/coordinator/tests/unit/execution/delegation-selection-grant.contract.test.ts",
@@ -7145,27 +7092,29 @@
     {
       "id": "coordinator:unit:provider-model-profile-runtime",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/provider-model-profile-runtime.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/fixed-selection-runtime.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
-        "provider",
-        "model",
-        "profile",
-        "runtime"
+        "fixed-selection",
+        "grant",
+        "one-shot"
       ],
       "environment": "node_process",
       "externalProviderEffect": false,
       "humanInput": false,
       "postconditions": [
-        "result_observed"
+        "selection_operation_bound",
+        "retired_profile_rejected",
+        "selection_one_use",
+        "provider_effect_zero"
       ],
       "mandatoryByDefault": true
     },
     {
       "id": "coordinator:unit:orchestrator-profile-transport",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/task-profile-transport.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/task-selection-transport.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -7243,26 +7192,6 @@
       "postconditions": [
         "result_observed",
         "source_unchanged"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
-      "id": "coordinator:unit:provider-model-selection-runtime",
-      "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/execution/model-selection.contract.test.ts",
-      "level": "unit",
-      "kind": "contract",
-      "semanticTags": [
-        "provider",
-        "model",
-        "selection",
-        "runtime"
-      ],
-      "environment": "node_process",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "result_observed"
       ],
       "mandatoryByDefault": true
     },
@@ -8178,7 +8107,7 @@
     {
       "id": "coordinator:unit:workbench-ai-provider-adapter",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/execution/advice-profile.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/execution/advice-selection.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -8203,7 +8132,7 @@
     {
       "id": "coordinator:integration:workbench-ai-profile-catalog-flow",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/advice-profile-catalog-flow.integration.test.ts",
+      "path": "40_Develop/coordinator/tests/integration/advice-selection-flow.integration.test.ts",
       "level": "integration",
       "kind": "integration",
       "semanticTags": [

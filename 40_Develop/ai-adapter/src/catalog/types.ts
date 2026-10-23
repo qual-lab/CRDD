@@ -1,28 +1,10 @@
 /**
- * 登録Catalogの集合型を定義する。
+ * 技術CatalogのModel・用途・Effortと選定結果の型を定義する。
  *
  * @responsibility 実利用される値契約だけを所有し、実行・保存・認可を開始しない。
  * @trace ARCH-000010
  */
-import type { AiAdapterDefinition } from "../provider/types.ts";
 import type { AiProvider, AiReasoningEffort } from "../provider/types.ts";
-import type { AiProfileDefinition } from "../profile/types.ts";
-/**
- * 同じ改訂のAdapterとProfile登録集合を表す。
- * @responsibility 同じ改訂のAdapterとProfile登録集合を表すが、実行・保存・認可の成立を型だけでは保証しない。
- * @trace ARCH-000010
- * @shape 宣言されたPropertyとliteral値を持つ読取り専用契約。
- * @invariant 改訂・選択・観測の意味は呼出し元と処理Ownerで照合する。
- * @boundary catalog/types.tsと既存公開API利用側の値契約。
- * @security 秘密値や操作Authorityを発行しない。
- * @compatibility 既存の型名・Property・値域を維持する。
- */
-export type AiProfileCatalog = Readonly<{
-  contract: "crdd/ai-profile-catalog";
-  contractRevision: 1;
-  adapters: readonly AiAdapterDefinition[];
-  profiles: readonly AiProfileDefinition[];
-}>;
 
 /**
  * Model識別子と確認済みの実行対応を表す。

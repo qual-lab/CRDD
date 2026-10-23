@@ -59,14 +59,6 @@
       ]
     },
     {
-      "symbolId": "ai-adapter.profile.profile-execution",
-      "kind": "file",
-      "path": "src/profile/validation.ts",
-      "archIds": [
-        "ARCH-000010"
-      ]
-    },
-    {
       "symbolId": "ai-adapter.output.task-envelope",
       "kind": "file",
       "path": "src/provider/result.ts",
@@ -96,14 +88,6 @@
       "path": "src/provider/json.ts",
       "archIds": [
         "ARCH-000015"
-      ]
-    },
-    {
-      "symbolId": "coordinator.source.src.security.provider.model.profile.runtime",
-      "kind": "file",
-      "path": "src/profile/resolve.ts",
-      "archIds": [
-        "ARCH-000010"
       ]
     },
     {
@@ -204,23 +188,6 @@
       ]
     },
     {
-      "symbolId": "ai-runtime.catalog-store",
-      "kind": "file",
-      "path": "src/storage/store.ts",
-      "archIds": [
-        "ARCH-000010",
-        "ARCH-000011"
-      ]
-    },
-    {
-      "symbolId": "ai-runtime.profile-administration",
-      "kind": "file",
-      "path": "src/profile/crud.ts",
-      "archIds": [
-        "ARCH-000010"
-      ]
-    },
-    {
       "symbolId": "ai-runtime.test.catalog",
       "kind": "test-suite",
       "path": "tests/unit/catalog/validation.contract.test.ts",
@@ -233,7 +200,6 @@
       "verifies": [
         "ai-runtime.catalog",
         "ai-runtime.types",
-        "ai-adapter.profile.types",
         "ai-adapter.provider.types",
         "ai-adapter.catalog.resolver"
       ]
@@ -241,7 +207,7 @@
     {
       "symbolId": "ai-runtime.test.catalog-store",
       "kind": "test-suite",
-      "path": "tests/integration/catalog-storage.contract.test.ts",
+      "path": "tests/integration/catalog-loading.contract.test.ts",
       "qaIds": [
         "QA-000001"
       ],
@@ -249,7 +215,6 @@
         "RCM-IT-005"
       ],
       "verifies": [
-        "ai-runtime.catalog-store",
         "ai-runtime.catalog",
         "ai-adapter.catalog.resolver"
       ]
@@ -257,7 +222,7 @@
     {
       "symbolId": "ai-runtime.test.consumers",
       "kind": "test-suite",
-      "path": "tests/integration/profile-consumers.contract.test.ts",
+      "path": "tests/integration/selection-consumers.contract.test.ts",
       "qaIds": [
         "QA-000001"
       ],
@@ -267,7 +232,9 @@
       "verifies": [
         "ai-runtime.catalog",
         "ai-runtime.public-api",
-        "ai-adapter.catalog.resolver"
+        "ai-adapter.catalog.resolver",
+        "coordinator.selection.resolve",
+        "ai-adapter.provider.execution-plan"
       ]
     },
     {
@@ -340,14 +307,6 @@
       ]
     },
     {
-      "symbolId": "ai-adapter.profile.types",
-      "kind": "file",
-      "path": "src/profile/types.ts",
-      "archIds": [
-        "ARCH-000010"
-      ]
-    },
-    {
       "symbolId": "ai-adapter.test.catalog.resolver",
       "kind": "test-suite",
       "path": "tests/unit/catalog/resolve.contract.test.ts",
@@ -365,7 +324,7 @@
     {
       "symbolId": "ai-adapter.test.profile.resolver",
       "kind": "test-suite",
-      "path": "tests/unit/profile/validation.contract.test.ts",
+      "path": "tests/unit/provider/model-id.contract.test.ts",
       "qaIds": [
         "QA-000001"
       ],
@@ -373,24 +332,7 @@
         "RCM-UT-001"
       ],
       "verifies": [
-        "ai-adapter.profile.profile-execution",
-        "ai-adapter.profile.types"
-      ]
-    },
-    {
-      "symbolId": "ai-adapter.test.profile.crud",
-      "kind": "test-suite",
-      "path": "tests/unit/profile/crud.contract.test.ts",
-      "qaIds": [
-        "QA-000001"
-      ],
-      "localTestIds": [
-        "RCM-UT-002"
-      ],
-      "verifies": [
-        "ai-runtime.profile-administration",
-        "ai-runtime.catalog",
-        "ai-adapter.catalog.resolver"
+        "ai-adapter.profile.provider-environment"
       ]
     }
   ]

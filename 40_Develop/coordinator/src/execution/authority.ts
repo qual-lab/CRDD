@@ -12,7 +12,6 @@ import {
 import {
   PROVIDER_INPUT_LIMITS,
   validateProviderIsolationProfile,
-  DELEGATION_ROUTE_SELECTION_CONTRACT,
   PROVIDER_ISOLATION_CONTRACT,
   PROVIDER_ISOLATION_CONTRACT_REVISION,
 } from "./preparation.ts";
@@ -3082,7 +3081,6 @@ export function describeDelegationSelectionGrantRuntimeContract() {
   return Object.freeze({
     contract: DELEGATION_SELECTION_GRANT_RUNTIME_CONTRACT,
     contractRevision: DELEGATION_SELECTION_GRANT_RUNTIME_CONTRACT_REVISION,
-    routeContract: DELEGATION_ROUTE_SELECTION_CONTRACT,
     selectionLifetimeMs: SELECTION_LIFETIME_MS,
     clocks: Object.freeze(["runtime_wall", "runtime_monotonic"]),
     aliases: Object.freeze(["control", "use"]),

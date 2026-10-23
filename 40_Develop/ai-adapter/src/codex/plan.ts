@@ -353,7 +353,6 @@ export function describeCodexExecutionPlanContract() {
     paidApiFallbackAllowed: false,
     readOnlyProbeExactModel: "gpt-5.6-sol",
     isolatedTaskExactModel: COMPATIBLE_TASK_MODEL,
-    preferredModelFamily: "sol",
     efforts: Object.freeze(["low", "medium", "high"]),
     speedMode: "normal_only",
     outboundProxyPolicy: "official_cli_respect_system_proxy_required",

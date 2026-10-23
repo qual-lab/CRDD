@@ -477,7 +477,7 @@ test("CLI公開契約は通常速度・API課金禁止を明示し配布検証�
   assert.equal(contract.apiKeyAllowed, false);
   assert.equal(contract.paidApiFallbackAllowed, false);
   assert.equal(contract.speedMode, "normal_only");
-  assert.equal(contract.preferredModelFamily, "sol");
+  assert.equal(Object.hasOwn(contract, "preferredModelFamily"), false);
   assert.equal(contract.readOnlyProbeExactModel, "gpt-5.6-sol");
   assert.equal(contract.isolatedTaskExactModel, "gpt-5.5");
   assert.equal(

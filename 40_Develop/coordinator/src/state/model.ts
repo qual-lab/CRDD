@@ -1347,7 +1347,7 @@ export type ProjectQueueEntry = Readonly<{
  * 単発実行の最小保存契約。
  * @responsibility 本文・回答・Authorityを保存せず元の実行参照を保つ。
  * @trace ARCH-000004
- * @shape 主体、Profile、Task／Attempt／Operation、段階、cleanupと回復参照。
+ * @shape 主体、固定選定、Task／Attempt／Operation、段階、cleanupと回復参照。
  * @invariant 同じ受付の識別子を途中で付け替えない。
  * @boundary Repository-local Snapshot。
  * @security 資格・Prompt・回答本文は含めない。
