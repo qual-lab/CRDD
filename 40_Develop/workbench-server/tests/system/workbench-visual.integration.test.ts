@@ -267,7 +267,7 @@ test("Workbench 15 Logical Screenを全表示Profileと実Browser Zoomで確認�
             "credential-administration",
             "access-management",
             "access-management-current-user",
-            "ai-profiles",
+            "ai-selection",
             "workbench-client-ready",
           ]),
         }),

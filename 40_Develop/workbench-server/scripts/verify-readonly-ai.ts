@@ -1,6 +1,6 @@
 /**
  * 明示同意した一Providerの読取り助言を公開HTTPから一回検証する。
- * @responsibility 固定Profile・Context・質問、終端・回収・前後観測を結合する。
+ * @responsibility 固定選定・Context・質問、終端・回収・前後観測を結合する。
  * @trace ARCH-000015
  * @security 本文・資格を保存せず、編集・採用・再送・再起動を行わない。
  */
@@ -14,7 +14,10 @@ import {
   verifyRepositoryRoot,
   gitRepositoryRevisionAdapter,
 } from "../../version-control/src/index.ts";
-import { createRepositoryAiProfileCatalogStore } from "../../ai-adapter/src/index.ts";
+import {
+  readRepositoryAiSelection,
+  type AiSelectionChoice,
+} from "../../coordinator/src/index.ts";
 import { createRepositoryTaskRequests } from "../../coordinator/src/index.ts";
 import { startWorkbench, readWorkbenchProjectSurface } from "../src/index.ts";
 import {
@@ -45,6 +48,8 @@ async function main() {
     return;
   }
   const provider = args[1];
+  if (provider !== "codex" && provider !== "claude")
+    throw Error("provider_invalid");
   const root = process.cwd();
   const verified = verifyRepositoryRoot(root);
   if (verified.status !== "completed") throw new Error("root_unverified");
@@ -67,33 +72,22 @@ async function main() {
     )
   )
     throw new Error("docker_preflight_unconfirmed");
-  const profiles = createRepositoryAiProfileCatalogStore(root);
-  if (profiles.status !== "ready") throw new Error("profiles_unavailable");
-  const catalog = profiles.store.snapshot().value;
-  if (!catalog) throw new Error("ai_profile_catalog_read_failed");
-  const catalogHash = hash(JSON.stringify(catalog));
-  const profileId = provider === "codex" ? "PROFILE-100001" : "PROFILE-200001";
-  const profile = catalog.catalog.profiles.find(
-    (p) => p.profileId === profileId,
-  );
-  assert.ok(profile);
-  assert.equal(
-    profile.exactModelId,
-    provider === "codex" ? "gpt-5.6-sol" : "opus",
-  );
-  assert.ok(profile.selectionRoles.includes("coordinator"));
-  assert.equal(
-    catalog.catalog.adapters.find((a) => a.adapterId === profile.adapterId)
-      ?.provider,
+  const selection = readRepositoryAiSelection(verified.capability);
+  if (selection.status !== "available")
+    throw new Error("ai_selection_not_configured");
+  const configHash = selection.snapshot.identity;
+  const choice: AiSelectionChoice = {
     provider,
-  );
+    model: provider === "codex" ? "gpt-5.6-sol" : "opus",
+    effort: "medium",
+  };
   const permitted = () =>
     hash(JSON.stringify(canonical())) === hash(JSON.stringify(before)) &&
-    hash(JSON.stringify(profiles.store.snapshot().value)) === catalogHash;
+    readRepositoryAiSelection(verified.capability).snapshot?.identity ===
+      configHash;
   const surface = await readWorkbenchProjectSurface(root);
   const owner = createRepositoryTaskRequests(
     verified.capability,
-    profiles.store,
     surface.context.projectId,
     "local-workbench-user",
     permitted,
@@ -113,7 +107,7 @@ async function main() {
       ? e.message
       : "verification_exception";
   try {
-    assert.equal(permitted(), true, "profile_or_repository_changed");
+    assert.equal(permitted(), true, "selection_or_repository_changed");
     const client = await createWorkbenchAiVerificationHttpClient(
       handle.baseUrl,
     );
@@ -129,7 +123,8 @@ async function main() {
         ).policyHash;
       })(),
       mode: "read_only_advice",
-      profileId,
+      workType: null,
+      choice,
       prompt:
         "PROJECT_CONTEXT.mdだけを根拠として、現在の状況を一文、残件を一件、次の候補を一件、日本語で簡潔に整理してください。確認できる事実と追加推論を区別し、参照はPROJECT_CONTEXT.mdだけを使ってください。ファイル編集やコマンド実行はしないでください。",
       contextReferences: ["PROJECT_CONTEXT.md"],
@@ -191,8 +186,7 @@ async function main() {
     JSON.stringify({
       contract: "crdd/workbench-readonly-verification",
       provider,
-      profileId,
-      model: profile.exactModelId,
+      selection: choice,
       commit: before.commit,
       baseline: {
         containers: inventory.containers.map((c) => c.id),

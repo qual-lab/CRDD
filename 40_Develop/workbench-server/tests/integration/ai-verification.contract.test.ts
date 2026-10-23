@@ -8,6 +8,10 @@
  * @boundary 合成inventory／有限Owner→正式試験Source。実Provider成功の根拠ではない。
  */
 import assert from "node:assert/strict";
+import {
+  selectionConfig,
+  executionSelection,
+} from "../../../coordinator/tests/fixtures/ai-selection.ts";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
@@ -953,7 +957,11 @@ test("正式試験mainは公開HTTPで一回だけ依頼し失敗と終了観測
     const snapshot = {
       requestId: "synthetic-verification",
       mode: "read_only_advice" as const,
-      profileId: "PROFILE-200001",
+      executionSelection: executionSelection("advice", {
+        provider: "claude",
+        model: "opus",
+        effort: "medium",
+      }),
       status: "completed" as const,
       executionStatus: "completed",
       reason: null,
@@ -987,20 +995,7 @@ test("正式試験mainは公開HTTPで一回だけ依頼し失敗と終了観測
       cancel: async () => snapshot,
       close: async () => {},
     };
-    const catalog = {
-      revision: 0,
-      catalog: {
-        profiles: [
-          {
-            profileId: "PROFILE-200001",
-            exactModelId: "opus",
-            adapterId: "claude",
-            selectionRoles: ["coordinator"],
-          },
-        ],
-        adapters: [{ adapterId: "claude", provider: "claude" }],
-      },
-    };
+    const selection = { config: selectionConfig(), identity: "a".repeat(64) };
     const execution = runInNewContext(
       stripTypeScriptTypes(`${body}\nmain();`),
       {
@@ -1031,11 +1026,10 @@ test("正式試験mainは公開HTTPで一回だけ依頼し失敗と終了観測
         readFileSync: () => Buffer.from("synthetic context"),
         verifyRepositoryRoot,
         readRepositoryNetworkPolicies,
-        createRepositoryAiProfileCatalogStore: () => ({
-          status: "ready",
-          store: {
-            snapshot: () => ({ status: "read", value: catalog, error: null }),
-          },
+        readRepositoryAiSelection: () => ({
+          status: "available",
+          reason: null,
+          snapshot: selection,
         }),
         readWorkbenchProjectSurface: async () => surface,
         createRepositoryTaskRequests: () => fakeOwner,

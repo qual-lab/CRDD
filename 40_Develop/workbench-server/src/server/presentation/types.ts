@@ -6,9 +6,9 @@
  * @boundary Workbench起動Composition・HTTP受付・表示投影。
  * @security 資格、認可結果、Task正本、実行Owner、共有AI Sessionを保持せず、公開APIへexportしない。
  */
-import type { AiProfileCatalogMutationResult } from "../../../../ai-adapter/src/index.ts";
+import type { AiSelectionSaveResult } from "../../../../coordinator/src/index.ts";
 import type { ChangePublicationResult } from "../../../../version-control/src/index.ts";
-import type { WorkbenchAiProfileSurface } from "../ai-profile/projection.ts";
+import type { WorkbenchAiSelectionSurface } from "../ai-selection/projection.ts";
 import type { WorkbenchAiRequestSnapshot } from "../ai-request/types.ts";
 import type { WorkbenchProjectSurface } from "../project/surface.ts";
 import type { TopicMeetingActionResult } from "../topic-meeting/action.ts";
@@ -39,11 +39,11 @@ export type WorkbenchConnectionState = "repository" | "cros_available";
 export type WorkbenchPresentationState = {
   runtimeActivityObservation: WorkbenchRuntimeActivityObservation | undefined;
   projectSurface: WorkbenchProjectSurface | undefined;
-  aiProfiles: WorkbenchAiProfileSurface;
+  aiSelection: WorkbenchAiSelectionSurface;
   lastActionResult: ChangePublicationResult | null;
   topicMeetingResult: TopicMeetingActionResult | null;
   currentAiRequestId: string | null;
   aiRequestSnapshot: WorkbenchAiRequestSnapshot | null;
   aiRequestNotice: string | null;
-  aiProfileAdministrationResult: AiProfileCatalogMutationResult | null;
+  aiSelectionManagementResult: AiSelectionSaveResult | null;
 };

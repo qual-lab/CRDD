@@ -26,11 +26,6 @@ import {
   resolveRepositoryAccess,
 } from "../../../access-management/src/index.ts";
 import {
-  type AiProfileCatalogAdministration,
-  createAiProfileCatalogAdministration,
-  createRepositoryAiProfileCatalogStore,
-} from "../../../ai-adapter/src/index.ts";
-import {
   type FilesystemStoreRoot,
   type PortfolioProjection,
   createMeetingOperations,
@@ -46,11 +41,7 @@ import {
   createRepositoryWorkbenchActivityReader,
   type WorkbenchActivityReader,
 } from "./activity/observe.ts";
-import {
-  createDefaultWorkbenchAiProfileSurface,
-  createWorkbenchAiProfileSurface,
-  type WorkbenchAiProfileSurface,
-} from "./ai-profile/projection.ts";
+import { readWorkbenchAiSelectionSurface } from "./ai-selection/projection.ts";
 import type { WorkbenchAiRequests } from "./ai-request/types.ts";
 import { inspectWorkbenchPublicOrigin } from "./connection/configuration.ts";
 import type { CredentialAdministration } from "./credential/administration.ts";
@@ -67,12 +58,8 @@ import {
   handleLocalConnectionAction,
 } from "./connection.ts";
 import { handleManagementRequest } from "./routes/management.ts";
-import {
-  handleAiProfileAction,
-  handleAiRequestAction,
-  handleSharedAiRequest,
-  handleSharedAiProfileRead,
-} from "./routes/ai.ts";
+import { handleAiRequestAction, handleSharedAiRequest } from "./routes/ai.ts";
+import { handleAiSelection } from "./routes/ai-selection.ts";
 import { handleRepositoryAction } from "./routes/repository.ts";
 import { handleRecordAction } from "./routes/record.ts";
 import { handleRepositoryView } from "./routes/repository-view.ts";
@@ -91,8 +78,6 @@ export type WorkbenchStartRequest = Readonly<{
   portfolio?: PortfolioProjection;
   credentialAdministration?: CredentialAdministration;
   localAccessRoot?: FilesystemStoreRoot;
-  crosProfileAdministration?: AiProfileCatalogAdministration;
-  aiProfiles?: WorkbenchAiProfileSurface;
   aiRequests?: WorkbenchAiRequests;
   sharedAiRequestsFactory?: (
     root: VerifiedRepositoryRoot,
@@ -137,8 +122,6 @@ export async function startWorkbench(
     "portfolio",
     "credentialAdministration",
     "localAccessRoot",
-    "crosProfileAdministration",
-    "aiProfiles",
     "aiRequests",
     "sharedAiRequestsFactory",
     "activityReader",
@@ -148,11 +131,6 @@ export async function startWorkbench(
   const publicOrigin = inspectWorkbenchPublicOrigin(request.publicOrigin);
   if (publicOrigin && request.localAccessRoot === undefined)
     throw new Error("workbench_shared_access_required");
-  if (
-    request.crosProfileAdministration !== undefined &&
-    request.localAccessRoot === undefined
-  )
-    throw new Error("workbench_profile_owner_conflicting");
   const port = request.port ?? 0;
   if (!Number.isInteger(port) || port < 0 || port > 65535)
     throw new Error("workbench_port_invalid");
@@ -160,7 +138,6 @@ export async function startWorkbench(
     request.localAccessRoot !== undefined &&
     (request.credentialAdministration !== undefined ||
       request.portfolio !== undefined ||
-      request.aiProfiles !== undefined ||
       request.aiRequests !== undefined ||
       request.activityReader !== undefined)
   )
@@ -197,34 +174,16 @@ export async function startWorkbench(
     request.localAccessRoot === undefined
       ? await readWorkbenchProjectSurface(repositoryRoot)
       : undefined;
-  const aiProfileStore =
-    request.localAccessRoot === undefined
-      ? createRepositoryAiProfileCatalogStore(repositoryRoot)
-      : undefined;
-  const aiProfileAdministration =
-    request.aiProfiles === undefined && aiProfileStore?.status === "ready"
-      ? createAiProfileCatalogAdministration(aiProfileStore.store)
-      : undefined;
-  const initialProfileRead =
-    request.aiProfiles === undefined && aiProfileStore?.status === "ready"
-      ? aiProfileStore.store.snapshot()
-      : undefined;
-  if (initialProfileRead?.status === "blocked")
-    throw new Error(initialProfileRead.error);
   const presentation: WorkbenchPresentationState = {
     runtimeActivityObservation: undefined,
     projectSurface: initialProjectSurface,
-    aiProfiles:
-      request.aiProfiles ??
-      (initialProfileRead?.status === "read"
-        ? createWorkbenchAiProfileSurface(initialProfileRead.value.catalog)
-        : createDefaultWorkbenchAiProfileSurface()),
+    aiSelection: readWorkbenchAiSelectionSurface(verification.capability),
     lastActionResult: null,
     topicMeetingResult: null,
     currentAiRequestId: null,
     aiRequestSnapshot: null,
     aiRequestNotice: null,
-    aiProfileAdministrationResult: null,
+    aiSelectionManagementResult: null,
   };
   const aiRequests = request.aiRequests;
   const sharedAiSessions = new Map<
@@ -440,18 +399,6 @@ export async function startWorkbench(
         return;
       }
       if (method === "GET" || method === "HEAD") {
-        // 共有CatalogはRepository選択と独立し、現在管理認可でだけ読む。
-        if (requestPath === "/api/ai-profiles") {
-          await handleSharedAiProfileRead({
-            incoming,
-            response,
-            requestSignal,
-            requestUrl,
-            credentialAdministration,
-            crosProfileAdministration: request.crosProfileAdministration,
-          });
-          return;
-        }
         if (
           await handleSharedView({
             response,
@@ -476,7 +423,9 @@ export async function startWorkbench(
       }
       const sharedActionRoute =
         (method === "POST" && requestPath === "/topic-meeting/action") ||
-        (method === "POST" && requestPath === "/ai-profiles/action") ||
+        (method === "POST" && requestPath === "/ai-selection/action") ||
+        ((method === "GET" || method === "HEAD") &&
+          requestPath === "/api/ai-selection") ||
         (method === "POST" && requestPath === "/repository/action") ||
         (method === "POST" && requestPath === "/workspace/action") ||
         (method === "GET" && requestPath === "/api/access-management") ||
@@ -491,6 +440,27 @@ export async function startWorkbench(
       }
     }
     const address = server.address();
+    if (
+      (method === "GET" || method === "HEAD") &&
+      requestPath === "/api/ai-selection"
+    ) {
+      await handleAiSelection({
+        incoming,
+        response,
+        requestSignal,
+        requestUrl,
+        origin:
+          publicOrigin?.origin ??
+          (address && typeof address !== "string"
+            ? `http://${HOST}:${address.port}`
+            : null),
+        actionToken,
+        capability: verification.capability,
+        localAccessRoot: request.localAccessRoot,
+        credentialAdministration,
+      });
+      return;
+    }
     return {
       incoming,
       response,
@@ -546,7 +516,6 @@ export async function startWorkbench(
       portfolio,
       connectionState,
       presentation,
-      aiProfileAdministration,
       aiRequests,
       activityReader,
       configuration: request,
@@ -618,12 +587,10 @@ export async function startWorkbench(
     {
       workspace: bindRequest(handleWorkspaceAction),
       view: bindRequest(handleRepositoryViewRequest),
-      aiProfile: bindRequest((context) =>
-        handleAiProfileAction({
+      aiSelection: bindRequest((context) =>
+        handleAiSelection({
           ...context,
-          crosProfileAdministration: request.crosProfileAdministration,
-          aiProfileAdministration,
-          presentation,
+          capability: verification.capability,
         }),
       ),
       aiRequest: bindRequest((context) =>

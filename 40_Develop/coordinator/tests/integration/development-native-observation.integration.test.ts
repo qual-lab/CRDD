@@ -937,6 +937,18 @@ async function runProbe(target: string, scenario: string) {
       }),
     },
   });
+  /**
+   * 観測時点に応じた合成Source Identityを返す。
+   * @responsibility Effect前後の再照合に使う合成Identityだけを生成する。
+   * @trace ERB-IT-004
+   * @precondition scenarioとisArmedはこの試験だけが所有する。
+   * @stimulus Effect前後又は明示したHash不一致を選ぶ。
+   * @observation 固定Hashと合成件数を観測する。
+   * @oracle 指定した段階だけIdentityが変わり、実Sourceを読まない。
+   * @effect N/A: 合成値を生成するだけ。
+   * @cleanup N/A: 資源を作成しない。
+   * @boundary Native観測の有限代役と実行前後の照合。
+   */
   const sourceObservation = () => ({
     scope: "crdd-development-source-snapshot/v2",
     sourceSha256:

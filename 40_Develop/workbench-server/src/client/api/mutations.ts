@@ -12,7 +12,7 @@ import { requestWorkbench } from "./connection.ts";
 const client = new QueryClient();
 const routes = new Set([
   "/access-management/action",
-  "/ai-profiles/action",
+  "/ai-selection/action",
   "/topic-meeting/action",
   "/repository/action",
   "/workspace/action",

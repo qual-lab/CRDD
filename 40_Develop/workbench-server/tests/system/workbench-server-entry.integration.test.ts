@@ -38,7 +38,6 @@ import {
   readHostInitializationState,
   resolveHostRootInput,
 } from "../../../access-management/src/index.ts";
-import { createHostAiProfileCatalogStore } from "../../../ai-adapter/src/index.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
 
 const repositoryRoot = resolveVerifiedRepositoryRootFromWorkingDirectory(
@@ -655,7 +654,6 @@ for (const mode of ["localhost", "public", "tls"] as const) {
         readHostInitializationState(prepared.root).status,
         "existing",
       );
-      assert.equal(createHostAiProfileCatalogStore(input).status, "ready");
       const driver =
         "const {pathToFileURL}=require('node:url');process.once('message',()=>{process.emit('SIGTERM');process.disconnect();});void import(pathToFileURL(process.argv[1]).href);";
       child = spawn(
@@ -852,13 +850,13 @@ for (const mode of ["localhost", "public", "tls"] as const) {
       );
       assert.equal(management.status, 200);
       assert.equal((await management.json()).status, "completed");
-      const profiles = await requestEntry(`${url}/api/ai-profiles`, {
+      const profiles = await requestEntry(`${url}/api/ai-selection`, {
         ca: tls?.ca,
         headers,
         signal: AbortSignal.timeout(5000),
       });
-      assert.equal(profiles.status, 200);
-      assert.equal((await profiles.json()).revision, 0);
+      assert.equal(profiles.status, 403);
+      // 未選択の共有接続は起動Rootや旧Host Catalogへfallbackしない。
       const unrelated = await requestEntry(`${url}/api/workbench-view`, {
         ca: tls?.ca,
         headers: requestHeaders,

@@ -29,6 +29,7 @@ export function ProjectScene({
 }: Readonly<{
   scene: WorkbenchMainViewModel["surface"]["context"]["scenes"][number];
 }>): ReactElement {
+  const rowOccurrences = new Map<string, number>();
   return (
     <article className="panel context-scene" id={scene.key}>
       <header>
@@ -53,13 +54,22 @@ export function ProjectScene({
             </tr>
           </thead>
           <tbody>
-            {scene.table.rows.map((row, rowIndex) => (
-              <tr key={`${scene.key}-${rowIndex}`}>
-                {row.map((cell, cellIndex) => (
-                  <td key={`${rowIndex}-${cellIndex}`}>{cell}</td>
-                ))}
-              </tr>
-            ))}
+            {scene.table.rows.map((row) => {
+              const identity = JSON.stringify(row);
+              const occurrence = rowOccurrences.get(identity) ?? 0;
+              rowOccurrences.set(identity, occurrence + 1);
+              const columnOccurrences = new Map<string, number>();
+              return (
+                <tr key={`${scene.key}:${identity}:${occurrence}`}>
+                  {row.map((cell, position) => {
+                    const column = scene.table.columns[position] ?? "";
+                    const ordinal = columnOccurrences.get(column) ?? 0;
+                    columnOccurrences.set(column, ordinal + 1);
+                    return <td key={`${column}:${ordinal}`}>{cell}</td>;
+                  })}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

@@ -391,3 +391,15 @@ MCPの旧Profile管理四Toolを撤去する単位へ進む。公開Root三API�
 MCP退役境界の固定候補は全101件成功（220,622.1574ms、失敗・取消・skip・todo 0）、format・型・lintも成功した。初回接続試験の旧32件期待は旧四Tool撤去後の28へ追従し、旧名不存在と元の出版・終了Oracleを維持した。現在の通常集合はWorkspace二操作を含むdeveloper18、manager／administrator28であり、現行設計を同期した。Sourceと文書・登録の独立再確認は、15件を内容・活動の部分集合と明記する一意な訂正まで反映して残指摘0。旧Host Catalog実物の移行・Workbench・旧Profile全面撤去・正式API全体・実AIの完成はこの結果に含めない。
 
 保存広域回帰は105件中102件成功・3件失敗で完走（1,129,497.6078ms）。二件は旧Profile肯定fixtureの追従漏れであり、新しい十項目選定とAttemptを与えて関連44件成功（1,581.2108ms）。一件は制限環境のjunction生成EPERMで、同一の不存在・安全拒否条件を通常Windowsで確認して1件成功（8,652.3695ms）。拒否条件を緩めず、初回不合格と是正後の局所結果を分離する。全体固定回帰の代替とはしない。実Docker・実AI・実認証・本体設定・保持②の操作は行っていない。
+
+### Workbench設定・依頼の切替候補
+
+Workbenchは旧Repository／Host Profile管理を撤去し、選択Repositoryの技術Catalogと新設定Reader／CAS Writerへ直接接続する。共有は管理Roleと当該Repositoryのdevelopment認可を両方必要とし、待機後・処置前後・公開前を再確認する。AI依頼は作業分類と任意の明示選択を搬送する。新しい設定MCP Toolや中継Storeは作らない。旧Profile Store本体と正式API全体の縮小は次単位として残す。
+
+設定画面は五役割のProvider／Model／Effort、分類追加・表示名変更・削除、分類別上書きの編集・削除を同じJSON draftへ接続する。詳細JSON入力は併置するが、通常操作でJSON手編集を必須にしない。初回編集は明示操作で開始し、Modelの自動作成・採用は行わない。同一対象の全体再取得で編集や保留要求を初期化せず、対象・Token・管理可否の切替では既存の画面世代を更新する。
+
+初回独立確認のPanel再取得寿命、継承Propertyへの分類解決、用途別HTTP容量不一致を是正した。共通16KiBとStoreの1MiBは維持し、AI設定だけpercent encodingを収容する有界受付へ接続する。実HTTPで24KiB・1MiB・1MiB超過とEnvelope超過の保存0、局所Hookでdraft／保留POST／終了取消、分類constructorの既定・上書きを確認した。過大入力試験の初回待機は成功へ換算せず、今回の親子だけを終了し、exact合成Root一件の不存在まで確認した。
+
+先行通常回帰79件の成功後、是正を含む通常回帰80件も成功（249,412.0927ms、失敗・取消・skip 0）。実Browserの新設定操作・未設定非補完、通常接続、Git操作の各限定Caseは成功し、公開CLI8件と15画面Visualの一件も成功した。Git Caseの初回は試験の10秒窓で実作成要求が未着だったが、別の有界測定で正式HTTP200と作成11,470ms／終了12,633msを確認した。製品のTimeout・拒否・cleanup条件は変更せず、該当試験の観測窓だけ30秒にする。最初のBrowser全体不合格を全体Passへ読み替えない。
+
+固定System集合は24件成功（375,797.3295ms、失敗・取消・skip 0）。実Browserの11場面、公開CLI、15 Logical Screenの表示を確認し、Browser終了最大1,614ms・Process観測最大737ms・子孫終了fallback 0を観測した。Source・文書／Header／登録の限定再レビューは残指摘0。先行変更の試験補助Header不足とQA配列順・退役したMCP責務の登録を本文・判定条件を変えず追従し、Test SourceのQuality Local Item全数Gateも成功した。これはWorkbench切替単位の完了であり、旧Profile本体・正式API／CLI・全体QAの完了ではない。実AI・実認証・人間確認、本体設定移行と保持②の観測・操作は行わない。

@@ -7,35 +7,55 @@
       "symbolId": "coordinator.storage.ai-selection",
       "kind": "file",
       "path": "src/storage/ai-selection.ts",
-      "archIds": ["ARCH-000004"]
+      "archIds": [
+        "ARCH-000004"
+      ]
     },
     {
       "symbolId": "coordinator.test.integration.ai-selection-store",
       "kind": "test-suite",
       "path": "tests/integration/ai-selection-store.contract.test.ts",
-      "qaIds": ["QA-000001"],
-      "localTestIds": ["RCM-IT-005"],
-      "verifies": ["coordinator.storage.ai-selection", "coordinator.selection.resolve"]
+      "qaIds": [
+        "QA-000001"
+      ],
+      "localTestIds": [
+        "RCM-IT-005"
+      ],
+      "verifies": [
+        "coordinator.storage.ai-selection",
+        "coordinator.selection.resolve"
+      ]
     },
     {
       "symbolId": "coordinator.selection.model",
       "kind": "file",
       "path": "src/selection/model.ts",
-      "archIds": ["ARCH-000004"]
+      "archIds": [
+        "ARCH-000004"
+      ]
     },
     {
       "symbolId": "coordinator.selection.resolve",
       "kind": "file",
       "path": "src/selection/resolve.ts",
-      "archIds": ["ARCH-000004"]
+      "archIds": [
+        "ARCH-000004"
+      ]
     },
     {
       "symbolId": "coordinator.test.unit.selection.resolve",
       "kind": "test-suite",
       "path": "tests/unit/selection/resolve.contract.test.ts",
-      "qaIds": ["QA-000001"],
-      "localTestIds": ["RCM-UT-001"],
-      "verifies": ["coordinator.selection.model", "coordinator.selection.resolve"]
+      "qaIds": [
+        "QA-000001"
+      ],
+      "localTestIds": [
+        "RCM-UT-001"
+      ],
+      "verifies": [
+        "coordinator.selection.model",
+        "coordinator.selection.resolve"
+      ]
     },
     {
       "symbolId": "coordinator.execution.provider-result-reasons",
@@ -2158,8 +2178,8 @@
       "kind": "test-suite",
       "path": "tests/unit/execution/provider-home-mount-authorization.contract.test.ts",
       "qaIds": [
-        "QA-000010",
-        "QA-000003"
+        "QA-000003",
+        "QA-000010"
       ],
       "localTestIds": [
         "AIT-UT-005",
@@ -2579,8 +2599,8 @@
       "kind": "test-suite",
       "path": "tests/integration/current-state-marker-cleanup.contract.test.ts",
       "qaIds": [
-        "QA-000006",
-        "QA-000003"
+        "QA-000003",
+        "QA-000006"
       ],
       "localTestIds": [
         "ERB-IT-014",

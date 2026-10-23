@@ -8,20 +8,15 @@
  * @effect 型定義はEffect 0。開始・取消は注入されたApplicationへだけ委譲する。
  * @security Promptや結果をRepository、URL、logへ保存せず、秘密値を入力契約へ含めない。
  */
-import type { CoordinatorWorkspaceResult } from "../../../../coordinator/src/index.ts";
+import type {
+  CoordinatorWorkspaceResult,
+  SingleTaskCommand,
+  ExecutionSelection,
+} from "../../../../coordinator/src/index.ts";
 
 export type WorkbenchAiRequestMode = "read_only_advice" | "workspace_edit";
 
-export type WorkbenchAiRequestCommand = Readonly<{
-  mode: WorkbenchAiRequestMode;
-  profileId: string;
-  prompt: string;
-  contextReferences: readonly string[];
-  allowedPaths: readonly string[];
-  externalSendConfirmed: boolean;
-  expectedNetworkPolicyHash: string;
-  workspaceId: string | null;
-}>;
+export type WorkbenchAiRequestCommand = SingleTaskCommand;
 
 export type WorkbenchAiRequestStartResult = Readonly<{
   status: "accepted" | "blocked";
@@ -48,7 +43,7 @@ export type WorkbenchAiResultItem = Readonly<{
 export type WorkbenchAiRequestSnapshot = Readonly<{
   requestId: string;
   mode: WorkbenchAiRequestMode | null;
-  profileId: string | null;
+  executionSelection: ExecutionSelection | null;
   status:
     | "accepted"
     | "running"

@@ -12,7 +12,7 @@
 import { createElement, useState, type ReactElement } from "react";
 import type { RepositoryNetworkPolicies } from "../../../../coordinator/src/index.ts";
 
-import type { WorkbenchAiProfileSurface } from "../../server/ai-profile/projection.ts";
+import type { WorkbenchAiSelectionSurface } from "../../server/ai-selection/projection.ts";
 import type {
   WorkbenchAiRequestSnapshot,
   WorkbenchAiResultItem,
@@ -20,11 +20,11 @@ import type {
 import { ActionTokenInput, EmptyState, WorkbenchPanel } from "./elements.ts";
 
 /**
- * 選択Profileの通信先と確認Hashを同じFormへ表示する。
+ * 選択したProviderの通信先と確認Hashを同じFormへ表示する。
  * @responsibility Provider切替時に確認対象と送信するHashを一致させる。
  * @trace ARCH-000012
- * @input profiles、disabled、networkPolicies: Serverの非秘密投影。
- * @returns Profile選択と通信条件のReact要素。
+ * @input selection、disabled、networkPolicies: Serverの非秘密投影。
+ * @returns モデル選択と通信条件のReact要素。
  * @precondition 投影は現在Repositoryの認可後に取得する。
  * @postcondition Browserの値を通信許可そのものにしない。
  * @effect N/A: 局所UI状態だけ。
@@ -34,47 +34,130 @@ import { ActionTokenInput, EmptyState, WorkbenchPanel } from "./elements.ts";
  * @security 認証情報を含めない。
  * @concurrency Repositoryの投影変更時は親のkeyで選択を初期化する。
  */
-function AiRequestProfile({
-  profiles,
+function AiRequestSelection({
+  selection,
   disabled,
   networkPolicies,
 }: {
-  profiles: WorkbenchAiProfileSurface | null;
+  selection: WorkbenchAiSelectionSurface | null;
   disabled: boolean;
   networkPolicies: RepositoryNetworkPolicies | null;
 }): ReactElement {
-  const entries = profiles?.catalog.profiles ?? [];
-  const [profileId, selectProfile] = useState(entries[0]?.profileId ?? "");
-  const profile = entries.find((entry) => entry.profileId === profileId);
-  const provider = profiles?.catalog.adapters.find(
-    (adapter) => adapter.adapterId === profile?.adapterId,
-  )?.provider;
-  const policy = provider ? networkPolicies?.[provider] : null;
+  const [mode, selectMode] = useState<"read_only_advice" | "workspace_edit">(
+    "read_only_advice",
+  );
+  const [workType, selectWorkType] = useState("");
+  const [explicit, selectExplicit] = useState("");
+  const config = selection?.selection.snapshot?.config;
+  const role = mode === "read_only_advice" ? "advice" : "executor";
+  const overrides =
+    config && Object.hasOwn(config.overrides, role)
+      ? config.overrides[role]
+      : undefined;
+  const defaultChoice =
+    overrides && Object.hasOwn(overrides, workType)
+      ? overrides[workType]
+      : config?.roleDefaults[role];
+  const choices =
+    selection?.catalog.catalog.models
+      .filter((model) =>
+        model.supportedPurposes.includes(
+          mode === "read_only_advice" ? "advice" : "task",
+        ),
+      )
+      .flatMap((model) =>
+        model.supportedEfforts.map((effort) => ({
+          provider: model.provider,
+          model: model.modelIdentifier,
+          effort,
+        })),
+      ) ?? [];
+  const selected = choices.find(
+    (choice) => JSON.stringify(choice) === explicit,
+  );
+  const choice = selected ?? (explicit === "" ? defaultChoice : undefined);
+  const policy = choice ? networkPolicies?.[choice.provider] : null;
   return createElement(
     "div",
     null,
     createElement(
       "label",
       null,
-      "Profile",
+      "依頼種別",
       createElement(
         "select",
         {
-          name: "profileId",
+          name: "mode",
+          value: mode,
           required: true,
           disabled,
-          value: profileId,
           onChange: (event: React.ChangeEvent<HTMLSelectElement>) =>
-            selectProfile(event.currentTarget.value),
+            selectMode(
+              event.currentTarget.value as
+                | "read_only_advice"
+                | "workspace_edit",
+            ),
         },
-        ...entries.map((entry) =>
+        createElement(
+          "option",
+          { value: "read_only_advice" },
+          "状況確認・助言（読取りのみ）",
+        ),
+        createElement(
+          "option",
+          { value: "workspace_edit" },
+          "Workspace編集（自動Commit・採用なし）",
+        ),
+      ),
+    ),
+    createElement(
+      "label",
+      null,
+      "作業分類",
+      createElement(
+        "select",
+        {
+          name: "workType",
+          value: workType,
+          disabled,
+          onChange: (event: React.ChangeEvent<HTMLSelectElement>) =>
+            selectWorkType(event.currentTarget.value),
+        },
+        createElement("option", { value: "" }, "役割の既定値"),
+        ...Object.entries(config?.workTypes ?? {}).map(([key, entry]) =>
+          createElement("option", { key, value: key }, entry.label),
+        ),
+      ),
+    ),
+    createElement(
+      "label",
+      null,
+      "今回だけの明示選択",
+      createElement(
+        "select",
+        {
+          name: "choice",
+          value: explicit,
+          disabled,
+          onChange: (event: React.ChangeEvent<HTMLSelectElement>) =>
+            selectExplicit(event.currentTarget.value),
+        },
+        createElement("option", { value: "" }, "Repository設定に従う"),
+        ...choices.map((choice) =>
           createElement(
             "option",
-            { key: entry.profileId, value: entry.profileId },
-            `${entry.profileId} — ${entry.exactModelId}`,
+            { key: JSON.stringify(choice), value: JSON.stringify(choice) },
+            `${choice.provider} — ${choice.model} / ${choice.effort}`,
           ),
         ),
       ),
+    ),
+    createElement(
+      "p",
+      null,
+      choice
+        ? `主担当: ${choice.provider} / ${choice.model} / ${choice.effort}`
+        : "選択を確認できないため開始できません。",
     ),
     createElement("input", {
       type: "hidden",
@@ -86,13 +169,13 @@ function AiRequestProfile({
       null,
       policy
         ? `許可通信先（${policy.provider}）：${policy.allowedHosts.join("、")}。HTTPS CONNECT / 443のみ。通信本文は検査しません。`
-        : "通信設定を確認できないため開始できません。",
+        : "通信設定を確認できません。",
     ),
     createElement(
       "label",
       {
         className: "confirm",
-        key: `${provider ?? ""}:${policy?.policyHash ?? ""}`,
+        key: `${mode}:${workType}:${explicit}:${policy?.policyHash ?? ""}`,
       },
       createElement("input", {
         type: "checkbox",
@@ -104,7 +187,7 @@ function AiRequestProfile({
       createElement(
         "span",
         null,
-        "この依頼と依頼種別に応じた許可済みContextを選択した外部AIへ一回送信する",
+        "この依頼と許可済みContextを、選定された外部AIへ一回送信する",
       ),
     ),
   );
@@ -113,12 +196,12 @@ function AiRequestProfile({
 /**
  * Workbench AI依頼Panelを現在Sessionの一件だけから描画する。
  *
- * @responsibility Profile選択、依頼入力、実行状態、結果区分および取消導線を一画面へ投影する。
+ * @responsibility モデル選択、依頼入力、実行状態、結果区分および取消導線を一画面へ投影する。
  * @trace ARCH-000015
  * @trace ARCH-000010
- * @input actionToken、Profile Surface、AI Application、現在Snapshot、Candidate Application、候補確認・操作結果およびnotice。
+ * @input actionToken、AI選択設定、AI Application、現在Snapshot、Candidate Application、候補確認・操作結果およびnotice。
  * @returns Browserが描画するReact要素。
- * @precondition 取得済みProfile SurfaceはAI Runtimeの検証済みCatalogを持つ。nullは今回Ownerからの未取得である。
+ * @precondition 取得済みAI選択設定はAI Runtimeの検証済みCatalogを持つ。nullは今回Ownerからの未取得である。
  * @postcondition 事実、共有済み分析、追加推論および次の選択肢を別Sectionで表示する。
  * @effect N/A: React要素の構築だけを行う。
  * @failure Application未接続時は無効状態として表示する。
@@ -129,14 +212,16 @@ function AiRequestProfile({
  */
 export function renderWorkbenchAiRequest(
   actionToken: string,
-  profiles: WorkbenchAiProfileSurface | null,
+  selection: WorkbenchAiSelectionSurface | null,
   applicationConfigured: boolean,
   snapshot: WorkbenchAiRequestSnapshot | null,
   notice: string | null = null,
   networkPolicies: RepositoryNetworkPolicies | null = null,
 ): ReactElement {
   const disabled =
-    !applicationConfigured || profiles === null || networkPolicies === null;
+    !applicationConfigured ||
+    selection?.selection.status !== "available" ||
+    networkPolicies === null;
   const result =
     snapshot === null ? null : renderSnapshot(snapshot, actionToken);
   return createElement(
@@ -165,27 +250,8 @@ export function renderWorkbenchAiRequest(
         name: "operation",
         value: "start",
       }),
-      createElement(
-        "label",
-        null,
-        "依頼種別",
-        createElement(
-          "select",
-          { name: "mode", required: true, disabled },
-          createElement(
-            "option",
-            { value: "read_only_advice" },
-            "状況確認・助言（読取りのみ）",
-          ),
-          createElement(
-            "option",
-            { value: "workspace_edit" },
-            "Workspace編集（自動Commit・採用なし）",
-          ),
-        ),
-      ),
-      createElement(AiRequestProfile, {
-        profiles,
+      createElement(AiRequestSelection, {
+        selection,
         disabled,
         networkPolicies,
       }),
@@ -269,7 +335,7 @@ export function renderWorkbenchAiRequest(
       ? createElement(
           EmptyState,
           null,
-          "AI実行Applicationが未接続です。Profile一覧が表示されても実行可能を意味しません。",
+          "AI実行Applicationが未接続です。AI設定一覧が表示されても実行可能を意味しません。",
         )
       : null,
     result,

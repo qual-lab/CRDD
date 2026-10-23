@@ -194,7 +194,13 @@ test("Task保存のpending作成前失敗は自分のmarkerだけ回収する", 
  * @trace PRL-IT-005
  * @input root: 自己所有Repository、payload: 試験用のTask表示値。
  * @returns 通常更新の保存結果。
+ * @precondition rootはこのCaseが作成した未使用の合成Repositoryである。
+ * @stimulus 空の改訂1を初期化し、payloadを改訂2として保存する。
+ * @observation 初期化と通常更新の正式な保存結果を取得する。
+ * @oracle 既存Writerの初回条件とCAS改訂条件を満たす。
  * @effect 自己所有fixture内の現在状態だけを作成・更新する。
+ * @cleanup 呼出しCaseが自己所有Rootを終了後に回収する。
+ * @boundary PRL-IT-005=Direct Boundary: 合成Task状態と正式保存Writer。
  */
 function seedSnapshot(
   root: string,
@@ -227,7 +233,13 @@ function seedSnapshot(
  * @trace PRL-IT-005
  * @input root: 自己所有Repository、bytes: 現行physical本文。
  * @returns 同じRootの検証済みTask表示値。
+ * @precondition rootとbytesは同じCaseが所有する現行形式である。
+ * @stimulus 短期排他からRoot Identityを得て現行codecと投影へ渡す。
+ * @observation 排他取得・解放とdecode／投影結果をassertする。
+ * @oracle 同じRootに相関するTask表示だけが返る。
  * @effect 短期排他の取得・解放だけ。保存・旧形式変換は行わない。
+ * @cleanup 排他をdecode前に解放し、Root清掃は呼出しCaseが行う。
+ * @boundary PRL-IT-005=Direct Boundary: 物理Snapshot codecとTask投影。
  */
 function taskView(root: string, bytes: string) {
   const held = acquireCoordinatorSnapshotPilotLock(root);

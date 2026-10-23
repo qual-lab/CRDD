@@ -54,7 +54,7 @@ const navigation = Object.freeze([
   ["repository", "Repository"],
   ["connection", "Connection"],
   ["credential-administration", "Credentials"],
-  ["ai-profiles", "AI Profiles"],
+  ["ai-selection", "AI Settings"],
   ["ai-request", "AI Request"],
 ] as const);
 

@@ -33,7 +33,7 @@ export function createWorkbenchApplication(
     workspace: RequestListener;
     repository: RequestListener;
     record: RequestListener;
-    aiProfile: RequestListener;
+    aiSelection: RequestListener;
     aiRequest: RequestListener;
     management: RequestListener;
     credentials: RequestListener;
@@ -52,7 +52,7 @@ export function createWorkbenchApplication(
   app.post("/workspace/action", handlers.workspace);
   app.post("/repository/action", handlers.repository);
   app.post("/topic-meeting/action", handlers.record);
-  app.post("/ai-profiles/action", handlers.aiProfile);
+  app.post("/ai-selection/action", handlers.aiSelection);
   app.post("/ai-request/action", handlers.aiRequest);
   app.head("/api/access-management", handlers.fallback);
   app.get("/api/access-management", handlers.management);
@@ -69,7 +69,7 @@ export function createWorkbenchApplication(
     "/change",
     "/owner-artifact",
     "/api/workbench-view",
-    "/api/ai-profiles",
+    "/api/ai-selection",
     "/workbench.css",
     LOGO_PATH,
     CLIENT_ASSET_PATH,

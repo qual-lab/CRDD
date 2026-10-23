@@ -24,7 +24,7 @@ import { createSelectedWorkbenchViewUrl } from "../api/view.ts";
 import { readWorkbenchQuery } from "../api/queries.ts";
 import { requestWorkbenchMutation } from "../api/mutations.ts";
 import { ManagementPanel } from "../components/management-panel.tsx";
-import { ProfileManagementPanel } from "../components/profile-management-panel.tsx";
+import { AiSelectionManagementPanel } from "../components/ai-selection-management-panel.tsx";
 import { RecordOperationPanel } from "../components/record-operation-panel.tsx";
 import { RepositoryOperationPanel } from "../components/repository-operation-panel.tsx";
 import { WorkspacePanel } from "../components/workspace-panel.tsx";
@@ -41,7 +41,7 @@ import { Credentials } from "../components/credentials.tsx";
 import { Portfolio } from "../components/portfolio-panel.tsx";
 import { Repository } from "../components/repository-panel.tsx";
 import { RuntimeActivity } from "../components/activity-panel.tsx";
-import { AiProfiles } from "../components/ai-profiles.tsx";
+import { AiSelection } from "../components/ai-selection.tsx";
 
 /**
  * Main View Modelを既存15画面のReact Treeへ変換する。
@@ -273,12 +273,15 @@ export function MainWorkbench({
             refreshReadModel={refreshReadModel}
           />
           <Credentials model={model} />
-          <AiProfiles model={model} />
-          <ProfileManagementPanel
+          <AiSelection model={model} />
+          <AiSelectionManagementPanel
+            key={`ai-selection:${model.selectedRepositoryId}:${model.actionToken}:${model.aiSelectionManagement.allowed}`}
             actionToken={model.actionToken}
-            owner={model.aiProfileAdministration.owner}
-            initialSnapshot={model.aiProfileAdministration.snapshot}
-            initialResult={model.aiProfileAdministration.result}
+            repositoryId={model.selectedRepositoryId}
+            allowed={model.aiSelectionManagement.allowed}
+            initialRead={model.aiSelection?.selection ?? null}
+            catalog={model.aiSelection?.catalog ?? null}
+            initialResult={model.aiSelectionManagement.result}
             refreshReadModel={refreshReadModel}
           />
           <div
@@ -337,7 +340,7 @@ export function MainWorkbench({
             {aiActionNotice ? <p role="status">{aiActionNotice}</p> : null}
             {renderWorkbenchAiRequest(
               model.actionToken,
-              model.aiProfiles,
+              model.aiSelection,
               model.aiRequest.configured,
               model.aiRequest.snapshot,
               model.aiRequest.notice,

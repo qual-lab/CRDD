@@ -9,7 +9,6 @@
  * @trace RFD-IT-019
  * @trace RFD-IT-021
  * @trace EST-IT-010
- * @trace RCM-IT-005
  * @trace RCM-IT-010
  * @trace EST-IT-002
  * @trace EST-IT-014

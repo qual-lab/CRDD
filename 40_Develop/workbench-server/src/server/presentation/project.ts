@@ -10,9 +10,9 @@
  */
 import { readCredentialAdministrationState } from "../../../../access-management/src/index.ts";
 import type {
-  AiProfileCatalogMutationResult,
-  AiProfileCatalogSnapshot,
-} from "../../../../ai-adapter/src/index.ts";
+  AiSelectionSaveResult,
+  AiSelectionSnapshot,
+} from "../../../../coordinator/src/index.ts";
 import type {
   PortfolioProjection,
   TopicMeetingPage,
@@ -24,7 +24,7 @@ import type {
   RepositoryWorktreeFileDiff,
 } from "../../../../version-control/src/index.ts";
 import type { WorkbenchRuntimeActivityObservation } from "../activity/observe.ts";
-import type { WorkbenchAiProfileSurface } from "../ai-profile/projection.ts";
+import type { WorkbenchAiSelectionSurface } from "../ai-selection/projection.ts";
 import type {
   WorkbenchAiRequests,
   WorkbenchAiRequestSnapshot,
@@ -176,10 +176,10 @@ export function createWorkbenchMainViewModel(
   meetingPage: TopicMeetingPage,
   meetingQuery: TopicMeetingListQuery,
   topicMeetingResult: TopicMeetingActionResult | null,
-  aiProfiles: WorkbenchAiProfileSurface | null,
-  aiProfileAdministrationSnapshot: AiProfileCatalogSnapshot | undefined,
-  aiProfileAdministrationOwner: "Repository" | "CROS",
-  aiProfileAdministrationResult: AiProfileCatalogMutationResult | null,
+  aiSelection: WorkbenchAiSelectionSurface | null,
+  aiSelectionManagementSnapshot: AiSelectionSnapshot | undefined,
+  aiSelectionManagementAllowed: boolean,
+  aiSelectionManagementResult: AiSelectionSaveResult | null,
   aiRequests: WorkbenchAiRequests | undefined,
   aiRequestSnapshot: WorkbenchAiRequestSnapshot | null,
   aiRequestNotice: string | null,
@@ -232,11 +232,11 @@ export function createWorkbenchMainViewModel(
     repositoryResult: lastResult,
     worktree,
     credentials: readCredentialAdministrationView(credentialAdministration),
-    aiProfiles,
-    aiProfileAdministration: Object.freeze({
-      snapshot: aiProfileAdministrationSnapshot ?? null,
-      owner: aiProfileAdministrationOwner,
-      result: aiProfileAdministrationResult,
+    aiSelection,
+    aiSelectionManagement: Object.freeze({
+      snapshot: aiSelectionManagementSnapshot ?? null,
+      allowed: aiSelectionManagementAllowed,
+      result: aiSelectionManagementResult,
     }),
     aiRequest: Object.freeze({
       configured: aiRequests !== undefined,

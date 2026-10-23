@@ -20,7 +20,11 @@ import {
   resolveRepositoryRuntimeDataPaths,
   observeRepositoryRuntimeDataArea,
 } from "../../domain-model/src/index.ts";
-import { createRepositoryAiProfileCatalogStore } from "../../ai-adapter/src/index.ts";
+import {
+  readRepositoryAiSelection,
+  saveRepositoryAiSelection,
+} from "../../coordinator/src/index.ts";
+import { selectionConfig } from "../../coordinator/tests/fixtures/ai-selection.ts";
 import {
   createRepositoryTaskRequests,
   type WorkspaceView,
@@ -187,40 +191,25 @@ async function verify(
   const verified = verifyRepositoryRoot(root);
   assert.equal(verified.status, "completed", "fixture_root_invalid");
   if (verified.status !== "completed") throw new Error("fixture_root_invalid");
-  const profiles = createRepositoryAiProfileCatalogStore(root);
-  assert.equal(profiles.status, "ready", "fixture_profiles_unavailable");
-  if (profiles.status !== "ready")
-    throw new Error("fixture_profiles_unavailable");
-  const catalog = profiles.store.snapshot().value;
-  if (!catalog) throw new Error("ai_profile_catalog_read_failed");
-  assert.equal(
-    catalog.catalog.profiles.find((p) => p.profileId === "PROFILE-100003")
-      ?.exactModelId,
-    "gpt-5.5",
+  const savedSelection = saveRepositoryAiSelection(
+    verified.capability,
+    { expectedIdentity: null, config: selectionConfig() },
+    () => true,
   );
-  assert.ok(
-    catalog.catalog.profiles
-      .find((p) => p.profileId === "PROFILE-100003")
-      ?.selectionRoles.includes("executor"),
-    "synthetic_executor_role_missing",
-  );
-  assert.equal(
-    catalog.catalog.profiles.find((p) => p.profileId === "PROFILE-200001")
-      ?.exactModelId,
-    "opus",
-  );
+  if (savedSelection.status !== "saved")
+    throw new Error("fixture_ai_selection_unavailable");
+  const configIdentity = savedSelection.snapshot.identity;
   const permitted = () =>
     hash(fs.readFileSync(path.join(root, "PROJECT_CONTEXT.md"))) ===
       contextHash &&
-    hash(JSON.stringify(profiles.store.snapshot().value)) ===
-      hash(JSON.stringify(catalog));
+    readRepositoryAiSelection(verified.capability).snapshot?.identity ===
+      configIdentity;
   assert.equal(
     (await readWorkbenchProjectSurface(root)).context.projectId,
     projectId,
   );
   const owner = createRepositoryTaskRequests(
     verified.capability,
-    profiles.store,
     projectId,
     "local-workbench-user",
     permitted,
@@ -324,7 +313,7 @@ async function verify(
           return network.policies.codex.policyHash;
         })(),
         mode: "workspace_edit",
-        profileId: "PROFILE-100003",
+        workType: "coding",
         prompt: `合成試験です。source.txtだけを${JSON.stringify(expected)}という一行（末尾改行あり）に変更してください。他のファイル・Git・.crddは変更せず、Commit等のGit操作をしないでください。完了時のchangedPathsはsource.txtだけです。`,
         contextReferences: ["PROJECT_CONTEXT.md"],
         allowedPaths: ["source.txt"],

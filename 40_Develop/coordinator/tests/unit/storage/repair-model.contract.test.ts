@@ -1243,6 +1243,17 @@ test("修復終了: 退避物不存在と履歴確認後だけ対象を除去す
   );
   assert.ok(retainedConfirmed);
   assert.equal(completeRepair(retainedConfirmed, id, binding), null);
+  /**
+   * 修復記録を現行単一状態の合成区画へ接続する。
+   * @responsibility 元の修復相関値を保持し未初期化のTask区画だけを付加する。
+   * @trace ERB-UT-036
+   * @precondition 呼出し側の固定合成値又は既存Sourceを使用する。
+   * @stimulus 引数を同じ正規codec又は固定Rootへ接続する。
+   * @observation 呼出し元が照合する値と相関。
+   * @oracle 元値・拒否条件を補完又は緩和しない。
+   * @cleanup 局所値のみ。物理試験物は呼出しCaseが回収する。
+   * @boundary 既存契約の試験内接続。実AI・Dockerを実行しない。
+   */
   const unifiedFixture = (bytes: Buffer) => {
     const source = decode(bytes, binding);
     assert.ok(source);

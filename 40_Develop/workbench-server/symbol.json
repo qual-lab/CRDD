@@ -226,7 +226,7 @@
     {
       "symbolId": "workbench.presentation.profile-management-panel",
       "kind": "file",
-      "path": "src/client/components/profile-management-panel.tsx",
+      "path": "src/client/components/ai-selection-management-panel.tsx",
       "archIds": [
         "ARCH-000010",
         "ARCH-000012",
@@ -236,7 +236,7 @@
     {
       "symbolId": "workbench.test.integration.profile-presentation",
       "kind": "test-suite",
-      "path": "tests/integration/profile-presentation.contract.test.ts",
+      "path": "tests/integration/ai-selection-presentation.contract.test.ts",
       "qaIds": [
         "QA-000001",
         "QA-000009"
@@ -354,7 +354,8 @@
         "workbench.application.runtime-activity",
         "orchestrator.activity.read",
         "access-management.profile-management",
-        "ai-runtime.profile-administration",
+        "coordinator.storage.ai-selection",
+        "workbench.http.ai-selection",
         "workbench.http.repository",
         "workbench.http.record",
         "workbench.http.ai",
@@ -550,7 +551,7 @@
     {
       "symbolId": "workbench.application.ai-profile-surface",
       "kind": "file",
-      "path": "src/server/ai-profile/projection.ts",
+      "path": "src/server/ai-selection/projection.ts",
       "archIds": [
         "ARCH-000010",
         "ARCH-000012"
@@ -808,6 +809,15 @@
       ]
     },
     {
+      "symbolId": "workbench.http.ai-selection",
+      "kind": "file",
+      "path": "src/server/routes/ai-selection.ts",
+      "archIds": [
+        "ARCH-000010",
+        "ARCH-000012"
+      ]
+    },
+    {
       "symbolId": "workbench.http.ai",
       "kind": "file",
       "path": "src/server/routes/ai.ts",
@@ -937,7 +947,7 @@
     {
       "symbolId": "workbench.presentation.components.ai-profiles",
       "kind": "file",
-      "path": "src/client/components/ai-profiles.tsx",
+      "path": "src/client/components/ai-selection.tsx",
       "archIds": [
         "ARCH-000012"
       ]

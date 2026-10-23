@@ -19,11 +19,9 @@ export {
   type WorkbenchRuntimeEventProjection,
 } from "./server/activity/observe.ts";
 export {
-  createDefaultWorkbenchAiProfileSurface,
-  createWorkbenchAiProfileSurface,
-  type WorkbenchAiProfileObservation,
-  type WorkbenchAiProfileSurface,
-} from "./server/ai-profile/projection.ts";
+  readWorkbenchAiSelectionSurface,
+  type WorkbenchAiSelectionSurface,
+} from "./server/ai-selection/projection.ts";
 export type {
   WorkbenchAiRequestCommand,
   WorkbenchAiRequestMode,

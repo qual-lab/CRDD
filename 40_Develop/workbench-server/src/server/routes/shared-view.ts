@@ -9,7 +9,6 @@
  */
 import type { ServerResponse } from "node:http";
 import { readRepositoryNetworkPolicies } from "../../../../coordinator/src/index.ts";
-import type { AiProfileCatalogAdministration } from "../../../../ai-adapter/src/index.ts";
 import type { WorkbenchAiRequests } from "../ai-request/types.ts";
 import type { CredentialAdministration } from "../credential/administration.ts";
 import {
@@ -38,6 +37,7 @@ import {
   type RepositoryAccessCollectionResult,
   resolveRepositoryAccessCollection,
   sameAccessCollection,
+  evaluateAiProfileManagementPermission,
 } from "../../../../access-management/src/index.ts";
 import type { PortfolioProjection } from "../../../../domain-model/src/index.ts";
 import { readAuthorizedRuntimeActivity } from "../../../../coordinator/src/index.ts";
@@ -47,7 +47,7 @@ import {
   observeRepositoryWorktreeTree,
   observeRepositoryWorktreeFileDiff,
 } from "../../../../version-control/src/index.ts";
-import { createWorkbenchAiProfileSurface } from "../ai-profile/projection.ts";
+import { readWorkbenchAiSelectionSurface } from "../ai-selection/projection.ts";
 import {
   projectRuntimeActivityForWorkbench,
   type WorkbenchRuntimeActivityObservation,
@@ -100,7 +100,6 @@ export async function handleSharedView({
   actionToken: string;
   configuration: Readonly<{
     sharedAiRequestsFactory?: unknown;
-    crosProfileAdministration?: AiProfileCatalogAdministration;
   }>;
   sharedAiSession: (
     connection: CredentialAdministration | undefined,
@@ -299,17 +298,13 @@ export async function handleSharedView({
         const selectedAiSnapshot = selectedAi?.currentId
           ? await selectedAi.owner.observe(selectedAi.currentId)
           : null;
-        const sharedProfileRead =
-          configuration.sharedAiRequestsFactory &&
-          configuration.crosProfileAdministration
-            ? configuration.crosProfileAdministration.snapshot()
-            : undefined;
-        if (sharedProfileRead?.status === "blocked")
-          throw new Error(sharedProfileRead.error);
-        const sharedProfiles =
-          sharedProfileRead?.status === "read"
-            ? createWorkbenchAiProfileSurface(sharedProfileRead.value.catalog)
-            : null;
+        const sharedSelection = readWorkbenchAiSelectionSurface(selected.root);
+        const canManageSelection =
+          credentialAdministration !== undefined &&
+          evaluateAiProfileManagementPermission(
+            credentialAdministration.root,
+            credentialAdministration.token,
+          ) === "allowed";
         model = createWorkbenchMainViewModel(
           surface,
           currentPortfolio,
@@ -327,7 +322,7 @@ export async function handleSharedView({
           null,
           null,
           undefined,
-          "CROS",
+          false,
           null,
           undefined,
           null,
@@ -362,7 +357,14 @@ export async function handleSharedView({
           : null;
         model = {
           ...model,
-          aiProfiles: sharedProfiles,
+          aiSelection: sharedSelection,
+          aiSelectionManagement: {
+            snapshot: canManageSelection
+              ? sharedSelection.selection.snapshot
+              : null,
+            allowed: canManageSelection,
+            result: null,
+          },
           aiRequest: {
             networkPolicies:
               network?.status === "ready" ? network.policies : null,

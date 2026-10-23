@@ -321,6 +321,23 @@ export {
   inspectRuntimeActivityObservation,
 } from "./state/projection.ts";
 export { createRepositoryTaskRequests } from "./task/requests.ts";
+export {
+  getAuthenticationStatus,
+  authenticateProvider,
+  inspectAiSelectionChoice,
+  readRepositoryAiSelection,
+  saveRepositoryAiSelection,
+} from "./api.ts";
+export type {
+  AiSelectionReadResult,
+  AiSelectionSaveResult,
+  AiSelectionChoice,
+  AiSelectionConfig,
+  AiSelectionRole,
+  AiSelectionSnapshot,
+  ExecutionSelection,
+  SingleTaskCommand,
+} from "./api.ts";
 export type {
   ActivityRepository,
   ActivitySource,

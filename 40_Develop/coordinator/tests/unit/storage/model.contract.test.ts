@@ -69,6 +69,12 @@ const binding = "a".repeat(64);
  * @trace PRL-UT-006
  * @returns 空の単一保存値。
  * @effect N/A: メモリ内のfixture生成だけ。
+ * @precondition 固定Bindingと現行v5 Schemaを使用する。
+ * @stimulus Task未初期化の空区画を組み立てる。
+ * @observation 実行・回復・配送・Projectの空集合。
+ * @oracle 架空の旧Profileや初期化済み状態を補完しない。
+ * @cleanup N/A: 局所値のみ。
+ * @boundary 純粋codec試験。実保存・実行を開始しない。
  */
 function emptyUnifiedSnapshot(): CoordinatorUnifiedSnapshot {
   return {
@@ -151,6 +157,17 @@ test("単一保存codec: Rootと改訂を一組にし片側初期化を拒否す
       payloadSha256: createHash("sha256").update(bytes).digest("hex"),
     },
   };
+  /**
+   * 遷移反証の値を正規保存bytesへ変換する。
+   * @responsibility 同じ現行codecと改行を使いHash相関を保つ。
+   * @trace PRL-UT-006
+   * @precondition 合成の遷移候補。
+   * @stimulus 正規JSONと末尾改行をUTF-8へ変換する。
+   * @observation codecへ渡すbytes。
+   * @oracle 別Schemaや任意の文字列変換を補完しない。
+   * @cleanup N/A: 局所値のみ。
+   * @boundary 純粋遷移検査。実保存・実行なし。
+   */
   const encode = (value: unknown) =>
     Buffer.from(`${encodeCoordinatorStateValue(value)}\n`);
   assert.equal(
@@ -396,6 +413,17 @@ test("Task保存codec: 非空回復の値キーとexact参照を保持する", (
     decisionRecoveries: snapshot.decisionRecoveries,
     projects: storedProjects,
   };
+  /**
+   * 合成した単一状態の値を正規codecへ渡す。
+   * @responsibility 現行Schemaの値と実codecを使い、旧形を補完しない。
+   * @trace PRL-UT-006
+   * @precondition 自己生成の純粋状態値。
+   * @stimulus 不正相関又は正常値を正規codecへ渡す。
+   * @observation 復号結果とProject区画。
+   * @oracle 相関不正・旧形式を成功へ畳まない。
+   * @cleanup N/A: 局所値のみ。
+   * @boundary 保存モデルの純粋試験。物理保存・実行なし。
+   */
   const decodeUnified = (value: unknown) =>
     decodeCoordinatorUnifiedSnapshot(
       Buffer.from(`${encodeCoordinatorStateValue(value)}\n`),
@@ -2905,6 +2933,17 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
         },
       ],
     };
+    /**
+     * 相関反証の単一状態を正規bytesへ固定する。
+     * @responsibility 現行Schemaの値と実codecを使い、旧形を補完しない。
+     * @trace PRL-UT-006
+     * @precondition 自己生成の純粋状態値。
+     * @stimulus 不正相関又は正常値を正規codecへ渡す。
+     * @observation 遷移検査へ渡す正規bytes。
+     * @oracle 相関不正・旧形式を成功へ畳まない。
+     * @cleanup N/A: 局所値のみ。
+     * @boundary 保存モデルの純粋試験。物理保存・実行なし。
+     */
     const encodeUnified = (value: unknown) =>
       Buffer.from(`${encodeCoordinatorStateValue(value)}\n`);
     const unifiedBefore = encodeUnified(unifiedTerminal);

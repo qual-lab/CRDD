@@ -178,3 +178,22 @@ export function authenticateProvider(
 ) {
   return runAuthentication("login", request, signal);
 }
+
+export {
+  readRepositoryAiSelection,
+  saveRepositoryAiSelection,
+} from "./storage/ai-selection.ts";
+export type {
+  AiSelectionReadResult,
+  AiSelectionSaveResult,
+} from "./storage/ai-selection.ts";
+export type {
+  AiSelectionChoice,
+  AiSelectionConfig,
+  AiSelectionRole,
+  AiSelectionSnapshot,
+  ExecutionSelection,
+} from "./selection/model.ts";
+export type { SingleTaskCommand } from "./task/requests.ts";
+
+export { inspectAiSelectionChoice } from "./selection/model.ts";

@@ -47,15 +47,15 @@ test("通信確認はProviderと実効Hashへ結合し依頼入力を再生成�
     import {stripTypeScriptTypes} from 'node:module';
     import vm from 'node:vm';
     import {createElement} from 'react';
-    let selected='p1';
+    let selected=''; let workType=''; let hook=0;
     const source=stripTypeScriptTypes(fs.readFileSync(${JSON.stringify(component)},'utf8'),{mode:'transform'});
     const module=new vm.SourceTextModule(source);
     await module.link(specifier=>{
-      const values=specifier==='react'?{createElement,useState:()=>[selected,()=>{}]}:{ActionTokenInput:()=>null,EmptyState:()=>null,WorkbenchPanel:()=>null};
+      const values=specifier==='react'?{createElement,useState:(initial)=>{const n=hook++;return[n===2?selected:n===1?workType:initial,()=>{}];}}:{ActionTokenInput:()=>null,EmptyState:()=>null,WorkbenchPanel:()=>null};
       return new vm.SyntheticModule(Object.keys(values),function(){for(const [key,value]of Object.entries(values))this.setExport(key,value);});
     });
     await module.evaluate();
-    const profiles={catalog:{profiles:[{profileId:'p1',adapterId:'a1'},{profileId:'p2',adapterId:'a2'}],adapters:[{adapterId:'a1',provider:'codex'},{adapterId:'a2',provider:'claude'}]}};
+    const profiles={selection:{status:'available',snapshot:{config:{roleDefaults:{advice:{provider:'codex',model:'m1',effort:'medium'}},workTypes:{},overrides:{}}}},catalog:{catalog:{models:[{provider:'codex',modelIdentifier:'m1',supportedPurposes:['advice'],supportedEfforts:['medium']},{provider:'claude',modelIdentifier:'m2',supportedPurposes:['advice'],supportedEfforts:['medium']}]}}};
     const policies={codex:{provider:'codex',policyHash:'a'.repeat(64),allowedHosts:['chatgpt.com']},claude:{provider:'claude',policyHash:'b'.repeat(64),allowedHosts:['claude.ai']}};
     /**
      * React要素木から対象を探す。
@@ -70,7 +70,7 @@ test("通信確認はProviderと実効Hashへ結合し依頼入力を再生成�
      */
     function find(element,predicate){if(!element||typeof element!=='object')return null;if(predicate(element))return element;for(const child of [element.props?.children].flat(Infinity)){const found=find(child,predicate);if(found)return found;}return null;}
     const tree=module.namespace.renderWorkbenchAiRequest('token',profiles,true,null,null,policies);
-    const profile=find(tree,e=>typeof e.type==='function'&&e.type.name==='AiRequestProfile');
+    const profile=find(tree,e=>typeof e.type==='function'&&e.type.name==='AiRequestSelection');
     assert.ok(profile);assert.equal(profile.key,null);
     /**
      * 現在Profileの確認identityとHashを読む。
@@ -83,9 +83,11 @@ test("通信確認はProviderと実効Hashへ結合し依頼入力を再生成�
      * @cleanup N/A: 局所値のみ。
      * @boundary VM内の実Component、実DOMではない。
      */
-    function observe(){const value=profile.type(profile.props);return {key:find(value,e=>e.props?.className==='confirm').key,hash:find(value,e=>e.props?.name==='expectedNetworkPolicyHash').props.value};}
+    function observe(){hook=0;const value=profile.type(profile.props);return {key:find(value,e=>e.props?.className==='confirm').key,hash:find(value,e=>e.props?.name==='expectedNetworkPolicyHash').props.value};}
     const first=observe();assert.equal(first.hash,policies.codex.policyHash);
-    selected='p2';const second=observe();assert.notEqual(second.key,first.key);assert.equal(second.hash,policies.claude.policyHash);
+    profiles.selection.snapshot.config.workTypes.constructor={label:'constructor'};workType='constructor';assert.equal(observe().hash,policies.codex.policyHash);
+    profiles.selection.snapshot.config.overrides.advice={constructor:{provider:'claude',model:'m2',effort:'medium'}};assert.equal(observe().hash,policies.claude.policyHash);workType='';
+    selected=JSON.stringify({provider:'claude',model:'m2',effort:'medium'});const second=observe();assert.notEqual(second.key,first.key);assert.equal(second.hash,policies.claude.policyHash);
     policies.claude={...policies.claude,policyHash:'c'.repeat(64)};const third=observe();assert.notEqual(third.key,second.key);assert.equal(third.hash,policies.claude.policyHash);assert.deepEqual(observe(),third);
   `;
   const result = spawnSync(
@@ -108,6 +110,82 @@ test("通信確認はProviderと実効Hashへ結合し依頼入力を再生成�
     overview,
     /key=\{`ai-request:\$\{model.selectedRepositoryId\}:\$\{model.actionToken\}`\}/u,
   );
+});
+
+/**
+ * 同一対象の再描画で設定編集と保留要求を初期化しない。
+ * @responsibility 実PanelのHook寿命と取消処理を局所代役で反証する。
+ * @trace ERB-IT-021
+ * @precondition JSX描画直前までの実Componentと合成Hook・HTTP。
+ * @stimulus draft編集、POST保留中の新しい初期値、完了とunmount。
+ * @observation draft、要求数、取消Signal、busyと保存結果。
+ * @oracle 同一対象更新でdraft維持・不要abort0、完了後busy false、unmount取消。
+ * @cleanup 子Process・保留Promise・局所Hookをすべて終了する。
+ * @boundary DOM描画・実Browser・実HTTPの代替ではない。
+ */
+test("設定Panelは同じ対象の再取得でdraftと保留POSTを失わない", () => {
+  const component = path.resolve(
+    import.meta.dirname,
+    "../../src/client/components/ai-selection-management-panel.tsx",
+  );
+  const script = `
+    import assert from 'node:assert/strict';
+    import fs from 'node:fs';
+    import vm from 'node:vm';
+    import {stripTypeScriptTypes} from 'node:module';
+    const original=fs.readFileSync(${JSON.stringify(component)},'utf8');
+    const source=stripTypeScriptTypes(original.slice(0,original.indexOf('  const edited = readSelectionDraft(draft);'))+'return {execute,setDraft,draft,busy,result};}',{mode:'transform'});
+    const states=[], refs=[], effects=[];let stateIndex=0,refIndex=0,effectIndex=0,calls=0,signal,finish;
+    const hooks={useState(initial){const index=stateIndex++;if(!(index in states))states[index]=initial;return[states[index],value=>{states[index]=typeof value==='function'?value(states[index]):value;}];},useRef(initial){const index=refIndex++;return refs[index]??=( {current:initial});},useEffect(effect,deps){const index=effectIndex++;const old=effects[index];if(!old||deps.some((v,i)=>v!==old.deps[i])){old?.cleanup?.();effects[index]={deps,cleanup:effect()};}}};
+    /**
+     * 保留するHTTP代役を一要求へ結合する。
+     * @responsibility 要求数と取消Signalを捕捉して外部通信を行わない。
+     * @trace ERB-IT-021
+     * @precondition 合成PathとSignal。
+     * @stimulus 要求を保留し明示解放する。
+     * @observation 呼出し件数とSignal。
+     * @oracle 再描画で不要取消・再送なし。
+     * @cleanup 親Caseが全Promiseを解放する。
+     * @boundary 自己生成試験内の局所代役／専用Browser。実AIなし。
+     */
+    const pending=async(_path,options)=>{calls++;signal=options.signal;return new Promise(resolve=>{finish=resolve;});};
+    const module=new vm.SourceTextModule(source);
+    await module.link(specifier=>{
+      const values=specifier==='react'?hooks:specifier.endsWith('mutations.ts')?{requestWorkbenchMutation:pending}:specifier.endsWith('connection.ts')?{requestWorkbench:pending}:specifier.endsWith('queries.ts')?{readWorkbenchQuery:(_purpose,signal,read)=>read(signal)}:specifier.endsWith('validation.ts')?{inspectWorkbenchSelectionRead:value=>value,inspectWorkbenchSelectionResult:(_form,value)=>value}:{WorkbenchPanel:()=>null,ActionTokenInput:()=>null};
+      return new vm.SyntheticModule(Object.keys(values),function(){for(const[key,value]of Object.entries(values))this.setExport(key,value);});
+    });
+    await module.evaluate();
+    const initialRead={status:'available',reason:null,snapshot:{identity:'a'.repeat(64),config:{}}};
+    const props={actionToken:'fixed',repositoryId:'repository.fixture',allowed:true,initialRead};
+    /**
+     * 同一対象の次描画を再構成する。
+     * @responsibility 実Componentに新しい初期Objectを渡してHook寿命を反証する。
+     * @trace ERB-IT-021
+     * @precondition 局所Hookの配列。
+     * @stimulus Indexを戻して同じComponentを呼ぶ。
+     * @observation draft・busy・操作関数。
+     * @oracle 同じ対象でmount効果を再初期化しない。
+     * @cleanup Case末尾で全効果を終了する。
+     * @boundary 自己生成試験内の局所代役／専用Browser。実AIなし。
+     */
+    const render=()=>{stateIndex=refIndex=effectIndex=0;return module.namespace.AiSelectionManagementPanel({...props,initialRead:structuredClone(initialRead)});};
+    let panel=render();panel.setDraft('unsaved');panel=render();assert.equal(panel.draft,'unsaved');
+    const saving=panel.execute(new URLSearchParams({config:'{}'}));panel=render();assert.equal(panel.busy,true);assert.equal(panel.draft,'unsaved');assert.equal(signal.aborted,false);assert.equal(calls,1);
+    finish({ok:true,json:async()=>({status:'saved',reason:null,snapshot:initialRead.snapshot})});await saving;panel=render();assert.equal(panel.busy,false);assert.equal(panel.result.status,'saved');assert.equal(calls,1);
+    const reading=panel.execute(null);for(const effect of effects)effect.cleanup?.();assert.equal(signal.aborted,true);finish({ok:true,json:async()=>initialRead});await reading;assert.equal(calls,2);
+  `;
+  const result = spawnSync(
+    process.execPath,
+    ["--experimental-vm-modules", "--input-type=module", "-e", script],
+    {
+      cwd: path.resolve(import.meta.dirname, "../.."),
+      encoding: "utf8",
+      windowsHide: true,
+      timeout: 15000,
+    },
+  );
+  assert.equal(result.error, undefined);
+  assert.equal(result.status, 0, result.stderr);
 });
 
 /**
@@ -216,7 +294,7 @@ test("Queryは取消済み旧要求を次要求や次接続へ共有しない", 
   let callerSignal: AbortSignal | undefined;
   let finishCaller: (() => void) | undefined;
   const cancelled = readWorkbenchQuery(
-    "profiles",
+    "ai-selection",
     owner.signal,
     async (signal) => {
       callerSignal = signal;

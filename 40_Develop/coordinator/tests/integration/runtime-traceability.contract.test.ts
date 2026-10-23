@@ -560,6 +560,17 @@ test("CLIは四責務に閉じ診断Ownerから逆参照されない", () => {
     "options.ts",
     "recovery-report.ts",
   ]);
+  /**
+   * 検査対象Source本文を読取り専用で取得する。
+   * @responsibility 責務配置のassertionへ同じ基準Rootの本文を渡す。
+   * @trace PPR-IT-018
+   * @precondition nameはCaseに固定したPackage内相対名である。
+   * @stimulus 対象FileをUTF-8で読む。
+   * @observation Source本文。
+   * @oracle 呼出し元のimport・関数所在assertionで判定する。
+   * @cleanup N/A: Fileを変更しない。
+   * @boundary PPR-IT-018=Direct Boundary: Source配置と追跡検査。
+   */
   const read = (name: string) => fs.readFileSync(path.join(root, name), "utf8");
   assert.doesNotMatch(
     read("execution/diagnostics.ts"),

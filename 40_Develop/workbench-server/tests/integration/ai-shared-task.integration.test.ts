@@ -9,6 +9,7 @@
  * @boundary Workbench HTTPとAMの実保存。
  */
 import assert from "node:assert/strict";
+import { executionSelection } from "../../../coordinator/tests/fixtures/ai-selection.ts";
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import fs from "node:fs";
@@ -215,7 +216,7 @@ test("共有Task入口は主体とRepositoryを分離し毎要求の認可を使
       const unavailable = (requestId: string): WorkbenchAiRequestSnapshot => ({
         requestId,
         mode: null,
-        profileId: null,
+        executionSelection: null,
         status: "unknown",
         reason: "not_available",
         facts: [],
@@ -243,7 +244,7 @@ test("共有Task入口は主体とRepositoryを分離し毎要求の認可を使
           snapshot = {
             ...unavailable(requestId),
             mode: command.mode,
-            profileId: command.profileId,
+            executionSelection: executionSelection("advice"),
             status: "running",
             reason: null,
           };
@@ -345,7 +346,7 @@ test("共有Task入口は主体とRepositoryを分離し毎要求の認可を使
   const command = {
     operation: "start",
     mode: "read_only_advice",
-    profileId: "PROFILE-100001",
+    workType: "",
     prompt: "合成入力",
     externalSendConfirmed: "yes",
     expectedNetworkPolicyHash: "a".repeat(64),
@@ -479,7 +480,7 @@ test("単体Task入口は再構成後の元IDを観測・取消へ接続する",
   let saved: WorkbenchAiRequestSnapshot = {
     requestId: id,
     mode: "read_only_advice",
-    profileId: "PROFILE-100001",
+    executionSelection: executionSelection("advice"),
     status: "unknown",
     reason: "orchestrator_task_body_unavailable",
     taskId: "task-before-restart",

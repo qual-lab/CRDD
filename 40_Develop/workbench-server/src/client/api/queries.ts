@@ -38,7 +38,7 @@ const client = new QueryClient({
  * @concurrency 同用途でも別Callerの要求を共有せず、各finallyは自分のQueryだけを消す。
  */
 export async function readWorkbenchQuery<T>(
-  name: "view" | "management" | "profiles" | "credentials-view",
+  name: "view" | "management" | "ai-selection" | "credentials-view",
   signal: AbortSignal,
   read: (signal: AbortSignal) => Promise<T>,
 ): Promise<T> {

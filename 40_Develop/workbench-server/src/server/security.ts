@@ -85,10 +85,10 @@ export function setResponseHeaders(response: ServerResponse): void {
  *
  * @responsibility localhost HTTP Bodyを固定上限内のURL encoded Formへ変換し、過大入力を拒否する。
  * @trace ARCH-000012
- * @input incomingに未読のHTTP Requestを受け取る。
+ * @input incomingに未読のHTTP Request、maxBytesに用途別の固定上限を受け取る。
  * @returns URLSearchParamsを返すPromiseを返す。
  * @precondition Content-Typeはapplication/x-www-form-urlencodedである。
- * @postcondition Body全体が16KiB以下の場合だけ解析済みFormを返す。
+ * @postcondition Body全体が指定上限（通常16KiB）以下の場合だけ解析済みFormを返す。
  * @effect Request streamを終端まで消費する。
  * @failure 過大Body、Stream失敗または不正Content-TypeをErrorで拒否する。
  * @invariant 部分BodyからRepository Effectを開始しない。
@@ -98,18 +98,24 @@ export function setResponseHeaders(response: ServerResponse): void {
  */
 export async function readActionForm(
   incoming: IncomingMessage,
+  maxBytes = 16 * 1_024,
 ): Promise<URLSearchParams> {
+  if (!Number.isSafeInteger(maxBytes) || maxBytes <= 0)
+    throw new Error("workbench_action_body_limit_invalid");
   if (
     incoming.headers["content-type"]?.split(";", 1)[0] !==
     "application/x-www-form-urlencoded"
   )
     throw new Error("workbench_action_content_type_invalid");
+  const declaredLength = incoming.headers["content-length"];
+  if (declaredLength !== undefined && Number(declaredLength) > maxBytes)
+    throw new Error("workbench_action_body_too_large");
   const chunks: Buffer[] = [];
   let size = 0;
   for await (const chunk of incoming) {
     const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
     size += buffer.byteLength;
-    if (size > 16 * 1_024) throw new Error("workbench_action_body_too_large");
+    if (size > maxBytes) throw new Error("workbench_action_body_too_large");
     chunks.push(buffer);
   }
   return new URLSearchParams(Buffer.concat(chunks).toString("utf8"));

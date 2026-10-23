@@ -313,7 +313,7 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
     exportedModules: [
       "./server/connection/configuration.ts",
       "./server/credential/administration.ts",
-      "./server/ai-profile/projection.ts",
+      "./server/ai-selection/projection.ts",
       "./server/ai-request/types.ts",
       "./server/activity/observe.ts",
       "./server/owner-artifact/read.ts",

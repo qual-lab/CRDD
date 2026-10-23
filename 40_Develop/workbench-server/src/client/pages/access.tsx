@@ -15,7 +15,6 @@ import {
 import type { WorkbenchAccessViewModel } from "../../shared/view/types.ts";
 import { inspectWorkbenchClientModel } from "../../shared/view/validation.ts";
 import { ManagementPanel } from "../components/management-panel.tsx";
-import { ProfileManagementPanel } from "../components/profile-management-panel.tsx";
 import {
   requestWorkbench,
   setWorkbenchCredential,
@@ -267,11 +266,6 @@ export function AccessWorkbench({
             </WorkbenchPanel>
             <ManagementPanel
               actionToken={model.actionToken}
-              refreshReadModel={refreshReadModel}
-            />
-            <ProfileManagementPanel
-              actionToken={model.actionToken}
-              owner="CROS"
               refreshReadModel={refreshReadModel}
             />
             <Credentials model={model} />

@@ -6,7 +6,7 @@
  * @trace ARCH-000012
  * @trace ARCH-000013
  * @boundary 利用者TerminalとWorkbench公開API。
- * @effect localhost Listenerと既存Catalogを構成する。Provider処理は利用者の別要求だけ。
+ * @effect localhost ListenerとRepository設定を構成する。Provider処理は利用者の別要求だけ。
  * @security 資格を引数へ受け取らず、CROS不成立から単体へfallbackしない。
  */
 import {
@@ -15,11 +15,6 @@ import {
   readWorkbenchServerConfiguration,
   type WorkbenchHandle,
 } from "../src/index.ts";
-import {
-  createRepositoryAiProfileCatalogStore,
-  createHostAiProfileCatalogStore,
-  createAiProfileCatalogAdministration,
-} from "../../ai-adapter/src/index.ts";
 import {
   resolveHostRootInput,
   readExistingHostRoot,
@@ -38,7 +33,7 @@ import {
  * @input 検証済みRepository Pathとport。
  * @returns 所有Workbench Handle。
  * @precondition Repository単体modeを明示選択した。
- * @postcondition 既存のRepository ProfileとAI／Candidateだけへ接続する。
+ * @postcondition 既存のRepository設定とAI／Candidateだけへ接続する。
  * @effect Catalog観測とlocalhost Listener起動。Provider要求は発行しない。
  * @failure Root／Catalog不成立は固定例外で停止する。
  * @invariant 設定の存在からCROSへ自動切替しない。
@@ -53,13 +48,9 @@ async function startRepositoryWorkbench(
   const verified = verifyRepositoryRoot(repositoryRoot);
   if (verified.status !== "completed")
     throw new Error("verified_repository_root_required");
-  const profiles = createRepositoryAiProfileCatalogStore(repositoryRoot);
-  if (profiles.status !== "ready")
-    throw new Error("ai_profile_catalog_store_required");
   const surface = await readWorkbenchProjectSurface(repositoryRoot);
   const aiRequests = createRepositoryTaskRequests(
     verified.capability,
-    profiles.store,
     surface.context.projectId,
     "local-workbench-user",
     () =>
@@ -81,7 +72,7 @@ async function startRepositoryWorkbench(
  * @input Process引数、現在Directory、固定用途Host環境。
  * @returns 起動Handle、またはHelp／拒否時のnull。
  * @precondition Nodeの標準入口から起動する。
- * @postcondition --cros時は要求ごとのAM認可とHost Catalogを構成する。
+ * @postcondition --cros時は要求ごとのAM認可とRepository設定を構成する。
  * @effect 現在Rootと既存Host状態の観測、Catalog構成、Listener起動。
  * @failure 引数不正64、Host／起動不成立2。単体fallbackはしない。
  * @invariant 初期化・Credential発行・Provider要求を実行しない。
@@ -123,25 +114,13 @@ async function startFromCommandLine(): Promise<WorkbenchHandle | null> {
   const initialization = readHostInitializationState(root);
   if (initialization.status === "fresh" || initialization.status === "unknown")
     throw new Error("workbench_host_initialization_unavailable");
-  const profiles = createHostAiProfileCatalogStore(input);
-  if (profiles.status !== "ready")
-    throw new Error("workbench_host_profile_unavailable");
   return startWorkbench({
     workingDirectory: repositoryRoot,
     port,
     localAccessRoot: root,
     ...configuration,
-    crosProfileAdministration: createAiProfileCatalogAdministration(
-      profiles.store,
-    ),
     sharedAiRequestsFactory: (root, projectId, principalId, authorize) =>
-      createRepositoryTaskRequests(
-        root,
-        profiles.store,
-        projectId,
-        principalId,
-        authorize,
-      ),
+      createRepositoryTaskRequests(root, projectId, principalId, authorize),
   });
 }
 

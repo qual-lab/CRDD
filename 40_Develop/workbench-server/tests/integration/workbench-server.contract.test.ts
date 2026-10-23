@@ -46,9 +46,13 @@ import { createCredentialMaterial } from "../../../access-management/src/credent
 import type { AccessManagementState } from "../../../access-management/src/storage/types.ts";
 
 import {
-  createRepositoryAiProfileCatalogStore,
-  defaultAiProfileCatalog,
-} from "../../../ai-adapter/src/index.ts";
+  saveRepositoryAiSelection,
+  readRepositoryAiSelection,
+} from "../../../coordinator/src/index.ts";
+import {
+  selectionConfig,
+  executionSelection,
+} from "../../../coordinator/tests/fixtures/ai-selection.ts";
 import { createFilesystemStoreRoot } from "../../../domain-model/src/index.ts";
 import {
   createTaskAttemptSettledEvent,
@@ -56,13 +60,15 @@ import {
   verifyExecutionIntelligenceRepositoryRoot,
   writeExecutionIntelligenceEvent,
 } from "../../../execution-intelligence/src/index.ts";
-import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
+import {
+  verifyRepositoryRoot,
+  resolveVerifiedRepositoryRootFromWorkingDirectory,
+} from "../../../version-control/src/index.ts";
 import { createWorkbenchAiVerificationHttpClient } from "../../scripts/ai-verification-http.ts";
 import { inspectWorkbenchClientModel } from "../../src/shared/view/validation.ts";
 import type { WorkbenchClientModel } from "../../src/shared/view/types.ts";
 import {
   createRepositoryWorkbenchActivityReader,
-  createWorkbenchAiProfileSurface,
   readWorkbenchProjectSurface,
   startWorkbench,
   type WorkbenchActivityReader,
@@ -450,13 +456,13 @@ test("Direction A Shellと公式ロゴをloopback限定で配信する", async (
       );
       assert.equal(retired.status, 405);
     }
-    assert.ok(model.aiProfiles);
+    assert.ok(model.aiSelection);
     const serializedModel = JSON.stringify(model);
     assert.equal(shell.status, 200);
     assert.match(shell.body.toString("utf8"), /CROS Workbench/u);
     assert.ok(
-      model.aiProfiles.catalog.profiles.some(
-        (profile) => profile.profileId === "PROFILE-100003",
+      model.aiSelection.catalog.catalog.models.some(
+        (model) => model.modelIdentifier === "gpt-5.5",
       ),
     );
     assert.equal(model.logoPath, "/assets/crdd-brand-icon.jpg");
@@ -489,28 +495,22 @@ test("Direction A Shellと公式ロゴをloopback限定で配信する", async (
     );
     assert.ok(model.surface.ownerArtifacts.artifacts.length > 0);
 
-    assert.equal(model.aiProfileAdministration.snapshot?.revision, 0);
     assert.doesNotThrow(() =>
       inspectWorkbenchClientModel(structuredClone(model)),
     );
-    for (const invalidRevision of [-1, 0.5]) {
-      const invalidCatalogRevision = structuredClone(model) as unknown as {
-        aiProfileAdministration: {
-          snapshot: { revision: number } | null;
-        };
-      };
-      assert.notEqual(
-        invalidCatalogRevision.aiProfileAdministration.snapshot,
-        null,
-      );
-      if (invalidCatalogRevision.aiProfileAdministration.snapshot !== null)
-        invalidCatalogRevision.aiProfileAdministration.snapshot.revision =
-          invalidRevision;
-      assert.throws(
-        () => inspectWorkbenchClientModel(invalidCatalogRevision),
-        /workbench_client_model_invalid/u,
-      );
-    }
+    const invalidSelection = structuredClone(model);
+    assert.ok(invalidSelection.aiSelection);
+    Object.assign(invalidSelection.aiSelection, {
+      selection: {
+        status: "available",
+        reason: null,
+        snapshot: { config: selectionConfig(), identity: "invalid" },
+      },
+    });
+    assert.throws(
+      () => inspectWorkbenchClientModel(invalidSelection),
+      /workbench_client_model_invalid/u,
+    );
 
     const invalidQuality = structuredClone(model) as unknown as {
       surface: {
@@ -1309,7 +1309,7 @@ test("Route分割はraw URLの正規化と管理HEAD拒否を維持する", asyn
       "workspace",
       "repository",
       "topic-meeting",
-      "ai-profiles",
+      "ai-selection",
       "ai-request",
     ]) {
       const shadow = await requestRaw(
@@ -1328,7 +1328,7 @@ test("Route分割はraw URLの正規化と管理HEAD拒否を維持する", asyn
     for (const [operation, reason] of [
       ["repository", "repository_action_rejected"],
       ["topic-meeting", "topic_meeting_action_rejected"],
-      ["ai-profiles", "ai_profile_action_rejected"],
+      ["ai-selection", "ai_selection_request_rejected"],
       ["ai-request", "ai_request_action_rejected"],
     ]) {
       const normalized = await requestRaw(
@@ -2600,7 +2600,7 @@ test("実Provider検証HTTPの受付後故障は再送せず不明結果と同�
                   ? {
                       requestId: "AIREQ-FAULT-001",
                       mode: "read_only_advice",
-                      profileId: "PROFILE-100001",
+                      executionSelection: executionSelection("advice"),
                       status: cancelled ? "cancelled" : "running",
                       reason: null,
                       facts: [],
@@ -2674,7 +2674,7 @@ test("実Provider検証HTTPの受付後故障は再送せず不明結果と同�
         try {
           await application.start({
             mode: "read_only_advice",
-            profileId: "PROFILE-100001",
+            workType: null,
             prompt: "固定故障検証",
             expectedNetworkPolicyHash: "a".repeat(64),
             contextReferences: ["PROJECT_CONTEXT.md"],
@@ -2875,12 +2875,12 @@ test("WorkbenchからMeeting Outcomeを処置してCloseする", async () => {
 /**
  * Workbenchの現在Session AI依頼をApplication Portへ搬送することを検証する。
  *
- * @responsibility Profile選択、Project Context参照、状態観測および意味区分表示の合否判定を所有する。
+ * @responsibility 作業分類・任意明示選択、Project Context参照、状態観測および意味区分表示の合否判定を所有する。
  * @trace ERB-IT-021
  * @precondition 決定論的なFake AI Request Applicationを注入する。
- * @stimulus Profileと依頼を送信し、完了Snapshotを再取得する。
+ * @stimulus 作業分類・任意明示選択と依頼を送信し、完了Snapshotを再取得する。
  * @observation Application入力とBrowserへ返る四区分の結果を観測する。
- * @oracle 固定ProfileとProject Contextだけが搬送され、外部Textはescapeされ、事実と推論を混同しない。
+ * @oracle 固定した完全選定とProject Contextだけが搬送され、外部Textはescapeされ、事実と推論を混同しない。
  * @cleanup Workbench Handleを閉じる。
  * @boundary ERB-IT-021=Direct Boundary: workbench Test Source→対象契約
  */
@@ -2897,7 +2897,7 @@ test("Workbenchの単発依頼は助言四分類とWorkspace編集を分け旧Bu
     observe: async (requestId) => ({
       requestId,
       mode: received?.mode ?? "read_only_advice",
-      profileId: received?.profileId ?? "PROFILE-100001",
+      executionSelection: executionSelection("advice"),
       status: "completed",
       reason: null,
       facts: [{ text: "<fact>", references: ["PROJECT_CONTEXT.md#1"] }],
@@ -2913,7 +2913,7 @@ test("Workbenchの単発依頼は助言四分類とWorkspace編集を分け旧Bu
     cancel: async (requestId) => ({
       requestId,
       mode: "read_only_advice",
-      profileId: "PROFILE-100001",
+      executionSelection: executionSelection("advice"),
       status: "cancelled",
       reason: "cancelled",
       facts: [],
@@ -2942,7 +2942,7 @@ test("Workbenchの単発依頼は助言四分類とWorkspace編集を分け旧Bu
           actionToken: token,
           operation: "start",
           mode,
-          profileId: "PROFILE-100001",
+          workType: "",
           prompt: "合成依頼",
           allowedPaths:
             mode === "workspace_edit" ? "40_Develop/workbench-server/src" : "",
@@ -2977,7 +2977,7 @@ test("Workbenchの単発依頼は助言四分類とWorkspace編集を分け旧Bu
         actionToken: token,
         operation: "start",
         mode: "change_candidate",
-        profileId: "PROFILE-100001",
+        workType: "",
         prompt: "旧方式は拒否",
         allowedPaths: "source.txt",
         externalSendConfirmed: "yes",
@@ -3246,18 +3246,18 @@ test("WorkbenchはRepository EventをProject限定で継続読込する", async 
 });
 
 /**
- * Repository Ownerが採用したAI Profile CatalogをWorkbenchが表示することを検証する。
+ * Repository別AI設定と技術カタログを分離して表示することを検証する。
  *
- * @responsibility 既定Catalog固定ではなく、同じRepository設定Ownerの現在Snapshotを利用することを反証する。
+ * @responsibility 同じRepository設定Ownerの現在Snapshotを利用し、技術対応を利用可能性へ昇格しない。
  * @trace RCM-IT-005
- * @precondition 隔離Repositoryへ追加ProfileをRevision 1として採用する。
+ * @precondition 自己生成Repositoryへ五役割の選択設定を保存する。
  * @stimulus 同じRepositoryからWorkbenchを開始しShellを取得する。
- * @observation 追加Profile IDとModelをBrowser表示で観測する。
- * @oracle 採用済みPROFILE-300001を表示し、設定だけから実行可能と表示しない。
+ * @observation 設定Identity・役割既定値と技術ModelをRead Modelで観測する。
+ * @oracle 保存した設定を表示し、設定だけから認証済み・実行可能と表示しない。
  * @cleanup Workbench Handleと隔離Repositoryを削除する。
  * @boundary RCM-IT-005=Direct Boundary: workbench Test Source→対象契約
  */
-test("WorkbenchはRepository Ownerの採用済みAI Profile Catalogを表示する", async () => {
+test("WorkbenchはRepository別AI設定と技術対応を分離して表示する", async () => {
   const testRoot = path.join(repositoryRoot, ".crdd", "tests");
   await mkdir(testRoot, { recursive: true });
   const fixture = await mkdtemp(path.join(testRoot, "workbench-ai-profile-"));
@@ -3288,45 +3288,25 @@ test("WorkbenchはRepository Ownerの採用済みAI Profile Catalogを表示す�
       "utf8",
     );
     git(fixture, "init", "--initial-branch=main");
-    const adapter = createRepositoryAiProfileCatalogStore(fixture);
-    assert.equal(adapter.status, "ready");
-    assert.ok(adapter.store);
-    const adoption = adapter.store.adopt({
-      expectedRevision: 0,
-      candidate: {
-        ...defaultAiProfileCatalog,
-        profiles: [
-          ...defaultAiProfileCatalog.profiles,
-          {
-            profileId: "PROFILE-300001",
-            adapterId: "codex-cli",
-            family: "astra",
-            exactModelId: "gpt-6-astra",
-            selectionRoles: ["executor"],
-            modelTiers: ["preferred"],
-            speedMode: "normal",
-            billingMode: "subscription_oauth",
-            defaultReasoningEffort: "high",
-            compatibilityReason: null,
-          },
-        ],
-      },
-    });
-    assert.equal(adoption.status, "adopted");
 
+    const verified = verifyRepositoryRoot(fixture);
+    assert.equal(verified.status, "completed");
+    if (verified.status !== "completed") throw Error("fixture_root_invalid");
+    const saved = saveRepositoryAiSelection(
+      verified.capability,
+      { expectedIdentity: null, config: selectionConfig() },
+      () => true,
+    );
+    assert.equal(saved.status, "saved");
     handle = await startWorkbench({ workingDirectory: fixture });
     const model = await requestMainModel(handle.baseUrl);
-    assert.ok(model.aiProfiles);
-    const profile = model.aiProfiles.catalog.profiles.find(
-      (entry) => entry.profileId === "PROFILE-300001",
-    );
-    assert.equal(profile?.exactModelId, "gpt-6-astra");
+    assert.ok(model.aiSelection);
+    assert.equal(model.aiSelection.selection.status, "available");
     assert.equal(
-      model.aiProfiles.observations.find(
-        (entry) => entry.profileId === "PROFILE-300001",
-      )?.availability.hostAvailable,
-      null,
+      model.aiSelection.selection.snapshot?.config.roleDefaults.executor.model,
+      "gpt-5.5",
     );
+    assert.equal("observations" in model.aiSelection, false);
   } finally {
     await handle?.close();
     await rm(fixture, { recursive: true, force: true });
@@ -3334,18 +3314,18 @@ test("WorkbenchはRepository Ownerの採用済みAI Profile Catalogを表示す�
 });
 
 /**
- * WorkbenchからRepository OwnerのAI Profileを限定管理する。
+ * WorkbenchからRepository別AI設定をCAS保存する。
  *
- * @responsibility 登録Adapter／Modelだけの作成と確認付き削除をBrowser直接境界で検証する。
+ * @responsibility 閉設定・現在Identity・保存不明と応答故障を実HTTP境界で検証する。
  * @trace RCM-IT-005
- * @precondition AI Profile Catalog未作成の隔離RepositoryからWorkbenchを開始する。
- * @stimulus Profileを作成し、未確認削除と確認済み削除を順に送信する。
- * @observation Browser表示、結果理由、Revisionおよび耐久Snapshotを観測する。
- * @oracle 通常の作成・確認済み削除を反映し、未確認削除はEffect 0。公開後不明は503後のGETを壊さず、表示注入時は無関係なStoreを読まない。
+ * @precondition AI選択設定未作成の自己生成RepositoryからWorkbenchを開始する。
+ * @stimulus 初回保存・競合・旧入力・公開後故障・有界の大きな設定を送る。
+ * @observation 現在表示、結果理由、内容Identity・読戻しと保存回数を観測する。
+ * @oracle 期待Identity一致だけ保存し、競合・旧入力・過大設定は保存0。公開後不明はunknownを保持しfresh GETで現在設定を観測する。
  * @cleanup Workbench Handleと隔離Repositoryを削除する。
  * @boundary RCM-IT-005=Direct Boundary: workbench Test Source→対象契約
  */
-test("Workbenchは登録済みAdapterだけでAI Profileを作成し確認付きで削除する", async (context) => {
+test("WorkbenchはRepository別AI設定をCAS保存し不明な出版を再送しない", async (context) => {
   const testRoot = path.join(repositoryRoot, ".crdd", "tests");
   await mkdir(testRoot, { recursive: true });
   const fixture = await mkdtemp(path.join(testRoot, "workbench-ai-admin-"));
@@ -3377,188 +3357,143 @@ test("Workbenchは登録済みAdapterだけでAI Profileを作成し確認付き
     );
     git(fixture, "init", "--initial-branch=main");
     handle = await startWorkbench({ workingDirectory: fixture });
-    const initial = await requestMainModel(handle.baseUrl);
-    const token = initial.actionToken;
-    assert.equal(initial.aiProfileAdministration.owner, "Repository");
 
-    const createForm = new URLSearchParams({
-      actionToken: token,
-      operation: "create",
-      expectedRevision: "0",
-      profileId: "PROFILE-300001",
-      adapterModel: "codex-cli|gpt-6-astra",
-      family: "astra",
-      defaultReasoningEffort: "high",
-      compatibilityReason: "",
+    const initial = await requestMainModel(handle.baseUrl);
+    assert.equal(initial.aiSelection?.selection.status, "missing");
+    assert.equal(initial.aiSelectionManagement.allowed, true);
+    const form = new URLSearchParams({
+      actionToken: initial.actionToken,
+      expectedIdentity: "",
+      config: JSON.stringify(selectionConfig()),
     });
-    createForm.append("selectionRole", "executor");
-    createForm.append("modelTier", "preferred");
-    const created = await requestRaw(
-      handle.baseUrl,
-      "/ai-profiles/action",
-      "POST",
-      createForm.toString(),
-    );
-    assert.equal(created.status, 303);
+    const baseUrl = handle.baseUrl;
+    /**
+     * 自己生成設定のPOSTを同Originへ送る。
+     * @responsibility 通常Form制限と用途限定容量を実HTTPで検証する。
+     * @trace RCM-IT-005
+     * @precondition 本番Serverと閉じた合成Form。
+     * @stimulus 一回だけHTTP POSTする。
+     * @observation 終了値と構造化保存結果。
+     * @oracle 不正・過大入力で保存しない。
+     * @cleanup Server終了とexact Root清掃は親Caseが所有する。
+     * @boundary 自己生成設定と本番HTTP。実AIなし。
+     */
+    const post = (input: URLSearchParams) =>
+      requestTransport(
+        baseUrl,
+        "/ai-selection/action",
+        "POST",
+        input.toString(),
+        {
+          Origin: baseUrl,
+        },
+      );
+    const invalid = new URLSearchParams(form);
+    invalid.set("actionToken", "wrong");
+    assert.equal((await post(invalid)).status, 400);
+    const created = await post(form);
+    assert.equal(created.status, 200);
+    const first = JSON.parse(created.body.toString("utf8"));
+    assert.equal(first.status, "saved");
+    const conflict = await post(form);
+    assert.equal(JSON.parse(conflict.body.toString("utf8")).status, "conflict");
     const afterCreate = await requestMainModel(handle.baseUrl);
     assert.equal(
-      afterCreate.aiProfileAdministration.result?.reason,
-      "profile_created",
+      afterCreate.aiSelection?.selection.snapshot?.identity,
+      first.snapshot.identity,
     );
-    assert.equal(afterCreate.aiProfileAdministration.snapshot?.revision, 1);
-    assert.equal(
-      afterCreate.aiProfileAdministration.result?.snapshot.revision,
-      1,
-    );
-    for (const invalidRevision of [-1, 0.5]) {
-      const invalidResultRevision = structuredClone(afterCreate) as unknown as {
-        aiProfileAdministration: {
-          result: { snapshot: { revision: number } } | null;
-        };
-      };
-      assert.notEqual(
-        invalidResultRevision.aiProfileAdministration.result,
-        null,
-      );
-      if (invalidResultRevision.aiProfileAdministration.result !== null)
-        invalidResultRevision.aiProfileAdministration.result.snapshot.revision =
-          invalidRevision;
-      assert.throws(
-        () => inspectWorkbenchClientModel(invalidResultRevision),
-        /workbench_client_model_invalid/u,
-      );
-    }
-    assert.ok(
-      afterCreate.aiProfiles?.catalog.profiles.some(
-        (profile) => profile.profileId === "PROFILE-300001",
-      ),
-    );
-
-    const unconfirmed = await requestRaw(
-      handle.baseUrl,
-      "/ai-profiles/action",
-      "POST",
-      new URLSearchParams({
-        actionToken: token,
-        operation: "delete",
-        expectedRevision: "1",
-        profileId: "PROFILE-300001",
-      }).toString(),
-    );
-    assert.equal(unconfirmed.status, 303);
-    const afterUnconfirmed = await requestMainModel(handle.baseUrl);
-    assert.equal(
-      afterUnconfirmed.aiProfileAdministration.result?.reason,
-      "profile_delete_confirmation_required",
-    );
-    assert.ok(
-      afterUnconfirmed.aiProfiles?.catalog.profiles.some(
-        (profile) => profile.profileId === "PROFILE-300001",
-      ),
-    );
-
-    const confirmed = await requestRaw(
-      handle.baseUrl,
-      "/ai-profiles/action",
-      "POST",
-      new URLSearchParams({
-        actionToken: token,
-        operation: "delete",
-        expectedRevision: "1",
-        profileId: "PROFILE-300001",
-        confirmed: "true",
-      }).toString(),
-    );
-    assert.equal(confirmed.status, 303);
-    const afterDelete = await requestMainModel(handle.baseUrl);
-    assert.equal(
-      afterDelete.aiProfileAdministration.result?.reason,
-      "profile_deleted",
-    );
-    assert.equal(afterDelete.aiProfileAdministration.snapshot?.revision, 2);
-    // 公開直後の故障は503。次のGETへunknownを残さず、実Snapshotを再観測する。
+    const bad = new URLSearchParams(form);
+    bad.set("profileId", "PROFILE-300001");
+    assert.equal((await post(bad)).status, 400);
+    const originalConfig = selectionConfig();
+    const config = {
+      ...originalConfig,
+      roleDefaults: {
+        ...originalConfig.roleDefaults,
+        executor: { ...originalConfig.roleDefaults.executor, effort: "low" },
+      },
+    };
+    const next = new URLSearchParams({
+      actionToken: initial.actionToken,
+      expectedIdentity: first.snapshot.identity,
+      config: JSON.stringify(config),
+    });
     let publications = 0;
-    const originalLink = fs.linkSync;
+    const rename = fs.renameSync;
     const failure = context.mock.method(
       fs,
-      "linkSync",
+      "renameSync",
       (source: fs.PathLike, target: fs.PathLike) => {
-        originalLink(source, target);
-        publications++;
-        throw new Error("synthetic-publication-unconfirmed");
+        rename(source, target);
+        if (
+          String(target) ===
+          path.join(fixture, ".crdd", "config", "ai-selection.json")
+        ) {
+          publications++;
+          throw Error("synthetic_publication_unconfirmed");
+        }
       },
     );
     syncBuiltinESMExports();
     try {
-      const uncertainForm = new URLSearchParams(createForm);
-      uncertainForm.set("expectedRevision", "2");
-      const uncertain = await requestRaw(
-        handle.baseUrl,
-        "/ai-profiles/action",
-        "POST",
-        uncertainForm.toString(),
-      );
-      assert.equal(uncertain.status, 503);
+      const unknown = await post(next);
+      assert.equal(unknown.status, 200);
+      assert.equal(JSON.parse(unknown.body.toString("utf8")).status, "unknown");
       assert.equal(publications, 1);
     } finally {
       failure.mock.restore();
       syncBuiltinESMExports();
     }
     const afterUnknown = await requestMainModel(handle.baseUrl);
-    assert.equal(afterUnknown.aiProfileAdministration.result, null);
-    assert.equal(afterUnknown.aiProfileAdministration.snapshot?.revision, 3);
-    assert.equal(publications, 1);
-    const reopened = createRepositoryAiProfileCatalogStore(fixture);
-    assert.equal(reopened.status, "ready");
-    assert.ok(reopened.store);
     assert.equal(
-      reopened.store
-        .snapshot()
-        .value?.catalog.profiles.some(
-          (profile) => profile.profileId === "PROFILE-300001",
-        ),
-      true,
+      afterUnknown.aiSelection?.selection.snapshot?.config.roleDefaults.executor
+        .effort,
+      "low",
     );
-    await handle.close();
-    handle = null;
-    let reads = 0;
-    const originalRead = fs.readdirSync;
-    const readFailure = context.mock.method(
-      fs,
-      "readdirSync",
-      new Proxy(originalRead, {
-        apply(target, receiver, args) {
-          if (
-            args[0] ===
-            path.join(fixture, ".crdd", "config", "ai-profile-catalog")
-          ) {
-            reads++;
-            throw Object.assign(new Error("synthetic-access-denied"), {
-              code: "EACCES",
-            });
-          }
-          return Reflect.apply(target, receiver, args);
-        },
-      }),
+    const verified = verifyRepositoryRoot(fixture);
+    assert.equal(verified.status, "completed");
+    if (verified.status !== "completed") throw Error("fixture_root_invalid");
+    assert.equal(
+      readRepositoryAiSelection(verified.capability).status,
+      "available",
     );
-    syncBuiltinESMExports();
-    try {
-      handle = await startWorkbench({
-        workingDirectory: fixture,
-        aiProfiles: createWorkbenchAiProfileSurface(defaultAiProfileCatalog),
+    const observed = afterUnknown.aiSelection?.selection.snapshot;
+    assert.ok(observed);
+    let identity = observed.identity;
+    for (const bytes of [24 * 1024, 1024 * 1024, 1024 * 1024 + 1]) {
+      const large = structuredClone(selectionConfig());
+      large.workTypes.coding = { label: "設定" };
+      const baseline = Buffer.byteLength(JSON.stringify(large, null, 2) + "\n");
+      large.workTypes.coding.label += "x".repeat(bytes - baseline);
+      const input = new URLSearchParams({
+        actionToken: initial.actionToken,
+        expectedIdentity: identity,
+        config: JSON.stringify(large),
       });
-      assert.equal(reads, 0);
-      await handle.close();
-      handle = null;
-      await assert.rejects(
-        startWorkbench({ workingDirectory: fixture }),
-        /ai_profile_catalog_read_failed/u,
-      );
-      assert.equal(reads, 1);
-    } finally {
-      readFailure.mock.restore();
-      syncBuiltinESMExports();
+      const reply = await post(input);
+      assert.equal(reply.status, 200);
+      const value = JSON.parse(reply.body.toString("utf8"));
+      if (bytes <= 1024 * 1024) {
+        assert.equal(value.status, "saved");
+        identity = value.snapshot.identity;
+        assert.equal(
+          Buffer.byteLength(
+            JSON.stringify(value.snapshot.config, null, 2) + "\n",
+          ),
+          bytes,
+        );
+      } else {
+        assert.equal(value.status, "blocked");
+        assert.equal(value.reason, "ai_selection_file_too_large");
+      }
     }
+    const oversized = new URLSearchParams(form);
+    oversized.set("config", "x".repeat(3 * 1024 * 1024 + 16 * 1024));
+    assert.equal((await post(oversized)).status, 400);
+    assert.equal(
+      readRepositoryAiSelection(verified.capability).snapshot?.identity,
+      identity,
+    );
   } finally {
     await handle?.close();
     await rm(fixture, { recursive: true, force: true });
@@ -3591,7 +3526,8 @@ test("実Provider検証のHTTP接続部は同意と同じ依頼Identityを公開
     observe: async (requestId) => ({
       requestId,
       mode: requestId === "AIREQ-HTTP-001" ? "read_only_advice" : null,
-      profileId: requestId === "AIREQ-HTTP-001" ? "PROFILE-100001" : null,
+      executionSelection:
+        requestId === "AIREQ-HTTP-001" ? executionSelection("advice") : null,
       status: requestId === "AIREQ-HTTP-001" ? status : "unknown",
       reason:
         requestId === "AIREQ-HTTP-001"
@@ -3622,7 +3558,7 @@ test("実Provider検証のHTTP接続部は同意と同じ依頼Identityを公開
     );
     const command: WorkbenchAiRequestCommand = {
       mode: "read_only_advice",
-      profileId: "PROFILE-100001",
+      workType: null,
       prompt: "固定検証依頼",
       expectedNetworkPolicyHash: "a".repeat(64),
       contextReferences: ["PROJECT_CONTEXT.md"],
@@ -3641,7 +3577,7 @@ test("実Provider検証のHTTP接続部は同意と同じ依頼Identityを公開
         actionToken: "wrong",
         operation: "start",
         mode: command.mode,
-        profileId: command.profileId,
+        workType: command.workType ?? "",
         prompt: command.prompt,
         externalSendConfirmed: "yes",
         expectedNetworkPolicyHash: "a".repeat(64),

@@ -72,6 +72,17 @@ for (const mode of [
   "history_mismatch",
   "history_unconfirmed",
 ] as const) {
+  /**
+   * 配送と受領保存の各失敗段階を同じ正式接続で反証する。
+   * @responsibility Task終端と未受領結果の整理条件を区別する。
+   * @trace PRL-IT-012
+   * @precondition modeごとに独立した合成Repositoryを作成する。
+   * @stimulus 正常、取消、重複、相関不正又は保存失敗を注入する。
+   * @observation 起動数、物理Snapshot、履歴と公開結果を取得する。
+   * @oracle 一括受領条件が成立した場合だけ対象を整理し、失敗時に再送しない。
+   * @cleanup Caseの終了hookで自己所有Rootを回収する。
+   * @boundary PRL-IT-012=Direct Boundary: Applicationと現在状態・履歴Writer。
+   */
   test(`通常結果配送は上位実保存後だけ整理しTask結果を保持する ${mode}`, async (t) => {
     const { root, input } = fixture(t, [task("task-a")], 1);
     const persistence = createCoordinatorPersistencePorts(root, "binding-a");

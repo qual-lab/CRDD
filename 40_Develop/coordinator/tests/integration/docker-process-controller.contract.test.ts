@@ -154,8 +154,30 @@ test("観測Ownerは候補間・本番間の流用と失効後の通知を拒否
  * @boundary ERB-IT-004=Direct Boundary: Source利用側→内部観測Owner
  */
 test("StoreとRecoveryの観測照合はControllerの値importを持たない", () => {
+  /**
+   * 観測Ownerへの依存を調べるSource本文を読む。
+   * @responsibility 既存のCoordinator内部Pathだけを読取り検査する。
+   * @trace ERB-IT-004
+   * @precondition 呼出し側の固定合成値又は既存Sourceを使用する。
+   * @stimulus 引数を同じ正規codec又は固定Rootへ接続する。
+   * @observation 呼出し元が照合する値と相関。
+   * @oracle 元値・拒否条件を補完又は緩和しない。
+   * @cleanup 局所値のみ。物理試験物は呼出しCaseが回収する。
+   * @boundary 既存契約の試験内接続。実AI・Dockerを実行しない。
+   */
   const source = (name: string) =>
     fs.readFileSync(new URL(`../../src/${name}`, import.meta.url), "utf8");
+  /**
+   * 型依存を除いて実行時importを観測する。
+   * @responsibility 型消去後の本文を依存方向の反証へ渡す。
+   * @trace ERB-IT-004
+   * @precondition 呼出し側の固定合成値又は既存Sourceを使用する。
+   * @stimulus 引数を同じ正規codec又は固定Rootへ接続する。
+   * @observation 呼出し元が照合する値と相関。
+   * @oracle 元値・拒否条件を補完又は緩和しない。
+   * @cleanup 局所値のみ。物理試験物は呼出しCaseが回収する。
+   * @boundary 既存契約の試験内接続。実AI・Dockerを実行しない。
+   */
   const runtime = (name: string) => stripTypeScriptTypes(source(name));
   for (const name of ["storage/settlement-store.ts", "execution/recovery.ts"]) {
     if (name === "storage/settlement-store.ts")

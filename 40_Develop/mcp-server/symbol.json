@@ -15,20 +15,16 @@
     {
       "symbolId": "mcp.test.integration.ai-profile-adapter",
       "kind": "test-suite",
-      "path": "tests/integration/ai-profile-adapter.contract.test.ts",
+      "path": "tests/integration/ai-selection-boundary.contract.test.ts",
       "qaIds": [
         "QA-000001",
-        "QA-000007",
         "QA-000009"
       ],
       "localTestIds": [
         "EST-IT-002",
-        "RCM-IT-005",
-        "RCM-IT-010",
-        "RFD-IT-013"
+        "RCM-IT-010"
       ],
       "verifies": [
-        "mcp.ai-profile-adapter",
         "mcp.source.src.adapters.application.adapter"
       ]
     },
@@ -150,7 +146,6 @@
         "EST-IT-010",
         "EST-IT-014",
         "PPR-IT-002",
-        "RCM-IT-005",
         "RCM-IT-010",
         "RFD-IT-013",
         "RFD-IT-019",
@@ -161,20 +156,9 @@
         "orchestrator.workspace.commands",
         "workbench.server",
         "mcp.request.access-resolver",
-        "mcp.ai-profile-adapter",
         "mcp.runtime-activity-adapter",
         "mcp.access-management.adapter",
         "mcp.source.src.transports.streamable.http.transport"
-      ]
-    },
-    {
-      "symbolId": "mcp.ai-profile-adapter",
-      "kind": "file",
-      "path": "src/tools/ai-profile.ts",
-      "archIds": [
-        "ARCH-000010",
-        "ARCH-000012",
-        "ARCH-000013"
       ]
     },
     {

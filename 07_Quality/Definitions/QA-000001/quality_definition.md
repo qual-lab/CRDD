@@ -8,7 +8,7 @@
 
 `RCM-IT-005`へ新しい`ai-selection-store`の合成Repository試験を接続する。読取り非作成、閉形式・UTF-8・全体1MiB、Link／hardlink／読取り中の置換拒否、内容HashによるCAS、通常保存と読戻し、公開前後の認可失効、短命Fileと既存排他の回収不明を分けて観測する。保存後認可失効では本文を返さず、既存排他の回復参照は同じまま保持する。通常Fileのfsync・rename・読戻しを超える電源断耐久性は主張しない。
 
-設定Storeは内部接続の段階実装であり、管理画面の認可・Task／Grant／回復の固定選定・Workbench／MCP／CLI本番切替は未接続として残す。旧Profile試験の成功を新方式の保存や実行の成功へ換算しない。[実施段階と結果](../../../99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md)へ接続し、技術Catalogの追加を新Model採用や実Provider確認と扱わない。
+設定StoreはTask／Grant／回復の固定選定とWorkbenchのRepository設定画面へ接続した。正式API／CLI全体・旧Profile全面撤去・新構成全体回帰は後続として残す。旧Profile試験の成功を新方式の保存や実行の成功へ換算しない。[実施段階と結果](../../../99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md)へ接続し、技術Catalogの追加を新Model採用や実Provider確認と扱わない。
 
 成果物種別: Quality定義
 Quality ID: `QA-000001`
@@ -47,7 +47,7 @@ Quality ID: `QA-000001`
 
 | 詳細設計領域 | 受け取る成立条件 |
 |---|---|
-| [ai-adapter](../../../06_Architecture/Details/ai-adapter/01_Architecture.md) | 閉じたProfile Catalog、Owner別不変Snapshot、一意解決、四軸Availability、限定管理と拒否時Effect 0 |
+| [ai-adapter](../../../06_Architecture/Details/ai-adapter/01_Architecture.md) | Provider／Model／identifierKind／Effort／用途・互換条件の技術Catalog、Repository選択設定との責務分離、非対応・曖昧入力の拒否とEffect 0。技術対応を認証・現在利用可能性へ換算しない |
 | [checker](../../../06_Architecture/Details/checker/01_Architecture.md) | 決定論的検査、必要図とRelationの機械確認、未確認の分離、意味判断の非所有 |
 | [contract-migration](../../../06_Architecture/Details/contract-migration/01_Architecture.md) | Producer、全Consumer、派生物、署名・Release経路の閉包 |
 | [domain-model](../../../06_Architecture/Details/domain-model/01_Architecture.md) | Capability別公開入口、禁止依存、Domain IssueとChecker Findingの分離、既知Consumerの閉包 |
@@ -111,23 +111,25 @@ Quality ID: `QA-000001`
 
 2026-10-19の承認により、未使用の汎用Outcome Adapter・専用結果型・専用ITを退役させた。四状態を一律のChecker結果へ変換する旧条件は本番未接続であり、新しい本番接続の根拠へ流用しない。Domain四状態の契約は`RCM-UT-016`、実際の診断・拒否・終了結果は`RCM-IT-011`へ分けて検証する。CLIの公開API・既存JSON・文言・終了値を変更する判断ではない。
 
-### Workbench AI Profile Catalog固有条件
+### 旧Workbench AI Profile Catalogの歴史的条件（移管前）
 
 v0.22のWorkbench AI Profile Catalogでは、`RCM-IT-005`により、永続Snapshotがまだ存在しないRepository Storeの検証済み既定CatalogをRevision 0として取得し、Production Composition、Profile解決、助言Dispatchまで同じRevisionとProfile Identityを再解釈せず搬送する。最初の採用だけがRevision 1を公開し、負数、小数、破損Storeまたは観測不能をRevision 0へ畳まない。
 
-## 二Surface再編のAI設定管理条件
+この節の旧Profile／Host Catalog／四操作は移管前の照合用履歴であり、現行仕様・新方式の検証根拠ではない。次節を現行の検証条件とする。
 
-BrowserのProfile管理は`RCM-ST-012`のConsumer移管断面として、内容許可なしmanager／administratorの一覧・作成・更新・確認付き削除、developerのCatalog／Form非表示、二重submitのPOST一回を実Browserで観測する。保存確認後のGET故障と保存応答不正を別に注入し、前者の既知保存保持、後者の未保存非推定、両者の自動再送0、明示GETによる現在改訂・対象値の再観測を確認する。取得中切断・遅延応答・再接続、Owner／Action Token切替の旧通知・旧Snapshot非採用と、既存Desktop／Tablet／Mobileの表示・操作評価を含む。部分試験を同Local Item全体の成立へ拡張しない。
+## Repository別AI設定管理の現行条件
 
-Workbenchの同Host直接接続候補では、既存Host Catalog Administrationを注入し、`RCM-IT-005`で初期Revision 0、manager／administratorの一覧・作成・更新・確認付き削除、未確認削除・改訂競合・重複入力・Catalog故障の非保存を確認する。developer・未知資格・失効ではCatalog snapshot／executeを呼ばない条件を`RFD-IT-013`へ接続する。保存先のRootはBrowser入力外で、起動Repositoryへのfallbackと全Request共有の直前結果を作らない。HTTP候補の成功はBrowser管理Form・通常CLI・旧MCP経路撤去の完成を意味しない。
+Browserは五役割の既定値・作業分類・分類別上書きをRepositoryごとに表示する。任意の明示選択と設定由来の選定を区別し、技術カタログから認証・Quota・現在の利用可能性を推定しない。Workbenchの設定変更はmanager／administratorかつ選択Repositoryのdevelopment認可を必要とする。Localは検証済みRootへ固定し、Host共通Catalogへ保存しない。
 
-共有Profile管理のTarget Roleはmanager／administratorとする。`RCM-IT-005`はAI Adapterが所有する四操作・Schema・競合・削除確認・採用後不明の意味を確認し、`RCM-IT-010`は旧四Toolの全Role一覧不存在・未知Tool拒否・旧Owner Effect 0と通常能力の維持を確認する。設定の変更操作はMCPへ公開しない。AM現在認可自体はQA-000007の`RFD-IT-013`の資格→現在Role断面で確認する。AM認可の純粋判定と現在状態の故障はQA-000007へ接続し、同じ契約をここへ複製しない。旧systemAdmin経路の局所結果は当時の範囲に限り、新Role Source・公開Launcher・Workbench切替のPassへ流用しない。
+`RCM-IT-005`は `/api/ai-selection` と `/ai-selection/action` の閉入力、期待IdentityによるCAS、競合時保存0、saved／conflict／blocked／unknown、読取り後と保存後の現在認可、応答喪失と既知保存後のGET故障の分離を確認する。共通16KiB制限は維持し、AI設定だけは正式1MiBとForm encodingを収容する有界入力を使う。Body超過とStore容量超過で保存しない。大きな設定の通常保存・読戻しも同じ既存Storeで確認する。
+
+Browserは二重submitのPOST一回・自動再送0・fresh GET、同じ対象の全体更新中のdraftと保留要求の維持、対象変更／unmountの取消と遅延応答非採用を確認する。旧Host設定画面とMCP設定CRUDは提供しない。実AI・実認証・人間確認と本体設定移行は別の未完了Gateとして残し、局所確認を全体完成へ換算しない。AM現在認可はQA-000007の`RFD-IT-013`へ接続する。
 
 [AI Adapter](../../../06_Architecture/Details/ai-adapter/01_Architecture.md)と[MCP公開操作](../../../06_Architecture/Details/mcp-server/01_Architecture.md)から、次の条件を既存義務へ導く。新構成の局所Source・実HTTP／実Catalog反証は候補接続済みであり、旧経路のPassを継承しない。正式結果・本番Launcher／Workbench・全Consumer閉包は未成立である。
 
 | Local Item | 入力・反証 | 観測・終了後条件 |
 |---|---|---|
-| `RCM-IT-005` | Repository／CROSのOwner別Store、初期revision 0、期待revision一致／競合、create／update／delete、保存後応答喪失 | 本番Reader／Writerと共通Mutationを通し、同じSnapshot・Profile Identityを利用側まで保持する。競合・未確認削除で保存0。応答喪失は採用済みrevisionの再観測だけで、暗黙再Mutation0。 |
+| `RCM-IT-005` | 技術CatalogとRepository AI設定、五役割・分類・上書き、期待Identity一致／競合、保存後応答喪失 | 本番Reader／Writerの新形式を利用側へ保持する。manager／administratorと選択Repository認可、旧API拒否、競合時保存0、待機後失効・取消・公開後不明を確認する。既知保存と後続取得を分け、応答喪失はfresh再観測だけで暗黙再保存0。 |
 | `RCM-IT-010` | 旧四Toolの全Role不在、未知Tool拒否、旧Owner未呼出し、通常公開能力 | 全Roleで旧Tool不在・call -32601、旧Owner Effect 0、通常Server APIと現在認可を維持する。共通Transportの取消・終了義務を別Oracleで維持する。 |
 | `RCM-ST-012` | 新公開入口・新設定の全宣言Consumer、旧import／別Snapshot／Remote未登録反例 | 同じCatalogと意味契約が新公開入口へ接続したことを確認する。全集合未観測を全体Passにせず、入口比較はQA-000009の`EST-IT-010`と独立に判定する。 |
 

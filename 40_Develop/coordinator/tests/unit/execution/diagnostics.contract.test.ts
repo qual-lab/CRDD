@@ -261,6 +261,17 @@ import assert from "node:assert/strict";
 import { mock } from "node:test";
 const original = new Error("private failure detail");
 const recoveryId = "host.synthetic-doctor-original";
+/**
+ * 元Errorだけを合成の回復参照へ結合する。
+ * @responsibility Error本文のコピーから回復参照を再発行しない有限代役を作る。
+ * @trace PRL-UT-014
+ * @precondition originalとrecoveryIdはこの子Processだけが所有する。
+ * @stimulus 元Error又は同文の別Errorを渡す。
+ * @observation strict identity一致時だけ回復結果を返す。
+ * @oracle 元Errorの回復参照がCLIへ伝わり、コピーには公開されない。
+ * @cleanup 子Process終了で局所値を破棄する。
+ * @boundary PRL-UT-014=Direct Boundary: 診断とCLI結果投影の有限代役。
+ */
 const classifyOwnedCoordinatorOperationCreationFailure = error => error === original
   ? { cleanupConfirmed: false, hostRecoveryId: recoveryId } : null;
 ${declarations}

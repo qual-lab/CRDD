@@ -8,10 +8,10 @@
  * @security 資格・認可Authorityを新設せず、既存の秘密非搬送と受理条件を維持する。
  */
 import type {
-  AiProfileCatalogMutationResult,
-  AiProfileCatalogSnapshot,
-  AiProfileCatalog,
-} from "../../../../ai-adapter/src/index.ts";
+  AiSelectionSaveResult,
+  AiSelectionSnapshot,
+  AiSelectionReadResult,
+} from "../../../../coordinator/src/index.ts";
 import type { FederatedProjectProjection } from "../../../../domain-model/src/index.ts";
 import type {
   WorkbenchMainViewModel,
@@ -365,8 +365,7 @@ function isWorkbenchMainViewModel(value: Record<string, unknown>): boolean {
       ["id_asc", "title_asc", "state_asc", "occurred_desc"].includes(
         String(candidate.query.sort),
       ));
-  const catalog = isRecord(value.aiProfiles) ? value.aiProfiles.catalog : null;
-  const aiAdministration = value.aiProfileAdministration;
+  const aiAdministration = value.aiSelectionManagement;
   const snapshot = isRecord(aiAdministration)
     ? aiAdministration.snapshot
     : null;
@@ -435,7 +434,12 @@ function isWorkbenchMainViewModel(value: Record<string, unknown>): boolean {
         ["read_only_advice", "workspace_edit"].includes(
           String(candidate.mode),
         )) &&
-      isNullableString(candidate.profileId) &&
+      (candidate.executionSelection === null ||
+        (isRecord(candidate.executionSelection) &&
+          typeof candidate.executionSelection.modelIdentifier === "string" &&
+          ["codex", "claude"].includes(
+            String(candidate.executionSelection.provider),
+          ))) &&
       [
         "accepted",
         "running",
@@ -642,43 +646,16 @@ function isWorkbenchMainViewModel(value: Record<string, unknown>): boolean {
         typeof value.worktree.diff.workingTruncated === "boolean" &&
         typeof value.worktree.diff.unregistered === "boolean")) &&
     isCredentialAdministrationView(value.credentials) &&
-    (value.aiProfiles === null ||
-      (isRecord(value.aiProfiles) &&
-        isWorkbenchCatalog(catalog) &&
-        Array.isArray(value.aiProfiles.observations) &&
-        value.aiProfiles.observations.every(
-          (observation) =>
-            isRecord(observation) &&
-            typeof observation.profileId === "string" &&
-            isRecord(observation.availability) &&
-            typeof observation.availability.adapterRegistered === "boolean" &&
-            (observation.availability.hostAvailable === null ||
-              typeof observation.availability.hostAvailable === "boolean") &&
-            (observation.availability.authenticated === null ||
-              typeof observation.availability.authenticated === "boolean") &&
-            (observation.availability.executionAuthorized === null ||
-              typeof observation.availability.executionAuthorized ===
-                "boolean"),
-        ))) &&
+    (value.aiSelection === null ||
+      isWorkbenchSelectionSurface(value.aiSelection)) &&
     isRecord(aiAdministration) &&
-    ["Repository", "CROS"].includes(String(aiAdministration.owner)) &&
-    (snapshot === null ||
-      (isRecord(snapshot) &&
-        typeof snapshot.revision === "number" &&
-        Number.isSafeInteger(snapshot.revision) &&
-        snapshot.revision >= 0 &&
-        isWorkbenchCatalog(snapshot.catalog))) &&
+    typeof aiAdministration.allowed === "boolean" &&
+    (snapshot === null || isWorkbenchSelectionSnapshot(snapshot)) &&
     (aiAdministration.result === null ||
       (isRecord(aiAdministration.result) &&
-        ["completed", "rejected"].includes(
+        ["saved", "conflict", "blocked", "unknown"].includes(
           String(aiAdministration.result.status),
-        ) &&
-        typeof aiAdministration.result.reason === "string" &&
-        isRecord(aiAdministration.result.snapshot) &&
-        typeof aiAdministration.result.snapshot.revision === "number" &&
-        Number.isSafeInteger(aiAdministration.result.snapshot.revision) &&
-        aiAdministration.result.snapshot.revision >= 0 &&
-        isWorkbenchCatalog(aiAdministration.result.snapshot.catalog))) &&
+        ))) &&
     isRecord(value.aiRequest) &&
     typeof value.aiRequest.configured === "boolean" &&
     (value.aiRequest.networkPolicies === null ||
@@ -895,257 +872,156 @@ function isCredentialAdministrationView(value: unknown): boolean {
 }
 
 /**
- * BrowserのCatalog JSONを採用済みSchemaと関係へ照合する。
- * @responsibility 余剰field・重複Identity・未登録Modelと曖昧な選択を表示前に拒否する。
- * @trace ARCH-000010
+ * 設定Snapshotの表示に必要な閉構造を検査する。
+ * @responsibility 意味検証や保存をBrowserで再実装せず、描画対象だけを検査する。
  * @trace ARCH-000012
- * @input JSON.parse後のCatalog候補。
- * @returns 完全な表示契約に合う場合だけtrue。
- * @precondition JSON境界の値であり実行可能Objectを受けない。
- * @postcondition Catalogの意味・保存・認可を変更しない。
- * @effect N/A: 値検査のみ。
- * @failure 不正値はfalseで拒否する。
- * @invariant 不足fieldを補完しない。
- * @boundary Catalog OwnerのJSONからBrowser表示。
- * @security Path・資格・任意実行引数の余剰fieldを受理しない。
- * @concurrency N/A: 共有状態なし。
+ * @input JSON由来の未知値。
+ * @returns 設定Snapshot又は固定例外。
+ * @precondition HTTP成功をCallerが確認済み。
+ * @postcondition 五役割・分類辞書の描画が可能。
+ * @effect N/A: メモリ値だけ。
+ * @failure 不正外形を未設定へ変えない。
+ * @invariant Serverの技術Catalog照合・認可を代替しない。
+ * @boundary HTTP JSONとBrowser表示。
+ * @security 実行・保存・Root解決なし。
+ * @concurrency 同期の表示検査。
  */
-function isWorkbenchCatalog(candidate: unknown): candidate is AiProfileCatalog {
-  if (
-    !isRecord(candidate) ||
-    Object.keys(candidate).sort().join(",") !==
-      "adapters,contract,contractRevision,profiles" ||
-    candidate.contract !== "crdd/ai-profile-catalog" ||
-    candidate.contractRevision !== 1 ||
-    !Array.isArray(candidate.adapters) ||
-    !candidate.adapters.length ||
-    !Array.isArray(candidate.profiles) ||
-    !candidate.profiles.length
-  )
-    return false;
-  const identifier = /^[a-z][a-z0-9._-]{1,63}$/u;
-  const model = /^[a-z0-9][a-z0-9._-]{0,127}$/u;
+export function inspectWorkbenchSelectionSnapshot(
+  value: unknown,
+): AiSelectionSnapshot {
   const roles = [
     "coordinator",
     "executor",
     "independent_reviewer",
     "result_integration",
+    "advice",
   ];
-  const tiers = ["preferred", "upper_allowed"];
-  const efforts = ["low", "medium", "high", "xhigh", "max"];
-  if (
-    !candidate.adapters.every((a) => {
-      if (
-        !isRecord(a) ||
-        Object.keys(a).sort().join(",") !==
-          "adapterId,allowedModelIds,allowedReasoningEfforts,authorityOrigin,offering,provider" ||
-        typeof a.adapterId !== "string" ||
-        !identifier.test(a.adapterId) ||
-        !["codex", "claude"].includes(String(a.provider)) ||
-        !["chatgpt_subscription_oauth", "claude_max"].includes(
-          String(a.offering),
-        ) ||
-        typeof a.authorityOrigin !== "string" ||
-        !isStringArray(a.allowedModelIds) ||
-        !a.allowedModelIds.length ||
-        new Set(a.allowedModelIds).size !== a.allowedModelIds.length ||
-        !a.allowedModelIds.every((m) => model.test(m)) ||
-        !isStringArray(a.allowedReasoningEfforts) ||
-        !a.allowedReasoningEfforts.length ||
-        new Set(a.allowedReasoningEfforts).size !==
-          a.allowedReasoningEfforts.length ||
-        !a.allowedReasoningEfforts.every((e) => efforts.includes(e))
-      )
-        return false;
-      try {
-        const origin = new URL(a.authorityOrigin);
-        return (
-          origin.protocol === "https:" && origin.origin === a.authorityOrigin
-        );
-      } catch {
-        return false;
-      }
-    }) ||
-    !candidate.profiles.every(
-      (p) =>
-        isRecord(p) &&
-        Object.keys(p).sort().join(",") ===
-          "adapterId,billingMode,compatibilityReason,defaultReasoningEffort,exactModelId,family,modelTiers,profileId,selectionRoles,speedMode" &&
-        typeof p.profileId === "string" &&
-        /^PROFILE-[0-9]{6,}$/u.test(p.profileId) &&
-        typeof p.adapterId === "string" &&
-        identifier.test(p.adapterId) &&
-        typeof p.family === "string" &&
-        identifier.test(p.family) &&
-        typeof p.exactModelId === "string" &&
-        model.test(p.exactModelId) &&
-        isStringArray(p.selectionRoles) &&
-        p.selectionRoles.length > 0 &&
-        new Set(p.selectionRoles).size === p.selectionRoles.length &&
-        p.selectionRoles.every((r) => roles.includes(r)) &&
-        isStringArray(p.modelTiers) &&
-        p.modelTiers.length > 0 &&
-        new Set(p.modelTiers).size === p.modelTiers.length &&
-        p.modelTiers.every((t) => tiers.includes(t)) &&
-        p.speedMode === "normal" &&
-        p.billingMode === "subscription_oauth" &&
-        efforts.includes(String(p.defaultReasoningEffort)) &&
-        isNullableString(p.compatibilityReason),
-    )
-  )
-    return false;
-  const catalog = candidate as unknown as AiProfileCatalog;
-  if (
-    new Set(catalog.adapters.map((a) => a.adapterId)).size !==
-      catalog.adapters.length ||
-    new Set(catalog.profiles.map((p) => p.profileId)).size !==
-      catalog.profiles.length
-  )
-    return false;
-  const adapters = new Map(catalog.adapters.map((a) => [a.adapterId, a]));
-  if (
-    !catalog.profiles.every(
-      (p) =>
-        adapters.get(p.adapterId)?.allowedModelIds.includes(p.exactModelId) &&
-        adapters
-          .get(p.adapterId)
-          ?.allowedReasoningEfforts.includes(p.defaultReasoningEffort),
-    )
-  )
-    return false;
-  for (const provider of ["codex", "claude"])
-    for (const role of roles)
-      for (const tier of tiers) {
-        const keys = catalog.profiles
-          .filter(
-            (p) =>
-              adapters.get(p.adapterId)?.provider === provider &&
-              p.selectionRoles.some((r) => r === role) &&
-              p.modelTiers.some((t) => t === tier),
-          )
-          .map((p) => `${p.family}:${p.speedMode}:${p.billingMode}`);
-        if (new Set(keys).size !== keys.length) return false;
-      }
-  return true;
-}
-
-/**
- * 専用APIの現在Catalog Snapshotを閉検査する。
- * @responsibility Mainと共有管理で同じCatalog検査を利用する。
- * @trace ARCH-000010
- * @trace ARCH-000012
- * @input JSON.parse後の二field Snapshot。
- * @returns 検査済み非秘密Snapshot。
- * @precondition HTTP成功をCallerが確認済み。
- * @postcondition 未取得を既定Catalogへ補完しない。
- * @effect N/A: JSON検査のみ。
- * @failure 不正改訂・Catalog・余剰fieldは固定例外。
- * @invariant 検査から保存完了や認可を生成しない。
- * @boundary 同Origin APIとBrowser状態。
- * @security Root・資格を持つ応答を受理しない。
- * @concurrency N/A: 一応答だけを検査する。
- */
-export function inspectWorkbenchProfileSnapshot(
-  value: unknown,
-): AiProfileCatalogSnapshot {
+  const choice = (v: unknown) =>
+    isRecord(v) &&
+    Object.keys(v).sort().join(",") === "effort,model,provider" &&
+    ["codex", "claude"].includes(String(v.provider)) &&
+    typeof v.model === "string" &&
+    ["low", "medium", "high", "xhigh", "max"].includes(String(v.effort));
   if (
     !isRecord(value) ||
-    Object.keys(value).sort().join(",") !== "catalog,revision" ||
-    !Number.isSafeInteger(value.revision) ||
-    Number(value.revision) < 0 ||
-    !isWorkbenchCatalog(value.catalog)
+    Object.keys(value).sort().join(",") !== "config,identity" ||
+    typeof value.identity !== "string" ||
+    !/^[a-f0-9]{64}$/u.test(value.identity) ||
+    !isRecord(value.config)
   )
-    throw new Error("workbench_profile_response_invalid");
-  return value as AiProfileCatalogSnapshot;
+    throw new Error("workbench_selection_response_invalid");
+  const config = value.config;
+  if (
+    Object.keys(config).sort().join(",") !==
+      "contract,overrides,revision,roleDefaults,workTypes" ||
+    config.contract !== "crdd/ai-selection" ||
+    config.revision !== 1 ||
+    !isRecord(config.roleDefaults) ||
+    Object.keys(config.roleDefaults).sort().join(",") !==
+      roles.toSorted().join(",") ||
+    !Object.values(config.roleDefaults).every(choice) ||
+    !isRecord(config.workTypes) ||
+    !Object.values(config.workTypes).every(
+      (v) =>
+        isRecord(v) &&
+        Object.keys(v).join(",") === "label" &&
+        typeof v.label === "string",
+    ) ||
+    !isRecord(config.overrides) ||
+    !Object.entries(config.overrides).every(
+      ([role, entries]) =>
+        roles.includes(role) &&
+        isRecord(entries) &&
+        Object.values(entries).every(choice),
+    )
+  )
+    throw new Error("workbench_selection_response_invalid");
+  return value as AiSelectionSnapshot;
 }
 
 /**
- * 明示送信したProfile操作と結果を照合する。
- * @responsibility 保存・拒否・改訂と対象Profileの相関を表示前に確認する。
- * @trace ARCH-000010
+ * 取得結果の不在・拒否・設定値を分けて検査する。
+ * @responsibility 未設定と観測不能を混同しない。
  * @trace ARCH-000012
- * @input 送信済みFormとJSON結果。
- * @returns 検査済みの完了または拒否結果。
- * @precondition Formは明示操作で一回送信済み。
- * @postcondition 不明な結果を成功や未保存へ丸めない。
- * @effect N/A: 値検査だけ。
- * @failure 余剰field・結果相関不正は固定例外。
- * @invariant 再送・認可・巻戻しを行わない。
- * @boundary Profile POST結果とBrowser表示。
- * @security 非秘密のCatalogだけを受理する。
- * @concurrency 同じ送信Formの結果だけを確認する。
+ * @input 未知の取得JSON。
+ * @returns 表示用取得結果。
+ * @precondition 同Originの専用設定APIから取得する。
+ * @postcondition availableだけがSnapshotを持つ。
+ * @effect N/A: 値検査のみ。
+ * @failure 不正値は固定例外。
+ * @invariant fallbackを作らない。
+ * @boundary APIと画面。
+ * @security 認証・実行許可を生成しない。
+ * @concurrency 同期検査。
  */
-export function inspectWorkbenchProfileResult(
-  form: URLSearchParams,
+export function inspectWorkbenchSelectionRead(
   value: unknown,
-): AiProfileCatalogMutationResult {
+): AiSelectionReadResult {
   if (
     !isRecord(value) ||
     Object.keys(value).sort().join(",") !== "reason,snapshot,status"
   )
-    throw new Error("workbench_profile_response_invalid");
-  const snapshot = inspectWorkbenchProfileSnapshot(value.snapshot);
-  const operation = form.get("operation"),
-    expected = Number(form.get("expectedRevision"));
-  const id = form.get("profileId"),
-    target = snapshot.catalog.profiles.find((p) => p.profileId === id);
-  if (
-    !["create", "update", "delete"].includes(operation ?? "") ||
-    !Number.isSafeInteger(expected) ||
-    expected < 0
+    throw new Error("workbench_selection_response_invalid");
+  if (value.status === "available") {
+    if (value.reason !== null)
+      throw new Error("workbench_selection_response_invalid");
+    inspectWorkbenchSelectionSnapshot(value.snapshot);
+  } else if (
+    (value.status !== "missing" && value.status !== "blocked") ||
+    value.snapshot !== null ||
+    typeof value.reason !== "string" ||
+    (value.status === "missing" &&
+      value.reason !== "ai_selection_not_configured")
   )
-    throw new Error("workbench_profile_response_invalid");
-  let valid = false;
-  if (value.status === "completed") {
-    valid =
-      snapshot.revision === expected + 1 &&
-      value.reason ===
-        (operation === "create"
-          ? "profile_created"
-          : operation === "update"
-            ? "profile_updated"
-            : "profile_deleted");
-    if (operation === "delete")
-      valid = valid && form.get("confirmed") === "true" && !target;
-    else
-      valid =
-        valid &&
-        !!target &&
-        `${target.adapterId}|${target.exactModelId}` ===
-          form.get("adapterModel") &&
-        target.family === form.get("family") &&
-        target.defaultReasoningEffort === form.get("defaultReasoningEffort") &&
-        target.compatibilityReason ===
-          ((form.get("compatibilityReason") ?? "").trim() || null) &&
-        JSON.stringify(target.selectionRoles) ===
-          JSON.stringify(form.getAll("selectionRole")) &&
-        JSON.stringify(target.modelTiers) ===
-          JSON.stringify(form.getAll("modelTier"));
-  } else if (value.status === "rejected") {
-    if (value.reason === "revision_conflict")
-      valid = snapshot.revision !== expected;
-    else if (snapshot.revision === expected) {
-      if (value.reason === "profile_already_exists")
-        valid = operation === "create" && !!target;
-      else if (value.reason === "profile_not_found")
-        valid = operation !== "create" && !target;
-      else if (value.reason === "profile_delete_confirmation_required")
-        valid =
-          operation === "delete" &&
-          form.get("confirmed") !== "true" &&
-          !!target;
-      else if (value.reason === "catalog_invalid")
-        valid =
-          (operation === "create" ? !target : !!target) &&
-          (operation !== "delete" || form.get("confirmed") === "true");
-    }
-  }
-  if (!valid) throw new Error("workbench_profile_response_invalid");
-  return {
-    status: value.status,
-    reason: value.reason,
-    snapshot,
-  } as AiProfileCatalogMutationResult;
+    throw new Error("workbench_selection_response_invalid");
+  return value as AiSelectionReadResult;
+}
+
+/**
+ * 保存結果の既知成功と競合・拒否・不明を分離する。
+ * @responsibility 再送を行わず、成功時の設定内容を送信した値へ照合する。
+ * @trace ARCH-000012
+ * @input 送信Formと未知JSON。
+ * @returns 検査した保存結果。
+ * @precondition 一回だけ明示送信済み。
+ * @postcondition saved以外を保存済みとしない。
+ * @effect N/A: 同期検査。
+ * @failure 相関不正は固定例外。
+ * @invariant 不明な応答から未保存を推定しない。
+ * @boundary 設定POSTと表示。
+ * @security Root・認証値を使用しない。
+ * @concurrency 同じ送信内容へ相関する。
+ */
+export function inspectWorkbenchSelectionResult(
+  form: URLSearchParams,
+  value: unknown,
+): AiSelectionSaveResult {
+  const ordered = (entry: unknown): unknown =>
+    Array.isArray(entry)
+      ? entry.map(ordered)
+      : isRecord(entry)
+        ? Object.fromEntries(
+            Object.entries(entry)
+              .sort(([left], [right]) => left.localeCompare(right))
+              .map(([key, item]) => [key, ordered(item)]),
+          )
+        : entry;
+  if (
+    !isRecord(value) ||
+    !["saved", "conflict", "blocked", "unknown"].includes(String(value.status))
+  )
+    throw new Error("workbench_selection_response_invalid");
+  if (value.status === "saved") {
+    const snapshot = inspectWorkbenchSelectionSnapshot(value.snapshot);
+    if (
+      value.reason !== null ||
+      JSON.stringify(ordered(snapshot.config)) !==
+        JSON.stringify(ordered(JSON.parse(form.get("config") ?? "null")))
+    )
+      throw new Error("workbench_selection_response_invalid");
+  } else if (value.snapshot !== null || typeof value.reason !== "string")
+    throw new Error("workbench_selection_response_invalid");
+  return value as AiSelectionSaveResult;
 }
 
 /**
@@ -1346,4 +1222,68 @@ export function isFederatedProject(
       ? "complete"
       : "partial";
   return value.state === derivedState;
+}
+
+/**
+ * 設定Snapshotの既存Inspectorを表示Modelの真偽判定へ接続する。
+ * @responsibility 拒否を欠測の補完へ読み替えない。
+ * @trace ARCH-000012
+ * @input 未信頼JSON値。
+ * @returns 正式Inspectorが受理した場合だけtrue。
+ * @precondition 通信の構文解析済み値。
+ * @postcondition 値を変更しない。
+ * @effect N/A: 純粋検査。
+ * @failure 検査例外はfalse。
+ * @invariant 既定設定を生成しない。
+ * @boundary JSONと描画受付。
+ * @security 認可・実行許可を発行しない。
+ * @concurrency N/A: 同期局所値のみ。
+ */
+function isWorkbenchSelectionSnapshot(value: unknown): boolean {
+  try {
+    inspectWorkbenchSelectionSnapshot(value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+/**
+ * 技術カタログとRepository設定の表示外形を検査する。
+ * @responsibility 技術対応と設定の観測状態を別々に受理する。
+ * @trace ARCH-000012
+ * @input 未信頼の表示Surface。
+ * @returns 必須外形と設定Inspectorが成立した場合だけtrue。
+ * @precondition Serverが現在認可後に生成したJSON候補。
+ * @postcondition Modelの現在利用可能性を推定しない。
+ * @effect N/A: 純粋検査。
+ * @failure 欠測・外形不正・設定不正はfalse。
+ * @invariant 設定Ownerの技術検査を再実装しない。
+ * @boundary Server投影とBrowser描画。
+ * @security 資格・Host Pathを扱わない。
+ * @concurrency N/A: 同期局所値のみ。
+ */
+function isWorkbenchSelectionSurface(value: unknown): boolean {
+  if (
+    !isRecord(value) ||
+    !isRecord(value.catalog) ||
+    typeof value.catalog.identity !== "string" ||
+    !isRecord(value.catalog.catalog) ||
+    value.catalog.catalog.contract !== "crdd/ai-model-catalog" ||
+    !Array.isArray(value.catalog.catalog.models) ||
+    !value.catalog.catalog.models.every(
+      (model) =>
+        isRecord(model) &&
+        typeof model.modelIdentifier === "string" &&
+        ["codex", "claude"].includes(String(model.provider)) &&
+        isStringArray(model.supportedEfforts) &&
+        isStringArray(model.supportedPurposes),
+    )
+  )
+    return false;
+  try {
+    inspectWorkbenchSelectionRead(value.selection);
+    return true;
+  } catch {
+    return false;
+  }
 }

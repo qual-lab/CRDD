@@ -587,6 +587,17 @@ function fixedSelections(
   return result.value;
 }
 
+/**
+ * 同じ固定選定を持つ合成Task要求を作る。
+ * @responsibility 固定した二役選定と限定Path・元入力を要求へ搬送する。
+ * @trace CPR-IT-001
+ * @precondition 呼出し側の固定合成値又は既存Sourceを使用する。
+ * @stimulus 引数を同じ正規codec又は固定Rootへ接続する。
+ * @observation 呼出し元が照合する値と相関。
+ * @oracle 元値・拒否条件を補完又は緩和しない。
+ * @cleanup 局所値のみ。物理試験物は呼出しCaseが回収する。
+ * @boundary 既存契約の試験内接続。実AI・Dockerを実行しない。
+ */
 function request(overrides: Record<string, unknown> = {}) {
   return {
     taskExecutionSelections: fixedSelections(),

@@ -31,13 +31,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { createCredentialMaterial } from "../../../access-management/src/credential/token.ts";
 import { deriveRepositoryBindingId } from "../../../access-management/src/repository/binding.ts";
 import type { AccessManagementState } from "../../../access-management/src/storage/types.ts";
-import {
-  type AiProfileCatalogAdministration,
-  type AiProfileCatalogMutation,
-  type AiProfileCatalogSnapshot,
-  createAiProfileCatalogAdministration,
-  createHostAiProfileCatalogStore,
-} from "../../../ai-adapter/src/index.ts";
+import { selectionConfig } from "../../../coordinator/tests/fixtures/ai-selection.ts";
 import { createFilesystemStoreRoot } from "../../../domain-model/src/index.ts";
 import {
   createTaskAttemptSettledEvent,
@@ -175,9 +169,9 @@ for (const mode of ["local", "cros"] as const) {
    * @trace CPR-IT-012
    * @trace EST-IT-002
    * @precondition 自己生成完了AM、登録可能Git Repository、本番ServerとBundle。
-   * @stimulus 本人・四read・通常保存・不正Token／Origin・明示登録と選択GET、内容読取り中のExposure／資格／sibling／Binding／manifest変更、同値集合順序変更、重複ID正逆・同値とProfile欠測、活動開始前および履歴open中のClient破棄を適用する。共有Profileは三Roleの一覧・三保存、未確認削除・競合・重複入力・失効・Catalog故障を適用する。 Snapshot直後と保存直後の降格／失効、保存直後の例外／Client切断も適用する。
-   * @observation HTTP閉結果と実File改訂・保持状態、活動履歴のopen-close件数、Server成功本文、取消後の新しいHTTP接続の結果を観測する。Profile Ownerのsnapshot／execute呼出し回数と耐久改訂も観測する。 後段の403／503、成功本文0、保存済み改訂のfresh再観測を区別する。
-   * @oracle 明示保存だけ一回、登録だけでは公開0、他User／Root／資格非公開。指定ID／Context／manifest相関、Profile nullとAI未接続、直前結果null、全集合変更後の部分公開0、同値順序変更許容、重複IDのopen／read 0。活動開始前は履歴読取り0、開始後は対象二Rootを各一回closeまでjoinし、成功本文0・再実行0・次要求正常を満たす。 非管理Role・失効ではCatalog操作0、許可Roleの明示保存一回、未確認削除・競合で改訂不変、Catalog故障でfallback0を満たす。 観測後の許可失効は非公開、保存後不明・切断は改訂維持・保存一回・次要求再観測でありrollbackを行わない。
+   * @stimulus 本人・四read・通常保存・不正Token／Origin・明示登録と選択GET、内容読取り中のExposure／資格／sibling／Binding／manifest変更、同値集合順序変更、重複ID正逆・同値とAI設定欠測、活動開始前および履歴open中のClient破棄を適用する。Repository AI設定は三RoleのGET／CAS保存、競合・重複入力・失効・設定故障を適用する。 Snapshot直後と保存直後の降格／失効、保存直後の例外／Client切断も適用する。
+   * @observation HTTP閉結果と実File改訂・保持状態、活動履歴のopen-close件数、Server成功本文、取消後の新しいHTTP接続の結果を観測する。選択Repositoryの設定Identityと保存回数も観測する。 後段の403／503、成功本文0、保存済み改訂のfresh再観測を区別する。
+   * @oracle 明示保存だけ一回、登録だけでは公開0、他User／Root／資格非公開。指定ID／Context／manifest相関、AI設定欠測とAI未接続、直前結果null、全集合変更後の部分公開0、同値順序変更許容、重複IDのopen／read 0。活動開始前は履歴読取り0、開始後は対象二Rootを各一回closeまでjoinし、成功本文0・再実行0・次要求正常を満たす。 非管理Role・失効では設定保存0、管理Roleと選択Repository development認可の明示保存一回、競合でIdentity不変、設定故障でfallback0を満たす。 観測後の許可失効は非公開、保存後不明・切断は改訂維持・保存一回・次要求再観測でありrollbackを行わない。
    * @cleanup 所有Serverをclose後、exact自己生成Rootだけを回収する。
    * @boundary 単体と同Host CROSの同じAM保存Owner。選択Root以外へfallbackせず、Browser描画の代替ではない。
    */
@@ -762,66 +756,11 @@ for (const mode of ["local", "cros"] as const) {
         fs.writeFileSync(current, before);
       }
     }
-    let sharedProfiles: AiProfileCatalogAdministration | undefined;
-    let profileReads = 0,
-      profileWrites = 0;
-    if (mode === "cros") {
-      const host = path.join(owned, "profile-host");
-      fs.mkdirSync(host);
-      const adapter = createHostAiProfileCatalogStore({
-        platform: "win32",
-        localAppData: host,
-        publisher: "qual-lab",
-        application: "cros",
-        trustDomainId: "fixture",
-      });
-      assert.equal(adapter.status, "ready");
-      if (adapter.status !== "ready")
-        throw new Error("fixture_catalog_unavailable");
-      const administration = createAiProfileCatalogAdministration(
-        adapter.store,
-      );
-      sharedProfiles = {
-        /**
-         * 共有Catalogの実Snapshot呼出しを数える。
-         * @responsibility 拒否時の読取り0を固定する。
-         * @trace RCM-IT-005
-         * @precondition 自己生成Host Catalogだけを使う。
-         * @stimulus 本番ServerからSnapshotを取得する。
-         * @observation 呼出し回数と実改訂。
-         * @oracle 非管理Roleでは呼ばれない。
-         * @cleanup 親CaseがServer終了後にRootを回収する。
-         * @boundary Test観測から既存Catalog Owner。
-         */
-        snapshot: () => {
-          profileReads += 1;
-          return administration.snapshot();
-        },
-        /**
-         * 共有Catalogへの実Mutation委譲を数える。
-         * @responsibility 保存前拒否と既知保存を区別する。
-         * @trace RCM-IT-005
-         * @precondition 自己生成Host Catalogの検査済みAdministration。
-         * @stimulus 本番Serverから一Mutationを渡す。
-         * @observation 呼出し回数とOwner結果。
-         * @oracle 拒否時0、明示操作は一回だけ。
-         * @cleanup 親CaseがServer終了後にRootを回収する。
-         * @boundary HTTP ConsumerからCatalog Owner。
-         */
-        execute: (mutation) => {
-          profileWrites += 1;
-          return administration.execute(mutation);
-        },
-      };
-    }
     const handle = await startWorkbench({
       workingDirectory: repository,
       ...(mode === "cros"
         ? {
             localAccessRoot: root,
-            ...(sharedProfiles === undefined
-              ? {}
-              : { crosProfileAdministration: sharedProfiles }),
           }
         : { credentialAdministration: { root, token: material.token } }),
     });
@@ -857,302 +796,211 @@ for (const mode of ["local", "cros"] as const) {
       assert.ok("user" in actor);
       assert.equal(actor.user.userId, userId);
       if (mode === "cros") {
-        const saved = fs.readFileSync(current);
+        const originalManagement = fs.readFileSync(current);
+        const scopedSelection = JSON.parse(
+          originalManagement.toString("utf8"),
+        ) as AccessManagementState;
+        scopedSelection.registeredRepositories.push({
+          repositoryId: "repository.fixture",
+          repositoryRoot: target,
+          bindingId: deriveRepositoryBindingId("repository.fixture", target),
+        });
+        scopedSelection.exposure = [
+          { repositoryId: "repository.fixture", workspaceIds: ["development"] },
+        ];
+        const adminContent = scopedSelection.roleContentAccess.find(
+          (entry) => entry.role === "administrator",
+        );
+        assert.ok(adminContent);
+        adminContent.workspaceIds = ["development"];
+        const saved = Buffer.from(JSON.stringify(scopedSelection));
+        fs.writeFileSync(current, saved);
+        const configPath = path.join(
+          target,
+          ".crdd",
+          "config",
+          "ai-selection.json",
+        );
+        const endpoint = `${handle.baseUrl}/api/ai-selection?repositoryId=repository.fixture`;
+        const action = `${handle.baseUrl}/ai-selection/action`;
+        const headers = {
+          origin: handle.baseUrl,
+          "content-type": "application/x-www-form-urlencoded",
+        };
+        /**
+         * Repository設定の明示保存を一回送る。
+         * @responsibility 固定Originと既存接続資格を使い同じ選択Rootへ配送する。
+         * @trace RCM-IT-005
+         * @precondition 本番Serverと合成Form。
+         * @stimulus 設定POSTを一回発行する。
+         * @observation HTTP結果と保存回数。
+         * @oracle 自動再送せず現在認可を迂回しない。
+         * @cleanup 親CaseがServerと合成Rootを回収する。
+         * @boundary 自己生成設定と本番HTTP。実AIなし。
+         */
+        const post = (form: URLSearchParams) =>
+          fetchWorkbench(action, { method: "POST", headers, body: form });
+        /**
+         * 合成設定と期待Identityの閉Formを作る。
+         * @responsibility 同じRepositoryのCAS反証入力を用意する。
+         * @trace RCM-IT-005
+         * @precondition 固定五役割の合成設定。
+         * @stimulus ラベルと期待Hashだけを指定する。
+         * @observation 実送信Form。
+         * @oracle 秘密値・別Repository Rootを含めない。
+         * @cleanup 局所文字列のみ。
+         * @boundary 自己生成設定と本番HTTP。実AIなし。
+         */
+        const makeForm = (identity: string | null, label: string) => {
+          const config = selectionConfig();
+          config.workTypes.coding.label = label;
+          return new URLSearchParams({
+            actionToken: model.actionToken,
+            repositoryId: "repository.fixture",
+            expectedIdentity: identity ?? "",
+            config: JSON.stringify(config),
+          });
+        };
+        /**
+         * 自己生成AMの現在資格だけを変更する。
+         * @responsibility 保存又は読取り後の再認可を反証する。
+         * @trace RCM-IT-005
+         * @precondition 元状態をfinallyで復元する。
+         * @stimulus 降格・失効。
+         * @observation HTTP拒否と正本保持。
+         * @oracle 過去の許可を流用しない。
+         * @cleanup 親Caseが復元・清掃する。
+         * @boundary 合成AMと本番設定受付。
+         */
+        function changeSelectionActor(kind: "role" | "credential"): void {
+          const state = JSON.parse(
+            saved.toString("utf8"),
+          ) as AccessManagementState;
+          state.revision++;
+          state.operationId = randomUUID();
+          if (kind === "role") {
+            const user = state.users.find((entry) => entry.userId === userId);
+            assert.ok(user);
+            user.role = "developer";
+          } else {
+            const credential = state.credentials[0];
+            assert.ok(credential);
+            credential.revoked = true;
+          }
+          fs.writeFileSync(current, JSON.stringify(state));
+        }
         try {
           for (const role of [
             "developer",
             "manager",
             "administrator",
           ] as const) {
-            const roleState = JSON.parse(
+            const state = JSON.parse(
               saved.toString("utf8"),
             ) as AccessManagementState;
-            const user = roleState.users.find(
-              (entry) => entry.userId === userId,
-            );
+            const user = state.users.find((entry) => entry.userId === userId);
             assert.ok(user);
             user.role = role;
-            fs.writeFileSync(current, JSON.stringify(roleState));
-            const readsBefore = profileReads,
-              writesBefore = profileWrites;
-            const listed = await fetchWorkbench(
-              `${handle.baseUrl}/api/ai-profiles`,
-            );
+            fs.writeFileSync(current, JSON.stringify(state));
+            const before = fs.existsSync(configPath)
+              ? fs.readFileSync(configPath)
+              : null;
+            const listed = await fetchWorkbench(endpoint);
             assert.equal(listed.status, role === "developer" ? 403 : 200);
             if (role === "developer") {
-              assert.equal(profileReads, readsBefore);
-              const denied = await fetchWorkbench(
-                `${handle.baseUrl}/ai-profiles/action`,
-                {
-                  method: "POST",
-                  headers: {
-                    origin: handle.baseUrl,
-                    "content-type": "application/x-www-form-urlencoded",
-                  },
-                  body: new URLSearchParams({
-                    actionToken: model.actionToken,
-                    operation: "delete",
-                    expectedRevision: "0",
-                    profileId: "PROFILE-300001",
-                    confirmed: "true",
-                  }),
-                },
-              );
-              assert.equal(denied.status, 400);
-              assert.equal(profileReads, readsBefore);
-              assert.equal(profileWrites, writesBefore);
+              assert.equal((await post(makeForm(null, role))).status, 400);
+              assert.equal(fs.existsSync(configPath), before !== null);
               continue;
             }
-            const snapshot = (await listed.json()) as { revision: number };
-            let revision = snapshot.revision;
-            const form = new URLSearchParams({
-              actionToken: model.actionToken,
-              operation: "create",
-              expectedRevision: String(revision),
-              profileId:
-                role === "manager" ? "PROFILE-300001" : "PROFILE-300002",
-              adapterModel: "codex-cli|gpt-6-astra",
-              family: "astra",
-              defaultReasoningEffort: "high",
-              compatibilityReason: "",
-              selectionRole: "executor",
-              modelTier: "preferred",
-            });
-            for (const operation of ["create", "update", "delete"] as const) {
-              form.set("operation", operation);
-              form.set("expectedRevision", String(revision));
-              if (operation === "update")
-                form.set("compatibilityReason", "fixture-updated");
-              if (operation === "delete") {
-                for (const key of [...form.keys()])
-                  if (
-                    ![
-                      "actionToken",
-                      "operation",
-                      "expectedRevision",
-                      "profileId",
-                    ].includes(key)
-                  )
-                    form.delete(key);
-                form.set("confirmed", "true");
-              }
-              if (operation === "delete") {
-                form.set("confirmed", "false");
-                const unconfirmed = await fetchWorkbench(
-                  `${handle.baseUrl}/ai-profiles/action`,
-                  {
-                    method: "POST",
-                    body: form,
-                    headers: {
-                      origin: handle.baseUrl,
-                      "content-type": "application/x-www-form-urlencoded",
-                    },
-                  },
-                );
-                assert.equal(unconfirmed.status, 200);
-                const rejected = (await unconfirmed.json()) as {
-                  status: string;
-                  snapshot: { revision: number };
-                };
-                assert.equal(rejected.status, "rejected");
-                assert.equal(rejected.snapshot.revision, revision);
-                form.set("confirmed", "true");
-              }
-              const before = profileWrites;
-              const reply = await fetchWorkbench(
-                `${handle.baseUrl}/ai-profiles/action`,
-                {
-                  method: "POST",
-                  body: form,
-                  headers: {
-                    origin: handle.baseUrl,
-                    "content-type": "application/x-www-form-urlencoded",
-                  },
-                },
-              );
-              assert.equal(reply.status, 200);
-              const result = (await reply.json()) as {
-                status: string;
-                snapshot: { revision: number };
-              };
-              assert.equal(result.status, "completed", operation);
-              assert.equal(profileWrites, before + 1);
-              assert.equal(result.snapshot.revision, ++revision);
-            }
+            const initial = await listed.json();
+            const form = makeForm(initial.snapshot?.identity ?? null, role);
+            const result = await post(form);
+            assert.equal(result.status, 200);
+            const body = await result.json();
+            assert.equal(body.status, "saved");
+            assert.equal(body.snapshot.config.workTypes.coding.label, role);
+            const stale = makeForm(null, "stale");
+            assert.equal((await (await post(stale)).json()).status, "conflict");
             const invalid = new URLSearchParams(form);
-            invalid.append("operation", "delete");
-            const beforeInvalid = profileWrites;
+            invalid.append("expectedIdentity", "");
+            assert.equal((await post(invalid)).status, 400);
+            const currentConfig = await (await fetchWorkbench(endpoint)).json();
             assert.equal(
-              (
-                await fetchWorkbench(`${handle.baseUrl}/ai-profiles/action`, {
-                  method: "POST",
-                  body: invalid,
-                  headers: {
-                    origin: handle.baseUrl,
-                    "content-type": "application/x-www-form-urlencoded",
-                  },
-                })
-              ).status,
-              400,
+              currentConfig.snapshot.identity,
+              body.snapshot.identity,
             );
-            assert.equal(profileWrites, beforeInvalid);
-            const stale = new URLSearchParams(form);
-            stale.set("expectedRevision", "0");
-            const conflicted = await fetchWorkbench(
-              `${handle.baseUrl}/ai-profiles/action`,
-              {
-                method: "POST",
-                body: stale,
-                headers: {
-                  origin: handle.baseUrl,
-                  "content-type": "application/x-www-form-urlencoded",
-                },
+          }
+          fs.writeFileSync(current, saved);
+          for (const kind of ["role", "credential"] as const) {
+            const open = fs.openSync,
+              close = fs.closeSync;
+            let owned: number | null = null,
+              reads = 0;
+            const opened = t.mock.method(
+              fs,
+              "openSync",
+              (...args: Parameters<typeof fs.openSync>) => {
+                const fd = open(...args);
+                if (String(args[0]) === configPath) owned = fd;
+                return fd;
               },
             );
-            assert.equal(conflicted.status, 200);
-            const conflict = (await conflicted.json()) as {
-              status: string;
-              reason: string;
-              snapshot: { revision: number };
-            };
-            assert.equal(conflict.status, "rejected");
-            assert.equal(conflict.reason, "revision_conflict");
-            assert.equal(conflict.snapshot.revision, revision);
-          }
-          assert.ok(sharedProfiles);
-          /**
-           * Catalog観測・保存後の現在資格を変更する。
-           * @responsibility 後段の再認可を実AM読取りへ接続する。
-           * @trace RFD-IT-013
-           * @trace RCM-IT-005
-           * @precondition 自己生成AMの保存済み管理者状態。
-           * @stimulus Role降格または資格失効を次改訂へ反映する。
-           * @observation 後段HTTP拒否とCatalog操作回数。
-           * @oracle 過去の許可だけでCatalogを公開しない。
-           * @cleanup 親Caseで元AM状態を復元する。
-           * @boundary Test専用状態変更から現在認可Reader。
-           */
-          function changeProfileActor(kind: "role" | "credential"): void {
-            const changed = JSON.parse(
-              saved.toString("utf8"),
-            ) as AccessManagementState;
-            changed.revision += 1;
-            changed.operationId = randomUUID();
-            if (kind === "role") {
-              const user = changed.users.find(
-                (entry) => entry.userId === userId,
-              );
-              assert.ok(user);
-              user.role = "developer";
-            } else {
-              const credential = changed.credentials[0];
-              assert.ok(credential);
-              credential.revoked = true;
-            }
-            fs.writeFileSync(current, JSON.stringify(changed));
-          }
-          for (const kind of ["role", "credential"] as const) {
-            fs.writeFileSync(current, saved);
-            const original = sharedProfiles.snapshot;
-            const afterRead = t.mock.method(sharedProfiles, "snapshot", () => {
-              const snapshot = original();
-              changeProfileActor(kind);
-              return snapshot;
+            const closed = t.mock.method(fs, "closeSync", (fd: number) => {
+              close(fd);
+              if (fd === owned) {
+                owned = null;
+                reads++;
+                changeSelectionActor(kind);
+              }
             });
-            const before = profileReads;
+            syncBuiltinESMExports();
             try {
-              const reply = await fetchWorkbench(
-                `${handle.baseUrl}/api/ai-profiles`,
-              );
+              const reply = await fetchWorkbench(endpoint);
               assert.equal(reply.status, 403);
-              assert.equal(await reply.text(), "profile_access_unavailable\n");
-              assert.equal(
-                profileReads,
-                before + 1,
-                "profile_snapshot_not_repeated",
-              );
+              assert.equal(reads, 1);
             } finally {
-              afterRead.mock.restore();
+              opened.mock.restore();
+              closed.mock.restore();
+              syncBuiltinESMExports();
               fs.writeFileSync(current, saved);
             }
           }
           for (const kind of ["role", "credential", "throw", "cut"] as const) {
-            const source: AiProfileCatalogSnapshot | null =
-              sharedProfiles.snapshot().value;
-            assert.ok(source);
-            const profile:
-              | AiProfileCatalogSnapshot["catalog"]["profiles"][number]
-              | undefined = source.catalog.profiles[0];
-            assert.ok(profile);
-            const reason = `fixture-after-save-${kind}`;
-            const form = new URLSearchParams({
-              actionToken: model.actionToken,
-              operation: "update",
-              expectedRevision: String(source.revision),
-              profileId: profile.profileId,
-              adapterModel: `${profile.adapterId}|${profile.exactModelId}`,
-              family: profile.family,
-              defaultReasoningEffort: profile.defaultReasoningEffort,
-              compatibilityReason: reason,
-            });
-            for (const role of profile.selectionRoles)
-              form.append("selectionRole", role);
-            for (const tier of profile.modelTiers)
-              form.append("modelTier", tier);
+            const before = await (await fetchWorkbench(endpoint)).json();
+            const label = `after-save-${kind}`;
+            const form = makeForm(before.snapshot.identity, label);
             const client: { request: ClientRequest | null } = { request: null };
-            const original = sharedProfiles.execute;
+            let publications = 0;
+            const rename = fs.renameSync;
             const afterSave = t.mock.method(
-              sharedProfiles,
-              "execute",
-              (mutation: AiProfileCatalogMutation) => {
-                const result = original(mutation);
-                assert.equal(result.status, "completed");
+              fs,
+              "renameSync",
+              (source: fs.PathLike, destination: fs.PathLike) => {
+                rename(source, destination);
+                if (String(destination) !== configPath) return;
+                publications++;
                 if (kind === "role" || kind === "credential")
-                  changeProfileActor(kind);
+                  changeSelectionActor(kind);
                 if (kind === "throw")
-                  throw new Error("fixture_after_profile_publication");
+                  throw Error("fixture_after_selection_publication");
                 if (kind === "cut") client.request?.destroy();
-                return result;
               },
             );
-            const originalEnd = ServerResponse.prototype.end;
-            let successes = 0;
-            const publication = t.mock.method(
-              ServerResponse.prototype,
-              "end",
-              function (
-                this: ServerResponse,
-                ...args: Parameters<ServerResponse["end"]>
-              ) {
-                const url = new URL(this.req.url ?? "/", "http://127.0.0.1");
-                if (
-                  `${url.pathname}${url.search}` === "/ai-profiles/action" &&
-                  this.statusCode === 200 &&
-                  args[0] !== undefined
-                )
-                  successes += 1;
-                return originalEnd.apply(this, args);
-              },
-            );
-            const before = profileWrites;
+            syncBuiltinESMExports();
             try {
               if (kind === "cut") {
                 await new Promise<void>((resolve) => {
-                  client.request = httpRequest(
-                    `${handle.baseUrl}/ai-profiles/action`,
-                    {
-                      method: "POST",
-                      agent: false,
-                      headers: {
-                        authorization: `Bearer ${material.token}`,
-                        origin: handle.baseUrl,
-                        "content-type": "application/x-www-form-urlencoded",
-                        "content-length": String(
-                          Buffer.byteLength(form.toString()),
-                        ),
-                      },
+                  client.request = httpRequest(action, {
+                    method: "POST",
+                    agent: false,
+                    headers: {
+                      ...headers,
+                      authorization: `Bearer ${material.token}`,
+                      "content-length": String(
+                        Buffer.byteLength(form.toString()),
+                      ),
                     },
-                  );
+                  });
                   client.request.on("error", () => {});
                   client.request.once("close", resolve);
                   client.request.setTimeout(5000, () =>
@@ -1163,88 +1011,52 @@ for (const mode of ["local", "cros"] as const) {
                 await delay(100);
                 assert.equal(client.request?.destroyed, true);
               } else {
-                const reply = await fetchWorkbench(
-                  `${handle.baseUrl}/ai-profiles/action`,
-                  {
-                    method: "POST",
-                    body: form,
-                    headers: {
-                      origin: handle.baseUrl,
-                      "content-type": "application/x-www-form-urlencoded",
-                    },
-                  },
-                );
-                assert.equal(reply.status, 503);
-                assert.equal(
-                  await reply.text(),
-                  "ai_profile_action_outcome_unconfirmed\n",
-                );
+                const reply = await post(form);
+                assert.equal(reply.status, kind === "throw" ? 200 : 503);
+                if (kind === "throw")
+                  assert.equal((await reply.json()).status, "unknown");
               }
-              assert.equal(
-                profileWrites,
-                before + 1,
-                "profile_publication_no_retry",
-              );
-              assert.equal(
-                successes,
-                0,
-                "profile_after_publication_success_body_zero",
-              );
+              assert.equal(publications, 1);
             } finally {
               client.request?.destroy();
               afterSave.mock.restore();
-              publication.mock.restore();
+              syncBuiltinESMExports();
               fs.writeFileSync(current, saved);
             }
-            const currentProfile = (await (
-              await fetchWorkbench(`${handle.baseUrl}/api/ai-profiles`)
-            ).json()) as AiProfileCatalogSnapshot;
-            assert.equal(currentProfile.revision, source.revision + 1);
+            const currentConfig = await (await fetchWorkbench(endpoint)).json();
             assert.equal(
-              currentProfile.catalog.profiles.find(
-                (entry) => entry.profileId === profile.profileId,
-              )?.compatibilityReason,
-              reason,
+              currentConfig.snapshot.config.workTypes.coding.label,
+              label,
             );
-            assert.equal(
-              profileWrites,
-              before + 1,
-              "fresh_read_does_not_mutate",
-            );
+            assert.equal(publications, 1);
           }
-          const broken = t.mock.method(sharedProfiles, "snapshot", () => {
-            throw new Error("fixture_catalog_read_failed");
-          });
+          const open = fs.openSync;
+          const broken = t.mock.method(
+            fs,
+            "openSync",
+            (...args: Parameters<typeof fs.openSync>) => {
+              if (String(args[0]) === configPath)
+                throw Object.assign(Error("fixture_read_unavailable"), {
+                  code: "EACCES",
+                });
+              return open(...args);
+            },
+          );
+          syncBuiltinESMExports();
           try {
-            const beforeBroken = profileWrites;
             assert.equal(
-              (await fetchWorkbench(`${handle.baseUrl}/api/ai-profiles`))
-                .status,
-              403,
+              (await (await fetchWorkbench(endpoint)).json()).status,
+              "blocked",
             );
-            assert.equal(profileWrites, beforeBroken);
           } finally {
             broken.mock.restore();
+            syncBuiltinESMExports();
           }
-          const revoked = JSON.parse(
-            saved.toString("utf8"),
-          ) as AccessManagementState;
-          const revokedCredential = revoked.credentials[0];
-          assert.ok(revokedCredential);
-          revokedCredential.revoked = true;
-          fs.writeFileSync(current, JSON.stringify(revoked));
-          const beforeRevoked = profileReads;
-          assert.equal(
-            (await fetchWorkbench(`${handle.baseUrl}/api/ai-profiles`)).status,
-            403,
-          );
-          assert.equal(profileReads, beforeRevoked);
-          assert.equal(
-            (await fetch(`${handle.baseUrl}/api/ai-profiles`)).status,
-            403,
-          );
+          changeSelectionActor("credential");
+          assert.equal((await fetchWorkbench(endpoint)).status, 403);
+          assert.equal((await fetch(endpoint)).status, 403);
         } finally {
-          fs.writeFileSync(current, saved);
+          fs.writeFileSync(current, originalManagement);
         }
       }
       for (const view of [
@@ -1958,19 +1770,22 @@ for (const mode of ["local", "cros"] as const) {
             selectedModel.surface.context.projectId,
             "project.fixture",
           );
-          assert.equal(selectedModel.aiProfiles, null);
+          assert.equal(
+            selectedModel.aiSelection?.selection.status,
+            "available",
+          );
           assert.equal(selectedModel.runtimeActivity?.state, "unknown");
           assert.equal(selectedModel.aiRequest.configured, false);
           assert.equal("candidateConfigured" in selectedModel.aiRequest, false);
           assert.equal(selectedModel.repositoryResult, null);
           assert.equal(selectedModel.topicMeetingResult, null);
-          assert.equal(selectedModel.aiProfileAdministration.snapshot, null);
-          assert.equal(selectedModel.aiProfileAdministration.owner, "CROS");
+          assert.ok(selectedModel.aiSelectionManagement.snapshot);
+          assert.equal(selectedModel.aiSelectionManagement.allowed, true);
           for (const secret of [material.token, root.root, target, "bindingId"])
             assert.equal(body.includes(secret), false);
           for (const invalidProfile of [{}, undefined]) {
             const invalid = structuredClone(selectedModel);
-            Object.defineProperty(invalid, "aiProfiles", {
+            Object.defineProperty(invalid, "aiSelection", {
               value: invalidProfile,
               enumerable: true,
             });

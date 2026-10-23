@@ -55,6 +55,17 @@ test("共通公開助言入口はContext境界・取消・回収不明を一回�
       stdio: "ignore",
       windowsHide: true,
     });
+    /**
+     * 試験Processのimport先を本体Rootへ結合する。
+     * @responsibility 固定した相対Sourceだけを検証済みRootのfile URLへ変換する。
+     * @trace RCM-IT-005
+     * @precondition 呼出し側の固定合成値又は既存Sourceを使用する。
+     * @stimulus 引数を同じ正規codec又は固定Rootへ接続する。
+     * @observation 呼出し元が照合する値と相関。
+     * @oracle 元値・拒否条件を補完又は緩和しない。
+     * @cleanup 局所値のみ。物理試験物は呼出しCaseが回収する。
+     * @boundary 既存契約の試験内接続。実AI・Dockerを実行しない。
+     */
     const moduleUrl = (relative: string) =>
       pathToFileURL(path.join(canonicalRepositoryRoot, relative)).href;
     const script = `

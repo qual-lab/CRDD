@@ -8,8 +8,11 @@
  * @security 既存の認可・取消・情報境界を維持し、新しい保存状態や自動再送を追加しない。
  */
 import type { ServerResponse } from "node:http";
-import { readRepositoryNetworkPolicies } from "../../../../coordinator/src/index.ts";
-import type { AiProfileCatalogAdministration } from "../../../../ai-adapter/src/index.ts";
+import {
+  readRepositoryNetworkPolicies,
+  readRepositoryAiSelection,
+} from "../../../../coordinator/src/index.ts";
+import { readWorkbenchAiSelectionSurface } from "../ai-selection/projection.ts";
 import type { WorkbenchAiRequests } from "../ai-request/types.ts";
 import type { CredentialAdministration } from "../credential/administration.ts";
 import {
@@ -80,7 +83,6 @@ export async function handleRepositoryView({
   portfolio,
   connectionState,
   presentation,
-  aiProfileAdministration,
   aiRequests,
   activityReader,
   actionToken,
@@ -104,7 +106,6 @@ export async function handleRepositoryView({
   portfolio: PortfolioProjection | undefined;
   connectionState: WorkbenchConnectionState;
   presentation: WorkbenchPresentationState;
-  aiProfileAdministration: AiProfileCatalogAdministration | undefined;
   aiRequests: WorkbenchAiRequests | undefined;
   activityReader: WorkbenchActivityReader | undefined;
   actionToken: string;
@@ -134,7 +135,8 @@ export async function handleRepositoryView({
         presentation.aiRequestSnapshot = Object.freeze({
           requestId: presentation.currentAiRequestId,
           mode: presentation.aiRequestSnapshot?.mode ?? "read_only_advice",
-          profileId: presentation.aiRequestSnapshot?.profileId ?? "unknown",
+          executionSelection:
+            presentation.aiRequestSnapshot?.executionSelection ?? null,
           status: "unknown",
           reason: "observation_failed",
           facts: Object.freeze([]),
@@ -233,6 +235,7 @@ export async function handleRepositoryView({
         });
       }
     }
+    presentation.aiSelection = readWorkbenchAiSelectionSurface(capability);
     const baseModel = createWorkbenchMainViewModel(
       presentation.projectSurface,
       portfolio,
@@ -248,10 +251,10 @@ export async function handleRepositoryView({
       meetingPage,
       meetingQuery,
       presentation.topicMeetingResult,
-      presentation.aiProfiles,
-      aiProfileAdministration?.snapshot().value ?? undefined,
-      "Repository",
-      presentation.aiProfileAdministrationResult,
+      presentation.aiSelection,
+      readRepositoryAiSelection(capability).snapshot ?? undefined,
+      true,
+      presentation.aiSelectionManagementResult,
       aiRequests,
       presentation.aiRequestSnapshot,
       presentation.aiRequestNotice,
@@ -375,7 +378,7 @@ export async function handleRepositoryView({
         : renderClientDocument();
     if (method === "GET" && requestPath === "/api/workbench-view") {
       presentation.topicMeetingResult = null;
-      presentation.aiProfileAdministrationResult = null;
+      presentation.aiSelectionManagementResult = null;
       presentation.aiRequestNotice = null;
     }
     contentType =

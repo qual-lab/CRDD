@@ -21,10 +21,10 @@ import type {
 } from "../../../../version-control/src/index.ts";
 import type { PortfolioProjection } from "../../../../domain-model/src/index.ts";
 import type {
-  AiProfileCatalogMutationResult,
-  AiProfileCatalogSnapshot,
-} from "../../../../ai-adapter/src/index.ts";
-import type { WorkbenchAiProfileSurface } from "../../server/ai-profile/projection.ts";
+  AiSelectionSaveResult,
+  AiSelectionSnapshot,
+} from "../../../../coordinator/src/index.ts";
+import type { WorkbenchAiSelectionSurface } from "../../server/ai-selection/projection.ts";
 import type { WorkbenchAiRequestSnapshot } from "../../server/ai-request/types.ts";
 import type { CredentialAdministrationSnapshot } from "../../../../access-management/src/index.ts";
 import type { WorkbenchProjectSurface } from "../../server/project/surface.ts";
@@ -117,7 +117,7 @@ export type WorkbenchCredentialAdministrationView = Readonly<{
  * Workbenchの主画面を一回描画できる閉じたBrowser Read Model。
  * @responsibility Main Viewの全表示値、用途限定Tokenおよび操作結果の型境界を所有する。
  * @trace ARCH-000012
- * @shape contract、view、actionToken、各Surface、Queryおよび一回表示結果で構成する。aiProfilesのnullは今回Ownerからの未取得で、欠測や空Catalogとは区別する。
+ * @shape contract、view、actionToken、各Surface、Queryおよび一回表示結果で構成する。aiSelectionのnullは今回Ownerからの未取得で、欠測や空Catalogとは区別する。
  * @invariant viewはmainで、正本やApplication関数を所有しない。
  * @boundary Workbench Node ServerとMain Browser ScreenのJSON境界。
  * @security Remote Bearer、verifier、Private Key、Host Pathおよび永続Authorityを含めない。
@@ -157,11 +157,11 @@ export type WorkbenchMainViewModel = Readonly<{
     diff: RepositoryWorktreeFileDiff | null;
   }>;
   credentials: WorkbenchCredentialAdministrationView;
-  aiProfiles: WorkbenchAiProfileSurface | null;
-  aiProfileAdministration: Readonly<{
-    snapshot: AiProfileCatalogSnapshot | null;
-    owner: "Repository" | "CROS";
-    result: AiProfileCatalogMutationResult | null;
+  aiSelection: WorkbenchAiSelectionSurface | null;
+  aiSelectionManagement: Readonly<{
+    snapshot: AiSelectionSnapshot | null;
+    allowed: boolean;
+    result: AiSelectionSaveResult | null;
   }>;
   aiRequest: Readonly<{
     configured: boolean;

@@ -12,7 +12,7 @@
  * @trace RCM-ST-012
  * @trace CPR-ST-005
  * @level ST
- * @scope 同Process鍵管理、Standalone／CROS通常管理、三つの自己生成Repositoryの既知GET遷移と選択Root相関、直接接続の内容保存・昇格・Outcome処置と直接接続Git操作と未接続AIの無効表示、native操作非横取り、遅延応答拒否、接続中pagehide取消と資格なし再開、専用POST、秘密非保持、所有資源回収。
+ * @scope 同Process鍵管理、Standalone／CROS通常管理、自己生成RepositoryのGET遷移とRoot相関、内容保存・Git操作、Repository別AI設定の管理Role・保存結果・応答喪失・fresh GET・取消、未設定AIの無効表示、native操作非横取り、pagehide取消と資格なし再開、秘密非保持、所有資源回収。
  * @boundary Workbench本番Server→本番Bundle→専用Browser→AM保存Owner。成果物原文は同じ選択Rootに相関し、文字列表示・履歴移動・遅延拒否・再読込後の再接続を観測する。
  */
 import assert from "node:assert/strict";
@@ -33,10 +33,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { createCredentialMaterial } from "../../../access-management/src/credential/token.ts";
 import { deriveRepositoryBindingId } from "../../../access-management/src/repository/binding.ts";
 import type { AccessManagementState } from "../../../access-management/src/storage/types.ts";
-import {
-  createAiProfileCatalogAdministration,
-  createHostAiProfileCatalogStore,
-} from "../../../ai-adapter/src/index.ts";
+import { selectionConfig } from "../../../coordinator/tests/fixtures/ai-selection.ts";
 import { createFilesystemStoreRoot } from "../../../domain-model/src/index.ts";
 import { prepareWorkspaceSurface } from "../../../coordinator/tests/fixtures/workspace-surface.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
@@ -236,7 +233,7 @@ async function requestBrowser(
                 method: "Runtime.evaluate",
                 params: {
                   expression:
-                    "document.activeElement?.getAttribute('name')==='adapterModel'",
+                    "document.activeElement?.getAttribute('name')==='saveSelection'",
                   returnByValue: true,
                 },
               }),
@@ -846,10 +843,13 @@ function managementBrowserExpression(
  * @trace EST-ST-013
  * @precondition 対応ChromeとBuild済み本番Bundleを使用する。
  * @stimulus 自己生成AM状態へ重複submit・失敗・reload、IDなし既知link／GET検索・戻る、外部／download／別tab／修飾click／POST、遅延GETと接続中の合成pagehide／pageshowを適用する。RecordではDetail保存成功／競合後のGET故障・明示再取得と、POST応答保留中のRepository切替を適用する。 Gitでは二重送信、確認なし／確認付きPush、処置後GET故障、不正応答、GET再取得と対象切替を適用する。
+ * AI設定ではmanager／developer、五役割の標準入力、分類・上書きの追加／改名／削除、未設定からの明示編集、CAS二重submit、応答喪失、保存後GET故障、保留GET中の対象切替を適用する。
  * Portfolioでは二本文の一方欠測・他方Identity競合、競合本文復元、全本文復元とreloadを実施する。
  * @observation boolean/counter、選択ID・defaultPrevented・Model取得件数・取消Signal・再開Header有無、非秘密保存状態、Browser/Listener/Profile終了だけ取得する。Recordでは旧Detail本文／Formの有無、known completed／blocked通知、再取得前後のPOST数、保留POSTのSignalと新選択の維持を観測する。 GitではPOST件数、要求専用結果、非選択Root HEAD、local Remote Revisionと取消Signalを観測する。
+ * AI設定のPOST数・通知・取消Signal・現在設定、標準入力と同じJSON draft、未設定時の空Modelを観測する。
  * Portfolioの日本語状態表示、Repositoryリンク集合、外国Identityの非表示と復元後通常接続を取得する。
  * @oracle 鍵一度表示、秘密非保持、失敗後完了0、旧接続利用可0、選択保持、対象外Model取得0、旧世代採用0、pagehide保留GET取消・Root空・終了後応答採用0、再開資格Header0。RecordのGET故障では旧本文／Form非表示、既知保存とblockedを混同しない通知、GET retryによるPOST増0、対象切替時の保留POST取消と遅延応答採用0を要求する。合成通知を実cache保存復元証明にしない。 Gitでは確認不足Push0、再取得後の操作結果未確認保持、旧状態非表示、GET再取得POST増0、他Root Effect0を要求する。
+ * AI設定は管理Roleとdevelopment認可、標準入力だけの分類・上書き編集、単一draft、未設定のModel非補完、POST一回・fresh GETのみ・既知保存保持・遅延非採用を要求する。
  * Portfolioは未確認を一部未確認、競合を競合ありと表示し、completeだけをリンクにする。外国Identityを公開せず、復元後通常接続できる。
  * @cleanup 既存Browser所有Tree終了処理とServer close後、検証した自己生成Rootだけ削除する。
  * @boundary 本番Server／本番CSR／専用Browser／AMのSystem境界。
@@ -894,8 +894,8 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
     "management",
     "cros-management",
     "local-connection",
-    "profile-manager",
-    "profile-developer",
+    "ai-selection-manager",
+    "ai-selection-developer",
     "content-operations",
     "artifact-navigation",
     "git-operations",
@@ -1014,22 +1014,28 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
               .join(""),
         );
       }
-      if (mode === "profile-manager" || mode === "profile-developer") {
+      if (
+        mode === "ai-selection-manager" ||
+        mode === "ai-selection-developer"
+      ) {
         const actor = state.users.find((user) => user.userId === adminId);
         assert.ok(actor);
-        actor.role = mode === "profile-manager" ? "manager" : "developer";
+        actor.role = mode === "ai-selection-manager" ? "manager" : "developer";
         state.users.push({
           userId: "00000000-0000-4000-8000-000000000005",
           username: "別管理者",
           role: "administrator",
         });
-        for (const entry of state.roleContentAccess) entry.workspaceIds = [];
+        for (const entry of state.roleContentAccess)
+          entry.workspaceIds = ["development"];
       }
       if (
         mode === "local-connection" ||
         mode === "content-operations" ||
         mode === "artifact-navigation" ||
-        mode === "git-operations"
+        mode === "git-operations" ||
+        mode === "ai-selection-manager" ||
+        mode === "ai-selection-developer"
       ) {
         const administrator = state.roleContentAccess.find(
           (entry) => entry.role === "administrator",
@@ -1087,6 +1093,15 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
                 )
                 .join(""),
           );
+          if (
+            mode === "ai-selection-manager" ||
+            mode === "ai-selection-developer"
+          )
+            if (suffix !== "latest")
+              await writeFile(
+                path.join(target, ".crdd", "config", "ai-selection.json"),
+                JSON.stringify(selectionConfig()),
+              );
           if (mode === "artifact-navigation") {
             for (const relative of [
               "99_Roadmap/01_Roadmap.md",
@@ -1171,43 +1186,15 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
       await writeFile(current, JSON.stringify(state));
       const root = createFilesystemStoreRoot(access);
       assert.ok(root);
-      let crosProfiles:
-        | ReturnType<typeof createAiProfileCatalogAdministration>
-        | undefined;
-      if (
-        mode === "local-connection" ||
-        mode === "content-operations" ||
-        mode === "artifact-navigation" ||
-        mode === "git-operations" ||
-        mode === "profile-manager" ||
-        mode === "profile-developer"
-      ) {
-        const config = path.join(directory, "catalog-host");
-        await mkdir(config);
-        const catalog = createHostAiProfileCatalogStore({
-          platform: "win32",
-          localAppData: config,
-          publisher: "qual-lab",
-          application: "cros",
-          trustDomainId: "browser-fixture",
-        });
-        assert.equal(catalog.status, "ready");
-        if (catalog.status !== "ready")
-          throw new Error("browser_catalog_unavailable");
-        crosProfiles = createAiProfileCatalogAdministration(catalog.store);
-      }
       const handle = await startWorkbench({
         workingDirectory: repositoryRoot,
-        ...(crosProfiles === undefined
-          ? {}
-          : { crosProfileAdministration: crosProfiles }),
         ...(mode === "cros-management" ||
         mode === "local-connection" ||
         mode === "content-operations" ||
         mode === "artifact-navigation" ||
         mode === "git-operations" ||
-        mode === "profile-manager" ||
-        mode === "profile-developer"
+        mode === "ai-selection-manager" ||
+        mode === "ai-selection-developer"
           ? { localAccessRoot: root }
           : { credentialAdministration: { root, token: material.token } }),
       });
@@ -1331,7 +1318,7 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
               pageUrl,
               "Runtime.evaluate",
               {
-                expression: `(async () => { const end=Date.now()+15000; while(Date.now()<end) { if(document.querySelector(${JSON.stringify(mode === "local-connection" || mode === "content-operations" || mode === "artifact-navigation" || mode === "git-operations" || mode === "cros-management" || mode === "profile-manager" || mode === "profile-developer" ? "#connection form" : "#credential-administration form")}) && document.readyState==='complete') return true; await new Promise(r=>setTimeout(r,100)); } return false; })()`,
+                expression: `(async () => { const end=Date.now()+15000; while(Date.now()<end) { if(document.querySelector(${JSON.stringify(mode === "local-connection" || mode === "content-operations" || mode === "artifact-navigation" || mode === "git-operations" || mode === "cros-management" || mode === "ai-selection-manager" || mode === "ai-selection-developer" ? "#connection form" : "#credential-administration form")}) && document.readyState==='complete') return true; await new Promise(r=>setTimeout(r,100)); } return false; })()`,
                 awaitPromise: true,
                 returnByValue: true,
               },
@@ -1462,7 +1449,7 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
              * @cleanup Timerは各待機で完了し、親CaseがBrowser・Server・Profileを終了確認する。
              * @boundary 専用Browser内DOMの有限観測。返却は非秘密の判定だけ。
              */
-            const wait=async(predicate)=>{const end=Date.now()+10000;while(Date.now()<end){if(predicate())return true;await new Promise(resolve=>setTimeout(resolve,40));}throw new Error('workspace_ui_unconfirmed');};
+            const wait=async(predicate,limit=10000)=>{const end=Date.now()+limit;while(Date.now()<end){if(predicate())return true;await new Promise(resolve=>setTimeout(resolve,40));}throw new Error('workspace_ui_unconfirmed');};
             /**
              * Workspace panelと現在操作要素を同じ対象から取得する。
              * @responsibility Workspace panelと現在操作要素を同じ対象から取得する。
@@ -1474,19 +1461,30 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
              * @cleanup N/A: DOM読取りのみ。親Caseが所有Browserを終了する。
              * @boundary 本番DOM内の対象選択。Nodeへ秘密値を返さない。
              */
+            /**
+             * 現在世代のAI設定Panelを取得する。
+             * @responsibility 旧DOM参照を再利用しない。
+             * @trace RCM-ST-012
+             * @precondition 既存の現在Document。
+             * @stimulus 固定IDを読む。
+             * @observation 現在Panel又はnull。
+             * @oracle 旧対象のPanelを採用しない。
+             * @cleanup 局所参照のみ。
+             * @boundary 自己生成試験内の局所代役／専用Browser。実AIなし。
+             */
             const panel=()=>document.querySelector('#workspaces'), button=(text)=>[...panel().querySelectorAll('button')].find(b=>b.textContent===text), notice=()=>panel().querySelector('[role=status]')?.textContent;
-            const originalFetch=window.fetch;let creates=0,renames=0,corrupt=false;
-            window.fetch=async(input,options)=>{const route=new URL(String(input),location.href).pathname;const command=route==='/workspace/action'?JSON.parse(new URLSearchParams(String(options.body)).get('command')):null;if(command?.operation==='create')creates++;if(command?.operation==='rename')renames++;const response=await originalFetch(input,options);if(corrupt===true&&command?.operation==='rename'){await response.arrayBuffer();return new Response('{',{headers:{'content-type':'application/json'}});}if(typeof corrupt==='string'&&command?.operation==='get'){const result=await response.json();if(corrupt==='wrong-id')result.data.workspace.workspaceId='00000000-0000-4000-8000-000000000099';if(corrupt==='bad-paths')result.data.changedPaths=[{}];if(corrupt==='fixture-paths')result.data.changedPaths=['synthetic-changed.txt'];return new Response(JSON.stringify(result),{headers:{'content-type':'application/json'}});}if(corrupt==='bad-status'&&command?.operation==='rename'){const result=await response.json();result.data.status='made-up';return new Response(JSON.stringify(result),{headers:{'content-type':'application/json'}});}return response;};
+            const originalFetch=window.fetch;let creates=0,renames=0,corrupt=false,stage='queue',lastResult=null;
+            window.fetch=async(input,options)=>{const route=new URL(String(input),location.href).pathname;const command=route==='/workspace/action'?JSON.parse(new URLSearchParams(String(options.body)).get('command')):null;if(command?.operation==='create')creates++;if(command?.operation==='rename')renames++;const response=await originalFetch(input,options);if(command?.operation==='create'){lastResult={httpStatus:response.status};try{const value=await response.clone().json();lastResult={...lastResult,status:value.status,reason:/^[a-z_]+$/.test(value.data?.reason??'')?value.data.reason:null};}catch{lastResult={...lastResult,json:false};}}if(corrupt===true&&command?.operation==='rename'){await response.arrayBuffer();return new Response('{',{headers:{'content-type':'application/json'}});}if(typeof corrupt==='string'&&command?.operation==='get'){const result=await response.json();if(corrupt==='wrong-id')result.data.workspace.workspaceId='00000000-0000-4000-8000-000000000099';if(corrupt==='bad-paths')result.data.changedPaths=[{}];if(corrupt==='fixture-paths')result.data.changedPaths=['synthetic-changed.txt'];return new Response(JSON.stringify(result),{headers:{'content-type':'application/json'}});}if(corrupt==='bad-status'&&command?.operation==='rename'){const result=await response.json();result.data.status='made-up';return new Response(JSON.stringify(result),{headers:{'content-type':'application/json'}});}return response;};
             try{
               button('受付一覧を再取得').click();await wait(()=>panel().querySelector('select')?.options.length===3);
               const queue=panel().querySelector('select');queue.value='queue-a';queue.dispatchEvent(new Event('change',{bubbles:true}));await new Promise(resolve=>requestAnimationFrame(resolve));
-              const create=button('独立した作業領域を作成');create.click();create.click();await wait(()=>notice()?.includes('操作完了')&&!!button('状態・変更一覧を再取得'));
-              const singleCreate=creates===1;
-              corrupt=true;button('表示名を変更').click();await wait(()=>notice()?.includes('結果未確認'));await new Promise(resolve=>setTimeout(resolve,80));const noResend=renames===1;
+              stage='create';const createStarted=performance.now();const create=button('独立した作業領域を作成');create.click();create.click();await wait(()=>notice()?.includes('操作完了')&&!!button('状態・変更一覧を再取得'),30000);
+              const singleCreate=creates===1,createMilliseconds=Math.round(performance.now()-createStarted);
+              stage='rename-response';corrupt=true;button('表示名を変更').click();await wait(()=>notice()?.includes('結果未確認'));await new Promise(resolve=>setTimeout(resolve,80));const noResend=renames===1;
               corrupt=false;button('受付一覧を再取得').click();await wait(()=>notice()?.includes('受付を選択')&&!!button('状態・変更一覧を再取得'));
               const fresh=renames===1&&!notice()?.includes('結果未確認');
               const invalidResults=[];
-              for(const kind of ['wrong-id','bad-paths','bad-status']){
+              for(const kind of ['wrong-id','bad-paths','bad-status']){stage=kind;
                 // 不正status時の表示保持を非空の合成一覧で反証する。Git差分の実在主張とは別。
                 if(kind==='bad-status'){corrupt='fixture-paths';button('状態・変更一覧を再取得').click();await wait(()=>panel().querySelector('.table-scroll')?.textContent.includes('synthetic-changed.txt'));}
                 const before=panel().querySelector('dl').textContent, beforePaths=panel().querySelector('.table-scroll')?.textContent;corrupt=kind;
@@ -1496,9 +1494,9 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
                 const noExtra=renames===count;corrupt=false;button('状態・変更一覧を再取得').click();await wait(()=>notice()?.includes('現在の作業領域と変更を取得'));
                 invalidResults.push(unchanged&&noExtra);
               }
-              const check=[...panel().querySelectorAll('input[type=checkbox]')].find(input=>input.closest('label')?.textContent.includes('未採用変更'));check.click();await new Promise(resolve=>requestAnimationFrame(resolve));button('この独立作業領域を終了・破棄').click();await wait(()=>notice()?.includes('操作完了')&&!!button('独立した作業領域を作成'));
-              return {singleCreate,noResend,fresh,invalidResults,ended:!button('状態・変更一覧を再取得')};
-            }finally{window.fetch=originalFetch;}
+              stage='end';const endStarted=performance.now();const check=[...panel().querySelectorAll('input[type=checkbox]')].find(input=>input.closest('label')?.textContent.includes('未採用変更'));check.click();await new Promise(resolve=>requestAnimationFrame(resolve));button('この独立作業領域を終了・破棄').click();await wait(()=>notice()?.includes('操作完了')&&!!button('独立した作業領域を作成'),30000);
+              return {createMilliseconds,endMilliseconds:Math.round(performance.now()-endStarted),singleCreate,noResend,fresh,invalidResults,ended:!button('状態・変更一覧を再取得')};
+            }catch(error){return {failedStage:stage,creates,renames,lastResult,errorClass:['Error','TypeError','SyntaxError','ReferenceError'].includes(error?.name)?error.name:'other'};}finally{window.fetch=originalFetch;}
           })()`,
             awaitPromise: true,
             returnByValue: true,
@@ -1506,7 +1504,17 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
           undefined,
           "composite",
         );
-        assert.deepEqual(workspace, {
+        assert.ok(workspace && typeof workspace === "object");
+        const { createMilliseconds, endMilliseconds, ...workspaceResult } =
+          workspace as Record<string, unknown>;
+        assert.equal(typeof createMilliseconds, "number");
+        assert.equal(typeof endMilliseconds, "number");
+        console.log(
+          "workspace_browser_owned_git_milliseconds",
+          createMilliseconds,
+          endMilliseconds,
+        );
+        assert.deepEqual(workspaceResult, {
           singleCreate: true,
           noResend: true,
           fresh: true,
@@ -1563,6 +1571,17 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
              * @oracle 異なる分類を同じ完了通知へ畳まない。
              * @cleanup N/A: DOM読取りのみ。親Caseが所有Browserを終了する。
              * @boundary 本番DOM内の対象選択。Nodeへ秘密値を返さない。
+             */
+            /**
+             * AI設定操作の現在通知を観測する。
+             * @responsibility 保存済み・不明・再取得を表示から分ける。
+             * @trace RCM-ST-012
+             * @precondition 現在Panel。
+             * @stimulus 固定status要素を読む。
+             * @observation 通知又は欠測。
+             * @oracle 旧通知をGET完了へ換算しない。
+             * @cleanup 局所読取りのみ。
+             * @boundary 自己生成試験内の局所代役／専用Browser。実AIなし。
              */
             const notice=()=>document.querySelector('.repository-operation-surface [role=status]')?.innerText;
             try{
@@ -2377,10 +2396,229 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
         return;
       }
       if (
-        mode === "local-connection" ||
-        mode === "profile-manager" ||
-        mode === "profile-developer"
+        mode === "ai-selection-manager" ||
+        mode === "ai-selection-developer"
       ) {
+        const observed = await requestBrowser(
+          pageUrl,
+          "Runtime.evaluate",
+          {
+            expression: `(async()=>{
+            const key=${JSON.stringify(material.token)};
+            const original=window.fetch; let posts=0, corrupt=false, failView=false, held=null, heldSignal=null, stage='connect';
+            window.fetch=async(input,options)=>{
+              const route=new URL(String(input),location.href).pathname;
+              if(route==='/ai-selection/action')posts++;
+              if(route==='/api/workbench-view'&&failView)throw Error('fixture_read_unavailable');
+              const reply=await original(input,options);
+              if(route==='/ai-selection/action'&&corrupt){await reply.arrayBuffer();return new Response('{',{headers:{'content-type':'application/json'}});}
+              if(route==='/api/ai-selection'&&held===true){heldSignal=options.signal;return new Promise(resolve=>{held=()=>resolve(reply);});}
+              return reply;
+            };
+            /**
+             * 設定画面の現在状態だけを期限内で観測する。
+             * @responsibility 途中描画を成功へ畳まない。
+             * @trace RCM-ST-012
+             * @precondition 自己生成Repositoryの本番画面。
+             * @stimulus 10秒以内のDOM再観測。
+             * @observation 状態とForm。
+             * @oracle 未成立は固定例外。
+             * @cleanup 親CaseがBrowserと試験Rootを回収する。
+             * @boundary 専用Browser内。実AIなし。
+             */
+            const wait=async(predicate)=>{const end=Date.now()+10000;while(Date.now()<end){if(predicate())return true;await new Promise(r=>setTimeout(r,40));}throw Error('ai_selection_ui_unconfirmed');};
+            /**
+             * 設定画面の対象Repositoryを切り替える。
+             * @responsibility 既存CSR導線と現在対象の成立を待つ。
+             * @trace RCM-ST-012
+             * @precondition 自己生成の認可済みID。
+             * @stimulus 同一Originのlinkを操作する。
+             * @observation 現在Repository ID。
+             * @oracle 別対象の表示を到達としない。
+             * @cleanup 生成linkを即除去しBrowserは親が回収する。
+             * @boundary 自己生成試験内の局所代役／専用Browser。実AIなし。
+             */
+            const navigate=async(id)=>{const link=document.createElement('a');link.href='/?repositoryId='+id;document.querySelector('[data-workbench-react-root]').append(link);link.click();link.remove();await wait(()=>document.querySelector('[data-repository-id]')?.dataset.repositoryId===id);};
+            /**
+             * 現在の設定管理Panelを取得する。
+             * @responsibility 対象切替後の現DOMを毎回参照する。
+             * @trace RCM-ST-012
+             * @precondition 本番CSRを専用Browserで表示済み。
+             * @stimulus 固定IDのPanelを検索する。
+             * @observation 現在のElement又は不存在。
+             * @oracle 呼出しCaseが対象・表示内容を照合する。
+             * @cleanup N/A: DOMを変更しない。
+             * @boundary 自己生成Repositoryと専用Browserの表示観測。
+             */
+            const panel=()=>document.querySelector('#ai-selection-management');
+            /**
+             * 現在Panelの操作結果表示を読む。
+             * @responsibility 保存済みと不明の表示を現在DOMから観測する。
+             * @trace RCM-ST-012
+             * @precondition Panelの存在は呼出しCaseが待機する。
+             * @stimulus statusの本文を読む。
+             * @observation 現在の表示文又は欠測。
+             * @oracle 呼出しCaseが期待する状態と照合する。
+             * @cleanup N/A: DOMを変更しない。
+             * @boundary 本番結果表示と試験Oracle。
+             */
+            const notice=()=>panel()?.querySelector('[role=status]')?.textContent;
+            /**
+             * 応答故障用の合成ラベルを設定する。
+             * @responsibility 既存JSON詳細入力とReactイベントを搬送する。
+             * @trace RCM-ST-012
+             * @precondition 現在の合成設定。
+             * @stimulus native setterとinput後の描画を待つ。
+             * @observation 現在の送信Form。
+             * @oracle 入力以外の値を変更しない。
+             * @cleanup Browser内の合成値だけ。
+             * @boundary 自己生成試験内の局所代役／専用Browser。実AIなし。
+             */
+            const fill=async(label)=>{const textarea=panel().querySelector('textarea');const value=JSON.parse(textarea.value);value.workTypes.coding.label=label;Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(textarea,JSON.stringify(value));textarea.dispatchEvent(new Event('input',{bubbles:true}));await new Promise(resolve=>requestAnimationFrame(resolve));return panel().querySelector('form');};
+            /**
+             * 現在設定の明示GETを開始する。
+             * @responsibility POSTを再送せず既存取得buttonを使う。
+             * @trace RCM-ST-012
+             * @precondition 現在Panelと非保留状態。
+             * @stimulus 再取得buttonを押す。
+             * @observation GET応答・現在設定・POST数。
+             * @oracle 保存を再送しない。
+             * @cleanup 保留要求は親Caseが終了する。
+             * @boundary 自己生成試験内の局所代役／専用Browser。実AIなし。
+             */
+            const read=()=>panel().querySelector('button').click();
+            try {
+              document.querySelector('#connection input[name=token]').value=key;
+              document.querySelector('#connection form').requestSubmit();
+              await wait(()=>document.querySelector('#connection input[name=operation]')?.value==='disconnect');
+              const noHostSettings=!panel();
+              stage='select';await navigate('repository.next');
+              await wait(()=>document.querySelector('#ai-selection'));
+              const secretAbsent=!document.body.innerText.includes(key)&&!location.href.includes(key)&&localStorage.length===0&&sessionStorage.length===0;
+              if(${JSON.stringify(mode)}==='ai-selection-developer')
+                return {noHostSettings,secretAbsent,readable:document.querySelector('#ai-selection').textContent.includes('gpt-5.5'),managementAbsent:!panel(),posts};
+              await wait(()=>panel()?.querySelector('textarea')&&!panel().querySelector('button').disabled);
+              stage='edit-controls';
+              /**
+               * JSON手編集を使わず標準入力を操作する。
+               * @responsibility 実際のinput/selectイベントと描画更新を搬送する。
+               * @trace RCM-ST-012
+               * @precondition 現在の入力要素と合成値。
+               * @stimulus native setterとchange/inputを発火する。
+               * @observation 同じJSON draftへ反映した設定。
+               * @oracle 入力が欠測のままでも既定Modelを補完しない。
+               * @cleanup Browserの局所入力だけ。
+               * @boundary 自己生成試験内の局所代役／専用Browser。実AIなし。
+               */
+              const change=async(element,value)=>{Object.getOwnPropertyDescriptor(element instanceof HTMLSelectElement?HTMLSelectElement.prototype:HTMLInputElement.prototype,'value').set.call(element,value);element.dispatchEvent(new Event(element instanceof HTMLSelectElement?'change':'input',{bubbles:true}));await new Promise(resolve=>requestAnimationFrame(resolve));};
+              await change(panel().querySelector('[aria-label="coding 表示名"]'),'browser-saved');
+              await change(panel().querySelector('[aria-label="advice Provider default"]'),'claude');
+              await change(panel().querySelector('[aria-label="advice Model default"]'),'opus');
+              await change(panel().querySelector('[aria-label="advice Effort default"]'),'high');
+              await change(panel().querySelector('[aria-label="新しい分類ID"]'),'translation');
+              await change(panel().querySelector('[aria-label="新しい分類の表示名"]'),'翻訳');
+              [...panel().querySelectorAll('button')].find(button=>button.textContent==='作業分類を追加').click();
+              await wait(()=>!!panel().querySelector('[aria-label="translation 表示名"]'));
+              const translation=panel().querySelector('[aria-label="translation 表示名"]').closest('fieldset');
+              [...translation.querySelectorAll('button')].find(button=>button.textContent==='executor の上書きを編集').click();
+              await wait(()=>!!panel().querySelector('[aria-label="executor Model translation"]'));
+              await change(panel().querySelector('[aria-label="executor Provider translation"]'),'claude');
+              await change(panel().querySelector('[aria-label="executor Model translation"]'),'opus');
+              await change(panel().querySelector('[aria-label="executor Effort translation"]'),'medium');
+              const changed=JSON.parse(panel().querySelector('textarea').value);
+              const controlsEdited=changed.roleDefaults.advice.model==='opus'&&changed.roleDefaults.advice.effort==='high'&&changed.workTypes.coding.label==='browser-saved'&&changed.overrides.executor.translation.model==='opus';
+              [...translation.querySelectorAll('button')].find(button=>button.textContent==='executor の上書きを削除').click();
+              await wait(()=>!panel().querySelector('[aria-label="executor Model translation"]'));
+              [...translation.querySelectorAll('button')].find(button=>button.textContent==='分類と上書きを削除').click();
+              await wait(()=>!panel().querySelector('[aria-label="translation 表示名"]'));
+              const removed=JSON.parse(panel().querySelector('textarea').value);
+              const controlsRemoved=!Object.hasOwn(removed.workTypes,'translation')&&!Object.hasOwn(removed.overrides.executor,'translation');
+              stage='save';const form=panel().querySelector('form');form.requestSubmit();form.requestSubmit();
+              await wait(()=>notice()?.includes('保存を確認')&&!panel().querySelector('button').disabled);
+              const singleSave=posts===1;
+              stage='response-lost';corrupt=true;(await fill('response-lost')).requestSubmit();
+              await wait(()=>notice()?.includes('変更結果を確認できません'));
+              await new Promise(r=>setTimeout(r,80));const noResponseRetry=posts===2;
+              stage='read-after-loss';corrupt=false;read();await wait(()=>notice()?.includes('現在の設定を確認しました')&&panel().querySelector('textarea').value.includes('response-lost')&&!panel().querySelector('button').disabled);
+              const freshAfterLoss=posts===2;
+              stage='read-failure';failView=true;(await fill('saved-before-read-failure')).requestSubmit();
+              await wait(()=>notice()?.includes('保存は確認済み'));
+              const savedRetained=panel().textContent.includes('saved')&&posts===3;
+              stage='read-after-failure';failView=false;read();await wait(()=>notice()?.includes('現在の設定を確認しました')&&panel().querySelector('textarea').value.includes('saved-before-read-failure')&&!panel().querySelector('button').disabled);
+              stage='pending';held=true;read();await wait(()=>typeof held==='function');
+              stage='switch';await navigate('repository.latest');
+              const cancelled=heldSignal.aborted;
+              const release=held;held=null;release();await new Promise(r=>setTimeout(r,80));
+              const lateRejected=!panel().querySelector('textarea').value.includes('saved-before-read-failure');
+              const initialize=[...panel().querySelectorAll('button')].find(button=>button.textContent==='新しい設定を編集');initialize.click();
+              await wait(()=>panel().querySelectorAll('select').length===15);
+              const missingNotDefaulted=[...panel().querySelectorAll('select')].every(select=>select.value==='')&&posts===3;
+              await navigate('repository.next');await wait(()=>panel().querySelector('textarea').value.includes('saved-before-read-failure'));
+              return {noHostSettings,secretAbsent,controlsEdited,controlsRemoved,singleSave,noResponseRetry,freshAfterLoss,savedRetained,cancelled,lateRejected,missingNotDefaulted,posts};
+            }catch(error){return {failedStage:stage,posts,busy:panel()?.querySelector('button')?.disabled,formConnected:panel()?.querySelector('form')?.isConnected,errorClass:['Error','TypeError','SyntaxError','ReferenceError'].includes(error?.name)?error.name:'other'};}finally{window.fetch=original;}
+          })()`,
+            awaitPromise: true,
+            returnByValue: true,
+          },
+          undefined,
+          "composite",
+        );
+        assert.deepEqual(
+          observed,
+          mode === "ai-selection-developer"
+            ? {
+                noHostSettings: true,
+                secretAbsent: true,
+                readable: true,
+                managementAbsent: true,
+                posts: 0,
+              }
+            : {
+                noHostSettings: true,
+                secretAbsent: true,
+                controlsEdited: true,
+                controlsRemoved: true,
+                singleSave: true,
+                noResponseRetry: true,
+                freshAfterLoss: true,
+                savedRetained: true,
+                cancelled: true,
+                lateRejected: true,
+                missingNotDefaulted: true,
+                posts: 3,
+              },
+        );
+        if (mode === "ai-selection-manager") {
+          for (const viewport of [
+            { width: 1440, height: 900 },
+            { width: 1024, height: 768 },
+            { width: 390, height: 844 },
+          ]) {
+            const layout = await requestBrowser(
+              pageUrl,
+              "Runtime.evaluate",
+              {
+                expression: `(async()=>{await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));const panel=document.querySelector('#ai-selection-management');const form=panel.querySelector('form');const rect=panel.getBoundingClientRect();const controls=[...form.querySelectorAll('textarea,button')];form.querySelector('textarea').focus();return {width:innerWidth,height:innerHeight,pageOverflow:document.documentElement.scrollWidth>innerWidth+1,panelContained:rect.left>=-1&&rect.right<=innerWidth+1,...(rect.left>=-1&&rect.right<=innerWidth+1?{}:{bounds:{left:rect.left,right:rect.right,parentWidth:panel.parentElement.getBoundingClientRect().width,mainScroll:document.querySelector('main').scrollLeft}}),targetSizes:controls.every(c=>{const r=c.getBoundingClientRect();return r.width>=32&&r.height>=32;}),fontSizes:controls.every(c=>Number.parseFloat(getComputedStyle(c).fontSize)>=12),formPresent:controls.length>0};})()`,
+                awaitPromise: true,
+                returnByValue: true,
+              },
+              viewport,
+            );
+            assert.deepEqual(layout, {
+              ...viewport,
+              pageOverflow: false,
+              panelContained: true,
+              targetSizes: true,
+              fontSizes: true,
+              formPresent: true,
+              keyboardNext: true,
+            });
+          }
+        }
+        assert.deepEqual(JSON.parse(await readFile(current, "utf8")), state);
+        return;
+      }
+      if (mode === "local-connection") {
         let connectionSetup: Readonly<{
           posts: number;
           nextViewAuthenticated: boolean;
@@ -2471,7 +2709,7 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
                 document.querySelector('#connection input[name=token]').value=${JSON.stringify(material.token)};
                 const form=document.querySelector('#connection form');form.requestSubmit();form.requestSubmit();
                 const end=Date.now()+15000;while(Date.now()<end){
-                  if(document.querySelector('#connection input[name=operation]')?.value==='disconnect'&&!document.querySelector('#connection button')?.disabled&&document.querySelector('#ai-profile-administration form')&&!document.querySelector('#ai-profile-administration fieldset')?.disabled)return{posts,nextViewAuthenticated};
+                  if(document.querySelector('#connection input[name=operation]')?.value==='disconnect'&&!document.querySelector('#connection button')?.disabled&&!document.querySelector('#ai-selection-management'))return{posts,nextViewAuthenticated};
                   await new Promise(resolve=>setTimeout(resolve,50));
                 }return{unconfirmed:true,posts};
               }finally{window.fetch=originalFetch;}
@@ -2496,30 +2734,23 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
             expression: `(async () => {
             const key=${JSON.stringify(material.token)};
             const originalFetch=window.fetch;
-            let posts=${JSON.stringify(connectionSetup?.posts ?? 0)}, authenticatedReads=0, modelReads=0, profilePosts=0, waitNumber=0;
-            let failProfileRead=false, invalidateProfileResponse=false;
+            let posts=${JSON.stringify(connectionSetup?.posts ?? 0)}, authenticatedReads=0, modelReads=0, waitNumber=0;
             window.fetch=async (input, options) => {
               const pathname=new URL(String(input),location.href).pathname;
               if(String(input).endsWith('/local-connection/action')) posts++;
-              if(pathname==='/ai-profiles/action') profilePosts++;
               if(new URL(String(input),location.href).pathname==='/api/workbench-view') modelReads++;
               if(new Headers(options?.headers).get('authorization')==='Bearer '+key) authenticatedReads++;
-              if(pathname==='/api/ai-profiles' && failProfileRead) throw new Error('fixture_read_unavailable');
               const response=await originalFetch(input, options);
-              if(pathname==='/ai-profiles/action' && invalidateProfileResponse) {
-                await response.arrayBuffer();
-                return new Response('{',{headers:{'content-type':'application/json'}});
-              }
               return response;
             };
             /**
-             * 接続とProfile操作の現在表示を有限時間で待つ。
-             * @responsibility 接続とProfile操作の現在表示を有限時間で待つ。
+             * 接続と画面遷移の現在表示を有限時間で待つ。
+             * @responsibility 接続と画面遷移の現在表示を有限時間で待つ。
              * @trace RFD-ST-003
              * @trace ERB-ST-022
              * @precondition 同じBrowser内の接続とProfile画面。
              * @stimulus 待機番号を増やし15秒以内でpredicateを評価する。
-             * @observation 接続・資格非表示・現在Role別Profile状態。
+             * @observation 接続・資格非表示・現在の接続状態。
              * @oracle 未成立は固定例外にし途中描画を完了としない。
              * @cleanup Timerは各待機で完了し、親CaseがBrowser・Server・Profileを終了確認する。
              * @boundary 専用Browser内DOMの有限観測。返却は非秘密の判定だけ。
@@ -2536,109 +2767,7 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
               const nextGetAuthenticated=${JSON.stringify(mode)}==='local-connection'
                 ? ${JSON.stringify(connectionSetup?.nextViewAuthenticated ?? false)}
                 : authenticatedReads>0;
-              if(${JSON.stringify(mode)}==='profile-developer') {
-                const unavailable=await wait(()=>document.querySelector('#ai-profile-administration [role=status]')?.innerText.includes('取得できません'));
-                return {connected,inputCleared,secretAbsent,nextGetAuthenticated,unavailable,catalogAbsent:!document.querySelector('#ai-profile-administration table'),formAbsent:!document.querySelector('#ai-profile-administration form'),profilePosts};
-              }
-              const profileReady=await wait(()=>document.querySelector('#ai-profile-administration form') && !document.querySelector('#ai-profile-administration fieldset')?.disabled);
-              if(${JSON.stringify(mode)}==='profile-manager') {
-              /**
-               * Profile管理の固定入力を通常Formへ設定する。
-               * @responsibility Profile管理の固定入力を通常Formへ設定する。
-               * @trace RCM-ST-012
-               * @precondition managerの本番Profile Form。
-               * @stimulus 操作・Profile ID・固定model・選択Role・理由を設定する。
-               * @observation 作成更新削除へ渡す現在Form。
-               * @oracle 旧認証を迂回せずProfile Consumerの明示操作だけに使う。
-               * @cleanup 親Caseが自己生成ProfileとServer/Browserを終了する。
-               * @boundary 本番CSRのProfile管理。実AI要求を発行しない。
-               */
-              const fillProfile=(operation,reason)=>{
-                const form=document.querySelector('#ai-profile-administration .ai-profile-administration-form');
-                form.querySelector('[name=operation]').value=operation;
-                form.querySelector('[name=profileId]').value='PROFILE-300001';
-                form.querySelector('[name=adapterModel]').value='codex-cli|gpt-6-astra';
-                form.querySelector('[name=family]').value='astra';
-                form.querySelector('[name=defaultReasoningEffort]').value='high';
-                form.querySelector('[name=compatibilityReason]').value=reason;
-                form.querySelector('[name=selectionRole][value=executor]').checked=true;
-                form.querySelector('[name=modelTier][value=preferred]').checked=true;
-                return form;
-              };
-              const beforeProfile=profilePosts;
-              const create=fillProfile('create','');
-              create.requestSubmit(); create.requestSubmit();
-              const profileCreated=await wait(()=>document.querySelector('#ai-profile-administration table')?.innerText.includes('PROFILE-300001') &&
-                !document.querySelector('#ai-profile-administration fieldset')?.disabled);
-              const profileSingleCreate=profilePosts===beforeProfile+1;
-              fillProfile('update','browser-fixture').requestSubmit();
-              const profileUpdated=await wait(()=>document.querySelector('#ai-profile-administration .operation-result')?.innerText.includes('profile_updated') &&
-                !!document.querySelector('#ai-profile-administration .ai-profile-administration-form') &&
-                !document.querySelector('#ai-profile-administration fieldset')?.disabled);
-              failProfileRead=true;
-              const beforeReadFailure=profilePosts;
-              fillProfile('update','saved-before-read-failure').requestSubmit();
-              const savedReadFailure=await wait(()=>document.querySelector('#ai-profile-administration [role=status]')?.innerText.includes('保存は確認済み') &&
-                document.querySelector('#ai-profile-administration .operation-result')?.innerText.includes('profile_updated') &&
-                !document.querySelector('#ai-profile-administration table') && !document.querySelector('#ai-profile-administration button')?.disabled);
-              await new Promise(resolve=>setTimeout(resolve,150));
-              const noReadFailureResend=profilePosts===beforeReadFailure+1;
-              failProfileRead=false;
-              document.querySelector('#ai-profile-administration button').click();
-              const savedFreshRead=await wait(()=>!!document.querySelector('#ai-profile-administration .ai-profile-administration-form') &&
-                !document.querySelector('#ai-profile-administration fieldset')?.disabled);
-              const explicitReadNoPost=profilePosts===beforeReadFailure+1;
-              const savedReason=(await (await originalFetch('/api/ai-profiles',{headers:{authorization:'Bearer '+key}})).json()).catalog.profiles.find(profile=>profile.profileId==='PROFILE-300001')?.compatibilityReason;
-              invalidateProfileResponse=true;
-              const beforeInvalidResponse=profilePosts;
-              fillProfile('update','saved-before-response-loss').requestSubmit();
-              const responseUnconfirmed=await wait(()=>document.querySelector('#ai-profile-administration [role=status]')?.innerText.includes('未保存と判断せず') &&
-                !document.querySelector('#ai-profile-administration .operation-result') && !document.querySelector('#ai-profile-administration table') &&
-                !document.querySelector('#ai-profile-administration button')?.disabled);
-              await new Promise(resolve=>setTimeout(resolve,150));
-              const noResponseLossResend=profilePosts===beforeInvalidResponse+1;
-              invalidateProfileResponse=false;
-              document.querySelector('#ai-profile-administration button').click();
-              const responseFreshRead=await wait(()=>!!document.querySelector('#ai-profile-administration .ai-profile-administration-form') &&
-                !document.querySelector('#ai-profile-administration fieldset')?.disabled);
-              const explicitResponseReadNoPost=profilePosts===beforeInvalidResponse+1;
-              const responseReason=(await (await originalFetch('/api/ai-profiles',{headers:{authorization:'Bearer '+key}})).json()).catalog.profiles.find(profile=>profile.profileId==='PROFILE-300001')?.compatibilityReason;
-              const deletion=[...document.querySelectorAll('#ai-profile-administration table form')].find(form=>form.querySelector('[name=profileId]')?.value==='PROFILE-300001');
-              const beforeDelete=profilePosts;
-              deletion.requestSubmit(); await new Promise(resolve=>setTimeout(resolve,100));
-              const profileConfirmationRequired=profilePosts===beforeDelete;
-              deletion.querySelector('[name=confirmed]').checked=true; deletion.requestSubmit();
-              const profileDeleted=await wait(()=>!document.querySelector('#ai-profile-administration table')?.innerText.includes('PROFILE-300001') &&
-                !!document.querySelector('#ai-profile-administration table') && !document.querySelector('#ai-profile-administration fieldset')?.disabled);
-              const measuredProfileFetch=window.fetch;
-              let releaseProfile, profileSignal;
-              window.fetch=async(input,options)=>{
-                if(new URL(String(input),location.href).pathname==='/api/ai-profiles') {
-                  profileSignal=options?.signal;
-                  const currentCatalog=await (await originalFetch(input,options)).json();
-                  currentCatalog.catalog.profiles[0].profileId='PROFILE-999999';
-                  return new Promise(resolve=>{releaseProfile=()=>resolve(new Response(JSON.stringify(currentCatalog),{headers:{'content-type':'application/json'}}));});
-                }
-                return measuredProfileFetch(input,options);
-              };
-              document.querySelector('#connection form').requestSubmit();
-              await wait(()=>document.querySelector('#connection input[name=token]') && !document.querySelector('#connection button')?.disabled);
-              document.querySelector('#connection input[name=token]').value=key;
-              document.querySelector('#connection form').requestSubmit();
-              const profilePending=await wait(()=>typeof releaseProfile==='function' && document.querySelector('#connection input[name=operation]')?.value==='disconnect' && !document.querySelector('#connection button')?.disabled);
-              document.querySelector('#connection form').requestSubmit();
-              const profileDisconnected=await wait(()=>document.querySelector('#connection input[name=token]') && !document.querySelector('#connection button')?.disabled);
-              const profileCancelled=profilePending && profileDisconnected && profileSignal?.aborted===true;
-              window.fetch=measuredProfileFetch;
-              releaseProfile();
-              await new Promise(resolve=>setTimeout(resolve,100));
-              const profileLateRejected=!document.querySelector('#ai-profile-administration table') && !document.body.innerText.includes('PROFILE-999999');
-              document.querySelector('#connection input[name=token]').value=key;
-              document.querySelector('#connection form').requestSubmit();
-              const profileReconnected=await wait(()=>!!document.querySelector('#ai-profile-administration table') && !document.querySelector('#ai-profile-administration fieldset')?.disabled);
-              const profileFreshOnly=profileReconnected && !document.body.innerText.includes('PROFILE-999999') && !document.body.innerText.includes('保存は確認済み');
-              return {connected,inputCleared,secretAbsent,nextGetAuthenticated,profileReady,profileCreated,profileSingleCreate,profileUpdated,savedReadFailure,noReadFailureResend,savedFreshRead,explicitReadNoPost,savedReason,responseUnconfirmed,noResponseLossResend,responseFreshRead,explicitResponseReadNoPost,responseReason,profileConfirmationRequired,profileDeleted,profileCancelled,profileLateRejected,profileFreshOnly};
-              }
+              const settingsUnavailable=!document.querySelector("#ai-selection-management");
               const oldRoot=document.querySelector('[data-workbench-react-root]');
               const beforeNavigation=authenticatedReads;
               const link=document.createElement('a');
@@ -2646,15 +2775,15 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
               link.textContent='固定navigation反証';
               document.querySelector('#connection').append(link);
               link.click();
-              const navigated=await wait(()=>location.search.includes('repositoryId=repository.unavailable') && document.querySelector('#ai-profiles')?.innerText.includes('未取得'));
+              const navigated=await wait(()=>location.search.includes('repositoryId=repository.unavailable') && document.querySelector('#ai-selection')?.innerText.includes('未設定'));
               const credentialRetained=authenticatedReads>beforeNavigation;
               const rootRetained=document.querySelector('[data-workbench-react-root]')===oldRoot;
               const inheritedLink=document.createElement('a'); inheritedLink.href='/?inherited=true';
               document.querySelector('#connection').append(inheritedLink); inheritedLink.click();
-              const inheritedSelection=await wait(()=>location.search.includes('inherited=true') && new URL(location.href).searchParams.get('repositoryId')==='repository.unavailable' && document.querySelector('#ai-profiles')?.innerText.includes('未取得'));
+              const inheritedSelection=await wait(()=>location.search.includes('inherited=true') && new URL(location.href).searchParams.get('repositoryId')==='repository.unavailable' && document.querySelector('#ai-selection')?.innerText.includes('未設定'));
               const inheritedSearch=document.createElement('form'); inheritedSearch.method='get'; inheritedSearch.action='/';
               document.querySelector('#connection').append(inheritedSearch); inheritedSearch.requestSubmit();
-              const inheritedSearchSelection=await wait(()=>!location.search.includes('inherited=true') && new URL(location.href).searchParams.get('repositoryId')==='repository.unavailable' && document.querySelector('#ai-profiles')?.innerText.includes('未取得'));
+              const inheritedSearchSelection=await wait(()=>!location.search.includes('inherited=true') && new URL(location.href).searchParams.get('repositoryId')==='repository.unavailable' && document.querySelector('#ai-selection')?.innerText.includes('未設定'));
               const guardResults=[];
               for(const kind of ['external','download','blank','modified','post']) {
                 const node=document.createElement(kind==='post'?'form':'a');
@@ -2685,9 +2814,9 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
               const search=document.createElement('form'); search.method='get'; search.action='/';
               const selection=document.createElement('input'); selection.name='repositoryId'; selection.value='repository.next';
               search.append(selection); document.querySelector('#connection').append(search); search.requestSubmit();
-              const searched=await wait(()=>location.search.includes('repositoryId=repository.next') && document.querySelector('#ai-profiles')?.innerText.includes('未取得'));
+              const searched=await wait(()=>location.search.includes('repositoryId=repository.next') && document.querySelector('#ai-selection')?.innerText.includes('未設定'));
               history.back();
-              const returned=await wait(()=>location.search.includes('repositoryId=repository.unavailable') && document.querySelector('#ai-profiles')?.innerText.includes('未取得'));
+              const returned=await wait(()=>location.search.includes('repositoryId=repository.unavailable') && document.querySelector('#ai-selection')?.innerText.includes('未設定'));
               const lateModel=await (await originalFetch('/api/workbench-view', {headers:{authorization:'Bearer '+key}})).json();
               const measuredFetch=window.fetch; let releaseLate;
               window.fetch=(input, options)=>new URL(String(input),location.href).searchParams.get('navigationDelay')==='true'
@@ -2696,12 +2825,12 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
               document.querySelector('#connection').append(delayedLink); delayedLink.click(); delayedLink.remove();
               const newerLink=document.createElement('a'); newerLink.href='/?repositoryId=repository.latest';
               oldRoot.append(newerLink); newerLink.click(); newerLink.remove();
-              const latest=await wait(()=>location.search.includes('repositoryId=repository.latest') && document.querySelector('#ai-profiles')?.innerText.includes('未取得'));
+              const latest=await wait(()=>location.search.includes('repositoryId=repository.latest') && document.querySelector('#ai-selection')?.innerText.includes('未設定'));
               releaseLate(new Response(JSON.stringify({...lateModel,notice:'遅延応答の反例'}),{headers:{'content-type':'application/json'}}));
               await new Promise(resolve=>setTimeout(resolve,100));
               const lateRejected=latest && !document.body.innerText.includes('遅延応答の反例') && location.search.includes('repositoryId=repository.latest');
               const selectedRootMatched=document.querySelector('[data-repository-id]')?.dataset.repositoryId==='repository.latest';
-              const sharedControlsBounded=document.querySelector('#topics')?.closest('fieldset')?.disabled===false && document.querySelector('#repository')?.closest('fieldset')?.disabled===false && document.querySelector('#ai-request select[name=profileId]')?.disabled===true;
+              const sharedControlsBounded=document.querySelector('#topics')?.closest('fieldset')?.disabled===false && document.querySelector('#repository')?.closest('fieldset')?.disabled===false && document.querySelector('#ai-request select[name=mode]')?.disabled===true;
               window.fetch=measuredFetch;
               const portal=document.createElement('a'); portal.href='/?repositoryId='; oldRoot.append(portal); portal.click(); portal.remove();
               await wait(()=>document.querySelector('#connection input[name=operation]')?.value==='disconnect');
@@ -2730,127 +2859,42 @@ test("実Browserの管理操作は現在投影を更新し、鍵提示は短命�
               window.dispatchEvent(new PageTransitionEvent('pageshow', {persisted:true}));
               const resumed=await wait(()=>document.querySelector('#connection input[name=operation]')?.value==='connect');
               const resumedWithoutCredential=resumedAuthorization===null;
-              return {connected,inputCleared,secretAbsent,nextGetAuthenticated,profileReady,navigated,credentialRetained,rootRetained,inheritedSelection,inheritedSearchSelection,nativeGuards,searched,returned,lateRejected,selectedRootMatched,sharedControlsBounded,disconnected,reconnected,closed,cancelled,hiddenRejected,resumed,resumedWithoutCredential,posts};
-            } catch {return {failedWait:waitNumber,posts,profilePosts};} finally {window.fetch=originalFetch;}
+              return {connected,inputCleared,secretAbsent,nextGetAuthenticated,settingsUnavailable,navigated,credentialRetained,rootRetained,inheritedSelection,inheritedSearchSelection,nativeGuards,searched,returned,lateRejected,selectedRootMatched,sharedControlsBounded,disconnected,reconnected,closed,cancelled,hiddenRejected,resumed,resumedWithoutCredential,posts};
+            } catch {return {failedWait:waitNumber,posts};} finally {window.fetch=originalFetch;}
           })()`,
             awaitPromise: true,
             returnByValue: true,
           },
           undefined,
-          mode === "profile-developer" ? "single" : "composite",
+          "composite",
           mode === "local-connection" ? "local_navigation" : undefined,
         );
-        const profileExpected = {
+        assert.deepEqual(observed, {
           connected: true,
           inputCleared: true,
           secretAbsent: true,
           nextGetAuthenticated: true,
-          profileReady: true,
-          profileCreated: true,
-          profileSingleCreate: true,
-          profileUpdated: true,
-          savedReadFailure: true,
-          noReadFailureResend: true,
-          savedFreshRead: true,
-          explicitReadNoPost: true,
-          savedReason: "saved-before-read-failure",
-          responseUnconfirmed: true,
-          noResponseLossResend: true,
-          responseFreshRead: true,
-          explicitResponseReadNoPost: true,
-          responseReason: "saved-before-response-loss",
-          profileConfirmationRequired: true,
-          profileDeleted: true,
-        };
-        assert.deepEqual(
-          observed,
-          mode === "profile-developer"
-            ? {
-                connected: true,
-                inputCleared: true,
-                secretAbsent: true,
-                nextGetAuthenticated: true,
-                unavailable: true,
-                catalogAbsent: true,
-                formAbsent: true,
-                profilePosts: 0,
-              }
-            : mode === "profile-manager"
-              ? {
-                  ...profileExpected,
-                  profileCancelled: true,
-                  profileLateRejected: true,
-                  profileFreshOnly: true,
-                }
-              : {
-                  connected: true,
-                  inputCleared: true,
-                  secretAbsent: true,
-                  nextGetAuthenticated: true,
-                  profileReady: true,
-                  navigated: true,
-                  credentialRetained: true,
-                  rootRetained: true,
-                  inheritedSelection: true,
-                  inheritedSearchSelection: true,
-                  nativeGuards: true,
-                  searched: true,
-                  returned: true,
-                  lateRejected: true,
-                  selectedRootMatched: true,
-                  sharedControlsBounded: true,
-                  disconnected: true,
-                  reconnected: true,
-                  closed: true,
-                  cancelled: true,
-                  hiddenRejected: true,
-                  resumed: true,
-                  resumedWithoutCredential: true,
-                  posts: 3,
-                },
-        );
-        if (mode === "profile-manager") {
-          for (const viewport of [
-            { name: "desktop", width: 1440, height: 900 },
-            { name: "tablet", width: 1024, height: 768 },
-            { name: "mobile", width: 390, height: 844 },
-          ]) {
-            const layout = await requestBrowser(
-              pageUrl,
-              "Runtime.evaluate",
-              {
-                expression: `(async()=>{
-                await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
-                const panel=document.querySelector('#ai-profile-administration');
-                const form=panel.querySelector('.ai-profile-administration-form');
-                const rect=panel.getBoundingClientRect();
-                const controls=[...form.querySelectorAll('input:not([type=hidden]):not([type=checkbox]),select,button')];
-                const targetSizes=controls.every(control=>{const r=control.getBoundingClientRect();return r.width>=32 && r.height>=32;});
-                const fontSizes=controls.every(control=>Number.parseFloat(getComputedStyle(control).fontSize)>=12);
-                form.querySelector('[name=profileId]').focus();
-                return {width:innerWidth,height:innerHeight,pageOverflow:document.documentElement.scrollWidth>innerWidth+1,panelContained:rect.left>=-1 && rect.right<=innerWidth+1,targetSizes,fontSizes,formPresent:controls.length>0};
-              })()`,
-                awaitPromise: true,
-                returnByValue: true,
-              },
-              viewport,
-            );
-            assert.deepEqual(
-              layout,
-              {
-                width: viewport.width,
-                height: viewport.height,
-                pageOverflow: false,
-                panelContained: true,
-                targetSizes: true,
-                fontSizes: true,
-                formPresent: true,
-                keyboardNext: true,
-              },
-              `profile_layout_${viewport.name}`,
-            );
-          }
-        }
+          settingsUnavailable: true,
+          navigated: true,
+          credentialRetained: true,
+          rootRetained: true,
+          inheritedSelection: true,
+          inheritedSearchSelection: true,
+          nativeGuards: true,
+          searched: true,
+          returned: true,
+          lateRejected: true,
+          selectedRootMatched: true,
+          sharedControlsBounded: true,
+          disconnected: true,
+          reconnected: true,
+          closed: true,
+          cancelled: true,
+          hiddenRejected: true,
+          resumed: true,
+          resumedWithoutCredential: true,
+          posts: 3,
+        });
         assert.deepEqual(JSON.parse(await readFile(current, "utf8")), state);
         return;
       }

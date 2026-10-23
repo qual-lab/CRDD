@@ -547,7 +547,7 @@ export async function readMain(baseUrl: string) {
 /**
  * 本番Applicationへの直呼出しを公開HTTP操作へ置き換える。
  *
- * @responsibility 同じrequestId、modeとprofileIdを公開結果から照合する。
+ * @responsibility 同じrequestId、modeと固定選定を公開結果から照合する。
  * @trace ARCH-000015
  * @input 起動済みWorkbenchのloopback URL。
  * @returns start／observe／cancelと候補確認・破棄の検証用接続部。採用操作は含めない。
@@ -594,7 +594,8 @@ export async function createWorkbenchAiVerificationHttpClient(
             operation: "start",
             mode: request.mode,
             workspaceId: request.workspaceId ?? "",
-            profileId: request.profileId,
+            workType: request.workType ?? "",
+            choice: request.choice ? JSON.stringify(request.choice) : "",
             prompt: request.prompt,
             allowedPaths: request.allowedPaths.join("\n"),
             externalSendConfirmed: request.externalSendConfirmed ? "yes" : "no",
@@ -621,7 +622,23 @@ export async function createWorkbenchAiVerificationHttpClient(
         if (snapshot === null || snapshot.requestId === previous)
           throw new Error("workbench_ai_http_start_identity_unknown");
         assert.equal(snapshot.mode, request.mode);
-        assert.equal(snapshot.profileId, request.profileId);
+        if (snapshot.executionSelection) {
+          assert.equal(snapshot.executionSelection.workType, request.workType);
+          if (request.choice) {
+            assert.equal(
+              snapshot.executionSelection.provider,
+              request.choice.provider,
+            );
+            assert.equal(
+              snapshot.executionSelection.modelIdentifier,
+              request.choice.model,
+            );
+            assert.equal(
+              snapshot.executionSelection.reasoningEffort,
+              request.choice.effort,
+            );
+          }
+        }
         accepted.set(snapshot.requestId, request);
         return {
           status: "accepted",
@@ -635,7 +652,8 @@ export async function createWorkbenchAiVerificationHttpClient(
           snapshot != null &&
           snapshot.requestId !== previous &&
           snapshot.mode === request.mode &&
-          snapshot.profileId === request.profileId
+          (snapshot.executionSelection === null ||
+            snapshot.executionSelection.workType === request.workType)
             ? snapshot.requestId
             : null;
         if (requestId !== null) accepted.set(requestId, request);
@@ -664,7 +682,8 @@ export async function createWorkbenchAiVerificationHttpClient(
         throw new Error("workbench_verification_snapshot_missing");
       assert.equal(snapshot.requestId, requestId);
       assert.equal(snapshot.mode, command.mode);
-      assert.equal(snapshot.profileId, command.profileId);
+      if (snapshot.executionSelection)
+        assert.equal(snapshot.executionSelection.workType, command.workType);
       return snapshot;
     },
     cancel: async (requestId) => {
@@ -695,7 +714,8 @@ export async function createWorkbenchAiVerificationHttpClient(
         throw new Error("workbench_verification_snapshot_missing");
       assert.equal(snapshot.requestId, requestId);
       assert.equal(snapshot.mode, command.mode);
-      assert.equal(snapshot.profileId, command.profileId);
+      if (snapshot.executionSelection)
+        assert.equal(snapshot.executionSelection.workType, command.workType);
       return snapshot;
     },
   });
