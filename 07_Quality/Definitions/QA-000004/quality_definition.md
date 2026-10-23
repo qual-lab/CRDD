@@ -7,6 +7,10 @@ Quality ID: `QA-000004`
 状態: Canonical
 維持責任者: Qual-Lab
 
+### CoordinatorのState構造再設計への追従
+
+Architectureの[State九Fileの責務](../../../06_Architecture/Details/coordinator/01_Architecture.md#161-保存統合後のsource構造再設計)に従い、`PPR-UT-006`のplain data／相対Path・公開投影検査と、`PPR-IT-012`の実Reader・出所・Cursor・pagingを移管先へ追従する。snapshotのblocked形・上限・Proxy／Accessor非実行と、観測不能を不存在へ畳まない条件を変えない。queryはreadState Portを呼ぶため、引数を使うだけの純粋関数とは扱わない。observationはEIの履歴正本・保存・保持期間を所有しない。Root公開の型とSymbol、契約文字列、Hash／Cursorのbyte形式を維持し、私有Helperの移動によって公開APIを増やさない。Phase 1の設計確認をSource移管後の成功へ流用せず、Source・利用側・UT／IT接続後に同じ反証を再実行する。
+
 ### Workbench参照文書一覧の追加反証（PPR-IT-019）
 
 一覧の見出し観測と本文表示を分ける。先頭最大8KiB内の完全H1又は相対Pathを表示し、容量超過の一文書で計画投影・一覧全体を失わないことを確認する。一覧掲載は全本文の表示可能性を意味しない。本文512KiBちょうど／超過、8KiB境界の完全行／途中行・UTF-8途中、見出し未観測、欠落・非通常File・link／実Path差、実読取り量、read／close失敗とhandle終了を反証する。巨大文書を含む同じ実HTTP fixtureで計画投影・一覧の成立と巨大本文の拒否を共同確認する。現在の期限・品質件数等は共通Readerによる正本投影と比較し、古い固定値や両方unknownの一致を合格根拠にしない。JSON搬送の試験は値の一致を確認し、日本語ラベルの描画は既存CSR／Browserの検証範囲として分ける。表示ラベルの変更・検証済み範囲の拡張は行わない。

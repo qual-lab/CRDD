@@ -9,6 +9,8 @@
 
 後続の[Source構造再設計](../../../06_Architecture/Details/coordinator/01_Architecture.md#161-保存統合後のsource構造再設計)では、File数ではなく各Ownerの入力・出力、私有状態、開始・取消・回収・結果受領と既知利用側の不変性を確認する。`PRL-IT-012`の純粋依存閉包、`PRL-IT-005`／`PRL-IT-013`の受付・保存・回復接続、既存Task状態遷移試験へ変更意味に応じて追従する。型専用のPortを実装Ownerと混同せず、試験のPath・抽出位置だけを更新する場合も拒否条件・負対照を維持する。Storage六Fileは人間承認された同一Symbolへのimport参照先変更だけを許容し、旧／新Symbolの型・実体・本文の同一性とimport以外の差分0を確認する。公開Root・全利用側・Symbol／Catalog／Test Relationも追従する。Bの旧結果は比較基準であり、移管後の実行成功へ流用しない。Provider・Docker・Nativeの保証は各QA Ownerの既存項目を併用し、この構造整理だけで実境界やQA全体をPassにしない。
 
+State九Fileへの再配置では、`PRL-IT-012`でmodel／request／projectionの実行時依存閉包を照合する。保存Writerの値検査がquery／observation／storage／実行Ownerへ逆依存しないこと、Clock／Leaseの型移動だけで実装や新Ownerを生成しないこと、B六Fileが同一Symbolへのimport参照変更だけであることを反証する。照会・Cursor・入力Snapshotの意味検査はQA-000004の既存項目へ接続し、同じ試験を二重の正式成果へ数えない。Source移管後の根拠は未取得である。
+
 | 既存項目 | 新方式で確認する条件 |
 |---|---|
 | `PRL-UT-006`、`PRL-IT-012` | 同Repository／Task／Attempt／論理操作／実行操作／回復参照／結果の相関。別結果・別Attempt・同じ回復参照への異なる結果を拒否し、初回受理世代を維持する |

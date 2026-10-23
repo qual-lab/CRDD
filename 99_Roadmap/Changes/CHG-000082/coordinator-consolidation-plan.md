@@ -2364,3 +2364,27 @@ Package exports、npm scripts、Symbol Manifest、Test Catalog、Runtime／Task 
 各実装単位は、依存するOwnerを先に確定し、変更した意味から回帰を選んで区切る。全体の長時間回帰を小さな移動のたびに機械反復しない。保存六Fileでは同じ型・関数へのimport declarationの参照先だけ追従でき、本文・Schema・CAS・Lock・確定順序を変更しない。目標外Fileや契約の意味変更が必要なら、理由・影響・代替を人間へ提示する。実AI②の再試行、保持物の観測／変更／削除、実Docker操作、追加の管理Frameworkは引き続き対象外である。
 
 現在の人間判断は追加不要。順序1の割当は未完了であり、本計画の記録をSource移管又は完成へ読み替えない。
+
+### 38.14. Stateと共通入力の割当具体化
+
+StateはArchitecture §16.1の九Fileへ整理する。次の表は全宣言を基本の処置単位とし、混在元だけ宣言名・群を分ける。Source移管はまだ行っていない。
+
+| 現行の全宣言又は明示群 | 移管先 | 直接利用側・保持条件 |
+|---|---|---|
+| `state/model.ts`、`queue/types.ts`、`task/single-task-record.ts`の全宣言 | `state/model.ts` | 現在State、Queue、単発記録の閉じた値モデルと検査。StorageとTaskの型／値参照を同じ実体へ追従し、保存・実行依存を導入しない |
+| `input/plain-data-snapshot.ts`、`input/repository-relative-path.ts`、`state/binding.ts`の全宣言 | `state/model.ts` | Proxy／Accessor非実行、arrayの上限とblocked形、Pathの正規化・大小文字比較、BindingのHash式を不変更で移す。Domainの同名APIとの返却形差を変換Adapterで隠さない |
+| `state/activity-types.ts`の全型、`CoordinatorProjection`、`CoordinatorStateQuery`、`CoordinatorStateQueryResult` | `state/types.ts` | 公開照会・観測の共有値型。Root公開集合を維持。Modelの状態型と保存Port型は各Ownerへ残す |
+| `COORDINATOR_STATE_QUERY_CONTRACT`、`queryKeys`、`validId / validRevision`、`inspectCoordinatorStateQuery` | `state/request.ts` | 同じ入力文法と拒否。字句検査を結果Validatorから内部参照できるようにするが、Root公開APIを増やさず、新しい検査処理を作らない |
+| `state/projection.ts`の上記共有型以外、`state/activity-cursor.ts`、`state/activity-validation.ts`の全宣言、query-contractの`resultKeys / projectionKeys / OBJECTIVE_STATES / TASK_STATES / validReason / countSnapshot / inspectCoordinatorProjection / inspectCoordinatorStateQueryResult` | `state/projection.ts` | Stateの投影、公開値の相関検査、Cursorのbyte形式を同じ純粋Ownerへ置く。照会・Reader・Writerをimportしない。入力字句検査はrequestの同じ実体を使い、複製しない |
+| `state/query.ts`、`state/public-query.ts`の全宣言 | 同名Fileを維持 | 読取りPortの呼出しと、本番の認証／Repository／Snapshot組立ての境界を維持する |
+| `state/activity.ts`の全宣言 | `state/observation.ts` | 認可済み集合の観測、EIの要約投影と全体pagingを維持。EI履歴の正本・WriterやCacheを引き取らない |
+| `state/persistence.ts`、`identity/clock-and-hash.ts`、`lease/controller.ts`の全型 | `state/persistence.ts` | 保存・Lease／Owner観測・ClockのPort型だけを共有し、Kernel handleや乱数を生成しない |
+| `operation-result.ts`、`operation-result-contract.ts`の全宣言 | `state/result.ts` | 既存の結果Shapeと公開失敗投影を同居するが、結果の意味・field・固定理由を統一変換しない |
+
+同名の私有Helperは移管元を区別する名前で参照を追従し、名前だけを理由に条件の異なる検査を共通化しない。型専用参照は型専用のままとする。Snapshot Writerが使用する値検査は、model→request／projection／query／storageの逆依存を作らない。queryのPort呼出しはI/Oがない純粋計算と誤記せず、移管時のHeaderも実際の境界へ訂正する。
+
+代替として旧query-contract一Fileへ型・入力・結果を保持する案も照合したが、公開観測型と入力・結果検査のOwnerが曖昧に残るため採らない。逆に入力検査をDomainの既存APIへ一括置換する案は、返却形・拒否条件・利用側の意味まで変えるため対象外とする。九Fileは既存処理の配置先であり、新しいParser・Port実装・Factory・管理状態を新設する案ではない。
+
+`execution/provider-lifecycle.ts`は、`describeProviderLifecycleContract`を本番diagnosticsが使用することを確認した。現行の計画・合成評価も既存QA／coverageの対象であり、今回の四実装廃止へ追加しない。まず既存全宣言をdiagnosticsのOwnerへ保持する方針で対応し、単に試験専用と仮定して削除・試験側コピーを行わない。Provider仕様の移管と、全Executionの私有状態・型の分配は引き続き照合する。
+
+この具体化だけではPhase 1全体を完了としない。State／入力の利用側・保存の純粋閉包と、残る混在元の全宣言を固定候補で確認してからSource移管へ進む。

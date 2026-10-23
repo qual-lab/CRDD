@@ -2080,7 +2080,7 @@ Coordinatorの最上位責務は`cli / objective / task / decision / workspace /
 | `decision/` | `request / records / lifecycle / acceptance / public-operation / external-send-policy / external-send-consent / external-send-grant / types`。人間判断と外部送信同意を所有し、技術Mount Authorityと混合しない |
 | `workspace/` | `record / commands / operations`を基本として、作業領域の判断・要求相関を所有する。Git EffectはVersion Controlを呼ぶ |
 | `execution/` | `request / preparation / controller / observation / result / advice / authority / operation / recovery / diagnostics / process-safety-state / kernel-lock`の十二責務を基本とする。開始・取消・元通知・回収・実行Authorityを同じOperationへ結ぶ |
-| `state/` | Application状態のモデル・投影・照会と、純粋な共有値契約を所有する。保存・実行を純粋な依存閉包へ取り込まない。個別Fileの統合先は関数・型・利用側の照合後に確定する |
+| `state/` | `model / types / request / projection / query / public-query / observation / persistence / result`。現在状態の値、公開観測の値型、照会入力、純粋な投影と検査、単一状態照会、認証付き公開照会、認可済み集合の観測、保存Port型、公開結果を区別する。保存・実行を純粋な依存閉包へ取り込まない |
 | `storage/` | Bの`current-state / history / model / protected-decision / result-record / settlement-store`六Fileの本文・意味を凍結基準とする。同一Symbolの移管に伴うimport declarationの参照先だけは人間承認により追従できる。旧`validate-result-record.ts`は復活させず、Schema・Root・CAS・Lock・marker／pending・履歴・原子受領を変更しない |
 
 AI AdapterはProvider・Modelの仕様、純粋な候補選定、CLI計画と結果解釈を所有する。Coordinatorはその結果を今回のProfile・作業対象・送信許可・短命Capabilityへ結合する。Dockerコマンド・Image・Network・Mountの技術構成はDocker Isolation、OS原語と技術観測はPlatform Accessが所有する。上位のPort型やCapabilityの一回性を、技術名だけを理由に下位へ移さない。
@@ -2088,6 +2088,10 @@ AI AdapterはProvider・Modelの仕様、純粋な候補選定、CLI計画と結
 Domain Modelの既存`plain-data/`は、承認済みの例外として既知秘密情報の純粋検査を引き受ける。Workspace・Decision・Executionで同じ検査を利用し、秘密保管や新しい秘密管理機構は所有しない。移管前後の条件・Symbol・返却値を維持する。
 
 Fileの統合では、私有WeakMap／Set、元Control・通知、期限時計、失効・解放順序を所有状態の単位として扱う。名前が似たMapを統合したり、同じMapを移管先で生成し直したりしない。純粋な状態遷移を保存・Process起動と同じ実行時依存閉包へ合流させる統合も行わない。
+
+Stateの`model`は既存モデルに加え、Queue／単発記録、Repository BindingとCoordinator内のplain data／相対Pathの純粋検査を所有する。Domainの似た名前のAPIは結果形式が異なるため差し替えない。`types`は公開観測・照会の共有値型であり、Stateモデルや全Packageの型を集める汎用置場にはしない。`request`は照会入力と契約定数、`projection`は公開投影・結果検査・履歴Cursorの純粋計算を所有する。両者で使う字句検査は入力Ownerから同じ実体を参照し、`request`から`projection`へ値依存を戻さない。
+
+`query`は読取りPortを受ける単一Project照会、`public-query`は現在の認証・Repository・Snapshotへの本番接続、`observation`は認可済みRepository集合の現在状態とEI履歴の集約を所有する。後二者のI/Oをmodel／request／projectionへ取り込まない。`persistence`は保存・Lease・Clockの型契約だけであり、OS排他やWriterを生成しない。`result`は既存二種類の結果Shapeと公開失敗投影を保持し、同じShapeへ無理に統一しない。元の契約文字列、Hash／Cursorのbyte形式、公開Symbolの意味はこの配置で変更しない。
 
 目標外のFileが必要な場合は、状態・寿命・保証・直接利用側と既存目標へ統合できない理由を示して判断へ戻す。Storageから旧Pathを直接参照する箇所の処置は、[今回の割当と凍結境界の確認](../../../99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#38-保存統合後の構造再設計着手)で追跡する。無断の互換再export、旧Readerまたは新しい管理Frameworkでは解消しない。
 
