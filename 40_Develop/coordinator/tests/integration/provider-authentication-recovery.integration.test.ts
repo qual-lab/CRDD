@@ -2,10 +2,10 @@
  * coordinator:integration:claude-subscription-authentication-recoveryの検証範囲を定義する。
  *
  * @packageDocumentation
- * @responsibility Claude再認証の耐久Intentと別Process Kernel Lock再入場を検証する。
+ * @responsibility Provider共通の操作別耐久Intent、元回復参照と別Process Kernel Lock再入場を検証する。
  * @trace ERB-IT-017
  * @level IT
- * @scope coordinator、claude-authentication、recovery、kernel-lock
+ * @scope coordinator、provider-authentication、status、login、recovery、kernel-lock
  * @boundary ERB-IT-017=Integration: Filesystem耐久記録とWindows Named Pipe Kernel Lock境界
  */
 import assert from "node:assert/strict";
@@ -18,19 +18,111 @@ import { fileURLToPath } from "node:url";
 
 import { acquireRuntimeOwnedLogicalProviderHomeKernelLock } from "../../src/execution/kernel-lock.ts";
 import {
-  authenticateClaudeSubscription,
-  beginClaudeSubscriptionAuthenticationRecovery,
-  createClaudeSubscriptionAuthenticationPlan,
-  createClaudeSubscriptionAuthenticationRecoveryRecord,
-  readClaudeSubscriptionAuthenticationResources,
-  recordClaudeSubscriptionAuthenticationResource,
-  setClaudeSubscriptionAuthenticationRecoveryCommandState,
-  settleClaudeSubscriptionAuthenticationRecovery,
+  authenticateProvider,
+  beginProviderAuthenticationRecovery,
+  createProviderAuthenticationPlan,
+  createProviderAuthenticationRecoveryRecord,
+  readProviderAuthenticationResources,
+  recordProviderAuthenticationResource,
+  setProviderAuthenticationRecoveryCommandState,
+  settleProviderAuthenticationRecovery,
 } from "../../src/execution/authority.ts";
 
 const hash = randomBytes(32).toString("hex");
 const suffix = hash.slice(0, 16);
 const token = "b".repeat(64);
+
+/**
+ * 操作切替が同じHomeの旧回復Identityを再利用しないことを確認する。
+ * @responsibility activeを保持し、settledだけをpending経由で次の操作へ置換する。
+ * @trace ERB-IT-017
+ * @precondition Repository-local合成Rootと実Filesystemだけを使う。
+ * @stimulus statusのIntent、login要求、settledとloginの新規Intentを順に与える。
+ * @observation 正本JSON、回復参照、pending不存在と旧操作からの更新拒否。
+ * @oracle 未終了statusは元参照で停止し、終了後loginは五資源に切り替わる。
+ * @cleanup 自己生成Rootだけをfinallyで削除する。
+ * @boundary ERB-IT-017=Integration: 単一Home回復記録の操作切替。
+ */
+test("共通認証は旧操作activeを元参照で保持しsettledだけを次操作へ置換する", () => {
+  const repository = fileURLToPath(new URL("../../../../", import.meta.url));
+  const root = path.join(
+    repository,
+    ".crdd",
+    "tests",
+    `provider-auth-transition-${randomBytes(8).toString("hex")}`,
+  );
+  try {
+    for (const provider of ["codex", "claude"] as const) {
+      const home = path.join(root, "ProviderHomes", provider);
+      const statusPlan = createProviderAuthenticationPlan(
+        provider,
+        "status",
+        home,
+        suffix,
+        null,
+      );
+      const loginPlan = createProviderAuthenticationPlan(
+        provider,
+        "login",
+        home,
+        suffix,
+        token,
+      );
+      assert.ok(statusPlan && loginPlan);
+      const status = createProviderAuthenticationRecoveryRecord(
+        home,
+        hash,
+        statusPlan,
+      );
+      const login = createProviderAuthenticationRecoveryRecord(
+        home,
+        hash,
+        loginPlan,
+      );
+      assert.ok(status && login);
+      assert.equal(status.recordPath, login.recordPath);
+      assert.equal(beginProviderAuthenticationRecovery(status), "created");
+      const before = fs.readFileSync(status.recordPath, "utf8");
+      assert.deepEqual(beginProviderAuthenticationRecovery(login), {
+        status: "prior_action_active",
+        recoveryId: status.recoveryId,
+      });
+      assert.equal(fs.readFileSync(status.recordPath, "utf8"), before);
+      assert.equal(
+        setProviderAuthenticationRecoveryCommandState(
+          status,
+          "in_flight",
+          "create_probe",
+        ),
+        true,
+      );
+      assert.deepEqual(beginProviderAuthenticationRecovery(login), {
+        status: "prior_action_active",
+        recoveryId: status.recoveryId,
+      });
+      assert.equal(
+        setProviderAuthenticationRecoveryCommandState(status, "idle", null),
+        true,
+      );
+      assert.equal(settleProviderAuthenticationRecovery(status), true);
+      assert.equal(beginProviderAuthenticationRecovery(login), "created");
+      const current = JSON.parse(fs.readFileSync(login.recordPath, "utf8"));
+      assert.equal(current.action, "login");
+      assert.equal(current.resources.length, 5);
+      assert.equal(current.recoveryId, login.recoveryId);
+      assert.equal(fs.existsSync(`${login.recordPath}.pending`), false);
+      assert.equal(settleProviderAuthenticationRecovery(status), false);
+      assert.equal(settleProviderAuthenticationRecovery(login), true);
+    }
+  } finally {
+    assert.ok(
+      path
+        .resolve(root)
+        .startsWith(path.resolve(repository, ".crdd", "tests") + path.sep),
+    );
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
 
 /**
  * 作成Receiptを元Intentへ保存し、状態更新後も同じ実IDを保持する。
@@ -52,30 +144,25 @@ test("Claude認証の作成Receiptは元Intentだけへ保存され状態遷移�
     `claude-auth-receipt-${randomBytes(8).toString("hex")}`,
   );
   const home = path.join(root, "ProviderHomes", "claude");
-  const plan = createClaudeSubscriptionAuthenticationPlan(home, suffix, token);
-  assert.ok(plan);
-  const record = createClaudeSubscriptionAuthenticationRecoveryRecord(
+  const plan = createProviderAuthenticationPlan(
+    "claude",
+    "login",
     home,
-    hash,
-    plan,
+    suffix,
+    token,
   );
+  assert.ok(plan);
+  const record = createProviderAuthenticationRecoveryRecord(home, hash, plan);
   assert.ok(record);
   const id = "c".repeat(64);
   try {
+    assert.equal(beginProviderAuthenticationRecovery(record), "created");
     assert.equal(
-      beginClaudeSubscriptionAuthenticationRecovery(record),
-      "created",
-    );
-    assert.equal(
-      recordClaudeSubscriptionAuthenticationResource(
-        record,
-        plan.probeContainerName,
-        id,
-      ),
+      recordProviderAuthenticationResource(record, plan.probeContainerName, id),
       false,
     );
     assert.equal(
-      setClaudeSubscriptionAuthenticationRecoveryCommandState(
+      setProviderAuthenticationRecoveryCommandState(
         record,
         "in_flight",
         "create_probe",
@@ -83,15 +170,11 @@ test("Claude認証の作成Receiptは元Intentだけへ保存され状態遷移�
       true,
     );
     assert.equal(
-      recordClaudeSubscriptionAuthenticationResource(
-        record,
-        plan.loginContainerName,
-        id,
-      ),
+      recordProviderAuthenticationResource(record, plan.loginContainerName, id),
       false,
     );
     assert.equal(
-      recordClaudeSubscriptionAuthenticationResource(
+      recordProviderAuthenticationResource(
         record,
         plan.probeContainerName,
         "invalid",
@@ -99,15 +182,11 @@ test("Claude認証の作成Receiptは元Intentだけへ保存され状態遷移�
       false,
     );
     assert.equal(
-      recordClaudeSubscriptionAuthenticationResource(
-        record,
-        plan.probeContainerName,
-        id,
-      ),
+      recordProviderAuthenticationResource(record, plan.probeContainerName, id),
       true,
     );
     assert.equal(
-      recordClaudeSubscriptionAuthenticationResource(
+      recordProviderAuthenticationResource(
         record,
         plan.probeContainerName,
         "d".repeat(64),
@@ -115,30 +194,23 @@ test("Claude認証の作成Receiptは元Intentだけへ保存され状態遷移�
       false,
     );
     assert.equal(
-      setClaudeSubscriptionAuthenticationRecoveryCommandState(
-        record,
-        "idle",
-        null,
-      ),
+      setProviderAuthenticationRecoveryCommandState(record, "idle", null),
       true,
     );
     assert.equal(
-      readClaudeSubscriptionAuthenticationResources(record)?.[0]?.dockerId,
+      readProviderAuthenticationResources(record)?.[0]?.dockerId,
       id,
     );
-    assert.equal(settleClaudeSubscriptionAuthenticationRecovery(record), true);
+    assert.equal(settleProviderAuthenticationRecovery(record), true);
     assert.equal(
       JSON.parse(fs.readFileSync(record.recordPath, "utf8")).resources[0]
         .dockerId,
       id,
     );
-    assert.equal(readClaudeSubscriptionAuthenticationResources(record), null);
+    assert.equal(readProviderAuthenticationResources(record), null);
+    assert.equal(beginProviderAuthenticationRecovery(record), "created");
     assert.equal(
-      beginClaudeSubscriptionAuthenticationRecovery(record),
-      "created",
-    );
-    assert.equal(
-      readClaudeSubscriptionAuthenticationResources(record)?.[0]?.dockerId,
+      readProviderAuthenticationResources(record)?.[0]?.dockerId,
       null,
     );
     const previous = JSON.parse(fs.readFileSync(record.recordPath, "utf8"));
@@ -146,11 +218,8 @@ test("Claude認証の作成Receiptは元Intentだけへ保存され状態遷移�
       record.recordPath,
       JSON.stringify({ ...previous, contractRevision: 2 }),
     );
-    assert.equal(readClaudeSubscriptionAuthenticationResources(record), null);
-    assert.equal(
-      beginClaudeSubscriptionAuthenticationRecovery(record),
-      "unknown",
-    );
+    assert.equal(readProviderAuthenticationResources(record), null);
+    assert.equal(beginProviderAuthenticationRecovery(record), "unknown");
   } finally {
     assert.ok(
       path
@@ -279,7 +348,7 @@ test("Windows Process Gate: Claude再認証はProcess喪失後に耐久Intentか
   fs.mkdirSync(providerHome, { recursive: true });
   const ownerFixture = fileURLToPath(
     new URL(
-      "../fixtures/claude-subscription-authentication-recovery-owner.ts",
+      "../fixtures/provider-authentication-recovery-owner.ts",
       import.meta.url,
     ),
   );
@@ -303,59 +372,67 @@ test("Windows Process Gate: Claude再認証はProcess喪失後に耐久Intentか
       state: "idle" | "in_flight";
       purpose: string | null;
     }>[] = [];
-    const result = await authenticateClaudeSubscription(providerHome, hash, {
-      randomHex: () => token,
-      acquireProviderHomeLock: acquireRuntimeOwnedLogicalProviderHomeKernelLock,
-      beginRecovery: beginClaudeSubscriptionAuthenticationRecovery,
-      recordCreatedResource: () => true,
-      recoveryCommands: (_record, plan, index) => {
-        const ownershipCommand = plan.ownershipCommands[index];
-        const cleanupCommand = plan.cleanupCommands[index];
-        const absenceCommand = plan.absenceCommands[index];
-        return ownershipCommand && cleanupCommand && absenceCommand
-          ? { ownershipCommand, cleanupCommand, absenceCommand }
-          : null;
-      },
-      setRecoveryCommandState: (record, state, purpose) => {
-        const isUpdated =
-          setClaudeSubscriptionAuthenticationRecoveryCommandState(
+    const result = await authenticateProvider(
+      "claude",
+      "login",
+      providerHome,
+      hash,
+      {
+        randomHex: () => token,
+        acquireProviderHomeLock:
+          acquireRuntimeOwnedLogicalProviderHomeKernelLock,
+        beginRecovery: beginProviderAuthenticationRecovery,
+        recordCreatedResource: () => true,
+        recoveryCommands: (_record, plan, index) => {
+          const ownershipCommand = plan.ownershipCommands[index];
+          const cleanupCommand = plan.cleanupCommands[index];
+          const absenceCommand = plan.absenceCommands[index];
+          return ownershipCommand && cleanupCommand && absenceCommand
+            ? { ownershipCommand, cleanupCommand, absenceCommand }
+            : null;
+        },
+        setRecoveryCommandState: (record, state, purpose) => {
+          const isUpdated = setProviderAuthenticationRecoveryCommandState(
             record,
             state,
             purpose,
           );
-        if (isUpdated)
-          commandStateTransitions.push(Object.freeze({ state, purpose }));
-        return isUpdated;
-      },
-      completeRecovery: settleClaudeSubscriptionAuthenticationRecovery,
-      run: async (command) => {
-        purposes.push(command.purpose);
-        return {
-          status: command.purpose.startsWith("confirm_") ? 1 : 0,
-          signal: null,
-          stdout: command.purpose.startsWith("observe_")
-            ? `${suffix}\n`
-            : command.purpose === "start_probe_attached"
-              ? JSON.stringify({
-                  loggedIn: true,
-                  authMethod: "claude.ai",
-                  apiProvider: "firstParty",
-                  subscriptionType: "max",
-                })
+          if (isUpdated)
+            commandStateTransitions.push(Object.freeze({ state, purpose }));
+          return isUpdated;
+        },
+        completeRecovery: settleProviderAuthenticationRecovery,
+        run: async (command) => {
+          purposes.push(command.purpose);
+          return {
+            status: command.purpose.startsWith("confirm_") ? 1 : 0,
+            signal: null,
+            stdout: command.purpose.startsWith("observe_")
+              ? `${suffix}\n`
+              : command.purpose === "start_probe_attached"
+                ? JSON.stringify({
+                    loggedIn: true,
+                    authMethod: "claude.ai",
+                    apiProvider: "firstParty",
+                    subscriptionType: "max",
+                  })
+                : "",
+            stderr: command.purpose.startsWith("confirm_")
+              ? absenceError(command.purpose)
               : "",
-          stderr: command.purpose.startsWith("confirm_")
-            ? absenceError(command.purpose)
-            : "",
-        };
+          };
+        },
       },
-    });
+    );
     assert.equal(result.status, "completed");
     assert.equal(result.recoveryId, null);
     assert.equal(
       purposes.filter((value) => value === "create_internal_network").length,
       1,
     );
-    const plan = createClaudeSubscriptionAuthenticationPlan(
+    const plan = createProviderAuthenticationPlan(
+      "claude",
+      "login",
       providerHome,
       suffix,
       token,
@@ -388,7 +465,7 @@ test("Windows Process Gate: Claude再認証はProcess喪失後に耐久Intentか
     }
     assert.ok(plan.commands.some((command) => command.interactive));
     assert.ok(plan.commands.some((command) => !command.interactive));
-    const record = createClaudeSubscriptionAuthenticationRecoveryRecord(
+    const record = createProviderAuthenticationRecoveryRecord(
       providerHome,
       hash,
       plan,
@@ -428,7 +505,7 @@ test("Claude再認証は本番Command中のOwner喪失後にfresh Effectを発�
   fs.mkdirSync(providerHome, { recursive: true });
   const commandOwnerFixture = fileURLToPath(
     new URL(
-      "../fixtures/claude-subscription-authentication-command-owner.ts",
+      "../fixtures/provider-authentication-command-owner.ts",
       import.meta.url,
     ),
   );
@@ -456,21 +533,29 @@ test("Claude再認証は本番Command中のOwner喪失後にfresh Effectを発�
       childError += chunk;
     });
     const inFlight = await waitForFixtureEvent(() => childOutput, "in_flight");
-    assert.equal(inFlight.recoveryId, `claude-auth.${inFlightHash}`);
+    assert.equal(
+      inFlight.recoveryId,
+      `provider-auth.claude.login.${inFlightHash}`,
+    );
     assert.equal(inFlight.purpose, "create_internal_network");
     child.stdin?.write("LOSE\n");
     const lockLost = await waitForFixtureEvent(() => childOutput, "lock_lost");
-    assert.equal(lockLost.recoveryId, `claude-auth.${inFlightHash}`);
+    assert.equal(
+      lockLost.recoveryId,
+      `provider-auth.claude.login.${inFlightHash}`,
+    );
 
     let dockerEffectCount = 0;
-    const result = await authenticateClaudeSubscription(
+    const result = await authenticateProvider(
+      "claude",
+      "login",
       providerHome,
       inFlightHash,
       {
         randomHex: () => token,
         acquireProviderHomeLock:
           acquireRuntimeOwnedLogicalProviderHomeKernelLock,
-        beginRecovery: beginClaudeSubscriptionAuthenticationRecovery,
+        beginRecovery: beginProviderAuthenticationRecovery,
         recordCreatedResource: () => true,
         recoveryCommands: (_record, plan, index) => {
           const ownershipCommand = plan.ownershipCommands[index];
@@ -480,9 +565,8 @@ test("Claude再認証は本番Command中のOwner喪失後にfresh Effectを発�
             ? { ownershipCommand, cleanupCommand, absenceCommand }
             : null;
         },
-        setRecoveryCommandState:
-          setClaudeSubscriptionAuthenticationRecoveryCommandState,
-        completeRecovery: settleClaudeSubscriptionAuthenticationRecovery,
+        setRecoveryCommandState: setProviderAuthenticationRecoveryCommandState,
+        completeRecovery: settleProviderAuthenticationRecovery,
         run: async () => {
           dockerEffectCount += 1;
           throw new Error("unexpected_effect");
@@ -492,13 +576,16 @@ test("Claude再認証は本番Command中のOwner喪失後にfresh Effectを発�
     assert.equal(result.status, "blocked");
     assert.equal(
       result.reason,
-      "claude_authentication_prior_command_in_flight",
+      "provider_authentication_prior_command_in_flight",
     );
     assert.equal(result.cleanupConfirmed, false);
     assert.equal(result.providerEffectIssued, false);
     assert.equal(result.manualRecoveryRequired, true);
     assert.equal(result.effectStateUnknown, true);
-    assert.equal(result.recoveryId, `claude-auth.${inFlightHash}`);
+    assert.equal(
+      result.recoveryId,
+      `provider-auth.claude.login.${inFlightHash}`,
+    );
     assert.equal(dockerEffectCount, 0);
     child.stdin?.write("FINISH\n");
     const fixtureResult = await waitForFixtureEvent(
@@ -507,7 +594,7 @@ test("Claude再認証は本番Command中のOwner喪失後にfresh Effectを発�
     );
     assert.equal(
       fixtureResult.reason,
-      "claude_authentication_provider_home_lock_lost",
+      "provider_authentication_provider_home_lock_lost",
     );
     assert.equal(fixtureResult.cleanupConfirmed, false);
     assert.equal(fixtureResult.receiptCallCount, 0);

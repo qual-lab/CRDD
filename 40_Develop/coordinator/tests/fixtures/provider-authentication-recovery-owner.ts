@@ -10,9 +10,9 @@
  */
 import { acquireRuntimeOwnedLogicalProviderHomeKernelLock } from "../../src/execution/kernel-lock.ts";
 import {
-  beginClaudeSubscriptionAuthenticationRecovery,
-  createClaudeSubscriptionAuthenticationPlan,
-  createClaudeSubscriptionAuthenticationRecoveryRecord,
+  beginProviderAuthenticationRecovery,
+  createProviderAuthenticationPlan,
+  createProviderAuthenticationRecoveryRecord,
 } from "../../src/execution/authority.ts";
 
 const [stableLogicalHomeBindingHash, providerHome, suffix, token] =
@@ -23,17 +23,20 @@ const lock = acquireRuntimeOwnedLogicalProviderHomeKernelLock(
   stableLogicalHomeBindingHash,
 );
 if (!lock) process.exit(71);
-const plan = createClaudeSubscriptionAuthenticationPlan(
+const plan = createProviderAuthenticationPlan(
+  "claude",
+  "login",
   providerHome,
   suffix,
   token,
 );
 if (!plan) process.exit(72);
-const record = createClaudeSubscriptionAuthenticationRecoveryRecord(
+const record = createProviderAuthenticationRecoveryRecord(
   providerHome,
   stableLogicalHomeBindingHash,
   plan,
 );
 if (!record) process.exit(73);
-if (beginClaudeSubscriptionAuthenticationRecovery(record) !== "created")
-  process.exit(74);
+if (beginProviderAuthenticationRecovery(record) !== "created") process.exit(74);
+// 明示releaseを呼ばずProcess喪失を構築する。Lockサーバーの自然終了待ちはしない。
+process.exit(0);

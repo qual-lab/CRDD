@@ -19,22 +19,34 @@ import { types as utilTypes } from "node:util";
 export type DockerAuthenticationInput = Readonly<{
   providerHomeSourcePath: string;
   providerImageDigest: string;
-  proxyImageDigest: string;
   ownershipLabel: string;
-  internalNetworkName: string;
-  egressNetworkName: string;
-  proxyContainerName: string;
-  loginContainerName: string;
   probeContainerName: string;
-  proxyToken: string;
-  proxyPort: number;
-  proxyProfile: "claude" | "codex";
-  authenticationCli: Readonly<{
-    loginArgv: readonly string[];
-    statusArgv: readonly string[];
-    environment: Readonly<Record<string, string>>;
-  }>;
-}>;
+}> &
+  (
+    | Readonly<{
+        action: "status";
+        authenticationCli: Readonly<{
+          statusArgv: readonly string[];
+          environment: Readonly<Record<string, string>>;
+        }>;
+      }>
+    | Readonly<{
+        action: "login";
+        proxyImageDigest: string;
+        internalNetworkName: string;
+        egressNetworkName: string;
+        proxyContainerName: string;
+        loginContainerName: string;
+        proxyToken: string;
+        proxyPort: number;
+        proxyProfile: "claude" | "codex";
+        authenticationCli: Readonly<{
+          loginArgv: readonly string[];
+          statusArgv: readonly string[];
+          environment: Readonly<Record<string, string>>;
+        }>;
+      }>
+  );
 
 /**
  * 生成済み認証Commandの固定技術契約。
@@ -290,6 +302,32 @@ export function planDockerAuthenticationCommands(
     )
   )
     throw Error("docker_authentication_input_invalid");
+  if (input.action === "status") return planDockerAuthenticationStatus(input);
+  if (input.action !== "login")
+    throw Error("docker_authentication_action_invalid");
+  const keys = [
+    "action",
+    "providerHomeSourcePath",
+    "providerImageDigest",
+    "proxyImageDigest",
+    "ownershipLabel",
+    "internalNetworkName",
+    "egressNetworkName",
+    "proxyContainerName",
+    "loginContainerName",
+    "probeContainerName",
+    "proxyToken",
+    "proxyPort",
+    "proxyProfile",
+    "authenticationCli",
+  ];
+  if (
+    Reflect.ownKeys(input).length !== keys.length ||
+    Reflect.ownKeys(input).some(
+      (key) => typeof key !== "string" || !keys.includes(key),
+    )
+  )
+    throw Error("docker_authentication_input_invalid");
   const {
     providerHomeSourcePath,
     providerImageDigest,
@@ -303,12 +341,19 @@ export function planDockerAuthenticationCommands(
     proxyToken,
     proxyPort,
     proxyProfile,
-    authenticationCli,
   } = input;
+  const authenticationCli = snapshotAuthenticationCli(
+    input.authenticationCli,
+    true,
+  );
   if (
     typeof providerHomeSourcePath !== "string" ||
     !path.isAbsolute(providerHomeSourcePath) ||
     /[\0\r\n,]/u.test(providerHomeSourcePath) ||
+    typeof providerImageDigest !== "string" ||
+    typeof proxyImageDigest !== "string" ||
+    typeof ownershipLabel !== "string" ||
+    typeof proxyToken !== "string" ||
     !/^sha256:[a-f0-9]{64}$/u.test(providerImageDigest) ||
     !/^sha256:[a-f0-9]{64}$/u.test(proxyImageDigest) ||
     !/^crdd\.coordinator\.authentication=[a-f0-9]{16}$/u.test(ownershipLabel) ||
@@ -325,82 +370,9 @@ export function planDockerAuthenticationCommands(
     egressNetworkName !== `crdd-egress-${suffix}` ||
     proxyContainerName !== `crdd-proxy-${suffix}` ||
     probeContainerName !== `crdd-auth-${suffix}` ||
-    ![`crdd-claude-${suffix}`, `crdd-codex-${suffix}`].includes(
-      loginContainerName,
-    )
+    loginContainerName !== `crdd-${proxyProfile}-${suffix}`
   )
     throw Error("docker_authentication_resource_invalid");
-  if (
-    authenticationCli === null ||
-    typeof authenticationCli !== "object" ||
-    utilTypes.isProxy(authenticationCli) ||
-    Object.getPrototypeOf(authenticationCli) !== Object.prototype ||
-    Reflect.ownKeys(authenticationCli).some(
-      (key) =>
-        typeof key !== "string" ||
-        !(
-          "value" in
-          (Object.getOwnPropertyDescriptor(authenticationCli, key) ?? {})
-        ),
-    )
-  )
-    throw Error("docker_authentication_cli_invalid");
-  for (const argv of [
-    authenticationCli.loginArgv,
-    authenticationCli.statusArgv,
-  ]) {
-    if (
-      !Array.isArray(argv) ||
-      utilTypes.isProxy(argv) ||
-      Object.getPrototypeOf(argv) !== Array.prototype ||
-      Reflect.ownKeys(argv).some(
-        (key) =>
-          typeof key !== "string" ||
-          (key !== "length" && !/^(0|[1-9][0-9]*)$/u.test(key)) ||
-          !("value" in (Object.getOwnPropertyDescriptor(argv, key) ?? {})),
-      ) ||
-      Object.keys(argv).length !== argv.length ||
-      argv.length === 0 ||
-      argv.length > 64 ||
-      argv.some(
-        (value) =>
-          typeof value !== "string" ||
-          value.length > 16384 ||
-          /[\0\r\n]/u.test(value),
-      )
-    )
-      throw Error("docker_authentication_cli_invalid");
-  }
-  const environment = authenticationCli.environment;
-  if (
-    environment === null ||
-    typeof environment !== "object" ||
-    utilTypes.isProxy(environment) ||
-    Object.getPrototypeOf(environment) !== Object.prototype ||
-    Reflect.ownKeys(environment).length > 64 ||
-    Reflect.ownKeys(environment).some(
-      (key) =>
-        typeof key !== "string" ||
-        !/^[A-Z][A-Z0-9_]*$/u.test(key) ||
-        [
-          "HOME",
-          "TMPDIR",
-          "HTTPS_PROXY",
-          "HTTP_PROXY",
-          "ALL_PROXY",
-          "NO_PROXY",
-        ].includes(key) ||
-        !(
-          "value" in (Object.getOwnPropertyDescriptor(environment, key) ?? {})
-        ) ||
-        typeof Object.getOwnPropertyDescriptor(environment, key)?.value !==
-          "string" ||
-        /[\0\r\n]/u.test(
-          Object.getOwnPropertyDescriptor(environment, key)?.value,
-        ),
-    )
-  )
-    throw Error("docker_authentication_environment_invalid");
   const proxyUrl = `http://crdd:${proxyToken}@proxy:${proxyPort}`;
   const homeMount = `type=bind,src=${providerHomeSourcePath},dst=/provider-home,bind-propagation=rprivate`;
   const fixedEnvironmentArguments = [
@@ -429,16 +401,7 @@ export function planDockerAuthenticationCommands(
    * @security Authorityや認証結果を生成しない。
    * @concurrency 生成は同期で完了する。
    */
-  const command = (
-    purpose: string,
-    argv: readonly string[],
-    isInteractive = false,
-  ) =>
-    Object.freeze({
-      purpose,
-      argv: Object.freeze([...argv]),
-      interactive: isInteractive,
-    });
+  const command = authenticationCommand;
   const commands = Object.freeze([
     command("create_internal_network", [
       "network",
@@ -533,6 +496,9 @@ export function planDockerAuthenticationCommands(
       "--user=65534:65534",
       "--env",
       "HOME=/provider-home",
+      ...Object.entries(authenticationCli.environment).flatMap(
+        ([name, value]) => ["--env", `${name}=${value}`],
+      ),
       "--mount",
       `${homeMount},readonly`,
       providerImageDigest,
@@ -611,6 +577,281 @@ export function planDockerAuthenticationCommands(
       egressNetworkName,
     ]),
   ]);
+  return completeAuthenticationPlan(
+    commands,
+    ownershipCommands,
+    cleanupCommands,
+    absenceCommands,
+  );
+}
+
+/**
+ * 認証CLI payloadを実行Propertyなしに固定する。
+ * @responsibility loginとstatusで共通の引数・環境の検査を所有する。
+ * @trace ARCH-000008
+ * @input candidate: CLI記述、login: login引数を必要とするか。
+ * @returns 元入力から独立した固定引数と環境。
+ * @precondition 認証の意味と許可は上位Ownerが確認する。
+ * @postcondition Getter・Proxy・未知fieldを受理しない。
+ * @effect N/A: 局所検査とコピーだけ。
+ * @failure 不正値は開始前の固定例外。
+ * @invariant Host環境とProxy変数をCLI記述から継承しない。
+ * @boundary 上位のProvider記述と隔離計画。
+ * @security 秘密値を表示・保存しない。
+ * @concurrency 同期Snapshot。
+ */
+function snapshotAuthenticationCli(candidate: unknown, login: boolean) {
+  if (
+    !candidate ||
+    typeof candidate !== "object" ||
+    utilTypes.isProxy(candidate) ||
+    Object.getPrototypeOf(candidate) !== Object.prototype
+  )
+    throw Error("docker_authentication_cli_invalid");
+  const keys = login
+    ? ["loginArgv", "statusArgv", "environment"]
+    : ["statusArgv", "environment"];
+  const descriptors = Object.getOwnPropertyDescriptors(candidate);
+  const actual = Reflect.ownKeys(descriptors);
+  if (
+    actual.length !== keys.length ||
+    actual.some((key) => typeof key !== "string" || !keys.includes(key)) ||
+    keys.some(
+      (key) =>
+        !descriptors[key] ||
+        !Object.hasOwn(descriptors[key], "value") ||
+        descriptors[key]?.enumerable !== true,
+    )
+  )
+    throw Error("docker_authentication_cli_invalid");
+  const record = candidate as Record<string, unknown>;
+  const copied: string[][] = [];
+  for (const name of login ? ["loginArgv", "statusArgv"] : ["statusArgv"]) {
+    const argv = record[name];
+    if (
+      !Array.isArray(argv) ||
+      utilTypes.isProxy(argv) ||
+      Object.getPrototypeOf(argv) !== Array.prototype ||
+      Reflect.ownKeys(argv).some(
+        (key) =>
+          typeof key !== "string" ||
+          (key !== "length" && !/^(0|[1-9][0-9]*)$/u.test(key)) ||
+          !Object.hasOwn(
+            Object.getOwnPropertyDescriptor(argv, key) ?? {},
+            "value",
+          ),
+      ) ||
+      Object.keys(argv).length !== argv.length ||
+      argv.length === 0 ||
+      argv.length > 64 ||
+      argv.some(
+        (value) =>
+          typeof value !== "string" ||
+          value.length > 16384 ||
+          /[\0\r\n]/u.test(value),
+      )
+    )
+      throw Error("docker_authentication_cli_invalid");
+    copied.push([...argv]);
+  }
+  const environment = record.environment;
+  if (
+    !environment ||
+    typeof environment !== "object" ||
+    utilTypes.isProxy(environment) ||
+    Object.getPrototypeOf(environment) !== Object.prototype ||
+    Reflect.ownKeys(environment).length > 64 ||
+    Reflect.ownKeys(environment).some(
+      (key) =>
+        typeof key !== "string" ||
+        !/^[A-Z][A-Z0-9_]*$/u.test(key) ||
+        [
+          "HOME",
+          "TMPDIR",
+          "HTTPS_PROXY",
+          "HTTP_PROXY",
+          "ALL_PROXY",
+          "NO_PROXY",
+        ].includes(key) ||
+        !Object.hasOwn(
+          Object.getOwnPropertyDescriptor(environment, key) ?? {},
+          "value",
+        ) ||
+        typeof Object.getOwnPropertyDescriptor(environment, key)?.value !==
+          "string" ||
+        /[\0\r\n]/u.test(
+          Object.getOwnPropertyDescriptor(environment, key)?.value,
+        ),
+    )
+  )
+    throw Error("docker_authentication_environment_invalid");
+  return Object.freeze({
+    loginArgv: Object.freeze(login ? (copied[0] ?? []) : []),
+    statusArgv: Object.freeze(copied[login ? 1 : 0] ?? []),
+    environment: Object.freeze({ ...environment }) as Readonly<
+      Record<string, string>
+    >,
+  });
+}
+
+/**
+ * 固定用途の認証Commandを不変値にする。
+ * @responsibility 同じ計画内の引数を独立して保持する。
+ * @trace ARCH-000008
+ * @input purpose、argv、interactive: 内部で構築した固定操作。
+ * @returns 凍結Command。
+ * @precondition 任意の外部Docker引数を直接渡さない。
+ * @postcondition 元配列変更を搬送しない。
+ * @effect N/A: 局所値だけ。
+ * @failure N/A: 検査は計画入口が所有する。
+ * @invariant 生成を実行許可へ昇格しない。
+ * @boundary 同じ認証計画内。
+ * @security Authority・秘密値を生成しない。
+ * @concurrency 同期構築。
+ */
+function authenticationCommand(
+  purpose: string,
+  argv: readonly string[],
+  interactive = false,
+): DockerAuthenticationCommand {
+  return Object.freeze({
+    purpose,
+    argv: Object.freeze([...argv]),
+    interactive,
+  });
+}
+
+/**
+ * 通信なし・読取り専用Homeで状態確認を計画する。
+ * @responsibility statusだけを一Containerの元計画へ閉じる。
+ * @trace ARCH-000008
+ * @input input: statusの閉じた技術入力。
+ * @returns 一資源の固定計画。
+ * @precondition Home許可・Provider意味判定は上位が所有する。
+ * @postcondition Proxy・Network・login・tokenを要求も生成もしない。
+ * @effect N/A: 計画値だけ。
+ * @failure 不正形・Path・Identity・CLIは固定例外。
+ * @invariant Repository・Workspaceをmountしない。
+ * @boundary 上位status操作と下位隔離。
+ * @security HomeはRO、network-none、非root、非対話。
+ * @concurrency 新しいLock・Stateを持たない。
+ */
+function planDockerAuthenticationStatus(
+  input: Extract<DockerAuthenticationInput, { action: "status" }>,
+) {
+  const keys = [
+    "action",
+    "providerHomeSourcePath",
+    "providerImageDigest",
+    "ownershipLabel",
+    "probeContainerName",
+    "authenticationCli",
+  ];
+  if (
+    Reflect.ownKeys(input).length !== keys.length ||
+    Reflect.ownKeys(input).some(
+      (key) => typeof key !== "string" || !keys.includes(key),
+    )
+  )
+    throw Error("docker_authentication_input_invalid");
+  const {
+    providerHomeSourcePath,
+    providerImageDigest,
+    ownershipLabel,
+    probeContainerName,
+  } = input;
+  if (
+    typeof providerHomeSourcePath !== "string" ||
+    !path.isAbsolute(providerHomeSourcePath) ||
+    /[\0\r\n,]/u.test(providerHomeSourcePath) ||
+    typeof providerImageDigest !== "string" ||
+    typeof ownershipLabel !== "string" ||
+    !/^sha256:[a-f0-9]{64}$/u.test(providerImageDigest) ||
+    !/^crdd\.coordinator\.authentication=[a-f0-9]{16}$/u.test(ownershipLabel) ||
+    probeContainerName !==
+      `crdd-auth-${ownershipLabel.slice(ownershipLabel.indexOf("=") + 1)}`
+  )
+    throw Error("docker_authentication_input_invalid");
+  const cli = snapshotAuthenticationCli(input.authenticationCli, false);
+  const command = authenticationCommand;
+  return completeAuthenticationPlan(
+    Object.freeze([
+      command("create_probe", [
+        "create",
+        "--pull=never",
+        "--network=none",
+        "--read-only",
+        "--name",
+        probeContainerName,
+        "--label",
+        ownershipLabel,
+        "--cap-drop=ALL",
+        "--security-opt=no-new-privileges",
+        "--pids-limit=32",
+        "--user=65534:65534",
+        "--env",
+        "HOME=/provider-home",
+        ...Object.entries(cli.environment).flatMap(([key, value]) => [
+          "--env",
+          `${key}=${value}`,
+        ]),
+        "--mount",
+        "type=bind,src=" +
+          providerHomeSourcePath +
+          ",dst=/provider-home,bind-propagation=rprivate,readonly",
+        providerImageDigest,
+        ...cli.statusArgv,
+      ]),
+      command("start_probe_attached", [
+        "start",
+        "--attach",
+        probeContainerName,
+      ]),
+    ]),
+    Object.freeze([
+      command("observe_probe_owner", [
+        "container",
+        "inspect",
+        "--format",
+        '{{ index .Config.Labels "crdd.coordinator.authentication" }}',
+        probeContainerName,
+      ]),
+    ]),
+    Object.freeze([
+      command("remove_probe", ["rm", "--force", probeContainerName]),
+    ]),
+    Object.freeze([
+      command("confirm_probe_absent", [
+        "container",
+        "inspect",
+        probeContainerName,
+      ]),
+    ]),
+  );
+}
+
+/**
+ * 認証計画の生成・観測・回収を同じ元Objectへ登録する。
+ * @responsibility loginとstatusで一つの既存所属検査を使う。
+ * @trace ARCH-000008
+ * @input commands、ownershipCommands、cleanupCommands、absenceCommands: 固定操作列。
+ * @returns 観測を含む凍結済み元計画。
+ * @precondition 呼出し側の固定生成器が全列を構築する。
+ * @postcondition 作成する資源だけにReceiptとImage観測を結合する。
+ * @effect 同Process内の既存WeakSetへの登録のみ。
+ * @failure 作成名・Image欠測は固定例外。
+ * @invariant Registry・保存・実行許可を追加しない。
+ * @boundary 計画構築と既存実行Owner。
+ * @security 未生成のObjectを受理しない。
+ * @concurrency 同期登録。
+ */
+function completeAuthenticationPlan(
+  commands: readonly DockerAuthenticationCommand[],
+  ownershipCommands: readonly DockerAuthenticationCommand[],
+  cleanupCommands: readonly DockerAuthenticationCommand[],
+  absenceCommands: readonly DockerAuthenticationCommand[],
+) {
+  const command = authenticationCommand;
   const creationObservationCommands = Object.freeze(
     commands
       .filter((item) => item.purpose.startsWith("create_"))

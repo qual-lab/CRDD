@@ -2,14 +2,14 @@
   "extends": "./tsconfig.strict.json",
   "files": [
     "tests/integration/docker-isolation-host.integration.test.ts",
-    "tests/fixtures/claude-authentication-create-recovery-fixture.ts",
-    "tests/integration/claude-subscription-authentication-recovery.integration.test.ts",
+    "tests/fixtures/provider-authentication-create-recovery-fixture.ts",
+    "tests/integration/provider-authentication-recovery.integration.test.ts",
     "tests/integration/runtime-assets.contract.test.ts",
     "tests/integration/docker-effect-runtime.contract.test.ts",
     "tests/integration/docker-process-controller.contract.test.ts",
     "tests/integration/codex-executor-sandbox.integration.test.ts",
     "tests/system/dynamic-fake-provider-cancellation-verification.contract.test.ts",
-    "tests/unit/claude-subscription-authentication.contract.test.ts",
+    "tests/unit/provider-authentication.contract.test.ts",
     "tests/unit/execution/codex-preparation.contract.test.ts"
   ],
   "include": []

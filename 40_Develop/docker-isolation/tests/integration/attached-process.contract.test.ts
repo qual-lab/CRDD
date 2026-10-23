@@ -382,9 +382,13 @@ test("認証NetworkのReceiptはcreateと即時inspectの実ID・構成一致後
  * @cleanup N/A: 実資源なし。
  * @boundary 計画と下位Command相関。
  */
-function authenticationInput(): DockerAuthenticationInput {
+function authenticationInput(): Extract<
+  DockerAuthenticationInput,
+  { action: "login" }
+> {
   const suffix = "1".repeat(16);
   return {
+    action: "login",
     providerHomeSourcePath: "C:\\fixture\\home",
     providerImageDigest: `sha256:${"a".repeat(64)}`,
     proxyImageDigest: `sha256:${"b".repeat(64)}`,

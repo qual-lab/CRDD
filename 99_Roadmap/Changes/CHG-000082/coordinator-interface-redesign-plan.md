@@ -1,6 +1,6 @@
 # Coordinatorの公開操作・認証・AI選択の再設計計画
 
-状態: Objective六Sourceと本番`public-*`撤去、技術Catalog・AI選択の値検査／選定・内部設定Storeを段階実装し、対象回帰・限定独立確認を完了。正式API／CLI／共通認証／新設定の本番切替は未完了。
+状態: Objective六Sourceと本番`public-*`撤去、技術Catalog・AI選択の値検査／選定・内部設定Store、共通認証の実装・CLI接続を段階確認済み。正式API／CLI全体・新設定の本番切替・共通認証の実境界は未完了。
 更新日: 2026-10-24
 基準版: `5ccdc54a0998113d757c0eebce3ae8f06bfa932d`
 変更: CHG-000082の責務整理を継続する。新しいCHG・実行Registryは追加しない。
@@ -297,3 +297,53 @@ AI Adapterの助言・Task計画は四項目のModel選定を必須とし、技�
 Sourceと文書の独立確認では、新Schemaの改訂値、結果Schema文字列化前の安全な固定、probe直下の選定／Schema指定拒否、新認証記述のexact値／凍結、Header／Catalogの検証範囲を是正対象とした。新Suite・QA・互換Readerは追加せず、既存試験と登録へ接続して上記の最終候補を再検証した。認証記述の値試験を固定Imageの実ログイン成功へ拡張しない。
 
 この単位は旧Profileを新しい保存選定へ変換する互換APIを追加しない。Task受付・Model Grant・送信Grant・保存Schema・回復、Workbench／MCP／CLIと旧Store撤去の本番切替はまだ未完了であり、一〜五全体の完了とは表示しない。保存SchemaはReader／Writer／回復の同時変更単位まで現行のまま保持する。
+
+## 15. 残る本番切替の実施単位と終了条件
+
+利用者の継続指示に従い、以下を一連の作業として完了させる。段階Commitは完成表示の単位ではない。実AI・実ログイン・人間の画面確認は最後の実境界確認へ集約し、それ以前は合成データと代役による回帰を用いる。実境界の外部送信範囲・回数・資源操作は実施直前に別途確認する。保持中②は全単位の観測・移行・清掃対象から除く。
+
+| 単位 | 本番接続と撤去 | 固定後の必要な確認 |
+|---|---|---|
+| 選定・保存 | 受付で設定を一回解決し、Task・Objective・Operationへ必要な役割別の値を固定。旧Profile／Tier／改訂番号の選定枝を撤去 | 設定編集後も開始済みTask・再試行・再計画・訂正が同じ値。回復は再選定・本文再送なし |
+| 公開利用側 | Workbench設定画面をRepository設定へ、Task入力を分類／明示指定へ移行。MCPの旧Profile CRUDとHost Catalogを撤去 | manager／administrator認可、選択Repository、競合・unknown・待機後認可・取消を維持 |
+| 正式入口 | `src/api.ts`へ実在する操作を接続し、Root公開を限定。CLIは対象→操作で統一 | 未実装stub・旧API互換wrapperなし。CLI／Workbench／MCPの型・受付・終了条件が一致 |
+| Provider認証 | Claude専用LifecycleをProvider共通のstatus／loginへ置換。旧専用入口を撤去 | Provider固定通信、専用Home、対話非捕捉、exact回復参照、一次失敗と清掃結果を分離 |
+| 最終固定 | Architecture・Quality・設定例・移行手順・Header・登録を現Sourceへ同期 | 外部AIなしの全体回帰、必要なWindows試験、独立レビュー、残参照、Commit／Push |
+
+### 選定の保存比較と再入場
+
+着手前のSource照合で、一つのOperationがexecutor・reviewer・訂正の各stageを共有していることを確認した。Operationへ単一選定を保存する案は使わず、同一設定Snapshot由来の役割別選定を固定する。Objectiveは回復後のTask再試行があるため、受付時の選定をProcess内だけに置かない。
+
+| 所有する記録 | 旧値 | 新値と保存時点 | 読取り・回復 |
+|---|---|---|---|
+| Repository設定 | 旧Profile Catalog／Host Catalog | `ai-selection.json`。受付中だけ設定全体を読み、内容Identityを得る | 新規受付時だけ選定。開始済み実行の復元に使わない |
+| SingleTask | `profileId / catalogRevision` | 主担当の`executionSelection`十項目。受付CAS前に固定 | 本文は従来どおり非永続。Owner喪失時に未発行stageを再作成しない |
+| Objective状態 | 選定保持なし | 同じ`configIdentity`由来のexecutor／独立reviewer選定を初期状態へ固定 | 全Task・再試行・再計画が継承し、現在設定を読み直さない |
+| ProjectTask | 旧Task属性から再構築 | Objectiveの選定組への相関を作成・予約時に固定 | 再試行／handoffで元の組へ照合。別の設定組へ差替えない |
+| Operation Identity | Provider／Profile等 | 助言は一選定、編集はexecutor／独立reviewerの完全値をEffect前に保存 | stageの役割・試行番号へ照合し、訂正も元の役割選定を使用 |
+| Model Grant／Packet | Profile／Tier等 | `operationId / role / taskAttempt / selection Hash`を既存発行Ownerで結合 | 一回消費・更新前後の完全一致を維持。Model選定を権限にしない |
+| Home Grant | Profileを含む結合 | `operationId / provider / Home実体`だけへ分離 | Model Grantと独立に必要なHome利用権限を照合 |
+
+保存形式は上記Reader／Writer／相関検査を同時に切り替える別Schema単位で変更する。旧形式のReaderや旧Profileを新しい値へ読み替える実行APIを追加しない。フロントAIは、現在の旧設定・未終了参照を確認し、新形式へ移せない実行値を捏造せず、実行前に停止・処置を説明する。過去Evidenceと保持②を移行しない。
+
+### 共通認証のLifecycle
+
+CLIは`auth status <provider> [--json]`／`auth login <provider>`。対話子のstdoutをJSON-onlyと誤認させないため、loginの`--json`は開始前に拒否する。公式対話と最後の固定結果はhuman向け、statusの`--json`だけを単一JSON応答とする。新しいstdio管理機構は作らない。
+
+認証statusは非対話・network-none・Home読取り専用のprobe一資源へ限定する。loginは既存の限定Proxy・二Network・login／probe Containerの五資源を使う。両Providerで既存のHome排他、要求前`in_flight`／終了確認後`idle`、実IDのReceipt、所有確認後の回収、最終不存在を維持する。statusの未認証と観測不能、loginの認証成功と資源回収成功を別の事実として返す。通常の非0終了を通信成功や認証失効へ一律変換しない。
+
+Provider固有のargv・Offering・Origin・Home変数名はAI Adapter、ContainerとProcess・環境投影はDocker Isolation、Home利用許可・認証判定・exact回復参照はCoordinatorが所有する。認証へRepository追加Allowlistを注入しない。新しいState／Registry／Lock／Runner／回復Frameworkを作らず、既存のClaude専用記録・入口を新しいProvider共通契約へ置換する。旧記録の処置は実認証前にフロントAIが確認し、製品に旧Readerを残さない。
+
+### 共通認証の段階確認と残る本番切替
+
+共通認証の技術構築、Provider-onlyの正式API二操作と共通CLIを接続し、旧Claude専用Script／Launcher分岐を撤去した。状態確認は一資源、ログインは五資源であり、操作を切り替えても単一Home正本を増やさない。Package Root全体の正式API限定とAI選択の本番切替は、この認証単位の完成へ含めない。
+
+最初の独立確認で、Commandのreject後に終了不明を保持せず清掃へ進む枝、Lock取得後の構築例外、任意Signalのaccessor評価、対話stdoutとJSON-onlyの混同を検出した。既存のin-flight／終了不明／解放条件へ接続し、準備失敗の一回解放、組込みAbortSignalの値確認、login --jsonの開始前拒否で是正する。新しい保存・回復機構は追加しない。安定Test／Symbol IDを維持し、Suite Path・責務と実測済みmetadataだけを更新する。
+
+是正後の認証・実Filesystem回復・公開CLI・周辺入出力四Suiteは54件成功、失敗／取消／skip／todo 0（14,379.9389ms）。Docker Isolation通常回帰は300件成功・5件明示対象外（失敗／取消0、23,436.2054ms）。後者は実Docker・明示Python確認の代替ではない。型・format・lint・既存Trace検査とTest Catalog 386件の値検査は成功。独立再確認は別に確定する。
+
+追加したstatus JSONの実CLI契約確認を含むLauncher Suiteも11件成功、失敗／取消／skip／todo 0（13,936.5975ms）。正式APIの有限代役へProvider／Signalを渡し、stdout単一JSON・exit 0・login呼出し0を確認した。実APIのHome観測成功や実認証成立の証明ではない。Source再レビューは残指摘0。文書再レビューの残一件はCLI Headerの`--json`適用範囲だけを一意に修正し、両確認者との整合を完了した。本文言語・安定ID・歴史Evidenceは維持する。
+
+旧認証Scriptの安定SymbolもIDを維持して新APIの認証接続へ配置追従した。現行Semantic RegistryとChecker試験の参照を維持し、このSymbolから正式API全体の保証を推定しない。Sourceの値・処理、通信・保存契約は変更していない。文書確認者と配置・関係の維持を再照合済み。
+
+合成試験は両Providerの操作別構成・非0 unknown・事前取消、不正Signal、要求例外後の後続／清掃／idle／完了保存／Home解放0、元参照でのfresh拒否、構築例外と解放不明を反証した。APIのHome観測成功・実Imageでの認証・人間TTY操作・旧記録の実移行は未実施であり、最後の実境界確認へ残す。実AI②、保持物、実認証、Docker操作、本体設定の作成・変更は行っていない。

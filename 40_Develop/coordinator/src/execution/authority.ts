@@ -18,6 +18,7 @@ import {
   PROVIDER_ISOLATION_CONTRACT,
 } from "./preparation.ts";
 import { createHash, randomBytes } from "node:crypto";
+import { types as utilTypes } from "node:util";
 import {
   verifyOwnedOperationManagementCapability,
   verifyRuntimeOwnedRepositoryOperation,
@@ -47,6 +48,7 @@ import {
   planDockerAuthenticationResourceRecovery,
   describeDockerProxyTopology,
   describeDockerProviderAssets,
+  describeDockerProviderExecutionLocations,
   planDockerAuthenticationCommands,
 } from "../../../docker-isolation/src/index.ts";
 import fs from "node:fs";
@@ -7990,16 +7992,56 @@ export function isSupportedAuthorityRootAbsolutePath(
     : isSupportedPosixAbsolutePathCandidate(value);
 }
 
-export const CLAUDE_SUBSCRIPTION_AUTHENTICATION_CONTRACT =
-  "crdd-coordinator/claude-subscription-authentication";
+export const PROVIDER_AUTHENTICATION_CONTRACT =
+  "crdd-coordinator/provider-authentication";
 
-export const CLAUDE_SUBSCRIPTION_AUTHENTICATION_CONTRACT_REVISION = 1;
+export const PROVIDER_AUTHENTICATION_CONTRACT_REVISION = 1;
 
-export const CLAUDE_SUBSCRIPTION_AUTHENTICATION_INPUT_NOTICE =
+export const PROVIDER_AUTHENTICATION_INPUT_NOTICE =
   "PowerShellにコード貼付けを求められた場合、貼付けた文字は画面に表示されません。一度だけ貼り付けてEnterを押し、結果が出るまで再入力しないでください。";
 
+const authenticationAbortedGetter = Object.getOwnPropertyDescriptor(
+  AbortSignal.prototype,
+  "aborted",
+)?.get;
+
 /**
- * Claude再認証で許可する一つのDocker Commandを表す。
+ * 認証操作の取消値を組込みgetterだけで読む。
+ * @responsibility APIと直接呼出しの双方で偽Signal・accessor実行を拒否する。
+ * @trace ARCH-000010
+ * @input signal: 任意の取消入力又は省略。
+ * @returns 取消boolean、不正時null。省略はfalse。
+ * @precondition N/A: 利用者定義Propertyを評価する前に呼ぶ。
+ * @postcondition 入力のProxy／getterを実行しない。
+ * @effect N/A: 局所値の検査だけ。
+ * @failure brand・prototype・descriptor不正はnull。
+ * @invariant 不正値を未取消へ丸めない。
+ * @boundary 公開入力と認証Lifecycleの取消観測。
+ * @security 偽のprototypeだけではAbortSignalとして受理しない。
+ * @concurrency 待機後も同じ組込みgetterで現在値を読む。
+ */
+export function readProviderAuthenticationCancellation(
+  signal: unknown,
+): boolean | null {
+  if (signal === undefined) return false;
+  if (
+    !signal ||
+    typeof signal !== "object" ||
+    utilTypes.isProxy(signal) ||
+    Object.getPrototypeOf(signal) !== AbortSignal.prototype ||
+    Object.getOwnPropertyDescriptor(signal, "aborted") !== undefined ||
+    !authenticationAbortedGetter
+  )
+    return null;
+  try {
+    return authenticationAbortedGetter.call(signal) as boolean;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Provider認証で許可する一つのDocker Commandを表す。
  *
  * @responsibility 固定用途、引数および対話性の値境界を所有する。
  * @trace ARCH-000010
@@ -8016,7 +8058,7 @@ type Command = Readonly<{
 }>;
 
 /**
- * Claude再認証の固定Docker Planを表す。
+ * Provider認証の固定Docker Planを表す。
  *
  * @responsibility Image、資源名、所有LabelおよびCommand列の値境界を所有する。
  * @trace ARCH-000010
@@ -8026,22 +8068,29 @@ type Command = Readonly<{
  * @security 専用Provider Home以外のHost資源を接続しない。
  * @compatibility 利用側は宣言済みPropertyと固定Command順だけへ依存する。
  */
-export type ClaudeAuthenticationPlan = Readonly<{
-  provider: "claude";
+export type ProviderAuthenticationPlan<
+  A extends "status" | "login" = "status" | "login",
+> = Readonly<{
+  provider: "codex" | "claude";
+  action: A;
   providerHomeSourcePath: string;
   providerImageDigest: string;
-  proxyImageDigest: string;
   ownershipLabel: string;
-  internalNetworkName: string;
-  egressNetworkName: string;
-  proxyContainerName: string;
-  loginContainerName: string;
   probeContainerName: string;
   commands: readonly Command[];
   ownershipCommands: readonly Command[];
   cleanupCommands: readonly Command[];
   absenceCommands: readonly Command[];
-}>;
+}> &
+  (A extends "login"
+    ? Readonly<{
+        proxyImageDigest: string;
+        internalNetworkName: string;
+        egressNetworkName: string;
+        proxyContainerName: string;
+        loginContainerName: string;
+      }>
+    : Readonly<Record<never, never>>);
 
 /**
  * 一つのDocker Command実行観測を表す。
@@ -8071,7 +8120,7 @@ const authenticationTechnicalPlans = new WeakMap<
 >();
 
 /**
- * Claude再認証Lifecycleが利用する外部境界を表す。
+ * Provider認証Lifecycleが利用する外部境界を表す。
  *
  * @responsibility Random、Process、Kernel LockおよびRecovery StoreのPort集合を所有する。
  * @trace ARCH-000010
@@ -8086,7 +8135,7 @@ type Dependencies = Readonly<{
   run: (
     command: Command,
     authorityLive: () => boolean,
-    plan: ClaudeAuthenticationPlan,
+    plan: ProviderAuthenticationPlan,
   ) => Promise<Execution>;
   isProcessCompletionConfirmed?: () => boolean;
   acquireProviderHomeLock: (
@@ -8094,7 +8143,12 @@ type Dependencies = Readonly<{
   ) => Readonly<{ assertLive: () => boolean; release: () => boolean }> | null;
   beginRecovery: (
     record: AuthenticationRecoveryRecord,
-  ) => "created" | "existing_idle" | "existing_in_flight" | "unknown";
+  ) =>
+    | "created"
+    | "existing_idle"
+    | "existing_in_flight"
+    | "unknown"
+    | Readonly<{ status: "prior_action_active"; recoveryId: string }>;
   setRecoveryCommandState: (
     record: AuthenticationRecoveryRecord,
     state: "idle" | "in_flight",
@@ -8107,7 +8161,7 @@ type Dependencies = Readonly<{
   ) => boolean;
   recoveryCommands: (
     record: AuthenticationRecoveryRecord,
-    plan: ClaudeAuthenticationPlan,
+    plan: ProviderAuthenticationPlan,
     index: number,
   ) => Readonly<{
     ownershipCommand: Command;
@@ -8118,20 +8172,22 @@ type Dependencies = Readonly<{
 }>;
 
 /**
- * Claude再認証の耐久回復記録を表す。
+ * Provider認証の耐久回復記録を表す。
  *
  * @responsibility exact Recovery Identity、資源集合およびCommand状態の値境界を所有する。
  * @trace ARCH-000010
  * @trace ARCH-000015
- * @shape revision 3の固定識別子、状態、五資源の実IDおよび記録Pathからなる読取り専用値である。
+ * @shape revision 1の固定識別子、状態、操作別資源の実IDおよび記録Pathからなる読取り専用値である。
  * @invariant 秘密値、CredentialおよびProvider生出力を含まない。
  * @boundary 再認証LifecycleとOS管理Recovery Storeの境界。
  * @security 回復に必要な最小Identityだけを耐久化する。
  * @compatibility 旧revisionは自動清掃せず停止する。移行はフロントAIの確認手順で扱う。
  */
 export type AuthenticationRecoveryRecord = Readonly<{
-  contract: "crdd-coordinator/claude-subscription-authentication-recovery";
-  contractRevision: 3;
+  contract: "crdd-coordinator/provider-authentication-recovery";
+  contractRevision: 1;
+  provider: "codex" | "claude";
+  action: "status" | "login";
   recoveryId: string;
   stableLogicalHomeBindingHash: string;
   suffix: string;
@@ -8149,7 +8205,7 @@ export type AuthenticationRecoveryRecord = Readonly<{
 }>;
 
 /**
- * Claude再認証の耐久回復記録を構築する。
+ * Provider認証の耐久回復記録を構築する。
  *
  * @responsibility 検証済みProvider Home Identityと固定Docker Planを、秘密値を含まないexact Recovery Identityへ結合する。
  * @trace ARCH-000004
@@ -8157,25 +8213,35 @@ export type AuthenticationRecoveryRecord = Readonly<{
  * @trace ARCH-000015
  * @input providerHomeSourcePath: 選択Userの専用Provider Home、stableLogicalHomeBindingHash: 安定Identity、plan: 固定Docker Plan
  * @returns 妥当な入力ではactive回復記録、不正入力ではnullを返す。
- * @precondition Provider HomeはOS管理Runtime Root直下のProviderHomes/claudeである。
- * @postcondition 記録はRecovery ID、所有Labelおよび5資源名を含み、PathまたはCredentialを永続Payloadへ含めない。
+ * @precondition Provider HomeはOS管理Runtime Root直下のProviderHomes/<provider>である。
+ * @postcondition 記録はRecovery ID、所有Labelおよび操作別資源名を含み、PathまたはCredentialを永続Payloadへ含めない。
  * @effect N/A: 回復記録の値を構築するだけでFilesystemへ書き込まない。
  * @failure IdentityまたはProvider Home境界が不正な場合はnullへ閉じる。
  * @invariant 同じLogical Provider Home IdentityとPlanから同じRecovery IDと資源集合を導く。
- * @boundary OS管理Runtime Root内のClaude再認証回復Storeとの値境界。
+ * @boundary OS管理Runtime Root内のProvider認証回復Storeとの値境界。
  * @security Path、Credential、SecretまたはProvider生出力を耐久Payloadへ含めない。
  * @concurrency N/A: 共有状態を変更しない同期値構築である。
  */
-export function createClaudeSubscriptionAuthenticationRecoveryRecord(
+export function createProviderAuthenticationRecoveryRecord(
   providerHomeSourcePath: string,
   stableLogicalHomeBindingHash: string,
-  plan: ClaudeAuthenticationPlan,
+  plan: ProviderAuthenticationPlan,
 ): AuthenticationRecoveryRecord | null {
   if (
+    !authenticationTechnicalPlans.has(plan) ||
     !/^[a-f0-9]{64}$/u.test(stableLogicalHomeBindingHash) ||
-    path.win32.basename(providerHomeSourcePath).toLowerCase() !== "claude" ||
+    path.win32.basename(providerHomeSourcePath).toLowerCase() !==
+      plan.provider ||
     path.win32.basename(path.win32.dirname(providerHomeSourcePath)) !==
       "ProviderHomes"
+  )
+    return null;
+  const suffix = stableLogicalHomeBindingHash.slice(0, 16);
+  const resources = authenticationResources(plan.provider, plan.action, suffix);
+  if (
+    plan.ownershipLabel !== `crdd.coordinator.authentication=${suffix}` ||
+    plan.absenceCommands.map((command) => command.argv.at(-1)).join("\0") !==
+      resources.map((resource) => resource.name).join("\0")
   )
     return null;
   const runtimeRoot = path.win32.dirname(
@@ -8184,53 +8250,23 @@ export function createClaudeSubscriptionAuthenticationRecoveryRecord(
   const recordPath = path.win32.join(
     runtimeRoot,
     "Recovery",
-    "claude-subscription-authentication",
-    `${stableLogicalHomeBindingHash}.json`,
+    "provider-authentication",
+    `${plan.provider}.${stableLogicalHomeBindingHash}.json`,
   );
   return Object.freeze({
-    contract: "crdd-coordinator/claude-subscription-authentication-recovery",
-    contractRevision: 3,
-    recoveryId: `claude-auth.${stableLogicalHomeBindingHash}`,
+    contract: "crdd-coordinator/provider-authentication-recovery",
+    contractRevision: 1,
+    provider: plan.provider,
+    action: plan.action,
+    recoveryId: `provider-auth.${plan.provider}.${plan.action}.${stableLogicalHomeBindingHash}`,
     stableLogicalHomeBindingHash,
-    suffix: plan.internalNetworkName.slice("crdd-internal-".length),
+    suffix: plan.ownershipLabel.slice(plan.ownershipLabel.indexOf("=") + 1),
     ownershipLabel: plan.ownershipLabel,
     state: "active",
     commandState: "idle",
     commandPurpose: null,
-    resourceNames: Object.freeze([
-      plan.probeContainerName,
-      plan.loginContainerName,
-      plan.proxyContainerName,
-      plan.internalNetworkName,
-      plan.egressNetworkName,
-    ]),
-    resources: Object.freeze([
-      Object.freeze({
-        kind: "container" as const,
-        name: plan.probeContainerName,
-        dockerId: null,
-      }),
-      Object.freeze({
-        kind: "container" as const,
-        name: plan.loginContainerName,
-        dockerId: null,
-      }),
-      Object.freeze({
-        kind: "container" as const,
-        name: plan.proxyContainerName,
-        dockerId: null,
-      }),
-      Object.freeze({
-        kind: "network" as const,
-        name: plan.internalNetworkName,
-        dockerId: null,
-      }),
-      Object.freeze({
-        kind: "network" as const,
-        name: plan.egressNetworkName,
-        dockerId: null,
-      }),
-    ]),
+    resourceNames: Object.freeze(resources.map((resource) => resource.name)),
+    resources,
     recordPath,
   });
 }
@@ -8238,7 +8274,7 @@ export function createClaudeSubscriptionAuthenticationRecoveryRecord(
 /**
  * 保存済み回復記録が期待するIdentityと同じか判定する。
  *
- * @responsibility 未信頼JSONをrevision 3のexact Recovery Recordへ照合する。
+ * @responsibility 未信頼JSONをrevision 1のexact Recovery Recordへ照合する。
  * @trace ARCH-000010
  * @trace ARCH-000015
  * @input value: 未信頼の保存値、expected: 現在の期待回復記録
@@ -8258,6 +8294,11 @@ function sameRecoveryRecord(
 ) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const record = value as Record<string, unknown>;
+  if (
+    Object.keys(record).sort().join(",") !==
+    "action,commandPurpose,commandState,contract,contractRevision,ownershipLabel,provider,recoveryId,resourceNames,resources,stableLogicalHomeBindingHash,state,suffix"
+  )
+    return false;
   const isCommandStateValid =
     (record.commandState === "idle" && record.commandPurpose === null) ||
     (record.commandState === "in_flight" &&
@@ -8266,6 +8307,8 @@ function sameRecoveryRecord(
   return (
     record.contract === expected.contract &&
     record.contractRevision === expected.contractRevision &&
+    record.provider === expected.provider &&
+    record.action === expected.action &&
     record.recoveryId === expected.recoveryId &&
     record.stableLogicalHomeBindingHash ===
       expected.stableLogicalHomeBindingHash &&
@@ -8299,7 +8342,7 @@ function sameRecoveryRecord(
 }
 
 /**
- * Claude再認証の耐久回復Lifecycleを開始または再入場する。
+ * Provider認証の耐久回復Lifecycleを開始または再入場する。
  *
  * @responsibility active IntentをDocker Effect前に排他的に公開し、既存activeとsettled再利用を区別する。
  * @trace ARCH-000004
@@ -8316,61 +8359,80 @@ function sameRecoveryRecord(
  * @security 秘密値を記録せず、検証済み記録Path以外へ書き込まない。
  * @concurrency Kernel Lockを保持する単一Writerだけが状態を遷移させる。
  */
-export function beginClaudeSubscriptionAuthenticationRecovery(
+export function beginProviderAuthenticationRecovery(
   record: AuthenticationRecoveryRecord,
-) {
+): ReturnType<Dependencies["beginRecovery"]> {
   try {
     const temporary = `${record.recordPath}.pending`;
-    if (fs.existsSync(record.recordPath)) {
-      const existing = JSON.parse(
-        fs.readFileSync(record.recordPath, "utf8"),
-      ) as unknown;
-      if (!sameRecoveryRecord(existing, record)) return "unknown";
-      if ((existing as Record<string, unknown>).state === "active")
-        return (existing as Record<string, unknown>).commandState ===
-          "in_flight"
+    const previous = fs.existsSync(record.recordPath)
+      ? fs.readFileSync(record.recordPath, "utf8")
+      : null;
+    if (previous !== null) {
+      const existing = JSON.parse(previous) as Record<string, unknown>;
+      const action = existing.action;
+      if (action !== "status" && action !== "login") return "unknown";
+      const resources = authenticationResources(
+        record.provider,
+        action,
+        record.suffix,
+      );
+      const expected: AuthenticationRecoveryRecord = {
+        ...record,
+        action,
+        recoveryId: `provider-auth.${record.provider}.${action}.${record.stableLogicalHomeBindingHash}`,
+        resources,
+        resourceNames: resources.map((resource) => resource.name),
+      };
+      if (!sameRecoveryRecord(existing, expected)) return "unknown";
+      if (existing.state === "active") {
+        if (action !== record.action)
+          return Object.freeze({
+            status: "prior_action_active",
+            recoveryId: expected.recoveryId,
+          });
+        return existing.commandState === "in_flight"
           ? "existing_in_flight"
           : "existing_idle";
-      fs.writeFileSync(
-        record.recordPath,
-        `${JSON.stringify({ ...record, recordPath: undefined, state: "active", commandState: "idle", commandPurpose: null })}\n`,
-        { encoding: "utf8", flush: true },
-      );
-      return "created";
+      }
+      if (existing.commandState !== "idle") return "unknown";
     }
     fs.mkdirSync(path.win32.dirname(record.recordPath), { recursive: true });
+    const payload = `${JSON.stringify({
+      ...record,
+      recordPath: undefined,
+      state: "active",
+      commandState: "idle",
+      commandPurpose: null,
+    })}\n`;
+    let recoveredPending = false;
     if (fs.existsSync(temporary)) {
-      const pending = JSON.parse(fs.readFileSync(temporary, "utf8")) as unknown;
-      if (!sameRecoveryRecord(pending, record)) return "unknown";
-      fs.renameSync(temporary, record.recordPath);
-      return "existing_idle";
+      const pending = fs.readFileSync(temporary, "utf8");
+      // Pendingは未発行Intentだけ。Receiptやin-flightを新規実行へ読み替えない。
+      if (pending !== payload) return "unknown";
+      recoveredPending = true;
+    } else {
+      fs.writeFileSync(temporary, payload, {
+        encoding: "utf8",
+        flag: "wx",
+        mode: 0o600,
+        flush: true,
+      });
     }
-    fs.writeFileSync(
-      temporary,
-      `${JSON.stringify({
-        contract: record.contract,
-        contractRevision: record.contractRevision,
-        recoveryId: record.recoveryId,
-        stableLogicalHomeBindingHash: record.stableLogicalHomeBindingHash,
-        suffix: record.suffix,
-        ownershipLabel: record.ownershipLabel,
-        state: "active",
-        commandState: "idle",
-        commandPurpose: null,
-        resourceNames: record.resourceNames,
-        resources: record.resources,
-      })}\n`,
-      { encoding: "utf8", flag: "wx", flush: true },
-    );
+    const current = fs.existsSync(record.recordPath)
+      ? fs.readFileSync(record.recordPath, "utf8")
+      : null;
+    if (current !== previous) return "unknown";
     fs.renameSync(temporary, record.recordPath);
-    return "created";
+    if (fs.readFileSync(record.recordPath, "utf8") !== payload)
+      return "unknown";
+    // 正本不在から回復したpendingは、過去のEffect不存在を推定しない。
+    return recoveredPending && previous === null ? "existing_idle" : "created";
   } catch {
     return "unknown";
   }
 }
-
 /**
- * Claude再認証Commandの耐久実行状態を更新する。
+ * Provider認証Commandの耐久実行状態を更新する。
  *
  * @responsibility Docker Effect前のin-flight Intentと子Process close後のidle settlementを同じRecovery IDへ耐久化する。
  * @trace ARCH-000004
@@ -8388,7 +8450,7 @@ export function beginClaudeSubscriptionAuthenticationRecovery(
  * @security 固定Command用途だけを記録し、argv、Path、CredentialまたはProvider出力を記録しない。
  * @concurrency Kernel Lockを保持する単一WriterだけがCommand状態を更新する。
  */
-export function setClaudeSubscriptionAuthenticationRecoveryCommandState(
+export function setProviderAuthenticationRecoveryCommandState(
   record: AuthenticationRecoveryRecord,
   state: "idle" | "in_flight",
   purpose: string | null,
@@ -8453,7 +8515,7 @@ export function setClaudeSubscriptionAuthenticationRecoveryCommandState(
  * @security 秘密値・生出力・Host Pathを保存しない。
  * @concurrency 同じHome Lockを保持する単一Writerで処置する。
  */
-export function recordClaudeSubscriptionAuthenticationResource(
+export function recordProviderAuthenticationResource(
   record: AuthenticationRecoveryRecord,
   name: string,
   dockerId: string,
@@ -8514,7 +8576,7 @@ export function recordClaudeSubscriptionAuthenticationResource(
  * @trace ARCH-000010
  * @trace ARCH-000015
  * @input record: 元回復相関。
- * @returns 妥当な五資源Receipt、または観測不能null。
+ * @returns 操作に対応する資源Receipt、または観測不能null。
  * @precondition 認可・Home Lockは上位が確認する。
  * @postcondition 永続記録を変更しない。
  * @effect 既存記録を同期読取る。
@@ -8524,7 +8586,7 @@ export function recordClaudeSubscriptionAuthenticationResource(
  * @security PathやCredentialを結果へ含めない。
  * @concurrency 同じHome Lock生存中に再観測する。
  */
-export function readClaudeSubscriptionAuthenticationResources(
+export function readProviderAuthenticationResources(
   record: AuthenticationRecoveryRecord,
 ) {
   try {
@@ -8542,7 +8604,7 @@ export function readClaudeSubscriptionAuthenticationResources(
 }
 
 /**
- * Claude再認証の耐久回復Lifecycleをsettledへ閉じる。
+ * Provider認証の耐久回復Lifecycleをsettledへ閉じる。
  *
  * @responsibility exact記録を削除せずsettledへ遷移させ、Lock解放不明でもRecovery Identityを保持する。
  * @trace ARCH-000004
@@ -8559,7 +8621,7 @@ export function readClaudeSubscriptionAuthenticationResources(
  * @security 秘密値を追加せず、既存exact記録以外を変更しない。
  * @concurrency Kernel Lockを保持する単一Writerだけが状態を遷移させる。
  */
-export function settleClaudeSubscriptionAuthenticationRecovery(
+export function settleProviderAuthenticationRecovery(
   record: AuthenticationRecoveryRecord,
 ) {
   try {
@@ -8587,7 +8649,7 @@ export function settleClaudeSubscriptionAuthenticationRecovery(
 }
 
 /**
- * 本番Claude再認証Lifecycleの外部境界を構成する。
+ * 本番Provider認証Lifecycleの外部境界を構成する。
  *
  * @responsibility 下位の固定認証Runtime、Kernel LockおよびRecovery Storeを結合する。
  * @trace ARCH-000010
@@ -8603,24 +8665,23 @@ export function settleClaudeSubscriptionAuthenticationRecovery(
  * @security 固定Environmentと検証済み実行ファイルだけを使用する。
  * @concurrency 同じLogical Provider HomeはKernel Lockで直列化する。
  */
-export function createClaudeSubscriptionAuthenticationDependencies(): Dependencies {
+export function createProviderAuthenticationDependencies(): Dependencies {
   const createRuntime = createDockerAuthenticationRuntimeFactory();
   let processUnsettled = false;
   const runtimes = new WeakMap<
-    ClaudeAuthenticationPlan,
+    ProviderAuthenticationPlan,
     ReturnType<typeof createRuntime>
   >();
   return Object.freeze({
     randomHex: (bytes) => randomBytes(bytes).toString("hex"),
     acquireProviderHomeLock: acquireRuntimeOwnedLogicalProviderHomeKernelLock,
-    beginRecovery: beginClaudeSubscriptionAuthenticationRecovery,
-    setRecoveryCommandState:
-      setClaudeSubscriptionAuthenticationRecoveryCommandState,
-    completeRecovery: settleClaudeSubscriptionAuthenticationRecovery,
+    beginRecovery: beginProviderAuthenticationRecovery,
+    setRecoveryCommandState: setProviderAuthenticationRecoveryCommandState,
+    completeRecovery: settleProviderAuthenticationRecovery,
     recordCreatedResource: (record, result) =>
       result.resourceCreationConfirmed === true &&
       result.resourceReceipt !== undefined &&
-      recordClaudeSubscriptionAuthenticationResource(
+      recordProviderAuthenticationResource(
         record,
         result.resourceReceipt.name,
         result.resourceReceipt.dockerId,
@@ -8628,7 +8689,7 @@ export function createClaudeSubscriptionAuthenticationDependencies(): Dependenci
     isProcessCompletionConfirmed: () => !processUnsettled,
     recoveryCommands: (record, plan, index) => {
       const technicalPlan = authenticationTechnicalPlans.get(plan);
-      const receipts = readClaudeSubscriptionAuthenticationResources(record);
+      const receipts = readProviderAuthenticationResources(record);
       const receipt = receipts?.[index];
       const absenceCommand = plan.absenceCommands[index];
       if (!technicalPlan || !receipt || !absenceCommand) return null;
@@ -8672,7 +8733,7 @@ export function createClaudeSubscriptionAuthenticationDependencies(): Dependenci
 }
 
 /**
- * Claude再認証の固定Docker Planを構築する。
+ * Provider認証の固定Docker Planを構築する。
  *
  * @responsibility 認証Effectを固定Image、限定Egressおよび専用Provider Homeだけへ制限する。
  * @trace ARCH-000010
@@ -8682,75 +8743,115 @@ export function createClaudeSubscriptionAuthenticationDependencies(): Dependenci
  * @postcondition PlanにRepository mount、host network、API keyまたは任意Commandを含めない。
  * @effect N/A: Plan生成だけを行う。
  * @failure 不正Path、suffixまたは固定配布契約の不一致をnullへ閉じる。
- * @invariant Claude Maxの公式CLI認証とnetwork-noneの事後Probeだけを許可する。
+ * @invariant 選択Providerの公式CLI認証とnetwork-noneの事後Probeだけを許可する。
  * @boundary Host Docker CLIへ渡す引数の生成境界。
  * @security Provider Home Pathを結果以外へ公開せず、秘密値を読まない。
  * @concurrency 同じLogical Provider Homeは安定suffixとKernel Lockで単一Lifecycleへ直列化する。
  */
-export function createClaudeSubscriptionAuthenticationPlan(
+export function createProviderAuthenticationPlan<A extends "status" | "login">(
+  provider: Provider,
+  action: A,
   providerHomeSourcePath: string,
   suffix: string,
-  proxyToken: string,
-): ClaudeAuthenticationPlan | null {
+  proxyToken: A extends "login" ? string : null,
+): ProviderAuthenticationPlan<A> | null {
   if (
+    (provider !== "codex" && provider !== "claude") ||
+    (action !== "status" && action !== "login") ||
     !/^[a-f0-9]{16}$/u.test(suffix) ||
+    typeof providerHomeSourcePath !== "string" ||
     providerHomeSourcePath.length === 0 ||
     /[\0\r\n,]/u.test(providerHomeSourcePath) ||
-    !/^[a-f0-9]{64}$/u.test(proxyToken)
+    (action === "login"
+      ? typeof proxyToken !== "string" || !/^[a-f0-9]{64}$/u.test(proxyToken)
+      : proxyToken !== null)
   )
     return null;
-
-  const authenticationCli = describeProviderAuthentication("claude");
-  const egress = describeDockerProxyTopology("claude");
+  const cli = describeProviderAuthentication(provider);
+  const locations = describeDockerProviderExecutionLocations(provider, "probe");
+  const environment = Object.freeze({
+    ...("environment" in cli ? cli.environment : {}),
+    ...("homeEnvironmentVariable" in cli
+      ? { [cli.homeEnvironmentVariable]: locations.providerHomeDirectory }
+      : {}),
+  });
   const providerImageDigest =
-    describeDockerProviderAssets("claude").fixedImageDigest;
+    describeDockerProviderAssets(provider).fixedImageDigest;
+  const probeContainerName = `crdd-auth-${suffix}`;
+  const ownershipLabel = `crdd.coordinator.authentication=${suffix}`;
+  const common = {
+    provider,
+    action,
+    providerHomeSourcePath,
+    providerImageDigest,
+    ownershipLabel,
+    probeContainerName,
+  };
+  if (!/^sha256:[a-f0-9]{64}$/u.test(providerImageDigest)) return null;
+  if (action === "status") {
+    const technicalPlan = planDockerAuthenticationCommands({
+      action: "status",
+      providerHomeSourcePath,
+      providerImageDigest,
+      ownershipLabel,
+      probeContainerName,
+      authenticationCli: { statusArgv: cli.statusArgv, environment },
+    });
+    const plan = Object.freeze({
+      ...common,
+      commands: technicalPlan.commands,
+      ownershipCommands: technicalPlan.ownershipCommands,
+      cleanupCommands: technicalPlan.cleanupCommands,
+      absenceCommands: technicalPlan.absenceCommands,
+    }) as ProviderAuthenticationPlan<A>;
+    authenticationTechnicalPlans.set(plan, technicalPlan);
+    return plan;
+  }
+  const egress = describeDockerProxyTopology(provider);
   const proxyImageDigest = egress.imageDigest;
   if (
-    !/^sha256:[a-f0-9]{64}$/u.test(providerImageDigest) ||
     !/^sha256:[a-f0-9]{64}$/u.test(proxyImageDigest) ||
     egress.providerNetworkInternal !== true ||
-    egress.providerDirectExternalNetwork !== false
+    egress.providerDirectExternalNetwork !== false ||
+    typeof proxyToken !== "string"
   )
     return null;
   const internalNetworkName = `crdd-internal-${suffix}`;
   const egressNetworkName = `crdd-egress-${suffix}`;
   const proxyContainerName = `crdd-proxy-${suffix}`;
-  const loginContainerName = `crdd-claude-${suffix}`;
-  const probeContainerName = `crdd-auth-${suffix}`;
-  const ownershipLabel = `crdd.coordinator.authentication=${suffix}`;
+  const loginContainerName = `crdd-${provider}-${suffix}`;
   const technicalPlan = planDockerAuthenticationCommands({
+    action: "login",
     providerHomeSourcePath,
     providerImageDigest,
     proxyImageDigest,
     ownershipLabel,
+    probeContainerName,
     internalNetworkName,
     egressNetworkName,
     proxyContainerName,
     loginContainerName,
-    probeContainerName,
     proxyToken,
     proxyPort: egress.containerPort,
-    proxyProfile: "claude",
-    authenticationCli,
+    proxyProfile: provider,
+    authenticationCli: {
+      loginArgv: cli.loginArgv,
+      statusArgv: cli.statusArgv,
+      environment,
+    },
   });
-  const { commands, ownershipCommands, cleanupCommands, absenceCommands } =
-    technicalPlan;
-  const plan: ClaudeAuthenticationPlan = Object.freeze({
-    provider: "claude",
-    providerHomeSourcePath,
-    providerImageDigest,
+  const plan = Object.freeze({
+    ...common,
     proxyImageDigest,
-    ownershipLabel,
     internalNetworkName,
     egressNetworkName,
     proxyContainerName,
     loginContainerName,
-    probeContainerName,
-    commands,
-    ownershipCommands,
-    cleanupCommands,
-    absenceCommands,
-  });
+    commands: technicalPlan.commands,
+    ownershipCommands: technicalPlan.ownershipCommands,
+    cleanupCommands: technicalPlan.cleanupCommands,
+    absenceCommands: technicalPlan.absenceCommands,
+  }) as ProviderAuthenticationPlan<A>;
   authenticationTechnicalPlans.set(plan, technicalPlan);
   return plan;
 }
@@ -8817,7 +8918,7 @@ function explicitDockerAbsence(command: Command, result: Execution) {
 }
 
 /**
- * Claude再認証が所有するDocker資源を確認付きで清掃する。
+ * Provider認証が所有するDocker資源を確認付きで清掃する。
  *
  * @responsibility 所有権確認、対象限定削除、最終不存在観測およびAuthority生存確認を順序付ける。
  * @trace ARCH-000010
@@ -8834,7 +8935,7 @@ function explicitDockerAbsence(command: Command, result: Execution) {
  * @concurrency Kernel Lockが生存する単一Lifecycleだけが清掃する。
  */
 async function cleanAuthenticationResources(
-  plan: ClaudeAuthenticationPlan,
+  plan: ProviderAuthenticationPlan,
   dependencies: Dependencies,
   authorityLive: () => boolean,
   recovery: AuthenticationRecoveryRecord,
@@ -8860,7 +8961,7 @@ async function cleanAuthenticationResources(
    */
   async function execute(command: Command) {
     if (!authorityLive() || !recordingConfirmed || !processCompletionConfirmed)
-      throw new Error("claude_authentication_cleanup_stopped");
+      throw new Error("provider_authentication_cleanup_stopped");
     if (
       !dependencies.setRecoveryCommandState(
         recovery,
@@ -8869,26 +8970,26 @@ async function cleanAuthenticationResources(
       )
     ) {
       recordingConfirmed = false;
-      throw new Error("claude_authentication_cleanup_intent_unconfirmed");
+      throw new Error("provider_authentication_cleanup_intent_unconfirmed");
     }
     let result: Execution;
     try {
       result = await dependencies.run(command, authorityLive, plan);
     } catch {
       processCompletionConfirmed = false;
-      throw new Error("claude_authentication_process_completion_unconfirmed");
+      throw new Error("provider_authentication_process_completion_unconfirmed");
     }
     if (result.processCompletionConfirmed === false) {
       processCompletionConfirmed = false;
-      throw new Error("claude_authentication_process_completion_unconfirmed");
+      throw new Error("provider_authentication_process_completion_unconfirmed");
     }
     if (!authorityLive()) {
       recordingConfirmed = false;
-      throw new Error("claude_authentication_cleanup_permit_lost");
+      throw new Error("provider_authentication_cleanup_permit_lost");
     }
     if (!dependencies.setRecoveryCommandState(recovery, "idle", null)) {
       recordingConfirmed = false;
-      throw new Error("claude_authentication_cleanup_settlement_unconfirmed");
+      throw new Error("provider_authentication_cleanup_settlement_unconfirmed");
     }
     return result;
   }
@@ -8962,34 +9063,62 @@ async function cleanAuthenticationResources(
 }
 
 /**
- * Claude専用Provider Homeを人手で再認証する。
+ * 専用Provider Homeで状態確認または公式対話認証を実行する。
  *
  * @responsibility Planの順序実行、対話境界、事後認証確認およびexact cleanupを所有する。
  * @trace ARCH-000010
  * @input providerHomeSourcePath: 検証済み専用Provider Home、stableLogicalHomeBindingHash: Provider Homeの安定Identity、dependencies: Test差替え可能なProcess境界
  * @returns 秘密値や生Provider出力を含まない固定結果を返す。
- * @precondition 呼出し元が署名済み配布と対話端末を確認済みである。
- * @postcondition 成功はClaude Max認証確認と全Docker資源cleanup確認の両方を必要とする。
+ * @precondition 選択実行物の同一性を確認し、loginでは呼出し元が対話端末を確保する。
+ * @postcondition 認証観測と操作別資源cleanupを別の事実として返し、観測不能を未認証へ丸めない。
  * @effect Docker Process、Networkおよび専用Provider HomeのOAuth credentialを変更する。
  * @failure 任意段階の失敗を自動再試行せず、cleanup結果付きでblockedへ閉じる。
  * @invariant Repository、Workspace、host credentialおよびAPI keyを接続しない。
- * @boundary 人間端末、Docker Engine、限定Proxy、Claude認証Endpointの外部境界。
+ * @boundary 人間端末、Docker Engine、限定Proxy、選択Provider認証Endpointの外部境界。
  * @security OAuth対話はTTYへ直接接続し、生出力、token、URLまたはPathを結果へ保存しない。
  * @concurrency Docker資源をOperation固有suffixで分離し、終了時にexact nameだけを清掃する。
  */
-export async function authenticateClaudeSubscription(
+export async function authenticateProvider(
+  provider: Provider,
+  action: "status" | "login",
   providerHomeSourcePath: string,
   stableLogicalHomeBindingHash: string,
   dependencies?: Dependencies,
+  signal?: AbortSignal,
 ) {
+  if (
+    (provider !== "codex" && provider !== "claude") ||
+    (action !== "status" && action !== "login")
+  )
+    return Object.freeze({
+      status: "blocked",
+      reason: "provider_authentication_input_invalid",
+      cleanupConfirmed: true,
+      providerEffectIssued: false,
+    });
+  const cancellation = readProviderAuthenticationCancellation(signal);
+  if (cancellation === null)
+    return Object.freeze({
+      status: "blocked",
+      reason: "provider_authentication_signal_invalid",
+      cleanupConfirmed: true,
+      providerEffectIssued: false,
+    });
+  if (cancellation)
+    return Object.freeze({
+      status: "blocked",
+      reason: "provider_authentication_cancelled",
+      cleanupConfirmed: true,
+      providerEffectIssued: false,
+    });
   let activeDependencies: Dependencies;
   try {
     activeDependencies =
-      dependencies ?? createClaudeSubscriptionAuthenticationDependencies();
+      dependencies ?? createProviderAuthenticationDependencies();
   } catch {
     return Object.freeze({
       status: "blocked",
-      reason: "claude_authentication_docker_boundary_unavailable",
+      reason: "provider_authentication_docker_boundary_unavailable",
       cleanupConfirmed: true,
       providerEffectIssued: false,
     });
@@ -8997,7 +9126,7 @@ export async function authenticateClaudeSubscription(
   if (!/^[a-f0-9]{64}$/u.test(stableLogicalHomeBindingHash))
     return Object.freeze({
       status: "blocked",
-      reason: "claude_authentication_provider_home_identity_invalid",
+      reason: "provider_authentication_provider_home_identity_invalid",
       cleanupConfirmed: true,
       providerEffectIssued: false,
     });
@@ -9007,39 +9136,67 @@ export async function authenticateClaudeSubscription(
   if (!providerHomeLock)
     return Object.freeze({
       status: "blocked",
-      reason: "claude_authentication_provider_home_active_or_unknown",
+      reason: "provider_authentication_provider_home_active_or_unknown",
       cleanupConfirmed: true,
       providerEffectIssued: false,
     });
   const suffix = stableLogicalHomeBindingHash.slice(0, 16);
-  const proxyToken = activeDependencies.randomHex(32);
-  const plan = createClaudeSubscriptionAuthenticationPlan(
-    providerHomeSourcePath,
-    suffix,
-    proxyToken,
-  );
-  const recovery = plan
-    ? createClaudeSubscriptionAuthenticationRecoveryRecord(
-        providerHomeSourcePath,
-        stableLogicalHomeBindingHash,
-        plan,
-      )
-    : null;
-  if (!plan || !recovery) {
-    const lockReleased = providerHomeLock.release();
+  let plan: ProviderAuthenticationPlan | null = null;
+  let recovery: AuthenticationRecoveryRecord | null = null;
+  try {
+    const proxyToken =
+      action === "login" ? activeDependencies.randomHex(32) : null;
+    plan = createProviderAuthenticationPlan(
+      provider,
+      action,
+      providerHomeSourcePath,
+      suffix,
+      proxyToken,
+    );
+    recovery = plan
+      ? createProviderAuthenticationRecoveryRecord(
+          providerHomeSourcePath,
+          stableLogicalHomeBindingHash,
+          plan,
+        )
+      : null;
+    if (!plan || !recovery) throw Error("provider_authentication_plan_invalid");
+  } catch {
+    let lockReleased = false;
+    try {
+      lockReleased = providerHomeLock.release();
+    } catch {
+      /* 解放不明を成功へ変換しない。 */
+    }
     return Object.freeze({
       status: "blocked",
-      reason: "claude_authentication_plan_invalid",
+      reason: "provider_authentication_plan_invalid",
       cleanupConfirmed: lockReleased,
       providerEffectIssued: false,
+      manualRecoveryRequired: !lockReleased,
+      processRestartRequired: !lockReleased,
     });
   }
-  let recoveryState = activeDependencies.beginRecovery(recovery);
+  let recoveryState = providerHomeLock.assertLive()
+    ? activeDependencies.beginRecovery(recovery)
+    : ("unknown" as const);
+  if (typeof recoveryState === "object") {
+    providerHomeLock.release();
+    return Object.freeze({
+      status: "blocked",
+      reason: "provider_authentication_prior_action_active",
+      cleanupConfirmed: false,
+      providerEffectIssued: false,
+      recoveryId: recoveryState.recoveryId,
+      manualRecoveryRequired: true,
+      effectStateUnknown: true,
+    });
+  }
   if (recoveryState === "unknown") {
     providerHomeLock.release();
     return Object.freeze({
       status: "blocked",
-      reason: "claude_authentication_recovery_inventory_unknown",
+      reason: "provider_authentication_recovery_inventory_unknown",
       cleanupConfirmed: false,
       providerEffectIssued: false,
       recoveryId: recovery.recoveryId,
@@ -9051,7 +9208,7 @@ export async function authenticateClaudeSubscription(
     providerHomeLock.release();
     return Object.freeze({
       status: "blocked",
-      reason: "claude_authentication_prior_command_in_flight",
+      reason: "provider_authentication_prior_command_in_flight",
       cleanupConfirmed: false,
       providerEffectIssued: false,
       recoveryId: recovery.recoveryId,
@@ -9074,7 +9231,7 @@ export async function authenticateClaudeSubscription(
         providerHomeLock.release();
       return Object.freeze({
         status: "blocked",
-        reason: "claude_authentication_recovery_unconfirmed",
+        reason: "provider_authentication_recovery_unconfirmed",
         cleanupConfirmed: false,
         providerEffectIssued: false,
         recoveryId: recovery.recoveryId,
@@ -9087,7 +9244,7 @@ export async function authenticateClaudeSubscription(
       providerHomeLock.release();
       return Object.freeze({
         status: "blocked",
-        reason: "claude_authentication_recovery_reentry_failed",
+        reason: "provider_authentication_recovery_reentry_failed",
         cleanupConfirmed: false,
         providerEffectIssued: false,
         recoveryId: recovery.recoveryId,
@@ -9096,14 +9253,19 @@ export async function authenticateClaudeSubscription(
       });
     }
   }
-  let reason = "claude_subscription_authentication_completed";
+  let reason = "provider_authentication_completed";
+  let authenticationStatus: "confirmed" | "unconfirmed" | "unknown" = "unknown";
   let authenticationConfirmed = false;
   let providerEffectIssued = false;
   let processCompletionUnknown = false;
   try {
     for (const command of plan.commands) {
+      if (readProviderAuthenticationCancellation(signal) !== false) {
+        reason = "provider_authentication_cancelled";
+        break;
+      }
       if (!providerHomeLock.assertLive()) {
-        reason = "claude_authentication_provider_home_lock_lost";
+        reason = "provider_authentication_provider_home_lock_lost";
         break;
       }
       if (
@@ -9113,60 +9275,72 @@ export async function authenticateClaudeSubscription(
           command.purpose,
         )
       ) {
-        reason = "claude_authentication_command_intent_unconfirmed";
+        reason = "provider_authentication_command_intent_unconfirmed";
         break;
       }
-      const result = await activeDependencies.run(
-        command,
-        providerHomeLock.assertLive,
-        plan,
-      );
       providerEffectIssued = true;
+      let result: Execution;
+      try {
+        result = await activeDependencies.run(
+          command,
+          () =>
+            readProviderAuthenticationCancellation(signal) === false &&
+            providerHomeLock.assertLive(),
+          plan,
+        );
+      } catch {
+        processCompletionUnknown = true;
+        reason = "provider_authentication_process_completion_unconfirmed";
+        break;
+      }
       if (result.processCompletionConfirmed === false) {
         processCompletionUnknown = true;
-        reason = "claude_authentication_process_completion_unconfirmed";
+        reason = "provider_authentication_process_completion_unconfirmed";
         break;
       }
       if (!providerHomeLock.assertLive()) {
-        reason = "claude_authentication_provider_home_lock_lost";
+        reason = "provider_authentication_provider_home_lock_lost";
         break;
       }
       if (
         command.purpose.startsWith("create_") &&
         !activeDependencies.recordCreatedResource(recovery, result)
       ) {
-        reason = "claude_authentication_resource_receipt_unconfirmed";
+        reason = "provider_authentication_resource_receipt_unconfirmed";
         break;
       }
       if (!activeDependencies.setRecoveryCommandState(recovery, "idle", null)) {
-        reason = "claude_authentication_command_settlement_unconfirmed";
+        reason = "provider_authentication_command_settlement_unconfirmed";
         break;
       }
       if (result.error || result.signal !== null || result.status !== 0) {
         reason =
           result.error?.message === "provider_home_lock_lost"
-            ? "claude_authentication_provider_home_lock_lost"
-            : `claude_authentication_${command.purpose}_failed`;
+            ? "provider_authentication_provider_home_lock_lost"
+            : `provider_authentication_${command.purpose}_failed`;
         break;
       }
       if (command.purpose === "start_probe_attached") {
+        const observed = evaluateProviderAuthentication(
+          provider,
+          describeProviderAuthentication(provider).offering,
+          result.stdout,
+          result.stderr,
+          action === "login" ? "login" : "execution",
+        );
+        authenticationStatus = observed.status;
         if (
-          evaluateProviderAuthentication(
-            "claude",
-            "claude_max",
-            result.stdout,
-            "",
-            "login",
-          ).status !== "confirmed"
+          observed.status !== "confirmed" &&
+          !(action === "status" && observed.status === "unconfirmed")
         ) {
-          reason = "claude_subscription_authentication_not_confirmed";
+          reason = "provider_authentication_not_confirmed";
           break;
         }
-        authenticationConfirmed = true;
+        authenticationConfirmed = observed.status === "confirmed";
       }
     }
   } catch {
-    reason = "claude_subscription_authentication_failed_closed";
+    reason = "provider_authentication_failed_closed";
   }
   const cleanup = processCompletionUnknown
     ? { confirmed: false, processCompletionConfirmed: false }
@@ -9180,7 +9354,7 @@ export async function authenticateClaudeSubscription(
   let cleanupConfirmed = cleanup.confirmed;
   const isLockLiveAfterCleanup = providerHomeLock.assertLive();
   if (!isLockLiveAfterCleanup)
-    reason = "claude_authentication_provider_home_lock_lost";
+    reason = "provider_authentication_provider_home_lock_lost";
   if (cleanupConfirmed && isLockLiveAfterCleanup)
     cleanupConfirmed = activeDependencies.completeRecovery(recovery);
   else cleanupConfirmed = false;
@@ -9189,22 +9363,34 @@ export async function authenticateClaudeSubscription(
     (activeDependencies.isProcessCompletionConfirmed?.() ?? true) &&
     providerHomeLock.release();
   cleanupConfirmed = cleanupConfirmed && lockReleased;
+  if (
+    readProviderAuthenticationCancellation(signal) !== false &&
+    reason === "provider_authentication_completed"
+  )
+    reason = "provider_authentication_cancelled";
+  const completed =
+    readProviderAuthenticationCancellation(signal) === false &&
+    cleanupConfirmed &&
+    (authenticationConfirmed ||
+      (action === "status" && authenticationStatus === "unconfirmed"));
   return Object.freeze({
-    contract: CLAUDE_SUBSCRIPTION_AUTHENTICATION_CONTRACT,
-    contractRevision: CLAUDE_SUBSCRIPTION_AUTHENTICATION_CONTRACT_REVISION,
-    status:
-      authenticationConfirmed && cleanupConfirmed ? "completed" : "blocked",
-    reason:
-      authenticationConfirmed && cleanupConfirmed
-        ? "claude_subscription_authentication_completed"
-        : reason,
-    provider: "claude",
-    offering: "claude_max",
-    humanInteractive: true,
+    contract: PROVIDER_AUTHENTICATION_CONTRACT,
+    contractRevision: PROVIDER_AUTHENTICATION_CONTRACT_REVISION,
+    status: completed ? "completed" : "blocked",
+    reason: completed
+      ? authenticationConfirmed
+        ? "provider_authentication_confirmed"
+        : "provider_authentication_unconfirmed"
+      : reason,
+    provider,
+    action,
+    offering: describeProviderAuthentication(provider).offering,
+    humanInteractive: action === "login",
     repositoryMounted: false,
     workspaceMounted: false,
     providerEffectIssued,
     authenticationConfirmed,
+    authenticationStatus: cleanupConfirmed ? authenticationStatus : "unknown",
     cleanupConfirmed,
     recoveryId: cleanupConfirmed ? null : recovery.recoveryId,
     manualRecoveryRequired: !cleanupConfirmed,
@@ -9213,4 +9399,40 @@ export async function authenticateClaudeSubscription(
     hostPathReported: false,
     credentialReported: false,
   });
+}
+/**
+ * 認証操作が所有する固定資源集合を導く。
+ * @responsibility status一資源とlogin五資源の相関を同じOwnerへ閉じる。
+ * @trace ARCH-000010
+ * @input action: 固定操作、suffix: 検査済みHome由来hex。
+ * @returns Receipt未発行の不変資源列。
+ * @precondition actionとsuffixは閉形式検査済み。
+ * @postcondition statusにProxy・Network・loginを含めない。
+ * @effect N/A: 局所値だけ。
+ * @failure N/A: 固定集合から構築する。
+ * @invariant 同名・経過時間だけから所有を推定しない。
+ * @boundary 認証計画と耐久Identity。
+ * @security 実IDは実create結果が得られるまでnull。
+ * @concurrency 同期構築。
+ */
+function authenticationResources(
+  provider: Provider,
+  action: "status" | "login",
+  suffix: string,
+) {
+  const entries: ["container" | "network", string][] =
+    action === "status"
+      ? [["container", `crdd-auth-${suffix}`]]
+      : [
+          ["container", `crdd-auth-${suffix}`],
+          ["container", `crdd-${provider}-${suffix}`],
+          ["container", `crdd-proxy-${suffix}`],
+          ["network", `crdd-internal-${suffix}`],
+          ["network", `crdd-egress-${suffix}`],
+        ];
+  return Object.freeze(
+    entries.map(([kind, name]) =>
+      Object.freeze({ kind, name, dockerId: null }),
+    ),
+  );
 }

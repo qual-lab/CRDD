@@ -190,24 +190,34 @@ CRDDを`00_CRDD`へ配置した採用Repositoryでは、Project Rootを現在Dir
 
 対話境界を、PowerShellのtext pipeline、`ConvertTo-Json`、一時request file、長い`Start-Process ... -Command`または入れ子Shellへ再構成してはならない。Windows PowerShell 5.1とPowerShell 7ではprocess標準入力API、既定encodingおよび引数再構成が異なり、正しいTaskが実行前に壊れるためである。Release鍵生成／署名は既存のdirect TTY command、外部送信承認はRuntime所有のconsole challenge、OAuth bootstrapは公式Provider CLIと外部system browserをそれぞれ唯一の対話入口とする。対話端末を取得できない場合は別搬送へfallbackせず停止する。
 
-## Claude Max専用Provider Homeを再認証するとき
+## Providerの認証状態確認・公式対話ログイン
 
-通常Taskが`provider_subscription_auth_not_confirmed`またはClaude認証Probeの固定失敗理由で停止し、専用Provider HomeのOAuth失効を人が確認した場合だけ使用する。通常Taskから自動起動せず、選択して許可したCheckout／Packageの固定入口と必要Artifact同一性を確認してdirect TTYから実行する。CRDD署名Rootは必須にしない。旧署名API・専用Tool・Manifest設定は撤去済みである。本認証入口の実境界確認、撤去後の全体回帰・実Provider／全体E2Eは未完了であり、この手順の更新を実行可能の根拠にしない。
+選択Checkout／Packageと必要Artifactの同一性、専用Homeの現在保護を確認する。通常Taskから認証を自動起動せず、APIキーや別課金方式へfallbackしない。状態確認・ログインとも、実施前に対象Provider・操作・通信有無と試験範囲を人間へ示す。現在の実認証・固定Image確認は後続の人間試験へ保持しており、この手順から実行許可を推定しない。
+
+### 新形式へ切り替える前のフロントAI確認
+
+1. 旧`Recovery/claude-subscription-authentication`の対象記録について、既存Owner・exact Home Identityと実状態を確認する。真正不存在又は旧Ownerのsettledを確認できたものだけ新入口へ進む。
+2. active・in-flight・不明なら停止し、元回復参照を保持する。新操作から旧資源を推測清掃せず、旧記録の強制書換え・削除もしない。
+3. 保持②と歴史Evidenceは移行・清掃対象外。旧形式を新Readerへ通す互換機構は作らない。
+4. 新記録は`Recovery/provider-authentication/<provider>.<home-hash>.json`の一つだけ。操作は記録内容と回復参照に含まれ、別操作のactiveがある場合は元操作の参照で停止する。
+
+### 明示操作
+
+構文は`auth status <provider> [--json]`と`auth login <provider>`。loginに`--json`を付けると実行前に64で停止する。対話loginはProviderの端末出力と最後の固定結果を表示し、stdout全体をJSON-onlyの搬送路とは扱わない。注意文はstderrへ表示する。
 
 ```powershell
-& "<absolute-preverified-node-24.12+-executable>" "<selected-verified-checkout-root>\40_Develop\coordinator\bin\coordinator.ts" authenticate-claude
+& "<absolute-preverified-node-24.12+-executable>" "<selected-verified-checkout-root>\40_Develop\coordinator\bin\coordinator.ts" auth status codex --json
+& "<absolute-preverified-node-24.12+-executable>" "<selected-verified-checkout-root>\40_Develop\coordinator\bin\coordinator.ts" auth login claude
 ```
 
-1. 表示された公式Claude認証手順を外部system browserで完了する。
-2. PowerShellにcode貼付けを求める表示が出た場合、貼付けた文字は画面に表示されない。一度だけ貼り付けてEnterを押し、結果が出るまで再入力しない。
-3. `status: completed`、`authenticationConfirmed: true`、`cleanupConfirmed: true`を同じ結果で確認する。
-4. 認証用URL、code、tokenまたはProvider Home実Pathを記録・貼付しない。
-5. `blocked`でも`recoveryId`が返った場合は、そのIDを保持する。資源状態が不明なまま記録を手動削除・改名しない。
-6. Process loss後は同じ入口をfresh Processから一度起動する。耐久Command世代が`idle`なら、同じProvider Home Identityから同じRecovery IDを導き、旧資源のexact cleanupを認証Effectより先に行う。
-7. 耐久Command世代が`in_flight`なら、旧Docker Commandの終了を推定してcleanupまたは新規認証を行わない。同じRecovery IDと`manualRecoveryRequired: true`を保持し、Runtime運用担当者へ移送する。
-8. `blocked`、事後Probe不成立、cleanup不明または`manualRecoveryRequired: true`では自動再試行せず、固定理由を保持する。
+- Providerは`codex`又は`claude`。statusは非対話・通信なし・Home読取り専用のProbe一件で確認する。結果の`unconfirmed`と`unknown`を区別し、未知出力・非0を未認証と決めつけない。
+- loginは外部端末のstdin／stdout TTYが必要。表示された公式手順だけを完了し、認証用URL・code・token・email・Home実Path・生出力を記録又はチャットへ貼付しない。code入力が求められた場合は一度だけ入力してEnterを押し、終了まで再入力しない。
+- loginの成功は`status: completed`、`authenticationConfirmed: true`、`cleanupConfirmed: true`を同じ結果で確認する。認証成功だけから回収成功を推定しない。
+- 取消後も実行Ownerの終了と回収を待つ。blocked／unknown／cleanup不明は再試行せず、同じ回復参照を保持する。記録を手動削除・改名しない。
+- 同操作のactive／idleだけが既存のexact回収後に再入場できる。in-flight又は別操作のactiveなら新Docker Effectは発行しない。
+- settledの正常記録は次回に同じHomeのfresh Lock下で原子的に置換する。世代別Directoryを追加しない。正本／pending不一致・観測不能は停止する。
 
-この入口はClaude Max専用であり、Codex、API key、Console API課金、Repository、Workspaceまたは外部送信Taskを扱わない。同じProvider Homeへの別Process実行はKernel LockでEffect前に拒否し、対話実行中のLock喪失でも後続Effectを止める。各Docker CommandはEffect前に`in_flight`、子Process close後にだけ`idle`へ耐久遷移するため、fresh Processは終了不明な旧Command世代を越えてEffectを発行しない。Docker EffectはRepository cwdを継承せず、同名資源はCRDD所有Labelが一致する場合だけ削除する。Docker daemon停止、権限不足またはTransport障害を資源不存在として扱わない。正常完了時の耐久記録は削除せず`settled`として保持し、Lock解放不明では同じRecovery IDを返す。
+Repository・Workspace・追加通信Allowlistは認証へ接続しない。実CLIの認証手順・端末対話・固定Imageの動作は合成試験から成立とせず、最後の実境界確認で別に評価する。
 
 
 ## 正常なDockerで作成結果不明のTaskを回復するとき

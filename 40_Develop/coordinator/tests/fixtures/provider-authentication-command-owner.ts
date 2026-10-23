@@ -14,12 +14,12 @@ import assert from "node:assert/strict";
 
 import { acquireRuntimeOwnedLogicalProviderHomeKernelLock } from "../../src/execution/kernel-lock.ts";
 import {
-  authenticateClaudeSubscription,
-  beginClaudeSubscriptionAuthenticationRecovery,
-  createClaudeSubscriptionAuthenticationPlan,
-  createClaudeSubscriptionAuthenticationRecoveryRecord,
-  setClaudeSubscriptionAuthenticationRecoveryCommandState,
-  settleClaudeSubscriptionAuthenticationRecovery,
+  authenticateProvider,
+  beginProviderAuthenticationRecovery,
+  createProviderAuthenticationPlan,
+  createProviderAuthenticationRecoveryRecord,
+  setProviderAuthenticationRecoveryCommandState,
+  settleProviderAuthenticationRecovery,
 } from "../../src/execution/authority.ts";
 
 const [stableLogicalHomeBindingHash, providerHome, token] =
@@ -27,13 +27,15 @@ const [stableLogicalHomeBindingHash, providerHome, token] =
 if (!stableLogicalHomeBindingHash || !providerHome || !token) process.exit(70);
 
 const suffix = stableLogicalHomeBindingHash.slice(0, 16);
-const plan = createClaudeSubscriptionAuthenticationPlan(
+const plan = createProviderAuthenticationPlan(
+  "claude",
+  "login",
   providerHome,
   suffix,
   token,
 );
 if (!plan) process.exit(71);
-const recovery = createClaudeSubscriptionAuthenticationRecoveryRecord(
+const recovery = createProviderAuthenticationRecoveryRecord(
   providerHome,
   stableLogicalHomeBindingHash,
   plan,
@@ -56,10 +58,9 @@ const dependencies = {
     heldLock = acquireRuntimeOwnedLogicalProviderHomeKernelLock(identityHash);
     return heldLock;
   },
-  beginRecovery: beginClaudeSubscriptionAuthenticationRecovery,
-  setRecoveryCommandState:
-    setClaudeSubscriptionAuthenticationRecoveryCommandState,
-  completeRecovery: settleClaudeSubscriptionAuthenticationRecovery,
+  beginRecovery: beginProviderAuthenticationRecovery,
+  setRecoveryCommandState: setProviderAuthenticationRecoveryCommandState,
+  completeRecovery: settleProviderAuthenticationRecovery,
   recordCreatedResource: () => {
     receiptCallCount += 1;
     throw new Error("resource_receipt_after_lock_loss_forbidden");
@@ -99,8 +100,10 @@ const dependencies = {
       stderr: "fixture_command_failed_after_lock_loss",
     };
   },
-} satisfies NonNullable<Parameters<typeof authenticateClaudeSubscription>[2]>;
-const result = await authenticateClaudeSubscription(
+} satisfies NonNullable<Parameters<typeof authenticateProvider>[4]>;
+const result = await authenticateProvider(
+  "claude",
+  "login",
   providerHome,
   stableLogicalHomeBindingHash,
   dependencies,
@@ -123,7 +126,7 @@ process.stdout.write(
 );
 if (
   result.status !== "blocked" ||
-  result.reason !== "claude_authentication_provider_home_lock_lost" ||
+  result.reason !== "provider_authentication_provider_home_lock_lost" ||
   !("recoveryId" in result) ||
   result.recoveryId !== recovery.recoveryId ||
   result.cleanupConfirmed !== false

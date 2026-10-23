@@ -12,9 +12,9 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
-新方式の技術カタログとRepository別AI選択は、値検査・選定と内部設定Storeまでを段階実装した。合成Repositoryの保存試験10件と既存利用側を含む35件が成功し、本番接続は未完了。AI Adapter通常37件、Coordinatorの新選定と既存閉包9件、利用側閉包16件、静的・登録・限定独立確認が成功／残指摘0。管理画面・Task／Grant／回復・Workbench／MCP／CLIの本番切替と旧Profile撤去は未完了。新設定の作成や本体のModel選択変更は行っていない。[値検査の結果](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#12-新形式の値検査選定の段階実装--2026-10-24)と[内部Storeの結果・限界](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#13-repository設定storeの段階実装と検証境界)を参照する。
+Repository別AI選択は、値検査・内部設定StoreとAI Adapterの型付き実行計画まで接続した。本番Task／Grant／保存／Workbench／MCPへの新選定固定と旧Profile撤去は未完了。共通認証はCodex／Claudeのstatus一資源・login五資源、Provider-onlyのAPI二操作、共通CLIと旧専用入口撤去を段階確認した。認証と周辺四Suite54件、JSON契約を加えたLauncher 11件、DI通常300件成功／明示対象外5件。Source・文書の限定独立確認は是正後残指摘0。実認証・実Docker・正式API全体縮小・新選定の本番切替は別に残る。本体設定・保持②は操作していない。[現在の単位と確認範囲](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#15-残る本番切替の実施単位と終了条件)を参照する。
 
-現在は、利用者の四添付に基づく[Coordinator公開操作・認証・AI選択の再設計](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md)を進行中。Objective六Sourceへの分配と本番`public-*`撤去を行い、受入判断・人間判断・照会を既存Ownerへ統合した。公開217項目と保存契約は維持。Objective連続回帰64件、短回帰29件、公開受付10件、移管後の境界24件、利用側閉包16件と静的・限定独立確認は成功／残指摘0。Workspace・品質受入を含む後続結合36件も成功。これは構造単位の回帰であり、新設定の本番切替の全体完了ではない。次は技術カタログとRepository別選択を本番接続してから正式Task APIを確定し、旧Storeを新APIへ一時露出させる二度変更を避ける。旧形式Readerは追加せず移行はフロントAIが担当する。正式API／CLI・共通認証・新設定の全体切替は未完了。②のAI再試行と保持物操作は行わない。
+現在は、利用者の四添付に基づく[Coordinator公開操作・認証・AI選択の再設計](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md)を進行中。Objective六Sourceへの分配と本番`public-*`撤去を行い、受入判断・人間判断・照会を既存Ownerへ統合した。公開217項目と保存契約は維持。Objective連続回帰64件、短回帰29件、公開受付10件、移管後の境界24件、利用側閉包16件と静的・限定独立確認は成功／残指摘0。Workspace・品質受入を含む後続結合36件も成功。これは構造単位の回帰であり、新設定の本番切替の全体完了ではない。次は技術カタログとRepository別選択を本番接続してから正式Task APIを確定し、旧Storeを新APIへ一時露出させる二度変更を避ける。旧形式Readerは追加せず移行はフロントAIが担当する。正式API／CLI全体・新設定の全体切替と共通認証の実境界確認は未完了。②のAI再試行と保持物操作は行わない。
 
 Coordinator構造再設計の残る配置を56 Sourceへ一括移管し、今回のSource・利用側・試験・設計／登録追従を限定完了とした。公開Root217項目と保存B六Fileの本文は維持する。固定本番Sourceの全体回帰は1,854件中1,830成功・19失敗・5skipで完走。19失敗はすべて試験側の旧配置前提へ対応付け、修正版の対象Suiteを275件・13件・47件・21件で全成功まで確認した。最初の全体Commandを成功へ読み替えない。静的検査、Windows保存、直接利用側、限定独立レビューは成功／残指摘0。[最終結果と限界](99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#3822-残るsource配置の一括移管と最終確認)を参照する。横断QAと実境界E2Eは別途残り、実AI②・保持物・実Docker・認証は今回の対象外。
 

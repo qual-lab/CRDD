@@ -5933,12 +5933,16 @@
     {
       "id": "coordinator:integration:claude-subscription-authentication-recovery",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/claude-subscription-authentication-recovery.integration.test.ts",
+      "path": "40_Develop/coordinator/tests/integration/provider-authentication-recovery.integration.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
         "claude",
-        "subscription-authentication",
+        "codex",
+        "provider-authentication",
+        "status",
+        "login",
+        "action-scoped-recovery",
         "durable-recovery",
         "kernel-lock"
       ],
@@ -5953,19 +5957,24 @@
         "same_recovery_identity_preserved",
         "kernel_lock_reacquired",
         "recovery_record_settled",
-        "test_runtime_removed"
+        "test_runtime_removed",
+        "prior_action_active_rejected",
+        "settled_action_replaced"
       ],
       "mandatoryByDefault": true
     },
     {
       "id": "coordinator:unit:claude-subscription-authentication",
       "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/claude-subscription-authentication.contract.test.ts",
+      "path": "40_Develop/coordinator/tests/unit/provider-authentication.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
         "claude",
-        "subscription-authentication",
+        "codex",
+        "provider-authentication",
+        "status",
+        "login",
         "provider-home",
         "cleanup"
       ],
@@ -5975,7 +5984,12 @@
       "postconditions": [
         "repository_not_mounted",
         "authentication_probe_required",
-        "owned_resources_absent"
+        "owned_resources_absent",
+        "status_single_resource",
+        "login_five_resources",
+        "nonzero_status_unknown",
+        "rejected_command_keeps_in_flight",
+        "invalid_signal_effect_zero"
       ],
       "mandatoryByDefault": true
     },

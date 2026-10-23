@@ -603,27 +603,31 @@ observerは固定`Qual-Lab/CRDD/ProviderHomes/{codex|claude}`を、現在Process
 
 observerはHome作成またはDACL修復を行わない。明示bootstrap Effect、回復、logout／revoke／削除は別Lifecycleとして再評価する。
 
-### 7.3 Claude Subscriptionの人手再認証
+### 7.3 Provider共通の認証確認・公式対話認証
 
-Claude専用Provider HomeのSubscription OAuthが失効した場合だけ、選択Checkoutの許可済み固定`authenticate-claude`入口と必要Artifact同一性確認から人手再認証を行う。この入口は通常Task Authority、外部送信許可、自動実行または自動再認証へ接続しない。
+正式APIは`getAuthenticationStatus({provider})`と`authenticateProvider({provider})`、CLIは`auth status <provider> [--json]`と`auth login <provider>`とする。loginの`--json`は実行前に64で拒否する。対話子が端末出力を共有するため、human loginのstdout全体をJSON-only契約とせず、通常対話と最後の固定結果表示を区別する。注意文はstderrへ表示する。公開要求にHome Path・CLI引数・認証値を含めない。AI AdapterがProvider別のargv・Offering・Origin・Home設定を所有し、Docker Isolationが固定技術計画とProcess・資源回収、Coordinatorが現在UserのHome観測・利用排他・結果分類・exact回復参照を接続する。
 
-| 観点 | 固定条件 |
-|---|---|
-| 操作者 | OSが認証した選択ローカル対話ユーザー |
-| 入出力 | direct TTY。公式Claude CLIと外部system browserだけを対話入口にする |
-| 実行物 | 用途を固定し必要Artifact同一性を確認したClaude ImageとProxy Image |
-| 永続書込み | 選択UserのClaude専用Provider Homeだけ |
-| Network | Provider Containerは内部Networkだけ。Claude allowlistを強制する固定Proxyだけが外部Networkへ接続 |
-| Proxy接続 | Provider Containerは内部Network上の固定alias `proxy`、container port `8080`へ接続する。Host portは公開せず、Proxy実装の待受portと同じ値を使用する |
-| 非接続 | Repository、Workspace、Host既定Home、API key、別Provider Home、Task Packet |
-| 排他 | 検証済みLogical Provider Home IdentityのOS Kernel Lockを最初のEffect前に取得する。後発ProcessはEffect 0で停止する |
-| 回復記録 | OS管理CRDD Runtime Rootの`Recovery/claude-subscription-authentication`へ、Path・Credentialを含まないexact Recovery Identity、所有Label、5資源名、`active`／`settled`状態および`idle`／`in_flight` Command世代を耐久化する。各CommandはEffect前に`in_flight`、子Process close後にだけ`idle`へ遷移する |
-| 成功条件 | `auth login --claudeai`完了後、networkなし・Provider Home read-onlyの`auth status --json`が`claude.ai`、`firstParty`、`max`を確認する |
-| 終了条件 | 所有Labelが一致するLogin／Probe／Proxy Containerと内部／Egress Networkの明示的なexact不存在、回復記録の`settled`化およびKernel Lock解放を再観測する |
+| 観点 | 状態確認 | 対話ログイン |
+|---|---|---|
+| 操作と対話 | 非対話。読取り目的でも隔離Container作成と技術記録は発生する | 人間の明示操作とstdin／stdout TTYが必要。秘密入力は公式CLIへ直接接続 |
+| 固定資源 | Probe Container一件、`--network=none`、非root、root filesystemとHome mountは読取り専用 | 既存のlogin／probe／Proxy Containerと内部／Egress Networkの五資源 |
+| 通信 | なし。未認証でもログインへ自動切替しない | Provider固定の限定Proxyだけ。Repository追加Allowlistを受け取らない |
+| Provider仕様 | Codexは`login status`、Claudeは`auth status --json`。非0・未知出力は観測不能 | Codexは`login --device-auth`、Claudeは`auth login --claudeai`。終了後に通信なしProbeで確認 |
+| 結果 | `confirmed / unconfirmed / unknown`を区別する。正規の否定だけを未認証とする | 操作完了には認証確認、Process終了、回収・保存・Lock解放の確認が必要 |
+| 非接続 | Repository、Workspace、Host既定Home、API key、別Provider Home、Task Packet | 同左 |
 
-認証用URL、PKCE値、code、token、email、組織情報、Provider Home実PathおよびProvider生出力を結果・Log・Evidenceへ保存してはならない（MUST NOT）。任意段階の失敗、事後Probe不成立またはcleanup観測不能では成功を公開せず、自動再試行しない。秘密codeの入力はProvider CLIのdirect TTYへ委ね、CRDDは入力内容を横取り・反響しない。入力文字が表示されないこと、一度だけ貼り付けてEnterを押すこと、および結果が出るまで再入力しないことを対話開始前に明示する。Proxy URLのportはProxy実装の固定待受port `8080`と一致させ、Planの局所試験で別portへの差替えを拒否する。Docker CLIは固定Path、Docker Inc.のAuthenticode、同一実体Identity、最小Process環境およびOS System Directoryの固定cwdをEffectごとに確認し、PATH、親EnvironmentまたはRepository cwdを実行Authorityにしない。対話実行中もKernel Lockの生存を監視し、喪失時はDocker CLI子Processを終了して以後のEffectを止める。`inspect`の任意非ゼロを不存在へ畳まず、対象名に対する明示的な`No such container/object/network`だけを不存在として受理する。現行Docker CLIが不存在時にstdoutへ返す空配列`[]`は空出力と同じ明示的な不存在補助情報として受理するが、その他のstdoutや別stderrを不存在へ畳まない。同名資源が存在しても所有Labelが一致しなければ削除せず、同じRecovery IDで停止する。
+同じLogical Provider Homeの既存OS Kernel Lockで直列化する。各要求前の`in_flight`、Process closeと作成Receipt確定後の`idle`を耐久記録へ保持する。観測不能、構成差、所有差、実ID差は回収成功へ丸めず、同じexact回復参照を返す。Docker CLIとNativeの既存同一性・環境・終了確認を省略しない。
 
-Process loss後のfresh invocationは、同じLogical Provider Home Identityから同じRecovery ID、所有LabelおよびDocker資源名を再構成する。`active`かつ`idle`な耐久記録がexact schemaと一致する場合だけ、認証Effectより先に所有資源を回収して不存在を確認し、同じ記録を`settled`へ閉じた後で新しい`active` Lifecycleを開始する。`in_flight`が残る場合は、旧Docker Commandの終了と遅延Effectをfresh Ownerが証明できないため、cleanupを含むDocker Effectを0にして同じRecovery IDと手動回復義務を返す。正常完了時も記録を削除せず`settled`として保持するため、Kernel Lock解放を確認できない結果からexact Recovery Identityを失わない。記録の不一致、Docker観測不能、所有不一致、削除不能またはLock解放不明でも`manualRecoveryRequired: true`、`effectStateUnknown: true`および同じRecovery IDを返し、新しい認証Effectを発行しない。通常Taskは認証失敗からこの入口を自動起動せず、人間へ固定理由を返す。
+現在記録はOS管理Runtime Rootの`Recovery/provider-authentication/<provider>.<home-hash>.json`一つをProvider／Homeごとに持つ。新契約revision 1にProviderと操作、`provider-auth.<provider>.<action>.<home-hash>`、固定資源集合とReceipt、操作状態を保存し、秘密値・Path・生出力は含めない。
+
+- 同操作のactive／idleは元資源を回収・不存在確認・settled保存後にだけ再入場できる。in-flightならDocker Effect 0で停止する。
+- 別操作のactiveは新操作を開始せず、元操作のexact回復参照を返す。新操作の資源集合で旧操作を片付けない。
+- settledかつidleからの切替は、同じHomeのfresh Lock下で旧正本文字列を再照合し、pendingへの排他的作成・flush、atomic replace、読戻しを経て新Intentを確定する。旧参照は新操作の回復Authorityにならない。これを電源断後の永続確定保証とは扱わない。
+- pendingや正本の不一致・観測不能は自動削除せず停止する。記録を世代別に蓄積しない。
+
+取消は後続要求を止め、実行OwnerのProcess終了と回収を待ってから結果を返す。未確認のProcessが残る場合はHome排他を解放しない。認証用URL、code、token、email、Home実Path、生出力を結果・log・Evidenceへ複製しない。入力を横取り・反響・自動再送せず、APIキーや別課金方式へfallbackしない。
+
+旧Claude専用記録の移行は製品Readerへ持ち込まない。切替前にフロントAIが旧正本の真正不存在または既存Ownerによるsettledを確認し、active・in-flight・不明・保持②に該当する場合は新入口を実行しない。保持②と歴史Evidenceは移行対象外である。実装・合成試験と、固定Imageの実認証・人間確認は別に評価する。実認証は後続の承認境界であり、本節から実行許可を推定しない。
 
 ### 7.4 Provider Homeマウント許可
 

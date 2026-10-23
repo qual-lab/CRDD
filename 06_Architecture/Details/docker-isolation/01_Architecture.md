@@ -445,10 +445,10 @@ Task Packet、モデル選定、送信同意、User Credential、業務結果は
 | Windows子のtree終端 | 所有元子を既存Platform Accessの用途固定入口へ渡す。固定taskkill・OS所在・補助ProcessはPlatform Access、元Docker CLI子のstdioとclose・一度発行は本Packageが所有する。共通期限内で元子と補助子双方のcloseを確認し、補助成功だけをDocker資源清掃成功へ代用しない |
 | 同期診断 | version、固定Python Probeのcreate、実IDのinspect／start／SIGTERM／remove、ID／固定名／Labelの不存在照合を閉じた用途から構築する。固定Probeの技術選択とDocker観測結果の技術分類は下位。回復記録・3Mountの利用許可・診断実施の業務判断は上位に維持し、共通結果を元Operationの業務状態へ相関する。新しい任意Script／argv Executorは公開しない |
 | 対話stdio | 対話許可は上位で判断する。下位のinherit方式は出力を捕捉せず、非対話callback／stdin搬送と同時指定しない。対話結果の意味・認証Authorityを下位へ移さない |
-| 認証用技術計画 | 上位が公式CLIのlogin／status起動記述、専用Home、固定配布・Proxyを選択し、下位が五資源と固定操作列を構築する。Workspaceは受け取らず、HOME／Proxy等の隔離設定の上書きとgetter入力を拒否する。生成Commandの元object相関は技術照合であり、Home利用Authorityや認証成功を生成しない |
+| 認証用技術計画 | 上位が公式CLI・専用Home・固定Imageと操作を指定する。statusは通信なし・Home読取り専用のProbe一資源、loginだけがProxyと二Networkを含む既存五資源。status入力にProxy・token・login引数を含めない。Workspaceは受け取らず、HOME／Proxy等の隔離設定の上書き、getter／Proxy入力と暗黙文字列変換を拒否する。生成Commandの元object相関は技術照合であり、Home利用Authorityや認証成功を生成しない |
 | 認証Process | 元Commandだけを固定Engineへ発行する。上位の許可生存を開始前・実行中に観測し、喪失・非対話期限・出力超過で共通tree終端へ接続する。一次理由とprocessCompletionConfirmedを分け、未確認なら上位がin_flightを保持し後続操作・完了記録・Home解放を拒否する。新しい下位回復Stateは作らない |
 | 認証作成Receipt | create stdoutの実IDと直後の単一inspectを結合し、同digest Imageの既定Entrypoint／Cmd／Env／WorkingDirを含む認証構成を照合する。NetworkはDriver／Scope／Internal、Containerは実ID・名前・Label・Image・User・隔離条件・Network・Home bind・tmpfsを評価する。Proxy秘密値は耐久化せず固定形式と一意keyを検査する。結果が不明ならReceiptを返さず、上位の既存in_flight記録を保持する |
-| 認証資源清掃 | 保存Ownerの五資源Receiptを同じ元Planへ結合し、実ID指定inspectとImage既定構成の確認後だけ元removal操作を一回実行する。未作成Receiptは名前の不存在だけを観測し、発見した資源を削除しない。ID不存在だけから同名資源の不存在を推定せず、事後に実IDと名前を確認する。Proxyは接続前の内部Networkだけ／接続後の内部＋外向Networkだけの二形状へ限定する。再入場時の一時token差は秘密値保存なしで形式・一意keyを評価する |
+| 認証資源清掃 | 保存Ownerの操作別Receiptを同じ元Planへ結合し、実ID指定inspectとImage既定構成の確認後だけ元removal操作を一回実行する。未作成Receiptは名前の不存在だけを観測し、発見した資源を削除しない。ID不存在だけから同名資源の不存在を推定せず、事後に実IDと名前を確認する。Proxyは接続前の内部Networkだけ／接続後の内部＋外向Networkだけの二形状へ限定する。再入場時の一時token差は秘密値保存なしで形式・一意keyを評価する。別操作の資源集合を相互代用しない |
 
 診断・認証のDocker CLIと実行方式は下位内部で選ぶ。汎用の実行能力検証が必要な場合は、下位が選んだ同じ候補を既存専門Ownerへfresh照合し、その同一候補だけを実行する。上位の業務Adapterが候補Path・Engine・作業場所を組み立てたり、別のexecutable fieldと検証対象を組み合わせたりしない。認証Runtimeは生成時の元Planへ結合し、別Planの元Commandも拒否する。相関は同Processの元objectだけで行い、公開IDや永続Registryを作らない。認証清掃の観測・削除・不存在確認も、上位の既存exact Recovery記録で各開始前in_flight、Process終了確認後idleとする。清掃の終了不明／例外では後続0・完了保存0・Home解放0を維持し、fresh再入場で未終了操作を再発行しない。実ID／完全構成清掃への接続は、完成前に反証する残件である。
 | 資源観測・清掃 | 記録された実Docker ID、名前、Label、Image、Networkと隔離構成を照合して処置し、実IDと名前の不存在を再観測する |

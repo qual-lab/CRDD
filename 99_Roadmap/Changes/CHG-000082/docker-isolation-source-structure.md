@@ -159,7 +159,7 @@ Domain側は`configuration/network-policy.ts`へ値契約・解析・既定値�
 | Coordinator本番 | `provider/execution-plan.ts`、`provider/isolation-execution.ts`、Claude認証、`diagnostics/doctor.ts`を移管先へ接続。認可・Task・Profileの意味は維持 |
 | 既存同意 | `external-send/policy.ts`、`consent-store.ts`、`consent-record.ts`、`grant.ts`の境界生成・expectedBoundary照合・確認・保存・再利用・Grant消費を同じ実効Policyへ結合 |
 | Workbench | 画面の許可先表示→既存要求→Server照合→実行のHash相関。boolean確認だけでは成立としない |
-| 対話再認証 | `cli/launch.ts`、`scripts/authenticate-claude-subscription.ts`、`provider/claude-subscription-authentication.ts`の既存入力・手順を維持。DI技術参照の配置追従だけを行い、Repository指定や追加Allowlistを導入しない |
+| Provider認証 | Coordinator正式`src/api.ts`の認証操作とCLI `auth status <provider> [--json]`／`auth login <provider>`へ接続。DIはstatus一資源／login五資源の技術計画を所有する。Repository指定や追加Allowlistは導入しない |
 | Tool・台帳・検査 | Symbol、Catalog、Source Header、公開API許可集合、deep import検査、coverageとSource Path参照を追従 |
 
 既存Egress Moduleの公開5関数には本番利用とFixture評価が混在する。`describeEgressProxyTopology`の本番記述はDIへ移す。`compileEgressProxyPolicyCandidate`、`evaluateProxyConnectForFixture`、`evaluateResolvedAddressesForFixture`、`describeSpecialPurposeRegistrySnapshot`は既知Consumerを再照合し、試験専用のものを`tests/support/`へ配置する。Pythonの実強制とTSの模擬評価を同一の検証根拠と扱わない。

@@ -2,14 +2,19 @@
  * coordinator:unit:claude-subscription-authenticationの検証範囲を定義する。
  *
  * @packageDocumentation
- * @responsibility Claude再認証の固定Plan、成功条件、失敗停止およびcleanupを検証する。
+ * @responsibility Codex／Claudeのstatus・login、操作別資源、失敗・取消とcleanupを検証する。
  * @trace ERB-UT-016
  * @level UT
- * @scope coordinator、claude-authentication
+ * @scope coordinator、provider-authentication、status、login
  * @boundary ERB-UT-016=Unit: 認証Lifecycleの決定論的Process Adapter境界
  */
 import assert from "node:assert/strict";
-import test from "node:test";
+import path from "node:path";
+import test, { mock } from "node:test";
+import {
+  authenticateProvider as authenticateFromApi,
+  getAuthenticationStatus,
+} from "../../src/api.ts";
 
 import {
   describeProviderAuthentication,
@@ -17,9 +22,9 @@ import {
 } from "../../../ai-adapter/src/index.ts";
 
 import {
-  authenticateClaudeSubscription,
-  CLAUDE_SUBSCRIPTION_AUTHENTICATION_INPUT_NOTICE,
-  createClaudeSubscriptionAuthenticationPlan,
+  authenticateProvider,
+  PROVIDER_AUTHENTICATION_INPUT_NOTICE,
+  createProviderAuthenticationPlan,
 } from "../../src/execution/authority.ts";
 
 const AUTHENTICATION_SUFFIX = "0123456789abcdef";
@@ -34,9 +39,7 @@ const lifecycleDependencies = Object.freeze({
   recordCreatedResource: () => true,
   recoveryCommands: (
     _record: unknown,
-    plan: NonNullable<
-      ReturnType<typeof createClaudeSubscriptionAuthenticationPlan>
-    >,
+    plan: NonNullable<ReturnType<typeof createProviderAuthenticationPlan>>,
     index: number,
   ) => {
     const ownershipCommand = plan.ownershipCommands[index];
@@ -46,6 +49,395 @@ const lifecycleDependencies = Object.freeze({
       ? { ownershipCommand, cleanupCommand, absenceCommand }
       : null;
   },
+});
+
+/**
+ * CommandのrejectをProcess終了不明として元Intentへ保持する。
+ * @responsibility cleanup・idle・settled・Lock解放を発行しない終端を反証する。
+ * @trace ERB-UT-016
+ * @precondition Process・保存・排他は有限代役。
+ * @stimulus 両Providerのcreate／login／probe各段階でrunをrejectする。
+ * @observation 用途列、Intent、終了保存・解放回数と元回復参照。
+ * @oracle reject後のEffect／idle／cleanup／settled／releaseは0、fresh呼出しも元in-flightで停止。
+ * @cleanup N/A: 代役以外の資源を生成しない。
+ * @boundary ERB-UT-016=Unit: 認証Command要求と終了通知の境界。
+ */
+test("認証runのrejectはin-flightを保持し回収・解放・再実行を拒否する", async () => {
+  for (const provider of ["codex", "claude"] as const) {
+    for (const action of ["status", "login"] as const) {
+      const points =
+        action === "status"
+          ? ["create_probe", "start_probe_attached"]
+          : [
+              "create_internal_network",
+              "start_login_attached",
+              "start_probe_attached",
+            ];
+      for (const point of points) {
+        let inFlight = false;
+        let rejected = false;
+        let release = 0;
+        let complete = 0;
+        const after: string[] = [];
+        const dependencies = {
+          ...lifecycleDependencies,
+          randomHex: () => token,
+          beginRecovery: () =>
+            inFlight ? ("existing_in_flight" as const) : ("created" as const),
+          acquireProviderHomeLock: () => ({
+            assertLive: () => true,
+            release: () => {
+              release += 1;
+              return true;
+            },
+          }),
+          completeRecovery: () => {
+            complete += 1;
+            return true;
+          },
+          setRecoveryCommandState: (
+            _record: unknown,
+            state: "idle" | "in_flight",
+          ) => {
+            if (rejected) after.push(state);
+            inFlight = state === "in_flight";
+            return true;
+          },
+          run: async (command: { purpose: string }) => {
+            if (rejected) after.push(command.purpose);
+            if (command.purpose === point) {
+              rejected = true;
+              throw Error("fixture");
+            }
+            return { status: 0, signal: null, stdout: "", stderr: "" };
+          },
+        };
+        const first = await authenticateProvider(
+          provider,
+          action,
+          `C:\\fixture\\ProviderHomes\\${provider}`,
+          STABLE_LOGICAL_HOME_BINDING_HASH,
+          dependencies,
+        );
+        assert.equal(rejected, true, point);
+        assert.equal(
+          first.reason,
+          "provider_authentication_process_completion_unconfirmed",
+        );
+        assert.equal(first.providerEffectIssued, true);
+        assert.equal(first.cleanupConfirmed, false);
+        assert.equal(release, 0);
+        assert.equal(complete, 0);
+        assert.deepEqual(after, []);
+        const fresh = await authenticateProvider(
+          provider,
+          action,
+          `C:\\fixture\\ProviderHomes\\${provider}`,
+          STABLE_LOGICAL_HOME_BINDING_HASH,
+          dependencies,
+        );
+        assert.equal(
+          fresh.reason,
+          "provider_authentication_prior_command_in_flight",
+        );
+        assert.ok("recoveryId" in first && "recoveryId" in fresh);
+        assert.equal(fresh.recoveryId, first.recoveryId);
+        assert.deepEqual(after, []);
+      }
+    }
+  }
+});
+
+/**
+ * Lock取得後の構築例外を一回の解放へ収束する。
+ * @responsibility 乱数・Plan・回復値生成の失敗を公開rejectや架空回復参照へ変換しない。
+ * @trace ERB-UT-016
+ * @precondition 組込みPath境界と依存関数に局所故障を注入する。
+ * @stimulus 各生成段階のthrowとrelease成功／拒否／throwの積を与える。
+ * @observation blocked、解放回数、Docker／保存回数。
+ * @oracle 解放一回、Effectと保存0、解放不明だけ手動対応・Process再起動要求。
+ * @cleanup Pathの代役をfinallyで復元する。
+ * @boundary ERB-UT-016=Unit: 認証準備とHome排他の例外境界。
+ */
+test("認証準備の例外はLockを一回だけ解放し解放不明を成功化しない", async () => {
+  for (const point of ["random", "plan", "recovery"] as const) {
+    for (const outcome of ["released", "refused", "throw"] as const) {
+      let releases = 0;
+      let effects = 0;
+      const sabotage =
+        point === "plan"
+          ? mock.method(path, "isAbsolute", () => {
+              throw Error("fixture");
+            })
+          : point === "recovery"
+            ? mock.method(path.win32, "basename", () => {
+                throw Error("fixture");
+              })
+            : null;
+      try {
+        const result = await authenticateProvider(
+          "claude",
+          "login",
+          "C:\\fixture\\ProviderHomes\\claude",
+          STABLE_LOGICAL_HOME_BINDING_HASH,
+          {
+            ...lifecycleDependencies,
+            randomHex: () => {
+              if (point === "random") throw Error("fixture");
+              return token;
+            },
+            acquireProviderHomeLock: () => ({
+              assertLive: () => true,
+              release: () => {
+                releases += 1;
+                if (outcome === "throw") throw Error("fixture");
+                return outcome === "released";
+              },
+            }),
+            beginRecovery: () => {
+              effects += 1;
+              return "created";
+            },
+            run: async () => {
+              effects += 1;
+              throw Error("unexpected");
+            },
+          },
+        );
+        assert.equal(result.reason, "provider_authentication_plan_invalid");
+        assert.equal(result.cleanupConfirmed, outcome === "released");
+        assert.equal(result.providerEffectIssued, false);
+        assert.ok(
+          "manualRecoveryRequired" in result &&
+            "processRestartRequired" in result,
+        );
+        assert.equal(result.manualRecoveryRequired, outcome !== "released");
+        assert.equal(result.processRestartRequired, outcome !== "released");
+        assert.equal("recoveryId" in result, false);
+        assert.equal(releases, 1);
+        assert.equal(effects, 0);
+      } finally {
+        sabotage?.mock.restore();
+      }
+    }
+  }
+});
+
+/**
+ * 正式APIの不正要求と事前取消を実技術観測の前に拒否する。
+ * @responsibility Home Path・任意引数・accessorを公開要求へ通さない。
+ * @trace ERB-UT-016
+ * @precondition 不正値または取消済みの要求だけを利用する。
+ * @stimulus Proxy、getter、余剰Key、不正Providerと取消を与える。
+ * @observation 拒否結果とgetterの実行数。
+ * @oracle input_invalid又はcancelledでEffectなし、getter 0。
+ * @cleanup N/A: 実認証・Docker・Home観測を発行しない。
+ * @boundary ERB-UT-016=Unit: 正式認証要求の閉形式。
+ */
+test("正式認証APIは秘密Path・accessor・不正Providerと事前取消を拒否する", async () => {
+  let hooks = 0;
+  const getter = {
+    get provider() {
+      hooks += 1;
+      return "codex";
+    },
+  };
+  const ownSignal = new AbortController().signal;
+  Object.defineProperty(ownSignal, "aborted", {
+    get() {
+      hooks += 1;
+      return false;
+    },
+  });
+  const invalidSignals = [
+    null,
+    { aborted: false },
+    {
+      get aborted() {
+        hooks += 1;
+        return false;
+      },
+    },
+    new Proxy(new AbortController().signal, {
+      get() {
+        hooks += 1;
+        return false;
+      },
+    }),
+    Object.create(AbortSignal.prototype),
+    ownSignal,
+  ];
+  for (const operation of [getAuthenticationStatus, authenticateFromApi]) {
+    for (const signal of invalidSignals) {
+      const result = await operation(
+        { provider: "codex" },
+        signal as AbortSignal,
+      );
+      assert.equal(result.reason, "provider_authentication_signal_invalid");
+      assert.equal(result.providerEffectIssued, false);
+    }
+    for (const request of [
+      null,
+      { provider: "other" },
+      { provider: "codex", home: "fixture" },
+      getter,
+      new Proxy(
+        { provider: "codex" },
+        {
+          ownKeys() {
+            hooks += 1;
+            return ["provider"];
+          },
+        },
+      ),
+    ]) {
+      const result = await operation(
+        request as Parameters<typeof operation>[0],
+      );
+      assert.equal(result.reason, "provider_authentication_input_invalid");
+      assert.equal(result.providerEffectIssued, false);
+    }
+    const controller = new AbortController();
+    controller.abort();
+    assert.equal(
+      (await operation({ provider: "codex" }, controller.signal)).reason,
+      "provider_authentication_cancelled",
+    );
+  }
+  for (const signal of invalidSignals) {
+    const result = await authenticateProvider(
+      "codex",
+      "status",
+      "C:\\fixture\\ProviderHomes\\codex",
+      STABLE_LOGICAL_HOME_BINDING_HASH,
+      {
+        ...lifecycleDependencies,
+        randomHex: () => token,
+        acquireProviderHomeLock: () => {
+          throw Error("must_not_acquire");
+        },
+        run: async () => {
+          throw Error("must_not_run");
+        },
+      },
+      signal as AbortSignal,
+    );
+    assert.equal(result.reason, "provider_authentication_signal_invalid");
+    assert.equal(result.providerEffectIssued, false);
+  }
+  assert.equal(hooks, 0);
+});
+
+/**
+ * 両Provider・両操作の固定境界と観測不能を検証する。
+ * @responsibility statusに通信・書込み・対話を持ち込まず、非0を未認証と断定しない。
+ * @trace ERB-UT-016
+ * @precondition 全Process・保存・排他は局所の差替え。
+ * @stimulus status/loginと正常／非0／取消を与える。
+ * @observation Plan、発行用途と公開結果を読む。
+ * @oracle statusは一資源・読取り専用・通信なし。非0と取消は成功しない。
+ * @cleanup N/A: 外部資源は生成しない。
+ * @boundary ERB-UT-016=Unit: 共通認証Lifecycle。
+ */
+test("共通認証は両Providerのstatus/loginを分け、非0と取消を成功化しない", async () => {
+  for (const provider of ["codex", "claude"] as const) {
+    for (const action of ["status", "login"] as const) {
+      const plan = createProviderAuthenticationPlan(
+        provider,
+        action,
+        `C:\\fixture\\ProviderHomes\\${provider}`,
+        AUTHENTICATION_SUFFIX,
+        action === "login" ? token : null,
+      );
+      assert.ok(plan);
+      assert.equal(plan.absenceCommands.length, action === "status" ? 1 : 5);
+      if (action === "status") {
+        assert.deepEqual(
+          plan.commands.map((command) => command.purpose),
+          ["create_probe", "start_probe_attached"],
+        );
+        assert.ok(plan.commands[0]?.argv.includes("--network=none"));
+        assert.ok(
+          plan.commands[0]?.argv.some((argument) =>
+            argument.endsWith(",bind-propagation=rprivate,readonly"),
+          ),
+        );
+        assert.equal(
+          plan.commands.some((command) => command.interactive),
+          false,
+        );
+      }
+      for (const scenario of ["confirmed", "nonzero", "cancelled"] as const) {
+        const purposes: string[] = [];
+        const cancellation = new AbortController();
+        if (scenario === "cancelled") cancellation.abort();
+        const result = await authenticateProvider(
+          provider,
+          action,
+          `C:\\fixture\\ProviderHomes\\${provider}`,
+          STABLE_LOGICAL_HOME_BINDING_HASH,
+          {
+            ...lifecycleDependencies,
+            randomHex: () => {
+              assert.equal(action, "login");
+              return token;
+            },
+            run: async (command) => {
+              purposes.push(command.purpose);
+              const absent = command.purpose.startsWith("confirm_");
+              return {
+                status:
+                  absent ||
+                  (scenario === "nonzero" &&
+                    command.purpose === "start_probe_attached")
+                    ? 1
+                    : 0,
+                signal: null,
+                stdout: absent
+                  ? "[]"
+                  : command.purpose.startsWith("observe_")
+                    ? AUTHENTICATION_SUFFIX
+                    : command.purpose === "start_probe_attached"
+                      ? provider === "codex"
+                        ? ""
+                        : JSON.stringify({
+                            loggedIn: true,
+                            authMethod: "claude.ai",
+                            apiProvider: "firstParty",
+                            subscriptionType: "max",
+                            forcedLoginMethod: "claudeai",
+                          })
+                      : "",
+                stderr: absent
+                  ? absenceError(command.purpose).replaceAll(
+                      "crdd-claude-",
+                      `crdd-${provider}-`,
+                    )
+                  : command.purpose === "start_probe_attached" &&
+                      provider === "codex"
+                    ? "Logged in using ChatGPT"
+                    : "",
+              };
+            },
+          },
+          cancellation.signal,
+        );
+        assert.equal(
+          result.status,
+          scenario === "confirmed" ? "completed" : "blocked",
+        );
+        if (scenario === "nonzero") {
+          assert.ok("authenticationStatus" in result);
+          assert.equal(result.authenticationStatus, "unknown");
+        }
+        if (scenario === "cancelled")
+          assert.equal(
+            purposes.some((purpose) => purpose.startsWith("create_")),
+            false,
+          );
+      }
+    }
+  }
 });
 
 /**
@@ -63,7 +455,9 @@ test("再認証回復は保存ID差・構成差・null Receiptの同名存在を
   const id = "c".repeat(64);
   for (const scenario of ["replacement", "configuration", "null"] as const) {
     const purposes: string[] = [];
-    const result = await authenticateClaudeSubscription(
+    const result = await authenticateProvider(
+      "claude",
+      "login",
       "C:\\fixture\\ProviderHomes\\claude",
       STABLE_LOGICAL_HOME_BINDING_HASH,
       {
@@ -150,7 +544,7 @@ test("再認証回復は保存ID差・構成差・null Receiptの同名存在を
     assert.equal(result.manualRecoveryRequired, true);
     assert.equal(
       result.recoveryId,
-      `claude-auth.${STABLE_LOGICAL_HOME_BINDING_HASH}`,
+      `provider-auth.claude.login.${STABLE_LOGICAL_HOME_BINDING_HASH}`,
     );
     assert.equal(purposes.includes("remove_probe"), false);
     assert.equal(
@@ -174,7 +568,9 @@ test("再認証回復は保存ID差・構成差・null Receiptの同名存在を
 test("再認証は作成Receipt保存未確認でidleと次Effectを拒否する", async () => {
   const purposes: string[] = [];
   let state = "idle";
-  const result = await authenticateClaudeSubscription(
+  const result = await authenticateProvider(
+    "claude",
+    "login",
     "C:\\fixture\\ProviderHomes\\claude",
     STABLE_LOGICAL_HOME_BINDING_HASH,
     {
@@ -203,7 +599,7 @@ test("再認証は作成Receipt保存未確認でidleと次Effectを拒否する
   assert.equal(result.status, "blocked");
   assert.equal(
     result.reason,
-    "claude_authentication_resource_receipt_unconfirmed",
+    "provider_authentication_resource_receipt_unconfirmed",
   );
   assert.equal(result.cleanupConfirmed, false);
   assert.equal(result.manualRecoveryRequired, true);
@@ -265,16 +661,10 @@ function ownershipOutput(purpose: string) {
  * @boundary ERB-UT-016=Direct Boundary: coordinator Test Source→対象契約
  */
 test("再認証は秘密codeの非表示と一回入力を事前案内する", () => {
+  assert.match(PROVIDER_AUTHENTICATION_INPUT_NOTICE, /画面に表示されません/u);
+  assert.match(PROVIDER_AUTHENTICATION_INPUT_NOTICE, /一度だけ貼り付け/u);
   assert.match(
-    CLAUDE_SUBSCRIPTION_AUTHENTICATION_INPUT_NOTICE,
-    /画面に表示されません/u,
-  );
-  assert.match(
-    CLAUDE_SUBSCRIPTION_AUTHENTICATION_INPUT_NOTICE,
-    /一度だけ貼り付け/u,
-  );
-  assert.match(
-    CLAUDE_SUBSCRIPTION_AUTHENTICATION_INPUT_NOTICE,
+    PROVIDER_AUTHENTICATION_INPUT_NOTICE,
     /結果が出るまで再入力しない/u,
   );
 });
@@ -307,7 +697,9 @@ test("再認証Planは専用Provider Home以外をmountしない", () => {
     DISABLE_ERROR_REPORTING: "1",
     CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1",
   });
-  const plan = createClaudeSubscriptionAuthenticationPlan(
+  const plan = createProviderAuthenticationPlan(
+    "claude",
+    "login",
     "C:\\runtime-owned\\ProviderHomes\\claude",
     AUTHENTICATION_SUFFIX,
     token,
@@ -463,7 +855,9 @@ test("認証Probe判定は四条件の完全一致だけを受理する", () => 
  */
 test("再認証は事後Probeとcleanupの両方で完了する", async () => {
   const purposes: string[] = [];
-  const result = await authenticateClaudeSubscription(
+  const result = await authenticateProvider(
+    "claude",
+    "login",
     "C:\\runtime-owned\\ProviderHomes\\claude",
     STABLE_LOGICAL_HOME_BINDING_HASH,
     {
@@ -526,7 +920,9 @@ test("再認証は事後Probeとcleanupの両方で完了する", async () => {
  */
 test("再認証は途中失敗後にloginを開始せずcleanupする", async () => {
   const purposes: string[] = [];
-  const result = await authenticateClaudeSubscription(
+  const result = await authenticateProvider(
+    "claude",
+    "login",
     "C:\\runtime-owned\\ProviderHomes\\claude",
     STABLE_LOGICAL_HOME_BINDING_HASH,
     {
@@ -550,7 +946,7 @@ test("再認証は途中失敗後にloginを開始せずcleanupする", async ()
     },
   );
   assert.equal(result.status, "blocked");
-  assert.equal(result.reason, "claude_authentication_start_proxy_failed");
+  assert.equal(result.reason, "provider_authentication_start_proxy_failed");
   assert.equal(purposes.includes("start_login_attached"), false);
   assert.equal(
     purposes.filter((purpose) => purpose.startsWith("remove_")).length,
@@ -571,7 +967,9 @@ test("再認証は途中失敗後にloginを開始せずcleanupする", async ()
  * @boundary ERB-UT-016=Direct Boundary: coordinator Test Source→対象契約
  */
 test("再認証はDocker観測失敗を資源不存在として受理しない", async () => {
-  const result = await authenticateClaudeSubscription(
+  const result = await authenticateProvider(
+    "claude",
+    "login",
     "C:\\runtime-owned\\ProviderHomes\\claude",
     STABLE_LOGICAL_HOME_BINDING_HASH,
     {
@@ -622,7 +1020,9 @@ test("再認証はDocker観測失敗を資源不存在として受理しない",
  * @boundary ERB-UT-016=Direct Boundary: coordinator Test Source→対象契約
  */
 test("再認証は空配列以外のstdoutを資源不存在として受理しない", async () => {
-  const result = await authenticateClaudeSubscription(
+  const result = await authenticateProvider(
+    "claude",
+    "login",
     "C:\\runtime-owned\\ProviderHomes\\claude",
     STABLE_LOGICAL_HOME_BINDING_HASH,
     {
@@ -667,7 +1067,9 @@ test("再認証は空配列以外のstdoutを資源不存在として受理し�
  */
 test("再認証は同名の非所有Docker資源を削除しない", async () => {
   const purposes: string[] = [];
-  const result = await authenticateClaudeSubscription(
+  const result = await authenticateProvider(
+    "claude",
+    "login",
     "C:\\runtime-owned\\ProviderHomes\\claude",
     STABLE_LOGICAL_HOME_BINDING_HASH,
     {
@@ -718,7 +1120,9 @@ test("再認証は同名の非所有Docker資源を削除しない", async () =>
 test("再認証はProvider Home Lock喪失後のEffectを停止する", async () => {
   const purposes: string[] = [];
   let isLive = true;
-  const result = await authenticateClaudeSubscription(
+  const result = await authenticateProvider(
+    "claude",
+    "login",
     "C:\\runtime-owned\\ProviderHomes\\claude",
     STABLE_LOGICAL_HOME_BINDING_HASH,
     {
@@ -736,7 +1140,10 @@ test("再認証はProvider Home Lock喪失後のEffectを停止する", async ()
     },
   );
   assert.equal(result.status, "blocked");
-  assert.equal(result.reason, "claude_authentication_provider_home_lock_lost");
+  assert.equal(
+    result.reason,
+    "provider_authentication_provider_home_lock_lost",
+  );
   assert.equal(purposes.includes("create_login"), false);
   assert.equal(
     purposes.some((purpose) => purpose.startsWith("remove_")),
@@ -744,7 +1151,7 @@ test("再認証はProvider Home Lock喪失後のEffectを停止する", async ()
   );
   assert.equal(
     result.recoveryId,
-    `claude-auth.${STABLE_LOGICAL_HOME_BINDING_HASH}`,
+    `provider-auth.claude.login.${STABLE_LOGICAL_HOME_BINDING_HASH}`,
   );
   assert.equal(result.manualRecoveryRequired, true);
 });
@@ -764,7 +1171,9 @@ test("再認証はProcess終了不明で後続とIdle保存とHome解放を拒�
   const purposes: string[] = [];
   const states: string[] = [];
   let releases = 0;
-  const result = await authenticateClaudeSubscription(
+  const result = await authenticateProvider(
+    "claude",
+    "login",
     "C:\\runtime-owned\\ProviderHomes\\claude",
     STABLE_LOGICAL_HOME_BINDING_HASH,
     {
@@ -798,14 +1207,14 @@ test("再認証はProcess終了不明で後続とIdle保存とHome解放を拒�
   assert.equal(releases, 0);
   assert.equal(
     result.reason,
-    "claude_authentication_process_completion_unconfirmed",
+    "provider_authentication_process_completion_unconfirmed",
   );
   assert.equal(result.cleanupConfirmed, false);
   assert.equal(result.providerEffectIssued, true);
   assert.equal(result.manualRecoveryRequired, true);
   assert.equal(
     result.recoveryId,
-    `claude-auth.${STABLE_LOGICAL_HOME_BINDING_HASH}`,
+    `provider-auth.claude.login.${STABLE_LOGICAL_HOME_BINDING_HASH}`,
   );
 });
 
@@ -892,7 +1301,9 @@ test("再認証は清掃removeと不存在観測の終了不明を耐久保持�
           };
         },
       };
-      const result = await authenticateClaudeSubscription(
+      const result = await authenticateProvider(
+        "claude",
+        "login",
         "C:\\runtime-owned\\ProviderHomes\\claude",
         STABLE_LOGICAL_HOME_BINDING_HASH,
         dependencies,
@@ -905,14 +1316,16 @@ test("再認証は清掃removeと不存在観測の終了不明を耐久保持�
       assert.ok("manualRecoveryRequired" in result);
       assert.equal(result.manualRecoveryRequired, true);
       const count = calls.length;
-      const fresh = await authenticateClaudeSubscription(
+      const fresh = await authenticateProvider(
+        "claude",
+        "login",
         "C:\\runtime-owned\\ProviderHomes\\claude",
         STABLE_LOGICAL_HOME_BINDING_HASH,
         dependencies,
       );
       assert.equal(
         fresh.reason,
-        "claude_authentication_prior_command_in_flight",
+        "provider_authentication_prior_command_in_flight",
       );
       assert.equal(calls.length, count);
     }
@@ -933,7 +1346,9 @@ test("再認証は清掃removeと不存在観測の終了不明を耐久保持�
  */
 test("再認証は回復在庫不明をcleanup完了へ畳まない", async () => {
   let runCount = 0;
-  const result = await authenticateClaudeSubscription(
+  const result = await authenticateProvider(
+    "claude",
+    "login",
     "C:\\runtime-owned\\ProviderHomes\\claude",
     STABLE_LOGICAL_HOME_BINDING_HASH,
     {
@@ -948,14 +1363,14 @@ test("再認証は回復在庫不明をcleanup完了へ畳まない", async () =
   );
   assert.equal(
     result.reason,
-    "claude_authentication_recovery_inventory_unknown",
+    "provider_authentication_recovery_inventory_unknown",
   );
   assert.equal(result.cleanupConfirmed, false);
   assert.equal(result.manualRecoveryRequired, true);
   assert.equal(result.effectStateUnknown, true);
   assert.equal(
     result.recoveryId,
-    `claude-auth.${STABLE_LOGICAL_HOME_BINDING_HASH}`,
+    `provider-auth.claude.login.${STABLE_LOGICAL_HOME_BINDING_HASH}`,
   );
   assert.equal(runCount, 0);
 });
@@ -975,7 +1390,9 @@ test("再認証は回復在庫不明をcleanup完了へ畳まない", async () =
 test("再認証は回復後の再入場失敗をcleanup完了へ畳まない", async () => {
   let beginCount = 0;
   let authenticationCommandCount = 0;
-  const result = await authenticateClaudeSubscription(
+  const result = await authenticateProvider(
+    "claude",
+    "login",
     "C:\\runtime-owned\\ProviderHomes\\claude",
     STABLE_LOGICAL_HOME_BINDING_HASH,
     {
@@ -1001,13 +1418,16 @@ test("再認証は回復後の再入場失敗をcleanup完了へ畳まない", a
       },
     },
   );
-  assert.equal(result.reason, "claude_authentication_recovery_reentry_failed");
+  assert.equal(
+    result.reason,
+    "provider_authentication_recovery_reentry_failed",
+  );
   assert.equal(result.cleanupConfirmed, false);
   assert.equal(result.manualRecoveryRequired, true);
   assert.equal(result.effectStateUnknown, false);
   assert.equal(
     result.recoveryId,
-    `claude-auth.${STABLE_LOGICAL_HOME_BINDING_HASH}`,
+    `provider-auth.claude.login.${STABLE_LOGICAL_HOME_BINDING_HASH}`,
   );
   assert.equal(beginCount, 2);
   assert.equal(authenticationCommandCount, 0);
@@ -1028,7 +1448,9 @@ test("再認証は回復後の再入場失敗をcleanup完了へ畳まない", a
 test("再認証は最終不存在確認後のLock喪失でsettledを書かない", async () => {
   let isLive = true;
   let settlementCount = 0;
-  const result = await authenticateClaudeSubscription(
+  const result = await authenticateProvider(
+    "claude",
+    "login",
     "C:\\runtime-owned\\ProviderHomes\\claude",
     STABLE_LOGICAL_HOME_BINDING_HASH,
     {
@@ -1065,12 +1487,15 @@ test("再認証は最終不存在確認後のLock喪失でsettledを書かない
     },
   );
   assert.equal(result.status, "blocked");
-  assert.equal(result.reason, "claude_authentication_provider_home_lock_lost");
+  assert.equal(
+    result.reason,
+    "provider_authentication_provider_home_lock_lost",
+  );
   assert.equal(result.cleanupConfirmed, false);
   assert.equal(settlementCount, 0);
   assert.equal(
     result.recoveryId,
-    `claude-auth.${STABLE_LOGICAL_HOME_BINDING_HASH}`,
+    `provider-auth.claude.login.${STABLE_LOGICAL_HOME_BINDING_HASH}`,
   );
 });
 
@@ -1088,7 +1513,9 @@ test("再認証は最終不存在確認後のLock喪失でsettledを書かない
  */
 test("再認証は同じProvider Homeの後発操作をEffect前に拒否する", async () => {
   let runCount = 0;
-  const result = await authenticateClaudeSubscription(
+  const result = await authenticateProvider(
+    "claude",
+    "login",
     "C:\\runtime-owned\\ProviderHomes\\claude",
     STABLE_LOGICAL_HOME_BINDING_HASH,
     {
@@ -1104,7 +1531,7 @@ test("再認証は同じProvider Homeの後発操作をEffect前に拒否する"
   assert.equal(result.status, "blocked");
   assert.equal(
     result.reason,
-    "claude_authentication_provider_home_active_or_unknown",
+    "provider_authentication_provider_home_active_or_unknown",
   );
   assert.equal(result.providerEffectIssued, false);
   assert.equal(runCount, 0);
@@ -1126,7 +1553,9 @@ test("再認証は耐久Intentから旧資源を回収してfresh Processで再�
   const purposes: string[] = [];
   const journalEvents: string[] = [];
   let beginCount = 0;
-  const result = await authenticateClaudeSubscription(
+  const result = await authenticateProvider(
+    "claude",
+    "login",
     "C:\\runtime-owned\\ProviderHomes\\claude",
     STABLE_LOGICAL_HOME_BINDING_HASH,
     {

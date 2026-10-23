@@ -1733,7 +1733,7 @@
     {
       "symbolId": "coordinator.test.integration.claude-subscription-authentication-recovery",
       "kind": "test-suite",
-      "path": "tests/integration/claude-subscription-authentication-recovery.integration.test.ts",
+      "path": "tests/integration/provider-authentication-recovery.integration.test.ts",
       "qaIds": [
         "QA-000006"
       ],
@@ -1748,7 +1748,7 @@
     {
       "symbolId": "coordinator.test.unit.claude-subscription-authentication",
       "kind": "test-suite",
-      "path": "tests/unit/claude-subscription-authentication.contract.test.ts",
+      "path": "tests/unit/provider-authentication.contract.test.ts",
       "qaIds": [
         "QA-000006"
       ],
@@ -3031,7 +3031,7 @@
     {
       "symbolId": "coordinator.source.scripts.authenticate.claude.subscription",
       "kind": "module",
-      "path": "scripts/authenticate-claude-subscription.ts",
+      "path": "src/api.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000010",

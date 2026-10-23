@@ -14,9 +14,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
-  createClaudeSubscriptionAuthenticationDependencies,
-  createClaudeSubscriptionAuthenticationPlan,
-  createClaudeSubscriptionAuthenticationRecoveryRecord,
+  createProviderAuthenticationDependencies,
+  createProviderAuthenticationPlan,
+  createProviderAuthenticationRecoveryRecord,
 } from "../../src/execution/authority.ts";
 
 /**
@@ -42,19 +42,17 @@ async function createRecordedAuthenticationFixture() {
     path.basename(directory).startsWith("claude-authentication-record-"),
   );
   const home = path.join(directory, "ProviderHomes", "claude");
-  const plan = createClaudeSubscriptionAuthenticationPlan(
+  const plan = createProviderAuthenticationPlan(
+    "claude",
+    "login",
     home,
     hash.slice(0, 16),
     randomBytes(32).toString("hex"),
   );
   assert.ok(plan);
-  const record = createClaudeSubscriptionAuthenticationRecoveryRecord(
-    home,
-    hash,
-    plan,
-  );
+  const record = createProviderAuthenticationRecoveryRecord(home, hash, plan);
   assert.ok(record);
-  const dependencies = createClaudeSubscriptionAuthenticationDependencies();
+  const dependencies = createProviderAuthenticationDependencies();
   const lock = dependencies.acquireProviderHomeLock(hash);
   assert.ok(lock);
   let completed = false;

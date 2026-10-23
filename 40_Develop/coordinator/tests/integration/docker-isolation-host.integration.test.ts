@@ -23,10 +23,10 @@ import { runInNewContext } from "node:vm";
 import { describeProviderAuthentication } from "../../../ai-adapter/src/index.ts";
 import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
 import {
-  createClaudeSubscriptionAuthenticationDependencies,
-  createClaudeSubscriptionAuthenticationPlan,
-  createClaudeSubscriptionAuthenticationRecoveryRecord,
-  readClaudeSubscriptionAuthenticationResources,
+  createProviderAuthenticationDependencies,
+  createProviderAuthenticationPlan,
+  createProviderAuthenticationRecoveryRecord,
+  readProviderAuthenticationResources,
 } from "../../src/execution/authority.ts";
 import {
   createDockerIsolationRuntime,
@@ -714,6 +714,7 @@ test("Windows Process Gate: 未起動認証五資源の実構成と作成Receipt
   fs.mkdirSync(home);
   const nonce = randomBytes(8).toString("hex");
   const input: DockerAuthenticationInput = {
+    action: "login",
     providerHomeSourcePath: home,
     providerImageDigest:
       "sha256:ddd766072db6e69f55efb11fc3e82b401542cb5583c179f56aac4004f4ea317a",
@@ -727,7 +728,11 @@ test("Windows Process Gate: 未起動認証五資源の実構成と作成Receipt
     proxyToken: randomBytes(32).toString("hex"),
     proxyPort: 8080,
     proxyProfile: "claude",
-    authenticationCli: describeProviderAuthentication("claude"),
+    authenticationCli: {
+      loginArgv: describeProviderAuthentication("claude").loginArgv,
+      statusArgv: describeProviderAuthentication("claude").statusArgv,
+      environment: describeProviderAuthentication("claude").environment,
+    },
   };
   const plan = planDockerAuthenticationCommands(input);
   const createRuntime = createDockerAuthenticationRuntimeFactory();
@@ -960,7 +965,7 @@ test("Windows Process Gate: 認証保存記録から別Processの本番清掃へ
   const hash = randomBytes(32).toString("hex");
   const fixture = fileURLToPath(
     new URL(
-      "../fixtures/claude-authentication-create-recovery-fixture.ts",
+      "../fixtures/provider-authentication-create-recovery-fixture.ts",
       import.meta.url,
     ),
   );
@@ -982,26 +987,24 @@ test("Windows Process Gate: 認証保存記録から別Processの本番清掃へ
     completed: true,
     lockReleased: true,
   });
-  const plan = createClaudeSubscriptionAuthenticationPlan(
+  const plan = createProviderAuthenticationPlan(
+    "claude",
+    "login",
     home,
     hash.slice(0, 16),
     randomBytes(32).toString("hex"),
   );
   assert.ok(plan);
-  const record = createClaudeSubscriptionAuthenticationRecoveryRecord(
-    home,
-    hash,
-    plan,
-  );
+  const record = createProviderAuthenticationRecoveryRecord(home, hash, plan);
   assert.ok(record);
-  const dependencies = createClaudeSubscriptionAuthenticationDependencies();
+  const dependencies = createProviderAuthenticationDependencies();
   const lock = dependencies.acquireProviderHomeLock(hash);
   assert.ok(lock);
   let complete = false;
   let released = false;
   try {
     assert.equal(dependencies.beginRecovery(record), "existing_idle");
-    const receipts = readClaudeSubscriptionAuthenticationResources(record);
+    const receipts = readProviderAuthenticationResources(record);
     assert.ok(
       receipts &&
         receipts.length === 5 &&

@@ -30,6 +30,96 @@ const terminal = {
 };
 
 /**
+ * 共通認証CLIのhelp・文法・TTY拒否を実Processで検証する。
+ * @responsibility 認証・Home観測へ到達しない公開拒否境界を確認する。
+ * @trace PRL-ST-001
+ * @precondition redirectされた合成引数だけを渡す。
+ * @stimulus help、不正Provider、余剰引数と非TTY loginを起動する。
+ * @observation 終了値、固定理由と秘密候補の非出力。
+ * @oracle helpは0、不正と非TTYは64、旧入口は拒否。
+ * @cleanup 子Processの終了だけ。Docker・認証・Repository保存なし。
+ * @boundary PRL-ST-001=System: 共通CLIの実受付。
+ */
+test("共通認証CLIはhelpを表示し不正要求と非TTY loginをEffect前に拒否する", () => {
+  for (const [args, code, reason] of [
+    [["auth", "--help"], 0, "auth status"],
+    [
+      ["auth", "status", "other"],
+      64,
+      "provider_authentication_arguments_invalid",
+    ],
+    [
+      ["auth", "status", "codex", "--secret=fixture"],
+      64,
+      "provider_authentication_arguments_invalid",
+    ],
+    [
+      ["auth", "login", "codex"],
+      64,
+      "provider_authentication_interactive_terminal_required",
+    ],
+    [
+      ["auth", "login", "claude", "--json"],
+      64,
+      "provider_authentication_arguments_invalid",
+    ],
+    [["authenticate-claude"], 64, "coordinator_launch_mode_invalid"],
+  ] as const) {
+    const child = spawnSync(process.execPath, [launcher, ...args], {
+      cwd: repositoryRoot,
+      encoding: "utf8",
+      windowsHide: true,
+      timeout: 15_000,
+    });
+    assert.equal(child.status, code, child.stderr);
+    assert.ok((child.stdout + child.stderr).includes(reason));
+    assert.equal((child.stdout + child.stderr).includes("fixture"), false);
+  }
+});
+
+/**
+ * statusのJSON搬送を正式APIの有限代役と実CLIで確認する。
+ * @responsibility 最終stdoutを単一JSONに保ち、loginや実認証へ接続しない。
+ * @trace PRL-ST-001
+ * @precondition APIだけをNodeのmodule mockで置換する。
+ * @stimulus 実CLI受付へstatus codex --jsonを渡す。
+ * @observation stdout全体、終了値と代役へ届くProvider／Signal。
+ * @oracle 単一JSONが一件だけ返り、loginは呼ばれない。
+ * @cleanup 実Node子の終了。Home・Docker・外部通信なし。
+ * @boundary PRL-ST-001=System: CLIと正式APIの入力・出力接続。
+ */
+test("auth status --jsonは同じ正式APIを待ちstdoutへJSON一件だけを返す", () => {
+  const apiUrl = pathToFileURL(path.join(packageRoot, "src/api.ts")).href;
+  const commandUrl = pathToFileURL(
+    path.join(packageRoot, "src/cli/command.ts"),
+  ).href;
+  const script = `import {mock} from "node:test";import assert from "node:assert/strict";
+    mock.module(${JSON.stringify(apiUrl)},{namedExports:{
+      getAuthenticationStatus:async(request,signal)=>{assert.deepEqual(request,{provider:"codex"});assert.ok(signal instanceof AbortSignal);return {status:"completed",authenticationStatus:"confirmed",cleanupConfirmed:true};},
+      authenticateProvider:()=>{throw Error("unexpected_login");}
+    }});
+    const {runCoordinatorCommand}=await import(${JSON.stringify(commandUrl)});
+    await runCoordinatorCommand(["auth","status","codex","--json"]); `;
+  const child = spawnSync(
+    process.execPath,
+    ["--experimental-test-module-mocks", "--input-type=module", "-e", script],
+    {
+      cwd: repositoryRoot,
+      encoding: "utf8",
+      windowsHide: true,
+      timeout: 15_000,
+    },
+  );
+  assert.equal(child.status, 0, child.stderr);
+  assert.deepEqual(JSON.parse(child.stdout), {
+    status: "completed",
+    authenticationStatus: "confirmed",
+    cleanupConfirmed: true,
+  });
+  assert.equal(child.stdout.trim().split(/\r?\n/u).length, 1);
+});
+
+/**
  * 共通Launcherの実行入口を一つの正本から解決するを検証する。
  *
  * @responsibility 共通Launcherの実行入口を一つの正本から解決するの合否判定を所有する。
@@ -48,7 +138,6 @@ test("共通Launcherの実行入口を一つの正本から解決する", () => 
     automation: "../src/cli/command.ts",
     "verify-routes": "../scripts/verify-route-matrix.ts",
     "verify-recovery": "../scripts/verify-recovery-matrix.ts",
-    "authenticate-claude": "../scripts/authenticate-claude-subscription.ts",
   });
   assert.equal(Object.isFrozen(COORDINATOR_LAUNCH_ENTRIES), true);
 });
@@ -152,7 +241,7 @@ test("入口統合後も引数なしと従来helpは成功する", () => {
  * @boundary PRL-ST-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("用途ごとの入力と端末条件を区別し、内部Recovery引数を公開しない", () => {
-  for (const mode of ["interactive", "verify-routes", "authenticate-claude"]) {
+  for (const mode of ["interactive", "verify-routes"]) {
     assert.equal(resolveCoordinatorLaunch([mode], terminal).status, "ready");
     assert.equal(
       resolveCoordinatorLaunch([mode], { ...terminal, stdoutIsTty: false })

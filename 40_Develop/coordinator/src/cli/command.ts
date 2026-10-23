@@ -9,6 +9,8 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { types as utilTypes } from "node:util";
+import { authenticateProvider, getAuthenticationStatus } from "../api.ts";
+import { PROVIDER_AUTHENTICATION_INPUT_NOTICE } from "../execution/authority.ts";
 import {
   resolveVerifiedRepositoryRootFromWorkingDirectory,
   verifyRepositoryRoot,
@@ -130,6 +132,9 @@ function printHelp() {
     `  node template/tools/crdd-coordinator.ts task --request-stdin --json  # Task受付が明示Workspaceを解決\n`,
   );
   process.stdout.write(`  coordinator capabilities --json\n`);
+  process.stdout.write(
+    `  coordinator auth status codex|claude [--json] / auth login codex|claude\n`,
+  );
   process.stdout.write(`  coordinator doctor [--json] [--isolation]\n`);
   process.stdout.write(
     `  coordinator doctor --recover-isolation <recovery-id> [--json]\n`,
@@ -350,7 +355,6 @@ export const COORDINATOR_LAUNCH_ENTRIES = Object.freeze({
   automation: "../src/cli/command.ts",
   "verify-routes": "../scripts/verify-route-matrix.ts",
   "verify-recovery": "../scripts/verify-recovery-matrix.ts",
-  "authenticate-claude": "../scripts/authenticate-claude-subscription.ts",
 });
 
 /**
@@ -420,7 +424,6 @@ export function resolveCoordinatorLaunch(
     forwardedArgs.some((arg) => arg.includes("\0")) ||
     ((mode === "verify-routes" || mode === "verify-recovery") &&
       forwardedArgs.length !== 0) ||
-    (mode === "authenticate-claude" && forwardedArgs.length !== 0) ||
     (mode === "automation" && !forwardedArgs.includes("--json")) ||
     (mode === "task" &&
       (!suppliedArgs.includes("--request-stdin") ||
@@ -429,15 +432,10 @@ export function resolveCoordinatorLaunch(
     return blocked("coordinator_launch_arguments_invalid");
   }
   if (
-    (mode === "interactive" ||
-      mode === "verify-routes" ||
-      mode === "authenticate-claude") &&
+    (mode === "interactive" || mode === "verify-routes") &&
     (!observation.stdoutIsTty || !observation.stdoutWritable)
   ) {
     return blocked("coordinator_launch_terminal_output_required");
-  }
-  if (mode === "authenticate-claude" && !observation.stdinIsTty) {
-    return blocked("coordinator_launch_terminal_input_required");
   }
   if ((mode === "automation" || mode === "task") && observation.stdoutIsTty) {
     return blocked("coordinator_launch_machine_output_required");
@@ -504,6 +502,10 @@ export async function runCoordinatorCommand(
   arguments_: readonly string[] = process.argv.slice(2),
 ): Promise<void> {
   const args = arguments_;
+  if (args[0] === "auth") {
+    await runAuthenticationCommand(args.slice(1));
+    return;
+  }
   const isDirectProject = args[0] === "project" || args[0] === "task";
   const isRoutedProject =
     (args[0] === "interactive" || args[0] === "automation") &&
@@ -571,7 +573,7 @@ export async function runCoordinatorCommand(
         "automation <CLI引数と--json> : 自動処理。既存同意が必要な操作で同意がなければ停止",
         "verify-routes : 固定Taskの4経路E2E。出力は端末へ直接表示",
         "verify-recovery : 固定Workerの復旧検証。端末不要",
-        "authenticate-claude : 人がClaude Maxの専用Provider Homeを再認証。Repositoryは接続しない",
+        "auth status codex|claude [--json] / auth login codex|claude : 認証確認／公式対話ログイン",
         "同じCheckoutの既存入口へ接続します。起動用途の選択は実行許可を与えません。",
         "通常Taskは必要な実行条件をOperationごとに検証します。",
         "入出力・環境・作業Directoryは変更しません。秘密入力の記録や自動入力は行いません。",
@@ -617,9 +619,6 @@ export async function runCoordinatorCommand(
           case "verify-recovery":
             await import("../../scripts/verify-recovery-matrix.ts");
             break;
-          case "authenticate-claude":
-            await import("../../scripts/authenticate-claude-subscription.ts");
-            break;
         }
       } catch {
         // The target may already have issued effects. Do not invent cleanup.
@@ -630,6 +629,103 @@ export async function runCoordinatorCommand(
       }
     }
   }
+}
+
+/**
+ * 共通認証コマンドの文法・端末・取消・表示を接続する。
+ * @responsibility 認証の意味・Home選択・回収は正式APIへ委譲する。
+ * @trace ARCH-000004
+ * @input args: status/login、Provider、statusだけに許可する任意の--json。
+ * @returns 表示と終了値の設定。
+ * @precondition 一回のCLI受付から呼ぶ。
+ * @postcondition 不正入力・端末不足ではAPIを呼ばない。
+ * @effect 検査後の正式認証API、Signal登録と出力。
+ * @failure 文法は64、操作未完了は2。未知の回収を成功化しない。
+ * @invariant 通常Task・Repository・APIキーへ接続しない。
+ * @boundary Process端末と正式API。
+ * @security loginの生対話は下位がTTYへ直接接続する。
+ * @concurrency 一回取消・操作待機後のListener解除を維持する。
+ */
+async function runAuthenticationCommand(
+  args: readonly string[],
+): Promise<void> {
+  if (args.length === 1 && ["--help", "help", "-h"].includes(args[0] ?? "")) {
+    process.stdout.write(
+      "auth status codex|claude [--json] : 通信なしの認証状態確認\nauth login codex|claude : 専用Homeへの公式対話ログイン（--json非対応）\n",
+    );
+    process.exitCode = 0;
+    return;
+  }
+  const [action, provider, format] = args;
+  const invalid =
+    args.length < 2 ||
+    args.length > 3 ||
+    (action !== "status" && action !== "login") ||
+    (provider !== "codex" && provider !== "claude") ||
+    (format !== undefined && (format !== "--json" || action !== "status"));
+  if (
+    invalid ||
+    !isSupportedCoordinatorNodeRuntime(process.versions.node) ||
+    (action === "login" &&
+      (process.stdin.isTTY !== true || process.stdout.isTTY !== true))
+  ) {
+    const reason = invalid
+      ? "provider_authentication_arguments_invalid"
+      : !isSupportedCoordinatorNodeRuntime(process.versions.node)
+        ? "coordinator_node_version_unsupported"
+        : "provider_authentication_interactive_terminal_required";
+    process.stderr.write(`${reason}\n`);
+    process.exitCode = 64;
+    return;
+  }
+  const controller = new AbortController();
+  const binding = bindTaskCliCancellationSignals(async () =>
+    controller.abort(),
+  );
+  let result: Readonly<Record<string, unknown>>;
+  let signalsReleased = false;
+  try {
+    if (binding.status !== "bound") {
+      result = {
+        status: "blocked",
+        reason: "provider_authentication_signal_binding_failed",
+        cleanupConfirmed: false,
+        manualRecoveryRequired: true,
+      };
+    } else {
+      if (action === "login")
+        process.stderr.write(
+          "表示されたProvider公式手順だけを完了してください。秘密値をチャットへ貼らないでください。\n" +
+            PROVIDER_AUTHENTICATION_INPUT_NOTICE +
+            "\n",
+        );
+      result = await (action === "status"
+        ? getAuthenticationStatus
+        : authenticateProvider)({ provider }, controller.signal);
+    }
+  } catch {
+    result = {
+      status: "blocked",
+      reason: "provider_authentication_entry_failed",
+      cleanupConfirmed: false,
+      manualRecoveryRequired: true,
+    };
+  } finally {
+    signalsReleased = binding.unbind().status === "released";
+    if (!signalsReleased) {
+      process.stderr.write("provider_authentication_signal_release_failed\n");
+      process.exitCode = 2;
+    }
+  }
+  if (!signalsReleased)
+    result = {
+      ...result,
+      status: "blocked",
+      cliReason: "provider_authentication_signal_release_failed",
+    };
+  process.stdout.write(`${JSON.stringify(result)}\n`);
+  if (process.exitCode !== 2)
+    process.exitCode = result.status === "completed" ? 0 : 2;
 }
 
 // 既存の直接受付を維持する。importだけでは操作を開始しない。
