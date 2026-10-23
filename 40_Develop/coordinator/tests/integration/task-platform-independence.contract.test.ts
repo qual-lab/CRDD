@@ -133,6 +133,7 @@ const SOURCE_ROLES = {
     "task/acceptance.ts",
     "storage/result-record.ts",
     "task/recovery.ts",
+    "selection/types.ts",
   ],
   workflow: [
     "state/observation.ts",
@@ -149,6 +150,7 @@ const SOURCE_ROLES = {
     "task/requests.ts",
     "workspace/commands.ts",
     "workspace/operations.ts",
+    "selection/resolve.ts",
   ],
   storage: [
     "storage/current-state.ts",

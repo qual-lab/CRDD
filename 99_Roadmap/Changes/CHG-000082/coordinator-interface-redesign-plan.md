@@ -200,3 +200,19 @@ Sourceは55 File。純粋集合18と業務操作8は不変で、Adapter集合だ
 ### Codex認証の仕様確認
 
 OpenAI Docsの[認証手順](https://learn.chatgpt.com/docs/auth)と[CLI引数](https://learn.chatgpt.com/docs/developer-commands?surface=cli)を2026-10-24に確認した。Headless向けの`login --device-auth`と`login status`は公式仕様に存在する。ただし現在の固定Image内CLIでの対応・Home・stdio・終了確認は別の検証であり、公式文書だけでその実測を代替しない。API Key／Credentialコピーのfallbackは採用しない。端末の一回コード・Tokenを診断や記録へ複製しない。
+
+## 12. 新形式の値検査・選定の段階実装 — 2026-10-24
+
+`eaf366a25`の構造単位の次に、新しい技術CatalogとRepository別AI選択の値処理を実装した。AI Adapterは既存の`catalog/{types,validation,resolve}.ts`と内部`model-catalog.json`へ配置し、公開追加は`getAiModelCatalog / resolveAiModelSelection`の二操作だけ。Coordinatorは`selection/types.ts`と`selection/resolve.ts`で五役割・任意分類・上書きを検証する。新Package・Registry・保存State・排他・実行許可は追加していない。
+
+Modelの用途・Effort・識別方式は§11の確認済み集合だけを継承する。旧Profileで混在していた希望設定から用途を機械変換しない。設定は全体を検証した後、明示指定→分類上書き→役割既定値で選び、技術Catalogと設定本文のIdentityを返却値へ固定する。未知分類は明示選択があっても拒否する。役割・分類は権限ではなく、`opus`はaliasのまま記録する。
+
+| 確認 | 観測結果と限界 |
+|---|---|
+| AI Adapter通常回帰 | 静的検査成功、37件成功・失敗／取消／skip／todo 0、5,503.3905ms。初回の試験複製に新JSONと値依存の追従漏れ一件を是正した。Windows Link等の実行制限による三件は、同じRepository内試験だけを通常権限で確認して成功。拒否条件は緩和していない |
+| Coordinator静的・直接回帰 | 静的検査成功（既存lint情報64件）。新選定三件と既存の型／純粋閉包六件が全九件成功、614.2561ms。Domain Model／Version Controlの利用側閉包16件も成功 |
+| 技術Catalog独立Source確認 | 未知field・重複・Proxy／Getter拒否、深い不変化、内容Hashと選定の相関、alias維持、Catalog注入不可、Authority非発行、旧関数本文不変を確認し指摘0 |
+| Repository選定独立Source確認 | 優先順位、不正明示値のfallbackなし、全設定検査、未知分類拒否、継承Propertyを参照しない辞書照合、正規化Hash・不変結果を確認し指摘0 |
+| 文書・登録の独立確認 | 新Source／Suiteの登録、採用済み三組の固定Oracle、Test Catalogの意味追従を是正。是正の重複適用も除去し、新候補の再確認は両確認者とも残指摘0。Symbol全ID重複0、実Source57＝登録Path一意57。Test Catalogは385件valid、実行開始なし／Effectなし |
+
+これは値処理の段階実装であり、本番切替の完了ではない。旧Profile本番Consumerを新設定の並行正本として維持する方針ではなく、保存・Task／Grant／回復・Workbench／MCP／CLIを新形式へ接続後に撤去する。現時点では新設定Fileの作成・移行・本体実行設定の変更は行っていない。設定Storeのbyte境界・Root・既存排他・CAS・原子的保存・読戻し、開始済み選定の耐久固定、公開入口の切替と全体回帰は残る。人間の実認証・新Model採用・実AI試験は最後に分離する。②と保持物は操作していない。

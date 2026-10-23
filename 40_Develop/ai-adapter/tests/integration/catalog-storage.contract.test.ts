@@ -366,7 +366,6 @@ test("同梱JSONの欠落・構文不正・Schema不正はModule起動を停止�
   await mkdir(testsRoot, { recursive: true });
   const fixture = await mkdtemp(path.join(testsRoot, "ai-profile-default-"));
   const sourceRoot = path.resolve(import.meta.dirname, "../../src/catalog");
-  const jsonPath = path.join(fixture, "default-catalog.json");
   try {
     const source = await readFile(
       path.join(sourceRoot, "validation.ts"),
@@ -391,53 +390,79 @@ test("同梱JSONの欠落・構文不正・Schema不正はModule起動を停止�
         ),
       ),
     );
-    await copyFile(
+    const resolver = await readFile(
       path.join(sourceRoot, "resolve.ts"),
+      "utf8",
+    );
+    assert.equal(resolver.split(dependency).length, 2);
+    await writeFile(
       path.join(fixture, "catalog.ts"),
+      resolver.replace(
+        dependency,
+        JSON.stringify(
+          pathToFileURL(
+            path.join(repositoryRoot, "40_Develop/domain-model/src/index.ts"),
+          ).href,
+        ),
+      ),
     );
     await writeFile(path.join(fixture, "package.json"), '{"type":"module"}');
-    for (const scenario of ["normal", "missing", "syntax", "schema"] as const) {
-      if (scenario === "normal") {
-        await copyFile(path.join(sourceRoot, "default-catalog.json"), jsonPath);
-      } else if (scenario === "missing") {
-        await rm(jsonPath);
-      } else {
-        await writeFile(
-          jsonPath,
-          scenario === "syntax" ? "{" : '{"contract":"invalid"}',
+    for (const catalogFile of [
+      "default-catalog.json",
+      "model-catalog.json",
+    ] as const) {
+      for (const scenario of [
+        "normal",
+        "missing",
+        "syntax",
+        "schema",
+      ] as const) {
+        for (const file of ["default-catalog.json", "model-catalog.json"]) {
+          await copyFile(path.join(sourceRoot, file), path.join(fixture, file));
+        }
+        const jsonPath = path.join(fixture, catalogFile);
+        if (scenario === "missing") {
+          await rm(jsonPath);
+        } else if (scenario !== "normal") {
+          await writeFile(
+            jsonPath,
+            scenario === "syntax" ? "{" : '{"contract":"invalid"}',
+          );
+        }
+        const result = spawnSync(
+          process.execPath,
+          [
+            "--input-type=module",
+            "-e",
+            'import { defaultAiProfileCatalog, getAiModelCatalog } from "./catalog.ts"; if (defaultAiProfileCatalog.profiles.length > 0 && getAiModelCatalog().catalog.models.length > 0) console.log("CATALOG_LOADED");',
+          ],
+          {
+            cwd: fixture,
+            windowsHide: true,
+            encoding: "utf8",
+            timeout: 10_000,
+            maxBuffer: 16_384,
+          },
         );
-      }
-      const result = spawnSync(
-        process.execPath,
-        [
-          "--input-type=module",
-          "-e",
-          'import { defaultAiProfileCatalog } from "./catalog.ts"; if (defaultAiProfileCatalog.profiles.length > 0) console.log("CATALOG_LOADED");',
-        ],
-        {
-          cwd: fixture,
-          windowsHide: true,
-          encoding: "utf8",
-          timeout: 10_000,
-          maxBuffer: 16_384,
-        },
-      );
-      assert.equal(result.error, undefined);
-      assert.equal(result.signal, null);
-      if (scenario === "normal") {
-        assert.equal(result.status, 0);
-        assert.equal(result.stdout.trim(), "CATALOG_LOADED");
-      } else {
-        assert.equal(result.status, 1);
-        assert.equal(result.stdout, "");
-        assert.match(
-          result.stderr,
-          scenario === "missing"
-            ? /ERR_MODULE_NOT_FOUND/u
-            : scenario === "syntax"
-              ? /SyntaxError/u
-              : /ai_profile_default_catalog_invalid/u,
-        );
+        assert.equal(result.error, undefined);
+        assert.equal(result.signal, null);
+        if (scenario === "normal") {
+          assert.equal(result.status, 0);
+          assert.equal(result.stdout.trim(), "CATALOG_LOADED");
+        } else {
+          assert.equal(result.status, 1);
+          assert.equal(result.stdout, "");
+          assert.match(
+            result.stderr,
+            scenario === "missing"
+              ? /ERR_MODULE_NOT_FOUND/u
+              : scenario === "syntax"
+                ? /SyntaxError/u
+                : catalogFile === "model-catalog.json"
+                  ? /ai_model_default_catalog_invalid/u
+                  : /ai_profile_default_catalog_invalid/u,
+          );
+        }
       }
     }
   } finally {

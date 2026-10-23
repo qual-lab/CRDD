@@ -9,7 +9,11 @@ import type {
   AiReasoningEffort,
   AiAdapterDefinition,
 } from "../provider/types.ts";
-import type { AiProfileCatalog } from "./types.ts";
+import type {
+  AiProfileCatalog,
+  AiModelCatalog,
+  AiModelDefinition,
+} from "./types.ts";
 import type {
   AiSelectionRole,
   AiModelTier,
@@ -493,4 +497,119 @@ export type AiProfileValidationResult = Readonly<
 export type AiProfileCatalogValidationResult = Readonly<
   | { status: "valid"; value: AiProfileCatalog; error: null }
   | { status: "blocked"; value: null; error: "ai_profile_catalog_invalid" }
+>;
+
+/**
+ * 技術カタログを閉形式の不変データへ検証する。
+ * @responsibility Model組の一意性と用途・Effort・識別方式の値境界だけを検査する。
+ * @trace ARCH-000010
+ * @input candidate: 同梱する技術カタログの未信頼値。
+ * @returns validの不変カタログ又はblockedの固定理由。
+ * @precondition 技術的な対応根拠の採用判断はSource更新時に別途確認する。
+ * @postcondition Getter・Proxy・旧Profile形式を読み替えず、入力とは別の不変値を返す。
+ * @effect N/A: 値検査だけ。
+ * @failure 未知field、不正値、重複した組を拒否する。
+ * @invariant Schema妥当性を実行対応の実測や認証成功へ昇格しない。
+ * @boundary Source管理のカタログと技術選定。
+ * @security 任意CLI引数・Path・秘密値・役割設定を受け付けない。
+ * @concurrency N/A: 局所値だけを使う同期処理。
+ */
+export function validateAiModelCatalog(
+  candidate: unknown,
+): AiModelCatalogValidationResult {
+  const blocked = Object.freeze({
+    status: "blocked" as const,
+    value: null,
+    error: "ai_model_catalog_invalid" as const,
+  });
+  const record = snapshotPlainRecord(
+    candidate,
+    new Set(["contract", "contractRevision", "models"]),
+  );
+  if (
+    !record ||
+    !hasExactKeys(record, ["contract", "contractRevision", "models"]) ||
+    record.contract !== "crdd/ai-model-catalog" ||
+    record.contractRevision !== 1
+  )
+    return blocked;
+  const entries = snapshotPlainArray(record.models, Number.MAX_SAFE_INTEGER);
+  if (entries.status !== "ok" || entries.value.length === 0) return blocked;
+  const models: AiModelDefinition[] = [];
+  const identities = new Set<string>();
+  const keys = [
+    "provider",
+    "modelIdentifier",
+    "identifierKind",
+    "supportedEfforts",
+    "supportedPurposes",
+    "compatibilityReason",
+  ];
+  for (const candidateModel of entries.value) {
+    const model = snapshotPlainRecord(candidateModel, new Set(keys));
+    if (!model || !hasExactKeys(model, keys)) return blocked;
+    const efforts = snapshotPlainArray(model.supportedEfforts, EFFORTS.size);
+    const purposes = snapshotPlainArray(model.supportedPurposes, 2);
+    if (
+      (model.provider !== "codex" && model.provider !== "claude") ||
+      typeof model.modelIdentifier !== "string" ||
+      !MODEL_ID.test(model.modelIdentifier) ||
+      (model.identifierKind !== "exact" && model.identifierKind !== "alias") ||
+      efforts.status !== "ok" ||
+      !parseStringArray(efforts.value, (item) =>
+        EFFORTS.has(item as AiReasoningEffort),
+      ) ||
+      purposes.status !== "ok" ||
+      !parseStringArray(
+        purposes.value,
+        (item) => item === "advice" || item === "task",
+      ) ||
+      (model.compatibilityReason !== null &&
+        model.compatibilityReason !==
+          "gpt_5_6_code_mode_only_host_unavailable_in_fixed_linux_runtime")
+    )
+      return blocked;
+    const identity = JSON.stringify([model.provider, model.modelIdentifier]);
+    if (identities.has(identity)) return blocked;
+    identities.add(identity);
+    models.push(
+      Object.freeze({
+        provider: model.provider,
+        modelIdentifier: model.modelIdentifier,
+        identifierKind: model.identifierKind,
+        supportedEfforts: Object.freeze([
+          ...efforts.value,
+        ]) as readonly AiReasoningEffort[],
+        supportedPurposes: Object.freeze([...purposes.value]) as readonly (
+          | "advice"
+          | "task"
+        )[],
+        compatibilityReason: model.compatibilityReason,
+      }),
+    );
+  }
+  return Object.freeze({
+    status: "valid",
+    error: null,
+    value: Object.freeze({
+      contract: "crdd/ai-model-catalog",
+      contractRevision: 1,
+      models: Object.freeze(models),
+    }),
+  });
+}
+
+/**
+ * 技術カタログの検証成功と固定拒否を区別する。
+ * @responsibility 未検証値を成功値として返さない。
+ * @trace ARCH-000010
+ * @shape statusで絞り込める閉じた結果型。
+ * @invariant blockedはカタログ値を持たない。
+ * @boundary カタログ検査と同梱構成の初期化。
+ * @security 認証・実行許可を含めない。
+ * @compatibility 新形式専用。
+ */
+export type AiModelCatalogValidationResult = Readonly<
+  | { status: "valid"; value: AiModelCatalog; error: null }
+  | { status: "blocked"; value: null; error: "ai_model_catalog_invalid" }
 >;

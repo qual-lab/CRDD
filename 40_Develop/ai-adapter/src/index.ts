@@ -68,10 +68,21 @@ export {
 } from "./billing/policy.ts";
 export type { ProviderBillingPolicy } from "./billing/policy.ts";
 export {
+  getAiModelCatalog,
+  resolveAiModelSelection,
   defaultAiProfileCatalog,
   resolveAiProfile,
   resolveAiProfileById,
 } from "./catalog/resolve.ts";
+export type {
+  AiModelCatalogSnapshot,
+  AiModelSelectionResult,
+} from "./catalog/resolve.ts";
+export type {
+  AiModelCatalog,
+  AiModelDefinition,
+  AiModelSelection,
+} from "./catalog/types.ts";
 export { evaluateAiProfileAvailability } from "./profile/validation.ts";
 export type { RuntimeProviderModelProfile } from "./profile/resolve.ts";
 export type { AiProfileResolutionResult } from "./catalog/resolve.ts";

@@ -2,7 +2,9 @@
 
 ## 技術カタログとRepository別AI選択の分離方針 — 2026-10-24
 
-状態: 設計方針採用、Schema・Source切替前。現行`AiProfileCatalog`の成功を新方式の完成根拠にはしない。[実施計画](../../../99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md)から操作・保存・利用側・検証へ接続する。
+状態: 新しい技術Catalogの値取得・選定を実装、Repository設定・実行の本番切替前。現行`AiProfileCatalog`の成功を新方式の完成根拠にはしない。[実施計画](../../../99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md)から操作・保存・利用側・検証へ接続する。
+
+`catalog/model-catalog.json`は新方式で選択可能な技術組の正本候補であり、`getAiModelCatalog`が深い不変Snapshotと内容Hash、`resolveAiModelSelection`が対応用途・Effortをexact照合した値を返す。役割・Tier・既定Effortは持たず、外部からCatalogを注入しない。`opus`はaliasとして固定し、未観測の実Model版を生成しない。旧Profileを使う本番Consumerは移行前のままであり、新設定の並行正本や互換Readerとして残す方針ではない。Provider計画・保存・Workbench／MCP／CLIまでの切替後に旧実体を撤去する。
 
 AI AdapterはProvider／具体Model／対応Effort／技術Capability・互換条件を所有し、Repositoryごとの役割既定値や作業分類別の推奨を技術カタログへ混在させない。CoordinatorはRepositoryのAI選択設定を解決し、今回の実行設定へ固定する。Domain Modelは既存のRepository境界・設定Rootの基盤を提供するが、AI選択専用Registryを追加しない。Workbenchは設定の編集画面であり、選択設定の正本ではない。
 

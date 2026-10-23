@@ -16,11 +16,132 @@ import defaultCatalogData from "../../../src/catalog/default-catalog.json" with 
 };
 
 import {
+  getAiModelCatalog,
+  resolveAiModelSelection,
   defaultAiProfileCatalog,
   resolveAiProfile,
   resolveAiProfileById,
 } from "../../../src/catalog/resolve.ts";
 import { validateAiProfileCatalog } from "../../../src/catalog/validation.ts";
+
+/**
+ * 技術カタログの対応組だけを補正なしで解決する。
+ * @responsibility 用途・Effortとaliasの意味、同一カタログの相関を検証する。
+ * @trace RCM-UT-001
+ * @precondition 同梱の新形式カタログだけを利用する。
+ * @stimulus 全対応組と用途・Effort・Provider・Modelの負対照を渡す。
+ * @observation 解決値、Identity、不変性と固定拒否理由。
+ * @oracle 対応組だけ成功し、未知値や互換理由をfallbackへ変換しない。
+ * @cleanup N/A: 値検査だけで外部資源を作らない。
+ * @boundary 同梱技術カタログから選択結果への純粋変換。
+ */
+test("技術選定は確認済みの用途とEffortだけを解決しaliasを維持する", () => {
+  const snapshot = getAiModelCatalog();
+  assert.match(snapshot.identity, /^[a-f0-9]{64}$/u);
+  assert.ok(Object.isFrozen(snapshot));
+  assert.ok(Object.isFrozen(snapshot.catalog));
+  assert.ok(Object.isFrozen(snapshot.catalog.models));
+  assert.equal(snapshot.catalog.models.length, 3);
+  assert.deepEqual(snapshot.catalog.models, [
+    {
+      provider: "codex",
+      modelIdentifier: "gpt-5.6-sol",
+      identifierKind: "exact",
+      supportedEfforts: ["low", "medium", "high"],
+      supportedPurposes: ["advice"],
+      compatibilityReason:
+        "gpt_5_6_code_mode_only_host_unavailable_in_fixed_linux_runtime",
+    },
+    {
+      provider: "codex",
+      modelIdentifier: "gpt-5.5",
+      identifierKind: "exact",
+      supportedEfforts: ["low", "medium", "high"],
+      supportedPurposes: ["task"],
+      compatibilityReason: null,
+    },
+    {
+      provider: "claude",
+      modelIdentifier: "opus",
+      identifierKind: "alias",
+      supportedEfforts: ["low", "medium", "high"],
+      supportedPurposes: ["advice", "task"],
+      compatibilityReason: null,
+    },
+  ]);
+  for (const model of snapshot.catalog.models) {
+    assert.ok(Object.isFrozen(model));
+    assert.ok(Object.isFrozen(model.supportedEfforts));
+    assert.ok(Object.isFrozen(model.supportedPurposes));
+    assert.equal("selectionRoles" in model, false);
+    assert.equal("defaultReasoningEffort" in model, false);
+    for (const purpose of model.supportedPurposes) {
+      for (const reasoningEffort of model.supportedEfforts) {
+        const result = resolveAiModelSelection({
+          provider: model.provider,
+          modelIdentifier: model.modelIdentifier,
+          purpose,
+          reasoningEffort,
+        });
+        assert.equal(result.status, "resolved");
+        assert.deepEqual(result.value, {
+          provider: model.provider,
+          modelIdentifier: model.modelIdentifier,
+          identifierKind: model.identifierKind,
+          purpose,
+          reasoningEffort,
+          catalogIdentity: snapshot.identity,
+        });
+        assert.ok(Object.isFrozen(result.value));
+      }
+    }
+  }
+  const base = {
+    provider: "codex",
+    modelIdentifier: "gpt-5.6-sol",
+    purpose: "advice",
+    reasoningEffort: "medium",
+  };
+  for (const [change, error] of [
+    [{ purpose: "task" }, "ai_model_purpose_unsupported"],
+    [{ modelIdentifier: "gpt-5.5" }, "ai_model_purpose_unsupported"],
+    [{ modelIdentifier: "gpt-6-astra" }, "ai_model_not_found"],
+    [{ modelIdentifier: "gpt-6.1-sol" }, "ai_model_not_found"],
+    [{ provider: "claude" }, "ai_model_not_found"],
+    [{ reasoningEffort: "xhigh" }, "ai_model_effort_unsupported"],
+    [{ reasoningEffort: "max" }, "ai_model_effort_unsupported"],
+    [{ purpose: "executor" }, "ai_model_selection_invalid"],
+    [{ role: "executor" }, "ai_model_selection_invalid"],
+  ] as const) {
+    assert.deepEqual(resolveAiModelSelection({ ...base, ...change }), {
+      status: "blocked",
+      value: null,
+      error,
+    });
+  }
+  let hooks = 0;
+  const getter = { ...base };
+  Object.defineProperty(getter, "modelIdentifier", {
+    enumerable: true,
+    get() {
+      hooks++;
+      return base.modelIdentifier;
+    },
+  });
+  assert.equal(resolveAiModelSelection(getter).status, "blocked");
+  assert.equal(
+    resolveAiModelSelection(
+      new Proxy(base, {
+        ownKeys() {
+          hooks++;
+          return Reflect.ownKeys(base);
+        },
+      }),
+    ).status,
+    "blocked",
+  );
+  assert.equal(hooks, 0);
+});
 
 /**
  * 同梱JSONを検証済みの不変Catalogとして公開する。
@@ -70,6 +191,7 @@ test("同梱JSONの全値を保持して深い不変Catalogを公開する", () 
     "evaluateProviderAuthentication",
     "evaluateProviderAvailability",
     "evaluateProviderTaskScope",
+    "getAiModelCatalog",
     "normalizeClaudeStructuredResult",
     "normalizeCodexStructuredResult",
     "parseAiProfileCatalogMutation",
@@ -80,6 +202,7 @@ test("同梱JSONの全値を保持して深い不変Catalogを公開する", () 
     "projectCodexExecutionBoundary",
     "providerProfileMatchesExecutionIdentity",
     "providerProfileSupportsExecution",
+    "resolveAiModelSelection",
     "resolveAiProfile",
     "resolveAiProfileById",
     "resolveRuntimeOwnedProviderModelProfile",

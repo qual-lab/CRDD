@@ -4,6 +4,26 @@
   "subsystem": "coordinator",
   "symbols": [
     {
+      "symbolId": "coordinator.selection.types",
+      "kind": "file",
+      "path": "src/selection/types.ts",
+      "archIds": ["ARCH-000004"]
+    },
+    {
+      "symbolId": "coordinator.selection.resolve",
+      "kind": "file",
+      "path": "src/selection/resolve.ts",
+      "archIds": ["ARCH-000004"]
+    },
+    {
+      "symbolId": "coordinator.test.unit.selection.resolve",
+      "kind": "test-suite",
+      "path": "tests/unit/selection/resolve.contract.test.ts",
+      "qaIds": ["QA-000001"],
+      "localTestIds": ["RCM-UT-001"],
+      "verifies": ["coordinator.selection.types", "coordinator.selection.resolve"]
+    },
+    {
       "symbolId": "coordinator.execution.provider-result-reasons",
       "kind": "file",
       "path": "src/execution/result.ts",

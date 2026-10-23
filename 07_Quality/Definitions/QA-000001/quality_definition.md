@@ -1,5 +1,11 @@
 # QA-000001 リポジトリ検査と契約移行の検証定義
 
+## 技術カタログとRepository別AI選択の新形式 — 2026-10-24
+
+`RCM-UT-001/002`へ、新しい技術Catalogと選択設定の純粋検査を接続する。AI AdapterのCatalog検査・選定と、Coordinatorの`selection/resolve`は、未知field・Getter／Proxy・重複・役割／分類参照不整合、用途／Effort不対応、aliasをexactと誤認する結果、暗黙fallbackを反証する。五役割と任意分類、明示指定→分類上書き→役割既定値、内容Identityと元入力からの分離を確認する。
+
+この単位は値検査であり、Repository別保存・CAS・設定編集認可・Task／Grant／回復の固定選定・Workbench／MCP／CLI本番切替は未接続として残す。旧Profile試験の成功を新方式の保存や実行の成功へ換算しない。[実施段階と結果](../../../99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md)へ接続し、技術Catalogの追加を新Model採用や実Provider確認と扱わない。
+
 成果物種別: Quality定義
 Quality ID: `QA-000001`
 検証目標: 機械検査の責務と、契約移行後の全利用側の閉包を確認する

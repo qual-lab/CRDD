@@ -3277,7 +3277,8 @@
       "semanticTags": [
         "ai-profile",
         "adapter",
-        "model"
+        "model",
+        "technical-catalog"
       ],
       "environment": "node_process",
       "externalProviderEffect": false,
@@ -3285,8 +3286,22 @@
       "postconditions": [
         "profile_resolution_deterministic",
         "unknown_configuration_rejected",
+        "technical_catalog_closed_set",
         "provider_effect_zero"
       ],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "coordinator:unit:selection:resolve",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/unit/selection/resolve.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": ["ai-selection", "model", "configuration"],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["selection_priority_deterministic", "unknown_configuration_rejected", "provider_effect_zero"],
       "mandatoryByDefault": true
     },
     {
@@ -3298,7 +3313,9 @@
       "semanticTags": [
         "ai-profile",
         "adapter",
-        "model"
+        "model",
+        "technical-catalog",
+        "model-alias"
       ],
       "environment": "node_process",
       "externalProviderEffect": false,
@@ -3306,6 +3323,9 @@
       "postconditions": [
         "profile_resolution_deterministic",
         "unknown_configuration_rejected",
+        "technical_catalog_closed_set",
+        "alias_identity_preserved",
+        "unsupported_purpose_effort_rejected",
         "provider_effect_zero"
       ],
       "mandatoryByDefault": true
