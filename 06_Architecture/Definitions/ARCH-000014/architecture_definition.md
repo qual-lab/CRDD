@@ -5,13 +5,15 @@ Architecture ID: `ARCH-000014`
 状態: Canonical
 維持責任者: Qual-Lab
 
+旧Coordinator独立Trust Evaluatorは2026-10-23の人間承認で廃止した。上流の独立評価・公式識別の意味と安定IDは維持するが、代替の本番評価器はなく、当該実装関係は未接続である。通常実行のGateへ追加せず、旧専用試験を現版の成立根拠へ流用しない。
+
 ## 1. 責務と境界
 
 verified／trusted／quality_assuredを別軸にし、Qual-Lab署名を実行資格へ集約しない。Forkや企業署名、許可されたLocal unsignedを利用者所有Policyで評価する。
 
 | 区分 | 内容 |
 |---|---|
-| 状態Owner | Runtime Trust Evaluator |
+| 状態Owner | 独立評価器の現行実装Ownerは未接続（旧Coordinator実装は廃止）。各既存境界のArtifact確認は元Ownerが維持する |
 | 所有する責務 | CRDD準拠、Artifact完全性、Publisher、利用者Trust Policy、公式識別の独立評価 |
 | 所有しない責務 | 利用者に代わる信頼判断、外部送信、候補採用 |
 | 主な外部境界 | Runtime Artifact、署名検証、Deployment OwnerのTrust Policy |

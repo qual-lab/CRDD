@@ -1294,8 +1294,7 @@
       "consumerStatic": true,
       "testIds": [
         "coordinator:system:interaction-boundary-regression",
-        "coordinator:unit:orchestrator-windows-platform-adapter",
-        "coordinator:unit:host-terminal-record"
+        "coordinator:unit:orchestrator-windows-platform-adapter"
       ]
     },
     {
@@ -1458,8 +1457,6 @@
       "consumerOwner": "coordinator",
       "consumerStatic": true,
       "testIds": [
-        "coordinator:integration:host-terminal-caller-checkpoint",
-        "coordinator:unit:host-terminal-record",
         "coordinator:integration:host-recovery-namespace"
       ]
     }
@@ -4477,32 +4474,6 @@
       "mandatoryByDefault": true
     },
     {
-      "id": "coordinator:integration:host-terminal-caller-checkpoint",
-      "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/host-terminal-caller-checkpoint.integration.test.ts",
-      "level": "integration",
-      "kind": "integration",
-      "semanticTags": [
-        "host",
-        "terminal",
-        "caller",
-        "checkpoint",
-        "lifecycle"
-      ],
-      "environment": "local_component_boundary",
-      "executionProfiles": [
-        "restricted_process",
-        "windows_process_control"
-      ],
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "boundary_result_observed",
-        "owned_resources_settled_or_reported"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
       "id": "platform-access:integration:typescript-child-entrypoints",
       "owner": "platform-access",
       "path": "40_Develop/platform-access/tests/integration/typescript-child-entrypoints.contract.test.ts",
@@ -4867,26 +4838,6 @@
       "postconditions": [
         "boundary_result_observed",
         "owned_resources_settled_or_reported"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
-      "id": "coordinator:integration:runtime-trust-evaluator",
-      "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/integration/runtime-trust-evaluator.contract.test.ts",
-      "level": "integration",
-      "kind": "contract",
-      "semanticTags": [
-        "runtime",
-        "trust",
-        "policy"
-      ],
-      "environment": "local_component_boundary",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "boundary_result_observed",
-        "runtime_authority_not_issued"
       ],
       "mandatoryByDefault": true
     },
@@ -7200,27 +7151,6 @@
         "operation-lock",
         "activation",
         "lifecycle"
-      ],
-      "environment": "node_process",
-      "externalProviderEffect": false,
-      "humanInput": false,
-      "postconditions": [
-        "result_observed",
-        "source_unchanged"
-      ],
-      "mandatoryByDefault": true
-    },
-    {
-      "id": "coordinator:unit:host-terminal-record",
-      "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/execution/terminal-record.contract.test.ts",
-      "level": "unit",
-      "kind": "contract",
-      "semanticTags": [
-        "host",
-        "terminal",
-        "record",
-        "codec"
       ],
       "environment": "node_process",
       "externalProviderEffect": false,

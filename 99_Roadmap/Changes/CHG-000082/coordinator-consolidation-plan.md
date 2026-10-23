@@ -2121,3 +2121,229 @@ Windowsの上位bit付きFile IDを模擬する保存試験では、Readerが正
 後続では先に`cli / objective / task / decision / workspace / execution / state / storage`の目標Ownerを固定し、全Sourceの関数・型・状態・Capability・Consumerを対応付ける。Executionの十二責務、Task七責務、Decision九責務、Objective五責務と既存Workspace三Fileを基本とする。Provider仕様・選択・Plan・純粋な結果解釈はAI Adapter、実行Authority・開始取消・元観測・回収調整はCoordinator、Container技術はDocker Isolation、OS技術はPlatform Accessへ分ける。
 
 構造移管と動作整理は別段階にし、移管だけを全体完了にしない。まず処理順序・条件・公開結果・保証を維持して移管とConsumer／試験を追従し、その後、不要な中継・重複検証・多段Factory・状態・循環依存を主要Lifecycleごとに評価する。目標外Fileを残す必要がある場合は、独立した状態・寿命・保証・直接Consumerと統合できない理由を示して例外判断へ戻す。新Framework、②のAI再試行・保持物操作は許可範囲に加えない。
+
+## 38. 保存統合後の構造再設計着手
+
+基準Commit: `7c4100bc2e09c32dad26dcf4c2eb82808ec665eb`。状態: Phase 1の割当調査中。Source移管・動作整理・回帰はまだ開始していない。構造の正本は[Coordinator Architecture §16.1](../../../06_Architecture/Details/coordinator/01_Architecture.md#161-保存統合後のsource構造再設計)とし、本節は実施順序・現行対応・未確定を追跡する。
+
+### 38.1. 経路と保持する境界
+
+実装構造の保守変更としてArchitecture、QA、公開API、利用側、試験・台帳を照合する。構造移管前にOwner・私有状態・実行時依存閉包の読み取り専用整合確認を行い、移管単位ごとの静的検査・契約試験と固定候補の独立レビューを実施する。文書の追従は文書監査、専門Package・利用側への責務移管は不足／影響確認へ接続する。CRDD準拠基準、決定権限、Releaseを変えないため準拠監査・Release監査は今回の経路に追加しない。公開契約の意味や保存保証の変更が必要になれば構造整理の範囲で自己決定しない。
+
+構造移管では処理順序、拒否条件、状態遷移、公開結果、元通知・Control、期限、取消join、exact回復参照、Authorityの一回性を保持する。正常だけでなく開始前取消、開始後取消、遅延・重複通知、主失敗と回収不明、Owner喪失・再入場を変更した意味から選ぶ。新しい共有State・Registry・Lock・監視・Recovery Frameworkは作らない。実AI②・保持物の観測／移行／削除と実Docker操作は行わない。
+
+### 38.2. 現行の母集団と移管調査
+
+Repository内のSource列挙で次を確認した。添付案の基準`13124159f`と現在版を混同しない。
+
+| 現行領域（`src/`相対） | File数 | 予定する処置・未確定範囲 |
+|---|---:|---|
+| `cli/` | 6 | 受付・引数・回復表示・取消の四責務へ集約。`request`／`request-input`の受付と搬送を既存Ownerへ分配 |
+| `objective/` | 7 | 五責務へ。受付依存構築と純粋な再計画遷移を別々に処置する。詳細は§38.3 |
+| `task/` | 17 | Graph・Scheduling・Attempt相関・進行・受領へ。Executionの元Controlと上位Identity相関は同じ意味として潰さない |
+| `decision/` | 17 | 人間判断・記録・同意・Grantへ。純粋遷移、乱数を使うCapability生成、保存を呼ぶLifecycleを区別して割当する |
+| `workspace/` | 3 | 既存三責務を基本維持。Git EffectはVersion Control、状態保存はStorageのまま |
+| `execution/` | 71 | 十二責務と既存専門Packageへ関数・型・状態単位で分配。Provider名だけを消す機械改名はしない。詳細は§38.4 |
+| `state/` | 11 | 状態モデル・投影・照会へ。活動の四Sourceと照会契約、Binding、保存Portを評価し、Writerを吸収しない |
+| `storage/` | 6 | B完了版の六Sourceを凍結。旧`validate-result-record.ts`を復活させない |
+| `identity/` | 1 | Clock／Hashの値契約。現在時刻・乱数の実装Ownerと型のOwnerを分けて割当 |
+| `input/` | 2 | Plain dataとRepository相対Pathの純粋検査。Storageを含む利用側を確認し、Domain Rootへの機械置換で純粋閉包を壊さない |
+| `lease/` | 1 | Lease種別・Owner観測・取得契約。型だけを理由にTask／Executionへ分断しない |
+| `platform/` | 2 | Coordinatorが必要とするPortとWindows実装接続を分離。Port全体をPAへ丸投げしない |
+| `process/` | 1 | Process安全状態の上位要求型。Process Poisonの実体と共有型を区別 |
+| `queue/` | 1 | Task受付と進行の値型。既存Storageからの型参照を追従する条件を確認 |
+| Root | 3 | `index.ts`は公開入口を維持。結果型と公開失敗投影は実責務へ割当し、新しい汎用共通置場を作らない |
+| 合計 | 149 | File全数の母集団。関数・型・状態の移管先確定を、このFile数だけで完了扱いしない |
+
+Runtime入口`bin/coordinator.ts`一件も対象とする。`scripts/`の32件はRuntimeのAfterへ機械移管せず、検証・運用の利用側として接続を別途追従する。Package exports・scripts・設定・`symbol.json`・Test Catalog・Traceability・UT／IT／ST・Workbench／MCP／template入口を利用側の閉集合へ含める。過去EvidenceのPath・Hash・安定IDは改名しない。
+
+### 38.3. Objectiveの最初の割当候補
+
+| 現行Symbol・状態 | 移管先候補 | 直接利用側・保持条件 | 判定 |
+|---|---|---|---|
+| `CoordinatorObjectiveIntakeDependencies`、`runCoordinatorObjective`、私有`validId / inspectBinding / blocked`（`intake-dependencies.ts`） | `objective/public-operation.ts`の受付組立て | 現在の公開Objective、受付IT、全体進行IT、回復ST。Principal／Binding検査→計画→受付世代確認→同Writer接続→実行→maintenanceの順序、取消と失敗値を維持 | 候補。関数・型は同じ受付Ownerへ統合し、中継Fileと再exportを撤去する |
+| `applyCoordinatorPartialReplan`、`retryCoordinatorTask`（`replan-transitions.ts`） | `task/lifecycle.ts` | `objective/replan.ts`、Root公開、状態遷移UT。世代・上限・dependency／cycle・旧Attempt破棄・回復参照の条件を維持 | 候補。純粋なTask遷移として統合し、保存・乱数を伴う`objective/replan.ts`へ機械連結しない |
+| `resolveCoordinatorReplan`と候補検査（`replan.ts`） | 同Fileを基本維持 | State／Queue読取り→判断→世代付き保存→Queue更新の既存順序を維持。保存Schemaを変更しない | 基本維持。内部重複削減は動作整理段階で評価 |
+| `request / plan / execute / public-operation`の既存責務 | 五File構成の同Owner | Request受付、Objective計画、Task実行集合、単一Snapshot受領を分ける。File単位の純粋／業務／組立て分類と負対照を追従 | 型・関数・全利用側の照合を継続 |
+
+純粋遷移をI/O付きの再計画調停へ連結する案は、既存`PRL-IT-012`の実行時依存閉包を変えるため採らない。型の共有だけを理由にCapabilityや保存を再実装しない。
+
+### 38.4. Provider関連の責務割当候補
+
+読み取り専用Source確認で、次の処置を候補として得た。File全体の移管許可や実装完了ではない。
+
+| 現行の処理・状態 | 目標Owner・Path | 保持する保証・利用側 |
+|---|---|---|
+| `model-selection.ts`の`selectProviderModelCandidate / selectRationaleCodes / selectEffort`と候補検査 | AI Adapter `profile/resolve.ts` | `delegation-route-selection`／`provider-plan`が使うmodel・effort・reason・noticeを維持。今回Operationへの適用と選定GrantはExecutionへ残す |
+| Provider argv・環境・stdout／error解釈 | AI Adapterの既存`planProviderExecution / prepareProviderEnvironment / parseProviderResult / convertProviderError` | 新しい生成器・Parserを作らず、既存APIを使う。Docker開始失敗・signal・deadline・cleanupの優先順位はCoordinator |
+| `provider-adapter / provider-preparation / provider-preparation-lifecycle / provider-plan`の今回計画結合 | `execution/preparation.ts` | 既存prepared／management WeakMapの同一実体、Mount確認・活性化→選定／Packet消費→Authority発行、二時計30秒と解放確認後のMap除去 |
+| `provider-packet.ts`のissue／consume／revokeとCommand Hash | `execution/preparation.ts` | 元Operation・Task／projection・Prompt・Commandへの結合、一回性、同じ`owners / uses`の状態。型だけをAI Adapterへ渡してCapabilityを分裂させない |
+| Controller開始・取消・元完了と結果投影 | `execution/controller.ts`／`execution/result.ts` | 元Control・Signal・開始通知、主失敗優先、資源IDとexact回復参照。公開結果の閉集合は技術制御と分ける |
+| `provider-observation.ts`の登録・照合・失効 | `execution/observation.ts` | 元通知の参照同一性と二WeakMap、一回性。値だけの成功証明へ変更しない |
+| `provider-execution.ts`の助言Runtime | `execution/advice.ts` | Repository非共有、Operation／選定／Home／Packet／Controllerの相関、取消・回収。Host回復MapとReader／Writerは同じ状態Ownerへ置く |
+| Home Mountのcompile／transition／use、issue／consume／activate／complete／verify／revoke | `execution/authority.ts` | Grant・alias・mountCompletions・Capability・Leaseの寿命と失効、元Home／User／Profile／Operation結合 |
+| Windows Home技術と元観測Capability | OS技術はPA、Capability・使用条件は`execution/authority.ts` | Provider別Home名はAI Adapter既存認証記述。OS観測の取得元とMount AuthorityのOwnerを混同しない |
+| `provider-result-reasons.ts`の`dockerProcessControllerPublicCompletionReasons` | `execution/result.ts` | 実体は実行・回復の公開理由集合であり、Provider stderr仕様ではない。Storageによる直接参照も確認する |
+| Claude Subscription認証の実行と回復 | Coordinatorの実行・Authority・回復Owner＋既存DI／PA | 既存AI Adapterの認証仕様を使う。`authenticationTechnicalPlans / runtimes`、Home排他、exact資源記録と回収をAI Adapterへ丸ごと移さない |
+| `provider-types.ts` | 準備・Controller／Result・Authorityの実Ownerへ分配 | 型の所有対象で分け、全型をAI Adapterや汎用`types`へ集積しない |
+| `provider-lifecycle.ts`の合成評価 | 検証Owner又は診断を調査中 | 製品実行接続を確認できていない。Root公開・設計Capability・QA義務を照合するまで削除又は本番統合としない |
+
+### 38.5. 保存凍結と旧Path撤去の判断境界
+
+B六Fileは現在の意味を保持する。現物のimport照合では、`current-state.ts`が`decision/acceptance-authority.ts / acceptance-record.ts / recovery-record.ts`、`input/repository-relative-path.ts`、`lease/controller.ts`、`queue/types.ts`、`task/single-task-record.ts`等へ直接依存する。`model.ts`は`execution/provider-result-reasons.ts / host-recovery-record.ts / restart-checkpoint.ts`、`settlement-store.ts`は`execution/provider-observation.ts / repository-binding.ts / restart-checkpoint.ts`等へ依存する。
+
+したがって「Storageのbytesを一切変えない」と「旧Sourceを互換ラッパーなしで撤去する」は、該当する移管単位では同時に満たせない。人間は、保存形式・処理本文・判定・順序を凍結したまま、同じSymbolの新しい移管先へのimport参照先だけ追従する案を承認した。許可はimport declarationに限定し、Header・型／関数／値本文・型名・export・Schema・公開値・処理順・Root／CAS／Lock／marker／pending／履歴／原子受領を変更しない。旧名再export、第三Writer、旧形式Readerを追加して回避しない。
+
+この承認は保存統合Bを再設計する許可ではない。旧Symbolと新Symbolの同一実体・型・既存処理の不変性を照合し、import以外の変更が必要になれば今回の許可へ含めず止める。該当旧Pathの保留又は別の人間判断へ戻し、最終Afterの完了を主張しない。
+
+### 38.6. 次の処置と完了の区別
+
+現時点では基準・目標Owner・調査母集団と主要なProvider／Objective割当候補までを記録した。149 Source全体の関数・型・私有状態・直接利用側・公開export・QA／Test対応の確定は継続中であり、Phase 1完了とはしない。未確定の移管をSourceへ先行実装しない。
+
+保存参照の許可境界は§38.5のとおり確定した。既存純粋／業務／Adapter分類と所有状態の対応を全数照合し、Objective→Task／Decision→Stateと小Folder→Provider仕様のAI Adapter接続→Executionの順に、確定した割当を依存順へ調整して移管する。段階ごとの件数成功を構造再設計全体の完成とせず、最後に受付→Objective→Task→Attempt→結果受領／回復の正常・失敗・取消・再入場を評価する。
+### 38.7. Source全数の一次配置表
+
+以下は基準版の149 Pathを一回ずつ照合した配置候補であり、Symbol単位の最終確定又はSource移管済みの表ではない。Pathは`src/`相対、移管先の拡張子は`.ts`。複合行では同じOwnerに属する関数と私有状態をまとめ、型・状態・副作用の異なる実体は§38.3／38.4と次節の規則で分配する。列挙集合の欠落0・余剰0を確認した。Top-level宣言も既存TypeScript構文木で149 Sourceから取得したが、宣言件数は責務の確定・検証成功数と扱わない。
+
+| 現行Folder | 現行File | 移管先・処置候補 |
+|---|---|---|
+| `cli` | `cancellation.ts` | `cli/cancellation` |
+| `cli` | `command.ts`、`request.ts` | `cli/command` |
+| `cli` | `options.ts`、`request-input.ts` | `cli/options` |
+| `cli` | `recovery-report.ts` | `cli/recovery-report` |
+| `decision` | `acceptance-authority.ts`、`capability.ts` | `decision/types (記録値型はrecords)` |
+| `decision` | `acceptance-record.ts`、`records.ts`、`recovery-record.ts` | `decision/records + decision/types` |
+| `decision` | `authority-adapter.ts` | `decision/request` |
+| `decision` | `capability-adapter.ts`、`lifecycle.ts` | `decision/lifecycle` |
+| `decision` | `external-send-consent-record.ts`、`external-send-consent-store.ts` | `decision/external-send-consent` |
+| `decision` | `external-send-grant.ts`、`external-send-policy.ts`、`request.ts` | 同じ責務・Pathを基本維持 |
+| `decision` | `public-acceptance.ts`、`public-operation.ts` | `decision/public-operation` |
+| `decision` | `record-acceptance.ts` | `decision/acceptance (要求検査はrequest)` |
+| `decision` | `transitions.ts` | `state/model` |
+| `execution` | `advice.ts`、`provider-execution.ts` | `execution/advice (Host回復はrecovery、保持Mapは単一Owner)` |
+| `execution` | `attempt.ts`、`claude-subscription-authentication.ts`、`isolation-execution.ts`、`provider-controller.ts`、`task.ts` | `execution/controller + result/authority/recovery/preparation (所有状態ごとに分配)` |
+| `execution` | `authority-bundle.ts`、`authority-grant.ts`、`authority-policy.ts`、`authority-validation.ts`、`delegation-selection-grant.ts`、`local-authority.ts`、`prelaunch-validation.ts`、`protected-root.ts`、`provider-home-mount-authorization.ts`、`provider-home-mount-grant.ts`、`provider-home-windows-adapter.ts`、`root-protection-policy.ts` | `execution/authority (OS原語はplatform-access)` |
+| `execution` | `borrowed-tree.ts`、`generation-loss-transition.ts`、`operation-creation.ts`、`operation.ts`、`repository-binding.ts` | `execution/operation` |
+| `execution` | `change-snapshot.ts`、`provider-result-reasons.ts`、`recovery-projection.ts`、`result-reasons.ts`、`task-structured-result.ts` | `execution/result` |
+| `execution` | `cleanup-eligibility.ts`、`host-recovery-record.ts`、`host-submission.ts`、`orphan-recovery-policy.ts`、`recovery.ts`、`restart-checkpoint.ts`、`runtime-repair.ts`、`runtime-restart.ts` | `execution/recovery` |
+| `execution` | `completion-observation.ts`、`eligibility-observation.ts`、`provider-observation.ts` | `execution/observation` |
+| `execution` | `delegation-route-selection.ts`、`model-selection.ts` | `ai-adapter/profile/resolve (今回Operationへの適用はexecution/preparation)` |
+| `execution` | `development-execution-timing.ts`、`development-measurement-constraints.ts`、`development-measurement-session.ts`、`development-source-observation.ts`、`diagnostics.ts`、`isolation-probe.ts`、`provider-lifecycle.ts`、`runtime-version.ts` | `execution/diagnostics (合成評価は検証Ownerを確認)` |
+| `execution` | `interactive-console.ts` | `platform-accessの端末技術、同意判断はdecision/external-send-grant` |
+| `execution` | `isolation-profile.ts`、`provider-adapter.ts`、`provider-packet.ts`、`provider-plan.ts`、`provider-preparation-lifecycle.ts`、`provider-preparation.ts`、`task-packet.ts` | `execution/preparation (Provider純粋仕様はai-adapter)` |
+| `execution` | `kernel-lock.ts`、`process-safety-state.ts` | 同じ責務・Pathを基本維持 |
+| `execution` | `provider-home.ts`、`root-observation.ts`、`root-path.ts` | `platform-access (実行Policy・Capabilityはauthority)` |
+| `execution` | `provider-types.ts`、`types.ts` | `request/preparation/controller/result/advice/authority/recoveryへ分配` |
+| `execution` | `runtime-trust.ts`、`terminal-caller-checkpoint.ts`、`terminal-caller-lease.ts`、`terminal-record.ts` | 現行Capability維持又は正式廃止の判断待ち |
+| `execution` | `secret-validation.ts` | `domain-model/plain-data/secret-validation （人間承認済み）` |
+| `execution` | `task-request.ts` | `execution/request` |
+| `identity` | `clock-and-hash.ts` | `state/persistence` |
+| `Root` | `index.ts` | 同じ責務・Pathを基本維持 |
+| `input` | `plain-data-snapshot.ts`、`repository-relative-path.ts` | `state/model` |
+| `lease` | `controller.ts` | `state/persistence` |
+| `objective` | `execute.ts`、`plan.ts`、`public-operation.ts`、`replan.ts`、`request.ts` | 同じ責務・Pathを基本維持 |
+| `objective` | `intake-dependencies.ts` | `objective/public-operation` |
+| `objective` | `replan-transitions.ts` | `task/lifecycle` |
+| `Root` | `operation-result-contract.ts`、`operation-result.ts` | `state/result` |
+| `platform` | `contract.ts` | `execution/diagnostics (純粋な保証検査はstate/request、共有型はstate/types)` |
+| `platform` | `windows-adapter.ts` | `execution/kernel-lock + execution/diagnostics` |
+| `process` | `safety-contract.ts` | `task/types` |
+| `queue` | `types.ts` | `state/model` |
+| `state` | `activity-cursor.ts`、`activity-validation.ts` | `state/projection` |
+| `state` | `activity-types.ts` | `state/types` |
+| `state` | `activity.ts` | `state/observation` |
+| `state` | `binding.ts` | `state/model` |
+| `state` | `model.ts`、`persistence.ts`、`projection.ts`、`public-query.ts`、`query.ts` | 同じ責務・Pathを基本維持 |
+| `state` | `query-contract.ts` | `state/request + state/projection + state/types` |
+| `storage` | `current-state.ts`、`history.ts`、`model.ts`、`protected-decision.ts`、`result-record.ts`、`settlement-store.ts` | B六File。本文・意味を凍結 |
+| `task` | `dispatch.ts`、`host-adapter.ts`、`intelligence-adapter.ts`、`recovery-adapter.ts` | `task/dispatch (共有値型はtask/types)` |
+| `task` | `execute-attempt.ts` | `execution/controller` |
+| `task` | `execution-contract.ts` | `task/types + task/dispatch` |
+| `task` | `execution-diagnostics.ts` | `execution/diagnostics` |
+| `task` | `executor.ts`、`observer.ts`、`recovery.ts` | `task/types` |
+| `task` | `lifecycle.ts`、`scheduling.ts` | 同じ責務・Pathを基本維持 |
+| `task` | `recovery-transitions.ts` | `task/recovery + task/acceptance` |
+| `task` | `request-composition.ts`、`requests.ts` | `task/requests` |
+| `task` | `settle-docker-recovery.ts` | `execution/recovery` |
+| `task` | `single-task-record.ts` | `state/model` |
+| `workspace` | `commands.ts`、`operations.ts`、`record.ts` | 同じ責務・Pathを基本維持 |
+
+### 38.8. Task・判断・状態の分配と利用側
+
+| 実体 | 移管先候補 | 保持する状態・依存・利用側 |
+|---|---|---|
+| `createCoordinatorTaskRequests / createRepositoryTaskRequests` | `task/requests.ts` | 同じFactoryのrequests Map、受付ID、同一要求・取消・結果保持。Profile・Repository・認可・Workspaceを本番callbackへ結ぶ |
+| `runCoordinatorOperation`、EIイベントの構成・記録、本番回復Adapter・Clock組立て | `task/dispatch.ts` | 予約→Attempt→元結果捕捉→原子受領の順序。EIの履歴WriterはEIへ残す。Process安全状態の実体はExecution |
+| Taskの予約・開始・終了と純粋な再計画遷移 | `task/lifecycle.ts` | 世代・Attempt／Operation・依存・scopeを維持し、保存・乱数・実行Moduleへ値依存しない |
+| Task回復のmark／settle／retry／Owner喪失遷移 | `task/recovery.ts` | 純粋遷移。保存・診断を伴うAdapterはdispatchへ分ける。技術回収の実行はExecution |
+| `recordProjectTaskResultAcceptances / acknowledgeProjectDockerRecoveryObligation` | `task/acceptance.ts` | 受領候補の純粋構成。人間採用権限を持たず、原子保存とOperation除去はB Writerのみ |
+| Attempt入力／結果／観測／配送、回復Port、Process安全要求の共有型 | `task/types.ts` | 値を持つcontract定数とvalidatorを型専用Fileへ混ぜない。`validSingleTaskResult`はdispatchへ、単発Controlの実体はExecution |
+| `SingleTaskRecord / inspectSingleTaskRecord / singleTaskQueueIsConsistent`、Queue値型 | `state/model.ts` | B codecの値依存を純粋に維持する。保存・実行をimportするrequestsへcodecを移さない |
+| Clock／Hash、Lease／Owner観測／Port型 | `state/persistence.ts` | 型契約だけを共有し、Clock・Lockの実体を生成しない。Bの型importは同一Symbolへ追従 |
+| Decision Record／Recovery Intent／Acceptance Record・Envelopeと純粋validator | `decision/records.ts` | StoreのI/Oや乱数を含めず、Bからの純粋値依存を維持 |
+| Decision／AcceptanceのStore・Authority・Capabilityの型 | `decision/types.ts` | 秘密値の発行実体、保存実体を型Fileへ移さない |
+| 人間判断のissue／submit／replace／invalidate／recoverとCapability生成 | `decision/lifecycle.ts` | 元の秘密値・Hash・一回性。乱数をRecordのimport時に発行しない |
+| `recordCoordinatorAcceptanceDecision` | `decision/acceptance.ts` | 保存Portと認可の調停。要求検査と認証済みPrincipalの純粋照合はrequestへ分ける |
+| `requestCoordinatorHumanDecision / applyCoordinatorHumanDecision / applyCoordinatorAcceptanceDecision` | `state/model.ts` | 保存・乱数のない現在状態遷移として同居。Decisionの公開操作からこれを呼ぶ |
+| 判断・採用の二つの公開入口 | `decision/public-operation.ts` | 認証・認可・公開結果・操作の違いを維持し、同じ名前の一操作へ潰さない |
+| Rootの`CoordinatorPortResult`と公開失敗投影 | `state/result.ts` | 同じ純粋な結果Ownerへ配置するが、異なる二結果Shapeを一つの型へ変更しない |
+| Plain data／Repository相対Pathの既存検査 | 純粋な状態入力Ownerを最終照合中 | Domainの同名APIとは返却Shapeが異なる。構造段階で機械差替えしない。state/modelへの同居案と利用側閉包を確認 |
+| Stateの活動Reader・cursor・検査・Query契約 | 照会・投影・共有型の各Ownerを最終照合中 | 現在状態とEI履歴のOwnerを混ぜず、公開照会から純粋validatorへのI/O逆流を防ぐ。Stateの最終File一覧は未確定 |
+
+`secret-validation.ts`について、人間はDomain Modelの既存`plain-data/`への移管を承認した。既知pattern・Path・文字列の純粋検査と返却値を維持する。秘密値の保管、取得、Credential管理、未知Secret不存在の証明又はSecret Managerを追加する許可ではない。ARCH-000014と既存QA／利用側は新Ownerへ接続する。
+
+### 38.9. 検証・運用Consumerの全数処置
+
+`bin/coordinator.ts`は既存CLIへの固定入口として維持する。次の32 ScriptはRuntime十二Fileへ吸収せず、移管先の同じSymbolへ追従する。既存実AI／Docker／認証を使う入口を列挙したことは実行許可ではない。
+
+| 区分 | `scripts/`内の対象（拡張子`.ts`） | 処置 |
+|---|---|---|
+| 運用入口4 | `authenticate-claude-subscription / measure-development-providers / prepare-codex-advice-image / revoke-external-send-consent` | 同じ用途限定入口を維持。認証・測定・Image・同意Ownerへのimportを追従 |
+| 検査入口8 | `check-dynamic-fake-provider-coverage / check-native-runtime-trace / check-platform-access-coverage / check-platform-access-ts-coverage / check-provider-authority-coverage / check-provider-home-coverage / check-runtime-traceability / check-task-design-traceability` | Source Path・本文取得・Owner集合・coverage oracleを追従し、拒否条件を緩和しない |
+| 検証実行入口10 | `verify-dynamic-fake-provider-cancellation / verify-dynamic-fake-provider-failures / verify-general-task / verify-native-protection / verify-native-terminal-fixtures / verify-native-terminal-namespace / verify-recovery-matrix / verify-reviewer-boundary / verify-route-matrix / verify-task-real-providers` | 本番又は検証用の元Symbolへ追従。外部Effectを持つ実行は別許可のまま |
+| 検証支援10 | `native-git-provenance / native-runtime-trace / platform-access-coverage-path / runtime-traceability / task-design-traceability / task-real-provider-contract / verification-result-reasons / verification-result-record / verification-safety / workspace-task-fixture` | 検証専用Ownerのまま。Runtimeの責務として再公開しない |
+
+Package exports、npm scripts、Symbol Manifest、Test Catalog、Runtime／Task Traceability、型検査設定と実Source抽出試験を同じ移管差分で追従する。UTは移管Ownerへ、IT／STは現在の公開経路・境界へ接続し、既存Local Item・負対照・終了後条件を保持する。Workbench／MCP／template入口は同じ公開APIに追従し、私有Moduleを新たな外部入口へしない。
+
+### 38.10. 未接続処理の処置確認
+
+`execution/runtime-trust.ts`は自ら本番未接続・Root非公開と明示し、`terminal-record.ts / terminal-caller-checkpoint.ts / terminal-caller-lease.ts`も現本番の直接利用側がなく、相互参照と試験が利用している。前者の独立評価、後者の終端保存・再入場は既存設計・QAに記載があるため、単に「未使用だから削除済み」としない。
+
+人間には次の二案を提示する。どちらも現在の通常実行へ新接続しない。判断前は該当Sourceと現行Capability・QA義務を保持する。
+
+| 案 | 実装・設計・QAへの処置 | 影響 |
+|---|---|---|
+| 現行Capabilityを維持 | 非公開・本番未接続の評価／codecとして製品Sourceと対応QAを維持し、目標Ownerへ配置 | 利用側のない現行責務と維持コストが残る。通常実行の保証が増えるわけではない |
+| 現行Capabilityを正式廃止（推奨） | Architectureの独立Trust評価・旧terminal保存候補と対応する現行QA義務を正式に廃止／履歴化し、Runtime Sourceから撤去。歴史比較が必要なfixtureだけ試験側へ限定 | 現在使われていない独立評価・旧保存候補を今後の提供／検証対象から外す。現在の通常実行とB保存契約は変えないが、将来その能力が必要なら再評価する |
+
+試験側のlegacy copyを検査して現行製品QA成立と扱う案は採らない。廃止をPass又は検証済みへ変換せず、過去の正式Evidenceは維持する。判断対象はCoordinator Architectureの独立Trust／terminal codec記述、QA-000003のTrust評価義務、QA-000006の終端保存・再入場義務と既存試験の担当範囲、Symbol Manifest／Test Catalogの接続である。共用するNative／通常回復の義務を巻き込まず、廃止する断面を正確に切り分ける。この処置の判断とStateの最終割当を閉じ、Phase 1固定候補をレビューしてからSource移管へ進む。
+
+### 38.11. 未接続四実装の限定廃止 — 2026-10-23
+
+2026-10-23の人間承認により、Coordinator内の本番未接続の独立Trust評価と旧terminal codec／caller保存・再入場候補を廃止する。旧4 Sourceと専用試験3本は撤去し、製品処理の試験側コピーや代替Frameworkは作らない。通常実行、保存統合B、Platform AccessのNative部品・共有排他・現在の回復保証は維持する。過去Evidenceは当時の根拠として保持し、廃止をPassへ換算しない。 §38.10の推奨廃止案を人間が承認した。旧4 Fileと専用3試験、登録・専用実行設定を撤去し、試験側へ本体をコピーしない。基準Commitは`7c4100bc2e09c32dad26dcf4c2eb82808ec665eb`。先行の149 File対応表は基準版棚卸しとして保持し、現在Sourceは145 Fileとなる。B六Fileは今回変更しない。
+
+独立Trustの上流意味は正式IDごと維持し、旧実装との関係を廃止、代替未接続をOPENとする。専用caller断面は廃止するが、共用Local ItemとPA／Kernel／現在回復の保証は維持する。旧結果は履歴であり現版のPassではない。全体構造移管のPhase 1完了、実AI・Docker E2E又は全体QA完了とは扱わない。
+
+変更分類は承認済み限定Capability廃止。Source・QA・Architectureと直接利用側の照合、回帰、独立Source／設計レビューを対象とする。CRDD規範・準拠基準自体は変えないため準拠監査を新たに発火しない。文書参照・直接伝播を確認し、通常回復・共有Nativeへ影響が出る場合は停止して範囲を再整理する。②再試行・保持物操作・外部Effectは対象外。
+
+### 38.12. 限定廃止の確認結果 — 2026-10-23
+
+旧4 Sourceと専用3試験の撤去、実行設定・Symbol／Catalog・利用側閉集合の追従、Architecture／QAの直接伝播を完了した。現在Sourceは145 File、Coordinator Symbol登録358件、Test Catalog登録384件である。共有Local ItemとNative／通常回復／B保存は維持し、旧Trustの二HandoffはOPEN、代替独立評価器はMissingとする。Phase 1の全Symbol分配と構造移管本体は未完了である。
+
+| 確認範囲 | 結果と限界 |
+|---|---|
+| `coordinator`の`npm run check` | Exit 0。整形985 File、型、lint、Runtime／Task Traceabilityが通過。既存lintの情報診断64件は残り、今回の警告・エラーとは区別する |
+| Host Profile／Core閉集合 | `test-execution-profile.contract.test.ts`と`task-platform-independence.contract.test.ts`の8件成功。Windows専用Caseの母集団は113→105で、専用8件を削除しただけで未分類・重複の負対照は維持 |
+| Domain／Version Control利用側 | `storage-consumer-closure.integration.test.ts`4件、`consumer-closure.integration.test.ts`12件成功。削除したcallerの参照だけを期待集合から除去 |
+| 維持する排他・回復・保存・履歴 | 通常Windows権限で下記5 Suiteの96件成功、失敗・取消・skip各0。実Docker／外部AIは使わない |
+| Symbol／Catalog | Symbol登録358件の実Path欠測0・ID重複0。Catalog検査は384件valid、試験実行Effectなし。Sourceとscripts／現行試験に旧4 Moduleへの参照なし |
+| 文書検査 | 全体Exit 1、歴史CHG診断3,691件、現行文書診断0。過去Evidenceを改名せず、全体QAのPassにしない |
+| 独立確認 | 限定廃止のSource・設定・設計・QA・直接伝播は最終残指摘0。旧方式と現行Owner、上流の代替未接続を分離 |
+
+96件の再実行コマンドは`40_Develop/coordinator`から`node --experimental-test-module-mocks --test --test-concurrency=1 ./tests/integration/kernel-lock.contract.test.ts ./tests/integration/host-recovery-record.contract.test.ts ./tests/integration/task-durable-foundation.contract.test.ts ./tests/integration/task-history.contract.test.ts ./tests/integration/current-state-marker-cleanup.contract.test.ts`。Node v24.19.0、Windowsで実行し、所要832,680ms、Exit 0だった。件数はこの実行範囲の結果であり、正式QA項目数や全体Runtime完成数ではない。
+
+対象は基準Commit `7c4100bc2e09c32dad26dcf4c2eb82808ec665eb`からの未Commit差分。実行入力となる`git diff --binary -- 40_Develop 07_Quality/Registry/test-catalog.json`のbyte列SHA-256は`2fc7b5afcf648da28374423b4a62647389466bc5e3e4335e096f65fe12a7c5ca`。B六Fileと本番の他処理は基準版から不変である。大量stdoutは通常logとして永続複製せず、上記の対象、コマンド、結果と再実行可能な試験を保持する。
+
+通常回帰全体の二実行は完走前に停止した。制限環境ではCatalog publish未確認・link拒否を観測し、通常権限では同じCatalog4件が成功した。長時間の単発Task試験では取消通知の取りこぼし候補を局所確認したが、待機の原因と断定せず、対策案・一時診断をすべて戻した。その候補での177秒・2件成功を現在Sourceの成立根拠へ数えない。現在の単発Task試験は基準版と同一であり、全体回帰完了は主張しない。限定廃止は本番呼出し0と直接利用側の全数追従、変更しない共通保証の96件、独立確認を根拠に区切る。
+
+中断した今回の合成Root二件は、元試験Processの終了、生成時点、fixtureの構成・合成Principal／Project、実Commitなし、未知entry・reparseなしを確認して清掃し、各Rootの不存在を確認した。②の保持物は観測・変更せず、実AI・Dockerの再試行、再起動・修復を行っていない。

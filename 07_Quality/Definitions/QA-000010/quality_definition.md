@@ -7,6 +7,9 @@ Quality ID: `QA-000010`
 状態: Canonical
 維持責任者: Qual-Lab
 
+
+2026-10-23の人間承認により、Coordinator内の本番未接続の独立Trust評価と旧terminal codec／caller保存・再入場候補を廃止する。旧4 Sourceと専用試験3本は撤去し、製品処理の試験側コピーや代替Frameworkは作らない。通常実行、保存統合B、Platform AccessのNative部品・共有排他・現在の回復保証は維持する。過去Evidenceは当時の根拠として保持し、廃止をPassへ換算しない。 `PRL-UT-006`、`ERB-IT-001`〜`ERB-IT-003`とNative／Kernel等の共用検証項目は削除せず、旧codec・caller固有の断面だけを対象外にする。独立評価の`AIT-IT-001`／`AIT-IT-003`等の上流意図は残し、旧実装撤去後の代替未接続は未成立として扱う。
+
 ## v0.22通常実行と配布評価の分離
 
 2026-10-19の人間判断で汎用`artifact-signing` Packageも廃止した。署名専用の`AIT-IT-007`〜`AIT-IT-009`、`AIT-ST-010`、`AIT-UT-011`〜`AIT-UT-012`、`AIT-IT-013`、`AIT-IT-015`は現版の廃止方式に対する検証として対象外であり、削除をPassへ数えない。以下の汎用署名維持という記述は旧判断の比較履歴に限定する。必要Artifact同一性・実行認可・隔離の検証は維持し、未評価の上流Trust義務を署名機能廃止だけで完了としない。
@@ -15,10 +18,10 @@ Quality ID: `QA-000010`
 
 | 既存Local Itemの母集団 | 現在の処置 |
 |---|---|
-| `AIT-IT-001`〜`AIT-IT-003`、`AIT-ST-004`、`AIT-UT-005`、`AIT-UAT-006` | 独立読取り評価の義務を維持し、結果から通常実行Capabilityを発行しない。利用者Trust Policyの将来範囲を今回新設しない |
+| `AIT-IT-001`〜`AIT-IT-003`、`AIT-ST-004`、`AIT-UT-005`、`AIT-UAT-006` | 上流の独立評価意図は維持するが、旧Coordinator評価器との実装関係を廃止し、代替未接続を未成立として保持する。結果から通常実行Capabilityを発行しない。利用者Trust Policyの将来範囲を今回新設しない |
 | `AIT-IT-007`〜`AIT-IT-009`、`AIT-ST-010`、`AIT-UT-011`〜`AIT-UT-012`、`AIT-IT-013`、`AIT-IT-015` | Coordinator固有の旧署名・鍵Capability・promotion方式と専用試験／設定を退役した。既存結果は当時の方式に限定し、削除をPassへ数えない。維持するNative出所観測・通常Artifact・Process境界は現在のOwnerと個別試験へ接続する。汎用成果物署名も2026-10-19に廃止した。将来の正式配布の必要性は具体的Consumerから別途判断する |
 
-未署名通常実行と必要Artifact同一性はQA-000006へ、任意の正式配布真正性は本定義へ分ける。署名を実施しないことを署名試験Passにせず、適用範囲の訂正・旧方式との対応と未検証範囲を保持する。上流REQ／SPEC／ARCH、Domainと汎用成果物署名の前提はCHG-000082の直接伝播表で追跡し、QAだけで要求を再定義しない。旧runtime-trustは退役済みの実装Ownerであり、現行Packageの不足とは扱わない。
+未署名通常実行と必要Artifact同一性はQA-000006へ、任意の正式配布真正性は本定義へ分ける。署名を実施しないことを署名試験Passにせず、適用範囲の訂正・旧方式との対応と未検証範囲を保持する。上流REQ／SPEC／ARCH、Domainと汎用成果物署名の前提はCHG-000082の直接伝播表で追跡し、QAだけで要求を再定義しない。旧runtime-trust Package自体の再実装不足とは扱わないが、上流の独立評価に対する代替未接続はArchitecture／QualityのGap（Missing／OPEN）として保持する。
 
 ## 1. 情報源と網羅条件
 
@@ -37,11 +40,18 @@ Quality ID: `QA-000010`
 
 | 詳細設計領域 | 受け取る成立条件 |
 |---|---|
-| [artifact-signing](../../../06_Architecture/Details/artifact-signing/01_Architecture.md) | 署名前検査、署名対象、鍵境界、配置後の検証 |
 | [coordinator](../../../06_Architecture/Details/coordinator/01_Architecture.md) | 実行編成、Authority、外部Effect、候補、回収・回復 |
 | [domain-model](../../../06_Architecture/Details/domain-model/01_Architecture.md) | 任意の正式配布でlauncher、Release Manifest、実装正本およびNative Artifactを配布Identityへ結合する境界。通常Runtimeの許可発行を所有せず、旧署名閉包は比較基準として扱う |
 | [platform-access](../../../06_Architecture/Details/platform-access/01_Architecture.md) | 既存`AIT-IT-002`／`AIT-UT-005`に関係するNative実行物の内部同一性確認、Root／Home技術搬送と前後観測の境界。通常Runtimeの実行許可や配布元真正性をこの観測だけから生成しない |
-| [runtime-trust](../../../06_Architecture/Details/runtime-trust/01_Architecture.md) | 準拠、Integrity、Publisher、利用者所有Trust Policy |
+
+独立評価器の現行実装はMissing／OPENであり、上表の既存境界の成立を代替評価器の成立へ換算しない。
+
+歴史比較だけの入力は次のとおりである。現行設計の実装要求・Coverageには数えない。
+
+| 廃止方式の比較参照 | 当時の設計対象 |
+|---|---|
+| [artifact-signing](../../../06_Architecture/Details/artifact-signing/01_Architecture.md) | 旧署名前検査、署名対象、鍵境界、配置後の検証 |
+| [runtime-trust](../../../06_Architecture/Details/runtime-trust/01_Architecture.md) | 旧独立評価器の準拠、Integrity、Publisher、利用者所有Trust Policy |
 
 ## 2. 評価軸
 
@@ -103,7 +113,7 @@ Quality ID: `QA-000010`
 
 ### 単一Native出所照合の検証義務
 
-Host終端記録のsave／read／対象観測も`AIT-IT-002`の実Source本文断面に含める。旧新二クラスで初回出所欠測・例外・実体差・token開始欠測、終了後の出所欠測・例外・改訂差・Artifact差・token失敗・直接実体差を個別に注入し、発行とdecoder回数、終了、同参照および保存Effectのfalse／true／nullを確認する。開発Context拒否とfresh再借用拒否、開始前・直前・終了後取消をそれぞれの実契約に適用する。終了後の改訂／出所Artifact／直接実体／token確認を一つずつ外した変異が専用反例で誤成功することを検出する。二回観測の実装側UTでは改訂差・Artifact差・通常／開発区分差・出所欠測を拒否し、cross-call比較を外した変異を検出する。模擬decoderを用いる本文試験は、独立frame検査と既存Windows caller保存・読戻し試験を代替せず、実Native起動・実ACL・Docker／Provider E2Eへ昇格しない。
+Host終端記録のsave／read／対象観測も`AIT-IT-002`の実Source本文断面に含める。旧新二クラスで初回出所欠測・例外・実体差・token開始欠測、終了後の出所欠測・例外・改訂差・Artifact差・token失敗・直接実体差を個別に注入し、発行とdecoder回数、終了、同参照および保存Effectのfalse／true／nullを確認する。開発Context拒否とfresh再借用拒否、開始前・直前・終了後取消をそれぞれの実契約に適用する。終了後の改訂／出所Artifact／直接実体／token確認を一つずつ外した変異が専用反例で誤成功することを検出する。二回観測の実装側UTでは改訂差・Artifact差・通常／開発区分差・出所欠測を拒否し、cross-call比較を外した変異を検出する。模擬decoderを用いる本文試験は、独立frame検査を代替せず、廃止したWindows caller試験を現在の根拠にせず、実Native起動・実ACL・Docker／Provider E2Eへ昇格しない。
 
 共有回復領域初期化の追加断面は`AIT-IT-002`と既存`ERB-IT-003`へ接続する。初回出所欠測・実体不一致、各要求前後の出所欠測・例外・改訂完全tuple差・Artifact差・token失効を発生点別に反証する。2回目直前の拒否は1回目の親観測・終了確認を保持してProcess 1／Filesystem Effectなし、2回目終了後の拒否はProcess 2／初期化応答未採用／Filesystem Effect不明とする。正常時の照合回数は出所5・直接実体3・token開始1／確認4・補助要求2。pre／postの改訂比較とtoken確認を個別に外した局所変異が専用反例で検出されることを確認する。これは模擬Processを使った実Source本文の検証であり、実Native・実ACL・実共有Directory・実競合・Docker／Provider E2Eを証明しない。
 

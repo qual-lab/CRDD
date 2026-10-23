@@ -2,14 +2,16 @@
 
 成果物種別: Architecture詳細設計
 詳細設計領域: runtime-trust
-状態: Canonical
+状態: 廃止方式の比較設計
 維持責任者: Qual-Lab
+
+旧Coordinator独立Trust Evaluatorは2026-10-23の人間承認で廃止した。上流の独立評価・公式識別の意味と安定IDは維持するが、代替の本番評価器はなく、当該実装関係は未接続である。通常実行のGateへ追加せず、旧専用試験を現版の成立根拠へ流用しない。 以下のEvaluator設計は歴史比較に限定し、現行Component又は提供Capabilityとして扱わない。
 
 ## 基本設計との関係
 
 | Architecture定義 | この領域が具体化する責務 | Relation状態 |
 |---|---|---|
-| [ARCH-000014](../../Definitions/ARCH-000014/architecture_definition.md) | 準拠、完全性、Publisher、品質と利用者所有Trust Policyを別軸で評価する。 | Covered |
+| [ARCH-000014](../../Definitions/ARCH-000014/architecture_definition.md) | 準拠、完全性、Publisher、品質と利用者所有Trust Policyを別軸で評価する。 | Missing |
 
 ## 詳細成果物の適用判断
 

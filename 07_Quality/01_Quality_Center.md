@@ -20,6 +20,9 @@ Access Management再編の17義務は、承認済みPortfolio是正・局所反�
 
 Workbenchの参照文書一覧・表示試験の既知2失敗は是正し、固定Sourceの公開`npm test`全60件が成功（失敗・取消・skip 0）。静的検査・Browser Build成功、技術／品質の限定独立レビューは指摘0。本文512KiB上限・認可を維持し、一覧だけ先頭8KiBから見出しを取得する。これは正式198項目の全体再評価、実Provider E2E・人間UAT・移行・新しいBrowser実測の代替ではない。[是正と検証結果](../99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#計画表示2失敗の是正2026-10-18)を参照する。
 
+
+2026-10-23の限定廃止: Coordinator Sourceは基準149→145、Symbol登録365→358、全体Test Catalog登録387→384。専用試験3本の削除を成功数へ加算しない。Runtime Trustの二HandoffはOPENへ戻し、代替未接続と上流意図を区別する。Native／Kernel／通常回復と保存統合Bは維持する。以下の過去集計は当時の改訂版の履歴であり、この変更後の全体品質再評価ではない。
+
 ## 先行候補の経過（履歴）
 
 2026-10-17の旧署名資格退役では、三API・専用状態・TTL・試験factoryを削除し、poison／drain時の拒否を現在のTaskへ接続した。関連三Suite71件、export不存在1件、再導入／旧比較2件が成功。契約／品質の限定独立確認は残指摘0、独立再実行は各2件／7件成功。任意署名試験1件は既知の配布graph不成立で準備失敗・変更分岐未到達を保持する。QA197の成立数・歴史Evidenceは不変更で、実Provider／Docker・全体E2Eと全体品質の完成ではない。

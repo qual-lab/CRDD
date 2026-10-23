@@ -944,8 +944,6 @@ test("Local Change Setと用途別Named SymbolのConsumer集合が宣言と一�
       "40_Develop/coordinator/src/execution/runtime-repair.ts",
       "40_Develop/coordinator/scripts/native-git-provenance.ts",
       "40_Develop/coordinator/src/decision/external-send-policy.ts",
-      "40_Develop/coordinator/src/execution/terminal-caller-checkpoint.ts",
-      "40_Develop/coordinator/src/execution/terminal-caller-lease.ts",
       "40_Develop/coordinator/src/execution/repository-binding.ts",
       "40_Develop/coordinator/src/execution/borrowed-tree.ts",
       "40_Develop/coordinator/src/execution/change-snapshot.ts",

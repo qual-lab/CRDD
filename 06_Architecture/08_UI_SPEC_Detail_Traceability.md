@@ -6,6 +6,10 @@
 状態: Candidate（ARCH-000013断面とDocker Isolation配置を限定更新。全体再評価は未完了）
 維持責任者: Qual-Lab
 
+旧Coordinator独立Trust Evaluatorは2026-10-23の人間承認で廃止した。上流の独立評価・公式識別の意味と安定IDは維持するが、代替の本番評価器はなく、当該実装関係は未接続である。通常実行のGateへ追加せず、旧専用試験を現版の成立根拠へ流用しない。
+
+ARCH-000014に対応するSCR-000013／PRT-000013、BHV-000018、PRT-000013.spec-000018の三行は、設計参照の関係集合を示す。三行のruntime-trust／artifact-signingは歴史比較のみで、現行実装Ownerではない。現行境界はcoordinator／platform-access／version-control、独立評価器はMissing／OPENであり、CoverageはPartialのまま維持する。
+
 ## 1. 目的
 
 発行済みのLogical Screen、Screen Part、InteractionおよびDetailed Behaviorを、意味を所有するArchitecture定義と配置を所有する詳細設計領域へ接続する。Definitionを要求源として維持し、Detailを新しい要求や実装配置の根拠へ読み替えない。

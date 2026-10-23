@@ -8,6 +8,8 @@
 状態: Candidate（ARCH-000013初回Host設定の伝播断面）
 維持責任者: Qual-Lab
 
+旧Coordinator独立Trust Evaluatorは2026-10-23の人間承認で廃止した。上流の独立評価・公式識別の意味と安定IDは維持するが、代替の本番評価器はなく、当該実装関係は未接続である。通常実行のGateへ追加せず、旧専用試験を現版の成立根拠へ流用しない。
+
 ## 1. 目的
 
 本書はArchitecture定義（基本設計）と詳細設計領域の多対多Relationを示す。個別領域の設計を再定義せず、全Architecture定義が実装可能な詳細へ接続されているか、どの領域をQualityが読むかを一覧化する。
@@ -48,7 +50,7 @@ Quality／Development
 | [活動Context（domain-model）](./Details/domain-model/02_Activity_Context.md) | ARCH-000005、ARCH-000006、ARCH-000016 | Domain Modelが実装する活動Contextの意味・状態・正本保存と現在投影。受入判断書込みは所有しない | Candidate |
 | [quality-change-control](Details/quality-change-control/01_Architecture.md) | ARCH-000003 | 固定改訂版に対する変更・監査・試験結果と品質状態の統合 | Canonical |
 | [Repository保存（domain-model）](./Details/domain-model/03_Repository_Storage.md) | ARCH-000009、ARCH-000011、ARCH-000013、ARCH-000016 | Repository-local／OS管理領域の配置、保持、Identity、清掃 | Canonical |
-| [runtime-trust](Details/runtime-trust/01_Architecture.md) | ARCH-000014 | 準拠、完全性、Publisher、品質と利用者所有Trust Policyの独立評価 | Canonical |
+| [runtime-trust](Details/runtime-trust/01_Architecture.md) | ARCH-000014 | 準拠、完全性、Publisher、品質と利用者所有Trust Policyの独立評価 | 廃止方式の比較設計 |
 | [semantic-coverage](Details/semantic-coverage/01_Architecture.md) | ARCH-000008 | Domain Modelによる意味・関係・Coverage・保存とCheckerによる起動・診断。独立Packageではない | Canonical |
 | [verification-runner](Details/verification-runner/01_Architecture.md) | ARCH-000003 | DomainのTest Catalog・回帰選択・計画／結果モデルとCheckerの検査入口。旧一括実行を廃止 | Canonical |
 | [visual-preview](Details/visual-preview/01_Architecture.md) | ARCH-000003 | Repository内Visual成果物のlocalhost限定・読取り専用Preview | Canonical |
@@ -77,6 +79,8 @@ Quality／Development
 | ARCH-000016 | [過去情報と現在有効な意図](Definitions/ARCH-000016/architecture_definition.md) | cros、domain-model、execution-intelligence、version-control、workbench-server |
 | ARCH-000017 | [公式素材の権利・用途確認](Definitions/ARCH-000017/architecture_definition.md) | official-asset-governance、workbench-server |
 | ARCH-000018 | [実行事実の記録](Definitions/ARCH-000018/architecture_definition.md) | execution-intelligence |
+
+ARCH-000014の上記関係集合は設計参照の閉包であり、実装Ownerの稼働一覧ではない。現在の境界確認はcoordinator／platform-access／version-control、独立評価器はMissing／OPEN、artifact-signing／runtime-trustは廃止方式の歴史比較のみである。
 
 Architecture定義と詳細設計領域は同じIdentityではない。新しい詳細領域を作る場合は本表と個別領域のRelationを同じ変更で更新し、どのARCH-IDも未接続または暗黙接続にしない。
 

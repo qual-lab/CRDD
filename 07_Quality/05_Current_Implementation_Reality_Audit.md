@@ -30,6 +30,9 @@ Workspace方式のArchitecture／Quality反映後は13定義・198 Local Item。
 現在範囲: 現行199 Local Item。過去の197項目・18 Architecture詳細設計領域の照合は履歴として区別する
 維持責任者: Qual-Lab
 
+
+2026-10-23の限定廃止: Coordinator Sourceは基準149→145、Symbol登録365→358、全体Test Catalog登録387→384。専用試験3本の削除を成功数へ加算しない。Runtime Trustの二HandoffはOPENへ戻し、代替未接続と上流意図を区別する。Native／Kernel／通常回復と保存統合Bは維持する。以下の過去集計は当時の改訂版の履歴であり、この変更後の全体品質再評価ではない。
+
 ## 設計集合
 
 | 項目 | 件数 |
@@ -190,7 +193,7 @@ Sandbox内ではProcess列挙が`Access denied`となり、取消試験も子Pro
 | orchestrator | `40_Develop/coordinator` | 66／66 Pass | Partial | 14期待Local Itemのうち9件を接続。Transport同等性、取消、判断待ち再開、受入Scenario／UATが残る |
 | quality-change-control | 保守／監査工程 | 専用Runnerなし | Process-owned Partial | 独立Runtimeは要求しない。監査集合統合、是正再入場と3 Local Itemを実レビュー／監査Evidenceへ接続する |
 | runtime-data | `40_Develop/runtime-data` | 35／35 Pass | Partial | 6期待Local Itemのうち4件を接続。Project View分類とCredential→Session Grantを伴うCROS Root利用は別Ownerの成立が必要 |
-| runtime-trust | なし | v0.21対象外 | Deferred to v0.22 | 利用者所有Trust Policy、Policy activationおよびProvider launch結合はGroup Cとしてv0.22へ移管した |
+| runtime-trust（旧実装廃止） | 独立評価器の代替は未接続 | 旧結果は歴史比較のみ | Legacy／代替Missing・OPEN | 旧runtime-trust詳細設計を歴史比較へ移し、Coordinator内の旧評価器を廃止。独立評価の上流意図は残るが、代替実装の成立・v0.22での実装確約・旧結果の流用はしない。Native／Git等の現在境界確認は既存Ownerが維持する |
 | Semantic Coverage（Domain／Checkerへ移管） | `domain-model/src/semantic`、`checker/src/repository/semantic.ts`、`checker/src/report/semantic.ts`、`checker/src/cli/semantic.ts` | 移管前17件を保持し追加4件を含む21／21成功、Domain全128件成功 | 移管範囲の回帰・独立再レビュー完了 | 独立Packageを撤去。公開CLI・保存失敗・Snapshot保全を新Ownerで確認。Pilot全意味の充足や正式全体QAのPassを意味しない |
 | 検証計画（Domain／Checkerへ移管） | `domain-model/src/test-catalog`、`checker/src/cli/test-catalog.ts` | 台帳／計画27件・公開接続7件成功。手動UAT1件未実施 | 局所移管・独立再レビュー完了、全体回帰は未成立 | catalog維持、一括自動実行廃止。Domain全体は許可Hostで155件中154成功・既存Lock競合待ち失敗、Repository-local TEMPでは別の既存試験前提が不成立。単独成功を合算して全体Passにしない |
 | version-control | `40_Develop/version-control` | 41／41 Pass | Covered Candidate | 固定Snapshot、Consumer ClosureおよびSystem移行Closureを接続。独立レビューで意味一致を確認する |

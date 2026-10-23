@@ -4,6 +4,9 @@ B3〜B5では、`ERB-UT-023`のDocker構成一致検査をDIの既存plan試験�
 
 B2の排他移管では、`ERB-IT-003`のWorker／Supervisor故障・ready往復・解放・終了観測をPA内の`lock-lifecycle`結合試験へ移す。Coordinator側は用途別対象・世代・namespaceの検査と、本番Root APIを使った実排他・取得順・回復判断を維持する。入力拒否と技術lifecycleを別Oracleとして対応付け、試験用再exportや公開APIの追加で私有依存を迂回しない。項目の正式結果と歴史Evidenceは移管だけでは変更しない。
 
+
+2026-10-23の人間承認により、Coordinator内の本番未接続の独立Trust評価と旧terminal codec／caller保存・再入場候補を廃止する。旧4 Sourceと専用試験3本は撤去し、製品処理の試験側コピーや代替Frameworkは作らない。通常実行、保存統合B、Platform AccessのNative部品・共有排他・現在の回復保証は維持する。過去Evidenceは当時の根拠として保持し、廃止をPassへ換算しない。 `PRL-UT-006`、`ERB-IT-001`〜`ERB-IT-003`とNative／Kernel等の共用検証項目は削除せず、旧codec・caller固有の断面だけを対象外にする。独立評価の`AIT-IT-001`／`AIT-IT-003`等の上流意図は残し、旧実装撤去後の代替未接続は未成立として扱う。
+
 ## 追加通信条件の純粋構成（2026-10-21）
 
 接続確認では、`ERB-UT-023`の搬送設定再検査・Proxy引数への固定搬送・通信なしPython実Source確認、`EST-IT-004`の同意Hash差、既存Workbench／Orchestratorの公開受付を使う。画面期待Hashの欠落・不正・別Provider・設定変更、同意の非再利用、実行中Snapshotの不変性、ログインへの追加設定0を反証する。Provider／Docker要求0と、既存のFile読取り・操作準備を区別する。
@@ -486,11 +489,8 @@ Nativeの共通排他では、`ERB-IT-001`の同threadでの取得・fresh保護
 
 現在は全行OPENである。実装上の発生点と観測手段を固定してから実境界へ接続する。局所のSchema／順序試験は`PRL-UT-006`が所有し、ここで求める保護・Filesystem・Process喪失・公開入口の成立を代替しない。
 
-`host-terminal-caller-checkpoint.integration.test.ts`は上記のうちRepository-local caller保存だけを自己生成Git Rootで確認する。完全bytesの保存・同参照fresh Process読取り・反復保存、異なるbytesの衝突、独立binding差、部分stage保持、未知inventory、1023物理entryからの2entry予約拒否、同一／別Processのnamed pipe競合、取得前／取得中取消、所有Process終了後の再取得を対象とする。固定Windows実環境profileへ分離し、portableでのskipをPassに数えない。Native固定namespace・ACL・共通容量、caller保存途中の全故障点、Power loss、実残存三件、公開入口とEvidence移管／管理清掃はこの試験から成立を主張しない。
 
-準備Ownerの接続では、同じ試験で検証済みRoot、閉じた入力、三結合Hash、取消済みSignalと固定実行Contextの前提拒否を確認する。取得済み参照の保持、Native起動・caller保存前の停止、Accessor非実行、caller記録Directoryの直接不存在を観測する。この確認は前提拒否だけを証明する。実NativeのCurrent／Known観測から完全intent・caller保存までの正常経路、二呼出し間／保存待機中の変更、保存後取消、搬送例外のEffect不明保持は、実経路の接続確認で別に照合する。準備済み表示を非使用、人間承認、Native公開保存、清掃またはLocal Item全義務成立へ読み替えない。
 
-Native保存接続のCaseは、未保存・正常caller・独立binding差・取消・canonical破損を自己生成Repositoryで評価する。正常callerだけがfresh読取り後にAdapterの固定実行Context検査へ達し、無効ContextでProcess／記録Effect 0を保持する。専用保存CLIのCaseは不正要求・観測mode混用・余分argvを実childで拒否し、receiptなし・取得0を確認する。これらは取得前拒否の根拠であり、実Native正常保存・実三件への適用を証明しない。
 
 `PRL-UT-006`の保存搬送Caseは、十一Known値・本文・nonce・同参照の要求形状、応答の完全性と上限、計数・公開・Mutex／writer／外側closeの共同成立、および部分保存receiptの保持を合成入力で確認する。Native保存区間の実target差替え、実close故障、返却喪失、正常保存と同参照再入場は接続確認で別に観測する。Source接続や拒否試験を全RecoveryのPassにしない。
 
@@ -542,9 +542,7 @@ Native保存接続のCaseは、未保存・正常caller・独立binding差・取
 
 `ERB-IT-001`の専用CLI拒否Caseでは、十二実体の保存／読戻しmodeへ旧frame、欠落frame、逆modeおよび余分argvを実Processで渡す。正形状でも独立本文Hashが不一致なら、OS namespace取得前に同参照・nonceを保持して停止し、保存receiptなし・全資源取得0を返す。新しい`CRDDKW03`／`CRDDKB03`と内包`CRDDKR03`、実exit・child joinを確認する。これは拒否経路の実搬送であり、正常な固定OS保存、Root／file消失後の正常読戻し、caller再入場、署名Runtimeまたは全Recoveryの成立根拠ではない。
 
-`ERB-IT-001`／`ERB-IT-002`／`ERB-IT-003`には既知file専用caller記録の実Filesystemと共通leaseの確認を接続する。自己生成Repositoryだけで、十二実体・file条件・完全正規bytesの保存とfresh読戻し、一致再入場の追加記録Effect 0、同参照別内容・旧形式の拒否、取消前の管理／記録Effect 0、lease終了とstage不存在を確認する。専用Native接続の前後で同じcaller bytesを再検証し、未検証実行ContextではProcess Effect 0で同参照を保持する。これらはRepository-local callerの確認であり、保護された固定OS保存、正常Native搬送、返却喪失後の本番再入場、旧三件の非使用・清掃、全Recoveryの成立とは区別する。
 
-専用候補の準備bodyから、実際の自己生成Repositoryのcaller保存へ接続する結合確認を`ERB-IT-001`／`ERB-IT-002`／`ERB-IT-003`の限定範囲へ含める。検証済みRepository Rootと実Runtime Data resolver・正規codec・既存保存Ownerを使用し、同参照のfresh読戻し、一致再入場の追加記録Effect 0、lease終了とstage不存在を確認する。Native観測だけを合成値へ置き換えるため、正常Native観測・固定OS保存と公開Recoveryはこの確認の対象外として保持する。
 
 実境界の保存場所確認では、本番と同じ固定環境でWindows一時領域を解決し、元対象の親実体と同じ境界へ結合できることを要求する。親Processの通常環境で成功しても、本番用環境での解決成功へ読み替えない。環境値の空指定、別場所への解決、取得不能、固定子Directory欠落を拒否例に含め、書込み・ACL修復・別場所へのfallbackを発行しない。OS保存場所の作成・変更は、exact Root、用途、所有者、保持・回復と人間承認を別に確定してから実行する。
 

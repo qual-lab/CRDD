@@ -12,6 +12,8 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
+Coordinator構造整理では、承認済みの本番未接続Trust評価と旧terminal codec／caller保存候補を廃止した。旧4 Source・専用試験3本、登録・設定と設計／QAを追従し、直接利用側24件と共通排他・回復・保存・履歴96件が成功、限定独立確認の残指摘0。Native共通処理・通常回復・保存統合Bを維持する。独立Trustの上流意図は代替未接続のまま残し、廃止を品質成立へ換算しない。通常回帰全体・構造再設計全体は未完了。[対象と確認範囲](99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#3812-限定廃止の確認結果--2026-10-23)を参照する。
+
 保存統合Bは、実装・旧試験の移行・固定版回帰の範囲を完了した。Task・Queue・Workspaceを共通Ownerと単一物理Writerへ接続し、履歴も同じRoot・保持設定へ切り替えた。旧ACK専用API・内部枝・二段リレーと旧設定Reader・配布例・Schemaを撤去した。固定通常回帰は1,862成功・失敗0・5skip、Workbench／MCP共通入口一件とWindows保存影響三十件も成功した。実AI・実DockerのE2Eと全体QAの完成ではない。次候補は利用者提示のCoordinator構造再設計であり、今回の保存契約を凍結基準にする。[確認結果と限界](99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#375-保存統合bの最終確認)を参照する。
 
 ②の実AI編集E2Eの今回試験は、利用者判断で終了したが、回収は未完了である。認証確認用Containerの作成結果unknown、同じ回復参照と試験物を保持する。停止Containerだけが遅れて残る可能性は今回に限り許容されているが、E2EのPass・回収完了・一般回復条件の緩和ではない。AI再試行は行わない。詳細と再評価条件は[今回試験の終了判断](99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#workspace-edit-trial-ended-unresolved)を参照する。

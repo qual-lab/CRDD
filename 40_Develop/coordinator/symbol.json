@@ -989,21 +989,6 @@
       ]
     },
     {
-      "symbolId": "coordinator.test.integration.runtime-trust-evaluator",
-      "kind": "test-suite",
-      "path": "tests/integration/runtime-trust-evaluator.contract.test.ts",
-      "qaIds": [
-        "QA-000010"
-      ],
-      "localTestIds": [
-        "AIT-IT-001",
-        "AIT-IT-003"
-      ],
-      "verifies": [
-        "coordinator.source.src.security.runtime.trust.evaluator"
-      ]
-    },
-    {
       "symbolId": "coordinator.test.integration.orchestrator-decision-recovery-store",
       "kind": "test-suite",
       "path": "tests/integration/task-decision-recovery-store.contract.test.ts",
@@ -3231,14 +3216,6 @@
       ]
     },
     {
-      "symbolId": "coordinator.source.src.security.runtime.trust.evaluator",
-      "kind": "file",
-      "path": "src/execution/runtime-trust.ts",
-      "archIds": [
-        "ARCH-000014"
-      ]
-    },
-    {
       "symbolId": "coordinator.source.src.security.root.observation",
       "kind": "file",
       "path": "src/execution/root-observation.ts",
@@ -3377,64 +3354,6 @@
       ],
       "verifies": [
         "coordinator.source.src.security.execution.environment"
-      ]
-    },
-    {
-      "symbolId": "coordinator.source.src.security.host.terminal.record",
-      "kind": "file",
-      "path": "src/execution/terminal-record.ts",
-      "archIds": [
-        "ARCH-000008"
-      ]
-    },
-    {
-      "symbolId": "coordinator.source.src.security.host.terminal.caller.lease",
-      "kind": "file",
-      "path": "src/execution/terminal-caller-lease.ts",
-      "archIds": [
-        "ARCH-000008"
-      ]
-    },
-    {
-      "symbolId": "coordinator.source.src.security.host.terminal.caller.checkpoint",
-      "kind": "file",
-      "path": "src/execution/terminal-caller-checkpoint.ts",
-      "archIds": [
-        "ARCH-000008",
-        "ARCH-000011"
-      ]
-    },
-    {
-      "symbolId": "coordinator.test.integration.host-terminal-caller-checkpoint",
-      "kind": "test-suite",
-      "path": "tests/integration/host-terminal-caller-checkpoint.integration.test.ts",
-      "qaIds": [
-        "QA-000006"
-      ],
-      "localTestIds": [
-        "ERB-IT-001",
-        "ERB-IT-002",
-        "ERB-IT-003"
-      ],
-      "verifies": [
-        "coordinator.source.src.security.host.terminal.caller.lease",
-        "coordinator.source.src.security.host.terminal.caller.checkpoint",
-        "coordinator.source.src.security.host.terminal.record"
-      ]
-    },
-    {
-      "symbolId": "coordinator.test.unit.host-terminal-record",
-      "kind": "test-suite",
-      "path": "tests/unit/execution/terminal-record.contract.test.ts",
-      "qaIds": [
-        "QA-000003"
-      ],
-      "localTestIds": [
-        "PRL-UT-006"
-      ],
-      "verifies": [
-        "coordinator.source.src.security.host.terminal.record",
-        "platform-access.source.host-record"
       ]
     },
     {

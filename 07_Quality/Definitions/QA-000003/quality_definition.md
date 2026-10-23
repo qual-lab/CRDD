@@ -1,8 +1,13 @@
 # QA-000003 Project実行と回復の検証定義
 
+
+2026-10-23の人間承認により、Coordinator内の本番未接続の独立Trust評価と旧terminal codec／caller保存・再入場候補を廃止する。旧4 Sourceと専用試験3本は撤去し、製品処理の試験側コピーや代替Frameworkは作らない。通常実行、保存統合B、Platform AccessのNative部品・共有排他・現在の回復保証は維持する。過去Evidenceは当時の根拠として保持し、廃止をPassへ換算しない。 `PRL-UT-006`、`ERB-IT-001`〜`ERB-IT-003`とNative／Kernel等の共用検証項目は削除せず、旧codec・caller固有の断面だけを対象外にする。独立評価の`AIT-IT-001`／`AIT-IT-003`等の上流意図は残し、旧実装撤去後の代替未接続は未成立として扱う。
+
 ## 保存統合B案の検証条件 — 2026-10-22
 
 [単一保存Lifecycle](../../../06_Architecture/Details/coordinator/04_Task_Detailed_Design.md#unified-storage-lifecycle)の採用により、旧七Sourceのbytes凍結は移管元保証の照合として扱う。新方式の単一Writer・共通Owner・原子受領・履歴のSource接続と旧試験移行、外部AIなしの固定全体回帰は完了し、限定実Filesystem／別Process再入場を評価済みである。限定独立再確認済みであり、全異常経路の集約・実AI／実Dockerを含む実境界一体・全体QA・Releaseは未完了として、限定成功を全体Passにしない。[現在の結果と残件](../../../99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#375-保存統合bの最終確認)と過去の旧ACK試験を区別する。追加条件は既存項目へ接続し、新Runner・Registry・Lock Frameworkを作らない。
+
+後続の[Source構造再設計](../../../06_Architecture/Details/coordinator/01_Architecture.md#161-保存統合後のsource構造再設計)では、File数ではなく各Ownerの入力・出力、私有状態、開始・取消・回収・結果受領と既知利用側の不変性を確認する。`PRL-IT-012`の純粋依存閉包、`PRL-IT-005`／`PRL-IT-013`の受付・保存・回復接続、既存Task状態遷移試験へ変更意味に応じて追従する。型専用のPortを実装Ownerと混同せず、試験のPath・抽出位置だけを更新する場合も拒否条件・負対照を維持する。Storage六Fileは人間承認された同一Symbolへのimport参照先変更だけを許容し、旧／新Symbolの型・実体・本文の同一性とimport以外の差分0を確認する。公開Root・全利用側・Symbol／Catalog／Test Relationも追従する。Bの旧結果は比較基準であり、移管後の実行成功へ流用しない。Provider・Docker・Nativeの保証は各QA Ownerの既存項目を併用し、この構造整理だけで実境界やQA全体をPassにしない。
 
 | 既存項目 | 新方式で確認する条件 |
 |---|---|
@@ -255,7 +260,6 @@ Source Definition由来の検証義務を維持し、Detailは具体的な観測
 
 期限登録中の同期取消では登録・解除を一回に限定し、listenを発行しない。取得要求の保留と結果Promiseを分け、期限後またはlisten例外後の先行close通知で購読を外さない。後着取得へ一回closeを発行し、その後の対応終端で登録を解除しても、先に返した不明結果は同一のまま保持する。
 
-同じ`PRL-UT-006`でHost終端intent revision 2の閉Schemaを確認する。完全snapshotの両producer、固定参照・Hash・五識別値とattributesの六u32・六child実名・処置順、key順に依存しない正規encode、全閉集合の欠落／未知field、producer混在・未知理由、Identity alias、u32両端・範囲外・負のゼロ、自由Path、Proxy／Accessor／特殊prototypeを処置する。十一対象ごとにattributesの変更を保持し、欠落と属性を持たないrevision 1を拒否する。decodeでは8KiB上限、fatal UTF-8、BOM、重複key、余分bytes、非正規JSON、共有memoryとbyte入力のcustom getter／iteratorを反証する。Oracleは正規bytesへの往復、入力実行0とnested値の不変性に限る。初期化途中への補完、実Identityの観測、caller耐久参照、Native保護・publication・容量予約、本番清掃と再入場はこのUTから成立扱いにせず、QA-000006の実境界義務を保持する。
 
 同じ`PRL-UT-006`でDocker診断回復のHost排他接続順を確認する。現在の本番関数bodyを変更せず局所依存へ接続し、正常、Token／Host世代／親の不正、取得null／例外、取得後の記録不明、Docker依存失敗、解放不明、Host Root名差およびHost nonce差の十一経路を与える。Probe nonceとHost nonceは異なる値にする。未取得では対象Rootの記録読取り0・Docker利用0、取得後の対象差・記録不明ではDocker利用0を確認する。同じ排他ObjectをHost清掃へ渡し、取得後の失敗でも一回解放する。解放不明では成功・清掃確認を返さず、現在のexact回復参照、手動回復の必要性と清掃未確認を保持する。これは本番bodyの呼出順・結果相関のUTであり、実排他、Docker回収、実フォルダ不存在、旧三Rootの非使用または全Recoveryの成立を証明しない。
 
@@ -277,7 +281,6 @@ Coordinator Adapterでも、専用保存／読戻しの私有登録と旧形式�
 
 専用候補の二回観測では、十二Identityの六field、選択利用者、marker Hashとfileの長さ・リンク数・Hashを比較する。初回拒否・終了未確認・取消では二回目0、再要求生成中の取消・生成失敗も二回目0を確認する。二回目の拒否・終了未確認・例外では初回receiptを保持する。下位が実行前に拒否した理由は保持し、成功を返したのにhelper終了が未確認の場合だけ共同観測未成立とする。私有の旧／新Current要求、namespace-Known要求、cloneの混用も反証する。
 
-同じ`PRL-UT-006`で、候補観測から専用revision 3とcaller保存へ準備する本番関数bodyを確認する。選択Hashのdomain、配列順、十二実体・file条件を独立に導出し、一field差はHashへ反映、回復参照だけの差はHashへ反映しないことを確認する。旧domain・旧受付は維持する。入力不正、観測失敗・例外、各処理境界の取消、保存拒否・例外、保存後取消では同参照・部分結果・Effect不明を保持し、再試行・Authorityを発行しない。合成観測・合成保存を実Native保存や非使用の根拠にしない。
 
 これらは期待値・正規bytes・観測frameの局所確認である。実fileの内容・リンク数、非使用、保存、十二実体の実搬送、処置と部分再入場の成立はQA-000006で別に確認する。既存Local Itemへ接続し、局所Case追加をLocal Item全義務の完了や全体件数の更新理由にしない。
 
@@ -314,7 +317,7 @@ Host終端専用環境の`PRL-UT-006`では、同じ本番関数bodyに対する
 
 保存・Host・Providerの残る整理はこの受付試験の成功へ含めず、既存の保存・回復・所有者再入場の検証へ別途接続する。過去Evidenceや正式QA全体の結果を受付整理だけで更新しない。
 
-Provider別の薄い準備中継撤去では`PRL-UT-014`の両Provider試験を共通実体へ接続し、別Store・一回消費・期限・管理一致・Authority失効とMount終了を維持する。Host通知の`PRL-UT-006`はPA内の`in-process-lifecycle`試験へ実移管し、共有Directory・Host activation・診断判断の三CaseはCoordinatorへ残す。固定namespace外の拒否を追加し、既存`ERB-IT-003`の上位実pipe競合・Process喪失後再取得・caller保存と解放相関を維持する。低層通知試験を保存・回復全体の成立へ拡張しない。
+Provider別の薄い準備中継撤去では`PRL-UT-014`の両Provider試験を共通実体へ接続し、別Store・一回消費・期限・管理一致・Authority失効とMount終了を維持する。Host通知の`PRL-UT-006`はPA内の`in-process-lifecycle`試験へ実移管し、共有Directory・Host activation・診断判断の三CaseはCoordinatorへ残す。固定namespace外の拒否を追加し、Nativeの共有排他・終了確認は維持し、廃止caller専用の保存・解放相関を現行義務へ残さない。低層通知試験を保存・回復全体の成立へ拡張しない。
 
 C前の現在配置は`execution`／`storage`／`external-send`／`cli`とし、同じQA Local Item・Symbol IDのままSourceとUT Pathを追従する。再入場分類UTは`storage/model-reentry`から純粋値モデルを直接検査し、現在stateのSettlement Writer、共通JSONのDomain committed-json、Host callerのhost-submissionの確定順はそれぞれ現行ITで検査し、退役した旧Journal試験を新版の根拠へ流用しない。未接続の旧PR03候補は退役し、descriptor CaseだけRootObservationへ移す。旧wire五Caseを現在PAの保証へ転用せず、[退役軸と現行試験の対応](../../../99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#142-未接続platform-access候補の退役)を保持する。
 
@@ -326,7 +329,7 @@ Git観測の移管では、Version Controlの現在改訂・HEAD／Tree・前後
 
 doctor、修復Owner／結果、再起動、Probeの要求・完了・取消・exact回復、計測と検証用Grammarは既存Suite／Local ItemのOracleを維持しPathを追従する。Probeの私有Mapは一実体とし、検証専用操作のConsumerはscripts／試験に限定する。要求前unknown保存・同じ参照・取消join・二保存・Lease解放と終了確定は別々に観測する。今回の有限代役・実Git／Filesystem／Processの成功から、実Docker・外部AI・全体QAの成功は主張しない。②のAI再試行・保持物操作は検証範囲外。
 
-Authority Folderの解体では、Grant・Bundle・Policy・開始直前確認・Local PersonalのUTと既存Authority coverageを維持する。Root字句・観測・保護候補は実行前の非Authority条件として評価し、候補を実装済み保護へ昇格しない。秘密情報検査は入力・結果双方の利用側へ追従する。Runtime Trustのmandatory試験と独立評価義務は維持し、通常実行へ未接続であることを変えない。Symbolの全Path実在・参照解決と、Version Control新二操作の正確な利用側集合・欠測・余剰・迂回import拒否を同じ固定候補で確認する。
+Authority Folderの解体では、Grant・Bundle・Policy・開始直前確認・Local PersonalのUTと既存Authority coverageを維持する。Root字句・観測・保護候補は実行前の非Authority条件として評価し、候補を実装済み保護へ昇格しない。秘密情報検査は承認済み目標OwnerのDomain Model `plain-data/secret-validation.ts`へ移し、同じSymbol・条件・返却値、getter／Proxy等の既存反証と、Workspace・Decision・実行入力・結果取込の全利用側を照合する。移管だけを未知Secret不存在の保証へ拡張しない。旧Coordinator独立Trust Evaluatorは2026-10-23の人間承認で廃止した。上流の独立評価・公式識別の意味と安定IDは維持するが、代替の本番評価器はなく、当該実装関係は未接続である。通常実行のGateへ追加せず、旧専用試験を現版の成立根拠へ流用しない。Symbolの全Path実在・参照解決と、Version Control新二操作の正確な利用側集合・欠測・余剰・迂回import拒否を同じ固定候補で確認する。
 
 Docker固有記録の移管では、DI Rootから回復ID・Probe記録を利用する既存Callerと、Coordinatorに残すHost／終端／再起動要求相関を分けて照合する。記録Hash、nonce、元参照、同じRoot・子実体、部分欠測、link・置換・不正文法の拒否、書込み・読戻し・状態遷移のOracleは維持する。汎用JSON確定・同意保存・上位判断保存・現在状態の原子単位を変更しない。通常回帰とWindows保存Case、実Docker確認を区別し、先行runの結果を移管後の固定候補へ転記しない。
 

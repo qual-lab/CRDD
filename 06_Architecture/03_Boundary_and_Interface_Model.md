@@ -12,6 +12,8 @@ Last Updated: 2026-10-11
 
 現在の鍵提示は用途限定・短命な同一Process backend→Workbench応答またはHost端末に限定する。一般MCP／DTO・一覧・履歴・Log・Evidenceへ秘密を公開しない。初回限定接続は通常AuthorityやMCP鍵Toolの例外ではない。今回境界差分は限定再レビュー済み（最小鍵提示方式の伝播差分、全重大度0）。
 
+旧Coordinator独立Trust Evaluatorは2026-10-23の人間承認で廃止した。上流の独立評価・公式識別の意味と安定IDは維持するが、代替の本番評価器はなく、当該実装関係は未接続である。通常実行のGateへ追加せず、旧専用試験を現版の成立根拠へ流用しない。
+
 ## 1. この成果物が所有すること
 
 Component間、外部System、Platform、Repository、Trust境界と、境界を越えるIdentity、State、Authority、Dataの意味を統合する。物理API名やfieldは実装・Schemaが所有し、本書は交換契約と越えてはならない意味境界を所有する。
@@ -159,7 +161,7 @@ Executionが定義する通知関数をTask／Objectiveが登録する。
 | Runtime Data Metadata | Runtime Data Contract | 各Ownerの限定Writer | Recovery、Cleanup | Tool固有Top-levelの無秩序追加 |
 | 実行事実読取りProjection | 既存の実行事実Source | 現在責務の外側 | 実行記録読取りProjection | Projectionによる事実生成・保存、既存事実の再解釈 |
 | External Candidate | External Information Boundary | Result Receiver | Human Decision、所有正本Adapter | 送信同意からの自動採用 |
-| Trust Evaluation | Runtime Trust Evaluator | Evaluator | Runtime Gate、Human | Qual-Lab署名だけの一括信頼 |
+| Trust Evaluation | 旧Runtime Trust Evaluator（廃止・代替未接続） | 旧Evaluator（歴史比較） | 現行の独立評価Consumerは未接続。通常Runtime Gateへ追加しない | Qual-Lab署名だけの一括信頼 |
 | Quality State | Quality Center | 各検証結果の統合 | Release判断、Human | 単一試験からの全体Pass |
 
 ## 6. Qualityへの引渡し
