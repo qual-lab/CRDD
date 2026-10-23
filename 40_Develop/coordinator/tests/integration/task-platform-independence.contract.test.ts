@@ -123,6 +123,8 @@ const SOURCE_ROLES = {
     "state/persistence.ts",
     "state/model.ts",
     "objective/request.ts",
+    "objective/types.ts",
+    "objective/plan.ts",
     "state/result.ts",
     "task/types.ts",
     "state/request.ts",
@@ -137,14 +139,13 @@ const SOURCE_ROLES = {
     "decision/lifecycle.ts",
     "decision/acceptance.ts",
     "objective/execute.ts",
-    "objective/plan.ts",
     "objective/replan.ts",
     "state/query.ts",
     "task/dispatch.ts",
     "workspace/record.ts",
   ],
   adapter: [
-    "objective/public-operation.ts",
+    "objective/composition.ts",
     "decision/public-operation.ts",
     "state/public-query.ts",
     "task/requests.ts",
@@ -396,6 +397,24 @@ function assertPureImportEdges(
     if (typeOnly) {
       assert.ok(
         coreModules.includes(resolved) ||
+          (module === `${SOURCE_PREFIX}objective/types.ts` &&
+            specifier === "../execution/controller.ts" &&
+            names.length === 1 &&
+            names.every((name) =>
+              [
+                "startRuntimeOwnedCoordinatorTask",
+                "cancelRuntimeOwnedCoordinatorTask",
+                "captureRuntimeOwnedCoordinatorTaskResultDelivery",
+              ].includes(name),
+            )) ||
+          (module === `${SOURCE_PREFIX}objective/types.ts` &&
+            specifier === "../storage/protected-decision.ts" &&
+            names.length === 1 &&
+            names[0] === "openRuntimeOwnedWindowsProjectDecisionStore") ||
+          (module === `${SOURCE_PREFIX}objective/types.ts` &&
+            specifier === "../task/dispatch.ts" &&
+            names.length === 1 &&
+            names[0] === "recordCoordinatorExecutionEvent") ||
           (module === `${SOURCE_PREFIX}task/types.ts` &&
             specifier === "../execution/result.ts" &&
             resolved === `${SOURCE_PREFIX}execution/result.ts` &&

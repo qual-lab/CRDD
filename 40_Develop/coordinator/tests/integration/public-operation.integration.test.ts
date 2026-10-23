@@ -29,7 +29,7 @@ import {
 import { recordCoordinatorExecutionEvent } from "../../src/index.ts";
 import { initializeCoordinatorSnapshot } from "../../src/index.ts";
 import { createCoordinatorWindowsDecisionStoreTestingAdapter } from "../../src/storage/protected-decision.ts";
-import { createDevelopmentCoordinatorPublicObjectiveCandidate } from "../../src/objective/public-operation.ts";
+import { createDevelopmentCoordinatorPublicObjectiveCandidate } from "../../src/objective/composition.ts";
 import {
   createCoordinatorExecutionIntelligenceDiagnosticReporter,
   createCoordinatorRecoveryDiagnosticReporter,

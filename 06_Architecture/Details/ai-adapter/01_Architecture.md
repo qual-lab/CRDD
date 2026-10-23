@@ -1,5 +1,17 @@
 # AI Adapter詳細設計
 
+## 技術カタログとRepository別AI選択の分離方針 — 2026-10-24
+
+状態: 設計方針採用、Schema・Source切替前。現行`AiProfileCatalog`の成功を新方式の完成根拠にはしない。[実施計画](../../../99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md)から操作・保存・利用側・検証へ接続する。
+
+AI AdapterはProvider／具体Model／対応Effort／技術Capability・互換条件を所有し、Repositoryごとの役割既定値や作業分類別の推奨を技術カタログへ混在させない。CoordinatorはRepositoryのAI選択設定を解決し、今回の実行設定へ固定する。Domain Modelは既存のRepository境界・設定Rootの基盤を提供するが、AI選択専用Registryを追加しない。Workbenchは設定の編集画面であり、選択設定の正本ではない。
+
+選択設定はRepository内の`.crdd/config/ai-selection.json`を一正本とする目標で、固定役割は`coordinator / executor / independent_reviewer / result_integration / advice`、作業分類は利用者定義のID・表示名とする。優先順は実行時の明示指定、役割×作業分類の上書き、役割既定値である。未知分類・非対応Model／Effort・参照不整合は別構成へ補完しない。通常の既定Effortは対応がある場合の`medium`を基本とし、添付のモデル例から初期モデルを自動採用しない。開始済み実行を設定編集で書き換えず、役割・分類名からTool／Filesystem／Network権限を発行しない。
+
+2026-10-24の利用者判断により、旧形式の移行はフロントAIが担当し、製品は新形式だけを実装する。旧Profile Reader、二つの設定正本、同じProfile IDの別Modelへの暗黙再割当てを追加しない。現行設定と保存済み実行参照の処置を先に特定し、未移行の設定・不明な状態を新方式として実行しない。保持中②の試験物と過去Evidenceは変更しない。
+
+認証の共通操作はCoordinatorの`auth status/login <provider>`と正式APIから提供する目標である。AI AdapterはProvider固有のstatus／login引数・方式だけを記述し、Host資源・Home保護・取消・Recoveryを所有しない。現行Codexのlogin定義は未実装であり、固定CLIの実在する手順・制約を確認するまでは新しいlogin引数や完了条件を補完しない。共通APIの存在を両Providerの実認証成立に読み替えない。
+
 ## Docker配置とProvider操作の分離 — 2026-10-19
 
 人間判断により、Codex／Claudeの`distribution.ts`を廃止する。AI Adapterは公式CLIを未改造で利用する操作方法を所有するが、特定バイナリの取得元・Hash・Container内配置・固定Image・Dockerfile・Seccompを所有しない。これらの配置・実行物の同一性はDocker Isolationの既存execution領域へ移す。過去の検証済み定数を現在の認証・隔離・送信許可へ利用しない。

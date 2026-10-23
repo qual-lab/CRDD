@@ -1,20 +1,17 @@
 /**
- * objective-applicationに属する責務をまとめる。
+ * Objectiveの進行をTask実行・回復・結果受領へ接続する。
  *
- * @responsibility CoordinatorObjectiveExecutionDependenciesを中心とする実装、型および境界を同じModuleで所有する。
+ * @responsibility 同じObjectiveの保存・実行・取消・回復を既存Ownerへ委譲し、進行と公開結果を確定する。
  * @trace ARCH-000004
  */
 import { isDeepStrictEqual } from "node:util";
-import type { CoordinatorPersistencePorts } from "../state/persistence.ts";
 import { runCoordinatorOperation } from "../task/dispatch.ts";
-import type { CoordinatorExecutionDependencies } from "../task/types.ts";
 import type { CoordinatorClockIdentityPort } from "../state/persistence.ts";
-import type { CoordinatorProcessSafetyPort } from "../task/types.ts";
-import type { CoordinatorTaskRecoveryPort } from "../task/types.ts";
 import {
   createCoordinatorState,
   type ProjectTaskRecoveryObligation,
   type CoordinatorState,
+  COORDINATOR_MAXIMUM_TASKS,
 } from "../state/model.ts";
 import {
   markProjectTaskRecoveryObligationRecovering,
@@ -24,50 +21,49 @@ import {
 } from "../task/recovery.ts";
 import { acknowledgeProjectDockerRecoveryObligation } from "../task/acceptance.ts";
 import { projectCoordinatorState } from "../state/projection.ts";
-import { snapshotPlainRecord } from "../state/model.ts";
+import { snapshotPlainArray, snapshotPlainRecord } from "../state/model.ts";
+import { COORDINATOR_OBJECTIVE_INTAKE_CONTRACT } from "./plan.ts";
+import { snapshotCoordinatorWorkspaceResult } from "../execution/controller.ts";
+import type {
+  CoordinatorTaskExecution,
+  CoordinatorExecutionResult,
+} from "../task/types.ts";
+import type { CoordinatorObjectiveExecutionDependencies } from "./types.ts";
+import { observePlatformFamily } from "../../../platform-access/src/index.ts";
+import { writeCoordinatorRecoveryDiagnostic } from "../execution/diagnostics.ts";
+import { createHash } from "node:crypto";
 import {
-  createCoordinatorObjectiveResult,
-  createCoordinatorTaskExecutionSet,
-  COORDINATOR_OBJECTIVE_INTAKE_CONTRACT,
-  type CoordinatorObjectivePlan,
-} from "./plan.ts";
-import type { CoordinatorObjectiveRequest } from "./request.ts";
-
-/**
- * objective-applicationで使用するCoordinator Objective Application Dependenciesの値契約を定義する。
- *
- * @responsibility Coordinator Objective Application DependenciesのProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000004
- * @shape CoordinatorObjectiveExecutionDependenciesが表すProperty、識別子およびRelationを型として固定する。
- * @invariant CoordinatorObjectiveExecutionDependenciesで宣言した値と責務の対応を維持する。
- * @boundary N/A: CoordinatorObjectiveExecutionDependenciesの宣言は外部境界を開かない。
- * @security N/A: CoordinatorObjectiveExecutionDependenciesはAuthority、秘密値または信頼判断を扱わない。
- * @compatibility CoordinatorObjectiveExecutionDependenciesの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-export type CoordinatorObjectiveExecutionDependencies = Readonly<{
-  authenticatedPrincipalId: string;
-  repositoryBindingId: string;
-  repositoryRoot: object | string;
-  plan: CoordinatorObjectivePlan;
-  persistence: CoordinatorPersistencePorts;
-  clockIdentity: CoordinatorClockIdentityPort;
-  processSafety: CoordinatorProcessSafetyPort;
-  taskRecovery: CoordinatorTaskRecoveryPort;
-  createTaskExecutions: (
-    request: CoordinatorObjectiveRequest,
-    state: CoordinatorState,
-  ) => unknown;
-  observeLeaseOwner: (
-    owner: Readonly<{
-      ownerProcessId: number;
-      ownerGeneration: string;
-    }>,
-  ) => unknown;
-  execution: Omit<
-    CoordinatorExecutionDependencies,
-    "persistence" | "clockIdentity" | "processSafety"
-  >;
-}>;
+  type CoordinatorObjectiveRequest,
+  inspectCoordinatorObjectiveRequest,
+} from "./request.ts";
+import { deriveCoordinatorRepositoryBindingId } from "../state/model.ts";
+import {
+  recoverRuntimeOwnedDockerTaskForCurrentConsumer,
+  resolveRuntimeOwnedDockerTaskCurrentCorrelations,
+} from "../execution/recovery.ts";
+import { inspectRepositoryIdentityCandidate } from "../../../version-control/src/index.ts";
+import {
+  resolveVerifiedRepositoryRootFromWorkingDirectory,
+  verifyRepositoryRoot,
+} from "../../../version-control/src/index.ts";
+import { inspectCoordinatorObjectivePlan } from "./plan.ts";
+import { createCoordinatorExecutionHostPorts } from "../task/dispatch.ts";
+import { createCoordinatorTaskRecoveryAdapter } from "../task/dispatch.ts";
+import { workspacePlanReadyForAcceptance } from "../workspace/operations.ts";
+import { COORDINATOR_PUBLIC_RUNTIME_CONTRACT } from "../state/result.ts";
+import { runCoordinatorSingleTaskAttempt } from "../execution/controller.ts";
+import {
+  readCoordinatorSnapshot,
+  createCoordinatorSnapshotPersistencePorts,
+  inspectCoordinatorSnapshotIntake,
+  maintainCoordinatorSnapshot,
+} from "../storage/current-state.ts";
+import { consumeDockerRecoveryReceiptAfterProjectSettlement } from "../execution/recovery.ts";
+import { createCoordinatorWindowsPlatformAdapter } from "../execution/diagnostics.ts";
+import type {
+  PublicExecutionDependencies,
+  CoordinatorObjectiveIntakeDependencies,
+} from "./types.ts";
 
 /**
  * recovery Application Idを決定する。
@@ -1455,4 +1451,810 @@ export function describeCoordinatorObjectiveIntakeContract() {
     scopeExpansionByPlanner: false,
     ownerLossObservation: "platform_adapter_only",
   });
+}
+
+/**
+ * Bind Host-prepared Task payloads to the exact current Task scope. The Host
+ *
+ * @responsibility Coordinator Task Execution Setの構築入力、生成結果、不正入力の拒否境界を所有する。
+ * @trace ARCH-000004
+ * @input raw: unknown、state: CoordinatorState、clockIdentity: CoordinatorClockIdentityPort
+ * @returns readonly CoordinatorTaskExecution[] | nullを返す。
+ * @precondition 「raw: unknown、state: CoordinatorState、clockIdentity: CoordinatorClockIdentityPort」がcreateCoordinatorTaskExecutionSetの入力契約を満たす。
+ * @postcondition createCoordinatorTaskExecutionSetの責務を完了した結果だけを返す。
+ * @effect N/A: createCoordinatorTaskExecutionSetは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure createCoordinatorTaskExecutionSetは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant createCoordinatorTaskExecutionSetは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: createCoordinatorTaskExecutionSetはProcess内の同一Subsystemで完結する。
+ * @security N/A: createCoordinatorTaskExecutionSetはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: createCoordinatorTaskExecutionSetは共有非同期状態を持たない同期処理である。
+ */
+export function createCoordinatorTaskExecutionSet(
+  raw: unknown,
+  state: CoordinatorState,
+  clockIdentity: CoordinatorClockIdentityPort,
+): readonly CoordinatorTaskExecution[] | null {
+  const activeTasks = state.tasks.filter((task) => task.state !== "superseded");
+  const rawExecutions = snapshotPlainArray(raw, activeTasks.length);
+  if (
+    rawExecutions.status !== "ok" ||
+    rawExecutions.value.length !== activeTasks.length
+  )
+    return null;
+  const executions: CoordinatorTaskExecution[] = [];
+  for (const rawExecution of rawExecutions.value) {
+    const execution = snapshotPlainRecord(
+      rawExecution,
+      new Set(["taskId", "taskRequest", "repositoryRoot"] as const),
+    );
+    const task = activeTasks.find(
+      (candidate) => candidate.definition.id === execution?.taskId,
+    );
+    if (!execution || !task) return null;
+    let authorityBindingId: string;
+    try {
+      authorityBindingId = clockIdentity.createStableId("authority", [
+        state.projectId,
+        state.milestoneId,
+        state.repositoryRevision,
+        task.definition.objectiveId,
+        task.definition.id,
+        String(task.retryCount),
+      ]);
+    } catch {
+      return null;
+    }
+    if (!validId(authorityBindingId)) return null;
+    executions.push(
+      Object.freeze({
+        taskId: task.definition.id,
+        authorityBindingId,
+        taskRequest: execution.taskRequest,
+        repositoryRoot: execution.repositoryRoot,
+      }),
+    );
+  }
+  return new Set(executions.map((entry) => entry.taskId)).size ===
+    activeTasks.length
+    ? Object.freeze(executions)
+    : null;
+}
+
+/**
+ * Canonical public result envelope for one Coordinator objective request.
+ *
+ * @responsibility Coordinator Objective 結果の構築入力、生成結果、不正入力の拒否境界を所有する。
+ * @trace ARCH-000004
+ * @input request: CoordinatorObjectiveRequest、options: Readonly<{ status: "completed" | "blocked" | "cancelled"; reason: string; queueId?: string | null; projection?: ReturnType<typeof projectCoordinatorState> | null; cleanupConfirmed?: boolean; manualRecoveryRequired?: boolean; processRestartRequired?: boolean; recoveryIds?: readonly string[]; recoveryObligations?: readonly Readonly<{ kind: ProjectTaskRecoveryObligation["kind"]; recoveryId: string; }>[]; effectState?: "no_effect" | "settled" | "unknown"; }>
+ * @returns createCoordinatorObjectiveResultの計算結果を返す。
+ * @precondition 「request: CoordinatorObjectiveRequest、options: Readonly<{ status: "completed" | "blocked" | "cancelled"; reason: string; queueId?: string | null; projection?: ReturnType<typeof projectCoordinatorState> | null; cleanupConfirmed?: boolean; manualRecoveryRequired?: boolean; processRestartRequired?: boolean; recoveryIds?: readonly string[]; recoveryObligations?: readonly Readonly<{ kind: ProjectTaskRecoveryObligation["kind"]; recoveryId: string; }>[]; effectState?: "no_effect" | "settled" | "unknown"; }>」がcreateCoordinatorObjectiveResultの入力契約を満たす。
+ * @postcondition createCoordinatorObjectiveResultの責務を完了した結果だけを返す。
+ * @effect N/A: createCoordinatorObjectiveResultは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: createCoordinatorObjectiveResultは独自の失敗分岐を所有しない。
+ * @invariant createCoordinatorObjectiveResultは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: createCoordinatorObjectiveResultはProcess内の同一Subsystemで完結する。
+ * @security N/A: createCoordinatorObjectiveResultはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: createCoordinatorObjectiveResultは共有非同期状態を持たない同期処理である。
+ */
+export function createCoordinatorObjectiveResult(
+  request: CoordinatorObjectiveRequest,
+  options: Readonly<{
+    status: "completed" | "blocked" | "cancelled";
+    reason: string;
+    queueId?: string | null;
+    projection?: ReturnType<typeof projectCoordinatorState> | null;
+    cleanupConfirmed?: boolean;
+    manualRecoveryRequired?: boolean;
+    processRestartRequired?: boolean;
+    recoveryIds?: readonly string[];
+    recoveryObligations?: readonly Readonly<{
+      kind: ProjectTaskRecoveryObligation["kind"];
+      recoveryId: string;
+    }>[];
+    effectState?: "no_effect" | "settled" | "unknown";
+    workspaceResults?: CoordinatorExecutionResult["workspaceResults"] | null;
+  }>,
+) {
+  const workspaceResults =
+    options.workspaceResults === undefined
+      ? undefined
+      : inspectCoordinatorWorkspaceResults(
+          options.workspaceResults,
+          request.workspaceId ?? null,
+        );
+  return Object.freeze({
+    contract: COORDINATOR_OBJECTIVE_INTAKE_CONTRACT,
+    status: options.status,
+    reason: options.reason,
+    requestId: request.requestId,
+    projectId: request.projectId,
+    milestoneId: request.milestoneId,
+    queueId: options.queueId ?? null,
+    projection: options.projection ?? null,
+    cleanupConfirmed: options.cleanupConfirmed ?? true,
+    manualRecoveryRequired: options.manualRecoveryRequired ?? false,
+    processRestartRequired: options.processRestartRequired ?? false,
+    recoveryIds: Object.freeze([...(options.recoveryIds ?? [])]),
+    recoveryObligations: Object.freeze([
+      ...(options.recoveryObligations ?? []),
+    ]),
+    effectState: options.effectState ?? ("no_effect" as const),
+    ...(workspaceResults === undefined ? {} : { workspaceResults }),
+  });
+}
+
+/**
+ * Taskに結合したWorkspace観測を公開用の閉じた値へ写す。
+ * @responsibility 試行相関・対象一致・欠測と観測不能を維持する。
+ * @trace ARCH-000004
+ * @input raw: 観測配列、expectedWorkspaceId: 要求対象（省略時も配列内の対象一致を検査）。
+ * @returns 凍結した観測配列。不正又は重複はnull。
+ * @precondition N/A: 外部由来のunknownを受ける。
+ * @postcondition 元値の後続変更を公開結果へ搬送しない。
+ * @effect N/A: 値検査と複製だけ。
+ * @failure getter・Proxy・別対象・不明を空配列へ変換しない。
+ * @invariant 変更観測は採用・Commit・Mergeの完了ではない。
+ * @boundary Coordinator結果とWorkbench／MCPの公開投影。
+ * @security 本文・絶対Path・Authorityを追加しない。
+ * @concurrency 同期処理で共有状態を持たない。
+ */
+export function inspectCoordinatorWorkspaceResults(
+  raw: unknown,
+  expectedWorkspaceId?: string | null,
+): NonNullable<CoordinatorExecutionResult["workspaceResults"]> | null {
+  const array = snapshotPlainArray(raw, COORDINATOR_MAXIMUM_TASKS);
+  if (array.status !== "ok" || array.value.length === 0) return null;
+  const entries: NonNullable<
+    CoordinatorExecutionResult["workspaceResults"]
+  >[number][] = [];
+  const attempts = new Set<string>();
+  const operations = new Set<string>();
+  let workspaceId = expectedWorkspaceId;
+  for (const value of array.value) {
+    const entry = snapshotPlainRecord(
+      value,
+      new Set(["taskId", "attemptId", "operationId", "result"] as const),
+    );
+    if (
+      !entry ||
+      !validId(entry.taskId) ||
+      !validId(entry.attemptId) ||
+      !validId(entry.operationId) ||
+      attempts.has(entry.attemptId) ||
+      operations.has(entry.operationId)
+    )
+      return null;
+    const result = snapshotCoordinatorWorkspaceResult(entry.result);
+    if (
+      !result ||
+      (workspaceId !== undefined && result.workspaceId !== workspaceId)
+    )
+      return null;
+    workspaceId = result.workspaceId;
+    attempts.add(entry.attemptId);
+    operations.add(entry.operationId);
+    entries.push(
+      Object.freeze({
+        taskId: entry.taskId,
+        attemptId: entry.attemptId,
+        operationId: entry.operationId,
+        result,
+      }),
+    );
+  }
+  return Object.freeze(entries);
+}
+
+/**
+ * 指定した構成要素を用途別の安定Identityへ変換する。
+ *
+ * @responsibility 入力した構成要素と用途prefixのHash生成を所有する。
+ * @trace ARCH-000004
+ * @input prefix: string、parts: readonly string[]
+ * @returns stableの計算結果を返す。
+ * @precondition 「prefix: string、parts: readonly string[]」がstableの入力契約を満たす。
+ * @postcondition stableの責務を完了した結果だけを返す。
+ * @effect N/A: stableは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: stableは独自の失敗分岐を所有しない。
+ * @invariant stableは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: stableはProcess内の同一Subsystemで完結する。
+ * @security N/A: stableはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: stableは共有非同期状態を持たない同期処理である。
+ */
+function stable(prefix: string, ...parts: readonly string[]) {
+  return `${prefix}-${createHash("sha256").update(parts.join("\0")).digest("hex").slice(0, 40)}`;
+}
+
+/**
+ * 公開Objectiveを既存のSingle Task入力へ変換する。
+ *
+ * @responsibility Coordinator Coordinator Task Requestの構築入力、生成結果、不正入力の拒否境界を所有する。
+ * @trace ARCH-000004
+ * @input request: CoordinatorObjectiveRequest、frontProvider: "codex" | "claude"
+ * @returns buildObjectiveTaskRequestの計算結果を返す。
+ * @precondition 「request: CoordinatorObjectiveRequest、frontProvider: "codex" | "claude"」がbuildObjectiveTaskRequestの入力契約を満たす。
+ * @postcondition 明示Profile IDをexactに搬送し、省略時は既存の自動選択を維持する。
+ * @effect N/A: buildObjectiveTaskRequestは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: buildObjectiveTaskRequestは独自の失敗分岐を所有しない。
+ * @invariant buildObjectiveTaskRequestは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: buildObjectiveTaskRequestはProcess内の同一Subsystemで完結する。
+ * @security Profile IDは選択希望だけを表し、Resolver／Grantの適合性検証または実行Authorityを代替しない。
+ * @concurrency N/A: buildObjectiveTaskRequestは共有非同期状態を持たない同期処理である。
+ */
+export function buildObjectiveTaskRequest(
+  request: CoordinatorObjectiveRequest,
+  frontProvider: "codex" | "claude",
+) {
+  return Object.freeze({
+    frontProvider,
+    requestedExecutorProvider: request.requestedExecutorProvider ?? "auto",
+    ...(request.requestedProfileId !== undefined
+      ? { requestedProfileId: request.requestedProfileId }
+      : {}),
+    objective: request.objective,
+    acceptanceCriteria: Object.freeze([...request.acceptanceCriteria]),
+    allowedPaths: Object.freeze([...request.allowedPaths]),
+    readPaths: Object.freeze([...request.readPaths]),
+    workClass: "bounded_implementation" as const,
+    planState: "complete" as const,
+    risk: "low" as const,
+    difficulty: "low" as const,
+    decisionImpact: "limited" as const,
+    isLocalCandidateOnly: true,
+    hasUnresolvedDirection: false,
+    requiresCrossContextAlignment: false,
+  });
+}
+
+/**
+ * Production composition shared by the CLI and MCP transports.
+ *
+ * @responsibility Coordinator Public Objectiveの実行条件、Effect範囲、終了結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input runtimeDependencies: PublicExecutionDependencies、rawRequest: unknown、cancellationSignal: AbortSignal、workingDirectory、authenticationContext: Readonly<{ principalId: string }>
+ * @returns executeCoordinatorPublicObjectiveの計算結果を返す。
+ * @precondition 「runtimeDependencies: PublicExecutionDependencies、rawRequest: unknown、cancellationSignal: AbortSignal、workingDirectory、authenticationContext: Readonly<{ principalId: string }>」がexecuteCoordinatorPublicObjectiveの入力契約を満たす。
+ * @postcondition executeCoordinatorPublicObjectiveの責務を完了した結果だけを返す。
+ * @effect Repository・判断記録を観測し、受付状態の保存と認可済みTask実行を既存Ownerへ委譲する。
+ * @failure executeCoordinatorPublicObjectiveは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant 予約・開始・結果保存・配送の順序と同じ要求Identityを維持する。
+ * @boundary 公開Objective入力→認証・保存・実行依存の境界を接続する。
+ * @security 認証済み主体・Repository・要求範囲を既存境界で検証し、現在の許可外へ実行を拡張しない。
+ * @concurrency 取消Signalと実行・保存・結果搬送の非同期完了を既存Lifecycleへ接続する。
+ */
+export async function executeCoordinatorPublicObjective(
+  runtimeDependencies: PublicExecutionDependencies,
+  rawRequest: unknown,
+  cancellationSignal: AbortSignal,
+  workingDirectory = process.cwd(),
+  authenticationContext?: Readonly<{ principalId: string }>,
+) {
+  const request = inspectCoordinatorObjectiveRequest(rawRequest);
+  if (!request)
+    return Object.freeze({
+      contract: COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
+      status: "blocked" as const,
+      reason: "orchestrator_objective_request_invalid",
+      cleanupConfirmed: true,
+      manualRecoveryRequired: false,
+      effectState: "no_effect" as const,
+    });
+  if (request.adoptResult)
+    return createCoordinatorObjectiveResult(request, {
+      status: "blocked",
+      reason: "orchestrator_explicit_workspace_adoption_required",
+    });
+  let repositoryRoot: string;
+  try {
+    repositoryRoot =
+      resolveVerifiedRepositoryRootFromWorkingDirectory(workingDirectory);
+  } catch {
+    return Object.freeze({
+      contract: COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
+      status: "blocked" as const,
+      reason: "orchestrator_repository_root_not_verified",
+      cleanupConfirmed: true,
+      manualRecoveryRequired: false,
+      effectState: "no_effect" as const,
+    });
+  }
+  const identity = inspectRepositoryIdentityCandidate(repositoryRoot);
+  const authenticated = runtimeDependencies.openDecisionStore();
+  if (
+    authenticated.status !== "completed" ||
+    (authenticationContext !== undefined &&
+      authenticationContext.principalId !== authenticated.principalId)
+  )
+    return Object.freeze({
+      contract: COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
+      status: "blocked" as const,
+      reason: "orchestrator_authenticated_principal_not_verified",
+      cleanupConfirmed: true,
+      manualRecoveryRequired: false,
+      effectState: "no_effect" as const,
+    });
+  const observedPlatform = observePlatformFamily();
+  const platform =
+    observedPlatform.status === "observed" &&
+    observedPlatform.platformFamily === "windows"
+      ? createCoordinatorWindowsPlatformAdapter()
+      : null;
+  const observeLeaseOwner = (
+    owner: Readonly<{
+      ownerProcessId: number;
+      ownerGeneration: string;
+    }>,
+  ) => {
+    const lockLease = platform?.operations.lock_lease as
+      | Readonly<{ observeLeaseOwner: (value: typeof owner) => unknown }>
+      | undefined;
+    return (
+      lockLease?.observeLeaseOwner(owner) ??
+      Object.freeze({
+        status: "unknown",
+        ownerProcessId: owner.ownerProcessId,
+        ownerGeneration: owner.ownerGeneration,
+      })
+    );
+  };
+  const execution = await runCoordinatorObjective(
+    {
+      authenticatedPrincipalId: authenticated.principalId,
+      /**
+       * Project Bindingを検証する。
+       *
+       * @responsibility Project Bindingの検証根拠、成立条件、観測不能時の拒否境界を所有する。
+       * @trace ARCH-000004
+       * @input input
+       * @returns verifyProjectBindingの計算結果を返す。
+       * @precondition 「input」がverifyProjectBindingの入力契約を満たす。
+       * @postcondition verifyProjectBindingの責務を完了した結果だけを返す。
+       * @effect N/A: verifyProjectBindingは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+       * @failure N/A: verifyProjectBindingは独自の失敗分岐を所有しない。
+       * @invariant verifyProjectBindingは入力から導いた結果以外の共有状態を変更しない。
+       * @boundary N/A: verifyProjectBindingはProcess内の同一Subsystemで完結する。
+       * @security N/A: verifyProjectBindingはAuthority、秘密値または信頼判断を扱わない。
+       * @concurrency N/A: verifyProjectBindingは共有非同期状態を持たない同期処理である。
+       */
+      verifyProjectBinding(input) {
+        if (
+          identity?.status !== "candidate" ||
+          (identity.commit !== input.repositoryRevision &&
+            !workspacePlanReadyForAcceptance(
+              repositoryRoot,
+              deriveCoordinatorRepositoryBindingId(repositoryRoot),
+              input.projectId,
+              input.milestoneId,
+              input.repositoryRevision,
+              identity.commit,
+            ))
+        )
+          return Object.freeze({
+            status: "blocked",
+            reason: "orchestrator_repository_revision_mismatch",
+          });
+        return Object.freeze({
+          status: "verified",
+          repositoryBindingId:
+            deriveCoordinatorRepositoryBindingId(repositoryRoot),
+          repositoryRevision: input.repositoryRevision,
+          workingDirectory: repositoryRoot,
+          repositoryRoot,
+          bindingCapability: Object.freeze({}),
+        });
+      },
+      /**
+       * plan Objectiveを決定する。
+       *
+       * @responsibility plan Objectiveの導出に必要な入力、判定規則、返却結果の境界を所有する。
+       * @trace ARCH-000004
+       * @input request: CoordinatorObjectiveRequest
+       * @returns planObjectiveの計算結果を返す。
+       * @precondition 「request: CoordinatorObjectiveRequest」がplanObjectiveの入力契約を満たす。
+       * @postcondition planObjectiveの責務を完了した結果だけを返す。
+       * @effect N/A: planObjectiveは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+       * @failure N/A: planObjectiveは独自の失敗分岐を所有しない。
+       * @invariant planObjectiveは入力から導いた結果以外の共有状態を変更しない。
+       * @boundary N/A: planObjectiveはProcess内の同一Subsystemで完結する。
+       * @security N/A: planObjectiveはAuthority、秘密値または信頼判断を扱わない。
+       * @concurrency N/A: planObjectiveは共有非同期状態を持たない同期処理である。
+       */
+      planObjective(request: CoordinatorObjectiveRequest) {
+        const objectiveId = stable(
+          "objective",
+          request.projectId,
+          request.milestoneId,
+          request.requestId,
+        );
+        const taskId = stable("task", objectiveId);
+        return Object.freeze({
+          milestoneAcceptanceCriteria: Object.freeze([
+            ...request.acceptanceCriteria,
+          ]),
+          objectives: Object.freeze([
+            {
+              id: objectiveId,
+              acceptanceCriteria: Object.freeze([
+                ...request.acceptanceCriteria,
+              ]),
+            },
+          ]),
+          tasks: Object.freeze([
+            {
+              id: taskId,
+              objectiveId,
+              dependencies: Object.freeze([]),
+              allowedPaths: Object.freeze([...request.allowedPaths]),
+              conflictKeys: Object.freeze([...request.allowedPaths]),
+            },
+          ]),
+        });
+      },
+      /**
+       * Task Executionsを構築する。
+       *
+       * @responsibility Task Executionsの構築入力、生成結果、不正入力の拒否境界を所有する。
+       * @trace ARCH-000004
+       * @input request、_bindingCapability、state
+       * @returns createTaskExecutionsの計算結果を返す。
+       * @precondition 「request、_bindingCapability、state」がcreateTaskExecutionsの入力契約を満たす。
+       * @postcondition createTaskExecutionsの責務を完了した結果だけを返す。
+       * @effect N/A: createTaskExecutionsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+       * @failure N/A: createTaskExecutionsは独自の失敗分岐を所有しない。
+       * @invariant createTaskExecutionsは入力から導いた結果以外の共有状態を変更しない。
+       * @boundary N/A: createTaskExecutionsはProcess内の同一Subsystemで完結する。
+       * @security N/A: createTaskExecutionsはAuthority、秘密値または信頼判断を扱わない。
+       * @concurrency N/A: createTaskExecutionsは共有非同期状態を持たない同期処理である。
+       */
+      createTaskExecutions(request, _bindingCapability, state) {
+        return state.tasks
+          .filter((task) => task.state !== "superseded")
+          .map((task) => {
+            const objective = state.objectives.find(
+              (candidate) =>
+                candidate.definition.id === task.definition.objectiveId,
+            );
+            return Object.freeze({
+              taskId: task.definition.id,
+              repositoryRoot,
+              taskRequest: buildObjectiveTaskRequest(
+                Object.freeze({
+                  ...request,
+                  acceptanceCriteria: Object.freeze([
+                    ...(objective?.definition.acceptanceCriteria ?? []),
+                  ]),
+                  allowedPaths: Object.freeze([
+                    ...task.definition.allowedPaths,
+                  ]),
+                }),
+                runtimeDependencies.frontProviderForTask(
+                  request.requestedExecutorProvider ?? "auto",
+                ),
+              ),
+            });
+          });
+      },
+      observeLeaseOwner,
+      recoverTaskRecovery: (recoveryId, signal) => {
+        const root = verifyRepositoryRoot(repositoryRoot);
+        return recoverRuntimeOwnedDockerTaskForCurrentConsumer(
+          recoveryId,
+          root.status === "completed" ? root.capability : null,
+          signal,
+        );
+      },
+      acknowledgeTaskRecovery: (settlement) =>
+        consumeDockerRecoveryReceiptAfterProjectSettlement(settlement, {
+          workingDirectory,
+          repositoryRoot,
+          repositoryBindingId:
+            deriveCoordinatorRepositoryBindingId(repositoryRoot),
+        }),
+      resolveTaskRecoveryCorrelations:
+        runtimeDependencies.resolveTaskRecoveryCorrelations ??
+        ((ids) => {
+          const root = verifyRepositoryRoot(repositoryRoot);
+          return resolveRuntimeOwnedDockerTaskCurrentCorrelations(
+            ids,
+            root.status === "completed" ? root.capability : null,
+          );
+        }),
+      observeRecoveryTransition: writeCoordinatorRecoveryDiagnostic,
+      execution: {
+        resultDelivery: {
+          repositoryBindingId:
+            deriveCoordinatorRepositoryBindingId(repositoryRoot),
+        },
+        runSingleTaskAttempt: (input) =>
+          runCoordinatorSingleTaskAttempt(
+            {
+              startTask: (
+                taskRequest,
+                root,
+                correlation,
+                observer,
+                workspaceTarget,
+              ) =>
+                runtimeDependencies.startTask(
+                  taskRequest,
+                  root,
+                  correlation,
+                  observer,
+                  "orchestrator",
+                  workspaceTarget,
+                ),
+              cancelTask: runtimeDependencies.cancelTask,
+              captureResultDelivery: runtimeDependencies.captureResultDelivery,
+            },
+            input,
+          ),
+        executionObservation: {
+          recordTaskAttempt: (observation) =>
+            runtimeDependencies.recordExecutionEvent(
+              repositoryRoot,
+              observation,
+            ),
+          observePublication:
+            runtimeDependencies.observeExecutionEventPublication,
+        },
+      },
+    },
+    request,
+    cancellationSignal,
+  );
+  if (
+    execution.projection?.milestoneState === "accepted" &&
+    execution.reason === "orchestrator_tasks_already_integration_pending"
+  )
+    return createCoordinatorObjectiveResult(request, {
+      ...execution,
+      status: "completed",
+      reason: "orchestrator_objective_already_accepted",
+    });
+  if (
+    execution.queueId &&
+    execution.projection?.milestoneState !== "accepted" &&
+    [
+      "orchestrator_tasks_completed_integration_pending",
+      "orchestrator_tasks_already_integration_pending",
+    ].includes(execution.reason)
+  ) {
+    const snapshot = readCoordinatorSnapshot(
+      repositoryRoot,
+      deriveCoordinatorRepositoryBindingId(repositoryRoot),
+    );
+    const queue =
+      snapshot.status === "completed"
+        ? snapshot.value?.queueEntries.find(
+            (q) =>
+              q.queueId === execution.queueId &&
+              q.projectId === request.projectId &&
+              q.milestoneId === request.milestoneId,
+          )
+        : null;
+    if (
+      !queue ||
+      (queue.workspaceId !== request.workspaceId &&
+        !(queue.workspaceId == null && request.workspaceId === undefined))
+    )
+      return createCoordinatorObjectiveResult(request, {
+        ...execution,
+        status: "blocked",
+        reason: "orchestrator_workspace_target_unconfirmed",
+        cleanupConfirmed: false,
+      });
+    const ready = workspacePlanReadyForAcceptance(
+      repositoryRoot,
+      deriveCoordinatorRepositoryBindingId(repositoryRoot),
+      request.projectId,
+      request.milestoneId,
+      request.repositoryRevision,
+      identity?.commit ?? "",
+    );
+    return createCoordinatorObjectiveResult(request, {
+      ...execution,
+      status: "blocked",
+      reason:
+        queue.workspaceId != null && !ready
+          ? "orchestrator_workspace_adoption_required"
+          : "orchestrator_quality_acceptance_required",
+    });
+  }
+  return execution;
+}
+
+/**
+ * Bindingを観測する。
+ *
+ * @responsibility Bindingの観測対象、取得根拠、観測不能結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input raw: unknown、revision: string
+ * @returns inspectBindingの計算結果を返す。
+ * @precondition 「raw: unknown、revision: string」がinspectBindingの入力契約を満たす。
+ * @postcondition inspectBindingの責務を完了した結果だけを返す。
+ * @effect N/A: inspectBindingは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: inspectBindingは独自の失敗分岐を所有しない。
+ * @invariant inspectBindingは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: inspectBindingはProcess内の同一Subsystemで完結する。
+ * @security inspectBindingはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: inspectBindingは共有非同期状態を持たない同期処理である。
+ */
+function inspectBinding(raw: unknown, revision: string) {
+  const value = snapshotPlainRecord(
+    raw,
+    new Set([
+      "status",
+      "repositoryBindingId",
+      "repositoryRevision",
+      "workingDirectory",
+      "repositoryRoot",
+      "bindingCapability",
+    ] as const),
+  );
+  if (!value) return null;
+  return value.status === "verified" &&
+    validId(value.repositoryBindingId) &&
+    value.repositoryRevision === revision &&
+    typeof value.workingDirectory === "string" &&
+    value.workingDirectory.length > 0 &&
+    value.repositoryRoot !== null &&
+    (typeof value.repositoryRoot === "object" ||
+      typeof value.repositoryRoot === "string") &&
+    value.bindingCapability !== null &&
+    typeof value.bindingCapability === "object"
+    ? Object.freeze({
+        repositoryBindingId: value.repositoryBindingId,
+        repositoryRevision: revision,
+        workingDirectory: value.workingDirectory,
+        repositoryRoot: value.repositoryRoot,
+        bindingCapability: value.bindingCapability,
+      })
+    : null;
+}
+
+/**
+ * 認証済み主体とRepositoryを確認し、Objective受付を保存・Task実行へ接続する。
+ *
+ * @responsibility Coordinator Objectiveの実行条件、Effect範囲、終了結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input dependencies: CoordinatorObjectiveIntakeDependencies、rawRequest: unknown、cancellationSignal: AbortSignal
+ * @returns runCoordinatorObjectiveの計算結果を返す。
+ * @precondition 「dependencies: CoordinatorObjectiveIntakeDependencies、rawRequest: unknown、cancellationSignal: AbortSignal」がrunCoordinatorObjectiveの入力契約を満たす。
+ * @postcondition 検証済みの同じ受付Identityで実行し、停止結果を成功へ補正せず返す。
+ * @effect 受付世代を観測し、既存保存PortとTask実行へ委譲する。停止以外の結果では同じRepositoryの終了後整理を呼ぶ。
+ * @failure runCoordinatorObjectiveは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant Binding・計画・受付世代の確認を実行より先に行い、終了後整理の不明をcleanup成功へ変えない。
+ * @boundary Objective受付→Repositoryに結合した保存・実行Portの境界。
+ * @security 認証済みPrincipalと検証済みBindingだけを接続し、Capabilityを公開結果へ含めない。
+ * @concurrency 同じ取消Signalと保存世代を既存実行へ渡し、新しいLock・Writer・再試行を作らない。
+ */
+export async function runCoordinatorObjective(
+  dependencies: CoordinatorObjectiveIntakeDependencies,
+  rawRequest: unknown,
+  cancellationSignal: AbortSignal,
+) {
+  const request = inspectCoordinatorObjectiveRequest(rawRequest);
+  if (
+    !request ||
+    !(cancellationSignal instanceof AbortSignal) ||
+    !validId(dependencies.authenticatedPrincipalId)
+  )
+    return blocked(
+      Object.freeze({
+        requestId: "invalid",
+        projectId: "invalid",
+        milestoneId: "invalid",
+      }) as CoordinatorObjectiveRequest,
+      "orchestrator_objective_request_invalid",
+    );
+
+  let rawBinding: unknown;
+  try {
+    rawBinding = dependencies.verifyProjectBinding({
+      projectId: request.projectId,
+      milestoneId: request.milestoneId,
+      repositoryRevision: request.repositoryRevision,
+    });
+  } catch {
+    rawBinding = null;
+  }
+  const binding = inspectBinding(rawBinding, request.repositoryRevision);
+  if (!binding) return blocked(request, "orchestrator_binding_not_verified");
+
+  let rawPlan: unknown;
+  try {
+    rawPlan = dependencies.planObjective(request, binding.bindingCapability);
+  } catch {
+    rawPlan = null;
+  }
+  const plan = inspectCoordinatorObjectivePlan(rawPlan, request);
+  if (!plan)
+    return blocked(request, "orchestrator_plan_invalid_or_out_of_scope");
+
+  const hostPorts = createCoordinatorExecutionHostPorts();
+  const intake = {
+    epoch: request.intakeEpoch,
+    projectId: request.projectId,
+    milestoneId: request.milestoneId,
+    queueId: hostPorts.clockIdentity.createStableId("queue", [
+      binding.repositoryBindingId,
+      request.projectId,
+      request.milestoneId,
+      request.requestId,
+      dependencies.authenticatedPrincipalId,
+    ]),
+    requestHash: hostPorts.clockIdentity.createContentHash(
+      JSON.stringify({
+        ...request,
+        authenticatedPrincipalId: dependencies.authenticatedPrincipalId,
+        acceptanceCriteria: [...request.acceptanceCriteria],
+        allowedPaths: [...request.allowedPaths],
+        readPaths: [...request.readPaths],
+      }),
+    ),
+  };
+  const admitted = inspectCoordinatorSnapshotIntake(
+    binding.workingDirectory,
+    binding.repositoryBindingId,
+    intake,
+  );
+  if (admitted.status !== "completed")
+    return createCoordinatorObjectiveResult(request, {
+      status: "blocked",
+      reason: admitted.reason,
+      cleanupConfirmed: !admitted.manualRecoveryRequired,
+      manualRecoveryRequired: admitted.manualRecoveryRequired,
+      recoveryIds: admitted.recoveryId ? [admitted.recoveryId] : [],
+      effectState: admitted.manualRecoveryRequired ? "unknown" : "no_effect",
+    });
+  const result = await executeCoordinatorObjective(
+    {
+      authenticatedPrincipalId: dependencies.authenticatedPrincipalId,
+      repositoryBindingId: binding.repositoryBindingId,
+      repositoryRoot: binding.repositoryRoot,
+      plan,
+      persistence: createCoordinatorSnapshotPersistencePorts(
+        binding.workingDirectory,
+        binding.repositoryBindingId,
+        request.intakeEpoch,
+        intake,
+      ),
+      clockIdentity: hostPorts.clockIdentity,
+      processSafety: hostPorts.processSafety,
+      taskRecovery: createCoordinatorTaskRecoveryAdapter(
+        binding.workingDirectory,
+        binding.repositoryBindingId,
+        dependencies,
+      ),
+      createTaskExecutions: (objectiveRequest, state) =>
+        dependencies.createTaskExecutions(
+          objectiveRequest,
+          binding.bindingCapability,
+          state,
+        ),
+      observeLeaseOwner: dependencies.observeLeaseOwner,
+      execution: dependencies.execution,
+    },
+    request,
+    cancellationSignal,
+  );
+  if (result.status === "blocked") return result;
+  const maintenance = maintainCoordinatorSnapshot(
+    binding.workingDirectory,
+    binding.repositoryBindingId,
+  );
+  if (maintenance.status !== "completed")
+    return createCoordinatorObjectiveResult(request, {
+      ...result,
+      status: "blocked",
+      projection:
+        result.projection?.milestoneState === "accepted"
+          ? null
+          : result.projection,
+      reason: `${result.status === "cancelled" ? "orchestrator_cancelled_" : ""}${maintenance.reason}`,
+      cleanupConfirmed: false,
+      manualRecoveryRequired: true,
+      effectState: "unknown",
+    });
+  return result;
 }

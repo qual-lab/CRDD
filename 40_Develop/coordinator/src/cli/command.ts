@@ -44,7 +44,7 @@ import {
   createRepositoryTaskRequests,
   inspectSingleTaskCommand,
 } from "../task/requests.ts";
-import { runCoordinatorPublicObjective } from "../objective/public-operation.ts";
+import { runCoordinatorPublicObjective } from "../objective/composition.ts";
 import { initializeCoordinatorSnapshot } from "../storage/current-state.ts";
 
 /**

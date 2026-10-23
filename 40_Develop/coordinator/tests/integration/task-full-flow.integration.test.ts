@@ -43,7 +43,7 @@ import {
   type CoordinatorReplanClassifier,
   type CoordinatorReplanInput,
 } from "../../src/index.ts";
-import { runCoordinatorObjective } from "../../src/objective/public-operation.ts";
+import { runCoordinatorObjective } from "../../src/objective/execute.ts";
 import { createCoordinatorDecisionCapabilityAdapter } from "../../src/index.ts";
 
 const revision = "a".repeat(40);

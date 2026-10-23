@@ -16,8 +16,10 @@ import { createCoordinatorState } from "../../../src/state/model.ts";
 import {
   createCoordinatorObjectiveResult,
   createCoordinatorTaskExecutionSet,
-  inspectCoordinatorObjectivePlan,
   inspectCoordinatorWorkspaceResults,
+} from "../../../src/objective/execute.ts";
+import {
+  inspectCoordinatorObjectivePlan,
   COORDINATOR_OBJECTIVE_INTAKE_CONTRACT,
 } from "../../../src/objective/plan.ts";
 import { inspectCoordinatorObjectiveRequest } from "../../../src/objective/request.ts";

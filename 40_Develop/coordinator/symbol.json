@@ -3700,7 +3700,7 @@
     {
       "symbolId": "coordinator.source.src.security.orchestrator.objective.intake",
       "kind": "file",
-      "path": "src/objective/public-operation.ts",
+      "path": "src/objective/execute.ts",
       "archIds": [
         "ARCH-000004"
       ],
@@ -3711,7 +3711,7 @@
     {
       "symbolId": "coordinator.source.src.composition.orchestrator.composition.root",
       "kind": "file",
-      "path": "src/objective/public-operation.ts",
+      "path": "src/objective/composition.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -4015,12 +4015,28 @@
     {
       "symbolId": "orchestrator.objective-intake",
       "kind": "file",
-      "path": "src/objective/plan.ts",
+      "path": "src/objective/execute.ts",
       "archIds": [
         "ARCH-000004"
       ],
       "implements": [
         "orchestrator.task-authority-narrowing"
+      ]
+    },
+    {
+      "symbolId": "coordinator.objective.shared-types",
+      "kind": "file",
+      "path": "src/objective/types.ts",
+      "archIds": [
+        "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "coordinator.objective.plan-validation",
+      "kind": "file",
+      "path": "src/objective/plan.ts",
+      "archIds": [
+        "ARCH-000004"
       ]
     },
     {

@@ -54,13 +54,12 @@ const expectedAreaConsumers = [
   "40_Develop/visual-preview/src/browser/verify.ts",
 ] as const;
 const PUBLIC_COORDINATOR_BOUNDARIES = [
-  "40_Develop/coordinator/src/objective/public-operation.ts",
+  "40_Develop/coordinator/src/objective/composition.ts",
   "40_Develop/coordinator/src/decision/public-operation.ts",
-  "40_Develop/coordinator/src/decision/public-acceptance.ts",
   "40_Develop/coordinator/src/state/public-query.ts",
 ] as const;
 const COORDINATOR_BLOCKED_PROJECTION =
-  "40_Develop/coordinator/src/operation-result-contract.ts";
+  "40_Develop/coordinator/src/state/result.ts";
 const coordinatorStoreFactoryNames = [
   "createCoordinatorPersistencePorts",
   "createCoordinatorDecisionRecoveryStore",

@@ -59,24 +59,28 @@ export type {
 } from "./decision/types.ts";
 export {
   COORDINATOR_OBJECTIVE_INTAKE_CONTRACT,
-  createCoordinatorObjectiveResult,
-  createCoordinatorTaskExecutionSet,
   inspectCoordinatorObjectivePlan,
-  inspectCoordinatorWorkspaceResults,
-  type CoordinatorObjectivePlan,
 } from "./objective/plan.ts";
 export {
+  createCoordinatorObjectiveResult,
+  createCoordinatorTaskExecutionSet,
+  inspectCoordinatorWorkspaceResults,
   describeCoordinatorObjectiveIntakeContract,
   executeCoordinatorObjective,
-  type CoordinatorObjectiveExecutionDependencies,
 } from "./objective/execute.ts";
+export type {
+  CoordinatorObjectivePlan,
+  CoordinatorObjectiveExecutionDependencies,
+} from "./objective/types.ts";
 export {
   COORDINATOR_REPLANNING_CONTRACT,
   resolveCoordinatorReplan,
-  type CoordinatorReplanClassifier,
-  type CoordinatorReplanDecision,
-  type CoordinatorReplanInput,
 } from "./objective/replan.ts";
+export type {
+  CoordinatorReplanClassifier,
+  CoordinatorReplanDecision,
+  CoordinatorReplanInput,
+} from "./objective/types.ts";
 export { COORDINATOR_EXECUTION_CONTRACT } from "./task/dispatch.ts";
 export type {
   CoordinatorExecutionDependencies,
@@ -303,7 +307,7 @@ export {
   runCoordinatorPublicStateQuery,
 } from "./state/public-query.ts";
 export { runCoordinatorPublicDecision } from "./decision/public-operation.ts";
-export { runCoordinatorPublicObjective } from "./objective/public-operation.ts";
+export { runCoordinatorPublicObjective } from "./objective/composition.ts";
 export { observeRuntimeOwnedProjectClientPrincipal } from "./decision/public-operation.ts";
 export { readAuthorizedRuntimeActivity } from "./state/observation.ts";
 export {

@@ -1,5 +1,19 @@
 # QA-000003 Project実行と回復の検証定義
 
+## 公開操作・Objective再設計の検証再開 — 2026-10-24
+
+[今回の設計方針](../../../06_Architecture/Details/coordinator/03_Task_Architecture.md#公開操作とobjectiveの再設計方針--2026-10-24)と[実施段階](../../../99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md)に従い、内部構造と公開契約の検証を分ける。Objective六Sourceの直接回帰・受付再入場と診断・限定独立確認は同計画§9へ接続し、長い連続回帰と区別する。新API・CLI・認証・設定の試験実績は未取得とする。旧Sourceの成功を新方式の結果へ換算しない。
+
+| 単位 | 維持・確認する検証義務 |
+|---|---|
+| Objective六Source | `PRL-IT-012`の型専用・純粋依存閉包と実Owner、`PRL-IT-005/013`の受付・重複拒否・保存・回復接続、既存Task遷移。要求拒否、実行集合・結果の相関、取消、Owner喪失、再入場と応答喪失を維持 |
+| 保存凍結 | 同一Symbolのimport先追従以外の六Source本文差分0。Schema・CAS・排他・受付世代・履歴・受領・整理順を変えない。型移動だけで公開APIの意味を変えない |
+| `public-*`撤去と正式API | CLI／MCP／Workbench、利用側閉包、公開値・型、認証主体・Root・Revision・同意を全数追従。内部deep import・旧Path barrel・二重判断で置換しない |
+| CLI変更 | `PRL-ST-001`等の公開入力・終了結果と既存取消試験。新しい対象→操作文法と余分引数拒否、TTY／JSON、bounded stdinと秘密入力の分離、取消join、回復参照を維持 |
+| 後続認証・AI選択 | QA-000006／009等の外部境界OwnerとAI Adapterの既存Profile・Catalog検証へ接続し、新Schema・新しいProvider loginの必要な項目を確定してから実装。未対応拒否だけで新Capability完成としない |
+
+不足する情報、観測不能、未知Model／分類、設定競合、Home不明、cleanup不明は成功・不存在へ丸めない。実AI・実認証・実Docker等は別承認の検証として区別する。②のAI再試行と保持物の観測／操作は行わない。
+
 
 2026-10-23の人間承認により、Coordinator内の本番未接続の独立Trust評価と旧terminal codec／caller保存・再入場候補を廃止する。旧4 Sourceと専用試験3本は撤去し、製品処理の試験側コピーや代替Frameworkは作らない。通常実行、保存統合B、Platform AccessのNative部品・共有排他・現在の回復保証は維持する。過去Evidenceは当時の根拠として保持し、廃止をPassへ換算しない。 `PRL-UT-006`、`ERB-IT-001`〜`ERB-IT-003`とNative／Kernel等の共用検証項目は削除せず、旧codec・caller固有の断面だけを対象外にする。独立評価の`AIT-IT-001`／`AIT-IT-003`等の上流意図は残し、旧実装撤去後の代替未接続は未成立として扱う。
 
