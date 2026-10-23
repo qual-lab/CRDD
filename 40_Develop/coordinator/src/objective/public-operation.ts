@@ -9,7 +9,7 @@ import {
   captureRuntimeOwnedCoordinatorTaskResultDelivery,
   startRuntimeOwnedCoordinatorTask,
 } from "../execution/task.ts";
-import type { CoordinatorExecutionPublicationObservation } from "../task/execution-contract.ts";
+import type { CoordinatorExecutionPublicationObservation } from "../task/types.ts";
 import { recordCoordinatorExecutionEvent } from "../task/intelligence-adapter.ts";
 import { openRuntimeOwnedWindowsProjectDecisionStore } from "../storage/protected-decision.ts";
 import {
@@ -36,7 +36,7 @@ import {
   inspectCoordinatorObjectivePlan,
 } from "./plan.ts";
 import { executeCoordinatorObjective } from "./execute.ts";
-import type { CoordinatorExecutionDependencies } from "../task/execution-contract.ts";
+import type { CoordinatorExecutionDependencies } from "../task/types.ts";
 import type { CoordinatorState } from "../state/model.ts";
 import { snapshotPlainRecord } from "../../../domain-model/src/index.ts";
 import { createCoordinatorExecutionHostPorts } from "../task/host-adapter.ts";

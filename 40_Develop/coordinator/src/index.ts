@@ -75,13 +75,13 @@ export {
   type CoordinatorReplanDecision,
   type CoordinatorReplanInput,
 } from "./objective/replan.ts";
-export {
-  COORDINATOR_EXECUTION_CONTRACT,
-  type CoordinatorExecutionDependencies,
-  type CoordinatorExecutionPublicationObservation,
-  type CoordinatorExecutionResult,
-  type CoordinatorTaskExecution,
-} from "./task/execution-contract.ts";
+export { COORDINATOR_EXECUTION_CONTRACT } from "./task/dispatch.ts";
+export type {
+  CoordinatorExecutionDependencies,
+  CoordinatorExecutionPublicationObservation,
+  CoordinatorExecutionResult,
+  CoordinatorTaskExecution,
+} from "./task/types.ts";
 export {
   describeCoordinatorExecutionContract,
   runCoordinatorOperation,
@@ -171,11 +171,13 @@ export {
 export {
   COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT,
   COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT_REVISION,
-  type CoordinatorExecutionPort,
-  type CoordinatorSingleTaskAttemptInput,
-  type CoordinatorSingleTaskRecoveryObligation,
-  type CoordinatorSingleTaskResult,
-} from "./task/executor.ts";
+} from "./task/dispatch.ts";
+export type {
+  CoordinatorExecutionPort,
+  CoordinatorSingleTaskAttemptInput,
+  CoordinatorSingleTaskRecoveryObligation,
+  CoordinatorSingleTaskResult,
+} from "./task/types.ts";
 export type {
   CoordinatorAcceptanceDecisionAuthorityBinding,
   CoordinatorAcceptanceDecisionAuthorityPort,
@@ -186,7 +188,7 @@ export type {
   CoordinatorExecutionObservationPort,
   CoordinatorExecutionObservationPublication,
   CoordinatorTaskAttemptObservation,
-} from "./task/observer.ts";
+} from "./task/types.ts";
 export {
   createCoordinatorTaskAttemptEvent,
   recordCoordinatorExecutionEvent,

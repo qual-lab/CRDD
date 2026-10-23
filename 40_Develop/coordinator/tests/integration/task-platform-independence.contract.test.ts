@@ -146,8 +146,6 @@ const SOURCE_ROLES = {
     "task/types.ts",
     "decision/transitions.ts",
     "storage/result-record.ts",
-    "task/executor.ts",
-    "task/observer.ts",
     "task/recovery.ts",
     "task/single-task-record.ts",
   ],
@@ -160,7 +158,6 @@ const SOURCE_ROLES = {
     "objective/replan.ts",
     "state/query.ts",
     "task/dispatch.ts",
-    "task/execution-contract.ts",
     "task/settle-docker-recovery.ts",
     "workspace/record.ts",
   ],
@@ -287,46 +284,107 @@ const coreModules = SOURCE_ROLES.pure.map((file) => `${SOURCE_PREFIX}${file}`);
  * @boundary 同Package内TaskとExecutionの型依存。
  */
 test("Taskの純粋契約はExecutionの指定型だけを型専用で参照する", () => {
-  const module = `${SOURCE_PREFIX}task/executor.ts`;
+  const module = `${SOURCE_PREFIX}task/types.ts`;
+  const contracts = {
+    specifier: "./dispatch.ts",
+    typeOnly: true,
+    names: [
+      "COORDINATOR_EXECUTION_CONTRACT",
+      "COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT",
+    ],
+  };
+  const workspace = {
+    specifier: "../execution/types.ts",
+    typeOnly: true,
+    names: ["CoordinatorWorkspaceResult"],
+  };
+  const scan = (edges: (typeof workspace)[]) => ({ isConsistent: true, edges });
   assert.doesNotThrow(() =>
-    assertPureImportEdges(module, {
-      isConsistent: true,
-      edges: [
-        {
-          specifier: "../execution/types.ts",
-          typeOnly: true,
-          names: ["CoordinatorWorkspaceResult"],
-        },
-      ],
-    }),
+    assertPureImportEdges(module, scan([contracts, workspace])),
+  );
+  for (const edges of [
+    [contracts],
+    [contracts, workspace, workspace],
+    [contracts, { ...workspace, typeOnly: false }],
+    [contracts, { ...workspace, names: ["UnapprovedExecutionType"] }],
+    [
+      contracts,
+      { ...workspace, specifier: "../execution/../execution/types.ts" },
+    ],
+  ])
+    assert.throws(
+      () => assertPureImportEdges(module, scan(edges)),
+      /private type dependency/u,
+    );
+});
+
+/**
+ * Task共有型は二つの固定Contractだけを型専用で参照する。
+ * @responsibility 実行Moduleの値ロードと未承認Symbolの混入を拒否する。
+ * @trace PRL-IT-012
+ * @precondition 共有型と実行組立ての確定したOwnerを用いる。
+ * @stimulus 正しい二型参照と値・欠測・追加・重複・別Ownerを与える。
+ * @observation 純粋依存検査の受理又は拒否を観測する。
+ * @oracle exactな二つの型参照だけが受理される。
+ * @cleanup N/A: 同期的な局所データ検査のみ。
+ * @boundary Task共有型と実行組立ての型専用依存。
+ */
+test("Task共有型のContract参照は二定数の型専用辺だけを許可する", () => {
+  const module = `${SOURCE_PREFIX}task/types.ts`;
+  const names = [
+    "COORDINATOR_EXECUTION_CONTRACT",
+    "COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT",
+  ] as const;
+  const workspace = {
+    specifier: "../execution/types.ts",
+    typeOnly: true,
+    names: ["CoordinatorWorkspaceResult"],
+  };
+  const scan = (
+    typeOnly: boolean,
+    symbols: readonly string[],
+    specifier = "./dispatch.ts",
+  ) => ({
+    isConsistent: true,
+    edges: [workspace, { specifier, typeOnly, names: [...symbols] }],
+  });
+  assert.doesNotThrow(() => assertPureImportEdges(module, scan(true, names)));
+  assert.throws(
+    () => assertPureImportEdges(module, scan(false, names)),
+    /private type dependency/u,
+  );
+  assert.throws(
+    () => assertPureImportEdges(module, { isConsistent: true, edges: [] }),
+    /private type dependency/u,
   );
   assert.throws(
     () =>
-      assertPureImportEdges(module, {
-        isConsistent: true,
-        edges: [
-          {
-            specifier: "../execution/types.ts",
-            typeOnly: false,
-            names: ["CoordinatorWorkspaceResult"],
-          },
-        ],
-      }),
-    /outside pure runtime closure/,
+      assertPureImportEdges(module, { isConsistent: true, edges: [workspace] }),
+    /private type dependency/u,
   );
   assert.throws(
     () =>
-      assertPureImportEdges(module, {
-        isConsistent: true,
-        edges: [
-          {
-            specifier: "../execution/types.ts",
-            typeOnly: true,
-            names: ["UnapprovedExecutionType"],
-          },
-        ],
-      }),
-    /private type dependency/,
+      assertPureImportEdges(module, scan(true, names, "../task/dispatch.ts")),
+    /private type dependency/u,
+  );
+  for (const symbols of [
+    [],
+    [names[0]],
+    [names[0], names[0]],
+    [...names, "COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT_REVISION"],
+    [names[0], "UnapprovedContract"],
+  ])
+    assert.throws(
+      () => assertPureImportEdges(module, scan(true, symbols)),
+      /private type dependency/u,
+    );
+  assert.throws(
+    () =>
+      assertPureImportEdges(
+        `${SOURCE_PREFIX}task/recovery.ts`,
+        scan(true, names),
+      ),
+    /private type dependency/u,
   );
 });
 
@@ -378,6 +436,27 @@ function assertPureImportEdges(
   scan: ReturnType<typeof importSpecifierScan>,
 ) {
   assert.ok(scan.isConsistent, "unresolved import syntax");
+  if (module === `${SOURCE_PREFIX}task/types.ts`) {
+    const contractEdges = scan.edges.filter(
+      (edge) => edge.specifier === "./dispatch.ts",
+    );
+    const workspaceEdges = scan.edges.filter(
+      (edge) => edge.specifier === "../execution/types.ts",
+    );
+    const names = contractEdges.flatMap((edge) => edge.names);
+    const workspaceNames = workspaceEdges.flatMap((edge) => edge.names);
+    assert.ok(
+      contractEdges.every((edge) => edge.typeOnly) &&
+        names.length === 2 &&
+        new Set(names).size === 2 &&
+        names.includes("COORDINATOR_EXECUTION_CONTRACT") &&
+        names.includes("COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT") &&
+        workspaceEdges.every((edge) => edge.typeOnly) &&
+        workspaceNames.length === 1 &&
+        workspaceNames[0] === "CoordinatorWorkspaceResult",
+      "private type dependency",
+    );
+  }
   for (const { specifier, typeOnly, names } of scan.edges) {
     if (specifier.startsWith("node:")) {
       assert.ok(
@@ -402,9 +481,20 @@ function assertPureImportEdges(
     if (typeOnly) {
       assert.ok(
         coreModules.includes(resolved) ||
-          (resolved === "40_Develop/coordinator/src/execution/types.ts" &&
+          (module === `${SOURCE_PREFIX}task/types.ts` &&
+            specifier === "../execution/types.ts" &&
+            resolved === `${SOURCE_PREFIX}execution/types.ts` &&
+            names.length === 1 &&
+            names[0] === "CoordinatorWorkspaceResult") ||
+          (module === `${SOURCE_PREFIX}task/types.ts` &&
+            specifier === "./dispatch.ts" &&
+            resolved === `${SOURCE_PREFIX}task/dispatch.ts` &&
             names.length > 0 &&
-            names.every((name) => name === "CoordinatorWorkspaceResult")) ||
+            names.every(
+              (name) =>
+                name === "COORDINATOR_EXECUTION_CONTRACT" ||
+                name === "COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT",
+            )) ||
           (/^40_Develop\/(?!coordinator\/)[^/]+\/src\/index\.ts$/u.test(
             resolved,
           ) &&

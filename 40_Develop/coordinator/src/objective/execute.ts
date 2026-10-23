@@ -7,7 +7,7 @@
 import { isDeepStrictEqual } from "node:util";
 import type { CoordinatorPersistencePorts } from "../state/persistence.ts";
 import { runCoordinatorOperation } from "../task/dispatch.ts";
-import type { CoordinatorExecutionDependencies } from "../task/execution-contract.ts";
+import type { CoordinatorExecutionDependencies } from "../task/types.ts";
 import type { CoordinatorClockIdentityPort } from "../identity/clock-and-hash.ts";
 import type { CoordinatorProcessSafetyPort } from "../process/safety-contract.ts";
 import type { CoordinatorTaskRecoveryPort } from "../task/types.ts";

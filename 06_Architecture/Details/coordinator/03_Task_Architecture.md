@@ -119,8 +119,8 @@ Workspace再編の現在目標は[作業領域・責務契約](05_Workspace.md)�
 | `state/public-query.ts` | 状態照会の認証・現在Snapshot確認・読取りへの接続 |
 | `task/execution-diagnostics.ts` | 直列診断Reporter、二つの既存本番Reporter、失敗・timeout・disposeの終了契約 |
 | `operation-result-contract.ts` | 公開結果のContractとRuntime Data失敗の純粋な結果投影 |
-| `task/execution-contract.ts` | 実行型・固定Contract・単発結果の閉形式とRuntime発行回復参照の相関検査 |
-| `task/dispatch.ts` | 予約・handoff・開始・保存・結果受領・配送・Queue終了の既存順序 |
+| `task/types.ts` | Taskの入力・実行・観測・結果・回復の共有型。実行Moduleの二Contractは型専用で参照する |
+| `task/dispatch.ts` | 固定Contractと単発結果・Runtime回復参照の相関検査、予約・handoff・開始・保存・結果受領・配送・Queue終了の既存順序 |
 
 Objectiveの開発用構築だけがDecision／Stateの実行関数を一方向に利用し、逆依存は作らない。診断は上位公開操作へ依存せず、本番Reporterは各一つを維持する。既存と同じIdentity検査をModelの内部関数へ統合し、戻り値の型判定注釈だけ補う。結果検査には元のRuntime発行回復ID集合を渡し、単なるDTO形式検査へ縮小しない。旧組立てFileやCapability別barrelは残さず、Rootの公開196宣言、公開引数・結果、永続契約・認証順・同意Hash・取消と回復の順序は変えない。
 
@@ -386,13 +386,13 @@ Orchestratorの純粋判定はOS固有のPath、principal、Filesystem保護、L
 
 | 主責務 | File集合 | 境界 |
 |---|---|---|
-| 純粋判定・値契約（35） | `decision/{acceptance-authority,acceptance-record,authority-adapter,capability,records,recovery-record,request,transitions}.ts`; `identity/clock-and-hash.ts`; `input/{plain-data-snapshot,repository-relative-path}.ts`; `lease/controller.ts`; `objective/request.ts`; `operation-result-contract.ts`; `operation-result.ts`; `platform/contract.ts`; `process/safety-contract.ts`; `queue/types.ts`; `state/{activity-cursor,activity-types,activity-validation,binding,model,persistence,projection,query-contract}.ts`; `storage/result-record.ts`; `task/{acceptance,executor,lifecycle,observer,recovery,scheduling,single-task-record,types}.ts` | 実行時の依存閉包はこの集合内と、決定論的Hashの`node:crypto.createHash`・Proxy検査等の`node:util.types`に限定する。入力日時の`Date.parse`は許可し、現在時刻・乱数・外部待機は取得しない |
-| 業務操作（11） | `decision/{lifecycle,record-acceptance}.ts`; `objective/{execute,plan,replan}.ts`; `state/{activity,query}.ts`; `task/{dispatch,execution-contract,settle-docker-recovery}.ts`; `workspace/record.ts` | 読取り、実行、保存、受理等を調停する。`objective/plan.ts`はClock Identity操作を呼ぶため、File全体を純粋とは分類しない |
+| 純粋判定・値契約（33） | `decision/{acceptance-authority,acceptance-record,authority-adapter,capability,records,recovery-record,request,transitions}.ts`; `identity/clock-and-hash.ts`; `input/{plain-data-snapshot,repository-relative-path}.ts`; `lease/controller.ts`; `objective/request.ts`; `operation-result-contract.ts`; `operation-result.ts`; `platform/contract.ts`; `process/safety-contract.ts`; `queue/types.ts`; `state/{activity-cursor,activity-types,activity-validation,binding,model,persistence,projection,query-contract}.ts`; `storage/result-record.ts`; `task/{acceptance,lifecycle,recovery,scheduling,single-task-record,types}.ts` | 実行時の依存閉包はこの集合内と、決定論的Hashの`node:crypto.createHash`・Proxy検査等の`node:util.types`に限定する。入力日時の`Date.parse`は許可し、現在時刻・乱数・外部待機は取得しない |
+| 業務操作（10） | `decision/{lifecycle,record-acceptance}.ts`; `objective/{execute,plan,replan}.ts`; `state/{activity,query}.ts`; `task/{dispatch,settle-docker-recovery}.ts`; `workspace/record.ts` | 読取り、実行、保存、受理等を調停する。`objective/plan.ts`はClock Identity操作を呼ぶため、File全体を純粋とは分類しない |
 | 接続・組立て・Transport（17） | `cli/{request,request-input}.ts`; `decision/capability-adapter.ts`; `objective/public-operation.ts`; `decision/{public-operation,public-acceptance}.ts`; `state/public-query.ts`; `platform/windows-adapter.ts`; `task/{execute-attempt,execution-diagnostics,host-adapter,intelligence-adapter,recovery-adapter,request-composition,requests}.ts`; `workspace/{commands,operations}.ts` | 下位・Host・公開入口を接続する。名前にAdapterがあることだけを分類根拠にしない |
 | 保存（3） | `storage/{current-state,history,protected-decision}.ts` | 現在状態、履歴、判断記録の保存と排他を所有する |
 | 公開入口（1） | `index.ts` | Package公開APIの明示export |
 
-全70 Fileを重複なく照合し、新File・欠測・純粋集合の空集合を拒否する。宣言全体の型専用import／exportは実行時閉包へ数えない。通常宣言のinline type要素は型辺へ分けるが、値要素がなくても型除去後に空import／exportが残るため実行時ロード辺を維持する。型の所有境界は純粋集合内、または他Packageの実在する公開`src/index.ts`に限定し、自Packageの公開entry・業務操作・保存・Adapterへの型依存も純粋集合へ混入させない。Node組込みは型専用でも上表のexact module／symbolだけを許可する。`task/executor.ts`の結果配送型はOrchestratorが受領する三状態と結果参照・終了観測の最小構造を所有し、Coordinator実装の戻り型から逆算しない。Adapterはcastで押し込まず構造適合を型検査する。
+現行Source全141 Fileを重複なく照合し、新File・欠測・純粋集合の空集合を拒否する。宣言全体の型専用import／exportは実行時閉包へ数えない。通常宣言のinline type要素は型辺へ分けるが、値要素がなくても型除去後に空import／exportが残るため実行時ロード辺を維持する。型の所有境界は純粋集合内、または他Packageの実在する公開`src/index.ts`に限定し、自Packageの公開entry・業務操作・保存・Adapterへの型依存も純粋集合へ混入させない。Node組込みは型専用でも上表のexact module／symbolだけを許可する。`task/types.ts`からだけ、`execution/types.ts`の`CoordinatorWorkspaceResult`一型と、`task/dispatch.ts`の`COORDINATOR_EXECUTION_CONTRACT / COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT`二定数の型専用参照をexact集合で許可する。値import、別Symbol、欠測・重複・追加は拒否し、実行時閉包を拡張しない。`task/types.ts`の結果配送型はOrchestratorが受領する三状態と結果参照・終了観測の最小構造を所有し、Coordinator実装の戻り型から逆算しない。Adapterはcastで押し込まず構造適合を型検査する。
 
 状態判定のSnapshot検査は既存`input/plain-data-snapshot.ts`を利用し、保存APIも再exportする外部Package Rootを純粋閉包へ追加しない。現在のWindows保証選択は`src/platform/windows-adapter.ts`が所有し、PID生存・Platform観測はPA Rootの`observeProcessLiveness`／`observePlatformFamily`、環境構築はPAの既存用途別APIへ直接接続する。Lease入力・世代結合・Profile選択は上位に保持する。これは移管途中の現接続であり、Coordinator／Orchestratorを環境非依存へ閉じる最終状態とは区別する。未分類の領域を検査から無言で除外せず、部分保証を全Platform対応へ昇格しない。
 

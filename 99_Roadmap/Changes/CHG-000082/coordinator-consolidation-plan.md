@@ -2498,3 +2498,20 @@ Rootの公開名・型／値区分、理由実値、判定・状態更新順、�
 Sourceの最終差分は`git diff --binary 30c802b1 -- 40_Develop 07_Quality/Registry/coordinator-task-design-traceability.json`、SHA-256は`69371f5c4fd48a0ac0fa7a9c6bcf1efa7cf48dd113c3f77fc0bec1a70cd4cd72`である。長い結合試験はHeader訂正前に開始したため、実装本文同一の確認と、訂正後の局所試験・静的確認・独立レビューを区別する。
 
 今回のTask回復遷移・結果受領の責務分離を限定完了とし、次はTaskの共有契約と本番組立て、Decision等の§38.15以降の移管へ進む。構造再設計全体・全体Checker・実境界E2Eの完了ではない。②のAI再試行・保持物の観測／操作、実Docker・認証は行っていない。
+
+### 38.21. Task共有契約の実Ownerへの集約
+
+基準版`b404cd0c`から、`task/executor.ts / observer.ts / execution-contract.ts`の共有型十三宣言を`task/types.ts`へ、固定Contract三宣言と`validSingleTaskResult`を`task/dispatch.ts`へ移し、旧三Fileを撤去した。型Shape・固定値・結果検査本文は基準版から同一である。実行・観測・保存Callbackを持つ内部PortのHeaderは、実際のCapabilityと非Authority観測の区別へ訂正した。共有型からの値ロード、定数字面の複製、新しい公開APIや互換中継は追加していない。
+
+利用側・試験・Root・Symbol・Checkerの公開Module集合・設計Traceabilityを追従した。Rootの公開名と型／値区分は不変、公開Module集合は61件。Sourceは144→141 File、純粋集合は35→33 Fileとなり、全Sourceの一意な責務分類を維持する。Symbolは359登録、欠測Path・重複IDは0であり、安定IDを保持して実Pathだけを追従した。保存B六Fileの差分は0である。
+
+| 確認範囲 | 結果と限界 |
+|---|---|
+| 直接利用側の五Suite | Coordinatorから`node --test ./tests/integration/task-platform-independence.contract.test.ts ./tests/unit/public-contract.contract.test.ts ./tests/unit/task/intelligence-adapter.contract.test.ts ./tests/integration/task-single-task-adapter.contract.test.ts ./tests/integration/public-owner-boundary.contract.test.ts`を実行。最終修正版は59成功、失敗・取消・skip・todo各0、25,064.6668ms、Exit 0 |
+| 移管境界の反証 | 純粋型の二特殊依存は型専用・exact Symbol集合を無条件に要求する。参照0件、欠測、重複、追加・別Symbol、値import、別Path表記による迂回、別Ownerを拒否する。結果検査は正常値・余剰field・終了状態の矛盾・Accessor・Runtime発行回復参照の相関を確認。一般の純粋依存規則は緩和していない |
+| 静的確認 | 最終修正版の`npm run check`成功。整形・型・lint・Runtime／Task Traceabilityを通過。既存lint情報64件は維持し、`git diff --check`成功。現行Source・設計・Registryに旧三Path参照なし |
+| 独立レビュー | 初回に依存検査の欠測／重複見逃しと、統合先PathのTraceability重複を検出。統合修正方針を再提示して整合後、検査の反証追加と関係集合の初出順を保った正規化を実施。修正版の限定再レビューは全重大度0 |
+
+最終Source差分は`git diff --binary b404cd0c -- 40_Develop 07_Quality/Registry/coordinator-task-design-traceability.json`、SHA-256は`8afa311bf454da92dc99d317fa38af2a3b3f2421566aa83b5aff286f12c0be63`である。§38.20の71件は前単位の結果として保持し、今回の五Suite 59件へ合算しない。大量の実行logは正式Evidenceへ複製しない。
+
+今回の共有契約移管を限定完了とする。Host／実行観測／回復Adapter本体のdispatchへの統合、Task受付・Decision・Execution・Stateの残る配置は次単位であり、構造再設計全体・全体Checker・実境界E2Eの完了ではない。②のAI再試行・保持物の観測／操作、実Docker・認証は行っていない。

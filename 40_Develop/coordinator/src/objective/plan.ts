@@ -15,7 +15,7 @@ import type { CoordinatorClockIdentityPort } from "../identity/clock-and-hash.ts
 import type {
   CoordinatorTaskExecution,
   CoordinatorExecutionResult,
-} from "../task/execution-contract.ts";
+} from "../task/types.ts";
 import { COORDINATOR_MAXIMUM_TASKS } from "../state/model.ts";
 import { snapshotCoordinatorWorkspaceResult } from "../execution/attempt.ts";
 import {

@@ -4,20 +4,12 @@
  * @trace ARCH-000004
  */
 import {
-  type CoordinatorExecutionDependencies,
-  COORDINATOR_EXECUTION_CONTRACT,
-  type CoordinatorExecutionResult,
-  type ExecutionInput,
-  type CoordinatorTaskExecution,
-  type CoordinatorExecutionPublicationObservation,
-  validSingleTaskResult,
-} from "./execution-contract.ts";
-import {
   type ProjectTaskRecoveryKind,
   type CoordinatorState,
   decodeProjectResultAcceptance,
   type ProjectResultAcceptance,
   validIdentity,
+  isCoordinatorRecoveryIdentity,
 } from "../state/model.ts";
 import { types as utilTypes } from "node:util";
 import { snapshotCoordinatorWorkspaceResult } from "../execution/attempt.ts";
@@ -30,8 +22,245 @@ import {
 } from "./lifecycle.ts";
 import { recordProjectTaskResultAcceptances } from "./acceptance.ts";
 import { selectSchedulableProjectTasks } from "./scheduling.ts";
-import type { CoordinatorTaskAttemptObservation } from "./observer.ts";
-import type { CoordinatorTaskResultDelivery } from "./executor.ts";
+import type {
+  CoordinatorExecutionDependencies,
+  CoordinatorExecutionResult,
+  ExecutionInput,
+  CoordinatorTaskExecution,
+  CoordinatorExecutionPublicationObservation,
+  CoordinatorSingleTaskResult,
+  CoordinatorTaskAttemptObservation,
+  CoordinatorTaskResultDelivery,
+} from "./types.ts";
+
+export const COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT =
+  "crdd-coordinator/orchestrator-single-task-adapter" as const;
+export const COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT_REVISION = 3;
+
+export const COORDINATOR_EXECUTION_CONTRACT =
+  "crdd-coordinator/orchestrator-execution/v1" as const;
+
+/**
+ * Single Task 結果が有効か判定する。
+ *
+ * @responsibility Single Task 結果の有効条件、拒否条件、判定結果境界を所有する。
+ * @trace ARCH-000004
+ * @input value: unknown、runtimeIssuedRecoveryIds: ReadonlyMap< string, Readonly<{ attemptId: string; operationId: string }> >
+ * @returns value is CoordinatorSingleTaskResultを返す。
+ * @precondition 「value: unknown、runtimeIssuedRecoveryIds: ReadonlyMap< string, Readonly<{ attemptId: string; operationId: string }> >」がvalidSingleTaskResultの入力契約を満たす。
+ * @postcondition validSingleTaskResultの責務を完了した結果だけを返す。
+ * @effect N/A: validSingleTaskResultは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure validSingleTaskResultは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant validSingleTaskResultは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 下位の単発結果と上位Task調停の相関検査境界。
+ * @security 下位結果だけでRuntime回復の発行を認めず、呼出しOwnerが捕捉した参照・Attempt・Operationの相関を照合する。
+ * @concurrency N/A: validSingleTaskResultは共有非同期状態を持たない同期処理である。
+ */
+export function validSingleTaskResult(
+  value: unknown,
+  runtimeIssuedRecoveryIds: ReadonlyMap<
+    string,
+    Readonly<{ attemptId: string; operationId: string }>
+  >,
+): value is CoordinatorSingleTaskResult {
+  try {
+    if (
+      !value ||
+      typeof value !== "object" ||
+      Array.isArray(value) ||
+      utilTypes.isProxy(value) ||
+      ![Object.prototype, null].includes(Object.getPrototypeOf(value))
+    )
+      return false;
+    const expectedValues = [
+      "attemptId",
+      "authorityBindingId",
+      "candidateId",
+      "cleanupConfirmed",
+      "contract",
+      "effectState",
+      "manualRecoveryRequired",
+      "operationId",
+      "processRestartRequired",
+      "reason",
+      "recoveryIds",
+      "repositoryRevision",
+      "status",
+    ].sort();
+    const expectedActualValues = [
+      ...expectedValues,
+      ...(Object.hasOwn(value, "recoveryObligations")
+        ? ["recoveryObligations"]
+        : []),
+      ...(Object.hasOwn(value, "executorProvider") ? ["executorProvider"] : []),
+      ...(Object.hasOwn(value, "workspaceResult") ? ["workspaceResult"] : []),
+    ].sort();
+    const keys = Reflect.ownKeys(value);
+    if (
+      keys.length !== expectedActualValues.length ||
+      keys.some((key) => typeof key !== "string") ||
+      ![...(keys as string[])]
+        .sort()
+        .every((key, index) => key === expectedActualValues[index])
+    )
+      return false;
+    const descriptors = Object.getOwnPropertyDescriptors(value);
+    if (
+      expectedActualValues.some(
+        (key) =>
+          !descriptors[key] ||
+          !("value" in descriptors[key]) ||
+          descriptors[key].get !== undefined ||
+          descriptors[key].set !== undefined,
+      )
+    )
+      return false;
+    const record = value as Record<string, unknown>;
+    if (
+      Object.hasOwn(record, "workspaceResult") &&
+      snapshotCoordinatorWorkspaceResult(record.workspaceResult) === null
+    )
+      return false;
+    if (
+      record.contract !== "crdd-coordinator/orchestrator-single-task-adapter" ||
+      !validIdentity(record.attemptId) ||
+      !validIdentity(record.operationId) ||
+      !validIdentity(record.authorityBindingId) ||
+      typeof record.repositoryRevision !== "string" ||
+      !/^[0-9a-f]{40,64}$/u.test(record.repositoryRevision) ||
+      !["completed", "blocked", "cancelled"].includes(String(record.status)) ||
+      typeof record.reason !== "string" ||
+      record.reason.length === 0 ||
+      record.reason.length > 256 ||
+      !["no_effect", "settled", "unknown"].includes(
+        String(record.effectState),
+      ) ||
+      typeof record.cleanupConfirmed !== "boolean" ||
+      typeof record.manualRecoveryRequired !== "boolean" ||
+      typeof record.processRestartRequired !== "boolean" ||
+      (record.candidateId !== null &&
+        (typeof record.candidateId !== "string" ||
+          record.candidateId.length > 512)) ||
+      !Array.isArray(record.recoveryIds) ||
+      utilTypes.isProxy(record.recoveryIds) ||
+      record.recoveryIds.length > 128 ||
+      Reflect.ownKeys(record.recoveryIds).some(
+        (key) =>
+          key !== "length" &&
+          (typeof key !== "string" || !/^(0|[1-9][0-9]*)$/u.test(key)),
+      )
+    )
+      return false;
+    if (
+      record.executorProvider !== undefined &&
+      record.executorProvider !== "codex" &&
+      record.executorProvider !== "claude"
+    )
+      return false;
+    for (let index = 0; index < record.recoveryIds.length; index += 1) {
+      const descriptor = Object.getOwnPropertyDescriptor(
+        record.recoveryIds,
+        String(index),
+      );
+      if (
+        !descriptor ||
+        !("value" in descriptor) ||
+        !isCoordinatorRecoveryIdentity(descriptor.value)
+      )
+        return false;
+    }
+    const rawObligations = record.recoveryObligations;
+    if (rawObligations !== undefined) {
+      if (
+        !Array.isArray(rawObligations) ||
+        utilTypes.isProxy(rawObligations) ||
+        rawObligations.length > 128
+      )
+        return false;
+      const identities = new Set<string>();
+      const ids = new Set<string>();
+      for (let index = 0; index < rawObligations.length; index += 1) {
+        const descriptor = Object.getOwnPropertyDescriptor(
+          rawObligations,
+          String(index),
+        );
+        if (!descriptor || !("value" in descriptor)) return false;
+        const entry = descriptor.value;
+        if (
+          !entry ||
+          typeof entry !== "object" ||
+          Array.isArray(entry) ||
+          utilTypes.isProxy(entry) ||
+          ![Object.prototype, null].includes(Object.getPrototypeOf(entry))
+        )
+          return false;
+        const entryKeys = Reflect.ownKeys(entry).sort();
+        if (
+          entryKeys.length !== 2 ||
+          entryKeys[0] !== "kind" ||
+          entryKeys[1] !== "recoveryId"
+        )
+          return false;
+        const kind = (entry as { kind?: unknown }).kind;
+        const recoveryId = (entry as { recoveryId?: unknown }).recoveryId;
+        if (
+          ![
+            "host",
+            "docker",
+            "candidate",
+            "candidate_store",
+            "runtime_process",
+          ].includes(String(kind)) ||
+          !isCoordinatorRecoveryIdentity(recoveryId) ||
+          (kind === "runtime_process" &&
+            (runtimeIssuedRecoveryIds.get(String(recoveryId))?.attemptId !==
+              record.attemptId ||
+              runtimeIssuedRecoveryIds.get(String(recoveryId))?.operationId !==
+                record.operationId)) ||
+          identities.has(`${kind}\0${recoveryId}`)
+        )
+          return false;
+        identities.add(`${kind}\0${recoveryId}`);
+        ids.add(recoveryId);
+      }
+      if (
+        ids.size !== new Set(record.recoveryIds as string[]).size ||
+        [...ids].some((id) => !(record.recoveryIds as string[]).includes(id))
+      )
+        return false;
+    } else if (record.recoveryIds.length > 0) return false;
+    const status = String(record.status);
+    const effectState = String(record.effectState);
+    const cleanupConfirmed = record.cleanupConfirmed === true;
+    const manualRecoveryRequired = record.manualRecoveryRequired === true;
+    const processRestartRequired = record.processRestartRequired === true;
+    const recoveryCount = record.recoveryIds.length;
+    if (
+      (status === "completed" &&
+        (effectState !== "settled" ||
+          !cleanupConfirmed ||
+          manualRecoveryRequired ||
+          processRestartRequired ||
+          recoveryCount !== 0)) ||
+      (status === "cancelled" &&
+        (!cleanupConfirmed ||
+          manualRecoveryRequired ||
+          processRestartRequired ||
+          recoveryCount !== 0 ||
+          (effectState !== "no_effect" && effectState !== "settled"))) ||
+      (effectState === "unknown" &&
+        (cleanupConfirmed || !manualRecoveryRequired)) ||
+      (!cleanupConfirmed &&
+        (effectState !== "unknown" || !manualRecoveryRequired)) ||
+      (recoveryCount > 0 && !manualRecoveryRequired) ||
+      (processRestartRequired && status !== "blocked")
+    )
+      return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Idを安定Identityへ変換する。

@@ -12,10 +12,12 @@ import {
 import {
   COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT,
   COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT_REVISION,
-  type CoordinatorSingleTaskAttemptInput,
-  type CoordinatorSingleTaskResult,
-  type CoordinatorTaskResultDelivery,
-} from "./executor.ts";
+} from "./dispatch.ts";
+import type {
+  CoordinatorSingleTaskAttemptInput,
+  CoordinatorSingleTaskResult,
+  CoordinatorTaskResultDelivery,
+} from "./types.ts";
 export const COORDINATOR_SINGLE_TASK_PRE_EFFECT_REJECTIONS = Object.freeze([
   ...COORDINATOR_TASK_PRE_EFFECT_REJECTIONS,
 ]);

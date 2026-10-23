@@ -4,7 +4,7 @@
  * @trace ARCH-000004
  */
 import type { Writable } from "node:stream";
-import type { CoordinatorExecutionPublicationObservation } from "./execution-contract.ts";
+import type { CoordinatorExecutionPublicationObservation } from "./types.ts";
 
 export const COORDINATOR_RECOVERY_LIFECYCLE_PREFIX =
   "[Coordinator recovery] " as const;

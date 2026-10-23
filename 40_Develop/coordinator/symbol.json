@@ -4039,7 +4039,7 @@
     {
       "symbolId": "orchestrator.execution-observation-port",
       "kind": "file",
-      "path": "src/task/observer.ts",
+      "path": "src/task/types.ts",
       "archIds": [
         "ARCH-000007"
       ],
@@ -4215,7 +4215,7 @@
     {
       "symbolId": "orchestrator.source.src.ports.execution.port",
       "kind": "file",
-      "path": "src/task/executor.ts",
+      "path": "src/task/types.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -4354,7 +4354,7 @@
     {
       "symbolId": "orchestrator.execution-contract",
       "kind": "file",
-      "path": "src/task/execution-contract.ts",
+      "path": "src/task/dispatch.ts",
       "archIds": [
         "ARCH-000004"
       ]

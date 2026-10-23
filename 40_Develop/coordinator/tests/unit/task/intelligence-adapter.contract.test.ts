@@ -16,7 +16,7 @@ import type {
   CoordinatorExecutionObservationPort,
   CoordinatorExecutionObservationPublication,
   CoordinatorTaskAttemptObservation,
-} from "../../../src/task/observer.ts";
+} from "../../../src/task/types.ts";
 
 const OBSERVATION: CoordinatorTaskAttemptObservation = Object.freeze({
   occurredAt: "2026-09-05T00:00:01.000Z",

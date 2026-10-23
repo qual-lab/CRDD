@@ -16,7 +16,7 @@ import {
 import type {
   CoordinatorExecutionObservationPublication,
   CoordinatorTaskAttemptObservation,
-} from "./observer.ts";
+} from "./types.ts";
 
 /**
  * Task Attemptの観測を欠測付きの共通Eventへ写す。

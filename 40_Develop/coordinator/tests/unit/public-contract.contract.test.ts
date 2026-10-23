@@ -21,7 +21,8 @@ import { COORDINATOR_PUBLIC_RUNTIME_CONTRACT } from "../../src/operation-result-
 import {
   COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT,
   COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT_REVISION,
-} from "../../src/task/executor.ts";
+  validSingleTaskResult,
+} from "../../src/task/dispatch.ts";
 
 const repositoryRevision = "a".repeat(40);
 
@@ -43,6 +44,73 @@ test("Execution Portは既存Single Task結果契約を意味変更せず所有�
     "crdd-coordinator/orchestrator-single-task-adapter",
   );
   assert.equal(COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT_REVISION, 3);
+});
+
+/**
+ * 移管後の単発結果検査は閉形式とRuntime回復の元相関を維持する。
+ * @responsibility 正常結果・不整合・自己発行回復参照の拒否を確認する。
+ * @trace PRL-UT-014
+ * @precondition 合成結果と呼出しOwnerが発行した回復参照集合。
+ * @stimulus 正常値、余剰field、矛盾、Accessorと回復相関差を与える。
+ * @observation 受理可否とAccessor実行回数。
+ * @oracle 正常値と元の相関だけを受理し、他は副作用なく拒否する。
+ * @cleanup N/A: Process内の局所値だけを用いる。
+ * @boundary Task単発結果と上位実行Ownerの検査境界。
+ */
+test("単発結果検査は閉形式とRuntime発行回復参照の相関を維持する", () => {
+  const result = {
+    contract: COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT,
+    attemptId: "attempt-a",
+    operationId: "operation-a",
+    authorityBindingId: "authority-a",
+    repositoryRevision,
+    status: "completed",
+    reason: "completed",
+    effectState: "settled",
+    cleanupConfirmed: true,
+    manualRecoveryRequired: false,
+    processRestartRequired: false,
+    candidateId: null,
+    recoveryIds: [],
+  };
+  assert.equal(validSingleTaskResult(result, new Map()), true);
+  for (const value of [
+    { ...result, extra: true },
+    { ...result, contract: "wrong-contract" },
+    { ...result, cleanupConfirmed: false },
+    { ...result, effectState: "unknown" },
+    { ...result, workspaceResult: { workspaceId: "unbound" } },
+  ])
+    assert.equal(validSingleTaskResult(value, new Map()), false);
+  let reads = 0;
+  const accessor = Object.defineProperty({ ...result }, "reason", {
+    get() {
+      reads += 1;
+      return "completed";
+    },
+    enumerable: true,
+  });
+  assert.equal(validSingleTaskResult(accessor, new Map()), false);
+  assert.equal(reads, 0);
+  const recovery = {
+    ...result,
+    status: "blocked",
+    effectState: "unknown",
+    cleanupConfirmed: false,
+    manualRecoveryRequired: true,
+    processRestartRequired: true,
+    recoveryIds: ["runtime-a"],
+    recoveryObligations: [{ kind: "runtime_process", recoveryId: "runtime-a" }],
+  };
+  assert.equal(validSingleTaskResult(recovery, new Map()), false);
+  const issued = new Map([
+    ["runtime-a", { attemptId: "attempt-a", operationId: "operation-a" }],
+  ]);
+  assert.equal(validSingleTaskResult(recovery, issued), true);
+  assert.equal(
+    validSingleTaskResult({ ...recovery, operationId: "operation-b" }, issued),
+    false,
+  );
 });
 
 /**
