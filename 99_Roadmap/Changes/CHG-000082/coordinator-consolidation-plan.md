@@ -2347,3 +2347,20 @@ Package exports、npm scripts、Symbol Manifest、Test Catalog、Runtime／Task 
 通常回帰全体の二実行は完走前に停止した。制限環境ではCatalog publish未確認・link拒否を観測し、通常権限では同じCatalog4件が成功した。長時間の単発Task試験では取消通知の取りこぼし候補を局所確認したが、待機の原因と断定せず、対策案・一時診断をすべて戻した。その候補での177秒・2件成功を現在Sourceの成立根拠へ数えない。現在の単発Task試験は基準版と同一であり、全体回帰完了は主張しない。限定廃止は本番呼出し0と直接利用側の全数追従、変更しない共通保証の96件、独立確認を根拠に区切る。
 
 中断した今回の合成Root二件は、元試験Processの終了、生成時点、fixtureの構成・合成Principal／Project、実Commitなし、未知entry・reparseなしを確認して清掃し、各Rootの不存在を確認した。②の保持物は観測・変更せず、実AI・Dockerの再試行、再起動・修復を行っていない。
+
+### 38.13. 残作業の実施順 — 2026-10-23
+
+人間は、残作業の計画をコミット・プッシュしつつ、承認済み構造再設計を継続するよう指示した。限定廃止完了版`e05ba7221fa212725d216e92322453d7ffa57486`を今回の作業開始版とする。§38.2／38.7の149 Fileは廃止前の基準表として保持し、現在の対象は145 Sourceである。保存統合Bは完了済みであり、再実装しない。
+
+| 順序 | 実施単位 | 出口・保持する境界 |
+|---|---|---|
+| 1 | 配置の最終確定 | Stateの照会・投影・共有型、共通入力検査、Provider関連の未確定部分を閉じ、全Sourceの関数・型・私有状態・直接利用側・公開API・QA／試験との対応を固定候補で確認する。File一覧だけを確定の根拠にしない |
+| 2 | Objective／Task／Decision／Stateの再配置 | §38.3／38.8のOwnerへ分配し、不要な中継を統合する。純粋な状態遷移と保存・乱数・実行構築の依存閉包を分け、元の順序と拒否条件を維持する |
+| 3 | 小Folderの解体 | identity／input／lease／platform／process／queueの実体を確定Ownerへ移す。型契約を削除せず、OS技術と上位の必要保証を区別する。互換barrelや新しい共通置場を作らない |
+| 4 | Executionと専門Packageの整理 | 廃止後67 Fileを十二の共通実行責務と既存専門Ownerへ分配する。Provider仕様はAI Adapter、Docker技術はDocker Isolation、OS技術はPlatform Accessへ。私有Map・Control・期限・失効と回収順序を保持する |
+| 5 | 利用側・名称・設計の全数追従 | 公開API・CLI・scripts32件、Workbench／MCP／template、UT／IT／ST、Symbol／Catalog／Traceabilityを同じ実装単位で追従する。関数・型・変数名、HeaderとArchitecture／QAも更新する。移管後まで利用側追従を放置する順序ではない |
+| 6 | 固定候補の最終確認 | 受付→Objective→Task→Attempt→結果受領／回復について正常・失敗・取消・遅延／重複通知・Owner喪失／再入場を確認し、独立レビューと必要な文書・直接影響確認を閉じる。未観測の実境界や全体QAをPassへ換算しない |
+
+各実装単位は、依存するOwnerを先に確定し、変更した意味から回帰を選んで区切る。全体の長時間回帰を小さな移動のたびに機械反復しない。保存六Fileでは同じ型・関数へのimport declarationの参照先だけ追従でき、本文・Schema・CAS・Lock・確定順序を変更しない。目標外Fileや契約の意味変更が必要なら、理由・影響・代替を人間へ提示する。実AI②の再試行、保持物の観測／変更／削除、実Docker操作、追加の管理Frameworkは引き続き対象外である。
+
+現在の人間判断は追加不要。順序1の割当は未完了であり、本計画の記録をSource移管又は完成へ読み替えない。
