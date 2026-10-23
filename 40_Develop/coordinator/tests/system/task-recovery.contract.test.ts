@@ -22,7 +22,7 @@ import {
   type CoordinatorSingleTaskResult,
   settleProjectTaskRecoveryObligation,
 } from "../../src/index.ts";
-import { runCoordinatorObjective as runCoordinatorObjectiveWithPorts } from "../../src/objective/intake-dependencies.ts";
+import { runCoordinatorObjective as runCoordinatorObjectiveWithPorts } from "../../src/objective/public-operation.ts";
 import { initializeCoordinatorSnapshot } from "../../src/storage/current-state.ts";
 import {
   registerSyntheticOperations,

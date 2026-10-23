@@ -167,7 +167,6 @@ const SOURCE_ROLES = {
     "cli/request.ts",
     "cli/request-input.ts",
     "decision/capability-adapter.ts",
-    "objective/intake-dependencies.ts",
     "objective/public-operation.ts",
     "decision/public-operation.ts",
     "decision/public-acceptance.ts",

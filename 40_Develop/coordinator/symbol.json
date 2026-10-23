@@ -3702,7 +3702,7 @@
     {
       "symbolId": "coordinator.source.src.security.orchestrator.objective.intake",
       "kind": "file",
-      "path": "src/objective/intake-dependencies.ts",
+      "path": "src/objective/public-operation.ts",
       "archIds": [
         "ARCH-000004"
       ],

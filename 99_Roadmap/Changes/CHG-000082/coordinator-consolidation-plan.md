@@ -2464,3 +2464,20 @@ Phase 1固定候補の独立着手前確認は残指摘0で完了した。確認
 | 限定独立レビュー | Source・公開入口・利用側・登録・設計の残指摘0。移管した二関数と純粋依存の確認であり、構造再設計全体や実境界E2Eの完了ではない |
 
 次はObjective受付依存の`objective/public-operation.ts`への統合と利用側追従を行う。②のAI再試行・保持物の観測／操作、実Docker・認証は行っていない。
+
+### 38.19. Objective受付依存の統合結果
+
+基準版`9ba6a7873`から、`objective/intake-dependencies.ts`の型一つ・私有関数三つ・`runCoordinatorObjective`を`objective/public-operation.ts`へ統合し、旧Fileを撤去した。宣言本文と実行順序は維持し、受付関数のHeaderだけは実際の保存・実行委譲・終了後整理を説明する内容へ訂正した。旧Fileの再export三つは残さず、入力検査の試験は実Ownerの`request.ts`へ直接接続した。Objectiveは`request / plan / execute / replan / public-operation`の五File、Coordinator Sourceは144→143 Fileとなった。
+
+Package Rootの公開集合とB六Fileは基準版から不変である。実行関数の宣言本文も基準版と文字単位で同一。Symbolの安定IDは保持して実Pathだけを追従し、358登録の欠測Path・重複IDはいずれも0。公開受付・保存・回復・取消の保証をFile統合のために変えず、新しいPort・中継・Lock・状態を作っていない。
+
+| 確認範囲 | 結果と限界 |
+|---|---|
+| 直接利用側・状態／回復の四Suite | Coordinatorから`node --experimental-test-module-mocks --test --test-concurrency=1 ./tests/integration/task-objective-intake.contract.test.ts ./tests/integration/task-full-flow.integration.test.ts ./tests/system/task-recovery.contract.test.ts ./tests/integration/task-platform-independence.contract.test.ts`を通常Windows権限で実行。30成功、失敗・取消・skip各0、758,591.834ms、Exit 0 |
+| 検証した経路 | 受付・重複拒否、部分再計画、同一Workspaceの直列実行、明示受入、Owner喪失、回復途中の取消／拒否／状態差、同じ回復参照による再入場・再試行と純粋依存閉包。外部AI・実DockerのE2Eではない |
+| 静的確認 | Coordinatorの`npm run check`成功。整形・型・lint・Runtime／Task Traceabilityが通過。既存lint情報64件は維持。現行Source・設計・Registry・ひな型に旧Path参照なし、`git diff --check`成功 |
+| 独立確認 | Source・利用側・公開契約・保存境界・設計の限定レビュー指摘0。追加importによる新しい実行時Effect・値循環なし。移管前に公開操作が読み込んでいた依存を同じOwnerへ直接配置した |
+
+固定した検証入力は基準版からの`git diff --binary 9ba6a7873 -- 40_Develop 07_Quality/Registry/coordinator-task-design-traceability.json`、SHA-256は`043428e0aa394124c1d02fef8c7fd0db854a99b52f623d74cf1cde7db75eac0e`である。大量の実行logを正式Evidenceへ複製せず、再実行可能な試験と対象・結果を保持する。
+
+今回の範囲でObjective配置の移管を区切り、次は§38.15のTask・Decisionの実装へ進む。構造再設計全体・全体Checker・実境界E2Eの完了ではない。②のAI再試行、保持物の観測／操作、実Docker・認証は行っていない。

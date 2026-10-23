@@ -43,10 +43,8 @@ import {
 } from "../fixtures/task-result-fixture.ts";
 import { initializeCoordinatorSnapshot } from "../../src/storage/current-state.ts";
 import { encodeCoordinatorStateValue } from "../../src/storage/model.ts";
-import {
-  inspectCoordinatorObjectiveRequest,
-  runCoordinatorObjective as runCoordinatorObjectiveWithPorts,
-} from "../../src/objective/intake-dependencies.ts";
+import { inspectCoordinatorObjectiveRequest } from "../../src/objective/request.ts";
+import { runCoordinatorObjective as runCoordinatorObjectiveWithPorts } from "../../src/objective/public-operation.ts";
 import {
   acknowledgeProjectDockerRecoveryObligation,
   markProjectTaskRecoveryObligationRecovering,
