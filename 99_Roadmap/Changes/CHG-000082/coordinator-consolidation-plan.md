@@ -2450,3 +2450,17 @@ Model／Delegationの候補選択と、authorityのGrant発行・消費・失効
 現在145 Sourceの処置は、§38.7の全宣言単位の基本配置から、§38.11の四廃止、§38.14〜38.17の具体割当へ上書きして一意に照合する。旧一次表の候補を現行の確定Ownerとして流用しない。公開Root・本番組立て・scripts・試験・登録の追従と私有状態の保持を移管単位ごとに確認する。Phase 1固定候補の確認後、Objectiveの受付依存とTask純粋遷移からSource移管を開始する。保存統合Bの本文、実AI②・保持物・実Dockerは変更対象外である。
 
 Phase 1固定候補の独立着手前確認は残指摘0で完了した。確認で見つかったResultの固定理由検査の閉包不足と、助言回復Ownerの旧注記を修正し、再確認した。これにより配置確定から小さなSource移管単位へ進む。これは移管後のレビュー・回帰や構造再設計全体の完了ではない。
+
+### 38.18. 最初の純粋Task遷移の移管結果
+
+配置確定版`8633766c`から、`objective/replan-transitions.ts`の`applyCoordinatorPartialReplan / retryCoordinatorTask`を`task/lifecycle.ts`へ統合し、旧Fileを撤去した。二関数の宣言本文は改行を揃えた基準版と文字単位で同一である。Root公開名・型・条件・判定順・理由と状態更新順を維持し、Objective利用側、UT、純粋依存の全数分類、Checkerの公開Module集合、Symbolの実Path、ArchitectureとTask Traceabilityを追従した。二つの安定Symbol IDは同じ実体Pathを指し、意味上の関係は統合しない。Sourceは145→144 File、B六Fileの差分は0である。
+
+| 今回の確認 | 結果と限界 |
+|---|---|
+| 状態遷移・純粋依存の二Suite | `node --test ./tests/unit/state/transitions.contract.test.ts ./tests/integration/task-platform-independence.contract.test.ts`で34件成功、失敗・skip各0。Coordinator Packageから実行 |
+| 静的確認 | Coordinatorの`typecheck / format:check / lint / task-design-traceability:check`成功。lintの既存情報診断64件は維持。`git diff --check`成功 |
+| 公開・保存の不変性 | Rootは移管先Path以外不変、Coordinatorの公開Module集合63件がChecker宣言と一致、B六Fileは基準版から不変 |
+| 横断命名Suite | Checkerの`tools-naming.contract.test.ts`は16成功・6失敗。Rustの既存Host Record名、DIの公開Module宣言差、link／junction作成権限三件、既存Storage試験Header不足という今回外の境界である。今回のCoordinator公開集合は別途一致を確認。全体検査成功とはしない |
+| 限定独立レビュー | Source・公開入口・利用側・登録・設計の残指摘0。移管した二関数と純粋依存の確認であり、構造再設計全体や実境界E2Eの完了ではない |
+
+次はObjective受付依存の`objective/public-operation.ts`への統合と利用側追従を行う。②のAI再試行・保持物の観測／操作、実Docker・認証は行っていない。

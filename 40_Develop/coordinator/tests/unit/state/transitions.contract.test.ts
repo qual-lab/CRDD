@@ -25,7 +25,6 @@ import {
   settleProjectTaskRecoveryObligation,
 } from "../../../src/task/recovery-transitions.ts";
 import { applyCoordinatorAcceptanceDecision } from "../../../src/decision/transitions.ts";
-import { applyCoordinatorPartialReplan } from "../../../src/objective/replan-transitions.ts";
 import {
   createCoordinatorState,
   describeCoordinatorStateContract,
@@ -33,6 +32,7 @@ import {
   type ProjectTaskDefinition,
 } from "../../../src/state/model.ts";
 import {
+  applyCoordinatorPartialReplan,
   observeProjectTaskStarted,
   prepareProjectTaskHandoff,
   reserveProjectTaskStart,

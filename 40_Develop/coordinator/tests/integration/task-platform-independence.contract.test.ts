@@ -143,7 +143,6 @@ const SOURCE_ROLES = {
     "task/scheduling.ts",
     "task/lifecycle.ts",
     "task/recovery-transitions.ts",
-    "objective/replan-transitions.ts",
     "decision/transitions.ts",
     "storage/result-record.ts",
     "task/executor.ts",

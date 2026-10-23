@@ -394,7 +394,6 @@ const PUBLIC_INDEX_PROFILES = Object.freeze<readonly PublicIndexProfile[]>([
       "./objective/execute.ts",
       "./objective/plan.ts",
       "./objective/public-operation.ts",
-      "./objective/replan-transitions.ts",
       "./objective/replan.ts",
       "./objective/request.ts",
       "./operation-result-contract.ts",

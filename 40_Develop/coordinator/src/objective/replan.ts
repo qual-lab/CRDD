@@ -7,7 +7,7 @@
 import {
   applyCoordinatorPartialReplan,
   retryCoordinatorTask,
-} from "./replan-transitions.ts";
+} from "../task/lifecycle.ts";
 import { requestCoordinatorHumanDecision } from "../decision/transitions.ts";
 import type { ProjectTaskDefinition } from "../state/model.ts";
 import type { CoordinatorStatePort } from "../state/persistence.ts";

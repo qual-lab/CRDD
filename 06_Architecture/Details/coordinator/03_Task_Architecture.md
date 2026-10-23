@@ -97,9 +97,8 @@ Package Rootは外部利用側が必要とする操作・検査・値契約を�
 | `state/model.ts` | 状態・Definition・Record・結果の値契約、初期状態、共有入力検査、immutableな状態構築 |
 | `state/projection.ts` | 公開投影型、投影生成、状態間相関・意味の検査 |
 | `task/scheduling.ts` | 容量・競合Path・依存から次のTaskを選択 |
-| `task/lifecycle.ts` | 予約・handoff・開始・終了・Effect前終了の純粋遷移 |
+| `task/lifecycle.ts` | 予約・handoff・開始・終了・Effect前終了・部分再計画・Task再試行の純粋遷移 |
 | `task/recovery-transitions.ts` | 回復義務・結果受領・ACK・Owner喪失・再試行可能化の純粋遷移 |
-| `objective/replan-transitions.ts` | 部分再計画・Task再試行の状態更新 |
 | `decision/transitions.ts` | 人間判断・Objective／Milestone受入判断の状態更新 |
 
 依存はModel→選択→投影の利用方向とし、Modelから選択・投影・遷移へ逆参照しない。各遷移はModelの値契約を利用するが、Filesystem・Lease・Docker処置を所有しない。共有検査は内部exportとして必要な利用側だけが参照し、Package Rootの公開集合を増やさない。旧Fileは再export中継として残さない。既存の公開Symbol名・型Shape・状態／reason・Contract・永続形式・保存先と、予約保存／開始確定／結果受領／ACKの順序は変更しない。
@@ -385,7 +384,7 @@ Orchestratorの純粋判定はOS固有のPath、principal、Filesystem保護、L
 
 | 主責務 | File集合 | 境界 |
 |---|---|---|
-| 純粋判定・値契約（35） | `decision/{acceptance-authority,acceptance-record,authority-adapter,capability,records,recovery-record,request,transitions}.ts`; `identity/clock-and-hash.ts`; `input/{plain-data-snapshot,repository-relative-path}.ts`; `lease/controller.ts`; `objective/{request,replan-transitions}.ts`; `operation-result-contract.ts`; `operation-result.ts`; `platform/contract.ts`; `process/safety-contract.ts`; `queue/types.ts`; `state/{activity-cursor,activity-types,activity-validation,binding,model,persistence,projection,query-contract}.ts`; `storage/result-record.ts`; `task/{executor,lifecycle,observer,recovery,recovery-transitions,scheduling,single-task-record}.ts` | 実行時の依存閉包はこの集合内と、決定論的Hashの`node:crypto.createHash`・Proxy検査等の`node:util.types`に限定する。入力日時の`Date.parse`は許可し、現在時刻・乱数・外部待機は取得しない |
+| 純粋判定・値契約（34） | `decision/{acceptance-authority,acceptance-record,authority-adapter,capability,records,recovery-record,request,transitions}.ts`; `identity/clock-and-hash.ts`; `input/{plain-data-snapshot,repository-relative-path}.ts`; `lease/controller.ts`; `objective/request.ts`; `operation-result-contract.ts`; `operation-result.ts`; `platform/contract.ts`; `process/safety-contract.ts`; `queue/types.ts`; `state/{activity-cursor,activity-types,activity-validation,binding,model,persistence,projection,query-contract}.ts`; `storage/result-record.ts`; `task/{executor,lifecycle,observer,recovery,recovery-transitions,scheduling,single-task-record}.ts` | 実行時の依存閉包はこの集合内と、決定論的Hashの`node:crypto.createHash`・Proxy検査等の`node:util.types`に限定する。入力日時の`Date.parse`は許可し、現在時刻・乱数・外部待機は取得しない |
 | 業務操作（11） | `decision/{lifecycle,record-acceptance}.ts`; `objective/{execute,plan,replan}.ts`; `state/{activity,query}.ts`; `task/{dispatch,execution-contract,settle-docker-recovery}.ts`; `workspace/record.ts` | 読取り、実行、保存、受理等を調停する。`objective/plan.ts`はClock Identity操作を呼ぶため、File全体を純粋とは分類しない |
 | 接続・組立て・Transport（18） | `cli/{request,request-input}.ts`; `decision/capability-adapter.ts`; `objective/{intake-dependencies,public-operation}.ts`; `decision/{public-operation,public-acceptance}.ts`; `state/public-query.ts`; `platform/windows-adapter.ts`; `task/{execute-attempt,execution-diagnostics,host-adapter,intelligence-adapter,recovery-adapter,request-composition,requests}.ts`; `workspace/{commands,operations}.ts` | 下位・Host・公開入口を接続する。名前にAdapterがあることだけを分類根拠にしない |
 | 保存（3） | `storage/{current-state,history,protected-decision}.ts` | 現在状態、履歴、判断記録の保存と排他を所有する |

@@ -135,7 +135,7 @@ export {
 export {
   applyCoordinatorPartialReplan,
   retryCoordinatorTask,
-} from "./objective/replan-transitions.ts";
+} from "./task/lifecycle.ts";
 export {
   isCoordinatorObjectiveProjectionCorrelationValid,
   isCoordinatorProjectionSemanticallyValid,

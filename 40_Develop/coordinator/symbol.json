@@ -3941,7 +3941,7 @@
     {
       "symbolId": "orchestrator.objective-replan-transitions",
       "kind": "file",
-      "path": "src/objective/replan-transitions.ts",
+      "path": "src/task/lifecycle.ts",
       "archIds": [
         "ARCH-000004"
       ],
