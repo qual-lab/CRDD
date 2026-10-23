@@ -35,7 +35,7 @@ import {
   createCoordinatorRecoveryDiagnosticReporter,
   COORDINATOR_EXECUTION_INTELLIGENCE_PREFIX,
 } from "../../src/execution/diagnostics.ts";
-import { executeCoordinatorPublicAcceptanceDecision } from "../../src/decision/public-operation.ts";
+import { executeCoordinatorPublicAcceptanceDecision } from "../../src/decision/acceptance.ts";
 import { coordinatorDataBoundaryBlocked } from "../../src/state/result.ts";
 
 /**

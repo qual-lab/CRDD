@@ -55,8 +55,9 @@ const expectedAreaConsumers = [
 ] as const;
 const PUBLIC_COORDINATOR_BOUNDARIES = [
   "40_Develop/coordinator/src/objective/composition.ts",
-  "40_Develop/coordinator/src/decision/public-operation.ts",
-  "40_Develop/coordinator/src/state/public-query.ts",
+  "40_Develop/coordinator/src/decision/acceptance.ts",
+  "40_Develop/coordinator/src/decision/lifecycle.ts",
+  "40_Develop/coordinator/src/state/query.ts",
 ] as const;
 const COORDINATOR_BLOCKED_PROJECTION =
   "40_Develop/coordinator/src/state/result.ts";

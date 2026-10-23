@@ -1,6 +1,6 @@
 # Coordinatorの公開操作・認証・AI選択の再設計計画
 
-状態: Objective六Sourceへ実装移管済み。直接回帰と独立確認は成功、長い受付／回復結合を継続。新API／CLI／認証／設定は未実装。
+状態: Objective六Sourceと本番`public-*`撤去を実装済み。直接回帰と独立確認を終え、長い結合回帰を継続。正式API／CLI／認証／設定は未実装。
 更新日: 2026-10-24
 基準版: `5ccdc54a0998113d757c0eebce3ae8f06bfa932d`
 変更: CHG-000082の責務整理を継続する。新しいCHG・実行Registryは追加しない。
@@ -46,7 +46,7 @@ Objective内の構造整理と、公開API／CLI・設定Schema・認証Capabili
 
 基準版のCoordinatorは56 Source、Root公開は217項目で、`.`と`./cli`がPackage公開入口である。217は維持目標ではなく、公開縮小時の利用側欠測を検出する基準集合とする。
 
-現行の本番`public-*.ts`は次の三Fileである。名称を含む試験Fileは、この本番Owner整理を理由に機械改名しない。
+基準版の本番`public-*.ts`は次の三Fileだった。移管結果は§9／10で追跡する。名称を含む試験Fileは、この本番Owner整理を理由に機械改名しない。
 
 | 現Owner | 実処理 | 移管方針 |
 |---|---|---|
@@ -142,4 +142,61 @@ Rootの217名と型／値区分は不変。内部受付・UT・公開Root・Symb
 | 利用側閉包 | Version Control 12件、Domain Model 4件が成功。Domain検査の廃止済み受入専用File・旧結果File参照も、同じ現在Ownerの検査へ修正 |
 | 独立確認 | Sourceの関数本文・公開契約・動作不変は指摘0。文書の件数・型専用辺・現在Ownerの二原因を是正し、再確認は残指摘0 |
 
-長い全受付・Task連携・取消／回復の連続回帰は実行中で、この表を全体完走結果に拡張しない。初回短回帰では型辺走査がSymbolを一件ずつ返す仕様への追従不足で1件不合格となったが、許可名と型専用制約を維持した是正後の29件を上記の最終結果とする。四添付全体と実境界E2Eの完成ではない。
+全受付・Task連携・取消／回復の連続回帰は64件成功、失敗／取消／skip／todo 0、2,207,100.0006ms、Exit 0で完走した。Objective受付、実行集合、Owner喪失、耐久中断後のexact再入場、公開受付、入力契約を確認した。外部AI・実Docker・実認証の試験ではない。初回短回帰では型辺走査がSymbolを一件ずつ返す仕様への追従不足で1件不合格となったが、許可名と型専用制約を維持した是正後の29件を上記の最終結果とする。四添付全体と実境界E2Eの完成ではない。
+
+## 10. 判断・照会の本番`public-*`撤去 — 2026-10-24
+
+基準`7a75d6995`から、受入判断二関数を`decision/acceptance.ts`、人間判断二関数とPrincipal観測を`decision/lifecycle.ts`、状態照会二関数を`state/query.ts`へ統合した。旧二Fileを撤去し、本番Coordinator Sourceに`public-*.ts`は残らない。内部の判断・照会計算と、認証・Root・Revision・Store確認は別関数のままであり、公開という理由の中継を作っていない。
+
+Sourceは55 File。純粋集合18と業務操作8は不変で、Adapter集合だけ6から4へ減った。値逆依存・自己importを残さず、Rootの217名・署名・型／値区分、保存六Source、過去Evidenceは不変。公開API自体の縮小は後続であり、File撤去を正式API切替完了にしない。
+
+| 確認 | 観測結果・限界 |
+|---|---|
+| 静的・登録 | Coordinator `npm run check`成功。既存lint情報64件を維持 |
+| 公開境界・依存・入力契約 | 実行した三Suiteで24件成功、失敗／取消／skip／todo 0、26,289.6363ms |
+| 利用側閉包 | Version Control 12件、Domain Model 4件成功。Identity観測を使わないLifecycleをそのConsumer集合へ追加しないよう実Symbolで照合 |
+| Source独立確認 | 移管七関数と既存関数の本文一致、公開・保存・値依存を確認し指摘0 |
+| 文書・登録独立確認 | 現Owner説明一件を是正。55 Fileの和集合、純粋集合・業務集合不変、Registry／Symbol実在、旧Path現在参照0を確認 |
+
+受入判断・公開受付・Workspace・品質受入の四Suiteは実行中。先行Objective連続回帰64件は上記のとおり完走したが、後続の未終端を成功へ換算しない。実AI・実Docker・実認証・保持②の観測／操作は行っていない。
+
+## 11. 後続の具体化で確認した境界
+
+### 正式API
+
+- `openTaskSession`は既存の開始・観測・取消・待機・closeの同一実装を公開する。Workbenchは複数HTTP要求をまたいで使用するため、単発`runTask`だけへ置換しない。新しいMapや取消機構は作らない。
+- `runTask`をCLIの一回実行へ用いる場合も、同じSessionを開始・待機・finally closeする既存Ownerへ委譲する。認可・回復・本文保存をAPIで再実装しない。
+- Project初期化のRoot／Binding導出、回復のexact対象確認と種類別処理は既存の実Ownerへ置く。`api.ts`にWriter、Authority生成や汎用Dispatcherを持たせない。
+- 現Rootの明示受入操作は既存Capabilityとして照合し、直接Consumer不在だけを根拠に品質受入への到達性を削除しない。最終公開集合は実利用側とSPEC-000002／QA-000003の義務を照合する。
+
+正式Task APIの最終切替は、技術カタログとRepository別選択の本番接続後に行う。現行`AiProfileCatalogStore`は保存・採用まで持つため、そのまま正式Session入力へ露出させると直後の刷新で再変更又は互換層が必要になる。将来の入力を推測したPortも追加しない。Task以外の既存操作の整理は独立して進められるが、Rootを`api.ts`だけへ縮小するのは、実際の最小Task入力と全利用側接続を確認した後とする。
+
+読み取り専用の要求・実Owner再照合により、`acceptResult`、`runTask`、`openTaskSession`の維持に追加の人間判断は不要と確認した。受入操作はSPEC-000002とQA-000003の明示品質判断を維持し、既存`decision/acceptance.ts`へ委譲する。単発CLIと複数HTTP要求にまたがるWorkbenchは同じ既存Sessionを利用する。新しいMap、Authority、Lock又はRecoveryを作る判断ではない。
+
+### AI選択設定
+
+- AI Adapterの技術カタログ、CoordinatorのRepository別設定、Task／Attemptへ固定した具体選定を別の責務とする。旧Host／Repository Profile Storeを技術カタログの第二正本として残さない。
+- 選定順序は明示指定、役割と作業分類のexact上書き、役割既定値。設定不存在、不正、未知分類、非対応Model／Effortは補完せず停止する。例示Modelを既定として採用しない。
+- 保存・Grant・Task Packet・回復は同じ具体Provider／Model／Effort、選定元、技術カタログと選択設定の内容Identityへ結合する。Profile IDだけの置換では閉じない。開始済み実行を新設定で再解釈しない。
+- Workbenchは既存の認証・選択Repository・manager／administrator権限を維持して、そのRepositoryの設定だけを編集する。CROS Host設定へのfallbackはない。MCPに設定変更Toolを自動追加しない。
+- 任意の作業分類追加を維持し、独立した件数・表示名文字数の製品制限は追加しない。設定File全体の技術的byte境界をReader／Writerで一致させ、既存のbounded snapshotとRoot・親・File Identity確認を利用する。既存HTTP一要求の上限をRepository全体の件数制限とは扱わない。
+- 更新CASは既存のFilesystem排他の中で現在の内容Hashを再読し、期待Hash照合、短命Fileへの保存、不可分置換、読戻しを行う用途限定処理とする。create-onceの`committed-json`を削除してから再作成する方式は採らない。汎用Store Framework・Registry・監視は追加しない。
+- フロントAIが旧Snapshotと再入場対象参照をexactに解決し、書換え・読戻しを確認してから切り替える。不足・曖昧な旧参照では移行停止。保持②と歴史Evidenceは対象外で、製品に旧Readerを残さない。
+
+技術カタログはProviderとModel識別子の一意な組ごとに、`identifierKind`（`exact`又は`alias`）、対応Effort、対応する実行用途、既知の互換理由だけを保持する。役割・Tier・既定Effort・現在のログイン状態は混入させない。対応用途は役割表から推測せず、既存の計画契約と検証済み条件の共通範囲から宣言する。
+
+| 既存の技術根拠から引き継ぐ組 | 識別子の意味 | 対応用途 | 対応Effort | 留意点 |
+|---|---|---|---|---|
+| Codex / `gpt-5.6-sol` | exact | `advice` | `low / medium / high` | Taskのcode-mode制約が既知。Taskへ暗黙転用しない |
+| Codex / `gpt-5.5` | exact | `task` | `low / medium / high` | 現行固定Taskの対応。助言対応を引数生成だけから推定しない |
+| Claude / `opus` | alias | `advice / task` | `low / medium / high` | 未観測の解決後Model版をexactとして保存しない |
+
+旧Adapterの許可候補に存在するだけの`gpt-6-astra`、及び現在計画契約に対応根拠のない`xhigh / max`を、新しい選択可能集合へ自動移行しない。これは別Modelへのfallbackではなく、未確認構成の実行前拒否である。新Modelの採用・固定実行物での対応確認は最後の判断／実境界確認へ分離する。
+
+互換理由は可否の補足であり、理由文字列からfallback先を決めない。旧Profileの`gpt_5_6_code_mode_only_host_unavailable_in_fixed_linux_runtime`は`gpt-5.5`自体の性質ではないため、`gpt-5.6-sol`のTask非対応理由へ対応付ける。用途とEffortは初版では独立配列の直積とし、実例のない用途別Matrixを追加しない。
+
+上表のProvider／Model／Effort／用途の組を技術正本一つで検査し、計画生成とEffect直前で同じ組を確認する。旧Descriptor内のModel値を別正本として残さず、移行中の比較Oracleと最終の導出元を区別する。新設定の保存・実行・回復は`modelIdentifier / identifierKind`を結合し、Provider aliasを`exactModelId`と呼んで再現性を過大主張しない。
+
+### Codex認証の仕様確認
+
+OpenAI Docsの[認証手順](https://learn.chatgpt.com/docs/auth)と[CLI引数](https://learn.chatgpt.com/docs/developer-commands?surface=cli)を2026-10-24に確認した。Headless向けの`login --device-auth`と`login status`は公式仕様に存在する。ただし現在の固定Image内CLIでの対応・Home・stdio・終了確認は別の検証であり、公式文書だけでその実測を代替しない。API Key／Credentialコピーのfallbackは採用しない。端末の一回コード・Tokenを診断や記録へ複製しない。

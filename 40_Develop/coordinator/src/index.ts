@@ -301,14 +301,14 @@ export {
 export {
   executeCoordinatorPublicAcceptanceDecision,
   runCoordinatorPublicAcceptanceDecision,
-} from "./decision/public-operation.ts";
+} from "./decision/acceptance.ts";
 export {
   executeCoordinatorPublicStateQuery,
   runCoordinatorPublicStateQuery,
-} from "./state/public-query.ts";
-export { runCoordinatorPublicDecision } from "./decision/public-operation.ts";
+} from "./state/query.ts";
+export { runCoordinatorPublicDecision } from "./decision/lifecycle.ts";
 export { runCoordinatorPublicObjective } from "./objective/composition.ts";
-export { observeRuntimeOwnedProjectClientPrincipal } from "./decision/public-operation.ts";
+export { observeRuntimeOwnedProjectClientPrincipal } from "./decision/lifecycle.ts";
 export { readAuthorizedRuntimeActivity } from "./state/observation.ts";
 export {
   inspectWorkspaceCommand,

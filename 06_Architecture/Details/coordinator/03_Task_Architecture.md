@@ -8,7 +8,7 @@ Objectiveは次の六Sourceを目標とする。要求固有の型・検査は`r
 
 旧受付Fileの全体改名ではなく、実行判断・共有型・Task入力変換を実Ownerへ分配する。`execute.ts`から具体依存組立てへの値逆依存を作らない。型専用の`types.ts`は新しいRuntime初期化や副作用を持たない。
 
-同様に、`decision/public-operation.ts`の受入判断は既存のAcceptance Owner、人間判断は既存のDecision Lifecycle Ownerへ移す。`state/public-query.ts`は状態照会Ownerへ統合する。Principal・Root・Revision・保存接続と各処理の失敗境界を消さず、公開性を表すFileを別名で再作成しない。
+同様に、受入判断は`decision/acceptance.ts`、人間判断とPrincipal観測は`decision/lifecycle.ts`、状態照会は`state/query.ts`へ統合する。Principal・Root・Revision・保存接続と各処理の失敗境界を消さず、公開性を表すFileを別名で再作成しない。
 
 後続の正式API切替では`src/api.ts`が外部操作名・入力／結果契約の境界となり、`src/index.ts`はそこからの明示公開だけを持つ。CLI／MCP／Workbenchは同じ実操作へ接続する。APIは業務判断・状態・Lock・Retry・保存を所有せず、内部OwnerからAPIやCLIへ逆依存しない。安定契約をそのまま満たす実体には不要Wrapperを作らず、内部Factory・Writer・遷移は全Consumerを正式操作へ移行後にRootから外す。現在の公開217項目を一律維持せず、一律削除もしない。
 
@@ -129,9 +129,9 @@ Workspace再編の現在目標は[作業領域・責務契約](05_Workspace.md)�
 |---|---|
 | `objective/composition.ts` | 公開受付、本番実行依存と開発用構成の組立て |
 | `objective/execute.ts` | Objective受付後の検証、単発Task入力変換、進行、結果と回復参照の引渡し |
-| `decision/public-operation.ts` | 人間判断の本番依存組立て・公開実行 |
-| `decision/public-operation.ts` | 明示受入判断の認証・Repository検証・保存への接続 |
-| `state/public-query.ts` | 状態照会の認証・現在Snapshot確認・読取りへの接続 |
+| `decision/lifecycle.ts` | 人間判断の本番依存組立て・公開実行 |
+| `decision/acceptance.ts` | 明示受入判断の認証・Repository検証・保存への接続 |
+| `state/query.ts` | 状態照会の認証・現在Snapshot確認・読取りへの接続 |
 | `execution/diagnostics.ts` | 直列診断Reporter、二つの既存本番Reporter、失敗・timeout・disposeの終了契約 |
 | `state/result.ts` | 公開結果のContractとRuntime Data失敗の純粋な結果投影 |
 | `task/types.ts` | Taskの入力・実行・観測・結果・回復の共有型。実行Moduleの二Contractは型専用で参照する |
@@ -167,11 +167,11 @@ Docker回復は同じ必須AbortSignalを下位へ渡して完了を待つ。固
 
 旧State／Queue／Leaseの移行入力Readerは本番へ残さず、移行はフロントAIの明示手順が所有する。現在Readerは不存在・観測不能・Root置換を区別し、既存意図・証拠とexact参照を保全する。保存先は`.crdd/coordinator/state.json`、通常終了要約は同領域の`history.jsonl`、保持設定は`.crdd/config/coordinator.json`へ統一する。保存形式の変更で業務進行・判断・終了条件を緩めない。保持②は移行・清掃の対象にしない。
 
-本番の上位組立ては`src/objective/composition.ts`、`src/decision/public-operation.ts`、`src/state/public-query.ts`、公開業務操作は`src/index.ts`、受付と現在保存の接続も`src/objective/composition.ts`が所有する。Principal観測は`src/decision/public-operation.ts`、Workspace利用・固定・採否は`src/workspace/operations.ts`、保護された判断世代の保存は`src/storage/protected-decision.ts`へ接続する。Coordinatorには同じ業務Sourceを残さず、個別実行・保護Root等の下位能力を呼ぶ。Coordinator Rootによる上位操作の再公開は撤去済みで、MCP配布入口・Workbench状態観測を本領域へ直接接続した。CLI内部の上位呼出しは撤去済みで、全公開利用側と旧実Runtime Rootの処置は後続確認の対象であり、File移管だけを依存方向の最終完成としない。
+本番の上位組立ては`src/objective/composition.ts`、`src/decision/lifecycle.ts`、`src/state/query.ts`、公開業務操作は`src/index.ts`、受付と現在保存の接続も`src/objective/composition.ts`が所有する。Principal観測は`src/decision/lifecycle.ts`、Workspace利用・固定・採否は`src/workspace/operations.ts`、保護された判断世代の保存は`src/storage/protected-decision.ts`へ接続する。Coordinatorには同じ業務Sourceを残さず、個別実行・保護Root等の下位能力を呼ぶ。Coordinator Rootによる上位操作の再公開は撤去済みで、MCP配布入口・Workbench状態観測を本領域へ直接接続した。CLI内部の上位呼出しは撤去済みで、全公開利用側と旧実Runtime Rootの処置は後続確認の対象であり、File移管だけを依存方向の最終完成としない。
 
 ## 基本設計との関係
 
-業務操作の公開面はPackage Rootの`src/index.ts`へ統一する。Objective受付、判断、受入判断、状態照会の六操作は各用途の`objective/composition.ts`、`decision/public-operation.ts`、`state/public-query.ts`から、既存のPrincipal観測は`src/decision/public-operation.ts`から明示的に公開する。純再exportの業務中継Fileと`./application` subpathは廃止し、MCP配布入口・WorkbenchはRootへ直接接続する。これはSource公開Pathの互換性変更であり、操作名、通信契約、保存形式、Authorityを変更しない。具象組立てはRootを逆参照せず、必要な実体へ依存する。開発用構築関数や診断内部関数を追加公開しない。Coordinator Rootは上位業務操作を再公開しない。CLIと親Directory・保存Root参照は切替済みだが、旧実Runtime Rootの処置と残る実行接続は未完了のため、公開面の接続だけを全移管完成とは扱わない。
+業務操作の公開面はPackage Rootの`src/index.ts`へ統一する。Objective受付、判断、受入判断、状態照会の六操作は各用途の`objective/composition.ts`、`decision/lifecycle.ts`、`state/query.ts`から、既存のPrincipal観測は`src/decision/lifecycle.ts`から明示的に公開する。純再exportの業務中継Fileと`./application` subpathは廃止し、MCP配布入口・WorkbenchはRootへ直接接続する。これはSource公開Pathの互換性変更であり、操作名、通信契約、保存形式、Authorityを変更しない。具象組立てはRootを逆参照せず、必要な実体へ依存する。開発用構築関数や診断内部関数を追加公開しない。Coordinator Rootは上位業務操作を再公開しない。CLIと親Directory・保存Root参照は切替済みだが、旧実Runtime Rootの処置と残る実行接続は未完了のため、公開面の接続だけを全移管完成とは扱わない。
 
 現在状態・Queue・Leaseの表示と操作は`storage/current-state.ts`、共通物理Writerと短期Ownerは`storage/settlement-store.ts`、終了要約と期限整理は`storage/history.ts`が所有する。同じSnapshotを同じOwnerの下で保存する。Task回復は`execution/recovery.ts`が元のexact世代・Task・Attempt・Operation・結果を照合する。技術cleanupと耐久受領は異なる意味だが別保存Ownerへ分けない。
 
@@ -403,7 +403,7 @@ Orchestratorの純粋判定はOS固有のPath、principal、Filesystem保護、L
 |---|---|---|
 | 純粋判定・値契約（18） | `state/projection.ts`; `state/types.ts`; `decision/types.ts`; `decision/records.ts`; `decision/request.ts`; `state/persistence.ts`; `state/model.ts`; `objective/request.ts`; `objective/types.ts`; `objective/plan.ts`; `state/result.ts`; `task/types.ts`; `state/request.ts`; `task/scheduling.ts`; `task/lifecycle.ts`; `task/acceptance.ts`; `storage/result-record.ts`; `task/recovery.ts` | 実行時の依存閉包はこの集合と決定論的Hash・Proxy検査の許可済みNode組込みへ限定し、現在時刻・乱数・I/Oを取得しない。 |
 | 業務操作（8） | `state/observation.ts`; `decision/lifecycle.ts`; `decision/acceptance.ts`; `objective/execute.ts`; `objective/replan.ts`; `state/query.ts`; `task/dispatch.ts`; `workspace/record.ts` | 受付・進行・読取り・受理を調停し、技術実行と保存のOwnerへ委譲する。 |
-| 接続・組立て・Transport（6） | `objective/composition.ts`; `decision/public-operation.ts`; `state/public-query.ts`; `task/requests.ts`; `workspace/commands.ts`; `workspace/operations.ts` | 上位公開操作と専門Packageを接続する。 |
+| 接続・組立て・Transport（4） | `objective/composition.ts`; `task/requests.ts`; `workspace/commands.ts`; `workspace/operations.ts` | 上位公開操作と専門Packageを接続する。 |
 | 保存（3） | `storage/current-state.ts`; `storage/history.ts`; `storage/protected-decision.ts` | 現在状態・履歴・判断の既存Writerと排他を所有する。 |
 | 単発実行・技術接続（12） | `execution/controller.ts`; `execution/authority.ts`; `execution/operation.ts`; `execution/result.ts`; `execution/recovery.ts`; `execution/observation.ts`; `execution/diagnostics.ts`; `execution/preparation.ts`; `execution/advice.ts`; `execution/request.ts`; `execution/kernel-lock.ts`; `execution/process-safety-state.ts` | 元の私有状態とLifecycleを保持し、隔離・OS技術は既存の専門Packageへ委譲する。 |
 | CLI（4） | `cli/command.ts`; `cli/options.ts`; `cli/recovery-report.ts`; `cli/cancellation.ts` | 引数・入力搬送・取消・出力を所有する。 |
@@ -411,7 +411,7 @@ Orchestratorの純粋判定はOS固有のPath、principal、Filesystem保護、L
 | 外部送信判断（3） | `decision/external-send-consent.ts`; `decision/external-send-grant.ts`; `decision/external-send-policy.ts` | Repository内の同意・Policyと一回Grantを保持する。 |
 | 公開入口（1） | `index.ts` | Package Rootの公開名・型／値区分を維持する。 |
 
-現行Source全57 Fileを重複なく照合し、新File・欠測・純粋集合の空集合を拒否する。宣言全体の型専用import／exportは実行時閉包へ数えない。通常宣言のinline type要素は型辺へ分けるが、値要素がなくても型除去後に空import／exportが残るため実行時ロード辺を維持する。型の所有境界は純粋集合内、または他Packageの実在する公開`src/index.ts`に限定し、自Packageの公開entry・業務操作・保存・Adapterへの型依存も純粋集合へ混入させない。Node組込みは型専用でも上表のexact module／symbolだけを許可する。`task/types.ts`からだけ、`execution/result.ts`の`CoordinatorWorkspaceResult`一型と、`task/dispatch.ts`の`COORDINATOR_EXECUTION_CONTRACT / COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT`二定数の型専用参照をexact集合で許可する。値import、別Symbol、欠測・重複・追加は拒否し、実行時閉包を拡張しない。`task/types.ts`の結果配送型はOrchestratorが受領する三状態と結果参照・終了観測の最小構造を所有し、Coordinator実装の戻り型から逆算しない。Adapterはcastで押し込まず構造適合を型検査する。
+現行Source全55 Fileを重複なく照合し、新File・欠測・純粋集合の空集合を拒否する。宣言全体の型専用import／exportは実行時閉包へ数えない。通常宣言のinline type要素は型辺へ分けるが、値要素がなくても型除去後に空import／exportが残るため実行時ロード辺を維持する。型の所有境界は純粋集合内、または他Packageの実在する公開`src/index.ts`に限定し、自Packageの公開entry・業務操作・保存・Adapterへの型依存も純粋集合へ混入させない。Node組込みは型専用でも上表のexact module／symbolだけを許可する。`task/types.ts`からだけ、`execution/result.ts`の`CoordinatorWorkspaceResult`一型と、`task/dispatch.ts`の`COORDINATOR_EXECUTION_CONTRACT / COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT`二定数の型専用参照をexact集合で許可する。値import、別Symbol、欠測・重複・追加は拒否し、実行時閉包を拡張しない。`task/types.ts`の結果配送型はOrchestratorが受領する三状態と結果参照・終了観測の最小構造を所有し、Coordinator実装の戻り型から逆算しない。Adapterはcastで押し込まず構造適合を型検査する。
 
 `objective/types.ts`は具体依存の署名を共有するため、`execution/controller.ts`の`startRuntimeOwnedCoordinatorTask / cancelRuntimeOwnedCoordinatorTask / captureRuntimeOwnedCoordinatorTaskResultDelivery`、`storage/protected-decision.ts`の`openRuntimeOwnedWindowsProjectDecisionStore`、`task/dispatch.ts`の`recordCoordinatorExecutionEvent`だけを型専用で参照できる。各辺は一つの名前を持つ型専用辺として検査し、値import・別Symbol・別Pathは拒否する。これらの実行値を型Moduleで生成・取得しない。
 

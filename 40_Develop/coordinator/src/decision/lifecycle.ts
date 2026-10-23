@@ -1,7 +1,7 @@
 /**
- * human-decisionに属する責務をまとめる。
+ * 人間判断の受付・対象確認・一回の適用・回復を所有する。
  *
- * @responsibility Commonを中心とする実装、型および境界を同じModuleで所有する。
+ * @responsibility Principal観測と公開要求の認証・対象検証を既存の判断遷移・保存へ接続する。
  * @trace ARCH-000005
  */
 
@@ -17,8 +17,26 @@ import {
   isCoordinatorDecisionRecord,
   type CoordinatorDecisionRecoveryIntent,
 } from "./records.ts";
-import { COORDINATOR_HUMAN_DECISION_CONTRACT } from "./request.ts";
-import { applyCoordinatorHumanDecision } from "../state/model.ts";
+import {
+  COORDINATOR_HUMAN_DECISION_CONTRACT,
+  inspectCoordinatorDecisionRequest,
+} from "./request.ts";
+import {
+  applyCoordinatorHumanDecision,
+  deriveCoordinatorRepositoryBindingId,
+} from "../state/model.ts";
+import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
+import {
+  COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
+  coordinatorDataBoundaryBlocked,
+} from "../state/result.ts";
+import {
+  createCurrentCoordinatorPersistencePorts as createCoordinatorPersistencePorts,
+  maintainCoordinatorSnapshot,
+  createCoordinatorSnapshotDecisionRecoveryStore as createCoordinatorDecisionRecoveryStore,
+} from "../storage/current-state.ts";
+import { RepositoryRuntimeDataAreaBlockedError } from "../../../domain-model/src/index.ts";
+import { openRuntimeOwnedWindowsProjectDecisionStore } from "../storage/protected-decision.ts";
 
 /**
  * hashを決定する。
@@ -1010,4 +1028,196 @@ export function recoverCoordinatorHumanDecision(
     manualRecoveryRequired: false,
     effectState: "settled" as const,
   });
+}
+
+/**
+ * Runtime所有の判断Storeを開き、Client Principalを観測する。
+ *
+ * @responsibility 保護Storeの確認結果をPrincipal観測結果へ投影する。
+ * @trace ARCH-000004
+ * @input N/A: 呼出し引数を受け取らない。
+ * @returns 検証できたPrincipal ID、またはunknownを返す。
+ * @precondition Runtime所有Storeを確認できる実行環境である。
+ * @postcondition 下位Storeがcompletedの場合だけverifiedを返す。
+ * @effect 下位Adapterを通じて保護Storeと実行環境を確認し、既存契約に従い未作成Storeを初期化し得る。
+ * @failure Storeを確認できなければunknownを返し、検証済みと扱わない。
+ * @invariant 観測不能を不存在または認証成功へ変換しない。
+ * @boundary 保護された判断Storeから公開Principal観測への境界。
+ * @security 秘密値や判断Authorityは返さず、検証済みPrincipal IDだけを公開する。
+ * @concurrency 下位Storeの排他・検証契約を変更せず、呼出しごとに観測する。
+ */
+export function observeRuntimeOwnedProjectClientPrincipal() {
+  const observed = openRuntimeOwnedWindowsProjectDecisionStore();
+  return observed.status === "completed"
+    ? Object.freeze({
+        status: "verified" as const,
+        principalId: observed.principalId,
+      })
+    : Object.freeze({ status: "unknown" as const });
+}
+
+/**
+ * Coordinator Public Decisionを実行する。
+ *
+ * @responsibility Coordinator Public Decisionの実行条件、Effect範囲、終了結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input openDecisionStore: typeof openRuntimeOwnedWindowsProjectDecisionStore、rawRequest: unknown、workingDirectory、authenticationContext: Readonly<{ principalId: string }>
+ * @returns executeCoordinatorPublicDecisionの計算結果を返す。
+ * @precondition 「openDecisionStore: typeof openRuntimeOwnedWindowsProjectDecisionStore、rawRequest: unknown、workingDirectory、authenticationContext: Readonly<{ principalId: string }>」がexecuteCoordinatorPublicDecisionの入力契約を満たす。
+ * @postcondition executeCoordinatorPublicDecisionの責務を完了した結果だけを返す。
+ * @effect 認証済み主体と判断記録を観測し、判断の保存と許可済み処置を既存Ownerへ委譲する。
+ * @failure executeCoordinatorPublicDecisionは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant 判断の対象・世代・既存処置の相関を維持し、二重処置へ補正しない。
+ * @boundary 公開判断入力→Principal観測・判断Store・処置委譲の境界を接続する。
+ * @security 認証済み主体と判断対象の相関を確認し、判断Capabilityの発行・消費を既存Ownerへ限定する。
+ * @concurrency 返却される非同期判断処理の完了・失敗を呼出し側へ搬送する。
+ */
+export function executeCoordinatorPublicDecision(
+  openDecisionStore: typeof openRuntimeOwnedWindowsProjectDecisionStore,
+  rawRequest: unknown,
+  workingDirectory = process.cwd(),
+  authenticationContext?: Readonly<{ principalId: string }>,
+) {
+  const request = inspectCoordinatorDecisionRequest(rawRequest);
+  if (!request)
+    return Object.freeze({
+      contract: COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
+      status: "blocked" as const,
+      reason: "orchestrator_decision_input_invalid",
+      cleanupConfirmed: true,
+      manualRecoveryRequired: false,
+      effectState: "no_effect" as const,
+    });
+  const { decisionId, projectId, milestoneId } = request;
+  let repositoryRoot: string;
+  try {
+    repositoryRoot =
+      resolveVerifiedRepositoryRootFromWorkingDirectory(workingDirectory);
+  } catch {
+    return Object.freeze({
+      contract: COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
+      status: "blocked" as const,
+      reason: "orchestrator_repository_root_not_verified",
+      cleanupConfirmed: true,
+      manualRecoveryRequired: false,
+      effectState: "no_effect" as const,
+    });
+  }
+  const protectedStore = openDecisionStore();
+  if (
+    protectedStore.status !== "completed" ||
+    (authenticationContext !== undefined &&
+      authenticationContext.principalId !== protectedStore.principalId)
+  )
+    return Object.freeze({
+      contract: COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
+      status: "blocked" as const,
+      reason: "orchestrator_decision_store_unavailable",
+      cleanupConfirmed: false,
+      manualRecoveryRequired: true,
+      effectState: "unknown" as const,
+    });
+  const decisionCapability = createCoordinatorDecisionCapabilityAdapter();
+  const recordId = coordinatorDecisionRecordId(
+    decisionCapability,
+    projectId,
+    milestoneId,
+    decisionId,
+  );
+  const observed = protectedStore.store.read(recordId) as Readonly<{
+    status: "completed";
+    value: Readonly<Record<string, unknown>> | null;
+  }> | null;
+  const record = observed?.status === "completed" ? observed.value : null;
+  if (
+    !record ||
+    typeof record.queueId !== "string" ||
+    typeof record.repositoryRevision !== "string"
+  )
+    return Object.freeze({
+      contract: COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
+      status: "blocked" as const,
+      reason: "orchestrator_decision_not_observed",
+      cleanupConfirmed: true,
+      manualRecoveryRequired: false,
+      effectState: "no_effect" as const,
+    });
+  const commonFields = {
+    projectId,
+    milestoneId,
+    queueId: record.queueId,
+    principalId: protectedStore.principalId,
+    store: protectedStore.store,
+    recoveryStore: createCoordinatorDecisionRecoveryStore(
+      repositoryRoot,
+      deriveCoordinatorRepositoryBindingId(repositoryRoot),
+    ),
+    capability: decisionCapability,
+    persistence: createCoordinatorPersistencePorts(
+      repositoryRoot,
+      deriveCoordinatorRepositoryBindingId(repositoryRoot),
+    ),
+  } as const;
+  const result =
+    record.disposition === "prepared"
+      ? recoverCoordinatorHumanDecision(commonFields, { recordId })
+      : submitCoordinatorHumanDecision(commonFields, {
+          decisionId,
+          recordId,
+          repositoryRevision: request.repositoryRevision,
+          generation: request.generation,
+          selectedOption: request.selectedOption,
+          continuationCapability: request.continuationCapability,
+        });
+  if (result.status === "completed") {
+    const maintained = maintainCoordinatorSnapshot(
+      repositoryRoot,
+      deriveCoordinatorRepositoryBindingId(repositoryRoot),
+    );
+    if (maintained.status !== "completed")
+      return Object.freeze({
+        ...result,
+        status: "blocked" as const,
+        reason: maintained.reason,
+        cleanupConfirmed: false,
+        manualRecoveryRequired: true,
+        effectState: "unknown" as const,
+      });
+  }
+  return result;
+}
+
+/**
+ * Production decision entry shared by the CLI and MCP process.
+ *
+ * @responsibility Coordinator Public Decisionの実行条件、Effect範囲、終了結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input rawRequest: unknown、workingDirectory、authenticationContext: Readonly<{ principalId: string }>
+ * @returns runCoordinatorPublicDecisionの計算結果を返す。
+ * @precondition 「rawRequest: unknown、workingDirectory、authenticationContext: Readonly<{ principalId: string }>」がrunCoordinatorPublicDecisionの入力契約を満たす。
+ * @postcondition runCoordinatorPublicDecisionの責務を完了した結果だけを返す。
+ * @effect 認証済み主体と判断記録を観測し、判断の保存と許可済み処置を既存Ownerへ委譲する。
+ * @failure runCoordinatorPublicDecisionは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant 判断の対象・世代・既存処置の相関を維持し、二重処置へ補正しない。
+ * @boundary 公開判断入力→Principal観測・判断Store・処置委譲の境界を接続する。
+ * @security 認証済み主体と判断対象の相関を確認し、判断Capabilityの発行・消費を既存Ownerへ限定する。
+ * @concurrency 返却される非同期判断処理の完了・失敗を呼出し側へ搬送する。
+ */
+export function runCoordinatorPublicDecision(
+  rawRequest: unknown,
+  workingDirectory = process.cwd(),
+  authenticationContext?: Readonly<{ principalId: string }>,
+) {
+  try {
+    return executeCoordinatorPublicDecision(
+      openRuntimeOwnedWindowsProjectDecisionStore,
+      rawRequest,
+      workingDirectory,
+      authenticationContext,
+    );
+  } catch (error) {
+    if (error instanceof RepositoryRuntimeDataAreaBlockedError)
+      return coordinatorDataBoundaryBlocked(error);
+    throw error;
+  }
 }

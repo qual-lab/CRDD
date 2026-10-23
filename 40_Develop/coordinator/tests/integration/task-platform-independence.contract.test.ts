@@ -146,8 +146,6 @@ const SOURCE_ROLES = {
   ],
   adapter: [
     "objective/composition.ts",
-    "decision/public-operation.ts",
-    "state/public-query.ts",
     "task/requests.ts",
     "workspace/commands.ts",
     "workspace/operations.ts",

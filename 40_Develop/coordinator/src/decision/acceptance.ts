@@ -1,7 +1,7 @@
 /**
- * 認証・認可済みの採用判断を検査して保存Portへ渡す。
+ * 明示受入判断の認証・対象検査と保存・状態反映を所有する。
  *
- * @responsibility 対象と判断の相関を確認し、保存済み判断の結果を返す。
+ * @responsibility 公開要求のPrincipal・Root・Revisionと判断の相関を確認し、既存の受入記録・状態反映へ接続する。
  * @trace ARCH-000004
  */
 
@@ -14,9 +14,29 @@ import {
   COORDINATOR_ACCEPTANCE_DECISION_CONTRACT,
   type CoordinatorAcceptanceDecisionRequest,
   validRequest,
+  createCoordinatorAcceptanceAuthorityAdapter,
 } from "./request.ts";
 import type { CoordinatorAcceptanceDecisionRecord } from "./records.ts";
-import { applyCoordinatorAcceptanceDecision } from "../state/model.ts";
+import {
+  applyCoordinatorAcceptanceDecision,
+  deriveCoordinatorRepositoryBindingId,
+} from "../state/model.ts";
+import {
+  resolveVerifiedRepositoryRootFromWorkingDirectory,
+  inspectRepositoryIdentityCandidate,
+} from "../../../version-control/src/index.ts";
+import {
+  COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
+  coordinatorDataBoundaryBlocked,
+} from "../state/result.ts";
+import { workspacePlanReadyForAcceptance } from "../workspace/operations.ts";
+import {
+  createCurrentCoordinatorPersistencePorts as createCoordinatorPersistencePorts,
+  createCoordinatorSnapshotAcceptanceDecisionStore as createCoordinatorAcceptanceDecisionStore,
+  maintainCoordinatorSnapshot,
+} from "../storage/current-state.ts";
+import { RepositoryRuntimeDataAreaBlockedError } from "../../../domain-model/src/index.ts";
+import { openRuntimeOwnedWindowsProjectDecisionStore } from "../storage/protected-decision.ts";
 
 /**
  * 受入判断要求を理由付き停止結果へ変換する。
@@ -291,4 +311,180 @@ export function recordCoordinatorAcceptanceDecision(
     cleanupConfirmed: true,
     manualRecoveryRequired: false,
   });
+}
+
+/**
+ * Public Acceptance Decisionを検証済みRepository、認証Principal、耐久Storeおよび状態Storeへ接続する。
+ *
+ * @responsibility SPEC-000002の明示判断だけを公開入口からAcceptance Decision Applicationへ搬送する。
+ * @trace ARCH-000005
+ * @input rawRequest: 未信頼要求、workingDirectory: Repository内Path、authenticationContext: 認証済みPrincipal。
+ * @returns Acceptance Decision Applicationの公開結果を返す。
+ * @precondition 認証ContextはRuntime-owned認証境界で構築される。
+ * @postcondition 成功時は一つのDecision Recordと必要な状態更新だけを確定する。
+ * @effect Repository-local Acceptance Decision StoreとCoordinator Stateだけを更新する。
+ * @failure Root、Revision、Principal、AuthorityまたはStoreを確認できない場合はEffectを拡張せず停止する。
+ * @invariant Task作成、Provider EffectおよびProjection由来Authorityを発行しない。
+ * @boundary 公開Transport→Coordinatorの受入判断→Repository-local Storeの境界。
+ * @security 認証Principalをexact比較し、非公開Store Pathや秘密値を結果へ含めない。
+ * @concurrency State世代とDecision Recordの排他的世代作成で競合を拒否する。
+ */
+export function executeCoordinatorPublicAcceptanceDecision(
+  authenticate: () =>
+    | Readonly<{ status: "completed"; principalId: string }>
+    | Readonly<{ status: "blocked"; principalId: null }>,
+  rawRequest: unknown,
+  workingDirectory = process.cwd(),
+  authenticationContext?: Readonly<{ principalId: string }>,
+) {
+  try {
+    let repositoryRoot: string;
+    try {
+      repositoryRoot =
+        resolveVerifiedRepositoryRootFromWorkingDirectory(workingDirectory);
+    } catch {
+      return Object.freeze({
+        contract: COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
+        status: "blocked" as const,
+        reason: "orchestrator_repository_root_not_verified",
+        cleanupConfirmed: true,
+        manualRecoveryRequired: false,
+        effectState: "no_effect" as const,
+      });
+    }
+    const identity = inspectRepositoryIdentityCandidate(repositoryRoot);
+    const candidate =
+      rawRequest && typeof rawRequest === "object"
+        ? (rawRequest as Readonly<{
+            repositoryRevision?: unknown;
+            projectId?: unknown;
+            milestoneId?: unknown;
+            principalId?: unknown;
+            decision?: unknown;
+          }>)
+        : null;
+    if (
+      !identity ||
+      typeof candidate?.repositoryRevision !== "string" ||
+      typeof candidate.projectId !== "string" ||
+      typeof candidate.milestoneId !== "string" ||
+      !(
+        (candidate.decision !== "accept" &&
+          identity.commit === candidate.repositoryRevision) ||
+        workspacePlanReadyForAcceptance(
+          repositoryRoot,
+          deriveCoordinatorRepositoryBindingId(repositoryRoot),
+          candidate.projectId,
+          candidate.milestoneId,
+          candidate.repositoryRevision,
+          identity.commit,
+        )
+      )
+    )
+      return Object.freeze({
+        contract: COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
+        status: "blocked" as const,
+        reason: "orchestrator_acceptance_revision_mismatch",
+        cleanupConfirmed: true,
+        manualRecoveryRequired: false,
+        effectState: "no_effect" as const,
+      });
+    const authenticated = authenticate();
+    if (
+      authenticated.status !== "completed" ||
+      authenticationContext === undefined ||
+      authenticationContext.principalId !== authenticated.principalId ||
+      candidate.principalId !== authenticated.principalId ||
+      typeof candidate.projectId !== "string"
+    )
+      return Object.freeze({
+        contract: COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
+        status: "blocked" as const,
+        reason: "orchestrator_authenticated_principal_not_verified",
+        cleanupConfirmed: true,
+        manualRecoveryRequired: false,
+        effectState: "no_effect" as const,
+      });
+    const repositoryBindingId =
+      deriveCoordinatorRepositoryBindingId(repositoryRoot);
+    const result = recordCoordinatorAcceptanceDecision(
+      Object.freeze({
+        state: createCoordinatorPersistencePorts(
+          repositoryRoot,
+          repositoryBindingId,
+        ).state,
+        authority: createCoordinatorAcceptanceAuthorityAdapter(
+          authenticated.principalId,
+        ),
+        store: createCoordinatorAcceptanceDecisionStore(
+          repositoryRoot,
+          repositoryBindingId,
+        ),
+      }),
+      rawRequest,
+    );
+    if (result.status === "completed") {
+      const maintenance = maintainCoordinatorSnapshot(
+        repositoryRoot,
+        repositoryBindingId,
+      );
+      if (maintenance.status !== "completed")
+        return Object.freeze({
+          ...result,
+          status: "blocked" as const,
+          reason: maintenance.reason,
+          cleanupConfirmed: false,
+          manualRecoveryRequired: true,
+        });
+    }
+    return result;
+  } catch (error) {
+    if (error instanceof RepositoryRuntimeDataAreaBlockedError)
+      return coordinatorDataBoundaryBlocked(error);
+    return Object.freeze({
+      contract: COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
+      status: "blocked" as const,
+      reason: "orchestrator_acceptance_boundary_unknown",
+      cleanupConfirmed: false,
+      manualRecoveryRequired: true,
+      effectState: "unknown" as const,
+    });
+  }
+}
+
+/**
+ * Production認証境界を用いてPublic Acceptance Decisionを実行する。
+ *
+ * @responsibility Runtime-owned Principal観測を公開Acceptance Decision入口へ固定する。
+ * @trace ARCH-000005
+ * @input rawRequest: 未信頼要求、workingDirectory: Repository内Path、authenticationContext: 認証済みPrincipal。
+ * @returns executeCoordinatorPublicAcceptanceDecisionの結果を返す。
+ * @precondition Runtime-owned Windows Decision StoreがLocal Principalを検証できる。
+ * @postcondition Production入口は検証済みPrincipalだけをCoreへ渡す。
+ * @effect Acceptance Decision Recordと必要なCoordinator Stateだけを更新する。
+ * @failure 認証またはRuntime Data観測不能を理由付き停止へ変換する。
+ * @invariant Test専用認証をProduction入口へ使用しない。
+ * @boundary Local TransportとProduction Composition Rootの境界。
+ * @security Store自体を公開せずPrincipal観測結果だけをAuthorityへ渡す。
+ * @concurrency 下位Storeの世代制御を維持する。
+ */
+export function runCoordinatorPublicAcceptanceDecision(
+  rawRequest: unknown,
+  workingDirectory = process.cwd(),
+  authenticationContext?: Readonly<{ principalId: string }>,
+) {
+  return executeCoordinatorPublicAcceptanceDecision(
+    () => {
+      const observed = openRuntimeOwnedWindowsProjectDecisionStore();
+      return observed.status === "completed"
+        ? Object.freeze({
+            status: "completed" as const,
+            principalId: observed.principalId,
+          })
+        : Object.freeze({ status: "blocked" as const, principalId: null });
+    },
+    rawRequest,
+    workingDirectory,
+    authenticationContext,
+  );
 }

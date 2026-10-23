@@ -13,8 +13,8 @@ import { openRuntimeOwnedWindowsProjectDecisionStore } from "../storage/protecte
 import { writeCoordinatorExecutionIntelligenceDiagnostic } from "../execution/diagnostics.ts";
 import { coordinatorDataBoundaryBlocked } from "../state/result.ts";
 import { RepositoryRuntimeDataAreaBlockedError } from "../../../domain-model/src/index.ts";
-import { executeCoordinatorPublicDecision } from "../decision/public-operation.ts";
-import { executeCoordinatorPublicStateQuery } from "../state/public-query.ts";
+import { executeCoordinatorPublicDecision } from "../decision/lifecycle.ts";
+import { executeCoordinatorPublicStateQuery } from "../state/query.ts";
 import type {
   PublicExecutionDependencies,
   CoordinatorPublicDevelopmentDependencies,

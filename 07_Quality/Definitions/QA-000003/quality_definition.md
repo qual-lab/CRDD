@@ -2,7 +2,7 @@
 
 ## 公開操作・Objective再設計の検証再開 — 2026-10-24
 
-[今回の設計方針](../../../06_Architecture/Details/coordinator/03_Task_Architecture.md#公開操作とobjectiveの再設計方針--2026-10-24)と[実施段階](../../../99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md)に従い、内部構造と公開契約の検証を分ける。Objective六Sourceの直接回帰・受付再入場と診断・限定独立確認は同計画§9へ接続し、長い連続回帰と区別する。新API・CLI・認証・設定の試験実績は未取得とする。旧Sourceの成功を新方式の結果へ換算しない。
+[今回の設計方針](../../../06_Architecture/Details/coordinator/03_Task_Architecture.md#公開操作とobjectiveの再設計方針--2026-10-24)と[実施段階](../../../99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md)に従い、内部構造と公開契約の検証を分ける。Objective六Sourceの連続回帰64件と直接回帰・限定独立確認は同計画§9、本番`public-*`撤去後の境界・利用側・独立確認は§10へ接続する。後続のWorkspace／品質受入結合は実行中であり、全体完了としない。新API・CLI・認証・設定の本番切替の試験実績は未取得とする。旧Sourceの成功を新方式の結果へ換算しない。
 
 | 単位 | 維持・確認する検証義務 |
 |---|---|

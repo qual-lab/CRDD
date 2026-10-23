@@ -368,7 +368,9 @@
       "symbolId": "coordinator.test-support.source-declaration",
       "kind": "file",
       "path": "tests/support/source-declaration.ts",
-      "archIds": ["ARCH-000008"]
+      "archIds": [
+        "ARCH-000008"
+      ]
     },
     {
       "symbolId": "coordinator.test-support.auth-create-closure",
@@ -4337,7 +4339,7 @@
     {
       "symbolId": "orchestrator.decision-public-operation",
       "kind": "file",
-      "path": "src/decision/public-operation.ts",
+      "path": "src/decision/lifecycle.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -4345,7 +4347,7 @@
     {
       "symbolId": "orchestrator.decision-public-acceptance",
       "kind": "file",
-      "path": "src/decision/public-operation.ts",
+      "path": "src/decision/acceptance.ts",
       "archIds": [
         "ARCH-000005"
       ]
@@ -4353,7 +4355,7 @@
     {
       "symbolId": "orchestrator.state-public-query",
       "kind": "file",
-      "path": "src/state/public-query.ts",
+      "path": "src/state/query.ts",
       "archIds": [
         "ARCH-000005"
       ]

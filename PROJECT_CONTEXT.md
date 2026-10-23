@@ -12,7 +12,7 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
-次の作業は、利用者の四添付に基づく[Coordinator公開操作・認証・AI選択の再設計](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md)。Objective六Sourceと`public-*`の責務分配、正式API／CLI、Provider認証、技術カタログとRepository別選択を順に扱う。旧形式Readerは追加せず、移行はフロントAIが担当する。計画・Architecture／Qualityを反映し、Objective六Sourceへ共有型・進行・Task入力変換・本番構成を分配し、旧Objective受付Fileを撤去した。公開217項目と保存契約を維持し、短回帰29件・受付再入場と診断10件・利用側閉包16件・静的確認・限定独立レビューは成功／残指摘0。長い連続回帰は実行中であり、残る`public-*`撤去、新API・CLI・認証・設定は未完了である。②と保持物の制限は継続する。
+現在は、利用者の四添付に基づく[Coordinator公開操作・認証・AI選択の再設計](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md)を進行中。Objective六Sourceへの分配と本番`public-*`撤去を行い、受入判断・人間判断・照会を既存Ownerへ統合した。公開217項目と保存契約は維持。Objective連続回帰64件、短回帰29件、公開受付10件、移管後の境界24件、利用側閉包16件と静的・限定独立確認は成功／残指摘0。Workspace・品質受入を含む後続結合は実行中であり、全体完了ではない。次は技術カタログとRepository別選択を本番接続してから正式Task APIを確定し、旧Storeを新APIへ一時露出させる二度変更を避ける。旧形式Readerは追加せず移行はフロントAIが担当する。正式API／CLI・共通認証・新設定の全体切替は未完了。②のAI再試行と保持物操作は行わない。
 
 Coordinator構造再設計の残る配置を56 Sourceへ一括移管し、今回のSource・利用側・試験・設計／登録追従を限定完了とした。公開Root217項目と保存B六Fileの本文は維持する。固定本番Sourceの全体回帰は1,854件中1,830成功・19失敗・5skipで完走。19失敗はすべて試験側の旧配置前提へ対応付け、修正版の対象Suiteを275件・13件・47件・21件で全成功まで確認した。最初の全体Commandを成功へ読み替えない。静的検査、Windows保存、直接利用側、限定独立レビューは成功／残指摘0。[最終結果と限界](99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#3822-残るsource配置の一括移管と最終確認)を参照する。横断QAと実境界E2Eは別途残り、実AI②・保持物・実Docker・認証は今回の対象外。
 
