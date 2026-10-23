@@ -1006,7 +1006,7 @@ function safePlan(plan: ProviderAdviceExecutionPlan) {
   return (
     plan.mode === "workbench_advice" &&
     plan.providerCommand.provider === plan.provider &&
-    plan.providerCommand.exactModelId === plan.exactModelId &&
+    plan.providerCommand.modelIdentifier === plan.exactModelId &&
     plan.providerCommand.reasoningEffort === plan.reasoningEffort &&
     plan.providerCommand.promptTransport === "stdin_only" &&
     plan.providerCommand.repositoryMounted === false &&

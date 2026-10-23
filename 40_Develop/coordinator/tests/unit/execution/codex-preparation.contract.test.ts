@@ -335,10 +335,11 @@ test("Workbench助言をRepository非共有のCodex Planへ固定する", () => 
       {
         provider: "codex",
         purpose: "advice",
-        input: {
+        modelSelection: {
           provider: "codex",
-          exactModelId: "gpt-5.5",
+          modelIdentifier: "gpt-5.6-sol",
           reasoningEffort: "low",
+          identifierKind: "exact",
         },
         resultSchema: describeAdviceResultSchema(),
       },
@@ -347,6 +348,11 @@ test("Workbench助言をRepository非共有のCodex Planへ固定する", () => 
   );
   const fixture = createFixture(
     {
+      consumeModelSelection: () => ({
+        ...MODEL_SELECTION,
+        profileId: "PROFILE-100003",
+        model: "gpt-5.6-sol",
+      }),
       consumeAdvicePacket: () =>
         Object.freeze({
           contract: "crdd-coordinator/workbench-ai-advice-runtime-packet",

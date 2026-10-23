@@ -93,6 +93,35 @@ test("共通計画APIは用途・Provider・選定の不一致と入力Trapを�
     assert.ok(result.error);
   }
   assert.equal(trapCount, 0);
+  for (const provider of ["codex", "claude"] as const) {
+    const probe = {
+      provider,
+      purpose: "probe",
+      input: {
+        provider,
+        mode: "read_only_probe",
+        ...(provider === "codex" ? { effort: "low" } : {}),
+      },
+    };
+    for (const extra of [
+      {
+        modelSelection: {
+          provider,
+          modelIdentifier: provider === "codex" ? "gpt-5.6-sol" : "opus",
+          identifierKind: provider === "codex" ? "exact" : "alias",
+          reasoningEffort: "low",
+        },
+      },
+      { resultSchema: { type: "object" } },
+    ]) {
+      const result = planProviderExecution({
+        ...probe,
+        ...extra,
+      } as unknown as ProviderExecutionInput);
+      assert.equal(result.status, "blocked");
+      assert.equal(result.plan, null);
+    }
+  }
   assert.equal(
     evaluateProviderTaskScope("unknown" as "codex", "executor", {}).status,
     "blocked",
@@ -269,6 +298,12 @@ test("Codex／ClaudeのExecutor・Reviewer計画を同じProvider境界Matrixで
             {
               provider: "codex",
               purpose: "task",
+              modelSelection: {
+                provider: "codex",
+                modelIdentifier: "gpt-5.5",
+                identifierKind: "exact",
+                reasoningEffort: "low",
+              },
               input: {
                 provider: "codex",
                 mode: "isolated_task",
@@ -282,6 +317,12 @@ test("Codex／ClaudeのExecutor・Reviewer計画を同じProvider境界Matrixで
             {
               provider: "claude",
               purpose: "task",
+              modelSelection: {
+                provider: "claude",
+                modelIdentifier: "opus",
+                identifierKind: "alias",
+                reasoningEffort: "low",
+              },
               input: {
                 provider: "claude",
                 mode: "isolated_task",

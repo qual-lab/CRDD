@@ -16,6 +16,7 @@ import test from "node:test";
 import {
   projectCodexExecutionBoundary,
   describeProviderExecution,
+  describeProviderAuthentication,
 } from "../../../ai-adapter/src/index.ts";
 import { describeDockerProviderExecutionLocations } from "../../../docker-isolation/src/index.ts";
 import { describeDockerProviderAssets } from "../../../docker-isolation/src/index.ts";
@@ -90,6 +91,14 @@ test("Codex境界診断はpayloadの承認優先順と最初のsandbox値を保�
  * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("公式Codex artifactとSubscription限定のread-only計画を固定する", () => {
+  const authentication = describeProviderAuthentication("codex");
+  assert.deepEqual(authentication.loginArgv, ["login", "--device-auth"]);
+  assert.deepEqual(authentication.statusArgv, ["login", "status"]);
+  assert.equal(authentication.offering, "chatgpt_subscription_oauth");
+  assert.equal(authentication.authorityOrigin, "https://chatgpt.com");
+  assert.ok(Object.isFrozen(authentication));
+  assert.ok(Object.isFrozen(authentication.loginArgv));
+  assert.ok(Object.isFrozen(authentication.statusArgv));
   const plan =
     planProviderExecution(
       {
@@ -231,6 +240,12 @@ test("一般Taskはroot denyとRole別workspace権限をstdin計画へ固定す�
       {
         provider: "codex",
         purpose: "task",
+        modelSelection: {
+          provider: "codex",
+          modelIdentifier: "gpt-5.5",
+          identifierKind: "exact",
+          reasoningEffort: "low",
+        },
         input: {
           provider: "codex",
           mode: "isolated_task",
@@ -245,6 +260,12 @@ test("一般Taskはroot denyとRole別workspace権限をstdin計画へ固定す�
       {
         provider: "codex",
         purpose: "task",
+        modelSelection: {
+          provider: "codex",
+          modelIdentifier: "gpt-5.5",
+          identifierKind: "exact",
+          reasoningEffort: "high",
+        },
         input: {
           provider: "codex",
           mode: "isolated_task",
@@ -529,6 +550,12 @@ test("固定Codex imageはbwrapとExecutor用の限定seccomp境界を固定す�
       {
         provider: "codex",
         purpose: "task",
+        modelSelection: {
+          provider: "codex",
+          modelIdentifier: "gpt-5.5",
+          identifierKind: "exact",
+          reasoningEffort: "low",
+        },
         input: {
           provider: "codex",
           mode: "isolated_task",

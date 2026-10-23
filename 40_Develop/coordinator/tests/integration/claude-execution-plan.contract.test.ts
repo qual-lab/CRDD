@@ -17,6 +17,7 @@ import {
   CLAUDE_EXECUTION_PLAN_CONTRACT,
   CLAUDE_EXECUTION_PLAN_CONTRACT_REVISION,
   describeProviderExecution,
+  describeProviderAuthentication,
 } from "../../../ai-adapter/src/index.ts";
 import { describeDockerProviderExecutionLocations } from "../../../docker-isolation/src/index.ts";
 import { describeDockerProviderAssets } from "../../../docker-isolation/src/index.ts";
@@ -120,6 +121,14 @@ test("ClaudeのCLI契約に過去の配布・認証観測を含めない", () =>
  * @boundary ERB-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Claude認証はsubscription OAuth候補だけを残しAPI課金経路を拒否する", () => {
+  const definition = describeProviderAuthentication("claude");
+  assert.deepEqual(definition.loginArgv, ["auth", "login", "--claudeai"]);
+  assert.deepEqual(definition.statusArgv, ["auth", "status", "--json"]);
+  assert.equal(definition.offering, "claude_max");
+  assert.equal(definition.authorityOrigin, "https://claude.ai");
+  assert.ok(Object.isFrozen(definition));
+  assert.ok(Object.isFrozen(definition.loginArgv));
+  assert.ok(Object.isFrozen(definition.statusArgv));
   const contract = describeProviderExecution("claude");
   const authentication = contract.authentication;
   assert.equal(authentication.loginPolicy, "existing_subscription_oauth");
@@ -334,6 +343,12 @@ test("一般TaskはRole別built-in tools、stdin、Provider Home denyへ固定�
       {
         provider: "claude",
         purpose: "task",
+        modelSelection: {
+          provider: "claude",
+          modelIdentifier: "opus",
+          identifierKind: "alias",
+          reasoningEffort: "low",
+        },
         input: {
           provider: "claude",
           mode: "isolated_task",
@@ -354,6 +369,12 @@ test("一般TaskはRole別built-in tools、stdin、Provider Home denyへ固定�
       {
         provider: "claude",
         purpose: "task",
+        modelSelection: {
+          provider: "claude",
+          modelIdentifier: "opus",
+          identifierKind: "alias",
+          reasoningEffort: "high",
+        },
         input: {
           provider: "claude",
           mode: "isolated_task",

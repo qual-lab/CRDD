@@ -2,7 +2,7 @@
  * Workbench助言Runtime Packetの一回消費と非共有境界を検証する。
  *
  * @packageDocumentation
- * @responsibility 正常発行、再利用拒否、取消および不正Command拒否を決定論的に確認する。
+ * @responsibility 改訂2 Commandの閉形式・識別種別とCatalog IdentityのHash相関、正常発行、一回消費、取消および旧形拒否を確認する。
  * @trace ERB-UT-023
  * @level UT
  * @scope coordinator、contract、node_process
@@ -18,6 +18,7 @@ import {
   describeProviderAdvicePacketContract,
   issueRuntimeOwnedProviderAdvicePacket,
   revokeRuntimeOwnedProviderAdvicePacket,
+  hashProviderAdviceCommand,
 } from "../../../src/execution/preparation.ts";
 import { describeDockerProviderExecutionLocations } from "../../../../docker-isolation/src/index.ts";
 import { bindProviderAdviceCommand } from "../../../src/execution/preparation.ts";
@@ -49,10 +50,11 @@ function input() {
         {
           provider: "codex",
           purpose: "advice",
-          input: {
+          modelSelection: {
             provider: "codex",
-            exactModelId: "gpt-6-sol",
+            modelIdentifier: "gpt-5.6-sol",
             reasoningEffort: "medium",
+            identifierKind: "exact",
           },
           resultSchema: describeAdviceResultSchema(),
         },
@@ -69,13 +71,25 @@ describe("workbench ai advice runtime packet", () => {
    * @responsibility issues and consumes an exact packet only onceを検証するの検証責務を所有する。
    * @trace ERB-UT-023
    * @precondition 対象契約を再現できる固定入力と依存を用意する。
-   * @stimulus issues and consumes an exact packet only onceの対象操作を実行する。
-   * @observation 返却値、状態、Effectおよび終了後条件を観測する。
-   * @oracle Test本文のassertionがSummaryの期待条件を満たす。
+   * @stimulus 識別種別・Catalog Identityを個別変更してHash比較し、Packetを発行・消費する。
+   * @observation Hash差、返却値、一回消費後の利用不能とEffect非発行を観測する。
+   * @oracle 同じModel名でも種別・Catalog Identity差は別Hashになり、再消費できない。
    * @cleanup N/A: Process外資源を生成しない局所検証である。
    * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
    */
   it("issues and consumes an exact packet only once", () => {
+    const command = input().providerCommand;
+    assert.notEqual(
+      hashProviderAdviceCommand(command),
+      hashProviderAdviceCommand({ ...command, identifierKind: "alias" }),
+    );
+    assert.notEqual(
+      hashProviderAdviceCommand(command),
+      hashProviderAdviceCommand({
+        ...command,
+        catalogIdentity: "c".repeat(64),
+      }),
+    );
     const issued = issueRuntimeOwnedProviderAdvicePacket(input());
     assert.equal(issued.status, "issued");
     assert.match(issued.packetRef ?? "", /^ADVICEPKT-[A-F0-9]{32}$/u);
@@ -188,6 +202,22 @@ describe("workbench ai advice runtime packet", () => {
     assert.equal(result.providerEffectIssued, false);
     assert.equal(result.ownerCapability, null);
     assert.equal(result.useCapability, null);
+    for (const difference of [
+      { contractRevision: 1 },
+      { catalogIdentity: "invalid" },
+      { identifierKind: "unknown" },
+    ]) {
+      const invalid = issueRuntimeOwnedProviderAdvicePacket({
+        ...current,
+        providerCommand: {
+          ...current.providerCommand,
+          ...difference,
+        } as unknown as ProviderAdviceCommand,
+      });
+      assert.equal(invalid.status, "blocked");
+      assert.equal(invalid.ownerCapability, null);
+      assert.equal(invalid.providerEffectIssued, false);
+    }
   });
 
   /**

@@ -310,6 +310,12 @@ test("実plannerのProbe・Task・助言設定は通知全文へ接続しClaude�
       {
         provider: "codex",
         purpose: "task",
+        modelSelection: {
+          provider: "codex",
+          modelIdentifier: "gpt-5.5",
+          identifierKind: "exact",
+          reasoningEffort: "low",
+        },
         input: {
           provider: "codex",
           mode: "isolated_task",
@@ -324,6 +330,12 @@ test("実plannerのProbe・Task・助言設定は通知全文へ接続しClaude�
       {
         provider: "codex",
         purpose: "task",
+        modelSelection: {
+          provider: "codex",
+          modelIdentifier: "gpt-5.5",
+          identifierKind: "exact",
+          reasoningEffort: "low",
+        },
         input: {
           provider: "codex",
           mode: "isolated_task",
@@ -341,10 +353,11 @@ test("実plannerのProbe・Task・助言設定は通知全文へ接続しClaude�
       {
         provider: "codex",
         purpose: "advice",
-        input: {
+        modelSelection: {
           provider: "codex",
-          exactModelId: "gpt-5.5",
+          modelIdentifier: "gpt-5.5",
           reasoningEffort: "low",
+          identifierKind: "exact",
         },
         resultSchema: { type: "object" },
       },
@@ -356,10 +369,11 @@ test("実plannerのProbe・Task・助言設定は通知全文へ接続しClaude�
       {
         provider: "claude",
         purpose: "advice",
-        input: {
+        modelSelection: {
           provider: "claude",
-          exactModelId: "opus",
+          modelIdentifier: "opus",
           reasoningEffort: "low",
+          identifierKind: "alias",
         },
         resultSchema: { type: "object" },
       },

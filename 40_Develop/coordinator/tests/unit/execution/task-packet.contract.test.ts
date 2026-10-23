@@ -531,6 +531,12 @@ test("固定4経路の実TaskからReviewer指示と未変更の上限・読取�
         planProviderExecution({
           provider: "claude",
           purpose: "task",
+          modelSelection: {
+            provider: "claude",
+            modelIdentifier: "opus",
+            identifierKind: "alias",
+            reasoningEffort: "medium",
+          },
           input: {
             provider: "claude",
             mode: "isolated_task",

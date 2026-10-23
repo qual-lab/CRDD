@@ -12,7 +12,13 @@ AI AdapterはProvider／具体Model／対応Effort／技術Capability・互換�
 
 2026-10-24の利用者判断により、旧形式の移行はフロントAIが担当し、製品は新形式だけを実装する。旧Profile Reader、二つの設定正本、同じProfile IDの別Modelへの暗黙再割当てを追加しない。現行設定と保存済み実行参照の処置を先に特定し、未移行の設定・不明な状態を新方式として実行しない。保持中②の試験物と過去Evidenceは変更しない。
 
-認証の共通操作はCoordinatorの`auth status/login <provider>`と正式APIから提供する目標である。AI AdapterはProvider固有のstatus／login引数・方式だけを記述し、Host資源・Home保護・取消・Recoveryを所有しない。現行Codexのlogin定義は未実装であり、固定CLIの実在する手順・制約を確認するまでは新しいlogin引数や完了条件を補完しない。共通APIの存在を両Providerの実認証成立に読み替えない。
+認証の共通操作はCoordinatorの`auth status/login <provider>`と正式APIから提供する目標である。AI AdapterはProvider固有のstatus／login引数・方式だけを記述し、Host資源・Home保護・取消・Recoveryを所有しない。Codexのlogin定義は公式手順に従う`login --device-auth`とし、Provider固定のOfferingと認証Originを同じ認証記述が所有する。固定Image内のCLI対応、対話、取消・回収および認証成立の実確認は未完了であり、引数定義を実ログイン成立と扱わない。API Keyや認証File複製へのfallbackを追加しない。
+
+### 共通実行計画の新しい選定境界
+
+`planProviderExecution`は、助言とTaskで四項目の`modelSelection`（`provider / modelIdentifier / identifierKind / reasoningEffort`）を必須とする。技術Catalogへ用途・Effort・識別種別を照合し、同じ値と`catalogIdentity`を計画へ保持する。`opus`をexact Modelへ変換しない。内部認証probeにはRepositoryのModel選定を渡さず、指定があれば拒否する。これはRepository設定の本番接続完了を意味しない。
+
+助言Command契約は改訂2で、旧`exactModelId`を受理しない。CoordinatorのPacketは改訂・閉形式を確認し、識別種別とCatalog IdentityをCommand Hashへ含める。結果Schemaは両Provider共通で通常のJSON値へ独立固定してから文字列化し、Getter・Proxy・toJSON・循環・非JSON値を拒否する。起動、Home、送信許可、取消・回収は従来のOwnerに残す。
 
 ## Docker配置とProvider操作の分離 — 2026-10-19
 

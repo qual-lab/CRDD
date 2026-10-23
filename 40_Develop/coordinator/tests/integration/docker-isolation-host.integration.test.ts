@@ -75,6 +75,12 @@ test("Windows Process Gate: Codex編集CLI起動と借用三Mountを無通信で
       {
         provider: "codex",
         purpose: "task",
+        modelSelection: {
+          provider: "codex",
+          modelIdentifier: "gpt-5.5",
+          identifierKind: "exact",
+          reasoningEffort: "low",
+        },
         input: {
           provider: "codex",
           mode: "isolated_task",

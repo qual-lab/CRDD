@@ -12,12 +12,17 @@ import type { AiProvider } from "../provider/types.ts";
 const AUTHENTICATION_DEFINITIONS = Object.freeze({
   codex: Object.freeze({
     provider: "codex" as const,
+    offering: "chatgpt_subscription_oauth" as const,
+    authorityOrigin: "https://chatgpt.com" as const,
+    loginArgv: Object.freeze(["login", "--device-auth"]),
     statusArgv: Object.freeze(["login", "status"]),
     homeEnvironmentVariable: "CODEX_HOME" as const,
     homeDirectoryName: "codex" as const,
   }),
   claude: Object.freeze({
     provider: "claude" as const,
+    offering: "claude_max" as const,
+    authorityOrigin: "https://claude.ai" as const,
     loginArgv: Object.freeze(["auth", "login", "--claudeai"]),
     statusArgv: Object.freeze(["auth", "status", "--json"]),
     homeDirectoryName: "claude" as const,

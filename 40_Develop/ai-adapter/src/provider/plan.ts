@@ -5,8 +5,13 @@
  * @trace ARCH-000015
  */
 import type { AiProvider, AiReasoningEffort } from "./types.ts";
-import { snapshotPlainRecord } from "../../../domain-model/src/index.ts";
-import { validateProviderModelId } from "../profile/validation.ts";
+import {
+  snapshotPlainRecord,
+  snapshotPlainArray,
+} from "../../../domain-model/src/index.ts";
+import { types as utilTypes } from "node:util";
+import type { AiModelSelection } from "../catalog/types.ts";
+import { resolveAiModelSelection } from "../catalog/resolve.ts";
 import {
   planCodexAdviceCommand,
   planCodexIsolatedTask,
@@ -25,7 +30,7 @@ import type { ProviderExecutionLocations } from "./types.ts";
 
 export const PROVIDER_ADVICE_COMMAND_CONTRACT =
   "crdd-coordinator/workbench-ai-advice-provider-command";
-export const PROVIDER_ADVICE_COMMAND_CONTRACT_REVISION = 1;
+export const PROVIDER_ADVICE_COMMAND_CONTRACT_REVISION = 2;
 
 /**
  * Provider計画で使う選定済みModelと推論強度を表す。
@@ -39,11 +44,10 @@ export const PROVIDER_ADVICE_COMMAND_CONTRACT_REVISION = 1;
  * @compatibility 変更時は全Consumer、Schemaおよび契約試験を同時更新する。
  */
 
-export type ProviderModelSelection = Readonly<{
-  provider: "codex" | "claude";
-  exactModelId: string;
-  reasoningEffort: AiReasoningEffort;
-}>;
+export type ProviderModelSelection = Pick<
+  AiModelSelection,
+  "provider" | "modelIdentifier" | "identifierKind" | "reasoningEffort"
+>;
 
 /**
  * Workbench助言のProvider Command境界で使用するProviderAdvicePlanの構造を固定する。
@@ -64,7 +68,9 @@ export type ProviderAdvicePlan = Readonly<{
   command: string;
   argv: readonly string[];
   environment: Readonly<Record<string, string>>;
-  exactModelId: string;
+  modelIdentifier: string;
+  identifierKind: "exact" | "alias";
+  catalogIdentity: string;
   reasoningEffort: AiReasoningEffort;
   promptTransport: "stdin_only";
   resultTransport: "codex_cli_jsonl" | "claude_json_envelope";
@@ -144,7 +150,12 @@ type ProviderPlans = {
     task: Extract<
       ReturnType<typeof planCodexIsolatedTask>,
       { status: "candidate" }
-    >;
+    > &
+      Readonly<{
+        modelIdentifier: string;
+        identifierKind: "exact" | "alias";
+        catalogIdentity: string;
+      }>;
     probe: Extract<
       ReturnType<typeof planCodexReadOnlyProbe>,
       { status: "candidate" }
@@ -155,7 +166,12 @@ type ProviderPlans = {
     task: Extract<
       ReturnType<typeof planClaudeIsolatedTask>,
       { status: "candidate" }
-    >;
+    > &
+      Readonly<{
+        modelIdentifier: string;
+        identifierKind: "exact" | "alias";
+        catalogIdentity: string;
+      }>;
     probe: Extract<
       ReturnType<typeof planClaudeReadOnlyProbe>,
       { status: "candidate" }
@@ -181,15 +197,17 @@ export type ProviderExecutionInput<
   ? Readonly<{
       provider: P;
       purpose: K;
-      input: ProviderModelSelection;
+      modelSelection: ProviderModelSelection;
       resultSchema: Readonly<Record<string, unknown>>;
     }>
-  : Readonly<{
-      provider: P;
-      purpose: K;
-      input: unknown;
-      modelSelection?: ProviderModelSelection;
-    }>;
+  : K extends "task"
+    ? Readonly<{
+        provider: P;
+        purpose: K;
+        input: unknown;
+        modelSelection: ProviderModelSelection;
+      }>
+    : Readonly<{ provider: P; purpose: K; input: unknown }>;
 
 /**
  * Providerと用途で識別できる成功計画を表す。
@@ -342,155 +360,202 @@ export function planProviderExecution<
   const snapshot =
     snapshotPlainRecord(
       request,
-      new Set(["provider", "purpose", "input", "resultSchema"]),
+      new Set(["provider", "purpose", "modelSelection", "resultSchema"]),
     ) ??
     snapshotPlainRecord(
       request,
       new Set(["provider", "purpose", "input", "modelSelection"]),
     ) ??
     snapshotPlainRecord(request, new Set(["provider", "purpose", "input"]));
-  if (
-    !snapshot ||
-    (snapshot.provider !== "codex" && snapshot.provider !== "claude")
-  ) {
-    return Object.freeze({
+  const provider = snapshot?.provider;
+  const reject = (
+    reason: ProviderPlanningReason,
+  ): ProviderExecutionPlanResult<P, K> =>
+    Object.freeze({
       status: "blocked",
       plan: null,
       error: Object.freeze({
-        provider: null,
-        reason: "provider_execution_input_invalid",
+        provider:
+          provider === "codex" || provider === "claude" ? provider : null,
+        reason,
       }),
     });
-  }
-  const provider = snapshot.provider;
+  if (!snapshot || (provider !== "codex" && provider !== "claude"))
+    return reject("provider_execution_input_invalid");
   const purpose = snapshot.purpose;
-  if (
-    (provider !== "codex" && provider !== "claude") ||
-    (purpose !== "advice" && purpose !== "task" && purpose !== "probe")
-  ) {
-    return Object.freeze({
-      status: "blocked",
-      plan: null,
-      error: Object.freeze({
-        provider,
-        reason: "provider_execution_input_invalid",
-      }),
-    });
-  }
-  if (purpose === "advice") {
-    const advice = snapshot as ProviderExecutionInput<P, "advice">;
-    const selection = snapshotPlainRecord(
-      advice.input,
-      new Set(["provider", "exactModelId", "reasoningEffort"]),
-    );
+  if (purpose !== "advice" && purpose !== "task" && purpose !== "probe")
+    return reject("provider_execution_input_invalid");
+
+  if (purpose === "probe") {
     if (
-      "modelSelection" in advice ||
-      !selection ||
-      selection.provider !== provider ||
-      typeof selection.exactModelId !== "string" ||
-      !validateProviderModelId(selection.exactModelId).value ||
-      !["low", "medium", "high", "xhigh", "max"].includes(
-        selection.reasoningEffort as string,
-      ) ||
-      !advice.resultSchema
-    ) {
-      return Object.freeze({
-        status: "blocked",
-        plan: null,
-        error: Object.freeze({
-          provider,
-          reason: "provider_execution_input_invalid",
-        }),
-      });
-    }
+      "modelSelection" in snapshot ||
+      "resultSchema" in snapshot ||
+      !("input" in snapshot)
+    )
+      return reject("provider_execution_input_invalid");
+    const generated =
+      provider === "codex"
+        ? planCodexReadOnlyProbe(snapshot.input, locations)
+        : planClaudeReadOnlyProbe(snapshot.input, locations);
+    return generated.status === "candidate"
+      ? Object.freeze({
+          status: "ready",
+          plan: generated as ProviderExecutionPlan<P, K>,
+          error: null,
+        })
+      : reject(generated.reason);
+  }
+
+  const selection = snapshotPlainRecord(
+    snapshot.modelSelection,
+    new Set([
+      "provider",
+      "modelIdentifier",
+      "identifierKind",
+      "reasoningEffort",
+    ]),
+  );
+  if (!selection || selection.provider !== provider)
+    return reject("provider_execution_selection_mismatch");
+  const checked = resolveAiModelSelection({
+    provider,
+    modelIdentifier: selection.modelIdentifier,
+    reasoningEffort: selection.reasoningEffort,
+    purpose,
+  });
+  if (
+    checked.status !== "resolved" ||
+    checked.value.identifierKind !== selection.identifierKind
+  )
+    return reject("provider_execution_selection_mismatch");
+  const chosen: ProviderModelSelection = Object.freeze({
+    provider: checked.value.provider,
+    modelIdentifier: checked.value.modelIdentifier,
+    identifierKind: checked.value.identifierKind,
+    reasoningEffort: checked.value.reasoningEffort,
+  });
+  if (purpose === "advice") {
+    if ("input" in snapshot || !("resultSchema" in snapshot))
+      return reject("provider_execution_input_invalid");
+    const schema = snapshotResultSchema(snapshot.resultSchema);
+    if (!schema) return reject("provider_execution_input_invalid");
     const command =
       provider === "codex"
-        ? planCodexAdviceCommand(selection as ProviderModelSelection, locations)
-        : planClaudeAdviceCommand(
-            selection as ProviderModelSelection,
-            advice.resultSchema,
-            locations,
-          );
-    const plan = Object.freeze({
-      contract: PROVIDER_ADVICE_COMMAND_CONTRACT,
-      contractRevision: PROVIDER_ADVICE_COMMAND_CONTRACT_REVISION,
-      ...command,
-    });
+        ? planCodexAdviceCommand(chosen, locations)
+        : planClaudeAdviceCommand(chosen, schema, locations);
     return Object.freeze({
       status: "ready",
-      plan: plan as ProviderExecutionPlan<P, K>,
+      plan: Object.freeze({
+        contract: PROVIDER_ADVICE_COMMAND_CONTRACT,
+        contractRevision: PROVIDER_ADVICE_COMMAND_CONTRACT_REVISION,
+        ...command,
+        catalogIdentity: checked.value.catalogIdentity,
+      }) as ProviderExecutionPlan<P, K>,
       error: null,
     });
   }
-  const execution = snapshot as ProviderExecutionInput<P, "task" | "probe">;
-  if ("resultSchema" in execution)
-    return Object.freeze({
-      status: "blocked",
-      plan: null,
-      error: Object.freeze({
-        provider,
-        reason: "provider_execution_input_invalid",
-      }),
-    });
+  if ("resultSchema" in snapshot || !("input" in snapshot))
+    return reject("provider_execution_input_invalid");
   const generated =
     provider === "codex"
-      ? purpose === "task"
-        ? planCodexIsolatedTask(execution.input, locations)
-        : planCodexReadOnlyProbe(execution.input, locations)
-      : purpose === "task"
-        ? planClaudeIsolatedTask(execution.input, locations)
-        : planClaudeReadOnlyProbe(execution.input, locations);
-  if (generated.status !== "candidate") {
-    return Object.freeze({
-      status: "blocked",
-      plan: null,
-      error: Object.freeze({ provider, reason: generated.reason }),
-    });
-  }
-  const modelSelection =
-    execution.modelSelection === undefined
-      ? null
-      : snapshotPlainRecord(
-          execution.modelSelection,
-          new Set(["provider", "exactModelId", "reasoningEffort"]),
-        );
+      ? planCodexIsolatedTask(snapshot.input, locations)
+      : planClaudeIsolatedTask(snapshot.input, locations);
+  if (generated.status !== "candidate") return reject(generated.reason);
   if (
-    execution.modelSelection !== undefined &&
-    (!modelSelection ||
-      modelSelection.provider !== provider ||
-      typeof modelSelection.exactModelId !== "string" ||
-      !validateProviderModelId(modelSelection.exactModelId).value ||
-      !["low", "medium", "high", "xhigh", "max"].includes(
-        modelSelection.reasoningEffort as string,
-      ) ||
-      ("effort" in generated &&
-        generated.effort !== modelSelection.reasoningEffort) ||
-      (generated.provider === "codex" &&
-        generated.exactModel !== modelSelection.exactModelId))
-  ) {
-    return Object.freeze({
-      status: "blocked",
-      plan: null,
-      error: Object.freeze({
-        provider,
-        reason: "provider_execution_selection_mismatch",
-      }),
-    });
-  }
+    ("effort" in generated && generated.effort !== chosen.reasoningEffort) ||
+    (generated.provider === "codex" &&
+      generated.exactModel !== chosen.modelIdentifier)
+  )
+    return reject("provider_execution_selection_mismatch");
   const plan =
-    provider === "claude" && modelSelection
-      ? Object.freeze({
+    provider === "claude"
+      ? {
           ...generated,
           argv: buildClaudeExecutionArguments(
-            modelSelection.exactModelId as string,
-            modelSelection.reasoningEffort as string,
+            chosen.modelIdentifier,
+            chosen.reasoningEffort,
             generated.argv,
           ),
-        })
+        }
       : generated;
   return Object.freeze({
     status: "ready",
-    plan: plan as ProviderExecutionPlan<P, K>,
+    plan: Object.freeze({
+      ...plan,
+      modelIdentifier: chosen.modelIdentifier,
+      identifierKind: chosen.identifierKind,
+      catalogIdentity: checked.value.catalogIdentity,
+    }) as ProviderExecutionPlan<P, K>,
     error: null,
   });
+}
+
+/**
+ * 結果Schemaを実行可能PropertyのないJSON値へ固定する。
+ * @responsibility 両Providerで同じ検査を行い、文字列化時のGetter実行を防ぐ。
+ * @trace ARCH-000010
+ * @input candidate: 未信頼の結果Schema。
+ * @returns 独立した不変Schema又はnull。
+ * @precondition Schemaの意味上の契約は呼出し側が所有する。
+ * @postcondition 元入力を文字列化せず、循環・非JSON値・Proxyを拒否する。
+ * @effect N/A: Descriptor観測と局所コピーだけ。
+ * @failure 不正値又は観測例外はnull。
+ * @invariant toJSON・Getter・Proxyのhookを呼ばない。
+ * @boundary 公開計画入力とCLI引数のSchema文字列化。
+ * @security 計画生成から外部Effectを発行しない。
+ * @concurrency 元Objectから独立したSnapshotを同期生成する。
+ */
+function snapshotResultSchema(
+  candidate: unknown,
+): Readonly<Record<string, unknown>> | null {
+  const ancestors = new Set<object>();
+  const copy = (value: unknown): unknown => {
+    if (
+      value === null ||
+      typeof value === "string" ||
+      typeof value === "boolean"
+    )
+      return value;
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    if (
+      typeof value !== "object" ||
+      utilTypes.isProxy(value) ||
+      ancestors.has(value)
+    )
+      throw new Error("provider_execution_schema_invalid");
+    ancestors.add(value);
+    try {
+      if (Array.isArray(value)) {
+        const array = snapshotPlainArray(value, Number.MAX_SAFE_INTEGER);
+        if (array.status !== "ok")
+          throw new Error("provider_execution_schema_invalid");
+        return Object.freeze(array.value.map(copy));
+      }
+      const prototype = Object.getPrototypeOf(value);
+      if (prototype !== Object.prototype && prototype !== null)
+        throw new Error("provider_execution_schema_invalid");
+      const keys = Reflect.ownKeys(value);
+      if (keys.some((key) => typeof key !== "string"))
+        throw new Error("provider_execution_schema_invalid");
+      const record = snapshotPlainRecord(value, new Set(keys as string[]));
+      if (!record) throw new Error("provider_execution_schema_invalid");
+      const result: Record<string, unknown> = Object.create(null);
+      for (const key of keys as string[]) result[key] = copy(record[key]);
+      return Object.freeze(result);
+    } finally {
+      ancestors.delete(value);
+    }
+  };
+  try {
+    if (
+      !candidate ||
+      typeof candidate !== "object" ||
+      utilTypes.isProxy(candidate) ||
+      Array.isArray(candidate)
+    )
+      return null;
+    return copy(candidate) as Readonly<Record<string, unknown>>;
+  } catch {
+    return null;
+  }
 }

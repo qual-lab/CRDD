@@ -285,3 +285,15 @@ Readerは領域を作成しない。Writerの初回作成だけ、最初の管�
 保存codec二件を既存の選定Suiteへ加え、内部Store・純粋閉包・利用側を合わせ37件成功、失敗／取消／skip／todo 0（最終確認9,521.2636ms）。静的検査も成功。Catalog外の合成`retired-model / max`は保存codecで値を維持し、新規Resolverでは拒否される。これは当該Modelを採用する操作ではない。Getter／Proxy／暗黙変換のhook実行0と、過剰・不足・相関不正の拒否を確認した。既存保存B六Sourceの本文・Schema、現在State、Packet、実行・回復経路はこの段階では変更していない。Sourceと文書・登録の独立確認は、Suite HeaderとCatalogの検証範囲表示を是正して両者とも残指摘0。新SuiteやQA IDは追加していない。本番接続は後続であり、四添付全体の完了ではない。
 
 合成Repositoryで、読取りだけでは作成0、別Root／Link／hardlink／読取り置換拒否、byte境界とUnicode、重複JSON拒否、期待Hash競合、通常保存と読戻し、保存失敗・公開不明・一時File cleanup不明・既存排他cleanup不明を試験した。試験は外部AI・認証・Docker・保持②を利用しない。本体設定の移行・初期Model採用はこの単位に含めない。
+
+### 共通実行計画の選定形式 — 段階実装
+
+AI Adapterの助言・Task計画は四項目のModel選定を必須とし、技術Catalogの用途・Effort・識別種別を照合する新形式へ切替えた。計画はModel識別子・alias種別・Catalog Identityを返し、CoordinatorのCommand SnapshotとHashも同じ値を保持する。助言Commandの破壊的変更を改訂2として区別し、旧改訂・旧fieldを新形式として受理しない。内部認証probeはModel選定を受け付けず、選定済みモデルの引数を認証確認へ流用しない。
+
+両Providerで結果Schemaを独立したJSON値へ固定し、Getter・Proxy・toJSON・循環・非JSON値を文字列化前に拒否する。保存選定の十項目Hashは現在Catalogを読まず、当時の構成・役割・選定元を値相関に含める。Codexのdevice login引数と固定Offering／Originは認証記述へ追加したが、共通認証Lifecycle・公開CLI・固定Imageでの実確認は後続である。
+
+静的検査はAI AdapterとCoordinatorで成功し、変更影響の局所・結合十二Suiteは117件成功、失敗・取消・skip・todo 0（最終6,358.3815ms）。AI Adapter全回帰は37件成功、失敗・取消・skip・todo 0（5,286.344ms）。通常sandboxの保存試験三件はLink／公開操作の実行制限で失敗したため、同じRepository内の自己生成試験領域に限定した通常Windows実行で局所六件と全回帰を確認した。実行制限を検査条件の緩和で隠していない。初回の局所不合格は、旧試験が技術Catalog外の架空Modelを正常値に使っていた点、probeへModel引数を期待していた点、助言のModelとHome側の既存Profile相関が異なる点を原因別に是正した。未知Model・既存の相関拒否を緩めず、正常fixtureを採用済み技術組へ合わせた。実AI・Docker・実認証・本体設定・現在State・保持②は操作していない。
+
+Sourceと文書の独立確認では、新Schemaの改訂値、結果Schema文字列化前の安全な固定、probe直下の選定／Schema指定拒否、新認証記述のexact値／凍結、Header／Catalogの検証範囲を是正対象とした。新Suite・QA・互換Readerは追加せず、既存試験と登録へ接続して上記の最終候補を再検証した。認証記述の値試験を固定Imageの実ログイン成功へ拡張しない。
+
+この単位は旧Profileを新しい保存選定へ変換する互換APIを追加しない。Task受付・Model Grant・送信Grant・保存Schema・回復、Workbench／MCP／CLIと旧Store撤去の本番切替はまだ未完了であり、一〜五全体の完了とは表示しない。保存SchemaはReader／Writer／回復の同時変更単位まで現行のまま保持する。

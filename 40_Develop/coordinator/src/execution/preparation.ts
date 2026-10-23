@@ -24,6 +24,9 @@ import {
 } from "../../../docker-isolation/src/index.ts";
 import {
   planProviderExecution,
+  PROVIDER_ADVICE_COMMAND_CONTRACT,
+  PROVIDER_ADVICE_COMMAND_CONTRACT_REVISION,
+  resolveAiModelSelection,
   describeProviderAuthentication,
   evaluateProviderTaskScope,
   validateProviderModelId,
@@ -158,16 +161,25 @@ export function resolveIsolationCommandInput(
   plan: PreparedPlan,
   tmpSourcePath: string,
 ): DockerIsolationCommandInput | null {
+  const selected = resolveAiModelSelection({
+    provider: plan.provider,
+    modelIdentifier: plan.selectedModel,
+    reasoningEffort: plan.selectedEffort,
+    purpose: plan.operationMode === "isolated_task" ? "task" : "advice",
+  });
+  if (plan.operationMode !== "boolean_probe" && selected.status !== "resolved")
+    return null;
   const adviceResult =
-    plan.operationMode === "workbench_advice"
+    plan.operationMode === "workbench_advice" && selected.status === "resolved"
       ? planProviderExecution(
           {
             provider: plan.provider,
             purpose: "advice",
-            input: {
-              provider: plan.provider,
-              exactModelId: plan.selectedModel,
-              reasoningEffort: plan.selectedEffort,
+            modelSelection: {
+              provider: selected.value.provider,
+              modelIdentifier: selected.value.modelIdentifier,
+              identifierKind: selected.value.identifierKind,
+              reasoningEffort: selected.value.reasoningEffort,
             },
             resultSchema: describeAdviceResultSchema(),
           },
@@ -179,13 +191,13 @@ export function resolveIsolationCommandInput(
     adviceResult?.status === "ready"
       ? bindProviderAdviceCommand(adviceResult.plan, plan.networkPolicy)
       : null;
-  const generated = planProviderExecution(
-    {
-      provider: plan.provider,
-      purpose: plan.operationMode === "isolated_task" ? "task" : "probe",
-      input:
-        plan.operationMode === "isolated_task"
-          ? {
+  const generated =
+    plan.operationMode === "isolated_task" && selected.status === "resolved"
+      ? planProviderExecution(
+          {
+            provider: plan.provider,
+            purpose: "task",
+            input: {
               provider: plan.provider,
               mode: "isolated_task",
               taskRole: plan.taskRole,
@@ -193,29 +205,30 @@ export function resolveIsolationCommandInput(
               ...(plan.provider === "claude"
                 ? { taskWorkload: plan.taskWorkload }
                 : {}),
-            }
-          : {
+            },
+            modelSelection: {
+              provider: selected.value.provider,
+              modelIdentifier: selected.value.modelIdentifier,
+              identifierKind: selected.value.identifierKind,
+              reasoningEffort: selected.value.reasoningEffort,
+            },
+          },
+          describeDockerProviderExecutionLocations(plan.provider, "task"),
+        )
+      : planProviderExecution(
+          {
+            provider: plan.provider,
+            purpose: "probe",
+            input: {
               provider: plan.provider,
               mode: "read_only_probe",
               ...(plan.provider === "codex"
                 ? { effort: plan.selectedEffort }
                 : {}),
             },
-      ...(adviceCommand
-        ? {}
-        : {
-            modelSelection: {
-              provider: plan.provider,
-              exactModelId: plan.selectedModel,
-              reasoningEffort: plan.selectedEffort,
-            },
-          }),
-    },
-    describeDockerProviderExecutionLocations(
-      plan.provider,
-      plan.operationMode === "isolated_task" ? "task" : "probe",
-    ),
-  );
+          },
+          describeDockerProviderExecutionLocations(plan.provider, "probe"),
+        );
   if (generated.status !== "ready") return null;
   const providerPlan = generated.plan;
   const assets = describeDockerProviderAssets(plan.provider);
@@ -336,21 +349,30 @@ export function resolveIsolationCommandInput(
  */
 export function validatePlan(plan: PreparedPlan, tmpSourcePath: string) {
   const isAdvicePlan = plan.operationMode === "workbench_advice";
-  const expectedAdviceResult = isAdvicePlan
-    ? planProviderExecution(
-        {
-          provider: plan.provider,
-          purpose: "advice",
-          input: {
+  const selected = resolveAiModelSelection({
+    provider: plan.provider,
+    modelIdentifier: plan.selectedModel,
+    reasoningEffort: plan.selectedEffort,
+    purpose: "advice",
+  });
+  if (isAdvicePlan && selected.status !== "resolved") return false;
+  const expectedAdviceResult =
+    isAdvicePlan && selected.status === "resolved"
+      ? planProviderExecution(
+          {
             provider: plan.provider,
-            exactModelId: plan.selectedModel,
-            reasoningEffort: plan.selectedEffort,
+            purpose: "advice",
+            modelSelection: {
+              provider: selected.value.provider,
+              modelIdentifier: selected.value.modelIdentifier,
+              identifierKind: selected.value.identifierKind,
+              reasoningEffort: selected.value.reasoningEffort,
+            },
+            resultSchema: describeAdviceResultSchema(),
           },
-          resultSchema: describeAdviceResultSchema(),
-        },
-        describeDockerProviderExecutionLocations(plan.provider, "advice"),
-      )
-    : null;
+          describeDockerProviderExecutionLocations(plan.provider, "advice"),
+        )
+      : null;
   if (expectedAdviceResult?.status === "blocked") return false;
   const expectedAdviceCommand =
     expectedAdviceResult?.status === "ready"
@@ -1225,7 +1247,9 @@ const COMMAND_KEYS = Object.freeze([
   "contract",
   "contractRevision",
   "environment",
-  "exactModelId",
+  "modelIdentifier",
+  "identifierKind",
+  "catalogIdentity",
   "fixedImageDigest",
   "networkPolicy",
   "promptTransport",
@@ -1681,6 +1705,17 @@ function validInput(
  */
 function snapshotCommand(command: ProviderAdviceCommand) {
   if (!plainExactRecord(command, COMMAND_KEYS)) return null;
+  if (
+    command.contract !== PROVIDER_ADVICE_COMMAND_CONTRACT ||
+    command.contractRevision !== PROVIDER_ADVICE_COMMAND_CONTRACT_REVISION ||
+    (command.identifierKind !== "exact" &&
+      command.identifierKind !== "alias") ||
+    typeof command.modelIdentifier !== "string" ||
+    !/^[a-z0-9][a-z0-9._-]{0,127}$/u.test(command.modelIdentifier) ||
+    typeof command.catalogIdentity !== "string" ||
+    !SHA256.test(command.catalogIdentity)
+  )
+    return null;
   const networkPolicy =
     command?.networkPolicy === null
       ? null
@@ -1706,7 +1741,9 @@ function snapshotCommand(command: ProviderAdviceCommand) {
     environment: Object.freeze({ ...command.environment }),
     fixedImageDigest: command.fixedImageDigest,
     networkPolicy,
-    exactModelId: command.exactModelId,
+    modelIdentifier: command.modelIdentifier,
+    identifierKind: command.identifierKind,
+    catalogIdentity: command.catalogIdentity,
     reasoningEffort: command.reasoningEffort,
     promptTransport: command.promptTransport,
     resultTransport: command.resultTransport,
@@ -1831,7 +1868,9 @@ export function hashProviderAdviceCommand(command: ProviderAdviceCommand) {
           environment: command.environment,
           fixedImageDigest: command.fixedImageDigest,
           networkPolicy: command.networkPolicy,
-          exactModelId: command.exactModelId,
+          modelIdentifier: command.modelIdentifier,
+          identifierKind: command.identifierKind,
+          catalogIdentity: command.catalogIdentity,
           reasoningEffort: command.reasoningEffort,
           promptTransport: command.promptTransport,
           resultTransport: command.resultTransport,
@@ -1894,42 +1933,51 @@ export function buildProviderDockerExecutionPlan(
     consumer !== "orchestrator"
   )
     return null;
-  const generated = planProviderExecution(
-    {
-      provider,
-      purpose: taskPacket ? "task" : "probe",
-      input: taskPacket
-        ? {
+  const selected = resolveAiModelSelection({
+    provider,
+    modelIdentifier: consumedModelSelection.model,
+    reasoningEffort: consumedModelSelection.effort,
+    purpose: "task",
+  });
+  if (taskPacket && selected.status !== "resolved") return null;
+  const generated =
+    taskPacket && selected.status === "resolved"
+      ? planProviderExecution(
+          {
             provider,
-            mode: "isolated_task",
-            effort: consumedModelSelection.effort,
-            taskRole: taskPacket.taskRole,
-            ...(provider === "claude"
-              ? { taskWorkload: taskPacket.taskWorkload }
-              : {}),
-          }
-        : {
-            provider,
-            mode: "read_only_probe",
-            ...(provider === "codex"
-              ? { effort: consumedModelSelection.effort }
-              : {}),
-          },
-      ...(advicePacket
-        ? {}
-        : {
-            modelSelection: {
+            purpose: "task",
+            input: {
               provider,
-              exactModelId: consumedModelSelection.model,
-              reasoningEffort: consumedModelSelection.effort,
+              mode: "isolated_task",
+              effort: consumedModelSelection.effort,
+              taskRole: taskPacket.taskRole,
+              ...(provider === "claude"
+                ? { taskWorkload: taskPacket.taskWorkload }
+                : {}),
             },
-          }),
-    },
-    describeDockerProviderExecutionLocations(
-      provider,
-      taskPacket ? "task" : "probe",
-    ),
-  );
+            modelSelection: {
+              provider: selected.value.provider,
+              modelIdentifier: selected.value.modelIdentifier,
+              identifierKind: selected.value.identifierKind,
+              reasoningEffort: selected.value.reasoningEffort,
+            },
+          },
+          describeDockerProviderExecutionLocations(provider, "task"),
+        )
+      : planProviderExecution(
+          {
+            provider,
+            purpose: "probe",
+            input: {
+              provider,
+              mode: "read_only_probe",
+              ...(provider === "codex"
+                ? { effort: consumedModelSelection.effort }
+                : {}),
+            },
+          },
+          describeDockerProviderExecutionLocations(provider, "probe"),
+        );
   if (generated.status !== "ready") return null;
   const execution = generated.plan;
   const assets = describeDockerProviderAssets(provider);
@@ -1958,7 +2006,8 @@ export function buildProviderDockerExecutionPlan(
     (provider === "codex" &&
       (codex?.status !== "candidate" ||
         consumedModelSelection.model !==
-          (advicePacket?.providerCommand.exactModelId ?? codex.exactModel))) ||
+          (advicePacket?.providerCommand.modelIdentifier ??
+            codex.exactModel))) ||
     execution.provider !== provider ||
     (taskPacket !== null && advicePacket !== null) ||
     (taskPacket !== null &&
@@ -1970,7 +2019,7 @@ export function buildProviderDockerExecutionPlan(
         advicePacket.provider !== provider ||
         advicePacket.providerCommand.provider !== provider ||
         (provider === "claude" &&
-          advicePacket.providerCommand.exactModelId !==
+          advicePacket.providerCommand.modelIdentifier !==
             consumedModelSelection.model) ||
         advicePacket.providerCommand.reasoningEffort !==
           consumedModelSelection.effort ||
@@ -2317,14 +2366,22 @@ export function prepareProviderAdvicePlan(
   )
     return advicePlanRejected();
 
+  const selected = resolveAiModelSelection({
+    provider: input.provider,
+    modelIdentifier: input.exactModelId,
+    reasoningEffort: input.reasoningEffort,
+    purpose: "advice",
+  });
+  if (selected.status !== "resolved") return advicePlanRejected();
   const generated = planProviderExecution(
     {
       provider: input.provider,
       purpose: "advice",
-      input: {
-        provider: input.provider,
-        exactModelId: input.exactModelId,
-        reasoningEffort: input.reasoningEffort,
+      modelSelection: {
+        provider: selected.value.provider,
+        modelIdentifier: selected.value.modelIdentifier,
+        identifierKind: selected.value.identifierKind,
+        reasoningEffort: selected.value.reasoningEffort,
       },
       resultSchema: describeAdviceResultSchema(),
     },

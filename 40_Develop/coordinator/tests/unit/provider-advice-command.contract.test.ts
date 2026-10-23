@@ -2,7 +2,7 @@
  * Workbench助言用ProviderコマンドのRepository非共有境界を検証する。
  *
  * @packageDocumentation
- * @responsibility Codex／Claudeの固定配布物、exact Model、標準入力、ToolなしおよびSessionなしを検証する。
+ * @responsibility Codex／ClaudeのCommand改訂2、Modelとalias種別・Catalog Identity、Schemaの安全な固定、標準入力・Toolなし・Sessionなしを検証する。
  * @trace ERB-UT-023
  * @level UT
  * @scope coordinator、contract、node_process
@@ -19,6 +19,114 @@ import { describeDockerProviderAssets } from "../../../docker-isolation/src/inde
 import buildInputs from "../../../docker-isolation/images/build-inputs.json" with {
   type: "json",
 };
+
+/**
+ * 新しい選定と結果Schemaを副作用なしで計画へ固定する。
+ * @responsibility alias偽装・旧形式・実行可能Schemaを両Providerで拒否する。
+ * @trace ERB-UT-023
+ * @precondition 採用済みModelと合成Schemaだけを使用する。
+ * @stimulus 種別不一致、旧入力、Proxy、Getter、toJSON、循環、非JSON値を渡す。
+ * @observation 契約改訂2、Catalog Identity、blockedとhook回数。
+ * @oracle 無効入力は代替計画なし、hook実行0。
+ * @cleanup N/A: 外部資源なし。
+ * @boundary AI Adapterの公開計画受付。
+ */
+test("選定種別を保持し実行可能な結果Schemaと旧入力を拒否する", () => {
+  let hooks = 0;
+  const proxy = new Proxy(
+    {},
+    {
+      ownKeys() {
+        hooks++;
+        return [];
+      },
+      getPrototypeOf() {
+        hooks++;
+        return Object.prototype;
+      },
+    },
+  );
+  const getter = Object.defineProperty({}, "type", {
+    enumerable: true,
+    get() {
+      hooks++;
+      return "object";
+    },
+  });
+  const jsonHook = {
+    toJSON() {
+      hooks++;
+      return {};
+    },
+  };
+  const cycle: Record<string, unknown> = {};
+  cycle.self = cycle;
+  for (const provider of ["codex", "claude"] as const) {
+    const modelSelection = {
+      provider,
+      modelIdentifier: provider === "codex" ? "gpt-5.6-sol" : "opus",
+      identifierKind:
+        provider === "codex" ? ("exact" as const) : ("alias" as const),
+      reasoningEffort: "low" as const,
+    };
+    const request = {
+      provider,
+      purpose: "advice" as const,
+      modelSelection,
+      resultSchema: {
+        type: "object",
+        properties: { value: { type: "string" } },
+      },
+    };
+    const ready = planProviderExecution(request);
+    assert.equal(ready.status, "ready");
+    assert.equal(ready.plan?.contractRevision, 2);
+    assert.equal(ready.plan?.identifierKind, modelSelection.identifierKind);
+    assert.match(ready.plan?.catalogIdentity ?? "", /^[a-f0-9]{64}$/u);
+    for (const resultSchema of [
+      proxy,
+      getter,
+      jsonHook,
+      cycle,
+      { nested: proxy },
+      { nested: getter },
+      { nested: jsonHook },
+      { value: undefined },
+      { value: NaN },
+      { value: 1n },
+      { values: [undefined] },
+    ]) {
+      const result = planProviderExecution({ ...request, resultSchema });
+      assert.equal(result.status, "blocked");
+      assert.equal(result.plan, null);
+    }
+    assert.equal(
+      planProviderExecution({
+        ...request,
+        modelSelection: {
+          ...modelSelection,
+          identifierKind:
+            modelSelection.identifierKind === "alias" ? "exact" : "alias",
+        },
+      }).status,
+      "blocked",
+    );
+    assert.equal(
+      planProviderExecution({
+        provider,
+        purpose: "advice",
+        input: {
+          provider,
+          exactModelId: modelSelection.modelIdentifier,
+          reasoningEffort: "low",
+        },
+        resultSchema: { type: "object" },
+      } as unknown as Parameters<typeof planProviderExecution>[0]).status,
+      "blocked",
+    );
+  }
+  assert.equal(hooks, 0);
+});
 
 /**
  * Codex助言をToolなし・Repository非共有の標準入力計画へ固定するを検証する。
@@ -38,10 +146,11 @@ test("Codex助言をToolなし・Repository非共有の標準入力計画へ固�
       {
         provider: "codex",
         purpose: "advice",
-        input: {
+        modelSelection: {
           provider: "codex",
-          exactModelId: "gpt-6.1-sol",
+          modelIdentifier: "gpt-5.6-sol",
           reasoningEffort: "medium",
+          identifierKind: "exact",
         },
         resultSchema: describeAdviceResultSchema(),
       },
@@ -49,7 +158,7 @@ test("Codex助言をToolなし・Repository非共有の標準入力計画へ固�
     ).plan ?? assert.fail("provider_execution_plan_not_ready");
 
   assert.equal(plan.provider, "codex");
-  assert.equal(plan.exactModelId, "gpt-6.1-sol");
+  assert.equal(plan.modelIdentifier, "gpt-5.6-sol");
   const distribution = {
     ...buildInputs.codex.adviceIdentity,
     ...describeDockerProviderAssets("codex").adviceIdentity,
@@ -151,10 +260,11 @@ test("Claude助言をSchema付き・Toolなしの標準入力計画へ固定す�
       {
         provider: "claude",
         purpose: "advice",
-        input: {
+        modelSelection: {
           provider: "claude",
-          exactModelId: "opus",
+          modelIdentifier: "opus",
           reasoningEffort: "high",
+          identifierKind: "alias",
         },
         resultSchema: describeAdviceResultSchema(),
       },
@@ -162,7 +272,7 @@ test("Claude助言をSchema付き・Toolなしの標準入力計画へ固定す�
     ).plan ?? assert.fail("provider_execution_plan_not_ready");
 
   assert.equal(plan.provider, "claude");
-  assert.equal(plan.exactModelId, "opus");
+  assert.equal(plan.modelIdentifier, "opus");
   assert.equal(plan.reasoningEffort, "high");
   assert.equal(plan.resultTransport, "claude_json_envelope");
   assert.equal(plan.argv.includes("--model"), true);
@@ -185,10 +295,11 @@ test("Claude助言をSchema付き・Toolなしの標準入力計画へ固定す�
       {
         provider: "claude",
         purpose: "advice",
-        input: {
+        modelSelection: {
           provider: "claude",
-          exactModelId: "opus",
+          modelIdentifier: "opus",
           reasoningEffort: "high",
+          identifierKind: "alias",
         },
         resultSchema: callerSchema,
       },
@@ -228,10 +339,11 @@ test("ProviderコマンドにPrompt本文やWorkspace Pathを埋め込まない"
       {
         provider: "codex",
         purpose: "advice",
-        input: {
+        modelSelection: {
           provider: "codex",
-          exactModelId: "gpt-5.6-sol",
+          modelIdentifier: "gpt-5.6-sol",
           reasoningEffort: "low",
+          identifierKind: "exact",
         },
         resultSchema: describeAdviceResultSchema(),
       },
@@ -241,10 +353,11 @@ test("ProviderコマンドにPrompt本文やWorkspace Pathを埋め込まない"
       {
         provider: "claude",
         purpose: "advice",
-        input: {
+        modelSelection: {
           provider: "claude",
-          exactModelId: "opus",
+          modelIdentifier: "opus",
           reasoningEffort: "low",
+          identifierKind: "alias",
         },
         resultSchema: describeAdviceResultSchema(),
       },

@@ -378,12 +378,12 @@ export function describeCodexExecutionPlanContract() {
  * @responsibility 固定Codex配布物へToolなし・標準入力・JSONL出力の一回助言を割り当てる。
  * @trace ARCH-000010
  * @trace ARCH-000015
- * @input input: Codex Profile Identity。
+ * @input input: 検証済みProvider Model選定（識別子・識別種別・推論強度）。
  * @returns Codex助言コマンド計画。
  * @precondition input.providerはcodexである。
  * @postcondition argv末尾は標準入力を示す`-`で、Prompt本文を含まない。
  * @effect N/A: コマンド計画を生成するだけである。
- * @failure N/A: Catalog検証済み入力だけを受け取る。
+ * @failure N/A: 共通計画入口で技術対応を検証済みの入力だけを受け取る。
  * @invariant 配置は信頼した構成側の値だけを使い、Catalogや外部要求から受け付けない。
  * @boundary Workbench助言とCodex CLIの間。
  * @security Filesystem Tool、Web、MCP、Plugin、MemoryおよびSubagentを無効化する。
@@ -392,7 +392,10 @@ export function describeCodexExecutionPlanContract() {
 export function planCodexAdviceCommand(
   input: ProviderModelSelection,
   locations: ProviderExecutionLocations = {},
-): Omit<ProviderAdvicePlan, "contract" | "contractRevision"> {
+): Omit<
+  ProviderAdvicePlan,
+  "contract" | "contractRevision" | "catalogIdentity"
+> {
   return Object.freeze({
     provider: "codex" as const,
     command: locations.commandPath ?? "codex",
@@ -403,7 +406,7 @@ export function planCodexAdviceCommand(
       "--ignore-rules",
       "--strict-config",
       "--model",
-      input.exactModelId,
+      input.modelIdentifier,
       "--config",
       `model_reasoning_effort="${input.reasoningEffort}"`,
       "--config",
@@ -454,7 +457,8 @@ export function planCodexAdviceCommand(
         : {}),
       CODEX_DISABLE_AUTO_UPDATE: "1",
     }),
-    exactModelId: input.exactModelId,
+    modelIdentifier: input.modelIdentifier,
+    identifierKind: input.identifierKind,
     reasoningEffort: input.reasoningEffort,
     promptTransport: "stdin_only" as const,
     resultTransport: "codex_cli_jsonl" as const,

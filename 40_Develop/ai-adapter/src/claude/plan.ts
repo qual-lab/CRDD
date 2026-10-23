@@ -535,12 +535,12 @@ export function describeClaudeExecutionPlanContract() {
  * @responsibility Claude CLIへToolなし・標準入力・Schema付きJSON出力の一回助言を割り当てる。
  * @trace ARCH-000010
  * @trace ARCH-000015
- * @input input: Claude Profile Identity。resultSchema: Coordinatorの固定助言結果Schema。
+ * @input input: 検証済みProvider Model選定。resultSchema: 検査済みの固定助言結果Schema。
  * @returns Claude助言コマンド計画。
  * @precondition input.providerはclaudeである。
  * @postcondition Prompt本文はargvへ含めず、標準入力からだけ受け取る。
  * @effect N/A: コマンド計画を生成するだけである。
- * @failure N/A: Catalog検証済み入力だけを受け取る。
+ * @failure N/A: 共通計画入口で技術対応とSchemaを検証済みの入力だけを受け取る。
  * @invariant 配置は信頼した構成側の値だけを使い、Catalogや外部要求から受け付けない。
  * @boundary Workbench助言とClaude CLIの間。
  * @security Built-in Tool、MCP、Chrome、Slash CommandおよびSession保存を無効化する。
@@ -550,14 +550,17 @@ export function planClaudeAdviceCommand(
   input: ProviderModelSelection,
   resultSchema: Readonly<Record<string, unknown>>,
   locations: ProviderExecutionLocations = {},
-): Omit<ProviderAdvicePlan, "contract" | "contractRevision"> {
+): Omit<
+  ProviderAdvicePlan,
+  "contract" | "contractRevision" | "catalogIdentity"
+> {
   const contract = describeClaudeExecutionPlanContract();
   return Object.freeze({
     provider: "claude" as const,
     command: locations.commandPath ?? "claude",
     argv: Object.freeze([
       "--model",
-      input.exactModelId,
+      input.modelIdentifier,
       "--effort",
       input.reasoningEffort,
       "--safe-mode",
@@ -584,7 +587,8 @@ export function planClaudeAdviceCommand(
       "false",
     ]),
     environment: contract.readOnlyProbe.environment,
-    exactModelId: input.exactModelId,
+    modelIdentifier: input.modelIdentifier,
+    identifierKind: input.identifierKind,
     reasoningEffort: input.reasoningEffort,
     promptTransport: "stdin_only" as const,
     resultTransport: "claude_json_envelope" as const,

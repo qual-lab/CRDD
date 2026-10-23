@@ -29,7 +29,7 @@ const MODEL_SELECTION = Object.freeze({
   executorProvider: "claude" as const,
   route: "front_codex__executor_claude",
   profileId: "PROFILE-123456",
-  model: "claude-opus-test-profile",
+  model: "opus",
   basis: Object.freeze({
     provider: "claude" as const,
     role: "executor" as const,
@@ -215,10 +215,11 @@ test("Workbench助言をRepository非共有のClaude Planへ固定する", () =>
       {
         provider: "claude",
         purpose: "advice",
-        input: {
+        modelSelection: {
           provider: "claude",
-          exactModelId: "claude-opus-test-profile",
+          modelIdentifier: "opus",
           reasoningEffort: "low",
+          identifierKind: "alias",
         },
         resultSchema: describeAdviceResultSchema(),
       },
@@ -309,7 +310,7 @@ test("説明可能な低推論選定を固定Docker command planへ一度だけ�
     fixture.selectionUseCapability,
   );
   assert.equal(prepared.status, "prepared");
-  assert.equal(prepared.selectedModel, "claude-opus-test-profile");
+  assert.equal(prepared.selectedModel, "opus");
   assert.equal(prepared.selectedEffort, "low");
   assert.equal(prepared.selectedModelTier, "preferred");
   assert.match(prepared.selectionNotice ?? "", /選定理由/);
@@ -474,8 +475,8 @@ test("説明可能な低推論選定を固定Docker command planへ一度だけ�
   assert.equal(provider.argv.includes("--fallback-model"), false);
   const modelIndex = provider.argv.indexOf("--model");
   const effortIndex = provider.argv.indexOf("--effort");
-  assert.equal(provider.argv[modelIndex + 1], "claude-opus-test-profile");
-  assert.equal(provider.argv[effortIndex + 1], "low");
+  assert.equal(modelIndex, -1);
+  assert.equal(effortIndex, -1);
   assert.equal(
     provider.argv.some((value) => value.startsWith("HTTPS_PROXY=")),
     true,
@@ -913,7 +914,7 @@ test("Selection Grantのopaque use aliasをClaude adapterへ一回だけ接続�
         Object.freeze({
           provider: request.provider,
           profileId: "PROFILE-123456",
-          exactModelId: "claude-opus-test-profile",
+          exactModelId: "opus",
           family: request.family,
           selectionRole: request.role,
           modelTier: request.modelTier,

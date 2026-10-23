@@ -13,7 +13,55 @@ import {
   validateAiSelectionConfig,
   resolveExecutionSelection,
 } from "../../../src/selection/resolve.ts";
-import { inspectExecutionSelection } from "../../../src/selection/model.ts";
+import {
+  inspectExecutionSelection,
+  hashExecutionSelection,
+} from "../../../src/selection/model.ts";
+
+/**
+ * 選定全項目を同じ決定論的Identityへ結合する。
+ * @responsibility モデル名だけが一致する別選定を同じGrantとして扱わない。
+ * @trace RCM-UT-001
+ * @precondition Catalogで解決した選定と局所の変更値。
+ * @stimulus 十項目を個別変更し、キー順変更・不正形も渡す。
+ * @observation Hashの一致・不一致とnull。
+ * @oracle 意味が同じキー順だけは同Hash、各項目差は別Hash。
+ * @cleanup N/A: 局所値だけ。
+ * @boundary Packet・Grantへ渡す非Authorityな値Identity。
+ */
+test("選定Hashは十項目を固定しキー順によらず内容差を区別する", () => {
+  const resolved = resolveExecutionSelection(config(), {
+    role: "executor",
+    workType: "coding",
+  });
+  assert.ok(resolved.value);
+  const source = { ...resolved.value, source: "explicit" as const };
+  const identity = hashExecutionSelection(source);
+  assert.match(identity ?? "", /^[a-f0-9]{64}$/u);
+  assert.equal(
+    hashExecutionSelection(
+      Object.fromEntries(Object.entries(source).reverse()),
+    ),
+    identity,
+  );
+  for (const difference of [
+    { provider: "codex" },
+    { modelIdentifier: "historical-model" },
+    { identifierKind: "exact" },
+    { reasoningEffort: "max" },
+    { purpose: "advice", role: "advice" },
+    { catalogIdentity: "a".repeat(64) },
+    { configIdentity: "b".repeat(64) },
+    { role: "independent_reviewer" },
+    { workType: null },
+    { source: "role_default" },
+  ]) {
+    const changed = hashExecutionSelection({ ...source, ...difference });
+    assert.ok(changed);
+    assert.notEqual(changed, identity);
+  }
+  assert.equal(hashExecutionSelection({ ...source, authority: true }), null);
+});
 
 /**
  * 保存選定の復元と新規技術選定を分離する。

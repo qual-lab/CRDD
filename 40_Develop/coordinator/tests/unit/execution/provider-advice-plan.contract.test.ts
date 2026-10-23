@@ -137,7 +137,7 @@ for (const profileId of ["PROFILE-100001", "PROFILE-200001"] as const) {
       paidApiFallbackAllowed: false,
     });
     assert.equal(providerCommand?.provider, profile?.provider);
-    assert.equal(providerCommand?.exactModelId, profile?.exactModelId);
+    assert.equal(providerCommand?.modelIdentifier, profile?.exactModelId);
     assert.equal(
       providerCommand?.reasoningEffort,
       profile?.defaultReasoningEffort,

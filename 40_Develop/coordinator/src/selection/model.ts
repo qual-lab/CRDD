@@ -7,6 +7,7 @@
  * @security 役割・分類から実行Authorityを発行しない。
  */
 import { types as utilTypes } from "node:util";
+import { createHash } from "node:crypto";
 import type {
   AiModelSelection,
   AiProvider,
@@ -206,4 +207,26 @@ export function inspectExecutionSelection(
   } catch {
     return null;
   }
+}
+
+/**
+ * 完全な選定値の非Authority Identityを導く。
+ * @responsibility Providerだけでなく選定元・当時の構成まで同じ相関へ含める。
+ * @trace ARCH-000004
+ * @input candidate: 十項目の選定候補。
+ * @returns 正規化した選定のSHA-256、不正時null。
+ * @precondition Hash自体で実行を許可しない。
+ * @postcondition alias種別・設定Identity・役割・分類の差は別Hashになる。
+ * @effect N/A: 局所検査と決定論的Hashだけ。
+ * @failure 閉形式を満たさない値はnull。
+ * @invariant 現在Catalogや設定を読まない。
+ * @boundary Packet・Grant・保存選定の値相関。
+ * @security Hashを資格や操作Capabilityにしない。
+ * @concurrency 元値から独立したSnapshotだけをHash化する。
+ */
+export function hashExecutionSelection(candidate: unknown): string | null {
+  const value = inspectExecutionSelection(candidate);
+  return value
+    ? createHash("sha256").update(JSON.stringify(value), "utf8").digest("hex")
+    : null;
 }

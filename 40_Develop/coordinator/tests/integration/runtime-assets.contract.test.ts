@@ -40,6 +40,12 @@ test("CLI計画は配置を外から受け、Docker固定資産とは上位で�
     const request = {
       provider: "codex",
       purpose: "task",
+      modelSelection: {
+        provider: "codex",
+        modelIdentifier: "gpt-5.5",
+        identifierKind: "exact",
+        reasoningEffort: "low",
+      },
       input: {
         provider: "codex",
         mode: "isolated_task",

@@ -194,10 +194,11 @@ function createPlanFixture(
               reasoningEffort: "low",
             }.provider,
             purpose: "advice",
-            input: {
+            modelSelection: {
               provider,
-              exactModelId: model,
+              modelIdentifier: model,
               reasoningEffort: "low",
+              identifierKind: provider === "codex" ? "exact" : "alias",
             },
             resultSchema: describeAdviceResultSchema(),
           },

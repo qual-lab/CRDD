@@ -774,6 +774,12 @@ test("Claudeの実行目標と結果受理の絶対上限を分離する", () =>
           {
             provider: "claude",
             purpose: "task",
+            modelSelection: {
+              provider: "claude",
+              modelIdentifier: "opus",
+              identifierKind: "alias",
+              reasoningEffort: effort,
+            },
             input: {
               provider: "claude",
               mode: "isolated_task",
@@ -871,12 +877,18 @@ test("作業量の有限見積りは全推論で一致し、選定上限を超�
       acceptanceCriterionCount,
       remediationFindingCount,
     };
-    for (const effort of ["low", "medium", "high"]) {
+    for (const effort of ["low", "medium", "high"] as const) {
       const plan =
         planProviderExecution(
           {
             provider: "claude",
             purpose: "task",
+            modelSelection: {
+              provider: "claude",
+              modelIdentifier: "opus",
+              identifierKind: "alias",
+              reasoningEffort: effort,
+            },
             input: {
               provider: "claude",
               mode: "isolated_task",

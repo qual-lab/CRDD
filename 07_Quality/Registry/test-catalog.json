@@ -7978,6 +7978,9 @@
         "ai-request",
         "provider-command",
         "fixed-distribution",
+        "command-revision-2",
+        "model-identifier-kind",
+        "catalog-identity",
         "repository-not-mounted",
         "tools-disabled"
       ],
@@ -7987,6 +7990,10 @@
       "postconditions": [
         "codex_command_identity_exact",
         "claude_command_identity_exact",
+        "model_identifier_kind_preserved",
+        "catalog_identity_preserved",
+        "old_command_shape_rejected",
+        "executable_result_schema_rejected",
         "prompt_transport_stdin_only",
         "repository_and_workspace_not_mounted",
         "tools_and_session_disabled"
@@ -8083,6 +8090,9 @@
         "ai-request",
         "runtime-packet",
         "single-use-capability",
+        "command-revision-2",
+        "model-identifier-kind",
+        "catalog-identity",
         "repository-not-mounted"
       ],
       "environment": "node_process",
@@ -8092,6 +8102,8 @@
         "packet_consumed_at_most_once",
         "owner_capability_exact",
         "unused_packet_revocable",
+        "old_command_revision_rejected",
+        "model_kind_and_catalog_identity_hash_bound",
         "repository_and_workspace_not_mounted",
         "packet_issue_effect_zero"
       ],
