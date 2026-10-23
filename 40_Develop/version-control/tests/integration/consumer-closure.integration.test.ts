@@ -415,8 +415,8 @@ test("保護対象Runtimeは正式公開契約を使いGit内部実装へ直接�
         /new URL\("\.\.\/\.\.\/\.\.\/version-control\/src\/index\.ts", import\.meta\.url\)/gu,
       ),
     ].length,
-    7,
-    "fresh child Process uses the public Root in all seven scenarios, including pending re-entry",
+    3,
+    "二段ACK撤去後の三つのfresh child Processは、pending再入場を含め公開Rootだけを使う",
   );
   const mockConsumer = fs.readFileSync(
     path.join(

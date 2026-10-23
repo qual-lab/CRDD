@@ -16,6 +16,7 @@ import { mock, test } from "node:test";
 import { runInNewContext } from "node:vm";
 import { stripTypeScriptTypes } from "node:module";
 import * as domain from "../../../domain-model/src/index.ts";
+import { coordinatorDataBoundaryBlocked } from "../../src/operation-result-contract.ts";
 import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
 import { resolveVerifiedRepositoryRoot } from "../../../version-control/src/index.ts";
 import * as locks from "../../src/execution/kernel-lock.ts";
@@ -55,6 +56,10 @@ test("現在入場: 実Readerの初回不存在・本文・故障と全域拒否
   let acquisitions = 0;
   let releases = 0;
   let afterAbsent: (() => void) | null = null;
+  let areaFailure: ReturnType<typeof domain.ensureRepositoryRuntimeDataArea> =
+    null;
+  let areaCreations = 0;
+  let areaThrows = false;
   try {
     execFileSync("git", ["init", "--quiet", root], { windowsHide: true });
     execFileSync(
@@ -88,6 +93,20 @@ test("現在入場: 実Readerの初回不存在・本文・故障と全域拒否
       {
         namedExports: {
           ...domain,
+          ensureRepositoryRuntimeDataArea: (
+            ...args: Parameters<typeof domain.ensureRepositoryRuntimeDataArea>
+          ) => {
+            if (areaThrows) throw new Error("fixture_partial_area_creation");
+            return (
+              areaFailure ?? domain.ensureRepositoryRuntimeDataArea(...args)
+            );
+          },
+          createCoordinatorRuntimeDataArea: (
+            ...args: Parameters<typeof domain.createCoordinatorRuntimeDataArea>
+          ) => {
+            areaCreations++;
+            return domain.createCoordinatorRuntimeDataArea(...args);
+          },
           observeRepositoryRuntimeDataArea: (
             ...args: Parameters<typeof domain.observeRepositoryRuntimeDataArea>
           ) => {
@@ -131,6 +150,75 @@ test("現在入場: 実Readerの初回不存在・本文・故障と全域拒否
       new URL("../../src/storage/settlement-store.ts", import.meta.url).href,
       { namedExports: { ...store } },
     );
+    const taskStore = await import(
+      new URL(
+        "../../src/storage/current-state.ts?area-failure",
+        import.meta.url,
+      ).href
+    );
+    for (const fault of [
+      "no_effect",
+      "unknown",
+      "cleanup_failed",
+      "owner_release",
+    ]) {
+      const unknown = fault === "unknown";
+      const cleanup = fault !== "cleanup_failed";
+      areaFailure = {
+        status: "blocked",
+        reason: "repository_runtime_data_ignore_registration_blocked",
+        effectIssued: unknown || !cleanup,
+        effectStateUnknown: unknown,
+        effectConfirmation: unknown ? "unknown" : "not_issued",
+        cleanupConfirmed: cleanup,
+        retryAllowed: !unknown && cleanup,
+        recoveryReference: unknown ? "repository-local-ignore.exact" : null,
+        repositoryPathReported: false,
+      };
+      releaseResult = fault !== "owner_release";
+      const beforeReleases = releases;
+      let failure: unknown;
+      try {
+        taskStore.initializeCoordinatorSnapshot(root, "binding-a");
+      } catch (error) {
+        failure = error;
+      }
+      assert.ok(
+        failure instanceof domain.RepositoryRuntimeDataAreaBlockedError,
+      );
+      assert.equal(releases, beforeReleases + 1);
+      assert.equal(areaCreations, 0);
+      assert.equal(
+        fs.existsSync(path.join(root, ".crdd", "coordinator")),
+        false,
+      );
+      const projected = coordinatorDataBoundaryBlocked(failure);
+      assert.equal(projected.reason, areaFailure.reason);
+      assert.equal(projected.effectIssued, areaFailure.effectIssued);
+      assert.equal(projected.effectStateUnknown, unknown);
+      assert.equal(projected.cleanupConfirmed, cleanup && releaseResult);
+      assert.equal(
+        projected.retryAllowed,
+        !unknown && cleanup && releaseResult,
+      );
+      assert.deepEqual(
+        projected.recoveryIds,
+        unknown ? ["repository-local-ignore.exact"] : [],
+      );
+    }
+    areaFailure = null;
+    releaseResult = true;
+    areaThrows = true;
+    const beforeExceptionalRelease = releases;
+    const exceptional = taskStore.initializeCoordinatorSnapshot(
+      root,
+      "binding-a",
+    );
+    assert.equal(exceptional.status, "blocked");
+    assert.equal(exceptional.manualRecoveryRequired, true);
+    assert.equal(releases, beforeExceptionalRelease + 1);
+    assert.equal(areaCreations, 0);
+    areaThrows = false;
     const owner = await import(
       new URL(
         "../../src/execution/recovery.ts?current-admission",
@@ -280,9 +368,22 @@ test("現在入場: 実Readerの初回不存在・本文・故障と全域拒否
         revision: 1,
         previous: null,
         repositoryBinding: binding.repositoryBinding,
+        repositoryBindingId: null,
+        intakeEpoch: null,
+        intakeBindings: [],
+        projects: [],
+        workspaces: [],
+        queueEntries: [],
+        leaseEvidence: [],
+        leaseIntents: [],
+        results: [],
+        historyPending: [],
+        acceptanceDecisions: [],
+        decisionRecoveries: [],
         operations: [],
         unresolvedRecoveries: [],
         pendingDeliveries: [],
+        resultReceipts: [],
       })}\n`,
     );
     fs.writeFileSync(file, bytes);

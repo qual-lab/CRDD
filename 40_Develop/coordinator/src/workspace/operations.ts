@@ -7,6 +7,7 @@
 import { randomUUID } from "node:crypto";
 import { existsSync, lstatSync } from "node:fs";
 import path from "node:path";
+import { isDeepStrictEqual } from "node:util";
 import type {
   RepositoryWorktreeResult,
   WorkspaceCandidateResult,
@@ -468,8 +469,7 @@ export function manageCoordinatorWorkspace(
           if (
             record.candidate &&
             (!["freezing", "fixed"].includes(record.candidate.phase) ||
-              JSON.stringify(record.candidate.request) !==
-                JSON.stringify(intent))
+              !isDeepStrictEqual(record.candidate.request, intent))
           )
             throw new Error("orchestrator_candidate_pending");
           if (!validWorkspaceCandidateRequest(intent))
@@ -528,7 +528,7 @@ export function manageCoordinatorWorkspace(
             targetBranch: request.targetBranch,
             expectedTargetHead: request.expectedTargetHead,
           };
-          if (c.target && JSON.stringify(c.target) !== JSON.stringify(target))
+          if (c.target && !isDeepStrictEqual(c.target, target))
             throw new Error("orchestrator_candidate_target_mismatch");
           if (!request.authorize())
             throw new Error("orchestrator_candidate_not_authorized");

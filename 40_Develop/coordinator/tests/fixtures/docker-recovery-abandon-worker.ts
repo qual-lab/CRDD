@@ -151,6 +151,19 @@ if (mode !== "recovery") {
   const initial = Buffer.from(
     `${model.encodeCoordinatorStateValue({
       schema: model.COORDINATOR_STATE_SCHEMA,
+      repositoryBindingId: null,
+      intakeEpoch: null,
+      intakeBindings: [],
+      projects: [],
+      workspaces: [],
+      queueEntries: [],
+      leaseEvidence: [],
+      leaseIntents: [],
+      results: [],
+      historyPending: [],
+      acceptanceDecisions: [],
+      decisionRecoveries: [],
+      resultReceipts: [],
       revision: 1,
       previous: null,
       repositoryBinding: binding.repositoryBinding,
@@ -1373,7 +1386,6 @@ if (mode !== "recovery") {
       const actualHost = await import("../../src/execution/operation.ts");
       // 公開回復が呼び得る保存・出版入口を明示する。安全なRepository借用と実Readerは代役にしない。
       const mutationNames = [
-        "acceptRuntimeOwnedCoordinatorProjectResult",
         "checkpointRuntimeOwnedCoordinatorCleanup",
         "checkpointRuntimeOwnedCoordinatorLifecycle",
         "checkpointRuntimeOwnedCoordinatorResource",

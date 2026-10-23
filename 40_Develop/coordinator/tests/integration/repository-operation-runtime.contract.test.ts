@@ -42,7 +42,7 @@ const secondRevision = "2".repeat(40);
  * 実体IDの5取得点が同じOS別表現・拒否境界を持つことを確認する。
  * @responsibility Windows限定変換の境界と他の識別条件の維持を反証する。
  * @trace PRL-IT-012
- * @precondition 現行の実関数本文をFilesystem観測だけの代役へ接続する。
+ * @precondition 現行の実関数と同じSourceの私有依存関数をFilesystem観測だけの代役へ接続する。
  * @stimulus 符号境界、ゼロ、範囲外、POSIX、型・link・dev・時刻不正を与える。
  * @observation 返されたIDまたは拒否例外を観測する。
  * @oracle 同じ64bitだけを保存し、既存の識別不能条件を拒否する。
@@ -65,6 +65,11 @@ test("実体IDの5取得点はWindowsだけ符号を補正し他の拒否条件�
     const source = stripTypeScriptTypes(
       fs.readFileSync(new URL(sourcePath, import.meta.url), "utf8"),
     );
+    const dependencies = sourcePath.includes("bounded-file-snapshot")
+      ? source.match(/function normalizeFileId\([\s\S]*?\r?\n\}/u)?.[0]
+      : "";
+    if (sourcePath.includes("bounded-file-snapshot"))
+      assert.ok(dependencies, "normalizeFileId");
     for (const name of names) {
       const body = source.match(
         new RegExp(`function ${name}\\([\\s\\S]*?\\r?\\n\\}`, "u"),
@@ -81,7 +86,7 @@ test("実体IDの5取得点はWindowsだけ符号を補正し他の拒否条件�
             size: 1n,
           },
         );
-        const observe = runInNewContext(`(${body})`, {
+        const observe = runInNewContext(`${dependencies}\n(${body})`, {
           process: { platform },
           fs: { lstatSync: () => metadata, fstatSync: () => metadata },
         }) as (...args: unknown[]) => { ino: bigint };

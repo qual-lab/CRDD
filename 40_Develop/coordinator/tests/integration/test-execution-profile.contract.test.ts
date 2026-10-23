@@ -107,8 +107,8 @@ const gateFiles = [
   },
   {
     file: "integration/task-history.contract.test.ts",
-    prefixOccurrences: 10,
-    expandedCases: 10,
+    prefixOccurrences: 11,
+    expandedCases: 11,
     expansion: /test\("Host Windows:/,
   },
   {
@@ -297,7 +297,7 @@ test("Portable試験とHost Windows試験は同じ実環境専用の閉集合を
     gateCount += expandedCases;
     assert.match(scripts["test:host-windows"] ?? "", new RegExp(file));
   }
-  assert.equal(gateCount, 112);
+  assert.equal(gateCount, 113);
 });
 
 /**

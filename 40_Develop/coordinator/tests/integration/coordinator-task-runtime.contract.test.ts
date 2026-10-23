@@ -3487,11 +3487,7 @@ test("耐久結果配送は捕捉済み元Controlから終端後にだけ進む"
     status: "blocked",
     results: null,
   });
-  assert.equal(
-    delivery.complete(fixtureDockerRecoveryId("executor.active"), () => ({}))
-      .status,
-    "blocked",
-  );
+  assert.equal(Object.hasOwn(delivery, "complete"), false);
   assert.equal(harness.dockerProjectReadCount(), 0);
   assert.equal(harness.dockerProjectCompleteCount(), 0);
   assert.equal((await started.completion).status, "completed");
@@ -3503,36 +3499,9 @@ test("耐久結果配送は捕捉済み元Controlから終端後にだけ進む"
   const observed = delivery.readResults();
   assert.equal(observed.status, "completed");
   assert.equal(observed.results?.length, 2);
-  assert.equal(
-    delivery.complete(fixtureDockerRecoveryId("other-task.active"), () => ({}))
-      .status,
-    "blocked",
-  );
+  assert.equal(Object.hasOwn(delivery, "complete"), false);
   assert.equal(harness.dockerProjectCompleteCount(), 0);
-  const executorId = observed.results?.[0]?.recoveryId;
-  let acceptancePresent = false;
-  /**
-   * 上位受領の有無を切り替える結果Readerを構築する。
-   *
-   * @responsibility 受領状態に応じた配送終了と再入場を検証する。
-   * @trace PRL-IT-012
-   * @precondition 元Controlで配送を捕捉しacceptancePresentをfalseにする。
-   * @stimulus 同じ配送のcompleteへReaderを渡し受領有無を切り替える。
-   * @observation completeの状態とdockerProjectCompleteCountを取得する。
-   * @oracle 未受領時はblocked、受領時だけcompletedとなり同じ参照で再入場できる。
-   * @cleanup 模擬Task fixtureだけを使用し外部資源は生成しない。
-   * @boundary 捕捉済み結果配送と上位受領Reader。
-   */
-  const reader = () =>
-    acceptancePresent ? Object.freeze({ accepted: true }) : null;
-  assert.equal(delivery.complete(executorId, reader).status, "blocked");
-  acceptancePresent = true;
-  assert.equal(delivery.complete(executorId, reader).status, "completed");
-  acceptancePresent = false;
-  assert.equal(delivery.complete(executorId, reader).status, "blocked");
-  acceptancePresent = true;
-  assert.equal(delivery.complete(executorId, reader).status, "completed");
-  assert.equal(harness.dockerProjectCompleteCount(), 4);
+  assert.equal(harness.dockerProjectCompleteCount(), 0);
   for (const options of [
     { dockerProjectReadFailsAt: 2 },
     { dockerProjectReadLockUnknownAt: 2 },

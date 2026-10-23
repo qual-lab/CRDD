@@ -2,17 +2,20 @@
 
 ## 保存統合B案の検証条件 — 2026-10-22
 
-[単一保存Lifecycle](../../../06_Architecture/Details/coordinator/04_Task_Detailed_Design.md#unified-storage-lifecycle)の採用により、保存七Sourceの旧bytes凍結は移管元保証の照合へ位置付け直す。新方式の検証はNot Runであり、以下の既存結果や旧ACKの試験成功を流用しない。追加条件は既存Local Itemへ接続し、新しいRunner・Registry・Lock Frameworkを作らない。
+[単一保存Lifecycle](../../../06_Architecture/Details/coordinator/04_Task_Detailed_Design.md#unified-storage-lifecycle)の採用により、旧七Sourceのbytes凍結は移管元保証の照合として扱う。新方式の単一Writer・共通Owner・原子受領・履歴のSource接続と旧試験移行、外部AIなしの固定全体回帰は完了し、限定実Filesystem／別Process再入場を評価済みである。限定独立再確認済みであり、全異常経路の集約・実AI／実Dockerを含む実境界一体・全体QA・Releaseは未完了として、限定成功を全体Passにしない。[現在の結果と残件](../../../99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#375-保存統合bの最終確認)と過去の旧ACK試験を区別する。追加条件は既存項目へ接続し、新Runner・Registry・Lock Frameworkを作らない。
 
 | 既存項目 | 新方式で確認する条件 |
 |---|---|
 | `PRL-UT-006`、`PRL-IT-012` | 同Repository／Task／Attempt／論理操作／実行操作／回復参照／結果の相関。別結果・別Attempt・同じ回復参照への異なる結果を拒否し、初回受理世代を維持する |
-| `PRL-IT-011` | Task更新・Operation終端・結果受理・履歴更新の競合を単一保存改訂と短期排他で直列化。同じOwnerからのReader再入場・保存Lock再取得0。実行Lease／Home／Host排他の寿命は維持する |
+| `PRL-UT-006`、`PRL-IT-013` | Operationのない開始前拒否、委譲結果不正・通知矛盾、差替えExecutorを区別し、空の技術集合からcleanup成功を推定しない。複数executor／reviewerの元参照とretry前Attemptの必要な受領・義務を保持する。Docker以外のLease／判断／Process安全状態の義務を技術Operationへ付け替えない |
+| `PRL-IT-011` | Task更新・Operation終端・結果受理・履歴更新の競合を単一保存改訂と短期排他で直列化。同じ真正OwnerからのReader反復再入場・保存Lock再取得0、競合取得拒否、偽造・コピー・解放済みOwner拒否を確認する。借用中の`ownerHeld=true`／`lockReleased=false`、外側一回解放、読取り前後のstate bytes不変を個別に観測する。実行Lease／Home／Host排他の寿命は維持する |
 | `PRL-IT-012`、`PRL-IT-013` | 履歴確認前の耐久受領保存を拒否する。確認後、耐久Consumerの受領事実を一度保存し、Task反映とProducer内部配送待ち解消を同じ更新で確定。結果保存済み未受領は搬送・受領だけを再開し、受領保存済み応答喪失は同じ確定を再観測する。二重適用・再配送・再受領と受領前のOperation整理を拒否する |
 | `PRL-IT-013`、`PRL-ST-003`、`PRL-ST-004` | 開始前／開始後取消と親喪失を分け、実合成子Processのjoinを観測。元Identity・unknown・一次失敗・未解決義務を保持し、保存値から実行Capabilityを再生成しない |
 | `PRL-ST-001`、`PRL-IT-012` | 公開入口から同じWriterへ到達。CLI／Workbenchへ表示・既読ACKを追加せず、一時返却失敗を技術回収未完了やAI再送へ変換しない。Task完了をWorkspace終了・Commit／Merge／採用にしない |
 
 これらのSTは、実AIなしの合成Process／依存でも接続と中断を確認できる範囲を先に実施する。実Provider・Docker隔離の全体成立へ昇格しない。②のAI再試行・保持物操作は許可範囲外である。
+
+`PRL-IT-012`／`PRL-IT-013`では、通常Taskの捕捉済み結果集合の全件一括受領と、複数Docker回復のexact参照単位の逐次受領を区別する。各CASでは受領・対象配送解除・適格Operation除去が一体であり、回復中は未受領の残存Operation参照を保持し、全対象受領後だけ`executor_result`へ切り替える。既存`PRL-UT-006`の値反証も接続し、通常二件目不正では全件受領0、回復一件受領では対象だけ除去・残り保持、最終対象前の`executor_result`拒否、未受領参照欠落・除去済み参照残留・配送片側除去の拒否を確認する。通常原子受領、回復再入場IT／ST、純粋モデルの結果母集団を合算して一種類の実境界保証にしない。
 
 C物理統合候補は単一Coordinatorの150 Sourceと元両Rootの120実行値・型の保持、全Consumer・Catalog／Symbolの新Path、単一bin／template／Package入口の同じ受付を検証する。Taskの純粋閉包へExecutionを混入させず、指定値型だけの型専用辺を確認する。外部送信四Decisionと一端末実体の移管では、同意Hash・Grant・一回性・元Process poisonを保持する。保存は二Fileの三specifierだけを許可し、残る五Fileのbytesと保存意味を維持する。Source観測Scope v2は旧配置のv1と同値と扱わず、旧Packetの移行はフロントAIが再生成する。以降のC前のbytes一致・二Packageという検証記述は基準時点の義務であり、C後の物理構成を要求しない。
 
@@ -22,9 +25,9 @@ Cの入口切替は[公開入口と同意の境界](../../../06_Architecture/Det
 
 Cの三接続は[接続設計](../../../06_Architecture/Details/coordinator/03_Task_Architecture.md#c-integration-three-connections)に対し、既存`PRL-IT-012`・`PRL-IT-013`等の検証を移管先へ接続する。Task Identity検査と単発実行の値検査を混同せず、元Controlの同期配送捕捉、Executor初回開始とReviewer通知、重複・終端後通知、通知false／throw／欠測、開始前後取消・取消例外と元完了joinを確認する。第5／第6引数の実行対象・consumer束縛、助言と編集、Workbench／CLIの一時返却とObjectiveの耐久ACKを別母集団として扱う。
 
-回復では、技術回収済みでも解放・履歴・配送又は上位保存が不明な場合の停止、受領前の保存失敗、ACK保存後の終了失敗と同じ参照での再入場を確認する。Resource回収・Provider再実行を不用意に繰り返さず、私有CapabilityをIDから再生成しない。元Map・Singleton・Writer・取得順を移管で複製せず、既存の不正入力・相関差・失敗Oracleを減らさない。
+回復では技術終端・cleanup・実履歴確認後、Task反映・Root受領本文・配送待ち解除を確定する単一CASを確認する。保存前失敗、保存後応答喪失、readback失敗、Owner解放不明と同じ候補の再入場を分け、exact参照を保持する。Provider・資源回収を再発行せず、私有CapabilityをIDから復元しない。元Map・Writer・短期Ownerを複製せず、既存の不正入力・相関差・失敗Oracleを維持する。
 
-StorageはSchema bytes・Writer・CAS・保存先・語彙・関数本文を凍結し、CのPackage統合に不可避なimport specifierだけを同一Symbol・同一実体へ追従できる。固定候補では全七Sourceの差分を取得し、許可specifier以外不変、自Root逆参照0、実体一つ、既存の競合Lock・世代差・読戻し・解放不明の反証を確認する。設計の確認、C前のbytes一致、過去試験の成功を、C後の回帰・再入場・実境界成功へ流用しない。
+Cの物理移管当時は保存七Sourceを凍結し、同一実体へのspecifier追従だけを許可した。保存統合Bでは採用済み範囲の凍結を解除し、単一Snapshot・Writer・Ownerと原子受領へ接続する。旧bytes一致を新方式の根拠へ流用せず、競合・世代差・保存中断・読戻し・解放不明と利用側を現候補で確認する。
 
 判断入口へのPrincipal観測の同居では、関数本文・Headerの移管前後一致とRootの公開集合を静的に照合し、既存の公開Owner境界・判断操作の回帰を実施する。呼出しごとの保護Store観測、completed以外のunknown、未作成Storeの初期化可能性を変更しない。配置の同居を認証・Authority拡張や実Storeの新しい保証成立と扱わず、保存七Sourceは変更しない。
 

@@ -12,6 +12,8 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
+保存統合Bは、実装・旧試験の移行・固定版回帰の範囲を完了した。Task・Queue・Workspaceを共通Ownerと単一物理Writerへ接続し、履歴も同じRoot・保持設定へ切り替えた。旧ACK専用API・内部枝・二段リレーと旧設定Reader・配布例・Schemaを撤去した。固定通常回帰は1,862成功・失敗0・5skip、Workbench／MCP共通入口一件とWindows保存影響三十件も成功した。実AI・実DockerのE2Eと全体QAの完成ではない。次候補は利用者提示のCoordinator構造再設計であり、今回の保存契約を凍結基準にする。[確認結果と限界](99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#375-保存統合bの最終確認)を参照する。
+
 ②の実AI編集E2Eの今回試験は、利用者判断で終了したが、回収は未完了である。認証確認用Containerの作成結果unknown、同じ回復参照と試験物を保持する。停止Containerだけが遅れて残る可能性は今回に限り許容されているが、E2EのPass・回収完了・一般回復条件の緩和ではない。AI再試行は行わない。詳細と再評価条件は[今回試験の終了判断](99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#workspace-edit-trial-ended-unresolved)を参照する。
 
 固定Commit `d4edcd1e`後の追従是正では、検証Tool3 Suiteの接続、Test Header全数Gate、現行文書43診断の是正に続き、確定誤検知236件を検査側で解消した。生診断は1,836→1,600、追加0。Checker全386件は385成功／既知1失敗（残1,600診断）で完走した。文書診断は現行0、歴史CHG旧参照3,353による全体不合格を維持する。Browser接続1場面も元失敗の原因未確定のまま。②のAI再試行・保持物削除は行わず、保持3 Hashと安全条件は不変。[今回の是正と確認](99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#naming-false-positive-remediation)を正本とし、[先行の分類・文書是正](99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#verification-tool-document-closure)と[是正前の固定版結果](99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#workspace-fixed-regression)を区別する。
@@ -23,7 +25,7 @@ Version ControlのWorktree管理に続き、名前付きCandidateの明示固定
 | 対象 | 現在の状態 | Owner Relation |
 |---|---|---|
 | 統合前の追加構造整理 | 旧Coordinatorの六単位と判断入口に続き、活動Reader四Fileと保存Bindingを状態照会へ移管し、C前の小Folder整理を限定完了（現Source82／70）。Orchestrator通常129件・利用側74件成功、Storage七Fileは不変、独立レビュー指摘0。残す型契約等は用途又は保存凍結の理由を記録。次はCの入口・Package統合、保存の最終評価は別単位。既存OPEN・横断検査3失敗とWorkbench既存lint二件・全体QA未完了を維持する。②の再試行・保持物操作は行わない | [活動照会とBindingの移管結果](99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#27-活動照会と保存bindingの配置整理) |
-| Cの統合・名称切替と保存再編 | Task側と単発Executionを150 SourceのCoordinatorへ統合し、公開120実行値を保持。通信名・構成key・診断名・説明DTO切替とTask設計三文書移管は限定確認済み。MCP102件・Task／合成Process89件等が成功し、文書六指摘も是正した。人間は同一情報の重複保持と保存排他を整理するBを条件付き採用し、Architecture／Qualityで寿命・一意な情報配置・単一保存改訂・内部ACKリレー撤去条件を具体化中。保存Source・実保存先は未切替で、新方式のSource／実境界評価はNot Run。C全体・保存統合・E2E・全体QAは未完了、過去CHGの文書不合格は残る。②再試行・保持物操作は行わない | [通信・設計移管と六指摘の是正](99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#351-切替と検証結果)、[B採用後の着手範囲](99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#37-b採用後の保存統合着手--2026-10-22)、[単一保存Lifecycle](06_Architecture/Details/coordinator/04_Task_Detailed_Design.md#unified-storage-lifecycle) |
+| Cの統合・名称切替と保存再編 | Task／ObjectiveとExecutionをCoordinatorへ統合し、通信・構成・診断名と設計配置を切り替えた。保存統合Bの単一Writer・共通Owner・原子受領・履歴接続、旧ACK専用枝撤去と試験移行を完了。固定通常回帰1,862成功・失敗0・5skip、共通公開入口一件・Windows保存影響三十件も成功。C全体・実境界E2E・全体QAの完成とは区別し、過去CHGの文書不合格と②の保持物は維持する | [Bの確認結果と限界](99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#375-保存統合bの最終確認)、[単一保存Lifecycle](06_Architecture/Details/coordinator/04_Task_Detailed_Design.md#unified-storage-lifecycle) |
 | C前のCLI責務整理 | CLIを受付・引数・回復表示・取消の四Fileへ限定し、診断・版判定・同意端末を既存責務へ移管。通常全回帰1,717成功・失敗0・5 skip、局所120件・端末18件・直接利用側の試験と静的検査は成功、独立レビュー残指摘0で限定完了。関連Dynamic Fake coverageの連続二回出力不一致と既存命名検査3件は別件として維持し、全体QAのPassとはしない。C統合・②再試行・保持物操作は未実施 | [CLI整理の結果と計測課題](99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#231-cli整理の確認結果と残る計測課題) |
 | 残る実行系の再編 | 元観測の照合、Task入力と助言を分離し、Source83 File・公開API・利用側のC前対応表を確定。残す三Fileの循環と二Stateの保証単位を明確化。局所221件・Windows正常Owner結合1件成功、Source／文書の独立レビュー残指摘0。失敗合成試験Rootは清掃済み。Orchestrator回帰129件成功。Coordinator全回帰は1,714成功・追従漏れ1失敗・5 skipで完走し、責務分類二行の是正後に該当4件成功。C前を限定完了として直前で停止。C本体・D・実境界・全体QAは未実施で、②の再試行・保持物操作なし | [C前の処置と検証結果](99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#22-c直前までの残存整理) |
 | Docker Isolationの構造・追加通信先 | 配置・設定・同意・Workbench・Proxy接続と旧定義整理、限定実通信・回帰・独立レビューを確認。DNS上限不足を是正した固定Imageでnpm／pip取得、未許可・直接通信拒否、取得後待機取消・今回資源回収が成功。広回帰の追従漏れ1件は是正後再確認済み。製品全体E2E・Releaseとは区別し、既存②と先行2Rootのunknownは別に保持する | [対応表・集約結果・保持参照](99_Roadmap/Changes/CHG-000082/docker-isolation-source-structure.md) |
@@ -75,7 +77,7 @@ Checker整理では、利用者が未使用の汎用Outcome Adapter・専用結�
 
 | 方針 | 理由 | Owner Relation |
 |---|---|---|
-| 技術処理はDocker Isolationへ、Task保存・通知・受領は上位へ | 下位がCoordinator／Orchestratorを知る逆依存を避け、利用側の保存方式をDocker cleanup条件にしない | [Coordinator設計](06_Architecture/Details/coordinator/01_Architecture.md)、[Orchestrator設計](06_Architecture/Details/coordinator/04_Task_Detailed_Design.md) |
+| 技術処理はDocker Isolationへ、Task保存・通知・受領は上位へ | 下位がCoordinator／Orchestratorを知る逆依存を避け、利用側の保存方式をDocker cleanup条件にしない | [Coordinator設計](06_Architecture/Details/coordinator/01_Architecture.md)、[Coordinator Task詳細設計](06_Architecture/Details/coordinator/04_Task_Detailed_Design.md) |
 | 旧署名資格を別の資格へ置き換えない | Commit／Hashは追跡・同一性確認であり、実行許可やPublisher真正性ではない。現在の認可と隔離を各Ownerで確認する | [通常実行と配布の分離](06_Architecture/Details/coordinator/01_Architecture.md#9-通常実行追跡正式配布の分離) |
 | Project Contextは現在投影だけにする | 詳細の第二正本や進捗書庫を作らず、人間・AI・MCP・Workbenchが同じ現在像を短時間で読めるようにする | [要求](01_Discovery/Definitions/REQ-000038/requirement.md) |
 

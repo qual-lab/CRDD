@@ -65,14 +65,11 @@ import {
   coordinatorAuthenticationUnknownCanClose,
 } from "../storage/model.ts";
 import {
-  acceptRuntimeOwnedCoordinatorProjectResult,
-  bindRuntimeOwnedCoordinatorProjectAcceptanceReader,
   captureRuntimeOwnedCoordinatorSettlementInputs,
   checkpointRuntimeOwnedCoordinatorCleanup,
   checkpointRuntimeOwnedCoordinatorLifecycle,
   checkpointRuntimeOwnedCoordinatorResource,
   checkpointRuntimeOwnedCoordinatorResourceNotIssued,
-  completeRuntimeOwnedCoordinatorSettlement,
   completeRuntimeOwnedCoordinatorCurrentRecovery,
   readRuntimeOwnedCoordinatorCurrentCompletionSnapshot,
   prepareRuntimeOwnedCoordinatorSettlement,
@@ -314,9 +311,6 @@ type DurableRecord = {
   hostCleanupOutcome?: unknown;
   dockerCompletion?: unknown;
   settlementResult?: ReturnType<typeof settleRuntimeOwnedCoordinatorResult>;
-  projectAcceptanceCheckpoint?: ReturnType<
-    typeof acceptRuntimeOwnedCoordinatorProjectResult
-  >;
   mountCompletion?: unknown;
   normalRestoration?: {
     plan: unknown;
@@ -3747,79 +3741,6 @@ export function readRuntimeOwnedDockerProjectResult(
   return observed.status === "completed" && observed.lockReleased
     ? observed
     : Object.freeze({ ...observed, status: "blocked" as const, value: null });
-}
-
-/**
- * 保存Ownerの耐久ACKで元の一配送を終了する。
- * @responsibility 元Context・真正終端・固定Readerを既存受理保存と整理へ接続する。
- * @trace ARCH-000008
- * @input recoveryFinalizationCapability: 元終了Owner、readProjectAcceptance: 固定組立ての同期Reader。
- * @returns 受理と整理の保存・排他解放・Effect別の元結果。
- * @precondition Coordinatorは同じAttemptのACKを保存し、上位Lockを解放済みである。
- * @postcondition 同じReaderの再入場だけを許可し、整理を毎回fresh照合する。
- * @effect 既存上位読取りとCoordinator現在状態の終了限定更新だけ。
- * @failure 偽Owner、別Consumer、Reader差替え、未受理、保存・排他不明を拒否する。
- * @invariant 受理保存確認と操作除去を分け、キャッシュから完了を生成しない。
- * @boundary Coordinatorの耐久受領と元Docker終了Owner。
- * @security 外部RequestからReader、Path、結果Hashや成功booleanを受け付けない。
- * @concurrency 受理確認後の再入場でも元入力で既存Writerのfresh照合を行う。
- */
-export function completeRuntimeOwnedDockerProjectResultDelivery(
-  recoveryFinalizationCapability: unknown,
-  readProjectAcceptance: unknown,
-) {
-  const record = durableRecord(recoveryFinalizationCapability);
-  if (
-    record?.consumer !== "orchestrator" ||
-    !record.hostCleanupOutcome ||
-    !record.dockerCompletion ||
-    record.settlementResult?.status !== "completed" ||
-    record.settlementResult.deliveryPending !== true ||
-    !bindRuntimeOwnedCoordinatorProjectAcceptanceReader(
-      record.settlementContext,
-      record.recoveryId,
-      readProjectAcceptance,
-    )
-  )
-    return Object.freeze({
-      status: "blocked" as const,
-      reason: "coordinator_project_result_acceptance_not_bound",
-      filesystemEffectIssued: false,
-      snapshotConfirmed: false,
-      lockReleased: false,
-    });
-  let filesystemEffectIssued = false;
-  if (!record.projectAcceptanceCheckpoint) {
-    const accepted = acceptRuntimeOwnedCoordinatorProjectResult(
-      record.settlementContext,
-      record.hostCleanupOutcome,
-      record.dockerCompletion,
-    );
-    filesystemEffectIssued = accepted.filesystemEffectIssued;
-    if (
-      accepted.status !== "completed" ||
-      !accepted.snapshotConfirmed ||
-      !accepted.lockReleased
-    )
-      return Object.freeze({ ...accepted, status: "blocked" as const });
-    record.projectAcceptanceCheckpoint = accepted;
-  }
-  const completed = completeRuntimeOwnedCoordinatorSettlement(
-    record.settlementContext,
-    record.hostCleanupOutcome,
-    record.dockerCompletion,
-  );
-  return Object.freeze({
-    ...completed,
-    status:
-      completed.status === "completed" &&
-      completed.snapshotConfirmed &&
-      completed.lockReleased
-        ? ("completed" as const)
-        : ("blocked" as const),
-    filesystemEffectIssued:
-      filesystemEffectIssued || completed.filesystemEffectIssued,
-  });
 }
 
 /**

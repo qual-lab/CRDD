@@ -10,19 +10,19 @@
  */
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 import {
-  acquireCoordinatorSnapshotPilotLock,
+  initializeCoordinatorSnapshot,
+  createCurrentCoordinatorPersistencePorts,
   createCoordinatorSnapshotIntegrationRecordPort,
   readCoordinatorSnapshot,
-  writeCoordinatorSnapshot,
 } from "../../src/storage/current-state.ts";
 import { createCoordinatorState } from "../../src/index.ts";
+import { encodeCoordinatorStateValue } from "../../src/storage/model.ts";
 import { ensureRepositoryRuntimeDataAreaFromWorkingDirectory } from "../../../domain-model/src/index.ts";
 import { requireReadyRepositoryRuntimeDataArea } from "../../../domain-model/src/index.ts";
 
@@ -78,48 +78,22 @@ function fixture(t: test.TestContext) {
   });
   assert.equal(created.status, "completed");
   if (created.status !== "completed") throw new Error("fixture_state_invalid");
-  const held = acquireCoordinatorSnapshotPilotLock(root);
-  assert.equal(held.status, "completed");
-  if (held.status !== "completed") throw new Error("fixture_lock_invalid");
-  const rootHash = held.value.repositoryRootHash;
-  assert.equal(held.value.release(), true);
-  const payload = {
-    schema: "crdd-coordinator/orchestrator-snapshot/v3",
-    schemaRevision: 3,
-    workspaces: [],
-    repositoryRootHash: rootHash,
-    repositoryBindingId: "binding-a",
-    snapshotRevision: 1,
-    intakeEpoch: "epoch-a",
-    intakeBindings: [{ queueId: "queue-a", epoch: "epoch-a" }],
-    projects: [created.state],
-    queueEntries: [
-      {
-        workspaceId: null,
-        queueId: "queue-a",
-        projectId: "project-a",
-        milestoneId: "milestone-a",
-        requestHash: "b".repeat(64),
-        originLane: "interactive",
-        repositoryRevision: "a".repeat(40),
-        scopeHash: "c".repeat(64),
-        state: "queued",
-        generation: 1,
-        ownerGeneration: null,
-        resumeCondition: null,
-        resultReference: null,
-      },
-    ],
-    leaseEvidence: [],
-    leaseIntents: [],
-    results: [],
-    historyPending: [],
-    acceptanceDecisions: [],
-    decisionRecoveries: [],
-  };
   assert.equal(
-    writeCoordinatorSnapshot(root, "binding-a", JSON.stringify(payload), 0)
-      .status,
+    initializeCoordinatorSnapshot(root, "binding-a").status,
+    "completed",
+  );
+  const ports = createCurrentCoordinatorPersistencePorts(root, "binding-a");
+  assert.equal(ports.state.writeState(created.state, 0).status, "completed");
+  assert.equal(
+    ports.state.enqueueOperation({
+      queueId: "queue-a",
+      projectId: "project-a",
+      milestoneId: "milestone-a",
+      requestHash: "b".repeat(64),
+      originLane: "interactive",
+      repositoryRevision: "a".repeat(40),
+      scopeHash: "c".repeat(64),
+    }).status,
     "completed",
   );
   return { root };
@@ -168,7 +142,7 @@ test("integration records are immutable and an identical retry is idempotent", (
     value: { status: "candidate", changedPaths: ["result.txt"] },
   };
   assert.equal(records.write(record).status, "completed");
-  const file = path.join(root, ".crdd", "orchestrator", "state.json");
+  const file = path.join(root, ".crdd", "coordinator", "state.json");
   const before = fs.readFileSync(file);
   assert.equal(records.write(record).status, "completed");
   assert.deepEqual(fs.readFileSync(file), before);
@@ -177,7 +151,7 @@ test("integration records are immutable and an identical retry is idempotent", (
   assert.equal(observed.value?.results.length, 1);
   assert.equal(observed.value?.results[0]?.identity, "candidate-a");
   assert.equal(
-    fs.existsSync(path.join(root, ".crdd", "orchestrator", "results")),
+    fs.existsSync(path.join(root, ".crdd", "coordinator", "results")),
     false,
   );
 });
@@ -231,7 +205,7 @@ test("an identity collision is blocked without replacing the first record", (t) 
     value: { afterRevision: "a".repeat(40) },
   };
   assert.equal(records.write(first).status, "completed");
-  const target = path.join(root, ".crdd", "orchestrator", "state.json");
+  const target = path.join(root, ".crdd", "coordinator", "state.json");
   const original = fs.readFileSync(target);
   const collision = records.write({
     ...first,
@@ -262,7 +236,7 @@ test("invalid path identities fail before creating a record directory", (t) => {
   const { root } = fixture(t);
   const escaped = `escape-${path.basename(root)}`;
   const outside = path.join(root, "..", escaped);
-  const file = path.join(root, ".crdd", "orchestrator", "state.json");
+  const file = path.join(root, ".crdd", "coordinator", "state.json");
   const before = fs.readFileSync(file);
   const result = adapter(root, `../${escaped}`).write({
     kind: "integration",
@@ -296,7 +270,7 @@ test("現行結果保存は未知欄・Hash・Queue結合破損を拒否して�
     }).status,
     "completed",
   );
-  const file = path.join(root, ".crdd", "orchestrator", "state.json");
+  const file = path.join(root, ".crdd", "coordinator", "state.json");
   const original = fs.readFileSync(file, "utf8");
   for (const change of [
     { unexpected: true },
@@ -304,18 +278,12 @@ test("現行結果保存は未知欄・Hash・Queue結合破損を拒否して�
     { milestoneId: "milestone-mismatch" },
   ]) {
     const saved = JSON.parse(original);
-    Object.assign(saved.payload.results[0], change);
-    saved.contentHash = createHash("sha256")
-      .update(JSON.stringify(saved.payload))
-      .digest("hex");
-    fs.writeFileSync(file, JSON.stringify(saved));
+    Object.assign(saved.results[0], change);
+    fs.writeFileSync(file, `${encodeCoordinatorStateValue(saved)}\n`);
     const before = fs.readFileSync(file);
     const observed = readCoordinatorSnapshot(root, "binding-a");
     assert.equal(observed.status, "blocked", JSON.stringify(change));
-    assert.equal(
-      observed.reason,
-      "orchestrator_snapshot_invalid_or_unconfirmed",
-    );
+    assert.equal(observed.reason, "coordinator_state_read_unconfirmed");
     assert.equal(observed.manualRecoveryRequired, true);
     assert.deepEqual(fs.readFileSync(file), before);
   }

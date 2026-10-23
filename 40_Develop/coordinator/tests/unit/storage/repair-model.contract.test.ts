@@ -13,10 +13,7 @@ import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
 import { runInThisContext } from "node:vm";
 import test from "node:test";
-import {
-  dockerRuntimeRepairCheckpointIsSettled,
-  type DockerRuntimeRepairDisposalCheckpoint,
-} from "../../../../docker-isolation/src/index.ts";
+import type { DockerRuntimeRepairDisposalCheckpoint } from "../../../../docker-isolation/src/index.ts";
 import {
   COORDINATOR_STATE_SCHEMA,
   decodeCoordinatorStateSnapshot as decode,
@@ -45,6 +42,9 @@ import {
   prepareCoordinatorStateHistorySnapshot,
   prepareCoordinatorStateHistoryLine,
   prepareCoordinatorStateRepairCompletionSnapshot as completeRepair,
+  coordinatorRepairCanComplete,
+  decodeCoordinatorUnifiedSnapshot,
+  validateCoordinatorUnifiedTransition,
 } from "../../../src/storage/model.ts";
 
 const binding = "a".repeat(64);
@@ -1242,6 +1242,53 @@ test("修復終了: 退避物不存在と履歴確認後だけ対象を除去す
   );
   assert.ok(retainedConfirmed);
   assert.equal(completeRepair(retainedConfirmed, id, binding), null);
+  const unifiedFixture = (bytes: Buffer) => {
+    const source = decode(bytes, binding);
+    assert.ok(source);
+    return {
+      ...source.snapshot,
+      schema: "crdd-coordinator/current-state/v3",
+      repositoryBindingId: null,
+      intakeEpoch: null,
+      intakeBindings: [],
+      projects: [],
+      queueEntries: [],
+      workspaces: [],
+      leaseEvidence: [],
+      leaseIntents: [],
+      results: [],
+      historyPending: [],
+      acceptanceDecisions: [],
+      decisionRecoveries: [],
+      resultReceipts: [],
+    };
+  };
+  for (const [bytes, expected] of [
+    [confirmed, true],
+    [pending, false],
+    [retainedConfirmed, false],
+  ] as const) {
+    const snapshot = unifiedFixture(bytes);
+    const currentBytes = Buffer.from(`${encode(snapshot)}\n`);
+    assert.ok(decodeCoordinatorUnifiedSnapshot(currentBytes, binding));
+    const candidate = Buffer.from(
+      `${encode({
+        ...snapshot,
+        revision: snapshot.revision + 1,
+        previous: {
+          revision: snapshot.revision,
+          payloadSha256: createHash("sha256")
+            .update(currentBytes)
+            .digest("hex"),
+        },
+        operations: [],
+      })}\n`,
+    );
+    assert.equal(
+      validateCoordinatorUnifiedTransition(currentBytes, candidate, binding),
+      expected,
+    );
+  }
 
   // 履歴受理が将来拡張されても、終了判定自体が成功条件を保持する。
   const source = stripTypeScriptTypes(
@@ -1256,7 +1303,7 @@ test("修復終了: 退避物不存在と履歴確認後だけ対象を除去す
   const end = source.indexOf("/**", begin);
   assert.ok(begin >= 0 && end > begin);
   const compile = runInThisContext(
-    `(function(deps){const {decodeCoordinatorStateSnapshot,encodeCoordinatorStateValue,prepareCoordinatorRepairHistorySummary,dockerRuntimeRepairCheckpointIsSettled}=deps; ${source.slice(begin, end)}; return prepareCoordinatorStateRepairCompletionSnapshot;})`,
+    `(function(deps){const {decodeCoordinatorStateSnapshot,encodeCoordinatorStateValue,prepareCoordinatorRepairHistorySummary,coordinatorRepairCanComplete}=deps; ${source.slice(begin, end)}; return prepareCoordinatorStateRepairCompletionSnapshot;})`,
   );
   const baseline = decode(confirmed, binding);
   assert.ok(baseline);
@@ -1329,7 +1376,7 @@ test("修復終了: 退避物不存在と履歴確認後だけ対象を除去す
       decodeCoordinatorStateSnapshot: () => value,
       encodeCoordinatorStateValue: encode,
       prepareCoordinatorRepairHistorySummary: () => ({}),
-      dockerRuntimeRepairCheckpointIsSettled,
+      coordinatorRepairCanComplete,
     }) as typeof completeRepair;
     assert.equal(guarded(confirmed, id, binding), null);
     assert.deepEqual(value, unchanged);
@@ -2247,7 +2294,7 @@ test("修復出版: 初回・次版・同値と不正候補を区別する", () 
   assert.ok(session);
   assert.equal(publication(clean, session, id, binding)?.mode, "session_begin");
   const empty = Buffer.from(
-    `${encode({ schema: COORDINATOR_STATE_SCHEMA, revision: 1, previous: null, repositoryBinding: binding, operations: [], unresolvedRecoveries: [], pendingDeliveries: [] })}\n`,
+    `${encode({ ...f.observed.snapshot, revision: 1, previous: null, operations: [], unresolvedRecoveries: [], pendingDeliveries: [] })}\n`,
   );
   const added = start(empty, text, binding);
   assert.ok(added);
@@ -3336,7 +3383,6 @@ test("修復variant: Taskと同居し双方向の更新で対象外全文を保�
         recoveryId: task.recoveryId,
         resultId: "4".repeat(64),
         consumer: "orchestrator",
-        acceptanceSha256: null,
       },
     ],
   };
@@ -3502,12 +3548,12 @@ test("修復variant: Taskと同居し双方向の更新で対象外全文を保�
   const completionNeedle = "item.recoveryId !== recoveryId";
   assert.equal(completionBody.split(completionNeedle).length, 2);
   const completionMutant = runInThisContext(
-    `(function(deps){const {decodeCoordinatorStateSnapshot,encodeCoordinatorStateValue,prepareCoordinatorRepairHistorySummary,dockerRuntimeRepairCheckpointIsSettled}=deps; ${completionBody.replace(completionNeedle, "false")}; return prepareCoordinatorStateRepairCompletionSnapshot;})`,
+    `(function(deps){const {decodeCoordinatorStateSnapshot,encodeCoordinatorStateValue,prepareCoordinatorRepairHistorySummary,coordinatorRepairCanComplete}=deps; ${completionBody.replace(completionNeedle, "false")}; return prepareCoordinatorStateRepairCompletionSnapshot;})`,
   )({
     decodeCoordinatorStateSnapshot: decode,
     encodeCoordinatorStateValue: encode,
     prepareCoordinatorRepairHistorySummary: repairSummary,
-    dockerRuntimeRepairCheckpointIsSettled,
+    coordinatorRepairCanComplete,
   }) as typeof completeRepair;
   assert.throws(() => preserveCompletion(completionMutant));
   const original = body("prepareCoordinatorRepairHistorySnapshot");
@@ -3576,7 +3622,7 @@ test("修復variant: Taskと同居し双方向の更新で対象外全文を保�
       at,
       30,
       binding,
-    )?.equals(currentRepairLine),
+    )?.equals(historyMix),
   );
   assert.equal(
     decodeCoordinatorHistoryRows(

@@ -24,6 +24,10 @@ import {
 } from "../../src/index.ts";
 import { runCoordinatorObjective as runCoordinatorObjectiveWithPorts } from "../../src/objective/intake-dependencies.ts";
 import { initializeCoordinatorSnapshot } from "../../src/storage/current-state.ts";
+import {
+  registerSyntheticOperations,
+  settleSyntheticOperation,
+} from "../fixtures/task-result-fixture.ts";
 import { consumeDockerRecoveryReceiptAfterProjectSettlement } from "../../src/task/settle-docker-recovery.ts";
 import {
   readCoordinatorState,
@@ -257,7 +261,9 @@ function settleRuntimeProcessAsFreshProcess(workingDirectory: string) {
  */
 test("外部Effect不明後もexact Recovery Identityで再入場してretryする", async (t) => {
   const workingDirectory = root(t);
-  const recoveryId = `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`;
+  let recoveryId = "";
+  let resultReference: ReturnType<typeof settleSyntheticOperation> | null =
+    null;
   let attempts = 0;
   let recoveries = 0;
   let acknowledgements = 0;
@@ -293,6 +299,7 @@ test("外部Effect不明後もexact Recovery Identityで再入場してretryす�
     recoverTaskRecovery: (exact: string) => {
       recoveries += 1;
       assert.equal(exact, recoveryId);
+      resultReference = settleSyntheticOperation(workingDirectory, exact);
       return {
         contract: "crdd-coordinator/current-task-recovery",
         status: "awaiting_delivery",
@@ -333,31 +340,29 @@ test("外部Effect不明後もexact Recovery Identityで再入場してretryす�
           status: "blocked" as const,
           reason: "acknowledgement_interrupted",
         };
+      assert.ok(resultReference);
       return {
         status: "completed" as const,
         reason: "acknowledged",
-        acknowledgement: {
-          repositoryBinding: "1".repeat(64),
-          resultId: "5".repeat(64),
-          operationId: settlement.operationId,
-          recoveryId: settlement.recoveryId,
-          consumer: "orchestrator",
-        },
+        acknowledgement: resultReference,
       };
     },
-    finalizeTaskRecoveryAcknowledgement: () => ({
-      status: "completed" as const,
-      reason: "acknowledgement_collected",
-    }),
     observeRecoveryTransition: async () => {
       throw new Error("diagnostic_unavailable");
     },
     execution: {
       runSingleTaskAttempt: async (input: Parameters<typeof completed>[0]) => {
         attempts += 1;
-        if (attempts === 1)
+        if (attempts === 1) {
+          const result = await completed(input);
+          recoveryId =
+            registerSyntheticOperations(
+              workingDirectory,
+              input.operationId,
+              1,
+            )[0]?.recoveryId ?? assert.fail("synthetic_operation_missing");
           return {
-            ...(await completed(input)),
+            ...result,
             status: "blocked" as const,
             reason: "docker_cleanup_unknown",
             effectState: "unknown" as const,
@@ -367,6 +372,7 @@ test("外部Effect不明後もexact Recovery Identityで再入場してretryす�
             recoveryObligations: [{ kind: "docker" as const, recoveryId }],
             candidateId: null,
           };
+        }
         return completed(input);
       },
     },

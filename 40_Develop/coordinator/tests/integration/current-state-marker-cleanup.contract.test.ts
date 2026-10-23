@@ -3,6 +3,7 @@
  * @packageDocumentation
  * @responsibility 正規本文保全、処置前拒否、処置後不明と排他解放を個別に確認する。
  * @trace ERB-IT-014
+ * @trace PRL-IT-011
  * @level IT
  * @scope 本番清掃本文と既存Root／Kernel／Filesystem primitiveの固定模擬。
  * @boundary ERB-IT-014=Direct Boundary: 現在保存Owner→保存marker。
@@ -28,7 +29,11 @@ import {
   encodeCoordinatorStateValue,
   MAX_COORDINATOR_STATE_BYTES,
 } from "../../src/storage/model.ts";
-import { cleanupRuntimeOwnedCoordinatorStateMarker } from "../../src/storage/settlement-store.ts";
+import {
+  acquireCoordinatorStorageOwner,
+  cleanupRuntimeOwnedCoordinatorStateMarker,
+  readCoordinatorStorageSnapshotOwned,
+} from "../../src/storage/settlement-store.ts";
 
 /**
  * markerだけの清掃を、保存本文・実体・取得／解放の全停止点で確認する。
@@ -96,7 +101,7 @@ test("現在保存marker: exact処置・全文保全・停止と解放の相関"
     const binding = "a".repeat(64),
       capability = Object.freeze({});
     const stateBytes = Buffer.from(
-      `${encodeCoordinatorStateValue({ schema: COORDINATOR_STATE_SCHEMA, revision: 1, previous: null, repositoryBinding: binding, operations: [], unresolvedRecoveries: [], pendingDeliveries: [] })}\n`,
+      `${encodeCoordinatorStateValue({ schema: COORDINATOR_STATE_SCHEMA, revision: 1, repositoryBindingId: null, intakeEpoch: null, intakeBindings: [], projects: [], workspaces: [], queueEntries: [], leaseEvidence: [], leaseIntents: [], results: [], historyPending: [], acceptanceDecisions: [], decisionRecoveries: [], resultReceipts: [], previous: null, repositoryBinding: binding, operations: [], unresolvedRecoveries: [], pendingDeliveries: [] })}\n`,
     );
     const files = new Map<string, Buffer>([
       [
@@ -340,12 +345,14 @@ test("現在保存marker: exact処置・全文保全・停止と解放の相関"
  * 実RepositoryとKernel排他で、保存markerだけの処置を確認する。
  * @responsibility 現在SchemaとRootから同じmarkerだけを処置し、記録やTask結果を生成しない。
  * @trace ERB-IT-014
+ * @trace PRL-IT-011
  * @precondition 自己生成Repository内だけを使用するWindows Host試験。
- * @stimulus marker不存在／正規／foreign、pending、使用中、処置後例外とhardlink。
+ * @stimulus marker不存在／正規／foreign、pending、使用中、処置後例外とhardlink、同Owner反復readと偽造・コピー・解放済みOwner。
  * @observation 実unlink、不存在、保存本文・inode、Kernel競合と解放。
- * @oracle 未確定時は停止、既知の削除は保持、fresh再入場の追加処置0。
+ * @oracle 未確定時は停止、既知の削除は保持、fresh再入場の追加処置0。借用中の再取得・解放0、外側一回解放とstate bytes不変。
  * @cleanup 全spyとKernel排他をfinallyで戻し、自己生成Rootだけを回収する。
  * @boundary ERB-IT-014=Direct Boundary: 保存marker清掃→実Filesystem／Kernel。
+ * @boundary PRL-IT-011=Direct Boundary: 保存Owner→同Kernel借用Reader。
  */
 test("Host Windows: 現在保存markerだけの実処置と再入場", {
   skip: process.platform !== "win32",
@@ -397,7 +404,7 @@ test("Host Windows: 現在保存markerだけの実処置と再入場", {
       marker = path.join(storage.directory, "state.lock"),
       pending = path.join(storage.directory, "state.pending.json");
     const bytes = Buffer.from(
-      `${encodeCoordinatorStateValue({ schema: COORDINATOR_STATE_SCHEMA, revision: 1, previous: null, repositoryBinding: repository.repositoryBinding, operations: [], unresolvedRecoveries: [], pendingDeliveries: [] })}\n`,
+      `${encodeCoordinatorStateValue({ schema: COORDINATOR_STATE_SCHEMA, revision: 1, repositoryBindingId: null, intakeEpoch: null, intakeBindings: [], projects: [], workspaces: [], queueEntries: [], leaseEvidence: [], leaseIntents: [], results: [], historyPending: [], acceptanceDecisions: [], decisionRecoveries: [], resultReceipts: [], previous: null, repositoryBinding: repository.repositoryBinding, operations: [], unresolvedRecoveries: [], pendingDeliveries: [] })}\n`,
     );
     const markerBytes = Buffer.from(
       `${JSON.stringify({ schema: "crdd-coordinator/state-lock/v1", repositoryBinding: repository.repositoryBinding })}\n`,
@@ -489,6 +496,49 @@ test("Host Windows: 現在保存markerだけの実処置と再入場", {
       true,
     );
     assert.deepEqual(fs.readdirSync(storage.directory), ["state.json"]);
+    const owner = acquireCoordinatorStorageOwner(root);
+    assert.ok(owner);
+    try {
+      assert.equal(owner.assertLive(), true);
+      for (let read = 0; read < 2; read++) {
+        const observed = readCoordinatorStorageSnapshotOwned(owner);
+        assert.equal(observed.status, "completed");
+        assert.equal(observed.lockReleased, false);
+        assert.ok("ownerHeld" in observed && observed.ownerHeld);
+        assert.equal(
+          observed.value?.payloadSha256,
+          decodeCoordinatorStateSnapshot(bytes, repository.repositoryBinding)
+            ?.payloadSha256,
+        );
+      }
+      assert.equal(acquireCoordinatorStorageOwner(root), null);
+      let invoked = false;
+      const fake = new Proxy(
+        {},
+        {
+          get() {
+            invoked = true;
+            throw new Error("untrusted owner");
+          },
+        },
+      );
+      assert.equal(readCoordinatorStorageSnapshotOwned(fake).status, "blocked");
+      assert.equal(
+        readCoordinatorStorageSnapshotOwned({ ...owner }).status,
+        "blocked",
+      );
+      assert.equal(invoked, false);
+      assert.equal(owner.assertLive(), true);
+    } finally {
+      assert.equal(owner.release(), true);
+    }
+    assert.equal(owner.assertLive(), false);
+    assert.equal(owner.release(), false);
+    assert.equal(readCoordinatorStorageSnapshotOwned(owner).status, "blocked");
+    const nextOwner = acquireCoordinatorStorageOwner(root);
+    assert.ok(nextOwner);
+    assert.equal(nextOwner.release(), true);
+    assert.deepEqual(fs.readFileSync(state), bytes);
   } finally {
     fs.unlinkSync = unlink;
     if (held) assert.equal(held.release(), true);

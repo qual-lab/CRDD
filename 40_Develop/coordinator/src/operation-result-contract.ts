@@ -29,12 +29,15 @@ export const COORDINATOR_PUBLIC_RUNTIME_CONTRACT =
 export function coordinatorDataBoundaryBlocked(
   error: RepositoryRuntimeDataAreaBlockedError,
 ) {
+  const ownerReleased =
+    error.cause !== "coordinator_snapshot_lock_release_unconfirmed";
   return Object.freeze({
     contract: COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
     status: "blocked" as const,
     reason: error.reason,
-    cleanupConfirmed: error.cleanupConfirmed,
-    manualRecoveryRequired: error.effectStateUnknown || !error.cleanupConfirmed,
+    cleanupConfirmed: error.cleanupConfirmed && ownerReleased,
+    manualRecoveryRequired:
+      error.effectStateUnknown || !error.cleanupConfirmed || !ownerReleased,
     effectState: error.effectStateUnknown
       ? ("unknown" as const)
       : error.effectIssued
@@ -42,7 +45,7 @@ export function coordinatorDataBoundaryBlocked(
         : ("no_effect" as const),
     effectIssued: error.effectIssued,
     effectStateUnknown: error.effectStateUnknown,
-    retryAllowed: error.retryAllowed,
+    retryAllowed: error.retryAllowed && ownerReleased,
     recoveryIds: Object.freeze(
       error.recoveryReference === null ? [] : [error.recoveryReference],
     ),

@@ -121,6 +121,7 @@ export {
 export {
   inspectRepositoryFormat,
   observeRepositoryRevision,
+  observeRepositoryStorageIdentity,
   type RepositoryFormatAdapter,
   type RepositoryRevisionAdapter,
   type RepositoryRevisionObservation,

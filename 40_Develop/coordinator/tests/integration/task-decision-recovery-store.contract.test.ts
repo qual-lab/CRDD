@@ -10,21 +10,21 @@
  */
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 import {
-  acquireCoordinatorSnapshotPilotLock,
+  initializeCoordinatorSnapshot,
+  createCurrentCoordinatorPersistencePorts,
   createCoordinatorSnapshotDecisionRecoveryStore,
-  writeCoordinatorSnapshot,
 } from "../../src/storage/current-state.ts";
 import {
   createCoordinatorState,
   type CoordinatorDecisionRecoveryIntent,
 } from "../../src/index.ts";
+import { encodeCoordinatorStateValue } from "../../src/storage/model.ts";
 import { ensureRepositoryRuntimeDataAreaFromWorkingDirectory } from "../../../domain-model/src/index.ts";
 import { requireReadyRepositoryRuntimeDataArea } from "../../../domain-model/src/index.ts";
 
@@ -76,48 +76,22 @@ function fixture(t: test.TestContext) {
   });
   assert.equal(state.status, "completed");
   if (state.status !== "completed") throw new Error("fixture_state_invalid");
-  const held = acquireCoordinatorSnapshotPilotLock(root);
-  assert.equal(held.status, "completed");
-  if (held.status !== "completed") throw new Error("fixture_lock_invalid");
-  const rootHash = held.value.repositoryRootHash;
-  assert.equal(held.value.release(), true);
-  const payload = {
-    schema: "crdd-coordinator/orchestrator-snapshot/v3",
-    schemaRevision: 3,
-    workspaces: [],
-    repositoryRootHash: rootHash,
-    repositoryBindingId: "binding-a",
-    snapshotRevision: 1,
-    intakeEpoch: "epoch-a",
-    intakeBindings: [{ queueId: "queue-a", epoch: "epoch-a" }],
-    projects: [state.state],
-    queueEntries: [
-      {
-        workspaceId: null,
-        queueId: "queue-a",
-        projectId: "project-a",
-        milestoneId: "milestone-a",
-        requestHash: "b".repeat(64),
-        originLane: "interactive",
-        repositoryRevision: "a".repeat(40),
-        scopeHash: "c".repeat(64),
-        state: "queued",
-        generation: 1,
-        ownerGeneration: null,
-        resumeCondition: null,
-        resultReference: null,
-      },
-    ],
-    leaseEvidence: [],
-    leaseIntents: [],
-    results: [],
-    historyPending: [],
-    acceptanceDecisions: [],
-    decisionRecoveries: [],
-  };
   assert.equal(
-    writeCoordinatorSnapshot(root, "binding-a", JSON.stringify(payload), 0)
-      .status,
+    initializeCoordinatorSnapshot(root, "binding-a").status,
+    "completed",
+  );
+  const ports = createCurrentCoordinatorPersistencePorts(root, "binding-a");
+  assert.equal(ports.state.writeState(state.state, 0).status, "completed");
+  assert.equal(
+    ports.state.enqueueOperation({
+      queueId: "queue-a",
+      projectId: "project-a",
+      milestoneId: "milestone-a",
+      requestHash: "b".repeat(64),
+      originLane: "interactive",
+      repositoryRevision: "a".repeat(40),
+      scopeHash: "c".repeat(64),
+    }).status,
     "completed",
   );
   return root;
@@ -209,7 +183,7 @@ test("recovery intent store rejects duplicate creation and a stale CAS", (t) => 
   );
   const value = intent();
   assert.equal((store.create(value) as { status: string }).status, "completed");
-  const file = path.join(root, ".crdd", "orchestrator", "state.json");
+  const file = path.join(root, ".crdd", "coordinator", "state.json");
   const before = fs.readFileSync(file);
   assert.equal((store.create(value) as { status: string }).status, "blocked");
   const stale = Object.freeze({ ...value, unknownBoundary: "queue_update" });
@@ -249,13 +223,10 @@ test("未知の判断回復欄は現在状態を置換せず停止する", (t) =
   );
   const value = intent();
   assert.equal((store.create(value) as { status: string }).status, "completed");
-  const file = path.join(root, ".crdd", "orchestrator", "state.json");
+  const file = path.join(root, ".crdd", "coordinator", "state.json");
   const saved = JSON.parse(fs.readFileSync(file, "utf8"));
-  saved.payload.decisionRecoveries[0].value.unexpected = true;
-  saved.contentHash = createHash("sha256")
-    .update(JSON.stringify(saved.payload))
-    .digest("hex");
-  fs.writeFileSync(file, JSON.stringify(saved));
+  saved.decisionRecoveries[0].value.unexpected = true;
+  fs.writeFileSync(file, `${encodeCoordinatorStateValue(saved)}\n`);
   const before = fs.readFileSync(file);
   const observed = createCoordinatorSnapshotDecisionRecoveryStore(
     root,
@@ -266,7 +237,7 @@ test("未知の判断回復欄は現在状態を置換せず停止する", (t) =
     manualRecoveryRequired: boolean;
   };
   assert.equal(observed.status, "blocked");
-  assert.equal(observed.reason, "orchestrator_snapshot_invalid_or_unconfirmed");
+  assert.equal(observed.reason, "coordinator_state_read_unconfirmed");
   assert.equal(observed.manualRecoveryRequired, true);
   assert.deepEqual(fs.readFileSync(file), before);
 });

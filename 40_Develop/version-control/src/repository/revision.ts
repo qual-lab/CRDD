@@ -318,6 +318,58 @@ export const gitRepositoryRevisionAdapter: RepositoryRevisionAdapter = (
   }
 };
 
+/**
+ * 保存先に結合するRepository実体だけを観測する。
+ * @responsibility 未Commitの新品Repositoryと改訂の観測不能を混同しない。
+ * @trace ARCH-000002
+ * @input capability: 検証済みRoot。
+ * @returns 論理・実体Identityと配置種別、又はnull。
+ * @precondition 呼出し側は保存用途に限り、実行対象Commitは別途検証する。
+ * @postcondition HEADを推測せず、前後で同じRootとGit管理実体を確認する。
+ * @effect Git配置とFilesystem実体の読取りだけ。
+ * @failure 不正配置、実体変更、観測不能はnull。
+ * @invariant 成功をRevision観測や実行Authorityへ昇格しない。
+ * @boundary 保存Rootの結合とVersion Control。
+ * @security 任意PathやGit管理情報を書き換えない。
+ * @concurrency 更新排他は呼出し側が保持する。
+ */
+export function observeRepositoryStorageIdentity(
+  capability: VerifiedRepositoryRoot,
+) {
+  try {
+    const root = resolveVerifiedRepositoryRoot(capability);
+    if (root === null) return null;
+    const before = resolveRepositoryGitLayout(root);
+    const value = {
+      repositoryIdentity: identity(
+        "crdd-logical-repository-v1",
+        before.commonDirectory,
+      ),
+      repositoryInstanceIdentity: identity(
+        "crdd-repository-instance-v1",
+        before.root,
+      ),
+      repositoryForm:
+        before.kind === "normal_worktree"
+          ? "primary"
+          : before.kind === "linked_worktree"
+            ? "linked"
+            : "embedded",
+    };
+    const after = resolveRepositoryGitLayout(root);
+    return resolveVerifiedRepositoryRoot(capability) === root &&
+      before.kind === after.kind &&
+      value.repositoryIdentity ===
+        identity("crdd-logical-repository-v1", after.commonDirectory) &&
+      value.repositoryInstanceIdentity ===
+        identity("crdd-repository-instance-v1", after.root)
+      ? Object.freeze(value)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 export const gitRepositoryFormatAdapter: RepositoryFormatAdapter = (
   repositoryRoot,
 ) => {

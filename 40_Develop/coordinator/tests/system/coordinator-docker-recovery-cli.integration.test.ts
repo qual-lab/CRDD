@@ -915,7 +915,7 @@ test("現在回復rendererは完了と耐久受領待ちを区別する", () => 
   assert.equal(renderDockerRecoveryDoctorReport(pending, true).exitCode, 0);
   assert.match(
     renderDockerRecoveryDoctorReport(pending, false).stdout,
-    /Orchestrator受領待ち/,
+    /技術回収済み・Task側の受領待ち/,
   );
   for (const field of [
     "dockerCleanupConfirmed",

@@ -9,11 +9,13 @@
  * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Coordinator Application Port→Core
  */
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
+import { once } from "node:events";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 import {
   createCoordinatorExecutionHostPorts,
   createCoordinatorState,
@@ -27,7 +29,6 @@ import {
   createCurrentCoordinatorPersistencePorts as createCoordinatorPersistencePorts,
   initializeCoordinatorSnapshot,
 } from "../../src/storage/current-state.ts";
-import { createProjectResultAcceptanceReader } from "../../src/task/settle-docker-recovery.ts";
 import { createRuntimeProcessRecoveryIdentity } from "../../src/execution/process-safety-state.ts";
 import {
   enqueueProjectOperation,
@@ -35,40 +36,50 @@ import {
   readCoordinatorState,
   writeCoordinatorState,
 } from "../fixtures/task-persistence-fixture.ts";
+import { encodeCoordinatorStateValue } from "../../src/storage/model.ts";
+
+import { registerSyntheticResults } from "../fixtures/task-result-fixture.ts";
 
 const revision = "a".repeat(40);
 
 /**
- * 通常Taskの結果集合を上位保存後だけ受理し、部分失敗を元Task結果と分ける。
- * @responsibility 実Snapshotと模擬下位配送の本番Application接続を検証する。
+ * 通常Taskの結果集合を単一CASで受理し、応答喪失を元Task結果と分ける。
+ * @responsibility 実Snapshot・履歴・配送待ちの本番Application接続を検証する。
  * @trace PRL-IT-012
- * @precondition 新版Git Root、Queue、状態保存と固定ACK Readerを用意する。
- * @stimulus 二結果、0件、読取り失敗、二重通知、保存失敗、片方ACK失敗を実行する。
- * @observation Task起動数、ACK保存、下位complete回数、Task終端、結果fieldを確認する。
- * @oracle 全件読取り→同世代保存→固定Reader照合→整理の順で、失敗時にTaskを再実行しない。
+ * @precondition 新版Git Root、Queueと模擬下位操作の確認済み履歴を用意する。
+ * @stimulus 二結果、0件、読取り失敗、二重通知、保存前失敗、保存後応答喪失と二件目不正を実行する。
+ * @observation Task起動数、受領保存、Operation／配送除去、Task終端と結果fieldを確認する。
+ * @oracle 受領と全対象除去が一回で成立し、部分不正では一件目も受領せず再実行しない。
  * @cleanup 自己所有fixtureを終了hookで回収する。Docker/Providerは使用しない。
- * @boundary PRL-IT-012=Direct Boundary: Application→実Snapshot→固定Reader→模擬終了Owner。
+ * @boundary PRL-IT-012=Direct Boundary: Application→単一物理Writer→実Snapshot／履歴。
  */
-test("通常結果配送は上位実保存後だけ整理しTask結果を保持する", async (t) => {
-  for (const mode of [
-    "normal",
-    "none",
-    "read_failure",
-    "double_notification",
-    "save_failure",
-    "partial_complete",
-    "missing_capture",
-    "wrong_operation",
-    "duplicate_reference",
-    "reader_throw",
-    "save_after_effect",
-    "cancelled",
-  ] as const) {
+for (const mode of [
+  "normal",
+  "none",
+  "read_failure",
+  "double_notification",
+  "save_failure",
+  "second_result_invalid",
+  "missing_capture",
+  "wrong_operation",
+  "duplicate_reference",
+  "save_after_effect",
+  "cancelled",
+  "pending_reentry",
+  "history_missing",
+  "history_duplicate",
+  "history_mismatch",
+  "history_unconfirmed",
+] as const) {
+  test(`通常結果配送は上位実保存後だけ整理しTask結果を保持する ${mode}`, async (t) => {
     const { root, input } = fixture(t, [task("task-a")], 1);
     const persistence = createCoordinatorPersistencePorts(root, "binding-a");
     let starts = 0;
     let reads = 0;
     let completes = 0;
+    const publication: {
+      args?: Parameters<typeof persistence.state.writeState>;
+    } = {};
     const outcome = await runCoordinatorOperationWithPorts(
       {
         ...createCoordinatorExecutionHostPorts({}),
@@ -76,14 +87,42 @@ test("通常結果配送は上位実保存後だけ整理しTask結果を保持�
           ...persistence,
           state: {
             ...persistence.state,
-            writeState: (state, generation) => {
+            writeState: (state, generation, resultFacts) => {
+              if (
+                mode === "pending_reentry" &&
+                state.tasks.some((item) => item.resultAcceptances.length > 0)
+              ) {
+                publication.args = [state, generation, resultFacts];
+                const rename = t.mock.method(
+                  fs,
+                  "renameSync",
+                  (source: fs.PathLike, target: fs.PathLike) => {
+                    assert.equal(
+                      path.basename(String(source)),
+                      "state.pending.json",
+                    );
+                    assert.equal(path.basename(String(target)), "state.json");
+                    throw new Error("fixture_receipt_publication_interrupted");
+                  },
+                );
+                try {
+                  return persistence.state.writeState(
+                    state,
+                    generation,
+                    resultFacts,
+                  );
+                } finally {
+                  rename.mock.restore();
+                }
+              }
               if (
                 (mode === "save_failure" || mode === "save_after_effect") &&
                 state.tasks.some((item) => item.resultAcceptances.length > 0)
               ) {
                 if (mode === "save_after_effect")
                   assert.equal(
-                    persistence.state.writeState(state, generation).status,
+                    persistence.state.writeState(state, generation, resultFacts)
+                      .status,
                     "completed",
                   );
                 return {
@@ -94,29 +133,20 @@ test("通常結果配送は上位実保存後だけ整理しTask結果を保持�
                   recoveryId: null,
                 };
               }
-              return persistence.state.writeState(state, generation);
+              return persistence.state.writeState(
+                state,
+                generation,
+                resultFacts,
+              );
             },
           },
         },
         resultDelivery: {
           repositoryBindingId: "binding-a",
-          createAcceptanceReader: (acceptance) => {
-            if (mode === "reader_throw")
-              throw new Error("fixture_reader_failed");
-            return createProjectResultAcceptanceReader({
-              workingDirectory: root,
-              repositoryBindingId: acceptance.repositoryBindingId,
-              projectId: acceptance.projectId,
-              milestoneId: acceptance.milestoneId,
-              taskId: acceptance.taskId,
-              attemptId: acceptance.attemptId,
-              operationId: acceptance.operationId,
-              recoveryId: acceptance.recoveryId,
-            });
-          },
         },
         runSingleTaskAttempt: async (attempt) => {
           starts += 1;
+          let results: ReturnType<typeof registerSyntheticResults> = [];
           const delivery = Object.freeze({
             readResults: () => {
               reads += 1;
@@ -126,54 +156,27 @@ test("通常結果配送は上位実保存後だけ整理しTask結果を保持�
                 return { status: "blocked" as const, results: null };
               return {
                 status: "completed" as const,
-                results: [1, 2].map((index) => ({
-                  repositoryBinding: "a".repeat(64),
+                results: results.map((result, index) => ({
+                  ...result,
                   operationId:
                     mode === "wrong_operation"
                       ? "other-operation"
                       : attempt.operationId,
-                  recoveryId: `result-recovery-${mode === "duplicate_reference" ? 1 : index}`,
-                  resultId: String(index).repeat(64),
+                  recoveryId:
+                    mode === "duplicate_reference"
+                      ? (results[0]?.recoveryId ?? "fixture-missing")
+                      : result.recoveryId,
+                  resultId:
+                    mode === "second_result_invalid" && index === 1
+                      ? "0".repeat(64)
+                      : result.resultId,
                   consumer: "orchestrator" as const,
                 })),
               };
             },
-            complete: (recoveryId: unknown, reader: unknown) => {
+            complete: () => {
               completes += 1;
-              assert.equal(typeof reader, "function");
-              const accepted = (
-                reader as () => {
-                  recoveryId: string;
-                  settlementGeneration: number;
-                } | null
-              )();
-              assert.ok(accepted);
-              assert.equal(accepted.recoveryId, recoveryId);
-              const stored = persistence.state.readState("project-a");
-              assert.equal(stored.status, "completed");
-              assert.ok(stored.value);
-              assert.equal(
-                stored.value.tasks[0]?.state,
-                mode === "cancelled" ? "cancelled" : "completed",
-              );
-              assert.equal(stored.value.tasks[0]?.resultAcceptances.length, 2);
-              assert.equal(
-                accepted.settlementGeneration,
-                stored.value.generation,
-              );
-              return {
-                status:
-                  mode === "partial_complete" && completes === 2
-                    ? ("blocked" as const)
-                    : ("completed" as const),
-                reason: "fixture_delivery",
-                filesystemEffectIssued: true,
-                snapshotConfirmed: true,
-                lockReleased: true,
-                revision: 1,
-                payloadSha256: "d".repeat(64),
-                recoveryIds: Object.freeze([]),
-              };
+              throw new Error("removed_ack_relay_must_not_be_called");
             },
           });
           if (mode !== "missing_capture")
@@ -181,6 +184,42 @@ test("通常結果配送は上位実保存後だけ整理しTask結果を保持�
           if (mode === "double_notification")
             attempt.observeResultDelivery?.(delivery);
           const result = await completed(attempt);
+          if (mode !== "none")
+            results = registerSyntheticResults(root, attempt.operationId);
+          const history = path.join(
+            root,
+            ".crdd",
+            "coordinator",
+            "history.jsonl",
+          );
+          if (mode === "history_missing") fs.unlinkSync(history);
+          if (mode === "history_duplicate") {
+            const bytes = fs.readFileSync(history);
+            fs.writeFileSync(history, Buffer.concat([bytes, bytes]));
+          }
+          if (mode === "history_mismatch") {
+            const rows = fs
+              .readFileSync(history, "utf8")
+              .trim()
+              .split("\n")
+              .map((line) => ({
+                ...JSON.parse(line),
+                occurredAt: "2026-01-01T00:00:00.000Z",
+              }));
+            fs.writeFileSync(
+              history,
+              rows
+                .map((row) => `${encodeCoordinatorStateValue(row)}\n`)
+                .join(""),
+            );
+          }
+          if (mode === "history_unconfirmed") {
+            const file = path.join(root, ".crdd", "coordinator", "state.json");
+            const state = JSON.parse(fs.readFileSync(file, "utf8"));
+            for (const operation of state.operations)
+              operation.history.confirmed = false;
+            fs.writeFileSync(file, `${encodeCoordinatorStateValue(state)}\n`);
+          }
           return mode === "cancelled"
             ? { ...result, status: "cancelled", reason: "fixture_cancelled" }
             : result;
@@ -189,13 +228,102 @@ test("通常結果配送は上位実保存後だけ整理しTask結果を保持�
       input,
     );
     assert.equal(starts, 1);
-    assert.equal(
-      completes,
-      mode === "normal" || mode === "partial_complete" || mode === "cancelled"
-        ? 2
-        : 0,
-      JSON.stringify(outcome),
-    );
+    assert.equal(completes, 0, JSON.stringify(outcome));
+    if (mode === "pending_reentry") {
+      assert.equal(outcome.status, "blocked");
+      assert.ok(publication.args);
+      const args = publication.args;
+      const area = path.join(root, ".crdd", "coordinator");
+      const file = path.join(area, "state.json");
+      const pending = path.join(area, "state.pending.json");
+      const marker = path.join(area, "state.lock");
+      const before = fs.readFileSync(file);
+      const intended = fs.readFileSync(pending);
+      const markerBytes = fs.readFileSync(marker);
+      const history = fs.readFileSync(path.join(area, "history.jsonl"));
+      assert.equal(JSON.parse(before.toString()).resultReceipts.length, 0);
+      assert.equal(JSON.parse(before.toString()).operations.length, 2);
+      assert.equal(JSON.parse(intended.toString()).resultReceipts.length, 2);
+      assert.equal(JSON.parse(intended.toString()).operations.length, 0);
+      for (const fault of ["marker", "pending", "state", "facts"] as const) {
+        if (fault === "marker") fs.writeFileSync(marker, "{}\n");
+        if (fault === "pending") fs.writeFileSync(pending, "{}\n");
+        if (fault === "state") {
+          const value = JSON.parse(before.toString());
+          value.revision += 1;
+          fs.writeFileSync(file, `${encodeCoordinatorStateValue(value)}\n`);
+        }
+        const fixedState = fs.readFileSync(file);
+        const fixedPending = fs.readFileSync(pending);
+        const fixedMarker = fs.readFileSync(marker);
+        const attempted =
+          fault === "facts"
+            ? persistence.state.writeState(
+                args[0],
+                args[1],
+                args[2]?.map((fact) => ({
+                  ...fact,
+                  recoveryUnresolved: !fact.recoveryUnresolved,
+                })),
+              )
+            : persistence.state.writeState(...args);
+        assert.equal(attempted.status, "blocked", fault);
+        assert.deepEqual(fs.readFileSync(file), fixedState);
+        assert.deepEqual(fs.readFileSync(pending), fixedPending);
+        assert.deepEqual(fs.readFileSync(marker), fixedMarker);
+        fs.writeFileSync(file, before);
+        fs.writeFileSync(pending, intended);
+        fs.writeFileSync(marker, markerBytes);
+      }
+      const child = fileURLToPath(
+        new URL(
+          "../fixtures/task-result-publication-worker.ts",
+          import.meta.url,
+        ),
+      );
+      for (let replay = 0; replay < 2; replay++) {
+        const processEnv = { ...process.env };
+        delete processEnv.NODE_TEST_CONTEXT;
+        const worker = spawn(process.execPath, [child], {
+          env: processEnv,
+          windowsHide: true,
+          stdio: ["pipe", "pipe", "pipe"],
+        });
+        let output = "",
+          errors = "";
+        worker.stdout.on("data", (data) => {
+          output += data.toString();
+        });
+        worker.stderr.on("data", (data) => {
+          errors += data.toString();
+        });
+        const joined = once(worker, "close", {
+          signal: AbortSignal.timeout(60_000),
+        });
+        worker.stdin.end(JSON.stringify({ root, args }));
+        try {
+          const [code] = await joined;
+          assert.equal(code, 0, errors);
+        } finally {
+          if (worker.exitCode === null && worker.signalCode === null) {
+            const closed = once(worker, "close");
+            worker.kill();
+            await closed;
+          }
+        }
+        const saved = JSON.parse(output);
+        assert.equal(saved.status, "completed", JSON.stringify(saved));
+        assert.deepEqual(fs.readFileSync(file), intended);
+        assert.deepEqual(
+          fs.readFileSync(path.join(area, "history.jsonl")),
+          history,
+        );
+        assert.equal(fs.existsSync(pending), false);
+        assert.equal(fs.existsSync(marker), false);
+      }
+      assert.equal(starts, 1);
+      return;
+    }
     assert.equal(
       reads,
       mode === "double_notification" || mode === "missing_capture" ? 0 : 1,
@@ -215,27 +343,38 @@ test("通常結果配送は上位実保存後だけ整理しTask結果を保持�
       stored.value.tasks[0]?.state,
       mode === "cancelled"
         ? "cancelled"
-        : mode === "normal" ||
-            mode === "none" ||
-            mode === "partial_complete" ||
-            mode === "save_after_effect"
+        : mode === "normal" || mode === "none" || mode === "save_after_effect"
           ? "completed"
           : "running",
     );
     assert.equal(
       stored.value.tasks[0]?.resultAcceptances.length,
-      mode === "normal" ||
-        mode === "partial_complete" ||
-        mode === "save_after_effect" ||
-        mode === "cancelled"
+      mode === "normal" || mode === "save_after_effect" || mode === "cancelled"
         ? 2
         : 0,
     );
     assert.ok(
       Object.values(outcome).every((value) => typeof value !== "function"),
     );
-  }
-});
+    const savedRoot = JSON.parse(
+      fs.readFileSync(
+        path.join(root, ".crdd", "coordinator", "state.json"),
+        "utf8",
+      ),
+    );
+    const accepted =
+      mode === "normal" || mode === "save_after_effect" || mode === "cancelled";
+    assert.equal(savedRoot.resultReceipts.length, accepted ? 2 : 0);
+    assert.equal(
+      savedRoot.operations.length,
+      mode === "none" || accepted ? 0 : 2,
+    );
+    assert.equal(
+      savedRoot.pendingDeliveries.length,
+      mode === "none" || accepted ? 0 : 2,
+    );
+  });
+}
 
 type BoundExecutionDependencies = Omit<
   Parameters<typeof runCoordinatorOperationWithPorts>[0],
@@ -1266,7 +1405,7 @@ test("下位実行へ委譲後のthrowは開始観測の有無にかかわらず
  */
 test("PR-A-04 releases the physical lease when a post-acquire Queue write becomes unobservable", async (t) => {
   const { root, input } = fixture(t, [task("task-a")], 1);
-  const location = path.join(root, ".crdd", "orchestrator", "state.json");
+  const location = path.join(root, ".crdd", "coordinator", "state.json");
   const original = fs.openSync;
   let isInjected = false;
   let outcome: Awaited<ReturnType<typeof runCoordinatorOperation>>;

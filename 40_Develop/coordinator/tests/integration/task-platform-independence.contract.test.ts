@@ -146,7 +146,6 @@ const SOURCE_ROLES = {
     "objective/replan-transitions.ts",
     "decision/transitions.ts",
     "storage/result-record.ts",
-    "storage/validate-result-record.ts",
     "task/executor.ts",
     "task/observer.ts",
     "task/recovery.ts",

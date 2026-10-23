@@ -8737,7 +8737,9 @@
       "humanInput": false,
       "postconditions": [
         "boundary_result_observed",
-        "owned_resources_settled_or_reported"
+        "owned_resources_settled_or_reported",
+        "borrowed_owner_held_without_reacquisition",
+        "state_bytes_unchanged_after_read"
       ],
       "mandatoryByDefault": true
     },

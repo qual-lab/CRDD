@@ -4,80 +4,103 @@
  * @responsibility 受付世代、保存比較交換、排他意図・根拠、終了整理と再入場を同じ保存Ownerへ結合する。
  * @trace ARCH-000004
  */
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
+import {
+  COORDINATOR_DURABLE_FOUNDATION_CONTRACT,
+  type CoordinatorSnapshot,
+  digest,
+  type Envelope,
+  exactKeys,
+  HASH,
+  type LeaseEvidenceContent,
+  type LeaseEvidenceEnvelope,
+  type LeaseKind,
+  leaseAcquisitionRecoveryId,
+  leaseIdentity,
+  MAX_RECORD_BYTES,
+  plainObject,
+  SNAPSHOT_SCHEMA_V3,
+  validCoordinatorSnapshot,
+  validCoordinatorState,
+  validId,
+  validLeaseEvidence,
+  validQueueEntry,
+  validResultReference,
+  decodeCoordinatorUnifiedSnapshot,
+  encodeCoordinatorStateValue,
+  projectCoordinatorTaskSnapshot,
+  validCoordinatorResultRecord,
+} from "./model.ts";
+
+export { COORDINATOR_DURABLE_FOUNDATION_CONTRACT } from "./model.ts";
+
 import fs from "node:fs";
 import path from "node:path";
-import { acquireRuntimeOwnedProjectStateKernelLock } from "../execution/kernel-lock.ts";
 import {
+  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
   observeRepositoryRuntimeDataArea,
-  RepositoryRuntimeDataAreaBlockedError,
   type RepositoryRuntimeDataAreaObservation,
   requireReadyRepositoryRuntimeDataArea,
+  RepositoryRuntimeDataAreaBlockedError,
   resolveRepositoryRuntimeDataPaths,
 } from "../../../domain-model/src/index.ts";
 import {
-  ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
-  readStableBoundedFileSnapshot,
-} from "../../../domain-model/src/index.ts";
-import {
-  resolveVerifiedRepositoryRoot,
   verifyRepositoryRoot,
   verifyRepositoryRootFromWorkingDirectory,
 } from "../../../version-control/src/index.ts";
-import { normalizeRepositoryRelativePath } from "../input/repository-relative-path.ts";
-import { decodeProjectResultAcceptance } from "../state/model.ts";
-import type { ProjectQueueEntry, ProjectQueueState } from "../queue/types.ts";
-import {
-  inspectSingleTaskRecord,
-  singleTaskQueueIsConsistent,
-  type SingleTaskRecord,
-} from "../task/single-task-record.ts";
 import type { CoordinatorAcceptanceDecisionStore } from "../decision/acceptance-authority.ts";
+import {
+  COORDINATOR_ACCEPTANCE_DECISION_STORE_CONTRACT,
+  type CoordinatorAcceptanceDecisionEnvelope,
+  validCoordinatorAcceptanceDecisionRecord,
+} from "../decision/acceptance-record.ts";
 import type {
   CoordinatorDecisionRecoveryIntent,
   CoordinatorDecisionRecoveryStore,
 } from "../decision/records.ts";
+import { validCoordinatorDecisionRecoveryIntent } from "../decision/recovery-record.ts";
+import {
+  acquireCoordinatorStorageOwner,
+  isLiveCoordinatorStorageOwner,
+  readCoordinatorStorageSnapshotOwned,
+  writeCoordinatorStorageTaskSnapshotOwned,
+  type CoordinatorStorageOwner,
+} from "./settlement-store.ts";
+import { normalizeRepositoryRelativePath } from "../input/repository-relative-path.ts";
 import type {
   CoordinatorLease,
   CoordinatorLeaseAcquisitionResolution,
-  CoordinatorLeaseKind,
   CoordinatorLeaseOwnerObservation,
   CoordinatorLeasePort,
 } from "../lease/controller.ts";
+import type { CoordinatorPortResult } from "../operation-result.ts";
+import type { ProjectQueueEntry, ProjectQueueState } from "../queue/types.ts";
+import type { CoordinatorState } from "../state/model.ts";
 import type {
   CoordinatorPersistencePorts,
   CoordinatorStatePort,
 } from "../state/persistence.ts";
-import type { CoordinatorPortResult } from "../operation-result.ts";
-import type {
-  CoordinatorState,
-  ProjectTaskRecoveryObligation,
-} from "../state/model.ts";
-import type {
-  IntegrationRecordBinding,
-  CoordinatorResultRecord,
-} from "./result-record.ts";
 import {
-  COORDINATOR_ACCEPTANCE_DECISION_STORE_CONTRACT,
-  type CoordinatorAcceptanceDecisionEnvelope,
-  validCoordinatorAcceptanceDecisionEnvelope,
-  validCoordinatorAcceptanceDecisionRecord,
-} from "../decision/acceptance-record.ts";
-import { COORDINATOR_INTEGRATION_CONTRACT } from "./result-record.ts";
-import type { CoordinatorIntegrationRecordPort } from "./result-record.ts";
-import { validCoordinatorDecisionRecoveryIntent } from "../decision/recovery-record.ts";
-import { validCoordinatorResultRecord } from "./validate-result-record.ts";
-import {
-  validCoordinatorWorkspace,
-  type CoordinatorWorkspace,
-} from "../workspace/record.ts";
+  inspectSingleTaskRecord,
+  type SingleTaskRecord,
+} from "../task/single-task-record.ts";
 import { resolveCoordinatorWorkspaceTaskTarget } from "../workspace/operations.ts";
+import {
+  type CoordinatorWorkspace,
+  validCoordinatorWorkspace,
+} from "../workspace/record.ts";
 import {
   type HistoryRow,
   historyRow,
   inspectCoordinatorHistorySettlement,
   updateCoordinatorHistoryOwned,
 } from "./history.ts";
+import type {
+  CoordinatorIntegrationRecordPort,
+  CoordinatorResultRecord,
+  IntegrationRecordBinding,
+} from "./result-record.ts";
+import { COORDINATOR_INTEGRATION_CONTRACT } from "./result-record.ts";
 
 /**
  * 検証済みRootから名前付きPathだけを投影する。
@@ -118,7 +141,7 @@ function resolveCoordinatorNamedPaths(workingDirectory: string) {
  */
 function observeCoordinatorArea(
   repositoryRoot: string,
-  area: "orchestrator" | "tmp",
+  area: "coordinator" | "tmp",
 ) {
   const verified = verifyRepositoryRoot(repositoryRoot);
   if (verified.status !== "completed")
@@ -153,7 +176,7 @@ function observeCoordinatorArea(
  */
 function assertCoordinatorArea(
   repositoryRoot: string,
-  area: "orchestrator" | "tmp",
+  area: "coordinator" | "tmp",
   directory: string,
 ) {
   const observation = observeCoordinatorArea(repositoryRoot, area);
@@ -179,7 +202,7 @@ function assertCoordinatorArea(
  */
 function assertCoordinatorAreaUnchanged(
   repositoryRoot: string,
-  area: "orchestrator" | "tmp",
+  area: "coordinator" | "tmp",
   initial: Exclude<RepositoryRuntimeDataAreaObservation, { status: "blocked" }>,
 ) {
   const current = observeCoordinatorArea(repositoryRoot, area);
@@ -237,9 +260,6 @@ const QUEUE_TRANSITIONS = Object.freeze({
   cancelled: Object.freeze([]),
 } satisfies Record<ProjectQueueState, readonly ProjectQueueState[]>);
 
-export const COORDINATOR_DURABLE_FOUNDATION_CONTRACT =
-  "crdd-coordinator/orchestrator-durable-foundation/v1" as const;
-
 /**
  * durable-foundationで使用するStore 結果の値契約を定義する。
  *
@@ -252,18 +272,6 @@ export const COORDINATOR_DURABLE_FOUNDATION_CONTRACT =
  * @compatibility StoreResultの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
 type StoreResult<T> = CoordinatorPortResult<T>;
-/**
- * durable-foundationで使用するLease Kindの値契約を定義する。
- *
- * @responsibility Lease KindのProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000004
- * @shape LeaseKindが表すProperty、識別子およびRelationを型として固定する。
- * @invariant LeaseKindで宣言した値と責務の対応を維持する。
- * @boundary N/A: LeaseKindの宣言は外部境界を開かない。
- * @security LeaseKindはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility LeaseKindの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-type LeaseKind = CoordinatorLeaseKind;
 
 /**
  * durable-foundationで使用するActive Leaseの値契約を定義する。
@@ -293,30 +301,6 @@ type ActiveLease = Readonly<{
 }>;
 
 const activeLeases = new WeakMap<CoordinatorLease, ActiveLease>();
-const snapshotOwners = new WeakSet<object>();
-
-/**
- * durable-foundationで使用するEnvelopeの値契約を定義する。
- *
- * @responsibility EnvelopeのProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000004
- * @shape Envelopeが表すProperty、識別子およびRelationを型として固定する。
- * @invariant Envelopeで宣言した値と責務の対応を維持する。
- * @boundary N/A: Envelopeの宣言は外部境界を開かない。
- * @security EnvelopeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility Envelopeの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-type Envelope = Readonly<{
-  schema: typeof COORDINATOR_DURABLE_FOUNDATION_CONTRACT;
-  schemaRevision: 1;
-  recordKind: "project-state" | "queue-entry" | "lease-evidence";
-  repositoryBindingId: string;
-  projectId: string;
-  createdGeneration: number;
-  updatedGeneration: number;
-  contentHash: string;
-  content: unknown;
-}>;
 
 /**
  * 検証済みRepositoryに結合した保存試行用排他を取得する。
@@ -336,54 +320,12 @@ type Envelope = Readonly<{
  */
 export function acquireCoordinatorSnapshotPilotLock(
   workingDirectory: string,
-): StoreResult<
-  NonNullable<ReturnType<typeof acquireRuntimeOwnedProjectStateKernelLock>> &
-    Readonly<{ repositoryRoot: string; repositoryRootHash: string }>
-> {
-  try {
-    const verified = verifyRepositoryRootFromWorkingDirectory(workingDirectory);
-    const repositoryRoot =
-      verified.status === "completed"
-        ? resolveVerifiedRepositoryRoot(verified.capability)
-        : null;
-    if (!repositoryRoot || process.platform !== "win32")
-      return blocked("orchestrator_snapshot_lock_root_invalid", false);
-    const root = fs.realpathSync.native(repositoryRoot);
-    assertDirectory(root);
-    const identity = digest(
-      `crdd-orchestrator-verified-root-v1\0${root.toLowerCase()}`,
-    );
-    const lock = acquireRuntimeOwnedProjectStateKernelLock(identity);
-    if (!lock) return blocked("orchestrator_snapshot_lock_unavailable", false);
-    const owner = Object.freeze({
-      ...lock,
-      repositoryRoot: root,
-      repositoryRootHash: identity,
-    });
-    snapshotOwners.add(owner);
-    return completed("orchestrator_snapshot_lock_acquired", owner);
-  } catch {
-    return blocked("orchestrator_snapshot_lock_root_invalid", false);
-  }
+): StoreResult<CoordinatorSnapshotOwner> {
+  const owner = acquireCoordinatorStorageOwner(workingDirectory);
+  return owner
+    ? completed("orchestrator_snapshot_lock_acquired", owner)
+    : blocked("orchestrator_snapshot_lock_unavailable", false);
 }
-
-const ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u;
-const HASH = /^[0-9a-f]{64}$/u;
-const REVISION = /^[0-9a-f]{40,64}$/u;
-const MAX_RECORD_BYTES = 16 * 1024 * 1024;
-const SNAPSHOT_SCHEMA_V3 = "crdd-coordinator/orchestrator-snapshot/v3";
-const PROJECT_QUEUE_STATES = new Set<ProjectQueueState>([
-  "queued",
-  "leased",
-  "running",
-  "waiting_foreground",
-  "integration_pending",
-  "replan_required",
-  "human_decision_required",
-  "recovery_required",
-  "completed",
-  "cancelled",
-]);
 
 /**
  * error Codeを決定する。
@@ -405,726 +347,6 @@ function errorCode(error: unknown) {
   return error && typeof error === "object" && "code" in error
     ? String(error.code)
     : null;
-}
-
-/**
- * Keysが完全一致するか判定する。
- *
- * @responsibility Keysの比較対象、完全一致条件、判定結果境界を所有する。
- * @trace ARCH-000004
- * @input value: object、keys: readonly string[]
- * @returns exactKeysの計算結果を返す。
- * @precondition 「value: object、keys: readonly string[]」がexactKeysの入力契約を満たす。
- * @postcondition exactKeysの責務を完了した結果だけを返す。
- * @effect N/A: exactKeysは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: exactKeysは独自の失敗分岐を所有しない。
- * @invariant exactKeysは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: exactKeysはProcess内の同一Subsystemで完結する。
- * @security exactKeysはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: exactKeysは共有非同期状態を持たない同期処理である。
- */
-function exactKeys(value: object, keys: readonly string[]) {
-  const actualValues = Object.keys(value).sort();
-  const expectedValues = [...keys].sort();
-  return (
-    actualValues.length === expectedValues.length &&
-    actualValues.every((key, index) => key === expectedValues[index])
-  );
-}
-
-/**
- * ObjectをPlain Dataとして検証する。
- *
- * @responsibility Objectの許可Property、入れ子値、拒否境界を所有する。
- * @trace ARCH-000004
- * @input value: unknown
- * @returns value is Record<string, unknown>を返す。
- * @precondition 「value: unknown」がplainObjectの入力契約を満たす。
- * @postcondition plainObjectの責務を完了した結果だけを返す。
- * @effect N/A: plainObjectは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: plainObjectは独自の失敗分岐を所有しない。
- * @invariant plainObjectは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: plainObjectはProcess内の同一Subsystemで完結する。
- * @security plainObjectはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: plainObjectは共有非同期状態を持たない同期処理である。
- */
-function plainObject(value: unknown): value is Record<string, unknown> {
-  return (
-    value !== null &&
-    typeof value === "object" &&
-    !Array.isArray(value) &&
-    Object.getPrototypeOf(value) === Object.prototype
-  );
-}
-
-/**
- * string Arrayを決定する。
- *
- * @responsibility string Arrayの導出に必要な入力、判定規則、返却結果の境界を所有する。
- * @trace ARCH-000004
- * @input value: unknown、maximum
- * @returns value is readonly string[]を返す。
- * @precondition 「value: unknown、maximum」がstringArrayの入力契約を満たす。
- * @postcondition stringArrayの責務を完了した結果だけを返す。
- * @effect N/A: stringArrayは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: stringArrayは独自の失敗分岐を所有しない。
- * @invariant stringArrayは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: stringArrayはProcess内の同一Subsystemで完結する。
- * @security stringArrayはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: stringArrayは共有非同期状態を持たない同期処理である。
- */
-function stringArray(
-  value: unknown,
-  maximum = 128,
-): value is readonly string[] {
-  return (
-    Array.isArray(value) &&
-    value.length <= maximum &&
-    value.every(
-      (item) =>
-        typeof item === "string" && item.length > 0 && item.length <= 512,
-    )
-  );
-}
-
-/**
- * nullable Idを決定する。
- *
- * @responsibility nullable Idの導出に必要な入力、判定規則、返却結果の境界を所有する。
- * @trace ARCH-000004
- * @input value: unknown
- * @returns nullableIdの計算結果を返す。
- * @precondition 「value: unknown」がnullableIdの入力契約を満たす。
- * @postcondition nullableIdの責務を完了した結果だけを返す。
- * @effect N/A: nullableIdは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: nullableIdは独自の失敗分岐を所有しない。
- * @invariant nullableIdは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: nullableIdはProcess内の同一Subsystemで完結する。
- * @security nullableIdはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: nullableIdは共有非同期状態を持たない同期処理である。
- */
-function nullableId(value: unknown) {
-  return value === null || validId(value);
-}
-
-/**
- * nullable 候補 Idを決定する。
- *
- * @responsibility nullable 候補 Idの導出に必要な入力、判定規則、返却結果の境界を所有する。
- * @trace ARCH-000004
- * @input value: unknown
- * @returns nullableCandidateIdの計算結果を返す。
- * @precondition 「value: unknown」がnullableCandidateIdの入力契約を満たす。
- * @postcondition nullableCandidateIdの責務を完了した結果だけを返す。
- * @effect N/A: nullableCandidateIdは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: nullableCandidateIdは独自の失敗分岐を所有しない。
- * @invariant nullableCandidateIdは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: nullableCandidateIdはProcess内の同一Subsystemで完結する。
- * @security nullableCandidateIdはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: nullableCandidateIdは共有非同期状態を持たない同期処理である。
- */
-function nullableCandidateId(value: unknown) {
-  return (
-    value === null ||
-    (typeof value === "string" &&
-      value.length > 0 &&
-      value.length <= 512 &&
-      /^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(value))
-  );
-}
-
-/**
- * nullable 回復 Idを決定する。
- *
- * @responsibility nullable 回復 Idの導出に必要な入力、判定規則、返却結果の境界を所有する。
- * @trace ARCH-000004
- * @input value: unknown
- * @returns nullableRecoveryIdの計算結果を返す。
- * @precondition 「value: unknown」がnullableRecoveryIdの入力契約を満たす。
- * @postcondition nullableRecoveryIdの責務を完了した結果だけを返す。
- * @effect N/A: nullableRecoveryIdは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: nullableRecoveryIdは独自の失敗分岐を所有しない。
- * @invariant nullableRecoveryIdは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: nullableRecoveryIdはProcess内の同一Subsystemで完結する。
- * @security nullableRecoveryIdはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: nullableRecoveryIdは共有非同期状態を持たない同期処理である。
- */
-function nullableRecoveryId(value: unknown) {
-  return (
-    value === null ||
-    (typeof value === "string" &&
-      value.length > 0 &&
-      value.length <= 512 &&
-      /^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(value))
-  );
-}
-
-/**
- * recovery Obligationsを決定する。
- *
- * @responsibility recovery Obligationsの導出に必要な入力、判定規則、返却結果の境界を所有する。
- * @trace ARCH-000004
- * @input value: 未検証の回復義務、scope: 保存状態のProject・節目・Task・世代。
- * @returns value is readonly ProjectTaskRecoveryObligation[]を返す。
- * @precondition 「value: unknown」がrecoveryObligationsの入力契約を満たす。
- * @postcondition recoveryObligationsの責務を完了した結果だけを返す。
- * @effect N/A: recoveryObligationsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: recoveryObligationsは独自の失敗分岐を所有しない。
- * @invariant recoveryObligationsは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: recoveryObligationsはProcess内の同一Subsystemで完結する。
- * @security recoveryObligationsはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: recoveryObligationsは共有非同期状態を持たない同期処理である。
- */
-function recoveryObligations(
-  value: unknown,
-  scope: Readonly<{
-    projectId: string;
-    milestoneId: string;
-    taskId: string;
-    generation: number;
-  }>,
-): value is readonly ProjectTaskRecoveryObligation[] {
-  if (!Array.isArray(value) || value.length > 128) return false;
-  const identities = new Set<string>();
-  for (const entry of value) {
-    const acknowledgement = decodeProjectResultAcceptance(
-      entry?.acknowledgement,
-    );
-    const isValidAcknowledgement =
-      acknowledgement !== null &&
-      [
-        acknowledgement.repositoryBindingId,
-        acknowledgement.projectId,
-        acknowledgement.milestoneId,
-        acknowledgement.taskId,
-        acknowledgement.attemptId,
-        acknowledgement.operationId,
-      ].every(validId) &&
-      nullableRecoveryId(acknowledgement.recoveryId) &&
-      acknowledgement.recoveryId !== null &&
-      acknowledgement.projectId === scope.projectId &&
-      acknowledgement.milestoneId === scope.milestoneId &&
-      acknowledgement.taskId === scope.taskId &&
-      acknowledgement.settlementGeneration <= scope.generation;
-    if (
-      !plainObject(entry) ||
-      !exactKeys(
-        entry,
-        entry.phase === "acknowledged"
-          ? ["kind", "recoveryId", "phase", "acknowledgement"]
-          : ["kind", "recoveryId", "phase"],
-      ) ||
-      ![
-        "host",
-        "docker",
-        "candidate",
-        "candidate_store",
-        "runtime_process",
-      ].includes(String(entry.kind)) ||
-      !nullableRecoveryId(entry.recoveryId) ||
-      entry.recoveryId === null ||
-      !["required", "recovering", "settled", "acknowledged"].includes(
-        String(entry.phase),
-      ) ||
-      (entry.phase === "acknowledged" &&
-        (entry.kind !== "docker" ||
-          !isValidAcknowledgement ||
-          acknowledgement?.recoveryId !== entry.recoveryId))
-    )
-      return false;
-    const identity = `${entry.kind}\0${entry.recoveryId}`;
-    if (identities.has(identity)) return false;
-    identities.add(identity);
-  }
-  return true;
-}
-
-/**
- * 通常Taskの受領集合と保存世代の相関を検査する。
- * @responsibility 回復義務とは別の固定受領本文をSnapshotの閉集合へ接続する。
- * @trace ARCH-000004
- * @input value: 保存本文、scope: Project・節目・世代と検査済みTask。
- * @returns 全要素の形式・相関・終端条件が成立するか。
- * @precondition Taskの基本項目と回復義務は先行して検査済みである。
- * @postcondition 未記載を空配列へ補完せず、旧Attemptや未来世代を拒否する。
- * @effect N/A: 保存値の検査だけ。
- * @failure 不正本文、重複、非終端受領、未解決義務はfalse。
- * @invariant ACKの有無を資源不存在の証明にしない。
- * @boundary 単一現在Snapshotの保存・読戻し。
- * @security 任意関数を受領本文として実行しない。
- * @concurrency N/A: 同期値検査であり排他は既存保存Ownerが所有する。
- */
-function resultAcceptances(
-  value: unknown,
-  scope: Readonly<{
-    projectId: string;
-    milestoneId: string;
-    generation: number;
-    task: CoordinatorState["tasks"][number];
-  }>,
-): boolean {
-  if (!Array.isArray(value) || value.length > 128) return false;
-  const task = scope.task;
-  if (
-    value.length > 0 &&
-    (!["completed", "failed", "cancelled"].includes(task.state) ||
-      task.startPhase !== "settled" ||
-      !task.cleanupConfirmed ||
-      task.recoveryUnresolved ||
-      task.recoveryObligations.some(
-        (entry) =>
-          entry.phase !==
-          (entry.kind === "docker" ? "acknowledged" : "settled"),
-      ))
-  )
-    return false;
-  const identities = new Set<string>();
-  let repositoryBindingId: string | null = null;
-  let repositoryBinding: string | null = null;
-  let settlementGeneration: number | null = null;
-  for (const valueEntry of value) {
-    const entry = decodeProjectResultAcceptance(valueEntry);
-    if (
-      !entry ||
-      ![
-        entry.repositoryBindingId,
-        entry.projectId,
-        entry.milestoneId,
-        entry.taskId,
-        entry.attemptId,
-        entry.operationId,
-      ].every(validId) ||
-      entry.projectId !== scope.projectId ||
-      entry.milestoneId !== scope.milestoneId ||
-      entry.taskId !== task.definition.id ||
-      entry.attemptId !== task.attemptId ||
-      entry.operationId !== task.operationId ||
-      entry.settlementGeneration > scope.generation ||
-      !nullableRecoveryId(entry.recoveryId) ||
-      identities.has(entry.recoveryId) ||
-      task.recoveryObligations.some(
-        (obligation) => obligation.recoveryId === entry.recoveryId,
-      ) ||
-      (repositoryBindingId !== null &&
-        repositoryBindingId !== entry.repositoryBindingId) ||
-      (repositoryBinding !== null &&
-        repositoryBinding !== entry.repositoryBinding) ||
-      (settlementGeneration !== null &&
-        settlementGeneration !== entry.settlementGeneration)
-    )
-      return false;
-    identities.add(entry.recoveryId);
-    repositoryBindingId = entry.repositoryBindingId;
-    repositoryBinding = entry.repositoryBinding;
-    settlementGeneration = entry.settlementGeneration;
-  }
-  return true;
-}
-
-// Queue results may carry an exact opaque candidate or recovery reference.
-// These references use the same closed character set as stable IDs, but can
-// exceed the 128-character limit of ordinary project-local identifiers.
-/**
- * 結果 Referenceが有効か判定する。
- *
- * @responsibility 結果 Referenceの有効条件、拒否条件、判定結果境界を所有する。
- * @trace ARCH-000004
- * @input value: unknown
- * @returns value is stringを返す。
- * @precondition 「value: unknown」がvalidResultReferenceの入力契約を満たす。
- * @postcondition validResultReferenceの責務を完了した結果だけを返す。
- * @effect N/A: validResultReferenceは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: validResultReferenceは独自の失敗分岐を所有しない。
- * @invariant validResultReferenceは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: validResultReferenceはProcess内の同一Subsystemで完結する。
- * @security validResultReferenceはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: validResultReferenceは共有非同期状態を持たない同期処理である。
- */
-function validResultReference(value: unknown): value is string {
-  return (
-    typeof value === "string" &&
-    value.length > 0 &&
-    value.length <= 512 &&
-    /^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(value)
-  );
-}
-
-/**
- * nullable 結果 Referenceを決定する。
- *
- * @responsibility nullable 結果 Referenceの導出に必要な入力、判定規則、返却結果の境界を所有する。
- * @trace ARCH-000004
- * @input value: unknown
- * @returns nullableResultReferenceの計算結果を返す。
- * @precondition 「value: unknown」がnullableResultReferenceの入力契約を満たす。
- * @postcondition nullableResultReferenceの責務を完了した結果だけを返す。
- * @effect N/A: nullableResultReferenceは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: nullableResultReferenceは独自の失敗分岐を所有しない。
- * @invariant nullableResultReferenceは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: nullableResultReferenceはProcess内の同一Subsystemで完結する。
- * @security nullableResultReferenceはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: nullableResultReferenceは共有非同期状態を持たない同期処理である。
- */
-function nullableResultReference(value: unknown) {
-  return value === null || validResultReference(value);
-}
-
-/**
- * Task Lifecycle Tupleが有効か判定する。
- *
- * @responsibility Task Lifecycle Tupleの有効条件、拒否条件、判定結果境界を所有する。
- * @trace ARCH-000004
- * @input task: CoordinatorState["tasks"][number]
- * @returns validTaskLifecycleTupleの計算結果を返す。
- * @precondition 「task: CoordinatorState["tasks"][number]」がvalidTaskLifecycleTupleの入力契約を満たす。
- * @postcondition validTaskLifecycleTupleの責務を完了した結果だけを返す。
- * @effect N/A: validTaskLifecycleTupleは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: validTaskLifecycleTupleは独自の失敗分岐を所有しない。
- * @invariant validTaskLifecycleTupleは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: validTaskLifecycleTupleはProcess内の同一Subsystemで完結する。
- * @security validTaskLifecycleTupleはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: validTaskLifecycleTupleは共有非同期状態を持たない同期処理である。
- */
-function validTaskLifecycleTuple(task: CoordinatorState["tasks"][number]) {
-  const isAttempt = task.attemptId !== null;
-  const isOperation = task.operationId !== null;
-  const isAuthority = task.authorityBindingId !== null;
-  if (["planned", "waiting_dependency", "ready"].includes(task.state))
-    return (
-      task.startPhase === "none" && !isAttempt && !isOperation && !isAuthority
-    );
-  if (task.state === "starting" && task.startPhase === "reserved")
-    return isAttempt && !isOperation && isAuthority;
-  if (task.state === "starting" && task.startPhase === "handoff_prepared")
-    return isAttempt && isOperation && isAuthority;
-  if (task.state === "running")
-    return (
-      task.startPhase === "running" && isAttempt && isOperation && isAuthority
-    );
-  if (
-    [
-      "cleanup_pending",
-      "completed",
-      "failed",
-      "cancelled",
-      "recovery_required",
-      "superseded",
-    ].includes(task.state)
-  )
-    return (
-      task.startPhase === "settled" && isAttempt && isOperation && isAuthority
-    );
-  return false;
-}
-
-/**
- * Coordinator 状態が有効か判定する。
- *
- * @responsibility Coordinator 状態の有効条件、拒否条件、判定結果境界を所有する。
- * @trace ARCH-000004
- * @input value: unknown
- * @returns value is CoordinatorStateを返す。
- * @precondition 「value: unknown」がvalidCoordinatorStateの入力契約を満たす。
- * @postcondition validCoordinatorStateの責務を完了した結果だけを返す。
- * @effect N/A: validCoordinatorStateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: validCoordinatorStateは独自の失敗分岐を所有しない。
- * @invariant validCoordinatorStateは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: validCoordinatorStateはProcess内の同一Subsystemで完結する。
- * @security validCoordinatorStateはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: validCoordinatorStateは共有非同期状態を持たない同期処理である。
- */
-function validCoordinatorState(value: unknown): value is CoordinatorState {
-  if (
-    !plainObject(value) ||
-    !exactKeys(value, [
-      "contract",
-      "projectId",
-      "milestoneId",
-      "repositoryRevision",
-      "generation",
-      "ownerGeneration",
-      "decisionApplicationId",
-      "maximumConcurrency",
-      "milestone",
-      "objectives",
-      "tasks",
-    ]) ||
-    value.contract !== "crdd-coordinator/orchestrator-state/v1" ||
-    !validId(value.projectId) ||
-    !validId(value.milestoneId) ||
-    typeof value.repositoryRevision !== "string" ||
-    !REVISION.test(value.repositoryRevision) ||
-    !Number.isSafeInteger(value.generation) ||
-    Number(value.generation) < 1 ||
-    !validId(value.ownerGeneration) ||
-    !nullableId(value.decisionApplicationId) ||
-    !Number.isSafeInteger(value.maximumConcurrency) ||
-    Number(value.maximumConcurrency) < 1 ||
-    Number(value.maximumConcurrency) > 5 ||
-    !plainObject(value.milestone) ||
-    !exactKeys(value.milestone, [
-      "id",
-      "acceptanceCriteria",
-      "state",
-      "criterionEvidenceIds",
-    ]) ||
-    value.milestone.id !== value.milestoneId ||
-    !stringArray(value.milestone.acceptanceCriteria) ||
-    !stringArray(value.milestone.criterionEvidenceIds) ||
-    !new Set([
-      "planned",
-      "executing",
-      "integrating",
-      "human_decision_required",
-      "recovery_required",
-      "accepted",
-      "returned",
-      "cancelled",
-    ]).has(String(value.milestone.state)) ||
-    !Array.isArray(value.objectives) ||
-    value.objectives.length < 1 ||
-    value.objectives.length > 128 ||
-    !Array.isArray(value.tasks) ||
-    value.tasks.length < 1 ||
-    value.tasks.length > 1024
-  )
-    return false;
-
-  const objectiveIds = new Set<string>();
-  for (const objective of value.objectives) {
-    if (
-      !plainObject(objective) ||
-      !exactKeys(objective, ["definition", "state", "criterionEvidenceIds"]) ||
-      !plainObject(objective.definition) ||
-      !exactKeys(objective.definition, ["id", "acceptanceCriteria"]) ||
-      !validId(objective.definition.id) ||
-      objectiveIds.has(objective.definition.id) ||
-      !stringArray(objective.definition.acceptanceCriteria) ||
-      !stringArray(objective.criterionEvidenceIds) ||
-      !new Set([
-        "planned",
-        "executing",
-        "integration_pending",
-        "accepted",
-        "returned",
-        "blocked",
-        "cancelled",
-      ]).has(String(objective.state))
-    )
-      return false;
-    objectiveIds.add(objective.definition.id);
-  }
-
-  const taskIds = new Set<string>();
-  const dependencies: Array<readonly string[]> = [];
-  for (const task of value.tasks) {
-    const definition = plainObject(task) ? task.definition : null;
-    const taskDependencies = plainObject(definition)
-      ? definition.dependencies
-      : null;
-    const allowedPaths = plainObject(definition)
-      ? definition.allowedPaths
-      : null;
-    const conflictKeys = plainObject(definition)
-      ? definition.conflictKeys
-      : null;
-    if (
-      !plainObject(task) ||
-      !exactKeys(task, [
-        "definition",
-        "state",
-        "attemptId",
-        "operationId",
-        "authorityBindingId",
-        "startPhase",
-        "cleanupConfirmed",
-        "recoveryObligations",
-        "resultAcceptances",
-        "recoveryUnresolved",
-        "candidateId",
-        "retryCount",
-        "supersededBy",
-      ]) ||
-      !plainObject(task.definition) ||
-      !exactKeys(task.definition, [
-        "id",
-        "objectiveId",
-        "dependencies",
-        "allowedPaths",
-        "conflictKeys",
-      ]) ||
-      !validId(task.definition.id) ||
-      taskIds.has(task.definition.id) ||
-      !validId(task.definition.objectiveId) ||
-      !objectiveIds.has(task.definition.objectiveId) ||
-      !stringArray(taskDependencies) ||
-      !stringArray(allowedPaths) ||
-      allowedPaths.length < 1 ||
-      !stringArray(conflictKeys) ||
-      !new Set([
-        "planned",
-        "waiting_dependency",
-        "ready",
-        "starting",
-        "running",
-        "cleanup_pending",
-        "completed",
-        "failed",
-        "cancelled",
-        "recovery_required",
-        "superseded",
-      ]).has(String(task.state)) ||
-      !nullableId(task.attemptId) ||
-      !nullableId(task.operationId) ||
-      !nullableId(task.authorityBindingId) ||
-      !["none", "reserved", "handoff_prepared", "running", "settled"].includes(
-        String(task.startPhase),
-      ) ||
-      typeof task.cleanupConfirmed !== "boolean" ||
-      !recoveryObligations(task.recoveryObligations, {
-        projectId: String(value.projectId),
-        milestoneId: String(value.milestoneId),
-        taskId: String(task.definition.id),
-        generation: Number(value.generation),
-      }) ||
-      typeof task.recoveryUnresolved !== "boolean" ||
-      (task.state === "recovery_required" &&
-        task.recoveryObligations.length === 0 &&
-        task.recoveryUnresolved !== true) ||
-      (task.state !== "recovery_required" &&
-        task.recoveryUnresolved === true) ||
-      (task.state === "ready" &&
-        task.recoveryObligations.some(
-          (entry) =>
-            entry.phase !==
-            (entry.kind === "docker" ? "acknowledged" : "settled"),
-        )) ||
-      (!["ready", "recovery_required"].includes(String(task.state)) &&
-        task.recoveryObligations.length > 0) ||
-      !resultAcceptances(task.resultAcceptances, {
-        projectId: String(value.projectId),
-        milestoneId: String(value.milestoneId),
-        generation: Number(value.generation),
-        task: task as unknown as CoordinatorState["tasks"][number],
-      }) ||
-      !validTaskLifecycleTuple(
-        task as unknown as CoordinatorState["tasks"][number],
-      ) ||
-      !nullableCandidateId(task.candidateId) ||
-      !Number.isSafeInteger(task.retryCount) ||
-      Number(task.retryCount) < 0 ||
-      !nullableId(task.supersededBy)
-    )
-      return false;
-    taskIds.add(task.definition.id);
-    dependencies.push(taskDependencies as readonly string[]);
-  }
-  return dependencies.every((items) => items.every((id) => taskIds.has(id)));
-}
-
-/**
- * Queue Entryが有効か判定する。
- *
- * @responsibility Queue Entryの有効条件、拒否条件、判定結果境界を所有する。
- * @trace ARCH-000004
- * @input value: unknown
- * @returns value is ProjectQueueEntryを返す。
- * @precondition 「value: unknown」がvalidQueueEntryの入力契約を満たす。
- * @postcondition validQueueEntryの責務を完了した結果だけを返す。
- * @effect N/A: validQueueEntryは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: validQueueEntryは独自の失敗分岐を所有しない。
- * @invariant validQueueEntryは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: validQueueEntryはProcess内の同一Subsystemで完結する。
- * @security validQueueEntryはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: validQueueEntryは共有非同期状態を持たない同期処理である。
- */
-function validQueueEntry(value: unknown): value is ProjectQueueEntry {
-  return (
-    plainObject(value) &&
-    exactKeys(value, [
-      "queueId",
-      "projectId",
-      "milestoneId",
-      "requestHash",
-      "originLane",
-      "repositoryRevision",
-      "scopeHash",
-      "state",
-      "generation",
-      "ownerGeneration",
-      "resumeCondition",
-      "resultReference",
-      "workspaceId",
-      ...(Object.hasOwn(value, "singleTask") ? ["singleTask"] : []),
-    ]) &&
-    validId(value.queueId) &&
-    validId(value.projectId) &&
-    (Object.hasOwn(value, "singleTask")
-      ? value.milestoneId === null &&
-        inspectSingleTaskRecord(value.singleTask) !== null &&
-        singleTaskQueueIsConsistent(
-          value as unknown as ProjectQueueEntry,
-          value.singleTask as SingleTaskRecord,
-        )
-      : validId(value.milestoneId)) &&
-    typeof value.requestHash === "string" &&
-    HASH.test(value.requestHash) &&
-    (value.originLane === "interactive" || value.originLane === "scheduled") &&
-    typeof value.repositoryRevision === "string" &&
-    REVISION.test(value.repositoryRevision) &&
-    typeof value.scopeHash === "string" &&
-    HASH.test(value.scopeHash) &&
-    PROJECT_QUEUE_STATES.has(value.state as ProjectQueueState) &&
-    Number.isSafeInteger(value.generation) &&
-    Number(value.generation) >= 1 &&
-    nullableId(value.ownerGeneration) &&
-    nullableId(value.resumeCondition) &&
-    nullableResultReference(value.resultReference) &&
-    (value.workspaceId === null ||
-      (typeof value.workspaceId === "string" &&
-        /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/u.test(
-          value.workspaceId,
-        )))
-  );
-}
-
-/**
- * Lease Evidenceが有効か判定する。
- *
- * @responsibility Lease Evidenceの有効条件、拒否条件、判定結果境界を所有する。
- * @trace ARCH-000004
- * @input value: unknown
- * @returns validLeaseEvidenceの計算結果を返す。
- * @precondition 「value: unknown」がvalidLeaseEvidenceの入力契約を満たす。
- * @postcondition validLeaseEvidenceの責務を完了した結果だけを返す。
- * @effect N/A: validLeaseEvidenceは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: validLeaseEvidenceは独自の失敗分岐を所有しない。
- * @invariant validLeaseEvidenceは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: validLeaseEvidenceはProcess内の同一Subsystemで完結する。
- * @security validLeaseEvidenceはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: validLeaseEvidenceは共有非同期状態を持たない同期処理である。
- */
-function validLeaseEvidence(value: unknown) {
-  return (
-    plainObject(value) &&
-    exactKeys(value, [
-      "kind",
-      "queueId",
-      "ownerGeneration",
-      "ownerProcessId",
-      "disposition",
-    ]) &&
-    (value.kind === "project-operation" ||
-      value.kind === "canonical-adoption") &&
-    validId(value.queueId) &&
-    validId(value.ownerGeneration) &&
-    Number.isSafeInteger(value.ownerProcessId) &&
-    Number(value.ownerProcessId) > 0 &&
-    (value.disposition === "acquired" ||
-      value.disposition === "released" ||
-      value.disposition === "recovered_after_owner_loss" ||
-      value.disposition === "acquisition_unknown_closed")
-  );
 }
 
 /**
@@ -1175,66 +397,6 @@ function blocked<T>(
     manualRecoveryRequired,
     recoveryId,
   });
-}
-
-/**
- * lease Acquisition 回復 Idを決定する。
- *
- * @responsibility lease Acquisition 回復 Idの導出に必要な入力、判定規則、返却結果の境界を所有する。
- * @trace ARCH-000004
- * @input repositoryBindingId: string、projectId: string、queueId: string、kind: LeaseKind
- * @returns leaseAcquisitionRecoveryIdの計算結果を返す。
- * @precondition 「repositoryBindingId: string、projectId: string、queueId: string、kind: LeaseKind」がleaseAcquisitionRecoveryIdの入力契約を満たす。
- * @postcondition leaseAcquisitionRecoveryIdの責務を完了した結果だけを返す。
- * @effect N/A: leaseAcquisitionRecoveryIdは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: leaseAcquisitionRecoveryIdは独自の失敗分岐を所有しない。
- * @invariant leaseAcquisitionRecoveryIdは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: leaseAcquisitionRecoveryIdはProcess内の同一Subsystemで完結する。
- * @security leaseAcquisitionRecoveryIdはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: leaseAcquisitionRecoveryIdは共有非同期状態を持たない同期処理である。
- */
-function leaseAcquisitionRecoveryId(
-  repositoryBindingId: string,
-  projectId: string,
-  queueId: string,
-  kind: LeaseKind,
-) {
-  const identityInput =
-    kind === "project-operation"
-      ? `${repositoryBindingId}\0${kind}`
-      : kind === "canonical-adoption"
-        ? `${repositoryBindingId}\0${projectId}\0${kind}`
-        : `${repositoryBindingId}\0${projectId}\0${queueId}\0${kind}`;
-  return `lease-acquisition-${digest(identityInput).slice(0, 40)}`;
-}
-
-/**
- * lease Identityを決定する。
- *
- * @responsibility lease Identityの導出に必要な入力、判定規則、返却結果の境界を所有する。
- * @trace ARCH-000004
- * @input repositoryBindingId: string、projectId: string、queueId: string、kind: LeaseKind
- * @returns leaseIdentityの計算結果を返す。
- * @precondition 「repositoryBindingId: string、projectId: string、queueId: string、kind: LeaseKind」がleaseIdentityの入力契約を満たす。
- * @postcondition leaseIdentityの責務を完了した結果だけを返す。
- * @effect N/A: leaseIdentityは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: leaseIdentityは独自の失敗分岐を所有しない。
- * @invariant leaseIdentityは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: leaseIdentityはProcess内の同一Subsystemで完結する。
- * @security leaseIdentityはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: leaseIdentityは共有非同期状態を持たない同期処理である。
- */
-function leaseIdentity(
-  repositoryBindingId: string,
-  projectId: string,
-  queueId: string,
-  kind: LeaseKind,
-) {
-  return kind === "project-operation"
-    ? `${kind}-${repositoryBindingId}`
-    : kind === "canonical-adoption"
-      ? `${kind}-${repositoryBindingId}-${projectId}`
-      : `${kind}-${projectId}-${queueId}`;
 }
 
 /**
@@ -1338,46 +500,6 @@ function leaseAcquisitionFootprintAbsent(
 }
 
 /**
- * durable-foundationのHashを算出する。
- *
- * @responsibility durable-foundationの入力byte列、Hash algorithm、算出結果の境界を所有する。
- * @trace ARCH-000004
- * @input value: string
- * @returns digestの計算結果を返す。
- * @precondition 「value: string」がdigestの入力契約を満たす。
- * @postcondition digestの責務を完了した結果だけを返す。
- * @effect N/A: digestは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: digestは独自の失敗分岐を所有しない。
- * @invariant digestは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: digestはProcess内の同一Subsystemで完結する。
- * @security digestはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: digestは共有非同期状態を持たない同期処理である。
- */
-function digest(value: string) {
-  return createHash("sha256").update(value, "utf8").digest("hex");
-}
-
-/**
- * Idが有効か判定する。
- *
- * @responsibility Idの有効条件、拒否条件、判定結果境界を所有する。
- * @trace ARCH-000004
- * @input value: unknown
- * @returns value is stringを返す。
- * @precondition 「value: unknown」がvalidIdの入力契約を満たす。
- * @postcondition validIdの責務を完了した結果だけを返す。
- * @effect N/A: validIdは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: validIdは独自の失敗分岐を所有しない。
- * @invariant validIdは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: validIdはProcess内の同一Subsystemで完結する。
- * @security validIdはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: validIdは共有非同期状態を持たない同期処理である。
- */
-function validId(value: unknown): value is string {
-  return typeof value === "string" && ID.test(value);
-}
-
-/**
  * Directoryを表明どおりか検査する。
  *
  * @responsibility Directoryの必須条件と違反時の停止境界を所有する。
@@ -1441,37 +563,6 @@ function ensureDirectory(parent: string, name: string) {
   if (path.dirname(target) !== parent)
     throw new Error("orchestrator_storage_boundary_invalid");
   return target;
-}
-
-/**
- * storage Rootを決定する。
- *
- * @responsibility storage Rootの導出に必要な入力、判定規則、返却結果の境界を所有する。
- * @trace ARCH-000004
- * @input workingDirectory: string
- * @returns storageRootの計算結果を返す。
- * @precondition 「workingDirectory: string」がstorageRootの入力契約を満たす。
- * @postcondition storageRootの責務を完了した結果だけを返す。
- * @effect N/A: storageRootは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: storageRootは独自の失敗分岐を所有しない。
- * @invariant storageRootは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: storageRootはProcess内の同一Subsystemで完結する。
- * @security storageRootはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: storageRootは共有非同期状態を持たない同期処理である。
- */
-function storageRoot(workingDirectory: string) {
-  const area = requireReadyRepositoryRuntimeDataArea(
-    ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
-      workingDirectory,
-      "orchestrator",
-    ),
-    "orchestrator_repository_root_invalid",
-  );
-  const repositoryRoot = area.repositoryRoot;
-  assertDirectory(repositoryRoot);
-  const runtime = area.directory;
-  assertDirectory(runtime);
-  return Object.freeze({ repositoryRoot, runtime });
 }
 
 /**
@@ -1557,7 +648,7 @@ function envelope(
     (recordKind === "lease-evidence" && !validLeaseEvidence(content))
   )
     throw new Error("orchestrator_record_content_invalid");
-  const serialized = JSON.stringify(content);
+  const serialized = encodeCoordinatorStateValue(content);
   const record = Object.freeze({
     schema: COORDINATOR_DURABLE_FOUNDATION_CONTRACT,
     schemaRevision: 1 as const,
@@ -1626,7 +717,7 @@ function readEnvelopeFile(directory: string, name: string): Envelope {
     !Number.isSafeInteger(parsed.updatedGeneration) ||
     parsed.createdGeneration < 1 ||
     parsed.updatedGeneration < parsed.createdGeneration ||
-    parsed.contentHash !== digest(JSON.stringify(parsed.content))
+    parsed.contentHash !== digest(encodeCoordinatorStateValue(parsed.content))
   )
     throw new Error("orchestrator_record_invalid");
   if (
@@ -1646,43 +737,6 @@ function readEnvelopeFile(directory: string, name: string): Envelope {
     throw new Error("orchestrator_record_generation_mismatch");
   return parsed;
 }
-
-/**
- * durable-foundationで使用するLease Evidence Contentの値契約を定義する。
- *
- * @responsibility Lease Evidence ContentのProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000004
- * @shape LeaseEvidenceContentが表すProperty、識別子およびRelationを型として固定する。
- * @invariant LeaseEvidenceContentで宣言した値と責務の対応を維持する。
- * @boundary N/A: LeaseEvidenceContentの宣言は外部境界を開かない。
- * @security LeaseEvidenceContentはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility LeaseEvidenceContentの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-type LeaseEvidenceContent = Readonly<{
-  kind: LeaseKind;
-  queueId: string;
-  ownerGeneration: string;
-  ownerProcessId: number;
-  disposition:
-    | "acquired"
-    | "released"
-    | "recovered_after_owner_loss"
-    | "acquisition_unknown_closed";
-}>;
-
-/**
- * durable-foundationで使用するLease Evidence Envelopeの値契約を定義する。
- *
- * @responsibility Lease Evidence EnvelopeのProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000004
- * @shape LeaseEvidenceEnvelopeが表すProperty、識別子およびRelationを型として固定する。
- * @invariant LeaseEvidenceEnvelopeで宣言した値と責務の対応を維持する。
- * @boundary N/A: LeaseEvidenceEnvelopeの宣言は外部境界を開かない。
- * @security LeaseEvidenceEnvelopeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility LeaseEvidenceEnvelopeの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-type LeaseEvidenceEnvelope = Envelope &
-  Readonly<{ recordKind: "lease-evidence"; content: LeaseEvidenceContent }>;
 
 /**
  * Exact Lease Evidenceを読み取る。
@@ -1783,485 +837,6 @@ function readExactLeaseEvidence(
 }
 
 /**
- * 一体保存する現在状態の閉じた値契約を定義する。
- * @responsibility 既存値と受付世代、途中Lease、履歴未確定搬送を保持する。
- * @trace ARCH-000004
- * @shape 保存情報、受付結合、Project、Queue、Lease、結果、未搬送終了要約。
- * @invariant 保護DecisionとOS handleを保存しない。保存と受付の世代を分離する。
- * @boundary Repository-localの現在状態。
- * @security Hashや状態名をAuthorityへ昇格しない。
- * @compatibility 既存Portの値を維持し、実データ切替は別処置とする。
- */
-type CoordinatorSnapshot = Readonly<{
-  workspaces: readonly CoordinatorWorkspace[];
-  repositoryRootHash: string;
-  repositoryBindingId: string;
-  snapshotRevision: number;
-  intakeEpoch: string;
-  intakeBindings: readonly Readonly<{ queueId: string; epoch: string }>[];
-  projects: readonly CoordinatorState[];
-  queueEntries: readonly ProjectQueueEntry[];
-  leaseEvidence: readonly LeaseEvidenceEnvelope[];
-  leaseIntents: readonly Readonly<{
-    projectId: string;
-    queueId: string;
-    kind: LeaseKind;
-    ownerGeneration: string;
-    ownerProcessId: number;
-    recoveryId: string;
-    phase:
-      | "acquisition_pending"
-      | "acquisition_reserved"
-      | "lock_owned"
-      | "release_pending"
-      | "recovery_pending";
-    physicalIdentity?: string | null;
-  }>[];
-  results: readonly CoordinatorResultRecord[];
-  historyPending: readonly HistoryRow[];
-}> &
-  Readonly<{
-    schema: typeof SNAPSHOT_SCHEMA_V3;
-    schemaRevision: 3;
-    acceptanceDecisions: readonly CoordinatorAcceptanceDecisionEnvelope[];
-    decisionRecoveries: readonly Readonly<{
-      generation: number;
-      value: CoordinatorDecisionRecoveryIntent;
-    }>[];
-  }>;
-
-/**
- * 現在状態の全区画と既存結合を検証する。
- * @responsibility 部分codecを完全保存形式として受理しない。
- * @trace ARCH-000004
- * @input value: JSON値、binding: 期待Repository結合、rootHash: 取得済みRoot結合。
- * @returns 閉じたSnapshotとして有効か。
- * @precondition JSON値だけを渡す。
- * @postcondition 参照、証拠、受付結合、結果と終了要約を検証する。
- * @effect N/A: 値検証のみ。
- * @failure 不正形状・未知区画・孤立参照はfalse。
- * @invariant Owner状態や清掃を推定しない。
- * @boundary JSONから保存契約。
- * @security 既存保護情報を新規発行しない。
- * @concurrency N/A: 同期検証。
- */
-function validCoordinatorSnapshot(
-  value: unknown,
-  binding: string,
-  rootHash: string,
-): value is CoordinatorSnapshot {
-  try {
-    if (
-      !plainObject(value) ||
-      !exactKeys(value, [
-        "schema",
-        "schemaRevision",
-        "repositoryRootHash",
-        "repositoryBindingId",
-        "snapshotRevision",
-        "intakeEpoch",
-        "intakeBindings",
-        "projects",
-        "queueEntries",
-        "leaseEvidence",
-        "leaseIntents",
-        "results",
-        "historyPending",
-        "acceptanceDecisions",
-        "decisionRecoveries",
-        "workspaces",
-      ]) ||
-      value.schema !== SNAPSHOT_SCHEMA_V3 ||
-      value.schemaRevision !== 3 ||
-      value.repositoryBindingId !== binding ||
-      value.repositoryRootHash !== rootHash ||
-      !validId(binding) ||
-      !HASH.test(rootHash) ||
-      !validId(value.intakeEpoch) ||
-      !Number.isSafeInteger(value.snapshotRevision) ||
-      Number(value.snapshotRevision) < 1
-    )
-      return false;
-    for (const key of [
-      "intakeBindings",
-      "projects",
-      "queueEntries",
-      "leaseEvidence",
-      "leaseIntents",
-      "results",
-      "historyPending",
-    ])
-      if (!Array.isArray(value[key])) return false;
-    if (
-      !(value.projects as unknown[]).every(validCoordinatorState) ||
-      !(value.queueEntries as unknown[]).every(validQueueEntry)
-    )
-      return false;
-    const snapshot = value as unknown as CoordinatorSnapshot;
-    if (
-      !Array.isArray(snapshot.workspaces) ||
-      !snapshot.workspaces.every(validCoordinatorWorkspace) ||
-      new Set(snapshot.workspaces.map((item) => item.workspaceId)).size !==
-        snapshot.workspaces.length
-    )
-      return false;
-    if (
-      snapshot.queueEntries.some(
-        (entry) =>
-          entry.workspaceId != null &&
-          !snapshot.workspaces.some(
-            (workspace) => workspace.workspaceId === entry.workspaceId,
-          ),
-      )
-    )
-      return false;
-    const projects = new Set(snapshot.projects.map((item) => item.projectId));
-    const queues = new Map(
-      snapshot.queueEntries.map((item) => [item.queueId, item]),
-    );
-    if (
-      projects.size !== snapshot.projects.length ||
-      queues.size !== snapshot.queueEntries.length ||
-      snapshot.queueEntries.some(
-        (item) => !item.singleTask && !projects.has(item.projectId),
-      )
-    )
-      return false;
-    const intake = new Set<string>();
-    for (const item of snapshot.intakeBindings) {
-      if (
-        !plainObject(item) ||
-        !exactKeys(item, ["queueId", "epoch"]) ||
-        !validId(item.epoch) ||
-        !queues.has(item.queueId) ||
-        intake.has(item.queueId)
-      )
-        return false;
-      intake.add(item.queueId);
-    }
-    if (intake.size !== queues.size) return false;
-    const evidenceGroups = new Map<string, LeaseEvidenceEnvelope[]>();
-    for (const record of snapshot.leaseEvidence) {
-      if (
-        !plainObject(record) ||
-        !exactKeys(record, [
-          "schema",
-          "schemaRevision",
-          "recordKind",
-          "repositoryBindingId",
-          "projectId",
-          "createdGeneration",
-          "updatedGeneration",
-          "contentHash",
-          "content",
-        ]) ||
-        record.schema !== COORDINATOR_DURABLE_FOUNDATION_CONTRACT ||
-        record.schemaRevision !== 1 ||
-        record.recordKind !== "lease-evidence" ||
-        record.repositoryBindingId !== binding ||
-        !validId(record.projectId) ||
-        !validLeaseEvidence(record.content) ||
-        record.createdGeneration !== 1 ||
-        record.updatedGeneration !==
-          (record.content.disposition === "acquired" ? 1 : 2) ||
-        record.contentHash !== digest(JSON.stringify(record.content)) ||
-        !(record.content.kind === "canonical-adoption"
-          ? record.content.queueId === "canonical"
-          : queues.get(record.content.queueId)?.projectId === record.projectId)
-      )
-        return false;
-      const key = `${leaseIdentity(binding, record.projectId, record.content.queueId, record.content.kind)}\0${record.content.ownerGeneration}`;
-      const groups = evidenceGroups.get(key) ?? [];
-      groups.push(record);
-      evidenceGroups.set(key, groups);
-    }
-    for (const groups of evidenceGroups.values()) {
-      const acquired = groups.find(
-        (item) => item.content.disposition === "acquired",
-      );
-      if (
-        (!acquired &&
-          !(
-            snapshot.schema === SNAPSHOT_SCHEMA_V3 &&
-            groups.length === 1 &&
-            groups[0]?.content.disposition === "acquisition_unknown_closed"
-          )) ||
-        groups.length > 2 ||
-        new Set(groups.map((item) => item.content.disposition)).size !==
-          groups.length ||
-        groups.some(
-          (item) =>
-            item.projectId !== groups[0]?.projectId ||
-            item.content.queueId !== groups[0]?.content.queueId ||
-            item.content.ownerProcessId !== groups[0]?.content.ownerProcessId ||
-            (acquired &&
-              item.content.disposition === "acquisition_unknown_closed"),
-        )
-      )
-        return false;
-    }
-    const intents = new Set<string>();
-    const intentOwners = new Map<string, string>();
-    for (const item of snapshot.leaseIntents) {
-      if (
-        !plainObject(item) ||
-        !exactKeys(item, [
-          "projectId",
-          "queueId",
-          "kind",
-          "ownerGeneration",
-          "ownerProcessId",
-          "recoveryId",
-          "phase",
-          ...(snapshot.schema === SNAPSHOT_SCHEMA_V3
-            ? ["physicalIdentity"]
-            : []),
-        ]) ||
-        !validId(item.projectId) ||
-        !(item.kind === "canonical-adoption"
-          ? item.queueId === "canonical"
-          : queues.get(item.queueId)?.projectId === item.projectId) ||
-        (item.kind !== "project-operation" &&
-          item.kind !== "canonical-adoption") ||
-        !validId(item.ownerGeneration) ||
-        !Number.isSafeInteger(item.ownerProcessId) ||
-        item.ownerProcessId < 1 ||
-        item.recoveryId !==
-          leaseAcquisitionRecoveryId(
-            binding,
-            item.projectId,
-            item.queueId,
-            item.kind,
-          ) ||
-        ![
-          "acquisition_pending",
-          "acquisition_reserved",
-          "lock_owned",
-          "release_pending",
-          "recovery_pending",
-        ].includes(item.phase)
-      )
-        return false;
-      if (
-        snapshot.schema === SNAPSHOT_SCHEMA_V3 &&
-        !(
-          ((item.phase === "acquisition_pending" ||
-            item.phase === "acquisition_reserved" ||
-            item.phase === "recovery_pending") &&
-            item.physicalIdentity === null) ||
-          (item.phase !== "acquisition_pending" &&
-            item.phase !== "acquisition_reserved" &&
-            typeof item.physicalIdentity === "string" &&
-            HASH.test(item.physicalIdentity))
-        )
-      )
-        return false;
-      const key = `${leaseIdentity(binding, item.projectId, item.queueId, item.kind)}\0${item.ownerGeneration}\0${item.phase}`;
-      const leaseKey = leaseIdentity(
-        binding,
-        item.projectId,
-        item.queueId,
-        item.kind,
-      );
-      const ownerKey = `${item.ownerGeneration}\0${item.ownerProcessId}\0${item.queueId}\0${item.projectId}`;
-      const evidence = evidenceGroups.get(
-        `${leaseKey}\0${item.ownerGeneration}`,
-      );
-      if (
-        evidence?.some(
-          (record) =>
-            record.projectId !== item.projectId ||
-            record.content.queueId !== item.queueId ||
-            record.content.ownerProcessId !== item.ownerProcessId,
-        )
-      )
-        return false;
-      if (intentOwners.has(leaseKey) && intentOwners.get(leaseKey) !== ownerKey)
-        return false;
-      intentOwners.set(leaseKey, ownerKey);
-      if (intents.has(key)) return false;
-      intents.add(key);
-    }
-    const results = new Set<string>();
-    for (const item of snapshot.results) {
-      if (
-        !validCoordinatorResultRecord(item) ||
-        item.repositoryBindingId !== binding ||
-        (queues.has(item.queueId) &&
-          (queues.get(item.queueId)?.projectId !== item.projectId ||
-            queues.get(item.queueId)?.milestoneId !== item.milestoneId))
-      )
-        return false;
-      const key = `${item.kind}\0${item.projectId}\0${item.identity}`;
-      if (results.has(key)) return false;
-      results.add(key);
-    }
-    const history = new Set<string>();
-    for (const item of snapshot.historyPending) {
-      historyRow(item, Date.now());
-      if (history.has(item.id)) return false;
-      history.add(item.id);
-    }
-    if (snapshot.schema === SNAPSHOT_SCHEMA_V3) {
-      for (const groups of evidenceGroups.values()) {
-        const acquired = groups.find(
-          (item) => item.content.disposition === "acquired",
-        );
-        if (
-          groups.length === 1 &&
-          acquired &&
-          !snapshot.leaseIntents.some(
-            (item) =>
-              item.projectId === acquired.projectId &&
-              item.queueId === acquired.content.queueId &&
-              item.kind === acquired.content.kind &&
-              item.ownerGeneration === acquired.content.ownerGeneration &&
-              item.ownerProcessId === acquired.content.ownerProcessId &&
-              item.phase === "lock_owned",
-          )
-        )
-          return false;
-      }
-      if (
-        !Array.isArray(snapshot.acceptanceDecisions) ||
-        !Array.isArray(snapshot.decisionRecoveries)
-      )
-        return false;
-      const decisions = new Map<
-        string,
-        CoordinatorAcceptanceDecisionEnvelope[]
-      >();
-      for (const item of snapshot.acceptanceDecisions) {
-        if (
-          !plainObject(item) ||
-          !exactKeys(item, [
-            "contract",
-            "repositoryBindingId",
-            "recordId",
-            "generation",
-            "previousHash",
-            "record",
-          ]) ||
-          !validId(item.recordId) ||
-          !validCoordinatorAcceptanceDecisionEnvelope(
-            item,
-            binding,
-            item.recordId,
-          ) ||
-          !plainObject(item.record) ||
-          !exactKeys(item.record, [
-            "recordId",
-            "decisionId",
-            "sourceSpecId",
-            "projectId",
-            "milestoneId",
-            "repositoryRevision",
-            "expectedGeneration",
-            "target",
-            "targetId",
-            "decision",
-            "criterionEvidenceIds",
-            "principalId",
-            "disposition",
-            "newGeneration",
-          ]) ||
-          !projects.has(item.record.projectId)
-        )
-          return false;
-        const groups = decisions.get(item.recordId) ?? [];
-        groups.push(item);
-        decisions.set(item.recordId, groups);
-      }
-      for (const groups of decisions.values()) {
-        const first = groups.find((item) => item.generation === 1);
-        const second = groups.find((item) => item.generation === 2);
-        if (
-          !first ||
-          groups.length > 2 ||
-          new Set(groups.map((item) => item.generation)).size !==
-            groups.length ||
-          (second && second.previousHash !== digest(JSON.stringify(first)))
-        )
-          return false;
-      }
-      const recoveries = new Set<string>();
-      for (const item of snapshot.decisionRecoveries) {
-        if (
-          !plainObject(item) ||
-          !exactKeys(item, ["generation", "value"]) ||
-          !Number.isSafeInteger(item.generation) ||
-          Number(item.generation) < 1 ||
-          !validCoordinatorDecisionRecoveryIntent(item.value) ||
-          !plainObject(item.value) ||
-          !exactKeys(item.value, [
-            "recoveryId",
-            "recordId",
-            "projectId",
-            "milestoneId",
-            "queueId",
-            "applicationId",
-            "expectedGeneration",
-            "newGeneration",
-            "observedDisposition",
-            "unknownBoundary",
-            "disposition",
-          ]) ||
-          queues.get(item.value.queueId)?.projectId !== item.value.projectId ||
-          queues.get(item.value.queueId)?.milestoneId !==
-            item.value.milestoneId ||
-          recoveries.has(item.value.recoveryId)
-        )
-          return false;
-        recoveries.add(item.value.recoveryId);
-      }
-    }
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/**
- * 保存Envelopeを復号し全区画とHashを検証する。
- * @responsibility 不正・部分Snapshotを保存入力から拒否する。
- * @trace ARCH-000004
- * @input bytes: UTF-8 JSON、bindingとrootHash: 期待結合。
- * @returns 検証済みSnapshot、または例外。
- * @precondition 実体Rootを別途確認する。
- * @postcondition 未知区画、内容Hashと結合を検証済み。
- * @effect N/A: 復号のみ。
- * @failure 不正入力と16MiB超過で例外。
- * @invariant 受理だけで実移行を表示しない。
- * @boundary Byte文字列と保存契約。
- * @security Authorityを生成しない。
- * @concurrency N/A: 純粋復号。
- */
-function decodeCoordinatorSnapshot(
-  bytes: string,
-  binding: string,
-  rootHash: string,
-): CoordinatorSnapshot {
-  if (
-    typeof bytes !== "string" ||
-    Buffer.byteLength(bytes, "utf8") > MAX_RECORD_BYTES
-  )
-    throw new Error("snapshot_bytes_invalid");
-  const value: unknown = JSON.parse(bytes);
-  if (
-    !plainObject(value) ||
-    !exactKeys(value, ["payload", "contentHash", "baseRevision", "baseHash"]) ||
-    !validCoordinatorSnapshot(value.payload, binding, rootHash) ||
-    value.contentHash !== digest(JSON.stringify(value.payload)) ||
-    value.baseRevision !== value.payload.snapshotRevision - 1 ||
-    (value.baseRevision === 0
-      ? value.baseHash !== null
-      : typeof value.baseHash !== "string" || !HASH.test(value.baseHash))
-  )
-    throw new Error("snapshot_invalid");
-  return value.payload;
-}
-
-/**
  * 統合保存の現在値を変更せず読み取る。
  * @responsibility 真正不存在と未確定保存・観測不能を区別する。
  * @trace ARCH-000004
@@ -2314,68 +889,73 @@ export function initializeCoordinatorSnapshot(
   if (acquired.status !== "completed") return blocked(acquired.reason);
   const owner = acquired.value;
   let result: StoreResult<string>;
+  let boundaryError: RepositoryRuntimeDataAreaBlockedError | null = null;
   try {
-    const observed = readCoordinatorSnapshotOwned(owner, binding);
-    if (observed.status !== "completed") result = observed;
-    else if (observed.value !== null)
+    const observed = readCoordinatorStorageSnapshotOwned(owner);
+    if (
+      observed.status !== "completed" &&
+      observed.reason !== "coordinator_state_uninitialized"
+    )
+      result = blocked(observed.reason, true);
+    else if (
+      observed.value?.snapshot.repositoryBindingId !== null &&
+      observed.value
+    )
       result =
-        observed.value.schema === SNAPSHOT_SCHEMA_V3
+        observed.value.snapshot.repositoryBindingId === binding &&
+        observed.value.snapshot.intakeEpoch
           ? completed(
               "orchestrator_snapshot_initialized",
-              observed.value.intakeEpoch,
+              observed.value.snapshot.intakeEpoch,
             )
-          : blocked("orchestrator_snapshot_schema_invalid");
+          : blocked("orchestrator_snapshot_binding_invalid");
     else {
-      const { runtime } = storageRoot(owner.repositoryRoot);
-      if (fs.readdirSync(runtime).some((name) => name !== "state.lock"))
-        result = blocked("orchestrator_snapshot_fresh_area_required");
-      else {
-        const payload: CoordinatorSnapshot = {
-          schema: SNAPSHOT_SCHEMA_V3,
-          schemaRevision: 3,
-          repositoryRootHash: owner.repositoryRootHash,
-          repositoryBindingId: binding,
-          snapshotRevision: 1,
-          intakeEpoch: `epoch-${randomUUID()}`,
-          intakeBindings: [],
-          projects: [],
-          workspaces: [],
-          queueEntries: [],
-          leaseEvidence: [],
-          leaseIntents: [],
-          results: [],
-          historyPending: [],
-          acceptanceDecisions: [],
-          decisionRecoveries: [],
-        };
-        const saved = writeCoordinatorSnapshotOwned(
-          owner,
-          binding,
-          JSON.stringify(payload),
-          0,
-        );
-        result =
-          saved.status === "completed"
-            ? completed(
-                "orchestrator_snapshot_initialized",
-                saved.value.intakeEpoch,
-              )
-            : saved;
-      }
+      const revision = observed.value?.snapshot.revision ?? 0;
+      const payload: CoordinatorSnapshot = {
+        schema: SNAPSHOT_SCHEMA_V3,
+        schemaRevision: 3,
+        repositoryRootHash: owner.repositoryRootHash,
+        repositoryBindingId: binding,
+        snapshotRevision: revision + 1,
+        intakeEpoch: `epoch-${randomUUID()}`,
+        intakeBindings: [],
+        projects: [],
+        workspaces: [],
+        queueEntries: [],
+        leaseEvidence: [],
+        leaseIntents: [],
+        results: [],
+        historyPending: [],
+        acceptanceDecisions: [],
+        decisionRecoveries: [],
+      };
+      const saved = writeCoordinatorSnapshotOwned(
+        owner,
+        binding,
+        encodeCoordinatorStateValue(payload),
+        revision,
+      );
+      result =
+        saved.status === "completed"
+          ? completed(
+              "orchestrator_snapshot_initialized",
+              saved.value.intakeEpoch,
+            )
+          : saved;
     }
   } catch (error) {
-    result = blocked(
-      error instanceof RepositoryRuntimeDataAreaBlockedError
-        ? error.reason
-        : "orchestrator_snapshot_initialization_unconfirmed",
-    );
+    if (error instanceof RepositoryRuntimeDataAreaBlockedError)
+      boundaryError = error;
+    result = blocked("orchestrator_snapshot_initialization_unconfirmed", true);
   }
-  try {
-    if (!owner.release())
-      return blocked("orchestrator_snapshot_lock_release_unconfirmed", true);
-  } catch {
+  const released = owner.release();
+  if (boundaryError) {
+    if (!released)
+      boundaryError.cause = "coordinator_snapshot_lock_release_unconfirmed";
+    throw boundaryError;
+  }
+  if (!released)
     return blocked("orchestrator_snapshot_lock_release_unconfirmed", true);
-  }
   return result;
 }
 
@@ -2389,10 +969,7 @@ export function initializeCoordinatorSnapshot(
  * @security JSONから構築せず検証済み取得結果だけを用いる。
  * @compatibility 既存の短期排他取得結果と同じ値契約。
  */
-export type CoordinatorSnapshotOwner = NonNullable<
-  ReturnType<typeof acquireRuntimeOwnedProjectStateKernelLock>
-> &
-  Readonly<{ repositoryRoot: string; repositoryRootHash: string }>;
+export type CoordinatorSnapshotOwner = CoordinatorStorageOwner;
 
 /**
  * 借用する保存Ownerの実発行と生存を確認する。
@@ -2412,18 +989,7 @@ export type CoordinatorSnapshotOwner = NonNullable<
 export function isLiveCoordinatorSnapshotOwner(
   owner: unknown,
 ): owner is CoordinatorSnapshotOwner {
-  if (!owner || typeof owner !== "object" || !snapshotOwners.has(owner))
-    return false;
-  const issued = owner as CoordinatorSnapshotOwner;
-  try {
-    return (
-      issued.assertLive() &&
-      fs.realpathSync.native(issued.repositoryRoot) === issued.repositoryRoot &&
-      !fs.lstatSync(issued.repositoryRoot).isSymbolicLink()
-    );
-  } catch {
-    return false;
-  }
+  return isLiveCoordinatorStorageOwner(owner);
 }
 
 /**
@@ -2453,6 +1019,7 @@ export function writeCoordinatorSnapshotState(
     projectId: string;
     milestoneId: string;
   }>,
+  resultFacts: Parameters<CoordinatorStatePort["writeState"]>[2] = [],
 ): StoreResult<CoordinatorState> {
   let state: CoordinatorState;
   try {
@@ -2478,8 +1045,9 @@ export function writeCoordinatorSnapshotState(
   if (acquired.status !== "completed") return blocked(acquired.reason);
   const lock = acquired.value;
   let outcome: StoreResult<CoordinatorState>;
+  let boundaryError: RepositoryRuntimeDataAreaBlockedError | null = null;
   try {
-    const observed = readCoordinatorSnapshotOwned(lock, binding);
+    const observed = readCoordinatorSnapshotOwned(lock, binding, true);
     if (observed.status !== "completed") outcome = blocked(observed.reason);
     else if (observed.value === null)
       outcome = blocked("orchestrator_snapshot_absent");
@@ -2490,7 +1058,23 @@ export function writeCoordinatorSnapshotState(
       const previous = current.projects.find(
         (item) => item.projectId === state.projectId,
       );
-      if ((previous?.generation ?? 0) !== expectedGeneration)
+      if (
+        previous?.generation === expectedGeneration + 1 &&
+        encodeCoordinatorStateValue(previous) ===
+          encodeCoordinatorStateValue(state)
+      ) {
+        const saved = writeCoordinatorSnapshotOwned(
+          lock,
+          binding,
+          encodeCoordinatorStateValue(current),
+          current.snapshotRevision - 1,
+          resultFacts.map((fact) => ({ ...fact, projectId: state.projectId })),
+        );
+        outcome =
+          saved.status === "completed"
+            ? completed("orchestrator_state_durable", previous)
+            : saved;
+      } else if ((previous?.generation ?? 0) !== expectedGeneration)
         outcome = blocked("orchestrator_state_generation_conflict");
       else if (
         state.tasks.some((task) => {
@@ -2551,12 +1135,13 @@ export function writeCoordinatorSnapshotState(
         const saved = writeCoordinatorSnapshotOwned(
           lock,
           binding,
-          JSON.stringify({
+          encodeCoordinatorStateValue({
             ...current,
             snapshotRevision: current.snapshotRevision + 1,
             projects,
           }),
           current.snapshotRevision,
+          resultFacts.map((fact) => ({ ...fact, projectId: state.projectId })),
         );
         outcome =
           saved.status === "completed"
@@ -2564,10 +1149,18 @@ export function writeCoordinatorSnapshotState(
             : saved;
       }
     }
-  } catch {
+  } catch (error) {
+    if (error instanceof RepositoryRuntimeDataAreaBlockedError)
+      boundaryError = error;
     outcome = blocked("orchestrator_state_observation_unknown");
   }
-  if (!lock.release())
+  const released = lock.release();
+  if (boundaryError) {
+    if (!released)
+      boundaryError.cause = "coordinator_snapshot_lock_release_unconfirmed";
+    throw boundaryError;
+  }
+  if (!released)
     return blocked("orchestrator_snapshot_lock_release_unconfirmed", true);
   return outcome;
 }
@@ -2590,66 +1183,33 @@ export function writeCoordinatorSnapshotState(
 function readCoordinatorSnapshotOwned(
   lock: CoordinatorSnapshotOwner,
   binding: string,
+  readMode: boolean | "history" = false,
 ): StoreResult<CoordinatorSnapshot | null> {
-  let outcome: StoreResult<CoordinatorSnapshot | null>;
-  try {
-    const resolved = resolveCoordinatorNamedPaths(lock.repositoryRoot);
-    if (
-      !resolved ||
-      resolved.repositoryRoot !== lock.repositoryRoot ||
-      !lock.assertLive()
-    )
-      throw new Error("snapshot_root_changed");
-    const root = lock.repositoryRoot;
-    const boundary = observeCoordinatorArea(root, "orchestrator");
-    const parents = [root, resolved.orchestrator];
-    const isAbsent = boundary.status === "not_observed";
-    if (isAbsent) outcome = completed("orchestrator_snapshot_absent", null);
-    else {
-      const pending = path.join(resolved.orchestrator, "state.pending.json");
-      let pendingExists = true;
-      try {
-        fs.lstatSync(pending);
-      } catch (error) {
-        if (errorCode(error) !== "ENOENT") throw error;
-        pendingExists = false;
-      }
-      for (const parent of parents) assertDirectory(parent);
-      if (pendingExists) throw new Error("snapshot_pending_unsettled");
-      const current = path.join(resolved.orchestrator, "state.json");
-      let stat: fs.Stats | null = null;
-      try {
-        stat = fs.lstatSync(current);
-      } catch (error) {
-        if (errorCode(error) !== "ENOENT") throw error;
-        for (const parent of parents) assertDirectory(parent);
-      }
-      if (stat === null)
-        outcome = completed("orchestrator_snapshot_absent", null);
-      else {
-        if (!stat.isFile() || stat.isSymbolicLink() || stat.nlink !== 1)
-          throw new Error("snapshot_file_invalid");
-        const observed = readStableBoundedFileSnapshot(
-          current,
-          MAX_RECORD_BYTES,
-        );
-        for (const parent of parents) assertDirectory(parent);
-        if (fs.lstatSync(current).nlink !== 1 || !lock.assertLive())
-          throw new Error("snapshot_observation_changed");
-        const bytes = new TextDecoder("utf-8", { fatal: true }).decode(
-          observed.bytes,
-        );
-        outcome = completed(
-          "orchestrator_snapshot_observed",
-          decodeCoordinatorSnapshot(bytes, binding, lock.repositoryRootHash),
-        );
-      }
-    }
-    assertCoordinatorAreaUnchanged(root, "orchestrator", boundary);
-  } catch {
-    outcome = blocked("orchestrator_snapshot_invalid_or_unconfirmed", true);
-  }
-  return outcome;
+  if (!isLiveCoordinatorSnapshotOwner(lock))
+    return blocked("orchestrator_snapshot_lock_owner_invalid", true);
+  const observed = readCoordinatorStorageSnapshotOwned(lock, readMode);
+  if (observed.status !== "completed")
+    return observed.reason === "coordinator_state_uninitialized"
+      ? completed("orchestrator_snapshot_absent", null)
+      : blocked(observed.reason, true);
+  if (!observed.value)
+    return blocked("orchestrator_snapshot_invalid_or_unconfirmed", true);
+  const decoded = decodeCoordinatorUnifiedSnapshot(
+    Buffer.from(`${encodeCoordinatorStateValue(observed.value.snapshot)}\n`),
+    lock.repositoryBinding,
+  );
+  if (!decoded)
+    return blocked("orchestrator_snapshot_invalid_or_unconfirmed", true);
+  const value = projectCoordinatorTaskSnapshot(
+    decoded,
+    lock.repositoryRootHash,
+  );
+  if (value && value.repositoryBindingId !== binding)
+    return blocked("orchestrator_snapshot_binding_invalid", true);
+  return completed(
+    value ? "orchestrator_snapshot_observed" : "orchestrator_snapshot_absent",
+    value,
+  );
 }
 
 /**
@@ -2676,13 +1236,27 @@ export function writeCoordinatorSnapshot(
   const acquired = acquireCoordinatorSnapshotPilotLock(workingDirectory);
   if (acquired.status !== "completed") return blocked(acquired.reason);
   const lock = acquired.value;
-  const outcome = writeCoordinatorSnapshotOwned(
-    lock,
-    binding,
-    payloadJson,
-    expectedRevision,
-  );
-  if (!lock.release())
+  let boundaryError: RepositoryRuntimeDataAreaBlockedError | null = null;
+  let outcome: StoreResult<CoordinatorSnapshot>;
+  try {
+    outcome = writeCoordinatorSnapshotOwned(
+      lock,
+      binding,
+      payloadJson,
+      expectedRevision,
+    );
+  } catch (error) {
+    if (error instanceof RepositoryRuntimeDataAreaBlockedError)
+      boundaryError = error;
+    outcome = blocked("orchestrator_snapshot_invalid_or_unconfirmed", true);
+  }
+  const released = lock.release();
+  if (boundaryError) {
+    if (!released)
+      boundaryError.cause = "coordinator_snapshot_lock_release_unconfirmed";
+    throw boundaryError;
+  }
+  if (!released)
     return blocked("orchestrator_snapshot_lock_release_unconfirmed", true);
   return outcome;
 }
@@ -2707,192 +1281,79 @@ function writeCoordinatorSnapshotOwned(
   binding: string,
   payloadJson: string,
   expectedRevision: number,
+  resultFacts: unknown = [],
 ): StoreResult<CoordinatorSnapshot> {
-  let outcome: StoreResult<CoordinatorSnapshot>;
-  let filesystemEffectIssued = false;
   try {
     if (
+      !isLiveCoordinatorSnapshotOwner(lock) ||
       !validId(binding) ||
-      !Number.isSafeInteger(expectedRevision) ||
-      expectedRevision < 0 ||
       typeof payloadJson !== "string" ||
-      Buffer.byteLength(payloadJson, "utf8") > MAX_RECORD_BYTES
+      Buffer.byteLength(payloadJson, "utf8") > MAX_RECORD_BYTES ||
+      !Number.isSafeInteger(expectedRevision) ||
+      expectedRevision < 0
     )
-      throw new Error("snapshot_input_invalid");
+      return blocked("orchestrator_snapshot_input_invalid");
     const payload: unknown = JSON.parse(payloadJson);
     if (
       !validCoordinatorSnapshot(payload, binding, lock.repositoryRootHash) ||
       payload.snapshotRevision !== expectedRevision + 1
     )
-      throw new Error("snapshot_input_invalid");
-    const resolved = resolveCoordinatorNamedPaths(lock.repositoryRoot);
-    if (
-      !resolved ||
-      resolved.repositoryRoot !== lock.repositoryRoot ||
-      !lock.assertLive()
-    )
-      throw new Error("snapshot_root_changed");
-    const { runtime, repositoryRoot: root } = storageRoot(lock.repositoryRoot);
-    if (root !== lock.repositoryRoot || !lock.assertLive())
-      throw new Error("snapshot_root_changed");
-    const boundary = assertCoordinatorArea(root, "orchestrator", runtime);
-    const currentPath = path.join(runtime, "state.json");
-    const pendingPath = path.join(runtime, "state.pending.json");
-    const markerPath = path.join(runtime, "state.lock");
-    const marker = `${JSON.stringify({ schema: "crdd-coordinator/orchestrator-state-lock/v1", repositoryRootHash: lock.repositoryRootHash })}\n`;
-    /**
-     * 正規Fileの真正不存在と安定読取りを区別する。
-     * @responsibility aliasと途中消失を空値へ畳まない。
-     * @trace ARCH-000004
-     * @input location: 固定保存File。
-     * @returns UTF-8本文または真正不存在のnull。
-     * @precondition 親領域を確認済み。
-     * @postcondition hardlinkと不正UTF-8を拒否する。
-     * @effect 読取りのみ。
-     * @failure 観測不能で例外。
-     * @invariant 不明と不存在を区別する。
-     * @boundary Filesystem。
-     * @security 固定Pathだけを読む。
-     * @concurrency Root排他下で実行する。
-     */
-    const read = (location: string): string | null => {
-      let stat: fs.Stats;
-      try {
-        stat = fs.lstatSync(location);
-      } catch (error) {
-        if (errorCode(error) !== "ENOENT") throw error;
-        assertDirectory(lock.repositoryRoot);
-        assertCoordinatorAreaUnchanged(root, "orchestrator", boundary);
-        return null;
-      }
-      if (!stat.isFile() || stat.isSymbolicLink() || stat.nlink !== 1)
-        throw new Error("snapshot_file_invalid");
-      const observed = readStableBoundedFileSnapshot(
-        location,
-        MAX_RECORD_BYTES,
+      return blocked("orchestrator_snapshot_input_invalid");
+    const observed = readCoordinatorStorageSnapshotOwned(lock, true);
+    let current: CoordinatorSnapshot | null = null;
+    if (observed.status === "completed" && observed.value) {
+      const decoded = decodeCoordinatorUnifiedSnapshot(
+        Buffer.from(
+          `${encodeCoordinatorStateValue(observed.value.snapshot)}\n`,
+        ),
+        lock.repositoryBinding,
       );
-      assertDirectory(root);
-      assertCoordinatorAreaUnchanged(root, "orchestrator", boundary);
-      if (fs.lstatSync(location).nlink !== 1)
-        throw new Error("snapshot_link_changed");
-      return new TextDecoder("utf-8", { fatal: true }).decode(observed.bytes);
-    };
-    /**
-     * 新規の固定候補を書き込みFile確定を要求する。
-     * @responsibility 部分書込みを成功として返さない。
-     * @trace ARCH-000004
-     * @input location: 固定Path、bytes: 検証済み本文。
-     * @returns N/A: 戻り値なし。
-     * @precondition 短期排他を保持し対象は不存在。
-     * @postcondition 同handleでfsyncを要求済み。
-     * @effect 固定Fileを新規作成する。
-     * @failure 作成・書込み・fsync失敗で例外。
-     * @invariant 既存Fileを上書きしない。
-     * @boundary Filesystem。
-     * @security mode0700親内のFileを0600で作る。
-     * @concurrency wxで競合作成を拒否する。
-     */
-    const create = (location: string, bytes: string): void => {
-      if (!lock.assertLive()) throw new Error("snapshot_lock_lost");
-      filesystemEffectIssued = true;
-      const fd = fs.openSync(location, "wx", 0o600);
-      try {
-        fs.writeFileSync(fd, bytes, "utf8");
-        fs.fsyncSync(fd);
-      } finally {
-        fs.closeSync(fd);
-      }
-    };
-    const existingMarker = read(markerPath);
-    if (existingMarker === null) create(markerPath, marker);
-    if (read(markerPath) !== marker)
-      throw new Error("snapshot_lock_marker_invalid");
-    let currentBytes = read(currentPath);
-    let current =
-      currentBytes === null
-        ? null
-        : decodeCoordinatorSnapshot(
-            currentBytes,
-            binding,
-            lock.repositoryRootHash,
-          );
-    const pendingBytes = read(pendingPath);
-    if (pendingBytes !== null) {
-      filesystemEffectIssued = true;
-      const candidate = decodeCoordinatorSnapshot(
-        pendingBytes,
-        binding,
+      if (!decoded)
+        return blocked("orchestrator_snapshot_invalid_or_unconfirmed", true);
+      current = projectCoordinatorTaskSnapshot(
+        decoded,
         lock.repositoryRootHash,
       );
-      const pending = JSON.parse(pendingBytes) as {
-        baseRevision: number;
-        baseHash: string | null;
-      };
-      const hash = currentBytes === null ? null : digest(currentBytes);
+      if (current && current.repositoryBindingId !== binding)
+        return blocked("orchestrator_snapshot_binding_invalid", true);
       if (
-        hash === pending.baseHash &&
-        (current?.snapshotRevision ?? 0) === pending.baseRevision
-      ) {
-        assertCoordinatorSnapshotTransition(current, candidate, lock);
-        const fd = fs.openSync(pendingPath, "r+");
-        try {
-          fs.fsyncSync(fd);
-        } finally {
-          fs.closeSync(fd);
-        }
-        if (!lock.assertLive() || read(pendingPath) !== pendingBytes)
-          throw new Error("snapshot_pending_changed");
-        filesystemEffectIssued = true;
-        fs.renameSync(pendingPath, currentPath);
-        currentBytes = read(currentPath);
-        if (currentBytes !== pendingBytes)
-          throw new Error("snapshot_readback_invalid");
-        current = candidate;
-      } else if (
-        hash === digest(pendingBytes) &&
-        current?.snapshotRevision === candidate.snapshotRevision
-      ) {
-        const fd = fs.openSync(currentPath, "r+");
-        try {
-          fs.fsyncSync(fd);
-        } finally {
-          fs.closeSync(fd);
-        }
-        if (!lock.assertLive() || read(pendingPath) !== pendingBytes)
-          throw new Error("snapshot_pending_changed");
-        filesystemEffectIssued = true;
-        fs.unlinkSync(pendingPath);
-      } else throw new Error("snapshot_pending_conflict");
-      if (read(pendingPath) !== null)
-        throw new Error("snapshot_pending_remains");
-    }
-    const candidateBytes = `${JSON.stringify({ payload, contentHash: digest(JSON.stringify(payload)), baseRevision: expectedRevision, baseHash: current?.snapshotRevision === payload.snapshotRevision ? (JSON.parse(currentBytes ?? "null") as { baseHash: string | null }).baseHash : currentBytes === null ? null : digest(currentBytes) })}\n`;
-    if (Buffer.byteLength(candidateBytes, "utf8") > MAX_RECORD_BYTES)
-      throw new Error("snapshot_size_invalid");
-    if (currentBytes === candidateBytes)
-      outcome = completed("orchestrator_snapshot_durable", payload);
-    else {
-      if ((current?.snapshotRevision ?? 0) !== expectedRevision)
-        throw new Error("snapshot_revision_conflict");
+        observed.value.snapshot.revision !== expectedRevision &&
+        !(
+          current &&
+          current.snapshotRevision === payload.snapshotRevision &&
+          encodeCoordinatorStateValue(current) ===
+            encodeCoordinatorStateValue(payload)
+        )
+      )
+        return blocked("orchestrator_snapshot_revision_conflict");
+    } else if (observed.reason !== "coordinator_state_uninitialized")
+      return blocked(observed.reason, true);
+    if (
+      current &&
+      encodeCoordinatorStateValue(current) !==
+        encodeCoordinatorStateValue(payload)
+    )
       assertCoordinatorSnapshotTransition(current, payload, lock);
-      create(pendingPath, candidateBytes);
-      if (!lock.assertLive()) throw new Error("snapshot_lock_lost");
-      const pending = read(pendingPath);
-      if (pending !== candidateBytes)
-        throw new Error("snapshot_pending_readback_invalid");
-      filesystemEffectIssued = true;
-      fs.renameSync(pendingPath, currentPath);
-      if (read(currentPath) !== candidateBytes || read(pendingPath) !== null)
-        throw new Error("snapshot_readback_invalid");
-      outcome = completed("orchestrator_snapshot_durable", payload);
-    }
-  } catch {
-    outcome = blocked(
-      "orchestrator_snapshot_invalid_or_unconfirmed",
-      filesystemEffectIssued,
+    if (
+      !current &&
+      !Object.values(payload)
+        .filter(Array.isArray)
+        .every((values) => values.length === 0)
+    )
+      return blocked("orchestrator_snapshot_initialization_required");
+    const saved = writeCoordinatorStorageTaskSnapshotOwned(
+      lock,
+      payload,
+      expectedRevision,
+      resultFacts,
     );
+    return saved.status === "completed" && saved.value
+      ? completed("orchestrator_snapshot_durable", saved.value)
+      : blocked(saved.reason, saved.filesystemEffectIssued);
+  } catch (error) {
+    if (error instanceof RepositoryRuntimeDataAreaBlockedError) throw error;
+    return blocked("orchestrator_snapshot_invalid_or_unconfirmed", true);
   }
-  return outcome;
 }
 
 /**
@@ -2921,7 +1382,9 @@ function assertCoordinatorSnapshotTransition(
     if (intent.phase !== "acquisition_reserved") continue;
     if (
       current?.leaseIntents.some(
-        (item) => JSON.stringify(item) === JSON.stringify(intent),
+        (item) =>
+          encodeCoordinatorStateValue(item) ===
+          encodeCoordinatorStateValue(intent),
       )
     )
       continue;
@@ -2980,7 +1443,9 @@ function assertCoordinatorSnapshotTransition(
                 item.milestoneId === queue.milestoneId,
             ),
         )
-        .map((queue) => JSON.stringify([queue.projectId, queue.milestoneId])),
+        .map((queue) =>
+          encodeCoordinatorStateValue([queue.projectId, queue.milestoneId]),
+        ),
     );
     const currentEvidenceIds = new Set(
       [...current.projects, ...payload.projects].flatMap((project) => [
@@ -3008,7 +1473,10 @@ function assertCoordinatorSnapshotTransition(
       for (const old of current.acceptanceDecisions) {
         if (
           retiredMilestones.has(
-            JSON.stringify([old.record.projectId, old.record.milestoneId]),
+            encodeCoordinatorStateValue([
+              old.record.projectId,
+              old.record.milestoneId,
+            ]),
           ) &&
           current.acceptanceDecisions.some(
             (item) =>
@@ -3023,7 +1491,9 @@ function assertCoordinatorSnapshotTransition(
           continue;
         if (
           !payload.acceptanceDecisions.some(
-            (item) => JSON.stringify(item) === JSON.stringify(old),
+            (item) =>
+              encodeCoordinatorStateValue(item) ===
+              encodeCoordinatorStateValue(old),
           )
         )
           throw new Error("snapshot_acceptance_decision_removed");
@@ -3042,7 +1512,8 @@ function assertCoordinatorSnapshotTransition(
         );
         if (
           !next ||
-          (JSON.stringify(next) !== JSON.stringify(old) &&
+          (encodeCoordinatorStateValue(next) !==
+            encodeCoordinatorStateValue(old) &&
             (next.generation !== old.generation + 1 ||
               [
                 "recordId",
@@ -3063,7 +1534,9 @@ function assertCoordinatorSnapshotTransition(
       for (const old of current[collection])
         if (
           !payload[collection].some(
-            (item) => JSON.stringify(item) === JSON.stringify(old),
+            (item) =>
+              encodeCoordinatorStateValue(item) ===
+              encodeCoordinatorStateValue(old),
           )
         )
           if (
@@ -3151,7 +1624,9 @@ function assertCoordinatorSnapshotTransition(
     for (const old of current.historyPending) {
       if (
         !payload.historyPending.some(
-          (item) => JSON.stringify(item) === JSON.stringify(old),
+          (item) =>
+            encodeCoordinatorStateValue(item) ===
+            encodeCoordinatorStateValue(old),
         ) &&
         inspectCoordinatorHistorySettlement(owner, old) === null
       )
@@ -3160,7 +1635,9 @@ function assertCoordinatorSnapshotTransition(
     for (const old of current.leaseIntents) {
       if (
         payload.leaseIntents.some(
-          (item) => JSON.stringify(item) === JSON.stringify(old),
+          (item) =>
+            encodeCoordinatorStateValue(item) ===
+            encodeCoordinatorStateValue(old),
         )
       )
         continue;
@@ -3244,8 +1721,8 @@ function assertCoordinatorSnapshotTransition(
               next.singleTask?.[key as keyof SingleTaskRecord],
           ) ||
           (old.singleTask.adviceOperation !== undefined &&
-            JSON.stringify(old.singleTask.adviceOperation) !==
-              JSON.stringify(next.singleTask.adviceOperation)) ||
+            encodeCoordinatorStateValue(old.singleTask.adviceOperation) !==
+              encodeCoordinatorStateValue(next.singleTask.adviceOperation)) ||
           (old.singleTask.phase === "settled" &&
             (old.singleTask.status !== next.singleTask.status ||
               old.singleTask.reason !== next.singleTask.reason ||
@@ -3260,7 +1737,8 @@ function assertCoordinatorSnapshotTransition(
       if (
         old.singleTask &&
         next?.singleTask &&
-        JSON.stringify(old.singleTask) !== JSON.stringify(next.singleTask)
+        encodeCoordinatorStateValue(old.singleTask) !==
+          encodeCoordinatorStateValue(next.singleTask)
       ) {
         const unstartedRejection =
           old.singleTask.phase === "accepted" &&
@@ -3308,7 +1786,8 @@ function assertCoordinatorSnapshotTransition(
             next[key as keyof ProjectQueueEntry] !==
             old[key as keyof ProjectQueueEntry],
         ) ||
-        (JSON.stringify(next) !== JSON.stringify(old) &&
+        (encodeCoordinatorStateValue(next) !==
+          encodeCoordinatorStateValue(old) &&
           next.generation !== old.generation + 1) ||
         current.intakeBindings.find((item) => item.queueId === old.queueId)
           ?.epoch !==
@@ -3334,7 +1813,8 @@ function assertCoordinatorSnapshotTransition(
         throw new Error("snapshot_project_milestone_still_referenced");
       if (
         !next ||
-        (JSON.stringify(next) !== JSON.stringify(old) &&
+        (encodeCoordinatorStateValue(next) !==
+          encodeCoordinatorStateValue(old) &&
           next.generation !== old.generation + 1)
       )
         throw new Error("snapshot_project_generation_invalid");
@@ -3364,6 +1844,7 @@ function withCoordinatorSnapshotOperation<T>(
     current: CoordinatorSnapshot,
     owner: CoordinatorSnapshotOwner,
   ) => StoreResult<Readonly<{ next: CoordinatorSnapshot | null; value: T }>>,
+  readMode: false | "history" = false,
 ): StoreResult<T> {
   if (!validId(binding)) return blocked("orchestrator_snapshot_input_invalid");
   const acquired = acquireCoordinatorSnapshotPilotLock(workingDirectory);
@@ -3371,7 +1852,7 @@ function withCoordinatorSnapshotOperation<T>(
   const owner = acquired.value;
   let result: StoreResult<T>;
   try {
-    const observed = readCoordinatorSnapshotOwned(owner, binding);
+    const observed = readCoordinatorSnapshotOwned(owner, binding, readMode);
     if (observed.status !== "completed") result = observed;
     else if (observed.value === null)
       result = blocked("orchestrator_snapshot_absent");
@@ -3384,7 +1865,7 @@ function withCoordinatorSnapshotOperation<T>(
         const saved = writeCoordinatorSnapshotOwned(
           owner,
           binding,
-          JSON.stringify({
+          encodeCoordinatorStateValue({
             ...applied.value.next,
             snapshotRevision: observed.value.snapshotRevision + 1,
           }),
@@ -3502,8 +1983,8 @@ function coordinatorQueueIsClosed(
         receipt.value.beforeRevision !== candidate.value.baseRevision ||
         !Array.isArray(receipt.value.changedPaths) ||
         !Array.isArray(candidate.value.changedPaths) ||
-        JSON.stringify([...receipt.value.changedPaths].sort()) !==
-          JSON.stringify([...candidate.value.changedPaths].sort())
+        encodeCoordinatorStateValue([...receipt.value.changedPaths].sort()) !==
+          encodeCoordinatorStateValue([...candidate.value.changedPaths].sort())
       )
         return false;
     }
@@ -3809,6 +2290,7 @@ export function maintainCoordinatorSnapshot(
         value: rows.length,
       });
     },
+    "history",
   );
   if (prepared.status !== "completed") return prepared;
   return withCoordinatorSnapshotOperation(
@@ -3817,7 +2299,13 @@ export function maintainCoordinatorSnapshot(
     (current, owner) => {
       if (current.schema !== SNAPSHOT_SCHEMA_V3)
         return blocked("orchestrator_snapshot_schema_invalid");
-      const trimmed = updateCoordinatorHistoryOwned(owner, null, now);
+      const trimmed = updateCoordinatorHistoryOwned(
+        owner,
+        current.historyPending.length
+          ? encodeCoordinatorStateValue(current.historyPending)
+          : null,
+        now,
+      );
       if (trimmed.status !== "completed") return blocked(trimmed.reason, true);
       const retired = new Set<string>();
       for (const row of current.historyPending) {
@@ -3826,15 +2314,7 @@ export function maintainCoordinatorSnapshot(
           !coordinatorStandaloneAdoptionIsClosed(current, row.id, owner)
         )
           continue;
-        const saved = updateCoordinatorHistoryOwned(
-          owner,
-          JSON.stringify(row),
-          now,
-        );
-        if (
-          saved.status !== "completed" ||
-          inspectCoordinatorHistorySettlement(owner, row, now) === null
-        )
+        if (inspectCoordinatorHistorySettlement(owner, row, now) === null)
           return blocked("orchestrator_history_transfer_unconfirmed", true);
         retired.add(row.id);
       }
@@ -3977,6 +2457,7 @@ export function maintainCoordinatorSnapshot(
         value: retired.size,
       });
     },
+    "history",
   );
 }
 
@@ -4006,13 +2487,15 @@ export function transferCoordinatorSnapshotHistory(
     (current, owner) => {
       let recorded = 0;
       let expired = 0;
-      for (const row of current.historyPending) {
+      if (current.historyPending.length) {
         const saved = updateCoordinatorHistoryOwned(
           owner,
-          JSON.stringify(row),
+          encodeCoordinatorStateValue(current.historyPending),
           now,
         );
         if (saved.status !== "completed") return blocked(saved.reason, true);
+      }
+      for (const row of current.historyPending) {
         const disposition = inspectCoordinatorHistorySettlement(
           owner,
           row,
@@ -4030,6 +2513,7 @@ export function transferCoordinatorSnapshotHistory(
         value: { recorded, expired },
       });
     },
+    "history",
   );
 }
 
@@ -4173,7 +2657,8 @@ export function createCoordinatorSnapshotAcceptanceDecisionStore(
           );
           if (
             !first ||
-            JSON.stringify(first.record) !== JSON.stringify(expected)
+            encodeCoordinatorStateValue(first.record) !==
+              encodeCoordinatorStateValue(expected)
           )
             return blocked(
               "orchestrator_acceptance_record_generation_mismatch",
@@ -4190,7 +2675,7 @@ export function createCoordinatorSnapshotAcceptanceDecisionStore(
             repositoryBindingId: binding,
             recordId: expected.recordId,
             generation: 2,
-            previousHash: digest(JSON.stringify(first)),
+            previousHash: digest(encodeCoordinatorStateValue(first)),
             record: next,
           };
           return completed("orchestrator_acceptance_record_finalized", {
@@ -4334,7 +2819,8 @@ export function createCoordinatorSnapshotDecisionRecoveryStore(
           );
           if (
             !prior ||
-            JSON.stringify(prior.value) !== JSON.stringify(expected)
+            encodeCoordinatorStateValue(prior.value) !==
+              encodeCoordinatorStateValue(expected)
           )
             return blocked(
               "orchestrator_decision_recovery_generation_mismatch",
@@ -4403,7 +2889,7 @@ export function createCoordinatorSnapshotIntegrationRecordPort(
             milestoneId: binding.milestoneId,
             queueId: binding.queueId,
             identity: record.identity,
-            contentHash: digest(JSON.stringify(record.value)),
+            contentHash: digest(encodeCoordinatorStateValue(record.value)),
             value: record.value,
           };
           if (!validCoordinatorResultRecord(value))
@@ -4425,7 +2911,11 @@ export function createCoordinatorSnapshotIntegrationRecordPort(
               item.projectId === value.projectId &&
               item.identity === value.identity,
           );
-          if (old && JSON.stringify(old) !== JSON.stringify(value))
+          if (
+            old &&
+            encodeCoordinatorStateValue(old) !==
+              encodeCoordinatorStateValue(value)
+          )
             return blocked("orchestrator_result_identity_conflict");
           return completed("orchestrator_result_durable", {
             next: old
@@ -4668,7 +3158,9 @@ export function acquireCoordinatorSnapshotLease(
       if (
         current.schema !== SNAPSHOT_SCHEMA_V3 ||
         !current.leaseIntents.some(
-          (item) => JSON.stringify(item) === JSON.stringify(intent),
+          (item) =>
+            encodeCoordinatorStateValue(item) ===
+            encodeCoordinatorStateValue(intent),
         )
       )
         return blocked("orchestrator_lease_intent_mismatch", true, recoveryId);
@@ -5210,20 +3702,20 @@ export function reconcileCoordinatorSnapshotLeaseOwnerLoss(
         digest(
           JSON.stringify([metadata.dev, metadata.ino, metadata.birthtimeMs]),
         ) !== initial.rootIdentity ||
-        JSON.stringify(
+        encodeCoordinatorStateValue(
           current.leaseIntents.filter(
             (item) =>
               item.projectId === projectId &&
               item.queueId === queueId &&
               item.kind === kind,
           ),
-        ) !== JSON.stringify(ownIntents) ||
-        JSON.stringify(
+        ) !== encodeCoordinatorStateValue(ownIntents) ||
+        encodeCoordinatorStateValue(
           kind === "project-operation"
             ? (current.queueEntries.find((item) => item.queueId === queueId) ??
                 null)
             : null,
-        ) !== JSON.stringify(initial.queue)
+        ) !== encodeCoordinatorStateValue(initial.queue)
       )
         return blocked(
           "orchestrator_lease_recovery_state_mismatch",
@@ -5233,7 +3725,11 @@ export function reconcileCoordinatorSnapshotLeaseOwnerLoss(
       const existing = ownIntents.find(
         (item) => item.phase === "recovery_pending",
       );
-      if (existing && JSON.stringify(existing) !== JSON.stringify(pending))
+      if (
+        existing &&
+        encodeCoordinatorStateValue(existing) !==
+          encodeCoordinatorStateValue(pending)
+      )
         return blocked("orchestrator_lease_intent_mismatch", true, recoveryId);
       return completed("orchestrator_lease_recovery_intent_durable", {
         next: existing
@@ -5313,13 +3809,13 @@ export function reconcileCoordinatorSnapshotLeaseOwnerLoss(
         digest(
           JSON.stringify([metadata.dev, metadata.ino, metadata.birthtimeMs]),
         ) !== initial.rootIdentity ||
-        JSON.stringify(
+        encodeCoordinatorStateValue(
           kind === "project-operation"
             ? (current.queueEntries.find((item) => item.queueId === queueId) ??
                 null)
             : null,
-        ) !== JSON.stringify(initial.queue) ||
-        JSON.stringify(
+        ) !== encodeCoordinatorStateValue(initial.queue) ||
+        encodeCoordinatorStateValue(
           current.leaseIntents.filter(
             (item) =>
               item.projectId === projectId &&
@@ -5327,7 +3823,7 @@ export function reconcileCoordinatorSnapshotLeaseOwnerLoss(
               item.kind === kind,
           ),
         ) !==
-          JSON.stringify(
+          encodeCoordinatorStateValue(
             ownIntents.some((item) => item.phase === "recovery_pending")
               ? ownIntents
               : [...ownIntents, pending],
@@ -5535,13 +4031,14 @@ export function createCoordinatorSnapshotStatePort(
   return Object.freeze({
     readWorkspaceTaskTarget: (queueId: string) =>
       resolveCoordinatorWorkspaceTaskTarget(workingDirectory, binding, queueId),
-    writeState: (state, expectedGeneration) =>
+    writeState: (state, expectedGeneration, resultFacts) =>
       writeCoordinatorSnapshotState(
         workingDirectory,
         binding,
-        JSON.stringify(state),
+        encodeCoordinatorStateValue(state),
         expectedGeneration,
         intake,
+        resultFacts,
       ),
     readState: (projectId) =>
       withCoordinatorSnapshotOperation(workingDirectory, binding, (current) => {
@@ -5879,10 +4376,10 @@ export function createCoordinatorSnapshotStatePort(
             );
           const paths = resolveCoordinatorNamedPaths(owner.repositoryRoot);
           if (!paths) throw new Error("orchestrator_repository_root_invalid");
-          const runtime = paths.orchestrator;
+          const runtime = paths.coordinator;
           const boundary = assertCoordinatorArea(
             owner.repositoryRoot,
-            "orchestrator",
+            "coordinator",
             runtime,
           );
           const identity = leaseIdentity(
@@ -5918,7 +4415,7 @@ export function createCoordinatorSnapshotStatePort(
             );
           assertCoordinatorAreaUnchanged(
             owner.repositoryRoot,
-            "orchestrator",
+            "coordinator",
             boundary,
           );
           const evidence =
@@ -6157,7 +4654,10 @@ export function updateCoordinatorSingleTask(
           )
         )
           return blocked("orchestrator_single_task_terminal_identity_conflict");
-        if (JSON.stringify(previous.singleTask) === JSON.stringify(record))
+        if (
+          encodeCoordinatorStateValue(previous.singleTask) ===
+          encodeCoordinatorStateValue(record)
+        )
           return completed("orchestrator_single_task_already_saved", {
             next: null,
             value: previous,
@@ -6327,7 +4827,12 @@ export function createCurrentCoordinatorPersistencePorts(
   workingDirectory: string,
   binding: string,
 ): CoordinatorPersistencePorts {
-  const observed = readCoordinatorSnapshot(workingDirectory, binding);
+  const acquired = acquireCoordinatorSnapshotPilotLock(workingDirectory);
+  if (acquired.status !== "completed")
+    throw new Error("orchestrator_snapshot_not_initialized");
+  const observed = readCoordinatorSnapshotOwned(acquired.value, binding, true);
+  if (!acquired.value.release())
+    throw new Error("orchestrator_snapshot_lock_release_unconfirmed");
   if (
     observed.status !== "completed" ||
     !observed.value ||

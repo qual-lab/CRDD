@@ -16,7 +16,7 @@ import { stripTypeScriptTypes, syncBuiltinESMExports } from "node:module";
 import path from "node:path";
 import test, { mock, type TestContext } from "node:test";
 import { fileURLToPath } from "node:url";
-import { types as utilTypes } from "node:util";
+import { isDeepStrictEqual, types as utilTypes } from "node:util";
 import { runInNewContext } from "node:vm";
 import { isDockerRestartCheckpointSettled } from "../../src/execution/restart-checkpoint.ts";
 import {
@@ -73,7 +73,7 @@ test("修復Writerの二重scope guardは他操作と参照の変更・除去を
   );
   assert.ok(guardStart > 0 && guardEnd > guardStart);
   const wrapperMutant = wrapper.slice(0, guardStart) + wrapper.slice(guardEnd);
-  const writer = text.indexOf("function writeCoordinatorStateSnapshot(");
+  const writer = text.indexOf("function commitCoordinatorStateSnapshotOwned(");
   const boundaryStart = text.indexOf("    if (currentRepair) {", writer);
   const boundaryEnd = text.indexOf(
     "    let completionConfirmed",
@@ -556,7 +556,9 @@ test("Task Writerの修復保全guardは新規・変更・除去を拒否する"
     new URL("../../src/storage/settlement-store.ts", import.meta.url),
     "utf8",
   );
-  const functionStart = text.indexOf("function writeCoordinatorStateSnapshot(");
+  const functionStart = text.indexOf(
+    "function commitCoordinatorStateSnapshotOwned(",
+  );
   const normalStart = text.indexOf(
     "    const previousOperations = new Map(",
     functionStart,
@@ -2850,7 +2852,7 @@ test("Orchestrator回復はexact耐久待ちと待機後の同じ境界を要求
   );
   assert.equal(traps, 0);
   const boundaryStart = source.indexOf(
-    "    const recoveryBoundaryCurrent = () => {",
+    "    const readCurrentRecoveryState = (",
   );
   const boundaryEnd = source.indexOf("    if (unresolvedTasks", boundaryStart);
   assert.ok(boundaryStart >= 0 && boundaryEnd > boundaryStart);
@@ -2876,11 +2878,12 @@ test("Orchestrator回復はexact耐久待ちと待機後の同じ境界を要求
       state: "recovery_required",
       resultReference: "same",
     };
-    const current = runInNewContext(`${body}; recoveryBoundaryCurrent`, {
+    const current = runInNewContext(`${body}; readCurrentRecoveryState`, {
       JSON,
+      isDeepStrictEqual,
       cancellationSignal: { aborted: scenario === "cancel" },
       recoveryProcess: "owner",
-      recoveryQueue: JSON.stringify(queue),
+      recoveryQueue: queue,
       recoveryState: state,
       request: { projectId: "project" },
       queueId: "queue",
@@ -2913,13 +2916,13 @@ test("Orchestrator回復はexact耐久待ちと待機後の同じ境界を要求
           }),
         },
       },
-    }) as () => boolean;
-    assert.equal(current(), scenario === "normal", scenario);
+    }) as () => unknown;
+    assert.deepEqual(current(), scenario === "normal" ? state : null, scenario);
   }
 });
 
 /**
- * ACK直前の二つのガードを本番配置と抽出実行で反証する。
+ * 耐久受領の準備読取り直前ガードを本番配置と抽出実行で反証する。
  * @responsibility callback定義だけでなく処置直前の停止が有効であることを確認する。
  * @trace PRL-IT-005
  * @precondition 本番の各try／catch blockをそのまま抽出する。
@@ -2927,82 +2930,51 @@ test("Orchestrator回復はexact耐久待ちと待機後の同じ境界を要求
  * @observation 下位処置回数・模擬保存状態・拒否結果。
  * @oracle 原文は処置0、負対照は同じOracleが拒否する。
  * @cleanup N/A: メモリ内だけでProduction Sourceを変更しない。
- * @boundary PRL-IT-005=Related 2 Blocks: 上位ACK前ガード→下位ACK／終了処置。全文の変異試験ではない。
+ * @boundary PRL-IT-005=Related 2 Blocks: 上位受領前ガード→結果読取り。解除はTask保存の原子受領試験で確認する。
  */
-test("ACK直前のガード負対照は処置ゼロOracleに拒否される", () => {
+test("耐久受領準備のガード負対照は処置ゼロOracleに拒否される", () => {
   const source = fs.readFileSync(
     new URL("../../src/objective/execute.ts", import.meta.url),
     "utf8",
   );
-  for (const stage of ["ack", "finalize"] as const) {
-    const declaration =
-      stage === "ack"
-        ? "let acknowledgementResult: unknown;"
-        : "let finalized: unknown;";
-    const next =
-      stage === "ack"
-        ? "const acknowledged = snapshotPlainRecord("
-        : "const finalResult = snapshotPlainRecord(";
-    const start = source.indexOf(declaration);
-    const end = source.indexOf(next, start);
-    assert.ok(start >= 0 && end > start);
-    const original = source.slice(start, end);
-    assert.equal(
-      (original.match(/if \(!recoveryBoundaryCurrent\(\)\)/gu) ?? []).length,
-      1,
-    );
-    const call =
-      stage === "ack"
-        ? "taskRecovery.acknowledgeDocker("
-        : "taskRecovery.finalizeDockerAcknowledgement(";
-    assert.ok(
-      original.indexOf("if (!recoveryBoundaryCurrent())") <
-        original.indexOf(call),
-    );
-    for (const bypass of [false, true]) {
-      let calls = 0;
-      const durable = {
-        phase: stage === "ack" ? "settled" : "acknowledged",
-        deliveryReleased: false,
-      };
-      const before = { ...durable };
-      const resultName =
-        stage === "ack" ? "acknowledgementResult" : "finalized";
-      const text = bypass
-        ? original.replace("if (!recoveryBoundaryCurrent())", "if (false)")
-        : original;
-      const result = runInNewContext(
-        `${stripTypeScriptTypes(text)}; ${resultName}`,
-        {
-          Object,
-          recoveryBoundaryCurrent: () => false,
-          request: { projectId: "project", milestoneId: "milestone" },
-          recoveryState: { generation: 3 },
-          item: { taskId: "task", recoveryId: "exact" },
-          settledTask: { attemptId: "attempt", operationId: "operation" },
-          currentObligation: { acknowledgement: {} },
-          taskRecovery: {
-            acknowledgeDocker: () => {
-              calls++;
-              durable.deliveryReleased = true;
-              return { status: "completed" };
-            },
-            finalizeDockerAcknowledgement: () => {
-              calls++;
-              durable.deliveryReleased = true;
-              return { status: "completed" };
-            },
+  assert.equal(source.includes("finalizeDockerAcknowledgement("), false);
+  const start = source.indexOf("let acknowledgementResult: unknown;");
+  const end = source.indexOf(
+    "const acknowledged = snapshotPlainRecord(",
+    start,
+  );
+  assert.ok(start >= 0 && end > start);
+  const original = source.slice(start, end);
+  const guard = "if (!readCurrentRecoveryState())";
+  assert.equal(original.split(guard).length, 2);
+  assert.ok(
+    original.indexOf(guard) <
+      original.indexOf("taskRecovery.acknowledgeDocker("),
+  );
+  for (const bypass of [false, true]) {
+    let reads = 0;
+    const text = bypass ? original.replace(guard, "if (false)") : original;
+    const result = runInNewContext(
+      `${stripTypeScriptTypes(text)}; acknowledgementResult`,
+      {
+        Object,
+        readCurrentRecoveryState: () => null,
+        request: { projectId: "project", milestoneId: "milestone" },
+        recoveryState: { generation: 3 },
+        item: { taskId: "task", recoveryId: "exact" },
+        settledTask: { attemptId: "attempt", operationId: "operation" },
+        taskRecovery: {
+          acknowledgeDocker: () => {
+            reads++;
+            return { status: "completed" };
           },
         },
-      );
-      if (bypass) {
-        assert.throws(() => assert.equal(calls, 0));
-        assert.throws(() => assert.deepEqual(durable, before));
-      } else {
-        assert.equal(calls, 0);
-        assert.deepEqual(durable, before);
-        assert.equal(result, null);
-      }
+      },
+    );
+    if (bypass) assert.throws(() => assert.equal(reads, 0));
+    else {
+      assert.equal(reads, 0);
+      assert.equal(result, null);
     }
   }
 });

@@ -1604,7 +1604,7 @@ describe("Orchestrator state contract", () => {
       attemptId: "attempt-task-a",
       operationId: "operation-task-a",
       recoveryId: dockerId,
-      settlementGeneration: itemSettled.state.generation,
+      settlementGeneration: itemSettled.state.generation + 1,
       repositoryBinding: "1".repeat(64),
       resultId: "5".repeat(64),
       consumer: "orchestrator" as const,
@@ -1619,6 +1619,10 @@ describe("Orchestrator state contract", () => {
       {
         ...acknowledgement,
         settlementGeneration: acknowledgement.settlementGeneration + 1,
+      },
+      {
+        ...acknowledgement,
+        settlementGeneration: itemSettled.state.generation,
       },
     ]) {
       const rejected = acknowledgeProjectDockerRecoveryObligation(
@@ -1661,6 +1665,11 @@ describe("Orchestrator state contract", () => {
       acknowledgement,
     );
     assert.equal(acknowledged.status, "completed");
+    assert.equal(
+      acknowledged.state?.tasks[0]?.recoveryObligations[0]?.acknowledgement
+        ?.settlementGeneration,
+      acknowledged.state?.generation,
+    );
     assert.equal(
       acknowledged.state?.tasks[0]?.recoveryObligations[0]?.phase,
       "acknowledged",
@@ -1713,7 +1722,7 @@ describe("Orchestrator state contract", () => {
     );
     assert.equal(
       readyTask?.recoveryObligations[0]?.acknowledgement?.settlementGeneration,
-      itemSettled.state.generation,
+      acknowledgement.settlementGeneration,
     );
   });
 

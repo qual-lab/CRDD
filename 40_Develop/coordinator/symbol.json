@@ -2549,10 +2549,12 @@
       "kind": "test-suite",
       "path": "tests/integration/current-state-marker-cleanup.contract.test.ts",
       "qaIds": [
-        "QA-000006"
+        "QA-000006",
+        "QA-000003"
       ],
       "localTestIds": [
-        "ERB-IT-014"
+        "ERB-IT-014",
+        "PRL-IT-011"
       ],
       "verifies": [
         "coordinator.state-storage.coordinator-state-runtime"
@@ -3855,7 +3857,7 @@
     {
       "symbolId": "orchestrator.storage.result-record",
       "kind": "file",
-      "path": "src/storage/validate-result-record.ts",
+      "path": "src/storage/model.ts",
       "archIds": [
         "ARCH-000005"
       ]

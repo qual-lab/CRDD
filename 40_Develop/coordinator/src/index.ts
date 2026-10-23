@@ -271,7 +271,7 @@ export {
   type CoordinatorAcceptanceDecisionEnvelope,
 } from "./decision/acceptance-record.ts";
 export { validCoordinatorDecisionRecoveryIntent } from "./decision/recovery-record.ts";
-export { validCoordinatorResultRecord } from "./storage/validate-result-record.ts";
+export { validCoordinatorResultRecord } from "./storage/model.ts";
 export type {
   IntegrationRecordBinding,
   CoordinatorResultRecord,

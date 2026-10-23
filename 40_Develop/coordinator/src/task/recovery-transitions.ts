@@ -277,7 +277,7 @@ export function recordProjectTaskResultAcceptances(
  * @input state: CoordinatorState、expectedGeneration: number、acknowledgement: ProjectDockerRecoveryAcknowledgement
  * @returns StateResultを返す。
  * @precondition 「state: CoordinatorState、expectedGeneration: number、acknowledgement: ProjectDockerRecoveryAcknowledgement」がacknowledgeProjectDockerRecoveryObligationの入力契約を満たす。
- * @postcondition acknowledgeProjectDockerRecoveryObligationの責務を完了した結果だけを返す。
+ * @postcondition 受領本文は同時に保存する次の業務世代を参照し、保存前の世代と混同しない。
  * @effect N/A: acknowledgeProjectDockerRecoveryObligationは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: acknowledgeProjectDockerRecoveryObligationは独自の失敗分岐を所有しない。
  * @invariant acknowledgeProjectDockerRecoveryObligationは入力から導いた結果以外の共有状態を変更しない。
@@ -303,7 +303,7 @@ export function acknowledgeProjectDockerRecoveryObligation(
   );
   if (
     state.generation !== expectedGeneration ||
-    acceptance.settlementGeneration !== expectedGeneration ||
+    acceptance.settlementGeneration !== expectedGeneration + 1 ||
     acceptance.projectId !== state.projectId ||
     acceptance.milestoneId !== state.milestoneId ||
     !validIdentity(acceptance.repositoryBindingId) ||

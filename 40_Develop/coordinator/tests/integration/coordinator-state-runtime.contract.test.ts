@@ -25,7 +25,6 @@ import {
   ensureRepositoryRuntimeDataAreaFromWorkingDirectory,
   requireReadyRepositoryRuntimeDataArea,
 } from "../../../domain-model/src/index.ts";
-import * as projectStorage from "../../src/index.ts";
 import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
 import * as dockerController from "../../src/execution/provider-observation.ts";
 import {
@@ -79,7 +78,6 @@ import {
   prepareCoordinatorStateHistorySummary,
   prepareCoordinatorStateLifecycleSnapshot,
   prepareCoordinatorStateOperationSnapshot,
-  prepareCoordinatorStateProjectAcceptanceSnapshot,
   prepareCoordinatorStateReferencesSnapshot,
   prepareCoordinatorStateRepairCheckpointSnapshot,
   prepareCoordinatorStateRepairSessionSnapshot,
@@ -121,6 +119,22 @@ import {
   writeRuntimeOwnedCoordinatorSettlement,
   writeRuntimeOwnedCoordinatorStateSnapshot,
 } from "../../src/storage/settlement-store.ts";
+
+const emptyTaskSections = {
+  repositoryBindingId: null,
+  intakeEpoch: null,
+  projects: [],
+  queueEntries: [],
+  workspaces: [],
+  intakeBindings: [],
+  leaseEvidence: [],
+  leaseIntents: [],
+  results: [],
+  historyPending: [],
+  acceptanceDecisions: [],
+  decisionRecoveries: [],
+  resultReceipts: [],
+};
 
 /**
  * 固定二File保存と同じ更新の再入場、保全停止を確認する。
@@ -195,6 +209,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
   );
   assert.equal(fs.existsSync(path.join(root, ".crdd", "coordinator")), false);
   const first = {
+    ...emptyTaskSections,
     schema: COORDINATOR_STATE_SCHEMA,
     revision: 1,
     previous: null,
@@ -2358,10 +2373,19 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       value,
       repository.repositoryBinding,
     );
-    assert.ok(arbitraryCandidate);
+    assert.equal(
+      arbitraryCandidate,
+      null,
+      "技術参照更新では配送・受領を代筆しない",
+    );
     const direct = writeRuntimeOwnedCoordinatorStateSnapshot(
       management,
-      arbitraryCandidate,
+      Buffer.from(
+        `${encodeCoordinatorStateValue({
+          ...JSON.parse(beforeReferenceUpdates.toString("utf8")),
+          pendingDeliveries: value.deliveries,
+        })}\n`,
+      ),
     );
     assert.equal(direct.status, "blocked");
     assert.equal(direct.snapshotConfirmed, false);
@@ -2576,25 +2600,11 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
   const historyRuntime = (await import(
     isolatedModuleUrl.href
   )) as typeof import("../../src/storage/settlement-store.ts");
-  let projectAcceptanceValue: unknown = null;
-  let projectAcceptanceReads = 0;
-  let projectAcceptanceThrow = false;
-  let isProjectAcceptanceChangeOnSecondRead = false;
   const historySettlement =
     historyRuntime.prepareRuntimeOwnedCoordinatorSettlement(
       management,
       operation.recoveryId,
       "orchestrator",
-      () => {
-        projectAcceptanceReads += 1;
-        if (projectAcceptanceThrow) throw new Error("fixture_upper_reader");
-        if (
-          isProjectAcceptanceChangeOnSecondRead &&
-          projectAcceptanceReads === 2
-        )
-          return null;
-        return projectAcceptanceValue;
-      },
     );
   const historySettlementAgain =
     historyRuntime.prepareRuntimeOwnedCoordinatorSettlement(
@@ -2604,82 +2614,6 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     );
   assert.ok(historySettlement);
   assert.ok(historySettlementAgain);
-  let lateReaderCalls = 0;
-  /**
-   * 保存後に登録したReaderの呼出し回数を観測する。
-   *
-   * @responsibility 遅延登録を消費していないことをカウンターで確認する。
-   * @trace ERB-IT-003
-   * @precondition 終了予定を固定済みでlateReaderCallsを0にする。
-   * @stimulus 固定後のReader登録と同じ終了Contextへの再入場を試みる。
-   * @observation 登録の拒否、固定Reader IdentityとlateReaderCallsを取得する。
-   * @oracle 固定Readerを差し替えずlateReaderCallsは0のままである。
-   * @cleanup Case所有の保存fixtureとModule差替えを回収する。
-   * @boundary 保存済み終了予定と後から渡したReaderの登録境界。
-   */
-  const lateReader = () => {
-    lateReaderCalls += 1;
-    return projectAcceptanceValue;
-  };
-  const lateSettlement =
-    historyRuntime.prepareRuntimeOwnedCoordinatorSettlement(
-      management,
-      operation.recoveryId,
-      "orchestrator",
-    );
-  assert.ok(lateSettlement);
-  for (const context of [{}, { ...lateSettlement }])
-    assert.equal(
-      historyRuntime.bindRuntimeOwnedCoordinatorProjectAcceptanceReader(
-        context,
-        operation.recoveryId,
-        lateReader,
-      ),
-      false,
-    );
-  for (const reader of [null, {}, "reader", Promise.resolve(null)])
-    assert.equal(
-      historyRuntime.bindRuntimeOwnedCoordinatorProjectAcceptanceReader(
-        lateSettlement,
-        operation.recoveryId,
-        reader,
-      ),
-      false,
-    );
-  assert.equal(
-    historyRuntime.bindRuntimeOwnedCoordinatorProjectAcceptanceReader(
-      lateSettlement,
-      "other-recovery",
-      lateReader,
-    ),
-    false,
-  );
-  for (let index = 0; index < 2; index++)
-    assert.equal(
-      historyRuntime.bindRuntimeOwnedCoordinatorProjectAcceptanceReader(
-        lateSettlement,
-        operation.recoveryId,
-        lateReader,
-      ),
-      true,
-    );
-  assert.equal(
-    historyRuntime.bindRuntimeOwnedCoordinatorProjectAcceptanceReader(
-      lateSettlement,
-      operation.recoveryId,
-      () => projectAcceptanceValue,
-    ),
-    false,
-  );
-  assert.equal(lateReaderCalls, 0);
-  const identifiedSettlement =
-    historyRuntime.prepareRuntimeOwnedCoordinatorSettlement(
-      management,
-      operation.recoveryId,
-      "orchestrator",
-      () => projectAcceptanceValue,
-    );
-  assert.ok(identifiedSettlement);
   const initialDriverIdentity = {
     ...JSON.parse(operation.identityJson),
     operationNonce: "d".repeat(64),
@@ -2711,10 +2645,6 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       management,
       initialDriverRecoveryId,
       "orchestrator",
-      () => {
-        projectAcceptanceReads += 1;
-        return null;
-      },
     );
   assert.ok(initialDriverSettlement);
   const transientSettlements = [];
@@ -2767,23 +2697,6 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     assert.ok(context);
     assert.ok(freshContext);
     assert.ok(driverContext);
-    assert.equal(
-      historyRuntime.bindRuntimeOwnedCoordinatorProjectAcceptanceReader(
-        context,
-        recoveryId,
-        lateReader,
-      ),
-      false,
-    );
-    assert.equal(
-      historyRuntime.prepareRuntimeOwnedCoordinatorSettlement(
-        management,
-        recoveryId,
-        consumer,
-        () => projectAcceptanceValue,
-      ),
-      null,
-    );
     transientRecoveryIds.add(recoveryId);
     transientSettlements.push({
       context,
@@ -2819,15 +2732,6 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
         management,
         operation.recoveryId,
         consumer,
-      ),
-      null,
-    );
-    assert.equal(
-      historyRuntime.prepareRuntimeOwnedCoordinatorSettlement(
-        management,
-        operation.recoveryId,
-        consumer,
-        () => projectAcceptanceValue,
       ),
       null,
     );
@@ -3423,7 +3327,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     },
     repository.repositoryBinding,
   );
-  assert.ok(unverifiedAcceptance);
+  assert.equal(unverifiedAcceptance, null);
   const refusedAcceptance =
     historyRuntime.writeRuntimeOwnedCoordinatorSettlement(
       historySettlement,
@@ -3453,7 +3357,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       (item: {
         consumer: string;
         resultId: string;
-        acceptanceSha256: null;
+        acceptanceSha256?: never;
       }) => [item.consumer, item.resultId, item.acceptanceSha256],
     ),
     [
@@ -3462,7 +3366,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
         registeredResult.operations.find(
           (item: { kind?: unknown }) => item.kind === "docker_task",
         ).summarySha256,
-        null,
+        undefined,
       ],
     ],
   );
@@ -3611,955 +3515,8 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     "history.jsonl",
     "state.json",
   ]);
-  const beforeProjectAcceptance = fs.readFileSync(stateFile);
-  assert.equal(
-    historyRuntime.prepareRuntimeOwnedCoordinatorRecoveredSettlement(
-      recoveryResultRoot.capability,
-      operation.recoveryId,
-      null,
-    ),
-    null,
-  );
-  for (const [rootValue, target] of [
-    [{ ...recoveryResultRoot.capability }, operation.recoveryId],
-    [recoveryResultRoot.capability, "invalid"],
-  ]) {
-    assert.equal(
-      historyRuntime.prepareRuntimeOwnedCoordinatorRecoveredSettlement(
-        rootValue,
-        target,
-        () => null,
-      ),
-      null,
-    );
-  }
-  const recoveredContext =
-    historyRuntime.prepareRuntimeOwnedCoordinatorRecoveredSettlement(
-      recoveryResultRoot.capability,
-      operation.recoveryId,
-      () => null,
-    );
-  assert.ok(recoveredContext);
-  for (const context of [recoveredContext, { ...recoveredContext }]) {
-    const refused = historyRuntime.completeRuntimeOwnedCoordinatorSettlement(
-      context,
-      cleanupOutcome,
-      simulatedCompletion,
-    );
-    assert.equal(refused.status, "blocked");
-    assert.equal(refused.filesystemEffectIssued, false);
-  }
-  const freshPreparation = JSON.parse(
-    execFileSync(
-      process.execPath,
-      [
-        "--experimental-strip-types",
-        "-e",
-        `(async () => { const { verifyRepositoryRoot } = await import(${JSON.stringify(new URL("../../../version-control/src/index.ts", import.meta.url).href)});
-     const runtime = await import(${JSON.stringify(new URL("../../src/storage/settlement-store.ts", import.meta.url).href)});
-     const root = verifyRepositoryRoot(process.argv[1]);
-     const context = runtime.prepareRuntimeOwnedCoordinatorRecoveredSettlement(root.capability, process.argv[2], () => null);
-     const refused = runtime.completeRuntimeOwnedCoordinatorSettlement(context, null, null);
-     process.stdout.write(JSON.stringify({ prepared: context !== null, status: refused.status, effect: refused.filesystemEffectIssued })); })().catch(() => { process.exitCode = 1; });`,
-        root,
-        operation.recoveryId,
-      ],
-      { encoding: "utf8", windowsHide: true, timeout: 30_000 },
-    ),
-  );
-  assert.deepEqual(freshPreparation, {
-    prepared: true,
-    status: "blocked",
-    effect: false,
-  });
-  assert.deepEqual(fs.readFileSync(stateFile), beforeProjectAcceptance);
-  assert.deepEqual(fs.readFileSync(historyFile), firstHistory);
-  const lateAcceptanceMissing =
-    historyRuntime.acceptRuntimeOwnedCoordinatorProjectResult(
-      lateSettlement,
-      cleanupOutcome,
-      simulatedCompletion,
-    );
-  assert.equal(lateAcceptanceMissing.status, "blocked");
-  assert.equal(lateReaderCalls, 1);
-  assert.deepEqual(fs.readFileSync(stateFile), beforeProjectAcceptance);
-  for (const context of [
-    {},
-    { ...historySettlement },
-    historySettlementAgain,
-  ]) {
-    const refused = historyRuntime.acceptRuntimeOwnedCoordinatorProjectResult(
-      context,
-      cleanupOutcome,
-      simulatedCompletion,
-    );
-    assert.equal(refused.status, "blocked");
-    assert.equal(refused.filesystemEffectIssued, false);
-    assert.deepEqual(fs.readFileSync(stateFile), beforeProjectAcceptance);
-  }
-  for (const value of [null, Promise.resolve(null), { status: "blocked" }]) {
-    projectAcceptanceValue = value;
-    const refused = historyRuntime.acceptRuntimeOwnedCoordinatorProjectResult(
-      historySettlement,
-      cleanupOutcome,
-      simulatedCompletion,
-    );
-    assert.equal(refused.status, "blocked");
-    assert.equal(refused.snapshotConfirmed, false);
-    assert.deepEqual(fs.readFileSync(stateFile), beforeProjectAcceptance);
-  }
-  projectAcceptanceThrow = true;
-  const failedReader =
-    historyRuntime.acceptRuntimeOwnedCoordinatorProjectResult(
-      historySettlement,
-      cleanupOutcome,
-      simulatedCompletion,
-    );
-  assert.equal(failedReader.status, "blocked");
-  assert.deepEqual(fs.readFileSync(stateFile), beforeProjectAcceptance);
-  projectAcceptanceThrow = false;
-  const logicalAcceptance = {
-    repositoryBindingId: "repository-a",
-    projectId: "project-a",
-    milestoneId: "milestone-a",
-    taskId: "task-a",
-    attemptId: "attempt-a",
-    operationId: identity.recoveryCorrelationId,
-    recoveryId: operation.recoveryId,
-    settlementGeneration: 7,
-    repositoryBinding: repository.repositoryBinding,
-    resultId: confirmedState.operations.find(
-      (item: { kind?: unknown }) => item.kind === "docker_task",
-    ).summarySha256,
-    consumer: "orchestrator",
-  };
-  {
-    const before = fs.readFileSync(stateFile);
-    const child = JSON.parse(
-      execFileSync(
-        process.execPath,
-        [
-          "--experimental-strip-types",
-          "-e",
-          `(async () => {
-        const { verifyRepositoryRoot } = await import(${JSON.stringify(new URL("../../../version-control/src/index.ts", import.meta.url).href)});
-        const runtime = await import(${JSON.stringify(new URL("../../src/storage/settlement-store.ts", import.meta.url).href)});
-        const root = verifyRepositoryRoot(process.argv[1]);
-        const ack = JSON.parse(process.argv[3]);
-        const context = runtime.prepareRuntimeOwnedCoordinatorRecoveredSettlement(root.capability, process.argv[2], () => ack);
-        const first = runtime.completeRuntimeOwnedCoordinatorRecoveredSettlement(context);
-        const replay = runtime.completeRuntimeOwnedCoordinatorRecoveredSettlement(context);
-        const replacement = runtime.prepareRuntimeOwnedCoordinatorRecoveredSettlement(root.capability, process.argv[2], () => ack);
-        process.stdout.write(JSON.stringify({ first, replay, replacement }));
-      })().catch(() => { process.exitCode = 1; });`,
-          root,
-          operation.recoveryId,
-          JSON.stringify(logicalAcceptance),
-        ],
-        { encoding: "utf8", windowsHide: true, timeout: 30_000 },
-      ),
-    );
-    assert.equal(child.first.status, "completed", child.first.reason);
-    assert.equal(child.first.snapshotConfirmed, true);
-    assert.equal(child.first.lockReleased, true);
-    assert.equal(child.replay.status, "completed");
-    assert.equal(child.replacement, null);
-    const removed = prepareCoordinatorStateCompletionSnapshot(
-      prepareCoordinatorStateProjectAcceptanceSnapshot(
-        before,
-        logicalAcceptance,
-        repository.repositoryBinding,
-      ),
-      operation.recoveryId,
-      repository.repositoryBinding,
-    );
-    assert.ok(removed);
-    assert.deepEqual(fs.readFileSync(stateFile), removed);
-    assert.deepEqual(fs.readFileSync(historyFile), firstHistory);
-    /**
-     * 同じ自己生成Rootとexact対象の配送不存在観測を呼ぶ。
-     * @responsibility 整理後Fixtureの正規・拒否Readerを同じ対象へ結合する。
-     * @trace ERB-IT-003
-     * @precondition 自己生成状態・履歴と真正Rootを保持している。
-     * @stimulus 指定Readerを終了限定の不存在観測へ渡す。
-     * @observation status・不存在観測・排他解放と元本文を確認する。
-     * @oracle ACK・履歴・現在状態が共同成立した場合だけcompleted。
-     * @cleanup 親試験が自己生成Fixtureと元版を復元・回収する。
-     * @boundary 現在状態・履歴・固定上位Readerの実Filesystem境界。
-     */
-    const observeAbsent = (reader: () => unknown) =>
-      historyRuntime.observeRuntimeOwnedCoordinatorCompletedDelivery(
-        recoveryResultRoot.capability,
-        operation.recoveryId,
-        reader,
-      );
-    const absent = observeAbsent(() => logicalAcceptance);
-    assert.equal(absent.status, "completed", absent.reason);
-    assert.equal(absent.deliveryAbsentObserved, true);
-    assert.equal(absent.lockReleased, true);
-    for (const ack of [
-      null,
-      { ...logicalAcceptance, resultId: "0".repeat(64) },
-      { ...logicalAcceptance, repositoryBinding: "0".repeat(64) },
-      { ...logicalAcceptance, recoveryId: "invalid" },
-      { ...logicalAcceptance, unexpected: true },
-    ])
-      assert.equal(observeAbsent(() => ack).status, "blocked");
-    fs.writeFileSync(historyFile, Buffer.alloc(0));
-    assert.equal(observeAbsent(() => logicalAcceptance).status, "blocked");
-    fs.writeFileSync(historyFile, Buffer.concat([firstHistory, firstHistory]));
-    assert.equal(observeAbsent(() => logicalAcceptance).status, "blocked");
-    fs.writeFileSync(historyFile, firstHistory);
-    fs.writeFileSync(pendingFile, removed);
-    assert.equal(observeAbsent(() => logicalAcceptance).status, "blocked");
-    fs.unlinkSync(pendingFile);
-    fs.writeFileSync(stateFile, before);
-    assert.equal(observeAbsent(() => logicalAcceptance).status, "blocked");
-    fs.writeFileSync(stateFile, removed);
-    const absentScript = `(async () => {
-      const { verifyRepositoryRoot } = await import(${JSON.stringify(new URL("../../../version-control/src/index.ts", import.meta.url).href)});
-      const runtime = await import(${JSON.stringify(new URL("../../src/storage/settlement-store.ts", import.meta.url).href)});
-      const root = verifyRepositoryRoot(process.argv[1]);
-      const ack = JSON.parse(process.argv[3]);
-      process.stdout.write(JSON.stringify(runtime.observeRuntimeOwnedCoordinatorCompletedDelivery(root.capability, process.argv[2], () => ack)));
-    })().catch(() => { process.exitCode = 1; });`;
-    const freshAbsent = JSON.parse(
-      execFileSync(
-        process.execPath,
-        [
-          "--experimental-strip-types",
-          "-e",
-          absentScript,
-          root,
-          operation.recoveryId,
-          JSON.stringify(logicalAcceptance),
-        ],
-        { encoding: "utf8", windowsHide: true, timeout: 30_000 },
-      ),
-    );
-    assert.equal(freshAbsent.status, "completed", freshAbsent.reason);
-    assert.equal(freshAbsent.deliveryAbsentObserved, true);
-    assert.equal(freshAbsent.lockReleased, true);
-    assert.deepEqual(fs.readFileSync(stateFile), removed);
-    assert.deepEqual(fs.readFileSync(historyFile), firstHistory);
-    fs.writeFileSync(stateFile, before);
-
-    let recoveredAck: unknown = null;
-    let isRecoveredReaderThrows = false;
-    let recoveredReads = 0;
-    let isChangeOnSecondRead = false;
-    const context =
-      historyRuntime.prepareRuntimeOwnedCoordinatorRecoveredSettlement(
-        recoveryResultRoot.capability,
-        operation.recoveryId,
-        () => {
-          recoveredReads += 1;
-          if (isRecoveredReaderThrows)
-            throw new Error("fixture_recovered_reader");
-          return isChangeOnSecondRead && recoveredReads === 2
-            ? null
-            : recoveredAck;
-        },
-      );
-    assert.ok(context);
-    for (const invalid of [{}, { ...context }, historySettlement]) {
-      const refused =
-        historyRuntime.completeRuntimeOwnedCoordinatorRecoveredSettlement(
-          invalid,
-        );
-      assert.equal(refused.status, "blocked");
-      assert.equal(refused.filesystemEffectIssued, false);
-    }
-    assert.equal(
-      historyRuntime.completeRuntimeOwnedCoordinatorRecoveredSettlement(context)
-        .status,
-      "blocked",
-    );
-    isRecoveredReaderThrows = true;
-    assert.equal(
-      historyRuntime.completeRuntimeOwnedCoordinatorRecoveredSettlement(context)
-        .status,
-      "blocked",
-    );
-    isRecoveredReaderThrows = false;
-    recoveredAck = logicalAcceptance;
-    isChangeOnSecondRead = true;
-    recoveredReads = 0;
-    assert.equal(
-      historyRuntime.completeRuntimeOwnedCoordinatorRecoveredSettlement(context)
-        .status,
-      "blocked",
-    );
-    assert.deepEqual(fs.readFileSync(stateFile), before);
-    isChangeOnSecondRead = false;
-    let isFailedAcceptance = false;
-    fs.renameSync = (source, target) => {
-      if (
-        String(source) === pendingFile &&
-        String(target) === stateFile &&
-        !isFailedAcceptance
-      ) {
-        isFailedAcceptance = true;
-        throw new Error("fixture_recovered_acceptance_publish");
-      }
-      return Reflect.apply(originalRename, fs, [source, target]);
-    };
-    try {
-      const failed =
-        historyRuntime.completeRuntimeOwnedCoordinatorRecoveredSettlement(
-          context,
-        );
-      assert.equal(failed.status, "blocked");
-      assert.equal(failed.snapshotConfirmed, false);
-      assert.equal(failed.filesystemEffectIssued, true);
-    } finally {
-      fs.renameSync = originalRename;
-    }
-    assert.equal(isFailedAcceptance, true);
-    const pendingAck = fs.readFileSync(pendingFile);
-    const pendingMarkerFile = path.join(path.dirname(stateFile), "state.lock");
-    const pendingMarkerBytes = fs.readFileSync(pendingMarkerFile);
-    fs.writeFileSync(pendingMarkerFile, Buffer.from("foreign-marker\n"));
-    assert.equal(
-      historyRuntime.prepareRuntimeOwnedCoordinatorRecoveredSettlement(
-        recoveryResultRoot.capability,
-        operation.recoveryId,
-        () => logicalAcceptance,
-      ),
-      null,
-    );
-    assert.deepEqual(fs.readFileSync(stateFile), before);
-    assert.deepEqual(fs.readFileSync(pendingFile), pendingAck);
-    fs.writeFileSync(pendingMarkerFile, pendingMarkerBytes);
-    assert.equal(
-      historyRuntime.readRuntimeOwnedCoordinatorRecoveryResult(
-        recoveryResultRoot.capability,
-        operation.recoveryId,
-      ).status,
-      "blocked",
-    );
-    assert.equal(
-      historyRuntime.prepareRuntimeOwnedCoordinatorRecoveredSettlement(
-        recoveryResultRoot.capability,
-        operation.recoveryId,
-        () => null,
-      ),
-      null,
-    );
-    fs.writeFileSync(pendingFile, Buffer.from("invalid-pending\n"));
-    assert.equal(
-      historyRuntime.prepareRuntimeOwnedCoordinatorRecoveredSettlement(
-        recoveryResultRoot.capability,
-        operation.recoveryId,
-        () => logicalAcceptance,
-      ),
-      null,
-    );
-    assert.deepEqual(fs.readFileSync(stateFile), before);
-    fs.writeFileSync(pendingFile, pendingAck);
-    const pendingReentryScript = `(async () => {
-      const { verifyRepositoryRoot } = await import(${JSON.stringify(new URL("../../../version-control/src/index.ts", import.meta.url).href)});
-      const runtime = await import(${JSON.stringify(new URL("../../src/storage/settlement-store.ts", import.meta.url).href)});
-      const root = verifyRepositoryRoot(process.argv[1]);
-      const ack = JSON.parse(process.argv[3]);
-      let reads = 0;
-      const context = runtime.prepareRuntimeOwnedCoordinatorRecoveredSettlement(root.capability, process.argv[2], () => { reads += 1; return ack; });
-      const result = runtime.completeRuntimeOwnedCoordinatorRecoveredSettlement(context);
-      process.stdout.write(JSON.stringify({ prepared: context !== null, reads, result }));
-    })().catch(() => { process.exitCode = 1; });`;
-    const freshPendingAck = JSON.parse(
-      execFileSync(
-        process.execPath,
-        [
-          "--experimental-strip-types",
-          "-e",
-          pendingReentryScript,
-          root,
-          operation.recoveryId,
-          JSON.stringify(logicalAcceptance),
-        ],
-        { encoding: "utf8", windowsHide: true, timeout: 30_000 },
-      ),
-    );
-    assert.equal(
-      freshPendingAck.prepared,
-      true,
-      JSON.stringify(freshPendingAck),
-    );
-    assert.equal(
-      freshPendingAck.result.status,
-      "completed",
-      freshPendingAck.result.reason,
-    );
-    assert.equal(freshPendingAck.result.snapshotConfirmed, true);
-    assert.equal(freshPendingAck.result.lockReleased, true);
-    assert.deepEqual(fs.readFileSync(stateFile), removed);
-    assert.equal(fs.existsSync(pendingFile), false);
-    assert.deepEqual(fs.readFileSync(historyFile), firstHistory);
-    // 同Contextの既存反証も維持するため、自己生成fixtureの元版と候補を復元する。
-    fs.writeFileSync(stateFile, before);
-    fs.writeFileSync(pendingFile, pendingAck);
-    recoveredAck = null;
-    assert.equal(
-      historyRuntime.completeRuntimeOwnedCoordinatorRecoveredSettlement(context)
-        .status,
-      "blocked",
-    );
-    assert.deepEqual(fs.readFileSync(stateFile), before);
-    assert.deepEqual(fs.readFileSync(pendingFile), pendingAck);
-    recoveredAck = logicalAcceptance;
-    let publishes = 0;
-    fs.renameSync = (source, target) => {
-      if (
-        String(source) === pendingFile &&
-        String(target) === stateFile &&
-        ++publishes === 2
-      )
-        throw new Error("fixture_recovered_completion_publish");
-      return Reflect.apply(originalRename, fs, [source, target]);
-    };
-    try {
-      const failed =
-        historyRuntime.completeRuntimeOwnedCoordinatorRecoveredSettlement(
-          context,
-        );
-      assert.equal(failed.status, "blocked");
-      assert.equal(failed.snapshotConfirmed, false);
-      assert.equal(failed.filesystemEffectIssued, true);
-    } finally {
-      fs.renameSync = originalRename;
-    }
-    assert.equal(publishes, 2);
-    assert.deepEqual(fs.readFileSync(stateFile), pendingAck);
-    const pendingRemoval = fs.readFileSync(pendingFile);
-    const freshPendingRemoval = JSON.parse(
-      execFileSync(
-        process.execPath,
-        [
-          "--experimental-strip-types",
-          "-e",
-          pendingReentryScript,
-          root,
-          operation.recoveryId,
-          JSON.stringify(logicalAcceptance),
-        ],
-        { encoding: "utf8", windowsHide: true, timeout: 30_000 },
-      ),
-    );
-    assert.equal(freshPendingRemoval.prepared, true);
-    assert.equal(
-      freshPendingRemoval.result.status,
-      "completed",
-      freshPendingRemoval.result.reason,
-    );
-    assert.equal(freshPendingRemoval.result.snapshotConfirmed, true);
-    assert.equal(freshPendingRemoval.result.lockReleased, true);
-    assert.deepEqual(fs.readFileSync(stateFile), removed);
-    assert.equal(fs.existsSync(pendingFile), false);
-    assert.deepEqual(fs.readFileSync(historyFile), firstHistory);
-    fs.writeFileSync(stateFile, pendingAck);
-    fs.writeFileSync(pendingFile, pendingRemoval);
-    recoveredAck = null;
-    assert.equal(
-      historyRuntime.completeRuntimeOwnedCoordinatorRecoveredSettlement(context)
-        .status,
-      "blocked",
-    );
-    assert.deepEqual(fs.readFileSync(pendingFile), pendingRemoval);
-    recoveredAck = logicalAcceptance;
-    const resumed =
-      historyRuntime.completeRuntimeOwnedCoordinatorRecoveredSettlement(
-        context,
-      );
-    assert.equal(resumed.status, "completed", resumed.reason);
-    assert.equal(resumed.snapshotConfirmed, true);
-    assert.equal(resumed.lockReleased, true);
-    assert.deepEqual(fs.readFileSync(stateFile), removed);
-    assert.equal(
-      historyRuntime.completeRuntimeOwnedCoordinatorRecoveredSettlement(context)
-        .status,
-      "completed",
-    );
-    recoveredAck = null;
-    assert.equal(
-      historyRuntime.completeRuntimeOwnedCoordinatorRecoveredSettlement(context)
-        .status,
-      "blocked",
-    );
-    assert.deepEqual(fs.readFileSync(stateFile), removed);
-    assert.deepEqual(fs.readFileSync(historyFile), firstHistory);
-    fs.writeFileSync(stateFile, before);
-  }
-  projectAcceptanceValue = {
-    ...logicalAcceptance,
-    operationId: repository.operationId,
-  };
-  {
-    const before = fs.readFileSync(stateFile);
-    let acknowledgement: unknown = logicalAcceptance;
-    for (const releaseAt of [1, 2]) {
-      const context =
-        historyRuntime.prepareRuntimeOwnedCoordinatorRecoveredSettlement(
-          recoveryResultRoot.capability,
-          operation.recoveryId,
-          () => acknowledgement,
-        );
-      assert.ok(context);
-      completionReleaseCount = 0;
-      completionReleaseMissingAt = releaseAt;
-      completionActualReleaseConfirmed = false;
-      isCompletionReleaseObservationMissing = true;
-      let interrupted: ReturnType<
-        typeof historyRuntime.completeRuntimeOwnedCoordinatorRecoveredSettlement
-      >;
-      try {
-        interrupted =
-          historyRuntime.completeRuntimeOwnedCoordinatorRecoveredSettlement(
-            context,
-          );
-      } finally {
-        isCompletionReleaseObservationMissing = false;
-      }
-      assert.equal(completionActualReleaseConfirmed, true);
-      assert.equal(interrupted.status, "blocked");
-      assert.equal(interrupted.snapshotConfirmed, true);
-      assert.equal(interrupted.lockReleased, false);
-      const expectedAccepted = prepareCoordinatorStateProjectAcceptanceSnapshot(
-        before,
-        logicalAcceptance,
-        repository.repositoryBinding,
-      );
-      assert.ok(expectedAccepted);
-      const expectedRemoved = prepareCoordinatorStateCompletionSnapshot(
-        expectedAccepted,
-        operation.recoveryId,
-        repository.repositoryBinding,
-      );
-      assert.ok(expectedRemoved);
-      const interruptedBytes = fs.readFileSync(stateFile);
-      assert.deepEqual(
-        interruptedBytes,
-        releaseAt === 1 ? expectedAccepted : expectedRemoved,
-      );
-      acknowledgement = null;
-      const refused =
-        historyRuntime.completeRuntimeOwnedCoordinatorRecoveredSettlement(
-          context,
-        );
-      assert.equal(refused.status, "blocked");
-      assert.equal(refused.filesystemEffectIssued, false);
-      assert.deepEqual(fs.readFileSync(stateFile), interruptedBytes);
-      acknowledgement = logicalAcceptance;
-      const resumed =
-        historyRuntime.completeRuntimeOwnedCoordinatorRecoveredSettlement(
-          context,
-        );
-      assert.equal(resumed.status, "completed", resumed.reason);
-      assert.equal(resumed.snapshotConfirmed, true);
-      assert.equal(resumed.lockReleased, true);
-      assert.deepEqual(fs.readFileSync(stateFile), expectedRemoved);
-      assert.deepEqual(fs.readFileSync(historyFile), firstHistory);
-      fs.writeFileSync(stateFile, before);
-    }
-    completionReleaseCount = 0;
-    completionReleaseMissingAt = 1;
-    completionActualReleaseConfirmed = false;
-  }
-  projectAcceptanceValue = {
-    ...logicalAcceptance,
-    operationId: repository.operationId,
-  };
-  const physicalIdAcceptance =
-    historyRuntime.acceptRuntimeOwnedCoordinatorProjectResult(
-      historySettlement,
-      cleanupOutcome,
-      simulatedCompletion,
-    );
-  assert.equal(physicalIdAcceptance.status, "blocked");
-  assert.deepEqual(fs.readFileSync(stateFile), beforeProjectAcceptance);
-  projectAcceptanceValue = logicalAcceptance;
-  projectAcceptanceReads = 0;
-  isProjectAcceptanceChangeOnSecondRead = true;
-  const changedReader =
-    historyRuntime.acceptRuntimeOwnedCoordinatorProjectResult(
-      historySettlement,
-      cleanupOutcome,
-      simulatedCompletion,
-    );
-  assert.equal(changedReader.status, "blocked");
-  assert.equal(changedReader.snapshotConfirmed, false);
-  assert.equal(projectAcceptanceReads, 2);
-  assert.deepEqual(fs.readFileSync(stateFile), beforeProjectAcceptance);
-  isProjectAcceptanceChangeOnSecondRead = false;
-  let acceptancePublicationFailed = false;
-  fs.renameSync = (from, to) => {
-    if (
-      String(from).endsWith("state.pending.json") &&
-      !acceptancePublicationFailed
-    ) {
-      acceptancePublicationFailed = true;
-      throw new Error("fixture_acceptance_publish_failure");
-    }
-    originalRename(from, to);
-  };
-  try {
-    const interruptedAcceptance =
-      historyRuntime.acceptRuntimeOwnedCoordinatorProjectResult(
-        historySettlement,
-        cleanupOutcome,
-        simulatedCompletion,
-      );
-    assert.equal(interruptedAcceptance.status, "blocked");
-    assert.equal(interruptedAcceptance.snapshotConfirmed, false);
-    assert.equal(interruptedAcceptance.filesystemEffectIssued, true);
-    assert.deepEqual(fs.readFileSync(stateFile), beforeProjectAcceptance);
-  } finally {
-    fs.renameSync = originalRename;
-  }
-  assert.equal(acceptancePublicationFailed, true);
-  const savedProjectAcceptanceValue = projectAcceptanceValue;
-  projectAcceptanceValue = null;
-  const pendingAcceptanceBytes = fs.readFileSync(
-    path.join(area.directory, "state.pending.json"),
-  );
-  const pendingReaderFailed =
-    historyRuntime.acceptRuntimeOwnedCoordinatorProjectResult(
-      historySettlement,
-      cleanupOutcome,
-      simulatedCompletion,
-    );
-  assert.equal(pendingReaderFailed.status, "blocked");
-  assert.equal(pendingReaderFailed.snapshotConfirmed, false);
-  assert.deepEqual(fs.readFileSync(stateFile), beforeProjectAcceptance);
-  assert.deepEqual(
-    fs.readFileSync(path.join(area.directory, "state.pending.json")),
-    pendingAcceptanceBytes,
-  );
-  projectAcceptanceValue = savedProjectAcceptanceValue;
-  projectAcceptanceReads = 0;
-  const acceptedProject =
-    historyRuntime.acceptRuntimeOwnedCoordinatorProjectResult(
-      historySettlement,
-      cleanupOutcome,
-      simulatedCompletion,
-    );
-  assert.equal(acceptedProject.status, "completed", acceptedProject.reason);
-  assert.equal(acceptedProject.snapshotConfirmed, true);
-  assert.equal(acceptedProject.lockReleased, true);
-  assert.equal(projectAcceptanceReads, 1);
+  // 耐久結果の受領・Operation除去はTask原子保存の実Writer試験へ移管する。
   const acceptedProjectBytes = fs.readFileSync(stateFile);
-  const acceptedProjectState = JSON.parse(
-    acceptedProjectBytes.toString("utf8"),
-  );
-  assert.equal(
-    acceptedProjectState.pendingDeliveries.find(
-      (item: { consumer: string }) => item.consumer === "orchestrator",
-    ).acceptanceSha256,
-    createHash("sha256")
-      .update(`${encodeCoordinatorStateValue(projectAcceptanceValue)}\n`)
-      .digest("hex"),
-  );
-  assert.equal(acceptedProjectState.pendingDeliveries.length, 1);
-  const acceptedResultRead =
-    historyRuntime.readRuntimeOwnedCoordinatorRecoveryResult(
-      recoveryResultRoot.capability,
-      operation.recoveryId,
-    );
-  assert.equal(acceptedResultRead.status, "completed");
-  assert.deepEqual(acceptedResultRead.value, observedResult.value);
-  assert.deepEqual(fs.readFileSync(stateFile), acceptedProjectBytes);
-  const lateReadsBeforeAcceptance = lateReaderCalls;
-  const acceptedByLateReader =
-    historyRuntime.acceptRuntimeOwnedCoordinatorProjectResult(
-      lateSettlement,
-      cleanupOutcome,
-      simulatedCompletion,
-    );
-  assert.equal(acceptedByLateReader.status, "completed");
-  assert.equal(acceptedByLateReader.snapshotConfirmed, true);
-  assert.equal(acceptedByLateReader.lockReleased, true);
-  assert.equal(lateReaderCalls, lateReadsBeforeAcceptance + 2);
-  assert.deepEqual(fs.readFileSync(stateFile), acceptedProjectBytes);
-  projectAcceptanceReads = 0;
-  const acceptanceReplay =
-    historyRuntime.acceptRuntimeOwnedCoordinatorProjectResult(
-      historySettlement,
-      cleanupOutcome,
-      simulatedCompletion,
-    );
-  assert.equal(acceptanceReplay.status, "completed", acceptanceReplay.reason);
-  assert.equal(projectAcceptanceReads, 2);
-  assert.deepEqual(fs.readFileSync(stateFile), acceptedProjectBytes);
-  for (const [context, hostResult, completion] of [
-    [{}, cleanupOutcome, simulatedCompletion],
-    [{ ...historySettlement }, cleanupOutcome, simulatedCompletion],
-    [historySettlement, { ...cleanupOutcome }, simulatedCompletion],
-    [historySettlement, cleanupOutcome, { ...simulatedCompletion }],
-    [historySettlementAgain, cleanupOutcome, simulatedCompletion],
-  ]) {
-    const refused = historyRuntime.completeRuntimeOwnedCoordinatorSettlement(
-      context,
-      hostResult,
-      completion,
-    );
-    assert.equal(refused.status, "blocked");
-    assert.equal(refused.filesystemEffectIssued, false);
-    assert.deepEqual(fs.readFileSync(stateFile), acceptedProjectBytes);
-  }
-  const unconnectedConsumerFixture = {
-    ...JSON.parse(acceptedProjectBytes.toString("utf8")),
-    pendingDeliveries: JSON.parse(
-      acceptedProjectBytes.toString("utf8"),
-    ).pendingDeliveries.map((delivery: Record<string, unknown>) => ({
-      ...delivery,
-      acceptanceSha256: "e".repeat(64),
-    })),
-  };
-  fs.writeFileSync(
-    stateFile,
-    `${encodeCoordinatorStateValue(unconnectedConsumerFixture)}\n`,
-  );
-  const unconnectedBytes = fs.readFileSync(stateFile);
-  assert.ok(
-    prepareCoordinatorStateCompletionSnapshot(
-      unconnectedBytes,
-      operation.recoveryId,
-      repository.repositoryBinding,
-    ),
-  );
-  assert.equal(
-    historyRuntime.completeRuntimeOwnedCoordinatorSettlement(
-      historySettlement,
-      cleanupOutcome,
-      simulatedCompletion,
-    ).status,
-    "blocked",
-  );
-  assert.deepEqual(fs.readFileSync(stateFile), unconnectedBytes);
-  // 耐久Consumer一つの登録集合を使う。実Providerの本番接続は別に確認する。
-  const singleConsumerFixture = {
-    ...JSON.parse(acceptedProjectBytes.toString("utf8")),
-    pendingDeliveries: JSON.parse(
-      acceptedProjectBytes.toString("utf8"),
-    ).pendingDeliveries.filter(
-      (delivery: { consumer: string }) => delivery.consumer === "orchestrator",
-    ),
-  };
-  fs.writeFileSync(
-    stateFile,
-    `${encodeCoordinatorStateValue(singleConsumerFixture)}\n`,
-  );
-  const beforeCompletion = fs.readFileSync(stateFile);
-  for (const field of [
-    "providerStart",
-    "externalSend",
-    "sharedWrite",
-  ] as const) {
-    const unknownEffect = {
-      ...singleConsumerFixture,
-      operations: singleConsumerFixture.operations.map(
-        (entry: { execution: Record<string, unknown> }) => ({
-          ...entry,
-          execution: { ...entry.execution, [field]: "unknown" },
-        }),
-      ),
-    };
-    assert.equal(
-      prepareCoordinatorStateCompletionSnapshot(
-        Buffer.from(`${encodeCoordinatorStateValue(unknownEffect)}\n`),
-        operation.recoveryId,
-        repository.repositoryBinding,
-      ),
-      null,
-    );
-  }
-  const removal = prepareCoordinatorStateCompletionSnapshot(
-    beforeCompletion,
-    operation.recoveryId,
-    repository.repositoryBinding,
-  );
-  assert.ok(removal);
-  assert.equal(
-    historyRuntime.writeRuntimeOwnedCoordinatorSettlement(
-      historySettlement,
-      removal,
-      cleanupOutcome,
-      simulatedCompletion,
-    ).status,
-    "blocked",
-  );
-  assert.deepEqual(fs.readFileSync(stateFile), beforeCompletion);
-  fs.writeFileSync(historyFile, "not-json\n");
-  const invalidHistory =
-    historyRuntime.completeRuntimeOwnedCoordinatorSettlement(
-      historySettlement,
-      cleanupOutcome,
-      simulatedCompletion,
-    );
-  assert.equal(invalidHistory.status, "blocked");
-  assert.equal(invalidHistory.filesystemEffectIssued, false);
-  assert.deepEqual(fs.readFileSync(stateFile), beforeCompletion);
-  fs.writeFileSync(historyFile, firstHistory);
-  projectAcceptanceValue = null;
-  assert.equal(
-    historyRuntime.completeRuntimeOwnedCoordinatorSettlement(
-      historySettlement,
-      cleanupOutcome,
-      simulatedCompletion,
-    ).status,
-    "blocked",
-  );
-  assert.deepEqual(fs.readFileSync(stateFile), beforeCompletion);
-  projectAcceptanceValue = savedProjectAcceptanceValue;
-  let completionPublicationFailed = false;
-  fs.renameSync = (source, target) => {
-    if (
-      String(source) === pendingFile &&
-      String(target) === stateFile &&
-      !completionPublicationFailed
-    ) {
-      completionPublicationFailed = true;
-      throw new Error("fixture_completion_publish_failure");
-    }
-    return Reflect.apply(originalRename, fs, [source, target]);
-  };
-  let incompleteCompletion: ReturnType<
-    typeof historyRuntime.completeRuntimeOwnedCoordinatorSettlement
-  >;
-  try {
-    incompleteCompletion =
-      historyRuntime.completeRuntimeOwnedCoordinatorSettlement(
-        historySettlement,
-        cleanupOutcome,
-        simulatedCompletion,
-      );
-  } finally {
-    fs.renameSync = originalRename;
-  }
-  assert.equal(completionPublicationFailed, true);
-  assert.equal(incompleteCompletion.status, "blocked");
-  assert.equal(incompleteCompletion.filesystemEffectIssued, true);
-  assert.equal(incompleteCompletion.snapshotConfirmed, false);
-  assert.deepEqual(fs.readFileSync(stateFile), beforeCompletion);
-  const completionPending = fs.readFileSync(pendingFile);
-  projectAcceptanceValue = null;
-  const missingCompletionAcceptance =
-    historyRuntime.completeRuntimeOwnedCoordinatorSettlement(
-      historySettlement,
-      cleanupOutcome,
-      simulatedCompletion,
-    );
-  assert.equal(missingCompletionAcceptance.status, "blocked");
-  assert.deepEqual(fs.readFileSync(stateFile), beforeCompletion);
-  assert.deepEqual(fs.readFileSync(pendingFile), completionPending);
-  projectAcceptanceValue = savedProjectAcceptanceValue;
-  // 整理された既確認履歴は再追加しない。不明I/Oとは区別する。
-  fs.unlinkSync(historyFile);
-  let isCompletionPublishedThenLost = false;
-  fs.renameSync = (source, target) => {
-    const result = Reflect.apply(originalRename, fs, [source, target]);
-    if (
-      String(source) === pendingFile &&
-      String(target) === stateFile &&
-      !isCompletionPublishedThenLost
-    ) {
-      isCompletionPublishedThenLost = true;
-      throw new Error("fixture_completion_publication_result_lost");
-    }
-    return result;
-  };
-  let publicationUnknown: ReturnType<
-    typeof historyRuntime.completeRuntimeOwnedCoordinatorSettlement
-  >;
-  try {
-    publicationUnknown =
-      historyRuntime.completeRuntimeOwnedCoordinatorSettlement(
-        historySettlement,
-        cleanupOutcome,
-        simulatedCompletion,
-      );
-  } finally {
-    fs.renameSync = originalRename;
-  }
-  assert.equal(isCompletionPublishedThenLost, true);
-  assert.equal(publicationUnknown.status, "blocked");
-  assert.equal(publicationUnknown.filesystemEffectIssued, true);
-  assert.equal(publicationUnknown.snapshotConfirmed, false);
-  assert.deepEqual(fs.readFileSync(stateFile), removal);
-  assert.equal(fs.existsSync(pendingFile), false);
-  projectAcceptanceValue = null;
-  assert.equal(
-    historyRuntime.completeRuntimeOwnedCoordinatorSettlement(
-      historySettlement,
-      cleanupOutcome,
-      simulatedCompletion,
-    ).status,
-    "blocked",
-  );
-  assert.deepEqual(fs.readFileSync(stateFile), removal);
-  projectAcceptanceValue = savedProjectAcceptanceValue;
-  isCompletionReleaseObservationMissing = true;
-  let completionReleaseUnknown: ReturnType<
-    typeof historyRuntime.completeRuntimeOwnedCoordinatorSettlement
-  >;
-  try {
-    completionReleaseUnknown =
-      historyRuntime.completeRuntimeOwnedCoordinatorSettlement(
-        historySettlement,
-        cleanupOutcome,
-        simulatedCompletion,
-      );
-  } finally {
-    isCompletionReleaseObservationMissing = false;
-  }
-  assert.equal(completionReleaseCount, 1);
-  assert.equal(completionActualReleaseConfirmed, true);
-  assert.equal(completionReleaseUnknown.status, "blocked");
-  assert.equal(
-    completionReleaseUnknown.reason,
-    "coordinator_state_lock_release_unconfirmed",
-  );
-  assert.equal(completionReleaseUnknown.snapshotConfirmed, true);
-  assert.equal(completionReleaseUnknown.lockReleased, false);
-  assert.deepEqual(fs.readFileSync(stateFile), removal);
-  assert.equal(fs.existsSync(pendingFile), false);
-  assert.equal(fs.existsSync(historyFile), false);
-  const completedOperation =
-    historyRuntime.completeRuntimeOwnedCoordinatorSettlement(
-      historySettlement,
-      cleanupOutcome,
-      simulatedCompletion,
-    );
-  assert.equal(
-    completedOperation.status,
-    "completed",
-    completedOperation.reason,
-  );
-  assert.equal(completedOperation.snapshotConfirmed, true);
-  assert.equal(completedOperation.lockReleased, true);
-  assert.deepEqual(fs.readFileSync(stateFile), removal);
-  assert.equal(fs.existsSync(historyFile), false);
-  assert.equal(fs.existsSync(pendingFile), false);
-  assert.deepEqual(
-    JSON.parse(fs.readFileSync(stateFile, "utf8")).operations,
-    [],
-  );
-  const completionReplay =
-    historyRuntime.completeRuntimeOwnedCoordinatorSettlement(
-      historySettlement,
-      cleanupOutcome,
-      simulatedCompletion,
-    );
-  assert.equal(completionReplay.status, "completed", completionReplay.reason);
-  assert.deepEqual(fs.readFileSync(stateFile), removal);
-  assert.equal(
-    historyRuntime.completeRuntimeOwnedCoordinatorSettlement(
-      historySettlementAgain,
-      cleanupOutcome,
-      simulatedCompletion,
-    ).status,
-    "blocked",
-  );
   // 固定済み不存在根拠は再生成せず、元観測の意味を照合する。
   const identifiedFixture = JSON.parse(acceptedProjectBytes.toString("utf8"));
   const identifiedId = "a".repeat(64);
@@ -4608,7 +3565,6 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
   fs.writeFileSync(stateFile, identifiedReady);
   observedProviderId = identifiedId;
   try {
-    const readsBeforeDriver = projectAcceptanceReads;
     const firstDriver = historyRuntime.settleRuntimeOwnedCoordinatorResult(
       historySettlementAgain,
       cleanupOutcome,
@@ -4617,7 +3573,6 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     assert.equal(firstDriver.status, "completed", firstDriver.reason);
     assert.equal(firstDriver.deliveryPending, true);
     assert.ok(firstDriver.result);
-    assert.equal(projectAcceptanceReads, readsBeforeDriver);
     const identifiedDelivered = fs.readFileSync(stateFile);
     const repeatedDriver = historyRuntime.settleRuntimeOwnedCoordinatorResult(
       historySettlementAgain,
@@ -4643,73 +3598,9 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     }
     observedProviderId = identifiedId;
     observedProviderObservation = "absent";
-    projectAcceptanceValue = null;
-    const missingIdentifiedAck =
-      historyRuntime.completeRuntimeOwnedCoordinatorSettlement(
-        identifiedSettlement,
-        cleanupOutcome,
-        simulatedCompletion,
-      );
-    assert.equal(missingIdentifiedAck.status, "blocked");
-    assert.deepEqual(fs.readFileSync(stateFile), identifiedDelivered);
-    projectAcceptanceValue = {
-      ...logicalAcceptance,
-      resultId: JSON.parse(
-        identifiedDelivered.toString("utf8"),
-      ).operations.find(
-        (item: { kind?: unknown }) => item.kind === "docker_task",
-      ).summarySha256,
-    };
-    const identifiedAcceptance =
-      historyRuntime.acceptRuntimeOwnedCoordinatorProjectResult(
-        identifiedSettlement,
-        cleanupOutcome,
-        simulatedCompletion,
-      );
-    assert.equal(
-      identifiedAcceptance.status,
-      "completed",
-      identifiedAcceptance.reason,
-    );
-    const identifiedAcceptedBytes = fs.readFileSync(stateFile);
-    for (const observation of [
-      { dockerId: "b".repeat(64), observation: "absent" },
-      { dockerId: identifiedId, observation: "unknown" },
-    ]) {
-      observedProviderId = observation.dockerId;
-      observedProviderObservation = observation.observation;
-      const rejectedCompletion =
-        historyRuntime.completeRuntimeOwnedCoordinatorSettlement(
-          identifiedSettlement,
-          cleanupOutcome,
-          simulatedCompletion,
-        );
-      assert.equal(rejectedCompletion.status, "blocked");
-      assert.equal(rejectedCompletion.filesystemEffectIssued, false);
-      assert.deepEqual(fs.readFileSync(stateFile), identifiedAcceptedBytes);
-    }
-    observedProviderId = identifiedId;
-    observedProviderObservation = "absent";
-    const identifiedComplete =
-      historyRuntime.completeRuntimeOwnedCoordinatorSettlement(
-        identifiedSettlement,
-        cleanupOutcome,
-        simulatedCompletion,
-      );
-    assert.equal(
-      identifiedComplete.status,
-      "completed",
-      identifiedComplete.reason,
-    );
-    const identifiedCompletedState = JSON.parse(
-      fs.readFileSync(stateFile, "utf8"),
-    );
-    assert.equal(identifiedCompletedState.operations.length, 0);
-    assert.equal(identifiedCompletedState.pendingDeliveries.length, 0);
   } finally {
     observedProviderId = null;
     observedProviderObservation = "absent";
-    projectAcceptanceValue = savedProjectAcceptanceValue;
   }
   // 未固定終端から履歴と耐久配送へ一度で接続し、返却前にACKを読まない。
   const initialDriverFixture = JSON.parse(
@@ -4761,7 +3652,6 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     assert.deepEqual(fs.readFileSync(stateFile), initialDriverBytes);
     assert.equal(fs.existsSync(historyFile), false);
   }
-  const readsBeforeInitialDriver = projectAcceptanceReads;
   assert.equal(
     historyRuntime.captureRuntimeOwnedCoordinatorSettlementInputs(
       initialDriverSettlement,
@@ -4796,7 +3686,6 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
   assert.equal(initialDriver.status, "completed", initialDriver.reason);
   assert.equal(initialDriver.deliveryPending, true);
   assert.ok(initialDriver.result);
-  assert.equal(projectAcceptanceReads, readsBeforeInitialDriver);
   const initialDeliveredBytes = fs.readFileSync(stateFile);
   const initialHistoryBytes = fs.readFileSync(historyFile);
   const initialDelivered = JSON.parse(initialDeliveredBytes.toString("utf8"));
@@ -4807,7 +3696,10 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     true,
   );
   assert.equal(initialDelivered.pendingDeliveries.length, 1);
-  assert.equal(initialDelivered.pendingDeliveries[0].acceptanceSha256, null);
+  assert.equal(
+    "acceptanceSha256" in initialDelivered.pendingDeliveries[0],
+    false,
+  );
   const repeatedInitialDriver =
     historyRuntime.settleRuntimeOwnedCoordinatorResult(
       initialDriverSettlement,
@@ -4822,7 +3714,6 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
   assert.equal(repeatedInitialDriver.deliveryPending, true);
   assert.deepEqual(fs.readFileSync(stateFile), initialDeliveredBytes);
   assert.deepEqual(fs.readFileSync(historyFile), initialHistoryBytes);
-  assert.equal(projectAcceptanceReads, readsBeforeInitialDriver);
   fs.writeFileSync(historyFile, firstHistory);
   // 保存Identityと実Host清掃は固定し、Docker終端だけ模擬する一時返却のWriter試験。
   for (const transient of transientSettlements) {
@@ -4895,7 +3786,6 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     assert.equal(generalRemoval.status, "blocked");
     assert.equal(generalRemoval.filesystemEffectIssued, false);
     assert.deepEqual(fs.readFileSync(stateFile), transientReady);
-    const readsBeforeCompletion: number = projectAcceptanceReads;
     isCompletionReleaseObservationMissing = true;
     completionReleaseCount = 0;
     completionReleaseMissingAt = 2;
@@ -4923,8 +3813,6 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     assert.equal(completionReleaseCount, 2);
     assert.equal(transientComplete.snapshotConfirmed, true);
     assert.deepEqual(fs.readFileSync(stateFile), transientRemoval);
-    assert.equal(projectAcceptanceReads, readsBeforeCompletion);
-    const readsBeforeReplay: number = projectAcceptanceReads;
     const transientReplay =
       historyRuntime.completeRuntimeOwnedCoordinatorSettlement(
         transient.context,
@@ -4932,7 +3820,6 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
         simulatedCompletion,
       );
     assert.equal(transientReplay.status, "completed", transientReplay.reason);
-    assert.equal(projectAcceptanceReads, readsBeforeReplay);
     const driverReplay = historyRuntime.settleRuntimeOwnedCoordinatorResult(
       transient.context,
       cleanupOutcome,
@@ -4942,7 +3829,6 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     assert.equal(driverReplay.deliveryPending, false);
     assert.equal(driverReplay.result, null);
     assert.deepEqual(fs.readFileSync(stateFile), transientRemoval);
-    assert.equal(projectAcceptanceReads, readsBeforeReplay);
     for (const unconfirmedContext of [transient.freshContext, {}]) {
       const refusedDriver = historyRuntime.settleRuntimeOwnedCoordinatorResult(
         unconfirmedContext,
@@ -4965,14 +3851,14 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
   // 後続の既存履歴再入場試験へ自己生成fixtureを戻す。
   fs.writeFileSync(stateFile, acceptedProjectBytes);
   fs.writeFileSync(historyFile, firstHistory);
-  // 別処理で整理済みの確認行は、再入場で復元しない。
+  // 未受領の結果が参照する履歴は欠落を成功へ補正せず、再追加もしない。
   fs.unlinkSync(historyFile);
   const afterRetention = historyRuntime.publishRuntimeOwnedCoordinatorHistory(
     historySettlementAgain,
     cleanupOutcome,
     simulatedCompletion,
   );
-  assert.equal(afterRetention.status, "completed", afterRetention.reason);
+  assert.equal(afterRetention.status, "blocked", afterRetention.reason);
   assert.equal(fs.existsSync(historyFile), false);
   assert.deepEqual(fs.readdirSync(area.directory), ["state.json"]);
   // 初回開始は空Snapshotを別保存せず、同じ操作を含む初版を確定する。
@@ -5727,7 +4613,7 @@ for (const issuedFailure of [false, true]) {
     assert.equal(verified.status, "completed");
     assert.ok(verified.capability);
     const initial = Buffer.from(
-      `${encodeCoordinatorStateValue({ schema: COORDINATOR_STATE_SCHEMA, revision: 1, previous: null, repositoryBinding: repository.repositoryBinding, operations: [], unresolvedRecoveries: [], pendingDeliveries: [] })}\n`,
+      `${encodeCoordinatorStateValue({ ...emptyTaskSections, schema: COORDINATOR_STATE_SCHEMA, revision: 1, previous: null, repositoryBinding: repository.repositoryBinding, operations: [], unresolvedRecoveries: [], pendingDeliveries: [] })}\n`,
     );
     assert.equal(
       prepareRuntimeOwnedCoordinatorStateInitialization(management, initial)
@@ -6059,6 +4945,7 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
     );
     assert.ok(requestId);
     const snapshot = {
+      ...emptyTaskSections,
       schema: COORDINATOR_STATE_SCHEMA,
       revision: 1,
       previous: null,
@@ -6973,223 +5860,6 @@ test("一次失敗のCommand観測は閉じた数値契約と応答相関を検�
  * @oracle 同じ保存済みAttemptの閉本文だけ受理し入力を変更しない。
  * @cleanup 試験終了時にModule mockを復元する。
  * @boundary 上位保存Readerと終端受理Reader。実Docker・Providerなし。
- */
-test("上位受理Readerは保存済みの同じAttemptだけを返す", async (t) => {
-  const binding = {
-    workingDirectory: "fixed-repository",
-    repositoryBindingId: "repo-a",
-    projectId: "project-a",
-    milestoneId: "milestone-a",
-    taskId: "task-a",
-    attemptId: "attempt-a",
-    operationId: "operation-a",
-    recoveryId: "recovery-a",
-  };
-  const acknowledgement = {
-    repositoryBindingId: binding.repositoryBindingId,
-    projectId: binding.projectId,
-    milestoneId: binding.milestoneId,
-    taskId: binding.taskId,
-    attemptId: binding.attemptId,
-    operationId: binding.operationId,
-    recoveryId: binding.recoveryId,
-    settlementGeneration: 7,
-    repositoryBinding: "a".repeat(64),
-    resultId: "b".repeat(64),
-    consumer: "orchestrator",
-  };
-  const state = {
-    projectId: binding.projectId,
-    milestoneId: binding.milestoneId,
-    generation: 8,
-    tasks: [
-      {
-        definition: { id: binding.taskId },
-        attemptId: binding.attemptId,
-        operationId: binding.operationId,
-        state: "recovery_required",
-        startPhase: "settled",
-        cleanupConfirmed: true,
-        recoveryUnresolved: false,
-        resultAcceptances: [] as (typeof acknowledgement)[],
-        recoveryObligations: [
-          {
-            kind: "docker",
-            recoveryId: binding.recoveryId,
-            phase: "acknowledged",
-            acknowledgement,
-          },
-        ],
-      },
-    ],
-  };
-  let observation: unknown = { status: "completed", value: state };
-  let shouldThrow = false;
-  const calls: unknown[][] = [];
-  t.mock.module("../../src/storage/current-state.ts", {
-    namedExports: {
-      ...projectStorage,
-      readCurrentCoordinatorState: (...args: unknown[]) => {
-        calls.push(args);
-        if (shouldThrow) throw new Error("fixture_read_failure");
-        return observation;
-      },
-    },
-  });
-  const moduleUrl = new URL(
-    "../../../coordinator/src/task/settle-docker-recovery.ts?acceptance-reader-contract",
-    import.meta.url,
-  ).href;
-  const { createProjectResultAcceptanceReader } = (await import(
-    moduleUrl
-  )) as typeof import("../../src/task/settle-docker-recovery.ts");
-  const task = state.tasks[0];
-  assert.ok(task);
-  const obligation = task.recoveryObligations[0];
-  assert.ok(obligation);
-  const reader = createProjectResultAcceptanceReader(binding);
-  assert.ok(reader);
-  binding.workingDirectory = "changed-after-binding";
-  const accepted = reader();
-  assert.deepEqual({ ...accepted }, acknowledgement);
-  assert.equal(Object.isFrozen(accepted), true);
-  assert.deepEqual(calls[0], ["fixed-repository", "repo-a", "project-a"]);
-  state.generation = 19;
-  assert.deepEqual({ ...reader() }, acknowledgement);
-  assert.equal(acknowledgement.settlementGeneration, 7);
-  task.resultAcceptances = [acknowledgement];
-  assert.equal(reader(), null, "同じ対象を正常受領と回復ACKの両方へ置かない");
-  const recoveryObligations = task.recoveryObligations;
-  task.recoveryObligations = [];
-  for (const terminal of ["completed", "failed", "cancelled"]) {
-    task.state = terminal;
-    assert.deepEqual({ ...reader() }, acknowledgement);
-  }
-  task.resultAcceptances = [acknowledgement, acknowledgement];
-  assert.equal(reader(), null);
-  task.resultAcceptances = [acknowledgement];
-  task.cleanupConfirmed = false;
-  assert.equal(reader(), null);
-  task.cleanupConfirmed = true;
-  task.recoveryUnresolved = true;
-  assert.equal(reader(), null);
-  task.recoveryUnresolved = false;
-  task.state = "running";
-  assert.equal(reader(), null);
-  task.state = "recovery_required";
-  task.resultAcceptances = [];
-  task.recoveryObligations = recoveryObligations;
-  for (const key of Object.keys(binding)) {
-    const incomplete = { ...binding } as Record<string, unknown>;
-    delete incomplete[key];
-    assert.equal(createProjectResultAcceptanceReader(incomplete), null);
-  }
-  assert.equal(
-    createProjectResultAcceptanceReader({ ...binding, extra: true }),
-    null,
-  );
-  let isGetterCalled = false;
-  assert.equal(
-    createProjectResultAcceptanceReader({
-      ...binding,
-      get taskId() {
-        isGetterCalled = true;
-        return "task-a";
-      },
-    }),
-    null,
-  );
-  assert.equal(isGetterCalled, false);
-  assert.equal(
-    createProjectResultAcceptanceReader(new Proxy(binding, {})),
-    null,
-  );
-  for (const key of Object.keys(acknowledgement)) {
-    const original = obligation.acknowledgement;
-    const invalid = { ...acknowledgement } as Record<string, unknown>;
-    delete invalid[key];
-    obligation.acknowledgement = invalid as typeof acknowledgement;
-    assert.equal(reader(), null);
-    obligation.acknowledgement = original;
-  }
-  for (const [key, value] of [
-    ["taskId", "another-task"],
-    ["attemptId", "another-attempt"],
-    ["operationId", "another-operation"],
-    ["repositoryBindingId", "another-repo"],
-    ["projectId", "another-project"],
-    ["milestoneId", "another-milestone"],
-    ["recoveryId", "another-recovery"],
-    ["consumer", "workbench"],
-    ["repositoryBinding", "invalid"],
-    ["resultId", "invalid"],
-    ["settlementGeneration", 0],
-    ["settlementGeneration", 20],
-    ["settlementGeneration", 1.5],
-  ] as const) {
-    obligation.acknowledgement = {
-      ...acknowledgement,
-      [key]: value,
-    } as typeof acknowledgement;
-    assert.equal(reader(), null);
-  }
-  obligation.acknowledgement = acknowledgement;
-  obligation.acknowledgement = {
-    repositoryBindingId: binding.repositoryBindingId,
-    projectId: binding.projectId,
-    milestoneId: binding.milestoneId,
-    taskId: binding.taskId,
-    attemptId: binding.attemptId,
-    operationId: binding.operationId,
-    recoveryId: binding.recoveryId,
-    settlementGeneration: 7,
-    runtimeStateBinding: {},
-    receiptContentHash: "a".repeat(64),
-    receiptContentIdentity: "b".repeat(64),
-  } as unknown as typeof acknowledgement;
-  assert.equal(reader(), null);
-  obligation.acknowledgement = acknowledgement;
-  for (const target of [state, task, task.definition, obligation]) {
-    const keys =
-      target === state
-        ? ["projectId", "milestoneId"]
-        : target === task
-          ? ["operationId"]
-          : target === task.definition
-            ? ["id"]
-            : ["kind", "recoveryId"];
-    const mutable = target as unknown as Record<string, unknown>;
-    for (const key of keys) {
-      const original = mutable[key];
-      mutable[key] = "different-binding";
-      assert.equal(reader(), null);
-      mutable[key] = original;
-    }
-  }
-  task.attemptId = "different-attempt";
-  assert.equal(reader(), null);
-  task.attemptId = binding.attemptId;
-  obligation.phase = "settled";
-  assert.equal(reader(), null);
-  obligation.phase = "acknowledged";
-  observation = { status: "blocked", value: state };
-  assert.equal(reader(), null);
-  observation = { status: "completed", value: null };
-  assert.equal(reader(), null);
-  shouldThrow = true;
-  assert.equal(reader(), null);
-});
-
-/**
- * 修復専用Contextから既存Writerへ実保存する。
- * @responsibility 偽Taskなしの初回・更新・対象外保全と拒否時Effectを確認する。
- * @trace ERB-IT-014
- * @precondition 自作Git Repositoryと実Windows Kernel排他。
- * @stimulus 修復追加・完了・次修復、偽Root・失効・元版差を与える。
- * @observation state.json本文、短命物不存在、保存確認・解放・Effect。
- * @oracle 同じRoot／対象／元版／呼出しだけ保存し、他操作を全文保全する。
- * @cleanup 自己生成Rootを境界確認後に削除し、不存在確認する。
- * @boundary ERB-IT-014=Related 2 Blocks: 修復保存Owner→実Writer・Kernel・Filesystem。
  */
 test("Host Windows: 修復専用Ownerは偽Taskなしで同じ状態Writerを使う", (t) => {
   const tests = requireReadyRepositoryRuntimeDataArea(

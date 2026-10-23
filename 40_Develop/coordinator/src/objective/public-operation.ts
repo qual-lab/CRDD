@@ -39,11 +39,7 @@ import {
 } from "../operation-result-contract.ts";
 import { runCoordinatorSingleTaskAttempt } from "../task/execute-attempt.ts";
 import { readCoordinatorSnapshot } from "../storage/current-state.ts";
-import {
-  collectDockerRecoveryAcknowledgementAfterProjectRecord,
-  consumeDockerRecoveryReceiptAfterProjectSettlement,
-  createProjectResultAcceptanceReader,
-} from "../task/settle-docker-recovery.ts";
+import { consumeDockerRecoveryReceiptAfterProjectSettlement } from "../task/settle-docker-recovery.ts";
 import { runCoordinatorObjective } from "./intake-dependencies.ts";
 import { createCoordinatorWindowsPlatformAdapter } from "../platform/windows-adapter.ts";
 import { RepositoryRuntimeDataAreaBlockedError } from "../../../domain-model/src/index.ts";
@@ -417,13 +413,6 @@ async function executeCoordinatorPublicObjective(
           repositoryBindingId:
             deriveCoordinatorRepositoryBindingId(repositoryRoot),
         }),
-      finalizeTaskRecoveryAcknowledgement: (settlement) =>
-        collectDockerRecoveryAcknowledgementAfterProjectRecord(settlement, {
-          workingDirectory,
-          repositoryRoot,
-          repositoryBindingId:
-            deriveCoordinatorRepositoryBindingId(repositoryRoot),
-        }),
       resolveTaskRecoveryCorrelations:
         runtimeDependencies.resolveTaskRecoveryCorrelations ??
         ((ids) => {
@@ -438,17 +427,6 @@ async function executeCoordinatorPublicObjective(
         resultDelivery: {
           repositoryBindingId:
             deriveCoordinatorRepositoryBindingId(repositoryRoot),
-          createAcceptanceReader: (acceptance) =>
-            createProjectResultAcceptanceReader({
-              workingDirectory: repositoryRoot,
-              repositoryBindingId: acceptance.repositoryBindingId,
-              projectId: acceptance.projectId,
-              milestoneId: acceptance.milestoneId,
-              taskId: acceptance.taskId,
-              attemptId: acceptance.attemptId,
-              operationId: acceptance.operationId,
-              recoveryId: acceptance.recoveryId,
-            }),
         },
         runSingleTaskAttempt: (input) =>
           runCoordinatorSingleTaskAttempt(

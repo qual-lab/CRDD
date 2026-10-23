@@ -28,7 +28,6 @@ import {
 } from "./recovery-projection.ts";
 import {
   abandonRuntimeOwnedDockerRecovery,
-  completeRuntimeOwnedDockerProjectResultDelivery,
   finalizeRuntimeOwnedDockerRecovery,
   inspectRuntimeOwnedDockerTaskAdmission,
   prepareRuntimeOwnedDockerHostCleanup,
@@ -620,7 +619,6 @@ type RuntimeDependencies = Readonly<{
   ) => RuntimeRecord | null;
   finalizeDockerRecovery?: (capability: object) => RuntimeRecord;
   readDockerProjectResult?: typeof readRuntimeOwnedDockerProjectResult;
-  completeDockerProjectResultDelivery?: typeof completeRuntimeOwnedDockerProjectResultDelivery;
   prepareDockerHostCleanup?: (capability: object) => string | null;
   recordDockerHostCleanupReceipt?: (
     capability: object,
@@ -3216,8 +3214,6 @@ const productionDependencies: RuntimeDependencies = Object.freeze({
   verifyCandidate: verifyExecutionChangeSnapshot,
   finalizeDockerRecovery: finalizeRuntimeOwnedDockerRecovery,
   readDockerProjectResult: readRuntimeOwnedDockerProjectResult,
-  completeDockerProjectResultDelivery:
-    completeRuntimeOwnedDockerProjectResultDelivery,
   prepareDockerHostCleanup: prepareRuntimeOwnedDockerHostCleanup,
   recordDockerHostCleanupReceipt: recordRuntimeOwnedDockerHostCleanupReceipt,
   abandonDockerRecovery: abandonRuntimeOwnedDockerRecovery,
@@ -3783,12 +3779,12 @@ function createRuntime(dependencies: RuntimeDependencies) {
  * 元Taskの終端結果だけを耐久保存Ownerへ渡す。
  * @responsibility 捕捉したControlと元Docker終了Ownerの対応を毎回照合する。
  * @trace ARCH-000004
- * @input state: 元Runtime、control: 実行中に捕捉したorchestratorのControl。
- * @returns fresh結果集合の読取りと、保存済みACKによる一配送終了の同期閉包。
+ * @input state: 元Runtime、control: 実行中に捕捉した耐久ConsumerのControl。
+ * @returns freshな固定結果集合を読み取る同期閉包。
  * @precondition 捕捉はcontrols削除前に行い、利用はHost清掃と全handoff終了後に限る。
  * @postcondition 結果集合は全件確認後にだけ返し、開始・取消権限を追加しない。
- * @effect completeだけが既存Ownerの受理保存・終了整理を呼ぶ。
- * @failure 終端前、相関不一致、部分読取り、排他未解放、ACK不明を拒否する。
+ * @effect 既存Ownerで固定結果を読取り、受領保存・配送解除は発行しない。
+ * @failure 終端前、相関不一致、部分読取り、排他未解放を拒否する。
  * @invariant IDからOwnerを再生成せず、元capabilityと回復IDの一意な対を保持する。
  * @boundary 同ProcessのTaskとCoordinator耐久受領。
  * @security 閉包を公開Requestや永続Stateへ格納しない。
@@ -3847,26 +3843,6 @@ function captureProjectTaskResultDelivery(
         status: "completed" as const,
         results: Object.freeze(results),
       });
-    },
-    complete: (recoveryId: unknown, readProjectAcceptance: unknown) => {
-      const item =
-        ready() && typeof recoveryId === "string"
-          ? control.dockerFinalizations.find(
-              (entry) => entry.recoveryId === recoveryId,
-            )
-          : undefined;
-      if (!item || !state.dependencies.completeDockerProjectResultDelivery)
-        return Object.freeze({
-          status: "blocked" as const,
-          reason: "coordinator_task_result_delivery_not_available",
-          filesystemEffectIssued: false,
-          snapshotConfirmed: false,
-          lockReleased: false,
-        });
-      return state.dependencies.completeDockerProjectResultDelivery(
-        item.capability,
-        readProjectAcceptance,
-      );
     },
   });
 }

@@ -251,10 +251,13 @@ Git Adapterが本番RuntimeでGit CLIを起動する場合、その子Process境
 | Repository-local Ignore | `REPOSITORY_LOCAL_IGNORE_CONTRACT`、`REPOSITORY_LOCAL_IGNORE_CONTRACT_REVISION`、`RepositoryLocalIgnoreAdapter`、`RepositoryLocalIgnoreAdapterResult`、`registerRepositoryLocalIgnore` |
 | Repository Location | `describeRepositoryLocationContract`、`REPOSITORY_LOCATION_CONTRACT`、`REPOSITORY_LOCATION_CONTRACT_REVISION`、`resolveVerifiedRepositoryRoot`、`resolveVerifiedRepositoryRootFromWorkingDirectory`、`VerifiedRepositoryRoot`、`verifyRepositoryRoot`、`verifyRepositoryRootFromWorkingDirectory` |
 | Repository Revision | `inspectRepositoryFormat`、`observeRepositoryRevision`、`RepositoryFormatAdapter`、`RepositoryRevisionAdapter`、`RepositoryRevisionObservation`、`inspectRepositoryRevisionCandidate`、`inspectRepositoryIdentityCandidate` |
+| 保存先のRepository実体 | `observeRepositoryStorageIdentity`。検証済みRootの論理・実体Identityと配置種別だけを返し、Commit未作成でも保存先を識別する。実行Revisionの観測・Authorityは提供しない |
 
 ### 3.2 用途を限定した公開入口
 
 `inspectRepositoryRevisionCandidate`は検証済みRepository実体の現在改訂を、`inspectRepositoryIdentityCandidate`は前後のRepository・改訂一致と中央のHEAD／Tree対応を照合して返す。観測不能・差替えは既存のnull契約へ閉じる。CoordinatorのOperation Capabilityや40桁限定の実行許可は所有しない。Orchestratorの受付・採用・状態観測はCoordinatorの内部Git観測へ依存せず、この公開操作を利用する。
+
+`observeRepositoryStorageIdentity`は保存初期化と短期保存Ownerへの結合に用途を限定する。HEADの存在を前提にせず、Git共通管理領域と作業Rootの実体を前後で確認する。実行対象や回復でCommit観測が必要な利用側は従来のRevision操作を使い、この保存用結果で代用しない。
 
 標準公開入口は`src/index.ts`に統合する。以下は別Fileの入口ではなく、Root公開API内の用途別Symbol集合である。Checker、Semantic Coverage、Domain Model等の利用側は必要なNamed Symbolだけをimportする。Rootの静的依存閉包には他用途のModuleも含まれ得るため、用途別importだけから狭い物理閉包や外部Effect不存在を推定しない。Module読込みと操作実行を区別し、Git内部実装への直接依存は禁止する。
 

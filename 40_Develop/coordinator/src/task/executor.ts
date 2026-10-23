@@ -29,16 +29,6 @@ export type CoordinatorTaskResultDelivery = Readonly<{
           consumer: "orchestrator";
         }>[];
       }>;
-  complete: (
-    recoveryId: unknown,
-    readProjectAcceptance: unknown,
-  ) => Readonly<{
-    status: "completed" | "blocked";
-    reason: string | null;
-    filesystemEffectIssued: boolean;
-    snapshotConfirmed: boolean;
-    lockReleased: boolean;
-  }>;
 }>;
 
 export const COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT =

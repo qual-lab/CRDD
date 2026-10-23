@@ -2025,3 +2025,99 @@ Coordinator静的check（format／型／lint／二Trace）は成功し、既存l
 順序1のArchitecture／Quality具体化は、保存・排他専門、Lifecycle契約、文書・直接影響の限定独立レビューと是正後再確認を終え、残指摘0である。初回の契約指摘は、履歴確認後の耐久受領という既存順序の維持、受領事実を別の内部受理へ増やさない用語、結果保存済み未受領と受領保存済み応答喪失の二窓分離だった。時点表示も採用前比較と現在の採用へ同期した。
 
 最終の04詳細・QA-000003／008・PROJECT_CONTEXTからの文書検査は277診断・exit 1、参照展開された現行文書の診断0で、残りは歴史CHG内だけである。差分形式検査は成功した。保存Sourceには今回の変更を加えておらず、基準HEADとの差分は前単位の説明DTO一fieldだけである。実保存先・保持物は未操作。次は順序2の統一Schema・遷移とSourceの具体化であり、新方式のSource・実Filesystem／Process・品質項目の評価はNot Runである。
+
+### 37.4. Source統合の準備と事実の照合
+
+`2d09c746b`を基準に、Task Snapshotの型・codec・純粋検証を`storage/model.ts`へ移し、履歴の値検証も同じモデルへ接続した。Task区画と技術実行区画の検証を物理Envelopeの読取りから分離する。これは順序2の準備であり、統一Schema、単一Writer、本番保存先、ACK撤去の完成ではない。旧二Writerの実行経路はまだ変更していない。
+
+四つのTask fieldを技術Operationへ一括移管する方法は採らない。開始前拒否にはOperationがなく、委譲結果不正やProcess安全状態の義務はTask境界の元事実であり、差替えExecutorも耐久技術Operationを持つとは限らない。複数executor／reviewerの参照集合、retry前Attemptの受領・未解決参照を照合し、[Task／Attempt固有の事実](../../../06_Architecture/Details/coordinator/04_Task_Detailed_Design.md#task-attempt-storage-facts)のOwnerへ保持する。不存在・空集合からcleanup成立を推定せず、新しい台帳や架空Operationを作らない。
+
+準備抽出の静的`npm run check`は成功し、既存lint info 64件を維持した。純粋保存モデル三Suite28件が成功した。合成保存・履歴三Suiteの広い回帰は61件中60件成功で、移管時の`decisionRecoveries.value`キー誤変更一件を検出した。同じ問題は独立レビューでも指摘され、キー復元と誤キー・重複回復IDの反証追加後、該当Windows IT一件と型検査が成功し、限定再レビューの指摘0を確認した。広い回帰の旧失敗runを最終全件成功へ読み替えない。通常制限下で失敗・終了待ちとなったmarker試験は今回の試験Processだけを確認して停止し、必要なOS観測が可能な環境の限定二件で成功した。これらは準備差分の確認であり、新方式Schema・単一Writer・受領更新の成立根拠ではない。
+
+準備抽出の七Suiteを必要なOS観測が可能な環境で再実行し、92件成功・失敗0を確認した。その後、純粋な新Schema、Task終端投影、平坦な現在区画、Root受領本文と参照、共通改訂／受領／除去遷移を追加した。旧形式の変換や実保存は行わず、新codecと遷移はまだ本番Writerへ接続していない。新しい保存経路全体の成立には使わない。
+
+新モデルの反証は、片側初期化、二重改訂、Task導出値・Docker義務phaseの独立保存、複数技術操作の欠落、旧Attempt受領のretry後保持と新Attempt誤流用、初回世代・本文の差替え、Operation除去／Task参照置換／配送解消の片側更新を含む。Source独立レビューでDocker義務phaseの重複、新規受領時の元Operation論理相関不足、修復variantの正常除去欠落を検出し是正した。修復専用条件は旧終了候補と新共通遷移で共有し、正常・未確認履歴・未解決保持を反証する。最新の静的checkと純粋三Suite31件は成功し、Sourceと文書・直接影響の限定再レビューは残指摘0。文書検査は277診断・exit 1、今回変更文書と参照展開された現行文書の診断0で、残りは過去CHG内である。保存・履歴・OS排他と後続純粋試験の七Suite94件も成功したが、開始後の純粋モデル追加と修復guard抽出を跨ぐ補助runであり、B完了版の固定候補全回帰とは扱わない。単一WriterとConsumerの本番切替、旧経路撤去は未完了であり、B全体の完了・コミット・プッシュはまだ行っていない。
+
+2026-10-23の接続途中では、既存技術Writerを入力準備・取得済みOwner内の物理確定・外側解放へ分離し、通常Reader／初期化／Writerの保存排他取得を共通Ownerへ接続した。保持中Ownerの借用ReaderはKernelを再取得・解放しない。Windowsの自己生成Repositoryで、反復読取り、競合取得拒否、偽造・コピー・解放済みOwner拒否、借用中の`ownerHeld=true`／`lockReleased=false`、外側一回解放、元本文不変を確認し、既存`PRL-IT-011`へ接続した。Task側の旧Writer／Root・履歴・旧ACKは未切替であり、新Schemaの単一WriterやB全体が完成したという意味ではない。
+
+Task更新候補は表示用の集約`recoveryUnresolved`を元事実へ書き戻さず、同じAttemptのTask固有不明を維持し、新しく得たTask結果の不明・解消だけを明示入力する。技術側だけの未解決をTaskへ複製する指摘と、既存受領の再更新で検査用Objectを符号化してしまう欠落を是正した。元事実false／trueと技術側の解消、別Task／Attempt／操作の入力拒否、受領再更新を純粋反証へ追加し、三Suite31件が成功した。既存Writer分離・共通Owner接続の限定Source再レビューは残指摘0であり、本番Task・履歴・受領を含むB全体の独立レビュー完了には流用しない。
+
+共通Ownerの内部でRepository再検証が二重化する経路は、外側の真正Owner取得・解放を維持し、内部へ既存Kernel handleを借用して除いた。既存の各I/O境界のRepository再検証とKernel生存確認は維持する。修正版の静的check、純粋31件・Windows借用2件、修復専用Ownerの実Writer／no-op2件は成功し、限定Source再確認と文書・直接影響再確認の残指摘0を確認した。長時間の修復Writer全Suiteは改訂途中を跨ぐ補助実行であり、B完了版の固定候補全回帰へ数えない。新SchemaのTask本番切替、同Owner履歴、旧ACK／旧Root／設定Reader撤去と、その後の固定回帰・全体独立レビューは未完了である。
+
+#### 本番切替の途中状態 — 2026-10-23
+
+Task・Queue・Workspaceの保存を共通Ownerから既存の物理Writerへ接続し、本番codecを平坦な`current-state/v3`へ切り替えている。Task専用の物理state出版処理は除去した。通常結果配送のReader構築・保存後complete呼出しと、回復後の上位finalize呼出しを外した。旧設定Reader・専用配布設定と未使用旧Envelope Readerを撤去した。旧ACK専用API・内部枝と全試験の移行は未完了であり、B全体は完成していない。途中差分はコミット・プッシュしない。
+
+Task履歴は技術履歴と同じRoot・設定・Ownerへ接続した。Task要約は共通JSONLの閉じたvariantとし、旧Task専用Headerを生成しない。`historyPending`は通常の保持期間だけで削除せず、同じ本文の履歴確定後だけ現在状態から除く。状態出版pendingがある場合の履歴更新を拒否し、履歴置換直前にも元state本文・Root・設定を照合する。
+
+実Filesystem確認では、新品・未CommitのRepositoryへの公開初期化と同一受付世代の再入場が成功した。共通保存Ownerを既存の実行Revision用Readerから取得すると新品Repositoryを扱えないため、Version Controlの既存Git実体観測を、保存に必要な論理／実体Identityだけの読取りへ分離した。実行対象Commitの確認や技術回復ReaderのRevision条件は緩めていない。新規の台帳・Lockを追加していない。
+
+正規化Rootが内部key順を揃えるため、Task区画の値比較・内部保存Hashは正規JSONへ揃えた。OS実体Identityの従来の数値表現は別扱いで維持した。採用結果の値検査もモデルへ集約し、Hash生成と検証の方式差を除いた。是正後、新品からの独立採用Lease取得・解放、採用結果の保存・同内容再送の一試験は成功した。
+
+最新の型・静的checkと差分形式検査は成功。保存・修復モデルの限定二Suiteは28件中27件成功で、残る一つの大きなSuiteでは旧ACK Hashを前提にした参照検査が未移行である。通常Task模擬回帰は153件中152件成功、残る一件はjunction作成の権限不足であり、成立済みには数えない。接続途中版の保存Owner／Task出版／履歴の限定独立確認は追加指摘0だったが、その後の内部Hash・値検査集約には再確認が必要であり、B全体のレビュー完了へ流用しない。
+
+通常Task模擬回帰のjunction作成一件は、必要なOS権限の環境で個別再確認し成功した。元の153件runを全件成功へ書き換えず、B完成候補の固定回帰は別に実行する。
+
+今回の正規化Hashは内部Symbolの改名だけではなく、新形式の保存値契約の変更である。旧Snapshot・旧内部Hashを読む互換Readerや実行時変換は追加しない。移行時はフロントAIが対象・参照・未解決状態を確認し、新形式で必要なHashを再計算する。歴史Evidenceや署名・Git ArtifactのHashは変更せず、今回の②保持物はこの移行・清掃へ含めない。
+
+最新の限定確認では保存・状態遷移・修復モデル57件、Domain公開集合・設定14件、Version Control保存Identity一件、通常Task実保存一件が成功した。Task原子受領は十一Caseを持つ一試験で、同時受領・二件目不正・保存前失敗・保存後応答喪失を確認した。履歴移管で検出した時計逆行、不正設定下の確認、複数行の保存意図再提示漏れを是正し、通常保守を含む全十一件は成功した。これらは改訂途中の限定確認であり、B完成候補の固定全回帰とは扱わない。限定Source再レビューの指摘は是正後0。旧実行Ownerの二段ACKラッパーを撤去し、その元終端・結果読取りの一試験も成功した。
+
+この途中版からの残処置は§37.5で更新する。②の再試行と保持物操作は実施していない。
+
+### 37.5. 保存統合Bの最終確認
+
+全体回帰で、Task保存がmarkerを作った後、pending作成前の例外でmarkerだけを残し、Workspaceの通常再観測を妨げる失敗窓を検出した。同じ呼出しの真正Owner下で、自分のmarker・元本文不変・pending明示不存在を確認できる場合だけmarkerを回収し、保存失敗は維持する最小是正を行う。部分作成・既存marker・置換・観測不能は保持する。通常Readerの拒否や既存残存の処置条件は緩めず、Process喪失窓の追加保証とも扱わない。
+
+通常Candidateの同一要求再入場では、保存時のキー順統一と`JSON.stringify`比較が衝突する追従漏れも検出した。Workspaceの固定要求・取込先の二比較だけを検証済み値の深い厳密一致へ切り替え、項目・型・値・配列順・prototypeの一致は維持する。他の比較へ機械的に拡大しない。
+
+Windowsの上位bit付きFile IDを模擬する保存試験では、Readerが正規化した符号なしIDとWriterの生の符号付きIDを異なる実体と判定する接続漏れを再現した。Domainの既存変換を私有関数へ抽出し、Readerと同一性比較の両辺に共用する最小是正を行った。Windowsの有効な負の64bit表現だけを変換し、異なるID・他の六項目差・不正範囲・途中変更の拒否は維持する。修正後の該当二試験、Domain全266件、marker回収・拒否の影響十件は成功した。公開API・状態・移行Readerは増やしていない。
+
+2026-10-23現在、旧二段ACK専用API・内部枝、旧保存Rootと旧保持設定Readerを撤去した。Taskの表示DTOは既存API内に維持するが、物理保存は平坦な一つのSnapshotだけとする。通常のtransient終了、技術cleanup、履歴確認とexact回復参照は維持する。旧形式の移行はフロントAIの明示手順とし、本番互換Readerは追加しない。
+
+回復結合の移行で、旧Task側のDocker段階保存と新しい技術正本からの投影が衝突する接続漏れを検出した。Dockerの技術段階は元Operationだけを更新し、上位は同じexact参照を再読取りする方式へ是正する。Task自身の結果不明と技術義務も分け、配送待ちをTask固有の不明へ重複投影しない。合成試験は任意の偽回復ID・旧finalizeコールバックから、元Operation・実JSONL・五項目結果参照・通常全件一括又は回復exact参照ごとの逐次受領（各CASは原子的）を使う経路へ移行する。これは既存Writerの相関検査を緩める変更ではなく、本番Consumerの新正本への接続である。
+
+| 確認責務 | 新方式での確認箇所・停止条件 |
+|---|---|
+| 耐久受領と内部配送解除 | 通常Taskは捕捉済み全件一括、回復はexact参照単位の逐次受領で各CASは原子的。対象だけ除去し残りの参照を保持、全対象受領後だけ技術参照なし終端へ切替。全件相関、部分不正、参照欠落・残留、早期終端、配送片側除去、保存前失敗、保存済み応答喪失、別Process再入場と二重反映を反証 |
+| 履歴との順序 | 元Operationの確定だけでなく実JSONL行を照合。欠落・重複・内容差・未確認は受領前停止。未受領・未解決参照中の行は通常期限でも保全 |
+| 単一Writerと排他 | 現在状態・Task・履歴を同じ短期Ownerへ接続。保存markerと実効OS排他、長期実行Leaseを区別し、借用先から自己再取得しない |
+| 初期化失敗 | Domainの失敗reason・Effect・cleanup・retry・exact参照を同じErrorで公開境界へ搬送し、Ownerを解放してから返す。解放不明はcleanup／retryを成功にしない |
+| 試験・配置移行 | 旧物理Envelopeと二段ACKを前提にしたfixture／assertionを移行。未知欄・Root置換・世代競合・取消・親喪失の拒否は維持 |
+
+局所確認では、履歴故障四Case、別Processでの原子受領再入場、Windows現在保存とpending再入場、履歴十一Case、Domainの設定・保存・公開境界二十七件が成功した。これらを固定全体回帰や最終独立レビューの代用にはせず、以下の最終固定版を別に検証した。
+
+最終確認の集約は以下に置く。実行ごとの全文を正式Evidenceへ複製しない。製品Sourceの最終差分識別は`18df8bb67b5074f2255b1d430d049f933b635259`（基準CommitからCoordinator・Domain Model・Version Controlの`src`差分をGit blobとして識別）であり、検証途中の改訂と区別する。
+
+改訂を跨いだ補助全体実行は1,867件中1,856成功・6失敗・5skipで完走した。旧ガード抽出二件、上位bit付きID一件、試験分類一件、旧表示期待一件、旧保存先・Envelopeを操作する改ざん試験一件を是正し、各局所試験と独立確認を通した。補助実行を最終固定候補の成功へ流用しない。続く固定実行で見つけた私有関数の抽出依存漏れも試験側で追従し、Win32／Linuxの全境界を維持した十一件を確認した。当該実行は自己所有Runnerだけを確認後停止し、後続の公開入口・Windows試験は発行していない。
+
+その後はSource・試験・設定を変更せず、外部AI・実Docker・②保持物を使わない最終固定検証を順番に完走した。基準Commit `2d09c746b`からの`40_Develop / 07_Quality/Registry / template/tools/schemas / .gitignore`差分識別は`8bfe47cb228774d831117b06fbca7ebe6b9f93a7`で、実行前後の一致を確認した。
+
+| 最終固定範囲 | 結果 |
+|---|---|
+| Coordinator通常全体回帰 | 全1,867件中1,862成功・失敗0・5skip、約100分。明示実境界のskipを成功へ換算しない |
+| Workbench／MCP共通公開入口 | 現在認可・実Gitを一体に通す一件成功・失敗0 |
+| Windows保存影響四Suite | 三十件成功・失敗0・skip0。現在状態、Owner喪失、保存・Lease・受領、marker再入場を確認 |
+
+保存統合BのSource・試験移行・外部AIなし固定回帰の範囲を完了とする。実AI・実Dockerを含む全Producer・利用側の一体実証、既存データの移行、C全体・全体QA・リリースの完了へ拡張しない。
+
+| 範囲 | 確認結果・限界 |
+|---|---|
+| 静的検査 | CoordinatorとDomain Modelの整形・型・lint、Coordinatorの二つのTraceability検査は成功。既存の情報level診断はerror／warningに読み替えない |
+| Domain Model | File ID是正後の全266件成功 |
+| Version Control | B接続候補の全69件成功 |
+| MCP／Workbench | B接続候補のMCP全102件、Workbench結合79件成功。Workspace比較是正後の両公開入口からの認可・実Git一体試験一件も成功 |
+| 先行Windows影響確認 | 四Suiteの30件中29件成功・一件は子Process期限超過。同じSource・同じ期限で当該一件を再確認し成功。最初のrunを30件成功へ書き換えず、上表の最終固定三十件と別に保持する |
+| 保存・回復の最終影響確認 | 回復境界・保存／修復モデル56件、marker回収・拒否十件、上位bit付きIDの二件が成功 |
+| 試験分類の追従 | 追加済みの履歴試験を件数表へ反映し、通常／Host専用の閉集合と負対照を含む三件が成功。実行範囲・拒否条件は変更しない |
+| 独立レビュー | Source・契約・試験追従のレビュー指摘を是正し、最終固定回帰の終端と限定完了範囲の表示を独立再確認した。残指摘0件 |
+| 文書検査 | 今回の現行文書範囲の指摘0件。参照展開した歴史文書の3,344件により検査全体は不合格であり、全体QAのPassとは扱わない |
+
+実AI②の再試行、保持物の観測・移行・削除、実Docker操作は対象外のままである。従来の277件は狭い照会範囲で得た歴史CHG内の文書診断であり、今回の参照展開範囲の3,344件とは母集団が異なる。件数差を新規故障の増分と扱わず、今回の現行文書診断0件とも区別する。現在、人間による追加判断は必要ない。
+
+### 37.6. 保存統合後に行う構造再設計
+
+利用者は追加の「Coordinator構造再設計・リファクタリング方針」（調査基準`13124159f`）を提示した。実施順序はBの保存統合・検証→コミット・プッシュ→同方針の構造再設計である。添付のStorage凍結は後続の構造再設計に適用し、現在承認済みのBを取り消す意味には扱わない。B完了時の保存契約を後続の凍結基準にする。
+
+後続では先に`cli / objective / task / decision / workspace / execution / state / storage`の目標Ownerを固定し、全Sourceの関数・型・状態・Capability・Consumerを対応付ける。Executionの十二責務、Task七責務、Decision九責務、Objective五責務と既存Workspace三Fileを基本とする。Provider仕様・選択・Plan・純粋な結果解釈はAI Adapter、実行Authority・開始取消・元観測・回収調整はCoordinator、Container技術はDocker Isolation、OS技術はPlatform Accessへ分ける。
+
+構造移管と動作整理は別段階にし、移管だけを全体完了にしない。まず処理順序・条件・公開結果・保証を維持して移管とConsumer／試験を追従し、その後、不要な中継・重複検証・多段Factory・状態・循環依存を主要Lifecycleごとに評価する。目標外Fileを残す必要がある場合は、独立した状態・寿命・保証・直接Consumerと統合できない理由を示して例外判断へ戻す。新Framework、②のAI再試行・保持物操作は許可範囲に加えない。

@@ -45,14 +45,7 @@ export type StableFileIdentity = Readonly<{
  * @concurrency N/A: identityは共有非同期状態を持たない同期処理である。
  */
 function identity(metadata: fs.BigIntStats, maximumBytes: number) {
-  // Windowsの64bit File IDはNodeのBigInt64Arrayで負値になり得る。
-  const ino =
-    process.platform === "win32" &&
-    typeof metadata.ino === "bigint" &&
-    metadata.ino >= -(1n << 63n) &&
-    metadata.ino < 0n
-      ? BigInt.asUintN(64, metadata.ino)
-      : metadata.ino;
+  const ino = normalizeFileId(metadata.ino);
   if (
     !metadata.isFile() ||
     metadata.isSymbolicLink() ||
@@ -73,6 +66,30 @@ function identity(metadata: fs.BigIntStats, maximumBytes: number) {
     size: metadata.size,
     mode: metadata.mode,
   });
+}
+
+/**
+ * Windowsの符号付き64bit File IDを同じ実体の符号なし表現に揃える。
+ * @responsibility Readerと保存Writerの同一性比較で同じ表現規則を使う。
+ * @trace ARCH-000014
+ * @input ino: OSから観測したFile ID。
+ * @returns Windowsの有効な負の64bit表現だけを正規化する。
+ * @precondition 呼出し側がFile Identity全体の妥当性を検査する。
+ * @postcondition 同じ64bit IDの意味を変えず、範囲外の値を補正しない。
+ * @effect N/A: 入力値だけを変換する。
+ * @failure N/A: 不正値の拒否は呼出し側が所有する。
+ * @invariant Windows以外と他のIdentity項目を変更しない。
+ * @boundary Process内の保存部品。
+ * @security 異なるFile IDを同一と扱わない。
+ * @concurrency N/A: 共有状態を持たない。
+ */
+function normalizeFileId(ino: bigint): bigint {
+  return process.platform === "win32" &&
+    typeof ino === "bigint" &&
+    ino >= -(1n << 63n) &&
+    ino < 0n
+    ? BigInt.asUintN(64, ino)
+    : ino;
 }
 
 /**
@@ -97,7 +114,7 @@ export function sameStableFileIdentity(
 ) {
   return (
     left.dev === right.dev &&
-    left.ino === right.ino &&
+    normalizeFileId(left.ino) === normalizeFileId(right.ino) &&
     left.birthtimeNs === right.birthtimeNs &&
     left.ctimeNs === right.ctimeNs &&
     left.mtimeNs === right.mtimeNs &&

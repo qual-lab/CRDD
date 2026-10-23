@@ -14,7 +14,6 @@ import test from "node:test";
 import { ensureRepositoryRuntimeDataAreaFromWorkingDirectory } from "../../src/storage/ensure-area.ts";
 import { requireReadyRepositoryRuntimeDataArea } from "../../src/repository/require-storage-area.ts";
 import {
-  readTaskHistoryConfig,
   readExecutionIntelligenceConfig,
   readCoordinatorConfig,
 } from "../../src/configuration/read-tool-config.ts";
@@ -83,7 +82,7 @@ test("Coordinator設定の実ファイルと配布例とSchemaは同じ契約を
  * @boundary RDL-IT-001=Direct Boundary: 設定Reader→Filesystem。
  */
 test("保持設定は読取り専用で閉じたSchemaと真正不存在を区別する", (t) => {
-  const readConfig = readTaskHistoryConfig;
+  const readConfig = readCoordinatorConfig;
   const temporary = requireReadyRepositoryRuntimeDataArea(
     ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
       path.resolve(import.meta.dirname, "../../../.."),
@@ -127,10 +126,10 @@ test("保持設定は読取り専用で閉じたSchemaと真正不存在を区�
   assert.equal(readConfig({ ...verified.capability }).status, "blocked");
   const config = path.join(root, ".crdd", "config");
   fs.mkdirSync(config, { recursive: true });
-  const file = path.join(config, "orchestrator.json");
+  const file = path.join(config, "coordinator.json");
   const eiFile = path.join(config, "execution-intelligence.json");
   const coordinatorFile = path.join(config, "coordinator.json");
-  const retiredFile = path.join(config, "unregistered-tool.json");
+  const retiredFile = path.join(config, "orchestrator.json");
   fs.writeFileSync(retiredFile, "retired_config_must_not_be_read");
   const currentDefault = readConfig(verified.capability);
   assert.equal(currentDefault.status, "ready");
@@ -222,7 +221,7 @@ test("保持設定は読取り専用で閉じたSchemaと真正不存在を区�
   const target = path.join(root, "config-target");
   fs.mkdirSync(target);
   fs.writeFileSync(
-    path.join(target, "orchestrator.json"),
+    path.join(target, "coordinator.json"),
     JSON.stringify(valid),
   );
   fs.symlinkSync(

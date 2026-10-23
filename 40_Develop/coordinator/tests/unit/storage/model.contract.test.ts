@@ -37,20 +37,510 @@ import {
   prepareCoordinatorStateHostSnapshot,
   prepareCoordinatorStateLifecycleSnapshot,
   prepareCoordinatorStateOperationSnapshot,
-  prepareCoordinatorStateProjectAcceptanceSnapshot,
   prepareCoordinatorStateReferencesSnapshot,
   prepareCoordinatorStateResourceSnapshot,
   prepareCoordinatorStateRestartSnapshot,
   prepareCoordinatorStateResultDeliverySnapshot,
   validateCoordinatorStateTransition,
   classifyCoordinatorResourcePublication,
+  SNAPSHOT_SCHEMA_V3,
+  validCoordinatorSnapshot,
+  projectCoordinatorTaskSettlement,
+  decodeCoordinatorUnifiedSnapshot,
+  type CoordinatorUnifiedSnapshot,
+  validateCoordinatorUnifiedTransition,
+  prepareCoordinatorUnifiedTaskSnapshot,
 } from "../../../src/storage/model.ts";
+import { createCoordinatorState } from "../../../src/state/model.ts";
 import {
   createDockerRestartRequestId,
   decodeDockerRestartCheckpoint,
 } from "../../../src/execution/restart-checkpoint.ts";
 
 const binding = "a".repeat(64);
+
+/**
+ * 実行だけを使う未初期化Task区画の合成値を返す。
+ * @responsibility 新Schemaの純粋試験で物理保存・移行入力を作らない。
+ * @trace PRL-UT-006
+ * @returns 空の単一保存値。
+ * @effect N/A: メモリ内のfixture生成だけ。
+ */
+function emptyUnifiedSnapshot(): CoordinatorUnifiedSnapshot {
+  return {
+    schema: "crdd-coordinator/current-state/v3",
+    revision: 1,
+    previous: null,
+    repositoryBinding: binding,
+    repositoryBindingId: null,
+    intakeEpoch: null,
+    operations: [],
+    unresolvedRecoveries: [],
+    pendingDeliveries: [],
+    projects: [],
+    queueEntries: [],
+    workspaces: [],
+    intakeBindings: [],
+    leaseEvidence: [],
+    leaseIntents: [],
+    results: [],
+    historyPending: [],
+    acceptanceDecisions: [],
+    decisionRecoveries: [],
+    resultReceipts: [],
+  };
+}
+
+/**
+ * 単一SchemaのRoot結合と未初期化区画を反証する。
+ * @responsibility 改訂二重化、旧形式、片側初期化、未知区画を拒否する。
+ * @trace PRL-UT-006
+ * @precondition 空のメモリ内集合だけを使う。
+ * @stimulus 正規値とRoot・改訂・区画の不正値を復号する。
+ * @observation 復号結果、本文Hash、旧codecの拒否を確認する。
+ * @oracle 正規値だけを受理し、旧形式を補完しない。
+ * @cleanup N/A: 外部資源を作らない。
+ * @boundary PRL-UT-006=Direct Boundary: 単一保存の純粋codec。
+ */
+test("単一保存codec: Rootと改訂を一組にし片側初期化を拒否する", () => {
+  const snapshot = emptyUnifiedSnapshot();
+  const bytes = Buffer.from(`${encodeCoordinatorStateValue(snapshot)}\n`);
+  assert.deepEqual(
+    decodeCoordinatorUnifiedSnapshot(bytes, binding)?.snapshot,
+    snapshot,
+  );
+  assert.equal(
+    decodeCoordinatorUnifiedSnapshot(bytes, binding)?.payloadSha256,
+    createHash("sha256").update(bytes).digest("hex"),
+  );
+  assert.deepEqual(
+    decodeCoordinatorStateSnapshot(bytes, binding)?.snapshot,
+    snapshot,
+  );
+  for (const invalid of [
+    { ...snapshot, schema: "crdd-coordinator/current-state/v2" },
+    { ...snapshot, repositoryBindingId: "binding-a" },
+    { ...snapshot, intakeEpoch: "epoch-a" },
+    { ...snapshot, snapshotRevision: 1 },
+    { ...snapshot, repositoryRootHash: binding },
+    { ...snapshot, revision: 2 },
+    { ...snapshot, previous: { revision: 0, payloadSha256: binding } },
+    { ...snapshot, resultReceipts: [{}] },
+    { ...snapshot, workspaces: [{}] },
+    { ...snapshot, payload: snapshot },
+  ])
+    assert.equal(
+      decodeCoordinatorUnifiedSnapshot(
+        Buffer.from(`${encodeCoordinatorStateValue(invalid)}\n`),
+        binding,
+      ),
+      null,
+    );
+  assert.equal(decodeCoordinatorUnifiedSnapshot(bytes, "b".repeat(64)), null);
+  const next = {
+    ...snapshot,
+    revision: 2,
+    previous: {
+      revision: 1,
+      payloadSha256: createHash("sha256").update(bytes).digest("hex"),
+    },
+  };
+  const encode = (value: unknown) =>
+    Buffer.from(`${encodeCoordinatorStateValue(value)}\n`);
+  assert.equal(
+    validateCoordinatorUnifiedTransition(null, bytes, binding),
+    true,
+  );
+  assert.equal(
+    validateCoordinatorUnifiedTransition(bytes, encode(next), binding),
+    true,
+  );
+  assert.equal(
+    validateCoordinatorUnifiedTransition(
+      bytes,
+      encode({ ...next, revision: 3 }),
+      binding,
+    ),
+    false,
+  );
+  assert.equal(
+    validateCoordinatorUnifiedTransition(
+      bytes,
+      encode({
+        ...next,
+        previous: { revision: 1, payloadSha256: "b".repeat(64) },
+      }),
+      binding,
+    ),
+    false,
+  );
+});
+
+/**
+ * 技術Operationの不存在をTaskの未発行・回収成功へ読み替えない。
+ * @responsibility 元事実の種類、欠落参照、不正値とGetter非評価を反証する。
+ * @trace PRL-UT-006
+ * @precondition 技術記録のないメモリ内集合を使用する。
+ * @stimulus 未終端、明示未発行、差替えExecutor結果、不正参照を投影する。
+ * @observation 二つの公開状態、null、Getter呼出し数を確認する。
+ * @oracle 明示未発行だけを成功へ投影し、空・欠落Operationを成功へ補完しない。
+ * @cleanup N/A: 外部資源を作成しない。
+ * @boundary PRL-UT-006=Direct Boundary: Task固有事実から状態投影。
+ */
+test("Task終端投影: 空の技術集合と明示未発行を区別する", () => {
+  const snapshot = { operations: [], unresolvedRecoveries: [] };
+  assert.deepEqual(
+    projectCoordinatorTaskSettlement({ kind: "pending" }, snapshot),
+    {
+      cleanupConfirmed: false,
+      recoveryUnresolved: false,
+    },
+  );
+  assert.deepEqual(
+    projectCoordinatorTaskSettlement({ kind: "unissued" }, snapshot),
+    {
+      cleanupConfirmed: true,
+      recoveryUnresolved: false,
+    },
+  );
+  for (const cleanupConfirmed of [false, true]) {
+    for (const recoveryUnresolved of [false, true]) {
+      assert.deepEqual(
+        projectCoordinatorTaskSettlement(
+          {
+            kind: "executor_result",
+            cleanupConfirmed,
+            recoveryUnresolved,
+          },
+          snapshot,
+        ),
+        { cleanupConfirmed, recoveryUnresolved },
+      );
+    }
+  }
+  let reads = 0;
+  const hostile = Object.defineProperty({}, "kind", {
+    enumerable: true,
+    get() {
+      reads += 1;
+      return "unissued";
+    },
+  });
+  for (const invalid of [
+    null,
+    hostile,
+    new Proxy({}, {}),
+    { kind: "unknown" },
+    { kind: "pending", cleanupConfirmed: true },
+    { kind: "executor_result", cleanupConfirmed: true },
+    {
+      kind: "executor_result",
+      cleanupConfirmed: "true",
+      recoveryUnresolved: false,
+    },
+    { kind: "operations", recoveryIds: [], resultUnresolved: false },
+    { kind: "operations", recoveryIds: ["missing"], resultUnresolved: false },
+    {
+      kind: "operations",
+      recoveryIds: ["missing", "missing"],
+      resultUnresolved: false,
+    },
+    { kind: "operations", recoveryIds: [1], resultUnresolved: false },
+    { kind: "operations", recoveryIds: ["missing"], resultUnresolved: "false" },
+  ])
+    assert.equal(projectCoordinatorTaskSettlement(invalid, snapshot), null);
+  assert.equal(reads, 0);
+});
+
+/**
+ * Task区画の非空回復を物理保存なしで検証する。
+ * @responsibility 共通検証への移管で値のキー・相関・孤立参照の拒否を失わないことを反証する。
+ * @trace PRL-UT-006
+ * @precondition 既存の純粋State生成と現行Snapshot契約だけを使う。
+ * @stimulus 正常回復、誤キー、重複、別Queue、未知Root区画を検査する。
+ * @observation codecの真偽と入力全文を比較する。
+ * @oracle 正常な非空集合だけを受理し、不正値を補完せず入力も変更しない。
+ * @cleanup N/A: Process、Filesystem、Lockを生成しない。
+ * @boundary PRL-UT-006=Direct Boundary: メモリ内Task区画と保存codec。
+ */
+test("Task保存codec: 非空回復の値キーとexact参照を保持する", () => {
+  const created = createCoordinatorState({
+    projectId: "project-a",
+    milestoneId: "milestone-a",
+    repositoryRevision: "a".repeat(40),
+    maximumConcurrency: 2,
+    milestoneAcceptanceCriteria: ["accepted"],
+    objectives: [{ id: "objective-a", acceptanceCriteria: ["done"] }],
+    tasks: [
+      {
+        id: "task-a",
+        objectiveId: "objective-a",
+        dependencies: [],
+        allowedPaths: ["src/a.ts"],
+        conflictKeys: [],
+      },
+    ],
+    ownerGeneration: "owner-a",
+  });
+  assert.equal(created.status, "completed");
+  if (created.status !== "completed") throw new Error("state_fixture_invalid");
+  const recovery = {
+    recoveryId: "recovery-a",
+    recordId: "decision-a",
+    projectId: "project-a",
+    milestoneId: "milestone-a",
+    queueId: "queue-a",
+    applicationId: "application-a",
+    expectedGeneration: 1,
+    newGeneration: 2,
+    observedDisposition: "prepared",
+    unknownBoundary: "project_readback",
+    disposition: "required",
+  };
+  const snapshot = {
+    schema: SNAPSHOT_SCHEMA_V3,
+    schemaRevision: 3,
+    repositoryRootHash: binding,
+    repositoryBindingId: "binding-a",
+    snapshotRevision: 1,
+    intakeEpoch: "epoch-a",
+    intakeBindings: [{ queueId: "queue-a", epoch: "epoch-a" }],
+    projects: [created.state],
+    queueEntries: [
+      {
+        workspaceId: null,
+        queueId: "queue-a",
+        projectId: "project-a",
+        milestoneId: "milestone-a",
+        requestHash: "b".repeat(64),
+        originLane: "interactive",
+        repositoryRevision: "a".repeat(40),
+        scopeHash: "c".repeat(64),
+        state: "queued",
+        generation: 1,
+        ownerGeneration: null,
+        resumeCondition: null,
+        resultReference: null,
+      },
+    ],
+    workspaces: [],
+    leaseEvidence: [],
+    leaseIntents: [],
+    results: [],
+    historyPending: [],
+    acceptanceDecisions: [],
+    decisionRecoveries: [{ generation: 1, value: recovery }],
+  };
+  const before = JSON.stringify(snapshot);
+  assert.equal(validCoordinatorSnapshot(snapshot, "binding-a", binding), true);
+  for (const invalid of [
+    {
+      ...snapshot,
+      decisionRecoveries: [{ generation: 1, snapshot: recovery }],
+    },
+    {
+      ...snapshot,
+      decisionRecoveries: [
+        { generation: 1, value: { ...recovery, secret: "forbidden" } },
+      ],
+    },
+    {
+      ...snapshot,
+      decisionRecoveries: [
+        snapshot.decisionRecoveries[0],
+        snapshot.decisionRecoveries[0],
+      ],
+    },
+    {
+      ...snapshot,
+      decisionRecoveries: [
+        { generation: 1, value: { ...recovery, queueId: "other-queue" } },
+      ],
+    },
+    { ...snapshot, unknown: [] },
+  ])
+    assert.equal(
+      validCoordinatorSnapshot(invalid, "binding-a", binding),
+      false,
+    );
+  assert.equal(JSON.stringify(snapshot), before);
+  const storedProjects = snapshot.projects.map((project) => ({
+    ...project,
+    tasks: project.tasks.map((task) => {
+      const {
+        cleanupConfirmed: _cleanup,
+        recoveryUnresolved: _unresolved,
+        resultAcceptances: _receipts,
+        ...record
+      } = task;
+      return {
+        ...record,
+        settlement: { kind: "pending" as const },
+        resultAcceptanceIds: [],
+      };
+    }),
+  }));
+  const unified = {
+    ...emptyUnifiedSnapshot(),
+    repositoryBindingId: snapshot.repositoryBindingId,
+    intakeEpoch: snapshot.intakeEpoch,
+    intakeBindings: snapshot.intakeBindings,
+    queueEntries: snapshot.queueEntries,
+    decisionRecoveries: snapshot.decisionRecoveries,
+    projects: storedProjects,
+  };
+  const decodeUnified = (value: unknown) =>
+    decodeCoordinatorUnifiedSnapshot(
+      Buffer.from(`${encodeCoordinatorStateValue(value)}\n`),
+      binding,
+    );
+  assert.deepEqual(decodeUnified(unified)?.projects, snapshot.projects);
+  const stateUpdate = { ...created.state, generation: 2 };
+  const unifiedBytes = Buffer.from(`${encodeCoordinatorStateValue(unified)}\n`);
+  const stateCandidate = prepareCoordinatorUnifiedTaskSnapshot(
+    unifiedBytes,
+    stateUpdate,
+    1,
+    binding,
+  );
+  assert.ok(stateCandidate);
+  assert.deepEqual(
+    decodeCoordinatorUnifiedSnapshot(stateCandidate, binding)?.projects,
+    [stateUpdate],
+  );
+  assert.equal(
+    prepareCoordinatorUnifiedTaskSnapshot(
+      unifiedBytes,
+      stateUpdate,
+      0,
+      binding,
+    ),
+    null,
+  );
+  assert.equal(
+    prepareCoordinatorUnifiedTaskSnapshot(
+      unifiedBytes,
+      stateUpdate,
+      2,
+      binding,
+    ),
+    null,
+  );
+  const storedTask = storedProjects[0]?.tasks[0];
+  assert.ok(storedTask);
+  for (const patch of [
+    { cleanupConfirmed: false },
+    { recoveryUnresolved: false },
+    { resultAcceptances: [] },
+    { resultAcceptanceIds: ["missing"] },
+    {
+      settlement: {
+        kind: "operations",
+        recoveryIds: ["missing"],
+        resultUnresolved: false,
+      },
+    },
+  ])
+    assert.equal(
+      decodeUnified({
+        ...unified,
+        projects: [
+          { ...storedProjects[0], tasks: [{ ...storedTask, ...patch }] },
+        ],
+      }),
+      null,
+    );
+  const oldReceipt = {
+    repositoryBindingId: "binding-a",
+    projectId: "project-a",
+    milestoneId: "milestone-a",
+    taskId: "task-a",
+    attemptId: "attempt-old",
+    operationId: "operation-old",
+    recoveryId: "recovery-old",
+    settlementGeneration: 1,
+    repositoryBinding: binding,
+    resultId: "d".repeat(64),
+    consumer: "orchestrator",
+  };
+  const withReceipt = { ...unified, resultReceipts: [oldReceipt] };
+  assert.ok(decodeUnified(withReceipt));
+  const receiptBytes = Buffer.from(
+    `${encodeCoordinatorStateValue(withReceipt)}\n`,
+  );
+  const retry = {
+    ...withReceipt,
+    revision: 2,
+    previous: {
+      revision: 1,
+      payloadSha256: createHash("sha256").update(receiptBytes).digest("hex"),
+    },
+    projects: [
+      {
+        ...storedProjects[0],
+        generation: 2,
+        tasks: [
+          {
+            ...storedTask,
+            state: "failed",
+            attemptId: "attempt-new",
+            operationId: "operation-new",
+            authorityBindingId: "authority-new",
+            startPhase: "settled",
+            retryCount: 1,
+            settlement: {
+              kind: "executor_result",
+              cleanupConfirmed: true,
+              recoveryUnresolved: false,
+            },
+          },
+        ],
+      },
+    ],
+  };
+  assert.ok(decodeUnified(retry));
+  assert.equal(
+    validateCoordinatorUnifiedTransition(
+      receiptBytes,
+      Buffer.from(`${encodeCoordinatorStateValue(retry)}\n`),
+      binding,
+    ),
+    true,
+  );
+  assert.equal(
+    decodeUnified({
+      ...retry,
+      projects: [
+        {
+          ...retry.projects[0],
+          tasks: [
+            {
+              ...retry.projects[0]?.tasks[0],
+              resultAcceptanceIds: [oldReceipt.recoveryId],
+            },
+          ],
+        },
+      ],
+    }),
+    null,
+  );
+  for (const resultReceipts of [
+    [],
+    [{ ...oldReceipt, settlementGeneration: 2 }],
+    [{ ...oldReceipt, resultId: "e".repeat(64) }],
+  ]) {
+    assert.equal(
+      validateCoordinatorUnifiedTransition(
+        receiptBytes,
+        Buffer.from(
+          `${encodeCoordinatorStateValue({ ...retry, resultReceipts })}\n`,
+        ),
+        binding,
+      ),
+      false,
+    );
+  }
+});
 
 /**
  * 耐久受領の候補保持を本番wrapper本文で検証する。
@@ -62,154 +552,6 @@ const binding = "a".repeat(64);
  * @oracle 初回Effect 0だけ破棄、部分保存後は三確認成功まで同候補を保持する。
  * @cleanup N/A: VMメモリ以外の資源を作らない。
  * @boundary 保存wrapperの候補lifecycle。実保存・実Consumer ACKを証明しない。
- */
-test("耐久受領wrapper: 部分保存後の再入場と候補Buffer分離", () => {
-  const source = fs.readFileSync(
-    new URL("../../../src/storage/settlement-store.ts", import.meta.url),
-    "utf8",
-  );
-  const start = source.indexOf(
-    "export function acceptRuntimeOwnedCoordinatorProjectResult(",
-  );
-  const end = source.indexOf("\n/**", start);
-  assert.ok(start > 0 && end > start);
-  const original = stripTypeScriptTypes(source.slice(start, end)).replace(
-    "export function",
-    "function",
-  );
-  for (const variant of [
-    "original",
-    "copy_removed",
-    "resume_effect_zero_clears",
-  ] as const) {
-    const body =
-      variant === "copy_removed"
-        ? original
-            .replace("before: Buffer.from(before)", "before")
-            .replace("candidate: Buffer.from(candidate)", "candidate")
-        : variant === "resume_effect_zero_clears"
-          ? original.replace(
-              "resumed.lockReleased",
-              "resumed.lockReleased || !resumed.filesystemEffectIssued",
-            )
-          : original;
-    if (variant !== "original") assert.notEqual(body, original);
-    for (const firstEffect of [false, true]) {
-      let reads = 0,
-        prepares = 0;
-      let beforeInput: Buffer | null = null;
-      let candidateInput: Buffer | null = null;
-      const expectedBefore = Buffer.from('{"fixture":"before"}\n');
-      const expectedCandidate = Buffer.from("candidate\n");
-      const settlement: Record<string, unknown> = {
-        repository: { operationId: "operation", repositoryBinding: binding },
-        recoveryId: "recovery",
-        verifyCleanup: () => true,
-        readProjectAcceptance: () => ({ accepted: true }),
-      };
-      let result = {
-        status: "blocked",
-        filesystemEffectIssued: firstEffect,
-        snapshotConfirmed: false,
-        lockReleased: true,
-      };
-      let mutateInputs = true;
-      const environment = {
-        Buffer,
-        Object,
-        readLiveSettlement: () => settlement,
-        borrowRuntimeOwnedDockerTerminalObservations: () => ({
-          homeLeaseReleased: true,
-          mountLeaseReleased: true,
-          recoveryCompleted: true,
-        }),
-        readCoordinatorStateSnapshot: () => {
-          reads++;
-          return { status: "completed", value: { snapshot: {} } };
-        },
-        encodeCoordinatorStateValue: () => '{"fixture":"before"}',
-        prepareCoordinatorStateProjectAcceptanceSnapshot: (before: Buffer) => {
-          prepares++;
-          beforeInput = before;
-          candidateInput = Buffer.from(expectedCandidate);
-          return candidateInput;
-        },
-        writeCoordinatorStateSnapshot: () => {
-          if (mutateInputs) {
-            beforeInput?.fill(120);
-            candidateInput?.fill(121);
-            mutateInputs = false;
-          }
-          return result;
-        },
-      };
-      const accept = runInNewContext(
-        `${body}\nacceptRuntimeOwnedCoordinatorProjectResult`,
-        environment,
-      ) as (...args: unknown[]) => unknown;
-      accept({}, {}, {});
-      assert.equal(reads, 1);
-      assert.equal(prepares, 1);
-      if (!firstEffect) {
-        assert.equal(settlement.projectAcceptancePublication, undefined);
-        result = { ...result, filesystemEffectIssued: true };
-        accept({}, {}, {});
-        assert.equal(reads, 2);
-        assert.equal(prepares, 2);
-      }
-      const pair = settlement.projectAcceptancePublication as {
-        before: Buffer;
-        candidate: Buffer;
-      };
-      assert.ok(pair);
-      if (variant === "copy_removed" && firstEffect) {
-        assert.throws(() => assert.deepEqual(pair.before, expectedBefore));
-        assert.throws(() =>
-          assert.deepEqual(pair.candidate, expectedCandidate),
-        );
-        continue;
-      }
-      assert.deepEqual(pair.before, expectedBefore);
-      assert.deepEqual(pair.candidate, expectedCandidate);
-      const fixedReads = reads;
-      result = { ...result, filesystemEffectIssued: false };
-      accept({}, {}, {});
-      if (variant === "resume_effect_zero_clears") {
-        assert.equal(settlement.projectAcceptancePublication, undefined);
-        assert.throws(() =>
-          assert.equal(settlement.projectAcceptancePublication, pair),
-        );
-        continue;
-      }
-      assert.equal(settlement.projectAcceptancePublication, pair);
-      assert.equal(reads, fixedReads);
-      result = {
-        status: "completed",
-        filesystemEffectIssued: true,
-        snapshotConfirmed: true,
-        lockReleased: false,
-      };
-      accept({}, {}, {});
-      assert.equal(settlement.projectAcceptancePublication, pair);
-      result = { ...result, lockReleased: true };
-      accept({}, {}, {});
-      assert.equal(settlement.projectAcceptancePublication, undefined);
-      accept({}, {}, {});
-      assert.equal(reads, fixedReads + 1);
-    }
-  }
-});
-
-/**
- * 結果受領方式を固定利用側からだけ導出する。
- * @responsibility Coordinatorの耐久ACKを任意指定で省略させない。
- * @trace PRL-UT-006
- * @precondition メモリ内の自己生成値だけを使う。
- * @stimulus 既知三利用側、未知文字列、方式指定objectとhostile値を渡す。
- * @observation 返却方式とObject変換・getterの呼出し数。
- * @oracle CLIとWorkbenchだけtransient、Coordinatorはdurable、不正値はnull。
- * @cleanup N/A: 外部資源を作成しない。
- * @boundary 利用側識別子と保存モデルの値契約。
  */
 test("結果受領方式: 固定利用側と任意降格の拒否", () => {
   assert.equal(
@@ -252,6 +594,7 @@ test("結果受領方式: 固定利用側と任意降格の拒否", () => {
   assert.equal(evaluations, 0);
 });
 const empty = {
+  ...emptyUnifiedSnapshot(),
   schema: COORDINATOR_STATE_SCHEMA,
   revision: 1,
   previous: null,
@@ -376,6 +719,17 @@ test("Snapshot: hostile値と配列順", () => {
   assert.equal(
     encodeCoordinatorStateValue({ z: [2, 1], a: 0 }),
     '{"a":0,"z":[2,1]}',
+  );
+  assert.equal(
+    encodeCoordinatorStateValue(
+      Object.assign(Object.create(null), { z: [2, 1], a: 0 }),
+    ),
+    '{"a":0,"z":[2,1]}',
+  );
+  assert.throws(() =>
+    encodeCoordinatorStateValue(
+      Object.assign(Object.create({ inherited: 1 }), { a: 0 }),
+    ),
   );
   assert.throws(() => encodeCoordinatorStateValue(new Array(2)));
   assert.throws(() => encodeCoordinatorStateValue(Number.NaN));
@@ -763,7 +1117,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     "  if (\n    !currentAuthenticationClosure &&",
   );
   const guardEnd = storeSource.indexOf(
-    "  const lock = acquireRuntimeOwnedCoordinatorStateKernelLock(",
+    "  const storageOwner = acquireCoordinatorStorageOwnerForRepository(repository);",
     guardStart,
   );
   assert.ok(
@@ -801,9 +1155,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     "currentDelivery",
     "currentCompletion",
     "currentRepair",
-    "settlement.savedTerminal",
     "settlement.completion",
-    "settlement.projectAcceptancePublication",
     "hostCleanupPublication",
   ];
   for (const kind of pairKinds) {
@@ -915,8 +1267,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     }
   }
   let readerOnlyRequests = 0,
-    readerOnlyReads = 0,
-    readerCallbacks = 0;
+    readerOnlyReads = 0;
   runInNewContext(
     `(function(){${differenceBody}\n${outerBody}\nrequest();})()`,
     {
@@ -927,11 +1278,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       currentCompletion: null,
       currentRepair: null,
       hostCleanupPublication: null,
-      settlement: {
-        projectAcceptanceReader: () => {
-          readerCallbacks++;
-        },
-      },
+      settlement: {},
       candidate: closedDecoded,
       bytes: limitedClosed,
       repository: { repositoryBinding: binding },
@@ -947,7 +1294,6 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
   );
   assert.equal(readerOnlyRequests, 0);
   assert.equal(readerOnlyReads, 1);
-  assert.equal(readerCallbacks, 0);
   // 保存前の限定条件と保存後の相関を、同じ正常入力から一軸ずつ崩す。
   for (const source of [limitedOperation, closedOperation]) {
     const auth = source.resources.find(
@@ -1167,7 +1513,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       binding,
     );
     assert.ok(delivered, consumer);
-    let accepted = delivered;
+    const accepted = delivered;
     if (consumer === "orchestrator") {
       assert.equal(
         prepareCoordinatorStateCompletionSnapshot(
@@ -1177,37 +1523,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
         ),
         null,
       );
-      const delivery = decodeCoordinatorStateSnapshot(delivered, binding)
-        ?.snapshot.pendingDeliveries[0];
-      assert.ok(delivery);
-      const receipt = {
-        repositoryBindingId: "repository-a",
-        projectId: "project-a",
-        milestoneId: "milestone-a",
-        taskId: "task-a",
-        attemptId: "attempt-a",
-        operationId: identity.recoveryCorrelationId,
-        recoveryId: consumerRecoveryId,
-        settlementGeneration: 7,
-        repositoryBinding: binding,
-        resultId: delivery.resultId,
-        consumer: "orchestrator",
-      };
-      assert.equal(
-        prepareCoordinatorStateProjectAcceptanceSnapshot(
-          delivered,
-          { ...receipt, resultId: "0".repeat(64) },
-          binding,
-        ),
-        null,
-      );
-      const acknowledged = prepareCoordinatorStateProjectAcceptanceSnapshot(
-        delivered,
-        receipt,
-        binding,
-      );
-      assert.ok(acknowledged);
-      accepted = acknowledged;
+      continue;
     }
     const completed = prepareCoordinatorStateCompletionSnapshot(
       accepted,
@@ -1267,7 +1583,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       prepareCoordinatorStateResultDeliverySnapshot(
         rejected,
         consumerRecoveryId,
-        consumer === "orchestrator" ? ["orchestrator"] : [],
+        [],
         binding,
       ),
       null,
@@ -1821,126 +2137,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       (item) => item.kind === "docker_task",
     )?.summarySha256,
   );
-  const acknowledgement = {
-    repositoryBindingId: "repository-a",
-    projectId: "project-a",
-    milestoneId: "milestone-a",
-    taskId: "task-a",
-    attemptId: "attempt-a",
-    operationId: identity.recoveryCorrelationId,
-    recoveryId,
-    settlementGeneration: 7,
-    repositoryBinding: binding,
-    resultId: confirmedHistory.snapshot.operations.find(
-      (item) => item.kind === "docker_task",
-    )?.summarySha256,
-    consumer: "orchestrator",
-  };
-  const projectAccepted = prepareCoordinatorStateProjectAcceptanceSnapshot(
-    registeredConfirmed,
-    acknowledgement,
-    binding,
-  );
-  assert.ok(projectAccepted);
-  const projectAcceptedState = decodeCoordinatorStateSnapshot(
-    projectAccepted,
-    binding,
-  );
-  assert.ok(projectAcceptedState);
-  assert.deepEqual(
-    projectAcceptedState.snapshot.operations,
-    confirmedResult.snapshot.operations,
-  );
-  assert.deepEqual(
-    projectAcceptedState.snapshot.unresolvedRecoveries,
-    confirmedResult.snapshot.unresolvedRecoveries,
-  );
-  assert.equal(
-    projectAcceptedState.snapshot.pendingDeliveries.find(
-      (item) => item.consumer === "orchestrator",
-    )?.acceptanceSha256,
-    createHash("sha256")
-      .update(`${encodeCoordinatorStateValue(acknowledgement)}\n`)
-      .digest("hex"),
-  );
-  assert.equal(projectAcceptedState.snapshot.pendingDeliveries.length, 1);
-  assert.deepEqual(
-    prepareCoordinatorStateProjectAcceptanceSnapshot(
-      projectAccepted,
-      { ...acknowledgement },
-      binding,
-    ),
-    projectAccepted,
-  );
-  for (const invalid of [
-    { ...acknowledgement, consumer: "workbench" },
-    { ...acknowledgement, repositoryBinding: "b".repeat(64) },
-    { ...acknowledgement, operationId: "other-operation" },
-    { ...acknowledgement, operationId: identity.operationId },
-    { ...acknowledgement, recoveryId: "other-recovery" },
-    { ...acknowledgement, resultId: "e".repeat(64) },
-    { ...acknowledgement, settlementGeneration: 0 },
-    { ...acknowledgement, settlementGeneration: 8 },
-    { ...acknowledgement, taskId: "other-task" },
-    { ...acknowledgement, attemptId: "other-attempt" },
-    { ...acknowledgement, acceptanceSha256: "f".repeat(64) },
-    { ...acknowledgement, receiptContentHash: "f".repeat(64) },
-    { ...acknowledgement, occurredAt: "2026-10-08T00:00:00.000Z" },
-  ])
-    assert.equal(
-      prepareCoordinatorStateProjectAcceptanceSnapshot(
-        projectAccepted,
-        invalid,
-        binding,
-      ),
-      null,
-    );
-  assert.equal(
-    prepareCoordinatorStateProjectAcceptanceSnapshot(
-      confirmedHistoryBytes,
-      acknowledgement,
-      binding,
-    ),
-    null,
-  );
-  for (const key of Object.keys(acknowledgement)) {
-    const missing = { ...acknowledgement } as Record<string, unknown>;
-    delete missing[key];
-    assert.equal(
-      prepareCoordinatorStateProjectAcceptanceSnapshot(
-        registeredConfirmed,
-        missing,
-        binding,
-      ),
-      null,
-    );
-  }
-  let isGetterCalled = false;
-  const getterAcknowledgement = { ...acknowledgement };
-  Object.defineProperty(getterAcknowledgement, "taskId", {
-    get() {
-      isGetterCalled = true;
-      return "task-a";
-    },
-  });
-  assert.equal(
-    prepareCoordinatorStateProjectAcceptanceSnapshot(
-      registeredConfirmed,
-      getterAcknowledgement,
-      binding,
-    ),
-    null,
-  );
-  assert.equal(isGetterCalled, false);
-  assert.equal(
-    prepareCoordinatorStateProjectAcceptanceSnapshot(
-      registeredConfirmed,
-      new Proxy(acknowledgement, {}),
-      binding,
-    ),
-    null,
-  );
-  const acceptedResultBytes = prepareCoordinatorStateReferencesSnapshot(
+  const forgedAcceptedResultBytes = prepareCoordinatorStateReferencesSnapshot(
     registeredConfirmed,
     recoveryId,
     {
@@ -1954,7 +2151,12 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     },
     binding,
   );
-  assert.ok(acceptedResultBytes);
+  assert.equal(
+    forgedAcceptedResultBytes,
+    null,
+    "技術参照更新では受領を代筆できない",
+  );
+  const acceptedResultBytes = registeredConfirmed;
   assert.deepEqual(
     prepareCoordinatorStateResultDeliverySnapshot(
       acceptedResultBytes,
@@ -2051,7 +2253,6 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
         (item) => item.kind === "docker_task",
       )?.summarySha256,
       consumer,
-      acceptanceSha256: "f".repeat(64),
     })),
   };
   const acceptedCompletionBytes = Buffer.from(
@@ -2380,9 +2581,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     unresolvedRecoveries: acceptedCompletionState.unresolvedRecoveries.map(
       (value) => ({ ...value, obligations: ["result_delivery"] }),
     ),
-    pendingDeliveries: acceptedCompletionState.pendingDeliveries.map(
-      (value) => ({ ...value, acceptanceSha256: null }),
-    ),
+    pendingDeliveries: acceptedCompletionState.pendingDeliveries,
   };
   const deliveryOnlyBytes = Buffer.from(
     `${encodeCoordinatorStateValue(deliveryOnlyState)}\n`,
@@ -2441,34 +2640,14 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       null,
     );
   }
-  const completedBytes = prepareCoordinatorStateCompletionSnapshot(
-    acceptedCompletionBytes,
-    recoveryId,
-    binding,
-  );
-  assert.ok(completedBytes);
-  const completed = decodeCoordinatorStateSnapshot(completedBytes, binding);
-  assert.ok(completed);
   assert.equal(
-    completed.snapshot.revision,
-    acceptedCompletionState.revision + 1,
-  );
-  assert.deepEqual(completed.snapshot.previous, {
-    revision: acceptedCompletionState.revision,
-    payloadSha256: createHash("sha256")
-      .update(acceptedCompletionBytes)
-      .digest("hex"),
-  });
-  assert.equal(completed.snapshot.operations.length, 0);
-  assert.equal(completed.snapshot.unresolvedRecoveries.length, 0);
-  assert.equal(completed.snapshot.pendingDeliveries.length, 0);
-  assert.equal(
-    validateCoordinatorStateTransition(
+    prepareCoordinatorStateCompletionSnapshot(
       acceptedCompletionBytes,
-      completedBytes,
+      recoveryId,
       binding,
     ),
-    false,
+    null,
+    "Taskを伴わない技術保存だけでは耐久配送を完了しない",
   );
   assert.equal(
     prepareCoordinatorStateCompletionSnapshot(
@@ -2547,7 +2726,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
   );
   for (const consumer of ["orchestrator"]) {
     const missingAcceptance = Buffer.from(
-      `${encodeCoordinatorStateValue({ ...acceptedCompletionState, pendingDeliveries: acceptedCompletionState.pendingDeliveries.map((value) => ({ ...value, acceptanceSha256: value.consumer === consumer ? null : value.acceptanceSha256 })) })}\n`,
+      `${encodeCoordinatorStateValue({ ...acceptedCompletionState, pendingDeliveries: acceptedCompletionState.pendingDeliveries.map((value) => ({ ...value, acceptanceSha256: value.consumer === consumer ? null : "forbidden" })) })}\n`,
     );
     assert.equal(
       prepareCoordinatorStateCompletionSnapshot(
@@ -2582,6 +2761,747 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     binding,
   );
   assert.ok(historyLine);
+  assert.deepEqual(
+    projectCoordinatorTaskSettlement(
+      {
+        kind: "operations",
+        recoveryIds: [recoveryId],
+        resultUnresolved: false,
+      },
+      confirmedHistory.snapshot,
+    ),
+    { cleanupConfirmed: true, recoveryUnresolved: false },
+  );
+  assert.deepEqual(
+    projectCoordinatorTaskSettlement(
+      {
+        kind: "operations",
+        recoveryIds: [recoveryId],
+        resultUnresolved: true,
+      },
+      confirmedHistory.snapshot,
+    ),
+    { cleanupConfirmed: false, recoveryUnresolved: true },
+  );
+  const terminalOperation = confirmedHistory.snapshot.operations.find(
+    (item): item is CoordinatorStateTaskOperation =>
+      item.kind === "docker_task",
+  );
+  assert.ok(terminalOperation);
+  assert.ok(terminalOperation.outcome);
+  {
+    const projectFixture = createCoordinatorState({
+      projectId: "project-a",
+      milestoneId: "milestone-a",
+      repositoryRevision: "a".repeat(40),
+      maximumConcurrency: 1,
+      milestoneAcceptanceCriteria: ["accepted"],
+      objectives: [{ id: "objective-a", acceptanceCriteria: ["done"] }],
+      tasks: [
+        {
+          id: "task-a",
+          objectiveId: "objective-a",
+          dependencies: [],
+          allowedPaths: ["source.txt"],
+          conflictKeys: [],
+        },
+      ],
+      ownerGeneration: "owner-a",
+    });
+    assert.equal(projectFixture.status, "completed");
+    if (projectFixture.status !== "completed")
+      throw new Error("project_fixture_invalid");
+    const initialTask = projectFixture.state.tasks[0];
+    assert.ok(initialTask);
+    const {
+      cleanupConfirmed: _cleanup,
+      recoveryUnresolved: _unresolved,
+      resultAcceptances: _acceptances,
+      ...storedRecord
+    } = initialTask;
+    const boundTask = {
+      ...storedRecord,
+      state: "completed",
+      attemptId: "attempt-a",
+      operationId: identity.recoveryCorrelationId,
+      authorityBindingId: "authority-a",
+      startPhase: "settled",
+      settlement: {
+        kind: "operations",
+        recoveryIds: [recoveryId],
+        resultUnresolved: false,
+      },
+      resultAcceptanceIds: [],
+    };
+    const unifiedTerminal = {
+      ...emptyUnifiedSnapshot(),
+      repositoryBindingId: "binding-a",
+      intakeEpoch: "epoch-a",
+      operations: [terminalOperation],
+      projects: [{ ...projectFixture.state, tasks: [boundTask] }],
+      pendingDeliveries: [
+        {
+          operationNonce: nonce,
+          recoveryId,
+          resultId: terminalOperation.summarySha256,
+          consumer: "orchestrator",
+        },
+      ],
+    };
+    const encodeUnified = (value: unknown) =>
+      Buffer.from(`${encodeCoordinatorStateValue(value)}\n`);
+    const unifiedBefore = encodeUnified(unifiedTerminal);
+    assert.ok(decodeCoordinatorUnifiedSnapshot(unifiedBefore, binding));
+    for (const taskUnresolved of [false, true]) {
+      const unresolved = {
+        ...unifiedTerminal,
+        unresolvedRecoveries: [
+          {
+            operationNonce: nonce,
+            recoveryId,
+            reason: terminalOperation.outcome.reason,
+            obligations: ["result_delivery"],
+          },
+        ],
+        projects: [
+          {
+            ...projectFixture.state,
+            tasks: [
+              {
+                ...boundTask,
+                state: "recovery_required",
+                settlement: {
+                  ...boundTask.settlement,
+                  resultUnresolved: taskUnresolved,
+                },
+                recoveryObligations: [{ kind: "docker", recoveryId }],
+              },
+            ],
+          },
+        ],
+      };
+      const before = encodeUnified(unresolved);
+      const view = decodeCoordinatorUnifiedSnapshot(before, binding)
+        ?.projects[0];
+      assert.ok(view);
+      assert.equal(view.tasks[0]?.recoveryUnresolved, taskUnresolved);
+      const candidate = prepareCoordinatorUnifiedTaskSnapshot(
+        before,
+        { ...view, generation: view.generation + 1 },
+        view.generation,
+        binding,
+      );
+      assert.ok(candidate);
+      const saved = decodeCoordinatorUnifiedSnapshot(
+        candidate,
+        binding,
+      )?.snapshot;
+      assert.ok(saved);
+      assert.deepEqual(saved.projects[0]?.tasks[0]?.settlement, {
+        kind: "operations",
+        recoveryIds: [recoveryId],
+        resultUnresolved: taskUnresolved,
+      });
+      const changedFact = prepareCoordinatorUnifiedTaskSnapshot(
+        before,
+        {
+          ...view,
+          generation: view.generation + 1,
+          tasks: view.tasks.map((task) => ({
+            ...task,
+            cleanupConfirmed: taskUnresolved,
+            recoveryUnresolved: !taskUnresolved,
+          })),
+        },
+        view.generation,
+        binding,
+        [
+          {
+            taskId: "task-a",
+            attemptId: "attempt-a",
+            operationId: identity.recoveryCorrelationId,
+            recoveryUnresolved: !taskUnresolved,
+          },
+        ],
+      );
+      assert.ok(changedFact);
+      assert.deepEqual(
+        decodeCoordinatorUnifiedSnapshot(changedFact, binding)?.snapshot
+          .projects[0]?.tasks[0]?.settlement,
+        {
+          kind: "operations",
+          recoveryIds: [recoveryId],
+          resultUnresolved: !taskUnresolved,
+        },
+      );
+      for (const facts of [
+        [
+          {
+            taskId: "other-task",
+            attemptId: "attempt-a",
+            operationId: identity.recoveryCorrelationId,
+            recoveryUnresolved: true,
+          },
+        ],
+        [
+          {
+            taskId: "task-a",
+            attemptId: "other-attempt",
+            operationId: identity.recoveryCorrelationId,
+            recoveryUnresolved: true,
+          },
+        ],
+        [
+          {
+            taskId: "task-a",
+            attemptId: "attempt-a",
+            operationId: "other-operation",
+            recoveryUnresolved: true,
+          },
+        ],
+      ])
+        assert.equal(
+          prepareCoordinatorUnifiedTaskSnapshot(
+            before,
+            { ...view, generation: view.generation + 1 },
+            view.generation,
+            binding,
+            facts,
+          ),
+          null,
+        );
+      const resolved = decodeCoordinatorUnifiedSnapshot(
+        encodeUnified({ ...saved, unresolvedRecoveries: [] }),
+        binding,
+      );
+      assert.ok(resolved);
+      assert.equal(
+        resolved.projects[0]?.tasks[0]?.recoveryUnresolved,
+        taskUnresolved,
+      );
+    }
+    const receipt = {
+      repositoryBindingId: "binding-a",
+      projectId: "project-a",
+      milestoneId: "milestone-a",
+      taskId: "task-a",
+      attemptId: "attempt-a",
+      operationId: identity.recoveryCorrelationId,
+      recoveryId,
+      settlementGeneration: 2,
+      repositoryBinding: binding,
+      resultId: terminalOperation.summarySha256,
+      consumer: "orchestrator",
+    };
+    {
+      const secondIdentity = {
+        ...identity,
+        operationNonce: "d".repeat(64),
+        operationId: "OP-654321",
+        stableLogicalHomeBindingHash: "e".repeat(64),
+        ownershipLabel: "crdd.coordinator.runtime=fedcba9876543210",
+        resources: Object.fromEntries(
+          Object.entries(identity.resources).map(([key, value]) => [
+            key,
+            value.replace("0123456789abcdef", "fedcba9876543210"),
+          ]),
+        ),
+      };
+      const recoveryRoot = {
+        ...unifiedTerminal,
+        projects: [
+          {
+            ...projectFixture.state,
+            tasks: [
+              {
+                ...boundTask,
+                state: "recovery_required",
+                recoveryObligations: [{ kind: "docker", recoveryId }],
+              },
+            ],
+          },
+        ],
+      };
+      const registered = prepareCoordinatorStateOperationSnapshot(
+        encodeUnified(recoveryRoot),
+        `${JSON.stringify(secondIdentity)}\n`,
+        binding,
+      );
+      assert.ok(registered);
+      const physical = JSON.parse(registered.toString());
+      const second = physical.operations.find(
+        (item: { identityJson: string }) =>
+          JSON.parse(item.identityJson).operationId ===
+          secondIdentity.operationId,
+      );
+      assert.ok(second);
+      second.phase = "settling";
+      second.host.cleanup = "confirmed";
+      second.lease = "released";
+      second.execution = terminalOperation.execution;
+      second.outcome = terminalOperation.outcome;
+      physical.projects[0].tasks[0].recoveryObligations.push({
+        kind: "docker",
+        recoveryId: second.recoveryId,
+      });
+      let multi: Buffer = encodeUnified(physical);
+      for (const confirmed of [false, true]) {
+        const checkpoint = prepareCoordinatorStateHistorySnapshot(
+          multi,
+          second.recoveryId,
+          occurredAt,
+          confirmed,
+          binding,
+        );
+        assert.ok(checkpoint);
+        multi = checkpoint;
+      }
+      const delivered = prepareCoordinatorStateResultDeliverySnapshot(
+        multi,
+        second.recoveryId,
+        ["orchestrator"],
+        binding,
+      );
+      assert.ok(delivered);
+      multi = delivered;
+      for (const id of [recoveryId, second.recoveryId]) {
+        const decoded = decodeCoordinatorUnifiedSnapshot(multi, binding);
+        const view = decoded?.projects[0];
+        assert.ok(decoded && view);
+        const operation = decoded.snapshot.operations.find(
+          (item) => item.recoveryId === id,
+        );
+        assert.ok(operation?.kind === "docker_task");
+        const acceptance = {
+          ...receipt,
+          recoveryId: id,
+          resultId: operation.summarySha256,
+          settlementGeneration: view.generation + 1,
+        };
+        const proposed = {
+          ...view,
+          generation: view.generation + 1,
+          tasks: view.tasks.map((task) => ({
+            ...task,
+            recoveryObligations: task.recoveryObligations.map((item) =>
+              item.recoveryId === id
+                ? {
+                    ...item,
+                    phase: "acknowledged",
+                    acknowledgement: acceptance,
+                  }
+                : item,
+            ),
+          })),
+        };
+        const next = prepareCoordinatorUnifiedTaskSnapshot(
+          multi,
+          proposed,
+          view.generation,
+          binding,
+        );
+        assert.ok(next, "二つの回復を同じTaskで一件ずつ耐久受領できる");
+        const saved = JSON.parse(next.toString());
+        const stored = saved.projects[0].tasks[0];
+        assert.equal(saved.operations.length, id === recoveryId ? 1 : 0);
+        assert.equal(
+          stored.settlement.kind,
+          id === recoveryId ? "operations" : "executor_result",
+        );
+        assert.equal(saved.resultReceipts.length, id === recoveryId ? 1 : 2);
+        for (const mutate of [
+          (value: typeof saved) => {
+            value.resultReceipts = [];
+          },
+          (value: typeof saved) => {
+            value.pendingDeliveries = decoded.snapshot.pendingDeliveries;
+          },
+          (value: typeof saved) => {
+            value.projects[0].tasks[0].attemptId = "other-attempt";
+          },
+          (value: typeof saved) => {
+            const fact = value.projects[0].tasks[0].settlement;
+            if (fact.kind === "operations") fact.resultUnresolved = true;
+            else fact.recoveryUnresolved = true;
+          },
+        ]) {
+          const invalid = structuredClone(saved);
+          mutate(invalid);
+          assert.equal(
+            validateCoordinatorUnifiedTransition(
+              multi,
+              encodeUnified(invalid),
+              binding,
+            ),
+            false,
+          );
+        }
+        if (id === recoveryId) {
+          const premature = structuredClone(saved);
+          premature.projects[0].tasks[0].settlement = {
+            kind: "executor_result",
+            cleanupConfirmed: true,
+            recoveryUnresolved: false,
+          };
+          assert.equal(
+            validateCoordinatorUnifiedTransition(
+              multi,
+              encodeUnified(premature),
+              binding,
+            ),
+            false,
+            "未受領のOperationが残る間は技術参照なし終端へ移れない",
+          );
+          for (const references of [
+            [],
+            [recoveryId],
+            [recoveryId, second.recoveryId],
+          ]) {
+            const invalid = structuredClone(saved);
+            invalid.projects[0].tasks[0].settlement.recoveryIds = references;
+            assert.equal(
+              validateCoordinatorUnifiedTransition(
+                multi,
+                encodeUnified(invalid),
+                binding,
+              ),
+              false,
+            );
+          }
+        }
+        multi = next;
+      }
+      const receipts = decodeCoordinatorUnifiedSnapshot(multi, binding)
+        ?.snapshot.resultReceipts;
+      assert.equal(
+        receipts?.find((item) => item.recoveryId === recoveryId)
+          ?.settlementGeneration,
+        2,
+      );
+    }
+    const acceptedUnified = {
+      ...unifiedTerminal,
+      revision: 2,
+      previous: {
+        revision: 1,
+        payloadSha256: createHash("sha256").update(unifiedBefore).digest("hex"),
+      },
+      operations: [],
+      pendingDeliveries: [],
+      resultReceipts: [receipt],
+      projects: [
+        {
+          ...projectFixture.state,
+          generation: 2,
+          tasks: [
+            {
+              ...boundTask,
+              settlement: {
+                kind: "executor_result",
+                cleanupConfirmed: true,
+                recoveryUnresolved: false,
+              },
+              resultAcceptanceIds: [recoveryId],
+            },
+          ],
+        },
+      ],
+    };
+    assert.ok(
+      decodeCoordinatorUnifiedSnapshot(encodeUnified(acceptedUnified), binding),
+    );
+    const acceptedState = decodeCoordinatorUnifiedSnapshot(
+      encodeUnified(acceptedUnified),
+      binding,
+    )?.projects[0];
+    assert.ok(acceptedState);
+    const taskPublication = prepareCoordinatorUnifiedTaskSnapshot(
+      unifiedBefore,
+      acceptedState,
+      1,
+      binding,
+    );
+    assert.ok(taskPublication);
+    assert.ok(taskPublication.equals(encodeUnified(acceptedUnified)));
+    const requiredLine = prepareCoordinatorStateHistoryLine(
+      unifiedBefore,
+      recoveryId,
+      binding,
+    );
+    assert.ok(requiredLine);
+    const afterRetentionPeriod = "2027-01-01T00:00:00.000Z";
+    assert.deepEqual(
+      prepareCoordinatorHistoryRetention(
+        unifiedBefore,
+        requiredLine,
+        afterRetentionPeriod,
+        30,
+        binding,
+      ),
+      requiredLine,
+      "確認済みでも未受領の結果に必要な履歴を期限整理しない",
+    );
+    assert.equal(
+      prepareCoordinatorHistoryRetention(
+        unifiedBefore,
+        Buffer.alloc(0),
+        afterRetentionPeriod,
+        30,
+        binding,
+      ),
+      null,
+    );
+    assert.deepEqual(
+      prepareCoordinatorHistoryRetention(
+        taskPublication,
+        requiredLine,
+        afterRetentionPeriod,
+        30,
+        binding,
+      ),
+      Buffer.alloc(0),
+      "受領・操作除去後は通常の期限整理へ戻す",
+    );
+    const acceptedDecoded = decodeCoordinatorUnifiedSnapshot(
+      taskPublication,
+      binding,
+    );
+    assert.ok(acceptedDecoded);
+    const receiptRetained = prepareCoordinatorUnifiedTaskSnapshot(
+      taskPublication,
+      { ...acceptedState, generation: 3 },
+      2,
+      binding,
+    );
+    assert.ok(receiptRetained);
+    assert.deepEqual(
+      decodeCoordinatorUnifiedSnapshot(receiptRetained, binding)?.snapshot
+        .resultReceipts,
+      acceptedDecoded.snapshot.resultReceipts,
+    );
+    assert.equal(
+      validateCoordinatorUnifiedTransition(
+        unifiedBefore,
+        encodeUnified(acceptedUnified),
+        binding,
+      ),
+      true,
+    );
+    const unbound = {
+      ...unifiedTerminal,
+      projects: [
+        {
+          ...projectFixture.state,
+          tasks: [
+            {
+              ...storedRecord,
+              settlement: { kind: "pending" },
+              resultAcceptanceIds: [],
+            },
+          ],
+        },
+      ],
+    };
+    const unboundBytes = encodeUnified(unbound);
+    assert.ok(decodeCoordinatorUnifiedSnapshot(unboundBytes, binding));
+    const wrongLogicalReceipt = {
+      ...acceptedUnified,
+      previous: {
+        revision: 1,
+        payloadSha256: createHash("sha256").update(unboundBytes).digest("hex"),
+      },
+      resultReceipts: [
+        { ...receipt, operationId: "another-logical-operation" },
+      ],
+      projects: [
+        {
+          ...acceptedUnified.projects[0],
+          tasks: [
+            {
+              ...acceptedUnified.projects[0]?.tasks[0],
+              operationId: "another-logical-operation",
+            },
+          ],
+        },
+      ],
+    };
+    assert.ok(
+      decodeCoordinatorUnifiedSnapshot(
+        encodeUnified(wrongLogicalReceipt),
+        binding,
+      ),
+    );
+    assert.equal(
+      validateCoordinatorUnifiedTransition(
+        unboundBytes,
+        encodeUnified(wrongLogicalReceipt),
+        binding,
+      ),
+      false,
+    );
+    for (const invalid of [
+      { ...acceptedUnified, projects: unifiedTerminal.projects },
+      { ...acceptedUnified, operations: unifiedTerminal.operations },
+      {
+        ...acceptedUnified,
+        pendingDeliveries: unifiedTerminal.pendingDeliveries,
+      },
+      { ...acceptedUnified, resultReceipts: [] },
+    ])
+      assert.equal(
+        validateCoordinatorUnifiedTransition(
+          unifiedBefore,
+          encodeUnified(invalid),
+          binding,
+        ),
+        false,
+      );
+    const secondIdentityJson = `${JSON.stringify({ ...identity, operationNonce: "f".repeat(64), operationId: "OP-234567" })}\n`;
+    const secondBytes = prepareCoordinatorStateOperationSnapshot(
+      null,
+      secondIdentityJson,
+      binding,
+    );
+    assert.ok(secondBytes);
+    const second = decodeCoordinatorStateSnapshot(secondBytes, binding)
+      ?.snapshot.operations[0];
+    assert.ok(second);
+    const withSecond = {
+      ...unifiedTerminal,
+      operations: [terminalOperation, second],
+      projects: [
+        {
+          ...projectFixture.state,
+          tasks: [
+            {
+              ...boundTask,
+              state: "recovery_required",
+              settlement: {
+                kind: "operations",
+                recoveryIds: [recoveryId, second.recoveryId],
+                resultUnresolved: true,
+              },
+              recoveryObligations: [
+                { kind: "docker", recoveryId: second.recoveryId },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    assert.equal(
+      decodeCoordinatorUnifiedSnapshot(encodeUnified(withSecond), binding)
+        ?.projects[0]?.tasks[0]?.recoveryObligations[0]?.phase,
+      "required",
+    );
+    assert.equal(
+      decodeCoordinatorUnifiedSnapshot(
+        encodeUnified({
+          ...withSecond,
+          projects: [
+            {
+              ...withSecond.projects[0],
+              tasks: [
+                {
+                  ...withSecond.projects[0]?.tasks[0],
+                  settlement: {
+                    kind: "operations",
+                    recoveryIds: [recoveryId],
+                    resultUnresolved: true,
+                  },
+                },
+              ],
+            },
+          ],
+        }),
+        binding,
+      ),
+      null,
+    );
+    for (const phase of ["settled", "acknowledged", "required"])
+      assert.equal(
+        decodeCoordinatorUnifiedSnapshot(
+          encodeUnified({
+            ...withSecond,
+            projects: [
+              {
+                ...withSecond.projects[0],
+                tasks: [
+                  {
+                    ...withSecond.projects[0]?.tasks[0],
+                    recoveryObligations: [
+                      { kind: "docker", recoveryId: second.recoveryId, phase },
+                    ],
+                  },
+                ],
+              },
+            ],
+          }),
+          binding,
+        ),
+        null,
+      );
+  }
+  const operationFact = {
+    kind: "operations",
+    recoveryIds: [recoveryId],
+    resultUnresolved: false,
+  };
+  for (const change of [
+    { phase: "executing" },
+    { outcome: null },
+    { outcome: { ...terminalOperation.outcome, cleanupConfirmed: false } },
+    { host: { ...terminalOperation.host, cleanup: "unknown" } },
+    {
+      host: {
+        ...terminalOperation.host,
+        pendingTransitionJson: `${JSON.stringify(transition)}\n`,
+      },
+    },
+    { lease: "unknown" },
+    { execution: { ...terminalOperation.execution, ownerEffect: "unknown" } },
+    {
+      dockerRestart: {
+        requestId: limitedRestartId,
+        scopeSha256: "f".repeat(64),
+        request: "issued",
+        cleanup: "unknown",
+        result: null,
+      },
+    },
+    {
+      resources: terminalOperation.resources.map((resource) =>
+        resource.purpose === "create_provider"
+          ? { ...resource, request: "unknown" }
+          : resource,
+      ),
+    },
+  ] satisfies readonly Partial<CoordinatorStateTaskOperation>[]) {
+    assert.deepEqual(
+      projectCoordinatorTaskSettlement(operationFact, {
+        ...confirmedHistory.snapshot,
+        operations: [{ ...terminalOperation, ...change }],
+      }),
+      { cleanupConfirmed: false, recoveryUnresolved: false },
+      JSON.stringify(change),
+    );
+  }
+  for (const id of [recoveryId, "unrelated-recovery"] as const) {
+    assert.deepEqual(
+      projectCoordinatorTaskSettlement(operationFact, {
+        ...confirmedHistory.snapshot,
+        unresolvedRecoveries: [
+          {
+            operationNonce: nonce,
+            recoveryId: id,
+            reason: "provider_operation_completed",
+            obligations: ["result_delivery"],
+          },
+        ],
+      }),
+      { cleanupConfirmed: true, recoveryUnresolved: false },
+    );
+  }
   const goldenTaskLine = `{"occurredAt":"2026-10-08T00:00:00.000Z","schema":"crdd-coordinator/history-row/v2","summary":{"execution":{"externalSend":"unknown","ownerEffect":"disabled","providerStart":"unknown","sharedWrite":"unknown","workspaceReusable":false},"hostCleanup":"confirmed","identitySha256":"${identitySha256}","lease":"released","operationId":"OP-123456","operationNonce":"${nonce}","outcome":{"cleanupConfirmed":true,"reason":"provider_operation_completed","status":"completed"},"primaryFailure":null,"recoveryId":"${recoveryId}","schema":"crdd-coordinator/operation-summary/v2"}}\n`;
   assert.equal(historyLine.toString("utf8"), goldenTaskLine);
   assert.equal(
@@ -4445,7 +5365,6 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
         recoveryId,
         resultId: "e".repeat(64),
         consumer: "orchestrator",
-        acceptanceSha256: "f".repeat(64),
       },
     ],
   };
@@ -4491,10 +5410,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
   );
   const references = {
     recovery: stopped.unresolvedRecoveries[0],
-    deliveries: stopped.pendingDeliveries.map((item) => ({
-      ...item,
-      acceptanceSha256: null,
-    })),
+    deliveries: stopped.pendingDeliveries,
   };
   const referencesBytes = prepareCoordinatorStateReferencesSnapshot(
     lifecycleBytes,
@@ -4520,12 +5436,20 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     lifecycleState.snapshot.operations,
   );
   assert.equal(
-    acceptedState?.snapshot.pendingDeliveries[0]?.acceptanceSha256,
-    "f".repeat(64),
+    acceptedState?.snapshot.pendingDeliveries.some((item) =>
+      Object.hasOwn(item, "acceptanceSha256"),
+    ),
+    false,
   );
   for (const invalid of [
     { recovery: null, deliveries: [] },
-    references,
+    {
+      ...references,
+      deliveries: references.deliveries.map((item) => ({
+        ...item,
+        acceptanceSha256: null,
+      })),
+    },
     {
       ...acceptedReferences,
       deliveries: acceptedReferences.deliveries.map((item) => ({

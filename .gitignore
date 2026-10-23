@@ -10,7 +10,6 @@
 # Active non-secret Domain Model repository identity, not execution history.
 !/.crdd/config/repository-manifest.json
 !/.crdd/config/external-send-policy.json
-!/.crdd/config/orchestrator.json
 !/.crdd/config/execution-intelligence.json
 !/.crdd/config/coordinator.json
 !/.crdd/config/mcp-server.json

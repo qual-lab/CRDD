@@ -15,6 +15,10 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import {
+  gitRepositoryRevisionAdapter,
+  observeRepositoryStorageIdentity,
+} from "../../src/repository/revision.ts";
 
 import {
   resolveVerifiedRepositoryRoot,
@@ -66,6 +70,59 @@ function repository(t: test.TestContext): string {
   git(root, ["commit", "-m", "baseline"]);
   return fs.realpathSync.native(root);
 }
+
+/**
+ * 保存先Identityと実行Commit観測を未Commitの実Gitで分離する。
+ * @responsibility 保存用APIがHEADを捏造せず、偽Capabilityと失効Rootを拒否することを確認する。
+ * @trace RFD-IT-001
+ * @precondition Repository内の自己生成試験領域とGitだけを使用する。
+ * @stimulus HEAD未作成、空Commit後、Git管理領域の退避後に同じCapabilityを観測する。
+ * @observation 論理・実体Identity、Revision観測の不存在、Root失効を確認する。
+ * @oracle 保存IdentityはCommit前後で同じだが、Commitなしを実行Revision成功へ変換しない。
+ * @cleanup 自己生成Rootを実体確認後に削除し、不存在を確認する。
+ * @boundary RFD-IT-001=Direct Boundary: 保存Identity観測→Git配置とFilesystem。
+ */
+test("保存Identityは未CommitのGitでも成立し実行Revisionを捏造しない", (t) => {
+  const parent = path.resolve(import.meta.dirname, "../../../../.crdd/tests");
+  fs.mkdirSync(parent, { recursive: true });
+  const root = fs.mkdtempSync(path.join(parent, "storage-identity-"));
+  t.after(() => {
+    assert.equal(path.dirname(root), parent);
+    assert.equal(fs.realpathSync.native(root), root);
+    fs.rmSync(root, { recursive: true, force: true });
+    assert.equal(fs.existsSync(root), false);
+  });
+  git(root, ["init", "--quiet"]);
+  const verified = verifyRepositoryRoot(root);
+  assert.equal(verified.status, "completed");
+  if (verified.status !== "completed") throw new Error("fixture");
+  const before = observeRepositoryStorageIdentity(verified.capability);
+  assert.ok(before);
+  assert.equal(Object.isFrozen(before), true);
+  assert.equal(Object.hasOwn(before, "revisionIdentity"), false);
+  assert.equal(gitRepositoryRevisionAdapter(root), null);
+  assert.equal(
+    observeRepositoryStorageIdentity({ ...verified.capability }),
+    null,
+  );
+  git(root, [
+    "-c",
+    "user.name=CRDD Test",
+    "-c",
+    "user.email=test@example.invalid",
+    "commit",
+    "--allow-empty",
+    "-m",
+    "synthetic",
+  ]);
+  assert.deepEqual(
+    observeRepositoryStorageIdentity(verified.capability),
+    before,
+  );
+  assert.ok(gitRepositoryRevisionAdapter(root));
+  fs.renameSync(path.join(root, ".git"), path.join(root, "retired-git"));
+  assert.equal(observeRepositoryStorageIdentity(verified.capability), null);
+});
 
 /**
  * exact and nested repository locations issue the same scoped capabilityを検証する。

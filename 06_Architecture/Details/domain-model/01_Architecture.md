@@ -431,7 +431,7 @@ CRDD Domain Library
 
 純粋な解析・意味変換は`node:fs`実装へ依存せず、Repositoryの観測結果または呼出し側が取得した内容を受け取る。統合Package内のCRUDと設定読取りは責務別のRepository／保存公開面を利用し、純粋Coreから暗黙に呼び出さない。Checker AdapterがDomainの構造化Issueを`CheckerFinding`へ変換し、RuleとPipelineが最終結果を構成する。
 
-`storage/bounded-file-snapshot.ts`は容量上限、開いた実体とPathの読取り前後の同一性を確認し、descriptorを終了する共通読取り部品である。Coordinator現在状態とOrchestrator保存はPackage Rootの宣言済み保存Symbolを利用する。読取り可能なPathを保存・回復Authorityへ昇格せず、Root選択と用途・内容の判定は各利用側が保持する。読取り上限超過、増減、同長の実体差替えと親Directory差替えを拒否し、書込みや状態遷移は所有しない。
+`storage/bounded-file-snapshot.ts`は容量上限、開いた実体とPathの読取り前後の同一性を確認し、descriptorを終了する共通読取り部品である。CoordinatorのTask・技術実行を統合した保存OwnerがPackage Rootの宣言済みSymbolを利用する。読取り可能なPathを保存・回復Authorityへ昇格せず、Root・用途・内容の判定は利用側が保持する。上限超過、増減、同長差替え、親Directory差替えを拒否し、部品自体は書込みや状態遷移を所有しない。
 
 ### 4.1. 認可済みContext／Portfolioの集約
 
@@ -548,7 +548,7 @@ MCPとWorkbenchの旧公開入口利用は移管対象である。新Packageへ�
 | `createTopicOperations`（内部の共通Repository／ApplicationからTopic操作だけを公開） | `src/index.ts`の該当Symbol | 選定・認可済みRootまたは同じ保存契約、対象ID、期待改訂、Relation／CRUD結果・Cursor付き一覧 | Workbench Server、MCP Server。Access Managementは認可済みBindingを供給 | 対象Repositoryだけに保存。誤登録削除は影響確認と明示承認が必要 |
 | `createMeetingOperations`、`MeetingOutcomeCommandResult` | `src/index.ts`の該当Symbol | 選定・認可済みRootまたは同じ保存契約、Meeting／Outcome、期待改訂／処置結果 | Workbench Server、MCP Server | 同一Repositoryの原子的次版。別Repository処置はAccess Managementの現在認可と利用側Routingが成立するまで発行しない |
 | `inspectRepositoryManifest`、`inspectCrosTrustPolicy` | `src/index.ts`の該当Symbol | 明示した宣言／検査結果 | CROS、Checker、各設定利用側 | 宣言の検証のみ。既存Schemaの移管をTrust Policy Framework採用と扱わない |
-| `readTaskHistoryConfig`、`readExecutionIntelligenceConfig` | `src/index.ts`の該当Symbol | 検証済みRootと当該Tool／検証済み設定Snapshot | Orchestrator、Execution Intelligence | 設定読取り。不存在だけ既定30日、不正・読取り不能は整理を停止 |
+| `readCoordinatorConfig`、`readExecutionIntelligenceConfig` | `src/index.ts`の該当Symbol | 検証済みRootと当該Tool／検証済み設定Snapshot | Coordinator、Execution Intelligence | 設定読取り。不存在だけ既定30日、不正・読取り不能は整理を停止。旧Orchestrator設定は探索しない |
 | `resolveRepositoryRuntimeDataPaths`、`observeRepositoryRuntimeDataArea` | `src/index.ts`の該当Symbol | 検証済みRoot／用途別Pathと境界観測 | Runtime各Owner、Execution Intelligence、診断 | 読取りだけ。`not_observed`と`blocked`を区別し、Rootを逆算しない |
 | `ensureRepositoryRuntimeDataArea`、`createCoordinatorRuntimeDataArea`、`createTemporaryOperation`／`resumeTemporaryOperation`／`settleTemporaryOperation` | `src/index.ts`の該当Symbol | 許可Root、用途、exact Identity／保存Capability・終了／回復結果 | Coordinator、Orchestrator、試験・署名準備 | 宣言用途だけ作成・回収。由来不明・使用中・観測不能ではEffect前停止 |
 
@@ -567,7 +567,7 @@ MCPとWorkbenchの旧公開入口利用は移管対象である。新Packageへ�
 | 3 | 保存部品が同じRootで排他、短命File生成、保存確定、読戻しを担当 | 最初の失敗と保存・cleanup結果を分け、不明を旧版・次版いずれかの成功へ丸めない |
 | 4 | 操作Ownerが次版の保存を確認して公開結果を返し、短命File・Handleを終了する | 応答喪失時の再入場は対象Identityと改訂を再観測。古い入力を盲目的に再適用しない |
 
-Source本文を読むだけの投影は書込み排他・作業Directoryを作らない。OrchestratorのQueue／判断／採用状態、Coordinatorの実行／回復状態は各Ownerの単一`state.json`へ保存し、Domain Modelへ中央の状態正本を新設しない。通常履歴のローテーション、候補の期限処置、署名準備の終了判断も各Ownerが行い、共通保存部品が用途を推測して削除しない。
+Source本文を読むだけの投影は書込み排他・作業Directoryを作らない。Task／Queue／判断／採用と技術実行／回復はCoordinatorの同じ`state.json`・Writer・短期Ownerへ統合し、通常終了要約は同領域の`history.jsonl`へ保存する。Execution Intelligenceは別の非Authorityな分析履歴であり、進行・回復の状態正本ではない。Domain Modelへ中央状態正本を追加せず、期限整理や成果物の寿命は各意味Ownerが判断する。共通保存部品は用途を推測して削除しない。
 
 Topic昇格とMeeting Outcome処置では、Markdownの純粋な変換不正だけを保存前の入力拒否へ変換する。保存契約の呼出し以降に発生した例外は入力不正や`filesystemEffectCount: 0`へ変換せず、同じ一次例外を利用側へ渡す。MCP／Workbenchも入力拒否と内部の保存失敗を区別し、秘密値や内部Pathを返さない。例外の伝播だけを保存・cleanup全体の成立根拠とはしない。
 

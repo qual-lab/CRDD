@@ -50,7 +50,7 @@ const expectedAreaConsumers = [
   "40_Develop/coordinator/scripts/verification-result-record.ts",
   "40_Develop/coordinator/src/execution/terminal-caller-checkpoint.ts",
   "40_Develop/coordinator/src/storage/current-state.ts",
-  "40_Develop/coordinator/src/storage/history.ts",
+  "40_Develop/coordinator/src/storage/settlement-store.ts",
   "40_Develop/execution-intelligence/src/storage/store.ts",
   "40_Develop/visual-preview/src/browser/verify.ts",
 ] as const;
@@ -82,7 +82,6 @@ const SEMANTIC_ROOT_LITERAL_OWNERS = new Set([
 ]);
 const ALLOWED_TOP_LEVEL_AREAS = new Set([
   "config",
-  "orchestrator",
   "coordinator",
   "execution-intelligence",
   "candidates",

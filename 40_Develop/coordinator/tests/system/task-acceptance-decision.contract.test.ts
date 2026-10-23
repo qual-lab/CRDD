@@ -39,6 +39,10 @@ import {
   initializeCoordinatorSnapshot,
 } from "../../src/storage/current-state.ts";
 import { createCoordinatorWindowsDecisionStoreTestingAdapter } from "../../src/storage/protected-decision.ts";
+import {
+  decodeCoordinatorUnifiedSnapshot,
+  encodeCoordinatorStateValue,
+} from "../../src/storage/model.ts";
 
 /**
  * Git管理された固定Repositoryを構築する。
@@ -482,27 +486,39 @@ test("Acceptance Decisionの前世代Hash改ざんを拒否する", (t) => {
   const statePath = path.join(
     repository.root,
     ".crdd",
-    "orchestrator",
+    "coordinator",
     "state.json",
   );
-  const saved = JSON.parse(fs.readFileSync(statePath, "utf8"));
-  const second = saved.payload.acceptanceDecisions.find(
+  const original = fs.readFileSync(statePath);
+  const saved = JSON.parse(original.toString("utf8"));
+  assert.ok(
+    decodeCoordinatorUnifiedSnapshot(original, saved.repositoryBinding),
+  );
+  const second = saved.acceptanceDecisions.find(
     (entry: { recordId: string; generation: number }) =>
       entry.recordId === prepared.recordId && entry.generation === 2,
   );
   assert.ok(second);
+  const previousHash = second.previousHash;
+  assert.notEqual(previousHash, "f".repeat(64));
   second.previousHash = "f".repeat(64);
-  saved.contentHash = createHash("sha256")
-    .update(JSON.stringify(saved.payload))
-    .digest("hex");
-  fs.writeFileSync(statePath, `${JSON.stringify(saved)}\n`, "utf8");
+  fs.writeFileSync(
+    statePath,
+    `${encodeCoordinatorStateValue(saved)}\n`,
+    "utf8",
+  );
   const before = fs.readFileSync(statePath);
   const observed = createCoordinatorSnapshotAcceptanceDecisionStore(
     repository.root,
     bindingId,
   ).read(prepared.recordId);
   assert.equal(observed.status, "blocked");
-  assert.equal(observed.reason, "orchestrator_snapshot_invalid_or_unconfirmed");
+  assert.equal(observed.reason, "coordinator_state_read_unconfirmed");
   assert.equal(observed.manualRecoveryRequired, true);
   assert.deepEqual(fs.readFileSync(statePath), before);
+  second.previousHash = previousHash;
+  assert.equal(
+    `${encodeCoordinatorStateValue(saved)}\n`,
+    original.toString("utf8"),
+  );
 });

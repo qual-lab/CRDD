@@ -19,6 +19,7 @@ import {
 import {
   inspectRepositoryFormat,
   observeRepositoryRevision,
+  observeRepositoryStorageIdentity,
 } from "../../../version-control/src/index.ts";
 import { verifyOwnedOperationManagementCapability } from "./operation.ts";
 
@@ -339,6 +340,53 @@ function deriveCoordinatorRepositoryStateBinding(
       "utf8",
     )
     .digest("hex");
+}
+
+/**
+ * 業務保存を現在Repositoryの実体へ結合する。
+ * @responsibility 保存Ownerに実行Commitを要求せず、Root・Git実体の再確認を提供する。
+ * @trace ARCH-000009
+ * @input rootCapability: 検証済みRoot。
+ * @returns 保存専用の内部結合、又はnull。
+ * @precondition 実行要求のRevision確認には使用しない。
+ * @postcondition 既存技術保存と同じ物理結合Hashを使う。
+ * @effect RootとGit実体の読取りだけ。
+ * @failure 未検証Root・実体変更・観測不能はnull。
+ * @invariant 不明なHEADを不存在や固定Revisionへ補完しない。
+ * @boundary 業務保存とVersion Control。
+ * @security Provider・回収Authorityを発行しない。
+ * @concurrency 短期保存Ownerが再確認を呼ぶ。
+ */
+export function borrowRuntimeOwnedCoordinatorStorageRepository(
+  rootCapability: unknown,
+) {
+  try {
+    const capability = rootCapability as VerifiedRepositoryRoot;
+    const repositoryRoot = resolveVerifiedRepositoryRoot(capability);
+    const observed = observeRepositoryStorageIdentity(capability);
+    if (!repositoryRoot || !observed) return null;
+    return Object.freeze({
+      repositoryRoot,
+      repositoryBinding: deriveCoordinatorRepositoryStateBinding(
+        repositoryRoot,
+        observed.repositoryIdentity,
+        observed.repositoryInstanceIdentity,
+      ),
+      revalidate: () => {
+        const fresh = observeRepositoryStorageIdentity(capability);
+        return (
+          resolveVerifiedRepositoryRoot(capability) === repositoryRoot &&
+          fresh !== null &&
+          fresh.repositoryForm === observed.repositoryForm &&
+          fresh.repositoryIdentity === observed.repositoryIdentity &&
+          fresh.repositoryInstanceIdentity ===
+            observed.repositoryInstanceIdentity
+        );
+      },
+    });
+  } catch {
+    return null;
+  }
 }
 
 /**

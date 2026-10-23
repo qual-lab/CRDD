@@ -14,7 +14,7 @@
 
 ### 保存ReaderのFile ID表現
 
-`storage/bounded-file-snapshot.ts`は、WindowsのNode BigInt statが返すinodeのうち`-2^63`以上・`-1`以下だけを、同じ64bit列の符号なし値へ正規化する。読取り前後のPathとdescriptorは同じ変換を使用し、IDそのものの比較を省略しない。ゼロ、型不正、下限逸脱、POSIXの負値、File型・link・dev・birthtime・容量・途中変更の拒否は維持する。既存の正値と保存済み記録は変更せず、新たな状態・移行Reader・排他を追加しない。Orchestratorの状態保存・再読はこのReaderへ接続する。
+`storage/bounded-file-snapshot.ts`は、WindowsのNode BigInt statが返すinodeのうち`-2^63`以上・`-1`以下だけを、同じ64bit列の符号なし値へ正規化する。読取り前後のPathとdescriptor、およびReaderの結果と生のstatを比較する保存Writerは同じ私有変換を使用し、IDそのものの比較を省略しない。ゼロ、型不正、下限逸脱、POSIXの負値、File型・link・dev・birthtime・容量・途中変更の拒否は維持する。既存の正値と保存済み記録は変更せず、新たな状態・移行Reader・排他を追加しない。Coordinatorの状態保存・再読はこのReaderと同一性比較へ接続する。
 
 ## 基本設計との関係
 
@@ -100,7 +100,7 @@ Related:
 
 ## 2. Repository-local構成と切替境界
 
-以下は現行の分散保存・移行元を含む構成である。Coordinator／Orchestratorの新しい共通配置は後述の縮小目標であり、両方を並行した正本として運用しない。その他の領域は各Ownerの現行契約に従う。
+以下は保存統合Bの配置契約である。Task進行と技術実行はCoordinatorの一つの現在状態・履歴へ保存し、旧Orchestrator領域を並行した正本として運用しない。実装・検証の現在地と旧記録の移行は変更計画で追跡する。
 
 凡例:
 
@@ -117,15 +117,12 @@ Related:
    │  ├─ repository-manifest.json             Project Identity、役割、Capability宣言
    │  └─ external-send-policy.json            外部送信の情報分類、送信先、条件
    │
-   ├─ orchestrator/                     [D/W] Project実行の状態と結果
-   │  ├─ state/                               現在状態と世代
-   │  ├─ queues/                              Task Queueと待機状態
-   │  ├─ results/                             Task・統合・採用の確定結果
-   │  ├─ decisions/                           人間判断待ちと確定した判断
-   │  ├─ recovery/                            Orchestrator固有の再入場情報
-   │  └─ work/                                未確定Transactionとrollback用作業物
-   │
-   ├─ coordinator/                         [D] Coordinator固有の回復接続
+   ├─ coordinator/                         [D/W] Task進行・技術実行の現在状態
+   │  ├─ state.json                           単一改訂の現在状態
+   │  ├─ state.lock                           保存中だけのmarker
+   │  ├─ state.pending.json                   保存中の候補
+   │  ├─ history.jsonl                        種別を持つ終了要約
+   │  ├─ history.pending.jsonl                履歴保存中の候補
    │  └─ recovery/host-terminal/               同じ非Authority参照と完全intentの再入場情報
    │
    ├─ execution-intelligence/              [D] Execution Intelligence
@@ -168,20 +165,20 @@ Related:
 
 <a id="compact-owner-layout"></a>
 
-### Coordinator／Orchestratorの縮小目標
+### Coordinatorへの単一保存統合
 
-以下のorchestrator名は②の保存切替基準を示す。今回の責務再編後の物理Ownerはorchestratorとし、現在Sourceを切替済みとは表示しない。
+以下の旧Orchestrator配置は移行前の基準を示す。保存統合Bの物理OwnerはCoordinatorとし、Task・Queue・Workspaceと技術実行を同じ現在状態・履歴へ接続する。下表は目標と移行担当の契約であり、B全体の回帰・独立レビュー完了を表示するものではない。
 
 | 基準配置 | 再編後の固定配置 | 移行担当と保持する意味 |
 |---|---|---|
-| `.crdd/orchestrator/` | `.crdd/orchestrator/` | フロントAIが旧受付・資源・未解決参照を確認し、新受付世代で初期化する。Runtimeへ旧Path探索を残さない。四Fileの保存・再入場保証は維持する。 |
-| `.crdd/config/orchestrator.json` | `.crdd/config/orchestrator.json` | 非秘密のTool別設定。保持日数の確認・値引継ぎと明示Git allowlist更新を行う。 |
-| orchestrator設定例・Schema | orchestrator設定例・Schema | 配布側と実Reader、Checker、回帰Runnerを同時更新する。別の共通期間設定へ統合しない。 |
-| `.crdd/coordinator/`、`.crdd/execution-intelligence/` | 同名を維持 | 下位実行、上位編成、実行知の現在状態・履歴Ownerを混同しない。 |
+| `.crdd/orchestrator/` | `.crdd/coordinator/` | フロントAIが旧受付・資源・未解決参照を確認し、新受付世代で初期化する。Runtimeへ旧Path探索を残さず、現在状態・要約履歴・短命保存物の再入場保証を維持する。 |
+| `.crdd/config/orchestrator.json` | `.crdd/config/coordinator.json` | フロントAIが保持日数を照合して引き継ぐ。両設定の値が異なる場合は人間判断へ戻し、Runtimeによる旧設定探索は行わない。 |
+| orchestrator設定例・Schema | coordinator設定例・Schema | Taskと技術履歴の同一Owner化へ追従し、旧Reader・配布例・Schemaを撤去する。Execution Intelligenceとは統合しない。 |
+| `.crdd/coordinator/`、`.crdd/execution-intelligence/` | 同名を維持 | Coordinatorは業務と技術実行の一つの保存Owner、Execution Intelligenceは非Authorityの分析履歴Ownerとし、正本を複製しない。 |
 
-最新のOrchestrator保存・設定契約は[詳細設計](../coordinator/04_Task_Detailed_Design.md#compact-runtime-storage)が所有する。以下の基準ツリーと旧設定名を新構成の配置指示として使用しない。配布例・Schema・実物の切替は段階5以降の対応対象である。
+最新の単一保存・設定契約は[詳細設計](../coordinator/04_Task_Detailed_Design.md#unified-storage-lifecycle)が所有する。移行前の基準ツリーと旧設定名を新構成の配置指示として使用しない。旧設定Reader・配布例・Schemaは撤去し、実設定は値の一致を確認してCoordinator設定へ一本化する。未解決の旧実行記録は設定整理に巻き込まない。
 
-Orchestratorは、このRepositoryで旧試験記録の清掃と新形式への初期化を実施した。Coordinatorおよびその他Ownerの残る物理切替は未実施である。実施範囲と保全対象は[実切替結果](../../../99_Roadmap/Changes/CHG-000082/Evidence/261005_project-runtime-phase2.md#29-repositoryの実切替結果)を参照し、両Ownerの切替完了へ拡張しない。
+以前のOrchestrator保存への切替結果は[歴史記録](../../../99_Roadmap/Changes/CHG-000082/Evidence/261005_project-runtime-phase2.md#29-repositoryの実切替結果)として維持し、保存統合Bの検証根拠へ流用しない。Bでは旧形式のRuntime変換を行わず、フロントAIが対象と未解決参照を確認して移行する。②の保持物は別判断まで移行・清掃の対象にしない。
 
 ```text
 .crdd/
@@ -189,12 +186,8 @@ Orchestratorは、このRepositoryで旧試験記録の清掃と新形式への�
 │  ├ state.json
 │  ├ state.lock
 │  ├ state.pending.json
-│  └ history.jsonl
-├ orchestrator/
-│  ├ state.json
-│  ├ state.lock
-│  ├ state.pending.json
-│  └ history.jsonl
+│  ├ history.jsonl
+│  └ history.pending.jsonl
 ├ candidates/<candidate-id>/  候補本体と由来
 └ tmp/<operation-id>/work/    再生成可能な一時作業
 ```
@@ -208,8 +201,7 @@ Orchestratorは、このRepositoryで旧試験記録の清掃と新形式への�
 | 領域 | 所有する情報 | 主な終了条件 |
 |---|---|---|
 | `config/` | Commit固定する非秘密のRepository宣言とPolicy | Repository設定の変更・削除がGitで確定する |
-| `orchestrator/` | Project実行の現在状態、Queue、結果、判断、固有Recovery | 各状態のsettlement、保持規則または明示Migrationが成立する |
-| `coordinator/` | Coordinator固有の非Authorityなcaller回復参照・完全intent | 終了・管理清掃は[Coordinatorのcaller接続](../coordinator/01_Architecture.md#限定保守のcaller接続と二回の短命処理)が所有する。未接続範囲はOPEN |
+| `coordinator/` | Task・Queue・Workspace、技術Operation、未解決義務、未受領結果、判断・統合の参照と終了要約 | [単一保存Lifecycle](../coordinator/04_Task_Detailed_Design.md#unified-storage-lifecycle)に従い、実終端・受領・履歴の確認後に現在項目を除く。別寿命のcaller接続は[既存契約](../coordinator/01_Architecture.md#限定保守のcaller接続と二回の短命処理)を維持する |
 | `execution-intelligence/` | 実行履歴、測定値、相関可能な診断情報 | 保持期間と未解決参照を確認して清掃できる。旧`execution/`の移行はフロントAIが行い、Runtime互換Readerを残さない |
 | `candidates/` | 未採用成果物、由来、現在の処置、Candidate固有Recovery | 採用、破棄または期限切れ処置とRecoveryが確定する |
 | `release/` | Release候補、Manifest、Gate Evidence、staging、Release固有Recovery | Promotion、破棄またはRecoveryが完了する |
@@ -360,7 +352,7 @@ Recovery記録は、状態遷移、再入場および解消を所有するCompon
 
 | Recovery対象 | 保存先 |
 |---|---|
-| Queue、Decision、Integration、Project State | `orchestrator/recovery/` |
+| Queue、Decision、Integration、Project State | `coordinator/state.json`内の既存の未解決区画・参照。専用Directoryを追加しない |
 | Candidate適用・rollback | `candidates/<candidate-id>/recovery/` |
 | Release staging、署名、Promotion | `release/<candidate-id>/recovery/` |
 | Docker、子Process、Host Resource | 対象を所有するPlatform／Runtimeの保護領域 |
@@ -483,13 +475,13 @@ Consumer集合は手書き一覧だけを正本としない。実Sourceからraw
 
 ## 履歴保持期間の設定
 
-責務再編後は、共通設定ReaderをDomain Modelの設定部品へ移管し、各履歴Ownerが自分の設定だけを利用する。新配置は`.crdd/config/orchestrator.json`、`.crdd/config/execution-intelligence.json`、`.crdd/config/coordinator.json`である。Coordinatorの現在状態・回復・終了要約の条件は[Coordinator詳細の縮小設計](../coordinator/01_Architecture.md#現在状態と履歴を分ける縮小設計)を正本とし、本節で再定義しない。以下のOrchestrator Reader名とPathは切替前の基準であり、新Runtimeへ旧設定探索を残す指示ではない。対応する配布例・SchemaもTool名に揃え、Source・設定実物の切替は段階5で行う。
+共通設定ReaderはDomain Modelの設定部品が所有し、各履歴Ownerが自分の設定だけを利用する。現在の配置は`.crdd/config/execution-intelligence.json`と`.crdd/config/coordinator.json`である。保存統合BではTaskと技術実行の履歴をCoordinatorの同一設定へ接続し、旧Orchestrator専用Reader・設定例・Schemaを撤去する。Coordinatorの現在状態・回復・終了要約の条件は[Coordinator詳細の縮小設計](../coordinator/01_Architecture.md#現在状態と履歴を分ける縮小設計)を正本とし、本節で再定義しない。
 
-履歴所有者が通常履歴を整理するときは、`readTaskHistoryConfig`、`readExecutionIntelligenceConfig`または`readCoordinatorConfig`から自分のTool設定を読み取る。Runtime Dataは設定の検証と読取りだけを所有し、記録の削除判断は各履歴所有者が行う。他Toolの設定は読取り条件にしない。
+履歴所有者が通常履歴を整理するときは、`readExecutionIntelligenceConfig`または`readCoordinatorConfig`から自分のTool設定を読み取る。Runtime Dataは設定の検証と読取りだけを所有し、記録の削除判断は各履歴所有者が行う。他Toolの設定は読取り条件にせず、旧`orchestrator.json`も探索しない。
 
 | 項目 | 契約 |
 |---|---|
-| 配置 | Repository-local `.crdd/config/`の`orchestrator.json`、`execution-intelligence.json`、`coordinator.json`。非秘密のTool別設定として明示allowlistでGit管理する。 |
+| 配置 | Repository-local `.crdd/config/`の`execution-intelligence.json`、`coordinator.json`。非秘密のTool別設定として明示allowlistでGit管理する。 |
 | 固定形式 | 各ファイルに`schemaRevision: 1`と`historyRetentionDays`を必須とする。未評価の設定項目を先回りして追加しない。 |
 | 既定 | 当該Toolの設定ファイルが存在しない場合だけ30日。他Toolの設定状態に依存しない。 |
 | 指定値 | ミリ秒へ安全に変換できる正の整数日数。所有者別に指定する。 |
@@ -497,7 +489,7 @@ Consumer集合は手書き一覧だけを正本としない。実Sourceからraw
 | 保護範囲 | 未解決の回復義務、実行中の状態、Candidate、秘密情報および正式Evidenceを通常履歴の期間で削除しない。 |
 | 変更時 | 一回の整理処理は一つの設定Snapshotを用いる。過去の終了判断に必要な保持期間はOrchestrator側が判断時の記録へ固定し、後の設定変更で過去の根拠を書き換えない。 |
 
-設定例は`template/.crdd/config/`の`orchestrator.example.json`、`execution-intelligence.example.json`、`coordinator.example.json`、Schemaは`template/tools/schemas/`の各Tool名に対応する`*-config-schema.json`で提供する。設定を自動作成せず、不存在だけを既定値の適用根拠とする。共通の期間設定ファイルや旧形式Readerは追加しない。Coordinator設定Readerの提供は履歴Writer・終了整理の本番接続完了を意味しない。
+設定例は`template/.crdd/config/`の`execution-intelligence.example.json`、`coordinator.example.json`、Schemaは`template/tools/schemas/`の各Tool名に対応する`*-config-schema.json`で提供する。設定を自動作成せず、不存在だけを既定値の適用根拠とする。共通の期間設定ファイルや旧形式Readerは追加しない。移行時はフロントAIが旧設定値を新設定へ照合し、現在状態・未解決参照とは分けて処置する。設定Readerの提供だけを、保存統合Bの全体完成とは扱わない。
 
 ### 設定の配置と管理境界
 

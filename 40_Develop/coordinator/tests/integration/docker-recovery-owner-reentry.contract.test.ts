@@ -2759,7 +2759,7 @@ for (const { repeatCount, retained } of [
         );
       assert.ok(binding && otherBinding);
       const initial = Buffer.from(
-        `${stateModel.encodeCoordinatorStateValue({ schema: stateModel.COORDINATOR_STATE_SCHEMA, revision: 1, previous: null, repositoryBinding: binding.repositoryBinding, operations: [], unresolvedRecoveries: [], pendingDeliveries: [] })}\n`,
+        `${stateModel.encodeCoordinatorStateValue({ schema: stateModel.COORDINATOR_STATE_SCHEMA, revision: 1, repositoryBindingId: null, intakeEpoch: null, intakeBindings: [], projects: [], workspaces: [], queueEntries: [], leaseEvidence: [], leaseIntents: [], results: [], historyPending: [], acceptanceDecisions: [], decisionRecoveries: [], resultReceipts: [], previous: null, repositoryBinding: binding.repositoryBinding, operations: [], unresolvedRecoveries: [], pendingDeliveries: [] })}\n`,
       );
       if (repeatCount === 2) {
         assert.equal(
@@ -3734,14 +3734,6 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
   let lifecycleLockReleased = true;
   let isProjectDelivery = false;
   let resultReadLockReleased = true;
-  let acceptanceConfirmed = true;
-  let acceptanceLockReleased = true;
-  let upperAcceptancePresent = false;
-  let deliveryCompletionFails = false;
-  let acceptanceCalls = 0;
-  let deliveryCompletionCalls = 0;
-  let acceptanceReaderCalls = 0;
-  let boundReader: unknown = null;
   const projectResult = Object.freeze({
     repositoryBinding: hash,
     operationId: "upper-operation",
@@ -3749,22 +3741,6 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
     resultId: "b".repeat(64),
     consumer: "orchestrator",
   });
-  /**
-   * 上位受領の有無を切り替え、Reader呼出し数を観測する。
-   *
-   * @responsibility 受領済みのfixtureだけを返し、未受領時はnullを返す。
-   * @trace ERB-IT-003
-   * @precondition upperAcceptancePresentと固定projectResultを用意する。
-   * @stimulus 同じ終了OwnerへReaderを渡し受領有無を切り替える。
-   * @observation acceptanceReaderCallsとprojectResultまたはnullを取得する。
-   * @oracle 未受領を受領済みと扱わず元結果だけで終了処理が進む。
-   * @cleanup finallyでModule差替えを復元する。外部資源は生成しない。
-   * @boundary 本番終了Ownerと模擬上位受領ReaderのProcess内境界。
-   */
-  const projectReader = () => {
-    acceptanceReaderCalls++;
-    return upperAcceptancePresent ? projectResult : null;
-  };
   const hostSubmission = await import("../../src/execution/host-submission.ts");
   const mocks = [
     mock.module(
@@ -3973,55 +3949,6 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
               status: "completed",
               lockReleased: resultReadLockReleased,
               value: projectResult,
-            };
-          },
-          bindRuntimeOwnedCoordinatorProjectAcceptanceReader: (
-            receivedContext: unknown,
-            recoveryId: unknown,
-            reader: unknown,
-          ) => {
-            assert.equal(receivedContext, context);
-            assert.equal(recoveryId, "exact-id");
-            if (
-              reader !== projectReader ||
-              (boundReader && boundReader !== reader)
-            )
-              return false;
-            boundReader = reader;
-            return true;
-          },
-          acceptRuntimeOwnedCoordinatorProjectResult: (
-            receivedContext: unknown,
-            host: unknown,
-            docker: unknown,
-          ) => {
-            assert.equal(receivedContext, context);
-            assert.equal(host, cleanup);
-            assert.equal(docker, completion);
-            acceptanceCalls++;
-            return {
-              status: projectReader() ? "completed" : "blocked",
-              snapshotConfirmed: acceptanceConfirmed,
-              lockReleased: acceptanceLockReleased,
-              filesystemEffectIssued: true,
-            };
-          },
-          completeRuntimeOwnedCoordinatorSettlement: (
-            receivedContext: unknown,
-            host: unknown,
-            docker: unknown,
-          ) => {
-            assert.equal(receivedContext, context);
-            assert.equal(host, cleanup);
-            assert.equal(docker, completion);
-            deliveryCompletionCalls++;
-            const confirmed =
-              !deliveryCompletionFails && projectReader() !== null;
-            return {
-              status: confirmed ? "completed" : "blocked",
-              snapshotConfirmed: confirmed,
-              lockReleased: true,
-              filesystemEffectIssued: true,
             };
           },
           checkpointRuntimeOwnedCoordinatorLifecycle: (
@@ -4375,13 +4302,6 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
       runtime.readRuntimeOwnedDockerProjectResult(capability).status,
       "blocked",
     );
-    assert.equal(
-      runtime.completeRuntimeOwnedDockerProjectResultDelivery(
-        capability,
-        projectReader,
-      ).status,
-      "blocked",
-    );
     driverFails = false;
     assert.equal(
       runtime.finalizeRuntimeOwnedDockerRecovery(capability).status,
@@ -4447,83 +4367,10 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
       runtime.readRuntimeOwnedDockerProjectResult(projectCapability).value,
       projectResult,
     );
-    for (const reader of [null, {}, () => projectResult])
-      assert.equal(
-        runtime.completeRuntimeOwnedDockerProjectResultDelivery(
-          projectCapability,
-          reader,
-        ).status,
-        "blocked",
-      );
-    assert.equal(acceptanceCalls, 0);
     assert.equal(
-      runtime.completeRuntimeOwnedDockerProjectResultDelivery(
-        projectCapability,
-        projectReader,
-      ).status,
-      "blocked",
-    );
-    assert.equal(deliveryCompletionCalls, 0);
-    upperAcceptancePresent = true;
-    for (const missing of ["confirmation", "lock"]) {
-      acceptanceConfirmed = missing !== "confirmation";
-      acceptanceLockReleased = missing !== "lock";
-      const unconfirmed =
-        runtime.completeRuntimeOwnedDockerProjectResultDelivery(
-          projectCapability,
-          projectReader,
-        );
-      assert.equal(unconfirmed.status, "blocked");
-      assert.equal(unconfirmed.filesystemEffectIssued, true);
-      assert.equal(deliveryCompletionCalls, 0);
-    }
-    acceptanceConfirmed = true;
-    acceptanceLockReleased = true;
-    deliveryCompletionFails = true;
-    assert.equal(
-      runtime.completeRuntimeOwnedDockerProjectResultDelivery(
-        projectCapability,
-        projectReader,
-      ).status,
-      "blocked",
-    );
-    const acceptedCalls = acceptanceCalls;
-    deliveryCompletionFails = false;
-    assert.equal(
-      runtime.completeRuntimeOwnedDockerProjectResultDelivery(
-        projectCapability,
-        projectReader,
-      ).status,
-      "completed",
-    );
-    assert.equal(acceptanceCalls, acceptedCalls);
-    const completedCalls = deliveryCompletionCalls;
-    const readsBeforeReplay = acceptanceReaderCalls;
-    upperAcceptancePresent = false;
-    assert.equal(
-      runtime.completeRuntimeOwnedDockerProjectResultDelivery(
-        projectCapability,
-        projectReader,
-      ).status,
-      "blocked",
-    );
-    assert.equal(deliveryCompletionCalls, completedCalls + 1);
-    assert.equal(acceptanceReaderCalls, readsBeforeReplay + 1);
-    assert.equal(acceptanceCalls, acceptedCalls);
-    upperAcceptancePresent = true;
-    assert.equal(
-      runtime.completeRuntimeOwnedDockerProjectResultDelivery(
-        projectCapability,
-        projectReader,
-      ).status,
-      "completed",
-    );
-    assert.equal(
-      runtime.completeRuntimeOwnedDockerProjectResultDelivery(
-        projectCapability,
-        () => projectResult,
-      ).status,
-      "blocked",
+      Object.hasOwn(runtime, "completeRuntimeOwnedDockerProjectResultDelivery"),
+      false,
+      "元Ownerは結果参照を返すだけで、上位保存後の二段ACKを持たない",
     );
     isProjectDelivery = false;
     for (const failure of ["save", "context", "host"]) {

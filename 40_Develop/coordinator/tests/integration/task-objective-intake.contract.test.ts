@@ -34,16 +34,21 @@ import {
   readProjectOperationQueueState,
   readCoordinatorState,
   selectNextProjectOperation,
-  settleProjectOperationQueueRecovery,
   updateProjectOperationQueueState,
   writeCoordinatorState,
 } from "../fixtures/task-persistence-fixture.ts";
+import {
+  registerSyntheticOperations,
+  settleSyntheticOperation,
+} from "../fixtures/task-result-fixture.ts";
 import { initializeCoordinatorSnapshot } from "../../src/storage/current-state.ts";
+import { encodeCoordinatorStateValue } from "../../src/storage/model.ts";
 import {
   inspectCoordinatorObjectiveRequest,
   runCoordinatorObjective as runCoordinatorObjectiveWithPorts,
 } from "../../src/objective/intake-dependencies.ts";
 import {
+  acknowledgeProjectDockerRecoveryObligation,
   markProjectTaskRecoveryObligationRecovering,
   type CoordinatorSingleTaskAttemptInput,
   type CoordinatorSingleTaskResult,
@@ -128,33 +133,37 @@ function runCoordinatorObjective(
  * @cleanup N/A: 実行資源を作らない。
  * @boundary PRL-IT-005=Mock Boundary: 本番結果投影の代替。
  */
-const dockerAcknowledgement = (identity: {
-  operationId: string;
-  recoveryId: string;
-}) =>
-  Object.freeze({
-    repositoryBinding: "1".repeat(64),
-    resultId: "5".repeat(64),
+function dockerAcknowledgement(
+  root: string,
+  identity: {
+    operationId: string;
+    recoveryId: string;
+  },
+) {
+  const state = JSON.parse(
+    fs.readFileSync(
+      path.join(root, ".crdd", "coordinator", "state.json"),
+      "utf8",
+    ),
+  );
+  const delivery = state.pendingDeliveries.find(
+    (item: { recoveryId: string }) => item.recoveryId === identity.recoveryId,
+  );
+  assert.ok(delivery);
+  const operation = state.operations.find(
+    (item: { recoveryId: string }) => item.recoveryId === identity.recoveryId,
+  );
+  assert.ok(operation);
+  const source = JSON.parse(operation.identityJson);
+  assert.equal(source.recoveryCorrelationId, identity.operationId);
+  return Object.freeze({
+    repositoryBinding: state.repositoryBinding as string,
+    resultId: delivery.resultId as string,
     operationId: identity.operationId,
     recoveryId: identity.recoveryId,
     consumer: "orchestrator" as const,
   });
-/**
- * finalizedAcknowledgementのTest準備責務を実行する。
- *
- * @responsibility finalizedAcknowledgementがTest Caseへ渡す前提状態または観測値を決定論的に構築する。
- * @trace PRL-IT-005
- * @precondition 呼出し元Test Caseが必要な入力を渡す。
- * @stimulus finalizedAcknowledgementを呼び出す。
- * @observation 返却値、生成fixtureまたは観測値を取得する。
- * @oracle 呼出し元Test Caseが期待条件を判定できる形で結果を返す。
- * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
- * @boundary PRL-IT-005=Direct Boundary: coordinator Test Source→対象契約
- */
-const finalizedAcknowledgement = () => ({
-  status: "completed" as const,
-  reason: "acknowledgement_collected",
-});
+}
 /**
  * rootのTest準備責務を実行する。
  *
@@ -670,7 +679,7 @@ test("public Objective re-entry reconciles a pre-publication owner loss before e
 test("public Objective re-entry preserves malformed snapshot without inventing a recovery identity", async (t) => {
   for (const count of [1, 2]) {
     const workingDirectory = root(t);
-    const locks = path.join(workingDirectory, ".crdd", "orchestrator");
+    const locks = path.join(workingDirectory, ".crdd", "coordinator");
     fs.mkdirSync(locks, { recursive: true });
     const createdItems = Array.from({ length: count }, (_unused, index) =>
       path.join(locks, index === 0 ? "state.json" : "state.pending.json"),
@@ -771,16 +780,17 @@ test("public Objective classifies foreign, missing, and mismatched acquisition q
       const record = path.join(
         workingDirectory,
         ".crdd",
-        "orchestrator",
+        "coordinator",
         "state.json",
       );
       const envelope = JSON.parse(fs.readFileSync(record, "utf8"));
-      if (scenario === "missing-queue") envelope.payload.queueEntries = [];
-      else envelope.payload.queueEntries[0].projectId = "project-unbound";
-      envelope.contentHash = createHash("sha256")
-        .update(JSON.stringify(envelope.payload))
-        .digest("hex");
-      fs.writeFileSync(record, `${JSON.stringify(envelope)}\n`, "utf8");
+      if (scenario === "missing-queue") envelope.queueEntries = [];
+      else envelope.queueEntries[0].projectId = "project-unbound";
+      fs.writeFileSync(
+        record,
+        `${encodeCoordinatorStateValue(envelope)}\n`,
+        "utf8",
+      );
     }
     const before = runtimeSnapshot(workingDirectory);
     let effects = 0;
@@ -836,10 +846,7 @@ test("public Objective classifies foreign, missing, and mismatched acquisition q
       );
     } else {
       assert.deepEqual(result.recoveryIds, []);
-      assert.equal(
-        result.reason,
-        "orchestrator_snapshot_invalid_or_unconfirmed",
-      );
+      assert.equal(result.reason, "coordinator_state_read_unconfirmed");
     }
     assert.equal(effects, 0, scenario);
     assert.deepEqual(runtimeSnapshot(workingDirectory), before, scenario);
@@ -1176,15 +1183,14 @@ test("async recovery interruption does not settle or acknowledge", async (t) => 
     "state_change",
     "queue_change",
     "before_ack",
-    "before_finalize",
+    "after_receipt",
   ] as const) {
     await t.test(scenario, async (t) => {
       const workingDirectory = root(t);
       const cancellation = new AbortController();
-      const recoveryId = `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`;
+      let recoveryId = "";
       let attempts = 0;
       let acknowledgements = 0;
-      let finalizations = 0;
       let recoveries = 0;
       let enter: (() => void) | undefined;
       let resolvePending:
@@ -1248,17 +1254,16 @@ test("async recovery interruption does not settle or acknowledge", async (t) => 
           recoveryId: string;
         }) => {
           acknowledgements += 1;
-          if (scenario === "before_finalize")
+          if (scenario === "after_receipt")
             return {
               status: "completed",
               reason: "acknowledged",
-              acknowledgement: dockerAcknowledgement(settlement),
+              acknowledgement: dockerAcknowledgement(
+                workingDirectory,
+                settlement,
+              ),
             };
           throw new Error("unexpected_acknowledgement");
-        },
-        finalizeTaskRecoveryAcknowledgement: () => {
-          finalizations += 1;
-          throw new Error("unexpected_finalization");
         },
         observeRecoveryTransition: async (event: {
           phase: string;
@@ -1267,8 +1272,7 @@ test("async recovery interruption does not settle or acknowledge", async (t) => 
           if (
             event.recoveryId === recoveryId &&
             ((scenario === "before_ack" && event.phase === "settled") ||
-              (scenario === "before_finalize" &&
-                event.phase === "acknowledged"))
+              (scenario === "after_receipt" && event.phase === "acknowledged"))
           )
             cancellation.abort();
         },
@@ -1277,8 +1281,15 @@ test("async recovery interruption does not settle or acknowledge", async (t) => 
             input: Parameters<typeof completed>[0],
           ) => {
             attempts += 1;
+            const result = await completed(input);
+            recoveryId =
+              registerSyntheticOperations(
+                workingDirectory,
+                input.operationId,
+                1,
+              )[0]?.recoveryId ?? assert.fail("synthetic_operation_missing");
             return {
-              ...(await completed(input)),
+              ...result,
               status: "blocked" as const,
               reason: "docker_cleanup_unknown",
               effectState: "unknown" as const,
@@ -1297,7 +1308,7 @@ test("async recovery interruption does not settle or acknowledge", async (t) => 
         cancellation.signal,
       );
       assert.equal(first.reason, "orchestrator_task_recovery_required");
-      if (scenario === "before_ack" || scenario === "before_finalize")
+      if (scenario === "before_ack" || scenario === "after_receipt")
         settleRuntimeProcessAsFreshProcess(
           workingDirectory,
           "binding-a",
@@ -1308,7 +1319,12 @@ test("async recovery interruption does not settle or acknowledge", async (t) => 
         request({ maximumReplans: 0 }),
         cancellation.signal,
       );
-      await entered;
+      await Promise.race([
+        entered,
+        resumed.then((result) => {
+          throw new Error(`recovery_not_entered:${JSON.stringify(result)}`);
+        }),
+      ]);
       assert.equal(recoveries, 1);
       assert.equal(attempts, 1);
       assert.equal(acknowledgements, 0);
@@ -1322,7 +1338,7 @@ test("async recovery interruption does not settle or acknowledge", async (t) => 
       const obligation = before.value.tasks[0]?.recoveryObligations.find(
         (item) => item.recoveryId === recoveryId,
       );
-      assert.equal(obligation?.phase, "recovering");
+      assert.equal(obligation?.phase, "required");
       let expected = before.value;
       if (scenario === "state_change") {
         expected = { ...before.value, generation: before.value.generation + 1 };
@@ -1366,28 +1382,28 @@ test("async recovery interruption does not settle or acknowledge", async (t) => 
       if (scenario === "cancel") cancellation.abort();
       if (scenario === "reject")
         rejectPending(new Error("fixture_recovery_rejected"));
-      else resolvePending(intakeDockerRecoveryReady(recoveryId));
+      else {
+        settleSyntheticOperation(workingDirectory, recoveryId);
+        resolvePending(intakeDockerRecoveryReady(recoveryId));
+      }
       const result = await resumed;
       assert.equal(result.status, "blocked");
       assert.equal(
         result.reason,
         scenario === "before_ack"
           ? "orchestrator_task_recovery_acknowledgement_not_settled"
-          : scenario === "before_finalize"
-            ? "orchestrator_task_recovery_acknowledgement_gc_not_settled"
-            : "orchestrator_task_recovery_not_settled",
+          : "orchestrator_task_recovery_not_settled",
       );
       assert.ok(result.recoveryIds.includes(recoveryId));
       assert.equal(recoveries, 1);
       assert.equal(attempts, 1);
-      assert.equal(acknowledgements, scenario === "before_finalize" ? 1 : 0);
-      assert.equal(finalizations, 0);
+      assert.equal(acknowledgements, scenario === "after_receipt" ? 1 : 0);
       const after = readCoordinatorState(
         workingDirectory,
         "binding-a",
         "project-a",
       ).value;
-      if (scenario === "before_ack" || scenario === "before_finalize") {
+      if (scenario === "before_ack" || scenario === "after_receipt") {
         assert.equal(cancellation.signal.aborted, true);
         const remaining = after?.tasks[0]?.recoveryObligations.find(
           (item) => item.recoveryId === recoveryId,
@@ -1396,9 +1412,32 @@ test("async recovery interruption does not settle or acknowledge", async (t) => 
           remaining?.phase,
           scenario === "before_ack" ? "settled" : "acknowledged",
         );
-        if (scenario === "before_finalize")
-          assert.ok(remaining?.acknowledgement);
-      } else assert.deepEqual(after, expected);
+        if (scenario === "after_receipt") assert.ok(remaining?.acknowledgement);
+      } else
+        assert.deepEqual(after, {
+          ...expected,
+          tasks: expected.tasks.map((task) => ({
+            ...task,
+            cleanupConfirmed:
+              scenario === "reject" ? task.cleanupConfirmed : true,
+            recoveryObligations: task.recoveryObligations.map((item) =>
+              item.recoveryId === recoveryId && scenario !== "reject"
+                ? { ...item, phase: "settled" }
+                : item,
+            ),
+          })),
+        });
+      if (scenario === "after_receipt") {
+        const physical = JSON.parse(
+          fs.readFileSync(
+            path.join(workingDirectory, ".crdd", "coordinator", "state.json"),
+            "utf8",
+          ),
+        );
+        assert.equal(physical.operations.length, 0);
+        assert.equal(physical.pendingDeliveries.length, 0);
+        assert.equal(physical.resultReceipts.length, 1);
+      }
       assert.deepEqual(
         readProjectOperationQueueState(workingDirectory, "binding-a", queueId)
           .value,
@@ -1423,7 +1462,7 @@ test("async recovery interruption does not settle or acknowledge", async (t) => 
 test("exact Runtime-owned recovery settles and retries without client recovery authority", async (t) => {
   const workingDirectory = root(t);
   const recoverySignal = new AbortController().signal;
-  const recoveryId = `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`;
+  let recoveryId = "";
   let attempts = 0;
   let recoveries = 0;
   let acknowledgements = 0;
@@ -1466,6 +1505,7 @@ test("exact Runtime-owned recovery settles and retries without client recovery a
       assert.equal(exact, recoveryId);
       assert.equal(signal, recoverySignal);
       await new Promise<void>((resolve) => setImmediate(resolve));
+      settleSyntheticOperation(workingDirectory, exact);
       return intakeDockerRecoveryReady(exact);
     },
     acknowledgeTaskRecovery: (settlement: {
@@ -1533,65 +1573,11 @@ test("exact Runtime-owned recovery settles and retries without client recovery a
         : {
             status: "completed",
             reason: "acknowledged",
-            acknowledgement: dockerAcknowledgement(settlement),
+            acknowledgement: dockerAcknowledgement(
+              workingDirectory,
+              settlement,
+            ),
           };
-    },
-    finalizeTaskRecoveryAcknowledgement: (settlement: { taskId: string }) => {
-      const stored = readCoordinatorState(
-        workingDirectory,
-        "binding-a",
-        "project-a",
-      );
-      assert.equal(stored.status, "completed");
-      assert.ok(stored.value);
-      const state = stored.value;
-      const target = state.tasks.find(
-        (item) => item.definition.id === settlement.taskId,
-      );
-      const accepted = target?.recoveryObligations.find(
-        (item) => item.kind === "docker",
-      )?.acknowledgement;
-      assert.ok(accepted);
-      for (const invalid of [
-        { ...accepted, projectId: "other-project" },
-        { ...accepted, milestoneId: "other-milestone" },
-        { ...accepted, taskId: "other-task" },
-        { ...accepted, settlementGeneration: state.generation + 2 },
-        { ...accepted, runtimeStateBinding: "legacy" },
-      ]) {
-        const candidate = {
-          ...state,
-          generation: state.generation + 1,
-          tasks: state.tasks.map((task) =>
-            task.definition.id === settlement.taskId
-              ? {
-                  ...task,
-                  recoveryObligations: task.recoveryObligations.map((item) =>
-                    item.kind === "docker"
-                      ? {
-                          ...item,
-                          acknowledgement: invalid,
-                        }
-                      : item,
-                  ),
-                }
-              : task,
-          ),
-        };
-        const rejected = writeCoordinatorState(
-          workingDirectory,
-          "binding-a",
-          candidate,
-          state.generation,
-        );
-        assert.equal(rejected.status, "blocked");
-        assert.deepEqual(
-          readCoordinatorState(workingDirectory, "binding-a", "project-a")
-            .value,
-          state,
-        );
-      }
-      return finalizedAcknowledgement();
     },
     observeRecoveryTransition: async () => {
       recoveryObservationAttempts += 1;
@@ -1600,9 +1586,17 @@ test("exact Runtime-owned recovery settles and retries without client recovery a
     execution: {
       runSingleTaskAttempt: async (input: Parameters<typeof completed>[0]) => {
         attempts += 1;
+        const result = await completed(input);
+        if (attempts === 1)
+          recoveryId =
+            registerSyntheticOperations(
+              workingDirectory,
+              input.operationId,
+              1,
+            )[0]?.recoveryId ?? assert.fail("synthetic_operation_missing");
         return attempts === 1
           ? {
-              ...(await completed(input)),
+              ...result,
               status: "blocked" as const,
               reason: "docker_cleanup_unknown",
               effectState: "unknown" as const,
@@ -1612,7 +1606,7 @@ test("exact Runtime-owned recovery settles and retries without client recovery a
               recoveryObligations: [{ kind: "docker" as const, recoveryId }],
               candidateId: null,
             }
-          : completed(input);
+          : result;
       },
     },
   };
@@ -1809,8 +1803,8 @@ test("混在RecoveryはDockerをsettleして外部義務を型付きで返す", 
   for (const isFirstRecoveryBlocked of [false, true]) {
     const workingDirectory = root(t);
     const hostRecoveryId = `host-task.${"a".repeat(64)}`;
-    const dockerRecoveryId = `docker-task.${"b".repeat(64)}.${"c".repeat(64)}.${"d".repeat(64)}`;
-    const secondDockerRecoveryId = `docker-task.${"e".repeat(64)}.${"f".repeat(64)}.${"1".repeat(64)}`;
+    let dockerRecoveryId = "";
+    let secondDockerRecoveryId = "";
     const recoveryCalls: string[] = [];
     const acknowledgementIds: string[] = [];
     let attempts = 0;
@@ -1860,6 +1854,7 @@ test("混在RecoveryはDockerをsettleして外部義務を型付きで返す", 
             manualRecoveryRequired: true,
           };
         }
+        settleSyntheticOperation(workingDirectory, recoveryId);
         return intakeDockerRecoveryReady(recoveryId);
       },
       acknowledgeTaskRecovery: (identity: {
@@ -1870,17 +1865,27 @@ test("混在RecoveryはDockerをsettleして外部義務を型付きで返す", 
         return {
           status: "completed",
           reason: "acknowledged",
-          acknowledgement: dockerAcknowledgement(identity),
+          acknowledgement: dockerAcknowledgement(workingDirectory, identity),
         };
       },
-      finalizeTaskRecoveryAcknowledgement: finalizedAcknowledgement,
       execution: {
         runSingleTaskAttempt: async (
           input: CoordinatorSingleTaskAttemptInput,
         ) => {
           attempts += 1;
+          const result = await completed(input);
+          const references = registerSyntheticOperations(
+            workingDirectory,
+            input.operationId,
+          );
+          dockerRecoveryId =
+            references[0]?.recoveryId ??
+            assert.fail("synthetic_operation_missing");
+          secondDockerRecoveryId =
+            references[1]?.recoveryId ??
+            assert.fail("synthetic_operation_missing");
           return {
-            ...(await completed(input)),
+            ...result,
             status: "blocked" as const,
             reason: "host_cleanup_unknown",
             effectState: "unknown" as const,
@@ -2144,9 +2149,9 @@ test("owner lossはAuthority発行前の予約をEffect 0で戻して同じObjec
 });
 
 for (const interruption of [
-  "recovering_only",
-  "item_only",
-  "item_and_queue",
+  "recovery_not_started",
+  "technical_settled",
+  "receipt_committed",
 ] as const) {
   /**
    * exact Recovery settlement resumes after ${interruption} durable interruption without replayを検証する。
@@ -2162,7 +2167,7 @@ for (const interruption of [
    */
   test(`exact Recovery settlement resumes after ${interruption} durable interruption without replay`, async (t) => {
     const workingDirectory = root(t);
-    const recoveryId = `docker-task.${"d".repeat(64)}.${"e".repeat(64)}.${"f".repeat(64)}`;
+    let recoveryId = "";
     let attempts = 0;
     let recoveries = 0;
     const dependencies = {
@@ -2200,8 +2205,9 @@ for (const interruption of [
       observeLeaseOwner: () => ({ status: "absent" }),
       recoverTaskRecovery: (recoveryId: string) => {
         recoveries += 1;
-        if (interruption !== "recovering_only")
+        if (interruption !== "recovery_not_started")
           throw new Error("recovery_effect_must_not_replay");
+        settleSyntheticOperation(workingDirectory, recoveryId);
         return intakeDockerRecoveryReady(recoveryId);
       },
       acknowledgeTaskRecovery: (identity: {
@@ -2210,17 +2216,24 @@ for (const interruption of [
       }) => ({
         status: "completed",
         reason: "acknowledged",
-        acknowledgement: dockerAcknowledgement(identity),
+        acknowledgement: dockerAcknowledgement(workingDirectory, identity),
       }),
-      finalizeTaskRecoveryAcknowledgement: finalizedAcknowledgement,
       execution: {
         runSingleTaskAttempt: async (
           input: Parameters<typeof completed>[0],
         ) => {
           attempts += 1;
+          const result = await completed(input);
+          if (attempts === 1)
+            recoveryId =
+              registerSyntheticOperations(
+                workingDirectory,
+                input.operationId,
+                1,
+              )[0]?.recoveryId ?? assert.fail("synthetic_operation_missing");
           return attempts === 1
             ? {
-                ...(await completed(input)),
+                ...result,
                 status: "blocked" as const,
                 reason: "docker_cleanup_unknown",
                 effectState: "unknown" as const,
@@ -2230,7 +2243,7 @@ for (const interruption of [
                 recoveryObligations: [{ kind: "docker" as const, recoveryId }],
                 candidateId: null,
               }
-            : completed(input);
+            : result;
         },
       },
     };
@@ -2254,63 +2267,59 @@ for (const interruption of [
     assert.equal(stateBefore.status, "completed");
     assert.ok(queueBefore.value?.resultReference);
     assert.ok(stateBefore.value);
-    const durableState = stateBefore.value;
-    const recovering = markProjectTaskRecoveryObligationRecovering(
-      durableState,
-      durableState.generation,
-      "task-a",
-      "docker",
-      recoveryId,
-    );
-    assert.equal(recovering.status, "completed");
-    assert.ok(recovering.state);
-    const recoveringWrite = writeCoordinatorState(
-      workingDirectory,
-      "binding-a",
-      recovering.state,
-      durableState.generation,
-    );
-    assert.equal(recoveringWrite.status, "completed");
-    if (interruption !== "recovering_only") {
-      const itemSettled = settleProjectTaskRecoveryObligation(
-        recoveringWrite.value,
-        recoveringWrite.value.generation,
-        "task-a",
-        "docker",
-        recoveryId,
-      );
-      assert.equal(itemSettled.status, "completed");
-      assert.ok(itemSettled.state);
-      const settledWrite = writeCoordinatorState(
-        workingDirectory,
-        "binding-a",
-        itemSettled.state,
-        recoveringWrite.value.generation,
-      );
-      assert.equal(settledWrite.status, "completed");
-    }
-    if (interruption === "item_and_queue") {
-      const queueSettled = settleProjectOperationQueueRecovery(
-        workingDirectory,
-        "binding-a",
-        initial.queueId ?? "invalid",
-        queueBefore.value?.generation ?? -1,
-        queueBefore.value?.resultReference ?? "invalid",
-      );
-      assert.equal(queueSettled.status, "completed");
-    }
+    if (interruption !== "recovery_not_started")
+      settleSyntheticOperation(workingDirectory, recoveryId);
     settleRuntimeProcessAsFreshProcess(
       workingDirectory,
       "binding-a",
       "project-a",
     );
+    if (interruption === "receipt_committed") {
+      const current = readCoordinatorState(
+        workingDirectory,
+        "binding-a",
+        "project-a",
+      );
+      assert.ok(current.value);
+      const state = current.value;
+      const task = state.tasks[0];
+      assert.ok(task);
+      assert.ok(task.attemptId && task.operationId);
+      const accepted = acknowledgeProjectDockerRecoveryObligation(
+        state,
+        state.generation,
+        {
+          ...dockerAcknowledgement(workingDirectory, {
+            operationId: task.operationId,
+            recoveryId,
+          }),
+          repositoryBindingId: "binding-a",
+          projectId: state.projectId,
+          milestoneId: state.milestoneId,
+          taskId: task.definition.id,
+          attemptId: task.attemptId,
+          settlementGeneration: state.generation + 1,
+        },
+      );
+      assert.equal(accepted.status, "completed");
+      assert.ok(accepted.state);
+      assert.equal(
+        writeCoordinatorState(
+          workingDirectory,
+          "binding-a",
+          accepted.state,
+          state.generation,
+        ).status,
+        "completed",
+      );
+    }
     const resumed = await runCoordinatorObjective(
       dependencies,
       request({ maximumReplans: 0 }),
       new AbortController().signal,
     );
     assert.equal(resumed.status, "completed");
-    assert.equal(recoveries, interruption === "recovering_only" ? 1 : 0);
+    assert.equal(recoveries, interruption === "recovery_not_started" ? 1 : 0);
     assert.equal(attempts, 2);
   });
 }

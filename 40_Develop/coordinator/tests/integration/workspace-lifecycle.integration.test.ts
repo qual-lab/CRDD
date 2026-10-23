@@ -1221,8 +1221,14 @@ test("名前付きCandidateを明示固定・採用し結果を保存してRef�
     git(f.root, ["log", "-1", "--format=%B"]).includes("Workspace: 元の作業名"),
   );
   assert.equal(f.snapshot().workspaces[0]?.name, "次の作業名");
+  const repeatedAdoption = f.operate(adoption);
   assert.equal(
-    f.operate(adoption).candidateResult?.reason,
+    repeatedAdoption.status,
+    "completed",
+    JSON.stringify(repeatedAdoption),
+  );
+  assert.equal(
+    repeatedAdoption.candidateResult?.reason,
     "candidate_merge_existing",
   );
   assert.equal(
@@ -2361,9 +2367,6 @@ test("実Objective受付はWorkspace観測をMCPまで欠落なく渡す", async
           throw new Error("unexpected_recovery");
         },
         acknowledgeDocker: () => {
-          throw new Error("unexpected_docker");
-        },
-        finalizeDockerAcknowledgement: () => {
           throw new Error("unexpected_docker");
         },
         observeTransition: () => {},

@@ -4,7 +4,6 @@
  * @responsibility CoordinatorTaskRecoveryHostDependenciesを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000008
  */
-import type { ProjectDockerRecoveryAcknowledgement } from "../state/model.ts";
 import type {
   CoordinatorDockerRecoveryIdentity,
   CoordinatorRecoveryTransition,
@@ -29,15 +28,6 @@ export type CoordinatorTaskRecoveryHostDependencies = Readonly<{
       CoordinatorDockerRecoveryIdentity & {
         workingDirectory: string;
         repositoryBindingId: string;
-      }
-    >,
-  ) => unknown;
-  finalizeTaskRecoveryAcknowledgement?: (
-    settlement: Readonly<
-      CoordinatorDockerRecoveryIdentity & {
-        workingDirectory: string;
-        repositoryBindingId: string;
-        acknowledgement: ProjectDockerRecoveryAcknowledgement;
       }
     >,
   ) => unknown;
@@ -81,18 +71,6 @@ export function createCoordinatorTaskRecoveryAdapter(
           workingDirectory,
           repositoryBindingId,
           ...identity,
-        }),
-      ) ?? null,
-    finalizeDockerAcknowledgement: (
-      identity: CoordinatorDockerRecoveryIdentity,
-      acknowledgement: ProjectDockerRecoveryAcknowledgement,
-    ) =>
-      dependencies.finalizeTaskRecoveryAcknowledgement?.(
-        Object.freeze({
-          workingDirectory,
-          repositoryBindingId,
-          ...identity,
-          acknowledgement,
         }),
       ) ?? null,
     observeTransition: async (event: CoordinatorRecoveryTransition) => {

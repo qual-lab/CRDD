@@ -4,7 +4,6 @@
  * @responsibility CoordinatorDockerRecoveryIdentityを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000004
  */
-import type { ProjectDockerRecoveryAcknowledgement } from "../state/model.ts";
 
 /**
  * task-recovery-portで使用するCoordinator Docker 回復 Identityの値契約を定義する。
@@ -72,10 +71,6 @@ export type CoordinatorTaskRecoveryPort = Readonly<{
   resolveCorrelations: (correlationIds: readonly string[]) => unknown;
   recover: (recoveryId: string, signal: AbortSignal) => unknown;
   acknowledgeDocker: (identity: CoordinatorDockerRecoveryIdentity) => unknown;
-  finalizeDockerAcknowledgement: (
-    identity: CoordinatorDockerRecoveryIdentity,
-    acknowledgement: ProjectDockerRecoveryAcknowledgement,
-  ) => unknown;
   observeTransition: (
     event: CoordinatorRecoveryTransition,
   ) => void | Promise<void>;

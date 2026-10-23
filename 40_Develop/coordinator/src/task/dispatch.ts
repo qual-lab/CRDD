@@ -216,8 +216,17 @@ function persistedState(
   dependencies: CoordinatorExecutionDependencies,
   state: CoordinatorState,
   expectedGeneration: number,
+  resultFacts?: Parameters<
+    CoordinatorExecutionDependencies["persistence"]["state"]["writeState"]
+  >[2],
 ) {
-  return dependencies.persistence.state.writeState(state, expectedGeneration);
+  return resultFacts
+    ? dependencies.persistence.state.writeState(
+        state,
+        expectedGeneration,
+        resultFacts,
+      )
+    : dependencies.persistence.state.writeState(state, expectedGeneration);
 }
 
 /**
@@ -995,10 +1004,7 @@ export async function runCoordinatorOperation(
         });
       let settlementState = settlement.state;
       const delivery = capturedOutcome?.delivery;
-      const pendingDeliveries: Readonly<{
-        acceptance: ProjectResultAcceptance;
-        reader: () => ProjectResultAcceptance | null;
-      }>[] = [];
+      const pendingDeliveries: ProjectResultAcceptance[] = [];
       if (!recoveryRequired && dependencies.resultDelivery) {
         if (
           capturedOutcome?.deliveryInvalid ||
@@ -1073,28 +1079,18 @@ export async function runCoordinatorOperation(
                 attemptId: attempt.attemptId,
                 settlementGeneration: settlementState.generation,
               });
-              let reader: (() => ProjectResultAcceptance | null) | null = null;
-              try {
-                reader = acceptance
-                  ? dependencies.resultDelivery.createAcceptanceReader(
-                      acceptance,
-                    )
-                  : null;
-              } catch {
-                // 固定Readerの構築失敗は結果未受領のまま停止する。
-              }
-              if (!acceptance || !reader)
+              if (!acceptance)
                 return finalizeOwnedFailure(
                   "orchestrator_result_delivery_invalid",
                   { state, completedTaskIds, processRestartRequired },
                 );
-              pendingDeliveries.push(Object.freeze({ acceptance, reader }));
+              pendingDeliveries.push(acceptance);
             }
             const accepted = recordProjectTaskResultAcceptances(
               settlementState,
               state.generation,
               attempt.taskId,
-              pendingDeliveries.map((item) => item.acceptance),
+              pendingDeliveries,
             );
             if (accepted.status !== "completed" || !accepted.state)
               return finalizeOwnedFailure(accepted.reason, {
@@ -1110,6 +1106,17 @@ export async function runCoordinatorOperation(
         dependencies,
         settlementState,
         state.generation,
+        [
+          {
+            taskId: settlementInput.taskId,
+            attemptId: settlementInput.attemptId,
+            operationId: settlementInput.operationId,
+            recoveryUnresolved:
+              !effectStarted && settlementInput.outcome === "completed"
+                ? true
+                : settlementInput.recoveryUnresolved,
+          },
+        ],
       );
       if (settlementWrite.status !== "completed")
         return finalizeOwnedFailure(settlementWrite.reason, {
@@ -1118,30 +1125,6 @@ export async function runCoordinatorOperation(
           processRestartRequired,
         });
       state = settlementState;
-      for (const pending of pendingDeliveries) {
-        let completed: ReturnType<CoordinatorTaskResultDelivery["complete"]>;
-        try {
-          if (!delivery) throw new Error("result_delivery_absent");
-          completed = delivery.complete(
-            pending.acceptance.recoveryId,
-            pending.reader,
-          );
-        } catch {
-          return finalizeOwnedFailure(
-            "orchestrator_result_delivery_completion_unknown",
-            { state, completedTaskIds, processRestartRequired },
-          );
-        }
-        if (
-          completed.status !== "completed" ||
-          !completed.snapshotConfirmed ||
-          !completed.lockReleased
-        )
-          return finalizeOwnedFailure(
-            "orchestrator_result_delivery_completion_unknown",
-            { state, completedTaskIds, processRestartRequired },
-          );
-      }
       if (!recoveryRequired && validatedOutcome?.status === "completed")
         completedTaskIds.push(attempt?.taskId ?? "invalid");
       if (recoveryRequired) {

@@ -13,7 +13,10 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { readStableBoundedFileSnapshot } from "../../src/storage/bounded-file-snapshot.ts";
+import {
+  readStableBoundedFileSnapshot,
+  sameStableFileIdentity,
+} from "../../src/storage/bounded-file-snapshot.ts";
 
 import {
   ensureRepositoryRuntimeDataArea,
@@ -76,6 +79,42 @@ test("Windowsの上位bit付きFile IDで保存Readerの同一性確認を維持
   const observed = readStableBoundedFileSnapshot(file, 128);
   assert.equal(observed.identity.ino, expected);
   assert.equal(observed.bytes.toString(), '{"state":"ready"}');
+  const signed = { ...observed.identity, ino: BigInt.asIntN(64, expected) };
+  assert.equal(sameStableFileIdentity(signed, observed.identity), true);
+  assert.equal(sameStableFileIdentity(observed.identity, signed), true);
+  assert.equal(
+    sameStableFileIdentity(signed, {
+      ...observed.identity,
+      ino: expected ^ 1n,
+    }),
+    false,
+  );
+  for (const field of [
+    "dev",
+    "birthtimeNs",
+    "ctimeNs",
+    "mtimeNs",
+    "size",
+    "mode",
+  ] as const) {
+    assert.equal(
+      sameStableFileIdentity(signed, {
+        ...observed.identity,
+        [field]: observed.identity[field] + 1n,
+      }),
+      false,
+    );
+  }
+  assert.equal(
+    sameStableFileIdentity(
+      { ...signed, ino: -(1n << 63n) - 1n },
+      {
+        ...observed.identity,
+        ino: (1n << 63n) - 1n,
+      },
+    ),
+    false,
+  );
   changed = true;
   assert.throws(
     () => readStableBoundedFileSnapshot(file, 128),
@@ -350,7 +389,6 @@ test("検証済みRepository Rootだけから全Repository-local Pathを解決�
   );
   assert.deepEqual(paths?.allowedTopLevelAreas, [
     "config",
-    "orchestrator",
     "coordinator",
     "execution-intelligence",
     "candidates",

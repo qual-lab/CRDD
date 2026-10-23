@@ -8,7 +8,6 @@ import type {
   CoordinatorExecutionObservationPort,
 } from "./observer.ts";
 import {
-  type ProjectResultAcceptance,
   type ProjectTaskRecoveryKind,
   isCoordinatorRecoveryIdentity,
   validIdentity,
@@ -79,9 +78,6 @@ export type CoordinatorExecutionDependencies = Readonly<{
   executionObservation?: CoordinatorExecutionObservationPort;
   resultDelivery?: Readonly<{
     repositoryBindingId: string;
-    createAcceptanceReader: (
-      acceptance: ProjectResultAcceptance,
-    ) => (() => ProjectResultAcceptance | null) | null;
   }>;
 }>;
 
