@@ -22,12 +22,12 @@ import {
   acquireCoordinatorSnapshotLease,
   createCoordinatorSnapshotStatePort,
 } from "../../src/storage/current-state.ts";
-import { deriveCoordinatorRepositoryBindingId } from "../../src/state/binding.ts";
+import { deriveCoordinatorRepositoryBindingId } from "../../src/state/model.ts";
 import {
   inspectSingleTaskRecord,
   type SingleTaskRecord,
-} from "../../src/task/single-task-record.ts";
-import type { ProjectQueueEntry } from "../../src/queue/types.ts";
+} from "../../src/state/model.ts";
+import type { ProjectQueueEntry } from "../../src/state/model.ts";
 import { createCoordinatorTaskRequests } from "../../src/task/requests.ts";
 
 /**

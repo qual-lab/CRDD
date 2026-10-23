@@ -6,7 +6,7 @@
     {
       "symbolId": "coordinator.execution.provider-result-reasons",
       "kind": "file",
-      "path": "src/execution/provider-result-reasons.ts",
+      "path": "src/execution/result.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -14,7 +14,7 @@
     {
       "symbolId": "coordinator.execution.result-reasons",
       "kind": "file",
-      "path": "src/execution/result-reasons.ts",
+      "path": "src/execution/result.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -22,7 +22,7 @@
     {
       "symbolId": "coordinator.external-send.consent-record",
       "kind": "file",
-      "path": "src/decision/external-send-consent-record.ts",
+      "path": "src/decision/external-send-consent.ts",
       "archIds": [
         "ARCH-000015"
       ]
@@ -30,7 +30,7 @@
     {
       "symbolId": "coordinator.execution.provider-observation",
       "kind": "file",
-      "path": "src/execution/provider-observation.ts",
+      "path": "src/execution/observation.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -38,7 +38,7 @@
     {
       "symbolId": "coordinator.execution.host-submission",
       "kind": "file",
-      "path": "src/execution/host-submission.ts",
+      "path": "src/execution/controller.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -46,7 +46,7 @@
     {
       "symbolId": "coordinator.source.repository-operation.borrowed-workspace",
       "kind": "file",
-      "path": "src/execution/borrowed-tree.ts",
+      "path": "src/execution/operation.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000008"
@@ -217,7 +217,7 @@
     {
       "symbolId": "coordinator.diagnostics.runtime-repair",
       "kind": "module",
-      "path": "src/execution/runtime-repair.ts",
+      "path": "src/execution/recovery.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -278,7 +278,7 @@
     {
       "symbolId": "coordinator.state-storage.restart-checkpoint",
       "kind": "file",
-      "path": "src/execution/restart-checkpoint.ts",
+      "path": "src/execution/result.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -365,6 +365,12 @@
       ]
     },
     {
+      "symbolId": "coordinator.test-support.source-declaration",
+      "kind": "file",
+      "path": "tests/support/source-declaration.ts",
+      "archIds": ["ARCH-000008"]
+    },
+    {
       "symbolId": "coordinator.test-support.auth-create-closure",
       "kind": "file",
       "path": "tests/fixtures/docker-auth-create-closure-verifier.ts",
@@ -441,7 +447,7 @@
     {
       "symbolId": "coordinator.task.task-attempt-runtime",
       "kind": "file",
-      "path": "src/execution/attempt.ts",
+      "path": "src/execution/controller.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -449,7 +455,7 @@
     {
       "symbolId": "coordinator.task.task-completion-observation",
       "kind": "file",
-      "path": "src/execution/completion-observation.ts",
+      "path": "src/execution/observation.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -457,7 +463,7 @@
     {
       "symbolId": "coordinator.task.types",
       "kind": "file",
-      "path": "src/execution/types.ts",
+      "path": "src/execution/advice.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -465,7 +471,7 @@
     {
       "symbolId": "coordinator.provider.execution-plan",
       "kind": "file",
-      "path": "src/execution/provider-plan.ts",
+      "path": "src/execution/preparation.ts",
       "archIds": [
         "ARCH-000015"
       ]
@@ -473,7 +479,7 @@
     {
       "symbolId": "coordinator.provider.execution-adapter",
       "kind": "file",
-      "path": "src/execution/provider-adapter.ts",
+      "path": "src/execution/preparation.ts",
       "archIds": [
         "ARCH-000015"
       ]
@@ -481,7 +487,7 @@
     {
       "symbolId": "coordinator.provider.preparation",
       "kind": "file",
-      "path": "src/execution/provider-preparation.ts",
+      "path": "src/execution/preparation.ts",
       "archIds": [
         "ARCH-000015"
       ]
@@ -489,7 +495,7 @@
     {
       "symbolId": "coordinator.provider.preparation-lifecycle",
       "kind": "file",
-      "path": "src/execution/provider-preparation-lifecycle.ts",
+      "path": "src/execution/preparation.ts",
       "archIds": [
         "ARCH-000015"
       ]
@@ -497,7 +503,7 @@
     {
       "symbolId": "coordinator.provider.execution-types",
       "kind": "file",
-      "path": "src/execution/provider-types.ts",
+      "path": "src/execution/preparation.ts",
       "archIds": [
         "ARCH-000010",
         "ARCH-000015"
@@ -535,7 +541,7 @@
     {
       "symbolId": "coordinator.task-runtime",
       "kind": "file",
-      "path": "src/execution/task.ts",
+      "path": "src/execution/controller.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000008",
@@ -552,7 +558,7 @@
     {
       "symbolId": "coordinator.provider-authority-runtime",
       "kind": "file",
-      "path": "src/execution/authority-grant.ts",
+      "path": "src/execution/authority.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000015"
@@ -564,7 +570,7 @@
     {
       "symbolId": "coordinator.provider-model-selection-runtime",
       "kind": "file",
-      "path": "src/execution/model-selection.ts",
+      "path": "src/execution/preparation.ts",
       "archIds": [
         "ARCH-000010"
       ],
@@ -2596,7 +2602,7 @@
     {
       "symbolId": "coordinator.source.src.security.claude.subscription.authentication",
       "kind": "file",
-      "path": "src/execution/claude-subscription-authentication.ts",
+      "path": "src/execution/authority.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000008",
@@ -2637,7 +2643,7 @@
     {
       "symbolId": "coordinator.source.src.security.delegation.selection.grant.runtime",
       "kind": "file",
-      "path": "src/execution/delegation-selection-grant.ts",
+      "path": "src/execution/authority.ts",
       "archIds": [
         "ARCH-000010"
       ]
@@ -2645,7 +2651,7 @@
     {
       "symbolId": "coordinator.source.src.security.docker.process.controller",
       "kind": "file",
-      "path": "src/execution/provider-controller.ts",
+      "path": "src/execution/controller.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -2669,7 +2675,7 @@
     {
       "symbolId": "coordinator.source.src.core.development.execution.timing",
       "kind": "file",
-      "path": "src/execution/development-execution-timing.ts",
+      "path": "src/execution/diagnostics.ts",
       "archIds": [
         "ARCH-000018"
       ]
@@ -2685,7 +2691,7 @@
     {
       "symbolId": "coordinator.source.src.security.delegation.route.selection",
       "kind": "file",
-      "path": "src/execution/delegation-route-selection.ts",
+      "path": "src/execution/preparation.ts",
       "archIds": [
         "ARCH-000010"
       ]
@@ -2693,7 +2699,7 @@
     {
       "symbolId": "coordinator.source.src.security.repository.operation.runtime",
       "kind": "file",
-      "path": "src/execution/repository-binding.ts",
+      "path": "src/execution/operation.ts",
       "archIds": [
         "ARCH-000009"
       ]
@@ -2701,7 +2707,7 @@
     {
       "symbolId": "coordinator.source.src.security.development.measurement.session",
       "kind": "file",
-      "path": "src/execution/development-measurement-session.ts",
+      "path": "src/execution/diagnostics.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -2709,7 +2715,7 @@
     {
       "symbolId": "coordinator.source.task.development-source-observation",
       "kind": "file",
-      "path": "src/execution/development-source-observation.ts",
+      "path": "src/execution/diagnostics.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -2717,7 +2723,7 @@
     {
       "symbolId": "coordinator.source.src.security.provider.home.windows.adapter",
       "kind": "file",
-      "path": "src/execution/provider-home-windows-adapter.ts",
+      "path": "src/execution/authority.ts",
       "archIds": [
         "ARCH-000010"
       ]
@@ -2725,7 +2731,7 @@
     {
       "symbolId": "coordinator.platform-access.protected-root-windows-adapter",
       "kind": "file",
-      "path": "src/execution/protected-root.ts",
+      "path": "src/execution/authority.ts",
       "archIds": [
         "ARCH-000015"
       ]
@@ -2741,7 +2747,7 @@
     {
       "symbolId": "coordinator.source.src.security.docker.effect.runtime",
       "kind": "file",
-      "path": "src/execution/isolation-execution.ts",
+      "path": "src/execution/controller.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -2749,7 +2755,7 @@
     {
       "symbolId": "coordinator.source.src.security.development.measurement.constraints",
       "kind": "file",
-      "path": "src/execution/development-measurement-constraints.ts",
+      "path": "src/execution/diagnostics.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -2765,7 +2771,7 @@
     {
       "symbolId": "coordinator.source.src.security.host.recovery.record",
       "kind": "file",
-      "path": "src/execution/host-recovery-record.ts",
+      "path": "src/execution/result.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -2810,7 +2816,7 @@
     {
       "symbolId": "coordinator.source.src.security.external.send.consent.runtime",
       "kind": "file",
-      "path": "src/decision/external-send-consent-store.ts",
+      "path": "src/decision/external-send-consent.ts",
       "archIds": [
         "ARCH-000015"
       ]
@@ -2829,14 +2835,6 @@
       "path": "scripts/revoke-external-send-consent.ts",
       "archIds": [
         "ARCH-000015"
-      ]
-    },
-    {
-      "symbolId": "coordinator.source.src.security.secret.material.policy",
-      "kind": "file",
-      "path": "src/execution/secret-validation.ts",
-      "archIds": [
-        "ARCH-000014"
       ]
     },
     {
@@ -2866,7 +2864,7 @@
     {
       "symbolId": "coordinator.source.src.composition.workbench.ai.request.application",
       "kind": "file",
-      "path": "src/execution/types.ts",
+      "path": "src/execution/advice.ts",
       "archIds": [
         "ARCH-000010",
         "ARCH-000015"
@@ -2884,7 +2882,7 @@
     {
       "symbolId": "coordinator.source.src.security.workbench.ai.advice.result",
       "kind": "file",
-      "path": "src/execution/task-structured-result.ts",
+      "path": "src/execution/result.ts",
       "archIds": [
         "ARCH-000015"
       ]
@@ -2892,7 +2890,7 @@
     {
       "symbolId": "coordinator.source.src.security.workbench.ai.advice.execution.plan",
       "kind": "file",
-      "path": "src/execution/provider-plan.ts",
+      "path": "src/execution/preparation.ts",
       "archIds": [
         "ARCH-000010",
         "ARCH-000015"
@@ -2901,7 +2899,7 @@
     {
       "symbolId": "coordinator.source.src.security.workbench.ai.advice.production.runtime",
       "kind": "file",
-      "path": "src/execution/provider-execution.ts",
+      "path": "src/execution/advice.ts",
       "archIds": [
         "ARCH-000008",
         "ARCH-000010",
@@ -2911,7 +2909,7 @@
     {
       "symbolId": "coordinator.source.src.security.workbench.ai.advice.runtime.packet",
       "kind": "file",
-      "path": "src/execution/provider-packet.ts",
+      "path": "src/execution/preparation.ts",
       "archIds": [
         "ARCH-000010",
         "ARCH-000015"
@@ -2937,7 +2935,7 @@
     {
       "symbolId": "coordinator.source.src.security.workbench.ai.advice.task",
       "kind": "file",
-      "path": "src/execution/task-packet.ts",
+      "path": "src/execution/preparation.ts",
       "archIds": [
         "ARCH-000014",
         "ARCH-000015"
@@ -2973,7 +2971,7 @@
     {
       "symbolId": "coordinator.source.src.security.repository.workspace.runtime",
       "kind": "file",
-      "path": "src/execution/change-snapshot.ts",
+      "path": "src/execution/operation.ts",
       "archIds": [
         "ARCH-000013"
       ]
@@ -3010,7 +3008,7 @@
     {
       "symbolId": "coordinator.source.src.security.docker.isolation",
       "kind": "file",
-      "path": "src/execution/isolation-probe.ts",
+      "path": "src/execution/diagnostics.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -3034,7 +3032,7 @@
     {
       "symbolId": "coordinator.source.src.core.interactive.console",
       "kind": "file",
-      "path": "src/execution/interactive-console.ts",
+      "path": "src/decision/external-send-grant.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -3042,7 +3040,7 @@
     {
       "symbolId": "coordinator.source.src.core.node.runtime.version",
       "kind": "file",
-      "path": "src/execution/runtime-version.ts",
+      "path": "src/execution/diagnostics.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -3098,7 +3096,7 @@
     {
       "symbolId": "coordinator.source.src.security.authority.file.bundle",
       "kind": "file",
-      "path": "src/execution/authority-bundle.ts",
+      "path": "src/execution/authority.ts",
       "archIds": [
         "ARCH-000014"
       ]
@@ -3106,7 +3104,7 @@
     {
       "symbolId": "coordinator.source.src.security.authority.grant.verifier",
       "kind": "file",
-      "path": "src/execution/authority-validation.ts",
+      "path": "src/execution/authority.ts",
       "archIds": [
         "ARCH-000014"
       ]
@@ -3114,7 +3112,7 @@
     {
       "symbolId": "coordinator.source.src.security.authority.trust.loader",
       "kind": "file",
-      "path": "src/execution/authority-policy.ts",
+      "path": "src/execution/authority.ts",
       "archIds": [
         "ARCH-000014"
       ]
@@ -3122,7 +3120,7 @@
     {
       "symbolId": "coordinator.source.src.security.provider.isolation.profile",
       "kind": "file",
-      "path": "src/execution/isolation-profile.ts",
+      "path": "src/execution/preparation.ts",
       "archIds": [
         "ARCH-000010"
       ]
@@ -3130,7 +3128,7 @@
     {
       "symbolId": "coordinator.source.src.security.authority.prelaunch.verifier",
       "kind": "file",
-      "path": "src/execution/prelaunch-validation.ts",
+      "path": "src/execution/authority.ts",
       "archIds": [
         "ARCH-000014"
       ]
@@ -3138,7 +3136,7 @@
     {
       "symbolId": "coordinator.source.src.security.authority.root.path.lexical",
       "kind": "file",
-      "path": "src/execution/root-path.ts",
+      "path": "src/execution/authority.ts",
       "archIds": [
         "ARCH-000014"
       ]
@@ -3146,7 +3144,7 @@
     {
       "symbolId": "coordinator.source.src.security.coordinator.operation.creation.internal",
       "kind": "file",
-      "path": "src/execution/operation-creation.ts",
+      "path": "src/execution/operation.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -3162,7 +3160,7 @@
     {
       "symbolId": "coordinator.source.src.security.coordinator.task.request",
       "kind": "file",
-      "path": "src/execution/task-request.ts",
+      "path": "src/execution/request.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -3170,7 +3168,7 @@
     {
       "symbolId": "coordinator.task.cleanup-eligibility",
       "kind": "file",
-      "path": "src/execution/cleanup-eligibility.ts",
+      "path": "src/execution/recovery.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -3178,7 +3176,7 @@
     {
       "symbolId": "coordinator.task.recovery-projection",
       "kind": "file",
-      "path": "src/execution/recovery-projection.ts",
+      "path": "src/execution/result.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -3202,7 +3200,7 @@
     {
       "symbolId": "coordinator.source.src.core.host.generation.loss.transition",
       "kind": "file",
-      "path": "src/execution/generation-loss-transition.ts",
+      "path": "src/execution/operation.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -3210,7 +3208,7 @@
     {
       "symbolId": "coordinator.source.src.security.local.personal.authority.runtime",
       "kind": "file",
-      "path": "src/execution/local-authority.ts",
+      "path": "src/execution/authority.ts",
       "archIds": [
         "ARCH-000014"
       ]
@@ -3218,7 +3216,7 @@
     {
       "symbolId": "coordinator.source.src.security.root.observation",
       "kind": "file",
-      "path": "src/execution/root-observation.ts",
+      "path": "src/execution/authority.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -3226,7 +3224,7 @@
     {
       "symbolId": "coordinator.source.src.security.provider.eligibility.runtime",
       "kind": "file",
-      "path": "src/execution/eligibility-observation.ts",
+      "path": "src/execution/observation.ts",
       "archIds": [
         "ARCH-000010"
       ]
@@ -3242,7 +3240,7 @@
     {
       "symbolId": "coordinator.source.src.security.provider.home.mount.grant.runtime",
       "kind": "file",
-      "path": "src/execution/provider-home-mount-authorization.ts",
+      "path": "src/execution/authority.ts",
       "archIds": [
         "ARCH-000010"
       ]
@@ -3250,7 +3248,7 @@
     {
       "symbolId": "coordinator.source.src.security.provider.home.mount.grant",
       "kind": "file",
-      "path": "src/execution/provider-home-mount-grant.ts",
+      "path": "src/execution/authority.ts",
       "archIds": [
         "ARCH-000010"
       ]
@@ -3258,7 +3256,7 @@
     {
       "symbolId": "coordinator.source.src.security.provider.home",
       "kind": "file",
-      "path": "src/execution/provider-home.ts",
+      "path": "src/execution/authority.ts",
       "archIds": [
         "ARCH-000010"
       ]
@@ -3266,7 +3264,7 @@
     {
       "symbolId": "coordinator.source.src.security.provider.lifecycle",
       "kind": "file",
-      "path": "src/execution/provider-lifecycle.ts",
+      "path": "src/execution/diagnostics.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -3274,7 +3272,7 @@
     {
       "symbolId": "coordinator.source.src.security.provider.task.packet.runtime",
       "kind": "file",
-      "path": "src/execution/task-packet.ts",
+      "path": "src/execution/preparation.ts",
       "archIds": [
         "ARCH-000015"
       ]
@@ -3282,7 +3280,7 @@
     {
       "symbolId": "coordinator.source.src.security.provider.task.structured.result",
       "kind": "file",
-      "path": "src/execution/task-structured-result.ts",
+      "path": "src/execution/result.ts",
       "archIds": [
         "ARCH-000015"
       ]
@@ -3290,7 +3288,7 @@
     {
       "symbolId": "coordinator.source.src.security.root.protection.policy",
       "kind": "file",
-      "path": "src/execution/root-protection-policy.ts",
+      "path": "src/execution/authority.ts",
       "archIds": [
         "ARCH-000014"
       ]
@@ -3306,7 +3304,7 @@
     {
       "symbolId": "coordinator.diagnostics.runtime-restart",
       "kind": "file",
-      "path": "src/execution/runtime-restart.ts",
+      "path": "src/execution/recovery.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -3337,7 +3335,7 @@
     {
       "symbolId": "coordinator.source.src.security.host.orphan.recovery.policy",
       "kind": "file",
-      "path": "src/execution/orphan-recovery-policy.ts",
+      "path": "src/execution/recovery.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -3501,7 +3499,7 @@
     {
       "symbolId": "orchestrator.cli.request-input",
       "kind": "file",
-      "path": "src/cli/request-input.ts",
+      "path": "src/cli/options.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -3591,7 +3589,7 @@
     {
       "symbolId": "orchestrator.activity.types",
       "kind": "file",
-      "path": "src/state/activity-types.ts",
+      "path": "src/state/types.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000007"
@@ -3600,7 +3598,7 @@
     {
       "symbolId": "orchestrator.activity.cursor",
       "kind": "file",
-      "path": "src/state/activity-cursor.ts",
+      "path": "src/state/projection.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000007"
@@ -3609,7 +3607,7 @@
     {
       "symbolId": "orchestrator.activity.validate",
       "kind": "file",
-      "path": "src/state/activity-validation.ts",
+      "path": "src/state/projection.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000007"
@@ -3618,7 +3616,7 @@
     {
       "symbolId": "orchestrator.activity.read",
       "kind": "file",
-      "path": "src/state/activity.ts",
+      "path": "src/state/observation.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000007"
@@ -3627,7 +3625,7 @@
     {
       "symbolId": "orchestrator.identity.repository-binding",
       "kind": "file",
-      "path": "src/state/binding.ts",
+      "path": "src/state/model.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -3669,7 +3667,7 @@
     {
       "symbolId": "orchestrator.cli.project-command",
       "kind": "file",
-      "path": "src/cli/request.ts",
+      "path": "src/cli/command.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -3729,7 +3727,7 @@
     {
       "symbolId": "orchestrator.task.windows-platform-adapter",
       "kind": "file",
-      "path": "src/platform/windows-adapter.ts",
+      "path": "src/execution/diagnostics.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -3737,7 +3735,7 @@
     {
       "symbolId": "coordinator.source.src.security.docker.project.recovery.settlement",
       "kind": "file",
-      "path": "src/task/settle-docker-recovery.ts",
+      "path": "src/execution/recovery.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -3792,7 +3790,7 @@
     {
       "symbolId": "orchestrator.decision.acceptance-decision-record",
       "kind": "file",
-      "path": "src/decision/acceptance-record.ts",
+      "path": "src/decision/records.ts",
       "archIds": [
         "ARCH-000005"
       ]
@@ -3800,7 +3798,7 @@
     {
       "symbolId": "orchestrator.decision.decision-recovery-record",
       "kind": "file",
-      "path": "src/decision/recovery-record.ts",
+      "path": "src/decision/records.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -3808,7 +3806,7 @@
     {
       "symbolId": "coordinator.source.src.security.orchestrator.task.recovery.adapter",
       "kind": "file",
-      "path": "src/task/recovery-adapter.ts",
+      "path": "src/task/dispatch.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -3816,7 +3814,7 @@
     {
       "symbolId": "coordinator.source.src.security.orchestrator.execution.host.adapter",
       "kind": "file",
-      "path": "src/task/host-adapter.ts",
+      "path": "src/task/dispatch.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -3824,7 +3822,7 @@
     {
       "symbolId": "coordinator.source.src.security.orchestrator.single.task.adapter",
       "kind": "file",
-      "path": "src/task/execute-attempt.ts",
+      "path": "src/execution/controller.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -3832,7 +3830,7 @@
     {
       "symbolId": "coordinator.source.src.security.orchestrator.decision.capability.adapter",
       "kind": "file",
-      "path": "src/decision/capability-adapter.ts",
+      "path": "src/decision/lifecycle.ts",
       "archIds": [
         "ARCH-000005"
       ]
@@ -3840,7 +3838,7 @@
     {
       "symbolId": "coordinator.orchestrator.acceptance-authority-adapter",
       "kind": "file",
-      "path": "src/decision/authority-adapter.ts",
+      "path": "src/decision/request.ts",
       "archIds": [
         "ARCH-000005"
       ],
@@ -3851,7 +3849,7 @@
     {
       "symbolId": "coordinator.source.src.security.execution.intelligence.adapter",
       "kind": "file",
-      "path": "src/task/intelligence-adapter.ts",
+      "path": "src/task/dispatch.ts",
       "archIds": [
         "ARCH-000007"
       ]
@@ -3859,7 +3857,7 @@
     {
       "symbolId": "orchestrator.acceptance-decision-application",
       "kind": "file",
-      "path": "src/decision/record-acceptance.ts",
+      "path": "src/decision/acceptance.ts",
       "archIds": [
         "ARCH-000005"
       ],
@@ -3963,7 +3961,7 @@
     {
       "symbolId": "orchestrator.decision-transitions",
       "kind": "file",
-      "path": "src/decision/transitions.ts",
+      "path": "src/state/model.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000005"
@@ -4006,7 +4004,7 @@
     {
       "symbolId": "orchestrator.queue-core",
       "kind": "file",
-      "path": "src/queue/types.ts",
+      "path": "src/state/model.ts",
       "archIds": [
         "ARCH-000004"
       ],
@@ -4157,7 +4155,8 @@
         "orchestrator.source.src.ports.state.port",
         "orchestrator.source.src.public.contract.project.state.query",
         "orchestrator.state-core",
-        "orchestrator.state-query-application"
+        "orchestrator.state-query-application",
+        "coordinator.state.request"
       ]
     },
     {
@@ -4207,7 +4206,7 @@
     {
       "symbolId": "orchestrator.source.src.ports.acceptance.decision.port",
       "kind": "file",
-      "path": "src/decision/acceptance-authority.ts",
+      "path": "src/decision/types.ts",
       "archIds": [
         "ARCH-000005"
       ]
@@ -4223,7 +4222,7 @@
     {
       "symbolId": "orchestrator.source.src.ports.platform.contract",
       "kind": "file",
-      "path": "src/platform/contract.ts",
+      "path": "src/execution/diagnostics.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -4231,7 +4230,7 @@
     {
       "symbolId": "orchestrator.source.src.ports.port.result",
       "kind": "file",
-      "path": "src/operation-result.ts",
+      "path": "src/state/result.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -4255,7 +4254,7 @@
     {
       "symbolId": "orchestrator.source.src.public.contract.runtime.result",
       "kind": "file",
-      "path": "src/operation-result-contract.ts",
+      "path": "src/state/result.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -4263,7 +4262,7 @@
     {
       "symbolId": "orchestrator.source.src.public.contract.project.state.query",
       "kind": "file",
-      "path": "src/state/query-contract.ts",
+      "path": "src/state/projection.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -4279,7 +4278,7 @@
     {
       "symbolId": "orchestrator.task.single-task-record",
       "kind": "file",
-      "path": "src/task/single-task-record.ts",
+      "path": "src/state/model.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -4296,7 +4295,7 @@
     {
       "symbolId": "orchestrator.task.request-composition",
       "kind": "file",
-      "path": "src/task/request-composition.ts",
+      "path": "src/task/requests.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000015"
@@ -4330,7 +4329,7 @@
     {
       "symbolId": "orchestrator.decision-public-acceptance",
       "kind": "file",
-      "path": "src/decision/public-acceptance.ts",
+      "path": "src/decision/public-operation.ts",
       "archIds": [
         "ARCH-000005"
       ]
@@ -4346,7 +4345,7 @@
     {
       "symbolId": "orchestrator.execution-diagnostics",
       "kind": "file",
-      "path": "src/task/execution-diagnostics.ts",
+      "path": "src/execution/diagnostics.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -4407,7 +4406,7 @@
     {
       "symbolId": "orchestrator.source.src.ports.decision.capability",
       "kind": "file",
-      "path": "src/decision/capability.ts",
+      "path": "src/decision/types.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -4415,7 +4414,7 @@
     {
       "symbolId": "orchestrator.source.src.ports.clock.identity",
       "kind": "file",
-      "path": "src/identity/clock-and-hash.ts",
+      "path": "src/state/persistence.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -4423,7 +4422,7 @@
     {
       "symbolId": "coordinator.source.src.input.plain.data.snapshot",
       "kind": "file",
-      "path": "src/input/plain-data-snapshot.ts",
+      "path": "src/state/model.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -4431,7 +4430,7 @@
     {
       "symbolId": "orchestrator.source.src.public.contract.repository.relative.path",
       "kind": "file",
-      "path": "src/input/repository-relative-path.ts",
+      "path": "src/state/model.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -4439,7 +4438,7 @@
     {
       "symbolId": "orchestrator.source.src.ports.lease.port",
       "kind": "file",
-      "path": "src/lease/controller.ts",
+      "path": "src/state/persistence.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -4447,7 +4446,7 @@
     {
       "symbolId": "orchestrator.source.src.ports.process.safety.port",
       "kind": "file",
-      "path": "src/process/safety-contract.ts",
+      "path": "src/task/types.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -4456,6 +4455,14 @@
       "symbolId": "orchestrator.source.src.ports.task.recovery.port",
       "kind": "file",
       "path": "src/task/types.ts",
+      "archIds": [
+        "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "coordinator.state.request",
+      "kind": "file",
+      "path": "src/state/request.ts",
       "archIds": [
         "ARCH-000004"
       ]

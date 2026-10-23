@@ -15,6 +15,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { EventEmitter } from "node:events";
 import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
+import { sourceDeclaration } from "../support/source-declaration.ts";
 import path from "node:path";
 import { mock, test } from "node:test";
 import { runInNewContext, runInThisContext } from "node:vm";
@@ -24,19 +25,19 @@ import {
   requireReadyRepositoryRuntimeDataArea,
 } from "../../../domain-model/src/index.ts";
 import { startWindowsChildTreeTermination } from "../../../platform-access/src/index.ts";
-import * as controller from "../../src/execution/provider-observation.ts";
+import * as controller from "../../src/execution/observation.ts";
 import * as locks from "../../src/execution/kernel-lock.ts";
 import * as hostRuntime from "../../src/execution/operation.ts";
-import { loadHostRecoveryRecordByToken } from "../../src/execution/host-recovery-record.ts";
-import * as homes from "../../src/execution/provider-home-windows-adapter.ts";
-import * as repository from "../../src/execution/repository-binding.ts";
+import { loadHostRecoveryRecordByToken } from "../../src/execution/recovery.ts";
+import * as homes from "../../src/execution/authority.ts";
+import * as repository from "../../src/execution/operation.ts";
 import * as stateModel from "../../src/storage/model.ts";
 import {
   createDockerRestartRequestId,
   isDockerRestartCheckpointSettled,
-} from "../../src/execution/restart-checkpoint.ts";
+} from "../../src/execution/result.ts";
 import * as stateRuntime from "../../src/storage/settlement-store.ts";
-import * as development from "../../src/execution/development-measurement-session.ts";
+import * as development from "../../src/execution/diagnostics.ts";
 import * as isolation from "../../../docker-isolation/src/index.ts";
 import { runDockerRuntimeRepairSessionUsing } from "../../../docker-isolation/src/docker-desktop/repair-session.ts";
 import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
@@ -2585,10 +2586,10 @@ for (const { repeatCount, retained } of [
           },
         );
         try {
-          let repair: typeof import("../../src/execution/runtime-repair.ts") =
+          let repair: typeof import("../../src/execution/recovery.ts") =
             await import(
               new URL(
-                `../../src/execution/runtime-repair.ts?normal-owner-ready-prefix-${retained}`,
+                `../../src/execution/recovery.ts?normal-owner-ready-prefix-${retained}`,
                 import.meta.url,
               ).href
             );
@@ -2617,7 +2618,7 @@ for (const { repeatCount, retained } of [
             writerFault = null;
             repair = await import(
               new URL(
-                "../../src/execution/runtime-repair.ts?normal-owner-retained-after-cut",
+                "../../src/execution/recovery.ts?normal-owner-retained-after-cut",
                 import.meta.url,
               ).href
             );
@@ -2908,18 +2909,10 @@ for (const { repeatCount, retained } of [
         dockerId: null,
         observation: "not_requested",
       }));
-      const effects = await import(
-        "../../src/execution/isolation-execution.ts"
-      );
-      const mounts = await import(
-        "../../src/execution/provider-home-mount-authorization.ts"
-      );
+      const effects = await import("../../src/execution/controller.ts");
       substitutions.push(
         mock.module(
-          new URL(
-            "../../src/execution/provider-home-windows-adapter.ts",
-            import.meta.url,
-          ).href,
+          new URL("../../src/execution/authority.ts", import.meta.url).href,
           {
             namedExports: {
               ...homes,
@@ -2935,45 +2928,6 @@ for (const { repeatCount, retained } of [
               consumeRuntimeOwnedProviderHomeObservationCapability: (
                 value: unknown,
               ) => (value === observation ? plan : null),
-            },
-          },
-        ),
-      );
-      substitutions.push(
-        mock.module(
-          new URL("../../src/execution/isolation-execution.ts", import.meta.url)
-            .href,
-          {
-            namedExports: {
-              ...effects,
-              verifyRuntimeOwnedDockerCleanupOutcome: (
-                value: unknown,
-                input: unknown,
-                cap: unknown,
-                owner: unknown,
-              ) => {
-                const proof =
-                  cap && typeof cap === "object" ? proofs.get(cap) : null;
-                return proof &&
-                  value === proof.cleanup &&
-                  input === proof.completionPlan &&
-                  owner === management
-                  ? resources
-                  : null;
-              },
-            },
-          },
-        ),
-      );
-      substitutions.push(
-        mock.module(
-          new URL(
-            "../../src/execution/provider-home-mount-authorization.ts",
-            import.meta.url,
-          ).href,
-          {
-            namedExports: {
-              ...mounts,
               verifyRuntimeOwnedProviderHomeMountCompletion: (
                 value: unknown,
                 owner: unknown,
@@ -2993,12 +2947,26 @@ for (const { repeatCount, retained } of [
           },
         ),
       );
+      const cleanupExports = {
+        ...effects,
+        verifyRuntimeOwnedDockerCleanupOutcome: (
+          value: unknown,
+          input: unknown,
+          cap: unknown,
+          owner: unknown,
+        ) => {
+          const proof = cap && typeof cap === "object" ? proofs.get(cap) : null;
+          return proof &&
+            value === proof.cleanup &&
+            input === proof.completionPlan &&
+            owner === management
+            ? resources
+            : null;
+        },
+      };
       substitutions.push(
         mock.module(
-          new URL(
-            "../../src/execution/provider-observation.ts",
-            import.meta.url,
-          ).href,
+          new URL("../../src/execution/observation.ts", import.meta.url).href,
           {
             namedExports: {
               ...controller,
@@ -3060,17 +3028,37 @@ for (const { repeatCount, retained } of [
           { namedExports: { ...actualStore } },
         ),
       );
-      const actualHostSubmission = await import(
-        new URL(
-          `../../src/execution/host-submission.ts?normal-owner-physical-${repeatCount}-${retained}`,
-          import.meta.url,
-        ).href
+      const hostSource = fs.readFileSync(
+        new URL("../../src/execution/controller.ts", import.meta.url),
+        "utf8",
       );
+      const hostBody = [
+        "beginRuntimeOwnedCoordinatorHostSubmission",
+        "transitionRuntimeOwnedCoordinatorHostSubmission",
+        "completeRuntimeOwnedCoordinatorHostSubmission",
+      ]
+        .map((name) => sourceDeclaration(hostSource, name))
+        .join("\n");
+      const cleanupKey = "__crddNormalOwnerCleanupVerification";
+      (globalThis as Record<string, unknown>)[cleanupKey] =
+        cleanupExports.verifyRuntimeOwnedDockerCleanupOutcome;
+      const hostImports = [
+        'import { createHash } from "node:crypto";',
+        `const verifyRuntimeOwnedDockerCleanupOutcome = globalThis[${JSON.stringify(cleanupKey)}];`,
+        `import { beginOwnedDockerSubmissionRecovery, borrowOwnedHostRecoverySnapshot, completeOwnedDockerSubmissionRecovery, borrowRuntimeOwnedCoordinatorStateRepository } from "${new URL("../../src/execution/operation.ts", import.meta.url).href}";`,
+        `import { parseHostRecoveryToken } from "${new URL("../../src/execution/result.ts", import.meta.url).href}";`,
+        `import { verifyRuntimeOwnedProviderHomeMountCompletion } from "${new URL("../../src/execution/authority.ts", import.meta.url).href}";`,
+        `import { checkpointRuntimeOwnedCoordinatorCleanup, checkpointRuntimeOwnedCoordinatorHost, readRuntimeOwnedCoordinatorStateSnapshot } from "${new URL("../../src/storage/settlement-store.ts", import.meta.url).href}";`,
+      ].join("\n");
+      const actualHostSubmission = await import(
+        `data:text/javascript;base64,${Buffer.from(`// fixture: ${repeatCount}:${retained}\n${hostImports}\n${hostBody}\nexport { beginRuntimeOwnedCoordinatorHostSubmission, completeRuntimeOwnedCoordinatorHostSubmission };`).toString("base64")}`
+      ).finally(() => {
+        delete (globalThis as Record<string, unknown>)[cleanupKey];
+      });
       substitutions.push(
         mock.module(
-          new URL("../../src/execution/host-submission.ts", import.meta.url)
-            .href,
-          { namedExports: { ...actualHostSubmission } },
+          new URL("../../src/execution/controller.ts", import.meta.url).href,
+          { namedExports: { ...cleanupExports, ...actualHostSubmission } },
         ),
       );
       ownerRuntime = await import(
@@ -3741,10 +3729,10 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
     resultId: "b".repeat(64),
     consumer: "orchestrator",
   });
-  const hostSubmission = await import("../../src/execution/host-submission.ts");
+  const hostSubmission = await import("../../src/execution/controller.ts");
   const mocks = [
     mock.module(
-      new URL("../../src/execution/host-submission.ts", import.meta.url).href,
+      new URL("../../src/execution/controller.ts", import.meta.url).href,
       {
         namedExports: {
           ...hostSubmission,
@@ -3772,8 +3760,7 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
       },
     ),
     mock.module(
-      new URL("../../src/execution/provider-observation.ts", import.meta.url)
-        .href,
+      new URL("../../src/execution/observation.ts", import.meta.url).href,
       {
         namedExports: {
           ...controller,
@@ -3813,10 +3800,7 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
       },
     }),
     mock.module(
-      new URL(
-        "../../src/execution/development-measurement-session.ts",
-        import.meta.url,
-      ).href,
+      new URL("../../src/execution/diagnostics.ts", import.meta.url).href,
       {
         namedExports: {
           ...development,
@@ -3825,10 +3809,7 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
       },
     ),
     mock.module(
-      new URL(
-        "../../src/execution/provider-home-windows-adapter.ts",
-        import.meta.url,
-      ).href,
+      new URL("../../src/execution/authority.ts", import.meta.url).href,
       {
         namedExports: {
           ...homes,
@@ -3855,24 +3836,16 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
       },
     ),
     mock.module(
-      new URL("../../src/execution/repository-binding.ts", import.meta.url)
-        .href,
+      new URL("../../src/execution/operation.ts", import.meta.url).href,
       {
         namedExports: {
           ...repository,
+          ...hostRuntime,
           borrowRuntimeOwnedCoordinatorStateRepository: () => ({
             operationId: plan.operationId,
             repositoryBinding: hash,
             revalidate: () => true,
           }),
-        },
-      },
-    ),
-    mock.module(
-      new URL("../../src/execution/operation.ts", import.meta.url).href,
-      {
-        namedExports: {
-          ...hostRuntime,
           verifyOwnedOperationManagementCapability: () => ({
             operationId: plan.operationId,
           }),

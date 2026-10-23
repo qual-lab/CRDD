@@ -17,7 +17,7 @@ import { createHash } from "node:crypto";
 import { runSignedGeneralTaskVerification } from "../../scripts/verify-general-task.ts";
 import { isRuntimeProcessPoisoned } from "../../src/execution/process-safety-state.ts";
 import { requestRuntimeOwnedExternalSendGrant } from "../../src/decision/external-send-grant.ts";
-import { startRuntimeOwnedCoordinatorTask } from "../../src/execution/task.ts";
+import { startRuntimeOwnedCoordinatorTask } from "../../src/execution/controller.ts";
 
 const scenario = process.argv[2] ?? "completed_true";
 const TARGET_PATH =

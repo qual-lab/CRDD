@@ -15,7 +15,7 @@ import {
   describeAuthorityRootPathLexicalContract,
   isSupportedPosixAbsolutePathCandidate,
   isSupportedWindowsAbsolutePathCandidate,
-} from "../../../src/execution/root-path.ts";
+} from "../../../src/execution/authority.ts";
 
 /**
  * Windows absolute Pathの保守的字句subsetをOS非依存に判定するを検証する。

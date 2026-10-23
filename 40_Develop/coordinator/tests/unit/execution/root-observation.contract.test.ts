@@ -18,7 +18,7 @@ import {
   describeRootObservationContract,
   describePlatformAccessAdapterContract,
   inspectWindowsRootObservationCandidate,
-} from "../../../src/execution/root-observation.ts";
+} from "../../../src/execution/authority.ts";
 
 /**
  * observationのTest準備責務を実行する。

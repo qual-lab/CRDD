@@ -23,7 +23,7 @@ import {
   getRuntimeProcessInstanceIdentity,
   inspectRuntimeProcessRecoveryIdentity,
 } from "../../src/execution/process-safety-state.ts";
-import { startRuntimeOwnedCoordinatorTask } from "../../src/execution/task.ts";
+import { startRuntimeOwnedCoordinatorTask } from "../../src/execution/controller.ts";
 import { requestRuntimeOwnedExternalSendGrant } from "../../src/decision/external-send-grant.ts";
 
 /**

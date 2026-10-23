@@ -15,10 +15,10 @@ import test from "node:test";
 
 import { createWindowsNativeHelperEnvironment } from "../../../platform-access/src/index.ts";
 import { resolveCoordinatorPlatformAdapter } from "../../src/index.ts";
-import { createCoordinatorWindowsPlatformAdapter } from "../../src/platform/windows-adapter.ts";
-import { inspectRuntimeOwnedWindowsProviderHomeCandidate } from "../../src/execution/provider-home-windows-adapter.ts";
+import { createCoordinatorWindowsPlatformAdapter } from "../../src/execution/diagnostics.ts";
+import { inspectRuntimeOwnedWindowsProviderHomeCandidate } from "../../src/execution/authority.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
-import { compileWindowsRootObservationCandidate } from "../../src/execution/root-observation.ts";
+import { compileWindowsRootObservationCandidate } from "../../src/execution/authority.ts";
 
 const coordinatorRoot = path.resolve(import.meta.dirname, "../..");
 

@@ -17,7 +17,7 @@ import {
   containsRecognizedSecretText,
   describeSecretMaterialPolicyContract,
   isRecognizedSecretBearingPath,
-} from "../../src/execution/secret-validation.ts";
+} from "../../../domain-model/src/index.ts";
 
 /**
  * 固定形式Secretと名前付き実値を検出し明示placeholderを誤検出しないを検証する。

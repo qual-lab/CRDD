@@ -4,7 +4,8 @@
  * @responsibility getRuntimeProcessInstanceIdentityを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000008
  */
-import { createHash, randomUUID } from "node:crypto";
+
+import { randomUUID, createHash } from "node:crypto";
 
 export const RUNTIME_PROCESS_SAFETY_STATE_CONTRACT =
   "crdd-coordinator/runtime-process-safety-state";

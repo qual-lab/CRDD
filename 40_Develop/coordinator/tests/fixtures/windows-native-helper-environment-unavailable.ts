@@ -10,15 +10,14 @@
  */
 import assert from "node:assert/strict";
 import { mock } from "node:test";
+import { readFileSync } from "node:fs";
+import { sourceDeclaration } from "../support/source-declaration.ts";
 import { describeProviderHomeObservationContract } from "../../../platform-access/src/index.ts";
 
 let spawnCalls = 0;
 
 await mock.module(
-  new URL(
-    "../../src/execution/development-measurement-session.ts",
-    import.meta.url,
-  ).href,
+  new URL("../../src/execution/diagnostics.ts", import.meta.url).href,
   {
     namedExports: {
       borrowRuntimeOwnedDevelopmentNativeObservation: () => null,
@@ -56,10 +55,55 @@ await mock.module(
   },
 );
 
-const providerAdapter = await import(
-  "../../src/execution/provider-home-windows-adapter.ts"
+const authoritySource = readFileSync(
+  new URL("../../src/execution/authority.ts", import.meta.url),
+  "utf8",
 );
-const candidateAdapter = await import("../../src/execution/protected-root.ts");
+const authorityDeclarations = [
+  "rootCapabilities",
+  "protectedRootBlocked",
+  "rootPathCandidate",
+  "inspectRuntimeOwnedWindowsProtectedRoot",
+  "inspectRuntimeOwnedWindowsRuntimeState",
+  "consumeRuntimeOwnedRuntimeStateRootCapability",
+  "describeRuntimeStateWindowsAdapterContract",
+  "PROVIDER_HOME_WINDOWS_ADAPTER_CONTRACT",
+  "PROVIDER_HOME_WINDOWS_ADAPTER_CONTRACT_REVISION",
+  "HELPER_TIMEOUT_MS",
+  "OBSERVATION_CAPABILITY_MAXIMUM_AGE_MS",
+  "observationCapabilities",
+  "mountSourceCapabilities",
+  "runtimeOwnedProviderHomeMountSourceCandidate",
+  "providerHomeWindowsAdapterBlocked",
+  "inspectRuntimeOwnedWindowsProviderHomeCandidate",
+  "consumeRuntimeOwnedProviderHomeObservationCapability",
+  "consumeRuntimeOwnedProviderHomeMountSourceCapability",
+  "revokeRuntimeOwnedProviderHomeMountSourceCapability",
+  "describeProviderHomeWindowsAdapterContract",
+  "AUTHORITY_ROOT_ABSOLUTE_PATH_MAX_BYTES",
+  "WINDOWS_RESERVED_BASENAME",
+  "RESERVED_NAME_SPECIAL_UPPERCASE_MAPPINGS",
+  "reservedNameSpecialUppercaseMapping",
+  "reservedNameLimitedUppercase",
+  "hasSupportedCommonPathBytes",
+  "isSupportedWindowsAbsolutePathCandidate",
+  "describeAuthorityRootPathLexicalContract",
+  "isSupportedPosixAbsolutePathCandidate",
+  "isSupportedAuthorityRootAbsolutePath",
+]
+  .map((name) => sourceDeclaration(authoritySource, name))
+  .join("\n");
+const authorityImports = [
+  'import path from "node:path";',
+  'import { performance } from "node:perf_hooks";',
+  `import { snapshotPlainRecord } from "${new URL("../../../domain-model/src/index.ts", import.meta.url).href}";`,
+  `import { observeWindowsProviderHome, observeWindowsRuntimeState, WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE, describeProviderHomeObservationContract } from "${new URL("../../../platform-access/src/index.ts", import.meta.url).href}";`,
+  `import { borrowRuntimeOwnedDevelopmentNativeObservation } from "${new URL("../../src/execution/diagnostics.ts", import.meta.url).href}";`,
+].join("\n");
+const providerAdapter = await import(
+  `data:text/javascript;base64,${Buffer.from(`${authorityImports}\n${authorityDeclarations}\nexport { inspectRuntimeOwnedWindowsProviderHomeCandidate, inspectRuntimeOwnedWindowsRuntimeState };`).toString("base64")}`
+);
+const candidateAdapter = providerAdapter;
 const providerOutcome =
   providerAdapter.inspectRuntimeOwnedWindowsProviderHomeCandidate("codex");
 const candidateOutcomes = [

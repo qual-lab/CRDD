@@ -12,12 +12,12 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { evaluateProviderAvailability } from "../../../../ai-adapter/src/index.ts";
 
-import { selectDelegationRouteCandidate } from "../../../src/execution/delegation-route-selection.ts";
+import { selectDelegationRouteCandidate } from "../../../src/execution/preparation.ts";
 import {
   createIsolatedProviderEligibilityRuntimeCandidate,
   describeProviderEligibilityRuntimeContract,
   observeRuntimeOwnedProviderEligibility,
-} from "../../../src/execution/eligibility-observation.ts";
+} from "../../../src/execution/observation.ts";
 
 type Axis =
   | "requiredCapability"

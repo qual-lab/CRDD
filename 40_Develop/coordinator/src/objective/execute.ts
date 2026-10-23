@@ -8,8 +8,8 @@ import { isDeepStrictEqual } from "node:util";
 import type { CoordinatorPersistencePorts } from "../state/persistence.ts";
 import { runCoordinatorOperation } from "../task/dispatch.ts";
 import type { CoordinatorExecutionDependencies } from "../task/types.ts";
-import type { CoordinatorClockIdentityPort } from "../identity/clock-and-hash.ts";
-import type { CoordinatorProcessSafetyPort } from "../process/safety-contract.ts";
+import type { CoordinatorClockIdentityPort } from "../state/persistence.ts";
+import type { CoordinatorProcessSafetyPort } from "../task/types.ts";
 import type { CoordinatorTaskRecoveryPort } from "../task/types.ts";
 import {
   createCoordinatorState,
@@ -24,7 +24,7 @@ import {
 } from "../task/recovery.ts";
 import { acknowledgeProjectDockerRecoveryObligation } from "../task/acceptance.ts";
 import { projectCoordinatorState } from "../state/projection.ts";
-import { snapshotPlainRecord } from "../input/plain-data-snapshot.ts";
+import { snapshotPlainRecord } from "../state/model.ts";
 import {
   createCoordinatorObjectiveResult,
   createCoordinatorTaskExecutionSet,

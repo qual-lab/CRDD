@@ -14,7 +14,7 @@ import test from "node:test";
 import {
   projectDockerRecoveryAdmission,
   publicDockerRecoveryStartReason,
-} from "../../../src/execution/recovery-projection.ts";
+} from "../../../src/execution/result.ts";
 
 /**
  * observationのTest準備責務を実行する。

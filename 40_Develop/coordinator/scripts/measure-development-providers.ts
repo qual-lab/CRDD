@@ -17,15 +17,15 @@ import {
   resolveVerifiedRepositoryRootFromWorkingDirectory,
   verifyRepositoryRoot,
 } from "../../version-control/src/index.ts";
-import { assertSupportedCoordinatorNodeRuntime } from "../src/execution/runtime-version.ts";
-import { startRuntimeOwnedDevelopmentCoordinatorTask } from "../src/execution/task.ts";
-import { observeRuntimeOwnedDevelopmentSource } from "../src/execution/development-source-observation.ts";
+import { assertSupportedCoordinatorNodeRuntime } from "../src/execution/diagnostics.ts";
+import { startRuntimeOwnedDevelopmentCoordinatorTask } from "../src/execution/controller.ts";
+import { observeRuntimeOwnedDevelopmentSource } from "../src/execution/diagnostics.ts";
 import {
   cancelRuntimeOwnedDevelopmentMeasurementSession,
   inspectRuntimeOwnedDevelopmentMeasurementSession,
   readRuntimeOwnedDevelopmentMeasurementTasks,
   requestRuntimeOwnedDevelopmentMeasurementSession,
-} from "../src/execution/development-measurement-session.ts";
+} from "../src/execution/diagnostics.ts";
 
 /**
  * measure-development-providersで使用するDependenciesの値契約を定義する。

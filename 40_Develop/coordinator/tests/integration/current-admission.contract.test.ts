@@ -16,11 +16,11 @@ import { mock, test } from "node:test";
 import { runInNewContext } from "node:vm";
 import { stripTypeScriptTypes } from "node:module";
 import * as domain from "../../../domain-model/src/index.ts";
-import { coordinatorDataBoundaryBlocked } from "../../src/operation-result-contract.ts";
+import { coordinatorDataBoundaryBlocked } from "../../src/state/result.ts";
 import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
 import { resolveVerifiedRepositoryRoot } from "../../../version-control/src/index.ts";
 import * as locks from "../../src/execution/kernel-lock.ts";
-import { borrowRuntimeOwnedCoordinatorRecoveryRepository } from "../../src/execution/repository-binding.ts";
+import { borrowRuntimeOwnedCoordinatorRecoveryRepository } from "../../src/execution/operation.ts";
 import {
   COORDINATOR_STATE_SCHEMA,
   encodeCoordinatorStateValue,
@@ -442,7 +442,7 @@ test("現在入場: 実Readerの初回不存在・本文・故障と全域拒否
  */
 test("現在入場: Task通常・開発・CLIの本番構成式はexact Rootを搬送する", () => {
   const task = fs.readFileSync(
-    new URL("../../src/execution/task.ts", import.meta.url),
+    new URL("../../src/execution/controller.ts", import.meta.url),
     "utf8",
   );
   const cli = fs.readFileSync(
@@ -450,7 +450,7 @@ test("現在入場: Task通常・開発・CLIの本番構成式はexact Rootを�
     "utf8",
   );
   const adapter = fs.readFileSync(
-    new URL("../../src/platform/windows-adapter.ts", import.meta.url),
+    new URL("../../src/execution/diagnostics.ts", import.meta.url),
     "utf8",
   );
   for (const source of [task, cli, adapter]) {
@@ -598,7 +598,7 @@ test("現在入場: Task通常・開発・CLIの本番構成式はexact Rootを�
     [
       "src/execution/recovery.ts",
       "src/storage/settlement-store.ts",
-      "src/execution/recovery-projection.ts",
+      "src/execution/result.ts",
     ],
   );
 });
@@ -616,7 +616,7 @@ test("現在入場: Task通常・開発・CLIの本番構成式はexact Rootを�
  */
 test("現在入場: 安定本文の部分義務を全域拒否せず固定DTOだけを搬送する", async () => {
   const store = await import("../../src/storage/settlement-store.ts");
-  const projection = await import("../../src/execution/recovery-projection.ts");
+  const projection = await import("../../src/execution/result.ts");
   const repositoryRoot = fs.realpathSync(
     path.resolve(import.meta.dirname, "../../../.."),
   );

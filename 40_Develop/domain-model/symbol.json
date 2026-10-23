@@ -4,6 +4,14 @@
   "subsystem": "domain-model",
   "symbols": [
     {
+      "symbolId": "coordinator.source.src.security.secret.material.policy",
+      "kind": "file",
+      "path": "src/plain-data/secret-validation.ts",
+      "archIds": [
+        "ARCH-000014"
+      ]
+    },
+    {
       "symbolId": "domain-model.storage.committed-json",
       "kind": "file",
       "path": "src/storage/committed-json.ts",

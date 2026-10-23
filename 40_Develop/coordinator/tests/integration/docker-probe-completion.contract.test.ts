@@ -8,10 +8,10 @@
  * @boundary ERB-IT-004=Related 2 Blocks: DI完了事実→Coordinator私有最終評価。
  */
 import assert from "node:assert/strict";
+import { sourceDeclaration } from "../support/source-declaration.ts";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import { stripTypeScriptTypes } from "node:module";
 import { runInNewContext } from "node:vm";
 
 /**
@@ -26,12 +26,13 @@ import { runInNewContext } from "node:vm";
  * @boundary 本番Sourceと検証VM。
  */
 function completionFunctionSource(source: string, name: string) {
-  const marker = `function ${name}(`;
-  assert.equal(source.split(marker).length, 2);
-  const begin = source.indexOf(marker),
-    end = source.indexOf("\n/**", begin);
-  assert.ok(begin > 0 && end > begin);
-  return stripTypeScriptTypes(source.slice(begin, end));
+  const aliases: Readonly<Record<string, string>> = {
+    blocked: "isolationProbeBlocked",
+    isObject: "isolationProbeIsObject",
+    ownValue: "isolationProbeOwnValue",
+    errorMessage: "isolationProbeErrorMessage",
+  };
+  return sourceDeclaration(source, aliases[name] ?? name);
 }
 
 /**
@@ -47,7 +48,7 @@ function completionFunctionSource(source: string, name: string) {
  */
 test("Probe完了の閉factsは全profileで相関され実私有評価だけで公開される", () => {
   const source = fs.readFileSync(
-    new URL("../../src/execution/isolation-probe.ts", import.meta.url),
+    new URL("../../src/execution/diagnostics.ts", import.meta.url),
     "utf8",
   );
   const helpers = [

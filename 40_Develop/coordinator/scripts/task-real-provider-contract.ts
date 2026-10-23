@@ -12,9 +12,9 @@ import { StringDecoder } from "node:string_decoder";
 import { snapshotPlainRecord } from "../../domain-model/src/index.ts";
 import { isSupportedCrddRuntimeGitObjectId } from "./verification-safety.ts";
 import { inspectMcpCoordinatorObjectiveResult } from "../../mcp-server/src/index.ts";
-import { inspectCoordinatorStateQueryResult } from "../src/state/query-contract.ts";
+import { inspectCoordinatorStateQueryResult } from "../src/state/projection.ts";
 import { startWindowsChildTreeTermination } from "../../platform-access/src/index.ts";
-import { dockerProcessControllerPublicCompletionReasons } from "../src/execution/provider-result-reasons.ts";
+import { dockerProcessControllerPublicCompletionReasons } from "../src/execution/result.ts";
 import { inspectRepositoryIdentityCandidate } from "../../version-control/src/index.ts";
 
 /**

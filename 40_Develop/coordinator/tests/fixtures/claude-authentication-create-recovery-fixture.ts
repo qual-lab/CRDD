@@ -17,7 +17,7 @@ import {
   createClaudeSubscriptionAuthenticationDependencies,
   createClaudeSubscriptionAuthenticationPlan,
   createClaudeSubscriptionAuthenticationRecoveryRecord,
-} from "../../src/execution/claude-subscription-authentication.ts";
+} from "../../src/execution/authority.ts";
 
 /**
  * 固定試験入力から五資源を作成して保存完了後に終了する。

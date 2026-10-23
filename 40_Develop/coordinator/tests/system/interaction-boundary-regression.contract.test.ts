@@ -38,11 +38,11 @@ import {
   INTERACTIVE_CONSOLE_CONTRACT,
   readInteractiveConsoleLine,
   writeInteractiveConsoleTextUsingAdapter,
-} from "../../src/execution/interactive-console.ts";
+} from "../../src/decision/external-send-grant.ts";
 import {
   describeCoordinatorNodeRuntimeVersionContract,
   MINIMUM_COORDINATOR_NODE_VERSION,
-} from "../../src/execution/runtime-version.ts";
+} from "../../src/execution/diagnostics.ts";
 import {
   createInteractiveConsoleReaderEnvironment,
   createWindowsHostOperationSupervisorEnvironment,
@@ -192,12 +192,7 @@ test("対話Consoleは一つのRuntime契約だけがOS deviceを所有する", 
     .filter(
       (file) =>
         file !==
-        path.join(
-          coordinatorRoot,
-          "src",
-          "execution",
-          "interactive-console.ts",
-        ),
+        path.join(coordinatorRoot, "src", "decision", "external-send-grant.ts"),
     );
   for (const file of executableSources) {
     const source = fs.readFileSync(file, "utf8");
@@ -205,7 +200,7 @@ test("対話Consoleは一つのRuntime契約だけがOS deviceを所有する", 
   }
 
   const parentConsoleSource = fs.readFileSync(
-    path.join(coordinatorRoot, "src", "execution", "interactive-console.ts"),
+    path.join(coordinatorRoot, "src", "decision", "external-send-grant.ts"),
     "utf8",
   );
   const readerSource = fs.readFileSync(
@@ -216,17 +211,17 @@ test("対話Consoleは一つのRuntime契約だけがOS deviceを所有する", 
     "utf8",
   );
   const cliSource = fs.readFileSync(
-    path.join(coordinatorRoot, "../coordinator/src/cli/request.ts"),
+    path.join(coordinatorRoot, "../coordinator/src/cli/command.ts"),
     "utf8",
   );
   assert.equal(parentConsoleSource.includes("process.stdin"), false);
   assert.equal(readerSource.includes("process.stdin"), false);
   assert.equal(readerSource.includes('"\\\\\\\\.\\\\CONIN$"'), true);
   const requestInputSource = fs.readFileSync(
-    path.join(coordinatorRoot, "../coordinator/src/cli/request-input.ts"),
+    path.join(coordinatorRoot, "../coordinator/src/cli/options.ts"),
     "utf8",
   );
-  assert.equal(cliSource.includes('from "./request-input.ts"'), true);
+  assert.equal(cliSource.includes('from "./options.ts"'), true);
   assert.equal(
     cliSource.includes(
       "inspectSingleTaskCommand(readBoundedTaskRequestFromStdin())",
@@ -235,10 +230,10 @@ test("対話Consoleは一つのRuntime契約だけがOS deviceを所有する", 
   );
   assert.equal(requestInputSource.includes("fs.readSync(0"), true);
   const commandPath = path
-    .join(coordinatorRoot, "../coordinator/src/cli/request.ts")
+    .join(coordinatorRoot, "../coordinator/src/cli/command.ts")
     .replaceAll("\\", "/");
   const inputPath = path
-    .join(coordinatorRoot, "../coordinator/src/cli/request-input.ts")
+    .join(coordinatorRoot, "../coordinator/src/cli/options.ts")
     .replaceAll("\\", "/");
   const config = path
     .join(coordinatorRoot, ".crdd-stdin-oracle.json")
@@ -255,18 +250,15 @@ test("対話Consoleは一つのRuntime契約だけがOS deviceを所有する", 
         name === "interactive-console-reader"
           ? "../platform-access/src/terminal/confirmation-reader.ts"
           : name === "request-input"
-            ? "../coordinator/src/cli/request-input.ts"
-            : "src/execution/interactive-console.ts",
+            ? "../coordinator/src/cli/options.ts"
+            : "src/decision/external-send-grant.ts",
       ),
     ],
     include: [],
   });
   const alternatives = [
     cliSource,
-    cliSource.replace(
-      'from "./request-input.ts"',
-      'from "../../../coordinator/src/cli/options.ts"',
-    ),
+    cliSource.replace('from "./options.ts"', 'from "../../src/cli/options.ts"'),
     cliSource.replace(
       "inspectSingleTaskCommand(readBoundedTaskRequestFromStdin())",
       "inspectSingleTaskCommand(otherReader())",
@@ -275,6 +267,7 @@ test("対話Consoleは一つのRuntime契約だけがOS deviceを所有する", 
     cliSource,
     `${cliSource}\nimport { readSync as directRead } from "node:fs"; directRead(0, Buffer.alloc(1), 0, 1, null);`,
     `${cliSource.replace("inspectSingleTaskCommand(readBoundedTaskRequestFromStdin())", "inspectSingleTaskCommand(otherReader())")}\nfunction unusedInputDecoy() { let taskRequest; inspectSingleTaskCommand(readBoundedTaskRequestFromStdin()) }`,
+    `${cliSource}\nprocess.stdin.read(1);`,
   ];
   const expectedFailures = [
     null,
@@ -284,6 +277,7 @@ test("対話Consoleは一つのRuntime契約だけがOS deviceを所有する", 
     "input_owner_invalid",
     "command_direct_stdin",
     "input_call_invalid",
+    "command_direct_stdin",
   ];
   for (const [index, source] of alternatives.entries()) {
     if (index > 0 && index !== 4) assert.notEqual(source, cliSource);
@@ -363,12 +357,12 @@ function inspectTaskStdinWiring(project: Project, root: string) {
       .join(
         root,
         name === "command"
-          ? "../coordinator/src/cli/request.ts"
+          ? "../coordinator/src/cli/command.ts"
           : name === "interactive-console-reader"
             ? "../platform-access/src/terminal/confirmation-reader.ts"
             : name === "request-input"
-              ? "../coordinator/src/cli/request-input.ts"
-              : "src/execution/interactive-console.ts",
+              ? "../coordinator/src/cli/options.ts"
+              : "src/decision/external-send-grant.ts",
       )
       .replaceAll("\\", "/");
     const source = project.program.getSourceFile(file);
@@ -383,7 +377,7 @@ function inspectTaskStdinWiring(project: Project, root: string) {
     .filter(
       (item) =>
         isStringLiteral(item.moduleSpecifier) &&
-        item.moduleSpecifier.text === "./request-input.ts",
+        item.moduleSpecifier.text === "./options.ts",
     )
     .flatMap((item) => {
       const bindings = item.importClause?.namedBindings;
@@ -458,6 +452,7 @@ function inspectTaskStdinWiring(project: Project, root: string) {
         }
     }
     const pending: Node[] = [source as SourceFile];
+    const metadataOnlyStdin = new Set<Node>();
     let directReads = 0;
     while (pending.length) {
       const node = pending.pop();
@@ -465,6 +460,15 @@ function inspectTaskStdinWiring(project: Project, root: string) {
       node.forEachChild((child) => {
         pending.push(child);
       });
+      if (
+        isPropertyAccessExpression(node) &&
+        node.name.text === "isTTY" &&
+        isPropertyAccessExpression(node.expression) &&
+        isIdentifier(node.expression.expression) &&
+        node.expression.expression.text === "process" &&
+        node.expression.name.text === "stdin"
+      )
+        metadataOnlyStdin.add(node.expression);
       if (
         isVariableDeclaration(node) &&
         taskNodes.has(node) &&
@@ -492,7 +496,8 @@ function inspectTaskStdinWiring(project: Project, root: string) {
         isPropertyAccessExpression(node) &&
         isIdentifier(node.expression) &&
         node.expression.text === "process" &&
-        node.name.text === "stdin"
+        node.name.text === "stdin" &&
+        !metadataOnlyStdin.has(node)
       )
         directReads += 1;
       if (
@@ -1269,7 +1274,7 @@ test("Windows実ProcessでTask stdin pipeと固定Console readerを分離する"
   try {
     assert.equal(tty.isatty(outputDescriptor), true);
     const moduleUrl = pathToFileURL(
-      path.join(coordinatorRoot, "src", "execution", "interactive-console.ts"),
+      path.join(coordinatorRoot, "src", "decision", "external-send-grant.ts"),
     ).href;
     const taskBytes = Buffer.from('{"task":"transport-only"}\n', "utf8");
     const inlineScript = `

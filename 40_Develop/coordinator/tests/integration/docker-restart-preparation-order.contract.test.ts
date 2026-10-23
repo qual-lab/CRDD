@@ -24,7 +24,7 @@ import { parseDockerTaskRecoveryId } from "../../../docker-isolation/src/index.t
 import {
   parseHostRecoveryToken,
   validateHostRecoveryTransitionLineage,
-} from "../../src/execution/host-recovery-record.ts";
+} from "../../src/execution/result.ts";
 import {
   coordinatorTaskResourcesAreSettled,
   coordinatorAuthenticationUnknownCanClose,
@@ -37,7 +37,7 @@ import {
 import {
   createDockerRestartRequestId,
   isDockerRestartCheckpointSettled,
-} from "../../src/execution/restart-checkpoint.ts";
+} from "../../src/execution/result.ts";
 import {
   persistRuntimeOwnedDockerRestartCheckpoint,
   prepareRuntimeOwnedDockerRestart,

@@ -17,7 +17,7 @@ import {
 } from "../../src/decision/request.ts";
 import { inspectCoordinatorObjectiveRequest } from "../../src/objective/request.ts";
 import { isCoordinatorDecisionRecord } from "../../src/decision/records.ts";
-import { COORDINATOR_PUBLIC_RUNTIME_CONTRACT } from "../../src/operation-result-contract.ts";
+import { COORDINATOR_PUBLIC_RUNTIME_CONTRACT } from "../../src/state/result.ts";
 import {
   COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT,
   COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT_REVISION,

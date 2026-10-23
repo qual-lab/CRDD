@@ -20,10 +20,10 @@ import {
 } from "../../version-control/src/index.ts";
 import { isDockerIsolationRecoveryIdCandidate } from "../../docker-isolation/src/index.ts";
 import { snapshotPlainArray } from "../../domain-model/src/index.ts";
-import { coordinatorTaskPublicReasons } from "../src/execution/result-reasons.ts";
+import { coordinatorTaskPublicReasons } from "../src/execution/result.ts";
 import { inspectRepositoryRevisionCandidate } from "../../version-control/src/index.ts";
 import { isCanonicalVerificationRecoveryId } from "./verification-safety.ts";
-import { isSupportedCoordinatorNodeRuntime } from "../src/execution/runtime-version.ts";
+import { isSupportedCoordinatorNodeRuntime } from "../src/execution/diagnostics.ts";
 import {
   SIGNED_GENERAL_TASK_PUBLIC_REASONS,
   SIGNED_ROUTE_MATRIX_REASONS,

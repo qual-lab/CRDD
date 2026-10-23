@@ -4,7 +4,7 @@
  * @responsibility Repository・Queue結合と候補公開／採用結果の形を固定する。
  * @trace ARCH-000005
  */
-import type { CoordinatorPortResult } from "../operation-result.ts";
+import type { CoordinatorPortResult } from "../state/result.ts";
 
 export const COORDINATOR_INTEGRATION_CONTRACT =
   "crdd-coordinator/orchestrator-integration/v1" as const;

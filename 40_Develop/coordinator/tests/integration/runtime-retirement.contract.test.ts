@@ -74,9 +74,9 @@ test("現在の通常入口・Task回復・Nativeは旧署名資格と履歴load
     "src/cli/command.ts",
     "src/index.ts",
     "src/execution/recovery.ts",
-    "src/execution/development-measurement-session.ts",
-    "src/execution/provider-home-windows-adapter.ts",
-    "src/execution/protected-root.ts",
+    "src/execution/diagnostics.ts",
+    "src/execution/authority.ts",
+    "src/execution/authority.ts",
   ]) {
     const source = fs.readFileSync(
       new URL(["../../", relative].join(""), import.meta.url),

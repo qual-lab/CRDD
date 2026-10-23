@@ -26,9 +26,9 @@ import {
 import {
   createIsolatedProviderTaskPacketRuntimeCandidate,
   describeProviderTaskPacketRuntimeContract,
-} from "../../../src/execution/task-packet.ts";
+} from "../../../src/execution/preparation.ts";
 import { compileExternalSendScopeHash } from "../../../src/decision/external-send-grant.ts";
-import { normalizeProviderTaskStructuredResult } from "../../../src/execution/task-structured-result.ts";
+import { normalizeProviderTaskStructuredResult } from "../../../src/execution/result.ts";
 
 const operationFixture = createRepositoryTestDirectory("task-packet-network-");
 /**

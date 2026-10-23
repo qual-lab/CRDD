@@ -15,7 +15,7 @@ import {
   writeCoordinatorSnapshotState,
   createCoordinatorSnapshotPersistencePorts,
 } from "../../src/storage/current-state.ts";
-import { deriveCoordinatorRepositoryBindingId } from "../../src/state/binding.ts";
+import { deriveCoordinatorRepositoryBindingId } from "../../src/state/model.ts";
 
 /**
  * 既存Projectと二Queueを実保存する。

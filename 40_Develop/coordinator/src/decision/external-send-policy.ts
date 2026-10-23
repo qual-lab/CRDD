@@ -26,7 +26,7 @@ import {
 import {
   borrowRuntimeOwnedRepositorySource,
   verifyRuntimeOwnedRepositoryBindingCapability,
-} from "../execution/repository-binding.ts";
+} from "../execution/operation.ts";
 
 export const EXTERNAL_SEND_POLICY_RUNTIME_CONTRACT =
   "crdd-coordinator/external-send-policy-runtime";

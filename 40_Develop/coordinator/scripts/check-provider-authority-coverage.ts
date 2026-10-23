@@ -20,11 +20,8 @@ const coordinatorRoot = path.resolve(import.meta.dirname, "..");
 const repositoryRoot = path.resolve(coordinatorRoot, "../..");
 
 export const PROVIDER_AUTHORITY_COVERAGE_SOURCES = Object.freeze([
-  "40_Develop/coordinator/src/execution/isolation-profile.ts",
-  "40_Develop/coordinator/src/execution/authority-validation.ts",
-  "40_Develop/coordinator/src/execution/prelaunch-validation.ts",
-  "40_Develop/coordinator/src/execution/local-authority.ts",
-  "40_Develop/coordinator/src/execution/authority-grant.ts",
+  "40_Develop/coordinator/src/execution/preparation.ts",
+  "40_Develop/coordinator/src/execution/authority.ts",
   "40_Develop/domain-model/src/plain-data/snapshot.ts",
 ]);
 
@@ -82,36 +79,19 @@ function obligation(
 }
 
 const coverageObligations = Object.freeze({
-  "40_Develop/coordinator/src/execution/isolation-profile.ts": obligation(
+  "40_Develop/coordinator/src/execution/preparation.ts": obligation(
     "複合fail-closed述語の全短絡順序と防御的catchを同一runで到達していない",
     "Profile shapeまたは専用Homeマウント許可参照の稀な不正形を同じ固定reasonへ閉じる分岐の退行",
     "Profile revision 3、旧revision、namespace、Provider・Profile・Operation結合、上限および動的入力の正負・境界試験",
     "Profile Schema、専用Homeマウント許可またはplain-data境界変更時",
   ),
-  "40_Develop/coordinator/src/execution/authority-validation.ts": obligation(
-    "複合fail-closed述語の全短絡順序と防御的catchを同一runで到達していない",
-    "Registry、Grant、contextまたは四者結合の稀な不正形を同じ固定reasonへ閉じる分岐の退行",
-    "Registry revision 3、参照重複、時刻、Provider・Profile・Operation・Scope・mount参照結合および上限試験",
-    "Registry Schema、Authority context、Grant評価またはplain-data境界変更時",
+  "40_Develop/coordinator/src/execution/authority.ts": obligation(
+    "複合fail-closed述語の全短絡順序と防御的catchを同一runで到達していない／Runtime時計failure、全Bundle failureおよび全context短絡を同一runで到達していない／防御的catch、乱数衝突および全ての不正shape短絡を同一runで到達していない／正規化JSONのundefined防御と、固定6 Profileから生成するProfile／Registry／Policy／Bundleの不成立分岐が未到達。production照合は別ITと同じ確認本文の反証へ接続する",
+    "Registry、Grant、contextまたは四者結合の稀な不正形を同じ固定reasonへ閉じる分岐の退行／起動直前のAuthority contextまたはBundle結合の稀なfailureを誤分類する可能性／短命Capabilityの発行・消費・失効または再検証の稀なfailureを誤分類する可能性／現在Operationの失効または短命Local Personal Bundle生成の稀なfailureを誤分類する可能性",
+    "Registry revision 3、参照重複、時刻、Provider・Profile・Operation・Scope・mount参照結合および上限試験／Provider・Profile・Operation・Scope・mount参照の正負・境界、Bundle不一致、失効Grantおよび動的入力試験／発行・一回消費・失効、5秒境界、時計後退、Authority差替え、Mount失効、binding不一致およびproduction停止試験／現在Operationのstrict確認、固定6 Profile、source期限、Grant期限、Provider差、時計差と本番確認本文の開発Context反証。実管理参照の結合・清掃後失効は別のTask Runtime ITで確認する",
+    "Registry Schema、Authority context、Grant評価またはplain-data境界変更時／Prelaunch context、Runtime時計、File BundleまたはProvider launch結合変更時／Runtime Authority lifetime、Authority source loader、Mount inspectionまたはProvider Effect結合変更時／Operation管理参照、固定Profile、Authority source lifetimeまたはLocal Personal許可境界変更時",
   ),
-  "40_Develop/coordinator/src/execution/prelaunch-validation.ts": obligation(
-    "Runtime時計failure、全Bundle failureおよび全context短絡を同一runで到達していない",
-    "起動直前のAuthority contextまたはBundle結合の稀なfailureを誤分類する可能性",
-    "Provider・Profile・Operation・Scope・mount参照の正負・境界、Bundle不一致、失効Grantおよび動的入力試験",
-    "Prelaunch context、Runtime時計、File BundleまたはProvider launch結合変更時",
-  ),
-  "40_Develop/coordinator/src/execution/authority-grant.ts": obligation(
-    "防御的catch、乱数衝突および全ての不正shape短絡を同一runで到達していない",
-    "短命Capabilityの発行・消費・失効または再検証の稀なfailureを誤分類する可能性",
-    "発行・一回消費・失効、5秒境界、時計後退、Authority差替え、Mount失効、binding不一致およびproduction停止試験",
-    "Runtime Authority lifetime、Authority source loader、Mount inspectionまたはProvider Effect結合変更時",
-  ),
-  "40_Develop/coordinator/src/execution/local-authority.ts": obligation(
-    "正規化JSONのundefined防御と、固定6 Profileから生成するProfile／Registry／Policy／Bundleの不成立分岐が未到達。production照合は別ITと同じ確認本文の反証へ接続する",
-    "現在Operationの失効または短命Local Personal Bundle生成の稀なfailureを誤分類する可能性",
-    "現在Operationのstrict確認、固定6 Profile、source期限、Grant期限、Provider差、時計差と本番確認本文の開発Context反証。実管理参照の結合・清掃後失効は別のTask Runtime ITで確認する",
-    "Operation管理参照、固定Profile、Authority source lifetimeまたはLocal Personal許可境界変更時",
-  ),
+
   "40_Develop/domain-model/src/plain-data/snapshot.ts": obligation(
     "未到達分岐なし",
     "現固定版では追加残存riskなし",

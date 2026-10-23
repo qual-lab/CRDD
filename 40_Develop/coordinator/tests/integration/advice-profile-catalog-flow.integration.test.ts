@@ -24,7 +24,7 @@ import {
 import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
 import { createRepositoryAdviceExecutor } from "../../src/execution/advice.ts";
 import { createAdviceDispatch } from "../../src/execution/advice.ts";
-import type { ProviderAdviceExecutionPlan } from "../../src/execution/provider-plan.ts";
+import type { ProviderAdviceExecutionPlan } from "../../src/execution/preparation.ts";
 import { createProviderAdviceAdapter } from "../../src/execution/advice.ts";
 import { readRepositoryNetworkPolicies } from "../../src/index.ts";
 
@@ -61,6 +61,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { mock } from "node:test";
+import { stripTypeScriptTypes } from "node:module";
 import { verifyRepositoryRoot } from ${JSON.stringify(moduleUrl("40_Develop/version-control/src/index.ts"))};
 import { defaultAiProfileCatalog } from ${JSON.stringify(moduleUrl("40_Develop/ai-adapter/src/index.ts"))};
 import { fixtureNetworkPolicy } from ${JSON.stringify(moduleUrl("40_Develop/coordinator/tests/fixtures/network-policy.ts"))};
@@ -79,16 +80,27 @@ mock.module(domainUrl, { namedExports: { ...domain, createFilesystemRepositoryOb
   return { ...observer, observeFile: reference => { reads++; assert.equal(reference, "PROJECT_CONTEXT.md"); const result = observer.observeFile(reference); if (scenario === "cancel_after_read") controller.abort(); return result; } };
 } } });
 const host = "host.synthetic-exact-reference";
-mock.module(${JSON.stringify(moduleUrl("40_Develop/coordinator/src/execution/provider-execution.ts"))}, { namedExports: {
-  createRuntimeOwnedProviderAdviceRuntime: () => async (plan, signal) => {
+globalThis.adviceFixture = {
+  runtime: () => async (plan, signal) => {
     calls++; assert.equal(signal, controller.signal); assert.equal(plan.repositoryMounted,false); assert.equal(plan.workspaceMounted,false); assert.equal(plan.provider,"codex");
     if (scenario === "runtime_throw") throw new Error("synthetic");
     if (scenario === "cleanup_unknown") return { status:"blocked",reason:"synthetic_cleanup_unknown",adviceJson:null,providerEffectIssued:true,cleanupConfirmed:false };
     return {status:"completed",reason:null,adviceJson:JSON.stringify({contract:"crdd-coordinator/workbench-ai-advice-result",contractRevision:1,status:"completed",facts:[{text:"合成",references:["PROJECT_CONTEXT.md"]}],sharedAnalysis:[],additionalInferences:[],nextOptions:[]}),providerEffectIssued:true,cleanupConfirmed:true};
   },
-  classifyProviderAdviceHostFailure: value => value && !value.cleanupConfirmed ? {cleanupConfirmed:false,manualRecoveryRequired:true,hostRecoveryId:host} : null,
-  recoverProviderAdviceHostOperation: () => { throw new Error("not_used"); }
-} });
+  failure: value => value && !value.cleanupConfirmed ? {cleanupConfirmed:false,manualRecoveryRequired:true,hostRecoveryId:host} : null,
+};
+const adviceUrl = ${JSON.stringify(moduleUrl("40_Develop/coordinator/src/execution/advice.ts"))};
+let adviceSource = stripTypeScriptTypes(fs.readFileSync(new URL(adviceUrl), "utf8"));
+for (const [original, replacement] of [
+  ["createRuntimeOwnedProviderAdviceRuntime(root, observation)", "globalThis.adviceFixture.runtime(root, observation)"],
+  ["classifyProviderAdviceHostFailure(observed)", "globalThis.adviceFixture.failure(observed)"],
+]) {
+  assert.equal(adviceSource.split(original).length, 2);
+  adviceSource = adviceSource.replace(original, replacement);
+}
+adviceSource = adviceSource.replace(/from "(\\.[^"]+)"/g, (_, specifier) => "from " + JSON.stringify(new URL(specifier, adviceUrl).href));
+const adviceFixture = await import("data:text/javascript;base64," + Buffer.from(adviceSource).toString("base64"));
+mock.module(adviceUrl, { namedExports: adviceFixture });
 const { runRepositoryAdvice } = await import(${JSON.stringify(moduleUrl("40_Develop/coordinator/src/index.ts"))});
 const verified = verifyRepositoryRoot(fixture); assert.equal(verified.status,"completed");
 const profiles = {snapshot:()=>{catalogs++;if(scenario === "cancel_after_catalog")controller.abort();return {status:"read",error:null,value:{revision:0,catalog:defaultAiProfileCatalog}}},adopt:()=>{throw new Error("not_used")}};

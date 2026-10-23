@@ -32,7 +32,7 @@ import {
   createCoordinatorSnapshotIntegrationRecordPort,
 } from "../storage/current-state.ts";
 import type { CoordinatorWorkspace } from "./record.ts";
-import type { CoordinatorLease } from "../lease/controller.ts";
+import type { CoordinatorLease } from "../state/persistence.ts";
 
 /**
  * 計画の品質受入に必要な既存Git採用記録を再観測する。

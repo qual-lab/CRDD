@@ -524,3 +524,12 @@ export {
   parseStableIdentityOccurrences,
   inspectStableIdentityOwnership,
 } from "./artifact/identity.ts";
+export {
+  SECRET_MATERIAL_POLICY_CONTRACT,
+  SECRET_MATERIAL_POLICY_CONTRACT_REVISION,
+  containsRecognizedSecretText,
+  isRecognizedSecretBearingPath,
+  containsRecognizedSecretScope,
+  containsRecognizedSecretMaterial,
+  describeSecretMaterialPolicyContract,
+} from "./plain-data/secret-validation.ts";

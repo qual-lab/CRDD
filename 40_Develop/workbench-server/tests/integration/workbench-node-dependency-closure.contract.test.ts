@@ -34,10 +34,7 @@ test("Workbench助言の本番入口は署名発行を注入しない", () => {
     "utf8",
   );
   const runtime = readFileSync(
-    path.join(
-      repositoryRoot,
-      "40_Develop/coordinator/src/execution/provider-execution.ts",
-    ),
+    path.join(repositoryRoot, "40_Develop/coordinator/src/execution/advice.ts"),
     "utf8",
   );
   assert.doesNotMatch(

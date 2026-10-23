@@ -27,7 +27,7 @@ import {
   createOwnedOperationManagementCapability,
   verifyOwnedOperationManagementMountBinding,
 } from "../../src/execution/operation.ts";
-import { bindRuntimeOwnedRepositoryOperation } from "../../src/execution/repository-binding.ts";
+import { bindRuntimeOwnedRepositoryOperation } from "../../src/execution/operation.ts";
 import {
   captureExecutionChangeSnapshot,
   describeExecutionChangeSnapshotContract,
@@ -36,16 +36,16 @@ import {
   verifyExecutionChangeSnapshot,
   observeBorrowedExecutionChanges,
   projectBorrowedExecutionResult,
-} from "../../src/execution/change-snapshot.ts";
+} from "../../src/execution/operation.ts";
 import {
   inspectBorrowedExecutionTarget,
   readBorrowedExecutionBinding,
-} from "../../src/execution/borrowed-tree.ts";
+} from "../../src/execution/operation.ts";
 import {
   createRepositoryWorktree,
   verifyRepositoryRoot,
 } from "../../../version-control/src/index.ts";
-import { createProviderDockerRuntimeDependencies } from "../../src/execution/provider-adapter.ts";
+import { createProviderDockerRuntimeDependencies } from "../../src/execution/preparation.ts";
 import { runCoordinatorSingleTaskAttempt } from "../../src/index.ts";
 import {
   prepareVerificationWorkspace,

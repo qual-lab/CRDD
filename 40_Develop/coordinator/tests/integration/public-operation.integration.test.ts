@@ -34,9 +34,9 @@ import {
   createCoordinatorExecutionIntelligenceDiagnosticReporter,
   createCoordinatorRecoveryDiagnosticReporter,
   COORDINATOR_EXECUTION_INTELLIGENCE_PREFIX,
-} from "../../src/task/execution-diagnostics.ts";
-import { executeCoordinatorPublicAcceptanceDecision } from "../../src/decision/public-acceptance.ts";
-import { coordinatorDataBoundaryBlocked } from "../../src/operation-result-contract.ts";
+} from "../../src/execution/diagnostics.ts";
+import { executeCoordinatorPublicAcceptanceDecision } from "../../src/decision/public-operation.ts";
+import { coordinatorDataBoundaryBlocked } from "../../src/state/result.ts";
 
 /**
  * Runtime Data失敗を公開Coordinator結果まで意味変更せず投影するを検証する。

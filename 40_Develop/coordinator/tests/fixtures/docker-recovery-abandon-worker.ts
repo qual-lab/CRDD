@@ -120,12 +120,10 @@ function captureCoordinatorFiles() {
 if (mode !== "recovery") {
   const domain = await import("../../../domain-model/src/index.ts");
   const host = await import("../../src/execution/operation.ts");
-  const repository = await import("../../src/execution/repository-binding.ts");
+  const repository = await import("../../src/execution/operation.ts");
   const store = await import("../../src/storage/settlement-store.ts");
   const model = await import("../../src/storage/model.ts");
-  const homes = await import(
-    "../../src/execution/provider-home-windows-adapter.ts"
-  );
+  const homes = await import("../../src/execution/authority.ts");
   const locks = await import("../../src/execution/kernel-lock.ts");
   const area = domain.requireReadyRepositoryRuntimeDataArea(
     domain.ensureRepositoryRuntimeDataAreaFromWorkingDirectory(root, "tests"),
@@ -256,10 +254,7 @@ if (mode !== "recovery") {
     },
   );
   const homeMock = mock.module(
-    new URL(
-      "../../src/execution/provider-home-windows-adapter.ts",
-      import.meta.url,
-    ).href,
+    new URL("../../src/execution/authority.ts", import.meta.url).href,
     {
       namedExports: {
         ...homes,
@@ -334,12 +329,12 @@ if (mode !== "recovery") {
     );
     const actualSubmission = await import(
       new URL(
-        "../../src/execution/host-submission.ts?abandon-producer",
+        "../../src/execution/recovery.ts?abandon-producer",
         import.meta.url,
       ).href
     );
     const submissionMock = mock.module(
-      new URL("../../src/execution/host-submission.ts", import.meta.url).href,
+      new URL("../../src/execution/recovery.ts", import.meta.url).href,
       {
         namedExports: {
           ...actualSubmission,
@@ -1424,10 +1419,10 @@ if (mode !== "recovery") {
         },
       );
       const actualSubmission = await import(
-        "../../src/execution/host-submission.ts"
+        "../../src/execution/controller.ts"
       );
       admissionSubmissionMock = mock.module(
-        new URL("../../src/execution/host-submission.ts", import.meta.url).href,
+        new URL("../../src/execution/controller.ts", import.meta.url).href,
         {
           namedExports: {
             ...actualSubmission,

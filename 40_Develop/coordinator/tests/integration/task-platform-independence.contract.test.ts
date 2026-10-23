@@ -115,67 +115,38 @@ const allModules = discoverCoordinatorModules();
 // Folder名ではなく現行ArchitectureのFile責務を全数固定する。
 const SOURCE_ROLES = {
   pure: [
-    "state/activity-cursor.ts",
-    "state/activity-types.ts",
-    "state/activity-validation.ts",
-    "decision/acceptance-authority.ts",
-    "decision/acceptance-record.ts",
-    "decision/authority-adapter.ts",
-    "decision/capability.ts",
-    "decision/records.ts",
-    "decision/recovery-record.ts",
-    "decision/request.ts",
-    "identity/clock-and-hash.ts",
-    "state/binding.ts",
-    "input/plain-data-snapshot.ts",
-    "input/repository-relative-path.ts",
-    "lease/controller.ts",
-    "objective/request.ts",
-    "operation-result-contract.ts",
-    "operation-result.ts",
-    "platform/contract.ts",
-    "process/safety-contract.ts",
-    "queue/types.ts",
-    "state/persistence.ts",
-    "state/query-contract.ts",
-    "state/model.ts",
     "state/projection.ts",
+    "state/types.ts",
+    "decision/types.ts",
+    "decision/records.ts",
+    "decision/request.ts",
+    "state/persistence.ts",
+    "state/model.ts",
+    "objective/request.ts",
+    "state/result.ts",
+    "task/types.ts",
+    "state/request.ts",
     "task/scheduling.ts",
     "task/lifecycle.ts",
     "task/acceptance.ts",
-    "task/types.ts",
-    "decision/transitions.ts",
     "storage/result-record.ts",
     "task/recovery.ts",
-    "task/single-task-record.ts",
   ],
   workflow: [
-    "state/activity.ts",
+    "state/observation.ts",
     "decision/lifecycle.ts",
-    "decision/record-acceptance.ts",
+    "decision/acceptance.ts",
     "objective/execute.ts",
     "objective/plan.ts",
     "objective/replan.ts",
     "state/query.ts",
     "task/dispatch.ts",
-    "task/settle-docker-recovery.ts",
     "workspace/record.ts",
   ],
   adapter: [
-    "cli/request.ts",
-    "cli/request-input.ts",
-    "decision/capability-adapter.ts",
     "objective/public-operation.ts",
     "decision/public-operation.ts",
-    "decision/public-acceptance.ts",
     "state/public-query.ts",
-    "task/execution-diagnostics.ts",
-    "platform/windows-adapter.ts",
-    "task/execute-attempt.ts",
-    "task/host-adapter.ts",
-    "task/intelligence-adapter.ts",
-    "task/recovery-adapter.ts",
-    "task/request-composition.ts",
     "task/requests.ts",
     "workspace/commands.ts",
     "workspace/operations.ts",
@@ -186,73 +157,18 @@ const SOURCE_ROLES = {
     "storage/protected-decision.ts",
   ],
   technicalExecution: [
-    "execution/advice.ts",
-    "execution/attempt.ts",
-    "execution/authority-bundle.ts",
-    "execution/authority-grant.ts",
-    "execution/authority-policy.ts",
-    "execution/authority-validation.ts",
-    "execution/borrowed-tree.ts",
-    "execution/change-snapshot.ts",
-    "execution/claude-subscription-authentication.ts",
-    "execution/cleanup-eligibility.ts",
-    "execution/completion-observation.ts",
-    "execution/delegation-route-selection.ts",
-    "execution/delegation-selection-grant.ts",
-    "execution/development-execution-timing.ts",
-    "execution/development-measurement-constraints.ts",
-    "execution/development-measurement-session.ts",
-    "execution/development-source-observation.ts",
-    "execution/diagnostics.ts",
-    "execution/eligibility-observation.ts",
-    "execution/generation-loss-transition.ts",
-    "execution/host-recovery-record.ts",
-    "execution/host-submission.ts",
-    "execution/interactive-console.ts",
-    "execution/isolation-execution.ts",
-    "execution/isolation-probe.ts",
-    "execution/isolation-profile.ts",
-    "execution/kernel-lock.ts",
-    "execution/local-authority.ts",
-    "execution/model-selection.ts",
-    "execution/operation-creation.ts",
+    "execution/controller.ts",
+    "execution/authority.ts",
     "execution/operation.ts",
-    "execution/orphan-recovery-policy.ts",
-    "execution/prelaunch-validation.ts",
-    "execution/process-safety-state.ts",
-    "execution/protected-root.ts",
-    "execution/provider-adapter.ts",
-    "execution/provider-controller.ts",
-    "execution/provider-execution.ts",
-    "execution/provider-home-mount-authorization.ts",
-    "execution/provider-home-mount-grant.ts",
-    "execution/provider-home-windows-adapter.ts",
-    "execution/provider-home.ts",
-    "execution/provider-lifecycle.ts",
-    "execution/provider-observation.ts",
-    "execution/provider-packet.ts",
-    "execution/provider-plan.ts",
-    "execution/provider-preparation-lifecycle.ts",
-    "execution/provider-preparation.ts",
-    "execution/provider-result-reasons.ts",
-    "execution/provider-types.ts",
-    "execution/recovery-projection.ts",
+    "execution/result.ts",
     "execution/recovery.ts",
-    "execution/repository-binding.ts",
-    "execution/restart-checkpoint.ts",
-    "execution/result-reasons.ts",
-    "execution/root-observation.ts",
-    "execution/root-path.ts",
-    "execution/root-protection-policy.ts",
-    "execution/runtime-repair.ts",
-    "execution/runtime-restart.ts",
-    "execution/runtime-version.ts",
-    "execution/secret-validation.ts",
-    "execution/task-packet.ts",
-    "execution/task-request.ts",
-    "execution/task-structured-result.ts",
-    "execution/task.ts",
-    "execution/types.ts",
+    "execution/observation.ts",
+    "execution/diagnostics.ts",
+    "execution/preparation.ts",
+    "execution/advice.ts",
+    "execution/request.ts",
+    "execution/kernel-lock.ts",
+    "execution/process-safety-state.ts",
   ],
   runtimeCli: [
     "cli/command.ts",
@@ -262,8 +178,7 @@ const SOURCE_ROLES = {
   ],
   technicalStorage: ["storage/model.ts", "storage/settlement-store.ts"],
   externalSendDecision: [
-    "decision/external-send-consent-record.ts",
-    "decision/external-send-consent-store.ts",
+    "decision/external-send-consent.ts",
     "decision/external-send-grant.ts",
     "decision/external-send-policy.ts",
   ],
@@ -294,7 +209,7 @@ test("Taskの純粋契約はExecutionの指定型だけを型専用で参照す�
     ],
   };
   const workspace = {
-    specifier: "../execution/types.ts",
+    specifier: "../execution/result.ts",
     typeOnly: true,
     names: ["CoordinatorWorkspaceResult"],
   };
@@ -309,7 +224,7 @@ test("Taskの純粋契約はExecutionの指定型だけを型専用で参照す�
     [contracts, { ...workspace, names: ["UnapprovedExecutionType"] }],
     [
       contracts,
-      { ...workspace, specifier: "../execution/../execution/types.ts" },
+      { ...workspace, specifier: "../execution/../execution/result.ts" },
     ],
   ])
     assert.throws(
@@ -336,7 +251,7 @@ test("Task共有型のContract参照は二定数の型専用辺だけを許可�
     "COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT",
   ] as const;
   const workspace = {
-    specifier: "../execution/types.ts",
+    specifier: "../execution/result.ts",
     typeOnly: true,
     names: ["CoordinatorWorkspaceResult"],
   };
@@ -441,7 +356,7 @@ function assertPureImportEdges(
       (edge) => edge.specifier === "./dispatch.ts",
     );
     const workspaceEdges = scan.edges.filter(
-      (edge) => edge.specifier === "../execution/types.ts",
+      (edge) => edge.specifier === "../execution/result.ts",
     );
     const names = contractEdges.flatMap((edge) => edge.names);
     const workspaceNames = workspaceEdges.flatMap((edge) => edge.names);
@@ -482,8 +397,8 @@ function assertPureImportEdges(
       assert.ok(
         coreModules.includes(resolved) ||
           (module === `${SOURCE_PREFIX}task/types.ts` &&
-            specifier === "../execution/types.ts" &&
-            resolved === `${SOURCE_PREFIX}execution/types.ts` &&
+            specifier === "../execution/result.ts" &&
+            resolved === `${SOURCE_PREFIX}execution/result.ts` &&
             names.length === 1 &&
             names[0] === "CoordinatorWorkspaceResult") ||
           (module === `${SOURCE_PREFIX}task/types.ts` &&
@@ -790,7 +705,7 @@ test("import走査は解釈できない取り込み構文をFail Closedで検出
     'import { randomUUID as random } from "node:crypto";',
     'import { readCurrentCoordinatorState } from "../storage/current-state.ts";',
     'import { queryCoordinatorState } from "./query.ts";',
-    'import { snapshotPlainRecord } from "../input/plain-data-snapshot.ts";',
+    'import { snapshotPlainRecord } from "./model.ts";',
     'import type { T } from "../storage/current-state.ts";',
     'import type { Stats } from "node:fs";',
     'import type { T } from "../index.ts";',
@@ -903,7 +818,7 @@ test("import走査は解釈できない取り込み構文をFail Closedで検出
  */
 test("Windows AdapterはCore閉集合の外にあり、CoreはAdapterを参照しない", () => {
   const windowsAdapterPath =
-    "40_Develop/coordinator/src/platform/windows-adapter.ts";
+    "40_Develop/coordinator/src/execution/diagnostics.ts";
   assert.ok(
     fs.existsSync(path.join(repositoryRoot, windowsAdapterPath)),
     "windows adapter module must exist",
@@ -923,7 +838,44 @@ test("Windows AdapterはCore閉集合の外にあり、CoreはAdapterを参照�
     ),
     true,
   );
-  assert.equal(/process\.platform/u.test(windowsAdapterSource), false);
+  const adapterNames = new Set([
+    "createCoordinatorWindowsPlatformAdapter",
+    "deriveChildEnvironment",
+    "resolveRepositoryRoot",
+  ]);
+  const config = path
+    .join(repositoryRoot, ".adapter-observation.json")
+    .replaceAll("\\", "/");
+  const file = path
+    .join(repositoryRoot, windowsAdapterPath)
+    .replaceAll("\\", "/");
+  const api = new API({
+    cwd: repositoryRoot,
+    fs: createVirtualFileSystem({
+      [config]: JSON.stringify({
+        files: [file],
+        compilerOptions: { noLib: true, noResolve: true },
+      }),
+      [file]: windowsAdapterSource,
+    }),
+  });
+  const snapshot = api.updateSnapshot({ openProjects: [config] });
+  try {
+    const source = snapshot.getProject(config)?.program.getSourceFile(file);
+    assert.ok(source);
+    const adapters = source.statements.filter(
+      (statement) =>
+        statement.kind === SyntaxKind.FunctionDeclaration &&
+        "name" in statement &&
+        adapterNames.has((statement.name as { text: string }).text),
+    );
+    assert.equal(adapters.length, adapterNames.size);
+    for (const adapter of adapters)
+      assert.doesNotMatch(adapter.getText(), /process\.platform/u);
+  } finally {
+    snapshot.dispose();
+    api.close();
+  }
   assert.equal(
     /process\.platform/u.test(
       readRuntimeSource(

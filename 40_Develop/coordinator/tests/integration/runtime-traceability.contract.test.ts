@@ -542,25 +542,23 @@ test("Coordinator SourceのSymbol登録は実File集合と一致する", () => {
 });
 
 /**
- * 統合CLIの六責務と実行側への依存方向を固定する。
+ * 統合CLIの四責務と実行側への依存方向を固定する。
  * @responsibility 旧Pathの中継と実行側からのCLI逆参照を検出する。
  * @trace PPR-IT-018
  * @precondition 現Sourceを読取り可能である。
  * @stimulus CLI集合・診断・回復・同意の接続を読む。
  * @observation File名集合と本番import・関数所在。
- * @oracle 六Fileだけを持ち、診断・状態Reader・端末をCLIが所有しない。
+ * @oracle 四Fileだけを持ち、診断・状態Reader・端末をCLIが所有しない。
  * @cleanup N/A: Source読取りのみ。
  * @boundary PPR-IT-018=Direct Boundary: Source責務配置と依存方向。
  */
-test("CLIは六責務に閉じ診断Ownerから逆参照されない", () => {
+test("CLIは四責務に閉じ診断Ownerから逆参照されない", () => {
   const root = path.join(repositoryRoot, "40_Develop/coordinator/src");
   assert.deepEqual(fs.readdirSync(path.join(root, "cli")).sort(), [
     "cancellation.ts",
     "command.ts",
     "options.ts",
     "recovery-report.ts",
-    "request-input.ts",
-    "request.ts",
   ]);
   const read = (name: string) => fs.readFileSync(path.join(root, name), "utf8");
   assert.doesNotMatch(
@@ -577,7 +575,7 @@ test("CLIは六責務に閉じ診断Ownerから逆参照されない", () => {
   );
   assert.match(
     read("decision/external-send-grant.ts"),
-    /from "\.\.\/execution\/interactive-console\.ts"/u,
+    /export function withInteractiveConsoleOutcome/u,
   );
   assert.match(
     read("cli/recovery-report.ts"),

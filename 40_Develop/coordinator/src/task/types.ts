@@ -4,15 +4,61 @@
  * @trace ARCH-000004
  */
 
-import type { CoordinatorWorkspaceResult } from "../execution/types.ts";
+import type { CoordinatorWorkspaceResult } from "../execution/result.ts";
 import type {
   COORDINATOR_EXECUTION_CONTRACT,
   COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT,
 } from "./dispatch.ts";
 import type { ProjectTaskRecoveryKind } from "../state/model.ts";
-import type { CoordinatorClockIdentityPort } from "../identity/clock-and-hash.ts";
-import type { CoordinatorProcessSafetyPort } from "../process/safety-contract.ts";
-import type { CoordinatorPersistencePorts } from "../state/persistence.ts";
+import type {
+  CoordinatorClockIdentityPort,
+  CoordinatorPersistencePorts,
+} from "../state/persistence.ts";
+
+/**
+ * execution-host-adapterで使用するCoordinator Execution Host Adapter Optionsの値契約を定義する。
+ *
+ * @responsibility Coordinator Execution Host Adapter OptionsのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape CoordinatorExecutionHostAdapterOptionsが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CoordinatorExecutionHostAdapterOptionsで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CoordinatorExecutionHostAdapterOptionsの宣言は外部境界を開かない。
+ * @security CoordinatorExecutionHostAdapterOptionsはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility CoordinatorExecutionHostAdapterOptionsの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
+export type CoordinatorExecutionHostAdapterOptions = Readonly<{
+  now?: CoordinatorClockIdentityPort["now"];
+  poisonAfterCleanupUnknown?: CoordinatorProcessSafetyPort["poisonAfterCleanupUnknown"];
+}>;
+
+/**
+ * task-recovery-adapterで使用するCoordinator Task 回復 Host Dependenciesの値契約を定義する。
+ *
+ * @responsibility Coordinator Task 回復 Host DependenciesのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000008
+ * @shape CoordinatorTaskRecoveryHostDependenciesが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CoordinatorTaskRecoveryHostDependenciesで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CoordinatorTaskRecoveryHostDependenciesの宣言は外部境界を開かない。
+ * @security CoordinatorTaskRecoveryHostDependenciesはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility CoordinatorTaskRecoveryHostDependenciesの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
+export type CoordinatorTaskRecoveryHostDependencies = Readonly<{
+  recoverTaskRecovery?: (recoveryId: string, signal: AbortSignal) => unknown;
+  acknowledgeTaskRecovery?: (
+    settlement: Readonly<
+      CoordinatorDockerRecoveryIdentity & {
+        workingDirectory: string;
+        repositoryBindingId: string;
+      }
+    >,
+  ) => unknown;
+  resolveTaskRecoveryCorrelations?: (
+    correlationIds: readonly string[],
+  ) => unknown;
+  observeRecoveryTransition?: (
+    event: CoordinatorRecoveryTransition,
+  ) => void | Promise<void>;
+}>;
 
 /**
  * task-recovery-portで使用するCoordinator Docker 回復 Identityの値契約を定義する。
@@ -404,4 +450,26 @@ export type ExecutionInput = Readonly<{
   queueId: string;
   taskExecutions: readonly CoordinatorTaskExecution[];
   cancellationSignal: AbortSignal;
+}>;
+
+/**
+ * Runtime-process recovery operations supplied by the owning Host Adapter.
+ *
+ * @responsibility Coordinator Process Safety PortのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape CoordinatorProcessSafetyPortが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CoordinatorProcessSafetyPortで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CoordinatorProcessSafetyPortの宣言は外部境界を開かない。
+ * @security N/A: CoordinatorProcessSafetyPortはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility CoordinatorProcessSafetyPortの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
+export type CoordinatorProcessSafetyPort = Readonly<{
+  getProcessInstanceIdentity: () => string;
+  createRecoveryIdentity: (attemptId: string, operationId: string) => string;
+  inspectRecoveryIdentity: (
+    value: unknown,
+    attemptId: string,
+    operationId: string,
+  ) => Readonly<{ processIdentity: string; recoveryId: string }> | null;
+  poisonAfterCleanupUnknown: () => void;
 }>;

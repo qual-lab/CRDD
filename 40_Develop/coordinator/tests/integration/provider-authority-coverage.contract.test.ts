@@ -21,24 +21,21 @@ import {
 const coordinatorRoot = path.resolve(import.meta.dirname, "../..");
 
 /**
- * Provider Authority coverageはexact 6 sourceと9 testを所有するを検証する。
+ * Provider Authority coverageはexact 3 sourceと9 testを所有するを検証する。
  *
- * @responsibility Provider Authority coverageはexact 6 sourceと9 testを所有するの合否判定を所有する。
+ * @responsibility Provider Authority coverageはexact 3 sourceと9 testを所有するの合否判定を所有する。
  * @trace PRL-IT-005
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Provider Authority coverageはexact 6 sourceと9 testを所有するの対象操作を実行する。
+ * @stimulus Provider Authority coverageは統合後のexact 3 sourceと既存9 testを所有するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-IT-005=Direct Boundary: coordinator Test Source→対象契約
  */
-test("Provider Authority coverageはexact 6 sourceと9 testを所有する", () => {
+test("Provider Authority coverageはexact 3 sourceと9 testを所有する", () => {
   assert.deepEqual(PROVIDER_AUTHORITY_COVERAGE_SOURCES, [
-    "40_Develop/coordinator/src/execution/isolation-profile.ts",
-    "40_Develop/coordinator/src/execution/authority-validation.ts",
-    "40_Develop/coordinator/src/execution/prelaunch-validation.ts",
-    "40_Develop/coordinator/src/execution/local-authority.ts",
-    "40_Develop/coordinator/src/execution/authority-grant.ts",
+    "40_Develop/coordinator/src/execution/preparation.ts",
+    "40_Develop/coordinator/src/execution/authority.ts",
     "40_Develop/domain-model/src/plain-data/snapshot.ts",
   ]);
   assert.deepEqual(PROVIDER_AUTHORITY_COVERAGE_TESTS, [

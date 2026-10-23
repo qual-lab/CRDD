@@ -4,13 +4,15 @@
  * @responsibility HostOperationSupervisorCleanupを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000015
  */
+
 import { createHash } from "node:crypto";
 import {
   acquireNamedPipeKernelLock,
   acquireNamedPipeKernelLockOutcome,
+  type InteractiveConsoleKernelLockOutcome,
   acquireNamedPipeSupervisorLock,
   type HostOperationSupervisorLockOutcome,
-  type InteractiveConsoleKernelLockOutcome,
+  observeProcessLiveness,
 } from "../../../platform-access/src/index.ts";
 
 /**
@@ -83,9 +85,13 @@ export function acquireRuntimeOwnedCoordinatorStateKernelLock(
     `\\\\.\\pipe\\CRDD.Coordinator.CurrentState.${identity}`,
   );
 }
+
 const HOST_SUPERVISOR_ACQUIRE_TIMEOUT_MS = 1_000;
+
 const LOCK_RELEASE_TIMEOUT_MS = 5_000;
+
 const INTERACTIVE_LOCK_CLEANUP_TIMEOUT_MS = 1_000;
+
 const HOST_SUPERVISOR_RELEASE_TIMEOUT_MS = 1_000;
 
 /**
@@ -369,6 +375,7 @@ export function acquireRuntimeOwnedInteractiveConsoleKernelLockOutcome() {
         }) as InteractiveConsoleKernelLockOutcome,
       );
 }
+
 /**
  * Host操作の検査済み要求を技術Supervisorへ接続する。
  * @responsibility 世代・namespaceを上位に保ち、起動・終了をPAへ委譲する。
@@ -397,4 +404,71 @@ export function acquireRuntimeOwnedHostOperationSupervisorLock(
           lock: null,
         }) as HostOperationSupervisorLockOutcome,
       );
+}
+
+/**
+ * windows-platform-adapterで使用するCoordinator Windows Lease 所有者 Observationの値契約を定義する。
+ *
+ * @responsibility Coordinator Windows Lease 所有者 ObservationのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape CoordinatorWindowsLeaseOwnerObservationが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CoordinatorWindowsLeaseOwnerObservationで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CoordinatorWindowsLeaseOwnerObservationの宣言は外部境界を開かない。
+ * @security CoordinatorWindowsLeaseOwnerObservationはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility CoordinatorWindowsLeaseOwnerObservationの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
+export type CoordinatorWindowsLeaseOwnerObservation = Readonly<{
+  status: "alive" | "absent" | "unknown";
+  ownerProcessId: number;
+  ownerGeneration: string;
+}>;
+
+/**
+ * Lease 所有者を観測する。
+ *
+ * @responsibility Lease 所有者の観測対象、取得根拠、観測不能結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input rawOwner: unknown
+ * @returns CoordinatorWindowsLeaseOwnerObservationを返す。
+ * @precondition 「rawOwner: unknown」がobserveLeaseOwnerの入力契約を満たす。
+ * @postcondition observeLeaseOwnerの責務を完了した結果だけを返す。
+ * @effect observeLeaseOwnerは外部ProcessまたはRuntime境界の操作を呼び出す。
+ * @failure observeLeaseOwnerは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant observeLeaseOwnerは宣言した境界以外へEffectを拡張しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security observeLeaseOwnerはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: observeLeaseOwnerは共有非同期状態を持たない同期処理である。
+ */
+export function observeLeaseOwner(
+  rawOwner: unknown,
+): CoordinatorWindowsLeaseOwnerObservation {
+  const invalid = Object.freeze({
+    status: "unknown" as const,
+    ownerProcessId: 0,
+    ownerGeneration: "invalid",
+  });
+  if (
+    !rawOwner ||
+    typeof rawOwner !== "object" ||
+    Array.isArray(rawOwner) ||
+    Object.getPrototypeOf(rawOwner) !== Object.prototype
+  )
+    return invalid;
+  const owner = rawOwner as Readonly<Record<string, unknown>>;
+  if (
+    Object.keys(owner).sort().join("\0") !==
+      ["ownerGeneration", "ownerProcessId"].sort().join("\0") ||
+    !Number.isSafeInteger(owner.ownerProcessId) ||
+    Number(owner.ownerProcessId) < 1 ||
+    typeof owner.ownerGeneration !== "string" ||
+    !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(owner.ownerGeneration)
+  )
+    return invalid;
+  const ownerProcessId = Number(owner.ownerProcessId);
+  const ownerGeneration = owner.ownerGeneration;
+  return Object.freeze({
+    status: observeProcessLiveness(ownerProcessId),
+    ownerProcessId,
+    ownerGeneration,
+  });
 }

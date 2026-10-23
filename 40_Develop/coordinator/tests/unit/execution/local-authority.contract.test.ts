@@ -12,11 +12,11 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
 import vm from "node:vm";
-import { reverifyAuthorityBeforeProviderLaunch } from "../../../src/execution/prelaunch-validation.ts";
+import { reverifyAuthorityBeforeProviderLaunch } from "../../../src/execution/authority.ts";
 import {
   createIsolatedLocalPersonalAuthorityRuntimeCandidate,
   describeLocalPersonalAuthorityRuntimeContract,
-} from "../../../src/execution/local-authority.ts";
+} from "../../../src/execution/authority.ts";
 
 /**
  * 署名資格なしで全6 Profileを現在Operationへ結合する。
@@ -265,7 +265,7 @@ test("許可元cacheは30秒境界で再生成する", () => {
  */
 test("本番確認はOperation一致の後だけ開発Contextを照合する", () => {
   const source = fs.readFileSync(
-    new URL("../../../src/execution/local-authority.ts", import.meta.url),
+    new URL("../../../src/execution/authority.ts", import.meta.url),
     "utf8",
   );
   const matches = [

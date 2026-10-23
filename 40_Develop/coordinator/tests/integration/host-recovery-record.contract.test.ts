@@ -33,9 +33,11 @@ import {
 import {
   formatHostRecoveryToken,
   parseHostRecoveryToken,
+} from "../../src/execution/result.ts";
+import {
   loadHostRecoveryRecordByToken,
   observeHostRecoveryCleanup,
-} from "../../src/execution/host-recovery-record.ts";
+} from "../../src/execution/recovery.ts";
 import {
   createOwnedOperationDirectories,
   classifyOwnedOperationDirectoryCreationFailure,
@@ -1758,10 +1760,7 @@ test("Host Windows: absent遷移の再入場は事前計算したexact tokenへ�
           path.resolve(import.meta.dirname, "../../src/execution/operation.ts"),
         ).href,
         pathToFileURL(
-          path.resolve(
-            import.meta.dirname,
-            "../../src/execution/host-recovery-record.ts",
-          ),
+          path.resolve(import.meta.dirname, "../../src/execution/recovery.ts"),
         ).href,
         owned.root,
         token,

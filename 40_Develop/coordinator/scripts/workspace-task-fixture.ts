@@ -14,7 +14,7 @@ import {
   disposeRepositoryWorktree,
   inspectWorkspaceFile,
 } from "../../version-control/src/index.ts";
-import type { BorrowedExecutionTarget } from "../src/execution/borrowed-tree.ts";
+import type { BorrowedExecutionTarget } from "../src/execution/operation.ts";
 
 /** 一回の検証Toolが所有する作成結果。新しい永続台帳ではない。 */
 export type VerificationWorkspacePreparation = Readonly<{

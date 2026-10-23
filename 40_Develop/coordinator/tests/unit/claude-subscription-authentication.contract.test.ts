@@ -20,7 +20,7 @@ import {
   authenticateClaudeSubscription,
   CLAUDE_SUBSCRIPTION_AUTHENTICATION_INPUT_NOTICE,
   createClaudeSubscriptionAuthenticationPlan,
-} from "../../src/execution/claude-subscription-authentication.ts";
+} from "../../src/execution/authority.ts";
 
 const AUTHENTICATION_SUFFIX = "0123456789abcdef";
 const token = "a".repeat(64);

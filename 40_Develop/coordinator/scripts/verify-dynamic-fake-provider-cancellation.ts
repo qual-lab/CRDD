@@ -8,7 +8,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { runDynamicFakeProviderCancellationVerification } from "../src/execution/isolation-probe.ts";
+import { runDynamicFakeProviderCancellationVerification } from "../src/execution/diagnostics.ts";
 import { createOwnedOperationDirectories } from "../src/execution/operation.ts";
 
 /**

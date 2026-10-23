@@ -10,7 +10,9 @@
  */
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { isSupportedCoordinatorNodeRuntime } from "../../../src/execution/runtime-version.ts";
+import fs from "node:fs";
+import { sourceDeclaration } from "../../support/source-declaration.ts";
+import { isSupportedCoordinatorNodeRuntime } from "../../../src/execution/diagnostics.ts";
 import test from "node:test";
 
 import type { DiagnosticCheck } from "../../../src/execution/diagnostics.ts";
@@ -225,22 +227,27 @@ test("Doctor診断失敗は理由コードだけを公開する", () => {
  * 診断の元ErrorとCLI表示が同じ私有分類を共有する。
  * @responsibility 移管によるWeakMap複製・元回復参照欠落を検出する。
  * @trace PRL-UT-014
- * @precondition 新しいNode子で作成失敗分類だけを模擬する。
+ * @precondition 新しいNode子で実宣言の共有閉包を作り、作成失敗分類だけを模擬する。
  * @stimulus 元失敗を診断へ渡し、投影ErrorをCLIで表示する。
  * @observation JSON・人向け表示とコピーErrorの分類。
  * @oracle 元Errorだけにexact回復参照を保持し、原因本文を出力しない。
  * @cleanup spawnSyncが同じ子の終了を待つ。外部資源は取得しない。
- * @boundary PRL-UT-014=Related 2 Blocks: 診断失敗Owner→CLI表示。
+ * @boundary PRL-UT-014=Related 2 Blocks: 診断失敗の実宣言→実CLI表示。集約Moduleの初期化検査ではない。
  */
 test("診断とCLI表示は元Errorの回復参照を共有しコピーを拒否する", () => {
-  const creation = new URL(
-    "../../../src/execution/operation-creation.ts",
-    import.meta.url,
-  ).href;
   const diagnostics = new URL(
     "../../../src/execution/diagnostics.ts",
     import.meta.url,
   ).href;
+  const source = fs.readFileSync(new URL(diagnostics), "utf8");
+  const declarations = [
+    "doctorOperationInitializationFailures",
+    "classifyDoctorOperationInitializationFailure",
+    "throwDoctorOperationInitializationFailure",
+    "projectDoctorOperationCreationFailure",
+  ]
+    .map((name) => sourceDeclaration(source, name))
+    .join("\n");
   const report = new URL("../../../src/cli/recovery-report.ts", import.meta.url)
     .href;
   const result = spawnSync(
@@ -252,18 +259,18 @@ test("診断とCLI表示は元Errorの回復参照を共有しコピーを拒否
       `
 import assert from "node:assert/strict";
 import { mock } from "node:test";
-const actual = await import(${JSON.stringify(creation)});
 const original = new Error("private failure detail");
 const recoveryId = "host.synthetic-doctor-original";
-mock.module(${JSON.stringify(creation)}, { namedExports: {
-  ...actual,
-  classifyOwnedCoordinatorOperationCreationFailure: error => error === original
-    ? { cleanupConfirmed: false, hostRecoveryId: recoveryId } : null,
+const classifyOwnedCoordinatorOperationCreationFailure = error => error === original
+  ? { cleanupConfirmed: false, hostRecoveryId: recoveryId } : null;
+${declarations}
+mock.module(${JSON.stringify(diagnostics)}, { namedExports: {
+  classifyDoctorOperationInitializationFailure,
+  projectDoctorOperationCreationFailure,
 } });
-const diagnostics = await import(${JSON.stringify(diagnostics)});
 const report = await import(${JSON.stringify(report)});
 let projected;
-try { diagnostics.projectDoctorOperationCreationFailure(original); }
+try { projectDoctorOperationCreationFailure(original); }
 catch (error) { projected = error; }
 assert.ok(projected instanceof Error);
 const rendered = report.renderDoctorCommandFailure(projected);

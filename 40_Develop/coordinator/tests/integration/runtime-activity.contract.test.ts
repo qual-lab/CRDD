@@ -20,7 +20,7 @@ import {
   initializeCoordinatorSnapshot,
 } from "../../src/index.ts";
 import { writeCoordinatorSnapshotState } from "../../src/storage/current-state.ts";
-import { deriveCoordinatorRepositoryBindingId } from "../../src/state/binding.ts";
+import { deriveCoordinatorRepositoryBindingId } from "../../src/state/model.ts";
 import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
 import {
   ensureRepositoryRuntimeDataArea,

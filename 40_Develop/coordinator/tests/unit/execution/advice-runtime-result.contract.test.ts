@@ -16,9 +16,9 @@ import {
   defaultAiProfileCatalog,
   resolveAiProfileById,
 } from "../../../../ai-adapter/src/index.ts";
-import { prepareProviderAdvicePlan } from "../../../src/execution/provider-plan.ts";
+import { prepareProviderAdvicePlan } from "../../../src/execution/preparation.ts";
 import { createProviderAdviceAdapter } from "../../../src/execution/advice.ts";
-import { prepareAdviceTask } from "../../../src/execution/task-packet.ts";
+import { prepareAdviceTask } from "../../../src/execution/preparation.ts";
 
 const profile = resolveAiProfileById(
   defaultAiProfileCatalog,

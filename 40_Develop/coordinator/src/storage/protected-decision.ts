@@ -7,16 +7,14 @@
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import type {
-  CoordinatorDecisionRecord,
-  CoordinatorDecisionStore,
-} from "../decision/records.ts";
+import type { CoordinatorDecisionRecord } from "../decision/records.ts";
+import type { CoordinatorDecisionStore } from "../decision/types.ts";
 import { isCoordinatorDecisionRecord } from "../decision/records.ts";
 import { acquireRuntimeOwnedDockerRuntimeStateKernelLock } from "../execution/kernel-lock.ts";
 import {
   consumeRuntimeOwnedRuntimeStateRootCapability,
   inspectRuntimeOwnedWindowsRuntimeState,
-} from "../execution/protected-root.ts";
+} from "../execution/authority.ts";
 import {
   readCommittedJson,
   writeCommittedJson,

@@ -21,15 +21,12 @@ import {
   validWorkspaceCandidateRequest,
   type WorkspaceCandidateSelection,
 } from "../../../version-control/src/index.ts";
-import {
-  snapshotPlainRecord,
-  snapshotPlainArray,
-} from "../input/plain-data-snapshot.ts";
-import { deriveCoordinatorRepositoryBindingId } from "../state/binding.ts";
+import { snapshotPlainRecord, snapshotPlainArray } from "../state/model.ts";
+import { deriveCoordinatorRepositoryBindingId } from "../state/model.ts";
 import { readCoordinatorSnapshot } from "../storage/current-state.ts";
 import { manageCoordinatorWorkspace } from "./operations.ts";
 import type { CoordinatorWorkspace } from "./record.ts";
-import { containsRecognizedSecretText } from "../execution/secret-validation.ts";
+import { containsRecognizedSecretText } from "../../../domain-model/src/index.ts";
 
 /**
  * 公開入力の閉じた操作集合。

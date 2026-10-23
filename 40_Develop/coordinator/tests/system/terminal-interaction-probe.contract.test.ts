@@ -14,7 +14,7 @@ import fs from "node:fs";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
-import type { InteractiveConsoleReadOutcome } from "../../src/execution/interactive-console.ts";
+import type { InteractiveConsoleReadOutcome } from "../../src/decision/external-send-grant.ts";
 import {
   runTerminalInteractionProbeUsingAdapter,
   type TerminalInteractionProbeAdapter,
@@ -472,7 +472,7 @@ test("実子の不正引数入口は非対話でJSONを返し、追加Enterを�
       "../../../platform-access/src/index.ts",
       "node:path",
       "node:url",
-      "../../src/execution/interactive-console.ts",
+      "../../src/decision/external-send-grant.ts",
     ],
   );
 });

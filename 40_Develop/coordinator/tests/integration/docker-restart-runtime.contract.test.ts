@@ -9,10 +9,10 @@
  * @boundary ERB-IT-014=Related 2 Blocks: 本番組立て→DI公開相当driverと実Machine。
  */
 import assert from "node:assert/strict";
+import { sourceDeclaration } from "../support/source-declaration.ts";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { stripTypeScriptTypes } from "node:module";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
 import { restartDockerRuntimeForVerification } from "../../../docker-isolation/src/docker-desktop/restart.ts";
@@ -20,8 +20,8 @@ import { createDockerRestartMachineForVerification } from "../../../docker-isola
 import {
   decodeDockerRestartCheckpoint,
   validateDockerRestartCheckpointTransition,
-} from "../../src/execution/restart-checkpoint.ts";
-import { restartRuntimeOwnedDockerForRecovery } from "../../src/execution/runtime-restart.ts";
+} from "../../src/execution/result.ts";
+import { restartRuntimeOwnedDockerForRecovery } from "../../src/execution/recovery.ts";
 /**
  * production facadeとpackage exportsはcaller Root／observer／runner seamを閉じるを検証する。
  *
@@ -44,7 +44,7 @@ test("production facadeとpackage exportsはcaller Root／observer／runner seam
   });
   const hostFacade = fs.readFileSync(path.resolve("src/index.ts"), "utf8");
   const composition = fs.readFileSync(
-    path.resolve("src/execution/runtime-restart.ts"),
+    path.resolve("src/execution/recovery.ts"),
     "utf8",
   );
   const expectedOperations = [
@@ -83,35 +83,28 @@ test("production facadeとpackage exportsはcaller Root／observer／runner seam
       rootSource,
       /export\s*\*(?:\s+as\s+[A-Za-z_$][\w$]*)?\s+from\s*["']\.\/execution\/recovery\.ts["']/u,
     );
-    const imports = [
-      ...callerSource.matchAll(
-        /import\s*\{([^{}]+)\}\s*from\s*["']\.\/recovery\.ts["']/gu,
-      ),
-    ];
-    assert.equal(imports.length, 1);
-    assert.deepEqual(
-      imports[0]?.[1]
-        ?.split(",")
-        .map((name) => name.trim())
-        .filter(Boolean)
-        .sort(),
-      expectedOperations,
-    );
-    assert.match(
-      callerSource,
-      /import\s*\{\s*restartDockerRuntime,\s*type DockerRuntimeRestartEvent,?\s*\}\s*from\s*["']\.\.\/\.\.\/\.\.\/docker-isolation\/src\/index\.ts["']/u,
-    );
+    for (const name of expectedOperations)
+      assert.match(
+        sourceDeclaration(callerSource, name),
+        new RegExp(`function ${name}\\(`, "u"),
+      );
+    assert.match(callerSource, /\brestartDockerRuntime\b/u);
+    assert.match(callerSource, /\btype DockerRuntimeRestartEvent\b/u);
     assert.deepEqual(
       [
-        ...callerSource.matchAll(
-          /["'](\.\.\/\.\.\/\.\.\/docker-isolation\/src\/[^"']+)["']/gu,
+        ...new Set(
+          [
+            ...callerSource.matchAll(
+              /["'](\.\.\/\.\.\/\.\.\/docker-isolation\/src\/[^"']+)["']/gu,
+            ),
+          ].map((match) => match[1]),
         ),
-      ].map((match) => match[1]),
+      ],
       ["../../../docker-isolation/src/index.ts"],
     );
     assert.match(
       callerSource,
-      /import type \{ DockerRestartCheckpoint \} from ["']\.\/restart-checkpoint\.ts["']/u,
+      /import\s*\{[^}]*\btype DockerRestartCheckpoint\b[^}]*\}\s*from ["']\.\/result\.ts["']/u,
     );
     assert.doesNotMatch(
       callerSource,
@@ -120,8 +113,8 @@ test("production facadeとpackage exportsはcaller Root／observer／runner seam
   };
   assertCurrentRestartBoundary(hostFacade, composition);
   const missingPreparation = composition.replace(
-    "  prepareRuntimeOwnedDockerRestart,\n",
-    "",
+    "function prepareRuntimeOwnedDockerRestart(",
+    "function missingDockerRestartPreparation(",
   );
   assert.notEqual(missingPreparation, composition);
   assert.throws(() =>
@@ -175,18 +168,10 @@ test("production facadeとpackage exportsはcaller Root／observer／runner seam
 });
 
 const source = fs.readFileSync(
-  new URL("../../src/execution/runtime-restart.ts", import.meta.url),
+  new URL("../../src/execution/recovery.ts", import.meta.url),
   "utf8",
 );
-const body = stripTypeScriptTypes(
-  source
-    .slice(
-      source.indexOf(
-        "export async function restartRuntimeOwnedDockerForRecovery(",
-      ),
-    )
-    .replace("export async function", "async function"),
-);
+const body = sourceDeclaration(source, "restartRuntimeOwnedDockerForRecovery");
 /**
  * 本番組立てを実DI driverとMachineへ結合する。
  * @responsibility 上位保存と下位固定処置の相関・失敗・終端を確認する。

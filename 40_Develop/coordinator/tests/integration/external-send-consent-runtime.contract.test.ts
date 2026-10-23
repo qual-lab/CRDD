@@ -22,7 +22,7 @@ import {
   createIsolatedExternalSendConsentRuntimeCandidate,
   describeExternalSendConsentRuntimeContract,
   EXTERNAL_SEND_ACTIVE_CONSENT_PREFIX,
-} from "../../src/decision/external-send-consent-store.ts";
+} from "../../src/decision/external-send-consent.ts";
 import { getJsonCommitName } from "../../../domain-model/src/index.ts";
 import type { ResolvedExternalSendPolicy } from "../../src/decision/external-send-policy.ts";
 import { prepareDockerNetworkPolicy } from "../../../docker-isolation/src/index.ts";

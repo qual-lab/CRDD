@@ -19,9 +19,9 @@ import {
   type CoordinatorSingleTaskDependencies,
   runCoordinatorSingleTaskAttempt,
 } from "../../src/index.ts";
-import { startRuntimeOwnedCoordinatorTask } from "../../src/execution/task.ts";
-import { observeCoordinatorTaskCompletion } from "../../src/execution/completion-observation.ts";
-import { snapshotCoordinatorWorkspaceResult } from "../../src/execution/attempt.ts";
+import { startRuntimeOwnedCoordinatorTask } from "../../src/execution/controller.ts";
+import { observeCoordinatorTaskCompletion } from "../../src/execution/observation.ts";
+import { snapshotCoordinatorWorkspaceResult } from "../../src/execution/controller.ts";
 
 /**
  * 変更観測の意味と閉じた形を固定する。
@@ -1361,7 +1361,7 @@ test("Effect前拒否母集団は現在Runtimeの実throw経路と一致する",
     "coordinator_task_workspace_target_invalid",
   ]);
   const runtimeSource = fs.readFileSync(
-    path.resolve(import.meta.dirname, "../../src/execution/task.ts"),
+    path.resolve(import.meta.dirname, "../../src/execution/controller.ts"),
     "utf8",
   );
   for (const rejection of COORDINATOR_SINGLE_TASK_PRE_EFFECT_REJECTIONS)

@@ -51,7 +51,7 @@ test("実在試験、登録試験、実行可能Ownerをexactに照合する", (
     "40_Develop/coordinator/tests/integration/host-recovery-record.contract.test.ts";
   assert.ok(discoverRepositoryTestFiles(repositoryRoot).includes(expected));
   for (const changed of [
-    "40_Develop/coordinator/src/execution/host-recovery-record.ts",
+    "40_Develop/coordinator/src/execution/recovery.ts",
     "40_Develop/coordinator/src/execution/operation.ts",
   ] as const) {
     const selected = selectRegressionTests(catalog, [changed]);
@@ -453,7 +453,7 @@ test("ブロック間結合は実在Sequence、二段以内の経路、IT、全b
  */
 test("変更した意味に対応する試験を選び、未分類の実装変更はOwner全件へ閉じる", () => {
   const focusedEntries = selectRegressionTests(catalog, [
-    "40_Develop/coordinator/src/execution/provider-lifecycle.ts",
+    "40_Develop/coordinator/src/execution/diagnostics.ts",
   ]);
   const coordinatorEntries = catalog.tests.filter(
     (entry) =>

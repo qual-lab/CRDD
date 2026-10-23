@@ -10,7 +10,7 @@
  */
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { stripTypeScriptTypes } from "node:module";
+import { sourceDeclaration } from "../support/source-declaration.ts";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
 
@@ -28,19 +28,17 @@ import { runInNewContext } from "node:vm";
  */
 test("通常producerはWindows保護検証をRoot・marker生成より先に行う", () => {
   const source = readFileSync(
-    new URL("../../src/execution/operation-creation.ts", import.meta.url),
+    new URL("../../src/execution/operation.ts", import.meta.url),
     "utf8",
   );
   assert.match(
     source,
     /createDirectories: createProtectedRuntimeOwnedOperationDirectories,/u,
   );
-  const start = source.indexOf(
-    "function createProtectedRuntimeOwnedOperationDirectories(",
+  const body = sourceDeclaration(
+    source,
+    "createProtectedRuntimeOwnedOperationDirectories",
   );
-  const end = source.indexOf("const productionDependencies:", start);
-  assert.ok(start > 0 && end > start);
-  const body = stripTypeScriptTypes(source.slice(start, end));
   for (const scenario of [
     "normal",
     "blocked",

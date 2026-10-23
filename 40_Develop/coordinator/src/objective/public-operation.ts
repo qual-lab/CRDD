@@ -8,20 +8,20 @@ import {
   cancelRuntimeOwnedCoordinatorTask,
   captureRuntimeOwnedCoordinatorTaskResultDelivery,
   startRuntimeOwnedCoordinatorTask,
-} from "../execution/task.ts";
+} from "../execution/controller.ts";
 import type { CoordinatorExecutionPublicationObservation } from "../task/types.ts";
-import { recordCoordinatorExecutionEvent } from "../task/intelligence-adapter.ts";
+import { recordCoordinatorExecutionEvent } from "../task/dispatch.ts";
 import { openRuntimeOwnedWindowsProjectDecisionStore } from "../storage/protected-decision.ts";
 import {
   writeCoordinatorExecutionIntelligenceDiagnostic,
   writeCoordinatorRecoveryDiagnostic,
-} from "../task/execution-diagnostics.ts";
+} from "../execution/diagnostics.ts";
 import { createHash } from "node:crypto";
 import {
   type CoordinatorObjectiveRequest,
   inspectCoordinatorObjectiveRequest,
 } from "./request.ts";
-import { deriveCoordinatorRepositoryBindingId } from "../state/binding.ts";
+import { deriveCoordinatorRepositoryBindingId } from "../state/model.ts";
 import {
   recoverRuntimeOwnedDockerTaskForCurrentConsumer,
   resolveRuntimeOwnedDockerTaskCurrentCorrelations,
@@ -39,25 +39,23 @@ import { executeCoordinatorObjective } from "./execute.ts";
 import type { CoordinatorExecutionDependencies } from "../task/types.ts";
 import type { CoordinatorState } from "../state/model.ts";
 import { snapshotPlainRecord } from "../../../domain-model/src/index.ts";
-import { createCoordinatorExecutionHostPorts } from "../task/host-adapter.ts";
-import {
-  createCoordinatorTaskRecoveryAdapter,
-  type CoordinatorTaskRecoveryHostDependencies,
-} from "../task/recovery-adapter.ts";
+import { createCoordinatorExecutionHostPorts } from "../task/dispatch.ts";
+import { createCoordinatorTaskRecoveryAdapter } from "../task/dispatch.ts";
+import type { CoordinatorTaskRecoveryHostDependencies } from "../task/types.ts";
 import { workspacePlanReadyForAcceptance } from "../workspace/operations.ts";
 import {
   COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
   coordinatorDataBoundaryBlocked,
-} from "../operation-result-contract.ts";
-import { runCoordinatorSingleTaskAttempt } from "../task/execute-attempt.ts";
+} from "../state/result.ts";
+import { runCoordinatorSingleTaskAttempt } from "../execution/controller.ts";
 import {
   readCoordinatorSnapshot,
   createCoordinatorSnapshotPersistencePorts,
   inspectCoordinatorSnapshotIntake,
   maintainCoordinatorSnapshot,
 } from "../storage/current-state.ts";
-import { consumeDockerRecoveryReceiptAfterProjectSettlement } from "../task/settle-docker-recovery.ts";
-import { createCoordinatorWindowsPlatformAdapter } from "../platform/windows-adapter.ts";
+import { consumeDockerRecoveryReceiptAfterProjectSettlement } from "../execution/recovery.ts";
+import { createCoordinatorWindowsPlatformAdapter } from "../execution/diagnostics.ts";
 import { RepositoryRuntimeDataAreaBlockedError } from "../../../domain-model/src/index.ts";
 import { executeCoordinatorPublicDecision } from "../decision/public-operation.ts";
 import { executeCoordinatorPublicStateQuery } from "../state/public-query.ts";

@@ -48,17 +48,15 @@ import {
   verifyRepositoryRoot,
   verifyRepositoryRootFromWorkingDirectory,
 } from "../../../version-control/src/index.ts";
-import type { CoordinatorAcceptanceDecisionStore } from "../decision/acceptance-authority.ts";
+import type { CoordinatorAcceptanceDecisionStore } from "../decision/types.ts";
 import {
   COORDINATOR_ACCEPTANCE_DECISION_STORE_CONTRACT,
   type CoordinatorAcceptanceDecisionEnvelope,
   validCoordinatorAcceptanceDecisionRecord,
-} from "../decision/acceptance-record.ts";
-import type {
-  CoordinatorDecisionRecoveryIntent,
-  CoordinatorDecisionRecoveryStore,
 } from "../decision/records.ts";
-import { validCoordinatorDecisionRecoveryIntent } from "../decision/recovery-record.ts";
+import type { CoordinatorDecisionRecoveryIntent } from "../decision/records.ts";
+import type { CoordinatorDecisionRecoveryStore } from "../decision/types.ts";
+import { validCoordinatorDecisionRecoveryIntent } from "../decision/records.ts";
 import {
   acquireCoordinatorStorageOwner,
   isLiveCoordinatorStorageOwner,
@@ -66,15 +64,15 @@ import {
   writeCoordinatorStorageTaskSnapshotOwned,
   type CoordinatorStorageOwner,
 } from "./settlement-store.ts";
-import { normalizeRepositoryRelativePath } from "../input/repository-relative-path.ts";
+import { normalizeRepositoryRelativePath } from "../state/model.ts";
 import type {
   CoordinatorLease,
   CoordinatorLeaseAcquisitionResolution,
   CoordinatorLeaseOwnerObservation,
   CoordinatorLeasePort,
-} from "../lease/controller.ts";
-import type { CoordinatorPortResult } from "../operation-result.ts";
-import type { ProjectQueueEntry, ProjectQueueState } from "../queue/types.ts";
+} from "../state/persistence.ts";
+import type { CoordinatorPortResult } from "../state/result.ts";
+import type { ProjectQueueEntry, ProjectQueueState } from "../state/model.ts";
 import type { CoordinatorState } from "../state/model.ts";
 import type {
   CoordinatorPersistencePorts,
@@ -83,7 +81,7 @@ import type {
 import {
   inspectSingleTaskRecord,
   type SingleTaskRecord,
-} from "../task/single-task-record.ts";
+} from "../state/model.ts";
 import { resolveCoordinatorWorkspaceTaskTarget } from "../workspace/operations.ts";
 import {
   type CoordinatorWorkspace,

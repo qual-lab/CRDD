@@ -30,7 +30,7 @@ import {
   createOwnedOperationDirectories,
   createOwnedOperationManagementCapability,
 } from "../../src/execution/operation.ts";
-import { bindRuntimeOwnedRepositoryOperation } from "../../src/execution/repository-binding.ts";
+import { bindRuntimeOwnedRepositoryOperation } from "../../src/execution/operation.ts";
 
 const revision = "1".repeat(40);
 const fileHash = "2".repeat(64);

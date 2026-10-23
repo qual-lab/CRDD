@@ -10,7 +10,7 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createCoordinatorTaskAttemptEvent } from "../../../src/task/intelligence-adapter.ts";
+import { createCoordinatorTaskAttemptEvent } from "../../../src/task/dispatch.ts";
 
 import type {
   CoordinatorExecutionObservationPort,

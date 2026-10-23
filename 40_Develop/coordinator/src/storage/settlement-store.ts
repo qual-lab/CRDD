@@ -27,17 +27,17 @@ import {
 import {
   borrowRuntimeOwnedDockerTerminalObservations,
   verifyRuntimeOwnedDockerUnissuedNotice,
-} from "../execution/provider-observation.ts";
+} from "../execution/observation.ts";
 import { parseDockerTaskRecoveryId } from "../../../docker-isolation/src/index.ts";
 import { acquireRuntimeOwnedCoordinatorStateKernelLock } from "../execution/kernel-lock.ts";
-import { isDockerRestartCheckpointSettled } from "../execution/restart-checkpoint.ts";
+import { isDockerRestartCheckpointSettled } from "../execution/result.ts";
 import { captureOwnedOperationCleanupVerification } from "../execution/operation.ts";
 import {
   borrowRuntimeOwnedCoordinatorRecoveryRepository,
   borrowRuntimeOwnedCoordinatorStorageRepository,
   borrowRuntimeOwnedCoordinatorSettlementRepository,
   borrowRuntimeOwnedCoordinatorStateRepository,
-} from "../execution/repository-binding.ts";
+} from "../execution/operation.ts";
 import {
   coordinatorConsumerCompletionPolicy,
   classifyCoordinatorSnapshotReentry,

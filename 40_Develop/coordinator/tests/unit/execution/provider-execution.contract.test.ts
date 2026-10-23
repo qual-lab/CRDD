@@ -21,16 +21,16 @@ import {
   defaultAiProfileCatalog,
   resolveAiProfileById,
 } from "../../../../ai-adapter/src/index.ts";
-import { prepareProviderAdvicePlan } from "../../../src/execution/provider-plan.ts";
+import { prepareProviderAdvicePlan } from "../../../src/execution/preparation.ts";
 import {
   createIsolatedProviderAdviceRuntimeCandidate,
   createRuntimeOwnedProviderAdviceRuntime,
   createIsolatedProviderOperationCandidate,
   classifyProviderAdviceHostFailure,
   type ProviderAdviceRuntimeDependencies,
-} from "../../../src/execution/provider-execution.ts";
-import { createIsolatedDelegationSelectionGrantRuntimeCandidate } from "../../../src/execution/delegation-selection-grant.ts";
-import { createIsolatedCoordinatorOperationCreationCandidate } from "../../../src/execution/operation-creation.ts";
+} from "../../../src/execution/advice.ts";
+import { createIsolatedDelegationSelectionGrantRuntimeCandidate } from "../../../src/execution/authority.ts";
+import { createIsolatedCoordinatorOperationCreationCandidate } from "../../../src/execution/operation.ts";
 
 const profile = resolveAiProfileById(
   defaultAiProfileCatalog,

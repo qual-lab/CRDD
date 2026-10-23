@@ -17,8 +17,8 @@ import {
   resolveAiProfileById,
 } from "../../../../ai-adapter/src/index.ts";
 import type { ResolvedAiProfileIdentity } from "../../../../ai-adapter/src/index.ts";
-import type { ProviderAdviceExecutionInput } from "../../../src/execution/provider-plan.ts";
-import { prepareProviderAdvicePlan } from "../../../src/execution/provider-plan.ts";
+import type { ProviderAdviceExecutionInput } from "../../../src/execution/preparation.ts";
+import { prepareProviderAdvicePlan } from "../../../src/execution/preparation.ts";
 
 const taskHash = "a".repeat(64);
 const projectionHash = "b".repeat(64);

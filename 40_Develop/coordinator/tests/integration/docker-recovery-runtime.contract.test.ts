@@ -348,17 +348,11 @@ test("Production Docker Recoveryは不正Consumerを環境観測前に拒否す�
     observations += 1;
     throw new Error("unexpected_environment_observation");
   };
-  const providerMock = t.mock.module(
-    "../../src/execution/provider-home-windows-adapter.ts",
-    {
-      namedExports: {
-        inspectRuntimeOwnedWindowsProviderHomeCandidate: observe,
-        consumeRuntimeOwnedProviderHomeObservationCapability: observe,
-      },
-    },
-  );
-  const stateMock = t.mock.module("../../src/execution/protected-root.ts", {
+  const providerMock = t.mock.module("../../src/execution/authority.ts", {
     namedExports: {
+      ...(await import("../../src/execution/authority.ts")),
+      inspectRuntimeOwnedWindowsProviderHomeCandidate: observe,
+      consumeRuntimeOwnedProviderHomeObservationCapability: observe,
       inspectRuntimeOwnedWindowsRuntimeState: observe,
       consumeRuntimeOwnedRuntimeStateRootCapability: observe,
     },
@@ -384,7 +378,6 @@ test("Production Docker Recoveryは不正Consumerを環境観測前に拒否す�
     }
     assert.equal(observations, 0);
   } finally {
-    stateMock.restore();
     providerMock.restore();
   }
 });

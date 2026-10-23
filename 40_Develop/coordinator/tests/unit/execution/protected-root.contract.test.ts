@@ -18,7 +18,7 @@ import { withUnsignedRuntimeFixture } from "../../support/unsigned-runtime-fixtu
 import {
   describeRuntimeStateWindowsAdapterContract,
   inspectRuntimeOwnedWindowsRuntimeState,
-} from "../../../src/execution/protected-root.ts";
+} from "../../../src/execution/authority.ts";
 import { WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE } from "../../../../platform-access/src/index.ts";
 
 /**
@@ -42,7 +42,7 @@ test("固定Bootstrapを確認できない配布はRuntime State Effectを開始
         "coordinator",
         "src",
         "execution",
-        "protected-root.ts",
+        "authority.ts",
       ),
     ).href;
     const source = `import assert from "node:assert/strict";

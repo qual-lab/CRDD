@@ -172,7 +172,7 @@ import {
   materializeGitCommitTreeCandidate as materializeVersionControlTree,
   readGitCommitFileCandidate,
 } from "../../../version-control/src/git/objects.ts";
-import { containsRecognizedSecretMaterial } from "../../src/execution/secret-validation.ts";
+import { containsRecognizedSecretMaterial } from "../../../domain-model/src/index.ts";
 
 /**
  * materializeGitCommitTreeCandidateのTest準備責務を実行する。

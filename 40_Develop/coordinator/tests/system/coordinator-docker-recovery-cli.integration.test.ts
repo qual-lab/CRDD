@@ -558,7 +558,7 @@ test("doctorの実parserと分岐は新修復だけを現在compositionへ渡す
       args,
       Object,
       AbortController,
-      UsageError: Error,
+      CommandUsageError: Error,
       parseDoctorArguments,
       plainRecord: (value: unknown) => value,
       process: {

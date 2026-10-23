@@ -20,7 +20,7 @@ import {
   requireReadyRepositoryRuntimeDataArea,
 } from "../../../domain-model/src/index.ts";
 import { bindTaskCliCancellationSignals } from "../../src/cli/cancellation.ts";
-import { createIsolatedCoordinatorTaskRuntimeCandidate } from "../../src/execution/task.ts";
+import { createIsolatedCoordinatorTaskRuntimeCandidate } from "../../src/execution/controller.ts";
 import {
   cleanupOwnedOperationDirectoriesAsync,
   captureOwnedOperationCleanupVerification,

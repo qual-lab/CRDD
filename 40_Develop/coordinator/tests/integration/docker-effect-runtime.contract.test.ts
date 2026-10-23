@@ -8,9 +8,9 @@
  * @scope 実Adapter・本番binderと実Host Owner失効。Docker開始は記録代役とし実Dockerは別試験で確認する。
  * @boundary Adapter→Coordinator投影→Docker Isolation Root API、および実Host世代・Kernel排他。
  */
-import { createProviderDockerRuntimeAdapterCandidate } from "../../src/execution/provider-adapter.ts";
+import { createProviderDockerRuntimeAdapterCandidate } from "../../src/execution/preparation.ts";
 import { planProviderExecution } from "../../../ai-adapter/src/index.ts";
-import { hashProviderAdviceCommand } from "../../src/execution/provider-packet.ts";
+import { hashProviderAdviceCommand } from "../../src/execution/preparation.ts";
 import assert from "node:assert/strict";
 import { prepareDockerNetworkPolicy } from "../../../docker-isolation/src/index.ts";
 import fs from "node:fs";
@@ -34,10 +34,8 @@ import {
   verifyOwnedOperationManagementMountBinding,
   verifyOwnedOperationCleanupOutcome,
 } from "../../src/execution/operation.ts";
-import {
-  parseHostRecoveryToken,
-  loadHostRecoveryRecordByToken,
-} from "../../src/execution/host-recovery-record.ts";
+import { parseHostRecoveryToken } from "../../src/execution/result.ts";
+import { loadHostRecoveryRecordByToken } from "../../src/execution/recovery.ts";
 import {
   planDockerIsolationCommands,
   startDockerCommandSessionCandidate,
@@ -48,10 +46,10 @@ import {
   bindDockerIsolationRuntime,
   describeDockerEffectRuntimeContract,
   verifyRuntimeOwnedDockerCleanupOutcome,
-} from "../../src/execution/isolation-execution.ts";
-import { describeAdviceResultSchema } from "../../src/execution/task-structured-result.ts";
+} from "../../src/execution/controller.ts";
+import { describeAdviceResultSchema } from "../../src/execution/result.ts";
 import { describeDockerProviderExecutionLocations } from "../../../docker-isolation/src/index.ts";
-import { bindProviderAdviceCommand } from "../../src/execution/provider-plan.ts";
+import { bindProviderAdviceCommand } from "../../src/execution/preparation.ts";
 
 /**
  * createPlanFixtureのTest準備責務を実行する。

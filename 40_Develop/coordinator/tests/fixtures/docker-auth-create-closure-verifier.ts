@@ -923,10 +923,10 @@ async function executeApprovedAuthCreateClosure() {
     assert.deepEqual(baseline(dockerId, false, true), before);
     const restart = (await import(
       new URL(
-        "../../src/execution/runtime-restart.ts?auth-create-parent",
+        "../../src/execution/recovery.ts?auth-create-parent",
         import.meta.url,
       ).href
-    )) as typeof import("../../src/execution/runtime-restart.ts");
+    )) as typeof import("../../src/execution/recovery.ts");
     const restarted = await restart.restartRuntimeOwnedDockerForRecovery(
       recoveryId,
       abort.signal,

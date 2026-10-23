@@ -22,7 +22,7 @@ import test from "node:test";
 import { stripTypeScriptTypes } from "node:module";
 import { runInNewContext } from "node:vm";
 import { fileURLToPath } from "node:url";
-import { observeRuntimeOwnedDevelopmentSource } from "../../src/execution/development-source-observation.ts";
+import { observeRuntimeOwnedDevelopmentSource } from "../../src/execution/diagnostics.ts";
 import { inspectRepositoryRevisionCandidate } from "../../../version-control/src/index.ts";
 import {
   isCallExpression,
@@ -690,8 +690,8 @@ test("固定公開Taskをprocess内で構成しShell搬送を契約から除外�
     "scripts/verify-general-task.ts",
   );
   const source = fs.readFileSync(runnerPath, "utf8");
-  const forbiddenConsoleModule = "../src/execution/interactive-console.ts";
-  const equivalentConsoleModule = "../src/execution/./INTERACTIVE-CONSOLE.ts";
+  const forbiddenConsoleModule = "../src/decision/external-send-grant.ts";
+  const equivalentConsoleModule = "../src/decision/./EXTERNAL-SEND-GRANT.ts";
   const mutationImports = importedModuleSpecifiers(
     `import { interactiveConsoleAvailable as renamed } from ${JSON.stringify(forbiddenConsoleModule)};\n` +
       `export { interactiveConsoleAvailabilityOutcome } from ${JSON.stringify(forbiddenConsoleModule)};\n` +

@@ -15,7 +15,7 @@ import { evaluateProviderTaskScope } from "../../../../ai-adapter/src/index.ts";
 import {
   describeProviderTaskStructuredResultContract,
   normalizeProviderTaskStructuredResult,
-} from "../../../src/execution/task-structured-result.ts";
+} from "../../../src/execution/result.ts";
 import { describeDockerProviderExecutionLocations } from "../../../../docker-isolation/src/index.ts";
 
 const EXECUTOR = JSON.stringify({

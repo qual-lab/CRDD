@@ -29,11 +29,11 @@ import {
   createOwnedOperationDirectories,
   createOwnedOperationManagementCapability,
 } from "../../src/execution/operation.ts";
-import { loadHostRecoveryRecordByToken } from "../../src/execution/host-recovery-record.ts";
+import { loadHostRecoveryRecordByToken } from "../../src/execution/recovery.ts";
 import {
   bindRuntimeOwnedRepositoryOperation,
   borrowRuntimeOwnedCoordinatorStateRepository,
-} from "../../src/execution/repository-binding.ts";
+} from "../../src/execution/operation.ts";
 import {
   COORDINATOR_STATE_SCHEMA,
   encodeCoordinatorStateValue,
@@ -47,7 +47,7 @@ import {
   writeRuntimeOwnedCoordinatorStateSnapshot,
 } from "../../src/storage/settlement-store.ts";
 import { currentHostTransitionWorkerSource } from "../fixtures/current-host-transition-worker.ts";
-import { beginRuntimeOwnedCoordinatorHostSubmission } from "../../src/execution/host-submission.ts";
+import { beginRuntimeOwnedCoordinatorHostSubmission } from "../../src/execution/controller.ts";
 
 /**
  * 実Hostを現在Repositoryへ結合して非秘密の試験Identityを構成する。

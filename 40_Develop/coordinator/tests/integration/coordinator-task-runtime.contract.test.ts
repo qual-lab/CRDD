@@ -21,8 +21,8 @@ import path from "node:path";
 import type { TestContext } from "node:test";
 import test from "node:test";
 import { types as utilTypes } from "node:util";
-import { createDevelopmentExecutionTiming } from "../../src/execution/development-execution-timing.ts";
-import { dockerProcessControllerPublicCompletionReasons } from "../../src/execution/provider-result-reasons.ts";
+import { createDevelopmentExecutionTiming } from "../../src/execution/diagnostics.ts";
+import { dockerProcessControllerPublicCompletionReasons } from "../../src/execution/result.ts";
 import {
   cleanupOwnedOperationDirectories,
   createIsolatedOwnedOperationDirectoryCreationFailureCandidate,
@@ -34,18 +34,20 @@ import {
   verifyOwnedOperationManagementCapability,
 } from "../../src/execution/operation.ts";
 import { createIsolatedRuntimeProcessSafetyStateCandidate } from "../../src/execution/process-safety-state.ts";
-import { loadRuntimeOwnedLocalPersonalAuthority } from "../../src/execution/local-authority.ts";
-import { selectDelegationRouteCandidate } from "../../src/execution/delegation-route-selection.ts";
-import { inspectRepositoryObjectFormatCandidate } from "../../src/execution/repository-binding.ts";
-import { coordinatorTaskPublicReasons } from "../../src/execution/result-reasons.ts";
+import { loadRuntimeOwnedLocalPersonalAuthority } from "../../src/execution/authority.ts";
+import { selectDelegationRouteCandidate } from "../../src/execution/preparation.ts";
+import { inspectRepositoryObjectFormatCandidate } from "../../src/execution/operation.ts";
+import { coordinatorTaskPublicReasons } from "../../src/execution/result.ts";
 import {
   classifyCoordinatorTaskTerminalLifecycleState,
-  createIsolatedCoordinatorTaskOperationCreationCandidate,
+  projectDevelopmentTaskResultAfterOuterCleanup,
+} from "../../src/execution/result.ts";
+import { createIsolatedCoordinatorTaskOperationCreationCandidate } from "../../src/execution/operation.ts";
+import {
   createIsolatedCoordinatorTaskRuntimeCandidate,
   describeCoordinatorTaskRuntimeContract,
-  projectDevelopmentTaskResultAfterOuterCleanup,
   startRuntimeOwnedCoordinatorTask,
-} from "../../src/execution/task.ts";
+} from "../../src/execution/controller.ts";
 import {
   assertRuntimeTraceCase,
   assertRuntimeTraceExecutionCoverage,

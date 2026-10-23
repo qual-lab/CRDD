@@ -21,7 +21,7 @@ import {
   type CoordinatorPlatformAdapter,
   type CoordinatorPlatformBoundary,
   resolveCoordinatorPlatformAdapter,
-} from "../../../src/platform/contract.ts";
+} from "../../../src/execution/diagnostics.ts";
 
 const resolvableBoundaries = Object.freeze(
   COORDINATOR_PLATFORM_BOUNDARIES.filter(

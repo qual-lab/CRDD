@@ -21,8 +21,8 @@ import {
   requireReadyRepositoryRuntimeDataArea,
 } from "../../../domain-model/src/index.ts";
 
-import { consumeDockerRecoveryReceiptAfterProjectSettlement } from "../../src/task/settle-docker-recovery.ts";
-import { consumeProjectSettledDockerRecoveryWithRuntimeBoundary } from "../../src/task/settle-docker-recovery.ts";
+import { consumeDockerRecoveryReceiptAfterProjectSettlement } from "../../src/execution/recovery.ts";
+import { consumeProjectSettledDockerRecoveryWithRuntimeBoundary } from "../../src/execution/recovery.ts";
 import {
   getJsonCommitName,
   writeCommittedJson,

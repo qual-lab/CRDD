@@ -4,17 +4,67 @@
  * @responsibility Commonを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000005
  */
-import { applyCoordinatorHumanDecision } from "./transitions.ts";
-import {
-  isCoordinatorDecisionRecord,
-  type CoordinatorDecisionRecord,
-  type CoordinatorDecisionRecoveryIntent,
-  type CoordinatorDecisionRecoveryStore,
-  type CoordinatorDecisionStore,
-} from "./records.ts";
-import type { CoordinatorDecisionCapabilityPort } from "./capability.ts";
+
+import { createHash, randomBytes } from "node:crypto";
+import type {
+  CoordinatorDecisionCapabilityPort,
+  CoordinatorDecisionStore,
+  CoordinatorDecisionRecoveryStore,
+} from "./types.ts";
 import type { CoordinatorPersistencePorts } from "../state/persistence.ts";
+import {
+  type CoordinatorDecisionRecord,
+  isCoordinatorDecisionRecord,
+  type CoordinatorDecisionRecoveryIntent,
+} from "./records.ts";
 import { COORDINATOR_HUMAN_DECISION_CONTRACT } from "./request.ts";
+import { applyCoordinatorHumanDecision } from "../state/model.ts";
+
+/**
+ * hashを決定する。
+ *
+ * @responsibility hashの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000005
+ * @input value: string
+ * @returns hashの計算結果を返す。
+ * @precondition 「value: string」がhashの入力契約を満たす。
+ * @postcondition hashの責務を完了した結果だけを返す。
+ * @effect N/A: hashは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: hashは独自の失敗分岐を所有しない。
+ * @invariant hashは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security hashはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: hashは共有非同期状態を持たない同期処理である。
+ */
+function hash(value: string) {
+  return createHash("sha256").update(value).digest("hex");
+}
+
+/**
+ * 上位の人間判断へ一回利用する秘密値と照合Hashを提供する。
+ *
+ * @responsibility Coordinator Decision Capability Adapterの構築入力、生成結果、不正入力の拒否境界を所有する。
+ * @trace ARCH-000005
+ * @input N/A: 実行時引数を受け取らない。
+ * @returns CoordinatorDecisionCapabilityPortを返す。
+ * @precondition 「N/A: 実行時引数を受け取らない。」がcreateCoordinatorDecisionCapabilityAdapterの入力契約を満たす。
+ * @postcondition createCoordinatorDecisionCapabilityAdapterの責務を完了した結果だけを返す。
+ * @effect N/A: createCoordinatorDecisionCapabilityAdapterは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: createCoordinatorDecisionCapabilityAdapterは独自の失敗分岐を所有しない。
+ * @invariant createCoordinatorDecisionCapabilityAdapterは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security createCoordinatorDecisionCapabilityAdapterはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: createCoordinatorDecisionCapabilityAdapterは共有非同期状態を持たない同期処理である。
+ */
+export function createCoordinatorDecisionCapabilityAdapter(): CoordinatorDecisionCapabilityPort {
+  return Object.freeze({
+    issue: () => {
+      const secret = randomBytes(32).toString("base64url");
+      return Object.freeze({ secret, hash: hash(secret) });
+    },
+    hash,
+  });
+}
 
 /**
  * human-decisionで使用するCommonの値契約を定義する。
@@ -39,6 +89,7 @@ type Common = Readonly<{
 }>;
 
 const ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u;
+
 const REVISION = /^[0-9a-f]{40,64}$/u;
 
 /**
@@ -67,6 +118,7 @@ export function coordinatorDecisionRecordId(
     .hash([projectId, milestoneId, decisionId].join("\0"))
     .slice(0, 40)}`;
 }
+
 /**
  * Idが有効か判定する。
  *
@@ -86,6 +138,7 @@ export function coordinatorDecisionRecordId(
 function validId(value: unknown): value is string {
   return typeof value === "string" && ID.test(value);
 }
+
 /**
  * storedを決定する。
  *
@@ -111,6 +164,7 @@ function stored(raw: unknown, expected?: CoordinatorDecisionRecord) {
     (!expected || JSON.stringify(value.value) === JSON.stringify(expected))
   );
 }
+
 /**
  * human-decisionを停止結果として構築する。
  *

@@ -13,7 +13,7 @@ import {
   snapshotPlainArray,
   snapshotPlainRecord,
 } from "../../../domain-model/src/index.ts";
-import { validateProviderIsolationProfile } from "../../src/execution/isolation-profile.ts";
+import { validateProviderIsolationProfile } from "../../src/execution/preparation.ts";
 
 export const EGRESS_PROXY_CONTRACT = "crdd-coordinator/provider-egress-proxy";
 export const EGRESS_PROXY_CONTRACT_REVISION = 1;

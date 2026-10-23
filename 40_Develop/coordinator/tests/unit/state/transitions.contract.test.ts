@@ -10,8 +10,8 @@
  * @boundary PRL-UT-006=N/A: Task状態遷移とAuthority判定は外部実行境界を持たない。 / PRL-UT-007=N/A: Objective／Milestone Acceptance Decision状態遷移は外部実行境界を持たない。
  */
 import assert from "node:assert/strict";
+import { sourceDeclaration } from "../../support/source-declaration.ts";
 import fs from "node:fs";
-import { stripTypeScriptTypes } from "node:module";
 import { types as utilTypes } from "node:util";
 import vm from "node:vm";
 import { describe, it } from "node:test";
@@ -26,7 +26,7 @@ import {
   retrySettledProjectTaskRecoveries,
   settleProjectTaskRecoveryObligation,
 } from "../../../src/task/recovery.ts";
-import { applyCoordinatorAcceptanceDecision } from "../../../src/decision/transitions.ts";
+import { applyCoordinatorAcceptanceDecision } from "../../../src/state/model.ts";
 import {
   createCoordinatorState,
   describeCoordinatorStateContract,
@@ -144,14 +144,17 @@ it("結果受理本文は十一項目を固定し旧領収書を受け付けな�
   assert.equal(acceptance.settlementGeneration, 7);
   const hostValue = Object.getOwnPropertyDescriptor(Object.prototype, "value");
   const helperSource = fs.readFileSync(
-    new URL("../../../src/input/plain-data-snapshot.ts", import.meta.url),
+    new URL("../../../src/state/model.ts", import.meta.url),
     "utf8",
   );
-  const helperImport = 'import { types as utilTypes } from "node:util";';
-  assert.equal(helperSource.split(helperImport).length, 2);
-  const executable = stripTypeScriptTypes(
-    helperSource.replace(helperImport, ""),
-  ).replace(/\bexport (?=function\b)/gu, "");
+  const executable = [
+    "isPlainRecord",
+    "isDataDescriptor",
+    "snapshotPlainRecord",
+    "snapshotPlainArray",
+  ]
+    .map((name) => sourceDeclaration(helperSource, name))
+    .join("\n");
   const stimulus = `
     const accessor = Object.defineProperty({}, "resultId", { get: undefined, set: undefined, enumerable: true });
     let getterCalls = 0;

@@ -23,8 +23,8 @@ import {
   PROVIDER_HOME_MOUNT_GRANT_RUNTIME_CONTRACT_REVISION,
   revokeRuntimeOwnedProviderHomeMountGrant,
   verifyRuntimeOwnedProviderHomeMountCompletion,
-} from "../../../src/execution/provider-home-mount-authorization.ts";
-import { PROVIDER_HOME_MOUNT_GRANT_MAXIMUM_LIFETIME_MS } from "../../../src/execution/provider-home-mount-grant.ts";
+} from "../../../src/execution/authority.ts";
+import { PROVIDER_HOME_MOUNT_GRANT_MAXIMUM_LIFETIME_MS } from "../../../src/execution/authority.ts";
 
 const identityHash = "1".repeat(64);
 const protectionHash = "2".repeat(64);

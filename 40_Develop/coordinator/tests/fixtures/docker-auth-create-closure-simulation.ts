@@ -89,7 +89,8 @@ export async function simulateAuthCreateClosure(
   } else if (mutation === "wrong_lifecycle_import") {
     const original = body;
     const target = "execution/recovery.ts?auth-create-parent";
-    assert.equal(body.split(target).length, 2);
+    // Lifecycleと再起動は統合後の同じOwnerを参照する。最初のLifecycle接続だけを変異する。
+    assert.equal(body.split(target).length, 3);
     body = body.replace(target, "execution/recovery.ts?unregistered");
     assert.notEqual(body, original);
   } else if (mutation === "omit_identified_guards") {
@@ -757,7 +758,7 @@ export async function simulateAuthCreateClosure(
     isolationUrl,
     moduleUrl("../../src/storage/settlement-store.ts"),
     `${lifecycleUrl}?auth-create-parent`,
-    moduleUrl("../../src/execution/runtime-restart.ts?auth-create-parent"),
+    moduleUrl("../../src/execution/recovery.ts?auth-create-parent"),
   ];
   /**
    * 明示したmodule順だけを解決する。

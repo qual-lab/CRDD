@@ -12,15 +12,15 @@ import {
   getRuntimeOwnedProviderDockerAdapter,
   createProviderDockerRuntimeAdapterCandidate,
   describeProviderDockerRuntimeAdapterContract,
-} from "../../../src/execution/provider-adapter.ts";
+} from "../../../src/execution/preparation.ts";
 import { planProviderExecution } from "../../../../ai-adapter/src/index.ts";
-import { describeAdviceResultSchema } from "../../../src/execution/task-structured-result.ts";
+import { describeAdviceResultSchema } from "../../../src/execution/result.ts";
 import assert from "node:assert/strict";
 import { prepareDockerNetworkPolicy } from "../../../../docker-isolation/src/index.ts";
 import test from "node:test";
-import { createIsolatedDelegationSelectionGrantRuntimeCandidate } from "../../../src/execution/delegation-selection-grant.ts";
+import { createIsolatedDelegationSelectionGrantRuntimeCandidate } from "../../../src/execution/authority.ts";
 import { describeDockerProviderExecutionLocations } from "../../../../docker-isolation/src/index.ts";
-import { bindProviderAdviceCommand } from "../../../src/execution/provider-plan.ts";
+import { bindProviderAdviceCommand } from "../../../src/execution/preparation.ts";
 
 const MODEL_SELECTION = Object.freeze({
   selectionRecordId: "MODELSEL-12345678",

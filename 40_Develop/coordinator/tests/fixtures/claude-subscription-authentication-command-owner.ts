@@ -20,7 +20,7 @@ import {
   createClaudeSubscriptionAuthenticationRecoveryRecord,
   setClaudeSubscriptionAuthenticationRecoveryCommandState,
   settleClaudeSubscriptionAuthenticationRecovery,
-} from "../../src/execution/claude-subscription-authentication.ts";
+} from "../../src/execution/authority.ts";
 
 const [stableLogicalHomeBindingHash, providerHome, token] =
   process.argv.slice(2);

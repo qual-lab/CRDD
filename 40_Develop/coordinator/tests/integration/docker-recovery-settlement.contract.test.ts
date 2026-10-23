@@ -9,6 +9,10 @@
  * @boundary ERB-IT-003=Coordinator現在状態Reader→技術結果Reader。
  */
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import { runInNewContext } from "node:vm";
+import { sourceDeclaration } from "../support/source-declaration.ts";
+import { snapshotPlainRecord } from "../../../domain-model/src/index.ts";
 import { execFileSync } from "node:child_process";
 import test from "node:test";
 
@@ -24,7 +28,7 @@ import test from "node:test";
  * @cleanup module mockを解除する。必要時の自己試験子Processはjoinし、Docker・Providerは使用しない。
  * @boundary 上位保存Readerと下位技術結果Reader。
  */
-test("回復結果読取りは固定Repositoryと同じTaskの回復参照へ接続する", async (t) => {
+test("回復結果読取りは固定Repositoryと同じTaskの回復参照へ接続する", async () => {
   if (!process.execArgv.includes("--experimental-test-module-mocks")) {
     const env = { ...process.env };
     delete env.NODE_TEST_CONTEXT;
@@ -95,9 +99,8 @@ test("回復結果読取りは固定Repositoryと同じTaskの回復参照へ接
   let lockReleased = true;
   let resultOperation = settlement.operationId;
   let mutateInput: typeof settlement | null = null;
-  t.mock.module("../../../version-control/src/index.ts", {
+  const versionControl = {
     namedExports: {
-      ...(await import("../../../version-control/src/index.ts")),
       resolveVerifiedRepositoryRootFromWorkingDirectory: () => {
         rootReads += 1;
         return fixed.repositoryRoot;
@@ -107,16 +110,16 @@ test("回復結果読取りは固定Repositoryと同じTaskの回復参照へ接
         capability: isRootVerified ? capability : null,
       }),
     },
-  });
-  t.mock.module("../../src/storage/current-state.ts", {
+  };
+  const currentState = {
     namedExports: {
       readCurrentCoordinatorState: () => {
         upperReads += 1;
         return { status: "completed", value: state };
       },
     },
-  });
-  t.mock.module("../../src/storage/settlement-store.ts", {
+  };
+  const results = {
     namedExports: {
       readRuntimeOwnedCoordinatorRecoveryResult: (
         root: unknown,
@@ -140,9 +143,28 @@ test("回復結果読取りは固定Repositoryと同じTaskの回復参照へ接
         };
       },
     },
-  });
-  const { consumeDockerRecoveryReceiptAfterProjectSettlement: consume } =
-    await import("../../src/task/settle-docker-recovery.ts");
+  };
+  const source = fs.readFileSync(
+    new URL("../../src/execution/recovery.ts", import.meta.url),
+    "utf8",
+  );
+  const body = [
+    "verifyRecoverySettlementRepository",
+    "consumeProjectSettledDockerRecoveryWithRuntimeBoundary",
+    "consumeDockerRecoveryReceiptAfterProjectSettlement",
+  ]
+    .map((name) => sourceDeclaration(source, name))
+    .join("\n");
+  const consume = runInNewContext(
+    `(()=>{${body};return consumeDockerRecoveryReceiptAfterProjectSettlement;})()`,
+    {
+      ...versionControl.namedExports,
+      ...results.namedExports,
+      readCoordinatorState:
+        currentState.namedExports.readCurrentCoordinatorState,
+      snapshotPlainRecord,
+    },
+  );
   let getterCalls = 0;
   const getterInput = { ...settlement };
   Object.defineProperty(getterInput, "workingDirectory", {
@@ -204,7 +226,7 @@ test("回復結果読取りは固定Repositoryと同じTaskの回復参照へ接
   mutateInput = null;
   assert.equal(
     "collectDockerRecoveryAcknowledgementAfterProjectRecord" in
-      (await import("../../src/task/settle-docker-recovery.ts")),
+      (await import("../../src/execution/recovery.ts")),
     false,
   );
 });

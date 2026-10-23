@@ -47,11 +47,11 @@ import {
   acquireCoordinatorSnapshotLease,
   writeCoordinatorSnapshot,
 } from "../../src/storage/current-state.ts";
-import { deriveCoordinatorRepositoryBindingId } from "../../src/state/binding.ts";
+import { deriveCoordinatorRepositoryBindingId } from "../../src/state/model.ts";
 import type { CoordinatorWorkspaceRequest } from "../../src/index.ts";
 import { inspectMcpCoordinatorObjectiveResult } from "../../../mcp-server/src/index.ts";
 import { workspacePlanReadyForAcceptance } from "../../src/workspace/operations.ts";
-import { executeCoordinatorPublicAcceptanceDecision } from "../../src/decision/public-acceptance.ts";
+import { executeCoordinatorPublicAcceptanceDecision } from "../../src/decision/public-operation.ts";
 import { executeCoordinatorPublicStateQuery } from "../../src/state/public-query.ts";
 
 const testsRoot = path.resolve(import.meta.dirname, "../../../../.crdd/tests");

@@ -24,20 +24,22 @@ import {
   createIsolatedDockerProcessControllerCandidate,
   createRuntimeOwnedLifecycleNoticeReporter,
   describeDockerProcessControllerContract,
+  startRuntimeOwnedDockerProcessController,
+} from "../../src/execution/controller.ts";
+import {
   projectDockerProcessControllerCompletionResult,
   projectDockerProcessControllerStartResult,
-  startRuntimeOwnedDockerProcessController,
-} from "../../src/execution/provider-controller.ts";
+} from "../../src/execution/result.ts";
 import {
   createProviderObservationOwner,
   verifyRuntimeOwnedDockerProviderSubmissionNotice,
   borrowRuntimeOwnedDockerTerminalObservations,
   verifyRuntimeOwnedDockerUnissuedNotice,
-} from "../../src/execution/provider-observation.ts";
-import { createDevelopmentMeasurementConstraints } from "../../src/execution/development-measurement-constraints.ts";
+} from "../../src/execution/observation.ts";
+import { createDevelopmentMeasurementConstraints } from "../../src/execution/diagnostics.ts";
 import { createOwnedProcessTreeFixture } from "../fixtures/docker-owned-process-test-support.ts";
 import { describeDockerProviderExecutionLocations } from "../../../docker-isolation/src/index.ts";
-import { bindProviderAdviceCommand } from "../../src/execution/provider-plan.ts";
+import { bindProviderAdviceCommand } from "../../src/execution/preparation.ts";
 
 /**
  * 観測Ownerの交差と元object・通知寿命を反証する。
@@ -154,28 +156,37 @@ test("StoreとRecoveryの観測照合はControllerの値importを持たない", 
     fs.readFileSync(new URL(`../../src/${name}`, import.meta.url), "utf8");
   const runtime = (name: string) => stripTypeScriptTypes(source(name));
   for (const name of ["storage/settlement-store.ts", "execution/recovery.ts"]) {
-    assert.doesNotMatch(
-      runtime(name),
-      /from\s+["'][^"']*provider-controller\.ts["']/,
-    );
-    assert.match(
-      runtime(name),
-      /from\s+["'][^"']*provider-observation\.ts["']/,
-    );
+    if (name === "storage/settlement-store.ts")
+      assert.doesNotMatch(runtime(name), /from\s+["'][^"']*controller\.ts["']/);
+    assert.match(runtime(name), /from\s+["'][^"']*observation\.ts["']/);
   }
+  const recoveryControllerImports = [
+    ...runtime("execution/recovery.ts").matchAll(
+      /import\s*\{([^}]+)\}\s*from\s*["']\.\/controller\.ts["']/g,
+    ),
+  ].flatMap((match) =>
+    (match[1] ?? "")
+      .split(",")
+      .map((name) => name.trim())
+      .filter(Boolean),
+  );
+  assert.deepEqual(recoveryControllerImports.sort(), [
+    "beginRuntimeOwnedCoordinatorHostSubmission",
+    "completeRuntimeOwnedCoordinatorHostSubmission",
+  ]);
   assert.doesNotMatch(
-    runtime("execution/provider-observation.ts"),
-    /from\s+["'][^"']*(?:provider-controller|recovery|settlement-store)\.ts["']/,
+    runtime("execution/observation.ts"),
+    /from\s+["'][^"']*(?:controller|recovery|settlement-store)\.ts["']/,
   );
   assert.doesNotMatch(
-    runtime("execution/task-request.ts"),
-    /from\s+["'][^"']*(?:advice|provider-execution|provider-controller|recovery)\.ts["']/,
+    runtime("execution/request.ts"),
+    /from\s+["'][^"']*(?:advice|controller|recovery)\.ts["']/,
   );
   assert.doesNotMatch(
     source("index.ts"),
-    /provider-observation|createProviderObservationOwner/,
+    /createProviderObservationOwner|registerRuntimeOwnedProviderTerminalObservation|registerRuntimeOwnedProviderSubmissionNotice|revokeRuntimeOwnedProviderSubmissionNotice/,
   );
-  const observationSource = source("execution/provider-observation.ts");
+  const observationSource = source("execution/observation.ts");
   assert.doesNotMatch(
     observationSource,
     /export const runtimeOwnedProviderObservationOwner/,
@@ -188,11 +199,10 @@ test("StoreとRecoveryの観測照合はControllerの値importを持たない", 
   const root = new URL("../../src/", import.meta.url);
   for (const entry of fs.readdirSync(root, { recursive: true })) {
     const name = String(entry).replaceAll("\\", "/");
-    if (!name.endsWith(".ts") || name === "execution/provider-observation.ts")
-      continue;
+    if (!name.endsWith(".ts") || name === "execution/observation.ts") continue;
     const text = runtime(name);
     assert.doesNotMatch(text, /runtimeOwnedProviderObservationOwner/);
-    if (name !== "execution/provider-controller.ts") {
+    if (name !== "execution/controller.ts") {
       for (const writer of writers)
         assert.equal(text.includes(writer), false, `${name}: ${writer}`);
     }

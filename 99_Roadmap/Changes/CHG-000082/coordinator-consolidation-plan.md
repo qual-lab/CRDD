@@ -2419,7 +2419,7 @@ StateはArchitecture §16.1の九Fileへ整理する。次の表は全宣言を�
 |---|---|---|
 | `execution/task.ts` | 基本は`execution/controller.ts`。`ProductionOperationFailure / productionOperationFailures / productionOperationFailure / throwProductionOperationFailure / createProductionOperationRoot / createIsolatedCoordinatorTaskOperationCreationCandidate`は一体で`execution/operation.ts`。`classifyCoordinatorTaskTerminalLifecycleState / projectDevelopmentTaskResultAfterOuterCleanup`は`execution/result.ts` | Control・Runtime・開発用取消Map、開始／取消／配送captureはcontroller内に保持。Task受付とObjectiveの本番組立てが同じ実体を呼ぶ。結果関数からのControl関連型は型専用参照に限定 |
 | `execution/attempt.ts` | 全宣言を`execution/controller.ts` | 開始通知、完了観測、取消join、Effect前拒否と結果Snapshotの一体性を保持。上位Task／Objectiveの直接呼出しを追従 |
-| `execution/provider-controller.ts` | 基本は`execution/controller.ts`。`ProviderProcessStartedNotice / ProviderBoundaryDiagnosticNotice / createRuntimeOwnedLifecycleNoticeReporter`は`execution/observation.ts`。`PrimaryFailureDiagnostic / BLOCKED_START_KEYS / STARTED_KEYS / COMPLETION_KEYS / ownDataValue / exactPlainRecord / projectDockerProcessControllerStartResult / projectDockerProcessControllerCompletionResult`と、`PURPOSES / DockerCommandPurpose / DockerSetupCommandPurpose / SETUP_COMMAND_FAILURE_REASONS / isDockerSetupCommandPurpose / blockedCompletionReasons / DockerProcessControllerFinalReason / isDockerProcessControllerPublicCompletionReason`は`execution/result.ts` | production／candidate state、ExecutionRecord、Control Map、start／cancel／executePlanを一体保持。Resultに固定Purpose・理由検査までの値依存閉包を置き、`controller→result／observation`の一方向とする。Observationの一次失敗型はResultから型専用参照。理由実値・配列順・条件を複製・緩和しない |
+| `execution/provider-controller.ts` | 基本は`execution/controller.ts`。`ProviderProcessStartedNotice / ProviderBoundaryDiagnosticNotice`の型は`execution/observation.ts`。`PrimaryFailureDiagnostic / BLOCKED_START_KEYS / STARTED_KEYS / COMPLETION_KEYS / ownDataValue / exactPlainRecord / projectDockerProcessControllerStartResult / projectDockerProcessControllerCompletionResult`と、`PURPOSES / DockerCommandPurpose / DockerSetupCommandPurpose / SETUP_COMMAND_FAILURE_REASONS / isDockerSetupCommandPurpose / blockedCompletionReasons / DockerProcessControllerFinalReason / isDockerProcessControllerPublicCompletionReason`は`execution/result.ts` | production／candidate state、ExecutionRecord、Control Map、start／cancel／executePlanを一体保持。通知Reporterはstream・timer・error・完了収束を所有するためControllerに残し、三つの時間定数とDI固定契約の取得一回・初期化時点を維持する。Resultに固定Purpose・理由検査までの値依存閉包を置き、`controller→result／observation`の一方向とする。Observationの一次失敗型はResultから型専用参照。理由実値・配列順・条件を複製・緩和しない |
 | `execution/isolation-execution.ts` | `Command / PreparedPlan / resolveIsolationCommandInput / validatePlan / planIdentity`は`execution/preparation.ts`。残る全宣言は`execution/controller.ts` | Docker Isolationへのruntime束縛、start／command／cleanup／verifyは同じruntime closureを維持。技術実装自体は既存Docker Isolationを呼ぶ |
 | `execution/provider-execution.ts` | 全宣言を`execution/advice.ts` | Host失敗と初期化失敗の二WeakMap、Operation／Runtime生成、取消・回収・結果を一体保持。Host回復関数だけをrecoveryへ移す候補は採らない。助言とTask受付は同じOwnerを使用 |
 | `execution/provider-types.ts` | `ProviderAdviceRuntimeResult / ProviderAdviceRuntime`は`execution/advice.ts`。残る全宣言は`execution/preparation.ts` | prepared／management WeakMap、Authority失効・Mount完了callbackの型は準備Lifecycleの一部。名前にRuntime又はDockerが含まれるだけで別Packageへ移さない |
@@ -2515,3 +2515,48 @@ Sourceの最終差分は`git diff --binary 30c802b1 -- 40_Develop 07_Quality/Reg
 最終Source差分は`git diff --binary b404cd0c -- 40_Develop 07_Quality/Registry/coordinator-task-design-traceability.json`、SHA-256は`8afa311bf454da92dc99d317fa38af2a3b3f2421566aa83b5aff286f12c0be63`である。§38.20の71件は前単位の結果として保持し、今回の五Suite 59件へ合算しない。大量の実行logは正式Evidenceへ複製しない。
 
 今回の共有契約移管を限定完了とする。Host／実行観測／回復Adapter本体のdispatchへの統合、Task受付・Decision・Execution・Stateの残る配置は次単位であり、構造再設計全体・全体Checker・実境界E2Eの完了ではない。②のAI再試行・保持物の観測／操作、実Docker・認証は行っていない。
+
+### 38.22. 残るSource配置の一括移管と最終確認
+
+基準版`865879e7`から、CLI四File、Objective五File、Task七File、Decision九File、State九File、Execution十二File、Workspace三File、保存六File、Root一Fileの計56 Sourceへ移管した。既存の小Folderと不要な中継を撤去し、既知Secretの共通検査はDomain Modelの`plain-data/secret-validation.ts`へ移した。Coordinatorの公開Rootは217項目の名前と型／値区分を維持する。保存B六Fileは同じSymbolのimport先だけを追従し、import除去後の本文一致を確認した。
+
+§38.16の二つの割当は、初期化時の値依存閉包の確認により次へ訂正する。
+
+| 既存の宣言集合 | 現Owner | 保持する理由と保証 |
+|---|---|---|
+| 旧`change-snapshot.ts`全宣言 | `execution/operation.ts` | 対象Treeの読取り・変更観測と二つのWeakMapを一体で保持する。Resultは型・固定理由・構造検査へ限定し、保存モデルから結果定数を読む経路へ実行対象I/Oを逆流させない |
+| 旧`host-submission.ts`のbegin・private transition・complete三関数 | `execution/controller.ts` | 元のcleanup result・plan・Capabilityを本番Runtimeの同一性照合へ渡す閉包を維持する。五観測、Home照合、checkpoint、Host遷移の順序を変更しない |
+| Lifecycle通知Reporterと三つの時間定数 | `execution/controller.ts` | stream、timer、close／errorと一回収束を同じ実行Ownerへ置き、DI固定契約の取得回数と初期化時点を維持する |
+| Host token／遷移lineage・再起動checkpointの純粋宣言 | `execution/result.ts` | 保存モデルの値検査から効果付きRecovery Runtimeへの依存を除く。物理Reader・Writer・私有Map・回復Lifecycleは`execution/recovery.ts`に保持する |
+
+新しいWriter、永続状態、Lock、Grant、中継または互換APIは追加しない。同名の私有宣言は元用途別に改名し、異なるMapや判定を共通化しない。配置数だけから完了とはしない。型検査・Root読込み・静的検査と直接結合五Suite 162件に成功した後、全体回帰で旧Moduleを前提にした代役・固定Path・母集団の追従漏れを検出した。本番の注入口を追加せず試験側を追従し、全体回帰の完走後に全失敗を修正版の対象Suiteと照合した。以下は2026-10-24時点の構造再設計の限定完了結果であり、実AI・実DockerのE2Eや全体QAの完成とは分ける。
+
+Sandbox内の試験失敗と通常Windows権限の結果は区別する。前者はTempのrenameと子Process／Link権限の制限で停止したため、製品の確認条件を緩めず通常権限で再確認した。実AI②、保持物、実Docker・認証・再起動／修復は今回の対象外である。
+
+独立Source再レビューでは、純粋codecの依存とDomain共通検査Headerの指摘を是正し、二確認者とも残指摘0となった。関係16 Moduleの個別読込みはすべて成功した。値依存の循環集合は14 Module残っており、今回を全循環解消とは扱わない。試験の私有File差替えは実宣言の構文木抽出へ移行し、本番用の新しい注入口・互換APIは作らない。Root読込みは抽出試験と別に確認する。
+
+診断SessionとNative公開結果の結合127件、Execution Intelligence通常回帰84件は成功した。試験用LCOVの合成行数は統合後の一意なFile集合へ追従するが、測定値・未到達義務・品質閾値は緩和しない。CLIの端末判定`stdin.isTTY`は読取りと区別し、Task本文の直接stdin読取りを拒否する反証は維持する。
+
+| 最終照合 | 確認済みの範囲と限界 |
+|---|---|
+| 固定Source | `git diff HEAD --binary -- 40_Develop/coordinator/src 40_Develop/domain-model/src`のSHA-256は`91d044cb9e32041f90eaba875eee27c847869ce5cea487a5e8aa6599a12a3ff2`。基準HEADは`865879e7`。公開Root217名・型／値区分と保存六Fileのimport除去後本文一致を再確認 |
+| 利用側回帰 | MCP 102件、Workbench 79件、Execution Intelligence 84件、Version ControlのConsumer閉集合12件成功。外部AI・実Dockerの試験ではない |
+| Windows保存 | 現在状態保存・pending再入場の試験を統合後の実宣言へ追従し146,069.2237msで成功。他の同FileのWindows五条件も成功。正常Owner一回・保持あり・二回の三条件も257,432.4651msで全成功。後者の試験内Module cache不整合を是正した再確認であり、実Docker回収の証明ではない |
+| 試験追従の一括再確認 | Coordinatorから既存のModule mocks・直列実行・Host明示skip条件で、診断Session、Probe四Suite、回復・再入場、再起動、認証create統括、Host Namespace、coverage母集団、修復結果、Traceability、CLI取消、状態遷移、対話境界の計18 Fileを実行。275成功、失敗・取消・skip各0、86,093.9633ms、Exit 0。全体回帰の完走とは別の最終追従確認 |
+| 文書・登録 | Source配置・公開契約の独立再レビュー二者と、文書／登録の限定再レビューは残指摘0。Symbol登録はCoordinator360・Domain149、Path欠測と重複IDは0。移管用の一時データ二Fileは回収済み |
+| 横断QA | 通常Windows権限の命名Suiteは19成功・既知3失敗。既存Rust試験名`host-record.rs`、DI公開Module二件の宣言漏れ、既存保存UTの必須Header不足であり、今回のSource配置の成功や全体QA Passへ換算しない。Workbench静的確認の既存React key二指摘も未解消 |
+
+型・整形・lint（既存情報64件）・Runtime／Task Traceabilityは最終追従後も成功した。全体通常回帰の途中で見つかった旧Module差替え・固定File数・旧Path・変異位置は、実Source宣言と一意な現Ownerへ追従して再確認した。正常Owner試験では、ケース別queryに相当する抽出Module Identityも保持し、別ケースのcleanup closureをキャッシュ再利用しない。これらの追従を、新しい製品側注入口や回復管理へ置換しない。
+
+固定した本番Sourceで`npm run test:portable`が完走した。結果は1,854件中1,830成功・19失敗・5skip、取消・todo各0、6,456,672.2778ms、Exit 1である。開始後に試験だけを追従したため、このCommand自体をExit 0へ読み替えない。本番Sourceの差分Hashは開始時から不変で、完走後も上表のHashと保存六Fileの本文一致を再確認した。
+
+| 全19失敗の原因と再確認 | 修正版の結果 |
+|---|---|
+| Probe・回復の同一File差替え、Host宣言抽出、LCOVの一意File数、CLI配置とAST変異位置の追従漏れ12件 | 上表の18 File・275件が全成功。拒否条件・閾値・未達義務を維持 |
+| doctor分岐のVM注入名が改名前のまま1件 | `coordinator-docker-recovery-cli.integration.test.ts`全13成功、7,488.3605ms。`CommandUsageError`へ注入名だけ追従 |
+| Console禁止参照の大文字・同一Path変異が旧Fileのまま1件 | `signed-general-task-verification.contract.test.ts`全47成功、34,673.0999ms。現禁止対象の別表記へ追従し、同じ拒否Oracleを維持 |
+| 動的Fake／Provider Homeの期待集合重複、保護Root子import、再起動判定の旧File／末尾抽出、診断の事前importによるmock前cacheの計5件 | `dynamic-fake-provider-coverage / execution/diagnostics / execution/protected-root / execution/restart-checkpoint / provider-home-coverage`の五Suite 21成功、2,664.1685ms。実decoder・変異・元Errorのexact参照とコピー拒否・秘密本文非開示を維持 |
+
+追加追従も限定独立再レビューの指摘0。診断試験の抽出閉包は実宣言と実CLI rendererの接続を確認するもので、集約Module初期化までの根拠にしない。実集約Moduleの読込みは別の確認である。各再確認は同じ固定本番Sourceに対する失敗影響範囲の確認であり、異なる試験改訂を一つの全体Command成功記録へ合成しない。Workspace実Git結合18条件は最初の全体回帰で全成功した。
+
+以上で、残る構造再設計のSource・利用側・試験・設計／登録追従を限定完了とする。公開Root217項目、保存B六File、理由実値と安全条件を維持し、新たな人間判断は不要である。横断QAの既知3失敗、Workbench既存2指摘、歴史CHG診断、Browser原因未確定および実境界E2Eは別途残る。②のAI再試行・保持物の観測／操作・実Docker・認証・再起動／修復は行っていない。main統合・リリースは含めない。

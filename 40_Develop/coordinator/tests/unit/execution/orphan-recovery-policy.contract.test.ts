@@ -13,7 +13,7 @@ import test from "node:test";
 import {
   evaluateHostOrphanRecoveryPlan,
   type HostOrphanRecoveryEvidence,
-} from "../../../src/execution/orphan-recovery-policy.ts";
+} from "../../../src/execution/recovery.ts";
 
 const confirmed: HostOrphanRecoveryEvidence = Object.freeze({
   resourceClass: "empty_host_only_v1",

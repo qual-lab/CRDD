@@ -24,23 +24,23 @@ import {
 import {
   type CoordinatorAcceptanceDecisionEnvelope,
   validCoordinatorAcceptanceDecisionEnvelope,
-} from "../decision/acceptance-record.ts";
+} from "../decision/records.ts";
 import type { CoordinatorDecisionRecoveryIntent } from "../decision/records.ts";
-import { validCoordinatorDecisionRecoveryIntent } from "../decision/recovery-record.ts";
+import { validCoordinatorDecisionRecoveryIntent } from "../decision/records.ts";
 import {
   parseHostRecoveryToken,
   validateHostRecoveryTransitionLineage,
-} from "../execution/host-recovery-record.ts";
-import { dockerProcessControllerPublicCompletionReasons } from "../execution/provider-result-reasons.ts";
+} from "../execution/result.ts";
+import { dockerProcessControllerPublicCompletionReasons } from "../execution/result.ts";
 import {
   createDockerRestartRequestId,
   type DockerRestartCheckpoint,
   decodeDockerRestartCheckpoint,
   isDockerRestartCheckpointSettled,
   validateDockerRestartCheckpointTransition,
-} from "../execution/restart-checkpoint.ts";
-import type { CoordinatorLeaseKind } from "../lease/controller.ts";
-import type { ProjectQueueEntry, ProjectQueueState } from "../queue/types.ts";
+} from "../execution/result.ts";
+import type { CoordinatorLeaseKind } from "../state/persistence.ts";
+import type { ProjectQueueEntry, ProjectQueueState } from "../state/model.ts";
 import type {
   CoordinatorState,
   ProjectResultAcceptance,
@@ -52,7 +52,7 @@ import {
   inspectSingleTaskRecord,
   type SingleTaskRecord,
   singleTaskQueueIsConsistent,
-} from "../task/single-task-record.ts";
+} from "../state/model.ts";
 import {
   type CoordinatorWorkspace,
   validCoordinatorWorkspace,

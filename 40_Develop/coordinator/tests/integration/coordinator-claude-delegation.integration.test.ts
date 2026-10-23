@@ -8,13 +8,13 @@
  * @scope coordinator、claude、delegation
  * @boundary PRL-IT-005=Related 2 Blocks: Task Authority→Provider Authority Gate→Provider Effect
  */
-import { createProviderDockerRuntimeAdapterCandidate } from "../../src/execution/provider-adapter.ts";
+import { createProviderDockerRuntimeAdapterCandidate } from "../../src/execution/preparation.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createIsolatedDelegationSelectionGrantRuntimeCandidate } from "../../src/execution/delegation-selection-grant.ts";
-import { createIsolatedDockerProcessControllerCandidate } from "../../src/execution/provider-controller.ts";
-import { createIsolatedProviderAuthorityRuntimeCandidate } from "../../src/execution/authority-grant.ts";
+import { createIsolatedDelegationSelectionGrantRuntimeCandidate } from "../../src/execution/authority.ts";
+import { createIsolatedDockerProcessControllerCandidate } from "../../src/execution/controller.ts";
+import { createIsolatedProviderAuthorityRuntimeCandidate } from "../../src/execution/authority.ts";
 
 /**
  * Codex frontから選定理由付きClaude委譲をcleanup済みResultまで接続するを検証する。

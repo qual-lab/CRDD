@@ -98,7 +98,7 @@ test("三公開CLI入口はProjectとTaskの六経路を同じ条件で受け付
  */
 test("受付Moduleのimportは起動せずProject拒否JSONのbytesを維持する", () => {
   const requestUrl = pathToFileURL(
-    path.join(repositoryRoot, "40_Develop/coordinator/src/cli/request.ts"),
+    path.join(repositoryRoot, "40_Develop/coordinator/src/cli/command.ts"),
   ).href;
   for (const example of [
     { call: "", input: "", reason: null },
@@ -153,7 +153,7 @@ test("受付Moduleのimportは起動せずProject拒否JSONのbytesを維持す�
  */
 test("Taskの不正引数は本番入口で標準入力を読む前に拒否する", () => {
   const commandUrl = pathToFileURL(
-    path.join(repositoryRoot, "40_Develop/coordinator/src/cli/request.ts"),
+    path.join(repositoryRoot, "40_Develop/coordinator/src/cli/command.ts"),
   ).href;
   for (const args of [
     [],
@@ -194,10 +194,7 @@ test("Taskの不正引数は本番入口で標準入力を読む前に拒否す�
  */
 test("移管したTask Readerは128KiBと厳格な入力拒否を維持する", () => {
   const readerUrl = pathToFileURL(
-    path.join(
-      repositoryRoot,
-      "40_Develop/coordinator/src/cli/request-input.ts",
-    ),
+    path.join(repositoryRoot, "40_Develop/coordinator/src/cli/options.ts"),
   ).href;
   const exact = JSON.stringify({ value: "x".repeat(128 * 1024 - 12) });
   assert.equal(Buffer.byteLength(exact), 128 * 1024);
@@ -264,7 +261,7 @@ test("単発CLIは受付後の待機・終了例外でも元依頼IDを保持す
       mock.module(url, { exports: { ...actual, ...exports } });
     };
     let starts = 0, waits = 0, closes = 0;
-    await replace(${JSON.stringify(url("40_Develop/coordinator/src/cli/request-input.ts"))}, {
+    await replace(${JSON.stringify(url("40_Develop/coordinator/src/cli/options.ts"))}, {
       readBoundedTaskRequestFromStdin: () => ({ mode: "workspace_edit", profileId: "PROFILE-100001", prompt: "synthetic", contextReferences: ["PROJECT_CONTEXT.md"], allowedPaths: ["source.txt"], externalSendConfirmed: true, expectedNetworkPolicyHash: "a".repeat(64), workspaceId: null })
     });
     await replace(${JSON.stringify(url("40_Develop/version-control/src/index.ts"))}, {
@@ -278,14 +275,14 @@ test("単発CLIは受付後の待機・終了例外でも元依頼IDを保持す
       readStableBoundedFileSnapshot: () => ({ bytes: Buffer.from("synthetic") }),
       parseRepositoryProjectContextMarkdown: () => ({ projectId: "PRJ-test" })
     });
-    await replace(${JSON.stringify(url("40_Develop/coordinator/src/task/request-composition.ts"))}, {
+    await replace(${JSON.stringify(url("40_Develop/coordinator/src/task/requests.ts"))}, {
       createRepositoryTaskRequests: () => ({
         start: async () => { starts++; return { status: "accepted", requestId: "request-fixture", reason: null }; },
         wait: async () => { waits++; throw new Error("synthetic_wait_failure"); },
         close: async () => { closes++; throw new Error("synthetic_close_failure"); }
       })
     });
-    const { runSingleTaskCommand } = await import(${JSON.stringify(url("40_Develop/coordinator/src/cli/request.ts"))});
+    const { runSingleTaskCommand } = await import(${JSON.stringify(url("40_Develop/coordinator/src/cli/command.ts"))});
     await runSingleTaskCommand(["--request-stdin", "--json"]);
     process.stderr.write(JSON.stringify({ starts, waits, closes }));
   `;

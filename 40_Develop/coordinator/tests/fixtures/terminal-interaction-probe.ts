@@ -20,7 +20,7 @@ import {
   readInteractiveConsoleLineOutcome,
   withInteractiveConsoleAsyncOutcome,
   writeInteractiveConsoleTextOutcome,
-} from "../../src/execution/interactive-console.ts";
+} from "../../src/decision/external-send-grant.ts";
 
 const PROBE_VALUE = "123456";
 const INPUT_TIMEOUT_MS = 60_000;

@@ -8,10 +8,10 @@
  * @boundary ERB-IT-004=Related 2 Blocks: 上位inspect／cleanup→DI構成判定。
  */
 import assert from "node:assert/strict";
+import { sourceDeclaration } from "../support/source-declaration.ts";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import { stripTypeScriptTypes } from "node:module";
 import { runInNewContext } from "node:vm";
 import {
   dockerProbeConfigurationMatches,
@@ -32,13 +32,13 @@ import {
  * @boundary Source本文とVM。実Host処置は行わない。
  */
 function functionSource(source: string, name: string) {
-  const marker = `function ${name}(`;
-  assert.equal(source.split(marker).length, 2);
-  const begin = source.indexOf(marker),
-    nextHeader = source.indexOf("\n/**", begin),
-    end = nextHeader >= 0 ? nextHeader : source.indexOf("\n}", begin) + 2;
-  assert.ok(begin > 0 && end > begin);
-  return stripTypeScriptTypes(source.slice(begin, end));
+  const aliases: Readonly<Record<string, string>> = {
+    blocked: "isolationProbeBlocked",
+    isObject: "isolationProbeIsObject",
+    ownValue: "isolationProbeOwnValue",
+    errorMessage: "isolationProbeErrorMessage",
+  };
+  return sourceDeclaration(source, aliases[name] ?? name);
 }
 
 /**
@@ -61,7 +61,7 @@ function fixture(
     sourceOverride ??
     fs
       .readFileSync(
-        new URL("../../src/execution/isolation-probe.ts", import.meta.url),
+        new URL("../../src/execution/diagnostics.ts", import.meta.url),
         "utf8",
       )
       .replace(/\r\n/g, "\n");
@@ -362,7 +362,7 @@ test("上位Probe inspectとcleanupは現行候補と三mountだけを固定す�
  */
 test("旧record採用だけが明示legacy profileで固定六候補を照合する", () => {
   const source = fs.readFileSync(
-    new URL("../../src/execution/isolation-probe.ts", import.meta.url),
+    new URL("../../src/execution/diagnostics.ts", import.meta.url),
     "utf8",
   );
   assert.equal(source.split('profile: "legacy_recovery",').length, 2);

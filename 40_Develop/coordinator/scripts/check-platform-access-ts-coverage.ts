@@ -21,11 +21,10 @@ const repositoryRoot = path.resolve(coordinatorRoot, "../..");
 export const PLATFORM_ACCESS_TS_COVERAGE_SOURCES = Object.freeze([
   "40_Develop/coordinator/scripts/check-platform-access-ts-coverage.ts",
   "40_Develop/coordinator/src/execution/diagnostics.ts",
-  "40_Develop/coordinator/src/execution/root-path.ts",
+  "40_Develop/coordinator/src/execution/authority.ts",
   "40_Develop/domain-model/src/storage/bounded-file-snapshot.ts",
   "40_Develop/platform-access/src/artifact/identity.ts",
   "40_Develop/coordinator/scripts/native-git-provenance.ts",
-  "40_Develop/coordinator/src/execution/root-observation.ts",
 ]);
 
 export const PLATFORM_ACCESS_TS_COVERAGE_TESTS = Object.freeze([
@@ -130,11 +129,11 @@ const sourceCoverageObligations: Readonly<Record<string, CoverageObligation>> =
       "doctor契約試験、公開情報最小化試験および全Coordinator test",
       "doctor投影、blockerまたはevidence母集団変更時",
     ),
-    "40_Develop/coordinator/src/execution/root-path.ts": obligation(
-      "host OS dispatcherの反対側分岐を単一OS runで到達していない",
-      "OS別dispatcherとpure字句判定の接続差",
-      "Windows/POSIX pure validatorの正負・境界契約試験",
-      "対応OS、字句subsetまたはdispatcher変更時",
+    "40_Develop/coordinator/src/execution/authority.ts": obligation(
+      "host OS dispatcherの反対側分岐を単一OS runで到達していない／Rust結果からRoot観測へのproduction写像は未実装である",
+      "OS別dispatcherとpure字句判定の接続差／未確認主体またはProtection値の補完",
+      "Windows/POSIX pure validatorの正負・境界契約試験／selected-user binding必須、exact inputおよび固定blocked契約試験",
+      "対応OS、字句subsetまたはdispatcher変更時／Root観測mapping実装時",
     ),
     "40_Develop/domain-model/src/storage/bounded-file-snapshot.ts": obligation(
       "close failureと全Filesystem raceを同一coverage runで到達していない",
@@ -153,12 +152,6 @@ const sourceCoverageObligations: Readonly<Record<string, CoverageObligation>> =
       "単一Nativeの出所または途中実体差の見落とし",
       "実Git Blob・Root・Native差と読取り中差替えの契約試験",
       "固定Native観測またはGit出所照合の変更時",
-    ),
-    "40_Develop/coordinator/src/execution/root-observation.ts": obligation(
-      "Rust結果からRoot観測へのproduction写像は未実装である",
-      "未確認主体またはProtection値の補完",
-      "selected-user binding必須、exact inputおよび固定blocked契約試験",
-      "Root観測mapping実装時",
     ),
   });
 

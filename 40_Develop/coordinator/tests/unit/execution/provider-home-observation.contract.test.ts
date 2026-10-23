@@ -19,7 +19,7 @@ import {
   consumeRuntimeOwnedProviderHomeObservationCapability,
   describeProviderHomeWindowsAdapterContract,
   inspectRuntimeOwnedWindowsProviderHomeCandidate,
-} from "../../../src/execution/provider-home-windows-adapter.ts";
+} from "../../../src/execution/authority.ts";
 
 /**
  * Provider Home observation contractはcaller PathとCredential readを持たないを検証する。

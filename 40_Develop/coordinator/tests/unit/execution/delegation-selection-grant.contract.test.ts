@@ -18,7 +18,7 @@ import {
   issueRuntimeOwnedDelegationSelectionGrant,
   revokeRuntimeOwnedDelegationSelectionGrant,
   supersedeRuntimeOwnedDelegationSelectionGrant,
-} from "../../../src/execution/delegation-selection-grant.ts";
+} from "../../../src/execution/authority.ts";
 
 /**
  * createRequestのTest準備責務を実行する。

@@ -13,10 +13,10 @@ import test from "node:test";
 
 import {
   COORDINATOR_ACCEPTANCE_DECISION_CONTRACT,
-  recordCoordinatorAcceptanceDecision,
   type CoordinatorAcceptanceDecisionRequest,
-} from "../../src/decision/record-acceptance.ts";
-import { applyCoordinatorAcceptanceDecision } from "../../src/decision/transitions.ts";
+} from "../../src/decision/request.ts";
+import { recordCoordinatorAcceptanceDecision } from "../../src/decision/acceptance.ts";
+import { applyCoordinatorAcceptanceDecision } from "../../src/state/model.ts";
 import {
   createCoordinatorState,
   type CoordinatorState,
@@ -27,12 +27,10 @@ import {
   reserveProjectTaskStart,
   settleProjectTask,
 } from "../../src/task/lifecycle.ts";
-import { createCoordinatorAcceptanceAuthorityAdapter } from "../../src/decision/authority-adapter.ts";
-import type {
-  CoordinatorAcceptanceDecisionRecord,
-  CoordinatorAcceptanceDecisionStore,
-} from "../../src/decision/acceptance-authority.ts";
-import type { CoordinatorPortResult } from "../../src/operation-result.ts";
+import { createCoordinatorAcceptanceAuthorityAdapter } from "../../src/decision/request.ts";
+import type { CoordinatorAcceptanceDecisionRecord } from "../../src/decision/records.ts";
+import type { CoordinatorAcceptanceDecisionStore } from "../../src/decision/types.ts";
+import type { CoordinatorPortResult } from "../../src/state/result.ts";
 import type { CoordinatorStatePort } from "../../src/state/persistence.ts";
 
 const revision = "a".repeat(40);

@@ -11,22 +11,19 @@ import type {
   CoordinatorState,
 } from "../state/model.ts";
 import type { projectCoordinatorState } from "../state/projection.ts";
-import type { CoordinatorClockIdentityPort } from "../identity/clock-and-hash.ts";
+import type { CoordinatorClockIdentityPort } from "../state/persistence.ts";
 import type {
   CoordinatorTaskExecution,
   CoordinatorExecutionResult,
 } from "../task/types.ts";
 import { COORDINATOR_MAXIMUM_TASKS } from "../state/model.ts";
-import { snapshotCoordinatorWorkspaceResult } from "../execution/attempt.ts";
+import { snapshotCoordinatorWorkspaceResult } from "../execution/controller.ts";
 import {
   inspectCoordinatorObjectiveRequest,
   type CoordinatorObjectiveRequest,
 } from "./request.ts";
-import {
-  snapshotPlainArray,
-  snapshotPlainRecord,
-} from "../input/plain-data-snapshot.ts";
-import { repositoryPathWithin } from "../input/repository-relative-path.ts";
+import { snapshotPlainArray, snapshotPlainRecord } from "../state/model.ts";
+import { repositoryPathWithin } from "../state/model.ts";
 
 export const COORDINATOR_OBJECTIVE_INTAKE_CONTRACT =
   "crdd-coordinator/orchestrator-objective-intake/v1" as const;

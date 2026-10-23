@@ -24,9 +24,9 @@ import {
   withInteractiveConsoleAsync,
   withInteractiveConsoleAsyncOutcome,
   withInteractiveConsoleOutcome,
-} from "../../src/execution/interactive-console.ts";
+} from "../../src/decision/external-send-grant.ts";
 import { isRuntimeProcessPoisoned } from "../../src/execution/process-safety-state.ts";
-import { startRuntimeOwnedCoordinatorTask } from "../../src/execution/task.ts";
+import { startRuntimeOwnedCoordinatorTask } from "../../src/execution/controller.ts";
 import {
   confirmRuntimeOwnedExternalSendUsingConsole,
   requestRuntimeOwnedExternalSendGrant,

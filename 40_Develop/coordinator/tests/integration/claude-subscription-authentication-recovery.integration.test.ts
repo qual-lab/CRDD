@@ -26,7 +26,7 @@ import {
   recordClaudeSubscriptionAuthenticationResource,
   setClaudeSubscriptionAuthenticationRecoveryCommandState,
   settleClaudeSubscriptionAuthenticationRecovery,
-} from "../../src/execution/claude-subscription-authentication.ts";
+} from "../../src/execution/authority.ts";
 
 const hash = randomBytes(32).toString("hex");
 const suffix = hash.slice(0, 16);

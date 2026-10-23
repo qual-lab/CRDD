@@ -14,24 +14,24 @@ import {
   createProviderDockerRuntimeState,
   createProviderDockerRuntimeAdapterCandidate,
   describeProviderDockerRuntimeAdapterContract,
-} from "../../../src/execution/provider-adapter.ts";
+} from "../../../src/execution/preparation.ts";
 import { planProviderExecution } from "../../../../ai-adapter/src/index.ts";
-import { describeAdviceResultSchema } from "../../../src/execution/task-structured-result.ts";
+import { describeAdviceResultSchema } from "../../../src/execution/result.ts";
 import assert from "node:assert/strict";
 import { prepareDockerNetworkPolicy } from "../../../../docker-isolation/src/index.ts";
 import test, { mock } from "node:test";
 import fs from "node:fs";
-import { createProviderDockerBlockedResult } from "../../../src/execution/provider-preparation.ts";
+import { createProviderDockerBlockedResult } from "../../../src/execution/preparation.ts";
 import {
   cancelProviderDockerPreparation,
   consumeProviderDockerPreparation,
-} from "../../../src/execution/provider-preparation-lifecycle.ts";
+} from "../../../src/execution/preparation.ts";
 import { fileURLToPath } from "node:url";
-import { createIsolatedDelegationSelectionGrantRuntimeCandidate } from "../../../src/execution/delegation-selection-grant.ts";
-import { bindDockerIsolationRuntime } from "../../../src/execution/isolation-execution.ts";
+import { createIsolatedDelegationSelectionGrantRuntimeCandidate } from "../../../src/execution/authority.ts";
+import { bindDockerIsolationRuntime } from "../../../src/execution/controller.ts";
 import { describeProviderAuthentication } from "../../../../ai-adapter/src/index.ts";
 import { describeDockerProviderExecutionLocations } from "../../../../docker-isolation/src/index.ts";
-import { bindProviderAdviceCommand } from "../../../src/execution/provider-plan.ts";
+import { bindProviderAdviceCommand } from "../../../src/execution/preparation.ts";
 
 /**
  * 共通本番依存の組立てと拒否結果が準備状態を追加しないことを確認する。

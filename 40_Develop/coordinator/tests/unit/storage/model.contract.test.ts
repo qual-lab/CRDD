@@ -55,7 +55,7 @@ import { createCoordinatorState } from "../../../src/state/model.ts";
 import {
   createDockerRestartRequestId,
   decodeDockerRestartCheckpoint,
-} from "../../../src/execution/restart-checkpoint.ts";
+} from "../../../src/execution/result.ts";
 
 const binding = "a".repeat(64);
 

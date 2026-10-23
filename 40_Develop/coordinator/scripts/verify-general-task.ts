@@ -10,7 +10,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { types as utilTypes } from "node:util";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../version-control/src/index.ts";
-import type { BorrowedExecutionTarget } from "../src/execution/borrowed-tree.ts";
+import type { BorrowedExecutionTarget } from "../src/execution/operation.ts";
 import {
   prepareVerificationWorkspace,
   readVerificationWorkspaceOutput,
@@ -20,7 +20,7 @@ import {
 import {
   isSupportedCoordinatorNodeRuntime,
   MINIMUM_COORDINATOR_NODE_VERSION,
-} from "../src/execution/runtime-version.ts";
+} from "../src/execution/diagnostics.ts";
 import {
   SIGNED_GENERAL_TASK_PUBLIC_REASONS,
   type SignedGeneralTaskPublicReason,
@@ -32,13 +32,13 @@ import {
 import {
   cancelRuntimeOwnedCoordinatorTask,
   startRuntimeOwnedCoordinatorTask,
-} from "../src/execution/task.ts";
+} from "../src/execution/controller.ts";
 import {
   coordinatorTaskPublicReasons,
   type CoordinatorTaskPublicReason,
-} from "../src/execution/result-reasons.ts";
+} from "../src/execution/result.ts";
 import { snapshotPlainArray } from "../../domain-model/src/index.ts";
-import { observeRuntimeOwnedDevelopmentSource } from "../src/execution/development-source-observation.ts";
+import { observeRuntimeOwnedDevelopmentSource } from "../src/execution/diagnostics.ts";
 import {
   isCanonicalCrddGitObjectId,
   isSupportedCrddRuntimeGitObjectId,

@@ -11,7 +11,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { reduceHostGenerationLossTransition } from "../../../src/execution/generation-loss-transition.ts";
+import { reduceHostGenerationLossTransition } from "../../../src/execution/operation.ts";
 
 /**
  * Host generation loss reducerは検出・confirmed・unknownを単調に分離するを検証する。

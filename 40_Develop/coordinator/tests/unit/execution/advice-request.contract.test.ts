@@ -25,12 +25,12 @@ import {
   describeAdviceResultContract,
   normalizeAdviceResult,
   PROVIDER_ADVICE_RESULT_CONTRACT,
-} from "../../../src/execution/task-structured-result.ts";
+} from "../../../src/execution/result.ts";
 import {
   describeAdviceTaskContract,
   prepareAdviceTask,
   PROVIDER_ADVICE_TASK_CONTRACT,
-} from "../../../src/execution/task-packet.ts";
+} from "../../../src/execution/preparation.ts";
 
 /**
  * request用の試験入力または観測処理を提供する。

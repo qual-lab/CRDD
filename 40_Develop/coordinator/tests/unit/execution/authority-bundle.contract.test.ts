@@ -18,20 +18,20 @@ import {
   AUTHORITY_FILE_BUNDLE_INPUT_LIMITS,
   describeAuthorityFileBundleContract,
   loadAuthorityFileBundleCandidate,
-} from "../../../src/execution/authority-bundle.ts";
+} from "../../../src/execution/authority.ts";
 import {
   AUTHORITY_REGISTRY_CONTRACT,
   validateAuthorityRegistryCandidate,
-} from "../../../src/execution/authority-validation.ts";
+} from "../../../src/execution/authority.ts";
 import {
   AUTHORITY_TRUST_POLICY_CONTRACT,
   AUTHORITY_TRUST_POLICY_INPUT_LIMITS,
   decodeCanonicalAuthorityTrustPolicyBytes,
-} from "../../../src/execution/authority-policy.ts";
+} from "../../../src/execution/authority.ts";
 import {
   PROVIDER_ISOLATION_CONTRACT,
   validateProviderIsolationProfile,
-} from "../../../src/execution/isolation-profile.ts";
+} from "../../../src/execution/preparation.ts";
 import { canonicalJson } from "../../support/contract-assertions.ts";
 
 /**

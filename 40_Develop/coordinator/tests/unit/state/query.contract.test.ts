@@ -15,10 +15,8 @@ import {
   createCoordinatorState,
   type CoordinatorState,
 } from "../../../src/state/model.ts";
-import {
-  inspectCoordinatorStateQuery,
-  inspectCoordinatorStateQueryResult,
-} from "../../../src/state/query-contract.ts";
+import { inspectCoordinatorStateQuery } from "../../../src/state/request.ts";
+import { inspectCoordinatorStateQueryResult } from "../../../src/state/projection.ts";
 import { queryCoordinatorState } from "../../../src/state/query.ts";
 import type { CoordinatorStatePort } from "../../../src/state/persistence.ts";
 

@@ -9,12 +9,12 @@
  * @boundary 修復呼出し→保存モデル／DI終了結果。
  */
 import assert from "node:assert/strict";
+import { sourceDeclaration } from "../support/source-declaration.ts";
 import fs from "node:fs";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
-import { stripTypeScriptTypes } from "node:module";
 import { runInThisContext } from "node:vm";
 import test from "node:test";
-import type { repairRuntimeOwnedDockerRuntime } from "../../src/execution/runtime-repair.ts";
+import type { repairRuntimeOwnedDockerRuntime } from "../../src/execution/recovery.ts";
 import { runDockerRuntimeRepairSessionUsing } from "../../../docker-isolation/src/docker-desktop/repair-session.ts";
 import {
   dockerRuntimeRepairCheckpointIsSettled,
@@ -317,14 +317,13 @@ function fixture(transform: (source: string) => string = (source) => source) {
       historyConfirmed: !fault && publication !== null,
     };
   };
-  const source = stripTypeScriptTypes(
+  const source = sourceDeclaration(
     fs.readFileSync(
-      new URL("../../src/execution/runtime-repair.ts", import.meta.url),
+      new URL("../../src/execution/recovery.ts", import.meta.url),
       "utf8",
     ),
-  )
-    .replace(/^import[\s\S]*?;\r?\n/gmu, "")
-    .replace("export async function", "async function");
+    "repairRuntimeOwnedDockerRuntime",
+  );
   const body = transform(source);
   /**
    * 終了候補と除去済み観測を実モデルで模擬する。

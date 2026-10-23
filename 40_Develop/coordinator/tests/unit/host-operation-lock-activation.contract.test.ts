@@ -11,7 +11,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
-import { recoverDockerIsolationProbe } from "../../src/execution/isolation-probe.ts";
+import { recoverDockerIsolationProbe } from "../../src/execution/diagnostics.ts";
 import {
   createIsolatedHostOperationLockActivationCandidate,
   createIsolatedSharedHostRecoveryDirectoryCandidate,

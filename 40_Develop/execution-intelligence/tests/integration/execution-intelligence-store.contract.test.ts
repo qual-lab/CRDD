@@ -19,7 +19,7 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { ensureRepositoryRuntimeDataArea } from "../../../domain-model/src/index.ts";
-import { recordCoordinatorExecutionEvent } from "../../../coordinator/src/task/intelligence-adapter.ts";
+import { recordCoordinatorExecutionEvent } from "../../../coordinator/src/task/dispatch.ts";
 
 import {
   createExecutionIntelligenceRecorder,

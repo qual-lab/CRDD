@@ -579,7 +579,7 @@ function inspectTaskCliCancellationWiring(
   const ownerImports = namedImportIdentifier(
     sourceFile,
     "createRepositoryTaskRequests",
-    "../task/request-composition.ts",
+    "../task/requests.ts",
   );
   if (helperImports.length !== 1) failures.push("helper_import_not_exact");
   if (ownerImports.length !== 1) failures.push("owner_import_not_exact");
@@ -907,7 +907,7 @@ test("公開CLIはproduction helperの単一bindingとfinally解除をAST・symb
       assert.ok(project);
       const sourceFile = projectSourceFile(
         project,
-        path.join(coordinatorRoot, "src", "cli", "request.ts"),
+        path.join(coordinatorRoot, "src", "cli", "command.ts"),
       );
       assert.deepEqual(
         inspectTaskCliCancellationWiring(project, sourceFile),
@@ -942,7 +942,7 @@ test("CLI AST契約はshadow・二重binding・直接signal・非await join・fi
     "coordinator",
   );
   const original = fs.readFileSync(
-    path.join(coordinatorRoot, "src", "cli", "request.ts"),
+    path.join(coordinatorRoot, "src", "cli", "command.ts"),
     "utf8",
   );
   const mutations = [

@@ -14,6 +14,7 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
+import { sourceDeclaration } from "../support/source-declaration.ts";
 import path from "node:path";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
@@ -26,7 +27,7 @@ import {
   requireReadyRepositoryRuntimeDataArea,
 } from "../../../domain-model/src/index.ts";
 import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
-import * as dockerController from "../../src/execution/provider-observation.ts";
+import * as dockerController from "../../src/execution/observation.ts";
 import {
   finalizeRuntimeOwnedDockerRestartPreparation,
   persistRuntimeOwnedDockerRestartCheckpoint,
@@ -56,12 +57,12 @@ import {
   createOwnedOperationManagementCapability,
   recoverOwnedOperationDirectories,
 } from "../../src/execution/operation.ts";
-import { loadHostRecoveryRecordByToken } from "../../src/execution/host-recovery-record.ts";
+import { loadHostRecoveryRecordByToken } from "../../src/execution/recovery.ts";
 import {
   bindRuntimeOwnedRepositoryOperation,
   borrowRuntimeOwnedCoordinatorRecoveryRepository,
   borrowRuntimeOwnedCoordinatorStateRepository,
-} from "../../src/execution/repository-binding.ts";
+} from "../../src/execution/operation.ts";
 import {
   COORDINATOR_STATE_SCHEMA,
   coordinatorTaskResourcesAreSettled,
@@ -88,7 +89,7 @@ import { observeRuntimeOwnedTransientTaskCompletion } from "../../src/storage/se
 import {
   createDockerRestartRequestId,
   type DockerRestartCheckpoint,
-} from "../../src/execution/restart-checkpoint.ts";
+} from "../../src/execution/result.ts";
 import {
   checkpointRuntimeOwnedCoordinatorCleanup,
   checkpointRuntimeOwnedCoordinatorHost,
@@ -592,7 +593,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     import.meta.url,
   ).href;
   const probeModule = new URL(
-    "../../src/execution/isolation-probe.ts",
+    "../../src/execution/diagnostics.ts",
     import.meta.url,
   ).href;
   for (const [bytes, recoveryId, expectedKind, workingDirectory = root] of [
@@ -1890,34 +1891,31 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
   let notIssuedActive = true;
   let notIssuedChecks = 0;
   let expireAfterPrecheck = false;
-  const notIssuedMock = t.mock.module(
-    "../../src/execution/provider-observation.ts",
-    {
-      namedExports: {
-        ...dockerController,
-        verifyRuntimeOwnedDockerUnissuedNotice: (
-          notice: unknown,
-          recovery: unknown,
-          owner: unknown,
-          purpose: unknown,
-          actualOperation: unknown,
-          recoveryId: unknown,
-        ) => {
-          notIssuedChecks++;
-          return (
-            notIssuedActive &&
-            (!expireAfterPrecheck || notIssuedChecks === 1) &&
-            notice === notIssuedNotice &&
-            recovery === notIssuedRecovery &&
-            owner === management &&
-            purpose === resource.purpose &&
-            actualOperation === repository.operationId &&
-            recoveryId === operation.recoveryId
-          );
-        },
+  const notIssuedMock = t.mock.module("../../src/execution/observation.ts", {
+    namedExports: {
+      ...dockerController,
+      verifyRuntimeOwnedDockerUnissuedNotice: (
+        notice: unknown,
+        recovery: unknown,
+        owner: unknown,
+        purpose: unknown,
+        actualOperation: unknown,
+        recoveryId: unknown,
+      ) => {
+        notIssuedChecks++;
+        return (
+          notIssuedActive &&
+          (!expireAfterPrecheck || notIssuedChecks === 1) &&
+          notice === notIssuedNotice &&
+          recovery === notIssuedRecovery &&
+          owner === management &&
+          purpose === resource.purpose &&
+          actualOperation === repository.operationId &&
+          recoveryId === operation.recoveryId
+        );
       },
     },
-  );
+  });
   try {
     const unissuedRuntime: typeof import("../../src/storage/settlement-store.ts") =
       await import(
@@ -2509,7 +2507,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
   let observedProviderId: string | null = null;
   let observedProviderObservation = "absent";
   const transientRecoveryIds = new Set<string>();
-  t.mock.module("../../src/execution/provider-observation.ts", {
+  t.mock.module("../../src/execution/observation.ts", {
     namedExports: {
       ...dockerController,
       /**
@@ -4110,7 +4108,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       ...startPlan,
       activeMountCapability: Object.freeze({}),
     } as unknown as Parameters<
-      typeof import("../../src/execution/host-submission.ts").completeRuntimeOwnedCoordinatorHostSubmission
+      typeof import("../../src/execution/controller.ts").completeRuntimeOwnedCoordinatorHostSubmission
     >[2];
     const cleanupObservations = (
       [
@@ -4126,56 +4124,46 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       dockerId: null,
       observation: "not_requested",
     }));
-    const dockerEffects = await import(
-      "../../src/execution/isolation-execution.ts"
-    );
-    const mountRuntime = await import(
-      "../../src/execution/provider-home-mount-authorization.ts"
-    );
-    const cleanupMock = t.mock.module(
-      "../../src/execution/isolation-execution.ts",
-      {
-        namedExports: {
-          ...dockerEffects,
-          verifyRuntimeOwnedDockerCleanupOutcome(
-            result: unknown,
-            plan: unknown,
-            recovery: unknown,
-            owner: unknown,
-          ) {
-            return result === acceptedCleanup &&
-              plan === completionPlan &&
-              recovery === recoveryCapability &&
-              owner === freshManagement
-              ? cleanupObservations
-              : null;
-          },
+    const dockerEffects = await import("../../src/execution/controller.ts");
+    const mountRuntime = await import("../../src/execution/authority.ts");
+    const cleanupMock = t.mock.module("../../src/execution/controller.ts", {
+      namedExports: {
+        ...dockerEffects,
+        verifyRuntimeOwnedDockerCleanupOutcome(
+          result: unknown,
+          plan: unknown,
+          recovery: unknown,
+          owner: unknown,
+        ) {
+          return result === acceptedCleanup &&
+            plan === completionPlan &&
+            recovery === recoveryCapability &&
+            owner === freshManagement
+            ? cleanupObservations
+            : null;
         },
       },
-    );
-    const mountMock = t.mock.module(
-      "../../src/execution/provider-home-mount-authorization.ts",
-      {
-        namedExports: {
-          ...mountRuntime,
-          verifyRuntimeOwnedProviderHomeMountCompletion(
-            result: unknown,
-            owner: unknown,
-            active: unknown,
-            operationId: unknown,
-            home: unknown,
-          ) {
-            return (
-              result === mountResult &&
-              owner === freshManagement &&
-              active === completionPlan.activeMountCapability &&
-              operationId === completionPlan.operationId &&
-              home === completionPlan.stableLogicalHomeBindingHash
-            );
-          },
+    });
+    const mountMock = t.mock.module("../../src/execution/authority.ts", {
+      namedExports: {
+        ...mountRuntime,
+        verifyRuntimeOwnedProviderHomeMountCompletion(
+          result: unknown,
+          owner: unknown,
+          active: unknown,
+          operationId: unknown,
+          home: unknown,
+        ) {
+          return (
+            result === mountResult &&
+            owner === freshManagement &&
+            active === completionPlan.activeMountCapability &&
+            operationId === completionPlan.operationId &&
+            home === completionPlan.stableLogicalHomeBindingHash
+          );
         },
       },
-    );
+    });
     const hostStartMock = t.mock.module("../../src/execution/operation.ts", {
       namedExports: {
         ...executionEnvironment,
@@ -4213,12 +4201,28 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       },
     });
     try {
-      const hostStartModule = new URL(
-        "../../src/execution/host-submission.ts?host-start-reentry",
-        import.meta.url,
-      ).href;
-      const hostStartRuntime: typeof import("../../src/execution/host-submission.ts") =
-        await import(hostStartModule);
+      const hostSource = fs.readFileSync(
+        new URL("../../src/execution/controller.ts", import.meta.url),
+        "utf8",
+      );
+      const hostBody = [
+        "beginRuntimeOwnedCoordinatorHostSubmission",
+        "transitionRuntimeOwnedCoordinatorHostSubmission",
+        "completeRuntimeOwnedCoordinatorHostSubmission",
+      ]
+        .map((name) => sourceDeclaration(hostSource, name))
+        .join("\n");
+      const hostImports = [
+        'import { createHash } from "node:crypto";',
+        `import { verifyRuntimeOwnedDockerCleanupOutcome } from "${new URL("../../src/execution/controller.ts", import.meta.url).href}";`,
+        `import { beginOwnedDockerSubmissionRecovery, borrowOwnedHostRecoverySnapshot, completeOwnedDockerSubmissionRecovery, borrowRuntimeOwnedCoordinatorStateRepository } from "${new URL("../../src/execution/operation.ts", import.meta.url).href}";`,
+        `import { parseHostRecoveryToken } from "${new URL("../../src/execution/result.ts", import.meta.url).href}";`,
+        `import { verifyRuntimeOwnedProviderHomeMountCompletion } from "${new URL("../../src/execution/authority.ts", import.meta.url).href}";`,
+        `import { checkpointRuntimeOwnedCoordinatorCleanup, checkpointRuntimeOwnedCoordinatorHost, readRuntimeOwnedCoordinatorStateSnapshot } from "${new URL("../../src/storage/settlement-store.ts", import.meta.url).href}";`,
+      ].join("\n");
+      const hostStartRuntime = (await import(
+        `data:text/javascript;base64,${Buffer.from(`${hostImports}\n${hostBody}\nexport { beginRuntimeOwnedCoordinatorHostSubmission, completeRuntimeOwnedCoordinatorHostSubmission };`).toString("base64")}`
+      )) as typeof import("../../src/execution/controller.ts");
       const beforeHostRequest = fs.readFileSync(freshStateFile);
       const wrongOwner =
         hostStartRuntime.beginRuntimeOwnedCoordinatorHostSubmission(

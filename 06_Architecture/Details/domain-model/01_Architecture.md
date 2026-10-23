@@ -589,6 +589,8 @@ Topic／Meeting保存では一次処理とcleanupを別に評価する。一次�
 
 Provider計画の分離時に、Coordinatorの共通入力防御を`plain-data/snapshot.ts`へ単一移管し、Package Rootの明示exportから公開する。CoordinatorとAI AdapterはRootの該当Symbolへ直接依存し、旧Coordinator入口の再exportや同一検査のコピーを残さない。既存Recordのnull／Arrayのstatus・reason、Proxyのtrap前拒否、getter未実行、enumerability、Array上限・hole・余剰key拒否、浅い凍結を維持する。外部Effect・深いSnapshot・汎用Trust Frameworkを追加しない。既存`PPR-UT-006`のSnapshot反証と各Authority／Provider入力の負例、公開集合と推移依存、型所属・配布閉包を移管後に照合する。設計の具体化を実装移管済み・試験Passと扱わない。
 
+既知Secretの純粋検査は`plain-data/secret-validation.ts`が所有する。Rootから`containsRecognizedSecretText / isRecognizedSecretBearingPath / containsRecognizedSecretScope / containsRecognizedSecretMaterial / describeSecretMaterialPolicyContract`と既存契約名・改訂定数を明示公開する。Coordinatorの実行要求、送信同意、結果取込みが同じ検査本文を利用する。既知パターンの拒否を未知Secretの不存在証明にせず、秘密値の保存やSecret Manager、ファイルACLは追加しない。移管時は検出条件と返却値を変更しない。
+
 旧三Packageの公開型は意味を保って各責務の`types.ts`へ移し、Package Rootから明示exportする。型だけのFileを`outcome.ts`と呼ぶ運用は追加しない。共通`outcome.ts`は既存の実行時検証`validateDomainOutcome`も持つため維持する。Rootの名前空間exportや責務別の中間Barrelを追加せず、既存公開集合を実責務Fileから明示し、利用側はRootから必要なSymbolを選択する。
 
 | 旧公開集合 | 移管先 | 利用側と確認する既存義務 |

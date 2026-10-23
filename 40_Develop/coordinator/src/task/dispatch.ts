@@ -3,6 +3,25 @@
  * @responsibility Taskの実行順序と保存・結果受領・配送終了を所有する。
  * @trace ARCH-000004
  */
+import { createHash } from "node:crypto";
+import { performance } from "node:perf_hooks";
+import type { CoordinatorClockIdentityPort } from "../state/persistence.ts";
+import type { CoordinatorProcessSafetyPort } from "./types.ts";
+import {
+  createRuntimeProcessRecoveryIdentity,
+  getRuntimeProcessInstanceIdentity,
+  inspectRuntimeProcessRecoveryIdentity,
+  poisonRuntimeProcessAfterCleanupUnknown,
+} from "../execution/process-safety-state.ts";
+import {
+  createTaskAttemptSettledEvent,
+  type ExecutionIntelligenceEvent,
+  type TaskAttemptExecutionIntelligenceEvent,
+  type ExecutionIntelligencePublicationResult,
+  usageNotObserved,
+  verifyExecutionIntelligenceRepositoryRoot,
+  writeExecutionIntelligenceEvent,
+} from "../../../execution-intelligence/src/index.ts";
 import {
   type ProjectTaskRecoveryKind,
   type CoordinatorState,
@@ -12,7 +31,7 @@ import {
   isCoordinatorRecoveryIdentity,
 } from "../state/model.ts";
 import { types as utilTypes } from "node:util";
-import { snapshotCoordinatorWorkspaceResult } from "../execution/attempt.ts";
+import { snapshotCoordinatorWorkspaceResult } from "../execution/controller.ts";
 import {
   observeProjectTaskStarted,
   prepareProjectTaskHandoff,
@@ -28,9 +47,15 @@ import type {
   ExecutionInput,
   CoordinatorTaskExecution,
   CoordinatorExecutionPublicationObservation,
+  CoordinatorExecutionObservationPublication,
   CoordinatorSingleTaskResult,
   CoordinatorTaskAttemptObservation,
   CoordinatorTaskResultDelivery,
+  CoordinatorExecutionHostAdapterOptions,
+  CoordinatorTaskRecoveryHostDependencies,
+  CoordinatorDockerRecoveryIdentity,
+  CoordinatorRecoveryTransition,
+  CoordinatorTaskRecoveryPort,
 } from "./types.ts";
 
 export const COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT =
@@ -1537,5 +1562,214 @@ export function describeCoordinatorExecutionContract() {
     cleanupUnknownDisposition: "durable_recovery_and_reservation_retained",
     staleOrOwnedQueueDisposition: "effect_zero_manual_reconciliation",
     taskManagementCapabilityComplete: false,
+  });
+}
+
+/**
+ * Build the Host-owned capabilities required by Coordinator execution.
+ *
+ * @responsibility Coordinator Execution Host Portsの構築入力、生成結果、不正入力の拒否境界を所有する。
+ * @trace ARCH-000004
+ * @input options: CoordinatorExecutionHostAdapterOptions
+ * @returns createCoordinatorExecutionHostPortsの計算結果を返す。
+ * @precondition 「options: CoordinatorExecutionHostAdapterOptions」がcreateCoordinatorExecutionHostPortsの入力契約を満たす。
+ * @postcondition createCoordinatorExecutionHostPortsの責務を完了した結果だけを返す。
+ * @effect N/A: createCoordinatorExecutionHostPortsは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: createCoordinatorExecutionHostPortsは独自の失敗分岐を所有しない。
+ * @invariant createCoordinatorExecutionHostPortsは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security createCoordinatorExecutionHostPortsはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: createCoordinatorExecutionHostPortsは共有非同期状態を持たない同期処理である。
+ */
+export function createCoordinatorExecutionHostPorts(
+  options: CoordinatorExecutionHostAdapterOptions = {},
+) {
+  return Object.freeze({
+    clockIdentity: Object.freeze({
+      now:
+        options.now ??
+        (() =>
+          Object.freeze({
+            monotonicMs: performance.now(),
+            iso: new Date().toISOString(),
+          })),
+      createStableId: (prefix: string, parts: readonly string[]) =>
+        `${prefix}-${createHash("sha256")
+          .update(parts.join("\0"))
+          .digest("hex")
+          .slice(0, 40)}`,
+      createContentHash: (content: string) =>
+        createHash("sha256").update(content).digest("hex"),
+    }) satisfies CoordinatorClockIdentityPort,
+    processSafety: Object.freeze({
+      getProcessInstanceIdentity: getRuntimeProcessInstanceIdentity,
+      createRecoveryIdentity: createRuntimeProcessRecoveryIdentity,
+      inspectRecoveryIdentity: inspectRuntimeProcessRecoveryIdentity,
+      poisonAfterCleanupUnknown:
+        options.poisonAfterCleanupUnknown ??
+        poisonRuntimeProcessAfterCleanupUnknown,
+    }) satisfies CoordinatorProcessSafetyPort,
+  });
+}
+
+/**
+ * Task Attemptの観測を欠測付きの共通Eventへ写す。
+ *
+ * @responsibility Coordinator Task Attempt Eventの構築入力、生成結果、不正入力の拒否境界を所有する。
+ * @trace ARCH-000007
+ * @input input: CoordinatorTaskAttemptObservation
+ * @returns TaskAttemptExecutionIntelligenceEventを返す。
+ * @precondition 「input: CoordinatorTaskAttemptObservation」がcreateCoordinatorTaskAttemptEventの入力契約を満たす。
+ * @postcondition createCoordinatorTaskAttemptEventの責務を完了した結果だけを返す。
+ * @effect N/A: createCoordinatorTaskAttemptEventは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: createCoordinatorTaskAttemptEventは独自の失敗分岐を所有しない。
+ * @invariant createCoordinatorTaskAttemptEventは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security createCoordinatorTaskAttemptEventはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency N/A: createCoordinatorTaskAttemptEventは共有非同期状態を持たない同期処理である。
+ */
+export function createCoordinatorTaskAttemptEvent(
+  input: CoordinatorTaskAttemptObservation,
+): TaskAttemptExecutionIntelligenceEvent {
+  return createTaskAttemptSettledEvent({
+    occurredAt: input.occurredAt,
+    identity: input.identity,
+    execution: {
+      role: "executor",
+      provider:
+        input.provider === undefined
+          ? {
+              state: "not_observed",
+              reason: "provider_selection_not_exposed_by_single_task_result",
+            }
+          : {
+              state: "observed",
+              value: input.provider,
+              source: "single_task_verified_completion",
+            },
+      model: {
+        state: "not_observed",
+        reason: "model_selection_not_exposed_by_single_task_result",
+      },
+      inputStrategyRef: {
+        state: "observed",
+        value: "orchestrator/single-task-request/v1",
+        source: "orchestrator_execution",
+      },
+      durationMs:
+        Number.isFinite(input.startedAtMs) &&
+        Number.isFinite(input.endedAtMs) &&
+        input.endedAtMs >= input.startedAtMs
+          ? {
+              state: "observed",
+              value: Math.round(input.endedAtMs - input.startedAtMs),
+              source: "orchestrator_monotonic_clock",
+            }
+          : {
+              state: "not_observed",
+              reason: "orchestrator_monotonic_clock_invalid",
+            },
+      usage: usageNotObserved(
+        "provider_usage_not_exposed_by_single_task_result",
+      ),
+      humanActiveMs: {
+        state: "not_observed",
+        reason: "human_active_time_not_observed_for_task_attempt",
+      },
+    },
+    outcome: input.outcome,
+    quality: {
+      state: "not_applicable",
+      reason: "task_attempt_settlement_is_not_acceptance",
+    },
+  });
+}
+
+/**
+ * 検証済みRepositoryへTask Attemptの実行記録を公開する。
+ *
+ * @responsibility Repository検証後だけ共通Writerを呼び、保存結果のEffect・回収・再試行条件を変更せず返す。
+ * @trace ARCH-000007
+ * @input repositoryRoot: string、observation: CoordinatorTaskAttemptObservation
+ * @returns CoordinatorExecutionObservationPublicationを返す。
+ * @precondition 観測値は上位Attemptの実測値であり、保存対象Rootを呼出側が指定する。
+ * @postcondition Root拒否ではEffect 0、公開後は共通Writerの結果をそのまま保持する。
+ * @effect 検証済みRepositoryの実行履歴へ共通Writerが記録を保存する。
+ * @failure Root検証失敗をblockedとして返し、Event生成例外やWriterの契約外例外を入力不正へ偽装しない。
+ * @invariant 欠測を補完せず、記録結果からTask受入や新しいAuthorityを導出しない。
+ * @boundary Coordinatorの上位観測とExecution Intelligenceの公開保存境界。
+ * @security Root検証が成功する前に保存Effectを発行せず、Provider出力本文や秘密値を新たに収集しない。
+ * @concurrency 保存の排他・重複・回収は共通Writerが所有し、利用側で自動再発行しない。
+ */
+export function recordCoordinatorExecutionEvent(
+  repositoryRoot: string,
+  observation: CoordinatorTaskAttemptObservation,
+): CoordinatorExecutionObservationPublication {
+  const verifiedRoot =
+    verifyExecutionIntelligenceRepositoryRoot(repositoryRoot);
+  if (verifiedRoot.status !== "completed")
+    return Object.freeze({
+      status: "blocked" as const,
+      reason: verifiedRoot.reason,
+      effectState: "no_effect" as const,
+      cleanupConfirmed: true,
+      retryAllowed: false,
+      manualRecoveryRequired: false,
+      residualArtifactIds: Object.freeze([]),
+    });
+  return writeExecutionIntelligenceEvent(
+    verifiedRoot.root,
+    createCoordinatorTaskAttemptEvent(observation),
+  );
+}
+
+export type {
+  ExecutionIntelligenceEvent,
+  ExecutionIntelligencePublicationResult,
+};
+
+/**
+ * Bind Coordinator recovery implementations to one verified Repository.
+ *
+ * @responsibility Coordinator Task 回復 Adapterの構築入力、生成結果、不正入力の拒否境界を所有する。
+ * @trace ARCH-000008
+ * @input workingDirectory: string、repositoryBindingId: string、dependencies: CoordinatorTaskRecoveryHostDependencies
+ * @returns CoordinatorTaskRecoveryPortを返す。
+ * @precondition 「workingDirectory: string、repositoryBindingId: string、dependencies: CoordinatorTaskRecoveryHostDependencies」がcreateCoordinatorTaskRecoveryAdapterの入力契約を満たす。
+ * @postcondition createCoordinatorTaskRecoveryAdapterの責務を完了した結果だけを返す。
+ * @effect N/A: createCoordinatorTaskRecoveryAdapterは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure createCoordinatorTaskRecoveryAdapterは入力不正または下位処理の失敗を呼出し側へ返す。
+ * @invariant createCoordinatorTaskRecoveryAdapterは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary 外部ProcessまたはTransportとProcess内処理の境界。
+ * @security createCoordinatorTaskRecoveryAdapterはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @concurrency createCoordinatorTaskRecoveryAdapterは非同期完了と失敗を一つの呼出しLifecycleへ収束させる。
+ */
+export function createCoordinatorTaskRecoveryAdapter(
+  workingDirectory: string,
+  repositoryBindingId: string,
+  dependencies: CoordinatorTaskRecoveryHostDependencies,
+): CoordinatorTaskRecoveryPort {
+  return Object.freeze({
+    resolveCorrelations: (correlationIds: readonly string[]) =>
+      dependencies.resolveTaskRecoveryCorrelations?.(correlationIds) ?? null,
+    recover: (recoveryId: string, signal: AbortSignal) =>
+      dependencies.recoverTaskRecovery?.(recoveryId, signal) ?? null,
+    acknowledgeDocker: (identity: CoordinatorDockerRecoveryIdentity) =>
+      dependencies.acknowledgeTaskRecovery?.(
+        Object.freeze({
+          workingDirectory,
+          repositoryBindingId,
+          ...identity,
+        }),
+      ) ?? null,
+    observeTransition: async (event: CoordinatorRecoveryTransition) => {
+      try {
+        await dependencies.observeRecoveryTransition?.(
+          Object.freeze({ ...event }),
+        );
+      } catch {
+        // Recovery correctness never depends on a diagnostic observer.
+      }
+    },
   });
 }

@@ -9,7 +9,7 @@
  * @boundary Provider非依存Adapterと固定Fake Executorの局所境界。
  */
 import type { AdviceProviderOutcome } from "../../../src/execution/advice.ts";
-import type { ProviderAdviceExecutionPlan } from "../../../src/execution/provider-plan.ts";
+import type { ProviderAdviceExecutionPlan } from "../../../src/execution/preparation.ts";
 import assert from "node:assert/strict";
 import { fixtureNetworkPolicy } from "../../fixtures/network-policy.ts";
 import test from "node:test";
@@ -25,7 +25,7 @@ import {
   defaultAiProfileCatalog,
   resolveAiProfileById,
 } from "../../../../ai-adapter/src/index.ts";
-import { prepareAdviceTask } from "../../../src/execution/task-packet.ts";
+import { prepareAdviceTask } from "../../../src/execution/preparation.ts";
 import { createProviderAdviceAdapter } from "../../../src/execution/advice.ts";
 
 const profile = resolveAiProfileById(

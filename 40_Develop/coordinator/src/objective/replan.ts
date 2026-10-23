@@ -8,13 +8,10 @@ import {
   applyCoordinatorPartialReplan,
   retryCoordinatorTask,
 } from "../task/lifecycle.ts";
-import { requestCoordinatorHumanDecision } from "../decision/transitions.ts";
+import { requestCoordinatorHumanDecision } from "../state/model.ts";
 import type { ProjectTaskDefinition } from "../state/model.ts";
 import type { CoordinatorStatePort } from "../state/persistence.ts";
-import {
-  snapshotPlainArray,
-  snapshotPlainRecord,
-} from "../input/plain-data-snapshot.ts";
+import { snapshotPlainArray, snapshotPlainRecord } from "../state/model.ts";
 
 export const COORDINATOR_REPLANNING_CONTRACT =
   "crdd-coordinator/orchestrator-replanning/v1" as const;

@@ -15,7 +15,7 @@ import {
   classifyOwnedCoordinatorOperationCreationFailure,
   createIsolatedCoordinatorOperationCreationCandidate,
   createRuntimeOwnedCoordinatorOperation,
-} from "../../../src/execution/operation-creation.ts";
+} from "../../../src/execution/operation.ts";
 import {
   cleanupOwnedOperationDirectories,
   createIsolatedOwnedOperationDirectoryCreationFailureCandidate,

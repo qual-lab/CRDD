@@ -11,7 +11,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { inspectCoordinatorObjectiveRequest } from "../../src/index.ts";
-import { snapshotCoordinatorTaskRequest } from "../../src/execution/task-request.ts";
+import { snapshotCoordinatorTaskRequest } from "../../src/execution/request.ts";
 
 const objective = Object.freeze({
   requestId: "request-1",

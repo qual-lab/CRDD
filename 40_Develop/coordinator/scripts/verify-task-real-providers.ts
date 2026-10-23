@@ -19,7 +19,7 @@ import {
   resolveVerifiedRepositoryRootFromWorkingDirectory,
   verifyRepositoryRoot,
 } from "../../version-control/src/index.ts";
-import { observeRuntimeOwnedDevelopmentSource } from "../src/execution/development-source-observation.ts";
+import { observeRuntimeOwnedDevelopmentSource } from "../src/execution/diagnostics.ts";
 import {
   inspectRepositoryIdentityCandidate,
   inspectRepositoryRevisionCandidate,

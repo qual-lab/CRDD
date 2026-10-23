@@ -13,12 +13,13 @@ import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
+import { sourceDeclaration } from "../../support/source-declaration.ts";
 import {
   createDockerRestartRequestId,
   decodeDockerRestartCheckpoint,
   isDockerRestartCheckpointSettled,
   validateDockerRestartCheckpointTransition,
-} from "../../../src/execution/restart-checkpoint.ts";
+} from "../../../src/execution/result.ts";
 
 const repositoryBinding = "a".repeat(64);
 const identitySha256 = "b".repeat(64);
@@ -413,14 +414,10 @@ test("再起動の未発行・発行済み既知失敗をunknownと分けて終�
  */
 test("再起動終了判定はEffect不明条件の省略を検出する", () => {
   const source = fs.readFileSync(
-    new URL("../../../src/execution/restart-checkpoint.ts", import.meta.url),
+    new URL("../../../src/execution/result.ts", import.meta.url),
     "utf8",
   );
-  const marker = "export function isDockerRestartCheckpointSettled(";
-  assert.equal(source.split(marker).length, 2);
-  const body = source
-    .slice(source.indexOf(marker))
-    .replace("export function", "function");
+  const body = sourceDeclaration(source, "isDockerRestartCheckpointSettled");
   const guard = " ||\n    checkpoint.result.effectOutcomeUnknown !== false";
   assert.equal(body.split(guard).length, 2);
   const changed = stripTypeScriptTypes(body.replace(guard, ""));

@@ -12,7 +12,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { issueCoordinatorHumanDecision } from "../../../src/decision/lifecycle.ts";
-import type { CoordinatorPortResult } from "../../../src/operation-result.ts";
+import type { CoordinatorPortResult } from "../../../src/state/result.ts";
 
 /**
  * unavailableのTest準備責務を実行する。

@@ -11,7 +11,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createIsolatedDelegationSelectionGrantRuntimeCandidate } from "../../src/execution/delegation-selection-grant.ts";
+import { createIsolatedDelegationSelectionGrantRuntimeCandidate } from "../../src/execution/authority.ts";
 
 import {
   describeProviderModelProfileRuntimeContract,

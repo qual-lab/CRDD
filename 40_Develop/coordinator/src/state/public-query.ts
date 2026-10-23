@@ -3,18 +3,18 @@
  * @responsibility 公開状態照会を現在の認証・Snapshot Readerへ接続する。
  * @trace ARCH-000004
  */
-import { deriveCoordinatorRepositoryBindingId } from "./binding.ts";
+import { deriveCoordinatorRepositoryBindingId } from "./model.ts";
 import { inspectRepositoryIdentityCandidate } from "../../../version-control/src/index.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
 import {
   inspectCoordinatorStateQuery,
   COORDINATOR_STATE_QUERY_CONTRACT,
-} from "./query-contract.ts";
+} from "./request.ts";
 import { workspacePlanReadyForAcceptance } from "../workspace/operations.ts";
 import {
   COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
   coordinatorDataBoundaryBlocked,
-} from "../operation-result-contract.ts";
+} from "./result.ts";
 import { queryCoordinatorState } from "./query.ts";
 import {
   createCurrentCoordinatorPersistencePorts as createCoordinatorPersistencePorts,

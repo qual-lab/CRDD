@@ -28,7 +28,7 @@ import {
   registerSyntheticOperations,
   settleSyntheticOperation,
 } from "../fixtures/task-result-fixture.ts";
-import { consumeDockerRecoveryReceiptAfterProjectSettlement } from "../../src/task/settle-docker-recovery.ts";
+import { consumeDockerRecoveryReceiptAfterProjectSettlement } from "../../src/execution/recovery.ts";
 import {
   readCoordinatorState,
   writeCoordinatorState,

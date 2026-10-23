@@ -20,7 +20,7 @@ import { types } from "node:util";
 import * as model from "../../src/storage/model.ts";
 import * as domain from "../../../domain-model/src/index.ts";
 import * as versionControl from "../../../version-control/src/index.ts";
-import * as bindings from "../../src/execution/repository-binding.ts";
+import * as bindings from "../../src/execution/operation.ts";
 import * as kernel from "../../src/execution/kernel-lock.ts";
 import * as stateStore from "../../src/storage/settlement-store.ts";
 import * as isolation from "../../../docker-isolation/src/index.ts";
@@ -329,7 +329,7 @@ mock.module("../../../docker-isolation/src/index.ts", {
   },
 });
 const { repairRuntimeOwnedDockerRuntime } = await import(
-  "../../src/execution/runtime-repair.ts"
+  "../../src/execution/recovery.ts"
 );
 
 /**

@@ -8,6 +8,7 @@
  * @boundary ERB-IT-004=Related 2 Blocks: Coordinator保存順序→DI作成。
  */
 import assert from "node:assert/strict";
+import { sourceDeclaration } from "../support/source-declaration.ts";
 import fs from "node:fs";
 import path from "node:path";
 import { stripTypeScriptTypes } from "node:module";
@@ -26,16 +27,13 @@ import { runInNewContext } from "node:vm";
  * @boundary 本番Sourceと検証VM。
  */
 function probeFunctionSource(source: string, name: string) {
-  const marker = `function ${name}(`;
-  assert.equal(source.split(marker).length, 2);
-  const declaration = source.indexOf(marker);
-  const begin =
-    source.slice(declaration - 6, declaration) === "async "
-      ? declaration - 6
-      : declaration;
-  const end = source.indexOf("\n/**", begin);
-  assert.ok(begin > 0 && end > begin);
-  return stripTypeScriptTypes(source.slice(begin, end));
+  const aliases: Readonly<Record<string, string>> = {
+    blocked: "isolationProbeBlocked",
+    isObject: "isolationProbeIsObject",
+    ownValue: "isolationProbeOwnValue",
+    errorMessage: "isolationProbeErrorMessage",
+  };
+  return sourceDeclaration(source, aliases[name] ?? name);
 }
 
 /**
@@ -51,7 +49,7 @@ function probeFunctionSource(source: string, name: string) {
  */
 test("Probe二保存はcreate前とstart前をそれぞれ停止できる", () => {
   const source = fs.readFileSync(
-    new URL("../../src/execution/isolation-probe.ts", import.meta.url),
+    new URL("../../src/execution/diagnostics.ts", import.meta.url),
     "utf8",
   );
   const marker = "function runDockerIsolationScenario(";
@@ -74,7 +72,7 @@ test("Probe二保存はcreate前とstart前をそれぞれ停止できる", () =
     .map((name) => probeFunctionSource(source, name))
     .join("\n");
   const projection = runInNewContext(
-    `(()=>{${projectionBody};return {blocked,normalizeDockerProbeFailure,normalizeHostCleanupResult,dynamicFakeLifecycleBlocked};})()`,
+    `(()=>{${projectionBody};return {blocked:isolationProbeBlocked,normalizeDockerProbeFailure,normalizeHostCleanupResult,dynamicFakeLifecycleBlocked};})()`,
   ) as {
     blocked: (reason: string, ...args: unknown[]) => Record<string, unknown>;
     normalizeDockerProbeFailure: (
@@ -109,7 +107,7 @@ test("Probe二保存はcreate前とstart前をそれぞれ停止できる", () =
         path,
         performance,
         randomUUID: () => "probe",
-        blocked,
+        isolationProbeBlocked: blocked,
         getOwnedHostRecoveryId: () => "host",
         createDockerProbeRuntimeBinding: (readManagement: () => unknown) => {
           assert.equal(readManagement(), mounts.management);
@@ -331,7 +329,7 @@ test("Probe二保存はcreate前とstart前をそれぞれ停止できる", () =
  */
 test("全Probe作成Callerはprofile・Probe名・三Path・bindingを一致させる", async () => {
   const source = fs.readFileSync(
-    new URL("../../src/execution/isolation-probe.ts", import.meta.url),
+    new URL("../../src/execution/diagnostics.ts", import.meta.url),
     "utf8",
   );
   const mounts = {
@@ -415,7 +413,7 @@ test("全Probe作成Callerはprofile・Probe名・三Path・bindingを一致さ�
         path,
         performance,
         randomUUID: () => "probe-123",
-        blocked,
+        isolationProbeBlocked: blocked,
         cancellationBlocked: blocked,
         getOwnedHostRecoveryId: () => "host",
         createDockerProbeRuntimeBinding: (readManagement: () => unknown) => {

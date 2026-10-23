@@ -6,11 +6,11 @@
  */
 import { projectCoordinatorState } from "./projection.ts";
 import type { CoordinatorStatePort } from "./persistence.ts";
-import {
-  COORDINATOR_STATE_QUERY_CONTRACT,
-  type CoordinatorStateQuery,
-  type CoordinatorStateQueryResult,
-} from "./query-contract.ts";
+import { COORDINATOR_STATE_QUERY_CONTRACT } from "./request.ts";
+import type {
+  CoordinatorStateQuery,
+  CoordinatorStateQueryResult,
+} from "./types.ts";
 
 /**
  * Read-only application entry. It cannot receive a state mutation capability.

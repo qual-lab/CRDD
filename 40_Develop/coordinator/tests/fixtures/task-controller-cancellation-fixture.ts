@@ -11,11 +11,11 @@
  * @boundary Task Controller→自己生成Process Tree。実ProviderやDocker Daemonを利用するFixtureではない。
  */
 import assert from "node:assert/strict";
+import { createIsolatedDockerProcessControllerCandidate } from "../../src/execution/controller.ts";
 import {
-  createIsolatedDockerProcessControllerCandidate,
   projectDockerProcessControllerStartResult,
   projectDockerProcessControllerCompletionResult,
-} from "../../src/execution/provider-controller.ts";
+} from "../../src/execution/result.ts";
 import type { OwnedCommandHandle } from "../../../docker-isolation/src/index.ts";
 import { createOwnedProcessTreeFixture } from "./docker-owned-process-test-support.ts";
 

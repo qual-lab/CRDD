@@ -9,6 +9,7 @@
  * @boundary ERB-IT-004=Direct Boundary: Observer→Effect Gate
  */
 import assert from "node:assert/strict";
+import { sourceDeclaration } from "../support/source-declaration.ts";
 import { describeProviderHomeObservationContract } from "../../../platform-access/src/index.ts";
 import { spawnSync } from "node:child_process";
 import {
@@ -28,7 +29,6 @@ import test, { mock } from "node:test";
 import { fileURLToPath } from "node:url";
 import { runInNewContext } from "node:vm";
 import { createRepositoryTestDirectory } from "../../../domain-model/tests/support/repository-test-directory.ts";
-import { observeRuntimeOwnedDevelopmentSource } from "../../src/execution/development-source-observation.ts";
 
 /**
  * 実Source観測本文をRepository内の自己生成Fixtureへ結合する。
@@ -46,13 +46,31 @@ async function createSourceObservationFixture(readMutation = "") {
   const directory = createRepositoryTestDirectory("development-source-");
   const root = directory.path;
   try {
-    const source = readFileSync(
-      new URL(
-        "../../src/execution/development-source-observation.ts",
-        import.meta.url,
-      ),
+    const fullSource = readFileSync(
+      new URL("../../src/execution/diagnostics.ts", import.meta.url),
       "utf8",
     );
+    const declarations = [
+      "SOURCE_SCOPE",
+      "PACKAGES",
+      "DIRECTORIES",
+      "sourceRoot",
+      "MAX_FILES",
+      "MAX_DIRECTORIES",
+      "MAX_FILE_BYTES",
+      "MAX_TOTAL_BYTES",
+      "MAX_DEPTH",
+      "readBoundedDirectoryNames",
+      "captureDevelopmentSource",
+      "observeRuntimeOwnedDevelopmentSource",
+    ];
+    const source =
+      'import { createHash } from "node:crypto";\nimport { closeSync, constants, fstatSync, lstatSync, openSync, opendirSync, readSync, realpathSync } from "node:fs";\nimport path from "node:path";\nimport { fileURLToPath } from "node:url";' +
+      "\n" +
+      declarations
+        .map((name) => sourceDeclaration(fullSource, name))
+        .join("\n") +
+      "\nexport { observeRuntimeOwnedDevelopmentSource };";
     const names = [
       "access-management",
       "ai-adapter",
@@ -351,10 +369,7 @@ if (process.argv[2] !== "--probe") {
   test("development source snapshot bounds enumeration and closes its exact handle", () => {
     const source = stripTypeScriptTypes(
       readFileSync(
-        new URL(
-          "../../src/execution/development-source-observation.ts",
-          import.meta.url,
-        ),
+        new URL("../../src/execution/diagnostics.ts", import.meta.url),
         "utf8",
       ),
     );
@@ -429,10 +444,7 @@ if (process.argv[2] !== "--probe") {
   test("development session preserves original native observations across fresh snapshots", () => {
     const source = stripTypeScriptTypes(
       readFileSync(
-        new URL(
-          "../../src/execution/development-measurement-session.ts",
-          import.meta.url,
-        ),
+        new URL("../../src/execution/diagnostics.ts", import.meta.url),
         "utf8",
       ),
     );
@@ -640,7 +652,7 @@ if (process.argv[2] !== "--probe") {
    * @cleanup 読取りだけを実行し生成物を持たない。
    * @boundary 実Node子ProcessのCLI入口。Docker・Providerへは到達しない。
    */
-  test("development source snapshot CLI describes the fixed source without creating a run", () => {
+  test("development source snapshot CLI describes the fixed source without creating a run", async () => {
     const root = path.resolve(
       fileURLToPath(new URL("../../../../", import.meta.url)),
     );
@@ -697,6 +709,9 @@ if (process.argv[2] !== "--probe") {
     for (const position of positions.slice(2))
       assert.ok((positions[1] as number) < position);
     const before = inventory();
+    const { observeRuntimeOwnedDevelopmentSource } = await import(
+      "../../src/execution/diagnostics.ts"
+    );
     const expected = observeRuntimeOwnedDevelopmentSource();
     assert.ok(expected);
     const execution = spawnSync(
@@ -787,9 +802,9 @@ const scenarios = [
  */
 async function runProbe(target: string, scenario: string) {
   for (const relative of [
-    "execution/development-measurement-session.ts",
-    "execution/provider-home-windows-adapter.ts",
-    "execution/protected-root.ts",
+    "execution/diagnostics.ts",
+    "execution/authority.ts",
+    "execution/authority.ts",
   ]) {
     const current = readFileSync(
       new URL(`../../src/${relative}`, import.meta.url),
@@ -848,10 +863,9 @@ async function runProbe(target: string, scenario: string) {
       return new URL("../../../platform-access/src/index.ts", import.meta.url)
         .href;
     const sources: Record<string, string> = {
-      "repository-operation-runtime": "execution/repository-binding.ts",
+      "repository-operation-runtime": "execution/operation.ts",
       "execution-environment": "execution/operation.ts",
-      "development-source-observation":
-        "execution/development-source-observation.ts",
+      "development-source-observation": "execution/diagnostics.ts",
     };
     assert.ok(sources[name], name);
     return new URL(`../../src/${sources[name]}`, import.meta.url).href;
@@ -868,7 +882,7 @@ async function runProbe(target: string, scenario: string) {
     },
   );
   await mock.module(
-    new URL("../../src/execution/provider-execution.ts", import.meta.url).href,
+    new URL("../../src/execution/advice.ts", import.meta.url).href,
     {
       namedExports: {
         createRuntimeOwnedProviderAdviceRuntime: () => {
@@ -885,6 +899,10 @@ async function runProbe(target: string, scenario: string) {
   );
   await mock.module(moduleUrl("repository-operation-runtime"), {
     namedExports: {
+      verifyOwnedOperationManagementCapability: (operation: object) => {
+        assert.equal(operation, management);
+        return { operationId: "fixture-operation" };
+      },
       verifyRuntimeOwnedRepositoryBindingCapability: () => {
         throw new Error("binding_verification_not_used_by_native_observation");
       },
@@ -919,30 +937,18 @@ async function runProbe(target: string, scenario: string) {
       }),
     },
   });
-  await mock.module(moduleUrl("execution-environment"), {
-    namedExports: {
-      verifyOwnedOperationManagementCapability: (operation: object) => {
-        assert.equal(operation, management);
-        return { operationId: "fixture-operation" };
-      },
-    },
-  });
-  await mock.module(moduleUrl("development-source-observation"), {
-    namedExports: {
-      observeRuntimeOwnedDevelopmentSource: () => ({
-        scope: "crdd-development-source-snapshot/v2",
-        sourceSha256:
-          isArmed && scenario === "source-hash-mismatch"
-            ? "9".repeat(64)
-            : "c".repeat(64),
-        sourceIdentitySha256:
-          isArmed && nativeEffectObservations > 0 && scenario === "post-source"
-            ? "9".repeat(64)
-            : "2".repeat(64),
-        fileCount: 22,
-        totalBytes: 275,
-      }),
-    },
+  const sourceObservation = () => ({
+    scope: "crdd-development-source-snapshot/v2",
+    sourceSha256:
+      isArmed && scenario === "source-hash-mismatch"
+        ? "9".repeat(64)
+        : "c".repeat(64),
+    sourceIdentitySha256:
+      isArmed && nativeEffectObservations > 0 && scenario === "post-source"
+        ? "9".repeat(64)
+        : "2".repeat(64),
+    fileCount: 22,
+    totalBytes: 275,
   });
   const artifactMock = {
     namedExports: {
@@ -1169,13 +1175,141 @@ async function runProbe(target: string, scenario: string) {
       describeProviderHomeObservationContract,
     },
   });
+  const diagnosticsUrl = moduleUrl("development-source-observation");
+  const diagnosticsSource = readFileSync(fileURLToPath(diagnosticsUrl), "utf8");
+  const declarations = [
+    "STATE_LABELS",
+    "Interval",
+    "createDevelopmentExecutionTiming",
+    "writeDevelopmentMeasurementProgress",
+    "HASH_PATTERN",
+    "MAX_DURATION_MS",
+    "CONFIG_KEYS",
+    "TASK_KEYS",
+    "OBSERVATION_KEYS",
+    "Provider",
+    "Role",
+    "StopReason",
+    "Refusal",
+    "ConstraintResult",
+    "Observation",
+    "TaskState",
+    "InvocationState",
+    "parseObservation",
+    "refuse",
+    "record",
+    "createDevelopmentMeasurementConstraints",
+    "developmentMeasurementSessionCONFIG_KEYS",
+    "SHA256",
+    "COMMIT",
+    "developmentMeasurementSessionMAX_DURATION_MS",
+    "sourceDistributionRoot",
+    "developmentMeasurementSessionProvider",
+    "developmentMeasurementSessionRole",
+    "Constraints",
+    "TaskRequest",
+    "Task",
+    "Configuration",
+    "Identity",
+    "NativeVerification",
+    "nativeVerifications",
+    "Dependencies",
+    "Session",
+    "TaskBinding",
+    "digest",
+    "snapshotTask",
+    "snapshotConfiguration",
+    "observeProduction",
+    "blocked",
+    "createSessionRuntime",
+    "productionRuntime",
+    "requestRuntimeOwnedDevelopmentMeasurementSession",
+    "inspectRuntimeOwnedDevelopmentMeasurementSession",
+    "readRuntimeOwnedDevelopmentMeasurementTasks",
+    "cancelRuntimeOwnedDevelopmentMeasurementSession",
+    "borrowRuntimeOwnedDevelopmentNativeObservation",
+    "inspectRuntimeOwnedDevelopmentOperationContext",
+    "reserveRuntimeOwnedDevelopmentMeasurementTask",
+    "createIsolatedDevelopmentMeasurementSessionCandidate",
+  ]
+    .map((name) => sourceDeclaration(diagnosticsSource, name))
+    .join("\n");
+  const observationKey = "__crddNativeObservationFixture";
+  (globalThis as Record<string, unknown>)[observationKey] = sourceObservation;
+  const imports = [
+    'import { createHash } from "node:crypto";',
+    'import path from "node:path";',
+    'import { performance } from "node:perf_hooks";',
+    'import { fileURLToPath } from "node:url";',
+    'import { types as utilTypes } from "node:util";',
+    `import { isRuntimeProcessEffectBlocked } from "${new URL("../../src/execution/process-safety-state.ts", import.meta.url).href}";`,
+    `import { snapshotCoordinatorTaskRequest } from "${new URL("../../src/execution/request.ts", import.meta.url).href}";`,
+    `import { verifyOwnedOperationManagementCapability, borrowRuntimeOwnedRepositorySource } from "${moduleUrl("execution-environment")}";`,
+    `import { snapshotPlainArray, snapshotPlainRecord } from "${new URL("../../../domain-model/src/index.ts", import.meta.url).href}";`,
+    `import { observeNativeArtifact } from "${moduleUrl("native-artifact-observation")}";`,
+    `import { inspectRepositoryIdentityCandidate } from "${versionControlUrl}";`,
+    `const observeRuntimeOwnedDevelopmentSource = globalThis[${JSON.stringify(observationKey)}];`,
+  ].join("\n");
+  const sessionSource = `${imports}\n${declarations.replaceAll("import.meta.url", JSON.stringify(diagnosticsUrl))}\nexport { createDevelopmentExecutionTiming, writeDevelopmentMeasurementProgress, createDevelopmentMeasurementConstraints, requestRuntimeOwnedDevelopmentMeasurementSession, inspectRuntimeOwnedDevelopmentMeasurementSession, readRuntimeOwnedDevelopmentMeasurementTasks, cancelRuntimeOwnedDevelopmentMeasurementSession, borrowRuntimeOwnedDevelopmentNativeObservation, inspectRuntimeOwnedDevelopmentOperationContext, reserveRuntimeOwnedDevelopmentMeasurementTask, createIsolatedDevelopmentMeasurementSessionCandidate };`;
   const session = await import(
-    "../../src/execution/development-measurement-session.ts"
+    `data:text/javascript;base64,${Buffer.from(sessionSource).toString("base64")}`
   );
+  delete (globalThis as Record<string, unknown>)[observationKey];
+  await mock.module(diagnosticsUrl, {
+    namedExports: {
+      ...session,
+      observeRuntimeOwnedDevelopmentSource: sourceObservation,
+    },
+  });
+  const authoritySource = readFileSync(
+    new URL("../../src/execution/authority.ts", import.meta.url),
+    "utf8",
+  );
+  const authorityDeclarations = [
+    "rootCapabilities",
+    "protectedRootBlocked",
+    "rootPathCandidate",
+    "inspectRuntimeOwnedWindowsProtectedRoot",
+    "inspectRuntimeOwnedWindowsRuntimeState",
+    "consumeRuntimeOwnedRuntimeStateRootCapability",
+    "describeRuntimeStateWindowsAdapterContract",
+    "PROVIDER_HOME_WINDOWS_ADAPTER_CONTRACT",
+    "PROVIDER_HOME_WINDOWS_ADAPTER_CONTRACT_REVISION",
+    "HELPER_TIMEOUT_MS",
+    "OBSERVATION_CAPABILITY_MAXIMUM_AGE_MS",
+    "observationCapabilities",
+    "mountSourceCapabilities",
+    "runtimeOwnedProviderHomeMountSourceCandidate",
+    "providerHomeWindowsAdapterBlocked",
+    "inspectRuntimeOwnedWindowsProviderHomeCandidate",
+    "consumeRuntimeOwnedProviderHomeObservationCapability",
+    "consumeRuntimeOwnedProviderHomeMountSourceCapability",
+    "revokeRuntimeOwnedProviderHomeMountSourceCapability",
+    "describeProviderHomeWindowsAdapterContract",
+    "AUTHORITY_ROOT_ABSOLUTE_PATH_MAX_BYTES",
+    "WINDOWS_RESERVED_BASENAME",
+    "RESERVED_NAME_SPECIAL_UPPERCASE_MAPPINGS",
+    "reservedNameSpecialUppercaseMapping",
+    "reservedNameLimitedUppercase",
+    "hasSupportedCommonPathBytes",
+    "isSupportedWindowsAbsolutePathCandidate",
+    "describeAuthorityRootPathLexicalContract",
+    "isSupportedPosixAbsolutePathCandidate",
+    "isSupportedAuthorityRootAbsolutePath",
+  ]
+    .map((name) => sourceDeclaration(authoritySource, name))
+    .join("\n");
+  const authorityImports = [
+    'import path from "node:path";',
+    'import { performance } from "node:perf_hooks";',
+    `import { snapshotPlainRecord } from "${new URL("../../../domain-model/src/index.ts", import.meta.url).href}";`,
+    `import { observeWindowsProviderHome, observeWindowsRuntimeState, WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE, describeProviderHomeObservationContract } from "${moduleUrl("native-artifact-observation")}";`,
+    `import { borrowRuntimeOwnedDevelopmentNativeObservation } from "${diagnosticsUrl}";`,
+  ].join("\n");
   const provider = await import(
-    "../../src/execution/provider-home-windows-adapter.ts"
+    `data:text/javascript;base64,${Buffer.from(`${authorityImports}\n${authorityDeclarations}\nexport { inspectRuntimeOwnedWindowsProviderHomeCandidate, inspectRuntimeOwnedWindowsRuntimeState, consumeRuntimeOwnedProviderHomeObservationCapability, consumeRuntimeOwnedProviderHomeMountSourceCapability, revokeRuntimeOwnedProviderHomeMountSourceCapability, consumeRuntimeOwnedRuntimeStateRootCapability };`).toString("base64")}`
   );
-  const store = await import("../../src/execution/protected-root.ts");
+  const store = provider;
   const tasks = ["codex", "claude"].map((executor) => ({
     frontProvider: executor === "codex" ? "claude" : "codex",
     requestedExecutorProvider: executor,

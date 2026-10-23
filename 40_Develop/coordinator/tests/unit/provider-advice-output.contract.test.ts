@@ -11,8 +11,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { dockerProcessControllerPublicCompletionReasons } from "../../src/execution/provider-result-reasons.ts";
-import { coordinatorTaskPublicReasons } from "../../src/execution/result-reasons.ts";
+import { dockerProcessControllerPublicCompletionReasons } from "../../src/execution/result.ts";
+import { coordinatorTaskPublicReasons } from "../../src/execution/result.ts";
 import {
   parseProviderResult,
   PROVIDER_ADVICE_OUTPUT_REASONS,

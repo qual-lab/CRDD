@@ -13,7 +13,7 @@ import {
   beginClaudeSubscriptionAuthenticationRecovery,
   createClaudeSubscriptionAuthenticationPlan,
   createClaudeSubscriptionAuthenticationRecoveryRecord,
-} from "../../src/execution/claude-subscription-authentication.ts";
+} from "../../src/execution/authority.ts";
 
 const [stableLogicalHomeBindingHash, providerHome, suffix, token] =
   process.argv.slice(2);

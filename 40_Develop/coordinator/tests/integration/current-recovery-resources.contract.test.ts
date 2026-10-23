@@ -18,7 +18,7 @@ import test, { mock, type TestContext } from "node:test";
 import { fileURLToPath } from "node:url";
 import { isDeepStrictEqual, types as utilTypes } from "node:util";
 import { runInNewContext } from "node:vm";
-import { isDockerRestartCheckpointSettled } from "../../src/execution/restart-checkpoint.ts";
+import { isDockerRestartCheckpointSettled } from "../../src/execution/result.ts";
 import {
   coordinatorTaskResourcesAreSettled,
   coordinatorAuthenticationUnknownCanClose,

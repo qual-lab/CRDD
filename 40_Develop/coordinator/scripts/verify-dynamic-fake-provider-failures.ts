@@ -12,7 +12,7 @@ import {
   DYNAMIC_FAKE_PROVIDER_FAILURE_SCENARIOS,
   expectedDynamicFakeProviderFailureReason,
   runDynamicFakeProviderFailureScenario,
-} from "../src/execution/isolation-probe.ts";
+} from "../src/execution/diagnostics.ts";
 import { createOwnedOperationDirectories } from "../src/execution/operation.ts";
 
 /**

@@ -14,20 +14,20 @@ import test from "node:test";
 import {
   AUTHORITY_REGISTRY_CONTRACT,
   validateAuthorityRegistryCandidate,
-} from "../../../src/execution/authority-validation.ts";
-import { AUTHORITY_FILE_BUNDLE_CONTRACT } from "../../../src/execution/authority-bundle.ts";
+} from "../../../src/execution/authority.ts";
+import { AUTHORITY_FILE_BUNDLE_CONTRACT } from "../../../src/execution/authority.ts";
 import {
   describeAuthorityPrelaunchVerifierContract,
   reverifyAuthorityBeforeProviderLaunch,
-} from "../../../src/execution/prelaunch-validation.ts";
+} from "../../../src/execution/authority.ts";
 import {
   AUTHORITY_TRUST_POLICY_CONTRACT,
   decodeCanonicalAuthorityTrustPolicyBytes,
-} from "../../../src/execution/authority-policy.ts";
+} from "../../../src/execution/authority.ts";
 import {
   PROVIDER_ISOLATION_CONTRACT,
   validateProviderIsolationProfile,
-} from "../../../src/execution/isolation-profile.ts";
+} from "../../../src/execution/preparation.ts";
 import { canonicalJson } from "../../support/contract-assertions.ts";
 
 /**

@@ -4,11 +4,8 @@
  * @responsibility CoordinatorObjectiveRequestを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000004
  */
-import {
-  snapshotPlainArray,
-  snapshotPlainRecord,
-} from "../input/plain-data-snapshot.ts";
-import { normalizeRepositoryRelativePath } from "../input/repository-relative-path.ts";
+import { snapshotPlainArray, snapshotPlainRecord } from "../state/model.ts";
+import { normalizeRepositoryRelativePath } from "../state/model.ts";
 
 /**
  * objective-requestで使用するCoordinator Objective Requestの値契約を定義する。
