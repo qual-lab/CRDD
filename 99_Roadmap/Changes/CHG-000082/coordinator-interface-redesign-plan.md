@@ -338,7 +338,9 @@ Home分離の限定独立Source確認は残指摘0。文書側の新反証Case�
 
 公開Runtimeのv2は正式APIと現行Consumerの一斉切替時に適用し、定数の実体Ownerは`state/result.ts`、正式公開は`api.ts`とする。現在の同文字列は保存Schema・Recovery Identityには含まれないため保存移行を追加しない。v1 alias・dual acceptは作らず、過去Evidenceは変更しない。これは公開契約の改訂であり、結果DTOのfield・status・reasonの意味変更とは分ける。
 
-Schemaは意味を上書きせず、単一現在Stateを`crdd-coordinator/current-state/v4`へ更新する。Project状態にも新しい必須選定組が加わるため、状態値の契約と内部Snapshot codecの版も同時に更新する。旧v3／旧Profile fieldは本番Readerで受理しない。既存CAS・Writer・Lock・履歴・終端の順序は維持し、Task個別へrootの二役選定を複製しない。初回受付・通常遷移・再計画・再試行・Owner喪失の各例、旧形／相関不正／保存不能の拒否を同じ変更単位で反証する。
+Home分離を`4872c1cd4`で固定後、Model Grant・Task Packet・PreparedPlan・単発受付・Operation Identityの一括切替へ着手した。Grantは受付時の完全選定とOperation／試行番号を保持し、更新は同じ値だけを再発行する。Task Packetは完全選定Hashと役割・試行番号を照合し、Home側の契約は変更しない。Operation Identityはv2、単発保存の旧Profile二項目撤去により現在State／Project Snapshotはv5へ改訂する。旧形の互換Readerは追加しない。現在は製品Sourceの型検査と、Grant十一件、両Provider準備三十六件、選定各field・stage差替えの追加反証、助言計画／Packet十件が成功した段階。旧試験の移行・利用側・登録・設計・全体回帰・独立レビューは未完了であり、この作業差分はまだ固定しない。実AI・実Docker・実認証・保持②には触れていない。
+
+Schemaは意味を上書きせず、単一現在Stateを`crdd-coordinator/current-state/v5`、Project状態を`crdd-coordinator/project-state/v2`、内部Snapshotを`crdd-coordinator/project-snapshot/v5`へ同時更新する。旧v4以前／旧Profile fieldは本番Readerで受理しない。既存CAS・Writer・Lock・履歴・終端の順序は維持し、Task個別へrootの二役選定を複製しない。初回受付・通常遷移・再計画・再試行・Owner喪失の各例、旧形／相関不正／保存不能の拒否を同じ変更単位で反証する。
 
 ### Objective選定・保存の現在確認
 
@@ -379,3 +381,7 @@ Provider固有のargv・Offering・Origin・Home変数名はAI Adapter、Contain
 旧認証Scriptの安定SymbolもIDを維持して新APIの認証接続へ配置追従した。現行Semantic RegistryとChecker試験の参照を維持し、このSymbolから正式API全体の保証を推定しない。Sourceの値・処理、通信・保存契約は変更していない。文書確認者と配置・関係の維持を再照合済み。
 
 合成試験は両Providerの操作別構成・非0 unknown・事前取消、不正Signal、要求例外後の後続／清掃／idle／完了保存／Home解放0、元参照でのfresh拒否、構築例外と解放不明を反証した。APIのHome観測成功・実Imageでの認証・人間TTY操作・旧記録の実移行は未実施であり、最後の実境界確認へ残す。実AI②、保持物、実認証、Docker操作、本体設定の作成・変更は行っていない。
+
+Model／Task接続の追加確認では、Task状態機械153件（1,690.1804ms）、Docker EffectとProcess Controllerの合成119件（1,375.0634ms）が成功した。旧fixtureのRole／Profile入力による初回不合格を新形式へ追従し、制限環境のjunction生成拒否は条件を変えず通常Windowsで再確認した。固定選定と異なる事前Slateを外部同意より前に拒否し、Grant更新のProviderと完全選定の相関を検査する。先行の旧fixtureで待機した今回の二組の試験親子Processは、exact引数を確認して終了した。新形式試験の正常完走とは別に中断を記録し、初回結果を成功へ読み替えない。Source・文書の限定独立確認は進行中であり、公開利用側／旧Profile削除／全体回帰は後続である。
+
+Model／Task接続の限定固定候補は、関連17 Suite・405件が成功（8,728.7892ms、失敗・取消・skip・todo 0）、Coordinatorのformat・型・lint・二Trace検査も成功した。Lintの既存info 66件は不合格へ換算しない。独立確認で検出した助言Grantの操作／試行／選定Hash相関不足を是正し、初回と更新の六反例でPacket・Process・Provider Effect 0と元Grant失効を確認した。保存codecは旧current-state v4／v3／v2、identity v1、旧Profile混入と不正attemptを補完せず拒否する。Source・文書の最終限定再確認は全重大度の残指摘0。保存の広域回帰は別途進行中であり、全体回帰・Workbench／MCP／正式APIの移行・旧Profile全面撤去・実AIは未完了として維持する。実設定・保持②・実Docker・実認証には触れていない。

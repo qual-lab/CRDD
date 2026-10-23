@@ -77,7 +77,7 @@ export function registerSyntheticOperations(
     const token = `host.crdd-coordinator-doctor-fixture.12345678-1234-4234-8234-123456789abc.${hostHash}`;
     const suffix = String(index).repeat(16);
     const identity = {
-      schema: "crdd-coordinator/operation-identity/v1",
+      schema: "crdd-coordinator/operation-identity/v2",
       operationNonce: String(index).repeat(64),
       provider: "claude",
       consumer: "orchestrator",

@@ -9,6 +9,8 @@
  * @scope docker、process、controller
  * @boundary ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer
  */
+import { executionSelection } from "../fixtures/ai-selection.ts";
+
 import { planProviderExecution } from "../../../ai-adapter/src/index.ts";
 import assert from "node:assert/strict";
 import path from "node:path";
@@ -242,7 +244,12 @@ function createPlan(
     consumer: "coordinator_cli" as const,
     operationId: "OP-123456",
     grantRef: "PHMGRANT-123456",
-    profileId: "PROFILE-123456",
+    executionSelection: executionSelection("executor", {
+      provider: "claude",
+      model: "opus",
+      effort: "low",
+    }),
+    taskAttempt: 0 as const,
     activeMountCapability,
     authorityUseCapability,
     providerHomeSourcePath: "C:\\runtime-owned\\claude-home",
@@ -264,7 +271,6 @@ function createPlan(
     subscriptionOffering: "claude_max" as const,
     selectedModel: "opus",
     selectedEffort: "low" as const,
-    selectedModelTier: "preferred",
     operationMode: "boolean_probe" as const,
     taskRole: null,
     taskPacketRef: null,
@@ -430,7 +436,6 @@ test("実plannerのProbe・Task・助言設定は通知全文へ接続しClaude�
         consumeProviderAuthority: () => ({
           operationId: base.operationId,
           provider,
-          profileId: base.profileId,
           providerHomeMountGrantRef: base.grantRef,
           runtimeAuthorityIssued: true,
           providerEffectAllowed: true,
@@ -836,6 +841,23 @@ function createFixture(
   const plan = Object.freeze({
     networkPolicy: null,
     ...createPlan(activeMountCapability, authorityUseCapability),
+    executionSelection: executionSelection(
+      planOverrides.operationMode === "workbench_advice"
+        ? "advice"
+        : planOverrides.taskRole === "reviewer"
+          ? "independent_reviewer"
+          : "executor",
+      {
+        provider: planOverrides.provider === "codex" ? "codex" : "claude",
+        model:
+          planOverrides.provider === "codex"
+            ? planOverrides.operationMode === "workbench_advice"
+              ? "gpt-5.6-sol"
+              : "gpt-5.5"
+            : "opus",
+        effort: "low",
+      },
+    ),
     ...planOverrides,
   });
   let mountCompletionCount = 0;
@@ -981,7 +1003,6 @@ function createFixture(
       return Object.freeze({
         operationId: "OP-123456",
         provider: "claude",
-        profileId: "PROFILE-123456",
         providerHomeMountGrantRef: "PHMGRANT-123456",
         runtimeAuthorityIssued: true as const,
         providerEffectAllowed: true as const,
@@ -1809,7 +1830,6 @@ test("Provider境界診断は実行構成とProcess・cleanup観測を本文な�
         Object.freeze({
           operationId: "OP-123456",
           provider: "codex",
-          profileId: "PROFILE-123456",
           providerHomeMountGrantRef: "PHMGRANT-123456",
           runtimeAuthorityIssued: true as const,
           providerEffectAllowed: true as const,
@@ -3426,7 +3446,6 @@ test("Codex認証ProbeはDocker attachのexact stderr形だけを認証済みと
           Object.freeze({
             operationId: "OP-123456",
             provider: "codex",
-            profileId: "PROFILE-123456",
             providerHomeMountGrantRef: "PHMGRANT-123456",
             runtimeAuthorityIssued: true as const,
             providerEffectAllowed: true as const,
@@ -3500,7 +3519,6 @@ test("Codex認証Probeは未知行・重複成功・制御文字をfail closed�
           Object.freeze({
             operationId: "OP-123456",
             provider: "codex",
-            profileId: "PROFILE-123456",
             providerHomeMountGrantRef: "PHMGRANT-123456",
             runtimeAuthorityIssued: true as const,
             providerEffectAllowed: true as const,

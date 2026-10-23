@@ -9,6 +9,8 @@
  * @scope 模擬境界によるProcess内再入場、退避なし／自動破棄保存前中断後の明示保持から実修復API・現在Writer／history／completionを経た同Root Taskへの接続、実Root・Home排他・Hostによる正常終了、認証create切断子の五通常例外。Native・Docker技術は代役とし実Docker処置は行わない。
  * @boundary ERB-IT-003=Owner→保存・Host境界の模擬接続と実Host結合。ERB-IT-014=実修復API／DI Machine／保存と、模擬Native・技術観測。
  */
+import { executionSelection } from "../fixtures/ai-selection.ts";
+
 import assert from "node:assert/strict";
 import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
@@ -2797,7 +2799,12 @@ for (const { repeatCount, retained } of [
         consumer: "workbench" as const,
         operationId: binding.operationId,
         grantRef: "PHMGRANT-FIXTURE",
-        profileId: "PROFILE-123456",
+        executionSelection: executionSelection("executor", {
+          provider: "codex",
+          model: "gpt-5.5",
+          effort: "low",
+        }),
+        taskAttempt: 0 as const,
         providerHomeIdentityHash: hash,
         providerHomeProtectionHash: hash,
         localUserBindingHash: hash,
@@ -3681,7 +3688,12 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
     consumer: "workbench" as const,
     operationId: "OP-123456",
     grantRef: "PHMGRANT-ABCDEF",
-    profileId: "PROFILE-123456",
+    executionSelection: executionSelection("executor", {
+      provider: "codex",
+      model: "gpt-5.5",
+      effort: "low",
+    }),
+    taskAttempt: 0 as const,
     providerHomeIdentityHash: hash,
     providerHomeProtectionHash: hash,
     localUserBindingHash: hash,

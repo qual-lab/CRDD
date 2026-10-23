@@ -9,13 +9,11 @@
  * @boundary Workbench Application PortとCoordinator依頼種別別Executorの局所境界。
  */
 import assert from "node:assert/strict";
+import { executionSelection } from "../../fixtures/ai-selection.ts";
+import type { ExecutionSelection } from "../../../src/selection/model.ts";
 import { fixtureNetworkPolicy } from "../../fixtures/network-policy.ts";
 import { createHash } from "node:crypto";
 import test from "node:test";
-import {
-  defaultAiProfileCatalog,
-  type AiProfileCatalogStore,
-} from "../../../../ai-adapter/src/index.ts";
 import { createRepositoryAdviceExecutor } from "../../../src/execution/advice.ts";
 import {
   resolveVerifiedRepositoryRootFromWorkingDirectory,
@@ -47,7 +45,7 @@ import {
 const request = (mode: "read_only_advice") =>
   Object.freeze({
     mode,
-    profileId: "PROFILE-000001",
+    executionSelection: executionSelection("advice"),
     prompt: "現在状態を確認する",
     contextReferences: Object.freeze(["PROJECT_CONTEXT.md"]),
     allowedPaths: Object.freeze([]),
@@ -217,7 +215,7 @@ test("読取り助言結果契約は上限と生出力非公開を固定する",
 test("許可済み投影からEffect 0の読取り助言Task Packetを作る", () => {
   const content = "# Current Project\n\nStatus: At Risk\n";
   const prepared = prepareAdviceTask({
-    profileId: "PROFILE-000001",
+    executionSelection: executionSelection("advice"),
     prompt: "現在地と次の一手を説明する",
     projection: [
       {
@@ -258,7 +256,7 @@ test("改変投影・秘密Prompt・越境参照をTask Packet生成前に拒否
   const content = "# Current Project";
   const hash = createHash("sha256").update(content).digest("hex");
   const base = {
-    profileId: "PROFILE-000001",
+    executionSelection: executionSelection("advice"),
     prompt: "現在状態を説明する",
     projection: [
       {
@@ -311,7 +309,7 @@ test("改変投影・秘密Prompt・越境参照をTask Packet生成前に拒否
  */
 test("読取り助言Task契約は結果契約とEffect 0を固定する", () => {
   const contract = describeAdviceTaskContract();
-  assert.equal(contract.contractRevision, 1);
+  assert.equal(contract.contractRevision, 2);
   assert.equal(contract.resultContract, PROVIDER_ADVICE_RESULT_CONTRACT);
   assert.equal(contract.providerEffectIssued, false);
   assert.equal(contract.filesystemEffectIssued, false);
@@ -340,8 +338,7 @@ test("Repository Project Contextを専用Task Packetへ固定してDispatchす�
   if (verified.status !== "completed") return;
   let observedTask:
     | Readonly<{
-        profileId: string;
-        catalogRevision: number;
+        executionSelection: ExecutionSelection;
         exactModelId: string;
         allowedReferences: readonly string[];
         projectionHash: string;
@@ -350,25 +347,10 @@ test("Repository Project Contextを専用Task Packetへ固定してDispatchす�
     | undefined;
   const application = createRepositoryAdviceExecutor(
     verified.capability,
-    Object.freeze({
-      snapshot: () =>
-        Object.freeze({
-          status: "read" as const,
-          error: null,
-          value: Object.freeze({
-            revision: 7,
-            catalog: defaultAiProfileCatalog,
-          }),
-        }),
-      adopt: () => {
-        throw new Error("not_used");
-      },
-    }) satisfies AiProfileCatalogStore,
     async (input) => {
       observedTask = Object.freeze({
-        profileId: input.taskPacket.profileId,
-        catalogRevision: input.catalogRevision,
-        exactModelId: input.profile.exactModelId,
+        executionSelection: input.taskPacket.executionSelection,
+        exactModelId: input.executionSelection.modelIdentifier,
         allowedReferences: input.taskPacket.allowedReferences,
         projectionHash: input.taskPacket.projectionHash,
         taskHash: input.taskPacket.taskHash,
@@ -380,13 +362,15 @@ test("Repository Project Contextを専用Task Packetへ固定してDispatchす�
   const snapshot = await application(
     {
       ...request("read_only_advice"),
-      profileId: "PROFILE-100001",
+      executionSelection: executionSelection("advice"),
     },
     new AbortController().signal,
   );
   assert.equal(snapshot.status, "completed", JSON.stringify(snapshot));
-  assert.equal(observedTask?.profileId, "PROFILE-100001");
-  assert.equal(observedTask?.catalogRevision, 7);
+  assert.deepEqual(
+    observedTask?.executionSelection,
+    executionSelection("advice"),
+  );
   assert.equal(observedTask?.exactModelId, "gpt-5.6-sol");
   assert.deepEqual(observedTask?.allowedReferences, ["PROJECT_CONTEXT.md"]);
   assert.match(observedTask?.projectionHash ?? "", /^[a-f0-9]{64}$/u);
@@ -413,40 +397,25 @@ test("未登録または非Coordinator ProfileはDispatch前に拒否する", as
   assert.equal(verified.status, "completed");
   if (verified.status !== "completed") return;
   let dispatchCount = 0;
-  const store = Object.freeze({
-    snapshot: () =>
-      Object.freeze({
-        status: "read" as const,
-        error: null,
-        value: Object.freeze({
-          revision: 2,
-          catalog: defaultAiProfileCatalog,
-        }),
-      }),
-    adopt: () => {
-      throw new Error("not_used");
-    },
-  }) satisfies AiProfileCatalogStore;
   const application = createRepositoryAdviceExecutor(
     verified.capability,
-    store,
     async () => {
       dispatchCount += 1;
       return COMPLETED;
     },
   );
 
-  for (const profileId of ["PROFILE-999999", "PROFILE-100003"]) {
+  for (const selected of [null, executionSelection("executor")]) {
     const snapshot = await application(
       {
         ...request("read_only_advice"),
-        profileId,
+        executionSelection: selected as ExecutionSelection,
       },
       new AbortController().signal,
     );
     assert.equal(
       snapshot.reason,
-      "coordinator_ai_profile_not_available_for_advice",
+      "coordinator_ai_selection_not_available_for_advice",
     );
   }
   assert.equal(dispatchCount, 0);

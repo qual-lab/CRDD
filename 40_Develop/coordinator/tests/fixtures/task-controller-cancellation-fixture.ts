@@ -10,6 +10,8 @@
  * @scope Task Controllerと所有Process
  * @boundary Task Controller→自己生成Process Tree。実ProviderやDocker Daemonを利用するFixtureではない。
  */
+import { executionSelection } from "./ai-selection.ts";
+
 import assert from "node:assert/strict";
 import { createIsolatedDockerProcessControllerCandidate } from "../../src/execution/controller.ts";
 import {
@@ -52,7 +54,12 @@ export function createTaskControllerCancellationFixture(
     consumer: "orchestrator" as const,
     operationId,
     grantRef: "PHMGRANT-123456",
-    profileId: "PROFILE-200001",
+    executionSelection: executionSelection("executor", {
+      provider: "claude",
+      model: "opus",
+      effort: "low",
+    }),
+    taskAttempt: 0 as const,
     activeMountCapability,
     authorityUseCapability,
     providerHomeSourcePath: "C:\\fixture\\claude-home",
@@ -72,7 +79,6 @@ export function createTaskControllerCancellationFixture(
     subscriptionOffering: "claude_max" as const,
     selectedModel: "opus",
     selectedEffort: "low" as const,
-    selectedModelTier: "preferred",
     operationMode: "isolated_task" as const,
     taskRole: "executor" as const,
     taskPacketRef: `TASKPKT-${"A".repeat(32)}`,
@@ -112,7 +118,6 @@ export function createTaskControllerCancellationFixture(
       return {
         operationId,
         provider: "claude",
-        profileId: plan.profileId,
         providerHomeMountGrantRef: plan.grantRef,
         runtimeAuthorityIssued: true,
         providerEffectAllowed: true,

@@ -5,7 +5,10 @@
  */
 import { createHash } from "node:crypto";
 import { types } from "node:util";
-import { inspectTaskExecutionSelections } from "../selection/model.ts";
+import {
+  inspectExecutionSelection,
+  inspectTaskExecutionSelections,
+} from "../selection/model.ts";
 import {
   createDockerRuntimeRepairDisposalCheckpoint,
   type DockerRuntimeRepairCheckpoint,
@@ -193,8 +196,8 @@ function validateHostSnapshot(value: unknown, initialToken: string) {
   );
 }
 
-export const COORDINATOR_STATE_SCHEMA = "crdd-coordinator/current-state/v4";
-const OPERATION_IDENTITY_SCHEMA = "crdd-coordinator/operation-identity/v1";
+export const COORDINATOR_STATE_SCHEMA = "crdd-coordinator/current-state/v5";
+const OPERATION_IDENTITY_SCHEMA = "crdd-coordinator/operation-identity/v2";
 
 /**
  * 本番利用側に固定された結果受領方式を返す。
@@ -248,7 +251,8 @@ function validateCoordinatorOperationIdentity(
     "consumer",
     "operationId",
     "grantRef",
-    "profileId",
+    "executionSelection",
+    "taskAttempt",
     "stableLogicalHomeBindingHash",
     "providerHomeIdentityHash",
     "providerHomeProtectionHash",
@@ -293,7 +297,9 @@ function validateCoordinatorOperationIdentity(
     (identity.provider === "codex" || identity.provider === "claude") &&
     /^OP-[0-9]{6,}$/u.test(String(identity.operationId ?? "")) &&
     /^PHMGRANT-[A-Z0-9-]{6,80}$/u.test(String(identity.grantRef ?? "")) &&
-    /^PROFILE-[0-9]{6,}$/u.test(String(identity.profileId ?? "")) &&
+    inspectExecutionSelection(identity.executionSelection)?.provider ===
+      identity.provider &&
+    (identity.taskAttempt === 0 || identity.taskAttempt === 1) &&
     [
       identity.stableLogicalHomeBindingHash,
       identity.providerHomeIdentityHash,
@@ -1359,7 +1365,7 @@ export type CoordinatorUnifiedSnapshot = Omit<
     | "projects"
   > &
   Readonly<{
-    schema: "crdd-coordinator/current-state/v4";
+    schema: "crdd-coordinator/current-state/v5";
     repositoryBindingId: string | null;
     intakeEpoch: string | null;
     projects: readonly (Omit<CoordinatorState, "tasks"> &
@@ -4876,7 +4882,7 @@ export function decodeCoordinatorUnifiedSnapshot(
       return null;
     const snapshot = value as CoordinatorUnifiedSnapshot;
     if (
-      snapshot.schema !== "crdd-coordinator/current-state/v4" ||
+      snapshot.schema !== "crdd-coordinator/current-state/v5" ||
       snapshot.repositoryBinding !== repositoryBinding ||
       !Number.isSafeInteger(snapshot.revision) ||
       snapshot.revision < 1 ||
@@ -5651,7 +5657,7 @@ export function projectCoordinatorTaskSnapshot(
   if (s.repositoryBindingId === null || s.intakeEpoch === null) return null;
   return {
     schema: COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
-    schemaRevision: 4,
+    schemaRevision: 5,
     repositoryRootHash,
     repositoryBindingId: s.repositoryBindingId,
     intakeEpoch: s.intakeEpoch,
@@ -6616,7 +6622,7 @@ export const REVISION = /^[0-9a-f]{40,64}$/u;
 export const MAX_RECORD_BYTES = 16 * 1024 * 1024;
 
 export const COORDINATOR_PROJECT_SNAPSHOT_SCHEMA =
-  "crdd-coordinator/project-snapshot/v4";
+  "crdd-coordinator/project-snapshot/v5";
 
 export const PROJECT_QUEUE_STATES = new Set<ProjectQueueState>([
   "queued",
@@ -7534,7 +7540,7 @@ export type CoordinatorSnapshot = Readonly<{
 }> &
   Readonly<{
     schema: typeof COORDINATOR_PROJECT_SNAPSHOT_SCHEMA;
-    schemaRevision: 4;
+    schemaRevision: 5;
     acceptanceDecisions: readonly CoordinatorAcceptanceDecisionEnvelope[];
     decisionRecoveries: readonly Readonly<{
       generation: number;
@@ -7936,7 +7942,7 @@ export function validCoordinatorSnapshot(
         "workspaces",
       ]) ||
       value.schema !== COORDINATOR_PROJECT_SNAPSHOT_SCHEMA ||
-      value.schemaRevision !== 4 ||
+      value.schemaRevision !== 5 ||
       value.repositoryBindingId !== binding ||
       value.repositoryRootHash !== rootHash ||
       !validId(binding) ||

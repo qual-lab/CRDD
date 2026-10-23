@@ -139,7 +139,7 @@ Workspace再編の現在目標は[作業領域・責務契約](05_Workspace.md)�
 
 Objectiveの開発用構築だけがDecision／Stateの実行関数を一方向に利用し、逆依存は作らない。診断は上位公開操作へ依存せず、本番Reporterは各一つを維持する。既存と同じIdentity検査をModelの内部関数へ統合し、戻り値の型判定注釈だけ補う。結果検査には元のRuntime発行回復ID集合を渡し、単なるDTO形式検査へ縮小しない。旧組立てFileやCapability別barrelは残さず、Rootの公開196宣言、公開引数・結果、永続契約・認証順・同意Hash・取消と回復の順序は変えない。
 
-非公開実装の検証はCoordinator所有試験へ置く。Objectiveの選定搬送は、Producerの入力変換とConsumerの要求検査へ分け、同じ設定由来のExecutor／Reviewer組を照合する。Home利用許可はoperation・provider・Home実体／保護へ限定し、下位Model Grant／Packetに段階的に残る旧Profileとは分離する。モデル側との相関はoperationとproviderで行い、[Home許可の契約](01_Architecture.md#74-provider-homeマウント許可)に従う。公開APIの追加、試験専用の製品中継、純粋な搬送だけによる下位実行成立の主張は行わない。
+非公開実装の検証はCoordinator所有試験へ置く。Objectiveの選定搬送は、Producerの入力変換とConsumerの要求検査へ分け、同じ設定由来のExecutor／Reviewer組を照合する。Home利用許可はoperation・provider・Home実体／保護へ限定し、完全選定を保持するModel Grant／Packetとは分離する。モデル側との相関はoperationとproviderで行い、[Home許可の契約](01_Architecture.md#74-provider-homeマウント許可)に従う。公開APIの追加、試験専用の製品中継、純粋な搬送だけによる下位実行成立の主張は行わない。
 
 Workspaceの内部操作は`manageCoordinatorWorkspace`、Taskごとの対象観測は`resolveCoordinatorWorkspaceTaskTarget`、値契約は`CoordinatorWorkspaceRequest`／`CoordinatorWorkspace`としてPackage Rootから公開する。具体保存・Lease・VC接続と、実Provider／Surface・採用取込の未接続は[状態・資源詳細の接続表](04_Task_Detailed_Design.md#workspace接続の実装順序と移管先)に従う。内部のHost Path投影を外部Surfaceへ直接返さない。
 
@@ -441,7 +441,7 @@ Orchestratorの純粋判定はOS固有のPath、principal、Filesystem保護、L
 
 Objectiveは任意の作業分類`workType`と編集担当の明示選択`choice`（Provider／Model／Effort）を受ける。初回だけRepository設定から編集担当・独立レビュー担当の組を固定し、Project rootへ保存する。レビューへ明示選択を継承しない。同じMilestoneへの再受付では、明示された分類・選択を保存値と照合し、不一致はenqueue前に拒否する。省略された項目は保存値を継承し、現在設定やCatalogを読み直さない。旧`requestedProfileId`／Provider自動選択入力は受理しない。入力やMCP metadataからAuthorityを生成しない。
 
-WorkbenchのPromptから変更を作る操作は別のSingle Task操作であり、公開Objectiveと同じ操作には統合しない。現在はObjectiveの入力・保存選定・Taskへの組搬送までを先行接続している。下位のGrant／Packet／Home、単発Task、旧Profile Store撤去は未接続であり、純粋な選定搬送試験を本番実行の完成へ換算しない。
+WorkbenchのPromptから変更を作る操作は別のSingle Task操作であり、公開Objectiveと同じ操作には統合しない。現在はObjectiveの入力・保存選定・Taskへの組搬送に加え、Model Grant／Task Packet／PreparedPlan／SingleTask／Operation Identity v2の内部接続まで候補実装している。Home許可はoperation・provider・Homeへ分離済みである。公開利用側・旧Profile Store撤去・正式API・全体回帰は未完了であり、内部接続の限定試験を公開Capabilityや実AIの完成へ換算しない。
 
 Project State参照は`requestId`、`projectId`および`repositoryRevision`だけを受け取る。状態参照の処理は読取りAPIだけを呼び、書込み、Queue更新、Lease、Task実行または判断Capabilityを構成しない。結果は次を区別する。
 

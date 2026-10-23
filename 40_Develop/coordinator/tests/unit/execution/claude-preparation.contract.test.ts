@@ -8,6 +8,8 @@
  * @scope claude、docker、runtime、adapter
  * @boundary PRL-UT-014=N/A: Coordinator Application Portは外部実行境界を持たない。
  */
+import { executionSelection } from "../../fixtures/ai-selection.ts";
+import { hashExecutionSelection } from "../../../src/selection/model.ts";
 import {
   getRuntimeOwnedProviderDockerAdapter,
   createProviderDockerRuntimeAdapterCandidate,
@@ -22,32 +24,22 @@ import { createIsolatedDelegationSelectionGrantRuntimeCandidate } from "../../..
 import { describeDockerProviderExecutionLocations } from "../../../../docker-isolation/src/index.ts";
 import { bindProviderAdviceCommand } from "../../../src/execution/preparation.ts";
 
+const fixedSelection = executionSelection("independent_reviewer", {
+  provider: "claude",
+  model: "opus",
+  effort: "low",
+});
 const MODEL_SELECTION = Object.freeze({
   selectionRecordId: "MODELSEL-12345678",
   operationId: "OP-123456",
-  frontProvider: "codex" as const,
   executorProvider: "claude" as const,
-  route: "front_codex__executor_claude",
-  profileId: "PROFILE-123456",
-  model: "opus",
-  basis: Object.freeze({
-    provider: "claude" as const,
-    role: "executor" as const,
-    workClass: "bounded_implementation" as const,
-    planState: "complete" as const,
-    risk: "low" as const,
-    difficulty: "low" as const,
-    decisionImpact: "limited" as const,
-    isLocalCandidateOnly: true,
-    hasUnresolvedDirection: false,
-    requiresCrossContextAlignment: false,
-  }),
-  effort: "low" as const,
-  modelTier: "preferred",
+  executionSelection: fixedSelection,
+  selectionHash: hashExecutionSelection(fixedSelection) as string,
+  taskAttempt: 0 as const,
+  model: fixedSelection.modelIdentifier,
+  effort: fixedSelection.reasoningEffort,
   speedMode: "normal" as const,
-  selectionNotice:
-    "[委譲経路選定] front=codex executor=claude\n選定理由=complete_bounded_local_plan\n高コスト選択=no",
-  delegationDepth: 1,
+  selectionNotice: "受付時固定選定",
 });
 
 /**
@@ -140,6 +132,8 @@ function createFixture(
         operationId: "OP-123456",
         taskPacketRef: "TASKPKT-00112233445566778899AABBCCDDEEFF",
         taskRole: "reviewer" as const,
+        taskAttempt: 0 as const,
+        selectionHash: hashExecutionSelection(fixedSelection) as string,
         taskWorkload: {
           readPathCount: 1,
           allowedPathCount: 1,
@@ -225,13 +219,32 @@ test("Workbench助言をRepository非共有のClaude Planへ固定する", () =>
     ).plan ?? assert.fail("provider_execution_plan_not_ready"),
   );
   const fixture = createFixture({
+    consumeModelSelection: () => ({
+      ...MODEL_SELECTION,
+      executionSelection: executionSelection("advice", {
+        provider: "claude",
+        model: "opus",
+        effort: "low",
+      }),
+      selectionHash: hashExecutionSelection(
+        executionSelection("advice", {
+          provider: "claude",
+          model: "opus",
+          effort: "low",
+        }),
+      ) as string,
+    }),
     consumeAdvicePacket: () =>
       Object.freeze({
         contract: "crdd-coordinator/workbench-ai-advice-runtime-packet",
-        contractRevision: 1,
+        contractRevision: 2,
         packetRef: "ADVICEPKT-00112233445566778899AABBCCDDEEFF",
         operationId: "OP-123456",
-        profileId: "PROFILE-123456",
+        executionSelection: executionSelection("advice", {
+          provider: "claude",
+          model: "opus",
+          effort: "low",
+        }),
         provider: "claude" as const,
         taskHash: "2".repeat(64),
         projectionHash: "3".repeat(64),
@@ -310,9 +323,8 @@ test("説明可能な低推論選定を固定Docker command planへ一度だけ�
   assert.equal(prepared.status, "prepared");
   assert.equal(prepared.selectedModel, "opus");
   assert.equal(prepared.selectedEffort, "low");
-  assert.equal(prepared.selectedModelTier, "preferred");
-  assert.match(prepared.selectionNotice ?? "", /選定理由/);
-  assert.match(prepared.selectionNotice ?? "", /高コスト選択=no/);
+  assert.equal(Object.hasOwn(prepared, "selectedModelTier"), false);
+  assert.equal(prepared.selectionNotice, "受付時固定選定");
   const publicJson = JSON.stringify(prepared);
   assert.doesNotMatch(publicJson, /Users\\\\person/);
   assert.doesNotMatch(publicJson, /CRDD_PROXY_AUTH/);
@@ -660,11 +672,34 @@ test("Task Packetをstdin専用入力と隔離workspace RO mountへ結合する"
  */
 test("Executor Task PacketをacceptEditsと隔離workspace RW mountへ結合する", () => {
   const fixture = createFixture({
+    consumeModelSelection: () => ({
+      ...MODEL_SELECTION,
+      executionSelection: executionSelection("executor", {
+        provider: "claude",
+        model: "opus",
+        effort: "low",
+      }),
+      selectionHash: hashExecutionSelection(
+        executionSelection("executor", {
+          provider: "claude",
+          model: "opus",
+          effort: "low",
+        }),
+      ) as string,
+    }),
     consumeTaskPacket: () =>
       Object.freeze({
         operationId: "OP-123456",
         taskPacketRef: "TASKPKT-FFEEDDCCBBAA99887766554433221100",
         taskRole: "executor" as const,
+        taskAttempt: 0 as const,
+        selectionHash: hashExecutionSelection(
+          executionSelection("executor", {
+            provider: "claude",
+            model: "opus",
+            effort: "low",
+          }),
+        ) as string,
         taskWorkload: {
           readPathCount: 1,
           allowedPathCount: 1,
@@ -748,6 +783,8 @@ test("検証済み作業量を固定argvへ接続し、過大・不明ならAuth
         operationId: "OP-123456",
         taskPacketRef: "TASKPKT-00112233445566778899AABBCCDDEEFF",
         taskRole: "reviewer",
+        taskAttempt: 0 as const,
+        selectionHash: hashExecutionSelection(fixedSelection) as string,
         taskWorkload,
         taskPacketHash: "b".repeat(64),
         prompt: "Review the exact local candidate.",
@@ -908,18 +945,6 @@ test("Selection Grantのopaque use aliasをClaude adapterへ一回だけ接続�
             reason: "ready",
           }),
         ]),
-      resolveModelProfile: (request) =>
-        Object.freeze({
-          provider: request.provider,
-          profileId: "PROFILE-123456",
-          exactModelId: "opus",
-          family: request.family,
-          selectionRole: request.role,
-          modelTier: request.modelTier,
-          speedMode: "normal",
-          billingMode: "subscription_oauth",
-          compatibilityReason: null,
-        }),
       wallNow: () => 1_000,
       monotonicNow: () => 2_000,
       randomBytes: (size: number) => {
@@ -932,26 +957,9 @@ test("Selection Grantのopaque use aliasをClaude adapterへ一回だけ接続�
       selectionRuntime.consume(selection, management),
   });
   const issued = selectionRuntime.issue(fixture.managementCapability, {
-    frontProvider: "codex",
-    delegationNeed: "beneficial",
-    delegationReason: "specialized_executor_benefit",
-    requestedExecutorProvider: "auto",
-    requestedProfileId: null,
-    subjectProvider: null,
-    requiresIndependentProvider: false,
-    role: "executor",
-    workClass: "bounded_implementation",
-    planState: "complete",
-    risk: "low",
-    difficulty: "low",
-    decisionImpact: "limited",
-    isLocalCandidateOnly: true,
-    hasUnresolvedDirection: false,
-    requiresCrossContextAlignment: false,
     operationId: "OP-123456",
-    parentOperationId: null,
-    ancestorOperationIds: [],
-    delegationDepth: 0,
+    taskAttempt: 0,
+    executionSelection: fixedSelection,
   });
   assert.equal(issued.status, "issued");
 

@@ -12,21 +12,14 @@ import assert from "node:assert/strict";
 import { fixtureNetworkPolicy } from "../../fixtures/network-policy.ts";
 import test from "node:test";
 
-import {
-  defaultAiProfileCatalog,
-  resolveAiProfileById,
-} from "../../../../ai-adapter/src/index.ts";
+import { executionSelection } from "../../fixtures/ai-selection.ts";
 import { prepareProviderAdvicePlan } from "../../../src/execution/preparation.ts";
 import { createProviderAdviceAdapter } from "../../../src/execution/advice.ts";
 import { prepareAdviceTask } from "../../../src/execution/preparation.ts";
 
-const profile = resolveAiProfileById(
-  defaultAiProfileCatalog,
-  "PROFILE-100001",
-).value;
-if (profile === null) throw new Error("test_profile_required");
+const selection = executionSelection("advice");
 const task = prepareAdviceTask({
-  profileId: profile.profileId,
+  executionSelection: selection,
   prompt: "固定投影だけを根拠に説明する",
   projection: [
     {
@@ -39,25 +32,25 @@ const task = prepareAdviceTask({
 });
 if (!task.taskPacket) throw new Error("test_task_required");
 const dispatchInput = {
-  networkPolicy: fixtureNetworkPolicy(profile.provider),
+  networkPolicy: fixtureNetworkPolicy(selection.provider),
   taskPacket: task.taskPacket,
-  catalogRevision: 1,
-  profile,
+  executionSelection: selection,
 };
 const prepared = prepareProviderAdvicePlan(
   Object.freeze({
-    networkPolicy: fixtureNetworkPolicy(profile.provider),
-    catalogRevision: 1,
-    provider: profile.provider,
+    networkPolicy: fixtureNetworkPolicy(selection.provider),
+    provider: selection.provider,
     providerPrompt: task.taskPacket.providerPrompt,
     taskHash: task.taskPacket.taskHash,
     projectionHash: task.taskPacket.projectionHash,
-    profileId: profile.profileId,
-    exactModelId: profile.exactModelId,
-    reasoningEffort: profile.defaultReasoningEffort,
-    offering: profile.offering,
+    executionSelection: selection,
+    exactModelId: selection.modelIdentifier,
+    reasoningEffort: selection.reasoningEffort,
+    offering:
+      selection.provider === "codex"
+        ? ("chatgpt_subscription_oauth" as const)
+        : ("claude_max" as const),
   }),
-  profile,
 );
 if (prepared.status !== "prepared" || prepared.executionPlan === null)
   throw new Error("test_execution_plan_required");

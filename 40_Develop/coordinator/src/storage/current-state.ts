@@ -911,7 +911,7 @@ export function initializeCoordinatorSnapshot(
       const revision = observed.value?.snapshot.revision ?? 0;
       const payload: CoordinatorSnapshot = {
         schema: COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
-        schemaRevision: 4,
+        schemaRevision: 5,
         repositoryRootHash: owner.repositoryRootHash,
         repositoryBindingId: binding,
         snapshotRevision: revision + 1,
@@ -1708,15 +1708,18 @@ function assertCoordinatorSnapshotTransition(
           [
             "principalId",
             "mode",
-            "profileId",
-            "catalogRevision",
+            "executionSelection",
             "taskId",
             "attemptId",
             "operationId",
           ].some(
             (key) =>
-              old.singleTask?.[key as keyof SingleTaskRecord] !==
-              next.singleTask?.[key as keyof SingleTaskRecord],
+              encodeCoordinatorStateValue(
+                old.singleTask?.[key as keyof SingleTaskRecord],
+              ) !==
+              encodeCoordinatorStateValue(
+                next.singleTask?.[key as keyof SingleTaskRecord],
+              ),
           ) ||
           (old.singleTask.adviceOperation !== undefined &&
             encodeCoordinatorStateValue(old.singleTask.adviceOperation) !==
@@ -4546,8 +4549,7 @@ export function enqueueCoordinatorSingleTask(
         const identityKeys = [
           "principalId",
           "mode",
-          "profileId",
-          "catalogRevision",
+          "executionSelection",
           "taskId",
           "attemptId",
           "operationId",
@@ -4556,7 +4558,9 @@ export function enqueueCoordinatorSingleTask(
           existing.singleTask &&
           keys.every((key) => existing[key] === input[key]) &&
           identityKeys.every(
-            (key) => existing.singleTask?.[key] === input.singleTask?.[key],
+            (key) =>
+              encodeCoordinatorStateValue(existing.singleTask?.[key]) ===
+              encodeCoordinatorStateValue(input.singleTask?.[key]),
           )
           ? completed("orchestrator_single_task_reused", {
               next: null,
@@ -4645,14 +4649,17 @@ export function updateCoordinatorSingleTask(
       const identityKeys = [
         "principalId",
         "mode",
-        "profileId",
-        "catalogRevision",
+        "executionSelection",
         "taskId",
         "attemptId",
         "operationId",
       ] as const;
       if (
-        identityKeys.some((key) => previous.singleTask?.[key] !== record[key])
+        identityKeys.some(
+          (key) =>
+            encodeCoordinatorStateValue(previous.singleTask?.[key]) !==
+            encodeCoordinatorStateValue(record[key]),
+        )
       )
         return blocked("orchestrator_single_task_identity_conflict");
       if (previous.singleTask.phase === "settled") {

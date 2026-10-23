@@ -220,7 +220,7 @@ export function executeCoordinatorPublicStateQuery(
   if (
     snapshot.status !== "completed" ||
     snapshot.value === null ||
-    snapshot.value.schemaRevision !== 4
+    snapshot.value.schemaRevision !== 5
   )
     return Object.freeze({
       contract: COORDINATOR_STATE_QUERY_CONTRACT,

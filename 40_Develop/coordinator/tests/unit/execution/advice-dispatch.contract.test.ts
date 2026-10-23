@@ -12,25 +12,17 @@ import assert from "node:assert/strict";
 import { fixtureNetworkPolicy } from "../../fixtures/network-policy.ts";
 import test from "node:test";
 
-import {
-  defaultAiProfileCatalog,
-  resolveAiProfileById,
-} from "../../../../ai-adapter/src/index.ts";
+import { executionSelection } from "../../fixtures/ai-selection.ts";
 import {
   createAdviceDispatch,
   describeAdviceDispatchContract,
 } from "../../../src/execution/advice.ts";
 import { prepareAdviceTask } from "../../../src/execution/preparation.ts";
 
-const resolvedProfile = resolveAiProfileById(
-  defaultAiProfileCatalog,
-  "PROFILE-100001",
-).value;
-if (resolvedProfile === null) throw new Error("test_profile_required");
-const profile = resolvedProfile;
+const selection = executionSelection("advice");
 
 const prepared = prepareAdviceTask({
-  profileId: profile.profileId,
+  executionSelection: selection,
   prompt: "現在の状況と次の選択肢を整理する",
   projection: [
     {
@@ -70,10 +62,9 @@ const RAW_RESULT = JSON.stringify({
  */
 function dispatchInput(externalSendConfirmed = true) {
   return Object.freeze({
-    networkPolicy: fixtureNetworkPolicy(profile.provider),
+    networkPolicy: fixtureNetworkPolicy(selection.provider),
     taskPacket,
-    catalogRevision: 1,
-    profile,
+    executionSelection: selection,
     externalSendConfirmed,
   });
 }
@@ -93,8 +84,7 @@ function dispatchInput(externalSendConfirmed = true) {
 test("明示確認済みの一依頼だけをProviderへ渡して根拠付き結果を返す", async () => {
   assert.deepEqual(describeAdviceDispatchContract().authorityScope, [
     "taskHash",
-    "catalogRevision",
-    "profileId",
+    "selectionHash",
     "provider",
     "networkPolicyHash",
   ]);

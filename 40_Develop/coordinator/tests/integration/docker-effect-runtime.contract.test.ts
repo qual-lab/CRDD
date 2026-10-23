@@ -12,6 +12,8 @@ import { createProviderDockerRuntimeAdapterCandidate } from "../../src/execution
 import { planProviderExecution } from "../../../ai-adapter/src/index.ts";
 import { hashProviderAdviceCommand } from "../../src/execution/preparation.ts";
 import assert from "node:assert/strict";
+import { executionSelection } from "../fixtures/ai-selection.ts";
+import { hashExecutionSelection } from "../../src/selection/model.ts";
 import { prepareDockerNetworkPolicy } from "../../../docker-isolation/src/index.ts";
 import fs from "node:fs";
 import path from "node:path";
@@ -73,18 +75,20 @@ function createPlanFixture(
     mountBinding: ReturnType<typeof verifyOwnedOperationManagementMountBinding>;
   }>,
 ) {
-  const profileId =
-    provider === "codex"
-      ? isCompatibilityTask
-        ? "PROFILE-100003"
-        : "PROFILE-100001"
-      : "PROFILE-200001";
-  const model =
-    provider === "codex"
-      ? isCompatibilityTask
-        ? "gpt-5.5"
-        : "gpt-6.1-sol"
-      : "opus";
+  const selected = executionSelection(
+    isAdvice
+      ? "advice"
+      : taskRole === "reviewer"
+        ? "independent_reviewer"
+        : "executor",
+    {
+      provider,
+      model:
+        provider === "codex" ? (isAdvice ? "gpt-5.6-sol" : "gpt-5.5") : "opus",
+      effort: isCompatibilityTask ? "medium" : "low",
+    },
+  );
+  const model = selected.modelIdentifier;
   const managementCapability =
     ownerBinding?.managementCapability ?? Object.freeze({});
   const operationId = ownerBinding?.mountBinding.operationId ?? "OP-123456";
@@ -117,7 +121,6 @@ function createPlanFixture(
         grant: Object.freeze({
           grantRef: "PHMGRANT-123456",
           provider,
-          profileId,
           operationId,
           providerHomeIdentityHash: "d".repeat(64),
           providerHomeProtectionHash: "e".repeat(64),
@@ -138,37 +141,23 @@ function createPlanFixture(
       Object.freeze({
         selectionRecordId: "MODELSEL-12345678",
         operationId,
-        frontProvider: "codex" as const,
         executorProvider: provider,
-        route: `front_codex__executor_${provider}`,
-        profileId,
         model,
-        basis: Object.freeze({
-          provider,
-          role: "executor" as const,
-          workClass: "bounded_implementation" as const,
-          planState: "complete" as const,
-          risk: "low" as const,
-          difficulty: isCompatibilityTask
-            ? ("medium" as const)
-            : ("low" as const),
-          decisionImpact: "limited" as const,
-          isLocalCandidateOnly: true,
-          hasUnresolvedDirection: false,
-          requiresCrossContextAlignment: false,
-        }),
+        executionSelection: selected,
+        selectionHash: hashExecutionSelection(selected) as string,
+        taskAttempt: 0 as const,
         effort: isCompatibilityTask ? ("medium" as const) : ("low" as const),
-        modelTier: "preferred",
         speedMode: "normal" as const,
         selectionNotice:
           "[委譲経路選定] front=codex executor=claude\n選定理由=complete_bounded_local_plan\n高コスト選択=no",
-        delegationDepth: 1,
       }),
     consumeTaskPacket: () =>
       Object.freeze({
         operationId,
         taskPacketRef: "TASKPKT-00112233445566778899AABBCCDDEEFF",
         taskRole: taskRole ?? "executor",
+        taskAttempt: 0 as const,
+        selectionHash: hashExecutionSelection(selected) as string,
         taskWorkload: {
           readPathCount: 1,
           allowedPathCount: 1,
@@ -178,7 +167,7 @@ function createPlanFixture(
         taskPacketHash: "d".repeat(64),
         prompt: "Execute the exact isolated task.",
         networkPolicy: (() => {
-          const result = prepareDockerNetworkPolicy("claude", []);
+          const result = prepareDockerNetworkPolicy(provider, []);
           if (result.status !== "ready") throw new Error("fixture");
           return result.policy;
         })(),
@@ -214,10 +203,10 @@ function createPlanFixture(
       );
       return Object.freeze({
         contract: "crdd-coordinator/workbench-ai-advice-runtime-packet",
-        contractRevision: 1,
+        contractRevision: 2,
         packetRef: "ADVICEPKT-00112233445566778899AABBCCDDEEFF",
         operationId,
-        profileId,
+        executionSelection: selected,
         provider,
         taskHash: "2".repeat(64),
         projectionHash: "3".repeat(64),
@@ -240,7 +229,6 @@ function createPlanFixture(
         controlCapability: authorityControlCapability,
         operationId,
         provider,
-        profileId,
         providerHomeMountGrantRef: "PHMGRANT-123456",
         runtimeAuthorityIssued: true,
       }),

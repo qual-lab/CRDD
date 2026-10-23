@@ -12,8 +12,6 @@ import {
 import {
   PROVIDER_INPUT_LIMITS,
   validateProviderIsolationProfile,
-  selectDelegationRouteCandidate,
-  selectDelegationExecutionSlateCandidate,
   DELEGATION_ROUTE_SELECTION_CONTRACT,
   PROVIDER_ISOLATION_CONTRACT,
   PROVIDER_ISOLATION_CONTRACT_REVISION,
@@ -27,7 +25,7 @@ import {
 import { performance } from "node:perf_hooks";
 import { observeRuntimeOwnedProviderEligibility } from "./observation.ts";
 import {
-  resolveRuntimeOwnedProviderModelProfile,
+  resolveAiModelSelection,
   describeProviderAuthentication,
   evaluateProviderAuthentication,
 } from "../../../ai-adapter/src/index.ts";
@@ -52,6 +50,12 @@ import {
   describeDockerProviderExecutionLocations,
   planDockerAuthenticationCommands,
 } from "../../../docker-isolation/src/index.ts";
+import {
+  inspectExecutionSelection,
+  inspectTaskExecutionSelections,
+  hashExecutionSelection,
+  type ExecutionSelection,
+} from "../selection/model.ts";
 import fs from "node:fs";
 import { acquireRuntimeOwnedLogicalProviderHomeKernelLock } from "./kernel-lock.ts";
 
@@ -2217,13 +2221,9 @@ export function describeAuthorityGrantVerifierContract() {
 const DELEGATION_SELECTION_GRANT_RUNTIME_CONTRACT =
   "crdd-coordinator/delegation-selection-grant-runtime";
 
-const DELEGATION_SELECTION_GRANT_RUNTIME_CONTRACT_REVISION = 4;
+const DELEGATION_SELECTION_GRANT_RUNTIME_CONTRACT_REVISION = 5;
 
 const SELECTION_LIFETIME_MS = 30_000;
-
-const delegationSelectionGrantPROFILE_ID = /^PROFILE-[0-9]{6,}$/u;
-
-const EXACT_MODEL_ID = /^[a-z0-9][a-z0-9._-]{0,127}$/u;
 
 /**
  * delegation-selection-grant-runtimeで使用するProviderの値契約を定義する。
@@ -2237,83 +2237,6 @@ const EXACT_MODEL_ID = /^[a-z0-9][a-z0-9._-]{0,127}$/u;
  * @compatibility Providerの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
 type Provider = "codex" | "claude";
-
-/**
- * delegation-selection-grant-runtimeで使用するSelection Roleの値契約を定義する。
- *
- * @responsibility Selection RoleのProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000010
- * @shape SelectionRoleが表すProperty、識別子およびRelationを型として固定する。
- * @invariant SelectionRoleで宣言した値と責務の対応を維持する。
- * @boundary N/A: SelectionRoleの宣言は外部境界を開かない。
- * @security SelectionRoleはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility SelectionRoleの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-type SelectionRole =
-  | "coordinator"
-  | "executor"
-  | "independent_reviewer"
-  | "result_integration";
-
-/**
- * delegation-selection-grant-runtimeで使用する候補 Routeの値契約を定義する。
- *
- * @responsibility 候補 RouteのProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000010
- * @shape CandidateRouteが表すProperty、識別子およびRelationを型として固定する。
- * @invariant CandidateRouteで宣言した値と責務の対応を維持する。
- * @boundary N/A: CandidateRouteの宣言は外部境界を開かない。
- * @security CandidateRouteはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility CandidateRouteの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-type CandidateRoute = Extract<
-  ReturnType<typeof selectDelegationRouteCandidate>,
-  { status: "candidate" }
->;
-
-/**
- * delegation-selection-grant-runtimeで使用するResolved Model Profileの値契約を定義する。
- *
- * @responsibility Resolved Model ProfileのProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000010
- * @shape ResolvedModelProfileが表すProperty、識別子およびRelationを型として固定する。
- * @invariant ResolvedModelProfileで宣言した値と責務の対応を維持する。
- * @boundary N/A: ResolvedModelProfileの宣言は外部境界を開かない。
- * @security ResolvedModelProfileはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility ResolvedModelProfileの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-type ResolvedModelProfile = Readonly<{
-  provider: Provider;
-  profileId: string;
-  exactModelId: string;
-  family: string;
-  selectionRole: string;
-  modelTier: string;
-  speedMode: "normal";
-  billingMode: "subscription_oauth";
-  compatibilityReason: string | null;
-}>;
-
-/**
- * delegation-selection-grant-runtimeで使用するModel Profile Requestの値契約を定義する。
- *
- * @responsibility Model Profile RequestのProperty、Identity、状態制約を型境界として所有する。
- * @trace ARCH-000010
- * @shape ModelProfileRequestが表すProperty、識別子およびRelationを型として固定する。
- * @invariant ModelProfileRequestで宣言した値と責務の対応を維持する。
- * @boundary N/A: ModelProfileRequestの宣言は外部境界を開かない。
- * @security ModelProfileRequestはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @compatibility ModelProfileRequestの利用側は宣言済みPropertyと型制約だけへ依存する。
- */
-type ModelProfileRequest = Readonly<{
-  provider: Provider;
-  profileId?: string;
-  family: string;
-  role: string;
-  modelTier: string;
-  speedMode: "normal";
-  billingMode: "subscription_oauth";
-}>;
 
 /**
  * delegation-selection-grant-runtimeで使用するSelection 記録の値契約を定義する。
@@ -2330,8 +2253,9 @@ type SelectionRecord = {
   selectionRecordId: string;
   operationId: string;
   managementCapability: object;
-  route: CandidateRoute;
-  profile: ResolvedModelProfile;
+  selection: ExecutionSelection;
+  taskAttempt: 0 | 1;
+  selectionHash: string;
   selectionNotice: string;
   issuedWallClockMs: number;
   issuedMonotonicMs: number;
@@ -2358,9 +2282,6 @@ type delegationSelectionGrantRuntimeState = Readonly<{
     managementCapability: unknown,
   ) => Readonly<{ operationId: string; createdAt: string }>;
   observeProviderEligibility: () => unknown;
-  resolveModelProfile: (
-    request: ModelProfileRequest,
-  ) => ResolvedModelProfile | null;
   wallNow: () => number;
   monotonicNow: () => number;
   randomBytes: (size: number) => Buffer;
@@ -2408,8 +2329,6 @@ const delegationSelectionGrantProductionState =
       return operation;
     },
     observeProviderEligibility: observeRuntimeOwnedProviderEligibility,
-    resolveModelProfile: (request) =>
-      resolveRuntimeOwnedProviderModelProfile(request).value,
     wallNow: Date.now,
     monotonicNow: performance.now.bind(performance),
     randomBytes,
@@ -2439,10 +2358,10 @@ function createBlockedResult(reason: string) {
     controlCapability: null,
     useCapability: null,
     operationId: null,
-    frontProvider: null,
     executorProvider: null,
-    route: null,
-    profileId: null,
+    executionSelection: null,
+    selectionHash: null,
+    taskAttempt: null,
     selectedModel: null,
     selectedEffort: null,
     speedMode: null,
@@ -2452,31 +2371,6 @@ function createBlockedResult(reason: string) {
     providerAuthorityIssued: false,
     providerEffectAllowed: false,
   });
-}
-
-/**
- * Selection Roleかを判定する。
- *
- * @responsibility Selection Roleの判定条件とtrue／false境界を所有する。
- * @trace ARCH-000010
- * @input value: unknown
- * @returns value is SelectionRoleを返す。
- * @precondition 「value: unknown」がisSelectionRoleの入力契約を満たす。
- * @postcondition isSelectionRoleの責務を完了した結果だけを返す。
- * @effect N/A: isSelectionRoleは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: isSelectionRoleは独自の失敗分岐を所有しない。
- * @invariant isSelectionRoleは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: isSelectionRoleはProcess内の同一Subsystemで完結する。
- * @security isSelectionRoleはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: isSelectionRoleは共有非同期状態を持たない同期処理である。
- */
-function isSelectionRole(value: unknown): value is SelectionRole {
-  return (
-    value === "coordinator" ||
-    value === "executor" ||
-    value === "independent_reviewer" ||
-    value === "result_integration"
-  );
 }
 
 /**
@@ -2527,70 +2421,6 @@ function createSelectionRecordId(state: delegationSelectionGrantRuntimeState) {
   return Buffer.isBuffer(value) && value.byteLength === 12
     ? `MODELSEL-${value.toString("hex").toUpperCase()}`
     : null;
-}
-
-/**
- * Resolved Profile Validかを判定する。
- *
- * @responsibility Resolved Profile Validの判定条件とtrue／false境界を所有する。
- * @trace ARCH-000010
- * @input profile: ResolvedModelProfile、route: CandidateRoute
- * @returns isResolvedProfileValidの計算結果を返す。
- * @precondition 「profile: ResolvedModelProfile、route: CandidateRoute」がisResolvedProfileValidの入力契約を満たす。
- * @postcondition isResolvedProfileValidの責務を完了した結果だけを返す。
- * @effect N/A: isResolvedProfileValidは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: isResolvedProfileValidは独自の失敗分岐を所有しない。
- * @invariant isResolvedProfileValidは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: isResolvedProfileValidはProcess内の同一Subsystemで完結する。
- * @security isResolvedProfileValidはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: isResolvedProfileValidは共有非同期状態を持たない同期処理である。
- */
-function isResolvedProfileValid(
-  profile: ResolvedModelProfile,
-  route: CandidateRoute,
-) {
-  return (
-    profile.provider === route.executorProvider &&
-    delegationSelectionGrantPROFILE_ID.test(profile.profileId) &&
-    (route.requestedProfileId === null ||
-      profile.profileId === route.requestedProfileId) &&
-    EXACT_MODEL_ID.test(profile.exactModelId) &&
-    (route.requestedProfileId !== null ||
-      profile.family === route.modelSelection.familyPreference) &&
-    profile.selectionRole === route.modelSelectionBasis.role &&
-    profile.modelTier === route.modelSelection.modelTier &&
-    profile.speedMode === "normal" &&
-    profile.billingMode === "subscription_oauth"
-  );
-}
-
-/**
- * Resolved Selection Noticeの公開契約を記述する。
- *
- * @responsibility Resolved Selection Noticeの公開field、非公開境界、互換性を所有する。
- * @trace ARCH-000010
- * @input route: CandidateRoute、profile: ResolvedModelProfile
- * @returns describeResolvedSelectionNoticeの計算結果を返す。
- * @precondition 「route: CandidateRoute、profile: ResolvedModelProfile」がdescribeResolvedSelectionNoticeの入力契約を満たす。
- * @postcondition describeResolvedSelectionNoticeの責務を完了した結果だけを返す。
- * @effect N/A: describeResolvedSelectionNoticeは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: describeResolvedSelectionNoticeは独自の失敗分岐を所有しない。
- * @invariant describeResolvedSelectionNoticeは入力から導いた結果以外の共有状態を変更しない。
- * @boundary N/A: describeResolvedSelectionNoticeはProcess内の同一Subsystemで完結する。
- * @security describeResolvedSelectionNoticeはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
- * @concurrency N/A: describeResolvedSelectionNoticeは共有非同期状態を持たない同期処理である。
- */
-function describeResolvedSelectionNotice(
-  route: CandidateRoute,
-  profile: ResolvedModelProfile,
-) {
-  return [
-    route.selectionNotice,
-    `実効モデル=${profile.exactModelId}`,
-    profile.compatibilityReason
-      ? `互換性選定理由=${profile.compatibilityReason}`
-      : "互換性選定理由=none",
-  ].join("\n");
 }
 
 /**
@@ -2671,44 +2501,54 @@ function issueSelectionGrant(
   managementCapability: unknown,
   rawRequest: unknown,
 ) {
-  if (!managementCapability || typeof managementCapability !== "object") {
+  if (!managementCapability || typeof managementCapability !== "object")
     return createBlockedResult(
       "delegation_selection_management_capability_invalid",
     );
-  }
   const operation = state.verifyOperation(managementCapability);
-  const providerEligibility = state.observeProviderEligibility();
-  if (!providerEligibility) {
+  const request = snapshotPlainRecord(
+    rawRequest,
+    new Set(["operationId", "executionSelection", "taskAttempt"]),
+  );
+  const selection = inspectExecutionSelection(request?.executionSelection);
+  if (
+    !request ||
+    !selection ||
+    request.operationId !== operation.operationId ||
+    (request.taskAttempt !== 0 && request.taskAttempt !== 1)
+  )
+    return createBlockedResult("delegation_selection_request_invalid");
+  const availability = snapshotPlainArray<unknown>(
+    state.observeProviderEligibility(),
+    2,
+  );
+  if (availability.status !== "ok")
     return createBlockedResult(
       "delegation_selection_provider_observation_unavailable",
     );
-  }
-  const route = selectDelegationRouteCandidate(rawRequest, {
-    providerEligibility,
+  const eligible = availability.value
+    .map((item) =>
+      snapshotPlainRecord(item, new Set(["provider", "status", "reason"])),
+    )
+    .filter((item) => item?.provider === selection.provider);
+  if (eligible.length !== 1 || eligible[0]?.status !== "eligible")
+    return createBlockedResult("delegation_selection_provider_unavailable");
+  const technical = resolveAiModelSelection({
+    provider: selection.provider,
+    modelIdentifier: selection.modelIdentifier,
+    reasoningEffort: selection.reasoningEffort,
+    purpose: selection.purpose,
   });
   if (
-    route.status !== "candidate" ||
-    route.operationId !== operation.operationId ||
-    !isSelectionRole(route.modelSelectionBasis.role)
-  ) {
-    return createBlockedResult("delegation_selection_route_invalid");
-  }
-  const profile = state.resolveModelProfile(
-    Object.freeze({
-      provider: route.executorProvider,
-      ...(route.requestedProfileId === null
-        ? {}
-        : { profileId: route.requestedProfileId }),
-      family: route.modelSelection.familyPreference ?? "",
-      role: route.modelSelectionBasis.role,
-      modelTier: route.modelSelection.modelTier ?? "",
-      speedMode: "normal",
-      billingMode: "subscription_oauth",
-    }),
-  );
-  if (!profile || !isResolvedProfileValid(profile, route)) {
-    return createBlockedResult("delegation_selection_profile_invalid");
-  }
+    technical.status !== "resolved" ||
+    technical.value.identifierKind !== selection.identifierKind ||
+    technical.value.modelIdentifier !== selection.modelIdentifier ||
+    technical.value.reasoningEffort !== selection.reasoningEffort
+  )
+    return createBlockedResult("delegation_selection_model_unsupported");
+  const selectionHash = hashExecutionSelection(selection);
+  if (!selectionHash)
+    return createBlockedResult("delegation_selection_request_invalid");
   const issuedWallClockMs = state.wallNow();
   const issuedMonotonicMs = state.monotonicNow();
   const selectionRecordId = createSelectionRecordId(state);
@@ -2719,18 +2559,24 @@ function issueSelectionGrant(
     issuedMonotonicMs < 0 ||
     !selectionRecordId ||
     state.records.has(selectionRecordId)
-  ) {
+  )
     return createBlockedResult("delegation_selection_runtime_state_invalid");
-  }
   const controlCapability = Object.freeze({});
   const useCapability = Object.freeze({});
   const record: SelectionRecord = {
     selectionRecordId,
     operationId: operation.operationId,
     managementCapability,
-    route,
-    profile,
-    selectionNotice: describeResolvedSelectionNotice(route, profile),
+    selection,
+    selectionHash,
+    taskAttempt: request.taskAttempt,
+    selectionNotice: [
+      selection.provider,
+      selection.modelIdentifier,
+      selection.reasoningEffort,
+      selection.role,
+      selection.source,
+    ].join(" / "),
     issuedWallClockMs,
     issuedMonotonicMs,
     controlCapability,
@@ -2746,13 +2592,13 @@ function issueSelectionGrant(
     controlCapability,
     useCapability,
     operationId: operation.operationId,
-    frontProvider: route.frontProvider,
-    executorProvider: route.executorProvider,
-    route: route.route,
-    profileId: profile.profileId,
-    selectedModel: profile.exactModelId,
-    selectedEffort: route.modelSelection.effort,
-    speedMode: profile.speedMode,
+    executorProvider: selection.provider,
+    executionSelection: selection,
+    selectionHash,
+    taskAttempt: record.taskAttempt,
+    selectedModel: selection.modelIdentifier,
+    selectedEffort: selection.reasoningEffort,
+    speedMode: "normal" as const,
     selectionNotice: record.selectionNotice,
     expiresInMs: SELECTION_LIFETIME_MS,
     selectionCapabilityIssued: true,
@@ -2831,17 +2677,14 @@ function consumeSelectionGrant(
   return Object.freeze({
     selectionRecordId: record.selectionRecordId,
     operationId: record.operationId,
-    frontProvider: record.route.frontProvider,
-    executorProvider: record.route.executorProvider,
-    route: record.route.route,
-    profileId: record.profile.profileId,
-    model: record.profile.exactModelId,
-    basis: record.route.modelSelectionBasis,
-    effort: record.route.modelSelection.effort,
-    modelTier: record.route.modelSelection.modelTier,
-    speedMode: record.profile.speedMode,
+    executorProvider: record.selection.provider,
+    executionSelection: record.selection,
+    selectionHash: record.selectionHash,
+    taskAttempt: record.taskAttempt,
+    model: record.selection.modelIdentifier,
+    effort: record.selection.reasoningEffort,
+    speedMode: "normal" as const,
     selectionNotice: record.selectionNotice,
-    delegationDepth: record.route.delegationDepth,
   });
 }
 
@@ -2918,6 +2761,17 @@ function supersedeSelectionGrant(
     return createBlockedResult("delegation_selection_control_invalid");
   }
 
+  const requested = snapshotPlainRecord(
+    rawReplacementRequest,
+    new Set(["operationId", "executionSelection", "taskAttempt"]),
+  );
+  const selection = inspectExecutionSelection(requested?.executionSelection);
+  if (
+    !selection ||
+    hashExecutionSelection(selection) !== previousRecord.selectionHash ||
+    requested?.taskAttempt !== previousRecord.taskAttempt
+  )
+    return createBlockedResult("delegation_selection_replacement_mismatch");
   const replacement = issueSelectionGrant(
     state,
     managementCapability,
@@ -2989,41 +2843,61 @@ export function preflightRuntimeOwnedDelegationExecutionSlate(
   return delegationSelectionGrantPerformSafely(
     "delegation_slate_preflight_failed",
     () => {
-      if (!managementCapability || typeof managementCapability !== "object") {
-        return Object.freeze({
-          status: "blocked" as const,
-          reason: "delegation_slate_management_capability_invalid",
-          providerEffectAllowed: false,
-        });
-      }
       const operation =
         delegationSelectionGrantProductionState.verifyOperation(
           managementCapability,
         );
-      const providerEligibility =
-        delegationSelectionGrantProductionState.observeProviderEligibility();
-      if (!providerEligibility) {
-        return Object.freeze({
-          status: "blocked" as const,
-          reason: "delegation_slate_provider_observation_unavailable",
-          providerEffectAllowed: false,
-        });
-      }
-      const slate = selectDelegationExecutionSlateCandidate(
+      const request = snapshotPlainRecord(
         rawExecutorRequest,
-        {
-          providerEligibility,
-        },
+        new Set(["operationId", "taskExecutionSelections"]),
       );
-      return slate.status === "candidate"
-        ? Object.freeze({
-            ...slate,
-            operationId: operation.operationId,
-            selectionCapabilityIssued: false,
-            providerAuthorityIssued: false,
-            providerEffectAllowed: false,
-          })
-        : slate;
+      const pair = inspectTaskExecutionSelections(
+        request?.taskExecutionSelections,
+      );
+      if (!request || !pair || request.operationId !== operation.operationId)
+        return createBlockedResult("delegation_slate_selection_invalid");
+      const observation = snapshotPlainArray<unknown>(
+        delegationSelectionGrantProductionState.observeProviderEligibility(),
+        2,
+      );
+      if (observation.status !== "ok")
+        return createBlockedResult(
+          "delegation_slate_provider_observation_unavailable",
+        );
+      for (const selection of [pair.executor, pair.reviewer]) {
+        const providers = observation.value
+          .map((item) =>
+            snapshotPlainRecord(
+              item,
+              new Set(["provider", "status", "reason"]),
+            ),
+          )
+          .filter((item) => item?.provider === selection.provider);
+        if (
+          providers.length !== 1 ||
+          providers[0]?.status !== "eligible" ||
+          resolveAiModelSelection({
+            provider: selection.provider,
+            modelIdentifier: selection.modelIdentifier,
+            reasoningEffort: selection.reasoningEffort,
+            purpose: selection.purpose,
+          }).status !== "resolved"
+        )
+          return createBlockedResult("delegation_slate_provider_unavailable");
+      }
+      return Object.freeze({
+        status: "candidate" as const,
+        operationId: operation.operationId,
+        executorProvider: pair.executor.provider,
+        reviewerProvider: pair.reviewer.provider,
+        reviewerIndependence:
+          pair.executor.provider === pair.reviewer.provider
+            ? ("execution_context_independent" as const)
+            : ("provider_independent" as const),
+        selectionCapabilityIssued: false,
+        providerAuthorityIssued: false,
+        providerEffectAllowed: false,
+      });
     },
   );
 }
@@ -3216,17 +3090,16 @@ export function describeDelegationSelectionGrantRuntimeContract() {
     operationBinding: "runtime_owned_management_capability",
     providerEligibility:
       "runtime_owned_preselection_candidate_with_home_distribution_policy_auth_preflight_deferred",
-    exactModelId: "runtime_owned_verified_provider_profile_connected",
+    exactModelId: "intake_fixed_execution_selection_technically_validated",
     billingMode: "subscription_oauth_only",
     speedMode: "normal_only",
     selectionNotice: "issued_before_provider_effect",
     executionSlatePreflight:
-      "executor_and_reviewer_candidates_from_one_runtime_owned_eligibility_observation_before_selection_grants",
+      "fixed_executor_and_reviewer_from_one_runtime_owned_eligibility_observation_before_selection_grants",
     executionSlateCapabilityIssued: false,
     providerFallback:
       "forbidden_after_provider_request_or_when_effect_state_is_uncertain",
-    reselection:
-      "process_local_supersede_api_exists_but_general_task_uses_new_operation_after_cleanup",
+    reselection: "same_fixed_selection_and_attempt_only",
     providerAuthorityIssued: false,
     providerEffectAllowed: false,
   });

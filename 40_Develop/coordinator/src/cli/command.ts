@@ -41,7 +41,6 @@ import {
   parseRepositoryProjectContextMarkdown,
   readStableBoundedFileSnapshot,
 } from "../../../domain-model/src/index.ts";
-import { createRepositoryAiProfileCatalogStore } from "../../../ai-adapter/src/index.ts";
 import {
   createRepositoryTaskRequests,
   inspectSingleTaskCommand,
@@ -1161,8 +1160,7 @@ export async function runSingleTaskCommand(args: readonly string[]) {
       process.cwd(),
     );
     const verified = verifyRepositoryRoot(root);
-    const profiles = createRepositoryAiProfileCatalogStore(root);
-    if (verified.status !== "completed" || profiles.status !== "ready")
+    if (verified.status !== "completed")
       throw new UsageError("task_repository_configuration_unavailable");
     const context = parseRepositoryProjectContextMarkdown(
       readStableBoundedFileSnapshot(
@@ -1172,7 +1170,6 @@ export async function runSingleTaskCommand(args: readonly string[]) {
     );
     owner = createRepositoryTaskRequests(
       verified.capability,
-      profiles.store,
       context.projectId,
       "local-cli-user",
       () => resolveVerifiedRepositoryRootFromWorkingDirectory(root) === root,

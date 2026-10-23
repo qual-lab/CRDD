@@ -10,6 +10,7 @@
  */
 import { createProviderDockerRuntimeAdapterCandidate } from "../../src/execution/preparation.ts";
 import assert from "node:assert/strict";
+import { executionSelection } from "../fixtures/ai-selection.ts";
 import test from "node:test";
 
 import { createIsolatedDelegationSelectionGrantRuntimeCandidate } from "../../src/execution/authority.ts";
@@ -124,18 +125,6 @@ test("Codex frontから選定理由付きClaude委譲をcleanup済みResultま�
             reason: "ready" as const,
           }),
         ]),
-      resolveModelProfile: (request) =>
-        Object.freeze({
-          provider: request.provider,
-          profileId: "PROFILE-123456",
-          exactModelId: "claude-opus-test-profile",
-          family: request.family,
-          selectionRole: request.role,
-          modelTier: request.modelTier,
-          speedMode: "normal" as const,
-          billingMode: "subscription_oauth" as const,
-          compatibilityReason: null,
-        }),
       wallNow: () => 1_000,
       monotonicNow: () => 2_000,
       randomBytes: (size: number) => {
@@ -144,30 +133,17 @@ test("Codex frontから選定理由付きClaude委譲をcleanup済みResultま�
       },
     });
   const issued = selectionRuntime.issue(managementCapability, {
-    frontProvider: "codex",
-    delegationNeed: "beneficial",
-    delegationReason: "specialized_executor_benefit",
-    requestedExecutorProvider: "auto",
-    requestedProfileId: null,
-    subjectProvider: null,
-    requiresIndependentProvider: false,
-    role: "executor",
-    workClass: "bounded_implementation",
-    planState: "complete",
-    risk: "low",
-    difficulty: "low",
-    decisionImpact: "limited",
-    isLocalCandidateOnly: true,
-    hasUnresolvedDirection: false,
-    requiresCrossContextAlignment: false,
     operationId: "OP-123456",
-    parentOperationId: null,
-    ancestorOperationIds: [],
-    delegationDepth: 0,
+    taskAttempt: 0,
+    executionSelection: executionSelection("executor", {
+      provider: "claude",
+      model: "opus",
+      effort: "low",
+    }),
   });
   assert.equal(issued.status, "issued");
-  assert.equal(issued.route, "front_codex__executor_claude");
-  assert.match(issued.selectionNotice ?? "", /経路選定理由/);
+  assert.equal(issued.executorProvider, "claude");
+  assert.match(issued.selectionNotice ?? "", /opus/);
 
   /**
    * completeMountのTest準備責務を実行する。
@@ -247,7 +223,7 @@ test("Codex frontから選定理由付きClaude委譲をcleanup済みResultま�
     issued.useCapability,
   );
   assert.equal(prepared.status, "prepared");
-  assert.equal(prepared.selectedModel, "claude-opus-test-profile");
+  assert.equal(prepared.selectedModel, "opus");
   assert.equal(prepared.selectedEffort, "low");
 
   const purposes: string[] = [];

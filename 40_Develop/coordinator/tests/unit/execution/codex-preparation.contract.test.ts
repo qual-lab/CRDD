@@ -8,6 +8,8 @@
  * @scope codex、docker、runtime、adapter
  * @boundary PRL-UT-014=N/A: Coordinator Application Portは外部実行境界を持たない。
  */
+import { executionSelection } from "../../fixtures/ai-selection.ts";
+import { hashExecutionSelection } from "../../../src/selection/model.ts";
 import {
   getRuntimeOwnedProviderDockerAdapter,
   createProviderDockerRuntimeDependencies,
@@ -114,7 +116,6 @@ test("共通Provider本番組立てはStoreを共有せず固定依存とEffect�
     selectionRecordId: null,
     selectedModel: null,
     selectedEffort: null,
-    selectedModelTier: null,
     selectionNotice: null,
     providerHomeMountLeaseActive: false,
     dockerEffectIssued: false,
@@ -129,37 +130,22 @@ test("共通Provider本番組立てはStoreを共有せず固定依存とEffect�
   });
 });
 
+const fixedSelection = executionSelection("executor", {
+  provider: "codex",
+  model: "gpt-5.5",
+  effort: "low",
+});
 const MODEL_SELECTION = Object.freeze({
   selectionRecordId: "MODELSEL-12345678",
   operationId: "OP-123456",
-  frontProvider: "claude" as const,
   executorProvider: "codex" as const,
-  route: "front_claude__executor_codex",
-  profileId: "PROFILE-100001",
-  model: "gpt-5.6-sol",
-  basis: Object.freeze({
-    provider: "codex" as const,
-    role: "executor" as const,
-    workClass: "bounded_implementation" as const,
-    planState: "complete" as const,
-    risk: "low" as const,
-    difficulty: "low" as const,
-    decisionImpact: "limited" as const,
-    isLocalCandidateOnly: true,
-    hasUnresolvedDirection: false,
-    requiresCrossContextAlignment: false,
-  }),
-  effort: "low" as const,
-  modelTier: "preferred",
+  executionSelection: fixedSelection,
+  selectionHash: hashExecutionSelection(fixedSelection) as string,
+  taskAttempt: 0 as const,
+  model: fixedSelection.modelIdentifier,
+  effort: fixedSelection.reasoningEffort,
   speedMode: "normal" as const,
-  selectionNotice:
-    "[委譲経路選定] front=codex executor=codex\n選定理由=complete_bounded_local_plan\n高コスト選択=no",
-  delegationDepth: 1,
-});
-const taskModelSelection = Object.freeze({
-  ...MODEL_SELECTION,
-  profileId: "PROFILE-100003",
-  model: "gpt-5.5",
+  selectionNotice: "受付時固定選定",
 });
 
 /**
@@ -181,7 +167,16 @@ function createFixture(
   isTaskMode = false,
   taskRole: "executor" | "reviewer" = "executor",
 ) {
-  const profileId = isTaskMode ? "PROFILE-100003" : "PROFILE-100001";
+  const selected = isTaskMode
+    ? executionSelection(
+        taskRole === "executor" ? "executor" : "independent_reviewer",
+        {
+          provider: "codex",
+          model: "gpt-5.5",
+          effort: taskRole === "executor" ? "low" : "medium",
+        },
+      )
+    : fixedSelection;
   const managementCapability = Object.freeze({});
   const mountCapability = Object.freeze({});
   const mountAuthorizationCapability = Object.freeze({});
@@ -248,24 +243,21 @@ function createFixture(
     consumeModelSelection: (selection: unknown, management: unknown) => {
       assert.equal(selection, selectionUseCapability);
       assert.equal(management, managementCapability);
-      return isTaskMode
-        ? Object.freeze({
-            ...taskModelSelection,
-            profileId,
-            effort: taskRole === "executor" ? "low" : "medium",
-            basis: Object.freeze({
-              ...taskModelSelection.basis,
-              role:
-                taskRole === "executor" ? "executor" : "independent_reviewer",
-            }),
-          })
-        : MODEL_SELECTION;
+      return Object.freeze({
+        ...MODEL_SELECTION,
+        executionSelection: selected,
+        selectionHash: hashExecutionSelection(selected) as string,
+        model: selected.modelIdentifier,
+        effort: selected.reasoningEffort,
+      });
     },
     consumeTaskPacket: () =>
       Object.freeze({
         operationId: "OP-123456",
         taskPacketRef: "TASKPKT-00112233445566778899AABBCCDDEEFF",
         taskRole,
+        taskAttempt: 0 as const,
+        selectionHash: hashExecutionSelection(selected) as string,
         taskPacketHash: "a".repeat(64),
         prompt: "Implement the bounded local candidate.",
         networkPolicy: (() => {
@@ -348,16 +340,31 @@ test("Workbench助言をRepository非共有のCodex Planへ固定する", () => 
     {
       consumeModelSelection: () => ({
         ...MODEL_SELECTION,
-        profileId: "PROFILE-100003",
+        executionSelection: executionSelection("advice", {
+          provider: "codex",
+          model: "gpt-5.6-sol",
+          effort: "low",
+        }),
+        selectionHash: hashExecutionSelection(
+          executionSelection("advice", {
+            provider: "codex",
+            model: "gpt-5.6-sol",
+            effort: "low",
+          }),
+        ) as string,
         model: "gpt-5.6-sol",
       }),
       consumeAdvicePacket: () =>
         Object.freeze({
           contract: "crdd-coordinator/workbench-ai-advice-runtime-packet",
-          contractRevision: 1,
+          contractRevision: 2,
           packetRef: "ADVICEPKT-00112233445566778899AABBCCDDEEFF",
           operationId: "OP-123456",
-          profileId: "PROFILE-100003",
+          executionSelection: executionSelection("advice", {
+            provider: "codex",
+            model: "gpt-5.6-sol",
+            effort: "low",
+          }),
           provider: "codex" as const,
           taskHash: "2".repeat(64),
           projectionHash: "3".repeat(64),
@@ -517,11 +524,10 @@ test("説明可能な低推論選定を固定Docker command planへ一度だけ�
     fixture.selectionUseCapability,
   );
   assert.equal(prepared.status, "prepared");
-  assert.equal(prepared.selectedModel, "gpt-5.6-sol");
+  assert.equal(prepared.selectedModel, "gpt-5.5");
   assert.equal(prepared.selectedEffort, "low");
-  assert.equal(prepared.selectedModelTier, "preferred");
-  assert.match(prepared.selectionNotice ?? "", /選定理由/);
-  assert.match(prepared.selectionNotice ?? "", /高コスト選択=no/);
+  assert.equal(Object.hasOwn(prepared, "selectedModelTier"), false);
+  assert.equal(prepared.selectionNotice, "受付時固定選定");
   const publicJson = JSON.stringify(prepared);
   assert.doesNotMatch(publicJson, /Users\\\\person/);
   assert.doesNotMatch(publicJson, /CRDD_PROXY_AUTH/);
@@ -870,6 +876,14 @@ test("Reviewerはread-only workspaceを使いExecutor専用seccomp profileを受
           operationId: "OP-123456",
           taskPacketRef: "TASKPKT-00112233445566778899AABBCCDDEEFF",
           taskRole: "reviewer" as const,
+          taskAttempt: 0 as const,
+          selectionHash: hashExecutionSelection(
+            executionSelection("independent_reviewer", {
+              provider: "codex",
+              model: "gpt-5.5",
+              effort: "medium",
+            }),
+          ) as string,
           taskPacketHash: "a".repeat(64),
           prompt: "Review the bounded local candidate.",
           networkPolicy: (() => {
@@ -1054,19 +1068,6 @@ test("Selection Grantのopaque use aliasをCodex adapterへ一回だけ接続す
             reason: "ready",
           }),
         ]),
-      resolveModelProfile: (request) =>
-        Object.freeze({
-          provider: request.provider,
-          profileId: "PROFILE-100003",
-          exactModelId: "gpt-5.5",
-          family: request.family,
-          selectionRole: request.role,
-          modelTier: request.modelTier,
-          speedMode: "normal",
-          billingMode: "subscription_oauth",
-          compatibilityReason:
-            "gpt_5_6_code_mode_only_host_unavailable_in_fixed_linux_runtime",
-        }),
       wallNow: () => 1_000,
       monotonicNow: () => 2_000,
       randomBytes: (size: number) => {
@@ -1082,26 +1083,9 @@ test("Selection Grantのopaque use aliasをCodex adapterへ一回だけ接続す
     true,
   );
   const issued = selectionRuntime.issue(fixture.managementCapability, {
-    frontProvider: "claude",
-    delegationNeed: "beneficial",
-    delegationReason: "specialized_executor_benefit",
-    requestedExecutorProvider: "auto",
-    requestedProfileId: null,
-    subjectProvider: null,
-    requiresIndependentProvider: false,
-    role: "executor",
-    workClass: "bounded_implementation",
-    planState: "complete",
-    risk: "low",
-    difficulty: "low",
-    decisionImpact: "limited",
-    isLocalCandidateOnly: true,
-    hasUnresolvedDirection: false,
-    requiresCrossContextAlignment: false,
     operationId: "OP-123456",
-    parentOperationId: null,
-    ancestorOperationIds: [],
-    delegationDepth: 0,
+    taskAttempt: 0,
+    executionSelection: fixedSelection,
   });
   assert.equal(issued.status, "issued");
 
@@ -1444,6 +1428,121 @@ test("共通準備Lifecycleは管理一致・二時計境界・回収未確認�
         );
       }
     }
+  }
+});
+
+/**
+ * GrantとPacketの操作・役割・試行・選定Hashの差替えを起動前に拒否する。
+ * @responsibility 完全選定の各fieldとstage相関を独立に反証する。
+ * @trace PRL-UT-014
+ * @precondition 正規Executor選定と同じPacket基準Hashを合成する。
+ * @stimulus Grantだけ又はPacketだけの一項目を変更する。
+ * @observation 拒否、Mount返却、Authority非発行とProvider要求非発行を確認する。
+ * @oracle 不一致は全件blockedで、Authority発行0・Mount返却1。
+ * @cleanup N/A: 実Docker・Processを作らない。
+ * @boundary PRL-UT-014=N/A: 局所準備の代役。
+ */
+test("GrantとPacketの完全選定・stage差替えをProvider Effect前に拒否する", () => {
+  const original = executionSelection("executor", {
+    provider: "codex",
+    model: "gpt-5.5",
+    effort: "low",
+  });
+  const changes: Record<string, unknown>[] = [
+    { provider: "claude" },
+    { modelIdentifier: "other-model" },
+    { identifierKind: "alias" },
+    { reasoningEffort: "high" },
+    { purpose: "advice" },
+    { catalogIdentity: "f".repeat(64) },
+    { configIdentity: "e".repeat(64) },
+    { role: "independent_reviewer" },
+    { workType: "other" },
+    { source: "role_default" },
+  ];
+  for (const change of changes) {
+    let authorities = 0;
+    const selected = { ...original, ...change };
+    const fixture = createFixture(
+      {
+        consumeModelSelection: () => ({
+          ...MODEL_SELECTION,
+          executionSelection: selected as typeof original,
+          selectionHash: hashExecutionSelection(selected) ?? "0".repeat(64),
+          model:
+            typeof selected.modelIdentifier === "string"
+              ? selected.modelIdentifier
+              : original.modelIdentifier,
+          effort: selected.reasoningEffort as typeof original.reasoningEffort,
+        }),
+        issueProviderAuthority: () => {
+          authorities++;
+          throw Error("unexpected_authority");
+        },
+      },
+      true,
+    );
+    const result = fixture.adapter.prepareTask(
+      fixture.managementCapability,
+      fixture.mountCapability,
+      fixture.mountAuthorizationCapability,
+      fixture.selectionUseCapability,
+      Object.freeze({}),
+    );
+    assert.equal(result.status, "blocked", JSON.stringify(change));
+    assert.equal(authorities, 0);
+    assert.equal(fixture.getCompletionCount(), 1);
+    assert.equal(result.providerRequestIssued, false);
+  }
+  for (const changed of [
+    { operationId: "OP-999999" },
+    { taskAttempt: 1 },
+    { selectionHash: "d".repeat(64) },
+    { taskRole: "reviewer" },
+  ]) {
+    let authorities = 0;
+    const fixture = createFixture(
+      {
+        consumeTaskPacket: () =>
+          ({
+            operationId: "OP-123456",
+            taskPacketRef: "TASKPKT-00112233445566778899AABBCCDDEEFF",
+            taskRole: "executor" as const,
+            taskAttempt: 0 as const,
+            selectionHash: hashExecutionSelection(original) as string,
+            taskPacketHash: "a".repeat(64),
+            prompt: "Synthetic bounded instruction",
+            networkPolicy: (() => {
+              const r = prepareDockerNetworkPolicy("codex", []);
+              if (r.status !== "ready") throw Error("fixture");
+              return r.policy;
+            })(),
+            promptTransport: "provider_stdin_only" as const,
+            ...changed,
+          }) as ReturnType<
+            NonNullable<
+              Parameters<
+                typeof createProviderDockerRuntimeAdapterCandidate<"codex">
+              >[1]["consumeTaskPacket"]
+            >
+          >,
+        issueProviderAuthority: () => {
+          authorities++;
+          throw Error("unexpected_authority");
+        },
+      },
+      true,
+    );
+    const result = fixture.adapter.prepareTask(
+      fixture.managementCapability,
+      fixture.mountCapability,
+      fixture.mountAuthorizationCapability,
+      fixture.selectionUseCapability,
+      Object.freeze({}),
+    );
+    assert.equal(result.status, "blocked", JSON.stringify(changed));
+    assert.equal(authorities, 0);
+    assert.equal(fixture.getCompletionCount(), 1);
   }
 });
 

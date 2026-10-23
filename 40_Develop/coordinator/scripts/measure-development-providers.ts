@@ -108,7 +108,7 @@ async function executeMeasurement(
       }
       results.push(
         Object.freeze({
-          executorProvider: task.requestedExecutorProvider,
+          executorProvider: task.taskExecutionSelections?.executor.provider,
           elapsedMs: Math.max(0, dependencies.now() - startedAt),
           result,
         }),

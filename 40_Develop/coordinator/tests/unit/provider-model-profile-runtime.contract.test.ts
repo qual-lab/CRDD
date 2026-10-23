@@ -10,6 +10,7 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
+import { executionSelection } from "../fixtures/ai-selection.ts";
 
 import { createIsolatedDelegationSelectionGrantRuntimeCandidate } from "../../src/execution/authority.ts";
 
@@ -288,129 +289,70 @@ test("公開契約は通常速度、Subscription、同family内effort切替だ�
 });
 
 /**
- * 実CatalogのProfile適合性を選択許可の発行・一回消費へ接続する。
- *
- * @responsibility 差替えResolverでは見えないID・Provider・役割・tierの不一致を拒否することを確認する。
+ * 技術Catalogの固定選定を一回の操作へ結合する。
+ * @responsibility Provider・Model・種別・役割を差し替えず旧Profile要求を拒否する。
  * @trace PRL-UT-014
- * @precondition 実Catalogと実Resolverを使い、Operation確認・利用可否・時計・乱数だけをメモリ内fixtureとする。
- * @stimulus 二Front Providerから二Executor Providerへ、自動・適合・未知・Provider違い・tier違いを渡し、Codexの役割違いも確認する。
- * @observation 発行結果、Profile・Model、非発行fieldおよび消費後の再利用拒否を観測する。
- * @oracle 自動・適合はCatalogの同じProfileへ結合し、不適合はCapabilityなしで拒否する。全経路でProvider Authorityを発行しない。
- * @cleanup N/A: 各fixtureはProcess-localで、File、Process、ProviderまたはDocker資源を作らない。
- * @boundary N/A: 実Taskを開始せず、公開Transportと本番Operation Authorityは確認対象外である。
+ * @precondition 二Providerの採用済み技術値を合成する。
+ * @stimulus 正常・旧形・技術不対応を発行して一回消費する。
+ * @observation 固定選定、非発行フラグと重複消費拒否。
+ * @oracle 正常だけが元の完全選定を一回返し、拒否はEffect 0。
+ * @cleanup N/A: Process内だけ。
+ * @boundary PRL-UT-014=N/A: 合成Capabilityと技術Catalog。
  */
-test("実Catalogから選択許可までProfile適合性を保持する", () => {
-  const catalogBefore = JSON.stringify(defaultAiProfileCatalog);
-  for (const frontProvider of ["codex", "claude"] as const) {
-    for (const provider of ["codex", "claude"] as const) {
-      const profileId =
-        provider === "codex" ? "PROFILE-100003" : "PROFILE-200001";
-      const profile = defaultAiProfileCatalog.profiles.find(
-        (candidate) => candidate.profileId === profileId,
-      );
-      assert.ok(profile);
-      const scenarios = [
-        { requestedProfileId: null, accepted: true },
-        { requestedProfileId: profileId, accepted: true },
-        { requestedProfileId: "PROFILE-999999", accepted: false },
-        {
-          requestedProfileId:
-            provider === "codex" ? "PROFILE-200001" : "PROFILE-100003",
-          accepted: false,
-        },
-        ...(provider === "codex"
-          ? [{ requestedProfileId: "PROFILE-100001", accepted: false }]
-          : []),
-        {
-          requestedProfileId:
-            provider === "codex" ? "PROFILE-100004" : "PROFILE-200002",
-          accepted: false,
-        },
-      ];
-      for (const scenario of scenarios) {
-        const managementCapability = Object.freeze({});
-        const runtime = createIsolatedDelegationSelectionGrantRuntimeCandidate({
-          verifyOperation: (candidate) => {
-            assert.equal(candidate, managementCapability);
-            return {
-              operationId: "OP-123456",
-              createdAt: "2026-10-02T00:00:00.000Z",
-            };
-          },
-          observeProviderEligibility: () => [
-            { provider: "codex", status: "eligible", reason: "ready" },
-            { provider: "claude", status: "eligible", reason: "ready" },
-          ],
-          resolveModelProfile: (request) =>
-            resolveRuntimeOwnedProviderModelProfile(request).value,
-          wallNow: () => 1_000,
-          monotonicNow: () => 2_000,
-          randomBytes: (size) => Buffer.alloc(size, 1),
-        });
-        const issued = runtime.issue(managementCapability, {
-          frontProvider,
-          delegationNeed: "beneficial",
-          delegationReason: "explicit_user_delegation",
-          requestedExecutorProvider: provider,
-          requestedProfileId: scenario.requestedProfileId,
-          subjectProvider: null,
-          requiresIndependentProvider: false,
-          role: "executor",
-          workClass: "bounded_implementation",
-          planState: "complete",
-          risk: "low",
-          difficulty: "low",
-          decisionImpact: "limited",
-          isLocalCandidateOnly: true,
-          hasUnresolvedDirection: false,
-          requiresCrossContextAlignment: false,
+test("技術Catalogの固定選定を一回の操作へ結合する", () => {
+  for (const provider of ["codex", "claude"] as const) {
+    const owner = Object.freeze({});
+    let random = 0;
+    const runtime = createIsolatedDelegationSelectionGrantRuntimeCandidate({
+      verifyOperation: (c) => {
+        assert.equal(c, owner);
+        return {
           operationId: "OP-123456",
-          parentOperationId: null,
-          ancestorOperationIds: [],
-          delegationDepth: 0,
-        });
-        assert.equal(issued.providerAuthorityIssued, false);
-        assert.equal(issued.providerEffectAllowed, false);
-        if (scenario.accepted) {
-          assert.equal(
-            issued.status,
-            "issued",
-            JSON.stringify({
-              frontProvider,
-              provider,
-              scenario,
-              reason: issued.reason,
-            }),
-          );
-          assert.equal(issued.profileId, profileId);
-          assert.equal(issued.selectedModel, profile.exactModelId);
-          assert.equal(issued.executorProvider, provider);
-          assert.equal(issued.frontProvider, frontProvider);
-          assert.equal(issued.selectionCapabilityIssued, true);
-          const consumed = runtime.consume(
-            issued.useCapability,
-            managementCapability,
-          );
-          assert.equal(consumed?.profileId, profileId);
-          assert.equal(consumed?.model, profile.exactModelId);
-          assert.equal(
-            runtime.consume(issued.useCapability, managementCapability),
-            null,
-          );
-        } else {
-          assert.equal(issued.status, "blocked");
-          assert.equal(issued.reason, "delegation_selection_profile_invalid");
-          assert.equal(issued.profileId, null);
-          assert.equal(issued.controlCapability, null);
-          assert.equal(issued.useCapability, null);
-          assert.equal(issued.selectionCapabilityIssued, false);
-          assert.equal(
-            runtime.consume(issued.useCapability, managementCapability),
-            null,
-          );
-        }
-      }
+          createdAt: "2026-10-24T00:00:00.000Z",
+        };
+      },
+      observeProviderEligibility: () => [
+        { provider: "codex", status: "eligible", reason: "ready" },
+        { provider: "claude", status: "eligible", reason: "ready" },
+      ],
+      wallNow: () => 1000,
+      monotonicNow: () => 2000,
+      randomBytes: (n) => Buffer.alloc(n, ++random),
+    });
+    const selected = executionSelection("executor", {
+      provider,
+      model: provider === "codex" ? "gpt-5.5" : "opus",
+      effort: "low",
+    });
+    for (const request of [
+      {
+        operationId: "OP-123456",
+        taskAttempt: 0,
+        executionSelection: { ...selected, modelIdentifier: "retired-model" },
+      },
+      {
+        operationId: "OP-123456",
+        requestedProfileId: "PROFILE-100001",
+        taskAttempt: 0,
+        executionSelection: selected,
+      },
+    ]) {
+      const r = runtime.issue(owner, request);
+      assert.equal(r.status, "blocked");
+      assert.equal(r.providerAuthorityIssued, false);
+      assert.equal(r.providerEffectAllowed, false);
     }
+    const r = runtime.issue(owner, {
+      operationId: "OP-123456",
+      taskAttempt: 0,
+      executionSelection: selected,
+    });
+    assert.equal(r.status, "issued");
+    assert.deepEqual(r.executionSelection, selected);
+    assert.deepEqual(
+      runtime.consume(r.useCapability, owner)?.executionSelection,
+      selected,
+    );
+    assert.equal(runtime.consume(r.useCapability, owner), null);
   }
-  assert.equal(JSON.stringify(defaultAiProfileCatalog), catalogBefore);
 });

@@ -1247,7 +1247,7 @@ test("修復終了: 退避物不存在と履歴確認後だけ対象を除去す
     assert.ok(source);
     return {
       ...source.snapshot,
-      schema: "crdd-coordinator/current-state/v4",
+      schema: "crdd-coordinator/current-state/v5",
       repositoryBindingId: null,
       intakeEpoch: null,
       intakeBindings: [],
@@ -3226,7 +3226,7 @@ test("修復variant: Taskと同居し双方向の更新で対象外全文を保�
     .digest("hex");
   const token = `host.crdd-coordinator-doctor-fixture.12345678-1234-4234-8234-123456789abc.${hostHash}`;
   const taskIdentity = {
-    schema: "crdd-coordinator/operation-identity/v1",
+    schema: "crdd-coordinator/operation-identity/v2",
     operationNonce: "b".repeat(64),
     provider: "claude",
     consumer: "orchestrator",

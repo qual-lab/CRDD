@@ -9,6 +9,10 @@
  * @boundary 実Git、Filesystem、既存Native排他。
  */
 import assert from "node:assert/strict";
+import {
+  executionSelection,
+  taskExecutionSelections,
+} from "../fixtures/ai-selection.ts";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -74,8 +78,7 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
   const record: SingleTaskRecord = {
     principalId: "local-user",
     mode: "workspace_edit",
-    profileId: "PROFILE-100001",
-    catalogRevision: 1,
+    executionSelection: executionSelection(),
     taskId: "task-1",
     attemptId: "attempt-1",
     operationId: "operation-1",
@@ -233,6 +236,7 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
       attemptId: "attempt-2",
       operationId: "operation-2",
       mode: "read_only_advice" as const,
+      executionSelection: executionSelection("advice"),
     },
   };
   assert.equal(
@@ -261,7 +265,13 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
     projectId: entry.projectId,
     principalId: record.principalId,
     authorize: () => permitted,
-    resolveProfile: () => ({ catalogRevision: 1 }),
+    resolveSelection: (command) => ({
+      primary: executionSelection(
+        command.mode === "read_only_advice" ? "advice" : "executor",
+      ),
+      taskExecutionSelections:
+        command.mode === "workspace_edit" ? taskExecutionSelections() : null,
+    }),
     observeRevision: () => entry.repositoryRevision,
     observeLeaseOwner: () => {
       throw new Error("released_owner_must_not_be_observed");
@@ -329,7 +339,7 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
   });
   const command = {
     mode: "read_only_advice",
-    profileId: record.profileId,
+    workType: null,
     prompt: "transient synthetic input",
     contextReferences: ["PROJECT_CONTEXT.md"],
     allowedPaths: [] as string[],
@@ -447,7 +457,9 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
     projectId: entry.projectId,
     principalId: record.principalId,
     authorize: () => true,
-    resolveProfile: () => ({ catalogRevision: 1 }),
+    resolveSelection: () => {
+      throw Error("recovery_must_not_read_configuration");
+    },
     observeRevision: () => entry.repositoryRevision,
     observeLeaseOwner: () => {
       throw new Error("released_owner_must_not_be_observed");
@@ -574,8 +586,7 @@ test("単発記録は本文・getter・未回収成功を受理しない", () =>
   const record = {
     principalId: "user",
     mode: "read_only_advice",
-    profileId: "PROFILE-100001",
-    catalogRevision: 1,
+    executionSelection: executionSelection("advice"),
     taskId: "task",
     attemptId: "attempt",
     operationId: "operation",

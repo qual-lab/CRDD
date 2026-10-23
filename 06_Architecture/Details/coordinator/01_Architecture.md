@@ -635,7 +635,7 @@ Runtime所有Provider Homeマウント許可（Runtime-owned Provider Home Mount
 
 Grantは、Process-local atomic store、Runtime所有の壁時計と単調時計、暗号学的乱数参照、最長5分、使用上限1回へ固定する。Provider、Operation、Provider Home Identity／保護状態およびselected local user bindingを結合する。
 
-Home Grant・Provider Authority・Local Personal Authority・Isolation・prelaunchは、Model Profile ID、Tier、Catalog Revision又はモデル選定を保持・入力・再検査しない。Provider固有のOffering・OriginはAI Adapterの`describeProviderAuthentication`を正本とする。モデル側とはoperationとproviderで相関する。段階切替中の旧Model Grant／Packet／モデル準備に残るProfileは、このHome利用許可へ搬送しない。モデル側の全面切替が未完了の間は、選定全体の本番接続完了とは扱わない。
+Home Grant・Provider Authority・Local Personal Authority・Isolation・prelaunchは、Model Profile ID、Tier、Catalog Revision又はモデル選定を保持・入力・再検査しない。Provider固有のOffering・OriginはAI Adapterの`describeProviderAuthentication`を正本とする。モデル側とはoperationとproviderで相関する。Model Grant・Packet・準備計画は受付時の完全選定を保持するが、Home利用許可へ搬送しない。公開利用側の旧設定撤去・本番接続と最終回帰は別の完了条件である。
 
 発行control、使用useおよび消費後mount authorizationのaliasは分離する。use時には、Grant発行に使用して消費済みとなった観測Capabilityを再利用せず、Provider Homeを再観測して得たfreshなRuntime所有観測Capabilityを再結合する。再観測が不成立、Provider不一致またはCapability未発行なら、Mount Grantを消費せずProvider Effect 0で停止する。Operation終了時またはmount完了後の取消では、全aliasとrecordを失効しなければならない（MUST）。Process restartではGrantを永続復元せず、全て失ってFail Closedとする。active mount、ContainerおよびOperation Filesystemの回復は、別のDocker／Host Recovery契約が所有する。
 
@@ -648,7 +648,7 @@ Workbenchの読取り助言は、一般Taskの`executor`または`reviewer`へ�
 ```text
 利用者の一回送信確認
   ↓
-Task Hash + Catalog Revision + exact Profile + Provider
+Task Hash + 完全選定Hash + 通信条件Hash + Provider
   ↓ 一回消費
 Workbench AI Advice Dispatch
   ↓
@@ -659,14 +659,14 @@ Effect／cleanupを独立観測
 許可済み参照へ拘束した結果正規化
 ```
 
-- 確認は同じTaskだけに有効で、永続同意、別Task、別Profileまたは変更候補のAuthorityへ再利用しない。
+- 確認は同じTaskだけに有効で、永続同意、別Task、別の固定選定または変更候補のAuthorityへ再利用しない。
 - Effect前の取消はProvider呼出し0で閉じる。Effect後の例外・取消・cleanup不明は自動再送せず`unknown`へ保つ。
 - `completed`は、Provider Effect発行、cleanup確認、単一JSONおよび許可済み参照だけを持つ結果がすべて確認できた場合に限る。
-- 現行Production CompositionはこのDispatch、Provider別の固定Adapter選択、読取り助言専用Execution Planまで接続する。Execution PlanはCatalog Revision、Provider、exact Profile／Model／推論強度、Task／Projection Hashを固定し、Promptを標準入力だけで搬送する。Repository／Workspace mount、Tool、Session保持、API Key／有料fallbackを許可しない。
+- 現行Production CompositionはこのDispatch、Provider別の固定Adapter選択、読取り助言専用Execution Planまで接続する。Execution PlanはProvider、完全選定十項目、対象role／attempt、Task／Projection Hashを固定し、Promptを標準入力だけで搬送する。Repository／Workspace mount、Tool、Session保持、API Key／有料fallbackを許可しない。
 - Provider Command Planは固定配布物のCLI Path／Image Digestへexact Modelと推論強度を接続する。Codexは公開設定による操作抑制を伴う標準入力とJSONL、ClaudeはTool無効の標準入力とJSON envelope／inline Schemaを用いる。Provider Executor Coreは事前取消、Runtime拒否、cleanup不明および例外を成功へ畳まず、Codexの既知通知と最終結果を分離し、未知通知・不正Item・Errorを拒否する。Claude助言は人間承認済みPilotとして内部Turn上限を2に固定し、整数の1〜2Turn成功Envelopeから`structured_output`だけを共通Result Parserへ渡す。0、上限超過、不正型、失敗Envelopeおよび出力欠落は拒否する。内部Turnは一つの依頼・一回消費Packet・一つのProvider Processの中に限定し、Tool、Repository／Workspace共有、Session保持または自動再送のAuthorityを新設しない。実Providerでの成立確認後に正式化を判断し、Pilotの局所成功だけを利用可能またはRelease可能と表示しない。Session、Cost、Usage、生Eventおよび生Provider出力は公開しない。
 - Codex助言のJSONLでは、`agent_message`、`reasoning`、`command_execution`、`file_change`、`mcp_tool_call`、`collab_tool_call`、`web_search`、`todo_list`を既知通知として分類する。最終助言以外の通知は結果本文へ投影しない。思考本文は助言、診断または根拠へ投影しない。最終回答は`item.completed`の`agent_message`一件だけから抽出し、本文欠落・不正型を拒否する。`item.started`、`item.updated`、`item.completed`のいずれでも未知Item種別、Errorまたは不正Itemを拒否し、未知の`item.*`も検査を迂回させない。正常な思考通知とTool操作の区別は[Codexの公式通知形式](https://learn.chatgpt.com/docs/non-interactive-mode)に基づく。思考通知の本文Fieldは結果成立の根拠に使用せず、未確認の段階別必須Fieldを推測で要求しない。
-- Executor Coreと現在Runtime Adapterの間では、Operation、Profile、Task／Projection Hash、Provider PromptおよびProvider Command Hashを`ADVICEPKT-*`へ固定する一回消費Packetを使用する。PacketはRepository／Workspace共有、ToolおよびSessionを常に`false`とし、CodexのTool fieldはCRDDによる追加Tool権限の非付与を表す。公式CLI内部の操作不存在の証明にはしない。別Ownerによる消費、再利用および未使用取消後の利用を拒否する。Packet発行だけではProvider Effect Authorityを生成しない。
-- Coordinatorの実Docker lifecycleへ`workbench_advice`専用Modeを接続する。Boolean ProbeまたはWorkspace付き一般Taskを流用せず、現在の用途別許可、固定入口と必要Artifact同一性、Operation世代、元Repository Identity結合、Provider Home、Selection、限定Egress、取消、Docker Recovery、Host cleanupおよび最終Recovery確定を同じLifecycleで所有する。元Repositoryへの結合はSelection AuthorityのScope確認にだけ用い、ProviderへのRepository／Workspace Mount、Path搬送または任意読取りAuthorityを生成してはならない（MUST NOT）。Task／Projection／Profile／Command Identityを一回消費Packetへ結合し、HostとDockerのcleanupが確定するまで助言JSONを公開してはならない（MUST NOT）。助言の旧署名資格の引数・発行・消費はSourceと本番Launcherから撤去した。通常Task・候補生成・Orchestratorの旧GateもSourceから撤去済みである。撤去後の全体回帰・実境界確認と実Provider／全体E2Eは残る。局所成立を本目標の全体成立と区別する。
+- Executor Coreと現在Runtime Adapterの間では、Operation、完全選定、Task／Projection Hash、Provider PromptおよびProvider Command Hashを`ADVICEPKT-*`へ固定する一回消費Packetを使用する。PacketはRepository／Workspace共有、ToolおよびSessionを常に`false`とし、CodexのTool fieldはCRDDによる追加Tool権限の非付与を表す。公式CLI内部の操作不存在の証明にはしない。別Ownerによる消費、再利用および未使用取消後の利用を拒否する。Packet発行だけではProvider Effect Authorityを生成しない。
+- Coordinatorの実Docker lifecycleへ`workbench_advice`専用Modeを接続する。Boolean ProbeまたはWorkspace付き一般Taskを流用せず、現在の用途別許可、固定入口と必要Artifact同一性、Operation世代、元Repository Identity結合、Provider Home、Selection、限定Egress、取消、Docker Recovery、Host cleanupおよび最終Recovery確定を同じLifecycleで所有する。元Repositoryへの結合はSelection AuthorityのScope確認にだけ用い、ProviderへのRepository／Workspace Mount、Path搬送または任意読取りAuthorityを生成してはならない（MUST NOT）。Task／Projection／完全選定Hash／Command Identityを一回消費Packetへ結合し、HostとDockerのcleanupが確定するまで助言JSONを公開してはならない（MUST NOT）。助言の旧署名資格の引数・発行・消費はSourceと本番Launcherから撤去した。通常Task・候補生成・Orchestratorの旧GateもSourceから撤去済みである。撤去後の全体回帰・実境界確認と実Provider／全体E2Eは残る。局所成立を本目標の全体成立と区別する。
 
 Claude助言の拒否理由は、通常の結果搬送で次の順に検査する。最初に不成立となった層だけを返し、後続条件が成立したことや外部CLIの原因まで確定したことを意味しない。受理条件、Turn上限、取消、資源回収および自動再送禁止は変更しない。
 
@@ -714,19 +714,17 @@ Docker準備候補の取消・期限確認・一回消費は`src/execution/prepa
 
 準備候補の受理から保存までは`src/execution/preparation.ts`へまとめる。入力modeと回復参照、Mount有効化、Model・Task・助言Packetの一回消費、Home取得、二時計、計画、Authority照合、既存二WeakMapへの保存を同じ順序で接続する。Provider別の計画と公開結果、Claudeの作業量確認は二つの固定呼出し側から渡し、外部入力で接続先を選ばない。失敗時の失効・Mount解放と例外搬送を維持し、新しい保存状態、汎用実行FrameworkまたはDocker要求を追加しない。局所検証用Factoryも同じFileでprobe・Task・助言の引数搬送、取消と一回消費を所有し、Provider別状態に結合した固定操作だけを受け取る。本番Authorityは持たず、準備・取消の例外を固定理由へ、消費例外をnullへ搬送する既存契約を保持する。
 
-選定・操作・Mountと固定CLI計画の相関、Home／tmp／Workspace、資源名、Proxy環境、認証確認と九commandの組立ては`src/execution/preparation.ts`へまとめる。AI Adapterから取得した二Providerの固定記述を利用し、CodexだけのExecutor Seccomp、追加Proxy変数・認証Home環境・init要求と、ClaudeのModel／effort引数・仕事量を区別して保持する。Taskと助言の同時入力、異なる操作・Profile・Provider、取得不能なSeccompや不正Mountを拒否し、取得例外は既存準備Ownerの失効・Mount回収へ返す。公開候補の成功表示やAuthority発行はこの組立ての責務ではない。
+選定・操作・Mountと固定CLI計画の相関、Home／tmp／Workspace、資源名、Proxy環境、認証確認と九commandの組立ては`src/execution/preparation.ts`へまとめる。AI Adapterから取得した二Providerの固定記述を利用し、CodexだけのExecutor Seccomp、追加Proxy変数・認証Home環境・init要求と、ClaudeのModel／effort引数・仕事量を区別して保持する。Taskと助言の同時入力、異なる操作・固定選定・役割・試行番号・Provider、取得不能なSeccompや不正Mountを拒否し、取得例外は既存準備Ownerの失効・Mount回収へ返す。公開候補の成功表示やAuthority発行はこの組立ての責務ではない。
 
 本番準備の共通依存は`src/execution/preparation.ts`で組み立てる。Mount照合・有効化・解放、Packet消費、選定消費、Authority発行・失効、乱数と二時計を同じ既存Ownerへ結合し、組立て自体は取得・消費・外部要求を実行しない。同じFileの状態FactoryはOwnerごとに独立した二WeakMapを生成し、準備Storeと管理対応をProvider間または同じProviderの別Owner間で共有しない。具体計画、消費済み選定・Task、準備状態の型は既存の`execution/preparation.ts` / `execution/advice.ts`が所有する。Providerと購読種別、Claudeだけの作業量を型でも区別する。Codex ExecutorのSeccomp適用要否と期待IdentityをDI計画へ渡し、Claudeへ暗黙適用しない。上位状態と依存型へSeccompのPathや検証関数を保持しない。Effect前の拒否結果は共通準備Fileが一つだけ構築し、既存field、null、falseとProvider別理由値を維持する。両Providerの計画型と成功結果の差をこの整理だけで統一しない。
 
 固定呼出し側の共通組立ては`src/execution/preparation.ts`へ接続済みである。準備・取消・一回消費を同じOwnerで組み立て、本番AdapterはProviderごとに一度だけ生成する。二Providerの既存入口とTask本番利用側は同じ固定Ownerを取得し、取得のたびにStoreを作り直さない。局所試験の独立Factoryは本番Storeと分離する。Claudeの作業量検査と公開結果field、CodexのSeccomp接続は区別したまま保持する。Taskの回復相関も同じ計画へ搬送する。これは準備組立ての移管であり、Snapshot本番保存・回収・搬送の完了を意味しない。
 
-別Providerへの委譲を基本とし、同一Providerは、委譲不要、能力上の適合、Provider利用不能または独立した別Contextを説明できる場合だけ選ぶ。Front CodexからはClaude Executor、Front Claude CodeからはCodex Executorを優先するが、品質条件を満たす適格集合の中で判断する。
+AI選定は受付時のRepository設定Snapshotから確定する。五つの役割の既定値、任意の作業分類と上書き、明示したExecutor選択を技術Catalogで検査し、完全な十項目（Provider、Model識別子と種別、Effort、用途、役割、作業分類、選定元、Catalog Identity、設定Identity）へ固定する。Frontからの逆Provider優先、Profile／Tier、隠れたfallback又は再選定は行わない。現在の利用可否や認可が不成立なら、別のModelへ差替えず停止する。
 
-選定前に、Role、work class、plan state、Risk、難易度、判断影響、利用可能性、Authority、Costを固定する。Provider、model family、effort、速度、選定理由、高コスト選択の有無、再選定条件をProvider Effect前に記録する。AvailabilityやScopeが変わった場合は、元の選定を暗黙fallbackせず再評価する。
+Model Grantは30秒・一回消費のProcess内値であり、操作ID・固定選定・試行番号だけを受理する。技術Catalogで現在もそのModel・Effort・用途を実行できるか検査するが、Repository設定を読み直して別の希望へ選び直さない。Home再観測とMount照合後に旧Grantを失効し、同じ完全選定と操作・試行番号で更新したGrantだけを実行直前へ渡す。Provider、十項目又は試行番号の差、失効・更新失敗はEffect前に停止する。失効観測不能を清掃成功へ変換せず、既存のProcess再利用禁止を維持する。
 
-選定Grantは30秒の一回限りCapabilityであり、Provider Homeの実観測やMount照合より前に発行したGrantを、その前処理後のProvider Effectへ持ち越さない。Stageは最初の選定をProviderとProfileのMount照合にだけ用い、二回目のHome観測とMount Grant消費後に旧Selectionを明示失効する。同じ入力から新しいSelectionをEffect直前に発行し、Provider、Profile、model、effort、速度および選定理由が最初の選定と完全一致した場合だけ、選定表示、Task PacketおよびProvider準備へ進む。発行済みのSelection Controlは意味検証より先にLifecycle Ownerの清掃対象として保持し、意味不一致や検証不能でも失効を試みる。再発行失敗、旧Grantまたは再発行Grantの失効失敗、失効結果の観測不能、もしくは意味差がある場合はProvider Effect 0で停止する。失効失敗または観測不能を清掃成功へ畳まず、Processを再利用不能として汚染状態へ移す。期限を伸ばして前処理時間を吸収せず、短命なAuthorityの有効期間を必要なEffect境界へ合わせる。
-
-Workbenchで利用者が明示したAI Profileによる助言実行は、Front AIだけで完結する`delegationNeed: none`ではなく、`beneficial`かつ`explicit_user_delegation`としてSelection Grantを要求する。`none`はGrant不要の保持経路であり、明示Provider／Profileを持つ外部実行へ流用してはならない（MUST NOT）。Workbenchは明示Provider、Profile、Coordinator役割および同じOperation IdentityをSelection Runtimeへ渡し、Production Selection契約が発行したGrantだけを二段階Selectionへ使用する。
+Task Packetは役割・試行番号・完全選定Hashを固定本文へ結合し、準備側でModel Grantの値と照合する。助言も同じ完全選定を用い、role=advice、purpose=advice、Provider・Model・Effortと実Commandの一致を検査する。助言用の送信GrantはTask／通信条件と選定Hashへ限定する。新しい選定Store・Registry・Lockは作らない。実行前には既存のOperation Identity保存・読戻しを完了し、そのstageの完全選定をv2 Identityへ一回記録する。Owner喪失後は保存された元Identityによる回収・終了だけとし、現在設定による本文再送・未発行stageの再作成を行わない。
 
 固定開発版によるProvider実測は、検証済みのSource、Native成果物、Repository、期限、Task数およびCLI呼出し数へ閉じた開発Sessionだけを発行し、Release AuthorityまたはProvider送信Authorityを与えない。このSession開始時に外部送信とは別の対話確認を重ねない。実際のProvider送信は通常運用と同じ初期外部送信許可だけが制御し、永続境界が同じ間は既存許可を再利用する。許可が存在しない、変更・失効・取消された、または状態を確認できない場合は、Provider Effect前に初期確認へ戻るかEffect 0で停止する。固定開発版のIdentityやTask上限から、外部送信範囲、実行AuthorityまたはRelease Authorityを拡張してはならない。
 
@@ -1530,7 +1528,7 @@ Docker Task Recoveryは元のRecovery IDと発行時Sessionの証拠を保持し
 
 修復の回復結果には、九処置すべての確認済み／明示不要をDIの純粋終端判定で要求する。Engine準備完了・現在安全・退避状態既知・補助Process清掃確認との共同成立を必要とし、未観測を不要へ読み替えない。結果確定後は一次失敗のnullを含む全文と九処置を固定し、後続の清掃確認・安全性観測で過去の失敗を消さない。Task専用の未解決回復参照へ修復variantを混入させない。
 
-現在のSource候補は平坦な`crdd-coordinator/current-state/v4`だけを受理する。全体のfield集合・Task参照・一意な受領本文は[単一保存の値モデル](04_Task_Detailed_Design.md#unified-storage-lifecycle)に従う。`operations`は`docker_task`と`runtime_repair`の判別unionとし、前者は固定Task Identity・五資源・Host・Lease・実行状態、後者は修復専用Identity・exact回復ID・修復phase・DI技術checkpoint・保持判断・一次失敗・結果を保持する。修復へTask fieldを架空値で補完せず、Task回復ID parserへ渡さない。
+現在のSource候補は平坦な`crdd-coordinator/current-state/v5`だけを受理する。全体のfield集合・Task参照・一意な受領本文は[単一保存の値モデル](04_Task_Detailed_Design.md#unified-storage-lifecycle)に従う。`operations`は`docker_task`と`runtime_repair`の判別unionとし、前者は固定Task Identity・五資源・Host・Lease・実行状態、後者は修復専用Identity・exact回復ID・修復phase・DI技術checkpoint・保持判断・一次失敗・結果を保持する。修復へTask fieldを架空値で補完せず、Task回復ID parserへ渡さない。
 
 DI checkpointのkey・技術順序は下位Root codecで検証し、CoordinatorはIdentity・改訂・対象外全文・人間の保持判断との相関を検証する。Task専用利用側はkindを確認してからTask fieldへ触れ、同じSnapshot内の修復を保全する。Task Writerは修復の新規作成・更新を拒否し、技術checkpointと保持判断は修復専用Writer・真正Ownerへ接続する。修復のsummary／historyは専用値契約で検査し、通常修復Writerはその更新を外側と排他内で拒否する。専用履歴出版・除去が未接続の間はTask履歴・配送から修復を終端化せず、値候補の成立を実保存・本番再入場の成立にしない。旧v1や旧Journalの移行はフロントAIが行い、Runtimeのfallback Readerは作らない。
 
@@ -1635,7 +1633,7 @@ Controllerの元の完了結果へ、同じ管理Capability・操作ID・回復�
 
 終端Writerの資源変更は、清掃前Contextに保持した管理Capability・操作ID・回復参照と元の本番Controller結果を照合する。更新排他内で元Snapshotから`prepareCoordinatorStateCleanupSnapshot`を導出し、その五purpose評価と候補の資源集合が一致した場合だけ保存へ進める。要求状態・既知IDの差替え、欠測・別名・観測不能の不存在化はモデルの既存検査で拒否し、根拠なし・コピー結果では資源差分を拒否する。Host清掃結果の照合、他操作変更・参照除去・履歴変更の拒否は維持する。この内部Writer接続を本番Producerの一体切替済みや実Docker清掃済みとは扱わない。
 
-現在状態に保存する固定操作情報は`crdd-coordinator/operation-identity/v1`とする。旧`runtimeStateBinding`を保持せず、外側Snapshotと同じ検証済み`repositoryBinding`を必須とする。操作・世代・Provider・Grant・Profile、Provider Homeの結合・実体・保護、選択ユーザー、五用途の資源名とImage、操作／Mount種別、初期Host token・Snapshot・Pathおよび既存の相関参照は保持する。Repository HashでHomeやHostの保護証明を代替しない。旧Schema・旧項目の混入・別Repository結合は拒否し、恒久互換Readerを作らない。回復IDの三Hash書式は維持し、第三Hashは新Identityの固定本文から導出する。旧IDを新Identityへ付け替えない。上位の受理契約と本番Producerは同じ切替対象であり、モデルの変更だけで移行済みとはしない。
+現在状態に保存する固定操作情報は`crdd-coordinator/operation-identity/v2`とする。旧`runtimeStateBinding`を保持せず、外側Snapshotと同じ検証済み`repositoryBinding`を必須とする。操作・世代・Provider・Grant・対象stageの完全な固定選定と試行番号、Provider Homeの結合・実体・保護、選択ユーザー、五用途の資源名とImage、操作／Mount種別、初期Host token・Snapshot・Pathおよび既存の相関参照は保持する。Repository HashでHomeやHostの保護証明を代替しない。旧Schema・旧項目の混入・別Repository結合は拒否し、恒久互換Readerを作らない。回復IDの三Hash書式は維持し、第三Hashは新Identityの固定本文から導出する。旧IDを新Identityへ付け替えない。上位の受理契約と本番Producerは同じ切替対象であり、モデルの変更だけで移行済みとはしない。
 
 本番切替は次の旧保存責務を同時に置き換える。新Writerの直接試験だけで移行済みとは扱わず、旧保存へ戻るfallbackと恒久的な二重書込みを作らない。
 
@@ -2036,7 +2034,7 @@ Coordinator
 | 境界 | Orchestrator | Coordinator |
 |---|---|---|
 | Taskの意味 | ObjectiveとTask Graphから実行要求を作る | 閉じた実行要求を処理する |
-| Provider | Task内容・Role・任意の選択Profileを渡す | AI Adapterの適格性・計画を使い、実観測・Grant・送信許可成立後に実行する |
+| Provider | Task内容・Role・受付時に固定した完全選定を渡す | AI Adapterの適格性・計画を使い、実観測・Grant・送信許可成立後に実行する |
 | 候補 | Task結果をProject状態と統合へ接続する | CandidateとReview結果を返す |
 | Recovery | Project／Taskとの相関を保持する | 実行資源のexact Recovery情報を返す |
 | 完成 | 明示Authorityと根拠からObjective／Milestoneの判断を記録する | Task結果とcleanupを別軸で報告する |

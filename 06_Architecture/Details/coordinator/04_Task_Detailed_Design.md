@@ -43,7 +43,7 @@ Docker回復の`required`／`settled`は元Operationから読み取る。回復�
 
 これらは単一Snapshot内の既存Task／Attemptと発生元の情報配置であり、別Registry、別保存、監視又は回復Frameworkを追加するものではない。結果受領はcleanupとは別の事実であり、Operationの整理後にも必要な結果Identityと初回受理世代を保持する。
 
-保存形式は`crdd-coordinator/current-state/v4`とし、改訂・元Hash・物理Repository結合と各現在区画を平坦に保存する。Taskを使わない単発実行では、業務Repository結合と受付世代をともにnull、Task関連区画を空集合にする。Task初期化は既存の技術操作を失わず同じ保存の更新として行う。旧二Snapshotを内包する形式や、旧形式を補完するReaderは作らない。Taskの`CoordinatorSnapshot`はメモリ内の表示・更新DTOであり、独立した保存Envelopeではない。
+保存形式は`crdd-coordinator/current-state/v5`とし、改訂・元Hash・物理Repository結合と各現在区画を平坦に保存する。Taskを使わない単発実行では、業務Repository結合と受付世代をともにnull、Task関連区画を空集合にする。Task初期化は既存の技術操作を失わず同じ保存の更新として行う。旧二Snapshotを内包する形式や、旧形式を補完するReaderは作らない。Taskの`CoordinatorSnapshot`はメモリ内の表示・更新DTOであり、独立した保存Envelopeではない。
 
 | 新形式の値 | 保存・投影の境界 |
 |---|---|
@@ -53,6 +53,14 @@ Docker回復の`required`／`settled`は元Operationから読み取る。回復�
 | 内部配送待ち | 固定結果とConsumerの参照だけ。受領Hashを複製せず、受領保存と同じ更新で対象の配送待ちを除く |
 
 共通遷移検査は初回受領の出所・初回世代・本文不変と、Operation除去／Task参照置換／配送解消の同更新を照合する。これだけを任意更新の許可とせず、既存の業務遷移・技術操作・実観測・排他の検証を別途維持する。
+
+### 受付時の固定選定と実行の寿命
+
+現在StateとProject Snapshotはv5、Operation Identityはv2だけを受理する。SingleTaskは主担当の完全な`executionSelection`を一つ保存し、旧`profileId / catalogRevision`を持たない。Objectiveは同じ設定Snapshot由来のExecutor／Reviewer組をRootで一度保持し、Taskはその組へ相関する。SingleTaskの受付Processだけは二役の不変組を実行closureへ保持し、主担当を保存値へ完全一致させる。二重の選定Storeを追加しない。
+
+Model Grant／Task Packet／準備計画は対象stageの操作・役割・試行番号・完全選定Hashを照合する。技術Operationは既存の`beginRecovery`でIdentity保存と読戻しを確認してからDocker要求へ進む。作成されたHost領域やProcess内Grantより前に全I/Oを禁止する保証ではない。Grant後・Identity保存前の失敗は既存清掃へ戻し、保存後のOwner喪失は元Identityの回収・終了だけを再入場する。SingleTask本文は非永続のままで、自動再実行や新stage生成をしない。
+
+元設定が変更・削除されても、開始済みの選定を現在設定から補完しない。公開入口の新規受付だけがRepository設定を読む。旧Schema・旧Profile混入・異なる役割／試行／Hashは拒否する。旧記録の実移行はフロントAIが事前に行い、保持②と過去Evidenceは変更しない。保存形式の変更を実AI・実Docker・人間操作の成立証明として扱わない。
 
 ### 保存排他と結果受理
 
@@ -109,7 +117,7 @@ Workspace方式の目標は[作業領域の横断契約](05_Workspace.md)に従�
 
 ### Repository別AI選定の保存境界
 
-Project状態の値契約は`crdd-coordinator/project-state/v2`、内部の表示・更新Snapshotは`crdd-coordinator/project-snapshot/v4`とする。物理Fileは引き続き単一の`coordinator/state.json`であり、新しい保存先や二重Writerを作らない。
+Project状態の値契約は`crdd-coordinator/project-state/v2`、内部の表示・更新Snapshotは`crdd-coordinator/project-snapshot/v5`とする。物理Fileは引き続き単一の`coordinator/state.json`であり、新しい保存先や二重Writerを作らない。
 
 | 所有する値 | 寿命と更新条件 |
 |---|---|
@@ -118,7 +126,7 @@ Project状態の値契約は`crdd-coordinator/project-state/v2`、内部の表�
 | 再入場・再計画 | 保存した組を引き継ぐ。設定Readerを再度呼ばず、別Modelへ補完・fallbackしない |
 | 旧保存値 | 必須選定のない旧Stateは受理しない。移行はフロントAIが実行前に確認し、過去の実行値を現在設定から捏造しない。歴史Evidenceと保持中の②は対象外 |
 
-この変更は選定保持の保存基盤であり、Model Grant・Packet・全実行Consumerの新方式接続が終わるまでは、新設定による本番実行の完成を主張しない。単発Taskの主担当保存と、各stageのDocker Operation identityへの搬送は別の接続単位である。
+この変更は選定保持の保存基盤であり、Model Grant・Packet・全実行Consumerの新方式接続が終わるまでは、新設定による本番実行の完成を主張しない。単発Taskの主担当保存と、各stageのDocker Operation Identity v2へ、対象役割の完全選定と試行番号を搬送する。
 
 ## Related
 
@@ -151,7 +159,7 @@ VCのWorktree技術APIは`9c462a2e`で実装・実Git試験済み。これはOrc
 
 | 現在の具体契約 | 値・処置 |
 |---|---|
-| 保存形式 | `crdd-coordinator/project-snapshot/v4`、schemaRevision=4。新規初期化はworkspaces空集合を含む。旧版・欠落集合を補完しない |
+| 保存形式 | `crdd-coordinator/project-snapshot/v5`、schemaRevision=5。新規初期化はworkspaces空集合を含む。旧版・欠落集合を補完しない |
 | Workspace現在値 | `workspace/record.ts`の`CoordinatorWorkspace`。UUID、generation、baseCommit、head、phase（creating／ready／discarding）、holdUntil、pending、lastResult、primaryFailure。専用Branch／PathはUUIDからVCが導出。Task一覧は持たない |
 | Queue対象 | 新形式の保存QueueはworkspaceIdを必ず持つ。nullは所属Repositoryの現在Tree、UUIDはIsolatedの参照。新規受付時の指定省略はnullを記録するが、旧保存値の欠落をDirectへ補完しない。Taskは取得した同Queueの対象を継承する |
 | 内部操作入口 | `manageCoordinatorWorkspace`。実在するProject／Queueの既存project-operation Lease内でcreate／observe／discard／holdを処置する。架空Queue・独立したWorkspace専用Leaseは作らない。adoptedは取込証拠未接続としてVC要求前に拒否する |
@@ -301,7 +309,7 @@ Report revision 11の`completed`は、予定した検証結果を確認した意
 
 #### 統合保存入口の接続
 
-`writeCoordinatorSnapshot`は、部分codecとは別の統合保存契約を使用する。現在は判断区画とWorkspace区画を含む`crdd-coordinator/project-snapshot/v4`に固定し、v1／v2からの暗黙拡張や旧DirectoryへのFallbackを行わない。
+`writeCoordinatorSnapshot`は、部分codecとは別の統合保存契約を使用する。現在は判断区画とWorkspace区画を含む`crdd-coordinator/project-snapshot/v5`に固定し、旧版（v1〜v4）からの暗黙拡張や旧DirectoryへのFallbackを行わない。
 
 | 区画 | 固定する値 |
 |---|---|
@@ -353,7 +361,7 @@ Project状態更新は入力・上限・期待世代を取得前に検証し、�
 
 Lease解放後にQueueの所有解除だけが中断した場合、再入場は既存の終了確定操作へ接続する。観測した受付世代、Queue世代、Owner、exact終了証拠、未解決取得意図の不存在と実排他不存在を再照合し、統合待ち等の終了意図・結果参照を保持して所有だけを解除する。実行中のOwner喪失を`recovery_required`へ移す処置とは区別し、終了証拠欠落・結合不一致・観測不能では保存を保全して停止する。過去の解放要求発行や物理排他の不存在だけから正式終了を推定しない。
 
-受入判断・判断回復・Workspace現在集合を持つ保存形式は`crdd-coordinator/project-snapshot/v4`として区別する。v1／v2の値に欄を暗黙追加せず、未知版、不正v3、未確定保存から旧DirectoryへFallbackしない。`acceptanceDecisions`は記録ごとに第1世代と、存在する場合だけ第2世代を保持し、第2世代単独を許さない。`decisionRecoveries`は記録ごとの現在値・保存世代を保持する。新形式の比較交換は同じ排他内の完全な期待値照合とSnapshot確定で行う。旧形式はフロントAIの切替手順で整理し、Runtime内で旧連鎖を再構築しない。
+受入判断・判断回復・Workspace現在集合を持つ保存形式は`crdd-coordinator/project-snapshot/v5`として区別する。旧版（v1〜v4）の値に欄を暗黙追加せず、未知版、不正な旧版、未確定保存から旧DirectoryへFallbackしない。`acceptanceDecisions`は記録ごとに第1世代と、存在する場合だけ第2世代を保持し、第2世代単独を許さない。`decisionRecoveries`は記録ごとの現在値・保存世代を保持する。新形式の比較交換は同じ排他内の完全な期待値照合とSnapshot確定で行う。旧形式はフロントAIの切替手順で整理し、Runtime内で旧連鎖を再構築しない。
 
 両欄はRepository内の非秘密の処理記録であり、保護された判断AuthorityやCapabilityを複製しない。履歴へ移す場合も、保護記録の参照、Project適用、Queue、回復と後処理が解消する前に除去しない。退役受付世代によって過去判断の作成や再適用が復活しないことを確認する。
 

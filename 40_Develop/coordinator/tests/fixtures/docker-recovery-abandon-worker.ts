@@ -8,6 +8,8 @@
  * @scope 実Root・Host・Home排他・Writer。通常Host試験はHome観測と固定切断hookを模擬する。auth_create_failureはDocker代役と通常例外を確認し、明示したauth_create_unknownだけは専用承認Rootで固定Imageの停止Containerを一件作成する。
  * @boundary 旧Owner Processの終了後の現在回復。専用モードの同期CLI終了は子孫tree／daemon queue終端の証明ではない。
  */
+import { executionSelection } from "./ai-selection.ts";
+
 import assert from "node:assert/strict";
 import cp from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
@@ -186,7 +188,12 @@ if (mode !== "recovery") {
     consumer: "workbench" as const,
     operationId: binding.operationId,
     grantRef: "PHMGRANT-FIXTURE",
-    profileId: "PROFILE-123456",
+    executionSelection: executionSelection("executor", {
+      provider: "codex",
+      model: "gpt-5.5",
+      effort: "low",
+    }),
+    taskAttempt: 0 as const,
     providerHomeIdentityHash: hash,
     providerHomeProtectionHash: hash,
     localUserBindingHash: hash,

@@ -1242,10 +1242,9 @@ function snapshotTask(raw: unknown): Task | null {
     const request = parsed.request;
     if (Buffer.byteLength(JSON.stringify(request), "utf8") > 65_536)
       return null;
-    const executor = request.requestedExecutorProvider;
+    const executor = request.taskExecutionSelections?.executor.provider;
     if (
       (executor !== "codex" && executor !== "claude") ||
-      request.frontProvider === executor ||
       request.isLocalCandidateOnly !== true ||
       request.hasUnresolvedDirection !== false ||
       request.requiresCrossContextAlignment !== false ||
@@ -1256,7 +1255,8 @@ function snapshotTask(raw: unknown): Task | null {
       request.decisionImpact !== "limited"
     )
       return null;
-    const reviewer = executor === "codex" ? "claude" : "codex";
+    const reviewer = request.taskExecutionSelections?.reviewer.provider;
+    if (reviewer !== "codex" && reviewer !== "claude") return null;
     return Object.freeze({
       request,
       executor,

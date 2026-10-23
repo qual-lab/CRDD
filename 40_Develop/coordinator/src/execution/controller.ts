@@ -4,6 +4,12 @@
  * @responsibility 元のRuntimeと状態実体を保ち、隔離実行と結果受領のLifecycleを収束させる。
  * @trace ARCH-000008
  */
+import {
+  type ExecutionSelection,
+  inspectExecutionSelection,
+  inspectTaskExecutionSelections,
+  hashExecutionSelection,
+} from "../selection/model.ts";
 
 import {
   readRuntimeOwnedCoordinatorStateSnapshot,
@@ -418,11 +424,13 @@ export function completeRuntimeOwnedCoordinatorHostSubmission(
       !plan ||
       plan.operationId !== repository.operationId ||
       identity.operationId !== plan.operationId ||
+      identity.taskAttempt !== plan.taskAttempt ||
+      hashExecutionSelection(identity.executionSelection) !==
+        hashExecutionSelection(plan.executionSelection) ||
       [
         "provider",
         "consumer",
         "grantRef",
-        "profileId",
         "stableLogicalHomeBindingHash",
         "providerHomeIdentityHash",
         "providerHomeProtectionHash",
@@ -1373,7 +1381,8 @@ type PreparedPlan = Readonly<{
   consumer: "coordinator_cli" | "workbench" | "orchestrator";
   recoveryCorrelationId?: string | null;
   grantRef: string;
-  profileId: string;
+  executionSelection: ExecutionSelection;
+  taskAttempt: 0 | 1;
   activeMountCapability: object;
   authorityUseCapability: object;
   providerHomeSourcePath: string;
@@ -1392,8 +1401,7 @@ type PreparedPlan = Readonly<{
   selectionRecordId: string;
   subscriptionOffering: "chatgpt_subscription_oauth" | "claude_max";
   selectedModel: string;
-  selectedEffort: "low" | "medium" | "high";
-  selectedModelTier: string;
+  selectedEffort: ExecutionSelection["reasoningEffort"];
   operationMode: "boolean_probe" | "isolated_task" | "workbench_advice";
   taskRole: "executor" | "reviewer" | null;
   taskWorkload?: unknown;
@@ -2096,7 +2104,9 @@ function isPlanValid(plan: PreparedPlan) {
     (plan.recoveryCorrelationId == null ||
       /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(plan.recoveryCorrelationId)) &&
     /^PHMGRANT-[A-Z0-9-]{6,80}$/u.test(plan.grantRef) &&
-    /^PROFILE-[0-9]{6,}$/u.test(plan.profileId) &&
+    inspectExecutionSelection(plan.executionSelection)?.provider ===
+      plan.provider &&
+    (plan.taskAttempt === 0 || plan.taskAttempt === 1) &&
     /^MODELSEL-[A-Z0-9-]{8,80}$/u.test(plan.selectionRecordId) &&
     plan.subscriptionOffering ===
       (plan.provider === "codex"
@@ -5024,9 +5034,9 @@ function projectCurrentDockerRecovery<T extends RuntimeRecord>(
  *
  * @responsibility selection Requestの導出に必要な入力、判定規則、返却結果の境界を所有する。
  * @trace ARCH-000004
- * @input request: RuntimeRecord、operationId: string、role: "executor" | "independent_reviewer"、subjectProvider: Provider | null、requestedProvider: Provider | null、isRequiresIndependentProvider: boolean
+ * @input request: RuntimeRecord、operationId: string、role: "executor" | "independent_reviewer"、taskAttempt: 0 | 1
  * @returns selectionRequestの計算結果を返す。
- * @precondition 「request: RuntimeRecord、operationId: string、role: "executor" | "independent_reviewer"、subjectProvider: Provider | null、requestedProvider: Provider | null、isRequiresIndependentProvider: boolean」がselectionRequestの入力契約を満たす。
+ * @precondition 「request: RuntimeRecord、operationId: string、role: "executor" | "independent_reviewer"、taskAttempt: 0 | 1」がselectionRequestの入力契約を満たす。
  * @postcondition selectionRequestの責務を完了した結果だけを返す。
  * @effect N/A: selectionRequestは入力と局所値だけを扱い、外部または共有Effectを発行しない。
  * @failure N/A: selectionRequestは独自の失敗分岐を所有しない。
@@ -5039,42 +5049,13 @@ function selectionRequest(
   request: RuntimeRecord,
   operationId: string,
   role: "executor" | "independent_reviewer",
-  subjectProvider: Provider | null,
-  requestedProvider: Provider | null,
-  isRequiresIndependentProvider: boolean,
+  taskAttempt: 0 | 1,
 ) {
-  const isIndependentReview = role === "independent_reviewer";
+  const pair = inspectTaskExecutionSelections(request.taskExecutionSelections);
   return Object.freeze({
-    frontProvider: request.frontProvider,
-    delegationNeed: isIndependentReview ? "required" : "beneficial",
-    delegationReason: isIndependentReview
-      ? "independent_review_required"
-      : "specialized_executor_benefit",
-    requestedExecutorProvider: requestedProvider ?? "auto",
-    requestedProfileId:
-      role === "executor" && typeof request.requestedProfileId === "string"
-        ? request.requestedProfileId
-        : null,
-    subjectProvider,
-    requiresIndependentProvider:
-      isIndependentReview && isRequiresIndependentProvider,
-    role,
-    workClass: isIndependentReview ? "bounded_verification" : request.workClass,
-    planState: isIndependentReview ? "complete" : request.planState,
-    risk: request.risk,
-    difficulty: request.difficulty,
-    decisionImpact: request.decisionImpact,
-    isLocalCandidateOnly: true,
-    hasUnresolvedDirection: isIndependentReview
-      ? false
-      : request.hasUnresolvedDirection,
-    requiresCrossContextAlignment: isIndependentReview
-      ? false
-      : request.requiresCrossContextAlignment,
     operationId,
-    parentOperationId: null,
-    ancestorOperationIds: Object.freeze([]),
-    delegationDepth: 0,
+    taskAttempt,
+    executionSelection: role === "executor" ? pair?.executor : pair?.reviewer,
   });
 }
 
@@ -5104,6 +5085,7 @@ function packetRequest(
     allowedPaths: request.allowedPaths,
     readPaths: request.readPaths,
     reviewerReadProjection,
+    selectionHash: hashExecutionSelection(request.executionSelection),
   });
 }
 
@@ -5183,13 +5165,16 @@ function projectProviderPreparationFailure(reason: unknown) {
  * @concurrency N/A: sameProviderSelectionは共有非同期状態を持たない同期処理である。
  */
 function sameProviderSelection(left: RuntimeRecord, right: RuntimeRecord) {
+  const a = inspectExecutionSelection(left.executionSelection);
+  const b = inspectExecutionSelection(right.executionSelection);
   return (
-    left.executorProvider === right.executorProvider &&
-    left.profileId === right.profileId &&
-    left.selectedModel === right.selectedModel &&
-    left.selectedEffort === right.selectedEffort &&
-    left.speedMode === right.speedMode &&
-    left.selectionNotice === right.selectionNotice
+    a !== null &&
+    b !== null &&
+    left.executorProvider === a.provider &&
+    right.executorProvider === b.provider &&
+    left.operationId === right.operationId &&
+    left.taskAttempt === right.taskAttempt &&
+    hashExecutionSelection(a) === hashExecutionSelection(b)
   );
 }
 
@@ -5247,10 +5232,10 @@ function samePaths(left: unknown, right: unknown) {
  */
 async function executeStage(...args: Parameters<typeof executeStageBody>) {
   const dependencies = args[0].dependencies;
-  const invocation = dependencies.beginInvocation?.(args[8], args[5]);
+  const invocation = dependencies.beginInvocation?.(args[7], args[5]);
   if (dependencies.beginInvocation && !invocation)
     return blocked("coordinator_task_development_invocation_not_authorized");
-  args[11] = invocation?.commandRestriction;
+  args[10] = invocation?.commandRestriction;
   let result: Awaited<ReturnType<typeof executeStageBody>>;
   let settlement: unknown;
   try {
@@ -5268,9 +5253,9 @@ async function executeStage(...args: Parameters<typeof executeStageBody>) {
  *
  * @responsibility Stage Bodyの実行条件、Effect範囲、終了結果の境界を所有する。
  * @trace ARCH-000004
- * @input state: RuntimeState、operation: Operation、request: RuntimeRecord、repositoryBindingCapability: object、externalSendGrantCapability: object、role: TaskRole、taskAttempt: 0 | 1、subjectProvider: Provider | null、expectedProvider: Provider、remediationCapability: object | null、control: ControlRecord、commandRestriction: unknown、reviewerReadProjection: RuntimeRecord | null
+ * @input state: RuntimeState、operation: Operation、request: RuntimeRecord、repositoryBindingCapability: object、externalSendGrantCapability: object、role: TaskRole、taskAttempt: 0 | 1、expectedProvider: Provider、remediationCapability: object | null、control: ControlRecord、commandRestriction: unknown、reviewerReadProjection: RuntimeRecord | null
  * @returns executeStageBodyの計算結果を返す。
- * @precondition 「state: RuntimeState、operation: Operation、request: RuntimeRecord、repositoryBindingCapability: object、externalSendGrantCapability: object、role: TaskRole、taskAttempt: 0 | 1、subjectProvider: Provider | null、expectedProvider: Provider、remediationCapability: object | null、control: ControlRecord、commandRestriction: unknown、reviewerReadProjection: RuntimeRecord | null」がexecuteStageBodyの入力契約を満たす。
+ * @precondition 「state: RuntimeState、operation: Operation、request: RuntimeRecord、repositoryBindingCapability: object、externalSendGrantCapability: object、role: TaskRole、taskAttempt: 0 | 1、expectedProvider: Provider、remediationCapability: object | null、control: ControlRecord、commandRestriction: unknown、reviewerReadProjection: RuntimeRecord | null」がexecuteStageBodyの入力契約を満たす。
  * @postcondition executeStageBodyの責務を完了した結果だけを返す。
  * @effect executeStageBodyは外部ProcessまたはRuntime境界の操作を呼び出す。
  * @failure executeStageBodyは入力不正または下位処理の失敗を呼出し側へ返す。
@@ -5287,7 +5272,6 @@ async function executeStageBody(
   externalSendGrantCapability: object,
   role: TaskRole,
   taskAttempt: 0 | 1,
-  subjectProvider: Provider | null,
   expectedProvider: Provider,
   remediationCapability: object | null,
   control: ControlRecord,
@@ -5301,15 +5285,7 @@ async function executeStageBody(
     request,
     operation.operationId,
     role === "executor" ? "executor" : "independent_reviewer",
-    subjectProvider,
-    role === "executor" &&
-      (request.requestedExecutorProvider === "codex" ||
-        request.requestedExecutorProvider === "claude")
-      ? request.requestedExecutorProvider
-      : role === "reviewer" && expectedProvider === subjectProvider
-        ? expectedProvider
-        : null,
-    role === "reviewer" ? expectedProvider !== subjectProvider : false,
+    taskAttempt,
   );
   let selection = state.dependencies.issueSelection(
     operation.managementCapability,
@@ -5320,14 +5296,16 @@ async function executeStageBody(
     selection.executorProvider === "claude"
       ? selection.executorProvider
       : null;
-  const profileId = stringValue(selection.profileId);
+  const executionSelection = inspectExecutionSelection(
+    selection.executionSelection,
+  );
   let selectionControl = objectCapability(selection.controlCapability);
   let startedProcessControl: object | null = null;
   let startedDockerRecoveryId: string | null = null;
   if (
     selection.status !== "issued" ||
     !provider ||
-    !profileId ||
+    !executionSelection ||
     !selectionControl ||
     !objectCapability(selection.useCapability)
   ) {
@@ -5356,7 +5334,14 @@ async function executeStageBody(
     }
   };
   try {
-    if (provider !== expectedProvider) {
+    if (
+      provider !== expectedProvider ||
+      provider !== executionSelection.provider ||
+      selection.operationId !== operation.operationId ||
+      selection.taskAttempt !== taskAttempt ||
+      hashExecutionSelection(executionSelection) !==
+        hashExecutionSelection(selectionInput.executionSelection)
+    ) {
       revokeUnconsumed();
       return blocked("coordinator_task_selection_slate_mismatch");
     }
@@ -5463,7 +5448,7 @@ async function executeStageBody(
       externalSendGrantCapability,
       remediationCapability,
       packetRequest(
-        request,
+        { ...request, executionSelection, taskAttempt },
         role === "reviewer" ? reviewerReadProjection : null,
       ),
     );
@@ -5879,17 +5864,10 @@ async function runCoordinatorTaskCore(
     }
     const slate = state.dependencies.preflightSlate(
       operation.managementCapability,
-      selectionRequest(
-        request,
-        operation.operationId,
-        "executor",
-        null,
-        request.requestedExecutorProvider === "codex" ||
-          request.requestedExecutorProvider === "claude"
-          ? request.requestedExecutorProvider
-          : null,
-        false,
-      ),
+      Object.freeze({
+        operationId: operation.operationId,
+        taskExecutionSelections: request.taskExecutionSelections,
+      }),
     );
     const slateExecutorProvider =
       slate.executorProvider === "codex" || slate.executorProvider === "claude"
@@ -5909,10 +5887,11 @@ async function runCoordinatorTaskCore(
       !slateExecutorProvider ||
       !slateReviewerProvider ||
       !reviewerIndependence ||
-      ((request.requestedExecutorProvider === "codex" ||
-        request.requestedExecutorProvider === "claude") &&
-        slateExecutorProvider !== request.requestedExecutorProvider) ||
-      slate.providerEffectAllowed !== false
+      slate.providerEffectAllowed !== false ||
+      slateExecutorProvider !==
+        request.taskExecutionSelections?.executor.provider ||
+      slateReviewerProvider !==
+        request.taskExecutionSelections?.reviewer.provider
     ) {
       return blocked("coordinator_task_execution_slate_unavailable");
     }
@@ -6043,7 +6022,6 @@ async function runCoordinatorTaskCore(
       externalSendGrantCapability,
       "executor",
       0,
-      null,
       slateExecutorProvider,
       null,
       control,
@@ -6136,7 +6114,6 @@ async function runCoordinatorTaskCore(
       externalSendGrantCapability,
       "reviewer",
       0,
-      executor.provider as Provider,
       slateReviewerProvider,
       null,
       control,
@@ -6170,7 +6147,6 @@ async function runCoordinatorTaskCore(
         externalSendGrantCapability,
         "executor",
         1,
-        null,
         executor.provider as Provider,
         remediationCapability,
         control,
@@ -6246,7 +6222,6 @@ async function runCoordinatorTaskCore(
         externalSendGrantCapability,
         "reviewer",
         1,
-        executor.provider as Provider,
         reviewer.provider as Provider,
         null,
         control,

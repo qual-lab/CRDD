@@ -18,6 +18,7 @@ import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import { resolveTaskExecutionSelections } from "../../src/selection/resolve.ts";
 import type { TestContext } from "node:test";
 import test from "node:test";
 import { types as utilTypes } from "node:util";
@@ -35,7 +36,11 @@ import {
 } from "../../src/execution/operation.ts";
 import { createIsolatedRuntimeProcessSafetyStateCandidate } from "../../src/execution/process-safety-state.ts";
 import { loadRuntimeOwnedLocalPersonalAuthority } from "../../src/execution/authority.ts";
-import { selectDelegationRouteCandidate } from "../../src/execution/preparation.ts";
+import {
+  selectionConfig,
+  type executionSelection,
+} from "../fixtures/ai-selection.ts";
+import { hashExecutionSelection } from "../../src/selection/model.ts";
 import { inspectRepositoryObjectFormatCandidate } from "../../src/execution/operation.ts";
 import { coordinatorTaskPublicReasons } from "../../src/execution/result.ts";
 import {
@@ -553,10 +558,38 @@ async function assertLifecycleRuntimeTraceCases(
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
  * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
+function fixedSelections(
+  executor: "codex" | "claude" = "claude",
+  reviewer: "codex" | "claude" = "codex",
+) {
+  const config = selectionConfig();
+  const result = resolveTaskExecutionSelections(
+    {
+      ...config,
+      roleDefaults: {
+        ...config.roleDefaults,
+        executor: {
+          provider: executor,
+          model: executor === "codex" ? "gpt-5.5" : "opus",
+          effort: "medium",
+        },
+        independent_reviewer: {
+          provider: reviewer,
+          model: reviewer === "codex" ? "gpt-5.5" : "opus",
+          effort: "medium",
+        },
+      },
+    },
+    { workType: null },
+  );
+  assert.equal(result.status, "resolved");
+  if (!result.value) throw Error("fixture_selections_invalid");
+  return result.value;
+}
+
 function request(overrides: Record<string, unknown> = {}) {
   return {
-    frontProvider: "codex",
-    requestedExecutorProvider: "auto",
+    taskExecutionSelections: fixedSelections(),
     objective: "Update the bounded fixture.",
     acceptanceCriteria: ["The fixture contains the expected value."],
     allowedPaths: ["fixture.txt"],
@@ -660,7 +693,6 @@ function fixture(
       | "provider_independent"
       | "execution_context_independent";
     slateUnavailable?: boolean;
-    useRealRouteSelection?: boolean;
     selectionMismatchAt?: number;
     selectionRefreshFailureAt?: number;
     selectionRefreshMismatchAt?: number;
@@ -1067,21 +1099,10 @@ function fixture(
     ) => {
       selectionCount += 1;
       if (selectionCount % 2 === 1) selectionRequests.push(selection);
-      const requested = selection.requestedExecutorProvider;
-      const executor =
-        requested === "claude" || requested === "codex"
-          ? requested
-          : selection.role === "executor"
-            ? (options.slateExecutorProvider ?? "claude")
-            : (options.slateReviewerProvider ?? "codex");
-      const route = options.useRealRouteSelection
-        ? selectDelegationRouteCandidate(selection, {
-            providerEligibility: [
-              { provider: "codex", status: "eligible", reason: "ready" },
-              { provider: "claude", status: "eligible", reason: "ready" },
-            ],
-          })
-        : null;
+      const selected = selection.executionSelection as ReturnType<
+        typeof executionSelection
+      >;
+      const executor = selected.provider;
       const logicalSelectionCount = Math.ceil(selectionCount / 2);
       const selectionPhase = selectionCount % 2 === 1 ? "initial" : "refresh";
       selectionLifecycleEvents.push(
@@ -1105,10 +1126,12 @@ function fixture(
             ? executor === "codex"
               ? "claude"
               : "codex"
-            : (route?.executorProvider ?? executor),
-        profileId: executor === "claude" ? "PROFILE-200001" : "PROFILE-100003",
-        selectionNotice:
-          route?.selectionNotice ?? `selection-${logicalSelectionCount}`,
+            : executor,
+        operationId: selection.operationId,
+        executionSelection: selected,
+        taskAttempt: selection.taskAttempt,
+        selectionHash: hashExecutionSelection(selected),
+        selectionNotice: `selection-${logicalSelectionCount}`,
         controlCapability: Object.freeze({}),
         useCapability: Object.freeze({}),
       });
@@ -1760,7 +1783,7 @@ test("Workspace実行は旧Bundleを準備せず既存の正常・是正・取�
       "orchestrator",
       target,
     ).completion;
-    assert.equal(result.status, scenario.status);
+    assert.equal(result.status, scenario.status, JSON.stringify(result));
     assert.equal(result.reason, scenario.reason);
     assert.equal(harness.processStartCount(), scenario.processes);
     assert.equal(result.candidateId, null);
@@ -2558,18 +2581,18 @@ test("是正Executorが生成した認証秘密も再Reviewerへ渡さず停止�
 });
 
 /**
- * Codex frontからClaude Executorと独立Codex Reviewerを隔離Candidateへ接続するを検証する。
+ * 固定したClaude Executorと独立Codex ReviewerをWorkspaceへ接続するを検証する。
  *
- * @responsibility Codex frontからClaude Executorと独立Codex Reviewerを隔離Candidateへ接続するの合否判定を所有する。
+ * @responsibility 固定したClaude Executorと独立Codex ReviewerをWorkspaceへ接続するの合否判定を所有する。
  * @trace CPR-IT-001
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Codex frontからClaude Executorと独立Codex Reviewerを隔離Candidateへ接続するの対象操作を実行する。
+ * @stimulus 固定したClaude Executorと独立Codex ReviewerをWorkspaceへ接続するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
-test("Codex frontからClaude Executorと独立Codex Reviewerを隔離Candidateへ接続する", async () => {
+test("固定したClaude Executorと独立Codex ReviewerをWorkspaceへ接続する", async () => {
   const traceCaseIds = [
     "CASE-NORMAL-ADMISSION-TO-OPERATION",
     "CASE-NORMAL-OPERATION-ACQUIRING-TO-READY",
@@ -2600,9 +2623,10 @@ test("Codex frontからClaude Executorと独立Codex Reviewerを隔離Candidate�
   assert.equal(result.expiresAtMs, undefined);
   assert.equal(harness.cleanupCount(), 1);
   assert.equal(harness.selectionRequests.length, 2);
-  assert.equal(harness.selectionRequests[1]?.role, "independent_reviewer");
-  assert.equal(harness.selectionRequests[1]?.subjectProvider, "claude");
-  assert.equal(harness.selectionRequests[1]?.requiresIndependentProvider, true);
+  assert.deepEqual(
+    harness.selectionRequests[1]?.executionSelection,
+    fixedSelections().reviewer,
+  );
   assert.equal(
     (reviewerProjection as Record<string, unknown>)?.status,
     "projected",
@@ -2941,39 +2965,30 @@ test("許可状況の表示中に取消された場合もWorkspaceとProvider起
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
-test("両Front×両Executorの4経路をEffect前Slateと独立Reviewerへ接続する", async () => {
-  const cases = [
-    ["codex", "claude", "codex"],
-    ["codex", "codex", "claude"],
-    ["claude", "codex", "claude"],
-    ["claude", "claude", "codex"],
-  ] as const;
-  for (const [frontProvider, executorProvider, reviewerProvider] of cases) {
+test("固定した両Providerの選定をEffect前確認と独立Reviewerへ接続する", async () => {
+  for (const executor of ["codex", "claude"] as const) {
+    const reviewer = executor === "codex" ? "claude" : "codex";
+    const selections = fixedSelections(executor, reviewer);
     const harness = fixture({
-      slateExecutorProvider: executorProvider,
-      slateReviewerProvider: reviewerProvider,
+      slateExecutorProvider: executor,
+      slateReviewerProvider: reviewer,
     });
-    const started = harness.runtime.start(
-      request({ frontProvider }),
+    const result = await harness.runtime.start(
+      request({ taskExecutionSelections: selections }),
       "C:\\repository",
-    );
-    const result = await started.completion;
+    ).completion;
     assert.equal(result.status, "completed");
-    assert.equal(result.executorProvider, executorProvider);
-    assert.equal(result.reviewerProvider, reviewerProvider);
+    assert.equal(result.executorProvider, executor);
+    assert.equal(result.reviewerProvider, reviewer);
     assert.equal(result.reviewerIndependence, "provider_independent");
     assert.equal(harness.processStartCount(), 2);
-    assert.equal(
-      harness.selectionRequests[0]?.requestedExecutorProvider,
-      "auto",
+    assert.deepEqual(
+      harness.selectionRequests.map((x) => x.executionSelection),
+      [selections.executor, selections.reviewer],
     );
-    assert.equal(
-      harness.selectionRequests[1]?.requestedExecutorProvider,
-      "auto",
-    );
-    assert.equal(
-      harness.selectionRequests[1]?.requiresIndependentProvider,
-      true,
+    assert.deepEqual(
+      harness.slateRequests[0]?.taskExecutionSelections,
+      selections,
     );
   }
 });
@@ -2990,50 +3005,35 @@ test("両Front×両Executorの4経路をEffect前Slateと独立Reviewerへ接続
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
-test("実選定器へautoと明示制約の由来を保持し是正・Reviewerへ人間指定を捏造しない", async () => {
-  const cases = [
-    ["codex", "auto", "bounded_implementation", "claude", "codex"],
-    ["claude", "auto", "bounded_implementation", "codex", "claude"],
-    ["codex", "auto", "bounded_verification", "codex", "claude"],
-    ["codex", "claude", "bounded_implementation", "claude", "codex"],
-    ["claude", "codex", "bounded_implementation", "codex", "claude"],
-  ] as const;
-  for (const [
-    frontProvider,
-    requestedExecutorProvider,
-    workClass,
-    executorProvider,
-    reviewerProvider,
-  ] of cases) {
+test("是正時も受付時の選定組を保持して別の希望へ再選定しない", async () => {
+  for (const executor of ["codex", "claude"] as const) {
+    const reviewer = executor === "codex" ? "claude" : "codex";
+    const selections = fixedSelections(executor, reviewer);
     const harness = fixture({
-      useRealRouteSelection: true,
-      slateExecutorProvider: executorProvider,
-      slateReviewerProvider: reviewerProvider,
+      slateExecutorProvider: executor,
+      slateReviewerProvider: reviewer,
       reviewerDecision: "changes_requested",
       finalReviewerDecision: "approved",
     });
     const result = await harness.runtime.start(
-      request({ frontProvider, requestedExecutorProvider, workClass }),
+      request({ taskExecutionSelections: selections }),
       "C:\\repository",
     ).completion;
     assert.equal(result.status, "completed");
     assert.equal(harness.selectionNotices.length, 4);
-    for (const [index, notice] of harness.selectionNotices.entries()) {
-      const reason = String(notice.selectionReason);
-      if (index % 2 === 0 && requestedExecutorProvider !== "auto") {
-        assert.match(reason, /user_executor_constraint_satisfied/);
-      } else {
-        assert.doesNotMatch(reason, /user_executor_constraint_satisfied/);
-        assert.match(
-          reason,
-          index % 2 === 0
-            ? workClass === "bounded_verification"
-              ? /task_characteristic_codex_preference/
-              : /cross_provider_credit_distribution_preference/
-            : /independent_provider_required/,
-        );
-      }
-    }
+    assert.deepEqual(
+      harness.selectionRequests.map((x) => x.executionSelection),
+      [
+        selections.executor,
+        selections.reviewer,
+        selections.executor,
+        selections.reviewer,
+      ],
+    );
+    assert.deepEqual(
+      harness.selectionRequests.map((x) => x.taskAttempt),
+      [0, 0, 1, 1],
+    );
   }
 });
 
@@ -3200,62 +3200,32 @@ test("Selection更新の失敗・意味変更・旧Grant失効失敗はProvider 
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
-test("任意Executor制約はauto既定と分離して同じSlate・Selection Gateへ伝播する", async () => {
-  for (const provider of ["codex", "claude"] as const) {
-    const reviewer = provider === "codex" ? "claude" : "codex";
-    const harness = fixture({
-      slateExecutorProvider: provider,
-      slateReviewerProvider: reviewer,
-    });
-    const result = await harness.runtime.start(
-      request({
-        frontProvider: provider,
-        requestedExecutorProvider: provider,
-      }),
+test("固定選定と異なるSlateは実行前に拒否し旧自動選定の入力を受けない", async () => {
+  const invalid = fixture();
+  for (const field of [
+    "frontProvider",
+    "requestedExecutorProvider",
+    "requestedProfileId",
+  ]) {
+    const result = await invalid.runtime.start(
+      request({ [field]: "legacy" }),
       "C:\\repository",
     ).completion;
-    assert.equal(result.status, "completed");
-    assert.equal(harness.slateRequests[0]?.requestedExecutorProvider, provider);
-    assert.equal(
-      harness.selectionRequests[0]?.requestedExecutorProvider,
-      provider,
-    );
+    assert.equal(result.reason, "coordinator_task_request_invalid");
   }
-
-  const automatic = fixture();
-  const automaticResult = await automatic.runtime.start(
-    request(),
-    "C:\\repository",
-  ).completion;
-  assert.equal(automaticResult.status, "completed");
-  assert.equal(automatic.slateRequests[0]?.requestedExecutorProvider, "auto");
-
-  const invalid = fixture();
-  const invalidResult = await invalid.runtime.start(
-    request({ requestedExecutorProvider: "future" }),
-    "C:\\repository",
-  ).completion;
-  assert.equal(invalidResult.status, "blocked");
-  assert.equal(invalidResult.reason, "coordinator_task_request_invalid");
   assert.deepEqual(invalid.effectCounts(), {
     provider: 0,
     host: 0,
     cleanup: 0,
   });
-
   const mismatched = fixture({
     slateExecutorProvider: "codex",
     slateReviewerProvider: "claude",
   });
-  const mismatchedResult = await mismatched.runtime.start(
-    request({ requestedExecutorProvider: "claude" }),
-    "C:\\repository",
-  ).completion;
-  assert.equal(mismatchedResult.status, "blocked");
-  assert.equal(
-    mismatchedResult.reason,
-    "coordinator_task_execution_slate_unavailable",
-  );
+  const result = await mismatched.runtime.start(request(), "C:\\repository")
+    .completion;
+  assert.equal(result.status, "blocked");
+  assert.equal(result.reason, "coordinator_task_execution_slate_unavailable");
   assert.equal(mismatched.selectionRequests.length, 0);
 });
 
@@ -3271,58 +3241,40 @@ test("任意Executor制約はauto既定と分離して同じSlate・Selection Ga
  * @cleanup FixtureのRuntime cleanupが完了する。
  * @boundary Coordinator実状態機械と合成依存の接続。公開Transport、実Resolver、Provider／Host実作用は対象外。
  */
-test("明示Profile IDをExecutor Selectionだけへ搬送する", async () => {
-  for (const frontProvider of ["codex", "claude"] as const) {
-    for (const executorProvider of ["codex", "claude"] as const) {
-      const profileId =
-        executorProvider === "codex" ? "PROFILE-100003" : "PROFILE-200001";
-      const reviewerProvider =
-        executorProvider === "codex" ? "claude" : "codex";
-      const harness = fixture({
-        slateExecutorProvider: executorProvider,
-        slateReviewerProvider: reviewerProvider,
-      });
-      const result = await harness.runtime.start(
-        request({
-          frontProvider,
-          requestedExecutorProvider: executorProvider,
-          requestedProfileId: profileId,
-        }),
-        "C:\\repository",
-      ).completion;
-      assert.equal(result.status, "completed");
-      assert.equal(harness.selectionRequests.length, 2);
-      assert.equal(harness.selectionRequests[0]?.frontProvider, frontProvider);
-      assert.equal(harness.selectionRequests[0]?.role, "executor");
-      assert.equal(harness.selectionRequests[0]?.requestedProfileId, profileId);
-      assert.equal(
-        harness.selectionRequests[0]?.requestedExecutorProvider,
-        executorProvider,
-      );
-      assert.equal(harness.selectionRequests[1]?.frontProvider, frontProvider);
-      assert.equal(harness.selectionRequests[1]?.role, "independent_reviewer");
-      assert.equal(
-        harness.selectionRequests[1]?.subjectProvider,
-        executorProvider,
-      );
-      assert.equal(harness.selectionRequests[1]?.requestedProfileId, null);
-      assert.equal(
-        harness.selectionRequests[1]?.requiresIndependentProvider,
-        true,
-      );
-    }
-  }
-
-  const invalid = fixture();
-  const invalidResult = await invalid.runtime.start(
-    request({ requestedProfileId: "latest" }),
+test("選定の全項目と役割を保持し旧Profileを実行要求へ混入させない", async () => {
+  const selections = fixedSelections();
+  const harness = fixture();
+  const result = await harness.runtime.start(
+    request({ taskExecutionSelections: selections }),
     "C:\\repository",
   ).completion;
-  assert.equal(invalidResult.status, "blocked");
-  assert.equal(invalidResult.reason, "coordinator_task_request_invalid");
-  assert.equal(invalid.selectionRequests.length, 0);
+  assert.equal(result.status, "completed");
+  for (const [i, selected] of [
+    selections.executor,
+    selections.reviewer,
+  ].entries()) {
+    assert.deepEqual(
+      harness.selectionRequests[i]?.executionSelection,
+      selected,
+    );
+    assert.deepEqual(Object.keys(harness.selectionRequests[i] ?? {}).sort(), [
+      "executionSelection",
+      "operationId",
+      "taskAttempt",
+    ]);
+  }
+  const invalid = fixture();
+  const bad = await invalid.runtime.start(
+    request({
+      taskExecutionSelections: {
+        ...selections,
+        executor: { ...selections.executor, profileId: "legacy" },
+      },
+    }),
+    "C:\\repository",
+  ).completion;
+  assert.equal(bad.reason, "coordinator_task_request_invalid");
   assert.equal(invalid.operationCreateCount(), 0);
-  assert.equal(invalid.processStartCount(), 0);
 });
 
 /**
@@ -3345,7 +3297,7 @@ test("同一Provider Reviewerは低リスクSlateが指定した別実行Context
       reviewerIndependence: "execution_context_independent",
     });
     const started = harness.runtime.start(
-      request({ frontProvider: provider }),
+      request({ taskExecutionSelections: fixedSelections(provider, provider) }),
       "C:\\repository",
     );
     const result = await started.completion;
@@ -3354,13 +3306,9 @@ test("同一Provider Reviewerは低リスクSlateが指定した別実行Context
     assert.equal(result.reviewerProvider, provider);
     assert.equal(result.reviewerIndependence, "execution_context_independent");
     assert.notEqual(harness.selectionRequests[0], harness.selectionRequests[1]);
-    assert.equal(
-      harness.selectionRequests[1]?.requestedExecutorProvider,
-      provider,
-    );
-    assert.equal(
-      harness.selectionRequests[1]?.requiresIndependentProvider,
-      false,
+    assert.deepEqual(
+      harness.selectionRequests[1]?.executionSelection,
+      fixedSelections(provider, provider).reviewer,
     );
     assert.equal(harness.processStartCount(), 2);
     assert.deepEqual(harness.authorizedProviderSets, [[provider]]);
@@ -3932,8 +3880,14 @@ test("Reviewer指摘を一回だけ同一Executorへ戻し、同一独立Reviewe
   assert.equal(result.status, "completed");
   assert.equal(result.remediationPerformed, true);
   assert.equal(harness.selectionRequests.length, 4);
-  assert.equal(harness.selectionRequests[2]?.requestedExecutorProvider, "auto");
-  assert.equal(harness.selectionRequests[3]?.requestedExecutorProvider, "auto");
+  assert.deepEqual(
+    harness.selectionRequests[2]?.executionSelection,
+    fixedSelections().executor,
+  );
+  assert.deepEqual(
+    harness.selectionRequests[3]?.executionSelection,
+    fixedSelections().reviewer,
+  );
   assert.equal(harness.selectionNotices.length, 4);
   await assertLifecycleRuntimeTraceCases(traceCaseIds, harness);
 });

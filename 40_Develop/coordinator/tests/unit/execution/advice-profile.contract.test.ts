@@ -11,6 +11,7 @@
 import type { AdviceProviderOutcome } from "../../../src/execution/advice.ts";
 import type { ProviderAdviceExecutionPlan } from "../../../src/execution/preparation.ts";
 import assert from "node:assert/strict";
+import { executionSelection } from "../../fixtures/ai-selection.ts";
 import { fixtureNetworkPolicy } from "../../fixtures/network-policy.ts";
 import test from "node:test";
 import {
@@ -33,8 +34,9 @@ const profile = resolveAiProfileById(
   "PROFILE-100001",
 ).value;
 if (profile === null) throw new Error("test_profile_required");
+const selection = executionSelection("advice");
 const prepared = prepareAdviceTask({
-  profileId: profile.profileId,
+  executionSelection: selection,
   prompt: "現在状態を説明する",
   projection: [
     {
@@ -201,8 +203,7 @@ test("exact Codex Profileを変更せず一つのExecutorへ渡す", async () =>
     Object.freeze({
       networkPolicy: fixtureNetworkPolicy(profile.provider),
       taskPacket: prepared.taskPacket,
-      catalogRevision: 1,
-      profile,
+      executionSelection: selection,
     }),
     new AbortController().signal,
   );
@@ -214,14 +215,13 @@ test("exact Codex Profileを変更せず一つのExecutorへ渡す", async () =>
   >;
   assert.deepEqual(flatInput, {
     contract: "crdd-coordinator/workbench-ai-advice-execution-plan",
-    contractRevision: 1,
+    contractRevision: 2,
     mode: "workbench_advice",
-    catalogRevision: 1,
     provider: profile.provider,
     providerPrompt: prepared.taskPacket.providerPrompt,
     taskHash: prepared.taskPacket.taskHash,
     projectionHash: prepared.taskPacket.projectionHash,
-    profileId: profile.profileId,
+    executionSelection: selection,
     exactModelId: profile.exactModelId,
     reasoningEffort: profile.defaultReasoningEffort,
     offering: profile.offering,
@@ -308,10 +308,9 @@ test("Profile契約不整合を全Executor Effect前に拒否する", async () =
     Object.freeze({
       networkPolicy: fixtureNetworkPolicy(profile.provider),
       taskPacket: prepared.taskPacket,
-      catalogRevision: 1,
-      profile: Object.freeze({
-        ...profile,
-        offering: "claude_max" as const,
+      executionSelection: Object.freeze({
+        ...selection,
+        provider: "claude" as const,
       }),
     }),
     new AbortController().signal,
@@ -370,9 +369,11 @@ test("Task Profile不一致はAI Adapter移管後もExecutor Effect前に拒否�
   const result = await adapter(
     {
       networkPolicy: fixtureNetworkPolicy(profile.provider),
-      taskPacket: { ...prepared.taskPacket, profileId: "PROFILE-999999" },
-      catalogRevision: 1,
-      profile,
+      taskPacket: {
+        ...prepared.taskPacket,
+        executionSelection: { ...selection, configIdentity: "f".repeat(64) },
+      },
+      executionSelection: selection,
     },
     new AbortController().signal,
   );

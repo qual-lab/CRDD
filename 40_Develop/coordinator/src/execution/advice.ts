@@ -1,10 +1,15 @@
 /**
  * 読取り助言の受付・送信同意・Provider配送・結果受理を所有する。
  *
- * @responsibility ContextとProfileを今回の一回送信へ結合し、元結果・cleanup・回復参照を保持する。
+ * @responsibility Contextと固定選定を今回の一回送信へ結合し、元結果・cleanup・回復参照を保持する。
  * @trace ARCH-000010
  * @trace ARCH-000015
  */
+import {
+  inspectExecutionSelection,
+  hashExecutionSelection,
+  type ExecutionSelection,
+} from "../selection/model.ts";
 
 import {
   type ProviderAdviceExecutionPlan,
@@ -19,13 +24,7 @@ import {
   type VerifiedRepositoryRoot,
   resolveVerifiedRepositoryRoot,
 } from "../../../version-control/src/index.ts";
-import {
-  type AiProfileCatalogStore,
-  type ResolvedAiProfileIdentity,
-  type AiProfileCatalogSnapshot,
-  resolveAiProfileById,
-  providerProfileSupportsExecution,
-} from "../../../ai-adapter/src/index.ts";
+
 import {
   type DockerNetworkPolicy,
   parseDockerNetworkPolicy,
@@ -124,22 +123,21 @@ const PROJECT_CONTEXT_REFERENCE = "PROJECT_CONTEXT.md";
 
 /**
  * 認可済みRepositoryの助言依頼を共通Provider実行へ一度だけ渡す。
- * @responsibility 投影・Profile・送信同意・計画・結果と元Host参照を一つの利用側入口へ結合する。
+ * @responsibility 投影・固定選定・送信同意・計画・結果と元Host参照を一つの利用側入口へ結合する。
  * @trace ARCH-000015
- * @input 検証済みRoot、Profile Store、今回の要求、取消と既存の実行観測。
+ * @input 検証済みRoot、完全ExecutionSelectionを含む今回の要求、取消と既存の実行観測。
  * @returns 非公開Provider本文を除いた結果、cleanup状態、元Host回復参照。
  * @precondition 上位が主体・Repository・今回操作の認可を済ませている。
  * @postcondition 助言用途で一回だけ実行し、編集・Reviewer・自動再送を追加しない。
  * @effect 既存のContext読取りと、同意成立後のProvider実行・取消・回収。
  * @failure 不明な実行・回収を成功やEffect 0へ補完しない。
- * @invariant 入力のProfile、通信Hash、一回送信と非共有条件を保持する。
+ * @invariant 入力の固定選定、通信Hash、一回送信と非共有条件を保持する。
  * @boundary 公開Task利用側とProvider実行・Context投影の組立て。
  * @security 生出力・秘密値・Host Pathを公開しない。
  * @concurrency 一要求ごとの閉包で結果を捕捉し、既存の排他と一回消費に従う。
  */
 export async function runRepositoryAdvice(
   root: VerifiedRepositoryRoot,
-  profiles: AiProfileCatalogStore,
   request: CoordinatorAiRequestInput,
   signal: AbortSignal,
   observation?: Pick<
@@ -158,13 +156,7 @@ export async function runRepositoryAdvice(
   const consumedGrants = new WeakSet<object>();
   const dispatch: AdviceDispatch = (input, cancellation) =>
     dispatchAdviceRequest(adapter, consumedGrants, input, cancellation);
-  const response = await executeAdviceRequest(
-    root,
-    profiles,
-    dispatch,
-    request,
-    signal,
-  );
+  const response = await executeAdviceRequest(root, dispatch, request, signal);
   const observed = runtimeResult as ProviderAdviceRuntimeResult | null;
   return Object.freeze({
     result: response,
@@ -180,17 +172,16 @@ export async function runRepositoryAdvice(
  *
  * @responsibility Task Packet消費後のAuthority確認、Provider実行、結果正規化およびcleanupを下位Adapterへ委譲する。
  * @trace ARCH-000015
- * @shape Task Packet、採用Catalog改訂、exact ProfileおよびcancellationSignalを受け、Coordinator AI結果を返す非同期関数である。
+ * @shape Task Packet、採用設定Identity、完全選定およびcancellationSignalを受け、Coordinator AI結果を返す非同期関数である。
  * @invariant Packet生成成功だけでは外部送信Authorityを持たない。
  * @boundary Coordinator Task準備と外部送信Adapterの境界。
- * @security AdapterはPacketのtaskHash、Profileおよび許可済み参照を読み替えない。
- * @compatibility Workbench Advice Task Contract revision 1へ適合する。
+ * @security AdapterはPacketのtaskHash、固定選定および許可済み参照を読み替えない。
+ * @compatibility Workbench Advice Task Contract revision 2へ適合する。
  */
 export type AdviceDispatchInput = Readonly<{
   networkPolicy: DockerNetworkPolicy;
   taskPacket: AdviceTaskPacket;
-  catalogRevision: number;
-  profile: ResolvedAiProfileIdentity;
+  executionSelection: ExecutionSelection;
   externalSendConfirmed: boolean;
 }>;
 
@@ -213,14 +204,14 @@ export type AdviceDispatch = (
 
 /**
  * 固定Contextの読取り助言だけを単発実行Ownerへ提供する。
- * @responsibility 既存の投影・Profile・送信契約を再利用しRequest台帳を作らない。
+ * @responsibility 既存の投影・固定選定・送信契約を再利用しRequest台帳を作らない。
  * @trace ARCH-000015
- * @input 検証済みRoot、Profile Store、助言配送。
+ * @input 検証済みRootと固定選定を受ける助言配送。
  * @returns 終了・cleanupまで待つ一回のExecutor。
  * @precondition 上位が受付と取消を所有する。
- * @postcondition 固定Contextとexact Profile以外へ送信しない。
+ * @postcondition 固定Contextと完全選定以外へ送信しない。
  * @effect 固定Context読取りと注入した配送。
- * @failure 観測・取消・Profile不成立は停止。
+ * @failure 観測・取消・固定選定不成立は停止。
  * @invariant 変更実行・Candidate生成を行わない。
  * @boundary 単発Ownerと助言Runtime。
  * @security 本文を保存しない。
@@ -228,13 +219,11 @@ export type AdviceDispatch = (
  */
 export function createRepositoryAdviceExecutor(
   repositoryRootCapability: VerifiedRepositoryRoot,
-  profileCatalogStore: AiProfileCatalogStore,
   dispatchReadOnlyAdvice: AdviceDispatch,
 ): CoordinatorAiRequestExecutor {
   return (request, signal) =>
     executeAdviceRequest(
       repositoryRootCapability,
-      profileCatalogStore,
       dispatchReadOnlyAdvice,
       request,
       signal,
@@ -242,15 +231,15 @@ export function createRepositoryAdviceExecutor(
 }
 
 /**
- * 固定Context・Profile・同意を照合して一回の助言要求を処理する。
- * @responsibility 既存の投影・Profile・送信契約を再利用しRequest台帳を作らない。
+ * 固定Context・固定選定・同意を照合して一回の助言要求を処理する。
+ * @responsibility 既存の投影・固定選定・送信契約を再利用しRequest台帳を作らない。
  * @trace ARCH-000015
- * @input 検証済みRoot、Profile Store、配送関数、要求と取消Signal。
+ * @input 検証済みRoot、配送関数、完全ExecutionSelectionを含む要求と取消Signal。
  * @returns Promiseで公開助言結果を返す。
  * @precondition 上位が受付と取消を所有する。
- * @postcondition 固定Contextとexact Profile以外へ送信しない。
+ * @postcondition 固定Contextと完全選定以外へ送信しない。
  * @effect 固定Context読取りと注入した配送。
- * @failure 観測・取消・Profile不成立は停止。
+ * @failure 観測・取消・固定選定不成立は停止。
  * @invariant 変更実行・Candidate生成を行わない。
  * @boundary 単発Ownerと助言Runtime。
  * @security 本文を保存しない。
@@ -258,11 +247,15 @@ export function createRepositoryAdviceExecutor(
  */
 async function executeAdviceRequest(
   repositoryRootCapability: VerifiedRepositoryRoot,
-  profileCatalogStore: AiProfileCatalogStore,
   dispatchReadOnlyAdvice: AdviceDispatch,
   request: CoordinatorAiRequestInput,
   cancellationSignal: AbortSignal,
 ): Promise<CoordinatorAiRequestResult> {
+  const selection = inspectExecutionSelection(request.executionSelection);
+  if (selection?.role !== "advice")
+    return createAdviceRejectedResult(
+      "coordinator_ai_selection_not_available_for_advice",
+    );
   const packet = await prepareRepositoryAdvicePacket(
     repositoryRootCapability,
     request,
@@ -274,33 +267,12 @@ async function executeAdviceRequest(
     );
   if (cancellationSignal.aborted)
     return createAdviceRejectedResult("coordinator_ai_request_cancelled");
-  let catalogSnapshot: AiProfileCatalogSnapshot;
-  try {
-    const read = profileCatalogStore.snapshot();
-    if (read.status !== "read")
-      return createAdviceRejectedResult(
-        "coordinator_ai_profile_snapshot_unavailable",
-      );
-    catalogSnapshot = read.value;
-  } catch {
-    return createAdviceRejectedResult(
-      "coordinator_ai_profile_snapshot_unavailable",
-    );
-  }
-  const profile = resolveAiProfileById(
-    catalogSnapshot.catalog,
-    packet.profileId,
-  ).value;
-  if (profile === null || !profile.selectionRoles.includes("coordinator"))
-    return createAdviceRejectedResult(
-      "coordinator_ai_profile_not_available_for_advice",
-    );
   if (cancellationSignal.aborted)
     return createAdviceRejectedResult("coordinator_ai_request_cancelled");
   const network = readRepositoryNetworkPolicies(repositoryRootCapability);
   if (
     network.status !== "ready" ||
-    network.policies[profile.provider].policyHash !==
+    network.policies[selection.provider].policyHash !==
       request.expectedNetworkPolicyHash
   )
     return createAdviceRejectedResult("coordinator_ai_network_policy_changed");
@@ -308,10 +280,9 @@ async function executeAdviceRequest(
     return createAdviceRejectedResult("coordinator_ai_request_cancelled");
   return dispatchReadOnlyAdvice(
     Object.freeze({
-      networkPolicy: network.policies[profile.provider],
+      networkPolicy: network.policies[selection.provider],
       taskPacket: packet,
-      catalogRevision: catalogSnapshot.revision,
-      profile,
+      executionSelection: selection,
       externalSendConfirmed: request.externalSendConfirmed,
     }),
     cancellationSignal,
@@ -361,7 +332,7 @@ async function prepareRepositoryAdvicePacket(
     const content = observed.source;
     if (cancellationSignal.aborted) return null;
     const prepared = prepareAdviceTask({
-      profileId: request.profileId,
+      executionSelection: request.executionSelection,
       prompt: request.prompt,
       projection: [
         {
@@ -441,8 +412,7 @@ export const PROVIDER_ADVICE_DISPATCH_RUNTIME_CONTRACT_REVISION = 1;
 export type AdviceProviderInput = Readonly<{
   networkPolicy: DockerNetworkPolicy;
   taskPacket: AdviceTaskPacket;
-  catalogRevision: number;
-  profile: ResolvedAiProfileIdentity;
+  executionSelection: ExecutionSelection;
 }>;
 
 /**
@@ -497,15 +467,14 @@ export type AdviceProviderAdapter = (
 type SendGrant = Readonly<{
   networkPolicyHash: string;
   taskHash: string;
-  catalogRevision: number;
-  profileId: string;
-  provider: ResolvedAiProfileIdentity["provider"];
+  selectionHash: string;
+  provider: "codex" | "claude";
 }>;
 
 /**
  * 読取り助言の専用Dispatchを生成する。
  *
- * @responsibility 一回の明示確認をTask・Catalog・Profileへ結合し、消費後だけProvider Adapterへ渡す。
+ * @responsibility 一回の明示確認をTask・固定選定Hashへ結合し、消費後だけProvider Adapterへ渡す。
  * @trace ARCH-000015
  * @input Provider固有の固定実行境界。
  * @returns 助言受付へ注入できるDispatch。
@@ -530,7 +499,7 @@ export function createAdviceDispatch(
 /**
  * 同意を一回消費し助言入力をProvider実行へ配送する。
  *
- * @responsibility 一回の明示確認をTask・Catalog・Profileへ結合し、消費後だけProvider Adapterへ渡す。
+ * @responsibility 一回の明示確認をTask・固定選定Hashへ結合し、消費後だけProvider Adapterへ渡す。
  * @trace ARCH-000015
  * @input Provider Adapter、消費済みGrant集合、配送入力と取消Signal。
  * @returns Promiseで検査済み助言結果を返す。
@@ -572,8 +541,7 @@ async function dispatchAdviceRequest(
       Object.freeze({
         networkPolicy: input.networkPolicy,
         taskPacket: input.taskPacket,
-        catalogRevision: input.catalogRevision,
-        profile: input.profile,
+        executionSelection: input.executionSelection,
       }),
       cancellationSignal,
     );
@@ -637,8 +605,7 @@ export function describeAdviceDispatchContract() {
     authority: "explicit_single_request_confirmation",
     authorityScope: Object.freeze([
       "taskHash",
-      "catalogRevision",
-      "profileId",
+      "selectionHash",
       "provider",
       "networkPolicyHash",
     ]),
@@ -652,26 +619,25 @@ export function describeAdviceDispatchContract() {
 /**
  * 検証済み依頼から一回送信Grantを発行する。
  *
- * @responsibility Task、Catalog改訂、Profile、Providerおよび通信設定Hashを一つのAuthority Scopeへ固定する。
+ * @responsibility Task、設定Identity、固定選定、Providerおよび通信設定Hashを一つのAuthority Scopeへ固定する。
  * @trace ARCH-000015
  * @input input: 検証済み助言Dispatch入力。
  * @returns 一回消費専用のSend Grant。
  * @precondition Dispatch入口で入力妥当性と明示確認が成立している。
- * @postcondition Grantは入力と同じTask、Catalog改訂、Profile、Providerおよび通信設定Hashだけを表す。
+ * @postcondition Grantは入力と同じTask、設定Identity、固定選定、Providerおよび通信設定Hashだけを表す。
  * @effect N/A: 外部Effectを発行せずメモリ上の固定値を生成する。
  * @failure N/A: 入力検証済みの値を写像するだけである。
  * @invariant Prompt本文、Credentialおよび投影本文をGrantへ含めない。
  * @boundary 検証済み依頼と一回送信Authorityの境界。
- * @security Authorityを別Taskまたは別Profileへ転用できる情報へ広げない。
+ * @security Authorityを別Taskまたは別固定選定へ転用できる情報へ広げない。
  * @concurrency 呼出しごとに独立した新しいObject Identityを返す。
  */
 function issueGrant(input: AdviceDispatchInput): SendGrant {
   return Object.freeze({
     networkPolicyHash: input.networkPolicy.policyHash,
     taskHash: input.taskPacket.taskHash,
-    catalogRevision: input.catalogRevision,
-    profileId: input.profile.profileId,
-    provider: input.profile.provider,
+    selectionHash: hashExecutionSelection(input.executionSelection) as string,
+    provider: input.executionSelection.provider,
   });
 }
 
@@ -688,7 +654,7 @@ function issueGrant(input: AdviceDispatchInput): SendGrant {
  * @failure 消費済みまたはScope不一致をfalseで拒否する。
  * @invariant 同じGrant Objectを二回trueにしない。
  * @boundary Authority GrantとProvider Effect許可の境界。
- * @security Task、Catalog改訂、Profile、Providerの全項目を照合する。
+ * @security Task、設定Identity、固定選定、Providerの全項目を照合する。
  * @concurrency 同期処理として照合と記録を同じ呼出し内で完了する。
  */
 function consumeGrant(
@@ -700,9 +666,8 @@ function consumeGrant(
     consumedGrants.has(grant) ||
     grant.networkPolicyHash !== input.networkPolicy.policyHash ||
     grant.taskHash !== input.taskPacket.taskHash ||
-    grant.catalogRevision !== input.catalogRevision ||
-    grant.profileId !== input.profile.profileId ||
-    grant.provider !== input.profile.provider
+    grant.selectionHash !== hashExecutionSelection(input.executionSelection) ||
+    grant.provider !== input.executionSelection.provider
   )
     return false;
   consumedGrants.add(grant);
@@ -712,7 +677,7 @@ function consumeGrant(
 /**
  * 助言Dispatch入力のIdentity整合を検査する。
  *
- * @responsibility Catalog改訂、Task/Profile対応、選択RoleおよびProvider許容値を検査する。
+ * @responsibility 設定Identity、Taskと固定選定対応、選択RoleおよびProvider許容値を検査する。
  * @trace ARCH-000015
  * @input input: 助言Dispatch入力。
  * @returns 固定契約を満たす場合だけtrue。
@@ -720,21 +685,21 @@ function consumeGrant(
  * @postcondition trueでも外部送信Authorityの成立は主張しない。
  * @effect N/A: 読取りだけを行う。
  * @failure 不整合をfalseとして返す。
- * @invariant Profile名称や表示値ではなく安定Identityを比較する。
+ * @invariant 固定選定名称や表示値ではなく安定Identityを比較する。
  * @boundary Repository CompositionとCoordinator Dispatchの境界。
  * @security 許容ProviderをCodexとClaudeへ限定する。
  * @concurrency N/A: 共有状態を変更しない同期検査である。
  */
 function isValidDispatchInput(input: AdviceDispatchInput): boolean {
   const network = parseDockerNetworkPolicy(input.networkPolicy);
+  const fixed = inspectExecutionSelection(input.executionSelection);
   return (
     network !== null &&
-    network.provider === input.profile.provider &&
-    Number.isSafeInteger(input.catalogRevision) &&
-    input.catalogRevision >= 0 &&
-    input.taskPacket.profileId === input.profile.profileId &&
-    input.profile.selectionRoles.includes("coordinator") &&
-    (input.profile.provider === "codex" || input.profile.provider === "claude")
+    fixed !== null &&
+    fixed.role === "advice" &&
+    network.provider === fixed.provider &&
+    hashExecutionSelection(input.taskPacket.executionSelection) ===
+      hashExecutionSelection(fixed)
   );
 }
 
@@ -819,17 +784,17 @@ function result(
 }
 
 /**
- * 助言のProfileを共通計画へ結合するAdapterを生成する。
+ * 助言の固定選定を共通計画へ結合するAdapterを生成する。
  *
- * @responsibility exact Profileから計画を作り、単一Runtimeへの搬送前に非共有条件とProvider・Model・推論強度を確認する。
+ * @responsibility 完全選定から計画を作り、単一Runtimeへの搬送前に非共有条件とProvider・Model・推論強度を確認する。
  * @trace ARCH-000010
  * @trace ARCH-000015
  * @input 解決済みProvider計画を一度だけ実行するRuntime。
  * @returns 助言Dispatchへ注入できるProvider Adapter。
  * @precondition runtimeは固定配布物、Subscription認証、取消およびcleanup契約を所有する。
- * @postcondition 同じTask Identityと選択Profileの計画でruntimeを最大一回呼び出す。
+ * @postcondition 同じTask Identityと選択固定選定の計画でruntimeを最大一回呼び出す。
  * @effect 一依頼につき選択Provider Executorを最大一回呼び出す。
- * @failure Profile契約不整合はExecutor Effect前にadviceProviderRejectedで返す。
+ * @failure 固定選定契約不整合はExecutor Effect前にadviceProviderRejectedで返す。
  * @invariant Provider、Model、推論強度およびOfferingをfallbackで変更しない。
  * @boundary Provider非依存DispatchとProvider固有実行境界の間。
  * @security API Key、任意Command、任意PathおよびProvider生設定を入力へ含めない。
@@ -844,15 +809,15 @@ export function createProviderAdviceAdapter(
 /**
  * 助言入力からProvider計画を作りRuntimeを一度実行する。
  *
- * @responsibility exact Profileから計画を作り、単一Runtimeへの搬送前に非共有条件とProvider・Model・推論強度を確認する。
+ * @responsibility 完全選定から計画を作り、単一Runtimeへの搬送前に非共有条件とProvider・Model・推論強度を確認する。
  * @trace ARCH-000010
  * @trace ARCH-000015
- * @input 固定Runtime、ProfileとTaskを含む入力、取消Signal。
+ * @input 固定Runtime、固定選定とTaskを含む入力、取消Signal。
  * @returns PromiseでProvider結果・Effect・cleanup観測を返す。
  * @precondition runtimeは固定配布物、Subscription認証、取消およびcleanup契約を所有する。
- * @postcondition 同じTask Identityと選択Profileの計画でruntimeを最大一回呼び出す。
+ * @postcondition 同じTask Identityと選択固定選定の計画でruntimeを最大一回呼び出す。
  * @effect 一依頼につき選択Provider Executorを最大一回呼び出す。
- * @failure Profile契約不整合はExecutor Effect前にadviceProviderRejectedで返す。
+ * @failure 固定選定契約不整合はExecutor Effect前にadviceProviderRejectedで返す。
  * @invariant Provider、Model、推論強度およびOfferingをfallbackで変更しない。
  * @boundary Provider非依存DispatchとProvider固有実行境界の間。
  * @security API Key、任意Command、任意PathおよびProvider生設定を入力へ含めない。
@@ -863,7 +828,7 @@ async function executeAdviceProviderInput(
   input: AdviceProviderInput,
   cancellationSignal: AbortSignal,
 ): Promise<AdviceProviderOutcome> {
-  if (!profileExecutionIsValid(input))
+  if (!executionSelectionIsValid(input))
     return Object.freeze({
       status: "blocked" as const,
       reason: "workbench_ai_provider_profile_invalid",
@@ -871,19 +836,22 @@ async function executeAdviceProviderInput(
       providerEffectIssued: false,
       cleanupConfirmed: true,
     });
+  const selection = input.executionSelection;
   const executionInput = Object.freeze({
     networkPolicy: input.networkPolicy,
-    catalogRevision: input.catalogRevision,
-    provider: input.profile.provider,
+    executionSelection: selection,
+    provider: selection.provider,
     providerPrompt: input.taskPacket.providerPrompt,
     taskHash: input.taskPacket.taskHash,
     projectionHash: input.taskPacket.projectionHash,
-    profileId: input.profile.profileId,
-    exactModelId: input.profile.exactModelId,
-    reasoningEffort: input.profile.defaultReasoningEffort,
-    offering: input.profile.offering,
+    exactModelId: selection.modelIdentifier,
+    reasoningEffort: selection.reasoningEffort,
+    offering:
+      selection.provider === "codex"
+        ? ("chatgpt_subscription_oauth" as const)
+        : ("claude_max" as const),
   });
-  const prepared = prepareProviderAdvicePlan(executionInput, input.profile);
+  const prepared = prepareProviderAdvicePlan(executionInput);
   if (prepared.status !== "prepared" || prepared.executionPlan === null)
     return Object.freeze({
       status: "blocked" as const,
@@ -896,26 +864,29 @@ async function executeAdviceProviderInput(
 }
 
 /**
- * 解決済みProfileが一回送信Executorへ渡せる閉じた契約か判定する。
+ * 解決済み固定選定が一回送信Executorへ渡せる閉じた契約か判定する。
  *
- * @responsibility Task/Profile対応、Role、Model、推論強度およびOfferingの整合をEffect前に確認する。
+ * @responsibility Taskと固定選定対応、Role、Model、推論強度およびOfferingの整合をEffect前に確認する。
  * @trace ARCH-000010
  * @trace ARCH-000015
  * @input input: 助言Provider入力。
- * @returns Profile実行条件をすべて満たす場合だけtrue。
- * @precondition DispatchがTaskとProfile Identityの基本一致を確認済みである。
+ * @returns 固定選定実行条件をすべて満たす場合だけtrue。
+ * @precondition DispatchがTaskと固定選定 Identityの基本一致を確認済みである。
  * @postcondition trueでもProvider Effect Authorityや認証成立は主張しない。
  * @effect N/A: 読取りだけを行う。
  * @failure 不整合をfalseとして返す。
  * @invariant 許可集合外のModelまたは推論強度をcoerceしない。
- * @boundary 解決済みProfileとProvider固有Executorの境界。
+ * @boundary 解決済み固定選定とProvider固有Executorの境界。
  * @security coordinator RoleとSubscription Offering以外を送信対象へ昇格しない。
  * @concurrency N/A: 共有状態を変更しない同期検査である。
  */
-function profileExecutionIsValid(input: AdviceProviderInput) {
+function executionSelectionIsValid(input: AdviceProviderInput) {
+  const selection = inspectExecutionSelection(input.executionSelection);
   return (
-    input.taskPacket.profileId === input.profile.profileId &&
-    providerProfileSupportsExecution(input.profile, "coordinator")
+    selection !== null &&
+    selection.role === "advice" &&
+    hashExecutionSelection(input.taskPacket.executionSelection) ===
+      hashExecutionSelection(selection)
   );
 }
 
@@ -1397,7 +1368,15 @@ function createProviderAdviceRuntime(
       ) as RuntimeRecord;
       selectionControl = objectValue(selection.controlCapability);
       let selectionUse = objectValue(selection.useCapability);
-      if (!validSelection(selection, selectionControl, selectionUse, plan))
+      if (
+        !validSelection(
+          selection,
+          selectionControl,
+          selectionUse,
+          plan,
+          operation.operationId,
+        )
+      )
         throw new AdviceRuntimeError(
           "workbench_ai_advice_selection_unavailable",
         );
@@ -1480,6 +1459,7 @@ function createProviderAdviceRuntime(
           refreshedSelectionControl,
           refreshedSelectionUse,
           plan,
+          operation.operationId,
         )
       )
         throw new AdviceRuntimeError(
@@ -1492,7 +1472,7 @@ function createProviderAdviceRuntime(
         );
       const packet = dependencies.issuePacket({
         operationId: operation.operationId,
-        profileId: plan.profileId,
+        executionSelection: plan.executionSelection,
         provider: plan.provider,
         taskHash: plan.taskHash,
         projectionHash: plan.projectionHash,
@@ -1801,33 +1781,16 @@ function selectionRequest(
   operationId: string,
 ) {
   return Object.freeze({
-    frontProvider: plan.provider,
-    delegationNeed: "beneficial",
-    delegationReason: "explicit_user_delegation",
-    requestedExecutorProvider: plan.provider,
-    requestedProfileId: plan.profileId,
-    subjectProvider: null,
-    requiresIndependentProvider: false,
-    role: "coordinator",
-    workClass: "diagnosis",
-    planState: "complete",
-    risk: "low",
-    difficulty: "medium",
-    decisionImpact: "material",
-    isLocalCandidateOnly: false,
-    hasUnresolvedDirection: false,
-    requiresCrossContextAlignment: true,
     operationId,
-    parentOperationId: null,
-    ancestorOperationIds: Object.freeze([]),
-    delegationDepth: 0,
+    taskAttempt: 0,
+    executionSelection: plan.executionSelection,
   });
 }
 
 /**
  * 読取り助言のSelectionが固定実行計画と一致するか判定する。
  *
- * @responsibility Provider Effect前にProfile、Model、推論強度およびCapabilityの完全性を検査する。
+ * @responsibility Provider Effect前に固定選定、Model、推論強度およびCapabilityの完全性を検査する。
  * @trace ARCH-000010
  * @input selection: Selection結果、controlCapability: 制御Capability、useCapability: 利用Capability、plan: 固定実行計画
  * @returns 固定実行計画と完全一致する発行済みSelectionだけtrueを返す。
@@ -1845,13 +1808,19 @@ function validSelection(
   controlCapability: object | null,
   useCapability: object | null,
   plan: ProviderAdviceExecutionPlan,
+  operationId: string,
 ) {
   return (
+    selection.operationId === operationId &&
+    selection.taskAttempt === 0 &&
+    selection.selectionHash ===
+      hashExecutionSelection(plan.executionSelection) &&
     selection.status === "issued" &&
     controlCapability !== null &&
     useCapability !== null &&
     selection.executorProvider === plan.provider &&
-    selection.profileId === plan.profileId &&
+    hashExecutionSelection(selection.executionSelection) ===
+      hashExecutionSelection(plan.executionSelection) &&
     selection.selectedModel === plan.exactModelId &&
     selection.selectedEffort === plan.reasoningEffort &&
     typeof selection.speedMode === "string" &&
@@ -1862,7 +1831,7 @@ function validSelection(
 /**
  * Mount前後のSelectionが同じ意味を保持するか判定する。
  *
- * @responsibility 短命Selectionの再発行によってProvider、Profile、Model、推論強度、速度または理由が変化しないことを保証する。
+ * @responsibility 短命Selectionの再発行によってProvider、固定選定、Model、推論強度、速度または理由が変化しないことを保証する。
  * @trace ARCH-000010
  * @input initial: Mount前Selection、refreshed: Effect直前Selection
  * @returns 意味Propertyが完全一致する場合だけtrueを返す。
@@ -1877,8 +1846,12 @@ function validSelection(
  */
 function sameSelection(initial: RuntimeRecord, refreshed: RuntimeRecord) {
   return (
+    initial.operationId === refreshed.operationId &&
+    initial.taskAttempt === refreshed.taskAttempt &&
+    initial.selectionHash === refreshed.selectionHash &&
     initial.executorProvider === refreshed.executorProvider &&
-    initial.profileId === refreshed.profileId &&
+    hashExecutionSelection(initial.executionSelection) ===
+      hashExecutionSelection(refreshed.executionSelection) &&
     initial.selectedModel === refreshed.selectedModel &&
     initial.selectedEffort === refreshed.selectedEffort &&
     initial.speedMode === refreshed.speedMode &&
@@ -2204,7 +2177,7 @@ export type CoordinatorAiRequestMode = "read_only_advice";
 
 export type CoordinatorAiRequestInput = Readonly<{
   mode: CoordinatorAiRequestMode;
-  profileId: string;
+  executionSelection: ExecutionSelection;
   prompt: string;
   contextReferences: readonly string[];
   allowedPaths: readonly string[];

@@ -3734,7 +3734,7 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", as
       .digest("hex");
     const token = `host.crdd-coordinator-doctor-fixture.12345678-1234-4234-8234-123456789abc.${hostHash}`;
     const taskIdentity = {
-      schema: "crdd-coordinator/operation-identity/v1",
+      schema: "crdd-coordinator/operation-identity/v2",
       operationNonce: "b".repeat(64),
       provider: "claude",
       consumer: "orchestrator",

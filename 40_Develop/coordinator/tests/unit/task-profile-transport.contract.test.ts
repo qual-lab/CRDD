@@ -1,8 +1,8 @@
 /**
- * 既定Task入力のProfileと通信Hashを閉じたConsumer契約で検査する。
+ * 既定Task入力の固定選定と通信Hashを閉じたConsumer契約で検査する。
  *
  * @packageDocumentation
- * @responsibility 合成の期待入力をConsumerが正規化し、Profile・Provider・通信Hashを保持することを確認する。
+ * @responsibility 合成の期待入力をConsumerが正規化し、固定選定・Provider・通信Hashを保持することを確認する。
  * @trace PRL-UT-014
  * @level UT
  * @scope Objective SnapshotからCoordinator Task Requestまで。
@@ -10,6 +10,9 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
+import { selectionConfig } from "../fixtures/ai-selection.ts";
+import { resolveTaskExecutionSelections } from "../../src/selection/resolve.ts";
+import { buildObjectiveTaskRequest } from "../../src/objective/execute.ts";
 import { inspectCoordinatorObjectiveRequest } from "../../src/index.ts";
 import { snapshotCoordinatorTaskRequest } from "../../src/execution/request.ts";
 
@@ -30,90 +33,77 @@ const objective = Object.freeze({
 });
 
 /**
- * 明示Profileの全入力組合せをTaskの閉じた検査へ接続する。
+ * 明示固定選定の全入力組合せをTaskの閉じた検査へ接続する。
  *
- * @responsibility 合成Task要求を実Consumerが正規化しProfile・Provider・Front・通信Hashを保持することを検証する。
+ * @responsibility 合成Task要求を実Consumerが正規化し固定選定・Provider・Front・通信Hashを保持することを検証する。
  * @trace PRL-UT-014
- * @precondition 正常Objectiveと三つの任意項目、二つのFront Providerを使用する。
+ * @precondition 正常Objectiveと三つの任意項目、二つの起点Providerを使用する。
  * @stimulus 全八組合せと二種類のFrontを持つ合成Task要求を実Task入力検査へ渡す。
- * @observation Profile、Provider、Front Provider、複製配列と固定分類を確認する。
+ * @observation 固定選定、Provider、起点Provider、複製配列と固定分類を確認する。
  * @oracle 明示IDはexact、省略はnullとして既存自動選択へ接続し、権限を追加しない。
  * @cleanup N/A: メモリ内の純粋関数だけを実行する。
  * @boundary N/A: 実Task、ProviderとHost資源を起動しない。
  */
-test("Objective Profileは全八組合せで既存Task契約へexactに搬送する", () => {
-  const optionalFieldNames = [
-    {
-      decisionCapabilityReplacement: {
-        decisionId: "decision-1",
-        replacementRequestId: "request-2",
-      },
-    },
-    { requestedExecutorProvider: "codex" },
-    { requestedProfileId: "PROFILE-100001" },
-  ];
-  for (const frontProvider of ["codex", "claude"] as const) {
-    for (let mask = 0; mask < 8; mask += 1) {
-      const request = inspectCoordinatorObjectiveRequest(
-        Object.assign(
-          { ...objective },
-          ...optionalFieldNames.filter(
-            (_entry, index) => (mask & (1 << index)) !== 0,
-          ),
-        ),
-      );
-      assert.ok(request);
-      const task = {
-        frontProvider,
-        requestedExecutorProvider: mask & 2 ? "codex" : "auto",
-        ...(mask & 4 ? { requestedProfileId: "PROFILE-100001" } : {}),
-        objective: request.objective,
-        acceptanceCriteria: [...request.acceptanceCriteria],
-        allowedPaths: [...request.allowedPaths],
-        readPaths: [...request.readPaths],
-        workClass: "bounded_implementation",
-        planState: "complete",
-        risk: "low",
-        difficulty: "low",
-        decisionImpact: "limited",
-        isLocalCandidateOnly: true,
-        hasUnresolvedDirection: false,
-        requiresCrossContextAlignment: false,
-      };
-      const inspected = snapshotCoordinatorTaskRequest(task);
-      const networkHash = "c".repeat(64);
-      const withNetwork = snapshotCoordinatorTaskRequest({
+test("Objectiveの固定選定は全八組合せでTask契約へexactに搬送する", () => {
+  for (let mask = 0; mask < 8; mask++) {
+    const raw = {
+      ...objective,
+      ...(mask & 2 ? { workType: "coding" } : {}),
+      ...(mask & 4
+        ? { choice: { provider: "codex", model: "gpt-5.5", effort: "low" } }
+        : {}),
+      ...(mask & 1
+        ? {
+            decisionCapabilityReplacement: {
+              decisionId: "decision-1",
+              replacementRequestId: "request-2",
+            },
+          }
+        : {}),
+    };
+    const request = inspectCoordinatorObjectiveRequest(raw);
+    assert.ok(request);
+    const selected = resolveTaskExecutionSelections(selectionConfig(), {
+      workType: request.workType ?? null,
+      ...(request.choice ? { choice: request.choice } : {}),
+    });
+    assert.equal(selected.status, "resolved");
+    if (selected.status !== "resolved") assert.fail("selection_rejected");
+    const task = buildObjectiveTaskRequest(request, selected.value);
+    const normalized = snapshotCoordinatorTaskRequest(task);
+    assert.equal(normalized?.status, "accepted");
+    if (normalized?.status !== "accepted") assert.fail("task_rejected");
+    assert.deepEqual(
+      normalized.request.taskExecutionSelections,
+      selected.value,
+    );
+    assert.notEqual(task.acceptanceCriteria, request.acceptanceCriteria);
+    assert.deepEqual(task.allowedPaths, request.allowedPaths);
+    assert.equal(Object.isFrozen(normalized.request), true);
+    const networkHash = "c".repeat(64);
+    const network = snapshotCoordinatorTaskRequest({
+      ...task,
+      expectedNetworkPolicyHash: networkHash,
+    });
+    assert.equal(network?.status, "accepted");
+    if (network?.status !== "accepted") assert.fail("network_rejected");
+    assert.equal(network.request.expectedNetworkPolicyHash, networkHash);
+    assert.equal(
+      snapshotCoordinatorTaskRequest({
         ...task,
-        expectedNetworkPolicyHash: networkHash,
-      });
-      assert.equal(withNetwork?.status, "accepted");
-      if (withNetwork?.status !== "accepted") assert.fail("network_rejected");
-      assert.equal(withNetwork.request.expectedNetworkPolicyHash, networkHash);
+        expectedNetworkPolicyHash: "invalid",
+      }),
+      null,
+    );
+    for (const field of [
+      "requestedProfileId",
+      "requestedExecutorProvider",
+      "frontProvider",
+    ])
       assert.equal(
-        snapshotCoordinatorTaskRequest({
-          ...task,
-          expectedNetworkPolicyHash: "invalid",
-        }),
+        snapshotCoordinatorTaskRequest({ ...task, [field]: "legacy" }),
         null,
       );
-      assert.equal(inspected?.status, "accepted");
-      assert.ok(inspected?.status === "accepted");
-      const snapshot = inspected.request;
-      assert.equal(
-        snapshot.requestedProfileId,
-        mask & 4 ? "PROFILE-100001" : null,
-      );
-      assert.equal(
-        snapshot.requestedExecutorProvider,
-        mask & 2 ? "codex" : "auto",
-      );
-      assert.equal(snapshot.frontProvider, frontProvider);
-      assert.equal(Object.hasOwn(task, "requestedProfileId"), (mask & 4) !== 0);
-      assert.notEqual(task.acceptanceCriteria, request.acceptanceCriteria);
-      assert.deepEqual(task.allowedPaths, request.allowedPaths);
-      assert.ok(Object.isFrozen(snapshot));
-      assert.equal(Object.hasOwn(task, "selectionGrant"), false);
-      assert.equal(Object.hasOwn(task, "decisionCapabilityReplacement"), false);
-    }
+    assert.equal(Object.hasOwn(task, "decisionCapabilityReplacement"), false);
   }
 });

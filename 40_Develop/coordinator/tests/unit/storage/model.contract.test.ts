@@ -7,7 +7,10 @@
  * @scope coordinator-state-model
  * @boundary PRL-UT-006=Direct Boundary: メモリ内の保存本文。
  */
-import { taskExecutionSelections } from "../../fixtures/ai-selection.ts";
+import {
+  executionSelection,
+  taskExecutionSelections,
+} from "../../fixtures/ai-selection.ts";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
@@ -69,7 +72,7 @@ const binding = "a".repeat(64);
  */
 function emptyUnifiedSnapshot(): CoordinatorUnifiedSnapshot {
   return {
-    schema: "crdd-coordinator/current-state/v4",
+    schema: "crdd-coordinator/current-state/v5",
     revision: 1,
     previous: null,
     repositoryBinding: binding,
@@ -119,6 +122,8 @@ test("単一保存codec: Rootと改訂を一組にし片側初期化を拒否す
     snapshot,
   );
   for (const invalid of [
+    { ...snapshot, schema: "crdd-coordinator/current-state/v4" },
+    { ...snapshot, schema: "crdd-coordinator/current-state/v3" },
     { ...snapshot, schema: "crdd-coordinator/current-state/v2" },
     { ...snapshot, repositoryBindingId: "binding-a" },
     { ...snapshot, intakeEpoch: "epoch-a" },
@@ -301,7 +306,7 @@ test("Task保存codec: 非空回復の値キーとexact参照を保持する", (
   };
   const snapshot = {
     schema: COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
-    schemaRevision: 4,
+    schemaRevision: 5,
     repositoryRootHash: binding,
     repositoryBindingId: "binding-a",
     snapshotRevision: 1,
@@ -802,14 +807,19 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     "host.crdd-coordinator-doctor-fixture.12345678-1234-4234-8234-123456789abc." +
     hostHash;
   const identity = {
-    schema: "crdd-coordinator/operation-identity/v1",
+    schema: "crdd-coordinator/operation-identity/v2",
     operationNonce: nonce,
     provider: "claude",
     consumer: "orchestrator",
     operationId: "OP-123456",
     recoveryCorrelationId: "task-operation-a",
     grantRef: "PHMGRANT-FIXTURE",
-    profileId: "PROFILE-123456",
+    executionSelection: executionSelection("executor", {
+      provider: "claude",
+      model: "opus",
+      effort: "low",
+    }),
+    taskAttempt: 0,
     stableLogicalHomeBindingHash: "c".repeat(64),
     providerHomeIdentityHash: "8".repeat(64),
     providerHomeProtectionHash: "9".repeat(64),
@@ -844,6 +854,23 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     prepareCoordinatorStateOperationSnapshot(null, identityJson, binding),
     "正常な初期Host証明を現行model自身が受理する",
   );
+  for (const invalidIdentity of [
+    { ...identity, schema: "crdd-coordinator/operation-identity/v1" },
+    { ...identity, profileId: "PROFILE-123456" },
+    { ...identity, taskAttempt: 2 },
+    {
+      ...identity,
+      executionSelection: { ...identity.executionSelection, provider: "codex" },
+    },
+  ])
+    assert.equal(
+      prepareCoordinatorStateOperationSnapshot(
+        null,
+        JSON.stringify(invalidIdentity) + "\n",
+        binding,
+      ),
+      null,
+    );
   for (const initialHostRecovery of [
     { ...identity.initialHostRecovery, token: `${token.slice(0, -1)}0` },
     { ...identity.initialHostRecovery, recordHash: "0".repeat(64) },

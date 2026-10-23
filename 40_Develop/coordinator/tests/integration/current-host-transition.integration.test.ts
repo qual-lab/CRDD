@@ -78,7 +78,7 @@ function fixtureOperation(
     management,
     repository,
     identity: {
-      schema: "crdd-coordinator/operation-identity/v1",
+      schema: "crdd-coordinator/operation-identity/v2",
       operationNonce: nonce,
       provider: "claude",
       consumer: "coordinator_cli",

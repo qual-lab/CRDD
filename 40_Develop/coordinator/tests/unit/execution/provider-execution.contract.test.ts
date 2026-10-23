@@ -17,10 +17,8 @@ import {
   poisonRuntimeProcessAfterCleanupUnknown,
 } from "../../../src/execution/process-safety-state.ts";
 
-import {
-  defaultAiProfileCatalog,
-  resolveAiProfileById,
-} from "../../../../ai-adapter/src/index.ts";
+import { hashExecutionSelection } from "../../../src/selection/model.ts";
+import { executionSelection } from "../../fixtures/ai-selection.ts";
 import { prepareProviderAdvicePlan } from "../../../src/execution/preparation.ts";
 import {
   createIsolatedProviderAdviceRuntimeCandidate,
@@ -32,25 +30,19 @@ import {
 import { createIsolatedDelegationSelectionGrantRuntimeCandidate } from "../../../src/execution/authority.ts";
 import { createIsolatedCoordinatorOperationCreationCandidate } from "../../../src/execution/operation.ts";
 
-const profile = resolveAiProfileById(
-  defaultAiProfileCatalog,
-  "PROFILE-100001",
-).value;
-if (profile === null) throw new Error("test_profile_required");
+const selection = executionSelection("advice");
 const prepared = prepareProviderAdvicePlan(
   Object.freeze({
-    networkPolicy: fixtureNetworkPolicy(profile.provider),
-    catalogRevision: 1,
-    provider: profile.provider,
+    networkPolicy: fixtureNetworkPolicy(selection.provider),
+    provider: selection.provider,
     providerPrompt: "固定投影だけを根拠に説明する",
     taskHash: "a".repeat(64),
     projectionHash: "b".repeat(64),
-    profileId: profile.profileId,
-    exactModelId: profile.exactModelId,
-    reasoningEffort: profile.defaultReasoningEffort,
-    offering: profile.offering,
+    executionSelection: selection,
+    exactModelId: selection.modelIdentifier,
+    reasoningEffort: selection.reasoningEffort,
+    offering: "chatgpt_subscription_oauth" as const,
   }),
-  profile,
 );
 if (prepared.status !== "prepared" || prepared.executionPlan === null)
   throw new Error("test_execution_plan_required");
@@ -76,6 +68,10 @@ function fixture(
     selectionRefreshRevokeFailure?: boolean;
     selectionRefreshUnavailable?: boolean;
     selectionRefreshMismatch?: boolean;
+    selectionCorrelationMismatch?: Readonly<{
+      index: 0 | 1;
+      field: "operationId" | "taskAttempt" | "selectionHash";
+    }>;
   }> = {},
 ) {
   const owned = Object.freeze({});
@@ -122,18 +118,6 @@ function fixture(
             reason: "ready",
           }),
         ]),
-      resolveModelProfile: (request) =>
-        Object.freeze({
-          provider: request.provider,
-          profileId: request.profileId ?? plan.profileId,
-          exactModelId: plan.exactModelId,
-          family: request.family,
-          selectionRole: request.role,
-          modelTier: request.modelTier,
-          speedMode: "normal",
-          billingMode: "subscription_oauth",
-          compatibilityReason: null,
-        }),
       wallNow: () => 1_000,
       monotonicNow: () => 2_000,
       randomBytes: (size: number) => {
@@ -220,26 +204,9 @@ function fixture(
       calls.push("issue-selection");
       const record = request as Readonly<Record<string, unknown>>;
       assert.deepEqual(record, {
-        frontProvider: plan.provider,
-        delegationNeed: "beneficial",
-        delegationReason: "explicit_user_delegation",
-        requestedExecutorProvider: plan.provider,
-        requestedProfileId: plan.profileId,
-        subjectProvider: null,
-        requiresIndependentProvider: false,
-        role: "coordinator",
-        workClass: "diagnosis",
-        planState: "complete",
-        risk: "low",
-        difficulty: "medium",
-        decisionImpact: "material",
-        isLocalCandidateOnly: false,
-        hasUnresolvedDirection: false,
-        requiresCrossContextAlignment: true,
         operationId: "OP-123456",
-        parentOperationId: null,
-        ancestorOperationIds: [],
-        delegationDepth: 0,
+        taskAttempt: 0,
+        executionSelection: plan.executionSelection,
       });
       const index = runtimeObservation.selectionIssueCount;
       runtimeObservation.selectionIssueCount += 1;
@@ -249,8 +216,23 @@ function fixture(
         status: "issued" as const,
         controlCapability: selectionControls[index],
         useCapability: selectionUses[index],
+        operationId:
+          options.selectionCorrelationMismatch?.index === index &&
+          options.selectionCorrelationMismatch.field === "operationId"
+            ? "OP-654321"
+            : "OP-123456",
+        selectionHash:
+          options.selectionCorrelationMismatch?.index === index &&
+          options.selectionCorrelationMismatch.field === "selectionHash"
+            ? "f".repeat(64)
+            : hashExecutionSelection(plan.executionSelection),
         executorProvider: plan.provider,
-        profileId: plan.profileId,
+        executionSelection: plan.executionSelection,
+        taskAttempt:
+          options.selectionCorrelationMismatch?.index === index &&
+          options.selectionCorrelationMismatch.field === "taskAttempt"
+            ? 1
+            : 0,
         selectedModel:
           index === 1 && options.selectionRefreshUnavailable === true
             ? "invalid-model"
@@ -298,7 +280,10 @@ function fixture(
         );
         assert.ok(consumedSelection);
         assert.equal(consumedSelection.executorProvider, plan.provider);
-        assert.equal(consumedSelection.profileId, plan.profileId);
+        assert.deepEqual(
+          consumedSelection.executionSelection,
+          plan.executionSelection,
+        );
       }
       return Object.freeze({
         status: "prepared" as const,
@@ -1217,6 +1202,43 @@ test("署名資格なしでも開始前取消は全依存を呼ばない", async
   assert.equal(result.providerEffectIssued, false);
   assert.equal(result.cleanupConfirmed, true);
   assert.deepEqual(current.calls, []);
+});
+
+/**
+ * 助言Grantの初回と更新で操作・試行・選定Hashの差を拒否する。
+ * @responsibility 別操作又は異なる試行の値をProviderへ搬送しない。
+ * @trace ERB-UT-023
+ * @precondition 既存合成Runtimeの一項目だけを差し替える。
+ * @stimulus 初回・更新それぞれ三項目の差を返す。
+ * @observation 元Grant失効、Packet／Process呼出しとEffect。
+ * @oracle 各差でblocked、Packet／Process／Provider 0かつ取得済みGrantを失効する。
+ * @cleanup 同じRuntimeが取得済みOperationとGrantを解放する。
+ * @boundary ERB-UT-023=Direct Boundary: 助言Runtime→合成Grant発行境界。
+ */
+test("助言の初回・更新Grantは別操作・試行・選定HashをEffect前に拒否する", async () => {
+  for (const index of [0, 1] as const)
+    for (const field of [
+      "operationId",
+      "taskAttempt",
+      "selectionHash",
+    ] as const) {
+      const current = fixture(
+        {},
+        { selectionCorrelationMismatch: { index, field } },
+      );
+      const result = await createIsolatedProviderAdviceRuntimeCandidate(
+        current.dependencies,
+      ).run(plan, new AbortController().signal);
+      assert.equal(result.status, "blocked", index + ":" + field);
+      assert.equal(result.providerEffectIssued, false);
+      assert.equal(current.calls.includes("issue-packet"), false);
+      assert.equal(current.calls.includes("start-process"), false);
+      assert.equal(
+        current.calls.filter((x) => x === "revoke-selection").length,
+        index + 1,
+      );
+      assert.equal(result.cleanupConfirmed, true);
+    }
 });
 
 /**

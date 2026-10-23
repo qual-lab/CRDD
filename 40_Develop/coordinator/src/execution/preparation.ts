@@ -4,6 +4,11 @@
  * @responsibility AI AdapterとDocker Isolationの既存契約へ入力を結合し、起動前に照合する。
  * @trace ARCH-000008
  */
+import {
+  inspectExecutionSelection,
+  hashExecutionSelection,
+  type ExecutionSelection,
+} from "../selection/model.ts";
 
 import {
   type DockerNetworkPolicy,
@@ -32,8 +37,6 @@ import {
   validateProviderModelId,
   prepareProviderEnvironment,
   type AiReasoningEffort,
-  type ResolvedAiProfileIdentity,
-  providerProfileMatchesExecutionIdentity,
   type ProviderAdvicePlan,
   selectProviderFamilyPreference,
 } from "../../../ai-adapter/src/index.ts";
@@ -102,7 +105,8 @@ export type PreparedPlan = Readonly<{
   provider: "codex" | "claude";
   operationId: string;
   grantRef: string;
-  profileId: string;
+  executionSelection: ExecutionSelection;
+  taskAttempt: 0 | 1;
   activeMountCapability: object;
   authorityUseCapability: object;
   providerHomeSourcePath: string;
@@ -121,8 +125,7 @@ export type PreparedPlan = Readonly<{
   selectionRecordId: string;
   subscriptionOffering: "chatgpt_subscription_oauth" | "claude_max";
   selectedModel: string;
-  selectedEffort: "low" | "medium" | "high";
-  selectedModelTier: string;
+  selectedEffort: AiReasoningEffort;
   operationMode: "boolean_probe" | "isolated_task" | "workbench_advice";
   taskRole: "executor" | "reviewer" | null;
   taskWorkload?: unknown;
@@ -381,25 +384,15 @@ export function validatePlan(plan: PreparedPlan, tmpSourcePath: string) {
   const expectedAdviceCommandHash = expectedAdviceCommand
     ? hashProviderAdviceCommand(expectedAdviceCommand)
     : null;
+  const fixedSelection = inspectExecutionSelection(plan.executionSelection);
   const isProviderBindingValid =
-    (isAdvicePlan &&
-      /^PROFILE-[0-9]{6,}$/u.test(plan.profileId) &&
-      plan.subscriptionOffering ===
-        (plan.provider === "codex"
-          ? "chatgpt_subscription_oauth"
-          : "claude_max")) ||
-    (plan.provider === "claude" &&
-      /^PROFILE-20000[12]$/u.test(plan.profileId) &&
-      plan.subscriptionOffering === "claude_max" &&
-      plan.selectedModel === "opus") ||
-    (plan.provider === "codex" &&
-      plan.subscriptionOffering === "chatgpt_subscription_oauth" &&
-      ((plan.operationMode === "isolated_task" &&
-        /^PROFILE-10000[34]$/u.test(plan.profileId) &&
-        plan.selectedModel === "gpt-5.5") ||
-        (plan.operationMode === "boolean_probe" &&
-          /^PROFILE-10000[12]$/u.test(plan.profileId) &&
-          plan.selectedModel === "gpt-5.6-sol")));
+    fixedSelection !== null &&
+    fixedSelection.provider === plan.provider &&
+    fixedSelection.modelIdentifier === plan.selectedModel &&
+    fixedSelection.reasoningEffort === plan.selectedEffort &&
+    fixedSelection.purpose === (isAdvicePlan ? "advice" : "task") &&
+    plan.subscriptionOffering ===
+      (plan.provider === "codex" ? "chatgpt_subscription_oauth" : "claude_max");
   if (
     !/^OP-[0-9]{6,}$/u.test(plan.operationId) ||
     !/^PHMGRANT-[A-Z0-9-]{6,80}$/u.test(plan.grantRef) ||
@@ -416,7 +409,6 @@ export function validatePlan(plan: PreparedPlan, tmpSourcePath: string) {
       proxyImageDigest: plan.proxyImageDigest,
     }) ||
     !["low", "medium", "high"].includes(plan.selectedEffort) ||
-    !["preferred", "upper_allowed"].includes(plan.selectedModelTier) ||
     plan.providerHomeSourcePath.length === 0 ||
     !/^[a-f0-9]{64}$/u.test(plan.providerHomeIdentityHash) ||
     !/^[a-f0-9]{64}$/u.test(plan.providerHomeProtectionHash) ||
@@ -497,6 +489,8 @@ export function planIdentity(plan: PreparedPlan) {
     .update(
       JSON.stringify({
         operationId: plan.operationId,
+        executionSelection: plan.executionSelection,
+        taskAttempt: plan.taskAttempt,
         selectionRecordId: plan.selectionRecordId,
         operationMode: plan.operationMode,
         taskRole: plan.taskRole,
@@ -1057,7 +1051,6 @@ export function createProviderDockerRuntimeAdapterCandidate<
                     "taskWorkload" in plan ? plan.taskWorkload : null,
                 }
               : {}),
-            selectedModelTier: plan.selectedModelTier,
             selectionNotice: plan.selectionNotice,
             providerHomeMountLeaseActive: true as const,
           });
@@ -1222,11 +1215,9 @@ export function describeProviderDockerRuntimeAdapterContract(
 export const PROVIDER_ADVICE_RUNTIME_PACKET_CONTRACT =
   "crdd-coordinator/workbench-ai-advice-runtime-packet";
 
-export const PROVIDER_ADVICE_RUNTIME_PACKET_CONTRACT_REVISION = 1;
+export const PROVIDER_ADVICE_RUNTIME_PACKET_CONTRACT_REVISION = 2;
 
 const providerPacketOPERATION_ID = /^OP-[0-9]{6,}$/u;
-
-const providerPacketPROFILE_ID = /^PROFILE-[0-9]{6,}$/u;
 
 const SHA256 = /^[a-f0-9]{64}$/u;
 
@@ -1255,23 +1246,23 @@ const COMMAND_KEYS = Object.freeze([
 ] as const);
 
 /**
- * 署名Runtimeへ一回搬送する読取り助言Packetを表す。
+ * 既存Runtimeへ一回搬送する読取り助言Packetを表す。
  *
- * @responsibility PromptとProvider Commandを同じTask・Projection・Profile・Operationへ固定する。
+ * @responsibility PromptとProvider Commandを同じTask・Projection・固定選定・Operationへ固定する。
  * @trace ARCH-000010
  * @trace ARCH-000015
  * @shape 固定Contract、Identity、Prompt、Command Hashおよび非共有境界からなる読取り専用値である。
  * @invariant Repository／Workspace共有、Tool、SessionおよびFallbackを許可しない。
- * @boundary Provider非依存Executorと署名Runtime Adapterの間。
+ * @boundary Provider非依存Executorと既存Runtime Adapterの間。
  * @security Prompt本文以外のRepository情報や任意Pathを含めない。
- * @compatibility contractRevision 1だけを受理する。
+ * @compatibility contractRevision 2だけを受理する。
  */
 export type ProviderAdvicePacket = Readonly<{
   contract: typeof PROVIDER_ADVICE_RUNTIME_PACKET_CONTRACT;
   contractRevision: typeof PROVIDER_ADVICE_RUNTIME_PACKET_CONTRACT_REVISION;
   packetRef: string;
   operationId: string;
-  profileId: string;
+  executionSelection: ExecutionSelection;
   provider: "codex" | "claude";
   taskHash: string;
   projectionHash: string;
@@ -1291,15 +1282,15 @@ export type ProviderAdvicePacket = Readonly<{
  * @responsibility 上位で検証済みのIdentity、PromptおよびProvider Commandを発行境界へ渡す。
  * @trace ARCH-000010
  * @trace ARCH-000015
- * @shape Operation、Profile、Task、Projection、Promptおよび固定Commandからなる読取り専用値である。
+ * @shape Operation、固定選定、Task、Projection、Promptおよび固定Commandからなる読取り専用値である。
  * @invariant Provider Commandとproviderは一致する。
  * @boundary 読取り助言計画と一回消費Packet発行の間。
  * @security Repository Path、Workspace PathおよびCredentialを入力へ含めない。
- * @compatibility revision 1のPacket発行だけで使用する。
+ * @compatibility revision 2のPacket発行だけで使用する。
  */
 export type ProviderAdvicePacketInput = Readonly<{
   operationId: string;
-  profileId: string;
+  executionSelection: ExecutionSelection;
   provider: "codex" | "claude";
   taskHash: string;
   projectionHash: string;
@@ -1378,14 +1369,14 @@ const productionState = createState((bytes) =>
  * @responsibility 検証済み助言入力をCommand Hash付きの一回消費Packetへ固定する。
  * @trace ARCH-000010
  * @trace ARCH-000015
- * @input input: 助言計画由来のOperation、Profile、Task、Projection、PromptおよびProvider Command。
+ * @input input: 助言計画由来のOperation、固定選定、Task、Projection、PromptおよびProvider Command。
  * @returns 発行成功時はPacket参照、所有Capability、利用Capabilityを返し、不正時はEffect 0でblockedを返す。
- * @precondition 上位ExecutorはProfile Catalogと実行計画の整合を確認済みである。
+ * @precondition 上位Executorは完全選定と技術Catalog・実行計画の整合を確認済みである。
  * @postcondition issuedの場合、同じuseCapabilityは最大一回だけPacketへ交換できる。
  * @effect Process内WeakMapへ一つのPacketRecordを登録する。
  * @failure Identity、Prompt、Commandまたは非共有境界が不正なら記録を作らない。
  * @invariant Provider Effect、Filesystem Effectおよび外部送信Authorityをこの発行だけで生成しない。
- * @boundary 検証済み実行計画と署名Runtimeの一回消費入力境界。
+ * @boundary 検証済み実行計画と既存Runtimeの一回消費入力境界。
  * @security Promptを公開結果へ含めず、固定Commandの完全性をHashで結合する。
  * @concurrency Capability生成と二つのWeakMap登録を同じ同期呼出しで完了する。
  */
@@ -1408,7 +1399,7 @@ export function issueRuntimeOwnedProviderAdvicePacket(
  * @effect Process内WeakMapから対応記録を削除する。
  * @failure 不正または消費済みCapabilityをnullへ閉じる。
  * @invariant 別の所有CapabilityでPacketを消費できない。
- * @boundary 一回消費Authorityと署名Runtime Adapterの入力境界。
+ * @boundary 一回消費Authorityと既存Runtime Adapterの入力境界。
  * @security Packet参照文字列だけではPromptを取得できない。
  * @concurrency 照合と削除を同じ同期呼出しで完了する。
  */
@@ -1449,7 +1440,7 @@ export function revokeRuntimeOwnedProviderAdvicePacket(
  * @trace ARCH-000010
  * @trace ARCH-000015
  * @input N/A: 固定契約だけを参照する。
- * @returns revision 1の固定契約を返す。
+ * @returns revision 2の固定契約を返す。
  * @precondition N/A: 呼出し条件を持たない。
  * @postcondition 実装と試験が同じPacket境界を参照できる。
  * @effect N/A: 固定Objectを生成するだけである。
@@ -1491,6 +1482,32 @@ export function describeProviderAdvicePacketContract() {
  * @concurrency 登録を単一同期呼出しで完了する。
  */
 function issue(state: RuntimeState, input: ProviderAdvicePacketInput) {
+  const snapshot = snapshotPlainRecord(
+    input,
+    new Set([
+      "operationId",
+      "executionSelection",
+      "provider",
+      "taskHash",
+      "projectionHash",
+      "providerPrompt",
+      "providerCommand",
+    ]),
+  );
+  const fixed = inspectExecutionSelection(snapshot?.executionSelection);
+  if (!snapshot || !fixed)
+    return Object.freeze({
+      status: "blocked" as const,
+      reason: "workbench_ai_advice_runtime_packet_invalid" as const,
+      packetRef: null,
+      ownerCapability: null,
+      useCapability: null,
+      providerEffectIssued: false as const,
+    });
+  input = {
+    ...snapshot,
+    executionSelection: fixed,
+  } as ProviderAdvicePacketInput;
   let providerCommand: ProviderAdviceCommand | null = null;
   let commandHash: string | null = null;
   let token: string | null = null;
@@ -1528,7 +1545,9 @@ function issue(state: RuntimeState, input: ProviderAdvicePacketInput) {
         contractRevision: PROVIDER_ADVICE_RUNTIME_PACKET_CONTRACT_REVISION,
         packetRef,
         operationId: input.operationId,
-        profileId: input.profileId,
+        executionSelection: inspectExecutionSelection(
+          input.executionSelection,
+        ) as ExecutionSelection,
         provider: input.provider,
         taskHash: input.taskHash,
         projectionHash: input.projectionHash,
@@ -1549,7 +1568,9 @@ function issue(state: RuntimeState, input: ProviderAdvicePacketInput) {
     contractRevision: PROVIDER_ADVICE_RUNTIME_PACKET_CONTRACT_REVISION,
     packetRef,
     operationId: input.operationId,
-    profileId: input.profileId,
+    executionSelection: inspectExecutionSelection(
+      input.executionSelection,
+    ) as ExecutionSelection,
     provider: input.provider,
     taskHash: input.taskHash,
     projectionHash: input.projectionHash,
@@ -1659,9 +1680,14 @@ function validInput(
   input: ProviderAdvicePacketInput,
   providerCommand: ProviderAdviceCommand,
 ) {
+  const selection = inspectExecutionSelection(input.executionSelection);
   return (
     providerPacketOPERATION_ID.test(input.operationId) &&
-    providerPacketPROFILE_ID.test(input.profileId) &&
+    selection?.role === "advice" &&
+    selection.provider === input.provider &&
+    selection.modelIdentifier === providerCommand.modelIdentifier &&
+    selection.identifierKind === providerCommand.identifierKind &&
+    selection.reasoningEffort === providerCommand.reasoningEffort &&
     SHA256.test(input.taskHash) &&
     SHA256.test(input.projectionHash) &&
     input.providerPrompt.trim() === input.providerPrompt &&
@@ -1976,19 +2002,20 @@ export function buildProviderDockerExecutionPlan(
   const codex = execution.provider === "codex" ? execution : null;
   const claude = execution.provider === "claude" ? execution : null;
   const egress = describeDockerProxyTopology(provider);
-  const selection = selectProviderModelCandidate(consumedModelSelection.basis);
+  const selection = inspectExecutionSelection(
+    consumedModelSelection.executionSelection,
+  );
   if (
-    selection.status !== "candidate" ||
+    !selection ||
     selection.provider !== provider ||
-    selection.speedMode !== "normal" ||
-    !selection.selectionNotice ||
+    hashExecutionSelection(selection) !==
+      consumedModelSelection.selectionHash ||
     consumedModelSelection.executorProvider !== provider ||
     consumedModelSelection.operationId !== binding.operationId ||
     activation.grant.provider !== provider ||
     activation.grant.operationId !== binding.operationId ||
-    consumedModelSelection.effort !== selection.effort ||
-    consumedModelSelection.modelTier !== selection.modelTier ||
-    consumedModelSelection.speedMode !== selection.speedMode ||
+    consumedModelSelection.effort !== selection.reasoningEffort ||
+    consumedModelSelection.model !== selection.modelIdentifier ||
     consumedModelSelection.selectionNotice.length === 0 ||
     !/^MODELSEL-[A-Z0-9-]{8,80}$/.test(
       consumedModelSelection.selectionRecordId,
@@ -1996,6 +2023,7 @@ export function buildProviderDockerExecutionPlan(
     execution?.status !== "candidate" ||
     !validateProviderModelId(consumedModelSelection.model).value ||
     (provider === "codex" &&
+      (taskPacket !== null || advicePacket !== null) &&
       (codex?.status !== "candidate" ||
         consumedModelSelection.model !==
           (advicePacket?.providerCommand.modelIdentifier ??
@@ -2004,10 +2032,18 @@ export function buildProviderDockerExecutionPlan(
     (taskPacket !== null && advicePacket !== null) ||
     (taskPacket !== null &&
       (taskPacket.operationId !== binding.operationId ||
-        taskPacket.promptTransport !== "provider_stdin_only")) ||
+        taskPacket.promptTransport !== "provider_stdin_only" ||
+        taskPacket.selectionHash !== hashExecutionSelection(selection) ||
+        taskPacket.taskAttempt !== consumedModelSelection.taskAttempt ||
+        selection.role !==
+          (taskPacket.taskRole === "executor"
+            ? "executor"
+            : "independent_reviewer"))) ||
     (advicePacket !== null &&
       (advicePacket.operationId !== binding.operationId ||
-        advicePacket.profileId !== consumedModelSelection.profileId ||
+        hashExecutionSelection(advicePacket.executionSelection) !==
+          hashExecutionSelection(selection) ||
+        selection.role !== "advice" ||
         advicePacket.provider !== provider ||
         advicePacket.providerCommand.provider !== provider ||
         (provider === "claude" &&
@@ -2137,7 +2173,8 @@ export function buildProviderDockerExecutionPlan(
     recoveryCorrelationId,
     consumer,
     grantRef: activation.grant.grantRef,
-    profileId: consumedModelSelection.profileId,
+    executionSelection: consumedModelSelection.executionSelection,
+    taskAttempt: consumedModelSelection.taskAttempt,
     activeMountCapability: activation.activeMountCapability,
     providerHomeSourcePath,
     providerHomeIdentityHash: activation.grant.providerHomeIdentityHash,
@@ -2164,8 +2201,7 @@ export function buildProviderDockerExecutionPlan(
         ? ("chatgpt_subscription_oauth" as const)
         : ("claude_max" as const),
     selectedModel: consumedModelSelection.model,
-    selectedEffort: selection.effort,
-    selectedModelTier: selection.modelTier,
+    selectedEffort: consumedModelSelection.executionSelection.reasoningEffort,
     selectionNotice: consumedModelSelection.selectionNotice,
     operationMode: taskPacket
       ? ("isolated_task" as const)
@@ -2208,16 +2244,15 @@ export function buildProviderDockerExecutionPlan(
 const PROVIDER_ADVICE_EXECUTION_PLAN_CONTRACT =
   "crdd-coordinator/workbench-ai-advice-execution-plan";
 
-const PROVIDER_ADVICE_EXECUTION_PLAN_CONTRACT_REVISION = 1;
+const PROVIDER_ADVICE_EXECUTION_PLAN_CONTRACT_REVISION = 2;
 
 const providerPlanSHA256 = /^[a-f0-9]{64}$/u;
 
 const EXECUTION_INPUT_KEYS = Object.freeze([
-  "catalogRevision",
   "exactModelId",
   "networkPolicy",
   "offering",
-  "profileId",
+  "executionSelection",
   "projectionHash",
   "provider",
   "providerPrompt",
@@ -2239,12 +2274,11 @@ const EXECUTION_INPUT_KEYS = Object.freeze([
 
 export type ProviderAdviceExecutionInput = Readonly<{
   networkPolicy: DockerNetworkPolicy;
-  catalogRevision: number;
   provider: "codex" | "claude";
   providerPrompt: string;
   taskHash: string;
   projectionHash: string;
-  profileId: string;
+  executionSelection: ExecutionSelection;
   exactModelId: string;
   reasoningEffort: AiReasoningEffort;
   offering: "chatgpt_subscription_oauth" | "claude_max";
@@ -2266,9 +2300,8 @@ export type ProviderAdviceExecutionPlan = Readonly<{
   contract: typeof PROVIDER_ADVICE_EXECUTION_PLAN_CONTRACT;
   contractRevision: typeof PROVIDER_ADVICE_EXECUTION_PLAN_CONTRACT_REVISION;
   mode: "workbench_advice";
-  catalogRevision: number;
   provider: ProviderAdviceExecutionInput["provider"];
-  profileId: string;
+  executionSelection: ExecutionSelection;
   exactModelId: string;
   reasoningEffort: ProviderAdviceExecutionInput["reasoningEffort"];
   offering: ProviderAdviceExecutionInput["offering"];
@@ -2313,58 +2346,59 @@ type ProviderAdvicePlanPreparation = Readonly<
 /**
  * 読取り助言の固定Provider実行計画を生成する。
  *
- * @responsibility Catalogと完全一致する実行IdentityだけをRepository非共有・標準入力搬送の計画へ変換する。
+ * @responsibility 完全選定と技術的に対応する実行IdentityだけをRepository非共有・標準入力搬送の計画へ変換する。
  * @trace ARCH-000010
  * @trace ARCH-000015
- * @input input: Provider Adapterが生成した閉じた実行入力、catalog: 採用済みAI Profile Catalog。
+ * @input input: Provider Adapterが生成した完全選定を含む閉じた実行入力。
  * @returns 検証済み実行計画、またはEffect前の拒否結果。
- * @precondition catalogは呼出し側が指定する改訂に対応する候補である。
+ * @precondition 選定は受付時に固定済みで、現在CatalogはModel・Effort・用途の技術可否だけを確認する。
  * @postcondition preparedの場合もProvider Effect Authority、認証成立または実行完了を主張しない。
  * @effect N/A: 入力検査と固定値生成だけを行う。
- * @failure Catalog不一致、未知Property、不正HashまたはProvider境界不整合をadvicePlanRejectedで返す。
+ * @failure 技術的に未対応の選定、未知Property、不正HashまたはProvider境界不整合をadvicePlanRejectedで返す。
  * @invariant Provider、Model、推論強度、OfferingおよびTask Identityを補完・変更しない。
- * @boundary 検証済みProfile IdentityとProvider固有実行境界の間。
+ * @boundary 検証済み固定選定 IdentityとProvider固有実行境界の間。
  * @security Repository、Workspace、Tool、Session、API Keyおよび有料Fallbackを計画上で禁止する。
  * @concurrency N/A: 共有状態を持たない同期処理である。
  */
 export function prepareProviderAdvicePlan(
   input: ProviderAdviceExecutionInput,
-  profile: ResolvedAiProfileIdentity,
 ): ProviderAdvicePlanPreparation {
-  const keys = Object.keys(input).sort();
+  const snapshot = snapshotPlainRecord(input, new Set(EXECUTION_INPUT_KEYS));
+  if (!snapshot) return advicePlanRejected();
+  input = snapshot as ProviderAdviceExecutionInput;
   const networkPolicy = parseDockerNetworkPolicy(input.networkPolicy);
   if (
     !networkPolicy ||
     networkPolicy.provider !== input.provider ||
-    keys.length !== EXECUTION_INPUT_KEYS.length ||
-    !keys.every((key, index) => key === EXECUTION_INPUT_KEYS[index]) ||
-    !Number.isSafeInteger(input.catalogRevision) ||
-    input.catalogRevision < 0 ||
+    typeof input.providerPrompt !== "string" ||
     input.providerPrompt.trim().length === 0 ||
     !providerPlanSHA256.test(input.taskHash) ||
     !providerPlanSHA256.test(input.projectionHash)
   )
     return advicePlanRejected();
 
+  const fixed = inspectExecutionSelection(input.executionSelection);
   if (
-    !profile.selectionRoles.includes("coordinator") ||
-    !providerProfileMatchesExecutionIdentity(profile, {
-      profileId: input.profileId,
-      provider: input.provider,
-      exactModelId: input.exactModelId,
-      reasoningEffort: input.reasoningEffort,
-      offering: input.offering,
-    })
+    fixed?.role !== "advice" ||
+    fixed.provider !== input.provider ||
+    fixed.modelIdentifier !== input.exactModelId ||
+    fixed.reasoningEffort !== input.reasoningEffort ||
+    fixed.purpose !== "advice" ||
+    input.offering !==
+      (fixed.provider === "codex" ? "chatgpt_subscription_oauth" : "claude_max")
   )
     return advicePlanRejected();
-
   const selected = resolveAiModelSelection({
     provider: input.provider,
     modelIdentifier: input.exactModelId,
     reasoningEffort: input.reasoningEffort,
     purpose: "advice",
   });
-  if (selected.status !== "resolved") return advicePlanRejected();
+  if (
+    selected.status !== "resolved" ||
+    selected.value.identifierKind !== fixed.identifierKind
+  )
+    return advicePlanRejected();
   const generated = planProviderExecution(
     {
       provider: input.provider,
@@ -2387,9 +2421,10 @@ export function prepareProviderAdvicePlan(
       contract: PROVIDER_ADVICE_EXECUTION_PLAN_CONTRACT,
       contractRevision: PROVIDER_ADVICE_EXECUTION_PLAN_CONTRACT_REVISION,
       mode: "workbench_advice" as const,
-      catalogRevision: input.catalogRevision,
       provider: input.provider,
-      profileId: input.profileId,
+      executionSelection: inspectExecutionSelection(
+        input.executionSelection,
+      ) as ExecutionSelection,
       exactModelId: input.exactModelId,
       reasoningEffort: input.reasoningEffort,
       offering: input.offering,
@@ -2422,7 +2457,7 @@ export function prepareProviderAdvicePlan(
  * @failure N/A: この関数自身は失敗分岐を持たない。
  * @invariant 不正入力の詳細や秘密値を公開理由へ含めない。
  * @boundary 内部検証理由と公開拒否結果の境界。
- * @security Prompt、Profile詳細およびHashを結果へ複製しない。
+ * @security Prompt、固定選定詳細およびHashを結果へ複製しない。
  * @concurrency N/A: 共有状態を持たない同期処理である。
  */
 function advicePlanRejected(): ProviderAdvicePlanPreparation {
@@ -2712,7 +2747,6 @@ export function createProviderDockerBlockedResult(reason: string) {
     selectionRecordId: null,
     selectedModel: null,
     selectedEffort: null,
-    selectedModelTier: null,
     selectionNotice: null,
     providerHomeMountLeaseActive: false,
     dockerEffectIssued: false,
@@ -2864,7 +2898,7 @@ export function createIsolatedProviderDockerPreparationAdapter<R, B, C, P>(
  * @input state: 既存Owner状態。providerとcallbacks: 内部固定接続。残り: 同じ操作の不透明参照。
  * @returns 既存Provider別blocked結果またはprepared結果。
  * @precondition callbackは二Providerの固定実装であり外部入力から選ばない。
- * @postcondition 候補のAuthorityと操作・Home・Profileが一致し、同じ管理参照へ保存される。
+ * @postcondition 候補のAuthorityと操作・Home・固定選定が一致し、同じ管理参照へ保存される。
  * @effect 既存Mount有効化、Packet消費、Authority発行・失効、Mount解放とStore保存を所有する。
  * @failure 不正mode、回復参照、Mount、Packet、計画、Authorityを区別する。例外時は失効とlease解放を要求して再throwする。
  * @invariant 既存の検査・取得・発行・回収順序を変更せず、Docker要求を発行しない。
@@ -3075,7 +3109,7 @@ export function prepareProviderDockerCandidate<M, T, A, P extends object, B, R>(
 export const PROVIDER_TASK_PACKET_RUNTIME_CONTRACT =
   "crdd-coordinator/provider-task-packet-runtime";
 
-export const PROVIDER_TASK_PACKET_RUNTIME_CONTRACT_REVISION = 20;
+export const PROVIDER_TASK_PACKET_RUNTIME_CONTRACT_REVISION = 21;
 
 const PACKET_KEYS = new Set([
   "objective",
@@ -3083,6 +3117,7 @@ const PACKET_KEYS = new Set([
   "allowedPaths",
   "readPaths",
   "reviewerReadProjection",
+  "selectionHash",
 ]);
 
 const MAXIMUM_OBJECTIVE_BYTES = 8_192;
@@ -3149,6 +3184,7 @@ type TaskPacket = Readonly<{
   taskPacketRef: string;
   taskRole: TaskRole;
   taskAttempt: 0 | 1;
+  selectionHash: string;
   objective: string;
   acceptanceCriteria: readonly string[];
   allowedPaths: readonly string[];
@@ -3492,6 +3528,7 @@ function taskHash(
   operationId: string,
   taskRole: TaskRole,
   taskAttempt: 0 | 1,
+  selectionHash: string,
   objective: string,
   acceptanceCriteria: readonly string[],
   allowedPaths: readonly string[],
@@ -3501,12 +3538,13 @@ function taskHash(
   networkPolicy: DockerNetworkPolicy,
 ) {
   return createHash("sha256")
-    .update("crdd-provider-task-packet-v9\0")
+    .update("crdd-provider-task-packet-v10\0")
     .update(
       JSON.stringify({
         operationId,
         taskRole,
         taskAttempt,
+        selectionHash,
         objective,
         acceptanceCriteria,
         allowedPaths,
@@ -3643,6 +3681,8 @@ function taskPacketIssue(
         : null;
     if (
       !value ||
+      typeof value.selectionHash !== "string" ||
+      !/^[a-f0-9]{64}$/u.test(value.selectionHash) ||
       !validText(value.objective, MAXIMUM_OBJECTIVE_BYTES) ||
       !acceptanceCriteria ||
       !allowedPaths ||
@@ -3738,6 +3778,7 @@ function taskPacketIssue(
       operation.operationId,
       taskRole,
       taskAttempt,
+      value.selectionHash as string,
       objective,
       acceptanceCriteria,
       allowedPaths,
@@ -3754,6 +3795,7 @@ function taskPacketIssue(
       taskPacketRef,
       taskRole,
       taskAttempt,
+      selectionHash: value.selectionHash as string,
       objective,
       acceptanceCriteria,
       allowedPaths,
@@ -4059,7 +4101,7 @@ export function describeProviderTaskPacketRuntimeContract() {
 export const PROVIDER_ADVICE_TASK_CONTRACT =
   "crdd-coordinator/workbench-ai-advice-task";
 
-export const PROVIDER_ADVICE_TASK_CONTRACT_REVISION = 1;
+export const PROVIDER_ADVICE_TASK_CONTRACT_REVISION = 2;
 
 const taskPacketMAXIMUM_PROMPT_BYTES = 16_384;
 
@@ -4069,14 +4111,12 @@ const MAXIMUM_PROJECTION_BYTES = 262_144;
 
 const MAXIMUM_PROJECTION_ITEMS = 64;
 
-const PROFILE_ID_PATTERN = /^PROFILE-\d{6,}$/u;
-
 const SHA256_PATTERN = /^[a-f0-9]{64}$/u;
 
 const REFERENCE_PATTERN =
   /^(?!\/)(?!.*(?:^|\/)\.\.(?:\/|$))(?!.*\\)[^\0#\r\n]+(?:#[^\0#\r\n]+)?$/u;
 
-const inputKeys = ["profileId", "prompt", "projection"] as const;
+const inputKeys = ["executionSelection", "prompt", "projection"] as const;
 
 const projectionKeys = ["reference", "content", "sha256"] as const;
 
@@ -4089,7 +4129,7 @@ const projectionKeys = ["reference", "content", "sha256"] as const;
  * @invariant sha256はUTF-8 contentのSHA-256と一致する。
  * @boundary RepositoryのCanonical成果物と外部送信Packetの境界。
  * @security Repository相対参照だけを許し、秘密情報を含むPathまたは内容を許可しない。
- * @compatibility revision 1のTask Packetだけで使用する。
+ * @compatibility revision 2のTask Packetだけで使用する。
  */
 export type AdviceProjectionItem = Readonly<{
   reference: string;
@@ -4100,16 +4140,16 @@ export type AdviceProjectionItem = Readonly<{
 /**
  * 上位からTask Packet生成へ渡す入力を表す。
  *
- * @responsibility 利用者依頼、選択Profileおよび許可済み投影を固定する。
+ * @responsibility 利用者依頼、完全選定および許可済み投影を固定する。
  * @trace ARCH-000015
- * @shape profileId、prompt、projectionからなる読取り専用値である。
+ * @shape executionSelection、prompt、projectionからなる読取り専用値である。
  * @invariant 投影外のRepository情報を暗黙に追加しない。
  * @boundary 上位の助言受付と外部送信準備の境界。
  * @security 入力は秘密情報検査と完全性検査を通過するまで外部送信可能にならない。
- * @compatibility revision 1のTask Packetだけで使用する。
+ * @compatibility revision 2のTask Packetだけで使用する。
  */
 export type AdviceTaskInput = Readonly<{
-  profileId: string;
+  executionSelection: ExecutionSelection;
   prompt: string;
   projection: readonly AdviceProjectionItem[];
 }>;
@@ -4119,16 +4159,16 @@ export type AdviceTaskInput = Readonly<{
  *
  * @responsibility 送信可能な本文、参照集合および完全性Identityを一つにまとめる。
  * @trace ARCH-000015
- * @shape 固定Contract、Profile、Prompt、投影、HashおよびProvider Promptからなる読取り専用値である。
+ * @shape 固定Contract、固定選定、Prompt、投影、HashおよびProvider Promptからなる読取り専用値である。
  * @invariant providerPromptが要求できる根拠参照はallowedReferencesに閉じる。
  * @boundary Coordinatorと外部Provider Adapterの境界。
  * @security 準備だけでは外部Effect Authorityを付与せず、生のRepository読取り能力を渡さない。
- * @compatibility contractRevision 1で固定する。
+ * @compatibility contractRevision 2で固定する。
  */
 export type AdviceTaskPacket = Readonly<{
   contract: typeof PROVIDER_ADVICE_TASK_CONTRACT;
   contractRevision: typeof PROVIDER_ADVICE_TASK_CONTRACT_REVISION;
-  profileId: string;
+  executionSelection: ExecutionSelection;
   prompt: string;
   projection: readonly AdviceProjectionItem[];
   allowedReferences: readonly string[];
@@ -4142,7 +4182,7 @@ export type AdviceTaskPacket = Readonly<{
  *
  * @responsibility 入力Schema、投影完全性、秘密情報非包含および結果契約をEffect前に固定する。
  * @trace ARCH-000015
- * @input input: Profile、利用者Promptおよび内容Hash付き読取り投影。
+ * @input input: 固定選定、利用者Promptおよび内容Hash付き読取り投影。
  * @returns 有効時はpreparedとTask Packet、不正時はadvicePacketRejectedと公開可能な理由を返す。
  * @precondition 投影内容は呼出側が許可したCanonical成果物から取得する。
  * @postcondition prepared結果は同じ入力から同じprojectionHash、taskHashおよびproviderPromptを生成する。
@@ -4157,8 +4197,7 @@ export function prepareAdviceTask(input: unknown) {
   if (!isExactRecord(input, inputKeys))
     return advicePacketRejected("workbench_ai_advice_task_schema_invalid");
   if (
-    typeof input.profileId !== "string" ||
-    !PROFILE_ID_PATTERN.test(input.profileId) ||
+    inspectExecutionSelection(input.executionSelection)?.role !== "advice" ||
     !validText(input.prompt, taskPacketMAXIMUM_PROMPT_BYTES) ||
     containsRecognizedSecretText(input.prompt) ||
     !Array.isArray(input.projection) ||
@@ -4204,7 +4243,7 @@ export function prepareAdviceTask(input: unknown) {
   const frozenProjectionItems = Object.freeze(projectionItems);
   const projectionHash = sha256(JSON.stringify(frozenProjectionItems));
   const providerPrompt = buildProviderPrompt(
-    input.profileId,
+    hashExecutionSelection(input.executionSelection) ?? "",
     input.prompt,
     frozenProjectionItems,
   );
@@ -4212,7 +4251,9 @@ export function prepareAdviceTask(input: unknown) {
     JSON.stringify({
       contract: PROVIDER_ADVICE_TASK_CONTRACT,
       contractRevision: PROVIDER_ADVICE_TASK_CONTRACT_REVISION,
-      profileId: input.profileId,
+      executionSelection: inspectExecutionSelection(
+        input.executionSelection,
+      ) as ExecutionSelection,
       prompt: input.prompt,
       projectionHash,
       providerPrompt,
@@ -4224,7 +4265,9 @@ export function prepareAdviceTask(input: unknown) {
     taskPacket: Object.freeze({
       contract: PROVIDER_ADVICE_TASK_CONTRACT,
       contractRevision: PROVIDER_ADVICE_TASK_CONTRACT_REVISION,
-      profileId: input.profileId,
+      executionSelection: inspectExecutionSelection(
+        input.executionSelection,
+      ) as ExecutionSelection,
       prompt: input.prompt,
       projection: frozenProjectionItems,
       allowedReferences: Object.freeze(allowedReferences),
@@ -4244,7 +4287,7 @@ export function prepareAdviceTask(input: unknown) {
  * @responsibility Schema上限、Effect 0および結果契約を利用側へ宣言する。
  * @trace ARCH-000015
  * @input N/A: 実行時引数を受け取らない。
- * @returns revision 1の固定契約を返す。
+ * @returns revision 2の固定契約を返す。
  * @precondition N/A: 定数だけを参照する。
  * @postcondition 実装、試験およびProvider Adapterが同じ上限と境界を参照できる。
  * @effect N/A: 固定値を返すだけである。
@@ -4276,7 +4319,7 @@ export function describeAdviceTaskContract() {
  *
  * @responsibility 読取り専用制約、非信頼入力境界、結果Schemaおよび投影本文を決定論的に整列する。
  * @trace ARCH-000015
- * @input profileId: 選択Profile、prompt: 利用者依頼、projection: 検証済み投影。
+ * @input selectionHash: 完全選定Hash、prompt: 利用者依頼、projection: 検証済み投影。
  * @returns Provider Adapterへ渡す一つのPrompt文字列を返す。
  * @precondition projectionはHashと秘密情報検査を通過している。
  * @postcondition 結果項目へallowedReferences以外の根拠を要求しない。
@@ -4288,7 +4331,7 @@ export function describeAdviceTaskContract() {
  * @concurrency N/A: 共有状態を持たない同期処理である。
  */
 function buildProviderPrompt(
-  profileId: string,
+  selectionHash: string,
   prompt: string,
   projectionItems: readonly AdviceProjectionItem[],
 ) {
@@ -4299,7 +4342,7 @@ function buildProviderPrompt(
     `Return exactly one JSON document with contract ${PROVIDER_ADVICE_RESULT_CONTRACT}, contractRevision ${PROVIDER_ADVICE_RESULT_CONTRACT_REVISION}, status completed, and arrays facts, sharedAnalysis, additionalInferences, nextOptions.`,
     "Every array item must contain exactly text and references. references must contain one or more exact reference values from the projection below.",
     "Keep observed facts, analysis shared with the user, additional inference, and next options in their matching arrays.",
-    `Selected profile: ${profileId}`,
+    `Selected execution: ${selectionHash}`,
     `User request: ${prompt}`,
     "Allowed projection (one JSON object per line):",
     ...projectionItems.map((item) => JSON.stringify(item)),
@@ -5841,11 +5884,11 @@ export type ProviderDockerModelSelection = Readonly<{
   selectionRecordId: string;
   operationId: string;
   executorProvider: "codex" | "claude";
-  profileId: string;
+  executionSelection: ExecutionSelection;
+  selectionHash: string;
+  taskAttempt: 0 | 1;
   model: string;
-  basis: unknown;
-  effort: "low" | "medium" | "high";
-  modelTier: string;
+  effort: AiReasoningEffort;
   speedMode: "normal";
   selectionNotice: string;
 }>;
@@ -5866,6 +5909,8 @@ export type ProviderDockerTaskPacket = Readonly<{
   operationId: string;
   taskPacketRef: string;
   taskRole: "executor" | "reviewer";
+  taskAttempt: 0 | 1;
+  selectionHash: string;
   taskWorkload?: unknown;
   taskPacketHash: string;
   prompt: string;
@@ -6082,7 +6127,8 @@ export type ProviderDockerPreparedPlan<P extends "codex" | "claude"> =
     recoveryCorrelationId: string | null;
     consumer: "coordinator_cli" | "workbench" | "orchestrator";
     grantRef: string;
-    profileId: string;
+    executionSelection: ExecutionSelection;
+    taskAttempt: 0 | 1;
     activeMountCapability: object;
     authorityUseCapability: object;
     authorityControlCapability: object;
@@ -6107,8 +6153,7 @@ export type ProviderDockerPreparedPlan<P extends "codex" | "claude"> =
       ? "chatgpt_subscription_oauth"
       : "claude_max";
     selectedModel: string;
-    selectedEffort: "low" | "medium" | "high";
-    selectedModelTier: string;
+    selectedEffort: AiReasoningEffort;
     selectionNotice: string;
     operationMode: "boolean_probe" | "isolated_task" | "workbench_advice";
     taskRole: "executor" | "reviewer" | null;
@@ -6141,13 +6186,7 @@ export type ProviderDockerPreparedPlan<P extends "codex" | "claude"> =
  * @security Capability、PathとProvider入力を公開・永続化する権限を持たない。
  * @compatibility 既存Provider別のfield有無と具体型を保持する。
  */
-export type ProviderDockerConsumedModelSelection =
-  ProviderDockerModelSelection &
-    Readonly<{
-      frontProvider: "codex" | "claude";
-      route: string;
-      delegationDepth: number;
-    }>;
+export type ProviderDockerConsumedModelSelection = ProviderDockerModelSelection;
 
 /**
  * Providerごとの消費済みTask Packetを定義する。
@@ -6247,8 +6286,7 @@ export type ProviderDockerPreparedResult<P extends "codex" | "claude"> =
     grantRef: string;
     selectionRecordId: string;
     selectedModel: string;
-    selectedEffort: "low" | "medium" | "high";
-    selectedModelTier: string;
+    selectedEffort: AiReasoningEffort;
     selectionNotice: string;
     providerHomeMountLeaseActive: true;
     dockerEffectIssued: false;

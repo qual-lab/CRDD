@@ -9,6 +9,7 @@
  * @boundary ERB-IT-014=Related 2 Blocks: 本番準備本文→状態Reader／Writer・既存排他の観測境界。
  */
 import assert from "node:assert/strict";
+import { executionSelection } from "../fixtures/ai-selection.ts";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
@@ -161,14 +162,19 @@ test("初期Host再導出は実依存へ肯定到達し欠測を拒否成功と�
     .digest("hex");
   const hostToken = `host.${hostRecord.rootName}.12345678-1234-4234-8234-123456789abc.${hostHash}`;
   const identity = {
-    schema: "crdd-coordinator/operation-identity/v1",
+    schema: "crdd-coordinator/operation-identity/v2",
     operationNonce: "b".repeat(64),
     provider: "claude",
     consumer: "orchestrator",
     operationId: "OP-123456",
     recoveryCorrelationId: "task-operation-a",
     grantRef: "PHMGRANT-FIXTURE",
-    profileId: "PROFILE-123456",
+    executionSelection: executionSelection("executor", {
+      provider: "claude",
+      model: "opus",
+      effort: "low",
+    }),
+    taskAttempt: 0,
     stableLogicalHomeBindingHash: "c".repeat(64),
     providerHomeIdentityHash: "8".repeat(64),
     providerHomeProtectionHash: "9".repeat(64),

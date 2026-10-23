@@ -8,6 +8,8 @@ import { types as utilTypes } from "node:util";
 import { createHash } from "node:crypto";
 import {
   inspectTaskExecutionSelections,
+  inspectExecutionSelection,
+  type ExecutionSelection,
   type TaskExecutionSelections,
 } from "../selection/model.ts";
 
@@ -1354,8 +1356,7 @@ export type ProjectQueueEntry = Readonly<{
 export type SingleTaskRecord = Readonly<{
   principalId: string;
   mode: "read_only_advice" | "workspace_edit";
-  profileId: string;
-  catalogRevision: number;
+  executionSelection: ExecutionSelection;
   taskId: string;
   attemptId: string;
   operationId: string;
@@ -1370,8 +1371,7 @@ export type SingleTaskRecord = Readonly<{
 const KEYS = new Set([
   "principalId",
   "mode",
-  "profileId",
-  "catalogRevision",
+  "executionSelection",
   "taskId",
   "attemptId",
   "operationId",
@@ -1429,19 +1429,14 @@ export function inspectSingleTaskRecord(raw: unknown): SingleTaskRecord | null {
       value.phase === "accepted")
   )
     return null;
-  for (const key of [
-    "principalId",
-    "profileId",
-    "taskId",
-    "attemptId",
-    "operationId",
-  ])
+  for (const key of ["principalId", "taskId", "attemptId", "operationId"])
     if (typeof value[key] !== "string" || !ID.test(value[key])) return null;
   if (
     typeof value.mode !== "string" ||
     !["read_only_advice", "workspace_edit"].includes(value.mode) ||
-    !Number.isSafeInteger(value.catalogRevision) ||
-    Number(value.catalogRevision) < 0 ||
+    !inspectExecutionSelection(value.executionSelection) ||
+    inspectExecutionSelection(value.executionSelection)?.role !==
+      (value.mode === "read_only_advice" ? "advice" : "executor") ||
     typeof value.phase !== "string" ||
     !["accepted", "starting", "running", "settled"].includes(value.phase) ||
     typeof value.status !== "string" ||
@@ -1484,6 +1479,7 @@ export function inspectSingleTaskRecord(raw: unknown): SingleTaskRecord | null {
     return null;
   return Object.freeze({
     ...value,
+    executionSelection: inspectExecutionSelection(value.executionSelection),
     ...(adviceOperation
       ? { adviceOperation: Object.freeze(adviceOperation) }
       : {}),

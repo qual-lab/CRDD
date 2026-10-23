@@ -11,6 +11,7 @@
 import { planProviderExecution } from "../../../../ai-adapter/src/index.ts";
 import { describeAdviceResultSchema } from "../../../src/execution/result.ts";
 import assert from "node:assert/strict";
+import { executionSelection } from "../../fixtures/ai-selection.ts";
 import { describe, it } from "node:test";
 import type { ProviderAdviceCommand } from "../../../src/execution/preparation.ts";
 import {
@@ -40,7 +41,7 @@ const sha = "a".repeat(64);
 function input() {
   return {
     operationId: "OP-000001",
-    profileId: "PROFILE-000001",
+    executionSelection: executionSelection("advice"),
     provider: "codex" as const,
     taskHash: sha,
     projectionHash: "b".repeat(64),
@@ -282,7 +283,7 @@ describe("workbench ai advice runtime packet", () => {
   it("publishes a closed non-sharing contract", () => {
     assert.deepEqual(describeProviderAdvicePacketContract(), {
       contract: "crdd-coordinator/workbench-ai-advice-runtime-packet",
-      contractRevision: 1,
+      contractRevision: 2,
       maximumPromptBytes: 524288,
       singleUse: true,
       repositoryMounted: false,

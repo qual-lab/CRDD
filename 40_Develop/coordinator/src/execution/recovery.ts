@@ -4,6 +4,10 @@
  * @responsibility 現在状態の保存とHost／Home相関を所有し、技術観測と回収はDIへ委譲する。
  * @trace ARCH-000008
  */
+import {
+  inspectExecutionSelection,
+  type ExecutionSelection,
+} from "../selection/model.ts";
 
 import { types as utilTypes } from "node:util";
 import {
@@ -984,7 +988,8 @@ type ProductionPlan = Readonly<{
   operationId: string;
   recoveryCorrelationId?: string | null;
   grantRef: string;
-  profileId: string;
+  executionSelection: ExecutionSelection;
+  taskAttempt: 0 | 1;
   providerHomeIdentityHash: string;
   providerHomeProtectionHash: string;
   localUserBindingHash: string;
@@ -3508,7 +3513,9 @@ function validProductionPlan(plan: ProductionPlan) {
     (plan.provider === "codex" || plan.provider === "claude") &&
     /^OP-[0-9]{6,}$/u.test(plan.operationId) &&
     /^PHMGRANT-[A-Z0-9-]{6,80}$/u.test(plan.grantRef) &&
-    /^PROFILE-[0-9]{6,}$/u.test(plan.profileId) &&
+    inspectExecutionSelection(plan.executionSelection)?.provider ===
+      plan.provider &&
+    (plan.taskAttempt === 0 || plan.taskAttempt === 1) &&
     [
       plan.providerHomeIdentityHash,
       plan.providerHomeProtectionHash,
@@ -3789,13 +3796,14 @@ export function prepareRuntimeOwnedRepositoryDockerOperationIdentity(
     const initialHostRecoveryId = ownedHost.snapshot.token;
     const initialHostRecovery = ownedHost.snapshot;
     const identity = {
-      schema: "crdd-coordinator/operation-identity/v1",
+      schema: "crdd-coordinator/operation-identity/v2",
       operationNonce,
       provider: plan.provider,
       consumer,
       operationId: plan.operationId,
       grantRef: plan.grantRef,
-      profileId: plan.profileId,
+      executionSelection: plan.executionSelection,
+      taskAttempt: plan.taskAttempt,
       stableLogicalHomeBindingHash: plan.stableLogicalHomeBindingHash,
       providerHomeIdentityHash: plan.providerHomeIdentityHash,
       providerHomeProtectionHash: plan.providerHomeProtectionHash,

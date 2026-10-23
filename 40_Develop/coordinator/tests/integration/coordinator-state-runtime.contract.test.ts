@@ -9,6 +9,8 @@
  * @boundary ERB-IT-003=Direct Boundary: 現在状態Writer→Repository-local Filesystem。
  * @boundary ERB-IT-014=Related 2 Blocks: 現在準備Owner・Kernel排他→現在状態Writer／Filesystem。
  */
+import { executionSelection } from "../fixtures/ai-selection.ts";
+
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -512,14 +514,19 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     .digest("hex");
   const token = `host.crdd-coordinator-doctor-fixture.12345678-1234-4234-8234-123456789abc.${hostHash}`;
   const identity = {
-    schema: "crdd-coordinator/operation-identity/v1",
+    schema: "crdd-coordinator/operation-identity/v2",
     operationNonce: "b".repeat(64),
     provider: "claude",
     consumer: "orchestrator",
     operationId: repository.operationId,
     recoveryCorrelationId: "task-operation-a",
     grantRef: "PHMGRANT-FIXTURE",
-    profileId: "PROFILE-123456",
+    executionSelection: executionSelection("executor", {
+      provider: "claude",
+      model: "opus",
+      effort: "low",
+    }),
+    taskAttempt: 0 as const,
     stableLogicalHomeBindingHash: "c".repeat(64),
     providerHomeIdentityHash: "8".repeat(64),
     providerHomeProtectionHash: "9".repeat(64),
@@ -3900,7 +3907,8 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       consumer: "orchestrator" as const,
       operationId: freshRepository.operationId,
       grantRef: identity.grantRef,
-      profileId: identity.profileId,
+      executionSelection: identity.executionSelection,
+      taskAttempt: identity.taskAttempt,
       stableLogicalHomeBindingHash: identity.stableLogicalHomeBindingHash,
       providerHomeIdentityHash: identity.providerHomeIdentityHash,
       providerHomeProtectionHash: identity.providerHomeProtectionHash,
@@ -4634,7 +4642,12 @@ for (const issuedFailure of [false, true]) {
         consumer: "workbench",
         operationId: repository.operationId,
         grantRef: "PHMGRANT-FIXTURE",
-        profileId: "PROFILE-123456",
+        executionSelection: executionSelection("executor", {
+          provider: "claude",
+          model: "opus",
+          effort: "low",
+        }),
+        taskAttempt: 0 as const,
         stableLogicalHomeBindingHash: "c".repeat(64),
         providerHomeIdentityHash: "8".repeat(64),
         providerHomeProtectionHash: "9".repeat(64),
@@ -4900,14 +4913,19 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
       .digest("hex");
     const token = `host.${hostRecord.rootName}.12345678-1234-4234-8234-123456789abc.${hostHash}`;
     const identityJson = `${JSON.stringify({
-      schema: "crdd-coordinator/operation-identity/v1",
+      schema: "crdd-coordinator/operation-identity/v2",
       operationNonce: "b".repeat(64),
       provider: "claude",
       consumer,
       operationId: repository.operationId,
       recoveryCorrelationId: "task-operation-a",
       grantRef: "PHMGRANT-FIXTURE",
-      profileId: "PROFILE-123456",
+      executionSelection: executionSelection("executor", {
+        provider: "claude",
+        model: "opus",
+        effort: "low",
+      }),
+      taskAttempt: 0 as const,
       stableLogicalHomeBindingHash: "c".repeat(64),
       providerHomeIdentityHash: "8".repeat(64),
       providerHomeProtectionHash: "9".repeat(64),

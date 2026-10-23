@@ -4,6 +4,20 @@
  * @trace ARCH-000004
  * @trace ARCH-000015
  */
+import {
+  inspectExecutionSelection,
+  inspectTaskExecutionSelections,
+  inspectAiSelectionChoice,
+  hashExecutionSelection,
+  type ExecutionSelection,
+  type TaskExecutionSelections,
+  type AiSelectionChoice,
+} from "../selection/model.ts";
+import { readRepositoryAiSelection } from "../storage/ai-selection.ts";
+import {
+  resolveExecutionSelection,
+  resolveTaskExecutionSelections,
+} from "../selection/resolve.ts";
 
 import { createHash, randomUUID } from "node:crypto";
 import {
@@ -30,10 +44,6 @@ import { resolveCoordinatorWorkspaceTaskTarget } from "../workspace/operations.t
 import { snapshotCoordinatorWorkspaceResult } from "../execution/controller.ts";
 import type { CoordinatorWorkspaceResult } from "../execution/result.ts";
 import {
-  resolveAiProfileById,
-  type AiProfileCatalogStore,
-} from "../../../ai-adapter/src/index.ts";
-import {
   resolveVerifiedRepositoryRoot,
   gitRepositoryRevisionAdapter,
   type VerifiedRepositoryRoot,
@@ -54,17 +64,18 @@ import { observeRuntimeOwnedTransientTaskCompletion } from "../storage/settlemen
 
 /**
  * 単発操作の非永続入力。
- * @responsibility 明示mode、Profile、対象と本文を一要求に固定する。
+ * @responsibility 明示mode、固定選定、対象と本文を一要求に固定する。
  * @trace ARCH-000004
  * @shape 固定Context参照、作業指示、対象Workspace、送信確認。
- * @invariant 同意をProfile選択や保存成功から推定しない。
+ * @invariant 同意を固定選定選択や保存成功から推定しない。
  * @boundary 公開Surfaceから単発Owner。
  * @security Promptは保存しない。
  * @compatibility 旧change_candidate／Bundle入力は受理しない。
  */
 export type SingleTaskCommand = Readonly<{
   mode: SingleTaskRecord["mode"];
-  profileId: string;
+  workType: string | null;
+  choice?: AiSelectionChoice;
   prompt: string;
   contextReferences: readonly string[];
   allowedPaths: readonly string[];
@@ -110,6 +121,7 @@ export type SingleTaskOutcome = Readonly<{
  */
 export type SingleTaskExecution = Readonly<{
   record: SingleTaskRecord;
+  taskExecutionSelections: TaskExecutionSelections | null;
   repositoryRevision: string;
   target: Readonly<{
     workspaceId: string | null;
@@ -138,28 +150,32 @@ export type SingleTaskExecution = Readonly<{
 export function inspectSingleTaskCommand(
   raw: unknown,
 ): SingleTaskCommand | null {
-  const r = snapshotPlainRecord(
-    raw,
-    new Set([
-      "mode",
-      "profileId",
-      "prompt",
-      "contextReferences",
-      "allowedPaths",
-      "externalSendConfirmed",
-      "expectedNetworkPolicyHash",
-      "workspaceId",
-    ]),
-  );
+  const keys = [
+    "mode",
+    "workType",
+    "prompt",
+    "contextReferences",
+    "allowedPaths",
+    "externalSendConfirmed",
+    "expectedNetworkPolicyHash",
+    "workspaceId",
+  ];
+  const r =
+    snapshotPlainRecord(raw, new Set([...keys, "choice"])) ??
+    snapshotPlainRecord(raw, new Set(keys));
   const refs = snapshotPlainArray<string>(r?.contextReferences, 1);
   const paths = snapshotPlainArray<string>(r?.allowedPaths, 1024);
   if (
     !r ||
-    Object.keys(r).length !== 8 ||
+    Object.keys(r).length !== 8 + (Object.hasOwn(r, "choice") ? 1 : 0) ||
     typeof r.mode !== "string" ||
     !["read_only_advice", "workspace_edit"].includes(r.mode) ||
-    typeof r.profileId !== "string" ||
-    !/^PROFILE-[0-9]{6}$/u.test(r.profileId) ||
+    !(
+      r.workType === null ||
+      (typeof r.workType === "string" &&
+        /^[a-z0-9][a-z0-9._-]*$/u.test(r.workType))
+    ) ||
+    (Object.hasOwn(r, "choice") && !inspectAiSelectionChoice(r.choice)) ||
     typeof r.prompt !== "string" ||
     r.prompt.trim().length === 0 ||
     r.prompt.length > 32000 ||
@@ -189,6 +205,9 @@ export function inspectSingleTaskCommand(
     ...r,
     contextReferences: refs.value,
     allowedPaths: paths.value,
+    ...(Object.hasOwn(r, "choice")
+      ? { choice: inspectAiSelectionChoice(r.choice) }
+      : {}),
   }) as SingleTaskCommand;
 }
 
@@ -196,12 +215,12 @@ export function inspectSingleTaskCommand(
  * 単発依頼の開始・観測・取消を同じTaskへ結合する。
  * @responsibility 受付保存前のEffect 0、取消join、非永続本文を所有する。
  * @trace ARCH-000004
- * @input 検証済みRootと現在認可、Profile解決、二つの既存実行Adapter。
+ * @input 検証済みRootと現在認可、受付時の選定解決、二つの既存実行Adapter。
  * @returns 開始・観測・取消・終了のProcess内Owner。
  * @precondition Snapshot初期化は別の明示操作で完了している。
  * @postcondition 本文喪失時は再実行せず元IDの欠測を返す。
  * @effect 既存Writer、Lease、注入した実行だけ。
- * @failure 保存・Profile・認可・観測不能は停止し元IDを維持する。
+ * @failure 保存・固定選定・認可・観測不能は停止し元IDを維持する。
  * @invariant 新Registry・Lock・保存先・Merge・採用を追加しない。
  * @boundary 公開Surfaceと単発実行。
  * @security 主体を固定し観測・取消時も現在認可する。
@@ -214,10 +233,10 @@ export function createCoordinatorTaskRequests(
     projectId: string;
     principalId: string;
     authorize: () => boolean;
-    resolveProfile: (
-      id: string,
-      mode: SingleTaskRecord["mode"],
-    ) => Readonly<{ catalogRevision: number }> | null;
+    resolveSelection: (command: SingleTaskCommand) => Readonly<{
+      primary: ExecutionSelection;
+      taskExecutionSelections: TaskExecutionSelections | null;
+    }> | null;
     observeRevision: () => string | null;
     observeLeaseOwner?: CoordinatorLeaseOwnerObservation;
     recover?: (record: SingleTaskRecord) => Promise<
@@ -555,7 +574,11 @@ export function createCoordinatorTaskRequests(
         }
         current = readCoordinatorSnapshot(deps.root, deps.binding);
       }
-      const profile = deps.resolveProfile(command.profileId, command.mode);
+      const selection = deps.resolveSelection(command);
+      const primary = inspectExecutionSelection(selection?.primary);
+      const pair = inspectTaskExecutionSelections(
+        selection?.taskExecutionSelections,
+      );
       const revision = deps.observeRevision();
       if (
         closing ||
@@ -572,7 +595,13 @@ export function createCoordinatorTaskRequests(
       if (
         current.status !== "completed" ||
         !current.value ||
-        !profile ||
+        !primary ||
+        primary.role !==
+          (command.mode === "read_only_advice" ? "advice" : "executor") ||
+        (command.mode === "workspace_edit" &&
+          (!pair ||
+            hashExecutionSelection(pair.executor) !==
+              hashExecutionSelection(primary))) ||
         !revision
       )
         return {
@@ -585,8 +614,7 @@ export function createCoordinatorTaskRequests(
       const record: SingleTaskRecord = {
         principalId: deps.principalId,
         mode: command.mode,
-        profileId: command.profileId,
-        catalogRevision: profile.catalogRevision,
+        executionSelection: primary,
         taskId: `task-${randomUUID()}`,
         attemptId: `attempt-${randomUUID()}`,
         operationId: `operation-${randomUUID()}`,
@@ -751,7 +779,12 @@ export function createCoordinatorTaskRequests(
           item.snapshot = view(requestId, phase, "running", null);
           const rawOutcome = await deps.execute(
             command,
-            { record, repositoryRevision: revision, target: target.value },
+            {
+              record,
+              taskExecutionSelections: pair,
+              repositoryRevision: revision,
+              target: target.value,
+            },
             controller.signal,
             async () =>
               authorized() &&
@@ -774,7 +807,10 @@ export function createCoordinatorTaskRequests(
               return save(candidate);
             },
           );
-          const outcome = snapshotSingleTaskOutcome(rawOutcome);
+          const outcome = snapshotSingleTaskOutcome(
+            rawOutcome,
+            record.executionSelection,
+          );
           if (!outcome) throw new Error("orchestrator_task_result_invalid");
           outcomeForFailure = outcome;
           const next = inspectSingleTaskRecord({
@@ -970,7 +1006,7 @@ function view(
   return {
     requestId,
     mode: record?.mode ?? null,
-    profileId: record?.profileId ?? null,
+    executionSelection: record?.executionSelection ?? null,
     status,
     reason,
     taskId: record?.taskId ?? null,
@@ -1017,7 +1053,10 @@ function view(
  * @security 本文を永続化しない。
  * @concurrency 同期Snapshotだけ。
  */
-function snapshotSingleTaskOutcome(raw: unknown): SingleTaskOutcome | null {
+function snapshotSingleTaskOutcome(
+  raw: unknown,
+  executionSelection: ExecutionSelection,
+): SingleTaskOutcome | null {
   const value = snapshotPlainRecord(
     raw,
     new Set([
@@ -1034,8 +1073,7 @@ function snapshotSingleTaskOutcome(raw: unknown): SingleTaskOutcome | null {
   const record = inspectSingleTaskRecord({
     principalId: "validation",
     mode: value.mode,
-    profileId: "PROFILE-100001",
-    catalogRevision: 1,
+    executionSelection,
     taskId: "validation",
     attemptId: "validation",
     operationId: "validation",
@@ -1117,14 +1155,14 @@ function snapshotSingleTaskOutcome(raw: unknown): SingleTaskOutcome | null {
 
 /**
  * Repositoryと認可済み主体に固定した単発受付を構成する。
- * @responsibility Profile改訂再確認、用途別実行、cleanupの結果搬送。
+ * @responsibility 固定選定の搬送、用途別実行、cleanupの結果搬送。
  * @trace ARCH-000004
- * @input 検証済みRoot、Profile Store、実Project／主体、現在認可。
+ * @input 検証済みRoot、実Project／主体、現在認可と任意の利用側種別。
  * @returns 既存Writerへ接続する開始・観測・取消Owner。
  * @precondition 検証済みRepository内で既存Snapshotを準備できる。
  * @postcondition 編集は借用Workspace、助言は固定Contextだけを使用する。
  * @effect 構築時に既存Snapshotを初期化・確認する。明示開始時だけ外部Providerを利用する。
- * @failure Profile改訂・Root・認可が変われば外部Effect前に停止。
+ * @failure 固定選定相関・Root・認可が変われば外部Effect前に停止。
  * @invariant 自動Commit・Candidate固定・Merge・Promotionを行わない。
  * @boundary 公開Task OwnerとCoordinator技術Runtime。
  * @security Prompt・Context・助言本文は永続化しない。
@@ -1132,7 +1170,6 @@ function snapshotSingleTaskOutcome(raw: unknown): SingleTaskOutcome | null {
  */
 export function createRepositoryTaskRequests(
   rootCapability: VerifiedRepositoryRoot,
-  profiles: AiProfileCatalogStore,
   projectId: string,
   principalId: string,
   authorize: () => boolean,
@@ -1222,14 +1259,31 @@ export function createRepositoryTaskRequests(
     },
     observeRevision: () =>
       gitRepositoryRevisionAdapter(root)?.revisionIdentity ?? null,
-    resolveProfile: (id, mode) => {
-      const snapshot = profiles.snapshot().value;
-      if (!snapshot) return null;
-      const profile = resolveAiProfileById(snapshot.catalog, id).value;
-      return profile?.selectionRoles.includes(
-        mode === "read_only_advice" ? "coordinator" : "executor",
-      )
-        ? { catalogRevision: snapshot.revision }
+    resolveSelection: (command) => {
+      const read = readRepositoryAiSelection(rootCapability);
+      if (read.status !== "available") return null;
+      const request = {
+        workType: command.workType,
+        ...(command.choice ? { choice: command.choice } : {}),
+      };
+      if (command.mode === "read_only_advice") {
+        const selected = resolveExecutionSelection(read.snapshot.config, {
+          ...request,
+          role: "advice",
+        });
+        return selected.status === "resolved"
+          ? { primary: selected.value, taskExecutionSelections: null }
+          : null;
+      }
+      const selected = resolveTaskExecutionSelections(
+        read.snapshot.config,
+        request,
+      );
+      return selected.status === "resolved"
+        ? {
+            primary: selected.value.executor,
+            taskExecutionSelections: selected.value,
+          }
         : null;
     },
     execute: async (
@@ -1239,10 +1293,7 @@ export function createRepositoryTaskRequests(
       started,
       operationCreated,
     ): Promise<SingleTaskOutcome> => {
-      const snapshot = profiles.snapshot().value;
-      const profile = snapshot
-        ? resolveAiProfileById(snapshot.catalog, command.profileId).value
-        : null;
+      const selection = execution.record.executionSelection;
       const empty = (reason: string): SingleTaskOutcome => ({
         mode: command.mode,
         status: "blocked",
@@ -1254,12 +1305,10 @@ export function createRepositoryTaskRequests(
       });
       if (
         !authorize() ||
-        !snapshot ||
-        snapshot.revision !== execution.record.catalogRevision ||
-        !profile ||
+        !inspectExecutionSelection(selection) ||
         resolveVerifiedRepositoryRoot(rootCapability) !== root
       )
-        return empty("orchestrator_task_profile_or_access_changed");
+        return empty("coordinator_task_selection_or_access_invalid");
       if (signal.aborted)
         return {
           ...empty("orchestrator_task_cancelled_before_execution"),
@@ -1269,15 +1318,10 @@ export function createRepositoryTaskRequests(
         const executed = await runRepositoryAdvice(
           rootCapability,
           {
-            ...profiles,
-            snapshot: () =>
-              Object.freeze({
-                status: "read" as const,
-                value: snapshot,
-                error: null,
-              }),
+            ...command,
+            executionSelection: selection,
+            mode: "read_only_advice",
           },
-          { ...command, mode: "read_only_advice" },
           signal,
           {
             recoveryCorrelationId: execution.record.operationId,
@@ -1337,9 +1381,7 @@ export function createRepositoryTaskRequests(
           workspaceBaseCommit: execution.target.baseCommit,
           workspaceHead: execution.target.head,
           taskRequest: {
-            frontProvider: profile.provider,
-            requestedExecutorProvider: profile.provider,
-            requestedProfileId: profile.profileId,
+            taskExecutionSelections: execution.taskExecutionSelections,
             expectedNetworkPolicyHash: command.expectedNetworkPolicyHash,
             objective: command.prompt,
             acceptanceCriteria: [
