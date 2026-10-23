@@ -12,7 +12,6 @@ import {
   type CallToolResult,
   type ListToolsResult,
 } from "@modelcontextprotocol/server";
-import type { AiProfileCatalogAdministration } from "../../../ai-adapter/src/index.ts";
 import type { TopicMeetingAccess } from "../../../domain-model/src/index.ts";
 import { snapshotPlainRecord } from "./snapshot.ts";
 import { handleMcpDiscoverRequest } from "./discover.ts";
@@ -53,10 +52,6 @@ import {
   type McpAccessManagementContext,
 } from "../tools/access-management.ts";
 import {
-  getMcpAiProfileToolDefinitions,
-  handleMcpAiProfileRequest,
-} from "../tools/ai-profile.ts";
-import {
   getMcpExecutionStatusToolDefinitions,
   handleMcpExecutionStatusRequest,
   type McpExecutionStatusDependencies,
@@ -84,8 +79,6 @@ export type McpServerDependencies = Readonly<{
   workspace?: WorkspaceAccessResolver;
   projectContext?: McpProjectContextDependencies;
   runtimeActivity?: McpExecutionStatusDependencies;
-  aiProfileAdministration?: AiProfileCatalogAdministration;
-  aiProfileAdministrationResolver?: () => AiProfileCatalogAdministration | null;
   accessManagement?: McpAccessManagementContext;
   topicMeeting?: TopicMeetingAccess;
   topicMeetingRepositoryResolver?: TopicMeetingAccessResolver;
@@ -119,8 +112,6 @@ export function createMcpServerFactory(
     runtimeActivity,
     topicMeeting,
     topicMeetingRepositoryResolver,
-    aiProfileAdministration,
-    aiProfileAdministrationResolver,
   } = dependencies;
   return {
     async createServer(rawRequest, signal, observe) {
@@ -132,11 +123,6 @@ export function createMcpServerFactory(
         )
       )
         throw new ProtocolError(-32601, "Method not found");
-      if (
-        aiProfileAdministration !== undefined &&
-        aiProfileAdministrationResolver !== undefined
-      )
-        throw new ProtocolError(-32603, "Invalid Profile configuration");
       if (
         dependencies.initialConnection &&
         Object.keys(dependencies).length !== 1
@@ -206,33 +192,6 @@ export function createMcpServerFactory(
             handleMcpAccessRequest(raw, accessManagement, current),
         });
       }
-      let profileAvailable =
-        aiProfileAdministration !== undefined ||
-        aiProfileAdministrationResolver !== undefined;
-      if (isList) {
-        try {
-          profileAvailable =
-            (aiProfileAdministrationResolver
-              ? aiProfileAdministrationResolver()
-              : (aiProfileAdministration ?? null)) !== null;
-        } catch {
-          throw new ProtocolError(
-            -32603,
-            "AI Profile administration unavailable",
-          );
-        }
-      }
-      if (profileAvailable)
-        bindings.push({
-          definitions: getMcpAiProfileToolDefinitions(),
-          invoke: (raw, current) =>
-            handleMcpAiProfileRequest(
-              raw,
-              aiProfileAdministrationResolver ??
-                (aiProfileAdministration as AiProfileCatalogAdministration),
-              current,
-            ),
-        });
       if (runtimeActivity)
         bindings.push({
           definitions: getMcpExecutionStatusToolDefinitions(),

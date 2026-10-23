@@ -13,6 +13,7 @@ import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
 import { runInThisContext } from "node:vm";
 import test from "node:test";
+import { executionSelection } from "../../fixtures/ai-selection.ts";
 import type { DockerRuntimeRepairDisposalCheckpoint } from "../../../../docker-isolation/src/index.ts";
 import {
   COORDINATOR_STATE_SCHEMA,
@@ -3232,7 +3233,12 @@ test("修復variant: Taskと同居し双方向の更新で対象外全文を保�
     consumer: "orchestrator",
     operationId: "OP-234567",
     grantRef: "PHMGRANT-FIXTURE",
-    profileId: "PROFILE-123456",
+    executionSelection: executionSelection("executor", {
+      provider: "claude",
+      model: "opus",
+      effort: "low",
+    }),
+    taskAttempt: 0,
     stableLogicalHomeBindingHash: "c".repeat(64),
     providerHomeIdentityHash: "8".repeat(64),
     providerHomeProtectionHash: "9".repeat(64),

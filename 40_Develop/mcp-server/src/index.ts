@@ -14,11 +14,6 @@ export {
   MCP_CURRENT_ACCESS_TOOL,
 } from "./tools/access-management.ts";
 export {
-  getMcpAiProfileToolDefinitions,
-  handleMcpAiProfileRequest,
-  MCP_AI_PROFILE_TOOLS,
-} from "./tools/ai-profile.ts";
-export {
   describeMcpCoordinatorAdapterContract,
   handleMcpCoordinatorRequest,
   inspectMcpCoordinatorObjectiveResult,

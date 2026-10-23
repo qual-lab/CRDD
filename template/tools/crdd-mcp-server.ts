@@ -46,10 +46,6 @@ import {
   readExistingHostRoot,
   readHostInitializationState,
 } from "../../40_Develop/access-management/src/index.ts";
-import {
-  createHostAiProfileCatalogStore,
-  createAiProfileCatalogAdministration,
-} from "../../40_Develop/ai-adapter/src/index.ts";
 
 /**
  * MCP入口の利用方法を標準出力へ表示する。
@@ -307,13 +303,8 @@ async function main(): Promise<number> {
       );
       return 2;
     }
-    const profiles = createHostAiProfileCatalogStore(input);
-    if (profiles.status !== "ready") return 2;
     server = await startMcpAuthenticatedStreamableHttp(
-      createAccessMcpResolver(
-        root,
-        createAiProfileCatalogAdministration(profiles.store),
-      ),
+      createAccessMcpResolver(root),
       { port, ...configuration },
     );
   } else {

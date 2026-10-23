@@ -2459,26 +2459,22 @@
     {
       "id": "mcp:integration:ai-profile-adapter",
       "owner": "mcp-server",
-      "path": "40_Develop/mcp-server/tests/integration/ai-profile-adapter.contract.test.ts",
+      "path": "40_Develop/mcp-server/tests/integration/ai-selection-boundary.contract.test.ts",
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
-        "profile",
-        "fresh-authorization",
-        "post-adoption-failure",
-        "cancellation",
-        "result-correlation"
+        "ai-selection",
+        "retired-public-api",
+        "unknown-tool-rejection"
       ],
       "environment": "node_process",
       "externalProviderEffect": false,
       "humanInput": false,
       "postconditions": [
-        "authorization_after_complete_input",
-        "conflicting_dependencies_effect_zero",
-        "adopted_state_not_rolled_back",
-        "automatic_retry_zero",
-        "contradictory_result_rejected",
-        "executable_property_not_invoked"
+        "retired_tools_not_listed",
+        "retired_calls_rejected",
+        "catalog_effect_zero",
+        "normal_server_api_preserved"
       ],
       "mandatoryByDefault": true
     },
@@ -3297,11 +3293,21 @@
       "path": "40_Develop/coordinator/tests/integration/ai-selection-store.contract.test.ts",
       "level": "integration",
       "kind": "contract",
-      "semanticTags": ["ai-selection", "configuration", "filesystem", "cas"],
+      "semanticTags": [
+        "ai-selection",
+        "configuration",
+        "filesystem",
+        "cas"
+      ],
       "environment": "node_process",
       "externalProviderEffect": false,
       "humanInput": false,
-      "postconditions": ["read_without_creation", "content_identity_cas", "publication_cleanup_distinguished", "provider_effect_zero"],
+      "postconditions": [
+        "read_without_creation",
+        "content_identity_cas",
+        "publication_cleanup_distinguished",
+        "provider_effect_zero"
+      ],
       "mandatoryByDefault": true
     },
     {
@@ -3310,11 +3316,22 @@
       "path": "40_Develop/coordinator/tests/unit/selection/resolve.contract.test.ts",
       "level": "unit",
       "kind": "contract",
-      "semanticTags": ["ai-selection", "model", "configuration", "stored-selection"],
+      "semanticTags": [
+        "ai-selection",
+        "model",
+        "configuration",
+        "stored-selection"
+      ],
       "environment": "node_process",
       "externalProviderEffect": false,
       "humanInput": false,
-      "postconditions": ["selection_priority_deterministic", "unknown_configuration_rejected", "stored_selection_restored_without_current_catalog", "invalid_stored_selection_rejected", "provider_effect_zero"],
+      "postconditions": [
+        "selection_priority_deterministic",
+        "unknown_configuration_rejected",
+        "stored_selection_restored_without_current_catalog",
+        "invalid_stored_selection_rejected",
+        "provider_effect_zero"
+      ],
       "mandatoryByDefault": true
     },
     {

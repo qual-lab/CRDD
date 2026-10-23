@@ -11,12 +11,10 @@
  */
 import {
   resolveConnectionAuthentication,
-  evaluateAiProfileManagementPermission,
   resolveRepositoryAccessCollection,
   sameAccessCollection,
   resolveRepositoryAccess,
 } from "../../../access-management/src/index.ts";
-import type { AiProfileCatalogAdministration } from "../../../ai-adapter/src/index.ts";
 import {
   createPortfolioProjection,
   createTopicOperations,
@@ -39,7 +37,7 @@ import type { McpAuthenticatedRequestHandlerResolver } from "../transport/types.
  * @trace ARCH-000006
  * @trace ARCH-000012
  * @trace ARCH-000013
- * @input 内部構成が検証した管理Rootと任意のCROS Owner Profile管理操作。
+ * @input 内部構成が検証した管理Root。
  * @returns 初回候補はdiscover専用Handler、通常本人は内容Handler、拒否はnull。
  * @precondition HTTP Transportは要求毎にResolverを呼び、Handlerを要求終了後に共有しない。
  * @postcondition Portfolioは現在集合を公開前に再確認し文書不完全性を保持する。Topic／Meetingは現在許可対象だけを操作する。
@@ -52,7 +50,6 @@ import type { McpAuthenticatedRequestHandlerResolver } from "../transport/types.
  */
 export function createAccessMcpResolver(
   root: FilesystemStoreRoot,
-  profileAdministration?: AiProfileCatalogAdministration,
 ): McpAuthenticatedRequestHandlerResolver {
   return (token) => {
     const authentication = resolveConnectionAuthentication(root, token);
@@ -105,35 +102,6 @@ export function createAccessMcpResolver(
               },
             };
           },
-          ...(profileAdministration === undefined
-            ? {}
-            : {
-                /**
-                 * 現在Profile管理許可に限り既存Catalog操作を結合する。
-                 * @responsibility AM判定とCatalog保存Ownerを分離し、認可不明を非公開エラーへ閉じる。
-                 * @trace ARCH-000010
-                 * @trace ARCH-000013
-                 * @input N/A: 当該要求のRootとBearerをclosureで保持する。
-                 * @returns 現在許可時だけ注入済み操作、developer拒否はnull。
-                 * @precondition MCPが完全入力検査と開始前取消を確認済み。
-                 * @postcondition AM Lock解放後だけ操作を返し、Catalogを読まない。
-                 * @effect 既存AM現在認証だけ。Catalog操作は後続Adapterが所有する。
-                 * @failure 認証・初回・状態不明は固定例外で停止する。
-                 * @invariant 旧systemAdmin・内容Grantへfallbackしない。
-                 * @boundary AM現在認可→AI Adapterの管理操作結合。
-                 * @security Token・Role・Root・改訂・Store存在を返さない。
-                 * @concurrency 各一覧／Callで再観測し、Catalog中にAM Lockを保持しない。
-                 */
-                aiProfileAdministrationResolver: () => {
-                  const access = evaluateAiProfileManagementPermission(
-                    root,
-                    token,
-                  );
-                  if (access === "unavailable")
-                    throw new Error("profile_management_unavailable");
-                  return access === "allowed" ? profileAdministration : null;
-                },
-              }),
           runtimeActivity: {
             /**
              * 現在許可された同Projectの実保存活動を読む。

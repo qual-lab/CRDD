@@ -385,3 +385,9 @@ Provider固有のargv・Offering・Origin・Home変数名はAI Adapter、Contain
 Model／Task接続の追加確認では、Task状態機械153件（1,690.1804ms）、Docker EffectとProcess Controllerの合成119件（1,375.0634ms）が成功した。旧fixtureのRole／Profile入力による初回不合格を新形式へ追従し、制限環境のjunction生成拒否は条件を変えず通常Windowsで再確認した。固定選定と異なる事前Slateを外部同意より前に拒否し、Grant更新のProviderと完全選定の相関を検査する。先行の旧fixtureで待機した今回の二組の試験親子Processは、exact引数を確認して終了した。新形式試験の正常完走とは別に中断を記録し、初回結果を成功へ読み替えない。Source・文書の限定独立確認は進行中であり、公開利用側／旧Profile削除／全体回帰は後続である。
 
 Model／Task接続の限定固定候補は、関連17 Suite・405件が成功（8,728.7892ms、失敗・取消・skip・todo 0）、Coordinatorのformat・型・lint・二Trace検査も成功した。Lintの既存info 66件は不合格へ換算しない。独立確認で検出した助言Grantの操作／試行／選定Hash相関不足を是正し、初回と更新の六反例でPacket・Process・Provider Effect 0と元Grant失効を確認した。保存codecは旧current-state v4／v3／v2、identity v1、旧Profile混入と不正attemptを補完せず拒否する。Source・文書の最終限定再確認は全重大度の残指摘0。保存の広域回帰は別途進行中であり、全体回帰・Workbench／MCP／正式APIの移行・旧Profile全面撤去・実AIは未完了として維持する。実設定・保持②・実Docker・実認証には触れていない。
+
+MCPの旧Profile管理四Toolを撤去する単位へ進む。公開Root三API・Tool定義／一覧／dispatch、Host Catalogの起動依存と管理Resolver注入を除去し、新しい設定CRUD Toolを作らない。全Roleの一覧不存在・未知Tool拒否・旧Owner Effect 0を既存Server／HTTP試験へ移す。安定Suite IDは維持してai-selection-boundaryへ配置追従する。要求ごとの認証・Repository内容認可・初回限定接続・通常Transportの取消／終了保証は維持する。フロントAIによる旧Host Catalog実物の処置はまだ行わず、Workbench設定移行も次単位として区別する。
+
+MCP退役境界の固定候補は全101件成功（220,622.1574ms、失敗・取消・skip・todo 0）、format・型・lintも成功した。初回接続試験の旧32件期待は旧四Tool撤去後の28へ追従し、旧名不存在と元の出版・終了Oracleを維持した。現在の通常集合はWorkspace二操作を含むdeveloper18、manager／administrator28であり、現行設計を同期した。Sourceと文書・登録の独立再確認は、15件を内容・活動の部分集合と明記する一意な訂正まで反映して残指摘0。旧Host Catalog実物の移行・Workbench・旧Profile全面撤去・正式API全体・実AIの完成はこの結果に含めない。
+
+保存広域回帰は105件中102件成功・3件失敗で完走（1,129,497.6078ms）。二件は旧Profile肯定fixtureの追従漏れであり、新しい十項目選定とAttemptを与えて関連44件成功（1,581.2108ms）。一件は制限環境のjunction生成EPERMで、同一の不存在・安全拒否条件を通常Windowsで確認して1件成功（8,652.3695ms）。拒否条件を緩めず、初回不合格と是正後の局所結果を分離する。全体固定回帰の代替とはしない。実Docker・実AI・実認証・本体設定・保持②の操作は行っていない。

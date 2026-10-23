@@ -42,11 +42,6 @@ import {
 } from "../../../access-management/src/initialization/execution.ts";
 import type { AccessManagementState } from "../../../access-management/src/storage/types.ts";
 import {
-  createAiProfileCatalogAdministration,
-  createRepositoryAiProfileCatalogStore,
-  defaultAiProfileCatalog,
-} from "../../../ai-adapter/src/index.ts";
-import {
   createFilesystemStoreRoot,
   createMeetingOperations,
   createTopicOperations,
@@ -67,7 +62,6 @@ import { prepareWorkspaceSurface } from "../../../coordinator/tests/fixtures/wor
 import { startWorkbench } from "../../../workbench-server/src/index.ts";
 import {
   createAccessMcpResolver,
-  MCP_AI_PROFILE_TOOLS,
   MCP_CURRENT_ACCESS_TOOL,
   MCP_COORDINATOR_PROTOCOL_VERSION,
   MCP_PROJECT_CONTEXT_GET_TOOL,
@@ -767,164 +761,71 @@ test("非鍵管理MCPは保存後のClient切断を取消として観測する",
 });
 
 /**
- * 共有Profile管理の現在Roleと四操作を実HTTPで接続する。
- * @responsibility 内容Grantを管理許可へ転用せず、現在Role・失効・観測不能を分離する。
+ * 全ロールで旧AI設定管理の公開を撤去する。
+ * @responsibility Role管理とRepository内容認可を維持したまま旧四操作を非公開にする。
  * @trace RFD-IT-013
- * @trace RCM-IT-005
  * @trace RCM-IT-010
- * @precondition 自己生成AM Store、通常資格、実Catalog Storeを用意する。
- * @stimulus 同Tokenをmanager/admin/developerへ変更し四操作・一覧・失効・破損を要求する。
- * @observation HTTP結果、Catalog改訂、Store呼出し回数、固定非開示エラー。
- * @oracle manager/adminだけ管理し、developerはStore0。失効・状態不明は通常拒否に畳まない。
- * @cleanup Server closeとFixture所有Rootの回収・不存在確認。
- * @boundary 実HTTP→現在AM認可→AI Adapterの実保存・応答。
+ * @precondition 自己生成AM領域と既存HTTP Transportを使う。
+ * @stimulus developer／manager／administratorで一覧と旧四操作を要求する。
+ * @observation 公開一覧、未知Tool拒否、管理状態改訂。
+ * @oracle 全ロールで四操作不在、call拒否、操作後のAM改訂不変。
+ * @cleanup Server closeと所有fixtureの清掃・不存在を確認する。
+ * @boundary 現在AM認証→実HTTP→SDKの固定登録。
  */
-test("AM Profile MCPは現在Roleの四操作と非開示を実保存へ接続する", async (t) => {
+test("全ロールで旧Profile四操作は一覧に存在せず呼出しを拒否する", async (t) => {
   const f = fixture(t);
-  const target = f.targets[0];
-  assert.ok(target);
-  const configured = createRepositoryAiProfileCatalogStore(target.target);
-  assert.equal(configured.status, "ready");
-  if (configured.status !== "ready")
-    throw new Error("catalog fixture unavailable");
-  const administration = createAiProfileCatalogAdministration(configured.store);
-  let reads = 0,
-    mutations = 0;
-  const counted = {
-    snapshot: () => {
-      reads++;
-      return administration.snapshot();
-    },
-    execute: (mutation: Parameters<typeof administration.execute>[0]) => {
-      mutations++;
-      return administration.execute(mutation);
-    },
-  };
-  const resolver = createAccessMcpResolver(f.root, counted);
-  const handler = await resolver(f.token);
-  assert.ok(handler);
-  const listRequest = {
-    ...packet(),
-    method: "tools/list",
-    params: { _meta: packet().params._meta },
-  };
-  const state = JSON.parse(
-    fs.readFileSync(f.current, "utf8"),
-  ) as AccessManagementState;
-  const user = state.users[0],
-    credential = state.credentials[0];
-  assert.ok(user && credential);
+  const resolver = createAccessMcpResolver(f.root);
   const server = await startMcpAuthenticatedStreamableHttp(resolver, {
     port: 0,
   });
   const base = `http://${server.host}:${server.port}`;
+  const state = JSON.parse(
+    fs.readFileSync(f.current, "utf8"),
+  ) as AccessManagementState;
+  const user = state.users[0];
+  assert.ok(user);
+  const retired = [
+    "crdd.list_ai_profiles",
+    "crdd.create_ai_profile",
+    "crdd.update_ai_profile",
+    "crdd.delete_ai_profile",
+  ];
   try {
-    const deniedList = await invokeMcpSource(
-      handler,
-      listRequest,
-      new AbortController().signal,
-    );
-    assert.ok("result" in deniedList);
-    assert.equal(
-      JSON.stringify(deniedList).includes(MCP_AI_PROFILE_TOOLS.list),
-      false,
-    );
-    const denied = await call(base, f.token, MCP_AI_PROFILE_TOOLS.list, {});
-    assert.equal((await denied.json()).error.code, -32601);
-    assert.equal(reads + mutations, 0);
-    for (const role of ["manager", "administrator"] as const) {
+    for (const role of ["developer", "manager", "administrator"] as const) {
       user.role = role;
       fs.writeFileSync(f.current, JSON.stringify(state));
-      const listedTools = await invokeMcpSource(
+      const before = fs.readFileSync(f.current);
+      const handler = await resolver(f.token);
+      assert.ok(handler);
+      const list = await invokeMcpSource(
         handler,
-        listRequest,
+        {
+          ...packet(),
+          method: "tools/list",
+          params: { _meta: packet().params._meta },
+        },
         new AbortController().signal,
       );
-      for (const name of Object.values(MCP_AI_PROFILE_TOOLS))
-        assert.equal(JSON.stringify(listedTools).includes(name), true);
-      const listed = await (
-        await call(base, f.token, MCP_AI_PROFILE_TOOLS.list, {})
-      ).json();
-      const revision = listed.result.structuredContent.revision;
-      const original = defaultAiProfileCatalog.profiles[0];
-      assert.ok(original);
-      const profile = {
-        ...original,
-        profileId: "PROFILE-900042",
-        family: "am-profile-fixture",
-      };
-      for (const [name, args] of [
-        [MCP_AI_PROFILE_TOOLS.create, { expectedRevision: revision, profile }],
-        [
-          MCP_AI_PROFILE_TOOLS.update,
-          {
-            expectedRevision: revision + 1,
-            profile: { ...profile, family: "updated-fixture" },
-          },
-        ],
-        [
-          MCP_AI_PROFILE_TOOLS.delete,
-          {
-            expectedRevision: revision + 2,
-            profileId: profile.profileId,
-            confirmed: true,
-          },
-        ],
-      ] as const) {
-        const response = await (await call(base, f.token, name, args)).json();
-        assert.equal(response.result.structuredContent.status, "completed");
+      assert.ok("result" in list);
+      for (const name of retired) {
+        assert.equal(JSON.stringify(list).includes(name), false);
+        const response = await call(
+          base,
+          f.token,
+          name,
+          name.endsWith("list_ai_profiles")
+            ? {}
+            : {
+                expectedRevision: 1,
+                profileId: "PROFILE-900042",
+                profile: { profileId: "PROFILE-900042" },
+                confirmed: true,
+              },
+        );
+        assert.equal((await response.json()).error.code, -32601);
       }
-      assert.equal(administration.snapshot().value?.revision, revision + 3);
+      assert.deepEqual(fs.readFileSync(f.current), before);
     }
-    user.role = "developer";
-    fs.writeFileSync(f.current, JSON.stringify(state));
-    const before = reads + mutations;
-    const afterRoleChange = await invokeMcpSource(
-      handler,
-      packet(MCP_AI_PROFILE_TOOLS.list, {}),
-      new AbortController().signal,
-    );
-    assert.ok("error" in afterRoleChange);
-    assert.equal(afterRoleChange.error.code, -32601);
-    credential.revoked = true;
-    fs.writeFileSync(f.current, JSON.stringify(state));
-    const revoked = await invokeMcpSource(
-      handler,
-      listRequest,
-      new AbortController().signal,
-    );
-    assert.ok("error" in revoked);
-    assert.equal(revoked.error.code, -32603);
-    assert.equal(
-      (await call(base, f.token, MCP_AI_PROFILE_TOOLS.list, {})).status,
-      401,
-    );
-    credential.revoked = false;
-    assert.equal(state.initialization.stage, "completed");
-    state.initialization = {
-      stage: "credential_stored",
-      attemptId: state.initialization.attemptId,
-      userId: user.userId,
-      initialCredentialId: credential.credentialId,
-      confirmationCredentialId: credential.credentialId,
-    };
-    fs.writeFileSync(f.current, JSON.stringify(state));
-    const unfinished = await invokeMcpSource(
-      handler,
-      packet(MCP_AI_PROFILE_TOOLS.list, {}),
-      new AbortController().signal,
-    );
-    assert.ok("error" in unfinished);
-    assert.equal(unfinished.error.code, -32603);
-    fs.writeFileSync(f.current, "{}");
-    const unknown = await invokeMcpSource(
-      handler,
-      listRequest,
-      new AbortController().signal,
-    );
-    assert.ok("error" in unknown);
-    assert.equal(unknown.error.code, -32603);
-    assert.equal(reads + mutations, before);
   } finally {
     assert.equal((await server.close()).cleanupConfirmed, true);
   }

@@ -41,8 +41,6 @@ import {
   initializeAccessManagementState,
 } from "../../../access-management/src/initialization/execution.ts";
 import { readAccessManagementState } from "../../../access-management/src/storage/store.ts";
-import { defaultAiProfileCatalog } from "../../../ai-adapter/src/index.ts";
-import { resolveCrosRuntimeRoots } from "../../../domain-model/src/index.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
 
 import {
@@ -50,7 +48,6 @@ import {
   createMcpServerFactory,
   startMcpStreamableHttp,
   MCP_ACCESS_MANAGEMENT_TOOLS,
-  MCP_AI_PROFILE_TOOLS,
   MCP_CURRENT_ACCESS_TOOL,
   MCP_COORDINATOR_PROTOCOL_VERSION,
   MCP_PROJECT_CONTEXT_GET_TOOL,
@@ -934,7 +931,7 @@ for (const mode of [
    * @responsibility 内部Resolver試験だけでなく、配布入口からAM保存へ接続する。
    * @trace EST-ST-003
    * @precondition 検証済みRepository内の自己生成Host Rootと模擬初回資格。
-   * @stimulus localhost／公開Origin／実TLS設定の実CLIへ、初回Tool拒否、discover、通常本人取得、manager Profile管理、失効後同鍵再要求、合成SIGTERMを送る。
+   * @stimulus localhost／公開Origin／実TLS設定の実CLIへ、初回Tool拒否、discover、通常本人取得、managerで旧四Tool拒否、失効後同鍵再要求、合成SIGTERMを送る。
    * @observation 公開案内と内部loopbackの分離、各HTTP結果、保存段階、鍵Tool不存在、終了Processと残存Root。
    * @oracle 初回完了前の通常Tool0、次要求の現在本人、失効後401、秘密非表示。
    * @cleanup 子Processをjoinしてからexact fixtureを削除し不存在を確認する。
@@ -1290,7 +1287,6 @@ for (const mode of [
             [
               MCP_CURRENT_ACCESS_TOOL,
               ...Object.values(MCP_ACCESS_MANAGEMENT_TOOLS),
-              ...Object.values(MCP_AI_PROFILE_TOOLS),
               ...MCP_TOPIC_MEETING_TOOLS,
               MCP_PROJECT_CONTEXT_LIST_TOOL,
               MCP_PROJECT_CONTEXT_GET_TOOL,
@@ -1339,42 +1335,20 @@ for (const mode of [
               managerCredential.operation === "issueCredential",
           );
           secrets.push(managerCredential.token);
-          const managerCatalog = await call(
-            "tools/call",
-            { name: MCP_AI_PROFILE_TOOLS.list, arguments: {} },
-            managerCredential.token,
-          );
-          assert.equal(managerCatalog.status, 200);
-          const originalProfile = defaultAiProfileCatalog.profiles[0];
-          assert.ok(originalProfile);
-          const profile = {
-            ...originalProfile,
-            profileId: "PROFILE-900099",
-            family: "public-manager-fixture",
-          };
-          const creation = await call(
-            "tools/call",
-            {
-              name: MCP_AI_PROFILE_TOOLS.create,
-              arguments: {
-                expectedRevision:
-                  managerCatalog.body.result.structuredContent.revision,
-                profile,
-              },
-            },
-            managerCredential.token,
-          );
-          assert.equal(creation.status, 200);
-          assert.equal(
-            creation.body.result.structuredContent.status,
-            "completed",
-          );
-          const roots = resolveCrosRuntimeRoots(input);
-          assert.ok(roots);
-          assert.deepEqual(
-            fs.readdirSync(path.join(roots.config, "ai-profile-catalog")),
-            ["catalog-0000000001.json"],
-          );
+          for (const name of [
+            "crdd.list_ai_profiles",
+            "crdd.create_ai_profile",
+            "crdd.update_ai_profile",
+            "crdd.delete_ai_profile",
+          ]) {
+            const retired = await call(
+              "tools/call",
+              { name, arguments: {} },
+              managerCredential.token,
+            );
+            assert.equal(retired.status, 200);
+            assert.equal(retired.body.error.code, -32601);
+          }
           const afterProfile = readAccessManagementState(root);
           assert.ok(afterProfile.status === "completed");
           assert.equal(afterProfile.value.revision, managerCredential.revision);

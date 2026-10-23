@@ -146,26 +146,16 @@ function headers(token: string, method = "server/discover") {
  * 正規discoverだけが一回の確認保存後に固定応答を返す。
  * @responsibility 通常Tool依存0・保存順・次要求の通常一覧を確認する。
  * @trace RFD-IT-024
- * @precondition 初回資格・実loopback Listener・管理操作spy。
+ * @precondition 初回資格・実loopback Listener。
  * @stimulus 初回tools/list拒否、完全discover、次要求tools/listを送る。
- * @observation publication数・KDF数・current改訂・固定応答・管理spy。
+ * @observation publication数・KDF数・current改訂・固定応答。
  * @oracle 不正Toolは確認0、discover確認1・一出版、本人情報なし、次要求だけ通常Tool。
  * @cleanup Server.closeのcleanup成功後にfixtureを回収する。
  * @boundary 実HTTP→限定Handler→AM→固定応答。
  */
 test("初回HTTPは完全discover一回だけ出版して次要求を通常へ移す", async (t) => {
   const f = fixture(t);
-  let administrationCalls = 0;
-  const resolver = createAccessMcpResolver(f.root, {
-    snapshot: () => {
-      administrationCalls++;
-      throw new Error("not expected");
-    },
-    execute: () => {
-      administrationCalls++;
-      throw new Error("not expected");
-    },
-  });
+  const resolver = createAccessMcpResolver(f.root);
   const server = await startMcpAuthenticatedStreamableHttp(resolver, {
     port: 0,
   });
@@ -205,7 +195,6 @@ test("初回HTTPは完全discover一回だけ出版して次要求を通常へ�
     assert.deepEqual(value, handleMcpDiscoverRequest(packet()));
     assert.equal(kdfs, 2); // Header用途判定とfresh初回確認だけ。
     assert.equal(publications, 1);
-    assert.equal(administrationCalls, 0);
     const state = JSON.parse(
       fs.readFileSync(f.current, "utf8"),
     ) as AccessManagementState;
@@ -233,10 +222,15 @@ test("初回HTTPは完全discover一回だけ出版して次要求を通常へ�
     });
     const listed = await next.json();
     assert.ok(Array.isArray(listed.result.tools));
-    // 本人一操作と通常管理十操作は独立先行中。Remote登録は判断待ちで含めない。
-    assert.equal(listed.result.tools.length, 32);
-    // 一覧Schemaの提示はCatalogの内容を読まない。
-    assert.equal(administrationCalls, 0);
+    // 通常十八操作と管理十操作。Repository登録と旧Profile四操作は公開しない。
+    assert.equal(listed.result.tools.length, 28);
+    assert.equal(
+      listed.result.tools.some((tool: { name: string }) =>
+        tool.name.includes("ai_profile"),
+      ),
+      false,
+    );
+    // 一覧Schemaの提示は初回接続を再出版しない。
     assert.equal(publications, 1);
   } finally {
     fs.renameSync = rename;
