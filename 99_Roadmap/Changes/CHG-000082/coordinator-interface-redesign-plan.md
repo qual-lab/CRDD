@@ -852,3 +852,24 @@ Sourceではauth／proxy／providerのcreateはいずれもDIの`planDockerIsola
 次の比較候補は、既存固定Python Image `sha256:d67a7b66b989ad6b6d6b10d428dcc5e0bfc3e5f88906e67d490c4d3daac57047`で、専用の空Host領域だけをreadonly Mountし、auth同等のnetwork none／read-only／non-root／cap-drop／no-new-privileges／pids-limit構成の停止Containerを二件順番にcreateする方式である。標準execFileSyncとCRDD所有Processに同じ最小環境・設定・argvを渡す。起動、AI、認証領域、Repository mount、Image取得、独自Network作成は行わない。取得実ID・名前・Label・Image・構成を確認した今回物だけをexact IDで回収する。作成結果不明・構成差・回収失敗では再試行せず根拠を保持する。現時点は提案だけであり、限定試験とその回収の人間承認後に実行する。
 
 結果・次試験案の二文書は限定独立レビューで全重大度の残指摘零。読取り成功の非一般化、保持物非変更、未承認createの非実行、実ID確認後の回収とunknown時の停止を確認した。
+
+<a id="docker-common-create-comparison"></a>
+
+### 承認済み停止Containerのcreate比較 — 2026-10-25（日本時間）
+
+利用者の承認後、既存固定Python Imageのexact ID・linux/amd64・稼働Container零を確認し、新品Root `.crdd/tests/docker-create-compare-20261025`の空Homeと空CLI configだけを使った。通常のTypeScriptファイル入口を構文確認し、実行前独立確認ではHOME環境の読戻し条件一件を追加して、再確認後の残指摘零で一回実行した。製品Sourceと保存・回復契約は変更しなかった。
+
+二方式とも、同じ絶対Docker CLI、Named Pipe、最小環境、空config、固定Image、同じ制限を使用した。名前の方式識別部分以外は同じcreate引数で、network none／read-only／non-root 65534／cap-drop ALL／no-new-privileges／pids 32／HOME固定／専用空領域のreadonly bindを指定した。Containerは逐次一件ずつ、合計二件だけ作り、startは発行していない。
+
+| 方式 | 作成結果 | 構成読戻し・回収 |
+|---|---|---|
+| 標準execFileSync | 終了0、stdout 65 bytes／stderr 0、実ID `5cea51f93cc845d6dbcced264223011e414763a4f1a42dce90a6726361c9e96b` | 構成一致、削除直前の実ID・Label等の再確認後に非force rm。実ID／予定名の成功一覧が空で不存在確認 |
+| CRDD所有Process | 終了0、stdout 65 bytes／stderr 0、closed true・期限未超過、実ID `6012f57c81be822a49fa7a2a0c6eb01bcc4214bbbdd59338c11c295997b95e32` | 同じ構成条件が一致し、同じ回収・不存在確認が成立 |
+
+構成Oracleは実ID・名前・Label・Image・created／非稼働、User・Cmd・HOME一件、network mode、readonly rootfs、非特権・cap-drop・security option・pids、Mount件数・用途・readonly・Propagationと元Sourceを読戻した。共通Labelは`crdd.create-comparison=d8142b85c7460f5f`で、終了後のLabel一覧も空。既存ContainerのID・状態・名前一覧は開始前と同じだった。native終了値0、containersCreated 2／containersStarted 0である。
+
+今回の固定Python・空Mount条件では、作成から回収まで両方式が成立し、Process包装の差による故障は再現しなかった。これを全用途の共通経路の無欠陥証明にせず、Claude Image、実認証Home Mount、同時Workbench HTTP／取消・保存を通す実失敗の原因は未特定とする。統合すべき別の認証専用create経路が見つかったわけではなく、根拠なくProcess監視や安全条件を削除しない。AI・認証情報・Repository Mount・Container起動・独自Network作成・Image取得・再起動・元保持物の処置は零であった。
+
+結果記録後、自己生成Rootのresolved絶対Path一致・ReparsePointなし・二件とも構成／回収／Process close確認済み・空Homeと空configと結果一件だけであることを確認した。そのRootだけを削除して不存在確認し、短命入口も回収した。保持中のClaude試験Rootは清掃対象に含めていない。
+
+結果二文書の限定独立レビューは全重大度の残指摘零。実測の作成・構成・回収と未検証の実Claude条件を分離し、製品Sourceや実回復条件を変更しないことを確認した。
