@@ -12,7 +12,9 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
-保持②を利用者承認の読取り調査で再確認した。Claude非0とは別の、AI開始前のHTTP状態取得失敗と作成結果unknownである。同時間窓のDockerログにContainer作成要求を契機とするEngine休止復帰を確認したが、元要求との直接相関と失敗因果は未確定。対象の認証確認Containerは現在不存在でも、回収完了には変更しない。既存の試験器診断・終了処置の十二件は成功し、追加の本番回復改修は行わない。保持三FileのHashは不変、再送・回復実行・削除なし。[確認結果と限界](99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#retained-edit-trial-readonly-diagnosis)を参照する。
+元作業の非AI回帰は完走した。Coordinator全体は1,850件中1,811成功・33失敗・6skipで初回不合格を保持する。全33失敗はSource・安全条件を変えず通常Windowsで成功確認し、関連正常系と環境skip一件を含む対象確認は計51件成功。AI Adapter24件・Workbench合成HTTP12件と静的検査も成功した。単一runの全体Passとは表示しない。次は記録の独立確認とCommit／Push後、承認済みのClaude読取り一回、その完全成功後だけDirect／Isolated合成編集E2Eへ進む。現在、実AI再送・Docker再起動は未実施。[確定結果と限界](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#元作業再開後の非ai回帰--2026-10-24)を参照する。
+
+保持②は利用者承認の安全確認後、合成試験Root・対応する空のHost一時Root・旧marker一件だけを削除し、三対象の不存在を確認した。現行の状態・履歴に元参照はなく、対象ProcessとDocker資源も直前照会で不存在。AI再送・Docker再起動・認証領域操作・新しい回復機構の追加はない。旧試験の失敗・作成結果unknownとexact回復参照は履歴へ維持し、旧APIの回復成功や編集E2E成功には変更しない。[限定清掃の範囲と結果](99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#retained-edit-trial-disposal)を参照する。元失敗の因果は[読取り調査](99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#retained-edit-trial-readonly-diagnosis)の限定結論を維持する。
 
 ClaudeのJSONエラー説明の取りこぼしは、既存AI Adapterの変換内で最小是正した。公開理由・APIを増やさず、生出力は保存しない。AI Adapter全24件、Coordinator影響回帰306件と静的検査が成功し、限定独立レビューは残指摘零。過去の実失敗原因は未特定で、実AI再送・Docker／認証操作・保持②の操作は行っていない。未実施の編集二試験や全体E2EをPassへ変更しない。[結果と限界](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#claudeエラー変換の最小是正と非ai回帰--2026-10-24)を参照する。
 
@@ -28,9 +30,9 @@ Coordinator構造整理の先行単位では、承認済みの本番未接続Tru
 
 保存統合Bは、実装・旧試験の移行・固定版回帰の範囲を完了した。Task・Queue・Workspaceを共通Ownerと単一物理Writerへ接続し、履歴も同じRoot・保持設定へ切り替えた。旧ACK専用API・内部枝・二段リレーと旧設定Reader・配布例・Schemaを撤去した。固定通常回帰は1,862成功・失敗0・5skip、Workbench／MCP共通入口一件とWindows保存影響三十件も成功した。実AI・実DockerのE2Eと全体QAの完成ではない。次候補は利用者提示のCoordinator構造再設計であり、今回の保存契約を凍結基準にする。[確認結果と限界](99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#375-保存統合bの最終確認)を参照する。
 
-②の実AI編集E2Eの今回試験は、利用者判断で終了したが、回収は未完了である。認証確認用Containerの作成結果unknown、同じ回復参照と試験物を保持する。停止Containerだけが遅れて残る可能性は今回に限り許容されているが、E2EのPass・回収完了・一般回復条件の緩和ではない。AI再試行は行わない。詳細と再評価条件は[今回試験の終了判断](99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#workspace-edit-trial-ended-unresolved)を参照する。
+②の実AI編集E2Eの今回試験は利用者判断で終了し、2026-10-24に既知の今回試験物・旧Runtime記録を限定廃棄した。作成結果unknownと同じ回復参照は歴史記録へ維持する。旧APIの回収成功・E2EのPass・一般回復条件の緩和ではない。AI再試行は行わない。[当時の終了判断](99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#workspace-edit-trial-ended-unresolved)と[今回の清掃結果](99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#retained-edit-trial-disposal)を区別する。
 
-固定Commit `d4edcd1e`後の追従是正では、検証Tool3 Suiteの接続、Test Header全数Gate、現行文書43診断の是正に続き、確定誤検知236件を検査側で解消した。生診断は1,836→1,600、追加0。Checker全386件は385成功／既知1失敗（残1,600診断）で完走した。文書診断は現行0、歴史CHG旧参照3,353による全体不合格を維持する。Browser接続1場面も元失敗の原因未確定のまま。②のAI再試行・保持物削除は行わず、保持3 Hashと安全条件は不変。[今回の是正と確認](99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#naming-false-positive-remediation)を正本とし、[先行の分類・文書是正](99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#verification-tool-document-closure)と[是正前の固定版結果](99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#workspace-fixed-regression)を区別する。
+固定Commit `d4edcd1e`後の追従是正では、検証Tool3 Suiteの接続、Test Header全数Gate、現行文書43診断の是正に続き、確定誤検知236件を検査側で解消した。生診断は1,836→1,600、追加0。Checker全386件は385成功／既知1失敗（残1,600診断）で完走した。文書診断は現行0、歴史CHG旧参照3,353による全体不合格を維持する。Browser接続1場面も元失敗の原因未確定のまま。当該是正時点では、②のAI再試行・保持物削除は行わず、保持3 Hashと安全条件は不変だった。[今回の是正と確認](99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#naming-false-positive-remediation)を正本とし、[先行の分類・文書是正](99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#verification-tool-document-closure)と[是正前の固定版結果](99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#workspace-fixed-regression)を区別する。
 
 v0.22のCHG-000082は進行中。Docker Isolationは`a04ecb70`でコミット・プッシュ済み。Direct／Candidateは共通のDocker方針を採用し、開発用`.env`がCoding AIから読まれ得るリスクを受容した。本番SecretはGit・通常開発環境へ置かず既存管理を使い、開発資格は本番権限なし・限定権限・期限ありとする。独自Secret Manager・file別ACL・動的Mount許可Frameworkは追加しない。固定Pathの最小Mount試験は二構成で成功し、通常Source書込みとGit／内部状態への書込み拒否を確認した。全link経路・任意Repository・製品実装全体の保証ではない。Coordinatorの借用実行は実装・結合試験と独立再レビューまで完了（限定範囲）。実Provider E2E・実データ移行は未実施。統合・タグ・リリースは含めない。条件と限界は[接続結果](99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#借用実行接続の実装結合確認の区切り)を参照する。
 

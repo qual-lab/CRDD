@@ -1225,3 +1225,27 @@ Browserの調査結果は、元の`local-connection`評価失敗の再現確定�
 追加の本番回復機構を作る根拠はなく、今回Sourceは変更しない。実失敗の通信原因は未特定、保持②の回収も未完了のまま、元のexact回復参照を維持する。今後の回収・廃棄判断は原因調査と分離し、現在不存在だけで旧記録を成功へ書き換えない。読取り独立確認もこの限定結論と整合した。
 
 保持三Fileの調査前後SHA-256は不変。`result.json`: `4cd927466a680d33230eae240c9f100cea0f7e5343175026126efe3ed5819255`、旧Coordinator `state.json`: `ab0aa2e7434b01301c9a752a71f18ead551d4902216e82b169eca6fe62073ce5`、旧Orchestrator `state.json`: `c15def7385050150e7fd42527cc4a618684f39fa144bcf2818376ba996533ed1`。Host markerは`b4830df0d9f339c221f4dcbbafa999b8c428d0d1a8308cc0f64d475642bcd4a4`を読取り観測し、変更していない。
+
+<a id="retained-edit-trial-disposal"></a>
+
+## 保持②の限定廃棄（2026-10-24）
+
+利用者は安全確認後の今回試験物・旧記録だけの清掃を承認した。AI再送・Docker再起動・新しい回復機構は対象外。旧試験の失敗と作成結果unknownを成功へ変更せず、以下の物理残存だけを例外的に廃棄する。実行前計画では未実施とし、実行結果を本節末尾へ記録した。
+
+| 順序 | exact対象（Host側は既存OS一時Root配下） | 確認した由来・範囲 |
+|---|---|---|
+| 1 | `%LOCALAPPDATA%\Temp\crdd-coordinator-doctor-52b77347-8218-40bb-956d-eac5ccdae549` | 元markerのRoot・六子Identityと一致、子孫十Directory・File零。実認証Homeではない |
+| 2 | `%LOCALAPPDATA%\Temp\crdd-coordinator-recovery-v1\host-5eeeedecb514d5f2dd6d19c2f35f65fe321807d6684107f112dd1c98bfd96243.json` | 対応marker一件だけ。親Directory・他markerは残す。1の不存在確認後に非再帰削除 |
+| 3 | `.crdd/tests/workspace-real-ai` | 合成試験Root、旧結果・二状態・fixture・自己完結Git。三十五File、子孫三十五Directory、58,597 bytes。dirty／stageは合成fixture。外部Worktreeなし |
+
+Root・子孫の相対Path／型／サイズ／dev／ino／生成時刻の整列manifestを固定した。試験Root（Root込み七十一項目）のSHA-256は`36a5a3b6aaab302a239676d51efbf0aeb2ccfcc5a82b1c8aff8e340d263ec2e1`、Host Root（十一項目）は`e28e44341593e0a6e46e851aed605fd63ea482a4f9087a9b3c6ce60ba1490c7f`。ReparsePoint・非通常項目・複数link Fileはない。削除直前に同一manifest、保持四Hash、exact実Path、対象と祖先の非linkを再確認し、不一致なら処置しない。
+
+現行Workbenchは`server/start.ts`のMemory Mapから`bin/workbench-server.ts`の`openTaskSession`へ接続する。Task要求は`task/requests.ts`から統合Snapshot State Portへ接続し、耐久OwnerはRepository-local `coordinator/state.json`、通常履歴は同Rootの`history.jsonl`である。現在の両Fileには元request／task／attempt／上下operation／nonce／試験Root／Host Rootのexact参照がない。旧Orchestrator状態は削除対象内の旧形式だけで、現行の別Writerではない。
+
+通常WindowsのProcess照会は成功し、対象Path・nonce・所有suffixに一致するProcessと元PID7768は不存在。制限環境で先行したCIM失敗は不存在の根拠に用いない。Dockerの全状態で、exact認証Container名`crdd-auth-68aa19ff3db0048f`と元所有labelのContainer／Networkをそれぞれ読取り照会し、対象零を確認した。各確認は削除直前にも再実施し、いずれか存在・観測不能なら処置しない。Provider未開始、外部送信・共有書込み未発行、旧Owner Effect disabledという保持事実は維持する。
+
+削除は上表の順に一対象ずつ行い、各直後の不存在を確認する。部分失敗は既削除／残存／観測不能を分けて停止し、再試行・権限修復・Process終了・Docker再起動を追加しない。共有Provider Home・Dockerログ・他試験物・親Directoryは変更しない。これは旧APIの正式回復成功やE2E成功を表さない。
+
+実行結果：直前のmanifest・四Hash・exact実Path／祖先・現行参照検査が全成功。通常WindowsのCIM照会が成功し、対象Process・元PIDは零。Dockerのexact名全状態Container、所有label全状態Container／Networkの三照会も成功・対象零だった。空のHost Root、対応marker、合成試験Rootをこの順に削除し、三対象それぞれ直後の不存在を確認した。途中失敗・追加試行・権限修復は零。保持②の既知の今回物理残存と旧Runtime記録の限定清掃は完了した。旧試験の失敗／作成結果unknownとexact回復参照は本履歴へ保持し、旧APIの回収成功・実AI編集E2E成功へ書き換えていない。AI再送・Docker再起動・Docker資源変更・認証領域操作は零。新しいSource・回復機構・保存台帳は追加していない。
+
+履歴上のexact回復参照：`docker-task.7a8a913ba325345122de111096d1e616e1f6cd4b9499ef405901862b8198f56a.3e1615d6c5f027a803efd6518df0d30558cc7b711c766a1610cc98293fea2ad7.7a7a9408b57b0127f42f0e71ce377bd6bef00ac2e28f81d483ac2c46d204b770`。対象Container名は`crdd-auth-68aa19ff3db0048f`。これは廃棄前の追跡情報であり、新しい実行許可ではない。

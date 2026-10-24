@@ -572,3 +572,48 @@ AI起動は計二回で再送なし。認証状態確認をAI起動回数に含�
 | 独立レビュー | Source・UT／IT・設計・QAを読取り確認し、全重大度の残指摘零。既存優先・容量境界・本文非公開と利用側搬送の整合を確認 |
 
 今回扱ったのは過去失敗の診断取りこぼしであり、過去のClaude非0終了の実原因を確定したわけではない。生Provider出力を保存せず、実AI再送・Docker／認証操作・保持②の操作は零。局所・影響回帰の限定完了とし、未実施の編集二試験や全体E2EをPassへ変更しない。
+
+### 元作業再開後の非AI回帰 — 2026-10-24
+
+保持②の限定清掃後、利用者の継続指示により、基準Source `98509d5f295eb33fef8b92aca0d76b9bff3ac060`の非AI回帰を再開した。今回の製品Source・設定・判定条件の変更は零。対象は既存の通常回帰と静的検査で、実AI再送・Docker再起動・認証領域操作・新しい回復機構は含めない。保持②の清掃は[別の限定処置](workspace-runtime-inventory.md#retained-edit-trial-disposal)として区別する。
+
+| 確認範囲 | 現在確定した結果・限界 |
+|---|---|
+| AI Adapter | 静的検査と全二十四件成功、4,236.9034ms。前回の成功とは別の今回実測 |
+| Coordinator静的検査 | 整形八百九十九File、Source／Test型、Lint、Runtime／Taskの両Trace成功。既存Lint info八十四件は不変更 |
+| Workbench合成HTTP | 制限環境では十二件中十一成功・一失敗。通常Windows環境では全十二件成功、17,352.3117ms。実AI・実Dockerを使わない有限Ownerとloopbackの検証 |
+| Windows対象確認 | 通常Windows環境で対象五十一件が成功、失敗・取消・skip零。初回失敗三十三件、Git markerの環境skip一件、関連する正常系十七件を含む。Source・安全条件・Oracleは変更していない |
+| Coordinator通常全体 | 既存`test:portable`は1,850件中1,811成功・33失敗・6skip、取消・todo零、11,235,366.0836ms、Exit 1で完走。初回不合格を保持し、別環境の対象成功を足して単一runの全体成功へ換算しない |
+
+長時間の公開Objective Caseは変更なしで169,540.9768ms、単発Task保存Caseも342,990.0871msで成功した。途中で検討した取消通知取り逃がしの仮説は、今回の待機原因として確定していない。推測に基づく試験変更は行わなかった。今回Runnerの停止もIdentity再確認で拒否され、Process停止の実発行は零。通常Windowsで別途確認した公開Objective全十件も成功した。実行結果の書庫は追加せず、今回のSource不変と範囲別結果だけを本節へ記録する。
+
+初回三十三失敗と通常Windowsでの再確認は次の全数対応である。エラーの意味を確認できたものと、環境差だけ確認できたものを分け、権限制約を製品不具合へも、成功へも読み替えない。
+
+| 初回失敗の対象 | 件数 | 観測と同一試験の通常Windows確認 |
+|---|---:|---|
+| AI選択Store | 2 | hardlink作成EPERMと、その注入不成立による期待値差。二件成功、1,246.5151ms |
+| Taskのloose ref境界 | 1 | Junction作成EPERM。一件成功、633.2759ms |
+| 送信同意のdangling境界 | 1 | symlink作成EPERM。一件成功、442.7542ms |
+| Git読取り・Native ancestor・Coverage | 4 | Host marker rename又はJunction／symlink作成EPERM。四件成功、628.7914ms |
+| Repository Operation／Workspace | 18 | Host marker rename EPERM又はGit管理領域Junction作成EPERM。両Suite二十五件成功、50,470.37ms |
+| 保存のtmp親alias | 1 | symlink作成EPERM。一件成功、8,430.459ms |
+| Windows判断Store | 2 | 初回はblockedで期待値と不一致。通常環境では二件成功、514.8424ms。個別のOS拒否原因は未確定 |
+| WorkspaceのBranch残存回収 | 1 | 別Process再入場が90秒の既存期限でETIMEDOUT。通常環境では同じ期限・処理のまま一件成功、67,983.6235ms。遅延の内部原因は未確定 |
+| 検証記録の保存先link | 1 | symlink作成EPERM。一件成功、579.9633ms |
+| 受動Doctor・Operation作成 | 2 | Host回復namespace初期化拒否。Operation側はterminal_selected_user_unknownを保持。通常環境では二件成功、718.7418ms |
+
+さらに公開Objective全十件（93,301.0522ms）と、初回の環境skipだったGit marker link拒否一件（124.5659ms）を確認した。上表の通常確認四十件にこの十一件を加え、計五十一件である。残る初回五skipは対象確認で実施済みとはせず、実境界の未評価を維持する。通常Windowsでの対象五十一件の再確認には再現失敗がない。初回全体runの三十三失敗・六skipと、ETIMEDOUT一件／Windows判断Store二件の厳密原因未確定は維持する。通常Windowsで全1,850件を一括再実行したとは主張しない。
+
+三文書の限定独立確認では、通常Windowsの対象成功を非AI全体へ広げない表現上の軽微指摘一件を是正し、再確認後は全重大度の残指摘零となった。次はCommit／Pushである。実AIは次節の継続承認で固定した範囲に限り、その固定版で進む。
+
+### 一〜四の継続承認と実AIの固定範囲 — 2026-10-24
+
+利用者は残件一〜四の実施を指示した。開始済み通常回帰の確定、記録・独立確認・Commit／Pushを先行し、その固定版で以下を実施する。実AI前のSource読取り独立照合では、新しいFrameworkやSource変更は不要、追加の人間判断も不要と確認した。
+
+- 読取り再確認はClaude `opus / medium`一回だけ。Codexの読取り成功は再実行しない。新品のRepository-local合成領域の`PROJECT_CONTEXT.md`一件と既存の固定質問だけを送り、本体Context・認証値・秘密値は送らない。
+- 読取りが完全成功した場合だけ、既存`verify-workspace-ai.ts`でDirect→Isolated各一Taskへ進む。ExecutorはCodex `gpt-5.5 / medium`、ReviewerはClaude `opus / high`。合成Source・固定指示・差分だけを送り、通常の一回是正を含め各Task最大四起動、読取りを加え最大九起動。余り枠を再試行に使わない。
+- 現在の固定Imageを使い、Image取得／更新・APIキーfallback・Docker再起動・本体設定移行は行わない。Docker inventoryが読めない、又は稼働Containerがあれば、実行しない。
+- Source／設定の未Commit差分なし、exact Repository／Commit／Context、選択identityと送信／通信Policyが観測可能であることを実行前に確認する。合成設定と既存の送信Policyだけを利用し、認証Homeを手動で読み取らない。
+- Claude読取りの非0・unknown・回収不明では編集へ進まない。Direct失敗ではIsolatedを起動しない。再送・再起動・強制清掃はせず、今回のexact結果／回復参照を保持する。正常時だけ、既存OracleのGit・Worktree／Ref・Container／Networkの終了後条件と非使用を確認して自己生成物を回収する。
+
+本節は実施許可と停止条件の記録であり、実行結果ではない。正式199項目の全数評価・全体QA・Release成立を実AIの限定成功から推定しない。
