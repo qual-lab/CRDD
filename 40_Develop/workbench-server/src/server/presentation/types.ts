@@ -30,7 +30,7 @@ export type WorkbenchConnectionState = "repository" | "cros_available";
  * 一つの起動中だけ共有する表示値と直前結果。
  * @responsibility 既存変数の読取り・更新時点を変えず、操作受付と表示の間で保持する。
  * @trace ARCH-000012
- * @shape 現在投影、Profile表示、単体操作結果、単体AI表示ID・Snapshot・Notice、既存の活動観測。
+ * @shape 現在投影、Repository別AI選択表示、単体操作結果、単体AI表示ID・Snapshot・Notice、既存の活動観測。
  * @invariant 保存・clone・汎用更新APIを追加せず、共有AI Sessionと混在しない。
  * @boundary Server内の実Consumerだけで共有する型。
  * @security 認証資格や許可済みRootを表示状態のAuthorityとして保持しない。

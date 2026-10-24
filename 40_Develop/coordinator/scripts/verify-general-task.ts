@@ -10,6 +10,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { types as utilTypes } from "node:util";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../version-control/src/index.ts";
+import { resolveTaskExecutionSelections } from "../src/selection/resolve.ts";
 import type { BorrowedExecutionTarget } from "../src/execution/operation.ts";
 import {
   prepareVerificationWorkspace,
@@ -52,7 +53,7 @@ import {
 
 export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT =
   "crdd-coordinator/signed-general-task-verification";
-export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION = 28;
+export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION = 29;
 
 const TARGET_PATH =
   "40_Develop/coordinator/tests/fixtures/general-task-verification.txt";
@@ -1291,7 +1292,7 @@ const ROUTE_EXPECTATIONS: Readonly<
  * @precondition 「routeProfile: SignedGeneralTaskRouteProfile」がcreateSignedGeneralTaskVerificationRequestの入力契約を満たす。
  * @postcondition createSignedGeneralTaskVerificationRequestの責務を完了した結果だけを返す。
  * @effect N/A: createSignedGeneralTaskVerificationRequestは入力と局所値だけを扱い、外部または共有Effectを発行しない。
- * @failure N/A: createSignedGeneralTaskVerificationRequestは独自の失敗分岐を所有しない。
+ * @failure 技術Catalogが固定経路に対応しない場合は起動前に例外で停止する。
  * @invariant createSignedGeneralTaskVerificationRequestは入力から導いた結果以外の共有状態を変更しない。
  * @boundary N/A: createSignedGeneralTaskVerificationRequestはProcess内の同一Subsystemで完結する。
  * @security N/A: createSignedGeneralTaskVerificationRequestはAuthority、秘密値または信頼判断を扱わない。
@@ -1301,9 +1302,47 @@ export function createSignedGeneralTaskVerificationRequest(
   routeProfile: SignedGeneralTaskRouteProfile = "forward",
 ) {
   const route = ROUTE_EXPECTATIONS[routeProfile];
+  // このToolだけの明示的な検証入力。設定Storeや技術Catalogの正本は作らない。
+  const advice = Object.freeze({
+    provider: "codex",
+    model: "gpt-5.6-sol",
+    effort: "medium",
+  });
+  const codex = Object.freeze({
+    provider: "codex",
+    model: "gpt-5.5",
+    effort: "medium",
+  });
+  const claude = Object.freeze({
+    provider: "claude",
+    model: "opus",
+    effort: "high",
+  });
+  const selection = resolveTaskExecutionSelections(
+    {
+      contract: "crdd/ai-selection",
+      revision: 1,
+      roleDefaults: {
+        coordinator: advice,
+        executor: route.executorProvider === "codex" ? codex : claude,
+        independent_reviewer:
+          route.reviewerProvider === "codex" ? codex : claude,
+        result_integration: advice,
+        advice,
+      },
+      workTypes: {},
+      overrides: {},
+    },
+    { workType: null },
+  );
+  if (
+    selection.status !== "resolved" ||
+    selection.value.executor.provider !== route.executorProvider ||
+    selection.value.reviewer.provider !== route.reviewerProvider
+  )
+    throw new Error("signed_general_task_route_selection_invalid");
   return Object.freeze({
-    frontProvider: route.frontProvider,
-    requestedExecutorProvider: route.executorProvider,
+    taskExecutionSelections: selection.value,
     objective:
       "Replace the one existing bounded verification marker from BASE to OK.",
     acceptanceCriteria: Object.freeze([
@@ -1596,6 +1635,33 @@ export async function runSignedGeneralTaskVerification(
       Object.freeze({ canonicalRepositoryChanged: false }),
     );
   }
+  let verificationRequest: ReturnType<
+    typeof createSignedGeneralTaskVerificationRequest
+  >;
+  try {
+    verificationRequest =
+      createSignedGeneralTaskVerificationRequest(routeProfile);
+  } catch {
+    if (isRuntimeProcessPoisoned())
+      return blocked(
+        "signed_general_task_process_restart_required",
+        null,
+        Object.freeze({
+          canonicalRepositoryChanged: false,
+          manualRecoveryRequired: true,
+          processRestartRequired: true,
+        }),
+      );
+    return blocked(
+      "signed_general_task_route_selection_invalid",
+      null,
+      Object.freeze({
+        canonicalRepositoryChanged: false,
+        cleanupConfirmed: true,
+        manualRecoveryRequired: false,
+      }),
+    );
+  }
   let sourceIdentity: RuntimeRecord | null = null;
   try {
     sourceIdentity = plainRecord(dependencies.observeSource());
@@ -1712,7 +1778,7 @@ export async function runSignedGeneralTaskVerification(
   let rawStarted: unknown;
   try {
     rawStarted = dependencies.startTask(
-      createSignedGeneralTaskVerificationRequest(routeProfile),
+      verificationRequest,
       repositoryRoot,
       executionTarget,
     );

@@ -962,7 +962,7 @@ test("終了記録のflush失敗は保存成功にせず、byte上限も緩和�
 });
 
 /**
- * 公開Recovery入口から試験Producer拒否を実記録と端末出力へ接続する。
+ * 固定Recovery検証入口から試験Producer拒否を実記録と端末出力へ接続する。
  *
  * @responsibility 署名拒否に依存せず、実Dockerを使用しない公開CLIと実Recorderの接続を確認する。
  * @trace ERP-ST-004
@@ -973,7 +973,7 @@ test("終了記録のflush失敗は保存成功にせず、byte上限も緩和�
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary ERP-ST-004=Direct Boundary: coordinator Test Source→対象契約
  */
-test("公開Recovery入口はProducer拒否を実Dockerなしで最終記録へ接続する", (t) => {
+test("固定Recovery検証入口はProducer拒否を実Dockerなしで最終記録へ接続する", (t) => {
   const root = fixture(t);
   const preload = `
     import cp from "node:child_process";
@@ -998,8 +998,7 @@ test("公開Recovery入口はProducer拒否を実Dockerなしで最終記録へ�
       "--experimental-test-module-mocks",
       "--import",
       `data:text/javascript,${encodeURIComponent(preload)}`,
-      path.join(packageRoot, "bin/coordinator.ts"),
-      "verify-recovery",
+      path.join(packageRoot, "scripts/verify-recovery-matrix.ts"),
     ],
     { cwd: root, encoding: "utf8", windowsHide: true, timeout: 30_000 },
   );

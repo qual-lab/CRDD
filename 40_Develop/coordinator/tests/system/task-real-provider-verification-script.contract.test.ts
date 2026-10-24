@@ -10,6 +10,7 @@
  * @scope project、runtime、real、provider、verification、script
  * @boundary PRL-ST-001=System/E2E: 公開入口→Coordinator→Execution→受入
  */
+import { inspectCoordinatorObjectiveRequest } from "../../src/objective/request.ts";
 import assert from "node:assert/strict";
 import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
 import { EventEmitter } from "node:events";
@@ -705,6 +706,7 @@ const recoverySettlementFixture = () => ({
 const buildInput = (overrides: Record<string, unknown> = {}) =>
   ({
     runId: "run",
+    aiSelectionObservationStatus: "matched",
     executionIdentity: { commit: "a".repeat(40), tree: "b".repeat(40) },
     runtimeSource: {
       scope: "crdd-development-source-snapshot/v2",
@@ -1074,7 +1076,7 @@ test("全観測が相関した場合だけ公開Process E2Eをcompletedにする
   assert.equal(result.status, "completed", JSON.stringify(result));
   assert.deepEqual(result.problems, []);
   assert.equal(result.publicMcpProcess.actualChildProcess, true);
-  assert.equal(result.contractRevision, 12);
+  assert.equal(result.contractRevision, 13);
   assert.equal(
     result.recoveryOperationAfterRun.currentOperationFinalized,
     true,
@@ -2892,4 +2894,237 @@ test("stdin非同期失敗も観測結果へ閉じてchild終了を待つ", asyn
   const result = await resultPromise;
   assert.equal(result.streamFailure, true);
   assert.equal(result.joined, true);
+});
+
+/**
+ * 検証用AI設定の欠測とProvider対の不一致を起動前に拒否する。
+ * @responsibility 検証用AI設定の欠測とProvider対の不一致を起動前に拒否する。
+ * @trace PRL-ST-004
+ * @precondition 合成値と有限な下位代役だけを使用する。
+ * @stimulus 設定・選定元・相関Identityを個別に欠落又は変更する。
+ * @observation 返却値と外部境界への到達数を確認する。
+ * @oracle 正常時だけ二経路を確認し、他はnullで外部Effectを発行しない。
+ * @cleanup N/A: 外部AI・認証・Docker・設定保存は使用しない。
+ * @boundary PRL-ST-004=Direct Boundary: 検証Toolと現行契約。
+ */
+
+test("実Provider Toolの事前設定確認は二経路と同一設定を要求する", () => {
+  const start = verificationScriptSource.indexOf(
+    "function readVerificationAiSelectionIdentity(",
+  );
+  const end = verificationScriptSource.indexOf(
+    "const MAXIMUM_OUTPUT_BYTES",
+    start,
+  );
+  assert.ok(start > 0 && end > start);
+  const body = stripTypeScriptTypes(verificationScriptSource.slice(start, end));
+  for (const scenario of [
+    "matched",
+    "root_failed",
+    "missing",
+    "read_throw",
+    "unsupported",
+    "executor",
+    "reviewer",
+    "source",
+    "identity",
+  ]) {
+    let selections = 0;
+    const identity = "a".repeat(64);
+    const read = runInNewContext(
+      `${body}; readVerificationAiSelectionIdentity`,
+      {
+        verifyRepositoryRoot: () => ({
+          status: scenario === "root_failed" ? "blocked" : "completed",
+          capability: "root",
+        }),
+        readRepositoryAiSelection: (root: unknown) => {
+          assert.equal(root, "root");
+          if (scenario === "read_throw") throw Error("unavailable");
+          return {
+            status: scenario === "missing" ? "missing" : "available",
+            snapshot: { config: "config", identity },
+          };
+        },
+        VERIFICATION_CHOICES: {
+          codex: { provider: "codex" },
+          claude: { provider: "claude" },
+        },
+        resolveTaskExecutionSelections: (
+          config: unknown,
+          request: { workType: string; choice: { provider: string } },
+        ) => {
+          selections++;
+          assert.equal(config, "config");
+          assert.equal(
+            request.workType,
+            `verification-${request.choice.provider}`,
+          );
+          if (scenario === "unsupported") return { status: "blocked" };
+          const provider = request.choice.provider;
+          return {
+            status: "resolved",
+            value: {
+              executor: {
+                provider: scenario === "executor" ? "wrong" : provider,
+                source: "explicit",
+                configIdentity: identity,
+              },
+              reviewer: {
+                provider:
+                  scenario === "reviewer"
+                    ? provider
+                    : provider === "codex"
+                      ? "claude"
+                      : "codex",
+                source:
+                  scenario === "source" ? "role_default" : "work_type_override",
+                configIdentity:
+                  scenario === "identity" ? "b".repeat(64) : identity,
+              },
+            },
+          };
+        },
+      },
+    ) as (root: string) => string | null;
+    assert.equal(read("root"), scenario === "matched" ? identity : null);
+    assert.equal(
+      selections,
+      scenario === "matched"
+        ? 2
+        : ["root_failed", "missing", "read_throw"].includes(scenario)
+          ? 0
+          : 1,
+    );
+  }
+  const main = verificationScriptSource.slice(
+    verificationScriptSource.indexOf("async function main()"),
+  );
+  assert.ok(
+    main.indexOf(
+      "const aiSelectionIdentity = readVerificationAiSelectionIdentity",
+    ) < main.indexOf("startPublicMcpProcess("),
+  );
+  assert.equal(
+    verificationScriptSource.includes("requestedExecutorProvider"),
+    false,
+  );
+});
+
+/**
+ * 設定の最終観測故障でも一次結果と回復参照を保持する。
+ * @responsibility 設定の最終観測故障でも一次結果と回復参照を保持する。
+ * @trace PRL-ST-004
+ * @precondition 合成値と有限な下位代役だけを使用する。
+ * @stimulus 正常・Task不成立・清掃不明の各入力で設定観測だけを変更する。
+ * @observation 返却値と外部境界への到達数を確認する。
+ * @oracle 完成表示は拒否するが既存の取消・回復・Process・cleanup情報を上書きしない。
+ * @cleanup N/A: 外部AI・認証・Docker・設定保存は使用しない。
+ * @boundary PRL-ST-004=Direct Boundary: 検証Toolと現行契約。
+ */
+
+test("AI設定観測のchanged・unavailableは一次結果と回復情報を消さない", () => {
+  for (const overrides of [
+    {},
+    { cancellationRequestedAfterProcessStart: false },
+    { normalRuns: [] },
+    { runtimeSource: null },
+  ]) {
+    const baseline = build({
+      ...overrides,
+      aiSelectionObservationStatus: "matched",
+    });
+    for (const observed of ["changed", "unavailable", "unknown", null]) {
+      const result = build({
+        ...overrides,
+        aiSelectionObservationStatus: observed,
+      });
+      assert.equal(result.status, "blocked");
+      const normalized = observed === "changed" ? "changed" : "unavailable";
+      assert.equal(result.aiSelectionObservationStatus, normalized);
+      assert.deepEqual(result.problems, [
+        `ai_selection_${normalized}`,
+        ...baseline.problems,
+      ]);
+      const {
+        status: _s,
+        reason: _r,
+        problems: _p,
+        aiSelectionObservationStatus: _a,
+        ...actual
+      } = result;
+      const {
+        status: _bs,
+        reason: _br,
+        problems: _bp,
+        aiSelectionObservationStatus: _ba,
+        ...expected
+      } = baseline;
+      assert.deepEqual(actual, expected);
+    }
+  }
+});
+
+/**
+ * 実ToolのObjective構築を現在の公開入力へ接続する。
+ * @responsibility 実ToolのObjective構築を現在の公開入力へ接続する。
+ * @trace PRL-ST-001
+ * @precondition 合成値と有限な下位代役だけを使用する。
+ * @stimulus 両Providerの実構築関数へ合成共通入力を渡す。
+ * @observation 返却値と外部境界への到達数を確認する。
+ * @oracle 新しいchoice・分類だけを持ち閉形式codecが受理する。
+ * @cleanup N/A: 外部AI・認証・Docker・設定保存は使用しない。
+ * @boundary PRL-ST-001=Direct Boundary: 検証Toolと現行契約。
+ */
+
+test("実Provider Toolはchoiceと検証分類を持つ現在Objectiveを構築する", () => {
+  const constants = verificationScriptSource.match(
+    /const VERIFICATION_CHOICES =[\s\S]*?\n\}\);/u,
+  )?.[0];
+  assert.ok(constants);
+  const start = verificationScriptSource.indexOf("function objective(");
+  const end = verificationScriptSource.indexOf("async function main()", start);
+  assert.ok(start > 0 && end > start);
+  const body = stripTypeScriptTypes(
+    `${constants}\n${verificationScriptSource.slice(start, end)}`,
+  );
+  const create = runInNewContext(`${body}; objective`) as (
+    common: unknown,
+    run: string,
+    provider: string,
+    adopt: boolean,
+  ) => unknown;
+  for (const provider of ["codex", "claude"]) {
+    const request = JSON.parse(
+      JSON.stringify(
+        create(
+          {
+            intakeEpoch: "epoch-a",
+            repositoryRevision: "a".repeat(40),
+            objective: "合成一行を変更",
+            acceptanceCriteria: ["合成結果"],
+            allowedPaths: ["source.txt"],
+            readPaths: ["source.txt"],
+            maximumConcurrency: 1,
+            maximumReplans: 0,
+            originLane: "interactive",
+          },
+          "run",
+          provider,
+          false,
+        ),
+      ),
+    );
+    assert.ok(inspectCoordinatorObjectiveRequest(request));
+    assert.equal(request.workType, `verification-${provider}`);
+    assert.equal(request.choice.provider, provider);
+    assert.equal("requestedExecutorProvider" in request, false);
+    assert.equal(
+      inspectCoordinatorObjectiveRequest({
+        ...request,
+        requestedExecutorProvider: provider,
+      }),
+      null,
+    );
+  }
 });

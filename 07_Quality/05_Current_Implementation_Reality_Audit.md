@@ -1,5 +1,7 @@
 # 現行実装との照合
 
+2026-10-24の公開操作・認証・AI選択再設計の現実照合は、[現在の限定結果と未確認境界](../99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#final-normal-regression)を参照する。本番接続と範囲別の非AI検証を、正式199項目の全数成立、実Provider・認証・人間確認・実移行、全体Readyへ換算しない。以下の先行集計・未実施境界は当時の固定版を対象として保持する。
+
 2026-10-22のC物理統合では、旧OrchestratorのSource・試験・公開APIをCoordinatorへ移管した候補を検証中である。独立したOrchestrator Package行は過去の母集団を示し、現行物理Ownerは`40_Develop/coordinator`。正式199項目の再評価を実施した記録ではなく、移管・型検査から品質成立を推定しない。現在の対象と確認は[統合計画](../99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#31-cの物理統合の着手前照合)へ接続する。
 
 B2の端末出力移管に伴う補助Unit項目`EST-UT-016`の追加を反映し、現在の設計集合は199項目とする。通常回帰の成功を正式項目全数の再評価へ換算せず、以下の198項目等の実測記録は当時の対象に限定する。

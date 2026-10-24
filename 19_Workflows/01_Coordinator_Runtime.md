@@ -394,7 +394,11 @@ Coordinator固有の署名・配布Tree固定AST／body SHA検査と専用試験
 node <selected-verified-checkout-root>/40_Develop/coordinator/scripts/verify-task-real-providers.ts
 ```
 
-対応範囲はWindowsでの固定実Provider試験であり、このコマンド自体が外部送信の許可を与えるものではない。結果改訂12では対象Repositoryの改訂を`executionIdentity`、実行Sourceの観測を`runtimeSource`に分ける。Source／入口の欠測は最初のMCP起動前に拒否し、終了時不一致は既知の回収事実を変更せず検証不成立とする。入口Hashは既存Readerが返したUTF8文字列のHashである。旧署名結果を新版のE2E根拠として扱わない。
+対応範囲はWindowsでの固定実Provider試験であり、このコマンド自体が外部送信の許可を与えるものではない。結果改訂13では対象Repositoryの改訂を`executionIdentity`、実行Sourceの観測を`runtimeSource`に分ける。Source／入口の欠測は最初のMCP起動前に拒否し、終了時不一致は既知の回収事実を変更せず検証不成立とする。入口Hashは既存Readerが返したUTF8文字列のHashである。旧署名結果を新版のE2E根拠として扱わない。
+
+フロントAIは実行前に、対象Repositoryの既存AI設定へ検証分類`verification-codex`と`verification-claude`を用意する。両分類の`independent_reviewer`上書きはそれぞれClaude、Codexとし、既定Reviewerからの補完で済ませない。ToolはCodex `gpt-5.5 / medium`、Claude `opus / medium`を明示選択し、起動前に既存ReaderとResolverで二つのProvider対を確認する。Tool自身は設定を作成・更新しない。実行中は設定を編集しない。
+
+終了時の`aiSelectionObservationStatus`は`matched / changed / unavailable`だけを返す。前後で同じ設定を確認できない場合は検証不成立にするが、Task・取消・回復の一次結果、exact参照、cleanup観測は上書きしない。これは前後二時点の確認であり、途中で変更して元へ戻した場合の検出や、全実行中のModel／Effortの原子的固定を保証するものではない。
 
 Checkerの実装配置と配布境界は[内部ツール・コーディング規約](../06_Architecture/99_Coding_Standards.md)に従う。Checker packageの開発確認は次を使用する。
 

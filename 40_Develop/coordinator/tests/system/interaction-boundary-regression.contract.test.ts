@@ -211,7 +211,7 @@ test("対話Consoleは一つのRuntime契約だけがOS deviceを所有する", 
     "utf8",
   );
   const cliSource = fs.readFileSync(
-    path.join(coordinatorRoot, "../coordinator/src/cli/command.ts"),
+    path.join(coordinatorRoot, "../coordinator/src/cli/request.ts"),
     "utf8",
   );
   assert.equal(parentConsoleSource.includes("process.stdin"), false);
@@ -230,7 +230,7 @@ test("対話Consoleは一つのRuntime契約だけがOS deviceを所有する", 
   );
   assert.equal(requestInputSource.includes("fs.readSync(0"), true);
   const commandPath = path
-    .join(coordinatorRoot, "../coordinator/src/cli/command.ts")
+    .join(coordinatorRoot, "../coordinator/src/cli/request.ts")
     .replaceAll("\\", "/");
   const inputPath = path
     .join(coordinatorRoot, "../coordinator/src/cli/options.ts")
@@ -357,7 +357,7 @@ function inspectTaskStdinWiring(project: Project, root: string) {
       .join(
         root,
         name === "command"
-          ? "../coordinator/src/cli/command.ts"
+          ? "../coordinator/src/cli/request.ts"
           : name === "interactive-console-reader"
             ? "../platform-access/src/terminal/confirmation-reader.ts"
             : name === "request-input"
@@ -1680,15 +1680,24 @@ test("Node版GateはPATHをAuthorityにせずEffect前に停止する", () => {
   });
 
   const guardedEntrypoints = [
-    "src/cli/command.ts",
-    "scripts/verify-general-task.ts",
-  ];
-  for (const relative of guardedEntrypoints) {
+    [
+      "src/cli/command.ts",
+      /if \(!isSupportedNodeRuntime\(observation\.nodeVersion\)\)/u,
+      /import\s*\{[^}]*\bisSupportedNodeRuntime\b[^}]*\}\s*from "\.\.\/api\.ts"/u,
+    ],
+    [
+      "scripts/verify-general-task.ts",
+      /isSupportedCoordinatorNodeRuntime\(\s*dependencies\.runtimeVersion\(\),?\s*\)/u,
+      /import\s*\{[^}]*\bisSupportedCoordinatorNodeRuntime\b[^}]*\}\s*from "\.\.\/src\/execution\/diagnostics\.ts"/u,
+    ],
+  ] as const;
+  for (const [relative, call, imported] of guardedEntrypoints) {
     const source = fs.readFileSync(
       path.join(coordinatorRoot, relative),
       "utf8",
     );
-    assert.match(source, /CoordinatorNodeRuntime/u, relative);
+    assert.match(source, imported, relative);
+    assert.match(source, call, relative);
   }
 
   const readme = fs.readFileSync(

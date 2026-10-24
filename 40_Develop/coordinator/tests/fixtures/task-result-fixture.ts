@@ -8,6 +8,7 @@
  * @scope 自己生成Repository内の合成保存だけ。Docker・Providerなし。
  * @boundary 合成技術Operation→統合保存codecと実Filesystem。
  */
+import { executionSelection } from "./ai-selection.ts";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
@@ -84,7 +85,12 @@ export function registerSyntheticOperations(
       operationId: `OP-${123456 + index}`,
       recoveryCorrelationId: operationId,
       grantRef: "PHMGRANT-FIXTURE",
-      profileId: "PROFILE-123456",
+      taskAttempt: 0 as const,
+      executionSelection: executionSelection("executor", {
+        provider: "claude",
+        model: "opus",
+        effort: "high",
+      }),
       stableLogicalHomeBindingHash: String(index + 2).repeat(64),
       providerHomeIdentityHash: "8".repeat(64),
       providerHomeProtectionHash: "9".repeat(64),

@@ -1,6 +1,6 @@
 # Coordinatorの公開操作・認証・AI選択の再設計計画
 
-状態: Objective六Sourceと本番`public-*`撤去、技術Catalog・AI選択の値検査／選定・内部設定Store、共通認証の実装・CLI接続を段階確認済み。正式API／CLI全体・新設定の本番切替・共通認証の実境界は未完了。
+状態: Objective・正式API／CLI・Repository AI選択・共通認証の実装、本番Consumer接続、追従漏れの是正と非AI影響回帰を限定完了。実AI・実認証・人間確認・本体設定の実移行は最後に分離する。
 更新日: 2026-10-24
 基準版: `5ccdc54a0998113d757c0eebce3ae8f06bfa932d`
 変更: CHG-000082の責務整理を継続する。新しいCHG・実行Registryは追加しない。
@@ -477,4 +477,43 @@ CLIは`task run / project init / project run / doctor check / doctor isolation /
 
 全体診断中に旧CLI呼出し・旧Profile fixtureとWindows制限環境由来の失敗を検出した。旧入力は新形式へ移し、拒否Oracleや保全条件を緩めず局所再確認した。診断中に試験を追従した実行は固定全体回帰の根拠にせず、本候補をCommitで固定して通常全体を確認する。現在文書のOwnerリンク三件とQuality関係の追従漏れも一意に修正した。歴史的CHG／Evidenceの旧リンクはそのまま保持し、Repository文書検査全体の不合格を現行候補のPassへ読み替えない。
 
-未実施は固定全体回帰の最終集計、実AI・実認証・人間による端末／画面確認、本体設定の実移行である。②の再試行・保持物の観測／操作、Docker実操作、認証情報の使用を行っていない。実AI等は送信内容・回数・試験物・停止条件を最後にまとめて提示してから実施する。
+この固定候補時点では、固定全体回帰の最終集計、実AI・実認証・人間による端末／画面確認、本体設定の実移行が未実施だった。後続の集計・是正・最終確認は§16を参照する。実AI等は送信内容・回数・試験物・停止条件を最後にまとめて提示してから実施する。
+
+<a id="final-normal-regression"></a>
+
+## 16. 固定全体回帰と追従漏れの是正 — 2026-10-24
+
+基準Commit `9db97f00a`の通常全体回帰を、外部AI・実Dockerなしで最後まで実行した。`npm run test:portable`は1,845件中1,788成功・52失敗・5明示対象外、取消／todo 0、4,611,313.6631ms、Exit 1。この初回結果は不合格として保持する。52件は次の51個別失敗と、それに伴う親Test一件の失敗であり、実装を変更せず現在の入力・Ownerへ追従する。
+
+| 原因群 | 初回失敗数 | 最小処置・保持する検査 |
+|---|---:|---|
+| Root搬送の旧CLI構成式 | 1 | 正式診断APIの実Root構成式へ接続。別Root・再解決・不正Rootの反例を維持 |
+| 共有の旧結果fixture | 28（親一件を含む） | 旧Profileを固定選定・Provider・Attemptへ置換。実保存、元結果、取消・回復・再入場のOracleを維持 |
+| Source分類・依存辺の未登録 | 1 | 新入口五Fileの責務を分類。選定の型参照とDomainの同期値検査だけをexact許可し、OS禁止・未知Source・別／余剰Symbol・値依存の拒否を維持 |
+| Workspace子Processの旧Root import | 7 | 再入場・別Process採用は実Ownerへ接続。合成Principalを使う四引数の内部契約と、実認証を固定する三引数の正式APIを混同せず、内部操作をRootへ再公開しない |
+| 対話入力AST／Node Gateの旧Owner | 2 | 実受付Ownerと正式版判定へ追従。stdin八変異、実Import・実Callの検査を維持 |
+| General検証Toolの旧Task入力 | 1 | 既存Resolverで固定二役を作り、選定不能はSource観測・Workspace・Task開始前に拒否。契約改訂29 |
+| 結果記録試験の旧CLI構文 | 1 | 独立した正式Recovery検証Scriptへ接続。Producer拒否・保存・Hash・元参照の検査を維持 |
+| Packet肯定fixtureのHash欠測／改訂 | 10 | 既存選定Hash関数で値を構築し、改訂21へ追従。Packetの拒否・相関条件を緩めない |
+| 単発要求の旧Profile肯定入力 | 1 | 現在の分類入力へ変更し、旧Profile・不正明示選択の拒否を追加 |
+
+実Provider検証Toolも同じ新入力へ接続した。既存Reader／Resolverで二つの検証分類と反対Providerの明示Reviewer上書きを要求し、Toolが設定を自動保存しない。結果改訂13は設定の前後確認を`matched / changed / unavailable`で表し、非一致でも一次結果・取消・回復参照・cleanup観測を消さない。途中変更・ABA検出や、全実行の原子的な設定固定は保証しない。実行前条件と限界の正本は[実行手順](../../../19_Workflows/01_Coordinator_Runtime.md#task実provider検証の実行source)とする。
+
+| 是正後の確認範囲 | 結果 |
+|---|---|
+| 関連17 Suite | 217件成功・失敗／取消／skip／todo 0、142,459.7342ms。先行216成功／1失敗を上書きせず、最後の依存辺追従後に全17 Suiteを再実行 |
+| 実保存・Workspace・回復の影響四Suite | 103件中102成功・1失敗、取消／skip／todo 0、1,660,169.9612ms。残一件は合成Principalの内部契約を正式APIへ誤搬送した試験側の追従漏れ。初回結果を成功へ読み替えない |
+| 最後の採用Case・公開Root境界 | 別Processを親と同じ内部Decision Ownerへ接続し、当該Caseと公開Root境界二件の計3件が成功、失敗／取消／skip／todo 0、257,892.2732ms。変更は当該Case内のURLだけであり、先行四Suiteの未変更102成功と分けて保持する |
+| Workbench System・Visual | Systemは24件中23成功・Visual明示skip1、308,386.626ms。別実行のVisual一件は成功、69,107.3324ms（15画面・3 Profile・3 Zoom）。二実行を単一runの24成功へ換算しない |
+| 静的・設計接続 | format・Source／Test型検査・lint・二Trace検査が成功。既存lint info84件は不変更 |
+| Header・登録 | Quality Local Itemへの全Test Source接続Gate成功、Test Catalog383件valid。台帳検査自身は試験を実行しない |
+| 現行文書 | Repository文書検査は歴史CHGの旧リンク3,716・旧アンカー5による全体Exit 1、現行文書診断0。歴史Evidenceを改名・書換えしない |
+| 独立確認 | 検証Source・Workflow・exact依存辺・名称／Headerを別実行者が読取り確認し、全重大度の残指摘0。最後のOwner接続と最終結果・現在投影の再確認も、Source／文書の両観点で残指摘0 |
+
+今回の是正はToolと試験の追従であり、Coordinator通常実行のSource、MCP本体、配布入口、保存形式・Writer・Lockは固定版から変更していない。WorkbenchはHeader二箇所の旧Profile表示説明だけをAI選択へ訂正し、処理本文は不変である。新しい互換Reader、Registry、Lock、Runner、回復Frameworkは追加していない。先行する探索回帰の中断は成功へ換算せず、exact親子の終了確認後、今回生成した合成Root `.crdd/tmp/crdd-project-durable-JyShnT`と`.crdd/tmp/crdd-project-durable-TgBDEm`だけを内容・非使用確認後に清掃し、不存在を確認した。
+
+保持②の内容、Runtime状態、資源実体の読取り／変更／回収は行っていない。ただし試験Rootの絞込み一覧でDirectory名と更新時刻というFilesystem metadataを一度観測し、その場で利用者へ報告した。内容を開かず以後の対象から除外しており、「メタデータも一切観測していない」とは主張しない。
+
+一〜五の実装・本番接続・非AI検証を限定完了とし、現在の変更で未解消の回帰失敗はない。初回全体及び影響四Suiteの不合格と、是正後の範囲別成功は別々の根拠であり、単一runの全体成功とは表示しない。
+
+実AI・実認証・人間の端末／画面確認と本体設定の実移行は未実施。過去Evidence・保持②を変更せず、フロントAIの移行確認後、送信先・情報範囲・回数・Image・停止条件・今回資源の回収範囲を最後に提示する。正式199項目の全数再評価、既存横断QA不合格、main統合・Releaseの判断は本単位の完成表示へ含めない。

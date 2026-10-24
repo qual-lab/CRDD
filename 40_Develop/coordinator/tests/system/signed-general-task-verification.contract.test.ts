@@ -12,7 +12,7 @@
  * @scope signed、general、task、verification
  * @boundary EST-ST-003=System/E2E: 公開入口→同意Gate→Provider→結果帰還 / PRL-ST-001=System/E2E: 公開入口→Coordinator→Execution→受入
  */
-import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
+import { snapshotCoordinatorTaskRequest } from "../../src/execution/request.ts";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -603,8 +603,15 @@ test("固定公開Taskをprocess内で構成しShell搬送を契約から除外�
   );
 
   const request = createSignedGeneralTaskVerificationRequest();
-  assert.deepEqual(request, {
-    taskExecutionSelections: taskExecutionSelections("claude"),
+  const { taskExecutionSelections, ...requestFields } = request;
+  assert.equal(snapshotCoordinatorTaskRequest(request)?.status, "accepted");
+  assert.equal(taskExecutionSelections.executor.provider, "claude");
+  assert.equal(taskExecutionSelections.reviewer.provider, "codex");
+  assert.equal(
+    taskExecutionSelections.executor.configIdentity,
+    taskExecutionSelections.reviewer.configIdentity,
+  );
+  assert.deepEqual(requestFields, {
     objective:
       "Replace the one existing bounded verification marker from BASE to OK.",
     acceptanceCriteria: [
@@ -628,7 +635,7 @@ test("固定公開Taskをprocess内で構成しShell搬送を契約から除外�
   });
 
   const contract = describeSignedGeneralTaskVerificationContract();
-  assert.equal(contract.contractRevision, 28);
+  assert.equal(contract.contractRevision, 29);
   assert.equal(
     contract.verificationFixture,
     "tracked_base_marker_exact_token_replacement_with_independent_final_byte_verification",
@@ -1966,8 +1973,9 @@ test("Claude Front、Codex実装、Claude独立Reviewを同じ一般Task検証Ru
     }),
   });
   const request = createSignedGeneralTaskVerificationRequest("reverse");
-  assert.equal(request.frontProvider, "claude");
-  assert.equal(request.requestedExecutorProvider, "codex");
+  assert.equal("frontProvider" in request, false);
+  assert.equal(request.taskExecutionSelections.executor.provider, "codex");
+  assert.equal("requestedExecutorProvider" in request, false);
   const result = await runSignedGeneralTaskVerification(
     path.resolve("."),
     fixture.value,
@@ -2020,8 +2028,9 @@ test("明示Codex制約の検証はCodex Executorと独立Claude Reviewへ固定
     }),
   });
   const request = createSignedGeneralTaskVerificationRequest("same-codex");
-  assert.equal(request.frontProvider, "codex");
-  assert.equal(request.requestedExecutorProvider, "codex");
+  assert.equal("frontProvider" in request, false);
+  assert.equal(request.taskExecutionSelections.executor.provider, "codex");
+  assert.equal("requestedExecutorProvider" in request, false);
   assert.equal(request.workClass, "bounded_verification");
   const result = await runSignedGeneralTaskVerification(
     path.resolve("."),
@@ -2057,8 +2066,9 @@ test("明示Claude制約の検証はClaude Executorと独立Codex Reviewへ固�
     }),
   });
   const request = createSignedGeneralTaskVerificationRequest("same-claude");
-  assert.equal(request.frontProvider, "claude");
-  assert.equal(request.requestedExecutorProvider, "claude");
+  assert.equal("frontProvider" in request, false);
+  assert.equal(request.taskExecutionSelections.executor.provider, "claude");
+  assert.equal("requestedExecutorProvider" in request, false);
   assert.equal(request.workClass, "bounded_verification");
   const result = await runSignedGeneralTaskVerification(
     path.resolve("."),
@@ -2673,4 +2683,89 @@ test("completion確定とunbindの間のsignal latchを成功へ取り逃がさ�
   assert.equal(observed.runnerResult.reason, "signed_general_task_cancelled");
   assert.equal(observed.cancelAttempts, 1);
   assert.equal(observed.poisoned, false);
+});
+
+/**
+ * 四経路の検証入力を新Task閉形式へ接続する。
+ * @responsibility 四経路の検証入力を新Task閉形式へ接続する。
+ * @trace PRL-ST-001
+ * @precondition 合成値と有限な下位代役だけを使用する。
+ * @stimulus 四つの固定経路を構築する。
+ * @observation 返却値と外部境界への到達数を確認する。
+ * @oracle 二役割が経路と一致し、旧fieldを含まない。
+ * @cleanup N/A: 外部AI・認証・Docker・設定保存は使用しない。
+ * @boundary PRL-ST-001=Direct Boundary: 検証Toolと現行契約。
+ */
+
+test("四経路は完全な二役割選定を持つ新Task入力だけを発行する", () => {
+  for (const route of [
+    "forward",
+    "reverse",
+    "same-codex",
+    "same-claude",
+  ] as const) {
+    const request = createSignedGeneralTaskVerificationRequest(route);
+    const expected =
+      route === "reverse" || route === "same-codex" ? "codex" : "claude";
+    assert.equal(snapshotCoordinatorTaskRequest(request)?.status, "accepted");
+    assert.equal(request.taskExecutionSelections.executor.provider, expected);
+    assert.equal(
+      request.taskExecutionSelections.reviewer.provider,
+      expected === "codex" ? "claude" : "codex",
+    );
+    assert.equal(
+      request.taskExecutionSelections.executor.configIdentity,
+      request.taskExecutionSelections.reviewer.configIdentity,
+    );
+    assert.equal(Object.isFrozen(request.taskExecutionSelections), true);
+    assert.equal("frontProvider" in request, false);
+    assert.equal("requestedExecutorProvider" in request, false);
+  }
+});
+
+/**
+ * 固定経路の選定不能を作業領域の準備前に停止する。
+ * @responsibility 固定経路の選定不能を作業領域の準備前に停止する。
+ * @trace PRL-ST-004
+ * @precondition 合成値と有限な下位代役だけを使用する。
+ * @stimulus 既存Resolverだけを選定不能にする。
+ * @observation 返却値と外部境界への到達数を確認する。
+ * @oracle Source観測・Workspace準備・AI開始は零で回収不要を返す。
+ * @cleanup N/A: 外部AI・認証・Docker・設定保存は使用しない。
+ * @boundary PRL-ST-004=Direct Boundary: 検証Toolと現行契約。
+ */
+
+test("経路選定不能は観測・準備・Task開始前に閉じる", () => {
+  const program = `
+    import { mock } from "node:test";
+    const url = ${JSON.stringify(new URL("../../src/selection/resolve.ts", import.meta.url).href)};
+    const actual = await import(url);
+    mock.module(url, { namedExports: { ...actual, resolveTaskExecutionSelections: () => ({ status: "blocked", value: null, reason: "ai_selection_config_invalid" }) } });
+    const { runSignedGeneralTaskVerification } = await import(${JSON.stringify(new URL("../../scripts/verify-general-task.ts", import.meta.url).href)});
+    let effects = 0;
+    const result = await runSignedGeneralTaskVerification(process.cwd(), {
+      runtimeVersion: () => process.versions.node,
+      observeSource: () => { effects++; throw Error("unexpected"); },
+      prepareWorkspace: () => { effects++; throw Error("unexpected"); },
+      startTask: () => { effects++; throw Error("unexpected"); },
+    });
+    process.stdout.write(JSON.stringify({ result, effects }));
+  `;
+  const child = spawnSync(
+    process.execPath,
+    ["--experimental-test-module-mocks", "--input-type=module", "-e", program],
+    {
+      cwd: coordinatorRoot,
+      encoding: "utf8",
+      windowsHide: true,
+      shell: false,
+      stdio: ["ignore", "pipe", "pipe"],
+    },
+  );
+  assert.equal(child.status, 0, child.stderr);
+  const { result, effects } = JSON.parse(child.stdout);
+  assert.equal(effects, 0);
+  assert.equal(result.reason, "signed_general_task_route_selection_invalid");
+  assert.equal(result.cleanupConfirmed, true);
+  assert.equal(result.manualRecoveryRequired, false);
 });

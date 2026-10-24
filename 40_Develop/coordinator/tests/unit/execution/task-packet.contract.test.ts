@@ -8,6 +8,8 @@
  * @scope provider、task、packet、runtime
  * @boundary PRL-UT-014=N/A: Coordinator Application Portは外部実行境界を持たない。
  */
+import { executionSelection } from "../../fixtures/ai-selection.ts";
+import { hashExecutionSelection } from "../../../src/selection/model.ts";
 import { planProviderExecution } from "../../../../ai-adapter/src/index.ts";
 import { prepareDockerNetworkPolicy } from "../../../../docker-isolation/src/index.ts";
 import assert from "node:assert/strict";
@@ -81,6 +83,9 @@ function operation() {
  */
 function packet() {
   return {
+    selectionHash: hashExecutionSelection(
+      executionSelection("executor"),
+    ) as string,
     objective: "Update the isolated fixture and keep its behavior explicit.",
     acceptanceCriteria: [
       "The requested text is present.",
@@ -126,6 +131,9 @@ function reviewerPacket(
   ]);
   return {
     ...source,
+    selectionHash: hashExecutionSelection(
+      executionSelection("independent_reviewer"),
+    ) as string,
     reviewerReadProjection: {
       status: "projected",
       candidatePatchHash,
@@ -1023,7 +1031,7 @@ test("Reviewer由来の受入条件参照がTask範囲外ならGrant消費前に
  */
 test("公開契約はPrompt非argvとcanonical非変更を固定する", () => {
   const contract = describeProviderTaskPacketRuntimeContract();
-  assert.equal(contract.contractRevision, 20);
+  assert.equal(contract.contractRevision, 21);
   assert.equal(
     contract.repositoryFileBytesEmbeddedInPrompt,
     "reviewer_only_explicit_read_projection_bound_to_candidate_identity",

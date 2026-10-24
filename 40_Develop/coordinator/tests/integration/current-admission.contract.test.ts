@@ -431,7 +431,7 @@ test("現在入場: 実Readerの初回不存在・本文・故障と全域拒否
 
 /**
  * 本番三入口のRoot搬送式を実行し差替え変異を拒否する。
- * @responsibility 通常Task・開発Task・CLIが同じRootを渡すことを確認する。
+ * @responsibility 通常Task・開発Task・正式診断APIが同じRootを渡すことを確認する。
  * @trace PRL-IT-013
  * @precondition 対象Sourceの一意な構成式を使い下位観測だけを置き換える。
  * @stimulus 入力Root、別Root、引数差替え変異を構成式へ渡す。
@@ -440,20 +440,20 @@ test("現在入場: 実Readerの初回不存在・本文・故障と全域拒否
  * @cleanup N/A: VM内の同期式評価だけで外部Effectを発行しない。
  * @boundary 本番構成式の入力搬送。Task全体の成立は別の実行試験が所有する。
  */
-test("現在入場: Task通常・開発・CLIの本番構成式はexact Rootを搬送する", () => {
+test("現在入場: Task通常・開発・正式診断APIの本番構成式はexact Rootを搬送する", () => {
   const task = fs.readFileSync(
     new URL("../../src/execution/controller.ts", import.meta.url),
     "utf8",
   );
-  const cli = fs.readFileSync(
-    new URL("../../src/cli/command.ts", import.meta.url),
+  const api = fs.readFileSync(
+    new URL("../../src/api.ts", import.meta.url),
     "utf8",
   );
   const adapter = fs.readFileSync(
     new URL("../../src/execution/diagnostics.ts", import.meta.url),
     "utf8",
   );
-  for (const source of [task, cli, adapter]) {
+  for (const source of [task, api, adapter]) {
     assert.equal(
       source.includes("inspectRuntimeOwnedDockerTaskRecoveryState"),
       false,
@@ -467,10 +467,14 @@ test("現在入場: Task通常・開発・CLIの本番構成式はexact Rootを�
   const end = task.indexOf("observeProviderHome:", start);
   assert.ok(start > 0 && end > start);
   const development = task.slice(start, end);
-  const cliStart = cli.indexOf(": (() => {");
-  const cliEnd = cli.indexOf("})();", cliStart);
-  assert.ok(cliStart > 0 && cliEnd > cliStart);
-  const doctor = `${cli.slice(cliStart + 2, cliEnd)}\n})()`;
+  const apiStart = api.indexOf("export function diagnoseEnvironment(");
+  const bodyStart = api.indexOf(
+    "  const root = executionRoot(context);",
+    apiStart,
+  );
+  const apiEnd = api.indexOf("\n}", bodyStart);
+  assert.ok(apiStart > 0 && bodyStart > apiStart && apiEnd > bodyStart);
+  const doctor = `(() => {\n${api.slice(bodyStart, apiEnd)}\n})()`;
   const expected = "C:\\fixture-root";
   /**
    * 本番構成式を同じRoot相関Oracleへ接続する。
@@ -488,7 +492,7 @@ test("現在入場: Task通常・開発・CLIの本番構成式はexact Rootを�
     const doctorRoots: unknown[] = [];
     let resolutions = 0;
     const configured = runInNewContext(
-      kind === "cli" ? snippet : `({${snippet}})`,
+      kind === "api" ? snippet : `({${snippet}})`,
       {
         inspectRuntimeOwnedDockerTaskAdmission: (root: unknown) => {
           calls.push(root);
@@ -496,21 +500,21 @@ test("現在入場: Task通常・開発・CLIの本番構成式はexact Rootを�
         },
         boundary: { repositoryRoot: expected },
         guard: (fn: (root: string) => unknown) => fn,
-        process: { cwd: () => "C:\\fixture-root\\subfolder" },
-        resolveVerifiedRepositoryRootFromWorkingDirectory: (cwd: string) => {
-          assert.equal(cwd, "C:\\fixture-root\\subfolder");
+        context: "expected-context",
+        value: { activeIsolation: false },
+        executionRoot: (context: unknown) => {
+          assert.equal(context, "expected-context");
           return ++resolutions === 1 ? expected : "C:\\other-root";
         },
-        options: { activeIsolation: false },
         runDoctor: (options: { cwd: unknown }) => {
           doctorRoots.push(options.cwd);
           return { status: "observed" };
         },
       },
     );
-    if (kind !== "cli") configured.prepareDockerRecoveryState(expected);
+    if (kind !== "api") configured.prepareDockerRecoveryState(expected);
     assert.deepEqual(calls, [expected]);
-    if (kind === "cli") {
+    if (kind === "api") {
       assert.equal(resolutions, 1);
       assert.deepEqual(doctorRoots, [expected]);
     }
@@ -524,7 +528,7 @@ test("現在入場: Task通常・開発・CLIの本番構成式はexact Rootを�
   };
   verify(normal, "normal");
   verify(development, "development");
-  verify(doctor, "cli");
+  verify(doctor, "api");
   assert.throws(() =>
     verify(
       normal.replace(
@@ -549,20 +553,21 @@ test("現在入場: Task通常・開発・CLIの本番構成式はexact Rootを�
   assert.throws(() =>
     verify(
       doctor.replace(
-        "inspectRuntimeOwnedDockerTaskAdmission(currentRoot)",
-        "inspectRuntimeOwnedDockerTaskAdmission(resolveVerifiedRepositoryRootFromWorkingDirectory(process.cwd()))",
+        "inspectRuntimeOwnedDockerTaskAdmission(root)",
+        "inspectRuntimeOwnedDockerTaskAdmission(executionRoot(context))",
       ),
-      "cli",
+      "api",
     ),
   );
   assert.throws(() =>
-    verify(doctor.replace("cwd: currentRoot", "cwd: 'wrong'"), "cli"),
+    verify(doctor.replace("cwd: root", "cwd: 'wrong'"), "api"),
   );
   let requests = 0;
   assert.throws(() =>
     runInNewContext(doctor, {
-      process: { cwd: () => "fixture" },
-      resolveVerifiedRepositoryRootFromWorkingDirectory: () => {
+      context: {},
+      value: {},
+      executionRoot: () => {
         throw new Error("resolver_failed");
       },
       runDoctor: () => {

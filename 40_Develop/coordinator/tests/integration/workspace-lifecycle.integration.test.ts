@@ -365,7 +365,7 @@ test("計画の独立二Taskは同じWorkspaceで直列実行し明示採用後�
             { principalId: "principal-a" },
           );
         const entry = pathToFileURL(
-          path.resolve(import.meta.dirname, "../../src/index.ts"),
+          path.resolve(import.meta.dirname, "../../src/decision/acceptance.ts"),
         ).href;
         return JSON.parse(
           (
@@ -904,7 +904,7 @@ test("未完了Mergeは拒否・応答喪失後も同操作でCommitだけを継
     const primary = failed.candidateResult?.reason;
     assert.ok(primary);
     const module = pathToFileURL(
-      path.resolve(import.meta.dirname, "../../src/index.ts"),
+      path.resolve(import.meta.dirname, "../../src/workspace/operations.ts"),
     ).href;
     const script = `import(${JSON.stringify(module)}).then(({manageCoordinatorWorkspace})=>process.stdout.write(JSON.stringify(manageCoordinatorWorkspace({...JSON.parse(process.argv[1]),authorize:()=>true}))));`;
     const resumed = JSON.parse(
@@ -1012,7 +1012,7 @@ test("採否後のRef回収失敗は不変記録を保ち別Processで同候補�
     );
     const original = JSON.stringify(before.results);
     const module = pathToFileURL(
-      path.resolve(import.meta.dirname, "../../src/index.ts"),
+      path.resolve(import.meta.dirname, "../../src/workspace/operations.ts"),
     ).href;
     const script = `import(${JSON.stringify(module)}).then(({manageCoordinatorWorkspace})=>process.stdout.write(JSON.stringify(manageCoordinatorWorkspace({...JSON.parse(process.argv[1]),authorize:()=>true}))));`;
     const resumed = JSON.parse(
@@ -1125,7 +1125,7 @@ test("回収終端保存後の解除失敗と後発欠測でも固定本文を�
   assert.equal(saved.workspaces[0]?.candidate?.phase, "removing");
   const original = JSON.stringify(saved.results);
   const module = pathToFileURL(
-    path.resolve(import.meta.dirname, "../../src/index.ts"),
+    path.resolve(import.meta.dirname, "../../src/workspace/operations.ts"),
   ).href;
   const diagnostic = `Promise.all([import(${JSON.stringify(module)}),import('node:child_process'),import('node:module')]).then(([m,cp,modules])=>{const original=cp.default.spawnSync;cp.default.spawnSync=(...args)=>Array.isArray(args[1])&&args[1].includes('rev-parse')&&args[1].includes(${JSON.stringify(ref)})?{pid:0,status:1,signal:null,stdout:'synthetic',stderr:'',output:[null,'synthetic','']}:Reflect.apply(original,cp.default,args);modules.syncBuiltinESMExports();process.stdout.write(JSON.stringify(m.manageCoordinatorWorkspace({...JSON.parse(process.argv[1]),authorize:()=>true})));});`;
   /**
@@ -1368,7 +1368,7 @@ test("Merge成功後の保存失敗は別Process再入場で二重Mergeせず閉
   const head = git(f.root, ["rev-parse", "HEAD"]);
   assert.equal(f.snapshot().workspaces[0]?.candidate?.phase, "merging");
   const module = pathToFileURL(
-    path.resolve(import.meta.dirname, "../../src/index.ts"),
+    path.resolve(import.meta.dirname, "../../src/workspace/operations.ts"),
   ).href;
   const script = `import(${JSON.stringify(module)}).then(({manageCoordinatorWorkspace})=>process.stdout.write(JSON.stringify(manageCoordinatorWorkspace({...JSON.parse(process.argv[1]),authorize:()=>true}))));`;
   const resumed = JSON.parse(
@@ -1410,7 +1410,7 @@ function reenter(
   operation: "observe" | "discard",
 ) {
   const module = pathToFileURL(
-    path.resolve(import.meta.dirname, "../../src/index.ts"),
+    path.resolve(import.meta.dirname, "../../src/workspace/operations.ts"),
   ).href;
   const script = `import(${JSON.stringify(module)}).then(({manageCoordinatorWorkspace})=>process.stdout.write(JSON.stringify(manageCoordinatorWorkspace(JSON.parse(process.argv[1])))));`;
   return JSON.parse(

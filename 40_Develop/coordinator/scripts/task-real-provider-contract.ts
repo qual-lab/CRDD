@@ -1476,6 +1476,7 @@ export function buildCoordinatorRealProviderReport(
     runId: string;
     executionIdentity: unknown;
     runtimeSource: unknown;
+    aiSelectionObservationStatus: unknown;
     normalRuns: readonly NormalObjectiveRun[];
     cancellation: PublicProcessObservation;
     cancellationRequestedAfterProcessStart: boolean;
@@ -1486,6 +1487,13 @@ export function buildCoordinatorRealProviderReport(
   }>,
 ) {
   const problems: string[] = [];
+  const aiSelectionObservationStatus =
+    input.aiSelectionObservationStatus === "matched" ||
+    input.aiSelectionObservationStatus === "changed"
+      ? input.aiSelectionObservationStatus
+      : "unavailable";
+  if (aiSelectionObservationStatus !== "matched")
+    problems.push(`ai_selection_${aiSelectionObservationStatus}`);
   const execution = snapshotPlainRecord(
     input.executionIdentity,
     new Set(["commit", "tree"]),
@@ -1960,7 +1968,8 @@ export function buildCoordinatorRealProviderReport(
     publicResults.every((result) => result?.cleanupConfirmed === true);
   return Object.freeze({
     contract: "crdd-coordinator/orchestrator-real-provider-verification",
-    contractRevision: 12,
+    contractRevision: 13,
+    aiSelectionObservationStatus,
     status: isCompleted ? "completed" : "blocked",
     reason: isCompleted
       ? "orchestrator_public_mcp_real_providers_cancellation_and_recovery_verified"

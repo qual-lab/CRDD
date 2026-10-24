@@ -12,9 +12,9 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
-Repository別AI選択をTask・Objective・Grant・Packet・Operation Identityへ接続し、Home利用権限からModel選定を分離した。現在State／Project Snapshotはv5、Operation Identityはv2で、新形式だけを扱う。MCPの旧Profile四ToolとHost Catalog起動依存は撤去し、全101件成功。Workbenchは選択Repositoryの設定Reader／CAS Writerと作業分類・明示選択へ接続し、通常80件・固定System24件、Source／文書の限定独立レビュー残指摘0を確認した。実AI・実認証・人間確認の成立には換算しない。
+Repository別AI選択をTask・Objective・Grant・Packet・Operation Identityへ接続し、Home利用権限からModel選定を分離した。現在State／Project Snapshotはv5、Operation Identityはv2で、新形式だけを扱う。旧AI Profile／Store・MCP四Tool・Host Catalog起動依存を撤去し、Workbenchは選択Repositoryの設定Reader／CAS Writerと作業分類・明示選択へ接続した。Objective六Sourceと本番`public-*.ts`の整理、正式API・対象→操作のCLI・本番Consumer接続も完了した。
 
-旧AI Adapter Profile／Store本体と旧候補選定を撤去し、Model構文検査はProvider検査へ移管した。正式API・対象→操作のCLIとWorkbench／MCP／配布入口を接続し、内部Factory・WriterはRootから外した。単発Taskは同じSessionを一回だけ使い、元依頼・一次失敗を保持して終了を待つ。API／CLI関連59件、MCP101件、Workbench80件、Header全数・台帳383件・静的検査が成功し、Source／文書の限定独立レビュー残指摘0。固定版の全体回帰と最後の実AI・認証・人間確認は未完了であり、全体完成とはしない。新しい互換Reader・中継Store・管理Frameworkは追加しない。本体設定の移行はフロントAIが担当し、②のAI再試行・保持物の観測／操作は行わない。[現在の単位と確認範囲](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#15-残る本番切替の実施単位と終了条件)を正本とする。
+固定版`9db97f00a`の通常全体回帰は1,845件中1,788成功・52失敗・5skipで完走し、不合格として保持する。失敗は検証Tool・旧fixture・Owner参照・依存検査の追従漏れへ全数対応付け、通常実装と安全条件を変えず是正した。関連17 Suiteは217件全成功。実保存・Workspace・回復の影響四Suiteは102成功／1失敗で完走後、最後の試験側Owner搬送を是正し、当該Caseと公開境界の3件成功まで確認した。型・整形・lint・Trace・Header全数・台帳383件の検査と限定独立レビューは成功／残指摘0。一〜五の実装・本番接続・非AI検証は限定完了で、未解消の今回回帰失敗はない。実AI・実認証・人間確認・本体設定の実移行、全体QA・Releaseは未完了であり、全体完成とはしない。②のAI再試行と保持物の内容・Runtime状態・資源実体の操作は行わない。一度のDirectory metadata一覧観測は[最終確認の範囲と限界](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#final-normal-regression)へ記録した。
 
 Coordinator構造再設計の残る配置を56 Sourceへ一括移管し、今回のSource・利用側・試験・設計／登録追従を限定完了とした。公開Root217項目と保存B六Fileの本文は維持する。固定本番Sourceの全体回帰は1,854件中1,830成功・19失敗・5skipで完走。19失敗はすべて試験側の旧配置前提へ対応付け、修正版の対象Suiteを275件・13件・47件・21件で全成功まで確認した。最初の全体Commandを成功へ読み替えない。静的検査、Windows保存、直接利用側、限定独立レビューは成功／残指摘0。[最終結果と限界](99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#3822-残るsource配置の一括移管と最終確認)を参照する。横断QAと実境界E2Eは別途残り、実AI②・保持物・実Docker・認証は今回の対象外。
 

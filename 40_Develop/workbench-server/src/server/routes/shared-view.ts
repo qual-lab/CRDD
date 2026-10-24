@@ -4,7 +4,7 @@
  * @responsibility 現在認可した集合から表示を構築し、公開前再照合と処理済み／未処理を区別する。
  * @trace ARCH-000012
  * @boundary HTTP表示受付と既存のDomain・Access Management・AI観測Owner。
- * @effect Portfolio・資格・選択Repository・活動・AI／Profileを元の順で観測する。
+ * @effect Portfolio・資格・選択Repository・活動・AI選択を元の順で観測する。
  * @security 既存の認可・取消・情報境界を維持し、新しい保存状態や自動再送を追加しない。
  */
 import type { ServerResponse } from "node:http";

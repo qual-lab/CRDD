@@ -151,6 +151,7 @@ const SOURCE_ROLES = {
     "workspace/commands.ts",
     "workspace/operations.ts",
     "selection/resolve.ts",
+    "state/initialize.ts",
   ],
   storage: [
     "storage/ai-selection.ts",
@@ -175,6 +176,9 @@ const SOURCE_ROLES = {
   runtimeCli: [
     "cli/command.ts",
     "cli/options.ts",
+    "cli/request.ts",
+    "cli/authentication.ts",
+    "cli/doctor.ts",
     "cli/recovery-report.ts",
     "cli/cancellation.ts",
   ],
@@ -184,7 +188,7 @@ const SOURCE_ROLES = {
     "decision/external-send-grant.ts",
     "decision/external-send-policy.ts",
   ],
-  entry: ["index.ts"],
+  entry: ["index.ts", "api.ts"],
 } as const;
 const SOURCE_PREFIX = "40_Develop/coordinator/src/";
 const coreModules = SOURCE_ROLES.pure.map((file) => `${SOURCE_PREFIX}${file}`);
@@ -399,6 +403,11 @@ function assertPureImportEdges(
       assert.ok(
         coreModules.includes(resolved) ||
           (module === `${SOURCE_PREFIX}objective/types.ts` &&
+            specifier === "../selection/resolve.ts" &&
+            resolved === `${SOURCE_PREFIX}selection/resolve.ts` &&
+            names.length === 1 &&
+            names[0] === "resolveTaskExecutionSelections") ||
+          (module === `${SOURCE_PREFIX}objective/types.ts` &&
             specifier === "../execution/controller.ts" &&
             names.length === 1 &&
             names.every((name) =>
@@ -434,10 +443,21 @@ function assertPureImportEdges(
             resolved,
           ) &&
             fs.existsSync(path.join(repositoryRoot, resolved))),
-        "private type dependency",
+        `private type dependency: ${module} -> ${specifier} (${names.join(", ")})`,
       );
+    } else if (
+      module === `${SOURCE_PREFIX}selection/model.ts` &&
+      specifier === "../../../domain-model/src/index.ts" &&
+      resolved === "40_Develop/domain-model/src/index.ts" &&
+      names.length === 1 &&
+      names[0] === "snapshotPlainRecord"
+    ) {
+      // 通常データの同期的な値検査だけを共有し、Package全体は許可しない。
     } else
-      assert.ok(coreModules.includes(resolved), "outside pure runtime closure");
+      assert.ok(
+        coreModules.includes(resolved),
+        `outside pure runtime closure: ${module} -> ${specifier}`,
+      );
   }
 }
 
@@ -593,7 +613,63 @@ function importSpecifierScan(source: SourceFile) {
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
-test("Orchestrator CoreのimportはPlatform非依存の閉集合に一致する", () => {
+test("Coordinator CoreのimportはPlatform非依存の閉集合に一致する", () => {
+  const selectionEdge = {
+    specifier: "../selection/resolve.ts",
+    typeOnly: true,
+    names: ["resolveTaskExecutionSelections"],
+  };
+  assert.doesNotThrow(() =>
+    assertPureImportEdges(`${SOURCE_PREFIX}objective/types.ts`, {
+      isConsistent: true,
+      edges: [selectionEdge],
+    }),
+  );
+  for (const edge of [
+    { ...selectionEdge, names: [] },
+    { ...selectionEdge, names: ["unapprovedSelection"] },
+    { ...selectionEdge, names: [...selectionEdge.names, "extra"] },
+  ])
+    assert.throws(
+      () =>
+        assertPureImportEdges(`${SOURCE_PREFIX}objective/types.ts`, {
+          isConsistent: true,
+          edges: [edge],
+        }),
+      /private type dependency/u,
+    );
+  assert.throws(
+    () =>
+      assertPureImportEdges(`${SOURCE_PREFIX}objective/types.ts`, {
+        isConsistent: true,
+        edges: [{ ...selectionEdge, typeOnly: false }],
+      }),
+    /outside pure runtime closure/u,
+  );
+  const snapshotEdge = {
+    specifier: "../../../domain-model/src/index.ts",
+    typeOnly: false,
+    names: ["snapshotPlainRecord"],
+  };
+  assert.doesNotThrow(() =>
+    assertPureImportEdges(`${SOURCE_PREFIX}selection/model.ts`, {
+      isConsistent: true,
+      edges: [snapshotEdge],
+    }),
+  );
+  for (const names of [
+    [],
+    ["writeState"],
+    [...snapshotEdge.names, "writeState"],
+  ])
+    assert.throws(
+      () =>
+        assertPureImportEdges(`${SOURCE_PREFIX}selection/model.ts`, {
+          isConsistent: true,
+          edges: [{ ...snapshotEdge, names }],
+        }),
+      /outside pure runtime closure/u,
+    );
   assertSourcePopulation(SOURCE_ROLES, allModules);
   assert.throws(
     () =>
@@ -671,7 +747,7 @@ test("Orchestrator CoreのimportはPlatform非依存の閉集合に一致する"
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
-test("Orchestrator CoreはOS固有tokenとOS Path実値を含まない", () => {
+test("Coordinator CoreはOS固有tokenとOS Path実値を含まない", () => {
   for (const moduleRelativePath of coreModules) {
     const source = readRuntimeSource(moduleRelativePath);
     for (const pattern of FORBIDDEN_SOURCE_PATTERNS)

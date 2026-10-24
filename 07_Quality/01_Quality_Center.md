@@ -1,5 +1,7 @@
 # CRDD内部ツールの品質の現在状態
 
+2026-10-24の公開操作・認証・AI選択再設計は、実装・本番接続と追従漏れ是正後の非AI影響回帰を限定完了した。初回全体及び影響四Suiteの不合格、是正後の範囲別成功、実AI・認証・人間確認・実移行の未実施は[現在の限定結果](../99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#final-normal-regression)を正本とする。正式199項目の全数再評価、既存横断QA不合格、main統合・Releaseの判定は変更しない。以下は各記録当時の対象版に限定する。
+
 B2の端末出力移管では、低層stream反証を補助Unit項目`EST-UT-016`へ接続し、現設計集合を13定義・199 Local Itemへ更新した。集約表の件数更新は全体Passの増加ではない。以下の198項目等の記述は追加前の対象に限り、現在の全数再評価は未完了である。
 
 確定誤検知236件を検査側で是正した。生診断1,836→1,600、追加0、残る命名1,045は全件維持。局所・QA Header全数3/3、関係16/16・静的確認成功。Checker全回帰386件は385成功／既知1失敗（残1,600診断）で完走した。残1,600は現行規則上の是正対象1,444・適用先／解釈待ち156である。Browser原因未確定、正式未評価、②保持の扱いは維持する。[236件の是正と確認](../99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#naming-false-positive-remediation)と[原因別分類・Browser調査](../99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#naming-browser-triage)を参照する。以下の回帰結果は各固定候補に限定する。

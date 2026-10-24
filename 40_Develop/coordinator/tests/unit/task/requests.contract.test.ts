@@ -25,7 +25,7 @@ import { inspectSingleTaskCommand } from "../../../src/task/requests.ts";
 test("単発入力はROとWorkspaceを分け越境・旧Bundle・余剰値を拒否する", () => {
   const command = {
     mode: "read_only_advice",
-    profileId: "PROFILE-100001",
+    workType: null,
     prompt: "合成入力",
     contextReferences: ["PROJECT_CONTEXT.md"],
     allowedPaths: [],
@@ -54,6 +54,8 @@ test("単発入力はROとWorkspaceを分け越境・旧Bundle・余剰値を拒
     { ...command, mode: "workspace_edit", allowedPaths: ["src", "src"] },
     { ...command, workspaceId: "wrong" },
     { ...command, candidateId: "old" },
+    { ...command, profileId: "PROFILE-100001" },
+    { ...command, choice: { provider: "codex" } },
     new Proxy(command, {}),
   ])
     assert.equal(inspectSingleTaskCommand(invalid), null);

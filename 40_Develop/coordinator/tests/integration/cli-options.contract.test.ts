@@ -835,7 +835,10 @@ test("通常Taskは統一受付で入力を拒否し対象を推測しない", (
   assert.equal(missingArguments.error, undefined);
   assert.equal(missingArguments.status, 64);
   assert.equal(missingArguments.stdout, "");
-  assert.match(missingArguments.stderr, /coordinator_launch_arguments_invalid/u);
+  assert.match(
+    missingArguments.stderr,
+    /coordinator_launch_arguments_invalid/u,
+  );
   assert.equal(
     missingArguments.stdout.includes("synthetic-input-not-to-be-reported"),
     false,

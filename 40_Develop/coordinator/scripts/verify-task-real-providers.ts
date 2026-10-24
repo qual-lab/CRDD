@@ -19,6 +19,8 @@ import {
   resolveVerifiedRepositoryRootFromWorkingDirectory,
   verifyRepositoryRoot,
 } from "../../version-control/src/index.ts";
+import { readRepositoryAiSelection } from "../src/index.ts";
+import { resolveTaskExecutionSelections } from "../src/selection/resolve.ts";
 import { observeRuntimeOwnedDevelopmentSource } from "../src/execution/diagnostics.ts";
 import {
   inspectRepositoryIdentityCandidate,
@@ -38,6 +40,62 @@ const CANCELLATION_MARKER =
   "40_Develop/coordinator/tests/fixtures/task-real-provider-cancellation.txt";
 const BASE = "CRDD_ORCHESTRATOR_BASE\n";
 const FINAL = "CRDD_ORCHESTRATOR_REAL_PROVIDER_OK\n";
+const VERIFICATION_CHOICES = Object.freeze({
+  codex: Object.freeze({
+    provider: "codex",
+    model: "gpt-5.5",
+    effort: "medium",
+  } as const),
+  claude: Object.freeze({
+    provider: "claude",
+    model: "opus",
+    effort: "medium",
+  } as const),
+});
+
+/**
+ * 検証用二分類の設定とProvider対を起動前後に読取り確認する。
+ * @responsibility 明示Executorと分類別Reviewerの組を既存選定Ownerへ照合する。
+ * @trace ARCH-000004
+ * @input root: 検証済み対象RepositoryのRoot。
+ * @returns 同じ設定の内容Identity、又は確認不能のnull。
+ * @precondition 二つのverification分類と反対ProviderのReviewerを人間が既存設定へ用意する。
+ * @postcondition 欠測・不対応・選定不一致は起動許可へ変換しない。
+ * @effect Repository設定を読取るだけ。保存・Process・AIを開始しない。
+ * @failure 例外・未設定・不一致はnull。
+ * @invariant 設定既定値の追加、fallback、二重Storeを作らない。
+ * @boundary 検証Toolと既存設定Reader／選定Owner。
+ * @security 認証情報・Repository本文を取得しない。
+ * @concurrency 前後二読取りだけであり連続不変性や途中変更復元は保証しない。
+ */
+function readVerificationAiSelectionIdentity(root: string): string | null {
+  try {
+    const verified = verifyRepositoryRoot(root);
+    if (verified.status !== "completed") return null;
+    const read = readRepositoryAiSelection(verified.capability);
+    if (read.status !== "available") return null;
+    for (const provider of ["codex", "claude"] as const) {
+      const selected = resolveTaskExecutionSelections(read.snapshot.config, {
+        workType: `verification-${provider}`,
+        choice: VERIFICATION_CHOICES[provider],
+      });
+      if (
+        selected.status !== "resolved" ||
+        selected.value.executor.provider !== provider ||
+        selected.value.reviewer.provider !==
+          (provider === "codex" ? "claude" : "codex") ||
+        selected.value.executor.source !== "explicit" ||
+        selected.value.reviewer.source !== "work_type_override" ||
+        selected.value.executor.configIdentity !== read.snapshot.identity ||
+        selected.value.reviewer.configIdentity !== read.snapshot.identity
+      )
+        return null;
+    }
+    return read.snapshot.identity;
+  } catch {
+    return null;
+  }
+}
 const MAXIMUM_OUTPUT_BYTES = 4 * 1024 * 1024;
 const PROCESS_TIMEOUT_MS = 45 * 60_000;
 let verifiedRepositoryRootForFixtureCleanup: string | null = null;
@@ -361,7 +419,8 @@ function objective(
     requestId: `orchestrator-public-${provider}-${runId}`,
     projectId: `crdd-orchestrator-public-${provider}-${runId}`,
     milestoneId: `public-provider-${provider}`,
-    requestedExecutorProvider: provider,
+    workType: `verification-${provider}`,
+    choice: VERIFICATION_CHOICES[provider],
     adoptResult: shouldAdoptResult,
   });
 }
@@ -403,6 +462,10 @@ async function main() {
       fs.readFileSync(path.join(repositoryRoot, ...marker.split("/")), "utf8"),
       BASE,
     );
+  const aiSelectionIdentity =
+    readVerificationAiSelectionIdentity(repositoryRoot);
+  if (aiSelectionIdentity === null)
+    throw new Error("orchestrator_verification_ai_selection_unavailable");
   verifiedRepositoryRootForFixtureCleanup = repositoryRoot;
 
   const verifiedRuntimeRoot = verifyRepositoryRoot(repositoryRoot);
@@ -469,9 +532,9 @@ async function main() {
           requestId: request.requestId,
           projectId: request.projectId,
           milestoneId: request.milestoneId,
-          executorProvider: request.requestedExecutorProvider,
+          executorProvider: request.choice.provider,
           reviewerProvider:
-            request.requestedExecutorProvider === "codex" ? "claude" : "codex",
+            request.choice.provider === "codex" ? "claude" : "codex",
         }),
         snapshotBefore,
         snapshotAfter,
@@ -496,7 +559,8 @@ async function main() {
     requestId: `orchestrator-public-cancel-${runId}`,
     projectId: `crdd-orchestrator-public-cancel-${runId}`,
     milestoneId: "public-provider-cancellation",
-    requestedExecutorProvider: "claude",
+    workType: "verification-claude",
+    choice: VERIFICATION_CHOICES.claude,
     objective: `Replace ${CANCELLATION_MARKER} after carefully inspecting all allowed inputs.`,
     acceptanceCriteria: Object.freeze([
       `The only changed path is ${CANCELLATION_MARKER}.`,
@@ -543,7 +607,8 @@ async function main() {
     requestId: `orchestrator-public-recovery-${runId}`,
     projectId: `crdd-orchestrator-public-recovery-${runId}`,
     milestoneId: "public-provider-parent-loss-recovery",
-    requestedExecutorProvider: "claude" as const,
+    workType: "verification-claude",
+    choice: VERIFICATION_CHOICES.claude,
     objective: `Inspect the allowed inputs and replace ${CANCELLATION_MARKER} with its current exact content.`,
     acceptanceCriteria: Object.freeze([
       `The only allowed path is ${CANCELLATION_MARKER}.`,
@@ -605,6 +670,14 @@ async function main() {
 
   const report = buildCoordinatorRealProviderReport({
     runId,
+    aiSelectionObservationStatus: (() => {
+      const after = readVerificationAiSelectionIdentity(repositoryRoot);
+      return after === null
+        ? "unavailable"
+        : after === aiSelectionIdentity
+          ? "matched"
+          : "changed";
+    })(),
     executionIdentity: Object.freeze({
       commit: repository.commit,
       tree: repository.tree,
@@ -684,7 +757,8 @@ try {
       `${JSON.stringify(
         {
           contract: "crdd-coordinator/orchestrator-real-provider-verification",
-          contractRevision: 12,
+          contractRevision: 13,
+          aiSelectionObservationStatus: "unavailable",
           status: "blocked",
           reason: "orchestrator_public_mcp_verification_incomplete",
           problems: ["verification_exception"],
@@ -721,7 +795,8 @@ try {
     fs.mkdirSync(verificationRoot, { recursive: true, mode: 0o700 });
     const report = Object.freeze({
       contract: "crdd-coordinator/orchestrator-real-provider-verification",
-      contractRevision: 12,
+      contractRevision: 13,
+      aiSelectionObservationStatus: "unavailable",
       status: "blocked",
       reason: "orchestrator_public_mcp_verification_incomplete",
       problems: Object.freeze(["verification_exception"]),
