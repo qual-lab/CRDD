@@ -617,3 +617,19 @@ AI起動は計二回で再送なし。認証状態確認をAI起動回数に含�
 - Claude読取りの非0・unknown・回収不明では編集へ進まない。Direct失敗ではIsolatedを起動しない。再送・再起動・強制清掃はせず、今回のexact結果／回復参照を保持する。正常時だけ、既存OracleのGit・Worktree／Ref・Container／Networkの終了後条件と非使用を確認して自己生成物を回収する。
 
 本節は実施許可と停止条件の記録であり、実行結果ではない。正式199項目の全数評価・全体QA・Release成立を実AIの限定成功から推定しない。
+
+<a id="ai-closure-preparation-blocked"></a>
+
+### 一〜四の実行結果と事前準備停止 — 2026-10-24
+
+一・二は前節の非AI回帰と限定独立確認を終え、`8d1e736e1`でCommit・Pushした。Source・設定は基準版から変更していない。三はその固定版・cleanなWorking Treeから、新品合成Root `.crdd/tests/ai-closure-20261024/readonly`を準備した。直前のEngine 29.8.1応答、稼働Container零、既存四Imageのexact IDとlinux/amd64は確認できた。Image取得・更新・再起動は行っていない。
+
+合成AI選択を保存する正式`saveRepositoryAiSelection`が`blocked`を返し、短命な確認入口の`trial_selection_not_saved`でExit 1となった。Claudeの正式検証Toolをspawnする前であり、今回のAI起動・外部送信は零。四のDirect／Isolatedも起動していない。確認入口が保存結果の`reason`を保持せずstatusだけをassertしたため、今回の結果から個別の拒否原因は確定できない。これは確認入口の診断不足であり、Provider認証不良、Home競合、Docker故障とは断定しない。
+
+再保存・試験再実行をせず、純粋検査とReaderだけで合成設定valid、Repository検証completed、設定領域ready、AI選択missingを確認した。設定内容・境界の現時点の読取り成立は、過去の保存拒否原因の確定や保存成功を意味しない。次の最小診断は、送信を伴わない合成保存確認で閉じた`status/reason`と保存・回収の観測を失わないこと。安全条件を緩めたり、保存・Lock・Recovery機構を追加する根拠はない。
+
+今回Rootは二十四File・二十九Directory、Root及び祖先・子孫にlinkなし、Fileの複数hardlinkなし、Git Worktree登録は自身一件だけだった。Coordinator Runtime状態、設定Lock・回復義務Fileは生成されていない。通常WindowsのCIM照会で当該入口・試験Rootを使うNode Processが零であることも確認した。その後exact親 `.crdd/tests/ai-closure-20261024`だけを削除し、直接不存在を確認した。短命な実行・読取り診断入口も回収し、生Provider出力や実行別Evidenceの書庫は作らない。共有認証Home・他試験物・既存Docker資源は変更していない。
+
+三は事前準備停止、四は前提未成立による未実施として残す。AI再試行で原因を補完せず、全体E2E・実認証・Releaseの成功へ昇格しない。
+
+清掃後の読取りでは稼働Container零、現在のoperations・unresolvedRecoveries・pendingDeliveriesは各零だった。結果と現在投影の二文書について限定独立確認を行い、全重大度の残指摘零を確認した。

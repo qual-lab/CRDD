@@ -12,7 +12,9 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
-元作業の非AI回帰は完走した。Coordinator全体は1,850件中1,811成功・33失敗・6skipで初回不合格を保持する。全33失敗はSource・安全条件を変えず通常Windowsで成功確認し、関連正常系と環境skip一件を含む対象確認は計51件成功。AI Adapter24件・Workbench合成HTTP12件と静的検査も成功した。単一runの全体Passとは表示しない。次は記録の独立確認とCommit／Push後、承認済みのClaude読取り一回、その完全成功後だけDirect／Isolated合成編集E2Eへ進む。現在、実AI再送・Docker再起動は未実施。[確定結果と限界](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#元作業再開後の非ai回帰--2026-10-24)を参照する。
+一・二の非AI回帰・限定独立確認を終え、`8d1e736e1`でCommit・Pushした。三のClaude確認は合成AI設定の保存APIがblockedを返し、AI起動前に停止。今回AI送信零、四のDirect／Isolatedは未実施。拒否理由を確認入口が保持しておらず個別原因は未確定で、認証・Docker故障と断定しない。今回の新品試験物は非使用確認後に回収し、再試行・Docker再起動は行っていない。[停止位置・清掃・次の最小診断](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#ai-closure-preparation-blocked)を参照する。
+
+非AIの初回全体は1,850件中1,811成功・33失敗・6skipで不合格を保持する。全33失敗はSource・安全条件を変えず通常Windowsで成功確認し、関連正常系と環境skip一件を含む対象確認は計51件成功。AI Adapter24件・Workbench合成HTTP12件と静的検査も成功した。単一runの全体Passとは表示しない。[確定結果と限界](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#元作業再開後の非ai回帰--2026-10-24)を参照する。
 
 保持②は利用者承認の安全確認後、合成試験Root・対応する空のHost一時Root・旧marker一件だけを削除し、三対象の不存在を確認した。現行の状態・履歴に元参照はなく、対象ProcessとDocker資源も直前照会で不存在。AI再送・Docker再起動・認証領域操作・新しい回復機構の追加はない。旧試験の失敗・作成結果unknownとexact回復参照は履歴へ維持し、旧APIの回復成功や編集E2E成功には変更しない。[限定清掃の範囲と結果](99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#retained-edit-trial-disposal)を参照する。元失敗の因果は[読取り調査](99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#retained-edit-trial-readonly-diagnosis)の限定結論を維持する。
 
