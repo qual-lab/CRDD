@@ -918,3 +918,39 @@ Controllerは既に同じOperationへのbinding検証後にCapabilityとexact Do
 保持中の`claude-readonly-once-20261024`のstateは最終更新UTC `2026-10-24T14:57:55.4549934Z`・10,235 bytesで変化していない。AI再送、Docker照会・作成・再起動、認証情報の読取り、保持物や旧記録の書換えは行っていない。今回の是正は初回参照欠落への対処であり、元Container create失敗・ECONNRESETの原因解明や保持試験の回収完了ではない。
 
 Source・検証・文書伝播の限定最終独立レビューは全重大度の残指摘零。初回搬送の是正と未完了の既存Suite、元の一次故障、保持試験の未回収を分離した限定結果として扱う。
+
+<a id="single-task-state-duration-diagnosis"></a>
+
+### 既存単発保存Suiteの長時間実行の切分け — 2026-10-25（日本時間）
+
+利用者の継続指示に基づき、未完了だった`single-task-state.integration.test.ts`へ固定段階名だけの一時表示を入れ、新品の合成Rootで実行した。変更分類は既存試験の原因調査・結果記録であり、製品の意味・公開契約・保存形式・認可・回収条件を変更しない。現在の試験とTask Owner、同期Writer、Native排他、取消通知順を着手前に照合した。読取り専用の独立確認を利用し、準拠・リリース判断へは進まない。
+
+初期Writerの確認は約40秒で通過し、保存Revisionの進行、五回反復、通常取消、権限失効、外部取消、回復と別Session再入場まで順に通過した。診断付きCaseは359,295.604ms、実行全体359,694.6575msで成功した。今回の無出力待機は停止の証拠ではなく、数多くの実Writer・Snapshot・Lease・Native排他を直列に使う約六分のCaseだった。前回の三分前後での中断判断は早すぎた。個々のI/Oの費用内訳は計測しておらず、特定のOS primitiveの故障や改善対象とは断定しない。
+
+疑った取消通知の取りこぼしも現Sourceでは成立しなかった。fake executeの`await started()`後のlistener登録は、`await owner.start()`後の取消より先のmicrotaskで進む。事前取消はexecute前に本番Ownerが停止する。この順序を根拠に製品Source・試験代役の変更、timeout延長、assertion緩和、新しい監視・Lock・Recoveryを行わなかった。
+
+一時段階表示は全撤去し、当該試験Fileが基準Commitと同じであることを差分で確認した。診断付きCaseの成功は切分け根拠であり、一時表示撤去後のSuite全体の確認結果とは分ける。診断Rootは試験の既存cleanupで回収され、不存在を確認した。元のClaude保持Rootは不変更で、AI送信・Docker照会／再起動・認証情報読取りは行っていない。
+
+一時表示撤去後の元Suiteは二件すべて成功、失敗・取消・skip零、終了0で完走した。主Caseは292,366.7035ms、全体292,811.3303ms（約四分五十三秒）。先行の二権限での中断をPassへ読み替えず、この別実行の完走根拠で未確認だったSuiteを閉じる。製品Source、試験代役、assertion、待機期限は変更していない。全製品回帰や元の実Claude故障まで確認した結果ではない。
+
+<a id="claude-image-empty-home-create-comparison"></a>
+
+### 固定Claude Image・空Homeの停止Container比較 — 2026-10-25（日本時間）
+
+利用者は、固定Claude Imageによる停止Container一件の作成・構成確認・今回試験物の回収を明示承認した。Engine停止・Image欠測・結果不明なら停止、追加起動・再試行・Image取得・通信・認証・AI・Repository本文の利用・Docker再起動・既存資源削除は行わない範囲である。実行前に短命入口を読み取り専用の独立確認へ渡し、既存Process Owner、入力・出力・終了観測、exact ID照合と非force回収、失敗時保全を照合して着手可を得た。
+
+先のPython比較と同じCRDD所有Process起動、絶対Docker CLI、固定Engine pipe、空config・Home、最小環境、`pull=never`・network none・root読取り専用・cap drop ALL・no-new-privileges・pids32・user65534を使い、Imageを固定Claude `sha256:ddd766072db6e69f55efb11fc3e82b401542cb5583c179f56aac4004f4ea317a`へ切り替えた。今回のHomeはRepository-local試験領域内の空Directory一件だけを読取り専用Mountした。Containerは作成のみで、Entrypoint・Provider本体を実行していない。
+
+| 観測 | 結果 |
+|---|---|
+| 作成 | 一回、終了0、stdout 65 bytes・stderr 0 bytes、365ms、Process開始・応答・close確認 |
+| 実ID | `15ead546bf2771fda81be06ed38dcea1a71060c6412753788a9965711dea8ff9` |
+| 対象 | name `crdd-claude-create-comparison-269d4e1fc6c91e65`、label `crdd.create-image-comparison=269d4e1fc6c91e65` |
+| 構成 | 実ID・name・Image・label一致、created・非稼働・pid0、上記制限、空Home一Mountの元Path・readonly、HOME一件一致 |
+| Container回収 | 削除直前に同じ構成を再確認し、元実IDで非force削除。実ID／name／labelの各一覧が空、既存Container一覧は実行前後で一致 |
+
+この現在の固定Image・空Home条件ではcreate失敗を再現しなかった。実認証HomeのMount、同時HTTP／取消・保存、過去のEngine状態はこの比較に含めておらず、元create失敗・ECONNRESETの原因特定や、実認証・実AI・保持中試験の回収を主張しない。Runtime／Provider設定・製品Sourceは変更していない。結果JSONは非秘密の構成と終了診断だけで、Provider生出力を取得・保存していない。
+
+上記summary固定後、試験Root `C:\project\CRDD\.crdd\tests\claude-create-image-compare-20261025`のresolved絶対Path・期待四entry・ReparsePointなし・空Homeを再確認した。実行Process終了とContainer回収確認後、このRootだけを削除し不存在を確認した。短命入口も撤去して不存在を確認した。通常保存Suiteの新品Rootも既存cleanupで回収され不存在である。保持中Claude試験のstateはUTC `2026-10-24T14:57:55.4549934Z`・10,235 bytesのまま変化していない。Container回収と試験File回収を別に観測しており、既存の別Rootは清掃対象に含めていない。
+
+今回二節と現在地の限定最終独立レビューは全重大度の残指摘零。長時間試験の完走、Claude Image条件での限定比較、未特定の元故障と保持試験を区別し、個々のI/O費用や任意条件での正常性を断定しないことを確認した。
