@@ -724,3 +724,21 @@ Source照合・有限再現・結果二文書の限定独立確認では、timed
 外部AI・認証情報・Docker操作・保持Root操作は行っていない。これは診断欠落と終了結果欠落の是正であり、過去のHTTP原因の復元、未確定Containerの回収、実AI成功を意味しない。
 
 固定六Fileの限定独立レビューはMajor／Moderate／Minorすべて零。受付ID・取消最大一回・同ID結果／回復参照・一次失敗保持・close順序、Architecture／QAへの直接伝播と実境界未証明の区別を確認した。保持state.jsonは13:14:06 UTC・9,122 bytesのままであり、不変観測を実回収の証明には使用しない。
+
+<a id="readonly-trial-recovery-readonly-assessment"></a>
+
+### 最小是正の保存と保持物の読取り再評価 — 2026-10-24
+
+利用者の承認に従い、前節の六FileをCommit `22082c5b9fcdd7b436b4cf4e650ff473bc29a161`として既存作業Branchへpushし、remote追跡先との一致を確認した。その後は、保持中の同じ試験の現在記録・既存回収処理・Docker読取りだけを照合した。変更分類は調査結果の記録であり、Source・終了条件・決定権限を変えない。実行環境のアクセス拒否を資源不存在と扱わず、許可された読取りを通常Windowsで再確認した。
+
+| 照合対象 | 2026-10-24 13:52 UTCまでの観測と判断 |
+|---|---|
+| Engineと予定資源 | Engine 29.8.1応答。認証確認のexact名`crdd-auth-cf28e3807e42518e`、同名＋所有Label、および今回Label `crdd.coordinator.runtime=cf28e3807e42518e`のContainer一覧は空。exact名のinspectはDaemonのNo such container。今回LabelのNetwork一覧とinternal／egressのexact名一覧も空。これは照会時点の結果であり、遅延要求の将来結果は証明しない |
+| Processの限定照会 | CIM読取り成功時、参照可能なCommandLineが今回Root又は実行Identityに一致するNode／Dockerクライアントは零。不可視CommandLine、すべての孤立Process、Daemon内の要求完了まで証明しない |
+| 保存記録 | authだけrequest／observation unknown・dockerId／Receiptなし。他四purposeはnot_requested。phase settling、ownerEffect disabled、Provider not_started／外部送信・共有書込みnot_issued、旧領域再利用不可。dockerRestartはnull。stateは13:14:06 UTC・9,122 bytesのまま |
+| 通常回収の条件 | DI `discoverSubmittedDockerResource`は名・Label・構成の一致する実IDを発見できる場合だけ識別する。未発見はnullであり、現在回収Ownerはunknownを保持してresource_unconfirmedを返す。現状で同処理を再実行しても閉じられる新しい根拠は得られていないため、回収再実行はしなかった |
+| 限定unknown終了の条件 | `coordinatorAuthenticationUnknownCanClose`は同じ回復IDへ結合した再起動のrequest／cleanup confirmedと最終completed／Effect不明false等を要求する。今回はdockerRestart nullで不成立。独立した現在一覧、disabled、Process限定照会だけでこの条件を置換しない |
+
+今回の範囲では、回収完了や安全な削除の成立には到達していない。試験自体は停止済みのまま、同じexact回復参照とRootを保持する。既存経路で進むには同IDに結合した検証付きDocker再起動が追加判断になるが、今回は未承認のため発行しない。再起動を避けるための新しい回復機構・状態書換えは追加しない。既定七日の再評価日2026-10-31は維持し、期限による削除はしない。AI再送・Docker作成／削除／再起動・Host領域清掃・保持物変更は零である。
+
+二文書の限定独立確認はMajor／Moderate／Minorすべて零。現在観測・過去不明・将来の遅延作成を区別し、現行Sourceの終了条件と保持判断が一致することを確認した。調査・記録だけのため実行試験と準拠／Release監査は追加しない。
