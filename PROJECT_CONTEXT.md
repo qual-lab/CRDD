@@ -18,6 +18,8 @@ Repository Role: `crdd-standard`
 
 単体create比較は、標準／CRDD経路の固定Python、固定Claude Imageの空Home、追加承認した実Claude Home指定で成功した。最新の実Home指定は474ms・終了0で、停止状態のMount表示を照合して今回Container・一時Fileだけ回収した。Container起動、probeによる認証Home本文の読取り・変更要求、認証・AI・通信、Docker再起動は行っていない。認証有効性や元故障の原因特定ではなく、保持物は不変更。[実Home比較の結果と限界](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#claude-real-home-create-comparison)を参照する。
 
+実Task保存を加えた非AIの合成HTTP比較では、start POSTはheaders未受信のまま既存15秒期限を超過し、Client観測が16.2秒で失敗した。GETは約0.5秒で成功し、合成処理のjoin・closeと実行後Stateを確認した。取消HTTP試験は未到達。元のobserve段階のECONNRESET／期限超過なしとは異なるため、元原因は未確定のまま保持する。製品Source・期限・保存保証は変えず、AI再送・Docker要求・保持物変更は行っていない。[今回の観測と次の判断境界](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#http-real-task-storage-diagnosis)を参照する。
+
 初回結果の回復参照搬送漏れは既存引渡し値を初回保存へ届ける最小修正を実装済みで、terminal検査は維持する。静的検査、助言22件、初回実保存一件、関連回帰269件、Catalog384件の検査は成功。単発保存Suiteも約四分五十三秒で二件すべて成功し、前回中断が早すぎた点は訂正済み。全体回帰・実AI完成ではない。[参照搬送の是正](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#advice-recovery-reference-handoff-fix)と[保存Suiteの切分け](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#single-task-state-duration-diagnosis)を参照する。
 
 先行する合成設定の保存拒否は、空Git templateで作った確認fixtureの`.git/info`未準備として非AIで特定・是正済み。製品の安全条件は変更せず、保存Suite十一件・静的検査・限定独立レビューが成功した。この是正の試験物は清掃済みであり、新たに保持した今回Rootとは区別する。[保存準備の是正](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#selection-save-preparation-diagnosis)を参照する。

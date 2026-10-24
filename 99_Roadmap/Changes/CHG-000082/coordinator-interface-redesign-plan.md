@@ -998,3 +998,25 @@ Source上の認証確認createも、先の限定比較と同じ通常Docker `cre
 上記summary固定後、試験Root `C:\project\CRDD\.crdd\tests\claude-real-home-create-20261025`のresolved絶対Path、期待四entry、ReparsePointなし、空Client Homeを再確認した。Container回収・Process終了確認後、このRootだけを削除し不存在を確認した。短命入口も撤去して不存在を確認した。認証Homeは清掃対象に含めていない。保持Claude stateはUTC `2026-10-24T14:57:55.4549934Z`・10,235 bytesのまま不変更である。
 
 本節と現在地の限定最終独立レビューは全重大度の残指摘零。Mountの要求値とContainer表示、Directory実体とFile内容、今回資源の回収と元試験の回収を区別した限定結果として確認した。
+
+<a id="http-real-task-storage-diagnosis"></a>
+
+### 実Task保存を含む合成HTTP受付の切分け — 2026-10-25（日本時間）
+
+継続指示に基づく原因調査として、実Workbench HTTPと既存検証Client、実Coordinator Task受付・Writer・Native排他を新品の合成Repositoryへ接続し、実行部分だけを合成処理へ置き換えた。外部AI・Docker要求・認証Home・保持Claude試験は使わず、製品Source、期限、安全条件、保存形式を変更していない。実行前の独立確認でclose失敗の固定診断とclose後再読を補った。これは検証用入口の補正であり、製品機構の追加ではない。
+
+| 実行・観測 | 結果と限界 |
+|---|---|
+| 初回fixture | 表示用公式ロゴ不足によりServer開始前に停止。実行呼出し0、close確認。既存ロゴ一Fileだけを合成Rootへ補い、製品処理は変えなかった |
+| 実保存付き比較 | 修正版と診断追加後の計三runは、いずれも通常依頼のstart観測で停止。合成executeとrunning保存まで到達し、finallyで合成処理をreleaseしてjoin・closeした。取消HTTP Caseへは未到達であり、通常完了のHTTP往復・取消試験成功とは表示しない |
+| 最終runの要求別診断 | GET二回は200・544ms／475ms、start POSTはheaders未受信・16,216msで失敗、その後の読取りGETは200・549ms。start失敗はrequest観測あり、`headers_unobserved`・`timedOut true`・transportCode null。method・固定route・所要時間・statusだけを補足し、Token・form・応答本文・生例外は保存していない |
+| Source照合 | HTTP Handlerは`aiRequests.start()`返却後に303を送る。startはenqueue後、即時async処理内でLease取得・starting保存・executeへ進み、合成executeの`operationCreated`／`started`も既存の同期保存を行う。この保存付き受付順序は、今回のPOST期限超過と整合する。個々の保存・Native操作の費用までは測定していない |
+| 終了後状態 | 四Rootを個別再読し、operations／unresolvedRecoveries／pendingDeliveries／leaseIntentsは各0。ロゴ不足RootのQueueは0、残り三Rootは各1件settled・Owner世代null・cleanup true・回復参照なし。後者には合成のhistoryPending各1件が残るため、履歴配送完了やState全消去とは扱わない。試験Process不存在も確認した |
+
+今回再現したのは現在の合成条件での**start POST期限超過**である。保持Claude試験はobserve段階の`ECONNRESET`・`timedOut false`であり、失敗段階も分類も異なる。元のHTTP切断／create結果unknownの原因を確定したことにはしない。Timeout延長、HTTP再送、保存保証の緩和、新しいWorker／Recovery機構は実装しない。次の是正判断には、受付前に必要な保存と受付後の開始準備を分けられるか、同じTask・取消・失敗時保存の契約を維持できるかを先に確認する。
+
+清掃対象は自己生成の`C:\project\CRDD\.crdd\tests\http-task-save-o1os3d`、`http-task-save-yYtLux`、`http-task-save-DSftBn`、`http-task-save-tDDAG8`の四Rootだけとする。各Rootのresolved所在、期待する合成File／Git／設定、全子孫のReparsePoint不存在、close・joinと上記State、実行Process不存在を確認済み。保持Claude試験は清掃対象外で、state metadataはUTC `2026-10-24T14:57:55.4549934Z`・10,235 bytesのままである。
+
+上記summary固定後に同じ四Rootの条件を直前再確認し、各Rootを削除して不存在を確認した。一時診断入口も撤去した。失敗記録は本節の要約で維持し、履歴配送成功や元試験の回収へ読み替えない。
+
+本節と現在地の限定最終独立レビューは残指摘零。Client観測の失敗時間とServer完了時間、今回の期限超過と元ECONNRESET、合成処理の終了と未成立のHTTP試験を区別することを確認した。文書差分検査は成功し、製品回帰の追加成功は主張しない。
