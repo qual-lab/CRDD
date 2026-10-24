@@ -16,7 +16,7 @@ Repository Role: `crdd-standard`
 
 読取り調査では、受付後の最初の結果GET失敗まで絞った。失っていたHTTP固定診断・受付済みID・同じTaskの取消結果を、試験Toolだけの最小修正で保持するようにした。外部AIなしの結合十三件と静的検査は成功。実際の接続切断／期限切れの区別、同時bridge再生成との因果は未確定。最小是正段階ではAI再送・Docker再起動・保持物操作はしていない。[調査の確度](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#claude-resume-readonly-diagnosis)と[最小是正](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#readonly-verification-minimal-fix)を参照する。
 
-最小是正は`22082c5b9`としてpush済みであり、今回の固定HTTP診断と取消結果保持に接続した。以前の保持Rootは回収・上位終了・履歴確定後に清掃済みで、今回の新しい残存と区別する。次は外部AIなしで、接続切断・認証確認作成・終端Identity／Queueの副次失敗を切り分ける。Direct／Isolatedの実編集確認は未実施。[以前の回収・清掃](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#readonly-trial-task-initialization-resolution)を参照する。
+最小是正は`22082c5b9`としてpush済みであり、今回の固定HTTP診断と取消結果保持に接続した。標準Docker呼出しとCRDD共通経路の非AI読取り比較は三方式とも成功したが、create失敗の原因はまだ未特定。次は認証情報なし・停止Container二件の限定create比較を承認後に行う。元の保持物は不変更で、Direct／Isolatedの実編集確認は未実施。[比較結果と限定試験案](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#docker-common-call-comparison)を参照する。
 
 先行する合成設定の保存拒否は、空Git templateで作った確認fixtureの`.git/info`未準備として非AIで特定・是正済み。製品の安全条件は変更せず、保存Suite十一件・静的検査・限定独立レビューが成功した。この是正の試験物は清掃済みであり、新たに保持した今回Rootとは区別する。[保存準備の是正](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#selection-save-preparation-diagnosis)を参照する。
 

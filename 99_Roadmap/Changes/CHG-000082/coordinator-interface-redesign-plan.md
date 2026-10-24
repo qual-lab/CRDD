@@ -828,3 +828,27 @@ Workflow・結果記録・現在投影の三文書は限定独立レビューで
 今回Rootと安全な`result.json`を、同じ回復参照・状態とともに保持する。生Provider本文・資格値は保存していない。既定七日の再評価日は2026-10-31とし、未解決参照を期限で削除しない。次はECONNRESET、認証確認create失敗、副次の終端Identity／Queue処理の関係を外部AIなしで調査する。実AI再送、Docker再起動、Image取得、ログイン、APIキーfallback、保持物削除は今回の後続処置に含めない。Direct／Isolatedは未実施のままである。
 
 短命な今回実行入口は結果保存後に回収し、不存在を確認した。結果二文書の限定独立レビューでは、現在投影の作成処理失敗／実作成unknownとHTTP診断の表現一件を限定し、再確認後は全重大度の残指摘零。Source・保持状態・exact参照は変更していない。
+
+<a id="docker-common-call-comparison"></a>
+
+### 標準Docker呼出しと共通実行経路の比較 — 2026-10-25（日本時間）
+
+利用者の調査指示に従い、実装変更・AI・認証情報・Container作成・再起動なしで調べた。変更分類は原因調査と記録であり、工程契約・権限・保存形式を変えない。技術観点はProcess／環境／固定接続・設定と終了観測、レビュー範囲は調査の確度と次の限定試験の境界とする。標準準拠・Release監査や実AI再試験は追加しない。
+
+Sourceではauth／proxy／providerのcreateはいずれもDIの`planDockerIsolationCommands`、`startCommand`、`startOwnedWindowsProcess`と共通Sessionの待機・分類・Receipt搬送を使う。認証確認だけ別の作成APIではない。用途差はNetwork none・Provider Home readonly・Workspaceなし等の構成である。一方、手動の標準呼出しと比べるとCRDDは固定Docker実行物・Named Pipe・空config・最小環境と所有Process監視を挟むため、その差を比較対象にした。
+
+同じDocker実行物、固定Named Pipe、Repository-localの同じ空専用config、`version --format`のEngine版読取りを三方式で各一回比較した。結果は下表のとおりで、環境値・例外本文は保存していない。
+
+| 方式 | 終了値／Engine版 | 出力・終了観測 |
+|---|---|---|
+| 標準execFileSync＋通常環境 | 0／29.8.1 | stdout 9 bytes、stderr 0、同期完了 |
+| 標準execFileSync＋CRDD最小環境 | 0／29.8.1 | stdout 9 bytes、stderr 0、同期完了 |
+| CRDD所有Process＋同じ最小環境 | 0／29.8.1 | stdout 9 bytes、stderr 0、closed true、待機期限未超過 |
+
+読取りでは三方式とも成立した。これはcreate・bind Mount・Host認証領域・同時HTTP観測を通しておらず、最小環境やProcess監視がcreate失敗の原因でないと一般化しない。空stderrの終了値1、HTTP ECONNRESET、bridge再生成の因果は未特定のままである。元の保持Root・状態・回復参照は変更しなかった。
+
+比較に使った自己生成Rootは、空configと安全な結果一件だけであること、配下のReparsePointなし、resolved絶対Pathのexact一致を確認し、記録後にそのRootだけを削除して不存在を確認した。短命な比較入口も回収した。Container／Networkは作成しておらず、保持中の実試験Rootには触れていない。
+
+次の比較候補は、既存固定Python Image `sha256:d67a7b66b989ad6b6d6b10d428dcc5e0bfc3e5f88906e67d490c4d3daac57047`で、専用の空Host領域だけをreadonly Mountし、auth同等のnetwork none／read-only／non-root／cap-drop／no-new-privileges／pids-limit構成の停止Containerを二件順番にcreateする方式である。標準execFileSyncとCRDD所有Processに同じ最小環境・設定・argvを渡す。起動、AI、認証領域、Repository mount、Image取得、独自Network作成は行わない。取得実ID・名前・Label・Image・構成を確認した今回物だけをexact IDで回収する。作成結果不明・構成差・回収失敗では再試行せず根拠を保持する。現時点は提案だけであり、限定試験とその回収の人間承認後に実行する。
+
+結果・次試験案の二文書は限定独立レビューで全重大度の残指摘零。読取り成功の非一般化、保持物非変更、未承認createの非実行、実ID確認後の回収とunknown時の停止を確認した。
