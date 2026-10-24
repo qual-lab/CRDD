@@ -907,6 +907,263 @@ test("実AI試験CLIは明示同意と固定Provider以外を起動前に拒否�
 });
 
 /**
+ * 読取り試験の実本文で観測失敗後の元Task処置を確認する。
+ * @responsibility 一次通信診断、同一IDの取消結果、closeを独立して保持する。
+ * @trace ERB-IT-021
+ * @precondition HTTP・Task・Docker観測は有限代役であり実Effectを持たない。
+ * @stimulus 受付前拒否、HTTP期限・切断、取消失敗・別ID・回復待ち、close失敗。
+ * @observation 起動一回・取消最大一回、待機順序、元診断とexact回復参照。
+ * @oracle 元失敗を上書きせず、unknownを成功にせず、結果本文を保存しない。
+ * @cleanup VMのPromiseを完了する。実AI・Docker・保持領域は使わない。
+ * @boundary 正式読取りTool本文と有限代役。
+ */
+test("読取り試験は元HTTP診断と同じTaskの取消結果を保持して閉じる", async () => {
+  const source = fs.readFileSync(
+    new URL("../../scripts/verify-readonly-ai.ts", import.meta.url),
+    "utf8",
+  );
+  const start = source.indexOf("  let primaryFailure:");
+  const end = source.indexOf("\n}\nawait main().catch", start);
+  assert.ok(start > 0 && end > start);
+  const body = stripTypeScriptTypes(
+    `(async () => { ${source.slice(start, end)} })()`,
+  );
+  for (const scenario of [
+    "success",
+    "before-accept",
+    "accept-unknown",
+    "http-timeout",
+    "connection-reset",
+    "cancel-unknown",
+    "cancel-throws",
+    "cancel-other-id",
+    "cancel-secondary",
+    "close-fails",
+    "deadline-cancel",
+    "deadline-cancel-throws",
+  ]) {
+    let starts = 0;
+    let observes = 0;
+    let httpCancels = 0;
+    let ownerCancels = 0;
+    let clockReads = 0;
+    const events: string[] = [];
+    const output: string[] = [];
+    const processState = { exitCode: 0 };
+    const snapshot = {
+      requestId: "synthetic-request",
+      status: "blocked",
+      reason: "synthetic_cancelled",
+      executionStatus: "cancelled",
+      primaryFailure: null,
+      cleanupConfirmed: true,
+      recoveryIds: [] as string[],
+      secondaryFailures: [] as string[],
+      facts: [{ text: "synthetic-untrusted-content" }],
+      sharedAnalysis: [],
+      additionalInferences: [],
+      nextOptions: [],
+    };
+    const transport = new Error("workbench_verification_transport_failed", {
+      cause: {
+        failureClass: "headers_unobserved",
+        timedOut: scenario === "http-timeout",
+        transportCode: scenario === "http-timeout" ? "ETIMEDOUT" : "ECONNRESET",
+        secret: "synthetic-secret",
+      },
+    });
+    await runInNewContext(body, {
+      Error,
+      assert,
+      Buffer,
+      projectVerificationTransportFailure,
+      provider: "claude",
+      choice: { provider: "claude", model: "opus", effort: "medium" },
+      permitted: () => true,
+      verified: { capability: {} },
+      Date: { now: () => (clockReads++ === 0 ? 0 : 600_001) },
+      readRepositoryNetworkPolicies: () => ({
+        status: "ready",
+        policies: { claude: { policyHash: "a".repeat(64) } },
+      }),
+      createWorkbenchAiVerificationHttpClient: async () => ({
+        start: async () => {
+          starts++;
+          if (scenario === "before-accept") throw transport;
+          if (scenario === "accept-unknown")
+            throw Error("workbench_ai_http_start_outcome_unknown");
+          return { status: "accepted", requestId: snapshot.requestId };
+        },
+        observe: async () => {
+          observes++;
+          if (scenario === "success")
+            return {
+              ...snapshot,
+              status: "completed",
+              executionStatus: "completed",
+            };
+          if (scenario.startsWith("deadline-"))
+            return { ...snapshot, status: "running" };
+          throw transport;
+        },
+        cancel: async (id: string) => {
+          assert.equal(id, snapshot.requestId);
+          httpCancels++;
+          events.push("http-cancel");
+          if (scenario === "deadline-cancel-throws") throw transport;
+          return snapshot;
+        },
+      }),
+      owner: {
+        cancel: async (id: string) => {
+          assert.equal(id, snapshot.requestId);
+          ownerCancels++;
+          events.push("owner-cancel");
+          await Promise.resolve();
+          events.push("cancel-result");
+          if (scenario === "cancel-throws") throw Error("synthetic-secret");
+          if (scenario === "cancel-other-id")
+            return { ...snapshot, requestId: "other-request" };
+          if (scenario === "cancel-unknown")
+            return {
+              ...snapshot,
+              status: "unknown",
+              cleanupConfirmed: false,
+              recoveryIds: ["recovery-synthetic"],
+            };
+          if (scenario === "cancel-secondary")
+            return { ...snapshot, secondaryFailures: ["synthetic_secondary"] };
+          return snapshot;
+        },
+      },
+      handle: {
+        baseUrl: "http://127.0.0.1:1",
+        close: async () => {
+          events.push("close");
+          if (scenario === "close-fails") throw Error("synthetic_close");
+        },
+      },
+      canonical: () => ({ commit: "fixed", context: "fixed" }),
+      before: { commit: "fixed", context: "fixed" },
+      inventory: { containers: [], networks: [] },
+      observeVerificationDockerInventory: () => ({}),
+      assessVerificationDockerInventory: (
+        _before: unknown,
+        _after: unknown,
+        clean: boolean,
+      ) => ({ status: clean ? "verified" : "blocked" }),
+      console: { log: (v: string) => output.push(v) },
+      process: processState,
+      delay: async () => {
+        throw Error("unexpected_wait");
+      },
+    });
+    assert.equal(output.length, 1, scenario);
+    const serialized = output[0];
+    assert.ok(serialized, scenario);
+    const report = JSON.parse(serialized);
+    assert.equal(starts, 1, scenario);
+    assert.equal(
+      observes,
+      ["before-accept", "accept-unknown"].includes(scenario) ? 0 : 1,
+      scenario,
+    );
+    assert.equal(report.limitedProbePassed, scenario === "success", scenario);
+    assert.equal(
+      processState.exitCode,
+      scenario === "success" ? 0 : 2,
+      scenario,
+    );
+    assert.equal(
+      ownerCancels,
+      [
+        "success",
+        "before-accept",
+        "accept-unknown",
+        "deadline-cancel",
+        "deadline-cancel-throws",
+      ].includes(scenario)
+        ? 0
+        : 1,
+      scenario,
+    );
+    assert.equal(
+      httpCancels,
+      scenario.startsWith("deadline-") ? 1 : 0,
+      scenario,
+    );
+    assert.equal(events.at(-1), "close", scenario);
+    assert.equal(
+      report.acceptedRequestId,
+      ["before-accept", "accept-unknown"].includes(scenario)
+        ? null
+        : snapshot.requestId,
+      scenario,
+    );
+    assert.equal(serialized.includes("synthetic-secret"), false, scenario);
+    assert.equal(
+      serialized.includes("synthetic-untrusted-content"),
+      false,
+      scenario,
+    );
+    if (ownerCancels)
+      assert.deepEqual(
+        events,
+        ["owner-cancel", "cancel-result", "close"],
+        scenario,
+      );
+    if (scenario === "http-timeout" || scenario === "connection-reset") {
+      assert.equal(
+        report.primaryFailure,
+        "workbench_verification_transport_failed",
+      );
+      assert.equal(
+        report.transportFailure.timedOut,
+        scenario === "http-timeout",
+      );
+      assert.equal(
+        report.transportFailure.transportCode,
+        scenario === "http-timeout" ? "ETIMEDOUT" : "ECONNRESET",
+      );
+      assert.equal(report.timedOut, false);
+      assert.equal(report.failureStep, "observe");
+      assert.equal(report.cancellationResultObserved, true);
+    }
+    if (scenario === "cancel-unknown")
+      assert.deepEqual(report.result.recoveryIds, ["recovery-synthetic"]);
+    if (scenario === "cancel-secondary")
+      assert.deepEqual(report.result.secondaryFailures, [
+        "synthetic_secondary",
+      ]);
+    if (
+      ["cancel-throws", "cancel-other-id", "deadline-cancel-throws"].includes(
+        scenario,
+      )
+    ) {
+      assert.equal(report.cancellationResultObserved, false, scenario);
+      assert.equal(
+        report.cancellationFailure,
+        "readonly_verification_cancel_unconfirmed",
+        scenario,
+      );
+      assert.equal(
+        report.primaryFailure,
+        "workbench_verification_transport_failed",
+        scenario,
+      );
+    }
+    if (scenario === "close-fails") {
+      assert.equal(
+        report.primaryFailure,
+        "workbench_verification_transport_failed",
+      );
+      assert.equal(report.closeFailure, "synthetic_close");
+      assert.equal(report.result.requestId, snapshot.requestId);
+    }
+  }
+});
+
+/**
  * 正式試験mainは公開HTTPで一回だけ依頼し失敗と終了観測を分ける。
  * @trace ERB-IT-021
  * @precondition 正式main本文と公開HTTPを使い、Provider OwnerとCLI観測だけ有限代役へ置く。
@@ -1045,6 +1302,7 @@ test("正式試験mainは公開HTTPで一回だけ依頼し失敗と終了観測
           };
         },
         createWorkbenchAiVerificationHttpClient,
+        projectVerificationTransportFailure,
         assessVerificationDockerInventory,
         observeVerificationDockerInventory: () => {
           const value = structuredClone(base);

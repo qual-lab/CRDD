@@ -14,6 +14,8 @@ Repository Role: `crdd-standard`
 
 再開したClaude読取り確認は、合成設定保存には成功したがWorkbenchのloopback HTTP観測で結果を得られず停止した。耐久記録は認証確認Containerの作成結果unknown、本体Provider開始not_started・externalSend not_issued。正式回収も同IDでresource_unconfirmedとなり、今回の合成Rootと回復参照を保持している。Direct／Isolatedは未実施。再送・Docker再起動・修復・既存資源削除は行わず、通信失敗の原因調査と今回残存の処置が次の対象である。[今回の観測・exact参照・保持期限](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#claude-resume-transport-stop)を参照する。
 
+読取り調査では、受付後の最初の結果GET失敗まで絞った。失っていたHTTP固定診断・受付済みID・同じTaskの取消結果を、試験Toolだけの最小修正で保持するようにした。外部AIなしの結合十三件と静的検査は成功。実際の接続切断／期限切れの区別、同時bridge再生成との因果は未確定で、AI再送・Docker再起動・保持物操作はしていない。[調査の確度](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#claude-resume-readonly-diagnosis)と[最小是正](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#readonly-verification-minimal-fix)を参照する。
+
 先行する合成設定の保存拒否は、空Git templateで作った確認fixtureの`.git/info`未準備として非AIで特定・是正済み。製品の安全条件は変更せず、保存Suite十一件・静的検査・限定独立レビューが成功した。この是正の試験物は清掃済みであり、新たに保持した今回Rootとは区別する。[保存準備の是正](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#selection-save-preparation-diagnosis)を参照する。
 
 非AIの初回全体は1,850件中1,811成功・33失敗・6skipで不合格を保持する。全33失敗はSource・安全条件を変えず通常Windowsで成功確認し、関連正常系と環境skip一件を含む対象確認は計51件成功。AI Adapter24件・Workbench合成HTTP12件と静的検査も成功した。単一runの全体Passとは表示しない。[確定結果と限界](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#元作業再開後の非ai回帰--2026-10-24)を参照する。

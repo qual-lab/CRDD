@@ -24,6 +24,7 @@ import {
   createWorkbenchAiVerificationHttpClient,
   observeVerificationDockerInventory,
   assessVerificationDockerInventory,
+  projectVerificationTransportFailure,
 } from "./ai-verification-http.ts";
 import type { WorkbenchAiRequestSnapshot } from "../src/server/ai-request/types.ts";
 
@@ -102,6 +103,13 @@ async function main() {
   let closeConfirmed = false;
   let timedOut = false;
   let result: WorkbenchAiRequestSnapshot | null = null;
+  let acceptedRequestId: string | null = null;
+  let failureStep: "start" | "observe" | "cancel" = "start";
+  let transportFailure: ReturnType<typeof projectVerificationTransportFailure> =
+    null;
+  let cancellationRequested = false;
+  let cancellationResultObserved = false;
+  let cancellationFailure: string | null = null;
   const classify = (e: unknown) =>
     e instanceof Error && /^[a-z][a-z0-9_]+$/u.test(e.message)
       ? e.message
@@ -134,6 +142,8 @@ async function main() {
     });
     if (start.status !== "accepted" || start.requestId === null)
       throw new Error("verification_start_rejected");
+    acceptedRequestId = start.requestId;
+    failureStep = "observe";
     const deadline = Date.now() + 10 * 60_000;
     result = await client.observe(start.requestId);
     while (
@@ -144,9 +154,40 @@ async function main() {
       result = await client.observe(start.requestId);
     }
     timedOut = ["accepted", "running"].includes(result.status);
-    if (timedOut) result = await client.cancel(start.requestId);
+    if (timedOut) {
+      failureStep = "cancel";
+      cancellationRequested = true;
+      const cancelled = await client.cancel(start.requestId);
+      assert.equal(
+        cancelled.requestId,
+        acceptedRequestId,
+        "readonly_result_identity_mismatch",
+      );
+      result = cancelled;
+      cancellationResultObserved = true;
+    }
   } catch (error) {
     primaryFailure = classify(error);
+    transportFailure = projectVerificationTransportFailure(error);
+    if (cancellationRequested && !cancellationResultObserved)
+      cancellationFailure = "readonly_verification_cancel_unconfirmed";
+    if (acceptedRequestId !== null && !cancellationRequested) {
+      // 壊れたHTTP経路へ再送せず、同じOwnerのTaskだけを一度取り消す。
+      // 元の通信失敗と、取消・回収の結果を別々に保持してからcloseする。
+      cancellationRequested = true;
+      try {
+        const cancelled = await owner.cancel(acceptedRequestId);
+        assert.equal(
+          cancelled.requestId,
+          acceptedRequestId,
+          "readonly_result_identity_mismatch",
+        );
+        result = cancelled;
+        cancellationResultObserved = true;
+      } catch {
+        cancellationFailure = "readonly_verification_cancel_unconfirmed";
+      }
+    }
   } finally {
     try {
       await handle.close();
@@ -213,6 +254,12 @@ async function main() {
             },
       timedOut,
       primaryFailure,
+      acceptedRequestId,
+      failureStep: primaryFailure === null ? null : failureStep,
+      transportFailure,
+      cancellationRequested,
+      cancellationResultObserved,
+      cancellationFailure,
       closeFailure,
       closeConfirmed,
       projectContextUnchanged,

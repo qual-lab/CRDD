@@ -669,7 +669,7 @@ AI起動は計二回で再送なし。認証状態確認をAI起動回数に含�
 
 | 今回の観測 | 結果と限界 |
 |---|---|
-| 正式Tool | Exit 2、`workbench_verification_transport_failed`。Taskの公開結果はnull、期限切れではなくWorkbenchのloopback HTTP観測（公開操作のローカル搬送）で結果を得られなかった。closeConfirmed true、closeFailure null。耐久記録のexternalSendはnot_issuedであり、外部Provider送信を意味しない |
+| 正式Tool | Exit 2、`workbench_verification_transport_failed`。Taskの公開結果はnull、Workbenchのloopback HTTP観測（公開操作のローカル搬送）で結果を得られなかった。Task全体のtimedOutはfalseだが、HTTP固有の期限超過は未判定。closeConfirmed true、closeFailure null。耐久記録のexternalSendはnot_issuedであり、外部Provider送信を意味しない |
 | 前後固定 | 本体Source・正式Tool・合成Context／HEAD／Tree・選択設定・通信Policyの観測は不変。`unchanged: true`だが実行成功や回収成立を意味しない |
 | Docker終了後比較 | provider_cleanup_unconfirmed。既存資源一覧は保持され、System構成同値。ただし標準Network Identityが変わり、Network一件追加／一件消失を観測。原因・主体は未特定であり、今回の再起動発行やProvider成功へ読み替えない |
 | 耐久記録 | 一操作の認証確認Container作成がintent_saved、実ID・Receiptなし。認証確認以外の残り四資源はすべてnot_requested、providerStart not_started／externalSend not_issued。通常Windows照会で今回のNode入口・Tool Processは零 |
@@ -682,3 +682,45 @@ AI起動は計二回で再送なし。認証状態確認をAI起動回数に含�
 三はWorkbench HTTP観測と認証確認作成結果が未確定、四は前提不成立で未実施。耐久記録のexternalSendはnot_issuedのままである。Docker再起動・修復・Image取得・APIキーfallback・追加送信・既存資源削除は行っていない。今回の通信故障の原因調査と、保持した試験物の処置を次の判断対象とし、E2Eの成功を主張しない。
 
 結果記録と現在投影の限定独立確認では、ローカルHTTPと外部送信の区別、未要求四資源の全数表示を是正し、再確認後は全重大度の残指摘零。製品Sourceは固定版から不変更である。
+
+<a id="claude-resume-readonly-diagnosis"></a>
+
+### 再開試験の読取り原因調査 — 2026-10-24
+
+利用者の原因調査指示に従い、AI再送・Docker再起動・回収再実行・保持物削除をせず、現在Sourceと保持状態、Dockerの読取りだけを照合した。変更分類は調査・記録訂正であり、製品の実装・API・安全条件は変更しない。前節の「期限切れではない」という説明は訂正する。`timedOut`はTask側のflagで初期値false。最初のobserve成功後にだけ再計算され、今回の早期HTTP例外では初期falseのままなので、HTTP十五秒期限もTaskの最終状態も除外できない。
+
+| 確度 | 調査で確認したこと |
+|---|---|
+| 失敗位置の特定 | `client.start`内のPOST又はその結果読取りが失敗すると専用のstart_outcome_unknownへ包む。一方、今回の理由は未包装のtransport_failed、結果nullで、同じ新品Rootに一つのTaskが受付保存されている。このSource分岐と記録の組合せは、受付成功後の最初の`client.observe`によるGET失敗へ絞れる |
+| 診断不足の再現 | HTTP helperはheaders段階・十五秒期限発火・既知transportCodeを保持するが、読取りToolのcatchはmessageだけを残す。実Tool本文を有限代役で二回実行し、HTTP期限超過true／ETIMEDOUTと期限超過false／ECONNRESETが、どちらもprimaryFailure同値・Task timedOut false・result null・close一回へ縮約されることを確認した。実失敗がどちらだったかは復元できない |
+| 取消との連鎖 | HTTP失敗後はfinallyのhandle.close→WorkbenchのaiRequests.close→Task Ownerのabort／joinへ進む。保持したQueueのsingleTaskはsettled／unknown、理由workbench_ai_provider_effect_after_cancellation_unknown、cleanup falseである。この理由は取消SignalとAdapterのEffect発行フラグが同時に立った分岐に一致する。EffectフラグをAI推論開始と同一視せず、本体Provider not_started／externalSend not_issuedは維持する |
+| 回収未確定の理由 | 認証確認Containerの作成意図だけが残り、Receipt／実IDが未記録。正式回収がresource_unconfirmedで停止するのはこの未知結果を成功にしない処置であり、現在一覧に見えないことだけでは過去要求の終了を証明できない |
+| Docker側の同時変化 | 現在bridgeの生成時刻は13:12:43 UTC、試験要約作成は13:12:48 UTC。前後でbridge IDが変わったことと整合するが、原因・主体・HTTP失敗との因果は未特定。現在の既定接続とRuntime固定Named Pipeは同じEngine ID・bridge IDを返した。当時の異接続を証明するものではない |
+
+現在稼働中のDesktop／backendの開始時刻は2026-10-21だった。参照候補のHost／VMログの更新時刻は今回の失敗より古く、今回の実原因の根拠に用いない。時刻指定のDocker events読取りは終了せず、事象なしとは判断しなかった。今回開始したexact読取りクライアント一件だけをコマンド一致で終了し、Engineや他Processは停止していない。
+
+保持Queueの元Host参照は`host.crdd-coordinator-doctor-e5d13853-77aa-4965-a0d5-574ff5facc30.e5d13853-77aa-4965-a0d5-574ff5facc30.f8c0c943baff019e4c3d504a0cf0188fbd5b3f4af55beaab6fd736990d097225`。前節の正式回収後の現在Host参照と混同せず、同じDocker回復参照・保持Rootへ結合したまま残す。保持状態は読取りだけで、書換え・削除はしていない。
+
+局所の既存試験は、HTTP診断の秘密非公開と期限／本文清掃の区別二件が成功（761.5387ms）、Effect後の取消を成功へ昇格しない一件が成功（506.3715ms）。実Tool本文の有限代役二例も成功。いずれも外部AI・認証情報・Docker作成を使わず、実際の接続エラーcodeの特定や全体E2Eの成功を示さない。
+
+最小是正候補は読取りToolに限る。既存`projectVerificationTransportFailure`を使ってHTTPの固定分類を保持し、受付済みrequestIdをcatchまで保持して、同じOwnerの取消結果を保存してからcloseする。これは既存Workspace検証Toolが採る処置であり、新しいRunner・Store・Lock・Recoveryは不要である。通信失敗を一次理由として維持し、取消・回収の結果とexact参照を別に残す。HTTP期限延長、Docker再起動、Model変更や回復条件緩和を原因未特定の代替にしない。今回は調査のみで未実装とする。
+
+Source照合・有限再現・結果二文書の限定独立確認では、timedOutの初期値と再計算条件の説明を是正し、再確認後は全重大度の残指摘零。保持Rootの状態更新時刻は調査前と同じ13:14:06 UTCで、今回の診断用短命入口二本は回収済みである。
+
+<a id="readonly-verification-minimal-fix"></a>
+
+### 読取り試験Toolの最小是正 — 2026-10-24
+
+利用者の是正指示に従い、既存のHTTP固定診断と受付IDを読取りToolへ接続した。受付後の観測失敗では同じTask Ownerの取消を一回だけ待ち、同IDの結果・cleanup・exact回復参照を保持してからServerを閉じる。取消欠測・ID不一致・close失敗は副次情報とし、一次HTTP理由を上書きしない。Task期限の既存HTTP取消を発行済みの場合は追加取消せず、受付前・受付結果不明にも推測取消しない。正常経路・期限・製品公開API・保存形式・Docker安全条件は不変更で、新しい管理機構はない。
+
+変更分類は検証Toolの診断・終了処置の局所修正。着手前に既存Workspace試験ToolとTask Ownerの取消契約、HTTP診断の秘密非公開条件を照合した。回帰面は公開HTTP搬送と受付前後・取消・closeの境界であり、ERB-IT-021の既存結合Suiteへ接続した。限定独立レビューとArchitecture直接伝播確認を行い、標準準拠・Release監査や実AI再試験は追加しない。
+
+| 確認 | 結果・限界 |
+|---|---|
+| 静的検査 | format・Source／Test型・lint成功。既存lint info五件は不変更 |
+| 有限失敗経路 | 正常、受付前、受付不明、HTTP期限、切断、取消unknown／例外／別ID、副次失敗、close失敗、Task期限取消の成功／失敗の十二例成功。生本文・資格の非保存と取消最大一回を確認 |
+| 結合Suite | 通常Windowsで十三件成功、失敗・取消・skip・todo零、17,969.293ms。制限環境では既存loopback試験一件が受付前に失敗し、実行環境を分けて全件再確認した |
+
+外部AI・認証情報・Docker操作・保持Root操作は行っていない。これは診断欠落と終了結果欠落の是正であり、過去のHTTP原因の復元、未確定Containerの回収、実AI成功を意味しない。
+
+固定六Fileの限定独立レビューはMajor／Moderate／Minorすべて零。受付ID・取消最大一回・同ID結果／回復参照・一次失敗保持・close順序、Architecture／QAへの直接伝播と実境界未証明の区別を確認した。保持state.jsonは13:14:06 UTC・9,122 bytesのままであり、不変観測を実回収の証明には使用しない。
