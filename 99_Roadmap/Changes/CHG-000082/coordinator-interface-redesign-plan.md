@@ -658,3 +658,27 @@ AI起動は計二回で再送なし。認証状態確認をAI起動回数に含�
 変更分類は検証準備・試験追従であり、製品の意味・決定権限・互換性は変えない。親による事前照合はGit除外登録・領域確保・設定Storeの既存Ownerと、失敗時のEffect／回復搬送を対象にした。独立レビューと文書の直接伝播確認を行い、準拠・Release監査や全体再回帰はこの局所変更へ追加しない。実AI・実認証・Direct／Isolated E2Eは未実施のまま保持する。
 
 五Fileの限定独立レビューは全重大度の残指摘零。原因・元拒否搬送・正常／拒否のOracle・新品fixtureだけの準備・試験物回収と、未実施の実境界を過大表示しないことを確認した。実AI再試行とDocker操作は零である。
+
+<a id="claude-resume-transport-stop"></a>
+
+### Claude確認の再開と通信失敗による停止 — 2026-10-24
+
+利用者は直近の残件再開を指示した。基準Commit`c5b5bc680`・cleanなSourceから、Claude `opus / medium`の読取り確認一回、その完全成功後だけDirect→Isolated各一Taskという既存条件を維持した。送信対象は新品の合成Contextと固定質問だけで、本体Contextを複製していない。前提読取りはEngine 29.8.1応答、稼働Container零、既存四Imageのexact ID・linux/amd64を確認した。
+
+短命入口は前回の一Process内固定方式へGit info／空exclude準備を加えた。保存非成功時のpublication・cleanup・exact回復参照・temporary・setupFailureを落とす実行前指摘一件を修正し、再確認後は全重大度の残指摘零。製品Sourceは変更せず、今回入口から保存を一度行い、初回の合成AI設定保存と前後観測は成立した。正式読取りToolは一回だけ起動し、再試行はしていない。
+
+| 今回の観測 | 結果と限界 |
+|---|---|
+| 正式Tool | Exit 2、`workbench_verification_transport_failed`。Taskの公開結果はnull、期限切れではなくWorkbenchのloopback HTTP観測（公開操作のローカル搬送）で結果を得られなかった。closeConfirmed true、closeFailure null。耐久記録のexternalSendはnot_issuedであり、外部Provider送信を意味しない |
+| 前後固定 | 本体Source・正式Tool・合成Context／HEAD／Tree・選択設定・通信Policyの観測は不変。`unchanged: true`だが実行成功や回収成立を意味しない |
+| Docker終了後比較 | provider_cleanup_unconfirmed。既存資源一覧は保持され、System構成同値。ただし標準Network Identityが変わり、Network一件追加／一件消失を観測。原因・主体は未特定であり、今回の再起動発行やProvider成功へ読み替えない |
+| 耐久記録 | 一操作の認証確認Container作成がintent_saved、実ID・Receiptなし。認証確認以外の残り四資源はすべてnot_requested、providerStart not_started／externalSend not_issued。通常Windows照会で今回のNode入口・Tool Processは零 |
+| 同IDの正式回収一回 | recoverExecutionがblocked、理由docker_task_recovery_resource_unconfirmed。locksReleased true、Docker／Host cleanup false、history false、taskRecoveryCompleted false。処置成功や資源不存在の証明へ昇格しない |
+
+今回のexact回復参照は`docker-task.29c9921916f3a63170e77179d3145c8627a2b3519d5813b7c9cf2a87d136d9aa.74dae9e4a3f03450c2d84ba663113e1feee11a268209cfd5ca736143a82c1e35.148647bb8aa7e9b15f3a09bfb333a31fd8af8a0c155d55f6d34ae9433f24a154`。現在Host参照は`host.crdd-coordinator-doctor-e5d13853-77aa-4965-a0d5-574ff5facc30.e5d13853-77aa-4965-a0d5-574ff5facc30.049658870236ff0cdaf0c0952bc338001643e6db5df09fabb62407b2f3da11e9`。正式回収後も同じ操作を保持し、phase settling、ownerEffect disabled、認証確認Containerのrequest／observation unknown、Queue recovery_requiredを確認した。未観測の過去要求を現在の資源一覧だけで完了へ変更しない。
+
+合成領域`C:\project\CRDD\.crdd\tests\ai-closure-resume-20261024`には、readonly配下の現行状態と試験物、親の安全な要約`result.json`／`recovery.json`を保持する。生Provider出力・認証値は保存していない。回復参照が未解決のため再帰削除せず、既定七日の2026-10-31に再評価する。期限だけによる自動削除は行わず、同IDの正式処理と非使用・所有実体・終了後条件を確認できるまでは保持する。短命な実行／回収入口は要約記録後に回収する。
+
+三はWorkbench HTTP観測と認証確認作成結果が未確定、四は前提不成立で未実施。耐久記録のexternalSendはnot_issuedのままである。Docker再起動・修復・Image取得・APIキーfallback・追加送信・既存資源削除は行っていない。今回の通信故障の原因調査と、保持した試験物の処置を次の判断対象とし、E2Eの成功を主張しない。
+
+結果記録と現在投影の限定独立確認では、ローカルHTTPと外部送信の区別、未要求四資源の全数表示を是正し、再確認後は全重大度の残指摘零。製品Sourceは固定版から不変更である。
