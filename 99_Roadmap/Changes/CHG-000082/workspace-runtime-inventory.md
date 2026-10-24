@@ -1196,3 +1196,32 @@ Browserの調査結果は、元の`local-connection`評価失敗の再現確定�
 | 文書・終了後 | 文書検査は現行0・歴史CHG旧参照3,353でExit 1、差分検査成功。新規自己生成fixture残存0、②の保持3 Hash・先行7領域は不変更。歴史Evidenceを変更していない |
 
 初期の局所2失敗は、fixtureの`const false`が定数として分類されたことと、`.crdd/tests`の絶対PathがProduction対象外になった配置不備による。`let`と承認範囲内の短命`.crdd/tmp/checker-header-*`へ修正後、Header反例が実際に発火することを確認した。整形の初回os1224も後続成功と区別する。これらを製品成功へ換算しない。新規自己生成fixtureは終了後残存0。②のAI再試行・保持物処置・実Docker操作は0、保持3 Hashは従前値と一致する。
+
+<a id="retained-edit-trial-readonly-diagnosis"></a>
+
+## 保持②の読取り原因調査（2026-10-24）
+
+利用者の調査依頼に基づき、保持結果・旧Coordinator状態・旧Orchestrator状態と、対応するHost markerの構造を読取り確認した。Provider Home、認証値、実プロジェクトの本文は読んでいない。AI再送・Container作成／起動・回復実行・再起動・保持物の変更／削除は行っていない。
+
+| 確認対象 | 確定したこと・限界 |
+|---|---|
+| 当時の失敗 | Direct受付後の公開状態取得が`workbench_verification_transport_failed`。Provider未開始、外部送信・共有書込み未発行、一次Process診断nullで、最近のClaude非0終了とは別系統。HTTPの例外causeが保持結果にないため、15秒timeout・接続断・その他の搬送失敗は遡及判別できない |
+| 作成結果unknown | 認証確認Containerだけがrequest／observation unknown、Docker IDなし。他四資源はnot_requested。作成前予定を保存してからDocker要求へ進むSource順序なので、unknownやHostの`docker_submission_started`をDocker受理・作成成功・拒否・未発行の証明にしない |
+| 現在の対象Container | exact名`crdd-auth-68aa19ff3db0048f`と保存された所有labelの一覧照会は空。続くexact名の直接inspectは`No such container`。現在の当該Container不存在だけを示し、当時の作成結果や正式回収完了を証明しない |
+| 保持状態 | 対象Taskはsettled／unknown、Queueはrecovery_required、cleanupConfirmed false。保存OwnerのEffectはdisabled、元Leaseはacquired／released。旧状態の`lease: held`を現在のOS Lock占有や稼働Processの観測へ読み替えない。既知の保持物は合成試験Rootと旧状態、対応Host領域・markerであり、全Host残存の網羅調査ではない |
+| 既存の是正 | `d60f8c062`と現Sourceには、通信段階・実timer発火・許可したcodeの有限診断、受付後の同Task取消一回、結果確認後close、一次失敗と取消／close失敗の分離が既に存在する。旧結果のcauseは復元しない。既存`ai-verification.contract.test.ts`十二件が成功（20,129.2935ms、失敗／取消／skip／todo零）。合成入力・loopbackだけの確認で、実AI／実Dockerの故障再現ではない |
+
+追加照合で、Docker Desktopの既存ログ`%LOCALAPPDATA%\Docker\log\host\com.docker.backend.exe.log.20261023-005559.702`に同時間窓のEngine復帰が残っていることを確認した。以下は日本時間であり、File時刻は失敗の発生時刻とは区別する。
+
+| 2026-10-18の時刻 | 直接観測と限界 |
+|---|---|
+| 21:41:24.321 | backendログ行1754は、Windows Docker Clientからの`containers/create`一件を契機にidle→busy、VM／Engine開始を記録。元Taskのexact名・nonceはログにないため、同Task要求への直接相関は未成立 |
+| 21:41:25〜30 | Engine起動中の内部GET／HEAD pingが複数回、一秒のdeadline超過。Workbenchの十五秒期限が発火した証明ではない |
+| 21:41:26.828／27.690 | 保持Orchestrator状態／結果Fileの更新時刻。HTTP失敗・取消・Docker応答のexact時刻ではない |
+| 21:41:31.044 | backendログ行1911はEngine starting→running。保持結果Fileの更新より後に稼働状態へ遷移した |
+
+これにより「同じ時間窓でEngineの休止復帰とContainer作成要求の処理が重なった」という具体的な主要原因仮説を得た。ただし、別Callerを排除する相関、元create応答、HTTP cause、取消／close時刻がなく、復帰待ちが元の通信失敗やunknownを生んだという因果は未確定である。ログ原文を別の書庫へ複製せず、観測と仮説だけを本節へ保持する。将来の別途承認された試行では、既存のEngine状態確認と現在の通信診断・同Task終了結果を時系列で照合する。今回の調査から期限延長・再起動・新しい監視機構を追加しない。
+
+追加の本番回復機構を作る根拠はなく、今回Sourceは変更しない。実失敗の通信原因は未特定、保持②の回収も未完了のまま、元のexact回復参照を維持する。今後の回収・廃棄判断は原因調査と分離し、現在不存在だけで旧記録を成功へ書き換えない。読取り独立確認もこの限定結論と整合した。
+
+保持三Fileの調査前後SHA-256は不変。`result.json`: `4cd927466a680d33230eae240c9f100cea0f7e5343175026126efe3ed5819255`、旧Coordinator `state.json`: `ab0aa2e7434b01301c9a752a71f18ead551d4902216e82b169eca6fe62073ce5`、旧Orchestrator `state.json`: `c15def7385050150e7fd42527cc4a618684f39fa144bcf2818376ba996533ed1`。Host markerは`b4830df0d9f339c221f4dcbbafa999b8c428d0d1a8308cc0f64d475642bcd4a4`を読取り観測し、変更していない。

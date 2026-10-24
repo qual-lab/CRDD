@@ -12,6 +12,8 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
+保持②を利用者承認の読取り調査で再確認した。Claude非0とは別の、AI開始前のHTTP状態取得失敗と作成結果unknownである。同時間窓のDockerログにContainer作成要求を契機とするEngine休止復帰を確認したが、元要求との直接相関と失敗因果は未確定。対象の認証確認Containerは現在不存在でも、回収完了には変更しない。既存の試験器診断・終了処置の十二件は成功し、追加の本番回復改修は行わない。保持三FileのHashは不変、再送・回復実行・削除なし。[確認結果と限界](99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#retained-edit-trial-readonly-diagnosis)を参照する。
+
 ClaudeのJSONエラー説明の取りこぼしは、既存AI Adapterの変換内で最小是正した。公開理由・APIを増やさず、生出力は保存しない。AI Adapter全24件、Coordinator影響回帰306件と静的検査が成功し、限定独立レビューは残指摘零。過去の実失敗原因は未特定で、実AI再送・Docker／認証操作・保持②の操作は行っていない。未実施の編集二試験や全体E2EをPassへ変更しない。[結果と限界](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#claudeエラー変換の最小是正と非ai回帰--2026-10-24)を参照する。
 
 再承認後、通常ファイル入口でCodex／Claudeの認証状態と回収を確認した。新品合成Contextだけを使う実AI読取り試験はCodex成功、Claudeは起動後の終了値1でblocked。両方のProcess終了・Container／Network終了後不存在・Tree不変を確認した。AI起動計二回、再送なし。停止条件に従いDirect／Isolated編集二試験は未実施。Claudeの非0原因は未特定で、認証切れ・通信故障とは断定しない。Docker再起動・本体設定移行・保持②の操作は行っていない。[観測結果と停止範囲](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#再承認後の合成実ai確認--2026-10-24)を参照する。
