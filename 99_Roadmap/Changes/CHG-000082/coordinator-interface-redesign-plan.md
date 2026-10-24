@@ -954,3 +954,22 @@ Source・検証・文書伝播の限定最終独立レビューは全重大度�
 上記summary固定後、試験Root `C:\project\CRDD\.crdd\tests\claude-create-image-compare-20261025`のresolved絶対Path・期待四entry・ReparsePointなし・空Homeを再確認した。実行Process終了とContainer回収確認後、このRootだけを削除し不存在を確認した。短命入口も撤去して不存在を確認した。通常保存Suiteの新品Rootも既存cleanupで回収され不存在である。保持中Claude試験のstateはUTC `2026-10-24T14:57:55.4549934Z`・10,235 bytesのまま変化していない。Container回収と試験File回収を別に観測しており、既存の別Rootは清掃対象に含めていない。
 
 今回二節と現在地の限定最終独立レビューは全重大度の残指摘零。長時間試験の完走、Claude Image条件での限定比較、未特定の元故障と保持試験を区別し、個々のI/O費用や任意条件での正常性を断定しないことを確認した。
+
+<a id="http-cancellation-and-backend-startup-diagnosis"></a>
+
+### HTTP観測・取消と当時のbackendログの切分け — 2026-10-25（日本時間）
+
+利用者の継続指示に基づき、保持済みの非秘密結果、現在Source、Docker Desktopの既存hostログを読取りで照合した。製品Source・保持stateを変更せず、認証Home本文も読まず、Docker要求、AI送信、Dockerの起動・再起動・修復を発行していない。変更分類は原因調査・結果記録であり、実装是正や回復条件変更ではない。検証Tool、HTTP Owner、Controller／DI Sessionの取消順と既存記録を着手前に照合し、読取り専用の独立確認を利用した。準拠・リリース判断は対象外とする。
+
+| 調査面 | 確認できたこと | 未確定・一般化しないこと |
+|---|---|---|
+| 取消順 | `verify-readonly-ai.ts`は受付後のobserve失敗を保持してから同じOwner・Taskを一度cancelし、その結果を待ってcloseする。保持結果もobserveのECONNRESETと取消要求・結果観測を記録している。DI Sessionのcancelは活動中の所有Handleをterminate/joinする | create側の非0終了がHTTP切断より前の原因だったとは確定できない。両者の実時刻を直接比較する記録はない |
+| 取消時の終了値 | Dockerを呼ばず、既存所有Process処理で合成の無出力Node子一件を開始・取消・joinした。started／terminated／closed／terminationRequestedがtrue、status1、signal null、stdout／stderr各0 bytes。短命入口は撤去した | 元のDocker CLIも同じ理由で終了した証明ではない。「終了1・空出力」だけでは、Docker Engineによるcreate拒否と所有者取消を区別できない |
+| HTTPの有限比較 | 実`createWorkbenchHttpServer`と検証Toolの`requestBounded`を使い、合成GET／GET／POST／GET／GETを比較。通常、POST中6.5秒の同期block、受付観測応答後にsetImmediateで6.5秒blockの三条件は、すべて200／200／303／200／200、handled5、failure null、close成功。接続数は2／3／3 | この配置の非再現だけであり、実保存・Native排他・HTTP全体のraceを否定しない。通常制限下の最初の実行はhandled0・transportCode nullであり、loopbackが利用できる追加権限での比較結果とは分ける |
+| Docker backendログ | 既存`com.docker.backend.exe.log`成果物にはUTC14:57:13.227763700のVM開始、13.229912000のEngine開始、19.860731900のEngine稼働が起動遷移として記録されている。Engine開始の完全重複二行は一つの論理イベントとして扱う。既記録bridge Created14:57:18.056939622はその時刻窓内にある | 起動発行者、元requestとのexact相関、HTTP／createとの因果、bridgeの今回要求への所属は未確定。Fileの更新metadataと本文時刻が一致しないため、完全な当時性・provenanceの証明ではなく、ログ成果物内の記録に限定する |
+
+Source上の認証確認createも、先の限定比較と同じ通常Docker `create`である。主な未確認差は実Provider Homeのbind元、認証確認用argv／構成、同時に動く保存・HTTP・取消および当時のEngine状態である。argvはcreateではProviderを実行しないが、実Home条件を空Homeの成功から確認済みとはしない。Image・Process方式の別経路が必要だという根拠も得ていない。
+
+現時点ではSourceの是正、Timeout延長、HTTP再送、接続Policy変更、新しいRecoveryや起動管理を正当化する根拠が足りない。一次HTTP故障と、その後の取消・結果不明・既知の参照搬送欠落を区別する。今回の短命入口二件は全撤去して不存在確認し、loopback Serverと合成子Processも終了確認した。保持Claude stateはUTC `2026-10-24T14:57:55.4549934Z`・10,235 bytesのまま不変更である。元のECONNRESETと実create結果は未確定を維持する。
+
+本節と現在地の限定最終独立レビューは全重大度の残指摘零。HTTP比較の実行権限差、取消形の同型と元因果、ログ内時刻相関と完全な当時性を区別することを確認した。次の実Home Mount比較は別の承認確認として提示し、この結果には含めない。
