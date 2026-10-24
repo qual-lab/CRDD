@@ -10,6 +10,17 @@ Last Updated: 2026-10-24
 
 通常Task・CLI・Workbench助言／候補・Orchestratorの旧署名資格引数・三API、専用静的検査・署名Tool・Manifest設定は撤去済みである。認証入口の実測、撤去後の全体回帰・実Provider／全体E2Eは未完了であり、以下の手順だけから現候補全体の実行可能を推定しない。過去Evidence・署名・Hashは変更しない。
 
+## 合成Repositoryの設定保存前提
+
+フロントAIが検証用Repositoryを`git init --template=`で新規作成する場合、空templateでは`.git/info`も生成されない。検証入口自身が所有する新品fixtureに限り、`.git/info/`と空の`exclude`を明示準備してから正式な設定保存APIを呼ぶ。既存の`verify-workspace-ai.ts`のfixtureもこの準備を行っている。製品の保存処理へGit管理領域の自動補修や除外登録の迂回を追加しない。
+
+- 準備不足で保存が拒否された場合は、固定語彙の`status`・`reason`と既存の`setupFailure`によるEffect・回収状態を区別する。成功値だけをassertして元の拒否理由を失わない。
+- `.gitignore`への`.crdd/`記述だけを、正式なRepository-local除外登録の成立と扱わない。
+- 合成保存・読戻しを外部AIなしで確認し、拒否・unknown時はAIを起動しない。既存Repositoryや由来不明のGit領域を、このfixture準備の対象へ広げない。
+- 正常・失敗時とも今回のexact試験物だけを非使用・非link・外部Worktreeなしの確認後に回収し、不明な回復参照や残存を強制削除しない。
+
+準備不足の拒否と明示準備後の保存は、既存`RCM-IT-005`の[AI選択Store契約試験](../40_Develop/coordinator/tests/integration/ai-selection-store.contract.test.ts)で照合する。この局所確認は実AI・認証・Dockerの成立を示さない。
+
 ## 開発実測入力の新方式への移行
 
 フロントAIは旧実測packetをRuntimeへ互換読込みさせず、現在のSourceから入力を作り直す。`40_Develop/coordinator/scripts/measure-development-providers.ts --describe-source`は読取りだけを行い、Scopeと`expectedSourceSha256`を返す。署名・Native配布コピー・Task・Docker・Providerの準備は行わない。観測不能なら入力を補完せず停止する。

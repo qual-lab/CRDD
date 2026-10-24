@@ -633,3 +633,28 @@ AI起動は計二回で再送なし。認証状態確認をAI起動回数に含�
 三は事前準備停止、四は前提未成立による未実施として残す。AI再試行で原因を補完せず、全体E2E・実認証・Releaseの成功へ昇格しない。
 
 清掃後の読取りでは稼働Container零、現在のoperations・unresolvedRecoveries・pendingDeliveriesは各零だった。結果と現在投影の二文書について限定独立確認を行い、全重大度の残指摘零を確認した。
+
+<a id="selection-save-preparation-diagnosis"></a>
+
+### 保存拒否の非AI原因確認と最小是正 — 2026-10-24
+
+利用者は外部AIなしの原因調査・最小是正・局所試験を承認し、AI再試行・Docker再起動を対象外とした。基準版`fdacbbadb`から、前回と同じ空template・合成Manifest・非秘密送信設定・新形式AI選択で新品Repositoryを作り、正式保存APIの結果を保持した。返却は`blocked / repository_runtime_data_ignore_registration_blocked`、Readerはmissing、回復ID・Lock残存なしだった。Kernel Lockや認証に到達する前のGit除外登録の拒否である。
+
+`git init --template=`では`.git/info`が作成されない。Version Controlの除外Writerは検証済みinfoDirectoryを要求し、不在ならEffect前に拒否する。Domain Modelがこれを上記の理由へ搬送し、AI選択Storeも同じ拒否を保持する。前回の短命な確認入口にはinfo作成がなく、`.gitignore`の`.crdd/`記述だけではこの前提を満たさなかった。既存`verify-workspace-ai.ts`はinfo／空excludeを明示作成しており、製品の保存・排他の変更は不要である。
+
+是正は検証fixtureの準備だけとした。別の新品合成Repositoryでinfo／空excludeだけを追加すると、同じ保存要求がsaved、Readerがavailable、回復IDなし・Lock残存零となった。自己生成Rootの削除後不存在も確認した。実AIを使う確認入口は再起動しておらず、この局所確認をClaude成功へ読み替えない。
+
+既存のAI選択Store Suiteへ、空templateの未準備時は元reason・setupFailureのEffect未発行／回収確認を保持して`.crdd`を作らず、fixture Ownerの明示準備後だけ保存・読戻し・短命File回収が成立する一件を追加した。手順正本へ同じ準備条件と拒否理由を失わない扱いを追従し、既存QA項目`RCM-IT-005`へ接続した。製品Source・公開API・保存形式・Lock／回復条件・本体設定は不変更で、新しい仕組みや互換層を追加しない。
+
+| 局所確認 | 結果と限界 |
+|---|---|
+| 原因の合成再現と準備是正 | 未準備blocked、準備済みsaved／available。外部AI・認証情報・Dockerなし |
+| 追加した境界Case | 一件成功、538.9157ms。未準備拒否と準備後成立を同じAPIで比較 |
+| 静的確認 | 初回は追加試験の整形一件で停止し、整形だけ是正後にcheck成功。Source／Test型、Lint、両Trace成功。既存Lint info84件は不変更 |
+| 静的通過後の保存Suite | 十一件成功、失敗・取消・skip・todo零、6,078.5339ms。既存CAS・認可・不正入力・公開／回収失敗も維持 |
+
+初回の診断用Rootは、設定保存が発行されず合成二設定以外のRuntime状態・Lock／回復義務なし、外部Worktreeなし、対象Node Process零、祖先・子孫の非link／Fileのnlink一を確認した。今回の一Root（十九File・二十Directory）だけを削除し、不存在を確認した。準備済み診断RootとSuite fixtureも各所有者が回収した。短命な診断入口は回収し、通常の実行結果書庫は追加しない。
+
+変更分類は検証準備・試験追従であり、製品の意味・決定権限・互換性は変えない。親による事前照合はGit除外登録・領域確保・設定Storeの既存Ownerと、失敗時のEffect／回復搬送を対象にした。独立レビューと文書の直接伝播確認を行い、準拠・Release監査や全体再回帰はこの局所変更へ追加しない。実AI・実認証・Direct／Isolated E2Eは未実施のまま保持する。
+
+五Fileの限定独立レビューは全重大度の残指摘零。原因・元拒否搬送・正常／拒否のOracle・新品fixtureだけの準備・試験物回収と、未実施の実境界を過大表示しないことを確認した。実AI再試行とDocker操作は零である。

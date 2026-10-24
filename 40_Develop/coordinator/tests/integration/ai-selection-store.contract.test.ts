@@ -65,7 +65,7 @@ function config() {
  * @cleanup mock復元後、exact自己生成Rootだけを削除して不存在確認。
  * @boundary Repository-local合成領域と既存Root検証。
  */
-function fixture(t: test.TestContext) {
+function fixture(t: test.TestContext, emptyTemplate = false) {
   const parent = requireReadyRepositoryRuntimeDataArea(
     ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
       import.meta.dirname,
@@ -74,7 +74,11 @@ function fixture(t: test.TestContext) {
     "test_area_unconfirmed",
   ).directory;
   const root = fs.mkdtempSync(path.join(parent, "ai-selection-store-"));
-  execFileSync("git", ["init", "--quiet", root], { windowsHide: true });
+  execFileSync(
+    "git",
+    ["init", "--quiet", ...(emptyTemplate ? ["--template="] : []), root],
+    { windowsHide: true },
+  );
   const verified = verifyRepositoryRoot(root);
   assert.equal(verified.status, "completed");
   assert.ok(verified.capability);
@@ -92,6 +96,59 @@ function fixture(t: test.TestContext) {
     file: path.join(root, ".crdd", "config", "ai-selection.json"),
   };
 }
+
+/**
+ * 空Git templateの試験準備と正しい保存拒否を区別する。
+ * @responsibility 検証入口が必要なGit info領域を準備し、拒否理由を失わない。
+ * @trace RCM-IT-005
+ * @precondition 自己生成Repositoryだけを空templateで初期化する。
+ * @stimulus info不在の保存と、明示準備後の同じ保存要求を照合する。
+ * @observation status・reason・作成Effect・読戻し・Lock残存。
+ * @oracle 準備不足ではEffect前拒否、準備後だけ同じ設定を保存する。
+ * @cleanup TestContextが自己生成Rootだけ回収し不存在を確認する。
+ * @boundary 正式設定API→Git除外登録→Filesystem Store。AI・Dockerは使わない。
+ */
+test("空templateのGit info未準備は理由付きで拒否し、試験準備後は保存する", (t) => {
+  const f = fixture(t, true);
+  const info = path.join(f.root, ".git", "info");
+  assert.equal(fs.existsSync(info), false);
+  const rejected = saveRepositoryAiSelection(
+    f.capability,
+    { expectedIdentity: null, config: config() },
+    () => true,
+  );
+  assert.equal(rejected.status, "blocked", JSON.stringify(rejected));
+  assert.equal(
+    rejected.reason,
+    "repository_runtime_data_ignore_registration_blocked",
+  );
+  assert.ok("setupFailure" in rejected);
+  assert.equal(rejected.setupFailure?.effectIssued, false);
+  assert.equal(rejected.setupFailure?.effectStateUnknown, false);
+  assert.equal(rejected.setupFailure?.cleanupConfirmed, true);
+  assert.equal(rejected.setupFailure?.recoveryReference, null);
+  assert.equal(readRepositoryAiSelection(f.capability).status, "missing");
+  assert.equal(fs.existsSync(path.join(f.root, ".crdd")), false);
+
+  // 空templateを使う検証入口自身の準備。製品のGit境界拒否は変更しない。
+  fs.mkdirSync(info);
+  fs.writeFileSync(path.join(info, "exclude"), "");
+  const saved = saveRepositoryAiSelection(
+    f.capability,
+    { expectedIdentity: null, config: config() },
+    () => true,
+  );
+  assert.equal(saved.status, "saved", JSON.stringify(saved));
+  assert.equal(
+    readRepositoryAiSelection(f.capability).snapshot?.identity,
+    saved.snapshot?.identity,
+  );
+  assert.match(
+    fs.readFileSync(path.join(info, "exclude"), "utf8"),
+    /\.crdd\//u,
+  );
+  assert.deepEqual(fs.readdirSync(f.directory), ["ai-selection.json"]);
+});
 
 /**
  * 読取りと認可拒否には設定作成Effectがない。

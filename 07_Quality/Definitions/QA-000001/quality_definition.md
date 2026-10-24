@@ -8,6 +8,8 @@
 
 `RCM-IT-005`へ新しい`ai-selection-store`の合成Repository試験を接続する。読取り非作成、閉形式・UTF-8・全体1MiB、Link／hardlink／読取り中の置換拒否、内容HashによるCAS、通常保存と読戻し、公開前後の認可失効、短命Fileと既存排他の回収不明を分けて観測する。保存後認可失効では本文を返さず、既存排他の回復参照は同じまま保持する。通常Fileのfsync・rename・読戻しを超える電源断耐久性は主張しない。
 
+同じ項目で空Git templateのfixture準備不足も照合する。`.git/info`不存在では除外登録の元理由とEffect未発行・回収確認を保持して設定を作成せず、fixture Ownerがinfo／excludeを準備した後だけ同じ設定の保存・読戻し・Lock／一時File回収が成立することを確認する。製品側の境界拒否を緩めず、検証入口の準備不備をProvider・Dockerの失敗と混同しない。
+
 設定StoreはTask／Grant／回復の固定選定とWorkbenchのRepository設定画面へ接続した。旧Profile本体の撤去・試験移管を現在候補として照合し、正式API／CLI全体・新構成全体回帰は後続として残す。旧Profile試験の成功を新方式の保存や実行の成功へ換算しない。[実施段階と結果](../../../99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md)へ接続し、技術Catalogの追加を新Model採用や実Provider確認と扱わない。
 
 成果物種別: Quality定義
