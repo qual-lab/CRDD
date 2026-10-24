@@ -742,3 +742,24 @@ Source照合・有限再現・結果二文書の限定独立確認では、timed
 今回の範囲では、回収完了や安全な削除の成立には到達していない。試験自体は停止済みのまま、同じexact回復参照とRootを保持する。既存経路で進むには同IDに結合した検証付きDocker再起動が追加判断になるが、今回は未承認のため発行しない。再起動を避けるための新しい回復機構・状態書換えは追加しない。既定七日の再評価日2026-10-31は維持し、期限による削除はしない。AI再送・Docker作成／削除／再起動・Host領域清掃・保持物変更は零である。
 
 二文書の限定独立確認はMajor／Moderate／Minorすべて零。現在観測・過去不明・将来の遅延作成を区別し、現行Sourceの終了条件と保持判断が一致することを確認した。調査・記録だけのため実行試験と準拠／Release監査は追加しない。
+
+<a id="readonly-trial-approved-restart-recovery"></a>
+
+### 承認済み再起動と同IDの技術回収 — 2026-10-24
+
+利用者は同じ回復IDの検証付きDocker Desktop再起動一回と今回試験物の正式回収を承認した。基準Sourceは`723b039fe`。既存Workflowと公開CLIを照合し、合成Repository `readonly`を現在Rootとして`recovery restart-docker`、成功確認後だけ同IDの`recovery resume`を各一回実行した。再起動前はEngine 29.8.1応答、稼働Container零、停止済み既存Container一件であり、既存物の削除や旧修復へのfallbackはしなかった。
+
+| 段階 | 実測結果と限界 |
+|---|---|
+| Docker Desktop再起動 | Exit 0、status completed／reason docker_restart_settled。request confirmed、restartCompleted／cleanupConfirmed／cliCleanupConfirmed true、effectOutcomeUnknown false、一次・停止・起動・清掃失敗null。起動所要時間18,440ms。Task回復完了とは別の結果 |
+| 再起動の結合 | requestId `60a24b9f078d25158fd510a716254bb23fbeb803f191c92682e118ce8fdaac23`。前節と同じexact Docker回復IDへ結合し、追加再起動は零 |
+| 同IDの正式技術回収 | Exit 0、status recovered／reason docker_task_recovery_completed。Docker／Host cleanup、Lock解放、履歴確定、操作除去、taskRecoveryCompleted、CLI解放はいずれもtrue。deliveryPending／operationRetained false |
+| 耐久記録 | history-row/v2のoperation-summary/v4に同IDと再起動confirmed、Host清掃confirmed、Lease releasedを確認。元Provider not_started／externalSend・sharedWrite not_issued／Owner disabled／旧Workspace再利用不可を保持する。元Taskを成功へ変更しない |
+| 回収後状態 | state改訂32、operations／unresolvedRecoveries／pendingDeliveries／historyPending／leaseIntents零。Task受付一件はrecovery_required、singleTask settled／unknown／cleanup falseと元Host参照を保持。技術回収と上位受付の終了反映は分ける |
+| Docker後観測 | 今回LabelのContainer／Network、認証確認exact名のContainerは空。既存停止Containerの実IDと状態を保持。利用者Network、host／noneの実IDは維持し、標準bridgeの実IDは再起動で変化した。既存資源を削除していない |
+
+技術回収後、上位受付の後処理だけを既存の公開Task Sessionへ一回接続した。exact受付ID `request-331b595d-f327-4d04-b57f-b051d5232357`、同じProject・主体、既存operation／unresolved零とsettledを確認し、startを呼ばずcancelによる保存済み受付の回復を意図した。ただし`openTaskSession`が`orchestrator_task_state_initialization_blocked`で拒否し、cancel本体には到達しなかった。再試行・記録書換えはしていない。読取りの追加照合ではRoot検証・Repository Binding一致・受付世代の存在は確認できたが、内部初期化の拒否分類は公開例外から復元できず、原因未確定として残す。
+
+今回の技術回収は成立したが、上位受付の終了反映は未成立である。合成Rootは削除せず、元試験結果・現行state・履歴とexact参照を保持する。次は外部AIなしで初期化拒否を局所調査する。追加再起動・AI再送・本体設定変更・記録強制削除・新しい回復機構は今回の操作に含めない。保持の再評価日2026-10-31を維持するが、現在の未解決箇所をDocker物理資源の未回収と混同しない。
+
+結果二文書の限定独立レビューでは、正式技術回収と利用者の既存資源非変更を区別する表示一件を是正した。再確認後はMajor／Moderate／Minorすべて零。Source変更がないため実装回帰・準拠／Release監査は追加せず、今回の実観測と未完了範囲の直接整合を確認した。

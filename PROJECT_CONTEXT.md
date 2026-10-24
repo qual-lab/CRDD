@@ -12,11 +12,11 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
-再開したClaude読取り確認は、合成設定保存には成功したがWorkbenchのloopback HTTP観測で結果を得られず停止した。耐久記録は認証確認Containerの作成結果unknown、本体Provider開始not_started・externalSend not_issued。正式回収も同IDでresource_unconfirmedとなり、今回の合成Rootと回復参照を保持している。Direct／Isolatedは未実施。再送・Docker再起動・修復・既存資源削除は行わず、通信失敗の原因調査と今回残存の処置が次の対象である。[今回の観測・exact参照・保持期限](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#claude-resume-transport-stop)を参照する。
+再開したClaude読取り確認は、合成設定保存には成功したがWorkbenchのloopback HTTP観測で結果を得られず停止した。Provider開始not_started・externalSend not_issuedを維持し、Direct／Isolatedは未実施。その後の承認済みDocker再起動と同IDの技術回収は完了したが、上位Task受付の終了反映が初期化拒否で止まり、合成Rootを保持している。AI再送・未承認の手動修復・利用者の既存Docker資源削除は行っていない。元の試験失敗は[当時の観測・exact参照](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#claude-resume-transport-stop)、現在の残件は後段の回収結果を参照する。
 
-読取り調査では、受付後の最初の結果GET失敗まで絞った。失っていたHTTP固定診断・受付済みID・同じTaskの取消結果を、試験Toolだけの最小修正で保持するようにした。外部AIなしの結合十三件と静的検査は成功。実際の接続切断／期限切れの区別、同時bridge再生成との因果は未確定で、AI再送・Docker再起動・保持物操作はしていない。[調査の確度](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#claude-resume-readonly-diagnosis)と[最小是正](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#readonly-verification-minimal-fix)を参照する。
+読取り調査では、受付後の最初の結果GET失敗まで絞った。失っていたHTTP固定診断・受付済みID・同じTaskの取消結果を、試験Toolだけの最小修正で保持するようにした。外部AIなしの結合十三件と静的検査は成功。実際の接続切断／期限切れの区別、同時bridge再生成との因果は未確定。最小是正段階ではAI再送・Docker再起動・保持物操作はしていない。[調査の確度](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#claude-resume-readonly-diagnosis)と[最小是正](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#readonly-verification-minimal-fix)を参照する。
 
-最小是正は`22082c5b9`としてpush済み。保持物の再評価では、現在の今回Container／Networkは見つからず、限定Process照会も一致零だったが、作成結果unknown・実IDなし・再起動記録nullのため、既存処理で閉じられる新しい根拠は得られなかった。回収再実行・削除・AI再送はせず保持を継続する。既存の限定終了へ進む場合は、同IDの検証付きDocker再起動の承認が必要になる。[読取りの範囲・不足条件](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#readonly-trial-recovery-readonly-assessment)を参照する。
+最小是正は`22082c5b9`としてpush済み。その後の利用者承認により、同IDの検証付きDocker Desktop再起動一回と正式技術回収が成功した。Docker／Host清掃・排他解放・履歴確定・現在操作除去は確認済み。一方、上位Task受付の終了反映はSession初期化拒否で未成立のため、合成Rootは保持する。次は外部AIなしの初期化拒否調査であり、追加再起動・AI再送・記録強制削除はしない。[再起動・技術回収と残る受付反映](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#readonly-trial-approved-restart-recovery)を参照する。
 
 先行する合成設定の保存拒否は、空Git templateで作った確認fixtureの`.git/info`未準備として非AIで特定・是正済み。製品の安全条件は変更せず、保存Suite十一件・静的検査・限定独立レビューが成功した。この是正の試験物は清掃済みであり、新たに保持した今回Rootとは区別する。[保存準備の是正](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#selection-save-preparation-diagnosis)を参照する。
 
