@@ -786,3 +786,19 @@ Source照合・有限再現・結果二文書の限定独立確認では、timed
 上記の結果を本節へ記録後、承認済み試験物回収の範囲で合成Rootのresolved絶対Pathをexact一致検査し、そのRootだけを削除して不存在を確認した。今回の短命診断・回収・履歴搬送の三入口も回収した。以前の2026-10-31再評価対象の物理残存は解消しており、未解決のまま期限で削除したものではない。元のHTTP故障と作成結果unknownの履歴・exact回復参照は本変更記録とGit履歴へ保持し、過去の成功へ書き換えない。
 
 Workflow・結果記録・現在投影の三文書は限定独立レビューで全重大度の残指摘零。起動比較の根拠、元結果unknownと現在回収完了の区別、履歴確定後のexact Root清掃と次のAI再確認の別承認を確認した。
+
+<a id="claude-readonly-confirmation-fixture-stop"></a>
+
+### Claude再確認の受付前停止と合成Context是正 — 2026-10-24
+
+利用者はClaude `opus / medium`の読取り一回を承認した。基準`b16b3696b`、新品合成Root `.crdd/tests/claude-readonly-confirmation-20261024/readonly`、合成Context一件と既存固定質問だけを使用し、編集・AI再送・Docker再起動はしない条件とした。Engine 29.8.1、稼働Container零・既存停止一件、現行Claude／Proxyのexact固定Imageのlinux/amd64を確認し、取得・Buildはしていない。Workbench checkも成功し、既存lint info五件は不変更だった。
+
+短命の通常ファイル入口は、保存拒否時の現行union搬送、Root再評価、外部Effect直前のSource固定、単一の非秘密summary・失敗Exit 2指定を実行前確認で是正し、再確認後の残指摘零で正式Toolを一回呼んだ。設定の正式保存は成功したが、Toolは`readonly_verification_preflight_failed`、driverは安全な固定拒否を返した。外側の実行環境が返した終了値は1であり、Nodeのnative終了値は別途捕捉していない。Source上のExit 2指定を実測終了値と混同しない。
+
+原因を外部AIなしで段階別に確認した。Root検証・Revision読取り・Docker inventory・AI設定Readerは成立し、`readWorkbenchProjectSurface`だけが`project_context_table_missing`を返した。今回フロントAIが生成したContextに必須表がなく、Metadata・見出し・本文だけだったことが原因である。正式Toolのこの読取りはTask Session作成・受付・Provider要求より前にあり、今回Rootにもcoordinator stateが存在せずconfigだけであった。AI起動・推論送信・試験Docker資源発行は零であり、Claudeの実行失敗ではない。
+
+製品SourceとReader条件を変えず、合成Contextの各節へ既存fixtureと同じ形式の表だけを追加した。非AIの前提再照合ではsurfaceが同じProject IDを返し、Root・inventory・選定Readerも成立した。正式Tool・AIの再試行はしていない。Workflowへ同じ表形式と、実AI前の非AI表示前提確認を追従した。本体Contextや資格値は送信・複製していない。
+
+結果記録後、今回fixtureはcoordinator状態Directory不存在、自己生成GitのWorktree自身一件だけ、二十七File・三十Directoryのsymlinkなし／File nlink一を確認した。resolved絶対Pathのexact一致を確認して今回Rootだけを削除し、不存在を確認した。短命な実行・非AI診断入口二本も回収した。未解決Runtime状態の強制削除ではない。Claudeの実推論確認は未実施のまま残す。
+
+三文書の限定独立レビューは全重大度の残指摘零。fixtureの前提停止とProvider未起動、外側終了値とnative欠測、非AI前提是正と限定清掃を区別した。製品Source不変更のため製品回帰を追加せず、既存Readerの実前提確認と文書の直接伝播を検証範囲とした。

@@ -12,7 +12,7 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
-再開したClaude読取り試験は失敗・回答不明のままだが、その後の承認済みDocker再起動・同IDの技術回収・上位Task受付の終了反映は完了した。上位初期化拒否はフロントAIの一行起動フラグがWorkerへ継承されたことが原因で、通常ファイル起動へ戻して解消した。製品Sourceと安全条件は不変更。Direct／Isolatedは未実施で、AI再送・利用者の既存Docker資源削除はしていない。[元試験の観測](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#claude-resume-transport-stop)と[初期化拒否の解消・終了反映](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#readonly-trial-task-initialization-resolution)を参照する。
+直近のClaude読取り再確認はTask受付前に停止した。原因はフロントAIが作った合成Contextの必須表不足であり、AIは起動していない。表だけを補い、非AIのProject表示前提は通過したが、正式Tool／AIは再実行していない。製品Source・安全条件・本体設定は不変更。以前のDocker回収・上位受付反映・清掃は完了済みで、今回の停止と混同しない。[今回の前提停止と是正](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#claude-readonly-confirmation-fixture-stop)を参照する。
 
 読取り調査では、受付後の最初の結果GET失敗まで絞った。失っていたHTTP固定診断・受付済みID・同じTaskの取消結果を、試験Toolだけの最小修正で保持するようにした。外部AIなしの結合十三件と静的検査は成功。実際の接続切断／期限切れの区別、同時bridge再生成との因果は未確定。最小是正段階ではAI再送・Docker再起動・保持物操作はしていない。[調査の確度](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#claude-resume-readonly-diagnosis)と[最小是正](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#readonly-verification-minimal-fix)を参照する。
 
