@@ -26,8 +26,8 @@ import {
   readExecutionIntelligence,
   verifyExecutionIntelligenceRepositoryRoot,
 } from "../../../execution-intelligence/src/index.ts";
-import { recordCoordinatorExecutionEvent } from "../../src/index.ts";
-import { initializeCoordinatorSnapshot } from "../../src/index.ts";
+import { recordCoordinatorExecutionEvent } from "../../src/task/dispatch.ts";
+import { initializeCoordinatorSnapshot } from "../../src/storage/current-state.ts";
 import { createCoordinatorWindowsDecisionStoreTestingAdapter } from "../../src/storage/protected-decision.ts";
 import { createDevelopmentCoordinatorPublicObjectiveCandidate } from "../../src/objective/composition.ts";
 import {
@@ -69,7 +69,7 @@ test("Runtime Data失敗を公開Orchestrator結果まで意味変更せず投�
     repositoryPathReported: false,
   });
   assert.deepEqual(coordinatorDataBoundaryBlocked(error), {
-    contract: "crdd-coordinator/orchestrator-public-runtime/v1",
+    contract: "crdd-coordinator/public-runtime/v2",
     status: "blocked",
     reason: "repository_runtime_data_ignore_registration_blocked",
     cleanupConfirmed: false,

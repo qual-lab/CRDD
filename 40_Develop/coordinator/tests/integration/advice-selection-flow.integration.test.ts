@@ -113,7 +113,7 @@ for (const [original, replacement] of [
 adviceSource = adviceSource.replace(/from "(\\.[^"]+)"/g, (_, specifier) => "from " + JSON.stringify(new URL(specifier, adviceUrl).href));
 const adviceFixture = await import("data:text/javascript;base64," + Buffer.from(adviceSource).toString("base64"));
 mock.module(adviceUrl, { namedExports: adviceFixture });
-const { runRepositoryAdvice } = await import(${JSON.stringify(moduleUrl("40_Develop/coordinator/src/index.ts"))});
+const { runRepositoryAdvice } = await import(${JSON.stringify(moduleUrl("40_Develop/coordinator/src/execution/advice.ts"))});
 const verified = verifyRepositoryRoot(fixture); assert.equal(verified.status,"completed");
 if(scenario === "cancel_before")controller.abort();
 const response=await runRepositoryAdvice(verified.capability,{mode:"read_only_advice",executionSelection:executionSelection("advice"),prompt:"合成状態を説明",contextReferences:["PROJECT_CONTEXT.md"],allowedPaths:[],externalSendConfirmed:true,expectedNetworkPolicyHash:fixtureNetworkPolicy("codex").policyHash},controller.signal);

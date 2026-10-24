@@ -571,290 +571,170 @@ function inspectTaskCliCancellationWiring(
 ) {
   const failures: string[] = [];
   const checker = project.checker;
-  const helperImports = namedImportIdentifier(
+  const helper = namedImportIdentifier(
     sourceFile,
     "bindTaskCliCancellationSignals",
     "./cancellation.ts",
   );
-  const ownerImports = namedImportIdentifier(
-    sourceFile,
-    "createRepositoryTaskRequests",
-    "../task/requests.ts",
+  const execution = namedImportIdentifier(sourceFile, "runTask", "../api.ts");
+  if (helper.length !== 1 || execution.length !== 1)
+    return ["operation_import_not_exact"];
+  const helperImport = helper[0],
+    executionImport = execution[0];
+  assert.ok(helperImport && executionImport);
+  const helperSymbol = checker.getResolvedSymbol(helperImport);
+  const executionSymbol = checker.getResolvedSymbol(executionImport);
+  const functions = sourceFile.statements.filter(
+    (n): n is FunctionDeclaration =>
+      isFunctionDeclaration(n) && n.name?.text === "runSingleTaskCommand",
   );
-  if (helperImports.length !== 1) failures.push("helper_import_not_exact");
-  if (ownerImports.length !== 1) failures.push("owner_import_not_exact");
-  const helperSymbol = helperImports[0]
-    ? checker.getResolvedSymbol(helperImports[0])
-    : undefined;
-  const ownerFactorySymbol = ownerImports[0]
-    ? checker.getResolvedSymbol(ownerImports[0])
-    : undefined;
-  if (!helperSymbol) failures.push("helper_import_symbol_missing");
-  if (!ownerFactorySymbol) failures.push("owner_import_symbol_missing");
-
-  const taskFunctions = sourceFile.statements.filter(
-    (statement): statement is FunctionDeclaration =>
-      isFunctionDeclaration(statement) &&
-      statement.name?.text === "runSingleTaskCommand",
-  );
-  const taskFunction = taskFunctions[0];
-  const taskBody = taskFunction?.body;
-  if (taskFunctions.length !== 1 || !taskFunction || !taskBody)
-    return Object.freeze([...failures, "task_function_not_exact"]);
-  const calls: CallExpression[] = [];
-  const declarations: VariableDeclaration[] = [];
-  const identifiers: Identifier[] = [];
-  const tryStatements: TryStatement[] = [];
-  visitTree(taskBody, (node) => {
-    if (isCallExpression(node)) calls.push(node);
-    if (isVariableDeclaration(node)) declarations.push(node);
-    if (isIdentifier(node)) identifiers.push(node);
-    if (isTryStatement(node)) tryStatements.push(node);
+  const body = functions[0]?.body;
+  if (functions.length !== 1 || !body) return ["task_function_not_exact"];
+  const calls: CallExpression[] = [],
+    identifiers: Identifier[] = [],
+    declarations: VariableDeclaration[] = [],
+    tries: TryStatement[] = [];
+  visitTree(body, (n) => {
+    if (isCallExpression(n)) calls.push(n);
+    if (isIdentifier(n)) identifiers.push(n);
+    if (isVariableDeclaration(n)) declarations.push(n);
+    if (isTryStatement(n)) tries.push(n);
   });
   const helperCalls = calls.filter(
-    (call) =>
-      isIdentifier(call.expression) &&
-      checker.getResolvedSymbol(call.expression)?.id === helperSymbol?.id,
+    (c) =>
+      isIdentifier(c.expression) &&
+      checker.getResolvedSymbol(c.expression)?.id === helperSymbol?.id,
+  );
+  const executions = calls.filter(
+    (c) =>
+      isIdentifier(c.expression) &&
+      checker.getResolvedSymbol(c.expression)?.id === executionSymbol?.id,
   );
   if (helperCalls.length !== 1) failures.push("helper_call_not_exact");
-  const helperCall = helperCalls[0];
-  const ownerFactoryCalls = calls.filter(
-    (call) =>
-      isIdentifier(call.expression) &&
-      checker.getResolvedSymbol(call.expression)?.id === ownerFactorySymbol?.id,
+  if (executions.length !== 1) failures.push("execution_call_not_exact");
+  const binding = declarations.filter(
+    (d) => isIdentifier(d.name) && d.name.text === "cancellation",
   );
-  if (ownerFactoryCalls.length !== 1)
-    failures.push("owner_factory_call_not_exact");
-
-  const bindingDeclarations = declarations.filter(
-    (declaration) =>
-      isIdentifier(declaration.name) &&
-      declaration.name.text === "cancellation",
+  const controllers = declarations.filter(
+    (d) => isIdentifier(d.name) && d.name.text === "controller",
   );
-  if (bindingDeclarations.length !== 1)
-    failures.push("binding_declaration_not_exact");
-  const bindingDeclaration = bindingDeclarations[0];
   const bindingSymbol =
-    bindingDeclaration && isIdentifier(bindingDeclaration.name)
-      ? checker.getResolvedSymbol(bindingDeclaration.name)
+    binding[0] && isIdentifier(binding[0].name)
+      ? checker.getResolvedSymbol(binding[0].name)
       : undefined;
-  if (!bindingSymbol) failures.push("binding_symbol_missing");
-  const ownerDeclarations = declarations.filter(
-    (declaration) =>
-      isIdentifier(declaration.name) && declaration.name.text === "owner",
-  );
-  const ownerDeclaration = ownerDeclarations[0];
-  const ownerSymbol =
-    ownerDeclarations.length === 1 &&
-    ownerDeclaration &&
-    isIdentifier(ownerDeclaration.name)
-      ? checker.getResolvedSymbol(ownerDeclaration.name)
-      : undefined;
-  if (!ownerSymbol) failures.push("owner_binding_not_exact");
-  const controllerDeclarations = declarations.filter(
-    (declaration) =>
-      isIdentifier(declaration.name) && declaration.name.text === "controller",
-  );
-  const controllerDeclaration = controllerDeclarations[0];
   const controllerSymbol =
-    controllerDeclarations.length === 1 &&
-    controllerDeclaration &&
-    isIdentifier(controllerDeclaration.name)
-      ? checker.getResolvedSymbol(controllerDeclaration.name)
+    controllers[0] && isIdentifier(controllers[0].name)
+      ? checker.getResolvedSymbol(controllers[0].name)
       : undefined;
-  if (!controllerSymbol) failures.push("controller_binding_not_exact");
+  if (binding.length !== 1 || !bindingSymbol)
+    failures.push("binding_not_exact");
+  if (controllers.length !== 1 || !controllerSymbol)
+    failures.push("controller_not_exact");
   for (const identifier of identifiers) {
     const expected =
       identifier.text === "cancellation"
         ? bindingSymbol
-        : identifier.text === "owner"
-          ? ownerSymbol
-          : identifier.text === "controller"
-            ? controllerSymbol
-            : undefined;
+        : identifier.text === "controller"
+          ? controllerSymbol
+          : undefined;
     if (expected && checker.getResolvedSymbol(identifier)?.id !== expected.id)
-      failures.push(`${identifier.text}_shadowed_or_unresolved`);
+      failures.push("binding_shadowed_or_unresolved");
   }
-
   /**
-   * Property呼出しの受信者を型検査器のSymbolへ解決する。
-   * @responsibility Property呼出しの受信者を型検査器のSymbolへ解決する。
+   * 呼出し受信側のSymbolを取得し、同名変数の別物を区別する。
+   * @responsibility AST上の受信側を型検査済みSymbolへ対応付ける。
    * @trace ERB-IT-003
-   * @precondition 解析済みCLI ASTとchecker。
-   * @stimulus 識別子受信者だけのSymbolを取得する。
-   * @observation 呼出し受信者のSymbolまたはnull。
-   * @oracle 同名decoyを所有Ownerと同一視しない。
-   * @cleanup N/A: AST読取りのみ。
-   * @boundary 静的CLI解析。stdinやProcessの実操作なし。
+   * @precondition 固定Sourceの型検査Contextが構築済みである。
+   * @stimulus Property呼出しの受信側を照会する。
+   * @observation 解決したSymbol又はundefinedを返す。
+   * @oracle 同名でも別宣言なら同一Symbolとして扱わない。
+   * @cleanup N/A: メモリ内の読取りだけを行う。
+   * @boundary ERB-IT-003=Direct Boundary: CLI ASTとSymbol解決。
    */
-  const receiverSymbol = (call: CallExpression) => {
-    if (!isPropertyAccessExpression(call.expression)) return undefined;
-    const receiver = call.expression.expression;
-    return isIdentifier(receiver)
-      ? checker.getResolvedSymbol(receiver)
+  const receiver = (c: CallExpression) =>
+    isPropertyAccessExpression(c.expression) &&
+    isIdentifier(c.expression.expression)
+      ? checker.getResolvedSymbol(c.expression.expression)
       : undefined;
-  };
-  /**
-   * 同じOwnerの指定操作だけをAST呼出し集合から選ぶ。
-   * @responsibility 同じOwnerの指定操作だけをAST呼出し集合から選ぶ。
-   * @trace ERB-IT-003
-   * @precondition Owner Symbolと抽出済み呼出し。
-   * @stimulus 操作名と受信者Symbolの両方を照合する。
-   * @observation start・wait・closeの対象呼出し数。
-   * @oracle 別Ownerや同名関数を数えず各一回を検査する。
-   * @cleanup N/A: 局所配列の選別だけ。
-   * @boundary AST所有者相関。実Taskを開始しない。
-   */
-  const ownerCalls = (name: string) =>
-    calls.filter(
-      (call) =>
-        callPropertyName(call) === name &&
-        receiverSymbol(call)?.id === ownerSymbol?.id,
-    );
-  const startCalls = ownerCalls("start");
-  const waitCalls = ownerCalls("wait");
-  const closeCalls = ownerCalls("close");
-  if (startCalls.length !== 1) failures.push("owner_start_call_not_exact");
-  if (waitCalls.length !== 1) failures.push("owner_wait_call_not_exact");
-  if (closeCalls.length !== 1) failures.push("owner_close_call_not_exact");
-  const startCall = startCalls[0];
-  const waitCall = waitCalls[0];
-  const closeCall = closeCalls[0];
-  /**
-   * 対象呼出しの直上awaitとSource範囲を確認する。
-   * @responsibility 対象呼出しの直上awaitとSource範囲を確認する。
-   * @trace ERB-IT-003
-   * @precondition 同一SourceのCallExpression。
-   * @stimulus 親ノードとpos/endを比較する。
-   * @observation awaitされた同じ呼出しかの真偽。
-   * @oracle 終了待機を別呼出しやdecoyのawaitで代替しない。
-   * @cleanup N/A: ASTノード参照のみ。
-   * @boundary CLI取消・終了の静的接続で実取消完了は主張しない。
-   */
-  const isAwaitedCall = (call: CallExpression | undefined) =>
-    Boolean(
-      call &&
-        isAwaitExpression(call.parent) &&
-        call.parent.expression.pos === call.pos &&
-        call.parent.expression.end === call.end,
-    );
-  if (!isAwaitedCall(startCall)) failures.push("owner_start_not_awaited");
-  if (!isAwaitedCall(waitCall)) failures.push("owner_wait_not_awaited");
-  if (!isAwaitedCall(closeCall)) failures.push("owner_close_not_awaited");
-
-  const abortCalls = calls.filter(
-    (call) =>
-      callPropertyName(call) === "abort" &&
-      receiverSymbol(call)?.id === controllerSymbol?.id,
+  const unbind = calls.filter(
+    (c) =>
+      callPropertyName(c) === "unbind" && receiver(c)?.id === bindingSymbol?.id,
   );
-  if (abortCalls.length !== 1) failures.push("controller_abort_call_not_exact");
+  const abort = calls.filter(
+    (c) =>
+      callPropertyName(c) === "abort" &&
+      receiver(c)?.id === controllerSymbol?.id,
+  );
+  if (unbind.length !== 1) failures.push("unbind_not_exact");
   if (
-    !helperCall ||
-    !abortCalls[0] ||
-    abortCalls[0].pos < helperCall.pos ||
-    abortCalls[0].end > helperCall.end
+    abort.length !== 1 ||
+    !helperCalls[0] ||
+    !abort[0] ||
+    abort[0].pos < helperCalls[0].pos ||
+    abort[0].end > helperCalls[0].end
   )
-    failures.push("abort_call_outside_binding_callback");
-  const startSignal = startCall?.arguments[1];
+    failures.push("abort_not_in_binding");
+  const executionCall = executions[0],
+    signal = executionCall?.arguments[2];
+  if (!executionCall || !isAwaitExpression(executionCall.parent))
+    failures.push("execution_not_awaited");
   if (
-    !startSignal ||
-    !isPropertyAccessExpression(startSignal) ||
-    startSignal.name.text !== "signal" ||
-    !isIdentifier(startSignal.expression) ||
-    checker.getResolvedSymbol(startSignal.expression)?.id !==
-      controllerSymbol?.id
+    !signal ||
+    !isPropertyAccessExpression(signal) ||
+    signal.name.text !== "signal" ||
+    !isIdentifier(signal.expression) ||
+    checker.getResolvedSymbol(signal.expression)?.id !== controllerSymbol?.id
   )
-    failures.push("owner_start_signal_mismatch");
-
-  const unbindCalls = calls.filter(
-    (call) =>
-      callPropertyName(call) === "unbind" &&
-      receiverSymbol(call)?.id === bindingSymbol?.id,
+    failures.push("execution_signal_mismatch");
+  const lifecycle = tries.filter(
+    (t) =>
+      t.finallyBlock &&
+      unbind[0] &&
+      unbind[0].pos >= t.finallyBlock.pos &&
+      unbind[0].end <= t.finallyBlock.end,
   );
-  if (unbindCalls.length !== 1) failures.push("unbind_call_not_exact");
-  const unbindCall = unbindCalls[0];
-  const containingFinallyItems = tryStatements.filter(
-    (statement) =>
-      statement.finallyBlock &&
-      closeCall &&
-      unbindCall &&
-      closeCall.pos >= statement.finallyBlock.pos &&
-      closeCall.end <= statement.finallyBlock.end &&
-      unbindCall.pos >= statement.finallyBlock.pos &&
-      unbindCall.end <= statement.finallyBlock.end,
-  );
-  if (containingFinallyItems.length !== 1)
-    failures.push("owner_close_and_unbind_not_in_same_finally");
-  const lifecycleTry = containingFinallyItems[0];
+  const lifecycleTry = lifecycle[0];
   if (
+    lifecycle.length !== 1 ||
     !lifecycleTry ||
-    !startCall ||
-    !waitCall ||
-    startCall.pos < lifecycleTry.tryBlock.pos ||
-    startCall.end > lifecycleTry.tryBlock.end ||
-    waitCall.pos < lifecycleTry.tryBlock.pos ||
-    waitCall.end > lifecycleTry.tryBlock.end
+    !executionCall ||
+    executionCall.pos < lifecycleTry.tryBlock.pos ||
+    executionCall.end > lifecycleTry.tryBlock.end
   )
-    failures.push("start_wait_not_guarded_by_finally");
+    failures.push("execution_unbind_finally_mismatch");
+  const outputs = calls.filter(
+    (c) =>
+      callPropertyName(c) === "write" &&
+      isPropertyAccessExpression(c.expression) &&
+      isPropertyAccessExpression(c.expression.expression) &&
+      c.expression.expression.name.text === "stdout",
+  );
+  const guard = body.statements[0],
+    guardBlock =
+      guard && isIfStatement(guard) && isBlock(guard.thenStatement)
+        ? guard.thenStatement
+        : null;
+  const guardReturn = guardBlock?.statements.at(-1);
+  if (!guardBlock || !guardReturn || !isReturnStatement(guardReturn))
+    failures.push("argument_rejection_not_guarded");
   if (
-    !helperCall ||
-    !startCall ||
-    !waitCall ||
-    !closeCall ||
-    !unbindCall ||
-    !(
-      helperCall.pos < startCall.pos &&
-      startCall.pos < waitCall.pos &&
-      waitCall.pos < closeCall.pos &&
-      closeCall.pos < unbindCall.pos
+    outputs
+      .filter(
+        (c) => !guardBlock || c.pos < guardBlock.pos || c.end > guardBlock.end,
+      )
+      .some((c) => !lifecycle[0] || c.pos < lifecycle[0].end)
+  )
+    failures.push("report_before_join");
+  if (
+    calls.some(
+      (c) =>
+        isPropertyAccessExpression(c.expression) &&
+        isIdentifier(c.expression.expression) &&
+        c.expression.expression.text === "process" &&
+        ["on", "removeListener"].includes(c.expression.name.text),
     )
   )
-    failures.push("lifecycle_order_invalid");
-
-  const directSignalCalls = calls.filter(
-    (call) =>
-      isPropertyAccessExpression(call.expression) &&
-      isIdentifier(call.expression.expression) &&
-      call.expression.expression.text === "process" &&
-      ["on", "removeListener"].includes(call.expression.name.text),
-  );
-  if (directSignalCalls.length !== 0)
     failures.push("direct_signal_call_present");
-  const outputCalls = calls.filter(
-    (call) =>
-      callPropertyName(call) === "write" &&
-      isPropertyAccessExpression(call.expression) &&
-      isPropertyAccessExpression(call.expression.expression) &&
-      call.expression.expression.name.text === "stdout",
-  );
-  const guard = taskBody.statements[0];
-  const guardBlock =
-    guard && isIfStatement(guard) && isBlock(guard.thenStatement)
-      ? guard.thenStatement
-      : null;
-  const guardReturn = guardBlock?.statements.at(-1);
-  const rejectionOutputs = outputCalls.filter(
-    (call) =>
-      guardBlock && call.pos >= guardBlock.pos && call.end <= guardBlock.end,
-  );
-  if (
-    !guardBlock ||
-    !guardReturn ||
-    !isReturnStatement(guardReturn) ||
-    rejectionOutputs.length !== 1
-  )
-    failures.push("argument_rejection_output_not_guarded");
-  const terminalOutputs = outputCalls.filter(
-    (call) => !rejectionOutputs.includes(call),
-  );
-  const outputCall = terminalOutputs[0];
-  if (
-    terminalOutputs.length !== 1 ||
-    !outputCall ||
-    !lifecycleTry ||
-    outputCall.pos < lifecycleTry.end
-  )
-    failures.push("report_not_after_lifecycle_finally");
   return Object.freeze(failures);
 }
 
@@ -907,7 +787,7 @@ test("公開CLIはproduction helperの単一bindingとfinally解除をAST・symb
       assert.ok(project);
       const sourceFile = projectSourceFile(
         project,
-        path.join(coordinatorRoot, "src", "cli", "command.ts"),
+        path.join(coordinatorRoot, "src", "cli", "request.ts"),
       );
       assert.deepEqual(
         inspectTaskCliCancellationWiring(project, sourceFile),
@@ -942,60 +822,35 @@ test("CLI AST契約はshadow・二重binding・直接signal・非await join・fi
     "coordinator",
   );
   const original = fs.readFileSync(
-    path.join(coordinatorRoot, "src", "cli", "command.ts"),
+    path.join(coordinatorRoot, "src", "cli", "request.ts"),
     "utf8",
   );
   const mutations = [
     original.replace(
-      'if (cancellation && cancellation.unbind().status !== "released") {',
-      '{ const cancellation = null; }\n    if (cancellation && cancellation.unbind().status !== "released") {',
+      "    if (!released) {",
+      "    { const cancellation = null; }\n    if (!released) {",
     ),
     original.replace(
       "    cancellation = bindTaskCliCancellationSignals(async () =>",
-      "    bindTaskCliCancellationSignals(async () => controller.abort());\n    cancellation = bindTaskCliCancellationSignals(async () =>",
+      "    bindTaskCliCancellationSignals(async()=>controller.abort());\n    cancellation = bindTaskCliCancellationSignals(async () =>",
     ),
     original.replace(
       "    cancellation = bindTaskCliCancellationSignals(async () =>",
-      "    process.on('SIGINT', () => undefined);\n    cancellation = bindTaskCliCancellationSignals(async () =>",
+      "    process.on('SIGINT',()=>undefined);\n    cancellation = bindTaskCliCancellationSignals(async () =>",
     ),
-    original
-      .replace(
-        "    try {\n      await owner?.close();",
-        "    try {\n      await Promise.resolve();",
-      )
-      .replace(
-        "  process.exitCode =",
-        "  await owner?.close();\n  process.exitCode =",
-      ),
+    original.replace("...(await runTask(", "...(runTask("),
     original.replace(
-      "    const started = await owner.start(command, controller.signal);",
-      "    const started = await owner.start(command, new AbortController().signal);",
+      "        controller.signal,",
+      "        new AbortController().signal,",
+    ),
+    original.replace("cancellation.unbind()", "cancellation.observe()"),
+    original.replace(
+      "...(await runTask(",
+      '...(await (async()=>{process.stdout.write("early");return runTask;})()(',
     ),
     original.replace(
-      "    const started = await owner.start(command, controller.signal);",
-      "    const started = owner.start(command, controller.signal);",
-    ),
-    original.replace(
-      '      report = { command: "task", ...(await owner.wait(started.requestId)) };',
-      '      report = { command: "task", ...owner.wait(started.requestId) };',
-    ),
-    original.replace("      await owner?.close();", "      owner?.close();"),
-    original
-      .replace(
-        "      await owner?.close();",
-        "      cancellation?.unbind();\n      await owner?.close();",
-      )
-      .replace(
-        '    if (cancellation && cancellation.unbind().status !== "released") {',
-        "    if (false) {",
-      ),
-    original.replace(
-      "      await owner?.close();",
-      '      process.stdout.write("early-result");\n      await owner?.close();',
-    ),
-    original.replace(
-      "    process.exitCode = 64;\n    return;\n  }\n  let owner:",
-      "    process.exitCode = 64;\n  }\n  let owner:",
+      "    return;\n  }\n  let cancellation",
+      "  }\n  let cancellation",
     ),
   ];
   for (const mutation of mutations) assert.notEqual(mutation, original);
@@ -1031,17 +886,14 @@ test("CLI AST契約はshadow・二重binding・直接signal・非await join・fi
       assert.ok(project);
       const expectedFailures = [
         null,
-        "cancellation_shadowed_or_unresolved",
+        "binding_shadowed_or_unresolved",
         "helper_call_not_exact",
         "direct_signal_call_present",
-        "owner_close_and_unbind_not_in_same_finally",
-        "owner_start_signal_mismatch",
-        "owner_start_not_awaited",
-        "owner_wait_not_awaited",
-        "owner_close_not_awaited",
-        "lifecycle_order_invalid",
-        "report_not_after_lifecycle_finally",
-        "argument_rejection_output_not_guarded",
+        "execution_not_awaited",
+        "execution_signal_mismatch",
+        "unbind_not_exact",
+        "execution_call_not_exact",
+        "argument_rejection_not_guarded",
       ];
       for (const [index, fileName] of fileNames.entries()) {
         assert.equal(

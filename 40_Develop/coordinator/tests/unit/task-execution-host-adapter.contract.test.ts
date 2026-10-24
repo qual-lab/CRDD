@@ -11,8 +11,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createCoordinatorExecutionHostPorts } from "../../src/index.ts";
-import { createCoordinatorTaskRecoveryAdapter } from "../../src/index.ts";
+import { createCoordinatorExecutionHostPorts } from "../../src/task/dispatch.ts";
+import { createCoordinatorTaskRecoveryAdapter } from "../../src/task/dispatch.ts";
 
 /**
  * Host Adapterは時刻と安定IdentityをCoordinator Portへ閉じるを検証する。

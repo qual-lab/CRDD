@@ -14,7 +14,7 @@ Repository Role: `crdd-standard`
 
 Repository別AI選択をTask・Objective・Grant・Packet・Operation Identityへ接続し、Home利用権限からModel選定を分離した。現在State／Project Snapshotはv5、Operation Identityはv2で、新形式だけを扱う。MCPの旧Profile四ToolとHost Catalog起動依存は撤去し、全101件成功。Workbenchは選択Repositoryの設定Reader／CAS Writerと作業分類・明示選択へ接続し、通常80件・固定System24件、Source／文書の限定独立レビュー残指摘0を確認した。実AI・実認証・人間確認の成立には換算しない。
 
-旧AI Adapter Profile／Store本体と旧候補選定を撤去し、Model構文検査はProvider検査へ移管した。AI Adapter全22件、Coordinator局所32件・直接結合18件・追加13件、Workbench直接利用側21件が成功し、限定独立レビュー残指摘0。次は正式公開APIと対象→操作のCLIへ接続する。新しい互換Reader・中継Store・管理Frameworkは追加せず、必要なModel構文検査と選定相関・独立レビュー・取消／回収の保証を維持する。本体設定の移行はフロントAIが担当し、②のAI再試行・保持物の観測／操作は行わない。[現在の単位と確認範囲](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#15-残る本番切替の実施単位と終了条件)を正本とする。
+旧AI Adapter Profile／Store本体と旧候補選定を撤去し、Model構文検査はProvider検査へ移管した。正式API・対象→操作のCLIとWorkbench／MCP／配布入口を接続し、内部Factory・WriterはRootから外した。単発Taskは同じSessionを一回だけ使い、元依頼・一次失敗を保持して終了を待つ。API／CLI関連59件、MCP101件、Workbench80件、Header全数・台帳383件・静的検査が成功し、Source／文書の限定独立レビュー残指摘0。固定版の全体回帰と最後の実AI・認証・人間確認は未完了であり、全体完成とはしない。新しい互換Reader・中継Store・管理Frameworkは追加しない。本体設定の移行はフロントAIが担当し、②のAI再試行・保持物の観測／操作は行わない。[現在の単位と確認範囲](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#15-残る本番切替の実施単位と終了条件)を正本とする。
 
 Coordinator構造再設計の残る配置を56 Sourceへ一括移管し、今回のSource・利用側・試験・設計／登録追従を限定完了とした。公開Root217項目と保存B六Fileの本文は維持する。固定本番Sourceの全体回帰は1,854件中1,830成功・19失敗・5skipで完走。19失敗はすべて試験側の旧配置前提へ対応付け、修正版の対象Suiteを275件・13件・47件・21件で全成功まで確認した。最初の全体Commandを成功へ読み替えない。静的検査、Windows保存、直接利用側、限定独立レビューは成功／残指摘0。[最終結果と限界](99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#3822-残るsource配置の一括移管と最終確認)を参照する。横断QAと実境界E2Eは別途残り、実AI②・保持物・実Docker・認証は今回の対象外。
 

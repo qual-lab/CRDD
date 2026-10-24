@@ -26,7 +26,7 @@ import {
 } from "../../coordinator/src/index.ts";
 import { selectionConfig } from "../../coordinator/tests/fixtures/ai-selection.ts";
 import {
-  createRepositoryTaskRequests,
+  openTaskSession,
   type WorkspaceView,
 } from "../../coordinator/src/index.ts";
 import { prepareWorkspaceSurface } from "../../coordinator/tests/fixtures/workspace-surface.ts";
@@ -208,12 +208,12 @@ async function verify(
     (await readWorkbenchProjectSurface(root)).context.projectId,
     projectId,
   );
-  const owner = createRepositoryTaskRequests(
-    verified.capability,
+  const owner = openTaskSession({
+    rootCapability: verified.capability,
     projectId,
-    "local-workbench-user",
-    permitted,
-  );
+    principalId: "local-workbench-user",
+    authorize: permitted,
+  });
   const handle = await startWorkbench({
     workingDirectory: root,
     port: 0,

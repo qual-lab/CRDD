@@ -126,6 +126,13 @@ test("状態参照はOrchestratorのcanonical投影だけを返す", () => {
   assert.equal(result.projection?.projectId, request.projectId);
   assert.equal(result.effectState, "no_effect");
   assert.deepEqual(inspectCoordinatorStateQueryResult(result), result);
+  assert.equal(
+    inspectCoordinatorStateQueryResult({
+      ...result,
+      contract: "crdd-coordinator/orchestrator-public-runtime/v1",
+    }),
+    null,
+  );
 });
 
 /**

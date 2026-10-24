@@ -367,6 +367,75 @@ export function createDevelopmentExecutionTiming(
 }
 
 /**
+ * 現在実装した公開操作とCLI相当だけを返す。
+ * @responsibility 能力の表示と今回の操作許可を区別する。
+ * @trace ARCH-000004
+ * @input N/A: 外部入力を受けない。
+ * @returns 不変な操作名・呼出し例の集合。
+ * @precondition 固定候補で全操作の接続を検証する。
+ * @postcondition 未接続のinspect・候補CLIを一覧へ含めない。
+ * @effect N/A: 固定記述の生成のみ。
+ * @failure N/A: 観測やI/Oを行わない。
+ * @invariant 一覧表示からAuthorityを発行しない。
+ * @boundary 正式APIと利用者向け能力表示。
+ * @security 秘密・Root・認証状態を含めない。
+ * @concurrency 不変の局所値。
+ */
+export function getCoordinatorCapabilities() {
+  return Object.freeze({
+    contract: "crdd-coordinator/capabilities",
+    contractRevision: 5,
+    profile: "local_personal",
+    commands: Object.freeze(
+      [
+        "task run --request-stdin --json",
+        "project init --json",
+        "project run --request-stdin --json",
+        "doctor check [--json]",
+        "doctor isolation [--json]",
+        "recovery resume <id> [--json]",
+        "recovery restart-docker <id> [--json]",
+        "maintenance repair-docker [--json]",
+        "maintenance retain-repair <id> [--json]",
+        "auth status codex|claude [--json]",
+        "auth login codex|claude",
+        "capabilities --json",
+      ].map((invocation) =>
+        Object.freeze({
+          command: invocation
+            .split(" ")
+            .slice(0, invocation.startsWith("capabilities ") ? 1 : 2)
+            .join(" "),
+          availability: "available",
+          invocation,
+        }),
+      ),
+    ),
+    operations: Object.freeze([
+      "initializeProject",
+      "runObjective",
+      "runTask",
+      "openTaskSession",
+      "submitDecision",
+      "acceptResult",
+      "executeWorkspace",
+      "queryState",
+      "queryActivity",
+      "diagnoseEnvironment",
+      "recoverExecution",
+      "restartDockerForRecovery",
+      "repairDockerRuntime",
+      "retainRepair",
+      "readRepositoryAiSelection",
+      "saveRepositoryAiSelection",
+      "getAuthenticationStatus",
+      "authenticateProvider",
+    ]),
+    executionAuthorityIssued: false,
+  });
+}
+
+/**
  * Only fixed labels generated above reach this bounded best-effort sink.
  *
  * @responsibility Development Measurement Progressの書込み先、確定条件、部分書込みの失敗境界を所有する。

@@ -15,11 +15,11 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import {
-  readAuthorizedRuntimeActivity,
+  queryActivity as readAuthorizedRuntimeActivity,
   parseRuntimeActivityObservation,
-  createCoordinatorState,
-  initializeCoordinatorSnapshot,
 } from "../../src/index.ts";
+import { createCoordinatorState } from "../../src/state/model.ts";
+import { initializeCoordinatorSnapshot } from "../../src/storage/current-state.ts";
 import { writeCoordinatorSnapshotState } from "../../src/storage/current-state.ts";
 import { deriveCoordinatorRepositoryBindingId } from "../../src/state/model.ts";
 import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";

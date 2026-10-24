@@ -61,6 +61,7 @@ import {
   resolveRuntimeOwnedDockerTaskCurrentCorrelations,
 } from "../execution/recovery.ts";
 import { observeRuntimeOwnedTransientTaskCompletion } from "../storage/settlement-store.ts";
+import { readExecutionCancellation } from "../execution/authority.ts";
 
 /**
  * 単発操作の非永続入力。
@@ -1168,13 +1169,9 @@ function snapshotSingleTaskOutcome(
  * @security Prompt・Context・助言本文は永続化しない。
  * @concurrency 各要求が独立した実行閉包と取消Signalを持つ。
  */
-export function createRepositoryTaskRequests(
-  rootCapability: VerifiedRepositoryRoot,
-  projectId: string,
-  principalId: string,
-  authorize: () => boolean,
-  consumer: "workbench" | "coordinator_cli" = "workbench",
-) {
+export function openTaskSession(context: TaskSessionContext) {
+  const { rootCapability, projectId, principalId, authorize } = context;
+  const consumer = context.consumer ?? "workbench";
   const root = resolveVerifiedRepositoryRoot(rootCapability);
   if (root === null) throw new Error("orchestrator_task_root_invalid");
   const initialized = initializeCoordinatorSnapshot(
@@ -1419,4 +1416,137 @@ export function createRepositoryTaskRequests(
       };
     },
   });
+}
+
+/**
+ * 信頼した公開Surfaceが現在認可を結合するSession入力。
+ * @responsibility Root権限・主体・認可再確認を同じ既存Ownerへ渡す。
+ * @trace ARCH-000004
+ * @shape 検証済みRoot、Project／Principal、現在認可callbackと利用用途。
+ * @invariant JSON要求からRoot権限や認可callbackを生成しない。
+ * @boundary 正式Package利用側とTask Session。
+ * @security authorizeは操作と待機後に既存Ownerが再評価する。
+ * @compatibility 新形式専用。旧Profile Storeを受け付けない。
+ */
+export type TaskSessionContext = Readonly<{
+  rootCapability: VerifiedRepositoryRoot;
+  projectId: string;
+  principalId: string;
+  authorize: () => boolean;
+  consumer?: "workbench" | "coordinator_cli";
+}>;
+
+/**
+ * 一つの受付Ownerが提供する開始・観測・取消・終了契約。
+ * @responsibility 実装と同じ非永続Session寿命を公開する。
+ * @trace ARCH-000004
+ * @shape 既存start／observe／cancel／wait／closeの読取り専用操作。
+ * @invariant 別Sessionへ要求本文や取消Ownerを複製しない。
+ * @boundary Workbenchの複数HTTP要求と同一Task Owner。
+ * @security 内部Map・保存Writer・Authorityを公開しない。
+ * @compatibility 新しい管理状態を追加せず既存実装から導出する。
+ */
+export type TaskSession = ReturnType<typeof openTaskSession>;
+
+/**
+ * 単発Taskの表示・回収結果。
+ * @responsibility 待機結果、一次失敗とSession終了失敗を同じ元参照へ保持する。
+ * @trace ARCH-000004
+ * @shape 既存の公開Snapshotと、受付前拒否に共通の状態・理由・回収情報。
+ * @invariant 終了失敗で元の一次理由やTask参照を消さない。
+ * @boundary 正式一回実行とCLI等の結果表示。
+ * @security 生出力・内部Root・認証値を含めない。
+ * @compatibility 保存Schemaとは別の非永続結果。
+ */
+export type TaskRunResult = Readonly<
+  Omit<
+    Partial<Awaited<ReturnType<TaskSession["wait"]>>>,
+    "requestId" | "status" | "reason" | "cleanupConfirmed" | "secondaryFailures"
+  > & {
+    requestId: string | null;
+    status:
+      | "accepted"
+      | "running"
+      | "completed"
+      | "blocked"
+      | "cancelled"
+      | "unknown";
+    reason: string | null;
+    cleanupConfirmed: boolean;
+    secondaryFailures: readonly string[];
+  }
+>;
+
+/**
+ * 既存SessionでTaskを一回だけ実行し終了を待つ。
+ * @responsibility 開始・待機・finally closeを一つのOwnerで完結させる。
+ * @trace ARCH-000004
+ * @input context: 信頼したSurfaceの現在認可、command: 未信頼要求、signal: 取消。
+ * @returns 元要求参照と一次結果、独立した回収・終了失敗。
+ * @precondition 呼出し元は自身のSignal登録・解除を所有する。
+ * @postcondition 開いたSessionは拒否・例外・取消でも一回closeして待機する。
+ * @effect 既存Task Ownerの受付・保存・実行だけ。
+ * @failure 開始前はblocked、開始後不明はunknown。close失敗を副次失敗として保持する。
+ * @invariant 自動再送・新しいMap・Lock・回復記録を追加しない。
+ * @boundary CLI／Package利用側と既存Task Session。
+ * @security 例外本文・秘密値を結果へ転記しない。
+ * @concurrency 既存の取消joinとSession closeをawaitする。
+ */
+export async function runTask(
+  context: TaskSessionContext,
+  command: unknown,
+  signal?: AbortSignal,
+): Promise<TaskRunResult> {
+  const cancellation = readExecutionCancellation(signal);
+  if (cancellation !== false)
+    return Object.freeze({
+      status: "blocked",
+      requestId: null,
+      reason:
+        cancellation === null
+          ? "task_cancellation_invalid"
+          : "task_cancelled_before_start",
+      cleanupConfirmed: true,
+      secondaryFailures: [],
+    });
+  let session: TaskSession | null = null;
+  let startIssued = false;
+  let result: TaskRunResult = {
+    status: "blocked",
+    requestId: null,
+    reason: "task_entry_unconfirmed",
+    cleanupConfirmed: false,
+    secondaryFailures: [],
+  };
+  try {
+    session = openTaskSession(context);
+    startIssued = true;
+    const started = await session.start(command, signal);
+    result = { ...result, ...started };
+    if (started.status === "accepted" && started.requestId)
+      result = await session.wait(started.requestId);
+  } catch {
+    result = {
+      ...result,
+      status: startIssued ? "unknown" : "blocked",
+      reason: result.reason ?? "task_entry_unconfirmed",
+      cleanupConfirmed: false,
+      primaryFailure: result.primaryFailure ?? "task_entry_unconfirmed",
+    };
+  } finally {
+    try {
+      await session?.close();
+    } catch {
+      result = {
+        ...result,
+        status: "unknown",
+        cleanupConfirmed: false,
+        secondaryFailures: [
+          ...result.secondaryFailures,
+          "task_owner_join_unconfirmed",
+        ],
+      };
+    }
+  }
+  return Object.freeze(result);
 }

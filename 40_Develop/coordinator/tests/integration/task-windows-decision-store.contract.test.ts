@@ -14,7 +14,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import type { CoordinatorDecisionRecord } from "../../src/index.ts";
+import type { CoordinatorDecisionRecord } from "../../src/decision/records.ts";
 import { createCoordinatorWindowsDecisionStoreTestingAdapter } from "../../src/storage/protected-decision.ts";
 
 /**

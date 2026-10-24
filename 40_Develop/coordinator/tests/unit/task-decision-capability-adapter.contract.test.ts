@@ -11,7 +11,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createCoordinatorDecisionCapabilityAdapter } from "../../src/index.ts";
+import { createCoordinatorDecisionCapabilityAdapter } from "../../src/decision/lifecycle.ts";
 
 /**
  * 判断Capability Adapterは秘密値とHashを別の値として発行するを検証する。

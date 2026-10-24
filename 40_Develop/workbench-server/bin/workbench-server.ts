@@ -20,7 +20,7 @@ import {
   readExistingHostRoot,
   readHostInitializationState,
 } from "../../access-management/src/index.ts";
-import { createRepositoryTaskRequests } from "../../coordinator/src/index.ts";
+import { openTaskSession } from "../../coordinator/src/index.ts";
 import {
   resolveVerifiedRepositoryRootFromWorkingDirectory,
   verifyRepositoryRoot,
@@ -49,14 +49,14 @@ async function startRepositoryWorkbench(
   if (verified.status !== "completed")
     throw new Error("verified_repository_root_required");
   const surface = await readWorkbenchProjectSurface(repositoryRoot);
-  const aiRequests = createRepositoryTaskRequests(
-    verified.capability,
-    surface.context.projectId,
-    "local-workbench-user",
-    () =>
+  const aiRequests = openTaskSession({
+    rootCapability: verified.capability,
+    projectId: surface.context.projectId,
+    principalId: "local-workbench-user",
+    authorize: () =>
       resolveVerifiedRepositoryRootFromWorkingDirectory(repositoryRoot) ===
       repositoryRoot,
-  );
+  });
   return startWorkbench({
     workingDirectory: repositoryRoot,
     port,
@@ -120,7 +120,12 @@ async function startFromCommandLine(): Promise<WorkbenchHandle | null> {
     localAccessRoot: root,
     ...configuration,
     sharedAiRequestsFactory: (root, projectId, principalId, authorize) =>
-      createRepositoryTaskRequests(root, projectId, principalId, authorize),
+      openTaskSession({
+        rootCapability: root,
+        projectId,
+        principalId,
+        authorize,
+      }),
   });
 }
 

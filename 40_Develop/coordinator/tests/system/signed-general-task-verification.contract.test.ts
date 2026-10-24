@@ -12,6 +12,7 @@
  * @scope signed、general、task、verification
  * @boundary EST-ST-003=System/E2E: 公開入口→同意Gate→Provider→結果帰還 / PRL-ST-001=System/E2E: 公開入口→Coordinator→Execution→受入
  */
+import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -603,8 +604,7 @@ test("固定公開Taskをprocess内で構成しShell搬送を契約から除外�
 
   const request = createSignedGeneralTaskVerificationRequest();
   assert.deepEqual(request, {
-    frontProvider: "codex",
-    requestedExecutorProvider: "claude",
+    taskExecutionSelections: taskExecutionSelections("claude"),
     objective:
       "Replace the one existing bounded verification marker from BASE to OK.",
     acceptanceCriteria: [

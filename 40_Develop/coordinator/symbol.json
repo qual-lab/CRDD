@@ -649,7 +649,7 @@
     {
       "symbolId": "coordinator.public-api",
       "kind": "module",
-      "path": "src/index.ts",
+      "path": "src/api.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000008",
@@ -731,7 +731,11 @@
       "verifies": [
         "coordinator.source.src.core.cli.options",
         "coordinator.source.src.core.docker.recovery.command.report",
-        "coordinator.source.src.cli.command"
+        "coordinator.source.src.cli.command",
+        "coordinator.cli.authentication",
+        "coordinator.cli.doctor",
+        "orchestrator.cli.project-command",
+        "coordinator.state.initialize"
       ]
     },
     {
@@ -1400,7 +1404,8 @@
         "coordinator.diagnostics.runtime-repair",
         "coordinator.source.src.core.docker.recovery.command.report",
         "coordinator.source.src.cli.command",
-        "coordinator.source.src.security.docker.recovery.runtime.internal"
+        "coordinator.source.src.security.docker.recovery.runtime.internal",
+        "coordinator.cli.doctor"
       ]
     },
     {
@@ -1414,7 +1419,11 @@
         "PRL-ST-001"
       ],
       "verifies": [
-        "coordinator.source.src.cli.command"
+        "coordinator.source.src.cli.command",
+        "coordinator.cli.authentication",
+        "coordinator.cli.doctor",
+        "orchestrator.cli.project-command",
+        "coordinator.state.initialize"
       ]
     },
     {
@@ -3686,7 +3695,7 @@
     {
       "symbolId": "orchestrator.cli.project-command",
       "kind": "file",
-      "path": "src/cli/command.ts",
+      "path": "src/cli/request.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -4500,6 +4509,31 @@
       "symbolId": "coordinator.state.request",
       "kind": "file",
       "path": "src/state/request.ts",
+      "archIds": [
+        "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "coordinator.cli.authentication",
+      "kind": "file",
+      "path": "src/cli/authentication.ts",
+      "archIds": [
+        "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "coordinator.cli.doctor",
+      "kind": "file",
+      "path": "src/cli/doctor.ts",
+      "archIds": [
+        "ARCH-000004",
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "coordinator.state.initialize",
+      "kind": "file",
+      "path": "src/state/initialize.ts",
       "archIds": [
         "ARCH-000004"
       ]

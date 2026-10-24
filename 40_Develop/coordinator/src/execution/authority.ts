@@ -7754,13 +7754,13 @@ export const PROVIDER_AUTHENTICATION_CONTRACT_REVISION = 1;
 export const PROVIDER_AUTHENTICATION_INPUT_NOTICE =
   "PowerShellにコード貼付けを求められた場合、貼付けた文字は画面に表示されません。一度だけ貼り付けてEnterを押し、結果が出るまで再入力しないでください。";
 
-const authenticationAbortedGetter = Object.getOwnPropertyDescriptor(
+const executionAbortedGetter = Object.getOwnPropertyDescriptor(
   AbortSignal.prototype,
   "aborted",
 )?.get;
 
 /**
- * 認証操作の取消値を組込みgetterだけで読む。
+ * 実行・認証操作の取消値を組込みgetterだけで読む。
  * @responsibility APIと直接呼出しの双方で偽Signal・accessor実行を拒否する。
  * @trace ARCH-000010
  * @input signal: 任意の取消入力又は省略。
@@ -7770,13 +7770,11 @@ const authenticationAbortedGetter = Object.getOwnPropertyDescriptor(
  * @effect N/A: 局所値の検査だけ。
  * @failure brand・prototype・descriptor不正はnull。
  * @invariant 不正値を未取消へ丸めない。
- * @boundary 公開入力と認証Lifecycleの取消観測。
+ * @boundary 公開入力と実行Lifecycleの取消観測。
  * @security 偽のprototypeだけではAbortSignalとして受理しない。
  * @concurrency 待機後も同じ組込みgetterで現在値を読む。
  */
-export function readProviderAuthenticationCancellation(
-  signal: unknown,
-): boolean | null {
+export function readExecutionCancellation(signal: unknown): boolean | null {
   if (signal === undefined) return false;
   if (
     !signal ||
@@ -7784,11 +7782,11 @@ export function readProviderAuthenticationCancellation(
     utilTypes.isProxy(signal) ||
     Object.getPrototypeOf(signal) !== AbortSignal.prototype ||
     Object.getOwnPropertyDescriptor(signal, "aborted") !== undefined ||
-    !authenticationAbortedGetter
+    !executionAbortedGetter
   )
     return null;
   try {
-    return authenticationAbortedGetter.call(signal) as boolean;
+    return executionAbortedGetter.call(signal) as boolean;
   } catch {
     return null;
   }
@@ -8850,7 +8848,7 @@ export async function authenticateProvider(
       cleanupConfirmed: true,
       providerEffectIssued: false,
     });
-  const cancellation = readProviderAuthenticationCancellation(signal);
+  const cancellation = readExecutionCancellation(signal);
   if (cancellation === null)
     return Object.freeze({
       status: "blocked",
@@ -9014,7 +9012,7 @@ export async function authenticateProvider(
   let processCompletionUnknown = false;
   try {
     for (const command of plan.commands) {
-      if (readProviderAuthenticationCancellation(signal) !== false) {
+      if (readExecutionCancellation(signal) !== false) {
         reason = "provider_authentication_cancelled";
         break;
       }
@@ -9038,7 +9036,7 @@ export async function authenticateProvider(
         result = await activeDependencies.run(
           command,
           () =>
-            readProviderAuthenticationCancellation(signal) === false &&
+            readExecutionCancellation(signal) === false &&
             providerHomeLock.assertLive(),
           plan,
         );
@@ -9118,12 +9116,12 @@ export async function authenticateProvider(
     providerHomeLock.release();
   cleanupConfirmed = cleanupConfirmed && lockReleased;
   if (
-    readProviderAuthenticationCancellation(signal) !== false &&
+    readExecutionCancellation(signal) !== false &&
     reason === "provider_authentication_completed"
   )
     reason = "provider_authentication_cancelled";
   const completed =
-    readProviderAuthenticationCancellation(signal) === false &&
+    readExecutionCancellation(signal) === false &&
     cleanupConfirmed &&
     (authenticationConfirmed ||
       (action === "status" && authenticationStatus === "unconfirmed"));
@@ -9188,5 +9186,127 @@ function authenticationResources(
     entries.map(([kind, name]) =>
       Object.freeze({ kind, name, dockerId: null }),
     ),
+  );
+}
+
+/**
+ * 認証対象だけを指定する公開要求。
+ * @responsibility Provider固有引数と秘密Pathを利用側へ要求しない。
+ * @trace ARCH-000004
+ * @shape 対応Provider一項目。
+ * @invariant Repository・追加通信先・CLI引数を含めない。
+ * @boundary 公開認証操作。
+ * @security 認証値を搬送しない。
+ * @compatibility 新形式だけを受理する。
+ */
+export type ProviderAuthenticationRequest = Readonly<{
+  provider: "codex" | "claude";
+}>;
+
+/**
+ * 認証要求を検査し、現在Userの専用Homeへ接続する。
+ * @responsibility 公開要求から内部のHome観測と認証Lifecycleを一度だけ接続する。
+ * @trace ARCH-000004
+ * @input action: 固定操作、request: Providerだけの要求、signal: 呼出し元の取消。
+ * @returns 秘密値を含まない操作結果。
+ * @precondition 実認証前に旧記録の移行確認をフロントAIが完了する。
+ * @postcondition 不正要求・取消ではHome観測・Docker操作を発行しない。
+ * @effect 検査後だけ既存Home観測と認証操作を呼ぶ。
+ * @failure Home不明は停止し、別Provider・Host認証へfallbackしない。
+ * @invariant 設定・State・Lock・Retryを新設しない。
+ * @boundary 公開要求と現在Userの保護Home。
+ * @security Proxy／accessorを実行しない。Host Pathを結果へ複製しない。
+ * @concurrency 実行中の排他・取消・終了待機は既存Ownerが所有する。
+ */
+export async function runProviderAuthenticationRequest(
+  action: "status" | "login",
+  request: ProviderAuthenticationRequest,
+  signal?: AbortSignal,
+) {
+  const descriptors =
+    request &&
+    typeof request === "object" &&
+    !utilTypes.isProxy(request) &&
+    Object.getPrototypeOf(request) === Object.prototype
+      ? Object.getOwnPropertyDescriptors(request)
+      : null;
+  const property = descriptors?.provider;
+  const provider = property && "value" in property ? property.value : null;
+  if (
+    !descriptors ||
+    Reflect.ownKeys(descriptors).length !== 1 ||
+    !property?.enumerable ||
+    (provider !== "codex" && provider !== "claude")
+  )
+    return Object.freeze({
+      status: "blocked",
+      reason: "provider_authentication_input_invalid",
+      authenticationStatus: "unknown",
+      cleanupConfirmed: true,
+      manualRecoveryRequired: false,
+      providerEffectIssued: false,
+    });
+  const cancellation = readExecutionCancellation(signal);
+  if (cancellation === null)
+    return Object.freeze({
+      status: "blocked",
+      reason: "provider_authentication_signal_invalid",
+      provider,
+      action,
+      authenticationStatus: "unknown",
+      cleanupConfirmed: true,
+      manualRecoveryRequired: false,
+      providerEffectIssued: false,
+    });
+  if (cancellation)
+    return Object.freeze({
+      status: "blocked",
+      reason: "provider_authentication_cancelled",
+      provider,
+      action,
+      authenticationStatus: "unknown",
+      cleanupConfirmed: true,
+      manualRecoveryRequired: false,
+      providerEffectIssued: false,
+    });
+  const observed = inspectRuntimeOwnedWindowsProviderHomeCandidate(provider);
+  if (observed.status !== "candidate")
+    return Object.freeze({
+      status: "blocked",
+      reason: observed.reason,
+      provider,
+      action,
+      authenticationStatus: "unknown",
+      cleanupConfirmed: observed.helperExitConfirmed === true,
+      manualRecoveryRequired: observed.helperExitConfirmed !== true,
+      providerEffectIssued: false,
+    });
+  const consumed = consumeRuntimeOwnedProviderHomeObservationCapability(
+    observed.observationCapability,
+  );
+  const source = consumed
+    ? consumeRuntimeOwnedProviderHomeMountSourceCapability(
+        consumed.providerHomeMountSourceCapability,
+        provider,
+      )
+    : null;
+  if (!consumed || !source)
+    return Object.freeze({
+      status: "blocked",
+      reason: "provider_authentication_provider_home_unavailable",
+      provider,
+      action,
+      authenticationStatus: "unknown",
+      cleanupConfirmed: true,
+      manualRecoveryRequired: false,
+      providerEffectIssued: false,
+    });
+  return authenticateProvider(
+    provider,
+    action,
+    source,
+    consumed.stableLogicalHomeBindingHash,
+    undefined,
+    signal,
   );
 }

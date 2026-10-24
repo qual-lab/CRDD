@@ -552,13 +552,16 @@ test("Coordinator SourceのSymbol登録は実File集合と一致する", () => {
  * @cleanup N/A: Source読取りのみ。
  * @boundary PPR-IT-018=Direct Boundary: Source責務配置と依存方向。
  */
-test("CLIは四責務に閉じ診断Ownerから逆参照されない", () => {
+test("CLIは受付・表示と取消に閉じ実Ownerから逆参照されない", () => {
   const root = path.join(repositoryRoot, "40_Develop/coordinator/src");
   assert.deepEqual(fs.readdirSync(path.join(root, "cli")).sort(), [
+    "authentication.ts",
     "cancellation.ts",
     "command.ts",
+    "doctor.ts",
     "options.ts",
     "recovery-report.ts",
+    "request.ts",
   ]);
   /**
    * 検査対象Source本文を読取り専用で取得する。
@@ -580,10 +583,18 @@ test("CLIは四責務に閉じ診断Ownerから逆参照されない", () => {
     read("cli/command.ts"),
     /storage\/settlement-store|function currentRecoveryOperationRoot/u,
   );
-  assert.match(
-    read("cli/command.ts"),
-    /resolveRuntimeOwnedCurrentRecoveryOperationRoot/u,
-  );
+  for (const file of [
+    "cli/command.ts",
+    "cli/doctor.ts",
+    "cli/request.ts",
+    "cli/authentication.ts",
+  ]) {
+    assert.match(read(file), /from "\.\.\/api\.ts"/u);
+    assert.doesNotMatch(
+      read(file),
+      /from "\.\.\/(execution|storage|state|objective)\//u,
+    );
+  }
   assert.match(
     read("decision/external-send-grant.ts"),
     /export function withInteractiveConsoleOutcome/u,

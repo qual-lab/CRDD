@@ -10,7 +10,7 @@ Objectiveは次の六Sourceを目標とする。要求固有の型・検査は`r
 
 同様に、受入判断は`decision/acceptance.ts`、人間判断とPrincipal観測は`decision/lifecycle.ts`、状態照会は`state/query.ts`へ統合する。Principal・Root・Revision・保存接続と各処理の失敗境界を消さず、公開性を表すFileを別名で再作成しない。
 
-後続の正式API切替では`src/api.ts`が外部操作名・入力／結果契約の境界となり、`src/index.ts`はそこからの明示公開だけを持つ。CLI／MCP／Workbenchは同じ実操作へ接続する。APIは業務判断・状態・Lock・Retry・保存を所有せず、内部OwnerからAPIやCLIへ逆依存しない。安定契約をそのまま満たす実体には不要Wrapperを作らず、内部Factory・Writer・遷移は全Consumerを正式操作へ移行後にRootから外す。現在の公開217項目を一律維持せず、一律削除もしない。
+正式APIは[正式API・CLIの責務境界](01_Architecture.md#formal-api-cli)に従う。src/api.tsを正式操作の境界とし、Rootは同じAPIの明示公開だけを持つ。内部Factory・Writer・遷移はRootから除き、Ownerの直接試験と公開操作の結合試験を分ける。
 
 最初のObjective構造単位では、Rootの名前・署名・型／値区分、CLIの動作、保存六Sourceの本文・Schema・CAS・排他・順序を維持する。新API・CLI文法・認証・AI選択設定は後続の契約変更として別に検証する。旧Pathの互換barrelは残さず、直接利用側・検証用閉包・登録を実Ownerへ同時追従する。
 
@@ -441,7 +441,7 @@ Orchestratorの純粋判定はOS固有のPath、principal、Filesystem保護、L
 
 Objectiveは任意の作業分類`workType`と編集担当の明示選択`choice`（Provider／Model／Effort）を受ける。初回だけRepository設定から編集担当・独立レビュー担当の組を固定し、Project rootへ保存する。レビューへ明示選択を継承しない。同じMilestoneへの再受付では、明示された分類・選択を保存値と照合し、不一致はenqueue前に拒否する。省略された項目は保存値を継承し、現在設定やCatalogを読み直さない。旧`requestedProfileId`／Provider自動選択入力は受理しない。入力やMCP metadataからAuthorityを生成しない。
 
-WorkbenchのPromptから変更を作る操作は別のSingle Task操作であり、公開Objectiveと同じ操作には統合しない。現在はObjectiveの入力・保存選定・Taskへの組搬送に加え、Model Grant／Task Packet／PreparedPlan／SingleTask／Operation Identity v2の内部接続まで候補実装している。Home許可はoperation・provider・Homeへ分離済みである。公開利用側・旧Profile Store撤去・正式API・全体回帰は未完了であり、内部接続の限定試験を公開Capabilityや実AIの完成へ換算しない。
+WorkbenchのPromptから変更を作る操作は別のSingle Task操作であり、公開Objectiveと同じ操作には統合しない。Objectiveの入力・保存選定・Taskへの組搬送に加え、Model Grant／Task Packet／PreparedPlan／SingleTask／Operation Identity v2の内部接続を実装した。Home許可はoperation・provider・Homeへ分離済みである。公開利用側のAI選定接続と旧Profile Store撤去は完了し、正式API・CLIも実装候補へ切り替えた。固定全体回帰と最終レビューは変更計画で追跡し、内部接続の限定試験を実AIの完成へ換算しない。
 
 Project State参照は`requestId`、`projectId`および`repositoryRevision`だけを受け取る。状態参照の処理は読取りAPIだけを呼び、書込み、Queue更新、Lease、Task実行または判断Capabilityを構成しない。結果は次を区別する。
 
@@ -461,13 +461,13 @@ unknown   Store、Identityまたは改訂版を現在値として確認不能
 
 | 操作／現在Symbol | 入力と結果 | 主な利用側 | Authority／Effect |
 |---|---|---|---|
-| `runCoordinatorPublicObjective`／`executeCoordinatorObjective` | 固定Objective、Repository・Revision、縮小Authority、分類・明示選択と保存済み選定組、取消 → 相関検査済み結果 | CLI、MCP Server | 初回選定と継承を区別し、Project Stateを保存する。下位の新選定接続は未完了。Task完了から受入を生成しない。 |
+| `runObjective`／内部`executeCoordinatorObjective` | 固定Objective、Repository・Revision、縮小Authority、分類・明示選択と保存済み選定組、取消 → 相関検査済み結果 | CLI、MCP Server | 初回選定と継承を区別し、Project Stateを保存する。下位の新選定接続は未完了。Task完了から受入を生成しない。 |
 | `runCoordinatorOperation` | Queue・Task・Attempt・Operationの結合 → 各Task結果と未解決義務 | Objective操作 | 待機前のIntent保存、待機後の再検査、下位実行だけ。Provider差を実装しない。 |
 | `manageCoordinatorWorkspace`／`executeWorkspaceCommand` | Workspace、Base、選択差分、固定Commit、取込先HEADと現在認可 → Git結果と保存結果 | Workbench Server、許可済みMCP操作 | 固定と採用を別操作にし、採用時は原則二親Merge。自動Commit／採用なし。 |
 | `recordCoordinatorAcceptanceDecision` | 対象Objective／Milestone、根拠Revision、人間判断 → 一回の判断記録 | CLI、MCP Server | 受入・差戻し・判断待ちのみ。Task作成0、Provider Effect 0。 |
 | `issueCoordinatorHumanDecision`／`submitCoordinatorHumanDecision` | exact判断要求・許可選択肢・一回Capability → 継続状態と適用結果 | 判断操作 | 保護保存とProject Stateの別境界を再照合し、跨る一括確定を主張しない。 |
 | `replaceCoordinatorHumanDecision`／`invalidateCoordinatorHumanDecision`／`recoverCoordinatorHumanDecision` | 現在判断・適用世代・exact回復参照 → 置換／失効／回復結果 | 判断操作 | 旧Capabilityと現在適用を検査する。応答喪失から自動再発行しない。 |
-| `queryCoordinatorState`／`runCoordinatorPublicStateQuery` | request・project・Revision → observed／absent／unknown | CLI、MCP Server、Workbench Server | 読取りのみ。不存在を未開始・成功へ読み替えない。 |
+| `queryState`／内部`queryCoordinatorState` | request・project・Revision → observed／absent／unknown | CLI、MCP Server、Workbench Server | 読取りのみ。不存在を未開始・成功へ読み替えない。 |
 
 公開入口は上位操作と検査関数を公開し、保存部品やOS補助の内部関数全数をexportしない。開発用依存注入・Fixtureはtestsへ閉じ、本番入口に任意Adapterを差し込むAPIを新設しない。
 
@@ -508,7 +508,7 @@ Owner型・閉じた検査・実Store Readerは候補実装済み・Owner局所�
 
 `template/tools/crdd-coordinator.ts`の既存Project操作のコマンドは保持する。Projectと単一Taskの業務CLIはOrchestratorの受付へ配送し、単一Task実行はそこからCoordinatorの公開Task APIへ接続する。配送だけのためにCoordinatorのlibraryへOrchestrator依存を入れない。MCP ServerはOrchestratorの公開APIを直接利用し、Coordinatorから上位Applicationを取得しない。
 
-業務CLIの入力・新品初期化・Objective受付・取消解除と公開JSON出力は統合Coordinatorの`src/cli/command.ts`が所有する。用途Dispatcherは`cli/command.ts`で、直接Project／Taskと対話・自動配送を同じ入口へ接続する。templateは単一binを一回importするだけで、元stdin・cwd・環境を変更しない。128KiB・厳格UTF-8・一意JSONは`cli/options.ts`、Signal取消は同じ`cli/cancellation.ts`へ閉じる。旧単体Taskの案内拒否は撤去し、Workspace未指定は本番受付で拒否する。doctorの表示と引数は既存Ownerを維持する。単一Dispatcherの実装候補を切替済みで、利用側・回帰の成立は現在検証中である。
+業務CLIはsrc/cli/request.tsがstdin・表示・取消を所有し、initializeProject／runObjective／runTaskへ接続する。command.tsは対象→操作を配送し、templateは単一binを一回importする。128KiB・厳格UTF-8・一意JSONはoptions.ts、Signal取消はcancellation.tsを維持する。診断・回復の表示はdoctor.ts、処置は正式APIから実Execution Ownerへ委譲する。旧起動モードの互換配送や自動Direct化は行わない。
 
 ```text
 配布CLIの薄い配送

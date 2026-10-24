@@ -8,10 +8,8 @@
  */
 import { taskExecutionSelections } from "./ai-selection.ts";
 import assert from "node:assert/strict";
-import {
-  createCoordinatorState,
-  initializeCoordinatorSnapshot,
-} from "../../src/index.ts";
+import { createCoordinatorState } from "../../src/state/model.ts";
+import { initializeCoordinatorSnapshot } from "../../src/storage/current-state.ts";
 import {
   writeCoordinatorSnapshotState,
   createCoordinatorSnapshotPersistencePorts,

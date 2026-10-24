@@ -125,10 +125,14 @@ import {
   acquireRuntimeOwnedHostOperationKernelLock,
 } from "./kernel-lock.ts";
 import { setImmediate as yieldRecoveryEvents } from "node:timers/promises";
-import { inspectRuntimeOwnedDevelopmentOperationContext } from "./diagnostics.ts";
+import {
+  inspectRuntimeOwnedDevelopmentOperationContext,
+  recoverDockerIsolationProbe,
+} from "./diagnostics.ts";
 import {
   inspectRuntimeOwnedWindowsProviderHomeCandidate,
   consumeRuntimeOwnedProviderHomeObservationCapability,
+  readExecutionCancellation,
 } from "./authority.ts";
 import { verifyRuntimeOwnedDockerProviderSubmissionNotice } from "./observation.ts";
 import {
@@ -214,6 +218,86 @@ function recoveryId(value: unknown): value is string {
     value.length > 0 &&
     value.length <= MAX_RECOVERY_ID_LENGTH
   );
+}
+
+/**
+ * exactな回復参照を既存の種類別Ownerで再入場する。
+ * @responsibility CLIにあった対象相関と種類別接続を実行Ownerへ戻す。
+ * @trace ARCH-000008
+ * @input recoveryId: 元参照、rootCapability: 現在Repository、signal: 取消。
+ * @returns 元参照に結合した既存回復結果又は固定拒否。
+ * @precondition 呼出し元が今回の回復を明示要求する。
+ * @postcondition 相関が確認できない対象へ処置せず、内部Rootを返さない。
+ * @effect 既存の現在状態観測と、確認済みexact対象の正式回復だけ。
+ * @failure 不正Signal・取消・対象不明では処置を開始しない。
+ * @invariant 新しい回復ID・Registry・再試行・汎用強制清掃を追加しない。
+ * @boundary 正式回復操作と既存Task／Host／診断／修復Owner。
+ * @security 種類名だけで所有権を認定せず、元のRoot相関を必要とする。
+ * @concurrency Taskの既存非同期取消を伝播する。同期Host処理に存在しない中断保証を作らない。
+ */
+export async function resumeRuntimeOwnedExecution(
+  recoveryId: string,
+  rootCapability: unknown,
+  signal: AbortSignal,
+) {
+  const cancellation = readExecutionCancellation(signal);
+  if (cancellation !== false) {
+    if (recoveryId.startsWith("docker-runtime-repair."))
+      return Object.freeze({
+        status: "blocked" as const,
+        reason:
+          cancellation === null
+            ? ("runtime_repair_boundary_unavailable" as const)
+            : ("runtime_repair_cancelled" as const),
+        recoveryId,
+        finalCheckpointConfirmed: false,
+        outcomeConfirmed: false,
+        retentionConfirmed: false,
+        retentionReviewAfter: null,
+        historyConfirmed: false,
+        completionConfirmed: false,
+        nativeCleanupConfirmed: false,
+      });
+    return Object.freeze({
+      status: "blocked" as const,
+      reason:
+        cancellation === null
+          ? "coordinator_recovery_signal_invalid"
+          : "coordinator_recovery_cancelled",
+      recoveryId,
+      hostCleanupCompleted: false,
+    });
+  }
+  if (recoveryId.startsWith("docker-task."))
+    return recoverRuntimeOwnedDockerTaskForCurrentConsumer(
+      recoveryId,
+      rootCapability,
+      signal,
+    );
+  if (recoveryId.startsWith("docker-runtime-repair."))
+    return projectRuntimeRepairObservation(
+      await repairRuntimeOwnedDockerRuntime(
+        rootCapability,
+        signal,
+        recoveryId,
+        "repair",
+      ),
+      recoveryId,
+    );
+  const operationRoot = resolveRuntimeOwnedCurrentRecoveryOperationRoot(
+    recoveryId,
+    rootCapability,
+  );
+  if (operationRoot === null)
+    return Object.freeze({
+      status: "blocked" as const,
+      reason: "coordinator_recovery_current_operation_unconfirmed",
+      recoveryId,
+      hostCleanupCompleted: false,
+    });
+  return recoveryId.startsWith("host.")
+    ? recoverOwnedOperationDirectories(recoveryId, null, operationRoot)
+    : recoverDockerIsolationProbe(recoveryId, operationRoot);
 }
 
 /**
@@ -7140,4 +7224,50 @@ export function consumeDockerRecoveryReceiptAfterProjectSettlement(
       });
     },
   );
+}
+
+/**
+ * 修復Ownerの観測を公開可能な結果だけへ縮約する。
+ * @responsibility CLIで行っていた固定field投影を共通操作へ移す。
+ * @trace ARCH-000008
+ * @input result: 既存修復Ownerの結果、expectedRecoveryId: exact再入場又は新規null。
+ * @returns 状態・元参照・保存／回収／保持の確認値だけ。
+ * @precondition 入力は同じProcessの既存Ownerが生成した値。
+ * @postcondition 内部publication・marker・checkpointを含めない。
+ * @effect N/A: 結果の縮約だけ。
+ * @failure exact参照不一致は元参照だけを保持し、全確認値falseの固定拒否へ閉じる。
+ * @invariant 別操作の成立を要求元の修復成功へ転用しない。
+ * @boundary 内部修復結果と正式API／CLI。
+ * @security Host Path・内部権限・保存本文を公開しない。
+ * @concurrency 同期の値投影。
+ */
+export function projectRuntimeRepairObservation(
+  result: Awaited<ReturnType<typeof repairRuntimeOwnedDockerRuntime>>,
+  expectedRecoveryId: string | null,
+) {
+  if (expectedRecoveryId !== null && result.recoveryId !== expectedRecoveryId)
+    return Object.freeze({
+      status: "blocked" as const,
+      reason: "runtime_repair_boundary_unavailable" as const,
+      recoveryId: expectedRecoveryId,
+      finalCheckpointConfirmed: false,
+      outcomeConfirmed: false,
+      retentionConfirmed: false,
+      retentionReviewAfter: null,
+      historyConfirmed: false,
+      completionConfirmed: false,
+      nativeCleanupConfirmed: false,
+    });
+  return Object.freeze({
+    status: result.status,
+    reason: result.reason,
+    recoveryId: result.recoveryId,
+    finalCheckpointConfirmed: result.finalCheckpointConfirmed,
+    outcomeConfirmed: result.outcomeConfirmed,
+    retentionConfirmed: result.retentionConfirmed,
+    retentionReviewAfter: result.retentionReviewAfter,
+    historyConfirmed: result.historyConfirmed,
+    completionConfirmed: result.completionConfirmed,
+    nativeCleanupConfirmed: result.nativeCleanupConfirmed,
+  });
 }

@@ -18,7 +18,7 @@ import {
   readRepositoryAiSelection,
   type AiSelectionChoice,
 } from "../../coordinator/src/index.ts";
-import { createRepositoryTaskRequests } from "../../coordinator/src/index.ts";
+import { openTaskSession } from "../../coordinator/src/index.ts";
 import { startWorkbench, readWorkbenchProjectSurface } from "../src/index.ts";
 import {
   createWorkbenchAiVerificationHttpClient,
@@ -86,12 +86,12 @@ async function main() {
     readRepositoryAiSelection(verified.capability).snapshot?.identity ===
       configHash;
   const surface = await readWorkbenchProjectSurface(root);
-  const owner = createRepositoryTaskRequests(
-    verified.capability,
-    surface.context.projectId,
-    "local-workbench-user",
-    permitted,
-  );
+  const owner = openTaskSession({
+    rootCapability: verified.capability,
+    projectId: surface.context.projectId,
+    principalId: "local-workbench-user",
+    authorize: permitted,
+  });
   const handle = await startWorkbench({
     workingDirectory: root,
     port: 0,

@@ -420,3 +420,61 @@ Workbenchは旧Repository／Host Profile管理を撤去し、選択Repositoryの
 旧Profile本体・Store・既定JSON・未接続のFamily／Tier候補探索を撤去し、Model構文検査は既存Provider validationへ本文と型を移管した。退役三Suiteを登録から除き、移管した現役Suiteは安定IDと新Pathを接続した。AI Adapter全22件成功（3,191.7199ms）と静的検査、Coordinatorの固定選定・Grant・可用性・搬送32件、直接結合18件、追加Codex／助言13件が成功した。Workbench直接利用側21件も通常環境で成功（37,600.6773ms）。初回の制限環境ではlocalhost EACCES由来の三件不合格を保持し、Oracleを変えず再確認した。Header全数GateとCatalog383件の値検査は成功。Source・文書／登録の限定独立再確認は、Header・表記追従後の全重大度残指摘0。死んだ未計測カウンタの0 assertを撤去し、実Context観測・Runtime一回／拒否0・元回復参照の確認を維持した。
 
 この単位で設定保存・現在選定・Provider技術対応のOwnerを分離した。通常実行・現行設定・保持②を実操作していない。正式API／CLIの公開縮小・本番Consumer一斉切替・新構成固定全体回帰と最後の実AI／認証／人間確認は別途残る。
+
+### 正式操作・CLIの切替候補
+
+着手前の独立照合により、診断はpassiveでも一時Operation領域とCommand／Git観測を持つため、厳密なEffect 0とは表示しない。修復・再起動・Provider実行を発行しない診断と、明示した隔離試験を区別する。安全な非Authority投影のない`inspectRecovery`は公開しない。内部Root／相関resolverもRoot APIへ出さない。
+
+| 正式操作 | 実体Owner・入力と不変条件 |
+|---|---|
+| `openTaskSession` | 既存Task受付Owner。検証済みRoot、Project／Principal、現在authorize、consumerの信頼したContextを受け、同じstart／observe／cancel／wait／closeを返す。JSON入力へcallbackやRoot権限を追加しない |
+| `runTask` | 同じTask Owner。Sessionを一回開きstart→wait→finally close。一次結果とclose不明を別に保持し再送しない。CLIのSignal登録／解除はCLIへ残す |
+| `initializeProject` | 既存Writerへの初期化を状態Ownerへ移す。最寄りRootを検証し既存Binding導出を使う。任意Bindingを公開要求へ追加しない |
+| `runObjective / submitDecision / acceptResult / queryState` | 現在の公開操作実体から直接再export。Runtime-owned Principal照合、認可、保存・取消を維持 |
+| `executeWorkspace / queryActivity` | 現在のWorkspace操作と認可済みRepository集合のReader。MCP／Workbenchが現在のAM判定を行い、APIで権限を複製しない |
+| 設定・Network・認証・能力一覧 | 実Consumerが使う新設定読書き・検査・型、Network読取りと共通認証を明示公開。能力一覧は現実装済み操作だけを表示 |
+| 診断・回復・修復・保持 | exact参照と検証済みRootの既存操作へ限定接続。種類別の内部処理・再照合は実行Owner、TTY／JSON／Signal／表示はCLI。汎用dispatcherを追加しない |
+
+公開型・検査は上記要求／結果と本番ConsumerのDTO検査だけに限定する。内部Factory・Port・Writer・純粋遷移をRootから外し、Owner試験は実Ownerを直接読む。公開Envelopeを`crdd-coordinator/public-runtime/v2`へ一斉更新するが、保存Schema・Recovery Identity・DTO fieldの意味は変更しない。旧Envelope・旧CLI aliasは受理せず、移行はフロントAIが案内する。
+
+CLIは`task run / project init / project run / doctor check / doctor isolation / recovery resume / recovery restart-docker / maintenance repair-docker / maintenance retain-repair / auth status|login / capabilities / help`。未接続の候補操作や回復inspectはhelpへ出さない。開発検証は既存scriptsを直接使い、一般CLIのverify入口と起動用途別の別名は廃止する。TTY・機械出力・同意の条件は操作ごとに維持する。
+
+### 正式API・CLIの移行手順と確認範囲
+
+フロントAIは通常実行の前に、呼出し元を以下へ更新する。製品コードへ旧形式Reader・alias・自動再送を追加しない。
+
+| 旧利用 | 新しい利用 | 維持する条件 |
+|---|---|---|
+| Rootの内部Factory・Writer・遷移 | 正式操作、又は同Package内のOwner試験 | 外部Consumerから保存Writerへ迂回しない |
+| `createRepositoryTaskRequests(root, project, principal, authorize, consumer)` | `openTaskSession({rootCapability, projectId, principalId, authorize, consumer})` | ServerがSessionを所有しcloseを待機 |
+| 単発CLI自身のstart／wait／close | `runTask(context, command, signal)` | 同一Session、一回実行、一次失敗とclose失敗を分離 |
+| `task --request-stdin --json` | `task run --request-stdin --json` | 明示Workspace、機械向け出力、取消join |
+| `project --initialize --json` | `project init --json` | 最寄りの検証済みRoot。任意Bindingを注入しない |
+| `project --request-stdin --json` | `project run --request-stdin --json` | 同じObjective、認可・保存・受入を維持 |
+| `doctor [--isolation]` | `doctor check`／`doctor isolation` | 診断と能動隔離試験を区別 |
+| `doctor --recover-isolation <id>` | `recovery resume <id>` | 同じexact参照、他の操作へ付け替えない |
+| `doctor --restart-docker-for-recovery <id>` | `recovery restart-docker <id>` | 再起動とTask回復を混同しない |
+| `doctor --repair-docker-desktop-runtime` | `maintenance repair-docker` | 明示操作だけ。通常実行から自動修復しない |
+| `doctor --retain-docker-runtime-repair <id>` | `maintenance retain-repair <id>` | 既定7日の既存保持契約、技術再操作なし |
+| `automation capabilities --json` | `capabilities --json` | 能力説明を実行Authorityにしない |
+| `orchestrator-public-runtime/v1` | `public-runtime/v2` | DTO fieldの意味・保存Schemaは変更しない |
+
+上表は呼出し元の移行であり、実物の旧設定・未終了記録の削除を許可しない。旧Host Profileを新しいModelへ推測変換せず、Repositoryの五役割・分類・上書きを人間が確認した値で作る。主Repository設定と保持中の②は今回操作しない。過去の正式Evidence・署名・Hashも変更しない。
+
+実装候補は正式Rootの縮約と本番Consumer追従、旧CLIモード撤去へ接続した。固定結果契約の切替、Signal解除失敗で一次結果・exact参照を保持すること、修復結果の別ID成功を拒否することを外部AIなしで検証する。実AI・実認証・人間操作の確認は最後の独立した承認境界として残す。
+
+### 正式API・CLIの固定候補と局所完了 — 2026-10-24
+
+正式Rootの実行値は39、内部Factory・Writer・状態遷移を非公開にした。Task一回操作と継続Sessionは同じOwnerを使い、修復の別ID返却を元要求の成功へ転用しない。CLI解除不明は元結果・exact参照・下位cleanupを消さず副次失敗として返す。公開結果はv2だけ、保存Schemaと回復IDの意味は変更しない。
+
+| 確認範囲 | 観測した結果と限界 |
+|---|---|
+| 正式API・CLI・取消・結果相関の六Suite | 59件成功、71,934.0496ms、失敗・取消・skip・todo 0。実CLI、有限API代役と実本文の故障注入を含む。実認証・実Dockerは含めない |
+| MCP通常全体／Workbench通常全体 | 101件成功（269,564.0992ms）／80件成功（261,365.2444ms）、失敗・取消・skip・todo 0。実AIは起動しない |
+| Windows Process・公開初期化 | 模擬Providerの取消二件と新品合成Repositoryの初期化一件が成功。制限環境で失敗したhardlink拒否Caseも条件不変の通常Windowsで成功 |
+| 静的・登録・Header | Coordinatorのformat・型・lint・二Trace検査成功。lintは既存info84件のみ。Test Catalog383件valid、Test SourceのQuality Local Item全数Gate成功 |
+| 独立確認 | Sourceと文書・登録の再レビューは全重大度残指摘0。Source／利用側の固定集合SHA-256は`71bed59ab8f8e6bbe1526cc0b160e91da0974d299350da0120b13f0fa00d1bc6`で不変 |
+
+全体診断中に旧CLI呼出し・旧Profile fixtureとWindows制限環境由来の失敗を検出した。旧入力は新形式へ移し、拒否Oracleや保全条件を緩めず局所再確認した。診断中に試験を追従した実行は固定全体回帰の根拠にせず、本候補をCommitで固定して通常全体を確認する。現在文書のOwnerリンク三件とQuality関係の追従漏れも一意に修正した。歴史的CHG／Evidenceの旧リンクはそのまま保持し、Repository文書検査全体の不合格を現行候補のPassへ読み替えない。
+
+未実施は固定全体回帰の最終集計、実AI・実認証・人間による端末／画面確認、本体設定の実移行である。②の再試行・保持物の観測／操作、Docker実操作、認証情報の使用を行っていない。実AI等は送信内容・回数・試験物・停止条件を最後にまとめて提示してから実施する。

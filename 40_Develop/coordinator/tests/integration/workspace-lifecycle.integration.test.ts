@@ -24,20 +24,26 @@ import { devNull } from "node:os";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import test, { type TestContext } from "node:test";
+import { createCoordinatorState } from "../../src/state/model.ts";
+import { initializeCoordinatorSnapshot } from "../../src/storage/current-state.ts";
 import {
-  createCoordinatorState,
-  initializeCoordinatorSnapshot,
   manageCoordinatorWorkspace,
   resolveCoordinatorWorkspaceTaskTarget,
+} from "../../src/workspace/operations.ts";
+import {
   reserveProjectTaskStart,
   prepareProjectTaskHandoff,
   observeProjectTaskStarted,
   settleProjectTask,
+} from "../../src/task/lifecycle.ts";
+import {
   runCoordinatorOperation,
   createCoordinatorExecutionHostPorts,
-  executeCoordinatorObjective,
-  runCoordinatorSingleTaskAttempt,
-  executeWorkspaceCommand,
+} from "../../src/task/dispatch.ts";
+import { executeCoordinatorObjective } from "../../src/objective/execute.ts";
+import { runCoordinatorSingleTaskAttempt } from "../../src/execution/controller.ts";
+import {
+  executeWorkspace as executeWorkspaceCommand,
   inspectWorkspaceCommand,
   type WorkspaceView,
 } from "../../src/index.ts";
@@ -49,7 +55,7 @@ import {
   writeCoordinatorSnapshot,
 } from "../../src/storage/current-state.ts";
 import { deriveCoordinatorRepositoryBindingId } from "../../src/state/model.ts";
-import type { CoordinatorWorkspaceRequest } from "../../src/index.ts";
+import type { CoordinatorWorkspaceRequest } from "../../src/workspace/operations.ts";
 import { inspectMcpCoordinatorObjectiveResult } from "../../../mcp-server/src/index.ts";
 import { workspacePlanReadyForAcceptance } from "../../src/workspace/operations.ts";
 import { executeCoordinatorPublicAcceptanceDecision } from "../../src/decision/acceptance.ts";

@@ -6274,7 +6274,7 @@
       "level": "integration",
       "kind": "contract",
       "semanticTags": [
-        "orchestrator",
+        "coordinator",
         "public-owner",
         "cli-dispatch"
       ],
@@ -6282,9 +6282,10 @@
       "externalProviderEffect": false,
       "humanInput": false,
       "postconditions": [
-        "business_exports_owned_by_orchestrator",
-        "coordinator_has_no_upper_business_dispatch",
-        "cli_input_rejections_preserved"
+        "formal_api_exports_match_declared_root_surface",
+        "internal_factories_and_writers_not_public",
+        "cli_input_rejections_preserved",
+        "one_shot_task_preserves_request_and_joins_owner"
       ],
       "mandatoryByDefault": true
     },

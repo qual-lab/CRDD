@@ -18,7 +18,7 @@ import {
   COORDINATOR_SINGLE_TASK_PRE_EFFECT_REJECTIONS,
   type CoordinatorSingleTaskDependencies,
   runCoordinatorSingleTaskAttempt,
-} from "../../src/index.ts";
+} from "../../src/execution/controller.ts";
 import { startRuntimeOwnedCoordinatorTask } from "../../src/execution/controller.ts";
 import { observeCoordinatorTaskCompletion } from "../../src/execution/observation.ts";
 import { snapshotCoordinatorWorkspaceResult } from "../../src/execution/controller.ts";

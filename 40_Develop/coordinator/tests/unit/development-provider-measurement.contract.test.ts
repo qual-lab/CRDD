@@ -8,6 +8,7 @@
  * @scope development、provider、measurement
  * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
  */
+import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
@@ -76,10 +77,9 @@ function fixture(outcomes: readonly string[]) {
   const starts: string[] = [];
   let cancellationCount = 0;
   let time = 0;
-  const tasks = ["codex", "claude"].map((provider) => {
+  const tasks = (["codex", "claude"] as const).map((provider) => {
     const parsed = snapshotCoordinatorTaskRequest({
-      frontProvider: provider === "codex" ? "claude" : "codex",
-      requestedExecutorProvider: provider,
+      taskExecutionSelections: taskExecutionSelections(provider),
       objective: "Update fixture",
       acceptanceCriteria: ["Expected content"],
       allowedPaths: ["fixture.txt"],
@@ -117,7 +117,12 @@ function fixture(outcomes: readonly string[]) {
     ) => {
       assert.equal(candidate, capability);
       const outcome = outcomes[starts.length];
-      starts.push(String(task.requestedExecutorProvider));
+      starts.push(
+        String(
+          (task.taskExecutionSelections as { executor: { provider: string } })
+            .executor.provider,
+        ),
+      );
       if (outcome === "throw") throw new Error("private details");
       return {
         readExecutionTiming: () => ({ finished: true }),

@@ -14,6 +14,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import test from "node:test";
+import { stripTypeScriptTypes } from "node:module";
+import { runInNewContext } from "node:vm";
+import { readExecutionCancellation } from "../../src/execution/authority.ts";
 import * as coordinator from "../../src/index.ts";
 
 const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
@@ -66,21 +69,99 @@ test("三公開CLI入口はProjectとTaskの六経路を同じ条件で受け付
           64,
           `${entry}/${command}/${mode}: ${result.stderr}`,
         );
-        if (mode === "interactive") {
-          assert.equal(result.stdout, "");
-          assert.match(
-            result.stderr,
-            /coordinator_launch_terminal_output_required/,
-          );
-        } else {
-          assert.equal(result.stderr, "");
-          assert.deepEqual(JSON.parse(result.stdout), {
-            command,
-            status: "blocked",
-            reason: `${command}_arguments_invalid`,
-          });
-        }
+        assert.equal(result.stdout, "");
+        assert.match(
+          result.stderr,
+          /coordinator_launch_(arguments|mode)_invalid/u,
+        );
       }
+    }
+  }
+});
+
+/**
+ * 認証・ProjectのCLI解除不明でも一次結果を保持する。
+ * @responsibility throwと非releasedを同じ副次失敗へ閉じ、元回復参照を消さない。
+ * @trace PRL-IT-012
+ * @precondition 実CLIと既存API・取消bindingの有限代役。
+ * @stimulus 回復必要結果の後、解除をthrow又は非releasedにする。
+ * @observation stdoutの一件JSON、元field、終了値と下位一回呼出し。
+ * @oracle 一次reason・exact ID・下位cleanupを保持しexit2、自動再送0。
+ * @cleanup 子Process終了。実AI・認証・Docker・保存なし。
+ * @boundary PRL-IT-012=Related 2 Blocks: CLI→正式API→CLI解除。
+ */
+test("認証とProjectは解除throwと非releasedでも一次結果と回復参照を保持する", () => {
+  for (const target of ["auth", "project"]) {
+    for (const failure of ["throw", "not_released"]) {
+      const api = pathToFileURL(
+        path.join(repositoryRoot, "40_Develop/coordinator/src/api.ts"),
+      ).href;
+      const options = pathToFileURL(
+        path.join(repositoryRoot, "40_Develop/coordinator/src/cli/options.ts"),
+      ).href;
+      const cancellation = pathToFileURL(
+        path.join(
+          repositoryRoot,
+          "40_Develop/coordinator/src/cli/cancellation.ts",
+        ),
+      ).href;
+      const entry = pathToFileURL(
+        path.join(
+          repositoryRoot,
+          "40_Develop/coordinator/src/cli",
+          target === "auth" ? "authentication.ts" : "request.ts",
+        ),
+      ).href;
+      const script = `import {mock} from"node:test";let calls=0;
+   const actual=await import(${JSON.stringify(api)});
+   const result={status:"blocked",reason:"primary_fixture_failure",recoveryId:"same-exact-fixture-id",cleanupConfirmed:false,manualRecoveryRequired:true,recoveryIds:["same-exact-fixture-id"],effectState:"unknown"};
+   /**
+    * 固定の一次結果を返して公開API呼出し数を数える。
+    * @responsibility CLI解除故障とは独立した元結果を供給する。
+    * @trace PRL-IT-012
+    * @precondition 合成の固定結果だけを使用する。
+    * @stimulus 実CLIから正式APIを一度呼ぶ。
+    * @observation 呼出し数と返却された元結果を得る。
+    * @oracle 副次失敗でも元reasonと回復参照を保持する。
+    * @cleanup N/A: 子Process内のメモリ値のみ。
+    * @boundary PRL-IT-012=Related 2 Blocks: CLIとAPI代役。
+    */
+   const operation=async()=>{calls++;return result;};
+   mock.module(${JSON.stringify(api)},{exports:{...actual,runObjective:operation,getAuthenticationStatus:operation}});
+   const options=await import(${JSON.stringify(options)});mock.module(${JSON.stringify(options)},{exports:{...options,readBoundedTaskRequestFromStdin:()=>({})}});
+   mock.module(${JSON.stringify(cancellation)},{exports:{bindTaskCliCancellationSignals:()=>({status:"bound",unbind:()=>{if(${JSON.stringify(failure)}==="throw")throw Error("PRIVATE_DETAIL");return {status:"unknown"};}})}});
+   const cli=await import(${JSON.stringify(entry)});
+   if(${JSON.stringify(target)}==="auth")await cli.runAuthenticationCommand(["status","codex","--json"]);else await cli.runProjectCommand(["run","--request-stdin","--json"]);
+   if(calls!==1)throw Error("incorrect_call_count");`;
+      const child = spawnSync(
+        process.execPath,
+        [
+          "--experimental-test-module-mocks",
+          "--disable-warning=ExperimentalWarning",
+          "--input-type=module",
+          "-e",
+          script,
+        ],
+        {
+          cwd: repositoryRoot,
+          encoding: "utf8",
+          windowsHide: true,
+          timeout: 15000,
+        },
+      );
+      assert.equal(child.status, 2, child.stderr);
+      const result = JSON.parse(child.stdout);
+      assert.equal(result.reason, "primary_fixture_failure");
+      assert.equal(result.recoveryId, "same-exact-fixture-id");
+      assert.deepEqual(result.recoveryIds, ["same-exact-fixture-id"]);
+      assert.equal(result.cleanupConfirmed, false);
+      assert.equal(result.manualRecoveryRequired, true);
+      assert.equal(result.effectState, "unknown");
+      assert.equal(result.cliCleanupConfirmed, false);
+      assert.ok(result.cliReason);
+      if (target === "auth")
+        assert.equal(child.stdout.trim().split("\n").length, 1);
+      assert.doesNotMatch(child.stdout + child.stderr, /PRIVATE_DETAIL/);
     }
   }
 });
@@ -98,7 +179,7 @@ test("三公開CLI入口はProjectとTaskの六経路を同じ条件で受け付
  */
 test("受付Moduleのimportは起動せずProject拒否JSONのbytesを維持する", () => {
   const requestUrl = pathToFileURL(
-    path.join(repositoryRoot, "40_Develop/coordinator/src/cli/command.ts"),
+    path.join(repositoryRoot, "40_Develop/coordinator/src/cli/request.ts"),
   ).href;
   for (const example of [
     { call: "", input: "", reason: null },
@@ -108,7 +189,7 @@ test("受付Moduleのimportは起動せずProject拒否JSONのbytesを維持す�
       reason: "project_arguments_invalid",
     },
     {
-      call: 'await runProjectCommand(["--request-stdin", "--json"]);',
+      call: 'await runProjectCommand(["run", "--request-stdin", "--json"]);',
       input: "{",
       reason: "task_request_invalid_json",
     },
@@ -153,7 +234,7 @@ test("受付Moduleのimportは起動せずProject拒否JSONのbytesを維持す�
  */
 test("Taskの不正引数は本番入口で標準入力を読む前に拒否する", () => {
   const commandUrl = pathToFileURL(
-    path.join(repositoryRoot, "40_Develop/coordinator/src/cli/command.ts"),
+    path.join(repositoryRoot, "40_Develop/coordinator/src/cli/request.ts"),
   ).href;
   for (const args of [
     [],
@@ -229,87 +310,87 @@ test("移管したTask Readerは128KiBと厳格な入力拒否を維持する", 
  * @cleanup 子Processの終了を待ち、Filesystem生成・AI起動を行わない。
  * @boundary 実CLIと有限Owner。Docker／Provider実証ではない。
  */
-test("単発CLIは受付後の待機・終了例外でも元依頼IDを保持する", () => {
-  /**
-   * 実ModuleへのURLをRepository内の相対指定から作る。
-   * @responsibility 実ModuleへのURLをRepository内の相対指定から作る。
-   * @trace PRL-IT-012
-   * @precondition 固定repository Rootと既知Module相対Path。
-   * @stimulus pathToFileURLでModule URLへ変換する。
-   * @observation mock対象のexact URL。
-   * @oracle CLIと同じModuleを置換し別URLへ逸れない。
-   * @cleanup N/A: URL文字列生成だけ。
-   * @boundary 子Process Module接続の準備。FS変更なし。
-   */
-  const url = (relative: string) =>
-    pathToFileURL(path.join(repositoryRoot, relative)).href;
-  const script = `
-    import { mock } from "node:test";
-    /**
-     * 子Processの既存Moduleへ有限の失敗代役を重ねる。
-     * @responsibility 子Processの既存Moduleへ有限の失敗代役を重ねる。
-     * @trace PRL-IT-012
-     * @precondition 実Module exportsと指定override。
-     * @stimulus mock.moduleで元exportsを保持して必要fieldだけ置換する。
-     * @observation 実CLIの受付・wait・close回数と失敗JSON。
-     * @oracle 指定故障以外の入口を消さず元request IDと一次失敗を保持する。
-     * @cleanup 子Process終了でmockを破棄する。
-     * @boundary 実CLI本文と有限Module代役。AI・Dockerなし。
-     */
-    const replace = async (url, exports) => {
-      const actual = await import(url);
-      mock.module(url, { exports: { ...actual, ...exports } });
-    };
-    let starts = 0, waits = 0, closes = 0;
-    await replace(${JSON.stringify(url("40_Develop/coordinator/src/cli/options.ts"))}, {
-      readBoundedTaskRequestFromStdin: () => ({ mode: "workspace_edit", profileId: "PROFILE-100001", prompt: "synthetic", contextReferences: ["PROJECT_CONTEXT.md"], allowedPaths: ["source.txt"], externalSendConfirmed: true, expectedNetworkPolicyHash: "a".repeat(64), workspaceId: null })
-    });
-    await replace(${JSON.stringify(url("40_Develop/version-control/src/index.ts"))}, {
-      resolveVerifiedRepositoryRootFromWorkingDirectory: () => ${JSON.stringify(repositoryRoot)},
-      verifyRepositoryRoot: () => ({ status: "completed", capability: {} })
-    });
-    await replace(${JSON.stringify(url("40_Develop/ai-adapter/src/index.ts"))}, {
-      createRepositoryAiProfileCatalogStore: () => ({ status: "ready", store: {} })
-    });
-    await replace(${JSON.stringify(url("40_Develop/domain-model/src/index.ts"))}, {
-      readStableBoundedFileSnapshot: () => ({ bytes: Buffer.from("synthetic") }),
-      parseRepositoryProjectContextMarkdown: () => ({ projectId: "PRJ-test" })
-    });
-    await replace(${JSON.stringify(url("40_Develop/coordinator/src/task/requests.ts"))}, {
-      createRepositoryTaskRequests: () => ({
-        start: async () => { starts++; return { status: "accepted", requestId: "request-fixture", reason: null }; },
-        wait: async () => { waits++; throw new Error("synthetic_wait_failure"); },
-        close: async () => { closes++; throw new Error("synthetic_close_failure"); }
-      })
-    });
-    const { runSingleTaskCommand } = await import(${JSON.stringify(url("40_Develop/coordinator/src/cli/command.ts"))});
-    await runSingleTaskCommand(["--request-stdin", "--json"]);
-    process.stderr.write(JSON.stringify({ starts, waits, closes }));
-  `;
-  const result = spawnSync(
-    process.execPath,
-    [
-      "--experimental-test-module-mocks",
-      "--disable-warning=ExperimentalWarning",
-      "--input-type=module",
-      "-e",
-      script,
-    ],
-    { encoding: "utf8", windowsHide: true, timeout: 15000 },
+test("単発操作は受付後の待機・終了例外でも元依頼IDを保持する", async () => {
+  const source = fs.readFileSync(
+    new URL("../../src/task/requests.ts", import.meta.url),
+    "utf8",
   );
-  assert.equal(result.error, undefined);
-  assert.equal(result.status, 2, result.stderr);
-  const report = JSON.parse(result.stdout);
-  assert.equal(report.requestId, "request-fixture");
-  assert.equal(report.status, "unknown");
-  assert.equal(report.cleanupConfirmed, false);
-  assert.deepEqual(report.secondaryFailures, ["task_owner_join_unconfirmed"]);
-  assert.deepEqual(JSON.parse(result.stderr), {
-    starts: 1,
-    waits: 1,
-    closes: 1,
-  });
-  assert.equal(result.stdout.trim().split("\n").length, 1);
+  const body = stripTypeScriptTypes(
+    source
+      .slice(source.indexOf("export async function runTask("))
+      .replace("export ", ""),
+  );
+  for (const fault of [
+    "none",
+    "start",
+    "wait",
+    "close",
+    "wait_close",
+    "cancel",
+  ]) {
+    let starts = 0,
+      waits = 0,
+      closes = 0,
+      opens = 0;
+    const controller = new AbortController();
+    if (fault === "cancel") controller.abort();
+    const run = runInNewContext(body + ";runTask", {
+      readExecutionCancellation,
+      openTaskSession: () => {
+        opens++;
+        return {
+          start: async () => {
+            starts++;
+            if (fault === "start") throw Error("PRIVATE_FIXTURE_DETAIL");
+            return {
+              status: "accepted",
+              requestId: "request-fixture",
+              reason: null,
+            };
+          },
+          wait: async () => {
+            waits++;
+            if (fault.startsWith("wait")) throw Error("PRIVATE_FIXTURE_DETAIL");
+            return {
+              status: "completed",
+              requestId: "request-fixture",
+              reason: null,
+              cleanupConfirmed: true,
+              secondaryFailures: [],
+            };
+          },
+          close: async () => {
+            closes++;
+            if (fault.includes("close")) throw Error("PRIVATE_FIXTURE_DETAIL");
+          },
+        };
+      },
+    });
+    const result = await run({}, {}, controller.signal);
+    assert.equal(opens, fault === "cancel" ? 0 : 1);
+    assert.equal(starts, fault === "cancel" ? 0 : 1);
+    assert.equal(waits, ["cancel", "start"].includes(fault) ? 0 : 1);
+    assert.equal(closes, fault === "cancel" ? 0 : 1);
+    assert.equal(
+      result.requestId,
+      ["cancel", "start"].includes(fault) ? null : "request-fixture",
+    );
+    assert.equal(
+      result.status,
+      fault === "none"
+        ? "completed"
+        : fault === "cancel"
+          ? "blocked"
+          : "unknown",
+    );
+    assert.deepEqual(
+      Array.from(result.secondaryFailures),
+      fault.includes("close") ? ["task_owner_join_unconfirmed"] : [],
+    );
+    if (fault.startsWith("wait"))
+      assert.equal(result.reason, "task_entry_unconfirmed");
+    assert.doesNotMatch(JSON.stringify(result), /PRIVATE_FIXTURE_DETAIL/);
+  }
 });
 
 /**
@@ -320,144 +401,60 @@ test("単発CLIは受付後の待機・終了例外でも元依頼IDを保持す
  * @precondition 統合後の単一公開Moduleを読込み済みである。
  * @stimulus 公開値とPackage exportsを列挙する。
  * @observation Export名、関数型と業務入口の解決先を取得する。
- * @oracle 宣言済み120実行値とexact一致し、旧Package入口が存在しない。
+ * @oracle 宣言済み39実行値とexact一致し、内部Factory・Writerと旧Package入口が存在しない。
  * @cleanup N/A: Sourceを読み取るだけで実行、書込みや資源取得を発行しない。
  * @boundary PRL-IT-012=Direct Boundary: 公開ModuleとPackage設定。
  */
 test("統合Rootは業務操作と単発実行の明示公開集合を保持する", () => {
   assert.deepEqual(Object.keys(coordinator).sort(), [
-    "COORDINATOR_ACCEPTANCE_DECISION_CONTRACT",
-    "COORDINATOR_ACCEPTANCE_DECISION_STORE_CONTRACT",
-    "COORDINATOR_EXECUTION_CONTRACT",
     "COORDINATOR_HUMAN_DECISION_CONTRACT",
-    "COORDINATOR_INTEGRATION_CONTRACT",
-    "COORDINATOR_MAXIMUM_CONCURRENCY",
     "COORDINATOR_MAXIMUM_OBJECTIVES",
     "COORDINATOR_MAXIMUM_TASKS",
     "COORDINATOR_OBJECTIVE_INTAKE_CONTRACT",
-    "COORDINATOR_PLATFORM_BOUNDARIES",
-    "COORDINATOR_PLATFORM_BOUNDARY_GUARANTEES",
-    "COORDINATOR_PLATFORM_BOUNDARY_OPERATIONS",
-    "COORDINATOR_PLATFORM_CONTRACT",
-    "COORDINATOR_PLATFORM_CONTRACT_REVISION",
     "COORDINATOR_PUBLIC_RUNTIME_CONTRACT",
-    "COORDINATOR_REPLANNING_CONTRACT",
-    "COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT",
-    "COORDINATOR_SINGLE_TASK_ADAPTER_CONTRACT_REVISION",
-    "COORDINATOR_SINGLE_TASK_PRE_EFFECT_REJECTIONS",
-    "COORDINATOR_STATE_CONTRACT",
-    "COORDINATOR_STATE_QUERY_CONTRACT",
-    "COORDINATOR_TASK_PRE_EFFECT_REJECTIONS",
-    "acknowledgeProjectDockerRecoveryObligation",
-    "acquireRuntimeOwnedProjectStateKernelLock",
-    "applyCoordinatorAcceptanceDecision",
-    "applyCoordinatorHumanDecision",
-    "applyCoordinatorPartialReplan",
-    "coordinatorDecisionRecordId",
-    "createCoordinatorAcceptanceAuthorityAdapter",
-    "createCoordinatorDecisionCapabilityAdapter",
-    "createCoordinatorExecutionHostPorts",
-    "createCoordinatorObjectiveResult",
-    "createCoordinatorSnapshotAcceptanceDecisionStore",
-    "createCoordinatorSnapshotDecisionRecoveryStore",
-    "createCoordinatorSnapshotIntegrationRecordPort",
-    "createCoordinatorSnapshotPersistencePorts",
-    "createCoordinatorState",
-    "createCoordinatorTaskAttemptEvent",
-    "createCoordinatorTaskExecutionSet",
-    "createCoordinatorTaskRecoveryAdapter",
-    "createCurrentCoordinatorPersistencePorts",
-    "createRepositoryTaskRequests",
-    "createRuntimeProcessRecoveryIdentity",
-    "describeCoordinatorExecutionContract",
-    "describeCoordinatorObjectiveIntakeContract",
-    "describeCoordinatorPlatformContract",
-    "describeCoordinatorSingleTaskAdapterContract",
-    "describeCoordinatorStateContract",
-    "executeCoordinatorObjective",
-    "executeCoordinatorPublicAcceptanceDecision",
-    "executeCoordinatorPublicStateQuery",
-    "executeWorkspaceCommand",
-    "getRuntimeProcessInstanceIdentity",
-    "initializeCoordinatorSnapshot",
+    "acceptResult",
+    "authenticateProvider",
+    "diagnoseEnvironment",
+    "executeWorkspace",
+    "getAuthenticationStatus",
+    "getCapabilities",
+    "initializeProject",
+    "inspectAiSelectionChoice",
     "inspectCoordinatorDecisionRequest",
-    "inspectCoordinatorObjectivePlan",
     "inspectCoordinatorObjectiveRequest",
-    "inspectCoordinatorProjection",
-    "inspectCoordinatorSnapshotIntake",
     "inspectCoordinatorStateQuery",
     "inspectCoordinatorStateQueryResult",
     "inspectCoordinatorWorkspaceResults",
     "inspectRuntimeActivityObservation",
-    "inspectRuntimeProcessRecoveryIdentity",
+    "inspectSingleTaskCommand",
     "inspectWorkspaceCommand",
-    "invalidateCoordinatorHumanDecision",
-    "isCoordinatorDecisionRecord",
     "isCoordinatorObjectiveProjectionCorrelationValid",
     "isCoordinatorProjectionSemanticallyValid",
-    "isCoordinatorRecoveryIdentity",
-    "isSupportedCoordinatorNodeRuntime",
-    "issueCoordinatorHumanDecision",
-    "maintainCoordinatorSnapshot",
-    "manageCoordinatorWorkspace",
-    "markProjectTaskRecoveryObligationRecovering",
-    "observeProjectTaskStarted",
-    "observeRuntimeOwnedProjectClientPrincipal",
-    "observeRuntimeOwnedTransientTaskCompletion",
+    "isSupportedNodeRuntime",
+    "observeClientPrincipal",
+    "openTaskSession",
     "parseRuntimeActivityObservation",
-    "poisonRuntimeProcessAfterCleanupUnknown",
-    "prepareProjectTaskHandoff",
-    "projectCoordinatorState",
-    "queryCoordinatorState",
-    "readAuthorizedRuntimeActivity",
-    "readCoordinatorSnapshot",
-    "readCurrentCoordinatorState",
+    "queryActivity",
+    "queryState",
+    "readRepositoryAiSelection",
     "readRepositoryNetworkPolicies",
-    "recordCoordinatorAcceptanceDecision",
-    "recordCoordinatorExecutionEvent",
-    "recordProjectTaskOwnerLossRecoveries",
-    "recoverCoordinatorHumanDecision",
-    "recoverProviderAdviceHostOperation",
-    "recoverRuntimeOwnedDockerTaskForCurrentConsumer",
-    "replaceCoordinatorHumanDecision",
-    "requestCoordinatorHumanDecision",
-    "reserveProjectTaskStart",
-    "resolveCoordinatorPlatformAdapter",
-    "resolveCoordinatorReplan",
-    "resolveCoordinatorWorkspaceTaskTarget",
-    "resolveRuntimeOwnedDockerTaskCurrentCorrelations",
-    "retryCoordinatorTask",
-    "retrySettledProjectTaskRecoveries",
-    "runCoordinatorOperation",
-    "runCoordinatorPublicAcceptanceDecision",
-    "runCoordinatorPublicDecision",
-    "runCoordinatorPublicObjective",
-    "runCoordinatorPublicStateQuery",
-    "runCoordinatorSingleTaskAttempt",
-    "runCoordinatorTaskAttempt",
-    "runRepositoryAdvice",
-    "selectSchedulableProjectTasks",
-    "settleProjectTask",
-    "settleProjectTaskBeforeEffect",
-    "settleProjectTaskRecoveryObligation",
-    "snapshotCoordinatorWorkspaceResult",
-    "submitCoordinatorHumanDecision",
-    "validCoordinatorAcceptanceDecisionEnvelope",
-    "validCoordinatorAcceptanceDecisionRecord",
-    "validCoordinatorDecisionRecoveryIntent",
-    "validCoordinatorResultRecord",
+    "recoverExecution",
+    "repairDockerRuntime",
+    "restartDockerForRecovery",
+    "retainRepair",
+    "runObjective",
+    "runTask",
+    "saveRepositoryAiSelection",
+    "submitDecision",
   ]);
   for (const value of [
-    coordinator.executeCoordinatorPublicAcceptanceDecision,
-    coordinator.executeCoordinatorPublicStateQuery,
-    coordinator.observeRuntimeOwnedProjectClientPrincipal,
-    coordinator.runCoordinatorPublicAcceptanceDecision,
-    coordinator.runCoordinatorPublicDecision,
-    coordinator.runCoordinatorPublicObjective,
-    coordinator.runCoordinatorPublicStateQuery,
-  ]) {
+    coordinator.runObjective,
+    coordinator.submitDecision,
+    coordinator.acceptResult,
+    coordinator.queryState,
+    coordinator.observeClientPrincipal,
+  ])
     assert.equal(typeof value, "function");
-  }
   for (const entry of [
     "src/index.ts",
     "package.json",
@@ -538,22 +535,22 @@ test("配布CLIの上位配送は入力拒否契約を保持する", () => {
   );
   const cases = [
     {
-      args: ["project", "--invalid"],
-      input: "",
-      reason: "project_arguments_invalid",
-    },
-    {
-      args: ["automation", "project", "--request-stdin", "--json"],
+      args: ["project", "run", "--request-stdin", "--json"],
       input: "{",
       reason: "task_request_invalid_json",
     },
     {
-      args: ["project", "--request-stdin", "--json"],
+      args: ["project", "run", "--request-stdin", "--json"],
+      input: "{",
+      reason: "task_request_invalid_json",
+    },
+    {
+      args: ["project", "run", "--request-stdin", "--json"],
       input: Buffer.from([255]),
       reason: "task_request_invalid_utf8",
     },
     {
-      args: ["project", "--request-stdin", "--json"],
+      args: ["project", "run", "--request-stdin", "--json"],
       input: "x".repeat(128 * 1024 + 1),
       reason: "task_request_too_large",
     },
@@ -570,13 +567,13 @@ test("配布CLIの上位配送は入力拒否契約を保持する", () => {
     assert.equal(JSON.parse(result.stdout).reason, example.reason);
   }
   const commandSource = fs.readFileSync(
-    path.join(repositoryRoot, "40_Develop/coordinator/src/cli/command.ts"),
+    path.join(repositoryRoot, "40_Develop/coordinator/src/cli/request.ts"),
     "utf8",
   );
   assert.doesNotMatch(commandSource, /orchestrator\/src/);
   for (const args of [
-    ["task", "--request-stdin", "--json"],
-    ["automation", "task", "--request-stdin", "--json"],
+    ["task", "run", "--request-stdin", "--json"],
+    ["task", "run", "--request-stdin", "--json"],
   ]) {
     for (const input of [
       { objective: "legacy Bundle request" },
@@ -604,42 +601,19 @@ test("配布CLIの上位配送は入力拒否契約を保持する", () => {
       assert.equal(refused.stdout.trim().split("\n").length, 1);
     }
   }
-  // Node拒否を模擬するだけで、Project処理や外部Effectへ進めない。
-  for (const example of [
-    { args: ["project", "--invalid"], status: 2, json: false },
-    { args: ["project", "--invalid", "--json"], status: 2, json: true },
-    {
-      args: ["automation", "project", "--request-stdin", "--json"],
-      status: 64,
-      json: false,
-    },
+  // Node拒否は表示形式にかかわらず操作前に停止する。
+  for (const args of [
+    ["project", "run", "--request-stdin", "--json"],
+    ["task", "run", "--request-stdin", "--json"],
   ]) {
-    const script = `Object.defineProperty(process.versions, "node", { value: "24.11.0" }); process.argv = [process.execPath, ${JSON.stringify(launcher)}, ...${JSON.stringify(example.args)}]; await import(${JSON.stringify(pathToFileURL(launcher).href)});`;
+    const script = `Object.defineProperty(process.versions,"node",{value:"24.11.0"});process.argv=[process.execPath,${JSON.stringify(launcher)},...${JSON.stringify(args)}];await import(${JSON.stringify(pathToFileURL(launcher).href)});`;
     const result = spawnSync(
       process.execPath,
       ["--input-type=module", "-e", script],
-      {
-        encoding: "utf8",
-        windowsHide: true,
-        timeout: 15_000,
-      },
+      { encoding: "utf8", windowsHide: true, timeout: 15000 },
     );
-    assert.equal(result.error, undefined);
-    assert.equal(result.status, example.status, result.stderr);
-    if (example.json) {
-      assert.equal(
-        JSON.parse(result.stdout).reason,
-        "coordinator_node_version_unsupported",
-      );
-      assert.equal(result.stderr, "");
-    } else {
-      assert.equal(result.stdout, "");
-      assert.match(
-        result.stderr,
-        example.status === 64
-          ? /coordinator_node_version_unsupported/
-          : /requires a preverified Node\.js 24\.12\.0/,
-      );
-    }
+    assert.equal(result.status, 64, result.stderr);
+    assert.equal(result.stdout, "");
+    assert.match(result.stderr, /coordinator_node_version_unsupported/u);
   }
 });

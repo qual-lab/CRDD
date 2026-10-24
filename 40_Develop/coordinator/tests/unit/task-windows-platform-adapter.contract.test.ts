@@ -14,7 +14,7 @@ import path from "node:path";
 import test from "node:test";
 
 import { createWindowsNativeHelperEnvironment } from "../../../platform-access/src/index.ts";
-import { resolveCoordinatorPlatformAdapter } from "../../src/index.ts";
+import { resolveCoordinatorPlatformAdapter } from "../../src/execution/diagnostics.ts";
 import { createCoordinatorWindowsPlatformAdapter } from "../../src/execution/diagnostics.ts";
 import { inspectRuntimeOwnedWindowsProviderHomeCandidate } from "../../src/execution/authority.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";

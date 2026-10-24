@@ -21,10 +21,8 @@ import {
   createCurrentCoordinatorPersistencePorts,
   createCoordinatorSnapshotDecisionRecoveryStore,
 } from "../../src/storage/current-state.ts";
-import {
-  createCoordinatorState,
-  type CoordinatorDecisionRecoveryIntent,
-} from "../../src/index.ts";
+import { createCoordinatorState } from "../../src/state/model.ts";
+import type { CoordinatorDecisionRecoveryIntent } from "../../src/decision/records.ts";
 import { encodeCoordinatorStateValue } from "../../src/storage/model.ts";
 import { ensureRepositoryRuntimeDataAreaFromWorkingDirectory } from "../../../domain-model/src/index.ts";
 import { requireReadyRepositoryRuntimeDataArea } from "../../../domain-model/src/index.ts";

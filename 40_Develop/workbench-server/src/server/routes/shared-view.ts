@@ -40,7 +40,7 @@ import {
   evaluateAiProfileManagementPermission,
 } from "../../../../access-management/src/index.ts";
 import type { PortfolioProjection } from "../../../../domain-model/src/index.ts";
-import { readAuthorizedRuntimeActivity } from "../../../../coordinator/src/index.ts";
+import { queryActivity } from "../../../../coordinator/src/index.ts";
 import {
   resolveVerifiedRepositoryRoot,
   gitRepositoryWorktreeViewAdapter,
@@ -256,7 +256,7 @@ export async function handleSharedView({
         if (requestSignal.aborted || response.destroyed) return true;
         try {
           const cursor = requestUrl.searchParams.get("runtimeCursor");
-          const observation = await readAuthorizedRuntimeActivity(
+          const observation = await queryActivity(
             {
               projectId: selected.manifest.projectId,
               repositories: currentCollection.repositories

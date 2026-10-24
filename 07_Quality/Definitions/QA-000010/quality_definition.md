@@ -43,6 +43,7 @@ Quality ID: `QA-000010`
 | [coordinator](../../../06_Architecture/Details/coordinator/01_Architecture.md) | 実行編成、Authority、外部Effect、候補、回収・回復 |
 | [domain-model](../../../06_Architecture/Details/domain-model/01_Architecture.md) | 任意の正式配布でlauncher、Release Manifest、実装正本およびNative Artifactを配布Identityへ結合する境界。通常Runtimeの許可発行を所有せず、旧署名閉包は比較基準として扱う |
 | [platform-access](../../../06_Architecture/Details/platform-access/01_Architecture.md) | 既存`AIT-IT-002`／`AIT-UT-005`に関係するNative実行物の内部同一性確認、Root／Home技術搬送と前後観測の境界。通常Runtimeの実行許可や配布元真正性をこの観測だけから生成しない |
+| [ai-adapter](../../../06_Architecture/Details/ai-adapter/01_Architecture.md) | `AIT-UT-005`の純粋な利用可否評価。五軸の観測値からunknown／preflightを利用可能又は実行Authorityへ畳まない。実Host・認証Observer、独立Trust評価器と実Providerの成立は含めない |
 
 独立評価器の現行実装はMissing／OPENであり、上表の既存境界の成立を代替評価器の成立へ換算しない。
 

@@ -19,7 +19,7 @@ import {
   type FilesystemStoreRoot,
 } from "../../../../domain-model/src/index.ts";
 import {
-  executeWorkspaceCommand,
+  executeWorkspace,
   inspectWorkspaceCommand,
 } from "../../../../coordinator/src/index.ts";
 import {
@@ -158,7 +158,7 @@ export async function handleWorkspaceAction({
       };
     }
     dispatched = true;
-    const result = executeWorkspaceCommand(
+    const result = executeWorkspace(
       ownerRoot,
       projectId,
       command,

@@ -22,14 +22,18 @@ import { requireReadyRepositoryRuntimeDataArea } from "../../../domain-model/src
 import { ensureRepositoryRuntimeDataAreaFromWorkingDirectory } from "../../../domain-model/src/index.ts";
 import {
   createCoordinatorState,
+  type CoordinatorState,
+} from "../../src/state/model.ts";
+import {
   observeProjectTaskStarted,
   prepareProjectTaskHandoff,
   reserveProjectTaskStart,
   settleProjectTask,
-  type CoordinatorAcceptanceDecisionRecord,
-  type CoordinatorDecisionRecoveryIntent,
-  type CoordinatorState,
-} from "../../src/index.ts";
+} from "../../src/task/lifecycle.ts";
+import type {
+  CoordinatorAcceptanceDecisionRecord,
+  CoordinatorDecisionRecoveryIntent,
+} from "../../src/decision/records.ts";
 import {
   acquireCoordinatorSnapshotLease,
   acquireCoordinatorSnapshotPilotLock,
@@ -531,7 +535,7 @@ test("snapshot production: shared adoption evidence survives staged retirement",
  * @responsibility 運用手順と本番の明示初期化を同じ入口へ結合する。
  * @trace PRL-IT-012
  * @precondition 自己所有の新品Repositoryを使う。
- * @stimulus 公開launcherのautomation初期化を二回実行する。
+ * @stimulus 公開launcherのproject initを二回実行する。
  * @observation 応答、保存世代とFile一覧を読む。
  * @oracle 同じ受付世代、単一state.json、Providerや旧Directoryなし。
  * @cleanup fixtureの終了hookで所有Rootを回収する。
@@ -547,7 +551,7 @@ test("snapshot production: public initialization is explicit and idempotent", (t
    * @responsibility 同じ入口の再実行結果と受付世代を観測する。
    * @trace PRL-IT-012
    * @precondition 新品のGit Repositoryと固定launcherを使用する。
-   * @stimulus automation project --initialize --jsonを実Processで実行する。
+   * @stimulus project init --jsonを実Processで実行する。
    * @observation 正式JSON応答を解析して返す。
    * @oracle 初回と再実行は同じ受付世代でcompletedとなる。
    * @cleanup 同期子Processは終了まで待ち、親試験がfixtureを回収する。
@@ -555,11 +559,11 @@ test("snapshot production: public initialization is explicit and idempotent", (t
    */
   const invoke = () =>
     JSON.parse(
-      execFileSync(
-        process.execPath,
-        [launcher, "automation", "project", "--initialize", "--json"],
-        { cwd: root, windowsHide: true, encoding: "utf8" },
-      ),
+      execFileSync(process.execPath, [launcher, "project", "init", "--json"], {
+        cwd: root,
+        windowsHide: true,
+        encoding: "utf8",
+      }),
     );
   const first = invoke();
   const second = invoke();

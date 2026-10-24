@@ -35,12 +35,12 @@ import { createMeetingOperations } from "../../40_Develop/domain-model/src/index
 import { parseRepositoryProjectContextMarkdown } from "../../40_Develop/domain-model/src/index.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../40_Develop/version-control/src/index.ts";
 import {
-  observeRuntimeOwnedProjectClientPrincipal,
-  runCoordinatorPublicDecision,
-  runCoordinatorPublicObjective,
-  runCoordinatorPublicStateQuery,
+  observeClientPrincipal,
+  submitDecision,
+  runObjective,
+  queryState,
 } from "../../40_Develop/coordinator/src/index.ts";
-import { isSupportedCoordinatorNodeRuntime } from "../../40_Develop/coordinator/src/index.ts";
+import { isSupportedNodeRuntime } from "../../40_Develop/coordinator/src/index.ts";
 import {
   resolveHostRootInput,
   readExistingHostRoot,
@@ -100,18 +100,13 @@ function printHelp(): void {
  */
 function coordinatorDependencies(): McpCoordinatorDependencies {
   return {
-    authenticateClient: observeRuntimeOwnedProjectClientPrincipal,
+    authenticateClient: observeClientPrincipal,
     runObjective: (request, signal, authentication) =>
-      runCoordinatorPublicObjective(
-        request,
-        signal,
-        process.cwd(),
-        authentication,
-      ),
+      runObjective(request, signal, process.cwd(), authentication),
     submitDecision: async (request, authentication) =>
-      runCoordinatorPublicDecision(request, process.cwd(), authentication),
+      submitDecision(request, process.cwd(), authentication),
     getProjectState: async (request, authentication) =>
-      runCoordinatorPublicStateQuery(request, process.cwd(), authentication),
+      queryState(request, process.cwd(), authentication),
   };
 }
 
@@ -234,7 +229,7 @@ function createRequestRoutingDependencies(): McpServerDependencies {
  * @concurrency Signal終了とTransport処理を同じServer Lifecycleへ収束させる。
  */
 async function main(): Promise<number> {
-  if (!isSupportedCoordinatorNodeRuntime(process.versions.node)) {
+  if (!isSupportedNodeRuntime(process.versions.node)) {
     process.stderr.write(
       "CRDD MCP requires a preverified Node.js 24.12.0 or newer executable.\n",
     );

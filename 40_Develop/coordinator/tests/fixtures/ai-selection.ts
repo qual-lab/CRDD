@@ -90,8 +90,26 @@ export function executionSelection(
  * @cleanup N/A: 純粋な値。
  * @boundary 合成状態と実行fixture。
  */
-export function taskExecutionSelections() {
-  const result = resolveTaskExecutionSelections(selectionConfig(), {
+export function taskExecutionSelections(
+  executor: "codex" | "claude" = "codex",
+) {
+  const config = selectionConfig();
+  const selectedConfig =
+    executor === "codex"
+      ? config
+      : {
+          ...config,
+          roleDefaults: {
+            ...config.roleDefaults,
+            executor: { provider: "claude", model: "opus", effort: "high" },
+            independent_reviewer: {
+              provider: "codex",
+              model: "gpt-5.5",
+              effort: "medium",
+            },
+          },
+        };
+  const result = resolveTaskExecutionSelections(selectedConfig, {
     workType: null,
   });
   if (!result.value) throw Error("fixture_task_selections_invalid");

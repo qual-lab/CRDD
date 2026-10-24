@@ -290,12 +290,12 @@ test("CLI回復先は読取り欠測と排他解放不明を拒否する", () =>
 test("検証付き再起動と通常回復はexact Taskを指定し旧flagを拒否する", () => {
   const id = `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`;
   const restart = parseDoctorArguments(
-    ["--restart-docker-for-recovery", id, "--json"],
+    ["recovery", "restart-docker", id, "--json"],
     undefined,
   );
   assert.equal(restart.status, "ok");
-  assert.equal(restart.value?.restartDockerForRecoveryId, id);
-  const recover = parseDoctorArguments(["--recover-isolation", id], undefined);
+  assert.equal(restart.value?.recoveryId, id);
+  const recover = parseDoctorArguments(["recovery", "resume", id], undefined);
   assert.equal(recover.status, "ok");
   assert.equal(recover.value?.recoveryId, id);
   assert.equal(
@@ -455,10 +455,13 @@ test("再起動結果はTask回復を成功へ混同せずcleanup不明を拒否
  * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
 test("doctorは診断と復旧に必要な引数だけを受理する", () => {
-  assert.equal(parseDoctorArguments([], undefined).status, "ok");
+  assert.equal(
+    parseDoctorArguments(["doctor", "check"], undefined).status,
+    "ok",
+  );
   assert.equal(
     parseDoctorArguments(
-      ["--recover-isolation", "host.safe", "--json"],
+      ["recovery", "resume", "host.safe", "--json"],
       undefined,
     ).status,
     "ok",
@@ -492,19 +495,19 @@ test("doctorは診断と復旧に必要な引数だけを受理する", () => {
  */
 test("Docker Desktop最終復旧は単独の明示doctor処置としてだけ受理する", () => {
   const repair = parseDoctorArguments(
-    ["--repair-docker-desktop-runtime", "--json"],
+    ["maintenance", "repair-docker", "--json"],
     undefined,
   );
   assert.equal(repair.status, "ok");
   assertPresent(repair.value);
-  assert.equal(repair.value.repairDockerDesktopRuntime, true);
+  assert.equal(repair.value.action, "repair-docker");
 
   assert.equal(
     parseDoctorArguments(
       ["--repair-docker-desktop-runtime", "--isolation"],
       undefined,
     ).reason,
-    "doctor_arguments_incompatible",
+    "doctor_arguments_invalid",
   );
 });
 
@@ -525,13 +528,13 @@ test("修復保持はexact IDの単独操作だけを受理する", () => {
   const old = `docker-desktop-repair.${"c".repeat(32)}`;
   const flag = "--retain-docker-runtime-repair";
   const parsed = parseDoctorArguments(
-    [flag, id, "--json"],
+    ["maintenance", "retain-repair", id, "--json"],
     "ignored-environment-root",
   );
   assert.equal(parsed.status, "ok");
-  assert.equal(parsed.value?.retainDockerRuntimeRepairId, id);
-  assert.equal(parsed.value?.repairDockerDesktopRuntime, false);
-  assert.equal(parsed.value?.recoveryId, null);
+  assert.equal(parsed.value?.recoveryId, id);
+  assert.equal(parsed.value?.action, "retain-repair");
+  assert.equal(parsed.value?.recoveryId, id);
   for (const other of [
     ["--isolation"],
     ["--recover-isolation", id],
@@ -569,7 +572,7 @@ test("修復保持はexact IDの単独操作だけを受理する", () => {
           ].includes(argument),
         )
           ? "doctor_arguments_invalid"
-          : "doctor_arguments_incompatible",
+          : "doctor_arguments_invalid",
       );
       assert.equal(denied.value, null);
     }
@@ -605,7 +608,7 @@ await import(${JSON.stringify(new URL("../../bin/coordinator.ts", import.meta.ur
       JSON.parse(result.stdout).reason,
       args.length === 1
         ? "doctor_arguments_invalid"
-        : "doctor_arguments_incompatible",
+        : "doctor_arguments_invalid",
     );
   }
 });
@@ -629,19 +632,27 @@ test("公開Capability表示はLocal Personalの成立済み入口だけを返�
     { encoding: "utf8", windowsHide: true },
   );
   assert.equal(result.status, 0, result.stderr);
-  assert.deepEqual(JSON.parse(result.stdout), {
-    contract: "crdd-coordinator/capabilities",
-    contractRevision: 4,
-    profile: "local_personal",
-    commands: [
-      {
-        command: "task",
-        availability: "available",
-        invocation: "task --request-stdin --json",
-      },
-      { command: "doctor", availability: "available" },
+  const value = JSON.parse(result.stdout);
+  assert.equal(value.contract, "crdd-coordinator/capabilities");
+  assert.equal(value.contractRevision, 5);
+  assert.equal(value.executionAuthorityIssued, false);
+  assert.deepEqual(
+    value.commands.map((c: { invocation: string }) => c.invocation),
+    [
+      "task run --request-stdin --json",
+      "project init --json",
+      "project run --request-stdin --json",
+      "doctor check [--json]",
+      "doctor isolation [--json]",
+      "recovery resume <id> [--json]",
+      "recovery restart-docker <id> [--json]",
+      "maintenance repair-docker [--json]",
+      "maintenance retain-repair <id> [--json]",
+      "auth status codex|claude [--json]",
+      "auth login codex|claude",
+      "capabilities --json",
     ],
-  });
+  );
 });
 
 /**
@@ -659,13 +670,13 @@ test("公開Capability表示はLocal Personalの成立済み入口だけを返�
 test("template toolsの安定入口はCoordinator共通Launcherへ同一Processで接続する", () => {
   const result = spawnSync(
     process.execPath,
-    [publicCoordinatorLauncher, "automation", "capabilities", "--json"],
+    [publicCoordinatorLauncher, "capabilities", "--json"],
     { encoding: "utf8", windowsHide: true },
   );
   assert.equal(result.status, 0, result.stderr);
   const output = JSON.parse(result.stdout);
   assert.equal(output.contract, "crdd-coordinator/capabilities");
-  assert.equal(output.contractRevision, 4);
+  assert.equal(output.contractRevision, 5);
   assert.equal(
     output.commands.some(
       (entry: { command?: string }) => entry.command === "mcp",
@@ -697,7 +708,10 @@ test("削除したcommandは互換処理へ入らず未知commandとして拒否
       },
     );
     assert.equal(result.status, 64);
-    assert.equal(result.stderr.includes("Unknown command"), true);
+    assert.equal(
+      result.stderr.includes("coordinator_launch_mode_invalid"),
+      true,
+    );
     assert.equal(result.stdout.includes(`"command":"${command}"`), false);
   }
   const project = spawnSync(
@@ -706,12 +720,8 @@ test("削除したcommandは互換処理へ入らず未知commandとして拒否
     { encoding: "utf8", windowsHide: true },
   );
   assert.equal(project.status, 64);
-  assert.equal(project.stderr, "");
-  assert.deepEqual(JSON.parse(project.stdout), {
-    command: "project",
-    status: "blocked",
-    reason: "project_arguments_invalid",
-  });
+  assert.equal(project.stdout, "");
+  assert.match(project.stderr, /coordinator_launch_arguments_invalid/u);
 });
 
 /**
@@ -735,11 +745,11 @@ test("helpは通常Taskと現在利用可能なcommandだけを案内する", ()
     result.stdout.includes("--after-recorded-docker-restart"),
     false,
   );
-  assert.equal(result.stdout.includes("--retain-docker-runtime-repair"), true);
-  assert.equal(result.stdout.includes("明示的な保持判断"), true);
+  assert.equal(result.stdout.includes("maintenance retain-repair"), true);
+  assert.equal(result.stdout.includes("recovery resume"), true);
   assert.equal(result.status, 0);
   assert.equal(
-    result.stdout.includes("crdd-coordinator.ts task --request-stdin --json"),
+    result.stdout.includes("coordinator task run --request-stdin --json"),
     true,
   );
   assert.equal(result.stdout.includes("coordinator capabilities --json"), true);
@@ -771,7 +781,7 @@ test("通常Taskは統一受付で入力を拒否し対象を推測しない", (
   for (const entry of [coordinatorExecutable, publicCoordinatorLauncher]) {
     const ambiguous = spawnSync(
       process.execPath,
-      [entry, "task", "--request-stdin", "--json"],
+      [entry, "task", "run", "--request-stdin", "--json"],
       {
         input: '{"frontProvider":"codex","frontProvider":"claude"}',
         encoding: "utf8",
@@ -792,6 +802,7 @@ test("通常Taskは統一受付で入力を拒否し対象を推測しない", (
       [
         path.join(root, "40_Develop", "coordinator", "bin", "coordinator.ts"),
         "task",
+        "run",
         "--request-stdin",
         "--json",
       ],
@@ -823,11 +834,8 @@ test("通常Taskは統一受付で入力を拒否し対象を推測しない", (
   );
   assert.equal(missingArguments.error, undefined);
   assert.equal(missingArguments.status, 64);
-  assert.equal(missingArguments.stderr, "");
-  assert.equal(
-    missingArguments.stdout,
-    `${JSON.stringify({ command: "task", status: "blocked", reason: "task_arguments_invalid" }, null, 2)}\n`,
-  );
+  assert.equal(missingArguments.stdout, "");
+  assert.match(missingArguments.stderr, /coordinator_launch_arguments_invalid/u);
   assert.equal(
     missingArguments.stdout.includes("synthetic-input-not-to-be-reported"),
     false,

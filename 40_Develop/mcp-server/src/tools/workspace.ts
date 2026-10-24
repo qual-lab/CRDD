@@ -6,7 +6,7 @@
  * @boundary MCP ProtocolとWorkspace Owner。
  */
 import {
-  executeWorkspaceCommand,
+  executeWorkspace,
   inspectWorkspaceCommand,
 } from "../../../coordinator/src/index.ts";
 import { snapshotPlainRecord } from "../request/snapshot.ts";
@@ -232,7 +232,7 @@ export async function handleMcpWorkspaceRequest(
   try {
     const access = resolve(args.repositoryId);
     if (!access) throw new Error("workspace_access_unavailable");
-    const result = executeWorkspaceCommand(
+    const result = executeWorkspace(
       access.ownerRoot,
       access.projectId,
       command,

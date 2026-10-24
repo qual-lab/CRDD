@@ -8,6 +8,7 @@
  * @scope development、native、observation
  * @boundary ERB-IT-004=Direct Boundary: Observer→Effect Gate
  */
+import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 import assert from "node:assert/strict";
 import { sourceDeclaration } from "../support/source-declaration.ts";
 import { describeProviderHomeObservationContract } from "../../../platform-access/src/index.ts";
@@ -1322,9 +1323,8 @@ async function runProbe(target: string, scenario: string) {
     `data:text/javascript;base64,${Buffer.from(`${authorityImports}\n${authorityDeclarations}\nexport { inspectRuntimeOwnedWindowsProviderHomeCandidate, inspectRuntimeOwnedWindowsRuntimeState, consumeRuntimeOwnedProviderHomeObservationCapability, consumeRuntimeOwnedProviderHomeMountSourceCapability, revokeRuntimeOwnedProviderHomeMountSourceCapability, consumeRuntimeOwnedRuntimeStateRootCapability };`).toString("base64")}`
   );
   const store = provider;
-  const tasks = ["codex", "claude"].map((executor) => ({
-    frontProvider: executor === "codex" ? "claude" : "codex",
-    requestedExecutorProvider: executor,
+  const tasks = (["codex", "claude"] as const).map((executor) => ({
+    taskExecutionSelections: taskExecutionSelections(executor),
     objective: "Bounded fixture",
     acceptanceCriteria: ["Expected content"],
     allowedPaths: ["fixture.txt"],
@@ -1371,7 +1371,7 @@ async function runProbe(target: string, scenario: string) {
     );
     return;
   }
-  assert.ok(admitted.capability);
+  assert.ok(admitted.capability, JSON.stringify(admitted));
   assert.deepEqual(
     session.inspectRuntimeOwnedDevelopmentMeasurementSession(
       admitted.capability,

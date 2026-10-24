@@ -32,20 +32,24 @@ import {
   initializeCoordinatorSnapshot,
   createCoordinatorSnapshotAcceptanceDecisionStore as createCoordinatorAcceptanceDecisionStore,
 } from "../../src/storage/current-state.ts";
-import { recordCoordinatorExecutionEvent } from "../../src/index.ts";
+import { recordCoordinatorExecutionEvent } from "../../src/task/dispatch.ts";
+import { resolveCoordinatorReplan as resolveCoordinatorReplanWithPort } from "../../src/objective/replan.ts";
 import {
-  resolveCoordinatorReplan as resolveCoordinatorReplanWithPort,
   createCoordinatorAcceptanceAuthorityAdapter,
-  issueCoordinatorHumanDecision,
   COORDINATOR_ACCEPTANCE_DECISION_CONTRACT,
-  recordCoordinatorAcceptanceDecision,
+} from "../../src/decision/request.ts";
+import {
+  issueCoordinatorHumanDecision,
   submitCoordinatorHumanDecision,
-  type CoordinatorDecisionRecord,
-  type CoordinatorReplanClassifier,
-  type CoordinatorReplanInput,
-} from "../../src/index.ts";
+} from "../../src/decision/lifecycle.ts";
+import { recordCoordinatorAcceptanceDecision } from "../../src/decision/acceptance.ts";
+import type { CoordinatorDecisionRecord } from "../../src/decision/records.ts";
+import type {
+  CoordinatorReplanClassifier,
+  CoordinatorReplanInput,
+} from "../../src/objective/types.ts";
 import { runCoordinatorObjective } from "../../src/objective/execute.ts";
-import { createCoordinatorDecisionCapabilityAdapter } from "../../src/index.ts";
+import { createCoordinatorDecisionCapabilityAdapter } from "../../src/decision/lifecycle.ts";
 
 const revision = "a".repeat(40);
 

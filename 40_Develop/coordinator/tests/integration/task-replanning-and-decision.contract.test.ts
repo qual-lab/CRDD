@@ -26,23 +26,29 @@ import {
   readCoordinatorState,
   writeCoordinatorState,
 } from "../fixtures/task-persistence-fixture.ts";
-import { createCoordinatorDecisionCapabilityAdapter } from "../../src/index.ts";
-import { runCoordinatorOperation as runCoordinatorOperationWithPorts } from "../../src/index.ts";
-import { createCoordinatorExecutionHostPorts } from "../../src/index.ts";
+import { createCoordinatorDecisionCapabilityAdapter } from "../../src/decision/lifecycle.ts";
+import { runCoordinatorOperation as runCoordinatorOperationWithPorts } from "../../src/task/dispatch.ts";
+import { createCoordinatorExecutionHostPorts } from "../../src/task/dispatch.ts";
 import {
   applyCoordinatorHumanDecision,
+  createCoordinatorState,
+} from "../../src/state/model.ts";
+import {
   invalidateCoordinatorHumanDecision,
   issueCoordinatorHumanDecision,
   recoverCoordinatorHumanDecision,
   replaceCoordinatorHumanDecision,
   submitCoordinatorHumanDecision,
-  createCoordinatorState,
-  resolveCoordinatorReplan as resolveCoordinatorReplanWithPort,
-  type CoordinatorDecisionRecord,
-  type CoordinatorDecisionRecoveryIntent,
-  type CoordinatorReplanClassifier,
-  type CoordinatorReplanInput,
-} from "../../src/index.ts";
+} from "../../src/decision/lifecycle.ts";
+import { resolveCoordinatorReplan as resolveCoordinatorReplanWithPort } from "../../src/objective/replan.ts";
+import type {
+  CoordinatorDecisionRecord,
+  CoordinatorDecisionRecoveryIntent,
+} from "../../src/decision/records.ts";
+import type {
+  CoordinatorReplanClassifier,
+  CoordinatorReplanInput,
+} from "../../src/objective/types.ts";
 
 const revision = "a".repeat(40);
 

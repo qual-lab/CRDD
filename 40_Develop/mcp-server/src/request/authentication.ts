@@ -25,7 +25,7 @@ import {
   type ProjectContextSource,
 } from "../../../domain-model/src/index.ts";
 import { resolveVerifiedRepositoryRoot } from "../../../version-control/src/index.ts";
-import { readAuthorizedRuntimeActivity } from "../../../coordinator/src/index.ts";
+import { queryActivity } from "../../../coordinator/src/index.ts";
 import { createMcpServerFactory } from "./server.ts";
 import { createInitialConnectionHandler } from "./initial-connection.ts";
 import type { McpAuthenticatedRequestHandlerResolver } from "../transport/types.ts";
@@ -147,10 +147,7 @@ export function createAccessMcpResolver(
               });
               if (signal.aborted)
                 throw new Error("runtime_activity_unavailable");
-              return readAuthorizedRuntimeActivity(
-                { ...query, repositories },
-                signal,
-              );
+              return queryActivity({ ...query, repositories }, signal);
             },
           },
           /**

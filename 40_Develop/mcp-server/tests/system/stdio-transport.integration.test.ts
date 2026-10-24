@@ -529,7 +529,7 @@ test("stdio preserves semantic cleanup uncertainty after transport cleanup", asy
         principalId: "principal-a",
       }),
       runObjective: async () => ({
-        contract: "crdd-coordinator/orchestrator-public-runtime/v1",
+        contract: "crdd-coordinator/public-runtime/v2",
         status: "blocked",
         reason: "orchestrator_task_recovery_required",
         cleanupConfirmed: false,

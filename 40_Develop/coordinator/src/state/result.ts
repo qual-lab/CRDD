@@ -31,7 +31,7 @@ export type CoordinatorPortResult<T> = Readonly<
 
 /** Transport-neutral result envelope produced by the Coordinator application. */
 export const COORDINATOR_PUBLIC_RUNTIME_CONTRACT =
-  "crdd-coordinator/orchestrator-public-runtime/v1" as const;
+  "crdd-coordinator/public-runtime/v2" as const;
 
 /**
  * Runtime Data Boundary Blockedを公開結果へ投影する。

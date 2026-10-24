@@ -9,7 +9,7 @@
  */
 import { taskExecutionSelections } from "./ai-selection.ts";
 import { createCurrentCoordinatorPersistencePorts } from "../../src/storage/current-state.ts";
-import { createCoordinatorState } from "../../src/index.ts";
+import { createCoordinatorState } from "../../src/state/model.ts";
 /**
  * 新版PortのwriteStateを試験から呼ぶ。
  * @responsibility 旧保存方式を使わず既存の検証入力を搬送する。

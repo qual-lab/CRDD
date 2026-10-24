@@ -43,7 +43,7 @@ test("Workbench助言の本番入口は署名発行を注入しない", () => {
   );
   assert.match(
     launcher,
-    /createRepositoryTaskRequests\(\s*verified\.capability,/,
+    /openTaskSession\(\s*\{\s*rootCapability:\s*verified\.capability,/,
   );
   assert.doesNotMatch(
     runtime,

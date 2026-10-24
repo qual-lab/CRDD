@@ -11,7 +11,7 @@
  * @security Recovery Authority、Credential、Host Pathまたは非開示Task内容を入力契約へ含めない。
  */
 import {
-  readAuthorizedRuntimeActivity,
+  queryActivity,
   type RuntimeActivityObservation,
 } from "../../../../coordinator/src/index.ts";
 import type { RepositoryProjectContext } from "../../../../domain-model/src/index.ts";
@@ -228,7 +228,7 @@ export function createRepositoryWorkbenchActivityReader(
           events: Object.freeze([]),
           eventContinuation: null,
         });
-      const observation = await readAuthorizedRuntimeActivity({
+      const observation = await queryActivity({
         projectId: fixedIdentity.projectId,
         repositories: [
           {

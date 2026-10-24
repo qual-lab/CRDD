@@ -46,7 +46,7 @@ import {
   verifyRepositoryRoot,
 } from "../../../version-control/src/index.ts";
 import { createProviderDockerRuntimeDependencies } from "../../src/execution/preparation.ts";
-import { runCoordinatorSingleTaskAttempt } from "../../src/index.ts";
+import { runCoordinatorSingleTaskAttempt } from "../../src/execution/controller.ts";
 import {
   prepareVerificationWorkspace,
   readVerificationWorkspaceOutput,

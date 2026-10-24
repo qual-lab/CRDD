@@ -94,75 +94,43 @@ export function parseDoctorArguments(
     snapshot.value.some((value) => !validToken(value))
   )
     return response("blocked", "doctor_arguments_invalid");
-  const argumentsSnapshot = snapshot.value;
-  const json = argumentsSnapshot.includes("--json");
-  const seen = new Set<string>();
-  let activeIsolation = false;
-  let repairDockerDesktopRuntime = false;
-  let recoveryId: string | null = null;
-  let restartDockerForRecoveryId: string | null = null;
-  let retainDockerRuntimeRepairId: string | null = null;
-  for (let index = 0; index < argumentsSnapshot.length; index++) {
-    const token = argumentsSnapshot[index];
-    if (
-      !token ||
-      ![
-        "--json",
-        "--isolation",
-        "--recover-isolation",
-        "--repair-docker-desktop-runtime",
-        "--restart-docker-for-recovery",
-        "--retain-docker-runtime-repair",
-      ].includes(token) ||
-      seen.has(token)
-    )
-      return response("blocked", "doctor_arguments_invalid", null, json);
-    seen.add(token);
-    if (token === "--json") continue;
-    if (token === "--isolation") activeIsolation = true;
-    else if (token === "--repair-docker-desktop-runtime")
-      repairDockerDesktopRuntime = true;
-    else {
-      const value = argumentsSnapshot[++index];
-      if (!validToken(value) || value.startsWith("--"))
-        return response("blocked", "doctor_arguments_invalid", null, json);
-      if (token === "--recover-isolation") recoveryId = value;
-      else if (token === "--restart-docker-for-recovery") {
-        if (!parseDockerTaskRecoveryId(value))
-          return response("blocked", "doctor_arguments_invalid", null, json);
-        restartDockerForRecoveryId = value;
-      } else {
-        if (!/^docker-runtime-repair\.[a-f0-9]{64}\.[a-f0-9]{64}$/u.test(value))
-          return response("blocked", "doctor_arguments_invalid", null, json);
-        retainDockerRuntimeRepairId = value;
-      }
-    }
-  }
+  const args = snapshot.value,
+    json = args.includes("--json");
+  const [target, action, ...tail] = args;
+  const definitions: Readonly<Record<string, readonly string[]>> = {
+    doctor: ["check", "isolation"],
+    recovery: ["resume", "restart-docker"],
+    maintenance: ["repair-docker", "retain-repair"],
+  };
   if (
-    [
-      activeIsolation,
-      repairDockerDesktopRuntime,
-      recoveryId !== null,
-      restartDockerForRecoveryId !== null,
-      retainDockerRuntimeRepairId !== null,
-    ].filter(Boolean).length > 1
+    !target ||
+    !action ||
+    !Object.hasOwn(definitions, target) ||
+    !definitions[target]?.includes(action)
   )
-    return response("blocked", "doctor_arguments_incompatible", null, json);
+    return response("blocked", "doctor_arguments_invalid", null, json);
+  const needsId = target === "recovery" || action === "retain-repair";
+  const recoveryId = needsId ? (tail[0] ?? null) : null;
+  const flags = needsId ? tail.slice(1) : tail;
+  if (
+    (needsId && (!recoveryId || recoveryId.startsWith("--"))) ||
+    flags.length > 1 ||
+    (flags.length === 1 && flags[0] !== "--json")
+  )
+    return response("blocked", "doctor_arguments_invalid", null, json);
+  if (action === "restart-docker" && !parseDockerTaskRecoveryId(recoveryId))
+    return response("blocked", "doctor_arguments_invalid", null, json);
+  if (
+    action === "retain-repair" &&
+    !/^docker-runtime-repair\.[a-f0-9]{64}\.[a-f0-9]{64}$/u.test(
+      recoveryId ?? "",
+    )
+  )
+    return response("blocked", "doctor_arguments_invalid", null, json);
   return response(
     "ok",
     null,
-    Object.freeze({
-      json,
-      activeIsolation,
-      recoveryId,
-      repairDockerDesktopRuntime,
-      ...(restartDockerForRecoveryId !== null
-        ? { restartDockerForRecoveryId }
-        : {}),
-      ...(retainDockerRuntimeRepairId !== null
-        ? { retainDockerRuntimeRepairId }
-        : {}),
-    }),
+    Object.freeze({ json, action, recoveryId }),
     json,
   );
 }

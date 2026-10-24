@@ -1032,7 +1032,7 @@ test("正式試験mainは公開HTTPで一回だけ依頼し失敗と終了観測
           snapshot: selection,
         }),
         readWorkbenchProjectSurface: async () => surface,
-        createRepositoryTaskRequests: () => fakeOwner,
+        openTaskSession: () => fakeOwner,
         startWorkbench: async (input: Parameters<typeof startWorkbench>[0]) => {
           const handle = await startWorkbench(input);
           return {

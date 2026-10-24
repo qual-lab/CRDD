@@ -19,7 +19,7 @@
 
 [利用体験](../02_UX/01_User_Experience.md)と[情報構造](../03_IA/01_Information_Architecture.md)から、現行のコマンドライン（CLI）とMCP投影に必要な入力・認識・フィードバック・回復を整理する。§8「Orchestratorの状態表示」はv0.19.0の公開契約を扱う。§9はv0.22のProject Operationと最小CROS Workbenchが満たす表示契約を扱う。固定GUI Framework、装飾またはWorkbench固有の業務ロジックを設計した文書ではない。
 
-以下の「現行」は[公開Coordinator入口](../template/tools/crdd-coordinator.ts)、[公開MCP入口](../template/tools/crdd-mcp-server.ts)、[公開CLI](../40_Develop/coordinator/bin/coordinator.ts)、[結果表示](../40_Develop/coordinator/src/cli/request.ts)、[対話入力](../40_Develop/coordinator/src/execution/interactive-console.ts)、[配布Checker](../template/tools/crdd-check.ts)のソースを照合した内容である。実端末で見た結果、UX成立、人間の採用とは区別する。「要求」は既存の人間判断・上位設計から求める状態、「既知差」は今回未解消の差を示す。
+以下の「現行」は[公開Coordinator入口](../template/tools/crdd-coordinator.ts)、[公開MCP入口](../template/tools/crdd-mcp-server.ts)、[公開CLI](../40_Develop/coordinator/bin/coordinator.ts)、[結果表示](../40_Develop/coordinator/src/cli/request.ts)、[対話入力](../40_Develop/platform-access/src/terminal/console.ts)、[配布Checker](../template/tools/crdd-check.ts)のソースを照合した内容である。実端末で見た結果、UX成立、人間の採用とは区別する。「要求」は既存の人間判断・上位設計から求める状態、「既知差」は今回未解消の差を示す。
 
 ## 2. 操作接点と表示構造
 
@@ -99,7 +99,7 @@ Process再起動の必要性: あり
 | 操作単位 | UIが所有する確認 | SPECが所有する条件・結果 | 実装・試験の接続 |
 |---|---|---|---|
 | 診断・導入判断 | 通常利用可能と構文候補を識別 | [診断・回復](../05_SPEC/07_Current_Behavior_Reference.md#診断回復の公開境界) | [公開CLI](../40_Develop/coordinator/bin/coordinator.ts)、[診断試験](../40_Develop/coordinator/tests/unit/execution/diagnostics.contract.test.ts) |
-| 初回同意・再利用・失効 | 対象、期限、変更点、入力要否が分かる | [公開Task](../05_SPEC/07_Current_Behavior_Reference.md#公開taskの入力結果取消) | [同意Runtime](../40_Develop/coordinator/src/decision/external-send-consent-store.ts)、[同意試験](../40_Develop/coordinator/tests/integration/external-send-consent-runtime.contract.test.ts) |
+| 初回同意・再利用・失効 | 対象、期限、変更点、入力要否が分かる | [公開Task](../05_SPEC/07_Current_Behavior_Reference.md#公開taskの入力結果取消) | [同意Runtime](../40_Develop/coordinator/src/decision/external-send-consent.ts)、[同意試験](../40_Develop/coordinator/tests/integration/external-send-consent-runtime.contract.test.ts) |
 | Task入力・選定・待機 | 不正入力と処理中を分離、担当と理由 | [公開Task](../05_SPEC/07_Current_Behavior_Reference.md#公開taskの入力結果取消) | [公開CLI](../40_Develop/coordinator/bin/coordinator.ts)、[引数試験](../40_Develop/coordinator/tests/integration/cli-options.contract.test.ts) |
 | Workspace候補の固定・確認・採用・終了 | Workspace ID、Base／Candidate Commit、未採用、次操作 | [Workspace候補の固定・採用](../05_SPEC/Details/BHV-000027/behavior.md) | [Workspace Lifecycle試験](../40_Develop/coordinator/tests/integration/workspace-lifecycle.integration.test.ts)、[Workbench表示試験](../40_Develop/workbench-server/tests/system/credential-administration-browser.contract.test.ts) |
 | 取消・遅延終了 | 要求と完了を区別し最終結果まで待つ | [公開Task](../05_SPEC/07_Current_Behavior_Reference.md#公開taskの入力結果取消) | [取消接続](../40_Develop/coordinator/src/cli/cancellation.ts)、[取消試験](../40_Develop/coordinator/tests/integration/task-cli-cancellation.contract.test.ts) |

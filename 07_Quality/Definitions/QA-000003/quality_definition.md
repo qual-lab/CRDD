@@ -349,6 +349,8 @@ Authority Folderの解体では、Grant・Bundle・Policy・開始直前確認�
 
 Docker固有記録の移管では、DI Rootから回復ID・Probe記録を利用する既存Callerと、Coordinatorに残すHost／終端／再起動要求相関を分けて照合する。記録Hash、nonce、元参照、同じRoot・子実体、部分欠測、link・置換・不正文法の拒否、書込み・読戻し・状態遷移のOracleは維持する。汎用JSON確定・同意保存・上位判断保存・現在状態の原子単位を変更しない。通常回帰とWindows保存Case、実Docker確認を区別し、先行runの結果を移管後の固定候補へ転記しない。
 
+固定選定の実行接続では、完全選定十項目の各一項目差、操作・役割・試行番号・Packet Hash差、別stageのGrant、更新時の意味差、旧Profile／Route入力の拒否を反証する。既存のTTL・一回消費・失効・Home排他・取消・回収Oracleは維持する。Operation Identity v2／現在StateとProject Snapshot v5は旧形式を補完せず拒否し、保存・読戻し後だけDocker Effectへ進む。Owner喪失の再入場では現在設定／Catalogの読取りと本文再実行を0件とする。合成試験の成功は実AI・実認証・実Docker、人間操作又は公開利用側の全面切替を証明しない。
+
 ## Checklist
 
 - [x] Quality ID、検証目標およびSource固有条件を自己完結して示した
@@ -362,5 +364,3 @@ Docker固有記録の移管では、DI Rootから回復ID・Probe記録を利用
 - [x] RT／PT／LTの適用または理由付きN/Aを記録し、PT／LTは人間の明示指定なしに実行しない
 - [x] 自動化、手動確認および人間判断の境界を示した
 - [x] 現行Source、TestおよびEvidenceとの照合をReality Auditへ分離した
-
-固定選定の実行接続では、完全選定十項目の各一項目差、操作・役割・試行番号・Packet Hash差、別stageのGrant、更新時の意味差、旧Profile／Route入力の拒否を反証する。既存のTTL・一回消費・失効・Home排他・取消・回収Oracleは維持する。Operation Identity v2／現在StateとProject Snapshot v5は旧形式を補完せず拒否し、保存・読戻し後だけDocker Effectへ進む。Owner喪失の再入場では現在設定／Catalogの読取りと本文再実行を0件とする。合成試験の成功は実AI・実認証・実Docker、人間操作又は公開利用側の全面切替を証明しない。

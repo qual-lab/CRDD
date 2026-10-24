@@ -8,6 +8,7 @@
  * @scope development、measurement、session
  * @boundary PPR-UT-006=N/A: 欠測・現行性・競合・可視性の判定規則は外部実行境界を持たない。
  */
+import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 import assert from "node:assert/strict";
 import path from "node:path";
 import test from "node:test";
@@ -40,8 +41,7 @@ const TREE = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
  */
 function task(executor: "codex" | "claude") {
   return {
-    frontProvider: executor === "codex" ? "claude" : "codex",
-    requestedExecutorProvider: executor,
+    taskExecutionSelections: taskExecutionSelections(executor),
     objective: "Update one bounded fixture.",
     acceptanceCriteria: ["The expected content is present."],
     allowedPaths: ["fixture.txt"],

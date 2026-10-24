@@ -19,13 +19,15 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import {
   createCoordinatorExecutionHostPorts,
-  createCoordinatorState,
   describeCoordinatorExecutionContract,
-  type CoordinatorSingleTaskResult,
-  type ProjectTaskDefinition,
   runCoordinatorOperation as runCoordinatorOperationWithPorts,
-  runCoordinatorSingleTaskAttempt,
-} from "../../src/index.ts";
+} from "../../src/task/dispatch.ts";
+import {
+  createCoordinatorState,
+  type ProjectTaskDefinition,
+} from "../../src/state/model.ts";
+import type { CoordinatorSingleTaskResult } from "../../src/task/types.ts";
+import { runCoordinatorSingleTaskAttempt } from "../../src/execution/controller.ts";
 import {
   createCurrentCoordinatorPersistencePorts as createCoordinatorPersistencePorts,
   initializeCoordinatorSnapshot,

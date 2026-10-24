@@ -22,7 +22,7 @@ import {
   createCoordinatorSnapshotIntegrationRecordPort,
   readCoordinatorSnapshot,
 } from "../../src/storage/current-state.ts";
-import { createCoordinatorState } from "../../src/index.ts";
+import { createCoordinatorState } from "../../src/state/model.ts";
 import { encodeCoordinatorStateValue } from "../../src/storage/model.ts";
 import { ensureRepositoryRuntimeDataAreaFromWorkingDirectory } from "../../../domain-model/src/index.ts";
 import { requireReadyRepositoryRuntimeDataArea } from "../../../domain-model/src/index.ts";

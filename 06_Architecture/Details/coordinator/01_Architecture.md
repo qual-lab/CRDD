@@ -1,5 +1,45 @@
 # Coordinator Runtimeの実行アーキテクチャ
 
+<a id="formal-api-cli"></a>
+
+## 正式API・CLIの切替 — 2026-10-24
+
+公開操作の実体は既存の責務Ownerに一つだけ置く。`src/api.ts`は公開要求・結果を接続し、`src/index.ts`は同APIからの明示exportだけを持つ。CLI・Workbench・MCPは同じ操作を使い、内部Factory、保存Writer、純粋な状態遷移をPackage Rootから公開しない。以下の統合時点の件数・配置は歴史的な比較基準であり、現行の公開集合ではない。
+
+| 操作群 | 正式API | 実体のOwner |
+|---|---|---|
+| 初期化・仕事の進行 | `initializeProject`、`runObjective`、`submitDecision`、`acceptResult`、`queryState` | State、Objective、Decision |
+| 単発・継続受付 | `runTask`、`openTaskSession` | Taskの同一Session。単発操作はstart・wait・finally closeを待機 |
+| 作業領域・活動照会 | `executeWorkspace`、`queryActivity` | Workspace、認可済みState照会 |
+| Repository設定 | `readRepositoryAiSelection`、`saveRepositoryAiSelection`、`readRepositoryNetworkPolicies` | 既存の設定保存・同意判断Owner |
+| 環境・回復 | `diagnoseEnvironment`、`recoverExecution`、`restartDockerForRecovery`、`repairDockerRuntime`、`retainRepair` | Executionの既存回復組立て |
+| 認証・能力説明 | `getAuthenticationStatus`、`authenticateProvider`、`getCapabilities` | Execution／AI Adapter／Docker Isolationの既存境界 |
+
+`runTask`は新しい管理状態を持たず、Workbenchの継続Sessionと同じ実装を一回だけ利用する。受付後の失敗でも元requestIdを保持し、終了失敗はsecondaryFailuresへ分離する。継続Sessionのcloseは、そのSessionを所有するServerが行う。Consumerの任意保存をDocker cleanupの条件に加えない。
+
+公開結果契約は`crdd-coordinator/public-runtime/v2`とする。旧v1のalias・二重受理は設けない。これは通信契約の変更であり、保存Schema、Recovery Identity、結果fieldの意味を変更するものではない。旧設定と起動コマンドの移行はフロントAIが行い、過去Evidence・保持中の②を変更しない。
+
+```text
+src/
+├ api.ts                    正式操作と公開DTO
+├ index.ts                  api.tsから明示exportのみ
+├ cli/
+│  ├ command.ts             対象→操作の配送、help・能力表示
+│  ├ request.ts             Project／Taskのstdin・表示・取消
+│  ├ authentication.ts      status／loginの端末条件・表示
+│  ├ doctor.ts              診断・回復の取消と表示
+│  ├ options.ts             閉じた引数文法、128KiBの厳格入力
+│  ├ recovery-report.ts     非秘密の既存結果投影
+│  └ cancellation.ts        Signalの一回接続・解除
+└ state/initialize.ts       検証した最寄りRepositoryの新品初期化
+```
+
+CLIは`task run`、`project init`／`project run`、`doctor check`／`doctor isolation`、`recovery resume`／`recovery restart-docker`、`maintenance repair-docker`／`maintenance retain-repair`、`auth status`／`auth login`を受け付ける。旧interactive／automationモードと検証ScriptへのCLI配送は廃止し、検証Scriptは開発用途の直接入口として区別する。Task／Projectの実行は機械向けJSON、loginは直接接続した対話端末を要求する。
+
+`doctor check`は診断用一時領域を作る場合があるため厳密なEffect 0とは表示しない。回復の内部相関・所在解決を新しいinspect APIとして公開しない。Rootは現在Repositoryから検証し、修復の内部checkpoint・所在・保存Writerを公開しない。CLIのListener解除不明で一次理由や既確認結果を上書きしない。
+
+この切替のSourceは実装候補であり、現在の固定回帰・独立レビューの結果は[変更計画](../../../99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md)へ記録する。実AI・実認証・実Docker・人間操作の成立をこの内部切替から推定しない。
+
 ## 単一保存方式の目標採用 — 2026-10-22
 
 人間は重複情報と保存排他を整理するB案を採用した。[Task状態・資源詳細の単一保存Lifecycle](04_Task_Detailed_Design.md#unified-storage-lifecycle)を保存方式の設計正本とする。現在状態・保存改訂・短期排他を一つにし、内部の二段ACKリレーを同じSnapshotの耐久受領へ統合した。保存統合BのSource接続・旧試験移行・外部AIなしの最終固定回帰は完了し、限定独立再確認済みである。実行Lease・Home／Hostの排他、実資源観測と一時返却／耐久受領の区別は維持する。以下の統合前・凍結記述は移管元の比較基準であり、現在の保存契約は同正本と本節の新方式記述を優先する。
@@ -10,11 +50,11 @@
 
 保存七Sourceのbytes凍結は名称整理時点の比較基準である。採用済みBの範囲で解除し、物理Root・Schema・共通Writer・履歴・耐久受領を一括して切り替える。安定ID、認可、実資源の観測と過去Evidenceは維持する。名称整理時点の限定差分と検証は[統合計画§34](../../../99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#34-統合後の識別子整理--着手範囲2026-10-22)、現在の保存切替は同計画§37.5を参照する。
 
-## Cの物理統合 — 実装候補、検証中
+## Cの物理統合時点の比較基準 — 2026-10-22
 
-単発実行と旧Orchestratorの業務進行を`40_Develop/coordinator`、公開名`@qual-lab/crdd-coordinator`へ物理統合した。業務進行の設計正本は[Task／Objectiveの設計](../coordinator/03_Task_Architecture.md)に維持し、本書は単発Executionと技術相関を所有する。以下の「統合前」は基準構成の説明であり、現行の独立Packageを要求しない。現在Sourceは150 File、両旧Rootの120実行値と既存型を明示公開し、内部利用は同じ実Ownerへ接続する。物理移動・型検査の成功をC全体・実AI／Dockerの成立とはしない。
+単発実行と旧Orchestratorの業務進行を`40_Develop/coordinator`、公開名`@qual-lab/crdd-coordinator`へ物理統合した。業務進行の設計正本は[Task／Objectiveの設計](../coordinator/03_Task_Architecture.md)に維持し、本書は単発Executionと技術相関を所有する。以下の「統合前」は基準構成の説明であり、現行の独立Packageを要求しない。物理統合時点ではSourceは150 File、両旧Rootの120実行値と既存型を明示公開していた。現在の公開集合とCLIは[正式API・CLIの切替](#formal-api-cli)を正本とする。物理移動・型検査の成功をC全体・実AI／Dockerの成立とはしない。
 
-現CLIは`command.ts`、`request.ts`、`request-input.ts`、`options.ts`、`recovery-report.ts`、`cancellation.ts`の六File。`command.ts`が直接／対話／自動のProject・Task受付を分配し、templateは単一binへ接続する。Decisionが外部送信同意四File、Executionが端末I/Oを所有する。保存七Sourceは三specifier以外を維持し、Schema・Writer・CAS・Lock・Root・状態・ACKを変えない。現在の切替と検証状態は[統合計画](../../../99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#32-cの物理移管候補と検証状況)へ接続する。
+物理統合時点のCLIは`command.ts`、`request.ts`、`request-input.ts`、`options.ts`、`recovery-report.ts`、`cancellation.ts`の六Fileだった。当時の保存七Source凍結は統合差分の比較基準であり、採用済み保存統合Bおよび正式APIの変更を妨げない。移管時点の記録は[統合計画](../../../99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#32-cの物理移管候補と検証状況)、現行の切替と検証状態は冒頭の正式API・CLI節と変更計画を参照する。
 
 <a id="pre-consolidation-execution"></a>
 
@@ -190,7 +230,7 @@ CLIの通常明示修復は既存`--repair-docker-desktop-runtime`を維持し�
 
 公開診断`crdd-coordinator/current-runtime-repair`は、status／有限reason／exact recoveryIdと、結果・保持・履歴・終了整理・Native回収・CLI解除の個別確認だけを固定fieldで投影する。内部のRoot・Scope・checkpoint・出版／marker objectは公開しない。getter／Proxyを実行せず拒否する。
 
-明示保持は`doctor --retain-docker-runtime-repair <exact-repair-id> [--json]`から既存修復APIの`retain`用途へ接続する。IDは現在の`docker-runtime-repair.<64hex>.<64hex>`に限定し、JSON指定以外のdoctor操作との混在・重複・欠測を処置前に拒否する。CLIは修復／保持の用途を必須引数で明示搬送し、省略から通常修復へ落とさない。保持の開始前取消はRoot解決とAPI呼出し前に拒否し、通常修復の取消後metadata再入場は維持する。これは退避物を残す人間判断の保存であり、技術Sessionの再取得・再修復・削除を発行しない。保持と履歴を確認しても終了整理は未完了で、固定診断は「保持済み・終了整理待ち」／exit 2とする。退避物の物理引渡しや新Task資源の不存在を推定せず、既存の保持適格条件・Writer・Schemaは変更しない。
+明示保持は`maintenance retain-repair <exact-repair-id> [--json]`から既存修復APIの`retain`用途へ接続する。IDは現在の`docker-runtime-repair.<64hex>.<64hex>`に限定し、JSON指定以外のdoctor操作との混在・重複・欠測を処置前に拒否する。CLIは修復／保持の用途を必須引数で明示搬送し、省略から通常修復へ落とさない。保持の開始前取消はRoot解決とAPI呼出し前に拒否し、通常修復の取消後metadata再入場は維持する。これは退避物を残す人間判断の保存であり、技術Sessionの再取得・再修復・削除を発行しない。保持と履歴を確認しても終了整理は未完了で、固定診断は「保持済み・終了整理待ち」／exit 2とする。退避物の物理引渡しや新Task資源の不存在を推定せず、既存の保持適格条件・Writer・Schemaは変更しない。
 
 | 公開結果の分類 | 共同条件とCLIの処置 |
 |---|---|
@@ -395,7 +435,7 @@ Coordinator ─×→ Orchestrator / Workbench Server / MCP Server
 
 | command | 利用目的 | 主なEffect |
 |---|---|---|
-| `task --request-stdin --json` | 一般Taskの委譲・独立確認・限定是正 | Provider送信、隔離候補作成 |
+| `task run --request-stdin --json` | 一般Taskの委譲・独立確認・限定是正 | Provider送信、隔離候補作成 |
 | `doctor` | 診断、Docker Task回復、Docker Desktop最終復旧 | 既定は観測。明示復旧だけ限定Effect |
 | `capabilities --json` | 現行Profileと公開Capabilityの機械確認 | Effectなし |
 
@@ -1379,7 +1419,7 @@ pending単独、登録済みcurrentと同内容pendingの併存、別候補、hi
 
 pending単独、同じcurrent本文のpending、別候補、履歴pending、未知File、durable consumerは拒否する。終了途中再入場では、既存の技術終端・履歴を確認済みなら同じ保存を再発行せず、対象の終了出版へだけ進む。保存確認とLock解放が共同成立した場合だけ`operationRemovalConfirmed`をtrueにし、保存途中失敗から対象の存在・不存在を断定しない。通常CLIへのSource接続候補は実装し、独立指摘是正・再確認中である。全体回帰・E2EとPackage完成は未成立である。
 
-通常CLI接続の実装対象は、追加flagのない`doctor --recover-isolation <docker-task-id>`とする。CLIは既存取消binding、現在cwdのRepository検証、回復組立て呼出し、finallyでのunbind、診断表示を所有する。現在回復組立てはprivate準備Ownerの保存Identityからconsumerを確認し、技術回収・Host・排他・履歴の共同成立と配送方式の一致を要求する。CLI／Workbenchは表示前にtransient終了を一回だけ行い、Orchestratorは耐久ACK待ちで操作を保持する。CLI listenerの解放不明は一次理由・既確認技術結果と分離し、終了整理を巻き戻さずCLI終了コードへ反映する。
+通常CLI接続の実装対象は、追加flagのない`recovery resume <docker-task-id>`とする。CLIは既存取消binding、現在cwdのRepository検証、回復組立て呼出し、finallyでのunbind、診断表示を所有する。現在回復組立てはprivate準備Ownerの保存Identityからconsumerを確認し、技術回収・Host・排他・履歴の共同成立と配送方式の一致を要求する。CLI／Workbenchは表示前にtransient終了を一回だけ行い、Orchestratorは耐久ACK待ちで操作を保持する。CLI listenerの解放不明は一次理由・既確認技術結果と分離し、終了整理を巻き戻さずCLI終了コードへ反映する。
 
 公開診断は固定fieldの明示投影に限定し、内部準備キー・Root・本文・候補を含めない。表示失敗で操作を復元・再実行しない。旧再起動後／Desktop修復後flagsは、この通常入口の代替能力とは扱わず、限定unknown終了Classの代替成立後に撤去する。新方式失敗から旧Journalへfallbackしない。接続候補はSource・利用側・試験が成立するまで本番接続済みと表示しない。
 

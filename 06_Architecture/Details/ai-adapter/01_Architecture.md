@@ -29,37 +29,43 @@ Coordinatorは準備時とEffect直前で同じ配置を用いて計画を再照
 
 ## 基本設計との関係
 
-| 正本 | 担当する責務 |
-|---|---|
-| [ARCH-000010](../../Definitions/ARCH-000010/architecture_definition.md) | 技術Catalog、明示された技術選定、Provider利用可否の値評価 |
-| [ARCH-000004](../../Definitions/ARCH-000004/architecture_definition.md) | Coordinatorから計画・結果変換を利用する境界。業務進行は引き取らない |
-| [ARCH-000015](../../Definitions/ARCH-000015/architecture_definition.md) | 助言・編集・レビューのProvider差と共通結果の接続 |
+| 正本 | 担当する責務 | 関係状態 |
+|---|---|---|
+| [ARCH-000010](../../Definitions/ARCH-000010/architecture_definition.md) | 技術Catalog、明示された技術選定、Provider利用可否の値評価 | Covered |
+| [ARCH-000004](../../Definitions/ARCH-000004/architecture_definition.md) | Coordinatorから計画・結果変換を利用する境界。業務進行は引き取らない | Covered |
+| [ARCH-000015](../../Definitions/ARCH-000015/architecture_definition.md) | 助言・編集・レビューのProvider差と共通結果の接続 | Covered |
 
 [Workspaceの責務](../coordinator/05_Workspace.md#3-packageの責務と依存方向)に従い、Workspace寿命・Queue・Git採用を所有しない。開発用`.env`の読取り可能性の受容と、Provider認証Home・AM鍵・本番Secretの保護は区別する。Cloud Secret取得・自動注入を追加しない。
 
 ## 詳細成果物の適用判断
 
-| 成果物 | 判断と正本節 |
-|---|---|
-| Component／Interface／Data Flow | 必要。第2・3・7節の技術Catalog→選定Consumer→計画・結果 |
-| State／Sequence | 必要。第5節のModule初期化・同期変換と上位の実行寿命の分離 |
-| Failure／Recovery／Observability | 必要。第6節とQualityへの引渡し。拒否と未観測を区別 |
-| Deployment | 必要。第7節の同梱データとDI所有配置。Host設定Storeなし |
-| Security Boundary | 必要。第4節。秘密値・任意実行入口・Authorityの非所有 |
-| Implementation Structure | 必要。末尾の適用評価 |
+| 詳細成果物 | 判定 | 理由 | 正本節／成果物 |
+|---|---|---|---|
+| Component Model | Required | 技術Catalog・Provider差・上位Ownerを分離する | [構成要素](#2-構成要素と意味) |
+| Interface Model | Required | 公開APIと返却値を型で区別する | [公開入口](#3-公開入口と依存方向) |
+| Data Flow | Required | 固定選定・計画・結果の搬送を示す | [依存方向](#3-公開入口と依存方向) |
+| State Model | Required | 局所値・不変Catalogと上位実行状態を区別する | [状態とLifecycle](#5-状態とlifecycle) |
+| Sequence | Required | 初期化・変換と外部実行の前後関係を定める | [状態とLifecycle](#5-状態とlifecycle) |
+| Failure／Recovery | Required | 拒否・unknownと上位回復を分ける | [失敗と回復](#6-failureと回復) |
+| Deployment | Required | 同梱JSONとDI所有の実行配置を分ける | [Source配置](#7-provider差の公開契約と実行境界) |
+| Observability | Required | 型付き結果と非公開生出力を区別する | [拒否境界](#4-schemaと拒否境界) |
+| Security Boundary | Required | 任意実行入口・秘密値・Authorityを所有しない | [拒否境界](#4-schemaと拒否境界) |
+| Implementation Structure | Required | 二Provider具象と共通契約を評価する | [実装構造](#implementation-structure) |
 
 ## Engineering Concern評価
 
-| 観点 | 設計上の処置 |
-|---|---|
-| 同時実行 | 不変Catalogと呼出し局所値だけ。新しい排他なし |
-| 時間 | 現在の利用可否は渡された観測時点の評価。技術登録と区別 |
-| 資源寿命 | 計画・解析は同期処理。Process・Home・Docker資源を作らない |
-| 外部境界 | 同梱JSON loaderと上位から渡すCLI出力。AI Adapter自身はCLIを起動しない |
-| 状態整合 | Catalog Identity、明示Model・Effort・用途・識別方式を保持 |
-| 失敗・回復 | 固定拒否・unknownを保持。再試行・清掃を自動発行しない |
-| 観測 | 型付き結果と固定理由。生出力・Path・秘密値を公開しない |
-| セキュリティ | 設定・観測の値を実行Authorityへ昇格しない |
+| Concern | Result | Rationale | Evidence／Related ID |
+|---|---|---|---|
+| Concurrency | PASS | 不変Catalogと呼出し局所値だけを扱い、新しい排他を持たない | [状態とLifecycle](#5-状態とlifecycle) |
+| Timing | PASS | 渡された観測時点の利用可否と技術登録を区別する | [拒否境界](#4-schemaと拒否境界) |
+| Resource Lifecycle | PASS | 同期変換の返却で完了し、Process・Home・Docker資源を作らない | [状態とLifecycle](#5-状態とlifecycle) |
+| External Boundary | PASS | 同梱JSON loaderと未信頼CLI出力を検査する。CLI自身を起動しない | [失敗と回復](#6-failureと回復) |
+| State／Consistency | PASS | Catalog Identityと明示Model・用途・Effort・識別方式を保持する | [拒否境界](#4-schemaと拒否境界) |
+| Failure／Recovery | PASS | 固定拒否とunknownを保持し、上位の再試行・回収を代行しない | [失敗と回復](#6-failureと回復) |
+| Observability | PASS | 型付き結果・固定理由だけを返し、生出力を公開しない | [拒否境界](#4-schemaと拒否境界) |
+| Security／Trust | PASS | 設定・観測・計画を実行Authorityへ昇格しない | [実行境界](#72-実行取消失敗の接続) |
+
+`PASS`: 詳細設計上、必須条件と反証が閉じている。`N/A`: Architecture上、そのConcern自体が存在しない。`OPEN`: 未解決の設計事項を保持する。`FAIL`: 必須設計と矛盾する。
 
 以上は設計上の処置であり、実Provider・実Process・実Docker成立の判定ではない。
 
@@ -197,35 +203,48 @@ Codexの16KiBとClaudeの2 turns／0.10はboolean Probe normalizerの固定契�
 
 ## Qualityへの引渡し
 
-| 導出キー | 現在の対象・正常条件 | 反証と観測・終了後条件 |
-|---|---|---|
-| `ai-runtime.catalog-validation` | AI Adapterの技術Catalog閉形式 | 未知field・重複・Getter／Proxy拒否、hook 0、Provider Effect 0。RCM-UT-001/002 |
-| `ai-runtime.profile-resolution` | 技術選定とCoordinatorの役割・分類・明示指定 | 無変換・alias保持・同じIdentity、未設定／非対応拒否。RCM-UT-001／RCM-IT-005 |
-| `ai-runtime.availability` | Provider五軸と上位の現在観測 | unknownとpreflightを成功へ畳まない。AIT-UT-005。実Hostは別評価 |
-| `ai-runtime.catalog-adoption` | CoordinatorのRepository設定Storeへ移管 | CAS競合、Link・観測不能、公開後故障と再送0。RCM-IT-005/010の現Owner試験 |
-| `ai-runtime.profile-administration` | Workbenchの選択Repository設定、MCP旧Tool拒否 | 現在管理Roleとdevelopment認可、応答不明・fresh GET・取消、旧Store Effect 0。RCM-IT-010/ST-012 |
-| `coord.provider-attempt` | 用途別構造化結果 | 曖昧JSON・不足Envelope・上限逸脱拒否、生出力非公開。ERB-UT-032。実CLI・終了・cleanupはIT/ST |
-| `coord.provider-selection` | Subscription限定の方針と固定選定搬送 | 設定単独Authority・有料API fallback拒否。ERB-UT-033／PRL-UT-006 |
+| 導出キー | 設計項目種別 | 対象 | 正常条件 | 反証する失敗 | 主な試験段階 | 外部境界の段階 | 観測 | 終了後条件 | 未確認 |
+|---|---|---|---|---|---|---|---|---|---|
+| `ai-runtime.catalog-validation` | Schema／Validation | AI Adapter技術Catalog | 閉形式・用途・Effortの一意な対応 | 未知field、重複、Getter／Proxy、破損JSON | UT | N/A | RCM-UT-001／002の固定入力と拒否理由 | Hook・Provider Effect 0 | 実Provider対応は別評価 |
+| `ai-runtime.profile-resolution` | Interface／Data | 技術選定とCoordinator選定Consumer | 無変換、alias保持、同じIdentity | 未設定・非対応・別用途を補完 | UT／IT | Direct Boundary | RCM-UT-001／RCM-IT-005の選定と搬送結果 | 勝手な再選定・実行0 | 実Provider注入 |
+| `ai-runtime.availability` | State／Validation | Provider五軸の値評価 | unknown・preflightを区別 | 未観測をavailableへ丸める | UT | N/A | QA-000010のAIT-UT-005に対応する純粋値と理由 | Authority・Provider Effect 0 | 実Host・認証Observerは上位Ownerで別評価 |
+| `ai-runtime.catalog-adoption` | State／Consistency | Coordinator Repository設定Store | 同じSnapshot、CASと認可を保持 | 競合、Link、観測不能、公開後の不明 | IT | Direct Boundary | RCM-IT-005／010の保存・応答・現在認可 | 暗黙再保存0、旧Store Effect 0 | 実設定移行 |
+| `ai-runtime.profile-administration` | Interface／Security | Workbench設定とMCP旧Tool拒否 | 管理Roleと選択Repository認可、新公開入口 | 旧Tool受理、無認可保存、応答喪失から再送 | IT／ST | Direct Boundary／System/E2E | RCM-IT-010／RCM-ST-012の全Role・Consumer集合・公開結果 | 旧設定操作Effect 0、所有処理終了 | 実Credential・人間操作 |
+| `coord.provider-attempt` | Interface／Validation | 用途別構造化結果 | 唯一のexact結果だけを受理 | 曖昧JSON、不足Envelope、上限逸脱 | UT | N/A | ERB-UT-032の容量・解析値・固定理由 | 生出力非公開、Process起動0 | 実CLI・終了・cleanupは既存IT／ST |
+| `coord.provider-selection` | Policy／Data | Subscription限定方針と固定選定搬送 | 設定と実行Authorityを分離 | 有料APIへのfallback、設定単独Authority | UT | N/A | ERB-UT-033の固定方針記述 | Provider・課金・Filesystem Effect 0 | 実認証・実課金の防止は上位実行境界で別評価 |
 
 ## 現行実装との照合
 
-技術Catalog・Provider計画・結果・認証記述、新選定搬送とWorkbench／MCP移行を段階接続した。旧Profile本体撤去は現在の変更単位であり、Source／試験／登録／現行文書の回帰と独立レビュー後に固定する。正式API／CLI全体、実AI・実認証・人間UAT、旧データの実移行、全体QAは別の残件である。実測結果は[CHG計画](../../../99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md)を正本とし、ここへ実行ごとの結果を蓄積しない。
+技術Catalog・Provider計画・結果・認証記述、新選定搬送とWorkbench／MCP移行を段階接続した。旧Profile本体は撤去し、限定回帰と独立確認を完了した。正式API／CLIは候補実装済みで、固定回帰と独立確認を進めている。実AI・実認証・人間UAT、旧データの実移行、全体QAは別の残件である。実測結果は[CHG計画](../../../99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md)を正本とし、ここへ実行ごとの結果を蓄積しない。
 
 ## Implementation Structure
 
-| 観点 | 判断 |
-|---|---|
-| Variation | Codex／Claude二具象を共通計画・解析へ接続。仮想ProviderのPlugin機構なし |
-| Common Contract | Provider・用途で型を絞る。Taskと助言の受理条件は混ぜない |
-| Creation／Selection | 不変技術Catalogを一回検証。役割別選択・保存はCoordinator |
-| State-dependent Behavior | 値の状態を返すだけ。現在状態Storeなし |
-| Composition／Recursion | 共通→具象の実行時依存。具象は共通型のみ参照し実行時循環なし |
-| Lifecycle Ownership | 同期変換と外部実行・回復を分離 |
-| External Boundary | JSON loader・未信頼CLI出力を閉形式へ固定し、実効果は上位へ残す |
+| 観点 | 適用 | 判定理由 | 成立させる構造 | 局所責務・不変条件 | 失敗・変更時の影響 | Qualityへの導出キー |
+|---|---|---|---|---|---|---|
+| Variation | Required | Codex／Claude二具象がある | 共通計画・解析からProvider具象へ接続 | 仮想Provider Pluginを増やさない | Provider別の計画／解析拒否 | `coord.provider-attempt` |
+| Common Contract | Required | 同じ用途・Provider軸で利用する | Provider・用途で絞る型 | Taskと助言の受理条件を混ぜない | 用途差の誤受理 | `ai-runtime.profile-resolution` |
+| Creation／Selection | Required | 同梱技術値を一回検証する | 不変Catalogと明示選定 | 役割別設定・保存はCoordinator | 未設定・未対応は拒否 | `ai-runtime.catalog-validation` |
+| State-dependent Behavior | Required | 利用可否の値状態を返す | 五軸の純粋判定 | 現在状態Storeを作らない | unknownの成功化を拒否 | `ai-runtime.availability` |
+| Composition／Recursion | Required | 共通処理と二具象を合成する | 具象は共通型を参照し実行時循環なし | 再帰Framework不要 | 循環・重複解析を防ぐ | `coord.provider-attempt` |
+| Lifecycle Ownership | Required | 同期変換と外部実行の寿命が異なる | 返却で局所変換完了、上位が資源回収 | ACK・Home Lock・Recoveryを持たない | 変換成功をcleanupへ換算しない | `coord.provider-attempt` |
+| External Boundary | Required | 同梱JSONと未信頼出力を受ける | 閉形式loaderと用途別解析 | 実Effectは上位Owner | 不正JSON・上限・秘密値を拒否 | `ai-runtime.catalog-validation` |
+
+現在の設計に追加の人間判断はない。実AI・実認証・実Docker・人間確認は別の検証と承認境界へ残し、設計上のPASSと区別する。
 
 ## Checklist
 
-- 必要な構成・境界・寿命・失敗・観測・実装構造を現在Ownerへ接続した。
-- 移管前のCapabilityと試験はCHGの対応表へ接続し、未評価を完成へ畳まない。
-- 新Framework・互換Store・排他・監視・回復機構を追加しない。
-- Source整理の成功、実境界確認、正式QAとRelease判断を分離する。
+- [x] 関連するARCH-IDと担当する責務断面を明示した
+- [x] 10種類の詳細成果物を全数Applicability判定した
+- [x] Requiredを実在する節または成果物へ接続した
+- [x] N/AにArchitecture上の理由を記録した
+- [x] 8種類のEngineering Concernを全数評価した
+- [x] PASSを設計済みの意味に限定した
+- [x] Component、Interface、Data／StateおよびSequenceを必要な粒度で具体化した
+- [x] Failure／Recovery、ObservabilityおよびSecurity Boundaryを具体化した
+- [x] 7種類のImplementation Structure観点を全数Applicability判定した
+- [x] 二つ目の具象実装がある責務で、共通契約への昇格または非昇格理由を評価した
+- [x] Qualityへ渡す設計項目を局所的な導出キーまたは同等に一意な参照へ接続した
+- [x] Qualityへ対象、正常条件、反証する失敗、観測および終了後条件を渡した
+- [x] Human Inputの必要性とOpen／Gapを評価した
+- [x] 現行実装との照合をReality Auditとして分離した
+- [x] Source構造をCanonical詳細設計へ逆輸入していない

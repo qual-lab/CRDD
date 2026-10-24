@@ -10,6 +10,7 @@
  * @scope coordinator、task、process
  * @boundary ERB-IT-001=Direct Boundary: Adapter→実CLI・Process・Container / ERB-IT-002=Adjacent 1 Block: Controller→stdio・signal・close→資源Observer / ERB-IT-003=Direct Boundary: Host清掃Owner→実Filesystem。
  */
+import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 import assert from "node:assert/strict";
 import { type ChildProcess, spawn } from "node:child_process";
 import fs from "node:fs";
@@ -278,9 +279,11 @@ function createProcessHarness(
     }),
     issueSelection: (_management, request) => ({
       ...issue(),
-      executorProvider: request.role === "executor" ? "claude" : "codex",
-      profileId:
-        request.role === "executor" ? "PROFILE-200001" : "PROFILE-100003",
+      operationId: request.operationId,
+      taskAttempt: request.taskAttempt,
+      executorProvider: (request.executionSelection as { provider: string })
+        .provider,
+      executionSelection: request.executionSelection,
       selectionNotice: "isolated-process-test",
     }),
     revokeSelection: revoke,
@@ -583,8 +586,7 @@ for (const cleanupConfirmed of [true, false]) {
     ];
     const started = harness.runtime.start(
       {
-        frontProvider: "codex",
-        requestedExecutorProvider: "auto",
+        taskExecutionSelections: taskExecutionSelections("claude"),
         objective: "Update the bounded fixture.",
         acceptanceCriteria: ["The fixture contains the expected value."],
         allowedPaths: ["fixture.txt"],
@@ -703,8 +705,7 @@ for (const scenario of [
     ];
     const started = harness.runtime.start(
       {
-        frontProvider: "codex",
-        requestedExecutorProvider: "auto",
+        taskExecutionSelections: taskExecutionSelections("claude"),
         objective: "Update the bounded fixture.",
         acceptanceCriteria: ["The fixture contains the expected value."],
         allowedPaths: ["fixture.txt"],

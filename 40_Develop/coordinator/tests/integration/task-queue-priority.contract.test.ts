@@ -23,7 +23,7 @@ import {
   createCurrentCoordinatorPersistencePorts,
 } from "../../src/storage/current-state.ts";
 
-import { createCoordinatorState } from "../../src/index.ts";
+import { createCoordinatorState } from "../../src/state/model.ts";
 import { ensureRepositoryRuntimeDataAreaFromWorkingDirectory } from "../../../domain-model/src/index.ts";
 import { requireReadyRepositoryRuntimeDataArea } from "../../../domain-model/src/index.ts";
 

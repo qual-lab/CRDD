@@ -46,14 +46,16 @@ import { initializeCoordinatorSnapshot } from "../../src/storage/current-state.t
 import { encodeCoordinatorStateValue } from "../../src/storage/model.ts";
 import { inspectCoordinatorObjectiveRequest } from "../../src/objective/request.ts";
 import { runCoordinatorObjective as runCoordinatorObjectiveWithPorts } from "../../src/objective/execute.ts";
+import { acknowledgeProjectDockerRecoveryObligation } from "../../src/task/acceptance.ts";
 import {
-  acknowledgeProjectDockerRecoveryObligation,
   markProjectTaskRecoveryObligationRecovering,
-  type CoordinatorSingleTaskAttemptInput,
-  type CoordinatorSingleTaskResult,
-  reserveProjectTaskStart,
   settleProjectTaskRecoveryObligation,
-} from "../../src/index.ts";
+} from "../../src/task/recovery.ts";
+import type {
+  CoordinatorSingleTaskAttemptInput,
+  CoordinatorSingleTaskResult,
+} from "../../src/task/types.ts";
+import { reserveProjectTaskStart } from "../../src/task/lifecycle.ts";
 
 const revision = "a".repeat(40);
 /**

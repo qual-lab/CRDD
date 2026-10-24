@@ -133,10 +133,7 @@ export function withUnsignedRuntimeFixture<T>(verify: (root: string) => T): T {
     );
     assert.equal(help.error, undefined);
     assert.equal(help.status, 0, help.stderr);
-    assert.match(
-      help.stdout,
-      /crdd-coordinator\.ts task --request-stdin --json/u,
-    );
+    assert.match(help.stdout, /coordinator task run --request-stdin --json/u);
     return verify(root);
   } finally {
     assert.equal(path.dirname(root), temporaryRoot);

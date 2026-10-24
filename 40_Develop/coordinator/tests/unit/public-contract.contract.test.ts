@@ -183,7 +183,7 @@ function decisionRequest() {
 test("Objective要求は閉じた公開契約へsnapshotする", () => {
   assert.equal(
     COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
-    "crdd-coordinator/orchestrator-public-runtime/v1",
+    "crdd-coordinator/public-runtime/v2",
   );
   const source = objectiveRequest();
   const inspected = inspectCoordinatorObjectiveRequest(source);

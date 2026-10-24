@@ -21,19 +21,19 @@ import { requireReadyRepositoryRuntimeDataArea } from "../../../domain-model/src
 
 import {
   createCoordinatorState,
+  type CoordinatorAcceptanceDecision,
+  type CoordinatorState,
+} from "../../src/state/model.ts";
+import {
   observeProjectTaskStarted,
   prepareProjectTaskHandoff,
-  COORDINATOR_ACCEPTANCE_DECISION_CONTRACT,
   reserveProjectTaskStart,
   settleProjectTask,
-  type CoordinatorAcceptanceDecision,
-  type CoordinatorAcceptanceDecisionRecord,
-  type CoordinatorState,
-} from "../../src/index.ts";
-import {
-  executeCoordinatorPublicAcceptanceDecision,
-  executeCoordinatorPublicStateQuery,
-} from "../../src/index.ts";
+} from "../../src/task/lifecycle.ts";
+import { COORDINATOR_ACCEPTANCE_DECISION_CONTRACT } from "../../src/decision/request.ts";
+import type { CoordinatorAcceptanceDecisionRecord } from "../../src/decision/records.ts";
+import { executeCoordinatorPublicAcceptanceDecision } from "../../src/decision/acceptance.ts";
+import { executeCoordinatorPublicStateQuery } from "../../src/state/query.ts";
 import {
   createCurrentCoordinatorPersistencePorts,
   createCoordinatorSnapshotAcceptanceDecisionStore,

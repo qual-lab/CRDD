@@ -9,7 +9,7 @@ const launcher = fileURLToPath(
   new URL("../../bin/coordinator.ts", import.meta.url),
 );
 for (const [args, expected] of [
-  [["interactive", "--help"], 0],
+  [["--help"], 0],
   [["automation", "--help", "--json"], 64],
 ] as const) {
   const result = spawnSync(process.execPath, [launcher, ...args], {
