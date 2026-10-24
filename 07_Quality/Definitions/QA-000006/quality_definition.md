@@ -658,6 +658,8 @@ phaseとdispositionの反証を分離し、codec合法な「phaseだけsettling�
 | Candidate公開不明、資源終端不明 | transientを理由に保全や回復義務を解除しない。現在不明を同じ相関で保持する。 |
 | 耐久配送待ちで履歴期限到達 | 通常履歴保持とpending配送を分け、未受領結果を期限だけで消さない。既確認の資源を復元しない。 |
 
+助言の初回回復参照は`ERB-UT-023`・`RCM-IT-005`・`PRL-IT-013`で搬送を確認する。Controllerの検証済み引渡しから、同期例外・取消・完了失敗・回収不明・finalize失敗を通じて元Docker参照が失われないこと、不正引渡し後の再捕捉と二重引渡しによる上書きを拒否することを反証する。Host清掃だけをDocker回収完了にしない。実Task SessionとWriterではHost／Docker参照が初回終端へ保存され、同参照は維持できる一方、後付けの別参照・操作差替えは既存guardで拒否されることを確認する。合成代役と実保存の成立を、実AI、実Container作成・回収または保持中の過去試験の終了証明へ一般化しない。
+
 通常CLI接続のSource候補は、追加flagのない入口から現在Rootの技術回収・固定consumer・用途別終了へ接続した。binding不成立・開始前取消・Root拒否、技術共同条件の欠測、policy／配送差、終了保存の欠測、unbind不明、完了後取消、render／write例外、内部field非出力を局所試験する。旧flagは従来入口へ残し、新経路失敗から自動転送しない。固定診断はown data descriptorだけで分岐し、継承getterも実行せず、blocked／完了／耐久受領待ちの相関を検査する。
 
 通常CLI・中断後transient終了の限定範囲は、修正版の局所／CLI33件と実Host24件が成功し、契約／品質の独立再確認は残指摘0。上位Orchestratorの現在回復・非同期待機接続は次の候補として区別する。待機中の取消・拒否・状態改訂・Queue取消と、settled直後取消によるACK0／settled保持、acknowledged直後取消によるfinalize0／耐久ACK保持の実保存反証を追加した。各ACK前ガードの無効化は本番blockの抽出実行と配置照合による限定負対照であり、Production全文の変異試験ではない。

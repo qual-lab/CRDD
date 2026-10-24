@@ -92,6 +92,7 @@ mock.module(domainUrl, { namedExports: { ...domain, createFilesystemRepositoryOb
   return { ...observer, observeFile: reference => { reads++; assert.equal(reference, "PROJECT_CONTEXT.md"); const result = observer.observeFile(reference); if (scenario === "cancel_after_read") controller.abort(); return result; } };
 } } });
 const host = "host.synthetic-exact-reference";
+const docker = "docker-task." + "1".repeat(64) + "." + "2".repeat(64) + "." + "3".repeat(64);
 globalThis.adviceFixture = {
   runtime: () => async (plan, signal) => {
     calls++; assert.equal(signal, controller.signal); assert.equal(plan.repositoryMounted,false); assert.equal(plan.workspaceMounted,false); assert.equal(plan.provider,"codex");
@@ -99,7 +100,7 @@ globalThis.adviceFixture = {
     if (scenario === "cleanup_unknown") return { status:"blocked",reason:"synthetic_cleanup_unknown",adviceJson:null,providerEffectIssued:true,cleanupConfirmed:false };
     return {status:"completed",reason:null,adviceJson:JSON.stringify({contract:"crdd-coordinator/workbench-ai-advice-result",contractRevision:1,status:"completed",facts:[{text:"合成",references:["PROJECT_CONTEXT.md"]}],sharedAnalysis:[],additionalInferences:[],nextOptions:[]}),providerEffectIssued:true,cleanupConfirmed:true};
   },
-  failure: value => value && !value.cleanupConfirmed ? {cleanupConfirmed:false,manualRecoveryRequired:true,hostRecoveryId:host} : null,
+  failure: value => value && !value.cleanupConfirmed ? {cleanupConfirmed:false,manualRecoveryRequired:true,hostRecoveryId:host,dockerRecoveryId:docker} : null,
 };
 const adviceUrl = ${JSON.stringify(moduleUrl("40_Develop/coordinator/src/execution/advice.ts"))};
 let adviceSource = stripTypeScriptTypes(fs.readFileSync(new URL(adviceUrl), "utf8"));
@@ -123,6 +124,7 @@ assert.equal(calls,success || scenario === "cleanup_unknown" || scenario === "ru
 if(scenario === "cancel_before")assert.equal(reads,0);
 assert.equal(response.cleanupConfirmed,scenario !== "cleanup_unknown" && scenario !== "runtime_throw");
 assert.equal(response.hostRecoveryId,scenario === "cleanup_unknown"?host:null);
+assert.equal(response.dockerRecoveryId,scenario === "cleanup_unknown"?docker:null);
 assert.equal(Object.hasOwn(response,"rawOutput"),false);
 process.stdout.write("verified");
 `;

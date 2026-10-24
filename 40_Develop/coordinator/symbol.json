@@ -4346,6 +4346,18 @@
       ]
     },
     {
+      "symbolId": "coordinator.test.advice-recovery-handoff",
+      "kind": "test-suite",
+      "path": "tests/integration/advice-recovery-handoff.integration.test.ts",
+      "qaIds": ["QA-000005", "QA-000006"],
+      "localTestIds": ["CPR-IT-004", "PRL-IT-013"],
+      "verifies": [
+        "coordinator.source.src.security.workbench.ai.advice.production.runtime",
+        "orchestrator.task.requests",
+        "coordinator.source.src.security.orchestrator.durable.foundation"
+      ]
+    },
+    {
       "symbolId": "orchestrator.test.single-task-state",
       "kind": "test-suite",
       "path": "tests/integration/single-task-state.integration.test.ts",

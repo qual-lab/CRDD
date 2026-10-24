@@ -31,7 +31,10 @@ import {
 } from "../../../docker-isolation/src/index.ts";
 import { readRepositoryNetworkPolicies } from "../decision/external-send-policy.ts";
 import { createFilesystemRepositoryObservationPort } from "../../../domain-model/src/index.ts";
-import { normalizeAdviceResult } from "./result.ts";
+import {
+  normalizeAdviceResult,
+  publicVerifiedDockerRecoveryId,
+} from "./result.ts";
 import path from "node:path";
 import fs from "node:fs";
 import os from "node:os";
@@ -123,10 +126,10 @@ const PROJECT_CONTEXT_REFERENCE = "PROJECT_CONTEXT.md";
 
 /**
  * 認可済みRepositoryの助言依頼を共通Provider実行へ一度だけ渡す。
- * @responsibility 投影・固定選定・送信同意・計画・結果と元Host参照を一つの利用側入口へ結合する。
+ * @responsibility 投影・固定選定・送信同意・計画・結果と元Host／Docker参照を一つの利用側入口へ結合する。
  * @trace ARCH-000015
  * @input 検証済みRoot、完全ExecutionSelectionを含む今回の要求、取消と既存の実行観測。
- * @returns 非公開Provider本文を除いた結果、cleanup状態、元Host回復参照。
+ * @returns 非公開Provider本文を除いた結果、cleanup状態、元Host／Docker回復参照。
  * @precondition 上位が主体・Repository・今回操作の認可を済ませている。
  * @postcondition 助言用途で一回だけ実行し、編集・Reviewer・自動再送を追加しない。
  * @effect 既存のContext読取りと、同意成立後のProvider実行・取消・回収。
@@ -158,12 +161,13 @@ export async function runRepositoryAdvice(
     dispatchAdviceRequest(adapter, consumedGrants, input, cancellation);
   const response = await executeAdviceRequest(root, dispatch, request, signal);
   const observed = runtimeResult as ProviderAdviceRuntimeResult | null;
+  const failure = classifyProviderAdviceHostFailure(observed);
   return Object.freeze({
     result: response,
     cleanupConfirmed:
       observed?.cleanupConfirmed ?? response.status !== "unknown",
-    hostRecoveryId:
-      classifyProviderAdviceHostFailure(observed)?.hostRecoveryId ?? null,
+    hostRecoveryId: failure?.hostRecoveryId ?? null,
+    dockerRecoveryId: failure?.dockerRecoveryId ?? null,
   });
 }
 
@@ -1034,7 +1038,7 @@ export const PROVIDER_ADVICE_PRODUCTION_RUNTIME_CONTRACT_REVISION = 1;
  *
  * @responsibility 清掃分類と取得済みexact参照を同じ初回結果に保持する。
  * @trace ARCH-000008
- * @shape 清掃確認、手動回復要否および取得済み参照またはnullの閉じた値。
+ * @shape 清掃確認、手動回復要否、Host参照および引渡し後だけ取得するDocker参照。
  * @invariant 清掃確認済みの場合は参照を回復対象として保持しない。
  * @boundary Coordinator内部の失敗分類境界。
  * @security 元参照を公開JSON、理由、Provider入力またはlogへ複製しない。
@@ -1044,6 +1048,7 @@ type HostFailure = Readonly<{
   cleanupConfirmed: boolean;
   manualRecoveryRequired: boolean;
   hostRecoveryId: string | null;
+  dockerRecoveryId?: string | null;
 }>;
 
 const hostFailures = new WeakMap<object, HostFailure>();
@@ -1100,7 +1105,7 @@ export function recoverProviderAdviceHostOperation(hostId: string) {
 }
 
 /**
- * 同じ初回Runtime結果に保持されたHost失敗分類を内部で照会する。
+ * 同じ初回Runtime結果に保持されたHost／Docker失敗分類を内部で照会する。
  *
  * @responsibility 元の結果Objectに結合した分類だけを返す。
  * @trace ARCH-000008
@@ -1326,6 +1331,8 @@ function createProviderAdviceRuntime(
     let packetOwner: object | null = null;
     let processControl: object | null = null;
     let recoveryCapability: object | null = null;
+    let dockerRecoveryId: string | null = null;
+    let recoveryHandoffRejected = false;
     let recoveryFinalizationCapability: object | null = null;
     let selectionCleanupConfirmed = true;
     let providerEffectIssued = false;
@@ -1511,9 +1518,21 @@ function createProviderAdviceRuntime(
       const process = dependencies.startProcess(
         preparedCapability,
         operation.managementCapability,
-        (capability: unknown) => {
-          recoveryCapability = objectValue(capability);
-          return recoveryCapability !== null;
+        (capability: unknown, recoveryId: unknown) => {
+          const owned = objectValue(capability);
+          const exactId = publicVerifiedDockerRecoveryId(recoveryId);
+          if (
+            recoveryHandoffRejected ||
+            recoveryCapability ||
+            !owned ||
+            !exactId
+          ) {
+            recoveryHandoffRejected = true;
+            return false;
+          }
+          recoveryCapability = owned;
+          dockerRecoveryId = exactId;
+          return true;
         },
         undefined,
         dependencies.observeStarted,
@@ -1523,6 +1542,8 @@ function createProviderAdviceRuntime(
       providerEffectIssued = process.dockerEffectStarted === true;
       if (
         process.status !== "started" ||
+        recoveryHandoffRejected ||
+        !recoveryCapability ||
         !processControl ||
         !(completion instanceof Promise)
       )
@@ -1617,6 +1638,7 @@ function createProviderAdviceRuntime(
         );
       recoveryCapability = null;
       recoveryFinalizationCapability = null;
+      dockerRecoveryId = null;
       operation.releaseHostGenerationDrain?.();
       if (hostCleanup === "protocol_failure_cleanup_confirmed")
         return blocked("workbench_ai_advice_host_generation_lost", true, true);
@@ -1673,7 +1695,12 @@ function createProviderAdviceRuntime(
         isOperationCleaned ||
         (operation === null &&
           initializationFailure?.cleanupConfirmed === true);
-      if (operation && !isOperationCleaned && !providerEffectIssued) {
+      if (
+        operation &&
+        !isOperationCleaned &&
+        !providerEffectIssued &&
+        recoveryCapability === null
+      ) {
         try {
           const cleanup = dependencies.classifyOperationCleanup(
             await dependencies.cleanupOperation(operation.owned),
@@ -1683,7 +1710,10 @@ function createProviderAdviceRuntime(
           cleanupConfirmed = false;
         }
       }
-      cleanupConfirmed = cleanupConfirmed && selectionCleanupConfirmed;
+      cleanupConfirmed =
+        cleanupConfirmed &&
+        selectionCleanupConfirmed &&
+        dockerRecoveryId === null;
       if (operation && !cleanupConfirmed) {
         try {
           await dependencies.abandonOperation(operation.managementCapability);
@@ -1708,6 +1738,7 @@ function createProviderAdviceRuntime(
             : (operation?.hostRecoveryId ??
               initializationFailure?.hostRecoveryId ??
               null),
+          dockerRecoveryId,
         }),
       );
       return result;

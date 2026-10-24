@@ -1338,7 +1338,13 @@ export function openTaskSession(context: TaskSessionContext) {
                 : result.status,
           reason: result.reason,
           cleanupConfirmed,
-          recoveryIds: executed.hostRecoveryId ? [executed.hostRecoveryId] : [],
+          recoveryIds: [
+            ...new Set(
+              [executed.hostRecoveryId, executed.dockerRecoveryId].filter(
+                (id): id is string => id !== null,
+              ),
+            ),
+          ],
           advice:
             result.status === "completed"
               ? {

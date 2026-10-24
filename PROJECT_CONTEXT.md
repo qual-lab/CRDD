@@ -16,7 +16,7 @@ Repository Role: `crdd-standard`
 
 読取り調査では、受付後の最初の結果GET失敗まで絞った。失っていたHTTP固定診断・受付済みID・同じTaskの取消結果を、試験Toolだけの最小修正で保持するようにした。外部AIなしの結合十三件と静的検査は成功。実際の接続切断／期限切れの区別、同時bridge再生成との因果は未確定。最小是正段階ではAI再送・Docker再起動・保持物操作はしていない。[調査の確度](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#claude-resume-readonly-diagnosis)と[最小是正](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#readonly-verification-minimal-fix)を参照する。
 
-標準呼出し／CRDD経路の固定Python create比較は成功済み。追加の読取り調査では、Imageの既定構成差と現在Home Directoryの存在を確認したが、実create失敗原因は未特定で、合成HTTPの同期待ち比較も切断を再現しなかった。一方、初回結果がHost参照だけを保存し、後の回復がDocker参照を追加してterminal検査に拒否される搬送漏れを特定した。これは副次失敗の是正候補であり、まだ未実装。元の保持物・Sourceは不変更、AI再送・再起動はしていない。[条件差・搬送漏れ・最小案](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#claude-create-condition-readonly-analysis)を参照する。
+標準呼出し／CRDD経路の固定Python create比較は成功済み。追加読取りでも実create失敗・ECONNRESETの原因は未特定。一方、初回結果がHost参照だけを保存する搬送漏れは、Controllerの既存引渡し値を私有分類・助言結果・初回Task保存へ届ける最小修正を実装した。正式finalize前の例外・取消・清掃不明ではDocker参照を保持し、既存terminal検査は緩めない。静的検査、助言二Suite22件、初回実保存一件、関連三Suite269件とCatalog384件の検査は成功。既存の広範な単発保存Suiteは二権限とも無出力待機で中断し、原因未特定・未完了を維持する。全体回帰完了ではない。元保持物は不変更で、AI再送・Docker再起動はしていない。[条件差の調査](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#claude-create-condition-readonly-analysis)と[今回の限定是正・確認範囲](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#advice-recovery-reference-handoff-fix)を参照する。
 
 先行する合成設定の保存拒否は、空Git templateで作った確認fixtureの`.git/info`未準備として非AIで特定・是正済み。製品の安全条件は変更せず、保存Suite十一件・静的検査・限定独立レビューが成功した。この是正の試験物は清掃済みであり、新たに保持した今回Rootとは区別する。[保存準備の是正](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#selection-save-preparation-diagnosis)を参照する。
 

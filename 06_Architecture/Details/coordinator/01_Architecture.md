@@ -1921,6 +1921,8 @@ ProviderとDockerの外部境界は、一般Architectureの[外部境界の診�
 
 Workbenchの読取り助言は一般Taskを偽装せず、`workbench_advice`を第3実行モードとして扱う。Runtime所有の一回消費PacketがOperation、Profile、Task／Projection Hash、Provider Command HashおよびPromptを結合し、Codex／Claude Adapter、Docker Effect、Process Controller、Recoveryが同じModeを保持する。Provider HomeとOperation一時領域だけをMountし、Repository／WorkspaceはMountしない。Provider出力は固定CLIの完了Envelopeを検証して助言JSONだけへ縮約し、全資源のcleanup後にのみ上位Executorへ返す。
 
+助言RuntimeはControllerが検証後に引き渡す同じ回復Capabilityとexact Docker回復参照を一回だけ保持する。不正・二重引渡しは元の組を上書きせず拒否する。未finalizeの参照は同期例外・取消・回収不明でも初回結果の私有分類に残し、Host清掃またはabandonだけをDocker終了の根拠にしない。正式finalize成功後だけ参照を解放する。単発Taskの初回終端保存は、この分類からHost／Docker参照を重複なく搬送する。後続の再探索で初回欠落を補う方式や、settled結果への新しい参照追加を許す方式にはしない。公開本文・Provider入力へ参照を複製せず、既存の認可済みTask結果と保存の境界を維持する。
+
 | 系列 | Coordinatorが保持する閉じた観測 | 保持しない内容 |
 | --- | --- | --- |
 | 実行構成 | 承認方式、Sandbox、Workspace mount mode、read-only root、非root user、workdir | 起動Command本文、Host Path、Credential |

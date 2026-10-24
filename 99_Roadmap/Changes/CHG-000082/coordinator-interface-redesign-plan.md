@@ -896,3 +896,25 @@ Sourceではauth／proxy／providerのcreateはいずれもDIの`planDockerIsola
 create自体の次の実境界比較候補は、先のCRDD所有Process＋空readonly Homeを保ち、Imageだけを固定Claude `sha256:ddd766072db6e69f55efb11fc3e82b401542cb5583c179f56aac4004f4ea317a`へ切り替える停止Container一件である。認証情報・AI・Container startを含めず、前提・同ID構成確認・回収・unknown停止条件を示して追加承認後に実施する。まだ作成していない。保持中Rootと回復参照は変更せず、HTTP比較用の短命入口だけを回収する。
 
 本節と現在地二文書の限定独立レビューは全重大度の残指摘零。Sourceに一致する搬送欠落、未特定の一次原因、比較の一般化限界、未実装の是正候補および追加承認待ちの試験を区別していることを確認した。
+
+<a id="advice-recovery-reference-handoff-fix"></a>
+
+### 助言の初回回復参照搬送の限定是正 — 2026-10-25（日本時間）
+
+利用者の継続指示に基づき、実装詳細の是正として既存の引渡し経路を修正した。着手前にController、助言Runtime、Task受付、単一WriterとArchitecture／Qualityを照合し、読み取り専用の独立確認で着手可を得た。保存Schema、認可、回収条件、terminal guardと過去Evidenceは維持する。専門観点は回復参照の初回搬送・取消・例外・正式終了のlifecycleと、保存利用側の整合である。準拠基準・リリース判断を変更しないため準拠監査・リリース監査は対象外とし、Source／検証／文書伝播の限定独立レビューを行う。
+
+Controllerは既に同じOperationへのbinding検証後にCapabilityとexact Docker参照をcallbackへ渡していた。助言Runtimeがその既存値を一度だけ捕捉し、既存の私有失敗分類、Repository助言結果、Taskの初回`recoveryIds`へHost参照とともに搬送する。不正引渡し後の再捕捉と二重引渡しでは元の組を上書きしない。正式finalize前の同期例外・取消・完了失敗・清掃不明では参照を残し、Host清掃やabandonだけをDocker終了としない。正式finalize成功後だけ参照を解放する。状態の事後探索、新State、Registry、Lock、Recovery機構とterminal guardの緩和は追加していない。
+
+| 確認 | 今回の観測と限界 |
+|---|---|
+| 静的検査 | 整形、production／test型、warningを失敗とするlint、Runtime／Task Trace検査が成功。既存lintのinfo 84件は残る |
+| 助言Runtime・Repository入口 | 二Suite22件成功。正常、引渡し直後throw／blocked、取消、完了throw、cleanup不明、finalize失敗、二重／別参照、不正後valid、欠測を合成依存で反証した |
+| 初回Task実保存 | 新Suite一件成功、レビュー是正後も再実行成功。実Task SessionとWriterでHost／Docker両参照の初回保存、同参照の再保存、別参照追加とOperation差替えの拒否を確認した。Catalog／Symbolに登録し、`PRL-IT-013`等と実Ownerへ接続した |
+| 関連回帰 | Task Adapter、Docker Process Controller、開発時観測の三Suite269件成功。実AI・実Docker試験ではない |
+| 台帳 | CheckerのCatalog検査は384件でvalid、試験実行・Effectなし |
+| 既存の広範な保存Suite | `single-task-state.integration.test.ts`は通常権限と追加権限の双方で無出力待機が続き、今回起動した試験Processだけを終了した。未完了でありPassに算入しない。待機原因は未特定。今回の修正でこの既存Suite全体を確認済みとはしない |
+| 試験物 | 中断した今回の合成Root二件はexact Path、ReparsePointなし、Docker操作・回復・配送の記録なしと試験Process終了を確認後に回収し、不存在を確認した。新ITの自己生成Rootも回収済み。既存の別試験物は清掃していない |
+
+保持中の`claude-readonly-once-20261024`のstateは最終更新UTC `2026-10-24T14:57:55.4549934Z`・10,235 bytesで変化していない。AI再送、Docker照会・作成・再起動、認証情報の読取り、保持物や旧記録の書換えは行っていない。今回の是正は初回参照欠落への対処であり、元Container create失敗・ECONNRESETの原因解明や保持試験の回収完了ではない。
+
+Source・検証・文書伝播の限定最終独立レビューは全重大度の残指摘零。初回搬送の是正と未完了の既存Suite、元の一次故障、保持試験の未回収を分離した限定結果として扱う。

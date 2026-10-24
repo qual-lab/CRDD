@@ -1633,6 +1633,19 @@
       "mandatoryByDefault": true
     },
     {
+      "id": "coordinator:integration:advice-recovery-handoff",
+      "owner": "coordinator",
+      "path": "40_Develop/coordinator/tests/integration/advice-recovery-handoff.integration.test.ts",
+      "level": "integration",
+      "kind": "integration",
+      "semanticTags": ["single-task", "recovery-reference", "state"],
+      "environment": "local_component_boundary",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["result_observed", "owned_resources_settled_or_reported"],
+      "mandatoryByDefault": true
+    },
+    {
       "id": "orchestrator:integration:single-task-state",
       "owner": "coordinator",
       "path": "40_Develop/coordinator/tests/integration/single-task-state.integration.test.ts",

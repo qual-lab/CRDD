@@ -47,6 +47,117 @@ const prepared = prepareProviderAdvicePlan(
 if (prepared.status !== "prepared" || prepared.executionPlan === null)
   throw new Error("test_execution_plan_required");
 const plan = prepared.executionPlan;
+const dockerRecoveryId = `docker-task.${"1".repeat(64)}.${"2".repeat(64)}.${"3".repeat(64)}`;
+
+/**
+ * Controller引渡し後の失敗から初回結果へexact参照を保持する。
+ * @responsibility Host清掃だけによるDocker回収完了の誤認と参照上書きを反証する。
+ * @trace ERB-UT-023
+ * @precondition 外部資源を作らない既存の合成Runtime依存を使用する。
+ * @stimulus 同期例外、取消、完了失敗、清掃不明、二重引渡しとfinalize失敗を与える。
+ * @observation 私有分類のexact参照、Host清掃、取消と公開JSONを照合する。
+ * @oracle finalize前の失敗は同じIDを保持し、正常finalizeだけ参照を解放する。
+ * @cleanup N/A: メモリ内の代役だけを使う。
+ * @boundary ERB-UT-023=Direct Boundary: Controller引渡し→助言Runtime初回結果。
+ */
+test("助言は引渡し済みDocker参照を初回失敗まで保持し正式終了後だけ解放する", async () => {
+  for (const scenario of [
+    "normal",
+    "throw",
+    "blocked",
+    "cancel",
+    "completion_throw",
+    "cleanup_unknown",
+    "finalize_failed",
+    "duplicate",
+    "different",
+    "missing",
+    "invalid",
+  ]) {
+    const current = fixture();
+    const abort = new AbortController();
+    const runtime = createIsolatedProviderAdviceRuntimeCandidate({
+      ...current.dependencies,
+      startProcess(
+        ...args: Parameters<ProviderAdviceRuntimeDependencies["startProcess"]>
+      ) {
+        const register = args[2] as (
+          capability: unknown,
+          id: unknown,
+        ) => boolean;
+        if (scenario === "missing")
+          return {
+            status: "started",
+            controlCapability: {},
+            completion: Promise.resolve({}),
+          };
+        if (scenario === "invalid") {
+          assert.equal(register({}, "invalid"), false);
+          assert.equal(register({}, dockerRecoveryId), false);
+          return { status: "blocked", reason: "synthetic_invalid_handoff" };
+        }
+        const started = current.dependencies.startProcess(...args) as {
+          completion: Promise<Record<string, unknown>>;
+        };
+        if (scenario === "throw") throw Error("synthetic_after_handoff");
+        if (scenario === "blocked")
+          return { status: "blocked", reason: "synthetic_start_blocked" };
+        if (scenario === "duplicate" || scenario === "different") {
+          assert.equal(
+            register(
+              {},
+              scenario === "duplicate"
+                ? dockerRecoveryId
+                : dockerRecoveryId.replace(/1/g, "4"),
+            ),
+            false,
+          );
+        }
+        return {
+          ...started,
+          completion: started.completion.then((completed) => {
+            if (scenario === "completion_throw")
+              throw Error("synthetic_completion");
+            if (scenario === "cancel") abort.abort();
+            return scenario === "cleanup_unknown" || scenario === "cancel"
+              ? { ...completed, cleanupConfirmed: false }
+              : completed;
+          }),
+        };
+      },
+      finalizeDockerRecovery:
+        scenario === "finalize_failed"
+          ? () => ({ status: "blocked" as const })
+          : current.dependencies.finalizeDockerRecovery,
+    } as unknown as ProviderAdviceRuntimeDependencies);
+    const result = await runtime.run(plan, abort.signal);
+    const classification = classifyProviderAdviceHostFailure(result);
+    if (scenario === "normal") {
+      assert.equal(result.cleanupConfirmed, true);
+      assert.equal(classification, null);
+    } else if (scenario === "missing" || scenario === "invalid") {
+      assert.equal(result.status, "blocked");
+      assert.equal(classification?.dockerRecoveryId, null);
+    } else {
+      assert.equal(result.status, "blocked", scenario);
+      assert.equal(result.cleanupConfirmed, false, scenario);
+      assert.equal(
+        classification?.dockerRecoveryId,
+        dockerRecoveryId,
+        scenario,
+      );
+      assert.equal(classification?.hostRecoveryId, "HOST-RECOVERY", scenario);
+      if (scenario === "throw" || scenario === "blocked")
+        assert.equal(
+          current.calls.includes("cleanup-operation"),
+          false,
+          scenario,
+        );
+    }
+    assert.equal(JSON.stringify(result).includes(dockerRecoveryId), false);
+    assert.equal(classifyProviderAdviceHostFailure({ ...result }), null);
+  }
+});
 
 /**
  * fixture用の試験入力または観測処理を提供する。
@@ -305,7 +416,7 @@ function fixture(
       assert.equal(
         (register as (capability: unknown, id: string) => boolean)(
           recoveryCapability,
-          "docker-recovery.test",
+          dockerRecoveryId,
         ),
         true,
       );
@@ -914,6 +1025,7 @@ test("初期化失敗の清掃分類と取得済み参照を初回結果まで�
       cleanupConfirmed: confirmed,
       manualRecoveryRequired: !confirmed,
       hostRecoveryId: confirmed ? null : "exact-host-reference-fixture",
+      dockerRecoveryId: null,
     });
     assert.equal(current.calls.includes("start-process"), false);
     assert.equal(current.calls.includes("poison"), !confirmed);
@@ -951,6 +1063,7 @@ test("未知の初期化失敗は不存在へ畳まない", async () => {
     cleanupConfirmed: false,
     manualRecoveryRequired: true,
     hostRecoveryId: null,
+    dockerRecoveryId: null,
   });
   assert.equal(current.calls.includes("poison"), true);
   assert.equal(current.calls.includes("start-process"), false);
@@ -1129,6 +1242,7 @@ test("作成と世代Lock準備の失敗分類を本番と同じ処理で搬送�
         cleanupConfirmed: confirmed,
         manualRecoveryRequired: !confirmed,
         hostRecoveryId: confirmed ? null : "exact-host-reference-fixture",
+        dockerRecoveryId: null,
       });
       assert.equal(cleanupCalls, stage === "creation" ? 0 : 1);
       assert.equal(current.calls.includes("start-process"), false);
