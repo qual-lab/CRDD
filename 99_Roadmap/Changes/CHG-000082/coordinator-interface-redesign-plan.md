@@ -1082,3 +1082,15 @@ Source候補は受付保存・Map登録・取消監視設定後、同じ`item.pe
 通常応答・接続切断・実15秒期限を含むHTTP子試験、Process故障・pipe・出力・frame・終了欠測の有限反例、同IDの結果／回復参照保持と二重close故障の局所試験は成功。Workbenchの通常結合回帰は85件成功、Coordinatorの実保存・受付取消・fresh再入場を含む関連6 Suiteは24件成功、両Packageの静的検査も成功した。制限された実行環境では子からのloopback通信が失敗したため、その結果を製品故障と断定せず保持し、許可されたloopback／子Process実行環境で上記を確認した。独立再レビューは残指摘零である。
 
 変更4文書の検査指摘は零。ただし参照先を展開した範囲には旧リンク312件と変更していないSymbolのQA識別子未定義1件、計313件があり、文書全体の合格とはしない。過去Evidenceは変更しない。自己生成した受付試験Rootの残存は零。外部AI・Docker要求・認証Home・保持中の試験物には触れていない。今回閉じたのは受付分離と検証Toolの通信構成・終了確認であり、同Process期限超過の原因、元ECONNRESET／Container作成unknown、実AI E2E・全体QA・Releaseは未成立のまま区別する。
+
+<a id="pre-ai-readonly-readiness"></a>
+
+### 実AI再開前の非AI・読取り確認 — 2026-10-25
+
+基準`9907eb204`で、既存のHTTP子の通常／切断／15秒期限と、実保存Taskの受付・通常完了・取消・応答喪失後の同ID継続を再確認し、選択した二件は成功した。三POSTの本文完了は3,110ms／2,991ms／10,487msで、今回の合成受付Rootは終了後不存在を確認した。製品Source・API・期限・保存契約の変更はない。
+
+保持②の旧試験Root `.crdd/tests/workspace-real-ai` は不存在。別件の保持中Claude試験Rootは維持され、stateは改訂21・10,235 bytes・最終更新UTC2026-10-24 14:57:55.4549934のままである。Taskはunknown／cleanup false、操作はsettling、認証確認createだけunknown、Owner Effect disabled／Provider not_started／外部送信・共有書込みnot_issuedを保持する。現在のexact Host参照から元のHost Root・markerを既存Readerで照合し、state docker_submission_startedとの一致を確認した。実行環境の一時Pathを使った先行読取りの失敗は、元Host領域の不存在根拠には使わない。元の状態・記録・Host領域は書き換えず、回復・削除は実行していない。
+
+Dockerの読取りはEngine 29.8.1応答・稼働Container零、今回のexact auth名と所有LabelのContainer／Network零だった。通常WindowsのProcess照会も成功し、同じRoot名・試験名・auth名に相関する旧Processは未検出。本体Repositoryの現在状態は改訂129で、操作・未解決回復・配送待ち・Lease意図は各零だった。現在未発見を過去create終了・遅延作成不能・元回収完了へ昇格しない。Provider Homeの排他取得や認証有効性は未評価であり、次回は既存のfresh実行Gateを維持する。
+
+現行SourceのCodex編集・Claude・Proxyの固定三Imageはexact Digestで存在し、各linux/amd64を確認した。Image取得／更新、Container作成・起動・削除、Docker起動／再起動、認証Home内容の読取り、外部AI依頼は行っていない。次の人間判断には、前回Provider本体未開始だったClaudeについて、新品合成Contextと固定質問だけを既存Subscription認証で一回読取り確認する最小案を提示する。Codexの読取り再実行やDirect／Isolated編集二試験をこの判断へ暗黙に含めず、実AI・認証のEffect前に送信範囲・回数・停止／回収条件を再承認する。
