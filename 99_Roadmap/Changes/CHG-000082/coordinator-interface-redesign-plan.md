@@ -548,3 +548,13 @@ AI起動は計二回で再送なし。認証状態確認をAI起動回数に含�
 両Taskの呼出しProcess終了後、今回の合成Stateはoperations・unresolvedRecoveries・pendingDeliveries・leaseIntents・workspacesが各零、二QueueはcompletedかつownerGenerationなしを確認した。historyPending二件は通常要約の保存待ちであり、回復待ちや実行中と混同しない。自己生成した合成GitのWorktree登録は自身一件だけ。保持②と本体設定へ触れず、今回領域だけを内容・非使用確認後に回収する。Docker再起動・Image取得・ログイン・APIキーfallbackは行っていない。全体E2EのPassとはしない。
 
 その後、今回Rootの正規Path、祖先及び配下のReparsePoint不存在（File二十三・Directory二十二）を確認し、そのRootだけを削除した。削除後の直接不存在を確認済み。元の失敗・成功の要約は本節へ保持し、実行ごとの書庫は追加しない。
+
+### Claude非0終了の切り分け — 2026-10-24
+
+利用者の調査依頼に従い、再送・認証変更・Docker再起動・保持②操作をせず、現在Sourceと差分、既存試験、合成入力で照合した。`controller.ts`の技術分類は非0の標準出力・標準エラーを`convertProviderError`へ渡しており、本文を渡す前に失っているわけではない。一方、AI AdapterのClaude分岐はJSON標準出力の三subtype（予算・Turn・構造化再試行上限）だけを判定し、それ以外は標準エラーを分類して終了する。Codex側だけに有界な標準出力エラー抽出がある。
+
+合成`type: result / subtype: error_during_execution / is_error: true / errors: [authentication failed]`と空stderrでは汎用`provider_process_exit_nonzero`、同じ説明をstderrへ置くと`provider_authentication_expired`となることを通信なしで再現した。既知`error_max_turns`は従来どおり`provider_turn_limit_exceeded`になる。既存エラー変換Suite一件も成功（118.8982ms）。これは診断上の取りこぼしの根拠であり、前回の実出力がこの形・この理由だったことの証明ではない。
+
+既存固定Claude Imageから、認証・Repositoryマウントなし、network none、非root、読取り専用、Pullなしで`--help`だけを一回実行した。Container実IDは`da8006e6dc2b0fd653272466307fd3300a5ece2be8c8d9424ac3b1fe6464198d`、終了値0。現在計画の主要引数十三種はヘルプに存在した。`--max-turns`は表示されなかったが、[公式CLI資料](https://code.claude.com/docs/en/cli-reference)はこの引数を説明し、全引数がヘルプに表示されるとは限らないと明記する。最新資料を固定2.1.220の実受理証明とはせず、未表示だけから未対応と判定しない。診断Containerは同じ実IDの停止確認後に削除し、exact ID絞込みで不存在を確認した。Image取得・既存資源の変更はない。
+
+実失敗は開始後の終了値1までしか特定できず、過去の835バイトは生出力非保存方針により再解析できない。Model・effort・Turn上限・CLI引数を推測変更しない。最小案は既存AI Adapterのエラー変換内で、上限付き単一JSONの解析可否、許可した`type/subtype/is_error`の分類、既知エラー説明から既存reasonへの変換だけを扱い、本文・未知値・Session ID・認証値を返却／保存しないこと。新しい診断Storeや回復機構は不要である。これは未実装の提案であり、最初に合成入力だけで正常回答・不正／曖昧／過大JSON・未知形の拒否を確認する。実AIの診断付き再送は別途承認後の一回とし、現在の調査でAI起動は零。Source変更は行っていない。
