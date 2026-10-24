@@ -802,3 +802,29 @@ Workflow・結果記録・現在投影の三文書は限定独立レビューで
 結果記録後、今回fixtureはcoordinator状態Directory不存在、自己生成GitのWorktree自身一件だけ、二十七File・三十Directoryのsymlinkなし／File nlink一を確認した。resolved絶対Pathのexact一致を確認して今回Rootだけを削除し、不存在を確認した。短命な実行・非AI診断入口二本も回収した。未解決Runtime状態の強制削除ではない。Claudeの実推論確認は未実施のまま残す。
 
 三文書の限定独立レビューは全重大度の残指摘零。fixtureの前提停止とProvider未起動、外側終了値とnative欠測、非AI前提是正と限定清掃を区別した。製品Source不変更のため製品回帰を追加せず、既存Readerの実前提確認と文書の直接伝播を検証範囲とした。
+
+<a id="claude-readonly-once-diagnostic-result"></a>
+
+### 修正済み前提でのClaude読取り一回と診断結果 — 2026-10-24
+
+利用者の再承認に従い、基準`09681073e`・cleanなSourceから、新品合成Root `.crdd/tests/claude-readonly-once-20261024/readonly`を準備した。必須表、Git info／空exclude、正式AI選択保存、Root再評価、同じProject IDの非AI表示確認を先に通し、Effect直前にもSource HEAD／cleanを再確認した。送信許可は合成Context一件と既存固定質問だけ、Claude `opus / medium`の一回に限定した。通常ファイルの短命入口は独立確認の残指摘零で実行し、正式Toolの呼出しは一回、再試行は零だった。
+
+| 実観測 | 結果・意味と限界 |
+|---|---|
+| Tool最終結果 | Node native終了値2をShellで別途捕捉。limitedProbePassed false／fullE2eVerified false。受付ID `request-e6d06202-ce4e-4613-83c3-1b0cddeb36fc`、failureStep observe、一次理由workbench_verification_transport_failed |
+| HTTP診断 | headers_unobserved、HTTP timedOut false、transportCode ECONNRESET。前回失われた「HTTP期限か切断か」を今回は区別できた。Task timedOut falseとは別の観測であり、接続を切った主体や原因までは特定しない |
+| 認証確認作成 | Operation `OP-38642440089871151122961587150122726409`。create_subscription_auth_probe／execution_classification／docker_setup_create_subscription_auth_probe_failed。commandHandleObtained・responseObserved true、Receipt未記録、終了値1・stdout／stderr各0 bytes。これだけでDocker側の拒否原因を断定しない |
+| Provider／Effect | ProviderContainer作成・Provider本体開始・完了はいずれも未観測。耐久記録はproviderStart not_started、externalSend／sharedWrite not_issued。認証確認以外の四資源はnot_requested。今回をClaudeの推論非0や実送信成功として扱わない |
+| Toolの終了処置 | 同じ受付IDへ取消を一回発行し結果を受領。cancellationFailure／closeFailure null、closeConfirmed true。元のHTTP理由を上書きせず、返却結果unknown／body_unavailable・cleanup falseとexact回復参照を保持できた |
+| 副次失敗 | orchestrator_single_task_terminal_identity_conflict、orchestrator_queue_release_settlement_state_mismatch、orchestrator_task_lease_release_unconfirmedを欠落させず保持。表示用のOwner世代nullやleaseIntents零から排他解放の成功を推定しない |
+| 資源と前後固定 | provider_cleanup_unconfirmed。既存資源inventory保持・System捕捉構成同値だが、標準bridgeがf8c36a96…から257f1218…へ変化。後者生成は14:57:18.056939622 UTC。今回の再起動発行や、HTTP切断との因果を意味しない。本体Source・合成Context／HEAD／Treeと選択設定は前後不変 |
+
+終了後の同Root state改訂21では一操作がsettling／Owner disabled／旧Workspace再利用不可、認証確認だけrequest／observation unknown・実ID／Receiptなしを保持した。Queueはrecovery_required、singleTask settled／unknown／cleanup false。operationsが残る一方でunresolvedRecoveries一覧・leaseIntents・配送待ちは零であり、配列の件数だけから終了済みにしない。
+
+今回のDocker回復IDは`docker-task.29c9921916f3a63170e77179d3145c8627a2b3519d5813b7c9cf2a87d136d9aa.776fa54649f45e47f6b0673986d25c3963883205ac2c144a3fd34a32f1df9008.ff809c3737cf2973c3cb1b99289f759d8e1ae3f6f3100d9c6ed5bc8273b6c667`。Task返却・Queueの元Host参照は`host.crdd-coordinator-doctor-fc2ca38f-5690-4698-83a9-c523d6ddf93d.fc2ca38f-5690-4698-83a9-c523d6ddf93d.df71aebf523ba254944a8e48edaedc7511179f65bf1c30b1f975320142661879`、現在操作のHost参照は`host.crdd-coordinator-doctor-fc2ca38f-5690-4698-83a9-c523d6ddf93d.fc2ca38f-5690-4698-83a9-c523d6ddf93d.4a8df4db869a015cb523b8ca343881d9f6de093f0c6245f0ce6dbc62cf5dd24a`。世代の異なる参照を混同しない。
+
+終了後の限定Docker読取りではEngine 29.8.1応答、予定auth名`crdd-auth-1b19d805b65b9ae2`と今回Label `crdd.coordinator.runtime=1b19d805b65b9ae2`に一致するContainer／Networkは見つからなかった。現在未発見を過去create終了や遅延作成不能の証明にせず、未知資源の削除・追加の回復実行・再起動は行わなかった。
+
+今回Rootと安全な`result.json`を、同じ回復参照・状態とともに保持する。生Provider本文・資格値は保存していない。既定七日の再評価日は2026-10-31とし、未解決参照を期限で削除しない。次はECONNRESET、認証確認create失敗、副次の終端Identity／Queue処理の関係を外部AIなしで調査する。実AI再送、Docker再起動、Image取得、ログイン、APIキーfallback、保持物削除は今回の後続処置に含めない。Direct／Isolatedは未実施のままである。
+
+短命な今回実行入口は結果保存後に回収し、不存在を確認した。結果二文書の限定独立レビューでは、現在投影の作成処理失敗／実作成unknownとHTTP診断の表現一件を限定し、再確認後は全重大度の残指摘零。Source・保持状態・exact参照は変更していない。

@@ -12,11 +12,11 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
-直近のClaude読取り再確認はTask受付前に停止した。原因はフロントAIが作った合成Contextの必須表不足であり、AIは起動していない。表だけを補い、非AIのProject表示前提は通過したが、正式Tool／AIは再実行していない。製品Source・安全条件・本体設定は不変更。以前のDocker回収・上位受付反映・清掃は完了済みで、今回の停止と混同しない。[今回の前提停止と是正](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#claude-readonly-confirmation-fixture-stop)を参照する。
+修正済み前提からClaude読取りを承認どおり一回試したが、認証確認Containerの作成処理が失敗して実作成結果はunknownのまま、結果観測ではHTTP診断上timedOut false／ECONNRESETを記録して停止した。同じTaskの取消結果も保持できた。一方、Provider本体はnot_started・外部送信not_issuedで、回収未確認と三つの副次失敗が残り、新しい合成Rootとexact回復参照を保持する。再送・追加再起動はしていない。[今回の診断・保持範囲](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#claude-readonly-once-diagnostic-result)を参照する。
 
 読取り調査では、受付後の最初の結果GET失敗まで絞った。失っていたHTTP固定診断・受付済みID・同じTaskの取消結果を、試験Toolだけの最小修正で保持するようにした。外部AIなしの結合十三件と静的検査は成功。実際の接続切断／期限切れの区別、同時bridge再生成との因果は未確定。最小是正段階ではAI再送・Docker再起動・保持物操作はしていない。[調査の確度](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#claude-resume-readonly-diagnosis)と[最小是正](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#readonly-verification-minimal-fix)を参照する。
 
-最小是正は`22082c5b9`としてpush済み。現在操作・未解決回復・配送待ち・履歴待ち・排他意図すべて零、上位Task completed・元結果unknown・回収確認true・回復参照なしを確認後、今回の合成Rootと短命入口を回収し不存在を確認した。次は診断修正後のClaude読取り再確認であり、実AIへの再送は別途承認後に一回だけ行う。[承認済み再起動・技術回収](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#readonly-trial-approved-restart-recovery)と後段の終了反映・清掃を参照する。
+最小是正は`22082c5b9`としてpush済みであり、今回の固定HTTP診断と取消結果保持に接続した。以前の保持Rootは回収・上位終了・履歴確定後に清掃済みで、今回の新しい残存と区別する。次は外部AIなしで、接続切断・認証確認作成・終端Identity／Queueの副次失敗を切り分ける。Direct／Isolatedの実編集確認は未実施。[以前の回収・清掃](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#readonly-trial-task-initialization-resolution)を参照する。
 
 先行する合成設定の保存拒否は、空Git templateで作った確認fixtureの`.git/info`未準備として非AIで特定・是正済み。製品の安全条件は変更せず、保存Suite十一件・静的検査・限定独立レビューが成功した。この是正の試験物は清掃済みであり、新たに保持した今回Rootとは区別する。[保存準備の是正](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#selection-save-preparation-diagnosis)を参照する。
 
