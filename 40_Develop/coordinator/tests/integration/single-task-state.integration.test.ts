@@ -13,10 +13,11 @@ import {
   executionSelection,
   taskExecutionSelections,
 } from "../fixtures/ai-selection.ts";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import test from "node:test";
+import test, { mock } from "node:test";
+import * as snapshotStorage from "../../src/storage/current-state.ts";
 import { devNull } from "node:os";
 import {
   initializeCoordinatorSnapshot,
@@ -259,6 +260,7 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
   let revokeDuringJoin = false;
   let failedExecution = false;
   let sameOwnerRecoveries = 0;
+  let executionStarted = () => {};
   const owner = createCoordinatorTaskRequests({
     root,
     binding,
@@ -287,6 +289,7 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
     execute: async (command, _execution, signal, started) => {
       calls++;
       assert.equal(await started(), true);
+      executionStarted();
       if (cancelProbe) {
         await new Promise<void>((resolve) =>
           signal.addEventListener(
@@ -366,6 +369,7 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
       mode,
       allowedPaths: mode === "workspace_edit" ? ["source.txt"] : [],
     };
+    const previousCalls: number = calls;
     const pair: Awaited<ReturnType<typeof owner.start>>[] =
       calls === 0
         ? await Promise.all([owner.start(input), owner.start(input)])
@@ -375,7 +379,9 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
     assert.ok(accepted);
     assert.equal(accepted.status, "accepted", JSON.stringify(accepted));
     assert.ok(accepted.requestId);
+    assert.equal(calls, previousCalls);
     let observed = await owner.observe(accepted.requestId);
+    assert.equal(observed.status, "accepted");
     for (
       let i = 0;
       i < 10 && ["accepted", "running"].includes(observed.status);
@@ -390,18 +396,26 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
   }
   assert.equal(calls, 5);
   cancelProbe = true;
+  const cancelStarted = new Promise<void>((resolve) => {
+    executionStarted = resolve;
+  });
   const accepted = await owner.start(command);
   assert.ok(accepted.requestId);
+  await cancelStarted;
   const cancelled = await owner.cancel(accepted.requestId);
   assert.equal(cancelled.status, "cancelled", JSON.stringify(cancelled));
   assert.equal(joined, true);
   permitted = true;
   revokeDuringJoin = true;
+  const revokeStarted = new Promise<void>((resolve) => {
+    executionStarted = resolve;
+  });
   const revocation = await owner.start(command);
   assert.ok(revocation.requestId);
   const duplicate = await owner.start(command);
   assert.equal(duplicate.status, "blocked");
   assert.equal(duplicate.reason, "orchestrator_task_request_active");
+  await revokeStarted;
   const withheld = await owner.cancel(revocation.requestId);
   assert.equal(withheld.reason, "orchestrator_task_not_available");
   assert.deepEqual(withheld.facts, []);
@@ -426,11 +440,15 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
   cancelProbe = true;
   joined = false;
   const externalCancellation = new AbortController();
+  const externalExecutionStarted = new Promise<void>((resolve) => {
+    executionStarted = resolve;
+  });
   const externalStarted = await owner.start(
     command,
     externalCancellation.signal,
   );
   assert.ok(externalStarted.requestId);
+  await externalExecutionStarted;
   externalCancellation.abort();
   const externalResult = await owner.wait(externalStarted.requestId);
   assert.equal(externalResult.status, "cancelled");
@@ -440,6 +458,7 @@ test("単発Taskは計画を捏造せず反復受付と終端を同じWriterへ�
   failedExecution = true;
   const unknown = await owner.start(command);
   assert.ok(unknown.requestId);
+  assert.equal((await owner.wait(unknown.requestId)).status, "unknown");
   const inProcessRecovery = await owner.cancel(unknown.requestId);
   assert.equal(
     inProcessRecovery.cleanupConfirmed,
@@ -636,4 +655,347 @@ test("単発記録は本文・getter・未回収成功を受理しない", () =>
     null,
   );
   assert.equal(hits, 0);
+});
+
+/**
+ * 耐久acceptedと実行開始を実Writer・別Processで分離する。
+ * @responsibility 即時取消・close・受付直後のOwner喪失を既存終端へ接続する。
+ * @trace PRL-IT-013
+ * @precondition 自己生成Gitと合成選定だけを使う。
+ * @stimulus 保存未初期化、accepted直後取消／close、子の受付直後終了、fresh再入場。
+ * @observation 実Snapshot、execute件数、Owner世代、Lease意図、子Process終了。
+ * @oracle 保存前拒否、accepted時execute0、全終端でLease残存0、本文再送0。
+ * @cleanup 所有Ownerと子の終了後、自己生成Rootだけを除去する。
+ * @boundary 実Git・実Writer・実排他・別Node。AI／Dockerは使わない。
+ */
+test("耐久受付は開始準備より先に返り即時取消とOwner喪失を追跡する", async (t) => {
+  const parent = path.resolve(import.meta.dirname, "../../../../.crdd/tests");
+  assert.equal(fs.realpathSync.native(parent), parent);
+  const root = fs.mkdtempSync(path.join(parent, "task-acceptance-"));
+  assert.equal(path.dirname(root), parent);
+  let owner: ReturnType<typeof createCoordinatorTaskRequests> | null = null;
+  t.after(async () => {
+    await owner?.close();
+    fs.rmSync(root, { recursive: true, force: true });
+    assert.equal(fs.existsSync(root), false);
+  });
+  execFileSync("git", ["init", "--template=", "--initial-branch=main"], {
+    cwd: root,
+    windowsHide: true,
+    stdio: "ignore",
+  });
+  fs.mkdirSync(path.join(root, ".git", "info"));
+  fs.writeFileSync(path.join(root, ".git", "info", "exclude"), ".crdd/\n");
+  fs.writeFileSync(path.join(root, ".gitignore"), ".crdd/\n");
+  execFileSync(
+    "git",
+    [
+      "-c",
+      "user.name=Test",
+      "-c",
+      "user.email=test@example.invalid",
+      "-c",
+      "core.hooksPath=",
+      "commit",
+      "--allow-empty",
+      "-m",
+      "synthetic",
+    ],
+    {
+      cwd: root,
+      windowsHide: true,
+      stdio: "ignore",
+    },
+  );
+  const revision = execFileSync("git", ["rev-parse", "HEAD"], {
+    cwd: root,
+    windowsHide: true,
+    encoding: "utf8",
+  }).trim();
+  const binding = deriveCoordinatorRepositoryBindingId(root);
+  let executions = 0;
+  const createOwner = () =>
+    createCoordinatorTaskRequests({
+      root,
+      binding,
+      projectId: "synthetic-project",
+      principalId: "synthetic-user",
+      authorize: () => true,
+      resolveSelection: () => ({
+        primary: executionSelection("advice"),
+        taskExecutionSelections: null,
+      }),
+      observeRevision: () => revision,
+      observeLeaseOwner: () => {
+        throw Error("unstarted_owner_has_no_lease");
+      },
+      recover: async () => {
+        throw Error("unstarted_owner_has_no_provider");
+      },
+      execute: async () => {
+        executions++;
+        throw Error("cancelled_before_execution");
+      },
+    });
+  const command = {
+    mode: "read_only_advice",
+    workType: null,
+    prompt: "synthetic",
+    contextReferences: ["PROJECT_CONTEXT.md"],
+    allowedPaths: [],
+    externalSendConfirmed: true,
+    expectedNetworkPolicyHash: "a".repeat(64),
+    workspaceId: null,
+  };
+  owner = createOwner();
+  const refused = await owner.start(command);
+  assert.equal(refused.status, "blocked");
+  assert.equal(refused.requestId, null);
+  assert.equal(executions, 0);
+  await owner.close();
+  assert.equal(
+    initializeCoordinatorSnapshot(root, binding).status,
+    "completed",
+  );
+  for (const operation of ["cancel", "close"] as const) {
+    owner = createOwner();
+    const accepted = await owner.start(command);
+    assert.equal(accepted.status, "accepted");
+    assert.ok(accepted.requestId);
+    assert.equal(executions, 0);
+    const initial = readCoordinatorSnapshot(root, binding);
+    assert.equal(initial.status, "completed");
+    if (initial.status !== "completed" || !initial.value)
+      throw Error("snapshot_required");
+    const entry = initial.value.queueEntries.find(
+      (q) => q.queueId === accepted.requestId,
+    );
+    assert.equal(entry?.singleTask?.phase, "accepted");
+    assert.equal(entry?.ownerGeneration, null);
+    assert.deepEqual(initial.value.leaseIntents, []);
+    const duplicate = await owner.start(command);
+    assert.equal(duplicate.status, "blocked");
+    assert.equal(duplicate.reason, "orchestrator_task_request_active");
+    if (operation === "cancel") {
+      const result = await owner.cancel(accepted.requestId);
+      assert.equal(result.status, "cancelled");
+      assert.equal(result.cleanupConfirmed, true);
+      assert.deepEqual(result.recoveryIds, []);
+      assert.deepEqual(result.secondaryFailures, []);
+    }
+    await owner.close();
+    assert.equal((await owner.start(command)).status, "blocked");
+    const final = readCoordinatorSnapshot(root, binding);
+    assert.equal(final.status, "completed");
+    if (final.status !== "completed" || !final.value)
+      throw Error("snapshot_required");
+    const settled = final.value.queueEntries.find(
+      (q) => q.queueId === accepted.requestId,
+    );
+    assert.equal(settled?.singleTask?.status, "cancelled");
+    assert.equal(settled?.singleTask?.cleanupConfirmed, true);
+    assert.equal(settled?.singleTask?.adviceOperation, undefined);
+    assert.equal(settled?.ownerGeneration, null);
+    assert.deepEqual(final.value.leaseIntents, []);
+    assert.equal(executions, 0);
+  }
+  const child = spawnSync(
+    process.execPath,
+    [
+      path.resolve(import.meta.dirname, "../fixtures/accepted-task-owner.ts"),
+      root,
+      revision,
+    ],
+    { cwd: root, windowsHide: true, encoding: "utf8", timeout: 60_000 },
+  );
+  assert.equal(child.error, undefined);
+  assert.equal(child.status, 0, child.stderr);
+  const lost = JSON.parse(child.stdout) as {
+    status: string;
+    requestId: string;
+  };
+  assert.equal(lost.status, "accepted");
+  const saved = readCoordinatorSnapshot(root, binding);
+  assert.equal(saved.status, "completed");
+  if (saved.status !== "completed" || !saved.value)
+    throw Error("snapshot_required");
+  assert.equal(
+    saved.value.queueEntries.find((q) => q.queueId === lost.requestId)
+      ?.singleTask?.phase,
+    "accepted",
+  );
+  assert.deepEqual(saved.value.leaseIntents, []);
+  owner = createOwner();
+  const observed = await owner.observe(lost.requestId);
+  assert.equal(observed.requestId, lost.requestId);
+  assert.equal(observed.executionStatus, "pending");
+  assert.equal(observed.reason, "orchestrator_task_body_unavailable");
+  const recovered = await owner.cancel(lost.requestId);
+  assert.equal(recovered.requestId, lost.requestId);
+  assert.equal(recovered.executionStatus, "blocked");
+  assert.equal(recovered.cleanupConfirmed, true);
+  assert.deepEqual(recovered.recoveryIds, []);
+  assert.deepEqual(recovered.secondaryFailures, []);
+  assert.equal(executions, 0);
+  await owner.close();
+  const end = readCoordinatorSnapshot(root, binding);
+  assert.equal(end.status, "completed");
+  if (end.status !== "completed" || !end.value)
+    throw Error("snapshot_required");
+  assert.ok(
+    end.value.queueEntries.every(
+      (q) => q.ownerGeneration === null && q.singleTask?.phase === "settled",
+    ),
+  );
+  assert.deepEqual(end.value.leaseIntents, []);
+  const technical = JSON.parse(
+    fs.readFileSync(path.join(root, ".crdd/coordinator/state.json"), "utf8"),
+  ) as {
+    operations: unknown[];
+    unresolvedRecoveries: unknown[];
+    pendingDeliveries: unknown[];
+  };
+  assert.deepEqual(technical.operations, []);
+  assert.deepEqual(technical.unresolvedRecoveries, []);
+  assert.deepEqual(technical.pendingDeliveries, []);
+});
+
+/**
+ * 受付前と受付後の保存・Lease拒否を実Task Ownerへ注入する。
+ * @responsibility acceptedを実行成功へ変換せず元の失敗・保存義務を観測可能にする。
+ * @trace PRL-IT-013
+ * @precondition 保存primitiveだけを有限代役に置き、実Filesystemを使わない。
+ * @stimulus enqueue、Lease取得、starting保存の各拒否。
+ * @observation acceptedの有無、execute件数、元回復参照と解放件数。
+ * @oracle 受付前拒否はIDなし、受付後拒否は同IDの非成功、未確認保存のcleanup成功0。
+ * @cleanup Module代役をrestoreし同じpendingのcloseを待つ。
+ * @boundary 本番Task Ownerと保存primitiveの故障境界。実保存成功は別ITで確認する。
+ */
+test("受付前の保存拒否と受付後のLease・開始保存拒否を区別する", async () => {
+  for (const stage of ["enqueue", "lease", "starting"] as const) {
+    let queue: ProjectQueueEntry | null = null;
+    let executions = 0;
+    let releases = 0;
+    const storage = mock.module(
+      new URL("../../src/storage/current-state.ts", import.meta.url).href,
+      {
+        namedExports: {
+          ...snapshotStorage,
+          readCoordinatorSnapshot: () => ({
+            status: "completed",
+            value: {
+              intakeEpoch: "epoch",
+              queueEntries: queue ? [queue] : [],
+              leaseIntents: [],
+            },
+          }),
+          enqueueCoordinatorSingleTask: (
+            ...args: Parameters<
+              typeof snapshotStorage.enqueueCoordinatorSingleTask
+            >
+          ) => {
+            queue = args[3];
+            return stage === "enqueue"
+              ? { status: "blocked", reason: "fixture_enqueue_failed" }
+              : { status: "completed", value: queue };
+          },
+          acquireCoordinatorSnapshotLease: () =>
+            stage === "lease"
+              ? { status: "blocked", reason: "fixture_lease_failed" }
+              : {
+                  status: "completed",
+                  value: {
+                    ownerGeneration: "synthetic-owner",
+                    release: () => {
+                      releases++;
+                      return { status: "completed" };
+                    },
+                  },
+                },
+          closeUnstartedCoordinatorSingleTask: () => {
+            assert.ok(queue?.singleTask);
+            return {
+              status: "completed",
+              value: {
+                ...queue,
+                singleTask: {
+                  ...queue.singleTask,
+                  phase: "settled",
+                  status: "blocked",
+                  cleanupConfirmed: true,
+                },
+              },
+            };
+          },
+          updateCoordinatorSingleTask: () => ({
+            status: "blocked",
+            reason: "fixture_starting_save_failed",
+            recoveryId: "store.synthetic",
+          }),
+          createCoordinatorSnapshotStatePort: () => ({
+            settleQueueLeaseRelease: () => ({ status: "completed" }),
+          }),
+        },
+      },
+    );
+    let owner: ReturnType<typeof createCoordinatorTaskRequests> | null = null;
+    try {
+      const moduleUrl = new URL(
+        `../../src/task/requests.ts?acceptance-failure=${stage}`,
+        import.meta.url,
+      );
+      const fresh = (await import(
+        moduleUrl.href
+      )) as typeof import("../../src/task/requests.ts");
+      owner = fresh.createCoordinatorTaskRequests({
+        root: "synthetic-root",
+        binding: "synthetic-binding",
+        projectId: "synthetic-project",
+        principalId: "synthetic-user",
+        authorize: () => true,
+        resolveSelection: () => ({
+          primary: executionSelection("advice"),
+          taskExecutionSelections: null,
+        }),
+        observeRevision: () => "a".repeat(40),
+        execute: async () => {
+          executions++;
+          throw Error("execution_forbidden");
+        },
+      });
+      const accepted = await owner.start({
+        mode: "read_only_advice",
+        workType: null,
+        prompt: "synthetic",
+        contextReferences: ["PROJECT_CONTEXT.md"],
+        allowedPaths: [],
+        externalSendConfirmed: true,
+        expectedNetworkPolicyHash: "a".repeat(64),
+        workspaceId: null,
+      });
+      assert.equal(executions, 0);
+      if (stage === "enqueue") {
+        assert.equal(accepted.status, "blocked");
+        assert.equal(accepted.requestId, null);
+      } else {
+        assert.equal(accepted.status, "accepted");
+        assert.ok(accepted.requestId);
+        const result = await owner.wait(accepted.requestId);
+        assert.equal(result.requestId, accepted.requestId);
+        assert.equal(result.status, stage === "lease" ? "blocked" : "unknown");
+        assert.equal(result.cleanupConfirmed, stage === "lease");
+        if (stage === "starting") {
+          assert.ok(result.recoveryIds.includes("store.synthetic"));
+          assert.ok(
+            result.secondaryFailures.includes("fixture_starting_save_failed"),
+          );
+          assert.equal(releases, 1);
+        } else assert.equal(releases, 0);
+      }
+      assert.equal(executions, 0);
+    } finally {
+      await owner?.close();
+      storage.restore();
+    }
+  }
 });

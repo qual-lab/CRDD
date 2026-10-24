@@ -35,11 +35,14 @@ import {
   createWorkbenchAiVerificationHttpClient,
   observeVerificationDockerInventory,
   assessVerificationDockerInventory,
-  requestBounded,
+  requestInChild,
   readMain,
   projectVerificationTransportFailure,
 } from "./ai-verification-http.ts";
-import type { WorkbenchAiRequestSnapshot } from "../src/server/ai-request/types.ts";
+import type {
+  WorkbenchAiRequestSnapshot,
+  WorkbenchAiRequests,
+} from "../src/server/ai-request/types.ts";
 import { verifyWorkspaceOutputBytes } from "./workspace-output-verification.ts";
 import { observeRuntimeOwnedDevelopmentSource } from "../../coordinator/src/execution/diagnostics.ts";
 
@@ -225,6 +228,8 @@ async function verify(
   let runtimeClean = false;
   let workspaceClean = mode === "direct";
   let acceptedRequestId: string | null = null;
+  let client: WorkbenchAiRequests | null = null;
+  let clientCleanupUnconfirmed = false;
   let step = "prepare";
   const evidence: Record<string, unknown> = {
     mode,
@@ -258,7 +263,7 @@ async function verify(
   try {
     const model = await readMain(handle.baseUrl);
     const workspace = async (command: Record<string, unknown>) => {
-      const response = await requestBounded(
+      const response = await requestInChild(
         handle.baseUrl,
         "/workspace/action",
         new URLSearchParams({
@@ -301,9 +306,7 @@ async function verify(
       runtimeClean = true;
       evidence.preflightOnly = true;
     } else {
-      const client = await createWorkbenchAiVerificationHttpClient(
-        handle.baseUrl,
-      );
+      client = await createWorkbenchAiVerificationHttpClient(handle.baseUrl);
       step = "start";
       const start = await client.start({
         expectedNetworkPolicyHash: (() => {
@@ -517,8 +520,26 @@ async function verify(
         : "workspace_verification_exception";
     evidence.failureStep = step;
     evidence.transportFailure = projectVerificationTransportFailure(error);
+    clientCleanupUnconfirmed =
+      error instanceof Error &&
+      (error.message ===
+        "workbench_verification_client_process_cleanup_unknown" ||
+        (error.message === "workbench_ai_http_start_outcome_unknown" &&
+          error.cause !== null &&
+          typeof error.cause === "object" &&
+          "clientCleanupConfirmed" in error.cause &&
+          error.cause.clientCleanupConfirmed === false));
     if (
-      step === "observe" &&
+      error instanceof Error &&
+      error.message === "workbench_ai_http_start_outcome_unknown" &&
+      error.cause &&
+      typeof error.cause === "object" &&
+      "requestId" in error.cause &&
+      typeof error.cause.requestId === "string"
+    )
+      acceptedRequestId = error.cause.requestId;
+    if (
+      (step === "observe" || step === "start") &&
       acceptedRequestId !== null &&
       evidence.task === undefined
     ) {
@@ -536,9 +557,17 @@ async function verify(
       }
     }
   } finally {
+    let clientClosed = false;
+    try {
+      await client?.close?.();
+      clientClosed = !clientCleanupUnconfirmed;
+    } catch {
+      evidence.clientCloseFailure =
+        "workbench_verification_client_process_cleanup_unknown";
+    }
     try {
       await handle.close();
-      evidence.closeConfirmed = true;
+      evidence.closeConfirmed = clientClosed;
     } catch {
       evidence.closeConfirmed = false;
       evidence.closeFailure = "workbench_close_failed";

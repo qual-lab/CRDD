@@ -8,11 +8,24 @@
  * @boundary 合成inventory／有限Owner→正式試験Source。実Provider成功の根拠ではない。
  */
 import assert from "node:assert/strict";
+import type {
+  WorkbenchAiRequestStartResult,
+  WorkbenchAiRequestSnapshot,
+} from "../../src/server/ai-request/types.ts";
+import { request as httpRequest, type ClientRequest } from "node:http";
+import { createCoordinatorTaskRequests } from "../../../coordinator/src/task/requests.ts";
+import { saveRepositoryAiSelection } from "../../../coordinator/src/storage/ai-selection.ts";
+import {
+  initializeCoordinatorSnapshot,
+  readCoordinatorSnapshot,
+} from "../../../coordinator/src/storage/current-state.ts";
+import { deriveCoordinatorRepositoryBindingId } from "../../../coordinator/src/state/model.ts";
 import {
   selectionConfig,
   executionSelection,
 } from "../../../coordinator/tests/fixtures/ai-selection.ts";
 import { execFileSync } from "node:child_process";
+import { channel } from "node:diagnostics_channel";
 import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
 import test from "node:test";
@@ -34,7 +47,9 @@ import {
   assessVerificationDockerInventory,
   createWorkbenchAiVerificationHttpClient,
   projectVerificationTransportFailure,
+  readMain,
   type VerificationDockerInventory,
+  type VerificationHttpTiming,
 } from "../../scripts/ai-verification-http.ts";
 
 /**
@@ -125,7 +140,7 @@ test("Workspace試験は通信失敗後に同じTaskの取消結果を保存し�
           return encoding ? content : Buffer.from(content);
         },
       },
-      requestBounded: () => {
+      requestInChild: () => {
         throw new Error("unexpected_workspace_operation");
       },
       readMain: async () => ({ actionToken: "synthetic" }),
@@ -941,6 +956,8 @@ test("読取り試験は元HTTP診断と同じTaskの取消結果を保持して
     "close-fails",
     "deadline-cancel",
     "deadline-cancel-throws",
+    "client-close-only",
+    "client-and-owner-close",
   ]) {
     let starts = 0;
     let observes = 0;
@@ -992,6 +1009,13 @@ test("読取り試験は元HTTP診断と同じTaskの取消結果を保持して
           if (scenario === "before-accept") throw transport;
           if (scenario === "accept-unknown")
             throw Error("workbench_ai_http_start_outcome_unknown");
+          if (scenario.startsWith("client-"))
+            throw new Error("workbench_ai_http_start_outcome_unknown", {
+              cause: {
+                requestId: snapshot.requestId,
+                clientCleanupConfirmed: true,
+              },
+            });
           return { status: "accepted", requestId: snapshot.requestId };
         },
         observe: async () => {
@@ -1013,6 +1037,14 @@ test("読取り試験は元HTTP診断と同じTaskの取消結果を保持して
           if (scenario === "deadline-cancel-throws") throw transport;
           return snapshot;
         },
+        close: async () => {
+          if (scenario.startsWith("client-")) {
+            events.push("client-close");
+            throw new Error(
+              "workbench_verification_client_process_cleanup_unknown",
+            );
+          }
+        },
       }),
       owner: {
         cancel: async (id: string) => {
@@ -1024,7 +1056,7 @@ test("読取り試験は元HTTP診断と同じTaskの取消結果を保持して
           if (scenario === "cancel-throws") throw Error("synthetic-secret");
           if (scenario === "cancel-other-id")
             return { ...snapshot, requestId: "other-request" };
-          if (scenario === "cancel-unknown")
+          if (scenario === "cancel-unknown" || scenario.startsWith("client-"))
             return {
               ...snapshot,
               status: "unknown",
@@ -1040,7 +1072,11 @@ test("読取り試験は元HTTP診断と同じTaskの取消結果を保持して
         baseUrl: "http://127.0.0.1:1",
         close: async () => {
           events.push("close");
-          if (scenario === "close-fails") throw Error("synthetic_close");
+          if (
+            scenario === "close-fails" ||
+            scenario === "client-and-owner-close"
+          )
+            throw Error("synthetic_close");
         },
       },
       canonical: () => ({ commit: "fixed", context: "fixed" }),
@@ -1065,7 +1101,10 @@ test("読取り試験は元HTTP診断と同じTaskの取消結果を保持して
     assert.equal(starts, 1, scenario);
     assert.equal(
       observes,
-      ["before-accept", "accept-unknown"].includes(scenario) ? 0 : 1,
+      ["before-accept", "accept-unknown"].includes(scenario) ||
+        scenario.startsWith("client-")
+        ? 0
+        : 1,
       scenario,
     );
     assert.equal(report.limitedProbePassed, scenario === "success", scenario);
@@ -1109,7 +1148,9 @@ test("読取り試験は元HTTP診断と同じTaskの取消結果を保持して
     if (ownerCancels)
       assert.deepEqual(
         events,
-        ["owner-cancel", "cancel-result", "close"],
+        scenario.startsWith("client-")
+          ? ["owner-cancel", "cancel-result", "client-close", "close"]
+          : ["owner-cancel", "cancel-result", "close"],
         scenario,
       );
     if (scenario === "http-timeout" || scenario === "connection-reset") {
@@ -1131,6 +1172,24 @@ test("読取り試験は元HTTP診断と同じTaskの取消結果を保持して
     }
     if (scenario === "cancel-unknown")
       assert.deepEqual(report.result.recoveryIds, ["recovery-synthetic"]);
+    if (scenario.startsWith("client-")) {
+      assert.equal(
+        report.primaryFailure,
+        "workbench_ai_http_start_outcome_unknown",
+      );
+      assert.equal(report.acceptedRequestId, snapshot.requestId);
+      assert.equal(report.result.requestId, snapshot.requestId);
+      assert.deepEqual(report.result.recoveryIds, ["recovery-synthetic"]);
+      assert.equal(
+        report.clientCloseFailure,
+        "workbench_verification_client_process_cleanup_unknown",
+      );
+      assert.equal(
+        report.closeFailure,
+        scenario === "client-and-owner-close" ? "synthetic_close" : null,
+      );
+      assert.equal(report.closeConfirmed, false);
+    }
     if (scenario === "cancel-secondary")
       assert.deepEqual(report.result.secondaryFailures, [
         "synthetic_secondary",
@@ -1436,3 +1495,390 @@ test("本文一致でも変更Pathが不明又は過剰なら拒否する", () =
       /workspace_output_changed_paths_mismatch/u,
     );
 });
+
+/**
+ * 実Task保存と公開HTTPを接続し耐久受付後も同じOwnerが継続する。
+ * @responsibility 通常完了・明示取消・応答喪失を同IDで観測し自動再送しない。
+ * @trace ERB-IT-021
+ * @trace PRL-IT-013
+ * @precondition 自己生成合成Repository、実Writer、loopback HTTPだけを使う。
+ * @stimulus 通常受付、取消、accepted直後のClient接続破棄。
+ * @observation 実HTTP結果、Task ID、abort、join、保存記録と終了後状態。
+ * @oracle 受付は実行完了を待たず、切断では取消されず、明示取消だけが伝播する。
+ * @cleanup Server・Task Ownerをjoinし、技術区画0とLease終端後に自己Rootだけ除去。
+ * @boundary Workbench公開HTTP→本番Task Owner→実Writer。executeだけ合成、AI／Dockerなし。
+ */
+for (const transport of ["tool-child-process"] as const) {
+  test(`実保存付きHTTPは受付と実行を分離し応答喪失でも同じTaskを継続する ${transport}`, async (t) => {
+    const parent = path.resolve(import.meta.dirname, "../../../../.crdd/tests");
+    assert.equal(fs.realpathSync.native(parent), parent);
+    const root = fs.mkdtempSync(path.join(parent, "http-acceptance-"));
+    let handle: Awaited<ReturnType<typeof startWorkbench>> | null = null;
+    let owner: ReturnType<typeof createCoordinatorTaskRequests> | null = null;
+    let release: (() => void) | null = null;
+    let observedStarted: () => void = () => {};
+    let currentSignal: AbortSignal | null = null;
+    let calls = 0;
+    let joined = 0;
+    let requests = 0;
+    let dropResponse = false;
+    let disconnectedRequest: ClientRequest | null = null;
+    let lastRequestId: string | null = null;
+    let client: Awaited<
+      ReturnType<typeof createWorkbenchAiVerificationHttpClient>
+    > | null = null;
+    const timings: VerificationHttpTiming[] = [];
+    const serverTimings: {
+      receivedAt: number;
+      acceptedAt: number | null;
+      sentAt: number | null;
+    }[] = [];
+    const requestChannel = channel("http.server.request.start");
+    const onRequest = (message: unknown) => {
+      const { request, response } = message as {
+        request: import("node:http").IncomingMessage;
+        response: import("node:http").ServerResponse;
+      };
+      if (
+        request.method !== "POST" ||
+        request.url !== "/ai-request/action" ||
+        request.headers.host !==
+          new URL(handle?.baseUrl ?? "http://127.0.0.1").host
+      )
+        return;
+      const item = {
+        receivedAt: Date.now(),
+        acceptedAt: null as number | null,
+        sentAt: null as number | null,
+      };
+      serverTimings.push(item);
+      response.once("finish", () => {
+        item.sentAt = Date.now();
+      });
+    };
+    requestChannel.subscribe(onRequest);
+    t.after(async () => {
+      try {
+        await client?.close?.();
+      } finally {
+        requestChannel.unsubscribe(onRequest);
+        if (handle) await handle.close();
+        else await owner?.close();
+      }
+      const file = path.join(root, ".crdd/coordinator/state.json");
+      if (fs.existsSync(file)) {
+        const state = JSON.parse(fs.readFileSync(file, "utf8"));
+        assert.deepEqual(state.operations, []);
+        assert.deepEqual(state.unresolvedRecoveries, []);
+        assert.deepEqual(state.pendingDeliveries, []);
+        assert.deepEqual(state.leaseIntents, []);
+        assert.ok(
+          state.queueEntries.every(
+            (entry: {
+              ownerGeneration: unknown;
+              singleTask: { phase: string };
+            }) =>
+              entry.ownerGeneration === null &&
+              entry.singleTask.phase === "settled",
+          ),
+        );
+      }
+      assert.equal(path.dirname(fs.realpathSync.native(root)), parent);
+      fs.rmSync(root, { recursive: true, force: true });
+      assert.equal(fs.existsSync(root), false);
+    });
+    execFileSync("git", ["init", "--template=", "--initial-branch=main"], {
+      cwd: root,
+      windowsHide: true,
+      stdio: "ignore",
+    });
+    fs.mkdirSync(path.join(root, ".git/info"));
+    fs.writeFileSync(path.join(root, ".git/info/exclude"), ".crdd/\n");
+    fs.mkdirSync(path.join(root, ".crdd/config"), { recursive: true });
+    fs.mkdirSync(path.join(root, "04_UI/assets/brand"), { recursive: true });
+    fs.copyFileSync(
+      path.resolve(
+        import.meta.dirname,
+        "../../../../04_UI/assets/brand/crdd-brand-icon-512x512.jpg",
+      ),
+      path.join(root, "04_UI/assets/brand/crdd-brand-icon-512x512.jpg"),
+    );
+    fs.writeFileSync(path.join(root, ".gitignore"), ".crdd/\n");
+    fs.writeFileSync(
+      path.join(root, ".crdd/config/repository-manifest.json"),
+      JSON.stringify({
+        schema: "crdd/repository-manifest/v2",
+        projectId: "project.synthetic-http",
+        repositoryId: "repository.synthetic-http",
+        displayName: "合成HTTP試験",
+        repositoryRole: "development",
+        capabilities: [],
+        contextSurfaces: [],
+        externalSendPolicy: null,
+      }),
+    );
+    fs.writeFileSync(
+      path.join(root, ".crdd/config/network-policy.json"),
+      JSON.stringify({ version: 1, allowedHosts: [] }),
+    );
+    fs.writeFileSync(
+      path.join(root, "PROJECT_CONTEXT.md"),
+      "# Project Context\n\nProject ID: project.synthetic-http\nRepository ID: repository.synthetic-http\nRepository Role: development\n" +
+        [
+          "今どうなっているか",
+          "何が危ない、または止まっているか",
+          "今、人間が決めることは何か",
+          "なぜこの状態・判断になったか",
+          "次に何をすべきか",
+        ]
+          .map(
+            (heading, i) =>
+              `\n## ${i + 1}. ${heading}\n\n### 結論\n\n合成情報。\n\n| 項目 | 内容 |\n|---|---|\n| 合成 | 固定 |\n`,
+          )
+          .join(""),
+    );
+    execFileSync("git", ["add", "--", ".gitignore", "PROJECT_CONTEXT.md"], {
+      cwd: root,
+      windowsHide: true,
+      stdio: "ignore",
+    });
+    execFileSync(
+      "git",
+      [
+        "-c",
+        "user.name=Test",
+        "-c",
+        "user.email=test@example.invalid",
+        "-c",
+        "core.hooksPath=",
+        "commit",
+        "-m",
+        "synthetic",
+      ],
+      { cwd: root, windowsHide: true, stdio: "ignore" },
+    );
+    const verified = verifyRepositoryRoot(root);
+    assert.equal(verified.status, "completed");
+    if (verified.status !== "completed") throw Error("fixture_root_required");
+    assert.equal(
+      saveRepositoryAiSelection(
+        verified.capability,
+        { expectedIdentity: null, config: selectionConfig() },
+        () => true,
+      ).status,
+      "saved",
+    );
+    const binding = deriveCoordinatorRepositoryBindingId(root);
+    assert.equal(
+      initializeCoordinatorSnapshot(root, binding).status,
+      "completed",
+    );
+    owner = createCoordinatorTaskRequests({
+      root,
+      binding,
+      projectId: "project.synthetic-http",
+      principalId: "local-workbench-user",
+      authorize: () => true,
+      resolveSelection: () => ({
+        primary: executionSelection("advice"),
+        taskExecutionSelections: null,
+      }),
+      observeRevision: () =>
+        gitRepositoryRevisionAdapter(root)?.revisionIdentity ?? null,
+      execute: async (
+        _command,
+        _execution,
+        signal,
+        started,
+        operationCreated,
+      ) => {
+        calls++;
+        currentSignal = signal;
+        assert.equal(
+          await operationCreated({
+            operationId: `OP-SYNTHETIC-${calls}`,
+            hostRecoveryId: `host.synthetic-${calls}`,
+          }),
+          true,
+        );
+        assert.equal(await started(), true);
+        observedStarted();
+        await new Promise<void>((resolve) => {
+          const done = () => {
+            signal.removeEventListener("abort", done);
+            release = null;
+            joined++;
+            resolve();
+          };
+          release = done;
+          if (signal.aborted) done();
+          else signal.addEventListener("abort", done, { once: true });
+        });
+        return {
+          mode: "read_only_advice",
+          status: signal.aborted ? "cancelled" : "completed",
+          reason: signal.aborted ? "synthetic_cancelled" : null,
+          cleanupConfirmed: true,
+          recoveryIds: [],
+          advice: signal.aborted
+            ? null
+            : {
+                facts: [
+                  { text: "合成回答", references: ["PROJECT_CONTEXT.md"] },
+                ],
+                sharedAnalysis: [],
+                additionalInferences: [],
+                nextOptions: [],
+              },
+          workspaceResult: null,
+        };
+      },
+    });
+    const taskOwner = owner;
+    handle = await startWorkbench({
+      workingDirectory: root,
+      port: 0,
+      aiRequests: {
+        ...taskOwner,
+        start: async (command) => {
+          requests++;
+          const result = await taskOwner.start(command);
+          const interval = serverTimings.at(-1);
+          if (interval) interval.acceptedAt = Date.now();
+          lastRequestId = result.requestId;
+          if (dropResponse) disconnectedRequest?.destroy();
+          return result;
+        },
+      },
+    });
+    const baseUrl = handle.baseUrl;
+    client = await createWorkbenchAiVerificationHttpClient(
+      baseUrl,
+      (timing) => {
+        timings.push(timing);
+      },
+    );
+    const network = readRepositoryNetworkPolicies(verified.capability);
+    assert.equal(network.status, "ready");
+    if (network.status !== "ready") throw Error("fixture_network_required");
+    const command = {
+      mode: "read_only_advice" as const,
+      workType: null,
+      prompt: "合成情報だけを説明",
+      contextReferences: ["PROJECT_CONTEXT.md"],
+      allowedPaths: [],
+      externalSendConfirmed: true,
+      expectedNetworkPolicyHash: network.policies.codex.policyHash,
+      workspaceId: null,
+    };
+    for (const mode of ["normal", "cancel"] as const) {
+      const started = new Promise<void>((resolve) => {
+        observedStarted = resolve;
+      });
+      const accepted: WorkbenchAiRequestStartResult =
+        await client.start(command);
+      assert.equal(accepted.status, "accepted");
+      assert.ok(accepted.requestId);
+      await started;
+      assert.equal(
+        (await client.observe(accepted.requestId)).status,
+        "running",
+      );
+      if (mode === "normal") {
+        const complete = release as (() => void) | null;
+        assert.ok(complete);
+        complete();
+        await taskOwner.wait(accepted.requestId);
+      }
+      const result: WorkbenchAiRequestSnapshot =
+        mode === "normal"
+          ? await client.observe(accepted.requestId)
+          : await client.cancel(accepted.requestId);
+      assert.equal(
+        result.status,
+        mode === "normal" ? "completed" : "cancelled",
+      );
+      assert.equal(result.cleanupConfirmed, true);
+      assert.deepEqual(result.recoveryIds, []);
+      assert.deepEqual(result.secondaryFailures, []);
+    }
+    const model = await readMain(handle.baseUrl);
+    const started = new Promise<void>((resolve) => {
+      observedStarted = resolve;
+    });
+    dropResponse = true;
+    await new Promise<void>((resolve, reject) => {
+      disconnectedRequest = httpRequest(
+        new URL("/ai-request/action", baseUrl),
+        {
+          method: "POST",
+          headers: {
+            origin: new URL(baseUrl).origin,
+            "content-type": "application/x-www-form-urlencoded",
+          },
+        },
+        () => reject(Error("response_should_be_lost")),
+      );
+      disconnectedRequest.once("error", () => resolve());
+      disconnectedRequest.end(
+        new URLSearchParams({
+          actionToken: model.actionToken,
+          operation: "start",
+          mode: command.mode,
+          workType: "",
+          prompt: command.prompt,
+          allowedPaths: "",
+          externalSendConfirmed: "yes",
+          expectedNetworkPolicyHash: command.expectedNetworkPolicyHash,
+          workspaceId: "",
+        }).toString(),
+      );
+    });
+    await started;
+    assert.ok(lastRequestId);
+    const signal = currentSignal as AbortSignal | null;
+    assert.ok(signal);
+    assert.equal(signal.aborted, false);
+    const observed = (await readMain(handle.baseUrl)).aiRequest.snapshot;
+    assert.equal(observed?.requestId, lastRequestId);
+    assert.equal(observed?.status, "running");
+    const complete = release as (() => void) | null;
+    assert.ok(complete);
+    complete();
+    await taskOwner.wait(lastRequestId);
+    const finished = (await readMain(handle.baseUrl)).aiRequest.snapshot;
+    assert.equal(finished?.requestId, lastRequestId);
+    assert.equal(finished?.status, "completed");
+    assert.equal(requests, 3);
+    assert.equal(calls, 3);
+    assert.equal(joined, 3);
+    const state = readCoordinatorSnapshot(root, binding);
+    assert.equal(state.status, "completed");
+    if (state.status !== "completed" || !state.value)
+      throw Error("snapshot_required");
+    assert.equal(state.value.queueEntries.length, 3);
+    assert.deepEqual(state.value.leaseIntents, []);
+    const posts = timings.filter((item) => item.method === "POST");
+    assert.equal(posts.length, 3);
+    for (const item of posts) {
+      assert.ok(item.headersAt !== null);
+      assert.ok(item.headersAt - item.startedAt < 15_000);
+      assert.ok(item.completedAt - item.startedAt < 15_000);
+    }
+    t.diagnostic(
+      JSON.stringify({
+        transport,
+        clientIntervals: timings,
+        serverIntervals: serverTimings,
+      }),
+    );
+    assert.equal(serverTimings.length, 4);
+    for (const item of serverTimings.filter(
+      (item) => item.acceptedAt !== null && item.sentAt !== null,
+    )) {
+      assert.ok(item.acceptedAt !== null && item.sentAt !== null);
+      assert.ok(item.receivedAt <= item.acceptedAt);
+      assert.ok(item.acceptedAt <= item.sentAt);
+    }
+  });
+}

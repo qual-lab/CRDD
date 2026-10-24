@@ -17,6 +17,16 @@
 
 2026-10-23の人間承認により、Coordinator内の本番未接続の独立Trust評価と旧terminal codec／caller保存・再入場候補を廃止する。旧4 Sourceと専用試験3本は撤去し、製品処理の試験側コピーや代替Frameworkは作らない。通常実行、保存統合B、Platform AccessのNative部品・共有排他・現在の回復保証は維持する。過去Evidenceは当時の根拠として保持し、廃止をPassへ換算しない。 `PRL-UT-006`、`ERB-IT-001`〜`ERB-IT-003`とNative／Kernel等の共用検証項目は削除せず、旧codec・caller固有の断面だけを対象外にする。独立評価の`AIT-IT-001`／`AIT-IT-003`等の上流意図は残し、旧実装撤去後の代替未接続は未成立として扱う。
 
+## 耐久受付と実行開始の分離の検証条件 — 2026-10-25
+
+[Task受付と実行開始の境界](../../../06_Architecture/Details/coordinator/03_Task_Architecture.md#task-acceptance-execution-boundary)を、既存`PRL-IT-013`とWorkbench境界`ERB-IT-021`で確認する。受付保存の失敗ではacceptedを返さず、保存成功後の返却はexecute・操作保存・running通知より先となる。返却後の同じOwnerがPromiseを保持し、即時Cancel／close、Lease取得・starting保存失敗を終端又は元回復義務へ接続する。Client切断は明示Cancelと分け、Taskの同ID観測と継続、応答喪失時の自動再送0を確認する。accepted直後のProcess喪失からfresh Ownerで同記録を読取り、本文再送0・未開始終了・Lease残存0を観測する。Taskのrunning表示をProvider Effectの証明へ換算せず、個別試験から実AI・元ECONNRESET解消・全体QA成立を推定しない。
+
+上記のHTTP検証Toolは通信Clientだけを固定Node子Processへ分離する。Task Owner・取消・保存・回復は従来の親側が所有し、API・15秒HTTP期限・Reader清掃1秒を変えない。子へ渡すのはloopback URL、固定Route、用途限定Form／操作Tokenだけとし、Provider資格・Repository Root Capability・親環境を渡さない。新しいTask Worker／Queueや同文再送の冪等性契約は追加しない。
+
+`ERB-IT-021`では、正常応答、切断、HTTP期限、子起動・pipe・出力上限・終了値不一致、結果出力後の終了欠測を区別する。親は元の子へ終了要求を最大一回発行し、実close前に結果を成功にしない。親event loop上の20秒監視と終了要求後2秒待機はProcessの観測期限であり、HTTP期限の延長でも、親の同期処理中を含む壁時計上限でもない。終了未確認は同Clientの次要求を拒否し、Taskの一次結果・同じ回復参照とは別に保持する。ToolはClient→Task Ownerを含むServer→自己生成試験物の順で終了条件を確認し、Client close故障でも既存Server closeを必ず実行する。
+
+計測はClient POST開始、Server POST受信、耐久受付完了、Server応答finish、子Clientのheaders受信・本文完了、初回GETを有限の非秘密時刻として相関する。親のclose callback処理時刻を子の実終了時刻と同一視しない。実保存HTTPで通常完了・明示取消・応答喪失後の同ID継続を確認し、POST後の子故障では再送せず一回の既存状態照会から同ID結果・回復参照を保持する。同Process Clientの既存期限超過と元ECONNRESETを解消済みにせず、別Processでの成功だけから原因を断定しない。
+
 ## 保存統合B案の検証条件 — 2026-10-22
 
 [単一保存Lifecycle](../../../06_Architecture/Details/coordinator/04_Task_Detailed_Design.md#unified-storage-lifecycle)の採用により、旧七Sourceのbytes凍結は移管元保証の照合として扱う。新方式の単一Writer・共通Owner・原子受領・履歴のSource接続と旧試験移行、外部AIなしの固定全体回帰は完了し、限定実Filesystem／別Process再入場を評価済みである。限定独立再確認済みであり、全異常経路の集約・実AI／実Dockerを含む実境界一体・全体QA・Releaseは未完了として、限定成功を全体Passにしない。[現在の結果と残件](../../../99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#375-保存統合bの最終確認)と過去の旧ACK試験を区別する。追加条件は既存項目へ接続し、新Runner・Registry・Lock Frameworkを作らない。

@@ -20,6 +20,7 @@ import {
 } from "../selection/resolve.ts";
 
 import { createHash, randomUUID } from "node:crypto";
+import { setImmediate } from "node:timers/promises";
 import {
   normalizeRepositoryRelativePath,
   snapshotPlainRecord,
@@ -670,6 +671,9 @@ export function createCoordinatorTaskRequests(
       };
       requests.set(requestId, item);
       item.pending = (async () => {
+        // 耐久受付と実行準備を分離する。取消・closeは同じpendingをjoinする。
+        // Signal付き待機や早期returnにせず、開始前取消も既存の終端保存へ通す。
+        await setImmediate();
         const acquired = acquireCoordinatorSnapshotLease(
           deps.root,
           deps.binding,

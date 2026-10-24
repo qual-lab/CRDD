@@ -18,7 +18,7 @@ Repository Role: `crdd-standard`
 
 単体create比較は、標準／CRDD経路の固定Python、固定Claude Imageの空Home、追加承認した実Claude Home指定で成功した。最新の実Home指定は474ms・終了0で、停止状態のMount表示を照合して今回Container・一時Fileだけ回収した。Container起動、probeによる認証Home本文の読取り・変更要求、認証・AI・通信、Docker再起動は行っていない。認証有効性や元故障の原因特定ではなく、保持物は不変更。[実Home比較の結果と限界](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#claude-real-home-create-comparison)を参照する。
 
-実Task保存を加えた非AIの合成HTTP比較では、start POSTはheaders未受信のまま既存15秒期限を超過し、Client観測が16.2秒で失敗した。GETは約0.5秒で成功し、合成処理のjoin・closeと実行後Stateを確認した。取消HTTP試験は未到達。元のobserve段階のECONNRESET／期限超過なしとは異なるため、元原因は未確定のまま保持する。製品Source・期限・保存保証は変えず、AI再送・Docker要求・保持物変更は行っていない。[今回の観測と次の判断境界](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#http-real-task-storage-diagnosis)を参照する。
+耐久Task受付と実行開始の分離、および検証ToolだけのHTTP Client別Process化を実装した。Task Owner・API・15秒HTTP期限は維持し、新Worker／Queueは追加していない。Workbench通常結合回帰85件、Coordinator関連回帰24件と限定独立再レビューは成功。子の受付応答本文完了は約2.9秒、取消は約11.7秒で、親の終了通知処理の遅延とは分離して観測した。同Processの過去の期限超過、元observeのECONNRESETとContainer作成unknownの原因は未解明で、実AI E2E・全体QA完了とはしない。変更4文書の指摘は零だが参照展開先には313指摘が残る。AI再送・Docker要求・保持物操作は行っていない。[結果と未完境界](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#task-acceptance-candidate-verification)と[先行調査](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#http-real-task-storage-diagnosis)を参照する。
 
 初回結果の回復参照搬送漏れは既存引渡し値を初回保存へ届ける最小修正を実装済みで、terminal検査は維持する。静的検査、助言22件、初回実保存一件、関連回帰269件、Catalog384件の検査は成功。単発保存Suiteも約四分五十三秒で二件すべて成功し、前回中断が早すぎた点は訂正済み。全体回帰・実AI完成ではない。[参照搬送の是正](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#advice-recovery-reference-handoff-fix)と[保存Suiteの切分け](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#single-task-state-duration-diagnosis)を参照する。
 

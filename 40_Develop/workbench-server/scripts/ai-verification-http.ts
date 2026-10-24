@@ -9,13 +9,250 @@
  * @security Token、Prompt、結果本文を出力せず、自動再送とredirect追従を禁止する。
  */
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
+import path from "node:path";
 import { createHash } from "node:crypto";
 import type {
   WorkbenchAiRequests,
   WorkbenchAiRequestCommand,
 } from "../src/server/ai-request/types.ts";
 import { inspectWorkbenchClientModel } from "../src/shared/view/validation.ts";
+import { parseUnambiguousJsonDocument } from "../../ai-adapter/src/index.ts";
+
+/** 検証通信だけの有限時計。本文・Token・Task状態は含めない。 */
+export type VerificationHttpTiming = Readonly<{
+  method: "GET" | "POST";
+  route: string;
+  startedAt: number;
+  headersAt: number | null;
+  completedAt: number;
+  /** 親event loopがclose callbackを処理した時刻。子の実終了時刻ではない。 */
+  closedAt: number;
+}>;
+
+const CLIENT_PROCESS_TIMEOUT_MS = 20_000;
+const CLIENT_PROCESS_CLOSE_TIMEOUT_MS = 2_000;
+// HTTP本文1MiBがJSON文字列で全てescapeされた場合の上限と固定metadata。
+const CLIENT_OUTPUT_MAX_BYTES = 6 * 1024 * 1024 + 4096;
+
+/**
+ * 検証HTTP一要求だけを固定Node子へ渡し、実close後に結果を返す。
+ * @trace ERB-IT-021
+ * @responsibility 有限stdin/stdout、元子一回の終了要求、close未確認を所有する。
+ * @input loopback URL、固定route、Form、任意の非秘密時計observer。
+ * @returns 従来のHTTP結果。子の未終了・不正出力は固定失敗。
+ * @precondition Task OwnerとServerは親が所有し、HTTP15秒は子内で維持する。
+ * @postcondition 正常返却は子close、exit0、完全な一結果を共同確認済み。
+ * @effect 固定Node子とloopback HTTP一要求。再送・redirect・子孫生成なし。
+ * @failure 終了未確認と一般子故障を区別し、本文・stderrを例外へ出さない。
+ * @invariant 子の異常終了をTask成功又は取消成功へ変換しない。
+ * @boundary 検証Tool専用。Coordinatorの実行・保存・権限は移譲しない。
+ * @security actionToken/Formはstdinのみ、Provider資格・Root Capability・環境を渡さない。
+ * @concurrency 一要求一子。結果より実closeを優先し、全pipeを終了まで排出する。
+ */
+export async function requestInChild(
+  baseUrl: string,
+  route: string,
+  form?: URLSearchParams,
+  observe?: (timing: VerificationHttpTiming) => void,
+) {
+  const url = new URL(baseUrl);
+  if (
+    url.protocol !== "http:" ||
+    url.hostname !== "127.0.0.1" ||
+    url.username ||
+    url.password ||
+    url.pathname !== "/" ||
+    url.search ||
+    url.hash ||
+    ![
+      "/api/workbench-view?route=%2F",
+      "/ai-request/action",
+      "/workspace/action",
+    ].includes(route)
+  )
+    throw new Error("workbench_verification_loopback_required");
+  const input = JSON.stringify({
+    baseUrl,
+    route,
+    form: form?.toString() ?? null,
+  });
+  if (Buffer.byteLength(input) > 256 * 1024)
+    throw new Error("workbench_verification_client_process_failed");
+  const completion = await new Promise<{
+    code: number | null;
+    signal: string | null;
+    output: string;
+    failed: boolean;
+    closed: boolean;
+  }>((resolve) => {
+    let child: ReturnType<typeof spawn>;
+    try {
+      child = spawn(
+        process.execPath,
+        [path.join(import.meta.dirname, "ai-verification-client.ts")],
+        {
+          env: {},
+          windowsHide: true,
+          shell: false,
+          stdio: ["pipe", "pipe", "pipe"],
+        },
+      );
+    } catch {
+      resolve({
+        code: null,
+        signal: null,
+        output: "",
+        failed: true,
+        closed: true,
+      });
+      return;
+    }
+    const chunks: Buffer[] = [];
+    let bytes = 0;
+    let stderrBytes = 0;
+    let failed = false;
+    let terminating = false;
+    let finished = false;
+    let closeTimer: ReturnType<typeof setTimeout> | undefined;
+    const terminate = () => {
+      if (terminating || finished) return;
+      terminating = true;
+      try {
+        if (child.kill()) failed = true;
+      } catch {
+        failed = true;
+      }
+      if (finished) return;
+      closeTimer = setTimeout(() => {
+        if (finished) return;
+        finished = true;
+        clearTimeout(timer);
+        resolve({
+          code: null,
+          signal: null,
+          output: "",
+          failed: true,
+          closed: false,
+        });
+      }, CLIENT_PROCESS_CLOSE_TIMEOUT_MS);
+    };
+    const timer = setTimeout(terminate, CLIENT_PROCESS_TIMEOUT_MS);
+    const pipeFailure = () => {
+      failed = true;
+      terminate();
+    };
+    child.once("error", pipeFailure);
+    child.stdin?.on("error", pipeFailure);
+    child.stdout?.on("error", pipeFailure);
+    child.stderr?.on("error", pipeFailure);
+    child.stdout?.on("data", (chunk: Buffer) => {
+      bytes += chunk.length;
+      if (bytes > CLIENT_OUTPUT_MAX_BYTES) {
+        pipeFailure();
+        return;
+      }
+      chunks.push(chunk);
+    });
+    child.stderr?.on("data", (chunk: Buffer) => {
+      failed = true;
+      stderrBytes += chunk.length;
+      if (stderrBytes > 4096) terminate();
+    });
+    child.once("close", (code, signal) => {
+      clearTimeout(timer);
+      if (closeTimer !== undefined) clearTimeout(closeTimer);
+      if (finished) return;
+      finished = true;
+      resolve({
+        code,
+        signal,
+        output: Buffer.concat(chunks).toString("utf8"),
+        failed,
+        closed: true,
+      });
+    });
+    try {
+      if (!child.stdin || !child.stdout || !child.stderr) pipeFailure();
+      else child.stdin.end(input);
+    } catch {
+      pipeFailure();
+    }
+  });
+  if (!completion.closed)
+    throw new Error("workbench_verification_client_process_cleanup_unknown");
+  if (
+    completion.failed ||
+    completion.signal !== null ||
+    ![0, 2].includes(completion.code ?? -1)
+  )
+    throw new Error("workbench_verification_client_process_failed");
+  const value = parseUnambiguousJsonDocument(completion.output);
+  if (!value || typeof value !== "object")
+    throw new Error("workbench_verification_client_process_failed");
+  const frame = value as Record<string, unknown>;
+  const timing = frame.timing as Record<string, unknown> | null;
+  if (
+    Object.keys(frame).sort().join(",") !==
+      "body,failure,location,status,timing,version" ||
+    frame.version !== 1 ||
+    !timing ||
+    Object.keys(timing).sort().join(",") !==
+      "completedAt,headersAt,startedAt" ||
+    !Number.isSafeInteger(timing.startedAt) ||
+    Number(timing.startedAt) <= 0 ||
+    !Number.isSafeInteger(timing.completedAt) ||
+    Number(timing.completedAt) < Number(timing.startedAt) ||
+    (timing.headersAt !== null &&
+      (!Number.isSafeInteger(timing.headersAt) ||
+        Number(timing.headersAt) < Number(timing.startedAt) ||
+        Number(timing.headersAt) > Number(timing.completedAt)))
+  )
+    throw new Error("workbench_verification_client_process_failed");
+  try {
+    observe?.({
+      method: form === undefined ? "GET" : "POST",
+      route,
+      startedAt: Number(timing.startedAt),
+      headersAt: timing.headersAt === null ? null : Number(timing.headersAt),
+      completedAt: Number(timing.completedAt),
+      closedAt: Date.now(),
+    });
+  } catch {
+    /* 時計の故障はHTTP結果を変更しない。 */
+  }
+  if (frame.failure !== null) {
+    if (
+      completion.code !== 2 ||
+      frame.status !== null ||
+      frame.location !== null ||
+      frame.body !== null ||
+      !frame.failure ||
+      typeof frame.failure !== "object"
+    )
+      throw new Error("workbench_verification_client_process_failed");
+    const failure = frame.failure as Record<string, unknown>;
+    const error = new Error(String(failure.reason), { cause: failure });
+    const projected = projectVerificationTransportFailure(error);
+    if (!projected || JSON.stringify(projected) !== JSON.stringify(failure))
+      throw new Error("workbench_verification_client_process_failed");
+    throw error;
+  }
+  if (
+    completion.code !== 0 ||
+    !Number.isInteger(frame.status) ||
+    Number(frame.status) < 100 ||
+    Number(frame.status) > 599 ||
+    (frame.location !== null && typeof frame.location !== "string") ||
+    typeof frame.body !== "string"
+  )
+    throw new Error("workbench_verification_client_process_failed");
+  return {
+    status: Number(frame.status),
+    location: frame.location as string | null,
+    body: frame.body,
+  };
+}
 
 /** 実試験で捕捉する属性の同一性。Filesystem内容の保全証明ではない。 */
 export type VerificationDockerInventory = Readonly<{
@@ -357,6 +594,7 @@ export async function requestBounded(
   baseUrl: string,
   route: string,
   form?: URLSearchParams,
+  observe?: (phase: "start" | "headers", at: number) => void,
 ) {
   const controller = new AbortController();
   let headersReceived = false;
@@ -366,6 +604,11 @@ export async function requestBounded(
     controller.abort();
   }, 15_000);
   try {
+    try {
+      observe?.("start", Date.now());
+    } catch {
+      /* 非秘密時計のみ。 */
+    }
     const response = await fetch(new URL(route, baseUrl), {
       method: form === undefined ? "GET" : "POST",
       ...(form === undefined
@@ -375,6 +618,11 @@ export async function requestBounded(
       signal: controller.signal,
     });
     headersReceived = true;
+    try {
+      observe?.("headers", Date.now());
+    } catch {
+      /* 非秘密時計のみ。 */
+    }
     const reader = response.body?.getReader();
     if (reader === undefined)
       throw new Error("workbench_verification_body_missing");
@@ -488,10 +736,20 @@ export function projectVerificationTransportFailure(error: unknown) {
       "workbench_verification_reader_cleanup_unknown",
       "workbench_verification_body_limit",
       "workbench_verification_body_missing",
+      "workbench_verification_client_process_failed",
+      "workbench_verification_client_process_cleanup_unknown",
+      "workbench_ai_http_start_outcome_unknown",
     ].includes(error.message)
   )
     return null;
-  const cause = error.cause;
+  const outerCause = error.cause;
+  const cause =
+    error.message === "workbench_ai_http_start_outcome_unknown" &&
+    outerCause &&
+    typeof outerCause === "object" &&
+    "transportCause" in outerCause
+      ? outerCause.transportCause
+      : outerCause;
   const detail =
     cause !== null && typeof cause === "object"
       ? (cause as Record<string, unknown>)
@@ -532,10 +790,15 @@ export function projectVerificationTransportFailure(error: unknown) {
  * @security 取得本文はmemory内だけで扱う。
  * @concurrency N/A: 一要求の読取りに閉じる。
  */
-export async function readMain(baseUrl: string) {
-  const response = await requestBounded(
+export async function readMain(
+  baseUrl: string,
+  observe?: (timing: VerificationHttpTiming) => void,
+) {
+  const response = await requestInChild(
     baseUrl,
     "/api/workbench-view?route=%2F",
+    undefined,
+    observe,
   );
   assert.equal(response.status, 200, "workbench_verification_model_status");
   const model = inspectWorkbenchClientModel(JSON.parse(response.body));
@@ -562,6 +825,7 @@ export async function readMain(baseUrl: string) {
  */
 export async function createWorkbenchAiVerificationHttpClient(
   baseUrl: string,
+  observe?: (timing: VerificationHttpTiming) => void,
 ): Promise<WorkbenchAiRequests> {
   const url = new URL(baseUrl);
   if (
@@ -574,9 +838,33 @@ export async function createWorkbenchAiVerificationHttpClient(
     url.hash !== ""
   )
     throw new Error("workbench_verification_loopback_required");
-  const initial = await readMain(baseUrl);
+  const initial = await readMain(baseUrl, observe);
   const token = initial.actionToken;
   const accepted = new Map<string, WorkbenchAiRequestCommand>();
+  const pending = new Set<Promise<unknown>>();
+  let closing = false;
+  let cleanupUnconfirmed = false;
+  const run = <T>(operation: () => Promise<T>): Promise<T> => {
+    if (closing)
+      return Promise.reject(new Error("workbench_verification_client_closed"));
+    const promise = Promise.resolve().then(operation);
+    pending.add(promise);
+    void promise.then(
+      () => pending.delete(promise),
+      (error: unknown) => {
+        if (
+          error instanceof Error &&
+          error.message ===
+            "workbench_verification_client_process_cleanup_unknown"
+        ) {
+          cleanupUnconfirmed = true;
+          closing = true;
+        } else pending.delete(promise);
+      },
+    );
+    return promise;
+  };
+  const read = () => run(() => readMain(baseUrl, observe));
   return Object.freeze<WorkbenchAiRequests>({
     start: async (request) => {
       if (
@@ -584,23 +872,28 @@ export async function createWorkbenchAiVerificationHttpClient(
         request.contextReferences[0] !== "PROJECT_CONTEXT.md"
       )
         throw new Error("workbench_verification_context_mismatch");
-      const previous = (await readMain(baseUrl)).aiRequest.snapshot?.requestId;
+      const previous = (await read()).aiRequest.snapshot?.requestId;
       try {
-        const response = await requestBounded(
-          baseUrl,
-          "/ai-request/action",
-          new URLSearchParams({
-            actionToken: token,
-            operation: "start",
-            mode: request.mode,
-            workspaceId: request.workspaceId ?? "",
-            workType: request.workType ?? "",
-            choice: request.choice ? JSON.stringify(request.choice) : "",
-            prompt: request.prompt,
-            allowedPaths: request.allowedPaths.join("\n"),
-            externalSendConfirmed: request.externalSendConfirmed ? "yes" : "no",
-            expectedNetworkPolicyHash: request.expectedNetworkPolicyHash,
-          }),
+        const response = await run(() =>
+          requestInChild(
+            baseUrl,
+            "/ai-request/action",
+            new URLSearchParams({
+              actionToken: token,
+              operation: "start",
+              mode: request.mode,
+              workspaceId: request.workspaceId ?? "",
+              workType: request.workType ?? "",
+              choice: request.choice ? JSON.stringify(request.choice) : "",
+              prompt: request.prompt,
+              allowedPaths: request.allowedPaths.join("\n"),
+              externalSendConfirmed: request.externalSendConfirmed
+                ? "yes"
+                : "no",
+              expectedNetworkPolicyHash: request.expectedNetworkPolicyHash,
+            }),
+            observe,
+          ),
         );
         if (response.status === 400 && !request.externalSendConfirmed)
           return {
@@ -618,7 +911,7 @@ export async function createWorkbenchAiVerificationHttpClient(
           "/#ai-request",
           "workbench_verification_start_location",
         );
-        const snapshot = (await readMain(baseUrl)).aiRequest.snapshot;
+        const snapshot = (await read()).aiRequest.snapshot;
         if (snapshot === null || snapshot.requestId === previous)
           throw new Error("workbench_ai_http_start_identity_unknown");
         assert.equal(snapshot.mode, request.mode);
@@ -646,7 +939,7 @@ export async function createWorkbenchAiVerificationHttpClient(
           reason: null,
         };
       } catch (error) {
-        const observed = await readMain(baseUrl).catch(() => null);
+        const observed = await read().catch(() => null);
         const snapshot = observed?.aiRequest.snapshot;
         const requestId =
           snapshot != null &&
@@ -660,6 +953,7 @@ export async function createWorkbenchAiVerificationHttpClient(
         throw new Error("workbench_ai_http_start_outcome_unknown", {
           cause: Object.freeze({
             requestId,
+            clientCleanupConfirmed: !cleanupUnconfirmed,
             transportFailure:
               error instanceof Error &&
               error.message === "workbench_verification_reader_cleanup_unknown"
@@ -677,7 +971,7 @@ export async function createWorkbenchAiVerificationHttpClient(
       const command = accepted.get(requestId);
       if (command === undefined)
         throw new Error("workbench_verification_request_unknown");
-      const snapshot = (await readMain(baseUrl)).aiRequest.snapshot;
+      const snapshot = (await read()).aiRequest.snapshot;
       if (snapshot === null)
         throw new Error("workbench_verification_snapshot_missing");
       assert.equal(snapshot.requestId, requestId);
@@ -690,14 +984,17 @@ export async function createWorkbenchAiVerificationHttpClient(
       const command = accepted.get(requestId);
       if (command === undefined)
         throw new Error("workbench_verification_request_unknown");
-      const response = await requestBounded(
-        baseUrl,
-        "/ai-request/action",
-        new URLSearchParams({
-          actionToken: token,
-          operation: "cancel",
-          requestId,
-        }),
+      const response = await run(() =>
+        requestInChild(
+          baseUrl,
+          "/ai-request/action",
+          new URLSearchParams({
+            actionToken: token,
+            operation: "cancel",
+            requestId,
+          }),
+          observe,
+        ),
       );
       assert.equal(
         response.status,
@@ -709,7 +1006,7 @@ export async function createWorkbenchAiVerificationHttpClient(
         "/#ai-request",
         "workbench_verification_cancel_location",
       );
-      const snapshot = (await readMain(baseUrl)).aiRequest.snapshot;
+      const snapshot = (await read()).aiRequest.snapshot;
       if (snapshot === null)
         throw new Error("workbench_verification_snapshot_missing");
       assert.equal(snapshot.requestId, requestId);
@@ -717,6 +1014,14 @@ export async function createWorkbenchAiVerificationHttpClient(
       if (snapshot.executionSelection)
         assert.equal(snapshot.executionSelection.workType, command.workType);
       return snapshot;
+    },
+    close: async () => {
+      closing = true;
+      await Promise.allSettled([...pending]);
+      if (cleanupUnconfirmed)
+        throw new Error(
+          "workbench_verification_client_process_cleanup_unknown",
+        );
     },
   });
 }

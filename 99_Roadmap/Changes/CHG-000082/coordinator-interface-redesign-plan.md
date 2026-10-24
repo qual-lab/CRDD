@@ -1020,3 +1020,65 @@ Source上の認証確認createも、先の限定比較と同じ通常Docker `cre
 上記summary固定後に同じ四Rootの条件を直前再確認し、各Rootを削除して不存在を確認した。一時診断入口も撤去した。失敗記録は本節の要約で維持し、履歴配送成功や元試験の回収へ読み替えない。
 
 本節と現在地の限定最終独立レビューは残指摘零。Client観測の失敗時間とServer完了時間、今回の期限超過と元ECONNRESET、合成処理の終了と未成立のHTTP試験を区別することを確認した。文書差分検査は成功し、製品回帰の追加成功は主張しない。
+
+### 受付と開始準備の費用・順序調査 — 2026-10-25（日本時間）
+
+「調べて」の指示に対し、製品Sourceを変更せず、既存Task Ownerと実Writerの一回の合成計測を行った。HTTP・外部AI・Docker・認証情報は使わない。前回の合成executeは本番より早くoperation／running保存を行う。本番はContext読取り後のWebCrypto Hash待機で一度suspendするため、今回の合成executeだけでcallback保存前に一度`setImmediate`を待ち、その影響を分けた。本番のContext読取り費用、同じmicrotask配置、HTTP往復又は応答期限内の成立を再現したものではない。
+
+| 計測境界 | 結果 |
+|---|---|
+| 初期化／単独読取り | 1,398ms／170ms。受付開始より前の別計測 |
+| 受付開始→execute入場／start返却 | 9,789ms／9,790ms。enqueue、実Lease取得、starting保存等が返却前に実行される |
+| yield後のoperation保存／running保存 | 各2,391ms／2,360ms。受付からの完了時点は12,184ms／14,544ms |
+| Task終端 | 受付から24,256ms。実行部分は合成であり、Provider所要時間ではない |
+| 順序 | execute入場→start返却→execute再開→operation保存→running保存→終端、の全順序をassertで確認 |
+
+この計測runは最終状態検査で停止した。原因は計測器が業務投影`readCoordinatorSnapshot.value`に技術区画の`operations`等もあると誤認したことで、製品のTask失敗とは異なる。元runのblockedは変更せず、同じRootを新規実行せず追読した。公式Task Readerと同revisionの単一state本文を照合し、Task completed／settled・cleanup true・Owner世代null、operations／unresolvedRecoveries／pendingDeliveries／leaseIntents各0、historyPending一件、二回のTask読取り一致と本文前後不変を確認した。履歴配送成功やHTTP取消成立へ読み替えない。
+
+Source上の遅延境界は、`task/requests.ts`のstartが受付保存後に即時async処理を起動し、その最初の実suspendまでLease取得・starting保存を同期実行することにある。`server/routes/ai.ts`はstart返却後に303を送る。各保存は既存Owner下で読取り・検証・保存・読戻し・排他解放を行い、Windows排他にはWorker取得／解放の同期待機も含まれる。ただし今回の計測は各Task境界の合計であり、Native、Lock、Hash、File I/Oそれぞれの寄与率は未測定である。
+
+先行調査の最小是正候補は、**受付記録の保存成功までは待ち、同じTaskの`item.pending`に保持した開始準備へ入る前に一度イベントループへ戻す**ことである。新しいWorker、Queue、State、Lock、Registryは作らず、同じID、取消Signal、pendingのjoin、保存失敗時の保全を維持する。`Promise.resolve`だけのmicrotask化やTimeout延長を代替とせず、修正する場合は既存の実HTTP／実保存による通常完了と受付直後取消、close・Lease解放、保存失敗を確認する。後続の同期処理がHTTPへ及ぼす影響もこの確認で反証する。先行調査時点では調査のみで、製品修正は行っていなかった。元observeのECONNRESET／期限超過なしを説明できたとはしない。
+
+独立確認では、受付保存後・Lease取得前のOwner喪失窓が広がるため、是正前に五条件を固定することを求めた。受付返却が実行／操作保存／runningより先となる正例、yield中の即時cancel、同じpendingをjoinするclose、受付後のLease取得／starting保存失敗、受付直後のfresh再入場で本文を再送しない停止・終了である。取消後に単にreturnしてacceptedを残さず、既存の終端保存経路へ接続する。先行調査時点ではこれらは未検証であり、候補を実装済み・安全性成立とは表示しなかった。
+
+今回の物理試験物は `C:\project\CRDD\.crdd\tests\intake-timing-147opU` 一件だけである。保持Claude試験は読取り・変更・削除の対象に含めない。
+
+結果固定後、このexact Rootのresolved所在・期待四entry・全子孫のReparsePoint不存在、試験Process不存在、終端Queueと技術区画0を直前再確認し、このRootだけを削除して不存在を確認した。一時計測・追読入口二件も撤去した。先行調査時点の製品Sourceは不変更であり、その独立確認は測定の解釈と是正候補の検証条件に限定した。
+
+<a id="task-acceptance-candidate-verification"></a>
+
+### 受付分離候補の実装と検証 — 2026-10-25（継続中）
+
+利用者は受付と実行開始の分離を正式な設計原則として採用し、既存Owner・耐久保存・取消・joinを維持する最小実装と検証を指示した。変更分類はTask lifecycleの非自明な実装・設計変更である。Task ArchitectureとQA-000003へ原則と反証を接続し、Source・限定文書・直接Consumerの独立確認を選択する。準拠基準・Release判断は変更せず、全体準拠／Release監査は対象外とする。初回編集前に同じOwner／pendingの所有、accepted後の取消・close・保存失敗・fresh再入場を照合した。新しいState、Worker、Queue、Lock、Recovery Framework、Timeout変更はない。
+
+Source候補は受付保存・Map登録・取消監視設定後、同じ`item.pending`の先頭でSignalなしの`setImmediate()`を一度待つ四行である。待機後の早期returnは追加せず、開始前取消も既存の終端保存とLease解放へ通す。Browserの303形式と現行API・保存Schemaは変えない。候補は現在未採用であり、完成や元故障解消とは表示しない。
+
+静的検査はCoordinator／Workbenchとも成功。有限の保存故障注入一件（enqueue／Lease／startingの三条件）は成功し、受付前はIDなし拒否、受付後は同IDのblocked／unknownと元保存回復参照を確認した。実Writer・別Process再入場を含む単発Suite三件と初回回復参照搬送一件、計四件は成功した。実受付後・Lease前に子Processを終了し、fresh Ownerから同じaccepted IDを観測・未開始終了し、execute0・Lease意図0を確認した。
+
+同Processの実HTTP／実保存試験は最初のstartで停止した。requestIdは観測できたがheaders未受信・timedOut true・transportCode nullで、試験全体32,164ms。cleanup hookで技術区画0・Queue終端・Lease解放を確認して自己生成Rootを回収した。このCaseで通常HTTP完了・取消・切断まで成功したとはしない。単一yieldで同Process検証Toolの15秒境界も成立するという期待は反証された。製品Sourceをさらに変更せず、試験Clientだけ別Processへ分離したloopback対照を一回行った。これは試験側の原因分離であり、製品へのWorker追加ではない。
+
+別Process対照は一件成功した。固定15秒期限のまま、通常開始POSTは2,847ms、二回目の開始POSTは2,759ms、明示取消POSTは10,115msで各303だった。Taskの通常完了・明示取消とcleanup、受付直後にClient接続を破棄して応答を失った三件目のTask継続、同じIDのrunning→completed再観測、取消Signal非発火、start三回・execute三回・join三回を確認した。技術区画0、三Queue終端とLease意図0を確認して自己生成Rootを回収した。同Process Clientのevent loop競合は有力だが、二run間の環境変動や個々の同期I/O寄与まで固定した因果証明ではない。元のobserve ECONNRESET／期限超過なしの原因は未確定のまま維持する。
+
+関連四Suiteの回帰は十九件成功。上記の実Writer四件・有限故障注入一件・別Process HTTP一件と合わせた限定確認は計二十五件成功、一方、同Process HTTP一件の不合格を残す。成功件数で不合格を相殺せず、全体回帰・実AI・全利用側完成とは表示しない。新しい受付配送gate、Client ACK待ち、追加yield又はTimeout延長は採用しない。受付分離候補の本番Task Sourceは四行だけで、同Processで動く正式検証ToolのClient接続が未完である。次の範囲判断は、Task側の管理を増やさず検証ToolのClientだけを分離するかどうかであり、同期保存全体の非同期化を今回の最小変更へ拡張しない。
+
+固定候補の技術・限定文書・直接Consumer伝播の独立再確認は残指摘零。ただし判定は候補内容の整合確認に限定し、採用Gateは同Process検証Toolの不合格により保留する。失敗Caseを除外・skip・期待失敗化せず保持し、Source候補と試験は未コミットである。
+
+### 検証ToolのHTTP Client分離 — 2026-10-25
+
+上記二十五件成功・一件不合格を受け、人間は検証ToolのHTTP Clientだけを別Processへ分離する方針を採用した。製品CoordinatorへのWorker・Queue追加ではない。耐久受付とExecutionの責務・既存HTTP API・Request ID・15秒期限・同ID取消・Primary Failure／回復参照・自動再送禁止は維持する。同Processの不合格は履歴上の反証として保持し、Tool構成の置換を元故障の解消へ読み替えない。
+
+| 対象 | 現候補の処置 |
+|---|---|
+| 検証HTTP | 正式Toolの固定子`ai-verification-client.ts`が一要求だけを処理。既存の`requestBounded`を再利用し、POST／GETとWorkspaceの既存HTTP要求を搬送する。対照専用の子Fixtureは削除して正式入口へ集約 |
+| 入力・出力 | loopbackの固定Route・用途限定Formだけをstdinで渡し、親環境・Provider資格・Root Capabilityは渡さない。本文は親子のmemory内搬送だけで、診断・Evidenceへ保存しない。閉形式・重複key・出力上限・exitとの相関を検査 |
+| 子の終了 | 実close後だけ結果を受理。親event loopの20秒監視で元子へ終了要求一回、続く2秒でclose未確認を独立故障にする。親が同期処理中はTimerとclose callbackも遅れるため、壁時計上限とは主張しない。HTTP15秒・Reader清掃1秒は変更なし |
+| 取消・回復 | POST不明後は新規POSTを再送せず一回の現在状態照会だけ。相関できた同IDを保持し、既存Ownerで一回取消・結果／回復参照を保全する。子終了未確認は同Clientの新要求を止める。Clientと既存Server／Task Ownerのclose理由は別fieldで保持 |
+| 計測 | Client開始、Server受信、受付保存完了、Server finish、子のheaders／本文完了、初回GETと親close callback処理時刻を区別。新しい常駐Log・永続状態は追加しない |
+
+独立レビューで読取りToolのclose理由上書きと本文完了時刻の不足を検出し、原因別の二field・子`completedAt`・相関反例へ是正した。kill=false後の遅延close成功／close未確認の反例も追加し、修正版の限定再レビューはMajor／Moderate／Minorとも零。静的検査はCoordinatorとWorkbenchで成功した。
+
+修正版の実保存HTTPは一件成功し、三POSTの本文完了は2,947ms／2,875ms／11,679msで15秒内、各GETも15秒内だった。Server受信→耐久受付完了→finish、子の受信→本文完了を別に観測した。最初の二POSTでは子本文完了→親close callback処理に13,803ms／13,771msの差があり、親側の観測遅延として記録する。これだけで同Process期限超過の全原因や元ECONNRESET原因を断定しない。通常完了・明示取消・接続破棄後も同じ三件目のTaskが継続し、start／execute／join各三回、技術区画零・Queue終端・Lease意図零を確認して自己生成Rootを回収した。
+
+通常応答・接続切断・実15秒期限を含むHTTP子試験、Process故障・pipe・出力・frame・終了欠測の有限反例、同IDの結果／回復参照保持と二重close故障の局所試験は成功。Workbenchの通常結合回帰は85件成功、Coordinatorの実保存・受付取消・fresh再入場を含む関連6 Suiteは24件成功、両Packageの静的検査も成功した。制限された実行環境では子からのloopback通信が失敗したため、その結果を製品故障と断定せず保持し、許可されたloopback／子Process実行環境で上記を確認した。独立再レビューは残指摘零である。
+
+変更4文書の検査指摘は零。ただし参照先を展開した範囲には旧リンク312件と変更していないSymbolのQA識別子未定義1件、計313件があり、文書全体の合格とはしない。過去Evidenceは変更しない。自己生成した受付試験Rootの残存は零。外部AI・Docker要求・認証Home・保持中の試験物には触れていない。今回閉じたのは受付分離と検証Toolの通信構成・終了確認であり、同Process期限超過の原因、元ECONNRESET／Container作成unknown、実AI E2E・全体QA・Releaseは未成立のまま区別する。

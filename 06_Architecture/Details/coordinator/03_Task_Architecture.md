@@ -1,5 +1,26 @@
 # CoordinatorのTask・Objective管理アーキテクチャ
 
+<a id="task-acceptance-execution-boundary"></a>
+
+## Taskの耐久受付と実行開始の分離 — 2026-10-25
+
+状態: 設計原則は人間採用済み。受付分離と別Process検証Clientの実装・限定実HTTP・関連回帰・独立確認は完了した。同Process検証Clientの過去の期限超過と元ECONNRESETの原因は未確定であり、実AI・全利用側の完成を表示しない。検証Clientの分離は製品のWorker／Queue追加ではなく、[QAの検証構成](../../../07_Quality/Definitions/QA-000003/quality_definition.md#耐久受付と実行開始の分離の検証条件--2026-10-25)として扱う。
+
+Taskの受付（Task Acceptance）は、認可・入力検査済みの要求を同じRequest IDで追跡可能な状態へ耐久保存したことを意味する。実行開始やEffect発行の成立を意味しない。受付保存に失敗した場合はacceptedを返さない。
+
+| 段階 | 既存状態と責務 |
+|---|---|
+| 耐久受付 | `singleTask.phase=accepted`、Queueはqueued。Request IDを返す前に受付記録を保存し、同じTask Ownerが取消Controllerと継続Promiseを保持する |
+| 開始準備 | 受付返却へ実行準備を結合せず、一度イベントループへ戻った後、同じOwnerが既存Leaseを取得しstartingを保存する。新しいReserved状態やQueueは作らない |
+| 実行とEffect | Taskの進行表示runningはProvider Effect開始の証明ではない。操作相関、Provider開始通知、外部送信等は既存の技術lifecycle記録で別に観測する |
+| 終端・再入場 | 同じTaskの結果・回復参照・Lease解放を既存Writerへ保存する。Process喪失後は保存済みIDから照会・回復し、失われたPromptを復元・再送しない |
+
+HTTP Handlerは耐久受付結果を待ち、実行準備や実行完了は待たない。Browser Formの既存303応答は維持し、Task結果のacceptedと実行成功を混同しない。HTTPの正常応答・Client切断・応答送信失敗はTask Ownerを破棄せず、自動的なTask取消又は再送へ変換しない。明示Cancelだけを同じRequest IDのControllerへ渡す。Ownerのcloseは同じ継続Promiseをabortしてjoinし、結果不明や回復義務を消さない。継続を追跡しないfire-and-forget呼出しにしない。
+
+開始前の取消も既存の開始前停止・終端保存・Lease解放へ通す。受付後・Lease取得前にProcessが終了した場合は、fresh Ownerがaccepted記録を既存の未開始終了経路へ接続する。受付の応答喪失は未受付やEffect 0の証明ではない。現在のAPIは同文の新規依頼と再送を識別するClient受付キーを持たないため、自動再送せず、既存の現在IDの観測・照会へ進む。新しい冪等性台帳や保存形式はこの分離へ追加しない。
+
+検証は既存`PRL-IT-013`とWorkbench境界の`ERB-IT-021`へ接続する。受付前保存失敗、accepted返却と開始準備の順序、直後取消・close、受付後Lease／starting保存失敗、fresh再入場、Client切断・応答喪失、同Ownerの複数受付拒否を分ける。通常の同期保存が他のHTTP要求へ及ぼす影響も実HTTP・実保存の合成試験で確認し、元ECONNRESETの解消又は実AI成功へ一般化しない。
+
 ## 公開操作とObjectiveの再設計方針 — 2026-10-24
 
 状態: 六Sourceへの責務分配と本番public-*撤去を実装済み。Objective連続回帰64件は成功し、Workspace／品質受入の後続結合36件も成功。基準Sourceは`5ccdc54a0`であり、以下の目標全体を実装済みとは表示しない。実施段階・利用側・移行は[再設計計画](../../../99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md)が追跡する。共有型を`types.ts`、進行とTask入力変換を`execute.ts`、本番構成を`composition.ts`へ分配した。`plan.ts`は計画検査に限定する。残る公開契約の切替は未完了である。

@@ -26,7 +26,10 @@ import {
   assessVerificationDockerInventory,
   projectVerificationTransportFailure,
 } from "./ai-verification-http.ts";
-import type { WorkbenchAiRequestSnapshot } from "../src/server/ai-request/types.ts";
+import type {
+  WorkbenchAiRequestSnapshot,
+  WorkbenchAiRequests,
+} from "../src/server/ai-request/types.ts";
 
 /**
  * 固定の一回実行だけを受け付ける。
@@ -100,10 +103,13 @@ async function main() {
   });
   let primaryFailure: string | null = null;
   let closeFailure: string | null = null;
+  let clientCloseFailure: string | null = null;
   let closeConfirmed = false;
   let timedOut = false;
   let result: WorkbenchAiRequestSnapshot | null = null;
   let acceptedRequestId: string | null = null;
+  let client: WorkbenchAiRequests | null = null;
+  let clientCleanupUnconfirmed = false;
   let failureStep: "start" | "observe" | "cancel" = "start";
   let transportFailure: ReturnType<typeof projectVerificationTransportFailure> =
     null;
@@ -116,9 +122,7 @@ async function main() {
       : "verification_exception";
   try {
     assert.equal(permitted(), true, "selection_or_repository_changed");
-    const client = await createWorkbenchAiVerificationHttpClient(
-      handle.baseUrl,
-    );
+    client = await createWorkbenchAiVerificationHttpClient(handle.baseUrl);
     const start = await client.start({
       expectedNetworkPolicyHash: (() => {
         const network = readRepositoryNetworkPolicies(verified.capability);
@@ -169,6 +173,24 @@ async function main() {
   } catch (error) {
     primaryFailure = classify(error);
     transportFailure = projectVerificationTransportFailure(error);
+    clientCleanupUnconfirmed =
+      error instanceof Error &&
+      (error.message ===
+        "workbench_verification_client_process_cleanup_unknown" ||
+        (error.message === "workbench_ai_http_start_outcome_unknown" &&
+          error.cause !== null &&
+          typeof error.cause === "object" &&
+          "clientCleanupConfirmed" in error.cause &&
+          error.cause.clientCleanupConfirmed === false));
+    if (
+      error instanceof Error &&
+      error.message === "workbench_ai_http_start_outcome_unknown" &&
+      error.cause &&
+      typeof error.cause === "object" &&
+      "requestId" in error.cause &&
+      typeof error.cause.requestId === "string"
+    )
+      acceptedRequestId = error.cause.requestId;
     if (cancellationRequested && !cancellationResultObserved)
       cancellationFailure = "readonly_verification_cancel_unconfirmed";
     if (acceptedRequestId !== null && !cancellationRequested) {
@@ -189,9 +211,16 @@ async function main() {
       }
     }
   } finally {
+    let clientClosed = false;
+    try {
+      await client?.close?.();
+      clientClosed = !clientCleanupUnconfirmed;
+    } catch (error) {
+      clientCloseFailure = classify(error);
+    }
     try {
       await handle.close();
-      closeConfirmed = true;
+      closeConfirmed = clientClosed;
     } catch (error) {
       closeFailure = classify(error);
     }
@@ -219,6 +248,7 @@ async function main() {
     (result.secondaryFailures?.length ?? 0) === 0 &&
     closeConfirmed &&
     primaryFailure === null &&
+    clientCloseFailure === null &&
     closeFailure === null &&
     projectContextUnchanged === true &&
     revisionUnchanged === true &&
@@ -260,6 +290,7 @@ async function main() {
       cancellationRequested,
       cancellationResultObserved,
       cancellationFailure,
+      clientCloseFailure,
       closeFailure,
       closeConfirmed,
       projectContextUnchanged,
