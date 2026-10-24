@@ -1094,3 +1094,23 @@ Source候補は受付保存・Map登録・取消監視設定後、同じ`item.pe
 Dockerの読取りはEngine 29.8.1応答・稼働Container零、今回のexact auth名と所有LabelのContainer／Network零だった。通常WindowsのProcess照会も成功し、同じRoot名・試験名・auth名に相関する旧Processは未検出。本体Repositoryの現在状態は改訂129で、操作・未解決回復・配送待ち・Lease意図は各零だった。現在未発見を過去create終了・遅延作成不能・元回収完了へ昇格しない。Provider Homeの排他取得や認証有効性は未評価であり、次回は既存のfresh実行Gateを維持する。
 
 現行SourceのCodex編集・Claude・Proxyの固定三Imageはexact Digestで存在し、各linux/amd64を確認した。Image取得／更新、Container作成・起動・削除、Docker起動／再起動、認証Home内容の読取り、外部AI依頼は行っていない。次の人間判断には、前回Provider本体未開始だったClaudeについて、新品合成Contextと固定質問だけを既存Subscription認証で一回読取り確認する最小案を提示する。Codexの読取り再実行やDirect／Isolated編集二試験をこの判断へ暗黙に含めず、実AI・認証のEffect前に送信範囲・回数・停止／回収条件を再承認する。
+
+<a id="claude-readonly-confirm-result"></a>
+
+### 承認済みClaude読取り一回の再確認結果 — 2026-10-25
+
+利用者はClaude `opus / medium`・既存Subscription認証、新品合成Contextと固定質問だけの一回と今回資源回収を承認した。基準`927476707`のcleanな本体Sourceを変更せず、新品Root `.crdd/tests/claude-readonly-confirm-20261025/readonly`を準備した。Contextは1,095 bytes、SHA-256 `99505f13f046e4f5f0619d74d8edfc5e9cada26e6a839b532df214e810e343da`、合成Git Commitは`1890dd6c4e7525783230326adc5a65318fb9c244`。正式Toolの固定質問を使い、本体Contextや保持中Rootは入力にしない。短命入口の成功条件・安全summary検査不足を実行前レビューで是正し、非AI反例・再レビュー指摘零の後に正式Toolを一回だけ起動した。
+
+| 観測対象 | 結果と限界 |
+|---|---|
+| Tool／Task | Tool native終了2、limitedProbePassed false／fullE2eVerified false。受付ID `request-d5f89d16-d6b2-4aa4-aba0-1deb5d6daf43`、Operation `OP-22519893614517117207364085943715042269`。再送零 |
+| Tool側の一次故障 | observe段階の`workbench_verification_client_process_failed`。HTTP期限・transportCodeはいずれも未分類。元ECONNRESETと同じ原因とはしない |
+| Task側の一次故障 | `docker_setup_start_subscription_auth_probe_attached_failed`。認証確認ContainerはIdentity確定後に不存在まで観測。続くstart／attach要求はhandle取得・応答観測あり、終了1・stdout 114 bytes／stderr 0、Receipt未記録。Docker自体の起動失敗か、内部の認証CLI非0かは断定しない |
+| Provider／送信 | 技術履歴はproviderStart not_started／externalSend not_issued／sharedWrite not_issued／ownerEffect disabled。Claude推論開始や読取り回答成功には到達していない |
+| 同IDの取消・終端 | 取消結果受領・close成立。Taskはblocked、技術一次故障は上記のまま、cleanupConfirmed true／recoveryIds空／secondaryFailures空。HTTP子故障で技術結果を上書きしない |
+| 耐久状態 | 改訂25、Queue completed／singleTask settled・blocked／Owner世代null。操作・未解決回復・pendingDeliveries・Lease意図は各零。別のhistoryPendingは一件で、同じ受付IDのoutcome failed／cleanup confirmed／primaryFailure executionを保持する。履歴のHost cleanup confirmed／Lease releasedと現在状態を併せて確認 |
+| 資源と不変 | Tool inventoryは既存資源属性・System捕捉構成同値、標準bridgeのID世代差だけを記録。今回の再起動発行や故障の因果を意味しない。freshな全状態Container一覧は開始前の既存一件だけ、稼働零、今回Host Rootは不存在。本体HEAD／Treeと合成Context／Treeは不変 |
+
+今回のDocker履歴参照は`docker-task.29c9921916f3a63170e77179d3145c8627a2b3519d5813b7c9cf2a87d136d9aa.aeb90207d74fba9ba33eb5190aba1d7f032281432c63162cbecd79438e818d42.81b3f2a1efd383abc8960bbe426b3ded9122b0ab9cd264d52a705cb9be12eb31`。未解決義務として返された参照はなく、この値は今回の清掃済み履歴との相関用に保持する。先行保持Rootのunknown参照とは別物であり、先行Root・記録は変更していない。
+
+実行資源の回収は確認済みだが、失敗調査と未配送履歴の保全のため、今回合成Rootと安全な結果は保持する。Task返却の未解決recoveryIds・secondaryFailuresは空だが、清掃済み履歴のDocker相関参照とhistoryPending一件は保持する。34 File・71,152 bytesの時点で、生Provider本文・認証値・114 bytesのstdout本文・stderr本文は保存していない。既定七日として2026-11-01までに、既存OwnerでhistoryPendingの配送・保持を確認したうえで再評価・清掃判断へ戻し、無期限のEvidence書庫にしない。再試行、Codex、Direct／Isolated編集、Docker再起動・修復・Image取得・既存資源削除は行わない。次は、HTTP子故障と認証確認start／attachの非0を外部AIなしで切り分ける判断へ戻す。今回の結果を実AI E2EのPassへ変更しない。

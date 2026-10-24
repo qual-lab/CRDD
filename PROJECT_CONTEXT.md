@@ -12,7 +12,7 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
-`9907eb204`で外部AIなしの起動・受付・終了確認二件を再実行し成功した。Dockerは応答・稼働Container零で、保持中Claude試験に相関するContainer／Network／旧Processは現在未検出。本体の現在操作・回復待ち等も零だが、別の保持Rootにはunknownと同じ回復参照を維持し、回収完了へ変更しない。固定三Imageの存在を確認し、次はClaudeの新品合成Context読取り一回の送信条件を人間へ提示する。外部AI・認証・Docker資源の作成削除・再起動はまだ実行しない。[再開前確認と判断境界](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#pre-ai-readonly-readiness)を参照する。
+承認されたClaude読取り確認を新品合成Contextだけで一回実行したが、認証確認Containerのstart／attachが終了1となり、Provider本体開始・外部送信は未発行のまま停止した。別にobserve用HTTP子Process故障も記録し、同IDの取消結果・技術一次故障は保持できた。今回の実行資源は回収確認済みで、Task返却の未解決recoveryIds・secondaryFailuresは空。ただし清掃済み履歴のDocker相関参照とhistoryPending一件は保持する。失敗調査と未配送履歴の保全のため今回合成Rootを保持し、2026-11-01までに既存Ownerで履歴の配送・保持を確認して清掃判断へ戻す。先行unknown Rootは変更しない。再送・Docker再起動・編集二試験は行わない。次は二つの故障の非AI切分けであり、実AI E2EのPassではない。[今回結果と回収範囲](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#claude-readonly-confirm-result)と[再開前確認](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#pre-ai-readonly-readiness)を参照する。
 
 修正済み前提からClaude読取りを承認どおり一回試したが、認証確認Containerの作成結果はunknownのまま、結果観測ではHTTP診断上timedOut false／ECONNRESETを記録して停止した。同じTaskの取消結果も保持できた。一方、保持記録のProvider本体はnot_started・外部送信not_issuedで、回収未確認と三つの副次失敗が残り、新しい合成Rootとexact回復参照を保持する。再送・追加再起動はしていない。[今回の診断・保持範囲](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#claude-readonly-once-diagnostic-result)を参照する。
 
