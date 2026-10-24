@@ -517,3 +517,15 @@ CLIは`task run / project init / project run / doctor check / doctor isolation /
 一〜五の実装・本番接続・非AI検証を限定完了とし、現在の変更で未解消の回帰失敗はない。初回全体及び影響四Suiteの不合格と、是正後の範囲別成功は別々の根拠であり、単一runの全体成功とは表示しない。
 
 実AI・実認証・人間の端末／画面確認と本体設定の実移行は未実施。過去Evidence・保持②を変更せず、フロントAIの移行確認後、送信先・情報範囲・回数・Image・停止条件・今回資源の回収範囲を最後に提示する。正式199項目の全数再評価、既存横断QA不合格、main統合・Releaseの判断は本単位の完成表示へ含めない。
+
+### 承認済み実AI確認の前提停止 — 2026-10-24
+
+利用者は新品の合成Repositoryだけを対象に、Codex／Claudeの読取り専用各一回、Direct／Isolated編集各一Task（通常是正を含めAI起動最大十回）を承認した。固定Image・既存Subscription認証を使い、不明な失敗では再試行しない。Docker再起動、Image取得、APIキーfallback、実ログイン、本体設定移行、保持②の操作は対象外とした。
+
+基準Commitは`e2dc94c743f1695ef17c8684a8983060bf04ca7e`。Engine読取りは成功し、Docker Desktop 4.93.0／Engine 29.8.1を観測した。Source指定のCodex編集・Codex助言・Claude・Proxyの四Imageをexact IDでinspectし、全件の存在とlinux/amd64を確認した。Image取得・更新は行っていない。
+
+最初の正式API `getAuthenticationStatus({provider:"codex"})`一回が、`status: blocked`、`reason: provider_authentication_provider_home_active_or_unknown`、`cleanupConfirmed: true`、`providerEffectIssued: false`を返した（呼出しProcess Exit 1）。Sourceの返却点は、既存Provider HomeのKernel Lock取得失敗であり、認証Plan作成・Container作成より前である。使用中と観測不能を区別できない結果なので、認証切れ・特定Processによる占有・保持②が原因とは断定しない。
+
+停止条件に従い、Claude状態確認、AI依頼、合成Repository作成へ進まず、再試行・Lock解除・記録書換えを行わなかった。今回のAI起動／外部送信は零で、新規試験物の回収対象もない。保持②の内容・Runtime状態・資源実体は調査していない。
+
+Source確認後、今回の確認用起動方法に`node --input-type=module -e`を使用した問題を検出した。既存Worker構築は親の実行オプションを引き継ぐ。認証・Docker・Lock取得を使わず、同じ起動方法から既存TypeScript ModuleをWorkerとして読み込む局所再現では、`ERR_INPUT_TYPE_NOT_ALLOWED`、Worker Exit 1を観測した。したがって今回のblockedを実際のHome競合や認証不備の根拠にせず、確認用起動条件の不備として扱う。最小是正はファイル入口から通常のNode起動を使うことであり、製品のLock・安全条件・回復機構を変更しない。実AI四試験は未実施のまま。認証状態確認の再実行も行わず、正しい起動条件での前提確認を次の実行事項として残す。

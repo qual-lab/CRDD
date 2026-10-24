@@ -12,6 +12,8 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
+承認済みの新品合成データによる実AI確認は、固定Image四件の存在確認後、Codexの正式な認証状態確認が既存Homeの排他取得不能で停止した。確認用の起動オプションが内部Workerを起動不能にする問題を認証・Dockerなしで局所再現し、実際のHome競合や認証切れとは断定していない。AI起動・外部送信・試験Container作成は零で、四試験は未実施。再試行・強制解除・Docker再起動・本体設定移行・保持②の操作は行っていない。次はファイル入口からの通常起動で前提確認する。[観測結果と停止範囲](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#承認済み実ai確認の前提停止--2026-10-24)を参照する。
+
 Repository別AI選択をTask・Objective・Grant・Packet・Operation Identityへ接続し、Home利用権限からModel選定を分離した。現在State／Project Snapshotはv5、Operation Identityはv2で、新形式だけを扱う。旧AI Profile／Store・MCP四Tool・Host Catalog起動依存を撤去し、Workbenchは選択Repositoryの設定Reader／CAS Writerと作業分類・明示選択へ接続した。Objective六Sourceと本番`public-*.ts`の整理、正式API・対象→操作のCLI・本番Consumer接続も完了した。
 
 固定版`9db97f00a`の通常全体回帰は1,845件中1,788成功・52失敗・5skipで完走し、不合格として保持する。失敗は検証Tool・旧fixture・Owner参照・依存検査の追従漏れへ全数対応付け、通常実装と安全条件を変えず是正した。関連17 Suiteは217件全成功。実保存・Workspace・回復の影響四Suiteは102成功／1失敗で完走後、最後の試験側Owner搬送を是正し、当該Caseと公開境界の3件成功まで確認した。型・整形・lint・Trace・Header全数・台帳383件の検査と限定独立レビューは成功／残指摘0。一〜五の実装・本番接続・非AI検証は限定完了で、未解消の今回回帰失敗はない。実AI・実認証・人間確認・本体設定の実移行、全体QA・Releaseは未完了であり、全体完成とはしない。②のAI再試行と保持物の内容・Runtime状態・資源実体の操作は行わない。一度のDirectory metadata一覧観測は[最終確認の範囲と限界](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#final-normal-regression)へ記録した。
