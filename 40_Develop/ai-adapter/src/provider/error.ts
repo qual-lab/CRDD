@@ -66,15 +66,27 @@ export function convertProviderError(
   provider: AiProvider,
   execution: Readonly<{ stdout: string; stderr: string }>,
 ): ProviderError {
+  let claudeEnvelope: Record<string, unknown> | null = null;
   if (provider === "claude") {
-    const envelope = parseUnambiguousJsonDocument(execution.stdout);
+    let envelope: unknown = null;
+    if (
+      !execution.stdout.includes("\0") &&
+      Buffer.byteLength(execution.stdout, "utf8") <= 65_536
+    ) {
+      try {
+        envelope = parseUnambiguousJsonDocument(execution.stdout);
+      } catch {
+        // 深すぎる等の不正JSONも、既知stderrの分類を妨げない。
+      }
+    }
     if (
       envelope &&
       typeof envelope === "object" &&
       !Array.isArray(envelope) &&
       (envelope as Record<string, unknown>).type === "result"
     ) {
-      const subtype = (envelope as Record<string, unknown>).subtype;
+      claudeEnvelope = envelope as Record<string, unknown>;
+      const subtype = claudeEnvelope.subtype;
       if (subtype === "error_max_budget_usd")
         return Object.freeze({
           provider,
@@ -98,13 +110,57 @@ export function convertProviderError(
   )
     return Object.freeze({ provider, reason: "provider_process_exit_nonzero" });
   const stderrReason = classifyDiagnostic(execution.stderr);
-  if (stderrReason !== "provider_process_exit_nonzero" || provider !== "codex")
+  if (stderrReason !== "provider_process_exit_nonzero")
     return Object.freeze({ provider, reason: stderrReason });
-  const messages = codexErrorMessages(execution.stdout);
+  const messages =
+    provider === "claude"
+      ? claudeErrorMessages(claudeEnvelope)
+      : codexErrorMessages(execution.stdout);
   return Object.freeze({
     provider,
     reason: messages === null ? stderrReason : classifyDiagnostic(messages),
   });
+}
+
+/**
+ * Claudeの明示的な実行失敗Envelopeから有界な説明だけを取り出す。
+ * @responsibility 通常回答・未知形を診断へ読み替えず、既存理由への一時入力を作る。
+ * @trace ARCH-000010
+ * @input envelope: 容量・NUL・曖昧性を確認した単一result JSON、又はnull。
+ * @returns 非公開の短命な説明、又はnull。
+ * @precondition 呼出し側が非0終了と既知stderr理由の不在を確認している。
+ * @postcondition 生本文や未知fieldを公開結果・永続記録へ返さない。
+ * @effect N/A: 同期の値検査だけ。
+ * @failure 不正・欠測・未知subtype・件数／個別／合計容量超過はnull。
+ * @invariant successのresult本文やmessageをエラー説明として使わない。
+ * @boundary Claude JSONから既存の固定理由分類への変換。
+ * @security 認証値・Session ID・任意本文を保存しない。
+ * @concurrency 呼出し内の局所値だけを扱う。
+ */
+function claudeErrorMessages(
+  envelope: Record<string, unknown> | null,
+): string | null {
+  if (
+    envelope?.subtype !== "error_during_execution" ||
+    envelope.is_error !== true ||
+    !Array.isArray(envelope.errors) ||
+    envelope.errors.length === 0 ||
+    envelope.errors.length > 128
+  )
+    return null;
+  const messages: string[] = [];
+  for (const message of envelope.errors) {
+    if (
+      typeof message !== "string" ||
+      message.length === 0 ||
+      message.includes("\0") ||
+      Buffer.byteLength(message, "utf8") > 8_192
+    )
+      return null;
+    messages.push(message);
+  }
+  const text = messages.join("\n");
+  return Buffer.byteLength(text, "utf8") > 8_192 ? null : text;
 }
 
 /**

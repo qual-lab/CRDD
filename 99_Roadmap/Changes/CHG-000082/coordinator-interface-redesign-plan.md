@@ -558,3 +558,17 @@ AI起動は計二回で再送なし。認証状態確認をAI起動回数に含�
 既存固定Claude Imageから、認証・Repositoryマウントなし、network none、非root、読取り専用、Pullなしで`--help`だけを一回実行した。Container実IDは`da8006e6dc2b0fd653272466307fd3300a5ece2be8c8d9424ac3b1fe6464198d`、終了値0。現在計画の主要引数十三種はヘルプに存在した。`--max-turns`は表示されなかったが、[公式CLI資料](https://code.claude.com/docs/en/cli-reference)はこの引数を説明し、全引数がヘルプに表示されるとは限らないと明記する。最新資料を固定2.1.220の実受理証明とはせず、未表示だけから未対応と判定しない。診断Containerは同じ実IDの停止確認後に削除し、exact ID絞込みで不存在を確認した。Image取得・既存資源の変更はない。
 
 実失敗は開始後の終了値1までしか特定できず、過去の835バイトは生出力非保存方針により再解析できない。Model・effort・Turn上限・CLI引数を推測変更しない。最小案は既存AI Adapterのエラー変換内で、上限付き単一JSONの解析可否、許可した`type/subtype/is_error`の分類、既知エラー説明から既存reasonへの変換だけを扱い、本文・未知値・Session ID・認証値を返却／保存しないこと。新しい診断Storeや回復機構は不要である。これは未実装の提案であり、最初に合成入力だけで正常回答・不正／曖昧／過大JSON・未知形の拒否を確認する。実AIの診断付き再送は別途承認後の一回とし、現在の調査でAI起動は零。Source変更は行っていない。
+
+### Claudeエラー変換の最小是正と非AI回帰 — 2026-10-24
+
+利用者の承認に基づき、既存`ai-adapter/src/provider/error.ts`内だけでClaudeの明示的な実行失敗JSONを有界に分類するよう是正した。公開API・返却field・理由の閉集合は変更していない。追加のStore、ログ、Registry、回復、再送、Model／引数変更はない。既存三subtypeと既知stderrの優先を保持し、不正stdoutでも既知stderrの分類を妨げない。分類対象の条件・容量と通常回答の除外は[AI Adapter設計](../../../06_Architecture/Details/ai-adapter/01_Architecture.md#6-failureと回復)、反証は既存QA項目`ERB-UT-032`／`ERB-IT-002`へ接続した。
+
+| 固定候補の確認 | 結果と範囲 |
+|---|---|
+| AI Adapter全体 | `npm test`成功。24件成功、失敗／取消／skip／todo零、3,840.4133ms。整形・型・Lintも成功 |
+| Coordinator関連九ファイル | 306件成功、失敗／取消／skip／todo零、7,000.8276ms。Controller、Claude計画、Task、助言、Provider境界の有限代役を含み、実Docker・実AIは使わない |
+| エラー変換の限定Coverage | 三件成功、154.0361ms。`provider/error.ts`の行・分岐・関数は各100%。同Fileの合成反例の到達確認に限り、実Providerや全体網羅性の根拠にはしない |
+| Coordinator静的確認 | 整形899File、Source／Test型、Lint、Runtime／Taskの両Trace検査が成功。既存Lint info84件は不変更 |
+| 独立レビュー | Source・UT／IT・設計・QAを読取り確認し、全重大度の残指摘零。既存優先・容量境界・本文非公開と利用側搬送の整合を確認 |
+
+今回扱ったのは過去失敗の診断取りこぼしであり、過去のClaude非0終了の実原因を確定したわけではない。生Provider出力を保存せず、実AI再送・Docker／認証操作・保持②の操作は零。局所・影響回帰の限定完了とし、未実施の編集二試験や全体E2EをPassへ変更しない。

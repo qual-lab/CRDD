@@ -1,5 +1,7 @@
 # QA-000006 外部実行境界の検証定義
 
+Claudeの非0終了分類は既存`ERB-UT-032`と`ERB-IT-002`で確認する。明示的な実行失敗JSONだけを有界に読み、既存三subtype・既知stderrの優先、UTF-8の64KiB／8KiB一致と超過、説明の一〜128件と129件、個別／結合容量、NUL・重複key・深いJSON・未知形・通常回答の拒否を反証する。固定理由以外の本文・秘密値を結果へ出さず、Controllerの一次理由とcleanupを分離したまま搬送する。合成入力の分類成功を過去の実Claude失敗原因の確定、認証有効性、実Provider成功又は再送許可へ換算しない。
+
 B3〜B5では、`ERB-UT-023`のDocker構成一致検査をDIの既存plan試験へ接続し、用途・順序・全argv差の拒否を維持する。助言のProvider Adapterと結果中継は一つへ統合し、既存の四つの一回実行／取消／cleanup不明／例外Oracleを統合後の受付から確認する。Profile・Catalog・Task／通信Hash・Repository非共有・元Host参照を維持し、編集Taskや追加Reviewerへ変換しない。既存Controller・Packet・Production Runtime試験と上位共通Task受付の結合を併用し、局所成功を実AI・実Docker・正式全項目Passへ読み替えない。
 
 B2の排他移管では、`ERB-IT-003`のWorker／Supervisor故障・ready往復・解放・終了観測をPA内の`lock-lifecycle`結合試験へ移す。Coordinator側は用途別対象・世代・namespaceの検査と、本番Root APIを使った実排他・取得順・回復判断を維持する。入力拒否と技術lifecycleを別Oracleとして対応付け、試験用再exportや公開APIの追加で私有依存を迂回しない。項目の正式結果と歴史Evidenceは移管だけでは変更しない。

@@ -153,6 +153,8 @@ AI AdapterへTask State、Consumer ACK、Recovery Registry、認証Home Lockを�
 
 認証の記述やエラー分類だけから再試行・Docker再起動・回収・Authorityを発行しない。
 
+Claudeの非0終了では、NULなし・UTF-8 64KiB以下の曖昧でない単一`result` JSONだけを解釈する。既存の予算・Turn・構造化再試行上限の三subtypeを優先し、次に既存stderr分類（NULなし・8KiB以下）を維持する。stderrで理由を特定できない場合だけ、`error_during_execution`かつ`is_error: true`の`errors`を既存理由へ変換する。説明は一〜128件の非空文字列、各8KiB以下・NULなし、改行結合後も8KiB以下に限る。不正stdoutは分類材料にせず、既知stderrの判定を妨げない。通常回答・未知subtype・`result`本文・未知fieldはエラー説明として使わない。解析例外はstdoutの解釈不能へ閉じる。本文は呼出し内の短命な値に限り、公開／保存するのは従来のProviderと固定理由だけである。
+
 ## 7. Provider差の公開契約と実行境界
 
 ### Source構造レビュー後の配置（2026-10-19）

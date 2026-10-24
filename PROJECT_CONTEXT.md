@@ -12,7 +12,7 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
-Claude失敗の切り分けでは、JSON標準出力内のエラー説明を現行変換が取りこぼす経路を合成入力で再現した。固定CLIの通信・認証なしヘルプ確認は成功し、診断Containerは回収・不存在確認済み。実際の非0原因は未特定であり、引数や安全条件は変更していない。次は既存エラー変換内の最小診断案を具体化する。[確定事項と未確定事項](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#claude非0終了の切り分け--2026-10-24)を参照する。
+ClaudeのJSONエラー説明の取りこぼしは、既存AI Adapterの変換内で最小是正した。公開理由・APIを増やさず、生出力は保存しない。AI Adapter全24件、Coordinator影響回帰306件と静的検査が成功し、限定独立レビューは残指摘零。過去の実失敗原因は未特定で、実AI再送・Docker／認証操作・保持②の操作は行っていない。未実施の編集二試験や全体E2EをPassへ変更しない。[結果と限界](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#claudeエラー変換の最小是正と非ai回帰--2026-10-24)を参照する。
 
 再承認後、通常ファイル入口でCodex／Claudeの認証状態と回収を確認した。新品合成Contextだけを使う実AI読取り試験はCodex成功、Claudeは起動後の終了値1でblocked。両方のProcess終了・Container／Network終了後不存在・Tree不変を確認した。AI起動計二回、再送なし。停止条件に従いDirect／Isolated編集二試験は未実施。Claudeの非0原因は未特定で、認証切れ・通信故障とは断定しない。Docker再起動・本体設定移行・保持②の操作は行っていない。[観測結果と停止範囲](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#再承認後の合成実ai確認--2026-10-24)を参照する。
 

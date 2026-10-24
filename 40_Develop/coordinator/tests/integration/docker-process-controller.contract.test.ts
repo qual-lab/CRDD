@@ -3675,6 +3675,36 @@ test("Provider非ゼロ終了は生出力を返さず既知の運用原因だけ
     ["", "proxy connection failed: ECONNRESET", "provider_network_unavailable"],
     ["", "Service unavailable (HTTP 503)", "provider_service_unavailable"],
     ["", "unclassified provider failure", "provider_process_exit_nonzero"],
+    [
+      JSON.stringify({
+        type: "result",
+        subtype: "error_during_execution",
+        is_error: true,
+        errors: ["authentication failed synthetic-secret"],
+      }),
+      "",
+      "provider_authentication_expired",
+    ],
+    [
+      JSON.stringify({
+        type: "result",
+        subtype: "error_during_execution",
+        is_error: true,
+        errors: ["proxy connection failed synthetic-secret"],
+      }),
+      "",
+      "provider_network_unavailable",
+    ],
+    [
+      JSON.stringify({
+        type: "result",
+        subtype: "success",
+        is_error: false,
+        result: "authentication failed synthetic-secret",
+      }),
+      "",
+      "provider_process_exit_nonzero",
+    ],
   ] as const;
   for (const [stdout, stderr, expectedReason] of cases) {
     const fixture = createFixture({
