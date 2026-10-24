@@ -12,11 +12,11 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
-再開したClaude読取り確認は、合成設定保存には成功したがWorkbenchのloopback HTTP観測で結果を得られず停止した。Provider開始not_started・externalSend not_issuedを維持し、Direct／Isolatedは未実施。その後の承認済みDocker再起動と同IDの技術回収は完了したが、上位Task受付の終了反映が初期化拒否で止まり、合成Rootを保持している。AI再送・未承認の手動修復・利用者の既存Docker資源削除は行っていない。元の試験失敗は[当時の観測・exact参照](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#claude-resume-transport-stop)、現在の残件は後段の回収結果を参照する。
+再開したClaude読取り試験は失敗・回答不明のままだが、その後の承認済みDocker再起動・同IDの技術回収・上位Task受付の終了反映は完了した。上位初期化拒否はフロントAIの一行起動フラグがWorkerへ継承されたことが原因で、通常ファイル起動へ戻して解消した。製品Sourceと安全条件は不変更。Direct／Isolatedは未実施で、AI再送・利用者の既存Docker資源削除はしていない。[元試験の観測](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#claude-resume-transport-stop)と[初期化拒否の解消・終了反映](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#readonly-trial-task-initialization-resolution)を参照する。
 
 読取り調査では、受付後の最初の結果GET失敗まで絞った。失っていたHTTP固定診断・受付済みID・同じTaskの取消結果を、試験Toolだけの最小修正で保持するようにした。外部AIなしの結合十三件と静的検査は成功。実際の接続切断／期限切れの区別、同時bridge再生成との因果は未確定。最小是正段階ではAI再送・Docker再起動・保持物操作はしていない。[調査の確度](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#claude-resume-readonly-diagnosis)と[最小是正](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#readonly-verification-minimal-fix)を参照する。
 
-最小是正は`22082c5b9`としてpush済み。その後の利用者承認により、同IDの検証付きDocker Desktop再起動一回と正式技術回収が成功した。Docker／Host清掃・排他解放・履歴確定・現在操作除去は確認済み。一方、上位Task受付の終了反映はSession初期化拒否で未成立のため、合成Rootは保持する。次は外部AIなしの初期化拒否調査であり、追加再起動・AI再送・記録強制削除はしない。[再起動・技術回収と残る受付反映](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#readonly-trial-approved-restart-recovery)を参照する。
+最小是正は`22082c5b9`としてpush済み。現在操作・未解決回復・配送待ち・履歴待ち・排他意図すべて零、上位Task completed・元結果unknown・回収確認true・回復参照なしを確認後、今回の合成Rootと短命入口を回収し不存在を確認した。次は診断修正後のClaude読取り再確認であり、実AIへの再送は別途承認後に一回だけ行う。[承認済み再起動・技術回収](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#readonly-trial-approved-restart-recovery)と後段の終了反映・清掃を参照する。
 
 先行する合成設定の保存拒否は、空Git templateで作った確認fixtureの`.git/info`未準備として非AIで特定・是正済み。製品の安全条件は変更せず、保存Suite十一件・静的検査・限定独立レビューが成功した。この是正の試験物は清掃済みであり、新たに保持した今回Rootとは区別する。[保存準備の是正](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#selection-save-preparation-diagnosis)を参照する。
 

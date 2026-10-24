@@ -164,6 +164,8 @@ CRDDを`00_CRDD`へ配置した採用Repositoryでは、Project Rootを現在Dir
 
 実行Pathを表す各placeholderは同じ保守sessionで検証した絶対Pathへ置き換える。保護操作をsession変数、PATH上の裸の`node`、相対entrypoint、または内部で別Runtimeを再選択するpackage aliasへ置き換えない。現在の診断は検証済みRootから既存Git観測と局所診断へ接続する。診断が作る一時領域と回収も確認し、厳密なEffect 0とは扱わない。廃止したRelease manifest署名を通常手順へ戻さない。
 
+保存用Workerを利用するAPIの局所診断も、通常の`.ts`ファイルとして起動する。`node --input-type=module -e`からimportすると、親の`--input-type`がファイル型Workerへ継承され、`ERR_INPUT_TYPE_NOT_ALLOWED`で起動できない。これを保存競合・記録破損と決めつけず、まず通常入口の起動条件へ戻す。診断用の短命ファイルはRepository-localの一時領域に置き、結果記録後に回収する。製品の排他・保存条件を緩めて代替しない。
+
 
 ### 選択したCheckoutによる一般Task・経路別検証
 

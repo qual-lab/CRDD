@@ -763,3 +763,26 @@ Source照合・有限再現・結果二文書の限定独立確認では、timed
 今回の技術回収は成立したが、上位受付の終了反映は未成立である。合成Rootは削除せず、元試験結果・現行state・履歴とexact参照を保持する。次は外部AIなしで初期化拒否を局所調査する。追加再起動・AI再送・本体設定変更・記録強制削除・新しい回復機構は今回の操作に含めない。保持の再評価日2026-10-31を維持するが、現在の未解決箇所をDocker物理資源の未回収と混同しない。
 
 結果二文書の限定独立レビューでは、正式技術回収と利用者の既存資源非変更を区別する表示一件を是正した。再確認後はMajor／Moderate／Minorすべて零。Source変更がないため実装回帰・準拠／Release監査は追加せず、今回の実観測と未完了範囲の直接整合を確認した。
+
+<a id="readonly-trial-task-initialization-resolution"></a>
+
+### 上位受付の初期化拒否と終了反映 — 2026-10-24
+
+利用者の継続指示に従い、外部AI・Docker再起動なしで初期化拒否を調べた。下位の既存Readerは`orchestrator_snapshot_lock_unavailable`を返した。原因は前節のフロントAIによる一行実行方法だった。`node --input-type=module -e`の`--input-type`がファイル型Workerへ継承され、Worker起動が`ERR_INPUT_TYPE_NOT_ALLOWED`で拒否されるため、保存排他を取得できなかった。製品の保存破損・競合や終了条件の不具合ではない。
+
+同じ保持stateへ既存Readerを使う短命診断で比較した。フラグ付き一行起動はWorker拒否・Reader blocked、通常`.ts`ファイル起動はWorker ready・Reader completed／snapshot_observedだった。両方でstateのSHA-256不変を確認した。診断初版のWorker URL文字列指定誤りは`ERR_WORKER_PATH`で停止したため、`new URL`へ訂正してから比較した。この初版結果を原因の根拠へ使わない。
+
+是正はフロントAIの短命入口を通常ファイル起動へ戻すことだけとし、製品Source・公開API・保存形式・排他・回復条件は変更しなかった。Workflowへ同じ起動条件と短命入口回収を追従した。短命回収入口は実行前レビューで対象状態・exact参照・現在Rootの再評価・close後の結果表示を補強し、再確認後は全重大度指摘零。exact受付ID、Project・主体・operation、settled／unknown／cleanup false、元Host回復参照一件を検査し、startを呼ばず既存Task Sessionの同IDcancelを一回だけ実行した。
+
+| 確認 | 結果・限界 |
+|---|---|
+| 通常起動での上位受付後処理 | Exit 0、同じrequestId、status unknown／reason orchestrator_task_body_unavailable、cleanupConfirmed true、recoveryIds／secondaryFailures空、closeConfirmed true。回答本文の欠測を成功や空の正常回答へ変更しない |
+| 終了後現在状態 | 改訂38でqueue completed、元singleTask settled／unknown、Owner世代null、cleanup true・回復参照なし。operations／unresolved／pending／leaseIntents零 |
+| 履歴の確定 | 残るhistoryPending一件を既存transferCoordinatorSnapshotHistoryで一度搬送し、recorded 1／expired 0。failed／cleanup confirmedの終了要約を保持。改訂39でhistoryPendingも零 |
+| 清掃前照合 | 合成Root内三十File・三十三Directory、他Worktreeなし、Workspace零、未解決・配送・履歴・排他意図零。祖先・子孫のsymlinkなし、Fileのnlink一、参照可能CommandLine中の今回Root／短命入口に一致するNode・Dockerクライアント零 |
+
+これにより技術回収と上位受付の終了反映が成立した。元の読取り試験は失敗・回答不明のままであり、実AI成功やDirect／Isolated E2E成功は主張しない。今回の処置ではAI送信・Docker操作・本体設定変更・state手動編集・新しい管理機構追加は零。製品Source不変更のため新しい製品回帰は追加せず、実行方法の比較、同ID結果と終了状態、Workflowの直接伝播を確認した。
+
+上記の結果を本節へ記録後、承認済み試験物回収の範囲で合成Rootのresolved絶対Pathをexact一致検査し、そのRootだけを削除して不存在を確認した。今回の短命診断・回収・履歴搬送の三入口も回収した。以前の2026-10-31再評価対象の物理残存は解消しており、未解決のまま期限で削除したものではない。元のHTTP故障と作成結果unknownの履歴・exact回復参照は本変更記録とGit履歴へ保持し、過去の成功へ書き換えない。
+
+Workflow・結果記録・現在投影の三文書は限定独立レビューで全重大度の残指摘零。起動比較の根拠、元結果unknownと現在回収完了の区別、履歴確定後のexact Root清掃と次のAI再確認の別承認を確認した。
