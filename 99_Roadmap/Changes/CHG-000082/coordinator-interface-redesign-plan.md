@@ -873,3 +873,26 @@ Sourceではauth／proxy／providerのcreateはいずれもDIの`planDockerIsola
 結果記録後、自己生成Rootのresolved絶対Path一致・ReparsePointなし・二件とも構成／回収／Process close確認済み・空Homeと空configと結果一件だけであることを確認した。そのRootだけを削除して不存在確認し、短命入口も回収した。保持中のClaude試験Rootは清掃対象に含めていない。
 
 結果二文書の限定独立レビューは全重大度の残指摘零。実測の作成・構成・回収と未検証の実Claude条件を分離し、製品Sourceや実回復条件を変更しないことを確認した。
+
+<a id="claude-create-condition-readonly-analysis"></a>
+
+### 実Claude条件差の読取り調査 — 2026-10-25（日本時間）
+
+利用者の継続指示に従い、Source・保持記録・Imageの非秘密metadata・Provider Home Directoryのmetadataだけを調べた。認証File本文、環境の秘密値、既存の回復Ownerを開かず、Container作成・起動・AI・再起動・保持state更新は行っていない。変更分類は原因調査と是正候補の提示であり、実装や安全条件の変更ではない。
+
+| 調査面 | 確認事項と限界 |
+|---|---|
+| Image差 | 固定Python／Claudeはいずれもlinux/amd64、宣言Volume零。Pythonの既定User・WorkingDirは空でEntrypoint零、Claudeは非空User／WorkingDirとEntrypoint一件。Userはcreate引数で共通化できるが、他のImage条件は先の比較で揃えていない。createだけではEntrypoint自体は実行されず、metadata差を失敗原因へ昇格しない |
+| Home所在 | Sourceが導く現在のProviderHomes親とclaude Directoryは存在し、Directory型・ReparsePointなし。File内容や権限変更には触れていない。過去のMount実体一致、Docker側からのアクセス、ACL正常性、認証有効性は未証明 |
+| HTTP Owner | Sourceは途中切断だけを要求取消へ結合し、通常例外は固定500へ変換する。明示closeは所有Socketをdestroyするが、Toolのcloseは一次HTTP失敗後であり、これだけで元ECONNRESETの原因とは言えない |
+| 同期待ち仮説の限定反例 | 実Workbench HTTP Ownerと有界Clientを使い、合成応答の連続二読取りを、同期待ち零と6.5秒で各一組比較。両方二応答とも200、失敗なし、Server close確認、native終了0。Docker・AIは使っていない。この一条件で切断は再現せず、実保存／排他／HTTP全体の原因除外にはしない |
+
+省電力復帰の遅延仮説も一般的な可能性として確認したが、今回の失敗原因とは特定しなかった。現在設定はWslEngineEnabled trueで、省電力の有効・実発動値は当該設定読取りから確定できない。[Docker公式説明](https://docs.docker.com/desktop/use-desktop/resource-saver/)では、WSLではVM停止でなくEngine pauseであり、復帰遅延はないと区別している。一般VMの3〜10秒復帰説明を、このPCの10秒create期限へ無条件に当てはめない。
+
+一方、`orchestrator_single_task_terminal_identity_conflict`には具体的な搬送欠落がある。`runRepositoryAdvice`の返却と`task/requests.ts`の助言結果はHost参照だけを初回terminal recordへ渡す。後の同Task回復は、`resolveRuntimeOwnedDockerTaskCurrentCorrelations`からexact Docker参照を発見し、未回収なら同参照を結果へ追加する。`updateCoordinatorSingleTask`は既存settled結果にない回復参照の追加を拒否するため、今回の「保存Host一件→回復結果Host＋Docker」の値は同名の拒否条件を満たす。元のQueue・結果とSource分岐が対応する。ただし、Queue解放の二つの副次失敗の全原因や、先行するcreate失敗・ECONNRESETの原因まで解明したとはしない。
+
+最小是正候補は、同じ技術Operationに確定したDocker回復参照を、初回terminal保存までにHost参照とともに利用側へ搬送することである。別Operationの参照追加を禁止する既存terminal検査は緩めず、新しいState・Registry・Recovery機構は作らない。現時点はSource照合による候補であり、変更する場合は同一／別Operation・参照欠測・回復失敗を外部AIなしで反証してから適用する。今回の調査では未実装。
+
+create自体の次の実境界比較候補は、先のCRDD所有Process＋空readonly Homeを保ち、Imageだけを固定Claude `sha256:ddd766072db6e69f55efb11fc3e82b401542cb5583c179f56aac4004f4ea317a`へ切り替える停止Container一件である。認証情報・AI・Container startを含めず、前提・同ID構成確認・回収・unknown停止条件を示して追加承認後に実施する。まだ作成していない。保持中Rootと回復参照は変更せず、HTTP比較用の短命入口だけを回収する。
+
+本節と現在地二文書の限定独立レビューは全重大度の残指摘零。Sourceに一致する搬送欠落、未特定の一次原因、比較の一般化限界、未実装の是正候補および追加承認待ちの試験を区別していることを確認した。
