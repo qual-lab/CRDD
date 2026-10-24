@@ -973,3 +973,28 @@ Source上の認証確認createも、先の限定比較と同じ通常Docker `cre
 現時点ではSourceの是正、Timeout延長、HTTP再送、接続Policy変更、新しいRecoveryや起動管理を正当化する根拠が足りない。一次HTTP故障と、その後の取消・結果不明・既知の参照搬送欠落を区別する。今回の短命入口二件は全撤去して不存在確認し、loopback Serverと合成子Processも終了確認した。保持Claude stateはUTC `2026-10-24T14:57:55.4549934Z`・10,235 bytesのまま不変更である。元のECONNRESETと実create結果は未確定を維持する。
 
 本節と現在地の限定最終独立レビューは全重大度の残指摘零。HTTP比較の実行権限差、取消形の同型と元因果、ログ内時刻相関と完全な当時性を区別することを確認した。次の実Home Mount比較は別の承認確認として提示し、この結果には含めない。
+
+<a id="claude-real-home-create-comparison"></a>
+
+### 実Claude Homeを指定した停止Container比較 — 2026-10-25（日本時間）
+
+利用者は、実Claude認証Homeの読取り専用Mountを指定した停止Container一件の作成・構成確認・今回資源の回収を明示承認した。変更分類は実行環境の限定診断であり、製品Source・保存形式・認可・回収条件を変更しない。実行前に既存Process起動・終了、固定Image、Host Path境界、Mount表示の照合、結果不明時の保全とexact ID回収を読取り専用の独立確認へ渡し、指摘解消後に限定Passを得た。準拠・リリース判断は対象外とする。
+
+試験のHome bind元は `C:\Users\nakas\AppData\Local\Qual-Lab\CRDD\ProviderHomes\claude`。realpath・Directory型・非Link・dev／inoだけを読み、File本文・Directory内一覧はprobeで読まなかった。Docker ClientのHOME／CONFIGは、これとは別のRepository-localな新品試験領域内の空Directoryにした。対象Homeへ変更・削除要求を発行せず、Container start・認証確認・AI・通信・Image取得・Docker起動／再起動・修復は行っていない。
+
+固定Claude Image `sha256:ddd766072db6e69f55efb11fc3e82b401542cb5583c179f56aac4004f4ea317a`、CRDD所有Process、絶対CLI、固定Engine pipe、pull=never、network none、read-only root、cap drop ALL、no-new-privileges、pids32、user65534を使った。Home一件を`/provider-home`へreadonly／rprivateで指定し、起動しない合成argvのままcreateだけを実行した。認証Homeの内容をProviderへ読ませていない。
+
+| 観測 | 結果 |
+|---|---|
+| 作成 | 一回、474ms、終了0、stdout 65 bytes・stderr 0 bytes。Process開始・応答・close確認 |
+| 実ID | `6155b773cab90b5e840ec7ef16bed377f07e01fd546d82a2ae5b2496894d5e84` |
+| 対象 | name `crdd-claude-home-comparison-001bcdde30025328`、label `crdd.real-home-comparison=001bcdde30025328` |
+| 構成 | 実ID・name・Image・label一致、created・非稼働・pid0、制限flagsとHOME一件一致。HostConfigはWindows元Path・一Mount・readonly・rprivateを照合。ContainerのMounts表示も一件・bind・宛先・RW false・rprivateを照合し、SourceはWindows exactまたは既知固定Desktop VM正規化表記だけを受理した |
+| Container回収 | 削除直前に同じ構成を再確認し、元実IDで非force削除。ID／name／label一覧は空で、既存Container一覧は前後一致 |
+| Home | 前後のDirectory所在・dev／ino一致。probeによる本文読取り・変更要求なし。File内容の同一性、Container内からの実読取り、認証有効性は証明していない |
+
+現在の固定Image・実Home指定でも、create失敗は再現しなかった。DockerのMount表示は作成構成の確認であり、Container起動後の実アクセスや認証成功には読み替えない。元のCLI非0終了とHTTP ECONNRESETの因果は未特定である。今回の成功から過去の作成結果unknownを成功へ変更せず、保持中の試験・回復参照は変更しない。Timeout延長・再送・新しい起動／Recovery機構は追加しない。
+
+上記summary固定後、試験Root `C:\project\CRDD\.crdd\tests\claude-real-home-create-20261025`のresolved絶対Path、期待四entry、ReparsePointなし、空Client Homeを再確認した。Container回収・Process終了確認後、このRootだけを削除し不存在を確認した。短命入口も撤去して不存在を確認した。認証Homeは清掃対象に含めていない。保持Claude stateはUTC `2026-10-24T14:57:55.4549934Z`・10,235 bytesのまま不変更である。
+
+本節と現在地の限定最終独立レビューは全重大度の残指摘零。Mountの要求値とContainer表示、Directory実体とFile内容、今回資源の回収と元試験の回収を区別した限定結果として確認した。
