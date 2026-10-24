@@ -529,3 +529,22 @@ CLIは`task run / project init / project run / doctor check / doctor isolation /
 停止条件に従い、Claude状態確認、AI依頼、合成Repository作成へ進まず、再試行・Lock解除・記録書換えを行わなかった。今回のAI起動／外部送信は零で、新規試験物の回収対象もない。保持②の内容・Runtime状態・資源実体は調査していない。
 
 Source確認後、今回の確認用起動方法に`node --input-type=module -e`を使用した問題を検出した。既存Worker構築は親の実行オプションを引き継ぐ。認証・Docker・Lock取得を使わず、同じ起動方法から既存TypeScript ModuleをWorkerとして読み込む局所再現では、`ERR_INPUT_TYPE_NOT_ALLOWED`、Worker Exit 1を観測した。したがって今回のblockedを実際のHome競合や認証不備の根拠にせず、確認用起動条件の不備として扱う。最小是正はファイル入口から通常のNode起動を使うことであり、製品のLock・安全条件・回復機構を変更しない。実AI四試験は未実施のまま。認証状態確認の再実行も行わず、正しい起動条件での前提確認を次の実行事項として残す。
+
+### 再承認後の合成実AI確認 — 2026-10-24
+
+利用者の再承認後、基準Commit `742728537`から通常のTypeScriptファイル入口で前提確認した。最初の入口は相対importの階層誤りでAPI読込み前に停止し、参照だけを修正した。Codex／Claudeの正式な認証状態確認は共に`authenticationStatus: confirmed`、`cleanupConfirmed: true`、回復参照なしで成功した。Codexの確認入口は成功値を`authenticated`と誤って期待して非0終了したが、実APIの成功観測は保持し、終了値判定だけを`confirmed`へ訂正した。Codex確認の再実行はしていない。認証・ログイン・製品Source・Lockの仕様変更はない。
+
+新品領域`.crdd/tests/ai-preflight-20261024-74272853/`内に合成Repositoryを作り、正式な設定保存・初期化・`runTask`へ接続した。送信したものは、その合成`PROJECT_CONTEXT.md`一件と「状況・残件・次候補」を尋ねる固定質問だけであり、本体のContextを送っていない。読取り専用の成功条件にTree不変を必須化し、局所Oracleと読取り専用の独立確認を通してから実行した。
+
+| 承認済み試験 | 実際の観測 |
+|---|---|
+| Codex読取り専用一回 | `gpt-5.6-sol / medium`、`request-f884de81-8f85-43ee-b211-b8d610713ed8`。正式Task結果completed、四分類の助言を受領、一次・副次失敗なし。Provider終了値0、Process tree終了、Container／Network不存在、cleanup成立、回復参照なし、合成Tree不変 |
+| Claude読取り専用一回 | `opus / medium`、`request-d5b11e41-b3e4-447f-a7d8-ef568c3483d6`。認証確認後のProvider開始まで到達したが、`start_provider_attached / execution_classification`で終了値1、stdout 835 bytes／stderr 0 bytes。正式結果blocked、一次理由`provider_process_exit_nonzero`、副次失敗なし。Process tree終了、Container／Network不存在、cleanup成立、回復参照なし、合成Tree不変 |
+| Direct編集一Task | 未実施。Claude失敗を受け、次のAI起動を停止 |
+| Isolated編集一Task・候補固定／Merge | 未実施。同じ停止条件を維持 |
+
+AI起動は計二回で再送なし。認証状態確認をAI起動回数に含めず、外部AIへの推論依頼二回と区別する。Claudeの非0を認証切れ、Quota、通信故障、Model非対応のいずれかへ断定できる根拠はない。通常の技術分類が非0終了を先に返すため、この観測からProvider本文の意味までは判定できず、生出力・秘密値の捕捉や再実行による補完はしていない。原因調査・必要最小限の診断案を次に整理し、診断付きの実AI再送は別の判断とする。
+
+両Taskの呼出しProcess終了後、今回の合成Stateはoperations・unresolvedRecoveries・pendingDeliveries・leaseIntents・workspacesが各零、二QueueはcompletedかつownerGenerationなしを確認した。historyPending二件は通常要約の保存待ちであり、回復待ちや実行中と混同しない。自己生成した合成GitのWorktree登録は自身一件だけ。保持②と本体設定へ触れず、今回領域だけを内容・非使用確認後に回収する。Docker再起動・Image取得・ログイン・APIキーfallbackは行っていない。全体E2EのPassとはしない。
+
+その後、今回Rootの正規Path、祖先及び配下のReparsePoint不存在（File二十三・Directory二十二）を確認し、そのRootだけを削除した。削除後の直接不存在を確認済み。元の失敗・成功の要約は本節へ保持し、実行ごとの書庫は追加しない。

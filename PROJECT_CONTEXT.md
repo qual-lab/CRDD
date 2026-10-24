@@ -12,7 +12,7 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
-承認済みの新品合成データによる実AI確認は、固定Image四件の存在確認後、Codexの正式な認証状態確認が既存Homeの排他取得不能で停止した。確認用の起動オプションが内部Workerを起動不能にする問題を認証・Dockerなしで局所再現し、実際のHome競合や認証切れとは断定していない。AI起動・外部送信・試験Container作成は零で、四試験は未実施。再試行・強制解除・Docker再起動・本体設定移行・保持②の操作は行っていない。次はファイル入口からの通常起動で前提確認する。[観測結果と停止範囲](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#承認済み実ai確認の前提停止--2026-10-24)を参照する。
+再承認後、通常ファイル入口でCodex／Claudeの認証状態と回収を確認した。新品合成Contextだけを使う実AI読取り試験はCodex成功、Claudeは起動後の終了値1でblocked。両方のProcess終了・Container／Network終了後不存在・Tree不変を確認した。AI起動計二回、再送なし。停止条件に従いDirect／Isolated編集二試験は未実施。Claudeの非0原因は未特定で、認証切れ・通信故障とは断定しない。Docker再起動・本体設定移行・保持②の操作は行っていない。[観測結果と停止範囲](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#再承認後の合成実ai確認--2026-10-24)を参照する。
 
 Repository別AI選択をTask・Objective・Grant・Packet・Operation Identityへ接続し、Home利用権限からModel選定を分離した。現在State／Project Snapshotはv5、Operation Identityはv2で、新形式だけを扱う。旧AI Profile／Store・MCP四Tool・Host Catalog起動依存を撤去し、Workbenchは選択Repositoryの設定Reader／CAS Writerと作業分類・明示選択へ接続した。Objective六Sourceと本番`public-*.ts`の整理、正式API・対象→操作のCLI・本番Consumer接続も完了した。
 
