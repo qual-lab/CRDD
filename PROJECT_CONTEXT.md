@@ -12,7 +12,9 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
-認証利用経路を非AIで調査し、専用Homeの想定位置に認証Fileが存在することと、正式status／Task前probeの共通Mount構成を確認した。両経路には更新・telemetry抑止環境値の差があるが、原因とする根拠はなく製品修正は行わない。既存二Suite38件は成功。資格本文・期限は未読で、AI再送・実Container追加・login・Docker再起動・保持物変更なし。次候補は既存の正式status一回による比較であり、人間の実行範囲確認を待つ。[調査結果と限定比較案](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#claude-authentication-path-investigation)を参照する。
+承認された正式Claude認証statusを一回実行したが、作成後の`start_probe_attached`非0でblockedとなった。AI依頼・login・通信・再起動はなく、今回Containerは回収済み、既存Containerは不変。正式認証入口は非0出力の分類前に停止するため`authenticationStatus: unknown`であり、先行Taskの未ログイン診断と同じ出力だったとは断定しない。経路間の環境差だけが原因という仮説は裏付けられず、再実行・推測修正はしない。[正式status比較の結果と診断上の限界](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#claude-formal-authentication-status-result)を参照する。
+
+先行の非AI調査では、専用Homeの想定位置に認証Fileが存在することと、正式status／Task前probeの共通Mount構成を確認した。両経路には更新・telemetry抑止環境値の差があるが、原因とする根拠はなく製品修正は行っていない。既存二Suite38件は成功。資格本文・期限は未読で、この調査自体ではAI再送・実Container追加・login・Docker再起動・保持物変更なし。その後承認された正式status比較の結果は上段を参照する。[先行調査結果と比較案](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#claude-authentication-path-investigation)を参照する。
 
 追加診断付きのClaude読取りを承認どおり一回実行し、認証確認CLIの正規出力が「未ログイン」（`authenticationStatus: unconfirmed`）で終了1だったことを確認した。Container作成unknownではなく、作成後の認証確認で停止している。認証切れかContainer内の認証利用経路かは未確定で、AI本体・外部送信は未開始。今回はHTTP故障なし、回収確認済み、操作・未解決回復・配送待ちは零だが未配送履歴一件は保持する。再送・再起動・先行保持物の変更は行わない。[一回試験の診断結果と限界](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#claude-readonly-auth-diagnostic-result)を参照する。
 

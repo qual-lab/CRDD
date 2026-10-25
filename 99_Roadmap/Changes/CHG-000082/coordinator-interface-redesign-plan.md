@@ -1187,3 +1187,18 @@ Workbench通常結合回帰は86件・失敗零で完走した。両Packageの�
 [Claude公式認証資料](https://code.claude.com/docs/en/authentication#credential-management)ではLinuxの既定資格配置を`~/.claude/.credentials.json`とし、`CLAUDE_CONFIG_DIR`設定時だけ配置を変更する。今回の構成と観測した相対配置に明白な不一致はない。同資料はログイン期限・更新不能等も再認証要因として説明するが、参照時点の資料は固定CLI 2.1.220そのものの実測ではなく、今回の期限切れを証明しない。
 
 現時点で製品修正を正当化する原因は未確定。次の最小比較候補は、既存の正式`auth status claude --json`を一回だけ使い、Task前probeと同じHome・Imageに対する判定を比較すること。通信なし・Home読取り専用・認証値非表示を維持し、今回作成した一Containerだけを正式Ownerで回収する。AI再送・login・更新通信・Docker再起動・Image取得・先行保持物の変更は含めない。実Homeを使うContainerの追加実行は本調査では行っておらず、実行範囲の人間確認へ戻す。正式statusも未認証なら環境差だけに原因を求めず、成功した場合だけ差の限定比較を検討する。
+
+<a id="claude-formal-authentication-status-result"></a>
+
+### 承認済み正式認証status一回の結果 — 2026-10-25
+
+利用者承認に基づき、基準`baef9a500d8a7ab8a5f5614d48f0ad87aa91de54`から既存CLI `auth status claude --json`を一回だけ実行した。開始前にEngine 29.8.1、固定Claude Image `sha256:ddd766072db6e69f55efb11fc3e82b401542cb5583c179f56aac4004f4ea317a`の存在、稼働Container零を読取り確認した。新Tool、製品Source変更、AI依頼、login、通信、Image取得、Docker Engineの起動・再起動命令はない。
+
+| 観測対象 | 結果と限界 |
+|---|---|
+| 正式API結果 | `status: blocked`、`reason: provider_authentication_start_probe_attached_failed`、`authenticationConfirmed: false`、`authenticationStatus: unknown`。Repository／Workspace未Mount、humanInteractive false、資格・Host Path・Provider生出力の公開なし |
+| 発行範囲 | status専用の一Container作成・start／attachと正式回収。`providerEffectIssued: true`は認証用Docker操作を発行した意味であり、AI推論・外部送信を示さない |
+| 終了・回収 | `cleanupConfirmed: true`、`recoveryId: null`、`manualRecoveryRequired: false`、`effectStateUnknown: false`。終了後のfreshな全状態Container一覧は開始前の既存一件`b185985108c6c901b179d0ca3214eac0ea2ef0e32de271526ddc606c6aea1764`だけ、稼働零。既存資源の削除なし |
+| 比較の限界 | 正式認証Ownerは非0終了を認証出力分類より前に拒否するため、今回のCLI内部の認証三値は分からない。先行Taskの`unconfirmed`と今回の`unknown`を矛盾や認証状態変化とはしない。どちらもstart／attach後の失敗だが、同一出力・同一原因とは未確定 |
+
+この一回承認は消費済み。再実行せず、認証Home・先行保持Root・記録を変更しない。環境抑止値を持つ正式statusも停止したため、Task前probeの環境差だけを原因とする根拠は得られなかった。次の最小是正候補は、正式認証Ownerにも先行Taskと同様の非秘密な診断分類を搬送することだが、本試験の承認だけから実装・追加試験・再ログインへ拡張しない。回収成功を認証成功・実AI E2E成功へ読み替えない。
