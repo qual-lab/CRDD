@@ -91,6 +91,8 @@ import {
   isDockerSetupCommandPurpose,
   SETUP_COMMAND_FAILURE_REASONS,
   type PrimaryFailureDiagnostic,
+  type RecoveryStartFailureDiagnostic,
+  inspectRecoveryStartFailureDiagnostic,
   normalizeProviderTaskStructuredResult,
   isDockerProcessControllerPublicCompletionReason,
   publicDockerRecoveryStartReason,
@@ -1512,6 +1514,7 @@ type RuntimeDependencies = Readonly<{
   beginRecovery: (
     plan: PreparedPlan,
     managementCapability: unknown,
+    observeFailure?: (diagnostic: RecoveryStartFailureDiagnostic) => void,
   ) => Recovery | BlockedRecovery | null;
   abandonRecovery?: (recoveryCapability: object) => boolean;
   bindInitializationFailure?: typeof bindRuntimeOwnedDockerInitializationFailure;
@@ -3092,15 +3095,52 @@ function start(
       completed.status === "completed",
     );
   }
+  let recoveryStartFailure: RecoveryStartFailureDiagnostic | null = null;
+  let failureObserved = false;
   const recovery = state.dependencies.beginRecovery(
     Object.freeze({
       ...plan,
       recoveryCorrelationId: plan.recoveryCorrelationId ?? null,
     }),
     managementCapability,
+    (raw) => {
+      if (failureObserved) return;
+      failureObserved = true;
+      const value = inspectRecoveryStartFailureDiagnostic(raw);
+      recoveryStartFailure =
+        value &&
+        (value.recoveryId === null ||
+          parseDockerTaskRecoveryId(value.recoveryId)
+            ?.stableLogicalHomeBindingHash ===
+            plan.stableLogicalHomeBindingHash)
+          ? value
+          : Object.freeze({ stage: "unknown", recoveryId: null });
+    },
   );
   const readyRecovery = snapshotReadyRecovery(recovery);
   if (!readyRecovery) {
+    if (failureObserved && recoveryStartFailure) {
+      const diagnostic = recoveryStartFailure as RecoveryStartFailureDiagnostic;
+      const returnedId = publicVerifiedDockerRecoveryId(
+        ownDataValue(recovery, "recoveryId"),
+      );
+      reportPassiveBoundaryDiagnostic(
+        state,
+        Object.freeze({
+          event: "coordinator_provider_recovery_start_failed",
+          taskRole: plan.taskRole,
+          provider: plan.provider,
+          operationId: plan.operationId,
+          taskAttempt: plan.taskAttempt,
+          recoveryCorrelationId: plan.recoveryCorrelationId ?? null,
+          diagnostic:
+            diagnostic.recoveryId === null ||
+            diagnostic.recoveryId === returnedId
+              ? diagnostic
+              : Object.freeze({ stage: "unknown", recoveryId: null }),
+        }),
+      );
+    }
     const malformedCapability = ownDataValue(recovery, "recoveryCapability");
     const malformedRecoveryId = publicVerifiedDockerRecoveryId(
       ownDataValue(recovery, "recoveryId"),

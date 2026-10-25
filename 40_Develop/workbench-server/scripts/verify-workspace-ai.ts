@@ -53,6 +53,10 @@ import type {
   WorkbenchAiRequests,
 } from "../src/server/ai-request/types.ts";
 import { verifyWorkspaceOutputBytes } from "./workspace-output-verification.ts";
+import {
+  captureWorkspaceRecoveryDiagnostic,
+  type RecoveryDiagnosticIdentity,
+} from "./workspace-recovery-diagnostic.ts";
 import { observeRuntimeOwnedDevelopmentSource } from "../../coordinator/src/execution/diagnostics.ts";
 
 const projectId = "project.workspace-verification";
@@ -267,6 +271,9 @@ async function verify(
   let acceptedRequestId: string | null = null;
   let client: WorkbenchAiRequests | null = null;
   let clientCleanupUnconfirmed = false;
+  let diagnosticCapture: ReturnType<
+    typeof captureWorkspaceRecoveryDiagnostic
+  > | null = null;
   let step = "prepare";
   const evidence: Record<string, unknown> = {
     mode,
@@ -350,6 +357,12 @@ async function verify(
       runtimeClean = true;
       evidence.preflightOnly = true;
     } else {
+      diagnosticCapture = captureWorkspaceRecoveryDiagnostic(process.stderr);
+      assert.equal(
+        diagnosticCapture.available,
+        true,
+        "recovery_diagnostic_collector_unavailable",
+      );
       client = await createWorkbenchAiVerificationHttpClient(handle.baseUrl);
       step = "start";
       const start = await client.start({
@@ -615,6 +628,59 @@ async function verify(
     } catch {
       evidence.closeConfirmed = false;
       evidence.closeFailure = "workbench_close_failed";
+    }
+    if (diagnosticCapture) {
+      let correlationId: string | null = null;
+      const identities: RecoveryDiagnosticIdentity[] = [];
+      try {
+        const storage = acquireCoordinatorStorageOwner(root);
+        if (storage) {
+          try {
+            const read = readCoordinatorStorageSnapshotOwned(storage);
+            if (read.status === "completed") {
+              correlationId =
+                read.value.snapshot.queueEntries.find(
+                  (q) => q.queueId === acceptedRequestId,
+                )?.singleTask?.operationId ?? null;
+              for (const operation of read.value.snapshot.operations) {
+                if (operation.kind !== "docker_task") continue;
+                const identity = JSON.parse(operation.identityJson);
+                identities.push({
+                  provider: identity.provider,
+                  taskRole:
+                    identity.executionSelection.role === "independent_reviewer"
+                      ? "reviewer"
+                      : identity.executionSelection.role === "executor"
+                        ? "executor"
+                        : null,
+                  taskAttempt: identity.taskAttempt,
+                  operationId: identity.operationId,
+                  recoveryCorrelationId: identity.recoveryCorrelationId,
+                  recoveryId: operation.recoveryId,
+                });
+              }
+            }
+          } finally {
+            if (!storage.release()) {
+              correlationId = null;
+              identities.length = 0;
+            }
+          }
+        }
+      } catch {
+        correlationId = null;
+        identities.length = 0;
+      }
+      const task = evidence.task as Record<string, unknown> | undefined;
+      const captured = diagnosticCapture.finish(
+        correlationId,
+        Array.isArray(task?.recoveryIds) ? (task.recoveryIds as string[]) : [],
+        typeof task?.reason === "string" &&
+          /^docker_process_controller_recovery_/u.test(task.reason),
+        identities,
+      );
+      evidence.recoveryStartDiagnostic = captured;
+      if (!captured.closed) evidence.closeConfirmed = false;
     }
     evidence.runtimeClean = runtimeClean;
     evidence.workspaceClean = workspaceClean;

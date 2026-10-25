@@ -2560,6 +2560,53 @@ test("分割chunkとCRLFから完全なeventだけを一度抽出する", async 
   assert.equal(result.processStartEvents[0]?.operationId, "OP-600001");
 });
 
+/** 回復開始の受動診断をsettledと混同せず閉形式で保持する。 */
+test("回復開始診断は固定段階だけを実子Processから保持する", async () => {
+  const notice = {
+    event: "coordinator_provider_recovery_start_failed",
+    provider: "codex",
+    taskRole: "executor",
+    operationId: "OP-123456",
+    taskAttempt: 0,
+    recoveryCorrelationId: "operation-11111111-2222-3333-4444-555555555555",
+    diagnostic: { stage: "home_lock", recoveryId: null },
+  };
+  for (const scenario of ["valid", "unknown-stage", "extra"]) {
+    const value =
+      scenario === "unknown-stage"
+        ? {
+            ...notice,
+            diagnostic: { stage: "arbitrary private text", recoveryId: null },
+          }
+        : scenario === "extra"
+          ? { ...notice, path: "private" }
+          : notice;
+    const line = `[Coordinator lifecycle] ${JSON.stringify(value)}\n`;
+    const script = `process.stderr.write(${JSON.stringify(line)});process.stdout.write(${JSON.stringify(`${JSON.stringify(semantic("blocked", "objective-1"))}\n`)});process.stdin.resume();`;
+    const child = spawn(process.execPath, ["-e", script], {
+      windowsHide: true,
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+    const result = await observePublicMcpProcess(child, {
+      maximumOutputBytes: 8192,
+      timeoutMs: 2000,
+      terminationGraceMs: 100,
+      closeInputWhen: ({ stdout }) => stdout.includes("\n"),
+    });
+    assert.equal(
+      result.runtimeEventProtocolViolation,
+      scenario !== "valid",
+      scenario,
+    );
+    if (scenario === "valid")
+      assert.deepEqual(result.providerBoundaryEvents, [notice]);
+    assert.equal(
+      JSON.stringify(result.providerBoundaryEvents).includes("private"),
+      false,
+    );
+  }
+});
+
 /**
  * 一次失敗の診断搬送と不正値の拒否を検証する。
  *

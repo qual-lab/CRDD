@@ -694,6 +694,16 @@ ERB-IT-010／ERB-ST-013は5CのOrchestrator／Coordinator大改修に依存す�
 
 読取り助言の試験器では、Hash対象fieldの欠落・異型と正常null、標準Network ID差、利用者資源の追加・消失、前後のpaused／restartingを反証する。Root検証先行、試験器自身の前後照合でのGit子Process未使用、親GIT_DIRでRevision観測先が変わらないこと、対象文書・Revisionのみの不変主張と全Repository不変非主張を確認する。既存Workbenchの安全なGit読取りは変更しない。合成Ownerと実loopback HTTPによる局所成功を実Provider再試験へ流用しない。
 
+## 回復開始失敗の限定診断
+
+既存のPRL-UT-006、ERB-IT-002、ERB-IT-021、PRL-ST-004の範囲で、次を非AI試験する。実AI・Docker実境界の成立とは分けて評価する。
+
+- 回復開始の各固定段階の失敗と正常開始。通知なし・通常通知・通知例外で元結果、保存・受付・解放の発行を変えない。
+- ID取得前のnull、取得後のexact参照、別Home参照、重複通知、未知段階、余分fieldを照合する。公開Task結果・清掃判定は維持する。
+- 実子Processの通知搬送と、Toolの欠測・分割・連結・超過・不正・別Task拒否を確認する。生出力を保存しない。
+- 耐久操作のProvider・役割・試行・操作ID・Task相関・回復IDの一項目差を拒否し、Task相関だけの場合は `task_only` として限界を明示する。
+- stderrの引数・戻り値・callbackを維持し、終了時に復元する。外部差替え・復元失敗では終了未確認とし、同Processで再設置しない。
+
 ## Checklist
 
 - [x] Quality ID、検証目標およびSource固有条件を自己完結して示した

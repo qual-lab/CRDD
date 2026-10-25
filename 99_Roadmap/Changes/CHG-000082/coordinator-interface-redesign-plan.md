@@ -1704,6 +1704,26 @@ Direct受付 `request-3d051d2f-d398-4696-89fe-a2249b66d79c` はstatus／executio
 
 今回Node Processの終了を確認した。短命の起動・診断三Fileと空の専用tmp Directoryは回収し、不存在確認済み。`.crdd/tests/workspace-ai-terminal-20261026/edit/direct` と兄弟`result.json`は回収未確認として保持し、2026-11-02までに既存Ownerで再評価する。未解決中は期限だけで消さない。前回同意入口拒否Rootと旧保持三領域は不変。次は外部AIなしで失敗境界と一次理由の保持を切り分け、必要な最小是正案を確定する。追加AI送信・Docker再起動・強制削除は行わない。
 
+##### 外部AIなしの原因調査と説明訂正
+
+利用者の調査指示により、保存状態とSourceだけを照合した。初回の`projectCurrentDockerAdmission`はHost操作生成より前に一度だけ通る。今回の二Docker操作はrecoveryCorrelationIdが同じ受付のoperationIdに一致し、Host参照も同じであるため、初回入場拒否とは両立しない。前回の「入場拒否」という説明を訂正する。同じ公開理由はControllerのProcess開始時に`beginRecovery`失敗を変換する三分岐からも返り、今回の停止は後続のDocker回復開始／結果投影へ絞られる。三本目のDocker回復参照は保存中二操作と一致せず、どのProvider・試行・内部条件で失敗したかは現在の記録だけでは確定できない。
+
+`execution/recovery.ts`の`safeRecoveryReason`は`docker_task_`又は`host_recovery_`だけを受け付ける。一方、`beginProductionRecovery`は`docker_recovery_provider_home_lock_unavailable`、`docker_recovery_runtime_state_conflict`、`docker_recovery_operation_binding_invalid`等を発生させるため、これらは`docker_recovery_initialization_failed_closed`へ潰れる。保存失敗の`coordinator_state_…`も同様である。このfallbackは公開分類表にもなく、`publicDockerRecoveryStartReason`で更に`docker_process_controller_recovery_unavailable`へ潰れる。
+
+正式Sourceから値変換関数だけを取り出した短命な非AI確認で、Home排他・状態競合・操作結合・終了処理結合・保存の五合成理由が同じ二段変換になることを再現した。既知の`docker_task_runtime_state_unavailable`は既存の観測不能分類を維持し、任意の例外本文はfallbackへ拒否されることも確認した。これは診断情報消失の再現であり、五候補のいずれかが今回の実原因だったという証明ではない。終了後の入場Reader正常を、失敗時の不存在証明へ使わない。
+
+二操作のLeaseはともにreleasedだった。個別資源のabsenceと、phase executing／execution unknown／host.cleanup not_requestedは矛盾しない。Taskが保持必要と判断すると、ControllerはHost清掃意図・Host回収・Docker最終確定へ進まないためである。Lease解放やContainer／Network不存在だけからHost回収完了へ丸めず、四参照と元結果を保持する。
+
+最小是正案は、公開の成功・失敗判定や清掃条件を変えず、回復開始時の固定・非秘密な失敗段階を既存の一次失敗診断へ接続すること。Provider／役割／試行と、取得済みの場合だけ同じexact回復参照へ結合し、ID取得前はnullを維持する。任意Error本文・Path・Capability・Provider生出力は残さず、新しいLog基盤・回復機構・再送は作らない。各失敗段階を注入した非AI試験で、公開結果・Effect・清掃判定不変と診断相関を検証してから、実境界確認の要否を判断する。この調査では製品Sourceの是正、AI再送、Docker照会／再起動、回復・削除は実施していない。読み取り専用の独立反証も上記の特定範囲と限界に一致した。
+
+#### 固定段階の限定診断と非AI検証
+
+上記最小案を実装した。回復開始Ownerは固定段階と取得済みの場合だけのexact参照を一回受動通知し、ControllerがHome結合と返却IDを照合する。公開Task結果・現在状態／履歴Schema・清掃条件・期限は変更しない。検証Toolだけが最大16件・一書込み4096 bytesの既知通知を取得し、既存の安全な結果JSONへ保存する。任意本文・Path・Provider生出力を記録しない。操作Identityの全照合とTask相関だけの `task_only` を分け、欠測等を成功にしない。元stderrへの復元不能では終了確認を拒否し同Processで再設置しない。
+
+非AI回帰はCoordinator四Suite168件、Workbench四Suite31件が成功した。開始全段階、通知例外と元結果不変、偽参照、別操作、分割／連結／超過、実子Process搬送、stderr復元不能を含む。最初の制限環境ではWindows子Process終了二件とローカルHTTP試験が失敗したが、同じSource・期限の通常実行環境では全成功した。新規通知のParser検査で検出した許可keyの並び不一致は検査を緩めず是正した。両Packageの整形・型検査・lint・Coordinator設計接続検査は成功（既知infoのみ）。ArchitectureとQA-000006へ限定範囲と未保証を反映した。
+
+独立レビューで検出した耐久Operationの事前相関除外とstderr復元代入の無反映を是正した。同じ回復IDに別Taskの耐久記録がある反例と、復元setterの例外／無反映を含む局所五件・静的確認を再実行し成功、最終限定再レビューの残指摘は零。これは診断搬送の確認であり、保持中試験の内部原因特定・回収・実AI編集E2E成功ではない。AI再送、Docker照会／再起動、回復実行、保持物操作は実施していない。過去の結果JSONも変更しない。
+
 <a id="new-model-ai-once-results-20261025"></a>
 
 ### 新Model読取り各一回と編集停止 — 2026-10-25

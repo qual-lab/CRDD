@@ -12,7 +12,7 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
-対話端末での通常同意後、新品の合成Direct編集を一回実行したが、Taskは`unknown / docker_process_controller_recovery_unavailable`、cleanup未確認・exact回復参照四件で停止した。Isolated未開始、再送・再起動なし。Codex／Claudeの各Docker操作には五資源すべて作成IDと不存在観測がある一方、現在状態の二操作とHost終了義務は未確定で、回収完了とはしない。終了後の同じ入場Reader／Inspectorは正常に通り、失敗時の詳細原因は未特定。今回Rootと元結果を保持し、短命入口だけ清掃する。次はAIなしで入場拒否と終了記録未確定を切り分ける。[今回結果と限界](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#workspace-terminal-edit-stop-20261026)を参照する。
+対話同意後のDirect試験は`unknown / docker_process_controller_recovery_unavailable`で停止し、exact回復参照四件と試験領域を保持している。初回入場は通過済みであり、前回の「入場拒否」という説明は訂正した。今回受付に結合したCodex／Claude操作は各一件、各五資源に作成ID・不存在観測とLease解放があるが、後続の回復開始失敗によりHost終了・最終確定は保留されている。内部失敗理由が同じ公開理由へ潰れる欠落への最小是正として、安全判定を変えず固定失敗段階を受動通知し、検証Toolの既存結果JSONへ有限取得する実装を追加した。非AI対象回帰はCoordinator168件、Workbench31件成功。具体的な過去の内部失敗条件はなお復元不能であり、今回の診断追加を原因解消やE2E成功とはしない。Isolated未開始、AI再送・Docker操作・保持物変更なし。[今回結果と調査](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#workspace-terminal-edit-stop-20261026)を参照する。
 
 先行の同意入口拒否では、固定Source `ddee28f85`で承認済み合成編集E2Eを一回開始したが、Directが`coordinator_task_external_send_confirmation_unavailable`で実AI起動前にblockedとなり、Isolatedは未開始だった。Task終了・cleanup確認済み・回復参照と副次失敗は空、Docker一覧・実行Sourceは不変。再送・再起動なし。通常の初回送信同意は別の対話確認であり、Toolの`--external-send-confirmed`だけでは代替しない。確認入口のunavailable内のLock取得／Console接続のどちらかまでは未観測。このDirect領域は終了要約一件・解放済みLease根拠二件とともに保持し、清掃完了とはしない。この時点では対話端末での通常同意を伴う一回の再実行判断が必要だった。[停止理由と保持状態](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#workspace-edit-consent-stop-20261026)を参照する。
 

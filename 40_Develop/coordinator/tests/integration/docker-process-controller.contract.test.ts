@@ -5349,6 +5349,100 @@ test("Recovery開始失敗は秘密を含まない固定分類で公開する", 
   }
 });
 
+/** 開始前の受動診断を元結果・清掃から分離し、通知の重複や例外を拒否する。 */
+test("Recovery開始段階は受動通知だけへ結合し公開結果を変えない", () => {
+  const id = `docker-task.${"d".repeat(64)}.${"e".repeat(64)}.${"f".repeat(64)}`;
+  for (const scenario of [
+    "null-id",
+    "exact-id",
+    "foreign-id",
+    "duplicate",
+    "reporter-throw",
+    "reporter-absent",
+  ]) {
+    const notices: unknown[] = [];
+    const fixture = createFixture({
+      beginRecovery: (
+        _plan: unknown,
+        _owner: unknown,
+        observe?: (value: unknown) => void,
+      ) => {
+        observe?.({
+          stage: "operation_start_save",
+          recoveryId: scenario === "null-id" ? null : id,
+        });
+        if (scenario === "duplicate")
+          observe?.({ stage: "home_lock", recoveryId: null });
+        return {
+          status: "blocked",
+          reason: "docker_recovery_initialization_failed_closed",
+          recoveryId: scenario === "exact-id" ? id : null,
+          manualRecoveryRequired: true,
+        };
+      },
+      reportProviderBoundaryDiagnostic:
+        scenario === "reporter-absent"
+          ? undefined
+          : (notice: unknown) => {
+              notices.push(notice);
+              if (scenario === "reporter-throw")
+                throw new Error("private text");
+              return Promise.resolve(true);
+            },
+    });
+    const result = fixture.controller.start(
+      fixture.preparedCapability,
+      fixture.managementCapability,
+    );
+    assert.equal(result.status, "blocked");
+    assert.equal(result.dockerEffectStarted, false);
+    assert.equal(fixture.getCommandCount(), 0);
+    const baseline = createFixture({
+      beginRecovery: () => ({
+        status: "blocked",
+        reason: "docker_recovery_initialization_failed_closed",
+        recoveryId: scenario === "exact-id" ? id : null,
+        manualRecoveryRequired: true,
+      }),
+    });
+    const unchanged = baseline.controller.start(
+      baseline.preparedCapability,
+      baseline.managementCapability,
+    );
+    assert.equal(unchanged.status, "blocked");
+    for (const key of [
+      "status",
+      "reason",
+      "cleanupConfirmed",
+      "manualRecoveryRequired",
+      "dockerEffectStarted",
+      "recoveryId",
+      "providerRequestStarted",
+    ] as const)
+      assert.deepEqual(result[key], unchanged[key]);
+    if (scenario === "reporter-absent") assert.equal(notices.length, 0);
+    else {
+      assert.equal(notices.length, 1);
+      const event = notices[0] as {
+        event: string;
+        diagnostic: { stage: string; recoveryId: string | null };
+      };
+      assert.equal(event.event, "coordinator_provider_recovery_start_failed");
+      assert.equal(
+        event.diagnostic.stage,
+        ["null-id", "exact-id"].includes(scenario)
+          ? "operation_start_save"
+          : "unknown",
+      );
+      assert.equal(
+        event.diagnostic.recoveryId,
+        scenario === "exact-id" ? id : null,
+      );
+      assert.equal(JSON.stringify(event).includes("private text"), false);
+    }
+  }
+});
+
 /**
  * 起動直前Authority不成立ならMountを返しDocker Effectを開始しないを検証する。
  *

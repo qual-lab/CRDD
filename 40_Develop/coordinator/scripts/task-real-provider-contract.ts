@@ -14,7 +14,11 @@ import { isSupportedCrddRuntimeGitObjectId } from "./verification-safety.ts";
 import { inspectMcpCoordinatorObjectiveResult } from "../../mcp-server/src/index.ts";
 import { inspectCoordinatorStateQueryResult } from "../src/state/projection.ts";
 import { startWindowsChildTreeTermination } from "../../platform-access/src/index.ts";
-import { dockerProcessControllerPublicCompletionReasons } from "../src/execution/result.ts";
+import {
+  dockerProcessControllerPublicCompletionReasons,
+  inspectRecoveryStartFailureDiagnostic,
+} from "../src/execution/result.ts";
+import type { ProviderBoundaryDiagnosticNotice } from "../src/execution/observation.ts";
 import { inspectRepositoryIdentityCandidate } from "../../version-control/src/index.ts";
 
 /**
@@ -137,7 +141,11 @@ type ProviderBoundarySettledEvent = Readonly<{
  */
 type ProviderBoundaryDiagnosticEvent =
   | ProviderBoundaryConfiguredEvent
-  | ProviderBoundarySettledEvent;
+  | ProviderBoundarySettledEvent
+  | Extract<
+      ProviderBoundaryDiagnosticNotice,
+      { event: "coordinator_provider_recovery_start_failed" }
+    >;
 /**
  * orchestrator-real-provider-contractで使用するVerified Runtime Eventの値契約を定義する。
  *
@@ -724,6 +732,32 @@ function parseKnownDiagnosticLine(
       (parsed.taskRole === null || role(parsed.taskRole)) &&
       parsedProvider !== null &&
       parsedOperationId !== null;
+    if (
+      parsed.event === "coordinator_provider_recovery_start_failed" &&
+      isValidCommon &&
+      exactKeys(parsed, [
+        "diagnostic",
+        "event",
+        "operationId",
+        "provider",
+        "recoveryCorrelationId",
+        "taskAttempt",
+        "taskRole",
+      ]) &&
+      (parsed.taskAttempt === 0 || parsed.taskAttempt === 1) &&
+      (parsed.recoveryCorrelationId === null ||
+        closedId(parsed.recoveryCorrelationId, 128)) &&
+      inspectRecoveryStartFailureDiagnostic(parsed.diagnostic)
+    )
+      return Object.freeze({
+        kind: "boundary" as const,
+        event: Object.freeze(
+          parsed as unknown as Extract<
+            ProviderBoundaryDiagnosticNotice,
+            { event: "coordinator_provider_recovery_start_failed" }
+          >,
+        ),
+      });
     if (
       parsed.event === "coordinator_provider_process_started" &&
       exactKeys(parsed, LIFECYCLE_KEYS) &&

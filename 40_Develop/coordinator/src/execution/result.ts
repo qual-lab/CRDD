@@ -187,6 +187,46 @@ export type PrimaryFailureDiagnostic = Readonly<{
   }> | null;
 }>;
 
+/** 回復開始の診断専用段階。実行許可・清掃判定には使用しない。 */
+export const RECOVERY_START_FAILURE_STAGES = Object.freeze([
+  "plan_validation",
+  "operation_context",
+  "provider_home",
+  "home_lock",
+  "operation_binding",
+  "state_conflict",
+  "operation_start_save",
+  "settlement_binding",
+  "host_submission",
+  "home_lock_release",
+  "unknown",
+] as const);
+
+/** 開始Ownerから受動診断へ渡す固定段階と、取得済みの場合だけの元参照。 */
+export type RecoveryStartFailureDiagnostic = Readonly<{
+  stage: (typeof RECOVERY_START_FAILURE_STAGES)[number];
+  recoveryId: string | null;
+}>;
+
+/** 診断の未知値・余分な内容を拒否し、Authorityを伴わない値へ閉じる。 */
+export function inspectRecoveryStartFailureDiagnostic(
+  raw: unknown,
+): RecoveryStartFailureDiagnostic | null {
+  const value = snapshotPlainRecord(raw, new Set(["stage", "recoveryId"]));
+  if (
+    !value ||
+    !RECOVERY_START_FAILURE_STAGES.includes(
+      value.stage as RecoveryStartFailureDiagnostic["stage"],
+    ) ||
+    (value.recoveryId !== null && !parseDockerTaskRecoveryId(value.recoveryId))
+  )
+    return null;
+  return Object.freeze({
+    stage: value.stage as RecoveryStartFailureDiagnostic["stage"],
+    recoveryId: value.recoveryId as string | null,
+  });
+}
+
 const BLOCKED_START_KEYS = Object.freeze([
   "cleanupConfirmed",
   "completion",

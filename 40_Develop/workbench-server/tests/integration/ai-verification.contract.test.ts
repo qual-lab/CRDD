@@ -253,6 +253,12 @@ test("Workspace試験は通信失敗後に同じTaskの取消結果を保存し�
     const result = await runInNewContext(body, {
       Error,
       Buffer,
+      process: { stderr: {} },
+      captureWorkspaceRecoveryDiagnostic: () => ({
+        available: true,
+        finish: () => ({ captureStatus: "captured", events: [], closed: true }),
+      }),
+      acquireCoordinatorStorageOwner: () => null,
       verifyWorkspaceOutputBytes,
       verified: { capability: Object.freeze({}) },
       readRepositoryNetworkPolicies: () => ({

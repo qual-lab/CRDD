@@ -16,6 +16,7 @@ import {
   validateHostRecoveryTransitionLineage,
   isDockerRestartCheckpointSettled,
   createDockerRestartRequestId,
+  type RecoveryStartFailureDiagnostic,
 } from "./result.ts";
 import path from "node:path";
 import fs from "node:fs";
@@ -3678,167 +3679,197 @@ function expectedHostSuccessor(
 function beginProductionRecovery(
   plan: ProductionPlan,
   managementCapability: unknown,
+  observeFailure?: (diagnostic: RecoveryStartFailureDiagnostic) => void,
 ) {
-  if (!validProductionPlan(plan)) return null;
-  const development =
-    inspectRuntimeOwnedDevelopmentOperationContext(managementCapability);
-  if (development && !development.checkNewWork()) return null;
-  const observation = inspectRuntimeOwnedWindowsProviderHomeCandidate(
-    plan.provider,
-    development?.newWorkContext,
-  );
-  const home = consumeRuntimeOwnedProviderHomeObservationCapability(
-    observation.observationCapability,
-  );
-  if (
-    observation.status !== "candidate" ||
-    !home ||
-    home.providerHomeIdentityHash !== plan.providerHomeIdentityHash ||
-    home.providerHomeProtectionHash !== plan.providerHomeProtectionHash ||
-    home.localUserBindingHash !== plan.localUserBindingHash ||
-    home.stableLogicalHomeBindingHash !== plan.stableLogicalHomeBindingHash
-  )
-    return null;
-  const lease = acquireRuntimeOwnedLogicalProviderHomeKernelLock(
-    plan.stableLogicalHomeBindingHash,
-  );
-  if (!lease) throw new Error("docker_recovery_provider_home_lock_unavailable");
-  let isTransferred = false;
-  let recoveryId: string | null = null;
-  let capability: object | null = null;
+  let stage: RecoveryStartFailureDiagnostic["stage"] = "plan_validation";
+  let diagnosticRecoveryId: string | null = null;
+  let ready = false;
   try {
-    const operation =
-      verifyOwnedOperationManagementCapability(managementCapability);
-    if (operation.operationId !== plan.operationId)
-      throw new Error("docker_recovery_operation_binding_invalid");
-    const current =
-      readRuntimeOwnedCoordinatorStateSnapshot(managementCapability);
-    if (
-      current.value?.snapshot.operations.some((item) =>
-        item.kind === "runtime_repair"
-          ? item.phase !== "awaiting_delivery"
-          : JSON.parse(item.identityJson).stableLogicalHomeBindingHash ===
-              plan.stableLogicalHomeBindingHash && item.lease !== "released",
-      )
-    )
-      throw new Error("docker_recovery_runtime_state_conflict");
-    const nonce = randomBytes(32).toString("hex");
-    const identityJson = prepareRuntimeOwnedRepositoryDockerOperationIdentity(
-      plan,
-      managementCapability,
-      nonce,
-      plan.consumer,
+    if (!validProductionPlan(plan)) return null;
+    stage = "operation_context";
+    const development =
+      inspectRuntimeOwnedDevelopmentOperationContext(managementCapability);
+    if (development && !development.checkNewWork()) return null;
+    stage = "provider_home";
+    const observation = inspectRuntimeOwnedWindowsProviderHomeCandidate(
+      plan.provider,
+      development?.newWorkContext,
     );
-    if (!identityJson)
-      throw new Error("docker_recovery_operation_binding_invalid");
-    const repository =
-      borrowRuntimeOwnedCoordinatorStateRepository(managementCapability);
-    const initialBytes = repository
-      ? prepareCoordinatorStateOperationSnapshot(
-          null,
-          identityJson,
-          repository.repositoryBinding,
+    const home = consumeRuntimeOwnedProviderHomeObservationCapability(
+      observation.observationCapability,
+    );
+    if (
+      observation.status !== "candidate" ||
+      !home ||
+      home.providerHomeIdentityHash !== plan.providerHomeIdentityHash ||
+      home.providerHomeProtectionHash !== plan.providerHomeProtectionHash ||
+      home.localUserBindingHash !== plan.localUserBindingHash ||
+      home.stableLogicalHomeBindingHash !== plan.stableLogicalHomeBindingHash
+    )
+      return null;
+    stage = "home_lock";
+    const lease = acquireRuntimeOwnedLogicalProviderHomeKernelLock(
+      plan.stableLogicalHomeBindingHash,
+    );
+    if (!lease)
+      throw new Error("docker_recovery_provider_home_lock_unavailable");
+    let isTransferred = false;
+    let recoveryId: string | null = null;
+    let capability: object | null = null;
+    try {
+      stage = "operation_binding";
+      const operation =
+        verifyOwnedOperationManagementCapability(managementCapability);
+      if (operation.operationId !== plan.operationId)
+        throw new Error("docker_recovery_operation_binding_invalid");
+      stage = "state_conflict";
+      const current =
+        readRuntimeOwnedCoordinatorStateSnapshot(managementCapability);
+      if (
+        current.value?.snapshot.operations.some((item) =>
+          item.kind === "runtime_repair"
+            ? item.phase !== "awaiting_delivery"
+            : JSON.parse(item.identityJson).stableLogicalHomeBindingHash ===
+                plan.stableLogicalHomeBindingHash && item.lease !== "released",
         )
-      : null;
-    const initial =
-      initialBytes && repository
-        ? decodeCoordinatorStateSnapshot(
-            initialBytes,
+      )
+        throw new Error("docker_recovery_runtime_state_conflict");
+      stage = "operation_binding";
+      const nonce = randomBytes(32).toString("hex");
+      const identityJson = prepareRuntimeOwnedRepositoryDockerOperationIdentity(
+        plan,
+        managementCapability,
+        nonce,
+        plan.consumer,
+      );
+      if (!identityJson)
+        throw new Error("docker_recovery_operation_binding_invalid");
+      const repository =
+        borrowRuntimeOwnedCoordinatorStateRepository(managementCapability);
+      const initialBytes = repository
+        ? prepareCoordinatorStateOperationSnapshot(
+            null,
+            identityJson,
             repository.repositoryBinding,
           )
         : null;
-    recoveryId = initial?.snapshot.operations[0]?.recoveryId ?? null;
-    if (!recoveryId)
-      throw new Error("docker_recovery_operation_binding_invalid");
-    capability = Object.freeze({});
-    const record: DurableRecord = {
-      capability,
-      managementCapability: managementCapability as object,
-      operationId: operation.operationId,
-      operationNonce: nonce,
-      recoveryId,
-      stableLogicalHomeBindingHash: plan.stableLogicalHomeBindingHash,
-      logicalHomeLease: lease,
-      settlementContext: null,
-      initializationReady: false,
-      initializationIdentityJson: identityJson,
-      consumer: plan.consumer,
-    };
-    durableRecords.set(capability, record);
-    isTransferred = true;
-    const saved = saveRuntimeOwnedCoordinatorOperationStart(
-      managementCapability,
-      identityJson,
-    );
-    record.initializationResult = saved;
-    if (
-      saved.status !== "completed" ||
-      !saved.snapshotConfirmed ||
-      !saved.lockReleased ||
-      saved.recoveryId !== recoveryId
-    )
-      throw new Error(saved.reason);
-    const context = prepareRuntimeOwnedCoordinatorSettlement(
-      managementCapability,
-      recoveryId,
-      plan.consumer,
-    );
-    if (!context) throw new Error("docker_recovery_settlement_binding_invalid");
-    record.settlementContext = context;
-    const started = beginRuntimeOwnedCoordinatorHostSubmission(
-      managementCapability,
-      recoveryId,
-    );
-    record.initializationHostResult = started;
-    if (started.status !== "completed" || !started.hostTransitionConfirmed) {
-      record.initializationFailure = started.reason;
+      const initial =
+        initialBytes && repository
+          ? decodeCoordinatorStateSnapshot(
+              initialBytes,
+              repository.repositoryBinding,
+            )
+          : null;
+      recoveryId = initial?.snapshot.operations[0]?.recoveryId ?? null;
+      if (!recoveryId)
+        throw new Error("docker_recovery_operation_binding_invalid");
+      diagnosticRecoveryId = recoveryId;
+      capability = Object.freeze({});
+      const record: DurableRecord = {
+        capability,
+        managementCapability: managementCapability as object,
+        operationId: operation.operationId,
+        operationNonce: nonce,
+        recoveryId,
+        stableLogicalHomeBindingHash: plan.stableLogicalHomeBindingHash,
+        logicalHomeLease: lease,
+        settlementContext: null,
+        initializationReady: false,
+        initializationIdentityJson: identityJson,
+        consumer: plan.consumer,
+      };
+      durableRecords.set(capability, record);
+      isTransferred = true;
+      stage = "operation_start_save";
+      const saved = saveRuntimeOwnedCoordinatorOperationStart(
+        managementCapability,
+        identityJson,
+      );
+      record.initializationResult = saved;
+      if (
+        saved.status !== "completed" ||
+        !saved.snapshotConfirmed ||
+        !saved.lockReleased ||
+        saved.recoveryId !== recoveryId
+      )
+        throw new Error(saved.reason);
+      stage = "settlement_binding";
+      const context = prepareRuntimeOwnedCoordinatorSettlement(
+        managementCapability,
+        recoveryId,
+        plan.consumer,
+      );
+      if (!context)
+        throw new Error("docker_recovery_settlement_binding_invalid");
+      record.settlementContext = context;
+      stage = "host_submission";
+      const started = beginRuntimeOwnedCoordinatorHostSubmission(
+        managementCapability,
+        recoveryId,
+      );
+      record.initializationHostResult = started;
+      if (started.status !== "completed" || !started.hostTransitionConfirmed) {
+        record.initializationFailure = started.reason;
+        return Object.freeze({
+          status: "blocked" as const,
+          recoveryId,
+          recoveryCapability: capability,
+          reason: started.reason,
+          manualRecoveryRequired: true,
+        });
+      }
+      record.initializationReady = true;
+      ready = true;
       return Object.freeze({
-        status: "blocked" as const,
+        status: "ready" as const,
         recoveryId,
         recoveryCapability: capability,
-        reason: started.reason,
-        manualRecoveryRequired: true,
       });
-    }
-    record.initializationReady = true;
-    return Object.freeze({
-      status: "ready" as const,
-      recoveryId,
-      recoveryCapability: capability,
-    });
-  } catch (error) {
-    const record = capability ? durableRecords.get(capability) : null;
-    const reason = safeRecoveryReason(
-      error,
-      "docker_recovery_initialization_failed_closed",
-    );
-    if (record && capability) {
-      record.initializationFailure = reason;
-      record.initializationLeaseReleaseConfirmed = false;
-      try {
-        record.initializationLeaseReleaseConfirmed = lease.release();
-      } catch {
-        // 元の開始失敗とexact Ownerを保持し、解放例外を成功へ丸めない。
+    } catch (error) {
+      const record = capability ? durableRecords.get(capability) : null;
+      const reason = safeRecoveryReason(
+        error,
+        "docker_recovery_initialization_failed_closed",
+      );
+      if (record && capability) {
+        record.initializationFailure = reason;
+        record.initializationLeaseReleaseConfirmed = false;
+        try {
+          record.initializationLeaseReleaseConfirmed = lease.release();
+        } catch {
+          // 元の開始失敗とexact Ownerを保持し、解放例外を成功へ丸めない。
+        }
+        if (record.initializationLeaseReleaseConfirmed)
+          releasedLogicalHomeLeases.add(capability);
       }
-      if (record.initializationLeaseReleaseConfirmed)
-        releasedLogicalHomeLeases.add(capability);
-    }
-    return Object.freeze({
-      status: "blocked" as const,
-      recoveryId,
-      ...(capability ? { recoveryCapability: capability } : {}),
-      reason,
-      manualRecoveryRequired: true,
-    });
-  } finally {
-    if (!isTransferred && !lease.release()) {
-      // biome-ignore lint/correctness/noUnsafeFinally: actual lease release failure cannot return ready.
       return Object.freeze({
         status: "blocked" as const,
         recoveryId,
-        reason: "docker_task_recovery_home_lock_release_unconfirmed",
+        ...(capability ? { recoveryCapability: capability } : {}),
+        reason,
         manualRecoveryRequired: true,
       });
+    } finally {
+      if (!isTransferred && !lease.release()) {
+        stage = "home_lock_release";
+        // biome-ignore lint/correctness/noUnsafeFinally: actual lease release failure cannot return ready.
+        return Object.freeze({
+          status: "blocked" as const,
+          recoveryId,
+          reason: "docker_task_recovery_home_lock_release_unconfirmed",
+          manualRecoveryRequired: true,
+        });
+      }
+    }
+  } finally {
+    if (!ready) {
+      try {
+        observeFailure?.(
+          Object.freeze({ stage, recoveryId: diagnosticRecoveryId }),
+        );
+      } catch {
+        /* 受動診断の失敗で元の開始結果を変更しない。 */
+      }
     }
   }
 }
@@ -5468,9 +5499,10 @@ function completeRecovery(
 export function beginRuntimeOwnedDockerRecovery(
   plan: ProductionPlan,
   managementCapability: unknown,
+  observeFailure?: (diagnostic: RecoveryStartFailureDiagnostic) => void,
 ) {
   try {
-    return beginProductionRecovery(plan, managementCapability);
+    return beginProductionRecovery(plan, managementCapability, observeFailure);
   } catch (error) {
     return Object.freeze({
       status: "blocked" as const,

@@ -5,7 +5,10 @@
  * @trace ARCH-000008
  */
 
-import type { PrimaryFailureDiagnostic } from "./result.ts";
+import type {
+  PrimaryFailureDiagnostic,
+  RecoveryStartFailureDiagnostic,
+} from "./result.ts";
 import {
   type ProviderAvailability,
   evaluateProviderAvailability,
@@ -42,6 +45,15 @@ export type ProviderProcessStartedNotice = Readonly<{
  * @compatibility 診断失敗で処理結果を変更しない。
  */
 export type ProviderBoundaryDiagnosticNotice =
+  | Readonly<{
+      event: "coordinator_provider_recovery_start_failed";
+      taskRole: "executor" | "reviewer" | null;
+      provider: "codex" | "claude";
+      operationId: string;
+      taskAttempt: 0 | 1;
+      recoveryCorrelationId: string | null;
+      diagnostic: RecoveryStartFailureDiagnostic;
+    }>
   | Readonly<{
       event: "coordinator_provider_boundary_configured";
       taskRole: "executor" | "reviewer" | null;
