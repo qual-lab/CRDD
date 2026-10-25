@@ -1226,3 +1226,27 @@ Workbench通常結合回帰は86件・失敗零で完走した。両Packageの�
 [公式CLI資料](https://learn.chatgpt.com/docs/developer-commands?surface=cli)は`login status`の認証情報存在時の終了0を説明する。独立確認では採用Executor版の[固定Source](https://raw.githubusercontent.com/openai/codex/ff29a44391deccde0aba0f8390337d7f3c319ea4/codex-rs/cli/src/login.rs)と助言版の[固定Source](https://raw.githubusercontent.com/openai/codex/ff6aec96948b70d94983af2641a6b67c94faeff5/codex-rs/cli/src/login.rs)を照合し、資格なし分岐のstderr `Not logged in`／exit1と、別の確認エラー分岐を確認した。このSource照合を実Image・実認証の再実測へ代用しない。今回のOpenAI Docs手順は公式資料の範囲確認に用い、API keyの取得やProviderへの試験要求には使っていない。
 
 是正後の固定候補でCoordinator影響五Suiteは168件・失敗零で完走し、AI Adapter全24件も成功した。両Packageの型検査、変更三Sourceの整形・lint、diffcheckは成功。独立レビューのSource指摘は是正済みで、結果確定前の表示指摘も是正後候補の終端結果と照合した。前節の文書Checker横断残件は今回再実行・解消しておらず、全体QAや実認証E2EのPassとはしない。
+
+<a id="claude-readonly-after-reauth-result"></a>
+
+### 再認証後の同条件Claude読取り一回 — 2026-10-25
+
+利用者の依頼により正式`auth login claude`を外部対話端末で行い、完了後の正式statusは`completed / confirmed / authenticationConfirmed:true / cleanupConfirmed:true`だった。login記録のsettled／idleをstatus前に確認し、記録された三Container・二Networkの実IDはfresh一覧に不存在、status用Containerも終了後不存在を確認した。既存停止Container一件は維持し、AI依頼・再起動・秘密値の取得はこの認証確認へ含めない。
+
+続く利用者承認に基づき、基準`ae6f206016d58446171ac81aafca0b406a6dce7a`から新品 `.crdd/tests/claude-readonly-reauth-20261025/readonly`を準備した。旧短命入口との差はRootと基準Commitだけで、実行前独立確認の残指摘零。合成Contextは前回と同じ1,095 bytes、SHA-256 `99505f13f046e4f5f0619d74d8edfc5e9cada26e6a839b532df214e810e343da`、選択設定Hash `67a183f123d63236e08641724274347ce1ce5d61156d62fdb3a08cb1e3bfaf40`。合成Commitは`d91c59e59417220384d1663c57a3db24997a905c`。Claude opus／medium、同じ正式Tool・固定質問を一回だけ発行した。
+
+| 観測対象 | 今回の結果と限界 |
+|---|---|
+| 正式結果 | Tool native終了2、Task blocked／`workbench_ai_claude_turn_count_invalid`。受付ID `request-bd0f12d4-d162-461a-92ab-5efb6062c4ed`、Operation `OP-215556412717598397064112506976425970712`。limitedProbePassed／fullE2eVerifiedはfalse |
+| 一次故障 | `start_provider_attached`のhandle取得・応答観測あり。終了0、stdout 6,010 bytes／stderr 0。正規化段階`provider_result_normalization`で停止し、認証確認失敗やContainer作成unknownではない |
+| 拒否条件の照合 | AI Adapterの`extractClaude`は成功Envelopeを確認後、`num_turns`が欠測・非整数・1未満・2超のいずれかなら同理由を返す。起動Planも`--max-turns 2`。実値は保存しておらず、今回どの条件か、CLIの数え方との不一致かは未確定。二ターン超過だったとは断定しない |
+| HTTP・取消 | Tool一次故障・transportFailure・failureStepはnull、timedOut false、取消要求なし。closeConfirmed true。先行HTTP故障の原因解明とはしない |
+| 回収・耐久状態 | Task cleanupConfirmed true、recoveryIds・secondaryFailures空。現在改訂35、操作・未解決回復・pendingDeliveriesは零。Queue completed／singleTask settled・blocked。historyPending一件は保全。履歴のHost cleanup confirmed／Lease releasedと一時Host候補の不存在を確認 |
+| 事実の粒度 | 履歴のproviderStart／externalSend／sharedWriteはunknownのままであり、結果拒否後に肯定値へ書き換えない。CLI応答・成功Envelope・終了0の観測と、記録の開始fact不明を分ける |
+| 資源・入力不変 | freshな全状態Container一覧は開始前の既存一件だけ、稼働零。Network一覧もbridge／host／none／既存jarvis_defaultだけ。Toolは既存資源属性・System構成同値と標準bridge世代差を記録したが、再起動命令は発行しておらず原因・発行者を推定しない。本体HEAD／Tree、合成Context／Tree・選択設定は不変 |
+
+今回の履歴相関参照は`docker-task.29c9921916f3a63170e77179d3145c8627a2b3519d5813b7c9cf2a87d136d9aa.082d8138c9a34e3d8a8441d4dfc60b911e95c18bf81ff1cd35337c1903e81b26.999b17ad517e6205a5821c0e3a7a9256b7b317532b0b8be5cb5be06c34773861`。清掃済み履歴の相関用であり、返却された未解決義務ではない。先行三Rootのstateは10,235／3,576／3,577 bytesと各更新時刻が不変。今回Rootは失敗調査と未配送履歴一件の保全のため2026-11-01までの既定七日を再評価期限として保持し、既存Ownerによる配送・保持確認後に清掃判断へ戻す。回収済み実行資源と保持中の試験記録を区別する。
+
+失敗後の再試行・上限変更・認証変更・Docker再起動・Image取得・既存資源削除は行わない。既存の助言抽出→Controller→固定理由・cleanup搬送の合成一件は成功し、同理由が欠測でも発生することを確認した。生Provider出力・資格値・回答本文は保存しない。今回完了したのは承認一回の発行、失敗分類、実行資源回収と原因境界の照合であり、読取り試験成功・全体E2E成功ではない。
+
+結果・履歴・現在状態の安全fieldと二文書を照合した限定独立レビューは残指摘零。文書diffcheckも成功した。

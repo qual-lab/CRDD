@@ -12,7 +12,9 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
-Codex／Claudeのstatusを共通三値へ揃えた。Provider固有の正規出力・出力先・既知警告の検査はAI Adapterに閉じ、Coordinatorは共通結果と終了値だけを扱う。未ログインは確認操作完了／未認証であり、login成功やTask実行許可には昇格しない。Coordinator関連168件・AI Adapter24件、型・整形・lintは成功。実Home・Docker・AI再送・login・先行保持物は操作しておらず、修正版での実認証状態は未確認。[両Providerのstatus共通化](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#provider-authentication-status-unification)を参照する。先行一回の実status失敗と回収済み結果は[元の比較記録](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#claude-formal-authentication-status-result)へ維持する。
+Claude再認証後の正式statusはconfirmed／cleanupConfirmed trueとなり、loginの三Container・二Networkとstatus用Containerの不存在を確認した。その後、同じ合成Context・固定質問・opus／mediumの読取りを承認どおり一回実行したが、Claude CLI終了0の後に`workbench_ai_claude_turn_count_invalid`でblockedとなった。HTTP故障・Timeoutはなく、実行資源の回収と入力不変は確認済み。再試行せず、失敗診断と未配送履歴一件のため今回合成Rootを期限付き保持する。正規化が要求する`num_turns`は1～2の整数だが、実値は保存しておらず、上限超過・欠落・型不正の別は未確定。[再認証後一回の結果と限界](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#claude-readonly-after-reauth-result)を参照する。
+
+Codex／Claudeのstatus共通化では、Provider固有の正規出力・出力先・既知警告の検査をAI Adapterに閉じ、Coordinatorは共通結果と終了値だけを扱う。未ログインは確認操作完了／未認証であり、login成功やTask実行許可には昇格しない。共通化の非AI検証はCoordinator関連168件・AI Adapter24件、型・整形・lintが成功し、その検証自体では実Home・Docker・AI再送・login・先行保持物を操作していない。後続のClaude実認証結果は上段と区別する。[両Providerのstatus共通化](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#provider-authentication-status-unification)を参照する。先行一回の実status失敗と回収済み結果は[元の比較記録](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#claude-formal-authentication-status-result)へ維持する。
 
 先行の非AI調査では、専用Homeの想定位置に認証Fileが存在することと、正式status／Task前probeの共通Mount構成を確認した。両経路には更新・telemetry抑止環境値の差があるが、原因とする根拠はなく製品修正は行っていない。既存二Suite38件は成功。資格本文・期限は未読で、この調査自体ではAI再送・実Container追加・login・Docker再起動・保持物変更なし。その後承認された正式status比較の結果は上段を参照する。[先行調査結果と比較案](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#claude-authentication-path-investigation)を参照する。
 
