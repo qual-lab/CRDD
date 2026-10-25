@@ -8,18 +8,272 @@
  * @boundary 有限Process代役と実HTTP子。Provider・Docker・Repository操作なし。
  */
 import assert from "node:assert/strict";
+import childProcess, { spawn } from "node:child_process";
 import { EventEmitter } from "node:events";
 import fs from "node:fs";
 import { createServer } from "node:http";
-import { stripTypeScriptTypes } from "node:module";
+import { stripTypeScriptTypes, syncBuiltinESMExports } from "node:module";
 import path from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 import { runInNewContext } from "node:vm";
 import { parseUnambiguousJsonDocument } from "../../../ai-adapter/src/index.ts";
 import {
-  requestInChild,
   projectVerificationTransportFailure,
+  requestInChild,
 } from "../../scripts/ai-verification-http.ts";
+
+/**
+ * 正式子へ不正IPC入力を一件送り、HTTP未発行・自然終了を確認する。
+ * @trace ERB-IT-021
+ * @stimulus 型不正、過大、多byte、曖昧JSON、余分field、非loopback。
+ * @oracle 固定失敗frame／終了1、stderr零、IPC切断、受信HTTP零。
+ * @cleanup 親の有限監視で子closeを確認する。
+ */
+test("IPC子は不正入力でもchannelを残さず終了する", async () => {
+  let requests = 0;
+  const server = createServer((_request, response) => {
+    requests++;
+    response.end("synthetic");
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  try {
+    const address = server.address();
+    assert.ok(address && typeof address === "object");
+    const input = {
+      baseUrl: `http://127.0.0.1:${address.port}`,
+      route: "/api/workbench-view?route=%2F",
+      form: null,
+    };
+    for (const message of [
+      true,
+      {},
+      "x".repeat(256 * 1024 + 1),
+      "あ".repeat(90_000),
+      '{"baseUrl":"a","baseUrl":"b"}',
+      JSON.stringify({ ...input, secret: "synthetic-secret" }),
+      JSON.stringify({ ...input, baseUrl: "https://example.invalid" }),
+    ]) {
+      const child = spawn(
+        process.execPath,
+        [
+          fileURLToPath(
+            new URL("../../scripts/ai-verification-client.ts", import.meta.url),
+          ),
+        ],
+        {
+          env: {},
+          windowsHide: true,
+          stdio: ["ignore", "pipe", "pipe", "ipc"],
+        },
+      );
+      assert.ok(child.stdout && child.stderr);
+      let output = "";
+      let stderr = 0;
+      let disconnected = false;
+      child.stdout.on("data", (chunk) => {
+        output += chunk;
+        assert.ok(Buffer.byteLength(output) < 4096);
+      });
+      child.stderr.on("data", (chunk) => {
+        stderr += chunk.length;
+      });
+      child.once("disconnect", () => {
+        disconnected = true;
+      });
+      const completion = new Promise<{
+        code: number | null;
+        signal: NodeJS.Signals | null;
+      }>((resolve, reject) => {
+        child.once("error", reject);
+        child.once("close", (code, signal) => resolve({ code, signal }));
+      });
+      const timeout = setTimeout(() => child.kill(), 5000);
+      try {
+        child.send(message);
+        const result = await completion;
+        assert.equal(result.code, 1);
+        assert.equal(result.signal, null);
+        assert.equal(disconnected, true);
+        assert.equal(stderr, 0);
+        assert.equal(JSON.parse(output).failure, null);
+        assert.equal(output.includes("synthetic-secret"), false);
+      } finally {
+        clearTimeout(timeout);
+      }
+    }
+    assert.equal(requests, 0);
+  } finally {
+    server.closeAllConnections();
+    await new Promise<void>((resolve, reject) =>
+      server.close((error) => (error ? reject(error) : resolve())),
+    );
+  }
+});
+
+/**
+ * 子は一件だけ消費し、切断・入力拒否・HTTP故障でもchannelを残さない。
+ * @trace ERB-IT-021
+ * @stimulus 二件通知、受領前disconnect、型不正、JSON拒否、HTTP例外。
+ * @oracle HTTP最大一回、元の固定結果と終了値、message/disconnect listener零。
+ * @cleanup VMのPromiseをjoinする。実Processなし。
+ */
+test("IPC子は二件目を実行せず拒否経路でも購読を解除する", async () => {
+  const source = fs.readFileSync(
+    new URL("../../scripts/ai-verification-client.ts", import.meta.url),
+    "utf8",
+  );
+  const body = stripTypeScriptTypes(
+    `(async()=>{${source.slice(source.indexOf("let startedAt ="))}})()`,
+  );
+  for (const scenario of [
+    "double",
+    "disconnect",
+    "invalid-type",
+    "invalid-json",
+    "http-failure",
+  ]) {
+    let requests = 0;
+    let disconnects = 0;
+    const output: string[] = [];
+    const fake = Object.assign(new EventEmitter(), {
+      connected: true,
+      send: () => true,
+      stdout: { write: (text: string) => output.push(text) },
+      exitCode: 0,
+      disconnect: () => {},
+    });
+    fake.disconnect = () => {
+      disconnects++;
+      fake.connected = false;
+      fake.emit("disconnect");
+    };
+    const execution = runInNewContext(body, {
+      Buffer,
+      Date,
+      Error,
+      URL,
+      URLSearchParams,
+      process: fake,
+      parseUnambiguousJsonDocument,
+      projectVerificationTransportFailure,
+      requestBounded: async () => {
+        requests++;
+        if (scenario === "http-failure") throw Error("synthetic-secret");
+        return { status: 200, location: null, body: "synthetic" };
+      },
+    });
+    if (scenario === "disconnect") fake.disconnect();
+    else {
+      const message =
+        scenario === "invalid-type"
+          ? {}
+          : scenario === "invalid-json"
+            ? '{"route":"a","route":"b"}'
+            : JSON.stringify({
+                baseUrl: "http://127.0.0.1:12345",
+                route: "/api/workbench-view?route=%2F",
+                form: null,
+              });
+      fake.emit("message", message);
+      if (scenario === "double") fake.emit("message", message);
+    }
+    await execution;
+    assert.equal(
+      requests,
+      ["double", "http-failure"].includes(scenario) ? 1 : 0,
+    );
+    assert.equal(output.length, 1);
+    assert.equal(output[0]?.includes("synthetic-secret"), false);
+    assert.equal(fake.exitCode, scenario === "double" ? 0 : 1);
+    assert.equal(fake.connected, false);
+    assert.equal(disconnects, 1);
+    assert.equal(fake.listenerCount("message"), 0);
+    assert.equal(fake.listenerCount("disconnect"), 0);
+  }
+});
+
+/**
+ * 親の同期占有中にも一件入力とHTTP・子終了が進むことを確認する。
+ * @trace ERB-IT-021
+ * @stimulus 正式send直後に親だけ22秒停止。独立Serverは即時応答する。
+ * @oracle HTTP200／子close0、子内15秒以内、期限延長・再送なし。
+ * @cleanup spawn差替えを復元し、独立Serverのcloseを有限確認する。
+ */
+test("IPC入力は親22秒停止中にも子のHTTP完了を妨げない", async () => {
+  const original = childProcess.spawn;
+  const server = original(
+    process.execPath,
+    [
+      fileURLToPath(
+        new URL("../fixtures/ai-verification-http-server.ts", import.meta.url),
+      ),
+    ],
+    { env: {}, windowsHide: true, stdio: ["ignore", "ignore", "pipe", "ipc"] },
+  );
+  assert.ok(server.stderr);
+  let stderr = 0;
+  server.stderr.on("data", (chunk) => {
+    stderr += chunk.length;
+  });
+  const closed = new Promise<{
+    code: number | null;
+    signal: NodeJS.Signals | null;
+  }>((resolve, reject) => {
+    server.once("error", reject);
+    server.once("close", (code, signal) => resolve({ code, signal }));
+  });
+  const startup = setTimeout(() => server.kill(), 5000);
+  try {
+    const port = await Promise.race([
+      new Promise<unknown>((resolve) => server.once("message", resolve)),
+      closed.then(() => {
+        throw Error("fixture_closed_before_listening");
+      }),
+    ]);
+    clearTimeout(startup);
+    assert.ok(typeof port === "number" && Number.isSafeInteger(port));
+    let sends = 0;
+    childProcess.spawn = ((...args: Parameters<typeof spawn>) => {
+      const child = original(...args);
+      const send = child.send.bind(child);
+      child.send = ((...values: Parameters<typeof child.send>) => {
+        const result = send(...values);
+        sends++;
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 22_000);
+        return result;
+      }) as typeof child.send;
+      return child;
+    }) as typeof spawn;
+    syncBuiltinESMExports();
+    const timings: { startedAt: number; completedAt: number }[] = [];
+    const result = await requestInChild(
+      `http://127.0.0.1:${port}`,
+      "/api/workbench-view?route=%2F",
+      undefined,
+      (t) => timings.push(t),
+    );
+    assert.equal(result.status, 200);
+    assert.equal(sends, 1);
+    assert.ok(
+      timings[0] && timings[0].completedAt - timings[0].startedAt < 15000,
+    );
+  } finally {
+    clearTimeout(startup);
+    childProcess.spawn = original;
+    syncBuiltinESMExports();
+    if (server.connected) server.send("close");
+    const timeout = setTimeout(() => server.kill(), 2000);
+    try {
+      const result = await closed;
+      assert.equal(result.code, 0);
+      assert.equal(result.signal, null);
+      assert.equal(stderr, 0);
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+});
 
 /**
  * 正式親処理を有限Processで駆動し、成功値と終了条件の反例を確認する。
@@ -48,8 +302,13 @@ test("HTTP子は結果frameと実closeを共同確認し異常を有限分類す
     "success",
     "spawn-throw",
     "spawn-error",
-    "stdin-error",
-    "stdin-throw",
+    "send-callback-error",
+    "send-throw",
+    "channel-missing",
+    "channel-disconnected",
+    "send-undelivered",
+    "backpressure",
+    "late-callback-error",
     "stdout-error",
     "stderr-error",
     "stdout-limit",
@@ -76,14 +335,15 @@ test("HTTP子は結果frameと実closeを共同確認し異常を有限分類す
     "/api/workbench-view?route=%2F",
   ].flatMap((route) => scenarios.map((scenario) => ({ route, scenario })))) {
     const child = new EventEmitter() as EventEmitter & {
-      stdin: EventEmitter & { end: (input: string) => void };
+      send: (input: string, callback: (error: Error | null) => void) => boolean;
+      connected: boolean;
+      channel: object | null;
       stdout: EventEmitter;
       stderr: EventEmitter;
       kill: () => boolean;
     };
-    child.stdin = Object.assign(new EventEmitter(), {
-      end: (_input: string) => {},
-    });
+    child.connected = scenario !== "channel-disconnected";
+    child.channel = scenario === "channel-missing" ? null : {};
     child.stdout = new EventEmitter();
     child.stderr = new EventEmitter();
     const timers = new Map<number, () => void>();
@@ -139,7 +399,12 @@ test("HTTP子は結果frameと実closeを共同確認し異常を有限分類す
       spawn: (
         exe: string,
         args: string[],
-        options: { env: object; shell: boolean; windowsHide: boolean },
+        options: {
+          env: object;
+          shell: boolean;
+          windowsHide: boolean;
+          stdio: string[];
+        },
       ) => {
         spawned++;
         assert.equal(exe, "fixed-node");
@@ -148,15 +413,34 @@ test("HTTP子は結果frameと実closeを共同確認し異常を有限分類す
         assert.equal(JSON.stringify(options.env), "{}");
         assert.equal(options.shell, false);
         assert.equal(options.windowsHide, true);
+        assert.deepEqual(Array.from(options.stdio), [
+          "ignore",
+          "pipe",
+          "pipe",
+          "ipc",
+        ]);
         if (scenario === "spawn-throw") throw Error("synthetic-secret");
-        child.stdin.end = (value: string) => {
+        child.send = (value: string, callback) => {
           input = value;
-          if (scenario === "stdin-throw") throw Error("synthetic-secret");
+          if (scenario === "send-throw") throw Error("synthetic-secret");
           queueMicrotask(() => {
+            if (scenario === "late-callback-error") {
+              child.stdout.emit("data", Buffer.from(JSON.stringify(frame)));
+              child.emit("close", 0, null);
+              callback(Error("synthetic-secret"));
+              return;
+            }
+            if (scenario === "send-callback-error") {
+              callback(Error("synthetic-secret"));
+              return;
+            }
+            callback(null);
+            if (scenario === "send-undelivered") {
+              timers.get(route === "/workspace/action" ? 65_000 : 20_000)?.();
+              return;
+            }
             if (scenario === "spawn-error")
               child.emit("error", Error("synthetic-secret"));
-            else if (scenario === "stdin-error")
-              child.stdin.emit("error", Error("synthetic-secret"));
             else if (scenario === "stdout-error")
               child.stdout.emit("error", Error("synthetic-secret"));
             else if (scenario === "stderr-error")
@@ -226,6 +510,7 @@ test("HTTP子は結果frameと実closeを共同確認し異常を有限分類す
                 );
             }
           });
+          return scenario !== "backpressure";
         };
         return child;
       },
@@ -244,7 +529,11 @@ test("HTTP子は結果frameと実closeを共同確認し異常を有限分類す
       ),
       scenario !== "spawn-throw",
     );
-    if (scenario === "success" || scenario === "late-close")
+    if (
+      ["success", "late-close", "backpressure", "late-callback-error"].includes(
+        scenario,
+      )
+    )
       assert.equal((await operation).status, 303);
     else
       await assert.rejects(operation, (error: unknown) => {

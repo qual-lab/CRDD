@@ -12,7 +12,7 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
-子Processの20秒監視停止を非AIで再現した。親を`stdin.end()`返却直後に22秒止めると、子の同期stdin読取りが完了せずHTTPへ進まないまま、親再開時の期限callbackで停止する。Node標準のProcess間通信（IPC）による一件入力の合成比較では、同じ親停止中に子がHTTPと正常終了まで完了した。最小案は検証子の入力transportだけの変更で、期限・終了確認・Task Ownerは維持する。製品未実装。元実AIの親占有処理・Provider非0との因果・以前の15秒HTTP故障は未確定。[再現と最小案](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#verification-client-input-deadline-diagnosis)を参照する。
+承認された検証Tool限定の是正として、HTTP子Processへの入力をstdin終端待ちからNode標準IPCの一件搬送へ変更した。HTTP15/60秒・親20/65秒・終了確認・Task Ownerは維持し、対象回帰25件、型・整形・lintと独立レビューを完了した。親を22秒停止する反例でも正式ClientのHTTP完了と子終了を確認した。実AI再送・Docker操作・保持物操作は行っていない。元実AIの親占有処理・Provider非0との因果・以前の15秒HTTP故障は未確定で、実AI E2E成功とは扱わない。[是正と非AI検証](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#verification-client-ipc-implementation)を参照する。
 
 承認された計測付きClaude Opus 5.5／medium読取りを固定Source `b114c08f`・同じ合成Contextで一回実行した。GET13件は約0.57〜0.95秒だったが、最後はHTTP15秒故障ではなく、検証用Client子Processの親側20秒監視で停止した。Taskはprovider_process_exit_nonzero、取消結果・資源回収・終了は確認済み。親側callback処理に最大約8.3秒の観測遅延があり、元のGET15秒故障、最後の要求の停止境界、Provider非0との因果は未確定。再送・編集E2E・Docker再起動・既存保持物操作なし。今回Rootと短命四File・tmp directoryは安全条件を再確認して清掃・不存在確認済み。兄弟の非秘密結果JSONだけ期限付き保全する。[今回の実測と限界](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#claude-observation-timing-once)を参照する。
 

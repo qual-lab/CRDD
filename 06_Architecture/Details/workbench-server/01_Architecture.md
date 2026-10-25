@@ -2,6 +2,8 @@
 
 ## 検証HTTP子Processの失敗診断
 
+検証HTTP子への入力はstdinのEOF待ちを使わず、Node標準IPCで一つのJSON文字列だけを送る。子は一件受領後にIPCを切断してから検査・HTTPへ進み、型不正・parse拒否・HTTP失敗でも通信路を残さない。親の256KiB事前検査と子のUTF-8容量再検査、曖昧JSON・閉じたshape・loopback／固定route検査は維持する。親のstdioはstdin ignore・stdout/stderr pipe・ipcを明示し、send例外／callback失敗／channel欠測・送信前切断は既存pipe故障へ接続する。send falseはbackpressureとして再送せず既存監視で待つ。送信後のdisconnect自体を入力受理又はHTTP成功の証明にせず、従来のframeと実closeを共同確認する。Token／Formはargv・env・File・logへ移さず、追加のRuntime子・Worker・Queueを作らない。未到達・子早期終了・取消も既存の有限監視と元子一回の終了要求で扱う。
+
 読取り検証Toolの`httpTiming`は、固定段階（initial／start／observe／cancel／close）とClient／Server／Ownerそれぞれの観測番号、要求開始・headers受信・本文完了・親close処理、Server受信・finish、Owner.observe開始・終了の時刻だけを保持する。各配列は最大512件で超過はdroppedへ計上し、本文・Token・生URLは保持しない。ClientとServerの番号は独立した相関候補で、同一IDの証明ではない。時刻・固定経路・段階と欠測を併せて評価し、未完了・相関候補複数・上限超過から正常を補完しない。診断購読は対象listenerのloopback portと固定経路に限定し、Client終了後、Server／Task Ownerの終了待ちより先に解除する。snapshotは取得時点であり、解除前に開始したOwner観測の終了時計は後で確定し得る。製品HTTP・Task Lifecycle・期限・認可を変更しない。
 
 検証ToolだけのHTTP子Processは、既存の拒否理由に任意の`clientProcess`診断を添える。値は最初の故障段階、終了値、固定Signal分類、stderrバイト数、終了要求の有無だけとし、生出力・自由な例外文・Tokenは含めない。起動・pipe・出力上限・警告・監視期限の最初の故障は後続通知で上書きしない。Process終了後のframe／失敗frame／応答frameの拒否は別段階にする。

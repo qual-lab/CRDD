@@ -10,14 +10,14 @@
  */
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
-import path from "node:path";
 import { createHash } from "node:crypto";
+import path from "node:path";
+import { parseUnambiguousJsonDocument } from "../../ai-adapter/src/index.ts";
 import type {
-  WorkbenchAiRequests,
   WorkbenchAiRequestCommand,
+  WorkbenchAiRequests,
 } from "../src/server/ai-request/types.ts";
 import { inspectWorkbenchClientModel } from "../src/shared/view/validation.ts";
-import { parseUnambiguousJsonDocument } from "../../ai-adapter/src/index.ts";
 
 /** 検証通信だけの有限時計。本文・Token・Task状態は含めない。 */
 export type VerificationHttpTiming = Readonly<{
@@ -38,7 +38,7 @@ const CLIENT_OUTPUT_MAX_BYTES = 6 * 1024 * 1024 + 4096;
 /**
  * 検証HTTP一要求だけを固定Node子へ渡し、実close後に結果を返す。
  * @trace ERB-IT-021
- * @responsibility 有限stdin/stdout、元子一回の終了要求、close未確認を所有する。
+ * @responsibility 一件の有限IPC入力とstdout、元子一回の終了要求、close未確認を所有する。
  * @input loopback URL、固定route、Form、任意の非秘密時計observer。
  * @returns 従来のHTTP結果。子の未終了・不正出力は固定失敗。
  * @precondition Task OwnerとServerは親が所有し、HTTP期限はWorkspace操作だけ60秒、他は15秒。
@@ -47,7 +47,7 @@ const CLIENT_OUTPUT_MAX_BYTES = 6 * 1024 * 1024 + 4096;
  * @failure 終了未確認と一般子故障を区別し、本文・stderrを例外へ出さない。
  * @invariant 子の異常終了をTask成功又は取消成功へ変換しない。
  * @boundary 検証Tool専用。Coordinatorの実行・保存・権限は移譲しない。
- * @security actionToken/Formはstdinのみ、Provider資格・Root Capability・環境を渡さない。
+ * @security actionToken/FormはIPCのみ、Provider資格・Root Capability・環境を渡さない。
  * @concurrency 一要求一子。結果より実closeを優先し、全pipeを終了まで排出する。
  */
 export async function requestInChild(
@@ -98,7 +98,7 @@ export async function requestInChild(
           env: {},
           windowsHide: true,
           shell: false,
-          stdio: ["pipe", "pipe", "pipe"],
+          stdio: ["ignore", "pipe", "pipe", "ipc"],
         },
       );
     } catch {
@@ -117,6 +117,7 @@ export async function requestInChild(
     let failed = false;
     let terminating = false;
     let finished = false;
+    let inputSent = false;
     let closeTimer: ReturnType<typeof setTimeout> | undefined;
     const terminate = () => {
       if (terminating || finished) return;
@@ -149,12 +150,15 @@ export async function requestInChild(
       route === "/workspace/action" ? 65_000 : CLIENT_PROCESS_TIMEOUT_MS,
     );
     const pipeFailure = () => {
+      if (finished) return;
       firstFailureStage ??= "pipe";
       failed = true;
       terminate();
     };
     child.once("error", pipeFailure);
-    child.stdin?.on("error", pipeFailure);
+    child.once("disconnect", () => {
+      if (!inputSent) pipeFailure();
+    });
     child.stdout?.on("error", pipeFailure);
     child.stderr?.on("error", pipeFailure);
     child.stdout?.on("data", (chunk: Buffer) => {
@@ -186,8 +190,21 @@ export async function requestInChild(
       });
     });
     try {
-      if (!child.stdin || !child.stdout || !child.stderr) pipeFailure();
-      else child.stdin.end(input);
+      if (
+        !child.channel ||
+        !child.connected ||
+        !child.send ||
+        !child.stdout ||
+        !child.stderr
+      )
+        pipeFailure();
+      else {
+        inputSent = true;
+        // falseはbackpressure。再送せず、失敗はcallback／既存終了監視で確認する。
+        child.send(input, (error) => {
+          if (error) pipeFailure();
+        });
+      }
     } catch {
       pipeFailure();
     }

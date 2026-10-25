@@ -1506,6 +1506,26 @@ stdin.endの返却は、子が入力全文・終端を読み終えた事実で�
 
 各診断の合成Serverは終了0、使用子Processの終了を確認した。今回短命四File（diagnose.mjs／server.mjs／input-clock.mjs／ipc-client.ts）と空の `.crdd/tmp/client-deadline-diagnosis-20261025/` は非使用・exact Path・reparse不在・内容一致を直前確認して清掃し、四FileとDirectoryの不存在を確認した。元の実AI結果JSONと既存保持三領域は対象外。
 
+<a id="verification-client-ipc-implementation"></a>
+
+#### 検証Tool限定のIPC入力是正と非AI検証
+
+基準`05634a322`から、利用者が承認した検証Tool側だけを変更した。既存HTTP子への入力をstdin／EOFからNode標準IPCの一件のJSON stringへ切り替えた。CoordinatorのTask受付・実行Owner・HTTP契約は変更せず、追加Runtime child／Worker／Queue／Lock／入力File／fallbackは作らない。先行調査の「未適用」はその時点の事実として維持する。
+
+親は256KiBの事前検査後に一回だけ送信し、送信例外・callback error・channel欠測・送信前disconnectを既存pipe失敗へ接続する。send falseはbackpressureとして扱い、再送しない。送信成功や送信後disconnectを子の受領・HTTP成功へ読み替えず、有効な結果frameとexit／close又は既存期限で判定する。終了後の遅延callbackは一次結果を上書きしない。子は最初の一件を受けてchannelを切断し、string型・UTF-8 byte上限・曖昧JSON・閉じたshape・loopback／固定routeを再検査する。stdinはignore、stdout／stderrは既存pipeとし、資格値やFormをargv・env・File・logへ移さない。
+
+HTTP15/60秒、親20/65秒、close2秒、kill最大一回、stderr／frame容量、late close、取消・一次失敗・同ID回復参照は維持する。旧stdin失敗の試験責務はIPC送信失敗へ移し、未到達、channel欠測、二件目、早期disconnect、型・容量・JSON不正、HTTP失敗、backpressure、終了後callbackを反証した。独立した合成Serverは試験fixtureだけに置き、正式Client送信直後に親を22秒停止しても子のHTTP完了・正常終了を確認した。試験子・Serverの終了を確認し、新たな永続試験領域は作成していない。
+
+| 確認範囲 | 結果と限界 |
+|---|---|
+| 静的確認 | Workbenchの整形95 File・TypeScript・lint成功。変更外の既存info五件は維持 |
+| 固定差分の対象回帰 | Client契約・時刻診断・実保存受付の三Suite、25件成功・失敗零。先行局所六件と重複するため加算しない |
+| Lifecycle | 通常完了・取消・応答喪失後の同ID継続、子の不正入力と異常終了、親停止、既存期限と有限終了確認を検証。Task成功と検証通信成功を分離 |
+| 独立確認 | Source・Architecture・QAの残る必須指摘零。条件だった固定差分不変と三Suiteの終端成功も確認 |
+| 未実施・未確定 | 実AI再送・Docker操作・保持物操作なし。元実AIの親占有処理、Provider非0との因果、以前のHTTP15秒故障は未確定。実AI読取り・編集・全体E2Eの成功は主張しない |
+
+Architecture DetailとQA-000006へ入力搬送・失敗分類・終了条件を反映した。次の実AI確認には別途一回の送信承認が必要であり、今回の非AI成功から自動再送しない。
+
 <a id="new-model-ai-once-results-20261025"></a>
 
 ### 新Model読取り各一回と編集停止 — 2026-10-25

@@ -37,6 +37,8 @@ Hostから渡すSeccompはImageの外なので、実行時の実体・容量・H
 
 ## 読取り助言の実試験器（ERB-IT-021への直接接続）
 
+検証HTTP子のIPC入力を`ERB-IT-021`で確認する。旧stdinの書込み例外・pipe故障はsend例外／callback失敗／channel欠測・送信前切断へ意味対応させ、未到達・backpressure・遅延callback・stdout/stderr・frame／close故障の義務を維持する。正式子で非string、256KiB超過、多byteによるbyte超過、曖昧JSON、余分field、非loopbackを拒否し、HTTP零・自然終了・IPC切断を確認する。二件通知、受領前切断、parse／HTTP失敗で最大一HTTP・購読解除を確認する。独立合成Serverへ正式子を接続し、send返却直後の親22秒停止中でもHTTP完了・子close0が進み、期限延長・再送なしで受理できることを反証する。この試験は本番Serverの応答性能や実Provider成功の証明ではない。
+
 読取りToolの`httpTiming`は正式mainの出力で閉じたfield集合・safe integer／null・固定stage／route／method・512件上限・dropped非負・subscriptionsClosedを検査する。実loopbackでServer受信／finishとOwner／Client時計を確認し、別port／address／pathの除外、元結果・例外の同一性、相関不能のnull、通知上限、解除後の記録停止を反証する。Client／Server番号の一致だけで相関を推定しない。Server closeを保留・拒否しても、その待機前に購読が解除され、元のcloseFailure以外を作らないことを確認する。有限代役の成功を前回Claude遅延の原因確定・解消又は再送許可と扱わない。
 
 読取り試験器も同じ終了条件へ接続する。実Tool本文の有限十二例で、受付前／受付不明の取消0、受付後の同ID取消最大一回、取消結果の回復参照保持後のcloseを確認する。HTTP期限とTask期限を分け、取消別ID・取消例外・副次失敗・close失敗で一次通信理由を上書きしない。Task期限のHTTP取消失敗後に追加Owner取消を発行しない。本文や秘密値を診断へ残さず、過去の通信原因の復元や保持中の資源回収成功は主張しない。
