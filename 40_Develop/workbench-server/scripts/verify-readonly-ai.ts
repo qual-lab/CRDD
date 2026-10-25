@@ -82,7 +82,7 @@ async function main() {
   const configHash = selection.snapshot.identity;
   const choice: AiSelectionChoice = {
     provider,
-    model: provider === "codex" ? "gpt-5.6-sol" : "opus",
+    model: provider === "codex" ? "gpt-6.1-sol" : "claude-opus-5-5",
     effort: "medium",
   };
   const permitted = () =>

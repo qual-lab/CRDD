@@ -196,7 +196,35 @@ async function verify(
   if (verified.status !== "completed") throw new Error("fixture_root_invalid");
   const savedSelection = saveRepositoryAiSelection(
     verified.capability,
-    { expectedIdentity: null, config: selectionConfig() },
+    {
+      expectedIdentity: null,
+      config: {
+        ...selectionConfig(),
+        roleDefaults: {
+          coordinator: {
+            provider: "codex",
+            model: "gpt-6.1-sol",
+            effort: "medium",
+          },
+          executor: {
+            provider: "codex",
+            model: "gpt-6.1-sol",
+            effort: "medium",
+          },
+          independent_reviewer: {
+            provider: "claude",
+            model: "claude-opus-5-5",
+            effort: "medium",
+          },
+          result_integration: {
+            provider: "codex",
+            model: "gpt-6.1-sol",
+            effort: "medium",
+          },
+          advice: { provider: "codex", model: "gpt-6.1-sol", effort: "medium" },
+        },
+      },
+    },
     () => true,
   );
   if (savedSelection.status !== "saved")
@@ -611,7 +639,11 @@ async function main() {
   );
   const sourceBefore = observeRuntimeOwnedDevelopmentSource();
   assert.ok(sourceBefore, "verification_source_unobserved");
-  const parent = path.join(runtimePaths.tests, "workspace-real-ai");
+  const trialRoot = path.join(runtimePaths.tests, "new-model-ai-20261025");
+  if (!fs.existsSync(trialRoot)) fs.mkdirSync(trialRoot);
+  assert.equal(fs.realpathSync.native(trialRoot), trialRoot);
+  assert.equal(fs.lstatSync(trialRoot).isSymbolicLink(), false);
+  const parent = path.join(trialRoot, preflight ? "preflight" : "edit");
   assert.equal(
     fs.existsSync(parent),
     false,
@@ -669,7 +701,7 @@ async function main() {
   if (cleanup && resources.status === "verified") {
     try {
       assert.equal(fs.realpathSync.native(parent), parent);
-      assert.equal(path.dirname(parent), runtimePaths.tests);
+      assert.equal(path.dirname(parent), trialRoot);
       const failures: string[] = [];
       for (const mode of ["direct", "isolated"]) {
         try {

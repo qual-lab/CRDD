@@ -1328,6 +1328,18 @@ Build入口は`prepare-codex-image.ts`へ統合し、用途を`task`／`advice`�
 
 設定・実装・QA・結果文書の限定最終レビューは残指摘零。変更Source／JSONの整形・lint、diffcheckも成功した。今回の取得・Build用Root二件（`provider-cli-update-20261025`、`codex-task-image-oU6Ner`）は、Repository-local tmp配下の実体・リンク不存在・非参照とContainerの終了後一覧を確認し、計33 Fileを清掃して両Rootの直接不存在を確認した。正式Build入力の版・Hashと新Imageは保持し、既存のE2E保持Rootには触れていない。
 
+<a id="new-model-ai-e2e-approval-20261025"></a>
+
+### 新Model読取りとDirect／Isolated編集E2Eの承認範囲 — 2026-10-25
+
+利用者は、新ImageによるCodex `gpt-6.1-sol / medium`・Claude `claude-opus-5-5 / medium`の合成Context読取り各一回と、Direct→Isolated各一Taskの編集・独立レビューを承認した。通常六起動、各編集Taskの既存一回是正・再レビューを含め最大十起動とし、余り枠を失敗再試行へ使わない。送信は合成Context・固定指示・合成Sourceと差分だけで、本体Context・Source・資格値を含めない。既存Subscription認証・固定Imageを使い、再起動・修復・Image取得・再ログイン・APIキーfallbackは行わない。
+
+新品Rootは`.crdd/tests/new-model-ai-20261025/`、非AI事前確認は`preflight/`、実編集は`edit/`、読取りはProvider別の新品合成Repositoryに限定する。旧`workspace-real-ai`等の保持物は操作しない。今回のContainer・Network・専用Branch／Worktreeと試験Fileだけを、元Identityと終了状態の確認後に回収する。不明時は同じ回復参照とRootを保持し、七日以内に再評価する。
+
+検証Toolの旧Model指定と固定Rootだけを追従し、製品のHTTP・Task・Timeout・取消・保存・回収は変更しない。初回対象回帰の一件は新要求に対する代役応答の旧Model残りによる相関拒否であり、代役も新選定へ追従する。検査条件は緩めない。着手前照合と独立差分確認では阻害指摘なし。非AI事前確認が両方式で完全成功しない場合はAIを送信せず停止する。前回Isolated準備Timeoutの未解明を成功扱いにしない。読取り二件が完全成功した場合だけ実編集へ進み、各段階の失敗・不明では再試行せず今回試験物の安全な回収だけを行う。
+
+この承認は合成Repository内の明示Candidate固定・二親Mergeも含むが、本体Repositoryの採用・統合・Releaseは含まない。結果は実測後に評価し、現時点では実AI確認・編集E2Eとも未実施である。
+
 <a id="claude-readonly-turn-acceptance-result"></a>
 
 ### 回数比較撤去後のClaude読取り一回 — 2026-10-25

@@ -1275,7 +1275,7 @@ test("正式試験mainは公開HTTPで一回だけ依頼し失敗と終了観測
       mode: "read_only_advice" as const,
       executionSelection: executionSelection("advice", {
         provider: "claude",
-        model: "opus",
+        model: "claude-opus-5-5",
         effort: "medium",
       }),
       status: "completed" as const,
@@ -1295,11 +1295,17 @@ test("正式試験mainは公開HTTPで一回だけ依頼し失敗と終了観測
         contextReferences: string[];
         mode: string;
         externalSendConfirmed: boolean;
+        choice: { provider: string; model: string; effort: string };
       }) => {
         starts++;
         assert.deepEqual([...input.contextReferences], ["PROJECT_CONTEXT.md"]);
         assert.equal(input.mode, "read_only_advice");
         assert.equal(input.externalSendConfirmed, true);
+        assert.deepEqual(JSON.parse(JSON.stringify(input.choice)), {
+          provider: "claude",
+          model: "claude-opus-5-5",
+          effort: "medium",
+        });
         if (scenario === "primary-close") throw new Error("synthetic_primary");
         return {
           status: "accepted" as const,
