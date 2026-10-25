@@ -30,6 +30,12 @@ import {
   type WorkspaceView,
 } from "../../coordinator/src/index.ts";
 import { prepareWorkspaceSurface } from "../../coordinator/tests/fixtures/workspace-surface.ts";
+import { maintainCoordinatorSnapshot } from "../../coordinator/src/storage/current-state.ts";
+import { deriveCoordinatorRepositoryBindingId } from "../../coordinator/src/state/model.ts";
+import {
+  acquireCoordinatorStorageOwner,
+  readCoordinatorStorageSnapshotOwned,
+} from "../../coordinator/src/storage/settlement-store.ts";
 import { startWorkbench, readWorkbenchProjectSurface } from "../src/index.ts";
 import {
   createWorkbenchAiVerificationHttpClient,
@@ -613,6 +619,144 @@ async function verify(
 }
 
 /**
+ * 今回の合成Rootに終了義務や未回収Workspaceが残らないことを確認する。
+ * @trace ARCH-000015
+ * @effect 同じRootの既存履歴保守と保存Owner、Git読取りだけ。削除は呼出し側が所有する。
+ * @failure 観測不能・義務残存・Owner解放失敗は削除不可を返す。
+ * @invariant Directの意図した未Commit変更をclean条件で拒否しない。
+ */
+function assessFixtureRemoval(
+  parent: string,
+  mode: "direct" | "isolated",
+  evidence: Record<string, unknown>,
+) {
+  try {
+    assert.ok(mode === "direct" || mode === "isolated");
+    assert.equal(evidence.mode, mode);
+    const root = path.join(parent, mode);
+    const checkBoundary = () => {
+      assert.equal(path.resolve(parent), parent);
+      assert.equal(fs.realpathSync.native(parent), parent);
+      assert.equal(path.dirname(root), parent);
+      assert.equal(fs.realpathSync.native(root), root);
+      const visit = (target: string) => {
+        const entry = fs.lstatSync(target);
+        assert.equal(entry.isSymbolicLink(), false);
+        if (entry.isDirectory())
+          for (const name of fs.readdirSync(target))
+            visit(path.join(target, name));
+      };
+      visit(root);
+    };
+    checkBoundary();
+    const maintenance = maintainCoordinatorSnapshot(
+      root,
+      deriveCoordinatorRepositoryBindingId(root),
+    );
+    assert.equal(maintenance.status, "completed");
+    assert.equal(maintenance.reason, "orchestrator_terminal_records_retired");
+    const owner = acquireCoordinatorStorageOwner(root);
+    assert.ok(owner);
+    try {
+      const read = readCoordinatorStorageSnapshotOwned(owner);
+      assert.equal(read.status, "completed");
+      if (read.status !== "completed") throw new Error("snapshot_unobserved");
+      const s = read.value.snapshot;
+      for (const key of [
+        "operations",
+        "unresolvedRecoveries",
+        "pendingDeliveries",
+        "historyPending",
+        "leaseIntents",
+        "workspaces",
+        "results",
+        "resultReceipts",
+        "acceptanceDecisions",
+        "decisionRecoveries",
+        "leaseEvidence",
+      ] as const)
+        assert.equal(s[key].length, 0);
+      assert.deepEqual(s.queueEntries.map((q) => q.queueId).sort(), [
+        "queue-a",
+        "queue-b",
+      ]);
+      assert.deepEqual(s.intakeBindings.map((b) => b.queueId).sort(), [
+        "queue-a",
+        "queue-b",
+      ]);
+      for (const q of s.queueEntries) {
+        assert.equal(q.generation, 1);
+        assert.equal(q.state, "queued");
+        for (const key of [
+          "ownerGeneration",
+          "workspaceId",
+          "resultReference",
+          "resumeCondition",
+        ] as const)
+          assert.equal(q[key], null);
+        assert.equal(Object.hasOwn(q, "singleTask"), false);
+      }
+      assert.equal(s.projects.length, 1);
+      assert.equal(s.projects[0]?.projectId, projectId);
+      const tasks = s.projects[0]?.tasks ?? [];
+      assert.equal(tasks.length, 1);
+      const task = tasks[0];
+      assert.ok(task);
+      assert.equal(task.definition.id, "task-a");
+      assert.equal(task.state, "ready");
+      assert.equal(task.startPhase, "none");
+      assert.equal(task.retryCount, 0);
+      for (const key of [
+        "attemptId",
+        "authorityBindingId",
+        "candidateId",
+        "operationId",
+        "supersededBy",
+      ] as const)
+        assert.equal(task[key], null);
+      assert.deepEqual(task.recoveryObligations, []);
+      assert.deepEqual(task.resultAcceptanceIds, []);
+    } finally {
+      assert.equal(owner.release(), true);
+    }
+    assert.equal(
+      git(root, ["worktree", "list", "--porcelain"])
+        .split("\n")
+        .filter((line) => line.startsWith("worktree ")).length,
+      1,
+    );
+    assert.equal(
+      git(root, ["for-each-ref", "--format=%(refname)", "refs/heads/crdd"]),
+      "",
+    );
+    if (evidence.mode === "direct") {
+      assert.equal(git(root, ["rev-parse", "HEAD"]), evidence.base);
+      assert.equal(
+        git(root, ["diff", "--cached", "--name-only"]),
+        "staged.txt",
+      );
+      for (const [file, expected] of [
+        ["source.txt", "DIRECT_OK\n"],
+        ["dirty.txt", "EXISTING_DIRTY\n"],
+        ["staged.txt", "EXISTING_STAGE\n"],
+        ["unselected.txt", "EXISTING_UNTRACKED\n"],
+      ])
+        assert.equal(
+          fs.readFileSync(path.join(root, file as string), "utf8"),
+          expected,
+        );
+    } else {
+      assert.equal(git(root, ["rev-parse", "HEAD"]), evidence.mergeCommit);
+      assert.equal(git(root, ["status", "--porcelain"]), "");
+    }
+    checkBoundary();
+    return { eligible: true, reason: "fixture_closed_and_unreferenced" };
+  } catch {
+    return { eligible: false, reason: "fixture_cleanup_unconfirmed" };
+  }
+}
+
+/**
  * 承認された新品の一回だけを実行し、自己生成Rootを限定回収する。
  * @trace ARCH-000015
  * @effect 合成Repository・既存Runtime・公開HTTPだけ。Docker再起動や再試行なし。
@@ -645,7 +789,7 @@ async function main() {
   );
   const sourceBefore = observeRuntimeOwnedDevelopmentSource();
   assert.ok(sourceBefore, "verification_source_unobserved");
-  const trialRoot = path.join(runtimePaths.tests, "new-model-ai-20261025");
+  const trialRoot = path.join(runtimePaths.tests, "workspace-ai-20261026");
   if (!fs.existsSync(trialRoot)) fs.mkdirSync(trialRoot);
   assert.equal(fs.realpathSync.native(trialRoot), trialRoot);
   assert.equal(fs.lstatSync(trialRoot).isSymbolicLink(), false);
@@ -709,9 +853,22 @@ async function main() {
       assert.equal(fs.realpathSync.native(parent), parent);
       assert.equal(path.dirname(parent), trialRoot);
       const failures: string[] = [];
-      for (const mode of ["direct", "isolated"]) {
+      assert.deepEqual(results.map((result) => result.mode).sort(), [
+        "direct",
+        "isolated",
+      ]);
+      for (const mode of ["direct", "isolated"] as const) {
         try {
-          fs.rmSync(path.join(parent, mode), { recursive: true, force: true });
+          const evidence = results.find((result) => result.mode === mode);
+          assert.ok(evidence, "fixture_result_missing");
+          const root = path.join(parent, mode);
+          const gate = assessFixtureRemoval(parent, mode, evidence);
+          const gates =
+            (report.fixtureRemovalGates as unknown[] | undefined) ?? [];
+          gates.push({ mode, ...gate });
+          report.fixtureRemovalGates = gates;
+          assert.equal(gate.eligible, true, "fixture_cleanup_unconfirmed");
+          fs.rmSync(root, { recursive: true, force: true });
         } catch {
           failures.push(`${mode}_fixture_removal_failed`);
         }

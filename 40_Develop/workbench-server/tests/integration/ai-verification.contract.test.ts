@@ -602,6 +602,9 @@ test("Workspace試験mainは作成前のRoot検査と元結果を失わない清
     "linked-parent",
     "source-changed",
     "source-unknown",
+    "storage-blocked",
+    "unexpected-mode",
+    "duplicate-mode",
   ]) {
     let writes = 0;
     let sourceReads = 0;
@@ -644,8 +647,17 @@ test("Workspace試験mainは作成前のRoot検査と元結果を失わない清
           networks: [],
         }),
         assessVerificationDockerInventory: () => ({ status: "verified" }),
+        assessFixtureRemoval: () => ({
+          eligible: scenario !== "storage-blocked",
+          reason: "synthetic",
+        }),
         verify: async (_parent: string, mode: string) => ({
-          mode,
+          mode:
+            scenario === "unexpected-mode"
+              ? "../escape"
+              : scenario === "duplicate-mode"
+                ? "direct"
+                : mode,
           limitedProbePassed: scenario !== "task-failed-clean",
           runtimeClean: true,
           workspaceClean: true,
@@ -685,7 +697,16 @@ test("Workspace試験mainは作成前のRoot検査と元結果を失わない清
         scenario === "task-failed-clean" ? 1 : 2,
       );
       assert.equal(report.results[0].task.primaryFailure, null);
-      assert.equal(report.fixtureRootsRemoved, scenario !== "cleanup-fails");
+      assert.equal(
+        report.fixtureRootsRemoved,
+        ![
+          "cleanup-fails",
+          "storage-blocked",
+          "task-failed-clean",
+          "unexpected-mode",
+          "duplicate-mode",
+        ].includes(scenario),
+      );
       assert.equal(sourceReads, 2);
       assert.equal(report.sourceUnchanged, !scenario.startsWith("source-"));
       assert.equal(processState.exitCode, scenario === "success" ? 0 : 2);
@@ -694,6 +715,202 @@ test("Workspace試験mainは作成前のRoot検査と元結果を失わない清
           "direct_fixture_removal_failed",
         ]);
     }
+  }
+});
+
+/**
+ * 合成Root清掃は実行終了だけでなく、保存義務と元fixtureの一致で判断する。
+ * @trace ERB-IT-021
+ * @precondition 保存・Git・Filesystemは有限代役であり、実AIとDockerは起動しない。
+ * @stimulus 保守・Owner・読取り・解放失敗、義務残存、baseline差、Gitとlink差を与える。
+ * @observation eligibilityとOwnerの解放回数。
+ * @oracle 不明と差異は清掃不可、Directの意図したdirtyは許容する。
+ * @cleanup VMだけで完結し、実FileとProcessを作らない。
+ * @boundary 正式試験Toolの削除直前Gate。
+ */
+test("Workspace清掃Gateは保存義務・baseline・Git実体を照合する", () => {
+  const source = fs.readFileSync(
+    new URL("../../scripts/verify-workspace-ai.ts", import.meta.url),
+    "utf8",
+  );
+  const body = source.slice(
+    source.indexOf("function assessFixtureRemoval("),
+    source.indexOf("async function main()"),
+  );
+  const emptyKeys = [
+    "operations",
+    "unresolvedRecoveries",
+    "pendingDeliveries",
+    "historyPending",
+    "leaseIntents",
+    "workspaces",
+    "results",
+    "resultReceipts",
+    "acceptanceDecisions",
+    "decisionRecoveries",
+    "leaseEvidence",
+  ];
+  for (const scenario of [
+    "direct",
+    "isolated",
+    "maintenance",
+    "owner",
+    "read",
+    "release",
+    ...emptyKeys,
+    "queue-duplicate",
+    "binding-duplicate",
+    "generation",
+    "task-reference",
+    "worktree",
+    "ref",
+    "canonical",
+    "reparse",
+    "nested-reparse",
+    "unknown-mode",
+  ]) {
+    const snapshot: Record<string, unknown> = Object.fromEntries(
+      emptyKeys.map((k) => [k, []]),
+    );
+    const queueEntries = ["queue-a", "queue-b"].map((queueId) => ({
+      queueId,
+      generation: 1,
+      state: "queued",
+      ownerGeneration: null,
+      workspaceId: null,
+      resultReference: null,
+      resumeCondition: null,
+    }));
+    const intakeBindings = ["queue-a", "queue-b"].map((queueId) => ({
+      queueId,
+    }));
+    const projects = [
+      {
+        projectId: "project.workspace-verification",
+        tasks: [
+          {
+            definition: { id: "task-a" },
+            state: "ready",
+            startPhase: "none",
+            retryCount: 0,
+            attemptId: null,
+            authorityBindingId: null,
+            candidateId: null,
+            operationId: null,
+            supersededBy: null,
+            recoveryObligations: [],
+            resultAcceptanceIds: [],
+          },
+        ],
+      },
+    ];
+    Object.assign(snapshot, { queueEntries, intakeBindings, projects });
+    const firstQueue = queueEntries[0];
+    const firstBinding = intakeBindings[0];
+    const firstTask = projects[0]?.tasks[0];
+    assert.ok(firstQueue && firstBinding && firstTask);
+    if (emptyKeys.includes(scenario)) snapshot[scenario] = [{}];
+    if (scenario === "queue-duplicate") queueEntries.splice(1, 1, firstQueue);
+    if (scenario === "binding-duplicate")
+      intakeBindings.splice(1, 1, firstBinding);
+    if (scenario === "generation") Object.assign(firstQueue, { generation: 2 });
+    if (scenario === "task-reference")
+      Object.assign(firstTask, { operationId: "unexpected" });
+    let releases = 0;
+    let maintenanceCalls = 0;
+    const parentPath = path.resolve("fixture");
+    const result = runInNewContext(
+      stripTypeScriptTypes(
+        `const snapshot=JSON.parse(snapshotJson); const readCoordinatorStorageSnapshotOwned=()=>({status: scenario==='read'?'blocked':'completed',value:{snapshot}}); ${body}\nconst mode=scenario==='unknown-mode'?'../escape':scenario==='isolated'?'isolated':'direct'; assessFixtureRemoval(parentPath,mode,{mode,base:'base',mergeCommit:'merge'});`,
+      ),
+      {
+        assert,
+        path,
+        parentPath,
+        scenario,
+        snapshotJson: JSON.stringify(snapshot),
+        projectId: "project.workspace-verification",
+        maintainCoordinatorSnapshot: () => {
+          maintenanceCalls++;
+          return {
+            status: scenario === "maintenance" ? "blocked" : "completed",
+            reason: "orchestrator_terminal_records_retired",
+          };
+        },
+        deriveCoordinatorRepositoryBindingId: () => "binding",
+        acquireCoordinatorStorageOwner: () =>
+          scenario === "owner"
+            ? null
+            : {
+                release: () => {
+                  releases++;
+                  return scenario !== "release";
+                },
+              },
+        git: (_root: string, args: string[]) =>
+          args[0] === "worktree"
+            ? scenario === "worktree"
+              ? "worktree root\nworktree other"
+              : "worktree root"
+            : args[0] === "for-each-ref"
+              ? scenario === "ref"
+                ? "unexpected"
+                : ""
+              : args[0] === "rev-parse"
+                ? scenario === "isolated"
+                  ? "merge"
+                  : "base"
+                : args[0] === "diff"
+                  ? "staged.txt"
+                  : "",
+        fs: {
+          realpathSync: {
+            native: (p: string) => (scenario === "canonical" ? "other" : p),
+          },
+          lstatSync: (p: string) => ({
+            isSymbolicLink: () =>
+              scenario === "reparse" ||
+              (scenario === "nested-reparse" && p.endsWith("child")),
+            isDirectory: () =>
+              scenario === "nested-reparse" && !p.endsWith("child"),
+          }),
+          readdirSync: () => ["child"],
+          readFileSync: (p: string) =>
+            p.endsWith("source.txt")
+              ? "DIRECT_OK\n"
+              : p.endsWith("dirty.txt")
+                ? "EXISTING_DIRTY\n"
+                : p.endsWith("staged.txt")
+                  ? "EXISTING_STAGE\n"
+                  : "EXISTING_UNTRACKED\n",
+        },
+      },
+    );
+    assert.equal(
+      result.eligible,
+      ["direct", "isolated"].includes(scenario),
+      scenario,
+    );
+    assert.equal(
+      releases,
+      [
+        "maintenance",
+        "owner",
+        "canonical",
+        "reparse",
+        "nested-reparse",
+        "unknown-mode",
+      ].includes(scenario)
+        ? 0
+        : 1,
+      scenario,
+    );
+    if (
+      ["canonical", "reparse", "nested-reparse", "unknown-mode"].includes(
+        scenario,
+      )
+    )
+      assert.equal(maintenanceCalls, 0, scenario);
   }
 });
 

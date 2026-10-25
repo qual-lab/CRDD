@@ -1622,6 +1622,18 @@ Header是正後の最終独立確認は限定Pass。比較完了後、短命診�
 
 結果・文書の独立確認は整合、清掃Gateの保守結果・二Queue／受付Binding集合・世代の検査不足は是正し、blocked／重複／世代差の非AI反例を確認した。直前の同Owner再観測、全配下reparse零と対象Process零、exact leaf境界を再確認し、今回合成Rootだけを清掃して不存在を確認済み。短命入口五Fileと空tmp directory、準備・発行guard二Fileもexact一覧・非使用確認後に清掃した。兄弟の安全な`result.json`だけを期限付き保持し、既存保持物は不変。
 
+<a id="workspace-edit-e2e-20261026"></a>
+
+#### Direct／Isolated編集E2E再開の試験入口整備 — 2026-10-26
+
+利用者の継続指示により、次は新品合成RepositoryでDirect→Isolated各一Taskを確認する。Codex `gpt-6.1-sol / medium`で`source.txt`一行だけを編集し、Claude `claude-opus-5-5 / medium`でレビューする。既存Taskの限定是正一回と再レビューを含めAI起動は最大八回とし、Task全体の再送・失敗後再試行へ余り枠を使わない。送信は合成Context・固定編集指示・合成Sourceと差分だけ。既存固定Image／Subscription認証を使用し、本体Source／実Context／秘密値、Image取得・更新、Docker起動・再起動・修復、再ログイン、APIキーfallback、旧保持物操作は対象外。
+
+旧試験先との衝突を避け、正式Toolの新品Rootを `.crdd/tests/workspace-ai-20261026/{preflight,edit}/` に切り替えた。まず外部AIなしで両方式の公開操作・既存Dirty／Stage／未追跡保全・候補固定・二親Merge・Worktree／Ref回収を一回確認し、全条件成功時だけ実AI編集を一回実行する。Direct失敗時はIsolatedを開始しない。
+
+変更分類は検証Toolの限定修正であり、製品Task・HTTP期限・保存形式・認証・Image・公開APIは変更しない。清掃前に既存履歴保守と保存Ownerへ接続し、六義務・結果／受領／判断／Lease根拠の零、固定Queue／受付Binding／Task baseline、方式別Git状態、Owner解放を確認する。Rootと全配下のcanonical／reparse検査は履歴保守Effect前と削除直前に行い、削除先は固定のdirect／isolatedだけから導出する。未知・重複・欠測・観測不能ではRootを保持する。新しい管理台帳・Lock・回復機構は追加しない。
+
+着手前の責務・lifecycle照合と独立レビューで、清掃検証順序と診断modeへのPath依存を是正し、最終再レビューの残指摘零。HTTP検証三Suite二十六件成功後、是正で変わったTool二項目を最終Sourceで再実行して成功した（重複加算しない）。型・整形・lint成功、既存info五件は不変。初回の整形書込みはWindows制約で停止したが同じ二Fileを通常実行環境で整形し、検査警告は新規any／non-null assertionを除去して解消した。非AIpreflight・実AI・実境界E2Eの結果とは区別する。Sourceをcommitしてclean固定した後にだけ非AIpreflightへ進む。
+
 <a id="new-model-ai-once-results-20261025"></a>
 
 ### 新Model読取り各一回と編集停止 — 2026-10-25
