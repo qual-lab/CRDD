@@ -1149,3 +1149,23 @@ Workbench通常結合回帰は86件・失敗零で完走した。両Packageの�
 修正版のWindows保存・pending再入場一件は222,285msで最後まで成功し、CLI関連二Suiteの十九件も成功した。CLIの七対象・拒否例、元state bytes不変、処置代役の呼出し件数、保存・再入場の既存Oracleを維持する。整形・lint・試験型検査・diffcheckは成功し、独立レビューの残指摘は零。途中二回の不合格を合格へ変更せず、修正版の今回結果と区別する。
 
 自己生成した`coordinator-state-*`試験領域は終了後不存在を確認した。保持中の先行Claude stateは10,235 bytes、今回Claude stateは3,576 bytesで更新時刻も不変。実Docker・認証・外部AI・保持物の操作は行っていない。今回閉じたのは試験追従の残件であり、元Claude故障原因、文書参照展開先3,368指摘、全体QA・実AI E2Eは未成立のまま維持する。
+
+<a id="claude-readonly-auth-diagnostic-result"></a>
+
+### 追加診断付きClaude読取り一回の結果 — 2026-10-25
+
+利用者承認に基づき、基準`cea8c97ac15474c31cff7d74edccab4d39fcb71e`から新品合成Root `.crdd/tests/claude-readonly-diagnostic-20261025/readonly`を準備し、正式検証Toolを一回だけ実行した。Claude `opus / medium`・既存Subscriptionと固定質問、合成Context 1,095 bytesだけを入力とした。Context SHA-256は`99505f13f046e4f5f0619d74d8edfc5e9cada26e6a839b532df214e810e343da`、合成Commitは`4de5f8f78b671c92d8070838046dd25fc97c7885`。短命入口の同ID相関検査を実行前に補い、非AI反例と独立確認の残指摘零を経て発行した。製品Sourceは変更していない。
+
+| 観測対象 | 今回の結果と限界 |
+|---|---|
+| 正式結果 | Tool終了2、Task blocked、`limitedProbePassed: false`／`fullE2eVerified: false`。受付ID `request-63271903-84b4-4f71-9832-be74b5b12174`、Operation `OP-238157120154329491792768084036772902122`。自動再送零 |
+| 技術一次故障 | `docker_setup_start_subscription_auth_probe_attached_failed`。handle取得・応答観測あり、終了1、stdout 114 bytes／stderr 0。段階は`execution_classification`、Receipt未記録 |
+| 追加診断 | `authenticationStatus: unconfirmed`。既存AI Adapterが正規の`loggedIn: false`だけに返す分類であり、認証確認CLIが未ログインを報告したことを確認。認証期限切れ、Host側の未ログイン、Container内で認証情報を利用できない理由のいずれかまでは確定しない |
+| HTTP・取消 | transportFailure／Tool一次故障／failureStepはnull、timedOut false、取消要求なし。今回HTTP故障は観測していないが、先行故障の原因解消とはしない |
+| 実行・終了 | 技術履歴はProvider not_started、外部送信・共有書込みnot_issued、Owner Effect disabled、Host cleanup confirmed、Lease released。Task cleanupConfirmed true、recoveryIds・secondaryFailures空、Tool closeConfirmed true |
+| 耐久状態 | 改訂25。Queue completed／singleTask settled・blocked、Owner世代null。操作・未解決回復・pendingDeliveries・Lease意図は各零。historyPending一件は同じ受付IDのfailed／cleanup confirmed／primaryFailure executionを保持。Queue完了をTask成功や履歴配送済みへ読み替えない |
+| 資源・不変 | Toolは既存資源属性・System構成同値、標準NetworkのID世代差だけを記録。終了後のfreshな全状態Container一覧は開始前の既存一件だけ、稼働零。再起動は発行せず、Network差の原因・発行者も断定しない。本体Commit／Tree、合成Context／Tree・選択設定は不変 |
+
+履歴のDocker相関参照は`docker-task.29c9921916f3a63170e77179d3145c8627a2b3519d5813b7c9cf2a87d136d9aa.f57a7856fce68396f878ad4218e2b098fafc653d976c4b7a3d7d65b7094a7ff8.1cd9d56917024b33c0fb5a22c0e3f6de868bced366ff4fa18721139d50bee924`。未解決回復義務として返された値ではなく、清掃済み履歴との相関用に保持する。先行二Rootのstateはそれぞれ10,235 bytes／UTC2026-10-24T14:57:55.4549934Z、3,576 bytes／UTC2026-10-24T17:37:16.4704843Zのままで、変更していない。
+
+今回Rootは失敗調査と未配送履歴の保全のため保持し、既定七日として2026-11-01までに既存Ownerで配送・保持を確認して清掃判断へ戻す。安全な要約とバイト数だけを残し、認証値・Provider生出力・stdout／stderr本文は保存しない。今回の一回承認は消費済み。追加AI、Codex、編集二試験、ログイン・認証変更、Docker再起動・修復・取得、既存資源削除は実行しない。次に検討できるのは認証利用経路の非AI調査であり、この結果だけから再ログインや新しい回復機構を追加しない。

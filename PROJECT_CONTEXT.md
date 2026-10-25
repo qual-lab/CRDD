@@ -12,9 +12,11 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
+追加診断付きのClaude読取りを承認どおり一回実行し、認証確認CLIの正規出力が「未ログイン」（`authenticationStatus: unconfirmed`）で終了1だったことを確認した。Container作成unknownではなく、作成後の認証確認で停止している。認証切れかContainer内の認証利用経路かは未確定で、AI本体・外部送信は未開始。今回はHTTP故障なし、回収確認済み、操作・未解決回復・配送待ちは零だが未配送履歴一件は保持する。再送・再起動・先行保持物の変更は行わない。[一回試験の診断結果と限界](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#claude-readonly-auth-diagnostic-result)を参照する。
+
 読取り確認の失敗を非AIで切り分け、拒否条件を維持したまま認証三値とHTTP子の固定故障段階・終了観測だけを既存診断へ追加した。Coordinator影響158件、Workbench通常86件、静的検査と独立レビューは成功／残指摘零。残ったWindows保存・再入場試験も、旧CLI・Module代役の登録順・試験importだけを追従し、一件と関連CLI十九件の成功まで確認した。文書参照展開先3,368指摘と、元のClaude故障原因未特定は維持する。AI再送・Docker操作・保持物変更は行っていない。[診断の最小是正](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#readonly-failure-diagnostics)と[Windows試験の追従結果](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#windows-state-cli-followup)を参照する。
 
-承認されたClaude読取り確認を新品合成Contextだけで一回実行したが、認証確認Containerのstart／attachが終了1となり、Provider本体開始・外部送信は未発行のまま停止した。別にobserve用HTTP子Process故障も記録し、同IDの取消結果・技術一次故障は保持できた。今回の実行資源は回収確認済みで、Task返却の未解決recoveryIds・secondaryFailuresは空。ただし清掃済み履歴のDocker相関参照とhistoryPending一件は保持する。失敗調査と未配送履歴の保全のため今回合成Rootを保持し、2026-11-01までに既存Ownerで履歴の配送・保持を確認して清掃判断へ戻す。先行unknown Rootは変更しない。再送・Docker再起動・編集二試験は行わない。次は二つの故障の非AI切分けであり、実AI E2EのPassではない。[今回結果と回収範囲](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#claude-readonly-confirm-result)と[再開前確認](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#pre-ai-readonly-readiness)を参照する。
+先行のClaude読取り確認は、認証確認Containerのstart／attachが終了1となり、Provider本体開始・外部送信は未発行のまま停止した。別にobserve用HTTP子Process故障も記録し、同IDの取消結果・技術一次故障は保持できた。その実行資源は回収確認済みで、Task返却の未解決recoveryIds・secondaryFailuresは空。ただし清掃済み履歴のDocker相関参照とhistoryPending一件は保持する。失敗調査と未配送履歴の保全のため同合成Rootを保持し、2026-11-01までに既存Ownerで履歴の配送・保持を確認して清掃判断へ戻す。先行unknown Rootは変更しない。再送・Docker再起動・編集二試験は行わない。先行observe故障の因果は現在も未確定であり、現在の次候補は上段の認証利用経路の非AI調査である。実AI E2EのPassではない。[先行結果と回収範囲](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#claude-readonly-confirm-result)と[再開前確認](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#pre-ai-readonly-readiness)を参照する。
 
 修正済み前提からClaude読取りを承認どおり一回試したが、認証確認Containerの作成結果はunknownのまま、結果観測ではHTTP診断上timedOut false／ECONNRESETを記録して停止した。同じTaskの取消結果も保持できた。一方、保持記録のProvider本体はnot_started・外部送信not_issuedで、回収未確認と三つの副次失敗が残り、新しい合成Rootとexact回復参照を保持する。再送・追加再起動はしていない。[今回の診断・保持範囲](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#claude-readonly-once-diagnostic-result)を参照する。
 
