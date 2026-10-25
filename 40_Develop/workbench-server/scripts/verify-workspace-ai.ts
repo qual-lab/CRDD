@@ -30,7 +30,7 @@ import {
   type WorkspaceView,
 } from "../../coordinator/src/index.ts";
 import { prepareWorkspaceSurface } from "../../coordinator/tests/fixtures/workspace-surface.ts";
-import { maintainCoordinatorSnapshot } from "../../coordinator/src/storage/current-state.ts";
+import { transferCoordinatorSnapshotHistory } from "../../coordinator/src/storage/current-state.ts";
 import { deriveCoordinatorRepositoryBindingId } from "../../coordinator/src/state/model.ts";
 import {
   acquireCoordinatorStorageOwner,
@@ -268,6 +268,7 @@ async function verify(
   const evidence: Record<string, unknown> = {
     mode,
     base,
+    workspaceId: mode === "isolated" ? workspaceId : null,
     limitedProbePassed: false,
   };
   const initialIndex = hash(fs.readFileSync(path.join(root, ".git", "index")));
@@ -649,76 +650,178 @@ function assessFixtureRemoval(
       visit(root);
     };
     checkBoundary();
-    const maintenance = maintainCoordinatorSnapshot(
-      root,
-      deriveCoordinatorRepositoryBindingId(root),
-    );
-    assert.equal(maintenance.status, "completed");
-    assert.equal(maintenance.reason, "orchestrator_terminal_records_retired");
-    const owner = acquireCoordinatorStorageOwner(root);
-    assert.ok(owner);
-    try {
-      const read = readCoordinatorStorageSnapshotOwned(owner);
-      assert.equal(read.status, "completed");
-      if (read.status !== "completed") throw new Error("snapshot_unobserved");
-      const s = read.value.snapshot;
-      for (const key of [
-        "operations",
-        "unresolvedRecoveries",
-        "pendingDeliveries",
-        "historyPending",
-        "leaseIntents",
-        "workspaces",
-        "results",
-        "resultReceipts",
-        "acceptanceDecisions",
-        "decisionRecoveries",
-        "leaseEvidence",
-      ] as const)
-        assert.equal(s[key].length, 0);
-      assert.deepEqual(s.queueEntries.map((q) => q.queueId).sort(), [
-        "queue-a",
-        "queue-b",
-      ]);
-      assert.deepEqual(s.intakeBindings.map((b) => b.queueId).sort(), [
-        "queue-a",
-        "queue-b",
-      ]);
-      for (const q of s.queueEntries) {
-        assert.equal(q.generation, 1);
-        assert.equal(q.state, "queued");
+    const readClosed = (historyCount: number) => {
+      const owner = acquireCoordinatorStorageOwner(root);
+      assert.ok(owner);
+      try {
+        const read = readCoordinatorStorageSnapshotOwned(owner);
+        assert.equal(read.status, "completed");
+        if (read.status !== "completed") throw new Error("snapshot_unobserved");
+        const s = read.value.snapshot;
         for (const key of [
-          "ownerGeneration",
-          "workspaceId",
-          "resultReference",
-          "resumeCondition",
+          "operations",
+          "unresolvedRecoveries",
+          "pendingDeliveries",
+          "leaseIntents",
+          "workspaces",
+          "resultReceipts",
+          "acceptanceDecisions",
+          "decisionRecoveries",
         ] as const)
-          assert.equal(q[key], null);
-        assert.equal(Object.hasOwn(q, "singleTask"), false);
+          assert.equal(s[key].length, 0);
+        assert.equal(s.historyPending.length, historyCount);
+        if (historyCount) {
+          const row = s.historyPending[0];
+          assert.ok(row);
+          assert.equal(row.id, `workspace-${evidence.workspaceId}`);
+          assert.equal(row.outcome, "cancelled");
+          assert.equal(row.cleanup, "confirmed");
+          assert.equal(row.primaryFailure, null);
+        }
+        assert.deepEqual(s.queueEntries.map((q) => q.queueId).sort(), [
+          "queue-a",
+          "queue-b",
+        ]);
+        assert.deepEqual(s.intakeBindings.map((b) => b.queueId).sort(), [
+          "queue-a",
+          "queue-b",
+        ]);
+        for (const q of s.queueEntries) {
+          const closed = mode === "isolated" && q.queueId === "queue-a";
+          assert.equal(q.generation, closed ? 12 : 1);
+          assert.equal(q.state, closed ? "cancelled" : "queued");
+          for (const key of [
+            "ownerGeneration",
+            "workspaceId",
+            "resultReference",
+            "resumeCondition",
+          ] as const)
+            assert.equal(q[key], null);
+          assert.equal(Object.hasOwn(q, "singleTask"), false);
+        }
+        assert.equal(s.projects.length, 1);
+        assert.equal(s.projects[0]?.projectId, projectId);
+        const tasks = s.projects[0]?.tasks ?? [];
+        assert.equal(tasks.length, 1);
+        const task = tasks[0];
+        assert.ok(task);
+        assert.equal(task.definition.id, "task-a");
+        assert.equal(task.state, "ready");
+        assert.equal(task.startPhase, "none");
+        assert.equal(task.retryCount, 0);
+        for (const key of [
+          "attemptId",
+          "authorityBindingId",
+          "candidateId",
+          "operationId",
+          "supersededBy",
+        ] as const)
+          assert.equal(task[key], null);
+        assert.deepEqual(task.recoveryObligations, []);
+        assert.deepEqual(task.resultAcceptanceIds, []);
+        if (mode === "direct") {
+          assert.equal(s.results.length, 0);
+          assert.equal(s.leaseEvidence.length, 0);
+        } else {
+          const object = (value: unknown) => {
+            assert.ok(
+              value !== null &&
+                typeof value === "object" &&
+                !Array.isArray(value),
+            );
+            return value as Record<string, unknown>;
+          };
+          assert.equal(typeof evidence.workspaceId, "string");
+          assert.equal(s.results.length, 2);
+          const candidate = s.results.find(
+            (r) => object(r.value).recordKind === "workspace-candidate",
+          );
+          const closed = s.results.find(
+            (r) => object(r.value).recordKind === "workspace-candidate-close",
+          );
+          assert.ok(candidate && closed);
+          const value = object(candidate.value),
+            end = object(closed.value),
+            request = object(value.request),
+            target = object(value.target);
+          for (const result of [candidate, closed]) {
+            assert.equal(result.kind, "adoption");
+            assert.equal(result.repositoryBindingId, s.repositoryBindingId);
+            assert.equal(result.projectId, projectId);
+            assert.equal(result.milestoneId, "milestone-a");
+            assert.equal(result.queueId, "queue-a");
+          }
+          assert.equal(request.workspaceId, evidence.workspaceId);
+          assert.equal(request.baseCommit, evidence.base);
+          assert.equal(target.expectedTargetHead, evidence.base);
+          assert.equal(target.targetBranch, "main");
+          assert.equal(
+            candidate.identity,
+            `workspace-candidate-${request.operationId}`,
+          );
+          assert.equal(
+            closed.identity,
+            `workspace-candidate-close-${request.operationId}`,
+          );
+          assert.equal(end.operationId, request.operationId);
+          assert.equal(end.workspaceId, evidence.workspaceId);
+          for (const record of [value, end]) {
+            assert.equal(record.candidateCommit, evidence.candidateCommit);
+            assert.equal(record.disposition, "adopted");
+          }
+          assert.equal(value.mergeCommit, evidence.mergeCommit);
+          assert.equal(value.primaryFailure, null);
+          assert.equal(end.cleanupFailure, null);
+          assert.equal(end.refAbsent, true);
+          assert.equal(s.leaseEvidence.length, 12);
+          const pairs = new Map<
+            string,
+            { acquired: number; released: number }
+          >();
+          let projectPairs = 0;
+          for (const [index, item] of s.leaseEvidence.entries()) {
+            assert.equal(item.repositoryBindingId, s.repositoryBindingId);
+            assert.equal(item.projectId, projectId);
+            const content = item.content;
+            assert.ok(
+              content.kind === "project-operation" ||
+                content.kind === "canonical-adoption",
+            );
+            assert.equal(
+              content.queueId,
+              content.kind === "project-operation" ? "queue-a" : "canonical",
+            );
+            const key = JSON.stringify([
+              content.kind,
+              content.queueId,
+              content.ownerGeneration,
+              content.ownerProcessId,
+            ]);
+            const pair = pairs.get(key) ?? { acquired: -1, released: -1 };
+            assert.ok(
+              content.disposition === "acquired" ||
+                content.disposition === "released",
+            );
+            assert.equal(pair[content.disposition], -1);
+            pair[content.disposition] = index;
+            pairs.set(key, pair);
+            if (
+              content.disposition === "acquired" &&
+              content.kind === "project-operation"
+            )
+              projectPairs++;
+          }
+          assert.equal(pairs.size, 6);
+          assert.equal(projectPairs, 5);
+          for (const pair of pairs.values())
+            assert.ok(pair.acquired >= 0 && pair.released > pair.acquired);
+        }
+        return s;
+      } finally {
+        assert.equal(owner.release(), true);
       }
-      assert.equal(s.projects.length, 1);
-      assert.equal(s.projects[0]?.projectId, projectId);
-      const tasks = s.projects[0]?.tasks ?? [];
-      assert.equal(tasks.length, 1);
-      const task = tasks[0];
-      assert.ok(task);
-      assert.equal(task.definition.id, "task-a");
-      assert.equal(task.state, "ready");
-      assert.equal(task.startPhase, "none");
-      assert.equal(task.retryCount, 0);
-      for (const key of [
-        "attemptId",
-        "authorityBindingId",
-        "candidateId",
-        "operationId",
-        "supersededBy",
-      ] as const)
-        assert.equal(task[key], null);
-      assert.deepEqual(task.recoveryObligations, []);
-      assert.deepEqual(task.resultAcceptanceIds, []);
-    } finally {
-      assert.equal(owner.release(), true);
-    }
+    };
+    const before = readClosed(mode === "isolated" ? 1 : 0);
     assert.equal(
       git(root, ["worktree", "list", "--porcelain"])
         .split("\n")
@@ -748,7 +851,53 @@ function assessFixtureRemoval(
     } else {
       assert.equal(git(root, ["rev-parse", "HEAD"]), evidence.mergeCommit);
       assert.equal(git(root, ["status", "--porcelain"]), "");
+      assert.equal(
+        git(root, [
+          "rev-list",
+          "--parents",
+          "-n",
+          "1",
+          String(evidence.mergeCommit),
+        ]),
+        `${evidence.mergeCommit} ${evidence.base} ${evidence.candidateCommit}`,
+      );
+      assert.equal(
+        git(root, ["rev-parse", `${evidence.mergeCommit}^{tree}`]),
+        git(root, ["rev-parse", `${evidence.candidateCommit}^{tree}`]),
+      );
     }
+    const leases = path.join(root, ".crdd", "tmp", "orchestrator-leases");
+    try {
+      const entry = fs.lstatSync(leases);
+      assert.equal(entry.isSymbolicLink(), false);
+      assert.equal(entry.isDirectory(), true);
+      assert.equal(fs.readdirSync(leases).length, 0);
+    } catch (error) {
+      if (
+        !error ||
+        typeof error !== "object" ||
+        !("code" in error) ||
+        error.code !== "ENOENT"
+      )
+        throw error;
+    }
+    checkBoundary();
+    const transferred = transferCoordinatorSnapshotHistory(
+      root,
+      deriveCoordinatorRepositoryBindingId(root),
+    );
+    assert.equal(transferred.status, "completed");
+    if (transferred.status !== "completed")
+      throw new Error("fixture_history_unconfirmed");
+    assert.equal(transferred.reason, "orchestrator_history_transferred");
+    assert.deepEqual(transferred.value, {
+      recorded: mode === "isolated" ? 1 : 0,
+      expired: 0,
+    });
+    const after = readClosed(0);
+    assert.deepEqual(after.results, before.results);
+    assert.deepEqual(after.leaseEvidence, before.leaseEvidence);
+    assert.deepEqual(after.queueEntries, before.queueEntries);
     checkBoundary();
     return { eligible: true, reason: "fixture_closed_and_unreferenced" };
   } catch {

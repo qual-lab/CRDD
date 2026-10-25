@@ -12,7 +12,9 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
-Direct／Isolated実AI編集の前に、固定Source `dff1fce85`で新品の非AI事前確認を一回実行した。編集代役・既存変更保全・候補固定・二親Merge・Worktree／Ref回収は両方式で成功したが、Isolatedの終了記録が残り清掃Gateで停止した。AI送信は零。Workspace履歴行の退役未接続と、試験Toolが破棄後Queueへ開始前baselineを要求する不一致の少なくとも二点を確認した。results二件・leaseEvidence十二件が正常な終了記録か追加の退役未接続かは未分類で、最小是正は未確定。Direct試験Rootは清掃済み、Isolatedは強制削除せず2026-11-02までの再評価対象として保持する。旧保持物・Docker再起動・再試行なし。実AI編集は未実施のまま。[停止結果と最小是正候補](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#workspace-edit-e2e-20261026)を参照する。
+Isolated非AI試験の停止は、試験ToolがQueue退役APIを履歴搬送に使い、正常な採用・解放済みLease記録にも零を要求していたことへ具体化した。製品Sourceは変えず、既存の履歴専用搬送APIと方式別の終了状態照合へToolを修正した。結果二件・Lease六組は消さず、履歴だけを確定する。対象HTTP二十六件・既存履歴搬送一件、静的確認、限定独立レビューは成功。保持中の今回Rootへの適用は固定候補の検証後に行う別処置で、実AI再送・Docker再起動・旧保持物操作は未実施。[分類と限定是正](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#workspace-edit-e2e-20261026)を参照する。
+
+Direct／Isolated実AI編集の前に、固定Source `dff1fce85`で新品の非AI事前確認を一回実行した。編集代役・既存変更保全・候補固定・二親Merge・Worktree／Ref回収は両方式で成功したが、Isolatedの終了記録が残り清掃Gateで停止した。AI送信は零。Workspace履歴行の退役未接続と、試験Toolが破棄後Queueへ開始前baselineを要求する不一致の少なくとも二点を当時確認した。停止直後時点ではresults二件・leaseEvidence十二件が正常な終了記録か追加の退役未接続かは未分類で、最小是正は未確定だった。Direct試験Rootは清掃済み、Isolatedは強制削除せず2026-11-02までの再評価対象として保持した。旧保持物・Docker再起動・再試行なし。実AI編集は未実施のまま。[停止結果と最小是正候補](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#workspace-edit-e2e-20261026)を参照する。
 
 改善後Source `886f5ed3e`でClaude Opus 5.5／mediumの合成読取りを一回実行し、Task・実行completed、HTTP失敗・Timeoutなし、cleanup／close確認、回復参照・副次失敗なしで成功した。本体・合成入力は不変、再送・Docker再起動・既存保持物操作なし。今回合成Rootと短命入口は終了義務・非使用を確認後に清掃し、不存在確認済み。安全な結果JSONだけ期限付き保持する。前回本文は清掃済みのため今回は既存HTTP試験形式の744 bytesで、完全同一入力比較ではない。現在の条件で利用できることは確認したが、前回の支払い不調や終了1の原因、Source改善との寄与分離は未確定。Direct／Isolated編集E2E・全体E2Eは未実施。[今回の結果と限界](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#claude-improved-source-once-20261026)を参照する。
 

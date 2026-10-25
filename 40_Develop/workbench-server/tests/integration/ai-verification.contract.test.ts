@@ -753,7 +753,7 @@ test("Workspace清掃Gateは保存義務・baseline・Git実体を照合する",
   for (const scenario of [
     "direct",
     "isolated",
-    "maintenance",
+    "transfer",
     "owner",
     "read",
     "release",
@@ -768,6 +768,18 @@ test("Workspace清掃Gateは保存義務・baseline・Git実体を照合する",
     "reparse",
     "nested-reparse",
     "unknown-mode",
+    "isolated-history-extra",
+    "isolated-result-extra",
+    "isolated-result-missing",
+    "isolated-workspace-mismatch",
+    "isolated-lease-missing",
+    "isolated-lease-duplicate",
+    "isolated-lease-pair-mismatch",
+    "isolated-lease-parent-unknown",
+    "isolated-lease-parent-not-empty",
+    "isolated-transfer-expired",
+    "isolated-post-result-loss",
+    "isolated-git-parents",
   ]) {
     const snapshot: Record<string, unknown> = Object.fromEntries(
       emptyKeys.map((k) => [k, []]),
@@ -809,6 +821,83 @@ test("Workspace清掃Gateは保存義務・baseline・Git実体を照合する",
     const firstBinding = intakeBindings[0];
     const firstTask = projects[0]?.tasks[0];
     assert.ok(firstQueue && firstBinding && firstTask);
+    const isIsolated =
+      scenario === "isolated" || scenario.startsWith("isolated-");
+    snapshot.repositoryBindingId = "binding";
+    if (isIsolated) {
+      Object.assign(firstQueue, { generation: 12, state: "cancelled" });
+      snapshot.historyPending = [
+        {
+          id: "workspace-ws",
+          outcome: "cancelled",
+          cleanup: "confirmed",
+          primaryFailure: null,
+        },
+      ];
+      const candidate = {
+        kind: "adoption",
+        repositoryBindingId: "binding",
+        projectId: "project.workspace-verification",
+        milestoneId: "milestone-a",
+        queueId: "queue-a",
+        identity: "workspace-candidate-op",
+        value: {
+          recordKind: "workspace-candidate",
+          request: { workspaceId: "ws", operationId: "op", baseCommit: "base" },
+          target: { expectedTargetHead: "base", targetBranch: "main" },
+          candidateCommit: "candidate",
+          mergeCommit: "merge",
+          disposition: "adopted",
+          primaryFailure: null,
+        },
+      };
+      const closed = {
+        ...candidate,
+        identity: "workspace-candidate-close-op",
+        value: {
+          recordKind: "workspace-candidate-close",
+          workspaceId: "ws",
+          operationId: "op",
+          candidateCommit: "candidate",
+          disposition: "adopted",
+          refAbsent: true,
+          cleanupFailure: null,
+        },
+      };
+      const records = [candidate, closed];
+      snapshot.results = records;
+      const leases = Array.from({ length: 6 }, (_, i) =>
+        ["acquired", "released"].map((disposition) => ({
+          repositoryBindingId: "binding",
+          projectId: "project.workspace-verification",
+          content: {
+            kind: i === 5 ? "canonical-adoption" : "project-operation",
+            queueId: i === 5 ? "canonical" : "queue-a",
+            ownerGeneration: `owner-${i}`,
+            ownerProcessId: 7,
+            disposition,
+          },
+        })),
+      ).flat();
+      snapshot.leaseEvidence = leases;
+      if (scenario === "isolated-history-extra")
+        Object.assign(snapshot, {
+          historyPending: [...(snapshot.historyPending as unknown[]), {}],
+        });
+      if (scenario === "isolated-result-extra") records.push(candidate);
+      if (scenario === "isolated-result-missing") records.pop();
+      if (scenario === "isolated-lease-missing") leases.pop();
+      if (scenario === "isolated-lease-duplicate") {
+        const first = leases[0];
+        assert.ok(first);
+        leases.splice(1, 1, first);
+      }
+      if (scenario === "isolated-lease-pair-mismatch") {
+        const end = leases[1];
+        assert.ok(end);
+        end.content.ownerGeneration = "other";
+      }
+    }
     if (emptyKeys.includes(scenario)) snapshot[scenario] = [{}];
     if (scenario === "queue-duplicate") queueEntries.splice(1, 1, firstQueue);
     if (scenario === "binding-duplicate")
@@ -817,25 +906,22 @@ test("Workspace清掃Gateは保存義務・baseline・Git実体を照合する",
     if (scenario === "task-reference")
       Object.assign(firstTask, { operationId: "unexpected" });
     let releases = 0;
-    let maintenanceCalls = 0;
+    let transferCalls = 0;
     const parentPath = path.resolve("fixture");
     const result = runInNewContext(
       stripTypeScriptTypes(
-        `const snapshot=JSON.parse(snapshotJson); const readCoordinatorStorageSnapshotOwned=()=>({status: scenario==='read'?'blocked':'completed',value:{snapshot}}); ${body}\nconst mode=scenario==='unknown-mode'?'../escape':scenario==='isolated'?'isolated':'direct'; assessFixtureRemoval(parentPath,mode,{mode,base:'base',mergeCommit:'merge'});`,
+        `const snapshot=JSON.parse(snapshotJson); const readCoordinatorStorageSnapshotOwned=()=>({status: scenario==='read'?'blocked':'completed',value:{snapshot:JSON.parse(JSON.stringify(snapshot))}}); const transferCoordinatorSnapshotHistory=()=>{onTransfer();snapshot.historyPending=[];if(scenario==='isolated-post-result-loss')snapshot.results=[];return {status:scenario==='transfer'?'blocked':'completed',reason:'orchestrator_history_transferred',value:{recorded:isIsolated?1:0,expired:scenario==='isolated-transfer-expired'?1:0}};}; ${body}\nconst mode=scenario==='unknown-mode'?'../escape':isIsolated?'isolated':'direct'; assessFixtureRemoval(parentPath,mode,{mode,base:'base',mergeCommit:'merge',candidateCommit:'candidate',workspaceId:scenario==='isolated-workspace-mismatch'?'other':isIsolated?'ws':null});`,
       ),
       {
         assert,
         path,
         parentPath,
         scenario,
+        isIsolated,
         snapshotJson: JSON.stringify(snapshot),
         projectId: "project.workspace-verification",
-        maintainCoordinatorSnapshot: () => {
-          maintenanceCalls++;
-          return {
-            status: scenario === "maintenance" ? "blocked" : "completed",
-            reason: "orchestrator_terminal_records_retired",
-          };
+        onTransfer: () => {
+          transferCalls++;
         },
         deriveCoordinatorRepositoryBindingId: () => "binding",
         acquireCoordinatorStorageOwner: () =>
@@ -848,33 +934,54 @@ test("Workspace清掃Gateは保存義務・baseline・Git実体を照合する",
                 },
               },
         git: (_root: string, args: string[]) =>
-          args[0] === "worktree"
-            ? scenario === "worktree"
-              ? "worktree root\nworktree other"
-              : "worktree root"
-            : args[0] === "for-each-ref"
-              ? scenario === "ref"
-                ? "unexpected"
-                : ""
-              : args[0] === "rev-parse"
-                ? scenario === "isolated"
-                  ? "merge"
-                  : "base"
-                : args[0] === "diff"
-                  ? "staged.txt"
-                  : "",
+          args[0] === "rev-list"
+            ? scenario === "isolated-git-parents"
+              ? "wrong"
+              : "merge base candidate"
+            : args[0] === "worktree"
+              ? scenario === "worktree"
+                ? "worktree root\nworktree other"
+                : "worktree root"
+              : args[0] === "for-each-ref"
+                ? scenario === "ref"
+                  ? "unexpected"
+                  : ""
+                : args[0] === "rev-parse"
+                  ? args[1]?.endsWith("^{tree}")
+                    ? "tree"
+                    : isIsolated
+                      ? "merge"
+                      : "base"
+                  : args[0] === "diff"
+                    ? "staged.txt"
+                    : "",
         fs: {
           realpathSync: {
             native: (p: string) => (scenario === "canonical" ? "other" : p),
           },
-          lstatSync: (p: string) => ({
-            isSymbolicLink: () =>
-              scenario === "reparse" ||
-              (scenario === "nested-reparse" && p.endsWith("child")),
-            isDirectory: () =>
-              scenario === "nested-reparse" && !p.endsWith("child"),
-          }),
-          readdirSync: () => ["child"],
+          lstatSync: (p: string) => {
+            if (
+              scenario === "isolated-lease-parent-unknown" &&
+              p.endsWith("orchestrator-leases")
+            )
+              throw Object.assign(new Error("unobservable"), {
+                code: "EACCES",
+              });
+            return {
+              isSymbolicLink: () =>
+                scenario === "reparse" ||
+                (scenario === "nested-reparse" && p.endsWith("child")),
+              isDirectory: () =>
+                p.endsWith("orchestrator-leases") ||
+                (scenario === "nested-reparse" && !p.endsWith("child")),
+            };
+          },
+          readdirSync: (p: string) =>
+            p.endsWith("orchestrator-leases")
+              ? scenario === "isolated-lease-parent-not-empty"
+                ? ["unexpected"]
+                : []
+              : ["child"],
           readFileSync: (p: string) =>
             p.endsWith("source.txt")
               ? "DIRECT_OK\n"
@@ -894,7 +1001,6 @@ test("Workspace清掃Gateは保存義務・baseline・Git実体を照合する",
     assert.equal(
       releases,
       [
-        "maintenance",
         "owner",
         "canonical",
         "reparse",
@@ -902,7 +1008,9 @@ test("Workspace清掃Gateは保存義務・baseline・Git実体を照合する",
         "unknown-mode",
       ].includes(scenario)
         ? 0
-        : 1,
+        : ["direct", "isolated", "isolated-post-result-loss"].includes(scenario)
+          ? 2
+          : 1,
       scenario,
     );
     if (
@@ -910,7 +1018,17 @@ test("Workspace清掃Gateは保存義務・baseline・Git実体を照合する",
         scenario,
       )
     )
-      assert.equal(maintenanceCalls, 0, scenario);
+      assert.equal(transferCalls, 0, scenario);
+    if (
+      ![
+        "direct",
+        "isolated",
+        "transfer",
+        "isolated-transfer-expired",
+        "isolated-post-result-loss",
+      ].includes(scenario)
+    )
+      assert.equal(transferCalls, 0, scenario);
   }
 });
 
