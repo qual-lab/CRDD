@@ -8,9 +8,8 @@ import { parseUnambiguousJsonDocument } from "../provider/json.ts";
 
 export const CLAUDE_STRUCTURED_RESULT_CONTRACT =
   "crdd-coordinator/claude-structured-result";
-export const CLAUDE_STRUCTURED_RESULT_CONTRACT_REVISION = 1;
+export const CLAUDE_STRUCTURED_RESULT_CONTRACT_REVISION = 2;
 
-const MAXIMUM_TURNS = 2;
 const MAXIMUM_API_EQUIVALENT_COST_USD = 0.1;
 
 /**
@@ -82,7 +81,7 @@ function createBlockedResult() {
 /**
  * Claudeのboolean Probe結果を正規化する。
  *
- * @responsibility 単一JSON成功Envelope、Turn・費用相当上限、status=trueの照合を所有する。
+ * @responsibility 単一JSON成功Envelope、Turn metadata・費用相当上限、status=trueの照合を所有する。
  * @trace ARCH-000015
  * @input raw: unknown
  * @returns confirmedの最小結果又はblocked。
@@ -109,10 +108,9 @@ export function normalizeClaudeStructuredResult(raw: unknown) {
     ownValue(envelope, "type") !== "result" ||
     ownValue(envelope, "subtype") !== "success" ||
     ownValue(envelope, "is_error") !== false ||
-    !Number.isInteger(numberOfTurns) ||
+    !Number.isSafeInteger(numberOfTurns) ||
     typeof numberOfTurns !== "number" ||
     numberOfTurns < 1 ||
-    numberOfTurns > MAXIMUM_TURNS ||
     typeof providerReportedApiEquivalentCostUsd !== "number" ||
     !Number.isFinite(providerReportedApiEquivalentCostUsd) ||
     providerReportedApiEquivalentCostUsd < 0 ||
@@ -135,7 +133,7 @@ export function normalizeClaudeStructuredResult(raw: unknown) {
 /**
  * Claude Probe結果の受理条件を記述する。
  *
- * @responsibility 単一JSONとTurn・費用相当上限の診断契約を所有する。
+ * @responsibility 単一JSONとTurn metadata・費用相当上限の診断契約を所有する。
  * @trace ARCH-000015
  * @input N/A: 実行時引数を受け取らない。
  * @returns 固定のProbe結果契約。
@@ -158,7 +156,7 @@ export function describeClaudeStructuredResultContract() {
       "type=result",
       "subtype=success",
       "is_error=false",
-      "num_turns=integer_1_to_2",
+      "num_turns=positive_safe_integer_metadata",
       "total_cost_usd=finite_0_to_0.10",
       "structured_output=exact_status_true",
     ]),

@@ -144,7 +144,7 @@ import {
   normalizeCodexStructuredResult,
   normalizeClaudeStructuredResult,
   parseProviderResult,
-  CLAUDE_RESULT_ACCEPTANCE_MAXIMUM_TURNS,
+  CLAUDE_TASK_MAXIMUM_TURNS,
 } from "../../../ai-adapter/src/index.ts";
 import {
   getRuntimeOwnedProviderDockerAdapter,
@@ -3699,7 +3699,7 @@ export function describeDockerProcessControllerContract() {
 export const COORDINATOR_TASK_RUNTIME_CONTRACT =
   "crdd-coordinator/task-runtime";
 
-export const COORDINATOR_TASK_RUNTIME_CONTRACT_REVISION = 36;
+export const COORDINATOR_TASK_RUNTIME_CONTRACT_REVISION = 37;
 
 const PRODUCTION_CANCELLATION_ACK_TIMEOUT_MS = 10_000;
 
@@ -3727,8 +3727,6 @@ const PROVIDER_TURN_OBSERVATION_KEYS = new Set([
   "taskRole",
   "requestedMaximumTurns",
   "providerReportedTurns",
-  "resultAcceptanceMaximumTurns",
-  "requestedTurnTargetExceeded",
 ]);
 
 const REVIEWER_FINDING_DIAGNOSTIC_KEYS = new Set([
@@ -4421,8 +4419,6 @@ function projectProviderTurnObservation(value: unknown) {
   const taskRole = record.taskRole;
   const requestedMaximumTurns = record.requestedMaximumTurns;
   const providerReportedTurns = record.providerReportedTurns;
-  const resultAcceptanceMaximumTurns = record.resultAcceptanceMaximumTurns;
-  const requestedTurnTargetExceeded = record.requestedTurnTargetExceeded;
   if (
     provider !== "claude" ||
     (taskRole !== "executor" && taskRole !== "reviewer") ||
@@ -4430,17 +4426,10 @@ function projectProviderTurnObservation(value: unknown) {
     (requestedMaximumTurns as number) < 1 ||
     !Number.isSafeInteger(providerReportedTurns) ||
     (providerReportedTurns as number) < 1 ||
-    !Number.isSafeInteger(resultAcceptanceMaximumTurns) ||
-    resultAcceptanceMaximumTurns !== CLAUDE_RESULT_ACCEPTANCE_MAXIMUM_TURNS ||
     (taskRole === "executor"
       ? (requestedMaximumTurns as number) < 8
       : (requestedMaximumTurns as number) < 4) ||
-    (requestedMaximumTurns as number) >
-      CLAUDE_RESULT_ACCEPTANCE_MAXIMUM_TURNS ||
-    (providerReportedTurns as number) >
-      (resultAcceptanceMaximumTurns as number) ||
-    requestedTurnTargetExceeded !==
-      (providerReportedTurns as number) > (requestedMaximumTurns as number)
+    (requestedMaximumTurns as number) > CLAUDE_TASK_MAXIMUM_TURNS
   )
     return null;
   return Object.freeze({
@@ -4448,8 +4437,6 @@ function projectProviderTurnObservation(value: unknown) {
     taskRole,
     requestedMaximumTurns: requestedMaximumTurns as number,
     providerReportedTurns: providerReportedTurns as number,
-    resultAcceptanceMaximumTurns: resultAcceptanceMaximumTurns as number,
-    requestedTurnTargetExceeded,
   });
 }
 
@@ -7756,7 +7743,7 @@ export function describeCoordinatorTaskRuntimeContract() {
     boundedRemediation:
       "maximum_one_same_executor_then_same_independent_reviewer",
     providerTurnObservations:
-      "validated_non_authority_requested_reported_absolute_limit_and_target_exceeded_after_cleanup_for_each_accepted_claude_stage",
+      "provider_role_requested_cli_limit_and_reported_positive_safe_integer_metadata_without_comparison_after_cleanup",
     externalSendPolicy:
       "exact_bound_repository_commit_policy_plus_terminal_safe_full_scope_confirmation",
     recoveryIdentifiers: Object.freeze(["host", "docker_task"]),

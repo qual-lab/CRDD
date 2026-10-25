@@ -14,7 +14,6 @@ import {
   PROVIDER_ADVICE_OUTPUT_REASONS,
   evaluateProviderTaskScope,
   parseProviderResult,
-  CLAUDE_RESULT_ACCEPTANCE_MAXIMUM_TURNS,
   parseUnambiguousJsonDocument,
   type ProviderTurnCountDiagnostic,
 } from "../../../ai-adapter/src/index.ts";
@@ -1176,7 +1175,7 @@ export function projectCoordinatorTaskPublicReason(
 export const PROVIDER_TASK_STRUCTURED_RESULT_CONTRACT =
   "crdd-coordinator/provider-task-structured-result";
 
-export const PROVIDER_TASK_STRUCTURED_RESULT_CONTRACT_REVISION = 19;
+export const PROVIDER_TASK_STRUCTURED_RESULT_CONTRACT_REVISION = 20;
 
 const MAXIMUM_RAW_BYTES = 65_536;
 
@@ -1600,8 +1599,6 @@ export function normalizeProviderTaskStructuredResult(
     provider,
     purpose: "task",
     taskRole,
-    resultAcceptanceMaximumTurns:
-      turnBudget?.status === "candidate" ? turnBudget.hardMaximumTurns : 0,
     raw,
   });
   if (extracted.status !== "confirmed" || extracted.value === null) {
@@ -1650,9 +1647,6 @@ export function normalizeProviderTaskStructuredResult(
                   taskRole,
                   requestedMaximumTurns: turnBudget.maximumTurns,
                   providerReportedTurns: extracted.providerReportedTurns,
-                  resultAcceptanceMaximumTurns: turnBudget.hardMaximumTurns,
-                  requestedTurnTargetExceeded:
-                    extracted.providerReportedTurns > turnBudget.maximumTurns,
                 }),
               }
             : {}),
@@ -1694,11 +1688,8 @@ export function describeProviderTaskStructuredResultContract() {
     providers: Object.freeze(["codex", "claude"]),
     roles: Object.freeze(["executor", "reviewer"]),
     maximumRawBytes: MAXIMUM_RAW_BYTES,
-    claudeResultAcceptanceMaximumTurns: CLAUDE_RESULT_ACCEPTANCE_MAXIMUM_TURNS,
-    claudeResultAcceptanceMaximumTurnsBasis:
-      "runtime_guard_independent_of_provider_requested_turn_target",
     acceptedClaudeTurnObservation:
-      "requested_target_reported_turns_absolute_acceptance_maximum_and_target_exceeded_after_validation",
+      "requested_cli_limit_and_reported_metadata_without_comparison",
     claudeMaximumApiEquivalentCostUsdByEffort: null,
     claudeApiEquivalentCostDisposition:
       "validated_nonnegative_finite_usage_metadata_not_billing_authority",

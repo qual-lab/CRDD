@@ -281,7 +281,7 @@ export type ProviderPlanningReason =
  * @trace ARCH-000010
  * @shape Providerごとの候補又は拒否結果。
  * @invariant 非適用を確認済みTurn数へ補完しない。
- * @boundary Task準備前検査と結果受理上限。
+ * @boundary Task準備前検査とCLI上限。
  * @security 実行許可を発行しない。
  * @compatibility 既存Claude予算の計算と理由を維持する。
  */
@@ -297,7 +297,7 @@ export type ProviderTaskScopeResult<P extends AiProvider = AiProvider> =
 
 /**
  * Task範囲からProvider固有の予算条件を評価する。
- * @responsibility 準備前と結果解析で同じ受理上限を提供する。
+ * @responsibility Provider固有のTask計画上限を提供する。
  * @trace ARCH-000010
  * @input provider、役割、検証対象Task範囲。
  * @returns Provider別の予算又は拒否。

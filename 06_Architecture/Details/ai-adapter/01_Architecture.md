@@ -141,7 +141,9 @@ WorkbenchはCoordinatorの設定Reader／CAS Writerを使い、AMが共有管理
 
 AI AdapterへTask State、Consumer ACK、Recovery Registry、認証Home Lockを追加しない。技術Catalog更新は開始済みTaskの保存選定を書き換えない。
 
-`parseProviderResult`のClaude助言Turn数拒否には任意の`ProviderTurnCountDiagnostic`を付ける。有無は`valueType: missing`等の固定型名で、有限数値は`numberText`の正規化済み数値表記で返す。数値以外の入力本文は返さない。成功EnvelopeのTurn数検査が失敗した場合だけ付加し、成功、別の拒否理由、Codex又はTaskへ診断を流用しない。既存受理条件・返却本文・実行許可は変更しない。
+実行量の制限と結果の受理を分離する。Claudeの`--max-turns`はCLI実行上限として維持するが、結果の`num_turns`とは同一単位とみなさず、助言・Task・boolean Probeのいずれも要求上限との比較で拒否しない。報告回数は正の安全整数の観測情報として扱う。CLIが上限到達又は構造化出力再試行失敗を返せば成功にせず、正常終了・成功Envelope・回答Schema等の既存検査を維持する。Codexへ独自のターン上限を追加せず、`turn.completed`一件と失敗イベント不存在は一依頼の終端契約として維持する。既存Timeout・容量制限・取消・回収は変更しない。
+
+`parseProviderResult`のClaude助言Turn metadata不正には任意の`ProviderTurnCountDiagnostic`を付ける。有無は`valueType: missing`等の固定型名で、有限数値は`numberText`の正規化済み数値表記で返す。数値以外の入力本文は返さない。成功Envelopeの型・正の安全整数検査が失敗した場合だけ付加し、成功、別の拒否理由、Codex又はTaskへ診断を流用しない。過去の上限比較による拒否診断は当時の観測として保持し、現行の判定根拠へ流用しない。
 
 ## 6. Failureと回復
 
@@ -199,7 +201,7 @@ Codex構成診断は`projectCodexExecutionBoundary`がpayload argvだけを受�
 | 結果 | Taskと助言で異なる容量・Record条件・拒否順を保持。共通Task Schemaと品質判断は上位 |
 | 取消・資源 | 上位が同じOperationのProcess終了・資源回収を確認。変換完了をcleanup完了にしない |
 
-Codexの16KiBとClaudeの2 turns／0.10はboolean Probe normalizerの固定契約であり、課金やProcess終了の保証ではない。Codex容量はUTF-8 bytesで16,383／16,384を受理、16,385を拒否する。Claudeの容量へ同じ値を推測適用しない。
+Codexの16KiBとClaudeの0.10はboolean Probe normalizerの固定契約であり、課金やProcess終了の保証ではない。Claudeの起動上限2は返却回数の上限検査に使わない。Codex容量はUTF-8 bytesで16,383／16,384を受理、16,385を拒否する。Claudeの容量へ同じ値を推測適用しない。
 
 ### 7.3. QA導出と残る照合
 

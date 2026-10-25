@@ -403,7 +403,7 @@ test("一般TaskはRole別built-in tools、stdin、Provider Home denyへ固定�
   assert.equal(executor.hardMaximumTurns, 16);
   assert.equal(
     executor.hardMaximumTurnsBasis,
-    "runtime_result_acceptance_guard_independent_of_provider_requested_turn_target",
+    "validated_task_scope_planning_cap_not_result_acceptance",
   );
   assert.equal(
     executor.argv[executor.argv.indexOf("--permission-mode") + 1],
@@ -628,7 +628,10 @@ test("ClaudeのCLI制約とPlan単体のEffect非発行を説明する", () => {
     minimum: 4,
     maximum: 16,
   });
-  assert.equal(contract.isolatedTask.resultAcceptanceMaximumTurns, 16);
+  assert.equal(
+    contract.isolatedTask.reportedTurnsDisposition,
+    "positive_safe_integer_metadata_not_execution_round_limit",
+  );
   assert.equal(contract.isolatedTask.taskPromptTransport, "stdin_only");
   assert.equal("activationGates" in contract, false);
 });

@@ -11,13 +11,13 @@ const TASK_MAXIMUM_RAW_BYTES = 65_536;
 
 /**
  * 用途別の結果解析入力を表す。
- * @responsibility Task役割・受理Turn上限と助言入力を区別する。
+ * @responsibility Task役割と助言入力を区別する。
  * @trace ARCH-000015
  * @shape purposeで識別する閉じた入力。
  * @invariant 用途ごとの容量・受理条件を共有しない。
  * @boundary Provider出力と共通解析入口。
  * @security 入力は未信頼の値として検証する。
- * @compatibility 既存Task／助言の受理条件を維持する。
+ * @compatibility Task／助言のEnvelope・Schema境界を維持し、報告回数を要求上限と比較しない。
  */
 export type ProviderResultInput =
   | Readonly<{ provider: AiProvider; purpose: "advice"; raw: unknown }>
@@ -25,7 +25,6 @@ export type ProviderResultInput =
       provider: AiProvider;
       purpose: "task";
       taskRole: "executor" | "reviewer";
-      resultAcceptanceMaximumTurns: number;
       raw: string;
     }>;
 
@@ -49,7 +48,7 @@ export type ProviderResultReason =
  * @responsibility 未信頼文字列・Object本文を診断へ複製しない。
  * @trace ARCH-000015
  * @shape 欠落を区別する固定型名と、有限数値を正規化した短い文字列表記又はnull。
- * @invariant 観測値は受理上限や実行許可を変更しない。
+ * @invariant 観測値は受理判定や実行許可を変更しない。
  * @boundary Provider出力の抽出と上位の一次失敗診断。
  * @security 数値以外の実値・生Envelopeを含めない。
  * @compatibility 既存結果への任意の診断追加。
@@ -107,7 +106,7 @@ export type ProviderResultParseResult<
  * @trace ARCH-000015
  * @input input: Provider、用途、未信頼出力とTask固有の受理条件。
  * @returns 解析値又は固定理由。Schema判断は含まない。
- * @precondition 呼出し側がTaskの受理Turn上限を共通Scope評価から導出する。
+ * @precondition 呼出し側がTask役割とProviderを確定する。
  * @postcondition 拒否では結果本文を返さない。
  * @effect N/A: 同期の解析だけを行う。
  * @failure 不正用途・Provider・入力又は既存抽出条件の不成立を拒否する。
@@ -123,13 +122,7 @@ export function parseProviderResult<const I extends ProviderResultInput>(
     snapshotPlainRecord(candidate, new Set(["provider", "purpose", "raw"])) ??
     snapshotPlainRecord(
       candidate,
-      new Set([
-        "provider",
-        "purpose",
-        "raw",
-        "taskRole",
-        "resultAcceptanceMaximumTurns",
-      ]),
+      new Set(["provider", "purpose", "raw", "taskRole"]),
     );
   if (
     !snapshot ||
@@ -186,16 +179,13 @@ export function parseProviderResult<const I extends ProviderResultInput>(
   } else if (
     typeof input.raw !== "string" ||
     Buffer.byteLength(input.raw, "utf8") > TASK_MAXIMUM_RAW_BYTES ||
-    (input.taskRole !== "executor" && input.taskRole !== "reviewer") ||
-    !Number.isInteger(input.resultAcceptanceMaximumTurns) ||
-    input.resultAcceptanceMaximumTurns < 0
+    (input.taskRole !== "executor" && input.taskRole !== "reviewer")
   ) {
     reason = "provider_task_result_json_invalid";
   } else {
     const extracted = extractProviderTaskEnvelope(
       provider,
       input.taskRole,
-      input.resultAcceptanceMaximumTurns,
       input.raw,
     );
     reason = extracted.reason;
@@ -261,9 +251,9 @@ function isTaskEnvelopeRecord(
  *
  * @responsibility Codex JSONLとClaude Resultの搬送形式・Turns・Usageを解釈し、Task採否を行わない。
  * @trace ARCH-000015
- * @input provider: "codex" | "claude"、taskRole: "executor" | "reviewer"、resultAcceptanceMaximumTurns: number、raw: string
+ * @input provider: "codex" | "claude"、taskRole: "executor" | "reviewer"、raw: string
  * @returns 構造化入力、固定拒否理由、報告Turn数と本文非公開のCodex実行観測。
- * @precondition 呼出し側がProvider・Role・受理Turn上限と出力全体のbyte上限を検証している。
+ * @precondition 呼出し側がProvider・Roleと出力全体のbyte上限を検証している。
  * @postcondition 共通Executor／Reviewer Schemaの判定は呼出し側へ残す。
  * @effect N/A: 文字列の純粋解析だけを行う。
  * @failure 不正JSONL、失敗Envelope、Turn超過、不正課金情報とReviewer搬送不正を区別して拒否する。
@@ -275,7 +265,6 @@ function isTaskEnvelopeRecord(
 function extractProviderTaskEnvelope(
   provider: "codex" | "claude",
   taskRole: "executor" | "reviewer",
-  resultAcceptanceMaximumTurns: number,
   raw: string,
 ) {
   let parsed = parseUnambiguousJsonDocument(raw);
@@ -479,18 +468,12 @@ function extractProviderTaskEnvelope(
   }
   if (
     typeof numberOfTurns !== "number" ||
-    !Number.isInteger(numberOfTurns) ||
+    !Number.isSafeInteger(numberOfTurns) ||
     numberOfTurns < 1
   ) {
     return Object.freeze({
       value: null,
       reason: "provider_task_result_turn_count_invalid" as const,
-    });
-  }
-  if (numberOfTurns > resultAcceptanceMaximumTurns) {
-    return Object.freeze({
-      value: null,
-      reason: "provider_task_result_turn_limit_mismatch" as const,
     });
   }
   if (typeof cost !== "number" || !Number.isFinite(cost) || cost < 0) {
@@ -654,7 +637,7 @@ function extractCodex(raw: string) {
 /**
  * Claude JSON envelopeからSchema検証済み出力を抽出する。
  *
- * @responsibility 1〜2Turnの整数上限、非Error、有限Cost metadataおよびstructured_outputの通常Recordを確認し、最初の不成立層だけを固定理由で返す。
+ * @responsibility 正の安全整数のTurn metadata、非Error、有限Cost metadataおよびstructured_outputの通常Recordを確認し、最初の不成立層だけを固定理由で返す。
  * @trace ARCH-000015
  * @input raw: Claude CLI JSON envelope。
  * @returns structured_outputの一意なJSON文字列または拒否結果。
@@ -679,9 +662,8 @@ function extractClaude(raw: string) {
     return blocked("workbench_ai_claude_completion_invalid");
   if (
     typeof envelope.num_turns !== "number" ||
-    !Number.isInteger(envelope.num_turns) ||
-    envelope.num_turns < 1 ||
-    envelope.num_turns > 2
+    !Number.isSafeInteger(envelope.num_turns) ||
+    envelope.num_turns < 1
   )
     return blocked(
       "workbench_ai_claude_turn_count_invalid",

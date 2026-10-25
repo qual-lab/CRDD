@@ -149,7 +149,6 @@ test("共通結果APIは用途・容量・上位Schema判断を区別する", ()
     provider: "codex",
     purpose: "task",
     taskRole: "executor",
-    resultAcceptanceMaximumTurns: 0,
     raw: '{"status":true}',
   } as const;
   const parsed = parseProviderResult(input);

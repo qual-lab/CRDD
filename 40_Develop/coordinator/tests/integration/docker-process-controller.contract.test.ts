@@ -1714,7 +1714,7 @@ test("作成境界の一次失敗を清掃結果から分離する", async () =>
  *
  * @responsibility 第3実行モードのPlan受理、Provider Envelope除去および終了後公開境界を判定する。
  * @trace ERB-IT-002
- * @precondition 有効なAdvice Packet IdentityとClaude二Turn出力を使用する。
+ * @precondition 有効なAdvice Packet IdentityとClaudeの正の安全整数metadataを使用する。
  * @stimulus Process Controllerでworkbench_advice Planを完了する。
  * @observation completionのstatus、cleanupおよびnormalizedResultを観測する。
  * @oracle 生Envelopeを含めずadviceJsonだけをcleanup確認後に返す。
@@ -1722,71 +1722,84 @@ test("作成境界の一次失敗を清掃結果から分離する", async () =>
  * @boundary ERB-IT-002=Direct Boundary: coordinator Test Source→対象契約
  */
 test("Workbench助言出力をcleanup後の助言JSONへ縮約する", async () => {
-  const advice = {
-    contract: "crdd-coordinator/workbench-ai-advice-result",
-    contractRevision: 1,
-    status: "completed",
-    facts: [
-      { text: "Current state is visible.", references: ["PROJECT_CONTEXT.md"] },
-    ],
-    sharedAnalysis: [],
-    additionalInferences: [],
-    nextOptions: [],
-  };
+  for (const reportedTurns of [2, 3, 17, Number.MAX_SAFE_INTEGER]) {
+    const advice = {
+      contract: "crdd-coordinator/workbench-ai-advice-result",
+      contractRevision: 1,
+      status: "completed",
+      facts: [
+        {
+          text: "Current state is visible.",
+          references: ["PROJECT_CONTEXT.md"],
+        },
+      ],
+      sharedAnalysis: [],
+      additionalInferences: [],
+      nextOptions: [],
+    };
 
-  const fixture = createFixture(
-    {
-      startCommand: (command: { purpose: string }) => {
-        const isProvider = command.purpose === "start_provider_attached";
-        const isAuth =
-          command.purpose === "start_subscription_auth_probe_attached";
-        return Object.freeze({
-          started: async () => true,
-          wait: async () =>
-            Object.freeze({
-              status: 0,
-              signal: null,
-              stdout: isProvider
-                ? createProviderOutput({
-                    num_turns: 2,
-                    structured_output: advice,
-                  })
-                : isAuth
-                  ? createSubscriptionAuthOutput()
-                  : "",
-              stderr: "",
-              outputExceeded: false,
-            }),
-          terminateAndWait: async () => true,
-        });
+    const fixture = createFixture(
+      {
+        startCommand: (command: { purpose: string }) => {
+          const isProvider = command.purpose === "start_provider_attached";
+          const isAuth =
+            command.purpose === "start_subscription_auth_probe_attached";
+          return Object.freeze({
+            started: async () => true,
+            wait: async () =>
+              Object.freeze({
+                status: 0,
+                signal: null,
+                stdout: isProvider
+                  ? createProviderOutput({
+                      num_turns: reportedTurns,
+                      structured_output: advice,
+                    })
+                  : isAuth
+                    ? createSubscriptionAuthOutput()
+                    : "",
+                stderr: "",
+                outputExceeded: false,
+              }),
+            terminateAndWait: async () => true,
+          });
+        },
       },
-    },
-    {
-      operationMode: "workbench_advice",
-      taskRole: null,
-      taskPacketRef: null,
-      taskPacketHash: null,
-      advicePacketRef: "ADVICEPKT-00112233445566778899AABBCCDDEEFF",
-      advicePacketHash: "a".repeat(64),
-      adviceCommandHash: "b".repeat(64),
-      providerInput: "Give advice from the supplied projection.",
-      workspaceSourcePath: null,
-      workspaceMountMode: null,
-    },
-  );
-  const started = fixture.controller.start(
-    fixture.preparedCapability,
-    fixture.managementCapability,
-  );
-  assert.equal(started.status, "started");
-  const completion = await started.completion;
-  assert.equal(completion.status, "completed");
-  assert.deepEqual(completion.normalizedResult, {
-    contract: "crdd-coordinator/workbench-ai-advice-provider-output",
-    contractRevision: 1,
-    adviceJson: JSON.stringify(advice),
-  });
-  assert.equal(completion.cleanupConfirmed, true);
+      {
+        operationMode: "workbench_advice",
+        taskRole: null,
+        taskPacketRef: null,
+        taskPacketHash: null,
+        advicePacketRef: "ADVICEPKT-00112233445566778899AABBCCDDEEFF",
+        advicePacketHash: "a".repeat(64),
+        adviceCommandHash: "b".repeat(64),
+        providerInput: "Give advice from the supplied projection.",
+        workspaceSourcePath: null,
+        workspaceMountMode: null,
+      },
+    );
+    const started = fixture.controller.start(
+      fixture.preparedCapability,
+      fixture.managementCapability,
+    );
+    assert.equal(started.status, "started");
+    const completion = await started.completion;
+    assert.equal(completion.status, "completed");
+    assert.deepEqual(completion.normalizedResult, {
+      contract: "crdd-coordinator/workbench-ai-advice-provider-output",
+      contractRevision: 1,
+      adviceJson: JSON.stringify(advice),
+    });
+    assert.equal(completion.cleanupConfirmed, true);
+    const terminal = fixture.controller.borrowTerminalObservations(
+      completion,
+      fixture.managementCapability,
+      fixture.plan.operationId,
+      started.recoveryId,
+    );
+    assert.ok(terminal);
+    assert.equal(terminal.primaryFailure, null);
+  }
 });
 
 /**
@@ -1817,7 +1830,7 @@ test("助言抽出の固定拒否理由を清掃後に上位へ搬送する", as
       ["[]", "array", null],
       ['{"secret":"must-not-escape"}', "object", null],
       ["0", "number", 0],
-      ["3", "number", 3],
+      ["9007199254740992", "number", 9007199254740992],
       ["1.5", "number", 1.5],
     ].map(
       ([value, valueType, numberText]) =>
@@ -4597,8 +4610,6 @@ test("隔離TaskのRole別Resultだけをcleanup後に公開する", async () =>
       taskRole: "reviewer",
       requestedMaximumTurns: 5,
       providerReportedTurns: 3,
-      resultAcceptanceMaximumTurns: 16,
-      requestedTurnTargetExceeded: false,
     },
   });
   assert.equal(result.rawOutputReported, false);
@@ -4623,7 +4634,10 @@ test("Claude Envelopeの拒否理由を実Controllerから全consumerへ回収�
     [{ subtype: "unknown" }, "provider_task_result_envelope_status_invalid"],
     [{ num_turns: 0 }, "provider_task_result_turn_count_invalid"],
     [{ subtype: "error_max_turns" }, "provider_turn_limit_exceeded"],
-    [{ num_turns: 17 }, "provider_task_result_turn_limit_mismatch"],
+    [
+      { num_turns: Number.MAX_SAFE_INTEGER + 1 },
+      "provider_task_result_turn_count_invalid",
+    ],
     [{ total_cost_usd: -1 }, "provider_task_result_cost_metadata_invalid"],
     [{ result: undefined }, "provider_task_reviewer_result_transport_invalid"],
   ] as const;

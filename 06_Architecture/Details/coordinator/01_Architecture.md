@@ -711,18 +711,18 @@ Effect／cleanupを独立観測
 - Effect前の取消はProvider呼出し0で閉じる。Effect後の例外・取消・cleanup不明は自動再送せず`unknown`へ保つ。
 - `completed`は、Provider Effect発行、cleanup確認、単一JSONおよび許可済み参照だけを持つ結果がすべて確認できた場合に限る。
 - 現行Production CompositionはこのDispatch、Provider別の固定Adapter選択、読取り助言専用Execution Planまで接続する。Execution PlanはProvider、完全選定十項目、対象role／attempt、Task／Projection Hashを固定し、Promptを標準入力だけで搬送する。Repository／Workspace mount、Tool、Session保持、API Key／有料fallbackを許可しない。
-- Provider Command Planは固定配布物のCLI Path／Image Digestへexact Modelと推論強度を接続する。Codexは公開設定による操作抑制を伴う標準入力とJSONL、ClaudeはTool無効の標準入力とJSON envelope／inline Schemaを用いる。Provider Executor Coreは事前取消、Runtime拒否、cleanup不明および例外を成功へ畳まず、Codexの既知通知と最終結果を分離し、未知通知・不正Item・Errorを拒否する。Claude助言は人間承認済みPilotとして内部Turn上限を2に固定し、整数の1〜2Turn成功Envelopeから`structured_output`だけを共通Result Parserへ渡す。0、上限超過、不正型、失敗Envelopeおよび出力欠落は拒否する。内部Turnは一つの依頼・一回消費Packet・一つのProvider Processの中に限定し、Tool、Repository／Workspace共有、Session保持または自動再送のAuthorityを新設しない。実Providerでの成立確認後に正式化を判断し、Pilotの局所成功だけを利用可能またはRelease可能と表示しない。Session、Cost、Usage、生Eventおよび生Provider出力は公開しない。
+- Provider Command Planは固定配布物のCLI Path／Image Digestへexact Modelと推論強度を接続する。Codexは公開設定による操作抑制を伴う標準入力とJSONL、ClaudeはTool無効の標準入力とJSON envelope／inline Schemaを用いる。Provider Executor Coreは事前取消、Runtime拒否、cleanup不明および例外を成功へ畳まず、Codexの既知通知と最終結果を分離し、未知通知・不正Item・Errorを拒否する。Claude助言はCLIの起動上限を2に固定し、正の安全整数のTurn metadataを持つ成功Envelopeから`structured_output`だけを共通Result Parserへ渡す。0、負数、小数、安全整数でない値、不正型、失敗Envelopeおよび出力欠落は拒否する。報告回数をCLI起動上限とは比較しない。内部Turnは一つの依頼・一回消費Packet・一つのProvider Processの中に限定し、Tool、Repository／Workspace共有、Session保持または自動再送のAuthorityを新設しない。実Providerでの成立確認後に正式化を判断し、Pilotの局所成功だけを利用可能またはRelease可能と表示しない。Session、Cost、Usage、生Eventおよび生Provider出力は公開しない。
 - Codex助言のJSONLでは、`agent_message`、`reasoning`、`command_execution`、`file_change`、`mcp_tool_call`、`collab_tool_call`、`web_search`、`todo_list`を既知通知として分類する。最終助言以外の通知は結果本文へ投影しない。思考本文は助言、診断または根拠へ投影しない。最終回答は`item.completed`の`agent_message`一件だけから抽出し、本文欠落・不正型を拒否する。`item.started`、`item.updated`、`item.completed`のいずれでも未知Item種別、Errorまたは不正Itemを拒否し、未知の`item.*`も検査を迂回させない。正常な思考通知とTool操作の区別は[Codexの公式通知形式](https://learn.chatgpt.com/docs/non-interactive-mode)に基づく。思考通知の本文Fieldは結果成立の根拠に使用せず、未確認の段階別必須Fieldを推測で要求しない。
 - Executor Coreと現在Runtime Adapterの間では、Operation、完全選定、Task／Projection Hash、Provider PromptおよびProvider Command Hashを`ADVICEPKT-*`へ固定する一回消費Packetを使用する。PacketはRepository／Workspace共有、ToolおよびSessionを常に`false`とし、CodexのTool fieldはCRDDによる追加Tool権限の非付与を表す。公式CLI内部の操作不存在の証明にはしない。別Ownerによる消費、再利用および未使用取消後の利用を拒否する。Packet発行だけではProvider Effect Authorityを生成しない。
 - Coordinatorの実Docker lifecycleへ`workbench_advice`専用Modeを接続する。Boolean ProbeまたはWorkspace付き一般Taskを流用せず、現在の用途別許可、固定入口と必要Artifact同一性、Operation世代、元Repository Identity結合、Provider Home、Selection、限定Egress、取消、Docker Recovery、Host cleanupおよび最終Recovery確定を同じLifecycleで所有する。元Repositoryへの結合はSelection AuthorityのScope確認にだけ用い、ProviderへのRepository／Workspace Mount、Path搬送または任意読取りAuthorityを生成してはならない（MUST NOT）。Task／Projection／完全選定Hash／Command Identityを一回消費Packetへ結合し、HostとDockerのcleanupが確定するまで助言JSONを公開してはならない（MUST NOT）。助言の旧署名資格の引数・発行・消費はSourceと本番Launcherから撤去した。通常Task・候補生成・Orchestratorの旧GateもSourceから撤去済みである。撤去後の全体回帰・実境界確認と実Provider／全体E2Eは残る。局所成立を本目標の全体成立と区別する。
 
-Claude助言の拒否理由は、通常の結果搬送で次の順に検査する。最初に不成立となった層だけを返し、後続条件が成立したことや外部CLIの原因まで確定したことを意味しない。受理条件、Turn上限、取消、資源回収および自動再送禁止は変更しない。
+Claude助言の拒否理由は、通常の結果搬送で次の順に検査する。最初に不成立となった層だけを返し、後続条件が成立したことや外部CLIの原因まで確定したことを意味しない。CLI起動上限、取消、資源回収および自動再送禁止を維持する。結果のTurn metadataは正の安全整数で検査し、要求上限とは比較しない。
 
 | 検査順 | 不成立の範囲 | 固定理由 |
 |---|---|---|
 | 1 | 一意なJSONの通常Recordではない | `workbench_ai_claude_envelope_invalid` |
 | 2 | `result`／`success`／非Errorの完了状態ではない | `workbench_ai_claude_completion_invalid` |
-| 3 | 整数の1〜2Turnではない | `workbench_ai_claude_turn_count_invalid` |
+| 3 | 正の安全整数のTurn metadataではない | `workbench_ai_claude_turn_count_invalid` |
 | 4 | Cost情報が有限の非負数ではない | `workbench_ai_claude_metadata_invalid` |
 | 5 | `structured_output`が欠落、または通常Recordではない | `workbench_ai_claude_structured_output_invalid` |
 
@@ -942,7 +942,7 @@ Host上のDocker CLIは固定の公式配置からだけ取得し、OSが有効�
 
 Authenticode検査を実行するPowerShellには、Docker CLI用の中立化環境を流用しない。Native OS観測から検証したWindows Directoryと現在主体のUser Profileを基に、`SystemRoot`、`WINDIR`、`USERPROFILE`、OS標準Directoryだけの`PATH`および固定`PATHEXT`からなる専用環境を構成する。親Processの環境値、Proxy、Credential、NodeまたはDocker設定は継承せず、PowerShellのAuthenticode機能の成立に必要なOS初期化情報だけを与える。直接起動だけでなく、中立化したRuntime子Processからの多段起動でも同じ検査が成立することを結合試験する。環境更新をVersion／Hash固定で拒否せず、署名検査Process自体とPublisher Trustの両方を確認できない場合だけDocker Effect前に停止する。
 
-Providerへ指定するturn数は、検証済み作業量から算出する実行目標であり、Runtimeが直接強制した絶対上限とは扱わない。Providerが指定値を超える成功応答を返し得る境界では、Runtime所有のtimeout、出力量およびProcess停止を実効的な強制境界とし、Provider報告turn数は別の絶対受理上限まで検証する。指定値超過を正常な上限遵守へ読み替えず、有用性評価とProvider更新判断で追跡する。絶対受理上限を超える結果、turn数が不正な結果または上限到達を示す失敗結果は採用しない。
+Claudeの`--max-turns`は既存CLIの実行制限として維持し、Taskでは検証済み作業量から要求値を導出し計画上限16を超える要求は分割する。返却される`num_turns`を同じ単位とみなさず、正の安全整数の観測情報として保持するだけとし、要求値又は計画上限との比較で受理・拒否を決めない。観測はProvider・役割・要求上限・報告回数に限り、上限超過の判定fieldを作らない。CLIが上限到達又はその他の失敗を返す場合は成功にせず、Process終了・成功Envelope・回答Schemaの既存検査を維持する。Runtime所有のTimeout、出力量、取消とProcess停止・回収も維持する。Codexには存在を確認できない内部ターン上限を新設せず、`turn.completed`一件は内部往復数ではなく一依頼の終端として検査する。
 
 Provider ProcessのLifecycleはTypeScriptが所有する。固定Digest image、exact Provider CLI versionおよび自動更新停止を管理対象依存として扱う。Shell、PATH、Host既定Home、Host CLIまたはAPI keyへfallbackしない。更新時はimage／CLI Identity、利用側、検証および復旧を再評価し、人間が有効化する。
 
@@ -1913,7 +1913,7 @@ OPEN: Snapshotの実保存Portと現在Writer／Caller、Windows保存primitive�
 
 非0終了の一次診断には、同じCommandの観測値として`commandObservation`（`exitCode`、`stdoutBytes`、`stderrBytes`）を保持する。応答未観測は`null`とし、前Commandの値を転用しない。これはDocker CLIの終了観測であり、Container内AIの開始又は終了を単独では証明しない。過去記録の欠落はゼロへ補完しない。生本文は保存しない。
 
-Claude助言の`workbench_ai_claude_turn_count_invalid`では、同じ成功EnvelopeからAI Adapterが抽出した任意の`turnCountDiagnostic`を一次失敗へ保持する。`valueType`は`missing / null / boolean / number / string / array / object`、`numberText`は有限数値だけを`String(number)`で正規化した最大32文字の数値表記又はnullとする。`missing`が項目不存在を表し、文字列・配列・Object等の実値は保存しない。既存の整数限定の状態保存を変更せず、小数も数値表記として保持する。付加できるのは`start_provider_attached`・`provider_result_normalization`・同じ固定理由・応答観測あり・終了0の場合だけ。受理条件の1〜2整数は変えず、有効範囲の値を失敗診断へ追加しない。過去の診断欠測を補完せず、別Commandへの持越し・生出力の保存・再送は行わない。
+Claude助言の`workbench_ai_claude_turn_count_invalid`では、同じ成功EnvelopeからAI Adapterが抽出した任意の`turnCountDiagnostic`を一次失敗へ保持する。`valueType`は`missing / null / boolean / number / string / array / object`、`numberText`は有限数値だけを`String(number)`で正規化した最大32文字の数値表記又はnullとする。`missing`が項目不存在を表し、文字列・配列・Object等の実値は保存しない。既存の整数限定の状態保存を変更せず、小数も数値表記として保持する。付加できるのは`start_provider_attached`・`provider_result_normalization`・同じ固定理由・応答観測あり・終了0の場合だけ。現在のProducerは型・正の安全整数検査に失敗した場合だけ診断し、3等の正常metadataを拒否しない。保存・履歴Validatorは過去の上限比較による数値3等の診断も当時の記録として読める条件を維持する。旧記録を現行受理の失敗へ再解釈しない。過去の診断欠測を補完せず、別Commandへの持越し・生出力の保存・再送は行わない。
 
 Codex非0終了は既知stderr分類を優先し、未分類時だけ容量・行数・行長を制限したJSONLの`error.message`又は`turn.failed.error.message`を既存理由へ分類する。通常回答本文、未知・重複キー・不正・過大入力を診断へ昇格せず、原文を返さない。実行許可・隔離・清掃条件は変更しない。
 

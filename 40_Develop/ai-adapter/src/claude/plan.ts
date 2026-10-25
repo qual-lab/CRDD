@@ -15,7 +15,7 @@ import type { ProviderExecutionLocations } from "../provider/types.ts";
 
 export const CLAUDE_EXECUTION_PLAN_CONTRACT =
   "crdd-coordinator/claude-execution-plan";
-export const CLAUDE_EXECUTION_PLAN_CONTRACT_REVISION = 17;
+export const CLAUDE_EXECUTION_PLAN_CONTRACT_REVISION = 18;
 
 /**
  * 検証済みModelと推論強度をClaude固有のCLI引数へ結合する。
@@ -50,7 +50,7 @@ export const CLAUDE_FORBIDDEN_ENVIRONMENT_NAMES = Object.freeze([
   "NO_PROXY",
 ]);
 
-export const CLAUDE_RESULT_ACCEPTANCE_MAXIMUM_TURNS = 16;
+export const CLAUDE_TASK_MAXIMUM_TURNS = 16;
 const TASK_WORKLOAD_KEYS = new Set([
   "readPathCount",
   "allowedPathCount",
@@ -61,7 +61,7 @@ const TASK_WORKLOAD_KEYS = new Set([
 /**
  * Claude TaskのTurn予算を評価する。
  *
- * @responsibility 役割と作業量に基づく要求上限と受理上限を所有する。
+ * @responsibility 役割と作業量に基づくCLI要求上限と計画上限を所有する。
  * @trace ARCH-000010
  * @input taskRole: unknown、taskWorkload: unknown
  * @returns 候補予算又はblocked。
@@ -102,16 +102,16 @@ export function planClaudeTaskTurnBudget(
     (taskRole === "executor" ? 2 : 1) * (workload.allowedPathCount as number) +
     Math.ceil((workload.acceptanceCriterionCount as number) / 4) +
     Math.ceil((workload.remediationFindingCount as number) / 4);
-  if (estimatedTurns > CLAUDE_RESULT_ACCEPTANCE_MAXIMUM_TURNS)
+  if (estimatedTurns > CLAUDE_TASK_MAXIMUM_TURNS)
     return blocked("claude_task_workload_split_required");
   return Object.freeze({
     status: "candidate" as const,
     maximumTurns: Math.max(taskRole === "executor" ? 8 : 4, estimatedTurns),
-    hardMaximumTurns: CLAUDE_RESULT_ACCEPTANCE_MAXIMUM_TURNS,
+    hardMaximumTurns: CLAUDE_TASK_MAXIMUM_TURNS,
     basis:
       "validated_task_scope_counts_not_file_count_or_completion_prediction" as const,
     hardMaximumTurnsBasis:
-      "runtime_result_acceptance_guard_independent_of_provider_requested_turn_target" as const,
+      "validated_task_scope_planning_cap_not_result_acceptance" as const,
     taskWorkload: Object.freeze(workload),
   });
 }
@@ -510,9 +510,8 @@ export function describeClaudeExecutionPlanContract() {
       requestedMaximumTurnsRange: Object.freeze({ minimum: 4, maximum: 16 }),
       requestedMaximumTurnsBasis:
         "validated_task_scope_counts_with_role_specific_floor",
-      resultAcceptanceMaximumTurns: CLAUDE_RESULT_ACCEPTANCE_MAXIMUM_TURNS,
-      resultAcceptanceMaximumTurnsBasis:
-        "runtime_guard_independent_of_provider_requested_turn_target",
+      reportedTurnsDisposition:
+        "positive_safe_integer_metadata_not_execution_round_limit",
       maximumBudgetUsdByEffort: null,
       apiEquivalentUsdBudgetDisposition:
         "not_applied_to_subscription_only_execution",

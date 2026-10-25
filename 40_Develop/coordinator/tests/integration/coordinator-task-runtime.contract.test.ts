@@ -1412,13 +1412,8 @@ function fixture(
                         requestedMaximumTurns: 8,
                         providerReportedTurns:
                           options.providerTurnObservation === "invalid_maximum"
-                            ? 17
+                            ? Number.MAX_SAFE_INTEGER + 1
                             : 9,
-                        resultAcceptanceMaximumTurns:
-                          options.providerTurnObservation === "invalid_maximum"
-                            ? 17
-                            : 16,
-                        requestedTurnTargetExceeded: true,
                       }),
                     }
                   : {}),
@@ -2668,8 +2663,6 @@ test("検証済みProvider turn観測をcleanup後のTask結果へ伝播する",
       taskRole: "executor",
       requestedMaximumTurns: 8,
       providerReportedTurns: 9,
-      resultAcceptanceMaximumTurns: 16,
-      requestedTurnTargetExceeded: true,
       attempt: 0,
     },
   ]);
@@ -5227,14 +5220,14 @@ test("外周cleanup中の重複取消はliveな同じPromiseへ収束しcleanup�
  */
 test("公開契約は4経路、独立Reviewer、stdin、非canonical Effectを固定する", () => {
   const contract = describeCoordinatorTaskRuntimeContract();
-  assert.equal(contract.contractRevision, 36);
+  assert.equal(contract.contractRevision, 37);
   assert.equal(
     contract.productionPackageGate,
     "not_required_for_runtime_execution",
   );
   assert.equal(
     contract.providerTurnObservations,
-    "validated_non_authority_requested_reported_absolute_limit_and_target_exceeded_after_cleanup_for_each_accepted_claude_stage",
+    "provider_role_requested_cli_limit_and_reported_positive_safe_integer_metadata_without_comparison_after_cleanup",
   );
   assert.equal(
     contract.successfulHostRecoveryProjection,

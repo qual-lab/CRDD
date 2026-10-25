@@ -172,8 +172,6 @@ test("Codex ExecutorとClaude Reviewerのexact Resultを正規化する", () => 
     taskRole: "reviewer",
     requestedMaximumTurns: 5,
     providerReportedTurns: 3,
-    resultAcceptanceMaximumTurns: 16,
-    requestedTurnTargetExceeded: false,
   });
   assert.equal(claudeResult.untrustedProviderTextReported, false);
   assert.equal(claudeResult.credentialAbsenceVerified, false);
@@ -563,7 +561,10 @@ test("Claude Envelope拒否を値の非公開と受理条件を維持して分�
       { num_turns: turnCount },
       "provider_task_result_turn_count_invalid",
     ]),
-    [{ num_turns: 17 }, "provider_task_result_turn_limit_mismatch"],
+    [
+      { num_turns: Number.MAX_SAFE_INTEGER + 1 },
+      "provider_task_result_turn_count_invalid",
+    ],
     ...[undefined, null, "0", -1].map((totalCostUsd) => [
       { total_cost_usd: totalCostUsd },
       "provider_task_result_cost_metadata_invalid",
@@ -751,18 +752,18 @@ test("Reviewerの外形拒否は本文を出さず構造条件ごとに分類す
 });
 
 /**
- * Claudeの実行目標と結果受理の絶対上限を分離するを検証する。
+ * ClaudeのCLI計画上限と報告metadataを比較せず受理するを検証する。
  *
- * @responsibility Claudeの実行目標と結果受理の絶対上限を分離するの合否判定を所有する。
+ * @responsibility ClaudeのCLI計画上限と報告metadataを比較せず受理するの合否判定を所有する。
  * @trace RCM-UT-016
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Claudeの実行目標と結果受理の絶対上限を分離するの対象操作を実行する。
+ * @stimulus ClaudeのCLI計画上限と報告metadataを比較せず受理するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary RCM-UT-016=Direct Boundary: coordinator Test Source→対象契約
  */
-test("Claudeの実行目標と結果受理の絶対上限を分離する", () => {
+test("ClaudeのCLI計画上限と報告metadataを比較せず受理する", () => {
   const expectedLimits = {
     executor: { low: 8, medium: 8, high: 8 },
     reviewer: { low: 5, medium: 5, high: 5 },
@@ -801,7 +802,7 @@ test("Claudeの実行目標と結果受理の絶対上限を分離する", () =>
       assert.equal(plan.hardMaximumTurns, 16);
       assert.equal(
         plan.hardMaximumTurnsBasis,
-        "runtime_result_acceptance_guard_independent_of_provider_requested_turn_target",
+        "validated_task_scope_planning_cap_not_result_acceptance",
       );
       for (const turns of [
         -1,
@@ -813,6 +814,8 @@ test("Claudeの実行目標と結果受理の絶対上限を分離する", () =>
         limit + 1,
         16,
         17,
+        Number.MAX_SAFE_INTEGER,
+        Number.MAX_SAFE_INTEGER + 1,
       ]) {
         const raw =
           taskRole === "executor"
@@ -826,9 +829,7 @@ test("Claudeの実行目標と結果受理の絶対上限を分離する", () =>
         );
         assert.equal(
           result.status,
-          Number.isInteger(turns) && turns >= 1 && turns <= 16
-            ? "confirmed"
-            : "blocked",
+          Number.isSafeInteger(turns) && turns >= 1 ? "confirmed" : "blocked",
           `${taskRole}/${effort}/${turns}`,
         );
         if (result.status === "confirmed") {
@@ -837,8 +838,6 @@ test("Claudeの実行目標と結果受理の絶対上限を分離する", () =>
             taskRole,
             requestedMaximumTurns: limit,
             providerReportedTurns: turns,
-            resultAcceptanceMaximumTurns: 16,
-            requestedTurnTargetExceeded: turns > limit,
           });
         }
       }
@@ -847,18 +846,18 @@ test("Claudeの実行目標と結果受理の絶対上限を分離する", () =>
 });
 
 /**
- * 作業量の有限見積りは全推論で一致し、選定上限を超える結果を拒否するを検証する。
+ * 作業量の有限見積りは全推論で一致し、報告回数とCLI上限を比較しないを検証する。
  *
- * @responsibility 作業量の有限見積りは全推論で一致し、選定上限を超える結果を拒否するの合否判定を所有する。
+ * @responsibility 作業量の有限見積りは全推論で一致し、報告回数とCLI上限を比較しないの合否判定を所有する。
  * @trace RCM-UT-016
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 作業量の有限見積りは全推論で一致し、選定上限を超える結果を拒否するの対象操作を実行する。
+ * @stimulus 作業量の有限見積りは全推論で一致し、報告回数とCLI上限を比較しないの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary RCM-UT-016=Direct Boundary: coordinator Test Source→対象契約
  */
-test("作業量の有限見積りは全推論で一致し、選定上限を超える結果を拒否する", () => {
+test("作業量の有限見積りは全推論で一致し、報告回数とCLI上限を比較しない", () => {
   for (const [
     readPathCount,
     allowedPathCount,
@@ -915,7 +914,7 @@ test("作業量の有限見積りは全推論で一致し、選定上限を超�
             claudeReviewer(JSON.parse(REVIEWER), { num_turns: turns }),
             workload,
           ).status,
-          turns <= 16 ? "confirmed" : "blocked",
+          "confirmed",
         );
       }
     }
@@ -995,24 +994,24 @@ test("不明または予算超過の作業量を旧固定値へfallbackしない
 });
 
 /**
- * Claude turn上限、不正cost、重複JSON key、複数documentと巨大出力を拒否するを検証する。
+ * Claude不正Turn metadata、不正cost、重複JSON key、複数documentと巨大出力を拒否するを検証する。
  *
- * @responsibility Claude turn上限、不正cost、重複JSON key、複数documentと巨大出力を拒否するの合否判定を所有する。
+ * @responsibility Claude不正Turn metadata、不正cost、重複JSON key、複数documentと巨大出力を拒否するの合否判定を所有する。
  * @trace RCM-UT-016
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus Claude turn上限、不正cost、重複JSON key、複数documentと巨大出力を拒否するの対象操作を実行する。
+ * @stimulus Claude不正Turn metadata、不正cost、重複JSON key、複数documentと巨大出力を拒否するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary RCM-UT-016=Direct Boundary: coordinator Test Source→対象契約
  */
-test("Claude turn上限、不正cost、重複JSON key、複数documentと巨大出力を拒否する", () => {
+test("Claude不正Turn metadata、不正cost、重複JSON key、複数documentと巨大出力を拒否する", () => {
   assert.equal(
     normalizeFixtureTaskResult(
       "claude",
       "executor",
       "high",
-      claude(JSON.parse(EXECUTOR), { num_turns: 17 }),
+      claude(JSON.parse(EXECUTOR), { num_turns: Number.MAX_SAFE_INTEGER + 1 }),
     ).status,
     "blocked",
   );
@@ -1095,17 +1094,12 @@ test("SubscriptionのAPI相当costは課金Authorityへ昇格せず有限非負�
  */
 test("公開契約は両Provider、両Role、上限とraw非公開を固定する", () => {
   const contract = describeProviderTaskStructuredResultContract();
-  assert.equal(contract.contractRevision, 19);
+  assert.equal(contract.contractRevision, 20);
   assert.deepEqual(contract.providers, ["codex", "claude"]);
   assert.deepEqual(contract.roles, ["executor", "reviewer"]);
-  assert.equal(contract.claudeResultAcceptanceMaximumTurns, 16);
-  assert.equal(
-    contract.claudeResultAcceptanceMaximumTurnsBasis,
-    "runtime_guard_independent_of_provider_requested_turn_target",
-  );
   assert.equal(
     contract.acceptedClaudeTurnObservation,
-    "requested_target_reported_turns_absolute_acceptance_maximum_and_target_exceeded_after_validation",
+    "requested_cli_limit_and_reported_metadata_without_comparison",
   );
   assert.equal(contract.claudeMaximumApiEquivalentCostUsdByEffort, null);
   assert.equal(

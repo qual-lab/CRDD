@@ -1251,6 +1251,26 @@ Workbench通常結合回帰は86件・失敗零で完走した。両Packageの�
 
 結果・履歴・現在状態の安全fieldと二文書を照合した限定独立レビューは残指摘零。文書diffcheckも成功した。
 
+<a id="provider-turn-limit-result-separation"></a>
+
+### CLI実行制限と結果受理の分離 — 2026-10-25
+
+利用者採用方針に基づき、基準`c859f2de7`から結果受理の回数比較を撤去する。変更分類はProvider結果契約の是正であり、Architecture・QA・AI Adapter・Coordinatorの公開契約と利用側を対象とする。起動引数、隔離、認証、送信許可、Timeout・取消・回収の意味は変更しない。過去Evidenceと保持Rootの再評価条件も変更しない。文書・実装・契約試験の限定独立レビューを行い、規範準拠・公開・Releaseの変更や全体監査は対象にしない。今回必要な人間の方針判断は採用済みである。
+
+調査では[公式実行ループ](https://code.claude.com/docs/en/agent-sdk/agent-loop)がmaxTurnsをtool-use round tripsとして説明し、[構造化出力](https://code.claude.com/docs/en/agent-sdk/structured-outputs)が内部StructuredOutputと再検査を説明することを確認した。[公開Issue #1795](https://github.com/anthropics/claude-code-action/issues/1795)は結果num_turnsとCLI上限の単純比較による正常結果拒否を報告するが、2.1.259の利用者報告であり、採用2.1.220の内部処理の直接証明ではない。今回の実測値3と正常終了から、CRDD側比較の誤拒否を是正する。CLIが内部で何を三回数えたかは未確定のままとする。Codexは[公式非対話実行](https://learn.chatgpt.com/docs/non-interactive-mode)と[CLI一覧](https://learn.chatgpt.com/docs/cli/reference)を確認し、同等の公開ターン上限を前提にしない。
+
+| 対象 | 変更・維持する契約 |
+|---|---|
+| Claude三用途 | 助言・Task両役割・boolean Probeのnum_turnsは正の安全整数として検査する。要求値との大小比較なし。3・17・最大安全整数を受理し、0・負数・小数・非数・安全整数超過は拒否 |
+| 起動制限 | 助言／ProbeのCLI上限2と、作業量によるTask要求値・計画上限16を維持。定数は`CLAUDE_TASK_MAXIMUM_TURNS`へ改名し、結果受理上限とは呼ばない |
+| 共通入力API | `ProviderResultInput`から`resultAcceptanceMaximumTurns`を削除。全利用側を新形式へ移行し、互換中継を追加しない |
+| Task観測 | Provider・役割・requestedMaximumTurns・providerReportedTurnsだけを保持。resultAcceptanceMaximumTurns／requestedTurnTargetExceededを撤去し、異なる単位の大小判定を作らない |
+| 契約改訂 | Claude計画18、boolean Probe結果2、Task構造化結果20、Coordinator Task Runtime37。Root export、契約記述と試験を同期 |
+| 成功・失敗 | Process正常終了・成功Envelope・回答Schema等の既存条件を維持。CLI上限到達・再試行枯渇等の失敗を成功にしない。Codexのturn.completed一件／失敗イベントなしは一依頼終端の検査として維持 |
+| 保存・過去記録 | 旧数値3の拒否診断は当時の事実として既存Validator／履歴／Toolで読めるまま保持し、書換えない。旧上限比較の固定理由は履歴等の読取り許容に残るが、新Producerは発行しない。旧結果観測の移行を製品互換処理へ追加せず、必要時はフロントAIの移行対象として区別する |
+
+着手前照合で契約記述・改訂・exportの同時追従を追加した。初回AI Adapterは改名後の公開一覧順序だけが不合格となり追従した。初回影響回帰には旧上限assertの追従漏れと、制限環境のWindows Junction作成EPERMがあり、旧結果を成功へ変更しない。追従・通常Windowsでの影響五Suite295件は成功、公開Runtime契約の是正後固定候補でも拡大十Suite410件が成功した（母集団が重なるため加算しない）。AI Adapter全24件と旧一次失敗の状態／履歴契約一件も成功。独立レビューの公開Runtime契約追従漏れ一件とHeader・試験名の旧説明一件を是正し、同候補の回帰終端と再照合した。結果文書に残った旧時点の説明も歴史記録と明示し、限定最終再確認は全重大度の残指摘零。両Packageの型検査、変更14 TypeScriptの整形・lintとdiffcheckも成功した。実AI・実Docker・資格・保持物は操作しておらず、実測E2E成功は未確認のままである。
+
 <a id="claude-turn-count-diagnostic-once-result"></a>
 
 ### 診断付きClaude読取り一回の結果 — 2026-10-25

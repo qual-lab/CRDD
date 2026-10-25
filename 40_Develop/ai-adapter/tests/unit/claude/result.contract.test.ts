@@ -100,22 +100,22 @@ test("Claude JSON Envelopeからexact boolean Resultだけを正規化する", (
 });
 
 /**
- * 失敗Envelope、turn超過とbudget超過を拒否するを検証する。
+ * 失敗Envelope、不正Turn metadataとbudget超過を拒否するを検証する。
  *
- * @responsibility 失敗Envelope、turn超過とbudget超過を拒否するの合否判定を所有する。
+ * @responsibility 失敗Envelope、不正Turn metadataとbudget超過を拒否するの合否判定を所有する。
  * @trace ERB-UT-032
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 失敗Envelope、turn超過とbudget超過を拒否するの対象操作を実行する。
+ * @stimulus 失敗Envelope、不正Turn metadataとbudget超過を拒否するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary ERB-UT-032=N/A: AI Adapter内の純粋解析・変換。
  */
-test("失敗Envelope、turn超過とbudget超過を拒否する", () => {
+test("失敗Envelope、不正Turn metadataとbudget超過を拒否する", () => {
   for (const envelope of [
     createEnvelope({ subtype: "error_max_turns" }),
     createEnvelope({ is_error: true }),
-    createEnvelope({ num_turns: 3 }),
+    createEnvelope({ num_turns: Number.MAX_SAFE_INTEGER + 1 }),
     createEnvelope({ total_cost_usd: 0.1000001 }),
   ]) {
     assert.equal(normalizeClaudeStructuredResult(envelope).status, "blocked");
@@ -278,6 +278,7 @@ test("Envelope型、欠落field、非有限相当と0境界を区別する", () 
   for (const overrides of [
     { type: "message" },
     { num_turns: 0 },
+    { num_turns: -1 },
     { num_turns: 1.5 },
     { num_turns: "2" },
     { total_cost_usd: -0.01 },
@@ -303,19 +304,27 @@ test("Envelope型、欠落field、非有限相当と0境界を区別する", () 
 });
 
 /**
- * 公開契約は単一JSON、重複拒否、2 turnsと$0.10上限を固定するを検証する。
+ * 公開契約は単一JSON、重複拒否、Turn metadataと$0.10上限を固定するを検証する。
  *
- * @responsibility 公開契約は単一JSON、重複拒否、2 turnsと$0.10上限を固定するの合否判定を所有する。
+ * @responsibility 公開契約は単一JSON、重複拒否、Turn metadataと$0.10上限を固定するの合否判定を所有する。
  * @trace ERB-UT-032
  * @precondition Test Fileが構築するfixtureと入力を使用する。
- * @stimulus 公開契約は単一JSON、重複拒否、2 turnsと$0.10上限を固定するの対象操作を実行する。
+ * @stimulus 公開契約は単一JSON、重複拒否、Turn metadataと$0.10上限を固定するの対象操作を実行する。
  * @observation 結果、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionが期待条件を満たす。
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary ERB-UT-032=N/A: AI Adapter内の純粋解析・変換。
  */
-test("公開契約は単一JSON、重複拒否、2 turnsと$0.10上限を固定する", () => {
+test("公開契約は単一JSON、重複拒否、Turn metadataと$0.10上限を固定する", () => {
   const contract = describeClaudeStructuredResultContract();
+  assert.equal(contract.contractRevision, 2);
+  for (const num_turns of [1, 2, 3, 17, Number.MAX_SAFE_INTEGER]) {
+    const result = normalizeClaudeStructuredResult(
+      createEnvelope({ num_turns }),
+    );
+    assert.equal(result.status, "confirmed");
+    assert.equal(result.numberOfTurns, num_turns);
+  }
   assert.equal(contract.envelope, "single_unambiguous_json_document");
   assert.equal(contract.duplicateKeysAllowed, false);
   assert.deepEqual(contract.normalizedResult, { status: true });
@@ -324,7 +333,7 @@ test("公開契約は単一JSON、重複拒否、2 turnsと$0.10上限を固定�
     "type=result",
     "subtype=success",
     "is_error=false",
-    "num_turns=integer_1_to_2",
+    "num_turns=positive_safe_integer_metadata",
     "total_cost_usd=finite_0_to_0.10",
     "structured_output=exact_status_true",
   ]);
