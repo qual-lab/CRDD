@@ -1437,6 +1437,46 @@ Source・Architecture・QA・結果記録の最終独立確認は残指摘零。
 
 生Provider出力・回答本文・資格値は保存しない。再試行・Docker Engineの起動／再起動命令・設定変更・旧保持物の操作は行っていない。今回Rootは失敗調査と未配送履歴一件の保全のため保持し、2026-11-01までに既存Ownerで配送・保持を確認して清掃判断へ戻す。今回の一回発行・失敗分類・実行資源回収の完了であり、助言成功・全体E2E成功ではない。次候補は採用CLIにおけるTurn数の意味と固定Plan／正規化条件の非AI照合であり、上限緩和・AI再送は含めない。
 
+<a id="new-model-ai-once-results-20261025"></a>
+
+### 新Model読取り各一回と編集停止 — 2026-10-25
+
+利用者の1〜3対応承認により、固定Source `59cd8ec3d068d33c2acd05a3f3f5acfec34ccb97`、既存固定Image、合成Contextだけで正式読取りToolを各一回実行した。実行前の閉じた結果検査・有限子Process管理・入力前後照合を独立確認し、残指摘零。生Provider出力・回答本文・認証情報は保存しない。
+
+| 対象 | 観測結果 |
+|---|---|
+| Codex | `gpt-6.1-sol`／medium、受付 `request-c2e05fb2-bcf5-4f46-b8df-5d9f134b3a47`。Tool終了0、Task／実行completed、limitedProbePassed true。Context 847 bytes／SHA-256 `6d76125e412f646539c8570d324309e3610c467f39c6b2be51e2a51854bc270e` |
+| Claude | `claude-opus-5-5`／medium、受付 `request-21109a57-fd8b-49f1-b646-3fb87d0d1e08`。Tool終了2、Task／実行completedだが、observeで `workbench_verification_transport_failed`／`headers_unobserved`／transport timedOut true。取消要求・結果観測あり。limitedProbePassed false。Context 848 bytes／SHA-256 `4299bae2e2fffb7ebd929cb6d5a789b232ff364d943cf7b1a228ad9b7f15f6f0` |
+| 共通終了条件 | cleanupConfirmed／closeConfirmed true、回復参照・二次失敗空。本体HEAD／Tree、合成Context／Tree、選択設定・六入力Hash不変。Task成功と検証通信成功を混同しない |
+| Docker | 既存停止Container一件保持、試験専用Container／Network残存零。Codex実測では標準bridge ID世代差（added／removed各一件）を検出したが既存資源保持・構成同値を確認。Claudeでは一覧不変。再起動命令は発行せず、bridge世代差の原因・発行者は未確定 |
+| 編集E2E | 読取り両方成功の前提を満たさないため未実施。AI起動は合計二回、再送零。Direct／Isolated、候補固定・Mergeを新Model実AIで確認したとは扱わない。fullE2eVerified false |
+
+保持中 `.crdd/tests/new-model-ai-20261025/preflight/isolated` のWorkspace `4f55ea10-d6bf-42aa-9eb4-24d1828fd0a8` は、固定Candidate `601376f758327de25eb12e1766d5eac9c5e04d86` のmerged状態を再確認し、既存close-candidate（adopted）・discardで終了した。処理成功を旧試験全体の成功へ遡及しない。今回の未解明通信Timeoutは次の非AI調査対象とし、AI再試行・Docker再起動・未知記録の強制削除は行わない。
+
+#### 保持物の正式整理と残存
+
+既存の履歴maintenanceを各試験Rootで実行し、返却statusだけでなく保存Ownerによる実状態を再確認した。削除対象は以下の `.crdd/tests/` 相対Path九件に固定し、canonical absolute Path一致・全配下reparse零・参照可能な試験Process零、operations／unresolvedRecoveries／pendingDeliveries／historyPending／leaseIntents／workspaces零、自身以外のGit Worktree・専用Ref零を確認した。独立再確認の残指摘零の後、一件ずつ削除して直後の不存在を確認した。親Directoryと今回の安全な結果JSONは対象外。
+
+- `new-model-ai-20261025/preflight/direct`
+- `new-model-ai-20261025/readonly-codex`
+- `new-model-ai-20261025/readonly-claude`
+- `workspace-real-ai/direct`
+- `claude-readonly-turn-acceptance-20261025/readonly`
+- `claude-readonly-turn-diagnostic-20261025/readonly`
+- `claude-readonly-reauth-20261025/readonly`
+- `claude-readonly-confirm-20261025/readonly`
+- `claude-readonly-diagnostic-20261025/readonly`
+
+次の三領域は清掃未完了であり、回収完了としない。2026-11-01までに既存Ownerで再評価する。未解決記録を期限だけで消さず、今回新しい回復機構は追加しない。
+
+| 保持する試験領域 | 現在の理由 |
+|---|---|
+| `new-model-ai-20261025/preflight/isolated` | Workspace／専用Worktree／Refは正式回収済み。他の五義務は零だがhistoryPending一件が残る。maintenanceのcompleted返却を全記録確定へ読み替えない |
+| `workspace-real-ai/isolated` | operations／recoveries／deliveries／leaseIntents／workspaces零、追加Worktree／Ref零だがhistoryPending一件が残る |
+| `claude-readonly-once-20261024/readonly` | 元のexact Docker回復参照で既存recoverExecutionを一度実行し、`blocked / docker_task_recovery_resource_unconfirmed`。cleanup未確認のため元unknownと参照を保持。再起動・強制削除なし |
+
+保持するexact回復参照は `docker-task.29c9921916f3a63170e77179d3145c8627a2b3519d5813b7c9cf2a87d136d9aa.776fa54649f45e47f6b0673986d25c3963883205ac2c144a3fd34a32f1df9008.ff809c3737cf2973c3cb1b99289f759d8e1ae3f6f3100d9c6ed5bc8273b6c667`。削除可否の観測と正式回復以外の製品Source変更はなく、追加AI試験・Docker再起動・Image更新・新しいLock／Recoveryは行わなかった。
+
 <a id="claude-turn-count-minimal-diagnostic"></a>
 
 ### Claude助言Turn数の最小診断と非AI検証 — 2026-10-25
