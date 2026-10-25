@@ -1437,6 +1437,32 @@ Source・Architecture・QA・結果記録の最終独立確認は残指摘零。
 
 生Provider出力・回答本文・資格値は保存しない。再試行・Docker Engineの起動／再起動命令・設定変更・旧保持物の操作は行っていない。今回Rootは失敗調査と未配送履歴一件の保全のため保持し、2026-11-01までに既存Ownerで配送・保持を確認して清掃判断へ戻す。今回の一回発行・失敗分類・実行資源回収の完了であり、助言成功・全体E2E成功ではない。次候補は採用CLIにおけるTurn数の意味と固定Plan／正規化条件の非AI照合であり、上限緩和・AI再送は含めない。
 
+<a id="claude-observation-http-diagnosis-20261025"></a>
+
+### Claude状態GET遅延の非AI切り分け — 2026-10-25
+
+基準 `b51725dcd` の既存結果とSourceを調査した。今回の対象は原因調査と最小案であり、製品実装・HTTP期限・Task Lifecycleは変更しない。AI再送、Docker操作、保持三領域の操作は行わない。
+
+| 確認対象 | 結果・限界 |
+|---|---|
+| 前回の直接失敗 | HTTP子が状態GETのheadersを15秒以内に観測できなかった。Task／実行completed・cleanup確認済みとは別の検証通信失敗。Server受信／finish／Owner観測時点がないため、元の遅延区間は復元できない |
+| 調査時点のSource | `verify-readonly-ai.ts`は既存Clientの任意timing observerを接続していなかった。Client.observeはAI専用照会でなくWorkbench全体のGET。ServerはTask観測後にTopic／Meeting・Tree・選択設定・Network等も組み立てる。Session内に要求がある通常observeは認可後にmemory snapshotを返し、Docker完了を待つ処理ではない |
+| 通信子の既存試験 | 四件成功。通常・切断・15秒拒否、結果frame／実close、同ID保持を確認。元の実AI失敗の原因証明ではない |
+| 合成Workbench計測 | AI start禁止・有限Task代役と実Git改訂／選択Readerで一回計測。Server GET受信→finishは645／543／520／515ms、子の開始→本文完了は669／567／543／536ms、観測内読取り約25〜33ms。通常GETが常に15秒超となる仮説は再現せず。実AIの同期準備・終了・保存競合は再現していない |
+| 試験前提と清掃 | 初期fixtureの保存初期化・Git除外登録・Context必須表不足を順に補った。いずれもHTTP試験成立前の停止であり、製品故障や試験成功へ丸めない。今回自己生成Rootだけを清掃し、計測後Server終了とRoot不存在を確認。保持物は不変 |
+
+根本原因は未確定。候補はServer側の実行準備・終了等の同期占有、Ownerの認可／保存読取り、画面構築後段、応答搬送境界である。認証期限、Claude固有不具合、Container作成失敗または15秒不足とは断定しない。
+
+最小案は検証Tool内の有限計測接続だけとした。既存Client時計へ固定の処理段階と要求番号を添え、initial／start前後／observe／cancelの同一路GETを区別する。Server受信／finishは当該listener・port・pathに限定し、Owner.observeの意味・認可・取消・closeを変えない局所wrapperで開始／終了だけ測る。生URL、本文、Token、Provider出力は記録せず、観測例外で結果を変えず、finallyで購読を解除する。子開始→Server受信、受信→Owner観測終了、観測終了→finish、finish→子headersを分け、遅延Ownerを確定後にだけ該当処理の是正を提案する。HTTP15秒維持、新Worker／Queue／Lock／Cache／Recovery／自動再送なし。独立レビューで要求相関不足の指摘を案へ反映した。調査時点では未実装だったが、その後利用者が次の限定実装を承認した。元の遅延解消は主張しない。
+
+#### 最小計測接続の実装
+
+`scripts/ai-verification-timing.ts`を読取り検証Toolの内部部品として追加し、既存Client時計、対象loopback port／固定pathだけのNode HTTP診断通知、同じOwner.observeの局所wrapperを接続した。診断の各配列は最大512件、超過はdropped、欠測はnull。Client／Serverの番号は独立した観測順であり、番号一致だけで同一要求を証明しない。新しい永続State・Log・製品APIは追加しない。
+
+独立レビューの購読解除順序と出力契約の二指摘を是正した。Client closeのfinallyで購読を解除してから既存Server／Owner closeを別try/catchで必ず試みる。Server close保留中の通知・拒否でも診断は増えず、元のcloseFailureを保持する。Architecture／QAへ取得時点snapshot、相関と欠測、上限、閉じた型を反映し、正式mainのsummaryと不正値で検査する。既存短命launcherのstrict parserは新しい`httpTiming`を拒否するため、再利用する場合はこの閉じた形へ追従が必要であり、過去parserを無修正で使わない。互換aliasは作らない。
+
+型・Package全体の整形／lint確認は成功（変更外のinfo五件は残存）。初回対象回帰二十件は成功し、レビュー是正後の固定対象回帰は二十二件すべて成功した。母集団が重なるため加算しない。最終独立レビューは残指摘零。実loopbackの正常・15秒Timeout、閉じたsummaryの不正値、解除後通知・Server close保留／拒否、元HTTP故障・同ID取消・実保存受付と応答喪失後継続を確認した。初回の型検査で試験用Promise.withResolversが設定対象lib外だったため通常Promiseへ置換し、FormatterのWindows書込み拒否は未適用を維持して再整形・再検査した。実AI・Docker操作・保持物の処置は行っておらず、既存15秒期限とTask Lifecycleは不変。計測接続ができたことを元Claude遅延の原因確定・解消とは扱わない。
+
 <a id="new-model-ai-once-results-20261025"></a>
 
 ### 新Model読取り各一回と編集停止 — 2026-10-25

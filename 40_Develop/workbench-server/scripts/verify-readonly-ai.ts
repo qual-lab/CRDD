@@ -5,31 +5,32 @@
  * @security 本文・資格を保存せず、編集・採用・再送・再起動を行わない。
  */
 import assert from "node:assert/strict";
-import { readRepositoryNetworkPolicies } from "../../coordinator/src/index.ts";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import {
-  verifyRepositoryRoot,
-  gitRepositoryRevisionAdapter,
-} from "../../version-control/src/index.ts";
-import {
-  readRepositoryAiSelection,
   type AiSelectionChoice,
+  openTaskSession,
+  readRepositoryAiSelection,
+  readRepositoryNetworkPolicies,
 } from "../../coordinator/src/index.ts";
-import { openTaskSession } from "../../coordinator/src/index.ts";
-import { startWorkbench, readWorkbenchProjectSurface } from "../src/index.ts";
 import {
-  createWorkbenchAiVerificationHttpClient,
-  observeVerificationDockerInventory,
-  assessVerificationDockerInventory,
-  projectVerificationTransportFailure,
-} from "./ai-verification-http.ts";
+  gitRepositoryRevisionAdapter,
+  verifyRepositoryRoot,
+} from "../../version-control/src/index.ts";
+import { readWorkbenchProjectSurface, startWorkbench } from "../src/index.ts";
 import type {
   WorkbenchAiRequestSnapshot,
   WorkbenchAiRequests,
 } from "../src/server/ai-request/types.ts";
+import {
+  assessVerificationDockerInventory,
+  createWorkbenchAiVerificationHttpClient,
+  observeVerificationDockerInventory,
+  projectVerificationTransportFailure,
+} from "./ai-verification-http.ts";
+import { createReadonlyVerificationTiming } from "./ai-verification-timing.ts";
 
 /**
  * 固定の一回実行だけを受け付ける。
@@ -96,10 +97,15 @@ async function main() {
     principalId: "local-workbench-user",
     authorize: permitted,
   });
+  const timing = createReadonlyVerificationTiming();
   const handle = await startWorkbench({
     workingDirectory: root,
     port: 0,
-    aiRequests: owner,
+    aiRequests: {
+      ...owner,
+      observe: (requestId) =>
+        timing.observeOwner(() => owner.observe(requestId)),
+    },
   });
   let primaryFailure: string | null = null;
   let closeFailure: string | null = null;
@@ -121,8 +127,13 @@ async function main() {
       ? e.message
       : "verification_exception";
   try {
+    timing.bind(handle.baseUrl);
     assert.equal(permitted(), true, "selection_or_repository_changed");
-    client = await createWorkbenchAiVerificationHttpClient(handle.baseUrl);
+    client = await createWorkbenchAiVerificationHttpClient(
+      handle.baseUrl,
+      timing.client,
+    );
+    timing.setStage("start");
     const start = await client.start({
       expectedNetworkPolicyHash: (() => {
         const network = readRepositoryNetworkPolicies(verified.capability);
@@ -148,6 +159,7 @@ async function main() {
       throw new Error("verification_start_rejected");
     acceptedRequestId = start.requestId;
     failureStep = "observe";
+    timing.setStage("observe");
     const deadline = Date.now() + 10 * 60_000;
     result = await client.observe(start.requestId);
     while (
@@ -160,6 +172,7 @@ async function main() {
     timedOut = ["accepted", "running"].includes(result.status);
     if (timedOut) {
       failureStep = "cancel";
+      timing.setStage("cancel");
       cancellationRequested = true;
       const cancelled = await client.cancel(start.requestId);
       assert.equal(
@@ -198,6 +211,7 @@ async function main() {
       // 元の通信失敗と、取消・回収の結果を別々に保持してからcloseする。
       cancellationRequested = true;
       try {
+        timing.setStage("cancel");
         const cancelled = await owner.cancel(acceptedRequestId);
         assert.equal(
           cancelled.requestId,
@@ -211,12 +225,16 @@ async function main() {
       }
     }
   } finally {
+    timing.setStage("close");
     let clientClosed = false;
     try {
       await client?.close?.();
       clientClosed = !clientCleanupUnconfirmed;
     } catch (error) {
       clientCloseFailure = classify(error);
+    } finally {
+      // 以後HTTP要求は発行しない。Server／Ownerの終了待ちから計測の解除を独立させる。
+      timing.dispose();
     }
     try {
       await handle.close();
@@ -287,6 +305,7 @@ async function main() {
       acceptedRequestId,
       failureStep: primaryFailure === null ? null : failureStep,
       transportFailure,
+      httpTiming: timing.snapshot(),
       cancellationRequested,
       cancellationResultObserved,
       cancellationFailure,

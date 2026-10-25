@@ -8,41 +8,32 @@
  * @boundary 合成inventory／有限Owner→正式試験Source。実Provider成功の根拠ではない。
  */
 import assert from "node:assert/strict";
-import type {
-  WorkbenchAiRequestStartResult,
-  WorkbenchAiRequestSnapshot,
-} from "../../src/server/ai-request/types.ts";
-import { request as httpRequest, type ClientRequest } from "node:http";
-import { createCoordinatorTaskRequests } from "../../../coordinator/src/task/requests.ts";
+import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
+import { channel } from "node:diagnostics_channel";
+import fs from "node:fs";
+import { type ClientRequest, request as httpRequest } from "node:http";
+import { stripTypeScriptTypes } from "node:module";
+import path, { join } from "node:path";
+import test from "node:test";
+import { fileURLToPath } from "node:url";
+import { runInNewContext } from "node:vm";
+import { readRepositoryNetworkPolicies } from "../../../coordinator/src/index.ts";
+import { deriveCoordinatorRepositoryBindingId } from "../../../coordinator/src/state/model.ts";
 import { saveRepositoryAiSelection } from "../../../coordinator/src/storage/ai-selection.ts";
 import {
   initializeCoordinatorSnapshot,
   readCoordinatorSnapshot,
 } from "../../../coordinator/src/storage/current-state.ts";
-import { deriveCoordinatorRepositoryBindingId } from "../../../coordinator/src/state/model.ts";
+import { createCoordinatorTaskRequests } from "../../../coordinator/src/task/requests.ts";
 import {
-  selectionConfig,
   executionSelection,
+  selectionConfig,
 } from "../../../coordinator/tests/fixtures/ai-selection.ts";
-import { execFileSync } from "node:child_process";
-import { channel } from "node:diagnostics_channel";
-import fs from "node:fs";
-import { stripTypeScriptTypes } from "node:module";
-import test from "node:test";
-import { fileURLToPath } from "node:url";
-import { runInNewContext } from "node:vm";
-import { createHash } from "node:crypto";
-import { verifyWorkspaceOutputBytes } from "../../scripts/workspace-output-verification.ts";
-import { readRepositoryNetworkPolicies } from "../../../coordinator/src/index.ts";
-import path, { join } from "node:path";
 import {
   gitRepositoryRevisionAdapter,
   verifyRepositoryRoot,
 } from "../../../version-control/src/index.ts";
-import {
-  startWorkbench,
-  readWorkbenchProjectSurface,
-} from "../../src/index.ts";
 import {
   assessVerificationDockerInventory,
   createWorkbenchAiVerificationHttpClient,
@@ -51,6 +42,158 @@ import {
   type VerificationDockerInventory,
   type VerificationHttpTiming,
 } from "../../scripts/ai-verification-http.ts";
+import { createReadonlyVerificationTiming } from "../../scripts/ai-verification-timing.ts";
+import { verifyWorkspaceOutputBytes } from "../../scripts/workspace-output-verification.ts";
+import {
+  readWorkbenchProjectSurface,
+  startWorkbench,
+} from "../../src/index.ts";
+import type {
+  WorkbenchAiRequestSnapshot,
+  WorkbenchAiRequestStartResult,
+} from "../../src/server/ai-request/types.ts";
+
+/**
+ * 正式summaryの計測fieldを閉じた形で検査する。
+ * @trace ERB-IT-021
+ * @responsibility 型・enum・上限・時刻の相関を照合し、自由文字列を拒否する。
+ * @boundary 検証Toolの非秘密summary。実Taskの成功Oracleとは分離する。
+ */
+function assertReadonlyTiming(input: unknown) {
+  const record = (v: unknown, keys: string) => {
+    assert.ok(v !== null && typeof v === "object" && !Array.isArray(v));
+    const value = v as Record<string, unknown>;
+    assert.equal(
+      Object.keys(value).sort().join(","),
+      keys.split(",").sort().join(","),
+    );
+    return value;
+  };
+  const integer = (v: unknown, minimum = 0) => {
+    assert.ok(typeof v === "number" && Number.isSafeInteger(v) && v >= minimum);
+    return v as number;
+  };
+  const value = record(
+    input,
+    "limit,dropped,subscriptionsClosed,clients,servers,owners",
+  );
+  assert.equal(value.limit, 512);
+  integer(value.dropped);
+  assert.equal(value.subscriptionsClosed, true);
+  for (const kind of ["clients", "servers", "owners"] as const) {
+    const rows = value[kind];
+    assert.ok(Array.isArray(rows) && rows.length <= 512);
+    for (const row of rows) {
+      const r = record(
+        row,
+        kind === "clients"
+          ? "ordinal,stage,routeKind,method,route,startedAt,headersAt,completedAt,closedAt"
+          : kind === "servers"
+            ? "ordinal,stage,route,receivedAt,finishedAt"
+            : "ordinal,serverOrdinal,stage,startedAt,completedAt",
+      );
+      integer(r.ordinal, 1);
+      assert.ok(
+        ["initial", "start", "observe", "cancel", "close"].includes(
+          String(r.stage),
+        ),
+      );
+      if (kind === "clients") {
+        assert.ok(["GET", "POST"].includes(String(r.method)));
+        assert.ok(["view", "action"].includes(String(r.routeKind)));
+        assert.equal(
+          r.route,
+          r.routeKind === "view"
+            ? "/api/workbench-view?route=%2F"
+            : "/ai-request/action",
+        );
+        const start = integer(r.startedAt, 1);
+        const completed = integer(r.completedAt, start);
+        if (r.headersAt !== null) {
+          integer(r.headersAt, start);
+          assert.ok(Number(r.headersAt) <= completed);
+        }
+        integer(r.closedAt, completed);
+      } else if (kind === "servers") {
+        assert.ok(["view", "action"].includes(String(r.route)));
+        const start = integer(r.receivedAt, 1);
+        if (r.finishedAt !== null) integer(r.finishedAt, start);
+      } else {
+        if (r.serverOrdinal !== null) integer(r.serverOrdinal, 1);
+        const start = integer(r.startedAt, 1);
+        if (r.completedAt !== null) integer(r.completedAt, start);
+      }
+    }
+  }
+}
+
+/**
+ * 計測summaryの閉じた形を不正値から反証する。
+ * @trace ERB-IT-021
+ * @stimulus 余分field・未知段階・経路・method、負数・過大配列・解除未確認。
+ * @oracle 正常値と明示的な欠測だけ受理し、自由文字列を拒否する。
+ * @cleanup 値だけで実資源なし。
+ */
+test("読取り計測summaryは閉じた型と上限・欠測を検査する", () => {
+  const value = {
+    limit: 512,
+    dropped: 0,
+    subscriptionsClosed: true,
+    clients: [
+      {
+        ordinal: 1,
+        stage: "observe",
+        routeKind: "view",
+        method: "GET",
+        route: "/api/workbench-view?route=%2F",
+        startedAt: 1,
+        headersAt: null,
+        completedAt: 2,
+        closedAt: 3,
+      },
+    ],
+    servers: [
+      {
+        ordinal: 1,
+        stage: "observe",
+        route: "view",
+        receivedAt: 1,
+        finishedAt: null,
+      },
+    ],
+    owners: [
+      {
+        ordinal: 1,
+        serverOrdinal: null,
+        stage: "observe",
+        startedAt: 1,
+        completedAt: null,
+      },
+    ],
+  };
+  assertReadonlyTiming(value);
+  for (const invalid of [
+    { ...value, secret: "synthetic-secret" },
+    { ...value, dropped: -1 },
+    { ...value, subscriptionsClosed: false },
+    { ...value, clients: Array(513).fill(value.clients[0]) },
+    ...[
+      { stage: "synthetic-secret" },
+      { method: "synthetic-secret" },
+      { route: "synthetic-secret" },
+      { startedAt: -1 },
+      { headersAt: 4 },
+      { closedAt: 1 },
+      { secret: "synthetic-secret" },
+    ].map((change) => ({
+      ...value,
+      clients: [{ ...value.clients[0], ...change }],
+    })),
+    { ...value, servers: [{ ...value.servers[0], route: "synthetic-secret" }] },
+    { ...value, owners: [{ ...value.owners[0], completedAt: -1 }] },
+  ])
+    assert.throws(() => assertReadonlyTiming(invalid));
+});
 
 /**
  * 編集試験の失敗後処置を実本文と有限Ownerで確認する。
@@ -1008,7 +1151,9 @@ test("読取り試験は元HTTP診断と同じTaskの取消結果を保持して
         secret: "synthetic-secret",
       },
     });
+    const timing = createReadonlyVerificationTiming();
     await runInNewContext(body, {
+      timing,
       Error,
       assert,
       Buffer,
@@ -1091,10 +1236,24 @@ test("読取り試験は元HTTP診断と同じTaskの取消結果を保持して
         baseUrl: "http://127.0.0.1:1",
         close: async () => {
           events.push("close");
-          if (
-            scenario === "close-fails" ||
-            scenario === "client-and-owner-close"
-          )
+          assert.equal(timing.snapshot().subscriptionsClosed, true);
+          if (scenario === "close-fails") {
+            return new Promise<void>((_resolve, reject) =>
+              queueMicrotask(() => {
+                const before = timing.snapshot();
+                channel("http.server.request.start").publish({
+                  request: {
+                    url: "/api/workbench-view?route=%2F",
+                    socket: { localPort: 1, localAddress: "127.0.0.1" },
+                  },
+                  response: {},
+                });
+                assert.deepEqual(timing.snapshot(), before);
+                reject(Error("synthetic_close"));
+              }),
+            );
+          }
+          if (scenario === "client-and-owner-close")
             throw Error("synthetic_close");
         },
       },
@@ -1117,6 +1276,7 @@ test("読取り試験は元HTTP診断と同じTaskの取消結果を保持して
     const serialized = output[0];
     assert.ok(serialized, scenario);
     const report = JSON.parse(serialized);
+    assertReadonlyTiming(report.httpTiming);
     assert.equal(starts, 1, scenario);
     assert.equal(
       observes,
@@ -1386,6 +1546,7 @@ test("正式試験mainは公開HTTPで一回だけ依頼し失敗と終了観測
           };
         },
         createWorkbenchAiVerificationHttpClient,
+        createReadonlyVerificationTiming,
         projectVerificationTransportFailure,
         assessVerificationDockerInventory,
         observeVerificationDockerInventory: () => {
@@ -1415,6 +1576,7 @@ test("正式試験mainは公開HTTPで一回だけ依頼し失敗と終了観測
     await execution;
     assert.equal(starts, 1, JSON.stringify(output));
     const result = JSON.parse(output.at(-1) ?? "null");
+    assertReadonlyTiming(result.httpTiming);
     assert.equal(result.fullE2eVerified, false);
     assert.equal(result.wholeRepositoryUnchangedClaimed, false);
     assert.equal(result.projectContextUnchanged, true);
