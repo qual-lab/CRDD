@@ -1660,6 +1660,26 @@ Gateは `eligible: true / fixture_closed_and_unreferenced`。既存Ownerによ�
 
 実AI送信・Docker操作・旧保持三領域の操作は零。今回の後処理成功を元の不合格試験や新品の全事前確認・実AI編集E2Eの成功へ遡及しない。次は新品の非AI事前確認から再開し、その成功後に許可範囲を照合して実AI編集へ進む。
 
+<a id="workspace-preflight-fixed-20261026"></a>
+
+##### 修正済みToolによる新品の非AI事前確認 — 2026-10-26
+
+固定Source `8a9b855788583b7f54a234a5e98888c0d407c4eb`・追跡差分零で、正式Toolを `--preflight` により一回実行した。前回結果だけが残る親Directoryをexact確認し、旧`result.json`を同じ試験Root内の`preflight-before-history-fix.json`へ移動、SHA-256不変を確認してから新品を作成した。旧保持三領域は操作しない。
+
+Tool終了零。Direct／IsolatedともlimitedProbePassed、closeConfirmed、runtimeClean、workspaceCleanがtrue。Directの既存Dirty／Stage／未追跡保全、Isolatedの候補固定・二親Merge・Tree一致・候補終了・Workspace破棄を確認した。Merge `d0f897359a3fb26ff2d214de6ed2ffd5b027a3e5`、Candidate `ad3d4f6bc8e69cb8050094857455a79cfc0acd59`。方式別清掃Gateは両方eligible、fixtureRootsRemoved true、fixtureCleanupFailures空。前後Docker一覧・構成と実行Sourceは不変であり、AI・認証・Docker資源作成／削除・再起動は行っていない。
+
+安全な結果JSONだけ `.crdd/tests/workspace-ai-20261026/preflight/result.json` に保持し、元失敗結果とともに2026-11-02までに保持要否を再評価する。非AI事前確認の成立であり、fullE2eVerified false、実AI編集は未実施。実AI分岐は追加のsingleTask受付・結果・Lease記録を残すため、非AIbaseline専用の現在Gateをそのまま一般化せず、既存の終了記録保守との接続を次に照合する。新しい保存・回復機構は追加しない。
+
+##### 実AI終了状態に対する試験Toolの清掃接続
+
+実AI開始前の独立照合で、非AI専用Gateが追加の単発Task Queueを必ず拒否することを確認した。実AIが成功しても清掃不合格になる既知のTool不一致を残して送信せず、製品Source・保存形式・Task／HTTP期限は変更しない限定是正とした。
+
+Toolは公開Task結果と同じrequestIdの単発Queue・受付Binding・completed終了要約・取得と解放が対応するproject-operation Leaseだけを追加照合する。公開結果と保存記録がcompleted／cleanup確認済み・回復参照空であること、実Lease空・Git終了条件・境界を先に検査し、既存`maintainCoordinatorSnapshot`へ一回接続して退役一件を要求する。メモリ上の比較用投影だけからTask由来の記録を分離し、実保存記録を直接書換えない。fresh読取りでTask記録だけが退役し、元Queue・Project・Workspace採用結果・Lease・Workspace履歴が不変であることを確認した後、既存履歴搬送へ進む。取消・blocked・不明・余分／欠測記録・保守拒否・予期しない退役数・搬送後消失は清掃不可とし、新しい回復機構や自動再送は設けない。
+
+非AI反例にDirect／Isolatedの完了Task、phase／status／cleanup／回復参照／request差、履歴欠測、Lease欠測・重複、余分Queue／Binding、保守blocked・退役零／二件、退役後Task残存・Workspace結果消失を追加した。既存の実保存付きHTTP試験では、合成実行三件の終了後に本番の保守処理で三件が退役し、Queue／Binding／履歴待ち／Lease意図・根拠が零になることを確認した。生出力・認証情報は保存せず、実AI成功の根拠とは扱わない。
+
+最終Sourceの対象HTTP三Suite二十六件は成功、整形・型・lint確認も成功した（既存info五件のみ）。独立レビューの保守blocked反例不足は追加試験で是正し、最終再確認は残指摘零。新規実AI送信・Docker操作・旧保持物操作はこの是正段階では行っていない。
+
 <a id="new-model-ai-once-results-20261025"></a>
 
 ### 新Model読取り各一回と編集停止 — 2026-10-25

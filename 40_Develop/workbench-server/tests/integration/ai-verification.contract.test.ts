@@ -23,6 +23,7 @@ import { deriveCoordinatorRepositoryBindingId } from "../../../coordinator/src/s
 import { saveRepositoryAiSelection } from "../../../coordinator/src/storage/ai-selection.ts";
 import {
   initializeCoordinatorSnapshot,
+  maintainCoordinatorSnapshot,
   readCoordinatorSnapshot,
 } from "../../../coordinator/src/storage/current-state.ts";
 import { createCoordinatorTaskRequests } from "../../../coordinator/src/task/requests.ts";
@@ -780,6 +781,23 @@ test("Workspace清掃Gateは保存義務・baseline・Git実体を照合する",
     "isolated-transfer-expired",
     "isolated-post-result-loss",
     "isolated-git-parents",
+    "ai-direct",
+    "isolated-ai",
+    "ai-phase",
+    "ai-status",
+    "ai-cleanup",
+    "ai-recovery",
+    "ai-request-mismatch",
+    "ai-history-missing",
+    "ai-lease-missing",
+    "ai-lease-duplicate",
+    "ai-extra-queue",
+    "ai-extra-binding",
+    "ai-maintain-zero",
+    "ai-maintain-blocked",
+    "ai-maintain-two",
+    "ai-post-task-retained",
+    "isolated-ai-post-result-loss",
   ]) {
     const snapshot: Record<string, unknown> = Object.fromEntries(
       emptyKeys.map((k) => [k, []]),
@@ -898,6 +916,77 @@ test("Workspace清掃Gateは保存義務・baseline・Git実体を照合する",
         end.content.ownerGeneration = "other";
       }
     }
+    const isAi = scenario.startsWith("ai-") || scenario.includes("isolated-ai");
+    if (isAi) {
+      const singleTask = {
+        principalId: "local-workbench-user",
+        mode: "workspace_edit",
+        phase: scenario === "ai-phase" ? "running" : "settled",
+        status: scenario === "ai-status" ? "blocked" : "completed",
+        reason: null,
+        cleanupConfirmed: scenario !== "ai-cleanup",
+        recoveryIds: scenario === "ai-recovery" ? ["recovery"] : [],
+      };
+      snapshot.queueEntries = [
+        ...queueEntries,
+        {
+          queueId: "request-abc",
+          projectId: "project.workspace-verification",
+          milestoneId: null,
+          generation: 7,
+          state: "completed",
+          ownerGeneration: null,
+          workspaceId: null,
+          resultReference: null,
+          resumeCondition: null,
+          singleTask,
+        },
+        ...(scenario === "ai-extra-queue"
+          ? [{ queueId: "request-other" }]
+          : []),
+      ];
+      snapshot.intakeBindings = [
+        ...intakeBindings,
+        { queueId: "request-abc" },
+        ...(scenario === "ai-extra-binding"
+          ? [{ queueId: "request-other" }]
+          : []),
+      ];
+      snapshot.historyPending = [
+        ...(snapshot.historyPending as unknown[]),
+        ...(scenario === "ai-history-missing"
+          ? []
+          : [
+              {
+                id: "request-abc",
+                outcome: "completed",
+                cleanup: "confirmed",
+                primaryFailure: null,
+              },
+            ]),
+      ];
+      const taskLeases = ["acquired", "released"].map((disposition) => ({
+        repositoryBindingId: "binding",
+        projectId: "project.workspace-verification",
+        content: {
+          kind: "project-operation",
+          queueId: "request-abc",
+          ownerGeneration: "task-owner",
+          ownerProcessId: 7,
+          disposition,
+        },
+      }));
+      if (scenario === "ai-lease-missing") taskLeases.pop();
+      if (scenario === "ai-lease-duplicate") {
+        const first = taskLeases[0];
+        assert.ok(first);
+        taskLeases.push(first);
+      }
+      snapshot.leaseEvidence = [
+        ...(snapshot.leaseEvidence as unknown[]),
+        ...taskLeases,
+      ];
+    }
     if (emptyKeys.includes(scenario)) snapshot[scenario] = [{}];
     if (scenario === "queue-duplicate") queueEntries.splice(1, 1, firstQueue);
     if (scenario === "binding-duplicate")
@@ -910,7 +999,7 @@ test("Workspace清掃Gateは保存義務・baseline・Git実体を照合する",
     const parentPath = path.resolve("fixture");
     const result = runInNewContext(
       stripTypeScriptTypes(
-        `const snapshot=JSON.parse(snapshotJson); const readCoordinatorStorageSnapshotOwned=()=>({status: scenario==='read'?'blocked':'completed',value:{snapshot:JSON.parse(JSON.stringify(snapshot))}}); const transferCoordinatorSnapshotHistory=()=>{onTransfer();snapshot.historyPending=[];if(scenario==='isolated-post-result-loss')snapshot.results=[];return {status:scenario==='transfer'?'blocked':'completed',reason:'orchestrator_history_transferred',value:{recorded:isIsolated?1:0,expired:scenario==='isolated-transfer-expired'?1:0}};}; ${body}\nconst mode=scenario==='unknown-mode'?'../escape':isIsolated?'isolated':'direct'; assessFixtureRemoval(parentPath,mode,{mode,base:'base',mergeCommit:'merge',candidateCommit:'candidate',workspaceId:scenario==='isolated-workspace-mismatch'?'other':isIsolated?'ws':null});`,
+        `const snapshot=JSON.parse(snapshotJson); const readCoordinatorStorageSnapshotOwned=()=>({status: scenario==='read'?'blocked':'completed',value:{snapshot:JSON.parse(JSON.stringify(snapshot))}}); const maintainCoordinatorSnapshot=()=>{onMaintain();if(scenario==='ai-maintain-blocked')return{status:'blocked',reason:'synthetic_save_failure'};if(scenario!=='ai-post-task-retained'){snapshot.queueEntries=snapshot.queueEntries.filter(q=>q.queueId!=='request-abc');snapshot.intakeBindings=snapshot.intakeBindings.filter(q=>q.queueId!=='request-abc');snapshot.historyPending=snapshot.historyPending.filter(q=>q.id!=='request-abc');snapshot.leaseEvidence=snapshot.leaseEvidence.filter(q=>q.content.queueId!=='request-abc');}if(scenario==='isolated-ai-post-result-loss')snapshot.results=[];return{status:'completed',reason:'orchestrator_terminal_records_retired',value:scenario==='ai-maintain-zero'?0:scenario==='ai-maintain-two'?2:1};}; const transferCoordinatorSnapshotHistory=()=>{onTransfer();snapshot.historyPending=[];if(scenario==='isolated-post-result-loss')snapshot.results=[];return {status:scenario==='transfer'?'blocked':'completed',reason:'orchestrator_history_transferred',value:{recorded:isIsolated?1:0,expired:scenario==='isolated-transfer-expired'?1:0}};}; ${body}\nconst mode=scenario==='unknown-mode'?'../escape':isIsolated?'isolated':'direct'; assessFixtureRemoval(parentPath,mode,{mode,preflightOnly:!isAi,requestId:scenario==='ai-request-mismatch'?'request-bad':'request-abc',task:{requestId:'request-abc',status:'completed',reason:null,executionStatus:'completed',cleanupConfirmed:true,primaryFailure:null,recoveryIds:[],secondaryFailures:[]},base:'base',mergeCommit:'merge',candidateCommit:'candidate',workspaceId:scenario==='isolated-workspace-mismatch'?'other':isIsolated?'ws':null});`,
       ),
       {
         assert,
@@ -918,6 +1007,8 @@ test("Workspace清掃Gateは保存義務・baseline・Git実体を照合する",
         parentPath,
         scenario,
         isIsolated,
+        isAi,
+        onMaintain: () => {},
         snapshotJson: JSON.stringify(snapshot),
         projectId: "project.workspace-verification",
         onTransfer: () => {
@@ -995,22 +1086,32 @@ test("Workspace清掃Gateは保存義務・baseline・Git実体を照合する",
     );
     assert.equal(
       result.eligible,
-      ["direct", "isolated"].includes(scenario),
+      ["direct", "isolated", "ai-direct", "isolated-ai"].includes(scenario),
       scenario,
     );
     assert.equal(
       releases,
-      [
-        "owner",
-        "canonical",
-        "reparse",
-        "nested-reparse",
-        "unknown-mode",
-      ].includes(scenario)
+      scenario === "ai-request-mismatch"
         ? 0
-        : ["direct", "isolated", "isolated-post-result-loss"].includes(scenario)
-          ? 2
-          : 1,
+        : [
+              "owner",
+              "canonical",
+              "reparse",
+              "nested-reparse",
+              "unknown-mode",
+            ].includes(scenario)
+          ? 0
+          : ["ai-direct", "isolated-ai"].includes(scenario)
+            ? 3
+            : [
+                  "ai-post-task-retained",
+                  "isolated-ai-post-result-loss",
+                  "direct",
+                  "isolated",
+                  "isolated-post-result-loss",
+                ].includes(scenario)
+              ? 2
+              : 1,
       scenario,
     );
     if (
@@ -1026,6 +1127,8 @@ test("Workspace清掃Gateは保存義務・baseline・Git実体を照合する",
         "transfer",
         "isolated-transfer-expired",
         "isolated-post-result-loss",
+        "ai-direct",
+        "isolated-ai",
       ].includes(scenario)
     )
       assert.equal(transferCalls, 0, scenario);
@@ -2380,6 +2483,20 @@ for (const transport of ["tool-child-process"] as const) {
       throw Error("snapshot_required");
     assert.equal(state.value.queueEntries.length, 3);
     assert.deepEqual(state.value.leaseIntents, []);
+    const retired = maintainCoordinatorSnapshot(root, binding);
+    assert.equal(retired.status, "completed", retired.reason);
+    assert.equal(retired.value, 3);
+    const afterRetirement = readCoordinatorSnapshot(root, binding);
+    assert.equal(afterRetirement.status, "completed");
+    assert.ok(afterRetirement.value);
+    for (const key of [
+      "queueEntries",
+      "intakeBindings",
+      "historyPending",
+      "leaseIntents",
+      "leaseEvidence",
+    ] as const)
+      assert.deepEqual(afterRetirement.value[key], []);
     const posts = timings.filter((item) => item.method === "POST");
     assert.equal(posts.length, 3);
     for (const item of posts) {

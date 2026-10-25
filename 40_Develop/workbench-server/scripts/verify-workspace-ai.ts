@@ -30,7 +30,10 @@ import {
   type WorkspaceView,
 } from "../../coordinator/src/index.ts";
 import { prepareWorkspaceSurface } from "../../coordinator/tests/fixtures/workspace-surface.ts";
-import { transferCoordinatorSnapshotHistory } from "../../coordinator/src/storage/current-state.ts";
+import {
+  maintainCoordinatorSnapshot,
+  transferCoordinatorSnapshotHistory,
+} from "../../coordinator/src/storage/current-state.ts";
 import { deriveCoordinatorRepositoryBindingId } from "../../coordinator/src/state/model.ts";
 import {
   acquireCoordinatorStorageOwner,
@@ -634,6 +637,21 @@ function assessFixtureRemoval(
   try {
     assert.ok(mode === "direct" || mode === "isolated");
     assert.equal(evidence.mode, mode);
+    const realTask = evidence.preflightOnly !== true;
+    const requestId = realTask ? evidence.requestId : null;
+    if (realTask) {
+      assert.equal(typeof requestId, "string");
+      assert.ok(/^request-[a-f0-9-]+$/u.test(String(requestId)));
+      const task = evidence.task as Record<string, unknown> | undefined;
+      assert.ok(task);
+      assert.equal(task.requestId, requestId);
+      assert.equal(task.status, "completed");
+      assert.equal(task.executionStatus, "completed");
+      assert.equal(task.cleanupConfirmed, true);
+      assert.equal(task.primaryFailure, null);
+      assert.deepEqual(task.recoveryIds, []);
+      assert.deepEqual(task.secondaryFailures, []);
+    }
     const root = path.join(parent, mode);
     const checkBoundary = () => {
       assert.equal(path.resolve(parent), parent);
@@ -650,14 +668,91 @@ function assessFixtureRemoval(
       visit(root);
     };
     checkBoundary();
-    const readClosed = (historyCount: number) => {
+    const readClosed = (historyCount: number, includeTask = false) => {
       const owner = acquireCoordinatorStorageOwner(root);
       assert.ok(owner);
       try {
         const read = readCoordinatorStorageSnapshotOwned(owner);
         assert.equal(read.status, "completed");
         if (read.status !== "completed") throw new Error("snapshot_unobserved");
-        const s = read.value.snapshot;
+        let s = read.value.snapshot;
+        if (includeTask) {
+          const queues = s.queueEntries.filter((q) => q.queueId === requestId);
+          assert.equal(queues.length, 1);
+          const queue = queues[0];
+          assert.ok(queue?.singleTask);
+          assert.equal(queue.projectId, projectId);
+          assert.equal(queue.milestoneId, null);
+          assert.equal(queue.state, "completed");
+          assert.ok(
+            Number.isSafeInteger(queue.generation) && queue.generation > 0,
+          );
+          for (const key of [
+            "ownerGeneration",
+            "workspaceId",
+            "resultReference",
+            "resumeCondition",
+          ] as const)
+            assert.equal(queue[key], null);
+          const task = queue.singleTask;
+          assert.equal(task.principalId, "local-workbench-user");
+          assert.equal(task.mode, "workspace_edit");
+          assert.equal(task.phase, "settled");
+          assert.equal(task.status, "completed");
+          assert.equal(
+            task.reason,
+            (evidence.task as Record<string, unknown>).reason,
+          );
+          assert.equal(task.cleanupConfirmed, true);
+          assert.deepEqual(task.recoveryIds, []);
+          assert.equal(
+            s.intakeBindings.filter((b) => b.queueId === requestId).length,
+            1,
+          );
+          const rows = s.historyPending.filter((r) => r.id === requestId);
+          assert.equal(rows.length, 1);
+          assert.equal(rows[0]?.outcome, "completed");
+          assert.equal(rows[0]?.cleanup, "confirmed");
+          assert.equal(rows[0]?.primaryFailure, null);
+          const leases = s.leaseEvidence.filter(
+            (r) => r.content.queueId === requestId,
+          );
+          assert.ok(leases.length >= 2);
+          const pairs = new Map<
+            string,
+            { acquired: number; released: number }
+          >();
+          for (const [index, item] of leases.entries()) {
+            assert.equal(item.repositoryBindingId, s.repositoryBindingId);
+            assert.equal(item.projectId, projectId);
+            assert.equal(item.content.kind, "project-operation");
+            const key = JSON.stringify([
+              item.content.ownerGeneration,
+              item.content.ownerProcessId,
+            ]);
+            const pair = pairs.get(key) ?? { acquired: -1, released: -1 };
+            assert.ok(
+              item.content.disposition === "acquired" ||
+                item.content.disposition === "released",
+            );
+            assert.equal(pair[item.content.disposition], -1);
+            pair[item.content.disposition] = index;
+            pairs.set(key, pair);
+          }
+          for (const pair of pairs.values())
+            assert.ok(pair.acquired >= 0 && pair.released > pair.acquired);
+          s = {
+            ...s,
+            queueEntries: s.queueEntries.filter((q) => q.queueId !== requestId),
+            intakeBindings: s.intakeBindings.filter(
+              (b) => b.queueId !== requestId,
+            ),
+            historyPending: s.historyPending.filter((r) => r.id !== requestId),
+            leaseEvidence: s.leaseEvidence.filter(
+              (r) => r.content.queueId !== requestId,
+            ),
+          };
+        }
         for (const key of [
           "operations",
           "unresolvedRecoveries",
@@ -821,7 +916,8 @@ function assessFixtureRemoval(
         assert.equal(owner.release(), true);
       }
     };
-    const before = readClosed(mode === "isolated" ? 1 : 0);
+    const historyCount = mode === "isolated" ? 1 : 0;
+    const before = readClosed(historyCount, realTask);
     assert.equal(
       git(root, ["worktree", "list", "--porcelain"])
         .split("\n")
@@ -882,6 +978,28 @@ function assessFixtureRemoval(
         throw error;
     }
     checkBoundary();
+    if (realTask) {
+      const maintained = maintainCoordinatorSnapshot(
+        root,
+        deriveCoordinatorRepositoryBindingId(root),
+      );
+      assert.equal(maintained.status, "completed");
+      if (maintained.status !== "completed")
+        throw new Error("fixture_task_retirement_unconfirmed");
+      assert.equal(maintained.reason, "orchestrator_terminal_records_retired");
+      assert.equal(maintained.value, 1);
+      const retired = readClosed(historyCount);
+      for (const key of [
+        "queueEntries",
+        "intakeBindings",
+        "projects",
+        "results",
+        "leaseEvidence",
+        "historyPending",
+      ] as const)
+        assert.deepEqual(retired[key], before[key]);
+      checkBoundary();
+    }
     const transferred = transferCoordinatorSnapshotHistory(
       root,
       deriveCoordinatorRepositoryBindingId(root),
