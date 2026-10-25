@@ -12,6 +12,8 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
+認証利用経路を非AIで調査し、専用Homeの想定位置に認証Fileが存在することと、正式status／Task前probeの共通Mount構成を確認した。両経路には更新・telemetry抑止環境値の差があるが、原因とする根拠はなく製品修正は行わない。既存二Suite38件は成功。資格本文・期限は未読で、AI再送・実Container追加・login・Docker再起動・保持物変更なし。次候補は既存の正式status一回による比較であり、人間の実行範囲確認を待つ。[調査結果と限定比較案](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#claude-authentication-path-investigation)を参照する。
+
 追加診断付きのClaude読取りを承認どおり一回実行し、認証確認CLIの正規出力が「未ログイン」（`authenticationStatus: unconfirmed`）で終了1だったことを確認した。Container作成unknownではなく、作成後の認証確認で停止している。認証切れかContainer内の認証利用経路かは未確定で、AI本体・外部送信は未開始。今回はHTTP故障なし、回収確認済み、操作・未解決回復・配送待ちは零だが未配送履歴一件は保持する。再送・再起動・先行保持物の変更は行わない。[一回試験の診断結果と限界](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#claude-readonly-auth-diagnostic-result)を参照する。
 
 読取り確認の失敗を非AIで切り分け、拒否条件を維持したまま認証三値とHTTP子の固定故障段階・終了観測だけを既存診断へ追加した。Coordinator影響158件、Workbench通常86件、静的検査と独立レビューは成功／残指摘零。残ったWindows保存・再入場試験も、旧CLI・Module代役の登録順・試験importだけを追従し、一件と関連CLI十九件の成功まで確認した。文書参照展開先3,368指摘と、元のClaude故障原因未特定は維持する。AI再送・Docker操作・保持物変更は行っていない。[診断の最小是正](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#readonly-failure-diagnostics)と[Windows試験の追従結果](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#windows-state-cli-followup)を参照する。

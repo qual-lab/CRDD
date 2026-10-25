@@ -1169,3 +1169,21 @@ Workbench通常結合回帰は86件・失敗零で完走した。両Packageの�
 履歴のDocker相関参照は`docker-task.29c9921916f3a63170e77179d3145c8627a2b3519d5813b7c9cf2a87d136d9aa.f57a7856fce68396f878ad4218e2b098fafc653d976c4b7a3d7d65b7094a7ff8.1cd9d56917024b33c0fb5a22c0e3f6de868bced366ff4fa18721139d50bee924`。未解決回復義務として返された値ではなく、清掃済み履歴との相関用に保持する。先行二Rootのstateはそれぞれ10,235 bytes／UTC2026-10-24T14:57:55.4549934Z、3,576 bytes／UTC2026-10-24T17:37:16.4704843Zのままで、変更していない。
 
 今回Rootは失敗調査と未配送履歴の保全のため保持し、既定七日として2026-11-01までに既存Ownerで配送・保持を確認して清掃判断へ戻す。安全な要約とバイト数だけを残し、認証値・Provider生出力・stdout／stderr本文は保存しない。今回の一回承認は消費済み。追加AI、Codex、編集二試験、ログイン・認証変更、Docker再起動・修復・取得、既存資源削除は実行しない。次に検討できるのは認証利用経路の非AI調査であり、この結果だけから再ログインや新しい回復機構を追加しない。
+
+<a id="claude-authentication-path-investigation"></a>
+
+### 認証利用経路の非AI調査 — 2026-10-25
+
+基準`c7d1c975c`で実装・既存試験と専用Homeのmetadataを照合した。今回の変更分類は原因調査と記録更新であり、製品Source・認証・保存契約は変更しない。新規設計の採用や準拠表明は行わず、実装・セキュリティ境界の照合と限定独立レビューを対象とする。外部検索へは一般的なClaude認証・設定語だけを送り、Repository内容、Path、試験ID、資格情報は送らない。
+
+| 観点 | 確認した事実 | 未確認の境界 |
+|---|---|---|
+| Home配置 | PAの固定配置は選択UserのLocal AppData配下`Qual-Lab/CRDD/ProviderHomes/claude`。その直下に`.claude.json`、子`.claude`に`.credentials.json`が存在 | 名前・通常Fileのmetadataだけを読み、本文・Token・期限・Accountは読んでいない。存在を有効認証へ昇格しない |
+| 共通構成 | 正式認証のstatusとTask前probeは同じ固定Imageと専用Homeを利用する構成。`HOME=/provider-home`、Home read-only、user 65534、network none、`auth status --json` | 今回は新Containerを作らず、実Mountからの読取り可否・CLI内部の保存解釈は再実測していない |
+| 環境差 | 正式認証statusはAI Adapterの更新・telemetry等の抑止五環境値も注入する。Task前probeはClaudeの追加Home変数がないため空の追加環境で、共通HOMEだけをDIが設定する。両方とも`CLAUDE_CONFIG_DIR`を指定しない | この環境差が今回の`loggedIn: false`を生んだ根拠はない。差の発見だけを理由にSourceを変更しない |
+| 固定Policy | Image内のmanaged settingsは`forceLoginMethod: claudeai`。Task設定は実行時のTool制限用であり、probe引数には追加されない | 固定Image内部や認証ファイルを改変せず、Account／Offeringの実成立は未確認 |
+| 非AI試験 | 認証LifecycleとClaude準備の既存二Suite、計38件が成功。専用Home以外をmountしない構成、認証判定、非0拒否、取消・回収の代役境界を確認 | 模擬Processの成功を実認証・Docker実境界の成立へ換算しない |
+
+[Claude公式認証資料](https://code.claude.com/docs/en/authentication#credential-management)ではLinuxの既定資格配置を`~/.claude/.credentials.json`とし、`CLAUDE_CONFIG_DIR`設定時だけ配置を変更する。今回の構成と観測した相対配置に明白な不一致はない。同資料はログイン期限・更新不能等も再認証要因として説明するが、参照時点の資料は固定CLI 2.1.220そのものの実測ではなく、今回の期限切れを証明しない。
+
+現時点で製品修正を正当化する原因は未確定。次の最小比較候補は、既存の正式`auth status claude --json`を一回だけ使い、Task前probeと同じHome・Imageに対する判定を比較すること。通信なし・Home読取り専用・認証値非表示を維持し、今回作成した一Containerだけを正式Ownerで回収する。AI再送・login・更新通信・Docker再起動・Image取得・先行保持物の変更は含めない。実Homeを使うContainerの追加実行は本調査では行っておらず、実行範囲の人間確認へ戻す。正式statusも未認証なら環境差だけに原因を求めず、成功した場合だけ差の限定比較を検討する。
