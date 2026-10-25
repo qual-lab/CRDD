@@ -1484,6 +1484,28 @@ Source・Architecture・QA・結果記録の最終独立確認は残指摘零。
 
 独立確認後、同じ状態・未実行fixture・Git参照・Process・canonical／reparse条件を直前に再照合し、今回leaf Rootを削除して不存在を確認した。非使用の短命四Fileもexact一覧を再確認して削除し、空の今回tmp directoryまで不存在を確認した。兄弟結果JSONと親Directory、既存保持三領域は維持した。今回の再送零・失敗分類・安全回収の成立であり、読取り成功・全体E2E成功ではない。
 
+<a id="verification-client-input-deadline-diagnosis"></a>
+
+#### 検証子の入力搬送と親監視期限の非AI調査
+
+基準`cede6c6a`で、外部AI・Docker・保持物を使わず、独立Processの合成HTTP Serverと正式`requestInChild`を比較した。製品Sourceは変更していない。親の意図的な22秒停止は診断用の反例であり、元実AIで同じ長さ・箇所の停止が発生した証明ではない。
+
+| 条件 | 観測 |
+|---|---|
+| 通常 | HTTP200、子終了0、終了要求零。HTTP開始→本文完了21ms |
+| stdin.end返却直後に親を22秒停止 | 子のspawn／stdin finish／close通知の親側処理が遅延し、親再開直後に20秒期限callbackが発火。終了要求一回・SIGTERM・stderr零・Server受信零・有効frameなし。今回実AIの子監視失敗と同じ分類を再現 |
+| 子の結果data通知後に親を22秒停止 | HTTP21ms、子は正常終了済み。期限callbackのkillはfalse、その後exit0／close0を確認し既存契約どおりHTTP200を受理。親遅延を一律に失敗へ変える実装ではない |
+| stdin読取り時刻の補助観測 | 子のreadFileSync(0)開始はspawn返却の約206ms後、読取り完了通知なし。親停止約22秒後にkill true、入力finish／closeの親側観測はその後。子の同期入力読取りが完了せずHTTPへ進まない状態を確認。kernel上のbyte／EOF位置までは観測していない |
+| 標準IPCの一件入力へ置き換えた合成比較 | 同じ親22秒停止中でも、子はHTTPを23msで完了。Server受信→finish 2ms、子終了0、親再開後のkill false・close0でHTTP200を受理。HTTP15秒・親20秒・close2秒と既存frame／終了判定は維持 |
+
+stdin.endの返却は、子が入力全文・終端を読み終えた事実ではない。親の同期占有が検証入力の進行を止め、その間にwall-clock期限を超え、親再開時に監視が子を停止する経路を再現した。元実AIで親を占有した具体処理、Provider非0との因果、以前のHTTP15秒故障は未確定のまま。先行の補助preload試行はWindows絶対Pathのimport指定不備で子が起動時に終了したため根拠から除外し、file URL修正後の補助観測だけを採用した。
+
+最小是正候補は、既存`ai-verification-client.ts`への入力だけをNode標準IPCの一件搬送へ変更すること。追加Worker／Runtime child／入力File／Queue／Lockは作らない。親の256KiB事前検査、子のUTF-8容量再検査・曖昧JSON拒否・閉じたshape・loopback／固定route検査は維持する。親は一つのstringだけsendし、throw・callback error・channel欠測／早期disconnectを既存pipe故障へ接続する。sendのfalseはbackpressureであり即失敗にしない。子は一件受領後にchannelを切断し、型不正・parse失敗・HTTP失敗を含め自然終了を妨げない。未到達は既存監視で終了し、stdout frame・stderr上限・exit0/2・late close・kill false・一次失敗・同ID取消・回復参照・HTTP15/60秒・親20/65秒・close2秒は変更しない。Token／Formをargv・env・logへ移さない。
+
+実装前の反証対象はsend例外／callback失敗／未到達／非string／過大／曖昧JSON／二件目／子早期終了／未切断／親停止／late close。旧stdin故障の検証責務を消さず、新transportの故障へ意味対応させる。独立確認で再現の事実・未確定範囲と、この条件付きIPC案の整合を確認した。今回は調査と候補比較までで、製品未適用。独立Serverでの成立を、本番Workbench Serverの15秒応答保証や実AI成功へ拡張しない。
+
+各診断の合成Serverは終了0、使用子Processの終了を確認した。今回短命四File（diagnose.mjs／server.mjs／input-clock.mjs／ipc-client.ts）と空の `.crdd/tmp/client-deadline-diagnosis-20261025/` は非使用・exact Path・reparse不在・内容一致を直前確認して清掃し、四FileとDirectoryの不存在を確認した。元の実AI結果JSONと既存保持三領域は対象外。
+
 <a id="new-model-ai-once-results-20261025"></a>
 
 ### 新Model読取り各一回と編集停止 — 2026-10-25
