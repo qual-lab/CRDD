@@ -16,22 +16,29 @@ import buildInputs from "../../docker-isolation/images/build-inputs.json" with {
 };
 
 /**
- * 明示した公式CLIとHostから有限のImage入力を作成する。
+ * 明示した公式CLI・Host・bwrapから有限のImage入力を作成する。
  *
  * @responsibility 入力の実体・サイズ・Hashと書込みRootを検証する。
  * @trace ARCH-000010
- * @input codexPath: 公式CLI、hostPath: 公式HostのRepository内Path。
- * @returns 二公式実行物とDockerfileだけを持つ一時ContextのPath。
+ * @input purpose: Task又は助言、codexPath・hostPath・bwrapPath: 検証済み公式実行物のRepository内Path。
+ * @returns 公式三実行物・用途別Dockerfileと、Task時だけ固定Schema三件を持つ一時ContextのPath。
  * @precondition 公式配布の取得検証済み実行物を明示する。
  * @postcondition 既存Context、採用Imageと署名Manifestを変更しない。
- * @effect Repository-local tmpへ新規Contextと三Fileを作成する。
+ * @effect Repository-local tmpへ新規Contextと助言四File又はTask七Fileを作成する。
  * @failure Root・Path・サイズ・Hash不一致を作成前に拒否する。
  * @invariant Source Archive、Patch、認証情報、Repository本文をコピーしない。
  * @boundary 取得済み公式配布物とDocker Image入力の境界。
  * @security 任意実行物をCLIやHostとして採用しない。
  * @concurrency 新しいContextを排他的に作り既存入力を上書きしない。
  */
-export function prepareCodexAdviceImage(codexPath: string, hostPath: string) {
+export function prepareCodexImage(
+  purpose: "task" | "advice",
+  codexPath: string,
+  hostPath: string,
+  bwrapPath: string,
+) {
+  if (purpose !== "task" && purpose !== "advice")
+    throw new Error("codex_image_purpose_invalid");
   const root = path.resolve(
     path.dirname(fileURLToPath(import.meta.url)),
     "../../..",
@@ -42,14 +49,20 @@ export function prepareCodexAdviceImage(codexPath: string, hostPath: string) {
     {
       name: "codex",
       source: codexPath,
-      size: 286754152,
-      hash: buildInputs.codex.adviceIdentity.binarySha256,
+      size: buildInputs.codex.identity.binaryBytes,
+      hash: buildInputs.codex.identity.binarySha256,
     },
     {
       name: "codex-code-mode-host",
       source: hostPath,
-      size: 74068880,
-      hash: buildInputs.codex.adviceIdentity.hostBinarySha256,
+      size: buildInputs.codex.identity.hostBinaryBytes,
+      hash: buildInputs.codex.identity.hostBinarySha256,
+    },
+    {
+      name: "bwrap",
+      source: bwrapPath,
+      size: buildInputs.codex.identity.bwrapBinaryBytes,
+      hash: buildInputs.codex.identity.bwrapBinarySha256,
     },
   ].map((input) => {
     const source = path.resolve(input.source);
@@ -73,18 +86,56 @@ export function prepareCodexAdviceImage(codexPath: string, hostPath: string) {
       throw new Error("codex_advice_image_input_hash_mismatch");
     return { name: input.name, bytes };
   });
+  const recipe =
+    purpose === "task"
+      ? buildInputs.codex.identity
+      : buildInputs.codex.adviceIdentity;
   const dockerfile = fs.readFileSync(
-    path.join(
-      root,
-      "40_Develop/docker-isolation/images/codex-advice-provider.Dockerfile",
-    ),
+    path.join(root, recipe.imageBuildDefinition),
   );
+  if (
+    createHash("sha256").update(dockerfile).digest("hex") !==
+    recipe.imageBuildDefinitionSha256
+  )
+    throw new Error("codex_image_recipe_hash_mismatch");
+  if (purpose === "task") {
+    for (const [name, sourceName, hash] of [
+      [
+        "codex-result-schema.json",
+        "codex-result.json",
+        buildInputs.codex.identity.resultSchemaSha256,
+      ],
+      [
+        "codex-executor-result-schema.json",
+        "codex-executor-result.json",
+        buildInputs.codex.identity.executorSchemaSha256,
+      ],
+      [
+        "codex-reviewer-result-schema.json",
+        "codex-reviewer-result.json",
+        buildInputs.codex.identity.reviewerSchemaSha256,
+      ],
+    ] as const) {
+      const bytes = Buffer.from(
+        fs
+          .readFileSync(
+            path.join(root, "40_Develop/ai-adapter/src/codex", sourceName),
+          )
+          .toString("utf8")
+          .replace(/\r\n/gu, "\n"),
+        "utf8",
+      );
+      if (createHash("sha256").update(bytes).digest("hex") !== hash)
+        throw new Error("codex_image_schema_hash_mismatch");
+      inputs.push({ name, bytes });
+    }
+  }
   const temporary = requireReadyRepositoryRuntimeDataArea(
     ensureRepositoryRuntimeDataArea(verified.capability, "tmp"),
     "codex_advice_image_root_invalid",
   );
   const context = fs.mkdtempSync(
-    path.join(temporary.directory, "codex-advice-image-"),
+    path.join(temporary.directory, `codex-${purpose}-image-`),
   );
   for (const input of inputs)
     fs.writeFileSync(path.join(context, input.name), input.bytes, {
@@ -106,9 +157,9 @@ if (
   process.argv[1] &&
   path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
 ) {
-  if (process.argv.length !== 4)
-    throw new Error("codex_advice_image_requires_cli_and_host_paths");
+  if (process.argv.length !== 6)
+    throw new Error("codex_image_requires_purpose_cli_host_and_bwrap_paths");
   process.stdout.write(
-    `${JSON.stringify(prepareCodexAdviceImage(process.argv[2] as string, process.argv[3] as string))}\n`,
+    `${JSON.stringify(prepareCodexImage(process.argv[2] as "task" | "advice", process.argv[3] as string, process.argv[4] as string, process.argv[5] as string))}\n`,
   );
 }

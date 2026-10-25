@@ -7,6 +7,14 @@
 
 ## 技術カタログとRepository別AI選択の分離方針 — 2026-10-24
 
+### 指定Modelと最新版CLIへの接続 — 2026-10-25
+
+今回の指定ModelはCodex `gpt-6.1-sol`、Claude `claude-opus-5-5`、推論強度mediumとする。技術Catalogは両exact識別子を既存のadvice／task用途へ登録し、役割別の既定値はRepositoryの`ai-selection.json`が所有する。対応組の宣言は実アカウントでの利用成功・認証・送信同意の証明ではない。取得・Build・非AI検証の現在結果は[実施計画](../../../99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#repository-capability-and-model-baseline)で区別する。
+
+Codex Task計画はCatalog照合済みの`modelSelection`四値を受け取り、Provider・exact識別方式・Model・EffortとTask入力を再照合する。旧Modelへ補完せず、同じModelを`--model`と`exactModel`へ搬送する。GPT-6.1 Solは公式固定版の定義でCode Mode必須のため、既存の公式Hostを使用し、in-process fallbackを無効化する。Taskの承認・Workspace書込み範囲・コマンド通信禁止・multi-agent無効は維持する。Code ModeでのレビューTool禁止が未実証の間は、Codex GPT-6.1 Solのreviewer計画を`codex_task_reviewer_code_mode_not_verified`で拒否する。標準設定の独立レビュー担当はClaudeであり、未知の役割別fallbackを作らない。
+
+Codex計画契約は改訂16、現行JSONLの診断値は`fixed_cli_jsonl_v0_164_0`とする。保存済み旧診断`fixed_cli_jsonl_v0_149_1`の読取りは当時値を保持し、新Model実行の許可へ昇格しない。CLI／Hostの配置とImageの固定はDocker Isolationが所有し、AI AdapterへDocker依存を追加しない。
+
 AI AdapterはProvider固有の操作、認証方式、技術対応、入力計画と出力変換を所有する。Repository別の役割既定値・作業分類・明示選択と保存はCoordinatorが所有する。旧Profile Catalog、Host／Repository Profile Store、Family／Tierによる自動選定は撤去対象であり、新形式の互換Readerとして残さない。
 
 技術カタログ（Model Catalog）の正本は`src/catalog/model-catalog.json`。`getAiModelCatalog`が深い不変値と内容Identityを返し、`resolveAiModelSelection`がProvider・Model・用途・Effortを照合する。役割、Tier、推奨Model、既定Effort、現在の認証状態を含まない。`opus`はaliasのまま保持し、未観測の実Model版へ変換しない。

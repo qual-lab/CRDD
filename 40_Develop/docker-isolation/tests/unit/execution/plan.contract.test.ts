@@ -86,8 +86,10 @@ test("固定command照合は用途・順序・全argvの差を拒否する", () 
  * @cleanup N/A: 純粋な値の照合だけで資源を作らない。
  * @boundary 技術要件の判定であり実Init観測や回収許可ではない。
  */
-test("助言initは方式と二つのexact Imageだけに限定する", () => {
+test("助言initは方式と現行・過去二つのexact Imageだけに限定する", () => {
   const current =
+    "sha256:112a73d8576b6aa3e04db76b5fee98a0f5636f5ca539ef039aa555ccd9b76de3";
+  const previousOfficial =
     "sha256:4f35a6542ee0b412714d558bc38e578bcea00490ec2a1f02f02b88c1226f924e";
   const previous =
     "sha256:843db607376a454cb7c901e76d4da1d168d6e384912366448df3363b42624d36";
@@ -102,6 +104,7 @@ test("助言initは方式と二つのexact Imageだけに限定する", () => {
   ]) {
     for (const image of [
       current,
+      previousOfficial,
       previous,
       claude,
       `sha256:${"0".repeat(64)}`,
@@ -111,7 +114,9 @@ test("助言initは方式と二つのexact Imageだけに限定する", () => {
       assert.equal(
         codexAdviceProviderInitRequired(mode, image),
         mode === "workbench_advice" &&
-          (image === current || image === previous),
+          (image === current ||
+            image === previousOfficial ||
+            image === previous),
       );
     }
   }

@@ -34,16 +34,31 @@ test("技術選定は確認済みの用途とEffortだけを解決しaliasを維
   assert.ok(Object.isFrozen(snapshot));
   assert.ok(Object.isFrozen(snapshot.catalog));
   assert.ok(Object.isFrozen(snapshot.catalog.models));
-  assert.equal(snapshot.catalog.models.length, 3);
+  assert.equal(snapshot.catalog.models.length, 5);
   assert.deepEqual(snapshot.catalog.models, [
+    {
+      provider: "codex",
+      modelIdentifier: "gpt-6.1-sol",
+      identifierKind: "exact",
+      supportedEfforts: ["low", "medium", "high"],
+      supportedPurposes: ["advice", "task"],
+      compatibilityReason: null,
+    },
+    {
+      provider: "claude",
+      modelIdentifier: "claude-opus-5-5",
+      identifierKind: "exact",
+      supportedEfforts: ["low", "medium", "high"],
+      supportedPurposes: ["advice", "task"],
+      compatibilityReason: null,
+    },
     {
       provider: "codex",
       modelIdentifier: "gpt-5.6-sol",
       identifierKind: "exact",
       supportedEfforts: ["low", "medium", "high"],
       supportedPurposes: ["advice"],
-      compatibilityReason:
-        "gpt_5_6_code_mode_only_host_unavailable_in_fixed_linux_runtime",
+      compatibilityReason: "gpt_5_6_task_not_verified_in_current_runtime",
     },
     {
       provider: "codex",
@@ -99,7 +114,7 @@ test("技術選定は確認済みの用途とEffortだけを解決しaliasを維
     [{ purpose: "task" }, "ai_model_purpose_unsupported"],
     [{ modelIdentifier: "gpt-5.5" }, "ai_model_purpose_unsupported"],
     [{ modelIdentifier: "gpt-6-astra" }, "ai_model_not_found"],
-    [{ modelIdentifier: "gpt-6.1-sol" }, "ai_model_not_found"],
+    [{ modelIdentifier: "gpt-6.1-sol-unknown" }, "ai_model_not_found"],
     [{ provider: "claude" }, "ai_model_not_found"],
     [{ reasoningEffort: "xhigh" }, "ai_model_effort_unsupported"],
     [{ reasoningEffort: "max" }, "ai_model_effort_unsupported"],

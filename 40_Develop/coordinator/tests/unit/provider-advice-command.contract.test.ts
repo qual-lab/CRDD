@@ -160,13 +160,14 @@ test("Codex助言をToolなし・Repository非共有の標準入力計画へ固�
   assert.equal(plan.provider, "codex");
   assert.equal(plan.modelIdentifier, "gpt-5.6-sol");
   const distribution = {
+    ...buildInputs.codex.identity,
     ...buildInputs.codex.adviceIdentity,
     ...describeDockerProviderAssets("codex").adviceIdentity,
   };
   assert.equal(distribution.officialCliUnmodified, true);
   assert.equal(
     distribution.binarySha256,
-    "1748767b230ebfc3d4ab7e4e254920d0c0ad9691fd8c11f190e7d44511a4a92e",
+    "b93f6811d3f653f0fb83be4050d857fb9abbb111dfa2ce160563327daff7f306",
   );
   assert.equal("startupPatchSha256" in distribution, false);
   const normal = describeDockerProviderAssets("codex").identity;
@@ -175,7 +176,7 @@ test("Codex助言をToolなし・Repository非共有の標準入力計画へ固�
     "binarySha256" in describeDockerProviderAssets("codex").adviceIdentity,
     false,
   );
-  assert.notEqual(plan.command, normal.executablePath);
+  assert.equal(plan.command, normal.executablePath);
   assert.notEqual(
     distribution.fixedImageDigest,
     describeDockerProviderAssets("codex").fixedImageDigest,

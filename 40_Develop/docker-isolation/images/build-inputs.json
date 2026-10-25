@@ -12,55 +12,56 @@
   "codex": {
     "identity": {
       "targetPlatform": "linux-x64-musl",
-      "releaseTag": "rust-v0.149.1",
-      "releaseCommit": "ff29a44391deccde0aba0f8390337d7f3c319ea4",
-      "archiveSha256": "e24fb784c7d71140d67afb620f56e9137496cf7f6c9e19217fa3666dcf306278",
-      "archiveBytes": 99479490,
-      "binarySha256": "73dc5888888f411c1f0fa7b81d866e721dcc86b527ce8e3b2cf4708661e823ba",
-      "binaryBytes": 258227840,
-      "sigstoreBundleSha256": "1976d459060cac4638f481b72142271d8bbd821abebd72555145b83b2bf3e85e",
-      "sigstoreIdentity": "https://github.com/openai/codex/.github/workflows/rust-release.yml@refs/tags/rust-v0.149.1",
+      "releaseTag": "rust-v0.164.0",
+      "releaseCommit": "6aaac694803004a63c6f393d153c96d22521a6b9",
+      "archiveSha256": "90dd0b03b28afcb7fa733a4f73b413db2916a47347efd43fb669cc1c774ee8e4",
+      "archiveBytes": 114979035,
+      "binarySha256": "b93f6811d3f653f0fb83be4050d857fb9abbb111dfa2ce160563327daff7f306",
+      "binaryBytes": 308139304,
+      "officialCliUnmodified": true,
+      "hostExecutablePath": "/opt/crdd/providers/codex/0.164.0/codex-code-mode-host",
+      "hostBinarySha256": "8ee4f472e92ac226a189e98998633b2d07f989f208515750764db660369f2926",
+      "hostBinaryBytes": 76997904,
+      "hostArchiveSha256": "feade7026436baa4e82e898050c7ef82a8adbd98163dc504771275b5ef224f2f",
+      "hostArchiveBytes": 28137475,
+      "hostSigstoreBundleSha256": "a61eb6c4ab76ca70596e23a69ad00c5cd46be0c8da97b5c4e397fdf66a01df96",
+      "sigstoreBundleSha256": "772d7471f5e72260884112474c33e30c9d7b7cb4570e5eb34c9af7253d623d86",
+      "sigstoreIdentity": "https://github.com/openai/codex/.github/workflows/rust-release.yml@refs/tags/rust-v0.164.0",
       "sigstoreIssuer": "https://token.actions.githubusercontent.com",
-      "bwrapArchiveSha256": "7b0604dc48a487e25dae35a1f200aaf125666c5c8ef73bc913e915cebc86ce7b",
-      "bwrapArchiveBytes": 261611,
-      "bwrapBinaryPath": "/opt/crdd/providers/codex/0.149.1/codex-resources/bwrap",
-      "bwrapBinarySha256": "01fb705f067bd5365b63d8ad2323a61c8d007733ca5e649437e086f3fb9935d8",
-      "bwrapBinaryBytes": 529776,
-      "bwrapSigstoreBundleSha256": "2c8b6f67a874ecb25e231366302386450775266220c08d98625408171c0d0238",
-      "bwrapSigstoreIdentity": "https://github.com/openai/codex/.github/workflows/rust-release.yml@refs/tags/rust-v0.149.1",
+      "bwrapArchiveSha256": "60cd1c139823eabac2e4544cc75081d02af5100cfd276efa378dd48a123e109d",
+      "bwrapArchiveBytes": 254551,
+      "bwrapBinaryPath": "/opt/crdd/providers/codex/0.164.0/codex-resources/bwrap",
+      "bwrapBinarySha256": "3a81c19ad10a70436529c58e77898e2a447abe80167f813fc20ec34bd9eafdeb",
+      "bwrapBinaryBytes": 513520,
+      "bwrapSigstoreBundleSha256": "b570206b836642f7299e9735792452de8eb162a155f942e0c839899dd38d6aba",
+      "bwrapSigstoreIdentity": "https://github.com/openai/codex/.github/workflows/rust-release.yml@refs/tags/rust-v0.164.0",
       "bwrapSigstoreIssuer": "https://token.actions.githubusercontent.com",
       "executorSeccompProfilePath": "40_Develop/docker-isolation/src/execution/codex-executor-seccomp.json",
       "executorSeccompBaselineCommit": "c3065211177705ada59a9ccf8b5c182f286f8c97",
       "executorSeccompBaselineSha256": "536529b665dd0972c37bfb569f5d4ac8a53592e7b00752bc39ff063ca9864c74",
-      "fixedImageBytes": 145299281,
+      "fixedImageBytes": 709806305,
       "executorSchemaSha256": "daf04adf5282157984b43559298a82f1ab16de837cfb5f6cc929805390f776ce",
+      "resultSchemaSha256": "e6a10c7bb431bf4841aebc32f60da169f6f33e81bdf34f92be3aba034c722312",
       "reviewerSchemaSha256": "09e8592838b1642f738eee07fb2c1b366dc25d6a3e842dbb0649930c94a25df8",
       "imageBuildDefinition": "40_Develop/docker-isolation/images/codex-provider.Dockerfile",
-      "releaseUrl": "https://github.com/openai/codex/releases/tag/rust-v0.149.1"
+      "imageBuildDefinitionSha256": "79273184577a14d046588cd13adf76318d776a86d9fae81cd342e26c19b8fd6f",
+      "releaseUrl": "https://github.com/openai/codex/releases/tag/rust-v0.164.0"
     },
     "adviceIdentity": {
-      "sourceCommit": "ff6aec96948b70d94983af2641a6b67c94faeff5",
-      "sourceArchiveSha256": "b749fadee5cc236dff4cd0fc076cc4e08840937529ea71bca2928e233755712a",
-      "officialCliUnmodified": true,
-      "binarySha256": "1748767b230ebfc3d4ab7e4e254920d0c0ad9691fd8c11f190e7d44511a4a92e",
-      "hostExecutablePath": "/opt/crdd/providers/codex/0.159.2/codex-code-mode-host",
-      "hostBinarySha256": "5b2c075ac2380fa04d76d7313fbc044d29c8d0a0d0b9138415acd4610211ca03",
-      "bwrapBinaryPath": "/opt/crdd/providers/codex/0.159.2/codex-resources/bwrap",
-      "bwrapBinarySha256": "01fb705f067bd5365b63d8ad2323a61c8d007733ca5e649437e086f3fb9935d8",
       "imageBuildDefinition": "40_Develop/docker-isolation/images/codex-advice-provider.Dockerfile",
-      "imageBuildDefinitionSha256": "92bc2fc6498fee09f745b1710fdb7ada7f868ef06b44d27499d6f6343407e29a"
+      "imageBuildDefinitionSha256": "e685e6f287e465e7dd6476b7877f463d5c1a07e500450471ad38467d96ccf41c"
     }
   },
   "claude": {
     "identity": {
       "targetPlatform": "linux-x64",
-      "upstreamCommit": "4073f59596e272f39393db4f96abc5f4b10eff21",
-      "binarySha256": "674f61f20ff306f3100cf9200e4c36c4b70278b5bef2884549819b942a89c863",
-      "binaryBytes": 275012592,
-      "manifestUrl": "https://downloads.claude.ai/claude-code-releases/2.1.220/manifest.json"
+      "upstreamCommit": "0d2056ecf42d9452a8cd8e054600024e7c557add",
+      "binarySha256": "b73676430af12f97316a798b8371f81d640f90a58bdcb8f3ce56a835bb47df56",
+      "binaryBytes": 291638640,
+      "manifestUrl": "https://downloads.claude.ai/claude-code-releases/2.1.310/manifest.json"
     },
     "managedSettingsSha256": "736c1447df695f074743f52564eefd4f9f8d8850737657d54a1f3d6052151ee8",
     "taskSettingsSha256": "1924f4754c93793668056446ee68e3cd1b0f45dd38db6b137c5aa43441599ca1",
-    "fixedImageBytes": 129732853
+    "fixedImageBytes": 601463882
   }
 }

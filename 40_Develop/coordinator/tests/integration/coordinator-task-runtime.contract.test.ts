@@ -1423,7 +1423,7 @@ function fixture(
                         transport:
                           options.providerExecutionObservation === "invalid"
                             ? "unknown"
-                            : "fixed_cli_jsonl_v0_149_1",
+                            : "fixed_cli_jsonl_v0_164_0",
                         turnCompleted: true,
                         commandExecutionStartedCount: 1,
                         commandExecutionCompletedCount: 1,
@@ -3787,7 +3787,7 @@ test("Reviewerがchanges_requestedならCandidateを承認済みResultへ昇格�
     changedPaths: ["fixture.txt"],
     verificationCount: 1,
     providerExecutionObservation: {
-      transport: "fixed_cli_jsonl_v0_149_1",
+      transport: "fixed_cli_jsonl_v0_164_0",
       turnCompleted: true,
       commandExecutionStartedCount: 1,
       commandExecutionCompletedCount: 1,

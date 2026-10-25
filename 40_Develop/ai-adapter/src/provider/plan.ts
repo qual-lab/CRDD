@@ -458,7 +458,7 @@ export function planProviderExecution<
     return reject("provider_execution_input_invalid");
   const generated =
     provider === "codex"
-      ? planCodexIsolatedTask(snapshot.input, locations)
+      ? planCodexIsolatedTask(snapshot.input, chosen, locations)
       : planClaudeIsolatedTask(snapshot.input, locations);
   if (generated.status !== "candidate") return reject(generated.reason);
   if (

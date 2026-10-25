@@ -553,6 +553,7 @@ function assertAdviceImageObservation(
   hashesImageId: string,
 ) {
   const expected = {
+    ...buildInputs.codex.identity,
     ...buildInputs.codex.adviceIdentity,
     ...describeDockerProviderAssets("codex").adviceIdentity,
   };
@@ -593,6 +594,7 @@ function assertAdviceImageObservation(
  */
 test("公式助言Imageの観測Oracleは三Hash・版・実Imageと警告を分離する", () => {
   const identity = {
+    ...buildInputs.codex.identity,
     ...buildInputs.codex.adviceIdentity,
     ...describeDockerProviderAssets("codex").adviceIdentity,
   };
@@ -1285,6 +1287,7 @@ test("Windows Process Gate: 公式助言Imageの版と三Hashを実配置物で�
   timeout: 120_000,
 }, () => {
   const expected = {
+    ...buildInputs.codex.identity,
     ...buildInputs.codex.adviceIdentity,
     ...describeDockerProviderAssets("codex").adviceIdentity,
   };

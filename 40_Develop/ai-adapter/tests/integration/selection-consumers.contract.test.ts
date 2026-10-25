@@ -11,6 +11,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { getAiModelCatalog, planProviderExecution } from "../../src/index.ts";
 import { resolveExecutionSelection } from "../../../coordinator/src/selection/resolve.ts";
+import { describeDockerProviderExecutionLocations } from "../../../docker-isolation/src/index.ts";
 
 /**
  * 両Providerの助言選定を同じ技術Identityの計画へ渡す。
@@ -81,4 +82,122 @@ test("技術Catalogの明示選定をProvider計画へ無変換で搬送する",
       "blocked",
     );
   }
+});
+
+/**
+ * 新ModelのRepository設定を同じ選定のまま実行計画へ搬送する。
+ * @responsibility exact Modelとmedium、Code Mode条件、未検証reviewer拒否を検証する。
+ * @trace RCM-IT-005
+ * @precondition 新Model二件が同梱Catalogにあり、配置は固定構成Ownerから取得する。
+ * @stimulus 五役割を選定し、Task計画と不正選定を生成する。
+ * @observation Model・Effort・argv・拒否理由と不変の権限制限。
+ * @oracle Modelを旧版へ補完せず、未検証のCodex reviewerと不一致を起動前に拒否する。
+ * @cleanup N/A: 値検査だけで外部実行・保存なし。
+ * @boundary RCM-IT-005=Direct Boundary: Repository選定→Provider計画→固定配置。
+ */
+test("新Model設定はmediumを維持しCodex Code Modeの未検証役割を拒否する", () => {
+  const codex = { provider: "codex", model: "gpt-6.1-sol", effort: "medium" };
+  const claude = {
+    provider: "claude",
+    model: "claude-opus-5-5",
+    effort: "medium",
+  };
+  const config = {
+    contract: "crdd/ai-selection",
+    revision: 1,
+    roleDefaults: {
+      coordinator: codex,
+      executor: codex,
+      independent_reviewer: claude,
+      result_integration: codex,
+      advice: codex,
+    },
+    workTypes: {},
+    overrides: {},
+  };
+  for (const role of [
+    "coordinator",
+    "executor",
+    "independent_reviewer",
+    "result_integration",
+    "advice",
+  ] as const) {
+    const result = resolveExecutionSelection(config, { role, workType: null });
+    assert.equal(result.status, "resolved");
+    if (result.status !== "resolved") throw new Error("selection_blocked");
+    assert.equal(result.value.reasoningEffort, "medium");
+    assert.equal(result.value.identifierKind, "exact");
+    assert.equal(
+      result.value.modelIdentifier,
+      role === "independent_reviewer" ? claude.model : codex.model,
+    );
+  }
+  const request = {
+    provider: "codex" as const,
+    purpose: "task" as const,
+    modelSelection: {
+      provider: "codex" as const,
+      modelIdentifier: codex.model,
+      identifierKind: "exact" as const,
+      reasoningEffort: "medium" as const,
+    },
+    input: {
+      provider: "codex",
+      mode: "isolated_task",
+      effort: "medium",
+      taskRole: "executor",
+    },
+  };
+  const plan = planProviderExecution(
+    request,
+    describeDockerProviderExecutionLocations("codex", "task"),
+  );
+  assert.equal(plan.status, "ready");
+  if (plan.status !== "ready") throw new Error("plan_blocked");
+  assert.equal(plan.plan.exactModel, codex.model);
+  assert.equal(
+    plan.plan.argv[plan.plan.argv.indexOf("--model") + 1],
+    codex.model,
+  );
+  for (const expected of [
+    "features.code_mode=true",
+    "features.code_mode_only=true",
+    "features.code_mode_host={enabled=true,disable_in_process_fallback=true}",
+    "features.multi_agent=false",
+    "features.multi_agent_v2=false",
+    "permissions.crdd-executor.network.enabled=false",
+  ])
+    assert.ok(plan.plan.argv.includes(expected));
+  assert.equal(plan.plan.commandNetworkAccessAllowed, false);
+  assert.equal(
+    planProviderExecution({
+      ...request,
+      input: { ...request.input, taskRole: "reviewer" },
+    }).status,
+    "blocked",
+  );
+  assert.equal(
+    planProviderExecution({
+      ...request,
+      input: { ...request.input, effort: "high" },
+    }).status,
+    "blocked",
+  );
+  assert.equal(
+    planProviderExecution({
+      ...request,
+      modelSelection: { ...request.modelSelection, identifierKind: "alias" },
+    }).status,
+    "blocked",
+  );
+  assert.equal(
+    planProviderExecution({
+      ...request,
+      modelSelection: {
+        ...request.modelSelection,
+        modelIdentifier: "gpt-6.1-sol-unknown",
+      },
+    }).status,
+    "blocked",
+  );
 });

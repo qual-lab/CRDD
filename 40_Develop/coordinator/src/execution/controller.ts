@@ -4583,7 +4583,9 @@ function projectExecutorResultDiagnostics(value: unknown) {
       "fileChangeDeclinedCount",
     ] as const;
     if (
-      observation.transport !== "fixed_cli_jsonl_v0_149_1" ||
+      !["fixed_cli_jsonl_v0_149_1", "fixed_cli_jsonl_v0_164_0"].includes(
+        observation.transport as string,
+      ) ||
       observation.turnCompleted !== true ||
       !countKeys.every(
         (key) =>

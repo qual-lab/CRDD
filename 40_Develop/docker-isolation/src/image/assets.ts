@@ -14,33 +14,33 @@ const PROXY = Object.freeze({
 const CODEX = Object.freeze({
   proxy: PROXY,
   identity: {
-    executablePath: "/opt/crdd/providers/codex/0.149.1/codex",
-    exactVersion: "0.149.1",
+    executablePath: "/opt/crdd/providers/codex/0.164.0/codex",
+    exactVersion: "0.164.0",
     executorSeccompProfileSha256:
       "01e577dd6fc81e04987af29b05389e9432dc0623a66aa435fd2f31f2b1070b95",
     executorSeccompProfileBytes: 16703,
   },
   adviceIdentity: {
-    exactVersion: "0.159.2",
-    executablePath: "/opt/crdd/providers/codex/0.159.2/codex",
+    exactVersion: "0.164.0",
+    executablePath: "/opt/crdd/providers/codex/0.164.0/codex",
     fixedImageDigest:
-      "sha256:4f35a6542ee0b412714d558bc38e578bcea00490ec2a1f02f02b88c1226f924e",
+      "sha256:112a73d8576b6aa3e04db76b5fee98a0f5636f5ca539ef039aa555ccd9b76de3",
   },
   fixedDigestImageRequired: true,
   fixedImageDigest:
-    "sha256:e7fefafffd4b96614811b2d51b9704d3280e4995c358ed5e25ec795215dbd45c",
+    "sha256:832019e696c493a5393032b9020cf9898d29b23381634fddcc808ae6832aa4a4",
   autoUpdateAllowed: false,
   runtimePullAllowed: false,
 } as const);
 const CLAUDE = Object.freeze({
   proxy: PROXY,
   identity: {
-    executablePath: "/opt/crdd/providers/claude/2.1.220/claude",
-    exactVersion: "2.1.220",
+    executablePath: "/opt/crdd/providers/claude/2.1.310/claude",
+    exactVersion: "2.1.310",
   },
   fixedDigestImageRequired: true,
   fixedImageDigest:
-    "sha256:ddd766072db6e69f55efb11fc3e82b401542cb5583c179f56aac4004f4ea317a",
+    "sha256:612433b71c4af3dfb135c00daad64f0ef897f86e0251b4da558715fdfde9c51f",
   autoUpdateAllowed: false,
   runtimePullAllowed: false,
 } as const);

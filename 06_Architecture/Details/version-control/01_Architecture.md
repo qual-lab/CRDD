@@ -302,7 +302,7 @@ dirty、untrackedまたはdetachedであることだけを不正としない。�
 |---|---|---|---|---|
 | Runtime Data | Repository RootをGit CLIから直接取得する処理 | Repository Location | 1 | Root能力をPortから取得し、旧Root Ownerと直接Git依存が0 |
 | Coordinator Repository Security | Repository Root／Layout／Operationの直接解釈 | Repository Location、Repository-local Ignore Registration | 1 | Root／Layout解釈をPortへ一本化し、Runtime Data領域作成時のignore登録を新Portへ接続 |
-| Coordinator公式CLI配置準備 | 配置入力・一時領域の起点Root | Repository Location。領域作成はRuntime Dataを経由する | 1 | `prepare-codex-advice-image.ts`がexact Rootを検証し、そのRoot直下の`.crdd/tmp`だけに新しいContextを作成する。未改造公式実行物だけを配置し、既存ContextとRuntime配布物は変更しない |
+| Coordinator公式CLI配置準備 | 配置入力・一時領域の起点Root | Repository Location。領域作成はRuntime Dataを経由する | 1 | `prepare-codex-image.ts`がexact Rootを検証し、そのRoot直下の`.crdd/tmp`だけに新しいContextを作成する。未改造公式実行物だけを配置し、既存ContextとRuntime配布物は変更しない |
 | Checker Current Tree | Root、index、HEAD、historical objectの直接観測 | Root公開APIのChecker Observation集合。Repository Identityが必要な責務は同Rootの対応集合を使う | 2 | 開発・採用の両経路が検証済みCRDD基準版のRoot公開APIを利用し、旧中継入口とGit内部実装への直接依存が0 |
 | Regression Selection | 変更集合の直接導出 | Local Change Set Observation | 2 | 変更集合の意味をPortへ一本化し、実Git境界の反証を持つ |
 | Coordinator Snapshot | Object Reader、Workspace、Candidate IntegrationによるGit内部構造の直接解釈 | Fixed Snapshot Read、Candidate Materialization | 3 | Object ReaderをAdapter内部へ隔離し、旧Owner Consumerが0 |

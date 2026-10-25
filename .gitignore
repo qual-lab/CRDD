@@ -9,6 +9,7 @@
 /.crdd/config/*
 # Active non-secret Domain Model repository identity, not execution history.
 !/.crdd/config/repository-manifest.json
+!/.crdd/config/ai-selection.json
 !/.crdd/config/external-send-policy.json
 !/.crdd/config/execution-intelligence.json
 !/.crdd/config/coordinator.json

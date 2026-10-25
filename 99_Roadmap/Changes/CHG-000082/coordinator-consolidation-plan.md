@@ -317,7 +317,7 @@ ProviderのCLI計画・出力・認証仕様は、多くが既にAI Adapterへ�
 |---|---|
 | `authenticate-claude-subscription.ts` | 認証の上位許可入口を保持。仕様AI／技術DIへ接続し、実認証は今回起動しない |
 | `check-platform-access-coverage.ts`、`check-platform-access-ts-coverage.ts`、`platform-access-coverage-path.ts`、`check-native-runtime-trace.ts`、`verify-native-protection.ts`、`verify-native-terminal-fixtures.ts`、`verify-native-terminal-namespace.ts` | PAの技術検証・Build用scriptsへ整理。上位許可を試すCaseは上位に残し、製品Native APIを検証用に拡張しない |
-| `prepare-codex-advice-image.ts` | Image構成とBuildはDI。Provider公式取得検証の既存境界を維持 |
+| `prepare-codex-image.ts` | Task／助言のImage構成とBuildはDI。Provider公式取得検証の既存境界を維持 |
 | `check-dynamic-fake-provider-coverage.ts`、`verify-dynamic-fake-provider-cancellation.ts`、`verify-dynamic-fake-provider-failures.ts` | 技術試験はDI、上位状態／通知の試験は上位。モック成功を実取消・資源不存在へ換算しない |
 | `check-provider-authority-coverage.ts`、`check-provider-home-coverage.ts`、`revoke-external-send-consent.ts` | 上位許可・Home利用・送信同意のOwnerに保持 |
 | `measure-development-providers.ts`、`orchestrator-real-provider-contract.ts`、`verify-orchestrator-real-providers.ts`、`verify-signed-general-task.ts`、`verify-signed-reviewer-boundary.ts`、`verify-signed-route-matrix.ts`、`verify-signed-recovery-matrix.ts`、`workspace-task-fixture.ts` | 現在の上位Task／Workspace／実境界確認Toolとして保持・改名を評価。`signed`名から通常署名Gateを復活させない |
@@ -2298,7 +2298,7 @@ B六Fileは現在の意味を保持する。現物のimport照合では、`curre
 
 | 区分 | `scripts/`内の対象（拡張子`.ts`） | 処置 |
 |---|---|---|
-| 運用入口4 | `authenticate-claude-subscription / measure-development-providers / prepare-codex-advice-image / revoke-external-send-consent` | 同じ用途限定入口を維持。認証・測定・Image・同意Ownerへのimportを追従 |
+| 運用入口4 | `authenticate-claude-subscription / measure-development-providers / prepare-codex-image / revoke-external-send-consent` | 同じ用途限定入口を維持。認証・測定・Task／助言Image・同意Ownerへのimportを追従 |
 | 検査入口8 | `check-dynamic-fake-provider-coverage / check-native-runtime-trace / check-platform-access-coverage / check-platform-access-ts-coverage / check-provider-authority-coverage / check-provider-home-coverage / check-runtime-traceability / check-task-design-traceability` | Source Path・本文取得・Owner集合・coverage oracleを追従し、拒否条件を緩和しない |
 | 検証実行入口10 | `verify-dynamic-fake-provider-cancellation / verify-dynamic-fake-provider-failures / verify-general-task / verify-native-protection / verify-native-terminal-fixtures / verify-native-terminal-namespace / verify-recovery-matrix / verify-reviewer-boundary / verify-route-matrix / verify-task-real-providers` | 本番又は検証用の元Symbolへ追従。外部Effectを持つ実行は別許可のまま |
 | 検証支援10 | `native-git-provenance / native-runtime-trace / platform-access-coverage-path / runtime-traceability / task-design-traceability / task-real-provider-contract / verification-result-reasons / verification-result-record / verification-safety / workspace-task-fixture` | 検証専用Ownerのまま。Runtimeの責務として再公開しない |

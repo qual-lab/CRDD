@@ -46,7 +46,7 @@ const expectedProtectedSigningConsumers: readonly string[] = [];
 const expectedAreaConsumers = [
   "40_Develop/coordinator/scripts/check-platform-access-coverage.ts",
   "40_Develop/coordinator/scripts/measure-development-providers.ts",
-  "40_Develop/coordinator/scripts/prepare-codex-advice-image.ts",
+  "40_Develop/coordinator/scripts/prepare-codex-image.ts",
   "40_Develop/coordinator/scripts/verification-result-record.ts",
   "40_Develop/coordinator/src/storage/ai-selection.ts",
   "40_Develop/coordinator/src/storage/current-state.ts",

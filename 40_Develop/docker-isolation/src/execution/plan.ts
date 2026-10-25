@@ -75,6 +75,8 @@ export function codexAdviceProviderInitRequired(
     (imageDigest ===
       describeDockerProviderAssets("codex").adviceIdentity.fixedImageDigest ||
       imageDigest ===
+        "sha256:4f35a6542ee0b412714d558bc38e578bcea00490ec2a1f02f02b88c1226f924e" ||
+      imageDigest ===
         "sha256:843db607376a454cb7c901e76d4da1d168d6e384912366448df3363b42624d36")
   );
 }

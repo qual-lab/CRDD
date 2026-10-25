@@ -124,7 +124,7 @@
     {
       "symbolId": "coordinator.scripts.prepare-codex-advice-image",
       "kind": "file",
-      "path": "scripts/prepare-codex-advice-image.ts",
+      "path": "scripts/prepare-codex-image.ts",
       "archIds": [
         "ARCH-000010"
       ]

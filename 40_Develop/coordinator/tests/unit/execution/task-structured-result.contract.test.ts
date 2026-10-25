@@ -223,7 +223,7 @@ test("Codex JSONLは本文を公開せずTool種別と終了状態だけを投�
   const result = normalizeFixtureTaskResult("codex", "executor", "low", raw);
   assert.equal(result.status, "confirmed");
   assert.deepEqual(result.normalizedResult?.providerExecutionObservation, {
-    transport: "fixed_cli_jsonl_v0_149_1",
+    transport: "fixed_cli_jsonl_v0_164_0",
     turnCompleted: true,
     commandExecutionStartedCount: 1,
     commandExecutionCompletedCount: 1,
@@ -303,7 +303,7 @@ test("Codex JSONLのCommand終了codeは本文なしの閉じた区分へ集計�
   const result = normalizeFixtureTaskResult("codex", "executor", "low", raw);
   assert.equal(result.status, "confirmed");
   assert.deepEqual(result.normalizedResult?.providerExecutionObservation, {
-    transport: "fixed_cli_jsonl_v0_149_1",
+    transport: "fixed_cli_jsonl_v0_164_0",
     turnCompleted: true,
     commandExecutionStartedCount: 6,
     commandExecutionCompletedCount: 1,

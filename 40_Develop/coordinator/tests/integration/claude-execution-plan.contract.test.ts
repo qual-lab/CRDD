@@ -192,7 +192,7 @@ test("読取専用probe候補はCLI引数と環境置換要求だけを投影す
   assert.equal(plan.status, "candidate");
   assert.equal(plan.reason, "claude_task_execution_gates_required");
 
-  assert.equal(plan.command, "/opt/crdd/providers/claude/2.1.220/claude");
+  assert.equal(plan.command, "/opt/crdd/providers/claude/2.1.310/claude");
   assert.deepEqual(plan.argv, [
     "--safe-mode",
     "--setting-sources=",

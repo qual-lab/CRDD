@@ -22,9 +22,7 @@ export type AiModelDefinition = Readonly<{
   identifierKind: "exact" | "alias";
   supportedEfforts: readonly AiReasoningEffort[];
   supportedPurposes: readonly ("advice" | "task")[];
-  compatibilityReason:
-    | "gpt_5_6_code_mode_only_host_unavailable_in_fixed_linux_runtime"
-    | null;
+  compatibilityReason: "gpt_5_6_task_not_verified_in_current_runtime" | null;
 }>;
 
 /**

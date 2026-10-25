@@ -9,6 +9,7 @@ import {
   snapshotPlainRecord,
 } from "../../../domain-model/src/index.ts";
 import { describeProviderBillingPolicy } from "../billing/policy.ts";
+import { resolveAiModelSelection } from "../catalog/resolve.ts";
 import type {
   ProviderModelSelection,
   ProviderAdvicePlan,
@@ -55,7 +56,7 @@ export function projectCodexExecutionBoundary(candidate: unknown) {
 
 export const CODEX_EXECUTION_PLAN_CONTRACT =
   "crdd-coordinator/codex-execution-plan";
-export const CODEX_EXECUTION_PLAN_CONTRACT_REVISION = 15;
+export const CODEX_EXECUTION_PLAN_CONTRACT_REVISION = 16;
 
 export const CODEX_FORBIDDEN_ENVIRONMENT_NAMES = Object.freeze([
   "OPENAI_API_KEY",
@@ -77,7 +78,7 @@ const FIXED_PROMPT =
 const FIXED_SCHEMA_PATH = "codex-result-schema.json";
 const EXECUTOR_SCHEMA_PATH = "codex-executor-result-schema.json";
 const REVIEWER_SCHEMA_PATH = "codex-reviewer-result-schema.json";
-const COMPATIBLE_TASK_MODEL = "gpt-5.5";
+const TASK_MODELS = Object.freeze(["gpt-5.5", "gpt-6.1-sol"] as const);
 const billingPolicy = describeProviderBillingPolicy();
 
 /**
@@ -193,12 +194,12 @@ export function planCodexReadOnlyProbe(
  *
  * @responsibility executor／reviewerの固定CLIとTool・書込み条件を所有する。
  * @trace ARCH-000010
- * @input candidate: unknown
- * @returns candidate計画又はblocked。
- * @precondition candidateを未信頼値として関数内で閉じたshape・役割・推論強度を検査する。
+ * @input candidate: 閉じたTask入力、selection: 同じ用途の明示Model選定、locations: 信頼した配置。
+ * @returns 選定Modelをそのまま保持するcandidate計画又はblocked。
+ * @precondition 入力・役割・推論強度と選定のProvider・識別方式・技術対応を関数内で再照合する。
  * @postcondition 返却値を現在の認証、実行成功又は資源回収の証明としない。
  * @effect N/A: Taskの起動計画を構築するだけで、Process・Filesystem・外部送信を開始しない。
- * @failure 不正shape、役割、推論強度を拒否する。
+ * @failure 不正shape・役割・選定不一致と、未検証のCode Mode reviewerを拒否する。
  * @invariant 計画・解析・宣言の範囲に限り、起動・送信同意・Authorityを代行しない。
  * @boundary Provider固有条件と共通AI Adapter APIの内部境界。
  * @security planCodexIsolatedTaskはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
@@ -206,6 +207,7 @@ export function planCodexReadOnlyProbe(
  */
 export function planCodexIsolatedTask(
   candidate: unknown,
+  selection: ProviderModelSelection,
   locations: ProviderExecutionLocations = {},
 ) {
   const value = snapshotPlainRecord(candidate, TASK_PLAN_KEYS);
@@ -218,6 +220,35 @@ export function planCodexIsolatedTask(
     return blocked("codex_task_execution_plan_effort_invalid");
   if (value.taskRole !== "executor" && value.taskRole !== "reviewer")
     return blocked("codex_task_execution_plan_role_invalid");
+
+  const selected = snapshotPlainRecord(
+    selection,
+    new Set([
+      "provider",
+      "modelIdentifier",
+      "identifierKind",
+      "reasoningEffort",
+    ]),
+  );
+  const resolved = resolveAiModelSelection({
+    provider: selected?.provider,
+    modelIdentifier: selected?.modelIdentifier,
+    reasoningEffort: selected?.reasoningEffort,
+    purpose: "task",
+  });
+  if (
+    !selected ||
+    resolved.status !== "resolved" ||
+    resolved.value.provider !== "codex" ||
+    selected.identifierKind !== "exact" ||
+    selected.reasoningEffort !== value.effort ||
+    !TASK_MODELS.some((model) => model === resolved.value.modelIdentifier)
+  )
+    return blocked("codex_task_execution_plan_selection_invalid");
+  const model = resolved.value.modelIdentifier;
+  const codeMode = model === "gpt-6.1-sol";
+  if (codeMode && value.taskRole === "reviewer")
+    return blocked("codex_task_reviewer_code_mode_not_verified");
 
   const effort = value.effort as "low" | "medium" | "high";
   const taskRole = value.taskRole as "executor" | "reviewer";
@@ -232,7 +263,7 @@ export function planCodexIsolatedTask(
     mode: "isolated_task" as const,
     taskRole,
     command: locations.commandPath ?? "codex",
-    exactModel: COMPATIBLE_TASK_MODEL,
+    exactModel: model,
     effort,
     speedMode: "normal" as const,
     argv: Object.freeze([
@@ -243,15 +274,18 @@ export function planCodexIsolatedTask(
       "--ignore-rules",
       "--strict-config",
       "--model",
-      COMPATIBLE_TASK_MODEL,
+      model,
       "--config",
       `model_reasoning_effort="${effort}"`,
       "--config",
       "features.respect_system_proxy=true",
       "--config",
-      "features.code_mode=false",
+      `features.code_mode=${codeMode ? "true" : "false"}`,
       "--config",
-      "features.code_mode_host=false",
+      codeMode
+        ? "features.code_mode_host={enabled=true,disable_in_process_fallback=true}"
+        : "features.code_mode_host=false",
+      ...(codeMode ? ["--config", "features.code_mode_only=true"] : []),
       "--config",
       `features.shell_tool=${taskRole === "executor" ? "true" : "false"}`,
       "--config",
@@ -266,7 +300,9 @@ export function planCodexIsolatedTask(
       "--config",
       "features.memories=false",
       "--config",
-      "agents.enabled=false",
+      "features.multi_agent=false",
+      "--config",
+      "features.multi_agent_v2=false",
       "--config",
       "memories.generate_memories=false",
       "--config",
@@ -304,7 +340,7 @@ export function planCodexIsolatedTask(
         ? "automatic_review_workspace_write"
         : "never_read_only",
     taskPromptTransport: "stdin_only" as const,
-    structuredEventTransport: "fixed_cli_jsonl_v0_149_1" as const,
+    structuredEventTransport: "fixed_cli_jsonl_v0_164_0" as const,
     taskPromptInArgvAllowed: false,
     reviewerFilesystemOrShellToolAllowed: false,
     reviewerInput: "runtime_owned_immutable_candidate_content_projection_only",
@@ -352,13 +388,13 @@ export function describeCodexExecutionPlanContract() {
     apiKeyAllowed: false,
     paidApiFallbackAllowed: false,
     readOnlyProbeExactModel: "gpt-5.6-sol",
-    isolatedTaskExactModel: COMPATIBLE_TASK_MODEL,
+    isolatedTaskExactModels: TASK_MODELS,
     efforts: Object.freeze(["low", "medium", "high"]),
     speedMode: "normal_only",
     outboundProxyPolicy: "official_cli_respect_system_proxy_required",
     isolatedTask: Object.freeze({
       roles: Object.freeze(["executor", "reviewer"]),
-      structuredEventTransport: "fixed_cli_jsonl_v0_149_1",
+      structuredEventTransport: "fixed_cli_jsonl_v0_164_0",
       permissionProfile: "root_deny_minimal_read_workspace_role_access",
       providerHomeCommandReadAllowed: false,
       commandNetworkAccessAllowed: false,

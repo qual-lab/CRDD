@@ -1,5 +1,13 @@
 # QA-000006 外部実行境界の検証定義
 
+## 最新版CLIと指定Modelの非AI確認 — 2026-10-25
+
+`ERB-IT-004`で、Codex Task／助言の共通CLI・Host・bwrapの由来とHash、用途別レシピ、Task時の固定Schemaを再構成する。Host欠測・Hash差・誤レシピではContextへの書込み0とする。`ERB-IT-002`で現行固定ImageとGPT-6.1 Solの計画から権限引数を取得し、合成Workspaceの書込み、Provider Homeの読取り・書込み拒否、sentinel不変、network none・read-only root、Hostのhelp終了、Container停止・exact ID回収・不存在を実観測する。Hostのhelp終了はModel実行中のRPC・Tool処理の実証ではない。
+
+試験自身の要求前失敗、create非0、不正stdout、inspect失敗をメモリ代役で反証する。64hex検証前にIDを処置へ使わず、要求前又は実資源回収確認後だけRoot実体を再確認して削除する。create結果不明又は回収不明ではbind元Rootを削除せず、exact Root・確定済みID・理由・七日後の再評価を診断し、回収完了とは表示しない。名前による強制回収や新しい回復機構は作らない。
+
+CLI実設定の非AI確認は通信なし・空Home・認証情報なしで行い、構文・設定読込みと認証要求／DNS失敗を実AI成功と分ける。Claude Opus 5.5の実Subscription利用可否、Codex Code Modeの実Task結果・取消・回収、Direct／Isolated編集E2Eは、今回の非AI確認とは別の承認・結果を必要とする。
+
 ## 認証確認の一次失敗診断（ERB-IT-002）
 
 認証出力の三値は診断であり実行許可ではない。非0終了では三値すべてを既存拒否とし、終了0でも未認証・不明なら本体開始前に停止する。次Commandへの診断残留、認証用途以外・応答なし・終了値欠測・未知三値の保存や実Provider検証Toolでの受理を反証する。正規の警告付き認証成功では従来の成功条件を維持し、一次失敗なしを確認する。現在状態・操作履歴と検証イベントの閉形式を揃え、欠測を否定へ補完せず、生出力を保存しない。取消・清掃・同じ回復参照の既存保証は変更しない。

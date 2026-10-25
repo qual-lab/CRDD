@@ -203,20 +203,22 @@ function actualFunction(text: string, name: string) {
 test("Dockerビルド入力は隔離レシピとProvider設定を明示的に組み合わせる", () => {
   const expected: Record<string, readonly string[]> = {
     "codex-provider.Dockerfile": [
-      "65534:65534 0555 codex /opt/crdd/providers/codex/0.149.1/codex",
-      "65534:65534 0555 bwrap /opt/crdd/providers/codex/0.149.1/codex-resources/bwrap",
+      "0:0 0555 codex /opt/crdd/providers/codex/0.164.0/codex",
+      "0:0 0555 codex-code-mode-host /opt/crdd/providers/codex/0.164.0/codex-code-mode-host",
+      "0:0 0555 bwrap /opt/crdd/providers/codex/0.164.0/codex-resources/bwrap",
       "0:0 0444 codex-result-schema.json /etc/crdd/codex-result-schema.json",
       "0:0 0444 codex-executor-result-schema.json /etc/crdd/codex-executor-result-schema.json",
       "0:0 0444 codex-reviewer-result-schema.json /etc/crdd/codex-reviewer-result-schema.json",
     ],
     "claude-provider.Dockerfile": [
-      "65534:65534 0555 claude /opt/crdd/providers/claude/2.1.220/claude",
+      "0:0 0555 claude /opt/crdd/providers/claude/2.1.310/claude",
       "0:0 0444 claude-managed-settings.json /etc/claude-code/managed-settings.json",
       "0:0 0444 claude-task-settings.json /etc/crdd/claude-task-settings.json",
     ],
     "codex-advice-provider.Dockerfile": [
-      "0:0 0555 codex /opt/crdd/providers/codex/0.159.2/codex",
-      "0:0 0555 codex-code-mode-host /opt/crdd/providers/codex/0.159.2/codex-code-mode-host",
+      "0:0 0555 codex /opt/crdd/providers/codex/0.164.0/codex",
+      "0:0 0555 codex-code-mode-host /opt/crdd/providers/codex/0.164.0/codex-code-mode-host",
+      "0:0 0555 bwrap /opt/crdd/providers/codex/0.164.0/codex-resources/bwrap",
     ],
     "provider-egress-proxy.Dockerfile": [
       "65534:65534 0444 provider-egress-proxy.py /opt/crdd/provider-egress-proxy.py",
@@ -230,14 +232,7 @@ test("Dockerビルド入力は隔離レシピとProvider設定を明示的に組
     );
     assert.deepEqual(copies, inputs, recipe);
     const imageCopies = text.match(/^COPY --from=.*$/gmu) ?? [];
-    assert.deepEqual(
-      imageCopies,
-      recipe === "codex-advice-provider.Dockerfile"
-        ? [
-            "COPY --from=crdd-codex@sha256:e7fefafffd4b96614811b2d51b9704d3280e4995c358ed5e25ec795215dbd45c --chown=0:0 --chmod=0555 /opt/crdd/providers/codex/0.149.1/codex-resources/bwrap /opt/crdd/providers/codex/0.159.2/codex-resources/bwrap",
-          ]
-        : [],
-    );
+    assert.deepEqual(imageCopies, []);
     for (const input of inputs) {
       const basename = input.split(" ")[2];
       if (basename?.endsWith(".json")) {
@@ -250,13 +245,9 @@ test("Dockerビルド入力は隔離レシピとProvider設定を明示的に組
     }
   }
   const preparation = source(
-    "40_Develop/coordinator/scripts/prepare-codex-advice-image.ts",
+    "40_Develop/coordinator/scripts/prepare-codex-image.ts",
   );
-  assert.ok(
-    preparation.includes(
-      "40_Develop/docker-isolation/images/codex-advice-provider.Dockerfile",
-    ),
-  );
+  assert.ok(preparation.includes("recipe.imageBuildDefinition"));
   assert.ok(preparation.includes('name: "codex-code-mode-host"'));
   assert.ok(preparation.includes('path.join(context, "Dockerfile")'));
   assert.doesNotMatch(preparation, /coordinator\/runtime/u);
@@ -311,6 +302,7 @@ test("隔離レシピはDocker Isolationの実行物とAI設定へ結合する",
     ...describeDockerProviderAssets("codex").identity,
   };
   const advice = {
+    ...buildInputs.codex.identity,
     ...buildInputs.codex.adviceIdentity,
     ...describeDockerProviderAssets("codex").adviceIdentity,
   };
@@ -320,7 +312,7 @@ test("隔離レシピはDocker Isolationの実行物とAI設定へ結合する",
       recipe: codex.imageBuildDefinition,
       name: "codex-provider.Dockerfile",
       identity: codex,
-      extra: [codex.bwrapBinaryPath],
+      extra: [codex.hostExecutablePath, codex.bwrapBinaryPath],
     },
     {
       recipe: advice.imageBuildDefinition,
@@ -397,105 +389,168 @@ test("隔離レシピはDocker Isolationの実行物とAI設定へ結合する",
 
 /**
  * 助言Image準備の実関数を入力搬送に限定して観測する。
- * @responsibility レシピの取得先変更が三入力contextへ実bytesを届けることを確認する。
+ * @responsibility 共通公式入力と用途別レシピ・Schemaの搬送、Host欠測・Hash差・レシピ差の拒否を確認する。
  * @trace ERB-IT-004
  * @precondition binary検証の既知Hashは仮依存とし、公式配布検証の根拠には使わない。
  * @stimulus 実prepare本体へ仮binaryと実recipeを渡し書込みをメモリで捕捉する。
- * @observation 出力3名、各bytes、Build・Provider要求の非発行。
+ * @observation 助言四File／Task七Fileの各bytes、拒否時書込み0、Build・Provider要求の非発行。
  * @oracle 元資産をコピーした別実装でなく実本体が実recipeを搬送する。
  * @cleanup N/A: メモリFSだけを書き換える。
- * @boundary ERB-IT-004=Integration: 実準備本体→三入力context。
+ * @boundary ERB-IT-004=Integration: 実準備本体→用途別context。
  */
-test("助言Imageの実準備本体は公式入力二件と移管レシピだけを搬送する", () => {
-  const relative =
-    "40_Develop/coordinator/scripts/prepare-codex-advice-image.ts";
-  const root = fileURLToPath(new URL("../../../../", import.meta.url));
-  const script = source(relative);
-  const body = actualFunction(script, "prepareCodexAdviceImage").replaceAll(
-    "import.meta.url",
-    JSON.stringify(new URL(`../../../../${relative}`, import.meta.url).href),
-  );
-  const binary = path.join(root, ".crdd", "tmp", "fixed-codex-input");
-  const host = path.join(root, ".crdd", "tmp", "fixed-host-input");
-  const recipePath = path.join(
-    root,
-    "40_Develop",
-    "docker-isolation",
-    "images",
-    "codex-advice-provider.Dockerfile",
-  );
-  const recipe = fs.readFileSync(recipePath);
-  const codexBytes = Buffer.from("fixture-codex");
-  const hostBytes = Buffer.from("fixture-host");
-  const written = new Map<string, Buffer>();
-  const output = path.join(root, ".crdd", "tmp", "codex-advice-image-fixture");
-  const run = runInNewContext(
-    `${stripTypeScriptTypes(body)}; prepareCodexAdviceImage`,
-    {
-      buildInputs,
-      path,
-      fileURLToPath,
-      Buffer,
-      verifyRepositoryRoot: () => ({ status: "completed", capability: {} }),
-      ensureRepositoryRuntimeDataArea: () => ({}),
-      requireReadyRepositoryRuntimeDataArea: () => ({
-        directory: path.dirname(output),
-      }),
-      createHash: () => ({
-        update: (bytes: Buffer) => ({
-          digest: () =>
-            bytes === codexBytes
-              ? "1748767b230ebfc3d4ab7e4e254920d0c0ad9691fd8c11f190e7d44511a4a92e"
-              : bytes === hostBytes
-                ? "5b2c075ac2380fa04d76d7313fbc044d29c8d0a0d0b9138415acd4610211ca03"
-                : "unexpected",
+test("Taskと助言の実準備本体は共通公式入力と用途別レシピだけを搬送する", () => {
+  for (const purpose of ["task", "advice"] as const) {
+    const relative = "40_Develop/coordinator/scripts/prepare-codex-image.ts";
+    const root = fileURLToPath(new URL("../../../../", import.meta.url));
+    const script = source(relative);
+    const body = actualFunction(script, "prepareCodexImage").replaceAll(
+      "import.meta.url",
+      JSON.stringify(new URL(`../../../../${relative}`, import.meta.url).href),
+    );
+    const binary = path.join(root, ".crdd", "tmp", "fixed-codex-input");
+    const host = path.join(root, ".crdd", "tmp", "fixed-host-input");
+    const bwrap = path.join(root, ".crdd", "tmp", "fixed-bwrap-input");
+    const recipePath = path.join(
+      root,
+      "40_Develop",
+      "docker-isolation",
+      "images",
+      purpose === "task"
+        ? "codex-provider.Dockerfile"
+        : "codex-advice-provider.Dockerfile",
+    );
+    const recipe = fs.readFileSync(recipePath);
+    const codexBytes = Buffer.from("fixture-codex");
+    const hostBytes = Buffer.from("fixture-host");
+    const bwrapBytes = Buffer.from("fixture-bwrap");
+    const written = new Map<string, Buffer>();
+    let corruptHost = false;
+    let missingHost = false;
+    let wrongRecipe = false;
+    const output = path.join(
+      root,
+      ".crdd",
+      "tmp",
+      "codex-advice-image-fixture",
+    );
+    const run = runInNewContext(
+      `${stripTypeScriptTypes(body)}; prepareCodexImage`,
+      {
+        buildInputs,
+        path,
+        fileURLToPath,
+        Buffer,
+        verifyRepositoryRoot: () => ({ status: "completed", capability: {} }),
+        ensureRepositoryRuntimeDataArea: () => ({}),
+        requireReadyRepositoryRuntimeDataArea: () => ({
+          directory: path.dirname(output),
         }),
-      }),
-      fs: {
-        realpathSync: { native: (target: string) => target },
-        lstatSync: (target: string) => ({
-          isFile: () => target === binary || target === host,
-          isSymbolicLink: () => false,
-          size: target === binary ? 286754152 : 74068880,
+        createHash: () => ({
+          update: (bytes: Buffer) => ({
+            digest: () =>
+              bytes === codexBytes
+                ? buildInputs.codex.identity.binarySha256
+                : bytes === hostBytes
+                  ? corruptHost
+                    ? "0".repeat(64)
+                    : buildInputs.codex.identity.hostBinarySha256
+                  : bytes === bwrapBytes
+                    ? buildInputs.codex.identity.bwrapBinarySha256
+                    : createHash("sha256").update(bytes).digest("hex"),
+          }),
         }),
-        readFileSync: (target: string) => {
-          if (target === binary) return codexBytes;
-          if (target === host) return hostBytes;
-          assert.equal(target, recipePath);
-          return fs.readFileSync(target);
-        },
-        mkdtempSync: (prefix: string) => {
-          assert.equal(
-            prefix,
-            path.join(path.dirname(output), "codex-advice-image-"),
-          );
-          return output;
-        },
-        writeFileSync: (
-          target: string,
-          bytes: Buffer,
-          options: { flag: string },
-        ) => {
-          assert.equal(path.dirname(target), output);
-          assert.equal(options.flag, "wx");
-          assert.equal(written.has(path.basename(target)), false);
-          written.set(path.basename(target), Buffer.from(bytes));
+        fs: {
+          realpathSync: { native: (target: string) => target },
+          lstatSync: (target: string) => ({
+            isFile: () =>
+              target === binary ||
+              (target === host && !missingHost) ||
+              target === bwrap,
+            isSymbolicLink: () => false,
+            size:
+              target === binary
+                ? buildInputs.codex.identity.binaryBytes
+                : target === host
+                  ? buildInputs.codex.identity.hostBinaryBytes
+                  : buildInputs.codex.identity.bwrapBinaryBytes,
+          }),
+          readFileSync: (target: string) => {
+            if (target === binary) return codexBytes;
+            if (target === host) return hostBytes;
+            if (target === bwrap) return bwrapBytes;
+            if (target === recipePath && wrongRecipe)
+              return Buffer.from("wrong-recipe");
+            assert.ok(
+              target === recipePath ||
+                target.startsWith(
+                  path.join(root, "40_Develop", "ai-adapter", "src", "codex"),
+                ),
+            );
+            return fs.readFileSync(target);
+          },
+          mkdtempSync: (prefix: string) => {
+            assert.equal(
+              prefix,
+              path.join(path.dirname(output), `codex-${purpose}-image-`),
+            );
+            return output;
+          },
+          writeFileSync: (
+            target: string,
+            bytes: Buffer,
+            options: { flag: string },
+          ) => {
+            assert.equal(path.dirname(target), output);
+            assert.equal(options.flag, "wx");
+            assert.equal(written.has(path.basename(target)), false);
+            written.set(path.basename(target), Buffer.from(bytes));
+          },
         },
       },
-    },
-  ) as (
-    codex: string,
-    host: string,
-  ) => { dockerBuildPerformed: boolean; providerRequestIssued: boolean };
-  const result = run(binary, host);
-  assert.deepEqual([...written.keys()].sort(), [
-    "Dockerfile",
-    "codex",
-    "codex-code-mode-host",
-  ]);
-  assert.deepEqual(written.get("codex"), codexBytes);
-  assert.deepEqual(written.get("codex-code-mode-host"), hostBytes);
-  assert.deepEqual(written.get("Dockerfile"), recipe);
-  assert.equal(result.dockerBuildPerformed, false);
-  assert.equal(result.providerRequestIssued, false);
+    ) as (
+      purpose: "task" | "advice",
+      codex: string,
+      host: string,
+      bwrap: string,
+    ) => { dockerBuildPerformed: boolean; providerRequestIssued: boolean };
+    corruptHost = true;
+    assert.throws(
+      () => run(purpose, binary, host, bwrap),
+      /input_hash_mismatch/u,
+    );
+    corruptHost = false;
+    missingHost = true;
+    assert.throws(() => run(purpose, binary, host, bwrap), /input_invalid/u);
+    missingHost = false;
+    wrongRecipe = true;
+    assert.throws(
+      () => run(purpose, binary, host, bwrap),
+      /recipe_hash_mismatch/u,
+    );
+    wrongRecipe = false;
+    assert.equal(written.size, 0);
+    const result = run(purpose, binary, host, bwrap);
+    assert.deepEqual(
+      [...written.keys()].sort(),
+      [
+        "Dockerfile",
+        "bwrap",
+        "codex",
+        "codex-code-mode-host",
+        ...(purpose === "task"
+          ? [
+              "codex-executor-result-schema.json",
+              "codex-result-schema.json",
+              "codex-reviewer-result-schema.json",
+            ]
+          : []),
+      ].sort(),
+    );
+    assert.deepEqual(written.get("codex"), codexBytes);
+    assert.deepEqual(written.get("codex-code-mode-host"), hostBytes);
+    assert.deepEqual(written.get("bwrap"), bwrapBytes);
+    assert.deepEqual(written.get("Dockerfile"), recipe);
+    assert.equal(result.dockerBuildPerformed, false);
+    assert.equal(result.providerRequestIssued, false);
+  }
 });

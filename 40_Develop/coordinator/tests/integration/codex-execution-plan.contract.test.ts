@@ -324,7 +324,7 @@ test("一般Taskはroot denyとRole別workspace権限をstdin計画へ固定す�
     );
     assert.equal(
       plan.argv.some((value) =>
-        value.includes('"/opt/crdd/providers/codex/0.149.1/codex"="read"'),
+        value.includes('"/opt/crdd/providers/codex/0.164.0/codex"="read"'),
       ),
       true,
     );
@@ -458,7 +458,7 @@ test("Codex Structured Output Schemaは公式対応部分集合だけを搬送�
  */
 test("CLI公開契約は通常速度・API課金禁止を明示し配布検証を持たない", () => {
   const contract = describeProviderExecution("codex");
-  assert.equal(contract.contractRevision, 15);
+  assert.equal(contract.contractRevision, 16);
   assert.equal("distributionVerification" in contract, false);
   assert.equal("distributionIdentity" in contract, false);
 
@@ -479,10 +479,13 @@ test("CLI公開契約は通常速度・API課金禁止を明示し配布検証�
   assert.equal(contract.speedMode, "normal_only");
   assert.equal(Object.hasOwn(contract, "preferredModelFamily"), false);
   assert.equal(contract.readOnlyProbeExactModel, "gpt-5.6-sol");
-  assert.equal(contract.isolatedTaskExactModel, "gpt-5.5");
+  assert.deepEqual(contract.isolatedTaskExactModels, [
+    "gpt-5.5",
+    "gpt-6.1-sol",
+  ]);
   assert.equal(
     contract.isolatedTask.structuredEventTransport,
-    "fixed_cli_jsonl_v0_149_1",
+    "fixed_cli_jsonl_v0_164_0",
   );
 
   assert.equal(
@@ -518,16 +521,16 @@ test("固定Codex imageはbwrapとExecutor用の限定seccomp境界を固定す�
     },
     {
       archiveSha256:
-        "7b0604dc48a487e25dae35a1f200aaf125666c5c8ef73bc913e915cebc86ce7b",
-      archiveBytes: 261_611,
-      binaryPath: "/opt/crdd/providers/codex/0.149.1/codex-resources/bwrap",
+        "60cd1c139823eabac2e4544cc75081d02af5100cfd276efa378dd48a123e109d",
+      archiveBytes: 254_551,
+      binaryPath: "/opt/crdd/providers/codex/0.164.0/codex-resources/bwrap",
       binarySha256:
-        "01fb705f067bd5365b63d8ad2323a61c8d007733ca5e649437e086f3fb9935d8",
-      binaryBytes: 529_776,
+        "3a81c19ad10a70436529c58e77898e2a447abe80167f813fc20ec34bd9eafdeb",
+      binaryBytes: 513_520,
       bundleSha256:
-        "2c8b6f67a874ecb25e231366302386450775266220c08d98625408171c0d0238",
+        "b570206b836642f7299e9735792452de8eb162a155f942e0c839899dd38d6aba",
       identity:
-        "https://github.com/openai/codex/.github/workflows/rust-release.yml@refs/tags/rust-v0.149.1",
+        "https://github.com/openai/codex/.github/workflows/rust-release.yml@refs/tags/rust-v0.164.0",
       issuer: "https://token.actions.githubusercontent.com",
     },
   );
@@ -540,7 +543,7 @@ test("固定Codex imageはbwrapとExecutor用の限定seccomp境界を固定す�
   );
   assert.equal(
     dockerfile.includes(
-      "COPY --chown=65534:65534 --chmod=0555 bwrap /opt/crdd/providers/codex/0.149.1/codex-resources/bwrap",
+      "COPY --chown=0:0 --chmod=0555 bwrap /opt/crdd/providers/codex/0.164.0/codex-resources/bwrap",
     ),
     true,
   );
@@ -570,5 +573,5 @@ test("固定Codex imageはbwrapとExecutor用の限定seccomp境界を固定す�
     executor.argv.includes("--dangerously-bypass-approvals-and-sandbox"),
     false,
   );
-  assert.equal(dockerfile.includes("codex-code-mode-host"), false);
+  assert.equal(dockerfile.includes("codex-code-mode-host"), true);
 });

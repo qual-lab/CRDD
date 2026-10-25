@@ -4,11 +4,27 @@
   "models": [
     {
       "provider": "codex",
+      "modelIdentifier": "gpt-6.1-sol",
+      "identifierKind": "exact",
+      "supportedEfforts": ["low", "medium", "high"],
+      "supportedPurposes": ["advice", "task"],
+      "compatibilityReason": null
+    },
+    {
+      "provider": "claude",
+      "modelIdentifier": "claude-opus-5-5",
+      "identifierKind": "exact",
+      "supportedEfforts": ["low", "medium", "high"],
+      "supportedPurposes": ["advice", "task"],
+      "compatibilityReason": null
+    },
+    {
+      "provider": "codex",
       "modelIdentifier": "gpt-5.6-sol",
       "identifierKind": "exact",
       "supportedEfforts": ["low", "medium", "high"],
       "supportedPurposes": ["advice"],
-      "compatibilityReason": "gpt_5_6_code_mode_only_host_unavailable_in_fixed_linux_runtime"
+      "compatibilityReason": "gpt_5_6_task_not_verified_in_current_runtime"
     },
     {
       "provider": "codex",

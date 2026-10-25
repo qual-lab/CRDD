@@ -1,5 +1,13 @@
 # Docker隔離の詳細設計
 
+## Provider CLI更新 — 2026-10-25
+
+今回採用する公式の固定版はCodex 0.164.0、Claude Code 2.1.310である。新しいTask・助言Imageは既存Dockerfileで作成し、実測したImage Digestだけを`image/assets.ts`へ固定する。実行時のPull禁止・自動更新禁止、非root、read-only root、Mount・通信制限とexact資源回収は維持し、旧Imageは削除しない。新Imageが作られたことは実AI・認証・全体E2Eの成功を意味しない。
+
+Codex Taskにも同じ公式配布版のCode Mode Hostを含め、助言のbwrapを旧Task Imageから取り込む依存は廃止する。CLI・Host・bwrapの公式Archive Hashと展開実行物のSigstore署名、Claudeの公式Manifestによるサイズ・SHA-256をBuild前に確認する。実行時の同一性はImage Digestを利用し、内包BinaryのHash検査をTaskごとに再実装しない。三実行物の由来は`build-inputs.json`の共通`codex.identity`へ集約し、用途別レシピだけを分ける。既存準備入口を`prepare-codex-image.ts`へ改名し、三入力と用途別レシピを実体・サイズ・Hashで検査する。助言は四File、Taskは改行をLFへ正規化しHash照合した固定Schema三件を加えた七FileのContextを作る。認証Home、Repository本文、Source ArchiveをImageへ含めない。
+
+配置変更は新しい処理に適用し、旧exact回復参照と保持物を更新版のIdentityで書き換えない。公式取得物・試験ContextはRepository-local tmpの短命生成物であり、正式文書には取得元・検証結果・Image同一性・未確認範囲だけを要約する。新しいBuild Runner・Registry・回復機構は作らない。
+
 ## B3の構成照合境界 — 2026-10-21
 
 既存`execution/plan.ts`の公開`dockerIsolationCommandsMatch`が閉じたDocker構成からcommandを再生成し、用途・順序・全argvの一致を照合する。上位は解決済みCLI／環境とMount・通信条件を渡すだけとし、DIはTask／Profile／Grant／Packetの意味を解釈しない。構成照合はProcess開始・資源回収や実行許可の証明ではない。上位のModel／Offering・Packet相関と、下位の固定構成・観測不能拒否を両方維持する。

@@ -1251,6 +1251,83 @@ Workbench通常結合回帰は86件・失敗零で完走した。両Packageの�
 
 結果・履歴・現在状態の安全fieldと二文書を照合した限定独立レビューは残指摘零。文書diffcheckも成功した。
 
+<a id="workspace-edit-preflight-timeout-result"></a>
+
+### 実AI編集前の非AI事前確認停止と今回資源の回収 — 2026-10-25
+
+利用者はDirect→Isolated各一Task、Codex gpt-5.5／medium編集・Claude opus／highレビュー、通常四・既存の一回是正を含む最大八起動、合成内容だけの送信、今回試験物の回収を承認した。Sourceは`e460a8d09c3706e453099817e1cb0c38aeb34c26`・cleanに固定し、実AI前の正式`verify-workspace-ai.ts --preflight`を一回行った。既存Root `.crdd/tests/workspace-real-ai`は開始前不存在で、新品として作成した。製品Sourceは変更しない。独立確認によりSource観測だけではGit HEAD／文書を含むcleanを証明しない点を追加Gateとし、文書転記は実行終了後へ延期した。実AI前の事前確認が不合格だったため、`--external-send-confirmed`は発行しない。
+
+| 観測対象 | 結果・限界 |
+|---|---|
+| Engine／Image事前読取り | Engine 29.8.1、稼働Container零、既存停止Container `b185985108c6c901b179d0ca3214eac0ea2ef0e32de271526ddc606c6aea1764`のみ。固定Codex編集／Claude／Proxyの三Imageは現行Digest・linux/amd64に一致。取得・更新・Docker起動／再起動なし |
+| 非AI事前確認 | Tool native終了2、preflightOnly true、fullE2eVerified false、sourceUnchanged true。DirectはlimitedProbePassed true、10bytesのDIRECT_OK改行・Hash一致、Dirty／Stage／未追跡保全、close/runtime/workspace cleanを確認。Direct合成Base `d4572aa26b5e04817ca16926d9286f5ffeb214d2` |
+| Isolated失敗 | prepare段階の`workbench_verification_transport_failed`、headers_unobserved／timedOut true／transportCode null。HTTP子の要求期限は既存15秒。closeConfirmed true、runtimeClean／workspaceCleanはfalseで、試験器はfixtureを削除しなかった。AI0の事前確認でも失敗し、Provider認証・AI実行・Docker作成の失敗とはしない |
+| 作成成立の照合 | 状態改訂10にWorkspace `f8c58e95-fc05-41c2-8746-6ddead129007`が一件、generation2／ready、candidate／pending／holdUntil null。Base／HEAD `3d4fa528d118e83161c17ad2c4d7de490753f992`、同UUIDのworktree登録・専用branch・directoryあり、dirty／locked／prunable false。作成は成立しHTTP応答を受領できなかった区間に絞れるが、遅延の根本原因・受信／応答各時点は未計測であり断定しない |
+| 実行Effect | preflightはAI start分岐へ入らず外部AI起動0・送信0。Docker観測のadded／removed Container・Networkはすべて空、既存資源・System構成は同値。provider_cleanup_unconfirmedは試験器の一般分類であり、実AI／Docker資源残存の証明ではない |
+| 既存API回収 | 直前にRoot／Manifest・同Project／queue-a／UUID・generation・HEAD・非使用状態・CleanなGit観測を再確認。既存`executeWorkspace`のdiscardを一回だけ、discardChanges falseで発行。completed／workspace null、manualRecoveryRequired false、recoveryId・release／adoption解放失敗はnull |
+| 回収後 | 状態改訂17、workspaces／operations／unresolvedRecoveries／pendingDeliveries／leaseIntents零、queue-a cancelled・workspace参照null、未使用合成queue-b queued。fresh Git登録は合成主Treeだけ、専用branchとworktree directoryの不存在を個別確認。回収APIは再発行していない |
+| 残る記録 | 短命回収入口は回収後historyPendingも零としたOracleで停止したが、実際は終了要約が一件生成されていた。これを回収APIの失敗やWorktree残存へ読み替えない。既存maintainCoordinatorSnapshotの一回呼出しはorchestrator_snapshot_lock_unavailableでblocked、状態改訂17・履歴待ち一件を保持。細因未確定、再試行・手動書換え・Lock解除はしない |
+
+補助の非AI HTTP Suiteは制限環境で14件中12成功・2失敗（HTTP搬送）だった。loopbackを許可した通常Windows実行では同14件すべて成功し、前の不合格は履歴として保持する。この条件差で正式preflightのTimeout原因を確定せず、補助Suite成功を事前確認・編集E2E成功へ流用しない。
+
+今回の実AI編集E2Eは未実施であり、事前確認・AI依頼の再試行も行わない。回収処置による製品Source変更はなく、本体HEADは`e460a8d09c3706e453099817e1cb0c38aeb34c26`のままである。短命入口は履歴assertで停止し、予定したpost-Source観測には到達していない。停止後の独立読取りで、文書更新前のworking tree cleanを確認したが、これはToolによるpost-cleanup Source一致又は回収処置全体の完了証明ではない。この結果記録時点の変更は二文書だけである。旧保持物、既存Docker資源、認証領域は不変更。今回のWorktree／専用Branchは回収済みだが、合成Rootと安全な結果は終了要約確定・失敗調査のため2026-11-01まで保全し、既存Ownerで履歴確定・非使用を確認して清掃判断へ戻す。新しいQueue・Lock・回復機構、Timeout延長は追加しない。次の最小調査は、非AIのWorkspace create境界で受付・Git／状態確定・HTTP応答送信のどこが遅延したかを既存診断で分離できるかの確認であり、実AI再送やDocker再起動を含めない。
+
+<a id="repository-capability-and-model-baseline"></a>
+
+### Repository設定の現行名称と次のModel基準（2026-10-25）
+
+Repository Manifestの既存Capability宣言だけを現行Ownerへ追従する。`orchestrator`は統合先の`coordinator`へ重複を除いて集約し、`mcp`は`mcp-server`、`runtime-data`は`domain-model`とする。Capability宣言はPackage全件の一覧でも操作許可でもなく、未宣言Packageを一括追加しない。Repository／Project ID・外部送信Policyは不変更。
+
+人間が指定した次のModel基準は、Codex `gpt-6.1-sol`／medium、Claude `claude-opus-5-5`／mediumである。公式の識別子は[OpenAI公式Model文書](https://developers.openai.com/api/docs/models/gpt-6.1-sol)と[Anthropic公式Model文書](https://platform.claude.com/docs/en/models/opus-5-5/overview)で照合した。これを固定CLIでの動作確認又は外部送信承認とは扱わない。
+
+以下はImage更新承認前の調査記録である。当時は本体Repositoryの`.crdd/config/ai-selection.json`が未作成で、技術Catalogに上記二識別子がなく、Codex編集計画に`gpt-5.5`固定条件が残っていた。旧条件の送信承認は新Modelへ流用せず、更新後の現在結果は[Image更新結果](#provider-image-update-20261025)を参照する。
+
+#### 固定CLIの互換性照合と更新判断待ち
+
+今回の経路は、非秘密のRepository設定と管理対象CLI依存の変更である。編集前に、AI Adapterの技術Catalog／Provider計画、Coordinatorの選択検査・保存、Docker Isolationの固定資産を照合した。外部AI、認証、Docker資源、保存済み選定・保持物のlifecycleは変更しない。Source変更前の確認に留め、準拠基準・リリース判断を変更しないため全体準拠監査は行わず、調査結果の限定独立レビューを行う。Image更新は人間判断まで停止する。
+
+| 経路 | 現行の固定CLI | 確認結果 | 最小の次処置 |
+|---|---|---|---|
+| Codex助言 | 0.159.2 | Modelは既存`--model`と推論強度引数へ渡せる。現行の公式CLI資料はGPT-6.1 Solの指定を案内するが、当該固定Image・アカウントでの実応答は未確認 | 新ModelのCatalog登録と既存助言計画の非AI試験。助言Imageを更新する必要性は現時点で未立証 |
+| Codex編集・レビュー | 0.149.1 | CRDD計画がgpt-5.5固定で、選定Modelとの不一致を拒否する。TaskではCode Mode／Hostを無効にしており、助言用0.159.2 Imageへの単純な差替えが同じ保証で成立するとは未確認 | 固定CLIの更新候補と既存CLI引数・結果Protocol・隔離の整合を確認し、必要なTask Imageを更新する。固定条件だけを外して対応済みにはしない |
+| Claude全用途 | 2.1.220 | [公式Model設定](https://code.claude.com/docs/en/model-config)がOpus 5.5に2.1.280以降を要求するため、現行Imageは要求版未達。現在の`opus` aliasをOpus 5.5の固定選択とは扱えない | 2.1.280以降の具体版を固定し、既存Build入口でCLI Imageを更新する必要がある |
+
+Codexの[公式CLI資料](https://learn.chatgpt.com/docs/cli/reference)は現行Modelの指定方法を示すが、旧0.149.1の最低対応版や固定Imageでの実行成功を証明するものではない。Claudeは公式最低版と現行の固定資産値の比較による不一致であり、AI再送を原因確認に使わない。
+
+Image更新を含む前進には、公式配布物の取得・既存Buildでの新Digest作成・固定資産の切替が必要になる。新Registry、互換fallback、独自CLIは作らない。旧Imageは削除せず、新Imageの版・引数・構造化結果・隔離条件を認証情報／外部AIなしで確認した後、Catalog・Provider計画・Repository選択設定を同じ変更で整合させる。実AIでのModel利用可否・認証・結果の確認は別承認とし、今回の依頼から自動送信しない。
+
+<a id="provider-image-update-20261025"></a>
+
+#### 最新公式CLIへのImage更新と設定の結果 — 2026-10-25
+
+利用者の「Codex、Claudeとも最新版にImage変更する」承認を受け、公式配布物の取得・Build・非AI検証までを実施した。基準HEADは`e460a8d09c3706e453099817e1cb0c38aeb34c26`。AI送信・認証情報の使用・Docker再起動／修復・既存資源削除は対象外とした。変更経路は管理対象依存と実行計画・非秘密設定の更新で、Architecture・QA・直接Consumerを照合し、限定独立レビューを実施した。準拠基準・公開・Releaseの変更や全体準拠監査は行わない。
+
+| 用途 | 公式CLI版 | 固定した新Image Digest |
+|---|---|---|
+| Codex Task | 0.164.0 | `sha256:832019e696c493a5393032b9020cf9898d29b23381634fddcc808ae6832aa4a4` |
+| Codex助言 | 0.164.0 | `sha256:112a73d8576b6aa3e04db76b5fee98a0f5636f5ca539ef039aa555ccd9b76de3` |
+| Claude全用途 | 2.1.310 | `sha256:612433b71c4af3dfb135c00daad64f0ef897f86e0251b4da558715fdfde9c51f` |
+
+Codexの[公式Release](https://github.com/openai/codex/releases/tag/rust-v0.164.0)は安定版で、Tagの対象Commitは`6aaac694803004a63c6f393d153c96d22521a6b9`。ArchiveのRelease Digestと展開したCLI／Code Mode Host／bwrapのSigstoreを照合した。初回はtarballをbinary用Bundleへ渡して不一致になったが、対象の誤りを訂正し、各binaryの検証は三件とも成功した。Claudeは[公式Manifest](https://downloads.claude.ai/claude-code-releases/2.1.310/manifest.json)と取得binaryのHash・容量を照合した。Build入力の正本はDocker Isolationの`images/build-inputs.json`とし、Codex二用途で同じ公式binary情報を重複保持しない。
+
+[Codex固定TagのModel定義](https://github.com/openai/codex/blob/rust-v0.164.0/codex-rs/models-manager/models.json)に従い、`gpt-6.1-sol`はCode Modeと公式Hostを有効にする。選定されたModel・種別・Effort・用途の一致を検査し、旧Modelへの置換はしない。新ModelをCodex Reviewerに使う場合はTool制限の実証が未了のため`codex_task_reviewer_code_mode_not_verified`で停止する。通常の独立Reviewerは指定どおりClaudeである。既存gpt-5.6のTask非対応理由はHost不存在ではなく、現RuntimeでTask未検証へ訂正し、用途を拡張しない。
+
+Build入口は`prepare-codex-image.ts`へ統合し、用途を`task`／`advice`から明示選択する。共通の三binaryと用途別Recipeを検証し、Taskだけ三Schemaを追加する。安定Symbol IDは旧値を維持し、Pathだけ追従した。旧Image・過去Evidence・保存済みの選定・保持中のE2E Rootは変更しない。
+
+| 検証対象 | 観測結果・限界 |
+|---|---|
+| 版・構成 | 新ImageのCLI版・help・既存引数を認証なしで確認。Claude exact Model／mediumは引数拒否でなく認証要求まで到達した。認証・Model応答の成功ではない |
+| Codex構成 | 新Task計画は構成読取りを通過した。認証なし・Network noneのため接続不能となり、局所期限で終了・回収した。接続の試行自体がなかったとは主張しない |
+| Tool制限 | 新版ではunified_exec=false指定でも機能一覧がtrueとなる。固定SourceのShellTool gateと助言のshell_tool=falseを照合した。機能一覧のfalseやHost helpからTool実行不能を推定しない |
+| 実合成隔離 | 新Task Imageで通常作業領域に書込みでき、合成Provider Homeの読取り・書込みは拒否され内容は不変。非root・読取り専用Root・Network none・終了値0を観測。Hostはhelp起動・終了だけを確認し、RPC／実Tool動作は未確認 |
+| 失敗後処理 | create前失敗はRootを確認後清掃。create／inspect不明は未検証IDや名前で削除せず、専用Rootと理由を7日保持する。四故障枝を非Docker試験で反証し、実試験はexact ID回収・不存在確認後にRootを清掃した |
+| 回帰 | AI Adapter全25件、Docker Isolation通常300件成功・明示5件skip、Coordinator影響七Suite197件、追加の選定・Build等五Suite27件が成功。重複母集団は加算しない。新Sandbox二件、Domain保存Consumer四件・Version Control Consumer十二件も成功。三Packageの型検査成功 |
+| 設定 | 初回不存在を確認後、承認済みRepository設定を配置し、公開Readerでavailableを確認。五役割ともexact Model／medium、同じ設定Identity `b8ed7743b00b844e71040bbd3694660ee1b47cadf826334d80fb57ed82c51093`、Catalog Identity `5e1d3387ad7fcfe61a6f2521291c2ed118fe0091f9db2aea63e1cd7aa067ed2c`を読戻した。既存設定保存APIの成功実測とは区別する |
+
+新たなRegistry・Lock・Recovery機構は追加していない。今回のContainerは回収済みで、既存停止Container `b185985108c6c901b179d0ca3214eac0ea2ef0e32de271526ddc606c6aea1764`は保持した。今回の結果は新Image・引数・合成隔離・純粋選定の限定成立であり、新Modelの実AI応答、Host RPC、Direct／Isolated編集E2E、全体QAまたはRelease成立ではない。次の実AI確認には新Model・送信内容・回数の承認が必要である。
+
+設定・実装・QA・結果文書の限定最終レビューは残指摘零。変更Source／JSONの整形・lint、diffcheckも成功した。今回の取得・Build用Root二件（`provider-cli-update-20261025`、`codex-task-image-oU6Ner`）は、Repository-local tmp配下の実体・リンク不存在・非参照とContainerの終了後一覧を確認し、計33 Fileを清掃して両Rootの直接不存在を確認した。正式Build入力の版・Hashと新Imageは保持し、既存のE2E保持Rootには触れていない。
+
 <a id="claude-readonly-turn-acceptance-result"></a>
 
 ### 回数比較撤去後のClaude読取り一回 — 2026-10-25

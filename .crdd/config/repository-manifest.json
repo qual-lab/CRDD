@@ -5,11 +5,10 @@
   "displayName": "CRDD",
   "repositoryRole": "crdd-standard",
   "capabilities": [
-    "orchestrator",
     "coordinator",
-    "mcp",
+    "mcp-server",
     "execution-intelligence",
-    "runtime-data",
+    "domain-model",
     "checker",
     "platform-access"
   ],

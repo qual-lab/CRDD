@@ -140,7 +140,7 @@ export function validateAiModelCatalog(
       ) ||
       (model.compatibilityReason !== null &&
         model.compatibilityReason !==
-          "gpt_5_6_code_mode_only_host_unavailable_in_fixed_linux_runtime")
+          "gpt_5_6_task_not_verified_in_current_runtime")
     )
       return blocked;
     const identity = JSON.stringify([model.provider, model.modelIdentifier]);

@@ -374,7 +374,7 @@ function extractProviderTaskEnvelope(
       ),
     );
     codexExecutionObservation = Object.freeze({
-      transport: "fixed_cli_jsonl_v0_149_1",
+      transport: "fixed_cli_jsonl_v0_164_0",
       turnCompleted: true,
       commandExecutionStartedCount: countItems("command_execution"),
       commandExecutionCompletedCount: countItems(

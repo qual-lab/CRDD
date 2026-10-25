@@ -2,6 +2,8 @@
 
 ## 技術カタログとRepository別AI選択の新形式 — 2026-10-24
 
+2026-10-25の指定Model更新では、`RCM-UT-001`と`RCM-IT-005`でCodex `gpt-6.1-sol`／Claude `claude-opus-5-5`のexact識別子とmediumを、五役割の設定からProvider計画へ無変換で搬送することを確認する。未知Model、alias誤指定、Task入力とのEffort不一致と暗黙の旧Model fallbackを拒否する。Code ModeのTool禁止が未検証のCodex reviewerは起動前拒否とし、標準の独立レビュー担当はClaudeで固定する。Image・実Sandboxの成立は[外部境界の検証定義](../QA-000006/quality_definition.md)が所有し、この純粋結合の成功を実アカウントでの利用成功へ換算しない。
+
 `RCM-UT-001/002`へ、新しい技術Catalogと選択設定の純粋検査を接続する。AI AdapterのCatalog検査・選定と、Coordinatorの`selection/resolve`は、未知field・Getter／Proxy・重複・役割／分類参照不整合、用途／Effort不対応、aliasをexactと誤認する結果、暗黙fallbackを反証する。五役割と任意分類、明示指定→分類上書き→役割既定値、内容Identityと元入力からの分離を確認する。
 
 `selection/model`の保存選定codecは、同じ`RCM-UT-001`で現在Catalogに依存しないことを反証する。現在未登録の合成Model／Effortと当時の内容Hashも値として保持し、新規選定は同じ構成を拒否することを比較する。復元成功を実行許可と扱わない。十項目の不足・過剰・Getter／Proxy・暗黙文字列変換・役割と用途の矛盾を拒否する。このcodecの局所成功は、Task保存・Packet・Authority・回復への本番接続の証明ではない。
