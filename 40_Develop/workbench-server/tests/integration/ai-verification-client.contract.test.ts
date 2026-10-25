@@ -54,6 +54,7 @@ test("HTTP子は結果frameと実closeを共同確認し異常を有限分類す
     "stderr-error",
     "stdout-limit",
     "stderr-limit",
+    "stderr-warning",
     "nonzero",
     "signal",
     "duplicate",
@@ -157,7 +158,11 @@ test("HTTP子は結果frameと実closeを共同確認し異常を有限分類す
               child.stdout.emit("data", Buffer.alloc(6 * 1024 * 1024 + 4097));
             else if (scenario === "stderr-limit")
               child.stderr.emit("data", Buffer.alloc(4097));
-            else {
+            else if (scenario === "stderr-warning") {
+              child.stderr.emit("data", Buffer.from("synthetic-secret"));
+              child.stdout.emit("data", Buffer.from(JSON.stringify(frame)));
+              child.emit("close", 0, null);
+            } else {
               if (scenario.startsWith("failure-")) {
                 frame.failure = failure;
                 frame.status = null;
@@ -244,6 +249,21 @@ test("HTTP子は結果frameと実closeを共同確認し異常を有限分類す
           ),
           false,
         );
+        const diagnostic = projectVerificationTransportFailure(error);
+        if (scenario !== "failure-two") {
+          assert.ok(diagnostic?.clientProcess, scenario);
+          assert.equal(
+            diagnostic.clientProcess.terminationRequested,
+            kills > 0,
+            scenario,
+          );
+        }
+        if (scenario === "stderr-warning") {
+          assert.equal(diagnostic?.clientProcess?.stage, "stderr");
+          assert.equal(diagnostic?.clientProcess?.exitCode, 0);
+          assert.equal(diagnostic?.clientProcess?.stderrBytes, 16);
+          assert.equal(diagnostic?.clientProcess?.signal, null);
+        }
         return true;
       });
     assert.equal(spawned, 1);
@@ -302,6 +322,48 @@ test("実HTTP子は通常・切断・15秒期限を区別して終了する", as
     await new Promise<void>((resolve, reject) =>
       server.close((error) => (error ? reject(error) : resolve())),
     );
+  }
+});
+
+/**
+ * Process診断へ任意文字列や不正fieldを混入させない。
+ * @trace ERB-IT-021
+ * @responsibility 閉じた診断値だけを投影する。
+ * @precondition 合成Errorのみ。
+ * @stimulus 正常診断と未知段階・秘密Signal・余分field・不正数値。
+ * @observation 投影結果。
+ * @oracle 不正診断を省略し元の固定理由を保持する。
+ * @cleanup 実資源なし。
+ * @boundary Error causeから安全な結果。
+ */
+test("HTTP子の診断は閉形式だけを搬送する", () => {
+  const valid = {
+    stage: "stderr",
+    exitCode: 0,
+    signal: null,
+    stderrBytes: 4,
+    terminationRequested: false,
+  };
+  for (const record of [
+    valid,
+    { ...valid, stage: "synthetic-secret" },
+    { ...valid, signal: "synthetic-secret" },
+    { ...valid, extra: "synthetic-secret" },
+    { ...valid, stderrBytes: -1 },
+    { ...valid, exitCode: "0" },
+    { ...valid, terminationRequested: "false" },
+  ]) {
+    const result = projectVerificationTransportFailure(
+      new Error("workbench_verification_client_process_failed", {
+        cause: { clientProcess: record },
+      }),
+    );
+    assert.equal(
+      result?.reason,
+      "workbench_verification_client_process_failed",
+    );
+    assert.equal(result?.clientProcess !== undefined, record === valid);
+    assert.equal(JSON.stringify(result).includes("synthetic-secret"), false);
   }
 });
 

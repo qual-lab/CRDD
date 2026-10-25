@@ -79,6 +79,9 @@ export async function requestInChild(
   });
   if (Buffer.byteLength(input) > 256 * 1024)
     throw new Error("workbench_verification_client_process_failed");
+  let stderrBytes = 0;
+  let terminationRequested = false;
+  let firstFailureStage: string | null = null;
   const completion = await new Promise<{
     code: number | null;
     signal: string | null;
@@ -99,6 +102,7 @@ export async function requestInChild(
         },
       );
     } catch {
+      firstFailureStage ??= "spawn";
       resolve({
         code: null,
         signal: null,
@@ -110,7 +114,6 @@ export async function requestInChild(
     }
     const chunks: Buffer[] = [];
     let bytes = 0;
-    let stderrBytes = 0;
     let failed = false;
     let terminating = false;
     let finished = false;
@@ -118,6 +121,7 @@ export async function requestInChild(
     const terminate = () => {
       if (terminating || finished) return;
       terminating = true;
+      terminationRequested = true;
       try {
         if (child.kill()) failed = true;
       } catch {
@@ -137,8 +141,12 @@ export async function requestInChild(
         });
       }, CLIENT_PROCESS_CLOSE_TIMEOUT_MS);
     };
-    const timer = setTimeout(terminate, CLIENT_PROCESS_TIMEOUT_MS);
+    const timer = setTimeout(() => {
+      firstFailureStage ??= "deadline";
+      terminate();
+    }, CLIENT_PROCESS_TIMEOUT_MS);
     const pipeFailure = () => {
+      firstFailureStage ??= "pipe";
       failed = true;
       terminate();
     };
@@ -149,12 +157,14 @@ export async function requestInChild(
     child.stdout?.on("data", (chunk: Buffer) => {
       bytes += chunk.length;
       if (bytes > CLIENT_OUTPUT_MAX_BYTES) {
+        firstFailureStage ??= "stdout_limit";
         pipeFailure();
         return;
       }
       chunks.push(chunk);
     });
     child.stderr?.on("data", (chunk: Buffer) => {
+      firstFailureStage ??= "stderr";
       failed = true;
       stderrBytes += chunk.length;
       if (stderrBytes > 4096) terminate();
@@ -179,17 +189,38 @@ export async function requestInChild(
       pipeFailure();
     }
   });
-  if (!completion.closed)
-    throw new Error("workbench_verification_client_process_cleanup_unknown");
+  // 自由文・本文・stderrは搬送せず、最初の故障と終了観測だけを保持する。
+  const processFailure = (stage: string) =>
+    new Error(
+      completion.closed
+        ? "workbench_verification_client_process_failed"
+        : "workbench_verification_client_process_cleanup_unknown",
+      {
+        cause: {
+          clientProcess: {
+            stage: firstFailureStage ?? stage,
+            exitCode: completion.code,
+            signal:
+              completion.signal === null
+                ? null
+                : ["SIGTERM", "SIGKILL", "SIGINT"].includes(completion.signal)
+                  ? completion.signal
+                  : "other",
+            stderrBytes,
+            terminationRequested,
+          },
+        },
+      },
+    );
+  if (!completion.closed) throw processFailure("process");
   if (
     completion.failed ||
     completion.signal !== null ||
     ![0, 2].includes(completion.code ?? -1)
   )
-    throw new Error("workbench_verification_client_process_failed");
+    throw processFailure("process");
   const value = parseUnambiguousJsonDocument(completion.output);
-  if (!value || typeof value !== "object")
-    throw new Error("workbench_verification_client_process_failed");
+  if (!value || typeof value !== "object") throw processFailure("frame");
   const frame = value as Record<string, unknown>;
   const timing = frame.timing as Record<string, unknown> | null;
   if (
@@ -208,7 +239,7 @@ export async function requestInChild(
         Number(timing.headersAt) < Number(timing.startedAt) ||
         Number(timing.headersAt) > Number(timing.completedAt)))
   )
-    throw new Error("workbench_verification_client_process_failed");
+    throw processFailure("frame");
   try {
     observe?.({
       method: form === undefined ? "GET" : "POST",
@@ -230,12 +261,12 @@ export async function requestInChild(
       !frame.failure ||
       typeof frame.failure !== "object"
     )
-      throw new Error("workbench_verification_client_process_failed");
+      throw processFailure("failure_frame");
     const failure = frame.failure as Record<string, unknown>;
     const error = new Error(String(failure.reason), { cause: failure });
     const projected = projectVerificationTransportFailure(error);
     if (!projected || JSON.stringify(projected) !== JSON.stringify(failure))
-      throw new Error("workbench_verification_client_process_failed");
+      throw processFailure("failure_frame");
     throw error;
   }
   if (
@@ -246,7 +277,7 @@ export async function requestInChild(
     (frame.location !== null && typeof frame.location !== "string") ||
     typeof frame.body !== "string"
   )
-    throw new Error("workbench_verification_client_process_failed");
+    throw processFailure("response_frame");
   return {
     status: Number(frame.status),
     location: frame.location as string | null,
@@ -754,8 +785,53 @@ export function projectVerificationTransportFailure(error: unknown) {
     cause !== null && typeof cause === "object"
       ? (cause as Record<string, unknown>)
       : {};
+  const processDetail = detail.clientProcess;
+  const processRecord =
+    processDetail !== null && typeof processDetail === "object"
+      ? (processDetail as Record<string, unknown>)
+      : null;
+  const clientProcess =
+    [
+      "workbench_verification_client_process_failed",
+      "workbench_verification_client_process_cleanup_unknown",
+    ].includes(error.message) &&
+    processRecord &&
+    Object.keys(processRecord).sort().join(",") ===
+      "exitCode,signal,stage,stderrBytes,terminationRequested" &&
+    [
+      "spawn",
+      "pipe",
+      "stdout_limit",
+      "stderr",
+      "deadline",
+      "process",
+      "frame",
+      "failure_frame",
+      "response_frame",
+    ].includes(
+      typeof processRecord.stage === "string" ? processRecord.stage : "",
+    ) &&
+    (processRecord.exitCode === null ||
+      (Number.isSafeInteger(processRecord.exitCode) &&
+        Number(processRecord.exitCode) >= 0)) &&
+    (processRecord.signal === null ||
+      ["SIGTERM", "SIGKILL", "SIGINT", "other"].includes(
+        typeof processRecord.signal === "string" ? processRecord.signal : "",
+      )) &&
+    Number.isSafeInteger(processRecord.stderrBytes) &&
+    Number(processRecord.stderrBytes) >= 0 &&
+    typeof processRecord.terminationRequested === "boolean"
+      ? Object.freeze({
+          stage: String(processRecord.stage),
+          exitCode: processRecord.exitCode as number | null,
+          signal: processRecord.signal as string | null,
+          stderrBytes: Number(processRecord.stderrBytes),
+          terminationRequested: processRecord.terminationRequested,
+        })
+      : null;
   return Object.freeze({
     reason: error.message,
+    ...(clientProcess === null ? {} : { clientProcess }),
     failureClass:
       typeof detail.failureClass === "string" &&
       ["headers_unobserved", "read_failed", "body_limit"].includes(

@@ -5827,7 +5827,10 @@ test("一次失敗のCommand観測は閉じた数値契約と応答相関を検�
   const validate = runInNewContext(
     `${extract("exactRecordKeys")}\n${extract("validCoordinatorPrimaryFailure")}\nvalidCoordinatorPrimaryFailure`,
     {
-      commandPurposes: ["start_provider_attached"],
+      commandPurposes: [
+        "start_provider_attached",
+        "start_subscription_auth_probe_attached",
+      ],
       Object,
       failureStages: ["execution_classification"],
       finalReasons: new Set(["provider_process_exit_nonzero"]),
@@ -5843,6 +5846,83 @@ test("一次失敗のCommand観測は閉じた数値契約と応答相関を検�
     receiptRecorded: false,
   };
   const observation = { exitCode: 1, stdoutBytes: 12, stderrBytes: 7 };
+  const authentication = {
+    ...base,
+    purpose: "start_subscription_auth_probe_attached",
+    commandObservation: observation,
+  };
+  const nonce = "a".repeat(64);
+  const identity = "b".repeat(64);
+  for (const authenticationStatus of ["confirmed", "unconfirmed", "unknown"]) {
+    const summary = {
+      schema: "crdd-coordinator/operation-summary/v4",
+      consumer: "workbench",
+      recoveryCorrelationId: "request-synthetic",
+      operationId: "OP-123456",
+      operationNonce: nonce,
+      identitySha256: identity,
+      recoveryId: `docker-task.${"c".repeat(64)}.${nonce}.${identity}`,
+      primaryFailure: {
+        ...authentication,
+        reason: "docker_setup_start_subscription_auth_probe_attached_failed",
+        authenticationStatus,
+      },
+      execution: {
+        providerStart: "not_started",
+        externalSend: "not_issued",
+        sharedWrite: "not_issued",
+        ownerEffect: "disabled",
+        workspaceReusable: false,
+      },
+      outcome: {
+        status: "blocked",
+        reason: "docker_setup_start_subscription_auth_probe_attached_failed",
+        cleanupConfirmed: true,
+      },
+      hostCleanup: "confirmed",
+      lease: "released",
+    };
+    const line = `${encodeCoordinatorStateValue({ schema: "crdd-coordinator/history-row/v2", occurredAt: "2026-10-25T00:00:00.000Z", summary })}\n`;
+    const decoded = decodeCoordinatorHistoryRows(Buffer.from(line));
+    assert.ok(decoded);
+    assert.equal(
+      JSON.parse(decoded[0]?.line ?? "null").summary.primaryFailure
+        .authenticationStatus,
+      authenticationStatus,
+    );
+  }
+  for (const authenticationStatus of ["confirmed", "unconfirmed", "unknown"])
+    assert.equal(
+      validate(
+        JSON.parse(JSON.stringify({ ...authentication, authenticationStatus })),
+      ),
+      true,
+    );
+  for (const value of [
+    { ...authentication, authenticationStatus: "invalid" },
+    { ...authentication, authenticationStatus: undefined },
+    {
+      ...authentication,
+      authenticationStatus: "confirmed",
+      responseObserved: false,
+    },
+    {
+      ...authentication,
+      authenticationStatus: "confirmed",
+      commandObservation: null,
+    },
+    {
+      ...authentication,
+      authenticationStatus: "confirmed",
+      commandObservation: { ...observation, exitCode: null },
+    },
+    {
+      ...base,
+      commandObservation: observation,
+      authenticationStatus: "confirmed",
+    },
+  ])
+    assert.equal(validate(value), false);
   for (const value of [
     base,
     { ...base, commandObservation: null },

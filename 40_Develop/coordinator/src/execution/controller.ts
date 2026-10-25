@@ -2319,6 +2319,7 @@ async function executePlan(
   let hasResponseObservation = false;
   let receiptRecorded = false;
   let commandObservation: PrimaryFailureDiagnostic["commandObservation"] = null;
+  let authenticationStatus: PrimaryFailureDiagnostic["authenticationStatus"];
   let primaryFailure: PrimaryFailureDiagnostic | null = null;
   let startConfirmation: Promise<void> | null = null;
   let lastStdoutBytes = 0;
@@ -2362,6 +2363,7 @@ async function executePlan(
       responseObserved: hasResponseObservation,
       receiptRecorded,
       commandObservation,
+      ...(authenticationStatus === undefined ? {} : { authenticationStatus }),
     });
     return false;
   }
@@ -2389,6 +2391,7 @@ async function executePlan(
       hasResponseObservation = false;
       receiptRecorded = false;
       commandObservation = null;
+      authenticationStatus = undefined;
       return (
         commandRestrictionAllows(record.commandRestriction, purpose) ||
         reject("docker_process_controller_execution_restricted")
@@ -2567,6 +2570,19 @@ async function executePlan(
               stdoutBytes: Buffer.byteLength(execution.stdout, "utf8"),
               stderrBytes: Buffer.byteLength(execution.stderr, "utf8"),
             });
+      if (
+        purpose === "start_subscription_auth_probe_attached" &&
+        execution !== null &&
+        execution.status !== null &&
+        (classification.category === "completed" ||
+          classification.category === "nonzero_exit")
+      )
+        authenticationStatus = evaluateProviderAuthentication(
+          plan.provider,
+          plan.subscriptionOffering,
+          execution.stdout,
+          execution.stderr,
+        ).status;
       const classified = classifyExecution(
         execution,
         purpose,

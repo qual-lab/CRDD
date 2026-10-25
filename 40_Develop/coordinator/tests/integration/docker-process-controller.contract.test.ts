@@ -1445,16 +1445,115 @@ const providerStartObservationTaskOutput = createProviderOutput({
 });
 
 /**
- * 作成境界の一次失敗を清掃結果から分離して検証する。
+ * 認証結果の診断と実行拒否を分離して検証する。
  *
- * @responsibility 要求前例外、応答、期限超過、記録失敗を区別し原因の上書きを拒否する。
+ * @responsibility 認証三値の診断が非0拒否や後続Commandへ影響しないことを確認する。
  * @trace ERB-IT-002
  * @precondition 自己生成のController fixtureだけを使用する。
- * @stimulus 作成境界の各段階と清掃の成功・失敗・例外を組み合わせる。
+ * @stimulus 認証三値の非0終了、終了0の未認証・不明、後続Command失敗。
  * @observation 終了診断、最終結果と後続Command件数を取得する。
- * @oracle 一次失敗は清掃状態によらず不変で、清掃不明時の安全結果を維持する。
+ * @oracle 認証値によらず非0を拒否し、終了0でも未認証・不明は本体開始前に停止する。
  * @cleanup N/A: Docker、ProviderやFilesystem資源を作成しない。
  * @boundary ERB-IT-002=Adjacent 1 Block: Controller→Command／清掃Adapter→診断
+ */
+test("認証診断は非0拒否を変えず本体の失敗へ漏れない", async () => {
+  for (const [exitCode, stdout, expected] of [
+    [1, createSubscriptionAuthOutput(), "confirmed"],
+    [1, JSON.stringify({ loggedIn: false }), "unconfirmed"],
+    [1, "synthetic-secret", "unknown"],
+    [0, JSON.stringify({ loggedIn: false }), "unconfirmed"],
+    [0, "synthetic-secret", "unknown"],
+  ] as const) {
+    const notices: Array<Record<string, unknown>> = [];
+    const commands: string[] = [];
+    const fixture = createFixture({
+      reportProviderBoundaryDiagnostic: (notice: Record<string, unknown>) =>
+        notices.push(notice),
+      startCommand: (command: { purpose: string }) => {
+        commands.push(command.purpose);
+        return {
+          started: async () => true,
+          wait: async () => ({
+            status:
+              command.purpose === "start_subscription_auth_probe_attached"
+                ? exitCode
+                : 0,
+            signal: null,
+            stdout:
+              command.purpose === "start_subscription_auth_probe_attached"
+                ? stdout
+                : "",
+            stderr: "",
+            outputExceeded: false,
+          }),
+          terminateAndWait: async () => true,
+        };
+      },
+    });
+    const result = await fixture.controller.start(
+      fixture.preparedCapability,
+      fixture.managementCapability,
+    ).completion;
+    assert.equal(
+      result?.reason,
+      exitCode === 0
+        ? "provider_subscription_auth_not_confirmed"
+        : "docker_setup_start_subscription_auth_probe_attached_failed",
+    );
+    assert.equal(result?.cleanupConfirmed, true);
+    assert.equal(commands.at(-1), "start_subscription_auth_probe_attached");
+    const primary = notices.find(
+      (n) => n.event === "coordinator_provider_boundary_settled",
+    )?.primaryFailure as Record<string, unknown>;
+    assert.equal(primary.authenticationStatus, expected);
+    assert.equal(
+      primary.stage,
+      exitCode === 0
+        ? "subscription_auth_verification"
+        : "execution_classification",
+    );
+    assert.equal(commands.includes("start_provider_attached"), false);
+    assert.equal(JSON.stringify(primary).includes("synthetic-secret"), false);
+  }
+  const notices: Array<Record<string, unknown>> = [];
+  const fixture = createFixture({
+    reportProviderBoundaryDiagnostic: (notice: Record<string, unknown>) =>
+      notices.push(notice),
+    startCommand: (command: { purpose: string }) => ({
+      started: async () => true,
+      wait: async () => ({
+        status: command.purpose === "create_internal_network" ? 1 : 0,
+        signal: null,
+        stdout:
+          command.purpose === "start_subscription_auth_probe_attached"
+            ? createSubscriptionAuthOutput()
+            : "",
+        stderr: "",
+        outputExceeded: false,
+      }),
+      terminateAndWait: async () => true,
+    }),
+  });
+  await fixture.controller.start(
+    fixture.preparedCapability,
+    fixture.managementCapability,
+  ).completion;
+  const primary = notices.find(
+    (n) => n.event === "coordinator_provider_boundary_settled",
+  )?.primaryFailure as Record<string, unknown>;
+  assert.equal(Object.hasOwn(primary, "authenticationStatus"), false);
+});
+
+/**
+ * 作成境界の一次失敗と清掃結果を分離する。
+ * @trace ERB-IT-002
+ * @responsibility 元の要求・応答・記録失敗と清掃を独立評価する。
+ * @precondition 合成Controllerのみ。
+ * @stimulus 境界故障と清掃の成功・失敗。
+ * @observation 一次故障と終了結果。
+ * @oracle 後続清掃で元故障を上書きしない。
+ * @cleanup 実資源なし。
+ * @boundary Controllerと合成Command。
  */
 test("作成境界の一次失敗を清掃結果から分離する", async () => {
   const scenarios = [
@@ -3462,8 +3561,11 @@ test("Codex認証ProbeはDocker attachのexact stderr形だけを認証済みと
   ];
   for (const auth of acceptedItems) {
     let providerStarted = false;
+    const notices: Array<Record<string, unknown>> = [];
     const fixture = createFixture(
       {
+        reportProviderBoundaryDiagnostic: (notice: Record<string, unknown>) =>
+          notices.push(notice),
         consumeProviderAuthority: () =>
           Object.freeze({
             operationId: "OP-123456",
@@ -3511,6 +3613,11 @@ test("Codex認証ProbeはDocker attachのexact stderr形だけを認証済みと
     assert.equal(providerStarted, true);
     assert.equal(result.status, "completed");
     assert.equal(result.subscriptionAuthConfirmed, true);
+    assert.equal(
+      notices.find((n) => n.event === "coordinator_provider_boundary_settled")
+        ?.primaryFailure,
+      null,
+    );
   }
 });
 

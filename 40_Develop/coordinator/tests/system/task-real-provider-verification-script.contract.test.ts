@@ -2582,9 +2582,36 @@ test("一次失敗の固定診断だけをProcessから保持する", async () =
     responseObserved: false,
     receiptRecorded: false,
   };
-  const cases = [
+  const cases: Array<Record<string, unknown> | null> = [
     null,
     primary,
+    ...["confirmed", "unconfirmed", "unknown"].map((authenticationStatus) => ({
+      ...primary,
+      purpose: "start_subscription_auth_probe_attached",
+      stage: "execution_classification",
+      exceptionCode: null,
+      commandHandleObtained: true,
+      responseObserved: true,
+      commandObservation: { exitCode: 1, stdoutBytes: 12, stderrBytes: 0 },
+      authenticationStatus,
+    })),
+  ];
+  const acceptedCount = cases.length;
+  const authentication = cases[2];
+  assert.ok(authentication);
+  cases.push(
+    ...[
+      { ...authentication, purpose: "create_provider" },
+      { ...authentication, stage: "command_start" },
+      { ...authentication, responseObserved: false },
+      { ...authentication, commandObservation: null },
+      {
+        ...authentication,
+        commandObservation: { exitCode: null, stdoutBytes: 12, stderrBytes: 0 },
+      },
+      { ...authentication, authenticationStatus: "secret-text" },
+      { ...authentication, rawOutput: "secret-text" },
+    ],
     { ...primary, reason: "secret-text" },
     { ...primary, exceptionCode: "secret-text" },
     { ...primary, stage: "unknown" },
@@ -2594,7 +2621,7 @@ test("一次失敗の固定診断だけをProcessから保持する", async () =
     { ...primary, purpose: [primary.purpose] },
     { ...primary, stage: [primary.stage] },
     { ...primary, exceptionCode: ["ENOENT"] },
-  ];
+  );
   for (const [index, value] of cases.entries()) {
     const child = spawn(
       process.execPath,
@@ -2614,10 +2641,10 @@ test("一次失敗の固定診断だけをProcessから保持する", async () =
     const result = await pending;
     assert.equal(
       result.runtimeEventProtocolViolation,
-      index >= 2,
+      index >= acceptedCount,
       `case_${index}`,
     );
-    if (index < 2) {
+    if (index < acceptedCount) {
       const settled = result.providerBoundaryEvents.find(
         (event) => event.event === "coordinator_provider_boundary_settled",
       );

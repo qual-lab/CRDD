@@ -390,16 +390,52 @@ function isPrimaryFailureDiagnostic(value: unknown): boolean {
   if (value === null) return true;
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const record = value as JsonRecord;
+  const hasObservation = Object.hasOwn(record, "commandObservation");
+  const hasAuthenticationStatus = Object.hasOwn(record, "authenticationStatus");
+  const observation = record.commandObservation as
+    | JsonRecord
+    | null
+    | undefined;
   return (
-    exactKeys(record, [
-      "commandHandleObtained",
-      "exceptionCode",
-      "purpose",
-      "reason",
-      "receiptRecorded",
-      "responseObserved",
-      "stage",
-    ]) &&
+    exactKeys(
+      record,
+      [
+        "commandHandleObtained",
+        "exceptionCode",
+        "purpose",
+        "reason",
+        "receiptRecorded",
+        "responseObserved",
+        "stage",
+        ...(hasObservation ? ["commandObservation"] : []),
+        ...(hasAuthenticationStatus ? ["authenticationStatus"] : []),
+      ].sort(),
+    ) &&
+    (!hasObservation ||
+      observation === null ||
+      (observation !== undefined &&
+        typeof observation === "object" &&
+        exactKeys(observation, ["exitCode", "stderrBytes", "stdoutBytes"]) &&
+        record.responseObserved === true &&
+        (observation.exitCode === null ||
+          (Number.isSafeInteger(observation.exitCode) &&
+            Number(observation.exitCode) >= 0)) &&
+        [observation.stdoutBytes, observation.stderrBytes].every(
+          (v) => Number.isSafeInteger(v) && Number(v) >= 0,
+        ))) &&
+    (!hasAuthenticationStatus ||
+      (record.purpose === "start_subscription_auth_probe_attached" &&
+        ["execution_classification", "subscription_auth_verification"].includes(
+          String(record.stage),
+        ) &&
+        record.responseObserved === true &&
+        observation != null &&
+        observation.exitCode !== null &&
+        ["confirmed", "unconfirmed", "unknown"].includes(
+          typeof record.authenticationStatus === "string"
+            ? record.authenticationStatus
+            : "",
+        ))) &&
     (record.purpose === null ||
       (typeof record.purpose === "string" &&
         [

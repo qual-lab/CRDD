@@ -1114,3 +1114,22 @@ Dockerの読取りはEngine 29.8.1応答・稼働Container零、今回のexact a
 今回のDocker履歴参照は`docker-task.29c9921916f3a63170e77179d3145c8627a2b3519d5813b7c9cf2a87d136d9aa.aeb90207d74fba9ba33eb5190aba1d7f032281432c63162cbecd79438e818d42.81b3f2a1efd383abc8960bbe426b3ded9122b0ab9cd264d52a705cb9be12eb31`。未解決義務として返された参照はなく、この値は今回の清掃済み履歴との相関用に保持する。先行保持Rootのunknown参照とは別物であり、先行Root・記録は変更していない。
 
 実行資源の回収は確認済みだが、失敗調査と未配送履歴の保全のため、今回合成Rootと安全な結果は保持する。Task返却の未解決recoveryIds・secondaryFailuresは空だが、清掃済み履歴のDocker相関参照とhistoryPending一件は保持する。34 File・71,152 bytesの時点で、生Provider本文・認証値・114 bytesのstdout本文・stderr本文は保存していない。既定七日として2026-11-01までに、既存OwnerでhistoryPendingの配送・保持を確認したうえで再評価・清掃判断へ戻し、無期限のEvidence書庫にしない。再試行、Codex、Direct／Isolated編集、Docker再起動・修復・Image取得・既存資源削除は行わない。次は、HTTP子故障と認証確認start／attachの非0を外部AIなしで切り分ける判断へ戻す。今回の結果を実AI E2EのPassへ変更しない。
+
+<a id="readonly-failure-diagnostics"></a>
+
+### 読取り確認失敗の非AI切分けと最小診断 — 2026-10-25
+
+基準`8ae4753fd`の記録と実装を照合した。認証確認はContainer作成ではなくstart／attachの非0終了で停止し、既存認証分類より前の拒否だった。HTTPの固定理由はProcess／pipe／警告／終了／frameの複数故障をまとめており、元通信切断の実証ではない。正常frame・終了0に合成stderr警告だけを追加すると同じ固定理由になることを非AIで再現したが、元実行で警告が出たとは断定しない。保存していない本文を後から復元せず、認証不成立・Docker故障・HTTP期限超過のいずれにも推定確定しない。
+
+| 対象 | 最小是正と保持する境界 |
+|---|---|
+| 認証確認 | 一次失敗へ任意の認証出力三値を追加。終了0／非0の応答があり、出力上限・Signal・終了値欠測を除外した場合だけ既存AI Adapterで分類する。非0はconfirmedでも拒否し、次Commandで診断を消去する |
+| 保存・利用側 | 現在状態、操作履歴、実Provider検証Toolの任意fieldと閉形式を一致させる。認証用途・段階・応答・終了値・三値の不正相関を拒否し、欠測を否定へ補完しない。保存Schema版、回復参照、清掃条件は不変更 |
+| HTTP子 | 最初の固定故障段階、終了値、固定Signal分類、stderrバイト数、終了要求の有無だけを既存例外へ追加。警告拒否、15秒HTTP期限、20秒親監視・2秒終了確認、同ID取消は維持し、要求を終了確認へ昇格しない |
+| 正本と検証 | Architecture二文書と既存QA-000003／QA-000006のERB-IT-021／ERB-IT-002へ接続。新しい管理状態、Registry、Lock、Recovery、常駐Logは追加しない |
+
+Coordinatorの影響三Suiteは是正後158件すべて成功した。認証の非0三値、終了0の未認証・不明、本体開始前停止、次Commandへの非残留、警告付き正規認証の成功、状態値検査・操作履歴のJSON往復、検証Processによる診断搬送と不正反例を確認した。HTTP子の四件も成功し、通常・切断・15秒期限、警告付き終了0の拒否、閉形式診断、同ID結果・回復参照の保持を確認した。途中の検証Tool試験ではkey順序の追従不足一件を検出・是正しており、その最初の不合格を成功へ読み替えない。独立レビューは検証Tool追従・終了0分岐Oracle・QA伝播・見出し階層を是正後、残指摘零となった。
+
+別途実行したWindows保存試験は、今回の診断追加箇所より前にある試験内の旧CLI `doctor --recover-isolation` が終了64となり、期待2と不一致で停止した。現行CLIへの試験追従は別残件として保持し、この試験やWindows保存全体を合格とはしない。今回の修正で元の実Claude故障が解消したとは主張しない。AI再送、実Docker操作、認証Home内容の読取り・変更、保持中二Rootの操作は行っていない。
+
+Workbench通常結合回帰は86件・失敗零で完走した。両Packageの整形・型・lint・Coordinatorの二Trace検査も成功した（既存のlint情報表示はWorkbench五件／横断八十四件）。文書Checkerは変更したArchitecture／QA四文書の指摘零だが、参照展開先はbroken-anchor五件、broken-link 3,362件、未定義QA識別子一件の計3,368件で不合格。先行の狭い参照範囲313件と母集団が異なるため、差分増加数や今回新設の指摘とは扱わない。今回の限定実装・検証を全体QA、実AI E2E、原事例の原因特定やRelease可能の主張へ拡張しない。

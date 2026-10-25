@@ -1,5 +1,9 @@
 # QA-000003 Project実行と回復の検証定義
 
+## 検証HTTP子の診断追加（ERB-IT-021）
+
+正常応答・終了0でもstderr警告があれば既存どおり拒否し、最初のProcess故障段階、終了値、固定Signal分類、警告バイト数、終了要求の有無だけを保持する。後続のpipe故障・終了通知による一次段階の上書き、終了要求から終了確認への昇格、不正frame・未知診断fieldの受理、生出力・秘密値の搬送を反証する。HTTP15秒・親監視20秒・終了確認2秒は維持し、通常完了・切断・期限・同ID取消・回復参照の保持を既存結合試験で確認する。検証Toolの成功を実Provider E2E成立へ換算しない。
+
 ## 公開操作・Objective再設計の検証再開 — 2026-10-24
 
 [今回の設計方針](../../../06_Architecture/Details/coordinator/03_Task_Architecture.md#公開操作とobjectiveの再設計方針--2026-10-24)と[実施段階](../../../99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md)に従い、内部構造と公開契約の検証を分ける。Objective六Sourceの連続回帰64件と直接回帰・限定独立確認は同計画§9、本番`public-*`撤去後の境界・利用側・独立確認は§10へ接続する。後続のWorkspace／品質受入結合36件も成功。新設定本番接続の全体完了へ拡張しない。新API・CLI・認証・設定の本番切替の試験実績は未取得とする。旧Sourceの成功を新方式の結果へ換算しない。

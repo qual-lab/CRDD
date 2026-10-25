@@ -1,5 +1,11 @@
 # CROS Workbench詳細設計
 
+## 検証HTTP子Processの失敗診断
+
+検証ToolだけのHTTP子Processは、既存の拒否理由に任意の`clientProcess`診断を添える。値は最初の故障段階、終了値、固定Signal分類、stderrバイト数、終了要求の有無だけとし、生出力・自由な例外文・Tokenは含めない。起動・pipe・出力上限・警告・監視期限の最初の故障は後続通知で上書きしない。Process終了後のframe／失敗frame／応答frameの拒否は別段階にする。
+
+警告だけでも拒否する現行条件、HTTPの15秒期限、親の20秒監視・2秒終了確認、同IDの取消と回復参照は維持する。終了要求を終了確認やTask取消成功と同一視せず、Taskの一次結果とHTTP故障を分離する。正常な通信失敗frameの子側診断はそのまま保ち、親Process故障の診断を通信原因へ置換しない。
+
 ### Repository別AI選択設定への接続候補 — 2026-10-24
 
 技術対応のCatalogはAI Adapter、五役割の既定値・作業分類・分類別上書きとその保存はCoordinatorが所有する。Workbenchは選択Repositoryの `.crdd/config/ai-selection.json` を同じ公開Owner APIで読み、Host Catalogや旧Profileへfallbackしない。不在は未設定、観測不能はblockedとして表示し、初期Modelを自動作成しない。同梱Catalogの対応宣言から認証・Quota・実行許可を推定しない。

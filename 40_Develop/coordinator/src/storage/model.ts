@@ -453,6 +453,7 @@ export type CoordinatorStateTaskOperation = Readonly<{
     commandHandleObtained: boolean;
     responseObserved: boolean;
     receiptRecorded: boolean;
+    authenticationStatus?: "confirmed" | "unconfirmed" | "unknown";
     commandObservation?: Readonly<{
       exitCode: number | null;
       stdoutBytes: number;
@@ -3841,6 +3842,10 @@ function validCoordinatorPrimaryFailure(value: unknown): boolean {
     value !== null &&
     typeof value === "object" &&
     Object.hasOwn(value, "commandObservation");
+  const hasAuthenticationStatus =
+    value !== null &&
+    typeof value === "object" &&
+    Object.hasOwn(value, "authenticationStatus");
   if (
     !exactRecordKeys(value, [
       "purpose",
@@ -3851,6 +3856,7 @@ function validCoordinatorPrimaryFailure(value: unknown): boolean {
       "responseObserved",
       "receiptRecorded",
       ...(hasObservation ? ["commandObservation"] : []),
+      ...(hasAuthenticationStatus ? ["authenticationStatus"] : []),
     ])
   )
     return false;
@@ -3883,6 +3889,17 @@ function validCoordinatorPrimaryFailure(value: unknown): boolean {
       failure.receiptRecorded,
     ].every((isObservedFlag) => typeof isObservedFlag === "boolean") &&
     (!failure.receiptRecorded || failure.responseObserved) &&
+    (!hasAuthenticationStatus ||
+      (failure.purpose === "start_subscription_auth_probe_attached" &&
+        ["execution_classification", "subscription_auth_verification"].includes(
+          failure.stage,
+        ) &&
+        failure.responseObserved &&
+        failure.commandObservation != null &&
+        failure.commandObservation.exitCode !== null &&
+        ["confirmed", "unconfirmed", "unknown"].includes(
+          failure.authenticationStatus ?? "",
+        ))) &&
     (!hasObservation ||
       failure.commandObservation === null ||
       (failure.responseObserved &&

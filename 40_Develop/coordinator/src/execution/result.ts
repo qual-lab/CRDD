@@ -176,6 +176,8 @@ export type PrimaryFailureDiagnostic = Readonly<{
   commandHandleObtained: boolean;
   responseObserved: boolean;
   receiptRecorded: boolean;
+  /** 診断専用。confirmedでも非0終了を実行許可へ変換しない。 */
+  authenticationStatus?: "confirmed" | "unconfirmed" | "unknown";
   commandObservation: Readonly<{
     exitCode: number | null;
     stdoutBytes: number;
