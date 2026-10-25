@@ -12,6 +12,8 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
+診断付きClaude読取りを承認どおり一回実行し、成功Envelopeの`num_turns`が数値3だったことを確認した。CLI終了0の後、CRDDの1〜2整数条件で拒否しており、今回は認証失敗・Container作成unknown・HTTP故障ではない。`--max-turns 2`との数え方の差やCLI側の意味は未確定で、受理条件は変更しない。今回の実行資源は回収確認済み、未解決回復・結果配送待ち（pendingDeliveries）は零、履歴出版待ち（historyPending）は一件。合成Rootは失敗記録と未配送履歴一件のため2026-11-01を再評価期限として保持する。AI再送・再起動・旧保持物変更は行わない。[今回の一回実測](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#claude-turn-count-diagnostic-once-result)を参照する。
+
 Claude助言のTurn数拒否に、有無・型と正規化済み数値表記だけの任意診断を接続した。AI Adapter→Controller一次失敗→状態・履歴→検証Toolの搬送を揃え、生出力・文字列／Object本文は保存しない。受理条件の1〜2整数、取消・回収・実行許可は不変。局所搬送三件と、Controller／Tool156件・状態契約一件・AI Adapter24件は成功した。実AI再送・Docker・認証・保持物の操作はなく、先行失敗の具体的な`num_turns`は未復元。[最小診断と非AI検証](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#claude-turn-count-minimal-diagnostic)を参照する。
 
 Claude再認証後の正式statusはconfirmed／cleanupConfirmed trueとなり、loginの三Container・二Networkとstatus用Containerの不存在を確認した。その後、同じ合成Context・固定質問・opus／mediumの読取りを承認どおり一回実行したが、Claude CLI終了0の後に`workbench_ai_claude_turn_count_invalid`でblockedとなった。HTTP故障・Timeoutはなく、実行資源の回収と入力不変は確認済み。再試行せず、失敗診断と未配送履歴一件のため今回合成Rootを期限付き保持する。正規化が要求する`num_turns`は1～2の整数だが、実値は保存しておらず、上限超過・欠落・型不正の別は未確定。[再認証後一回の結果と限界](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#claude-readonly-after-reauth-result)を参照する。

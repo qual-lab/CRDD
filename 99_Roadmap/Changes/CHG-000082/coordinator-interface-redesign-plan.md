@@ -1251,6 +1251,23 @@ Workbench通常結合回帰は86件・失敗零で完走した。両Packageの�
 
 結果・履歴・現在状態の安全fieldと二文書を照合した限定独立レビューは残指摘零。文書diffcheckも成功した。
 
+<a id="claude-turn-count-diagnostic-once-result"></a>
+
+### 診断付きClaude読取り一回の結果 — 2026-10-25
+
+利用者承認に基づき、固定Source `38b9c345b939db2a6118453d61e622b1a905b4d9`、新品 `.crdd/tests/claude-readonly-turn-diagnostic-20261025/readonly`で正式読取りToolを一回だけ実行した。前回入口との差はRoot名と固定HEADだけで、自己試験・実行前独立レビューは成功／残指摘零。合成Contextは1,095 bytes・SHA-256 `99505f13f046e4f5f0619d74d8edfc5e9cada26e6a839b532df214e810e343da`、選択設定Hash `67a183f123d63236e08641724274347ce1ce5d61156d62fdb3a08cb1e3bfaf40`で前回と同一。合成Commitは`94046bc1e13bd3a8e448937e08a32041bb33c3ec`。Claude opus／mediumと固定質問も維持した。
+
+| 対象 | 観測結果と限界 |
+|---|---|
+| 結果 | Tool native終了2、Task blocked／`workbench_ai_claude_turn_count_invalid`。受付`request-0915826e-efac-49d6-9d6d-4bd972864567`、Operation `OP-200837671078576366410207982605797171955`。limitedProbePassed／fullE2eVerifiedはfalse |
+| 一次失敗 | `start_provider_attached`、`provider_result_normalization`。handle取得・応答観測あり、終了0、stdout 6,795 bytes／stderr 0、receiptRecorded false。追加診断は`valueType:number / numberText:"3"` |
+| 直接原因 | 成功Envelopeの数値3を、既存の1〜2整数条件が拒否した。起動Planの`--max-turns 2`との意味の差・数え方・CLI側原因は未確定。前回の実値へ遡及して3だったと補完せず、受理上限も変更しない |
+| 通信・終了 | timedOut false、transportFailure／Tool一次故障null、取消なし、closeConfirmed true。本体HEAD／Tree・合成Context／Tree・選択設定は不変 |
+| 回収 | cleanupConfirmed true、recoveryIds／secondaryFailures空。状態改訂35、operations／unresolvedRecoveries／pendingDeliveries／leaseIntents零、historyPending一件。履歴Host cleanup confirmed／Lease released／ownerEffect disabled。providerStart／externalSend／sharedWriteはunknownを維持 |
+| fresh資源照合 | 全状態Container一覧は開始前の既存停止Container `b185985108c6c901b179d0ca3214eac0ea2ef0e32de271526ddc606c6aea1764`一件だけ。Networkはbridge／host／none／既存jarvis_defaultだけ。Toolは既存資源保持・System構成同値と標準bridge世代差を報告し、再起動は発行していない。世代差の発行者・原因は推定しない |
+
+生Provider出力・回答本文・資格値は保存しない。再試行・Docker Engineの起動／再起動命令・設定変更・旧保持物の操作は行っていない。今回Rootは失敗調査と未配送履歴一件の保全のため保持し、2026-11-01までに既存Ownerで配送・保持を確認して清掃判断へ戻す。今回の一回発行・失敗分類・実行資源回収の完了であり、助言成功・全体E2E成功ではない。次候補は採用CLIにおけるTurn数の意味と固定Plan／正規化条件の非AI照合であり、上限緩和・AI再送は含めない。
+
 <a id="claude-turn-count-minimal-diagnostic"></a>
 
 ### Claude助言Turn数の最小診断と非AI検証 — 2026-10-25
