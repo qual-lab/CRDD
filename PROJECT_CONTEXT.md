@@ -12,7 +12,9 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
-固定Source `ddee28f85`で承認済み合成編集E2Eを一回開始したが、Directが`coordinator_task_external_send_confirmation_unavailable`で実AI起動前にblockedとなり、Isolatedは未開始。Task終了・cleanup確認済み・回復参照と副次失敗は空、Docker一覧・実行Sourceは不変。再送・再起動なし。通常の初回送信同意は別の対話確認であり、Toolの`--external-send-confirmed`だけでは代替しない。確認入口のunavailable内のLock取得／Console接続のどちらかまでは未観測。今回のDirect領域は終了要約一件・解放済みLease根拠二件とともに保持し、清掃完了とはしない。次は対話端末での通常同意を伴う一回の再実行判断が必要。[停止理由と保持状態](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#workspace-edit-consent-stop-20261026)を参照する。
+対話端末での通常同意後、新品の合成Direct編集を一回実行したが、Taskは`unknown / docker_process_controller_recovery_unavailable`、cleanup未確認・exact回復参照四件で停止した。Isolated未開始、再送・再起動なし。Codex／Claudeの各Docker操作には五資源すべて作成IDと不存在観測がある一方、現在状態の二操作とHost終了義務は未確定で、回収完了とはしない。終了後の同じ入場Reader／Inspectorは正常に通り、失敗時の詳細原因は未特定。今回Rootと元結果を保持し、短命入口だけ清掃する。次はAIなしで入場拒否と終了記録未確定を切り分ける。[今回結果と限界](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#workspace-terminal-edit-stop-20261026)を参照する。
+
+先行の同意入口拒否では、固定Source `ddee28f85`で承認済み合成編集E2Eを一回開始したが、Directが`coordinator_task_external_send_confirmation_unavailable`で実AI起動前にblockedとなり、Isolatedは未開始だった。Task終了・cleanup確認済み・回復参照と副次失敗は空、Docker一覧・実行Sourceは不変。再送・再起動なし。通常の初回送信同意は別の対話確認であり、Toolの`--external-send-confirmed`だけでは代替しない。確認入口のunavailable内のLock取得／Console接続のどちらかまでは未観測。このDirect領域は終了要約一件・解放済みLease根拠二件とともに保持し、清掃完了とはしない。この時点では対話端末での通常同意を伴う一回の再実行判断が必要だった。[停止理由と保持状態](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#workspace-edit-consent-stop-20261026)を参照する。
 
 固定Source `8a9b85578`で新品のDirect／Isolated非AI事前確認を一回実行し、両方式の公開操作、既存変更保全、候補固定・二親Merge、履歴確定と試験Root清掃まで成功した。Tool終了零、両方式limitedProbePassed／closeConfirmed／runtimeClean／workspaceClean true、fixtureRootsRemoved true、清掃失敗なし。Docker一覧・実行Source不変、AI起動零。前回失敗結果は同一Hashのまま兄弟の`preflight-before-history-fix.json`へ保存した。続く開始前照合で、実AITaskの追加受付・結果記録を非AI専用Gateが拒否する不一致を検出し、製品Sourceを変更せず既存の終了記録保守へToolを接続した。最終対象三Suite二十六件、静的確認、独立再レビューは成功。実AI編集はまだ未実施。[新品の事前確認と追加接続](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#workspace-preflight-fixed-20261026)を参照する。
 

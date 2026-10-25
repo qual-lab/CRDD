@@ -1690,6 +1690,20 @@ Toolは公開Task結果と同じrequestIdの単発Queue・受付Binding・comple
 
 Tool結果ではDirectのcloseConfirmed／runtimeClean／workspaceClean true、Docker一覧・構成と実行Source不変、追加／削除Container・Network零。読取り再確認ではoperations／unresolvedRecoveries／pendingDeliveries／leaseIntents／workspaces／results零、単発受付はsettled／blocked、historyPending一件、leaseEvidence二件、物理Lease親は空。Gitは自身のWorktreeだけで、既存の合成Dirty／Stage／未追跡三ファイルだけが残り、source.txtの変更はない。正常完了専用の清掃Gateをblockedへ拡張して消さず、`.crdd/tests/workspace-ai-20261026/edit/direct` と兄弟`result.json`を保持する。2026-11-02までに既存Ownerで失敗記録の確定・清掃を再評価し、期限だけでは削除しない。fullE2eVerified false、試験領域の清掃未完了。旧保持三領域・Image・認証・Docker再起動は操作しない。
 
+<a id="workspace-terminal-edit-stop-20261026"></a>
+
+##### 対話同意後の合成Direct停止 — 2026-10-26
+
+利用者の一回再実行承認と端末内入力により、固定HEAD `c21475bbf7f737b599a0c9faa377a3924f686860`、正式Toolの新品Rootだけを `workspace-ai-terminal-20261026` へ変えた短命入口で実行した。full HEAD・clean・Tool本文blob一致、Root置換一箇所、相対importの元Tool位置基準解決、TTY必須を自己確認・独立確認した。stdin／stdoutのredirect、自動コード入力、確認Guard解除は行わず、通常端末で利用者が同意した。モデル・合成送信範囲・回数上限は前段承認を維持する。
+
+Direct受付 `request-3d051d2f-d398-4696-89fe-a2249b66d79c` はstatus／executionStatus unknown、reason／primaryFailure `docker_process_controller_recovery_unavailable`、cleanupConfirmed false、recoveryIds四件、secondaryFailures空。Toolの一次検証失敗は`edit_task_not_completed`、failureStep verify_result、transportFailure null。closeConfirmed true、runtimeClean false、workspaceClean true、fixtureRootsRemoved false、fullE2eVerified false。Isolatedは開始せず、Task再送も行わなかった。今回の入力をAI未送信とは主張せず、実Providerの成否も確定しない。
+
+保存状態にはCodex executor／Claude independent_reviewerのtaskAttempt零が各一件あり、各五資源のrequest identified・作成dockerId・observation absentが揃っている。しかし二操作はphase executing／primaryFailure null、execution観測unknown・ownerEffect disabled、Host cleanup not_requestedで残り、単発Queueはsettled／recovery_required、Task unknown・回復参照四件だった。operations二件、leaseIntents／配送／未解決Recovery配列は零でも、これを終了義務不存在へ読み替えない。元結果JSON内の四exact回復参照と二操作の参照は変更しない。標準bridge IDのadded／removed各一件を観測し、既存資源保持・構成同値、Container added／removed零、実行Source不変を確認した。標準bridge世代差の原因・発行者は未確定で、再起動命令は発行していない。
+
+終了後の既存Readerによる読取り診断では`completed / coordinator_state_read_confirmed / lockReleased true`、同じ入場Inspectorは`available / coordinator_current_admission_available / lockReleased true`。そのため現在も継続するContainer作成不能や認証切れとは断定せず、失敗時の入場読取り・解放・上位Guardのどこが拒否したかは未確定とする。読み取り診断は回復・新規Effect・記録変更を行っていない。
+
+今回Node Processの終了を確認した。短命の起動・診断三Fileと空の専用tmp Directoryは回収し、不存在確認済み。`.crdd/tests/workspace-ai-terminal-20261026/edit/direct` と兄弟`result.json`は回収未確認として保持し、2026-11-02までに既存Ownerで再評価する。未解決中は期限だけで消さない。前回同意入口拒否Rootと旧保持三領域は不変。次は外部AIなしで失敗境界と一次理由の保持を切り分け、必要な最小是正案を確定する。追加AI送信・Docker再起動・強制削除は行わない。
+
 <a id="new-model-ai-once-results-20261025"></a>
 
 ### 新Model読取り各一回と編集停止 — 2026-10-25
