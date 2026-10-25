@@ -1598,6 +1598,30 @@ Version Control全回帰71件、Coordinator保存借用・現在状態・Lock／
 
 Header是正後の最終独立確認は限定Pass。比較完了後、短命診断七ファイルのexact一覧、今回回帰三Rootの空領域又はNode compile cacheだけであること、canonical境界・全配下reparse零・対象Node Process非使用を再確認した。診断Directoryと回帰三Rootを清掃し、各不存在を確認済み。実AI結果や既存保持三領域は不変。計測器や試験生成物をGitへ追加せず、本節の限定結果と再実行可能な契約試験を残す。
 
+<a id="claude-improved-source-once-20261026"></a>
+
+#### 改善SourceでのClaude読取り一回 — 2026-10-26
+
+利用者から、前回はClaudeの支払い不調で停止していた可能性と、改善後Sourceでの実AI確認依頼があった。支払い状況の履歴は取得せず仮説として分離した。固定Source `886f5ed3e6d87e2ee53ae737df22e5e9adacee00`、既存Image `sha256:612433b71c4af3dfb135c00daad64f0ef897f86e0251b4da558715fdfde9c51f`、Claude Opus 5.5／medium、既存Subscription経路で正式読取りToolを一回だけ実行した。
+
+前回848 bytesの合成本文は清掃済みのため、今回は既存HTTP結合試験と同じ形式の合成Context744 bytes（SHA-256 `d634da8deaac149b0fb8b70808508eb8293f00f48a337e912938faf6a798c749`）と正式Toolの固定質問だけを送信した。この入力差を実行前に案内し、完全同一入力の比較とはしない。本体Source・実Context・資格値は送信しない。新品Rootは `.crdd/tests/claude-improved-once-20261025/readonly`、合成Commit `9aeb870d56d6385beae95e0c72831ae77dbfd0a8`。Root名の日付は準備開始日であり、結果確定日は2026-10-26。
+
+| 確認対象 | 観測結果と限界 |
+|---|---|
+| 正式ToolとTask | Tool終了0／signalなし／実close確認。受付`request-5dacd36e-08ba-439f-acac-4e39fa1286dc`、Task・実行ともcompleted、reason／primaryFailure null、limitedProbePassed true。fullE2eVerified false |
+| 応答 | facts二件・sharedAnalysis二件・additionalInferences一件・nextOptions一件。本文・生Provider出力・stderr本文は保存せず、stderrは1,114 bytesの件数だけ保持 |
+| 通信・有限時計 | HTTP失敗・Timeout・取消なし、closeConfirmed true。Client二十件・Server二十件・Owner十七件、dropped零・購読解除済み。Client開始から完了まで最大11,961ms、Owner観測最大52ms。今回15秒内で成立した事実であり、恒常的な性能保証ではない |
+| 回収 | cleanupConfirmed true、回復参照・副次失敗空。終了後一覧は既存停止Container一件だけ。既存資源保持・System構成同値。標準bridgeのID世代差各一件は既存比較契約に従い別記し、再起動発行やその原因を推定しない |
+| 不変と対象外 | 本体Commit／Tree、合成Tree、五入力Hash不変。AI再送・別Provider・編集E2E・Image更新・Docker再起動・既存保持物操作なし |
+
+短命入口だけを独立確認し、未知field保存とProcess終了確認、時計・資源の相関、kill失敗診断を実AI前に是正した。標準Networkの構成同値ID世代差を禁止する案は既存契約の反例へ照合して撤回し、従来の許容と拒否を維持した。閉形式・成功条件・異常終了・保存失敗の非AI反例後、一回の発行guardを使用した。製品Source・契約・期限の変更ではなく実境界の限定検証のため、全体準拠監査は追加せず、入力・結果・回収条件の独立確認を行う。
+
+今回の成功により、現在のSource・設定・アカウント条件でClaude読取りが成立した。ただし、過去の支払い不調を裏付ける診断はなく、前回終了1の原因やSource改善・アカウント状態それぞれの寄与は特定できない。過去の失敗を成功へ書き換えず、Direct／Isolated実AI編集E2Eも未実施のまま残す。
+
+終了後の既存履歴保守はcompleted／orchestrator_terminal_records_retired。同じ保存Ownerによる観測でoperations／unresolvedRecoveries／pendingDeliveries／historyPending／leaseIntents／workspacesと結果・受領・判断・判断回復・Lease根拠は零。未実行fixtureの二Queue（queued・Owner／Workspace／結果参照null）とTask一件（ready／startPhase none／retry零、Attempt／Authority／Candidate／Operation／superseded参照null、回復・受理参照空）だけを残す。これらを実行成功の証拠とせず、今回合成Root全体の廃棄対象とする。Gitは自身のWorktreeだけ、専用Ref零、Tree clean、reparse零を確認した。削除直前にも同値・exact Root・非使用を確認し、不明又は差があれば保持する。安全な結果JSONは兄弟に分離し、2026-11-02までに保持要否を再評価する。
+
+結果・文書の独立確認は整合、清掃Gateの保守結果・二Queue／受付Binding集合・世代の検査不足は是正し、blocked／重複／世代差の非AI反例を確認した。直前の同Owner再観測、全配下reparse零と対象Process零、exact leaf境界を再確認し、今回合成Rootだけを清掃して不存在を確認済み。短命入口五Fileと空tmp directory、準備・発行guard二Fileもexact一覧・非使用確認後に清掃した。兄弟の安全な`result.json`だけを期限付き保持し、既存保持物は不変。
+
 <a id="new-model-ai-once-results-20261025"></a>
 
 ### 新Model読取り各一回と編集停止 — 2026-10-25

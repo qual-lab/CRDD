@@ -12,6 +12,8 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
+改善後Source `886f5ed3e`でClaude Opus 5.5／mediumの合成読取りを一回実行し、Task・実行completed、HTTP失敗・Timeoutなし、cleanup／close確認、回復参照・副次失敗なしで成功した。本体・合成入力は不変、再送・Docker再起動・既存保持物操作なし。今回合成Rootと短命入口は終了義務・非使用を確認後に清掃し、不存在確認済み。安全な結果JSONだけ期限付き保持する。前回本文は清掃済みのため今回は既存HTTP試験形式の744 bytesで、完全同一入力比較ではない。現在の条件で利用できることは確認したが、前回の支払い不調や終了1の原因、Source改善との寄与分離は未確定。Direct／Isolated編集E2E・全体E2Eは未実施。[今回の結果と限界](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#claude-improved-source-once-20261026)を参照する。
+
 本番保存経路のRepository実体再検証について、一回の確認内だけで重複していた探索を統合した。Coordinator保存借用の一回の再検証は五探索から二探索となり、前後のfresh確認、別I/O段階の確認、Lock・書込み・読戻し・拒否条件を維持する。Version Control全71件、保存・排他・履歴90件、HTTP検証25件は成功、静的確認も成功。計測器なしの同じ合成状態初期化と二Queue保存は、変更前約7.09秒から変更後約4.92秒／3.68秒となったが、任意Repositoryの性能保証ではない。元実AIの受信前18.6秒の占有処理とClaude終了1の原因は未確定で、実AI E2E成功とはしない。AI再送・Docker操作・既存保持物操作なし。[限定是正と検証範囲](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#storage-revalidation-consolidation)を参照する。
 
 IPC是正後のClaude Opus 5.5／medium読取りを同一合成Contextで承認どおり一回実行したが、状態観測のHTTP15秒Timeoutで不合格。最後のGETはClient開始からServer受信まで18,592ms、受信後の応答は658ms、Owner観測46msだった。子の入力待ちではなくServer受信前の遅延を観測したが、占有処理やProvider終了1との因果は未確定。Task一次理由はprovider_process_exit_nonzero。同ID取消・終了・実行資源回収は確認済み。本体・合成入力は不変、再送・Docker再起動・既存保持物操作なし。今回Rootは残存義務・未実行fixture・Git・非使用を独立確認後に清掃し、不存在確認済み。今回短命3ファイルとDirectoryも回収済み。安全な結果JSONだけ期限付き保持する。[一回の結果と限界](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#claude-ipc-readonly-once-result)を参照する。
