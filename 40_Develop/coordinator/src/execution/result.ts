@@ -16,6 +16,7 @@ import {
   parseProviderResult,
   CLAUDE_RESULT_ACCEPTANCE_MAXIMUM_TURNS,
   parseUnambiguousJsonDocument,
+  type ProviderTurnCountDiagnostic,
 } from "../../../ai-adapter/src/index.ts";
 import {
   snapshotPlainRecord,
@@ -178,6 +179,8 @@ export type PrimaryFailureDiagnostic = Readonly<{
   receiptRecorded: boolean;
   /** 診断専用。confirmedでも非0終了を実行許可へ変換しない。 */
   authenticationStatus?: "confirmed" | "unconfirmed" | "unknown";
+  /** Claude助言のTurn拒否だけに付く非秘密metadata。 */
+  turnCountDiagnostic?: ProviderTurnCountDiagnostic;
   commandObservation: Readonly<{
     exitCode: number | null;
     stdoutBytes: number;

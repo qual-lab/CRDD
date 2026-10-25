@@ -392,6 +392,8 @@ function isPrimaryFailureDiagnostic(value: unknown): boolean {
   const record = value as JsonRecord;
   const hasObservation = Object.hasOwn(record, "commandObservation");
   const hasAuthenticationStatus = Object.hasOwn(record, "authenticationStatus");
+  const hasTurnCountDiagnostic = Object.hasOwn(record, "turnCountDiagnostic");
+  const turnCount = record.turnCountDiagnostic as JsonRecord | undefined;
   const observation = record.commandObservation as
     | JsonRecord
     | null
@@ -409,6 +411,7 @@ function isPrimaryFailureDiagnostic(value: unknown): boolean {
         "stage",
         ...(hasObservation ? ["commandObservation"] : []),
         ...(hasAuthenticationStatus ? ["authenticationStatus"] : []),
+        ...(hasTurnCountDiagnostic ? ["turnCountDiagnostic"] : []),
       ].sort(),
     ) &&
     (!hasObservation ||
@@ -436,6 +439,34 @@ function isPrimaryFailureDiagnostic(value: unknown): boolean {
             ? record.authenticationStatus
             : "",
         ))) &&
+    (!hasTurnCountDiagnostic ||
+      (record.purpose === "start_provider_attached" &&
+        record.stage === "provider_result_normalization" &&
+        record.reason === "workbench_ai_claude_turn_count_invalid" &&
+        record.responseObserved === true &&
+        observation?.exitCode === 0 &&
+        turnCount != null &&
+        typeof turnCount === "object" &&
+        exactKeys(turnCount, ["numberText", "valueType"]) &&
+        typeof turnCount.valueType === "string" &&
+        [
+          "missing",
+          "null",
+          "boolean",
+          "number",
+          "string",
+          "array",
+          "object",
+        ].includes(turnCount.valueType) &&
+        (turnCount.numberText === null ||
+          (turnCount.valueType === "number" &&
+            typeof turnCount.numberText === "string" &&
+            turnCount.numberText.length <= 32 &&
+            Number.isFinite(Number(turnCount.numberText)) &&
+            String(Number(turnCount.numberText)) === turnCount.numberText &&
+            (!Number.isInteger(Number(turnCount.numberText)) ||
+              Number(turnCount.numberText) < 1 ||
+              Number(turnCount.numberText) > 2))))) &&
     (record.purpose === null ||
       (typeof record.purpose === "string" &&
         [

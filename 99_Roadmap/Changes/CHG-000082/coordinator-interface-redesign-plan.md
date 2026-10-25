@@ -1250,3 +1250,15 @@ Workbench通常結合回帰は86件・失敗零で完走した。両Packageの�
 失敗後の再試行・上限変更・認証変更・Docker再起動・Image取得・既存資源削除は行わない。既存の助言抽出→Controller→固定理由・cleanup搬送の合成一件は成功し、同理由が欠測でも発生することを確認した。生Provider出力・資格値・回答本文は保存しない。今回完了したのは承認一回の発行、失敗分類、実行資源回収と原因境界の照合であり、読取り試験成功・全体E2E成功ではない。
 
 結果・履歴・現在状態の安全fieldと二文書を照合した限定独立レビューは残指摘零。文書diffcheckも成功した。
+
+<a id="claude-turn-count-minimal-diagnostic"></a>
+
+### Claude助言Turn数の最小診断と非AI検証 — 2026-10-25
+
+利用者指示に基づき、基準`f266e6edb`から既存の一次失敗へ任意の`turnCountDiagnostic`を追加した。AI Adapterが成功EnvelopeのTurn数拒否時だけ、`valueType`（missing／null／boolean／number／string／array／object）と`numberText`（有限数値をStringで正規化した表記又はnull）を抽出し、Controller・現在状態・履歴・実Provider検証Toolへ同じ値を搬送する。数値表記は最大32文字・canonical・有限・受理範囲外を検査する。非数値は実値を複製せず、欠落はmissingで区別する。既存状態encoderが整数限定のため小数は数値表記で保持し、共通encoderや保存Schema版は変更しない。
+
+診断は`start_provider_attached`／`provider_result_normalization`／`workbench_ai_claude_turn_count_invalid`／同じ応答の終了0へ相関させる。次Commandの局所診断は消去し、既に固定した一次失敗は後続cleanupで上書きしない。新しい監視・State・Log・回復機構は作らず、1〜2整数の受理条件・CLI引数・認証・実行許可・取消・回収判定は変更しない。過去の記録欠測は補完せず、今回の診断追加から先行実値を復元したとは扱わない。
+
+検証は、欠落と各JSON型、0／3／小数、別の拒否理由への非残留、任意文字列・Object本文の非流出を実Controllerから確認した。状態の実Validator・履歴JSON往復、検証Toolの実子Processでも、正常値と余分field・不正型・非canonical数値表記・有効範囲1〜2・用途／段階／理由／応答相関違反を照合した。初回局所三件は状態encoderの小数拒否で一件不合格、数値表記への是正後はTool fixtureの旧数値型一件を追従した。修正版の局所三件は全成功。影響回帰はController／Tool二Suite156件、状態契約一件、AI Adapter全24件が成功した。局所三件のうち二件は156件と重なるため加算しない。
+
+Architecture二文書と既存QA-000006／ERB-IT-002・003へ反映した。実AI再送・Docker操作・認証情報読取り・保持物の変更は行っていない。次の実測には新しい一回の送信判断が必要であり、先行試験や全体E2Eを成功へ変更しない。

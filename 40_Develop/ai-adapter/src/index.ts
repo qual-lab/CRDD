@@ -52,6 +52,7 @@ export {
   type ProviderResultInput,
   type ProviderResultReason,
   type ProviderResultParseResult,
+  type ProviderTurnCountDiagnostic,
 } from "./provider/result.ts";
 export {
   describeProviderBillingPolicy,

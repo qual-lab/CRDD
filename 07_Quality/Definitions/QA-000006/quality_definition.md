@@ -407,6 +407,8 @@ Evidenceには各段階のCommit／Tree、固定Path、Asset Hash、Git追跡判
 
 `ERB-UT-016`の状態確認は、両Providerの終了0／1とAI Adapterが認識する正規未ログイン出力を組み合わせて、`completed / unconfirmed / authenticationConfirmed:false`を返すことを確認する。Codexのstderr通知と既存の固定read-only警告、ClaudeのJSON否定と空stderrを同じ結果へ変換する。終了1の肯定出力・未知stderr、他の終了値、終了欠測、不正・曖昧・混在出力、起動失敗、Signalは確認不能として拒否する。取消・Process終了不明・回収不明は確認完了にせず、既存回復参照を保持する。loginの非0とTask実行許可にはこの受理条件を適用しない。生Provider出力・資格値・認証期限の推測を結果へ追加しない。
 
+`ERB-IT-002`のClaude助言Turn数拒否では、項目欠落、null・boolean・文字列・配列・Object、0・3・小数を与え、固定理由とcleanupを維持したまま`turnCountDiagnostic`の型名と数値表記だけが一次失敗へ残ることを確認する。`ERB-IT-003`では既存状態の実Validatorと履歴JSON往復へ接続し、用途・段階・理由・終了0との相関、閉じた型名、正規化済み最大32文字の数値表記を照合する。検証Toolの既存Process観測試験でも同じ正常値と不正反例を搬送し、生出力・任意文字列・余分field・有効範囲1〜2・不正相関を拒否する。受理条件、取消・回収、実AI未実施の境界は維持する。
+
 ## Semantic Coverage Pilot
 
 この表はQuality Local Itemが検証する設計上の意味だけを正方向で宣言する。逆方向の一覧は生成し、本文の類似表現から推測しない。

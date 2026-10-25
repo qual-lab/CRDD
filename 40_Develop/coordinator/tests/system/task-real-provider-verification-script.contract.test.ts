@@ -2595,11 +2595,47 @@ test("一次失敗の固定診断だけをProcessから保持する", async () =
       commandObservation: { exitCode: 1, stdoutBytes: 12, stderrBytes: 0 },
       authenticationStatus,
     })),
+    ...[
+      { valueType: "missing", numberText: null },
+      { valueType: "string", numberText: null },
+      { valueType: "number", numberText: "3" },
+      { valueType: "number", numberText: "1.5" },
+    ].map((turnCountDiagnostic) => ({
+      ...primary,
+      purpose: "start_provider_attached",
+      stage: "provider_result_normalization",
+      reason: "workbench_ai_claude_turn_count_invalid",
+      exceptionCode: null,
+      commandHandleObtained: true,
+      responseObserved: true,
+      commandObservation: { exitCode: 0, stdoutBytes: 20, stderrBytes: 0 },
+      turnCountDiagnostic,
+    })),
   ];
   const acceptedCount = cases.length;
   const authentication = cases[2];
   assert.ok(authentication);
+  const turnFailure = cases[5];
+  assert.ok(turnFailure);
   cases.push(
+    ...[
+      { purpose: "create_provider" },
+      { stage: "execution_classification" },
+      { reason: "provider_process_exit_nonzero" },
+      { responseObserved: false },
+      { commandObservation: null },
+      { turnCountDiagnostic: { valueType: "secret", numberText: null } },
+      { turnCountDiagnostic: { valueType: "string", numberText: 3 } },
+      { turnCountDiagnostic: { valueType: "number", numberText: 2 } },
+      { turnCountDiagnostic: { valueType: "number", numberText: "secret" } },
+      {
+        turnCountDiagnostic: {
+          valueType: "missing",
+          numberText: null,
+          raw: "secret",
+        },
+      },
+    ].map((change) => ({ ...turnFailure, ...change })),
     ...[
       { ...authentication, purpose: "create_provider" },
       { ...authentication, stage: "command_start" },

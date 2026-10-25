@@ -5842,8 +5842,14 @@ test("一次失敗のCommand観測は閉じた数値契約と応答相関を検�
         "start_subscription_auth_probe_attached",
       ],
       Object,
-      failureStages: ["execution_classification"],
-      finalReasons: new Set(["provider_process_exit_nonzero"]),
+      failureStages: [
+        "execution_classification",
+        "provider_result_normalization",
+      ],
+      finalReasons: new Set([
+        "provider_process_exit_nonzero",
+        "workbench_ai_claude_turn_count_invalid",
+      ]),
     },
   ) as (value: unknown) => boolean;
   const base = {
@@ -5863,7 +5869,33 @@ test("一次失敗のCommand観測は閉じた数値契約と応答相関を検�
   };
   const nonce = "a".repeat(64);
   const identity = "b".repeat(64);
-  for (const authenticationStatus of ["confirmed", "unconfirmed", "unknown"]) {
+  const turnFailure = {
+    ...base,
+    stage: "provider_result_normalization",
+    reason: "workbench_ai_claude_turn_count_invalid",
+    commandObservation: { exitCode: 0, stdoutBytes: 20, stderrBytes: 0 },
+  };
+  const turnDiagnostics = [
+    ...["missing", "null", "boolean", "string", "array", "object"].map(
+      (valueType) => ({ valueType, numberText: null }),
+    ),
+    ...["0", "3", "1.5", null].map((numberText) => ({
+      valueType: "number",
+      numberText,
+    })),
+  ];
+  const primaryFailures = [
+    ...["confirmed", "unconfirmed", "unknown"].map((authenticationStatus) => ({
+      ...authentication,
+      reason: "docker_setup_start_subscription_auth_probe_attached_failed",
+      authenticationStatus,
+    })),
+    ...turnDiagnostics.map((turnCountDiagnostic) => ({
+      ...turnFailure,
+      turnCountDiagnostic,
+    })),
+  ];
+  for (const primaryFailure of primaryFailures) {
     const summary = {
       schema: "crdd-coordinator/operation-summary/v4",
       consumer: "workbench",
@@ -5872,11 +5904,7 @@ test("一次失敗のCommand観測は閉じた数値契約と応答相関を検�
       operationNonce: nonce,
       identitySha256: identity,
       recoveryId: `docker-task.${"c".repeat(64)}.${nonce}.${identity}`,
-      primaryFailure: {
-        ...authentication,
-        reason: "docker_setup_start_subscription_auth_probe_attached_failed",
-        authenticationStatus,
-      },
+      primaryFailure,
       execution: {
         providerStart: "not_started",
         externalSend: "not_issued",
@@ -5895,12 +5923,49 @@ test("一次失敗のCommand観測は閉じた数値契約と応答相関を検�
     const line = `${encodeCoordinatorStateValue({ schema: "crdd-coordinator/history-row/v2", occurredAt: "2026-10-25T00:00:00.000Z", summary })}\n`;
     const decoded = decodeCoordinatorHistoryRows(Buffer.from(line));
     assert.ok(decoded);
-    assert.equal(
-      JSON.parse(decoded[0]?.line ?? "null").summary.primaryFailure
-        .authenticationStatus,
-      authenticationStatus,
+    assert.deepEqual(
+      JSON.parse(decoded[0]?.line ?? "null").summary.primaryFailure,
+      primaryFailure,
     );
   }
+  for (const turnCountDiagnostic of turnDiagnostics)
+    assert.equal(validate({ ...turnFailure, turnCountDiagnostic }), true);
+  for (const value of [
+    {
+      ...turnFailure,
+      turnCountDiagnostic: { valueType: "secret", numberText: null },
+    },
+    ...[1, 2, "1", "2", "03", " 3", "Infinity", Infinity, NaN, "secret"].map(
+      (numberText) => ({
+        ...turnFailure,
+        turnCountDiagnostic: { valueType: "number", numberText },
+      }),
+    ),
+    {
+      ...turnFailure,
+      turnCountDiagnostic: { valueType: "string", numberText: 3 },
+    },
+    {
+      ...turnFailure,
+      turnCountDiagnostic: {
+        valueType: "missing",
+        numberText: null,
+        raw: "secret",
+      },
+    },
+    ...[
+      { purpose: "create_provider" },
+      { stage: "execution_classification" },
+      { reason: "provider_process_exit_nonzero" },
+      { responseObserved: false },
+      { commandObservation: null },
+    ].map((change) => ({
+      ...turnFailure,
+      ...change,
+      turnCountDiagnostic: { valueType: "number", numberText: 3 },
+    })),
+  ])
+    assert.equal(validate(value), false);
   for (const authenticationStatus of ["confirmed", "unconfirmed", "unknown"])
     assert.equal(
       validate(

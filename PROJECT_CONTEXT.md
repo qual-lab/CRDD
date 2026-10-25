@@ -12,6 +12,8 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
+Claude助言のTurn数拒否に、有無・型と正規化済み数値表記だけの任意診断を接続した。AI Adapter→Controller一次失敗→状態・履歴→検証Toolの搬送を揃え、生出力・文字列／Object本文は保存しない。受理条件の1〜2整数、取消・回収・実行許可は不変。局所搬送三件と、Controller／Tool156件・状態契約一件・AI Adapter24件は成功した。実AI再送・Docker・認証・保持物の操作はなく、先行失敗の具体的な`num_turns`は未復元。[最小診断と非AI検証](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#claude-turn-count-minimal-diagnostic)を参照する。
+
 Claude再認証後の正式statusはconfirmed／cleanupConfirmed trueとなり、loginの三Container・二Networkとstatus用Containerの不存在を確認した。その後、同じ合成Context・固定質問・opus／mediumの読取りを承認どおり一回実行したが、Claude CLI終了0の後に`workbench_ai_claude_turn_count_invalid`でblockedとなった。HTTP故障・Timeoutはなく、実行資源の回収と入力不変は確認済み。再試行せず、失敗診断と未配送履歴一件のため今回合成Rootを期限付き保持する。正規化が要求する`num_turns`は1～2の整数だが、実値は保存しておらず、上限超過・欠落・型不正の別は未確定。[再認証後一回の結果と限界](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#claude-readonly-after-reauth-result)を参照する。
 
 Codex／Claudeのstatus共通化では、Provider固有の正規出力・出力先・既知警告の検査をAI Adapterに閉じ、Coordinatorは共通結果と終了値だけを扱う。未ログインは確認操作完了／未認証であり、login成功やTask実行許可には昇格しない。共通化の非AI検証はCoordinator関連168件・AI Adapter24件、型・整形・lintが成功し、その検証自体では実Home・Docker・AI再送・login・先行保持物を操作していない。後続のClaude実認証結果は上段と区別する。[両Providerのstatus共通化](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#provider-authentication-status-unification)を参照する。先行一回の実status失敗と回収済み結果は[元の比較記録](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#claude-formal-authentication-status-result)へ維持する。

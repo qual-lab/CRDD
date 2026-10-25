@@ -1913,6 +1913,8 @@ OPEN: Snapshotの実保存Portと現在Writer／Caller、Windows保存primitive�
 
 非0終了の一次診断には、同じCommandの観測値として`commandObservation`（`exitCode`、`stdoutBytes`、`stderrBytes`）を保持する。応答未観測は`null`とし、前Commandの値を転用しない。これはDocker CLIの終了観測であり、Container内AIの開始又は終了を単独では証明しない。過去記録の欠落はゼロへ補完しない。生本文は保存しない。
 
+Claude助言の`workbench_ai_claude_turn_count_invalid`では、同じ成功EnvelopeからAI Adapterが抽出した任意の`turnCountDiagnostic`を一次失敗へ保持する。`valueType`は`missing / null / boolean / number / string / array / object`、`numberText`は有限数値だけを`String(number)`で正規化した最大32文字の数値表記又はnullとする。`missing`が項目不存在を表し、文字列・配列・Object等の実値は保存しない。既存の整数限定の状態保存を変更せず、小数も数値表記として保持する。付加できるのは`start_provider_attached`・`provider_result_normalization`・同じ固定理由・応答観測あり・終了0の場合だけ。受理条件の1〜2整数は変えず、有効範囲の値を失敗診断へ追加しない。過去の診断欠測を補完せず、別Commandへの持越し・生出力の保存・再送は行わない。
+
 Codex非0終了は既知stderr分類を優先し、未分類時だけ容量・行数・行長を制限したJSONLの`error.message`又は`turn.failed.error.message`を既存理由へ分類する。通常回答本文、未知・重複キー・不正・過大入力を診断へ昇格せず、原文を返さない。実行許可・隔離・清掃条件は変更しない。
 
 実行loop移管では、Coordinatorはraw HandleやDocker commandの反復を所有せず、DIの不透明cancel／completionへ接続する。保存と認証・AI結果受理は有限同期hookへ残す。開始factの通知からReporter→Task開始保存の既存順序でPromiseを監視するが、そのPromiseをDIへ返さない。上位の最終結果は確認のsettleを待ち、false／throwは開始観測失敗として保持し同じcancelへ一度だけ接続する。技術completion後に判明しても成功へ丸めず、既発生の保存を巻き戻したとは主張しない。DIの技術一次失敗・清掃事実と上位開始確認失敗を分け、誘発した取消や清掃理由で元失敗を上書きしない。実行期限はDIの開始観測から起算し、上位保存待ちでは延長しない。上位確認の新期限や再送・回復管理は追加しない。

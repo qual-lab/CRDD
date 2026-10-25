@@ -45,6 +45,28 @@ export type ProviderResultReason =
   | "provider_result_input_invalid";
 
 /**
+ * 拒否したTurn metadataの有無・型・有限数値だけを表す。
+ * @responsibility 未信頼文字列・Object本文を診断へ複製しない。
+ * @trace ARCH-000015
+ * @shape 欠落を区別する固定型名と、有限数値を正規化した短い文字列表記又はnull。
+ * @invariant 観測値は受理上限や実行許可を変更しない。
+ * @boundary Provider出力の抽出と上位の一次失敗診断。
+ * @security 数値以外の実値・生Envelopeを含めない。
+ * @compatibility 既存結果への任意の診断追加。
+ */
+export type ProviderTurnCountDiagnostic = Readonly<{
+  valueType:
+    | "missing"
+    | "null"
+    | "boolean"
+    | "number"
+    | "string"
+    | "array"
+    | "object";
+  numberText: string | null;
+}>;
+
+/**
  * 解析値と固定拒否理由を型で区別する。
  * @responsibility 結果値、Turn観測と非秘密の実行観測を搬送する。
  * @trace ARCH-000015
@@ -61,6 +83,7 @@ export type ProviderResultParseResult<
     providerReportedTurns: number | null;
     codexExecutionObservation: Readonly<Record<string, unknown>> | null;
     rawOutputReported: false;
+    turnCountDiagnostic?: ProviderTurnCountDiagnostic;
   } & (
     | {
         status: "confirmed";
@@ -129,6 +152,7 @@ export function parseProviderResult<const I extends ProviderResultInput>(
   let reason: ProviderResultReason | null = null;
   let value: unknown = null;
   let providerReportedTurns: number | null = null;
+  let turnCountDiagnostic: ProviderTurnCountDiagnostic | undefined;
   let codexExecutionObservation: Readonly<Record<string, unknown>> | null =
     null;
   if (
@@ -155,6 +179,10 @@ export function parseProviderResult<const I extends ProviderResultInput>(
     );
     reason = extracted.reason;
     value = extracted.adviceJson;
+    turnCountDiagnostic =
+      "turnCountDiagnostic" in extracted
+        ? extracted.turnCountDiagnostic
+        : undefined;
   } else if (
     typeof input.raw !== "string" ||
     Buffer.byteLength(input.raw, "utf8") > TASK_MAXIMUM_RAW_BYTES ||
@@ -187,6 +215,7 @@ export function parseProviderResult<const I extends ProviderResultInput>(
     providerReportedTurns,
     codexExecutionObservation,
     rawOutputReported: false as const,
+    ...(turnCountDiagnostic === undefined ? {} : { turnCountDiagnostic }),
   };
   return (
     reason === null
@@ -654,7 +683,23 @@ function extractClaude(raw: string) {
     envelope.num_turns < 1 ||
     envelope.num_turns > 2
   )
-    return blocked("workbench_ai_claude_turn_count_invalid");
+    return blocked(
+      "workbench_ai_claude_turn_count_invalid",
+      Object.freeze({
+        valueType: !Object.hasOwn(envelope, "num_turns")
+          ? "missing"
+          : envelope.num_turns === null
+            ? "null"
+            : Array.isArray(envelope.num_turns)
+              ? "array"
+              : (typeof envelope.num_turns as ProviderTurnCountDiagnostic["valueType"]),
+        numberText:
+          typeof envelope.num_turns === "number" &&
+          Number.isFinite(envelope.num_turns)
+            ? String(envelope.num_turns)
+            : null,
+      }),
+    );
   if (
     typeof envelope.total_cost_usd !== "number" ||
     !Number.isFinite(envelope.total_cost_usd) ||
@@ -707,12 +752,16 @@ function confirmed(adviceJson: string) {
  * @security 生Provider出力を返さない。
  * @concurrency N/A: 共有状態を持たない同期処理である。
  */
-function blocked(reason: (typeof PROVIDER_ADVICE_OUTPUT_REASONS)[number]) {
+function blocked(
+  reason: (typeof PROVIDER_ADVICE_OUTPUT_REASONS)[number],
+  turnCountDiagnostic?: ProviderTurnCountDiagnostic,
+) {
   return Object.freeze({
     status: "blocked" as const,
     reason,
     adviceJson: null,
     rawOutputReported: false as const,
+    ...(turnCountDiagnostic === undefined ? {} : { turnCountDiagnostic }),
   });
 }
 

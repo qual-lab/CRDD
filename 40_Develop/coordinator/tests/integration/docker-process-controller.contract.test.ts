@@ -1808,7 +1808,29 @@ test("助言抽出の固定拒否理由を清掃後に上位へ搬送する", as
     [
       '{"type":"result","subtype":"success","is_error":false}',
       "workbench_ai_claude_turn_count_invalid",
+      { valueType: "missing", numberText: null },
     ],
+    ...[
+      ["null", "null", null],
+      ["false", "boolean", null],
+      ['"synthetic-secret-must-not-escape"', "string", null],
+      ["[]", "array", null],
+      ['{"secret":"must-not-escape"}', "object", null],
+      ["0", "number", 0],
+      ["3", "number", 3],
+      ["1.5", "number", 1.5],
+    ].map(
+      ([value, valueType, numberText]) =>
+        [
+          `{"type":"result","subtype":"success","is_error":false,"num_turns":${value}}`,
+          "workbench_ai_claude_turn_count_invalid",
+          {
+            valueType,
+            numberText:
+              typeof numberText === "number" ? String(numberText) : null,
+          },
+        ] as const,
+    ),
     [
       '{"type":"result","subtype":"success","is_error":false,"num_turns":1}',
       "workbench_ai_claude_metadata_invalid",
@@ -1818,7 +1840,7 @@ test("助言抽出の固定拒否理由を清掃後に上位へ搬送する", as
       "workbench_ai_claude_structured_output_invalid",
     ],
   ] as const;
-  for (const [raw, reason] of cases) {
+  for (const [raw, reason, expectedDiagnostic] of cases) {
     const fixture = createFixture(
       {
         startCommand: (command: { purpose: string }) => ({
@@ -1861,6 +1883,23 @@ test("助言抽出の固定拒否理由を清掃後に上位へ搬送する", as
     assert.equal(completion.reason, reason);
     assert.equal(completion.normalizedResult, null);
     assert.equal(completion.cleanupConfirmed, true);
+    const terminal = fixture.controller.borrowTerminalObservations(
+      completion,
+      fixture.managementCapability,
+      fixture.plan.operationId,
+      started.recoveryId,
+    );
+    assert.ok(terminal);
+    assert.deepEqual(
+      terminal.primaryFailure?.turnCountDiagnostic,
+      expectedDiagnostic,
+    );
+    assert.equal(
+      JSON.stringify(terminal.primaryFailure).includes(
+        "synthetic-secret-must-not-escape",
+      ),
+      false,
+    );
   }
 });
 

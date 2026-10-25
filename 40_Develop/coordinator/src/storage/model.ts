@@ -5,6 +5,7 @@
  */
 import { createHash } from "node:crypto";
 import { types } from "node:util";
+import type { ProviderTurnCountDiagnostic } from "../../../ai-adapter/src/index.ts";
 import {
   inspectExecutionSelection,
   inspectTaskExecutionSelections,
@@ -454,6 +455,7 @@ export type CoordinatorStateTaskOperation = Readonly<{
     responseObserved: boolean;
     receiptRecorded: boolean;
     authenticationStatus?: "confirmed" | "unconfirmed" | "unknown";
+    turnCountDiagnostic?: ProviderTurnCountDiagnostic;
     commandObservation?: Readonly<{
       exitCode: number | null;
       stdoutBytes: number;
@@ -3846,6 +3848,10 @@ function validCoordinatorPrimaryFailure(value: unknown): boolean {
     value !== null &&
     typeof value === "object" &&
     Object.hasOwn(value, "authenticationStatus");
+  const hasTurnCountDiagnostic =
+    value !== null &&
+    typeof value === "object" &&
+    Object.hasOwn(value, "turnCountDiagnostic");
   if (
     !exactRecordKeys(value, [
       "purpose",
@@ -3857,6 +3863,7 @@ function validCoordinatorPrimaryFailure(value: unknown): boolean {
       "receiptRecorded",
       ...(hasObservation ? ["commandObservation"] : []),
       ...(hasAuthenticationStatus ? ["authenticationStatus"] : []),
+      ...(hasTurnCountDiagnostic ? ["turnCountDiagnostic"] : []),
     ])
   )
     return false;
@@ -3900,6 +3907,37 @@ function validCoordinatorPrimaryFailure(value: unknown): boolean {
         ["confirmed", "unconfirmed", "unknown"].includes(
           failure.authenticationStatus ?? "",
         ))) &&
+    (!hasTurnCountDiagnostic ||
+      (failure.purpose === "start_provider_attached" &&
+        failure.stage === "provider_result_normalization" &&
+        failure.reason === "workbench_ai_claude_turn_count_invalid" &&
+        failure.responseObserved &&
+        failure.commandObservation?.exitCode === 0 &&
+        exactRecordKeys(failure.turnCountDiagnostic, [
+          "valueType",
+          "numberText",
+        ]) &&
+        [
+          "missing",
+          "null",
+          "boolean",
+          "number",
+          "string",
+          "array",
+          "object",
+        ].includes(failure.turnCountDiagnostic?.valueType ?? "") &&
+        (failure.turnCountDiagnostic?.numberText === null ||
+          (failure.turnCountDiagnostic?.valueType === "number" &&
+            typeof failure.turnCountDiagnostic.numberText === "string" &&
+            failure.turnCountDiagnostic.numberText.length <= 32 &&
+            Number.isFinite(Number(failure.turnCountDiagnostic.numberText)) &&
+            String(Number(failure.turnCountDiagnostic.numberText)) ===
+              failure.turnCountDiagnostic.numberText &&
+            (!Number.isInteger(
+              Number(failure.turnCountDiagnostic.numberText),
+            ) ||
+              Number(failure.turnCountDiagnostic.numberText) < 1 ||
+              Number(failure.turnCountDiagnostic.numberText) > 2))))) &&
     (!hasObservation ||
       failure.commandObservation === null ||
       (failure.responseObserved &&

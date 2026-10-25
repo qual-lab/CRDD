@@ -2320,6 +2320,7 @@ async function executePlan(
   let receiptRecorded = false;
   let commandObservation: PrimaryFailureDiagnostic["commandObservation"] = null;
   let authenticationStatus: PrimaryFailureDiagnostic["authenticationStatus"];
+  let turnCountDiagnostic: PrimaryFailureDiagnostic["turnCountDiagnostic"];
   let primaryFailure: PrimaryFailureDiagnostic | null = null;
   let startConfirmation: Promise<void> | null = null;
   let lastStdoutBytes = 0;
@@ -2364,6 +2365,7 @@ async function executePlan(
       receiptRecorded,
       commandObservation,
       ...(authenticationStatus === undefined ? {} : { authenticationStatus }),
+      ...(turnCountDiagnostic === undefined ? {} : { turnCountDiagnostic }),
     });
     return false;
   }
@@ -2392,6 +2394,7 @@ async function executePlan(
       receiptRecorded = false;
       commandObservation = null;
       authenticationStatus = undefined;
+      turnCountDiagnostic = undefined;
       return (
         commandRestrictionAllows(record.commandRestriction, purpose) ||
         reject("docker_process_controller_execution_restricted")
@@ -2641,7 +2644,9 @@ async function executePlan(
               : plan.provider === "codex"
                 ? normalizeCodexStructuredResult(execution.stdout)
                 : normalizeClaudeStructuredResult(execution.stdout);
-        if (providerResult.status !== "confirmed")
+        if (providerResult.status !== "confirmed") {
+          if ("turnCountDiagnostic" in providerResult)
+            turnCountDiagnostic = providerResult.turnCountDiagnostic;
           return reject(
             "reason" in providerResult &&
               isDockerProcessControllerPublicCompletionReason(
@@ -2650,6 +2655,7 @@ async function executePlan(
               ? providerResult.reason
               : "provider_result_invalid",
           );
+        }
         normalizedResult = providerResult.normalizedResult;
         resultBytes = lastStdoutBytes;
         resultSha256 = createHash("sha256")
@@ -3007,6 +3013,9 @@ function normalizeWorkbenchAdviceProviderResult(
         reason:
           extracted.error?.reason ?? "workbench_ai_provider_output_invalid",
         normalizedResult: null,
+        ...(extracted.turnCountDiagnostic === undefined
+          ? {}
+          : { turnCountDiagnostic: extracted.turnCountDiagnostic }),
       });
 }
 

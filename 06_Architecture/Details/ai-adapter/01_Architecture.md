@@ -141,6 +141,8 @@ WorkbenchはCoordinatorの設定Reader／CAS Writerを使い、AMが共有管理
 
 AI AdapterへTask State、Consumer ACK、Recovery Registry、認証Home Lockを追加しない。技術Catalog更新は開始済みTaskの保存選定を書き換えない。
 
+`parseProviderResult`のClaude助言Turn数拒否には任意の`ProviderTurnCountDiagnostic`を付ける。有無は`valueType: missing`等の固定型名で、有限数値は`numberText`の正規化済み数値表記で返す。数値以外の入力本文は返さない。成功EnvelopeのTurn数検査が失敗した場合だけ付加し、成功、別の拒否理由、Codex又はTaskへ診断を流用しない。既存受理条件・返却本文・実行許可は変更しない。
+
 ## 6. Failureと回復
 
 | 失敗 | AI Adapterの結果 | 次の責務 |
