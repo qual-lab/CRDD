@@ -1549,6 +1549,34 @@ Architecture DetailとQA-000006へ入力搬送・失敗分類・終了条件を�
 
 独立確認で清掃前の未実行baseline説明と、失敗GETを本文受領と読める表現を是正し、残指摘零となった。同じ保存OwnerのGate・exact canonical leaf・全配下reparse零・対象Process零を削除直前に再確認し、今回leaf Rootだけを削除して不存在を確認した。兄弟結果JSON・親・既存保持三領域は不変。自己生成した短命入口readonly.ts／厳格結果検査report.ts／清掃確認cleanup.tsもexact一覧・非使用・境界を確認して削除し、空の `.crdd/tmp/claude-ipc-once-20261025/` まで不存在を確認した。今回の失敗分類と回収成立の記録であり、読取り成功・編集E2E成功ではない。
 
+<a id="http-receive-non-ai-diagnosis"></a>
+
+#### Server受信前遅延とProvider非0の非AI切り分け
+
+基準`8c6db46a2`から、製品Source・契約を変更せず、既存の実保存HTTP結合試験と新品合成保存fixtureを使って同期処理を有限計測した。外部AI・Docker照会／操作・認証情報・既存保持物は使用しない。実装変更ではなく原因調査と最小案の評価であり、固定理由・Authority・準拠基準を変更する監査は追加せず、数値・因果の限界と安全境界の独立反証を実施する。
+
+| 確認 | 結果と限界 |
+|---|---|
+| 静的確認 | Workbench整形95 File・型・lint成功（既存info五件は不変）。AI Adapter整形27 File・型・lint成功 |
+| 非AIの既存HTTP結合試験 | 正式Task Owner・実Writer・公開HTTPで通常完了・取消・応答喪失後の同ID継続を二回成功。実行部分だけ合成、AI／Dockerなし。同じ一項目の計測条件違いであり二項目分のcoverageとは扱わない |
+| 初回計測 | spawnSync／execFileSync／Atomics.waitの時間とStack、CPU標本を観測。試験約104.4秒、event loop遅延最大約20.6秒。Stack生成等の計測影響があるため素の性能値として採用しない |
+| Stack取得なしの二回目 | 試験約84.1秒、event loop遅延最大約15.8秒。計測対象Process全体でrealpathSync.native 370,565回／累計35,650ms、openSync 35,258回／20,946ms、lstatSync 406,136回／6,541ms。Atomics.wait最大73ms、spawnSync最大204ms、fsyncSync最大15ms。monkeypatch・inspectorの費用、module読込み等も含み、各計測はinclusiveに重複し得るため時間を加算しない。元実AIの費用割合・正確な回数や18.592秒の原因へ一般化しない |
+| 読取りだけの対照 | 本体Root検証三回は各7〜10ms、非秘密AI選択の読取り各19〜20ms。Task・状態保存・Docker・外部AIは起動しない |
+| 保存だけの限定計測 | 新品合成Rootで既存prepareWorkspaceSurface（初期状態作成と二Queue保存）は10,031ms、Ownerでの観測まで10,347ms。realpath 44,141回、open 4,389回を観測。128 openごとの有界Stack標本は主にGit layoutの読取りとoperationのstorage revalidateへ接続した。計測器を外した同じ構成では7,093ms、観測まで7,264ms。計測器自身の影響があることも確認 |
+| Provider固定分類 | AI Adapterの純粋な既存エラー分類三件は成功。既知のClaude失敗subtype・説明だけを固定理由へ変換し、未知形・不正・容量超過・未認識説明は一般の非0理由に閉じる。元の1,411 bytesを保存していないため、分類漏れ・認証・Model／CLI起因・取消との因果は再構成不能。生出力の再取得やAI再送は行わない |
+
+Sourceでは、`version-control/src/repository/revision.ts`のobserveRepositoryStorageIdentityが、CapabilityからのRoot再解決、before／afterのlayout観測、末尾のRoot再解決を別々に行う。Root解決自体もlayout全体を観測するため一回のIdentity観測に複数の完全探索がある。さらに`coordinator/src/execution/operation.ts`のborrowRuntimeOwnedCoordinatorStorageRepository().revalidateが同観測後にRootを再解決し、保存OwnerのassertLive／借用／I/O境界から反復する。標本ではlayout.tsのreadStableFileBytes→HEAD／config／exclude読取り→Root／Identity再観測へ接続した。
+
+したがって、単一の長時間Lock待ちだけではなく、**本番保存経路の重複した同期実体観測が有力な費用候補**である。ただしevent loop最大値だけでは連続占有関数を特定できず、元実AIの各phaseの実測がないため「18.6秒の原因を特定した」「テストだけの問題」とは扱わない。HTTP後の処理が短いこととも両立する。
+
+最小修正候補は、**一回のrepository.revalidate()内部**で同じfresh観測を作る際の重複Root／layout探索だけをVersion Control側で統合すること。Capabilityのexact Root、before／afterのlayout、logical／instance Identityの照合は保つ。Coordinatorにcacheを作らず、公開結果や保存形式を変えない構成を第一候補とする。別々のrevalidate呼出し、Lock取得前後、書込み前、atomic replace／readback後、解放・cleanup等のfresh確認を跨いだ再利用はしない。global cache・await／phase越え再利用・排他省略・Timeout延長・Worker／Queue／Recovery追加は対象外。
+
+実装前には、現行と候補を同じ反例で比較する。観測途中のRoot／commonDir／worktree種別／realpath差、reparse、不正Capability、観測不能、pre確認後から書込み前の変化、書込み後からreadback前の変化、Lock失効を現行同様に拒否し、正常・blocked結果とEffect前停止を維持する。計測器なしの固定fixtureでも探索削減と所要時間を別確認する。現時点は提案であり製品Source是正済み・元故障原因確定とは表示しない。
+
+保存限定fixtureの初回準備は空の.git/info/exclude未作成によってEffect前にblockedとなり、根拠から除外した。同じ自己生成Rootが.gitだけであることを確認し、既存fixtureと同じ空excludeを補った計測と、計測器なしの新品対照だけを採用した。両HTTP fixtureは既存t.afterでOwner／Server／Client終了、義務・Lease終端を確認してRoot不存在、保存限定fixtureも六義務零・未実行固定Queue・自身だけのWorktree／専用Ref零・reparse零を確認してRoot不存在となった。
+
+短命診断は `.crdd/tmp/http-receive-diagnosis-20261025/` の三Scriptと四つの非秘密集計JSONだけに限定する。既存保持物や前回実AI結果JSONは不変。候補との比較入力として2026-11-01まで保持し、是正比較完了又は同日までに再評価して確認後清掃する。Source本文・HTTP本文・資格・コマンド引数は集計へ保存しない。保持を実AI再送や新たなRuntime管理の許可にしない。
+
 <a id="new-model-ai-once-results-20261025"></a>
 
 ### 新Model読取り各一回と編集停止 — 2026-10-25
