@@ -1652,6 +1652,14 @@ Source照合で少なくとも二点を確認した。第一に、`writeCoordina
 
 局所反例と静的確認は成功、HTTP検証三Suite二十六件および既存の履歴二段確定試験一件も成功した。未知履歴・余分／欠測結果・Workspace差・Lease重複／不一致・実Lease非空／観測不能・期限退役・転送後記録消失・Git親差を拒否する。独立レビューは残指摘零。初回局所不合格はVM外の空配列とVM内の空配列のprototype差であり、実Directory読取りの件数零という同じOracleへ表現を修正した。型検査の試験配列要素undefinedも明示assertで解消した。実AI送信・Docker操作・保持物の書換え／削除はこのSource検証段階では行っていない。固定Commit後、今回Isolated Rootだけに同じexact Gateを再適用し、既存履歴搬送と清掃可否を別処置として確認する。
 
+##### 今回保持領域への適用と清掃 — 2026-10-26
+
+固定Commit `b089fd2b31db1bd2cc89e3299b21504c4e662644`・追跡差分零を確認し、Tool本文が同CommitのGit blobと一致することを照合した。短命入口から同じ非公開Gateだけを同一Realmで呼び、ToolのmainやAI入口は実行しなかった。対象は今回の `workspace-ai-20261026/preflight/isolated` 一件に固定し、元結果と既知のWorkspace ID・Base・Candidate・Merge Commitを照合した。
+
+Gateは `eligible: true / fixture_closed_and_unreferenced`。既存Ownerによる終了要約一件の履歴確定・読戻し後にhistoryPending零、採用結果二件・Lease六組・Queueの不変、実Lease空、専用Worktree／Refなしを確認した。Node終了後、別の削除処理でexact absolute Root・全配下reparse零・参照中Node Process零を再確認し、当該合成Rootだけを削除して不存在を確認した。結果・Leaseの意味記録を零に書き換える処置はしていない。元の失敗 `preflight/result.json` は書き換えず保持する。短命入口と空の専用Directoryも処置後に回収し、不存在を確認した。結果記録の限定独立レビューは残指摘零。
+
+実AI送信・Docker操作・旧保持三領域の操作は零。今回の後処理成功を元の不合格試験や新品の全事前確認・実AI編集E2Eの成功へ遡及しない。次は新品の非AI事前確認から再開し、その成功後に許可範囲を照合して実AI編集へ進む。
+
 <a id="new-model-ai-once-results-20261025"></a>
 
 ### 新Model読取り各一回と編集停止 — 2026-10-25

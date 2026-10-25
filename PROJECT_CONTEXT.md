@@ -12,7 +12,7 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
-Isolated非AI試験の停止は、試験ToolがQueue退役APIを履歴搬送に使い、正常な採用・解放済みLease記録にも零を要求していたことへ具体化した。製品Sourceは変えず、既存の履歴専用搬送APIと方式別の終了状態照合へToolを修正した。結果二件・Lease六組は消さず、履歴だけを確定する。対象HTTP二十六件・既存履歴搬送一件、静的確認、限定独立レビューは成功。保持中の今回Rootへの適用は固定候補の検証後に行う別処置で、実AI再送・Docker再起動・旧保持物操作は未実施。[分類と限定是正](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#workspace-edit-e2e-20261026)を参照する。
+Isolated非AI試験の停止は、試験ToolがQueue退役APIを履歴搬送に使い、正常な採用・解放済みLease記録にも零を要求していた接続不一致だった。製品Sourceは変えず、既存の履歴専用搬送APIと方式別の終了状態照合へToolを修正した。対象HTTP二十六件・既存履歴搬送一件、静的確認、限定独立レビューは成功。固定Commit `b089fd2b3`の同じGateを今回Rootへ適用し、終了要約一件の確定と結果二件・Lease六組・Queueの不変を確認後、今回の合成Isolated Rootを清掃・不存在確認した。元の失敗結果JSONは変更せず保持する。これは清掃の完了であり、新品の全事前確認や実AI編集E2Eの成功ではない。実AI再送・Docker操作・旧保持物操作は未実施。[分類と限定是正](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#workspace-edit-e2e-20261026)を参照する。
 
 Direct／Isolated実AI編集の前に、固定Source `dff1fce85`で新品の非AI事前確認を一回実行した。編集代役・既存変更保全・候補固定・二親Merge・Worktree／Ref回収は両方式で成功したが、Isolatedの終了記録が残り清掃Gateで停止した。AI送信は零。Workspace履歴行の退役未接続と、試験Toolが破棄後Queueへ開始前baselineを要求する不一致の少なくとも二点を当時確認した。停止直後時点ではresults二件・leaseEvidence十二件が正常な終了記録か追加の退役未接続かは未分類で、最小是正は未確定だった。Direct試験Rootは清掃済み、Isolatedは強制削除せず2026-11-02までの再評価対象として保持した。旧保持物・Docker再起動・再試行なし。実AI編集は未実施のまま。[停止結果と最小是正候補](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#workspace-edit-e2e-20261026)を参照する。
 
