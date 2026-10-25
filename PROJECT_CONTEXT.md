@@ -12,6 +12,8 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
+修正版`1861c09aa`で同条件のClaude読取りを承認どおり一回実行し、Task／実行ともcompleted、HTTP故障・Timeoutなし、cleanupConfirmed trueとなった。既存停止Container以外のContainerや試験Networkは終了後一覧に残らず、本体・合成入力・選択設定は不変。今回はlimitedProbePassed trueであり、実AI編集・全体E2Eの成功ではない。今回合成Rootの履歴出版待ち一件は、終了後メンテナンスの保存Owner取得が不成立だったため保全し、2026-11-01を再評価期限とする。未解決回復・結果配送待ちは零、旧保持物は不変。[一回の成功結果と記録保全](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#claude-readonly-turn-acceptance-result)を参照する。
+
 ProviderのCLI実行制限と結果受理を分離した。Claudeの助言・編集・レビュー・boolean Probeは`num_turns`を正の安全整数の観測情報として扱い、CLI要求値や計画上限との比較で拒否しない。Claudeの起動引数とTask計画上限16、Codexの一依頼終端検査、既存Timeout・取消・回収は維持する。結果受理用の上限入力・上限超過判定fieldを撤去し、契約説明・改訂と利用側を追従した。過去の失敗・診断・保持物は不変。非AI回帰とレビューの確定結果は[今回の是正記録](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#provider-turn-limit-result-separation)へ接続し、実AI成功へ読み替えない。
 
 診断付きClaude読取りを承認どおり一回実行し、成功Envelopeの`num_turns`が数値3だったことを確認した。CLI終了0の後、CRDDの1〜2整数条件で拒否しており、今回は認証失敗・Container作成unknown・HTTP故障ではない。`--max-turns 2`との数え方の差やCLI側の意味は未確定で、当該実測時点では受理条件を変更しなかった。その旧比較条件は今回の現行方針へ置換済みである。今回の実行資源は回収確認済み、未解決回復・結果配送待ち（pendingDeliveries）は零、履歴出版待ち（historyPending）は一件。合成Rootは失敗記録と未配送履歴一件のため2026-11-01を再評価期限として保持する。AI再送・再起動・旧保持物変更は行わない。[今回の一回実測](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#claude-turn-count-diagnostic-once-result)を参照する。

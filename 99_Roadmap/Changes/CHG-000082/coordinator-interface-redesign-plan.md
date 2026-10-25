@@ -1251,6 +1251,25 @@ Workbench通常結合回帰は86件・失敗零で完走した。両Packageの�
 
 結果・履歴・現在状態の安全fieldと二文書を照合した限定独立レビューは残指摘零。文書diffcheckも成功した。
 
+<a id="claude-readonly-turn-acceptance-result"></a>
+
+### 回数比較撤去後のClaude読取り一回 — 2026-10-25
+
+利用者の「進めて」に基づき、基準Source `1861c09aaeb06e722c73837e53f2edf156a30ddf`と新品 `.crdd/tests/claude-readonly-turn-acceptance-20261025/readonly`で、同じ正式読取りTool・Claude opus／medium・固定質問を一回だけ実行した。前回の一回入口との差はRoot名と固定Source HEADのみで、自己試験・準備と実行前独立確認は成功／残指摘零。合成Contextは1,095 bytes、SHA-256 `99505f13f046e4f5f0619d74d8edfc5e9cada26e6a839b532df214e810e343da`、選択設定Hash `67a183f123d63236e08641724274347ce1ce5d61156d62fdb3a08cb1e3bfaf40`で前回と一致。合成Commitは`ae94ea33f678c20fc29a8a21ea35259518459b5c`。
+
+| 観測対象 | 結果と限界 |
+|---|---|
+| 結果 | Tool native終了0、signal／toolError／summaryFailureなし。受付`request-6d250442-5506-4717-a59b-f1e25dca0cdf`、Task／executionともcompleted、reason／primaryFailure null、limitedProbePassed true／fullE2eVerified false |
+| 搬送・回収 | 同じ受付IDで結果返却、HTTP transportFailureなし、timedOut false、取消なし、closeConfirmed true、cleanupConfirmed true、recoveryIds／secondaryFailures空 |
+| 公開結果の最小観測 | facts 6、sharedAnalysis 2、additionalInferences 3、nextOptions 1。本文は保存しない。今回成功時の具体的num_turnsも保存していないため、先行実測と同じ3だったとは主張しない |
+| 入力・資源 | 本体HEAD／Tree・合成Context／Tree・選択設定は不変。fresh全状態Container一覧は既存停止Container `b185985108c6c901b179d0ca3214eac0ea2ef0e32de271526ddc606c6aea1764`一件のみ、稼働零。Networkはbridge／host／none／既存jarvis_defaultのみ。既存資源保持・System構成同値と標準bridge世代差はTool観測のまま記録し、世代差の原因・発行者を推定しない |
+| 状態・履歴 | Operation `OP-212115393044223846441989557713456969367`。改訂35、operations／unresolvedRecoveries／pendingDeliveries／leaseIntents零。Queue completed、historyPending一件。履歴primaryFailure null、Host cleanup confirmed、Lease released、ownerEffect disabled。providerStart／externalSend／sharedWriteの保存factはunknownを維持し、成功から逆算して書き換えない |
+| 終了後記録整理 | 今回Rootだけに既存`maintainCoordinatorSnapshot`を一回呼んだが、`orchestrator_snapshot_lock_unavailable`でblocked。状態は改訂35・履歴待ち一件のままであり、記録整理完了とはしない。Owner取得不成立の細因は未特定。手動書換え・Lock解除・強制削除・新しい回復機構は行わない |
+
+生Provider出力・資格値・回答本文は保存せず、追加AI再送・Docker Engineの起動／再起動命令・Image取得・既存資源削除・旧保持物変更はない。今回の実行資源は回収済みだが、合成Rootは履歴確定と再評価に必要な記録として2026-11-01まで保全する。既存Ownerで履歴確定を確認し、非使用と自己生成物だけであることを再確認して清掃判断へ戻す。今回成立したのは同条件一回の読取り・結果搬送・実行資源回収であり、任意入力・全Provider・編集E2E・全体QA・Releaseの成立へ一般化しない。次の実AI編集には独立した送信範囲・回数の確認が必要である。
+
+結果・状態・履歴の安全fieldと二文書を照合した限定独立レビューは残指摘零、文書diffcheckも成功した。
+
 <a id="provider-turn-limit-result-separation"></a>
 
 ### CLI実行制限と結果受理の分離 — 2026-10-25
