@@ -405,6 +405,8 @@ Evidenceには各段階のCommit／Tree、固定Path、Asset Hash、Git追跡判
 
 公式CLI移行では内部改造024～029の成立を現行保証として要求しない。公開配布と起動は031、通知分類は023、公開取消・親喪失と終了後資源は030で確認する。公式設定だけを操作不存在の証明にせず、Docker境界の観測と実Provider E2Eを別々に保持する。
 
+`ERB-UT-016`の状態確認は、終了0／1と既存AI Adapterが認識する正規未ログイン出力を組み合わせて、`completed / unconfirmed / authenticationConfirmed:false`を返すことを確認する。終了1の肯定出力・非空stderr、他の終了値、終了欠測、不正・曖昧出力、起動失敗、Signalは確認不能として拒否する。取消・Process終了不明・回収不明は確認完了にせず、既存回復参照を保持する。loginの非0とTask実行許可にはこの受理条件を適用しない。生Provider出力・資格値・認証期限の推測を結果へ追加しない。
+
 ## Semantic Coverage Pilot
 
 この表はQuality Local Itemが検証する設計上の意味だけを正方向で宣言する。逆方向の一覧は生成し、本文の類似表現から推測しない。

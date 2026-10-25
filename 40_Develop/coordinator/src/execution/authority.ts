@@ -8823,8 +8823,8 @@ async function cleanAuthenticationResources(
  * @returns 秘密値や生Provider出力を含まない固定結果を返す。
  * @precondition 選択実行物の同一性を確認し、loginでは呼出し元が対話端末を確保する。
  * @postcondition 認証観測と操作別資源cleanupを別の事実として返し、観測不能を未認証へ丸めない。
- * @effect Docker Process、Networkおよび専用Provider HomeのOAuth credentialを変更する。
- * @failure 任意段階の失敗を自動再試行せず、cleanup結果付きでblockedへ閉じる。
+ * @effect statusは通信なし・Home読取り専用のDocker確認、loginだけがNetworkと専用HomeのOAuth credentialを変更する。
+ * @failure 故障を自動再試行せずcleanup結果付きでblockedへ閉じる。statusの正規未ログインは確認完了と区別する。
  * @invariant Repository、Workspace、host credentialおよびAPI keyを接続しない。
  * @boundary 人間端末、Docker Engine、限定Proxy、選択Provider認証Endpointの外部境界。
  * @security OAuth対話はTTYへ直接接続し、生出力、token、URLまたはPathを結果へ保存しない。
@@ -9065,7 +9065,29 @@ export async function authenticateProvider(
         reason = "provider_authentication_command_settlement_unconfirmed";
         break;
       }
-      if (result.error || result.signal !== null || result.status !== 0) {
+      const statusObservation =
+        action === "status" &&
+        command.purpose === "start_probe_attached" &&
+        !result.error &&
+        result.signal === null &&
+        (result.status === 0 || result.status === 1)
+          ? evaluateProviderAuthentication(
+              provider,
+              describeProviderAuthentication(provider).offering,
+              result.stdout,
+              result.stderr,
+              "execution",
+            )
+          : null;
+      const observedNotLoggedIn =
+        result.status === 1 &&
+        result.stderr === "" &&
+        statusObservation?.status === "unconfirmed";
+      if (
+        result.error ||
+        result.signal !== null ||
+        (result.status !== 0 && !observedNotLoggedIn)
+      ) {
         reason =
           result.error?.message === "provider_home_lock_lost"
             ? "provider_authentication_provider_home_lock_lost"
@@ -9073,13 +9095,15 @@ export async function authenticateProvider(
         break;
       }
       if (command.purpose === "start_probe_attached") {
-        const observed = evaluateProviderAuthentication(
-          provider,
-          describeProviderAuthentication(provider).offering,
-          result.stdout,
-          result.stderr,
-          action === "login" ? "login" : "execution",
-        );
+        const observed =
+          statusObservation ??
+          evaluateProviderAuthentication(
+            provider,
+            describeProviderAuthentication(provider).offering,
+            result.stdout,
+            result.stderr,
+            action === "login" ? "login" : "execution",
+          );
         authenticationStatus = observed.status;
         if (
           observed.status !== "confirmed" &&

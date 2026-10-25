@@ -335,11 +335,11 @@ test("正式認証APIは秘密Path・accessor・不正Providerと事前取消を
  * @precondition 全Process・保存・排他は局所の差替え。
  * @stimulus status/loginと正常／非0／取消を与える。
  * @observation Plan、発行用途と公開結果を読む。
- * @oracle statusは一資源・読取り専用・通信なし。非0と取消は成功しない。
+ * @oracle statusは一資源・読取り専用・通信なし。非0の肯定出力と取消は成功しない。
  * @cleanup N/A: 外部資源は生成しない。
  * @boundary ERB-UT-016=Unit: 共通認証Lifecycle。
  */
-test("共通認証は両Providerのstatus/loginを分け、非0と取消を成功化しない", async () => {
+test("共通認証は両Providerのstatus/loginを分け、非0の肯定出力と取消を成功化しない", async () => {
   for (const provider of ["codex", "claude"] as const) {
     for (const action of ["status", "login"] as const) {
       const plan = createProviderAuthenticationPlan(
@@ -437,6 +437,168 @@ test("共通認証は両Providerのstatus/loginを分け、非0と取消を成�
           );
       }
     }
+  }
+});
+
+/**
+ * 状態確認の正規否定とProcess故障を区別する。
+ * @responsibility 未ログインを確認完了として返し、認証済みやlogin成功へ昇格しない。
+ * @trace ERB-UT-016
+ * @precondition Process・保存・排他は有限代役。
+ * @stimulus 終了0／1／2／欠測、否定／不正出力、Signal、起動失敗、終了・回収不明を与える。
+ * @observation 公開三値、status、cleanup、回復参照と発行用途。
+ * @oracle 正規否定と終了0／1だけが確認完了。故障・取消・回収不明はblocked。
+ * @cleanup N/A: 外部資源を作らない。
+ * @boundary ERB-UT-016=Unit: 認証statusの結果受理と終了条件。
+ */
+test("statusは終了1の正規未ログインを返し、Process故障・login・回収不明を区別する", async () => {
+  const cases = [
+    {
+      name: "negative-zero",
+      exit: 0,
+      output: '{"loggedIn":false}',
+      accepted: true,
+    },
+    {
+      name: "negative-one",
+      exit: 1,
+      output: '{"loggedIn":false}',
+      accepted: true,
+    },
+    { name: "other-exit", exit: 2, output: '{"loggedIn":false}' },
+    { name: "missing-exit", exit: null, output: '{"loggedIn":false}' },
+    { name: "invalid-output", exit: 1, output: "not authenticated" },
+    {
+      name: "stderr-failure",
+      exit: 1,
+      output: '{"loggedIn":false}',
+      stderr: "probe failed",
+    },
+    {
+      name: "duplicate-output",
+      exit: 1,
+      output: '{"loggedIn":true,"loggedIn":false}',
+    },
+    {
+      name: "signalled",
+      exit: 1,
+      output: '{"loggedIn":false}',
+      signal: "SIGTERM" as const,
+    },
+    { name: "start-error", exit: 1, output: '{"loggedIn":false}', error: true },
+    {
+      name: "completion-unknown",
+      exit: 1,
+      output: '{"loggedIn":false}',
+      completionUnknown: true,
+    },
+    {
+      name: "cleanup-unknown",
+      exit: 1,
+      output: '{"loggedIn":false}',
+      cleanupUnknown: true,
+    },
+    {
+      name: "cancelled",
+      exit: 1,
+      output: '{"loggedIn":false}',
+      cancelled: true,
+    },
+    {
+      name: "login",
+      exit: 1,
+      output: '{"loggedIn":false}',
+      action: "login" as const,
+    },
+  ];
+  for (const scenario of cases) {
+    const purposes: string[] = [];
+    const cancellation = new AbortController();
+    const result = await authenticateProvider(
+      "claude",
+      "action" in scenario ? scenario.action : "status",
+      "C:\\fixture\\ProviderHomes\\claude",
+      STABLE_LOGICAL_HOME_BINDING_HASH,
+      {
+        ...lifecycleDependencies,
+        randomHex: () => token,
+        completeRecovery: () => !("cleanupUnknown" in scenario),
+        run: async (command) => {
+          purposes.push(command.purpose);
+          if (command.purpose === "start_probe_attached") {
+            if ("cancelled" in scenario) cancellation.abort();
+            return {
+              status: scenario.exit,
+              signal: "signal" in scenario ? scenario.signal : null,
+              stdout: scenario.output,
+              stderr: "stderr" in scenario ? scenario.stderr : "",
+              ...("error" in scenario
+                ? { error: new Error("probe_failed") }
+                : {}),
+              ...("completionUnknown" in scenario
+                ? { processCompletionConfirmed: false }
+                : {}),
+            };
+          }
+          const absent = command.purpose.startsWith("confirm_");
+          return {
+            status: absent ? 1 : 0,
+            signal: null,
+            stdout: absent
+              ? "[]"
+              : command.purpose.startsWith("observe_")
+                ? AUTHENTICATION_SUFFIX
+                : "",
+            stderr: absent ? absenceError(command.purpose) : "",
+          };
+        },
+      },
+      cancellation.signal,
+    );
+    assert.ok("authenticationStatus" in result, scenario.name);
+    const accepted = "accepted" in scenario;
+    assert.equal(
+      result.status,
+      accepted ? "completed" : "blocked",
+      scenario.name,
+    );
+    assert.equal(result.authenticationConfirmed, false, scenario.name);
+    assert.equal(
+      result.authenticationStatus,
+      accepted || "cancelled" in scenario ? "unconfirmed" : "unknown",
+      scenario.name,
+    );
+    assert.equal(
+      result.cleanupConfirmed,
+      !("completionUnknown" in scenario || "cleanupUnknown" in scenario),
+      scenario.name,
+    );
+    assert.equal(
+      result.manualRecoveryRequired,
+      !result.cleanupConfirmed,
+      scenario.name,
+    );
+    assert.equal(
+      result.recoveryId,
+      result.cleanupConfirmed
+        ? null
+        : `provider-auth.claude.status.${STABLE_LOGICAL_HOME_BINDING_HASH}`,
+      scenario.name,
+    );
+    if (accepted) {
+      assert.equal(
+        result.reason,
+        "provider_authentication_unconfirmed",
+        scenario.name,
+      );
+      assert.equal(result.recoveryId, null, scenario.name);
+      assert.deepEqual(
+        purposes.filter((purpose) => purpose.startsWith("create_")),
+        ["create_probe"],
+      );
+    }
+    assert.equal(result.rawProviderOutputReported, false, scenario.name);
+    assert.equal(result.credentialReported, false, scenario.name);
   }
 });
 

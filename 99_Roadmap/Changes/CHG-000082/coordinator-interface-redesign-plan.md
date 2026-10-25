@@ -1202,3 +1202,15 @@ Workbench通常結合回帰は86件・失敗零で完走した。両Packageの�
 | 比較の限界 | 正式認証Ownerは非0終了を認証出力分類より前に拒否するため、今回のCLI内部の認証三値は分からない。先行Taskの`unconfirmed`と今回の`unknown`を矛盾や認証状態変化とはしない。どちらもstart／attach後の失敗だが、同一出力・同一原因とは未確定 |
 
 この一回承認は消費済み。再実行せず、認証Home・先行保持Root・記録を変更しない。環境抑止値を持つ正式statusも停止したため、Task前probeの環境差だけを原因とする根拠は得られなかった。次の最小是正候補は、正式認証Ownerにも先行Taskと同様の非秘密な診断分類を搬送することだが、本試験の承認だけから実装・追加試験・再ログインへ拡張しない。回収成功を認証成功・実AI E2E成功へ読み替えない。
+
+<a id="authentication-status-negative-result-fix"></a>
+
+### statusの正規未ログイン受理の最小是正 — 2026-10-25
+
+利用者の是正指示に基づき、基準`50b8f4d7a`から正式認証Ownerのstatusだけを変更した。終了0／1で起動失敗・Signalがなく、既存AI Adapterが正規未ログインと判定した結果を利用する。終了1の例外受理には空stderrも要求する。既存の終了・取消・回収・保存・Lock解放がすべて成立した場合だけ、`status: completed`／`authenticationStatus: unconfirmed`／`authenticationConfirmed: false`／`reason: provider_authentication_unconfirmed`を返す。CLIは既存のcompleted判定により終了0となるが、認証済みという意味ではない。API Shape・Schema・保存形式、loginの非0拒否、Task実行許可、実行中管理・回復処理は変更しない。未ログインから期限切れを推定しない。
+
+既存の認証Lifecycle Suiteへ十三条件を追加し、終了0／1の正規否定、他の非0・欠測、不正／重複JSON、非空stderr、Signal・起動失敗、終了不明、回収不明、取消、loginを区別した。非0の認証肯定を拒否する両Providerの既存反例も維持する。回収不明では同じexact回復参照が残り、生出力・資格値は公開しない。独立レビューで非空stderrの受理漏れを検出し、空stderrへ限定・反例追加後に再確認した。Architecture認証節と既存QA-000006／ERB-UT-016を追従した。
+
+修正版の影響五Suite（認証、Claude準備、認証回復、CLI、Process Controller）は167件すべて成功した。型・整形・lint・diffcheckも成功。初回はRepository Root起動により既存試験のpackage CWD前提が外れ、167件中一件が`C:\.crdd`へのmkdir拒否となった。権限緩和・試験Source変更はせず、正式package CWDで全五Suiteを再実行して成功確認した。最初の不合格を成功へ書き換えない。実Docker・実認証・外部AI・保持物の操作は行わず、修正版の実status・再ログイン、全体QA・E2Eは未実施のまま維持する。
+
+限定独立再レビューは残指摘零。四文書を指定した文書Checkerは参照先展開により旧CHGのbroken-linkと既存Symbolの未定義QA参照等を含み不合格だった。今回の167件成功を文書検査全体や全体QAの成功へ拡張しない。生ログの書庫は追加せず、この限定結果と既存の横断残件を分けて保持する。
