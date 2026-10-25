@@ -451,7 +451,7 @@ test("共通認証は両Providerのstatus/loginを分け、非0の肯定出力�
  * @cleanup N/A: 外部資源を作らない。
  * @boundary ERB-UT-016=Unit: 認証statusの結果受理と終了条件。
  */
-test("statusは終了1の正規未ログインを返し、Process故障・login・回収不明を区別する", async () => {
+test("両Providerのstatusは正規未ログインを返し、Process故障・login・回収不明を区別する", async () => {
   const cases = [
     {
       name: "negative-zero",
@@ -511,94 +511,109 @@ test("statusは終了1の正規未ログインを返し、Process故障・login�
       action: "login" as const,
     },
   ];
-  for (const scenario of cases) {
-    const purposes: string[] = [];
-    const cancellation = new AbortController();
-    const result = await authenticateProvider(
-      "claude",
-      "action" in scenario ? scenario.action : "status",
-      "C:\\fixture\\ProviderHomes\\claude",
-      STABLE_LOGICAL_HOME_BINDING_HASH,
-      {
-        ...lifecycleDependencies,
-        randomHex: () => token,
-        completeRecovery: () => !("cleanupUnknown" in scenario),
-        run: async (command) => {
-          purposes.push(command.purpose);
-          if (command.purpose === "start_probe_attached") {
-            if ("cancelled" in scenario) cancellation.abort();
+  for (const provider of ["codex", "claude"] as const) {
+    for (const scenario of cases) {
+      const purposes: string[] = [];
+      const cancellation = new AbortController();
+      const result = await authenticateProvider(
+        provider,
+        "action" in scenario ? scenario.action : "status",
+        `C:\\fixture\\ProviderHomes\\${provider}`,
+        STABLE_LOGICAL_HOME_BINDING_HASH,
+        {
+          ...lifecycleDependencies,
+          randomHex: () => token,
+          completeRecovery: () => !("cleanupUnknown" in scenario),
+          run: async (command) => {
+            purposes.push(command.purpose);
+            if (command.purpose === "start_probe_attached") {
+              if ("cancelled" in scenario) cancellation.abort();
+              const codexNotLoggedIn =
+                provider === "codex" &&
+                scenario.output === '{"loggedIn":false}';
+              return {
+                status: scenario.exit,
+                signal: "signal" in scenario ? scenario.signal : null,
+                stdout: codexNotLoggedIn ? "" : scenario.output,
+                stderr:
+                  "stderr" in scenario
+                    ? scenario.stderr
+                    : codexNotLoggedIn
+                      ? "Not logged in\n"
+                      : "",
+                ...("error" in scenario
+                  ? { error: new Error("probe_failed") }
+                  : {}),
+                ...("completionUnknown" in scenario
+                  ? { processCompletionConfirmed: false }
+                  : {}),
+              };
+            }
+            const absent = command.purpose.startsWith("confirm_");
             return {
-              status: scenario.exit,
-              signal: "signal" in scenario ? scenario.signal : null,
-              stdout: scenario.output,
-              stderr: "stderr" in scenario ? scenario.stderr : "",
-              ...("error" in scenario
-                ? { error: new Error("probe_failed") }
-                : {}),
-              ...("completionUnknown" in scenario
-                ? { processCompletionConfirmed: false }
-                : {}),
-            };
-          }
-          const absent = command.purpose.startsWith("confirm_");
-          return {
-            status: absent ? 1 : 0,
-            signal: null,
-            stdout: absent
-              ? "[]"
-              : command.purpose.startsWith("observe_")
-                ? AUTHENTICATION_SUFFIX
+              status: absent ? 1 : 0,
+              signal: null,
+              stdout: absent
+                ? "[]"
+                : command.purpose.startsWith("observe_")
+                  ? AUTHENTICATION_SUFFIX
+                  : "",
+              stderr: absent
+                ? absenceError(command.purpose).replaceAll(
+                    "crdd-claude-",
+                    `crdd-${provider}-`,
+                  )
                 : "",
-            stderr: absent ? absenceError(command.purpose) : "",
-          };
+            };
+          },
         },
-      },
-      cancellation.signal,
-    );
-    assert.ok("authenticationStatus" in result, scenario.name);
-    const accepted = "accepted" in scenario;
-    assert.equal(
-      result.status,
-      accepted ? "completed" : "blocked",
-      scenario.name,
-    );
-    assert.equal(result.authenticationConfirmed, false, scenario.name);
-    assert.equal(
-      result.authenticationStatus,
-      accepted || "cancelled" in scenario ? "unconfirmed" : "unknown",
-      scenario.name,
-    );
-    assert.equal(
-      result.cleanupConfirmed,
-      !("completionUnknown" in scenario || "cleanupUnknown" in scenario),
-      scenario.name,
-    );
-    assert.equal(
-      result.manualRecoveryRequired,
-      !result.cleanupConfirmed,
-      scenario.name,
-    );
-    assert.equal(
-      result.recoveryId,
-      result.cleanupConfirmed
-        ? null
-        : `provider-auth.claude.status.${STABLE_LOGICAL_HOME_BINDING_HASH}`,
-      scenario.name,
-    );
-    if (accepted) {
+        cancellation.signal,
+      );
+      assert.ok("authenticationStatus" in result, scenario.name);
+      const accepted = "accepted" in scenario;
       assert.equal(
-        result.reason,
-        "provider_authentication_unconfirmed",
+        result.status,
+        accepted ? "completed" : "blocked",
         scenario.name,
       );
-      assert.equal(result.recoveryId, null, scenario.name);
-      assert.deepEqual(
-        purposes.filter((purpose) => purpose.startsWith("create_")),
-        ["create_probe"],
+      assert.equal(result.authenticationConfirmed, false, scenario.name);
+      assert.equal(
+        result.authenticationStatus,
+        accepted || "cancelled" in scenario ? "unconfirmed" : "unknown",
+        scenario.name,
       );
+      assert.equal(
+        result.cleanupConfirmed,
+        !("completionUnknown" in scenario || "cleanupUnknown" in scenario),
+        scenario.name,
+      );
+      assert.equal(
+        result.manualRecoveryRequired,
+        !result.cleanupConfirmed,
+        scenario.name,
+      );
+      assert.equal(
+        result.recoveryId,
+        result.cleanupConfirmed
+          ? null
+          : `provider-auth.${provider}.status.${STABLE_LOGICAL_HOME_BINDING_HASH}`,
+        scenario.name,
+      );
+      if (accepted) {
+        assert.equal(
+          result.reason,
+          "provider_authentication_unconfirmed",
+          scenario.name,
+        );
+        assert.equal(result.recoveryId, null, scenario.name);
+        assert.deepEqual(
+          purposes.filter((purpose) => purpose.startsWith("create_")),
+          ["create_probe"],
+        );
+      }
+      assert.equal(result.rawProviderOutputReported, false, scenario.name);
+      assert.equal(result.credentialReported, false, scenario.name);
     }
-    assert.equal(result.rawProviderOutputReported, false, scenario.name);
-    assert.equal(result.credentialReported, false, scenario.name);
   }
 });
 
@@ -999,6 +1014,69 @@ test("認証Probe判定は四条件の完全一致だけを受理する", () => 
       "",
       "login",
     ).status,
+    "unknown",
+  );
+});
+
+/**
+ * Provider別の正規出力を同じ認証三値へ変換する。
+ * @responsibility 未認証と未知出力を分け、生出力や認証方式を他Providerへ流用しない。
+ * @trace ERB-UT-016
+ * @precondition 合成文字列だけを使う。
+ * @stimulus 正規出力、改行、既知警告、未知stderr、混在・重複・別認証方式を与える。
+ * @observation 共通のstatusとreasonだけを読む。
+ * @oracle 正規否定だけがunconfirmed、未知・混在出力はunknown。
+ * @cleanup N/A: 純粋変換。
+ * @boundary ERB-UT-016=Unit: AI Adapterの認証出力変換。
+ */
+test("認証出力はProvider差を共通三値へ閉じ、未知出力を未認証に丸めない", () => {
+  const warning =
+    "WARNING: proceeding, even though we could not create PATH aliases: Read-only file system (os error 30)";
+  for (const [stdout, stderr, expected] of [
+    ["", "Logged in using ChatGPT\n", "confirmed"],
+    ["", "Not logged in\n", "unconfirmed"],
+    ["", "Not logged in\r\n", "unconfirmed"],
+    ["Not logged in\n", "", "unknown"],
+    ["Not logged in\n", `${warning}\n`, "unknown"],
+    ["", `${warning}\nNot logged in\n`, "unconfirmed"],
+    ["", "Not logged in\nunknown warning\n", "unknown"],
+    ["Not logged in", "unknown error", "unknown"],
+    ["Not logged in", "Not logged in", "unknown"],
+    ["", "Logged in using an API key", "unknown"],
+    ["", "Error: Not logged in", "unknown"],
+    ["", "Not logged in\0", "unknown"],
+    ["", "Not logged in\r", "unknown"],
+    ["", "Not logged in\n\n", "unknown"],
+  ] as const) {
+    const result = evaluateProviderAuthentication(
+      "codex",
+      "chatgpt_subscription_oauth",
+      stdout,
+      stderr,
+    );
+    assert.equal(result.status, expected);
+    if (expected === "unconfirmed")
+      assert.equal(result.reason, "subscription_auth_not_logged_in");
+  }
+  for (const [stdout, stderr, expected] of [
+    ['{"loggedIn":false}', "", "unconfirmed"],
+    ['{"loggedIn":false}', "unknown error", "unknown"],
+    ['{"loggedIn":true,"loggedIn":false}', "", "unknown"],
+    ["Not logged in", "", "unknown"],
+  ] as const) {
+    const result = evaluateProviderAuthentication(
+      "claude",
+      "claude_max",
+      stdout,
+      stderr,
+    );
+    assert.equal(result.status, expected);
+    if (expected === "unconfirmed")
+      assert.equal(result.reason, "subscription_auth_not_logged_in");
+  }
+  assert.equal(
+    evaluateProviderAuthentication("codex", "claude_max", "", "Not logged in")
+      .status,
     "unknown",
   );
 });

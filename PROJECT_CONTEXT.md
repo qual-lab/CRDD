@@ -12,7 +12,7 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
-正式認証statusの非0一律拒否を最小是正した。終了1・正規の未ログイン出力・空stderrなら、確認操作完了／未認証を返す。認証済みやlogin成功・Task実行許可には昇格しない。取消・故障・回収不明は従来どおり拒否し、関連五Suite167件、型・整形・lintが成功した。実Home・Docker・AI再送・login・先行保持物は操作しておらず、修正版での実認証状態は未確認。[statusの最小是正と非AI検証](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#authentication-status-negative-result-fix)を参照する。先行一回の実status失敗と回収済み結果は[元の比較記録](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#claude-formal-authentication-status-result)へ維持する。
+Codex／Claudeのstatusを共通三値へ揃えた。Provider固有の正規出力・出力先・既知警告の検査はAI Adapterに閉じ、Coordinatorは共通結果と終了値だけを扱う。未ログインは確認操作完了／未認証であり、login成功やTask実行許可には昇格しない。Coordinator関連168件・AI Adapter24件、型・整形・lintは成功。実Home・Docker・AI再送・login・先行保持物は操作しておらず、修正版での実認証状態は未確認。[両Providerのstatus共通化](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#provider-authentication-status-unification)を参照する。先行一回の実status失敗と回収済み結果は[元の比較記録](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#claude-formal-authentication-status-result)へ維持する。
 
 先行の非AI調査では、専用Homeの想定位置に認証Fileが存在することと、正式status／Task前probeの共通Mount構成を確認した。両経路には更新・telemetry抑止環境値の差があるが、原因とする根拠はなく製品修正は行っていない。既存二Suite38件は成功。資格本文・期限は未読で、この調査自体ではAI再送・実Container追加・login・Docker再起動・保持物変更なし。その後承認された正式status比較の結果は上段を参照する。[先行調査結果と比較案](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#claude-authentication-path-investigation)を参照する。
 

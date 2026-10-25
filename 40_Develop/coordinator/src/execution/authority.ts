@@ -9080,9 +9080,7 @@ export async function authenticateProvider(
             )
           : null;
       const observedNotLoggedIn =
-        result.status === 1 &&
-        result.stderr === "" &&
-        statusObservation?.status === "unconfirmed";
+        result.status === 1 && statusObservation?.status === "unconfirmed";
       if (
         result.error ||
         result.signal !== null ||

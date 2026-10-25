@@ -113,7 +113,7 @@ WorkbenchはCoordinatorの設定Reader／CAS Writerを使い、AMが共有管理
 | `validateProviderModelId` | `ProviderModelIdValidationResult`。128文字以内の既存構文を無変換検査 |
 | `prepareProviderEnvironment` | `ProviderEnvironmentResult`。禁止名・型・NULを検査し元順序の値組を返す |
 | `describeProviderAuthentication` | `ProviderAuthenticationDefinition`。操作別CLI・Offering・Origin |
-| `evaluateProviderAuthentication` | `ProviderAuthenticationResult`。確認済み・未認証・確認不能 |
+| `evaluateProviderAuthentication` | `ProviderAuthenticationResult`。Codex／Claudeの正規出力を同じ確認済み・未認証・確認不能へ変換。出力先と既知警告の検査もここで所有する |
 | `describeProviderBillingPolicy` | `ProviderBillingPolicy`。Subscription限定の方針記述 |
 | `parseUnambiguousJsonDocument` | 重複key・不正文法・BOM・末尾データを拒否する解析 |
 | 既存boolean Probe解析・契約定数、`projectCodexExecutionBoundary` | 現診断Consumerの用途限定操作。Task／助言完成の証明ではない |

@@ -45,7 +45,7 @@ export type ProviderAuthenticationResult = Readonly<
  * @precondition Process終了・出力量・取消は呼出し側が先に評価する。
  * @postcondition Provider生出力と実行Authorityを返さない。
  * @effect N/A: 同期の入力分類だけを行う。
- * @failure Offering不一致、不正または未認識の出力はunknown。正規のloggedIn:falseだけをunconfirmedとする。
+ * @failure Offering不一致、不正または未認識の出力はunknown。Providerの正規未ログイン出力だけをunconfirmedとする。
  * @invariant executionではforcedLoginMethodも確認する。loginも厳密JSON解析で曖昧な重複を拒否する。
  * @boundary CLI出力の意味分類と実資源Lifecycleを分離する。
  * @security 秘密値、任意生出力、Process Capabilityを公開しない。
@@ -91,13 +91,23 @@ export function evaluateProviderAuthentication(
         normalizedStderr === readOnlyAliasWarning) ||
       (normalizedStdout === "" &&
         normalizedStderr === `${readOnlyAliasWarning}\n${status}`);
-    return isConfirmed
-      ? Object.freeze({
-          provider,
-          status: "confirmed",
-          reason: "subscription_auth_confirmed",
-        })
-      : invalidOutput;
+    if (isConfirmed)
+      return Object.freeze({
+        provider,
+        status: "confirmed",
+        reason: "subscription_auth_confirmed",
+      });
+    if (
+      normalizedStdout === "" &&
+      (normalizedStderr === "Not logged in" ||
+        normalizedStderr === `${readOnlyAliasWarning}\nNot logged in`)
+    )
+      return Object.freeze({
+        provider,
+        status: "unconfirmed",
+        reason: "subscription_auth_not_logged_in",
+      });
+    return invalidOutput;
   }
   if (expectedOffering !== "claude_max") return offeringMismatch;
   const parsed = parseUnambiguousJsonDocument(stdout);
@@ -116,7 +126,7 @@ export function evaluateProviderAuthentication(
       status: "confirmed",
       reason: "subscription_auth_confirmed",
     });
-  if (status.loggedIn === false)
+  if (status.loggedIn === false && stderr === "")
     return Object.freeze({
       provider,
       status: "unconfirmed",

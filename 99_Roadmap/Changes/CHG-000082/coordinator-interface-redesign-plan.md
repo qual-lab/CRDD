@@ -1214,3 +1214,15 @@ Workbench通常結合回帰は86件・失敗零で完走した。両Packageの�
 修正版の影響五Suite（認証、Claude準備、認証回復、CLI、Process Controller）は167件すべて成功した。型・整形・lint・diffcheckも成功。初回はRepository Root起動により既存試験のpackage CWD前提が外れ、167件中一件が`C:\.crdd`へのmkdir拒否となった。権限緩和・試験Source変更はせず、正式package CWDで全五Suiteを再実行して成功確認した。最初の不合格を成功へ書き換えない。実Docker・実認証・外部AI・保持物の操作は行わず、修正版の実status・再ログイン、全体QA・E2Eは未実施のまま維持する。
 
 限定独立再レビューは残指摘零。四文書を指定した文書Checkerは参照先展開により旧CHGのbroken-linkと既存Symbolの未定義QA参照等を含み不合格だった。今回の167件成功を文書検査全体や全体QAの成功へ拡張しない。生ログの書庫は追加せず、この限定結果と既存の横断残件を分けて保持する。
+
+<a id="provider-authentication-status-unification"></a>
+
+### Codex／Claudeのstatus共通化 — 2026-10-25
+
+利用者指示に基づき、基準`e3e236736`から両Providerの正規未ログインを既存`ProviderAuthenticationResult`の同じ三値・理由へ揃えた。Codexの`Not logged in`を未認証へ変換し、出力改行・出力先と既存の固定read-only alias警告だけの組合せをAI Adapterで検査する。Claudeの`loggedIn:false`に対する空stderr条件も同じOwnerへ移し、Coordinatorの一律空stderr条件を撤去した。未知stderr・混在出力は引き続き確認不能とする。新API、Schema、保存、Lock、回復・常駐処理は追加しない。loginの非0、Task実行許可、Process終了・取消・回収・保存・Lock解放の条件は維持する。
+
+既存Lifecycleの十三条件を両Providerへ適用し、純粋変換は正規通知・改行・既知警告・未知stderr・重複／混在・別認証方式・NUL等の十八入力とOffering不一致を確認する。独立レビューで未認証のstdout受理根拠がないことを検出し、Codexの正規否定はstdoutが空・stderrの固定文面だけへ限定した。認証肯定の既存受理条件は変更しない。新しい試験物の書庫は作らず、旧保持物・資格本文・Docker・外部AI・実認証は操作しない。過去の失敗を成功へ変更せず、修正版の実status、期限・Tokenの有効性、全体E2E成立は未確認のまま保持する。
+
+[公式CLI資料](https://learn.chatgpt.com/docs/developer-commands?surface=cli)は`login status`の認証情報存在時の終了0を説明する。独立確認では採用Executor版の[固定Source](https://raw.githubusercontent.com/openai/codex/ff29a44391deccde0aba0f8390337d7f3c319ea4/codex-rs/cli/src/login.rs)と助言版の[固定Source](https://raw.githubusercontent.com/openai/codex/ff6aec96948b70d94983af2641a6b67c94faeff5/codex-rs/cli/src/login.rs)を照合し、資格なし分岐のstderr `Not logged in`／exit1と、別の確認エラー分岐を確認した。このSource照合を実Image・実認証の再実測へ代用しない。今回のOpenAI Docs手順は公式資料の範囲確認に用い、API keyの取得やProviderへの試験要求には使っていない。
+
+是正後の固定候補でCoordinator影響五Suiteは168件・失敗零で完走し、AI Adapter全24件も成功した。両Packageの型検査、変更三Sourceの整形・lint、diffcheckは成功。独立レビューのSource指摘は是正済みで、結果確定前の表示指摘も是正後候補の終端結果と照合した。前節の文書Checker横断残件は今回再実行・解消しておらず、全体QAや実認証E2EのPassとはしない。

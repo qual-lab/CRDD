@@ -664,7 +664,7 @@ observerはHome作成またはDACL修復を行わない。明示bootstrap Effect
 
 同じLogical Provider Homeの既存OS Kernel Lockで直列化する。各要求前の`in_flight`、Process closeと作成Receipt確定後の`idle`を耐久記録へ保持する。観測不能、構成差、所有差、実ID差は回収成功へ丸めず、同じexact回復参照を返す。Docker CLIとNativeの既存同一性・環境・終了確認を省略しない。
 
-状態確認の`completed`は「確認操作が完了した」意味であり、認証済みを意味しない。正規の未ログインは`authenticationStatus: unconfirmed`／`authenticationConfirmed: false`／`reason: provider_authentication_unconfirmed`とする。終了1の例外受理ではstderrが空であることも要求し、未知の警告・故障説明を無視しない。未認証から期限切れという原因までは推定しない。Process終了・取消・回収・保存・Lock解放の既存完了条件も満たした場合だけ`completed`を返し、Task実行やloginの認証成立条件へこの例外を適用しない。
+状態確認の`completed`は「確認操作が完了した」意味であり、認証済みを意味しない。両Providerとも正規の未ログインは`authenticationStatus: unconfirmed`／`authenticationConfirmed: false`／`reason: provider_authentication_unconfirmed`とする。Provider固有の出力先・既知文面はAI Adapterが検査し、Codexの`Not logged in`と既存の固定read-only alias警告だけの組合せ、Claudeの`loggedIn:false`と空stderrを正規否定として扱う。未知の警告・故障説明は受理しない。CoordinatorはProvider別の出力条件を重複せず、終了0／1と共通三値を利用する。未認証から期限切れという原因までは推定しない。Process終了・取消・回収・保存・Lock解放の既存完了条件も満たした場合だけ`completed`を返し、Task実行やloginの認証成立条件へこの例外を適用しない。
 
 現在記録はOS管理Runtime Rootの`Recovery/provider-authentication/<provider>.<home-hash>.json`一つをProvider／Homeごとに持つ。新契約revision 1にProviderと操作、`provider-auth.<provider>.<action>.<home-hash>`、固定資源集合とReceipt、操作状態を保存し、秘密値・Path・生出力は含めない。
 
