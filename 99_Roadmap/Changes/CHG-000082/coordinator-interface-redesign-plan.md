@@ -1680,6 +1680,16 @@ Toolは公開Task結果と同じrequestIdの単発Queue・受付Binding・comple
 
 最終Sourceの対象HTTP三Suite二十六件は成功、整形・型・lint確認も成功した（既存info五件のみ）。独立レビューの保守blocked反例不足は追加試験で是正し、最終再確認は残指摘零。新規実AI送信・Docker操作・旧保持物操作はこの是正段階では行っていない。
 
+<a id="workspace-edit-consent-stop-20261026"></a>
+
+##### 実AI開始前の同意入口拒否 — 2026-10-26
+
+対象回帰・独立再確認後の固定Source `ddee28f85`・追跡差分零で、承認済み合成範囲の正式Toolを `--external-send-confirmed` により一回実行した。Direct受付 `request-dcdd9bb7-244c-4bc1-b7ce-3f4ccdbd9b8d` は `blocked / coordinator_task_external_send_confirmation_unavailable`、executionStatus blocked、cleanupConfirmed true、recoveryIds／secondaryFailures空。実行結果がcompletedでないためToolは`edit_task_not_completed`を一次検証失敗とし、Isolatedを開始しなかった。Provider失敗やContainer作成失敗と解釈しない。
+
+製品の初回外部送信Grantは、再利用可能な同意がなければ通常のConsole確認を必須にする。今回のTool引数は試験開始の許可確認であり、この初回同意の代替ではない。非対話の起動環境でその確認入口がunavailableを返した。下位のConsole Lock取得とConsole接続のどちらでunavailableとなったかは追加診断なしでは断定せず、CLI版・認証期限・Provider支払いを原因とはしない。次の最小手順は通常の対話端末で同意を入力することとし、確認Guardの解除や自動同意は行わない。失敗後の再実行はしていない。
+
+Tool結果ではDirectのcloseConfirmed／runtimeClean／workspaceClean true、Docker一覧・構成と実行Source不変、追加／削除Container・Network零。読取り再確認ではoperations／unresolvedRecoveries／pendingDeliveries／leaseIntents／workspaces／results零、単発受付はsettled／blocked、historyPending一件、leaseEvidence二件、物理Lease親は空。Gitは自身のWorktreeだけで、既存の合成Dirty／Stage／未追跡三ファイルだけが残り、source.txtの変更はない。正常完了専用の清掃Gateをblockedへ拡張して消さず、`.crdd/tests/workspace-ai-20261026/edit/direct` と兄弟`result.json`を保持する。2026-11-02までに既存Ownerで失敗記録の確定・清掃を再評価し、期限だけでは削除しない。fullE2eVerified false、試験領域の清掃未完了。旧保持三領域・Image・認証・Docker再起動は操作しない。
+
 <a id="new-model-ai-once-results-20261025"></a>
 
 ### 新Model読取り各一回と編集停止 — 2026-10-25
