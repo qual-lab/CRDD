@@ -1340,6 +1340,21 @@ Build入口は`prepare-codex-image.ts`へ統合し、用途を`task`／`advice`�
 
 この承認は合成Repository内の明示Candidate固定・二親Mergeも含むが、本体Repositoryの採用・統合・Releaseは含まない。結果は実測後に評価し、現時点では実AI確認・編集E2Eとも未実施である。
 
+#### 新品非AI事前確認の停止結果
+
+Tool差分の型・整形・lint・diffcheck、外部AIなしのHTTP／取消／回収十八件と独立レビュー残指摘零を確認し、Sourceを`6305826448e15247e4de2e48dc97c9a49f70379e`・cleanへ固定した。新品`new-model-ai-20261025/preflight/`で`--preflight`を一回だけ実行し、失敗したため読取り二件と実AI編集二Taskは開始していない。AI起動・送信は零、再試行はない。
+
+| 対象 | 観測した事実・限界 |
+|---|---|
+| Direct | limitedProbePassed／既存Dirty・Stage・未追跡保全／runtimeClean／workspaceClean／closeConfirmedはtrue。合成出力10 bytes・SHA-256 `e1bb2575c4a773a34f573f110b27d8bfb90c31c0be7dfad40de503d29862b2de` |
+| Isolated | 合成出力12 bytes・SHA-256 `81780b079048a55298de4abcdf8e407d902b760fa80cbac251efa40b3817fe6e`を確認後、`workbench_verification_transport_failed / headers_unobserved / timedOut=true`で停止。Tool段階名はprepareであり、詳細なClient時系列は記録していない |
+| 成立したGit操作 | Workspace `4f55ea10-d6bf-42aa-9eb4-24d1828fd0a8`。Base `19d2d60e3767bce4b92c9a10a54a6279cc463c31`、固定Candidate `601376f758327de25eb12e1766d5eac9c5e04d86`、Merge `f7ea8af7ef289e0729f25861859c7b5a70336e0b`。Git直接観測で第1親Base・第2親Candidateを確認。状態FileのCandidateはmerged／adopted。Toolはadopt応答後のcandidateCommit／mergeCommit記録に未到達であり、Source順序とGit／状態からadopt要求のHTTP応答をToolが観測できない区間へ絞れる。応答送信済みとは推定せず、待機区間の細因・Event Loop占有等は未特定 |
+| 終了 | 両OwnerのcloseConfirmedとSource再観測不変はtrue。Docker比較は追加・削除Container／Networkなし、既存一覧・構成同値。ただしWorkspace未回収のためTool全体は不合格、fixtureRootsRemoved=false。終了後fresh一覧も既存停止Container一件のみ |
+| 正式回収 | 同じWorkspace ID／Commitで公開executeWorkspaceのget→close-candidate→discardを試みたが、最初のgetが`workspace_state_unavailable`で停止した。既存Readerの追加読取りは`orchestrator_snapshot_lock_unavailable`。close-candidate／discardの処置は未発行で、Worktreeと二Refは残る。原因未特定のLockを解除・削除せず、Stateを手編集しない |
+| 保持 | 今回Rootは調査と正式回収の再入場用に保持し、2026-11-01までに再評価。物理Fileの改訂はDirect 4、Isolated 27だが、正式Readerがblockedのため、File内の待ち零から回収完了を推定しない。旧保持Root・既存Docker資源・本体設定は変更しない |
+
+今回の不合格は新Modelの拒否やAI実行失敗ではなく、実AI前の合成Workspace操作・HTTP結果搬送の境界である。新モデル確認・実AI編集E2Eは未実施のまま。次の是正候補はadopt応答の15秒期限と正式ReaderのLock取得不成立の非AI切り分けであり、Timeout延長、新Worker／Queue／Lock／Recovery機構の追加、AI再送、再起動には進まない。
+
 <a id="claude-readonly-turn-acceptance-result"></a>
 
 ### 回数比較撤去後のClaude読取り一回 — 2026-10-25
