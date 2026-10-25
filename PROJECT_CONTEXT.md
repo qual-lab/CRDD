@@ -12,6 +12,8 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
+Direct／Isolated実AI編集の前に、固定Source `dff1fce85`で新品の非AI事前確認を一回実行した。編集代役・既存変更保全・候補固定・二親Merge・Worktree／Ref回収は両方式で成功したが、Isolatedの終了記録が残り清掃Gateで停止した。AI送信は零。Workspace履歴行の退役未接続と、試験Toolが破棄後Queueへ開始前baselineを要求する不一致の少なくとも二点を確認した。results二件・leaseEvidence十二件が正常な終了記録か追加の退役未接続かは未分類で、最小是正は未確定。Direct試験Rootは清掃済み、Isolatedは強制削除せず2026-11-02までの再評価対象として保持する。旧保持物・Docker再起動・再試行なし。実AI編集は未実施のまま。[停止結果と最小是正候補](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#workspace-edit-e2e-20261026)を参照する。
+
 改善後Source `886f5ed3e`でClaude Opus 5.5／mediumの合成読取りを一回実行し、Task・実行completed、HTTP失敗・Timeoutなし、cleanup／close確認、回復参照・副次失敗なしで成功した。本体・合成入力は不変、再送・Docker再起動・既存保持物操作なし。今回合成Rootと短命入口は終了義務・非使用を確認後に清掃し、不存在確認済み。安全な結果JSONだけ期限付き保持する。前回本文は清掃済みのため今回は既存HTTP試験形式の744 bytesで、完全同一入力比較ではない。現在の条件で利用できることは確認したが、前回の支払い不調や終了1の原因、Source改善との寄与分離は未確定。Direct／Isolated編集E2E・全体E2Eは未実施。[今回の結果と限界](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#claude-improved-source-once-20261026)を参照する。
 
 本番保存経路のRepository実体再検証について、一回の確認内だけで重複していた探索を統合した。Coordinator保存借用の一回の再検証は五探索から二探索となり、前後のfresh確認、別I/O段階の確認、Lock・書込み・読戻し・拒否条件を維持する。Version Control全71件、保存・排他・履歴90件、HTTP検証25件は成功、静的確認も成功。計測器なしの同じ合成状態初期化と二Queue保存は、変更前約7.09秒から変更後約4.92秒／3.68秒となったが、任意Repositoryの性能保証ではない。元実AIの受信前18.6秒の占有処理とClaude終了1の原因は未確定で、実AI E2E成功とはしない。AI再送・Docker操作・既存保持物操作なし。[限定是正と検証範囲](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#storage-revalidation-consolidation)を参照する。

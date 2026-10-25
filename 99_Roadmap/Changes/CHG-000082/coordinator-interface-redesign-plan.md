@@ -1634,6 +1634,14 @@ Header是正後の最終独立確認は限定Pass。比較完了後、短命診�
 
 着手前の責務・lifecycle照合と独立レビューで、清掃検証順序と診断modeへのPath依存を是正し、最終再レビューの残指摘零。HTTP検証三Suite二十六件成功後、是正で変わったTool二項目を最終Sourceで再実行して成功した（重複加算しない）。型・整形・lint成功、既存info五件は不変。初回の整形書込みはWindows制約で停止したが同じ二Fileを通常実行環境で整形し、検査警告は新規any／non-null assertionを除去して解消した。非AIpreflight・実AI・実境界E2Eの結果とは区別する。Sourceをcommitしてclean固定した後にだけ非AIpreflightへ進む。
 
+固定Source `dff1fce85`で新品非AIpreflightを一回実行した。Directは出力10 bytes・既存Dirty／Stage／未追跡保全、Isolatedは出力12 bytes・明示固定・二親Merge・Candidate終了・Worktree／専用Ref回収まで成功した。Candidateは`b2d1188cae5bd2c319bec99e9be378709735b1b1`、Mergeは`4023a1a7ebb7de2bbe0938cc9694140728ca3ee3`。runtimeClean／workspaceClean／closeConfirmedは両方式true、Docker inventory不変、Source不変。ただしIsolated清掃Gateはfalseとなり、Toolは非0終了・fixtureRootsRemoved false。Direct Rootだけ清掃済み、Isolated Rootは保持した。これをpreflight全体又は実AI編集E2Eの成功へ換算しない。AI起動・送信は零、再試行・再起動・旧保持物操作なし。
+
+停止後の読取りで、Isolatedはoperations／unresolvedRecoveries／pendingDeliveries／leaseIntents／workspaces零、historyPending一件、results二件、leaseEvidence十二件だった。Gitは自身のWorktreeだけ、専用Ref零、Tree clean。破棄済みWorkspaceのexact IDは`dddc620d-b230-446c-b0fb-53964618085e`、履歴待ちのidは`workspace-dddc620d-b230-446c-b0fb-53964618085e`、cleanup confirmed。Queue-aはgeneration12／cancelled、Queue-bはgeneration1／queuedで、Owner／Workspace／結果参照はnull。Task-aは未実行のready／startPhase none／retry零、実行・回復・受理参照なし。
+
+Source照合で少なくとも二点を確認した。第一に、`writeCoordinatorWorkspaceRecord`はWorkspace記録削除時に`workspace-${workspaceId}`の履歴待ちを作るが、`maintainCoordinatorSnapshot`の退役判定はQueue又は単独採用結果だけに照合しており、今回のWorkspace履歴行を退役できない。第二に、追加した試験清掃Gateは両方式へ開始前の二Queue baselineを要求しており、Isolatedの正常破棄でQueue-aがcancelledへ進む実lifecycleを反映できていない。前者は保存処理の未接続、後者は検証Toolの期待状態不一致であり、同じ故障へまとめない。results二件・leaseEvidence十二件も零Oracleを満たさないが、今回GateはhistoryPendingで先に停止したため、正常な方式別終了記録か追加の退役未接続かは未分類である。Queue-aはcancelledでもTask-aはreadyであり、既存のQueue終了判定を満たさない。各Identity・Queue・Workspaceの相関と期待する保持・退役条件を既存Ownerで確認するまで最小是正を確定しない。今回の記録を強制書換え・削除したり、Gateを緩めたりして通過させない。
+
+保持先は `.crdd/tests/workspace-ai-20261026/preflight/isolated/` と兄弟`result.json`。2026-11-02までに既存Ownerで再評価し、未解決記録を期限だけで削除しない。非AIpreflight全条件成功の前提が成立しないため実AI編集は開始せず停止する。次は実際の破棄後状態を反例として、履歴行に加えresults／leaseEvidenceの期待保持・退役条件を分類した後に局所試験と最小是正案を確定する。
+
 <a id="new-model-ai-once-results-20261025"></a>
 
 ### 新Model読取り各一回と編集停止 — 2026-10-25
