@@ -12,6 +12,8 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
+三判断分離後の固定Source `a5afae98e`で承認済みの合成編集E2Eを一回実行した。非AI事前確認はDirect／Isolatedとも成功したが、実AI DirectはCodex Executor attempt0のStageがcompletedを返した後の`coordinator_task_candidate_revision_invalid`で停止し、Claude・限定是正・Isolatedは未開始。過去三値はunknownを維持し、Provider内部のEffect成立を推定しない。合成source.txtはBASEのままで、候補取得不成立とProvider申告不一致のどちらかは未確定。HTTP故障なし、実行資源のcleanup／close確認済み、回復参照・副次失敗なし、試験Node零・Source不変。正常完了専用Gateはblockedへ拡張せず、結果と合成Rootを2026-11-02までの再評価対象として保持する。再送・再起動・旧保持物操作なし。実AI編集E2Eと前回是正の実AI反復は未成立のままである。[今回の結果と限界](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#workspace-continuation-edit-stop-20261026)を参照する。
+
 過去のEffect履歴・旧実行の現在の安全性・新試行の実行許可を分離する最小是正を実装した。同じTask／Hostの既存技術終端条件が成立する通常継続では、過去の三値unknownを変更せず次段階へ進める。既存の実行許可検査を維持し、限定是正の前にも既存Workspace検査を接続した。新しいState・Registry・Lock・公開APIは追加しない。Codex→Claude→Codex→Claudeと拒否例の非AI通常291件、Windows専用の先行成功9件、試験接続追従後のOwner再入場・解放13件、静的検査と限定独立確認は成功／残指摘零。初回不合格は保持し、単一runの全体回帰や実AI編集E2Eの成功へ換算しない。失敗した合成試験Root25件は強制清掃せず、2026-11-02までの再評価対象として別記した。[調査・最小実装と検証範囲](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#workspace-diagnostic-edit-stop-20261026)を参照する。
 
 基準の実AI試験は診断追加版`e2223c180`でDirectが`unknown / docker_process_controller_recovery_unavailable`となり、限定是正試行（taskAttempt 1）の`operation_start_save`停止をTask相関のみの通知で観測した。今回再現した開始保存条件はこの結果と整合するが、当時のWriter内部の拒否分岐を直接記録したものではなく、唯一の原因と断定しない。初回Codex／Claudeの各五資源は不存在観測・Lease解放済みだがHost終了・最終確定は保留。四exact回復参照と合成Rootは変更せず保持し、回収完了とはしない。実AI再送・Docker操作・保持物操作は行っていない。

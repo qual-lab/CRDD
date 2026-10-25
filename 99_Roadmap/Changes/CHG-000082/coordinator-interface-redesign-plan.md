@@ -1783,6 +1783,22 @@ Isolatedは未開始、再試行・Docker再起動・Image更新・旧保持物�
 
 Architecture DetailとQAへ原則・Owner・検証義務を反映した。実AI再送・Docker操作・保持物変更は行っていない。今回の是正を過去のE2E成功や、保持中の四回復参照の終了へ遡及しない。
 
+<a id="workspace-continuation-edit-stop-20261026"></a>
+
+### 三判断分離後の合成編集一回と候補検査停止 — 2026-10-26
+
+利用者承認により固定HEAD `a5afae98e042cc7eac9be16548e9882643254539`、既存固定Image、同じ合成送信内容で正式Toolを一回実行した。新品Rootは`.crdd/tests/workspace-ai-continuation-20261026/`。短命入口はfull HEAD・clean・Tool blobを検査し、正式ToolのRoot一箇所と相対importの元位置解決だけを変更した。通常送信同意の自動入力やredirectは行わず、TTYを必須とした。開始前独立確認は残指摘零。
+
+先に非AI事前確認を実行し、Direct／Isolatedの既存変更保全、候補固定・二親Merge、終了・清掃が成功した。両方式のlimitedProbePassed／closeConfirmed／runtimeClean／workspaceClean、fixtureRootsRemoved、sourceUnchangedはtrue、清掃失敗は空、Docker一覧・構成は不変で、AI起動零だった。結果は同Rootの`preflight/result.json`に保持する。
+
+実AIのDirectは`request-b5e555b3-beaf-431d-88c9-ef691f88726f`、`blocked / coordinator_task_candidate_revision_invalid`で停止した。Codex Executor attempt0のStageはcompletedを返し、その後の候補取得・申告整合の共通Gateで拒否された。過去三値はunknownを維持し、Provider内部開始・外部送信・共有書込みの成立を推定しない。Claude Review・限定是正・再Review・Isolatedは未開始。合成`source.txt`は`BASE`の一行のままで、期待する`DIRECT_OK`への変更はない。Git上は元のdirty／stage／未追跡三ファイルだけだった。候補取得自体の不成立と、Provider正規化結果の状態／changedPaths不一致のどの条件だったかは今回の有限診断に含まれず、CLIが編集しなかった理由やMount故障とは断定しない。生出力は保存・追加取得しない。
+
+HTTP transportFailureはnull、回復開始診断は捕捉済み・event零。TaskのcleanupConfirmedとcloseConfirmedはtrue、回復参照・副次失敗は空。実保存の操作履歴一件はprovider_operation_completed／Host清掃確認済み／Home解放済みで、現在のoperations／unresolvedRecoveries／pendingDeliveries／leaseIntentsは零だった。後読取りでも試験Node零、Containerは元の停止一件だけだった。標準bridgeのIdentity変更は記録され、構成同値・既存利用者資源保全は確認されたが、発生主体・原因は未特定であり、Docker再起動を実施したとは扱わない。Sourceは不変。Toolは終了2、fullE2eVerified falseであり、前回の限定是正開始問題の実AI反復も未評価のままである。
+
+blocked結果のため正常完了専用の清掃Gateは適用せず、`edit/result.json`と`edit/direct`を保持した。Queue三件・historyPending一件・Lease根拠二件が残り、合成Rootの清掃完了とはしない。2026-11-02までに同じ受付参照・既存Ownerで保持要否と清掃条件を再評価し、期限だけでは削除しない。旧保持Root・記録・認証領域は操作せず、AI再送・Image更新・Docker再起動・修復も行わない。
+
+試験Node不存在とexact Rootの通常File二件だけであることを再確認後、今回の短命起動File二件と空の専用tmp Directoryを清掃し、不存在を確認した。結果・状態・履歴・合成Treeは変更しない。結果とSource相関の独立確認で、Stage completedをProvider内部Effect成立へ読み替えない表現へ是正した。
+
 <a id="new-model-ai-once-results-20261025"></a>
 
 ### 新Model読取り各一回と編集停止 — 2026-10-25
