@@ -603,6 +603,11 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     "../../src/execution/diagnostics.ts",
     import.meta.url,
   ).href;
+  const recoveryModule = new URL(
+    "../../src/execution/recovery.ts",
+    import.meta.url,
+  ).href;
+  const recoveryExports = Object.keys(await import(recoveryModule));
   for (const [bytes, recoveryId, expectedKind, workingDirectory = root] of [
     [singleCliBytes, token, "host"],
     [probeCliBytes, probeToken, "probe"],
@@ -637,6 +642,9 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
          const { mock } = await import("node:test");
          const { createHash } = await import("node:crypto");
          const calls = [];
+         // 循環参照による先行評価を止め、処置の代役を登録してから実回復Ownerを読み込む。
+         const setupRecovery = mock.module(${JSON.stringify(recoveryModule)}, {namedExports:
+           Object.fromEntries(${JSON.stringify(recoveryExports)}.map(name=>[name,()=>{throw new Error("fixture_recovery_during_setup_forbidden")}]))});
          const vc = await import(${JSON.stringify(new URL("../../../version-control/src/index.ts", import.meta.url).href)});
          const store = await import(${JSON.stringify(new URL("../../src/storage/settlement-store.ts", import.meta.url).href)});
          const verified = vc.verifyRepositoryRoot(process.cwd());
@@ -663,7 +671,8 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
            recoverOwnedOperationDirectories:(id, generation, root)=>observe("host",id,root)}});
          await mock.module(${JSON.stringify(probeModule)}, {namedExports:{...probe,
            recoverDockerIsolationProbe:(id,root)=>observe("probe",id,root)}});
-         process.argv=[process.execPath,"coordinator","doctor","--recover-isolation",${JSON.stringify(recoveryId)},"--json"];
+         setupRecovery.restore();
+         process.argv=[process.execPath,"coordinator","recovery","resume",${JSON.stringify(recoveryId)},"--json"];
          await import(${JSON.stringify(cliModule)});
          const cliExitCode=process.exitCode;
          process.stdout.write("\\nCLI_ROOT_OBSERVATION="+JSON.stringify({calls,cliExitCode,readerStatus:before.status,readerReason:before.reason,readerReleased:before.lockReleased})+"\\n");
@@ -4222,6 +4231,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
         .join("\n");
       const hostImports = [
         'import { createHash } from "node:crypto";',
+        `import { hashExecutionSelection } from "${new URL("../../src/selection/model.ts", import.meta.url).href}";`,
         `import { verifyRuntimeOwnedDockerCleanupOutcome } from "${new URL("../../src/execution/controller.ts", import.meta.url).href}";`,
         `import { beginOwnedDockerSubmissionRecovery, borrowOwnedHostRecoverySnapshot, completeOwnedDockerSubmissionRecovery, borrowRuntimeOwnedCoordinatorStateRepository } from "${new URL("../../src/execution/operation.ts", import.meta.url).href}";`,
         `import { parseHostRecoveryToken } from "${new URL("../../src/execution/result.ts", import.meta.url).href}";`,

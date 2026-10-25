@@ -1133,3 +1133,19 @@ Coordinatorの影響三Suiteは是正後158件すべて成功した。認証の�
 別途実行したWindows保存試験は、今回の診断追加箇所より前にある試験内の旧CLI `doctor --recover-isolation` が終了64となり、期待2と不一致で停止した。現行CLIへの試験追従は別残件として保持し、この試験やWindows保存全体を合格とはしない。今回の修正で元の実Claude故障が解消したとは主張しない。AI再送、実Docker操作、認証Home内容の読取り・変更、保持中二Rootの操作は行っていない。
 
 Workbench通常結合回帰は86件・失敗零で完走した。両Packageの整形・型・lint・Coordinatorの二Trace検査も成功した（既存のlint情報表示はWorkbench五件／横断八十四件）。文書Checkerは変更したArchitecture／QA四文書の指摘零だが、参照展開先はbroken-anchor五件、broken-link 3,362件、未定義QA識別子一件の計3,368件で不合格。先行の狭い参照範囲313件と母集団が異なるため、差分増加数や今回新設の指摘とは扱わない。今回の限定実装・検証を全体QA、実AI E2E、原事例の原因特定やRelease可能の主張へ拡張しない。
+
+<a id="windows-state-cli-followup"></a>
+
+### Windows保存・再入場試験の追従 — 2026-10-25
+
+基準`39249cdc3`で残ったWindows試験の不合格を、試験一Fileだけの変更で是正した。製品Source、保存形式、回復判定、Root照合と既存の拒否・状態不変Oracleは変更していない。
+
+| 原因 | 試験側の最小追従 |
+|---|---|
+| 廃止済み`doctor --recover-isolation`が終了64 | 現行`recovery resume`へ切替。旧文法を拒否する製品条件は維持 |
+| 循環importで回収代役の登録前に元回復Moduleが評価され、代役の呼出しが零 | 初期化中だけ既存Module mockで回復呼出しを拒否。Host／Probeの処置代役を登録してからguardを復元し、実CLI・実回復Owner・実ReaderとRoot Resolverへ接続 |
+| 実Host完了関数を切り出す試験の`hashExecutionSelection` import漏れが安全拒否へ閉じた | 製品と同じ既存関数をimport。照合の固定値化・再実装はしない |
+
+修正版のWindows保存・pending再入場一件は222,285msで最後まで成功し、CLI関連二Suiteの十九件も成功した。CLIの七対象・拒否例、元state bytes不変、処置代役の呼出し件数、保存・再入場の既存Oracleを維持する。整形・lint・試験型検査・diffcheckは成功し、独立レビューの残指摘は零。途中二回の不合格を合格へ変更せず、修正版の今回結果と区別する。
+
+自己生成した`coordinator-state-*`試験領域は終了後不存在を確認した。保持中の先行Claude stateは10,235 bytes、今回Claude stateは3,576 bytesで更新時刻も不変。実Docker・認証・外部AI・保持物の操作は行っていない。今回閉じたのは試験追従の残件であり、元Claude故障原因、文書参照展開先3,368指摘、全体QA・実AI E2Eは未成立のまま維持する。
