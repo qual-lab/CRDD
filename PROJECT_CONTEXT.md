@@ -12,7 +12,9 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
-診断追加版`e2223c180`で承認済みの合成編集E2Eを一回実行したが、Directが再び`unknown / docker_process_controller_recovery_unavailable`で停止した。今回はCodex Executorの限定是正試行（taskAttempt 1）が操作開始記録の保存段階`operation_start_save`で止まった通知を取得した。通知はTask相関のみの`task_only`で、当該試行の耐久操作は未保存。初回Codex／Claude操作は各一件あり、各五資源は不存在観測・Lease解放済みだがHost終了・最終確定は保留。HTTP故障なし、Container／Networkの追加・削除なし、Source不変、Isolated未開始。今回の四exact回復参照と合成Rootを保持し、回収完了とはしない。次の調査対象は既存の開始保存・状態遷移検査であり、拒否条件までは未確定。自動再送・Docker再起動・旧保持物操作なし。[今回の結果と限界](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#workspace-diagnostic-edit-stop-20261026)を参照する。
+過去のEffect履歴・旧実行の現在の安全性・新試行の実行許可を分離する最小是正を実装した。同じTask／Hostの既存技術終端条件が成立する通常継続では、過去の三値unknownを変更せず次段階へ進める。既存の実行許可検査を維持し、限定是正の前にも既存Workspace検査を接続した。新しいState・Registry・Lock・公開APIは追加しない。Codex→Claude→Codex→Claudeと拒否例の非AI通常291件、Windows専用の先行成功9件、試験接続追従後のOwner再入場・解放13件、静的検査と限定独立確認は成功／残指摘零。初回不合格は保持し、単一runの全体回帰や実AI編集E2Eの成功へ換算しない。失敗した合成試験Root25件は強制清掃せず、2026-11-02までの再評価対象として別記した。[調査・最小実装と検証範囲](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#workspace-diagnostic-edit-stop-20261026)を参照する。
+
+基準の実AI試験は診断追加版`e2223c180`でDirectが`unknown / docker_process_controller_recovery_unavailable`となり、限定是正試行（taskAttempt 1）の`operation_start_save`停止をTask相関のみの通知で観測した。今回再現した開始保存条件はこの結果と整合するが、当時のWriter内部の拒否分岐を直接記録したものではなく、唯一の原因と断定しない。初回Codex／Claudeの各五資源は不存在観測・Lease解放済みだがHost終了・最終確定は保留。四exact回復参照と合成Rootは変更せず保持し、回収完了とはしない。実AI再送・Docker操作・保持物操作は行っていない。
 
 先行の同意入口拒否では、固定Source `ddee28f85`で承認済み合成編集E2Eを一回開始したが、Directが`coordinator_task_external_send_confirmation_unavailable`で実AI起動前にblockedとなり、Isolatedは未開始だった。Task終了・cleanup確認済み・回復参照と副次失敗は空、Docker一覧・実行Sourceは不変。再送・再起動なし。通常の初回送信同意は別の対話確認であり、Toolの`--external-send-confirmed`だけでは代替しない。確認入口のunavailable内のLock取得／Console接続のどちらかまでは未観測。このDirect領域は終了要約一件・解放済みLease根拠二件とともに保持し、清掃完了とはしない。この時点では対話端末での通常同意を伴う一回の再実行判断が必要だった。[停止理由と保持状態](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#workspace-edit-consent-stop-20261026)を参照する。
 

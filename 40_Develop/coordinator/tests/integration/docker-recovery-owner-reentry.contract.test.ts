@@ -3051,6 +3051,7 @@ for (const { repeatCount, retained } of [
         cleanupExports.verifyRuntimeOwnedDockerCleanupOutcome;
       const hostImports = [
         'import { createHash } from "node:crypto";',
+        `import { hashExecutionSelection } from "${new URL("../../src/selection/model.ts", import.meta.url).href}";`,
         `const verifyRuntimeOwnedDockerCleanupOutcome = globalThis[${JSON.stringify(cleanupKey)}];`,
         `import { beginOwnedDockerSubmissionRecovery, borrowOwnedHostRecoverySnapshot, completeOwnedDockerSubmissionRecovery, borrowRuntimeOwnedCoordinatorStateRepository } from "${new URL("../../src/execution/operation.ts", import.meta.url).href}";`,
         `import { parseHostRecoveryToken } from "${new URL("../../src/execution/result.ts", import.meta.url).href}";`,

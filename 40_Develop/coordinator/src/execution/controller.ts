@@ -6184,6 +6184,20 @@ async function runCoordinatorTaskCore(
     retainTurnObservation(reviewer, 0);
     let remediationPerformed = false;
     if (reviewerResult?.decision === "changes_requested") {
+      // レビュー中にTreeが変わった場合、その結果を入力に限定是正を始めない。
+      // 同じ既存Candidate検査を使い、新しいLockや監視を追加しない。
+      if (
+        state.dependencies.verifyCandidate(
+          candidateCapability,
+          repositoryBinding,
+          operation.managementCapability,
+          operation.mountCapability,
+        )?.status !== "verified"
+      ) {
+        return candidateNotIssued(
+          blocked("coordinator_task_candidate_verification_failed"),
+        );
+      }
       advanceLifecycleState(state, control, "STATE-REMEDIATION-AUTHORIZED");
       const remediationCapability = objectCapability(
         reviewerResult.remediationCapability,

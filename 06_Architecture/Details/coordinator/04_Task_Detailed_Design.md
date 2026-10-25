@@ -734,6 +734,29 @@ v3の実体結合は取得したDirectoryのdevice、inode、birthtimeMsをJSON�
 - 正常・準正常・異常および実境界の検証が、対象CapabilityのLifecycleを閉じる。
 - 現行設計の変更時は本書を更新し、旧版の別文書を現行Treeへ追加しない。
 
+## 過去Effect・現在の安全性・新規実行許可の分離
+
+Effect履歴（Effect History）は過去の観測事実を保持する。実行安全性（Execution Safety）は旧実行の現在・将来のEffect能力を評価する。実行許可（Execution Authority）は新しい操作を許可する。この三つを単一の状態値で代用しない。
+
+| 判断 | 既存の根拠 | 使ってはならない代替 |
+|---|---|---|
+| 過去に何が起きたか | providerStart／externalSend／sharedWriteの記録 | Process開始・正常出力・cleanupから三値を推測して既知化すること |
+| 旧実行が今後Effectを発行できるか | 同じ操作のProcess・全資源・Mount・Home排他・Ownerの終了確認、未解決義務 | 過去のEffectがunknownであることだけを現在の実行能力ありと扱うこと |
+| 新規試行を開始してよいか | 生存中の同じTask Owner、現在のPacket／Selection／Home・Provider Authority／送信同意、既存レビューと一回限りの限定是正許可 | 資源不存在・保存候補の妥当性・attempt番号だけを実行許可と扱うこと |
+
+同じTask・同じHostの通常継続では、旧技術実行の終端と次の実行許可、入力・Workspaceと前結果の整合を別々に検査する。正常な編集→レビュー→限定是正→再レビューを対象とし、三値のunknownと旧Identityは変更しない。Owner喪失後の未発行stage再開、結果不明・取消不明の自動再送、別Task／別Host、未解決の資源・排他・回復義務へ適用しない。通常継続の実装接続と検証はCHG-000082で追跡し、この原則の採用だけを実装済みとは扱わない。
+
+| Source Owner | この境界での責務 |
+|---|---|
+| execution/observation.ts | 元Process・資源・終了結果と相関する観測事実。実行許可を作らない |
+| execution/authority.ts | 新規操作の現在のAuthority。履歴unknownを成功へ変えない |
+| execution/preparation.ts | Packet・Selection・Home・送信範囲と実行対象の準備、限定是正許可の一回消費 |
+| execution/controller.ts | 同Owner内の段階順序、真正レビュー結果、候補・入力整合、取消と次stage発行 |
+| execution/recovery.ts | 未解決実行の回復と、既存の通常技術終了への接続。Owner喪失後に未発行stageを再開しない |
+| storage/ | 過去事実・現在状態の耐久保存と構造・相関・遷移検査。保存成功から実行Authorityを作らない |
+
+これは責務の明確化であり、新Manager・Registry・永続State・観測Frameworkを追加する指示ではない。
+
 ## 回復開始失敗の限定診断 — 2026-10-26
 
 回復開始の失敗は、既存の受動的な境界通知 `coordinator_provider_recovery_start_failed` で固定段階だけを伝える。段階は入力検査、操作Context、Provider Home、Home排他、操作結合、状態競合、開始保存、終了処理結合、Host受付、Home排他解放、判定不能の閉集合とする。回復IDは取得・照合済みの場合だけ同じexact値を使用し、取得前はnullとする。任意例外本文、Path、Capability、認証情報、Provider生出力を通知しない。

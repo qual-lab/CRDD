@@ -694,6 +694,17 @@ ERB-IT-010／ERB-ST-013は5CのOrchestrator／Coordinator大改修に依存す�
 
 読取り助言の試験器では、Hash対象fieldの欠落・異型と正常null、標準Network ID差、利用者資源の追加・消失、前後のpaused／restartingを反証する。Root検証先行、試験器自身の前後照合でのGit子Process未使用、親GIT_DIRでRevision観測先が変わらないこと、対象文書・Revisionのみの不変主張と全Repository不変非主張を確認する。既存Workbenchの安全なGit読取りは変更しない。合成Ownerと実loopback HTTPによる局所成功を実Provider再試験へ流用しない。
 
+## 過去Effectが未確定の通常継続
+
+同じTask Ownerの編集→レビュー→限定是正→再レビューについて、実AI要求後と同じunknown三値を持つFixtureで接続を確認する。未開始・未送信のFixtureだけで正常継続成立としない。
+
+- 正例はCodex→Claude→Codex→Claudeの段階順序と両Home再利用、真正レビュー・一回限りの是正許可、現在の選定・送信同意・Workspace整合、旧技術実行の終端が共同成立する場合。旧Identityと三値は不変とする。
+- 終了不明、取消不明、別Owner／Task／Host、偽許可・再利用、Workspace差、未解決資源・排他・回復義務は次stage Effect 0で拒否する。
+- Owner喪失後は旧記録から未発行stageを再開しない。純粋な保存候補の成立をAuthority・実境界成立としない。
+- 保存失敗・競合・排他解放不明でもunknownを既知化せず、元回復参照と一次失敗を維持する。保持中試験物を新Sourceで遡及補完しない。
+
+この節は変更後の検証義務であり、実装・回帰・実AIの通過結果ではない。
+
 ## 回復開始失敗の限定診断
 
 既存のPRL-UT-006、ERB-IT-002、ERB-IT-021、PRL-ST-004の範囲で、次を非AI試験する。実AI・Docker実境界の成立とは分けて評価する。

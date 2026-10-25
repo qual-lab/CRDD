@@ -2403,6 +2403,38 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       ),
       normalOld,
     );
+    // 実行要求後のunknownを履歴として保持し、技術終端と次stage許可を混同しない。
+    for (let mask = 0; mask < 8; mask += 1) {
+      const old = structuredClone(normalOld);
+      for (const [index, field] of [
+        "providerStart",
+        "externalSend",
+        "sharedWrite",
+      ].entries()) {
+        if (mask & (1 << index))
+          (old.execution as Record<string, unknown>)[field] = "unknown";
+      }
+      const before = Buffer.from(
+        `${encodeCoordinatorStateValue({ ...empty, operations: [old] })}\n`,
+      );
+      const next = prepareCoordinatorStateOperationSnapshot(
+        before,
+        nextIdentityJson,
+        binding,
+      );
+      assert.ok(next, `same-owner continuation unknown mask ${mask}`);
+      assert.deepEqual(
+        JSON.parse(next.toString("utf8")).operations.find(
+          (item: { recoveryId: string }) => item.recoveryId === recoveryId,
+        ),
+        old,
+      );
+      const foreign = `${JSON.stringify({ ...nextIdentity, operationId: "OP-654321" })}\n`;
+      assert.equal(
+        prepareCoordinatorStateOperationSnapshot(before, foreign, binding),
+        null,
+      );
+    }
     const failedPrimary = {
       purpose: "create_provider",
       stage: "command_wait",
@@ -2419,10 +2451,6 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
         ...normalOld,
         execution: { ...normalOld.execution, ownerEffect: "active" },
       },
-      ...["providerStart", "externalSend", "sharedWrite"].map((field) => ({
-        ...normalOld,
-        execution: { ...normalOld.execution, [field]: "unknown" },
-      })),
       { ...normalOld, host: { ...normalOld.host, cleanup: "pending" } },
       { ...normalOld, host: { ...normalOld.host, cleanup: "confirmed" } },
       {
@@ -2503,6 +2531,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     }
     for (const changedIdentity of [
       { ...nextIdentity, operationId: "OP-654321" },
+      { ...nextIdentity, recoveryCorrelationId: "other-task-operation" },
       {
         ...nextIdentity,
         hostPaths: { ...identity.hostPaths, root: "other-host-root" },

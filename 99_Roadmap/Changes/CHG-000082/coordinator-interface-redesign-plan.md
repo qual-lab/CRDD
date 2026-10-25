@@ -1738,6 +1738,51 @@ Direct受付 `request-3b465438-cfa7-4ed1-9002-b2dad024c378` はunknown、一次�
 
 Isolatedは未開始、再試行・Docker再起動・Image更新・旧保持物操作なし。今回前後のContainer／Network追加・削除は零、既存資源保持・構成同値・Source不変。これをHost終了や回収完了へ読み替えない。安全な結果は `.crdd/tests/workspace-ai-diagnostic-20261026/edit/result.json`、合成Rootは同じ親の`direct`に四exact回復参照とともに保持する。2026-11-02までに既存Ownerで再評価し、期限だけで削除しない。今回Node Process零を確認後、短命の起動二ファイルと空の専用tmp Directoryを清掃し、不存在を確認した。
 
+#### 外部AIなしの開始保存調査
+
+実装上の不整合を純粋関数で再現した。`recordRuntimeOwnedDockerProviderSubmission`は要求前にproviderStart／externalSend／sharedWriteをunknownへ進める。一方、正常復帰のcheckpointはLease解放とownerEffect disabledを保存するだけで、三値を維持する。同じHomeの次Operationを追加する`validateCoordinatorStateTransition`は、旧操作の三値のどれかがunknownなら拒否する。別Homeはこの比較対象外である。
+
+実保持状態からCodex初回操作を有効な最小Snapshotへメモリ内で移し、同Host・同operationIdのattempt1追加を本番候補生成関数で確認した。元状態のunknown三値では拒否、三値をstarted／issued／possibleとした合成反例だけ受理、各一値をunknownへ残した三例はいずれも拒否。五例とも入力Snapshotは有効で、元ファイルのbytes不変を確認した。最初の試験器はIdentity終端改行と凍結値のclone不足で停止し、その試験器だけを修正した後の五例である。製品Source・保持記録は変更していない。
+
+構造的な確定接続の不足は独立読取り確認でも支持された。今回のattempt1保存停止と一致する有力原因だが、当時のWriter返却理由・内部branchは未観測であり、このGuardが唯一の実拒否行だったとまでは断定しない。
+
+最小案は、元attemptの真正な観測が生きている終了・清掃処理で、三値を各々の証拠から同じ回復参照へ既存Writerで確定すること。Process開始だけで送信発行や書込み可能性を推定しない。観測欠測・保存失敗・排他解放不明はunknownを維持し、Guardを緩めない。新State・Lock・回復機構は不要と見込むが、各証拠との接続は実装前に照合する。旧保持状態を新Sourceから遡及補完しない。AI再送・Docker操作・回復・削除・実装変更は未実施。短命の純粋試験器だけを実行終了後に清掃した。
+
+#### 三値の確定根拠の追加調査と提案訂正
+
+前段の「真正観測を既存Writerへ確定接続するだけ」という最小案は、その観測が既に揃うことを前提としていた。実SourceとArchitectureを照合した結果、この前提は成立しない。`session.ts`のexecutionStartedは`process/start.ts`のDocker子Processのspawn観測であり、Provider内部の開始・外部送信・共有書込みを個別に証明しない。完了出力や回収も同じである。`01_Architecture.md`の要求前checkpoint契約は、これらを三値の既知化根拠としないことを明記している。したがって、三値の推測補完や現在の意味のままの一括既知化は行わない。
+
+既存の同Host継続試験の正例はnot_started／not_issued／not_issuedの未実行形だった。unknownの拒否試験はあるが、実行済みの通常継続が成立する正例ではない。これは検査漏れだけでなく、「過去Effectの発生が未確定」と「現在の旧実行資源が終端済み」を同じ継続拒否条件へ混ぜた契約上の不整合である。
+
+次の検討は、過去のunknownを保持しつつ、同じTask・同じHostの通常継続だけを既存の真正技術終端に基づいて許可できるかである。旧Process終了、Container／Network不存在、Mount終了、Home排他解放、旧OwnerのEffect不能、対象Identity一致と旧記録不変を省略しない。別Task／別Host／Owner喪失後の回復へ一般化せず、保存値だけから処置Authorityを生成しない。既存の拒否契約とその試験を変更する判断なので、現時点では候補であり未実装。Provider内部の通信・書込み監視Frameworkを新設して三値を埋める案は、今回の簡素化目的に対して非推奨とする。AI・Docker・保持物の操作は行っていない。
+
+追加で既存の限定是正経路を確認した。Controllerは同じ生存Owner内でReviewer完了・changes_requested・findingsありを確認し、閉じたReviewer結果から作る短命remediation CapabilityをExecutor attempt1の準備時に一回消費する。Owner喪失後にこのCapabilityや未発行stageを復元しない。通常限定是正と結果不明の自動再送は既存経路で区別できるため、新たな耐久Reviewer判断やRegistryを追加する必要はない。
+
+変更候補は、この既存の一回限定是正の真正な接続と技術終端が共同成立する同Owner内継続だけ、過去unknownをHome再利用条件と分離すること。`taskAttempt === 1`だけで許可せず、既存のPacket／PreparedPlanと生存Ownerの相関を開始保存まで保つ。再編集後のReviewer attempt1も同じHomeへ戻るため、Executorだけの例外で閉じず、再レビューまでの既存制御鎖を対象に照合する必要がある。偽Capability・再利用・別Task／Host・Owner喪失・結果不明・資源や義務残存は従来どおり拒否する。これは既存の拒否契約を変更する候補であり、未採用・未実装である。
+
+#### 三判断分離の採用と最小実装
+
+利用者は、Effect履歴・旧実行の安全性・新試行の実行許可を別判断とする方針を採用した。着手前のSource再照合では、開始保存の本番呼出しが回復開始一箇所であり、その前に既存のPreparedPlan一回消費・Revision・Provider Authority・Packet・送信許可が検査されることを確認した。Writerにも新しいAuthority Contextを重ねる案は不要な防御重複として不採用とし、永続State・Registry・Lock・Writer引数・公開DTOを追加しない。
+
+値モデルでは、既存の同Host通常技術終端条件をすべて維持し、その条件が成立する旧操作だけ三値のunknownを過去履歴として分離した。同operationに加えrecoveryCorrelationId一致も確認する。旧Identity・三値・保存Schemaは変えず、別Host・別Task・通常Recoveryでの三値参照は維持する。実行制御側ではchanges_requested後に既存の非消費Candidate検査を再利用し、Workspaceと前結果の差があれば是正前に停止する。最終レビュー後の既存検査も残す。
+
+新しい非AI結合は、本番Task制御から本番の純粋保存値検査へ接続し、Providerと物理Writerは代役である。unknown三値・identified／absent資源を持つCodex→Claude→Codex→Claudeを通し、Lease・Owner・資源・義務・Task・相関・Host差では次Provider代役Effect零、Workspace差は是正前停止を確認した。値モデルでは三値の八組合せと旧操作完全不変を確認し、従来の技術終端条件の負例は維持した。これは実Writer全体や実AI E2Eの成立証明ではない。
+
+初回回帰では必須のNode module mockフラグ不足と、追加された是正前検査が既存の最終検査用故障注入を早く発火させる追従漏れを分離した。起動条件を正式条件へ訂正し、故障時点を指定できる試験局所counterを追加した。最終レビュー後故障を意図する基底二ケースだけ時点二へ追従し、新しい是正前差の反例は既定の時点一を維持する。是正後の非AI通常回帰七Suite291件と静的・設計接続検査は成功、独立レビューと試験追従再確認は残指摘零。
+
+正式条件のWindows専用22件は9成功・13失敗で完走し、不合格として保持する。失敗はOwner再入場Suiteに集中した。開始・保存監視が旧recovery Moduleを対象にしており、本体を監視設定前に同じqueryで先読みしていた接続不一致を、現在のHost提出Ownerであるcontrollerへの監視へ追従した。また、正常Owner三件は試験用に抽出したHost終了関数の依存`hashExecutionSelection`が試験Moduleに未importで、関数内のcatchによりhost_completion_invalidへ閉じていたため、試験側importを追従した。製品Source・期待する拒否結果・終了条件は変更しない。
+
+追従後のOwner再入場13件は560,272msで全成功した。旧Owner終了五境界、認証create通常例外五段階、正常Owner一回・保持あり一回・同Home二回の三形で、既存の拒否Oracle、元記録保全、Home解放、Host清掃、結果保存まで確認した。最終候補の非AI通常291件も再実行して全成功し、型・整形・lint・Trace検査と限定独立確認は成功／残指摘零。Windowsの先行成功9件と合わせて今回の対象313件は確認済みだが、単一runの全体回帰成功ではなく、実Docker・実AI E2Eの証明でもない。失敗した自己生成試験Rootは強制清掃せず、既存の実AI保持物とは区別して保持する。
+
+今回の二回の不合格実行が残した自己生成Rootは、Repository内`.crdd/tests/`直下の次の25件である。各Rootの状態記録とHost参照は書き換えず保持し、2026-11-02までに非使用・由来・終了義務を確認して清掃判断へ戻す。期限だけで削除しない。修正版の新品試験はこれらを再利用しない。
+
+| 発生した実行 | Root名（すべて`.crdd/tests/`直下） |
+| --- | --- |
+| mockフラグ不足の初回 | `abandon-owner-nffJWy`、`abandon-owner-MFR593`、`abandon-owner-GoMEe5`、`abandon-owner-xDfyIT`、`abandon-owner-MStyS6`、`auth-create-failure-ZHZkt1`、`auth-create-failure-73GDS8`、`auth-create-failure-Prmqfz`、`auth-create-failure-lOvLtP`、`auth-create-failure-qlBEtZ`、`normal-owner-OvzcEM`、`normal-owner-VTOHzU` |
+| 正式フラグで接続不一致を確認した実行 | `abandon-owner-uGFuxx`、`abandon-owner-e291Uf`、`abandon-owner-AKHSIV`、`abandon-owner-Phbu57`、`abandon-owner-YQmXET`、`auth-create-failure-M0AqqR`、`auth-create-failure-yt86aV`、`auth-create-failure-E0kUcm`、`auth-create-failure-WN80bg`、`auth-create-failure-z1x1fG`、`normal-owner-NSWRsM`、`normal-owner-XrstZ0`、`normal-owner-tuOXxu` |
+
+Architecture DetailとQAへ原則・Owner・検証義務を反映した。実AI再送・Docker操作・保持物変更は行っていない。今回の是正を過去のE2E成功や、保持中の四回復参照の終了へ遡及しない。
+
 <a id="new-model-ai-once-results-20261025"></a>
 
 ### 新Model読取り各一回と編集停止 — 2026-10-25

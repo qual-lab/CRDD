@@ -335,13 +335,10 @@ if (mode !== "recovery") {
       ).href
     );
     const actualSubmission = await import(
-      new URL(
-        "../../src/execution/recovery.ts?abandon-producer",
-        import.meta.url,
-      ).href
+      new URL("../../src/execution/controller.ts", import.meta.url).href
     );
     const submissionMock = mock.module(
-      new URL("../../src/execution/recovery.ts", import.meta.url).href,
+      new URL("../../src/execution/controller.ts", import.meta.url).href,
       {
         namedExports: {
           ...actualSubmission,

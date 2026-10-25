@@ -38,6 +38,7 @@ import { createIsolatedRuntimeProcessSafetyStateCandidate } from "../../src/exec
 import { loadRuntimeOwnedLocalPersonalAuthority } from "../../src/execution/authority.ts";
 import {
   selectionConfig,
+  executionSelection as createExecutionSelection,
   type executionSelection,
 } from "../fixtures/ai-selection.ts";
 import { hashExecutionSelection } from "../../src/selection/model.ts";
@@ -59,6 +60,11 @@ import {
   getRuntimeTraceCase,
   type RuntimeTraceCase,
 } from "../support/runtime-trace-case.ts";
+import {
+  prepareCoordinatorStateOperationSnapshot,
+  decodeCoordinatorStateSnapshot,
+  encodeCoordinatorStateValue,
+} from "../../src/storage/model.ts";
 
 type TraceSnapshot = Readonly<{
   state: string;
@@ -635,6 +641,11 @@ function fixture(
       typeof createIsolatedCoordinatorTaskRuntimeCandidate
     >[0]["beginInvocation"];
     observeStartRegistration?: (observer: unknown) => void;
+    admitState?: (
+      provider: "codex" | "claude",
+      role: "executor" | "reviewer",
+      attempt: number,
+    ) => boolean;
     reviewerDecision?: "approved" | "changes_requested";
     finalReviewerDecision?: "approved" | "changes_requested";
     executorChangedPaths?: readonly string[];
@@ -643,6 +654,7 @@ function fixture(
     cleanupProtocolFailure?: boolean;
     completionRejectRole?: "executor" | "reviewer";
     candidateVerificationFails?: boolean;
+    candidateVerificationFailureAt?: number;
     borrowedWorkspace?: boolean;
     unexpectedCapture?: number;
     candidateSecretAtCapture?: 1 | 2;
@@ -792,6 +804,7 @@ function fixture(
   let workspaceMaterializeCount = 0;
   let processStartCount = 0;
   let candidateCaptureCount = 0;
+  let candidateVerificationCount = 0;
   let releasePausedProcess: (() => void) | null = null;
   let releaseExternalAuthorization: (() => void) | null = null;
   let releaseOperationCreation: (() => void) | null = null;
@@ -1329,11 +1342,28 @@ function fixture(
           true,
         );
       }
-      processStartCount += 1;
       const role = preparedRoles.get(preparedCapability);
       assert.ok(role);
-      events.push(`start:${role}`);
       const roleStartCount = (processStartCounts.get(role) ?? 0) + 1;
+      if (
+        options.admitState &&
+        !options.admitState(
+          role === "executor"
+            ? (options.slateExecutorProvider ?? "codex")
+            : (options.slateReviewerProvider ?? "claude"),
+          role,
+          roleStartCount - 1,
+        )
+      )
+        return Object.freeze({
+          status: "blocked",
+          reason: "coordinator_state_input_invalid",
+          cleanupConfirmed: true,
+          manualRecoveryRequired: false,
+          recoveryId: null,
+        });
+      processStartCount += 1;
+      events.push(`start:${role}`);
       processStartCounts.set(role, roleStartCount);
       if (
         options.processStartFailureRole === role &&
@@ -1543,16 +1573,23 @@ function fixture(
               : {}),
           });
     },
-    verifyCandidate: () =>
-      Object.freeze({
-        status: options.candidateVerificationFails ? "blocked" : "verified",
+    verifyCandidate: () => {
+      candidateVerificationCount += 1;
+      return Object.freeze({
+        status:
+          options.candidateVerificationFails &&
+          candidateVerificationCount ===
+            (options.candidateVerificationFailureAt ?? 1)
+            ? "blocked"
+            : "verified",
         baseCommit: "1".repeat(40),
         baseTree: "2".repeat(40),
         patchHash: "3".repeat(64),
         contentManifestHash: "4".repeat(64),
         allowedPathsHash: "5".repeat(64),
         changedPaths: Object.freeze(["fixture.txt"]),
-      }),
+      });
+    },
     ...(options.hostCleanupWal
       ? {
           prepareDockerHostCleanup: () => {
@@ -1725,6 +1762,257 @@ function fixture(
     },
   };
 }
+
+/**
+ * 本番Task制御から本番保存値検査へ、実行済みunknownを持つ四段階を結合する。
+ * @trace ERB-IT-006、PRL-UT-006
+ * @boundary Providerと物理Writerは代役。実AI・Docker・保持記録は使用しない。
+ */
+test("通常継続は過去unknownを変えず両ProviderのHomeへ戻り、不整合なら次Effectを拒否する", async () => {
+  for (const fault of [
+    "none",
+    "lease",
+    "owner",
+    "resource",
+    "obligation",
+    "task",
+    "correlation",
+    "host",
+  ]) {
+    const binding = "a".repeat(64);
+    const hostRecord = {
+      schema: "crdd-coordinator-host-recovery/v1",
+      state: "host_only",
+      rootName: "crdd-coordinator-doctor-continuation",
+      rootIdentity: { dev: "1", ino: "2", birthtimeNs: "3" },
+      childIdentities: {
+        management: {
+          pathName: "management",
+          dev: "1",
+          ino: "3",
+          birthtimeNs: "4",
+        },
+      },
+      createdAt: "2026-10-26T00:00:00.000Z",
+    };
+    const hostHash = createHash("sha256")
+      .update(`${JSON.stringify(hostRecord)}\n`)
+      .digest("hex");
+    const token = `host.${hostRecord.rootName}.12345678-1234-4234-8234-123456789abc.${hostHash}`;
+    let bytes: Buffer | null = null;
+    const stages: string[] = [];
+    const harness = fixture({
+      borrowedWorkspace: true,
+      reviewerDecision: "changes_requested",
+      finalReviewerDecision: "approved",
+      admitState(provider, role, attempt) {
+        const index = stages.length + 1;
+        stages.push(`${provider}:${role}:${attempt}`);
+        const suffix = index.toString(16).padStart(16, "0");
+        const identity = {
+          schema: "crdd-coordinator/operation-identity/v2",
+          operationNonce: suffix.repeat(4),
+          provider,
+          consumer: "orchestrator",
+          operationId:
+            fault === "task" && index === 3 ? "OP-999999" : "OP-123456",
+          recoveryCorrelationId:
+            fault === "correlation" && index === 3
+              ? "other-task-operation"
+              : "task-operation-continuation",
+          grantRef: "PHMGRANT-CONTINUATION",
+          executionSelection: createExecutionSelection(
+            role === "executor" ? "executor" : "independent_reviewer",
+            {
+              provider,
+              model: provider === "codex" ? "gpt-6.1-sol" : "claude-opus-5-5",
+              effort: "medium",
+            },
+          ),
+          taskAttempt: attempt,
+          stableLogicalHomeBindingHash: (provider === "codex"
+            ? "c"
+            : "d"
+          ).repeat(64),
+          providerHomeIdentityHash: "8".repeat(64),
+          providerHomeProtectionHash: "9".repeat(64),
+          localUserBindingHash: "6".repeat(64),
+          repositoryBinding: binding,
+          ownershipLabel: `crdd.coordinator.runtime=${suffix}`,
+          resources: {
+            auth: `crdd-auth-${suffix}`,
+            provider: `crdd-${provider}-${suffix}`,
+            proxy: `crdd-proxy-${suffix}`,
+            internal: `crdd-internal-${suffix}`,
+            egress: `crdd-egress-${suffix}`,
+          },
+          images: {
+            provider: `sha256:${"a".repeat(64)}`,
+            proxy: `sha256:${"b".repeat(64)}`,
+          },
+          operationMode: "isolated_task",
+          workspaceMountMode: "read_write",
+          initialHostRecoveryId: token,
+          initialHostRecovery: {
+            token,
+            recordHash: hostHash,
+            directoryIdentity: "1:2:3",
+            markerIdentity: `1:2:${index + 3}`,
+            record: hostRecord,
+          },
+          hostPaths: {
+            root:
+              fault === "host" && index === 3 ? "foreign-root" : "host-root",
+            marker: "host-marker",
+          },
+        };
+        const before = bytes
+          ? decodeCoordinatorStateSnapshot(bytes, binding)
+          : null;
+        if (index === 3 && fault !== "none" && bytes) {
+          const mutated = JSON.parse(bytes.toString("utf8"));
+          const old = mutated.operations.find(
+            (item: { identityJson: string }) =>
+              JSON.parse(item.identityJson).provider === "codex",
+          );
+          if (fault === "lease") old.lease = "held";
+          if (fault === "owner") old.execution.ownerEffect = "active";
+          if (fault === "resource") {
+            old.resources[0].observation = "unobserved";
+            old.resources[0].absence = null;
+          }
+          if (fault === "obligation")
+            mutated.unresolvedRecoveries.push({
+              operationNonce: JSON.parse(old.identityJson).operationNonce,
+              recoveryId: old.recoveryId,
+              reason: "provider_result_invalid",
+              obligations: ["docker_resources"],
+            });
+          bytes = Buffer.from(`${encodeCoordinatorStateValue(mutated)}\n`);
+          assert.ok(decodeCoordinatorStateSnapshot(bytes, binding));
+        }
+        const next = prepareCoordinatorStateOperationSnapshot(
+          bytes,
+          `${JSON.stringify(identity)}\n`,
+          binding,
+        );
+        if (!next) return false;
+        const snapshot = structuredClone(
+          decodeCoordinatorStateSnapshot(next, binding)?.snapshot,
+        );
+        assert.ok(snapshot);
+        if (before)
+          for (const old of before.snapshot.operations)
+            assert.deepEqual(
+              snapshot.operations.find(
+                (item) => item.recoveryId === old.recoveryId,
+              ),
+              old,
+            );
+        const operation = snapshot.operations.find(
+          (item) =>
+            JSON.parse(item.identityJson).operationNonce ===
+            identity.operationNonce,
+        );
+        assert.ok(operation?.kind === "docker_task");
+        // 実行要求後の三値と、真正性を別試験で扱う資源終端の値Fixture。
+        const execution = {
+          providerStart: "unknown",
+          externalSend: "unknown",
+          sharedWrite: "unknown",
+          ownerEffect: "disabled",
+          workspaceReusable: false,
+        };
+        const resources = operation.resources.map((resource) => {
+          const key =
+            resource.purpose === "create_subscription_auth_probe"
+              ? "auth"
+              : resource.purpose.replace("create_", "").replace("_network", "");
+          return {
+            ...resource,
+            request: "identified",
+            dockerId: suffix.repeat(4),
+            receiptSource: "runtime_reconciliation",
+            observation: "absent",
+            absence: {
+              recoveryId: operation.recoveryId,
+              purpose: resource.purpose,
+              plannedResourceName:
+                identity.resources[key as keyof typeof identity.resources],
+              dockerId: suffix.repeat(4),
+              evidenceSha256: "e".repeat(64),
+            },
+          };
+        });
+        const settled = {
+          ...operation,
+          execution,
+          lease: "released",
+          resources,
+        };
+        bytes = Buffer.from(
+          `${encodeCoordinatorStateValue({ ...snapshot, operations: snapshot.operations.map((item) => (item.recoveryId === operation.recoveryId ? settled : item)) })}\n`,
+        );
+        assert.ok(decodeCoordinatorStateSnapshot(bytes, binding));
+        return true;
+      },
+    });
+    const result = await harness.runtime.start(
+      request(),
+      "C:\\repository",
+      undefined,
+      undefined,
+      "orchestrator",
+      Object.freeze({
+        workspaceId: null,
+        ownerRepositoryRoot: "C:\\repository",
+        executionTree: "C:\\repository",
+        baseCommit: null,
+        head: null,
+      }),
+    ).completion;
+    assert.equal(
+      result.status,
+      fault === "none" ? "completed" : "blocked",
+      fault,
+    );
+    assert.deepEqual(
+      stages,
+      fault === "none"
+        ? [
+            "codex:executor:0",
+            "claude:reviewer:0",
+            "codex:executor:1",
+            "claude:reviewer:1",
+          ]
+        : ["codex:executor:0", "claude:reviewer:0", "codex:executor:1"],
+      fault,
+    );
+    assert.equal(harness.cleanupCount(), 1);
+    assert.equal(
+      harness.processStartCount(),
+      fault === "none" ? 4 : 2,
+      "保存拒否後のProvider代役Effectは0",
+    );
+    assert.ok(bytes);
+    for (const operation of decodeCoordinatorStateSnapshot(bytes, binding)
+      ?.snapshot.operations ?? []) {
+      if (operation.kind !== "docker_task") continue;
+      assert.equal(operation.execution.providerStart, "unknown");
+      assert.equal(operation.execution.externalSend, "unknown");
+      assert.equal(operation.execution.sharedWrite, "unknown");
+    }
+  }
+  const changed = fixture({
+    borrowedWorkspace: true,
+    reviewerDecision: "changes_requested",
+    candidateVerificationFails: true,
+  });
+  const result = await changed.runtime.start(request(), "C:\\repository")
+    .completion;
+  assert.equal(result.reason, "coordinator_task_candidate_verification_failed");
+  assert.equal(changed.processStartCount(), 2, "Workspace差は限定是正前に拒否");
+});
 
 /**
  * 借用TreeのTaskを旧Bundle保存なしで完結させる。
@@ -5828,6 +6116,7 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
         reviewerDecision: "changes_requested" as const,
         finalReviewerDecision: "approved" as const,
         candidateVerificationFails: true,
+        candidateVerificationFailureAt: 2,
       },
       terminal: "clean",
       source: "STATE-REMEDIATION-REVIEWER-CLEAN",
@@ -5941,6 +6230,7 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
         reviewerDecision: "changes_requested" as const,
         finalReviewerDecision: "approved" as const,
         candidateVerificationFails: true,
+        candidateVerificationFailureAt: 2,
         cleanupThrows: true,
       },
       terminal: "recovery",

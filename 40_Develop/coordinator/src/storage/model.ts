@@ -6379,6 +6379,8 @@ function validateCoordinatorStateTransitionValue(
             // marker実体は状態遷移ごとに置換されるため、その同一性は比較しない。
             const sameHostContinuation =
               previousIdentity.operationId === identity.operationId &&
+              previousIdentity.recoveryCorrelationId ===
+                identity.recoveryCorrelationId &&
               previousIdentity.hostPaths.root === identity.hostPaths.root &&
               previousIdentity.hostPaths.marker === identity.hostPaths.marker &&
               previousIdentity.initialHostRecoveryId ===
@@ -6410,9 +6412,12 @@ function validateCoordinatorStateTransitionValue(
                   value.host.pendingTransitionJson !== null ||
                   value.lease !== "released" ||
                   value.execution.ownerEffect !== "disabled" ||
-                  value.execution.providerStart === "unknown" ||
-                  value.execution.externalSend === "unknown" ||
-                  value.execution.sharedWrite === "unknown" ||
+                  // 過去Effectの不確実性は、同Hostの正常技術終端を取り消さない。
+                  // 新stageのAuthorityは開始保存前の既存実行入口が確認する。
+                  (!hostCleanupDeferred &&
+                    (value.execution.providerStart === "unknown" ||
+                      value.execution.externalSend === "unknown" ||
+                      value.execution.sharedWrite === "unknown")) ||
                   !coordinatorTaskResourcesAreSettled(value)
                 );
               }) ||
