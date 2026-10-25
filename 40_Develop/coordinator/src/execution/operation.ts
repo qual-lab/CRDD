@@ -6900,7 +6900,6 @@ export function borrowRuntimeOwnedCoordinatorStorageRepository(
       revalidate: () => {
         const fresh = observeRepositoryStorageIdentity(capability);
         return (
-          resolveVerifiedRepositoryRoot(capability) === repositoryRoot &&
           fresh !== null &&
           fresh.repositoryForm === observed.repositoryForm &&
           fresh.repositoryIdentity === observed.repositoryIdentity &&

@@ -4,6 +4,7 @@
  * @trace ARCH-000002
  */
 import {
+  observeVerifiedRepositoryLayout,
   resolveVerifiedRepositoryRoot,
   verifyRepositoryRoot,
   type VerifiedRepositoryRoot,
@@ -337,9 +338,9 @@ export function observeRepositoryStorageIdentity(
   capability: VerifiedRepositoryRoot,
 ) {
   try {
-    const root = resolveVerifiedRepositoryRoot(capability);
-    if (root === null) return null;
-    const before = resolveRepositoryGitLayout(root);
+    const initial = observeVerifiedRepositoryLayout(capability);
+    if (initial === null) return null;
+    const before = initial.layout;
     const value = {
       repositoryIdentity: identity(
         "crdd-logical-repository-v1",
@@ -356,8 +357,10 @@ export function observeRepositoryStorageIdentity(
             ? "linked"
             : "embedded",
     };
-    const after = resolveRepositoryGitLayout(root);
-    return resolveVerifiedRepositoryRoot(capability) === root &&
+    const final = observeVerifiedRepositoryLayout(capability);
+    if (final === null) return null;
+    const after = final.layout;
+    return final.root === initial.root &&
       before.kind === after.kind &&
       value.repositoryIdentity ===
         identity("crdd-logical-repository-v1", after.commonDirectory) &&

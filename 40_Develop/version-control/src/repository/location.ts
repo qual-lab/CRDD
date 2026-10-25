@@ -6,7 +6,10 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import { resolveRepositoryGitLayout } from "./layout.ts";
+import {
+  type RepositoryGitLayout,
+  resolveRepositoryGitLayout,
+} from "./layout.ts";
 
 export const REPOSITORY_LOCATION_CONTRACT =
   "crdd-version-control/repository-location/v1" as const;
@@ -118,27 +121,29 @@ function validAbsoluteDirectory(candidate: unknown): candidate is string {
 }
 
 /**
- * Exact Repository Rootを観測する。
+ * exact Rootと、その同じ観測で得たGit配置を確認する。
  *
- * @responsibility Exact Repository Rootの観測対象、取得根拠、観測不能結果の境界を所有する。
+ * @responsibility 絶対Directory・実Path・Git配置を一回のfresh観測へまとめる。
  * @trace ARCH-000002
  * @input candidate: unknown
- * @returns string | nullを返す。
- * @precondition 「candidate: unknown」がobserveExactRepositoryRootの入力契約を満たす。
- * @postcondition observeExactRepositoryRootの責務を完了した結果だけを返す。
+ * @returns 同じRootの配置、又は観測不能のnull。
+ * @precondition 入力は未検証として扱う。
+ * @postcondition Rootの文字列解決後に同じ配置を取り直さない。
  * @effect Repositoryの実体とGit管理境界をFilesystemから観測する。書込み・Process起動は行わない。
- * @failure observeExactRepositoryRootは入力不正または下位処理の失敗を呼出し側へ返す。
- * @invariant observeExactRepositoryRootは入力から導いた結果以外の共有状態を変更しない。
+ * @failure 不正入力、実体不一致、配置観測例外はnull。
+ * @invariant 別の観測時点や呼出しへ結果をcacheしない。
  * @boundary Filesystem上のRepository実体とProcess内の検証済みRootの境界。
- * @security N/A: observeExactRepositoryRootはAuthority、秘密値または信頼判断を扱わない。
- * @concurrency N/A: observeExactRepositoryRootは共有非同期状態を持たない同期処理である。
+ * @security 観測値自体はCapabilityを発行しない。
+ * @concurrency 呼出しごとに現在実体を確認する。
  */
-function observeExactRepositoryRoot(candidate: unknown): string | null {
+function observeExactRepositoryLayout(
+  candidate: unknown,
+): RepositoryGitLayout | null {
   if (!validAbsoluteDirectory(candidate)) return null;
   try {
     const root = path.resolve(candidate);
     const layout = resolveRepositoryGitLayout(root);
-    return samePath(layout.root.realPath, root) ? layout.root.realPath : null;
+    return samePath(layout.root.realPath, root) ? layout : null;
   } catch {
     return null;
   }
@@ -195,7 +200,7 @@ export function verifyRepositoryRoot(candidate: unknown):
       reason: "repository_root_invalid";
       capability: null;
     }> {
-  const root = observeExactRepositoryRoot(candidate);
+  const root = observeExactRepositoryLayout(candidate)?.root.realPath ?? null;
   return root === null
     ? Object.freeze({
         status: "blocked" as const,
@@ -256,10 +261,33 @@ export function verifyRepositoryRootFromWorkingDirectory(
 export function resolveVerifiedRepositoryRoot(
   capability: VerifiedRepositoryRoot,
 ): string | null {
+  return observeVerifiedRepositoryLayout(capability)?.root ?? null;
+}
+
+/**
+ * 発行済みCapabilityと現在のRoot／Git配置を同時に観測する。
+ * @responsibility Package内のIdentity観測へ、同じ探索のRootと配置を渡す。
+ * @trace ARCH-000002
+ * @input capability: 私有WeakMapへ結合済みのRoot。
+ * @returns 発行時Rootと現在配置、又は不正・観測不能のnull。
+ * @precondition capabilityは同moduleのverifyRepositoryRootが発行し私有WeakMapへ結合済みである。
+ * @postcondition 毎回exact Rootとfresh配置を照合する。
+ * @effect Filesystem読取りだけ。書込み・Process・権限発行なし。
+ * @failure 偽Capability、実Path差、配置不正はnull。
+ * @invariant 前後観測やI/O段階を跨いで結果を再利用しない。
+ * @boundary 発行済みRootと現在Filesystemの内部観測。Package Root公開APIには追加しない。
+ * @security 入力のPropertyを読まず、私有結合だけを利用する。
+ * @concurrency cacheや新しいLockを持たない。
+ */
+export function observeVerifiedRepositoryLayout(
+  capability: VerifiedRepositoryRoot,
+): Readonly<{ root: string; layout: RepositoryGitLayout }> | null {
   const stored = roots.get(capability);
   if (stored === undefined) return null;
-  const observed = observeExactRepositoryRoot(stored);
-  return observed !== null && samePath(observed, stored) ? stored : null;
+  const layout = observeExactRepositoryLayout(stored);
+  return layout !== null && samePath(layout.root.realPath, stored)
+    ? Object.freeze({ root: stored, layout })
+    : null;
 }
 
 /**
@@ -297,7 +325,7 @@ export function resolveVerifiedRepositoryRootFromWorkingDirectory(
       current = parent;
       continue;
     }
-    if (observeExactRepositoryRoot(current) === null)
+    if (observeExactRepositoryLayout(current) === null)
       throw new Error("repository_boundary_invalid");
     return current;
   }

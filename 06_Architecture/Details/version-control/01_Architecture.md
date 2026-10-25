@@ -1,5 +1,11 @@
 # Version Control境界
 
+## 保存Identity観測の重複探索統合
+
+`repository/location.ts`のPackage内部観測は、私有WeakMapで検証済みCapabilityを照合し、exact Rootの絶対Directory・実PathとfreshなGit配置を一回の探索で返す。Package Rootの公開APIには追加せず、観測結果をcache・Authority・永続状態にしない。`observeRepositoryStorageIdentity`はこの観測をbefore／afterで一回ずつ実行し、Root、配置種別、common directory由来の論理IdentityとRoot由来の実体Identityの一致だけを既存shapeで返す。どちらかの観測が不正・不明又は不一致ならnullとする。
+
+一回のIdentity観測内部にあった文字列Root解決と配置読取りの重複だけを統合する。別々のAPI呼出しやI/O phaseを跨いで結果を使い回さない。書込み前後・atomic replace／readback後・Lock／cleanupで必要なfresh確認は各Ownerが従来どおり呼ぶ。保存用のIdentityをCommit観測・AI実行許可へ昇格しない。
+
 ## B4の借用Tree観測 — 2026-10-21
 
 `workspace/observation.ts`へ既存の安定File読取りと容量制限付きinventoryを移管する。開始時dirtyを含む実Treeを観測し、Git Commitへ勝手に置き換えない。既存のPath・case衝突・link／hardlink・深さ・File数・容量・読取り前後Identityの検査と拒否順序を保持し、書込み・巻戻し・採用・削除を行わない。Task Capability、許可Path・Secretの意味、レビュー公開範囲とWorkspace寿命は上位Ownerに残す。

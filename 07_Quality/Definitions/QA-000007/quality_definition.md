@@ -19,6 +19,10 @@ B4の借用Tree読取りはVCの`workspace/observation.ts`へ移管する。`RFD
 
 この追加断面の実Git・部分実装結果は[変更計画](../../../99_Roadmap/Changes/CHG-000082/workspace-runtime-inventory.md#採用git統合のsource接続と実git確認)へ接続する。既存の作成・観測・除去の部分実測を引き継いでPassにせず、未確認の公開入口・利用者判断・実データ移行を残す。Local Item全体の成立は別に判定する。
 
+## 保存Identity観測の検証条件
+
+RFD-IT-001／002の既存責務として、normal／linked Repositoryの一回のIdentity観測がfreshなbefore／after二探索で同じ結果shapeを返すこと、偽CapabilityはFilesystem探索前に拒否すること、Root／common directory／配置種別の途中差替え・reparse・観測不能を拒否することを実Filesystemで確認する。呼出し間の実体変化を旧観測のcacheで受理せず、完全復帰後の再成立は従来どおり許す。内部の配置観測をPackage公開APIに追加しない。Coordinator利用側の再検証も二探索へ接続し、別phaseのOwner／Lock失効、書込み・atomic確定・読戻しの拒否条件は既存の保存試験で引き続き確認する。所要時間は計測器なしの同じ合成fixtureで別比較し、性能改善だけを安全条件の成立根拠にしない。
+
 ## Workspace方式の追加検証条件（2026-10-17）
 
 前提となる二AdapterのGit読取りは、既存`RFD-IT-005`／008の局所断面として`git-read-command.integration.test.ts`で確認する。外部Diff・textconv・fsmonitorの発火対照→新経路での非発火、元差分とindex bytes、親Git環境／core.worktree差替え、literal Path、linked worktreeを実Gitで観測する。起動失敗・期限・上限と既存理由の保持はProcess差替えで別確認する。新公開API・管理State・実Dockerは使わず、この局所改善をGit Worktree管理や新方式Local Item全体のPassへ昇格しない。

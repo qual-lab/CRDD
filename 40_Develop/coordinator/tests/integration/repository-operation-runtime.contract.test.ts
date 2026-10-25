@@ -28,12 +28,14 @@ import {
 } from "../../src/execution/operation.ts";
 import {
   bindRuntimeOwnedRepositoryOperation,
+  borrowRuntimeOwnedCoordinatorStorageRepository,
   borrowRuntimeOwnedCoordinatorStateRepository,
   describeRepositoryOperationRuntimeContract,
   inspectRepositoryObjectFormatCandidate,
   verifyRuntimeOwnedRepositoryBindingCapability,
   verifyRuntimeOwnedRepositoryOperation,
 } from "../../src/execution/operation.ts";
+import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
 
 const firstRevision = "1".repeat(40);
 const secondRevision = "2".repeat(40);
@@ -236,10 +238,8 @@ test("Coordinator保存先借用は現在Repositoryと有効Ownerだけに結合
  * @cleanup 呼出し元Test Caseまたは登録済みhookが作成資源を清掃する。
  * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
-function temporaryRepository(t: TestContext) {
-  const root = fs.mkdtempSync(
-    path.join(os.tmpdir(), "crdd-operation-repository-"),
-  );
+function temporaryRepository(t: TestContext, parent = os.tmpdir()) {
+  const root = fs.mkdtempSync(path.join(parent, "crdd-operation-repository-"));
   const git = path.join(root, ".git");
   fs.mkdirSync(path.join(git, "info"), { recursive: true });
   fs.mkdirSync(path.join(git, "refs", "heads"), { recursive: true });
@@ -257,6 +257,58 @@ function temporaryRepository(t: TestContext) {
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   return root;
 }
+
+/**
+ * 保存借用の一回の再検証はfresh二探索を使い、呼出し間でcacheしない。
+ * @responsibility 上位保存借用に追加の重複探索がなく、実体差は拒否することを確認する。
+ * @trace PRL-IT-012
+ * @precondition Repository内の自己生成Gitだけを使用する。
+ * @stimulus 同じ借用を反復し、Git実体を差替えてから元へ戻す。
+ * @observation configのopen回数と再検証結果。
+ * @oracle 各正常呼出しは二探索、差替え中は拒否、復帰後は再成立。
+ * @cleanup 観測代役とGit実体を復元しfixtureだけを回収する。
+ * @boundary 本番Coordinator保存借用→Version Control実体観測。
+ */
+test("保存借用は呼出しごとの二探索と実体差替え拒否を維持する", (t) => {
+  const parent = path.resolve(import.meta.dirname, "../../../../.crdd/tests");
+  fs.mkdirSync(parent, { recursive: true });
+  const root = temporaryRepository(t, parent);
+  const verified = verifyRepositoryRoot(root);
+  assert.equal(verified.status, "completed");
+  if (verified.status !== "completed") throw Error("fixture_root_invalid");
+  const borrowed = borrowRuntimeOwnedCoordinatorStorageRepository(
+    verified.capability,
+  );
+  assert.ok(borrowed);
+  assert.equal(borrowRuntimeOwnedCoordinatorStorageRepository({}), null);
+  const marker = path.join(root, ".git");
+  const retired = path.join(root, "retired-git");
+  const config = path.join(marker, "config");
+  const original = fs.openSync;
+  let opens = 0;
+  fs.openSync = ((...args: Parameters<typeof original>) => {
+    if (String(args[0]) === config) opens++;
+    return Reflect.apply(original, fs, args);
+  }) as typeof original;
+  try {
+    assert.equal(borrowed.revalidate(), true);
+    assert.equal(opens, 2);
+    opens = 0;
+    assert.equal(borrowed.revalidate(), true);
+    assert.equal(opens, 2);
+    fs.renameSync(marker, retired);
+    try {
+      fs.cpSync(retired, marker, { recursive: true });
+      assert.equal(borrowed.revalidate(), false);
+    } finally {
+      fs.rmSync(marker, { recursive: true, force: true });
+      fs.renameSync(retired, marker);
+    }
+    assert.equal(borrowed.revalidate(), true);
+  } finally {
+    fs.openSync = original;
+  }
+});
 
 /**
  * linkedRepositoryのTest準備責務を実行する。

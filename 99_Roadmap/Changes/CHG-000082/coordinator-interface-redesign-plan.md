@@ -1577,6 +1577,27 @@ Sourceでは、`version-control/src/repository/revision.ts`のobserveRepositoryS
 
 短命診断は `.crdd/tmp/http-receive-diagnosis-20261025/` の三Scriptと四つの非秘密集計JSONだけに限定する。既存保持物や前回実AI結果JSONは不変。候補との比較入力として2026-11-01まで保持し、是正比較完了又は同日までに再評価して確認後清掃する。Source本文・HTTP本文・資格・コマンド引数は集計へ保存しない。保持を実AI再送や新たなRuntime管理の許可にしない。
 
+<a id="storage-revalidation-consolidation"></a>
+
+#### 保存再検証内の重複探索統合 — 2026-10-25
+
+利用者の継続指示により、基準`46dfaf776`からVersion Controlの一回の保存Identity観測内だけを整理した。変更分類は安全境界を維持する内部Refactor。Version Control／CoordinatorのArchitecture、QA-000007、直接利用側を着手前に照合し、読取り専用の独立確認でRoot確認とGit配置取得を同じfresh探索へまとめる条件を確定した。新しい公開API・保存Schema・Cache・Worker・Queue・Lock・Recoveryは追加しない。準拠基準・外部公開・Releaseは変更しないため全体準拠監査は追加せず、Source・安全境界・文書伝播の独立レビューと対象回帰を行う。
+
+| 対象 | 処置と維持する条件 |
+|---|---|
+| Version Control内部観測 | 私有WeakMapの発行済みCapability、絶対Directory、実Path、Git配置を一回の探索で照合する。新しい補助関数はPackage Rootの`index.ts`へ公開しない |
+| 保存Identity | 同じ呼出しの前後にfresh観測を二回行い、Root・Git種別・論理／物理Identityを比較する。従来の四探索を二探索へ統合し、観測不能はnullのまま返す |
+| Coordinator保存借用 | 同じCapabilityに対する余分なRoot再探索だけを除去し、一回の`revalidate`を五探索から二探索にする。別のI/O段階の確認・Owner・Lock・書込み・読戻しは変更しない |
+| 反証と終了条件 | Root／commonDir差替え、種別変更、junction、観測不能、不正Capabilityを拒否し、元の実体へ戻した後の再観測を確認する。正常・Linked Worktree、呼出しごとのfresh確認、公開結果の不変も照合する |
+
+Version Control全回帰71件、Coordinator保存借用・現在状態・Lock／pending・履歴の五Suite90件、Workbench HTTP検証Tool三Suite25件はすべて成功、失敗・skip零。正常／取消／応答喪失後の同ID継続、Owner喪失、Lock競合、書込み・読戻し失敗、履歴再入場と拒否条件を維持した。追加した反例の局所再実行は全回帰と重複するため加算しない。Version Control／Coordinator／Workbenchの整形・型・lintは成功し、Coordinator既存info84件・Workbench既存info五件は不変。Source・Architecture・QAの独立レビューは処理上の指摘零、Headerの境界条件をpreconditionへ置いた軽微指摘一件を適切なtagへ是正した。
+
+計測器なし・他回帰終了後の同じ新品合成fixtureでは、初期化と二Queue保存は4,920ms／3,675ms、Owner読取りまで5,025ms／3,793msだった。変更前は7,093ms／7,264ms。実行ごとのぶれがあり、標準benchmarkや任意Repositoryでの速度保証にはしない。保存fixtureは各回、六義務零・未実行二Queue・自身だけのWorktree／専用Ref零・reparse零を確認して清掃・不存在確認済み。探索回数や性能改善だけを安全性の根拠にはしない。
+
+元実AIの18.592秒とClaude終了1の原因確定・解決、実AI E2E成功は主張しない。外部AI・Docker照会／操作・資格読取り・既存保持物の操作は行っていない。次はこの限定是正を固定し、実AI再確認の送信範囲・回数について別途人間判断を得る。
+
+Header是正後の最終独立確認は限定Pass。比較完了後、短命診断七ファイルのexact一覧、今回回帰三Rootの空領域又はNode compile cacheだけであること、canonical境界・全配下reparse零・対象Node Process非使用を再確認した。診断Directoryと回帰三Rootを清掃し、各不存在を確認済み。実AI結果や既存保持三領域は不変。計測器や試験生成物をGitへ追加せず、本節の限定結果と再実行可能な契約試験を残す。
+
 <a id="new-model-ai-once-results-20261025"></a>
 
 ### 新Model読取り各一回と編集停止 — 2026-10-25
