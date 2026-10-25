@@ -45,7 +45,7 @@ Hostから渡すSeccompはImageの外なので、実行時の実体・容量・H
 
 ## Workspace方式の追加検証条件（2026-10-17）
 
-検証HTTP Clientの期限は`ERB-IT-021`でRoute別に反証する。exact `/workspace/action`だけHTTP60秒・親65秒、AI受付とview／状態観測はHTTP15秒・親20秒、共通の終了確認2秒とする。有限時計で設定値・期限超過・一回abort・Reader回収・子の終了未確認・late frame／close・再送零を確認し、実loopbackでは15秒超かつ60秒内のWorkspace応答と、他Routeの15秒拒否を別々に確認する。時刻observerの例外で一次結果を変更しない。これは検証Toolの有限待機であり、製品性能や任意Repositoryでの完了保証ではない。
+検証HTTP Clientの期限は`ERB-IT-021`でRoute別に反証する。exact `/workspace/action`はget等を含む全操作でHTTP60秒・親65秒、AI受付・取消の `/ai-request/action` とAI状態観測を含むWorkbench viewの `/api/workbench-view?route=%2F` はHTTP15秒・親20秒、共通の終了確認2秒とする。有限時計で設定値・期限超過・一回abort・Reader回収・子の終了未確認・late frame／close・再送零を確認し、実loopbackでは15秒超かつ60秒内のWorkspace応答と、他Routeの15秒拒否を別々に確認する。時刻observerの例外で一次結果を変更しない。これは検証Toolの有限待機であり、製品性能や任意Repositoryでの完了保証ではない。
 
 Coordinator借用接続の追加断面は、`ERB-IT-006`の通常二役割・一回是正・範囲逸脱停止・取消、`RFD-IT-013`／`PRL-IT-013`の実GitでのDirect／Isolated入力搬送・開始dirty基準・二Task継続・元Tree／Branch保全、`ERB-UT-023`の三Mount計画と回収観測照合に割り当てる。旧Bundle準備／保存へ進まないこと、Reader拒否でfallbackしないこと、欠測を変更なしやTree保持済みへ補完しないことを確認する。局所代役の成功を実Provider・公開E2EのPassへ拡張しない。
 

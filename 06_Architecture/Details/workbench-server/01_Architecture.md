@@ -4,7 +4,7 @@
 
 検証ToolだけのHTTP子Processは、既存の拒否理由に任意の`clientProcess`診断を添える。値は最初の故障段階、終了値、固定Signal分類、stderrバイト数、終了要求の有無だけとし、生出力・自由な例外文・Tokenは含めない。起動・pipe・出力上限・警告・監視期限の最初の故障は後続通知で上書きしない。Process終了後のframe／失敗frame／応答frameの拒否は別段階にする。
 
-警告だけでも拒否する現行条件、同IDの取消と回復参照は維持する。検証Toolの固定Route `/workspace/action` だけはGit統合を同期完了する操作のためHTTP上限60秒・親の子Process監視65秒とし、AI受付 `/ai-request/action` とview／状態観測はHTTP15秒・親20秒を維持する。子の終了確認2秒は共通で、任意の期限を受け取る公開入力は追加しない。60秒は有限の待機上限であり、あらゆるRepositoryの成功や性能を保証しない。終了要求を終了確認やTask取消成功と同一視せず、Taskの一次結果とHTTP故障を分離する。正常な通信失敗frameの子側診断はそのまま保ち、親Process故障の診断を通信原因へ置換しない。
+警告だけでも拒否する現行条件、同IDの取消と回復参照は維持する。検証Toolのexact Route `/workspace/action` はget等を含む全操作でHTTP上限60秒・親の子Process監視65秒とする。AI受付・取消の `/ai-request/action` と、AI状態観測を含むWorkbench viewの `/api/workbench-view?route=%2F` はHTTP15秒・親20秒を維持する。子の終了確認2秒は共通で、任意の期限を受け取る公開入力は追加しない。60秒は有限の待機上限であり、あらゆるRepositoryの成功や性能を保証しない。終了要求を終了確認やTask取消成功と同一視せず、Taskの一次結果とHTTP故障を分離する。正常な通信失敗frameの子側診断はそのまま保ち、親Process故障の診断を通信原因へ置換しない。
 
 ### Repository別AI選択設定への接続候補 — 2026-10-24
 

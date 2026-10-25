@@ -1364,9 +1364,22 @@ Tool差分の型・整形・lint・diffcheck、外部AIなしのHTTP／取消／
 | Lock取得失敗 | 通常File起動では同じ固定Workerの取得・解放・exit 0が成立し、元保持Rootの正式Readerも約213msでcompleted。一方、前回と同じ`node --input-type=module -e`ではWorkerが親execArgvを継承して`ERR_INPUT_TYPE_NOT_ALLOWED / exit 1 / state 0`。正式Readerは約5,040ms後にlock_unavailable。Worker起動方式の不適合を再現した。Atomics同期待機中にerror callbackを処理できないため固定理由へ畳まれる点は、起動失敗そのものと区別する。残存Lockの証拠ではない |
 | HTTP期限超過 | 別新品の一回の非AI再現で、既存executeWorkspace同期区間はcreate 10,879ms、get 1,408ms、inspect 1,633ms、freeze 11,306ms、candidate-diff 655ms、adopt 18,796ms。adopt内の同期子Processは24回・計1,471msで、残りの時間内訳は未特定。adoptが検証Client固定15秒を超え、merged後のheaders_unobservedを再現した。通信障害・単独Gitコマンド遅延とは断定しない |
 
-切り分け時点の最小是正案は、(1)診断・回収を通常File起動へ固定し、Lock機構は変更しない、(2)検証Tool内部で`/workspace/action`だけHTTP上限60秒・親の子Process上限65秒とし、AI受付とview／observeの15秒・他の親上限20秒は維持する、(3)既存の操作名・時刻observerで待機区間を確認する、の三点であった。任意Timeout API、新Worker、Queue、Lock、Registry、Recovery機構は作らない。60秒は有限待機上限であり他Repositoryの成功保証ではない。切り分け時点では未採用・未実装だったが、その後利用者が限定是正と非AI試験を承認した。現行候補はToolだけ実装済みで、期限超過、一回abort、子終了、late frame／close、同ID観測・再送零の局所四件と対象十八件回帰は成功した。母集団は重複するため加算しない。実loopbackでもWorkspaceの16秒応答成功と通常Routeの15秒拒否を確認した。型・変更Sourceの整形／lint・diffcheckも成功。初回追加assertはTimer生成前拒否と即時失敗後の解除を残存Timerと混同したため、設定履歴の確認へ訂正した。製品条件は緩めていない。新品での正式非AI事前確認は次の固定候補から一回行う。
+切り分け時点の最小是正案は、(1)診断・回収を通常File起動へ固定し、Lock機構は変更しない、(2)検証Tool内部のexact `/workspace/action` はget等を含む全操作でHTTP60秒・親65秒、AI受付・取消の `/ai-request/action` とAI状態観測を含むWorkbench viewの `/api/workbench-view?route=%2F` はHTTP15秒・親20秒を維持する、(3)既存の操作名・時刻observerで待機区間を確認する、の三点であった。任意Timeout API、新Worker、Queue、Lock、Registry、Recovery機構は作らない。60秒は有限待機上限であり他Repositoryの成功保証ではない。切り分け時点では未採用・未実装だったが、その後利用者が限定是正と非AI試験を承認した。Toolだけの是正候補で、期限超過、一回abort、子終了、late frame／close、同ID観測・再送零の局所四件と対象十八件回帰は成功した。母集団は重複するため加算しない。実loopbackでもWorkspaceの16秒応答成功と通常Routeの15秒拒否を確認した。型・変更Sourceの整形／lint・diffcheckも成功。初回追加assertはTimer生成前拒否と即時失敗後の解除を残存Timerと混同したため、設定履歴の確認へ訂正した。製品条件は緩めていない。
 
 診断の新品Workspaceは通常Fileから既存close-candidate／discardで正式回収し、Worktree・専用Refの不存在と実体・非使用を確認後、診断Rootを清掃して直接不存在を確認した。元保持RootのDirect／Isolatedのstate.jsonは比較前後のSHA-256が一致し、元保持物の回収は発行していない。独立確認でも上記の原因と限定案は整合している。
+
+#### 限定是正後の新品非AI確認
+
+Source `bc7b89ee991610aa4cb6b5a85b7a6b1f15e049ac`・clean固定後、新品`.crdd/tests/workspace-timeout-fix-20261025/preflight/`で既存Toolの非AI事前確認を一回実施した。短命入口はRoot定数だけを差替え、相対importを元Source位置の絶対URLへ機械的に解決し、`40_Develop`配下であることを確認した。実行分岐は`--preflight`だけで、AI・認証情報・Docker資源作成は使用しない。
+
+- 終了0、Direct／Isolated両方のlimitedProbePassed・runtimeClean・workspaceClean・closeConfirmedはtrue。Directの既存Dirty／Stage／未追跡保全も成功した。
+- IsolatedのBaseは`a026cbbfc5f2a1bc11b6ba6fc7181400bc9f278e`、固定Candidateは`0eb31dfcf68babaa30e252810f66009d0ec51fab`、二親Mergeは`983b4dfb34638ff725df2e0a79d5e8f663216ffd`。明示固定・差分照合・採用・Candidate終了・Worktree／専用Ref回収の既存Oracleを全て通過した。
+- HTTPの開始から本文完了まではcreate 15,643ms、freeze 15,517ms、adopt 27,091ms、close-candidate 17,559ms、discard 18,197ms。旧15秒を超える操作が複数あっても、各操作60秒の有限上限内で応答を受領した。一回の実測を性能上限へ一般化しない。
+- Docker比較はverified／observed_inventory_unchanged、追加・削除Container／Network零。fixtureRootsRemoved=true、fixtureCleanupFailures空、Source再観測不変。fullE2eVerified=falseを維持する。
+- 元保持Root二件のstate.jsonは実行前後のSHA-256が一致し、回収・削除・Lock解除は発行していない。新Modelの実AI確認・編集E2E、AI再送・Docker再起動も実施していない。
+- 今回残った結果File一件と短命入口二件は、上記要約の記録後に実体・非alias・既知File集合を確認し、今回のtests／tmp二Rootだけを清掃して直接不存在を確認した。実測ごとの書庫は追加しない。
+
+Source・Architecture・QA・結果記録の最終独立確認は残指摘零。限定した非AI保証の確認であり、実AI・旧保持物回収・全体E2E・Releaseの成立ではない。
 
 <a id="claude-readonly-turn-acceptance-result"></a>
 
