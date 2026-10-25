@@ -1724,6 +1724,20 @@ Direct受付 `request-3d051d2f-d398-4696-89fe-a2249b66d79c` はstatus／executio
 
 独立レビューで検出した耐久Operationの事前相関除外とstderr復元代入の無反映を是正した。同じ回復IDに別Taskの耐久記録がある反例と、復元setterの例外／無反映を含む局所五件・静的確認を再実行し成功、最終限定再レビューの残指摘は零。これは診断搬送の確認であり、保持中試験の内部原因特定・回収・実AI編集E2E成功ではない。AI再送、Docker照会／再起動、回復実行、保持物操作は実施していない。過去の結果JSONも変更しない。
 
+<a id="workspace-diagnostic-edit-stop-20261026"></a>
+
+### 診断追加版の一回実測と停止
+
+利用者承認により固定HEAD `e2223c180fdc4a545fb6e4f0162fee399139dfc6`、同じ合成送信内容・新Model・既存固定Imageで正式Toolを一回実行した。full HEAD・clean・Tool本文blob・TTY・新品Rootを照合し、変更は短命入口の試験Root一箇所と相対importの元位置解決だけ。入口の独立確認は残指摘零、通常送信同意の自動入力なし。開始前のEngineは応答し、固定Image三件と既存停止Container一件を読取り確認した。
+
+Direct受付 `request-3b465438-cfa7-4ed1-9002-b2dad024c378` はunknown、一次理由 `docker_process_controller_recovery_unavailable`、cleanupConfirmed falseで停止。HTTP故障はnull、closeConfirmed true。追加診断はCodex executor／taskAttempt 1、段階 `operation_start_save`、同Task相関 `operation-cf4994bb-1824-4010-9d6e-e17ec9380b9e` を保持した。回復参照はTask結果の四参照に含まれるが、その試行の耐久操作が存在しないため `task_only` であり、完全な操作帰属確定ではない。任意例外本文・Provider生出力は保存しない。
+
+同じTaskの耐久操作は初回Codex／Claude各一件で、各五資源はidentified／absent、Lease released。限定是正試行の開始記録保存で停止したことは観測できたが、Writerの保存拒否、候補生成・遷移拒否、読戻し・排他解放のどれかまでは未確定。`storage/settlement-store.ts`の開始保存と`storage/model.ts`の候補・遷移検査を次の非AI調査対象とする。現時点でDockerのContainer作成故障や認証切れへ断定しない。
+
+独立読取り確認も上記の限定結論に一致した。まず開始保存の呼出し境界で既存返却のstatus・固定reason分類・保存確認・排他解放・Effect有無とthrowを区別し、候補生成系の場合だけmodel層へ進む。今回の段階だけでprepare／validateの拒否へ限定しない。新たな診断拡張・Source是正はまだ行っていない。
+
+Isolatedは未開始、再試行・Docker再起動・Image更新・旧保持物操作なし。今回前後のContainer／Network追加・削除は零、既存資源保持・構成同値・Source不変。これをHost終了や回収完了へ読み替えない。安全な結果は `.crdd/tests/workspace-ai-diagnostic-20261026/edit/result.json`、合成Rootは同じ親の`direct`に四exact回復参照とともに保持する。2026-11-02までに既存Ownerで再評価し、期限だけで削除しない。今回Node Process零を確認後、短命の起動二ファイルと空の専用tmp Directoryを清掃し、不存在を確認した。
+
 <a id="new-model-ai-once-results-20261025"></a>
 
 ### 新Model読取り各一回と編集停止 — 2026-10-25
