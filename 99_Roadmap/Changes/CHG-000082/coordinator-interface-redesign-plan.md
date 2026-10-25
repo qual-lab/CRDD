@@ -1526,6 +1526,29 @@ HTTP15/60秒、親20/65秒、close2秒、kill最大一回、stderr／frame容量
 
 Architecture DetailとQA-000006へ入力搬送・失敗分類・終了条件を反映した。次の実AI確認には別途一回の送信承認が必要であり、今回の非AI成功から自動再送しない。
 
+<a id="claude-ipc-readonly-once-result"></a>
+
+#### IPC是正後のClaude読取り一回 — 2026-10-25
+
+利用者の明示承認により、固定Source `32ddb51a22e4dfbbaf7cac4ff3d68f1134560064`、既存Claude Image `sha256:612433b71c4af3dfb135c00daad64f0ef897f86e0251b4da558715fdfde9c51f`、Claude Opus 5.5／mediumで正式読取りToolを一回だけ実行した。送信内容は前回と同じ合成Context848 bytes／SHA-256 `4299bae2e2fffb7ebd929cb6d5a789b232ff364d943cf7b1a228ad9b7f15f6f0`と正式Toolの固定質問だけ。本体Source・秘密情報を送らず、既存Subscription経路を使用する。新品合成Rootは `.crdd/tests/claude-ipc-once-20261025/readonly-claude`、合成Commit `4b7f7a38e405d2381878733b60bd2b973172a21a`。
+
+実装・契約変更ではなく、承認済み実境界の限定検証として扱った。短命入口の事前レビューで結果のnested検査不足・成功条件不足・最外失敗記録不足を検出し、外部Effect前に是正した。既存の閉じた結果検査を現在のモデル・有限時計へ追従し、Source／入力／fixture不変と実終了を成功条件へ接続した。送信例外・結果保存失敗の固定診断とRoot保持を自己試験し、独立再確認の残指摘零の後にだけ実行した。製品Source・期限・Task Owner・再送禁止は変更しない。今回は限定結果と回収の独立確認を行い、準拠基準やReleaseを変更しないため全体準拠監査は追加しない。
+
+| 対象 | 観測結果と限界 |
+|---|---|
+| 結果 | 正式Tool終了2、signalなし、close確認済み。受付`request-a9c79dcd-2ec3-42a4-a5fe-d67e10d3b124`。limitedProbePassed／fullE2eVerified false。Tool stderrは1,388 bytesの件数だけを保持し、本文は保存しない |
+| 検証側の最初の失敗 | observeの`workbench_verification_transport_failed`／headers_unobserved／timedOut true。今回はHTTP15秒Timeoutであり、先行の子Process20秒deadline分類とは異なる |
+| 最後のGET | Client開始→Server受信18,592ms、Client期限確定15,007ms、Server受信→finish658ms、Owner観測46ms。Client期限確定（要求処理終了）→親close処理4,247ms。Server受信がClient期限より遅い事実を確認したが、送信から受信までの具体的な占有処理・OS／通信待機は未特定。受信前遅延をOwnerの保存遅延へ読み替えない |
+| 有限時計 | Client／Server各15件、Owner12件、dropped零、購読解除済み。POST本文完了→親close処理にも8,209msの差を観測。独立ordinalを一律に同一要求番号とせず、最後の固定逐次GETの時点・経路と件数を照合した |
+| Task一次失敗 | status／executionStatus blocked、reason／primaryFailureはprovider_process_exit_nonzero。履歴のpurpose start_provider_attached／stage execution_classification、handle取得・応答観測あり、receipt記録なし、exceptionCodeなし。command終了1、stdout 1,411 bytes／stderr零。本文は読取り・保存せず、この情報だけで認証失敗やCLI内部原因、HTTP取消との因果順を断定しない |
+| 取消・終了 | 同ID取消一回と結果観測あり、取消・Client close・Owner／Server close失敗なし、closeConfirmed／cleanupConfirmed true、回復参照・二次失敗空 |
+| 資源 | 終了後Containerは既存停止一件のみ。試験専用Container／Network残存零。標準bridgeだけID世代差、既存資源保持・構成同値を確認。再起動命令は発行せず、世代差の原因・発行者は未確定 |
+| 不変条件 | 本体HEAD／Tree、合成Contextを含む六入力Hash、合成Tree不変。再送・別Provider・編集E2E・Image更新・Docker再起動・既存保持三領域の操作なし |
+
+既存maintenanceはcompleted／orchestrator_terminal_records_retired。保存Ownerによる再読取りでoperations／unresolvedRecoveries／pendingDeliveries／historyPending／leaseIntents／workspaces零、自身だけのGit Worktree、専用Ref零、reparse零、Tree cleanを確認した。今回Root参照の対象Processは零。別にprepareWorkspaceSurfaceが作成した未実行baselineとしてqueue-a／queue-b二件がqueued（generation1、ownerGeneration／workspaceId／resultReference null）、task-a一件がready／startPhase none／retry0で残る。Projectのowner-aはfixtureの固定初期値であり、実行Ownerの生存証明ではない。TaskのattemptId／authorityBindingId／candidateId／operationId／supersededByはnull、回復義務・受理参照は空、結果・受領・判断・判断回復・Lease根拠は零、受付Bindingは合成二Queueだけである。今回の読取りRequestや実行Owner・Operation・Workspace・結果・回復・配送・履歴待ちとの結合はなく、これらをTask完了・取消成功へ換算せずfixture全体の廃棄対象とする。削除直前に同値を再確認し、不明・別値なら停止する。合成Rootの不要fixtureを確認後清掃し、兄弟の安全な結果JSONだけ2026-11-01まで保持する。未解明の原因や失敗を成功へ書き換えず、追加AI試験は行わない。次候補は外部AIなしでServer受信前の親側占有とProvider終了1の既存診断搬送を切り分けることであり、期限延長・Worker／Queue／Recovery追加は行わない。
+
+独立確認で清掃前の未実行baseline説明と、失敗GETを本文受領と読める表現を是正し、残指摘零となった。同じ保存OwnerのGate・exact canonical leaf・全配下reparse零・対象Process零を削除直前に再確認し、今回leaf Rootだけを削除して不存在を確認した。兄弟結果JSON・親・既存保持三領域は不変。自己生成した短命入口readonly.ts／厳格結果検査report.ts／清掃確認cleanup.tsもexact一覧・非使用・境界を確認して削除し、空の `.crdd/tmp/claude-ipc-once-20261025/` まで不存在を確認した。今回の失敗分類と回収成立の記録であり、読取り成功・編集E2E成功ではない。
+
 <a id="new-model-ai-once-results-20261025"></a>
 
 ### 新Model読取り各一回と編集停止 — 2026-10-25

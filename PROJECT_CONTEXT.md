@@ -12,6 +12,8 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
+IPC是正後のClaude Opus 5.5／medium読取りを同一合成Contextで承認どおり一回実行したが、状態観測のHTTP15秒Timeoutで不合格。最後のGETはClient開始からServer受信まで18,592ms、受信後の応答は658ms、Owner観測46msだった。子の入力待ちではなくServer受信前の遅延を観測したが、占有処理やProvider終了1との因果は未確定。Task一次理由はprovider_process_exit_nonzero。同ID取消・終了・実行資源回収は確認済み。本体・合成入力は不変、再送・Docker再起動・既存保持物操作なし。今回Rootは残存義務・未実行fixture・Git・非使用を独立確認後に清掃し、不存在確認済み。今回短命3ファイルとDirectoryも回収済み。安全な結果JSONだけ期限付き保持する。[一回の結果と限界](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#claude-ipc-readonly-once-result)を参照する。
+
 承認された検証Tool限定の是正として、HTTP子Processへの入力をstdin終端待ちからNode標準IPCの一件搬送へ変更した。HTTP15/60秒・親20/65秒・終了確認・Task Ownerは維持し、対象回帰25件、型・整形・lintと独立レビューを完了した。親を22秒停止する反例でも正式ClientのHTTP完了と子終了を確認した。実AI再送・Docker操作・保持物操作は行っていない。元実AIの親占有処理・Provider非0との因果・以前の15秒HTTP故障は未確定で、実AI E2E成功とは扱わない。[是正と非AI検証](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#verification-client-ipc-implementation)を参照する。
 
 承認された計測付きClaude Opus 5.5／medium読取りを固定Source `b114c08f`・同じ合成Contextで一回実行した。GET13件は約0.57〜0.95秒だったが、最後はHTTP15秒故障ではなく、検証用Client子Processの親側20秒監視で停止した。Taskはprovider_process_exit_nonzero、取消結果・資源回収・終了は確認済み。親側callback処理に最大約8.3秒の観測遅延があり、元のGET15秒故障、最後の要求の停止境界、Provider非0との因果は未確定。再送・編集E2E・Docker再起動・既存保持物操作なし。今回Rootと短命四File・tmp directoryは安全条件を再確認して清掃・不存在確認済み。兄弟の非秘密結果JSONだけ期限付き保全する。[今回の実測と限界](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#claude-observation-timing-once)を参照する。
