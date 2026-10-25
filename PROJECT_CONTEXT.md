@@ -12,7 +12,7 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
-Claudeの状態GET遅延に対し、読取り検証Toolだけへ有限の区間計測を接続した。要求段階・独立した観測番号・時刻だけを記録し、本文・Tokenは保存しない。HTTP15秒・Task Lifecycleは不変。型／静的確認・対象回帰22件・最終独立レビュー残指摘零。実AI再試行・Docker操作・保持物処置なし。元の遅延原因は未確定で、計測追加を解消とは扱わない。[調査と最小修正](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#claude-observation-http-diagnosis-20261025)を参照する。
+承認された計測付きClaude Opus 5.5／medium読取りを固定Source `b114c08f`・同じ合成Contextで一回実行した。GET13件は約0.57〜0.95秒だったが、最後はHTTP15秒故障ではなく、検証用Client子Processの親側20秒監視で停止した。Taskはprovider_process_exit_nonzero、取消結果・資源回収・終了は確認済み。親側callback処理に最大約8.3秒の観測遅延があり、元のGET15秒故障、最後の要求の停止境界、Provider非0との因果は未確定。再送・編集E2E・Docker再起動・既存保持物操作なし。今回Rootと短命四File・tmp directoryは安全条件を再確認して清掃・不存在確認済み。兄弟の非秘密結果JSONだけ期限付き保全する。[今回の実測と限界](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#claude-observation-timing-once)を参照する。
 
 新Model読取りを固定Source `59cd8ec3`で各一回実行した。Codex `gpt-6.1-sol`／mediumは成功。Claude `claude-opus-5-5`／mediumはTask・実行completed、cleanup確認済みだが、状態観測のHTTP headers未観測Timeoutにより検証全体は不合格。再送せず、Direct／Isolated編集E2Eは未実施のまま停止した。保持中の採用済みCandidateは既存APIで終了・Workspace破棄し、未解決義務ゼロの試験領域9件を確認後削除した。Isolated2領域の履歴確定待ち各1件と、正式回復がresource_unconfirmedで停止した旧unknown領域は2026-11-01までの再評価対象として保持する。Docker再起動・強制削除なし。[今回の結果](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#new-model-ai-once-results-20261025)を参照する。
 

@@ -1463,6 +1463,27 @@ Source・Architecture・QA・結果記録の最終独立確認は残指摘零。
 
 型・Package全体の整形／lint確認は成功（変更外のinfo五件は残存）。初回対象回帰二十件は成功し、レビュー是正後の固定対象回帰は二十二件すべて成功した。母集団が重なるため加算しない。最終独立レビューは残指摘零。実loopbackの正常・15秒Timeout、閉じたsummaryの不正値、解除後通知・Server close保留／拒否、元HTTP故障・同ID取消・実保存受付と応答喪失後継続を確認した。初回の型検査で試験用Promise.withResolversが設定対象lib外だったため通常Promiseへ置換し、FormatterのWindows書込み拒否は未適用を維持して再整形・再検査した。実AI・Docker操作・保持物の処置は行っておらず、既存15秒期限とTask Lifecycleは不変。計測接続ができたことを元Claude遅延の原因確定・解消とは扱わない。
 
+<a id="claude-observation-timing-once"></a>
+
+#### 計測付きClaude一回の実測
+
+利用者の再確認承認により、固定Source `b114c08f67989272316a7a62b3f5bdf1e6382d87`、固定Claude Image `sha256:612433b71c4af3dfb135c00daad64f0ef897f86e0251b4da558715fdfde9c51f`、Claude Opus 5.5／mediumで正式読取りToolを一回実行した。送信は前回同一の合成Context 848 bytes／SHA-256 `4299bae2e2fffb7ebd929cb6d5a789b232ff364d943cf7b1a228ad9b7f15f6f0`と固定質問だけ。合成Commitは`7a61ee88e7fe48561003f0faa5a3bff910564c28`。一回入口は旧tmp／旧結果への依存を撤去し、自己試験Process内で旧ファイル読取り・importを拒否しても検査成功することを確認した。実行前独立レビューの残指摘零。拒否用preloadは自己試験専用で、正式Tool子には注入しない。
+
+| 対象 | 今回の観測 |
+|---|---|
+| 結果 | Tool終了2、limitedProbePassed／fullE2eVerified false。受付`request-dc5a3328-1f03-44a9-bff2-39be481b3d9c`、Task／実行blocked、一次理由`provider_process_exit_nonzero`。生出力・回答本文・資格値は保存しない |
+| 検証側の最初の失敗 | observeで`workbench_verification_client_process_failed`、子Process段階deadline、exit欠測、SIGTERM、stderr 0 bytes、終了要求あり。HTTPのheaders_unobserved／15秒Timeoutではなく、親側20秒監視による終了分類。欠測をHTTP故障へ補完しない |
+| 記録できた通信 | Client／Server各14件、Owner観測11件、dropped 0、購読解除済み。14件中GET13件は開始→本文完了約0.57〜0.95秒で全て200相当の正式Client検査を通過。Owner観測は約26〜69ms、Server GET受信→finish約0.54〜0.91秒。最後の失敗要求には有効な子frameと対応Server受信の記録がないため、子の起動／HTTP発行前・Server到達前・frame搬送前のどこかは特定できない |
+| 親側観測の遅延 | start POSTの子本文完了→親close処理に8,332ms、観測GETにも4,226ms／2,211msの差を記録。親Processでのcallback処理遅延を実測したが、最後の子期限超過やProvider非0の原因・因果順まで断定しない |
+| 取消・終了 | 同じIDへの取消要求一回・結果観測あり、clientCloseFailure／closeFailureなし、closeConfirmed／cleanupConfirmed true、回復参照・二次失敗空。本体HEAD／Tree、合成Context／Tree、選択設定と六入力Hash不変 |
+| 資源 | fresh一覧は既存停止Container一件のみ、試験専用Container／Network残存零。標準bridgeのID世代差あり、既存資源保持・構成同値を確認。再起動を発行しておらず、世代差の原因・発行者は未確定 |
+
+失敗後の自動再送・別Provider試験・編集E2E・Docker再起動は行わない。前回のGET15秒故障が解消したとは扱わず、今回観測できたGETは遅くなく、別の子監視期限で停止したことを区別する。次候補は外部AIなしで子Processの発行・起動・stdin・結果frame・親callbackの境界と、既存Provider非0診断の搬送を照合すること。Timeout延長、新Worker／Queue／Lock／Recoveryは根拠なしに追加しない。
+
+今回Root `.crdd/tests/claude-readonly-timing-20261025/readonly-claude` は既存maintenance後、operations／unresolvedRecoveries／pendingDeliveries／historyPending／leaseIntents／workspaces零、自身以外のWorktree・専用Ref零、参照可能な試験Process零、canonical Path一致・reparse零を確認した。空状態ではなく、prepareWorkspaceSurface由来の未実行合成queue二件（queued）とTask一件（ready）は残るが、実行Owner・Operation・Workspace・結果参照はなく、fixture全体の廃棄対象とする。これを製品Taskの完了・取消成功へ換算しない。保持中三領域は不変。安全な結果JSONは親にありRoot清掃対象から除外し、2026-11-01までに非AI調査と保持要否を再評価する。短命入口の`readonly.mjs`／`report.mjs`／自己試験専用`deny-old.mjs`／今回回収確認用`cleanup.mjs`の四Fileと空になった今回tmp directoryも、処理完了後の清掃対象とする。
+
+独立確認後、同じ状態・未実行fixture・Git参照・Process・canonical／reparse条件を直前に再照合し、今回leaf Rootを削除して不存在を確認した。非使用の短命四Fileもexact一覧を再確認して削除し、空の今回tmp directoryまで不存在を確認した。兄弟結果JSONと親Directory、既存保持三領域は維持した。今回の再送零・失敗分類・安全回収の成立であり、読取り成功・全体E2E成功ではない。
+
 <a id="new-model-ai-once-results-20261025"></a>
 
 ### 新Model読取り各一回と編集停止 — 2026-10-25
