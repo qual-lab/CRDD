@@ -45,6 +45,8 @@ Hostから渡すSeccompはImageの外なので、実行時の実体・容量・H
 
 ## Workspace方式の追加検証条件（2026-10-17）
 
+検証HTTP Clientの期限は`ERB-IT-021`でRoute別に反証する。exact `/workspace/action`だけHTTP60秒・親65秒、AI受付とview／状態観測はHTTP15秒・親20秒、共通の終了確認2秒とする。有限時計で設定値・期限超過・一回abort・Reader回収・子の終了未確認・late frame／close・再送零を確認し、実loopbackでは15秒超かつ60秒内のWorkspace応答と、他Routeの15秒拒否を別々に確認する。時刻observerの例外で一次結果を変更しない。これは検証Toolの有限待機であり、製品性能や任意Repositoryでの完了保証ではない。
+
 Coordinator借用接続の追加断面は、`ERB-IT-006`の通常二役割・一回是正・範囲逸脱停止・取消、`RFD-IT-013`／`PRL-IT-013`の実GitでのDirect／Isolated入力搬送・開始dirty基準・二Task継続・元Tree／Branch保全、`ERB-UT-023`の三Mount計画と回収観測照合に割り当てる。旧Bundle準備／保存へ進まないこと、Reader拒否でfallbackしないこと、欠測を変更なしやTree保持済みへ補完しないことを確認する。局所代役の成功を実Provider・公開E2EのPassへ拡張しない。
 
 独立レビューで検出した即時回収の期待値搬送不足は、`ERB-IT-004`の本番command-runtimeと有限Transportを通す五Mount正常／欠落／RW／Source差の反証で確認する。最終観測は`PRL-IT-005`／013でTaskAttemptから上位Task／Attempt／Operationへ搬送し、Direct変更あり／なし／欠測とIsolatedを区別する。`ERB-IT-006`ではHost意図／Receipt保存拒否の早期失敗も元理由と回復参照を保持し、変更なしへ丸めないことを確認する。metadata搬送を新しい耐久保存・採用・Tree現存証明とは扱わない。

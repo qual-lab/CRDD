@@ -44,7 +44,7 @@ test("HTTP子は結果frameと実closeを共同確認し異常を有限分類す
       .replace("export async", "async")
       .replaceAll("import.meta.dirname", '"fixed-script-directory"'),
   );
-  for (const scenario of [
+  const scenarios = [
     "success",
     "spawn-throw",
     "spawn-error",
@@ -69,7 +69,12 @@ test("HTTP子は結果frameと実closeを共同確認し異常を有限分類す
     "late-close-unknown",
     "timing-missing",
     "timing-reversed",
-  ] as const) {
+  ] as const;
+  for (const { route, scenario } of [
+    "/workspace/action",
+    "/ai-request/action",
+    "/api/workbench-view?route=%2F",
+  ].flatMap((route) => scenarios.map((scenario) => ({ route, scenario })))) {
     const child = new EventEmitter() as EventEmitter & {
       stdin: EventEmitter & { end: (input: string) => void };
       stdout: EventEmitter;
@@ -82,6 +87,7 @@ test("HTTP子は結果frameと実closeを共同確認し異常を有限分類す
     child.stdout = new EventEmitter();
     child.stderr = new EventEmitter();
     const timers = new Map<number, () => void>();
+    const scheduledDeadlines: number[] = [];
     let kills = 0;
     let input = "";
     let spawned = 0;
@@ -122,6 +128,7 @@ test("HTTP子は結果frameと実closeを共同確認し異常を有限分類す
       parseUnambiguousJsonDocument,
       projectVerificationTransportFailure,
       setTimeout: (callback: () => void, ms: number) => {
+        scheduledDeadlines.push(ms);
         timers.set(ms, () => {
           timers.delete(ms);
           callback();
@@ -194,7 +201,9 @@ test("HTTP子は結果frameと実closeを共同確認し異常を有限分類す
                 scenario === "late-close" ||
                 scenario === "late-close-unknown"
               ) {
-                const deadline = timers.get(20_000);
+                const deadline = timers.get(
+                  route === "/workspace/action" ? 65_000 : 20_000,
+                );
                 assert.ok(deadline);
                 deadline();
                 if (
@@ -223,11 +232,17 @@ test("HTTP子は結果frameと実closeを共同確認し異常を有限分類す
     }) as typeof requestInChild;
     const operation = invoke(
       "http://127.0.0.1:1234/",
-      "/ai-request/action",
+      route,
       new URLSearchParams({ actionToken: "synthetic-token" }),
       () => {
         throw Error("clock-only");
       },
+    );
+    assert.equal(
+      scheduledDeadlines.includes(
+        route === "/workspace/action" ? 65_000 : 20_000,
+      ),
+      scenario !== "spawn-throw",
     );
     if (scenario === "success" || scenario === "late-close")
       assert.equal((await operation).status, 303);
@@ -286,10 +301,16 @@ test("HTTP子は結果frameと実closeを共同確認し異常を有限分類す
 test("実HTTP子は通常・切断・15秒期限を区別して終了する", async () => {
   let mode = "normal";
   let requests = 0;
+  let slowResponse: ReturnType<typeof setTimeout> | undefined;
   const server = createServer((_request, response) => {
     requests++;
     if (mode === "normal") response.end("synthetic");
     else if (mode === "disconnect") response.destroy();
+    else if (mode === "workspace")
+      slowResponse = setTimeout(
+        () => response.end("workspace-synthetic"),
+        16_000,
+      );
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   try {
@@ -316,8 +337,27 @@ test("実HTTP子は通常・切断・15秒期限を区別して終了する", as
         },
       );
     }
-    assert.equal(requests, 3);
+    mode = "workspace";
+    const timings: number[] = [];
+    assert.equal(
+      (
+        await requestInChild(
+          url,
+          "/workspace/action",
+          new URLSearchParams({ operation: "synthetic" }),
+          (timing) => {
+            timings.push(timing.completedAt - timing.startedAt);
+          },
+        )
+      ).body,
+      "workspace-synthetic",
+    );
+    assert.ok(
+      timings[0] !== undefined && timings[0] >= 15_000 && timings[0] < 60_000,
+    );
+    assert.equal(requests, 4);
   } finally {
+    if (slowResponse !== undefined) clearTimeout(slowResponse);
     server.closeAllConnections();
     await new Promise<void>((resolve, reject) =>
       server.close((error) => (error ? reject(error) : resolve())),

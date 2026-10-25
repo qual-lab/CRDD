@@ -12,7 +12,7 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
-新モデル読取りとDirect／Isolated編集E2Eの承認後、検証Toolだけを新モデル・新品Rootへ追従し、Source `630582644`で非AI事前確認を一回行った。Directは成功、IsolatedはCandidate固定・二親Merge成立後のHTTP応答待ちTimeoutで停止した。正式回収の最初の状態読取りもLock取得不成立で止まり、今回の合成Worktree・Ref・Rootは2026-11-01までの再評価対象として保持する。追加Docker資源は残っていないが、Workspace回収完了ではない。承認条件に従い実AIは0回、再試行なし。[承認範囲と停止結果](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#new-model-ai-e2e-approval-20261025)を参照する。
+新モデル読取りとDirect／Isolated編集E2Eの承認後、Source `630582644`で非AI事前確認を一回行い、Direct成功、IsolatedはCandidate固定・二親Merge後のHTTP応答未観測で停止した。後続の非AI切り分けでは、別新品のadopt同期区間18.8秒が検証Clientの15秒を超えることを再現した。回収ReaderのLock失敗はinline起動の`--input-type=module`をWorkerが継承する起動不適合で、通常File起動の同Readerは成功した。人間承認後、検証ToolのWorkspace操作だけ60秒／親65秒へ限定実装し、AI受付・状態観測15秒／親20秒は維持した。製品SourceとLock機構は不変更で、現在は対象回帰中・是正後の非AI事前確認は未実施。元の合成Worktree・Ref・Rootは11月1日までの再評価対象として保持し、診断で新規作成した別Rootだけを正式回収・清掃した。実AIは0回、再送・Docker再起動なし。[承認範囲・停止結果・切り分け](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#new-model-ai-e2e-approval-20261025)を参照する。
 
 Repository Manifestの旧Capability宣言を統合先の`coordinator`、現名称の`mcp-server`／`domain-model`へ追従した。利用者承認により、公式Codex CLI 0.164.0とClaude Code 2.1.310で新ImageをBuild・固定した。技術Catalog・実行計画を更新し、`.crdd/config/ai-selection.json`はCodex `gpt-6.1-sol`／medium、独立ReviewerだけClaude `claude-opus-5-5`／mediumを指定する。公開Readerと五役割の選定は成功した。非AIの起動・合成隔離・試験物回収と対象回帰は確認済みだが、新Modelの実AI応答・Host RPC・編集E2Eは未確認。旧Modelへの暗黙fallbackはなく、旧送信承認も新Modelへ流用しない。[設定とImage更新の結果・限界](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#provider-image-update-20261025)を参照する。
 

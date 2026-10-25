@@ -12,6 +12,8 @@ Last Updated: 2026-10-24
 
 ## 合成Repositoryの設定保存前提
 
+状態Reader・Workspace回収等がLock用Workerを生成する確認は、Repository内に保存した通常のTypeScript／JavaScript Fileを`node <file>`で起動する。`node --input-type=module -e`の引数はFile Workerへ継承されると起動不適合になるため、この確認経路には使用しない。Lock取得不能から残存Lockや競合を推定せず、通常File入口での既存Reader確認と区別する。Lock Fileの削除、排他解除、新しいLock機構で代替しない。
+
 フロントAIが検証用Repositoryを`git init --template=`で新規作成する場合、空templateでは`.git/info`も生成されない。検証入口自身が所有する新品fixtureに限り、`.git/info/`と空の`exclude`を明示準備してから正式な設定保存APIを呼ぶ。既存の`verify-workspace-ai.ts`のfixtureもこの準備を行っている。製品の保存処理へGit管理領域の自動補修や除外登録の迂回を追加しない。
 
 Workbench経由の合成Contextは、Metadataと見出しだけでなく、現行Project Context Readerが要求する各節の表も用意する。実AIの入口を開く前に`readWorkbenchProjectSurface`で同じ合成Project IDを読めることを非AIで確認する。`project_context_table_missing`をProvider失敗と扱わず、Readerの条件を緩めて代替しない。

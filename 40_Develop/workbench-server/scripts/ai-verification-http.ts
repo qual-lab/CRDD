@@ -41,7 +41,7 @@ const CLIENT_OUTPUT_MAX_BYTES = 6 * 1024 * 1024 + 4096;
  * @responsibility 有限stdin/stdout、元子一回の終了要求、close未確認を所有する。
  * @input loopback URL、固定route、Form、任意の非秘密時計observer。
  * @returns 従来のHTTP結果。子の未終了・不正出力は固定失敗。
- * @precondition Task OwnerとServerは親が所有し、HTTP15秒は子内で維持する。
+ * @precondition Task OwnerとServerは親が所有し、HTTP期限はWorkspace操作だけ60秒、他は15秒。
  * @postcondition 正常返却は子close、exit0、完全な一結果を共同確認済み。
  * @effect 固定Node子とloopback HTTP一要求。再送・redirect・子孫生成なし。
  * @failure 終了未確認と一般子故障を区別し、本文・stderrを例外へ出さない。
@@ -141,10 +141,13 @@ export async function requestInChild(
         });
       }, CLIENT_PROCESS_CLOSE_TIMEOUT_MS);
     };
-    const timer = setTimeout(() => {
-      firstFailureStage ??= "deadline";
-      terminate();
-    }, CLIENT_PROCESS_TIMEOUT_MS);
+    const timer = setTimeout(
+      () => {
+        firstFailureStage ??= "deadline";
+        terminate();
+      },
+      route === "/workspace/action" ? 65_000 : CLIENT_PROCESS_TIMEOUT_MS,
+    );
     const pipeFailure = () => {
       firstFailureStage ??= "pipe";
       failed = true;
@@ -615,7 +618,7 @@ export function assessVerificationDockerInventory(
  * @precondition 呼出し元がloopback URLを検証済み。
  * @postcondition 受信Readerと期限Timerを解放する。
  * @effect GETまたはPOSTを一回だけ発行する。
- * @failure 15秒超過、1MiB超過またはTransport失敗を送出する。
+ * @failure Workspace操作は60秒、他は15秒超過、1MiB超過またはTransport失敗を送出する。
  * @invariant POST失敗を未実行と推定しない。
  * @boundary 検証Runnerと公開HTTP Transport。
  * @security 本文、Tokenおよび例外本文をlogへ出さない。
@@ -630,10 +633,13 @@ export async function requestBounded(
   const controller = new AbortController();
   let headersReceived = false;
   let timedOut = false;
-  const timer = setTimeout(() => {
-    timedOut = true;
-    controller.abort();
-  }, 15_000);
+  const timer = setTimeout(
+    () => {
+      timedOut = true;
+      controller.abort();
+    },
+    route === "/workspace/action" ? 60_000 : 15_000,
+  );
   try {
     try {
       observe?.("start", Date.now());

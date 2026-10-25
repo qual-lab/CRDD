@@ -297,17 +297,25 @@ test("HTTP試験器は期限超過と本文清掃のabortを区別する", async
   const body = stripTypeScriptTypes(
     source.slice(start, end).replace("export async", "async"),
   );
-  for (const scenario of [
+  const scenarios = [
     "refused",
     "timeout",
     "read-failed",
     "body-limit",
     "reader-cleanup-failed",
-  ]) {
+  ];
+  for (const { route, scenario } of [
+    "/workspace/action",
+    "/ai-request/action",
+    "/api/workbench-view?route=%2F",
+    "/workspace/action/",
+  ].flatMap((route) => scenarios.map((scenario) => ({ route, scenario })))) {
     let expire!: () => void;
     let releases = 0;
     let cancels = 0;
     let clears = 0;
+    let fetches = 0;
+    let aborts = 0;
     const invoke = runInNewContext(`${body}\nrequestBounded`, {
       Error,
       URL,
@@ -315,13 +323,22 @@ test("HTTP試験器は期限超過と本文清掃のabortを区別する", async
       Buffer,
       Object,
       setTimeout: (callback: () => void, ms: number) => {
-        if (ms === 15_000) expire = callback;
+        if (ms === (route === "/workspace/action" ? 60_000 : 15_000))
+          expire = callback;
         return 1;
       },
       clearTimeout: () => {
         clears++;
       },
-      fetch: async () => {
+      fetch: async (_url: URL, options: { signal: AbortSignal }) => {
+        fetches++;
+        options.signal.addEventListener(
+          "abort",
+          () => {
+            aborts++;
+          },
+          { once: true },
+        );
         if (scenario === "timeout") expire();
         if (["refused", "timeout"].includes(scenario))
           throw new TypeError("synthetic-secret", {
@@ -352,7 +369,7 @@ test("HTTP試験器は期限超過と本文清掃のabortを区別する", async
     }) as (url: string, route: string) => Promise<unknown>;
     let error: unknown;
     try {
-      await invoke("http://synthetic.invalid", "/fixed");
+      await invoke("http://synthetic.invalid", route);
     } catch (caught) {
       error = caught;
     }
@@ -369,6 +386,8 @@ test("HTTP試験器は期限超過と本文清掃のabortを区別する", async
     );
     assert.equal(releases, ["refused", "timeout"].includes(scenario) ? 0 : 1);
     assert.equal(cancels, releases);
+    assert.equal(fetches, 1);
+    assert.equal(aborts, 1);
     assert.ok(clears > 0);
     assert.equal(
       JSON.stringify(diagnostic).includes("synthetic-secret"),

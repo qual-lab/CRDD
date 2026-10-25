@@ -1,7 +1,7 @@
 /**
  * 検証ToolのHTTP一要求だけを親とは別のevent loopで処理する。
  * @packageDocumentation
- * @responsibility 固定loopback要求、既存15秒期限、有限結果搬送と自然終了。
+ * @responsibility 固定loopback要求、Workspace操作60秒・他15秒の期限、有限結果搬送と自然終了。
  * @trace ERB-IT-021
  * @boundary stdinの用途限定actionToken/Formと公開HTTP。Task Ownerは親に残す。
  * @security Provider資格・Root Capability・環境・再送・redirect・子孫生成を持たない。

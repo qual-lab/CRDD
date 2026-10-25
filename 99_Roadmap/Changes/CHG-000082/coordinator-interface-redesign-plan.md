@@ -1355,6 +1355,19 @@ Tool差分の型・整形・lint・diffcheck、外部AIなしのHTTP／取消／
 
 今回の不合格は新Modelの拒否やAI実行失敗ではなく、実AI前の合成Workspace操作・HTTP結果搬送の境界である。新モデル確認・実AI編集E2Eは未実施のまま。次の是正候補はadopt応答の15秒期限と正式ReaderのLock取得不成立の非AI切り分けであり、Timeout延長、新Worker／Queue／Lock／Recovery機構の追加、AI再送、再起動には進まない。
 
+#### HTTP期限とLock起動方式の非AI切り分け — 2026-10-25
+
+利用者指示に基づき、製品・検証ToolのSourceを変更せず調査した。元の保持Rootは読取りだけとし、AI再送・Docker起動／再起動・保持物削除は行っていない。今回の診断用コードはRepository-local tmp、非AI再現は別の新品`tests/http-lock-diagnosis-20261025/`に限定した。
+
+| 対象 | 実測・原因の確度 |
+|---|---|
+| Lock取得失敗 | 通常File起動では同じ固定Workerの取得・解放・exit 0が成立し、元保持Rootの正式Readerも約213msでcompleted。一方、前回と同じ`node --input-type=module -e`ではWorkerが親execArgvを継承して`ERR_INPUT_TYPE_NOT_ALLOWED / exit 1 / state 0`。正式Readerは約5,040ms後にlock_unavailable。Worker起動方式の不適合を再現した。Atomics同期待機中にerror callbackを処理できないため固定理由へ畳まれる点は、起動失敗そのものと区別する。残存Lockの証拠ではない |
+| HTTP期限超過 | 別新品の一回の非AI再現で、既存executeWorkspace同期区間はcreate 10,879ms、get 1,408ms、inspect 1,633ms、freeze 11,306ms、candidate-diff 655ms、adopt 18,796ms。adopt内の同期子Processは24回・計1,471msで、残りの時間内訳は未特定。adoptが検証Client固定15秒を超え、merged後のheaders_unobservedを再現した。通信障害・単独Gitコマンド遅延とは断定しない |
+
+切り分け時点の最小是正案は、(1)診断・回収を通常File起動へ固定し、Lock機構は変更しない、(2)検証Tool内部で`/workspace/action`だけHTTP上限60秒・親の子Process上限65秒とし、AI受付とview／observeの15秒・他の親上限20秒は維持する、(3)既存の操作名・時刻observerで待機区間を確認する、の三点であった。任意Timeout API、新Worker、Queue、Lock、Registry、Recovery機構は作らない。60秒は有限待機上限であり他Repositoryの成功保証ではない。切り分け時点では未採用・未実装だったが、その後利用者が限定是正と非AI試験を承認した。現行候補はToolだけ実装済みで、期限超過、一回abort、子終了、late frame／close、同ID観測・再送零の局所四件と対象十八件回帰は成功した。母集団は重複するため加算しない。実loopbackでもWorkspaceの16秒応答成功と通常Routeの15秒拒否を確認した。型・変更Sourceの整形／lint・diffcheckも成功。初回追加assertはTimer生成前拒否と即時失敗後の解除を残存Timerと混同したため、設定履歴の確認へ訂正した。製品条件は緩めていない。新品での正式非AI事前確認は次の固定候補から一回行う。
+
+診断の新品Workspaceは通常Fileから既存close-candidate／discardで正式回収し、Worktree・専用Refの不存在と実体・非使用を確認後、診断Rootを清掃して直接不存在を確認した。元保持RootのDirect／Isolatedのstate.jsonは比較前後のSHA-256が一致し、元保持物の回収は発行していない。独立確認でも上記の原因と限定案は整合している。
+
 <a id="claude-readonly-turn-acceptance-result"></a>
 
 ### 回数比較撤去後のClaude読取り一回 — 2026-10-25

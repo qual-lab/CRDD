@@ -299,6 +299,12 @@ async function verify(
           repositoryId: `repository.workspace-${mode}`,
           command: JSON.stringify(command),
         }),
+        (timing) => {
+          const observations =
+            (evidence.workspaceHttpTimings as unknown[] | undefined) ?? [];
+          observations.push({ operation: command.operation, ...timing });
+          evidence.workspaceHttpTimings = observations;
+        },
       );
       assert.equal(response.status, 200, "workspace_http_rejected");
       return JSON.parse(response.body) as {
