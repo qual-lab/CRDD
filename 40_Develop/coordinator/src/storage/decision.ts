@@ -1,5 +1,5 @@
 /**
- * Coordinatorの保護された判断記録と世代照合を保存する。
+ * Coordinatorの保護された判断記録・世代・Hash連続性を保存する。
  *
  * @responsibility VerifiedRootを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000004
@@ -7,18 +7,18 @@
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import type { CoordinatorDecisionRecord } from "../decision/records.ts";
-import type { CoordinatorDecisionStore } from "../decision/types.ts";
-import { isCoordinatorDecisionRecord } from "../decision/records.ts";
-import { acquireRuntimeOwnedDockerRuntimeStateKernelLock } from "../execution/kernel-lock.ts";
-import {
-  consumeRuntimeOwnedRuntimeStateRootCapability,
-  inspectRuntimeOwnedWindowsRuntimeState,
-} from "../execution/authority.ts";
 import {
   readCommittedJson,
   writeCommittedJson,
 } from "../../../domain-model/src/index.ts";
+import type { CoordinatorDecisionRecord } from "../decision/records.ts";
+import { isCoordinatorDecisionRecord } from "../decision/records.ts";
+import type { CoordinatorDecisionStore } from "../decision/types.ts";
+import {
+  consumeRuntimeOwnedRuntimeStateRootCapability,
+  inspectRuntimeOwnedWindowsRuntimeState,
+} from "../execution/authority.ts";
+import { acquireRuntimeOwnedDockerRuntimeStateKernelLock } from "../execution/kernel-lock.ts";
 
 export const COORDINATOR_WINDOWS_DECISION_STORE_CONTRACT =
   "crdd-coordinator/orchestrator-windows-decision-store/v1" as const;

@@ -21,7 +21,7 @@ import { fileURLToPath } from "node:url";
 import type {
   CoordinatorStateOperation,
   CoordinatorStateTaskOperation,
-} from "../../src/storage/model.ts";
+} from "../../src/execution/types.ts";
 
 const mode = process.argv[2];
 assert.ok(
@@ -123,8 +123,9 @@ if (mode !== "recovery") {
   const domain = await import("../../../domain-model/src/index.ts");
   const host = await import("../../src/execution/operation.ts");
   const repository = await import("../../src/execution/operation.ts");
-  const store = await import("../../src/storage/settlement-store.ts");
-  const model = await import("../../src/storage/model.ts");
+  const store = await import("../../src/storage/state.ts");
+  const model = await import("../../src/storage/state.ts");
+  const stateValues = await import("../../src/state/validation.ts");
   const homes = await import("../../src/execution/authority.ts");
   const locks = await import("../../src/execution/kernel-lock.ts");
   const area = domain.requireReadyRepositoryRuntimeDataArea(
@@ -149,7 +150,7 @@ if (mode !== "recovery") {
     repository.borrowRuntimeOwnedCoordinatorStateRepository(other);
   assert.ok(binding && otherBinding);
   const initial = Buffer.from(
-    `${model.encodeCoordinatorStateValue({
+    `${stateValues.encodeCoordinatorStateValue({
       schema: model.COORDINATOR_STATE_SCHEMA,
       repositoryBindingId: null,
       intakeEpoch: null,
@@ -329,10 +330,8 @@ if (mode !== "recovery") {
   }
   try {
     const actualStore = await import(
-      new URL(
-        "../../src/storage/settlement-store.ts?abandon-producer",
-        import.meta.url,
-      ).href
+      new URL("../../src/storage/state.ts?abandon-producer", import.meta.url)
+        .href
     );
     const actualSubmission = await import(
       new URL("../../src/execution/controller.ts", import.meta.url).href
@@ -359,7 +358,7 @@ if (mode !== "recovery") {
       typeof actualStore.checkpointRuntimeOwnedCoordinatorResource
     >[] = [];
     const storeMock = mock.module(
-      new URL("../../src/storage/settlement-store.ts", import.meta.url).href,
+      new URL("../../src/storage/state.ts", import.meta.url).href,
       {
         namedExports: {
           ...actualStore,
@@ -547,7 +546,7 @@ if (mode !== "recovery") {
             absence: null,
           });
           authExpectedBytes = Buffer.from(
-            `${model.encodeCoordinatorStateValue(savedIntent.value.snapshot)}\n`,
+            `${stateValues.encodeCoordinatorStateValue(savedIntent.value.snapshot)}\n`,
           );
           const hostPaths =
             host.borrowOwnedHostRecoverySnapshot(management).hostPaths;
@@ -734,7 +733,7 @@ if (mode !== "recovery") {
           assert.ok(savedUnknown.value);
           assert.deepEqual(
             Buffer.from(
-              `${model.encodeCoordinatorStateValue(savedUnknown.value.snapshot)}\n`,
+              `${stateValues.encodeCoordinatorStateValue(savedUnknown.value.snapshot)}\n`,
             ),
             expectedUnknown,
           );
@@ -1262,6 +1261,7 @@ if (mode !== "recovery") {
   let recoveryStoreMock: { restore(): void } | null = null;
   let recoveryHostMock: { restore(): void } | null = null;
   let admissionStoreMock: { restore(): void } | null = null;
+  let admissionSettlementMock: { restore(): void } | null = null;
   let admissionSubmissionMock: { restore(): void } | null = null;
   let admissionHostMock: { restore(): void } | null = null;
   const recoveryAdmissionChecks: string[] = [];
@@ -1381,7 +1381,7 @@ if (mode !== "recovery") {
     assert.deepEqual(violations, [...originals.keys()]);
     violations.splice(0);
     if (admissionVerification === "verify_admission") {
-      const actualStore = await import("../../src/storage/settlement-store.ts");
+      const actualStore = await import("../../src/storage/state.ts");
       const actualHost = await import("../../src/execution/operation.ts");
       // 公開回復が呼び得る保存・出版入口を明示する。安全なRepository借用と実Readerは代役にしない。
       const mutationNames = [
@@ -1389,7 +1389,6 @@ if (mode !== "recovery") {
         "checkpointRuntimeOwnedCoordinatorLifecycle",
         "checkpointRuntimeOwnedCoordinatorResource",
         "checkpointRuntimeOwnedCoordinatorResourceNotIssued",
-        "completeRuntimeOwnedCoordinatorSettlement",
         "completeRuntimeOwnedCoordinatorCurrentRecovery",
         "registerRuntimeOwnedCoordinatorRecoveryResultDelivery",
         "advanceRuntimeOwnedCoordinatorRecoveryHistory",
@@ -1398,11 +1397,10 @@ if (mode !== "recovery") {
         "writeRuntimeOwnedCoordinatorRecoveryCheckpoint",
         "writeRuntimeOwnedCoordinatorRecoveredHostCleanup",
         "saveRuntimeOwnedCoordinatorOperationStart",
-        "settleRuntimeOwnedCoordinatorResult",
         "writeRuntimeOwnedCoordinatorStateSnapshot",
       ] as const;
       admissionStoreMock = mock.module(
-        new URL("../../src/storage/settlement-store.ts", import.meta.url).href,
+        new URL("../../src/storage/state.ts", import.meta.url).href,
         {
           namedExports: {
             ...actualStore,
@@ -1424,6 +1422,35 @@ if (mode !== "recovery") {
       );
       const actualSubmission = await import(
         "../../src/execution/controller.ts"
+      );
+      const actualSettlement = await import(
+        "../../src/execution/settlement.ts"
+      );
+      admissionSettlementMock = mock.module(
+        new URL("../../src/execution/settlement.ts", import.meta.url).href,
+        {
+          namedExports: {
+            ...actualSettlement,
+            ...Object.fromEntries(
+              (
+                [
+                  "completeRuntimeOwnedCoordinatorSettlement",
+                  "settleRuntimeOwnedCoordinatorResult",
+                ] as const
+              ).map((name) => {
+                const original = actualSettlement[name];
+                assert.equal(typeof original, "function");
+                return [
+                  name,
+                  (...args: unknown[]) => {
+                    admissionMutations.push(name);
+                    return Reflect.apply(original, undefined, args);
+                  },
+                ];
+              }),
+            ),
+          },
+        },
       );
       admissionSubmissionMock = mock.module(
         new URL("../../src/execution/controller.ts", import.meta.url).href,
@@ -1465,7 +1492,7 @@ if (mode !== "recovery") {
       );
     }
     if (interruption !== undefined && interruption !== "none") {
-      const actualStore = await import("../../src/storage/settlement-store.ts");
+      const actualStore = await import("../../src/storage/state.ts");
       const actualHost = await import("../../src/execution/operation.ts");
       recoveryHostMock = mock.module(
         new URL("../../src/execution/operation.ts", import.meta.url).href,
@@ -1486,7 +1513,7 @@ if (mode !== "recovery") {
         },
       );
       recoveryStoreMock = mock.module(
-        new URL("../../src/storage/settlement-store.ts", import.meta.url).href,
+        new URL("../../src/storage/state.ts", import.meta.url).href,
         {
           namedExports: {
             ...actualStore,
@@ -1615,7 +1642,8 @@ if (mode !== "recovery") {
             ).href
           );
     if (admissionVerification === "verify_admission") {
-      const model = await import("../../src/storage/model.ts");
+      const model = await import("../../src/storage/state.ts");
+      const stateValues = await import("../../src/state/validation.ts");
       const baselineBytes = fs.readFileSync(statePath);
       const baselineFiles = captureCoordinatorFiles();
       const pendingPath = path.join(
@@ -1676,7 +1704,7 @@ if (mode !== "recovery") {
             const changed = JSON.parse(candidate.toString());
             changed.previous.payloadSha256 = "0".repeat(64);
             const bytes = Buffer.from(
-              `${model.encodeCoordinatorStateValue(changed)}\n`,
+              `${stateValues.encodeCoordinatorStateValue(changed)}\n`,
             );
             assert.ok(
               model.decodeCoordinatorStateSnapshot(
@@ -1695,7 +1723,7 @@ if (mode !== "recovery") {
                 ? "1".repeat(64)
                 : "0".repeat(64);
             const bytes = Buffer.from(
-              `${model.encodeCoordinatorStateValue(changed)}\n`,
+              `${stateValues.encodeCoordinatorStateValue(changed)}\n`,
             );
             assert.equal(
               model.decodeCoordinatorStateSnapshot(
@@ -1843,6 +1871,7 @@ if (mode !== "recovery") {
     recoveryStoreMock?.restore();
     recoveryHostMock?.restore();
     admissionStoreMock?.restore();
+    admissionSettlementMock?.restore();
     admissionSubmissionMock?.restore();
     admissionHostMock?.restore();
     for (const [name, original] of originals)

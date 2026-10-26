@@ -8,6 +8,7 @@
  * @scope 自己生成Repository内の合成保存だけ。Docker・Providerなし。
  * @boundary 合成技術Operation→統合保存codecと実Filesystem。
  */
+import { encodeCoordinatorStateValue } from "../../src/state/validation.ts";
 import { executionSelection } from "./ai-selection.ts";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
@@ -15,12 +16,11 @@ import fs from "node:fs";
 import path from "node:path";
 import {
   decodeCoordinatorStateSnapshot,
-  encodeCoordinatorStateValue,
   prepareCoordinatorStateOperationSnapshot,
   prepareCoordinatorStateHistorySnapshot,
   prepareCoordinatorStateHistoryLine,
   prepareCoordinatorStateResultDeliverySnapshot,
-} from "../../src/storage/model.ts";
+} from "../../src/storage/state.ts";
 
 /**
  * fixture本文のSHA-256を計算する。

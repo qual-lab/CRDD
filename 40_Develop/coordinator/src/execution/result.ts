@@ -5,6 +5,8 @@
  * @trace ARCH-000008
  */
 
+import type { CoordinatorStateRepairOperation } from "./types.ts";
+import { encodeCoordinatorStateValue } from "../state/validation.ts";
 import { types as utilTypes } from "node:util";
 import type {
   TaskCompletionRecord,
@@ -2989,5 +2991,84 @@ export function isDockerRestartCheckpointSettled(value: unknown): boolean {
     (checkpoint.request === "issued" &&
       checkpoint.result.status === "blocked" &&
       checkpoint.result.request === "issued")
+  );
+}
+
+/**
+ * 修復checkpointから公開可能な終了要約だけを符号化する。
+ * @responsibility 通常はDirectory実体を投影せず、明示保持receiptだけ非Authority Node実体を含める。Owner・Scope・Task fieldは投影しない。
+ * @trace ARCH-000008
+ * @input operation: 検証済みの終端修復。
+ * @returns LF付きcanonical要約bytes。
+ * @precondition 外側で共同終端を確認する。
+ * @postcondition discardの判断時刻・進捗、handoffの固定期限・三用途実体を保持し、出版時刻・確認flag・Snapshot改訂を含めない。
+ * @effect N/A: 値の符号化のみ。
+ * @failure 不正な内部Identityは例外。
+ * @invariant 要約から実行Authorityや保持物の実体を復元しない。
+ * @boundary 保存済み技術値と履歴投影。
+ * @security 生Path・秘密・生出力を含めない。
+ * @concurrency N/A: 同期構築。
+ */
+export function coordinatorRepairSummaryBytes(
+  operation: CoordinatorStateRepairOperation,
+): Buffer {
+  const identity = JSON.parse(operation.identityJson);
+  const checkpoint = operation.checkpoint;
+  if (!checkpoint) throw new Error("repair_checkpoint_missing");
+  return Buffer.from(
+    `${encodeCoordinatorStateValue({
+      schema: "crdd-coordinator/repair-summary/v1",
+      operationId: identity.operationId,
+      operationNonce: identity.operationNonce,
+      recoveryId: operation.recoveryId,
+      identitySha256: operation.identitySha256,
+      primaryFailure: operation.primaryFailure,
+      outcome: operation.outcome,
+      disposition: operation.disposition,
+      ...(operation.retention !== undefined
+        ? { retention: operation.retention }
+        : {}),
+      ...(operation.disposition === "discard"
+        ? { disposal: operation.disposal }
+        : {}),
+      technical: {
+        actions: checkpoint.actions,
+        engine: checkpoint.engine,
+        stale: checkpoint.stale,
+        hostSafety: checkpoint.hostSafety,
+        cleanup: checkpoint.cleanup,
+        cleanupFailure: checkpoint.cleanupFailure,
+      },
+    })}\n`,
+  );
+}
+
+/**
+ * 修復の固定時刻を履歴行へ結合する。
+ * @responsibility 要約Hashと時刻込み行Hashを区別する。
+ * @trace ARCH-000008
+ * @input operation: 終端修復、occurredAt: 最初の正規UTC時刻。
+ * @returns LF付きcanonical履歴行。
+ * @precondition 値と時刻は呼出し元で確認済み。
+ * @postcondition confirmedを行へ含めない。
+ * @effect N/A: メモリ内構築。
+ * @failure 内部値の符号化不正は例外。
+ * @invariant 再試行時刻で行を変えない。
+ * @boundary 現在状態と履歴行。
+ * @security 行はAuthorityではない。
+ * @concurrency N/A: 保存を行わない。
+ */
+export function coordinatorRepairHistoryLineBytes(
+  operation: CoordinatorStateRepairOperation,
+  occurredAt: string,
+): Buffer {
+  return Buffer.from(
+    `${encodeCoordinatorStateValue({
+      schema: "crdd-coordinator/history-row/v2",
+      occurredAt,
+      summary: JSON.parse(
+        coordinatorRepairSummaryBytes(operation).toString("utf8"),
+      ),
+    })}\n`,
   );
 }

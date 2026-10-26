@@ -5,11 +5,8 @@
  * @trace ARCH-000004
  */
 
-import type {
-  ProjectQueueEntry,
-  ProjectQueueState,
-  CoordinatorState,
-} from "./model.ts";
+import type { ProjectQueueEntry, ProjectQueueState } from "../task/types.ts";
+import type { CoordinatorState } from "./types.ts";
 import type { CoordinatorPortResult } from "./result.ts";
 
 /**

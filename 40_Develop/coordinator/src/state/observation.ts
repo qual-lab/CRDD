@@ -17,7 +17,7 @@ import {
   snapshotPlainRecord,
   snapshotPlainArray,
   deriveCoordinatorRepositoryBindingId,
-} from "./model.ts";
+} from "./validation.ts";
 import {
   type TaskAttemptExecutionIntelligenceEvent,
   verifyExecutionIntelligenceRepositoryRoot,
@@ -35,7 +35,7 @@ import {
   parseRuntimeActivityObservation,
   encodeActivityCursor,
 } from "./projection.ts";
-import { readCoordinatorSnapshot } from "../storage/current-state.ts";
+import { readCoordinatorSnapshot } from "../storage/state.ts";
 import { queryCoordinatorState } from "./query.ts";
 
 /**

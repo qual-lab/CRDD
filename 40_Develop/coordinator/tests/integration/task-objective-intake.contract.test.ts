@@ -9,6 +9,7 @@
  * @scope project、runtime、objective、intake
  * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
+import { encodeCoordinatorStateValue } from "../../src/state/validation.ts";
 import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
@@ -42,8 +43,7 @@ import {
   registerSyntheticOperations,
   settleSyntheticOperation,
 } from "../fixtures/task-result-fixture.ts";
-import { initializeCoordinatorSnapshot } from "../../src/storage/current-state.ts";
-import { encodeCoordinatorStateValue } from "../../src/storage/model.ts";
+import { initializeCoordinatorSnapshot } from "../../src/storage/state.ts";
 import { inspectCoordinatorObjectiveRequest } from "../../src/objective/request.ts";
 import { runCoordinatorObjective as runCoordinatorObjectiveWithPorts } from "../../src/objective/execute.ts";
 import { acknowledgeProjectDockerRecoveryObligation } from "../../src/task/acceptance.ts";

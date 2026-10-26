@@ -16,10 +16,8 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 
-import {
-  createCurrentCoordinatorPersistencePorts as createCoordinatorPersistencePorts,
-  initializeCoordinatorSnapshot,
-} from "../../src/storage/current-state.ts";
+import { createCurrentCoordinatorPersistencePorts as createCoordinatorPersistencePorts } from "../../src/state/transaction.ts";
+import { initializeCoordinatorSnapshot } from "../../src/storage/state.ts";
 import {
   enqueueProjectOperation,
   readProjectOperationQueueState,
@@ -29,10 +27,8 @@ import {
 import { createCoordinatorDecisionCapabilityAdapter } from "../../src/decision/lifecycle.ts";
 import { runCoordinatorOperation as runCoordinatorOperationWithPorts } from "../../src/task/dispatch.ts";
 import { createCoordinatorExecutionHostPorts } from "../../src/task/dispatch.ts";
-import {
-  applyCoordinatorHumanDecision,
-  createCoordinatorState,
-} from "../../src/state/model.ts";
+import { applyCoordinatorHumanDecision } from "../../src/decision/transition.ts";
+import { createCoordinatorState } from "../../src/state/create.ts";
 import {
   invalidateCoordinatorHumanDecision,
   issueCoordinatorHumanDecision,

@@ -8,6 +8,7 @@
  * @scope project、runtime、integration、record、adapter
  * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
+import { encodeCoordinatorStateValue } from "../../src/state/validation.ts";
 import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
@@ -18,12 +19,11 @@ import { fileURLToPath } from "node:url";
 
 import {
   initializeCoordinatorSnapshot,
-  createCurrentCoordinatorPersistencePorts,
-  createCoordinatorSnapshotIntegrationRecordPort,
   readCoordinatorSnapshot,
-} from "../../src/storage/current-state.ts";
-import { createCoordinatorState } from "../../src/state/model.ts";
-import { encodeCoordinatorStateValue } from "../../src/storage/model.ts";
+} from "../../src/storage/state.ts";
+import { createCurrentCoordinatorPersistencePorts } from "../../src/state/transaction.ts";
+import { createCoordinatorSnapshotIntegrationRecordPort } from "../../src/workspace/commands.ts";
+import { createCoordinatorState } from "../../src/state/create.ts";
 import { ensureRepositoryRuntimeDataAreaFromWorkingDirectory } from "../../../domain-model/src/index.ts";
 import { requireReadyRepositoryRuntimeDataArea } from "../../../domain-model/src/index.ts";
 

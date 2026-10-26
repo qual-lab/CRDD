@@ -1,9 +1,6 @@
-/**
- * Workspaceの現在記録とQueue対象参照を定義する。
- * @responsibility 継続作業と短命のGit処置を既存Snapshotへ閉じる。
- * @trace ARCH-000004
- * @boundary Coordinatorの保存値。Task一覧やGit技術操作は所有しない。
- */
+import { encodeCoordinatorStateValue } from "../state/validation.ts";
+import { createHash } from "node:crypto";
+import type { CoordinatorPortResult } from "../state/result.ts";
 
 import type {
   RepositoryWorktreeResult,
@@ -11,8 +8,8 @@ import type {
   WorkspaceCandidateResult,
 } from "../../../version-control/src/index.ts";
 import {
-  validWorkspaceDisplayName,
   validWorkspaceCandidateRequest,
+  validWorkspaceDisplayName,
 } from "../../../version-control/src/index.ts";
 
 /**
@@ -379,4 +376,147 @@ function validCandidateRecord(value: unknown, workspaceId: unknown): boolean {
       return false;
   }
   return true;
+}
+
+/**
+ * 上位の結果保存に必要なRepository／Project／Milestone／Queue結合を定義する。
+ *
+ * @responsibility Integration 記録 BindingのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000005
+ * @shape IntegrationRecordBindingが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant IntegrationRecordBindingで宣言した値と責務の対応を維持する。
+ * @boundary N/A: IntegrationRecordBindingの宣言は外部境界を開かない。
+ * @security IntegrationRecordBindingはAuthority、秘密値または信頼情報を責務外へ拡張・公開しない。
+ * @compatibility IntegrationRecordBindingの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
+export type IntegrationRecordBinding = Readonly<{
+  workingDirectory: string;
+  repositoryBindingId: string;
+  projectId: string;
+  milestoneId: string | null;
+  queueId: string;
+}>;
+
+/**
+ * integration-record-portで使用するCoordinator Integration 記録の値契約を定義する。
+ *
+ * @responsibility Coordinator Integration 記録のProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape CoordinatorIntegrationRecordが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CoordinatorIntegrationRecordで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CoordinatorIntegrationRecordの宣言は外部境界を開かない。
+ * @security N/A: CoordinatorIntegrationRecordはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility CoordinatorIntegrationRecordの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
+export type CoordinatorIntegrationRecord = Readonly<{
+  kind: "integration" | "adoption";
+  identity: string;
+  value: unknown;
+}>;
+
+/**
+ * 候補公開・採用結果を一回保存する利用側契約を定義する。
+ *
+ * @responsibility Coordinator Integration 記録 PortのProperty、Identity、状態制約を型境界として所有する。
+ * @trace ARCH-000004
+ * @shape CoordinatorIntegrationRecordPortが表すProperty、識別子およびRelationを型として固定する。
+ * @invariant CoordinatorIntegrationRecordPortで宣言した値と責務の対応を維持する。
+ * @boundary N/A: CoordinatorIntegrationRecordPortの宣言は外部境界を開かない。
+ * @security N/A: CoordinatorIntegrationRecordPortはAuthority、秘密値または信頼判断を扱わない。
+ * @compatibility CoordinatorIntegrationRecordPortの利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
+export type CoordinatorIntegrationRecordPort = Readonly<{
+  write: (
+    record: CoordinatorIntegrationRecord,
+  ) => CoordinatorPortResult<Readonly<{ written: true }>>;
+}>;
+
+export const COORDINATOR_INTEGRATION_CONTRACT =
+  "crdd-coordinator/orchestrator-integration/v1" as const;
+
+/**
+ * 候補公開・採用結果の完全な保存値を定義する。
+ *
+ * @responsibility 候補公開と採用Receiptの結合・内容を現在状態の結果区画として保持する。
+ * @trace ARCH-000005
+ * @shape contract、kind、四つの結合ID、identity、contentHash、value。
+ * @invariant 保存成功を受領・既読へ読み替えない。
+ * @boundary 候補結果Portと現在状態保存。
+ * @security 保護DecisionやAuthorityを追加しない。
+ * @compatibility valueは既存PortのJSON値をそのまま保持する。
+ */
+export type CoordinatorResultRecord = Readonly<{
+  contract: typeof COORDINATOR_INTEGRATION_CONTRACT;
+  kind: "integration" | "adoption";
+  repositoryBindingId: string;
+  projectId: string;
+  milestoneId: string | null;
+  queueId: string;
+  identity: string;
+  contentHash: string;
+  value: unknown;
+}>;
+
+export const INTEGRATION_RECORD_IDENTITY =
+  /^[A-Za-z0-9][A-Za-z0-9._-]{0,511}$/u;
+
+export const INTEGRATION_BINDING_IDENTITY =
+  /^[A-Za-z0-9][A-Za-z0-9._:-]{0,511}$/u;
+
+/**
+ * 公開結果の閉じた保存値を確認する。
+ * @responsibility 旧入力と統合保存で同じ結果契約を検証する。
+ * @trace ARCH-000005
+ * @input value: JSONから復号した値。
+ * @returns 既存結果Recordとして有効か。
+ * @precondition getterやtoJSONを持たないJSON値を渡す。
+ * @postcondition 結合ID、kind、Identity、内容Hashを確認する。
+ * @effect N/A: 値の検証のみ。
+ * @failure 不正形状はfalse。
+ * @invariant 結果Recordの受理を実適用や既読へ読み替えない。
+ * @boundary 保存JSONと既存結果契約。
+ * @security Authorityを生成しない。
+ * @concurrency N/A: 同期の純粋検証。
+ */
+export function validCoordinatorResultRecord(
+  value: unknown,
+): value is CoordinatorResultRecord {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const record = value as Record<string, unknown>;
+  return (
+    JSON.stringify(Object.keys(record).sort()) ===
+      JSON.stringify(
+        [
+          "contract",
+          "kind",
+          "repositoryBindingId",
+          "projectId",
+          "milestoneId",
+          "queueId",
+          "identity",
+          "contentHash",
+          "value",
+        ].sort(),
+      ) &&
+    record.contract === COORDINATOR_INTEGRATION_CONTRACT &&
+    (record.kind === "integration" || record.kind === "adoption") &&
+    typeof record.identity === "string" &&
+    INTEGRATION_RECORD_IDENTITY.test(record.identity) &&
+    [record.repositoryBindingId, record.projectId, record.queueId].every(
+      (id) => typeof id === "string" && INTEGRATION_BINDING_IDENTITY.test(id),
+    ) &&
+    ((typeof record.milestoneId === "string" &&
+      INTEGRATION_BINDING_IDENTITY.test(record.milestoneId)) ||
+      (record.milestoneId === null &&
+        record.kind === "adoption" &&
+        record.value !== null &&
+        typeof record.value === "object" &&
+        ["workspace-candidate", "workspace-candidate-close"].includes(
+          String((record.value as Record<string, unknown>).recordKind),
+        ))) &&
+    record.contentHash ===
+      createHash("sha256")
+        .update(encodeCoordinatorStateValue(record.value))
+        .digest("hex")
+  );
 }

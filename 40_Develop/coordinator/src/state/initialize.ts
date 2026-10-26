@@ -7,8 +7,8 @@
  */
 import { snapshotPlainRecord } from "../../../domain-model/src/index.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
-import { deriveCoordinatorRepositoryBindingId } from "./model.ts";
-import { initializeCoordinatorSnapshot } from "../storage/current-state.ts";
+import { deriveCoordinatorRepositoryBindingId } from "./validation.ts";
+import { initializeCoordinatorSnapshot } from "../storage/state.ts";
 
 /**
  * 初期化する現在位置だけを指定する。

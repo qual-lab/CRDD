@@ -4,7 +4,8 @@
  * @trace ARCH-000004
  */
 
-import type { ProjectTaskRecord, CoordinatorState } from "../state/model.ts";
+import type { ProjectTaskRecord } from "./types.ts";
+import type { CoordinatorState } from "../state/types.ts";
 
 /**
  * For Capacityが有効な状態か判定する。

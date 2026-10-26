@@ -14,11 +14,11 @@ import { stripTypeScriptTypes } from "node:module";
 import { runInThisContext } from "node:vm";
 import test from "node:test";
 import { executionSelection } from "../../fixtures/ai-selection.ts";
+import { encodeCoordinatorStateValue as encode } from "../../../src/state/validation.ts";
 import type { DockerRuntimeRepairDisposalCheckpoint } from "../../../../docker-isolation/src/index.ts";
 import {
   COORDINATOR_STATE_SCHEMA,
   decodeCoordinatorStateSnapshot as decode,
-  encodeCoordinatorStateValue as encode,
   prepareCoordinatorStateRepairSnapshot as start,
   prepareCoordinatorStateRepairCheckpointSnapshot as checkpoint,
   prepareCoordinatorStateRepairSessionSnapshot,
@@ -29,7 +29,6 @@ import {
   prepareCoordinatorStateOperationSnapshot,
   prepareCoordinatorStateResourceSnapshot,
   validateCoordinatorStateTransition,
-  type CoordinatorStateRepairOperation,
   classifyCoordinatorRepairPublication as publication,
   prepareCoordinatorStateRepairRetentionHandoffSnapshot as handoff,
   validateCoordinatorStateRepairRetentionHandoffTransition as handoffTransition,
@@ -37,16 +36,19 @@ import {
   prepareCoordinatorRepairHistorySnapshot as repairHistory,
   prepareCoordinatorRepairHistoryLine as repairLine,
   prepareCoordinatorRepairHistoryPublication as repairPublication,
-  decodeCoordinatorHistoryRows,
-  prepareCoordinatorHistoryRetention,
   MAX_COORDINATOR_STATE_BYTES,
   prepareCoordinatorStateHistorySnapshot,
   prepareCoordinatorStateHistoryLine,
   prepareCoordinatorStateRepairCompletionSnapshot as completeRepair,
-  coordinatorRepairCanComplete,
   decodeCoordinatorUnifiedSnapshot,
   validateCoordinatorUnifiedTransition,
-} from "../../../src/storage/model.ts";
+} from "../../../src/storage/state.ts";
+import type { CoordinatorStateRepairOperation } from "../../../src/execution/types.ts";
+import {
+  decodeCoordinatorHistoryRows,
+  prepareCoordinatorHistoryRetention,
+} from "../../../src/storage/history.ts";
+import { coordinatorRepairCanComplete } from "../../../src/execution/validation.ts";
 
 const binding = "a".repeat(64);
 const identity = {
@@ -1305,7 +1307,7 @@ test("修復終了: 退避物不存在と履歴確認後だけ対象を除去す
   // 履歴受理が将来拡張されても、終了判定自体が成功条件を保持する。
   const source = stripTypeScriptTypes(
     fs.readFileSync(
-      new URL("../../../src/storage/model.ts", import.meta.url),
+      new URL("../../../src/storage/state.ts", import.meta.url),
       "utf8",
     ),
   );
@@ -2481,7 +2483,7 @@ test("修復出版: codec合法の禁止遷移と全文一致省略を区別す�
   };
   reject(publication);
   const source = fs.readFileSync(
-    new URL("../../../src/storage/model.ts", import.meta.url),
+    new URL("../../../src/storage/state.ts", import.meta.url),
     "utf8",
   );
   const begin = source.indexOf(
@@ -3449,7 +3451,7 @@ test("修復variant: Taskと同居し双方向の更新で対象外全文を保�
   const repairPending = preserve(repairHistory);
   const source = stripTypeScriptTypes(
     fs.readFileSync(
-      new URL("../../../src/storage/model.ts", import.meta.url),
+      new URL("../../../src/storage/state.ts", import.meta.url),
       "utf8",
     ),
   );
@@ -3465,11 +3467,23 @@ test("修復variant: Taskと同居し双方向の更新で対象外全文を保�
    * @boundary 型除去したSourceとメモリVM。
    */
   const body = (name: string) => {
-    const begin = source.indexOf(`function ${name}(`);
+    const actualSource = [
+      "coordinatorRepairSummaryBytes",
+      "coordinatorRepairHistoryLineBytes",
+    ].includes(name)
+      ? stripTypeScriptTypes(
+          fs.readFileSync(
+            new URL("../../../src/execution/result.ts", import.meta.url),
+            "utf8",
+          ),
+        )
+      : source;
+    const begin = actualSource.indexOf(`function ${name}(`);
     assert.ok(begin >= 0);
-    const end = source.indexOf("/**", begin);
+    const nextHeader = actualSource.indexOf("/**", begin);
+    const end = nextHeader < 0 ? actualSource.length : nextHeader;
     assert.ok(end > begin);
-    return source.slice(begin, end);
+    return actualSource.slice(begin, end);
   };
   const absentTechnical = structuredClone(initial);
   absentTechnical.engine = "ready";

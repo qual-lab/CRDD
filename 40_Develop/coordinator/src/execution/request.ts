@@ -5,7 +5,7 @@
  * @trace ARCH-000008
  */
 
-import { inspectTaskExecutionSelections } from "../selection/model.ts";
+import { inspectTaskExecutionSelections } from "../selection/validation.ts";
 import type { BorrowedExecutionTarget } from "./operation.ts";
 import {
   snapshotPlainRecord,

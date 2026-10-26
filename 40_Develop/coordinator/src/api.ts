@@ -82,10 +82,10 @@ export type {
   AiSelectionRole,
   AiSelectionSnapshot,
   ExecutionSelection,
-} from "./selection/model.ts";
+} from "./selection/types.ts";
 export type { SingleTaskCommand } from "./task/requests.ts";
 
-export { inspectAiSelectionChoice } from "./selection/model.ts";
+export { inspectAiSelectionChoice } from "./selection/validation.ts";
 export {
   openTaskSession,
   runTask,
@@ -385,8 +385,8 @@ export { inspectCoordinatorStateQueryResult } from "./state/projection.ts";
 export { isCoordinatorObjectiveProjectionCorrelationValid } from "./state/projection.ts";
 export { isCoordinatorProjectionSemanticallyValid } from "./state/projection.ts";
 export { COORDINATOR_HUMAN_DECISION_CONTRACT } from "./decision/request.ts";
-export { COORDINATOR_MAXIMUM_OBJECTIVES } from "./state/model.ts";
-export { COORDINATOR_MAXIMUM_TASKS } from "./state/model.ts";
+export { COORDINATOR_MAXIMUM_OBJECTIVES } from "./state/validation.ts";
+export { COORDINATOR_MAXIMUM_TASKS } from "./state/validation.ts";
 export { COORDINATOR_OBJECTIVE_INTAKE_CONTRACT } from "./objective/plan.ts";
 export { COORDINATOR_PUBLIC_RUNTIME_CONTRACT } from "./state/result.ts";
 export type { CoordinatorProjection } from "./state/types.ts";

@@ -4,17 +4,18 @@
  * @trace ARCH-000004
  */
 
+import { projectState } from "../state/projection.ts";
+import type { CoordinatorState, StateResult } from "../state/types.ts";
 import {
-  type CoordinatorState,
-  type StateResult,
-  type ProjectResultAcceptance,
-  type ProjectDockerRecoveryAcknowledgement,
   isCoordinatorRecoveryIdentity,
-  projectState,
-  replaceTask,
-  decodeProjectResultAcceptance,
+  snapshotPlainRecord,
   validIdentity,
-} from "../state/model.ts";
+} from "../state/validation.ts";
+import { replaceTask } from "./lifecycle.ts";
+import type {
+  ProjectDockerRecoveryAcknowledgement,
+  ProjectResultAcceptance,
+} from "./types.ts";
 
 /**
  * 清掃済み通常Taskの結果受領集合を同じ現在状態へ固定する。
@@ -216,5 +217,158 @@ export function acknowledgeProjectDockerRecoveryObligation(
     reason: "orchestrator_docker_recovery_acknowledged",
     state: projectState({ ...state, generation: state.generation + 1, tasks }),
     taskIds: Object.freeze([acceptance.taskId]),
+  });
+}
+
+/**
+ * 新しい結果受理本文の閉じた形式を検査する。
+ * @responsibility 欠落・追加項目・旧形式と不正な識別子、Hash、世代を拒否する。
+ * @trace ARCH-000004
+ * @input value: 未検証の受理本文。
+ * @returns 検査済み固定本文、またはnull。
+ * @precondition N/A: 任意の入力を拒否可能な境界として扱う。
+ * @postcondition 初回受理世代や入力の値を補完・更新しない。
+ * @effect N/A: 局所値の検査だけ。
+ * @failure 不正本文、getter、Proxy、欠落、旧項目、空値はnull。
+ * @invariant 形式成立を保存・受理・cleanup成立へ昇格しない。
+ * @boundary 上位の保存本文とその利用側。
+ * @security 外部Authorityを発行せず入力の関数を呼ばない。
+ * @concurrency N/A: 共有状態を持たない同期処理。
+ */
+export function decodeProjectResultAcceptance(
+  value: unknown,
+): ProjectResultAcceptance | null {
+  const acceptance = snapshotPlainRecord(
+    value,
+    new Set([
+      "repositoryBindingId",
+      "projectId",
+      "milestoneId",
+      "taskId",
+      "attemptId",
+      "operationId",
+      "recoveryId",
+      "settlementGeneration",
+      "repositoryBinding",
+      "resultId",
+      "consumer",
+    ]),
+  );
+  if (
+    !acceptance ||
+    [
+      "repositoryBindingId",
+      "projectId",
+      "milestoneId",
+      "taskId",
+      "attemptId",
+      "operationId",
+      "recoveryId",
+    ].some(
+      (key) =>
+        typeof acceptance[key] !== "string" ||
+        acceptance[key].length === 0 ||
+        acceptance[key].length > 1024,
+    ) ||
+    !Number.isSafeInteger(acceptance.settlementGeneration) ||
+    Number(acceptance.settlementGeneration) < 1 ||
+    acceptance.consumer !== "orchestrator" ||
+    [acceptance.repositoryBinding, acceptance.resultId].some(
+      (item) => typeof item !== "string" || !/^[a-f0-9]{64}$/u.test(item),
+    )
+  )
+    return null;
+  return Object.freeze(acceptance) as ProjectResultAcceptance;
+}
+
+/**
+ * 本番利用側に固定された結果受領方式を返す。
+ * @responsibility 一時的な返却と後続再開用の耐久ACKを区別する。
+ * @trace ARCH-000008
+ * @input consumer: 固定組立てが選択した利用側識別子。
+ * @returns transient、durable、または未知利用側のnull。
+ * @precondition N/A: 未知値も受け取り拒否する。
+ * @postcondition Coordinatorの耐久受領を入力指定で降格しない。
+ * @effect N/A: 値の同期判定だけで保存や配送を行わない。
+ * @failure 未知識別子・非文字列ではnull。
+ * @invariant 受領方式は資源回収やCandidate保全の証明ではない。
+ * @boundary 本番組立ての利用側と保存モデルの固定契約。
+ * @security Objectの変換・getter・Proxyを評価しない。
+ * @concurrency N/A: 共有状態を変更しない。
+ */
+export function coordinatorConsumerCompletionPolicy(
+  consumer: unknown,
+): "transient" | "durable" | null {
+  if (consumer === "orchestrator") return "durable";
+  if (consumer === "coordinator_cli" || consumer === "workbench")
+    return "transient";
+  return null;
+}
+
+/**
+ * Task結果受領集合の遷移が固定本文・初回世代と競合するか判定する。
+ * @responsibility 同一Attemptの受領不変と明示再計画の限定的な置換条件を所有する。
+ * @trace ARCH-000004、ARCH-000008
+ * @input previous: Lock内で読み直した元Project、state: 保存候補。
+ * @returns 受領差が保存を拒否すべき場合だけtrue。
+ * @precondition 両状態は構造検査済み。Writerが元世代と受付結合を別途照合する。
+ * @postcondition 入力を変更せず、受領の欠測を補完しない。
+ * @effect N/A: 同期値判定だけ。
+ * @failure 初回受領の世代差・固定本文変更は競合。
+ * @invariant 判定を実資源回収・保存成功へ読み替えない。
+ * @boundary Taskの受領意味と統合保存Writer。
+ * @security 保存・実行Authorityを発行しない。
+ * @concurrency Writerは同じ短期Lock内のfresh元版に対して呼ぶ。
+ */
+export function hasProjectTaskResultAcceptanceConflict(
+  previous: CoordinatorState | undefined,
+  state: CoordinatorState,
+): boolean {
+  return state.tasks.some((task) => {
+    if (!previous) return task.resultAcceptances.length !== 0;
+    const prior = previous?.tasks.find(
+      (item) => item.definition.id === task.definition.id,
+    );
+    const isSameAttempt =
+      prior?.attemptId === task.attemptId &&
+      prior?.operationId === task.operationId;
+    if (
+      prior?.state === "failed" &&
+      prior.supersededBy === null &&
+      task.state === "superseded" &&
+      task.resultAcceptances.length === 0 &&
+      task.supersededBy !== null &&
+      !previous.tasks.some(
+        (item) => item.definition.id === task.supersededBy,
+      ) &&
+      state.tasks.some(
+        (item) =>
+          item.definition.id === task.supersededBy &&
+          item.definition.objectiveId === prior.definition.objectiveId &&
+          item.attemptId === null &&
+          item.operationId === null &&
+          item.resultAcceptances.length === 0 &&
+          (item.state === "ready" || item.state === "waiting_dependency"),
+      )
+    )
+      return false;
+    if (!isSameAttempt || !prior?.resultAcceptances.length)
+      return task.resultAcceptances.some(
+        (item) => item.settlementGeneration !== state.generation,
+      );
+    return (
+      prior.resultAcceptances.length !== task.resultAcceptances.length ||
+      prior.resultAcceptances.some((item) => {
+        const next = task.resultAcceptances.find(
+          (value) => value.recoveryId === item.recoveryId,
+        );
+        return (
+          !next ||
+          Object.entries(item).some(
+            ([key, value]) => next[key as keyof typeof next] !== value,
+          )
+        );
+      })
+    );
   });
 }

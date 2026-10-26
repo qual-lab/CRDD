@@ -13,6 +13,7 @@
  * @scope coordinator、task、runtime
  * @boundary CPR-IT-001=Direct Boundary: 観測結果→Candidate Store / PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Coordinator Application Port→Core
  */
+import { encodeCoordinatorStateValue } from "../../src/state/validation.ts";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
@@ -41,7 +42,7 @@ import {
   executionSelection as createExecutionSelection,
   type executionSelection,
 } from "../fixtures/ai-selection.ts";
-import { hashExecutionSelection } from "../../src/selection/model.ts";
+import { hashExecutionSelection } from "../../src/selection/validation.ts";
 import { inspectRepositoryObjectFormatCandidate } from "../../src/execution/operation.ts";
 import { coordinatorTaskPublicReasons } from "../../src/execution/result.ts";
 import {
@@ -63,8 +64,7 @@ import {
 import {
   prepareCoordinatorStateOperationSnapshot,
   decodeCoordinatorStateSnapshot,
-  encodeCoordinatorStateValue,
-} from "../../src/storage/model.ts";
+} from "../../src/storage/state.ts";
 
 type TraceSnapshot = Readonly<{
   state: string;

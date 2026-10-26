@@ -17,10 +17,8 @@ import {
   createCoordinatorAcceptanceAuthorityAdapter,
 } from "./request.ts";
 import type { CoordinatorAcceptanceDecisionRecord } from "./records.ts";
-import {
-  applyCoordinatorAcceptanceDecision,
-  deriveCoordinatorRepositoryBindingId,
-} from "../state/model.ts";
+import { applyCoordinatorAcceptanceDecision } from "./transition.ts";
+import { deriveCoordinatorRepositoryBindingId } from "../state/validation.ts";
 import {
   resolveVerifiedRepositoryRootFromWorkingDirectory,
   inspectRepositoryIdentityCandidate,
@@ -30,13 +28,11 @@ import {
   coordinatorDataBoundaryBlocked,
 } from "../state/result.ts";
 import { workspacePlanReadyForAcceptance } from "../workspace/operations.ts";
-import {
-  createCurrentCoordinatorPersistencePorts as createCoordinatorPersistencePorts,
-  createCoordinatorSnapshotAcceptanceDecisionStore as createCoordinatorAcceptanceDecisionStore,
-  maintainCoordinatorSnapshot,
-} from "../storage/current-state.ts";
+import { createCurrentCoordinatorPersistencePorts as createCoordinatorPersistencePorts } from "../state/transaction.ts";
+import { createCoordinatorSnapshotAcceptanceDecisionStore as createCoordinatorAcceptanceDecisionStore } from "./lifecycle.ts";
+import { maintainCoordinatorSnapshot } from "../state/retirement.ts";
 import { RepositoryRuntimeDataAreaBlockedError } from "../../../domain-model/src/index.ts";
-import { openRuntimeOwnedWindowsProjectDecisionStore } from "../storage/protected-decision.ts";
+import { openRuntimeOwnedWindowsProjectDecisionStore } from "../storage/decision.ts";
 
 /**
  * 受入判断要求を理由付き停止結果へ変換する。

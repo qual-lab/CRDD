@@ -179,8 +179,8 @@ test("StoreとRecoveryの観測照合はControllerの値importを持たない", 
    * @boundary 既存契約の試験内接続。実AI・Dockerを実行しない。
    */
   const runtime = (name: string) => stripTypeScriptTypes(source(name));
-  for (const name of ["storage/settlement-store.ts", "execution/recovery.ts"]) {
-    if (name === "storage/settlement-store.ts")
+  for (const name of ["storage/state.ts", "execution/recovery.ts"]) {
+    if (name === "storage/state.ts")
       assert.doesNotMatch(runtime(name), /from\s+["'][^"']*controller\.ts["']/);
     assert.match(runtime(name), /from\s+["'][^"']*observation\.ts["']/);
   }

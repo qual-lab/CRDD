@@ -12,10 +12,8 @@ import { taskExecutionSelections } from "../../fixtures/ai-selection.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
-  createCoordinatorState,
-  type CoordinatorState,
-} from "../../../src/state/model.ts";
+import { createCoordinatorState } from "../../../src/state/create.ts";
+import type { CoordinatorState } from "../../../src/state/types.ts";
 import { inspectCoordinatorStateQuery } from "../../../src/state/request.ts";
 import { inspectCoordinatorStateQueryResult } from "../../../src/state/projection.ts";
 import { queryCoordinatorState } from "../../../src/state/query.ts";

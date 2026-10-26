@@ -8,6 +8,7 @@
  * @scope 現在Snapshot、準備Map、全Scopeの排他順、要求checkpoint。
  * @boundary ERB-IT-014=Related 2 Blocks: 本番準備本文→状態Reader／Writer・既存排他の観測境界。
  */
+import { encodeCoordinatorStateValue } from "../../src/state/validation.ts";
 import assert from "node:assert/strict";
 import { executionSelection } from "../fixtures/ai-selection.ts";
 import { createHash } from "node:crypto";
@@ -30,11 +31,12 @@ import {
   coordinatorTaskResourcesAreSettled,
   coordinatorAuthenticationUnknownCanClose,
   coordinatorReleasedTaskCanObserveHostAbsence,
+} from "../../src/execution/validation.ts";
+import {
   prepareCoordinatorStateOperationSnapshot,
   decodeCoordinatorStateSnapshot,
-  encodeCoordinatorStateValue,
-  type CoordinatorStateOperation,
-} from "../../src/storage/model.ts";
+} from "../../src/storage/state.ts";
+import type { CoordinatorStateOperation } from "../../src/execution/types.ts";
 import {
   createDockerRestartRequestId,
   isDockerRestartCheckpointSettled,
@@ -106,7 +108,7 @@ const recoveryBody = stripTypeScriptTypes(
     .replaceAll("export async function", "async function"),
 );
 const storeSource = fs.readFileSync(
-  new URL("../../src/storage/settlement-store.ts", import.meta.url),
+  new URL("../../src/storage/state.ts", import.meta.url),
   "utf8",
 );
 const storeStart = storeSource.indexOf(

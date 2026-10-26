@@ -8,7 +8,7 @@
  * @boundary PRL-IT-012=Direct Boundary: 子Process→本番Persistence Port→共通Writer。
  */
 import fs from "node:fs";
-import { createCurrentCoordinatorPersistencePorts } from "../../src/storage/current-state.ts";
+import { createCurrentCoordinatorPersistencePorts } from "../../src/state/transaction.ts";
 
 const packet = JSON.parse(fs.readFileSync(0, "utf8"));
 const ports = createCurrentCoordinatorPersistencePorts(

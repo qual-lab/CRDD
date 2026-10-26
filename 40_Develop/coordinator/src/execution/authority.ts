@@ -53,8 +53,8 @@ import {
   inspectExecutionSelection,
   inspectTaskExecutionSelections,
   hashExecutionSelection,
-  type ExecutionSelection,
-} from "../selection/model.ts";
+} from "../selection/validation.ts";
+import type { ExecutionSelection } from "../selection/types.ts";
 import fs from "node:fs";
 import { acquireRuntimeOwnedLogicalProviderHomeKernelLock } from "./kernel-lock.ts";
 

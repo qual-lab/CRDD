@@ -18,7 +18,7 @@ import {
   inspectExecutionSelection,
   hashExecutionSelection,
   inspectTaskExecutionSelections,
-} from "../../../src/selection/model.ts";
+} from "../../../src/selection/validation.ts";
 
 /**
  * 編集と独立レビューを同じ受付時設定へ固定する。
@@ -135,6 +135,22 @@ test("保存選定組は別設定・役割・分類の混在を拒否し過去�
  * @boundary Packet・Grantへ渡す非Authorityな値Identity。
  */
 test("選定Hashは十項目を固定しキー順によらず内容差を区別する", () => {
+  // 移管前81d9647a4の同じ合成十項目から得た固定Hash。
+  assert.equal(
+    hashExecutionSelection({
+      provider: "codex",
+      modelIdentifier: "historical-model",
+      identifierKind: "exact",
+      reasoningEffort: "medium",
+      purpose: "task",
+      catalogIdentity: "a".repeat(64),
+      configIdentity: "b".repeat(64),
+      role: "executor",
+      workType: null,
+      source: "explicit",
+    }),
+    "5fa860b97b4251d54285de02ae6b0a4c25ecdf967e1d4958cc3dd91c8b06a70e",
+  );
   const resolved = resolveExecutionSelection(config(), {
     role: "executor",
     workType: "coding",

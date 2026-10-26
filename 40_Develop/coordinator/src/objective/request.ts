@@ -4,12 +4,13 @@
  * @responsibility CoordinatorObjectiveRequestを中心とする実装、型および境界を同じModuleで所有する。
  * @trace ARCH-000004
  */
-import { snapshotPlainArray, snapshotPlainRecord } from "../state/model.ts";
-import { normalizeRepositoryRelativePath } from "../state/model.ts";
 import {
-  inspectAiSelectionChoice,
-  type AiSelectionChoice,
-} from "../selection/model.ts";
+  snapshotPlainArray,
+  snapshotPlainRecord,
+} from "../state/validation.ts";
+import { normalizeRepositoryRelativePath } from "../state/validation.ts";
+import { inspectAiSelectionChoice } from "../selection/validation.ts";
+import type { AiSelectionChoice } from "../selection/types.ts";
 
 /**
  * objective-requestで使用するCoordinator Objective Requestの値契約を定義する。

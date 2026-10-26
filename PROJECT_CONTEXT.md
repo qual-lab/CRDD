@@ -12,11 +12,13 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
-認証確認の一次失敗を既存の境界終了通知から有限結果へ搬送する最小是正を実装した。試行／Task／exact回復参照を補足し、CLIの既存検査器をexecutionへ移して共用する。安全判定・Timeout・保存Schema・要求数は不変。Coordinator影響回帰332件・Workbench HTTP／診断回帰30件、両Package静的検査と独立再レビューは成功／残指摘零。過去停止の応答待機失敗と保存拒否は復元せず、実AI再試行・Docker操作・保持物操作は行っていない。storage/model.tsには遷移候補とTask投影も混在しているが、巨大さを今回作成停止の直接原因とはしない。状態Ownerへの再配置と上位回復接続の評価は、今回の診断是正から分離する。[是正結果と状態Ownerの棚卸し](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#auth-create-diagnostic-minimal-fix-20261027)を参照する。
+状態判断・一回使用証拠を各Ownerへ分離し、Storage五File化・対象の分割回帰・独立レビュー残指摘零まで完了。全体一括回帰の初回不合格は保持し、再確認の成功へ置換しない。[対応と検証限界](99_Roadmap/Changes/CHG-000082/coordinator-storage-ownership-plan.md)を参照。AI再送・Docker・過去保持物操作なし。
+
+先行の認証確認診断是正は`81d9647a4`でcommit・push済み。Coordinator332件、Workbench HTTP／診断30件と独立レビューを確認したが、実AI編集E2E成立とは扱わない。[診断是正と状態Ownerの調査](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#auth-create-diagnostic-minimal-fix-20261027)を参照する。
 
 診断付き固定版`c12fbfc6`の一回実AI編集試験は、2026-10-27の非AI事前確認が両方式成功した後、Directの認証確認準備でunknown／`coordinator_task_provider_failed`となり停止した。認証確認用Containerは作成済み・未起動、Provider開始・外部送信・共有書込みは技術記録上未発行で、段階診断は零、HTTP通信失敗なし。作成応答の受領・記録を含む詳細な失敗原因は未確定。Isolated未開始、再試行・再起動なし。同じexact回復IDの既存resumeでDocker／Host回収・排他解放・技術履歴確定と操作記録撤去は完了したが、上位Taskはrecovery_requiredのまま。元の失敗結果と新品合成Rootは2026-11-03までの再評価対象として保持し、期限だけで削除しない。既存停止Containerは保全、今回専用Container／Networkは不存在、標準bridgeのIdentity変更は原因未確定で削除対象にしない。専用端末・短命入口は回収済み、実行Source不変、過去保持物操作・生出力保存なし。[一回の停止箇所と回収結果](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#workspace-stage-diagnostic-once-20261027)を参照する。
 
-編集停止の非AI調査を進め、内部error Itemの観測漏れと段階診断の上位搬送欠落を限定是正した。既存の受動通知・単一有限取得器だけを拡張し、Task採否・権限・保存Schema・15秒期限は不変。AI Adapter26件、Coordinator対象219件、Workbench HTTP等37件と独立再レビュー残指摘零を確認した。Claudeの旧Turn上限を要求する二試験と、試験一覧自己検査の古い展開件数・補助文字列の誤計数を追従した。2026-10-27の通常Windows環境のCoordinator広域再回帰は1,869件中1,864成功・失敗零・既存除外5件、終了零で完了した。是正後の関連14件・静的検査も成功、前回1,868件の不合格結果は履歴として維持する。全CRDD QA、実Docker・実AI編集E2Eの成功とはせず、元のCodex未編集の直接原因・Code Mode経由の実編集は未実証。今回AI再送・Docker・保持物操作は行っていない。[今回の診断是正と限界](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#workspace-stage-diagnostic-20261026)を参照する。
+先行候補の非AI診断是正・広域回帰1,869件の結果と未検証範囲は[当時の記録](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#workspace-stage-diagnostic-20261026)に保持する。現在の移管候補の検証とは区別する。
 
 固定版`c01da3f4e`の承認済み一回実AI試験は、非AI事前確認の両方式成功・清掃後、Directの独立Review非承認で停止した。HTTP Timeoutと終了確定不成立は今回結果に現れず、四技術履歴の終了・Host清掃・Lease解放を確認したが、合成source.txtはBASEのままで編集E2Eは不合格、Isolated未開始。Reviewのdecision値・件数・指摘内訳は有限Tool結果に含まれず、具体理由は未確定。現在操作・回復待ち・配送待ちは零、今回の試験Container等の実行資源と短命入口は回収済みだが、blockedの合成Root・結果・終了要約待ち一件を2026-11-02までの再評価対象として保持する。再送・再起動・過去保持物操作・生出力保存なし。[一回結果と回収限界](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#workspace-settlement-fixed-ai-once-20261026)を参照する。
 

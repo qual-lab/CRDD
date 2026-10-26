@@ -22,14 +22,16 @@ import {
   verifyExecutionIntelligenceRepositoryRoot,
   writeExecutionIntelligenceEvent,
 } from "../../../execution-intelligence/src/index.ts";
+import type {
+  ProjectTaskRecoveryKind,
+  ProjectResultAcceptance,
+} from "./types.ts";
+import type { CoordinatorState } from "../state/types.ts";
+import { decodeProjectResultAcceptance } from "./acceptance.ts";
 import {
-  type ProjectTaskRecoveryKind,
-  type CoordinatorState,
-  decodeProjectResultAcceptance,
-  type ProjectResultAcceptance,
   validIdentity,
   isCoordinatorRecoveryIdentity,
-} from "../state/model.ts";
+} from "../state/validation.ts";
 import { types as utilTypes } from "node:util";
 import { snapshotCoordinatorWorkspaceResult } from "../execution/controller.ts";
 import {

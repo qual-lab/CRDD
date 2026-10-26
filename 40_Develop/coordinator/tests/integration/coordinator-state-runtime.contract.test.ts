@@ -9,6 +9,10 @@
  * @boundary ERB-IT-003=Direct Boundary: 現在状態Writer→Repository-local Filesystem。
  * @boundary ERB-IT-014=Related 2 Blocks: 現在準備Owner・Kernel排他→現在状態Writer／Filesystem。
  */
+import {
+  coordinatorStateContentHash,
+  encodeCoordinatorStateValue,
+} from "../../src/state/validation.ts";
 import { executionSelection } from "../fixtures/ai-selection.ts";
 
 import assert from "node:assert/strict";
@@ -67,14 +71,7 @@ import {
 } from "../../src/execution/operation.ts";
 import {
   COORDINATOR_STATE_SCHEMA,
-  coordinatorTaskResourcesAreSettled,
-  coordinatorAuthenticationUnknownCanClose,
-  type CoordinatorStateOperation,
-  type CoordinatorStateTaskOperation,
-  coordinatorStateContentHash,
   decodeCoordinatorStateSnapshot,
-  decodeCoordinatorHistoryRows,
-  encodeCoordinatorStateValue,
   prepareCoordinatorStateCompletionSnapshot,
   prepareCoordinatorAuthenticationUnknownClosureSnapshot,
   prepareCoordinatorStateHistorySnapshot,
@@ -86,12 +83,28 @@ import {
   prepareCoordinatorStateRepairSessionSnapshot,
   prepareCoordinatorStateRepairSnapshot,
   prepareCoordinatorStateResourceSnapshot,
-} from "../../src/storage/model.ts";
-import { observeRuntimeOwnedTransientTaskCompletion } from "../../src/storage/settlement-store.ts";
+} from "../../src/storage/state.ts";
+import {
+  coordinatorTaskResourcesAreSettled,
+  coordinatorAuthenticationUnknownCanClose,
+} from "../../src/execution/validation.ts";
+import type {
+  CoordinatorStateOperation,
+  CoordinatorStateTaskOperation,
+} from "../../src/execution/types.ts";
+import { decodeCoordinatorHistoryRows } from "../../src/storage/history.ts";
+import { observeRuntimeOwnedTransientTaskCompletion } from "../../src/storage/state.ts";
 import {
   createDockerRestartRequestId,
   type DockerRestartCheckpoint,
 } from "../../src/execution/result.ts";
+import {
+  prepareRuntimeOwnedCoordinatorSettlement,
+  publishRuntimeOwnedCoordinatorHistory,
+  readRuntimeOwnedCoordinatorSettlementSnapshot,
+  writeRuntimeOwnedCoordinatorHistoryCheckpoint,
+  writeRuntimeOwnedCoordinatorSettlement,
+} from "../../src/execution/settlement.ts";
 import {
   checkpointRuntimeOwnedCoordinatorCleanup,
   checkpointRuntimeOwnedCoordinatorHost,
@@ -102,26 +115,21 @@ import {
   checkpointRuntimeOwnedCoordinatorRestart,
   advanceRuntimeOwnedCoordinatorRecoveryHistory,
   completeRuntimeOwnedCoordinatorCurrentRecovery,
-  prepareRuntimeOwnedCoordinatorSettlement,
   prepareRuntimeOwnedCoordinatorStateInitialization,
-  publishRuntimeOwnedCoordinatorHistory,
   readRuntimeOwnedCoordinatorRecoverySnapshot,
   readRuntimeOwnedCoordinatorResourcePublicationSnapshot,
   resumeRuntimeOwnedCoordinatorResourcePublication,
   readRuntimeOwnedCoordinatorCurrentHistorySnapshot,
   readRuntimeOwnedCoordinatorCurrentCompletionSnapshot,
   readRuntimeOwnedCoordinatorResourceRequests,
-  readRuntimeOwnedCoordinatorSettlementSnapshot,
   readRuntimeOwnedCoordinatorStateSnapshot,
   saveRuntimeOwnedCoordinatorOperationStart,
-  writeRuntimeOwnedCoordinatorHistoryCheckpoint,
   writeRuntimeOwnedCoordinatorAuthenticationUnknownClosure,
   writeRuntimeOwnedCoordinatorRecoveryCheckpoint,
   writeRuntimeOwnedCoordinatorRepairSnapshot,
   writeRuntimeOwnedCoordinatorRestartCheckpoint,
-  writeRuntimeOwnedCoordinatorSettlement,
   writeRuntimeOwnedCoordinatorStateSnapshot,
-} from "../../src/storage/settlement-store.ts";
+} from "../../src/storage/state.ts";
 
 const emptyTaskSections = {
   repositoryBindingId: null,
@@ -282,7 +290,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
         "-e",
         `(async () => {
      const { verifyRepositoryRoot } = await import(${JSON.stringify(new URL("../../../version-control/src/index.ts", import.meta.url).href)});
-     const { readRuntimeOwnedCoordinatorRecoverySnapshot } = await import(${JSON.stringify(new URL("../../src/storage/settlement-store.ts", import.meta.url).href)});
+     const { readRuntimeOwnedCoordinatorRecoverySnapshot } = await import(${JSON.stringify(new URL("../../src/storage/state.ts", import.meta.url).href)});
      const root = verifyRepositoryRoot(process.argv[1]);
      const result = readRuntimeOwnedCoordinatorRecoverySnapshot(root.capability);
      process.stdout.write(JSON.stringify({status: result.status, lockReleased: result.lockReleased, hash: result.value?.payloadSha256 ?? null}));
@@ -646,7 +654,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
          const setupRecovery = mock.module(${JSON.stringify(recoveryModule)}, {namedExports:
            Object.fromEntries(${JSON.stringify(recoveryExports)}.map(name=>[name,()=>{throw new Error("fixture_recovery_during_setup_forbidden")}]))});
          const vc = await import(${JSON.stringify(new URL("../../../version-control/src/index.ts", import.meta.url).href)});
-         const store = await import(${JSON.stringify(new URL("../../src/storage/settlement-store.ts", import.meta.url).href)});
+         const store = await import(${JSON.stringify(new URL("../../src/storage/state.ts", import.meta.url).href)});
          const verified = vc.verifyRepositoryRoot(process.cwd());
          const before = store.readRuntimeOwnedCoordinatorRecoverySnapshot(verified.capability);
          const host = await import(${JSON.stringify(hostModule)});
@@ -1356,10 +1364,10 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
   );
   try {
     const missingReleaseModuleUrl = new URL(
-      "../../src/storage/settlement-store.ts?reader-release-observation",
+      "../../src/storage/state.ts?reader-release-observation",
       import.meta.url,
     ).href;
-    const missingReleaseRuntime: typeof import("../../src/storage/settlement-store.ts") =
+    const missingReleaseRuntime: typeof import("../../src/storage/state.ts") =
       await import(missingReleaseModuleUrl);
     const stopped =
       missingReleaseRuntime.saveRuntimeOwnedCoordinatorOperationStart(
@@ -1933,12 +1941,10 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     },
   });
   try {
-    const unissuedRuntime: typeof import("../../src/storage/settlement-store.ts") =
+    const unissuedRuntime: typeof import("../../src/storage/state.ts") =
       await import(
-        new URL(
-          "../../src/storage/settlement-store.ts?unissued-proof",
-          import.meta.url,
-        ).href
+        new URL("../../src/storage/state.ts?unissued-proof", import.meta.url)
+          .href
       );
     const intentSaved = checkpointRuntimeOwnedCoordinatorResource(
       management,
@@ -2608,12 +2614,24 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
   );
   t.after(() => completionLockObservationMock.restore());
   const isolatedModuleUrl = new URL(
-    "../../src/storage/settlement-store.ts?history-filesystem-fixture",
+    "../../src/storage/state.ts?history-filesystem-fixture",
     import.meta.url,
   );
-  const historyRuntime = (await import(
+  const historyStore = (await import(
     isolatedModuleUrl.href
-  )) as typeof import("../../src/storage/settlement-store.ts");
+  )) as typeof import("../../src/storage/state.ts");
+  const historyStorageMock = t.mock.module(
+    new URL("../../src/storage/state.ts", import.meta.url).href,
+    { namedExports: { ...historyStore } },
+  );
+  t.after(() => historyStorageMock.restore());
+  const historySettlementRuntime = (await import(
+    new URL(
+      "../../src/execution/settlement.ts?history-filesystem-fixture",
+      import.meta.url,
+    ).href
+  )) as typeof import("../../src/execution/settlement.ts");
+  const historyRuntime = { ...historyStore, ...historySettlementRuntime };
   const historySettlement =
     historyRuntime.prepareRuntimeOwnedCoordinatorSettlement(
       management,
@@ -3206,7 +3224,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
         "-e",
         `(async () => {
           const { verifyRepositoryRoot } = await import(${JSON.stringify(new URL("../../../version-control/src/index.ts", import.meta.url).href)});
-          const { readRuntimeOwnedCoordinatorRecoveryResult } = await import(${JSON.stringify(new URL("../../src/storage/settlement-store.ts", import.meta.url).href)});
+          const { readRuntimeOwnedCoordinatorRecoveryResult } = await import(${JSON.stringify(new URL("../../src/storage/state.ts", import.meta.url).href)});
           const root = verifyRepositoryRoot(process.argv[1]);
           process.stdout.write(JSON.stringify(readRuntimeOwnedCoordinatorRecoveryResult(root.capability, process.argv[2])));
         })().catch(() => { process.exitCode = 1; });`,
@@ -4231,12 +4249,12 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
         .join("\n");
       const hostImports = [
         'import { createHash } from "node:crypto";',
-        `import { hashExecutionSelection } from "${new URL("../../src/selection/model.ts", import.meta.url).href}";`,
+        `import { hashExecutionSelection } from "${new URL("../../src/selection/validation.ts", import.meta.url).href}";`,
         `import { verifyRuntimeOwnedDockerCleanupOutcome } from "${new URL("../../src/execution/controller.ts", import.meta.url).href}";`,
         `import { beginOwnedDockerSubmissionRecovery, borrowOwnedHostRecoverySnapshot, completeOwnedDockerSubmissionRecovery, borrowRuntimeOwnedCoordinatorStateRepository } from "${new URL("../../src/execution/operation.ts", import.meta.url).href}";`,
         `import { parseHostRecoveryToken } from "${new URL("../../src/execution/result.ts", import.meta.url).href}";`,
         `import { verifyRuntimeOwnedProviderHomeMountCompletion } from "${new URL("../../src/execution/authority.ts", import.meta.url).href}";`,
-        `import { checkpointRuntimeOwnedCoordinatorCleanup, checkpointRuntimeOwnedCoordinatorHost, readRuntimeOwnedCoordinatorStateSnapshot } from "${new URL("../../src/storage/settlement-store.ts", import.meta.url).href}";`,
+        `import { checkpointRuntimeOwnedCoordinatorCleanup, checkpointRuntimeOwnedCoordinatorHost, readRuntimeOwnedCoordinatorStateSnapshot } from "${new URL("../../src/storage/state.ts", import.meta.url).href}";`,
       ].join("\n");
       const hostStartRuntime = (await import(
         `data:text/javascript;base64,${Buffer.from(`${hostImports}\n${hostBody}\nexport { beginRuntimeOwnedCoordinatorHostSubmission, completeRuntimeOwnedCoordinatorHostSubmission };`).toString("base64")}`
@@ -4753,7 +4771,7 @@ for (const issuedFailure of [false, true]) {
     const checkpoint = saved.value.snapshot.operations.find(
       (
         x,
-      ): x is import("../../src/storage/model.ts").CoordinatorStateTaskOperation =>
+      ): x is import("../../src/execution/types.ts").CoordinatorStateTaskOperation =>
         x.kind === "docker_task" && x.recoveryId === start.recoveryId,
     )?.dockerRestart;
     assert.deepEqual(checkpoint, {
@@ -5096,10 +5114,10 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
       },
     });
     try {
-      const lostOwnerRuntime: typeof import("../../src/storage/settlement-store.ts") =
+      const lostOwnerRuntime: typeof import("../../src/storage/state.ts") =
         await import(
           new URL(
-            `../../src/storage/settlement-store.ts?authentication-owner-lost-after-lock-${consumer}`,
+            `../../src/storage/state.ts?authentication-owner-lost-after-lock-${consumer}`,
             import.meta.url,
           ).href
         );
@@ -5813,10 +5831,6 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
  * @boundary 実model本文のVM検査。ProcessやDocker要求はない。
  */
 test("一次失敗のCommand観測は閉じた数値契約と応答相関を検査する", () => {
-  const source = fs.readFileSync(
-    new URL("../../src/storage/model.ts", import.meta.url),
-    "utf8",
-  );
   /**
    * modelから対象検証関数の実本文を抽出する。
    * @responsibility modelから対象検証関数の実本文を抽出する。
@@ -5829,10 +5843,19 @@ test("一次失敗のCommand観測は閉じた数値契約と応答相関を検�
    * @boundary 実Sourceを読むが書き換えず、Commandは実行しない。
    */
   const extract = (name: string) => {
-    const start = source.indexOf(`function ${name}(`);
-    const end = source.indexOf("\n/**", start);
+    const ownerSource = fs.readFileSync(
+      new URL(
+        name === "exactRecordKeys"
+          ? "../../src/state/validation.ts"
+          : "../../src/execution/validation.ts",
+        import.meta.url,
+      ),
+      "utf8",
+    );
+    const start = ownerSource.indexOf(`function ${name}(`);
+    const end = ownerSource.indexOf("\n/**", start);
     assert.ok(start >= 0 && end > start);
-    return stripTypeScriptTypes(source.slice(start, end));
+    return stripTypeScriptTypes(ownerSource.slice(start, end));
   };
   const validate = runInNewContext(
     `${extract("exactRecordKeys")}\n${extract("validCoordinatorPrimaryFailure")}\nvalidCoordinatorPrimaryFailure`,

@@ -34,16 +34,12 @@ import { prepareWorkspaceSurface } from "../../coordinator/tests/fixtures/worksp
 import {
   maintainCoordinatorSnapshot,
   transferCoordinatorSnapshotHistory,
-} from "../../coordinator/src/storage/current-state.ts";
-import { deriveCoordinatorRepositoryBindingId } from "../../coordinator/src/state/model.ts";
-import {
-  decodeCoordinatorHistoryRows,
-  MAX_COORDINATOR_STATE_BYTES,
-} from "../../coordinator/src/storage/model.ts";
-import {
-  acquireCoordinatorStorageOwner,
-  readCoordinatorStorageSnapshotOwned,
-} from "../../coordinator/src/storage/settlement-store.ts";
+} from "../../coordinator/src/state/retirement.ts";
+import { deriveCoordinatorRepositoryBindingId } from "../../coordinator/src/state/validation.ts";
+import { decodeCoordinatorHistoryRows } from "../../coordinator/src/storage/history.ts";
+import { MAX_COORDINATOR_STATE_BYTES } from "../../coordinator/src/storage/state.ts";
+import { acquireCoordinatorStorageOwner } from "../../coordinator/src/storage/lock.ts";
+import { readCoordinatorStorageSnapshotOwned } from "../../coordinator/src/storage/state.ts";
 import { startWorkbench, readWorkbenchProjectSurface } from "../src/index.ts";
 import {
   createWorkbenchAiVerificationHttpClient,

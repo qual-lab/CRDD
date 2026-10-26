@@ -16,10 +16,11 @@ import fs from "node:fs";
 import { types as utilTypes } from "node:util";
 import vm from "node:vm";
 import { describe, it } from "node:test";
-import { decodeProjectResultAcceptance } from "../../../src/state/model.ts";
+import { decodeProjectResultAcceptance } from "../../../src/task/acceptance.ts";
 import {
   acknowledgeProjectDockerRecoveryObligation,
   recordProjectTaskResultAcceptances,
+  hasProjectTaskResultAcceptanceConflict,
 } from "../../../src/task/acceptance.ts";
 import {
   markProjectTaskRecoveryObligationRecovering,
@@ -27,13 +28,11 @@ import {
   retrySettledProjectTaskRecoveries,
   settleProjectTaskRecoveryObligation,
 } from "../../../src/task/recovery.ts";
-import { applyCoordinatorAcceptanceDecision } from "../../../src/state/model.ts";
-import {
-  createCoordinatorState,
-  describeCoordinatorStateContract,
-  type CoordinatorState,
-  type ProjectTaskDefinition,
-} from "../../../src/state/model.ts";
+import { applyCoordinatorAcceptanceDecision } from "../../../src/decision/transition.ts";
+import { createCoordinatorState } from "../../../src/state/create.ts";
+import { describeCoordinatorStateContract } from "../../../src/state/validation.ts";
+import type { CoordinatorState } from "../../../src/state/types.ts";
+import type { ProjectTaskDefinition } from "../../../src/task/types.ts";
 import {
   applyCoordinatorPartialReplan,
   observeProjectTaskStarted,
@@ -145,7 +144,7 @@ it("結果受理本文は十一項目を固定し旧領収書を受け付けな�
   assert.equal(acceptance.settlementGeneration, 7);
   const hostValue = Object.getOwnPropertyDescriptor(Object.prototype, "value");
   const helperSource = fs.readFileSync(
-    new URL("../../../src/state/model.ts", import.meta.url),
+    new URL("../../../src/state/validation.ts", import.meta.url),
     "utf8",
   );
   const executable = [
@@ -387,6 +386,14 @@ it("通常結果の受領集合はTask終端と初回受領世代を維持する
       assert.equal(recorded.state.tasks[0]?.state, outcome);
       assert.deepEqual(recorded.state.tasks[0]?.recoveryObligations, []);
       assert.equal(recorded.state.tasks[0]?.resultAcceptances.length, count);
+      assert.equal(
+        hasProjectTaskResultAcceptanceConflict(state, recorded.state),
+        false,
+      );
+      assert.equal(
+        hasProjectTaskResultAcceptanceConflict(undefined, recorded.state),
+        true,
+      );
       const advanced = {
         ...recorded.state,
         generation: recorded.state.generation + 3,
@@ -399,6 +406,32 @@ it("通常結果の受領集合はTask終端と初回受領世代を維持する
       );
       assert.equal(replay.status, "completed");
       assert.equal(replay.state, advanced);
+      assert.equal(
+        hasProjectTaskResultAcceptanceConflict(recorded.state, advanced),
+        false,
+      );
+      const changedReceipt = {
+        ...advanced,
+        tasks: advanced.tasks.map((entry) => ({
+          ...entry,
+          resultAcceptances: entry.resultAcceptances.map((receipt) => ({
+            ...receipt,
+            resultId: "d".repeat(64),
+          })),
+        })),
+      };
+      assert.equal(
+        hasProjectTaskResultAcceptanceConflict(recorded.state, changedReceipt),
+        true,
+      );
+      const wrongGeneration = {
+        ...recorded.state,
+        generation: recorded.state.generation + 1,
+      };
+      assert.equal(
+        hasProjectTaskResultAcceptanceConflict(state, wrongGeneration),
+        true,
+      );
       assert.equal(
         replay.state.tasks[0]?.resultAcceptances[0]?.settlementGeneration,
         acceptance.settlementGeneration,

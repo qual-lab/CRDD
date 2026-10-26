@@ -18,10 +18,10 @@ import {
   queryActivity as readAuthorizedRuntimeActivity,
   parseRuntimeActivityObservation,
 } from "../../src/index.ts";
-import { createCoordinatorState } from "../../src/state/model.ts";
-import { initializeCoordinatorSnapshot } from "../../src/storage/current-state.ts";
-import { writeCoordinatorSnapshotState } from "../../src/storage/current-state.ts";
-import { deriveCoordinatorRepositoryBindingId } from "../../src/state/model.ts";
+import { createCoordinatorState } from "../../src/state/create.ts";
+import { initializeCoordinatorSnapshot } from "../../src/storage/state.ts";
+import { writeCoordinatorSnapshotState } from "../../src/storage/state.ts";
+import { deriveCoordinatorRepositoryBindingId } from "../../src/state/validation.ts";
 import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
 import {
   ensureRepositoryRuntimeDataArea,

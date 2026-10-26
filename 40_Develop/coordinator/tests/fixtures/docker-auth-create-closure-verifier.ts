@@ -24,10 +24,8 @@ import {
   setImmediate as yieldEvents,
 } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
-import type {
-  CoordinatorStateSnapshot,
-  CoordinatorStateTaskOperation,
-} from "../../src/storage/model.ts";
+import type { CoordinatorStateSnapshot } from "../../src/storage/state.ts";
+import type { CoordinatorStateTaskOperation } from "../../src/execution/types.ts";
 
 const fixedImage =
   "sha256:d67a7b66b989ad6b6d6b10d428dcc5e0bfc3e5f88906e67d490c4d3daac57047";
@@ -377,7 +375,7 @@ async function executeApprovedAuthCreateClosure() {
   const cancel = () => abort.abort();
   process.on("SIGINT", cancel);
   const isolation = await import("../../../docker-isolation/src/index.ts");
-  const store = await import("../../src/storage/settlement-store.ts");
+  const store = await import("../../src/storage/state.ts");
   let isolationMock: { restore(): void } | null = null;
   let lifecycleMock: { restore(): void } | null = null;
   let storeMock: { restore(): void } | null = null;
@@ -844,7 +842,7 @@ async function executeApprovedAuthCreateClosure() {
     );
     if (absentAuth)
       storeMock = mock.module(
-        new URL("../../src/storage/settlement-store.ts", import.meta.url).href,
+        new URL("../../src/storage/state.ts", import.meta.url).href,
         {
           namedExports: {
             ...store,

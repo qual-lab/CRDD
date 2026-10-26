@@ -5,6 +5,17 @@
  * @trace ARCH-000005
  */
 
+import { completed } from "../state/result.ts";
+import { blocked as storeBlocked } from "../state/result.ts";
+import { withCoordinatorSnapshotOperation } from "../storage/state.ts";
+import { encodeCoordinatorStateValue } from "../state/validation.ts";
+import { COORDINATOR_PROJECT_SNAPSHOT_SCHEMA } from "../storage/state.ts";
+import { digest } from "../state/validation.ts";
+import { COORDINATOR_ACCEPTANCE_DECISION_STORE_CONTRACT } from "./records.ts";
+import type { CoordinatorAcceptanceDecisionEnvelope } from "./records.ts";
+import { validCoordinatorAcceptanceDecisionRecord } from "./records.ts";
+import { validCoordinatorDecisionRecoveryIntent } from "./records.ts";
+import type { CoordinatorAcceptanceDecisionStore } from "./types.ts";
 import { createHash, randomBytes } from "node:crypto";
 import type {
   CoordinatorDecisionCapabilityPort,
@@ -21,22 +32,17 @@ import {
   COORDINATOR_HUMAN_DECISION_CONTRACT,
   inspectCoordinatorDecisionRequest,
 } from "./request.ts";
-import {
-  applyCoordinatorHumanDecision,
-  deriveCoordinatorRepositoryBindingId,
-} from "../state/model.ts";
+import { applyCoordinatorHumanDecision } from "./transition.ts";
+import { deriveCoordinatorRepositoryBindingId } from "../state/validation.ts";
 import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../../../version-control/src/index.ts";
 import {
   COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
   coordinatorDataBoundaryBlocked,
 } from "../state/result.ts";
-import {
-  createCurrentCoordinatorPersistencePorts as createCoordinatorPersistencePorts,
-  maintainCoordinatorSnapshot,
-  createCoordinatorSnapshotDecisionRecoveryStore as createCoordinatorDecisionRecoveryStore,
-} from "../storage/current-state.ts";
+import { createCurrentCoordinatorPersistencePorts as createCoordinatorPersistencePorts } from "../state/transaction.ts";
+import { maintainCoordinatorSnapshot } from "../state/retirement.ts";
 import { RepositoryRuntimeDataAreaBlockedError } from "../../../domain-model/src/index.ts";
-import { openRuntimeOwnedWindowsProjectDecisionStore } from "../storage/protected-decision.ts";
+import { openRuntimeOwnedWindowsProjectDecisionStore } from "../storage/decision.ts";
 
 /**
  * hashを決定する。
@@ -1148,7 +1154,7 @@ export function executeCoordinatorPublicDecision(
     queueId: record.queueId,
     principalId: protectedStore.principalId,
     store: protectedStore.store,
-    recoveryStore: createCoordinatorDecisionRecoveryStore(
+    recoveryStore: createCoordinatorSnapshotDecisionRecoveryStore(
       repositoryRoot,
       deriveCoordinatorRepositoryBindingId(repositoryRoot),
     ),
@@ -1220,4 +1226,339 @@ export function runCoordinatorPublicDecision(
       return coordinatorDataBoundaryBlocked(error);
     throw error;
   }
+}
+
+/**
+ * 統合保存上の受入判断Storeを構築する。
+ * @responsibility 二世代の判断記録を同じ短期排他で作成・読取り・比較交換する。
+ * @trace ARCH-000005
+ * @input workingDirectory: 検証するRepository、binding: 期待結合。
+ * @returns 既存の受入判断Store Port。
+ * @precondition 全入力照合済みv2保存がある。
+ * @postcondition 期待値不一致と重複作成を拒否し、他区画を保持する。
+ * @effect 操作時に統合保存を更新する。
+ * @failure 未知版、破損、不存在、比較不一致は停止する。
+ * @invariant 第2世代単独を許さず、JSONから人間承認を生成しない。
+ * @boundary 受入判断PortとRepository内現在状態。
+ * @security 保護Authorityや秘密値を移さない。
+ * @concurrency 読取りと比較交換を同じ保存Ownerへ閉じる。
+ */
+export function createCoordinatorSnapshotAcceptanceDecisionStore(
+  workingDirectory: string,
+  binding: string,
+): CoordinatorAcceptanceDecisionStore {
+  return Object.freeze({
+    /**
+     * 受入判断の初回記録を作成する。
+     * @responsibility 同Identityの二重作成を拒否する。
+     * @trace ARCH-000005
+     * @input record: preparedの判断記録。
+     * @returns 確定した記録または停止。
+     * @precondition v2保存が存在する。
+     * @postcondition 第1世代だけを追加する。
+     * @effect 統合保存を更新する。
+     * @failure 不正値と重複を拒否する。
+     * @invariant 他区画を変更しない。
+     * @boundary 判断Portと保存。
+     * @security 承認Authorityを新設しない。
+     * @concurrency 同じ保存Ownerで処置する。
+     */
+    create(record) {
+      return withCoordinatorSnapshotOperation(
+        workingDirectory,
+        binding,
+        (current) => {
+          if (
+            current.schema !== COORDINATOR_PROJECT_SNAPSHOT_SCHEMA ||
+            !validCoordinatorAcceptanceDecisionRecord(record) ||
+            record.disposition !== "prepared"
+          )
+            return storeBlocked("orchestrator_acceptance_record_invalid");
+          if (
+            current.acceptanceDecisions.some(
+              (item) => item.recordId === record.recordId,
+            )
+          )
+            return storeBlocked("orchestrator_acceptance_record_exists");
+          const entry: CoordinatorAcceptanceDecisionEnvelope = {
+            contract: COORDINATOR_ACCEPTANCE_DECISION_STORE_CONTRACT,
+            repositoryBindingId: binding,
+            recordId: record.recordId,
+            generation: 1,
+            previousHash: null,
+            record,
+          };
+          return completed("orchestrator_acceptance_record_created", {
+            next: {
+              ...current,
+              acceptanceDecisions: [...current.acceptanceDecisions, entry],
+            },
+            value: record,
+          });
+        },
+      );
+    },
+    /**
+     * 照合済みの最新受入判断を返す。
+     * @responsibility 二世代の結合を維持する。
+     * @trace ARCH-000005
+     * @input recordId: 対象判断。
+     * @returns 最新記録、真正不存在または停止。
+     * @precondition v2保存が存在する。
+     * @postcondition 保存値を変更しない。
+     * @effect 保存を読み取る。
+     * @failure 不正Identityと未知版を拒否する。
+     * @invariant 不明を不存在へ丸めない。
+     * @boundary 判断Portと保存。
+     * @security Authorityを発行しない。
+     * @concurrency 短期保存Ownerを保持する。
+     */
+    read(recordId) {
+      return withCoordinatorSnapshotOperation(
+        workingDirectory,
+        binding,
+        (current) => {
+          if (
+            current.schema !== COORDINATOR_PROJECT_SNAPSHOT_SCHEMA ||
+            !validId(recordId)
+          )
+            return storeBlocked(
+              "orchestrator_acceptance_record_identity_invalid",
+            );
+          const groups = current.acceptanceDecisions.filter(
+            (item) => item.recordId === recordId,
+          );
+          return completed("orchestrator_acceptance_record_observed", {
+            next: null,
+            value:
+              groups.find((item) => item.generation === 2)?.record ??
+              groups.find((item) => item.generation === 1)?.record ??
+              null,
+          });
+        },
+      );
+    },
+    /**
+     * 受入判断を確定する。
+     * @responsibility preparedの完全一致を前提に第2世代を追加する。
+     * @trace ARCH-000005
+     * @input expectedとnext: 期待値と確定値。
+     * @returns 確定記録または停止。
+     * @precondition 期待値が現在の第1世代と一致する。
+     * @postcondition 第1世代のHashへ結合する。
+     * @effect 統合保存を更新する。
+     * @failure 比較競合と二重確定を拒否する。
+     * @invariant 第2世代を単独作成しない。
+     * @boundary 判断Portと保存。
+     * @security Authorityを発行しない。
+     * @concurrency 比較と確定を同じOwnerで行う。
+     */
+    compareAndSet(expected, next) {
+      return withCoordinatorSnapshotOperation(
+        workingDirectory,
+        binding,
+        (current) => {
+          if (
+            current.schema !== COORDINATOR_PROJECT_SNAPSHOT_SCHEMA ||
+            !validCoordinatorAcceptanceDecisionRecord(expected) ||
+            !validCoordinatorAcceptanceDecisionRecord(next) ||
+            expected.recordId !== next.recordId ||
+            expected.disposition !== "prepared" ||
+            next.disposition !== "finalized"
+          )
+            return storeBlocked(
+              "orchestrator_acceptance_record_transition_invalid",
+            );
+          const first = current.acceptanceDecisions.find(
+            (item) =>
+              item.recordId === expected.recordId && item.generation === 1,
+          );
+          if (
+            !first ||
+            encodeCoordinatorStateValue(first.record) !==
+              encodeCoordinatorStateValue(expected)
+          )
+            return storeBlocked(
+              "orchestrator_acceptance_record_generation_mismatch",
+            );
+          if (
+            current.acceptanceDecisions.some(
+              (item) =>
+                item.recordId === expected.recordId && item.generation === 2,
+            )
+          )
+            return storeBlocked("orchestrator_acceptance_record_exists");
+          const entry: CoordinatorAcceptanceDecisionEnvelope = {
+            contract: COORDINATOR_ACCEPTANCE_DECISION_STORE_CONTRACT,
+            repositoryBindingId: binding,
+            recordId: expected.recordId,
+            generation: 2,
+            previousHash: digest(encodeCoordinatorStateValue(first)),
+            record: next,
+          };
+          return completed("orchestrator_acceptance_record_finalized", {
+            next: {
+              ...current,
+              acceptanceDecisions: [...current.acceptanceDecisions, entry],
+            },
+            value: next,
+          });
+        },
+      );
+    },
+  });
+}
+
+/**
+ * 統合保存上の判断回復Storeを構築する。
+ * @responsibility exactな回復記録の現在値と比較交換世代を保持する。
+ * @trace ARCH-000008
+ * @input workingDirectory: 検証するRepository、binding: 期待結合。
+ * @returns 既存の判断回復Store Port。
+ * @precondition 旧入力の全連鎖を照合したv2保存がある。
+ * @postcondition 回復Identityと期待値の完全一致を維持する。
+ * @effect 操作時に統合保存を更新する。
+ * @failure 不正入力、未知版、比較競合、保存未確定は停止する。
+ * @invariant 保存改訂を記録比較交換の代替にしない。
+ * @boundary 判断回復PortとRepository内現在状態。
+ * @security 保存状態から回復Authorityを新設しない。
+ * @concurrency 現在値の確認と確定を同じOwnerで行う。
+ */
+export function createCoordinatorSnapshotDecisionRecoveryStore(
+  workingDirectory: string,
+  binding: string,
+): CoordinatorDecisionRecoveryStore {
+  return Object.freeze({
+    /**
+     * 判断回復の初回意図を保存する。
+     * @responsibility 同回復Identityの二重作成を拒否する。
+     * @trace ARCH-000008
+     * @input intent: 回復意図。
+     * @returns 確定意図または停止。
+     * @precondition v2保存と対象Queueがある。
+     * @postcondition 記録世代1を追加する。
+     * @effect 統合保存を更新する。
+     * @failure 不正値と重複を拒否する。
+     * @invariant 元の回復Identityを維持する。
+     * @boundary 回復Portと保存。
+     * @security 回復Authorityを新設しない。
+     * @concurrency 同じ保存Ownerで処置する。
+     */
+    create(intent) {
+      return withCoordinatorSnapshotOperation(
+        workingDirectory,
+        binding,
+        (current) => {
+          if (
+            current.schema !== COORDINATOR_PROJECT_SNAPSHOT_SCHEMA ||
+            !validCoordinatorDecisionRecoveryIntent(intent)
+          )
+            return storeBlocked("orchestrator_decision_recovery_invalid");
+          if (
+            current.decisionRecoveries.some(
+              (item) => item.value.recoveryId === intent.recoveryId,
+            )
+          )
+            return storeBlocked("orchestrator_decision_recovery_exists");
+          return completed("orchestrator_decision_recovery_created", {
+            next: {
+              ...current,
+              decisionRecoveries: [
+                ...current.decisionRecoveries,
+                { generation: 1, value: intent },
+              ],
+            },
+            value: intent,
+          });
+        },
+      );
+    },
+    /**
+     * exactな判断回復を読み取る。
+     * @responsibility 最新値と真正不存在を区別する。
+     * @trace ARCH-000008
+     * @input recoveryId: 対象回復。
+     * @returns 現在値、真正不存在または停止。
+     * @precondition v2保存が存在する。
+     * @postcondition 記録を変更しない。
+     * @effect 保存を読み取る。
+     * @failure 不正値と未知版を拒否する。
+     * @invariant 観測不能を不存在へ丸めない。
+     * @boundary 回復Portと保存。
+     * @security Authorityを発行しない。
+     * @concurrency 短期保存Ownerを保持する。
+     */
+    read(recoveryId) {
+      return withCoordinatorSnapshotOperation(
+        workingDirectory,
+        binding,
+        (current) => {
+          if (
+            current.schema !== COORDINATOR_PROJECT_SNAPSHOT_SCHEMA ||
+            !validId(recoveryId)
+          )
+            return storeBlocked("orchestrator_decision_recovery_invalid");
+          return completed("orchestrator_decision_recovery_observed", {
+            next: null,
+            value:
+              current.decisionRecoveries.find(
+                (item) => item.value.recoveryId === recoveryId,
+              )?.value ?? null,
+          });
+        },
+      );
+    },
+    /**
+     * 判断回復の現在値を比較交換する。
+     * @responsibility 期待値の完全一致と記録世代を維持する。
+     * @trace ARCH-000008
+     * @input expectedとnext: 期待値と更新値。
+     * @returns 更新値または停止。
+     * @precondition 同じ回復Identityを扱う。
+     * @postcondition 記録世代を一つ進める。
+     * @effect 統合保存を更新する。
+     * @failure 比較競合と結合差を拒否する。
+     * @invariant 保存改訂をCASの代替にしない。
+     * @boundary 回復Portと保存。
+     * @security Authorityを発行しない。
+     * @concurrency 比較と確定を同じOwnerで行う。
+     */
+    compareAndSet(expected, next) {
+      return withCoordinatorSnapshotOperation(
+        workingDirectory,
+        binding,
+        (current) => {
+          if (
+            current.schema !== COORDINATOR_PROJECT_SNAPSHOT_SCHEMA ||
+            !validCoordinatorDecisionRecoveryIntent(expected) ||
+            !validCoordinatorDecisionRecoveryIntent(next) ||
+            expected.recoveryId !== next.recoveryId
+          )
+            return storeBlocked("orchestrator_decision_recovery_invalid");
+          const prior = current.decisionRecoveries.find(
+            (item) => item.value.recoveryId === expected.recoveryId,
+          );
+          if (
+            !prior ||
+            encodeCoordinatorStateValue(prior.value) !==
+              encodeCoordinatorStateValue(expected)
+          )
+            return storeBlocked(
+              "orchestrator_decision_recovery_generation_mismatch",
+            );
+          return completed("orchestrator_decision_recovery_updated", {
+            next: {
+              ...current,
+              decisionRecoveries: current.decisionRecoveries.map((item) =>
+                item === prior
+                  ? { generation: prior.generation + 1, value: next }
+                  : item,
+              ),
+            },
+            value: next,
+          });
+        },
+      );
+    },
+  });
 }

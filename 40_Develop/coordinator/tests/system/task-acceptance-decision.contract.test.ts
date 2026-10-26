@@ -8,6 +8,7 @@
  * @scope coordinator、orchestrator、runtime-data、repository-local-store
  * @boundary PRL-ST-009=System/E2E: 公開入口→Coordinator→Acceptance Decision Store→状態投影
  */
+import { encodeCoordinatorStateValue } from "../../src/state/validation.ts";
 import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
@@ -19,11 +20,9 @@ import { fileURLToPath } from "node:url";
 import { ensureRepositoryRuntimeDataAreaFromWorkingDirectory } from "../../../domain-model/src/index.ts";
 import { requireReadyRepositoryRuntimeDataArea } from "../../../domain-model/src/index.ts";
 
-import {
-  createCoordinatorState,
-  type CoordinatorAcceptanceDecision,
-  type CoordinatorState,
-} from "../../src/state/model.ts";
+import { createCoordinatorState } from "../../src/state/create.ts";
+import type { CoordinatorAcceptanceDecision } from "../../src/decision/types.ts";
+import type { CoordinatorState } from "../../src/state/types.ts";
 import {
   observeProjectTaskStarted,
   prepareProjectTaskHandoff,
@@ -34,16 +33,11 @@ import { COORDINATOR_ACCEPTANCE_DECISION_CONTRACT } from "../../src/decision/req
 import type { CoordinatorAcceptanceDecisionRecord } from "../../src/decision/records.ts";
 import { executeCoordinatorPublicAcceptanceDecision } from "../../src/decision/acceptance.ts";
 import { executeCoordinatorPublicStateQuery } from "../../src/state/query.ts";
-import {
-  createCurrentCoordinatorPersistencePorts,
-  createCoordinatorSnapshotAcceptanceDecisionStore,
-  initializeCoordinatorSnapshot,
-} from "../../src/storage/current-state.ts";
-import { createCoordinatorWindowsDecisionStoreTestingAdapter } from "../../src/storage/protected-decision.ts";
-import {
-  decodeCoordinatorUnifiedSnapshot,
-  encodeCoordinatorStateValue,
-} from "../../src/storage/model.ts";
+import { createCurrentCoordinatorPersistencePorts } from "../../src/state/transaction.ts";
+import { createCoordinatorSnapshotAcceptanceDecisionStore } from "../../src/decision/lifecycle.ts";
+import { initializeCoordinatorSnapshot } from "../../src/storage/state.ts";
+import { createCoordinatorWindowsDecisionStoreTestingAdapter } from "../../src/storage/decision.ts";
+import { decodeCoordinatorUnifiedSnapshot } from "../../src/storage/state.ts";
 
 /**
  * Git管理された固定Repositoryを構築する。

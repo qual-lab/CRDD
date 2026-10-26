@@ -8,6 +8,7 @@
  * @scope 本番清掃本文と既存Root／Kernel／Filesystem primitiveの固定模擬。
  * @boundary ERB-IT-014=Direct Boundary: 現在保存Owner→保存marker。
  */
+import { encodeCoordinatorStateValue } from "../../src/state/validation.ts";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
@@ -23,17 +24,16 @@ import {
 import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
 import { acquireRuntimeOwnedCoordinatorStateKernelLock } from "../../src/execution/kernel-lock.ts";
 import { borrowRuntimeOwnedCoordinatorRecoveryRepository } from "../../src/execution/operation.ts";
+import { acquireCoordinatorStorageOwner } from "../../src/storage/lock.ts";
 import {
   COORDINATOR_STATE_SCHEMA,
   decodeCoordinatorStateSnapshot,
-  encodeCoordinatorStateValue,
   MAX_COORDINATOR_STATE_BYTES,
-} from "../../src/storage/model.ts";
+} from "../../src/storage/state.ts";
 import {
-  acquireCoordinatorStorageOwner,
   cleanupRuntimeOwnedCoordinatorStateMarker,
   readCoordinatorStorageSnapshotOwned,
-} from "../../src/storage/settlement-store.ts";
+} from "../../src/storage/state.ts";
 
 /**
  * markerだけの清掃を、保存本文・実体・取得／解放の全停止点で確認する。
@@ -48,7 +48,7 @@ import {
  */
 test("現在保存marker: exact処置・全文保全・停止と解放の相関", () => {
   const source = fs.readFileSync(
-    new URL("../../src/storage/settlement-store.ts", import.meta.url),
+    new URL("../../src/storage/state.ts", import.meta.url),
     "utf8",
   );
   const start = source.indexOf(

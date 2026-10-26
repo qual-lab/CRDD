@@ -4,6 +4,95 @@
   "subsystem": "coordinator",
   "symbols": [
     {
+      "symbolId": "coordinator.source.src.execution.lease",
+      "kind": "file",
+      "path": "src/execution/lease.ts",
+      "archIds": [
+        "ARCH-000004",
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.execution.settlement",
+      "kind": "file",
+      "path": "src/execution/settlement.ts",
+      "archIds": [
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.execution.types",
+      "kind": "file",
+      "path": "src/execution/types.ts",
+      "archIds": [
+        "ARCH-000004",
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.execution.validation",
+      "kind": "file",
+      "path": "src/execution/validation.ts",
+      "archIds": [
+        "ARCH-000004",
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.state.retirement",
+      "kind": "file",
+      "path": "src/state/retirement.ts",
+      "archIds": [
+        "ARCH-000004",
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.state.settlement",
+      "kind": "file",
+      "path": "src/state/settlement.ts",
+      "archIds": [
+        "ARCH-000004",
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.state.transaction",
+      "kind": "file",
+      "path": "src/state/transaction.ts",
+      "archIds": [
+        "ARCH-000004",
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.state.transition",
+      "kind": "file",
+      "path": "src/state/transition.ts",
+      "archIds": [
+        "ARCH-000004",
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.storage.lock",
+      "kind": "file",
+      "path": "src/storage/lock.ts",
+      "archIds": [
+        "ARCH-000004",
+        "ARCH-000008"
+      ]
+    },
+    {
+      "symbolId": "coordinator.source.src.task.queue",
+      "kind": "file",
+      "path": "src/task/queue.ts",
+      "archIds": [
+        "ARCH-000004",
+        "ARCH-000008"
+      ]
+    },
+    {
       "symbolId": "coordinator.storage.ai-selection",
       "kind": "file",
       "path": "src/storage/ai-selection.ts",
@@ -27,9 +116,17 @@
       ]
     },
     {
-      "symbolId": "coordinator.selection.model",
+      "symbolId": "coordinator.selection.types",
       "kind": "file",
-      "path": "src/selection/model.ts",
+      "path": "src/selection/types.ts",
+      "archIds": [
+        "ARCH-000004"
+      ]
+    },
+    {
+      "symbolId": "coordinator.selection.validation",
+      "kind": "file",
+      "path": "src/selection/validation.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -53,7 +150,8 @@
         "RCM-UT-001"
       ],
       "verifies": [
-        "coordinator.selection.model",
+        "coordinator.selection.types",
+        "coordinator.selection.validation",
         "coordinator.selection.resolve"
       ]
     },
@@ -437,7 +535,7 @@
     {
       "symbolId": "coordinator.state-storage.coordinator-state-runtime",
       "kind": "file",
-      "path": "src/storage/settlement-store.ts",
+      "path": "src/storage/state.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -463,7 +561,7 @@
     {
       "symbolId": "coordinator.state-storage.coordinator-state-model",
       "kind": "file",
-      "path": "src/storage/model.ts",
+      "path": "src/storage/state.ts",
       "archIds": [
         "ARCH-000008"
       ]
@@ -3653,7 +3751,7 @@
     {
       "symbolId": "orchestrator.identity.repository-binding",
       "kind": "file",
-      "path": "src/state/model.ts",
+      "path": "src/state/validation.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -3747,7 +3845,7 @@
     {
       "symbolId": "coordinator.source.src.security.orchestrator.windows.decision.store",
       "kind": "file",
-      "path": "src/storage/protected-decision.ts",
+      "path": "src/storage/decision.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -3779,7 +3877,7 @@
     {
       "symbolId": "coordinator.source.src.security.orchestrator.durable.foundation",
       "kind": "file",
-      "path": "src/storage/current-state.ts",
+      "path": "src/storage/state.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000005",
@@ -3802,7 +3900,7 @@
     {
       "symbolId": "orchestrator.storage.result-record",
       "kind": "file",
-      "path": "src/storage/model.ts",
+      "path": "src/storage/state.ts",
       "archIds": [
         "ARCH-000005"
       ]
@@ -3810,7 +3908,7 @@
     {
       "symbolId": "orchestrator.storage.types",
       "kind": "file",
-      "path": "src/storage/result-record.ts",
+      "path": "src/workspace/record.ts",
       "archIds": [
         "ARCH-000005"
       ]
@@ -3910,7 +4008,7 @@
     {
       "symbolId": "orchestrator.state-core",
       "kind": "file",
-      "path": "src/state/model.ts",
+      "path": "src/state/create.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000005"
@@ -3989,7 +4087,7 @@
     {
       "symbolId": "orchestrator.decision-transitions",
       "kind": "file",
-      "path": "src/state/model.ts",
+      "path": "src/decision/transition.ts",
       "archIds": [
         "ARCH-000004",
         "ARCH-000005"
@@ -4032,7 +4130,7 @@
     {
       "symbolId": "orchestrator.queue-core",
       "kind": "file",
-      "path": "src/state/model.ts",
+      "path": "src/task/types.ts",
       "archIds": [
         "ARCH-000004"
       ],
@@ -4322,7 +4420,7 @@
     {
       "symbolId": "orchestrator.task.single-task-record",
       "kind": "file",
-      "path": "src/state/model.ts",
+      "path": "src/task/validation.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -4457,7 +4555,8 @@
       "verifies": [
         "coordinator.source.src.security.orchestrator.objective.intake",
         "orchestrator.source.src.public.contract.objective.request",
-        "coordinator.selection.model",
+        "coordinator.selection.types",
+        "coordinator.selection.validation",
         "coordinator.selection.resolve"
       ]
     },
@@ -4480,7 +4579,7 @@
     {
       "symbolId": "coordinator.source.src.input.plain.data.snapshot",
       "kind": "file",
-      "path": "src/state/model.ts",
+      "path": "src/state/validation.ts",
       "archIds": [
         "ARCH-000004"
       ]
@@ -4488,7 +4587,7 @@
     {
       "symbolId": "orchestrator.source.src.public.contract.repository.relative.path",
       "kind": "file",
-      "path": "src/state/model.ts",
+      "path": "src/state/validation.ts",
       "archIds": [
         "ARCH-000004"
       ]

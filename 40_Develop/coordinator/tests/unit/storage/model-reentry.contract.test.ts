@@ -9,7 +9,7 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-import { classifyCoordinatorSnapshotReentry } from "../../../src/storage/model.ts";
+import { classifyCoordinatorSnapshotReentry } from "../../../src/storage/state.ts";
 
 /**
  * Snapshotの元版と次版のexact内容だけを保存再入場へ分類する。

@@ -1604,7 +1604,7 @@ DI checkpointのkey・技術順序は下位Root codecで検証し、Coordinator�
 | 資源・Host・Leaseの現在checkpoint | 同じ操作の実要求・実観測・現在世代に応じて更新する。 | 個別checkpointの構造検証だけでなく、要求前記録、相関、遷移順、現在の実体観測を照合する。 |
 | Hostの処置前提 | Coordinatorの確認結果を既存Host Ownerへ用途限定で渡す。 | opaque Capability、一回消費、現在Host世代と実体排他を維持する。Snapshot項目の存在だけで回収許可を作らない。 |
 
-現在の記録構造検証は`storage/model.ts`のprivate検証・codec・遷移候補が所有し、保存・読戻し・履歴・受領確定は`storage/settlement-store.ts`、現在資源／Host／Ownerの接続はRuntime Callerが所有する。構造検証のPassを資源不存在、現在Authorityまたは完全な遷移検証の代替にしない。旧`active-docker-task-v1.json`・旧record-model・旧全域Inventory／回復APIは退役済みであり、互換Readerを追加しない。現在経路の元版・exact ID・資源終端・Host世代・Writer／ACKの確認は保持する。実資源の処置、実再ログオンと公開E2Eの未証明を、旧経路撤去から成立へ換算しない。
+記録の保存Schema・codec・改訂と元Hashは`storage/state.ts`、Operationの値・遷移検査は`execution/validation.ts`、区画相関と投影は`state/settlement.ts`、閉鎖・退役条件は`state/transition.ts`が所有する。保存・読戻し・受領確定は単一の物理Writerを維持し、現在資源／Host／Ownerの接続は実行Callerが所有する。構造検証のPassを資源不存在、現在Authorityまたは完全な遷移検証の代替にしない。旧`active-docker-task-v1.json`・旧record-model・旧全域Inventory／回復APIは退役済みであり、互換Readerを追加しない。元版・exact ID・資源終端・Host世代・Writer／受領の確認は保持する。実資源の処置、実再ログオンと公開E2Eの未証明を、旧経路撤去から成立へ換算しない。
 
 旧RuntimeState一覧向けの`recovery-lock-controller.ts`と`state-binding.ts`は本番利用側がなくなったため撤去する。旧controllerの処理中解放・再取得は現行方式へ移植しない。現在の回収OwnerはHost／Home／Runtimeの長期排他を保持し、状態保存だけ短期State排他を用いる。外側観測の後は元版全文・exact回復ID・現在Ownerを再確認し、解放不明では後続処置を拒否する。旧方式の専用試験7件の退役は、正式検証義務や実境界の完了を意味しない。
 
@@ -1639,7 +1639,7 @@ Hostの保存接続は`prepareCoordinatorStateHostSnapshot`と`checkpointRuntime
 | `resources` | 五purposeを必ず評価し、要求状態と現在観測を別fieldにする。 | ID確定済みで観測がunknownになってもIDと受理根拠を保持する。不存在の根拠Hashだけから実不存在を推定しない。 |
 | `primaryFailure`、`outcome` | 最初の失敗と後続清掃・最終結果を別に保持する。 | 最終結果による一次失敗の上書きを禁止する。 |
 
-本文上限は16MiB、未終了操作と回復参照は各64件、耐久結果搬送は操作ごとにOrchestrator一Consumer、全体で64件までとする。CLI／Workbenchの一時返却はこの耐久配送集合へ追加しない。上限到達時は未解決情報を削除せず新しい受付を停止する。これらは履歴保持上限ではない。`storage/model.ts`はcodec・構造検査・候補導出・改訂間遷移を所有し、実際の受付・保存確定とHost回収への接続は本番Writer／Callerが担う。現在Sourceに接続しているが、全Producerと実資源・Hostを通す一体実証は未完了である。
+本文上限は16MiB、未終了操作と回復参照は各64件、耐久結果搬送は操作ごとに耐久受領を要求する一Consumer、全体で64件までとする。CLI／Workbenchの一時返却はこの耐久配送集合へ追加しない。上限到達時は未解決情報を削除せず新しい受付を停止する。これらは履歴保持上限ではない。`storage/state.ts`は保存codec・改訂・元HashとCAS候補の完全再導出を所有し、意味Ownerの検査を同じ現在版へ適用する。実際の受付・保存確定とHost回収への接続は本番Writer／Callerが担う。全Producerと実資源・Hostを通す一体実証は未完了である。
 
 基本情報の除去条件は、対象の資源終端、回復義務の解決、全結果受理、必要な終了要約の保存確認がすべて成立したことである。Process終了だけで除去しない。回復参照と搬送参照の重複、参照先不存在、別Attemptへの参照流用、immutable Identity差を拒否する。履歴を失っても操作Authorityを復元せず、同じ旧領域を新しいAttemptへ再利用しない。
 
@@ -2145,7 +2145,7 @@ Coordinatorの最上位責務は`cli / objective / task / decision / workspace /
 | `workspace/` | `record / commands / operations`を基本として、作業領域の判断・要求相関を所有する。Git EffectはVersion Controlを呼ぶ |
 | `execution/` | `request / preparation / controller / observation / result / advice / authority / operation / recovery / diagnostics / process-safety-state / kernel-lock`の十二責務を基本とする。開始・取消・元通知・回収・実行Authorityを同じOperationへ結ぶ |
 | `state/` | `model / types / request / projection / query / public-query / observation / persistence / result`。現在状態の値、公開観測の値型、照会入力、純粋な投影と検査、単一状態照会、認証付き公開照会、認可済み集合の観測、保存Port型、公開結果を区別する。保存・実行を純粋な依存閉包へ取り込まない |
-| `storage/` | Bの`current-state / history / model / protected-decision / result-record / settlement-store`六Fileの本文・意味を凍結基準とする。同一Symbolの移管に伴うimport declarationの参照先だけは人間承認により追従できる。旧`validate-result-record.ts`は復活させず、Schema・Root・CAS・Lock・marker／pending・履歴・原子受領を変更しない |
+| `storage/` | 先行構造整理ではBの六File本文を凍結した。2026-10-27のStorage再設計方針により、追加済み`ai-selection.ts`を含む七Fileを対象に凍結見直しを設計する。目標は下節の五File。人間の設計レビュー前に本文移管せず、Schema・Root・CAS・Lock・marker／pending・履歴・原子受領は維持する |
 
 AI AdapterはProvider・Modelの仕様、その仕様に基づく候補解決、CLI計画と結果解釈を所有する。Coordinatorの`preparation`は、作業のRisk・難度・独立レビュー・委譲chainに基づく実行方針を決め、既存AI Adapter APIの結果を今回のProfile・作業対象・送信許可・短命Capabilityへ結合する。純粋計算であることだけを理由に上位方針をAI Adapterへ移さない。Dockerコマンド・Image・Network・Mountの技術構成はDocker Isolation、OS原語と技術観測はPlatform Accessが所有する。上位のPort型やCapabilityの一回性を、技術名だけを理由に下位へ移さない。
 
@@ -2155,11 +2155,104 @@ Fileの統合では、私有WeakMap／Set、元Control・通知、期限時計�
 
 Platformの必要保証と総合Adapter構成は`execution/diagnostics`、Lease Owner観測は`execution/kernel-lock`へ置く。Root／Homeの保護候補・Path検査は`execution/authority`、送信同意の端末調停は`decision/external-send-grant`が所有し、OS原語は既存PA APIを利用する。未実装のRoot観測は未実装のまま拒否し、今回の配置で保証を追加しない。助言のHost失敗Mapと回復関数は`execution/advice`、認証計画と回復Mapは`execution/authority`に一体保持する。回復という名前だけを理由にMapから処理を切り離さない。
 
-Stateの`model`は既存モデルに加え、Queue／単発記録、Repository BindingとCoordinator内のplain data／相対Pathの純粋検査を所有する。Domainの似た名前のAPIは結果形式が異なるため差し替えない。`types`は公開観測・照会の共有値型であり、Stateモデルや全Packageの型を集める汎用置場にはしない。`request`は照会入力と契約定数、`projection`は公開投影・結果検査・履歴Cursorの純粋計算を所有する。両者で使う字句検査は入力Ownerから同じ実体を参照し、`request`から`projection`へ値依存を戻さない。
+先行構造でStateの`model`に集約した値・遷移は、下節の承認Afterに従い分解する。Task／Queue／単発記録の型は`task/types`、Objective／Milestoneの型は`objective/types`、統合状態の型は`state/types`、初期値構築は`state/create`、人間判断の純粋遷移は`decision/transition`、共有plain data／相対Path／Repository Bindingと状態相関の検査は`state/validation`へ置く。Domainの似た名前のAPIは結果形式が異なるため差し替えない。`types`は状態・公開観測の共有値型であり、全Packageの型の汎用置場にはしない。`request`は照会入力と契約定数、`projection`は統合状態と公開投影・結果検査・履歴Cursorの純粋計算を所有する。両者で使う字句検査は入力Ownerから同じ実体を参照し、`request`から`projection`へ値依存を戻さない。
 
 `query`は読取りPortを受ける単一Project照会、`public-query`は現在の認証・Repository・Snapshotへの本番接続、`observation`は認可済みRepository集合の現在状態とEI履歴の集約を所有する。後二者のI/Oをmodel／request／projectionへ取り込まない。`persistence`は保存・Lease・Clockの型契約だけであり、OS排他やWriterを生成しない。`result`は既存二種類の結果Shapeと公開失敗投影を保持し、同じShapeへ無理に統一しない。元の契約文字列、Hash／Cursorのbyte形式、公開Symbolの意味はこの配置で変更しない。
 
 目標外のFileが必要な場合は、状態・寿命・保証・直接利用側と既存目標へ統合できない理由を示して判断へ戻す。Storageから旧Pathを直接参照する箇所の処置は、[今回の割当と凍結境界の確認](../../../99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#38-保存統合後の構造再設計着手)で追跡する。無断の互換再export、旧Readerまたは新しい管理Frameworkでは解消しない。
+
+<a id="storage-state-ownership-redesign"></a>
+
+## 16.2. 保存構造と状態所有の再設計（承認After・構造移管中）
+
+基準Sourceは`81d9647a4`。添付のStorage再設計方針を受け、保存統合Bの物理契約を保持しながら、各論理責務へ状態と遷移の意味を戻す。2026-10-27に人間がAfterを承認し、宣言ごとの割当を確定して実装するよう指示した。Selection十宣言・State五十六宣言は割当を先に確定して構造移管し、Storageの混在関数の割当は続けて調査する。設計承認を全体移管完了とは扱わない。[変更計画と一次宣言索引](../../../99_Roadmap/Changes/CHG-000082/coordinator-storage-ownership-plan.md)で未確定箇所を追跡する。
+
+### 内部ブロックと依存の目標
+
+```text
+公開入口（CLI / Workbench / MCP）
+           │
+           ▼
+ Task / Execution / Decision / Workspace
+   │ 状態の意味・変更候補・現在の許可
+   ▼
+ State：複数Blockの整合・統合投影
+   │ 同じ現在版で検査
+   ▼
+ Storage：既存の短期保存Owner / 単一CAS / 原子確定
+   ├ state.json + 保存途中記録
+   ├ history.jsonl + history.pending.jsonl
+   ├ 保護Rootのproject-decision-*.json
+   └ Repository設定のai-selection.json
+```
+
+図は論理責務の関係であり、全呼出しを新しいState中継APIへ通す要求ではない。既存OwnerはStorageの読取り・保存を直接利用できる。Storageが意味Ownerの純粋検査を呼ぶ場合も、保存時の現在版照合と同じ短期排他内に置く。外で古い候補を検査したことだけでは保存を許可しない。新しいRegistry、Lock階層、永続状態、汎用callback Frameworkは設けない。
+
+### Source責務の目標
+
+| Source | 所有する責務 | 所有しない責務・直接利用側 |
+|---|---|---|
+| `storage/lock.ts` | 既存の短期保存Lock、保存Ownerの発行・借用・生存・解放 | Task scheduling、Provider Home／Host／Docker実行排他は持たない。State／History／保護Decisionの既存取得方式と順序を保持 |
+| `storage/state.ts` | 統合SnapshotのSchema・Codec、bounded読取り、元版Hash・Revision・CAS・原子保存・pending再入場・構造不変条件 | Task進行・実行許可・実資源回復・採用判断を決めない。Task／Execution／Decision／WorkspaceとState照会が利用 |
+| `storage/history.ts` | 履歴Codec、pending搬送、確定・読戻し・保持・再入場 | Provider成功・資源不存在を推測しない。各終了OwnerとState退役処理が利用 |
+| `storage/decision.ts` | 既存保護Rootの判断記録、Generation、Hash Chain、読戻し、専用排他 | 判断内容やAuthorityを生成しない。Decisionとその公開利用側が利用 |
+| `storage/ai-selection.ts` | Repository設定の読書き、Schema、Expected Identity、既存Filesystem Lock、CASと読戻し | Catalog・選定Policy・進行中の再選定は持たない。Selection管理と実行準備が利用 |
+
+Storageは上記五Fileに固定する。既存の`model.ts`、`current-state.ts`、`settlement-store.ts`をそのまま`state.ts`へ連結しない。`result-record.ts`の意味型とPortは結果受領・Workspaceの責務へ戻し、永続行のCodecだけを保存側へ置く。`state/model.ts`も人間判断・Task値・統合投影・検査へ分解し、`selection/model.ts`は`types.ts`と`validation.ts`へ分ける。型専用Fileに実行時検査を残さず、転送だけの`crud.ts`や互換barrelは作らない。
+
+### 状態所有の対応
+
+| 状態・事実 | 意味上の正本Owner | 更新条件・保存 | 回復時の扱い |
+|---|---|---|---|
+| Task受付・Queue・進行 | Task | 受付世代・同ID・実行順序・結果相関を検査し統合Stateへ保存 | 同じIDの追跡。受付を実行開始済みと扱わない |
+| Operation／Attempt・過去Effect | Execution | 実通知・同じOwner・exact操作／回復参照へ相関し保存 | unknownを清掃成功から既知へ変えない |
+| 現在の資源・終了義務 | Execution。Docker実資源処置はDocker Isolation | freshな観測と終了根拠を照合しcheckpoint保存 | 過去のEffect不確実性と現在のEffect能力を区別 |
+| 新試行のAuthority | Execution／Decisionの既存Owner | 現在の許可・同意・選定・旧実行終了を検査 | 過去記録から自動的に再発行しない |
+| 人間判断・同意・受入 | Decision | 統合Stateの記録と保護Rootの記録を各契約で確定 | 同名のStoreでも二つの物理契約を混同しない |
+| Workspace・Candidate・採用結果 | Workspace、Git EffectはVersion Control | 現在対象・選択範囲・明示判断を検査し統合Stateへ保存 | 技術清掃だけから採用・Queue成功を推定しない |
+| 複数Blockの相関と投影 | State | 変更対象外の記録不変・相関・世代を同じ現在版で検査 | 単一Ownerの局所成功を全体完成にしない |
+| 保存途中版・Revision・Hash | Storage State | 単一Writer、現在版CAS、原子確定、読戻し | pendingと確定版の一致を観測してから進む |
+| 履歴の確定・保持 | Storage History | Ownerの確定事実を保存しpending・連続性・参照を検査 | 履歴確定前の現在状態を退役させない |
+
+単一保存単位を維持し、Task・Execution別のstate Fileへ分割しない。独立した耐久Evidenceや一度限りのReceiptを派生値と決めつけて削除しない。
+
+### Lifecycleの目標
+
+```text
+入力・権限確認 → Task耐久受付 → Acceptedを返却
+                      │ 同じTask Ownerが継続
+                      ▼
+                既存実行Lease取得
+                      ▼
+                開始保存 → 実行準備 → Provider実行
+                      │                  │
+                      │取消・失敗        │正常終了
+                      └─────────┬────────┘
+                                ▼
+                      終了観測・資源回収・義務評価
+                                ▼
+                    Result確定・用途別受領・History確定
+                                ▼
+                    未解決義務なしの場合だけ現在記録を退役
+
+Owner喪失 → 同じ耐久記録へ再入場 → 現在Owner・実資源を再観測
+             ├ 観測不能・未解決 → 同じ回復参照を保持して停止
+             └ 条件成立 → 限定した回復処置 → 義務評価へ合流
+```
+
+図中の語は段階の意味であり、新しい永続State値を追加するものではない。取消・Client切断・Owner喪失を同一視しない。物理保存成功とLock解放確認を別々に返し、解放不明を完了へ丸めない。長期`activeLeases`は短期保存Ownerと別であり、`lock.ts`へまとめない。`settlements`／`initializations`／`historyAttempts`はvariantごとにbefore／candidate・元Owner・used／issued・初回時刻を照合し、発行・借用・消費・失効を一体で移管する。
+
+### 通常終了と回復の合流範囲
+
+| 範囲 | 通常実行 | Recovery | 共用判断 |
+|---|---|---|---|
+| 根拠取得 | 現在Ownerの通知と元Context | 耐久記録とfreshなOwner・資源観測 | 同じ根拠とは扱わない |
+| Effect・資源操作 | 現在の実行許可 | 既存の限定回復許可 | 操作・Authority発行を共通化しない |
+| 終了義務評価 | 終了根拠・未解決義務の検査 | 必要な処置後の同じ意味の検査 | 同じ条件・正本を使う規則だけ共用 |
+| 最終確定 | 同Ownerの既存completed結果は既存規則で再利用 | 再入場条件を照合 | 古いSnapshotの再保存へ戻さない |
+| 履歴・結果搬送 | 用途別transient／durable | exact回復参照を保全 | 物理保存の共通処理は利用するが受領Policyは混合しない |
+
+反証にはCAS競合、二重Context使用、別Root／Task／回復ID、保存失敗後の再利用、履歴だけ確定、世代欠落、認可変更、取消・Owner喪失を含める。全宣言と利用側・試験の対応完了、人間設計レビュー、構造移管、意味が同じ部分の簡略化、固定回帰・独立レビューの順に進める。実AI・実Docker未検証の領域を、この構造整理によって成立へ換算しない。
 
 <a id="ui-spec-detail-placement"></a>
 

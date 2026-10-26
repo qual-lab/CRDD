@@ -10,7 +10,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { executionSelection } from "./ai-selection.ts";
 import { createCoordinatorTaskRequests } from "../../src/task/requests.ts";
-import { deriveCoordinatorRepositoryBindingId } from "../../src/state/model.ts";
+import { deriveCoordinatorRepositoryBindingId } from "../../src/state/validation.ts";
 
 const root = process.argv[2];
 const revision = process.argv[3];

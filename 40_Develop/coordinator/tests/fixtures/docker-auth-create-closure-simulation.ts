@@ -756,7 +756,7 @@ export async function simulateAuthCreateClosure(
     moduleUrl("../../../version-control/src/index.ts"),
     moduleUrl("../../../domain-model/src/index.ts"),
     isolationUrl,
-    moduleUrl("../../src/storage/settlement-store.ts"),
+    moduleUrl("../../src/storage/state.ts"),
     `${lifecycleUrl}?auth-create-parent`,
     moduleUrl("../../src/execution/recovery.ts?auth-create-parent"),
   ];
@@ -1119,9 +1119,8 @@ export async function simulateAuthCreateClosure(
               )
                 return { status: "blocked" };
             }
-            const writer = mocks.get(
-              moduleUrl("../../src/storage/settlement-store.ts"),
-            )?.writeRuntimeOwnedCoordinatorAuthenticationUnknownClosure as (
+            const writer = mocks.get(moduleUrl("../../src/storage/state.ts"))
+              ?.writeRuntimeOwnedCoordinatorAuthenticationUnknownClosure as (
               ...args: unknown[]
             ) => {
               status: string;
@@ -1269,7 +1268,7 @@ export async function simulateAuthCreateClosure(
         [
           isolationUrl,
           lifecycleUrl,
-          moduleUrl("../../src/storage/settlement-store.ts"),
+          moduleUrl("../../src/storage/state.ts"),
         ].includes(url),
       );
       assert.equal(mocks.has(url), false);

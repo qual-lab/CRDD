@@ -25,12 +25,12 @@ import {
   validWorkspaceCandidateRequest,
   verifyRepositoryRoot,
 } from "../../../version-control/src/index.ts";
+import { acquireCoordinatorSnapshotLease } from "../execution/lease.ts";
+import { readCoordinatorSnapshot } from "../storage/state.ts";
 import {
-  acquireCoordinatorSnapshotLease,
-  readCoordinatorSnapshot,
   writeCoordinatorWorkspaceRecord,
   createCoordinatorSnapshotIntegrationRecordPort,
-} from "../storage/current-state.ts";
+} from "./commands.ts";
 import type { CoordinatorWorkspace } from "./record.ts";
 import type { CoordinatorLease } from "../state/persistence.ts";
 

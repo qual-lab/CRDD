@@ -49,8 +49,8 @@ const expectedAreaConsumers = [
   "40_Develop/coordinator/scripts/prepare-codex-image.ts",
   "40_Develop/coordinator/scripts/verification-result-record.ts",
   "40_Develop/coordinator/src/storage/ai-selection.ts",
-  "40_Develop/coordinator/src/storage/current-state.ts",
-  "40_Develop/coordinator/src/storage/settlement-store.ts",
+  "40_Develop/coordinator/src/storage/state.ts",
+  "40_Develop/coordinator/src/storage/state.ts",
   "40_Develop/execution-intelligence/src/storage/store.ts",
   "40_Develop/visual-preview/src/browser/verify.ts",
 ] as const;

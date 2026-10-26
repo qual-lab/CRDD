@@ -10,7 +10,7 @@
  */
 import assert from "node:assert/strict";
 import { executionSelection } from "../../fixtures/ai-selection.ts";
-import type { ExecutionSelection } from "../../../src/selection/model.ts";
+import type { ExecutionSelection } from "../../../src/selection/types.ts";
 import { fixtureNetworkPolicy } from "../../fixtures/network-policy.ts";
 import { createHash } from "node:crypto";
 import test from "node:test";

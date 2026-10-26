@@ -13,16 +13,27 @@ import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import test, { mock, type TestContext } from "node:test";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { stripTypeScriptTypes } from "node:module";
 import { runInThisContext } from "node:vm";
 import { types } from "node:util";
-import * as model from "../../src/storage/model.ts";
+import * as model from "../../src/storage/state.ts";
+import * as historyValues from "../../src/storage/history.ts";
+import * as stateValues from "../../src/state/validation.ts";
+import * as executionValues from "../../src/execution/validation.ts";
+import * as executionResults from "../../src/execution/result.ts";
+import * as stateSettlement from "../../src/state/settlement.ts";
+import * as taskValues from "../../src/task/validation.ts";
+import * as taskAcceptance from "../../src/task/acceptance.ts";
+import * as stateTransitions from "../../src/state/transition.ts";
+import * as stateResults from "../../src/state/result.ts";
+import * as storageOwners from "../../src/storage/lock.ts";
+import * as observationValues from "../../src/execution/observation.ts";
 import * as domain from "../../../domain-model/src/index.ts";
 import * as versionControl from "../../../version-control/src/index.ts";
 import * as bindings from "../../src/execution/operation.ts";
 import * as kernel from "../../src/execution/kernel-lock.ts";
-import * as stateStore from "../../src/storage/settlement-store.ts";
+import * as stateStore from "../../src/storage/state.ts";
 import * as isolation from "../../../docker-isolation/src/index.ts";
 import { runDockerRuntimeRepairSessionUsing } from "../../../docker-isolation/src/docker-desktop/repair-session.ts";
 import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
@@ -61,7 +72,7 @@ let pauseBeforeDisposal = true;
 let retentionReads = 0;
 let refuseDisposalProgress = false;
 const disposalCalls: string[] = [];
-mock.module("../../src/storage/settlement-store.ts", {
+mock.module("../../src/storage/state.ts", {
   namedExports: {
     ...stateStore,
     completeRuntimeOwnedCoordinatorRepair: (
@@ -526,7 +537,7 @@ test("Host Windows: 修復回収Callerは保存失敗後も同IDで三用途を�
   );
   const historyFile = path.join(path.dirname(stateFile), "history.jsonl");
   const history = fs.readFileSync(historyFile);
-  const rows = model.decodeCoordinatorHistoryRows(history);
+  const rows = historyValues.decodeCoordinatorHistoryRows(history);
   assert.equal(rows?.length, 1);
   assert.equal(
     JSON.parse(rows?.[0]?.line ?? "null").summary.disposal.checkpoint
@@ -694,7 +705,7 @@ test("Host Windows: 失敗修復履歴は五切断点から再実行なしで確
   assert.ok(snapshot);
   fs.writeFileSync(
     stateFile,
-    `${model.encodeCoordinatorStateValue({ ...snapshot.snapshot, operations: [] })}\n`,
+    `${stateValues.encodeCoordinatorStateValue({ ...snapshot.snapshot, operations: [] })}\n`,
   );
   fs.writeFileSync(historyFile, historyBytes);
   const refused =
@@ -725,7 +736,7 @@ function stateStoreSource(
 ) {
   const source = stripTypeScriptTypes(
     fs.readFileSync(
-      new URL("../../src/storage/settlement-store.ts", import.meta.url),
+      new URL("../../src/storage/state.ts", import.meta.url),
       "utf8",
     ),
   )
@@ -734,22 +745,43 @@ function stateStoreSource(
   const body = transform(source);
   const dependencies = {
     createHash,
+    randomUUID,
     fs,
     path,
     types,
     ...domain,
     ...versionControl,
     ...model,
+    ...isolation,
+    ...stateValues,
+    ...executionValues,
+    ...executionResults,
+    ...stateSettlement,
+    ...taskValues,
+    ...taskAcceptance,
+    ...stateTransitions,
+    ...stateResults,
+    ...storageOwners,
+    ...observationValues,
+    ...historyValues,
     dockerRuntimeRepairDisposalIsSettled:
       isolation.dockerRuntimeRepairDisposalIsSettled,
     ...bindings,
     ...kernel,
     ...overrides,
   };
-  const names = Object.keys(dependencies);
+  const declarations = new Set(
+    [...body.matchAll(/^(?:function|const|let|class) ([A-Za-z0-9_]+)/gm)].map(
+      (match) => match[1],
+    ),
+  );
+  const entries = Object.entries(dependencies).filter(
+    ([name]) => !declarations.has(name),
+  );
+  const names = entries.map(([name]) => name);
   return runInThisContext(
     `(function(${names.join(",")}){${body};return {resume:resumeRuntimeOwnedCoordinatorRepairPublication,write:writeRuntimeOwnedCoordinatorRepairSnapshot,readHistory:readRuntimeOwnedCoordinatorRepairHistorySnapshot,advanceHistory:advanceRuntimeOwnedCoordinatorRepairHistory,readCompletion:readRuntimeOwnedCoordinatorRepairCompletionSnapshot,complete:completeRuntimeOwnedCoordinatorRepair};})`,
-  )(...Object.values(dependencies)) as {
+  )(...entries.map(([, value]) => value)) as {
     resume: typeof stateStore.resumeRuntimeOwnedCoordinatorRepairPublication;
     write: typeof stateStore.writeRuntimeOwnedCoordinatorRepairSnapshot;
     readHistory: typeof stateStore.readRuntimeOwnedCoordinatorRepairHistorySnapshot;
@@ -838,7 +870,9 @@ test("修復回収no-op: Reader部分成立とOwner失効を成功へ補完し�
       cleanupConfirmed: true,
     },
   };
-  const waiting = Buffer.from(`${model.encodeCoordinatorStateValue(raw)}\n`);
+  const waiting = Buffer.from(
+    `${stateValues.encodeCoordinatorStateValue(raw)}\n`,
+  );
   assert.ok(model.decodeCoordinatorStateSnapshot(waiting, binding));
   const id = raw.operations[0].recoveryId as string;
   const bytes = model.prepareCoordinatorStateRepairDisposalDecisionSnapshot(
@@ -1051,7 +1085,7 @@ test("Host Windows: 保持引渡しは専用保存と同一候補再開へ接続
       );
       assert.ok(decodedCandidate);
       const changed = Buffer.from(
-        `${model.encodeCoordinatorStateValue({
+        `${stateValues.encodeCoordinatorStateValue({
           ...decodedCandidate.snapshot,
           operations: decodedCandidate.snapshot.operations.map((item) =>
             item.kind !== "runtime_repair" || item.recoveryId !== id
@@ -1220,7 +1254,10 @@ test("Host Windows: 保持引渡しは専用保存と同一候補再開へ接続
       }
       const historyFile = path.join(path.dirname(stateFile), "history.jsonl");
       const history = fs.readFileSync(historyFile);
-      assert.equal(model.decodeCoordinatorHistoryRows(history)?.length, 1);
+      assert.equal(
+        historyValues.decodeCoordinatorHistoryRows(history)?.length,
+        1,
+      );
       const beforeCompletion = fs.readFileSync(stateFile);
       const ready =
         stateStore.readRuntimeOwnedCoordinatorRepairCompletionSnapshot(
@@ -1244,7 +1281,7 @@ test("Host Windows: 保持引渡しは専用保存と同一候補再開へ接続
         else changed.summary.retention.targets.primary.ino += "1";
         fs.writeFileSync(
           historyFile,
-          `${model.encodeCoordinatorStateValue(changed)}\n`,
+          `${stateValues.encodeCoordinatorStateValue(changed)}\n`,
         );
         const refused =
           stateStore.readRuntimeOwnedCoordinatorRepairCompletionSnapshot(
@@ -1277,10 +1314,10 @@ test("Host Windows: 保持引渡しは専用保存と同一候補再開へ接続
       const legacyRow = JSON.parse(history.toString());
       delete legacyRow.summary.retention;
       const legacyHistory = Buffer.from(
-        `${model.encodeCoordinatorStateValue(legacyRow)}\n`,
+        `${stateValues.encodeCoordinatorStateValue(legacyRow)}\n`,
       );
       assert.equal(
-        model.decodeCoordinatorHistoryRows(legacyHistory)?.length,
+        historyValues.decodeCoordinatorHistoryRows(legacyHistory)?.length,
         1,
         "legacy_retained_row_is_codec_legal",
       );
@@ -1682,9 +1719,12 @@ test("Host Windows: 修復終了は既存completion保存でexact対象だけ除
   otherRow.summary.operationNonce = "9".repeat(64);
   otherRow.summary.recoveryId = `docker-runtime-repair.${otherRow.summary.operationNonce}.${otherRow.summary.identitySha256}`;
   const otherHistory = Buffer.from(
-    `${model.encodeCoordinatorStateValue(otherRow)}\n`,
+    `${stateValues.encodeCoordinatorStateValue(otherRow)}\n`,
   );
-  assert.equal(model.decodeCoordinatorHistoryRows(otherHistory)?.length, 1);
+  assert.equal(
+    historyValues.decodeCoordinatorHistoryRows(otherHistory)?.length,
+    1,
+  );
   const borrowed = bindings.borrowRuntimeOwnedCoordinatorRecoveryRepository(
     f.capability,
   );
@@ -1993,7 +2033,7 @@ test("Host Windows: 修復呼出しは実Writerへ準備保存後にMachineを�
   assert.deepEqual(terminal.operations, []);
   const historyFile = path.join(path.dirname(stateFile), "history.jsonl");
   const historyBytes = fs.readFileSync(historyFile);
-  const rows = model.decodeCoordinatorHistoryRows(historyBytes);
+  const rows = historyValues.decodeCoordinatorHistoryRows(historyBytes);
   assert.equal(rows?.length, 1);
   assert.equal(rows?.[0]?.recoveryId, first.recoveryId);
   const summary = JSON.parse(historyBytes.toString("utf8")).summary;
@@ -2097,8 +2137,9 @@ test("Host Windows: 修復保持は実Writerと保存途中のfresh出版へ接�
         const expected = fs.readFileSync(cut === "state" ? pending : stateFile);
         if (cut === "history")
           assert.equal(
-            model.decodeCoordinatorHistoryRows(fs.readFileSync(historyPending))
-              ?.length,
+            historyValues.decodeCoordinatorHistoryRows(
+              fs.readFileSync(historyPending),
+            )?.length,
             1,
           );
         const resumed = await repairRuntimeOwnedDockerRuntime(
@@ -2161,7 +2202,7 @@ test("Host Windows: 修復保持は実Writerと保存途中のfresh出版へ接�
       assert.equal(completion.retentionReviewAfter, savedReceipt.reviewAfter);
       const rawRetained =
         model.prepareCoordinatorStateRepairRetentionHandoffSnapshot(
-          Buffer.from(`${model.encodeCoordinatorStateValue(before)}\n`),
+          Buffer.from(`${stateValues.encodeCoordinatorStateValue(before)}\n`),
           first.recoveryId,
           {
             decidedAt: savedReceipt.decidedAt,
@@ -2207,7 +2248,10 @@ test("Host Windows: 修復保持は実Writerと保存途中のfresh出版へ接�
       assert.deepEqual(after.pendingDeliveries, before.pendingDeliveries);
       assert.equal(after.revision, before.revision + 4);
       const history = fs.readFileSync(historyFile);
-      assert.equal(model.decodeCoordinatorHistoryRows(history)?.length, 1);
+      assert.equal(
+        historyValues.decodeCoordinatorHistoryRows(history)?.length,
+        1,
+      );
       const observed = retentionReads;
       assert.equal(observed, 1);
       for (const purpose of ["repair", "retain"] as const) {
@@ -2834,7 +2878,7 @@ test("Host Windows: 修復出版のIdentity追加とSession用途を物理接続
           },
         };
         before = Buffer.from(
-          `${model.encodeCoordinatorStateValue({ ...saved, operations: [other] })}\n`,
+          `${stateValues.encodeCoordinatorStateValue({ ...saved, operations: [other] })}\n`,
         );
         assert.ok(model.decodeCoordinatorStateSnapshot(before, binding));
         fs.writeFileSync(stateFile, before);
@@ -2872,7 +2916,7 @@ test("Host Windows: 修復出版のIdentity追加とSession用途を物理接続
         { flag: "wx" },
       );
       const historyBytes = Buffer.from(
-        `${model.encodeCoordinatorStateValue({
+        `${stateValues.encodeCoordinatorStateValue({
           schema: "crdd-coordinator/history-row/v2",
           occurredAt: "2026-10-16T00:00:00.000Z",
           summary: {
@@ -2899,7 +2943,10 @@ test("Host Windows: 修復出版のIdentity追加とSession用途を物理接続
           },
         })}\n`,
       );
-      assert.equal(model.decodeCoordinatorHistoryRows(historyBytes)?.length, 1);
+      assert.equal(
+        historyValues.decodeCoordinatorHistoryRows(historyBytes)?.length,
+        1,
+      );
       fs.writeFileSync(history, historyBytes, { flag: "wx" });
       const acquired = acquireCount,
         entries = runtimeEntries,
@@ -3155,8 +3202,9 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", as
     "history.jsonl",
   );
   assert.equal(
-    model.decodeCoordinatorHistoryRows(fs.readFileSync(initialHistoryFile))
-      ?.length,
+    historyValues.decodeCoordinatorHistoryRows(
+      fs.readFileSync(initialHistoryFile),
+    )?.length,
     1,
   );
   fs.unlinkSync(initialHistoryFile);
@@ -3237,7 +3285,7 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", as
   );
   const historyFile = path.join(path.dirname(stateFile), "history.jsonl");
   const historyBytes = fs.readFileSync(historyFile);
-  const rows = model.decodeCoordinatorHistoryRows(historyBytes);
+  const rows = historyValues.decodeCoordinatorHistoryRows(historyBytes);
   assert.equal(rows?.length, 1);
   assert.equal(rows?.[0]?.recoveryId, id);
   assert.ok(lastPreOutcomeCheckpoint);
@@ -3269,9 +3317,12 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", as
         row.summary.operationId = "OP-999997";
         row.summary.recoveryId = `docker-runtime-repair.${row.summary.operationNonce}.${row.summary.identitySha256}`;
         const bytes = Buffer.from(
-          `${model.encodeCoordinatorStateValue(row)}\n`,
+          `${stateValues.encodeCoordinatorStateValue(row)}\n`,
         );
-        assert.equal(model.decodeCoordinatorHistoryRows(bytes)?.length, 1);
+        assert.equal(
+          historyValues.decodeCoordinatorHistoryRows(bytes)?.length,
+          1,
+        );
         fs.writeFileSync(historyFile, bytes);
       }
       const read = stateStoreSource((source) => source).readHistory(
@@ -3842,7 +3893,7 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", as
       ],
     };
     const mixedBytes = Buffer.from(
-      `${model.encodeCoordinatorStateValue(mixed)}\n`,
+      `${stateValues.encodeCoordinatorStateValue(mixed)}\n`,
     );
     assert.ok(
       model.decodeCoordinatorStateSnapshot(

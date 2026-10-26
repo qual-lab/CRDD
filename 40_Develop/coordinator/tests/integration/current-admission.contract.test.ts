@@ -8,6 +8,7 @@
  * @scope 実Git・Filesystem・現在Reader。Kernel排他と境界切断だけを模擬する。
  * @boundary PRL-IT-013=Task入場→現在Reader→Repository。
  */
+import { encodeCoordinatorStateValue } from "../../src/state/validation.ts";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
@@ -21,10 +22,7 @@ import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
 import { resolveVerifiedRepositoryRoot } from "../../../version-control/src/index.ts";
 import * as locks from "../../src/execution/kernel-lock.ts";
 import { borrowRuntimeOwnedCoordinatorRecoveryRepository } from "../../src/execution/operation.ts";
-import {
-  COORDINATOR_STATE_SCHEMA,
-  encodeCoordinatorStateValue,
-} from "../../src/storage/model.ts";
+import { COORDINATOR_STATE_SCHEMA } from "../../src/storage/state.ts";
 
 /**
  * 現在Readerの初回・部分保存・排他終了と入場投影を検証する。
@@ -50,6 +48,7 @@ test("現在入場: 実Readerの初回不存在・本文・故障と全域拒否
   let domainMock: ReturnType<typeof mock.module> | null = null;
   let kernelMock: ReturnType<typeof mock.module> | null = null;
   let storeMock: ReturnType<typeof mock.module> | null = null;
+  let ownerModuleMock: ReturnType<typeof mock.module> | null = null;
   let releaseResult = true;
   let releaseThrows = false;
   let live = true;
@@ -140,21 +139,24 @@ test("現在入場: 実Readerの初回不存在・本文・故障と全域拒否
         },
       },
     );
+    const ownerModule = await import(
+      new URL("../../src/storage/lock.ts?current-admission", import.meta.url)
+        .href
+    );
+    ownerModuleMock = mock.module(
+      new URL("../../src/storage/lock.ts", import.meta.url).href,
+      { namedExports: { ...ownerModule } },
+    );
     const store = await import(
-      new URL(
-        "../../src/storage/settlement-store.ts?current-admission",
-        import.meta.url,
-      ).href
+      new URL("../../src/storage/state.ts?current-admission", import.meta.url)
+        .href
     );
     storeMock = mock.module(
-      new URL("../../src/storage/settlement-store.ts", import.meta.url).href,
+      new URL("../../src/storage/state.ts", import.meta.url).href,
       { namedExports: { ...store } },
     );
     const taskStore = await import(
-      new URL(
-        "../../src/storage/current-state.ts?area-failure",
-        import.meta.url,
-      ).href
+      new URL("../../src/storage/state.ts?area-failure", import.meta.url).href
     );
     for (const fault of [
       "no_effect",
@@ -284,7 +286,7 @@ test("現在入場: 実Readerの初回不存在・本文・故障と全域拒否
     assert.equal(fs.existsSync(current), false);
     live = true;
     const readerSource = fs.readFileSync(
-      new URL("../../src/storage/settlement-store.ts", import.meta.url),
+      new URL("../../src/storage/state.ts", import.meta.url),
       "utf8",
     );
     const branchStart = readerSource.indexOf(
@@ -423,6 +425,7 @@ test("現在入場: 実Readerの初回不存在・本文・故障と全域拒否
     assert.deepEqual(fs.readFileSync(file), bytes);
   } finally {
     storeMock?.restore();
+    ownerModuleMock?.restore();
     kernelMock?.restore();
     domainMock?.restore();
     fs.rmSync(root, { recursive: true, force: true });
@@ -602,7 +605,7 @@ test("現在入場: Task通常・開発・正式診断APIの本番構成式はex
     ),
     [
       "src/execution/recovery.ts",
-      "src/storage/settlement-store.ts",
+      "src/storage/state.ts",
       "src/execution/result.ts",
     ],
   );
@@ -620,7 +623,7 @@ test("現在入場: Task通常・開発・正式診断APIの本番構成式はex
  * @boundary 入場Inspector→Reader。本文codecの成立は前Caseと既存保存試験が所有する。
  */
 test("現在入場: 安定本文の部分義務を全域拒否せず固定DTOだけを搬送する", async () => {
-  const store = await import("../../src/storage/settlement-store.ts");
+  const store = await import("../../src/storage/state.ts");
   const projection = await import("../../src/execution/result.ts");
   const repositoryRoot = fs.realpathSync(
     path.resolve(import.meta.dirname, "../../../.."),
@@ -628,7 +631,7 @@ test("現在入場: 安定本文の部分義務を全域拒否せず固定DTOだ
   let observed: unknown;
   const roots: (string | null)[] = [];
   const mocked = mock.module(
-    new URL("../../src/storage/settlement-store.ts", import.meta.url).href,
+    new URL("../../src/storage/state.ts", import.meta.url).href,
     {
       namedExports: {
         ...store,

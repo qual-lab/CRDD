@@ -15,7 +15,7 @@ import path from "node:path";
 import test from "node:test";
 
 import type { CoordinatorDecisionRecord } from "../../src/decision/records.ts";
-import { createCoordinatorWindowsDecisionStoreTestingAdapter } from "../../src/storage/protected-decision.ts";
+import { createCoordinatorWindowsDecisionStoreTestingAdapter } from "../../src/storage/decision.ts";
 
 /**
  * recordのTest準備責務を実行する。

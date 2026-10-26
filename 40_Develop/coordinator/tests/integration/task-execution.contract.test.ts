@@ -8,6 +8,7 @@
  * @scope project、runtime、execution
  * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Coordinator Application Port→Core
  */
+import { encodeCoordinatorStateValue } from "../../src/state/validation.ts";
 import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
@@ -22,16 +23,12 @@ import {
   describeCoordinatorExecutionContract,
   runCoordinatorOperation as runCoordinatorOperationWithPorts,
 } from "../../src/task/dispatch.ts";
-import {
-  createCoordinatorState,
-  type ProjectTaskDefinition,
-} from "../../src/state/model.ts";
+import { createCoordinatorState } from "../../src/state/create.ts";
+import type { ProjectTaskDefinition } from "../../src/task/types.ts";
 import type { CoordinatorSingleTaskResult } from "../../src/task/types.ts";
 import { runCoordinatorSingleTaskAttempt } from "../../src/execution/controller.ts";
-import {
-  createCurrentCoordinatorPersistencePorts as createCoordinatorPersistencePorts,
-  initializeCoordinatorSnapshot,
-} from "../../src/storage/current-state.ts";
+import { createCurrentCoordinatorPersistencePorts as createCoordinatorPersistencePorts } from "../../src/state/transaction.ts";
+import { initializeCoordinatorSnapshot } from "../../src/storage/state.ts";
 import { createRuntimeProcessRecoveryIdentity } from "../../src/execution/process-safety-state.ts";
 import {
   enqueueProjectOperation,
@@ -39,7 +36,6 @@ import {
   readCoordinatorState,
   writeCoordinatorState,
 } from "../fixtures/task-persistence-fixture.ts";
-import { encodeCoordinatorStateValue } from "../../src/storage/model.ts";
 
 import { registerSyntheticResults } from "../fixtures/task-result-fixture.ts";
 

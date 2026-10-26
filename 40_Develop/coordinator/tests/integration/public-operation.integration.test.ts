@@ -27,8 +27,8 @@ import {
   verifyExecutionIntelligenceRepositoryRoot,
 } from "../../../execution-intelligence/src/index.ts";
 import { recordCoordinatorExecutionEvent } from "../../src/task/dispatch.ts";
-import { initializeCoordinatorSnapshot } from "../../src/storage/current-state.ts";
-import { createCoordinatorWindowsDecisionStoreTestingAdapter } from "../../src/storage/protected-decision.ts";
+import { initializeCoordinatorSnapshot } from "../../src/storage/state.ts";
+import { createCoordinatorWindowsDecisionStoreTestingAdapter } from "../../src/storage/decision.ts";
 import { createDevelopmentCoordinatorPublicObjectiveCandidate } from "../../src/objective/composition.ts";
 import {
   createCoordinatorExecutionIntelligenceDiagnosticReporter,

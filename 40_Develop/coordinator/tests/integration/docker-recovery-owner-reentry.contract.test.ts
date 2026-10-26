@@ -38,12 +38,16 @@ import * as hostRuntime from "../../src/execution/operation.ts";
 import { loadHostRecoveryRecordByToken } from "../../src/execution/recovery.ts";
 import * as homes from "../../src/execution/authority.ts";
 import * as repository from "../../src/execution/operation.ts";
-import * as stateModel from "../../src/storage/model.ts";
+import * as stateModel from "../../src/storage/state.ts";
+import * as executionValues from "../../src/execution/validation.ts";
+import * as historyValues from "../../src/storage/history.ts";
+import type * as executionRecords from "../../src/execution/types.ts";
+import * as stateValues from "../../src/state/validation.ts";
 import {
   createDockerRestartRequestId,
   isDockerRestartCheckpointSettled,
 } from "../../src/execution/result.ts";
-import * as stateRuntime from "../../src/storage/settlement-store.ts";
+import * as stateRuntime from "../../src/storage/state.ts";
 import * as development from "../../src/execution/diagnostics.ts";
 import * as isolation from "../../../docker-isolation/src/index.ts";
 import { runDockerRuntimeRepairSessionUsing } from "../../../docker-isolation/src/docker-desktop/repair-session.ts";
@@ -104,7 +108,7 @@ function verifyCurrentHostCleanupFailureBoundaries(
   const mutantBody = [...bodies.slice(0, -1), mutantCleanup].join("\n");
   assert.notEqual(mutantBody, body);
   const initialBytes = Buffer.from(
-    `${stateModel.encodeCoordinatorStateValue(snapshot)}\n`,
+    `${stateValues.encodeCoordinatorStateValue(snapshot)}\n`,
   );
   const verified = stateModel.decodeCoordinatorStateSnapshot(
     initialBytes,
@@ -112,11 +116,11 @@ function verifyCurrentHostCleanupFailureBoundaries(
   );
   assert.ok(verified);
   const found = verified.snapshot.operations.find(
-    (item): item is stateModel.CoordinatorStateTaskOperation =>
+    (item): item is executionRecords.CoordinatorStateTaskOperation =>
       item.kind === "docker_task" && item.recoveryId === recoveryId,
   );
   assert.ok(found);
-  const target: stateModel.CoordinatorStateTaskOperation = found;
+  const target: executionRecords.CoordinatorStateTaskOperation = found;
   const identity = JSON.parse(target.identityJson);
   const retiredCandidate = stateModel.prepareCoordinatorStateLifecycleSnapshot(
     initialBytes,
@@ -296,10 +300,10 @@ function verifyCurrentHostCleanupFailureBoundaries(
     }
     const dependencies = {
       coordinatorTaskResourcesAreSettled:
-        stateModel.coordinatorTaskResourcesAreSettled,
+        executionValues.coordinatorTaskResourcesAreSettled,
       isDockerRestartCheckpointSettled,
       dockerRecoveryPreparations: preparations,
-      encodeCoordinatorStateValue: stateModel.encodeCoordinatorStateValue,
+      encodeCoordinatorStateValue: stateValues.encodeCoordinatorStateValue,
       decodeCoordinatorStateSnapshot: stateModel.decodeCoordinatorStateSnapshot,
       prepareCoordinatorStateOperationSnapshot:
         stateModel.prepareCoordinatorStateOperationSnapshot,
@@ -501,7 +505,7 @@ function verifyCurrentHostCleanupFailureBoundaries(
       true,
     );
     const operation = value.snapshot.operations.find(
-      (item): item is stateModel.CoordinatorStateTaskOperation =>
+      (item): item is executionRecords.CoordinatorStateTaskOperation =>
         item.kind === "docker_task" && item.recoveryId === recoveryId,
     );
     assert.ok(operation);
@@ -687,7 +691,7 @@ function verifyCurrentHostCleanupFailureBoundaries(
   assert.ok(changedHashSnapshot.previous);
   changedHashSnapshot.previous.payloadSha256 = "0".repeat(64);
   const changedHashBytes = Buffer.from(
-    `${stateModel.encodeCoordinatorStateValue(changedHashSnapshot)}\n`,
+    `${stateValues.encodeCoordinatorStateValue(changedHashSnapshot)}\n`,
   );
   assert.ok(
     stateModel.decodeCoordinatorStateSnapshot(
@@ -1297,7 +1301,7 @@ for (const producerMode of [
         )(
           stateModel.prepareCoordinatorStateOperationSnapshot,
           stateModel.decodeCoordinatorStateSnapshot,
-          stateModel.encodeCoordinatorStateValue,
+          stateValues.encodeCoordinatorStateValue,
           isDockerRestartCheckpointSettled,
         );
         const comparisonStart = body.lastIndexOf("return (");
@@ -1313,7 +1317,7 @@ for (const producerMode of [
         )(
           stateModel.prepareCoordinatorStateOperationSnapshot,
           stateModel.decodeCoordinatorStateSnapshot,
-          stateModel.encodeCoordinatorStateValue,
+          stateValues.encodeCoordinatorStateValue,
           isDockerRestartCheckpointSettled,
         );
         let legalRejections = 0;
@@ -1337,7 +1341,7 @@ for (const producerMode of [
           );
           const decoded = stateModel.decodeCoordinatorStateSnapshot(
             Buffer.from(
-              `${stateModel.encodeCoordinatorStateValue(candidate)}\n`,
+              `${stateValues.encodeCoordinatorStateValue(candidate)}\n`,
             ),
             before.repositoryBinding,
           );
@@ -1387,7 +1391,7 @@ for (const producerMode of [
         )(
           stateModel.prepareCoordinatorStateOperationSnapshot,
           stateModel.decodeCoordinatorStateSnapshot,
-          stateModel.encodeCoordinatorStateValue,
+          stateValues.encodeCoordinatorStateValue,
           isDockerRestartCheckpointSettled,
         );
         const restartOperation = {
@@ -1413,7 +1417,7 @@ for (const producerMode of [
           );
           const decoded = stateModel.decodeCoordinatorStateSnapshot(
             Buffer.from(
-              `${stateModel.encodeCoordinatorStateValue(candidate)}\n`,
+              `${stateValues.encodeCoordinatorStateValue(candidate)}\n`,
             ),
             before.repositoryBinding,
           );
@@ -1498,7 +1502,7 @@ for (const producerMode of [
             assert.equal(
               stateModel.decodeCoordinatorStateSnapshot(
                 Buffer.from(
-                  `${stateModel.encodeCoordinatorStateValue(invalid)}\n`,
+                  `${stateValues.encodeCoordinatorStateValue(invalid)}\n`,
                 ),
                 before.repositoryBinding,
               ),
@@ -1682,7 +1686,7 @@ for (const producerMode of [
       const otherHostBefore = captureOtherHost();
       if (producerMode === "state_saved") {
         const retired = stateModel.prepareCoordinatorStateLifecycleSnapshot(
-          Buffer.from(`${stateModel.encodeCoordinatorStateValue(before)}\n`),
+          Buffer.from(`${stateValues.encodeCoordinatorStateValue(before)}\n`),
           emitted.recoveryId,
           {
             phase: "settling",
@@ -2312,8 +2316,9 @@ for (const { repeatCount, retained } of [
      */
     function assertRepairHistory(bytes: Buffer, taskRows = 0): void {
       if (!repairHistory) return;
-      const original = stateModel.decodeCoordinatorHistoryRows(repairHistory);
-      const rows = stateModel.decodeCoordinatorHistoryRows(bytes);
+      const original =
+        historyValues.decodeCoordinatorHistoryRows(repairHistory);
+      const rows = historyValues.decodeCoordinatorHistoryRows(bytes);
       assert.ok(original?.length === 1 && original[0] && rows);
       assert.equal(rows.length, 1 + taskRows);
       assert.deepEqual(bytes.subarray(0, repairHistory.length), repairHistory);
@@ -2381,8 +2386,7 @@ for (const { repeatCount, retained } of [
         );
         let writerFault: ReturnType<typeof mock.module> | null = retained
           ? mock.module(
-              new URL("../../src/storage/settlement-store.ts", import.meta.url)
-                .href,
+              new URL("../../src/storage/state.ts", import.meta.url).href,
               {
                 namedExports: {
                   ...stateRuntime,
@@ -2673,7 +2677,8 @@ for (const { repeatCount, retained } of [
           repairHistory = fs.readFileSync(
             path.join(path.dirname(repairStatePath), "history.jsonl"),
           );
-          const rows = stateModel.decodeCoordinatorHistoryRows(repairHistory);
+          const rows =
+            historyValues.decodeCoordinatorHistoryRows(repairHistory);
           assert.equal(rows?.length, 1);
           assert.equal(rows?.[0]?.recoveryId, result.recoveryId);
           assert.equal(
@@ -2723,7 +2728,7 @@ for (const { repeatCount, retained } of [
           assert.throws(() =>
             assertRepairHistory(
               Buffer.from(
-                `${stateModel.encodeCoordinatorStateValue(changed)}\n`,
+                `${stateValues.encodeCoordinatorStateValue(changed)}\n`,
               ),
             ),
           );
@@ -2778,7 +2783,7 @@ for (const { repeatCount, retained } of [
         );
       assert.ok(binding && otherBinding);
       const initial = Buffer.from(
-        `${stateModel.encodeCoordinatorStateValue({ schema: stateModel.COORDINATOR_STATE_SCHEMA, revision: 1, repositoryBindingId: null, intakeEpoch: null, intakeBindings: [], projects: [], workspaces: [], queueEntries: [], leaseEvidence: [], leaseIntents: [], results: [], historyPending: [], acceptanceDecisions: [], decisionRecoveries: [], resultReceipts: [], previous: null, repositoryBinding: binding.repositoryBinding, operations: [], unresolvedRecoveries: [], pendingDeliveries: [] })}\n`,
+        `${stateValues.encodeCoordinatorStateValue({ schema: stateModel.COORDINATOR_STATE_SCHEMA, revision: 1, repositoryBindingId: null, intakeEpoch: null, intakeBindings: [], projects: [], workspaces: [], queueEntries: [], leaseEvidence: [], leaseIntents: [], results: [], historyPending: [], acceptanceDecisions: [], decisionRecoveries: [], resultReceipts: [], previous: null, repositoryBinding: binding.repositoryBinding, operations: [], unresolvedRecoveries: [], pendingDeliveries: [] })}\n`,
       );
       if (repeatCount >= 2) {
         assert.equal(
@@ -3040,14 +3045,13 @@ for (const { repeatCount, retained } of [
       );
       const actualStore: typeof stateRuntime = await import(
         new URL(
-          `../../src/storage/settlement-store.ts?normal-owner-physical-${repeatCount}-${retained}`,
+          `../../src/storage/state.ts?normal-owner-physical-${repeatCount}-${retained}`,
           import.meta.url,
         ).href
       );
       substitutions.push(
         mock.module(
-          new URL("../../src/storage/settlement-store.ts", import.meta.url)
-            .href,
+          new URL("../../src/storage/state.ts", import.meta.url).href,
           { namedExports: { ...actualStore } },
         ),
       );
@@ -3067,12 +3071,12 @@ for (const { repeatCount, retained } of [
         cleanupExports.verifyRuntimeOwnedDockerCleanupOutcome;
       const hostImports = [
         'import { createHash } from "node:crypto";',
-        `import { hashExecutionSelection } from "${new URL("../../src/selection/model.ts", import.meta.url).href}";`,
+        `import { hashExecutionSelection } from "${new URL("../../src/selection/validation.ts", import.meta.url).href}";`,
         `const verifyRuntimeOwnedDockerCleanupOutcome = globalThis[${JSON.stringify(cleanupKey)}];`,
         `import { beginOwnedDockerSubmissionRecovery, borrowOwnedHostRecoverySnapshot, completeOwnedDockerSubmissionRecovery, borrowRuntimeOwnedCoordinatorStateRepository } from "${new URL("../../src/execution/operation.ts", import.meta.url).href}";`,
         `import { parseHostRecoveryToken } from "${new URL("../../src/execution/result.ts", import.meta.url).href}";`,
         `import { verifyRuntimeOwnedProviderHomeMountCompletion } from "${new URL("../../src/execution/authority.ts", import.meta.url).href}";`,
-        `import { checkpointRuntimeOwnedCoordinatorCleanup, checkpointRuntimeOwnedCoordinatorHost, readRuntimeOwnedCoordinatorStateSnapshot } from "${new URL("../../src/storage/settlement-store.ts", import.meta.url).href}";`,
+        `import { checkpointRuntimeOwnedCoordinatorCleanup, checkpointRuntimeOwnedCoordinatorHost, readRuntimeOwnedCoordinatorStateSnapshot } from "${new URL("../../src/storage/state.ts", import.meta.url).href}";`,
       ].join("\n");
       const actualHostSubmission = await import(
         `data:text/javascript;base64,${Buffer.from(`// fixture: ${repeatCount}:${retained}\n${hostImports}\n${hostBody}\nexport { beginRuntimeOwnedCoordinatorHostSubmission, completeRuntimeOwnedCoordinatorHostSubmission };`).toString("base64")}`
@@ -3556,8 +3560,9 @@ for (const { repeatCount, retained } of [
           historyBytes.subarray(0, repairHistory.length),
           repairHistory,
         );
-        const row = stateModel.decodeCoordinatorHistoryRows(repairHistory)?.[0];
-        const rows = stateModel.decodeCoordinatorHistoryRows(historyBytes);
+        const row =
+          historyValues.decodeCoordinatorHistoryRows(repairHistory)?.[0];
+        const rows = historyValues.decodeCoordinatorHistoryRows(historyBytes);
         assert.ok(row && rows);
         assert.deepEqual(
           rows.filter((value) => value.recoveryId === row.recoveryId),
@@ -3921,27 +3926,6 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
         },
       },
     ),
-    mock.module(new URL("../../src/storage/model.ts", import.meta.url).href, {
-      namedExports: {
-        ...stateModel,
-        prepareCoordinatorStateOperationSnapshot: (
-          _before: unknown,
-          identityJson: string,
-        ) =>
-          Buffer.from(
-            JSON.stringify({
-              operations: [
-                { kind: "docker_task", recoveryId: "exact-id", identityJson },
-              ],
-            }),
-          ),
-        decodeCoordinatorStateSnapshot: (bytes: Buffer) => ({
-          snapshot: JSON.parse(bytes.toString("utf8")),
-        }),
-        prepareCoordinatorStateHostSnapshot: () =>
-          Buffer.from("pending-candidate"),
-      },
-    }),
     mock.module(
       new URL("../../src/execution/diagnostics.ts", import.meta.url).href,
       {
@@ -4007,52 +3991,116 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
         },
       },
     ),
+    mock.module(new URL("../../src/storage/state.ts", import.meta.url).href, {
+      namedExports: {
+        ...stateModel,
+        prepareCoordinatorStateOperationSnapshot: (
+          _before: unknown,
+          identityJson: string,
+        ) =>
+          Buffer.from(
+            JSON.stringify({
+              operations: [
+                { kind: "docker_task", recoveryId: "exact-id", identityJson },
+              ],
+            }),
+          ),
+        decodeCoordinatorStateSnapshot: (bytes: Buffer) => ({
+          snapshot: JSON.parse(bytes.toString("utf8")),
+        }),
+        prepareCoordinatorStateHostSnapshot: () =>
+          Buffer.from("pending-candidate"),
+        readRuntimeOwnedCoordinatorStateSnapshot: () => ({
+          status: "completed",
+          lockReleased: true,
+          value: { snapshot: { operations } },
+        }),
+        saveRuntimeOwnedCoordinatorOperationStart: (
+          _management: unknown,
+          identityJson: string,
+        ) => {
+          operations = [
+            {
+              kind: "docker_task",
+              recoveryId: "exact-id",
+              identityJson,
+              phase: "executing",
+              lease: "held",
+              execution: {
+                providerStart: "not_started",
+                externalSend: "not_issued",
+                sharedWrite: "not_issued",
+                ownerEffect: "active",
+                workspaceReusable: false,
+              },
+              primaryFailure: null,
+              outcome: null,
+              summarySha256: null,
+              host: {
+                currentToken: "host-token",
+                pendingTransitionJson: null,
+                cleanup: "not_requested",
+              },
+            },
+          ];
+          return {
+            status: startSaveFails ? "blocked" : "completed",
+            reason: startSaveFails ? "start_save_failed" : "saved",
+            snapshotConfirmed: !startSaveFails,
+            lockReleased: true,
+            recoveryId: "exact-id",
+          };
+        },
+        checkpointRuntimeOwnedCoordinatorLifecycle: (
+          _owner: unknown,
+          _recoveryId: unknown,
+          value: unknown,
+        ) => {
+          lifecycleCalls++;
+          savedLifecycle = value;
+          return lifecycleFails
+            ? {
+                status: "blocked",
+                snapshotConfirmed: false,
+                lockReleased: true,
+              }
+            : {
+                status: "completed",
+                snapshotConfirmed: lifecycleConfirmed,
+                lockReleased: lifecycleLockReleased,
+              };
+        },
+        writeRuntimeOwnedCoordinatorStateSnapshot: (
+          _management: unknown,
+          candidate: unknown,
+        ) => {
+          if (fixedCandidate) assert.equal(candidate, fixedCandidate);
+          fixedCandidate = candidate;
+          if (pendingFails)
+            return {
+              status: "blocked",
+              snapshotConfirmed: false,
+              lockReleased: true,
+            };
+          assert.ok(operations[0]);
+          operations[0].host = {
+            currentToken: "host-token",
+            pendingTransitionJson: null,
+            cleanup: "pending",
+          };
+          operations[0].lease = "released";
+          return {
+            status: "completed",
+            snapshotConfirmed: true,
+            lockReleased: true,
+          };
+        },
+      },
+    }),
     mock.module(
-      new URL("../../src/storage/settlement-store.ts", import.meta.url).href,
+      new URL("../../src/execution/settlement.ts", import.meta.url).href,
       {
         namedExports: {
-          ...stateRuntime,
-          readRuntimeOwnedCoordinatorStateSnapshot: () => ({
-            status: "completed",
-            lockReleased: true,
-            value: { snapshot: { operations } },
-          }),
-          saveRuntimeOwnedCoordinatorOperationStart: (
-            _management: unknown,
-            identityJson: string,
-          ) => {
-            operations = [
-              {
-                kind: "docker_task",
-                recoveryId: "exact-id",
-                identityJson,
-                phase: "executing",
-                lease: "held",
-                execution: {
-                  providerStart: "not_started",
-                  externalSend: "not_issued",
-                  sharedWrite: "not_issued",
-                  ownerEffect: "active",
-                  workspaceReusable: false,
-                },
-                primaryFailure: null,
-                outcome: null,
-                summarySha256: null,
-                host: {
-                  currentToken: "host-token",
-                  pendingTransitionJson: null,
-                  cleanup: "not_requested",
-                },
-              },
-            ];
-            return {
-              status: startSaveFails ? "blocked" : "completed",
-              reason: startSaveFails ? "start_save_failed" : "saved",
-              snapshotConfirmed: !startSaveFails,
-              lockReleased: true,
-              recoveryId: "exact-id",
-            };
-          },
           prepareRuntimeOwnedCoordinatorSettlement: () =>
             contextFails ? null : context,
           readRuntimeOwnedCoordinatorSettlementResult: (
@@ -4065,50 +4113,6 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
               status: "completed",
               lockReleased: resultReadLockReleased,
               value: projectResult,
-            };
-          },
-          checkpointRuntimeOwnedCoordinatorLifecycle: (
-            _owner: unknown,
-            _recoveryId: unknown,
-            value: unknown,
-          ) => {
-            lifecycleCalls++;
-            savedLifecycle = value;
-            return lifecycleFails
-              ? {
-                  status: "blocked",
-                  snapshotConfirmed: false,
-                  lockReleased: true,
-                }
-              : {
-                  status: "completed",
-                  snapshotConfirmed: lifecycleConfirmed,
-                  lockReleased: lifecycleLockReleased,
-                };
-          },
-          writeRuntimeOwnedCoordinatorStateSnapshot: (
-            _management: unknown,
-            candidate: unknown,
-          ) => {
-            if (fixedCandidate) assert.equal(candidate, fixedCandidate);
-            fixedCandidate = candidate;
-            if (pendingFails)
-              return {
-                status: "blocked",
-                snapshotConfirmed: false,
-                lockReleased: true,
-              };
-            assert.ok(operations[0]);
-            operations[0].host = {
-              currentToken: "host-token",
-              pendingTransitionJson: null,
-              cleanup: "pending",
-            };
-            operations[0].lease = "released";
-            return {
-              status: "completed",
-              snapshotConfirmed: true,
-              lockReleased: true,
             };
           },
           captureRuntimeOwnedCoordinatorSettlementInputs: (

@@ -4,143 +4,147 @@
  * @responsibility 現在状態の保存とHost／Home相関を所有し、技術観測と回収はDIへ委譲する。
  * @trace ARCH-000008
  */
-import {
-  inspectExecutionSelection,
-  type ExecutionSelection,
-} from "../selection/model.ts";
 
+import { encodeCoordinatorStateValue } from "../state/validation.ts";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
+import fs from "node:fs";
+import path from "node:path";
+import { setImmediate as yieldRecoveryEvents } from "node:timers/promises";
 import { types as utilTypes } from "node:util";
 import {
-  parseHostRecoveryToken,
-  type DockerRestartCheckpoint,
-  validateHostRecoveryTransitionLineage,
-  isDockerRestartCheckpointSettled,
-  createDockerRestartRequestId,
-  type RecoveryStartFailureDiagnostic,
-} from "./result.ts";
-import path from "node:path";
-import fs from "node:fs";
-import { createHash, randomBytes, randomUUID } from "node:crypto";
+  codexAdviceProviderInitRequired,
+  type createDockerResourceRecoveryExecutor,
+  createDockerTaskRecoveryExecutor,
+  type DockerRuntimeRepairCheckpoint,
+  type DockerRuntimeRestartEvent,
+  disposeDockerRuntimeRepairDirectory,
+  dockerIsolationResourceIdentityIsValid,
+  dockerRuntimeRepairCheckpointIsSettled,
+  dockerRuntimeRepairDisposalIsSettled,
+  isDockerResourcePurpose,
+  observeDockerRuntimeRepairRetention,
+  parseDockerTaskRecoveryId,
+  planDockerRecoveryResourceExpectations,
+  restartDockerRuntime,
+  runDockerRuntimeRepairSession,
+} from "../../../docker-isolation/src/index.ts";
 import {
-  readRuntimeOwnedCoordinatorRecoverySnapshot,
-  readRuntimeOwnedCoordinatorAdmissionSnapshot,
-  saveRuntimeOwnedCoordinatorOperationStart,
+  observeRepositoryRuntimeDataArea,
+  snapshotPlainRecord,
+} from "../../../domain-model/src/index.ts";
+import {
+  resolveVerifiedRepositoryRootFromWorkingDirectory,
+  verifyRepositoryRoot,
+} from "../../../version-control/src/index.ts";
+import type { ExecutionSelection } from "../selection/types.ts";
+import { inspectExecutionSelection } from "../selection/validation.ts";
+import { coordinatorConsumerCompletionPolicy } from "../task/acceptance.ts";
+import { readCurrentCoordinatorState as readCoordinatorState } from "../state/query.ts";
+import type {
+  CoordinatorStateOperation,
+  CoordinatorStateRepairOperation,
+  CoordinatorStateTaskOperation,
+} from "./types.ts";
+import {
+  type CoordinatorStateSnapshot,
+  decodeCoordinatorStateSnapshot,
+  prepareCoordinatorRepairHistorySummary,
+  prepareCoordinatorStateHostSnapshot,
+  prepareCoordinatorStateOperationSnapshot,
+  prepareCoordinatorStateRepairCheckpointSnapshot,
+  prepareCoordinatorStateRepairDisposalDecisionSnapshot,
+  prepareCoordinatorStateRepairDisposalProgressSnapshot,
+  prepareCoordinatorStateRepairRetentionHandoffSnapshot,
+  prepareCoordinatorStateRepairSessionSnapshot,
+  prepareCoordinatorStateRepairSnapshot,
+} from "../storage/state.ts";
+import {
+  coordinatorAuthenticationUnknownCanClose,
+  coordinatorReleasedTaskCanObserveHostAbsence,
+  coordinatorTaskResourcesAreSettled,
+} from "./validation.ts";
+import {
+  captureRuntimeOwnedCoordinatorSettlementInputs,
+  prepareRuntimeOwnedCoordinatorSettlement,
+  readRuntimeOwnedCoordinatorSettlementResult,
   settleRuntimeOwnedCoordinatorResult,
-  readRuntimeOwnedCoordinatorHostCleanupRecoverySnapshot,
-  readRuntimeOwnedCoordinatorResourcePublicationSnapshot,
-  readRuntimeOwnedCoordinatorCurrentHistorySnapshot,
-  readRuntimeOwnedCoordinatorCurrentDeliverySnapshot,
-  readRuntimeOwnedCoordinatorCurrentCompletionSnapshot,
-  resumeRuntimeOwnedCoordinatorResourcePublication,
-  writeRuntimeOwnedCoordinatorRecoveryCheckpoint,
-  writeRuntimeOwnedCoordinatorRecoveryTerminal,
+} from "./settlement.ts";
+import {
   advanceRuntimeOwnedCoordinatorRecoveryHistory,
-  registerRuntimeOwnedCoordinatorRecoveryResultDelivery,
+  advanceRuntimeOwnedCoordinatorRepairHistory,
+  checkpointRuntimeOwnedCoordinatorCleanup,
+  checkpointRuntimeOwnedCoordinatorLifecycle,
+  checkpointRuntimeOwnedCoordinatorResource,
+  checkpointRuntimeOwnedCoordinatorResourceNotIssued,
+  cleanupRuntimeOwnedCoordinatorStateMarker,
   completeRuntimeOwnedCoordinatorCurrentRecovery,
+  completeRuntimeOwnedCoordinatorRepair,
+  readRuntimeOwnedCoordinatorAdmissionSnapshot,
+  readRuntimeOwnedCoordinatorCurrentCompletionSnapshot,
+  readRuntimeOwnedCoordinatorCurrentDeliverySnapshot,
+  readRuntimeOwnedCoordinatorCurrentHistorySnapshot,
+  readRuntimeOwnedCoordinatorHostCleanupRecoverySnapshot,
+  readRuntimeOwnedCoordinatorRecoveryResult,
+  readRuntimeOwnedCoordinatorRecoverySnapshot,
+  readRuntimeOwnedCoordinatorRepairCompletionSnapshot,
+  readRuntimeOwnedCoordinatorRepairHistorySnapshot,
+  readRuntimeOwnedCoordinatorResourcePublicationSnapshot,
+  readRuntimeOwnedCoordinatorResourceRequests,
+  readRuntimeOwnedCoordinatorStateSnapshot,
+  registerRuntimeOwnedCoordinatorRecoveryResultDelivery,
+  resumeRuntimeOwnedCoordinatorRepairPublication,
+  resumeRuntimeOwnedCoordinatorResourcePublication,
+  saveRuntimeOwnedCoordinatorOperationStart,
   writeRuntimeOwnedCoordinatorAuthenticationUnknownClosure,
   writeRuntimeOwnedCoordinatorRecoveredHostCleanup,
-  readRuntimeOwnedCoordinatorStateSnapshot,
-  prepareRuntimeOwnedCoordinatorSettlement,
-  checkpointRuntimeOwnedCoordinatorResource,
-  checkpointRuntimeOwnedCoordinatorLifecycle,
-  checkpointRuntimeOwnedCoordinatorResourceNotIssued,
-  readRuntimeOwnedCoordinatorResourceRequests,
-  checkpointRuntimeOwnedCoordinatorCleanup,
-  readRuntimeOwnedCoordinatorSettlementResult,
-  writeRuntimeOwnedCoordinatorStateSnapshot,
-  captureRuntimeOwnedCoordinatorSettlementInputs,
-  writeRuntimeOwnedCoordinatorRestartCheckpoint,
-  cleanupRuntimeOwnedCoordinatorStateMarker,
-  resumeRuntimeOwnedCoordinatorRepairPublication,
+  writeRuntimeOwnedCoordinatorRecoveryCheckpoint,
+  writeRuntimeOwnedCoordinatorRecoveryTerminal,
   writeRuntimeOwnedCoordinatorRepairSnapshot,
-  readRuntimeOwnedCoordinatorRepairHistorySnapshot,
-  advanceRuntimeOwnedCoordinatorRepairHistory,
-  readRuntimeOwnedCoordinatorRepairCompletionSnapshot,
-  completeRuntimeOwnedCoordinatorRepair,
-  readRuntimeOwnedCoordinatorRecoveryResult,
-} from "../storage/settlement-store.ts";
+  writeRuntimeOwnedCoordinatorRestartCheckpoint,
+  writeRuntimeOwnedCoordinatorStateSnapshot,
+} from "../storage/state.ts";
 import {
-  verifyRepositoryRoot,
-  resolveVerifiedRepositoryRootFromWorkingDirectory,
-} from "../../../version-control/src/index.ts";
+  consumeRuntimeOwnedProviderHomeObservationCapability,
+  inspectRuntimeOwnedWindowsProviderHomeCandidate,
+  readExecutionCancellation,
+} from "./authority.ts";
 import {
   beginRuntimeOwnedCoordinatorHostSubmission,
   completeRuntimeOwnedCoordinatorHostSubmission,
 } from "./controller.ts";
 import {
-  borrowRuntimeOwnedCoordinatorRecoveryRepository,
-  verifyHostOperationRecoveryGeneration,
-  acquireHostOperationRecoveryGenerationByIdentity,
-  acquireHostOperationRecoveryGeneration,
-  releaseHostOperationRecoveryGeneration,
-  borrowHostRecoveryManagementDirectory,
-  confirmOwnedDockerAbsenceForRecovery,
-  recoverOwnedOperationDirectories,
-  verifyOwnedOperationManagementCapability,
-  borrowRuntimeOwnedCoordinatorStateRepository,
-  borrowOwnedHostRecoverySnapshot,
-  issueOwnedHostCleanupCapability,
-  consumeOwnedHostRecoveryIdForCleanup,
-} from "./operation.ts";
-import {
-  type CoordinatorStateTaskOperation,
-  coordinatorTaskResourcesAreSettled,
-  coordinatorReleasedTaskCanObserveHostAbsence,
-  encodeCoordinatorStateValue,
-  decodeCoordinatorStateSnapshot,
-  coordinatorConsumerCompletionPolicy,
-  coordinatorAuthenticationUnknownCanClose,
-  type CoordinatorStateSnapshot,
-  prepareCoordinatorStateOperationSnapshot,
-  type CoordinatorStateOperation,
-  prepareCoordinatorStateHostSnapshot,
-  type CoordinatorStateRepairOperation,
-  prepareCoordinatorStateRepairCheckpointSnapshot,
-  prepareCoordinatorStateRepairDisposalDecisionSnapshot,
-  prepareCoordinatorStateRepairDisposalProgressSnapshot,
-  prepareCoordinatorRepairHistorySummary,
-  prepareCoordinatorStateRepairRetentionHandoffSnapshot,
-  prepareCoordinatorStateRepairSnapshot,
-  prepareCoordinatorStateRepairSessionSnapshot,
-} from "../storage/model.ts";
-import {
-  parseDockerTaskRecoveryId,
-  isDockerResourcePurpose,
-  planDockerRecoveryResourceExpectations,
-  codexAdviceProviderInitRequired,
-  createDockerTaskRecoveryExecutor,
-  dockerIsolationResourceIdentityIsValid,
-  type createDockerResourceRecoveryExecutor,
-  restartDockerRuntime,
-  type DockerRuntimeRepairCheckpoint,
-  disposeDockerRuntimeRepairDirectory,
-  dockerRuntimeRepairDisposalIsSettled,
-  observeDockerRuntimeRepairRetention,
-  runDockerRuntimeRepairSession,
-  dockerRuntimeRepairCheckpointIsSettled,
-  type DockerRuntimeRestartEvent,
-} from "../../../docker-isolation/src/index.ts";
-import {
-  acquireRuntimeOwnedLogicalProviderHomeKernelLock,
-  acquireRuntimeOwnedDockerRuntimeStateKernelLock,
-  acquireRuntimeOwnedHostOperationKernelLock,
-} from "./kernel-lock.ts";
-import { setImmediate as yieldRecoveryEvents } from "node:timers/promises";
-import {
   inspectRuntimeOwnedDevelopmentOperationContext,
   recoverDockerIsolationProbe,
 } from "./diagnostics.ts";
 import {
-  inspectRuntimeOwnedWindowsProviderHomeCandidate,
-  consumeRuntimeOwnedProviderHomeObservationCapability,
-  readExecutionCancellation,
-} from "./authority.ts";
+  acquireRuntimeOwnedDockerRuntimeStateKernelLock,
+  acquireRuntimeOwnedHostOperationKernelLock,
+  acquireRuntimeOwnedLogicalProviderHomeKernelLock,
+} from "./kernel-lock.ts";
 import { verifyRuntimeOwnedDockerProviderSubmissionNotice } from "./observation.ts";
 import {
-  snapshotPlainRecord,
-  observeRepositoryRuntimeDataArea,
-} from "../../../domain-model/src/index.ts";
-import { readCurrentCoordinatorState as readCoordinatorState } from "../storage/current-state.ts";
+  acquireHostOperationRecoveryGeneration,
+  acquireHostOperationRecoveryGenerationByIdentity,
+  borrowHostRecoveryManagementDirectory,
+  borrowOwnedHostRecoverySnapshot,
+  borrowRuntimeOwnedCoordinatorRecoveryRepository,
+  borrowRuntimeOwnedCoordinatorStateRepository,
+  confirmOwnedDockerAbsenceForRecovery,
+  consumeOwnedHostRecoveryIdForCleanup,
+  issueOwnedHostCleanupCapability,
+  recoverOwnedOperationDirectories,
+  releaseHostOperationRecoveryGeneration,
+  verifyHostOperationRecoveryGeneration,
+  verifyOwnedOperationManagementCapability,
+} from "./operation.ts";
+import {
+  createDockerRestartRequestId,
+  type DockerRestartCheckpoint,
+  isDockerRestartCheckpointSettled,
+  parseHostRecoveryToken,
+  type RecoveryStartFailureDiagnostic,
+  validateHostRecoveryTransitionLineage,
+} from "./result.ts";
 
 /**
  * docker-cleanup-eligibilityで使用するDocker 清掃 Handoff 候補の値契約を定義する。

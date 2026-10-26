@@ -8,17 +8,13 @@ import { isDeepStrictEqual } from "node:util";
 import { runCoordinatorOperation } from "../task/dispatch.ts";
 import { readRepositoryAiSelection } from "../storage/ai-selection.ts";
 import { resolveTaskExecutionSelections } from "../selection/resolve.ts";
-import {
-  inspectTaskExecutionSelections,
-  type TaskExecutionSelections,
-} from "../selection/model.ts";
+import { inspectTaskExecutionSelections } from "../selection/validation.ts";
+import type { TaskExecutionSelections } from "../selection/types.ts";
 import type { CoordinatorClockIdentityPort } from "../state/persistence.ts";
-import {
-  createCoordinatorState,
-  type ProjectTaskRecoveryObligation,
-  type CoordinatorState,
-  COORDINATOR_MAXIMUM_TASKS,
-} from "../state/model.ts";
+import { createCoordinatorState } from "../state/create.ts";
+import type { ProjectTaskRecoveryObligation } from "../task/types.ts";
+import type { CoordinatorState } from "../state/types.ts";
+import { COORDINATOR_MAXIMUM_TASKS } from "../state/validation.ts";
 import {
   markProjectTaskRecoveryObligationRecovering,
   recordProjectTaskOwnerLossRecoveries,
@@ -27,7 +23,10 @@ import {
 } from "../task/recovery.ts";
 import { acknowledgeProjectDockerRecoveryObligation } from "../task/acceptance.ts";
 import { projectCoordinatorState } from "../state/projection.ts";
-import { snapshotPlainArray, snapshotPlainRecord } from "../state/model.ts";
+import {
+  snapshotPlainArray,
+  snapshotPlainRecord,
+} from "../state/validation.ts";
 import { COORDINATOR_OBJECTIVE_INTAKE_CONTRACT } from "./plan.ts";
 import { snapshotCoordinatorWorkspaceResult } from "../execution/controller.ts";
 import type {
@@ -42,7 +41,7 @@ import {
   type CoordinatorObjectiveRequest,
   inspectCoordinatorObjectiveRequest,
 } from "./request.ts";
-import { deriveCoordinatorRepositoryBindingId } from "../state/model.ts";
+import { deriveCoordinatorRepositoryBindingId } from "../state/validation.ts";
 import {
   recoverRuntimeOwnedDockerTaskForCurrentConsumer,
   resolveRuntimeOwnedDockerTaskCurrentCorrelations,
@@ -58,12 +57,10 @@ import { createCoordinatorTaskRecoveryAdapter } from "../task/dispatch.ts";
 import { workspacePlanReadyForAcceptance } from "../workspace/operations.ts";
 import { COORDINATOR_PUBLIC_RUNTIME_CONTRACT } from "../state/result.ts";
 import { runCoordinatorSingleTaskAttempt } from "../execution/controller.ts";
-import {
-  readCoordinatorSnapshot,
-  createCoordinatorSnapshotPersistencePorts,
-  inspectCoordinatorSnapshotIntake,
-  maintainCoordinatorSnapshot,
-} from "../storage/current-state.ts";
+import { readCoordinatorSnapshot } from "../storage/state.ts";
+import { createCoordinatorSnapshotPersistencePorts } from "../state/transaction.ts";
+import { inspectCoordinatorSnapshotIntake } from "../task/queue.ts";
+import { maintainCoordinatorSnapshot } from "../state/retirement.ts";
 import { consumeDockerRecoveryReceiptAfterProjectSettlement } from "../execution/recovery.ts";
 import { createCoordinatorWindowsPlatformAdapter } from "../execution/diagnostics.ts";
 import type {

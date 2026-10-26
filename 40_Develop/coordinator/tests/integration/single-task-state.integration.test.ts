@@ -17,22 +17,22 @@ import { execFileSync, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import test, { mock } from "node:test";
-import * as snapshotStorage from "../../src/storage/current-state.ts";
+import * as snapshotStorage from "../../src/storage/state.ts";
 import { devNull } from "node:os";
 import {
   initializeCoordinatorSnapshot,
   readCoordinatorSnapshot,
+} from "../../src/storage/state.ts";
+import {
   enqueueCoordinatorSingleTask,
   updateCoordinatorSingleTask,
-  acquireCoordinatorSnapshotLease,
   createCoordinatorSnapshotStatePort,
-} from "../../src/storage/current-state.ts";
-import { deriveCoordinatorRepositoryBindingId } from "../../src/state/model.ts";
-import {
-  inspectSingleTaskRecord,
-  type SingleTaskRecord,
-} from "../../src/state/model.ts";
-import type { ProjectQueueEntry } from "../../src/state/model.ts";
+} from "../../src/task/queue.ts";
+import { acquireCoordinatorSnapshotLease } from "../../src/execution/lease.ts";
+import { deriveCoordinatorRepositoryBindingId } from "../../src/state/validation.ts";
+import { inspectSingleTaskRecord } from "../../src/task/validation.ts";
+import type { SingleTaskRecord } from "../../src/task/types.ts";
+import type { ProjectQueueEntry } from "../../src/task/types.ts";
 import { createCoordinatorTaskRequests } from "../../src/task/requests.ts";
 
 /**
@@ -876,65 +876,95 @@ test("受付前の保存拒否と受付後のLease・開始保存拒否を区別
     let queue: ProjectQueueEntry | null = null;
     let executions = 0;
     let releases = 0;
+    const failures = {
+      ...snapshotStorage,
+      readCoordinatorSnapshot: () => ({
+        status: "completed",
+        value: {
+          intakeEpoch: "epoch",
+          queueEntries: queue ? [queue] : [],
+          leaseIntents: [],
+        },
+      }),
+      enqueueCoordinatorSingleTask: (
+        ...args: Parameters<typeof enqueueCoordinatorSingleTask>
+      ) => {
+        queue = args[3];
+        return stage === "enqueue"
+          ? { status: "blocked", reason: "fixture_enqueue_failed" }
+          : { status: "completed", value: queue };
+      },
+      acquireCoordinatorSnapshotLease: () =>
+        stage === "lease"
+          ? { status: "blocked", reason: "fixture_lease_failed" }
+          : {
+              status: "completed",
+              value: {
+                ownerGeneration: "synthetic-owner",
+                release: () => {
+                  releases++;
+                  return { status: "completed" };
+                },
+              },
+            },
+      closeUnstartedCoordinatorSingleTask: () => {
+        assert.ok(queue?.singleTask);
+        return {
+          status: "completed",
+          value: {
+            ...queue,
+            singleTask: {
+              ...queue.singleTask,
+              phase: "settled",
+              status: "blocked",
+              cleanupConfirmed: true,
+            },
+          },
+        };
+      },
+      updateCoordinatorSingleTask: () => ({
+        status: "blocked",
+        reason: "fixture_starting_save_failed",
+        recoveryId: "store.synthetic",
+      }),
+      createCoordinatorSnapshotStatePort: () => ({
+        settleQueueLeaseRelease: () => ({ status: "completed" }),
+      }),
+    };
     const storage = mock.module(
-      new URL("../../src/storage/current-state.ts", import.meta.url).href,
+      new URL("../../src/storage/state.ts", import.meta.url).href,
       {
         namedExports: {
           ...snapshotStorage,
-          readCoordinatorSnapshot: () => ({
-            status: "completed",
-            value: {
-              intakeEpoch: "epoch",
-              queueEntries: queue ? [queue] : [],
-              leaseIntents: [],
-            },
-          }),
-          enqueueCoordinatorSingleTask: (
-            ...args: Parameters<
-              typeof snapshotStorage.enqueueCoordinatorSingleTask
-            >
-          ) => {
-            queue = args[3];
-            return stage === "enqueue"
-              ? { status: "blocked", reason: "fixture_enqueue_failed" }
-              : { status: "completed", value: queue };
-          },
-          acquireCoordinatorSnapshotLease: () =>
-            stage === "lease"
-              ? { status: "blocked", reason: "fixture_lease_failed" }
-              : {
-                  status: "completed",
-                  value: {
-                    ownerGeneration: "synthetic-owner",
-                    release: () => {
-                      releases++;
-                      return { status: "completed" };
-                    },
-                  },
-                },
-          closeUnstartedCoordinatorSingleTask: () => {
-            assert.ok(queue?.singleTask);
-            return {
-              status: "completed",
-              value: {
-                ...queue,
-                singleTask: {
-                  ...queue.singleTask,
-                  phase: "settled",
-                  status: "blocked",
-                  cleanupConfirmed: true,
-                },
-              },
-            };
-          },
-          updateCoordinatorSingleTask: () => ({
-            status: "blocked",
-            reason: "fixture_starting_save_failed",
-            recoveryId: "store.synthetic",
-          }),
-          createCoordinatorSnapshotStatePort: () => ({
-            settleQueueLeaseRelease: () => ({ status: "completed" }),
-          }),
+          readCoordinatorSnapshot: failures.readCoordinatorSnapshot,
+        },
+      },
+    );
+    const queueStorage = mock.module(
+      new URL("../../src/task/queue.ts", import.meta.url).href,
+      {
+        namedExports: {
+          ...(await import("../../src/task/queue.ts")),
+          ...Object.fromEntries(
+            Object.entries(failures).filter(([name]) =>
+              [
+                "enqueueCoordinatorSingleTask",
+                "closeUnstartedCoordinatorSingleTask",
+                "updateCoordinatorSingleTask",
+                "createCoordinatorSnapshotStatePort",
+              ].includes(name),
+            ),
+          ),
+        },
+      },
+    );
+    const leaseStorage = mock.module(
+      new URL("../../src/execution/lease.ts", import.meta.url).href,
+      {
+        namedExports: {
+          ...(await import("../../src/execution/lease.ts")),
+          acquireCoordinatorSnapshotLease:
+            failures.acquireCoordinatorSnapshotLease,
         },
       },
     );
@@ -996,6 +1026,8 @@ test("受付前の保存拒否と受付後のLease・開始保存拒否を区別
     } finally {
       await owner?.close();
       storage.restore();
+      queueStorage.restore();
+      leaseStorage.restore();
     }
   }
 });

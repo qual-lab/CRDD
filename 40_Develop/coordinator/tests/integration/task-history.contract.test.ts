@@ -9,6 +9,7 @@
  * @scope Coordinator履歴保存。
  * @boundary PRL-IT-012=Direct Boundary: 履歴Adapter→Repository Filesystem。
  */
+import { encodeCoordinatorStateValue } from "../../src/state/validation.ts";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
@@ -17,15 +18,16 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { ensureRepositoryRuntimeDataAreaFromWorkingDirectory } from "../../../domain-model/src/index.ts";
 import { requireReadyRepositoryRuntimeDataArea } from "../../../domain-model/src/index.ts";
+import { acquireCoordinatorSnapshotPilotLock } from "../../src/storage/lock.ts";
 import {
-  acquireCoordinatorSnapshotPilotLock,
   readCoordinatorSnapshot,
-  transferCoordinatorSnapshotHistory,
   writeCoordinatorSnapshot,
   initializeCoordinatorSnapshot,
+} from "../../src/storage/state.ts";
+import {
+  transferCoordinatorSnapshotHistory,
   maintainCoordinatorSnapshot,
-} from "../../src/storage/current-state.ts";
-import { encodeCoordinatorStateValue } from "../../src/storage/model.ts";
+} from "../../src/state/retirement.ts";
 import {
   inspectCoordinatorHistorySettlement,
   updateCoordinatorHistoryOwned,

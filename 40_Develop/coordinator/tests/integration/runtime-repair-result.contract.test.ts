@@ -21,7 +21,10 @@ import {
   dockerRuntimeRepairDisposalIsSettled,
   type DockerRuntimeRepairDisposalInput,
 } from "../../../docker-isolation/src/index.ts";
-import * as model from "../../src/storage/model.ts";
+import * as model from "../../src/storage/state.ts";
+import * as historyValues from "../../src/storage/history.ts";
+import type * as executionRecords from "../../src/execution/types.ts";
+import * as stateValues from "../../src/state/validation.ts";
 import { renderDockerRecoveryDoctorReport } from "../../src/cli/recovery-report.ts";
 
 /**
@@ -165,7 +168,7 @@ function fixture(transform: (source: string) => string = (source) => source) {
       (item) => item.kind === "runtime_repair" && item.recoveryId === id,
     );
     if (operation?.kind !== "runtime_repair") return refused;
-    const rows = model.decodeCoordinatorHistoryRows(state.historyBytes);
+    const rows = historyValues.decodeCoordinatorHistoryRows(state.historyBytes);
     if (
       _root !== root ||
       typeof id !== "string" ||
@@ -175,7 +178,7 @@ function fixture(transform: (source: string) => string = (source) => source) {
     )
       return refused;
     const before = Buffer.from(
-      `${model.encodeCoordinatorStateValue(value.snapshot)}\n`,
+      `${stateValues.encodeCoordinatorStateValue(value.snapshot)}\n`,
     );
     if (
       operation.phase === "awaiting_disposition" ||
@@ -270,7 +273,7 @@ function fixture(transform: (source: string) => string = (source) => source) {
       repository.operationId,
     );
     const before = Buffer.from(
-      `${model.encodeCoordinatorStateValue(value.snapshot)}\n`,
+      `${stateValues.encodeCoordinatorStateValue(value.snapshot)}\n`,
     );
     const publication =
       operation.history === null
@@ -356,7 +359,7 @@ function fixture(transform: (source: string) => string = (source) => source) {
       };
     }
     const value = model.decodeCoordinatorStateSnapshot(state.bytes, binding);
-    const rows = model.decodeCoordinatorHistoryRows(state.historyBytes);
+    const rows = historyValues.decodeCoordinatorHistoryRows(state.historyBytes);
     const row = rows?.find((item) => item.recoveryId === id);
     if (_root !== root || !value || !row) return refused;
     const operation = value.snapshot.operations.find(
@@ -398,6 +401,7 @@ function fixture(transform: (source: string) => string = (source) => source) {
     randomBytes,
     randomUUID,
     ...model,
+    ...stateValues,
     Date: class extends Date {
       constructor(value?: string | number) {
         super(value ?? state.historyAt);
@@ -898,7 +902,9 @@ test("修復回収接続: 三用途と保存失敗後の要求不明を同IDで�
     assert.equal(f.state.historyWrites, 2);
     assert.equal(f.state.completionWrites, 1);
     assert.equal(f.snapshot()?.operations.length, 0);
-    const rows = model.decodeCoordinatorHistoryRows(f.state.historyBytes);
+    const rows = historyValues.decodeCoordinatorHistoryRows(
+      f.state.historyBytes,
+    );
     assert.equal(rows?.length, 1);
     assert.equal(
       JSON.parse(rows?.[0]?.line ?? "null").summary.disposal.checkpoint
@@ -996,7 +1002,9 @@ test("修復失敗履歴接続: 失敗と取消を記録し技術再実行しな
       );
       assert.equal(first.completionConfirmed, false);
       assert.equal(f.state.completionWrites, 0);
-      const rows = model.decodeCoordinatorHistoryRows(f.state.historyBytes);
+      const rows = historyValues.decodeCoordinatorHistoryRows(
+        f.state.historyBytes,
+      );
       assert.equal(rows?.length, 1);
       const counts = {
         entries: f.state.entries,
@@ -1164,7 +1172,7 @@ test("修復終了接続: 終了保存と除去後再確認を技術再実行か
   assert.equal(result.completionEffectIssued, true);
   assert.equal(f.snapshot()?.operations.length, 0);
   assert.equal(
-    model.decodeCoordinatorHistoryRows(f.state.historyBytes)?.length,
+    historyValues.decodeCoordinatorHistoryRows(f.state.historyBytes)?.length,
     1,
   );
   const counts = {
@@ -1534,7 +1542,7 @@ test("修復保持接続: 明示判断の保存だけを行い技術再操作し
     assert.ok(target.checkpoint);
     const retained =
       model.prepareCoordinatorStateRepairRetentionHandoffSnapshot(
-        Buffer.from(`${model.encodeCoordinatorStateValue(before)}\n`),
+        Buffer.from(`${stateValues.encodeCoordinatorStateValue(before)}\n`),
         target.recoveryId,
         {
           decidedAt: f.state.historyAt,
@@ -1622,7 +1630,7 @@ test("修復保持接続: 期限差と旧保持を成功へ補完しない", asy
       const value = f.snapshot();
       assert.ok(value);
       f.state.bytes = Buffer.from(
-        `${model.encodeCoordinatorStateValue({ ...value, operations: value.operations.map((operation) => ({ ...operation, phase: "settling", disposition: "retained_by_human_decision" })) })}\n`,
+        `${stateValues.encodeCoordinatorStateValue({ ...value, operations: value.operations.map((operation) => ({ ...operation, phase: "settling", disposition: "retained_by_human_decision" })) })}\n`,
       );
       assert.ok(
         model.decodeCoordinatorStateSnapshot(f.state.bytes, "a".repeat(64)),
@@ -1958,7 +1966,7 @@ test("修復結果: 技術完了・first-wins・二版保存を混同しない",
  */
 function assertRepairResultFields(
   result: Awaited<ReturnType<typeof repairRuntimeOwnedDockerRuntime>>,
-  target: model.CoordinatorStateRepairOperation,
+  target: executionRecords.CoordinatorStateRepairOperation,
   mode: ReturnType<typeof fixture>["state"]["mode"],
   close: ReturnType<typeof fixture>["state"]["close"],
 ) {
@@ -2366,7 +2374,7 @@ test("修復記録: 対象外の失敗や未回収状態を確定しない", asy
                 }
               : prior;
     f.state.bytes = Buffer.from(
-      `${model.encodeCoordinatorStateValue({ ...snapshot, operations: [changed] })}\n`,
+      `${stateValues.encodeCoordinatorStateValue({ ...snapshot, operations: [changed] })}\n`,
     );
     assert.ok(
       model.decodeCoordinatorStateSnapshot(f.state.bytes, "a".repeat(64)),

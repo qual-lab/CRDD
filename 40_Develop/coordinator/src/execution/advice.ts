@@ -8,8 +8,8 @@
 import {
   inspectExecutionSelection,
   hashExecutionSelection,
-  type ExecutionSelection,
-} from "../selection/model.ts";
+} from "../selection/validation.ts";
+import type { ExecutionSelection } from "../selection/types.ts";
 
 import {
   type ProviderAdviceExecutionPlan,

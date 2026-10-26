@@ -51,10 +51,10 @@ import {
   verifyExecutionIntelligenceRepositoryRoot,
   writeExecutionIntelligenceEvent,
 } from "../../../execution-intelligence/src/index.ts";
-import { createCoordinatorState } from "../../../coordinator/src/state/model.ts";
+import { createCoordinatorState } from "../../../coordinator/src/state/create.ts";
 import { executeWorkspace as executeWorkspaceCommand } from "../../../coordinator/src/index.ts";
-import { initializeCoordinatorSnapshot } from "../../../coordinator/src/storage/current-state.ts";
-import { writeCoordinatorSnapshotState } from "../../../coordinator/src/storage/current-state.ts";
+import { initializeCoordinatorSnapshot } from "../../../coordinator/src/storage/state.ts";
+import { writeCoordinatorSnapshotState } from "../../../coordinator/src/storage/state.ts";
 import { prepareWorkspaceSurface } from "../../../coordinator/tests/fixtures/workspace-surface.ts";
 import { startWorkbench } from "../../../workbench-server/src/index.ts";
 import {

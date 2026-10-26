@@ -26,12 +26,10 @@ import {
   readExecutionIntelligence,
   verifyExecutionIntelligenceRepositoryRoot,
 } from "../../../execution-intelligence/src/index.ts";
-import {
-  createCurrentCoordinatorPersistencePorts as createCoordinatorPersistencePorts,
-  readCurrentCoordinatorState as readCoordinatorState,
-  initializeCoordinatorSnapshot,
-  createCoordinatorSnapshotAcceptanceDecisionStore as createCoordinatorAcceptanceDecisionStore,
-} from "../../src/storage/current-state.ts";
+import { createCurrentCoordinatorPersistencePorts as createCoordinatorPersistencePorts } from "../../src/state/transaction.ts";
+import { readCurrentCoordinatorState as readCoordinatorState } from "../../src/state/query.ts";
+import { initializeCoordinatorSnapshot } from "../../src/storage/state.ts";
+import { createCoordinatorSnapshotAcceptanceDecisionStore as createCoordinatorAcceptanceDecisionStore } from "../../src/decision/lifecycle.ts";
 import { recordCoordinatorExecutionEvent } from "../../src/task/dispatch.ts";
 import { resolveCoordinatorReplan as resolveCoordinatorReplanWithPort } from "../../src/objective/replan.ts";
 import {

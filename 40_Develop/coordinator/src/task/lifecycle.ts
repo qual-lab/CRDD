@@ -4,21 +4,21 @@
  * @trace ARCH-000004
  */
 
+import type { ProjectTaskRecord } from "./types.ts";
+import { uniqueStrings } from "../state/validation.ts";
+import type {
+  ProjectTaskDefinition,
+  ProjectTaskState,
+  ProjectTaskRecoveryObligation,
+  ProjectTaskRecoveryKind,
+} from "./types.ts";
+import type { CoordinatorState, StateResult } from "../state/types.ts";
 import {
-  type ProjectTaskDefinition,
-  snapshotDefinition,
-  hasCycle,
-  type CoordinatorState,
-  type StateResult,
   validIdentity,
-  projectState,
-  replaceTask,
-  type ProjectTaskState,
-  type ProjectMilestoneState,
-  type ProjectTaskRecoveryObligation,
   isCoordinatorRecoveryIdentity,
-  type ProjectTaskRecoveryKind,
-} from "../state/model.ts";
+} from "../state/validation.ts";
+import { projectState } from "../state/projection.ts";
+import type { ProjectMilestoneState } from "../objective/types.ts";
 import { selectSchedulableProjectTasks } from "./scheduling.ts";
 
 /**
@@ -738,4 +738,118 @@ export function retryCoordinatorTask(
     }),
     taskIds: Object.freeze([taskId]),
   });
+}
+
+/**
+ * Definitionを所有Snapshotへ変換する。
+ *
+ * @responsibility Definitionの取得範囲、plain-data制約、拒否境界を所有する。
+ * @trace ARCH-000004
+ * @input definition: ProjectTaskDefinition
+ * @returns ProjectTaskDefinition | nullを返す。
+ * @precondition 「definition: ProjectTaskDefinition」がsnapshotDefinitionの入力契約を満たす。
+ * @postcondition snapshotDefinitionの責務を完了した結果だけを返す。
+ * @effect N/A: snapshotDefinitionは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: snapshotDefinitionは独自の失敗分岐を所有しない。
+ * @invariant snapshotDefinitionは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: snapshotDefinitionはProcess内の同一Subsystemで完結する。
+ * @security N/A: snapshotDefinitionはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: snapshotDefinitionは共有非同期状態を持たない同期処理である。
+ */
+export function snapshotDefinition(
+  definition: ProjectTaskDefinition,
+): ProjectTaskDefinition | null {
+  if (!validIdentity(definition.id) || !validIdentity(definition.objectiveId))
+    return null;
+  const dependencies = uniqueStrings(
+    definition.dependencies,
+    128,
+    "identity_or_path",
+  );
+  const allowedPaths = uniqueStrings(
+    definition.allowedPaths,
+    128,
+    "repository_path",
+  );
+  const conflictKeys = uniqueStrings(
+    definition.conflictKeys,
+    128,
+    "identity_or_path",
+  );
+  if (
+    !dependencies ||
+    !allowedPaths ||
+    !conflictKeys ||
+    allowedPaths.length === 0
+  )
+    return null;
+  return Object.freeze({
+    id: definition.id,
+    objectiveId: definition.objectiveId,
+    dependencies,
+    allowedPaths,
+    conflictKeys,
+  });
+}
+
+/**
+ * Cycleが存在するかを判定する。
+ *
+ * @responsibility Cycleの存在条件とtrue／false境界を所有する。
+ * @trace ARCH-000004
+ * @input definitions: readonly ProjectTaskDefinition[]
+ * @returns hasCycleの計算結果を返す。
+ * @precondition 「definitions: readonly ProjectTaskDefinition[]」がhasCycleの入力契約を満たす。
+ * @postcondition hasCycleの責務を完了した結果だけを返す。
+ * @effect N/A: hasCycleは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: hasCycleは独自の失敗分岐を所有しない。
+ * @invariant hasCycleは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: hasCycleはProcess内の同一Subsystemで完結する。
+ * @security N/A: hasCycleはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: hasCycleは共有非同期状態を持たない同期処理である。
+ */
+export function hasCycle(definitions: readonly ProjectTaskDefinition[]) {
+  const dependencies = new Map(
+    definitions.map((definition) => [definition.id, definition.dependencies]),
+  );
+  const visiting = new Set<string>();
+  const visited = new Set<string>();
+  const visit = (id: string): boolean => {
+    if (visiting.has(id)) return true;
+    if (visited.has(id)) return false;
+    visiting.add(id);
+    for (const dependency of dependencies.get(id) ?? []) {
+      if (visit(dependency)) return true;
+    }
+    visiting.delete(id);
+    visited.add(id);
+    return false;
+  };
+  return definitions.some((definition) => visit(definition.id));
+}
+
+/**
+ * replace Taskを決定する。
+ *
+ * @responsibility replace Taskの導出に必要な入力、判定規則、返却結果の境界を所有する。
+ * @trace ARCH-000004
+ * @input state: CoordinatorState、taskId: string、update: (task: ProjectTaskRecord) => ProjectTaskRecord
+ * @returns replaceTaskの計算結果を返す。
+ * @precondition 「state: CoordinatorState、taskId: string、update: (task: ProjectTaskRecord) => ProjectTaskRecord」がreplaceTaskの入力契約を満たす。
+ * @postcondition replaceTaskの責務を完了した結果だけを返す。
+ * @effect N/A: replaceTaskは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure N/A: replaceTaskは独自の失敗分岐を所有しない。
+ * @invariant replaceTaskは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: replaceTaskはProcess内の同一Subsystemで完結する。
+ * @security N/A: replaceTaskはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: replaceTaskは共有非同期状態を持たない同期処理である。
+ */
+export function replaceTask(
+  state: CoordinatorState,
+  taskId: string,
+  update: (task: ProjectTaskRecord) => ProjectTaskRecord,
+) {
+  return state.tasks.map((task) =>
+    task.definition.id === taskId ? update(task) : task,
+  );
 }

@@ -4,6 +4,8 @@
  * @trace ARCH-000004
  */
 
+import { COORDINATOR_STATE_CONTRACT } from "./validation.ts";
+import { inspectTaskExecutionSelections } from "../selection/validation.ts";
 import type {
   ActivitySource,
   RuntimeActivityEvent,
@@ -19,9 +21,9 @@ import {
   COORDINATOR_MAXIMUM_TASKS,
   PROJECT_OBJECTIVE_STATES,
   PROJECT_TASK_STATES,
-  type ProjectTaskState,
-  type CoordinatorState,
-} from "./model.ts";
+} from "./validation.ts";
+import type { ProjectTaskState } from "../task/types.ts";
+import type { CoordinatorState } from "./types.ts";
 import { types as utilTypes } from "node:util";
 import {
   validId,
@@ -1184,4 +1186,37 @@ export function projectCoordinatorState(
   if (!isCoordinatorProjectionSemanticallyValid(projection))
     throw new Error("orchestrator_projection_semantics_invalid");
   return projection;
+}
+
+/**
+ * 状態を公開結果へ投影する。
+ *
+ * @responsibility 状態の公開field、秘匿境界、投影不能時の結果境界を所有する。
+ * @trace ARCH-000004
+ * @input state: Omit<CoordinatorState, "contract">
+ * @returns CoordinatorStateを返す。
+ * @precondition 「state: Omit<CoordinatorState, "contract">」がprojectStateの入力契約を満たす。
+ * @postcondition projectStateの責務を完了した結果だけを返す。
+ * @effect N/A: projectStateは入力と局所値だけを扱い、外部または共有Effectを発行しない。
+ * @failure 選定組が閉形式・役割相関を満たさない場合は例外で停止する。
+ * @invariant projectStateは入力から導いた結果以外の共有状態を変更しない。
+ * @boundary N/A: projectStateはProcess内の同一Subsystemで完結する。
+ * @security N/A: projectStateはAuthority、秘密値または信頼判断を扱わない。
+ * @concurrency N/A: projectStateは共有非同期状態を持たない同期処理である。
+ */
+export function projectState(
+  state: Omit<CoordinatorState, "contract">,
+): CoordinatorState {
+  const selections = inspectTaskExecutionSelections(
+    state.taskExecutionSelections,
+  );
+  if (!selections) throw new Error("coordinator_state_selection_invalid");
+  return Object.freeze({
+    contract: COORDINATOR_STATE_CONTRACT,
+    ...state,
+    taskExecutionSelections: selections,
+    milestone: Object.freeze({ ...state.milestone }),
+    objectives: Object.freeze([...state.objectives]),
+    tasks: Object.freeze([...state.tasks]),
+  });
 }

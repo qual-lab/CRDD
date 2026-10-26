@@ -24,7 +24,7 @@ import {
 } from "../../src/task/recovery.ts";
 import type { CoordinatorSingleTaskResult } from "../../src/task/types.ts";
 import { runCoordinatorObjective as runCoordinatorObjectiveWithPorts } from "../../src/objective/execute.ts";
-import { initializeCoordinatorSnapshot } from "../../src/storage/current-state.ts";
+import { initializeCoordinatorSnapshot } from "../../src/storage/state.ts";
 import {
   registerSyntheticOperations,
   settleSyntheticOperation,

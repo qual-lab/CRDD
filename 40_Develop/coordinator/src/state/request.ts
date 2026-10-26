@@ -6,7 +6,7 @@
  */
 
 import type { CoordinatorStateQuery } from "./types.ts";
-import { snapshotPlainRecord } from "./model.ts";
+import { snapshotPlainRecord } from "./validation.ts";
 
 export const COORDINATOR_STATE_QUERY_CONTRACT =
   "crdd-coordinator/orchestrator-state-query/v1" as const;

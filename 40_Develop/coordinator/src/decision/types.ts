@@ -6,10 +6,6 @@
  */
 
 import type {
-  CoordinatorAcceptanceTarget,
-  CoordinatorAcceptanceDecision,
-} from "../state/model.ts";
-import type {
   CoordinatorAcceptanceDecisionRecord,
   CoordinatorDecisionRecord,
   CoordinatorDecisionRecoveryIntent,
@@ -204,4 +200,48 @@ export type CoordinatorAcceptanceDecisionResult = Readonly<{
   newGeneration: number | null;
   cleanupConfirmed: boolean;
   manualRecoveryRequired: boolean;
+}>;
+
+/**
+ * Coordinatorの受入判断対象を定義する。
+ *
+ * @responsibility Objective判断とMilestone判断を混同しない対象区分を所有する。
+ * @trace ARCH-000005
+ * @shape `objective`または`milestone`のいずれか一つを表す。
+ * @invariant Task、ProjectionまたはProviderを受入判断対象へ昇格しない。
+ * @boundary N/A: 型宣言は外部境界を開かない。
+ * @security N/A: 型宣言はAuthorityや秘密値を保持しない。
+ * @compatibility 利用側は宣言済みの二つの対象区分だけへ依存する。
+ */
+export type CoordinatorAcceptanceTarget = "objective" | "milestone";
+
+/**
+ * Coordinatorの明示的な受入判断を定義する。
+ *
+ * @responsibility 受入、差戻し、判断待ちを別の判断値として所有する。
+ * @trace ARCH-000005
+ * @shape `accept`、`return`、`wait`のいずれか一つを表す。
+ * @invariant Task完了または下位状態から判断値を推定しない。
+ * @boundary N/A: 型宣言は外部境界を開かない。
+ * @security N/A: 型宣言はAuthorityや秘密値を保持しない。
+ * @compatibility 利用側は宣言済みの三つの判断値だけへ依存する。
+ */
+export type CoordinatorAcceptanceDecision = "accept" | "return" | "wait";
+
+/**
+ * Coordinator受入判断の状態遷移入力を定義する。
+ *
+ * @responsibility exactな対象、判断および判断根拠の組を型境界として所有する。
+ * @trace ARCH-000005
+ * @shape 対象区分、対象ID、判断および根拠ID列を表す。
+ * @invariant ObjectiveとMilestoneの対象IDを同じ入力で兼用しない。
+ * @boundary N/A: 型宣言は外部境界を開かない。
+ * @security N/A: Authority検証はApplication境界が所有し、本型は秘密値を保持しない。
+ * @compatibility 利用側は宣言済みPropertyと型制約だけへ依存する。
+ */
+export type CoordinatorAcceptanceDecisionInput = Readonly<{
+  target: CoordinatorAcceptanceTarget;
+  targetId: string;
+  decision: CoordinatorAcceptanceDecision;
+  criterionEvidenceIds: readonly string[];
 }>;

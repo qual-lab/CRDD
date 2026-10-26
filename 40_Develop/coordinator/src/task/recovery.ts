@@ -4,15 +4,14 @@
  * @trace ARCH-000004
  */
 
+import type { ProjectTaskRecoveryKind } from "./types.ts";
+import type { CoordinatorState, StateResult } from "../state/types.ts";
 import {
-  type ProjectTaskRecoveryKind,
-  type CoordinatorState,
-  type StateResult,
   isCoordinatorRecoveryIdentity,
-  projectState,
-  replaceTask,
   validIdentity,
-} from "../state/model.ts";
+} from "../state/validation.ts";
+import { projectState } from "../state/projection.ts";
+import { replaceTask } from "./lifecycle.ts";
 
 /**
  * 対象Taskの回復義務を、同じ回復参照で回復中へ進める。

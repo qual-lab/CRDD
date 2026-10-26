@@ -17,8 +17,8 @@ import type {
   AiSelectionSnapshot,
   ExecutionSelection,
   TaskExecutionSelections,
-} from "./model.ts";
-import { inspectTaskExecutionSelections } from "./model.ts";
+} from "./types.ts";
+import { inspectTaskExecutionSelections } from "./validation.ts";
 
 const ROLES = Object.freeze([
   "coordinator",

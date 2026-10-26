@@ -8,8 +8,8 @@
  * @boundary PRL-IT-005=Direct Boundary: 試験から統合保存。
  */
 import { taskExecutionSelections } from "./ai-selection.ts";
-import { createCurrentCoordinatorPersistencePorts } from "../../src/storage/current-state.ts";
-import { createCoordinatorState } from "../../src/state/model.ts";
+import { createCurrentCoordinatorPersistencePorts } from "../../src/state/transaction.ts";
+import { createCoordinatorState } from "../../src/state/create.ts";
 /**
  * 新版PortのwriteStateを試験から呼ぶ。
  * @responsibility 旧保存方式を使わず既存の検証入力を搬送する。

@@ -8,6 +8,7 @@
  * @scope project、runtime、decision、recovery、store
  * @boundary PRL-IT-013=Related 2 Blocks: Task／Recovery Store→再入場Application
  */
+import { encodeCoordinatorStateValue } from "../../src/state/validation.ts";
 import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
@@ -16,14 +17,11 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
-import {
-  initializeCoordinatorSnapshot,
-  createCurrentCoordinatorPersistencePorts,
-  createCoordinatorSnapshotDecisionRecoveryStore,
-} from "../../src/storage/current-state.ts";
-import { createCoordinatorState } from "../../src/state/model.ts";
+import { initializeCoordinatorSnapshot } from "../../src/storage/state.ts";
+import { createCurrentCoordinatorPersistencePorts } from "../../src/state/transaction.ts";
+import { createCoordinatorSnapshotDecisionRecoveryStore } from "../../src/decision/lifecycle.ts";
+import { createCoordinatorState } from "../../src/state/create.ts";
 import type { CoordinatorDecisionRecoveryIntent } from "../../src/decision/records.ts";
-import { encodeCoordinatorStateValue } from "../../src/storage/model.ts";
 import { ensureRepositoryRuntimeDataAreaFromWorkingDirectory } from "../../../domain-model/src/index.ts";
 import { requireReadyRepositoryRuntimeDataArea } from "../../../domain-model/src/index.ts";
 

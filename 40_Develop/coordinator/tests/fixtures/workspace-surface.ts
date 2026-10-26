@@ -8,13 +8,11 @@
  */
 import { taskExecutionSelections } from "./ai-selection.ts";
 import assert from "node:assert/strict";
-import { createCoordinatorState } from "../../src/state/model.ts";
-import { initializeCoordinatorSnapshot } from "../../src/storage/current-state.ts";
-import {
-  writeCoordinatorSnapshotState,
-  createCoordinatorSnapshotPersistencePorts,
-} from "../../src/storage/current-state.ts";
-import { deriveCoordinatorRepositoryBindingId } from "../../src/state/model.ts";
+import { createCoordinatorState } from "../../src/state/create.ts";
+import { initializeCoordinatorSnapshot } from "../../src/storage/state.ts";
+import { writeCoordinatorSnapshotState } from "../../src/storage/state.ts";
+import { createCoordinatorSnapshotPersistencePorts } from "../../src/state/transaction.ts";
+import { deriveCoordinatorRepositoryBindingId } from "../../src/state/validation.ts";
 
 /**
  * 既存Projectと二Queueを実保存する。

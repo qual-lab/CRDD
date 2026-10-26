@@ -20,10 +20,8 @@ import { stripTypeScriptTypes } from "node:module";
 import { createDockerRestartMachineForVerification } from "../../../docker-isolation/src/docker-desktop/restart-state.ts";
 import { classifyDockerEngineResult } from "../../../docker-isolation/src/docker-desktop/engine.ts";
 import { fileURLToPath } from "node:url";
-import type {
-  CoordinatorStateSnapshot,
-  CoordinatorStateTaskOperation,
-} from "../../src/storage/model.ts";
+import type { CoordinatorStateSnapshot } from "../../src/storage/state.ts";
+import type { CoordinatorStateTaskOperation } from "../../src/execution/types.ts";
 import {
   captureAuthCreateCleanupTree,
   projectAuthCreateDefaultBridge,

@@ -63,8 +63,10 @@ export const currentHostTransitionWorkerSource = `(async () => {
         }}});
       }
       const vc = await import(${JSON.stringify(new URL("../../../version-control/src/index.ts", import.meta.url).href)});
-      const store = await import(${JSON.stringify(new URL("../../src/storage/settlement-store.ts", import.meta.url).href)});
-      const model = await import(${JSON.stringify(new URL("../../src/storage/model.ts", import.meta.url).href)});
+      const store = await import(${JSON.stringify(new URL("../../src/storage/state.ts", import.meta.url).href)});
+      const model = await import(${JSON.stringify(new URL("../../src/storage/state.ts", import.meta.url).href)});
+      const historyValues = await import(${JSON.stringify(new URL("../../src/storage/history.ts", import.meta.url).href)});
+      const stateValues = await import(${JSON.stringify(new URL("../../src/state/validation.ts", import.meta.url).href)});
       const recovery = await import(${JSON.stringify(new URL("../../src/execution/recovery.ts", import.meta.url).href)});
       const host = await import(${JSON.stringify(new URL("../../src/execution/operation.ts", import.meta.url).href)});
       const record = await import(${JSON.stringify(new URL("../../src/execution/recovery.ts", import.meta.url).href)});
@@ -305,7 +307,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
           const saved = store.readRuntimeOwnedCoordinatorRecoverySnapshot(verified.capability);
           assert.equal(saved.status, 'completed');
           assert.deepEqual(saved.value.snapshot.operations, before.value.snapshot.operations.filter(item => item.recoveryId !== id));
-          const history = model.decodeCoordinatorHistoryRows(fs.readFileSync(path.join(process.cwd(), '.crdd', 'coordinator', 'history.jsonl')));
+          const history = historyValues.decodeCoordinatorHistoryRows(fs.readFileSync(path.join(process.cwd(), '.crdd', 'coordinator', 'history.jsonl')));
           assert.ok(history);
           const row = history.find(item => item.recoveryId === id); assert.ok(row);
           const summary = JSON.parse(row.line).summary;
@@ -333,8 +335,8 @@ export const currentHostTransitionWorkerSource = `(async () => {
           const row = JSON.parse(published.toString()), nonce = 'e'.repeat(64);
           row.summary.operationNonce = nonce; row.summary.operationId = 'OP-888888';
           row.summary.recoveryId = 'docker-task.'+id.split('.')[1]+'.'+nonce+'.'+row.summary.identitySha256;
-          const otherLine = Buffer.from(model.encodeCoordinatorStateValue(row)+'\\n');
-          assert.ok(model.decodeCoordinatorHistoryRows(otherLine));
+          const otherLine = Buffer.from(stateValues.encodeCoordinatorStateValue(row)+'\\n');
+          assert.ok(historyValues.decodeCoordinatorHistoryRows(otherLine));
           for(const replacement of [null, otherLine]) {
             try {
               if(replacement === null) fs.unlinkSync(historyPath); else fs.writeFileSync(historyPath, replacement);
@@ -545,9 +547,9 @@ export const currentHostTransitionWorkerSource = `(async () => {
       const expectedToken = 'host.'+loaded.parsed.rootName+'.'+loaded.parsed.nonce+'.'+createHash('sha256').update(expectedBytes).digest('hex');
       const intent = { currentToken: operation.host.currentToken, expectedToken, rootName: loaded.parsed.rootName, nonce: loaded.parsed.nonce, currentState: 'docker_submission_started', nextState: 'docker_absent_confirmed', recordBefore: loaded.record };
       const middle = { ...before.value.snapshot, revision: before.value.snapshot.revision+1, previous: { revision: before.value.snapshot.revision, payloadSha256: before.value.payloadSha256 }, operations: before.value.snapshot.operations.map(item => item.recoveryId === id ? { ...item, host: { ...item.host, pendingTransitionJson: JSON.stringify(intent)+'\\n' } } : item) };
-      const middleBytes = Buffer.from(model.encodeCoordinatorStateValue(middle)+'\\n');
+      const middleBytes = Buffer.from(stateValues.encodeCoordinatorStateValue(middle)+'\\n');
       const final = { ...middle, revision: middle.revision+1, previous: { revision: middle.revision, payloadSha256: createHash('sha256').update(middleBytes).digest('hex') }, operations: middle.operations.map(item => item.recoveryId === id ? { ...item, host: { ...item.host, currentToken: expectedToken, pendingTransitionJson: null } } : item) };
-      const finalBytes = Buffer.from(model.encodeCoordinatorStateValue(final)+'\\n');
+      const finalBytes = Buffer.from(stateValues.encodeCoordinatorStateValue(final)+'\\n');
       const statePath = path.join(process.cwd(), '.crdd', 'coordinator', 'state.json');
       const versions = [], rename = fs.renameSync, open = fs.openSync;
       const publicationFault = process.argv[3] === 'null_outcome' || process.argv[3].startsWith('history_') || process.argv[3].startsWith('delivery_') || process.argv[3] === 'workbench_transient' ? 'none' : process.argv[3];
@@ -587,9 +589,9 @@ export const currentHostTransitionWorkerSource = `(async () => {
         assert.equal(recovery.releaseRuntimeOwnedDockerTaskRecoveryPreparation(capability), true); capability = null;
         assert.equal(versions.length, 2);
         const cleanupIntent = { ...final, revision: final.revision+1, previous: { revision: final.revision, payloadSha256: createHash('sha256').update(finalBytes).digest('hex') }, operations: final.operations.map(item => item.recoveryId === id ? { ...item, host: { ...item.host, cleanup: 'pending' } } : item) };
-        const cleanupIntentBytes = Buffer.from(model.encodeCoordinatorStateValue(cleanupIntent)+'\\n');
+        const cleanupIntentBytes = Buffer.from(stateValues.encodeCoordinatorStateValue(cleanupIntent)+'\\n');
         const cleanupFinal = { ...cleanupIntent, revision: cleanupIntent.revision+1, previous: { revision: cleanupIntent.revision, payloadSha256: createHash('sha256').update(cleanupIntentBytes).digest('hex') }, operations: cleanupIntent.operations.map(item => item.recoveryId === id ? { ...item, host: { ...item.host, cleanup: 'confirmed' } } : item) };
-        const cleanupFinalBytes = Buffer.from(model.encodeCoordinatorStateValue(cleanupFinal)+'\\n');
+        const cleanupFinalBytes = Buffer.from(stateValues.encodeCoordinatorStateValue(cleanupFinal)+'\\n');
         const cleanup = recovery.prepareRuntimeOwnedDockerTaskRecovery(id, verified.capability);
         assert.equal(cleanup.status, 'prepared'); capability = cleanup.capability;
         injectCleanupFault = true;
@@ -641,18 +643,18 @@ export const currentHostTransitionWorkerSource = `(async () => {
         assert.equal(terminal.status, 'completed'); assert.equal(terminal.snapshotConfirmed, true); assert.equal(terminal.lockReleased, true);
         assert.equal(versions.length, 5);
         const terminalExpected = { ...cleanupFinal, revision: cleanupFinal.revision + 1, previous: { revision: cleanupFinal.revision, payloadSha256: createHash('sha256').update(cleanupFinalBytes).digest('hex') }, operations: cleanupFinal.operations.map(item => item.recoveryId !== id ? item : { ...item, phase: 'settling', lease: 'released', outcome: item.outcome === null ? { status: 'blocked', reason: 'docker_process_controller_execution_failed_closed', cleanupConfirmed: true } : { ...item.outcome, cleanupConfirmed: true } }) };
-        assert.deepEqual(fs.readFileSync(statePath), Buffer.from(model.encodeCoordinatorStateValue(terminalExpected)+'\\n'));
+        assert.deepEqual(fs.readFileSync(statePath), Buffer.from(stateValues.encodeCoordinatorStateValue(terminalExpected)+'\\n'));
         assert.equal(recovery.finalizeRuntimeOwnedDockerTaskRecoveryPreparation(capability).snapshotConfirmed, false);
         assert.equal(versions.length, 5);
         const historyFault = process.argv[3].startsWith('history_') ? process.argv[3] : null;
         if(historyFault) {
-          const fixed = model.prepareCoordinatorStateHistorySnapshot(Buffer.from(model.encodeCoordinatorStateValue(terminalExpected)+'\\n'), id, new Date().toISOString(), false, terminalExpected.repositoryBinding);
+          const fixed = model.prepareCoordinatorStateHistorySnapshot(Buffer.from(stateValues.encodeCoordinatorStateValue(terminalExpected)+'\\n'), id, new Date().toISOString(), false, terminalExpected.repositoryBinding);
           const line = model.prepareCoordinatorStateHistoryLine(fixed, id, terminalExpected.repositoryBinding);
           const row = JSON.parse(line.toString()), nonce = 'f'.repeat(64);
           row.occurredAt = new Date(Date.now()-45*86400000).toISOString(); row.summary.operationNonce = nonce;
           row.summary.recoveryId = 'docker-task.'+id.split('.')[1]+'.'+nonce+'.'+row.summary.identitySha256;
           row.summary.operationId = 'OP-999999';
-          const oldLine = Buffer.from(model.encodeCoordinatorStateValue(row)+'\\n'); assert.ok(model.decodeCoordinatorHistoryRows(oldLine));
+          const oldLine = Buffer.from(stateValues.encodeCoordinatorStateValue(row)+'\\n'); assert.ok(historyValues.decodeCoordinatorHistoryRows(oldLine));
           fs.writeFileSync(path.join(path.dirname(statePath), 'history.jsonl'), oldLine);
         }
         const historyRename = fs.renameSync; let historyInjected = false;
@@ -739,7 +741,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
               assert.equal(store.readRuntimeOwnedCoordinatorCurrentDeliverySnapshot(verified.capability, id).status, 'blocked');
               assert.equal(recovery.prepareRuntimeOwnedDockerTaskRecovery(id, verified.capability).status, 'blocked');
               const { stripTypeScriptTypes } = await import('node:module');
-              const storeUrl = ${JSON.stringify(new URL("../../src/storage/settlement-store.ts", import.meta.url).href)};
+              const storeUrl = ${JSON.stringify(new URL("../../src/storage/state.ts", import.meta.url).href)};
               const original = fs.readFileSync(new URL(storeUrl), 'utf8');
               const readerDisabled = original.replace('if (pending && candidate.equals(before))', 'if (false)');
               assert.notEqual(readerDisabled, original);

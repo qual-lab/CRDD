@@ -53,7 +53,7 @@ if (mode === "pause-before-publish") {
   }) as typeof fs.mkdirSync;
 }
 
-const foundation = await import("../../src/storage/current-state.ts");
+const foundation = await import("../../src/execution/lease.ts");
 const result = foundation.acquireCoordinatorSnapshotLease(
   workingDirectory,
   "binding-a",

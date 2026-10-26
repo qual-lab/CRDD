@@ -4,16 +4,17 @@
  * @responsibility 要求範囲に収まる受入条件・Objective・Task依存集合を検証し、実行結果や保存を扱わない。
  * @trace ARCH-000004
  */
-import type {
-  ProjectObjectiveDefinition,
-  ProjectTaskDefinition,
-} from "../state/model.ts";
+import type { ProjectObjectiveDefinition } from "./types.ts";
+import type { ProjectTaskDefinition } from "../task/types.ts";
 import {
   inspectCoordinatorObjectiveRequest,
   type CoordinatorObjectiveRequest,
 } from "./request.ts";
-import { snapshotPlainArray, snapshotPlainRecord } from "../state/model.ts";
-import { repositoryPathWithin } from "../state/model.ts";
+import {
+  snapshotPlainArray,
+  snapshotPlainRecord,
+} from "../state/validation.ts";
+import { repositoryPathWithin } from "../state/validation.ts";
 import type { CoordinatorObjectivePlan } from "./types.ts";
 
 export const COORDINATOR_OBJECTIVE_INTAKE_CONTRACT =

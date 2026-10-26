@@ -7,10 +7,11 @@
  * @scope coordinator-state-model
  * @boundary PRL-UT-006=Direct Boundary: メモリ内の保存本文。
  */
+
 import {
-  executionSelection,
-  taskExecutionSelections,
-} from "../../fixtures/ai-selection.ts";
+  coordinatorStateContentHash,
+  encodeCoordinatorStateValue,
+} from "../../../src/state/validation.ts";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
@@ -18,20 +19,21 @@ import { stripTypeScriptTypes } from "node:module";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
 import {
+  createDockerRestartRequestId,
+  decodeDockerRestartCheckpoint,
+} from "../../../src/execution/result.ts";
+import { createCoordinatorState } from "../../../src/state/create.ts";
+import { coordinatorConsumerCompletionPolicy } from "../../../src/task/acceptance.ts";
+import {
+  COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
   COORDINATOR_STATE_SCHEMA,
   type CoordinatorStateSnapshot,
-  type CoordinatorStateTaskOperation,
-  MAX_COORDINATOR_STATE_BYTES,
-  coordinatorConsumerCompletionPolicy,
-  coordinatorAuthenticationUnknownCanClose,
-  coordinatorTaskResourcesAreSettled,
-  coordinatorReleasedTaskCanObserveHostAbsence,
-  prepareCoordinatorAuthenticationUnknownClosureSnapshot,
-  coordinatorStateContentHash,
-  decodeCoordinatorHistoryRows,
+  type CoordinatorUnifiedSnapshot,
+  classifyCoordinatorResourcePublication,
   decodeCoordinatorStateSnapshot,
-  encodeCoordinatorStateValue,
-  prepareCoordinatorHistoryRetention,
+  decodeCoordinatorUnifiedSnapshot,
+  MAX_COORDINATOR_STATE_BYTES,
+  prepareCoordinatorAuthenticationUnknownClosureSnapshot,
   prepareCoordinatorRecoveredHistoryPublication,
   prepareCoordinatorStateCleanupSnapshot,
   prepareCoordinatorStateCompletionSnapshot,
@@ -45,21 +47,26 @@ import {
   prepareCoordinatorStateResourceSnapshot,
   prepareCoordinatorStateRestartSnapshot,
   prepareCoordinatorStateResultDeliverySnapshot,
-  validateCoordinatorStateTransition,
-  classifyCoordinatorResourcePublication,
-  COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
-  validCoordinatorSnapshot,
-  projectCoordinatorTaskSettlement,
-  decodeCoordinatorUnifiedSnapshot,
-  type CoordinatorUnifiedSnapshot,
-  validateCoordinatorUnifiedTransition,
   prepareCoordinatorUnifiedTaskSnapshot,
-} from "../../../src/storage/model.ts";
-import { createCoordinatorState } from "../../../src/state/model.ts";
+  validateCoordinatorStateTransition,
+  validateCoordinatorUnifiedTransition,
+  validCoordinatorSnapshot,
+} from "../../../src/storage/state.ts";
+import type { CoordinatorStateTaskOperation } from "../../../src/execution/types.ts";
 import {
-  createDockerRestartRequestId,
-  decodeDockerRestartCheckpoint,
-} from "../../../src/execution/result.ts";
+  coordinatorAuthenticationUnknownCanClose,
+  coordinatorReleasedTaskCanObserveHostAbsence,
+  coordinatorTaskResourcesAreSettled,
+} from "../../../src/execution/validation.ts";
+import {
+  decodeCoordinatorHistoryRows,
+  prepareCoordinatorHistoryRetention,
+} from "../../../src/storage/history.ts";
+import { projectCoordinatorTaskSettlement } from "../../../src/state/settlement.ts";
+import {
+  executionSelection,
+  taskExecutionSelections,
+} from "../../fixtures/ai-selection.ts";
 
 const binding = "a".repeat(64);
 
@@ -1190,7 +1197,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
   assert.equal(coordinatorTaskResourcesAreSettled(badEvidence), false);
   // 実Writer外側の値差分guardだけを分離する。Kernel/FSの成立はHost試験が所有する。
   const storeSource = fs.readFileSync(
-    new URL("../../../src/storage/settlement-store.ts", import.meta.url),
+    new URL("../../../src/storage/state.ts", import.meta.url),
     "utf8",
   );
   const helperStart = storeSource.indexOf(
@@ -2600,7 +2607,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       false,
     );
     const modelSource = fs.readFileSync(
-      new URL("../../../src/storage/model.ts", import.meta.url),
+      new URL("../../../src/execution/validation.ts", import.meta.url),
       "utf8",
     );
     const guardStart = modelSource.indexOf("const sameHostContinuation =");

@@ -18,7 +18,7 @@ import {
   supersedeRuntimeOwnedDelegationSelectionGrant,
 } from "../../../src/execution/authority.ts";
 import { executionSelection } from "../../fixtures/ai-selection.ts";
-import { hashExecutionSelection } from "../../../src/selection/model.ts";
+import { hashExecutionSelection } from "../../../src/selection/validation.ts";
 /**
  * 三項目の固定要求を合成する。
  * @responsibility 完全選定の相関・拒否・消費を確認する。

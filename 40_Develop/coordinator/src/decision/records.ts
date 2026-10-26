@@ -8,7 +8,7 @@
 import type {
   CoordinatorAcceptanceTarget,
   CoordinatorAcceptanceDecision,
-} from "../state/model.ts";
+} from "./types.ts";
 
 /**
  * 一回のObjective／Milestone受入判断記録を定義する。

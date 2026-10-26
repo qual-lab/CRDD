@@ -9,7 +9,7 @@ import {
   startRuntimeOwnedCoordinatorTask,
 } from "../execution/controller.ts";
 import { recordCoordinatorExecutionEvent } from "../task/dispatch.ts";
-import { openRuntimeOwnedWindowsProjectDecisionStore } from "../storage/protected-decision.ts";
+import { openRuntimeOwnedWindowsProjectDecisionStore } from "../storage/decision.ts";
 import { writeCoordinatorExecutionIntelligenceDiagnostic } from "../execution/diagnostics.ts";
 import { coordinatorDataBoundaryBlocked } from "../state/result.ts";
 import { RepositoryRuntimeDataAreaBlockedError } from "../../../domain-model/src/index.ts";

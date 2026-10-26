@@ -4,6 +4,13 @@
  * @responsibility Principal・Root・Revisionを確認し、既存Snapshot Readerと状態投影へ接続する。状態変更は行わない。
  * @trace ARCH-000005
  */
+import type { StoreResult } from "./result.ts";
+import { completed } from "./result.ts";
+import { blocked } from "./result.ts";
+import { withCoordinatorSnapshotOperation } from "../storage/state.ts";
+import { COORDINATOR_PROJECT_SNAPSHOT_SCHEMA } from "../storage/state.ts";
+import { validId } from "./validation.ts";
+import type { CoordinatorState } from "./types.ts";
 import { projectCoordinatorState } from "./projection.ts";
 import type { CoordinatorStatePort } from "./persistence.ts";
 import {
@@ -14,7 +21,7 @@ import type {
   CoordinatorStateQuery,
   CoordinatorStateQueryResult,
 } from "./types.ts";
-import { deriveCoordinatorRepositoryBindingId } from "./model.ts";
+import { deriveCoordinatorRepositoryBindingId } from "./validation.ts";
 import {
   inspectRepositoryIdentityCandidate,
   resolveVerifiedRepositoryRootFromWorkingDirectory,
@@ -24,11 +31,9 @@ import {
   COORDINATOR_PUBLIC_RUNTIME_CONTRACT,
   coordinatorDataBoundaryBlocked,
 } from "./result.ts";
-import {
-  createCurrentCoordinatorPersistencePorts as createCoordinatorPersistencePorts,
-  readCoordinatorSnapshot,
-} from "../storage/current-state.ts";
-import { openRuntimeOwnedWindowsProjectDecisionStore } from "../storage/protected-decision.ts";
+import { createCurrentCoordinatorPersistencePorts as createCoordinatorPersistencePorts } from "./transaction.ts";
+import { readCoordinatorSnapshot } from "../storage/state.ts";
+import { openRuntimeOwnedWindowsProjectDecisionStore } from "../storage/decision.ts";
 import { RepositoryRuntimeDataAreaBlockedError } from "../../../domain-model/src/index.ts";
 
 /**
@@ -283,4 +288,40 @@ export function runCoordinatorPublicStateQuery(
       return coordinatorDataBoundaryBlocked(error);
     throw error;
   }
+}
+
+/**
+ * 新版の現在状態からProjectを読み取る。
+ * @responsibility Docker回復の利用側にも同じ保存値を提供する。
+ * @trace ARCH-000004
+ * @input Repository Root、binding、Project ID。
+ * @returns Project状態または観測停止。
+ * @precondition 呼出し権限は上位で検証する。
+ * @postcondition 不存在と未初期化を区別する。
+ * @effect 読取りと短期排他のみ。
+ * @failure 旧版、pending、破損は停止する。
+ * @invariant 読取りによる初期化やFallbackをしない。
+ * @boundary 保存と回復利用側。
+ * @security 保存値はAuthorityではない。
+ * @concurrency 同Owner下でProject値を確定する。
+ */
+export function readCurrentCoordinatorState(
+  workingDirectory: string,
+  binding: string,
+  projectId: string,
+): StoreResult<CoordinatorState | null> {
+  return withCoordinatorSnapshotOperation(
+    workingDirectory,
+    binding,
+    (current) =>
+      current.schema === COORDINATOR_PROJECT_SNAPSHOT_SCHEMA &&
+      validId(projectId)
+        ? completed("orchestrator_state_observed", {
+            next: null,
+            value:
+              current.projects.find((item) => item.projectId === projectId) ??
+              null,
+          })
+        : blocked("orchestrator_snapshot_schema_invalid"),
+  );
 }

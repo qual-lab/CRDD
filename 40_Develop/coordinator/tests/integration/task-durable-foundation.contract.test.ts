@@ -9,6 +9,7 @@
  * @scope project、runtime、durable、foundation
  * @boundary PRL-IT-012=Related 2 Blocks: CLI・MCP Adapter→Coordinator Application Port→Core
  */
+import { encodeCoordinatorStateValue } from "../../src/state/validation.ts";
 import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
@@ -20,10 +21,8 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { requireReadyRepositoryRuntimeDataArea } from "../../../domain-model/src/index.ts";
 import { ensureRepositoryRuntimeDataAreaFromWorkingDirectory } from "../../../domain-model/src/index.ts";
-import {
-  createCoordinatorState,
-  type CoordinatorState,
-} from "../../src/state/model.ts";
+import { createCoordinatorState } from "../../src/state/create.ts";
+import type { CoordinatorState } from "../../src/state/types.ts";
 import {
   observeProjectTaskStarted,
   prepareProjectTaskHandoff,
@@ -36,29 +35,34 @@ import type {
 } from "../../src/decision/records.ts";
 import {
   acquireCoordinatorSnapshotLease,
-  acquireCoordinatorSnapshotPilotLock,
+  inspectCoordinatorSnapshotLeaseAcquisitionOwner,
+  reconcileCoordinatorSnapshotLeaseOwnerLoss,
+} from "../../src/execution/lease.ts";
+import { acquireCoordinatorSnapshotPilotLock } from "../../src/storage/lock.ts";
+import {
   createCurrentCoordinatorPersistencePorts,
+  createCoordinatorSnapshotPersistencePorts,
+} from "../../src/state/transaction.ts";
+import {
   createCoordinatorSnapshotAcceptanceDecisionStore,
   createCoordinatorSnapshotDecisionRecoveryStore,
-  createCoordinatorSnapshotIntegrationRecordPort,
-  createCoordinatorSnapshotPersistencePorts,
+} from "../../src/decision/lifecycle.ts";
+import { createCoordinatorSnapshotIntegrationRecordPort } from "../../src/workspace/commands.ts";
+import {
   describeCoordinatorDurableFoundation,
   initializeCoordinatorSnapshot,
-  inspectCoordinatorSnapshotIntake,
-  inspectCoordinatorSnapshotLeaseAcquisitionOwner,
-  maintainCoordinatorSnapshot,
   readCoordinatorSnapshot,
-  reconcileCoordinatorSnapshotLeaseOwnerLoss,
   writeCoordinatorSnapshot,
   writeCoordinatorSnapshotState,
-} from "../../src/storage/current-state.ts";
+} from "../../src/storage/state.ts";
+import { inspectCoordinatorSnapshotIntake } from "../../src/task/queue.ts";
+import { maintainCoordinatorSnapshot } from "../../src/state/retirement.ts";
 import { acquireRuntimeOwnedProjectStateKernelLock } from "../../src/execution/kernel-lock.ts";
 import {
   decodeCoordinatorUnifiedSnapshot,
   projectCoordinatorTaskSnapshot,
   prepareCoordinatorUnifiedTaskSnapshot,
-  encodeCoordinatorStateValue,
-} from "../../src/storage/model.ts";
+} from "../../src/storage/state.ts";
 
 const MAX_RECORD_BYTES = 16 * 1024 * 1024;
 
@@ -3954,15 +3958,14 @@ test("PR-D-A-01 Lease終了保存失敗は回復参照を保全して再取得�
  */
 test("PR-A-04 reconciles an exited lease owner without starting new work", (t) => {
   const { root, ports } = currentQueueFixture(t);
-  const moduleUrl = new URL(
-    "../../src/storage/current-state.ts",
-    import.meta.url,
-  ).href;
+  const moduleUrl = new URL("../../src/execution/lease.ts", import.meta.url)
+    .href;
   execFileSync(
     process.execPath,
     [
       "--eval",
-      `import { acquireCoordinatorSnapshotLease, createCurrentCoordinatorPersistencePorts } from ${JSON.stringify(moduleUrl)};
+      `import { acquireCoordinatorSnapshotLease } from ${JSON.stringify(moduleUrl)};
+import { createCurrentCoordinatorPersistencePorts } from ${JSON.stringify(new URL("../../src/state/transaction.ts", import.meta.url).href)};
 const lease = acquireCoordinatorSnapshotLease(${JSON.stringify(root)}, "binding-a", "project-a", "queue-a", "project-operation");
 if (lease.status !== "completed") { process.stdout.write(JSON.stringify({ status: lease.status, reason: lease.reason, manualRecoveryRequired: lease.manualRecoveryRequired })); process.exit(20); }
 const queued = createCurrentCoordinatorPersistencePorts(${JSON.stringify(root)}, "binding-a").state.updateQueue("queue-a", 1, { state: "leased", lease: lease.value, resumeCondition: null, resultReference: null });
@@ -4024,10 +4027,8 @@ if (queued.status !== "completed") process.exit(21);`,
  */
 test("PR-A-04 recovers a lease acquisition interrupted before Queue ownership", (t) => {
   const { root, ports } = currentQueueFixture(t);
-  const moduleUrl = new URL(
-    "../../src/storage/current-state.ts",
-    import.meta.url,
-  ).href;
+  const moduleUrl = new URL("../../src/execution/lease.ts", import.meta.url)
+    .href;
   execFileSync(
     process.execPath,
     [
@@ -4106,10 +4107,8 @@ if (lease.status !== "completed") { process.stdout.write(JSON.stringify({status:
  */
 test("PR-A-04 recovers canonical-adoption acquisition across Queue callers", (t) => {
   const { root, ports } = currentQueueFixture(t);
-  const moduleUrl = new URL(
-    "../../src/storage/current-state.ts",
-    import.meta.url,
-  ).href;
+  const moduleUrl = new URL("../../src/execution/lease.ts", import.meta.url)
+    .href;
   execFileSync(
     process.execPath,
     [
@@ -4469,10 +4468,8 @@ test("PR-A-04 実排他の清掃失敗は現行解放意図と回復参照を保
  */
 test("PR-A-04 reconciles release intent created before Queue ownership", (t) => {
   const { root, ports } = currentQueueFixture(t);
-  const moduleUrl = new URL(
-    "../../src/storage/current-state.ts",
-    import.meta.url,
-  ).href;
+  const moduleUrl = new URL("../../src/execution/lease.ts", import.meta.url)
+    .href;
   execFileSync(
     process.execPath,
     [

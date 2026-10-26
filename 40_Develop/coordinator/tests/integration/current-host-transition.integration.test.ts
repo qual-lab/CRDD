@@ -8,6 +8,7 @@
  * @scope 自己生成Repository、実Hostと現在state。identified／auth unknown条件のDocker読取り・Authenticode応答、restart二形のDI再起動結果を模擬し、実Docker／Provider要求は行わない。
  * @boundary ERB-IT-014=Related 2 Blocks: 現在回収Driver→Host／現在状態Writer。
  */
+import { encodeCoordinatorStateValue } from "../../src/state/validation.ts";
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
@@ -34,10 +35,7 @@ import {
   bindRuntimeOwnedRepositoryOperation,
   borrowRuntimeOwnedCoordinatorStateRepository,
 } from "../../src/execution/operation.ts";
-import {
-  COORDINATOR_STATE_SCHEMA,
-  encodeCoordinatorStateValue,
-} from "../../src/storage/model.ts";
+import { COORDINATOR_STATE_SCHEMA } from "../../src/storage/state.ts";
 import {
   checkpointRuntimeOwnedCoordinatorLifecycle,
   checkpointRuntimeOwnedCoordinatorResource,
@@ -45,7 +43,7 @@ import {
   readRuntimeOwnedCoordinatorStateSnapshot,
   saveRuntimeOwnedCoordinatorOperationStart,
   writeRuntimeOwnedCoordinatorStateSnapshot,
-} from "../../src/storage/settlement-store.ts";
+} from "../../src/storage/state.ts";
 import { currentHostTransitionWorkerSource } from "../fixtures/current-host-transition-worker.ts";
 import { beginRuntimeOwnedCoordinatorHostSubmission } from "../../src/execution/controller.ts";
 

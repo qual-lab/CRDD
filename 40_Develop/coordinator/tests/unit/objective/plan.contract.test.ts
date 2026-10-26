@@ -13,7 +13,7 @@ import { taskExecutionSelections } from "../../fixtures/ai-selection.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createCoordinatorState } from "../../../src/state/model.ts";
+import { createCoordinatorState } from "../../../src/state/create.ts";
 import {
   createCoordinatorObjectiveResult,
   createCoordinatorTaskExecutionSet,

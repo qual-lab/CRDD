@@ -17,11 +17,9 @@ import {
   type CoordinatorAcceptanceDecisionRequest,
 } from "../../src/decision/request.ts";
 import { recordCoordinatorAcceptanceDecision } from "../../src/decision/acceptance.ts";
-import { applyCoordinatorAcceptanceDecision } from "../../src/state/model.ts";
-import {
-  createCoordinatorState,
-  type CoordinatorState,
-} from "../../src/state/model.ts";
+import { applyCoordinatorAcceptanceDecision } from "../../src/decision/transition.ts";
+import { createCoordinatorState } from "../../src/state/create.ts";
+import type { CoordinatorState } from "../../src/state/types.ts";
 import {
   observeProjectTaskStarted,
   prepareProjectTaskHandoff,

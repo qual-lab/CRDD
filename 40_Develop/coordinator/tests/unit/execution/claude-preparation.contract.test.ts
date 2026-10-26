@@ -9,7 +9,7 @@
  * @boundary PRL-UT-014=N/A: Coordinator Application Portは外部実行境界を持たない。
  */
 import { executionSelection } from "../../fixtures/ai-selection.ts";
-import { hashExecutionSelection } from "../../../src/selection/model.ts";
+import { hashExecutionSelection } from "../../../src/selection/validation.ts";
 import {
   getRuntimeOwnedProviderDockerAdapter,
   createProviderDockerRuntimeAdapterCandidate,

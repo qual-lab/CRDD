@@ -121,7 +121,10 @@ const SOURCE_ROLES = {
     "decision/records.ts",
     "decision/request.ts",
     "state/persistence.ts",
-    "state/model.ts",
+    "state/create.ts",
+    "state/validation.ts",
+    "decision/transition.ts",
+    "task/validation.ts",
     "objective/request.ts",
     "objective/types.ts",
     "objective/plan.ts",
@@ -131,11 +134,12 @@ const SOURCE_ROLES = {
     "task/scheduling.ts",
     "task/lifecycle.ts",
     "task/acceptance.ts",
-    "storage/result-record.ts",
     "task/recovery.ts",
-    "selection/model.ts",
+    "selection/types.ts",
+    "selection/validation.ts",
   ],
   workflow: [
+    "state/retirement.ts",
     "state/observation.ts",
     "decision/lifecycle.ts",
     "decision/acceptance.ts",
@@ -146,6 +150,8 @@ const SOURCE_ROLES = {
     "workspace/record.ts",
   ],
   adapter: [
+    "state/transaction.ts",
+    "task/queue.ts",
     "objective/composition.ts",
     "task/requests.ts",
     "workspace/commands.ts",
@@ -155,11 +161,13 @@ const SOURCE_ROLES = {
   ],
   storage: [
     "storage/ai-selection.ts",
-    "storage/current-state.ts",
+    "storage/state.ts",
     "storage/history.ts",
-    "storage/protected-decision.ts",
+    "storage/lock.ts",
+    "storage/decision.ts",
   ],
   technicalExecution: [
+    "execution/lease.ts",
     "execution/controller.ts",
     "execution/authority.ts",
     "execution/operation.ts",
@@ -170,6 +178,9 @@ const SOURCE_ROLES = {
     "execution/preparation.ts",
     "execution/advice.ts",
     "execution/request.ts",
+    "execution/settlement.ts",
+    "execution/validation.ts",
+    "execution/types.ts",
     "execution/kernel-lock.ts",
     "execution/process-safety-state.ts",
   ],
@@ -182,7 +193,7 @@ const SOURCE_ROLES = {
     "cli/recovery-report.ts",
     "cli/cancellation.ts",
   ],
-  technicalStorage: ["storage/model.ts", "storage/settlement-store.ts"],
+  technicalStorage: ["state/settlement.ts", "state/transition.ts"],
   externalSendDecision: [
     "decision/external-send-consent.ts",
     "decision/external-send-grant.ts",
@@ -418,7 +429,7 @@ function assertPureImportEdges(
               ].includes(name),
             )) ||
           (module === `${SOURCE_PREFIX}objective/types.ts` &&
-            specifier === "../storage/protected-decision.ts" &&
+            specifier === "../storage/decision.ts" &&
             names.length === 1 &&
             names[0] === "openRuntimeOwnedWindowsProjectDecisionStore") ||
           (module === `${SOURCE_PREFIX}objective/types.ts` &&
@@ -446,7 +457,7 @@ function assertPureImportEdges(
         `private type dependency: ${module} -> ${specifier} (${names.join(", ")})`,
       );
     } else if (
-      module === `${SOURCE_PREFIX}selection/model.ts` &&
+      module === `${SOURCE_PREFIX}selection/validation.ts` &&
       specifier === "../../../domain-model/src/index.ts" &&
       resolved === "40_Develop/domain-model/src/index.ts" &&
       names.length === 1 &&
@@ -652,7 +663,7 @@ test("Coordinator CoreのimportはPlatform非依存の閉集合に一致する",
     names: ["snapshotPlainRecord"],
   };
   assert.doesNotThrow(() =>
-    assertPureImportEdges(`${SOURCE_PREFIX}selection/model.ts`, {
+    assertPureImportEdges(`${SOURCE_PREFIX}selection/validation.ts`, {
       isConsistent: true,
       edges: [snapshotEdge],
     }),
@@ -664,7 +675,7 @@ test("Coordinator CoreのimportはPlatform非依存の閉集合に一致する",
   ])
     assert.throws(
       () =>
-        assertPureImportEdges(`${SOURCE_PREFIX}selection/model.ts`, {
+        assertPureImportEdges(`${SOURCE_PREFIX}selection/validation.ts`, {
           isConsistent: true,
           edges: [{ ...snapshotEdge, names }],
         }),
@@ -799,16 +810,16 @@ test("import走査は解釈できない取り込み構文をFail Closedで検出
     'import type { VerifiedRepositoryRoot } from "../../../version-control/src/index.ts";',
     'import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";',
     'import { randomUUID as random } from "node:crypto";',
-    'import { readCurrentCoordinatorState } from "../storage/current-state.ts";',
+    'import { readCurrentCoordinatorState } from "../storage/state.ts";',
     'import { queryCoordinatorState } from "./query.ts";',
-    'import { snapshotPlainRecord } from "./model.ts";',
-    'import type { T } from "../storage/current-state.ts";',
+    'import { snapshotPlainRecord } from "./validation.ts";',
+    'import type { T } from "../storage/state.ts";',
     'import type { Stats } from "node:fs";',
     'import type { T } from "../index.ts";',
-    'import {} from "../storage/current-state.ts";',
-    'export {} from "../storage/current-state.ts";',
-    'import { type T } from "../storage/current-state.ts";',
-    'export { type T } from "../storage/current-state.ts";',
+    'import {} from "../storage/state.ts";',
+    'export {} from "../storage/state.ts";',
+    'import { type T } from "../storage/state.ts";',
+    'export { type T } from "../storage/state.ts";',
     'export type { VerifiedRepositoryRoot } from "../../../version-control/src/index.ts";',
   ];
   const files = examples.map((_, index) =>
@@ -871,7 +882,7 @@ test("import走査は解釈できない取り込み構文をFail Closedで検出
            * 変異した依存辺を純粋状態Moduleの境界へ照合する。
            * @responsibility 変異した依存辺を純粋状態Moduleの境界へ照合する。
            * @trace PRL-IT-012
-           * @precondition state/modelのscanと有限変異。
+           * @precondition state/validationのscanと有限変異。
            * @stimulus 既存assertPureImportEdgesを同じ対象へ実行する。
            * @observation 禁止依存に対応する固定診断。
            * @oracle 型だけを含む禁止辺も拒否し正常対照は通る。
@@ -879,7 +890,7 @@ test("import走査は解釈できない取り込み構文をFail Closedで検出
            * @boundary 静的Import境界。実ModuleのEffectは起動しない。
            */
           const check = () =>
-            assertPureImportEdges(`${SOURCE_PREFIX}state/model.ts`, scan);
+            assertPureImportEdges(`${SOURCE_PREFIX}state/validation.ts`, scan);
           if (expected === null) check();
           else {
             assert.ok(expected);

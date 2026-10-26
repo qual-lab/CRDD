@@ -9,10 +9,12 @@ import {
   inspectTaskExecutionSelections,
   inspectAiSelectionChoice,
   hashExecutionSelection,
-  type ExecutionSelection,
-  type TaskExecutionSelections,
-  type AiSelectionChoice,
-} from "../selection/model.ts";
+} from "../selection/validation.ts";
+import type {
+  ExecutionSelection,
+  TaskExecutionSelections,
+  AiSelectionChoice,
+} from "../selection/types.ts";
 import { readRepositoryAiSelection } from "../storage/ai-selection.ts";
 import {
   resolveExecutionSelection,
@@ -25,21 +27,24 @@ import {
   normalizeRepositoryRelativePath,
   snapshotPlainRecord,
   snapshotPlainArray,
-  inspectSingleTaskRecord,
-  type SingleTaskRecord,
-  type ProjectQueueEntry,
   deriveCoordinatorRepositoryBindingId,
-} from "../state/model.ts";
+} from "../state/validation.ts";
+import { inspectSingleTaskRecord } from "./validation.ts";
+import type { SingleTaskRecord, ProjectQueueEntry } from "./types.ts";
 import {
   readCoordinatorSnapshot,
+  initializeCoordinatorSnapshot,
+} from "../storage/state.ts";
+import {
   enqueueCoordinatorSingleTask,
   updateCoordinatorSingleTask,
   closeUnstartedCoordinatorSingleTask,
+  createCoordinatorSnapshotStatePort,
+} from "./queue.ts";
+import {
   reconcileCoordinatorSnapshotLeaseOwnerLoss,
   acquireCoordinatorSnapshotLease,
-  createCoordinatorSnapshotStatePort,
-  initializeCoordinatorSnapshot,
-} from "../storage/current-state.ts";
+} from "../execution/lease.ts";
 import type { CoordinatorLeaseOwnerObservation } from "../state/persistence.ts";
 import { resolveCoordinatorWorkspaceTaskTarget } from "../workspace/operations.ts";
 import { snapshotCoordinatorWorkspaceResult } from "../execution/controller.ts";
@@ -61,7 +66,7 @@ import {
   recoverRuntimeOwnedDockerTaskForCurrentConsumer,
   resolveRuntimeOwnedDockerTaskCurrentCorrelations,
 } from "../execution/recovery.ts";
-import { observeRuntimeOwnedTransientTaskCompletion } from "../storage/settlement-store.ts";
+import { observeRuntimeOwnedTransientTaskCompletion } from "../storage/state.ts";
 import { readExecutionCancellation } from "../execution/authority.ts";
 
 /**

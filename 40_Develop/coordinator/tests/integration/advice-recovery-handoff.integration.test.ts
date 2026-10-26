@@ -16,12 +16,10 @@ import test, { mock } from "node:test";
 import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
 import { selectionConfig } from "../fixtures/ai-selection.ts";
 import { saveRepositoryAiSelection } from "../../src/storage/ai-selection.ts";
-import {
-  readCoordinatorSnapshot,
-  updateCoordinatorSingleTask,
-  acquireCoordinatorSnapshotLease,
-} from "../../src/storage/current-state.ts";
-import { deriveCoordinatorRepositoryBindingId } from "../../src/state/model.ts";
+import { readCoordinatorSnapshot } from "../../src/storage/state.ts";
+import { updateCoordinatorSingleTask } from "../../src/task/queue.ts";
+import { acquireCoordinatorSnapshotLease } from "../../src/execution/lease.ts";
+import { deriveCoordinatorRepositoryBindingId } from "../../src/state/validation.ts";
 
 /**
  * 一回目の助言終了で取得済み参照を保存し、後から別参照を混入できないことを確認する。

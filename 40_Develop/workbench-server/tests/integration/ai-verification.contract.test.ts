@@ -19,13 +19,13 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { runInNewContext } from "node:vm";
 import { readRepositoryNetworkPolicies } from "../../../coordinator/src/index.ts";
-import { deriveCoordinatorRepositoryBindingId } from "../../../coordinator/src/state/model.ts";
+import { deriveCoordinatorRepositoryBindingId } from "../../../coordinator/src/state/validation.ts";
 import { saveRepositoryAiSelection } from "../../../coordinator/src/storage/ai-selection.ts";
 import {
   initializeCoordinatorSnapshot,
-  maintainCoordinatorSnapshot,
   readCoordinatorSnapshot,
-} from "../../../coordinator/src/storage/current-state.ts";
+} from "../../../coordinator/src/storage/state.ts";
+import { maintainCoordinatorSnapshot } from "../../../coordinator/src/state/retirement.ts";
 import { createCoordinatorTaskRequests } from "../../../coordinator/src/task/requests.ts";
 import {
   executionSelection,
