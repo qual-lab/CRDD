@@ -708,6 +708,7 @@ function fixture(
     hostCleanupWal?: boolean;
     dockerIntentFailsAt?: number;
     dockerReceiptFailsAt?: number;
+    onDockerReceipt?: (count: number) => void;
     dockerFinalizeFailsAt?: number;
     dockerProjectReadFailsAt?: number;
     dockerProjectReadLockUnknownAt?: number;
@@ -1626,6 +1627,7 @@ function fixture(
             );
             events.push("docker-host-cleanup-receipt");
             dockerReceiptCount += 1;
+            options.onDockerReceipt?.(dockerReceiptCount);
             return options.dockerReceiptFailsAt !== dockerReceiptCount;
           },
           finalizeDockerRecovery: () => {
@@ -3665,6 +3667,66 @@ test("Docker回復記録はHost cleanup intentと不存在receiptの後だけfin
     "docker-finalize",
     "docker-finalize",
   ]);
+});
+
+/**
+ * 受領成功の排他解放後だけI/Oへ返し、途中の取消で清掃を打ち切らない。
+ * @responsibility 実Controllerの制御返却と既存終端保証を反証する。
+ * @trace PRL-IT-012
+ * @precondition Provider・Writerは自己生成の同期代役で実Dockerや資格を使わない。
+ * @stimulus 初回receiptにscheduled callbackを登録し、通常・取消・受領拒否を実行する。
+ * @observation callback時のreceipt件数、Provider数、全finalizeとcleanup完了。
+ * @oracle 成功後callbackは次receiptより先、拒否時に後続receipt/finalizeは零。取消時も新Providerを起動せず全終端を完了する。
+ * @cleanup 同Process内の元Controlとcallbackを完了待機する。
+ * @boundary 本番Controllerと模擬下位境界。実HTTPは別試験で確認する。
+ */
+test("Host清掃receiptは成功境界でI/Oへ返し取消後も全件確定する", async () => {
+  for (const mode of ["normal", "cancel", "receipt-failed"] as const) {
+    let scheduled: Promise<void> | null = null;
+    let callbackReceiptCount: number | null = null;
+    let providerCount: number | null = null;
+    const harness = fixture({
+      hostCleanupWal: true,
+      ...(mode === "receipt-failed" ? { dockerReceiptFailsAt: 1 } : {}),
+      onDockerReceipt: (count) => {
+        if (count !== 1) return;
+        scheduled = new Promise<void>((resolve, reject) => {
+          setImmediate(() => {
+            void (async () => {
+              callbackReceiptCount = harness.dockerReceiptCount();
+              providerCount = harness.processStartCount();
+              if (mode === "cancel") {
+                const cancellation = await harness.runtime.cancel(
+                  started.controlCapability,
+                );
+                assert.ok("cancellationRequested" in cancellation);
+                assert.equal(cancellation.cancellationRequested, true);
+              }
+            })().then(resolve, reject);
+          });
+        });
+      },
+    });
+    const started = harness.runtime.start(request(), "C:\\repository");
+    const result = await started.completion;
+    await scheduled;
+    assert.equal(callbackReceiptCount, 1);
+    assert.equal(providerCount, 2);
+    assert.equal(harness.processStartCount(), 2);
+    if (mode === "receipt-failed") {
+      assert.equal(
+        result.reason,
+        "coordinator_task_host_cleanup_receipt_unconfirmed",
+      );
+      assert.equal(harness.dockerReceiptCount(), 1);
+      assert.equal(harness.dockerFinalizeCount(), 0);
+    } else {
+      assert.equal(result.cleanupConfirmed, true);
+      assert.equal(harness.dockerReceiptCount(), 2);
+      assert.equal(harness.dockerFinalizeCount(), 2);
+    }
+    assert.equal(harness.cleanupCount(), 1);
+  }
 });
 
 /**

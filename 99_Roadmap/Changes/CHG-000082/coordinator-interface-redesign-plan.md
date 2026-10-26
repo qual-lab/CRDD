@@ -1783,6 +1783,50 @@ Isolatedは未開始、再試行・Docker再起動・Image更新・旧保持物�
 
 Architecture DetailとQAへ原則・Owner・検証義務を反映した。実AI再送・Docker操作・保持物変更は行っていない。今回の是正を過去のE2E成功や、保持中の四回復参照の終了へ遡及しない。
 
+<a id="settlement-io-yield-20261026"></a>
+
+### 成功受領後のI/O制御返却 — 限定実装・非AI対象回帰完了
+
+利用者の継続指示に基づき、十五秒期限を変えず同期受領の連結待機だけを縮小する。着手前に、各receipt成功時には既存Writer排他が解放済みであり、Host／Home技術処置も終了済みであることを照合した。独立確認の条件を反映し、成功receipt後にだけNode標準setImmediateをawaitする。失敗時のretain＋blocked、finalize・handoff・Host再観測、取消完了待機の順序は変更しない。新Queue・Worker・timer期限・Lock・回復Stateは追加しない。
+
+実Controllerの通常／途中取消／receipt拒否を局所反例とし、callback時の受領件数・Provider起動件数・全終端を検査する。三Stage実Writer試験ではServer受信後の初回保存→I/O返却→HTTP finish→後続保存を測る。単純loopback応答の測定であり、前回実AI原因・Workbench全画面・単一receiptの最大遅延の保証ではない。初回型検査では試験の既存getter名と取消unionの絞込みを追従し、修正後静的検査・Traceは成功した。この時点では、局所・回帰・最終レビューは未確定だった。外部AI・実Docker・過去保持物は操作しない。
+
+最終候補の局所二件（Controller三反例を含む一件・三Stage実Writer／HTTP一件）は成功、Coordinator対象323件・Workbench対象四Suite35件は全件成功した。既存Windows実Writer三形（一回・一回の自己生成保持fixture・二回）も再実行して全件成功し、三回形と合わせて四形を現候補で確認した。今回生成の試験物は既存の各cleanupで回収し、過去保持物には再入場しない。両Packageの静的検査・Trace、差分空白検査は成功。限定独立レビューでSource／試験の指摘は零、文書Minor二件（全Stageへの適用と前候補測定の時制）を是正した。
+
+現候補の三receiptは5,951／6,262／5,651 ms、finalizeは各0 ms（時計分解能内）。Server受信1793007218010、初回receipt終了1793007223966、Server finish1793007223970、次receipt開始1793007223975となり、初回成功後にHTTPへ制御を返したことを確認した。子Clientは開始1793007217994、ヘッダー1793007223972、本文完了1793007223974で通信5,980 ms。親のclose観測は1793007235897（開始から17,903 ms）で、子の通信完了時刻と同一視しない。十五秒は通信期限のまま、既存の親Process終了確認期限も変更していない。制御返却前の13,671 msとは別runで負荷も異なり、一般的な性能改善率へ換算しない。単一同期保存の最大時間・親側待機の全面解消・前回実AI原因・編集E2E成功は未保証のままである。
+
+<a id="settlement-finalization-reuse-20261026"></a>
+
+### 終了確定の二重保存是正と非AI確認 — 限定実装・対象回帰完了
+
+利用者は同Ownerの確定済み結果再利用、非AI複数Stage・並行HTTP・局所回帰を承認した。AI再送・実Docker・保持物操作は対象外。変更分類は既存終了処理の限定是正で、Source・直接利用側の独立レビューとArchitecture／QAの直接追従を行い、規範・Release変更ではないため全体準拠／Release監査は追加しない。着手前確認ではcompletedだけを使用し、blocked／欠測の再入場・transient退役・durable保持・全Writer条件を維持することを照合した。並行照会は子Client起動だけでなくServer到達を先に確認するとの独立指摘を計画へ反映した。
+
+受領関数が既に終了driverを実行するため、全受領後のfinalizeによる再保存は先行Stageの古いSnapshotを再使用していた。実宣言とWriter拒否述語のメモリ再現で単一Stage成功・三Stage先頭拒否を確認したが、当時の拒否行を直接記録したものではない。最終確定関数は同じ私有Ownerの既存settlementResultがcompletedの場合だけ再利用する。新State・Lock・Cache・Registryは追加せず、受領契約、Writer、Schema、十五秒期限を変更しない。
+
+既存実Writer／Host試験へ三回形を追加し、本番と同じ全受領→全確定へ変更した。同時に単純loopback Server・既存子HTTP Clientで、Server受信後の同期保存と応答の順序を有限時計で確認する。これは実DockerやWorkbench全画面Routeの実証ではない。初回型検査は試験内の循環推論一件で停止し明示型へ追従、続くLintは新規non-null assertion六件を拒否したため実在assertion／ローカル参照へ修正した。修正後Coordinator静的確認・Traceは成功（既存info八十四件）。この時点では、局所・回帰・最終独立レビューは未確定だった。
+
+確定結果は、局所三件成功、Coordinator対象三百二十二件成功、既存Windows実Writer三形（一回・一回の自己生成保持fixture・二回）成功、Workbench四Suite三十五件成功。局所三件には新規のWindows三回形を含み、既存三形と合わせて実Writer四形を確認した。各試験は今回自己生成した領域を既存cleanupで回収し、実Docker・認証・過去保持物を使用しない。両Packageの型／整形／LintとCoordinator Traceは成功（既存infoはCoordinator八十四件・Workbench五件）、限定Source／試験／文書の独立再レビューは残指摘零。これらを単一runの全製品QA又は実AI編集E2Eへ換算しない。
+
+三回形の受領時間は4,555／4,587／4,480 ms、最終確定は各0 ms（ミリ秒時計の分解能内）。Server受信時刻1792998206199、Client開始1792998206178、ヘッダー受領1792998219847、本文完了1792998219849で、Client観測は13,671 msだった。十五秒内に完了したが余裕は小さい。三回形は全件確定成功、最終確定前後のstate／history Byte不変、元Capability退役と複製拒否を確認した。blockedの再入場・durable配送待ち保持・driver非再実行も局所反例で確認した。HTTP十五秒Timeoutの唯一原因・性能余裕・実AI再試験成功は未証明で、同期保存による待機余地は残る。期限延長・新Route・Worker・追加待機Gateは実装せず、今回の許可範囲内に未処置のレビュー指摘はない。
+
+<a id="workspace-candidate-diagnostic-once-result-20261026"></a>
+
+### 候補診断付き合成編集の一回実測 — 2026-10-26
+
+利用者承認に基づき、固定HEAD `482e20736b74680b606a76a20e8808dba3754d10`、新品`.crdd/tests/workspace-ai-candidate-diagnostic-20261026/`で正式Toolを一回実行した。変更分類は既存Capabilityの限定実境界検証。Source・上流契約・Releaseを変更せず、起動前の独立確認と結果の限定確認を行い、全体準拠／Release監査は追加しない。短命入口はHEAD・clean・Tool blob一致、Root定数一箇所の変更と相対importの元位置解決、非AI事前確認成功、通常同意のTTYを検査した。Engine正常・固定Image三件存在・既存停止Container一件だけを開始前に読取り確認し、起動／再起動・Image取得更新は行っていない。
+
+非AI事前確認はDirect／Isolatedの両方でlimitedProbePassed／closeConfirmed／runtimeClean／workspaceClean true、fixtureRootsRemoved true、SourceとDocker一覧・構成不変で終了0。実AIは同じ合成Context・編集指示、Codex `gpt-6.1-sol / medium`・Claude `claude-opus-5-5 / medium`を使用した。通常四起動・既存の限定是正と再レビューを含め最大八起動の枠を維持し、失敗後再送には使わない。
+
+Direct受付`request-bed933b3-e70e-4606-90ff-85cbfa4f52d6`は状態観測のHTTPヘッダー未観測で15秒Timeoutとなり、Toolが同じTaskへ取消要求を発行した。Tool一次失敗は`workbench_verification_transport_failed`、段階observe、分類headers_unobserved。取消後に観測したTaskはunknown、公開reasonは`orchestrator_task_body_unavailable`、一次失敗は`coordinator_task_docker_recovery_finalization_unconfirmed`、cleanupConfirmed true、回復参照・副次失敗は空だった。Isolatedは未開始、Tool終了2、fullE2eVerified false。再試行しない。HTTP待機の根本原因とTask終了確定不成立の内部原因は、今回の結果だけでは一意に確定しない。
+
+回復開始診断・候補検査診断はそれぞれcaptured／event零／closed trueで、候補拒否分岐は観測されていない。履歴三件は同じ操作`OP-311010843947136282006477860000012706102`・Task相関`operation-f7ba5599-5fcd-4c16-8b79-7c9331575706`に属し、二件のprovider_operation_completedと一件のprovider_operation_cancelledを持つ。各Host清掃はconfirmed、Owner Effectはdisabled。完了二件のproviderStart／externalSend／sharedWriteはunknownを維持し、履歴だけからProvider内部Effect成立やStage役割を推定しない。取消履歴の三値はnot_started／not_issued／not_issuedだった。
+
+今回Rootの状態再観測ではoperations／unresolvedRecoveries／pendingDeliveries／leaseIntents／workspaces／resultsは零、queue三件・historyPending一件・leaseEvidence四件だった。対象受付はsettled／unknown、終了要約はfailed／cleanup confirmed。合成source.txtの期待変更はなく、Git差分は元のdirty／stage／未追跡三ファイルだけで、内容とStage対象は保全されている。今回Root・操作ID・既知PIDに一致するNodeは後観測で零。ToolのruntimeClean／workspaceClean／closeConfirmedはtrueだが、Task unknownを全体成功やRoot廃棄可能へ読み替えない。
+
+Docker後一覧は元の停止Container一件だけで、試験Container・専用Networkは残っていない。標準bridgeのIdentity変更は観測されたが、構成同値と既存利用者資源保全は確認されており、変更主体・原因や再起動実施を推定しない。Source不変。正常完了専用の清掃Gateはunknownへ拡張せず、`edit/direct`と兄弟`edit/result.json`を保持し、2026-11-02までに同じ受付・既存Ownerで保持要否と安全な清掃条件を再評価する。期限だけでは消さない。生出力は保存せず、過去保持物・認証領域・既存Dockerデータは操作しない。短命入口二件は外部端末終了後の非使用・exact範囲確認を経て回収する。
+
+結果・状態・履歴と二文書の限定独立確認は残指摘零だった。試験用Node終了後、今回専用端末のIdentityと子Process不存在を照合して端末を終了し、短命入口二件の既知集合・非使用・exact Root・非reparseを再確認した。今回tmp内の二Fileと空の専用Directoryだけを清掃し、不存在確認済み。合成Root・結果・履歴は保持し、実行資源の終了確認を試験全体成功へ換算しない。
+
 <a id="candidate-validation-minimal-diagnostic"></a>
 
 #### 候補拒否の最小診断是正 — 限定実装・非AI対象回帰完了

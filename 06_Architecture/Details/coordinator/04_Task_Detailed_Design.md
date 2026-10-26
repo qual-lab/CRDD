@@ -779,6 +779,16 @@ Effect履歴（Effect History）は過去の観測事実を保持する。実行
 - 同一操作・Taskの複数Stage履歴は、既存Decoderで検査した回復IDが相互に異なる場合に限り履歴相関として受け入れる。同じ回復IDの重複は拒否する。両診断のJSONは既存の曖昧性拒否Parserで読み、eventの完全一致と閉形式を検査する。
 - 通知は診断であり、実AI成功・変更成立・資源終了・実行許可の根拠ではない。過去の保持物へ診断を補完せず、元失敗の一意原因を遡及確定しない。
 
+## 同Ownerの終了確定結果の再利用
+
+Host清掃結果の受領で既存終了driverがcompletedを返した場合、その凍結済み結果を同じProcess内の元Ownerへ保持する。後続Stageが現在状態を進めた後の最終確定では、この同Ownerの確定結果を使用し、古いbefore／candidateで終了保存を再実行しない。
+
+- completed以外又は結果欠測では、既存driverによる再入場と全安全検査を維持する。
+- transientは最終確定後に元Capabilityを退役し、複製Capabilityや退役後の再確定を拒否する。durableの配送待ちは従来どおり元Ownerを保持する。
+- 履歴、公開Task結果、Effect三値、Writer、回復参照、認可及びHTTP十五秒期限は変更しない。保存済みJSONからこのProcess内結果を復元しない。
+- 一括受領→一括最終確定を実Writer試験に接続する。並行HTTPは実Server受信後に同期保存を開始し、既存子Client時計で応答・終了を確認する。単純loopback応答の確認をWorkbench全画面生成や元実AI故障の解消へ一般化しない。
+- 各Stageの受領では、成功したWriterから排他解放済みで戻った直後だけNode標準のsetImmediateでI/Oへ制御を返す。固定時間待機・新Worker・新Queueは追加せず、失敗時は従来どおり停止する。制御返却中に取消を受けても清掃を放棄せず、全受領・全確定・既存のHost再観測を継続し、元の取消完了を待つ。
+
 ## Checklist
 
 - [x] Task／ObjectiveのRecord・資源・遷移・回復不変条件を本書と機械対応へ接続した。保存統合BのSource接続・旧試験移行・外部AIなしの最終固定回帰は完了し、限定独立再確認済み。旧版の保存方式刷新②の結果を、B又は責務再編全体の完成へ流用しない。

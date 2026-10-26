@@ -727,6 +727,14 @@ ERB-IT-010／ERB-ST-013は5CのOrchestrator／Coordinator大改修に依存す�
 
 この検証義務を実AI再送や保持物変更の許可とせず、非AI結果だけで元実AI停止の原因確定・E2E成功を主張しない。
 
+## 複数Stageの終了確定とHTTP待機
+
+- 同じHostの複数Stageを全件受領した後、全件最終確定する本番順序で、各確定が成功すること。最終確定によるstate／history再保存がなく、非対象操作・元履歴が不変であること。
+- 元入力差替え・別Stage結果・複製Capability・退役Capabilityを拒否すること。blocked結果の再入場を維持し、durable配送待ちのOwnerを保持すること。
+- 三Stageの実Writer処理と単純loopback状態照会を重ね、Server受信→同期処理→応答終了の順序と、子Clientの十五秒以内完了・実終了を確認すること。各受領／確定の有限時計だけを診断し、本文・Path・資格値は記録しない。
+- Workbenchの本番HTTP回帰を別に確認し、単純応答試験を全画面Route又は実AI編集の成功へ流用しない。十五秒期限やWriterの不一致拒否を緩和しない。
+- 成功receipt後の制御返却でscheduled callbackが次receiptより先に処理されること。取消時も新Provider・再送を発行せず全終端を待つこと。実HTTPではServer受信→初回receipt→応答finish→後続receiptの順を確認し、単一receiptの最大遅延まで保証したとは扱わない。
+
 ## Checklist
 
 - [x] Quality ID、検証目標およびSource固有条件を自己完結して示した

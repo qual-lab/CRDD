@@ -69,6 +69,7 @@ import {
   inspectRuntimeOwnedDockerResourceReceipts,
 } from "./recovery.ts";
 import { createHash } from "node:crypto";
+import { setImmediate } from "node:timers/promises";
 import {
   verifyRuntimeOwnedProviderHomeMountCompletion,
   completeRuntimeOwnedProviderHomeMount,
@@ -6995,6 +6996,8 @@ function createRuntime(dependencies: taskRuntimeDependencies) {
                   ]),
                 );
               }
+              // 元Writerの排他解放後にI/Oへ返す。取消でも後続の終了確定は放棄しない。
+              await setImmediate();
             }
             const finalizeDockerRecovery =
               state.dependencies.finalizeDockerRecovery;

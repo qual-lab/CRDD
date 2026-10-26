@@ -12,6 +12,12 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
+各Stageの終了保存成功・排他解放後にNode標準setImmediateでI/Oへ制御を返す最小是正を追加した。十五秒期限、Writer拒否、取消後の清掃継続、全最終確定とHost再観測は維持し、新Worker・Queue・Lockは追加しない。現候補でCoordinator323件・Windows実Writer四形・Workbench35件と静的検査は成功、独立レビューの文書Minor二件は是正済み。三Stage並行照会は初回保存後に応答し、子の通信5,980msと親のclose観測17,903msを区別して記録した。単一保存最大時間や前回実AI原因・編集E2Eの解消までは主張しない。AI再送・実Docker・過去保持物操作はなし。[制御返却と非AI最終結果](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#settlement-io-yield-20261026)を参照する。
+
+終了確定の二重保存を最小是正した。同じProcessの元Ownerが既に保持するcompleted結果だけを最終確定で再利用し、別Stageが進めた状態へ古いSnapshotを再保存しない。blocked／欠測の再入場、Writer安全判定、transient退役・durable保持、十五秒期限は不変。制御返却追加前の候補ではCoordinator対象322件・Windows実Writer四形・Workbench35件、静的検査と限定独立レビューは成功／残指摘零。制御返却追加前の三Stage同期受領と並行HTTPは13,671msで十五秒内だが余裕が小さかった。後続の制御返却候補は別に評価し、前回実AITimeoutの唯一原因や解消を確定しない。AI再送・実Docker・過去保持物操作はなし。[最小是正・非AI測定と限界](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#settlement-finalization-reuse-20261026)を参照する。
+
+候補診断付き固定Source`482e20736`の一回実AI試験は、非AI事前確認が両方式成功した後、DirectのHTTP状態観測15秒Timeoutで停止した。取消後Taskはunknown／`coordinator_task_docker_recovery_finalization_unconfirmed`、Isolated未開始。今回の候補拒否診断はevent零で、候補検査故障の再現とはしない。今回実行資源は一覧に残らず、現在操作・回復待ち・配送待ちは零だが、Task unknownと終了要約待ち一件のため今回Rootを2026-11-02までの再評価対象として保持する。既存変更は保全、期待編集なし。再試行・Docker再起動・過去保持物操作は行わず、HTTP遅延と終了確定不成立の根本原因は未確定。[一回の結果と回収限界](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#workspace-candidate-diagnostic-once-result-20261026)を参照する。
+
 候補検査停止の切り分けに、取得状況・Path件数／一致・既存の非秘密実行観測だけを既存Lifecycle通知と検証Toolの一取得器へ接続した。拒否条件・公開理由・Authority・cleanup・耐久Schemaは不変で、生出力は保存しない。Coordinator対象322件・Workbench対象35件、診断局所九件と両Packageの静的検査は成功し、独立再レビューの残指摘は零。[最小診断是正と検証範囲](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#candidate-validation-minimal-diagnostic)を参照する。実AI再送・Docker操作・保持物操作は行わず、過去失敗の一意原因や編集E2E成功は未確定のままとする。
 
 三判断分離後の固定Source `a5afae98e`で承認済みの合成編集E2Eを一回実行した。非AI事前確認はDirect／Isolatedとも成功したが、実AI DirectはCodex Executor attempt0のStageがcompletedを返した後の`coordinator_task_candidate_revision_invalid`で停止し、Claude・限定是正・Isolatedは未開始。過去三値はunknownを維持し、Provider内部のEffect成立を推定しない。合成source.txtはBASEのままで、候補取得不成立とProvider申告不一致のどちらかは未確定。HTTP故障なし、実行資源のcleanup／close確認済み、回復参照・副次失敗なし、試験Node零・Source不変。正常完了専用Gateはblockedへ拡張せず、結果と合成Rootを2026-11-02までの再評価対象として保持する。再送・再起動・旧保持物操作なし。実AI編集E2Eと前回是正の実AI反復は未成立のままである。[今回の結果と限界](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#workspace-continuation-edit-stop-20261026)を参照する。

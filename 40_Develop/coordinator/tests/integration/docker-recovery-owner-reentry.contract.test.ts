@@ -16,6 +16,11 @@ import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
 import { EventEmitter } from "node:events";
 import fs from "node:fs";
+import { createServer } from "node:http";
+import {
+  requestInChild,
+  type VerificationHttpTiming,
+} from "../../../workbench-server/scripts/ai-verification-http.ts";
 import { stripTypeScriptTypes } from "node:module";
 import { sourceDeclaration } from "../support/source-declaration.ts";
 import path from "node:path";
@@ -2206,6 +2211,7 @@ for (const { repeatCount, retained } of [
   { repeatCount: 1, retained: false },
   { repeatCount: 1, retained: true },
   { repeatCount: 2, retained: false },
+  { repeatCount: 3, retained: false },
 ]) {
   /**
    * 正常完了Ownerを実Host・Home排他・現在Writerへ接続する。
@@ -2214,13 +2220,13 @@ for (const { repeatCount, retained } of [
    * @trace ERB-IT-003
    * @trace ERB-IT-014
    * @precondition Windowsと自己生成Repositoryを使い、修復Native・技術観測、Home観測とDocker証明だけを模擬する。
-   * @stimulus 1回形は退避なし、または自動破棄判断の保存直前を一回拒否して自己生成物を明示保持した後、同じstateを再初期化せずTaskへ渡す。2回形は同一Host・Homeで本番begin／正常completeを反復し、一度の実清掃後に逆順で結果を登録する。
+   * @stimulus 1回形は退避なし、または自動破棄判断の保存直前を一回拒否して自己生成物を明示保持した後、同じstateを再初期化せずTaskへ渡す。複数回形は同一Host・Homeで本番begin／正常completeを反復し、一度の実清掃後に全結果受領→全最終確定を行う。3回形はServer受信済みのHTTP照会を重ねる。
    * @observation 実state本文、Home排他競合、Host marker、履歴、短命物と非対象操作を確認する。
    * @oracle 修復中のTask追加候補はnull。保持期限は七日で同ID再入場でも不変、保持物を再利用・削除せず、修復終了からの改訂・元版Hashと元修復履歴行を保全する。清掃前finalizeと複製結果は状態不変で拒否し、真正清掃後だけ対象を履歴化して現在状態から除く。
    * @cleanup 真正Ownerを放棄・解放し、確認済み自己生成HostとRepositoryだけを清掃する。
    * @boundary 実Owner／Kernel／Host／Writerと、模擬Docker cleanup・mount・terminal証明。
    */
-  test(`Host Windows: 正常Owner${repeatCount}回${retained ? "・保持あり" : ""}から実Home解放・Host清掃・結果保存まで結合する`, async () => {
+  test(`Host Windows: 正常Owner${repeatCount}回${retained ? "・保持あり" : ""}から実Home解放・Host清掃・結果保存まで結合する`, async (t) => {
     const area = requireReadyRepositoryRuntimeDataArea(
       ensureRepositoryRuntimeDataAreaFromWorkingDirectory(
         import.meta.dirname,
@@ -2246,6 +2252,16 @@ for (const { repeatCount, retained } of [
     let repairHistory: Buffer | null = null;
     let repairActiveState: Buffer | null = null;
     let repairCompletedState: Buffer | null = null;
+    let httpServer: ReturnType<typeof createServer> | null = null;
+    let httpPending: ReturnType<typeof requestInChild> | null = null;
+    const stageTimings: {
+      stage: "receipt" | "finalize";
+      startedAt: number;
+      completedAt: number;
+    }[] = [];
+    const httpTimings: VerificationHttpTiming[] = [];
+    let serverReceivedAt: number | null = null;
+    let serverFinishedAt: number | null = null;
     const sourceDirectory = path.join(root, "old-runtime-fixture");
     const retainedDirectory = path.join(root, "retained-runtime-fixture");
     const retainedMarker = Buffer.from("retained-only-not-a-task-workspace\n");
@@ -2764,7 +2780,7 @@ for (const { repeatCount, retained } of [
       const initial = Buffer.from(
         `${stateModel.encodeCoordinatorStateValue({ schema: stateModel.COORDINATOR_STATE_SCHEMA, revision: 1, repositoryBindingId: null, intakeEpoch: null, intakeBindings: [], projects: [], workspaces: [], queueEntries: [], leaseEvidence: [], leaseIntents: [], results: [], historyPending: [], acceptanceDecisions: [], decisionRecoveries: [], resultReceipts: [], previous: null, repositoryBinding: binding.repositoryBinding, operations: [], unresolvedRecoveries: [], pendingDeliveries: [] })}\n`,
       );
-      if (repeatCount === 2) {
+      if (repeatCount >= 2) {
         assert.equal(
           stateRuntime.prepareRuntimeOwnedCoordinatorStateInitialization(
             management,
@@ -3371,6 +3387,42 @@ for (const { repeatCount, retained } of [
         );
       assert.equal(fs.existsSync(owned.root), false);
       assert.equal(fs.existsSync(hostBefore.hostPaths.marker), false);
+      if (repeatCount === 3) {
+        let received!: () => void;
+        const arrival = new Promise<void>((resolve) => {
+          received = resolve;
+        });
+        httpServer = createServer((_request, response) => {
+          serverReceivedAt = Date.now();
+          response.once("finish", () => {
+            serverFinishedAt = Date.now();
+          });
+          received();
+          setImmediate(() => {
+            response.setHeader("Content-Type", "application/json");
+            response.end('{"status":"observed"}');
+          });
+        });
+        const server = httpServer;
+        await new Promise<void>((resolve, reject) => {
+          server.once("error", reject);
+          server.listen(0, "127.0.0.1", resolve);
+        });
+        const address = httpServer.address();
+        assert.ok(address && typeof address !== "string");
+        httpPending = requestInChild(
+          `http://127.0.0.1:${address.port}/`,
+          "/api/workbench-view?route=%2F",
+          undefined,
+          (timing) => httpTimings.push(timing),
+        );
+        await Promise.race([
+          arrival,
+          httpPending.then(() => {
+            throw new Error("http_arrival_unconfirmed");
+          }),
+        ]);
+      }
       for (const [capability, proof] of [...proofs].reverse()) {
         const beforeReceipt = fs.readFileSync(statePath);
         const before = JSON.parse(beforeReceipt.toString("utf8"));
@@ -3398,15 +3450,20 @@ for (const { repeatCount, retained } of [
           );
         }
         assert.deepEqual(fs.readFileSync(statePath), beforeReceipt);
+        const receiptStartedAt = Date.now();
         const recorded =
           ownerRuntime.recordRuntimeOwnedDockerHostCleanupReceipt(capability, {
             hostCleanupOutcome: cleanupResult,
             dockerCompletion: proof.dockerResult,
           });
-        const finalized =
-          ownerRuntime.finalizeRuntimeOwnedDockerRecovery(capability);
-        assert.equal(recorded, true, JSON.stringify(finalized));
-        assert.equal(finalized.status, "completed", JSON.stringify(finalized));
+        stageTimings.push({
+          stage: "receipt",
+          startedAt: receiptStartedAt,
+          completedAt: Date.now(),
+        });
+        assert.equal(recorded, true);
+        // 本番Controllerと同じ、成功receiptの排他解放後だけI/Oへ返す。
+        await new Promise<void>((resolve) => setImmediate(resolve));
         assert.equal(
           ownerRuntime.verifyRuntimeOwnedDockerHomeLeaseRelease(
             capability,
@@ -3416,7 +3473,6 @@ for (const { repeatCount, retained } of [
           ),
           true,
         );
-        pendingCapabilities.delete(capability);
         const after = JSON.parse(fs.readFileSync(statePath, "utf8"));
         assert.deepEqual(
           after.operations,
@@ -3424,6 +3480,66 @@ for (const { repeatCount, retained } of [
             (item: { recoveryId: string }) =>
               item.recoveryId !== proof.recoveryId,
           ),
+        );
+      }
+      const afterReceipts = fs.readFileSync(statePath);
+      const historyAfterReceipts = fs.readFileSync(
+        path.join(path.dirname(statePath), "history.jsonl"),
+      );
+      for (const capability of [...proofs.keys()].reverse()) {
+        const startedAt = Date.now();
+        const finalized: Readonly<{ status: string }> =
+          ownerRuntime.finalizeRuntimeOwnedDockerRecovery(capability);
+        stageTimings.push({
+          stage: "finalize",
+          startedAt,
+          completedAt: Date.now(),
+        });
+        assert.equal(finalized.status, "completed", JSON.stringify(finalized));
+        assert.deepEqual(fs.readFileSync(statePath), afterReceipts);
+        assert.deepEqual(
+          fs.readFileSync(path.join(path.dirname(statePath), "history.jsonl")),
+          historyAfterReceipts,
+        );
+        assert.equal(
+          ownerRuntime.finalizeRuntimeOwnedDockerRecovery({ ...capability })
+            .status,
+          "blocked",
+        );
+        assert.equal(
+          ownerRuntime.finalizeRuntimeOwnedDockerRecovery(capability).status,
+          "blocked",
+          "transient Ownerは確定後に退役する",
+        );
+        pendingCapabilities.delete(capability);
+      }
+      if (httpPending) {
+        const result = await httpPending;
+        assert.equal(result.status, 200);
+        assert.equal(httpTimings.length, 1);
+        const timing = httpTimings[0];
+        const firstStage = stageTimings[0];
+        const lastStage = stageTimings.at(-1);
+        assert.ok(timing && firstStage && lastStage);
+        assert.ok(serverReceivedAt !== null && serverFinishedAt !== null);
+        assert.ok(serverReceivedAt <= firstStage.startedAt);
+        const secondReceipt = stageTimings.filter(
+          (stage) => stage.stage === "receipt",
+        )[1];
+        assert.ok(secondReceipt);
+        assert.ok(firstStage.completedAt <= serverFinishedAt);
+        assert.ok(serverFinishedAt <= secondReceipt.startedAt);
+        assert.ok(serverFinishedAt <= lastStage.completedAt);
+        assert.ok(timing.completedAt - timing.startedAt < 15_000);
+        t.diagnostic(
+          JSON.stringify({
+            stageTimings,
+            serverReceivedAt,
+            serverFinishedAt,
+            httpTimings,
+            boundary:
+              "実Writerと単純loopback応答の競合。Workbench全画面生成や実AIの証明ではない",
+          }),
         );
       }
       const final = JSON.parse(fs.readFileSync(statePath, "utf8"));
@@ -3483,6 +3599,19 @@ for (const { repeatCount, retained } of [
     } catch (error) {
       failure = error;
     } finally {
+      if (httpServer) {
+        const server = httpServer;
+        try {
+          await httpPending?.catch(() => undefined);
+          server.closeAllConnections();
+          await new Promise<void>((resolve, reject) =>
+            server.close((error) => (error ? reject(error) : resolve())),
+          );
+          assert.equal(httpServer.listening, false);
+        } catch (error) {
+          failure ??= error;
+        }
+      }
       // normal-owner-cleanup-begin
       let cleanupConfirmed = true;
       try {
@@ -3719,6 +3848,7 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
   let lifecycleFails = true;
   let pendingFails = true;
   let driverFails = true;
+  let driverCalls = 0;
   let startSaveFails = false;
   let contextFails = false;
   let hostBeginFails = false;
@@ -3997,6 +4127,7 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
             host: unknown,
             docker: unknown,
           ) => {
+            driverCalls++;
             assert.equal(host, cleanup);
             assert.equal(docker, completion);
             return {
@@ -4289,9 +4420,15 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
       "blocked",
     );
     driverFails = false;
+    const beforeRetry = driverCalls;
     assert.equal(
       runtime.finalizeRuntimeOwnedDockerRecovery(capability).status,
       "completed",
+    );
+    assert.equal(driverCalls, beforeRetry + 1, "blocked結果は再入場する");
+    assert.equal(
+      runtime.finalizeRuntimeOwnedDockerRecovery(capability).status,
+      "blocked",
     );
     operations = [];
     hostState = "host_only";
@@ -4338,6 +4475,23 @@ test("本番Ownerは復帰・清掃予定・終了保存の失敗から同じ元
       }),
       true,
     );
+    const beforeFinalize = driverCalls;
+    driverFails = true;
+    for (let repeat = 0; repeat < 2; repeat++) {
+      const finalized =
+        runtime.finalizeRuntimeOwnedDockerRecovery(projectCapability);
+      assert.equal(finalized.status, "completed");
+      assert.equal(
+        "deliveryPending" in finalized && finalized.deliveryPending,
+        true,
+      );
+      assert.equal(
+        driverCalls,
+        beforeFinalize,
+        "同Ownerで確定した真正結果だけを再利用する",
+      );
+    }
+    driverFails = false;
     for (const fake of [{}, { ...projectCapability }, "exact-id"])
       assert.equal(
         runtime.readRuntimeOwnedDockerProjectResult(fake).status,

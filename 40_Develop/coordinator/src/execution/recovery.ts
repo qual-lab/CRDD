@@ -4533,7 +4533,7 @@ export function verifyRuntimeOwnedDockerHomeLeaseRelease(
  * @returns 配送準備確認時completed。耐久ACK待ちは別結果で保持。
  * @precondition 同じ本番操作Ownerとexact回復参照を使用する。
  * @postcondition 確認済みの元結果だけを同じ現在状態へ接続する。
- * @effect 既存終了driverの再入場のみ。
+ * @effect 確定済みの同Owner結果は再利用し、未確定時だけ既存終了driverへ再入場する。
  * @failure 元Host・Controller結果欠落または終了保存不明は停止。
  * @invariant 旧形式へのfallbackと新しい共有管理機構を追加しない。
  * @boundary 本番Docker OwnerとRepository内の現在状態。
@@ -4546,11 +4546,15 @@ export function finalizeRuntimeOwnedDockerRecovery(
   const record = durableRecord(recoveryFinalizationCapability);
   if (!record?.hostCleanupOutcome || !record.dockerCompletion)
     return Object.freeze({ status: "blocked" as const });
-  const settled = settleRuntimeOwnedCoordinatorResult(
-    record.settlementContext,
-    record.hostCleanupOutcome,
-    record.dockerCompletion,
-  );
+  // 受領済みの真正な終了結果を再保存しない。別Stageによる現在版の進行を巻き戻さない。
+  const settled =
+    record.settlementResult?.status === "completed"
+      ? record.settlementResult
+      : settleRuntimeOwnedCoordinatorResult(
+          record.settlementContext,
+          record.hostCleanupOutcome,
+          record.dockerCompletion,
+        );
   record.settlementResult = settled;
   if (settled.status !== "completed") return settled;
   if (!settled.deliveryPending)
