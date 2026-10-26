@@ -715,6 +715,18 @@ ERB-IT-010／ERB-ST-013は5CのOrchestrator／Coordinator大改修に依存す�
 - 耐久操作のProvider・役割・試行・操作ID・Task相関・回復IDの一項目差を拒否し、Task相関だけの場合は `task_only` として限界を明示する。
 - stderrの引数・戻り値・callbackを維持し、終了時に復元する。外部差替え・復元失敗では終了未確認とし、同Processで再設置しない。
 
+## 候補検査拒否の限定診断
+
+既存のPRL-IT-012、ERB-IT-021の範囲で、非AIのTask制御と検証Toolの搬送を確認する。
+
+- Executor試行0／1で候補取得欠測・Capability欠測・申告Path不一致を区別し、既存の拒否理由とcleanup、次Providerの非発行を維持する。
+- 正常完了・認識済みSecret等の別理由では通知しない。通知の同期throw・Promise拒否・欠測でも元結果を変えない。
+- 既存コマンド観測の固定Key・安全な整数・非公開flagを共用検査し、生Path・Command・本文・余分fieldを拒否する。
+- 同じstderr取得器で回復開始と候補拒否を扱い、一方の欠測で他方の結果を失わない。現在操作の完全相関、履歴とTaskだけの相関、別相関、重複、上限、復元不能を区別する。
+- 履歴の読取りは既存Owner保持下のbounded File読取りと既存履歴Decoderへ接続し、履歴からProvider・役割・試行を推定しない。
+
+この検証義務を実AI再送や保持物変更の許可とせず、非AI結果だけで元実AI停止の原因確定・E2E成功を主張しない。
+
 ## Checklist
 
 - [x] Quality ID、検証目標およびSource固有条件を自己完結して示した

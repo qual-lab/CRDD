@@ -19,6 +19,7 @@ import {
 import {
   resolveRepositoryRuntimeDataPaths,
   observeRepositoryRuntimeDataArea,
+  readStableBoundedFileSnapshot,
 } from "../../domain-model/src/index.ts";
 import {
   readRepositoryAiSelection,
@@ -35,6 +36,10 @@ import {
   transferCoordinatorSnapshotHistory,
 } from "../../coordinator/src/storage/current-state.ts";
 import { deriveCoordinatorRepositoryBindingId } from "../../coordinator/src/state/model.ts";
+import {
+  decodeCoordinatorHistoryRows,
+  MAX_COORDINATOR_STATE_BYTES,
+} from "../../coordinator/src/storage/model.ts";
 import {
   acquireCoordinatorStorageOwner,
   readCoordinatorStorageSnapshotOwned,
@@ -54,9 +59,9 @@ import type {
 } from "../src/server/ai-request/types.ts";
 import { verifyWorkspaceOutputBytes } from "./workspace-output-verification.ts";
 import {
-  captureWorkspaceRecoveryDiagnostic,
+  captureWorkspaceTaskDiagnostic,
   type RecoveryDiagnosticIdentity,
-} from "./workspace-recovery-diagnostic.ts";
+} from "./workspace-task-diagnostic.ts";
 import { observeRuntimeOwnedDevelopmentSource } from "../../coordinator/src/execution/diagnostics.ts";
 
 const projectId = "project.workspace-verification";
@@ -272,7 +277,7 @@ async function verify(
   let client: WorkbenchAiRequests | null = null;
   let clientCleanupUnconfirmed = false;
   let diagnosticCapture: ReturnType<
-    typeof captureWorkspaceRecoveryDiagnostic
+    typeof captureWorkspaceTaskDiagnostic
   > | null = null;
   let step = "prepare";
   const evidence: Record<string, unknown> = {
@@ -357,7 +362,7 @@ async function verify(
       runtimeClean = true;
       evidence.preflightOnly = true;
     } else {
-      diagnosticCapture = captureWorkspaceRecoveryDiagnostic(process.stderr);
+      diagnosticCapture = captureWorkspaceTaskDiagnostic(process.stderr);
       assert.equal(
         diagnosticCapture.available,
         true,
@@ -632,6 +637,11 @@ async function verify(
     if (diagnosticCapture) {
       let correlationId: string | null = null;
       const identities: RecoveryDiagnosticIdentity[] = [];
+      const historyIdentities: {
+        operationId: string;
+        recoveryCorrelationId: string | null;
+        recoveryId: string;
+      }[] = [];
       try {
         const storage = acquireCoordinatorStorageOwner(root);
         if (storage) {
@@ -659,17 +669,47 @@ async function verify(
                   recoveryId: operation.recoveryId,
                 });
               }
+              const historyFile = path.join(
+                root,
+                ".crdd",
+                "coordinator",
+                "history.jsonl",
+              );
+              if (fs.existsSync(historyFile)) {
+                const metadata = fs.lstatSync(historyFile);
+                assert.equal(metadata.isSymbolicLink(), false);
+                assert.equal(metadata.nlink, 1);
+                const history = readStableBoundedFileSnapshot(
+                  historyFile,
+                  MAX_COORDINATOR_STATE_BYTES,
+                );
+                const rows = decodeCoordinatorHistoryRows(history.bytes);
+                assert.ok(rows, "diagnostic_history_invalid");
+                for (const row of rows) {
+                  const summary = JSON.parse(row.line).summary;
+                  if (
+                    summary.schema === "crdd-coordinator/operation-summary/v4"
+                  )
+                    historyIdentities.push({
+                      operationId: summary.operationId,
+                      recoveryCorrelationId: summary.recoveryCorrelationId,
+                      recoveryId: row.recoveryId,
+                    });
+                }
+              }
             }
           } finally {
             if (!storage.release()) {
               correlationId = null;
               identities.length = 0;
+              historyIdentities.length = 0;
             }
           }
         }
       } catch {
         correlationId = null;
         identities.length = 0;
+        historyIdentities.length = 0;
       }
       const task = evidence.task as Record<string, unknown> | undefined;
       const captured = diagnosticCapture.finish(
@@ -678,8 +718,13 @@ async function verify(
         typeof task?.reason === "string" &&
           /^docker_process_controller_recovery_/u.test(task.reason),
         identities,
+        task?.reason === "coordinator_task_candidate_revision_invalid" ||
+          task?.reason === "coordinator_task_remediated_candidate_invalid",
+        historyIdentities,
       );
-      evidence.recoveryStartDiagnostic = captured;
+      const { candidateValidation, ...recoveryStart } = captured;
+      evidence.recoveryStartDiagnostic = recoveryStart;
+      evidence.candidateValidationDiagnostic = candidateValidation;
       if (!captured.closed) evidence.closeConfirmed = false;
     }
     evidence.runtimeClean = runtimeClean;

@@ -768,6 +768,17 @@ Effect履歴（Effect History）は過去の観測事実を保持する。実行
 
 これは検証Toolの限定診断であり、一般の耐久診断APIではない。診断の保存成功はTask成功・資源回収完了を意味せず、今回の過去失敗の内部原因を遡及して確定しない。
 
+## 候補検査拒否の限定診断
+
+初回又は限定是正後の共通候補Gateが`coordinator_task_candidate_revision_invalid`又は`coordinator_task_remediated_candidate_invalid`で拒否する場合だけ、既存の受動Lifecycle経路へ`coordinator_task_candidate_validation_failed`を一件通知する。認識済みSecret・対象外変更等の別拒否と正常完了には通知しない。拒否条件、公開理由、Authority、cleanup、Task DTOと耐久Schemaは変更しない。
+
+- 診断は候補取得の固定分類、候補／申告Path件数、一致結果と既存の非秘密実行観測だけ。Path・Command・Provider本文・例外本文を含めない。欠測はnullであり、件数零や成功へ補完しない。
+- 操作ID・Provider・Executor役割・試行0／1・Task相関は既存Ownerから結合する。通知の同期例外・非同期拒否・欠落は元結果を変更しない。実行観測の閉形式検査は`execution/result.ts`を共用する。
+- Workspace検証Toolは既存collector一つで回復開始と候補拒否を取得し、両診断の欠測・不正・上限を別々に返す。上限16件・一書込み4096 bytes・元stderrの透過と終了時復元を維持する。
+- 現在操作の全Identityが一致する場合だけ`captured`。操作履歴の操作ID・Task相関だけ一致する場合は`task_history_only`とし、履歴にないProvider・役割・試行を推定しない。別相関・重複・欠測・観測不能を完全帰属へ昇格しない。
+- 同一操作・Taskの複数Stage履歴は、既存Decoderで検査した回復IDが相互に異なる場合に限り履歴相関として受け入れる。同じ回復IDの重複は拒否する。両診断のJSONは既存の曖昧性拒否Parserで読み、eventの完全一致と閉形式を検査する。
+- 通知は診断であり、実AI成功・変更成立・資源終了・実行許可の根拠ではない。過去の保持物へ診断を補完せず、元失敗の一意原因を遡及確定しない。
+
 ## Checklist
 
 - [x] Task／ObjectiveのRecord・資源・遷移・回復不変条件を本書と機械対応へ接続した。保存統合BのSource接続・旧試験移行・外部AIなしの最終固定回帰は完了し、限定独立再確認済み。旧版の保存方式刷新②の結果を、B又は責務再編全体の完成へ流用しない。

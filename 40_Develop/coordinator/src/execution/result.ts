@@ -187,6 +187,168 @@ export type PrimaryFailureDiagnostic = Readonly<{
   }> | null;
 }>;
 
+/** Provider実行観測の閉じた診断項目。実行許可・清掃判定には使用しない。 */
+export const PROVIDER_EXECUTION_OBSERVATION_KEYS = new Set([
+  "transport",
+  "turnCompleted",
+  "commandExecutionStartedCount",
+  "commandExecutionCompletedCount",
+  "commandExecutionFailedCount",
+  "commandExecutionDeclinedCount",
+  "commandExecutionExitCode0Count",
+  "commandExecutionExitCode1Count",
+  "commandExecutionExitCode126Count",
+  "commandExecutionExitCode127Count",
+  "commandExecutionOtherNonzeroExitCodeCount",
+  "commandExecutionMissingExitCodeCount",
+  "commandFamilyPythonCount",
+  "commandFamilyPosixTextCount",
+  "commandFamilyGitCount",
+  "commandFamilyApplyPatchCount",
+  "commandFailurePermissionCount",
+  "commandFailureReadOnlyFilesystemCount",
+  "commandFailureMissingPathCount",
+  "commandFailureCommandNotFoundCount",
+  "commandFailureSyntaxCount",
+  "commandFailureSandboxCount",
+  "commandFailureUnclassifiedCount",
+  "fileChangeStartedCount",
+  "fileChangeCompletedCount",
+  "fileChangeFailedCount",
+  "fileChangeDeclinedCount",
+  "rawEventReported",
+  "commandReported",
+  "pathReported",
+  "providerTextReported",
+]);
+
+/** 既存の非秘密実行観測を閉じた値へ検査する。生Command・Path・本文は受理しない。
+ * @responsibility 実行診断の固定field・数値境界を公開結果と受動診断で共用する。
+ * @trace ERB-IT-021
+ */
+export function inspectProviderExecutionObservation(raw: unknown) {
+  const observation = snapshotPlainRecord(
+    raw,
+    PROVIDER_EXECUTION_OBSERVATION_KEYS,
+  );
+  if (!observation) return null;
+  const countKeys = [
+    "commandExecutionStartedCount",
+    "commandExecutionCompletedCount",
+    "commandExecutionFailedCount",
+    "commandExecutionDeclinedCount",
+    "commandExecutionExitCode0Count",
+    "commandExecutionExitCode1Count",
+    "commandExecutionExitCode126Count",
+    "commandExecutionExitCode127Count",
+    "commandExecutionOtherNonzeroExitCodeCount",
+    "commandExecutionMissingExitCodeCount",
+    "commandFamilyPythonCount",
+    "commandFamilyPosixTextCount",
+    "commandFamilyGitCount",
+    "commandFamilyApplyPatchCount",
+    "commandFailurePermissionCount",
+    "commandFailureReadOnlyFilesystemCount",
+    "commandFailureMissingPathCount",
+    "commandFailureCommandNotFoundCount",
+    "commandFailureSyntaxCount",
+    "commandFailureSandboxCount",
+    "commandFailureUnclassifiedCount",
+    "fileChangeStartedCount",
+    "fileChangeCompletedCount",
+    "fileChangeFailedCount",
+    "fileChangeDeclinedCount",
+  ] as const;
+  if (
+    !["fixed_cli_jsonl_v0_149_1", "fixed_cli_jsonl_v0_164_0"].includes(
+      observation.transport as string,
+    ) ||
+    observation.turnCompleted !== true ||
+    !countKeys.every(
+      (key) =>
+        Number.isSafeInteger(observation[key]) &&
+        (observation[key] as number) >= 0,
+    ) ||
+    observation.rawEventReported !== false ||
+    observation.commandReported !== false ||
+    observation.pathReported !== false ||
+    observation.providerTextReported !== false
+  )
+    return null;
+  return Object.freeze({ ...observation });
+}
+
+/** 候補拒否の非秘密診断。判定条件・実行許可・保存状態を所有しない。
+ * @responsibility 候補取得と申告Path照合の不成立を分離する。
+ * @trace ERB-IT-021
+ */
+export type CandidateValidationFailureDiagnostic = Readonly<{
+  captureStatus: "unavailable" | "capability_unavailable" | "captured";
+  pathsMatch: boolean | null;
+  candidatePathCount: number | null;
+  reportedPathCount: number | null;
+  providerExecutionObservation: ReturnType<
+    typeof inspectProviderExecutionObservation
+  >;
+}>;
+
+/** 固定分類と件数だけを受理し、本文・Path・余分fieldを診断へ搬送しない。
+ * @responsibility 候補拒否診断の相関した値境界を検査する。
+ * @trace ERB-IT-021
+ */
+export function inspectCandidateValidationFailureDiagnostic(
+  raw: unknown,
+): CandidateValidationFailureDiagnostic | null {
+  const value = snapshotPlainRecord(
+    raw,
+    new Set([
+      "captureStatus",
+      "pathsMatch",
+      "candidatePathCount",
+      "reportedPathCount",
+      "providerExecutionObservation",
+    ]),
+  );
+  const count = (v: unknown) =>
+    v === null ||
+    (Number.isSafeInteger(v) && (v as number) >= 0 && (v as number) <= 1000);
+  if (
+    !value ||
+    !["unavailable", "capability_unavailable", "captured"].includes(
+      value.captureStatus as string,
+    ) ||
+    (value.pathsMatch !== null && typeof value.pathsMatch !== "boolean") ||
+    !count(value.candidatePathCount) ||
+    !count(value.reportedPathCount)
+  )
+    return null;
+  const captured = value.captureStatus === "captured";
+  const comparable =
+    captured &&
+    value.candidatePathCount !== null &&
+    value.reportedPathCount !== null;
+  if (
+    (!captured && value.candidatePathCount !== null) ||
+    comparable !== (value.pathsMatch !== null) ||
+    (value.pathsMatch === true &&
+      value.candidatePathCount !== value.reportedPathCount)
+  )
+    return null;
+  const observation =
+    value.providerExecutionObservation === null
+      ? null
+      : inspectProviderExecutionObservation(value.providerExecutionObservation);
+  if (value.providerExecutionObservation !== null && !observation) return null;
+  return Object.freeze({
+    captureStatus:
+      value.captureStatus as CandidateValidationFailureDiagnostic["captureStatus"],
+    pathsMatch: value.pathsMatch as boolean | null,
+    candidatePathCount: value.candidatePathCount as number | null,
+    reportedPathCount: value.reportedPathCount as number | null,
+    providerExecutionObservation: observation,
+  });
+}
+
 /** 回復開始の診断専用段階。実行許可・清掃判定には使用しない。 */
 export const RECOVERY_START_FAILURE_STAGES = Object.freeze([
   "plan_validation",

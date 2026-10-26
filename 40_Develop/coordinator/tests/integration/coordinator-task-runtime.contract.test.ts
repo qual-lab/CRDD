@@ -649,6 +649,9 @@ function fixture(
     reviewerDecision?: "approved" | "changes_requested";
     finalReviewerDecision?: "approved" | "changes_requested";
     executorChangedPaths?: readonly string[];
+    reportDiagnostic?: (notice: unknown) => Promise<boolean>;
+    candidateUnavailableAt?: number;
+    candidateCapabilityMissingAt?: number;
     remediationExecutorChangedPaths?: readonly string[];
     cleanupThrows?: boolean;
     cleanupProtocolFailure?: boolean;
@@ -878,6 +881,7 @@ function fixture(
     });
   };
   const dependencies = {
+    reportProviderBoundaryDiagnostic: options.reportDiagnostic,
     beginInvocation: options.beginInvocation,
     observeLifecycleState: (state: string) => {
       options.timingObserver?.(state);
@@ -1554,6 +1558,7 @@ function fixture(
     },
     captureCandidate: () => {
       candidateCaptureCount += 1;
+      if (options.candidateUnavailableAt === candidateCaptureCount) return null;
       return options.candidateSecretAtCapture === candidateCaptureCount
         ? Object.freeze({
             status: "blocked",
@@ -1561,7 +1566,10 @@ function fixture(
           })
         : Object.freeze({
             status: "candidate",
-            candidateCapability,
+            candidateCapability:
+              options.candidateCapabilityMissingAt === candidateCaptureCount
+                ? null
+                : candidateCapability,
             changedPaths: Object.freeze(["fixture.txt"]),
             ...(options.borrowedWorkspace !== false
               ? {
@@ -4403,6 +4411,117 @@ test("External Send拒否状態はTaskの理由・回復・Effect 0へ完全投�
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary PRL-IT-012=Direct Boundary: coordinator Test Source→対象契約
  */
+/** 候補拒否の受動診断は通常・是正を区別し、通知故障でも安全結果を変えない。
+ * @responsibility 非AIの本番Task制御から既存通知経路への固定値搬送を確認する。
+ * @trace PRL-IT-012
+ * @precondition Providerと候補取得だけを代役にする。
+ * @stimulus 両試行の取得欠測・Capability欠測・Path差、通知throw/rejectを与える。
+ * @observation 通知一件、元reason、Provider数とcleanupを照合する。
+ * @oracle 元の拒否と回収が不変で、秘密拒否・正常完了では通知しない。
+ * @cleanup Process内の代役のみ。
+ * @boundary Task制御→受動通知。実AI・Dockerなし。
+ */
+test("候補拒否診断は両試行の取得とPath差を分離し通知故障で結果を変えない", async () => {
+  for (const attempt of [0, 1] as const) {
+    for (const kind of [
+      "unavailable",
+      "capability_unavailable",
+      "mismatch",
+    ] as const) {
+      const notices: Record<string, unknown>[] = [];
+      const harness = fixture({
+        ...(attempt === 1
+          ? { reviewerDecision: "changes_requested" as const }
+          : {}),
+        ...(kind === "unavailable"
+          ? { candidateUnavailableAt: attempt + 1 }
+          : kind === "capability_unavailable"
+            ? { candidateCapabilityMissingAt: attempt + 1 }
+            : attempt === 0
+              ? { executorChangedPaths: [] }
+              : { remediationExecutorChangedPaths: [] }),
+        reportDiagnostic: async (notice) => {
+          assert.ok(notice && typeof notice === "object");
+          notices.push(notice as Record<string, unknown>);
+          return true;
+        },
+      });
+      const result = await harness.runtime.start(
+        request(),
+        "C:\\repository",
+        "operation-11111111-2222-3333-4444-555555555555",
+      ).completion;
+      assert.equal(
+        result.reason,
+        attempt === 0
+          ? "coordinator_task_candidate_revision_invalid"
+          : "coordinator_task_remediated_candidate_invalid",
+      );
+      assert.equal(result.cleanupConfirmed, true);
+      assert.equal(notices.length, 1);
+      const notice = notices[0];
+      assert.ok(notice);
+      const diagnostic = notice.diagnostic as Record<string, unknown>;
+      assert.equal(
+        notice.event,
+        "coordinator_task_candidate_validation_failed",
+      );
+      assert.equal(notice.taskAttempt, attempt);
+      assert.equal(notice.taskRole, "executor");
+      assert.equal(
+        notice.recoveryCorrelationId,
+        "operation-11111111-2222-3333-4444-555555555555",
+      );
+      assert.equal(
+        diagnostic.captureStatus,
+        kind === "mismatch" ? "captured" : kind,
+      );
+      assert.equal(diagnostic.pathsMatch, kind === "mismatch" ? false : null);
+      assert.equal(harness.processStartCount(), attempt === 0 ? 1 : 3);
+      assert.equal(harness.cleanupCount(), 1);
+      assert.equal(JSON.stringify(notices).includes("fixture.txt"), false);
+    }
+  }
+  for (const failure of ["throw", "reject", "missing"] as const) {
+    const harness = fixture({
+      executorChangedPaths: [],
+      ...(failure === "missing"
+        ? {}
+        : {
+            reportDiagnostic: () => {
+              if (failure === "throw")
+                throw new Error("private diagnostic error");
+              return Promise.reject(new Error("private diagnostic error"));
+            },
+          }),
+    });
+    const result = await harness.runtime.start(request(), "C:\\repository")
+      .completion;
+    assert.equal(result.reason, "coordinator_task_candidate_revision_invalid");
+    assert.equal(result.cleanupConfirmed, true);
+    assert.equal(harness.processStartCount(), 1);
+  }
+  for (const secret of [false, true]) {
+    let count = 0;
+    const harness = fixture({
+      ...(secret ? { candidateSecretAtCapture: 1 } : {}),
+      reportDiagnostic: async () => {
+        count++;
+        return true;
+      },
+    });
+    const result = await harness.runtime.start(request(), "C:\\repository")
+      .completion;
+    assert.equal(
+      result.reason,
+      secret
+        ? "coordinator_task_candidate_recognized_secret_rejected"
+        : "coordinator_task_workspace_review_completed",
+    );
+    assert.equal(count, 0);
+  }
+});
+
 test("Executor自己申告と実Candidate差またはOperation cleanup不明を成功にしない", async () => {
   const mismatch = fixture({ executorChangedPaths: [] });
   const mismatchResult = await mismatch.runtime.start(

@@ -254,7 +254,7 @@ test("Workspace試験は通信失敗後に同じTaskの取消結果を保存し�
       Error,
       Buffer,
       process: { stderr: {} },
-      captureWorkspaceRecoveryDiagnostic: () => ({
+      captureWorkspaceTaskDiagnostic: () => ({
         available: true,
         finish: () => ({ captureStatus: "captured", events: [], closed: true }),
       }),

@@ -1,16 +1,24 @@
 /**
- * 合成Workspace試験の回復開始診断だけを有限に取得する。
+ * 合成Workspace試験の回復開始・候補検査診断を一つの取得器で有限に取得する。
  * @responsibility 元stderrの意味を変えず、固定診断を既存の安全な結果へ搬送する。
  * @trace ERB-IT-021
  * @security 生出力・任意本文は保持せず、別Taskの診断を受領しない。
  */
 import type { Writable } from "node:stream";
-import { inspectRecoveryStartFailureDiagnostic } from "../../coordinator/src/execution/result.ts";
+import { parseUnambiguousJsonDocument } from "../../ai-adapter/src/index.ts";
+import {
+  inspectRecoveryStartFailureDiagnostic,
+  inspectCandidateValidationFailureDiagnostic,
+} from "../../coordinator/src/execution/result.ts";
 import type { ProviderBoundaryDiagnosticNotice } from "../../coordinator/src/execution/observation.ts";
 
 type Event = Extract<
   ProviderBoundaryDiagnosticNotice,
   { event: "coordinator_provider_recovery_start_failed" }
+>;
+type CandidateEvent = Extract<
+  ProviderBoundaryDiagnosticNotice,
+  { event: "coordinator_task_candidate_validation_failed" }
 >;
 type Status =
   | "captured"
@@ -32,10 +40,12 @@ const marker =
   '[Coordinator lifecycle] {"event":"coordinator_provider_recovery_start_failed"';
 
 /** 同Processで一つだけ取得し、Owner終了後に元のwriteへ復元する。 */
-export function captureWorkspaceRecoveryDiagnostic(stream: Writable) {
+export function captureWorkspaceTaskDiagnostic(stream: Writable) {
   const original = stream.write;
   const events: Event[] = [];
+  const candidateEvents: CandidateEvent[] = [];
   let status: Status = installed ? "collector_unavailable" : "captured";
+  let candidateStatus: Status | "task_history_only" = status;
   let active = !installed;
   let finished = false;
   const exact = (value: object, keys: string[]) =>
@@ -45,19 +55,41 @@ export function captureWorkspaceRecoveryDiagnostic(stream: Writable) {
     chunk: unknown,
     ...rest: unknown[]
   ) {
-    if (typeof chunk === "string" && chunk.startsWith(marker)) {
+    const isCandidate =
+      typeof chunk === "string" &&
+      chunk.startsWith(
+        '[Coordinator lifecycle] {"event":"coordinator_task_candidate_validation_failed"',
+      );
+    if (
+      typeof chunk === "string" &&
+      (chunk.startsWith(marker) || isCandidate)
+    ) {
       try {
-        if (Buffer.byteLength(chunk, "utf8") > 4096 || events.length >= 16) {
-          status = "overflow";
+        if (
+          Buffer.byteLength(chunk, "utf8") > 4096 ||
+          events.length + candidateEvents.length >= 16
+        ) {
+          if (isCandidate) candidateStatus = "overflow";
+          else status = "overflow";
         } else {
           if (!chunk.endsWith("\n") || chunk.slice(0, -1).includes("\n"))
             throw new Error("frame");
-          const value = JSON.parse(
+          const parsed = parseUnambiguousJsonDocument(
             chunk.slice("[Coordinator lifecycle] ".length),
           );
-          const diagnostic = inspectRecoveryStartFailureDiagnostic(
-            value.diagnostic,
-          );
+          if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
+            throw new Error("shape");
+          const value = parsed as Record<string, unknown>;
+          if (
+            value.event !==
+            (isCandidate
+              ? "coordinator_task_candidate_validation_failed"
+              : "coordinator_provider_recovery_start_failed")
+          )
+            throw new Error("event");
+          const diagnostic = isCandidate
+            ? inspectCandidateValidationFailureDiagnostic(value.diagnostic)
+            : inspectRecoveryStartFailureDiagnostic(value.diagnostic);
           if (
             !exact(value, [
               "event",
@@ -68,19 +100,24 @@ export function captureWorkspaceRecoveryDiagnostic(stream: Writable) {
               "recoveryCorrelationId",
               "diagnostic",
             ]) ||
-            !["codex", "claude"].includes(value.provider) ||
-            ![null, "executor", "reviewer"].includes(value.taskRole) ||
+            !["codex", "claude"].includes(value.provider as string) ||
+            ![null, "executor", "reviewer"].includes(
+              value.taskRole as string | null,
+            ) ||
+            (isCandidate && value.taskRole !== "executor") ||
             typeof value.operationId !== "string" ||
             !/^OP-[0-9]{6,}$/u.test(value.operationId) ||
-            ![0, 1].includes(value.taskAttempt) ||
+            ![0, 1].includes(value.taskAttempt as number) ||
             typeof value.recoveryCorrelationId !== "string" ||
             !/^operation-[a-f0-9-]{36}$/u.test(value.recoveryCorrelationId) ||
             !diagnostic
           )
             throw new Error("shape");
-          const event = Object.freeze({ ...value, diagnostic }) as Event;
+          const event = Object.freeze({ ...value, diagnostic }) as
+            | Event
+            | CandidateEvent;
           if (
-            events.some(
+            (isCandidate ? candidateEvents : events).some(
               (old) =>
                 old.operationId === event.operationId &&
                 old.provider === event.provider &&
@@ -90,10 +127,13 @@ export function captureWorkspaceRecoveryDiagnostic(stream: Writable) {
             )
           )
             throw new Error("duplicate");
-          events.push(event);
+          if (isCandidate) candidateEvents.push(event as CandidateEvent);
+          else events.push(event as Event);
         }
       } catch {
-        if (status !== "overflow") status = "invalid";
+        if (isCandidate) {
+          if (candidateStatus !== "overflow") candidateStatus = "invalid";
+        } else if (status !== "overflow") status = "invalid";
       }
     }
     return Reflect.apply(original, this, [chunk, ...rest]);
@@ -105,6 +145,7 @@ export function captureWorkspaceRecoveryDiagnostic(stream: Writable) {
     } catch {
       active = false;
       status = "collector_unavailable";
+      candidateStatus = "collector_unavailable";
     }
   }
   return {
@@ -114,12 +155,23 @@ export function captureWorkspaceRecoveryDiagnostic(stream: Writable) {
       recoveryIds: readonly string[],
       expectedFailure: boolean,
       identities: readonly RecoveryDiagnosticIdentity[] = [],
+      expectedCandidateFailure = false,
+      historyIdentities: readonly Readonly<{
+        operationId: string;
+        recoveryCorrelationId: string | null;
+        recoveryId: string;
+      }>[] = [],
     ) {
       if (finished)
         return {
           captureStatus: "collector_unavailable" as Status,
           events: [],
           closed: false,
+          candidateValidation: {
+            captureStatus: "collector_unavailable",
+            events: [],
+            closed: false,
+          },
         };
       finished = true;
       let closed = !active;
@@ -138,6 +190,7 @@ export function captureWorkspaceRecoveryDiagnostic(stream: Writable) {
         if (closed && stream.write === original) installed = false;
         active = false;
       }
+      if (!closed) candidateStatus = "invalid";
       let taskOnly = false;
       const matched = events.filter((event) => {
         if (
@@ -172,10 +225,72 @@ export function captureWorkspaceRecoveryDiagnostic(stream: Writable) {
         status = "missing";
       if (matched.length && taskOnly && status === "captured")
         status = "task_only";
+      let historyOnly = false;
+      const matchedCandidates = candidateEvents.filter((event) => {
+        if (
+          event.provider !== "codex" ||
+          event.taskRole !== "executor" ||
+          event.recoveryCorrelationId !== correlationId
+        )
+          return false;
+        const related = identities.filter(
+          (i) =>
+            i.operationId === event.operationId &&
+            i.provider === event.provider &&
+            i.taskRole === event.taskRole &&
+            i.taskAttempt === event.taskAttempt,
+        );
+        if (related.length)
+          return (
+            related.length === 1 &&
+            related[0]?.recoveryCorrelationId === correlationId
+          );
+        const history = historyIdentities.filter(
+          (i) =>
+            i.operationId === event.operationId &&
+            i.recoveryCorrelationId === correlationId,
+        );
+        if (
+          !history.length ||
+          history.some(
+            (i) => typeof i.recoveryId !== "string" || !i.recoveryId.length,
+          ) ||
+          new Set(history.map((i) => i.recoveryId)).size !== history.length
+        )
+          return false;
+        historyOnly = true;
+        return true;
+      });
+      if (
+        matchedCandidates.length !== candidateEvents.length &&
+        candidateStatus === "captured"
+      )
+        candidateStatus = "invalid";
+      if (
+        !candidateEvents.length &&
+        expectedCandidateFailure &&
+        candidateStatus === "captured"
+      )
+        candidateStatus = "missing";
+      if (
+        matchedCandidates.length &&
+        historyOnly &&
+        candidateStatus === "captured"
+      )
+        candidateStatus = "task_history_only";
       return {
         captureStatus: status,
         events: status === "captured" || status === "task_only" ? matched : [],
         closed,
+        candidateValidation: {
+          captureStatus: candidateStatus,
+          events:
+            candidateStatus === "captured" ||
+            candidateStatus === "task_history_only"
+              ? matchedCandidates
+              : [],
+          closed,
+        },
       };
     },
   };

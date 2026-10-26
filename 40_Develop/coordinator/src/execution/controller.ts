@@ -93,6 +93,9 @@ import {
   type PrimaryFailureDiagnostic,
   type RecoveryStartFailureDiagnostic,
   inspectRecoveryStartFailureDiagnostic,
+  inspectProviderExecutionObservation,
+  PROVIDER_EXECUTION_OBSERVATION_KEYS,
+  inspectCandidateValidationFailureDiagnostic,
   normalizeProviderTaskStructuredResult,
   isDockerProcessControllerPublicCompletionReason,
   publicDockerRecoveryStartReason,
@@ -1791,7 +1794,9 @@ function providerBoundaryConfiguration(
  * @concurrency N/A: reportPassiveBoundaryDiagnosticは共有非同期状態を持たない同期処理である。
  */
 function reportPassiveBoundaryDiagnostic(
-  state: RuntimeState,
+  state: Readonly<{
+    dependencies: Pick<RuntimeDependencies, "reportProviderBoundaryDiagnostic">;
+  }>,
   notice: ProviderBoundaryDiagnosticNotice,
 ) {
   try {
@@ -3777,40 +3782,6 @@ const REVIEWER_FINDING_DIAGNOSTIC_KEYS = new Set([
   "messageSha256",
 ]);
 
-const PROVIDER_EXECUTION_OBSERVATION_KEYS = new Set([
-  "transport",
-  "turnCompleted",
-  "commandExecutionStartedCount",
-  "commandExecutionCompletedCount",
-  "commandExecutionFailedCount",
-  "commandExecutionDeclinedCount",
-  "commandExecutionExitCode0Count",
-  "commandExecutionExitCode1Count",
-  "commandExecutionExitCode126Count",
-  "commandExecutionExitCode127Count",
-  "commandExecutionOtherNonzeroExitCodeCount",
-  "commandExecutionMissingExitCodeCount",
-  "commandFamilyPythonCount",
-  "commandFamilyPosixTextCount",
-  "commandFamilyGitCount",
-  "commandFamilyApplyPatchCount",
-  "commandFailurePermissionCount",
-  "commandFailureReadOnlyFilesystemCount",
-  "commandFailureMissingPathCount",
-  "commandFailureCommandNotFoundCount",
-  "commandFailureSyntaxCount",
-  "commandFailureSandboxCount",
-  "commandFailureUnclassifiedCount",
-  "fileChangeStartedCount",
-  "fileChangeCompletedCount",
-  "fileChangeFailedCount",
-  "fileChangeDeclinedCount",
-  "rawEventReported",
-  "commandReported",
-  "pathReported",
-  "providerTextReported",
-]);
-
 const REVIEWER_PROJECTION_KEYS = new Set([
   "status",
   "candidatePatchHash",
@@ -4002,6 +3973,9 @@ type HostCleanupStatus = "completed" | "protocol_failure_cleanup_confirmed";
  * @compatibility RuntimeDependenciesの利用側は宣言済みPropertyと型制約だけへ依存する。
  */
 type taskRuntimeDependencies = Readonly<{
+  reportProviderBoundaryDiagnostic?: NonNullable<
+    RuntimeDependencies["reportProviderBoundaryDiagnostic"]
+  >;
   beginInvocation?: (
     provider: Provider,
     role: TaskRole,
@@ -4593,53 +4567,10 @@ function projectExecutorResultDiagnostics(value: unknown) {
     (verificationCount as number) < 0
   )
     return null;
-  let providerExecutionObservation = null;
-  if (observation) {
-    const countKeys = [
-      "commandExecutionStartedCount",
-      "commandExecutionCompletedCount",
-      "commandExecutionFailedCount",
-      "commandExecutionDeclinedCount",
-      "commandExecutionExitCode0Count",
-      "commandExecutionExitCode1Count",
-      "commandExecutionExitCode126Count",
-      "commandExecutionExitCode127Count",
-      "commandExecutionOtherNonzeroExitCodeCount",
-      "commandExecutionMissingExitCodeCount",
-      "commandFamilyPythonCount",
-      "commandFamilyPosixTextCount",
-      "commandFamilyGitCount",
-      "commandFamilyApplyPatchCount",
-      "commandFailurePermissionCount",
-      "commandFailureReadOnlyFilesystemCount",
-      "commandFailureMissingPathCount",
-      "commandFailureCommandNotFoundCount",
-      "commandFailureSyntaxCount",
-      "commandFailureSandboxCount",
-      "commandFailureUnclassifiedCount",
-      "fileChangeStartedCount",
-      "fileChangeCompletedCount",
-      "fileChangeFailedCount",
-      "fileChangeDeclinedCount",
-    ] as const;
-    if (
-      !["fixed_cli_jsonl_v0_149_1", "fixed_cli_jsonl_v0_164_0"].includes(
-        observation.transport as string,
-      ) ||
-      observation.turnCompleted !== true ||
-      !countKeys.every(
-        (key) =>
-          Number.isSafeInteger(observation[key]) &&
-          (observation[key] as number) >= 0,
-      ) ||
-      observation.rawEventReported !== false ||
-      observation.commandReported !== false ||
-      observation.pathReported !== false ||
-      observation.providerTextReported !== false
-    )
-      return null;
-    providerExecutionObservation = Object.freeze({ ...observation });
-  }
+  const providerExecutionObservation = observation
+    ? inspectProviderExecutionObservation(observation)
+    : null;
+  if (observation && !providerExecutionObservation) return null;
   return Object.freeze({
     status,
     changedPaths: Object.freeze([...changedPaths.value] as string[]),
@@ -5266,6 +5197,64 @@ function samePaths(left: unknown, right: unknown) {
       (value, index) => value === normalizedRightPaths[index],
     )
   );
+}
+
+/** 候補拒否時だけ固定診断を通知し、通知失敗で元の結果を変えない。
+ * @responsibility 既存の実行診断と候補照合を同じTask・試行へ結合する。
+ * @trace ERB-IT-021
+ */
+function reportCandidateValidationFailure(
+  state: Readonly<{ dependencies: taskRuntimeDependencies }>,
+  operation: Operation,
+  correlationId: string | null,
+  provider: unknown,
+  attempt: 0 | 1,
+  candidate: RuntimeRecord | null,
+  executorResult: RuntimeRecord,
+) {
+  try {
+    if (provider !== "codex" && provider !== "claude") return;
+    const captureStatus =
+      candidate?.status !== "candidate"
+        ? "unavailable"
+        : !objectCapability(candidate.candidateCapability)
+          ? "capability_unavailable"
+          : "captured";
+    const paths = (raw: unknown) => {
+      const value = snapshotPlainArray<unknown>(raw, 1000);
+      return value.status === "ok" &&
+        value.value.every((p) => typeof p === "string")
+        ? value.value
+        : null;
+    };
+    const actual =
+      captureStatus === "captured" ? paths(candidate?.changedPaths) : null;
+    const reported = paths(executorResult?.changedPaths);
+    const diagnostic = inspectCandidateValidationFailureDiagnostic({
+      captureStatus,
+      pathsMatch: actual && reported ? samePaths(actual, reported) : null,
+      candidatePathCount: actual?.length ?? null,
+      reportedPathCount: reported?.length ?? null,
+      providerExecutionObservation: inspectProviderExecutionObservation(
+        executorResult?.providerExecutionObservation,
+      ),
+    });
+    if (!diagnostic) return;
+    reportPassiveBoundaryDiagnostic(
+      state,
+      Object.freeze({
+        event: "coordinator_task_candidate_validation_failed",
+        provider,
+        taskRole: "executor",
+        operationId: operation.operationId,
+        taskAttempt: attempt,
+        recoveryCorrelationId: correlationId,
+        diagnostic,
+      }),
+    );
+  } catch {
+    // Passive diagnostics never alter refusal, authority, or cleanup.
+  }
 }
 
 /**
@@ -6128,6 +6117,16 @@ async function runCoordinatorTaskCore(
       executorResult?.status !== "completed" ||
       !samePaths(executorResult.changedPaths, candidate.changedPaths)
     ) {
+      if (candidate?.reason !== "candidate_recognized_secret_rejected")
+        reportCandidateValidationFailure(
+          state,
+          operation,
+          control.recoveryCorrelationId,
+          executor.provider,
+          0,
+          candidate,
+          executorResult,
+        );
       return candidateNotIssued(
         blocked(
           candidate?.reason === "candidate_recognized_secret_rejected"
@@ -6242,6 +6241,16 @@ async function runCoordinatorTaskCore(
         executorResult?.status !== "completed" ||
         !samePaths(executorResult.changedPaths, candidate.changedPaths)
       ) {
+        if (candidate?.reason !== "candidate_recognized_secret_rejected")
+          reportCandidateValidationFailure(
+            state,
+            operation,
+            control.recoveryCorrelationId,
+            remediation.provider,
+            1,
+            candidate,
+            executorResult,
+          );
         return candidateNotIssued(
           blocked(
             candidate?.reason === "candidate_recognized_secret_rejected"
@@ -6598,6 +6607,9 @@ async function createProductionOperation() {
 }
 
 const productionDependencies: taskRuntimeDependencies = Object.freeze({
+  reportProviderBoundaryDiagnostic: createRuntimeOwnedLifecycleNoticeReporter(
+    process.stderr,
+  ),
   inspectRepository: inspectRepositoryObjectFormatCandidate,
   createOperation: createProductionOperation,
   classifyOperationCreationFailure: productionOperationFailure,

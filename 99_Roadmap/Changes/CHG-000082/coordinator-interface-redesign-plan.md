@@ -1783,6 +1783,20 @@ Isolatedは未開始、再試行・Docker再起動・Image更新・旧保持物�
 
 Architecture DetailとQAへ原則・Owner・検証義務を反映した。実AI再送・Docker操作・保持物変更は行っていない。今回の是正を過去のE2E成功や、保持中の四回復参照の終了へ遡及しない。
 
+<a id="candidate-validation-minimal-diagnostic"></a>
+
+#### 候補拒否の最小診断是正 — 限定実装・非AI対象回帰完了
+
+利用者承認により、候補取得拒否と申告Path不一致を既存の受動Lifecycleへ通知する。変更分類は診断搬送の限定実装であり、Architecture DetailとQA-000006へ検証義務を接続する。着手前の独立確認で、event名をcapture失敗だけに限定しない名称へ修正し、現在操作の完全帰属と履歴・Taskだけの帰属を分け、stderr取得器を二重化しない方針を確定した。Source／直接利用側と対象文書の独立確認を実施し、準拠基準・Releaseを変更しないため全体準拠／Release監査は追加しない。
+
+既存の実行観測検査を`execution/result.ts`へ共用化し、初回／是正の共通候補拒否だけ固定分類・件数・Path一致・非秘密実行観測を通知する。Task DTO／耐久Schema／拒否理由／Authority／cleanupは不変。検証Toolの既存取得器を`workspace-task-diagnostic.ts`へ改名し、一設置で二診断を取得する。bounded履歴Readerと既存Decoderを使用するが、履歴からProvider・役割・試行を復元しない。AI再送・実Docker操作・保持物の読取り／変更は行わない。
+
+初回のcollector局所8件は7成功・1失敗で、既存のSource本文抽出試験が新しい履歴読取りまでを取り出して依存を欠いたことが原因だった。操作Identityの抽出範囲をそのループだけへ追従し、履歴の限定投影は別の合成境界として確認した。修正後8件とTask拒否診断の局所一件は成功。両Packageの型・整形・lintとCoordinator Trace検査は成功。最終回帰・独立レビュー前であり、完成や実AI原因確定とはしない。
+
+初回の対象回帰はCoordinator九Suite322件・Workbench四Suite34件すべて成功した。独立レビューの履歴相関指摘に対し、検査済み回復IDを投影へ加え、同一操作・Taskの異なるStage履歴は許容し、同ID重複は拒否するよう是正した。併せて両診断frameを既存の曖昧性拒否Parserへ接続し、event完全一致を検査した。Header二箇所も追従した。是正後の局所九件・Workbench静的確認は成功。最終回帰と再レビューは別に確定する。
+
+最終結果はWorkbench四Suite35件が全件成功。Coordinator対象九Suite322件は上記結果を維持し、その後のCoordinator変更はHeaderコメントだけで、静的確認・Trace検査を再実行して成功した。両Packageの静的確認は成功（既存infoはCoordinator84件・Workbench5件）。限定独立再レビューは残指摘零、差分空白検査も成功した。レビュー是正後の複数Stage履歴・同ID重複拒否・曖昧JSON拒否を含む。Windows専用実境界、実AI、Docker実境界は今回実行せず、全体E2Eや過去失敗の一意原因確定とはしない。診断は次の許可された実行でのみ取得可能であり、過去記録へ補完しない。今回の依頼範囲内に未処置指摘・人間判断はない。
+
 <a id="workspace-continuation-edit-stop-20261026"></a>
 
 ### 三判断分離後の合成編集一回と候補検査停止 — 2026-10-26
