@@ -1813,7 +1813,7 @@ Architecture DetailとQAへ原則・Owner・検証義務を反映した。実AI�
 
 今回の確認はCoordinator Portableの修正後広域回帰である。前回の1,868件中一件失敗と、その後の局所14件成功を過去結果として維持し、今回の結果と混合しない。再回帰後のCoordinator静的検査・Trace検査・差分空白検査も成功し、結果記録の独立確認は残指摘零。Host専用試験、全CRDD QA、実Docker・実AI編集E2Eの成功は主張しない。実行中プロセスの試験名を限定読取りで確認した以外に、追加診断・製品修正は行わず、AI再送・Docker操作・保持物操作・Provider生出力保存も行っていない。実AI未編集の直接原因と参照展開文書の既存不合格は引き続き別の残件とする。
 
-#### 診断付き実AI編集E2Eへの再入場案 — 実行承認待ち
+#### 診断付き実AI編集E2Eへの再入場案 — 実行前の承認範囲
 
 非AI回帰後の利用者の継続指示を受け、既存Tool・選定・固定ImageをSource読取りで照合した。今回の指示だけで、停止中のAI再送・Docker操作・保持物操作を許可済みへ変更しない。先に検証済み差分をCommitで固定し、次の限定範囲を人間へ提示する。
 
@@ -1824,7 +1824,81 @@ Architecture DetailとQAへ原則・Owner・検証義務を反映した。実AI�
 - 成功時は合成領域内で明示候補固定・二親Merge・Branch／Worktree回収まで確認する。本体Repositoryの採用・Mergeは含めない。今回生成した資源だけを元Identityと既存処理で回収し、非使用・参照解消を確認できた試験物だけ清掃する。不明なら同じ回復参照と有限結果を保持し、回収完了と表示しない。過去保持物には再入場しない。
 - 対話端末の短命入口が必要な場合は`.crdd/tmp/workspace-ai-stage-diagnostic-20261027/`に限定する。既存の固定HEAD・Tool一致・新品Root差替え確認を再利用し、新Frameworkは追加しない。終了後の非使用確認と回収、不明時の保持は既存手順に従う。
 
-この段階ではSource調査と計画整理だけを行い、新品試験Root・短命入口の作成、Docker照会、実AI送信は未実施。実行前の明示承認と通常の送信同意は別に維持する。
+この計画整理時点ではSource調査だけを行い、新品試験Root・短命入口の作成、Docker照会、実AI送信は未実施だった。実行前の明示承認と通常の送信同意は別に維持した。後続の人間承認と一回結果は次節に記録する。
+
+<a id="workspace-stage-diagnostic-once-20261027"></a>
+
+#### 診断付き一回試験 — 認証確認準備で停止、実行資源回収済み
+
+利用者の明示承認後、診断・試験追従・計画の19Fileを`c12fbfc6be89ea5e7666ff73739a4b8d93e73903`へCommit固定した。Engine応答、Codex／Claude／Proxyの固定Image三件、既存停止Container一件を開始前に確認した。新品Rootは`.crdd/tests/workspace-ai-stage-diagnostic-20261027/`、短命入口は同名の`.crdd/tmp/`子だけとし、固定HEAD・Tool blob／実本文・Root一箇所差替え・import元URL維持・成功preflight・TTY・edit新品の条件を独立確認して残指摘零。通常の送信同意を自動入力しない。
+
+非AI事前確認はDirect／IsolatedともlimitedProbePassed／closeConfirmed／runtimeClean／workspaceClean true、fixtureRootsRemoved trueで終了0。合成候補固定・二親Merge・Worktree／Ref回収と既存変更保全、実行Source・Docker一覧の不変を確認した。続く一回実行について利用者からEXIT=2の報告を受け、正式Toolの有限結果を確認した。
+
+Direct受付`request-3ccceae3-fa5b-4ace-9378-1477aa7ba408`はunknown／`coordinator_task_provider_failed`、Tool一次失敗edit_task_not_completed、段階verify_resultで停止した。transportFailureはnull、Task cleanupConfirmedはfalse、元のHost／Docker回復参照二件を結果へ保持した。回復開始・候補検査・段階診断はcaptured／events零／closed true。Isolatedは未開始、fullE2eVerified false。合成source.txtはBASEのままで、実AI編集やレビューの成立を主張しない。
+
+今回の技術操作はCodex attempt0。保存記録は認証確認用Containerのcreate_subscription_auth_probeがintent_saved、他の四資源要求はnot_requested、Provider開始not_started・外部送信not_issued・共有書込みnot_issuedだった。exact実IDの読取りでは認証確認用Container`3e033684e9bec343a6f387c0b8dda6821fb1543b03d5f6ba15879521cbcd4618`がcreated／Running false／Pid零／未起動、今回のownership labelと一致した。Containerの作成そのものは成立しているが、応答受領・保存・その後の処理のどこが失敗したかはこの有限記録だけで確定しない。HTTP十五秒Timeout、モデル・支払・認証期限の問題、前回の未編集原因の再現とは分類しない。
+
+同じDocker回復参照に対して、合成Rootを現在Repositoryとする既存CLI `recovery resume`を一回実行し、recovered／docker_task_recovery_completed、Docker／Host清掃確認・排他解放・履歴確定・操作撤去・Task技術回復完了、配送待ちなし、終了0を得た。再起動・新Provider依頼・強制削除はしない。後観測で今回labelのContainerと専用internal／egress Networkは不存在、元の停止Containerは存在した。結果で追加Networkに見えた`c57b32e1dc74cffef012b588038069202fca216df1a4734eb4b99cf89b0bf500`は標準bridgeであり、今回専用資源として削除していない。標準bridgeのIdentity変更は観測事実に限定し、原因や再起動実施を推定しない。
+
+技術履歴は元のexact回復参照を保持し、ownerEffect disabled・Host清掃confirmed・lease released・outcome blockedへ確定した。現在操作・未解決技術回復・配送待ち・Lease intent・Workspace・結果・終了要約待ちは零。一方、上位Queueは合成二件がqueued、今回受付がrecovery_required／exact_recoveryのままで、Lease根拠二件も残る。下位技術回復成功を上位Taskの完了へ丸めず、元のresult.jsonを上書きしない。正常完了専用の清掃Gateは拡張せず、今回の合成Root・失敗結果・状態／技術履歴を2026-11-03までの再評価対象として保持する。期限だけでは削除しない。
+
+既知端末PID・専用Script・作成時刻とNode子の不存在を照合し、今回端末とconhostの終了を確認した。最初の時刻照合はCIMとProcess APIの200nsの表示精度差で停止し、CIMのマイクロ秒精度で同じ時刻・同じPID・Scriptを再照合してから処置した。短命入口二Fileのexact Root・既知集合・非reparse・非使用を確認し、今回tmp子を回収・不存在確認した。過去保持物・既存Dockerデータ・Image・認証情報は変更せず、Provider生出力を保存しない。今回追加の製品Source修正・AI再試行は行わない。結果・状態・技術履歴と記録の限定独立確認は残指摘零、差分空白検査は成功した。
+
+<a id="auth-create-result-observation-analysis-20261027"></a>
+
+#### 認証確認作成の非AI切り分け — 観測欠落を確認、実装は未着手
+
+利用者は作成要求・応答受領・記録の切り分けと最小案の整理を指示し、AI再試行・Docker再起動・保持物操作を禁止した。調査経路は既存実装・診断搬送の技術／品質確認とし、Source・直接利用側の独立確認を行った。製品契約・準拠・Releaseを変更しないため全体準拠／Release監査は追加しない。既に取得した今回結果・回収前の観測とSourceを使い、この調査では実Docker照会・保持Rootの再読取り／変更・Docker／Provider子Process実行・生出力取得を行わない。局所再現は試験用Node Process内の明示非本番Candidateと合成値だけを使用した。
+
+認証確認も通常Containerと同じ`docker-isolation/src/execution/session.ts`と`execution/execute.ts`を通る。別のログイン用`authentication/execute.ts`は今回の経路ではない。実際の順序は予定保存→startCommand→handle.wait（既存10,000ms）→終了分類の受理→ID Receipt保存→出力受理で、ID保存後に認証確認Containerを起動する。
+
+| 段階 | 今回確定したこと | 確定できないこと |
+|---|---|---|
+| 作成要求 | 今回labelと名前を持つexact Containerがcreatedで観測されており、要求はDockerに到達した | CLI側の正常終了・応答受領までは証明しない |
+| 応答受領・終了分類 | 生応答と下位の一次失敗は有限結果に保持されていない | 期限内未完了、終了失敗、その他受理拒否のどれか |
+| ID保存 | 回収前の資源はintent_saved・dockerIdなしで、保存完了していない | 保存処理未到達、false返却、例外のどれか |
+
+確定した欠落は、Controllerが既存の`coordinator_provider_boundary_settled.primaryFailure`へ出すpurpose／stage／Handle取得／応答観測／Receipt記録／限定終了観測を、Workspaceのcollectorが受け取らず透過していること。collectorが取得するのは回復開始失敗・候補検査・Task段階の三種類だけである。さらにControllerの元終端観測登録は資源観測が非nullの場合に限定され、保存側も元終端と清掃の検証を必要とするため、清掃不明のこの経路から一次失敗を耐久結果へ復元できない。公開Task理由も通常の有限理由へ縮約される。この契約を安全判定の緩和で回避しない。
+
+非本番Sessionをメモリ上で用い、開始例外・待機null・非0終了・Receipt拒否・Receipt例外・Receipt成功の六ケースを再現した。前五ケースはいずれもintent_savedとなり、失敗の段階・Gate・応答観測・Receipt呼出し回数は異なった。成功ケースはidentifiedへ進むことを対照とした。これは今回の開始例外を肯定する根拠ではなく、単一の保存値から停止分岐を推定できないことの反例である。合成境界終了通知一件は元streamへ透過されたが、結果のevent／stageはともに零、stream復元成功だった。既存Session九件とcollector十二件の計21件も成功した。現行の振る舞いを確認した結果であり、修正後成功や実環境の発生原因の再現とはしない。
+
+推奨する最小案は次のとおり。まだ製品実装しない。
+
+1. 新しい診断eventを増やさず、既存boundary_settled通知へ既存のtaskAttempt・recoveryCorrelationId・exact recoveryIdを添える。現在のoperationId／Provider／役割だけでは、同じProviderによる限定是正を一意に区別できない。順序から推測しない。
+2. 同じ既存collectorでこの通知の固定一次失敗と非秘密観測だけを有限取得し、正式Toolの安全な結果へ搬送する。欠測・不正・別Task・別Attempt・別回復ID・重複・超過・復元不能を相関成功へ補完しない。primaryFailure nullと通知欠測を区別する。
+3. 既存の厳密なCLI検証・型・合成fixtureも相関fieldへ追従する。自由文の例外、stdout／stderr本文、Command、秘密値は保存しない。既存の固定語彙・数値・boolだけを検査し、既存検査を緩めない。
+4. 新State・Registry・Lock・Writer・Recovery機構を追加せず、10秒／15秒の期限、要求順、採否、取消・回収は維持する。応答未観測とReceipt拒否等の主要段階を区別することを目標とし、分類不能例外を含む任意の内部失敗すべてを一意識別できるとは主張しない。
+
+10秒Timeout、Dockerの故障、認証期限、モデル、支払、ID保存拒否のいずれも今回の一意原因としては確定しない。既存通知への搬送接続を先に是正することで、次回に主要停止段階を判別できるようにする案である。過去の一次失敗を推定して埋めず、今回のunknown・原結果・同じ回復参照を維持する。Source・最小案の独立確認はこの制約を条件に残指摘零だった。
+
+<a id="auth-create-diagnostic-minimal-fix-20261027"></a>
+
+#### 境界終了診断の最小是正と非AI回帰
+
+利用者は既存通知の相関補足・有限取得と非AI局所／回帰を承認し、生出力保存・安全判定／Timeout変更・余計な機構追加・AI再試行・Docker再起動・保持物操作を禁止した。前節のSource／利用側照合と独立確認を着手前整合とし、今回は診断搬送の実装詳細だけを是正する。状態Ownerの構造変更・保存形式変更・上位Task回復の意味変更は対象外とした。
+
+既存boundary_settledへtaskAttempt・recoveryCorrelationId・exact recoveryIdを補足し、同じWorkspace collectorと正式Tool結果のboundaryDiagnosticへ一次失敗と限定観測を搬送した。CLI内の既存一次失敗検査器を`execution/result.ts`へ移して共用し、検査条件を複製・緩和しない。型、厳密CLI検査、合成Producer、期待値を新fieldへ追従した。現在技術Identityによる完全照合と、同じexact回復参照への履歴だけの帰属を区別し、履歴だけの結果を試行Identityの完全証明としない。既存4096byte／全診断合計16件、元stream透過・復元、欠測・不正・超過の区別を維持する。primaryFailure nullは通知欠測とは別に保持する。新event・永続状態・Writer・Lock・Recovery処理は追加せず、要求数・10秒／15秒期限・採否・取消・資源回収・保存Schemaを変えない。
+
+局所反例は要求開始・応答待機・Receipt保存の三停止点で、正常診断・一次失敗null・通知欠測・別Task・別試行・別回復ID・重複・余分field・生本文混入・上限超過を確認した。履歴のみの同exact一件、履歴欠測・重複・別回復参照・別Task・別Operation、復元不能も明示検証した。初回の厳密Consumer試験失敗は新fieldへの合成Producer追従漏れ、Controller一件は期待値追従漏れだった。修正後Coordinator影響四Fileの332件は全件成功。Workbenchの制限環境でのHTTP二件失敗は同対象の通常Windows環境で29件全件成功し、独立指摘の試験補強後はHTTP／collectorの二File計30件が全件成功した。局所collector14件はこの30件と重複するため合算しない。
+
+両Packageの整形・型・Lint、Coordinator Trace検査、差分空白検査は成功。独立レビューの検証補強一件を是正し、再レビュー残指摘零。これは外部AIなしの診断搬送と対象回帰であり、過去の発生分岐の復元、修正後の全CRDD QA又は実AI編集E2E成功ではない。実Docker照会・AI再送・保持物の再読取り／変更は行わない。
+
+#### 状態Ownerの現状 — 今回は再配置しない
+
+利用者の追加質問に対し、Sourceから次を確認した。`storage/model.ts`は8,219行で、保存形式・codecだけでなく技術遷移候補・合法性検証・Task投影・履歴化も所有する。`state/model.ts`は1,807行で値型・構造検査と人間判断の適用が混在する。行数そのものを今回の認証確認作成停止の原因とはしない。
+
+| 現在の処理 | 現配置 | 責務で整理する場合のOwner |
+|---|---|---|
+| Taskの開始・終了・回復 | task/lifecycle.ts、task/recovery.tsに既に存在 | Taskの状態・遷移はtask側で維持 |
+| 技術資源の状態型・Lifecycle／Cleanup／修復の遷移候補 | storage/model.tsにも存在 | execution又は該当する技術責務へ寄せる評価対象 |
+| Taskの終了事実と技術回復参照からの投影 | storage/model.tsのprojectCoordinatorTaskSettlement等 | Task側の投影へ寄せる評価対象 |
+| 人間判断を状態へ適用 | state/model.ts | 判断・Objective／Taskの責務へ寄せる評価対象 |
+| JSON／履歴のencode／decode、保存上限、版・区画間相関の検査 | storage配下 | 保存のOwnerに維持し、責務Ownerの検査器を利用 |
+| File読書き・原子的確定・既存Writer排他 | storage配下 | storageに維持 |
+
+現状は利用者の意図する責務分担に完全にはなっていない。ただし、技術Operationと上位Taskは同じ情報の単純複製ではなく、資源状態と業務結果という別の事実である。低位回復は`execution/recovery.ts`で技術清掃・履歴・操作撤去を閉じ、上位への反映は`task/requests.ts`の回復再入場からupdateCoordinatorSingleTaskへ保存する。低位CLI回復だけではこの上位経路を通らないため、今回のQueue残存は接続範囲の差で説明できる。接続漏れや不正な重複状態とまでは断定せず、後続のOwner整理で再入場契約と一緒に評価する。
+
+後続整理の推奨は、各責務が自身の次状態を決め、storageはその結果を形式・版・責務間の整合を確認して確定する境界である。単一state.jsonと既存の単一Writerは維持でき、ファイル・永続State・Lockを増やす理由にはしない。今回は診断是正へ状態遷移の再配置を混ぜず、storage／stateのモデル・遷移Sourceは変更していない。現状棚卸しと分離判断は独立確認でも妥当と評価された。
 
 <a id="workspace-settlement-fixed-ai-once-20261026"></a>
 

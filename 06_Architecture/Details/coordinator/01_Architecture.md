@@ -1948,6 +1948,8 @@ Taskの各段階には受動通知`coordinator_task_stage_observed`を用いる�
 
 Provider境界のLifecycle診断は、`coordinator_provider_boundary_configured`、`coordinator_provider_process_started`、`coordinator_provider_boundary_settled`の閉じたEvent集合として扱う。検証側は設定、OS Process開始、完了・cleanupを同じEventへ畳まず、`operationId`、ProviderおよびTask Roleで相関する。既知の設定または終了Eventを未知Protocol違反へ誤分類して後続の取消・親喪失操作を抑止してはならず、反対にEvent欠落、余分なEvent、順序差またはIdentity差を成功へ補正してはならない。
 
+境界終了通知は既存の試行番号、Task相関、exact回復参照も搬送し、認証確認の作成要求・応答観測・Receipt保存の一次停止点を、資源清掃の成否と独立した診断として取得する。Workspace検証Toolは同じ有限取得器で固定一次失敗と非秘密観測だけを保存する。一次失敗nullと通知欠測を区別し、現在の技術Identityでの完全照合と、退役後の同じexact回復参照による履歴のみの帰属を区別する。後者を試行別Identityの完全確認へ昇格しない。新しい診断event、永続状態、Writer、回復権限は作らず、結果採否・要求順・取消・清掃・期限を変更しない。
+
 外部Agentへ渡すTask Packetは、通常の対話環境から推測できない実行Capabilityを明示する。隔離WorkspaceにGit Metadataがないこと、利用できない編集Command、および検証済みの決定論的な編集手段を実装と同じ変更で接続する。Agentに試行錯誤でTool Inventoryを推定させず、設定したCapabilityと実際のImage内Toolを結合試験で照合する。
 
 <a id="11-変更と検証"></a>

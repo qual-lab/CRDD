@@ -100,6 +100,9 @@ export type ProviderBoundaryDiagnosticNotice =
       taskRole: "executor" | "reviewer" | null;
       provider: "codex" | "claude";
       operationId: string;
+      taskAttempt: 0 | 1;
+      recoveryCorrelationId: string | null;
+      recoveryId: string;
       providerContainerCreatedObserved: boolean;
       providerProcessStartedObserved: boolean;
       providerProcessCompletionObserved: boolean;

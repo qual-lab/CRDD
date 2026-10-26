@@ -2914,6 +2914,9 @@ async function executePlan(
     Object.freeze({
       event: "coordinator_provider_boundary_settled" as const,
       primaryFailure,
+      taskAttempt: plan.taskAttempt,
+      recoveryCorrelationId: plan.recoveryCorrelationId ?? null,
+      recoveryId: recovery.recoveryId,
       taskRole: plan.taskRole,
       provider: plan.provider,
       operationId: plan.operationId,

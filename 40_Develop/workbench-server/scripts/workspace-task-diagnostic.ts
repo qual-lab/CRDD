@@ -1,5 +1,5 @@
 /**
- * 合成Workspace試験の回復開始・候補検査診断を一つの取得器で有限に取得する。
+ * 合成Workspace試験の回復開始・候補検査・段階・境界終了診断を一つの取得器で有限に取得する。
  * @responsibility 元stderrの意味を変えず、固定診断を既存の安全な結果へ搬送する。
  * @trace ERB-IT-021
  * @security 生出力・任意本文は保持せず、別Taskの診断を受領しない。
@@ -10,6 +10,7 @@ import {
   inspectRecoveryStartFailureDiagnostic,
   inspectCandidateValidationFailureDiagnostic,
   inspectTaskStageDiagnostic,
+  isPrimaryFailureDiagnostic,
 } from "../../coordinator/src/execution/result.ts";
 import type { ProviderBoundaryDiagnosticNotice } from "../../coordinator/src/execution/observation.ts";
 
@@ -24,6 +25,10 @@ type CandidateEvent = Extract<
 type StageEvent = Extract<
   ProviderBoundaryDiagnosticNotice,
   { event: "coordinator_task_stage_observed" }
+>;
+type BoundaryEvent = Extract<
+  ProviderBoundaryDiagnosticNotice,
+  { event: "coordinator_provider_boundary_settled" }
 >;
 type Status =
   | "captured"
@@ -50,9 +55,11 @@ export function captureWorkspaceTaskDiagnostic(stream: Writable) {
   const events: Event[] = [];
   const candidateEvents: CandidateEvent[] = [];
   const stageEvents: StageEvent[] = [];
+  const boundaryEvents: BoundaryEvent[] = [];
   let status: Status = installed ? "collector_unavailable" : "captured";
   let candidateStatus: Status | "task_history_only" = status;
   let stageStatus: Status | "task_history_only" = status;
+  let boundaryStatus: Status | "task_history_only" = status;
   let active = !installed;
   let finished = false;
   const exact = (value: object, keys: string[]) =>
@@ -62,6 +69,11 @@ export function captureWorkspaceTaskDiagnostic(stream: Writable) {
     chunk: unknown,
     ...rest: unknown[]
   ) {
+    const isBoundary =
+      typeof chunk === "string" &&
+      chunk.startsWith(
+        '[Coordinator lifecycle] {"event":"coordinator_provider_boundary_settled"',
+      );
     const isStage =
       typeof chunk === "string" &&
       chunk.startsWith(
@@ -74,14 +86,19 @@ export function captureWorkspaceTaskDiagnostic(stream: Writable) {
       );
     if (
       typeof chunk === "string" &&
-      (chunk.startsWith(marker) || isCandidate || isStage)
+      (chunk.startsWith(marker) || isCandidate || isStage || isBoundary)
     ) {
       try {
         if (
           Buffer.byteLength(chunk, "utf8") > 4096 ||
-          events.length + candidateEvents.length + stageEvents.length >= 16
+          events.length +
+            candidateEvents.length +
+            stageEvents.length +
+            boundaryEvents.length >=
+            16
         ) {
-          if (isStage) stageStatus = "overflow";
+          if (isBoundary) boundaryStatus = "overflow";
+          else if (isStage) stageStatus = "overflow";
           else if (isCandidate) candidateStatus = "overflow";
           else status = "overflow";
         } else {
@@ -93,73 +110,139 @@ export function captureWorkspaceTaskDiagnostic(stream: Writable) {
           if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
             throw new Error("shape");
           const value = parsed as Record<string, unknown>;
-          if (
-            value.event !==
-            (isStage
-              ? "coordinator_task_stage_observed"
-              : isCandidate
-                ? "coordinator_task_candidate_validation_failed"
-                : "coordinator_provider_recovery_start_failed")
-          )
-            throw new Error("event");
-          const diagnostic = isStage
-            ? inspectTaskStageDiagnostic(value.diagnostic)
-            : isCandidate
-              ? inspectCandidateValidationFailureDiagnostic(value.diagnostic)
-              : inspectRecoveryStartFailureDiagnostic(value.diagnostic);
-          if (
-            !exact(value, [
-              "event",
-              "provider",
-              "taskRole",
-              "operationId",
-              "taskAttempt",
-              "recoveryCorrelationId",
-              "diagnostic",
-            ]) ||
-            !["codex", "claude"].includes(value.provider as string) ||
-            ![null, "executor", "reviewer"].includes(
-              value.taskRole as string | null,
-            ) ||
-            (isCandidate && value.taskRole !== "executor") ||
-            (isStage &&
-              (!diagnostic ||
-                !("taskRole" in diagnostic) ||
-                diagnostic.taskRole !== value.taskRole)) ||
-            typeof value.operationId !== "string" ||
-            !/^OP-[0-9]{6,}$/u.test(value.operationId) ||
-            ![0, 1].includes(value.taskAttempt as number) ||
-            typeof value.recoveryCorrelationId !== "string" ||
-            !/^operation-[a-f0-9-]{36}$/u.test(value.recoveryCorrelationId) ||
-            !diagnostic
-          )
-            throw new Error("shape");
-          const event = Object.freeze({ ...value, diagnostic }) as
-            | Event
-            | CandidateEvent
-            | StageEvent;
-          if (
-            (isStage
-              ? stageEvents
-              : isCandidate
-                ? candidateEvents
-                : events
-            ).some(
-              (old) =>
-                old.operationId === event.operationId &&
-                old.provider === event.provider &&
-                old.taskRole === event.taskRole &&
-                old.taskAttempt === event.taskAttempt &&
-                old.recoveryCorrelationId === event.recoveryCorrelationId,
+          if (isBoundary) {
+            const booleanKeys = [
+              "providerContainerCreatedObserved",
+              "providerProcessStartedObserved",
+              "providerProcessCompletionObserved",
+              "processTreeTerminationObserved",
+              "containersAbsentObserved",
+              "networksAbsentObserved",
+              "cleanupConfirmed",
+            ];
+            if (
+              !exact(value, [
+                "event",
+                "provider",
+                "taskRole",
+                "operationId",
+                "taskAttempt",
+                "recoveryCorrelationId",
+                "recoveryId",
+                "primaryFailure",
+                "providerProcessExitStatusClass",
+                ...booleanKeys,
+              ]) ||
+              value.event !== "coordinator_provider_boundary_settled" ||
+              !["codex", "claude"].includes(value.provider as string) ||
+              !["executor", "reviewer"].includes(value.taskRole as string) ||
+              ![0, 1].includes(value.taskAttempt as number) ||
+              typeof value.operationId !== "string" ||
+              !/^OP-[0-9]{6,}$/u.test(value.operationId) ||
+              typeof value.recoveryCorrelationId !== "string" ||
+              !/^operation-[a-f0-9-]{36}$/u.test(value.recoveryCorrelationId) ||
+              typeof value.recoveryId !== "string" ||
+              !/^docker-task\.[a-f0-9]{64}\.[a-f0-9]{64}\.[a-f0-9]{64}$/u.test(
+                value.recoveryId,
+              ) ||
+              !booleanKeys.every((key) => typeof value[key] === "boolean") ||
+              ![
+                "zero",
+                "one",
+                "one_two_six",
+                "one_two_seven",
+                "other_nonzero",
+                "signal",
+                "not_observed",
+              ].includes(value.providerProcessExitStatusClass as string) ||
+              !isPrimaryFailureDiagnostic(value.primaryFailure)
             )
-          )
-            throw new Error("duplicate");
-          if (isStage) stageEvents.push(event as StageEvent);
-          else if (isCandidate) candidateEvents.push(event as CandidateEvent);
-          else events.push(event as Event);
+              throw new Error("boundary_shape");
+            const event = Object.freeze({ ...value }) as BoundaryEvent;
+            if (
+              boundaryEvents.some(
+                (old) =>
+                  old.recoveryId === event.recoveryId ||
+                  (old.operationId === event.operationId &&
+                    old.provider === event.provider &&
+                    old.taskRole === event.taskRole &&
+                    old.taskAttempt === event.taskAttempt &&
+                    old.recoveryCorrelationId === event.recoveryCorrelationId),
+              )
+            )
+              throw new Error("boundary_duplicate");
+            boundaryEvents.push(event);
+          } else {
+            if (
+              value.event !==
+              (isStage
+                ? "coordinator_task_stage_observed"
+                : isCandidate
+                  ? "coordinator_task_candidate_validation_failed"
+                  : "coordinator_provider_recovery_start_failed")
+            )
+              throw new Error("event");
+            const diagnostic = isStage
+              ? inspectTaskStageDiagnostic(value.diagnostic)
+              : isCandidate
+                ? inspectCandidateValidationFailureDiagnostic(value.diagnostic)
+                : inspectRecoveryStartFailureDiagnostic(value.diagnostic);
+            if (
+              !exact(value, [
+                "event",
+                "provider",
+                "taskRole",
+                "operationId",
+                "taskAttempt",
+                "recoveryCorrelationId",
+                "diagnostic",
+              ]) ||
+              !["codex", "claude"].includes(value.provider as string) ||
+              ![null, "executor", "reviewer"].includes(
+                value.taskRole as string | null,
+              ) ||
+              (isCandidate && value.taskRole !== "executor") ||
+              (isStage &&
+                (!diagnostic ||
+                  !("taskRole" in diagnostic) ||
+                  diagnostic.taskRole !== value.taskRole)) ||
+              typeof value.operationId !== "string" ||
+              !/^OP-[0-9]{6,}$/u.test(value.operationId) ||
+              ![0, 1].includes(value.taskAttempt as number) ||
+              typeof value.recoveryCorrelationId !== "string" ||
+              !/^operation-[a-f0-9-]{36}$/u.test(value.recoveryCorrelationId) ||
+              !diagnostic
+            )
+              throw new Error("shape");
+            const event = Object.freeze({ ...value, diagnostic }) as
+              | Event
+              | CandidateEvent
+              | StageEvent;
+            if (
+              (isStage
+                ? stageEvents
+                : isCandidate
+                  ? candidateEvents
+                  : events
+              ).some(
+                (old) =>
+                  old.operationId === event.operationId &&
+                  old.provider === event.provider &&
+                  old.taskRole === event.taskRole &&
+                  old.taskAttempt === event.taskAttempt &&
+                  old.recoveryCorrelationId === event.recoveryCorrelationId,
+              )
+            )
+              throw new Error("duplicate");
+            if (isStage) stageEvents.push(event as StageEvent);
+            else if (isCandidate) candidateEvents.push(event as CandidateEvent);
+            else events.push(event as Event);
+          }
         }
       } catch {
-        if (isStage) {
+        if (isBoundary) {
+          if (boundaryStatus !== "overflow") boundaryStatus = "invalid";
+        } else if (isStage) {
           if (stageStatus !== "overflow") stageStatus = "invalid";
         } else if (isCandidate) {
           if (candidateStatus !== "overflow") candidateStatus = "invalid";
@@ -177,6 +260,7 @@ export function captureWorkspaceTaskDiagnostic(stream: Writable) {
       status = "collector_unavailable";
       candidateStatus = "collector_unavailable";
       stageStatus = "collector_unavailable";
+      boundaryStatus = "collector_unavailable";
     }
   }
   return {
@@ -193,6 +277,7 @@ export function captureWorkspaceTaskDiagnostic(stream: Writable) {
         recoveryId: string;
       }>[] = [],
       expectedStages = false,
+      expectedBoundary = false,
     ) {
       if (finished)
         return {
@@ -205,6 +290,11 @@ export function captureWorkspaceTaskDiagnostic(stream: Writable) {
             closed: false,
           },
           stages: {
+            captureStatus: "collector_unavailable",
+            events: [],
+            closed: false,
+          },
+          boundary: {
             captureStatus: "collector_unavailable",
             events: [],
             closed: false,
@@ -229,6 +319,59 @@ export function captureWorkspaceTaskDiagnostic(stream: Writable) {
       }
       if (!closed) candidateStatus = "invalid";
       if (!closed) stageStatus = "invalid";
+      if (!closed) boundaryStatus = "invalid";
+      let boundaryHistoryOnly = false;
+      const matchedBoundaries = boundaryEvents.filter((event) => {
+        if (
+          event.recoveryCorrelationId !== correlationId ||
+          (event.taskRole === "executor"
+            ? event.provider !== "codex"
+            : event.provider !== "claude")
+        )
+          return false;
+        const related = identities.filter(
+          (i) => i.recoveryId === event.recoveryId,
+        );
+        if (related.length)
+          return (
+            related.length === 1 &&
+            related[0]?.operationId === event.operationId &&
+            related[0]?.provider === event.provider &&
+            related[0]?.taskRole === event.taskRole &&
+            related[0]?.taskAttempt === event.taskAttempt &&
+            related[0]?.recoveryCorrelationId === event.recoveryCorrelationId &&
+            recoveryIds.includes(event.recoveryId)
+          );
+        // 技術操作の退役後は同じexact回復参照の履歴だけに結合する。
+        const history = historyIdentities.filter(
+          (i) => i.recoveryId === event.recoveryId,
+        );
+        if (
+          history.length !== 1 ||
+          history[0]?.operationId !== event.operationId ||
+          history[0]?.recoveryCorrelationId !== event.recoveryCorrelationId
+        )
+          return false;
+        boundaryHistoryOnly = true;
+        return true;
+      });
+      if (
+        matchedBoundaries.length !== boundaryEvents.length &&
+        boundaryStatus === "captured"
+      )
+        boundaryStatus = "invalid";
+      if (
+        !boundaryEvents.length &&
+        expectedBoundary &&
+        boundaryStatus === "captured"
+      )
+        boundaryStatus = "missing";
+      if (
+        matchedBoundaries.length &&
+        boundaryHistoryOnly &&
+        boundaryStatus === "captured"
+      )
+        boundaryStatus = "task_history_only";
       let taskOnly = false;
       const matched = events.filter((event) => {
         if (
@@ -379,6 +522,15 @@ export function captureWorkspaceTaskDiagnostic(stream: Writable) {
         captureStatus: status,
         events: status === "captured" || status === "task_only" ? matched : [],
         closed,
+        boundary: {
+          captureStatus: boundaryStatus,
+          events:
+            boundaryStatus === "captured" ||
+            boundaryStatus === "task_history_only"
+              ? matchedBoundaries
+              : [],
+          closed,
+        },
         stages: {
           captureStatus: stageStatus,
           events:

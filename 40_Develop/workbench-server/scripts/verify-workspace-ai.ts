@@ -723,11 +723,15 @@ async function verify(
         historyIdentities,
         task?.reason === "coordinator_task_independent_review_not_approved" ||
           task?.reason === "coordinator_task_workspace_review_completed",
+        typeof task?.reason === "string" &&
+          task.reason === "coordinator_task_provider_failed",
       );
-      const { candidateValidation, stages, ...recoveryStart } = captured;
+      const { candidateValidation, stages, boundary, ...recoveryStart } =
+        captured;
       evidence.recoveryStartDiagnostic = recoveryStart;
       evidence.candidateValidationDiagnostic = candidateValidation;
       evidence.stageDiagnostic = stages;
+      evidence.boundaryDiagnostic = boundary;
       if (!captured.closed) evidence.closeConfirmed = false;
     }
     evidence.runtimeClean = runtimeClean;

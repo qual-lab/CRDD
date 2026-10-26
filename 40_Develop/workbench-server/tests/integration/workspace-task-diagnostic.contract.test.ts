@@ -42,6 +42,194 @@ const identity = {
   recoveryId,
 };
 
+/** 境界終端は既存一次失敗だけを保存し、本文・別試行・不完全相関を受理しない。
+ * @trace ERB-IT-021
+ * @boundary 合成通知→同じ有限collector。AI・Docker・Filesystemなし。
+ */
+test("境界終端診断は要求・応答・Receiptの停止点を完全相関で搬送する", () => {
+  for (const stage of [
+    "command_start",
+    "command_wait",
+    "resource_receipt_record",
+  ] as const) {
+    for (const mode of [
+      "valid",
+      "null",
+      "missing",
+      "foreign",
+      "attempt",
+      "recovery",
+      "duplicate",
+      "extra",
+      "raw-primary",
+      "overflow",
+    ] as const) {
+      let forwarded = 0;
+      const stream = new Writable({
+        write(_c, _e, done) {
+          forwarded++;
+          done();
+        },
+      });
+      const original = stream.write;
+      const collector = captureWorkspaceTaskDiagnostic(stream);
+      const value = {
+        event: "coordinator_provider_boundary_settled",
+        ...identity,
+        providerContainerCreatedObserved: false,
+        providerProcessStartedObserved: false,
+        providerProcessCompletionObserved: false,
+        providerProcessExitStatusClass: "not_observed",
+        processTreeTerminationObserved: false,
+        containersAbsentObserved: false,
+        networksAbsentObserved: true,
+        cleanupConfirmed: false,
+        primaryFailure:
+          mode === "null"
+            ? null
+            : {
+                purpose: "create_subscription_auth_probe",
+                stage,
+                reason: "docker_process_controller_execution_failed_closed",
+                exceptionCode: null,
+                commandHandleObtained: stage !== "command_start",
+                responseObserved: stage === "resource_receipt_record",
+                receiptRecorded: false,
+                commandObservation:
+                  stage === "resource_receipt_record"
+                    ? { exitCode: 0, stdoutBytes: 65, stderrBytes: 0 }
+                    : null,
+                ...(mode === "raw-primary" ? { raw: "DO_NOT_RETAIN" } : {}),
+              },
+        ...(mode === "foreign"
+          ? {
+              recoveryCorrelationId:
+                "operation-aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+            }
+          : {}),
+        ...(mode === "attempt" ? { taskAttempt: 1 } : {}),
+        ...(mode === "recovery"
+          ? {
+              recoveryId: `docker-task.${"d".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`,
+            }
+          : {}),
+        ...(mode === "extra" ? { text: "DO_NOT_RETAIN" } : {}),
+      };
+      if (mode !== "missing") stream.write(frame(value));
+      if (mode === "duplicate") stream.write(frame(value));
+      if (mode === "overflow")
+        for (let i = 1; i <= 16; i++)
+          stream.write(
+            frame({
+              ...value,
+              operationId: `OP-${123456 + i}`,
+              recoveryId: `docker-task.${i.toString(16).padStart(64, "0")}.${"b".repeat(64)}.${"c".repeat(64)}`,
+            }),
+          );
+      const result = collector.finish(
+        correlation,
+        [recoveryId],
+        false,
+        [identity],
+        false,
+        [],
+        false,
+        true,
+      );
+      assert.equal(stream.write, original);
+      assert.equal(result.boundary.closed, true);
+      assert.equal(
+        result.boundary.captureStatus,
+        mode === "valid" || mode === "null"
+          ? "captured"
+          : mode === "missing"
+            ? "missing"
+            : mode === "overflow"
+              ? "overflow"
+              : "invalid",
+      );
+      assert.equal(
+        result.boundary.events.length,
+        mode === "valid" || mode === "null" ? 1 : 0,
+      );
+      if (mode === "valid")
+        assert.equal(result.boundary.events[0]?.primaryFailure?.stage, stage);
+      if (mode === "null")
+        assert.equal(result.boundary.events[0]?.primaryFailure, null);
+      assert.equal(JSON.stringify(result).includes("DO_NOT_RETAIN"), false);
+      assert.equal(forwarded > 0, mode !== "missing");
+    }
+  }
+});
+
+/** 退役後の履歴帰属は完全Identity確認と区別し、exact参照欠落を推測しない。
+ * @trace ERB-IT-021
+ * @boundary 合成の履歴参照→既存collector。保存や実資源の操作なし。
+ */
+test("境界終端の履歴のみ帰属は同exact参照一件に限定する", () => {
+  for (const mode of [
+    "valid",
+    "missing",
+    "duplicate",
+    "recovery",
+    "task",
+    "operation",
+  ] as const) {
+    const stream = new Writable({
+      write(_c, _e, done) {
+        done();
+      },
+    });
+    const collector = captureWorkspaceTaskDiagnostic(stream);
+    stream.write(
+      frame({
+        event: "coordinator_provider_boundary_settled",
+        ...identity,
+        providerContainerCreatedObserved: false,
+        providerProcessStartedObserved: false,
+        providerProcessCompletionObserved: false,
+        providerProcessExitStatusClass: "not_observed",
+        processTreeTerminationObserved: false,
+        containersAbsentObserved: false,
+        networksAbsentObserved: true,
+        cleanupConfirmed: false,
+        primaryFailure: null,
+      }),
+    );
+    const history = {
+      operationId: mode === "operation" ? "OP-999999" : identity.operationId,
+      recoveryCorrelationId:
+        mode === "task"
+          ? "operation-aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+          : correlation,
+      recoveryId:
+        mode === "recovery"
+          ? `docker-task.${"d".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`
+          : recoveryId,
+    };
+    const result = collector.finish(
+      correlation,
+      [],
+      false,
+      [],
+      false,
+      mode === "missing"
+        ? []
+        : mode === "duplicate"
+          ? [history, history]
+          : [history],
+      false,
+      true,
+    );
+    assert.equal(
+      result.boundary.captureStatus,
+      mode === "valid" ? "task_history_only" : "invalid",
+    );
+    assert.equal(result.boundary.events.length, mode === "valid" ? 1 : 0);
+    assert.equal(result.boundary.closed, true);
+  }
+});
+
 const candidateEvent = (overrides: Record<string, unknown> = {}) => ({
   ...event(),
   event: "coordinator_task_candidate_validation_failed",
@@ -795,6 +983,8 @@ test("回復開始collectorは復元不能後の再設置を拒否する", () =>
   assert.equal(result.captureStatus, "invalid");
   assert.equal(stream.write, foreignWrite);
   assert.equal(result.stages.captureStatus, "invalid");
+  assert.equal(result.boundary.captureStatus, "invalid");
+  assert.equal(result.boundary.closed, false);
   const next = captureWorkspaceTaskDiagnostic(stream);
   assert.equal(next.available, false);
   assert.equal(
@@ -839,6 +1029,8 @@ test("回復開始collectorは復元代入の拒否と無反映を保持する",
     const result = collector.finish(null, [], false);
     assert.equal(result.closed, false);
     assert.equal(result.captureStatus, "invalid");
+    assert.equal(result.boundary.captureStatus, "invalid");
+    assert.equal(result.boundary.closed, false);
     assert.equal(create(stream).available, false);
   }
 });

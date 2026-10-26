@@ -453,6 +453,9 @@ const observation = (
       },
       {
         event: "coordinator_provider_boundary_settled" as const,
+        taskAttempt: 0,
+        recoveryCorrelationId: null,
+        recoveryId: `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`,
         taskRole: event.taskRole,
         provider: event.provider,
         operationId: event.operationId,
@@ -809,6 +812,9 @@ const buildInput = (overrides: Record<string, unknown> = {}) =>
           },
           {
             event: "coordinator_provider_boundary_settled",
+            taskAttempt: 0,
+            recoveryCorrelationId: null,
+            recoveryId: `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`,
             taskRole: "executor",
             provider: "claude",
             operationId: "OP-300001",
@@ -1360,6 +1366,9 @@ test("取消後に完了したProvider境界清掃を受理する", () => {
           ...base.cancellation.providerBoundaryEvents.slice(0, 1),
           {
             event: "coordinator_provider_boundary_settled",
+            taskAttempt: 0,
+            recoveryCorrelationId: null,
+            recoveryId: `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`,
             taskRole: started.taskRole,
             provider: started.provider,
             operationId: started.operationId,
@@ -1409,6 +1418,9 @@ test("取消時の不完全または閉集合外Provider境界診断を拒否す
   assert.ok(started);
   const settled = {
     event: "coordinator_provider_boundary_settled" as const,
+    taskAttempt: 0,
+    recoveryCorrelationId: null,
+    recoveryId: `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`,
     taskRole: started.taskRole,
     provider: started.provider,
     operationId: started.operationId,

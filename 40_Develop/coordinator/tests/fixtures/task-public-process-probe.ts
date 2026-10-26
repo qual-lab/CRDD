@@ -161,7 +161,7 @@ process.stdin.on("data", (chunk) => {
         `[Coordinator lifecycle] ${JSON.stringify({ event: "coordinator_provider_process_started", taskRole: "executor", provider: "codex", operationId })}\n`,
       );
       process.stderr.write(
-        `[Coordinator lifecycle] ${JSON.stringify({ event: "coordinator_provider_boundary_settled", taskRole: "executor", provider: "codex", operationId, providerContainerCreatedObserved: true, providerProcessStartedObserved: true, providerProcessCompletionObserved: true, providerProcessExitStatusClass: "zero", processTreeTerminationObserved: false, containersAbsentObserved: true, networksAbsentObserved: true, cleanupConfirmed: true, ...(mode === "boundary-primary-diagnostic" ? { primaryFailure: JSON.parse(process.argv[3] ?? "null") } : {}) })}\n`,
+        `[Coordinator lifecycle] ${JSON.stringify({ event: "coordinator_provider_boundary_settled", taskAttempt: 0, recoveryCorrelationId: null, recoveryId: `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`, taskRole: "executor", provider: "codex", operationId, providerContainerCreatedObserved: true, providerProcessStartedObserved: true, providerProcessCompletionObserved: true, providerProcessExitStatusClass: "zero", processTreeTerminationObserved: false, containersAbsentObserved: true, networksAbsentObserved: true, cleanupConfirmed: true, ...(mode === "boundary-primary-diagnostic" ? { primaryFailure: JSON.parse(process.argv[3] ?? "null") } : {}) })}\n`,
       );
       process.stdout.write(responseLine);
       return;
@@ -195,7 +195,7 @@ process.stdin.on("data", (chunk) => {
     }
     if (!isCancelled)
       process.stderr.write(
-        `[Coordinator lifecycle] ${JSON.stringify({ event: "coordinator_provider_boundary_settled", taskRole: "executor", provider, operationId, providerContainerCreatedObserved: true, providerProcessStartedObserved: true, providerProcessCompletionObserved: true, providerProcessExitStatusClass: "zero", processTreeTerminationObserved: false, containersAbsentObserved: true, networksAbsentObserved: true, cleanupConfirmed: true })}\n`,
+        `[Coordinator lifecycle] ${JSON.stringify({ event: "coordinator_provider_boundary_settled", taskAttempt: 0, recoveryCorrelationId: null, recoveryId: `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`, taskRole: "executor", provider, operationId, providerContainerCreatedObserved: true, providerProcessStartedObserved: true, providerProcessCompletionObserved: true, providerProcessExitStatusClass: "zero", processTreeTerminationObserved: false, containersAbsentObserved: true, networksAbsentObserved: true, cleanupConfirmed: true })}\n`,
       );
     if (mode === "recovery-events") {
       const recoveryId = `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`;
@@ -236,7 +236,7 @@ process.stdin.on("data", (chunk) => {
       );
     if (mode !== "cancelled")
       process.stderr.write(
-        `[Coordinator lifecycle] ${JSON.stringify({ event: "coordinator_provider_boundary_settled", taskRole: "reviewer", provider: "claude", operationId: "OP-100001", providerContainerCreatedObserved: true, providerProcessStartedObserved: true, providerProcessCompletionObserved: true, providerProcessExitStatusClass: "zero", processTreeTerminationObserved: false, containersAbsentObserved: true, networksAbsentObserved: true, cleanupConfirmed: true })}\n`,
+        `[Coordinator lifecycle] ${JSON.stringify({ event: "coordinator_provider_boundary_settled", taskAttempt: 0, recoveryCorrelationId: null, recoveryId: `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`, taskRole: "reviewer", provider: "claude", operationId: "OP-100001", providerContainerCreatedObserved: true, providerProcessStartedObserved: true, providerProcessCompletionObserved: true, providerProcessExitStatusClass: "zero", processTreeTerminationObserved: false, containersAbsentObserved: true, networksAbsentObserved: true, cleanupConfirmed: true })}\n`,
       );
     process.stdout.write(responseLine);
   }
@@ -244,7 +244,7 @@ process.stdin.on("data", (chunk) => {
 process.stdin.on("end", () => {
   if (mode === "cancelled")
     process.stderr.write(
-      `[Coordinator lifecycle] ${JSON.stringify({ event: "coordinator_provider_boundary_settled", taskRole: "executor", provider: "claude", operationId: "OP-300001", providerContainerCreatedObserved: true, providerProcessStartedObserved: true, providerProcessCompletionObserved: false, providerProcessExitStatusClass: "not_observed", processTreeTerminationObserved: true, containersAbsentObserved: true, networksAbsentObserved: true, cleanupConfirmed: true })}\n`,
+      `[Coordinator lifecycle] ${JSON.stringify({ event: "coordinator_provider_boundary_settled", taskAttempt: 0, recoveryCorrelationId: null, recoveryId: `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`, taskRole: "executor", provider: "claude", operationId: "OP-300001", providerContainerCreatedObserved: true, providerProcessStartedObserved: true, providerProcessCompletionObserved: false, providerProcessExitStatusClass: "not_observed", processTreeTerminationObserved: true, containersAbsentObserved: true, networksAbsentObserved: true, cleanupConfirmed: true })}\n`,
     );
   if (mode === "nonzero") process.exitCode = 7;
 });
