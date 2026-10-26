@@ -191,6 +191,8 @@ export type PrimaryFailureDiagnostic = Readonly<{
 export const PROVIDER_EXECUTION_OBSERVATION_KEYS = new Set([
   "transport",
   "turnCompleted",
+  "itemErrorCount",
+  "itemErrorCodeModeCount",
   "commandExecutionStartedCount",
   "commandExecutionCompletedCount",
   "commandExecutionFailedCount",
@@ -227,11 +229,30 @@ export const PROVIDER_EXECUTION_OBSERVATION_KEYS = new Set([
  * @trace ERB-IT-021
  */
 export function inspectProviderExecutionObservation(raw: unknown) {
-  const observation = snapshotPlainRecord(
-    raw,
-    PROVIDER_EXECUTION_OBSERVATION_KEYS,
-  );
+  const observation =
+    snapshotPlainRecord(raw, PROVIDER_EXECUTION_OBSERVATION_KEYS) ??
+    snapshotPlainRecord(
+      raw,
+      new Set(
+        [...PROVIDER_EXECUTION_OBSERVATION_KEYS].filter(
+          (key) => key !== "itemErrorCount" && key !== "itemErrorCodeModeCount",
+        ),
+      ),
+    );
   if (!observation) return null;
+  const hasErrorCounts =
+    Object.hasOwn(observation, "itemErrorCount") ||
+    Object.hasOwn(observation, "itemErrorCodeModeCount");
+  if (
+    (observation.transport === "fixed_cli_jsonl_v0_164_0" || hasErrorCounts) &&
+    (!Number.isSafeInteger(observation.itemErrorCount) ||
+      !Number.isSafeInteger(observation.itemErrorCodeModeCount) ||
+      (observation.itemErrorCodeModeCount as number) < 0 ||
+      (observation.itemErrorCount as number) > 4096 ||
+      (observation.itemErrorCodeModeCount as number) >
+        (observation.itemErrorCount as number))
+  )
+    return null;
   const countKeys = [
     "commandExecutionStartedCount",
     "commandExecutionCompletedCount",
@@ -291,6 +312,70 @@ export type CandidateValidationFailureDiagnostic = Readonly<{
     typeof inspectProviderExecutionObservation
   >;
 }>;
+
+/** 各試行の編集照合又はレビュー分類だけを表す受動診断。
+ * @responsibility 本文・Pathを複製せず、初回と限定是正の観測を分離する。
+ * @trace ERB-IT-021
+ */
+export type TaskStageDiagnostic =
+  | Readonly<{
+      taskRole: "executor";
+      result: CandidateValidationFailureDiagnostic;
+    }>
+  | Readonly<{
+      taskRole: "reviewer";
+      decision: "approved" | "changes_requested";
+      findingCount: number;
+      categoryCounts: readonly number[];
+    }>;
+
+/** 段階診断の閉じたfieldと件数相関を検査する。採否・Authorityは変更しない。
+ * @responsibility 自由文、余分field、欠測を成功観測へ変換しない。
+ * @trace ERB-IT-021
+ */
+export function inspectTaskStageDiagnostic(
+  raw: unknown,
+): TaskStageDiagnostic | null {
+  const executor = snapshotPlainRecord(raw, new Set(["taskRole", "result"]));
+  if (executor?.taskRole === "executor") {
+    const result = inspectCandidateValidationFailureDiagnostic(executor.result);
+    return result ? Object.freeze({ taskRole: "executor", result }) : null;
+  }
+  const reviewer = snapshotPlainRecord(
+    raw,
+    new Set(["taskRole", "decision", "findingCount", "categoryCounts"]),
+  );
+  if (
+    reviewer?.taskRole !== "reviewer" ||
+    !["approved", "changes_requested"].includes(reviewer.decision as string) ||
+    !Number.isSafeInteger(reviewer.findingCount) ||
+    (reviewer.findingCount as number) < 0 ||
+    (reviewer.findingCount as number) > 64
+  )
+    return null;
+  const counts = snapshotPlainArray<unknown>(reviewer.categoryCounts, 4);
+  if (
+    counts.status !== "ok" ||
+    counts.value.length !== 4 ||
+    !counts.value.every(
+      (n) =>
+        Number.isSafeInteger(n) && (n as number) >= 0 && (n as number) <= 64,
+    )
+  )
+    return null;
+  const categoryCounts = counts.value as number[];
+  if (
+    categoryCounts.reduce((a, b) => a + b, 0) !== reviewer.findingCount ||
+    (reviewer.decision === "approved") !== (reviewer.findingCount === 0)
+  )
+    return null;
+  return Object.freeze({
+    taskRole: "reviewer",
+    decision: reviewer.decision as "approved" | "changes_requested",
+    findingCount: reviewer.findingCount as number,
+    categoryCounts: Object.freeze([...categoryCounts]),
+  });
+}
 
 /** 固定分類と件数だけを受理し、本文・Path・余分fieldを診断へ搬送しない。
  * @responsibility 候補拒否診断の相関した値境界を検査する。

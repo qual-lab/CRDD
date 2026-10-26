@@ -225,6 +225,8 @@ test("Codex JSONLは本文を公開せずTool種別と終了状態だけを投�
   assert.deepEqual(result.normalizedResult?.providerExecutionObservation, {
     transport: "fixed_cli_jsonl_v0_164_0",
     turnCompleted: true,
+    itemErrorCount: 0,
+    itemErrorCodeModeCount: 0,
     commandExecutionStartedCount: 1,
     commandExecutionCompletedCount: 1,
     commandExecutionFailedCount: 0,
@@ -305,6 +307,8 @@ test("Codex JSONLのCommand終了codeは本文なしの閉じた区分へ集計�
   assert.deepEqual(result.normalizedResult?.providerExecutionObservation, {
     transport: "fixed_cli_jsonl_v0_164_0",
     turnCompleted: true,
+    itemErrorCount: 0,
+    itemErrorCodeModeCount: 0,
     commandExecutionStartedCount: 6,
     commandExecutionCompletedCount: 1,
     commandExecutionFailedCount: 5,

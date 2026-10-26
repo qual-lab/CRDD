@@ -12,6 +12,10 @@ Repository Role: `crdd-standard`
 
 ### 結論
 
+編集停止の非AI調査を進め、内部error Itemの観測漏れと段階診断の上位搬送欠落を限定是正した。既存の受動通知・単一有限取得器だけを拡張し、Task採否・権限・保存Schema・15秒期限は不変。AI Adapter26件、Coordinator対象219件、Workbench HTTP等37件と独立再レビュー残指摘零を確認した。Claudeの旧Turn上限を要求する二試験と、試験一覧自己検査の古い展開件数・補助文字列の誤計数を追従した。2026-10-27の通常Windows環境のCoordinator広域再回帰は1,869件中1,864成功・失敗零・既存除外5件、終了零で完了した。是正後の関連14件・静的検査も成功、前回1,868件の不合格結果は履歴として維持する。全CRDD QA、実Docker・実AI編集E2Eの成功とはせず、元のCodex未編集の直接原因・Code Mode経由の実編集は未実証。今回AI再送・Docker・保持物操作は行っていない。[今回の診断是正と限界](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#workspace-stage-diagnostic-20261026)を参照する。
+
+固定版`c01da3f4e`の承認済み一回実AI試験は、非AI事前確認の両方式成功・清掃後、Directの独立Review非承認で停止した。HTTP Timeoutと終了確定不成立は今回結果に現れず、四技術履歴の終了・Host清掃・Lease解放を確認したが、合成source.txtはBASEのままで編集E2Eは不合格、Isolated未開始。Reviewのdecision値・件数・指摘内訳は有限Tool結果に含まれず、具体理由は未確定。現在操作・回復待ち・配送待ちは零、今回の試験Container等の実行資源と短命入口は回収済みだが、blockedの合成Root・結果・終了要約待ち一件を2026-11-02までの再評価対象として保持する。再送・再起動・過去保持物操作・生出力保存なし。[一回結果と回収限界](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#workspace-settlement-fixed-ai-once-20261026)を参照する。
+
 各Stageの終了保存成功・排他解放後にNode標準setImmediateでI/Oへ制御を返す最小是正を追加した。十五秒期限、Writer拒否、取消後の清掃継続、全最終確定とHost再観測は維持し、新Worker・Queue・Lockは追加しない。現候補でCoordinator323件・Windows実Writer四形・Workbench35件と静的検査は成功、独立レビューの文書Minor二件は是正済み。三Stage並行照会は初回保存後に応答し、子の通信5,980msと親のclose観測17,903msを区別して記録した。単一保存最大時間や前回実AI原因・編集E2Eの解消までは主張しない。AI再送・実Docker・過去保持物操作はなし。[制御返却と非AI最終結果](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#settlement-io-yield-20261026)を参照する。
 
 終了確定の二重保存を最小是正した。同じProcessの元Ownerが既に保持するcompleted結果だけを最終確定で再利用し、別Stageが進めた状態へ古いSnapshotを再保存しない。blocked／欠測の再入場、Writer安全判定、transient退役・durable保持、十五秒期限は不変。制御返却追加前の候補ではCoordinator対象322件・Windows実Writer四形・Workbench35件、静的検査と限定独立レビューは成功／残指摘零。制御返却追加前の三Stage同期受領と並行HTTPは13,671msで十五秒内だが余裕が小さかった。後続の制御返却候補は別に評価し、前回実AITimeoutの唯一原因や解消を確定しない。AI再送・実Docker・過去保持物操作はなし。[最小是正・非AI測定と限界](99_Roadmap/Changes/CHG-000082/coordinator-interface-redesign-plan.md#settlement-finalization-reuse-20261026)を参照する。

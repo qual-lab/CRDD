@@ -1783,6 +1783,65 @@ Isolatedは未開始、再試行・Docker再起動・Image更新・旧保持物�
 
 Architecture DetailとQAへ原則・Owner・検証義務を反映した。実AI再送・Docker操作・保持物変更は行っていない。今回の是正を過去のE2E成功や、保持中の四回復参照の終了へ遡及しない。
 
+<a id="workspace-stage-diagnostic-20261026"></a>
+
+### 編集・レビュー段階の限定診断 — 非AI是正
+
+固定版`c01da3f4e`のReview非承認後をSourceと合成値で調査した。編集Objective→Task Packet→stdin、Executor書込みMount・権限、候補独立観測の接続に、読取り専用へ誤変換する箇所は見つからなかった。一方、Task JSONLのerror Itemを件数へ含めないことと、内部のExecutor／Reviewer診断を上位Task結果へ縮約する際に落とすことを確認した。ツール未使用・コマンド失敗・error Itemの三合成入力は従来同じ受理となり、error ItemはCommand失敗零に見えていた。受理はTask成功ではなく、元の独立レビュー非承認は維持する。
+
+是正は内部error総数とCode Mode固定表記一致件数、および各段階の変更件数・照合・レビュー判定・分類件数を既存の受動通知と単一有限取得器へ搬送する範囲に限定する。公開Task DTO・耐久Schema・採否・Authority・15秒期限・取消・回収は変えず、生出力・Command・Path・指摘本文を保存しない。旧診断の新件数欠測は零補完しない。通知の欠測・逆順・別相関・重複・超過・復元失敗は確認不能として表示する。
+
+既存の非AI Sandbox実測はCode Mode HostのhelpとPythonのSandbox書込みであり、Model→Code Mode→編集の実証ではない。基準更新Commit`c875b8899`でgpt-6.1-solのCode Mode必須・fallback禁止へ切り替わった差分は調査優先境界とするが、今回原因とは断定しない。採否基準の編集目的との対応も改善候補として残し、今回の診断是正でPrompt・Review判断を同時変更しない。AI再送・Docker操作・保持物操作は行わない。
+
+非AI確認はAI Adapter通常26件、CoordinatorのTask／結果解析／公開Process検証219件、WorkbenchのHTTP・Client・段階診断37件が成功した。診断・解析の局所28件はこれらと重複する確認で、総数へ加算しない。制限環境のリンク作成・HTTP子失敗は、安全条件を緩和せず同じ対象の通常環境実行で成功確認した。独立レビューの旧診断欠測・件数相関・完了時の欠測／順序試験の3指摘を一括是正し、再レビュー残指摘零。三Packageの整形・型・lintとCoordinator Trace検査は成功（既存InfoはCoordinator84・Workbench5）。変更4文書の直接指摘は零、参照展開先119文書の3,357エラーは全体不合格として残す。
+
+別途開始したCoordinator広域回帰は終了1で不合格と確定した。実行表示を末尾65行に限定していたため、最終集計・失敗全件数は未取得であり、末尾にない失敗を不存在と扱わない。末尾の`operation-creation.contract.test.ts`一件は`terminal_selected_user_unknown`で停止したが、同じ試験を通常環境で確認すると一件成功した。`provider-advice-output.contract.test.ts`の二件は局所で再現し、`num_turns: 3`拒否と`turnCount <= 2`を要求する旧試験期待値の残存と特定した。基準CommitのClaude解析関数と現行関数が同一で、基準Commitの試験にも旧上限があることを照合した。今回のCodex受動診断追加の退行とは分類しないが、試験を未是正のまま全体Passとはしない。広域失敗の全数分類・旧試験追従は残件とし、今回の結果確認ではSourceを追加変更しない。実AI編集成功・再送許可へ昇格せず、AI再送・Docker操作・過去保持物操作は行わない。
+
+#### 旧試験追従と通常Windows環境での広域回帰
+
+利用者の継続指示に基づき、Claudeの二試験を採用済みの正の安全整数契約へ追従した。三Turnと安全整数最大値は受理し、零・負数・小数・安全整数超過・非数値および既存のError／Cost／出力拒否を維持する。製品Parser・安全判定・期限・実行Profileは変更しない。局所十件は成功し、限定独立確認の残指摘は零だった。
+
+通常Windows環境でPortable対象のunit／integration／systemを直列実行し、全失敗名・位置・最終集計を取得した。1,868件中1,862成功・1失敗・5除外、取消零、終了1、所要3,332,712.0258 ms。Host Windows／Windows Process Gateの既存除外条件は維持した。唯一の失敗は`test-execution-profile.contract.test.ts`の閉集合自己検査で、Claude二件は成功し、先行のWindows主体確認失敗は再現しなかった。
+
+自己検査には、既存Owner三Stage形の一覧追従漏れ（展開13→14、合計105→106）と、補助コード中の`Host Windows:`文字列まで登録として数える誤検知があった。ファイル発見・登録数照合で同じ行頭test呼出し検査を使用し、補助文字列・コメントの除外、引用符三形式・改行登録の受理を局所反例で固定した。既存の動的展開照合、実試験本体・実行Script・除外条件は変更しない。106は一覧の展開件数であり、Host実試験の今回実行成功数ではない。
+
+是正後はProfile四件とClaudeを含む助言十件の計14件が成功し、Coordinator静的検査・Trace検査も成功した。試験二Fileと現在投影・本記録の限定独立最終確認は残指摘零。広域runの唯一の失敗を対象回帰で解消した扱いであり、是正後の広域再実行や全CRDD QA成功とはしない。前記の参照展開文書3,357エラーと実AI編集未成立は別の残件として維持する。AI再送・Docker操作・過去保持物操作・Provider生出力保存は行わない。
+
+#### 2026-10-27 修正後の広域再回帰
+
+利用者の継続指示に基づき、修正後の同じ候補でCoordinator Portableのunit／integration／systemを通常Windows環境で直列再実行した。製品Source・試験・実行Scriptを実行中に変更せず、既存のHost Windows／Windows Process Gate除外を維持した。1,869件中1,864成功・失敗零・取消零・既存除外5件・todo零、3 Suite、所要3,359,467.32 ms、終了0で完了した。前回より一件多いのは、補助文字列と実test登録を区別する反例の追加による。途中の成功表示件数は進捗表示だけとし、最終集計へ置き換えた。
+
+今回の確認はCoordinator Portableの修正後広域回帰である。前回の1,868件中一件失敗と、その後の局所14件成功を過去結果として維持し、今回の結果と混合しない。再回帰後のCoordinator静的検査・Trace検査・差分空白検査も成功し、結果記録の独立確認は残指摘零。Host専用試験、全CRDD QA、実Docker・実AI編集E2Eの成功は主張しない。実行中プロセスの試験名を限定読取りで確認した以外に、追加診断・製品修正は行わず、AI再送・Docker操作・保持物操作・Provider生出力保存も行っていない。実AI未編集の直接原因と参照展開文書の既存不合格は引き続き別の残件とする。
+
+#### 診断付き実AI編集E2Eへの再入場案 — 実行承認待ち
+
+非AI回帰後の利用者の継続指示を受け、既存Tool・選定・固定ImageをSource読取りで照合した。今回の指示だけで、停止中のAI再送・Docker操作・保持物操作を許可済みへ変更しない。先に検証済み差分をCommitで固定し、次の限定範囲を人間へ提示する。
+
+- 新品Rootは`.crdd/tests/workspace-ai-stage-diagnostic-20261027/`だけ。非AI事前確認の後、Direct→Isolatedを各一Task、同じ合成Context・source.txt・固定編集指示・差分だけで実施する。本体Source・実PROJECT_CONTEXT・秘密値をPromptへ送らない。既存Toolが使用する公開ブランド画像と合成のdirty／stage／未追跡確認用ファイルは従来どおりとし、対象外ファイルを編集しない。
+- Codex `gpt-6.1-sol`／mediumが編集、Claude `claude-opus-5-5`／mediumがレビューする。通常計四起動、既存の一回限定是正・再レビューを含め全体最大八起動。Task全体の自動再試行・失敗後の再送はしない。Direct不成立ならIsolatedへ進まない。
+- Source定義の固定Image（Codex 0.164.0、Claude 2.1.310、既存Proxy）と既存Subscription認証だけを使う。開始前にEngine・Image・既存資源を読取り確認し、停止・欠測・他操作との競合では停止する。Docker起動・再起動・修復、Image取得／更新、APIキーfallbackは含めない。
+- 新規の段階診断は件数・分類・照合・判定だけを有限取得し、生出力・指摘本文・Command・秘密値を保存しない。十五秒のHTTP期限、安全判定、取消と終了待機は維持する。
+- 成功時は合成領域内で明示候補固定・二親Merge・Branch／Worktree回収まで確認する。本体Repositoryの採用・Mergeは含めない。今回生成した資源だけを元Identityと既存処理で回収し、非使用・参照解消を確認できた試験物だけ清掃する。不明なら同じ回復参照と有限結果を保持し、回収完了と表示しない。過去保持物には再入場しない。
+- 対話端末の短命入口が必要な場合は`.crdd/tmp/workspace-ai-stage-diagnostic-20261027/`に限定する。既存の固定HEAD・Tool一致・新品Root差替え確認を再利用し、新Frameworkは追加しない。終了後の非使用確認と回収、不明時の保持は既存手順に従う。
+
+この段階ではSource調査と計画整理だけを行い、新品試験Root・短命入口の作成、Docker照会、実AI送信は未実施。実行前の明示承認と通常の送信同意は別に維持する。
+
+<a id="workspace-settlement-fixed-ai-once-20261026"></a>
+
+### 終了確定・I/O是正後の一回実AI試験 — Review非承認で停止
+
+利用者は固定版`c01da3f4e25ff073fbea9cdafa042e1ea3027076`、新品`.crdd/tests/workspace-ai-settlement-fixed-20261026/`での一回実行を承認した。通常四起動・既存一回是正と再レビューを含め最大八起動、同じ合成Context／Source／固定指示と差分、Codex gpt-6.1-sol／medium・Claude claude-opus-5-5／medium、既存Image・Subscription認証を維持した。短命入口の固定HEAD・clean・Tool blob一致、Root一箇所差替え、相対importの元位置解決、TTYと成功preflightの必須化は独立確認で残指摘零。Engine正常、固定Image三件存在、既存停止Container一件のみを開始前に確認した。外部送信の同意入力を自動化せず、再送・再起動・Image更新・旧保持物操作は行わない。
+
+非AI事前確認はDirect／IsolatedともlimitedProbePassed／closeConfirmed／runtimeClean／workspaceClean true、fixtureRootsRemoved true、SourceとDocker一覧・構成不変で終了0。続く正式Toolの実AI試験はDirect受付`request-15832993-5b98-4d41-85cf-101c619e2ec9`がblocked／`coordinator_task_independent_review_not_approved`、Tool一次失敗edit_task_not_completed、段階verify_resultで停止した。HTTP transportFailureはnull、Task cleanupConfirmed true、回復参照・副次失敗は空。Isolatedは未開始、fullE2eVerified falseで、失敗後再試行しない。
+
+現Sourceの当該理由は候補検証の後、Reviewer decisionがapprovedでない又はfindingCountが零でない場合に返る。今回の有限Tool結果にはそのdecision値・件数・指摘内訳が含まれず、具体的なReview理由を復元・推定しない。回復開始／候補検査診断はそれぞれcaptured・event零・closed true。HTTP Timeout／終了確定不成立は今回結果に現れなかったが、一般的な故障解消や編集E2E成功へ昇格しない。
+
+今回Rootの後観測ではoperations／unresolvedRecoveries／pendingDeliveries／leaseIntents／workspaces／resultsは零。queue三件・historyPending一件・leaseEvidence二件を保持し、対象Taskはsettled／blocked。合成source.txtはBASEのまま、期待するDIRECT_OKではない。既存dirty／stage／未追跡三ファイルの内容を保全した。技術履歴四件は同じ操作`OP-217371169011133668059507633091989488425`・Task相関`operation-33c9f82d-50ae-447e-800a-d3c67514c957`に属し、全件provider_operation_completed／Host cleanup confirmed／lease released／ownerEffect disabled。providerStart・externalSend・sharedWriteは全件unknownのままとし、Provider内部Effect成立や履歴にない役割は推定しない。
+
+ToolのruntimeClean／workspaceClean／closeConfirmedはtrue。後一覧は元の停止Container一件だけで、今回試験Container・専用Networkは残っていない。標準bridgeのIdentity変更は観測したが、既存利用者資源保全と構成同値を確認し、原因や再起動実施へ読み替えない。Sourceは不変。正常完了専用の清掃Gateはblockedへ拡張せず、`edit/direct`・`edit/result.json`と終了記録を保持し、2026-11-02までに同じ受付と既存Ownerで保持要否・清掃条件を再評価する。期限だけでは削除しない。
+
+今回Root・操作ID・既知PIDに一致するNode不存在を確認した。端末清掃の最初の照合は子Process存在で停止し、残る子が専用conhostだけと確認した後、同じexact端末を終了した。短命入口二Fileの既知集合・非使用・非reparse・exact Rootを照合して今回tmpの二Fileと空Directoryを回収し、不存在を確認した。試験Root・安全な結果・状態・履歴は変更せず、生出力を保存しない。過去保持物は操作しない。
+
 <a id="settlement-io-yield-20261026"></a>
 
 ### 成功受領後のI/O制御返却 — 限定実装・非AI対象回帰完了

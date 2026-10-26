@@ -15,6 +15,8 @@ import { captureWorkspaceTaskDiagnostic } from "../../scripts/workspace-task-dia
 import {
   inspectCandidateValidationFailureDiagnostic,
   PROVIDER_EXECUTION_OBSERVATION_KEYS,
+  inspectTaskStageDiagnostic,
+  inspectProviderExecutionObservation,
 } from "../../../coordinator/src/execution/result.ts";
 
 const correlation = "operation-11111111-2222-3333-4444-555555555555";
@@ -51,6 +53,230 @@ const candidateEvent = (overrides: Record<string, unknown> = {}) => ({
     providerExecutionObservation: null,
   },
   ...overrides,
+});
+
+/** 四段階は同じ取得器で相関し、復元・不正入力拒否と本文非保存を維持する。 */
+test("段階診断は初回・是正の編集とレビューを本文なしで搬送する", () => {
+  for (const mode of [
+    "valid",
+    "foreign",
+    "duplicate",
+    "extra",
+    "missing-category",
+    "role-mismatch",
+    "overflow",
+  ] as const) {
+    const stream = new Writable({
+      write(_c, _e, done) {
+        done();
+      },
+    });
+    const original = stream.write;
+    const collector = captureWorkspaceTaskDiagnostic(stream);
+    for (const attempt of [0, 1])
+      for (const role of ["executor", "reviewer"] as const) {
+        const diagnostic =
+          role === "executor"
+            ? {
+                taskRole: role,
+                result: {
+                  ...candidateEvent().diagnostic,
+                  pathsMatch: true,
+                  candidatePathCount: 0,
+                  reportedPathCount: 0,
+                },
+              }
+            : {
+                taskRole: role,
+                decision: "changes_requested",
+                findingCount: 1,
+                categoryCounts: [1, 0, 0, 0],
+              };
+        const value = {
+          ...event(),
+          event: "coordinator_task_stage_observed",
+          taskRole: role,
+          provider: role === "executor" ? "codex" : "claude",
+          taskAttempt: attempt,
+          diagnostic:
+            mode === "extra"
+              ? { ...diagnostic, text: "DO_NOT_RETAIN" }
+              : mode === "missing-category" && role === "reviewer"
+                ? { ...diagnostic, categoryCounts: [0, 0, 0, 0] }
+                : diagnostic,
+          ...(mode === "foreign"
+            ? {
+                recoveryCorrelationId:
+                  "operation-aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+              }
+            : {}),
+          ...(mode === "role-mismatch"
+            ? { taskRole: role === "executor" ? "reviewer" : "executor" }
+            : {}),
+        };
+        stream.write(frame(value));
+        if (mode === "duplicate") stream.write(frame(value));
+        if (mode === "overflow")
+          for (let i = 0; i < 17; i++)
+            stream.write(
+              frame({
+                ...value,
+                operationId: `OP-${200000 + attempt * 100 + (role === "reviewer" ? 50 : 0) + i}`,
+              }),
+            );
+      }
+    const result = collector.finish(
+      correlation,
+      [],
+      false,
+      [],
+      false,
+      [
+        {
+          operationId: identity.operationId,
+          recoveryCorrelationId: correlation,
+          recoveryId,
+        },
+      ],
+      true,
+    );
+    assert.equal(result.closed, true);
+    assert.equal(stream.write, original);
+    assert.equal(
+      result.stages.captureStatus,
+      mode === "valid"
+        ? "task_history_only"
+        : mode === "overflow"
+          ? "overflow"
+          : "invalid",
+    );
+    assert.equal(result.stages.events.length, mode === "valid" ? 4 : 0);
+    assert.equal(JSON.stringify(result).includes("DO_NOT_RETAIN"), false);
+  }
+  assert.equal(
+    inspectTaskStageDiagnostic({
+      taskRole: "reviewer",
+      decision: "approved",
+      findingCount: 1,
+      categoryCounts: [1, 0, 0, 0],
+    }),
+    null,
+  );
+});
+
+/** 現行観測は新件数を必須とし、旧診断の欠測を零補完しない。 */
+test("内部エラー観測は版・欠測・部分集合相関を検査する", () => {
+  const base = Object.fromEntries(
+    [...PROVIDER_EXECUTION_OBSERVATION_KEYS].map((k) => [
+      k,
+      k === "transport"
+        ? "fixed_cli_jsonl_v0_164_0"
+        : k === "turnCompleted"
+          ? true
+          : k.endsWith("Reported")
+            ? false
+            : 0,
+    ]),
+  );
+  for (const [total, code, valid] of [
+    [0, 1, false],
+    [1, 1, true],
+    [2, 1, true],
+  ] as const)
+    assert.equal(
+      inspectProviderExecutionObservation({
+        ...base,
+        itemErrorCount: total,
+        itemErrorCodeModeCount: code,
+      }) !== null,
+      valid,
+    );
+  const {
+    itemErrorCount: _total,
+    itemErrorCodeModeCount: _code,
+    ...missing
+  } = base;
+  assert.equal(inspectProviderExecutionObservation(missing), null);
+  const old = { ...missing, transport: "fixed_cli_jsonl_v0_149_1" };
+  assert.deepEqual(inspectProviderExecutionObservation(old), old);
+  assert.equal(
+    inspectProviderExecutionObservation({ ...old, itemErrorCount: 1 }),
+    null,
+  );
+  assert.equal(
+    inspectProviderExecutionObservation({ ...base, itemErrorCount: "private" }),
+    null,
+  );
+});
+
+/** 完了を期待する段階の欠測・逆順は、Task成功や取得成功へ補完しない。 */
+test("段階取得は完了時の二段階・四段階と欠測・逆順を区別する", () => {
+  for (const sequence of [
+    ["executor:0", "reviewer:0"],
+    ["executor:0", "reviewer:0", "executor:1", "reviewer:1"],
+    [],
+    ["executor:0"],
+    ["reviewer:0", "executor:0"],
+  ]) {
+    const stream = new Writable({
+      write(_c, _e, done) {
+        done();
+      },
+    });
+    const collector = captureWorkspaceTaskDiagnostic(stream);
+    for (const entry of sequence) {
+      const [role, attempt] = entry.split(":");
+      stream.write(
+        frame({
+          ...event(),
+          event: "coordinator_task_stage_observed",
+          taskRole: role,
+          provider: role === "executor" ? "codex" : "claude",
+          taskAttempt: Number(attempt),
+          diagnostic:
+            role === "executor"
+              ? {
+                  taskRole: role,
+                  result: {
+                    ...candidateEvent().diagnostic,
+                    pathsMatch: true,
+                    candidatePathCount: 0,
+                    reportedPathCount: 0,
+                  },
+                }
+              : {
+                  taskRole: role,
+                  decision: "approved",
+                  findingCount: 0,
+                  categoryCounts: [0, 0, 0, 0],
+                },
+        }),
+      );
+    }
+    const result = collector.finish(
+      correlation,
+      [],
+      false,
+      [],
+      false,
+      [
+        {
+          operationId: identity.operationId,
+          recoveryCorrelationId: correlation,
+          recoveryId,
+        },
+      ],
+      true,
+    );
+    assert.equal(
+      result.stages.captureStatus,
+      (sequence.length === 2 && sequence[0] === "executor:0") ||
+        sequence.length === 4
+        ? "task_history_only"
+        : "missing",
+    );
+    assert.equal(result.stages.closed, true);
+  }
 });
 
 /** 候補診断は現在操作の完全相関と履歴だけの帰属を区別する。 */
@@ -568,6 +794,7 @@ test("回復開始collectorは復元不能後の再設置を拒否する", () =>
   assert.equal(result.closed, false);
   assert.equal(result.captureStatus, "invalid");
   assert.equal(stream.write, foreignWrite);
+  assert.equal(result.stages.captureStatus, "invalid");
   const next = captureWorkspaceTaskDiagnostic(stream);
   assert.equal(next.available, false);
   assert.equal(

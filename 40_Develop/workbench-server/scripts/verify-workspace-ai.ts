@@ -721,10 +721,13 @@ async function verify(
         task?.reason === "coordinator_task_candidate_revision_invalid" ||
           task?.reason === "coordinator_task_remediated_candidate_invalid",
         historyIdentities,
+        task?.reason === "coordinator_task_independent_review_not_approved" ||
+          task?.reason === "coordinator_task_workspace_review_completed",
       );
-      const { candidateValidation, ...recoveryStart } = captured;
+      const { candidateValidation, stages, ...recoveryStart } = captured;
       evidence.recoveryStartDiagnostic = recoveryStart;
       evidence.candidateValidationDiagnostic = candidateValidation;
+      evidence.stageDiagnostic = stages;
       if (!captured.closed) evidence.closeConfirmed = false;
     }
     evidence.runtimeClean = runtimeClean;

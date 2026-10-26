@@ -9,6 +9,7 @@ import type {
   PrimaryFailureDiagnostic,
   RecoveryStartFailureDiagnostic,
   CandidateValidationFailureDiagnostic,
+  TaskStageDiagnostic,
 } from "./result.ts";
 import {
   type ProviderAvailability,
@@ -46,6 +47,15 @@ export type ProviderProcessStartedNotice = Readonly<{
  * @compatibility 診断失敗で処理結果を変更しない。
  */
 export type ProviderBoundaryDiagnosticNotice =
+  | Readonly<{
+      event: "coordinator_task_stage_observed";
+      taskRole: "executor" | "reviewer";
+      provider: "codex" | "claude";
+      operationId: string;
+      taskAttempt: 0 | 1;
+      recoveryCorrelationId: string | null;
+      diagnostic: TaskStageDiagnostic;
+    }>
   | Readonly<{
       event: "coordinator_task_candidate_validation_failed";
       taskRole: "executor";

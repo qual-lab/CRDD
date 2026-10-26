@@ -14,7 +14,86 @@ import test from "node:test";
 import {
   describeCodexStructuredResultContract,
   normalizeCodexStructuredResult,
+  parseProviderResult,
 } from "../../../src/index.ts";
+
+/** 内部エラー、ツール未使用、コマンド失敗を件数だけで区別し、採否は変えない。
+ * @trace ERB-UT-032
+ * @boundary N/A: メモリ内の合成JSONLだけを解析する。
+ */
+test("Task内部エラーはツール未使用と区別し本文を返さない", () => {
+  for (const kind of ["none", "code_mode", "other", "command"] as const) {
+    const events =
+      kind === "none"
+        ? []
+        : kind === "command"
+          ? [
+              {
+                type: "item.completed",
+                item: {
+                  type: "command_execution",
+                  status: "failed",
+                  exit_code: 1,
+                  aggregated_output: "Permission denied",
+                },
+              },
+            ]
+          : [
+              {
+                type: "item.completed",
+                item: {
+                  type: "error",
+                  message:
+                    kind === "code_mode"
+                      ? "Synthetic code mode unavailable"
+                      : "Synthetic failure",
+                },
+              },
+            ];
+    const raw = [
+      ...events,
+      {
+        type: "item.completed",
+        item: {
+          type: "agent_message",
+          text: JSON.stringify({
+            status: "completed",
+            summary: "synthetic",
+            changedPaths: [],
+            verification: [],
+          }),
+        },
+      },
+      { type: "turn.completed" },
+    ]
+      .map((e) => JSON.stringify(e))
+      .join("\n");
+    const result = parseProviderResult({
+      provider: "codex",
+      purpose: "task",
+      taskRole: "executor",
+      raw,
+    });
+    assert.equal(result.status, "confirmed");
+    assert.equal(
+      result.codexExecutionObservation?.itemErrorCount,
+      kind === "code_mode" || kind === "other" ? 1 : 0,
+    );
+    assert.equal(
+      result.codexExecutionObservation?.itemErrorCodeModeCount,
+      kind === "code_mode" ? 1 : 0,
+    );
+    assert.equal(
+      result.codexExecutionObservation?.commandExecutionFailedCount,
+      kind === "command" ? 1 : 0,
+    );
+    assert.equal(
+      JSON.stringify(result.codexExecutionObservation).includes("Synthetic"),
+      false,
+    );
+    assert.equal(result.rawOutputReported, false);
+  }
+});
 
 /**
  * Codexの単一exact Resultだけを正規化するを検証する。

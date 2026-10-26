@@ -9,6 +9,7 @@ import { parseUnambiguousJsonDocument } from "../../ai-adapter/src/index.ts";
 import {
   inspectRecoveryStartFailureDiagnostic,
   inspectCandidateValidationFailureDiagnostic,
+  inspectTaskStageDiagnostic,
 } from "../../coordinator/src/execution/result.ts";
 import type { ProviderBoundaryDiagnosticNotice } from "../../coordinator/src/execution/observation.ts";
 
@@ -19,6 +20,10 @@ type Event = Extract<
 type CandidateEvent = Extract<
   ProviderBoundaryDiagnosticNotice,
   { event: "coordinator_task_candidate_validation_failed" }
+>;
+type StageEvent = Extract<
+  ProviderBoundaryDiagnosticNotice,
+  { event: "coordinator_task_stage_observed" }
 >;
 type Status =
   | "captured"
@@ -44,8 +49,10 @@ export function captureWorkspaceTaskDiagnostic(stream: Writable) {
   const original = stream.write;
   const events: Event[] = [];
   const candidateEvents: CandidateEvent[] = [];
+  const stageEvents: StageEvent[] = [];
   let status: Status = installed ? "collector_unavailable" : "captured";
   let candidateStatus: Status | "task_history_only" = status;
+  let stageStatus: Status | "task_history_only" = status;
   let active = !installed;
   let finished = false;
   const exact = (value: object, keys: string[]) =>
@@ -55,6 +62,11 @@ export function captureWorkspaceTaskDiagnostic(stream: Writable) {
     chunk: unknown,
     ...rest: unknown[]
   ) {
+    const isStage =
+      typeof chunk === "string" &&
+      chunk.startsWith(
+        '[Coordinator lifecycle] {"event":"coordinator_task_stage_observed"',
+      );
     const isCandidate =
       typeof chunk === "string" &&
       chunk.startsWith(
@@ -62,14 +74,15 @@ export function captureWorkspaceTaskDiagnostic(stream: Writable) {
       );
     if (
       typeof chunk === "string" &&
-      (chunk.startsWith(marker) || isCandidate)
+      (chunk.startsWith(marker) || isCandidate || isStage)
     ) {
       try {
         if (
           Buffer.byteLength(chunk, "utf8") > 4096 ||
-          events.length + candidateEvents.length >= 16
+          events.length + candidateEvents.length + stageEvents.length >= 16
         ) {
-          if (isCandidate) candidateStatus = "overflow";
+          if (isStage) stageStatus = "overflow";
+          else if (isCandidate) candidateStatus = "overflow";
           else status = "overflow";
         } else {
           if (!chunk.endsWith("\n") || chunk.slice(0, -1).includes("\n"))
@@ -82,14 +95,18 @@ export function captureWorkspaceTaskDiagnostic(stream: Writable) {
           const value = parsed as Record<string, unknown>;
           if (
             value.event !==
-            (isCandidate
-              ? "coordinator_task_candidate_validation_failed"
-              : "coordinator_provider_recovery_start_failed")
+            (isStage
+              ? "coordinator_task_stage_observed"
+              : isCandidate
+                ? "coordinator_task_candidate_validation_failed"
+                : "coordinator_provider_recovery_start_failed")
           )
             throw new Error("event");
-          const diagnostic = isCandidate
-            ? inspectCandidateValidationFailureDiagnostic(value.diagnostic)
-            : inspectRecoveryStartFailureDiagnostic(value.diagnostic);
+          const diagnostic = isStage
+            ? inspectTaskStageDiagnostic(value.diagnostic)
+            : isCandidate
+              ? inspectCandidateValidationFailureDiagnostic(value.diagnostic)
+              : inspectRecoveryStartFailureDiagnostic(value.diagnostic);
           if (
             !exact(value, [
               "event",
@@ -105,6 +122,10 @@ export function captureWorkspaceTaskDiagnostic(stream: Writable) {
               value.taskRole as string | null,
             ) ||
             (isCandidate && value.taskRole !== "executor") ||
+            (isStage &&
+              (!diagnostic ||
+                !("taskRole" in diagnostic) ||
+                diagnostic.taskRole !== value.taskRole)) ||
             typeof value.operationId !== "string" ||
             !/^OP-[0-9]{6,}$/u.test(value.operationId) ||
             ![0, 1].includes(value.taskAttempt as number) ||
@@ -115,9 +136,15 @@ export function captureWorkspaceTaskDiagnostic(stream: Writable) {
             throw new Error("shape");
           const event = Object.freeze({ ...value, diagnostic }) as
             | Event
-            | CandidateEvent;
+            | CandidateEvent
+            | StageEvent;
           if (
-            (isCandidate ? candidateEvents : events).some(
+            (isStage
+              ? stageEvents
+              : isCandidate
+                ? candidateEvents
+                : events
+            ).some(
               (old) =>
                 old.operationId === event.operationId &&
                 old.provider === event.provider &&
@@ -127,11 +154,14 @@ export function captureWorkspaceTaskDiagnostic(stream: Writable) {
             )
           )
             throw new Error("duplicate");
-          if (isCandidate) candidateEvents.push(event as CandidateEvent);
+          if (isStage) stageEvents.push(event as StageEvent);
+          else if (isCandidate) candidateEvents.push(event as CandidateEvent);
           else events.push(event as Event);
         }
       } catch {
-        if (isCandidate) {
+        if (isStage) {
+          if (stageStatus !== "overflow") stageStatus = "invalid";
+        } else if (isCandidate) {
           if (candidateStatus !== "overflow") candidateStatus = "invalid";
         } else if (status !== "overflow") status = "invalid";
       }
@@ -146,6 +176,7 @@ export function captureWorkspaceTaskDiagnostic(stream: Writable) {
       active = false;
       status = "collector_unavailable";
       candidateStatus = "collector_unavailable";
+      stageStatus = "collector_unavailable";
     }
   }
   return {
@@ -161,6 +192,7 @@ export function captureWorkspaceTaskDiagnostic(stream: Writable) {
         recoveryCorrelationId: string | null;
         recoveryId: string;
       }>[] = [],
+      expectedStages = false,
     ) {
       if (finished)
         return {
@@ -168,6 +200,11 @@ export function captureWorkspaceTaskDiagnostic(stream: Writable) {
           events: [],
           closed: false,
           candidateValidation: {
+            captureStatus: "collector_unavailable",
+            events: [],
+            closed: false,
+          },
+          stages: {
             captureStatus: "collector_unavailable",
             events: [],
             closed: false,
@@ -191,6 +228,7 @@ export function captureWorkspaceTaskDiagnostic(stream: Writable) {
         active = false;
       }
       if (!closed) candidateStatus = "invalid";
+      if (!closed) stageStatus = "invalid";
       let taskOnly = false;
       const matched = events.filter((event) => {
         if (
@@ -278,10 +316,77 @@ export function captureWorkspaceTaskDiagnostic(stream: Writable) {
         candidateStatus === "captured"
       )
         candidateStatus = "task_history_only";
+      let stageHistoryOnly = false;
+      const matchedStages = stageEvents.filter((event) => {
+        if (
+          event.recoveryCorrelationId !== correlationId ||
+          (event.taskRole === "executor"
+            ? event.provider !== "codex"
+            : event.provider !== "claude")
+        )
+          return false;
+        const related = identities.filter(
+          (i) =>
+            i.operationId === event.operationId &&
+            i.provider === event.provider &&
+            i.taskRole === event.taskRole &&
+            i.taskAttempt === event.taskAttempt,
+        );
+        if (related.length)
+          return (
+            related.length === 1 &&
+            related[0]?.recoveryCorrelationId === correlationId
+          );
+        const history = historyIdentities.filter(
+          (i) =>
+            i.operationId === event.operationId &&
+            i.recoveryCorrelationId === correlationId,
+        );
+        if (
+          !history.length ||
+          history.some((i) => !i.recoveryId) ||
+          new Set(history.map((i) => i.recoveryId)).size !== history.length
+        )
+          return false;
+        stageHistoryOnly = true;
+        return true;
+      });
+      if (
+        matchedStages.length !== stageEvents.length &&
+        stageStatus === "captured"
+      )
+        stageStatus = "invalid";
+      if (
+        matchedStages.length &&
+        stageHistoryOnly &&
+        stageStatus === "captured"
+      )
+        stageStatus = "task_history_only";
+      if (
+        expectedStages &&
+        (stageStatus === "captured" || stageStatus === "task_history_only")
+      ) {
+        const sequence = matchedStages
+          .map((e) => `${e.taskRole}:${e.taskAttempt}`)
+          .join(",");
+        if (
+          sequence !== "executor:0,reviewer:0" &&
+          sequence !== "executor:0,reviewer:0,executor:1,reviewer:1"
+        )
+          stageStatus = "missing";
+      }
       return {
         captureStatus: status,
         events: status === "captured" || status === "task_only" ? matched : [],
         closed,
+        stages: {
+          captureStatus: stageStatus,
+          events:
+            stageStatus === "captured" || stageStatus === "task_history_only"
+              ? matchedStages
+              : [],
+          closed,
+        },
         candidateValidation: {
           captureStatus: candidateStatus,
           events:

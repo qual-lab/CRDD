@@ -376,6 +376,20 @@ function extractProviderTaskEnvelope(
     codexExecutionObservation = Object.freeze({
       transport: "fixed_cli_jsonl_v0_164_0",
       turnCompleted: true,
+      itemErrorCount: itemEvents.filter(
+        (event) =>
+          event.type === "item.completed" &&
+          (event.item as Record<string, unknown>).type === "error",
+      ).length,
+      itemErrorCodeModeCount: itemEvents.filter(
+        (event) =>
+          event.type === "item.completed" &&
+          (event.item as Record<string, unknown>).type === "error" &&
+          typeof (event.item as Record<string, unknown>).message === "string" &&
+          /code[ _-]?mode/iu.test(
+            (event.item as Record<string, unknown>).message as string,
+          ),
+      ).length,
       commandExecutionStartedCount: countItems("command_execution"),
       commandExecutionCompletedCount: countItems(
         "command_execution",

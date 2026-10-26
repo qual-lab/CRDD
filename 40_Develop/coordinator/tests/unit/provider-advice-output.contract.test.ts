@@ -416,22 +416,22 @@ test("Claude成功Envelopeからstructured_outputだけを抽出する", () => {
 });
 
 /**
- * ClaudeのError、Turn上限外、Cost不正および出力欠落を拒否するを検証する。
+ * ClaudeのError、不正Turn数、Cost不正および出力欠落を拒否する。
  *
- * @responsibility ClaudeのError、Turn上限外、Cost不正および出力欠落を拒否する検証責務を所有する。
+ * @responsibility 正の安全整数でないTurn数とEnvelope不正の拒否を確認する。
  * @trace ERB-UT-023
  * @precondition 対象契約を再現できる固定入力と依存を用意する。
- * @stimulus ClaudeのError、Turn上限外、Cost不正および出力欠落を拒否する対象操作を実行する。
+ * @stimulus Error、不正Turn数、Cost不正および出力欠落を入力する。
  * @observation 返却値、状態、Effectおよび終了後条件を観測する。
  * @oracle Test本文のassertionがSummaryの期待条件を満たす。
  * @cleanup N/A: Process外資源を生成しない局所検証である。
  * @boundary ERB-UT-023=Direct Boundary: coordinator Test Source→対象契約
  */
-test("ClaudeのError、Turn上限外、Cost不正および出力欠落を拒否する", () => {
+test("ClaudeのError、不正Turn数、Cost不正および出力欠落を拒否する", () => {
   for (const overrides of [
     { is_error: true },
     { num_turns: 0 },
-    { num_turns: 3 },
+    { num_turns: Number.MAX_SAFE_INTEGER + 1 },
     { num_turns: -1 },
     { num_turns: 1.5 },
     { num_turns: "2" },
@@ -461,18 +461,18 @@ test("ClaudeのError、Turn上限外、Cost不正および出力欠落を拒否�
 });
 
 /**
- * Claude拒否層の優先順と受理集合の不変を確認する。
+ * Claude拒否層の優先順と現行の受理条件を確認する。
  *
- * @responsibility 固定理由の細分化が受理条件や秘密情報の公開を変えないことを検証する。
+ * @responsibility 正の安全整数の受理、先頭拒否理由と秘密情報非公開を検証する。
  * @trace ERB-UT-023
  * @precondition 成功Envelopeと各層の単独・複合反例を用意する。
  * @stimulus 反例および成功条件の組合せを実抽出器へ渡す。
  * @observation 拒否理由、助言本文不存在、metadata非公開と成功集合を観測する。
- * @oracle 最初の不成立層だけを返し、旧七条件と受理結果が一致する。
+ * @oracle 最初の不成立層だけを返し、現行Envelope条件と受理結果が一致する。
  * @cleanup N/A: 局所のJSON解析だけで外部資源を作らない。
  * @boundary ERB-UT-023=Direct Boundary: Claude Envelope→固定理由→公開理由集合
  */
-test("Claude拒否層は先頭不成立だけを返し受理集合を変えない", () => {
+test("Claude拒否層は先頭不成立だけを返し正の安全整数を受理する", () => {
   const baseline = {
     type: "result",
     subtype: "success",
@@ -486,7 +486,7 @@ test("Claude拒否層は先頭不成立だけを返し受理集合を変えな�
     [{ type: "private-marker" }, "completion_invalid"],
     [{ subtype: "private-marker" }, "completion_invalid"],
     [{ is_error: true }, "completion_invalid"],
-    [{ num_turns: 3 }, "turn_count_invalid"],
+    [{ num_turns: 0 }, "turn_count_invalid"],
     [{ num_turns: "private-marker" }, "turn_count_invalid"],
     [{ total_cost_usd: -1 }, "metadata_invalid"],
     [{ total_cost_usd: "private-marker" }, "metadata_invalid"],
@@ -503,7 +503,7 @@ test("Claude拒否層は先頭不成立だけを返し受理集合を変えな�
       "completion_invalid",
     ],
     [
-      { num_turns: 3, total_cost_usd: -1, structured_output: null },
+      { num_turns: 0, total_cost_usd: -1, structured_output: null },
       "turn_count_invalid",
     ],
     [{ total_cost_usd: -1, structured_output: null }, "metadata_invalid"],
@@ -528,7 +528,18 @@ test("Claude拒否層は先頭不成立だけを返し受理集合を変えな�
   for (const type of ["result", "other"])
     for (const subtype of ["success", "error"])
       for (const isError of [false, true])
-        for (const turnCount of [1, 2, 0, 3, 1.5, "2", null])
+        for (const turnCount of [
+          1,
+          2,
+          3,
+          Number.MAX_SAFE_INTEGER,
+          0,
+          -1,
+          1.5,
+          Number.MAX_SAFE_INTEGER + 1,
+          "2",
+          null,
+        ])
           for (const totalCostUsd of [0, -1, "0", null])
             for (const structuredOutput of [ADVICE, null, []]) {
               const result = parseProviderResult({
@@ -543,21 +554,20 @@ test("Claude拒否層は先頭不成立だけを返し受理集合を変えな�
                   structured_output: structuredOutput,
                 }),
               });
-              const wasPreviouslyAccepted =
+              const isAcceptedByCurrentContract =
                 type === "result" &&
                 subtype === "success" &&
                 isError === false &&
                 typeof turnCount === "number" &&
-                Number.isInteger(turnCount) &&
+                Number.isSafeInteger(turnCount) &&
                 turnCount >= 1 &&
-                turnCount <= 2 &&
                 typeof totalCostUsd === "number" &&
                 Number.isFinite(totalCostUsd) &&
                 totalCostUsd >= 0 &&
                 structuredOutput === ADVICE;
               assert.equal(
                 result.status === "confirmed",
-                wasPreviouslyAccepted,
+                isAcceptedByCurrentContract,
               );
             }
 });

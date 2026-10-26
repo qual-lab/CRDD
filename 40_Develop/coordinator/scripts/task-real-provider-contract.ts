@@ -17,6 +17,7 @@ import { startWindowsChildTreeTermination } from "../../platform-access/src/inde
 import {
   dockerProcessControllerPublicCompletionReasons,
   inspectRecoveryStartFailureDiagnostic,
+  inspectTaskStageDiagnostic,
 } from "../src/execution/result.ts";
 import type { ProviderBoundaryDiagnosticNotice } from "../src/execution/observation.ts";
 import { inspectRepositoryIdentityCandidate } from "../../version-control/src/index.ts";
@@ -732,6 +733,28 @@ function parseKnownDiagnosticLine(
       (parsed.taskRole === null || role(parsed.taskRole)) &&
       parsedProvider !== null &&
       parsedOperationId !== null;
+    if (parsed.event === "coordinator_task_stage_observed") {
+      const diagnostic = inspectTaskStageDiagnostic(parsed.diagnostic);
+      return Object.freeze({
+        kind:
+          isValidCommon &&
+          exactKeys(parsed, [
+            "diagnostic",
+            "event",
+            "operationId",
+            "provider",
+            "recoveryCorrelationId",
+            "taskAttempt",
+            "taskRole",
+          ]) &&
+          (parsed.taskAttempt === 0 || parsed.taskAttempt === 1) &&
+          (parsed.recoveryCorrelationId === null ||
+            closedId(parsed.recoveryCorrelationId, 128)) &&
+          diagnostic?.taskRole === parsed.taskRole
+            ? ("ignored" as const)
+            : ("violation" as const),
+      });
+    }
     if (
       parsed.event === "coordinator_provider_recovery_start_failed" &&
       isValidCommon &&

@@ -21,6 +21,7 @@ import { PassThrough } from "node:stream";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { runInNewContext } from "node:vm";
+import { inspectTaskStageDiagnostic } from "../../src/execution/result.ts";
 
 import {
   buildCoordinatorRealProviderReport,
@@ -38,6 +39,61 @@ const verificationScriptSource = fs.readFileSync(
   ),
   "utf8",
 );
+
+/** 受動段階通知は実行Lifecycleへ数えず、不正field・役割矛盾は拒否する。
+ * @trace PRL-ST-003
+ * @boundary メモリ内の本番検証parser。AI・Docker・子Processなし。
+ */
+test("CLI検証は妥当な段階通知をLifecycle成立証拠へ数えない", () => {
+  const source = fs.readFileSync(
+    new URL("../../scripts/task-real-provider-contract.ts", import.meta.url),
+    "utf8",
+  );
+  const start = source.indexOf("function parseKnownDiagnosticLine(");
+  const end = source.indexOf("\n/**", start);
+  assert.ok(start > 0 && end > start);
+  const prefix = "[Coordinator lifecycle] ";
+  const parse = runInNewContext(
+    `${stripTypeScriptTypes(source.slice(start, end))};parseKnownDiagnosticLine`,
+    {
+      KNOWN_PREFIXES: [prefix],
+      LIFECYCLE_PREFIX: prefix,
+      SELECTION_PREFIX: "selection",
+      parseJsonRecord: JSON.parse,
+      provider: (v: unknown) => v === "codex" || v === "claude",
+      role: (v: unknown) => v === "executor" || v === "reviewer",
+      closedId: (v: unknown) =>
+        typeof v === "string" && /^[A-Za-z0-9._-]+$/u.test(v),
+      exactKeys: (v: object, keys: string[]) =>
+        Object.keys(v).sort().join() === [...keys].sort().join(),
+      inspectTaskStageDiagnostic,
+    },
+  );
+  const value = {
+    event: "coordinator_task_stage_observed",
+    taskRole: "reviewer",
+    provider: "claude",
+    operationId: "OP-123456",
+    taskAttempt: 0,
+    recoveryCorrelationId: null,
+    diagnostic: {
+      taskRole: "reviewer",
+      decision: "approved",
+      findingCount: 0,
+      categoryCounts: [0, 0, 0, 0],
+    },
+  };
+  for (const variant of [
+    value,
+    { ...value, taskRole: "executor" },
+    { ...value, privateText: "synthetic" },
+  ]) {
+    assert.equal(
+      parse(prefix + JSON.stringify(variant)).kind,
+      variant === value ? "ignored" : "violation",
+    );
+  }
+});
 
 /**
  * 起動要求前の拒否と発行後の不明を、実入口の例外処理で区別する。

@@ -15,6 +15,8 @@ Codex Task計画はCatalog照合済みの`modelSelection`四値を受け取り�
 
 Codex計画契約は改訂16、現行JSONLの診断値は`fixed_cli_jsonl_v0_164_0`とする。保存済み旧診断`fixed_cli_jsonl_v0_149_1`の読取りは当時値を保持し、新Model実行の許可へ昇格しない。CLI／Hostの配置とImageの固定はDocker Isolationが所有し、AI AdapterへDocker依存を追加しない。
 
+Task JSONLの非秘密実行観測には、完了Itemの内部エラー件数`itemErrorCount`と、そのmessage文字列がCode Modeの固定表記に一致した件数`itemErrorCodeModeCount`を含める。後者は文字列分類であり原因確定ではない。総件数との差は未分類を含み、零からTool未使用やエラー不存在を推定しない。本文・Path・Commandは返さず、従来のEnvelope・Schema・採否条件は変更しない。
+
 AI AdapterはProvider固有の操作、認証方式、技術対応、入力計画と出力変換を所有する。Repository別の役割既定値・作業分類・明示選択と保存はCoordinatorが所有する。旧Profile Catalog、Host／Repository Profile Store、Family／Tierによる自動選定は撤去対象であり、新形式の互換Readerとして残さない。
 
 技術カタログ（Model Catalog）の正本は`src/catalog/model-catalog.json`。`getAiModelCatalog`が深い不変値と内容Identityを返し、`resolveAiModelSelection`がProvider・Model・用途・Effortを照合する。役割、Tier、推奨Model、既定Effort、現在の認証状態を含まない。`opus`はaliasのまま保持し、未観測の実Model版へ変換しない。

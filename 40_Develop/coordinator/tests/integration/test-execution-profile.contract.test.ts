@@ -42,7 +42,7 @@ const gateFiles = [
   {
     file: "integration/docker-recovery-owner-reentry.contract.test.ts",
     prefixOccurrences: 3,
-    expandedCases: 13,
+    expandedCases: 14,
     expansion: /for \(const \{ repeatCount, retained \} of \[/,
   },
   {
@@ -133,6 +133,22 @@ function executableTestSource(source: string): string {
   return source.replace(/\/\*[\s\S]*?\*\//gu, "");
 }
 
+/** 現行Test Sourceの行頭登録だけを数え、補助文字列を除外する。
+ * @responsibility ファイル発見と登録件数で同じ判定を用いる。
+ * @trace CQS-IT-011
+ * @precondition 現行の直接test呼出し形式を持つSourceを受け取る。
+ * @observation block comment除去後の登録数を返す。
+ * @oracle 引用符三形式と改行空白を許容し、任意のprefix文字列を数えない。
+ * @boundary N/A: Source文字列の局所検査。動的展開数は既存の明示検査が所有する。
+ */
+function countHostTestRegistrations(source: string): number {
+  return [
+    ...executableTestSource(source).matchAll(
+      /(?:^|\n)\s*test\(\s*["'`]Host Windows:/gu,
+    ),
+  ].length;
+}
+
 /**
  * 旧graph検査の別実行経路を残さない。
  * @responsibility 退役Scriptを任意検査aliasから再導入しない。
@@ -178,7 +194,7 @@ function discoverGateFiles(
   return files.filter(
     (file) =>
       file !== "integration/test-execution-profile.contract.test.ts" &&
-      executableTestSource(read(file)).includes(HOST_WINDOWS_PREFIX),
+      countHostTestRegistrations(read(file)) > 0,
   );
 }
 
@@ -235,8 +251,7 @@ test("Portable試験とHost Windows試験は同じ実環境専用の閉集合を
     expansion,
   } of gateFiles) {
     const source = fs.readFileSync(new URL(file, testsRoot), "utf8");
-    const occurrences =
-      executableTestSource(source).split(HOST_WINDOWS_PREFIX).length - 1;
+    const occurrences = countHostTestRegistrations(source);
     assert.equal(occurrences, prefixOccurrences);
     assert.match(source, expansion);
     if (file === "integration/docker-recovery-owner-reentry.contract.test.ts") {
@@ -254,6 +269,7 @@ test("Portable試験とHost Windows試験は同じ実環境専用の閉集合を
           [1, false],
           [1, true],
           [2, false],
+          [3, false],
         ],
       );
       const producerLoop = executableTestSource(source).match(
@@ -291,7 +307,7 @@ test("Portable試験とHost Windows試験は同じ実環境専用の閉集合を
     gateCount += expandedCases;
     assert.match(scripts["test:host-windows"] ?? "", new RegExp(file));
   }
-  assert.equal(gateCount, 105);
+  assert.equal(gateCount, 106);
 });
 
 /**
@@ -322,11 +338,42 @@ test("未分類のHost Windows試験を別試験ファイルへ追加すると�
     "unit/unclassified-process.test.ts",
   ];
   const discoveredItems = discoverGateFiles(files, (file) =>
-    file === "unit/unclassified-process.test.ts" ? HOST_WINDOWS_PREFIX : "",
+    file === "unit/unclassified-process.test.ts"
+      ? `test("${HOST_WINDOWS_PREFIX} 未分類", () => {});`
+      : "",
   );
   assert.deepEqual(discoveredItems, ["unit/unclassified-process.test.ts"]);
   assert.notDeepEqual(
     discoveredItems.sort(),
     gateFiles.map(({ file }) => file).sort(),
+  );
+});
+
+/** Host名の補助文字列を実試験と誤認せず、実登録だけを発見する。
+ * @trace CQS-IT-011
+ * @boundary N/A: メモリ内Source文字列だけで反証する。
+ */
+test("Host分類は補助文字列・コメントを除き実test登録だけを数える", () => {
+  const helpers = [
+    'const prefix = "Host Windows:";',
+    'if (name.startsWith("Host Windows:")) callback = fn;',
+    '// test("Host Windows: comment", () => {});',
+    '/* test("Host Windows: block", () => {}); */',
+    "const sample = 'test(\"Host Windows: embedded\", () => {});';",
+  ].join("\n");
+  assert.equal(countHostTestRegistrations(helpers), 0);
+  const registrations = [
+    'test("Host Windows: double", () => {});',
+    "  test('Host Windows: single', () => {});",
+    "  test(`Host Windows: template`, () => {});",
+    'test(\n  "Host Windows: multiline", () => {});',
+  ].join("\n");
+  assert.equal(countHostTestRegistrations(registrations), 4);
+  assert.equal(countHostTestRegistrations(`${helpers}\n${registrations}`), 4);
+  assert.deepEqual(
+    discoverGateFiles(["helper.ts", "real.ts"], (file) =>
+      file === "helper.ts" ? helpers : registrations,
+    ),
+    ["real.ts"],
   );
 });

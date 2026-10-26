@@ -97,6 +97,7 @@ import {
   inspectProviderExecutionObservation,
   PROVIDER_EXECUTION_OBSERVATION_KEYS,
   inspectCandidateValidationFailureDiagnostic,
+  inspectTaskStageDiagnostic,
   normalizeProviderTaskStructuredResult,
   isDockerProcessControllerPublicCompletionReason,
   publicDockerRecoveryStartReason,
@@ -5258,6 +5259,80 @@ function reportCandidateValidationFailure(
   }
 }
 
+/** 正規化済みの各段階を件数・分類だけで通知する。
+ * @responsibility 通知失敗を実行結果・Authority・cleanupへ伝播させない。
+ * @trace ERB-IT-021
+ */
+function reportTaskStage(
+  state: Readonly<{ dependencies: taskRuntimeDependencies }>,
+  operation: Operation,
+  correlationId: string | null,
+  provider: unknown,
+  attempt: 0 | 1,
+  result: RuntimeRecord,
+  candidate?: RuntimeRecord,
+) {
+  try {
+    if (provider !== "codex" && provider !== "claude") return;
+    const categories = [
+      "acceptance_criterion_not_met",
+      "implementation_defect",
+      "verification_defect",
+      "security_or_authority_defect",
+    ];
+    const review =
+      candidate === undefined ? projectReviewerResultDiagnostics(result) : null;
+    const diagnostic = inspectTaskStageDiagnostic(
+      candidate === undefined
+        ? {
+            taskRole: "reviewer",
+            decision: review?.decision,
+            findingCount: review?.findingCount,
+            categoryCounts: categories.map(
+              (category) =>
+                review?.findingDiagnostics.filter(
+                  (finding) => finding?.category === category,
+                ).length ?? 0,
+            ),
+          }
+        : {
+            taskRole: "executor",
+            result: {
+              captureStatus: "captured",
+              pathsMatch: samePaths(
+                candidate.changedPaths,
+                result.changedPaths,
+              ),
+              candidatePathCount: Array.isArray(candidate.changedPaths)
+                ? candidate.changedPaths.length
+                : null,
+              reportedPathCount: Array.isArray(result.changedPaths)
+                ? result.changedPaths.length
+                : null,
+              providerExecutionObservation: inspectProviderExecutionObservation(
+                result.providerExecutionObservation ?? null,
+              ),
+            },
+          },
+    );
+    if (!diagnostic) return;
+    reportPassiveBoundaryDiagnostic(
+      state,
+      Object.freeze({
+        event: "coordinator_task_stage_observed",
+        provider,
+        taskRole: diagnostic.taskRole,
+        operationId: operation.operationId,
+        taskAttempt: attempt,
+        recoveryCorrelationId: correlationId,
+        diagnostic,
+      }),
+    );
+  } catch {
+    // 受動診断は元の結果・取消・回収へ影響しない。
+  }
+}
+
 /**
  * Stageを実行する。
  *
@@ -6137,6 +6212,15 @@ async function runCoordinatorTaskCore(
       );
     }
     advanceLifecycleState(state, control, "STATE-CANDIDATE-CAPTURED");
+    reportTaskStage(
+      state,
+      operation,
+      control.recoveryCorrelationId,
+      executor.provider,
+      0,
+      executorResult,
+      candidate,
+    );
     if (control.cancellationRequested) {
       return candidateNotIssued(
         blocked("coordinator_task_cancelled_before_independent_review"),
@@ -6180,6 +6264,14 @@ async function runCoordinatorTaskCore(
     }
     advanceLifecycleState(state, control, "STATE-REVIEWER-CLEAN");
     let reviewerResult = reviewer.normalizedResult as RuntimeRecord;
+    reportTaskStage(
+      state,
+      operation,
+      control.recoveryCorrelationId,
+      reviewer.provider,
+      0,
+      reviewerResult,
+    );
     let finalReviewerReadProjection = reviewerReadProjection;
     retainTurnObservation(reviewer, 0);
     let remediationPerformed = false;
@@ -6265,6 +6357,15 @@ async function runCoordinatorTaskCore(
         control,
         "STATE-REMEDIATION-CANDIDATE-CAPTURED",
       );
+      reportTaskStage(
+        state,
+        operation,
+        control.recoveryCorrelationId,
+        remediation.provider,
+        1,
+        executorResult,
+        candidate,
+      );
       if (
         control.workspaceTarget &&
         Array.isArray(candidate.unexpectedPaths) &&
@@ -6312,6 +6413,14 @@ async function runCoordinatorTaskCore(
       }
       advanceLifecycleState(state, control, "STATE-REMEDIATION-REVIEWER-CLEAN");
       reviewerResult = reviewer.normalizedResult as RuntimeRecord;
+      reportTaskStage(
+        state,
+        operation,
+        control.recoveryCorrelationId,
+        reviewer.provider,
+        1,
+        reviewerResult,
+      );
       finalReviewerReadProjection = remediationReviewerReadProjection;
       retainTurnObservation(reviewer, 1);
     }

@@ -1460,6 +1460,8 @@ function fixture(
                             ? "unknown"
                             : "fixed_cli_jsonl_v0_164_0",
                         turnCompleted: true,
+                        itemErrorCount: 0,
+                        itemErrorCodeModeCount: 0,
                         commandExecutionStartedCount: 1,
                         commandExecutionCompletedCount: 1,
                         commandExecutionFailedCount: 0,
@@ -4119,6 +4121,51 @@ test("Host cleanup後のDocker receipt失敗は無効なHost IDを再公開し�
  * @cleanup Test本文または登録済みhookが作成資源を清掃する。
  * @boundary CPR-IT-001=Direct Boundary: coordinator Test Source→対象契約
  */
+test("各段階の受動診断は四試行を区別し通知故障でも結果・回収を変えない", async () => {
+  for (const fault of ["none", "throw", "reject"] as const) {
+    const notices: Record<string, unknown>[] = [];
+    const harness = fixture({
+      reviewerDecision: "changes_requested",
+      providerExecutionObservation: true,
+      reportDiagnostic: (notice) => {
+        if (
+          (notice as Record<string, unknown>).event ===
+          "coordinator_task_stage_observed"
+        ) {
+          notices.push(notice as Record<string, unknown>);
+          if (fault === "throw") throw new Error("private");
+          if (fault === "reject") return Promise.reject(new Error("private"));
+        }
+        return Promise.resolve(true);
+      },
+    });
+    const result = await harness.runtime.start(request(), "C:\\repository")
+      .completion;
+    assert.equal(
+      result.reason,
+      "coordinator_task_independent_review_not_approved",
+    );
+    assert.equal(result.cleanupConfirmed, true);
+    assert.deepEqual(
+      notices.map((n) => [n.taskRole, n.taskAttempt]),
+      [
+        ["executor", 0],
+        ["reviewer", 0],
+        ["executor", 1],
+        ["reviewer", 1],
+      ],
+    );
+    assert.equal(JSON.stringify(notices).includes("fixture.txt"), false);
+    assert.equal(JSON.stringify(notices).includes("messageSha256"), false);
+    assert.deepEqual(
+      (notices[1]?.diagnostic as Record<string, unknown> | undefined)
+        ?.categoryCounts,
+      [1, 0, 0, 0],
+    );
+  }
+});
+
+/** 独立レビュー非承認時も本文非公開の診断とcleanupを維持する。 */
 test("Reviewerがchanges_requestedならCandidateを承認済みResultへ昇格せずExecutor診断を安全に返す", async () => {
   const harness = fixture({
     reviewerDecision: "changes_requested",
@@ -4147,6 +4194,8 @@ test("Reviewerがchanges_requestedならCandidateを承認済みResultへ昇格�
     providerExecutionObservation: {
       transport: "fixed_cli_jsonl_v0_164_0",
       turnCompleted: true,
+      itemErrorCount: 0,
+      itemErrorCodeModeCount: 0,
       commandExecutionStartedCount: 1,
       commandExecutionCompletedCount: 1,
       commandExecutionFailedCount: 0,
@@ -4504,7 +4553,11 @@ test("候補拒否診断は両試行の取得とPath差を分離し通知故障�
               : { remediationExecutorChangedPaths: [] }),
         reportDiagnostic: async (notice) => {
           assert.ok(notice && typeof notice === "object");
-          notices.push(notice as Record<string, unknown>);
+          if (
+            (notice as Record<string, unknown>).event ===
+            "coordinator_task_candidate_validation_failed"
+          )
+            notices.push(notice as Record<string, unknown>);
           return true;
         },
       });
@@ -4580,7 +4633,7 @@ test("候補拒否診断は両試行の取得とPath差を分離し通知故障�
         ? "coordinator_task_candidate_recognized_secret_rejected"
         : "coordinator_task_workspace_review_completed",
     );
-    assert.equal(count, 0);
+    assert.equal(count, secret ? 0 : 2);
   }
 });
 
