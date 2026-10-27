@@ -13,10 +13,12 @@ import { observeCoordinatorSnapshotObligations } from "../storage/state.ts";
 import { completed } from "./result.ts";
 import { blocked } from "./result.ts";
 import { withCoordinatorSnapshotOperation } from "../storage/state.ts";
-import { coordinatorQueueIsClosed } from "./transition.ts";
-import { coordinatorAdoptionWasRejected } from "./transition.ts";
-import { coordinatorRejectedAdoptionEvidenceCanRetire } from "./transition.ts";
-import { coordinatorStandaloneAdoptionIsClosed } from "./transition.ts";
+import {
+  coordinatorQueueIsClosed,
+  coordinatorAdoptionWasRejected,
+  coordinatorRejectedAdoptionEvidenceCanRetire,
+  coordinatorStandaloneAdoptionIsClosed,
+} from "../../../domain-model/src/index.ts";
 
 import { randomUUID } from "node:crypto";
 

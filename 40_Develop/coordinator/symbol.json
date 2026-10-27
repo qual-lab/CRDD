@@ -63,15 +63,6 @@
       ]
     },
     {
-      "symbolId": "coordinator.source.src.state.transition",
-      "kind": "file",
-      "path": "src/state/transition.ts",
-      "archIds": [
-        "ARCH-000004",
-        "ARCH-000008"
-      ]
-    },
-    {
       "symbolId": "coordinator.source.src.storage.lock",
       "kind": "file",
       "path": "src/storage/lock.ts",

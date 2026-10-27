@@ -573,7 +573,15 @@ export {
   prepareCoordinatorUnifiedTaskSnapshot,
   normalizeCoordinatorTaskProjects,
 } from "./task/crud.ts";
-export { validateCoordinatorUnifiedTransition } from "./state/transition.ts";
+export {
+  validateCoordinatorUnifiedTransition,
+  assertCoordinatorSnapshotTransition,
+  coordinatorQueueIsClosed,
+  coordinatorAdoptionWasRejected,
+  coordinatorRejectedAdoptionEvidenceCanRetire,
+  coordinatorStandaloneAdoptionIsClosed,
+  type CoordinatorSnapshotObservations,
+} from "./state/transition.ts";
 export { parseChangeTraceHeader } from "./artifact/change.ts";
 export {
   getJsonCommitName,

@@ -81,7 +81,7 @@ import { hasProjectTaskResultAcceptanceConflict } from "../task/acceptance.ts";
 import {
   assertCoordinatorSnapshotTransition,
   type CoordinatorSnapshotObservations,
-} from "../state/transition.ts";
+} from "../../../domain-model/src/index.ts";
 import { type StoreResult, completed, blocked } from "../state/result.ts";
 import {
   acquireCoordinatorSnapshotPilotLock,

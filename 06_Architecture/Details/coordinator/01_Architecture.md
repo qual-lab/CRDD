@@ -1610,7 +1610,7 @@ DI checkpointのkey・技術順序は下位Root codecで検証し、Coordinator�
 | 資源・Host・Leaseの現在checkpoint | 同じ操作の実要求・実観測・現在世代に応じて更新する。 | 個別checkpointの構造検証だけでなく、要求前記録、相関、遷移順、現在の実体観測を照合する。 |
 | Hostの処置前提 | Coordinatorの確認結果を既存Host Ownerへ用途限定で渡す。 | opaque Capability、一回消費、現在Host世代と実体排他を維持する。Snapshot項目の存在だけで回収許可を作らない。 |
 
-記録の保存Schema・codec・改訂と元Hashは`storage/state.ts`、Operationの値・遷移検査は`execution/validation.ts`、区画相関と投影は`state/settlement.ts`、閉鎖・退役条件は`state/transition.ts`が所有する。保存・読戻し・受領確定は単一の物理Writerを維持し、現在資源／Host／Ownerの接続は実行Callerが所有する。構造検証のPassを資源不存在、現在Authorityまたは完全な遷移検証の代替にしない。旧`active-docker-task-v1.json`・旧record-model・旧全域Inventory／回復APIは退役済みであり、互換Readerを追加しない。元版・exact ID・資源終端・Host世代・Writer／受領の確認は保持する。実資源の処置、実再ログオンと公開E2Eの未証明を、旧経路撤去から成立へ換算しない。
+記録の保存Schema・codec・改訂と元Hashは`storage/state.ts`、Operationの値・遷移検査は`execution/validation.ts`、区画相関と投影は`state/settlement.ts`、閉鎖・退役条件はDomain Modelの`state/transition.ts`が所有する。保存・読戻し・受領確定は単一の物理Writerを維持し、現在資源／Host／Ownerの接続は実行Callerが所有する。構造検証のPassを資源不存在、現在Authorityまたは完全な遷移検証の代替にしない。旧`active-docker-task-v1.json`・旧record-model・旧全域Inventory／回復APIは退役済みであり、互換Readerを追加しない。元版・exact ID・資源終端・Host世代・Writer／受領の確認は保持する。実資源の処置、実再ログオンと公開E2Eの未証明を、旧経路撤去から成立へ換算しない。
 
 旧RuntimeState一覧向けの`recovery-lock-controller.ts`と`state-binding.ts`は本番利用側がなくなったため撤去する。旧controllerの処理中解放・再取得は現行方式へ移植しない。現在の回収OwnerはHost／Home／Runtimeの長期排他を保持し、状態保存だけ短期State排他を用いる。外側観測の後は元版全文・exact回復ID・現在Ownerを再確認し、解放不明では後続処置を拒否する。旧方式の専用試験7件の退役は、正式検証義務や実境界の完了を意味しない。
 

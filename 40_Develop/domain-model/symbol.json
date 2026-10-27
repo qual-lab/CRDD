@@ -3,6 +3,7 @@
   "contractRevision": 1,
   "subsystem": "domain-model",
   "symbols": [
+    { "symbolId": "coordinator.source.src.state.transition", "kind": "file", "path": "src/state/transition.ts", "archIds": ["ARCH-000004", "ARCH-000008"] },
     { "symbolId": "coordinator.state-storage.restart-checkpoint", "kind": "file", "path": "src/attempt/validation.ts", "archIds": ["ARCH-000008"] },
     { "symbolId": "coordinator.test-support.source-declaration", "kind": "file", "path": "tests/support/source-declaration.ts", "archIds": ["ARCH-000008"] },
     { "symbolId": "domain-model.test.unit.history-summary", "kind": "test-suite", "path": "tests/unit/state/history-summary.contract.test.ts", "qaIds": ["QA-000003"], "localTestIds": ["PRL-UT-006"], "verifies": ["domain-model.state.crud"] },

@@ -202,7 +202,7 @@ Docker回復は同じ必須AbortSignalを下位へ渡して完了を待つ。固
 
 業務操作の公開面はPackage Rootの`src/index.ts`へ統一する。Objective受付、判断、受入判断、状態照会の六操作は各用途の`objective/composition.ts`、`decision/lifecycle.ts`、`state/query.ts`から、既存のPrincipal観測は`src/decision/lifecycle.ts`から明示的に公開する。純再exportの業務中継Fileと`./application` subpathは廃止し、MCP配布入口・WorkbenchはRootへ直接接続する。これはSource公開Pathの互換性変更であり、操作名、通信契約、保存形式、Authorityを変更しない。具象組立てはRootを逆参照せず、必要な実体へ依存する。開発用構築関数や診断内部関数を追加公開しない。Coordinator Rootは上位業務操作を再公開しない。CLIと親Directory・保存Root参照は切替済みだが、旧実Runtime Rootの処置と残る実行接続は未完了のため、公開面の接続だけを全移管完成とは扱わない。
 
-現在状態の照会は`state/query.ts`、Task／Queue操作は`task/queue.ts`、長期Leaseは`execution/lease.ts`、閉鎖・退役判断は`state/transition.ts`と`state/retirement.ts`が所有する。共通物理Writerは`storage/state.ts`、短期保存Ownerは`storage/lock.ts`、終了要約の保存と期限整理は`storage/history.ts`が所有する。同じSnapshotを同じ短期Ownerの下で保存し、各操作は既存トランザクション内でfreshな現在値を判定する。Task回復は`execution/recovery.ts`が元のexact世代・Task・Attempt・Operation・結果を照合する。技術cleanupと耐久受領は異なる意味だが別保存Ownerへ分けない。
+現在状態の照会は`state/query.ts`、Task／Queue操作は`task/queue.ts`、長期Leaseは`execution/lease.ts`、閉鎖・退役条件はDomain Modelの`state/transition.ts`、そのI/O編成はCoordinatorの`state/retirement.ts`が所有する。共通物理Writerは`storage/state.ts`、短期保存Ownerは`storage/lock.ts`、終了要約の保存と期限整理は`storage/history.ts`が所有する。同じSnapshotを同じ短期Ownerの下で保存し、各操作は既存トランザクション内でfreshな現在値を判定する。Task回復は`execution/recovery.ts`が元のexact世代・Task・Attempt・Operation・結果を照合する。技術cleanupと耐久受領は異なる意味だが別保存Ownerへ分けない。
 
 上位のProject／Task／Attempt／Revision相関は`src/task/dispatch.ts`と`src/execution/controller.ts`が所有し、本番組立ては`src/objective/composition.ts`が接続する。通常実行の旧署名資格引数・発行・消費と専用Port／Adapterは撤去済みである。現在のTask・用途別許可と相関入力をCoordinatorへ渡し、上位Adapterに下位Authorityの生成・保存を移さない。Git／Artifact追跡は同一性と相関だけに用いる。上位本番組立ての物理移管は確認済みだが、旧資格3 API・専用静的検査・任意署名Toolの再接続と、共通実行・通知の最終検証は未完了である。
 
@@ -436,7 +436,7 @@ Orchestratorの純粋判定はOS固有のPath、principal、Filesystem保護、L
 | 物理保存（4） | `storage/state.ts`; `storage/history.ts`; `storage/lock.ts`; `storage/decision.ts` | 実行Snapshotの保存封筒・bounded codec・CAS・atomic replace・保存一回証拠・再入場を所有する。AI設定のWriterはDomainへ移管済み。実行Snapshot全体の移管は未完了。 |
 | 単発実行・技術接続（15） | `execution/lease.ts`; `execution/controller.ts`; `execution/authority.ts`; `execution/operation.ts`; `execution/result.ts`; `execution/recovery.ts`; `execution/observation.ts`; `execution/diagnostics.ts`; `execution/preparation.ts`; `execution/advice.ts`; `execution/request.ts`; `execution/settlement.ts`; `execution/validation.ts`; `execution/kernel-lock.ts`; `execution/process-safety-state.ts` | 実行・長期Lease・観測・終了と実行中の一回結果結合を所有する。保存型はDomainの`attempt/types.ts`を利用する。 |
 | CLI（7） | `cli/command.ts`; `cli/options.ts`; `cli/request.ts`; `cli/authentication.ts`; `cli/doctor.ts`; `cli/recovery-report.ts`; `cli/cancellation.ts` | 引数・入力搬送・取消・出力を所有する。 |
-| 区画間の状態整合（2） | `state/settlement.ts`; `state/transition.ts` | 復号済み区画の相関・閉鎖・退役条件を判断する。実Leaseと履歴は同じ短期Ownerへ束縛した同期観測で確認する。 |
+| 区画間の状態整合 | Coordinator `state/settlement.ts`; Domain Model `state/transition.ts` | 復号済み区画の相関・閉鎖・退役条件を判断する。実Leaseと履歴は同じ短期Ownerへ束縛した同期観測で確認する。 |
 | 外部送信判断（3） | `decision/external-send-consent.ts`; `decision/external-send-grant.ts`; `decision/external-send-policy.ts` | 既存の同意・Policy・一回Grantを保持する。 |
 | 公開入口（2） | `index.ts`; `api.ts` | Rootの公開名・型／値区分を維持する。 |
 

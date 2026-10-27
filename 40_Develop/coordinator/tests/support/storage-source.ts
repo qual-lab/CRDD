@@ -21,7 +21,6 @@ import * as executionValues from "../../src/execution/validation.ts";
 import * as executionResults from "../../src/execution/result.ts";
 import * as stateSettlement from "../../src/state/settlement.ts";
 import * as taskAcceptance from "../../src/task/acceptance.ts";
-import * as stateTransitions from "../../src/state/transition.ts";
 import * as stateResults from "../../src/state/result.ts";
 import * as storageOwners from "../../src/storage/lock.ts";
 import * as observationValues from "../../src/execution/observation.ts";
@@ -80,7 +79,6 @@ export function createStorageSourceFixture(
     ...executionResults,
     ...stateSettlement,
     ...taskAcceptance,
-    ...stateTransitions,
     ...stateResults,
     ...storageOwners,
     ...observationValues,
