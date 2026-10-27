@@ -4,6 +4,12 @@
   "subsystem": "coordinator",
   "symbols": [
     {
+      "symbolId": "coordinator.test-support.storage-source",
+      "kind": "file",
+      "path": "tests/support/storage-source.ts",
+      "archIds": ["ARCH-000008"]
+    },
+    {
       "symbolId": "coordinator.source.src.execution.lease",
       "kind": "file",
       "path": "src/execution/lease.ts",

@@ -16,24 +16,11 @@ import { execFileSync } from "node:child_process";
 import test, { mock, type TestContext } from "node:test";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
+import { createStorageSourceFixture } from "../support/storage-source.ts";
 import { executionSelection } from "../fixtures/ai-selection.ts";
-import { stripTypeScriptTypes } from "node:module";
 import { runInThisContext } from "node:vm";
-import { types } from "node:util";
 import * as model from "../../../domain-model/src/index.ts";
-import * as historyValues from "../../src/storage/history.ts";
-import * as stateValues from "../../src/state/validation.ts";
-import * as executionValues from "../../src/execution/validation.ts";
-import * as executionResults from "../../src/execution/result.ts";
-import * as stateSettlement from "../../src/state/settlement.ts";
-import * as taskValues from "../../../domain-model/src/index.ts";
-import * as taskAcceptance from "../../src/task/acceptance.ts";
-import * as stateTransitions from "../../src/state/transition.ts";
-import * as stateResults from "../../src/state/result.ts";
-import * as storageOwners from "../../src/storage/lock.ts";
-import * as observationValues from "../../src/execution/observation.ts";
 import * as domain from "../../../domain-model/src/index.ts";
-import * as versionControl from "../../../version-control/src/index.ts";
 import * as bindings from "../../src/execution/operation.ts";
 import * as kernel from "../../src/execution/kernel-lock.ts";
 import * as stateStore from "../../src/storage/state.ts";
@@ -841,75 +828,16 @@ function stateStoreSource(
   transform: (source: string) => string,
   overrides: Readonly<Record<string, unknown>> = {},
 ) {
-  // 移管先の関数を実Moduleから借りると、その内部依存には故障注入が
-  // 届かない。同じ実Sourceの保存閉包を一つの試験VMへ組み立てる。
-  const source = [
-    "../../src/storage/lock.ts",
-    "../../../domain-model/src/storage/state.ts",
-    "../../src/storage/state.ts",
-  ]
-    .map((file) =>
-      stripTypeScriptTypes(
-        fs.readFileSync(new URL(file, import.meta.url), "utf8"),
-      )
-        .replace(/^import[\s\S]*?;\r?\n/gmu, "")
-        .replace(/^export\s+/gmu, ""),
-    )
-    .join("\n");
-  const body = transform(source);
-  const dependencies = {
-    createHash,
-    randomUUID,
-    fs,
-    path,
-    types,
-    ...domain,
-    ...versionControl,
-    ...model,
-    ...isolation,
-    ...stateValues,
-    ...executionValues,
-    ...executionResults,
-    ...stateSettlement,
-    ...taskValues,
-    ...taskAcceptance,
-    ...stateTransitions,
-    ...stateResults,
-    ...storageOwners,
-    ...observationValues,
-    ...historyValues,
-    decodeCoordinatorStateSnapshot: domain.decodeRuntimeDomainSnapshot,
-    exactRecordKeys: domain.hasRuntimeStateRecordKeys,
-    digest: domain.hashRuntimeStateValueText,
-    plainObject: domain.isRuntimeStateObject,
-    exactKeys: domain.hasRuntimeStateKeys,
-    dockerRuntimeRepairDisposalIsSettled:
-      isolation.dockerRuntimeRepairDisposalIsSettled,
-    ...bindings,
-    ...kernel,
-    ...overrides,
-  };
-  const declarations = new Set(
-    [...body.matchAll(/^(?:function|const|let|class) ([A-Za-z0-9_]+)/gm)].map(
-      (match) => match[1],
-    ),
-  );
-  const entries = Object.entries(dependencies).filter(
-    ([name]) => !declarations.has(name),
-  );
-  const names = entries.map(([name]) => name);
-  return runInThisContext(
-    `(function(${names.join(",")}){${body};return {resume:resumeRuntimeOwnedCoordinatorRepairPublication,write:writeRuntimeOwnedCoordinatorRepairSnapshot,readHistory:readRuntimeOwnedCoordinatorRepairHistorySnapshot,advanceHistory:advanceRuntimeOwnedCoordinatorRepairHistory,readCompletion:readRuntimeOwnedCoordinatorRepairCompletionSnapshot,complete:completeRuntimeOwnedCoordinatorRepair};})`,
-  )(...entries.map(([, value]) => value)) as {
-    resume: typeof stateStore.resumeRuntimeOwnedCoordinatorRepairPublication;
-    write: typeof stateStore.writeRuntimeOwnedCoordinatorRepairSnapshot;
-    readHistory: typeof stateStore.readRuntimeOwnedCoordinatorRepairHistorySnapshot;
-    advanceHistory: typeof stateStore.advanceRuntimeOwnedCoordinatorRepairHistory;
-    readCompletion: typeof stateStore.readRuntimeOwnedCoordinatorRepairCompletionSnapshot;
-    complete: typeof stateStore.completeRuntimeOwnedCoordinatorRepair;
+  const store = createStorageSourceFixture(transform, overrides);
+  return {
+    resume: store.resumeRuntimeOwnedCoordinatorRepairPublication,
+    write: store.writeRuntimeOwnedCoordinatorRepairSnapshot,
+    readHistory: store.readRuntimeOwnedCoordinatorRepairHistorySnapshot,
+    advanceHistory: store.advanceRuntimeOwnedCoordinatorRepairHistory,
+    readCompletion: store.readRuntimeOwnedCoordinatorRepairCompletionSnapshot,
+    complete: store.completeRuntimeOwnedCoordinatorRepair,
   };
 }
-
 /**
  * 同値進捗の保存入口を実Readerの戻り値契約から独立に反証する。
  * @responsibility Readerの部分成立を保存済み同値へ補完しない。

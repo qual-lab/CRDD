@@ -3070,7 +3070,7 @@ for (const { repeatCount, retained } of [
         `import { hashExecutionSelection } from "${new URL("../../src/selection/validation.ts", import.meta.url).href}";`,
         `const verifyRuntimeOwnedDockerCleanupOutcome = globalThis[${JSON.stringify(cleanupKey)}];`,
         `import { beginOwnedDockerSubmissionRecovery, borrowOwnedHostRecoverySnapshot, completeOwnedDockerSubmissionRecovery, borrowRuntimeOwnedCoordinatorStateRepository } from "${new URL("../../src/execution/operation.ts", import.meta.url).href}";`,
-        `import { parseHostRecoveryToken } from "${new URL("../../src/execution/result.ts", import.meta.url).href}";`,
+        `import { parseHostRecoveryToken } from "${new URL("../../../domain-model/src/index.ts", import.meta.url).href}";`,
         `import { verifyRuntimeOwnedProviderHomeMountCompletion } from "${new URL("../../src/execution/authority.ts", import.meta.url).href}";`,
         `import { checkpointRuntimeOwnedCoordinatorCleanup, checkpointRuntimeOwnedCoordinatorHost, readRuntimeOwnedCoordinatorStateSnapshot } from "${new URL("../../src/storage/state.ts", import.meta.url).href}";`,
       ].join("\n");
@@ -3083,6 +3083,19 @@ for (const { repeatCount, retained } of [
         mock.module(
           new URL("../../src/execution/controller.ts", import.meta.url).href,
           { namedExports: { ...cleanupExports, ...actualHostSubmission } },
+        ),
+      );
+      // 元の静的importで評価済みの終端Moduleを再利用せず、同じ代役観測と実Writerへ接続する。
+      const actualSettlement = await import(
+        new URL(
+          `../../src/execution/settlement.ts?normal-owner-physical-${repeatCount}-${retained}`,
+          import.meta.url,
+        ).href
+      );
+      substitutions.push(
+        mock.module(
+          new URL("../../src/execution/settlement.ts", import.meta.url).href,
+          { namedExports: { ...actualSettlement } },
         ),
       );
       ownerRuntime = await import(

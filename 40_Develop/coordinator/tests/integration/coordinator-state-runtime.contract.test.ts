@@ -31,6 +31,7 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
 import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
+import { createStorageSourceFixture } from "../support/storage-source.ts";
 import path from "node:path";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
@@ -1477,12 +1478,11 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     },
   );
   try {
-    const missingReleaseModuleUrl = new URL(
-      "../../src/storage/state.ts?reader-release-observation",
-      import.meta.url,
-    ).href;
-    const missingReleaseRuntime: typeof import("../../src/storage/state.ts") =
-      await import(missingReleaseModuleUrl);
+    const currentKernel = await import("../../src/execution/kernel-lock.ts");
+    const missingReleaseRuntime = createStorageSourceFixture(undefined, {
+      acquireRuntimeOwnedCoordinatorStateKernelLock:
+        currentKernel.acquireRuntimeOwnedCoordinatorStateKernelLock,
+    });
     const stopped =
       missingReleaseRuntime.saveRuntimeOwnedCoordinatorOperationStart(
         management,
@@ -2725,13 +2725,13 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     },
   );
   t.after(() => completionLockObservationMock.restore());
-  const isolatedModuleUrl = new URL(
-    "../../src/storage/state.ts?history-filesystem-fixture",
-    import.meta.url,
+  const currentCompletionKernel = await import(
+    "../../src/execution/kernel-lock.ts"
   );
-  const historyStore = (await import(
-    isolatedModuleUrl.href
-  )) as typeof import("../../src/storage/state.ts");
+  const historyStore = createStorageSourceFixture(undefined, {
+    acquireRuntimeOwnedCoordinatorStateKernelLock:
+      currentCompletionKernel.acquireRuntimeOwnedCoordinatorStateKernelLock,
+  });
   const historyStorageMock = t.mock.module(
     new URL("../../src/storage/state.ts", import.meta.url).href,
     { namedExports: { ...historyStore } },
@@ -4361,7 +4361,7 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
         `import { hashExecutionSelection } from "${new URL("../../src/selection/validation.ts", import.meta.url).href}";`,
         `import { verifyRuntimeOwnedDockerCleanupOutcome } from "${new URL("../../src/execution/controller.ts", import.meta.url).href}";`,
         `import { beginOwnedDockerSubmissionRecovery, borrowOwnedHostRecoverySnapshot, completeOwnedDockerSubmissionRecovery, borrowRuntimeOwnedCoordinatorStateRepository } from "${new URL("../../src/execution/operation.ts", import.meta.url).href}";`,
-        `import { parseHostRecoveryToken } from "${new URL("../../src/execution/result.ts", import.meta.url).href}";`,
+        `import { parseHostRecoveryToken } from "${new URL("../../../domain-model/src/index.ts", import.meta.url).href}";`,
         `import { verifyRuntimeOwnedProviderHomeMountCompletion } from "${new URL("../../src/execution/authority.ts", import.meta.url).href}";`,
         `import { checkpointRuntimeOwnedCoordinatorCleanup, checkpointRuntimeOwnedCoordinatorHost, readRuntimeOwnedCoordinatorStateSnapshot } from "${new URL("../../src/storage/state.ts", import.meta.url).href}";`,
       ].join("\n");
@@ -5223,13 +5223,11 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
       },
     });
     try {
-      const lostOwnerRuntime: typeof import("../../src/storage/state.ts") =
-        await import(
-          new URL(
-            `../../src/storage/state.ts?authentication-owner-lost-after-lock-${consumer}`,
-            import.meta.url,
-          ).href
-        );
+      const currentKernel = await import("../../src/execution/kernel-lock.ts");
+      const lostOwnerRuntime = createStorageSourceFixture(undefined, {
+        acquireRuntimeOwnedCoordinatorStateKernelLock:
+          currentKernel.acquireRuntimeOwnedCoordinatorStateKernelLock,
+      });
       const lostOwner =
         lostOwnerRuntime.writeRuntimeOwnedCoordinatorAuthenticationUnknownClosure(
           repository,
