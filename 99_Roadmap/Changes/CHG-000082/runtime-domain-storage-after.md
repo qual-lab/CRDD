@@ -274,6 +274,42 @@ Core操作では保存値の相関を検査するが、DockerやProviderへの�
 
 `committed-json.ts`の既存上限262,144byteとsidecar契約を、巨大な統合Snapshotへ無条件に流用しない。既存のSnapshot出版保証を維持し、共通化の名目で新しい第二の確定方式を追加しない。
 
+<a id="runtime-domain-fixed-storage-uses"></a>
+
+### 5.1 残る十九固定用途の入力・観測・保存差分
+
+以下は`d43e623e3`の本番callback母集団に対する固定契約であり、実装済みの表示ではない。共通する保存側入力は検証済みRepository scope・binding、出力は既存の固定結果封筒とする。短期Owner取得→fresh読取り→表の位置で観測→候補検査→CAS・読戻し→解放を一つの保存Ownerへ閉じる。Owner・Kernel handle・任意Snapshot callback・raw WriterはPackage境界へ公開しない。表の用途を一つの汎用dispatcher・新Registryへ集約しない。
+
+| 利用側の固定用途 | 用途固有の値入力 | Coordinatorに残す同期観測・判断と位置 | 保存で変更できる区画／結果 |
+|---|---|---|---|
+| Queue実行対象選択 | 閉じた選択ID、固定理由、対象ID・期待世代・次状態・再開条件 | fresh Queueから既存優先順位で選択。Domainは優先順位を再判断しない | 対象scheduled Queueのqueued／waiting_foregroundと一世代だけ。選択値又はnull |
+| Queue更新 | Queue ID・期待世代・次状態・再開条件・結果参照・Lease有無 | 元の値検査後に私有Mapを一回借用。kind／Root／binding／Project／Queue一致後だけ同じ実体の生存観測 | 同じQueue一件と一世代。元Owner不一致・不正遷移は拒否 |
+| exact回復後Queue | Queue ID・期待世代・同じ回復ID | 回復成立と再開処置の発火はCoordinator。Domainはfresh値のexact条件を再検査 | ownerなし・exact_recoveryの同じQueueだけqueued候補。実回復完了・実行許可の証明ではない |
+| QueueのLease解放確定 | Queue ID・期待世代・元Owner世代 | 値検査後、同Rootの資源不存在→境界再確認→既存解放証拠。unknownは不存在でない | 同じQueueのOwner除去と一世代。未終了intent、回復済み証拠、欠測は拒否 |
+| 単発Task受付 | 発行時epoch・閉形式Queue一件 | Provider・Lease・時計の観測なし。呼出し側が受付を発火 | 同じ入力の再入場は無書込み。新規だけQueue／受付結合追加 |
+| 単発Task更新 | Queue ID・期待世代・検査済み次記録 | 元位置で実Lease一回借用、相関成立後だけ同実体の生存確認。clean終端末尾だけ時計二回 | 同じQueueと、clean終端時だけ同ID履歴pending置換。元ID・失敗・回復参照保持 |
+| 未開始単発Task終了 | Queue ID・期待世代・固定理由 | 値検査後、取得intentなしの確認。成功末尾だけ時計二回 | accepted・Ownerなし一件だけ終了し履歴pending追加。回収完了を捏造しない |
+| Lease取得Owner照会 | binding | 実Process死亡を判断しない。fresh intent／Queue値だけ照合 | 無書込み。閉じた取得参照、真正な不存在又は停止 |
+| Lease取得予約 | Project／Queue／kind・元Owner世代・予約intent | Queue結合と同Identity intentなしの後、実資源不存在→Root実体観測→保存要求記録 | 予約intent追加。保存拒否時も元のexact回復IDを保持 |
+| Lease取得確定 | 元予約intent・同じ物理Identity・Owner／Process ID | 元intent一致の後に同じ実Directory実体を再観測 | lock_owned intentとacquired証拠を一体保存。実Lease発行はCoordinator |
+| Lease解放pending | 同じOwner／kind／Project／Queue・物理Identity・回復ID | 元lock_owned intent一致。実解放はこの保存後のCoordinator | 同じrelease_pending intent追加。保存失敗後も一回証拠を復活させない |
+| Lease解放確定 | 元intent・物理Identity・Owner／Process ID・回復ID | 実解放と不存在はCoordinatorが先に観測。fresh release_pendingを保存時に再照合 | 同じintent除去とreleased証拠追加。公開解放成功は保存／解放確認後 |
+| owner-loss初回照会 | Project／Queue／kind | 値結合後にRoot実体観測。Process生死は短期保存Ownerの外で確認 | 無書込み。対象intent集合・Queue元版・Root相関だけ |
+| intentなし旧Lease終了 | 元Queue世代／Owner・回復ID | released証拠・intentなしの後に実資源不存在を再観測 | 同じQueueだけowner_lossの回復待ちへ。完了へは変えない |
+| 回復intent予約 | exact元intent集合・元Queue・Root相関・pending | 元位置でRoot実体を観測、元集合／Queue全文を比較 | 同じpendingは無書込み、異なるpendingは拒否。新規同intentだけ追加 |
+| 回復確定 | 元intent／Queue・pending・Root／物理相関・回復ID | 実Process不存在・物理回収はCoordinator。保存時にRoot実体と実資源不存在を再観測 | 同対象intent除去、終了証拠、必要なQueueの回復待ち更新を一CASへ |
+| 終了履歴pending生成 | 評価時刻 | 対象ごとの元位置で実Lease不存在・履歴確定を有限観測。非対象では観測しない | 閉じたQueue／adoptionの要約だけ追加。既存pendingを保持 |
+| 履歴確認後退役 | 評価時刻・新epoch生成の有限操作 | 元位置で履歴出版→対象ごとの閉鎖義務／履歴再読→除去条件。epochは必要時だけ生成 | 適格Queue／証拠／判断等だけ除去し受付世代切替。参照中結果・未解決状態を保持 |
+| pending履歴搬送 | 評価時刻 | pendingありの場合だけ履歴出版、各行を同じOwnerで再確認 | 確定行の件数を返しpending除去。Queue・Project・回復義務は変更しない |
+
+実Lease観測は借用0／1回・生存0／1回を用途別の元制御順で維持する。単発更新では元実装が前状態検査より先に借用するため、前状態不一致でも借用一回／生存零回を維持する。Domainへ渡す借用値はkind、Repository Root、binding、Project ID、Queue ID、Owner世代の六fieldだけ。同じ実体はCoordinatorの呼出し局所変数で保持し、別操作へ再利用しない。生存の返却は`=== true`だけを受理し、Promise／thenable／truthy値を成功にしない。
+
+時計は用途固定の無名同期`now:()=>number`とし、clean終端又は未開始終了の候補末尾で、表示時刻→履歴検査用時刻の順に二回呼ぶ。拒否・非clean・同値確定済み再入場では零回。時刻観測・Owner確認の例外は既存の外側Store失敗と解放へ接続し、未使用へ戻さない。
+
+### 5.2 原子的に移す物理閉包
+
+固定用途の接続が閉じた後、短期保存Owner、Reader／Writer、history I/O、五Context、initializations、historyAttempts、Module-private取引を同じDomain保存Ownerへ移す。借用Repositoryの実行Package関数型への依存は、既存の検証済みRootと用途固定の現在観測へ置換する。新旧Map／Writerの併存や、先にraw取引をRoot公開して後から縮める手順は採らない。長期Lease、Host／Home、Process生死、Docker・ProviderのEffectと回復判断はCoordinator／既存専門Ownerに残す。
+
 ## 6. Package公開APIの全数処置
 
 全73項目を以下に分類する。矢印は候補であり、今回exportを変更していない。型の細分化は操作の所属に従い、名前だけの互換exportは残さない。

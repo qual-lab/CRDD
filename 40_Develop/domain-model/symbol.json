@@ -4,6 +4,7 @@
   "subsystem": "domain-model",
   "symbols": [
     { "symbolId": "domain-model.task.queue", "kind": "file", "path": "src/task/queue.ts", "archIds": ["ARCH-000004", "ARCH-000008"] },
+    { "symbolId": "domain-model.test.unit.queue-execution-candidates", "kind": "test-suite", "path": "tests/unit/task/queue-execution-candidates.contract.test.ts", "qaIds": ["QA-000003"], "localTestIds": ["PRL-UT-006"], "verifies": ["domain-model.task.queue"] },
     { "symbolId": "domain-model.test.unit.task-queue", "kind": "test-suite", "path": "tests/unit/task/queue.contract.test.ts", "qaIds": ["QA-000003"], "localTestIds": ["PRL-UT-007"], "verifies": ["domain-model.task.queue", "domain-model.state.crud"] },
     { "symbolId": "domain-model.workspace.crud", "kind": "file", "path": "src/workspace/crud.ts", "archIds": ["ARCH-000004", "ARCH-000008"] },
     { "symbolId": "domain-model.test.unit.workspace-crud", "kind": "test-suite", "path": "tests/unit/workspace/crud.contract.test.ts", "qaIds": ["QA-000003"], "localTestIds": ["PRL-UT-007"], "verifies": ["domain-model.workspace.crud", "domain-model.state.crud"] },

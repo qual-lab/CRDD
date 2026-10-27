@@ -122,6 +122,75 @@ test("固定Queue CRUDは実Storeで新規だけ一改訂し照会と再送は�
     "orchestrator_intake_epoch_retired",
   );
   assert.deepEqual(fs.readFileSync(file), after);
+  const scenarios = [
+    {
+      queueId: "missing",
+      generation: 1,
+      resume: null,
+      result: null,
+      expected: "orchestrator_queue_generation_conflict",
+      reads: [],
+    },
+    {
+      queueId: "queue-a",
+      generation: 2,
+      resume: null,
+      result: null,
+      expected: "orchestrator_queue_generation_conflict",
+      reads: [],
+    },
+    {
+      queueId: "queue-a",
+      generation: 1,
+      resume: "../bad",
+      result: null,
+      expected: "orchestrator_queue_resume_condition_invalid",
+      reads: ["resume", "resume"],
+    },
+    {
+      queueId: "queue-a",
+      generation: 1,
+      resume: null,
+      result: "../bad",
+      expected: "orchestrator_queue_result_reference_invalid",
+      reads: ["resume", "result", "result"],
+    },
+    {
+      queueId: "queue-a",
+      generation: 1,
+      resume: null,
+      result: null,
+      expected: "orchestrator_queue_transition_invalid",
+      reads: ["resume", "result", "state"],
+    },
+  ];
+  for (const scenario of scenarios) {
+    const reads: string[] = [];
+    const result = ports.state.updateQueue(
+      scenario.queueId,
+      scenario.generation,
+      {
+        get state() {
+          reads.push("state");
+          return "completed" as const;
+        },
+        get resumeCondition() {
+          reads.push("resume");
+          return scenario.resume;
+        },
+        get resultReference() {
+          reads.push("result");
+          return scenario.result;
+        },
+        get lease(): never {
+          throw Error("late_lease_getter_must_not_run");
+        },
+      },
+    );
+    assert.equal(result.reason, scenario.expected);
+    assert.deepEqual(reads, scenario.reads);
+    assert.deepEqual(fs.readFileSync(file), after);
+  }
 });
 
 /**
@@ -325,12 +394,36 @@ test("scheduled work arriving after an interactive operation starts remains effe
   );
   assert.equal(lease.status, "completed");
   if (lease.status !== "completed") throw new Error("lease");
+  const reads: string[] = [];
   const leased = ports.state.updateQueue("queue-interactive", 1, {
-    state: "leased",
-    lease: lease.value,
-    resumeCondition: null,
-    resultReference: null,
+    get state() {
+      reads.push("state");
+      return "leased" as const;
+    },
+    get lease() {
+      reads.push("lease");
+      return lease.value;
+    },
+    get resumeCondition() {
+      reads.push("resume");
+      return null;
+    },
+    get resultReference() {
+      reads.push("result");
+      return null;
+    },
   });
+  assert.deepEqual(reads, [
+    "resume",
+    "result",
+    "state",
+    "lease",
+    "lease",
+    "state",
+    "state",
+    "resume",
+    "result",
+  ]);
   assert.equal(leased.status, "completed");
   if (leased.status !== "completed") throw new Error("leased queue");
   const running = ports.state.updateQueue(
