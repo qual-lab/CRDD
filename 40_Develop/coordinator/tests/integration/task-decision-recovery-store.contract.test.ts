@@ -142,7 +142,14 @@ test("independent decision recovery intent survives a fresh store and settles by
     "binding-a",
   );
   const value = intent();
+  const file = path.join(root, ".crdd", "coordinator", "state.json");
+  const initialRevision = JSON.parse(fs.readFileSync(file, "utf8")).revision;
   assert.equal((first.create(value) as { status: string }).status, "completed");
+  const createdBytes = fs.readFileSync(file);
+  assert.equal(
+    JSON.parse(createdBytes.toString("utf8")).revision,
+    initialRevision + 1,
+  );
   const reopened = createCoordinatorSnapshotDecisionRecoveryStore(
     root,
     "binding-a",
@@ -151,15 +158,29 @@ test("independent decision recovery intent survives a fresh store and settles by
     (reopened.read(value.recoveryId) as { value: unknown }).value,
     value,
   );
+  assert.deepEqual(fs.readFileSync(file), createdBytes);
+  const invalidBinding = createCoordinatorSnapshotDecisionRecoveryStore(
+    root,
+    "invalid binding",
+  ).create(value) as { status: string; reason: string };
+  assert.equal(invalidBinding.status, "blocked");
+  assert.equal(invalidBinding.reason, "orchestrator_snapshot_input_invalid");
+  assert.deepEqual(fs.readFileSync(file), createdBytes);
   const settled = Object.freeze({ ...value, disposition: "settled" as const });
   assert.equal(
     (reopened.compareAndSet(value, settled) as { status: string }).status,
     "completed",
   );
+  const updatedBytes = fs.readFileSync(file);
+  assert.equal(
+    JSON.parse(updatedBytes.toString("utf8")).revision,
+    initialRevision + 2,
+  );
   assert.deepEqual(
     (reopened.read(value.recoveryId) as { value: unknown }).value,
     settled,
   );
+  assert.deepEqual(fs.readFileSync(file), updatedBytes);
 });
 
 /**

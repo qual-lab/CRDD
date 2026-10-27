@@ -482,13 +482,34 @@ test("Acceptance Decisionの前世代Hash改ざんを拒否する", (t) => {
     disposition: "finalized",
     newGeneration: 2,
   });
-  assert.equal(store.create(prepared).status, "completed");
-  assert.equal(store.compareAndSet(prepared, finalized).status, "completed");
   const statePath = path.join(
     repository.root,
     ".crdd",
     "coordinator",
     "state.json",
+  );
+  const initialRevision = JSON.parse(
+    fs.readFileSync(statePath, "utf8"),
+  ).revision;
+  assert.equal(store.create(prepared).status, "completed");
+  const createdBytes = fs.readFileSync(statePath);
+  assert.equal(
+    JSON.parse(createdBytes.toString("utf8")).revision,
+    initialRevision + 1,
+  );
+  assert.equal(store.read(prepared.recordId).status, "completed");
+  assert.deepEqual(fs.readFileSync(statePath), createdBytes);
+  const invalidBinding = createCoordinatorSnapshotAcceptanceDecisionStore(
+    repository.root,
+    "invalid binding",
+  ).create(prepared);
+  assert.equal(invalidBinding.status, "blocked");
+  assert.equal(invalidBinding.reason, "orchestrator_snapshot_input_invalid");
+  assert.deepEqual(fs.readFileSync(statePath), createdBytes);
+  assert.equal(store.compareAndSet(prepared, finalized).status, "completed");
+  assert.equal(
+    JSON.parse(fs.readFileSync(statePath, "utf8")).revision,
+    initialRevision + 2,
   );
   const original = fs.readFileSync(statePath);
   const saved = JSON.parse(original.toString("utf8"));

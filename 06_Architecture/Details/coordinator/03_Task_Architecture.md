@@ -158,7 +158,7 @@ Workspace再編の現在目標は[作業領域・責務契約](05_Workspace.md)�
 |---|---|
 | `objective/composition.ts` | 公開受付、本番実行依存と開発用構成の組立て |
 | `objective/execute.ts` | Objective受付後の検証、単発Task入力変換、進行、結果と回復参照の引渡し |
-| `decision/lifecycle.ts` | 人間判断の本番依存組立て・公開実行 |
+| `decision/lifecycle.ts` | 人間判断の本番依存組立て・公開実行。判断Storeの六操作は、同じ短期保存Owner内からDomain `decision/crud.ts`の固定候補／投影を呼ぶ |
 | `decision/acceptance.ts` | 明示受入判断の認証・Repository検証・保存への接続 |
 | `state/query.ts` | 状態照会の認証・現在Snapshot確認・読取りへの接続 |
 | `execution/diagnostics.ts` | 直列診断Reporter、二つの既存本番Reporter、失敗・timeout・disposeの終了契約 |

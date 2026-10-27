@@ -6,18 +6,15 @@
  */
 
 import {
-  COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
-  hashRuntimeStateValueText as digest,
+  prepareCoordinatorAcceptanceDecisionCreation,
+  projectCoordinatorAcceptanceDecisionRecord,
+  prepareCoordinatorAcceptanceDecisionFinalization,
+  prepareCoordinatorDecisionRecoveryCreation,
+  projectCoordinatorDecisionRecoveryRecord,
+  prepareCoordinatorDecisionRecoveryUpdate,
 } from "../../../domain-model/src/index.ts";
-import { encodeRuntimeStateValue } from "../../../domain-model/src/index.ts";
-import { completed } from "../state/result.ts";
-import { blocked as storeBlocked } from "../state/result.ts";
 import { withCoordinatorSnapshotOperation } from "../storage/state.ts";
 
-import { COORDINATOR_ACCEPTANCE_DECISION_STORE_CONTRACT } from "../../../domain-model/src/index.ts";
-import type { CoordinatorAcceptanceDecisionEnvelope } from "../../../domain-model/src/index.ts";
-import { validCoordinatorAcceptanceDecisionRecord } from "../../../domain-model/src/index.ts";
-import { validCoordinatorDecisionRecoveryIntent } from "../../../domain-model/src/index.ts";
 import type { CoordinatorAcceptanceDecisionStore } from "./types.ts";
 import { createHash, randomBytes } from "node:crypto";
 import type {
@@ -1270,35 +1267,12 @@ export function createCoordinatorSnapshotAcceptanceDecisionStore(
       return withCoordinatorSnapshotOperation(
         workingDirectory,
         binding,
-        (current) => {
-          if (
-            current.schema !== COORDINATOR_PROJECT_SNAPSHOT_SCHEMA ||
-            !validCoordinatorAcceptanceDecisionRecord(record) ||
-            record.disposition !== "prepared"
-          )
-            return storeBlocked("orchestrator_acceptance_record_invalid");
-          if (
-            current.acceptanceDecisions.some(
-              (item) => item.recordId === record.recordId,
-            )
-          )
-            return storeBlocked("orchestrator_acceptance_record_exists");
-          const entry: CoordinatorAcceptanceDecisionEnvelope = {
-            contract: COORDINATOR_ACCEPTANCE_DECISION_STORE_CONTRACT,
-            repositoryBindingId: binding,
-            recordId: record.recordId,
-            generation: 1,
-            previousHash: null,
+        (current) =>
+          prepareCoordinatorAcceptanceDecisionCreation(
+            current,
+            binding,
             record,
-          };
-          return completed("orchestrator_acceptance_record_created", {
-            next: {
-              ...current,
-              acceptanceDecisions: [...current.acceptanceDecisions, entry],
-            },
-            value: record,
-          });
-        },
+          ),
       );
     },
     /**
@@ -1320,25 +1294,8 @@ export function createCoordinatorSnapshotAcceptanceDecisionStore(
       return withCoordinatorSnapshotOperation(
         workingDirectory,
         binding,
-        (current) => {
-          if (
-            current.schema !== COORDINATOR_PROJECT_SNAPSHOT_SCHEMA ||
-            !validId(recordId)
-          )
-            return storeBlocked(
-              "orchestrator_acceptance_record_identity_invalid",
-            );
-          const groups = current.acceptanceDecisions.filter(
-            (item) => item.recordId === recordId,
-          );
-          return completed("orchestrator_acceptance_record_observed", {
-            next: null,
-            value:
-              groups.find((item) => item.generation === 2)?.record ??
-              groups.find((item) => item.generation === 1)?.record ??
-              null,
-          });
-        },
+        (current) =>
+          projectCoordinatorAcceptanceDecisionRecord(current, recordId),
       );
     },
     /**
@@ -1360,53 +1317,13 @@ export function createCoordinatorSnapshotAcceptanceDecisionStore(
       return withCoordinatorSnapshotOperation(
         workingDirectory,
         binding,
-        (current) => {
-          if (
-            current.schema !== COORDINATOR_PROJECT_SNAPSHOT_SCHEMA ||
-            !validCoordinatorAcceptanceDecisionRecord(expected) ||
-            !validCoordinatorAcceptanceDecisionRecord(next) ||
-            expected.recordId !== next.recordId ||
-            expected.disposition !== "prepared" ||
-            next.disposition !== "finalized"
-          )
-            return storeBlocked(
-              "orchestrator_acceptance_record_transition_invalid",
-            );
-          const first = current.acceptanceDecisions.find(
-            (item) =>
-              item.recordId === expected.recordId && item.generation === 1,
-          );
-          if (
-            !first ||
-            encodeRuntimeStateValue(first.record) !==
-              encodeRuntimeStateValue(expected)
-          )
-            return storeBlocked(
-              "orchestrator_acceptance_record_generation_mismatch",
-            );
-          if (
-            current.acceptanceDecisions.some(
-              (item) =>
-                item.recordId === expected.recordId && item.generation === 2,
-            )
-          )
-            return storeBlocked("orchestrator_acceptance_record_exists");
-          const entry: CoordinatorAcceptanceDecisionEnvelope = {
-            contract: COORDINATOR_ACCEPTANCE_DECISION_STORE_CONTRACT,
-            repositoryBindingId: binding,
-            recordId: expected.recordId,
-            generation: 2,
-            previousHash: digest(encodeRuntimeStateValue(first)),
-            record: next,
-          };
-          return completed("orchestrator_acceptance_record_finalized", {
-            next: {
-              ...current,
-              acceptanceDecisions: [...current.acceptanceDecisions, entry],
-            },
-            value: next,
-          });
-        },
+        (current) =>
+          prepareCoordinatorAcceptanceDecisionFinalization(
+            current,
+            binding,
+            expected,
+            next,
+          ),
       );
     },
   });
@@ -1451,29 +1368,8 @@ export function createCoordinatorSnapshotDecisionRecoveryStore(
       return withCoordinatorSnapshotOperation(
         workingDirectory,
         binding,
-        (current) => {
-          if (
-            current.schema !== COORDINATOR_PROJECT_SNAPSHOT_SCHEMA ||
-            !validCoordinatorDecisionRecoveryIntent(intent)
-          )
-            return storeBlocked("orchestrator_decision_recovery_invalid");
-          if (
-            current.decisionRecoveries.some(
-              (item) => item.value.recoveryId === intent.recoveryId,
-            )
-          )
-            return storeBlocked("orchestrator_decision_recovery_exists");
-          return completed("orchestrator_decision_recovery_created", {
-            next: {
-              ...current,
-              decisionRecoveries: [
-                ...current.decisionRecoveries,
-                { generation: 1, value: intent },
-              ],
-            },
-            value: intent,
-          });
-        },
+        (current) =>
+          prepareCoordinatorDecisionRecoveryCreation(current, intent),
       );
     },
     /**
@@ -1495,20 +1391,8 @@ export function createCoordinatorSnapshotDecisionRecoveryStore(
       return withCoordinatorSnapshotOperation(
         workingDirectory,
         binding,
-        (current) => {
-          if (
-            current.schema !== COORDINATOR_PROJECT_SNAPSHOT_SCHEMA ||
-            !validId(recoveryId)
-          )
-            return storeBlocked("orchestrator_decision_recovery_invalid");
-          return completed("orchestrator_decision_recovery_observed", {
-            next: null,
-            value:
-              current.decisionRecoveries.find(
-                (item) => item.value.recoveryId === recoveryId,
-              )?.value ?? null,
-          });
-        },
+        (current) =>
+          projectCoordinatorDecisionRecoveryRecord(current, recoveryId),
       );
     },
     /**
@@ -1530,37 +1414,8 @@ export function createCoordinatorSnapshotDecisionRecoveryStore(
       return withCoordinatorSnapshotOperation(
         workingDirectory,
         binding,
-        (current) => {
-          if (
-            current.schema !== COORDINATOR_PROJECT_SNAPSHOT_SCHEMA ||
-            !validCoordinatorDecisionRecoveryIntent(expected) ||
-            !validCoordinatorDecisionRecoveryIntent(next) ||
-            expected.recoveryId !== next.recoveryId
-          )
-            return storeBlocked("orchestrator_decision_recovery_invalid");
-          const prior = current.decisionRecoveries.find(
-            (item) => item.value.recoveryId === expected.recoveryId,
-          );
-          if (
-            !prior ||
-            encodeRuntimeStateValue(prior.value) !==
-              encodeRuntimeStateValue(expected)
-          )
-            return storeBlocked(
-              "orchestrator_decision_recovery_generation_mismatch",
-            );
-          return completed("orchestrator_decision_recovery_updated", {
-            next: {
-              ...current,
-              decisionRecoveries: current.decisionRecoveries.map((item) =>
-                item === prior
-                  ? { generation: prior.generation + 1, value: next }
-                  : item,
-              ),
-            },
-            value: next,
-          });
-        },
+        (current) =>
+          prepareCoordinatorDecisionRecoveryUpdate(current, expected, next),
       );
     },
   });

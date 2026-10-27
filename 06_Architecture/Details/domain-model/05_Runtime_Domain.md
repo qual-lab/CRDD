@@ -375,6 +375,7 @@ Source配置の候補はDomainのobjective／task／attempt／decision／workspa
 | 移管した純粋処理 | 現在のOwner | 本番との接続範囲 |
 |---|---|---|
 | Task更新候補・受領と技術参照の正規化 | `task/crud.ts` | 正規化は既存WriterがDomain Rootから利用する。一般CRUDの永続化APIではない |
+| 受入判断の作成・最新読取り・確定、判断回復の作成・読取り・比較更新 | `decision/crud.ts` | 六つの用途固定の候補／投影を既存StoreのLock内fresh読取り後に呼ぶ。耐久保存・現在認可・人間判断の真正性は含まない |
 | Snapshotの操作・修復・履歴・完了候補と元版比較 | `state/crud.ts` | `prepareCoordinatorState*`等の純粋候補と`validateCoordinatorState*`／出版分類を既存Writerへ提供する。相互参照する候補と比較を同居させ、物理保存・実資源観測・Ownerを含めない |
 | 単一保存の改訂・受領不変性・Operation除去相関、閉鎖・退役条件 | `state/transition.ts` | 既存Writerの共通遷移検査と、同じ保存Ownerに束縛したLease不存在・履歴の同期観測による条件検査。内側の受領遷移検査は非公開 |
 | 終了履歴の全行codec・期間保持候補 | `state/history.ts` | Domain Rootの`decodeCoordinatorHistoryRows`／`prepareCoordinatorHistoryRetention`。物理File・実排他・現在Ownerの確認は含まず、既存Writerが処置時点で再照合する |

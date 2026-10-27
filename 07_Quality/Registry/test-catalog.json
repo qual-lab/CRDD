@@ -3227,6 +3227,19 @@
       "mandatoryByDefault": true
     },
     {
+      "id": "domain-model:unit:decision-crud",
+      "owner": "domain-model",
+      "path": "40_Develop/domain-model/tests/unit/decision/crud.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": ["decision", "candidate", "comparison"],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["result_observed"],
+      "mandatoryByDefault": true
+    },
+    {
       "id": "domain-model:unit:history-summary",
       "owner": "domain-model",
       "path": "40_Develop/domain-model/tests/unit/state/history-summary.contract.test.ts",
