@@ -8,6 +8,11 @@
  * @security Rootへの集約はAuthorityを追加せず、各実体の入力検証・Repository範囲・非公開内部操作の境界を維持する。
  */
 export { parseUnambiguousJsonDocument } from "./plain-data/json.ts";
+export { projectCoordinatorCurrentState } from "./state/crud.ts";
+export {
+  prepareCoordinatorIntegrationRecordCreation,
+  prepareCoordinatorWorkspaceRecordUpdate,
+} from "./workspace/crud.ts";
 export {
   prepareCoordinatorAcceptanceDecisionCreation,
   projectCoordinatorAcceptanceDecisionRecord,

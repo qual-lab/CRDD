@@ -9,7 +9,11 @@
  * @boundary PRL-IT-005=Related 2 Blocks: Task State→Authority Gate→Runtime
  */
 
-import { encodeRuntimeStateValue } from "../../../domain-model/src/index.ts";
+import {
+  encodeRuntimeStateValue,
+  prepareCoordinatorWorkspaceRecordUpdate,
+  type CoordinatorWorkspace,
+} from "../../../domain-model/src/index.ts";
 import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
@@ -21,12 +25,123 @@ import { fileURLToPath } from "node:url";
 import {
   initializeCoordinatorSnapshot,
   readCoordinatorSnapshot,
+  withCoordinatorSnapshotOperation,
 } from "../../src/storage/state.ts";
 import { createCurrentCoordinatorPersistencePorts } from "../../src/state/transaction.ts";
 import { createCoordinatorSnapshotIntegrationRecordPort } from "../../src/workspace/commands.ts";
 import { createCoordinatorState } from "../../src/state/create.ts";
 import { ensureRepositoryRuntimeDataAreaFromWorkingDirectory } from "../../../domain-model/src/index.ts";
 import { requireReadyRepositoryRuntimeDataArea } from "../../../domain-model/src/index.ts";
+
+/**
+ * Domain時計例外を実Storeで拒否し短期Ownerを解放する。
+ * @responsibility 候補throwが元の保存失敗境界と解放へ接続することを確認する。
+ * @trace PRL-IT-005
+ * @precondition 自己生成Rootの実Snapshot・Kernel・Reader。Workspace/Lease値はcallback内だけの合成値。
+ * @stimulus 削除候補の最初の時計だけthrowさせ、同Rootを再読し別のfixture結果を保存する。
+ * @observation exact拒否・時計一回・state/history bytes又は不存在・後続再取得。
+ * @oracle Writerへ候補を渡さず元本文を保全し、解放後の読取りと保存が成功する。
+ * @cleanup 既存fixture hookが今回Rootだけを回収する。
+ * @boundary 実短期StoreとDomain時計。合成Leaseを実Authority・実Git回収・全codec成立の証拠にしない。
+ */
+test("Domain時計例外は実Storeの固定拒否と解放へ閉じる", (t) => {
+  const { root } = fixture(t);
+  const stateFile = path.join(root, ".crdd", "coordinator", "state.json");
+  const historyFile = path.join(root, ".crdd", "coordinator", "history.jsonl");
+  const before = fs.readFileSync(stateFile);
+  const historyBefore = fs.existsSync(historyFile)
+    ? fs.readFileSync(historyFile)
+    : null;
+  const id = "22222222-2222-2222-2222-222222222222";
+  const workspace: CoordinatorWorkspace = {
+    workspaceId: id,
+    name: null,
+    candidate: null,
+    generation: 1,
+    baseCommit: "a".repeat(40),
+    head: "a".repeat(40),
+    phase: "ready",
+    holdUntil: null,
+    pending: null,
+    primaryFailure: null,
+    lastResult: {
+      status: "completed",
+      reason: "worktree_removed",
+      workspaceId: id,
+      relativePath: null,
+      branch: null,
+      expectedCommit: null,
+      effectIssued: true,
+      worktreeRemoved: true,
+      branchRemoved: true,
+      workspaceDirectoryRetained: false,
+      observation: null,
+    },
+  };
+  let clockCalls = 0;
+  const rejected = withCoordinatorSnapshotOperation(
+    root,
+    "binding-a",
+    (current) =>
+      prepareCoordinatorWorkspaceRecordUpdate(
+        {
+          ...current,
+          workspaces: [workspace],
+          leaseIntents: [
+            {
+              projectId: "project-a",
+              queueId: "queue-a",
+              kind: "project-operation",
+              ownerGeneration: "owner-a",
+              ownerProcessId: process.pid,
+              recoveryId: "recovery-a",
+              phase: "lock_owned",
+            },
+          ],
+        },
+        "project-a",
+        "queue-a",
+        "owner-a",
+        id,
+        1,
+        null,
+        {
+          processId: process.pid,
+          now: () => {
+            clockCalls++;
+            throw new Error("synthetic_clock_failure");
+          },
+        },
+      ),
+  );
+  assert.deepEqual(rejected, {
+    status: "blocked",
+    reason: "orchestrator_snapshot_operation_invalid_or_unconfirmed",
+    value: null,
+    manualRecoveryRequired: false,
+    recoveryId: null,
+  });
+  assert.equal(clockCalls, 1);
+  assert.deepEqual(fs.readFileSync(stateFile), before);
+  if (historyBefore === null) assert.equal(fs.existsSync(historyFile), false);
+  else assert.deepEqual(fs.readFileSync(historyFile), historyBefore);
+  assert.equal(readCoordinatorSnapshot(root, "binding-a").status, "completed");
+  assert.deepEqual(fs.readFileSync(stateFile), before);
+  assert.equal(
+    adapter(root).write({
+      kind: "integration",
+      identity: "after-clock-failure",
+      value: { synthetic: true },
+    }).status,
+    "completed",
+  );
+  const after = readCoordinatorSnapshot(root, "binding-a");
+  assert.equal(after.status, "completed");
+  assert.equal(
+    after.value?.snapshotRevision,
+    JSON.parse(before.toString("utf8")).revision + 1,
+  );
+});
 
 /**
  * fixtureのTest準備責務を実行する。

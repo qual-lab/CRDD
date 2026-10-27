@@ -5,13 +5,10 @@
  * @trace ARCH-000005
  */
 import {
-  COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
-  validId,
+  projectCoordinatorCurrentState,
   type CoordinatorState,
 } from "../../../domain-model/src/index.ts";
 import type { StoreResult } from "./result.ts";
-import { completed } from "./result.ts";
-import { blocked } from "./result.ts";
 import { withCoordinatorSnapshotOperation } from "../storage/state.ts";
 
 import { projectCoordinatorState } from "./projection.ts";
@@ -316,15 +313,6 @@ export function readCurrentCoordinatorState(
   return withCoordinatorSnapshotOperation(
     workingDirectory,
     binding,
-    (current) =>
-      current.schema === COORDINATOR_PROJECT_SNAPSHOT_SCHEMA &&
-      validId(projectId)
-        ? completed("orchestrator_state_observed", {
-            next: null,
-            value:
-              current.projects.find((item) => item.projectId === projectId) ??
-              null,
-          })
-        : blocked("orchestrator_snapshot_schema_invalid"),
+    (current) => projectCoordinatorCurrentState(current, projectId),
   );
 }

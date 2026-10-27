@@ -6,6 +6,49 @@
  * @boundary メモリ内の値だけ。保存・実Owner確認・実資源観測・処置許可は発行しない。
  */
 import { types } from "node:util";
+import type { CoordinatorSnapshot } from "./types.ts";
+import { COORDINATOR_PROJECT_SNAPSHOT_SCHEMA, validId } from "./validation.ts";
+/**
+ * 検証済みSnapshotからProjectの現在値だけを投影する。
+ * @responsibility 既存のSchema・ID共同検査と不存在のnullを維持する。
+ * @trace ARCH-000004、ARCH-000008
+ * @input current: 同じ保存Ownerが読み直したSnapshot、projectId: 照会ID。
+ * @returns 既存結果封筒の変更候補又は投影、拒否時は元の固定理由。
+ * @precondition 同じ短期保存Ownerがfresh SnapshotとRepository結合を検証している。
+ * @postcondition 入力と対象外区画を変更しない。
+ * @effect N/A: メモリ内の値操作だけ。
+ * @failure 元の判定順と拒否理由を維持する。
+ * @invariant 候補のcompletedを耐久保存・認可・実資源終了の証明へ読み替えない。
+ * @boundary Coordinator専用メモリ投影と、別Ownerが持つ単一Writer。
+ * @security 値はAuthorityではなく、保存Ownerや任意callbackを公開しない。
+ * @concurrency 保存CASと現在Owner再確認・解放は既存Writerが行う。
+ */
+
+export function projectCoordinatorCurrentState(
+  current: CoordinatorSnapshot,
+  projectId: string,
+) {
+  return current.schema === COORDINATOR_PROJECT_SNAPSHOT_SCHEMA &&
+    validId(projectId)
+    ? Object.freeze({
+        status: "completed" as const,
+        reason: "orchestrator_state_observed",
+        value: {
+          next: null,
+          value:
+            current.projects.find((item) => item.projectId === projectId) ??
+            null,
+        },
+      })
+    : Object.freeze({
+        status: "blocked" as const,
+        reason: "orchestrator_snapshot_schema_invalid",
+        value: null,
+        manualRecoveryRequired: false,
+        recoveryId: null,
+      });
+}
+
 import { decodeRuntimeDomainSnapshot as decodeCoordinatorStateSnapshot } from "./validation.ts";
 import { encodeRuntimeStateValue } from "./codec.ts";
 import type { CoordinatorStateTaskOperation } from "../attempt/types.ts";

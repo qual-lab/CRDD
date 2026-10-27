@@ -3,6 +3,8 @@
   "contractRevision": 1,
   "subsystem": "domain-model",
   "symbols": [
+    { "symbolId": "domain-model.workspace.crud", "kind": "file", "path": "src/workspace/crud.ts", "archIds": ["ARCH-000004", "ARCH-000008"] },
+    { "symbolId": "domain-model.test.unit.workspace-crud", "kind": "test-suite", "path": "tests/unit/workspace/crud.contract.test.ts", "qaIds": ["QA-000003"], "localTestIds": ["PRL-UT-007"], "verifies": ["domain-model.workspace.crud", "domain-model.state.crud"] },
     { "symbolId": "domain-model.test.unit.decision-crud", "kind": "test-suite", "path": "tests/unit/decision/crud.contract.test.ts", "qaIds": ["QA-000003"], "localTestIds": ["PRL-UT-007"], "verifies": ["domain-model.decision.crud"] },
     { "symbolId": "domain-model.decision.crud", "kind": "file", "path": "src/decision/crud.ts", "archIds": ["ARCH-000004", "ARCH-000005", "ARCH-000008"] },
     { "symbolId": "coordinator.source.src.state.settlement", "kind": "file", "path": "src/state/transition.ts", "archIds": ["ARCH-000004", "ARCH-000008"] },

@@ -7,20 +7,13 @@
  * @security Root・Binding・内部一時物を公開しない。
  */
 import {
-  validCoordinatorResultRecord,
-  hashRuntimeStateValueText as digest,
-  validCoordinatorWorkspace,
-  historyRow,
-  COORDINATOR_INTEGRATION_CONTRACT,
-  type CoordinatorResultRecord,
+  prepareCoordinatorIntegrationRecordCreation,
+  prepareCoordinatorWorkspaceRecordUpdate,
   snapshotRuntimeStateRecord as snapshotPlainRecord,
   snapshotRuntimeStateArray as snapshotPlainArray,
   type CoordinatorWorkspace,
 } from "../../../domain-model/src/index.ts";
-import { encodeRuntimeStateValue } from "../../../domain-model/src/index.ts";
 import type { StoreResult } from "../state/result.ts";
-import { completed } from "../state/result.ts";
-import { blocked } from "../state/result.ts";
 import { withCoordinatorSnapshotOperation } from "../storage/state.ts";
 
 import type { CoordinatorIntegrationRecordPort } from "./record.ts";
@@ -685,49 +678,8 @@ export function createCoordinatorSnapshotIntegrationRecordPort(
       return withCoordinatorSnapshotOperation(
         binding.workingDirectory,
         binding.repositoryBindingId,
-        (current) => {
-          const value: CoordinatorResultRecord = {
-            contract: COORDINATOR_INTEGRATION_CONTRACT,
-            kind: record.kind,
-            repositoryBindingId: binding.repositoryBindingId,
-            projectId: binding.projectId,
-            milestoneId: binding.milestoneId,
-            queueId: binding.queueId,
-            identity: record.identity,
-            contentHash: digest(encodeRuntimeStateValue(record.value)),
-            value: record.value,
-          };
-          if (!validCoordinatorResultRecord(value))
-            return blocked("orchestrator_result_invalid");
-          const queue = current.queueEntries.find(
-            (item) => item.queueId === binding.queueId,
-          );
-          if (
-            (value.kind === "integration" && (!queue || queue.singleTask)) ||
-            (value.milestoneId === null && !queue?.singleTask) ||
-            (queue &&
-              (queue.projectId !== binding.projectId ||
-                queue.milestoneId !== binding.milestoneId))
-          )
-            return blocked("orchestrator_result_binding_invalid");
-          const old = current.results.find(
-            (item) =>
-              item.kind === value.kind &&
-              item.projectId === value.projectId &&
-              item.identity === value.identity,
-          );
-          if (
-            old &&
-            encodeRuntimeStateValue(old) !== encodeRuntimeStateValue(value)
-          )
-            return blocked("orchestrator_result_identity_conflict");
-          return completed("orchestrator_result_durable", {
-            next: old
-              ? null
-              : { ...current, results: [...current.results, value] },
-            value: { written: true as const },
-          });
-        },
+        (current) =>
+          prepareCoordinatorIntegrationRecordCreation(current, binding, record),
       );
     },
   });
@@ -761,137 +713,16 @@ export function writeCoordinatorWorkspaceRecord(
   return withCoordinatorSnapshotOperation(
     workingDirectory,
     binding,
-    (current) => {
-      const queue = current.queueEntries.find(
-        (entry) => entry.queueId === queueId && entry.projectId === projectId,
-      );
-      const owned = current.leaseIntents.some(
-        (intent) =>
-          intent.projectId === projectId &&
-          intent.queueId === queueId &&
-          intent.kind === "project-operation" &&
-          intent.phase === "lock_owned" &&
-          intent.ownerGeneration === ownerGeneration &&
-          intent.ownerProcessId === process.pid,
-      );
-      if (!queue || !owned)
-        return blocked("orchestrator_workspace_lease_mismatch");
-      const previous = current.workspaces.find(
-        (entry) => entry.workspaceId === workspaceId,
-      );
-      if ((previous?.generation ?? 0) !== expectedGeneration)
-        return blocked("orchestrator_workspace_generation_conflict");
-      if (queue.workspaceId != null && queue.workspaceId !== workspaceId)
-        return blocked("orchestrator_workspace_target_mismatch");
-      if (
-        nextRecord &&
-        (!validCoordinatorWorkspace(nextRecord) ||
-          nextRecord.workspaceId !== workspaceId ||
-          nextRecord.generation !== expectedGeneration + 1)
-      )
-        return blocked("orchestrator_workspace_record_invalid");
-      // binding-wide操作Leaseを維持し、既存Task／回復参照から非使用を導く。
-      const affectedProjects = new Set(
-        current.queueEntries
-          .filter((entry) => entry.workspaceId === workspaceId)
-          .map((entry) => entry.projectId),
-      );
-      affectedProjects.add(projectId);
-      const singleTaskBusy = current.queueEntries.some(
-        (entry) =>
-          affectedProjects.has(entry.projectId) &&
-          entry.singleTask &&
-          (entry.singleTask.phase !== "settled" ||
-            !entry.singleTask.cleanupConfirmed ||
-            entry.singleTask.recoveryIds.length > 0),
-      );
-      const busy =
-        singleTaskBusy ||
-        current.projects
-          .filter((entry) => affectedProjects.has(entry.projectId))
-          .some((entry) =>
-            entry.tasks.some(
-              (task) =>
-                [
-                  "starting",
-                  "running",
-                  "cleanup_pending",
-                  "recovery_required",
-                ].includes(task.state) ||
-                task.recoveryUnresolved ||
-                task.recoveryObligations.some(
-                  (obligation) =>
-                    !["settled", "acknowledged"].includes(obligation.phase),
-                ),
-            ),
-          );
-      if (busy) return blocked("orchestrator_workspace_in_use_or_unresolved");
-      if (
-        (nextRecord?.phase === "discarding" || nextRecord === null) &&
-        current.queueEntries.some(
-          (entry) =>
-            entry.workspaceId === workspaceId &&
-            entry.queueId !== queueId &&
-            !["completed", "cancelled"].includes(entry.state),
-        )
-      )
-        return blocked("orchestrator_workspace_other_queue_pending");
-      if (
-        nextRecord?.phase === "discarding" &&
-        previous?.holdUntil !== null &&
-        previous?.holdUntil !== undefined
-      )
-        return blocked("orchestrator_workspace_held");
-      if (
-        nextRecord === null &&
-        (previous?.lastResult?.worktreeRemoved !== true ||
-          previous.lastResult.branchRemoved !== true ||
-          previous.lastResult.workspaceDirectoryRetained !== false)
-      )
-        return blocked("orchestrator_workspace_disposal_unconfirmed");
-      const workspaces = current.workspaces.filter(
-        (entry) => entry.workspaceId !== workspaceId,
-      );
-      if (nextRecord) workspaces.push(nextRecord);
-      return completed("orchestrator_workspace_record_saved", {
-        next: {
-          ...current,
-          workspaces,
-          queueEntries: current.queueEntries.map((entry) =>
-            entry.queueId === queueId ||
-            (nextRecord === null && entry.workspaceId === workspaceId)
-              ? {
-                  ...entry,
-                  workspaceId: nextRecord === null ? null : workspaceId,
-                  ...(nextRecord === null &&
-                  !["completed", "cancelled"].includes(entry.state)
-                    ? { state: "cancelled" as const, resumeCondition: null }
-                    : {}),
-                  generation: entry.generation + 1,
-                }
-              : entry,
-          ),
-          historyPending:
-            nextRecord === null
-              ? [
-                  ...current.historyPending,
-                  historyRow(
-                    {
-                      id: `workspace-${workspaceId}`,
-                      occurredAt: new Date().toISOString(),
-                      outcome: "cancelled",
-                      primaryFailure: previous?.primaryFailure
-                        ? "cleanup"
-                        : null,
-                      cleanup: "confirmed",
-                    },
-                    Date.now(),
-                  ),
-                ]
-              : current.historyPending,
-        },
-        value: nextRecord,
-      });
-    },
+    (current) =>
+      prepareCoordinatorWorkspaceRecordUpdate(
+        current,
+        projectId,
+        queueId,
+        ownerGeneration,
+        workspaceId,
+        expectedGeneration,
+        nextRecord,
+        { processId: process.pid, now: () => Date.now() },
+      ),
   );
 }
