@@ -11,7 +11,7 @@
 
 import {
   type CoordinatorState,
-  decodeCoordinatorUnifiedSnapshot,
+  decodeRuntimeDomainSnapshot,
 } from "../../../domain-model/src/index.ts";
 import { encodeRuntimeStateValue } from "../../../domain-model/src/index.ts";
 import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
@@ -492,9 +492,7 @@ test("Acceptance Decisionの前世代Hash改ざんを拒否する", (t) => {
   );
   const original = fs.readFileSync(statePath);
   const saved = JSON.parse(original.toString("utf8"));
-  assert.ok(
-    decodeCoordinatorUnifiedSnapshot(original, saved.repositoryBinding),
-  );
+  assert.ok(decodeRuntimeDomainSnapshot(original, saved.repositoryBinding));
   const second = saved.acceptanceDecisions.find(
     (entry: { recordId: string; generation: number }) =>
       entry.recordId === prepared.recordId && entry.generation === 2,

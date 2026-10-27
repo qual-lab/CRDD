@@ -80,7 +80,7 @@ import {
   borrowRuntimeOwnedCoordinatorStateRepository,
 } from "../../src/execution/operation.ts";
 import {
-  decodeCoordinatorUnifiedSnapshot as decodeCoordinatorStateSnapshot,
+  decodeRuntimeDomainSnapshot as decodeCoordinatorStateSnapshot,
   prepareCoordinatorStateCompletionSnapshot,
   prepareCoordinatorAuthenticationUnknownClosureSnapshot,
   prepareCoordinatorStateHistorySnapshot,
@@ -134,6 +134,7 @@ const emptyTaskSections = {
   repositoryBindingId: null,
   intakeEpoch: null,
   projects: [],
+  managedExecutions: [],
   queueEntries: [],
   workspaces: [],
   intakeBindings: [],
@@ -5821,13 +5822,13 @@ for (const consumer of ["workbench", "coordinator_cli"] as const) {
  */
 test("一次失敗のCommand観測は閉じた数値契約と応答相関を検査する", () => {
   /**
-   * modelから対象検証関数の実本文を抽出する。
-   * @responsibility modelから対象検証関数の実本文を抽出する。
+   * Domainの現行Ownerから対象検証関数の実本文を抽出する。
+   * @responsibility 移管済み宣言を旧配置やコメント位置へ依存せず取得する。
    * @trace ERB-IT-003
    * @precondition 固定Sourceと一意な関数名。
-   * @stimulus 宣言と次のHeader位置を確認して型を除く。
+   * @stimulus 構文木で一意な宣言を選択して型を除く。
    * @observation VMへ渡される関数本文。
-   * @oracle 宣言開始と次Header終端の存在・順序を確認してから切り出す。
+   * @oracle 欠測・重複宣言を拒否し実宣言だけを使用する。
    * @cleanup N/A: Source読取りとメモリ変換だけ。
    * @boundary 実Sourceを読むが書き換えず、Commandは実行しない。
    */
@@ -5835,16 +5836,13 @@ test("一次失敗のCommand観測は閉じた数値契約と応答相関を検�
     const ownerSource = fs.readFileSync(
       new URL(
         name === "exactRecordKeys"
-          ? "../../src/state/validation.ts"
-          : "../../src/execution/validation.ts",
+          ? "../../../domain-model/src/state/validation.ts"
+          : "../../../domain-model/src/attempt/validation.ts",
         import.meta.url,
       ),
       "utf8",
     );
-    const start = ownerSource.indexOf(`function ${name}(`);
-    const end = ownerSource.indexOf("\n/**", start);
-    assert.ok(start >= 0 && end > start);
-    return stripTypeScriptTypes(ownerSource.slice(start, end));
+    return sourceDeclaration(ownerSource, name);
   };
   const validate = runInNewContext(
     `${extract("exactRecordKeys")}\n${extract("validCoordinatorPrimaryFailure")}\nvalidCoordinatorPrimaryFailure`,

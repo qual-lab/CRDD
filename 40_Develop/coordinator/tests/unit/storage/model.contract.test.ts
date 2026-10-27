@@ -16,7 +16,6 @@ import {
   COORDINATOR_STATE_SCHEMA,
   type CoordinatorStateSnapshot,
   type CoordinatorUnifiedSnapshot,
-  decodeCoordinatorUnifiedSnapshot,
   type CoordinatorStateTaskOperation,
   coordinatorAuthenticationUnknownCanClose,
   coordinatorTaskResourcesAreSettled,
@@ -35,6 +34,7 @@ import test from "node:test";
 import { runInNewContext } from "node:vm";
 
 import { createCoordinatorState } from "../../../src/state/create.ts";
+import { createManagedRuntimeSnapshotFixture } from "../../../../domain-model/tests/support/runtime-state.ts";
 import {
   decodeRuntimeDomainSnapshot,
   hashRuntimeProjectDefinition,
@@ -43,7 +43,7 @@ import {
 
 import {
   classifyCoordinatorResourcePublication,
-  decodeCoordinatorUnifiedSnapshot as decodeCoordinatorStateSnapshot,
+  decodeRuntimeDomainSnapshot as decodeCoordinatorStateSnapshot,
   prepareCoordinatorAuthenticationUnknownClosureSnapshot,
   prepareCoordinatorRecoveredHistoryPublication,
   prepareCoordinatorStateCleanupSnapshot,
@@ -84,7 +84,7 @@ const binding = "a".repeat(64);
  * @trace PRL-UT-006
  * @returns 空の単一保存値。
  * @effect N/A: メモリ内のfixture生成だけ。
- * @precondition 固定Bindingと現行v5 Schemaを使用する。
+ * @precondition 固定Bindingと現行Domain Schemaを使用する。
  * @stimulus Task未初期化の空区画を組み立てる。
  * @observation 実行・回復・配送・Projectの空集合。
  * @oracle 架空の旧Profileや初期化済み状態を補完しない。
@@ -93,7 +93,7 @@ const binding = "a".repeat(64);
  */
 function emptyUnifiedSnapshot(): CoordinatorUnifiedSnapshot {
   return {
-    schema: "crdd-coordinator/current-state/v5",
+    schema: "crdd-domain/runtime-state/v1",
     revision: 1,
     previous: null,
     repositoryBinding: binding,
@@ -103,6 +103,7 @@ function emptyUnifiedSnapshot(): CoordinatorUnifiedSnapshot {
     unresolvedRecoveries: [],
     pendingDeliveries: [],
     projects: [],
+    managedExecutions: [],
     queueEntries: [],
     workspaces: [],
     intakeBindings: [],
@@ -159,7 +160,13 @@ test("新Domain Schema: Coreのみと管理投影を定義Hashで分離する", 
   assert.deepEqual(read.snapshot, coreOnly);
   assert.deepEqual(read.projects, []);
   assert.equal(
-    decodeRuntimeDomainSnapshot(encode(emptyUnifiedSnapshot()), binding),
+    decodeRuntimeDomainSnapshot(
+      encode({
+        ...emptyUnifiedSnapshot(),
+        schema: "crdd-coordinator/current-state/v5",
+      }),
+      binding,
+    ),
     null,
   );
   for (const invalid of [
@@ -323,11 +330,11 @@ test("単一保存codec: Rootと改訂を一組にし片側初期化を拒否す
   const snapshot = emptyUnifiedSnapshot();
   const bytes = Buffer.from(`${encodeRuntimeStateValue(snapshot)}\n`);
   assert.deepEqual(
-    decodeCoordinatorUnifiedSnapshot(bytes, binding)?.snapshot,
+    decodeRuntimeDomainSnapshot(bytes, binding)?.snapshot,
     snapshot,
   );
   assert.equal(
-    decodeCoordinatorUnifiedSnapshot(bytes, binding)?.payloadSha256,
+    decodeRuntimeDomainSnapshot(bytes, binding)?.payloadSha256,
     createHash("sha256").update(bytes).digest("hex"),
   );
   assert.deepEqual(
@@ -349,13 +356,13 @@ test("単一保存codec: Rootと改訂を一組にし片側初期化を拒否す
     { ...snapshot, payload: snapshot },
   ])
     assert.equal(
-      decodeCoordinatorUnifiedSnapshot(
+      decodeRuntimeDomainSnapshot(
         Buffer.from(`${encodeRuntimeStateValue(invalid)}\n`),
         binding,
       ),
       null,
     );
-  assert.equal(decodeCoordinatorUnifiedSnapshot(bytes, "b".repeat(64)), null);
+  assert.equal(decodeRuntimeDomainSnapshot(bytes, "b".repeat(64)), null);
   const next = {
     ...snapshot,
     revision: 2,
@@ -611,8 +618,10 @@ test("Task保存codec: 非空回復の値キーとexact参照を保持する", (
       };
     }),
   }));
+  const { managedExecutions: _emptyManaged, ...emptyDefinitionFixture } =
+    emptyUnifiedSnapshot();
   const unified = {
-    ...emptyUnifiedSnapshot(),
+    ...emptyDefinitionFixture,
     repositoryBindingId: snapshot.repositoryBindingId,
     intakeEpoch: snapshot.intakeEpoch,
     intakeBindings: snapshot.intakeBindings,
@@ -632,13 +641,27 @@ test("Task保存codec: 非空回復の値キーとexact参照を保持する", (
    * @boundary 保存モデルの純粋試験。物理保存・実行なし。
    */
   const decodeUnified = (value: unknown) =>
-    decodeCoordinatorUnifiedSnapshot(
-      Buffer.from(`${encodeRuntimeStateValue(value)}\n`),
+    decodeRuntimeDomainSnapshot(
+      Buffer.from(
+        `${encodeRuntimeStateValue(createManagedRuntimeSnapshotFixture(value))}\n`,
+      ),
       binding,
     );
   assert.deepEqual(decodeUnified(unified)?.projects, snapshot.projects);
+  const explicitInvalidManaged = {
+    ...unified,
+    managedExecutions: [{ definitionHash: "invalid", unexpected: true }],
+  };
+  assert.equal(
+    createManagedRuntimeSnapshotFixture(explicitInvalidManaged),
+    explicitInvalidManaged,
+    "明示された技術区画をfixtureが正常値で上書きしない",
+  );
+  assert.equal(decodeUnified(explicitInvalidManaged), null);
   const stateUpdate = { ...created.state, generation: 2 };
-  const unifiedBytes = Buffer.from(`${encodeRuntimeStateValue(unified)}\n`);
+  const unifiedBytes = Buffer.from(
+    `${encodeRuntimeStateValue(createManagedRuntimeSnapshotFixture(unified))}\n`,
+  );
   const stateCandidate = prepareCoordinatorUnifiedTaskSnapshot(
     unifiedBytes,
     stateUpdate,
@@ -646,6 +669,42 @@ test("Task保存codec: 非空回復の値キーとexact参照を保持する", (
     binding,
   );
   assert.ok(stateCandidate);
+  const canonical = createManagedRuntimeSnapshotFixture(unified);
+  const managedDefinition = canonical.projects[0];
+  assert.ok(managedDefinition);
+  const coreBefore = { ...managedDefinition, projectId: "core-before" };
+  const coreAfter = { ...managedDefinition, projectId: "core-after" };
+  const mixedBytes = Buffer.from(
+    `${encodeRuntimeStateValue({
+      ...canonical,
+      projects: [coreBefore, managedDefinition, coreAfter],
+    })}\n`,
+  );
+  const mixed = decodeRuntimeDomainSnapshot(mixedBytes, binding);
+  assert.ok(mixed, "Coreのみの定義と管理実行が同じ正本へ共存する");
+  assert.equal(mixed.projects.length, 1, "Coreに偽の管理実行を投影しない");
+  const mixedCandidate = prepareCoordinatorUnifiedTaskSnapshot(
+    mixedBytes,
+    stateUpdate,
+    1,
+    binding,
+  );
+  assert.ok(mixedCandidate);
+  const mixedUpdated = decodeRuntimeDomainSnapshot(mixedCandidate, binding);
+  assert.ok(mixedUpdated);
+  assert.deepEqual(
+    mixedUpdated.snapshot.projects.map((project) => project.projectId),
+    ["core-before", "project-a", "core-after"],
+    "管理Task更新で他Core定義の順序を変えない",
+  );
+  assert.deepEqual(mixedUpdated.snapshot.projects[0], coreBefore);
+  assert.deepEqual(mixedUpdated.snapshot.projects[2], coreAfter);
+  assert.equal(mixedUpdated.snapshot.managedExecutions.length, 1);
+  assert.equal(
+    Object.hasOwn(mixedUpdated.snapshot.projects[1] ?? {}, "ownerGeneration"),
+    false,
+    "Owner・SelectionはCore定義へ複製しない",
+  );
   const changed = {
     ...stateUpdate,
     taskExecutionSelections: {
@@ -674,7 +733,7 @@ test("Task保存codec: 非空回復の値キーとexact参照を保持する", (
     null,
   );
   assert.deepEqual(
-    decodeCoordinatorUnifiedSnapshot(stateCandidate, binding)?.projects,
+    decodeRuntimeDomainSnapshot(stateCandidate, binding)?.projects,
     [stateUpdate],
   );
   assert.equal(
@@ -734,7 +793,9 @@ test("Task保存codec: 非空回復の値キーとexact参照を保持する", (
   };
   const withReceipt = { ...unified, resultReceipts: [oldReceipt] };
   assert.ok(decodeUnified(withReceipt));
-  const receiptBytes = Buffer.from(`${encodeRuntimeStateValue(withReceipt)}\n`);
+  const receiptBytes = Buffer.from(
+    `${encodeRuntimeStateValue(createManagedRuntimeSnapshotFixture(withReceipt))}\n`,
+  );
   const retry = {
     ...withReceipt,
     revision: 2,
@@ -769,7 +830,9 @@ test("Task保存codec: 非空回復の値キーとexact参照を保持する", (
   assert.equal(
     validateCoordinatorUnifiedTransition(
       receiptBytes,
-      Buffer.from(`${encodeRuntimeStateValue(retry)}\n`),
+      Buffer.from(
+        `${encodeRuntimeStateValue(createManagedRuntimeSnapshotFixture(retry))}\n`,
+      ),
       binding,
     ),
     true,
@@ -1122,7 +1185,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     assert.equal(
       prepareCoordinatorStateOperationSnapshot(
         null,
-        JSON.stringify(invalidIdentity) + "\n",
+        `${JSON.stringify(invalidIdentity)}\n`,
         binding,
       ),
       null,
@@ -3098,8 +3161,10 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       },
       resultAcceptanceIds: [],
     };
+    const { managedExecutions: _emptyManaged, ...emptyDefinitionFixture } =
+      emptyUnifiedSnapshot();
     const unifiedTerminal = {
-      ...emptyUnifiedSnapshot(),
+      ...emptyDefinitionFixture,
       repositoryBindingId: "binding-a",
       intakeEpoch: "epoch-a",
       operations: [terminalOperation],
@@ -3125,9 +3190,11 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
      * @boundary 保存モデルの純粋試験。物理保存・実行なし。
      */
     const encodeUnified = (value: unknown) =>
-      Buffer.from(`${encodeRuntimeStateValue(value)}\n`);
+      Buffer.from(
+        `${encodeRuntimeStateValue(createManagedRuntimeSnapshotFixture(value))}\n`,
+      );
     const unifiedBefore = encodeUnified(unifiedTerminal);
-    assert.ok(decodeCoordinatorUnifiedSnapshot(unifiedBefore, binding));
+    assert.ok(decodeRuntimeDomainSnapshot(unifiedBefore, binding));
     for (const taskUnresolved of [false, true]) {
       const unresolved = {
         ...unifiedTerminal,
@@ -3157,8 +3224,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
         ],
       };
       const before = encodeUnified(unresolved);
-      const view = decodeCoordinatorUnifiedSnapshot(before, binding)
-        ?.projects[0];
+      const view = decodeRuntimeDomainSnapshot(before, binding)?.projects[0];
       assert.ok(view);
       assert.equal(view.tasks[0]?.recoveryUnresolved, taskUnresolved);
       const candidate = prepareCoordinatorUnifiedTaskSnapshot(
@@ -3168,12 +3234,9 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
         binding,
       );
       assert.ok(candidate);
-      const saved = decodeCoordinatorUnifiedSnapshot(
-        candidate,
-        binding,
-      )?.snapshot;
+      const saved = decodeRuntimeDomainSnapshot(candidate, binding)?.snapshot;
       assert.ok(saved);
-      assert.deepEqual(saved.projects[0]?.tasks[0]?.settlement, {
+      assert.deepEqual(saved.managedExecutions[0]?.tasks[0]?.settlement, {
         kind: "operations",
         recoveryIds: [recoveryId],
         resultUnresolved: taskUnresolved,
@@ -3202,8 +3265,8 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       );
       assert.ok(changedFact);
       assert.deepEqual(
-        decodeCoordinatorUnifiedSnapshot(changedFact, binding)?.snapshot
-          .projects[0]?.tasks[0]?.settlement,
+        decodeRuntimeDomainSnapshot(changedFact, binding)?.snapshot
+          .managedExecutions[0]?.tasks[0]?.settlement,
         {
           kind: "operations",
           recoveryIds: [recoveryId],
@@ -3246,7 +3309,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
           ),
           null,
         );
-      const resolved = decodeCoordinatorUnifiedSnapshot(
+      const resolved = decodeRuntimeDomainSnapshot(
         encodeUnified({ ...saved, unresolvedRecoveries: [] }),
         binding,
       );
@@ -3316,7 +3379,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       second.lease = "released";
       second.execution = terminalOperation.execution;
       second.outcome = terminalOperation.outcome;
-      physical.projects[0].tasks[0].recoveryObligations.push({
+      physical.managedExecutions[0].tasks[0].recoveryObligations.push({
         kind: "docker",
         recoveryId: second.recoveryId,
       });
@@ -3341,7 +3404,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       assert.ok(delivered);
       multi = delivered;
       for (const id of [recoveryId, second.recoveryId]) {
-        const decoded = decodeCoordinatorUnifiedSnapshot(multi, binding);
+        const decoded = decodeRuntimeDomainSnapshot(multi, binding);
         const view = decoded?.projects[0];
         assert.ok(decoded && view);
         const operation = decoded.snapshot.operations.find(
@@ -3378,7 +3441,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
         );
         assert.ok(next, "二つの回復を同じTaskで一件ずつ耐久受領できる");
         const saved = JSON.parse(next.toString());
-        const stored = saved.projects[0].tasks[0];
+        const stored = saved.managedExecutions[0].tasks[0];
         assert.equal(saved.operations.length, id === recoveryId ? 1 : 0);
         assert.equal(
           stored.settlement.kind,
@@ -3393,10 +3456,10 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
             value.pendingDeliveries = decoded.snapshot.pendingDeliveries;
           },
           (value: typeof saved) => {
-            value.projects[0].tasks[0].attemptId = "other-attempt";
+            value.managedExecutions[0].tasks[0].attemptId = "other-attempt";
           },
           (value: typeof saved) => {
-            const fact = value.projects[0].tasks[0].settlement;
+            const fact = value.managedExecutions[0].tasks[0].settlement;
             if (fact.kind === "operations") fact.resultUnresolved = true;
             else fact.recoveryUnresolved = true;
           },
@@ -3414,7 +3477,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
         }
         if (id === recoveryId) {
           const premature = structuredClone(saved);
-          premature.projects[0].tasks[0].settlement = {
+          premature.managedExecutions[0].tasks[0].settlement = {
             kind: "executor_result",
             cleanupConfirmed: true,
             recoveryUnresolved: false,
@@ -3434,7 +3497,8 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
             [recoveryId, second.recoveryId],
           ]) {
             const invalid = structuredClone(saved);
-            invalid.projects[0].tasks[0].settlement.recoveryIds = references;
+            invalid.managedExecutions[0].tasks[0].settlement.recoveryIds =
+              references;
             assert.equal(
               validateCoordinatorUnifiedTransition(
                 multi,
@@ -3447,8 +3511,8 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
         }
         multi = next;
       }
-      const receipts = decodeCoordinatorUnifiedSnapshot(multi, binding)
-        ?.snapshot.resultReceipts;
+      const receipts = decodeRuntimeDomainSnapshot(multi, binding)?.snapshot
+        .resultReceipts;
       assert.equal(
         receipts?.find((item) => item.recoveryId === recoveryId)
           ?.settlementGeneration,
@@ -3484,9 +3548,9 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       ],
     };
     assert.ok(
-      decodeCoordinatorUnifiedSnapshot(encodeUnified(acceptedUnified), binding),
+      decodeRuntimeDomainSnapshot(encodeUnified(acceptedUnified), binding),
     );
-    const acceptedState = decodeCoordinatorUnifiedSnapshot(
+    const acceptedState = decodeRuntimeDomainSnapshot(
       encodeUnified(acceptedUnified),
       binding,
     )?.projects[0];
@@ -3538,7 +3602,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       Buffer.alloc(0),
       "受領・操作除去後は通常の期限整理へ戻す",
     );
-    const acceptedDecoded = decodeCoordinatorUnifiedSnapshot(
+    const acceptedDecoded = decodeRuntimeDomainSnapshot(
       taskPublication,
       binding,
     );
@@ -3551,7 +3615,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     );
     assert.ok(receiptRetained);
     assert.deepEqual(
-      decodeCoordinatorUnifiedSnapshot(receiptRetained, binding)?.snapshot
+      decodeRuntimeDomainSnapshot(receiptRetained, binding)?.snapshot
         .resultReceipts,
       acceptedDecoded.snapshot.resultReceipts,
     );
@@ -3579,7 +3643,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       ],
     };
     const unboundBytes = encodeUnified(unbound);
-    assert.ok(decodeCoordinatorUnifiedSnapshot(unboundBytes, binding));
+    assert.ok(decodeRuntimeDomainSnapshot(unboundBytes, binding));
     const wrongLogicalReceipt = {
       ...acceptedUnified,
       previous: {
@@ -3602,10 +3666,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       ],
     };
     assert.ok(
-      decodeCoordinatorUnifiedSnapshot(
-        encodeUnified(wrongLogicalReceipt),
-        binding,
-      ),
+      decodeRuntimeDomainSnapshot(encodeUnified(wrongLogicalReceipt), binding),
     );
     assert.equal(
       validateCoordinatorUnifiedTransition(
@@ -3666,12 +3727,12 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       ],
     };
     assert.equal(
-      decodeCoordinatorUnifiedSnapshot(encodeUnified(withSecond), binding)
+      decodeRuntimeDomainSnapshot(encodeUnified(withSecond), binding)
         ?.projects[0]?.tasks[0]?.recoveryObligations[0]?.phase,
       "required",
     );
     assert.equal(
-      decodeCoordinatorUnifiedSnapshot(
+      decodeRuntimeDomainSnapshot(
         encodeUnified({
           ...withSecond,
           projects: [
@@ -3696,7 +3757,7 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     );
     for (const phase of ["settled", "acknowledged", "required"])
       assert.equal(
-        decodeCoordinatorUnifiedSnapshot(
+        decodeRuntimeDomainSnapshot(
           encodeUnified({
             ...withSecond,
             projects: [

@@ -914,11 +914,11 @@ function assessFixtureRemoval(
         }
         assert.equal(s.projects.length, 1);
         assert.equal(s.projects[0]?.projectId, projectId);
-        const tasks = s.projects[0]?.tasks ?? [];
+        const tasks = s.managedExecutions[0]?.tasks ?? [];
         assert.equal(tasks.length, 1);
         const task = tasks[0];
         assert.ok(task);
-        assert.equal(task.definition.id, "task-a");
+        assert.equal(task.taskId, "task-a");
         assert.equal(task.state, "ready");
         assert.equal(task.startPhase, "none");
         assert.equal(task.retryCount, 0);

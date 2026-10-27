@@ -210,7 +210,7 @@ Domainは設定の形状・role/workType解決を所有し、Providerの実行�
    └ history.jsonl               完了要約。正式Evidenceとは別
 ```
 
-現在の統合Schema `crdd-coordinator/current-state/v5`をそのまま名前だけ変えて有効化しない。Afterの具体的な意味区画は次の対応を採る候補とし、物理JSONのkey変更は移行表を固定してから行う。
+旧統合Schema `crdd-coordinator/current-state/v5`の名前だけを変えず、[固定した分解対応](../../../06_Architecture/Details/domain-model/05_Runtime_Domain.md#runtime-domain-storage)に従ってSourceを`crdd-domain/runtime-state/v1`へ切り替える。定義はprojects、技術行はmanagedExecutionsに一度だけ保持し、既存の単一保存・全区画CASを維持する。既存実データの移行と保存先変更は今回実行しない。
 
 | 正本の意味区画 | 現在のfield／型 | Afterの意味Ownerと更新境界 |
 |---|---|---|

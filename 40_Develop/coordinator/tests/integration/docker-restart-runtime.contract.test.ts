@@ -22,7 +22,7 @@ import { createDockerRestartMachineForVerification } from "../../../docker-isola
 import {
   prepareCoordinatorStateOperationSnapshot,
   prepareCoordinatorStateRestartSnapshot,
-  decodeCoordinatorUnifiedSnapshot,
+  decodeRuntimeDomainSnapshot,
   createDockerRestartRequestId,
 } from "../../../domain-model/src/index.ts";
 import { restartRuntimeOwnedDockerForRecovery } from "../../src/execution/recovery.ts";
@@ -281,10 +281,7 @@ async function compose(fault: string = "normal") {
     binding,
   );
   assert.ok(currentBytes);
-  const initialSnapshot = decodeCoordinatorUnifiedSnapshot(
-    currentBytes,
-    binding,
-  );
+  const initialSnapshot = decodeRuntimeDomainSnapshot(currentBytes, binding);
   assert.ok(initialSnapshot);
   const operation = initialSnapshot.snapshot.operations.find(
     (item) => item.kind === "docker_task",
@@ -300,7 +297,7 @@ async function compose(fault: string = "normal") {
   );
   assert.ok(requestId);
   const assertCheckpointCandidate = (next: unknown) => {
-    const before = decodeCoordinatorUnifiedSnapshot(currentBytes, binding);
+    const before = decodeRuntimeDomainSnapshot(currentBytes, binding);
     assert.ok(before);
     const candidate = prepareCoordinatorStateRestartSnapshot(
       currentBytes,
@@ -309,7 +306,7 @@ async function compose(fault: string = "normal") {
       binding,
     );
     assert.ok(candidate);
-    const after = decodeCoordinatorUnifiedSnapshot(candidate, binding);
+    const after = decodeRuntimeDomainSnapshot(candidate, binding);
     assert.ok(after);
     assert.equal(after.snapshot.revision, before.snapshot.revision + 1);
     assert.deepEqual(after.snapshot.previous, {

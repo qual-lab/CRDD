@@ -115,7 +115,7 @@ function verifyCurrentHostCleanupFailureBoundaries(
   const mutantBody = [...bodies.slice(0, -1), mutantCleanup].join("\n");
   assert.notEqual(mutantBody, body);
   const initialBytes = Buffer.from(`${encodeRuntimeStateValue(snapshot)}\n`);
-  const verified = stateModel.decodeCoordinatorUnifiedSnapshot(
+  const verified = stateModel.decodeRuntimeDomainSnapshot(
     initialBytes,
     snapshot.repositoryBinding,
   );
@@ -283,7 +283,7 @@ function verifyCurrentHostCleanupFailureBoundaries(
         reached++;
         bytes = stage === "pending" ? retired : pending;
       }
-      const value = stateModel.decodeCoordinatorUnifiedSnapshot(
+      const value = stateModel.decodeRuntimeDomainSnapshot(
         bytes,
         snapshot.repositoryBinding,
       );
@@ -308,8 +308,7 @@ function verifyCurrentHostCleanupFailureBoundaries(
       isDockerRestartCheckpointSettled,
       dockerRecoveryPreparations: preparations,
       encodeRuntimeStateValue: encodeRuntimeStateValue,
-      decodeCoordinatorStateSnapshot:
-        stateModel.decodeCoordinatorUnifiedSnapshot,
+      decodeCoordinatorStateSnapshot: stateModel.decodeRuntimeDomainSnapshot,
       prepareCoordinatorStateOperationSnapshot:
         stateModel.prepareCoordinatorStateOperationSnapshot,
       prepareCoordinatorStateHostSnapshot:
@@ -373,7 +372,7 @@ function verifyCurrentHostCleanupFailureBoundaries(
         assert.ok(candidate);
         currentBytes = candidate;
         pendingCommits++;
-        const saved = stateModel.decodeCoordinatorUnifiedSnapshot(
+        const saved = stateModel.decodeRuntimeDomainSnapshot(
           currentBytes,
           snapshot.repositoryBinding,
         );
@@ -456,7 +455,7 @@ function verifyCurrentHostCleanupFailureBoundaries(
         assert.ok(candidate);
         currentBytes = candidate;
         finalCommits++;
-        const saved = stateModel.decodeCoordinatorUnifiedSnapshot(
+        const saved = stateModel.decodeRuntimeDomainSnapshot(
           currentBytes,
           snapshot.repositoryBinding,
         );
@@ -486,7 +485,7 @@ function verifyCurrentHostCleanupFailureBoundaries(
     assert.equal(finalRequests, 0);
     reads = 0;
     const result = runtime.cleanup(capability);
-    const value = stateModel.decodeCoordinatorUnifiedSnapshot(
+    const value = stateModel.decodeRuntimeDomainSnapshot(
       currentBytes,
       snapshot.repositoryBinding,
     );
@@ -569,11 +568,11 @@ function verifyCurrentHostCleanupFailureBoundaries(
    * @boundary 論理保存候補。物理Writerの耐久性は主張しない。
    */
   function assertSnapshotBytes(actual: Buffer, expected: Buffer, mode: string) {
-    const actualValue = stateModel.decodeCoordinatorUnifiedSnapshot(
+    const actualValue = stateModel.decodeRuntimeDomainSnapshot(
       actual,
       snapshot.repositoryBinding,
     );
-    const expectedValue = stateModel.decodeCoordinatorUnifiedSnapshot(
+    const expectedValue = stateModel.decodeRuntimeDomainSnapshot(
       expected,
       snapshot.repositoryBinding,
     );
@@ -699,7 +698,7 @@ function verifyCurrentHostCleanupFailureBoundaries(
     `${encodeRuntimeStateValue(changedHashSnapshot)}\n`,
   );
   assert.ok(
-    stateModel.decodeCoordinatorUnifiedSnapshot(
+    stateModel.decodeRuntimeDomainSnapshot(
       changedHashBytes,
       snapshot.repositoryBinding,
     ),
@@ -1305,7 +1304,7 @@ for (const producerMode of [
           `(function(prepareCoordinatorStateOperationSnapshot, decodeCoordinatorStateSnapshot, encodeRuntimeStateValue, isDockerRestartCheckpointSettled) { ${body}; return isUnsubmittedInitialTaskHost; })`,
         )(
           stateModel.prepareCoordinatorStateOperationSnapshot,
-          stateModel.decodeCoordinatorUnifiedSnapshot,
+          stateModel.decodeRuntimeDomainSnapshot,
           encodeRuntimeStateValue,
           isDockerRestartCheckpointSettled,
         );
@@ -1321,7 +1320,7 @@ for (const producerMode of [
           `(function(prepareCoordinatorStateOperationSnapshot, decodeCoordinatorStateSnapshot, encodeRuntimeStateValue, isDockerRestartCheckpointSettled) { ${comparisonOmitted}; return isUnsubmittedInitialTaskHost; })`,
         )(
           stateModel.prepareCoordinatorStateOperationSnapshot,
-          stateModel.decodeCoordinatorUnifiedSnapshot,
+          stateModel.decodeRuntimeDomainSnapshot,
           encodeRuntimeStateValue,
           isDockerRestartCheckpointSettled,
         );
@@ -1344,7 +1343,7 @@ for (const producerMode of [
             (item: typeof target) =>
               item.recoveryId === changed.recoveryId ? changed : item,
           );
-          const decoded = stateModel.decodeCoordinatorUnifiedSnapshot(
+          const decoded = stateModel.decodeRuntimeDomainSnapshot(
             Buffer.from(`${encodeRuntimeStateValue(candidate)}\n`),
             before.repositoryBinding,
           );
@@ -1393,7 +1392,7 @@ for (const producerMode of [
           `(function(prepareCoordinatorStateOperationSnapshot, decodeCoordinatorStateSnapshot, encodeRuntimeStateValue, isDockerRestartCheckpointSettled) { ${body.replace(restartGuard, "false")}; return isUnsubmittedInitialTaskHost; })`,
         )(
           stateModel.prepareCoordinatorStateOperationSnapshot,
-          stateModel.decodeCoordinatorUnifiedSnapshot,
+          stateModel.decodeRuntimeDomainSnapshot,
           encodeRuntimeStateValue,
           isDockerRestartCheckpointSettled,
         );
@@ -1418,7 +1417,7 @@ for (const producerMode of [
             (item: typeof target) =>
               item.recoveryId === retired.recoveryId ? changed : item,
           );
-          const decoded = stateModel.decodeCoordinatorUnifiedSnapshot(
+          const decoded = stateModel.decodeRuntimeDomainSnapshot(
             Buffer.from(`${encodeRuntimeStateValue(candidate)}\n`),
             before.repositoryBinding,
           );
@@ -1501,7 +1500,7 @@ for (const producerMode of [
                 item.recoveryId === changed.recoveryId ? changed : item,
             );
             assert.equal(
-              stateModel.decodeCoordinatorUnifiedSnapshot(
+              stateModel.decodeRuntimeDomainSnapshot(
                 Buffer.from(`${encodeRuntimeStateValue(invalid)}\n`),
                 before.repositoryBinding,
               ),
@@ -2875,7 +2874,7 @@ for (const { repeatCount, retained } of [
           ),
         );
       if (repairCompletedState) {
-        const prior = stateModel.decodeCoordinatorUnifiedSnapshot(
+        const prior = stateModel.decodeRuntimeDomainSnapshot(
           repairCompletedState,
           binding.repositoryBinding,
         );

@@ -50,13 +50,11 @@ export type CoordinatorUnifiedSnapshot = Omit<
     | "projects"
   > &
   Readonly<{
-    schema: "crdd-coordinator/current-state/v5";
+    schema: "crdd-domain/runtime-state/v1";
     repositoryBindingId: string | null;
     intakeEpoch: string | null;
-    projects: readonly (Omit<CoordinatorState, "tasks"> &
-      Readonly<{
-        tasks: readonly CoordinatorStoredTask[];
-      }>)[];
+    projects: readonly RuntimeProjectDefinition[];
+    managedExecutions: readonly RuntimeManagedExecution[];
     resultReceipts: readonly ProjectResultAcceptance[];
     pendingDeliveries: CoordinatorExecutionStateSnapshot["pendingDeliveries"];
   }>;
@@ -203,7 +201,7 @@ export type CoordinatorSnapshot = Readonly<{
     }>[];
   }>;
 
-export type CoordinatorStateSnapshot = CoordinatorUnifiedSnapshot;
+export type CoordinatorStateSnapshot = RuntimeDomainSnapshot;
 
 /**
  * Taskが所有する終端観測と技術Operation参照を区別する。
@@ -414,12 +412,17 @@ export type RuntimeManagedExecution = Pick<
  * @security codec成立から認可・出版・資源不存在を推定しない。
  * @compatibility crdd-domain/runtime-state/v1のみを表す。
  */
-export type RuntimeDomainSnapshot = Omit<
-  CoordinatorUnifiedSnapshot,
-  "schema" | "projects"
-> &
-  Readonly<{
-    schema: "crdd-domain/runtime-state/v1";
-    projects: readonly RuntimeProjectDefinition[];
-    managedExecutions: readonly RuntimeManagedExecution[];
-  }>;
+export type RuntimeDomainSnapshot = CoordinatorUnifiedSnapshot;
+
+/**
+ * 管理実行の保存行へCore定義を結合した、codec内部だけの導出値。
+ * @responsibility 受領・技術相関の検査に必要なTask定義をメモリ上で結合する。
+ * @trace ARCH-000004、ARCH-000008
+ * @shape 既存管理Projectと元事実Task行。
+ * @invariant この値を物理Snapshotへ保存せず、Core-only対象へ生成しない。
+ * @boundary 新Schemaの正本と管理Taskの投影。
+ * @security 値は現在の実行資格ではない。
+ * @compatibility 旧Schemaの入力や互換読取りを提供しない。
+ */
+export type RuntimeStoredManagedProject = Omit<CoordinatorState, "tasks"> &
+  Readonly<{ tasks: readonly CoordinatorStoredTask[] }>;

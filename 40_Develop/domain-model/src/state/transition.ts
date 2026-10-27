@@ -6,7 +6,7 @@
  * @boundary 純粋な値操作。保存・実行・現在Authorityの発行は行わない。
  */
 import {
-  decodeCoordinatorUnifiedSnapshot,
+  decodeRuntimeDomainSnapshot,
   prepareCoordinatorStateHistoryLine,
   projectCoordinatorTaskSettlement,
 } from "./validation.ts";
@@ -34,7 +34,7 @@ export function validateCoordinatorUnifiedTransition(
   repositoryBinding: unknown,
 ): boolean {
   try {
-    const next = decodeCoordinatorUnifiedSnapshot(nextBytes, repositoryBinding);
+    const next = decodeRuntimeDomainSnapshot(nextBytes, repositoryBinding);
     if (!next) return false;
     if (currentBytes === null)
       return (
@@ -42,7 +42,7 @@ export function validateCoordinatorUnifiedTransition(
         next.snapshot.previous === null &&
         next.snapshot.resultReceipts.length === 0
       );
-    const current = decodeCoordinatorUnifiedSnapshot(
+    const current = decodeRuntimeDomainSnapshot(
       currentBytes,
       repositoryBinding,
     );
@@ -83,14 +83,14 @@ export function validateCoordinatorUnifiedTransition(
  * @concurrency 同じfresh元版と候補へ適用する。
  */
 function validateCoordinatorSettlementTransition(
-  current: NonNullable<ReturnType<typeof decodeCoordinatorUnifiedSnapshot>>,
-  next: NonNullable<ReturnType<typeof decodeCoordinatorUnifiedSnapshot>>,
+  current: NonNullable<ReturnType<typeof decodeRuntimeDomainSnapshot>>,
+  next: NonNullable<ReturnType<typeof decodeRuntimeDomainSnapshot>>,
   currentBytes: unknown,
   repositoryBinding: unknown,
 ): boolean {
   try {
-    for (const old of current.snapshot.projects) {
-      const replacement = next.snapshot.projects.find(
+    for (const old of current.snapshot.managedExecutions) {
+      const replacement = next.snapshot.managedExecutions.find(
         (project) => project.projectId === old.projectId,
       );
       if (
@@ -119,7 +119,7 @@ function validateCoordinatorSettlementTransition(
         retained
           ? encodeRuntimeStateValue(receipt) !==
             encodeRuntimeStateValue(retained)
-          : next.snapshot.projects.some(
+          : next.snapshot.managedExecutions.some(
               (project) => project.projectId === receipt.projectId,
             )
       )
@@ -205,16 +205,16 @@ function validateCoordinatorSettlementTransition(
         receipts.get(operation.recoveryId)?.resultId !== operation.summarySha256
       )
         return false;
-      for (const project of current.snapshot.projects)
+      for (const project of current.snapshot.managedExecutions)
         for (const task of project.tasks) {
           if (
             task.settlement.kind !== "operations" ||
             !task.settlement.recoveryIds.includes(operation.recoveryId)
           )
             continue;
-          const replacement = next.snapshot.projects
+          const replacement = next.snapshot.managedExecutions
             .find((entry) => entry.projectId === project.projectId)
-            ?.tasks.find((entry) => entry.definition.id === task.definition.id);
+            ?.tasks.find((entry) => entry.taskId === task.taskId);
           if (
             !replacement ||
             replacement.attemptId !== task.attemptId ||

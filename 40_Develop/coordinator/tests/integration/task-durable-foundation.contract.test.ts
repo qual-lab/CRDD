@@ -12,7 +12,7 @@
 
 import {
   type CoordinatorState,
-  decodeCoordinatorUnifiedSnapshot,
+  decodeRuntimeDomainSnapshot,
 } from "../../../domain-model/src/index.ts";
 import { encodeRuntimeStateValue } from "../../../domain-model/src/index.ts";
 import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
@@ -257,7 +257,7 @@ function taskView(root: string, bytes: string) {
   if (held.status !== "completed") throw new Error("fixture_owner_invalid");
   const rootHash = held.value.repositoryRootHash;
   assert.equal(held.value.release(), true);
-  const decoded = decodeCoordinatorUnifiedSnapshot(
+  const decoded = decodeRuntimeDomainSnapshot(
     Buffer.from(bytes),
     JSON.parse(bytes).repositoryBinding,
   );
@@ -2993,13 +2993,17 @@ function storedEnvelopeBytes(state: CoordinatorState, baseJson: string) {
     ...state,
     milestone: {
       ...state.milestone,
-      acceptanceCriteria: state.milestone.acceptanceCriteria.map(() => "a"),
+      acceptanceCriteria: state.milestone.acceptanceCriteria.map(
+        (_criterion, index) => `criterion-${index}`,
+      ),
     },
     tasks: state.tasks.map((task) => ({
       ...task,
       definition: {
         ...task.definition,
-        allowedPaths: task.definition.allowedPaths.map(() => "a"),
+        allowedPaths: task.definition.allowedPaths.map(
+          (_allowedPath, index) => `path-${index}`,
+        ),
       },
     })),
   };
@@ -3066,7 +3070,8 @@ function stateWithStoredBytes(
   targetBytes: number,
   baseJson: string,
 ): CoordinatorState {
-  const pathValue = "p".repeat(512);
+  const pathValue = (index: number) =>
+    `${"p".repeat(508)}${String(index).padStart(4, "0")}`;
   const mutable = structuredClone(template) as unknown as {
     milestone: { acceptanceCriteria: string[] };
     tasks: Array<{
@@ -3086,7 +3091,9 @@ function stateWithStoredBytes(
       id: `task-${index}`,
       objectiveId: "objective-a",
       dependencies: [],
-      allowedPaths: Array.from({ length: 28 }, () => pathValue),
+      allowedPaths: Array.from({ length: 28 }, (_path, index) =>
+        pathValue(index),
+      ),
       conflictKeys: [],
     },
   }));
@@ -3099,7 +3106,9 @@ function stateWithStoredBytes(
     const task = mutable.tasks[index % mutable.tasks.length];
     if (!task || task.definition.allowedPaths.length >= 128)
       throw new Error("record_boundary_fixture_capacity_exhausted");
-    task.definition.allowedPaths.push(pathValue);
+    task.definition.allowedPaths.push(
+      pathValue(task.definition.allowedPaths.length),
+    );
   }
   remaining =
     targetBytes -
@@ -5304,7 +5313,7 @@ test("PR-D-A-01 enforces the exact stored-record byte boundary", (t) => {
     else {
       assert.ok(encoded);
       assert.equal(encoded.length, physicalBytes);
-      assert.ok(decodeCoordinatorUnifiedSnapshot(encoded, binding));
+      assert.ok(decodeRuntimeDomainSnapshot(encoded, binding));
     }
   }
 });

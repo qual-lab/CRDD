@@ -1705,7 +1705,7 @@ if (mode !== "recovery") {
             changed.previous.payloadSha256 = "0".repeat(64);
             const bytes = Buffer.from(`${encodeRuntimeStateValue(changed)}\n`);
             assert.ok(
-              model.decodeCoordinatorUnifiedSnapshot(
+              model.decodeRuntimeDomainSnapshot(
                 bytes,
                 before.repositoryBinding,
               ),
@@ -1722,7 +1722,7 @@ if (mode !== "recovery") {
                 : "0".repeat(64);
             const bytes = Buffer.from(`${encodeRuntimeStateValue(changed)}\n`);
             assert.equal(
-              model.decodeCoordinatorUnifiedSnapshot(
+              model.decodeRuntimeDomainSnapshot(
                 bytes,
                 before.repositoryBinding,
               ),

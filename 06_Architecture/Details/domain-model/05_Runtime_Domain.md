@@ -226,15 +226,15 @@ Package Rootの`acceptResult`は既存実装を公開している。一方、今
 <a id="runtime-domain-storage"></a>
 ## 5. 単一保存・排他・出版
 
-物理正本は一つ。現在の`crdd-coordinator/current-state/v5`、改訂・変更前Hash、全区画のCASを基準にする。移管だけのために二つのstate、二重Writer、独立Queue Fileを作らない。
+物理正本は一つ。SourceのReader／Writerは`crdd-domain/runtime-state/v1`を使用し、改訂・変更前Hash・全区画のCASを維持する。移管だけのために二つのstate、二重Writer、独立Queue Fileを作らない。既存の物理データの移行・保存先変更は別のGateであり、このSource切替では操作しない。
 
-現行v5のProjectには固定実行選定・Owner世代等が必須であり、その型を名前だけ変えてCore初期化に使わない。目標の論理形状は「共通ヘッダー（Repository結合・改訂・前Hash・受付世代）、projects（既存定義・業務判断）、workspaces、queueEntries、実行記録区画、受領、履歴搬送」とする。projectsの定義は一箇所に置き、固定Selection・Owner世代・Attempt／Operation結合・startPhase等は同じSnapshot内の対象IDへ結合した管理実行記録として分離する。Coreのみの初期化はその管理実行記録を要求せず、実行を使う際に既存Admissionで追加する。既存未解決記録の欠落・破損を「未利用」に補完しない。
+旧v5のProjectには固定実行選定・Owner世代等が必須だったため、その型を名前だけ変えてCore初期化に使わない。論理形状は「共通ヘッダー（Repository結合・改訂・前Hash・受付世代）、projects（既存定義・業務判断）、workspaces、queueEntries、実行記録区画、受領、履歴搬送」とする。projectsの定義は一箇所に置き、固定Selection・Owner世代・Attempt／Operation結合・startPhase等は同じSnapshot内の対象IDへ結合した管理実行記録として分離する。Coreのみの初期化はその管理実行記録を要求せず、実行を使う際に既存Admissionで追加する。既存未解決記録の欠落・破損を「未利用」に補完しない。
 
 これは保存Schemaの非互換な分解を伴う。実装前に現行各field→目標key・型・任意性の全数表と新Schema識別子を固定し、フロントAI移行手順へ接続する。API定義や本書の更新だけで現行v5が新Coreを受理すると扱わない。既存fieldの意味・元三値・exact参照・一回性は維持し、旧Reader／二重書込みは追加しない。
 
 ### 5.0.1 保存値の分解対応
 
-新しい保存識別子を `crdd-domain/runtime-state/v1` とする。以下はSource切替前の固定した実装契約であり、現行v5 Readerが受理する形式ではない。保存先・実データは今回有効化しない。新しいPlan IDや業務状態は追加しない。
+保存識別子を `crdd-domain/runtime-state/v1` とする。以下の固定契約へSourceのcodec・候補生成・既存Writer・利用側を切り替える。旧v5は拒否し、互換Reader・自動変換を追加しない。保存先・既存実データは今回変更しない。新しいPlan IDや業務状態は追加しない。
 
 | 現行v5のRoot field | 新Root field・型 | 未利用／欠測の扱い・Core更新 |
 |---|---|---|
@@ -366,9 +366,9 @@ Source配置の候補はDomainのobjective／task／attempt／decision／workspa
 
 完全codecの依存閉包では、状態・Task・Workspace・固定選定・修復checkpointの保存型と純粋検査をDomainへ移した。`state/codec.ts`は正規JSON byte表現・UTF-8・既存容量上限・Hash、`state/validation.ts`は単一Snapshot全体の閉形式と参照相関を所有する。技術値の復号は`attempt/validation.ts`・`repair-validation.ts`で行い、実資源観測・現在Ownerの真正証拠・技術遷移の許可は上位の既存Ownerに残す。DomainからCoordinator・AI Adapter・Docker Isolationをimportしない。公開値は実利用に限定し、固定検査集合は利用側から変更できない。
 
-この移管時点では既存v5 Schemaを保持しており、§5.0.1の新Schema、一般CRUD、Snapshot Writer全面移管、Core単独成立は未完了である。値codecの成功と、物理保存・現在認可・資源不存在・新Schemaへの切替は別の成立条件とする。
+完全codecの初回移管時点では既存v5 Schemaを保持していた。続くSource切替で§5.0.1の新Schemaを既存Reader／Writerへ接続したが、一般CRUD、Domainへの物理Writer全面移管、既存実データ移行、Core単独成立は未完了である。値codecの成功と、物理保存・現在認可・資源不存在・実データ移行は別の成立条件とする。
 
-後続の値境界では、`inspectRuntimePlanDefinition`をCoreの作成途中、`inspectExecutionPlanDefinition`を完全定義、既存`inspectExecutionPlan`を外側Path範囲込みの実行受付へ分離した。`RuntimeProjectDefinition / RuntimeManagedExecution / RuntimeDomainSnapshot`と新形式専用codecを実装し、Rootから新codecと定義Hashを明示公開した。既存の受領・終端・参照相関は共通の純粋投影を再利用する。Core-only値・管理行欠測・Hash差・未割当Objective・Task順序差を反証したが、本番Writerはまだ既存形式を使用している。これは新Schemaの値検査成立であり、保存切替・一般CRUD・Writer全面移管の完了ではない。
+後続の値境界では、`inspectRuntimePlanDefinition`をCoreの作成途中、`inspectExecutionPlanDefinition`を完全定義、既存`inspectExecutionPlan`を外側Path範囲込みの実行受付へ分離した。`RuntimeProjectDefinition / RuntimeManagedExecution / RuntimeDomainSnapshot`と新形式専用codecを実装し、Rootから新codecと定義Hashを明示公開した。続いて旧codecを撤去し、既存の物理Reader／Writer・Task保存・技術checkpoint・履歴・利用側を新codecへ接続した。管理Taskの更新はCoreだけの兄弟定義と順序を保持し、技術checkpointはCore定義全体を保持する。管理DTOはメモリ投影だけであり、保存正本やCore-onlyへの架空Selection／Ownerではない。一般CRUD・物理Writer全面移管・実データ移行の完了とは区別する。
 
 | 移管した純粋処理 | 現在のOwner | 本番との接続範囲 |
 |---|---|---|

@@ -164,7 +164,7 @@ function fixture(transform: (source: string) => string = (source) => source) {
       if (state.historyReadFault === "owner") state.alive = false;
       return { ...refused, lockReleased: state.historyReadFault !== "release" };
     }
-    const value = model.decodeCoordinatorUnifiedSnapshot(state.bytes, binding);
+    const value = model.decodeRuntimeDomainSnapshot(state.bytes, binding);
     const operation = value?.snapshot.operations.find(
       (item) => item.kind === "runtime_repair" && item.recoveryId === id,
     );
@@ -262,7 +262,7 @@ function fixture(transform: (source: string) => string = (source) => source) {
   ) => {
     state.historyWrites++;
     assert.equal(owner(), true);
-    const value = model.decodeCoordinatorUnifiedSnapshot(state.bytes, binding);
+    const value = model.decodeRuntimeDomainSnapshot(state.bytes, binding);
     const operation = value?.snapshot.operations.find(
       (item) => item.kind === "runtime_repair" && item.recoveryId === id,
     );
@@ -355,7 +355,7 @@ function fixture(transform: (source: string) => string = (source) => source) {
         lockReleased: state.completionReadFault !== "release",
       };
     }
-    const value = model.decodeCoordinatorUnifiedSnapshot(state.bytes, binding);
+    const value = model.decodeRuntimeDomainSnapshot(state.bytes, binding);
     const rows = historyValues.decodeCoordinatorHistoryRows(state.historyBytes);
     const row = rows?.find((item) => item.recoveryId === id);
     if (_root !== root || !value || !row) return refused;
@@ -398,7 +398,7 @@ function fixture(transform: (source: string) => string = (source) => source) {
     randomBytes,
     randomUUID,
     ...model,
-    decodeCoordinatorStateSnapshot: model.decodeCoordinatorUnifiedSnapshot,
+    decodeCoordinatorStateSnapshot: model.decodeRuntimeDomainSnapshot,
     ...stateValues,
     encodeRuntimeStateValue,
     Date: class extends Date {
@@ -524,7 +524,7 @@ function fixture(transform: (source: string) => string = (source) => source) {
       return {
         status: "completed",
         lockReleased: state.readerReleased,
-        value: model.decodeCoordinatorUnifiedSnapshot(state.bytes, binding),
+        value: model.decodeRuntimeDomainSnapshot(state.bytes, binding),
       };
     },
     writeRuntimeOwnedCoordinatorRepairSnapshot: (
@@ -542,10 +542,7 @@ function fixture(transform: (source: string) => string = (source) => source) {
           snapshotConfirmed: false,
           lockReleased: true,
         };
-      const decoded = model.decodeCoordinatorUnifiedSnapshot(
-        candidate,
-        binding,
-      );
+      const decoded = model.decodeRuntimeDomainSnapshot(candidate, binding);
       assert.ok(decoded);
       assert.equal(owner(), true);
       assert.equal(
@@ -821,7 +818,7 @@ function fixture(transform: (source: string) => string = (source) => source) {
       run(root, controller.signal, id, purpose),
     late: () => late,
     snapshot: () =>
-      model.decodeCoordinatorUnifiedSnapshot(state.bytes, binding)?.snapshot,
+      model.decodeRuntimeDomainSnapshot(state.bytes, binding)?.snapshot,
   };
 }
 
@@ -850,7 +847,7 @@ test("修復回収接続: 三用途と保存失敗後の要求不明を同IDで�
     assert.equal(first.status, failure === "none" ? "observed" : "blocked");
     const original =
       f.snapshot()?.operations[0] ??
-      model.decodeCoordinatorUnifiedSnapshot(f.state.completionBefore, binding)
+      model.decodeRuntimeDomainSnapshot(f.state.completionBefore, binding)
         ?.snapshot.operations[0];
     assert.ok(original?.kind === "runtime_repair" && original.disposal);
     assert.equal(original.disposition, "discard");
@@ -873,7 +870,7 @@ test("修復回収接続: 三用途と保存失敗後の要求不明を同IDで�
     const again = await f.run(first.recoveryId);
     assert.equal(again.status, "observed");
     assert.equal(f.state.entries, entries);
-    const final = model.decodeCoordinatorUnifiedSnapshot(
+    const final = model.decodeRuntimeDomainSnapshot(
       f.state.completionBefore,
       binding,
     )?.snapshot.operations[0];
@@ -1584,8 +1581,7 @@ test("修復保持接続: 明示判断の保存だけを行い技術再操作し
     assert.ok(completed);
     assert.deepEqual(
       f.snapshot(),
-      model.decodeCoordinatorUnifiedSnapshot(completed, "a".repeat(64))
-        ?.snapshot,
+      model.decodeRuntimeDomainSnapshot(completed, "a".repeat(64))?.snapshot,
     );
     assert.equal(result.completionConfirmed, true);
     assert.equal(result.retentionReviewAfter, "2026-10-23T00:00:00.000Z");
@@ -1636,7 +1632,7 @@ test("修復保持接続: 期限差と旧保持を成功へ補完しない", asy
         `${encodeRuntimeStateValue({ ...value, operations: value.operations.map((operation) => ({ ...operation, phase: "settling", disposition: "retained_by_human_decision" })) })}\n`,
       );
       assert.ok(
-        model.decodeCoordinatorUnifiedSnapshot(f.state.bytes, "a".repeat(64)),
+        model.decodeRuntimeDomainSnapshot(f.state.bytes, "a".repeat(64)),
       );
     }
     const before = Buffer.from(f.state.bytes as Buffer),
@@ -1897,7 +1893,7 @@ test("修復結果: 技術完了・first-wins・二版保存を混同しない",
       assert.equal(f.state.joined, 1);
       const target =
         f.snapshot()?.operations[0] ??
-        model.decodeCoordinatorUnifiedSnapshot(
+        model.decodeRuntimeDomainSnapshot(
           f.state.completionBefore,
           "a".repeat(64),
         )?.snapshot.operations[0];
@@ -1936,7 +1932,7 @@ test("修復結果: 技術完了・first-wins・二版保存を混同しない",
         mode === "effect_unknown" ? "runtime_repair_effect_unknown" : null,
       );
       if (expected !== null) {
-        const previous = model.decodeCoordinatorUnifiedSnapshot(
+        const previous = model.decodeRuntimeDomainSnapshot(
           f.saved.at(-2),
           "a".repeat(64),
         )?.snapshot.operations[0];
@@ -2221,7 +2217,7 @@ test("修復記録: 一次失敗が耐久済みなら技術処置なしにblocke
     const { f, id } = await interruptedRepairOutcome(close);
     f.controller.abort();
     const before = f.snapshot();
-    const decoded = model.decodeCoordinatorUnifiedSnapshot(
+    const decoded = model.decodeRuntimeDomainSnapshot(
       f.state.bytes,
       "a".repeat(64),
     );
@@ -2278,7 +2274,7 @@ test("修復記録: 一次失敗が耐久済みなら技術処置なしにblocke
       "a".repeat(64),
     );
     assert.ok(historyPending);
-    const priorHistory = model.decodeCoordinatorUnifiedSnapshot(
+    const priorHistory = model.decodeRuntimeDomainSnapshot(
       historyPending,
       "a".repeat(64),
     );
@@ -2380,7 +2376,7 @@ test("修復記録: 対象外の失敗や未回収状態を確定しない", asy
       `${encodeRuntimeStateValue({ ...snapshot, operations: [changed] })}\n`,
     );
     assert.ok(
-      model.decodeCoordinatorUnifiedSnapshot(f.state.bytes, "a".repeat(64)),
+      model.decodeRuntimeDomainSnapshot(f.state.bytes, "a".repeat(64)),
       mode,
     );
     if (mode === "reader") f.state.readerReleased = false;

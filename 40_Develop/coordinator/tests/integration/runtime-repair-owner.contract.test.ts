@@ -373,7 +373,7 @@ function createRepairOwnerFixture() {
     borrowRuntimeOwnedCoordinatorRecoveryRepository:
       bindings.borrowRuntimeOwnedCoordinatorRecoveryRepository,
     encodeRuntimeStateValue,
-    decodeCoordinatorStateSnapshot: domain.decodeCoordinatorUnifiedSnapshot,
+    decodeCoordinatorStateSnapshot: domain.decodeRuntimeDomainSnapshot,
     ...storeModule.namedExports,
     runDockerRuntimeRepairSession:
       isolationModule.namedExports.runDockerRuntimeRepairSession,
@@ -555,7 +555,7 @@ test("Host Windows: 修復回収Callerは保存失敗後も同IDで三用途を�
   );
   assert.ok(borrowed);
   const original = model
-    .decodeCoordinatorUnifiedSnapshot(
+    .decodeRuntimeDomainSnapshot(
       fs.readFileSync(stateFile),
       borrowed.repositoryBinding,
     )
@@ -587,7 +587,7 @@ test("Host Windows: 修復回収Callerは保存失敗後も同IDで三用途を�
   assert.equal(interrupted.status, "blocked");
   assert.deepEqual(disposalCalls, ["primary"]);
   const saved = model
-    .decodeCoordinatorUnifiedSnapshot(
+    .decodeRuntimeDomainSnapshot(
       fs.readFileSync(stateFile),
       borrowed.repositoryBinding,
     )
@@ -614,7 +614,7 @@ test("Host Windows: 修復回収Callerは保存失敗後も同IDで三用途を�
   assert.equal(acquireCount, acquired);
   assert.equal(runtimeEntries, entries);
   const final = model
-    .decodeCoordinatorUnifiedSnapshot(
+    .decodeRuntimeDomainSnapshot(
       lastRepairCompletionBefore,
       borrowed.repositoryBinding,
     )
@@ -652,7 +652,7 @@ test("Host Windows: 修復回収Callerは保存失敗後も同IDで三用途を�
     "unknown",
   );
   assert.equal(
-    model.decodeCoordinatorUnifiedSnapshot(
+    model.decodeRuntimeDomainSnapshot(
       fs.readFileSync(stateFile),
       borrowed.repositoryBinding,
     )?.snapshot.operations.length,
@@ -805,7 +805,7 @@ test("Host Windows: 失敗修復履歴は五切断点から再実行なしで確
       assert.equal(observeCount, observed);
     });
   // 現在操作だけ消えた破損fixtureを、失敗履歴から成功へ補完しない。
-  const snapshot = model.decodeCoordinatorUnifiedSnapshot(
+  const snapshot = model.decodeRuntimeDomainSnapshot(
     currentBytes,
     borrowed.repositoryBinding,
   );
@@ -878,7 +878,7 @@ function stateStoreSource(
     ...storageOwners,
     ...observationValues,
     ...historyValues,
-    decodeCoordinatorStateSnapshot: domain.decodeCoordinatorUnifiedSnapshot,
+    decodeCoordinatorStateSnapshot: domain.decodeRuntimeDomainSnapshot,
     exactRecordKeys: domain.hasRuntimeStateRecordKeys,
     digest: domain.hashRuntimeStateValueText,
     plainObject: domain.isRuntimeStateObject,
@@ -990,7 +990,7 @@ test("修復回収no-op: Reader部分成立とOwner失効を成功へ補完し�
     },
   };
   const waiting = Buffer.from(`${encodeRuntimeStateValue(raw)}\n`);
-  assert.ok(model.decodeCoordinatorUnifiedSnapshot(waiting, binding));
+  assert.ok(model.decodeRuntimeDomainSnapshot(waiting, binding));
   const id = raw.operations[0].recoveryId as string;
   const bytes = model.prepareCoordinatorStateRepairDisposalDecisionSnapshot(
     waiting,
@@ -999,7 +999,7 @@ test("修復回収no-op: Reader部分成立とOwner失効を成功へ補完し�
     binding,
   );
   assert.ok(bytes);
-  const decoded = model.decodeCoordinatorUnifiedSnapshot(bytes, binding);
+  const decoded = model.decodeRuntimeDomainSnapshot(bytes, binding);
   assert.ok(decoded);
   for (const mode of [
     "normal",
@@ -1137,7 +1137,7 @@ test("Host Windows: 保持引渡しは専用保存と同一候補再開へ接続
     );
     assert.ok(repository);
     const before = fs.readFileSync(stateFile);
-    const value = model.decodeCoordinatorUnifiedSnapshot(
+    const value = model.decodeRuntimeDomainSnapshot(
       before,
       repository.repositoryBinding,
     );
@@ -1196,7 +1196,7 @@ test("Host Windows: 保持引渡しは専用保存と同一候補再開へ接続
     if (stage === "normal") {
       const stopWasUnneeded =
         operation.checkpoint.actions.stop_runtime.result === "not_required";
-      const decodedCandidate = model.decodeCoordinatorUnifiedSnapshot(
+      const decodedCandidate = model.decodeRuntimeDomainSnapshot(
         candidate,
         repository.repositoryBinding,
       );
@@ -1231,7 +1231,7 @@ test("Host Windows: 保持引渡しは専用保存と同一候補再開へ接続
         })}\n`,
       );
       assert.ok(
-        model.decodeCoordinatorUnifiedSnapshot(
+        model.decodeRuntimeDomainSnapshot(
           changed,
           repository.repositoryBinding,
         ),
@@ -1316,7 +1316,7 @@ test("Host Windows: 保持引渡しは専用保存と同一候補再開へ接続
     assert.ok(fs.readFileSync(stateFile).equals(candidate));
     assert.equal(fs.existsSync(pending), false);
     assert.equal(fs.existsSync(marker), false);
-    const actual = model.decodeCoordinatorUnifiedSnapshot(
+    const actual = model.decodeRuntimeDomainSnapshot(
       fs.readFileSync(stateFile),
       repository.repositoryBinding,
     );
@@ -1446,7 +1446,7 @@ test("Host Windows: 保持引渡しは専用保存と同一候補再開へ接続
         fs.writeFileSync(historyFile, history);
       }
       assert.equal(
-        model.decodeCoordinatorUnifiedSnapshot(
+        model.decodeRuntimeDomainSnapshot(
           fs.readFileSync(stateFile),
           repository.repositoryBinding,
         )?.snapshot.operations.length,
@@ -1579,7 +1579,7 @@ test("Host Windows: 修復回収進捗は専用保存と無書込み確認へ接
   assert.equal(saved.lockReleased, true);
   let before = decision;
   for (const purpose of ["primary", "failed", "auxiliary"] as const) {
-    const value = model.decodeCoordinatorUnifiedSnapshot(
+    const value = model.decodeRuntimeDomainSnapshot(
       before,
       borrowed.repositoryBinding,
     );
@@ -1735,7 +1735,7 @@ test("Host Windows: 修復回収進捗は専用保存と無書込み確認へ接
       assert.equal(same.lockReleased, true);
       assert.equal(
         same.revision,
-        model.decodeCoordinatorUnifiedSnapshot(next, borrowed.repositoryBinding)
+        model.decodeRuntimeDomainSnapshot(next, borrowed.repositoryBinding)
           ?.snapshot.revision,
       );
       assert.equal(mutations, 0);
@@ -1765,11 +1765,11 @@ test("Host Windows: 修復回収進捗は専用保存と無書込み確認へ接
     }
     before = next;
   }
-  const final = model.decodeCoordinatorUnifiedSnapshot(
+  const final = model.decodeRuntimeDomainSnapshot(
     before,
     borrowed.repositoryBinding,
   )?.snapshot.operations[0];
-  const first = model.decodeCoordinatorUnifiedSnapshot(
+  const first = model.decodeRuntimeDomainSnapshot(
     original,
     borrowed.repositoryBinding,
   )?.snapshot.operations[0];
@@ -1810,7 +1810,7 @@ test("Host Windows: 修復終了は既存completion保存でexact対象だけ除
   assert.ok(lastRepairCompletionBefore);
   const original = Buffer.from(lastRepairCompletionBefore);
   assert.equal(
-    model.decodeCoordinatorUnifiedSnapshot(
+    model.decodeRuntimeDomainSnapshot(
       fs.readFileSync(stateFile),
       JSON.parse(original.toString("utf8")).repositoryBinding,
     )?.snapshot.operations.length,
@@ -2266,7 +2266,7 @@ test("Host Windows: 修復保持は実Writerと保存途中のfresh出版へ接�
         );
         assert.equal(resumed.historyConfirmed, true);
         const intended = model
-          .decodeCoordinatorUnifiedSnapshot(expected, before.repositoryBinding)
+          .decodeRuntimeDomainSnapshot(expected, before.repositoryBinding)
           ?.snapshot.operations.find(
             (operation) => operation.recoveryId === first.recoveryId,
           );
@@ -2982,7 +2982,7 @@ test("Host Windows: 修復出版のIdentity追加とSession用途を物理接続
         before = Buffer.from(
           `${encodeRuntimeStateValue({ ...saved, operations: [other] })}\n`,
         );
-        assert.ok(model.decodeCoordinatorUnifiedSnapshot(before, binding));
+        assert.ok(model.decodeRuntimeDomainSnapshot(before, binding));
         fs.writeFileSync(stateFile, before);
         const originalIdentity = JSON.parse(original.identityJson);
         const identity = `${JSON.stringify({ ...originalIdentity, operationNonce: originalIdentity.operationNonce === "f".repeat(64) ? "e".repeat(64) : "f".repeat(64), operationId: "OP-999999" })}\n`;
@@ -2993,7 +2993,7 @@ test("Host Windows: 修復出版のIdentity追加とSession用途を物理接続
         );
         assert.ok(candidate);
         const added = model
-          .decodeCoordinatorUnifiedSnapshot(candidate, binding)
+          .decodeRuntimeDomainSnapshot(candidate, binding)
           ?.snapshot.operations.find(
             (item) => item.recoveryId !== first.recoveryId,
           );
@@ -3121,8 +3121,8 @@ test("Host Windows: 修復出版のIdentity追加とSession用途を物理接続
       assert.equal(runtimeEntries, entries);
       assert.equal(observeCount, observed);
       assert.ok(fs.readFileSync(history).equals(historyBytes));
-      const prior = model.decodeCoordinatorUnifiedSnapshot(before, binding),
-        next = model.decodeCoordinatorUnifiedSnapshot(candidate, binding);
+      const prior = model.decodeRuntimeDomainSnapshot(before, binding),
+        next = model.decodeRuntimeDomainSnapshot(candidate, binding);
       assert.ok(prior && next);
       assert.equal(next.snapshot.revision, prior.snapshot.revision + 1);
       assert.deepEqual(next.snapshot.previous, {
@@ -3309,7 +3309,7 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", as
     1,
   );
   fs.unlinkSync(initialHistoryFile);
-  const decoded = model.decodeCoordinatorUnifiedSnapshot(
+  const decoded = model.decodeRuntimeDomainSnapshot(
     original,
     borrowed.repositoryBinding,
   );
@@ -3350,7 +3350,7 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", as
   assert.equal(fixed.historyConfirmed, false);
   assert.equal(fixed.lockReleased, true);
   const checkpointBytes = fs.readFileSync(stateFile);
-  const checkpoint = model.decodeCoordinatorUnifiedSnapshot(
+  const checkpoint = model.decodeRuntimeDomainSnapshot(
     checkpointBytes,
     repository.repositoryBinding,
   );
@@ -3368,7 +3368,7 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", as
   assert.equal(published.historyConfirmed, true);
   assert.equal(published.lockReleased, true);
   const currentBytes = fs.readFileSync(stateFile);
-  const current = model.decodeCoordinatorUnifiedSnapshot(
+  const current = model.decodeRuntimeDomainSnapshot(
     currentBytes,
     repository.repositoryBinding,
   );
@@ -3714,7 +3714,7 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", as
                 ? path.join(directory, "state.pending.json")
                 : stateFile,
             );
-            const capturedState = model.decodeCoordinatorUnifiedSnapshot(
+            const capturedState = model.decodeRuntimeDomainSnapshot(
               captured,
               repository.repositoryBinding,
             );
@@ -3928,7 +3928,7 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", as
       repository.repositoryBinding,
     );
     assert.ok(taskBytes);
-    const task = model.decodeCoordinatorUnifiedSnapshot(
+    const task = model.decodeRuntimeDomainSnapshot(
       taskBytes,
       repository.repositoryBinding,
     )?.snapshot.operations[0];
@@ -3939,7 +3939,7 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", as
       repository.repositoryBinding,
     );
     assert.ok(otherBytes);
-    const other = model.decodeCoordinatorUnifiedSnapshot(
+    const other = model.decodeRuntimeDomainSnapshot(
       otherBytes,
       repository.repositoryBinding,
     )?.snapshot.operations[0];
@@ -3994,7 +3994,7 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", as
     };
     const mixedBytes = Buffer.from(`${encodeRuntimeStateValue(mixed)}\n`);
     assert.ok(
-      model.decodeCoordinatorUnifiedSnapshot(
+      model.decodeRuntimeDomainSnapshot(
         mixedBytes,
         repository.repositoryBinding,
       ),
@@ -4009,7 +4009,7 @@ test("Host Windows: 修復履歴は専用Ownerで固定しfresh出版する", as
       );
       assert.equal(saved.status, "completed");
       assert.equal(saved.historyConfirmed, stage === "publish");
-      const after = model.decodeCoordinatorUnifiedSnapshot(
+      const after = model.decodeRuntimeDomainSnapshot(
         fs.readFileSync(stateFile),
         repository.repositoryBinding,
       );

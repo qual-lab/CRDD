@@ -30,7 +30,7 @@ import {
   validateCoordinatorStateTransition,
   classifyCoordinatorResourcePublication,
   validCoordinatorSnapshot,
-  decodeCoordinatorUnifiedSnapshot as decodeCoordinatorStateSnapshot,
+  decodeRuntimeDomainSnapshot as decodeCoordinatorStateSnapshot,
 } from "../../../domain-model/src/index.ts";
 import {
   prepareCoordinatorStateHistoryLine,
@@ -48,7 +48,7 @@ import {
   isDockerRestartCheckpointSettled,
   type CoordinatorState,
   coordinatorConsumerCompletionPolicy,
-  decodeCoordinatorUnifiedSnapshot,
+  decodeRuntimeDomainSnapshot,
   COORDINATOR_STATE_SCHEMA,
   COORDINATOR_DURABLE_FOUNDATION_CONTRACT,
   validLeaseEvidence,
@@ -962,7 +962,7 @@ export function readCoordinatorSnapshotOwned(
       : blocked(observed.reason, true);
   if (!observed.value)
     return blocked("orchestrator_snapshot_invalid_or_unconfirmed", true);
-  const decoded = decodeCoordinatorUnifiedSnapshot(
+  const decoded = decodeRuntimeDomainSnapshot(
     Buffer.from(`${encodeRuntimeStateValue(observed.value.snapshot)}\n`),
     lock.repositoryBinding,
   );
@@ -1070,7 +1070,7 @@ export function writeCoordinatorSnapshotOwned(
     const observed = readCoordinatorStorageSnapshotOwned(lock, true);
     let current: CoordinatorSnapshot | null = null;
     if (observed.status === "completed" && observed.value) {
-      const decoded = decodeCoordinatorUnifiedSnapshot(
+      const decoded = decodeRuntimeDomainSnapshot(
         Buffer.from(`${encodeRuntimeStateValue(observed.value.snapshot)}\n`),
         lock.repositoryBinding,
       );
@@ -4131,7 +4131,7 @@ export function writeCoordinatorStorageTaskSnapshotOwned(
       before = Buffer.from(
         `${encodeRuntimeStateValue(observed.value.snapshot)}\n`,
       );
-      const currentTask = decodeCoordinatorUnifiedSnapshot(
+      const currentTask = decodeRuntimeDomainSnapshot(
         before,
         issued.repositoryBinding,
       );
@@ -4187,9 +4187,10 @@ export function writeCoordinatorStorageTaskSnapshotOwned(
           unresolvedRecoveries: [],
           pendingDeliveries: [],
           resultReceipts: [],
+          managedExecutions: [],
         })}\n`,
       );
-      if (!decodeCoordinatorUnifiedSnapshot(bytes, issued.repositoryBinding))
+      if (!decodeRuntimeDomainSnapshot(bytes, issued.repositoryBinding))
         return rejected("coordinator_task_publication_input_invalid");
       filesystemEffectIssued = true;
       const temporary = requireReadyRepositoryRuntimeDataArea(
@@ -5467,7 +5468,7 @@ function commitCoordinatorStateSnapshotOwned(
           ))
       )
         throw new Error("task_publication_scope_invalid");
-      const taskDecoded = decodeCoordinatorUnifiedSnapshot(
+      const taskDecoded = decodeRuntimeDomainSnapshot(
         bytes,
         repository.repositoryBinding,
       );
@@ -5482,11 +5483,11 @@ function commitCoordinatorStateSnapshotOwned(
       )
         throw new Error("task_publication_view_invalid");
       for (const fact of taskPublication.facts) {
-        const task = candidate.snapshot.projects
+        const task = candidate.snapshot.managedExecutions
           .find((p) => p.projectId === fact.projectId)
           ?.tasks.find(
             (t) =>
-              t.definition.id === fact.taskId &&
+              t.taskId === fact.taskId &&
               t.attemptId === fact.attemptId &&
               t.operationId === fact.operationId,
           );

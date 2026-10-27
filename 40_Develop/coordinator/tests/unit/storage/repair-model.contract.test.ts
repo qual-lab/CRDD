@@ -9,7 +9,7 @@
  */
 import {
   COORDINATOR_STATE_SCHEMA,
-  decodeCoordinatorUnifiedSnapshot,
+  decodeRuntimeDomainSnapshot,
   type CoordinatorStateRepairOperation,
 } from "../../../../domain-model/src/index.ts";
 import {
@@ -26,7 +26,7 @@ import { executionSelection } from "../../fixtures/ai-selection.ts";
 
 import type { DockerRuntimeRepairDisposalCheckpoint } from "../../../../docker-isolation/src/index.ts";
 import {
-  decodeCoordinatorUnifiedSnapshot as decode,
+  decodeRuntimeDomainSnapshot as decode,
   prepareCoordinatorStateRepairSnapshot as start,
   prepareCoordinatorStateRepairCheckpointSnapshot as checkpoint,
   prepareCoordinatorStateRepairSessionSnapshot,
@@ -1269,7 +1269,7 @@ test("修復終了: 退避物不存在と履歴確認後だけ対象を除去す
     assert.ok(source);
     return {
       ...source.snapshot,
-      schema: "crdd-coordinator/current-state/v5",
+      schema: "crdd-domain/runtime-state/v1",
       repositoryBindingId: null,
       intakeEpoch: null,
       intakeBindings: [],
@@ -1292,7 +1292,7 @@ test("修復終了: 退避物不存在と履歴確認後だけ対象を除去す
   ] as const) {
     const snapshot = unifiedFixture(bytes);
     const currentBytes = Buffer.from(`${encode(snapshot)}\n`);
-    assert.ok(decodeCoordinatorUnifiedSnapshot(currentBytes, binding));
+    assert.ok(decodeRuntimeDomainSnapshot(currentBytes, binding));
     const candidate = Buffer.from(
       `${encode({
         ...snapshot,

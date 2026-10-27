@@ -7,7 +7,7 @@
  * @boundary 保存値の意味だけ。OS・Provider・Dockerの操作は所有しない。
  */
 
-import type { CoordinatorUnifiedSnapshot } from "./types.ts";
+import type { RuntimeStoredManagedProject } from "./types.ts";
 import type { CoordinatorState } from "./types.ts";
 import { decodeRuntimeStateBytes } from "./codec.ts";
 import { validCoordinatorExecutionState } from "../attempt/validation.ts";
@@ -68,10 +68,7 @@ export function prepareCoordinatorStateHistoryLine(
   recoveryId: unknown,
   repositoryBinding: unknown,
 ): Buffer | null {
-  const current = decodeCoordinatorUnifiedSnapshot(
-    currentBytes,
-    repositoryBinding,
-  );
+  const current = decodeRuntimeDomainSnapshot(currentBytes, repositoryBinding);
   const operation = current?.snapshot.operations.find(
     (value): value is CoordinatorStateTaskOperation =>
       value.kind === "docker_task" && value.recoveryId === recoveryId,
@@ -211,7 +208,7 @@ export function decodeRuntimeDomainSnapshot(
       (definitions.length > 0 || snapshot.managedExecutions.length > 0)
     )
       return null;
-    const projects: CoordinatorUnifiedSnapshot["projects"][number][] = [];
+    const projects: RuntimeStoredManagedProject[] = [];
     const seen = new Set<string>();
     for (const execution of snapshot.managedExecutions) {
       if (
@@ -289,13 +286,9 @@ export function decodeRuntimeDomainSnapshot(
         }),
       );
     }
-    const { managedExecutions: _managed, ...sections } = snapshot;
     const projection = projectRuntimeSnapshotSections(
-      {
-        ...sections,
-        schema: "crdd-coordinator/current-state/v5",
-        projects: Object.freeze(projects),
-      },
+      snapshot,
+      Object.freeze(projects),
       repositoryBinding,
       decoded.payloadSha256,
       definitions,
@@ -307,102 +300,6 @@ export function decodeRuntimeDomainSnapshot(
           payloadSha256: decoded.payloadSha256,
         })
       : null;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * 単一保存の全区画とTask・操作・受領の参照を復号する。
- * @responsibility 導出値と受領本文の二重保存、孤立参照、部分操作集合を拒否する。
- * @trace ARCH-000004、ARCH-000008
- * @input input: 正規UTF-8 Buffer、repositoryBinding: 現在の物理結合。
- * @returns 保存値、公開Task投影、内容Hash。拒否時はnull。
- * @precondition 本関数は純粋codecであり本番Writerへの切替を意味しない。
- * @postcondition 旧Attemptの受領は固定Scopeに残り、新Attemptへ流用できない。
- * @effect N/A: メモリ内の復号・投影だけ。
- * @failure 旧形式、二重情報、孤立・重複参照、未確認履歴の受領はnull。
- * @invariant 空の操作集合を未発行や回収成功へ補完しない。
- * @boundary 保存値とTask公開DTO。旧保存Snapshotを内包しない。
- * @security codec成功を実保存、回収、受領Authorityとして利用しない。
- * @concurrency N/A: Lock、外部Reader、Writerを呼ばない。
- */
-export function decodeCoordinatorUnifiedSnapshot(
-  input: unknown,
-  repositoryBinding: unknown,
-): Readonly<{
-  snapshot: CoordinatorUnifiedSnapshot;
-  projects: readonly CoordinatorState[];
-  payloadSha256: string;
-}> | null {
-  try {
-    if (!isSha256Hex(repositoryBinding)) return null;
-    const decoded = decodeRuntimeStateBytes(input);
-    const value = decoded?.value;
-    if (
-      !decoded ||
-      !exactRecordKeys(value, [
-        "schema",
-        "revision",
-        "previous",
-        "repositoryBinding",
-        "operations",
-        "unresolvedRecoveries",
-        "pendingDeliveries",
-        "repositoryBindingId",
-        "intakeEpoch",
-        "intakeBindings",
-        "projects",
-        "queueEntries",
-        "workspaces",
-        "leaseEvidence",
-        "leaseIntents",
-        "results",
-        "historyPending",
-        "acceptanceDecisions",
-        "decisionRecoveries",
-        "resultReceipts",
-      ])
-    )
-      return null;
-    const snapshot = value as CoordinatorUnifiedSnapshot;
-    if (
-      snapshot.schema !== "crdd-coordinator/current-state/v5" ||
-      snapshot.repositoryBinding !== repositoryBinding ||
-      !Number.isSafeInteger(snapshot.revision) ||
-      snapshot.revision < 1 ||
-      (snapshot.revision === 1
-        ? snapshot.previous !== null
-        : !exactRecordKeys(snapshot.previous, ["revision", "payloadSha256"]) ||
-          snapshot.previous?.revision !== snapshot.revision - 1 ||
-          !isSha256Hex(snapshot.previous?.payloadSha256)) ||
-      !Array.isArray(snapshot.pendingDeliveries) ||
-      !snapshot.pendingDeliveries.every((delivery) =>
-        exactRecordKeys(delivery, [
-          "operationNonce",
-          "recoveryId",
-          "resultId",
-          "consumer",
-        ]),
-      ) ||
-      !validCoordinatorExecutionState(
-        {
-          ...snapshot,
-          pendingDeliveries: snapshot.pendingDeliveries,
-        },
-        repositoryBinding,
-      ) ||
-      !Array.isArray(snapshot.resultReceipts) ||
-      !Array.isArray(snapshot.projects)
-    )
-      return null;
-
-    return projectRuntimeSnapshotSections(
-      snapshot,
-      repositoryBinding,
-      decoded.payloadSha256,
-      snapshot.projects,
-    );
   } catch {
     return null;
   }
@@ -951,7 +848,7 @@ export const COORDINATOR_STATE_CONTRACT =
  * @trace ARCH-000004、ARCH-000008
  */
 
-export const COORDINATOR_STATE_SCHEMA = "crdd-coordinator/current-state/v5";
+export const COORDINATOR_STATE_SCHEMA = "crdd-domain/runtime-state/v1";
 
 /**
  * 検証済み操作の要約本文を一意に符号化する。
@@ -1731,7 +1628,8 @@ export function validResultReference(value: unknown): value is string {
  * @concurrency N/A: 同期の局所処理。
  */
 function projectRuntimeSnapshotSections(
-  snapshot: CoordinatorUnifiedSnapshot,
+  snapshot: RuntimeDomainSnapshot,
+  managedProjects: readonly RuntimeStoredManagedProject[],
   repositoryBinding: string,
   payloadSha256: string,
   definitionProjects: readonly Readonly<{ projectId: string }>[],
@@ -1739,7 +1637,7 @@ function projectRuntimeSnapshotSections(
   const receipts = new Map<string, ProjectResultAcceptance>();
   for (const item of snapshot.resultReceipts) {
     const receipt = decodeProjectResultAcceptance(item);
-    const project = snapshot.projects.find(
+    const project = managedProjects.find(
       (entry) => entry.projectId === receipt?.projectId,
     );
     if (
@@ -1787,7 +1685,7 @@ function projectRuntimeSnapshotSections(
 
   const claimedOperations = new Set<string>();
   const projects: CoordinatorState[] = [];
-  for (const project of snapshot.projects) {
+  for (const project of managedProjects) {
     if (!Array.isArray(project.tasks)) return null;
     const tasks: ProjectTaskRecord[] = [];
     for (const task of project.tasks) {

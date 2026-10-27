@@ -601,9 +601,8 @@ export {
 } from "./plain-data/secret-validation.ts";
 
 export {
-  decodeCoordinatorUnifiedSnapshot,
-  prepareCoordinatorStateHistoryLine,
   decodeRuntimeDomainSnapshot,
+  prepareCoordinatorStateHistoryLine,
   hashRuntimeProjectDefinition,
   isSha256Hex,
   exactRecordKeys as hasRuntimeStateRecordKeys,

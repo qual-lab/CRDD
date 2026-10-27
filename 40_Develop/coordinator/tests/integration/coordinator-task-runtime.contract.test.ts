@@ -65,7 +65,7 @@ import {
 } from "../support/runtime-trace-case.ts";
 import {
   prepareCoordinatorStateOperationSnapshot,
-  decodeCoordinatorUnifiedSnapshot as decodeCoordinatorStateSnapshot,
+  decodeRuntimeDomainSnapshot as decodeCoordinatorStateSnapshot,
 } from "../../../domain-model/src/index.ts";
 
 type TraceSnapshot = Readonly<{

@@ -37,7 +37,7 @@ import { parseDockerTaskRecoveryId } from "../../../docker-isolation/src/index.t
 import { coordinatorReleasedTaskCanObserveHostAbsence } from "../../src/execution/validation.ts";
 import {
   prepareCoordinatorStateOperationSnapshot,
-  decodeCoordinatorUnifiedSnapshot as decodeCoordinatorStateSnapshot,
+  decodeRuntimeDomainSnapshot as decodeCoordinatorStateSnapshot,
 } from "../../../domain-model/src/index.ts";
 
 import {

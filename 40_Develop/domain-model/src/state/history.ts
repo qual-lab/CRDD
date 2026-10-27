@@ -14,7 +14,7 @@ import {
   exactRecordKeys,
   isSha256Hex,
   historyRow,
-  decodeCoordinatorUnifiedSnapshot as decodeCoordinatorStateSnapshot,
+  decodeRuntimeDomainSnapshot as decodeCoordinatorStateSnapshot,
 } from "./validation.ts";
 import {
   validCoordinatorRepairSummary,

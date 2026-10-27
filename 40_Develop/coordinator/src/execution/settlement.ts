@@ -17,7 +17,7 @@ import {
 } from "./operation.ts";
 
 import {
-  decodeCoordinatorUnifiedSnapshot as decodeCoordinatorStateSnapshot,
+  decodeRuntimeDomainSnapshot as decodeCoordinatorStateSnapshot,
   prepareCoordinatorStateCleanupSnapshot,
   prepareCoordinatorStateCompletionSnapshot,
   prepareCoordinatorStateHistorySnapshot,

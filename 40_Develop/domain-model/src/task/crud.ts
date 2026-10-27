@@ -14,10 +14,13 @@ import type {
   CoordinatorStoredTask,
   CoordinatorTaskSettlementFact,
   CoordinatorUnifiedSnapshot,
+  RuntimeManagedExecution,
+  RuntimeStoredManagedProject,
 } from "../state/types.ts";
 import {
-  decodeCoordinatorUnifiedSnapshot,
+  decodeRuntimeDomainSnapshot,
   exactRecordKeys,
+  hashRuntimeProjectDefinition,
 } from "../state/validation.ts";
 import {
   validCoordinatorState,
@@ -49,7 +52,7 @@ export function prepareCoordinatorUnifiedTaskSnapshot(
   resultFacts: unknown = [],
 ): Buffer | null {
   try {
-    const current = decodeCoordinatorUnifiedSnapshot(
+    const current = decodeRuntimeDomainSnapshot(
       currentBytes,
       repositoryBinding,
     );
@@ -96,7 +99,7 @@ export function prepareCoordinatorUnifiedTaskSnapshot(
       },
     };
     const bytes = Buffer.from(`${encodeRuntimeStateValue(next)}\n`);
-    const decoded = decodeCoordinatorUnifiedSnapshot(bytes, repositoryBinding);
+    const decoded = decodeRuntimeDomainSnapshot(bytes, repositoryBinding);
     return decoded &&
       validateCoordinatorUnifiedTransition(
         currentBytes,
@@ -129,7 +132,7 @@ export function prepareCoordinatorUnifiedTaskSnapshot(
  * @concurrency 元版のfresh確認はWriterが行う。
  */
 export function normalizeCoordinatorTaskProjects(
-  current: NonNullable<ReturnType<typeof decodeCoordinatorUnifiedSnapshot>>,
+  current: NonNullable<ReturnType<typeof decodeRuntimeDomainSnapshot>>,
   states: readonly CoordinatorState[],
   facts: unknown,
 ) {
@@ -193,15 +196,15 @@ export function normalizeCoordinatorTaskProjects(
   const operations = current.snapshot.operations.filter(
     (o) => !newlyAccepted.has(o.recoveryId),
   );
-  const projects: CoordinatorUnifiedSnapshot["projects"][number][] = [];
+  const projects: RuntimeStoredManagedProject[] = [];
   for (const state of states) {
     const tasks: CoordinatorStoredTask[] = [];
     for (const task of state.tasks) {
-      const previous = current.snapshot.projects
+      const previous = current.snapshot.managedExecutions
         .find((p) => p.projectId === state.projectId)
         ?.tasks.find(
           (t) =>
-            t.definition.id === task.definition.id &&
+            t.taskId === task.definition.id &&
             t.attemptId === task.attemptId &&
             t.operationId === task.operationId,
         )?.settlement;
@@ -272,8 +275,56 @@ export function normalizeCoordinatorTaskProjects(
     }
     projects.push({ ...state, tasks });
   }
+  const definitions = projects.map(
+    ({
+      taskExecutionSelections: _selection,
+      ownerGeneration: _owner,
+      maximumConcurrency: _maximum,
+      tasks,
+      contract: _contract,
+      ...core
+    }) => ({
+      ...core,
+      contract: "crdd-domain/project-state/v1" as const,
+      tasks: tasks.map((task) => task.definition),
+    }),
+  );
+  const managedExecutions: RuntimeManagedExecution[] = projects.map(
+    (project) => {
+      const definition = definitions.find(
+        (item) => item.projectId === project.projectId,
+      );
+      if (!definition) throw new Error("definition");
+      return {
+        projectId: project.projectId,
+        milestoneId: project.milestoneId,
+        definitionHash: hashRuntimeProjectDefinition(definition),
+        taskExecutionSelections: project.taskExecutionSelections,
+        ownerGeneration: project.ownerGeneration,
+        maximumConcurrency: project.maximumConcurrency,
+        tasks: project.tasks.map(({ definition: taskDefinition, ...task }) => ({
+          ...task,
+          taskId: taskDefinition.id,
+        })),
+      };
+    },
+  );
+  const retainedDefinitions = current.snapshot.projects.map(
+    (project) =>
+      definitions.find((item) => item.projectId === project.projectId) ??
+      project,
+  );
   return {
-    projects,
+    projects: [
+      ...retainedDefinitions,
+      ...definitions.filter(
+        (project) =>
+          !current.snapshot.projects.some(
+            (item) => item.projectId === project.projectId,
+          ),
+      ),
+    ],
+    managedExecutions,
     operations,
     resultReceipts: [...receipts.values()].filter((r) =>
       states.some((p) => p.projectId === r.projectId),
@@ -305,7 +356,7 @@ export function normalizeCoordinatorTaskProjects(
  * @concurrency N/A: 元版と保存CASは呼出し側が照合する。
  */
 export function projectCoordinatorTaskSnapshot(
-  decoded: NonNullable<ReturnType<typeof decodeCoordinatorUnifiedSnapshot>>,
+  decoded: NonNullable<ReturnType<typeof decodeRuntimeDomainSnapshot>>,
   repositoryRootHash: string,
 ): CoordinatorSnapshot | null {
   const s = decoded.snapshot;
@@ -353,7 +404,7 @@ export function prepareCoordinatorUnifiedTaskSections(
   factsValue: unknown = [],
 ): Buffer | null {
   try {
-    const current = decodeCoordinatorUnifiedSnapshot(
+    const current = decodeRuntimeDomainSnapshot(
       currentBytes,
       repositoryBinding,
     );
@@ -395,7 +446,7 @@ export function prepareCoordinatorUnifiedTaskSections(
       },
     };
     const bytes = Buffer.from(`${encodeRuntimeStateValue(next)}\n`);
-    const decoded = decodeCoordinatorUnifiedSnapshot(bytes, repositoryBinding);
+    const decoded = decodeRuntimeDomainSnapshot(bytes, repositoryBinding);
     return decoded &&
       validateCoordinatorUnifiedTransition(
         currentBytes,
@@ -430,8 +481,8 @@ export function prepareCoordinatorUnifiedTaskSections(
 export function associateCoordinatorTaskOperations(
   snapshot: CoordinatorUnifiedSnapshot,
   operations: CoordinatorUnifiedSnapshot["operations"],
-): CoordinatorUnifiedSnapshot["projects"] {
-  return snapshot.projects.map((project) => ({
+): CoordinatorUnifiedSnapshot["managedExecutions"] {
+  return snapshot.managedExecutions.map((project) => ({
     ...project,
     tasks: project.tasks.map((task) => {
       const recoveryIds = operations

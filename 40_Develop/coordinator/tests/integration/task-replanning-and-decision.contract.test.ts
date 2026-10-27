@@ -45,6 +45,11 @@ import type {
   CoordinatorReplanClassifier,
   CoordinatorReplanInput,
 } from "../../src/objective/types.ts";
+import {
+  decodeRuntimeDomainSnapshot,
+  encodeRuntimeStateValue,
+  hashRuntimeProjectDefinition,
+} from "../../../domain-model/src/index.ts";
 
 const revision = "a".repeat(40);
 
@@ -282,6 +287,31 @@ async function failTask(root: string) {
 test("bounded partial replan supersedes the failed task and returns the queue to ready", async (t) => {
   const { root, input } = fixture(t);
   assert.equal((await failTask(root)).reason, "orchestrator_replan_required");
+  const stateFile = path.join(root, ".crdd/coordinator/state.json");
+  const beforeBytes = fs.readFileSync(stateFile);
+  const beforeValue = JSON.parse(beforeBytes.toString("utf8"));
+  const before = decodeRuntimeDomainSnapshot(
+    beforeBytes,
+    beforeValue.repositoryBinding,
+  );
+  assert.ok(before);
+  const definition = before.snapshot.projects[0];
+  assert.ok(definition);
+  const siblings = [
+    { ...definition, projectId: "core-before" },
+    { ...definition, projectId: "core-after" },
+  ];
+  const mixedBytes = Buffer.from(
+    `${encodeRuntimeStateValue({
+      ...before.snapshot,
+      projects: [siblings[0], definition, siblings[1]],
+    })}\n`,
+  );
+  assert.ok(
+    decodeRuntimeDomainSnapshot(mixedBytes, before.snapshot.repositoryBinding),
+  );
+  // この試験で生成した正本だけに、管理実行を持たない兄弟定義を配置する。
+  fs.writeFileSync(stateFile, mixedBytes);
   const result = resolveCoordinatorReplan(input, () => ({
     disposition: "partial_replan",
     failedTaskId: "task-a",
@@ -307,6 +337,67 @@ test("bounded partial replan supersedes the failed task and returns the queue to
     ],
   );
   assert.equal(queue.status === "completed" && queue.value.state, "queued");
+  const publishedBytes = fs.readFileSync(stateFile);
+  const published = decodeRuntimeDomainSnapshot(
+    publishedBytes,
+    before.snapshot.repositoryBinding,
+  );
+  assert.ok(published);
+  assert.deepEqual(
+    published.snapshot.projects.map((project) => project.projectId),
+    ["core-before", "project-a", "core-after"],
+  );
+  assert.deepEqual(published.snapshot.projects[0], siblings[0]);
+  assert.deepEqual(published.snapshot.projects[2], siblings[1]);
+  const replanned = published.snapshot.projects[1];
+  const execution = published.snapshot.managedExecutions[0];
+  assert.ok(replanned && execution);
+  assert.equal(
+    execution.definitionHash,
+    hashRuntimeProjectDefinition(replanned),
+  );
+  assert.deepEqual(
+    execution.tasks.map((task) => task.taskId),
+    ["task-a", "task-b"],
+  );
+  const failed = before.snapshot.managedExecutions[0]?.tasks[0];
+  const superseded = execution.tasks[0];
+  assert.ok(failed && superseded);
+  for (const key of [
+    "attemptId",
+    "operationId",
+    "authorityBindingId",
+    "startPhase",
+    "settlement",
+    "recoveryObligations",
+    "resultAcceptanceIds",
+    "candidateId",
+  ] as const)
+    assert.deepEqual(superseded[key], failed[key]);
+  for (const invalid of [
+    { ...execution, definitionHash: "0".repeat(64) },
+    { ...execution, tasks: [...execution.tasks].reverse() },
+  ])
+    assert.equal(
+      decodeRuntimeDomainSnapshot(
+        Buffer.from(
+          `${encodeRuntimeStateValue({ ...published.snapshot, managedExecutions: [invalid] })}\n`,
+        ),
+        before.snapshot.repositoryBinding,
+      ),
+      null,
+    );
+  assert.equal(state.status, "completed");
+  if (state.status !== "completed" || !state.value) throw new Error("state");
+  assert.equal(
+    writeCoordinatorState(root, "binding-a", state.value, 0).status,
+    "blocked",
+  );
+  assert.deepEqual(
+    fs.readFileSync(stateFile),
+    publishedBytes,
+    "古い世代の再保存は正本を変更しない",
+  );
 });
 
 /**

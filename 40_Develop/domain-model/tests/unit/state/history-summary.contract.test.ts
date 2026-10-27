@@ -14,7 +14,7 @@ import {
   encodeRuntimeStateValue,
   hashRuntimeStateContent,
   prepareCoordinatorStateOperationSnapshot,
-  decodeCoordinatorUnifiedSnapshot,
+  decodeRuntimeDomainSnapshot,
 } from "../../../src/index.ts";
 import { prepareCoordinatorStateHistorySummary } from "../../../src/state/crud.ts";
 const binding = "a".repeat(64);
@@ -113,7 +113,7 @@ function summaryFixture(
     binding,
   );
   assert.ok(bytes);
-  const decoded = decodeCoordinatorUnifiedSnapshot(bytes, binding);
+  const decoded = decodeRuntimeDomainSnapshot(bytes, binding);
   assert.ok(decoded);
   const initial = decoded.snapshot.operations.find(
     (item) => item.kind === "docker_task",

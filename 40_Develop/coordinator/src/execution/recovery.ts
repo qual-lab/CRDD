@@ -56,7 +56,7 @@ import {
 import { readCurrentCoordinatorState as readCoordinatorState } from "../state/query.ts";
 
 import {
-  decodeCoordinatorUnifiedSnapshot as decodeCoordinatorStateSnapshot,
+  decodeRuntimeDomainSnapshot as decodeCoordinatorStateSnapshot,
   prepareCoordinatorRepairHistorySummary,
   prepareCoordinatorStateHostSnapshot,
   prepareCoordinatorStateOperationSnapshot,

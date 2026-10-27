@@ -6,7 +6,7 @@
  * @boundary メモリ内の値だけ。保存・実Owner確認・実資源観測・処置許可は発行しない。
  */
 import { types } from "node:util";
-import { decodeCoordinatorUnifiedSnapshot as decodeCoordinatorStateSnapshot } from "./validation.ts";
+import { decodeRuntimeDomainSnapshot as decodeCoordinatorStateSnapshot } from "./validation.ts";
 import { encodeRuntimeStateValue } from "./codec.ts";
 import type { CoordinatorStateTaskOperation } from "../attempt/types.ts";
 import { coordinatorAuthenticationClosureEvidence } from "../attempt/validation.ts";
@@ -224,7 +224,8 @@ export function prepareCoordinatorStateOperationSnapshot(
         : null,
       repositoryBinding,
       operations,
-      projects: current
+      projects: current?.snapshot.projects ?? [],
+      managedExecutions: current
         ? associateCoordinatorTaskOperations(current.snapshot, operations)
         : [],
       unresolvedRecoveries: current?.snapshot.unresolvedRecoveries ?? [],
@@ -2346,12 +2347,15 @@ function validateCoordinatorStateTransitionValue(
             encodeRuntimeStateValue(next.snapshot[key]),
         ) ||
         encodeRuntimeStateValue(expectedProjects) !==
+          encodeRuntimeStateValue(next.snapshot.managedExecutions) ||
+        encodeRuntimeStateValue(current.snapshot.projects) !==
           encodeRuntimeStateValue(next.snapshot.projects)
       )
         return false;
     } else if (
       next.snapshot.repositoryBindingId !== null ||
       next.snapshot.projects.length !== 0 ||
+      next.snapshot.managedExecutions.length !== 0 ||
       next.snapshot.resultReceipts.length !== 0
     )
       return false;
@@ -2379,6 +2383,7 @@ const EMPTY_COORDINATOR_TASK_SECTIONS = {
   intakeEpoch: null,
   intakeBindings: [],
   projects: [],
+  managedExecutions: [],
   queueEntries: [],
   workspaces: [],
   leaseEvidence: [],
