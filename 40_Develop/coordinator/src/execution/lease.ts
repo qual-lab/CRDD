@@ -4,8 +4,6 @@
  * @trace ARCH-000004、ARCH-000008
  */
 import {
-  COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
-  type LeaseEvidenceEnvelope,
   type LeaseKind,
   hashRuntimeStateValueText as digest,
   hasRuntimeStateKeys as exactKeys,
@@ -15,7 +13,6 @@ import {
   validId,
   type ProjectQueueEntry,
 } from "../../../domain-model/src/index.ts";
-import { encodeRuntimeStateValue } from "../../../domain-model/src/index.ts";
 import { resolveCoordinatorNamedPaths } from "../storage/state.ts";
 import { assertCoordinatorArea } from "../storage/state.ts";
 import { assertCoordinatorAreaUnchanged } from "../storage/state.ts";
@@ -24,7 +21,17 @@ import { completed } from "../state/result.ts";
 import { blocked } from "../state/result.ts";
 import { assertDirectory } from "../storage/state.ts";
 import { ensureDirectory } from "../storage/state.ts";
-import { envelope } from "../storage/state.ts";
+import {
+  projectCoordinatorLeaseAcquisitionOwner,
+  prepareCoordinatorLeaseAcquisitionReservation,
+  prepareCoordinatorLeaseAcquisitionConfirmation,
+  prepareCoordinatorLeaseReleaseIntent,
+  prepareCoordinatorLeaseReleaseSettlement,
+  projectCoordinatorLeaseOwnerLossState,
+  prepareCoordinatorReleasedLeaseReconciliation,
+  prepareCoordinatorLeaseRecoveryReservation,
+  prepareCoordinatorLeaseRecoverySettlement,
+} from "../../../domain-model/src/index.ts";
 import { withCoordinatorSnapshotOperation } from "../storage/state.ts";
 import { coordinatorSnapshotLeaseResourcesAbsent } from "../storage/state.ts";
 import { createCoordinatorSnapshotPersistencePorts } from "../state/transaction.ts";
@@ -162,57 +169,10 @@ export function inspectCoordinatorSnapshotLeaseAcquisitionOwner(
 ): StoreResult<
   Readonly<{ acquisition: CoordinatorLeaseAcquisitionResolution | null }>
 > {
-  return withCoordinatorSnapshotOperation(
-    workingDirectory,
-    binding,
-    (current) => {
-      if (current.schema !== COORDINATOR_PROJECT_SNAPSHOT_SCHEMA)
-        return blocked("orchestrator_snapshot_schema_invalid");
-      const intents = current.leaseIntents.filter(
-        (item) => item.kind === "project-operation",
-      );
-      const first = intents[0];
-      if (!first)
-        return completed("orchestrator_lease_acquisition_absent", {
-          next: null,
-          value: { acquisition: null },
-        });
-      const queue = current.queueEntries.find(
-        (item) => item.queueId === first.queueId,
-      );
-      if (
-        !queue ||
-        queue.projectId !== first.projectId ||
-        (queue.ownerGeneration !== null &&
-          queue.ownerGeneration !== first.ownerGeneration) ||
-        intents.some(
-          (item) =>
-            item.projectId !== first.projectId ||
-            item.queueId !== first.queueId ||
-            item.ownerGeneration !== first.ownerGeneration ||
-            item.ownerProcessId !== first.ownerProcessId ||
-            item.recoveryId !== first.recoveryId,
-        )
-      )
-        return blocked(
-          "orchestrator_lease_acquisition_owner_mismatch",
-          true,
-          first.recoveryId,
-        );
-      return completed("orchestrator_lease_acquisition_owner_observed", {
-        next: null,
-        value: {
-          acquisition: Object.freeze({
-            repositoryBindingId: binding,
-            projectId: first.projectId,
-            queueId: first.queueId,
-            ownerGeneration: first.ownerGeneration,
-            ownerProcessId: first.ownerProcessId,
-            recoveryId: first.recoveryId,
-          }),
-        },
-      });
-    },
+  return withCoordinatorSnapshotOperation<
+    Readonly<{ acquisition: CoordinatorLeaseAcquisitionResolution | null }>
+  >(workingDirectory, binding, (current) =>
+    projectCoordinatorLeaseAcquisitionOwner(current, binding),
   );
 }
 
@@ -265,42 +225,39 @@ export function acquireCoordinatorSnapshotLease(
   const reserved = withCoordinatorSnapshotOperation(
     workingDirectory,
     binding,
-    (current, owner) => {
-      if (
-        current.schema !== COORDINATOR_PROJECT_SNAPSHOT_SCHEMA ||
-        !validId(projectId) ||
-        (kind === "project-operation"
-          ? !current.queueEntries.some(
-              (item) =>
-                item.queueId === queueId && item.projectId === projectId,
-            )
-          : queueId !== "canonical")
-      )
-        return blocked("orchestrator_lease_binding_invalid");
-      if (
-        current.leaseIntents.some(
-          (item) =>
-            leaseIdentity(binding, item.projectId, item.queueId, item.kind) ===
-            identity,
-        )
-      )
-        return blocked("orchestrator_lease_unavailable");
-      if (
-        !coordinatorSnapshotLeaseResourcesAbsent(owner.repositoryRoot, identity)
-      )
-        return blocked("orchestrator_lease_preexisting_resource");
-      const metadata = fs.lstatSync(owner.repositoryRoot);
-      intentSaveRequested = true;
-      return completed("orchestrator_lease_intent_durable", {
-        next: { ...current, leaseIntents: [...current.leaseIntents, intent] },
-        value: {
-          repositoryRoot: owner.repositoryRoot,
-          rootIdentity: digest(
-            JSON.stringify([metadata.dev, metadata.ino, metadata.birthtimeMs]),
-          ),
+    (current, owner) =>
+      prepareCoordinatorLeaseAcquisitionReservation(
+        current,
+        binding,
+        projectId,
+        queueId,
+        kind,
+        identity,
+        intent,
+        {
+          resourcesAbsent: () =>
+            coordinatorSnapshotLeaseResourcesAbsent(
+              owner.repositoryRoot,
+              identity,
+            ),
+          observeRoot: () => {
+            const metadata = fs.lstatSync(owner.repositoryRoot);
+            return {
+              repositoryRoot: owner.repositoryRoot,
+              rootIdentity: digest(
+                JSON.stringify([
+                  metadata.dev,
+                  metadata.ino,
+                  metadata.birthtimeMs,
+                ]),
+              ),
+            };
+          },
+          markIntentSaveRequested: () => {
+            intentSaveRequested = true;
+          },
         },
-      });
-    },
+      ),
   );
   if (reserved.status !== "completed")
     return intentSaveRequested && reserved.manualRecoveryRequired
@@ -366,47 +323,35 @@ export function acquireCoordinatorSnapshotLease(
   const acquired = withCoordinatorSnapshotOperation(
     workingDirectory,
     binding,
-    (current) => {
-      if (
-        current.schema !== COORDINATOR_PROJECT_SNAPSHOT_SCHEMA ||
-        !current.leaseIntents.some(
-          (item) =>
-            encodeRuntimeStateValue(item) === encodeRuntimeStateValue(intent),
-        )
-      )
-        return blocked("orchestrator_lease_intent_mismatch", true, recoveryId);
-      const metadata = fs.lstatSync(lock);
-      if (
-        !metadata.isDirectory() ||
-        metadata.isSymbolicLink() ||
-        digest(
-          JSON.stringify([metadata.dev, metadata.ino, metadata.birthtimeMs]),
-        ) !== physicalIdentity
-      )
-        return blocked(
-          "orchestrator_lease_physical_identity_changed",
-          true,
-          recoveryId,
-        );
-      const evidence = envelope("lease-evidence", binding, projectId, 1, 1, {
-        kind,
+    (current) =>
+      prepareCoordinatorLeaseAcquisitionConfirmation(
+        current,
+        binding,
+        projectId,
         queueId,
+        kind,
         ownerGeneration,
-        ownerProcessId: process.pid,
-        disposition: "acquired",
-      }) as LeaseEvidenceEnvelope;
-      return completed("orchestrator_lease_acquired", {
-        next: {
-          ...current,
-          leaseIntents: [
-            ...current.leaseIntents,
-            { ...intent, phase: "lock_owned" as const, physicalIdentity },
-          ],
-          leaseEvidence: [...current.leaseEvidence, evidence],
+        intent,
+        physicalIdentity,
+        recoveryId,
+        process.pid,
+        {
+          physicalIdentityMatches: () => {
+            const metadata = fs.lstatSync(lock);
+            return (
+              metadata.isDirectory() &&
+              !metadata.isSymbolicLink() &&
+              digest(
+                JSON.stringify([
+                  metadata.dev,
+                  metadata.ino,
+                  metadata.birthtimeMs,
+                ]),
+              ) === physicalIdentity
+            );
+          },
         },
-        value: true,
-      });
-    },
+      ),
   );
   if (acquired.status !== "completed")
     return blocked(
@@ -442,36 +387,12 @@ export function acquireCoordinatorSnapshotLease(
       const pending = withCoordinatorSnapshotOperation(
         workingDirectory,
         binding,
-        (current) => {
-          if (
-            current.schema !== COORDINATOR_PROJECT_SNAPSHOT_SCHEMA ||
-            !current.leaseIntents.some(
-              (item) =>
-                item.ownerGeneration === ownerGeneration &&
-                item.phase === "lock_owned" &&
-                item.physicalIdentity === physicalIdentity,
-            )
-          )
-            return blocked(
-              "orchestrator_lease_intent_mismatch",
-              true,
-              recoveryId,
-            );
-          return completed("orchestrator_lease_release_intent_durable", {
-            next: {
-              ...current,
-              leaseIntents: [
-                ...current.leaseIntents,
-                {
-                  ...intent,
-                  phase: "release_pending" as const,
-                  physicalIdentity,
-                },
-              ],
-            },
-            value: true,
-          });
-        },
+        (current) =>
+          prepareCoordinatorLeaseReleaseIntent(
+            current,
+            intent,
+            physicalIdentity,
+          ),
       );
       if (pending.status !== "completed") {
         activeLeases.delete(lease);
@@ -497,52 +418,14 @@ export function acquireCoordinatorSnapshotLease(
       const settled = withCoordinatorSnapshotOperation(
         workingDirectory,
         binding,
-        (current) => {
-          if (
-            current.schema !== COORDINATOR_PROJECT_SNAPSHOT_SCHEMA ||
-            !current.leaseIntents.some(
-              (item) =>
-                item.ownerGeneration === ownerGeneration &&
-                item.phase === "release_pending" &&
-                item.physicalIdentity === physicalIdentity,
-            )
-          )
-            return blocked(
-              "orchestrator_lease_intent_mismatch",
-              true,
-              recoveryId,
-            );
-          const evidence = envelope(
-            "lease-evidence",
+        (current) =>
+          prepareCoordinatorLeaseReleaseSettlement(
+            current,
             binding,
-            projectId,
-            1,
-            2,
-            {
-              kind,
-              queueId,
-              ownerGeneration,
-              ownerProcessId: process.pid,
-              disposition: "released",
-            },
-          ) as LeaseEvidenceEnvelope;
-          return completed("orchestrator_lease_released", {
-            next: {
-              ...current,
-              leaseIntents: current.leaseIntents.filter(
-                (item) =>
-                  !(
-                    item.ownerGeneration === ownerGeneration &&
-                    item.kind === kind &&
-                    item.projectId === projectId &&
-                    item.queueId === queueId
-                  ),
-              ),
-              leaseEvidence: [...current.leaseEvidence, evidence],
-            },
-            value: { released: true as const },
-          });
-        },
+            intent,
+            physicalIdentity,
+            process.pid,
+          ),
       );
       if (settled.status !== "completed")
         return blocked("orchestrator_lease_release_unknown", true, recoveryId);
@@ -609,41 +492,22 @@ export function reconcileCoordinatorSnapshotLeaseOwnerLoss(
   const inspected = withCoordinatorSnapshotOperation(
     workingDirectory,
     binding,
-    (current, owner) => {
-      if (current.schema !== COORDINATOR_PROJECT_SNAPSHOT_SCHEMA)
-        return blocked("orchestrator_snapshot_schema_invalid");
-      const queue =
-        kind === "project-operation"
-          ? (current.queueEntries.find((item) => item.queueId === queueId) ??
-            null)
-          : null;
-      if (
-        !validId(projectId) ||
-        (kind === "project-operation"
-          ? queue?.projectId !== projectId
-          : queueId !== "canonical")
-      )
-        return blocked("orchestrator_lease_binding_invalid");
-      const intents = current.leaseIntents.filter(
-        (item) =>
-          item.projectId === projectId &&
-          item.queueId === queueId &&
-          item.kind === kind,
-      );
-      const metadata = fs.lstatSync(owner.repositoryRoot);
-      return completed("orchestrator_lease_recovery_inspected", {
-        next: null,
-        value: {
-          intents,
-          queue,
-          intakeEpoch: current.intakeEpoch,
-          repositoryRoot: owner.repositoryRoot,
-          rootIdentity: digest(
-            JSON.stringify([metadata.dev, metadata.ino, metadata.birthtimeMs]),
-          ),
+    (current, owner) =>
+      projectCoordinatorLeaseOwnerLossState(current, projectId, queueId, kind, {
+        observeRoot: () => {
+          const metadata = fs.lstatSync(owner.repositoryRoot);
+          return {
+            repositoryRoot: owner.repositoryRoot,
+            rootIdentity: digest(
+              JSON.stringify([
+                metadata.dev,
+                metadata.ino,
+                metadata.birthtimeMs,
+              ]),
+            ),
+          };
         },
-      });
-    },
+      }),
   );
   if (inspected.status !== "completed")
     return blocked(inspected.reason, true, recoveryId);
@@ -683,58 +547,22 @@ export function reconcileCoordinatorSnapshotLeaseOwnerLoss(
       return withCoordinatorSnapshotOperation(
         workingDirectory,
         binding,
-        (current, owner) => {
-          const queue = current.queueEntries.find(
-            (item) => item.queueId === queueId,
-          );
-          const released = current.leaseEvidence.find(
-            (item) =>
-              item.projectId === projectId &&
-              item.content.queueId === queueId &&
-              item.content.kind === kind &&
-              item.content.ownerGeneration === queue?.ownerGeneration &&
-              item.content.disposition === "released",
-          );
-          if (
-            !queue ||
-            queue.generation !== initial.queue?.generation ||
-            queue.ownerGeneration !== initial.queue?.ownerGeneration ||
-            !["leased", "running"].includes(queue.state) ||
-            !released ||
-            current.leaseIntents.some(
-              (item) =>
-                item.projectId === projectId &&
-                item.queueId === queueId &&
-                item.kind === kind,
-            ) ||
-            !coordinatorSnapshotLeaseResourcesAbsent(
-              owner.repositoryRoot,
-              identity,
-            )
-          )
-            return blocked(
-              "orchestrator_lease_recovery_state_mismatch",
-              true,
-              recoveryId,
-            );
-          const next: ProjectQueueEntry = {
-            ...queue,
-            generation: queue.generation + 1,
-            state: "recovery_required",
-            ownerGeneration: null,
-            resumeCondition: "owner_loss",
-            resultReference: recoveryId,
-          };
-          return completed("orchestrator_released_lease_reconciled", {
-            next: {
-              ...current,
-              queueEntries: current.queueEntries.map((item) =>
-                item.queueId === queueId ? next : item,
-              ),
+        (current, owner) =>
+          prepareCoordinatorReleasedLeaseReconciliation(
+            current,
+            projectId,
+            queueId,
+            kind,
+            initial.queue,
+            recoveryId,
+            {
+              resourcesAbsent: () =>
+                coordinatorSnapshotLeaseResourcesAbsent(
+                  owner.repositoryRoot,
+                  identity,
+                ),
             },
-            value: { queue: next, recoveryId: null },
-          });
-        },
+          ),
       );
     }
     try {
@@ -865,49 +693,32 @@ export function reconcileCoordinatorSnapshotLeaseOwnerLoss(
   const reserved = withCoordinatorSnapshotOperation(
     workingDirectory,
     binding,
-    (current, owner) => {
-      const metadata = fs.lstatSync(owner.repositoryRoot);
-      if (
-        current.schema !== COORDINATOR_PROJECT_SNAPSHOT_SCHEMA ||
-        owner.repositoryRoot !== initial.repositoryRoot ||
-        digest(
-          JSON.stringify([metadata.dev, metadata.ino, metadata.birthtimeMs]),
-        ) !== initial.rootIdentity ||
-        encodeRuntimeStateValue(
-          current.leaseIntents.filter(
-            (item) =>
-              item.projectId === projectId &&
-              item.queueId === queueId &&
-              item.kind === kind,
-          ),
-        ) !== encodeRuntimeStateValue(ownIntents) ||
-        encodeRuntimeStateValue(
-          kind === "project-operation"
-            ? (current.queueEntries.find((item) => item.queueId === queueId) ??
-                null)
-            : null,
-        ) !== encodeRuntimeStateValue(initial.queue)
-      )
-        return blocked(
-          "orchestrator_lease_recovery_state_mismatch",
-          true,
-          recoveryId,
-        );
-      const existing = ownIntents.find(
-        (item) => item.phase === "recovery_pending",
-      );
-      if (
-        existing &&
-        encodeRuntimeStateValue(existing) !== encodeRuntimeStateValue(pending)
-      )
-        return blocked("orchestrator_lease_intent_mismatch", true, recoveryId);
-      return completed("orchestrator_lease_recovery_intent_durable", {
-        next: existing
-          ? null
-          : { ...current, leaseIntents: [...current.leaseIntents, pending] },
-        value: true,
-      });
-    },
+    (current, owner) =>
+      prepareCoordinatorLeaseRecoveryReservation(
+        current,
+        projectId,
+        queueId,
+        kind,
+        initial,
+        ownIntents,
+        pending,
+        recoveryId,
+        {
+          observeRoot: () => {
+            const metadata = fs.lstatSync(owner.repositoryRoot);
+            return {
+              repositoryRoot: owner.repositoryRoot,
+              rootIdentity: digest(
+                JSON.stringify([
+                  metadata.dev,
+                  metadata.ino,
+                  metadata.birthtimeMs,
+                ]),
+              ),
+            };
+          },
+        },
+      ),
   );
   if (reserved.status !== "completed")
     return blocked(reserved.reason, true, recoveryId);
@@ -971,112 +782,39 @@ export function reconcileCoordinatorSnapshotLeaseOwnerLoss(
   const settled = withCoordinatorSnapshotOperation(
     workingDirectory,
     binding,
-    (current, owner) => {
-      const metadata = fs.lstatSync(owner.repositoryRoot);
-      if (
-        current.schema !== COORDINATOR_PROJECT_SNAPSHOT_SCHEMA ||
-        owner.repositoryRoot !== initial.repositoryRoot ||
-        digest(
-          JSON.stringify([metadata.dev, metadata.ino, metadata.birthtimeMs]),
-        ) !== initial.rootIdentity ||
-        encodeRuntimeStateValue(
-          kind === "project-operation"
-            ? (current.queueEntries.find((item) => item.queueId === queueId) ??
-                null)
-            : null,
-        ) !== encodeRuntimeStateValue(initial.queue) ||
-        encodeRuntimeStateValue(
-          current.leaseIntents.filter(
-            (item) =>
-              item.projectId === projectId &&
-              item.queueId === queueId &&
-              item.kind === kind,
-          ),
-        ) !==
-          encodeRuntimeStateValue(
-            ownIntents.some((item) => item.phase === "recovery_pending")
-              ? ownIntents
-              : [...ownIntents, pending],
-          ) ||
-        !coordinatorSnapshotLeaseResourcesAbsent(
-          initial.repositoryRoot,
-          identity,
-        )
-      )
-        return blocked(
-          "orchestrator_lease_recovery_state_mismatch",
-          true,
-          recoveryId,
-        );
-      const acquired = current.leaseEvidence.find(
-        (item) =>
-          item.projectId === projectId &&
-          item.content.queueId === queueId &&
-          item.content.kind === kind &&
-          item.content.ownerGeneration === first.ownerGeneration &&
-          item.content.disposition === "acquired",
-      );
-      const ended = current.leaseEvidence.find(
-        (item) =>
-          item.projectId === projectId &&
-          item.content.queueId === queueId &&
-          item.content.kind === kind &&
-          item.content.ownerGeneration === first.ownerGeneration &&
-          item.content.disposition !== "acquired",
-      );
-      if (ended)
-        return blocked(
-          "orchestrator_lease_recovery_state_mismatch",
-          true,
-          recoveryId,
-        );
-      const evidence = envelope("lease-evidence", binding, projectId, 1, 2, {
-        kind,
+    (current, owner) =>
+      prepareCoordinatorLeaseRecoverySettlement(
+        current,
+        binding,
+        projectId,
         queueId,
-        ownerGeneration: first.ownerGeneration,
-        ownerProcessId: first.ownerProcessId,
-        disposition: acquired
-          ? "recovered_after_owner_loss"
-          : "acquisition_unknown_closed",
-      }) as LeaseEvidenceEnvelope;
-      const queue: ProjectQueueEntry | null =
-        initial.queue === null
-          ? null
-          : Object.freeze({
-              ...initial.queue,
-              generation: initial.queue.generation + 1,
-              ...(initial.queue.ownerGeneration === null
-                ? {}
-                : {
-                    state: "recovery_required" as const,
-                    ownerGeneration: null,
-                    resumeCondition: "owner_loss" as const,
-                  }),
-              resultReference: recoveryId,
-            });
-      return completed("orchestrator_lease_owner_loss_reconciled", {
-        next: {
-          ...current,
-          leaseIntents: current.leaseIntents.filter(
-            (item) =>
-              !(
-                item.projectId === projectId &&
-                item.queueId === queueId &&
-                item.kind === kind &&
-                item.ownerGeneration === first.ownerGeneration
+        kind,
+        initial,
+        ownIntents,
+        pending,
+        first,
+        recoveryId,
+        {
+          observeRoot: () => {
+            const metadata = fs.lstatSync(owner.repositoryRoot);
+            return {
+              repositoryRoot: owner.repositoryRoot,
+              rootIdentity: digest(
+                JSON.stringify([
+                  metadata.dev,
+                  metadata.ino,
+                  metadata.birthtimeMs,
+                ]),
               ),
-          ),
-          leaseEvidence: [...current.leaseEvidence, evidence],
-          queueEntries:
-            queue === null
-              ? current.queueEntries
-              : current.queueEntries.map((item) =>
-                  item.queueId === queueId ? queue : item,
-                ),
+            };
+          },
+          resourcesAbsent: () =>
+            coordinatorSnapshotLeaseResourcesAbsent(
+              owner.repositoryRoot,
+              identity,
+            ),
         },
-        value: { queue, recoveryId },
-      });
-    },
+      ),
   );
   return settled.status === "completed"
     ? settled

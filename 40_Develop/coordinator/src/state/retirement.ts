@@ -10,14 +10,12 @@ import {
 import { encodeRuntimeStateValue } from "../../../domain-model/src/index.ts";
 import type { StoreResult } from "./result.ts";
 import { observeCoordinatorSnapshotObligations } from "../storage/state.ts";
-import { completed } from "./result.ts";
 import { blocked } from "./result.ts";
 import { withCoordinatorSnapshotOperation } from "../storage/state.ts";
 import {
-  coordinatorQueueIsClosed,
-  coordinatorAdoptionWasRejected,
-  coordinatorRejectedAdoptionEvidenceCanRetire,
-  coordinatorStandaloneAdoptionIsClosed,
+  prepareCoordinatorHistoryPending,
+  prepareCoordinatorTerminalRecordRetirement,
+  prepareCoordinatorHistoryTransfer,
 } from "../../../domain-model/src/index.ts";
 
 import { randomUUID } from "node:crypto";
@@ -48,61 +46,10 @@ export function maintainCoordinatorSnapshot(
   const prepared = withCoordinatorSnapshotOperation(
     workingDirectory,
     binding,
-    (current, owner) => {
-      if (
-        !Number.isSafeInteger(now) ||
-        now < 0 ||
-        current.schema !== COORDINATOR_PROJECT_SNAPSHOT_SCHEMA
-      )
-        return blocked("orchestrator_history_time_invalid");
-      const rows = current.queueEntries
-        .filter(
-          (queue) =>
-            !current.historyPending.some((row) => row.id === queue.queueId) &&
-            coordinatorQueueIsClosed(
-              current,
-              queue.queueId,
-              observeCoordinatorSnapshotObligations(owner),
-            ),
-        )
-        .map(
-          (queue): HistoryRow => ({
-            id: queue.queueId,
-            occurredAt: new Date(now).toISOString(),
-            outcome: queue.state === "cancelled" ? "cancelled" : "completed",
-            primaryFailure: queue.state === "cancelled" ? "cancel" : null,
-            cleanup: "confirmed",
-          }),
-        );
-      for (const record of current.results) {
-        if (
-          current.historyPending.some((row) => row.id === record.identity) ||
-          !coordinatorStandaloneAdoptionIsClosed(
-            current,
-            record.identity,
-            observeCoordinatorSnapshotObligations(owner),
-          )
-        )
-          continue;
-        rows.push({
-          id: record.identity,
-          occurredAt: new Date(now).toISOString(),
-          outcome: coordinatorAdoptionWasRejected(record)
-            ? "failed"
-            : "completed",
-          primaryFailure: coordinatorAdoptionWasRejected(record)
-            ? "execution"
-            : null,
-          cleanup: "confirmed",
-        });
-      }
-      return completed("orchestrator_history_prepared", {
-        next: rows.length
-          ? { ...current, historyPending: [...current.historyPending, ...rows] }
-          : null,
-        value: rows.length,
-      });
-    },
+    (current, owner) =>
+      prepareCoordinatorHistoryPending(current, now, {
+        obligations: () => observeCoordinatorSnapshotObligations(owner),
+      }),
     "history",
   );
   if (prepared.status !== "completed") return prepared;
@@ -120,162 +67,12 @@ export function maintainCoordinatorSnapshot(
         now,
       );
       if (trimmed.status !== "completed") return blocked(trimmed.reason, true);
-      const retired = new Set<string>();
-      for (const row of current.historyPending) {
-        if (
-          !coordinatorQueueIsClosed(
-            current,
-            row.id,
-            observeCoordinatorSnapshotObligations(owner),
-          ) &&
-          !coordinatorStandaloneAdoptionIsClosed(
-            current,
-            row.id,
-            observeCoordinatorSnapshotObligations(owner),
-          )
-        )
-          continue;
-        if (inspectCoordinatorHistorySettlement(owner, row, now) === null)
-          return blocked("orchestrator_history_transfer_unconfirmed", true);
-        retired.add(row.id);
-      }
-      return completed("orchestrator_terminal_records_retired", {
-        next: retired.size
-          ? {
-              ...current,
-              intakeEpoch: current.queueEntries.some((queue) =>
-                retired.has(queue.queueId),
-              )
-                ? `epoch-${randomUUID()}`
-                : current.intakeEpoch,
-              queueEntries: current.queueEntries.filter(
-                (item) => !retired.has(item.queueId),
-              ),
-              intakeBindings: current.intakeBindings.filter(
-                (item) => !retired.has(item.queueId),
-              ),
-              leaseEvidence: current.leaseEvidence.filter(
-                (item) =>
-                  !current.queueEntries.some(
-                    (queue) =>
-                      item.content.kind === "project-operation" &&
-                      retired.has(queue.queueId) &&
-                      queue.queueId === item.content.queueId &&
-                      queue.projectId === item.projectId,
-                  ) &&
-                  !coordinatorRejectedAdoptionEvidenceCanRetire(
-                    current,
-                    {
-                      ...current,
-                      results: current.results.filter(
-                        (record) => !retired.has(record.identity),
-                      ),
-                    },
-                    item,
-                    observeCoordinatorSnapshotObligations(owner),
-                  ) &&
-                  !(
-                    item.content.kind === "canonical-adoption" &&
-                    !current.results.some(
-                      (record) =>
-                        record.kind === "adoption" &&
-                        record.projectId === item.projectId &&
-                        ((!retired.has(record.identity) &&
-                          !current.queueEntries.some(
-                            (queue) =>
-                              retired.has(queue.queueId) &&
-                              queue.queueId === record.queueId &&
-                              queue.projectId === record.projectId &&
-                              queue.milestoneId === record.milestoneId,
-                          )) ||
-                          current.projects.some(
-                            (project) =>
-                              project.milestone.criterionEvidenceIds.includes(
-                                record.identity,
-                              ) ||
-                              project.objectives.some((objective) =>
-                                objective.criterionEvidenceIds.includes(
-                                  record.identity,
-                                ),
-                              ),
-                          ) ||
-                          current.queueEntries.some(
-                            (queue) =>
-                              !retired.has(queue.queueId) &&
-                              queue.resultReference === record.identity,
-                          )),
-                    ) &&
-                    !current.queueEntries.some(
-                      (queue) =>
-                        queue.projectId === item.projectId &&
-                        !retired.has(queue.queueId),
-                    ) &&
-                    current.historyPending.some(
-                      (row) =>
-                        retired.has(row.id) &&
-                        (current.queueEntries.some(
-                          (queue) =>
-                            queue.queueId === row.id &&
-                            queue.projectId === item.projectId,
-                        ) ||
-                          current.results.some(
-                            (record) =>
-                              record.identity === row.id &&
-                              record.projectId === item.projectId &&
-                              !coordinatorAdoptionWasRejected(record),
-                          )),
-                    )
-                  ),
-              ),
-              decisionRecoveries: current.decisionRecoveries.filter(
-                (item) => !retired.has(item.value.queueId),
-              ),
-              results: current.results.filter(
-                (item) =>
-                  (!current.queueEntries.some(
-                    (queue) =>
-                      retired.has(queue.queueId) &&
-                      queue.queueId === item.queueId &&
-                      queue.projectId === item.projectId &&
-                      queue.milestoneId === item.milestoneId,
-                  ) &&
-                    !retired.has(item.identity)) ||
-                  current.projects.some(
-                    (project) =>
-                      project.milestone.criterionEvidenceIds.includes(
-                        item.identity,
-                      ) ||
-                      project.objectives.some((objective) =>
-                        objective.criterionEvidenceIds.includes(item.identity),
-                      ),
-                  ) ||
-                  current.queueEntries.some(
-                    (queue) =>
-                      !retired.has(queue.queueId) &&
-                      queue.resultReference === item.identity,
-                  ),
-              ),
-              acceptanceDecisions: current.acceptanceDecisions.filter(
-                (item) =>
-                  !current.queueEntries.some(
-                    (queue) =>
-                      retired.has(queue.queueId) &&
-                      queue.projectId === item.record.projectId &&
-                      queue.milestoneId === item.record.milestoneId,
-                  ) ||
-                  current.queueEntries.some(
-                    (queue) =>
-                      !retired.has(queue.queueId) &&
-                      queue.projectId === item.record.projectId &&
-                      queue.milestoneId === item.record.milestoneId,
-                  ),
-              ),
-              historyPending: current.historyPending.filter(
-                (row) => !retired.has(row.id),
-              ),
-            }
-          : null,
-        value: retired.size,
+
+      return prepareCoordinatorTerminalRecordRetirement(current, {
+        obligations: () => observeCoordinatorSnapshotObligations(owner),
+        historySettlement: (row: HistoryRow) =>
+          inspectCoordinatorHistorySettlement(owner, row, now),
+        nextEpoch: () => `epoch-${randomUUID()}`,
       });
     },
     "history",
@@ -306,8 +103,6 @@ export function transferCoordinatorSnapshotHistory(
     workingDirectory,
     binding,
     (current, owner) => {
-      let recorded = 0;
-      let expired = 0;
       if (current.historyPending.length) {
         const saved = updateCoordinatorHistoryOwned(
           owner,
@@ -316,22 +111,9 @@ export function transferCoordinatorSnapshotHistory(
         );
         if (saved.status !== "completed") return blocked(saved.reason, true);
       }
-      for (const row of current.historyPending) {
-        const disposition = inspectCoordinatorHistorySettlement(
-          owner,
-          row,
-          now,
-        );
-        if (disposition === null)
-          return blocked("orchestrator_history_transfer_unconfirmed", true);
-        if (disposition === "recorded") recorded += 1;
-        else expired += 1;
-      }
-      return completed("orchestrator_history_transferred", {
-        next: current.historyPending.length
-          ? { ...current, historyPending: [] }
-          : null,
-        value: { recorded, expired },
+      return prepareCoordinatorHistoryTransfer(current, {
+        historySettlement: (row: HistoryRow) =>
+          inspectCoordinatorHistorySettlement(owner, row, now),
       });
     },
     "history",

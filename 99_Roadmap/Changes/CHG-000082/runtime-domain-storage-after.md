@@ -306,6 +306,8 @@ Core操作では保存値の相関を検査するが、DockerやProviderへの�
 
 時計は用途固定の無名同期`now:()=>number`とし、clean終端又は未開始終了の候補末尾で、表示時刻→履歴検査用時刻の順に二回呼ぶ。拒否・非clean・同値確定済み再入場では零回。時刻観測・Owner確認の例外は既存の外側Store失敗と解放へ接続し、未使用へ戻さない。
 
+候補接続のSource更新では、上表のTask／Queue七に続き、Lease九を`domain-model/src/attempt/lease.ts`、履歴三を`domain-model/src/state/history.ts`へ配置する。基準版の残十九を含む全三十二用途が固定候補へ接続されるが、物理取引はまだCoordinator内部に残る。取得予約のmarkは資源不存在・Root投影の同期閉形式確認後だけ一回、履歴出版はCoordinatorの元の位置で成功後に候補へ進む。Root投影は生Statsでなく二field、履歴再読はrecorded／expiredだけ受理し、非同期又は契約外の値を成功にしない。観測型・Map・Lockを一般化しない。
+
 ### 5.2 原子的に移す物理閉包
 
 固定用途の接続が閉じた後、短期保存Owner、Reader／Writer、history I/O、五Context、initializations、historyAttempts、Module-private取引を同じDomain保存Ownerへ移す。借用Repositoryの実行Package関数型への依存は、既存の検証済みRootと用途固定の現在観測へ置換する。新旧Map／Writerの併存や、先にraw取引をRoot公開して後から縮める手順は採らない。長期Lease、Host／Home、Process生死、Docker・ProviderのEffectと回復判断はCoordinator／既存専門Ownerに残す。

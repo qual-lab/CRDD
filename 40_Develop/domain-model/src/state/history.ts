@@ -289,3 +289,321 @@ export function prepareCoordinatorHistoryRetention(
     "utf8",
   );
 }
+
+import type { CoordinatorSnapshot, HistoryRow } from "./types.ts";
+import { COORDINATOR_PROJECT_SNAPSHOT_SCHEMA } from "./validation.ts";
+import {
+  coordinatorQueueIsClosed,
+  coordinatorAdoptionWasRejected,
+  coordinatorRejectedAdoptionEvidenceCanRetire,
+  coordinatorStandaloneAdoptionIsClosed,
+  type CoordinatorSnapshotObservations,
+} from "./transition.ts";
+
+/**
+ * 終了要約のpending候補を生成する。
+ * @responsibility 同じ短期Ownerの用途固定観測を元の短絡位置で利用し対象外を保持する。
+ * @trace ARCH-000004、ARCH-000008
+ * @input fresh元版、用途固定の同期観測、必要な評価時刻。
+ * @returns 元の固定結果封筒と候補又は無変更。
+ * @precondition 同じ短期Ownerがfresh Snapshotを検証済み。履歴出版前に呼ぶ。
+ * @postcondition 未解決・未搬送・参照中の記録を成功や退役へ補正しない。
+ * @effect 値操作と同Ownerの有限同期観測。物理出版は呼ばない。
+ * @failure 元の理由・観測順・再入場時のpendingを維持する。
+ * @invariant 候補を保存・回復・排他解放の成立としない。
+ * @boundary Domain値と既存Ownerへ束縛された履歴／資源観測。
+ * @security 生Owner、publisher、handle、任意Snapshot callbackを受け取らない。
+ * @concurrency 元の短期Owner内だけで適用する。観測値を対象間でmemoizeしない。
+ */
+export function prepareCoordinatorHistoryPending(
+  current: CoordinatorSnapshot,
+  now: number,
+  observations: Readonly<{
+    obligations: () => CoordinatorSnapshotObservations;
+  }>,
+) {
+  if (
+    !Number.isSafeInteger(now) ||
+    now < 0 ||
+    current.schema !== COORDINATOR_PROJECT_SNAPSHOT_SCHEMA
+  )
+    return blocked("orchestrator_history_time_invalid");
+  const rows = current.queueEntries
+    .filter(
+      (queue) =>
+        !current.historyPending.some((row) => row.id === queue.queueId) &&
+        coordinatorQueueIsClosed(
+          current,
+          queue.queueId,
+          observations.obligations(),
+        ),
+    )
+    .map(
+      (queue): HistoryRow => ({
+        id: queue.queueId,
+        occurredAt: new Date(now).toISOString(),
+        outcome: queue.state === "cancelled" ? "cancelled" : "completed",
+        primaryFailure: queue.state === "cancelled" ? "cancel" : null,
+        cleanup: "confirmed",
+      }),
+    );
+  for (const record of current.results) {
+    if (
+      current.historyPending.some((row) => row.id === record.identity) ||
+      !coordinatorStandaloneAdoptionIsClosed(
+        current,
+        record.identity,
+        observations.obligations(),
+      )
+    )
+      continue;
+    rows.push({
+      id: record.identity,
+      occurredAt: new Date(now).toISOString(),
+      outcome: coordinatorAdoptionWasRejected(record) ? "failed" : "completed",
+      primaryFailure: coordinatorAdoptionWasRejected(record)
+        ? "execution"
+        : null,
+      cleanup: "confirmed",
+    });
+  }
+  return completed("orchestrator_history_prepared", {
+    next: rows.length
+      ? { ...current, historyPending: [...current.historyPending, ...rows] }
+      : null,
+    value: rows.length,
+  });
+}
+
+/**
+ * 履歴出版成功後の終了記録退役候補を生成する。
+ * @responsibility 同じ短期Ownerの用途固定観測を元の短絡位置で利用し対象外を保持する。
+ * @trace ARCH-000004、ARCH-000008
+ * @input fresh元版、用途固定の同期観測、必要な評価時刻。
+ * @returns 元の固定結果封筒と候補又は無変更。
+ * @precondition Coordinatorが必要な履歴出版を元の位置で成功させている。
+ * @postcondition 未解決・未搬送・参照中の記録を成功や退役へ補正しない。
+ * @effect 値操作と同Ownerの有限同期観測。物理出版は呼ばない。
+ * @failure 元の理由・観測順・再入場時のpendingを維持する。
+ * @invariant 候補を保存・回復・排他解放の成立としない。
+ * @boundary Domain値と既存Ownerへ束縛された履歴／資源観測。
+ * @security 生Owner、publisher、handle、任意Snapshot callbackを受け取らない。
+ * @concurrency 元の短期Owner内だけで適用する。観測値を対象間でmemoizeしない。
+ */
+export function prepareCoordinatorTerminalRecordRetirement(
+  current: CoordinatorSnapshot,
+  observations: Readonly<{
+    obligations: () => CoordinatorSnapshotObservations;
+    historySettlement: (row: HistoryRow) => "recorded" | "expired" | null;
+    nextEpoch: () => string;
+  }>,
+) {
+  const retired = new Set<string>();
+  for (const row of current.historyPending) {
+    if (
+      !coordinatorQueueIsClosed(current, row.id, observations.obligations()) &&
+      !coordinatorStandaloneAdoptionIsClosed(
+        current,
+        row.id,
+        observations.obligations(),
+      )
+    )
+      continue;
+    const disposition = observations.historySettlement(row);
+    if (disposition !== "recorded" && disposition !== "expired")
+      return blocked("orchestrator_history_transfer_unconfirmed", true);
+    retired.add(row.id);
+  }
+  return completed("orchestrator_terminal_records_retired", {
+    next: retired.size
+      ? {
+          ...current,
+          intakeEpoch: current.queueEntries.some((queue) =>
+            retired.has(queue.queueId),
+          )
+            ? observations.nextEpoch()
+            : current.intakeEpoch,
+          queueEntries: current.queueEntries.filter(
+            (item) => !retired.has(item.queueId),
+          ),
+          intakeBindings: current.intakeBindings.filter(
+            (item) => !retired.has(item.queueId),
+          ),
+          leaseEvidence: current.leaseEvidence.filter(
+            (item) =>
+              !current.queueEntries.some(
+                (queue) =>
+                  item.content.kind === "project-operation" &&
+                  retired.has(queue.queueId) &&
+                  queue.queueId === item.content.queueId &&
+                  queue.projectId === item.projectId,
+              ) &&
+              !coordinatorRejectedAdoptionEvidenceCanRetire(
+                current,
+                {
+                  ...current,
+                  results: current.results.filter(
+                    (record) => !retired.has(record.identity),
+                  ),
+                },
+                item,
+                observations.obligations(),
+              ) &&
+              !(
+                item.content.kind === "canonical-adoption" &&
+                !current.results.some(
+                  (record) =>
+                    record.kind === "adoption" &&
+                    record.projectId === item.projectId &&
+                    ((!retired.has(record.identity) &&
+                      !current.queueEntries.some(
+                        (queue) =>
+                          retired.has(queue.queueId) &&
+                          queue.queueId === record.queueId &&
+                          queue.projectId === record.projectId &&
+                          queue.milestoneId === record.milestoneId,
+                      )) ||
+                      current.projects.some(
+                        (project) =>
+                          project.milestone.criterionEvidenceIds.includes(
+                            record.identity,
+                          ) ||
+                          project.objectives.some((objective) =>
+                            objective.criterionEvidenceIds.includes(
+                              record.identity,
+                            ),
+                          ),
+                      ) ||
+                      current.queueEntries.some(
+                        (queue) =>
+                          !retired.has(queue.queueId) &&
+                          queue.resultReference === record.identity,
+                      )),
+                ) &&
+                !current.queueEntries.some(
+                  (queue) =>
+                    queue.projectId === item.projectId &&
+                    !retired.has(queue.queueId),
+                ) &&
+                current.historyPending.some(
+                  (row) =>
+                    retired.has(row.id) &&
+                    (current.queueEntries.some(
+                      (queue) =>
+                        queue.queueId === row.id &&
+                        queue.projectId === item.projectId,
+                    ) ||
+                      current.results.some(
+                        (record) =>
+                          record.identity === row.id &&
+                          record.projectId === item.projectId &&
+                          !coordinatorAdoptionWasRejected(record),
+                      )),
+                )
+              ),
+          ),
+          decisionRecoveries: current.decisionRecoveries.filter(
+            (item) => !retired.has(item.value.queueId),
+          ),
+          results: current.results.filter(
+            (item) =>
+              (!current.queueEntries.some(
+                (queue) =>
+                  retired.has(queue.queueId) &&
+                  queue.queueId === item.queueId &&
+                  queue.projectId === item.projectId &&
+                  queue.milestoneId === item.milestoneId,
+              ) &&
+                !retired.has(item.identity)) ||
+              current.projects.some(
+                (project) =>
+                  project.milestone.criterionEvidenceIds.includes(
+                    item.identity,
+                  ) ||
+                  project.objectives.some((objective) =>
+                    objective.criterionEvidenceIds.includes(item.identity),
+                  ),
+              ) ||
+              current.queueEntries.some(
+                (queue) =>
+                  !retired.has(queue.queueId) &&
+                  queue.resultReference === item.identity,
+              ),
+          ),
+          acceptanceDecisions: current.acceptanceDecisions.filter(
+            (item) =>
+              !current.queueEntries.some(
+                (queue) =>
+                  retired.has(queue.queueId) &&
+                  queue.projectId === item.record.projectId &&
+                  queue.milestoneId === item.record.milestoneId,
+              ) ||
+              current.queueEntries.some(
+                (queue) =>
+                  !retired.has(queue.queueId) &&
+                  queue.projectId === item.record.projectId &&
+                  queue.milestoneId === item.record.milestoneId,
+              ),
+          ),
+          historyPending: current.historyPending.filter(
+            (row) => !retired.has(row.id),
+          ),
+        }
+      : null,
+    value: retired.size,
+  });
+}
+
+/**
+ * 出版済みpendingの搬送確認候補を生成する。
+ * @responsibility 同じ短期Ownerの用途固定観測を元の短絡位置で利用し対象外を保持する。
+ * @trace ARCH-000004、ARCH-000008
+ * @input fresh元版、用途固定の同期観測、必要な評価時刻。
+ * @returns 元の固定結果封筒と候補又は無変更。
+ * @precondition Coordinatorが必要な履歴出版を元の位置で成功させている。
+ * @postcondition 未解決・未搬送・参照中の記録を成功や退役へ補正しない。
+ * @effect 値操作と同Ownerの有限同期観測。物理出版は呼ばない。
+ * @failure 元の理由・観測順・再入場時のpendingを維持する。
+ * @invariant 候補を保存・回復・排他解放の成立としない。
+ * @boundary Domain値と既存Ownerへ束縛された履歴／資源観測。
+ * @security 生Owner、publisher、handle、任意Snapshot callbackを受け取らない。
+ * @concurrency 元の短期Owner内だけで適用する。観測値を対象間でmemoizeしない。
+ */
+export function prepareCoordinatorHistoryTransfer(
+  current: CoordinatorSnapshot,
+  observations: Readonly<{
+    historySettlement: (row: HistoryRow) => "recorded" | "expired" | null;
+  }>,
+) {
+  let recorded = 0;
+  let expired = 0;
+
+  for (const row of current.historyPending) {
+    const disposition = observations.historySettlement(row);
+    if (disposition !== "recorded" && disposition !== "expired")
+      return blocked("orchestrator_history_transfer_unconfirmed", true);
+    if (disposition === "recorded") recorded += 1;
+    else expired += 1;
+  }
+  return completed("orchestrator_history_transferred", {
+    next: current.historyPending.length
+      ? { ...current, historyPending: [] }
+      : null,
+    value: { recorded, expired },
+  });
+}
+
+/** 元の成功封筒を局所値として返す。 */
+function completed<T>(reason: string, value: T) {
+  return Object.freeze({ status: "completed" as const, reason, value });
+}
+/** 元の固定拒否と手動回復フラグを保持する。 */
+function blocked(reason: string, manualRecoveryRequired = false) {
+  return Object.freeze({
+    status: "blocked" as const,
+    reason,
+    value: null,
+    manualRecoveryRequired,
+    recoveryId: null,
+  });
+}

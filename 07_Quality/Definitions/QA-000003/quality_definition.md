@@ -63,6 +63,8 @@ Task実行／Review条件、Objectiveの集約受入条件、実行全体のMile
 
 ## 保存統合B案の検証条件 — 2026-10-22
 
+Lease固定候補は九用途について、資源不存在→Root→mark、元intent一致→Lock観測、回復時の元Root／Queue／intent全文、strict boolean、同期Root二field、観測throwとmark零回を`PRL-UT-006`で反証する。取得／解放／Owner喪失回復／取得unknown終了の証拠は本文・Hash・世代・外側freezeを比較し、現在の実Lock処置と区別する。履歴三用途では既存pendingの観測短絡、Queue退役のepoch一回・採用結果のみの零回、履歴null／非同期と後続行未観測、対象外全文を確認する。実Ownerでの出版失敗・再入場・Lock解放は`PRL-IT-005`／`PRL-IT-011`／`PRL-IT-012`の既存Oracleで別に確認し、局所値試験へ置換しない。
+
 後続のDomain保存移管では、[十九固定用途の署名と観測位置](../../../99_Roadmap/Changes/CHG-000082/runtime-domain-storage-after.md#runtime-domain-fixed-storage-uses)を母集団として既存項目へ接続する。`PRL-UT-006`／`PRL-UT-007`では世代・ID・相関、対象外区画全文、借用／生存観測の0／1回、時計0／2回と順序、throw・Promise／thenableを反証する。`PRL-IT-011`／`PRL-IT-013`では同じ実短期Owner、実保存一改訂、無変更時bytes不変、保存前後Owner失効、解放不明、同じpending再入場、別Process競合を確認する。単発更新の借用が前状態検査より先に発生する既存順序を、Queue一般更新の順序と混同しない。Scheduling／回復発火・実Lease・Process判断のOwnerをDomainへ移した試験で置き換えず、同じ一回証拠Mapの二重化・任意Snapshot取引公開・旧Writer残存も確認する。各用途の部分成功を物理閉包の全面移管・Core単独成立・実AI成功へ合算しない。
 
 [単一保存Lifecycle](../../../06_Architecture/Details/coordinator/04_Task_Detailed_Design.md#unified-storage-lifecycle)の採用により、旧七Sourceのbytes凍結は移管元保証の照合として扱う。新方式の単一Writer・共通Owner・原子受領・履歴のSource接続と旧試験移行、外部AIなしの固定全体回帰は完了し、限定実Filesystem／別Process再入場を評価済みである。限定独立再確認済みであり、全異常経路の集約・実AI／実Dockerを含む実境界一体・全体QA・Releaseは未完了として、限定成功を全体Passにしない。[現在の結果と残件](../../../99_Roadmap/Changes/CHG-000082/coordinator-consolidation-plan.md#375-保存統合bの最終確認)と過去の旧ACK試験を区別する。追加条件は既存項目へ接続し、新Runner・Registry・Lock Frameworkを作らない。

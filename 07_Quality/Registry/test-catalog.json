@@ -3227,6 +3227,32 @@
       "mandatoryByDefault": true
     },
     {
+      "id": "domain-model:unit:history-candidates",
+      "owner": "domain-model",
+      "path": "40_Develop/domain-model/tests/unit/state/history-candidates.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": ["history", "state", "retirement"],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["result_observed"],
+      "mandatoryByDefault": true
+    },
+    {
+      "id": "domain-model:unit:lease-candidates",
+      "owner": "domain-model",
+      "path": "40_Develop/domain-model/tests/unit/attempt/lease-candidates.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": ["lease", "state", "recovery"],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["result_observed"],
+      "mandatoryByDefault": true
+    },
+    {
       "id": "domain-model:unit:queue-execution-candidates",
       "owner": "domain-model",
       "path": "40_Develop/domain-model/tests/unit/task/queue-execution-candidates.contract.test.ts",

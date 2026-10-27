@@ -7,6 +7,22 @@
  * @effect Moduleの公開だけで操作は実行しない。公開操作の呼出しでは、各Ownerの契約に従いRepository読取り、認可済みCRUD、用途限定保存・排他・回収を行い得る。
  * @security Rootへの集約はAuthorityを追加せず、各実体の入力検証・Repository範囲・非公開内部操作の境界を維持する。
  */
+export {
+  projectCoordinatorLeaseAcquisitionOwner,
+  prepareCoordinatorLeaseAcquisitionReservation,
+  prepareCoordinatorLeaseAcquisitionConfirmation,
+  prepareCoordinatorLeaseReleaseIntent,
+  prepareCoordinatorLeaseReleaseSettlement,
+  projectCoordinatorLeaseOwnerLossState,
+  prepareCoordinatorReleasedLeaseReconciliation,
+  prepareCoordinatorLeaseRecoveryReservation,
+  prepareCoordinatorLeaseRecoverySettlement,
+} from "./attempt/lease.ts";
+export {
+  prepareCoordinatorHistoryPending,
+  prepareCoordinatorTerminalRecordRetirement,
+  prepareCoordinatorHistoryTransfer,
+} from "./state/history.ts";
 export { parseUnambiguousJsonDocument } from "./plain-data/json.ts";
 export { prepareCoordinatorQueueLeaseReleaseSettlement } from "./task/queue.ts";
 export { prepareCoordinatorQueueSelection } from "./task/queue.ts";
