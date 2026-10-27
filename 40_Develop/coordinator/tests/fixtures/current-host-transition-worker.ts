@@ -63,7 +63,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
       }
       const vc = await import(${JSON.stringify(new URL("../../../version-control/src/index.ts", import.meta.url).href)});
       const store = await import(${JSON.stringify(new URL("../../src/storage/state.ts", import.meta.url).href)});
-      const model = await import(${JSON.stringify(new URL("../../src/storage/state.ts", import.meta.url).href)});
+      const model = await import(${JSON.stringify(new URL("../../../domain-model/src/index.ts", import.meta.url).href)});
       const runtimeDomain = await import(${JSON.stringify(new URL("../../../domain-model/src/index.ts", import.meta.url).href)});
       const historyValues = await import(${JSON.stringify(new URL("../../../domain-model/src/index.ts", import.meta.url).href)});
       const stateValues = await import(${JSON.stringify(new URL("../../src/state/validation.ts", import.meta.url).href)});
@@ -684,7 +684,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
           assert.equal(history.status, 'completed', history.reason); assert.equal(history.historyConfirmed, true); assert.equal(history.lockReleased, true);
           assert.equal(versions.length, 7);
         }
-        const historyState = model.decodeCoordinatorStateSnapshot(fs.readFileSync(statePath), terminalExpected.repositoryBinding);
+        const historyState = model.decodeCoordinatorUnifiedSnapshot(fs.readFileSync(statePath), terminalExpected.repositoryBinding);
         assert.ok(historyState);
         const historyOperation = historyState.snapshot.operations.find(item => item.recoveryId === id);
         assert.ok(historyOperation.history.confirmed);
@@ -725,7 +725,7 @@ export const currentHostTransitionWorkerSource = `(async () => {
             assert.equal(delivery.filesystemEffectIssued, deliveryFault !== null);
             assert.equal(recovery.registerRuntimeOwnedDockerTaskRecoveryDelivery(capability).filesystemEffectIssued, false);
           }
-          const delivered = model.decodeCoordinatorStateSnapshot(fs.readFileSync(statePath), terminalExpected.repositoryBinding);
+          const delivered = model.decodeCoordinatorUnifiedSnapshot(fs.readFileSync(statePath), terminalExpected.repositoryBinding);
           assert.ok(delivered);
           assert.equal(delivered.snapshot.pendingDeliveries.filter(item => item.recoveryId === id).length, deliveryFault ? 1 : 0);
           assert.deepEqual(delivered.snapshot.operations, historyState.snapshot.operations);

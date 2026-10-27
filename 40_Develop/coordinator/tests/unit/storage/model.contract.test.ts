@@ -43,13 +43,12 @@ import {
 
 import {
   classifyCoordinatorResourcePublication,
-  decodeCoordinatorStateSnapshot,
+  decodeCoordinatorUnifiedSnapshot as decodeCoordinatorStateSnapshot,
   prepareCoordinatorAuthenticationUnknownClosureSnapshot,
   prepareCoordinatorRecoveredHistoryPublication,
   prepareCoordinatorStateCleanupSnapshot,
   prepareCoordinatorStateCompletionSnapshot,
   prepareCoordinatorStateHistorySnapshot,
-  prepareCoordinatorStateHistorySummary,
   prepareCoordinatorStateHostSnapshot,
   prepareCoordinatorStateLifecycleSnapshot,
   prepareCoordinatorStateOperationSnapshot,
@@ -59,7 +58,7 @@ import {
   prepareCoordinatorStateResultDeliverySnapshot,
   validateCoordinatorStateTransition,
   validCoordinatorSnapshot,
-} from "../../../src/storage/state.ts";
+} from "../../../../domain-model/src/index.ts";
 import {
   prepareCoordinatorStateHistoryLine,
   prepareCoordinatorUnifiedTaskSnapshot,
@@ -1935,82 +1934,6 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
   const historyBytes = Buffer.from(
     `${encodeRuntimeStateValue(historyState)}\n`,
   );
-  const history = prepareCoordinatorStateHistorySummary(
-    historyBytes,
-    recoveryId,
-    binding,
-  );
-  assert.ok(history);
-  const goldenTaskSummary = `{"execution":{"externalSend":"unknown","ownerEffect":"unknown","providerStart":"unknown","sharedWrite":"unknown","workspaceReusable":false},"hostCleanup":"unknown","identitySha256":"${identitySha256}","lease":"unknown","operationId":"OP-123456","operationNonce":"${nonce}","outcome":{"cleanupConfirmed":false,"reason":"provider_operation_completed","status":"completed"},"primaryFailure":null,"recoveryId":"${recoveryId}","schema":"crdd-coordinator/operation-summary/v2"}\n`;
-  assert.equal(history.summaryBytes.toString("utf8"), goldenTaskSummary);
-  assert.equal(
-    history.summarySha256,
-    createHash("sha256").update(goldenTaskSummary).digest("hex"),
-  );
-  const summary = JSON.parse(history.summaryBytes.toString("utf8"));
-  assert.equal(summary.operationId, identity.operationId);
-  assert.equal(summary.hostCleanup, "unknown");
-  assert.equal(summary.lease, "unknown");
-  assert.equal(summary.outcome.cleanupConfirmed, false);
-  assert.equal(summary.primaryFailure, null);
-  assert.equal("hostPaths" in summary, false);
-  assert.equal("identityJson" in summary, false);
-  assert.equal(
-    history.sourcePayloadSha256,
-    hashRuntimeStateContent(historyState),
-  );
-  assert.equal(
-    history.summarySha256,
-    createHash("sha256").update(history.summaryBytes).digest("hex"),
-  );
-  assert.equal(
-    prepareCoordinatorStateHistorySummary(historyBytes, recoveryId, "wrong"),
-    null,
-  );
-  assert.equal(
-    prepareCoordinatorStateHistorySummary(
-      historyBytes,
-      `${recoveryId}x`,
-      binding,
-    ),
-    null,
-  );
-  assert.equal(
-    prepareCoordinatorStateHistorySummary(
-      Buffer.from(`${encodeRuntimeStateValue(snapshot)}\n`),
-      recoveryId,
-      binding,
-    ),
-    null,
-  );
-  for (const changed of [
-    {
-      ...historyState.operations.find((item) => item.kind === "docker_task"),
-      phase: "executing",
-    },
-    {
-      ...historyState.operations.find((item) => item.kind === "docker_task"),
-      summarySha256: "e".repeat(64),
-    },
-  ])
-    assert.equal(
-      prepareCoordinatorStateHistorySummary(
-        Buffer.from(
-          `${encodeRuntimeStateValue({ ...historyState, operations: [changed] })}\n`,
-        ),
-        recoveryId,
-        binding,
-      ),
-      null,
-    );
-  const fixedSummary = prepareCoordinatorStateHistorySummary(
-    Buffer.from(
-      `${encodeRuntimeStateValue({ ...historyState, operations: [{ ...historyState.operations.find((item) => item.kind === "docker_task"), summarySha256: history.summarySha256 }] })}\n`,
-    ),
-    recoveryId,
-    binding,
-  );
-  assert.equal(fixedSummary, null);
   const readyHistoryState = {
     ...historyState,
     operations: [
@@ -2148,12 +2071,6 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
     const transientUnfixed = Buffer.from(
       `${encodeRuntimeStateValue(transientState)}\n`,
     );
-    const transientSummary = prepareCoordinatorStateHistorySummary(
-      transientUnfixed,
-      transientRecoveryId,
-      binding,
-    );
-    assert.ok(transientSummary);
     const transientFixed = prepareCoordinatorStateHistorySnapshot(
       transientUnfixed,
       transientRecoveryId,
@@ -2414,7 +2331,11 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
         {
           operationNonce: nonce,
           recoveryId: transientRecoveryId,
-          resultId: transientSummary.summarySha256,
+          resultId: decodeCoordinatorStateSnapshot(
+            transientFixed,
+            binding,
+          )?.snapshot.operations.find((item) => item.kind === "docker_task")
+            ?.summarySha256,
           consumer: "orchestrator",
           acceptanceSha256: null,
         },
@@ -2827,7 +2748,10 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       false,
     );
     const modelSource = fs.readFileSync(
-      new URL("../../../src/execution/validation.ts", import.meta.url),
+      new URL(
+        "../../../../domain-model/src/attempt/validation.ts",
+        import.meta.url,
+      ),
       "utf8",
     );
     const guardStart = modelSource.indexOf("const sameHostContinuation =");
@@ -4356,38 +4280,6 @@ test("Snapshot: 固定Identity、資源とHost証明の相関", () => {
       ),
       null,
     );
-  const primaryFailure = {
-    purpose: "create_provider",
-    stage: "command_wait",
-    reason: "provider_result_invalid",
-    exceptionCode: null,
-    commandHandleObtained: true,
-    responseObserved: true,
-    receiptRecorded: false,
-  };
-  const failedSummary = prepareCoordinatorStateHistorySummary(
-    Buffer.from(
-      `${encodeRuntimeStateValue({
-        ...historyState,
-        operations: [
-          {
-            ...historyState.operations.find(
-              (item) => item.kind === "docker_task",
-            ),
-            primaryFailure,
-          },
-        ],
-      })}\n`,
-    ),
-    recoveryId,
-    binding,
-  );
-  assert.ok(failedSummary);
-  assert.deepEqual(
-    JSON.parse(failedSummary.summaryBytes.toString("utf8")).primaryFailure,
-    primaryFailure,
-  );
-  assert.notEqual(failedSummary.summarySha256, history.summarySha256);
   assert.deepEqual(
     historyBytes,
     Buffer.from(`${encodeRuntimeStateValue(historyState)}\n`),

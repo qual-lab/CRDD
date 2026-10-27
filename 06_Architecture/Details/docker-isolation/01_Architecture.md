@@ -297,7 +297,7 @@ Docker Isolationは、Docker資源、所有子ProcessとDocker実行環境の技
 
 保存前の技術準備では、同じNative子の初期RとArtifact再確認Vの後、Repair06専用Hで同じ選択利用者のHashを取得する。NativeがMutex名へ使った捕捉値と同じ値を返し、Nodeは元子・command順序と有界frameへ結合する。これは非Authorityの相関であり、保存Ownerや実処置許可の代用ではない。旧RuntimeState Rootから利用者を逆算しない。上位への本番準備通知と保存専用Ownerは接続済みだが、Hの取得だけで全体完成としない。
 
-技術checkpointの純粋契約は`docker-desktop/repair-state.ts`が所有する。Rootは型、厳格decoder、局所遷移validator、九処置の純粋終端predicateだけを公開し、処置を実行しない。固定九処置を意図保存・発行観測・結果観測に分け、初回／起動失敗世代／補助領域の期待実体とsource／retainedの四状態を持つ。生Path、任意用途、Provider／Home、署名履歴、人間の保持判断は持たない。上位は同じ保存モデルの修復variantにこのDTOを保持するが、DIのkey・遷移を再実装しない。unknown・確定結果・保持済み実体を巻き戻さず、前処置の結果不明のまま後続Effect用の意図を受理しない。現在cleanupと最初のcleanup失敗は別に保持する。codec単独の成立は実Writer・同Session保持・OS処置・実修復の証明ではない。現在はDI内部固定wrapperから全Machineへ接続済みで、最下位を模擬する接続試験と各技術境界の個別根拠で確認した。真正上位Owner／Writer／CLIは接続済み。実境界の成立と未実証範囲は冒頭の現在表へ限定する。
+技術checkpointの純粋契約・局所遷移はDomain Modelの`attempt/repair-validation.ts`が所有する。Docker IsolationのMachineはDomain Rootから値検査を利用し、旧`docker-desktop/repair-state.ts`と五つの局所遷移APIのDI Root公開を撤去した。既存の型・厳格decoder・終端predicateの公開は維持し、値検査は処置を実行しない。固定九処置を意図保存・発行観測・結果観測に分け、初回／起動失敗世代／補助領域の期待実体とsource／retainedの四状態を持つ。生Path、任意用途、Provider／Home、署名履歴、人間の保持判断は持たない。上位は同じ保存モデルの修復variantにこのDTOを保持するが、DIのkey・遷移を再実装しない。unknown・確定結果・保持済み実体を巻き戻さず、前処置の結果不明のまま後続Effect用の意図を受理しない。現在cleanupと最初のcleanup失敗は別に保持する。codec単独の成立は実Writer・同Session保持・OS処置・実修復の証明ではない。現在はDI内部固定wrapperから全Machineへ接続済みで、最下位を模擬する接続試験と各技術境界の個別根拠で確認した。真正上位Owner／Writer／CLIは接続済み。実境界の成立と未実証範囲は冒頭の現在表へ限定する。
 
 既存Native helperは、選択利用者のIdentity hashへ結合した同じGlobal MutexをRepair／Restartのコマンドループ全期間で保持する。新しい共有Lockを追加せず、同じ選択利用者に属する協調的CRDD helper間の競合拒否を再利用する。別利用者を含むHost全体、手動Docker／WSL操作や他実装との排他ではない。Nodeの`assertLive()`はhelper子の生存・未解放・pipe writableの確認であり、Kernel Mutex所有やDirectory renameとの原子性を直接証明しない。全Machineでは一回取得した同じSessionを最終の技術Effectとその結果checkpointまで保持し、その後release／abortをjoinしてcleanup結果を上位の別checkpoint／終端判定へ保存する。喪失・Protocol不明の後は追加Effectを発行せず、release不明をcleanup不明として残す。fresh取得だけから過去Effectの結果を確定しない。この既存機構の再利用を、新しいHost排他の成立主張にしない。
 
@@ -357,7 +357,7 @@ Platform Accessは単一entryの属性・reparse tag・実体・linkCountを、�
 
 2026-10-17の自己生成Host試験では、異常終了した試験子のAF_UNIX端点が残り、raw tag `0x80000023`、Node Direntのlink=true、lstatのEACCESを観測した。Node unlink後の明示不存在と専用試験Root不存在を確認した。正常closeでは端点自体が消え、sandbox内のbindは拒否されたため、これらを残存端点の削除成功とは数えない。この実測は方式選択の根拠に限り、製品Driver・保存前後・三用途全体・実Docker修復の成立根拠ではない。
 
-回収進捗の純粋値は、元修復とは別の`DockerRuntimeRepairDisposalCheckpoint`とし、同じ`docker-desktop/repair-state.ts`が所有する。Rootは型・decoder・一用途遷移validator・値上終端predicateだけを公開する。保存先や新しい管理機構を追加しない。
+回収進捗の純粋値は、元修復とは別の`DockerRuntimeRepairDisposalCheckpoint`とし、Domain Modelの`attempt/repair-validation.ts`が局所遷移を所有する。DI Rootは既存の型・decoder・値上終端predicateを維持し、MachineはDomain Rootの一用途遷移検査へ直接接続する。保存先や新しい管理機構を追加しない。
 
 | 固定三用途それぞれのfield | 値と意味 |
 |---|---|

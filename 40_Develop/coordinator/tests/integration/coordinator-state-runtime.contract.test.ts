@@ -30,7 +30,7 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
-import { sourceDeclaration } from "../support/source-declaration.ts";
+import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
 import path from "node:path";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
@@ -80,11 +80,10 @@ import {
   borrowRuntimeOwnedCoordinatorStateRepository,
 } from "../../src/execution/operation.ts";
 import {
-  decodeCoordinatorStateSnapshot,
+  decodeCoordinatorUnifiedSnapshot as decodeCoordinatorStateSnapshot,
   prepareCoordinatorStateCompletionSnapshot,
   prepareCoordinatorAuthenticationUnknownClosureSnapshot,
   prepareCoordinatorStateHistorySnapshot,
-  prepareCoordinatorStateHistorySummary,
   prepareCoordinatorStateLifecycleSnapshot,
   prepareCoordinatorStateOperationSnapshot,
   prepareCoordinatorStateReferencesSnapshot,
@@ -92,9 +91,10 @@ import {
   prepareCoordinatorStateRepairSessionSnapshot,
   prepareCoordinatorStateRepairSnapshot,
   prepareCoordinatorStateResourceSnapshot,
-} from "../../src/storage/state.ts";
+} from "../../../domain-model/src/index.ts";
 
 import { decodeCoordinatorHistoryRows } from "../../../domain-model/src/index.ts";
+import { coordinatorOperationSummaryBytes } from "../../../domain-model/src/index.ts";
 import { observeRuntimeOwnedTransientTaskCompletion } from "../../src/storage/state.ts";
 
 import {
@@ -3025,10 +3025,18 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
       terminalBytes,
     );
   }
-  const summary = prepareCoordinatorStateHistorySummary(
+  const terminalOperation = decodeCoordinatorStateSnapshot(
     terminalBytes,
-    operation.recoveryId,
     repository.repositoryBinding,
+  )?.snapshot.operations.find((item) => item.kind === "docker_task");
+  assert.ok(terminalOperation);
+  const summaryBytes = coordinatorOperationSummaryBytes(terminalOperation);
+  const summary = {
+    summarySha256: createHash("sha256").update(summaryBytes).digest("hex"),
+  };
+  const occurredAt = "2026-10-08T00:00:00.000Z";
+  const line = Buffer.from(
+    `${encodeRuntimeStateValue({ schema: "crdd-coordinator/history-row/v2", occurredAt, summary: JSON.parse(summaryBytes.toString("utf8")) })}\n`,
   );
   const terminalResource = terminal.operations
     .find((item: { kind?: unknown }) => item.kind === "docker_task")
@@ -3062,10 +3070,6 @@ test("Host Windows: Coordinator現在状態の保存とpending再入場", async 
     assert.deepEqual(fs.readFileSync(stateFile), terminalBytes);
   }
   assert.ok(summary);
-  const occurredAt = "2026-10-08T00:00:00.000Z";
-  const line = Buffer.from(
-    `${encodeRuntimeStateValue({ schema: "crdd-coordinator/history-row/v2", occurredAt, summary: JSON.parse(summary.summaryBytes.toString("utf8")) })}\n`,
-  );
   for (const confirmed of [false, true]) {
     const bypass = {
       ...terminal,

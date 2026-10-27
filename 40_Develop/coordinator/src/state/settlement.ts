@@ -4,7 +4,6 @@
  * @trace ARCH-000004、ARCH-000008
  */
 import {
-  type CoordinatorUnifiedSnapshot,
   type CoordinatorSnapshot,
   isSha256Hex,
   validId,
@@ -55,55 +54,4 @@ export function coordinatorSnapshotIntakeMatches(
     queue.projectId === intake.projectId &&
     queue.milestoneId === intake.milestoneId
   );
-}
-
-/**
- * Taskの公開値から保存する元事実・参照だけを組み立てる。
- * @responsibility 全Projectの受領を一度保持し、Operationと配送待ちを同じ候補から除く。
- * @trace ARCH-000004、ARCH-000008
- * @input current: 検証済み元版、states: 業務候補、facts: 発生元が明示した同Attemptの結果不明。
- * @returns 保存区画、又は不正入力のnull。
- * @precondition 呼出し側が業務遷移・現在Ownerを照合する。
- * @postcondition 投影値をTask固有の元事実へ書き戻さない。
- * @effect N/A: 同期の値変換のみ。
- * @failure 孤立・重複・別Scopeの事実と受領差替えは拒否する。
- * @invariant 受領Hash・Docker義務phaseを複製しない。
- * @boundary Task公開値と単一保存値。
- * @security 値の成立は実資源・受領Authorityを証明しない。
- * @concurrency N/A: 保存排他は呼出し側が所有する。
- */
-export function associateCoordinatorTaskOperations(
-  snapshot: CoordinatorUnifiedSnapshot,
-  operations: CoordinatorUnifiedSnapshot["operations"],
-): CoordinatorUnifiedSnapshot["projects"] {
-  return snapshot.projects.map((project) => ({
-    ...project,
-    tasks: project.tasks.map((task) => {
-      const recoveryIds = operations
-        .filter((operation) => {
-          if (operation.kind !== "docker_task" || task.operationId === null)
-            return false;
-          const identity = JSON.parse(operation.identityJson);
-          return (
-            identity.consumer === "orchestrator" &&
-            (identity.recoveryCorrelationId ?? identity.operationId) ===
-              task.operationId
-          );
-        })
-        .map((operation) => operation.recoveryId);
-      if (recoveryIds.length === 0) return task;
-      return {
-        ...task,
-        settlement: {
-          kind: "operations" as const,
-          recoveryIds,
-          resultUnresolved:
-            task.settlement.kind === "operations"
-              ? task.settlement.resultUnresolved
-              : task.settlement.kind === "executor_result" &&
-                task.settlement.recoveryUnresolved,
-        },
-      };
-    }),
-  }));
 }

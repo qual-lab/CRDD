@@ -10,7 +10,7 @@ import {
   type DockerRuntimeRepairCheckpoint as Checkpoint,
 } from "../../../domain-model/src/index.ts";
 import { types } from "node:util";
-import { validateDockerRuntimeRepairCheckpointTransition as transition } from "./repair-state.ts";
+import { validateDockerRuntimeRepairCheckpointTransition as transition } from "../../../domain-model/src/index.ts";
 import type { DockerRepairEngineState } from "./engine.ts";
 
 const actions = [

@@ -56,7 +56,7 @@ import {
 import { readCurrentCoordinatorState as readCoordinatorState } from "../state/query.ts";
 
 import {
-  decodeCoordinatorStateSnapshot,
+  decodeCoordinatorUnifiedSnapshot as decodeCoordinatorStateSnapshot,
   prepareCoordinatorRepairHistorySummary,
   prepareCoordinatorStateHostSnapshot,
   prepareCoordinatorStateOperationSnapshot,
@@ -66,7 +66,7 @@ import {
   prepareCoordinatorStateRepairRetentionHandoffSnapshot,
   prepareCoordinatorStateRepairSessionSnapshot,
   prepareCoordinatorStateRepairSnapshot,
-} from "../storage/state.ts";
+} from "../../../domain-model/src/index.ts";
 import { coordinatorReleasedTaskCanObserveHostAbsence } from "./validation.ts";
 import {
   captureRuntimeOwnedCoordinatorSettlementInputs,

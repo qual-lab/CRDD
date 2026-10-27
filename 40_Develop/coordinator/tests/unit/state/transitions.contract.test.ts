@@ -15,7 +15,7 @@ import {
 } from "../../../../domain-model/src/index.ts";
 import { taskExecutionSelections } from "../../fixtures/ai-selection.ts";
 import assert from "node:assert/strict";
-import { sourceDeclaration } from "../../support/source-declaration.ts";
+import { sourceDeclaration } from "../../../../domain-model/tests/support/source-declaration.ts";
 import fs from "node:fs";
 import { types as utilTypes } from "node:util";
 import vm from "node:vm";

@@ -28,7 +28,7 @@ import { runDockerRuntimeRepairSessionUsing as run } from "../../src/docker-desk
 import {
   validateDockerRuntimeRepairCheckpointTransition as transition,
   prepareDockerRuntimeRepairSessionCheckpoint,
-} from "../../src/docker-desktop/repair-state.ts";
+} from "../../../domain-model/src/index.ts";
 import type { DockerDesktopRepairNativeHelperSession as Session } from "../../../platform-access/src/index.ts";
 
 /**

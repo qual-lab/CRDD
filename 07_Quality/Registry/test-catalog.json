@@ -3227,9 +3227,22 @@
       "mandatoryByDefault": true
     },
     {
+      "id": "domain-model:unit:history-summary",
+      "owner": "domain-model",
+      "path": "40_Develop/domain-model/tests/unit/state/history-summary.contract.test.ts",
+      "level": "unit",
+      "kind": "contract",
+      "semanticTags": ["state", "history", "summary"],
+      "environment": "node_process",
+      "externalProviderEffect": false,
+      "humanInput": false,
+      "postconditions": ["result_observed"],
+      "mandatoryByDefault": true
+    },
+    {
       "id": "coordinator:unit:restart-checkpoint",
-      "owner": "coordinator",
-      "path": "40_Develop/coordinator/tests/unit/execution/restart-checkpoint.contract.test.ts",
+      "owner": "domain-model",
+      "path": "40_Develop/domain-model/tests/unit/attempt/restart-checkpoint.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [
@@ -8851,8 +8864,8 @@
     },
     {
       "id": "docker-isolation:unit:repair-checkpoint",
-      "owner": "docker-isolation",
-      "path": "40_Develop/docker-isolation/tests/unit/docker-desktop/repair-state.contract.test.ts",
+      "owner": "domain-model",
+      "path": "40_Develop/domain-model/tests/unit/attempt/repair-state.contract.test.ts",
       "level": "unit",
       "kind": "contract",
       "semanticTags": [

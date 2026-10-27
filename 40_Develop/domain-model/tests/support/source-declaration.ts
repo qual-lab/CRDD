@@ -1,5 +1,5 @@
 /**
- * 現行Sourceの宣言を構文木からexactに選択する試験補助。
+ * Package横断のSource試験で宣言を構文木からexactに選択する試験補助。
  * @responsibility コメント位置やFile末尾に依存せず、既存の試験代役へ実宣言だけを渡す。
  * @trace ERB-IT-004
  * @level IT

@@ -16,11 +16,11 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import {
-  decodeCoordinatorStateSnapshot,
+  decodeCoordinatorUnifiedSnapshot as decodeCoordinatorStateSnapshot,
   prepareCoordinatorStateOperationSnapshot,
   prepareCoordinatorStateHistorySnapshot,
   prepareCoordinatorStateResultDeliverySnapshot,
-} from "../../src/storage/state.ts";
+} from "../../../domain-model/src/index.ts";
 import { prepareCoordinatorStateHistoryLine } from "../../../domain-model/src/index.ts";
 
 /**

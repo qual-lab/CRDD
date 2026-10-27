@@ -373,9 +373,12 @@ Source配置の候補はDomainのobjective／task／attempt／decision／workspa
 | 移管した純粋処理 | 現在のOwner | 本番との接続範囲 |
 |---|---|---|
 | Task更新候補・受領と技術参照の正規化 | `task/crud.ts` | 正規化は既存WriterがDomain Rootから利用する。一般CRUDの永続化APIではない |
+| Snapshotの操作・修復・履歴・完了候補と元版比較 | `state/crud.ts` | `prepareCoordinatorState*`等の純粋候補と`validateCoordinatorState*`／出版分類を既存Writerへ提供する。相互参照する候補と比較を同居させ、物理保存・実資源観測・Ownerを含めない |
 | 単一保存の改訂・受領不変性・Operation除去相関 | `state/transition.ts` | 既存Writerの共通遷移検査。内側の受領遷移検査は非公開 |
 | 終了履歴の全行codec・期間保持候補 | `state/history.ts` | Domain Rootの`decodeCoordinatorHistoryRows`／`prepareCoordinatorHistoryRetention`。物理File・実排他・現在Ownerの確認は含まず、既存Writerが処置時点で再照合する |
 | 修復終了の値条件 | `attempt/validation.ts` | 既存の技術状態検査・Writerから利用する。実資源の観測や処置許可ではない |
+| 操作と再起動checkpointの値遷移 | `attempt/validation.ts` | 元の三値・Identity・許可辺を保持する。再起動checkpointとdecoderを同じOwnerへ閉じ、新しいmodule循環を作らない |
+| 修復・Session・disposal checkpointの値遷移 | `attempt/repair-validation.ts` | Docker IsolationのMachineとCoordinatorのWriterがDomain Rootを利用する。実Driver・技術処置・処置順の実行は所有しない |
 | 保存済み要約からの固定履歴行導出 | `state/validation.ts` | 元内容・行Hashを保持し、物理履歴出版は既存保存Ownerに残る |
 
 上表の移管では関数本文を維持し、履歴行のDecoderだけは同じDomain codecへの旧委譲を直結した。旧Coordinatorの定義・互換re-exportは撤去し、利用側と子Process試験本文もDomain Rootへ接続した。五Context・初期化・一回履歴出版を伴う物理Writerはまだ移管していない。

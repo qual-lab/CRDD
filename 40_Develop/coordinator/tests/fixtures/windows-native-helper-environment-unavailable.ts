@@ -11,7 +11,7 @@
 import assert from "node:assert/strict";
 import { mock } from "node:test";
 import { readFileSync } from "node:fs";
-import { sourceDeclaration } from "../support/source-declaration.ts";
+import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
 import { describeProviderHomeObservationContract } from "../../../platform-access/src/index.ts";
 
 let spawnCalls = 0;

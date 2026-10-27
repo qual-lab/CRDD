@@ -21,7 +21,7 @@ import {
   dockerDesktopDistributionRoot,
   describeDockerRuntimeArtifactTrustContract,
 } from "../docker-cli/trust.ts";
-import { prepareDockerRuntimeRepairSessionCheckpoint } from "./repair-state.ts";
+import { prepareDockerRuntimeRepairSessionCheckpoint } from "../../../domain-model/src/index.ts";
 import { runDockerRuntimeRepairMachine } from "./repair.ts";
 import { startDockerDesktopRepairHelper } from "../../../platform-access/src/index.ts";
 import { createDockerDesktopRepairDirectoryAccess } from "./directory.ts";

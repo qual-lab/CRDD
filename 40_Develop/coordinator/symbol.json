@@ -388,29 +388,6 @@
       ]
     },
     {
-      "symbolId": "coordinator.state-storage.restart-checkpoint",
-      "kind": "file",
-      "path": "src/execution/result.ts",
-      "archIds": [
-        "ARCH-000008"
-      ]
-    },
-    {
-      "symbolId": "coordinator.test.unit.restart-checkpoint",
-      "kind": "test-suite",
-      "path": "tests/unit/execution/restart-checkpoint.contract.test.ts",
-      "qaIds": [
-        "QA-000003"
-      ],
-      "localTestIds": [
-        "PRL-UT-006"
-      ],
-      "verifies": [
-        "coordinator.state-storage.restart-checkpoint",
-        "docker-isolation.cleanup.recovery-identity"
-      ]
-    },
-    {
       "symbolId": "coordinator.test.integration.docker-isolation-host",
       "kind": "test-suite",
       "path": "tests/integration/docker-isolation-host.integration.test.ts",
@@ -474,14 +451,6 @@
       ],
       "verifies": [
         "coordinator.test-support.auth-create-closure"
-      ]
-    },
-    {
-      "symbolId": "coordinator.test-support.source-declaration",
-      "kind": "file",
-      "path": "tests/support/source-declaration.ts",
-      "archIds": [
-        "ARCH-000008"
       ]
     },
     {

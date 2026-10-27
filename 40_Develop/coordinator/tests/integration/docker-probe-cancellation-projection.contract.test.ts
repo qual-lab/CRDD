@@ -11,7 +11,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import { sourceDeclaration } from "../support/source-declaration.ts";
+import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
 import { runInNewContext } from "node:vm";
 import { classifyDockerProbeCancellation } from "../../../docker-isolation/src/index.ts";
 

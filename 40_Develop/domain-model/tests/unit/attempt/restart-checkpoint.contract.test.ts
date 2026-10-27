@@ -11,7 +11,7 @@ import {
   createDockerRestartRequestId,
   decodeDockerRestartCheckpoint,
   isDockerRestartCheckpointSettled,
-} from "../../../../domain-model/src/index.ts";
+} from "../../../src/index.ts";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
@@ -19,7 +19,7 @@ import { stripTypeScriptTypes } from "node:module";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
 import { sourceDeclaration } from "../../support/source-declaration.ts";
-import { validateDockerRestartCheckpointTransition } from "../../../src/execution/result.ts";
+import { validateDockerRestartCheckpointTransition } from "../../../src/attempt/validation.ts";
 
 const repositoryBinding = "a".repeat(64);
 const identitySha256 = "b".repeat(64);
@@ -414,7 +414,7 @@ test("再起動の未発行・発行済み既知失敗をunknownと分けて終�
  */
 test("再起動終了判定はEffect不明条件の省略を検出する", () => {
   const source = fs.readFileSync(
-    new URL("../../../src/execution/result.ts", import.meta.url),
+    new URL("../../../src/attempt/validation.ts", import.meta.url),
     "utf8",
   );
   const body = sourceDeclaration(source, "isDockerRestartCheckpointSettled");

@@ -12,17 +12,19 @@ import test from "node:test";
 import {
   decodeDockerRuntimeRepairCheckpoint as decode,
   dockerRuntimeRepairCheckpointIsSettled as isSettled,
-  validateDockerRuntimeRepairCheckpointTransition as transition,
   decodeDockerRuntimeRepairDisposalCheckpoint as decodeDisposal,
-  createDockerRuntimeRepairDisposalCheckpoint as createDisposal,
-  validateDockerRuntimeRepairDisposalTransition as disposalTransition,
   dockerRuntimeRepairDisposalIsSettled as disposalSettled,
   decodeDockerRuntimeRepairRetentionTargets as decodeTargets,
 } from "../../../src/index.ts";
 import {
+  validateDockerRuntimeRepairCheckpointTransition as transition,
+  createDockerRuntimeRepairDisposalCheckpoint as createDisposal,
+  validateDockerRuntimeRepairDisposalTransition as disposalTransition,
+} from "../../../src/attempt/repair-validation.ts";
+import {
   prepareDockerRuntimeRepairSessionCheckpoint as beginSession,
   validateDockerRuntimeRepairSessionCheckpoint as sessionTransition,
-} from "../../../src/docker-desktop/repair-state.ts";
+} from "../../../src/attempt/repair-validation.ts";
 
 /**
  * 保持対象の形検査を元checkpointや実観測と分離する。

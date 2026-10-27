@@ -17,12 +17,12 @@ import {
 } from "./operation.ts";
 
 import {
-  decodeCoordinatorStateSnapshot,
+  decodeCoordinatorUnifiedSnapshot as decodeCoordinatorStateSnapshot,
   prepareCoordinatorStateCleanupSnapshot,
   prepareCoordinatorStateCompletionSnapshot,
   prepareCoordinatorStateHistorySnapshot,
   prepareCoordinatorStateResultDeliverySnapshot,
-} from "../storage/state.ts";
+} from "../../../domain-model/src/index.ts";
 
 import {
   readRuntimeOwnedCoordinatorStateSnapshot,

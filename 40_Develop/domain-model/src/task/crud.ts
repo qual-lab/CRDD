@@ -5,6 +5,10 @@
  * @trace ARCH-000004、ARCH-000008
  * @boundary 純粋な値操作。保存・実行・現在Authorityの発行は行わない。
  */
+import type { CoordinatorSnapshot } from "../state/types.ts";
+import { COORDINATOR_PROJECT_SNAPSHOT_SCHEMA } from "../state/validation.ts";
+import { plainObject } from "../state/validation.ts";
+import { validCoordinatorSnapshot } from "../state/validation.ts";
 import type {
   CoordinatorState,
   CoordinatorStoredTask,
@@ -283,4 +287,178 @@ export function normalizeCoordinatorTaskProjects(
         r.obligations.some((o) => o !== "result_delivery"),
     ),
   };
+}
+
+/**
+ * 単一保存からTask利用側のメモリViewだけを投影する。
+ * @responsibility 保存改訂を一つの値として公開し、旧物理Envelopeを生成しない。
+ * @trace ARCH-000004、ARCH-000008
+ * @input decoded: 統一codec結果、repositoryRootHash: 呼出し側が確認したRoot Hash。
+ * @returns 初期化済みTask View、又はnull。
+ * @precondition 物理Rootの実確認は保存Ownerが担当する。
+ * @postcondition 技術区画をTask Viewへ複製しない。
+ * @effect N/A: 同期投影のみ。
+ * @failure 業務初期化前はnull。
+ * @invariant このViewを別Fileへ保存しない。
+ * @boundary 単一保存と業務操作。
+ * @security Viewは保存・実行Authorityではない。
+ * @concurrency N/A: 元版と保存CASは呼出し側が照合する。
+ */
+export function projectCoordinatorTaskSnapshot(
+  decoded: NonNullable<ReturnType<typeof decodeCoordinatorUnifiedSnapshot>>,
+  repositoryRootHash: string,
+): CoordinatorSnapshot | null {
+  const s = decoded.snapshot;
+  if (s.repositoryBindingId === null || s.intakeEpoch === null) return null;
+  return {
+    schema: COORDINATOR_PROJECT_SNAPSHOT_SCHEMA,
+    schemaRevision: 5,
+    repositoryRootHash,
+    repositoryBindingId: s.repositoryBindingId,
+    intakeEpoch: s.intakeEpoch,
+    snapshotRevision: s.revision,
+    projects: decoded.projects,
+    intakeBindings: s.intakeBindings,
+    queueEntries: s.queueEntries,
+    workspaces: s.workspaces,
+    leaseEvidence: s.leaseEvidence,
+    leaseIntents: s.leaseIntents,
+    results: s.results,
+    historyPending: s.historyPending,
+    acceptanceDecisions: s.acceptanceDecisions,
+    decisionRecoveries: s.decisionRecoveries,
+  };
+}
+
+/**
+ * Task・Queue・Workspaceの業務更新を一改訂の保存候補へ接続する。
+ * @responsibility 全業務区画と受領・技術参照を同じ本文で確定可能にする。
+ * @trace ARCH-000004、ARCH-000008
+ * @input currentBytes: 元本文、viewValue: 業務View候補、repositoryBinding: 物理結合、rootHash: 確認済みRoot Hash、facts: 明示結果事実。
+ * @returns 正規保存候補、又はnull。
+ * @precondition 同Owner内で既存業務遷移・Lease・履歴検査を完了する。
+ * @postcondition 技術区画・受領と業務更新の片側だけを保存しない。
+ * @effect N/A: 候補作成のみ。
+ * @failure 元版・結合・参照・投影不一致はnull。
+ * @invariant 旧Snapshotを内包せず単一の改訂と前Hashを使う。
+ * @boundary 業務Viewから単一Writer。
+ * @security 候補自体は書込み資格ではない。
+ * @concurrency 保存Ownerが現在本文とCASを再照合する。
+ */
+export function prepareCoordinatorUnifiedTaskSections(
+  currentBytes: unknown,
+  viewValue: unknown,
+  repositoryBinding: unknown,
+  rootHash: string,
+  factsValue: unknown = [],
+): Buffer | null {
+  try {
+    const current = decodeCoordinatorUnifiedSnapshot(
+      currentBytes,
+      repositoryBinding,
+    );
+    const view: unknown = JSON.parse(encodeRuntimeStateValue(viewValue));
+    const facts: unknown = JSON.parse(encodeRuntimeStateValue(factsValue));
+    if (
+      !current ||
+      !plainObject(view) ||
+      !validCoordinatorSnapshot(
+        view,
+        String(view.repositoryBindingId),
+        rootHash,
+      ) ||
+      view.snapshotRevision !== current.snapshot.revision + 1
+    )
+      return null;
+    const sections = normalizeCoordinatorTaskProjects(
+      current,
+      view.projects,
+      facts,
+    );
+    if (!sections) return null;
+    const {
+      schema: _schema,
+      schemaRevision: _schemaRevision,
+      snapshotRevision: _revision,
+      repositoryRootHash: _rootHash,
+      projects: _projects,
+      ...taskSections
+    } = view;
+    const next = {
+      ...current.snapshot,
+      ...taskSections,
+      ...sections,
+      revision: current.snapshot.revision + 1,
+      previous: {
+        revision: current.snapshot.revision,
+        payloadSha256: current.payloadSha256,
+      },
+    };
+    const bytes = Buffer.from(`${encodeRuntimeStateValue(next)}\n`);
+    const decoded = decodeCoordinatorUnifiedSnapshot(bytes, repositoryBinding);
+    return decoded &&
+      validateCoordinatorUnifiedTransition(
+        currentBytes,
+        bytes,
+        repositoryBinding,
+      ) &&
+      encodeRuntimeStateValue(
+        projectCoordinatorTaskSnapshot(decoded, rootHash),
+      ) === encodeRuntimeStateValue(view)
+      ? bytes
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Taskの公開値から保存する元事実・参照だけを組み立てる。
+ * @responsibility 全Projectの受領を一度保持し、Operationと配送待ちを同じ候補から除く。
+ * @trace ARCH-000004、ARCH-000008
+ * @input current: 検証済み元版、states: 業務候補、facts: 発生元が明示した同Attemptの結果不明。
+ * @returns 保存区画、又は不正入力のnull。
+ * @precondition 呼出し側が業務遷移・現在Ownerを照合する。
+ * @postcondition 投影値をTask固有の元事実へ書き戻さない。
+ * @effect N/A: 同期の値変換のみ。
+ * @failure 孤立・重複・別Scopeの事実と受領差替えは拒否する。
+ * @invariant 受領Hash・Docker義務phaseを複製しない。
+ * @boundary Task公開値と単一保存値。
+ * @security 値の成立は実資源・受領Authorityを証明しない。
+ * @concurrency N/A: 保存排他は呼出し側が所有する。
+ */
+export function associateCoordinatorTaskOperations(
+  snapshot: CoordinatorUnifiedSnapshot,
+  operations: CoordinatorUnifiedSnapshot["operations"],
+): CoordinatorUnifiedSnapshot["projects"] {
+  return snapshot.projects.map((project) => ({
+    ...project,
+    tasks: project.tasks.map((task) => {
+      const recoveryIds = operations
+        .filter((operation) => {
+          if (operation.kind !== "docker_task" || task.operationId === null)
+            return false;
+          const identity = JSON.parse(operation.identityJson);
+          return (
+            identity.consumer === "orchestrator" &&
+            (identity.recoveryCorrelationId ?? identity.operationId) ===
+              task.operationId
+          );
+        })
+        .map((operation) => operation.recoveryId);
+      if (recoveryIds.length === 0) return task;
+      return {
+        ...task,
+        settlement: {
+          kind: "operations" as const,
+          recoveryIds,
+          resultUnresolved:
+            task.settlement.kind === "operations"
+              ? task.settlement.resultUnresolved
+              : task.settlement.kind === "executor_result" &&
+                task.settlement.recoveryUnresolved,
+        },
+      };
+    }),
+  }));
 }

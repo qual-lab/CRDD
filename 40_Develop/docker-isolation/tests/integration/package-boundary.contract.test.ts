@@ -25,6 +25,10 @@ const platformAccessRoot = path.resolve(
   sourceRoot,
   "../../platform-access/src/index.ts",
 );
+const domainModelRoot = path.resolve(
+  sourceRoot,
+  "../../domain-model/src/index.ts",
+);
 
 /**
  * 現在の限定構文から読める依存先を配置契約へ照合する。
@@ -34,7 +38,7 @@ const platformAccessRoot = path.resolve(
  * @precondition fileは固定Sourceまたはメモリ内負例の所在である。
  * @stimulus literalのimport／再exportとdynamic importを読み取る。
  * @observation 不許可の依存先または非literal dynamicでassertionが失敗する。
- * @oracle Node builtin、同src内、PAのRoot一件だけを許可する。
+ * @oracle Node builtin、同src内、PA／Domain Modelの宣言済みRootだけを許可する。
  * @cleanup N/A: 読取りと文字列処理だけ。
  * @boundary 通常Source配置の回帰であり任意TypeScript構文の完全検査ではない。
  */
@@ -57,6 +61,7 @@ function assertDependencyBoundary(file: string, text: string) {
     const relative = path.relative(sourceRoot, resolved);
     assert.ok(
       resolved === platformAccessRoot ||
+        resolved === domainModelRoot ||
         (relative !== ".." &&
           !relative.startsWith(`..${path.sep}`) &&
           !path.isAbsolute(relative)),
@@ -77,7 +82,7 @@ function assertDependencyBoundary(file: string, text: string) {
  * @cleanup N/A: ファイル作成・Process起動なし。
  * @boundary 現行Source→限定依存検査。
  */
-test("隔離Sourceは同PackageとPlatform Access RootとNode builtinだけを参照する", () => {
+test("隔離Sourceは同Packageと宣言済みPackage RootとNode builtinだけを参照する", () => {
   const pending = [sourceRoot];
   let files = 0;
   while (pending.length) {
@@ -114,6 +119,7 @@ test("逆依存・PA内部参照・未知module・非literalの取りこぼし�
     'import fs from "node:fs";',
     'import type { Value } from "./execution/plan.ts";',
     'export { Value } from "../../platform-access/src/index.ts";',
+    'import { Value } from "../../domain-model/src/index.ts";',
     'const selected = import("./execution/plan.ts");',
     'const marker = Buffer.from("CRDDDR06");',
   ])
@@ -124,7 +130,6 @@ test("逆依存・PA内部参照・未知module・非literalの取りこぼし�
     "ai-adapter",
     "workbench-server",
     "mcp-server",
-    "domain-model",
   ]) {
     const target = `../../${owner}/src/index.ts`;
     for (const text of [
@@ -139,6 +144,7 @@ test("逆依存・PA内部参照・未知module・非literalの取りこぼし�
   }
   for (const specifier of [
     "../../platform-access/src/process/environment.ts",
+    "../../domain-model/src/attempt/validation.ts",
     "../../../../outside.ts",
   ])
     assert.throws(

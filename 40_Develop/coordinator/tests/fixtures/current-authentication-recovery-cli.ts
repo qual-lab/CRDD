@@ -111,7 +111,7 @@ export const currentAuthenticationRecoveryCliSource = `(async () => {
     }});
     const storeUrl = ${JSON.stringify(new URL("../../src/storage/state.ts", import.meta.url).href)};
     const store = await import(storeUrl);
-    const model = await import(${JSON.stringify(new URL("../../src/storage/state.ts", import.meta.url).href)});
+    const model = await import(${JSON.stringify(new URL("../../../domain-model/src/index.ts", import.meta.url).href)});
     storeMock = mock.module(storeUrl,{namedExports:{...store,
       writeRuntimeOwnedCoordinatorAuthenticationUnknownClosure: (...args) => {
         assert.equal(++saves,1); assert.equal(args[1],id); assert.equal(discoveries,1); assert.equal(rounds,2); assert.equal(calls,6);

@@ -30,7 +30,7 @@ import { verifyRepositoryRoot } from "../../../version-control/src/index.ts";
 import { acquireRuntimeOwnedCoordinatorStateKernelLock } from "../../src/execution/kernel-lock.ts";
 import { borrowRuntimeOwnedCoordinatorRecoveryRepository } from "../../src/execution/operation.ts";
 import { acquireCoordinatorStorageOwner } from "../../src/storage/lock.ts";
-import { decodeCoordinatorStateSnapshot } from "../../src/storage/state.ts";
+import { decodeCoordinatorUnifiedSnapshot as decodeCoordinatorStateSnapshot } from "../../../domain-model/src/index.ts";
 import {
   cleanupRuntimeOwnedCoordinatorStateMarker,
   readCoordinatorStorageSnapshotOwned,

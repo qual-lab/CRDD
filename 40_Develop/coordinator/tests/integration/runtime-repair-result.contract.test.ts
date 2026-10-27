@@ -11,7 +11,7 @@
 import type { CoordinatorStateRepairOperation } from "../../../domain-model/src/index.ts";
 import { encodeRuntimeStateValue } from "../../../domain-model/src/index.ts";
 import assert from "node:assert/strict";
-import { sourceDeclaration } from "../support/source-declaration.ts";
+import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
 import fs from "node:fs";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { runInThisContext } from "node:vm";
@@ -23,7 +23,7 @@ import {
   dockerRuntimeRepairDisposalIsSettled,
   type DockerRuntimeRepairDisposalInput,
 } from "../../../docker-isolation/src/index.ts";
-import * as model from "../../src/storage/state.ts";
+import * as model from "../../../domain-model/src/index.ts";
 import * as historyValues from "../../../domain-model/src/index.ts";
 import * as stateValues from "../../src/state/validation.ts";
 import { renderDockerRecoveryDoctorReport } from "../../src/cli/recovery-report.ts";
@@ -164,7 +164,7 @@ function fixture(transform: (source: string) => string = (source) => source) {
       if (state.historyReadFault === "owner") state.alive = false;
       return { ...refused, lockReleased: state.historyReadFault !== "release" };
     }
-    const value = model.decodeCoordinatorStateSnapshot(state.bytes, binding);
+    const value = model.decodeCoordinatorUnifiedSnapshot(state.bytes, binding);
     const operation = value?.snapshot.operations.find(
       (item) => item.kind === "runtime_repair" && item.recoveryId === id,
     );
@@ -262,7 +262,7 @@ function fixture(transform: (source: string) => string = (source) => source) {
   ) => {
     state.historyWrites++;
     assert.equal(owner(), true);
-    const value = model.decodeCoordinatorStateSnapshot(state.bytes, binding);
+    const value = model.decodeCoordinatorUnifiedSnapshot(state.bytes, binding);
     const operation = value?.snapshot.operations.find(
       (item) => item.kind === "runtime_repair" && item.recoveryId === id,
     );
@@ -355,7 +355,7 @@ function fixture(transform: (source: string) => string = (source) => source) {
         lockReleased: state.completionReadFault !== "release",
       };
     }
-    const value = model.decodeCoordinatorStateSnapshot(state.bytes, binding);
+    const value = model.decodeCoordinatorUnifiedSnapshot(state.bytes, binding);
     const rows = historyValues.decodeCoordinatorHistoryRows(state.historyBytes);
     const row = rows?.find((item) => item.recoveryId === id);
     if (_root !== root || !value || !row) return refused;
@@ -398,6 +398,7 @@ function fixture(transform: (source: string) => string = (source) => source) {
     randomBytes,
     randomUUID,
     ...model,
+    decodeCoordinatorStateSnapshot: model.decodeCoordinatorUnifiedSnapshot,
     ...stateValues,
     encodeRuntimeStateValue,
     Date: class extends Date {
@@ -523,7 +524,7 @@ function fixture(transform: (source: string) => string = (source) => source) {
       return {
         status: "completed",
         lockReleased: state.readerReleased,
-        value: model.decodeCoordinatorStateSnapshot(state.bytes, binding),
+        value: model.decodeCoordinatorUnifiedSnapshot(state.bytes, binding),
       };
     },
     writeRuntimeOwnedCoordinatorRepairSnapshot: (
@@ -541,7 +542,10 @@ function fixture(transform: (source: string) => string = (source) => source) {
           snapshotConfirmed: false,
           lockReleased: true,
         };
-      const decoded = model.decodeCoordinatorStateSnapshot(candidate, binding);
+      const decoded = model.decodeCoordinatorUnifiedSnapshot(
+        candidate,
+        binding,
+      );
       assert.ok(decoded);
       assert.equal(owner(), true);
       assert.equal(
@@ -817,7 +821,7 @@ function fixture(transform: (source: string) => string = (source) => source) {
       run(root, controller.signal, id, purpose),
     late: () => late,
     snapshot: () =>
-      model.decodeCoordinatorStateSnapshot(state.bytes, binding)?.snapshot,
+      model.decodeCoordinatorUnifiedSnapshot(state.bytes, binding)?.snapshot,
   };
 }
 
@@ -846,7 +850,7 @@ test("修復回収接続: 三用途と保存失敗後の要求不明を同IDで�
     assert.equal(first.status, failure === "none" ? "observed" : "blocked");
     const original =
       f.snapshot()?.operations[0] ??
-      model.decodeCoordinatorStateSnapshot(f.state.completionBefore, binding)
+      model.decodeCoordinatorUnifiedSnapshot(f.state.completionBefore, binding)
         ?.snapshot.operations[0];
     assert.ok(original?.kind === "runtime_repair" && original.disposal);
     assert.equal(original.disposition, "discard");
@@ -869,7 +873,7 @@ test("修復回収接続: 三用途と保存失敗後の要求不明を同IDで�
     const again = await f.run(first.recoveryId);
     assert.equal(again.status, "observed");
     assert.equal(f.state.entries, entries);
-    const final = model.decodeCoordinatorStateSnapshot(
+    const final = model.decodeCoordinatorUnifiedSnapshot(
       f.state.completionBefore,
       binding,
     )?.snapshot.operations[0];
@@ -1580,7 +1584,8 @@ test("修復保持接続: 明示判断の保存だけを行い技術再操作し
     assert.ok(completed);
     assert.deepEqual(
       f.snapshot(),
-      model.decodeCoordinatorStateSnapshot(completed, "a".repeat(64))?.snapshot,
+      model.decodeCoordinatorUnifiedSnapshot(completed, "a".repeat(64))
+        ?.snapshot,
     );
     assert.equal(result.completionConfirmed, true);
     assert.equal(result.retentionReviewAfter, "2026-10-23T00:00:00.000Z");
@@ -1631,7 +1636,7 @@ test("修復保持接続: 期限差と旧保持を成功へ補完しない", asy
         `${encodeRuntimeStateValue({ ...value, operations: value.operations.map((operation) => ({ ...operation, phase: "settling", disposition: "retained_by_human_decision" })) })}\n`,
       );
       assert.ok(
-        model.decodeCoordinatorStateSnapshot(f.state.bytes, "a".repeat(64)),
+        model.decodeCoordinatorUnifiedSnapshot(f.state.bytes, "a".repeat(64)),
       );
     }
     const before = Buffer.from(f.state.bytes as Buffer),
@@ -1892,7 +1897,7 @@ test("修復結果: 技術完了・first-wins・二版保存を混同しない",
       assert.equal(f.state.joined, 1);
       const target =
         f.snapshot()?.operations[0] ??
-        model.decodeCoordinatorStateSnapshot(
+        model.decodeCoordinatorUnifiedSnapshot(
           f.state.completionBefore,
           "a".repeat(64),
         )?.snapshot.operations[0];
@@ -1931,7 +1936,7 @@ test("修復結果: 技術完了・first-wins・二版保存を混同しない",
         mode === "effect_unknown" ? "runtime_repair_effect_unknown" : null,
       );
       if (expected !== null) {
-        const previous = model.decodeCoordinatorStateSnapshot(
+        const previous = model.decodeCoordinatorUnifiedSnapshot(
           f.saved.at(-2),
           "a".repeat(64),
         )?.snapshot.operations[0];
@@ -2216,7 +2221,7 @@ test("修復記録: 一次失敗が耐久済みなら技術処置なしにblocke
     const { f, id } = await interruptedRepairOutcome(close);
     f.controller.abort();
     const before = f.snapshot();
-    const decoded = model.decodeCoordinatorStateSnapshot(
+    const decoded = model.decodeCoordinatorUnifiedSnapshot(
       f.state.bytes,
       "a".repeat(64),
     );
@@ -2273,7 +2278,7 @@ test("修復記録: 一次失敗が耐久済みなら技術処置なしにblocke
       "a".repeat(64),
     );
     assert.ok(historyPending);
-    const priorHistory = model.decodeCoordinatorStateSnapshot(
+    const priorHistory = model.decodeCoordinatorUnifiedSnapshot(
       historyPending,
       "a".repeat(64),
     );
@@ -2375,7 +2380,7 @@ test("修復記録: 対象外の失敗や未回収状態を確定しない", asy
       `${encodeRuntimeStateValue({ ...snapshot, operations: [changed] })}\n`,
     );
     assert.ok(
-      model.decodeCoordinatorStateSnapshot(f.state.bytes, "a".repeat(64)),
+      model.decodeCoordinatorUnifiedSnapshot(f.state.bytes, "a".repeat(64)),
       mode,
     );
     if (mode === "reader") f.state.readerReleased = false;

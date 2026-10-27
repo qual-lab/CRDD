@@ -5,10 +5,7 @@
  * @trace ARCH-000008
  */
 
-import {
-  decodeDockerRestartCheckpoint,
-  dockerProcessControllerPublicCompletionReasons,
-} from "../../../domain-model/src/index.ts";
+import { dockerProcessControllerPublicCompletionReasons } from "../../../domain-model/src/index.ts";
 
 import { types as utilTypes } from "node:util";
 import type {
@@ -2558,64 +2555,4 @@ export function formatHostRecoveryToken(
   recordHash: string,
 ) {
   return `host.${rootName}.${nonce}.${recordHash}`;
-}
-
-/**
- * 一度だけの要求と単調な結果・回収更新を検査する。
- * @responsibility 要求置換、terminal書換え、未知値の未発行化を拒否する。
- * @trace ARCH-000008
- * @input beforeValue、afterValue: 元版と次版の単一checkpoint。
- * @returns 許可された構造的な遷移だけtrue。
- * @precondition 同じOwnerの受付観測とfresh権限は保存利用側が別に確認する。
- * @postcondition blocked後は結果不変で回収だけ進行できる。
- * @effect N/A: 値の比較だけ。
- * @failure 不正構造・別要求・逆行・二度目の要求はfalse。
- * @invariant trueは再発行許可、回収実証やWriter成功ではない。
- * @boundary 元保存値と次版候補。
- * @security 保存から生Ownerを復元しない。
- * @concurrency N/A: 元版照合と排他はWriterが所有する。
- */
-export function validateDockerRestartCheckpointTransition(
-  beforeValue: unknown,
-  afterValue: unknown,
-): boolean {
-  if (beforeValue === null && afterValue === null) return true;
-  const after = decodeDockerRestartCheckpoint(afterValue);
-  if (!after) return false;
-  if (beforeValue === null)
-    return (
-      after.request === "not_issued" &&
-      after.cleanup === "not_required" &&
-      after.result === null
-    );
-  const before = decodeDockerRestartCheckpoint(beforeValue);
-  if (
-    !before ||
-    before.requestId !== after.requestId ||
-    before.scopeSha256 !== after.scopeSha256 ||
-    (before.result !== null &&
-      (after.result?.status !== before.result.status ||
-        after.result.reason !== before.result.reason ||
-        after.result.request !== before.result.request ||
-        after.result.effectOutcomeUnknown !==
-          before.result.effectOutcomeUnknown ||
-        after.request !== before.request))
-  )
-    return false;
-  if (
-    before.request !== after.request &&
-    ![
-      "not_issued:unknown",
-      "unknown:issued",
-      "unknown:confirmed",
-      "issued:confirmed",
-    ].includes(`${before.request}:${after.request}`)
-  )
-    return false;
-  return (
-    before.cleanup === after.cleanup ||
-    ["not_required:pending", "pending:confirmed", "pending:unknown"].includes(
-      `${before.cleanup}:${after.cleanup}`,
-    )
-  );
 }

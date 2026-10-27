@@ -10,7 +10,7 @@
  */
 import { taskExecutionSelections } from "../fixtures/ai-selection.ts";
 import assert from "node:assert/strict";
-import { sourceDeclaration } from "../support/source-declaration.ts";
+import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
 import { describeProviderHomeObservationContract } from "../../../platform-access/src/index.ts";
 import { spawnSync } from "node:child_process";
 import {

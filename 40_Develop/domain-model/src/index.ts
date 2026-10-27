@@ -367,7 +367,6 @@ export {
   aggregateRegressionStageResults,
   normalizeExplicitChangedPaths,
 } from "./test-catalog/plan.ts";
-
 export {
   isProjectContextProjectionInvalid,
   isProjectContextManifestIdentityInvalid,
@@ -757,3 +756,47 @@ export {
   decodeCoordinatorHistoryRows,
   prepareCoordinatorHistoryRetention,
 } from "./state/history.ts";
+
+export {
+  prepareCoordinatorAuthenticationUnknownClosureSnapshot,
+  prepareCoordinatorStateOperationSnapshot,
+  prepareCoordinatorStateRepairSnapshot,
+  prepareCoordinatorStateRepairCheckpointSnapshot,
+  prepareCoordinatorStateRepairSessionSnapshot,
+  prepareCoordinatorStateRepairRetentionHandoffSnapshot,
+  validateCoordinatorStateRepairRetentionHandoffTransition,
+  validateCoordinatorStateRepairSessionTransition,
+  prepareCoordinatorStateRepairDisposalDecisionSnapshot,
+  prepareCoordinatorStateRepairDisposalProgressSnapshot,
+  validateCoordinatorStateRepairDisposalTransition,
+  classifyCoordinatorRepairPublication,
+  prepareCoordinatorStateResourceSnapshot,
+  prepareCoordinatorStateHostSnapshot,
+  prepareCoordinatorStateLifecycleSnapshot,
+  prepareCoordinatorStateRestartSnapshot,
+  prepareCoordinatorStateCleanupSnapshot,
+  prepareCoordinatorStateReferencesSnapshot,
+  prepareCoordinatorStateResultDeliverySnapshot,
+  prepareCoordinatorRepairHistorySummary,
+  prepareCoordinatorRepairHistorySnapshot,
+  prepareCoordinatorRepairHistoryLine,
+  prepareCoordinatorRepairHistoryPublication,
+  prepareCoordinatorRecoveredHistoryPublication,
+  prepareCoordinatorStateHistorySnapshot,
+  prepareCoordinatorStateCompletionSnapshot,
+  prepareCoordinatorStateRepairCompletionSnapshot,
+  validateCoordinatorStateTransition,
+  classifyCoordinatorResourcePublication,
+} from "./state/crud.ts";
+
+export {
+  projectCoordinatorTaskSnapshot,
+  prepareCoordinatorUnifiedTaskSections,
+} from "./task/crud.ts";
+
+export { validCoordinatorSnapshot } from "./state/validation.ts";
+
+export {
+  prepareDockerRuntimeRepairSessionCheckpoint,
+  validateDockerRuntimeRepairCheckpointTransition,
+} from "./attempt/repair-validation.ts";

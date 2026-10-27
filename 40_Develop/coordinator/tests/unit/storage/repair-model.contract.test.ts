@@ -26,7 +26,7 @@ import { executionSelection } from "../../fixtures/ai-selection.ts";
 
 import type { DockerRuntimeRepairDisposalCheckpoint } from "../../../../docker-isolation/src/index.ts";
 import {
-  decodeCoordinatorStateSnapshot as decode,
+  decodeCoordinatorUnifiedSnapshot as decode,
   prepareCoordinatorStateRepairSnapshot as start,
   prepareCoordinatorStateRepairCheckpointSnapshot as checkpoint,
   prepareCoordinatorStateRepairSessionSnapshot,
@@ -46,7 +46,7 @@ import {
   prepareCoordinatorRepairHistoryPublication as repairPublication,
   prepareCoordinatorStateHistorySnapshot,
   prepareCoordinatorStateRepairCompletionSnapshot as completeRepair,
-} from "../../../src/storage/state.ts";
+} from "../../../../domain-model/src/index.ts";
 import {
   prepareCoordinatorStateHistoryLine,
   validateCoordinatorUnifiedTransition,
@@ -1315,7 +1315,7 @@ test("修復終了: 退避物不存在と履歴確認後だけ対象を除去す
   // 履歴受理が将来拡張されても、終了判定自体が成功条件を保持する。
   const source = stripTypeScriptTypes(
     fs.readFileSync(
-      new URL("../../../src/storage/state.ts", import.meta.url),
+      new URL("../../../../domain-model/src/state/crud.ts", import.meta.url),
       "utf8",
     ),
   );
@@ -2491,7 +2491,7 @@ test("修復出版: codec合法の禁止遷移と全文一致省略を区別す�
   };
   reject(publication);
   const source = fs.readFileSync(
-    new URL("../../../src/storage/state.ts", import.meta.url),
+    new URL("../../../../domain-model/src/state/crud.ts", import.meta.url),
     "utf8",
   );
   const begin = source.indexOf(
@@ -3459,7 +3459,7 @@ test("修復variant: Taskと同居し双方向の更新で対象外全文を保�
   const repairPending = preserve(repairHistory);
   const source = stripTypeScriptTypes(
     fs.readFileSync(
-      new URL("../../../src/storage/state.ts", import.meta.url),
+      new URL("../../../../domain-model/src/state/crud.ts", import.meta.url),
       "utf8",
     ),
   );

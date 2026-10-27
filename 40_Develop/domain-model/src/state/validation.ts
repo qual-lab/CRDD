@@ -1943,3 +1943,64 @@ function projectRuntimeSnapshotSections(
     payloadSha256,
   });
 }
+
+/**
+ * 現在状態の全区画と既存結合を検証する。
+ * @responsibility 部分codecを完全保存形式として受理しない。
+ * @trace ARCH-000004
+ * @input value: JSON値、binding: 期待Repository結合、rootHash: 取得済みRoot結合。
+ * @returns 閉じたSnapshotとして有効か。
+ * @precondition JSON値だけを渡す。
+ * @postcondition 参照、証拠、受付結合、結果と終了要約を検証する。
+ * @effect N/A: 値検証のみ。
+ * @failure 不正形状・未知区画・孤立参照はfalse。
+ * @invariant Owner状態や清掃を推定しない。
+ * @boundary JSONから保存契約。
+ * @security 既存保護情報を新規発行しない。
+ * @concurrency N/A: 同期検証。
+ */
+export function validCoordinatorSnapshot(
+  value: unknown,
+  binding: string,
+  rootHash: string,
+): value is CoordinatorSnapshot {
+  try {
+    if (
+      !plainObject(value) ||
+      !exactKeys(value, [
+        "schema",
+        "schemaRevision",
+        "repositoryRootHash",
+        "repositoryBindingId",
+        "snapshotRevision",
+        "intakeEpoch",
+        "intakeBindings",
+        "projects",
+        "queueEntries",
+        "leaseEvidence",
+        "leaseIntents",
+        "results",
+        "historyPending",
+        "acceptanceDecisions",
+        "decisionRecoveries",
+        "workspaces",
+      ]) ||
+      value.schema !== COORDINATOR_PROJECT_SNAPSHOT_SCHEMA ||
+      value.schemaRevision !== 5 ||
+      value.repositoryBindingId !== binding ||
+      value.repositoryRootHash !== rootHash ||
+      !validId(binding) ||
+      !isSha256Hex(rootHash) ||
+      !validId(value.intakeEpoch) ||
+      !Number.isSafeInteger(value.snapshotRevision) ||
+      Number(value.snapshotRevision) < 1
+    )
+      return false;
+    return validCoordinatorTaskState(
+      value as unknown as CoordinatorSnapshot,
+      binding,
+    );
+  } catch {
+    return false;
+  }
+}

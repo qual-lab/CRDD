@@ -11,7 +11,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
-import { sourceDeclaration } from "../../support/source-declaration.ts";
+import { sourceDeclaration } from "../../../../domain-model/tests/support/source-declaration.ts";
 import { isSupportedCoordinatorNodeRuntime } from "../../../src/execution/diagnostics.ts";
 import test from "node:test";
 

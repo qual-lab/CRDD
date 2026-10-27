@@ -35,13 +35,6 @@ export {
   observeDockerRuntimeRepairRetention,
 } from "./docker-desktop/repair-session.ts";
 export {
-  createDockerRuntimeRepairDisposalCheckpoint,
-  validateDockerRuntimeRepairDisposalTransition,
-  prepareDockerRuntimeRepairSessionCheckpoint,
-  validateDockerRuntimeRepairCheckpointTransition,
-  validateDockerRuntimeRepairSessionCheckpoint,
-} from "./docker-desktop/repair-state.ts";
-export {
   type DockerRuntimeRepairCheckpoint,
   type DockerRuntimeRepairRetentionTargets,
   decodeDockerRuntimeRepairRetentionTargets,

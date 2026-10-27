@@ -8,7 +8,7 @@
  * @boundary ERB-IT-004=Related 2 Blocks: Coordinator保存順序→DI作成。
  */
 import assert from "node:assert/strict";
-import { sourceDeclaration } from "../support/source-declaration.ts";
+import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
 import fs from "node:fs";
 import path from "node:path";
 import { stripTypeScriptTypes } from "node:module";

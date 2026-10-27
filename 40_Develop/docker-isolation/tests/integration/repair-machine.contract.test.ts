@@ -19,7 +19,7 @@ import { runInThisContext } from "node:vm";
 import { types } from "node:util";
 import test from "node:test";
 import { runDockerRuntimeRepairMachine as run } from "../../src/docker-desktop/repair.ts";
-import { validateDockerRuntimeRepairCheckpointTransition as transition } from "../../src/docker-desktop/repair-state.ts";
+import { validateDockerRuntimeRepairCheckpointTransition as transition } from "../../../domain-model/src/index.ts";
 
 const names = [
   "stop_runtime",

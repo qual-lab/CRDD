@@ -105,7 +105,7 @@
       ],
       "verifies": [
         "docker-isolation.desktop.repair-runtime",
-        "docker-isolation.desktop.repair-checkpoint",
+        "domain-model.attempt.repair-validation",
         "docker-isolation.desktop.runtime-directory",
         "docker-isolation.package-api"
       ]
@@ -273,7 +273,7 @@
       "verifies": [
         "docker-isolation.desktop.repair-runtime",
         "docker-isolation.desktop.repair-machine",
-        "docker-isolation.desktop.repair-checkpoint"
+        "domain-model.attempt.repair-validation"
       ]
     },
     {
@@ -296,30 +296,7 @@
       ],
       "verifies": [
         "docker-isolation.desktop.repair-machine",
-        "docker-isolation.desktop.repair-checkpoint"
-      ]
-    },
-    {
-      "symbolId": "docker-isolation.desktop.repair-checkpoint",
-      "kind": "module",
-      "path": "src/docker-desktop/repair-state.ts",
-      "archIds": [
-        "ARCH-000008"
-      ]
-    },
-    {
-      "symbolId": "docker-isolation.test.unit.repair-checkpoint",
-      "kind": "test-suite",
-      "path": "tests/unit/docker-desktop/repair-state.contract.test.ts",
-      "qaIds": [
-        "QA-000006"
-      ],
-      "localTestIds": [
-        "ERB-UT-036"
-      ],
-      "verifies": [
-        "docker-isolation.desktop.repair-checkpoint",
-        "docker-isolation.package-api"
+        "domain-model.attempt.repair-validation"
       ]
     },
     {

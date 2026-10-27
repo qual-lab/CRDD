@@ -8,7 +8,7 @@
  * @boundary ERB-IT-004=Related 2 Blocks: DI完了事実→Coordinator私有最終評価。
  */
 import assert from "node:assert/strict";
-import { sourceDeclaration } from "../support/source-declaration.ts";
+import { sourceDeclaration } from "../../../domain-model/tests/support/source-declaration.ts";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
